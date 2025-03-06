@@ -163,13 +163,13 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- TODO: speed up by using tindex0R and dDeltaIndex0 if the codomain has rank 0
   -- and dD (u `tindex1R` ix) (dDeltaIndex1 u' ix (tlengthR u)) if only outermost
   -- dimension affected.
-  rindex (D u u') i =
+  trindex (D u u') i =
     let ix = tprimalPart <$> i
     in dD (rindex u ix) (DeltaIndexR SNat u' ix)
-  rscatter sh (D u u') f =
+  trscatter sh (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (rscatter sh u g) (DeltaScatterR SNat SNat SNat sh u' g)
-  rgather sh (D u u') f =
+  trgather sh (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (rgather sh u g) (DeltaGatherR SNat SNat SNat sh u' g)
       -- note how f is not interpreted as a function on dual numbers
@@ -221,16 +221,16 @@ instance ( ADReadyNoLet target, ShareTensor target
   tsmatmul2 m1 m2 =
     ssum (stranspose @_ @'[2, 1, 0] (sreplicate m1)
           * stranspose @_ @'[1, 0] (sreplicate m2))
-  sindex (D u u') i =
+  tsindex (D u u') i =
     let ix = tprimalPart <$> i
     in dD (sindex u ix) (DeltaIndexS knownShS u' ix)
-  sscatter @r @shm @shn @shp (D u u') f =
+  tsscatter @shm @shn @shp (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
-    in dD (sscatter @_ @r @shm @shn @shp u g)
+    in dD (tsscatter @_ @shm @shn @shp u g)
           (DeltaScatterS @shm @shn @shp knownShS knownShS knownShS u' g)
-  sgather @r @shm @shn @shp (D u u') f =
+  tsgather @shm @shn @shp (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
-    in dD (sgather @_ @r @shm @shn @shp u g)
+    in dD (tsgather @_ @shm @shn @shp u g)
           (DeltaGatherS @shm @shn @shp knownShS knownShS knownShS u' g)
   tsconcrete a =
     let v = tsconcrete a
@@ -287,16 +287,16 @@ instance ( ADReadyNoLet target, ShareTensor target
     xsum (xtranspose @_ @'[2, 1, 0] (xreplicate m1)
           * xtranspose @_ @'[1, 0] (xreplicate m2))
   txreplicate (D u u') = dD (xreplicate u) (DeltaReplicate SNat knownSTK u')
-  xindex (D u u') i =
+  txindex (D u u') i =
     let ix = tprimalPart <$> i
     in dD (xindex u ix) (DeltaIndexX knownShX u' ix)
-  xscatter @r @shm @shn @shp sh (D u u') f =
+  txscatter @shm @shn @shp sh (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
-    in dD (xscatter @_ @r @shm @shn @shp sh u g)
+    in dD (txscatter @_ @shm @shn @shp sh u g)
           (DeltaScatterX @shm @shn @shp knownShX knownShX knownShX sh u' g)
-  xgather @r @shm @shn @shp sh (D u u') f =
+  txgather @shm @shn @shp sh (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
-    in dD (xgather @_ @r @shm @shn @shp sh u g)
+    in dD (txgather @_ @shm @shn @shp sh u g)
           (DeltaGatherX @shm @shn @shp knownShX knownShX knownShX sh u' g)
   txconcrete a =
     let v = txconcrete a

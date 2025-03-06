@@ -9,7 +9,7 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.Ops
-  ( -- * The tensor classes
+  ( -- * The tensor classes and derived operations
     LetTensor(..), ShareTensor(..), BaseTensor(..), ConvertTensor(..)
   , HFun(..)
   , tunit, tlet
@@ -23,6 +23,9 @@ module HordeAd.Core.Ops
   , rsum, rsum0, rdot0, rdot1In, rmatvecmul, rmatmul2, rreplicate, rreplicate0N
   , ssum, ssum0, sdot0, sdot1In, smatvecmul, smatmul2, sreplicate, sreplicate0N
   , xsum, xsum0, xdot0, xdot1In, xmatvecmul, xmatmul2, xreplicate, xreplicate0N
+  , rindex, (!), rindex0, roneHot, rscatter, rscatter1, rgather, rgather1
+  , sindex, (!$), sindex0, soneHot, sscatter, sscatter1, sgather, sgather1
+  , xindex, xindex0, xoneHot, xscatter, xscatter1, xgather, xgather1
   , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
     -- * The giga-constraint
   , ADReady, ADReadyNoLet, AllTargetShow, CommonTargetEqOrd
@@ -294,6 +297,15 @@ class ( Num (IntOf target)
   xwidth a = case xshape a of
     mn :$% _ -> fromSMayNat' mn
 
+  trconcrete :: GoodScalar r
+             => Nested.Ranked n r -> target (TKR n r)
+  tsconcrete :: GoodScalar r
+             => Nested.Shaped sh r -> target (TKS sh r)
+  txconcrete :: GoodScalar r
+             => Nested.Mixed sh r -> target (TKX sh r)
+  tkconcrete :: GoodScalar r => r -> target (TKScalar r)
+  tconcrete :: FullTensorKind y -> RepN y -> target y
+
   -- These nine methods can't be replaced by tfromVector, because the concrete
   -- instance has much faster implementations.
   --
@@ -479,55 +491,169 @@ class ( Num (IntOf target)
   -- First index is for outermost dimension; empty index means identity,
   -- if index is out of bounds, the result is defined and is 0,
   -- but vectorization is permitted to change the value.
-  rindex, (!) :: (KnownSTK r, KnownNat m, KnownNat n)
-              => target (TKR2 (m + n) r) -> IxROf target m -> target (TKR2 n r)
-  infixl 9 !
-  (!) = rindex  -- prefix form better when type applications are necessary
-  rindex0 :: (KnownSTK r, KnownNat m)
-          => target (TKR2 m r) -> IxROf target m -> target (TKR2 0 r)
-  rindex0 = rindex
-  roneHot :: forall r m n.
-             ( KnownSTK r, KnownNat m, KnownNat n
-             , BoolOf (PrimalOf target) ~ BoolOf target
-             , EqF (PrimalOf target) (TKScalar Int64))
-          => IShR m -> target (TKR2 n r) -> IxROf target m
-          -> target (TKR2 (m + n) r)
-  roneHot sh v ix = case knownSTK @r of
+  trindex :: (KnownNat m, KnownNat n, KnownSTK x)
+          => target (TKR2 (m + n) x) -> IxROf target m -> target (TKR2 n x)
+  trindex0 :: (KnownNat m, KnownSTK x)
+           => target (TKR2 m x) -> IxROf target m -> target (TKR2 0 x)
+  trindex0 = trindex
+  troneHot :: forall m n x.
+              ( KnownSTK x, KnownNat m, KnownNat n
+              , BoolOf (PrimalOf target) ~ BoolOf target
+              , EqF (PrimalOf target) (TKScalar Int64))
+           => IShR m -> target (TKR2 n x) -> IxROf target m
+           -> target (TKR2 (m + n) x)
+  troneHot sh v ix = case knownSTK @x of
     STKScalar ->
-      rscatter @_ @_ @0
-               (shrAppend sh (rshape v)) v (const ix)
+      trscatter @_ @0 (shrAppend sh (rshape v)) v (const ix)
     _ -> case tftk knownSTK v of
       FTKR _ ftk2 ->
         -- TODO: def at out of bounds
         let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                          $ zip (toList ix) (toList ix2))
-                        (rindex0 v (dropIndex ix2))
+                        (trindex0 v (dropIndex ix2))
                         (tconstantTarget 0 (FTKR ZSR ftk2))
         in rbuild (shrAppend sh (rshape v)) f
            -- TODO: if this is used often, maybe express this as the gather that
            -- would come out of vectorization, making sure it simplifies well
-  rscatter :: (KnownSTK r, KnownNat m, KnownNat n, KnownNat p)
-           => IShR (p + n) -> target (TKR2 (m + n) r)
+  trscatter :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
+            => IShR (p + n) -> target (TKR2 (m + n) x)
+            -> (IxROf target m -> IxROf target p)
+            -> target (TKR2 (p + n) x)
+  trscatter1 :: forall n p x. (KnownSTK x, KnownNat n, KnownNat p)
+             => IShR (p + n) -> target (TKR2 (1 + n) x)
+             -> (IntOf target -> IxROf target p)
+             -> target (TKR2 (p + n) x)
+  trscatter1 sh v f = trscatter @target @1 sh v (\(i :.: ZIR) -> f i)
+  trgather :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
+           => IShR (m + n) -> target (TKR2 (p + n) x)
            -> (IxROf target m -> IxROf target p)
-           -> target (TKR2 (p + n) r)
-  rscatter1 :: forall r n p. (KnownSTK r, KnownNat n, KnownNat p)
-            => IShR (p + n) -> target (TKR2 (1 + n) r)
+           -> target (TKR2 (m + n) x)
+  trgather1 :: forall n p x. (KnownSTK x, KnownNat n, KnownNat p)
+            => Int -> target (TKR2 (p + n) x)
             -> (IntOf target -> IxROf target p)
-            -> target (TKR2 (p + n) r)
-  rscatter1 sh v f = rscatter @target @r @1 sh v (\(i :.: ZIR) -> f i)
-  rgather :: (KnownSTK r, KnownNat m, KnownNat n, KnownNat p)
-          => IShR (m + n) -> target (TKR2 (p + n) r)
-          -> (IxROf target m -> IxROf target p)
-          -> target (TKR2 (m + n) r)
-  rgather1 :: forall r n p. (KnownSTK r, KnownNat n, KnownNat p)
-           => Int -> target (TKR2 (p + n) r)
-           -> (IntOf target -> IxROf target p)
-           -> target (TKR2 (1 + n) r)
-  rgather1 k v f = rgather @target @r @1
-                           (k :$: dropShape (rshape v)) v
-                           (\(i :.: ZIR) -> f i)
-  trconcrete :: GoodScalar r
-             => Nested.Ranked n r -> target (TKR n r)
+            -> target (TKR2 (1 + n) x)
+  trgather1 k v f = trgather @target @1
+                             (k :$: dropShape (rshape v)) v
+                             (\(i :.: ZIR) -> f i)
+
+  tsindex :: (KnownShS shm, KnownShS shn, KnownSTK x)
+          => target (TKS2 (shm ++ shn) x) -> IxSOf target shm
+          -> target (TKS2 shn x)
+  tsindex0 :: forall sh1 x. (KnownShS sh1, KnownSTK x)
+           => target (TKS2 sh1 x) -> IxSOf target sh1
+           -> target (TKS2 '[] x)
+  tsindex0 | Refl <- lemAppNil @sh1 = sindex
+  tsoneHot :: forall sh1 sh2 x.
+              ( KnownShS sh1, KnownShS sh2, KnownSTK x
+              , BoolOf (PrimalOf target) ~ BoolOf target
+              , EqF (PrimalOf target) (TKScalar Int64) )
+           => target (TKS2 sh2 x) -> IxSOf target sh1
+           -> target (TKS2 (sh1 ++ sh2) x)
+  tsoneHot v ix | SNat <- shsRank (knownShS @sh1) = case knownSTK @x of
+    STKScalar ->
+      gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
+      gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
+      tsscatter @_ @'[] @_ @sh1 v (const ix)
+    _ -> case tftk knownSTK v of
+      FTKS _ ftk2 ->
+        -- TODO: def at out of bounds
+        gcastWith (unsafeCoerceRefl
+                   :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
+        gcastWith (unsafeCoerceRefl
+                   :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
+        withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+        let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                         $ zip (Foldable.toList ix) (Foldable.toList ix2))
+                        (sindex0 v (dropIxS @(Rank sh1) ix2))
+                        (tconstantTarget 0 (FTKS ZSS ftk2))
+        in sbuild @_ @_ @(Rank (sh1 ++ sh2)) f
+  tsscatter
+     :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x)
+     => target (TKS2 (shm ++ shn) x)
+     -> (IxSOf target shm -> IxSOf target shp)
+     -> target (TKS2 (shp ++ shn) x)
+  tsscatter1
+     :: forall n2 shn shp x.
+        (KnownNat n2, KnownShS shn, KnownShS shp, KnownSTK x)
+     => target (TKS2 (n2 ': shn) x)
+     -> (IntOf target -> IxSOf target shp)
+     -> target (TKS2 (shp ++ shn) x)
+  tsscatter1 v f = tsscatter @_ @'[n2] v (\(i :.$ _) -> f i)
+  tsgather
+     :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x)
+     => target (TKS2 (shp ++ shn) x)
+     -> (IxSOf target shm -> IxSOf target shp)
+     -> target (TKS2 (shm ++ shn) x)
+  tsgather1
+     :: forall n2 shn shp x.
+        (KnownNat n2, KnownShS shn, KnownShS shp, KnownSTK x)
+     => target (TKS2 (shp ++ shn) x)
+     -> (IntOf target -> IxSOf target shp)
+     -> target (TKS2 (n2 ': shn) x)
+  tsgather1 v f = tsgather @target @'[n2] v (\(i :.$ _) -> f i)
+
+  txindex :: (KnownShX sh1, KnownShX sh2, KnownSTK x)
+          => target (TKX2 (sh1 ++ sh2) x) -> IxXOf target sh1
+          -> target (TKX2 sh2 x)
+  txindex0 :: forall sh1 x. (KnownShX sh1, KnownSTK x)
+           => target (TKX2 sh1 x) -> IxXOf target sh1
+           -> target (TKX2 '[] x)
+  txindex0 | Refl <- lemAppNil @sh1 = xindex
+  txoneHot :: forall sh1 sh2 x.
+              ( KnownShX sh1, KnownShX sh2, KnownSTK x
+              , BoolOf (PrimalOf target) ~ BoolOf target
+              , EqF (PrimalOf target) (TKScalar Int64), ConvertTensor target )
+           => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
+           -> target (TKX2 (sh1 ++ sh2) x)
+  txoneHot sh1 v ix | SNat <- ssxRank (knownShX @sh1) = case knownSTK @x of
+    STKScalar ->
+      gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
+      gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
+      txscatter @_ @'[] @_ @sh1 (shxAppend sh1 (xshape v)) v (const ix)
+    _ -> case tftk knownSTK v of
+      FTKX _ ftk2 ->
+        -- TODO: def at out of bounds
+        gcastWith (unsafeCoerceRefl
+                   :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
+        gcastWith (unsafeCoerceRefl
+                   :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
+        withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+        let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                         $ zip (Foldable.toList ix) (Foldable.toList ix2))
+                        (xindex0 v (dropIxX @(Rank sh1) ix2))
+                        (tconstantTarget 0 (FTKX ZSX ftk2))
+        in xbuild @_ @_ @(Rank (sh1 ++ sh2)) (shxAppend sh1 (xshape v)) f
+  txscatter :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
+            => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) x)
+            -> (IxXOf target shm -> IxXOf target shp)
+            -> target (TKX2 (shp ++ shn) x)
+  -- TODO: when we switch to singletons, generalize this to non-Just types.
+  txscatter1 :: forall n2 shn shp x.
+                (KnownNat n2, KnownShX shn, KnownShX shp, KnownSTK x)
+             => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) x)
+             -> (IntOf target -> IxXOf target shp)
+             -> target (TKX2 (shp ++ shn) x)
+  txscatter1 sh v f = txscatter @_ @'[Just n2] @_ @shp @x sh v
+                                (\(i :.% _) -> f i)
+  txgather :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
+           => IShX (shm ++ shn)
+           -> target (TKX2 (shp ++ shn) x)
+           -> (IxXOf target shm -> IxXOf target shp)
+           -> target (TKX2 (shm ++ shn) x)
+  txgather1 :: forall n2 shn shp x.
+               (KnownNat n2, KnownShX shn, KnownShX shp, KnownSTK x)
+            => SNat n2 -> target (TKX2 (shp ++ shn) x)
+            -> (IntOf target -> IxXOf target shp)
+            -> target (TKX2 (Just n2 ': shn) x)
+  txgather1 k v f =
+    txgather @target @'[Just n2]
+             (Nested.SKnown k :$% shxDropSSX (xshape v) (knownShX @shp)) v
+             (\(i :.% ZIX) -> f i)
+
   rfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKR n r) -> target (TKR n r2)
   rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
@@ -676,67 +802,6 @@ class ( Num (IntOf target)
          -> DualOf target (TKR n r)
   rScale = tScale @target knownSTK
 
-  sindex, (!$) :: (KnownSTK r, KnownShS shm, KnownShS shn)
-               => target (TKS2 (shm ++ shn) r) -> IxSOf target shm
-               -> target (TKS2 shn r)
-  infixl 9 !$
-  (!$) = sindex  -- prefix form better when type applications are necessary
-  sindex0 :: forall sh1 r. (KnownShS sh1, KnownSTK r)
-          => target (TKS2 sh1 r) -> IxSOf target sh1
-          -> target (TKS2 '[] r)
-  sindex0 | Refl <- lemAppNil @sh1 = sindex
-  soneHot :: forall r sh1 sh2.
-             ( KnownSTK r, KnownShS sh1, KnownShS sh2
-             , BoolOf (PrimalOf target) ~ BoolOf target
-             , EqF (PrimalOf target) (TKScalar Int64) )
-          => target (TKS2 sh2 r) -> IxSOf target sh1
-          -> target (TKS2 (sh1 ++ sh2) r)
-  soneHot v ix | SNat <- shsRank (knownShS @sh1) = case knownSTK @r of
-    STKScalar ->
-      gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
-      gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-      sscatter @_ @_ @'[] @_ @sh1 v (const ix)
-    _ -> case tftk knownSTK v of
-      FTKS _ ftk2 ->
-        -- TODO: def at out of bounds
-        gcastWith (unsafeCoerceRefl
-                   :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
-        gcastWith (unsafeCoerceRefl
-                   :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-        withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-        let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                         $ zip (Foldable.toList ix) (Foldable.toList ix2))
-                        (sindex0 v (dropIxS @(Rank sh1) ix2))
-                        (tconstantTarget 0 (FTKS ZSS ftk2))
-        in sbuild @_ @_ @(Rank (sh1 ++ sh2)) f
-  sscatter
-    :: (KnownSTK r, KnownShS shm, KnownShS shn, KnownShS shp)
-    => target (TKS2 (shm ++ shn) r)
-    -> (IxSOf target shm -> IxSOf target shp)
-    -> target (TKS2 (shp ++ shn) r)
-  sscatter1
-    :: forall r n2 shn shp.
-       (KnownSTK r, KnownNat n2, KnownShS shn, KnownShS shp)
-    => target (TKS2 (n2 ': shn) r)
-    -> (IntOf target -> IxSOf target shp)
-    -> target (TKS2 (shp ++ shn) r)
-  sscatter1 v f = sscatter @_ @r @'[n2] v (\(i :.$ _) -> f i)
-  sgather
-    :: (KnownSTK r, KnownShS shm, KnownShS shn, KnownShS shp)
-    => target (TKS2 (shp ++ shn) r)
-    -> (IxSOf target shm -> IxSOf target shp)
-    -> target (TKS2 (shm ++ shn) r)
-  sgather1
-    :: forall r n2 shn shp.
-       (KnownSTK r, KnownNat n2, KnownShS shn, KnownShS shp)
-    => target (TKS2 (shp ++ shn) r)
-    -> (IntOf target -> IxSOf target shp)
-    -> target (TKS2 (n2 ': shn) r)
-  sgather1 v f = sgather @target @r @'[n2] v (\(i :.$ _) -> f i)
-  tsconcrete :: GoodScalar r
-             => Nested.Shaped sh r -> target (TKS sh r)
   sfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKS sh r) -> target (TKS sh r2)
     -- the integer can be negative
@@ -961,7 +1026,6 @@ class ( Num (IntOf target)
          -> DualOf target (TKS sh r)
   sScale = tScale @target knownSTK
 
-  -- Mixed ops
   xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)
          => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
   xmcast sh2 a = case tftk knownSTK a of
@@ -971,67 +1035,6 @@ class ( Num (IntOf target)
         withKnownShS sh $
         xfromS $ sfromX @_ @sh a
 
-  xindex :: (KnownSTK r, KnownShX sh1, KnownShX sh2)
-         => target (TKX2 (sh1 ++ sh2) r) -> IxXOf target sh1
-         -> target (TKX2 sh2 r)
-  xindex0 :: forall r sh1. (KnownSTK r, KnownShX sh1)
-          => target (TKX2 sh1 r) -> IxXOf target sh1
-          -> target (TKX2 '[] r)
-  xindex0 | Refl <- lemAppNil @sh1 = xindex
-  xoneHot :: forall r sh1 sh2.
-             ( KnownSTK r, KnownShX sh1, KnownShX sh2
-             , BoolOf (PrimalOf target) ~ BoolOf target
-             , EqF (PrimalOf target) (TKScalar Int64), ConvertTensor target )
-          => IShX sh1 -> target (TKX2 sh2 r) -> IxXOf target sh1
-          -> target (TKX2 (sh1 ++ sh2) r)
-  xoneHot sh1 v ix | SNat <- ssxRank (knownShX @sh1) = case knownSTK @r of
-    STKScalar ->
-      gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
-      gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-      xscatter @_ @_ @'[] @_ @sh1 (shxAppend sh1 (xshape v)) v (const ix)
-    _ -> case tftk knownSTK v of
-      FTKX _ ftk2 ->
-        -- TODO: def at out of bounds
-        gcastWith (unsafeCoerceRefl
-                   :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
-        gcastWith (unsafeCoerceRefl
-                   :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-        withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-        let f ix2 = ifF (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                         $ zip (Foldable.toList ix) (Foldable.toList ix2))
-                        (xindex0 v (dropIxX @(Rank sh1) ix2))
-                        (tconstantTarget 0 (FTKX ZSX ftk2))
-        in xbuild @_ @_ @(Rank (sh1 ++ sh2)) (shxAppend sh1 (xshape v)) f
-  xscatter :: (KnownSTK r, KnownShX shm, KnownShX shn, KnownShX shp)
-           => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) r)
-           -> (IxXOf target shm -> IxXOf target shp)
-           -> target (TKX2 (shp ++ shn) r)
-  -- TODO: when we switch to singletons, generalize this to non-Just types.
-  xscatter1 :: forall r n2 shn shp.
-               (KnownSTK r, KnownNat n2, KnownShX shn, KnownShX shp)
-            => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) r)
-            -> (IntOf target -> IxXOf target shp)
-            -> target (TKX2 (shp ++ shn) r)
-  xscatter1 sh v f = xscatter @_ @r @'[Just n2] @_ @shp sh v
-                              (\(i :.% _) -> f i)
-  xgather :: (KnownSTK r, KnownShX shm, KnownShX shn, KnownShX shp)
-          => IShX (shm ++ shn)
-          -> target (TKX2 (shp ++ shn) r)
-          -> (IxXOf target shm -> IxXOf target shp)
-          -> target (TKX2 (shm ++ shn) r)
-  xgather1 :: forall r n2 shn shp.
-              (KnownSTK r, KnownNat n2, KnownShX shn, KnownShX shp)
-           => SNat n2 -> target (TKX2 (shp ++ shn) r)
-           -> (IntOf target -> IxXOf target shp)
-           -> target (TKX2 (Just n2 ': shn) r)
-  xgather1 k v f =
-    xgather @target @r @'[Just n2]
-            (Nested.SKnown k :$% shxDropSSX (xshape v) (knownShX @shp)) v
-            (\(i :.% ZIX) -> f i)
-  txconcrete :: GoodScalar r
-             => Nested.Mixed sh r -> target (TKX sh r)
   xfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKX sh r) -> target (TKX sh r2)
   xfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
@@ -1136,7 +1139,6 @@ class ( Num (IntOf target)
   xScale = tScale @target knownSTK
 
   -- Scalar ops
-  tkconcrete :: GoodScalar r => r -> target (TKScalar r)
   kfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
          => target (TKScalar r) -> target (TKScalar r2)
   kfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
@@ -1156,7 +1158,6 @@ class ( Num (IntOf target)
     STKProduct stk1 stk2 ->
       tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
   tftk :: STensorKind y -> target y -> FullTensorKind y
-  tconcrete :: FullTensorKind y -> RepN y -> target y
   tpair :: target x -> target z -> target (TKProduct x z)
   tproject1 :: target (TKProduct x z) -> target x
   tproject2 :: target (TKProduct x z) -> target z
@@ -1858,6 +1859,132 @@ xreplicate = txreplicate
 xreplicate0N :: (KnownShX sh, KnownSTK x, BaseTensor target)
              => IShX sh -> target (TKX2 '[] x) -> target (TKX2 sh x)
 xreplicate0N = txreplicate0N
+
+rindex, (!) :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
+            => target (TKR2 (m + n) x) -> IxROf target m -> target (TKR2 n x)
+rindex = trindex
+infixl 9 !
+(!) = rindex  -- prefix form better when type applications are necessary
+rindex0 :: (KnownNat m, KnownSTK x, BaseTensor target)
+        => target (TKR2 m x) -> IxROf target m -> target (TKR2 0 x)
+rindex0 = trindex0
+roneHot :: forall m n x target.
+           ( KnownSTK x, KnownNat m, KnownNat n
+           , BoolOf (PrimalOf target) ~ BoolOf target
+           , EqF (PrimalOf target) (TKScalar Int64), BaseTensor target)
+        => IShR m -> target (TKR2 n x) -> IxROf target m
+        -> target (TKR2 (m + n) x)
+roneHot = troneHot
+rscatter :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
+         => IShR (p + n) -> target (TKR2 (m + n) x)
+         -> (IxROf target m -> IxROf target p)
+         -> target (TKR2 (p + n) x)
+rscatter = trscatter
+rscatter1 :: forall n p x target.
+             (KnownSTK x, KnownNat n, KnownNat p, BaseTensor target)
+          => IShR (p + n) -> target (TKR2 (1 + n) x)
+          -> (IntOf target -> IxROf target p)
+          -> target (TKR2 (p + n) x)
+rscatter1 = trscatter1
+rgather :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
+        => IShR (m + n) -> target (TKR2 (p + n) x)
+        -> (IxROf target m -> IxROf target p)
+        -> target (TKR2 (m + n) x)
+rgather = trgather
+rgather1 :: forall n p x target.
+            (KnownSTK x, KnownNat n, KnownNat p, BaseTensor target)
+         => Int -> target (TKR2 (p + n) x)
+         -> (IntOf target -> IxROf target p)
+         -> target (TKR2 (1 + n) x)
+rgather1 = trgather1
+
+sindex, (!$) :: (KnownShS shm, KnownShS shn, KnownSTK x, BaseTensor target)
+             => target (TKS2 (shm ++ shn) x) -> IxSOf target shm
+             -> target (TKS2 shn x)
+sindex = tsindex
+infixl 9 !$
+(!$) = sindex  -- prefix form better when type applications are necessary
+sindex0 :: forall sh1 x target. (KnownShS sh1, KnownSTK x, BaseTensor target)
+        => target (TKS2 sh1 x) -> IxSOf target sh1
+        -> target (TKS2 '[] x)
+sindex0 = tsindex0
+soneHot :: forall sh1 sh2 x target.
+           ( KnownShS sh1, KnownShS sh2, KnownSTK x
+           , BoolOf (PrimalOf target) ~ BoolOf target
+           , EqF (PrimalOf target) (TKScalar Int64), BaseTensor target )
+        => target (TKS2 sh2 x) -> IxSOf target sh1
+        -> target (TKS2 (sh1 ++ sh2) x)
+soneHot = tsoneHot
+sscatter
+  :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x, BaseTensor target)
+  => target (TKS2 (shm ++ shn) x)
+  -> (IxSOf target shm -> IxSOf target shp)
+  -> target (TKS2 (shp ++ shn) x)
+sscatter @shm @shn @shp = tsscatter @_ @shm @shn @shp
+sscatter1
+  :: forall n2 shn shp x target.
+     (KnownNat n2, KnownShS shn, KnownShS shp, KnownSTK x, BaseTensor target)
+  => target (TKS2 (n2 ': shn) x)
+  -> (IntOf target -> IxSOf target shp)
+  -> target (TKS2 (shp ++ shn) x)
+sscatter1 = tsscatter1
+sgather
+  :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x, BaseTensor target)
+  => target (TKS2 (shp ++ shn) x)
+  -> (IxSOf target shm -> IxSOf target shp)
+  -> target (TKS2 (shm ++ shn) x)
+sgather @shm @shn @shp = tsgather @_ @shm @shn @shp
+sgather1
+  :: forall n2 shn shp x target.
+     (KnownNat n2, KnownShS shn, KnownShS shp, KnownSTK x, BaseTensor target)
+  => target (TKS2 (shp ++ shn) x)
+  -> (IntOf target -> IxSOf target shp)
+  -> target (TKS2 (n2 ': shn) x)
+sgather1 = tsgather1
+
+xindex :: (KnownShX sh1, KnownShX sh2, KnownSTK x, BaseTensor target)
+       => target (TKX2 (sh1 ++ sh2) x) -> IxXOf target sh1
+       -> target (TKX2 sh2 x)
+xindex = txindex
+xindex0 :: forall sh1 x target. (KnownShX sh1, KnownSTK x, BaseTensor target)
+        => target (TKX2 sh1 x) -> IxXOf target sh1
+        -> target (TKX2 '[] x)
+xindex0 = txindex0
+xoneHot :: forall sh1 sh2 x target.
+           ( KnownShX sh1, KnownShX sh2, KnownSTK x
+           , BoolOf (PrimalOf target) ~ BoolOf target
+           , EqF (PrimalOf target) (TKScalar Int64)
+           , BaseTensor target, ConvertTensor target )
+        => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
+        -> target (TKX2 (sh1 ++ sh2) x)
+xoneHot = txoneHot
+xscatter :: ( KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x
+            , BaseTensor target )
+         => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) x)
+         -> (IxXOf target shm -> IxXOf target shp)
+         -> target (TKX2 (shp ++ shn) x)
+xscatter @shm @shn @shp = txscatter @_ @shm @shn @shp
+xscatter1 :: forall n2 shn shp x target.
+             ( KnownNat n2, KnownShX shn, KnownShX shp, KnownSTK x
+             , BaseTensor target )
+          => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) x)
+          -> (IntOf target -> IxXOf target shp)
+          -> target (TKX2 (shp ++ shn) x)
+xscatter1 = txscatter1
+xgather :: ( KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x
+           , BaseTensor target )
+        => IShX (shm ++ shn)
+        -> target (TKX2 (shp ++ shn) x)
+        -> (IxXOf target shm -> IxXOf target shp)
+        -> target (TKX2 (shm ++ shn) x)
+xgather @shm @shn @shp = txgather @_ @shm @shn @shp
+xgather1 :: forall n2 shn shp x target.
+            ( KnownNat n2, KnownShX shn, KnownShX shp, KnownSTK x
+            , BaseTensor target )
+         => SNat n2 -> target (TKX2 (shp ++ shn) x)
+         -> (IntOf target -> IxXOf target shp)
+         -> target (TKX2 (Just n2 ': shn) x)
+xgather1 = txgather1
 
 rfold
   :: forall n m rn rm target.

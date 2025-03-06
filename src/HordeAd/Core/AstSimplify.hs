@@ -1333,7 +1333,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
       Just ixInt -> withKnownSTK (ftkToSTK x) $
                     withKnownShS shn $
                     withKnownShS (ixsToShS ix) $
-                    astConcreteS (sindex @_ @_ @shm (RepN a) (fromList ixInt))
+                    astConcreteS (tsindex @_ @shm (RepN a) (fromList ixInt))
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS shn v0 ix
   Ast.AstFloorS v -> Ast.AstFloorS $ astIndexKnobsS knobs shn v ix

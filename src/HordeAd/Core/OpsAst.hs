@@ -180,7 +180,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKR sh _ -> sNatValue $ shrRank sh
   trsum v = withSNat (rwidth v) $ \snat -> astSum snat knownSTK v
   trreplicate k = withSNat k $ \snat -> astReplicate snat knownSTK
-  rindex @_ @m @n a ix = case ftkAst a of
+  trindex @m @n a ix = case ftkAst a of
     FTKR @_ @x shmshn _ ->
       withCastRS shmshn $ \(sh :: ShS sh) ->
         withKnownShS sh $
@@ -191,7 +191,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         astFromS @(TKS2 (Drop m sh) x) (knownSTK @(TKR2 n x))
         $ astIndexStepS @(Take m sh) @(Drop m sh)
                         (dropShS @m sh) (astSFromR @sh sh a) (ixrToIxs ix)
-  rscatter @_ @m @_ @p shpshn0 t f = case ftkAst t of
+  trscatter @m @_ @p shpshn0 t f = case ftkAst t of
     FTKR @_ @x shmshn0 x ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
@@ -215,7 +215,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 -- this introduces new variable names
           _ -> error $ "rscatter: shapes don't match: "
                        ++ show (dropShS @p shpshn, dropShS @m shmshn)
-  rgather @_ @m @_ @p shmshn0 t f = case ftkAst t of
+  trgather @m @_ @p shmshn0 t f = case ftkAst t of
     FTKR shpshn0 x ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
@@ -355,11 +355,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   slength t = case ftkAst t of
     FTKS sh _ -> sNatValue $ shsRank sh
   tssum = astSum SNat knownSTK
-  sindex v ix = astIndexStepS knownShS v ix
-  sscatter @_ @shm @shn @shp t f =
+  tsindex v ix = astIndexStepS knownShS v ix
+  tsscatter @shm @shn @shp t f =
     astScatterS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
-  sgather @_ @shm @shn @shp t f =
+  tsgather @shm @shn @shp t f =
     astGatherStepS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
   tsconcrete = fromPrimal . AstConcreteS
@@ -382,7 +382,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKX sh _ -> sNatValue $ shxRank sh
   txsum = astSum SNat knownSTK
   txreplicate = astReplicate SNat knownSTK
-  xindex @_ @sh1 @sh2 a ix = case ftkAst a of
+  txindex @sh1 @sh2 a ix = case ftkAst a of
     FTKX @sh1sh2 @x sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
       withCastXS sh1sh2 $ \(sh :: ShS sh) ->
         withKnownShS sh $
@@ -393,7 +393,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         astFromS @(TKS2 (Drop (Rank sh1) sh) x) (knownSTK @(TKX2 sh2 x))
         $ astIndexStepS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                         (dropShS @(Rank sh1) sh) (astSFromX @sh @sh1sh2 sh a) (ixxToIxs ix)
-  xscatter @_ @shm @_ @shp shpshn0 t f = case ftkAst t of
+  txscatter @shm @_ @shp shpshn0 t f = case ftkAst t of
     FTKX shmshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
       withCastXS shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -421,7 +421,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           _ -> error $ "xscatter: shapes don't match: "
                        ++ show ( dropShS @(Rank shp) shpshn
                                , dropShS @(Rank shm) shmshn )
-  xgather @_ @shm @_ @shp shmshn0 t f = case ftkAst t of
+  txgather @shm @_ @shp shmshn0 t f = case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
       withCastXS shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -669,7 +669,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
              AstRaw . AstSum snat knownSTK . unAstRaw $ v
   trreplicate k = withSNat k $ \snat ->
     AstRaw . AstReplicate snat knownSTK . unAstRaw
-  rindex @_ @m @n (AstRaw a) ix = AstRaw $ case ftkAst a of
+  trindex @m @n (AstRaw a) ix = AstRaw $ case ftkAst a of
     FTKR @_ @x shmshn _ ->
       withCastRS shmshn $ \(sh :: ShS sh) ->
         withKnownShS sh $
@@ -680,7 +680,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         AstFromS @(TKS2 (Drop m sh) x) (knownSTK @(TKR2 n x))
         $ AstIndexS @(Take m sh) @(Drop m sh)
                     (dropShS @m sh) (AstSFromR @sh sh a) (ixrToIxs (unAstRaw <$> ix))
-  rscatter @_ @m @_ @p shpshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
+  trscatter @m @_ @p shpshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKR @_ @x shmshn0 x ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
@@ -705,7 +705,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                 -- this introduces new variable names
           _ -> error $ "rscatter: shapes don't match: "
                        ++ show (dropShS @p shpshn, dropShS @m shmshn)
-  rgather @_ @m @_ @p shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
+  trgather @m @_ @p shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKR shpshn0 x ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
@@ -849,12 +849,12 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   slength t = case ftkAst $ unAstRaw t of
     FTKS sh _ -> sNatValue $ shsRank sh
   tssum = AstRaw . AstSum SNat knownSTK . unAstRaw
-  sindex v ix = AstRaw $ AstIndexS knownShS (unAstRaw v) (unAstRaw <$> ix)
-  sscatter @_ @shm @shn @shp t f =
+  tsindex v ix = AstRaw $ AstIndexS knownShS (unAstRaw v) (unAstRaw <$> ix)
+  tsscatter @shm @shn @shp t f =
     AstRaw $ AstScatterS @shm @shn @shp knownShS (unAstRaw t)
            $ funToAstIxS knownShS (fmap unAstRaw . f . fmap AstRaw)
                -- this introduces new variable names
-  sgather @_ @shm @shn @shp t f =
+  tsgather @shm @shn @shp t f =
     AstRaw $ AstGatherS @shm @shn @shp knownShS (unAstRaw t)
            $ funToAstIxS knownShS (fmap unAstRaw . f . fmap AstRaw)
                -- this introduces new variable names
@@ -880,7 +880,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     FTKX sh _ -> sNatValue $ shxRank sh
   txsum = AstRaw . AstSum SNat knownSTK . unAstRaw
   txreplicate = AstRaw . AstReplicate SNat knownSTK . unAstRaw
-  xindex @_ @sh1 @sh2 (AstRaw a) ix = case ftkAst a of
+  txindex @sh1 @sh2 (AstRaw a) ix = case ftkAst a of
     FTKX @sh1sh2 @x sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
       withCastXS sh1sh2 $ \(sh :: ShS sh) ->
         withKnownShS sh $
@@ -893,7 +893,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (dropShS @(Rank sh1) sh) (AstSFromX @sh @sh1sh2 sh a)
                     (ixxToIxs (unAstRaw <$> ix))
-  xscatter @_ @shm @_ @shp shpshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
+  txscatter @shm @_ @shp shpshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKX shmshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
       withCastXS shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -922,7 +922,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           _ -> error $ "xscatter: shapes don't match: "
                        ++ show ( dropShS @(Rank shp) shpshn
                                , dropShS @(Rank shm) shmshn )
-  xgather @_ @shm @_ @shp shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
+  txgather @shm @_ @shp shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
       withCastXS shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -1272,13 +1272,13 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   rlength = rlength . unAstNoVectorize
   trsum = AstNoVectorize . rsum . unAstNoVectorize
   trreplicate k = AstNoVectorize . rreplicate k . unAstNoVectorize
-  rindex v ix =
-    AstNoVectorize $ rindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
-  rscatter sh t f =
-    AstNoVectorize $ rscatter sh (unAstNoVectorize t)
+  trindex v ix =
+    AstNoVectorize $ trindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
+  trscatter sh t f =
+    AstNoVectorize $ trscatter sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
-  rgather sh t f =
-    AstNoVectorize $ rgather sh (unAstNoVectorize t)
+  trgather sh t f =
+    AstNoVectorize $ trgather sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   trconcrete = AstNoVectorize . trconcrete
   rfloor = AstNoVectorize . rfloor . unAstNoVectorize
@@ -1302,13 +1302,13 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   sshape = sshape . unAstNoVectorize
   slength = slength . unAstNoVectorize
   tssum = AstNoVectorize . ssum . unAstNoVectorize
-  sindex v ix =
-    AstNoVectorize $ sindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
-  sscatter @_ @shm @shn @shp t f =
-    AstNoVectorize $ sscatter @_ @_ @shm @shn @shp (unAstNoVectorize t)
+  tsindex v ix =
+    AstNoVectorize $ tsindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
+  tsscatter @_ @shm @shn @shp t f =
+    AstNoVectorize $ tsscatter @_ @_ @shm @shn @shp (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
-  sgather @_ @shm @shn @shp t f =
-    AstNoVectorize $ sgather @_ @_ @shm @shn @shp (unAstNoVectorize t)
+  tsgather @_ @shm @shn @shp t f =
+    AstNoVectorize $ tsgather @_ @_ @shm @shn @shp (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   tsconcrete = AstNoVectorize . tsconcrete
   sfloor = AstNoVectorize . sfloor . unAstNoVectorize
@@ -1330,13 +1330,13 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xlength = xlength . unAstNoVectorize
   txsum = AstNoVectorize . xsum . unAstNoVectorize
   txreplicate = AstNoVectorize . xreplicate . unAstNoVectorize
-  xindex v ix =
-    AstNoVectorize $ xindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
-  xscatter @_ @shm @shn @shp sh t f =
-    AstNoVectorize $ xscatter @_ @_ @shm @shn @shp sh (unAstNoVectorize t)
+  txindex v ix =
+    AstNoVectorize $ txindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
+  txscatter @_ @shm @shn @shp sh t f =
+    AstNoVectorize $ txscatter @_ @_ @shm @shn @shp sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
-  xgather @_ @shm @shn @shp sh t f =
-    AstNoVectorize $ xgather @_ @_ @shm @shn @shp sh (unAstNoVectorize t)
+  txgather @_ @shm @shn @shp sh t f =
+    AstNoVectorize $ txgather @_ @_ @shm @shn @shp sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   txconcrete = AstNoVectorize . txconcrete
   xfloor = AstNoVectorize . xfloor . unAstNoVectorize
@@ -1512,13 +1512,13 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   rlength = rlength . wunAstNoSimplify
   trsum = wAstNoSimplify . rsum . wunAstNoSimplify
   trreplicate k = wAstNoSimplify . rreplicate k . wunAstNoSimplify
-  rindex v ix =
-    wAstNoSimplify $ rindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
-  rscatter sh t f =
-    wAstNoSimplify $ rscatter sh (wunAstNoSimplify t)
+  trindex v ix =
+    wAstNoSimplify $ trindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
+  trscatter sh t f =
+    wAstNoSimplify $ trscatter sh (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
-  rgather sh t f =
-    wAstNoSimplify $ rgather sh (wunAstNoSimplify t)
+  trgather sh t f =
+    wAstNoSimplify $ trgather sh (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
   trconcrete = wAstNoSimplify . trconcrete
   rfloor = wAstNoSimplify . rfloor . wunAstNoSimplify
@@ -1538,13 +1538,13 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   sshape = sshape . wunAstNoSimplify
   slength = slength . wunAstNoSimplify
   tssum = wAstNoSimplify . ssum . wunAstNoSimplify
-  sindex v ix =
-    wAstNoSimplify $ sindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
-  sscatter @_ @shm @shn @shp t f =
-    wAstNoSimplify $ sscatter @_ @_ @shm @shn @shp (wunAstNoSimplify t)
+  tsindex v ix =
+    wAstNoSimplify $ tsindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
+  tsscatter @_ @shm @shn @shp t f =
+    wAstNoSimplify $ tsscatter @_ @_ @shm @shn @shp (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
-  sgather @_ @shm @shn @shp t f =
-    wAstNoSimplify $ sgather @_ @_ @shm @shn @shp (wunAstNoSimplify t)
+  tsgather @_ @shm @shn @shp t f =
+    wAstNoSimplify $ tsgather @_ @_ @shm @shn @shp (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
   tsconcrete = wAstNoSimplify . tsconcrete
   sfloor = wAstNoSimplify . sfloor . wunAstNoSimplify
@@ -1563,13 +1563,13 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xlength = xlength . wunAstNoSimplify
   txsum = wAstNoSimplify . xsum . wunAstNoSimplify
   txreplicate = wAstNoSimplify . xreplicate . wunAstNoSimplify
-  xindex v ix =
-    wAstNoSimplify $ xindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
-  xscatter @_ @shm @shn @shp sh t f =
-    wAstNoSimplify $ xscatter @_ @_ @shm @shn @shp sh (wunAstNoSimplify t)
+  txindex v ix =
+    wAstNoSimplify $ txindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
+  txscatter @_ @shm @shn @shp sh t f =
+    wAstNoSimplify $ txscatter @_ @_ @shm @shn @shp sh (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
-  xgather @_ @shm @shn @shp sh t f =
-    wAstNoSimplify $ xgather @_ @_ @shm @shn @shp sh (wunAstNoSimplify t)
+  txgather @_ @shm @shn @shp sh t f =
+    wAstNoSimplify $ txgather @_ @_ @shm @shn @shp sh (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
   txconcrete = wAstNoSimplify . txconcrete
   xfloor = wAstNoSimplify . xfloor . wunAstNoSimplify

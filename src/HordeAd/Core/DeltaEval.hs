@@ -679,14 +679,14 @@ evalRevSame !s !c = \case
       withKnownShS shm $
       withKnownShS shn $
       withKnownShS shp $
-      evalRevSame s (sgather @_ @_ @shm @shn c f) d
+      evalRevSame s (tsgather @_ @shm @shn c f) d
   DeltaGatherS @shm @shn shm shn shp d f -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShS shm $
       withKnownShS shn $
       withKnownShS shp $
-      evalRevSame s (sscatter @_ @_ @shm @shn c f) d
+      evalRevSame s (tsscatter @_ @shm @shn c f) d
   DeltaAppendS d e -> case (ftkDelta d, ftkDelta e) of
     (FTKS (msnat :$$ _) x, FTKS (_ :$$ _) _) ->
       withKnownSTK (ftkToSTK x) $
@@ -752,14 +752,14 @@ evalRevSame !s !c = \case
       withKnownShX shm $
       withKnownShX shn $
       withKnownShX shp $
-      evalRevSame s (xgather @_ @_ @shm @shn sh c f) d
+      evalRevSame s (txgather @_ @shm @shn sh c f) d
   DeltaGatherX @shm @shn shm shn shp _sh d f -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShX shm $
       withKnownShX shn $
       withKnownShX shp $
-      evalRevSame s (xscatter @_ @_ @shm @shn sh c f) d
+      evalRevSame s (txscatter @_ @shm @shn sh c f) d
   DeltaAppendX d e -> case (ftkDelta d, ftkDelta e) of
     (FTKX (Nested.SKnown m@SNat :$% _) x, FTKX (Nested.SKnown SNat :$% _) _) ->
       withKnownSTK (ftkToSTK x) $
@@ -1112,7 +1112,7 @@ evalFwdSame params s = \case
       withKnownShS shn $
       withKnownShS shp $
       let (s2, t) = evalFwdSame params s d
-      in (s2, sscatter @_ @_ @shm @shn t f)
+      in (s2, tsscatter @_ @shm @shn t f)
   DeltaGatherS @shm @shn shm shn shp d f -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -1120,7 +1120,7 @@ evalFwdSame params s = \case
       withKnownShS shn $
       withKnownShS shp $
       let (s2, t) = evalFwdSame params s d
-      in (s2, sgather @_ @_ @shm @shn t f)
+      in (s2, tsgather @_ @shm @shn t f)
   DeltaAppendS d e -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -1176,7 +1176,7 @@ evalFwdSame params s = \case
       withKnownShX shn $
       withKnownShX shp $
       let (s2, t) = evalFwdSame params s d
-      in (s2, xscatter @_ @_ @shm @shn sh t f)
+      in (s2, txscatter @_ @shm @shn sh t f)
   DeltaGatherX @shm @shn shm shn shp sh d f -> case ftkDelta d of
     FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -1184,7 +1184,7 @@ evalFwdSame params s = \case
       withKnownShX shn $
       withKnownShX shp $
       let (s2, t) = evalFwdSame params s d
-      in (s2, xgather @_ @_ @shm @shn sh t f)
+      in (s2, txgather @_ @shm @shn sh t f)
   DeltaAppendX d e -> case ftkDelta d of
     FTKX _ x ->
       withKnownSTK (ftkToSTK x) $

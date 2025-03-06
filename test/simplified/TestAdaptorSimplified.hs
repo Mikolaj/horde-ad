@@ -1410,7 +1410,7 @@ fooNoGo v =
   in rbuild1 3 (\ix' -> let ix :: PrimalOf target (TKS '[] Int64)
                             ix = sfromR $ rfromK ix' in
        bar (rscalar 3.14, bar (rscalar 3.14, rindex v [kfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minF` sscalar 2 `maxF` sscalar 0]))
-       + ifF ((&&*) (rindex @target @(TKScalar r) @1 v [ix' * 2] <=. rscalar 0)
+       + ifF ((&&*) (rindex @1 v [ix' * 2] <=. rscalar 0)
                     (sscalar 6 >. abs ix))
                r (rscalar 5 * r))
      / rslice 1 3 (rmap0N (\x -> ifF (x >. r) r x) v)
@@ -1876,8 +1876,8 @@ emptyArgs t =
        * ssum @1 (sfromList [sconcrete $ Nested.semptyArray ZSS])
        * ssum @1 (sfromList [sfromR @_ @'[0] emptyTensor])
        * ssum @1 (sfromList [ssum @0 (sfromListLinear [])])
-       - sindex @_ @_ @'[0] (sfromListLinear []) (42 :.$ ZIS)
-       - sindex @_ @_ @'[0] (sfromListLinear []) (42 :.$ ZIS)
+       - sindex @'[0] (sfromListLinear []) (42 :.$ ZIS)
+       - sindex @'[0] (sfromListLinear []) (42 :.$ ZIS)
        - sreshape @target @_ @_ @'[0] (sfromR @_ @'[0] emptyTensor)
        - ssum (sreshape @target @_ @_ @'[0, 0] (sfromR @_ @'[0] emptyTensor))
        * sbuild1 @_ @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t) !$ (i :.$ ZIS))
@@ -1909,11 +1909,11 @@ emptyArgs t =
                                          :$% xshape @target @_ @(TKScalar r)
                                                (xfromR @_ @'[Just 0]
                                                   emptyTensor)) [])])
-       - xindex @_ @_ @'[Just 0] (xfromListLinear
+       - xindex @_ @'[Just 0] (xfromListLinear
                                     (SKnown (SNat @0)
                                      :$% SKnown (SNat @0)
                                      :$% ZSX) []) (42 :.% ZIX)
-       - xindex @_ @_ @'[Just 0] (xfromListLinear
+       - xindex @_ @'[Just 0] (xfromListLinear
                                     (SKnown (SNat @0)
                                      :$% xshape @target @_ @(TKScalar r)
                                              (xfromR @_ @'[Just 0]

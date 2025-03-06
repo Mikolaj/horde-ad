@@ -122,12 +122,12 @@ instance BaseTensor RepN where
     RepN . Nested.rreplicate (k :$: ZSR) . unRepN
   trreplicate0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreplicate sh . unRepN
-  rindex = tindexZR
-  rindex0 = tindex0R
-  rscatter = tscatterZR
-  rscatter1 = tscatterZ1R
-  rgather = tgatherZR
-  rgather1 = tgatherZ1R
+  trindex = tindexZR
+  trindex0 = tindex0R
+  trscatter = tscatterZR
+  trscatter1 = tscatterZ1R
+  trgather = tgatherZR
+  trgather1 = tgatherZ1R
   trconcrete = RepN
   rfloor = RepN . liftVR (V.map floor) . unRepN
   rfromIntegral = RepN . liftVR (V.map fromIntegral) . unRepN
@@ -191,8 +191,8 @@ instance BaseTensor RepN where
   {-# INLINE tsmatvecmul #-}  -- this doesn't want to specialize
   tsmatvecmul m v = ssum (str (sreplicate v * m))
   tsmatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
-  sindex = tindexZS
-  sindex0 = tindex0S
+  tsindex = tindexZS
+  tsindex0 = tindex0S
   -- Performance depends a lot on the number and size of tensors.
   -- If tensors are not tiny, memory taken by underlying vectors matters most
   -- and this implementation is probbaly optimal in this respect
@@ -202,7 +202,7 @@ instance BaseTensor RepN where
   --
   -- Note how ix being in bounds is checked. The semantics of the operation
   -- permits index out of bounds and then no tensors is added at such an index.
-  sscatter @_ @shm @shn @shp t f =
+  tsscatter @shm @shn @shp t f =
     let shpshn = knownShS @shp `shsAppend` knownShS @shn
     in withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
        case tftk knownSTK t of
@@ -247,10 +247,10 @@ instance BaseTensor RepN where
            in withKnownShS shpshn $
               updateNS @(Rank shp) zero
               $ M.assocs ivs
-  sscatter1 = tscatterZ1S
+  tsscatter1 = tscatterZ1S
   -- The semantics of the operation permits index out of bounds
   -- and the result of such indexing is def.
-  sgather @r @shm @shn t f =
+  tsgather @shm @shn @_ @r t f =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
     case knownSTK @r of
@@ -258,7 +258,7 @@ instance BaseTensor RepN where
         let shm = knownShS @shm
             s = shsSize shm
             l = [ Nested.stoVector $ unRepN
-                  $ sindex @_ @_ @_ @shn
+                  $ tsindex @_ @_ @shn
                       t (f (fmap RepN
                             $ fromLinearIdxS fromIntegral shm i))
                 | i <- [0 .. fromIntegral s - 1] ]
@@ -267,7 +267,7 @@ instance BaseTensor RepN where
       _ ->
         withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
         sbuild @_ @_ @(Rank shm) (\ix -> t !$ f ix)
-  sgather1 = tgatherZ1S
+  tsgather1 = tgatherZ1S
   tsconcrete = RepN
   sfloor = RepN . liftVS (V.map floor) . unRepN
   sfromIntegral = RepN . tfromIntegralS . unRepN
@@ -354,9 +354,9 @@ instance BaseTensor RepN where
   txreplicate0N @sh @r sh | Refl <- lemAppNil @sh
                           , Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreplicate sh . unRepN
-  xindex = tindexZX
-  xindex0 = tindex0X
-  xscatter @_ @shm @shn @shp sh t f =
+  txindex = tindexZX
+  txindex0 = tindex0X
+  txscatter @shm @shn @shp sh t f =
     withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
     gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
@@ -395,8 +395,8 @@ instance BaseTensor RepN where
                                   | i <- [0 .. s - 1] ]
         in updateNX @(Rank shp) zero
            $ M.assocs ivs
-  xscatter1 = tscatterZ1X
-  xgather @r @shm @shn sh t f =
+  txscatter1 = tscatterZ1X
+  txgather @shm @shn @_ @r sh t f =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
     case knownSTK @r of
@@ -404,7 +404,7 @@ instance BaseTensor RepN where
         let shm = shxTakeSSX (Proxy @shn) sh (knownShX @shm)
             s = shxSize shm
             l = [ Nested.mtoVector $ unRepN
-                  $ xindex @_ @_ @_ @shn
+                  $ txindex @_ @_ @shn
                       t (f (fmap RepN
                             $ fromLinearIdxX fromIntegral shm i))
                 | i <- [0 .. fromIntegral s - 1] ]
@@ -412,7 +412,7 @@ instance BaseTensor RepN where
       _ ->
         withKnownShX (ssxFromShape sh) $
         xbuild @_ @_ @(Rank shm) sh (\ix -> t `xindex` f ix)
-  xgather1 = tgatherZ1X
+  txgather1 = tgatherZ1X
   txconcrete = RepN
   xfloor = RepN . liftVX (V.map floor) . unRepN
   xfromIntegral = RepN . liftVX (V.map fromIntegral) . unRepN

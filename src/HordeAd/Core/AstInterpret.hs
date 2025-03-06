@@ -235,7 +235,7 @@ interpretAst !env = \case
       withKnownSTK x $
       let v2 = interpretAst env v
           ix3 = interpretAstPrimal env <$> ix
-      in sindex @target @_ @sh1 v2 ix3
+      in tsindex @target @sh1 v2 ix3
       -- if index is out of bounds, the operations returns with an undefined
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
@@ -255,7 +255,7 @@ interpretAst !env = \case
       withKnownSTK x $
       let t1 = interpretAst env v
           f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
-      in sscatter @_ @_ @shm @shn @shp t1 f2
+      in tsscatter @_ @shm @shn @shp t1 f2
   AstGatherS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
@@ -271,7 +271,7 @@ interpretAst !env = \case
       withKnownSTK x $
       let t1 = interpretAst env v
           f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
-      in sgather @_ @_ @shm @shn @shp t1 f2
+      in tsgather @_ @shm @shn @shp t1 f2
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
     -- TODO: currently we store the function on tape, because it doesn't

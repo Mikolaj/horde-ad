@@ -109,7 +109,7 @@ slicezF :: forall target n r. (ADReady target, GoodScalar r, KnownNat n)
         => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicezF shOut d ixBase =
   rbuild shOut $ \ixResult ->
-    rindex @target @(TKScalar r) @n @0 d (zipWith_Index (+) ixBase ixResult)
+    rindex @n @0 d (zipWith_Index (+) ixBase ixResult)
       -- rindex0 would not require a single type application here
 
 conv2d1

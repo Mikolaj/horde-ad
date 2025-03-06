@@ -1215,7 +1215,7 @@ testUnitriangular1PP = do
 unitriangular2 :: (KnownNat k, GoodScalar rk, ADReady target)
                => Int -> IShR k -> target (TKR (2 + k) rk)
 unitriangular2 k sh =
-  rgather @_ @_ @_ @_ @1 (k :$: k :$: sh)
+  rgather @_ @_ @1 (k :$: k :$: sh)
           (rfromList [ rreplicate0N sh (rscalar 0)
                      , rreplicate0N sh (rscalar 1) ])
           (\(i :.: j :.: ZIR) -> ifF (i <. j) 0 1 :.: ZIR)
@@ -1553,7 +1553,7 @@ testSin0rmapAccumRD01SN5 = do
                                                @_ @Double @Double @'[] @2
                                                (tproject2 $ tproject1 a))
                                    (tpair (sreplicate @3
-                                             (sindex0 @_ @'[2]
+                                             (sindex0 @'[2]
                                                        (tproject1 $ tproject2 a) [1]
                                               / sin x / srepl 3))
                                           (sreplicate @3
@@ -1600,7 +1600,7 @@ testSin0rmapAccumRD01SN51 = do
                                                @_ @Double @Double @'[] @2
                                                (tproject2 $ tproject2 a))
                                             (sreplicate @3
-                                             (sindex0 @_ @'[2]
+                                             (sindex0 @'[2]
                                                        (tproject1 $ tproject2 a) [1]
                                               / sin x / srepl 3)))
                                          (sbuild1 @_ @4 $ \i ->
@@ -1654,7 +1654,7 @@ testSin0rmapAccumRD01SN531a = do
                                              (ssum @1 (tproject1 a))
                                            - sin x / srepl 3
                                            - sreplicate @3
-                                             (sindex0 @_ @'[3]
+                                             (sindex0 @'[3]
                                                        (tproject2 a) [1]
                                              - smaxIndex
                                                  @_ @Double @Double @'[] @3
@@ -1840,7 +1840,7 @@ testSin0rmapAccumRD01SN55 = do
                                g x _a =
                                  tpair (sin x - x)
                                        (tpair (sreplicate @3
-                                             (sindex0 @_ @'[3] x [1]
+                                             (sindex0 @'[3] x [1]
                                               - smaxIndex
                                                   @_ @Double @Double @'[] @3
                                                   (x / sin x / srepl 3)))
@@ -1892,7 +1892,7 @@ testSin0rmapAccumRD01SN55acc = do
                                              (ssum @1 (tproject1 a))
                                            - sin x / sreplicate0N (sscalar 3)
                                            - sreplicate @3
-                                             (sindex0 @_ @'[3]
+                                             (sindex0 @'[3]
                                                        (tproject2 a) [1]
                                              - smaxIndex
                                                  @_ @Double @Double @'[] @3
@@ -1956,7 +1956,7 @@ testSin0rmapAccumRD01SN7 = do
                                                (tproject2 $ tproject1 a))
                                     (tpair (sreplicate @3
                                              (sin x / srepl 6
-                                              + sindex0 @_ @'[2]
+                                              + sindex0 @'[2]
                                                         (tproject1 $ tproject2 a) [1]
                                                 / sin x / srepl 3))
                                        (sreplicate @3
