@@ -13,7 +13,6 @@ module HordeAd.Core.OpsADVal
 
 import Prelude hiding (foldl')
 
-import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -144,34 +143,34 @@ instance ( ADReadyNoLet target, ShareTensor target
   rshape (D u _) = rshape u
   rlength (D u _) = rlength u
   trsum (D u u') = withSNat (rwidth u) $ \snat ->
-    dD (rsum u) (DeltaSum snat knownSTK u')
-  trsum0 (D u u') = dD (rsum0 u) (DeltaSum0R u')
+    dD (trsum u) (DeltaSum snat knownSTK u')
+  trsum0 (D u u') = dD (trsum0 u) (DeltaSum0R u')
   trdot0 (D ue u') (D ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
-    in dD (rdot0 u v) (dAdd (DeltaDot0R v u') (DeltaDot0R u v'))
+    in dD (trdot0 u v) (dAdd (DeltaDot0R v u') (DeltaDot0R u v'))
   -- These two are manually vectorized to avoid delta blowup when run
   -- via primitive pipelines.
-  trmatvecmul m v = rsum (rtr (rreplicate (rwidth m) v * m))
+  trmatvecmul m v = trsum (rtr (trreplicate (rwidth m) v * m))
   trmatmul2 m1 m2 = case rshape m2 of
     _ :$: width2 :$: ZSR ->
-      rsum (rtranspose [2,1,0] (rreplicate width2 m1)
-            * rtranspose [1,0] (rreplicate (rwidth m1) m2))
+      trsum (trtranspose [2,1,0] (trreplicate width2 m1)
+             * trtranspose [1,0] (trreplicate (rwidth m1) m2))
   trreplicate k (D u u') = withSNat k $ \snat ->
-    dD (rreplicate k u) (DeltaReplicate snat knownSTK u')
+    dD (trreplicate k u) (DeltaReplicate snat knownSTK u')
   -- TODO: speed up by using tindex0R and dDeltaIndex0 if the codomain has rank 0
   -- and dD (u `tindex1R` ix) (dDeltaIndex1 u' ix (tlengthR u)) if only outermost
   -- dimension affected.
   trindex (D u u') i =
     let ix = tprimalPart <$> i
-    in dD (rindex u ix) (DeltaIndexR SNat u' ix)
+    in dD (trindex u ix) (DeltaIndexR SNat u' ix)
   trscatter sh (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
-    in dD (rscatter sh u g) (DeltaScatterR SNat SNat SNat sh u' g)
+    in dD (trscatter sh u g) (DeltaScatterR SNat SNat SNat sh u' g)
   trgather sh (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
-    in dD (rgather sh u g) (DeltaGatherR SNat SNat SNat sh u' g)
+    in dD (trgather sh u g) (DeltaGatherR SNat SNat SNat sh u' g)
       -- note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
       -- of f have to be computed and stored in contangent maps later on
@@ -184,7 +183,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   trfromIntegral (D u _) =
     let v = trfromIntegral u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
-  trcast (D u u') = dD (rcast u) (DeltaCastR u')
+  trcast (D u u') = dD (trcast u) (DeltaCastR u')
   trminIndex (D u _) =
     let v = trminIndex u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
@@ -192,24 +191,27 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = trmaxIndex u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
   triota n = fromPrimalFTK (FTKR (n :$: ZSR) FTKScalar) $ triota n
-  trappend (D u u') (D v v') = dD (rappend u v) (DeltaAppendR u' v')
-  trslice i n (D u u') = dD (rslice i n u) (DeltaSliceR i n u')
-  trreverse (D u u') = dD (rreverse u) (DeltaReverseR u')
-  trtranspose perm (D u u') = dD (rtranspose perm u) (DeltaTransposeR perm u')
-  trreshape sh (D u u') = dD (rreshape sh u) (DeltaReshapeR sh u')
-  trbuild1 @n @x k f = case NonEmpty.nonEmpty [0 .. fromIntegral k - 1] of
-    Nothing -> case sameNat (Proxy @n) (Proxy @0) of
-      Just Refl | Dict <- eltDictRep (knownSTK @x) ->
-        let arr = Nested.remptyArray
-        in tconcrete (tftkG knownSTK arr) (RepN arr)
-      Nothing -> error "rbuild1: shape ambiguity"
-    Just l -> rfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
+  trappend (D u u') (D v v') = dD (trappend u v) (DeltaAppendR u' v')
+  trslice i n (D u u') = dD (trslice i n u) (DeltaSliceR i n u')
+  trreverse (D u u') = dD (trreverse u) (DeltaReverseR u')
+  trtranspose perm (D u u') = dD (trtranspose perm u) (DeltaTransposeR perm u')
+  trreshape sh (D u u') = dD (trreshape sh u) (DeltaReshapeR sh u')
+  trbuild1 @n @x k f =
+    let l = [0 .. fromIntegral k - 1]
+    in if null l
+       then case sameNat (Proxy @n) (Proxy @0) of
+         Just Refl | Dict <- eltDictRep (knownSTK @x) ->
+           let arr = Nested.remptyArray
+           in tconcrete (tftkG knownSTK arr) (RepN arr)
+         Nothing -> error "rbuild1: shape ambiguity"
+       else trfromVector $ V.fromList $ map (f . fromInteger) l
+              -- hope this fuses
 
   -- Shaped ops
   sshape (D u _) = sshape u
   slength (D u _) = slength u
-  tssum (D u u') = dD (ssum u) (DeltaSum SNat knownSTK u')
-  tssum0 (D u u') = dD (ssum0 u) (DeltaSum0S u')
+  tssum (D u u') = dD (tssum u) (DeltaSum SNat knownSTK u')
+  tssum0 (D u u') = dD (tssum0 u) (DeltaSum0S u')
   tsdot0 (D ue u') (D ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
@@ -217,10 +219,12 @@ instance ( ADReadyNoLet target, ShareTensor target
     in dD (tsdot0 u v) (dAdd (DeltaDot0S v u') (DeltaDot0S u v'))
   -- These two are manually vectorized to avoid delta blowup when run
   -- via primitive pipelines.
-  tsmatvecmul m v = ssum (str (sreplicate v * m))
+  tsmatvecmul m v = tssum (str (tsreplicate knownShS v * m))
   tsmatmul2 m1 m2 =
-    ssum (tstranspose (Permutation.makePerm @'[2, 1, 0]) (sreplicate m1)
-          * tstranspose (Permutation.makePerm @'[1, 0]) (sreplicate m2))
+    tssum (tstranspose (Permutation.makePerm @'[2, 1, 0])
+                       (tsreplicate knownShS m1)
+           * tstranspose (Permutation.makePerm @'[1, 0])
+                         (tsreplicate knownShS m2))
   tsindex (D u u') i =
     let ix = tprimalPart <$> i
     in dD (tsindex u ix) (DeltaIndexS knownShS u' ix)
@@ -241,7 +245,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tsfromIntegral (D u _) =
     let v = tsfromIntegral u
     in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
-  tscast (D u u') = dD (scast u) (DeltaCastS u')
+  tscast (D u u') = dD (tscast u) (DeltaCastS u')
   tsminIndex (D u _) =
     let v = tsminIndex u
     in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
@@ -249,26 +253,28 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = tsmaxIndex u
     in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
   tsiota = fromPrimalFTK (FTKS (SNat :$$ ZSS) FTKScalar) tsiota
-  tsappend (D u u') (D v v') = dD (sappend u v) (DeltaAppendS u' v')
-  tsslice i n k (D u u') = dD (sslice i n k u) (DeltaSliceS i n k u')
-  tsreverse (D u u') = dD (sreverse u) (DeltaReverseS u')
-  tsbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
-    Nothing | Dict <- eltDictRep (knownSTK @r) ->
-      let arr = Nested.semptyArray @(RepORArray r) (knownShS @sh)
-      in gcastWith (unsafeCoerceRefl :: k :~: 0) $
-         tconcrete (tftkG knownSTK arr) (RepN arr)
-    Just l -> sfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
+  tsappend (D u u') (D v v') = dD (tsappend u v) (DeltaAppendS u' v')
+  tsslice i n k (D u u') = dD (tsslice i n k u) (DeltaSliceS i n k u')
+  tsreverse (D u u') = dD (tsreverse u) (DeltaReverseS u')
+  tsbuild1 @k @sh @r f | Dict <- eltDictRep (knownSTK @r) =
+    let l = [0 .. valueOf @k - 1]
+    in if null l
+       then let arr = Nested.semptyArray @(RepORArray r) (knownShS @sh)
+            in gcastWith (unsafeCoerceRefl :: k :~: 0) $
+               tconcrete (tftkG knownSTK arr) (RepN arr)
+       else tsfromVector $ V.fromList $ map (f . fromInteger) l
+              -- hope this fuses
 
   -- Mixed ops
   xshape (D u _) = xshape u
   xlength (D u _) = xlength u
-  txsum (D u u') = dD (xsum u) (DeltaSum SNat knownSTK u')
-  txsum0 (D u u') = dD (xsum0 u) (DeltaSum0X u')
+  txsum (D u u') = dD (txsum u) (DeltaSum SNat knownSTK u')
+  txsum0 (D u u') = dD (txsum0 u) (DeltaSum0X u')
   txdot0 (D ue u') (D ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
     let !u = tshare ue in
     let !v = tshare ve
-    in dD (xdot0 u v) (dAdd (DeltaDot0X v u') (DeltaDot0X u v'))
+    in dD (txdot0 u v) (dAdd (DeltaDot0X v u') (DeltaDot0X u v'))
   -- These two are manually vectorized to avoid delta blowup when run
   -- via primitive pipelines.
   txmatvecmul mm mn m v =
@@ -277,19 +283,19 @@ instance ( ADReadyNoLet target, ShareTensor target
     withSNat (fromSMayNat' mm) $ \(SNat @m) ->
     withSNat (fromSMayNat' mn) $ \(SNat @n) ->
       xmcast (ssxFromShape (mm :$% ZSX))
-      $ xsum (xtr (txreplicate @_ @m
-                     (xmcast (ssxFromShape (Nested.SKnown (SNat @n)
-                                            :$% ZSX)) v)
-                   * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
-                                           :$% Nested.SKnown (SNat @n)
-                                           :$% ZSX)) m))
+      $ txsum (xtr (txreplicate @_ @m
+                      (xmcast (ssxFromShape (Nested.SKnown (SNat @n)
+                                             :$% ZSX)) v)
+                    * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
+                                            :$% Nested.SKnown (SNat @n)
+                                            :$% ZSX)) m))
   txmatmul2 m1 m2 =
-    xsum (txtranspose @_ @'[2, 1, 0] (xreplicate m1)
-          * txtranspose @_ @'[1, 0] (xreplicate m2))
-  txreplicate (D u u') = dD (xreplicate u) (DeltaReplicate SNat knownSTK u')
+    txsum (txtranspose @_ @'[2, 1, 0] (txreplicate m1)
+           * txtranspose @_ @'[1, 0] (txreplicate m2))
+  txreplicate (D u u') = dD (txreplicate u) (DeltaReplicate SNat knownSTK u')
   txindex (D u u') i =
     let ix = tprimalPart <$> i
-    in dD (xindex u ix) (DeltaIndexX knownShX u' ix)
+    in dD (txindex u ix) (DeltaIndexX knownShX u' ix)
   txscatter @shm @shn @shp sh (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (txscatter @_ @shm @shn @shp sh u g)
@@ -307,7 +313,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   txfromIntegral (D u _) =
     let v = txfromIntegral u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
-  txcast (D u u') = dD (xcast u) (DeltaCastX u')
+  txcast (D u u') = dD (txcast u) (DeltaCastX u')
   txminIndex (D u _) =
     let v = txminIndex u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
@@ -315,21 +321,24 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = txmaxIndex u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
   txiota = fromPrimalFTK (FTKX (Nested.SKnown SNat :$% ZSX) FTKScalar) txiota
-  txappend (D u u') (D v v') = dD (xappend u v) (DeltaAppendX u' v')
-  txslice i n k (D u u') = dD (xslice i n k u) (DeltaSliceX i n k u')
-  txreverse (D u u') = dD (xreverse u) (DeltaReverseX u')
+  txappend (D u u') (D v v') = dD (txappend u v) (DeltaAppendX u' v')
+  txslice i n k (D u u') = dD (txslice i n k u) (DeltaSliceX i n k u')
+  txreverse (D u u') = dD (txreverse u) (DeltaReverseX u')
   txtranspose @perm (D u u') =
     dD (txtranspose @_ @perm u)
        (DeltaTransposeX @_ @_ @_ @target (Permutation.makePerm @perm) u')
   txreshape sh (D u u') = dD (txreshape sh u) (DeltaReshapeX sh u')
-  txbuild1 @k @sh @r f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
-    Nothing -> case testEquality (knownShX @sh) ZKX of
-      Just Refl | Dict <- eltDictRep (knownSTK @r) ->
-        let arr = Nested.memptyArray @(RepORArray r) ZSX
-        in gcastWith (unsafeCoerceRefl :: k :~: 0) $
-           tconcrete (tftkG knownSTK arr) (RepN arr)
-      Nothing -> error "xbuild1: shape ambiguity"
-    Just l -> xfromList $ NonEmpty.map (f . fromInteger) l  -- hope this fuses
+  txbuild1 @k @sh @r f =
+    let l = [0 .. valueOf @k - 1]
+    in if null l
+       then case testEquality (knownShX @sh) ZKX of
+         Just Refl | Dict <- eltDictRep (knownSTK @r) ->
+           let arr = Nested.memptyArray @(RepORArray r) ZSX
+           in gcastWith (unsafeCoerceRefl :: k :~: 0) $
+              tconcrete (tftkG knownSTK arr) (RepN arr)
+         Nothing -> error "xbuild1: shape ambiguity"
+       else txfromVector $ V.fromList $ map (f . fromInteger) l
+              -- hope this fuses
 
   -- Scalar ops
   tkconcrete a =
@@ -366,8 +375,8 @@ instance ( ADReadyNoLet target, ShareTensor target
           => f (TKProduct accShs eShs)
           -> f (TKProduct accShs (TKProduct accShs bShs))
         g !acc_e =
-          tlet acc_e $ \ !acc_e1 ->
-          tlet (unHFun f acc_e) $ \ !accRes_bRes ->
+          ttlet acc_e $ \ !acc_e1 ->
+          ttlet (unHFun f acc_e) $ \ !accRes_bRes ->
             tpair (tproject1 accRes_bRes)
                   (tpair (tproject1 acc_e1) (tproject2 accRes_bRes))
         dg :: forall f. ADReady f
@@ -375,11 +384,11 @@ instance ( ADReadyNoLet target, ShareTensor target
                            (TKProduct accShs eShs))
            -> f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
         dg !dacc_de_acc_e =
-          tlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
+          ttlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
             let (!dacc_de, !_acc_e) =
                   (tproject1 dacc_de_acc_e1, tproject2 dacc_de_acc_e1)
                 !dacc1 = tproject1 dacc_de
-            in tlet (unHFun df dacc_de_acc_e) $ \ !accRes_bRes ->
+            in ttlet (unHFun df dacc_de_acc_e) $ \ !accRes_bRes ->
                  tpair (tproject1 accRes_bRes)
                        (tpair dacc1 (tproject2 accRes_bRes))
         rg :: forall f. ADReady f
@@ -388,13 +397,13 @@ instance ( ADReadyNoLet target, ShareTensor target
                            (TKProduct accShs eShs))
            -> f (ADTensorKind (TKProduct accShs eShs))
         rg !args =
-          tlet args $ \ args1 ->
+          ttlet args $ \ args1 ->
             let (!dx_db, !acc_e) = (tproject1 args1, tproject2 args1)
-            in tlet dx_db $ \ !dx_db1 ->
+            in ttlet dx_db $ \ !dx_db1 ->
               let (!dx, !db) = (tproject1 dx_db1, tproject2 dx_db1)
-              in tlet db $ \ !db1 ->
+              in ttlet db $ \ !db1 ->
                 let dx_dbRes = tpair dx (tproject2 db1)
-                in tlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
+                in ttlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
                   let added = addTarget (adSTK $ ftkToSTK accShs)
                                         (tproject1 daccRes_deRes)
                                         (tproject1 db1)
@@ -429,8 +438,8 @@ instance ( ADReadyNoLet target, ShareTensor target
           => f (TKProduct accShs eShs)
           -> f (TKProduct accShs (TKProduct accShs bShs))
         g !acc_e =
-          tlet acc_e $ \ !acc_e1 ->
-          tlet (unHFun f acc_e) $ \ !accRes_bRes ->
+          ttlet acc_e $ \ !acc_e1 ->
+          ttlet (unHFun f acc_e) $ \ !accRes_bRes ->
             tpair (tproject1 accRes_bRes)
                   (tpair (tproject1 acc_e1) (tproject2 accRes_bRes))
         dg :: forall f. ADReady f
@@ -438,11 +447,11 @@ instance ( ADReadyNoLet target, ShareTensor target
                            (TKProduct accShs eShs))
            -> f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
         dg !dacc_de_acc_e =
-          tlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
+          ttlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
             let (!dacc_de, !_acc_e) =
                   (tproject1 dacc_de_acc_e1, tproject2 dacc_de_acc_e1)
                 !dacc1 = tproject1 dacc_de
-            in tlet (unHFun df dacc_de_acc_e) $ \ !accRes_bRes ->
+            in ttlet (unHFun df dacc_de_acc_e) $ \ !accRes_bRes ->
                  tpair (tproject1 accRes_bRes)
                        (tpair dacc1 (tproject2 accRes_bRes))
         rg :: forall f. ADReady f
@@ -451,13 +460,13 @@ instance ( ADReadyNoLet target, ShareTensor target
                            (TKProduct accShs eShs))
            -> f (ADTensorKind (TKProduct accShs eShs))
         rg !args =
-          tlet args $ \ args1 ->
+          ttlet args $ \ args1 ->
             let (!dx_db, !acc_e) = (tproject1 args1, tproject2 args1)
-            in tlet dx_db $ \ !dx_db1 ->
+            in ttlet dx_db $ \ !dx_db1 ->
               let (!dx, !db) = (tproject1 dx_db1, tproject2 dx_db1)
-              in tlet db $ \ !db1 ->
+              in ttlet db $ \ !db1 ->
                 let dx_dbRes = tpair dx (tproject2 db1)
-                in tlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
+                in ttlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
                   let added = addTarget (adSTK $ ftkToSTK accShs)
                                         (tproject1 daccRes_deRes)
                                         (tproject1 db1)
@@ -486,7 +495,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- Bangs are for the proper order of sharing stamps.
   tcond !stk !b !u !v =
     let uv = tfromVector (SNat @2) stk (V.fromList [u, v])
-    in tindexBuild (SNat @2) stk uv (ifF b 0 1)
+    in tindexBuild (SNat @2) stk uv (tcond knownSTK b 0 1)
   tprimalPart (D u _) = u
   tdualPart _stk (D _ u') = u'
   tfromPrimal stk t = fromPrimalFTK (tftk stk t) t
@@ -497,7 +506,7 @@ instance ( ADReadyNoLet target, ShareTensor target
            => f x
            -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new a.
-        rf !a = tlet a $ \ !aShared ->
+        rf !a = ttlet a $ \ !aShared ->
           tunshare $ fst $ crevOnHVector
                              Nothing
                              (unHFun h @(ADVal (ShareOf f)))
@@ -509,7 +518,7 @@ instance ( ADReadyNoLet target, ShareTensor target
            => f (TKProduct (ADTensorKind z) x)
            -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new db and a.
-        rf !db_a = tlet db_a $ \ !db_aShared ->
+        rf !db_a = ttlet db_a $ \ !db_aShared ->
           tunshare $ fst $ crevOnHVector
                              (Just $ toShare $ tproject1 db_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
@@ -521,7 +530,7 @@ instance ( ADReadyNoLet target, ShareTensor target
            => f (TKProduct (ADTensorKind x) x)
            -> f (ADTensorKind z)
         -- This computes the derivative of g again for each new da and a.
-        df !da_a = tlet da_a $ \ !da_aShared ->
+        df !da_a = ttlet da_a $ \ !da_aShared ->
           tunshare $ fst $ cfwdOnHVector
                              xftk
                              (toShare $ tproject2 da_aShared)

@@ -50,7 +50,6 @@ import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
-import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -490,7 +489,7 @@ evalRevFTK !s !c d0 = case d0 of
                      k accShsAD eShsAD (FTKProduct bShsAD
                                                    (FTKProduct accShs eShs))
                      (\dx db_acc_e ->
-                        tlet db_acc_e $ \ !db_acc_e1 ->
+                        ttlet db_acc_e $ \ !db_acc_e1 ->
                           unHFun rf (tpair (tpair dx (tproject1 db_acc_e1))
                                            (tproject2 db_acc_e1)))
                      c0
@@ -511,7 +510,7 @@ evalRevFTK !s !c d0 = case d0 of
                      k accShsAD eShsAD (FTKProduct bShsAD
                                                    (FTKProduct accShs eShs))
                      (\dx db_acc_e ->
-                        tlet db_acc_e $ \ !db_acc_e1 ->
+                        ttlet db_acc_e $ \ !db_acc_e1 ->
                           unHFun rf (tpair (tpair dx (tproject1 db_acc_e1))
                                            (tproject2 db_acc_e1)))
                      c0
@@ -596,69 +595,67 @@ evalRevSame !s !c = \case
 
   DeltaCastK @r1 d ->
     evalRevScalarRuntimeSpecialized
-    s (toADTensorKindShared (FTKScalar @r1) $ kcast c) d
+    s (toADTensorKindShared (FTKScalar @r1) $ tkcast c) d
   DeltaCastR d -> case ftkDelta d of
     y ->
       evalRevRRuntimeSpecialized
-      s (toADTensorKindShared y $ rcast c) d
+      s (toADTensorKindShared y $ trcast c) d
   DeltaSum0R d -> case ftkDelta d of
     FTKR sh x | SNat <- shrRank sh ->
       withKnownSTK (ftkToSTK x) $
-      evalRevSame s (rreplicate0N sh c) d
+      evalRevSame s (trreplicate0N sh c) d
   DeltaDot0R v d -> case ftkDelta d of
     FTKR sh x | SNat <- shrRank sh ->
       withKnownSTK (ftkToSTK x) $
-      evalRevSame s (v * rreplicate0N (rshape v) c) d
+      evalRevSame s (v * trreplicate0N (rshape v) c) d
         -- too slow: evalRevSame s (rmap0N (* (tscalar c)) v) vd
   DeltaIndexR SNat d ix -> case ftkDelta d of
     FTKR sh x | SNat <- ixrRank ix ->
       withKnownSTK (ftkToSTK x) $
-      evalRevSame s (roneHot (takeShape sh) c ix) d  -- TODO: ixrToShR ix
+      evalRevSame s (troneHot (takeShape sh) c ix) d  -- TODO: ixrToShR ix
   DeltaScatterR SNat SNat SNat _sh d f -> case ftkDelta d of
     FTKR sh x ->
       withKnownSTK (ftkToSTK x) $
-      evalRevSame s (rgather sh c f) d
+      evalRevSame s (trgather sh c f) d
   DeltaGatherR SNat SNat SNat _sh d f -> case ftkDelta d of
     FTKR sh x ->
       withKnownSTK (ftkToSTK x) $
-      evalRevSame s (rscatter sh c f) d
+      evalRevSame s (trscatter sh c f) d
   DeltaAppendR d e -> case (ftkDelta d, ftkDelta e) of
     (FTKR (m :$: _) x, FTKR (n :$: _) _) ->
       withKnownSTK (ftkToSTK x) $
       let cShared = tshare c
-          s2 = evalRevSame s (rslice 0 m cShared) d
-      in evalRevSame s2 (rslice m n cShared) e
+          s2 = evalRevSame s (trslice 0 m cShared) d
+      in evalRevSame s2 (trslice m n cShared) e
     _ -> error "evalRevSame: impossible pattern needlessly required"
   DeltaSliceR i n d -> case ftkDelta d of
     FTKR (l :$: rest) x ->
       withKnownSTK (ftkToSTK x) $
-      evalRevSame s
-               (rconcat $ NonEmpty.fromList
-                  [ constantTarget 0 (FTKR (i :$: rest) x)
-                  , c
-                  , constantTarget 0 (FTKR (l - i - n :$: rest) x) ])
-               d
+      evalRevSame s (trappend
+                       (constantTarget 0 (FTKR (i :$: rest) x))
+                       (trappend c
+                          (constantTarget 0 (FTKR (l - i - n :$: rest) x)))) d
     FTKR ZSR _ -> error "evalRevSame: impossible pattern needlessly required"
   DeltaReverseR d -> case ftkDelta d of
     FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
-      evalRevSame s (rreverse c) d
+      evalRevSame s (trreverse c) d
   DeltaTransposeR perm d -> case ftkDelta d of
     FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
       let permR = permRInverse perm
-      in evalRevSame s (rtranspose permR c) d
+      in evalRevSame s (trtranspose permR c) d
   DeltaReshapeR _sh2 d -> case ftkDelta d of
     FTKR sh x ->
       withKnownSTK (ftkToSTK x) $
-      evalRevSame s (rreshape sh c) d
+      evalRevSame s (trreshape sh c) d
   DeltaZipR d -> evalRevSame s (runzip c) d
   DeltaUnzipR d -> evalRevSame s (rzip c) d
 
   DeltaCastS d -> case ftkDelta d of
     y ->
       evalSRuntimeSpecialized
-      s (toADTensorKindShared y $ scast c) d
+      s (toADTensorKindShared y $ tscast c) d
   DeltaSum0S d -> case ftkDelta d of
     FTKS sh x ->
       withKnownSTK (ftkToSTK x) $
@@ -672,7 +669,7 @@ evalRevSame !s !c = \case
       withKnownSTK (ftkToSTK x) $
       withKnownShS shn $
       withKnownShS (ixsToShS ix) $
-      evalRevSame s (soneHot c ix) d
+      evalRevSame s (tsoneHot c ix) d
   DeltaScatterS @shm @shn shm shn shp d f -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -691,19 +688,19 @@ evalRevSame !s !c = \case
     (FTKS (msnat :$$ _) x, FTKS (_ :$$ _) _) ->
       withKnownSTK (ftkToSTK x) $
       let cShared = tshare c
-          s2 = evalRevSame s (sslice (SNat @0) SNat SNat cShared) d
-      in evalRevSame s2 (sslice msnat SNat SNat cShared) e
+          s2 = evalRevSame s (tsslice (SNat @0) SNat SNat cShared) d
+      in evalRevSame s2 (tsslice msnat SNat SNat cShared) e
   DeltaSliceS i@SNat _ k@SNat d -> case ftkDelta d of
     FTKS (_ :$$ sh) x ->
       withKnownSTK (ftkToSTK x) $
-      evalRevSame s (sappend
+      evalRevSame s (tsappend
                        (constantTarget 0 (FTKS (i :$$ sh) x))
-                          (sappend
-                            c (constantTarget 0 (FTKS (k :$$ sh) x)))) d
+                          (tsappend
+                             c (constantTarget 0 (FTKS (k :$$ sh) x)))) d
   DeltaReverseS d -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
-      evalRevSame s (sreverse c) d
+      evalRevSame s (tsreverse c) d
   DeltaTransposeS @perm @sh2 perm d -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -725,16 +722,16 @@ evalRevSame !s !c = \case
   DeltaCastX d -> case ftkDelta d of
     y ->
       evalXRuntimeSpecialized
-      s (toADTensorKindShared y $ xcast c) d
+      s (toADTensorKindShared y $ txcast c) d
   DeltaSum0X d -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShX (ssxFromShape sh) $
-      evalRevSame s (xreplicate0N sh c) d
+      evalRevSame s (txreplicate0N sh c) d
   DeltaDot0X v d -> case ftkDelta d of
     FTKX sh FTKScalar ->
       withKnownShX (ssxFromShape sh) $
-      evalRevSame s (v * xreplicate0N (xshape v) c) d
+      evalRevSame s (v * txreplicate0N (xshape v) c) d
         -- too slow: evalRevSame s (smap0N (* (sscalar c)) v) vd
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x | SNat @len <- ixxRank ix ->
@@ -743,7 +740,7 @@ evalRevSame !s !c = \case
       withKnownShX (ssxFromShape sh) $
       withKnownShX (ssxTakeIx @shm @shn (ssxFromShape sh) ix) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
-      evalRevSame s (xoneHot (takeShX @len sh) c ix) d
+      evalRevSame s (txoneHot (takeShX @len sh) c ix) d
 --TODO      evalRevSame s (xoneHot (shxTakeSSX (Proxy @shn) sh
 --                                         (ixxToSSX ix)) c ix) d
   DeltaScatterX @shm @shn shm shn shp _sh d f -> case ftkDelta d of
@@ -764,16 +761,16 @@ evalRevSame !s !c = \case
     (FTKX (Nested.SKnown m@SNat :$% _) x, FTKX (Nested.SKnown SNat :$% _) _) ->
       withKnownSTK (ftkToSTK x) $
       let cShared = tshare c
-          s2 = evalRevSame s (xslice (SNat @0) SNat SNat cShared) d
+          s2 = evalRevSame s (txslice (SNat @0) SNat SNat cShared) d
       in evalRevSame s2 (txslice m SNat SNat cShared) e
   DeltaSliceX i@SNat _ k@SNat d -> case ftkDelta d of
     FTKX (_ :$% sh) x ->
       withKnownSTK (ftkToSTK x) $
       evalRevSame s (txappend
                        (constantTarget 0 (FTKX (Nested.SKnown i :$% sh) x))
-                          (xappend
-                            c (constantTarget
-                                 0 (FTKX (Nested.SKnown k :$% sh) x)))) d
+                          (txappend
+                             c (constantTarget
+                                  0 (FTKX (Nested.SKnown k :$% sh) x)))) d
   DeltaReverseX d -> case ftkDelta d of
     FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -965,7 +962,7 @@ evalFwd params s d0 = case d0 of
                        k accShsAD bShsAD (FTKProduct eShsAD
                                                      (FTKProduct accShs eShs))
                        (\dacc de_acc_e ->
-                        tlet de_acc_e $ \ !de_acc_e1 ->
+                        ttlet de_acc_e $ \ !de_acc_e1 ->
                           unHFun df (tpair (tpair dacc (tproject1 de_acc_e1))
                                            (tproject2 de_acc_e1)))
                        cacc0
@@ -983,7 +980,7 @@ evalFwd params s d0 = case d0 of
                        k accShsAD bShsAD (FTKProduct eShsAD
                                                      (FTKProduct accShs eShs))
                        (\dacc de_acc_e ->
-                        tlet de_acc_e $ \ !de_acc_e1 ->
+                        ttlet de_acc_e $ \ !de_acc_e1 ->
                           unHFun df (tpair (tpair dacc (tproject1 de_acc_e1))
                                            (tproject2 de_acc_e1)))
                        cacc0
@@ -1026,85 +1023,85 @@ evalFwdSame params s = \case
 
   d0@(DeltaCastK @r1 d) ->
     case sameSTK (STKScalar @r1) (adSTK (STKScalar @r1)) of
-      Just Refl -> second kcast $ evalFwdSame params s d
+      Just Refl -> second tkcast $ evalFwdSame params s d
       _ -> (s, constantTarget 0 $ adFTK $ ftkDelta d0)
 
   d0@(DeltaCastR d) -> case ftkDelta d of
     y ->
       case sameSTK (ftkToSTK y) (adSTK (ftkToSTK y)) of
-        Just Refl -> second rcast $ evalFwdSame params s d
+        Just Refl -> second trcast $ evalFwdSame params s d
         _ -> (s, constantTarget 0 $ adFTK $ ftkDelta d0)
   DeltaSum0R (DeltaZero (FTKR _ x)) -> (s, constantTarget 0 (FTKR ZSR x))
   DeltaSum0R d -> case ftkDelta d of
     FTKR sh x | SNat <- shrRank sh ->
       withKnownSTK (ftkToSTK x) $
-      second rsum0 $ evalFwdSame params s d
-  DeltaDot0R _ DeltaZero{} -> (s, rscalar 0)
+      second trsum0 $ evalFwdSame params s d
+  DeltaDot0R _ DeltaZero{} -> (s, trconcrete $ Nested.rscalar 0)
   DeltaDot0R v d -> case ftkDelta d of
     FTKR sh x | SNat <- shrRank sh ->
       withKnownSTK (ftkToSTK x) $
-      second (rdot0 v) $ evalFwdSame params s d
+      second (trdot0 v) $ evalFwdSame params s d
   DeltaIndexR SNat d ix -> case ftkDelta d of
     FTKR _ x | SNat <- ixrRank ix ->
       withKnownSTK (ftkToSTK x) $
-      second (`rindex` ix) $ evalFwdSame params s d
+      second (`trindex` ix) $ evalFwdSame params s d
   DeltaScatterR SNat SNat SNat sh d f -> case ftkDelta d of
     FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
       let (s2, t) = evalFwdSame params s d
-      in (s2, rscatter sh t f)
+      in (s2, trscatter sh t f)
   DeltaGatherR SNat SNat SNat sh d f -> case ftkDelta d of
     FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
       let (s2, t) = evalFwdSame params s d
-      in (s2, rgather sh t f)
+      in (s2, trgather sh t f)
   DeltaAppendR d e -> case ftkDelta d of
     FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
       let (s2, t) = evalFwdSame params s d
           (s3, u) = evalFwdSame params s2 e
-      in (s3, rappend t u)
+      in (s3, trappend t u)
   DeltaSliceR i n d -> case ftkDelta d of
     FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
-      second (rslice i n) $ evalFwdSame params s d
+      second (trslice i n) $ evalFwdSame params s d
   DeltaReverseR d -> case ftkDelta d of
     FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
-      second rreverse $ evalFwdSame params s d
+      second trreverse $ evalFwdSame params s d
   DeltaTransposeR perm d -> case ftkDelta d of
     FTKR _ x ->
       withKnownSTK (ftkToSTK x) $
-      second (rtranspose perm) $ evalFwdSame params s d
+      second (trtranspose perm) $ evalFwdSame params s d
   DeltaReshapeR sh2 d -> case ftkDelta d of
     FTKR _sh x ->
       withKnownSTK (ftkToSTK x) $
-      second (rreshape sh2) $ evalFwdSame params s d
+      second (trreshape sh2) $ evalFwdSame params s d
   DeltaZipR d -> second rzip $ evalFwdSame params s d
   DeltaUnzipR d -> second runzip $ evalFwdSame params s d
 
   d0@(DeltaCastS d) -> case ftkDelta d of
     y ->
       case sameSTK (ftkToSTK y) (adSTK (ftkToSTK y)) of
-        Just Refl -> second scast $ evalFwdSame params s d
+        Just Refl -> second tscast $ evalFwdSame params s d
         _ -> (s, constantTarget 0 $ adFTK $ ftkDelta d0)
   DeltaSum0S (DeltaZero (FTKS _ x)) -> (s, constantTarget 0 (FTKS ZSS x))
   DeltaSum0S d -> case ftkDelta d of
     FTKS sh x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShS sh $
-      second ssum0 $ evalFwdSame params s d
-  DeltaDot0S _ DeltaZero{} -> (s, srepl 0)
+      second tssum0 $ evalFwdSame params s d
+  DeltaDot0S _ DeltaZero{} -> (s, tsconcrete $ Nested.sscalar 0)
   DeltaDot0S v d -> case ftkDelta d of
     FTKS sh FTKScalar ->
       withKnownShS sh $
-      second (sdot0 v) $ evalFwdSame params s d
+      second (tsdot0 v) $ evalFwdSame params s d
   DeltaIndexS shn d ix -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShS shn $
       withKnownShS (ixsToShS ix) $
-      second (`sindex` ix) $ evalFwdSame params s d
+      second (`tsindex` ix) $ evalFwdSame params s d
   DeltaScatterS @shm @shn shm shn shp d f -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -1126,15 +1123,15 @@ evalFwdSame params s = \case
       withKnownSTK (ftkToSTK x) $
       let (s2, t) = evalFwdSame params s d
           (s3, u) = evalFwdSame params s2 e
-      in (s3, sappend t u)
+      in (s3, tsappend t u)
   DeltaSliceS i n k d -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
-      second (sslice i n k) $ evalFwdSame params s d
+      second (tsslice i n k) $ evalFwdSame params s d
   DeltaReverseS d -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
-      second sreverse $ evalFwdSame params s d
+      second tsreverse $ evalFwdSame params s d
   DeltaTransposeS perm d -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -1149,26 +1146,26 @@ evalFwdSame params s = \case
   d0@(DeltaCastX d) -> case ftkDelta d of
     y ->
       case sameSTK (ftkToSTK y) (adSTK (ftkToSTK y)) of
-        Just Refl -> second xcast $ evalFwdSame params s d
+        Just Refl -> second txcast $ evalFwdSame params s d
         _ -> (s, constantTarget 0 $ adFTK $ ftkDelta d0)
   DeltaSum0X (DeltaZero (FTKX _ x)) -> (s, constantTarget 0 (FTKX ZSX x))
   DeltaSum0X d -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShX (ssxFromShape sh) $
-      second xsum0 $ evalFwdSame params s d
-  DeltaDot0X _ DeltaZero{} -> (s, xscalar 0)
+      second txsum0 $ evalFwdSame params s d
+  DeltaDot0X _ DeltaZero{} -> (s, txconcrete $ Nested.mscalar 0)
   DeltaDot0X v d -> case ftkDelta d of
     FTKX sh FTKScalar ->
       withKnownShX (ssxFromShape sh) $
-      second (xdot0 v) $ evalFwdSame params s d
+      second (txdot0 v) $ evalFwdSame params s d
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShX shn $
 -- TODO      withKnownShX (ixxToSSX ix) $
       withKnownShX (ssxTakeIx @shm @shn (ssxFromShape sh) ix) $
-      second (`xindex` ix) $ evalFwdSame params s d
+      second (`txindex` ix) $ evalFwdSame params s d
   DeltaScatterX @shm @shn shm shn shp sh d f -> case ftkDelta d of
     FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -1207,7 +1204,7 @@ evalFwdSame params s = \case
   DeltaReshapeX sh2 d -> case ftkDelta d of
     FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
-      second (xreshape sh2) $ evalFwdSame params s d
+      second (txreshape sh2) $ evalFwdSame params s d
   DeltaZipX d -> second xzip $ evalFwdSame params s d
   DeltaUnzipX d -> second xunzip $ evalFwdSame params s d
 

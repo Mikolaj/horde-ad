@@ -24,6 +24,7 @@ import Data.Array.Nested.Internal.Shape (shsRank)
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.OpsTensor
 
 sminIndexN :: forall target sh r. (ADReady target, GoodScalar r, KnownShS sh)
            => target (TKS sh r) -> IxSOf target sh

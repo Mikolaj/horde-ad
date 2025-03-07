@@ -104,7 +104,7 @@ revDtMaybe
 revDtMaybe f vals0 mdt =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
-      g !hv = tlet hv $ \ !hvShared ->
+      g !hv = ttlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
       valsTarget = toTarget vals0
       xftk = tftkG (knownSTK @(X astvals)) $ unRepN valsTarget
@@ -122,7 +122,7 @@ revArtifactAdapt
 revArtifactAdapt hasDt f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
-      g !hv = tlet hv $ \ !hvShared ->
+      g !hv = ttlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
   in revProduceArtifact hasDt g emptyEnv xftk
 
@@ -195,7 +195,7 @@ fwd
 fwd f vals ds =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
-      g !hv = tlet hv $ \ !hvShared ->
+      g !hv = ttlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
       valsTarget = toTarget vals
       xftk = tftkG (knownSTK @(X astvals)) $ unRepN valsTarget

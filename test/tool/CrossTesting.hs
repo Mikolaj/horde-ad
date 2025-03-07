@@ -30,6 +30,7 @@ import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
+import HordeAd.OpsTensor
 
 import EqEpsilon
 

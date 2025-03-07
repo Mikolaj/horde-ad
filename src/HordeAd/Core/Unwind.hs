@@ -29,6 +29,7 @@ import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.OpsTensor
 
 -- * Winding and unwinding
 

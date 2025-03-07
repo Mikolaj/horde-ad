@@ -19,6 +19,7 @@ module HordeAd
   , module HordeAd.External.CommonRankedOps
   , module HordeAd.External.CommonShapedOps
   , module HordeAd.External.Optimizer
+  , module HordeAd.OpsTensor
   ) where
 
 import Prelude ()
@@ -31,11 +32,12 @@ import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Engine
-import HordeAd.Core.Unwind
-import HordeAd.Core.OpsADVal
 import HordeAd.Core.Ops
+import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Core.Unwind
 import HordeAd.External.CommonRankedOps
 import HordeAd.External.CommonShapedOps
 import HordeAd.External.Optimizer
+import HordeAd.OpsTensor

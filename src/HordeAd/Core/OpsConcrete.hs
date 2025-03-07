@@ -103,7 +103,7 @@ instance BaseTensor RepN where
     FTKR _ FTKScalar ->  -- optimized
       RepN . Nested.rsumOuter1 . unRepN $ t
     FTKR _ x ->
-      let l = runravelToList t
+      let l = trunravelToList t
           sh = shrTail $ rshape t
       in foldr (addTarget knownSTK) (constantTarget 0 (FTKR sh x)) l
         -- RepN has a ShareTensor instance, so addTarget arguments
@@ -111,12 +111,12 @@ instance BaseTensor RepN where
   trsum0 @_ @r t = case knownSTK @r of
     STKScalar ->  -- optimized
       RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN $ t
-    _ -> rsum . rflatten $ t
+    _ -> trsum . rflatten $ t
   {-# INLINE trdot0 #-}  -- this doesn't want to specialize
   trdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
   trdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
   {-# INLINE trmatvecmul #-}  -- this doesn't want to specialize
-  trmatvecmul m v = rsum (rtr (rreplicate (rwidth m) v * m))
+  trmatvecmul m v = trsum (rtr (trreplicate (rwidth m) v * m))
   trmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
   trreplicate @_ @r k | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rreplicate (k :$: ZSR) . unRepN
@@ -152,14 +152,14 @@ instance BaseTensor RepN where
   trmap0N @_ @r @r1 f t = case (knownSTK @r1, knownSTK @r) of
     (STKScalar, STKScalar) -> RepN $ tmap0NR (unRepN . f . RepN) (unRepN t)
     _ ->  -- TODO: how to call the default implementation?
-      trbuild (rshape t) (f . rindex0 t)
+      rbuild (rshape t) (f . trindex t)
   trzipWith0N @_ @r1 @r2 @r f t u =
     case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
       (STKScalar, STKScalar, STKScalar) ->
         RepN $ tzipWith0NR (\v w -> unRepN $ f (RepN v) (RepN w))
                            (unRepN t) (unRepN u)
       _ ->  -- TODO: how to call the default implementation?
-        trbuild (rshape u) (\ix -> f (rindex0 t ix) (rindex0 u ix))
+        rbuild (rshape u) (\ix -> f (trindex t ix) (trindex u ix))
 
   -- Shaped ops
   sshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.sshape . unRepN
@@ -176,20 +176,20 @@ instance BaseTensor RepN where
     FTKS _ FTKScalar ->  -- optimized
       RepN . Nested.ssumOuter1 . unRepN $ t
     FTKS _ x ->
-      let l = sunravelToList t
+      let l = tsunravelToList t
           sh = shsTail $ sshape t
       in foldr (addTarget knownSTK) (constantTarget 0 (FTKS sh x)) l
   tssum0 @sh @r t | SNat <- shsProduct (knownShS @sh) = case knownSTK @r of
     STKScalar ->  -- optimized
       RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN $ t
-    _ -> ssum . sflatten $ t
+    _ -> tssum . sflatten $ t
   {-# INLINE tsdot0 #-}  -- this doesn't want to specialize
   tsdot0 u v  =
     RepN $ Nested.sscalar $ Nested.sdot (unRepN u) (unRepN v)
   tsdot1In (SNat @n) u v =
     RepN $ Nested.sdot1Inner (Proxy @n) (unRepN u) (unRepN v)
   {-# INLINE tsmatvecmul #-}  -- this doesn't want to specialize
-  tsmatvecmul m v = ssum (str (sreplicate v * m))
+  tsmatvecmul m v = tssum (str (tsreplicate knownShS v * m))
   tsmatmul2 m1 m2 = RepN $ tmatmul2S (unRepN m1) (unRepN m2)
   tsindex = tindexZS
   tsindex0 = tindex0S
@@ -266,7 +266,7 @@ instance BaseTensor RepN where
            $ V.concat l
       _ ->
         withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-        tsbuild @_ @(Rank shm) (\ix -> t !$ f ix)
+        sbuild @(Rank shm) (\ix -> t `tsindex` f ix)
   tsgather1 = tgatherZ1S
   tsconcrete = RepN
   tsfloor = RepN . liftVS (V.map floor) . unRepN
@@ -291,19 +291,21 @@ instance BaseTensor RepN where
   tsmap0N @sh @r @r1 f v = case (knownSTK @r1, knownSTK @r) of
     (STKScalar, STKScalar) ->
       RepN $ tmap0NS (unRepN . f . RepN) (unRepN v)
-    _ ->  -- TODO: how to call the default implementation?
+    _ | Refl <- lemAppNil @sh ->
+      -- TODO: how to call the default implementation?
       gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
       $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-      $ tsbuild @RepN @(Rank sh) (f . sindex0 v)
+      $ sbuild @(Rank sh) (f . tsindex v)
   tszipWith0N @sh @r1 @r2 @r f t u =
     case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
       (STKScalar, STKScalar, STKScalar) ->
         RepN $ tzipWith0NS (\v w -> unRepN $ f (RepN v) (RepN w))
                            (unRepN t) (unRepN u)
-      _ ->  -- TODO: how to call the default implementation?
+      _ | Refl <- lemAppNil @sh ->
+        -- TODO: how to call the default implementation?
         gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
         $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-        $ tsbuild @RepN @(Rank sh) (\ix -> f (sindex0 t ix) (sindex0 u ix))
+        $ sbuild @(Rank sh) (\ix -> f (tsindex t ix) (tsindex u ix))
 
   -- Shaped ops
   xshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.mshape . unRepN
@@ -321,7 +323,7 @@ instance BaseTensor RepN where
     FTKX _ FTKScalar ->  -- optimized
       RepN . Nested.msumOuter1 . unRepN $ t
     FTKX _ x ->
-      let l = xunravelToList t
+      let l = txunravelToList t
           sh = shxTail $ xshape t
       in foldr (addTarget knownSTK) (constantTarget 0 (FTKX sh x)) l
   txsum0 @_ @r t =
@@ -329,7 +331,7 @@ instance BaseTensor RepN where
     STKScalar ->  -- optimized
       RepN . Nested.mscalar . Nested.msumAllPrim . unRepN $ t
     _ -> withSNat (shxSize $ xshape t) $ \snat ->
-      xsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
+      txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
   {-# INLINE txdot0 #-}  -- this doesn't want to specialize
   txdot0 u v =
     RepN $ Nested.mscalar $ Nested.mdot (unRepN u) (unRepN v)
@@ -341,12 +343,12 @@ instance BaseTensor RepN where
     withSNat (fromSMayNat' mm) $ \(SNat @m) ->
     withSNat (fromSMayNat' mn) $ \(SNat @n) ->
       xmcast (ssxFromShape (mm :$% ZSX))
-      $ xsum (xtr (txreplicate @_ @m
-                     (xmcast (ssxFromShape (Nested.SKnown (SNat @n)
-                                            :$% ZSX)) v)
-                   * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
-                                           :$% Nested.SKnown (SNat @n)
-                                           :$% ZSX)) m))
+      $ txsum (xtr (txreplicate @_ @m
+                      (xmcast (ssxFromShape (Nested.SKnown (SNat @n)
+                                             :$% ZSX)) v)
+                    * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
+                                            :$% Nested.SKnown (SNat @n)
+                                            :$% ZSX)) m))
   {-# INLINE txmatvecmul #-}  -- this doesn't want to specialize
   txmatmul2 m1 m2 = RepN $ tmatmul2X (unRepN m1) (unRepN m2)
   txreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
@@ -411,7 +413,7 @@ instance BaseTensor RepN where
         in RepN $ Nested.mfromVector sh $ V.concat l
       _ ->
         withKnownShX (ssxFromShape sh) $
-        txbuild @_ @(Rank shm) sh (\ix -> t `xindex` f ix)
+        xbuild @(Rank shm) sh (\ix -> t `txindex` f ix)
   txgather1 = tgatherZ1X
   txconcrete = RepN
   txfloor = RepN . liftVX (V.map floor) . unRepN
@@ -597,33 +599,12 @@ instance ConvertTensor RepN where
 ravel :: forall k y.
          SNat k -> STensorKind y -> [RepN y]
       -> RepN (BuildTensorKind k y)
-ravel k@SNat stk t = case stk of
-  STKScalar -> sfromList $ sfromK <$> NonEmpty.fromList t
-  STKR SNat x | Dict <- lemKnownSTK x ->
-    rfromList $ NonEmpty.fromList t
-  STKS sh x | Dict <- lemKnownSTK x ->
-    withKnownShS sh $ sfromList $ NonEmpty.fromList t
-  STKX sh x | Dict <- lemKnownSTK x ->
-    withKnownShX sh $ xfromList $ NonEmpty.fromList t
-  STKProduct stk1 stk2 ->
-      let (lt1, lt2) = unzip $ map (\u -> (tproject1 u, tproject2 u)) t
-      in tpair (ravel k stk1 lt1) (ravel k stk2 lt2)
+ravel k stk l = tfromVector k stk (V.fromList l)
 
 unravel :: forall k y.
            SNat k -> STensorKind y -> RepN (BuildTensorKind k y)
         -> [RepN y]
-unravel k@SNat stk t = case stk of
-  STKScalar -> map kfromS $ sunravelToList t
-  STKR SNat x | Dict <- lemKnownSTK x ->
-    runravelToList t
-  STKS sh x | Dict <- lemKnownSTK x ->
-    withKnownShS sh $ sunravelToList t
-  STKX sh x | Dict <- lemKnownSTK x ->
-    withKnownShX sh $ xunravelToList t
-  STKProduct stk1 stk2 ->
-      let lt1 = unravel k stk1 $ tproject1 t
-          lt2 = unravel k stk2 $ tproject2 t
-      in zipWith tpair lt1 lt2
+unravel = tunravelToListShare
 
 oRtmapAccumR
   :: forall k accShs bShs eShs.
@@ -701,8 +682,8 @@ updateNR arr upd = case knownSTK @x of
                                shNested ((RepN . fromIntegral) i)) upd of
           Just u -> rnest (SNat @0) u
           Nothing -> v
-    in runNest $ rfromListLinear shNested
-       $ imap f $ runravelToList $ rflatten arrNested
+    in runNest $ trfromVectorLinear shNested $ V.fromList
+       $ imap f $ trunravelToList $ rflatten arrNested
 
 tminIndexR
   :: forall r r2 n.
@@ -871,7 +852,7 @@ tscatterZ1R :: (KnownSTK r, KnownNat p, KnownNat n)
 tscatterZ1R sh t f = case tftk knownSTK t of
   FTKR _ x ->
     let zero = constantTarget 0 (FTKR sh x)
-        lt = runravelToList t
+        lt = trunravelToList t
         g i ti = let ix2 = f $ RepN $ fromIntegral i
                  in if ixInBounds (map unRepN $ toList ix2) (toList sh)
                     then updateNR zero [(ix2, ti)]
@@ -924,10 +905,10 @@ tgatherZR sh t f = case knownSTK @r of
     let shm = takeShape @m sh
         s = shrSize shm
         l = [ Nested.rtoVector $ unRepN
-              $ t `rindex` f (fmap RepN $ fromLinearIdx fromIntegral shm i)
+              $ t `trindex` f (fmap RepN $ fromLinearIdx fromIntegral shm i)
             | i <- [0 .. fromIntegral s - 1] ]
     in RepN $ Nested.rfromVector sh $ V.concat l
-  _ -> trbuild sh (\ix -> t ! f ix)
+  _ -> rbuild sh (\ix -> t `trindex` f ix)
 
 tgatherZ1R :: forall p n r.
               (KnownNat p, KnownNat n, KnownSTK r)
@@ -936,9 +917,9 @@ tgatherZ1R :: forall p n r.
            -> RepN (TKR2 (1 + n) r)
 tgatherZ1R k t f = case knownSTK @r of
   STKScalar ->  -- optimized
-    rfromList $ NonEmpty.map (\i -> t `rindex` f (RepN i))
-                             (NonEmpty.fromList [0 .. fromIntegral k - 1])
-  _ -> trbuild1 k (\ix -> t ! f ix)
+    trfromVector $ V.fromList $ map (\i -> t `trindex` f (RepN i))
+                                    [0 .. fromIntegral k - 1]
+  _ -> trbuild1 k (\ix -> t `trindex` f ix)
 
 
 -- * Shaped internal definitions
@@ -975,8 +956,8 @@ updateNS arr upd = case knownSTK @r of
                                  shNested ((RepN . fromIntegral) i)) upd of
             Just u -> snest (knownShS @'[]) u
             Nothing -> v
-      in sunNest @_ @(Take n sh) $ sfromListLinear
-         $ imap f $ sunravelToList $ sflatten arrNested
+      in sunNest @_ @(Take n sh) $ tsfromVectorLinear $ V.fromList
+         $ imap f $ tsunravelToList $ sflatten arrNested
 
 tfromIntegralS :: (GoodScalar r1, Integral r1, GoodScalar r2)
                => Nested.Shaped sh r1 -> Nested.Shaped sh r2
@@ -1108,7 +1089,7 @@ tscatterZ1S t f = case tftk knownSTK t of
     gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
     let shpshn = knownShS @shp `shsAppend` knownShS @shn
         zero = constantTarget 0 (FTKS shpshn x)
-        lt = sunravelToList t
+        lt = tsunravelToList t
         g i ti = let ix2 = f $ RepN $ fromIntegral i
                  in if ixInBounds (map unRepN $ Foldable.toList ix2)
                                   (shsToList shpshn)
@@ -1162,9 +1143,9 @@ tgatherZ1S
 tgatherZ1S t f =
   case knownSTK @r of
     STKScalar ->  -- optimized
-      sfromList $ NonEmpty.map (\i -> t !$ f (RepN i))
-                               (NonEmpty.fromList [0 .. valueOf @n2 - 1])
-    _ -> tsbuild1 (\ix -> t !$ f ix)
+      tsfromVector $ V.fromList $ map (\i -> t `tsindex` f (RepN i))
+                                      [0 .. valueOf @n2 - 1]
+    _ -> tsbuild1 (\ix -> t `tsindex` f ix)
 
 
 -- * Mixed internal definitions
@@ -1197,8 +1178,8 @@ updateNX arr upd = case knownSTK @r of
             Just u -> xnest ZKX u
             Nothing -> v
       in withSNat (shxSize shNested) $ \snat ->
-           xunNest @_ @(Take n sh) $ xfromListLinear shNested
-           $ imap f $ xunravelToList
+           xunNest @_ @(Take n sh) $ txfromVectorLinear shNested $ V.fromList
+           $ imap f $ txunravelToList
            $ RepN $ Nested.mcast (Nested.SKnown snat :!% ZKX)
            $ unRepN $ xflatten arrNested
 
@@ -1304,7 +1285,7 @@ tscatterZ1X sh t f =
       gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
       gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
       let zero = constantTarget 0 (FTKX sh x)
-          lt = xunravelToList t
+          lt = txunravelToList t
           g i ti = let ix2 = f $ RepN $ fromIntegral i
                    in if ixInBounds (map unRepN $ Foldable.toList ix2)
                                     (shxToList sh)
@@ -1343,6 +1324,6 @@ tgatherZ1X
 tgatherZ1X SNat t f =
   case knownSTK @r of
     STKScalar ->  -- optimized
-      xfromList $ NonEmpty.map (\i -> t `xindex` f (RepN i))
-                               (NonEmpty.fromList [0 .. valueOf @n2 - 1])
-    _ -> txbuild1 @_ @n2 (\ix -> t `xindex` f ix)
+      txfromVector $ V.fromList $ map (\i -> t `txindex` f (RepN i))
+                                      [0 .. valueOf @n2 - 1]
+    _ -> txbuild1 @_ @n2 (\ix -> t `txindex` f ix)

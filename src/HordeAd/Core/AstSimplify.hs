@@ -1040,7 +1040,7 @@ astFromIntegralK t = case t of
   Ast.AstSum snat STKScalar a -> astSum snat STKScalar (astFromIntegralS a)
 --  Ast.AstCond b a2 a3 ->
 --    Ast.AstCond b (astFromIntegralK a2) (astFromIntegralK a3)
-  AstConcreteK k -> astConcreteK (kfromIntegral $ RepN k)
+  AstConcreteK k -> astConcreteK (tkfromIntegral $ RepN k)
   Ast.AstN1K NegateOp u -> negate (astFromIntegralK u)
   Ast.AstN1K AbsOp u -> abs (astFromIntegralK u)
   Ast.AstN1K SignumOp u -> signum (astFromIntegralK u)
@@ -1057,7 +1057,7 @@ astCastK :: forall r1 r2 s.
 astCastK t = case t of
   Ast.AstSum snat STKScalar a -> astSum snat STKScalar (astCastS a)
 --  Ast.AstCond b a2 a3 -> Ast.AstCond b (astCastK a2) (astCastK a3)
-  AstConcreteK k -> astConcreteK (kcast $ RepN k)
+  AstConcreteK k -> astConcreteK (tkcast $ RepN k)
   -- TODO: which should go deeper, casts or fromPrimal? Or maybe alternate
   -- to make sure both can cancel out? Rethink. For now, astFromPrimal
   -- is not called to avoid loops. The same with many others
@@ -1099,7 +1099,7 @@ astFromIntegralS t = case t of
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astFromIntegralS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astFromIntegralK v)
-  AstConcreteS a -> astConcreteS (sfromIntegral $ RepN a)
+  AstConcreteS a -> astConcreteS (tsfromIntegral $ RepN a)
   Ast.AstLet var u v -> astLet var u (astFromIntegralS v)
   Ast.AstN1S NegateOp u -> negate (astFromIntegralS u)
   Ast.AstN1S AbsOp u -> abs (astFromIntegralS u)
@@ -1144,7 +1144,7 @@ astCastS t = case t of
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astCastS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astCastK v)
-  AstConcreteS a -> astConcreteS (scast $ RepN a)
+  AstConcreteS a -> astConcreteS (tscast $ RepN a)
   Ast.AstLet var u v -> astLet var u (astCastS v)
   Ast.AstPrimalPart a -> Ast.AstPrimalPart $ astCastS a
   Ast.AstDualPart a -> Ast.AstDualPart $ astCastS a
@@ -1402,7 +1402,8 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
          $ astIndexKnobsS @shm @(shn ++ '[nl]) knobs shnl v ix
   Ast.AstIotaS{}
     | AstConcreteK i <- i1 -> case testEquality shn ZSS of
-      Just Refl -> astFromIntegralS $ astConcreteS (sscalar i)
+      Just Refl ->
+        astFromIntegralS $ astConcreteS (tsconcrete $ Nested.sscalar i)
       _ -> error "astIndexKnobsS: shape not []"
 -- TODO:  AstIndexS AstIotaS (i :.$ ZIS) ->
 --    sfromIntegral . sfromPrimal . sfromR . rfromK $ interpretAstPrimal env i
@@ -2018,7 +2019,7 @@ astAppendS (Ast.AstFromVector (SNat @k1) stk2 l1)
                                                   , STKS{} <- stk3 =
   astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2
 astAppendS (AstConcreteS u) (AstConcreteS v) =
-  astConcreteS (sappend (RepN u) (RepN v))
+  astConcreteS (tsappend (RepN u) (RepN v))
 astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
   Ast.AstFromPrimal $ astAppendS u v
 astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
@@ -2033,7 +2034,7 @@ astSliceS SNat SNat SNat (Ast.AstFromVector _ stk l) | STKS{} <- stk =
   astFromVector (SNat @n) stk $ V.take (valueOf @n) $ V.drop (valueOf @i) l
 astSliceS SNat SNat SNat (Ast.AstReplicate _ snat@STKS{} v) =
   astReplicate (SNat @n) snat v
-astSliceS i n@SNat k (AstConcreteS t) = astConcreteS (sslice i n k $ RepN t)
+astSliceS i n@SNat k (AstConcreteS t) = astConcreteS (tsslice i n k $ RepN t)
 astSliceS i n k (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSliceS i n k v
 astSliceS i n k (Ast.AstFromDual v) = Ast.AstFromDual $ astSliceS i n k v
 astSliceS SNat SNat SNat v | Just Refl <- sameNat (Proxy @i) (Proxy @0)
@@ -2074,7 +2075,7 @@ astReverseS :: forall n sh s r. AstSpan s
 astReverseS (Ast.AstFromVector snat stk l) =
   astFromVector snat stk $ V.reverse l
 astReverseS (Ast.AstReplicate snat stk v) = astReplicate snat stk v
-astReverseS (AstConcreteS t) = astConcreteS (sreverse $ RepN t)
+astReverseS (AstConcreteS t) = astConcreteS (tsreverse $ RepN t)
 astReverseS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astReverseS v
 astReverseS (Ast.AstFromDual v) = Ast.AstFromDual $ astReverseS v
 astReverseS (Ast.AstGatherS @shm @shn @shp
@@ -2294,7 +2295,7 @@ astSFromK :: forall r s. (GoodScalar r, AstSpan s)
               -> AstTensor AstMethodLet s (TKS '[] r)
 astSFromK t = case t of
   Ast.AstCond b a2 a3 -> Ast.AstCond b (astSFromK a2) (astSFromK a3)
-  AstConcreteK k -> astConcreteS (sscalar k)
+  AstConcreteK k -> astConcreteS (tsconcrete $ Nested.sscalar k)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSFromK v
   Ast.AstFromDual v -> Ast.AstFromDual $ astSFromK v
   AstPlusK u v -> astSFromK u + astSFromK v

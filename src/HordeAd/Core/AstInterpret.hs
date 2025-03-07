@@ -141,7 +141,7 @@ interpretAst !env = \case
   AstLet var u v ->
     let t = interpretAst env u
         env2 w = extendEnv var w env
-    in tlet t (\w -> interpretAst (env2 w) v)
+    in ttlet t (\w -> interpretAst (env2 w) v)
 
   AstPrimalPart a -> interpretAst env a
     -- This is correct, because @s@ must be @PrimalSpan@ and so @target@ must
@@ -192,12 +192,12 @@ interpretAst !env = \case
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstI2F opCode u2 v2
-  AstConcreteK k -> kconcrete k
+  AstConcreteK k -> tkconcrete k
   AstFloorK v ->
-    kfloor $ tfromPrimal STKScalar $ interpretAstPrimal env v
+    tkfloor $ tfromPrimal STKScalar $ interpretAstPrimal env v
   AstFromIntegralK v ->
-    kfromIntegral $ tfromPrimal STKScalar $ interpretAstPrimal env v
-  AstCastK v -> kcast $ interpretAst env v
+    tkfromIntegral $ tfromPrimal STKScalar $ interpretAstPrimal env v
+  AstCastK v -> tkcast $ interpretAst env v
 
   AstPlusS u v -> interpretAst env u + interpretAst env v
   AstTimesS u v -> interpretAst env u * interpretAst env v
@@ -207,15 +207,15 @@ interpretAst !env = \case
     interpretAstR2F opCode (interpretAst env u) (interpretAst env v)
   AstI2S opCode u v ->
     interpretAstI2F opCode (interpretAst env u) (interpretAst env v)
-  AstConcreteS a -> sconcrete a
+  AstConcreteS a -> tsconcrete a
   AstFloorS v -> case ftkAst v of
     FTKS sh _ ->
       withKnownShS sh $
-      sfloor $ sfromPrimal $ interpretAstPrimal env v
+      tsfloor $ tfromPrimal knownSTK $ interpretAstPrimal env v
   AstFromIntegralS v -> case ftkAst v of
     FTKS sh _ ->
       withKnownShS sh $
-      sfromIntegral $ sfromPrimal $ interpretAstPrimal env v
+      tsfromIntegral $ tfromPrimal knownSTK $ interpretAstPrimal env v
   AstCastS @r1 @r2 v ->
     -- Specializing for the cases covered by rules in GHC.Internal.Float.
     case testEquality (typeRep @r1) (typeRep @Double) of
@@ -245,7 +245,7 @@ interpretAst !env = \case
       withKnownShS shn $
       withKnownShS (ixsToShS ix) $
       withKnownSTK x $
-      soneHot (interpretAst env v) (interpretAstPrimal env <$> ix)
+      tsoneHot (interpretAst env v) (interpretAstPrimal env <$> ix)
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -261,7 +261,7 @@ interpretAst !env = \case
       withKnownShS shn $
       withKnownShS (ixsToShS ix) $
       withKnownSTK x $
-      sindex (interpretAst env v) (interpretAstPrimal env <$> ix)
+      tsindex (interpretAst env v) (interpretAstPrimal env <$> ix)
   AstGatherS @shm @shn @shp
              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -286,27 +286,27 @@ interpretAst !env = \case
     STKS (_ :$$ sh) x ->
       withKnownShS sh $
       withKnownSTK x $
-      sminIndex $ sfromPrimal $ interpretAstPrimal env v
+      tsminIndex $ tfromPrimal knownSTK $ interpretAstPrimal env v
   AstMaxIndexS v -> case ftkToSTK (ftkAst v) of
     STKS (_ :$$ sh) x ->
       withKnownShS sh $
       withKnownSTK x $
-      smaxIndex $ sfromPrimal $ interpretAstPrimal env v
-  AstIotaS SNat -> siota
+      tsmaxIndex $ tfromPrimal knownSTK $ interpretAstPrimal env v
+  AstIotaS SNat -> tsiota
   AstAppendS a b -> case ftkToSTK (ftkAst a) of
     STKS _ x ->
       withKnownSTK x $
       let t1 = interpretAst env a
           t2 = interpretAst env b
-      in sappend t1 t2
+      in tsappend t1 t2
   AstSliceS i n k v -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownSTK x $
-      sslice i n k $ interpretAst env v
+      tsslice i n k $ interpretAst env v
   AstReverseS v -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownSTK x $
-      sreverse (interpretAst env v)
+      tsreverse (interpretAst env v)
   AstTransposeS perm v -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownSTK x $
@@ -350,13 +350,13 @@ interpretAst !env = \case
     STKS sh x ->
       withKnownShS sh $
       withKnownSTK x $
-      ssum0 (interpretAst env v)
+      tssum0 (interpretAst env v)
   AstDot0S u v -> case ftkAst u of
     FTKS sh _ ->
       withKnownShS sh $
-      sdot0 (interpretAst env u) (interpretAst env v)
+      tsdot0 (interpretAst env u) (interpretAst env v)
   AstDot1InS SNat n@SNat u v ->
-    sdot1In n (interpretAst env u) (interpretAst env v)
+    tsdot1In n (interpretAst env u) (interpretAst env v)
   AstMatvecmulS @r SNat SNat u v ->
     case testEquality (typeRep @r) (typeRep @Double) of
       Just Refl ->
@@ -366,7 +366,7 @@ interpretAst !env = \case
           tsmatvecmul @_ @_ @_ @Float (interpretAst env u) (interpretAst env v)
         _ -> tsmatvecmul (interpretAst env u) (interpretAst env v)
   AstMatmul2S SNat SNat SNat u v ->
-    smatmul2 (interpretAst env u) (interpretAst env v)
+    tsmatmul2 (interpretAst env u) (interpretAst env v)
 
 interpretAstHFun
   :: forall target x y. BaseTensor target

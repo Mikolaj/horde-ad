@@ -608,30 +608,30 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
 
   tfromVector = astFromVector
   tsum snat@SNat stk u = case stk of
-    STKScalar -> kfromS $ ssum u
-    STKR SNat x | Dict <- lemKnownSTK x -> rsum u
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ ssum u
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xsum u
+    STKScalar -> kfromS $ tssum u
+    STKR SNat x | Dict <- lemKnownSTK x -> trsum u
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tssum u
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txsum u
     STKProduct stk1 stk2 ->
-      tlet u $ \ !u3 ->
+      ttlet u $ \ !u3 ->
         tpair (tsum snat stk1 (tproject1 u3))
               (tsum snat stk2 (tproject2 u3))
   treplicate snat@SNat stk u = case stk of
     STKScalar -> tsreplicate ZSS $ sfromK u
-    STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
+    STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (sNatValue snat) u
     STKS sh x | Dict <- lemKnownSTK x -> tsreplicate sh u
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txreplicate u
     STKProduct stk1 stk2 ->
-      tlet u $ \ !u3 ->
+      ttlet u $ \ !u3 ->
         tpair (treplicate snat stk1 (tproject1 u3))
               (treplicate snat stk2 (tproject2 u3))
   tindexBuild snat@SNat stk u i = case stk of
-    STKScalar -> kfromS $ sindex u (i :.$ ZIS)
-    STKR SNat x | Dict <- lemKnownSTK x -> rindex u (i :.: ZIR)
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sindex u (i :.$ ZIS)
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xindex u (i :.% ZIX)
+    STKScalar -> kfromS $ tsindex u (i :.$ ZIS)
+    STKR SNat x | Dict <- lemKnownSTK x -> trindex u (i :.: ZIR)
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tsindex u (i :.$ ZIS)
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txindex u (i :.% ZIX)
     STKProduct stk1 stk2 ->
-      tlet u $ \ !u3 ->
+      ttlet u $ \ !u3 ->
         tpair (tindexBuild snat stk1 (tproject1 u3) i)
               (tindexBuild snat stk2 (tproject2 u3) i)
 
@@ -1266,8 +1266,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   -- Ranked ops
   rshape = rshape . unAstNoVectorize
   rlength = rlength . unAstNoVectorize
-  trsum = AstNoVectorize . rsum . unAstNoVectorize
-  trreplicate k = AstNoVectorize . rreplicate k . unAstNoVectorize
+  trsum = AstNoVectorize . trsum . unAstNoVectorize
+  trreplicate k = AstNoVectorize . trreplicate k . unAstNoVectorize
   trindex v ix =
     AstNoVectorize $ trindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   trscatter sh t f =
@@ -1277,12 +1277,12 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ trgather sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   trconcrete = AstNoVectorize . trconcrete
-  trfloor = AstNoVectorize . rfloor . unAstNoVectorize
-  trfromIntegral = AstNoVectorize . rfromIntegral . unAstNoVectorize
-  trcast = AstNoVectorize . rcast . unAstNoVectorize
-  trminIndex = AstNoVectorize . rminIndex . unAstNoVectorize
-  trmaxIndex = AstNoVectorize . rmaxIndex . unAstNoVectorize
-  triota = AstNoVectorize . riota
+  trfloor = AstNoVectorize . trfloor . unAstNoVectorize
+  trfromIntegral = AstNoVectorize . trfromIntegral . unAstNoVectorize
+  trcast = AstNoVectorize . trcast . unAstNoVectorize
+  trminIndex = AstNoVectorize . trminIndex . unAstNoVectorize
+  trmaxIndex = AstNoVectorize . trmaxIndex . unAstNoVectorize
+  triota = AstNoVectorize . triota
   trappend u v =
     AstNoVectorize $ trappend (unAstNoVectorize u) (unAstNoVectorize v)
   trslice i n = AstNoVectorize . trslice i n . unAstNoVectorize
@@ -1297,7 +1297,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   -- Shaped ops
   sshape = sshape . unAstNoVectorize
   slength = slength . unAstNoVectorize
-  tssum = AstNoVectorize . ssum . unAstNoVectorize
+  tssum = AstNoVectorize . tssum . unAstNoVectorize
   tsindex v ix =
     AstNoVectorize $ tsindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   tsscatter @_ @shm @shn @shp t f =
@@ -1307,12 +1307,12 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ tsgather @_ @_ @shm @shn @shp (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   tsconcrete = AstNoVectorize . tsconcrete
-  tsfloor = AstNoVectorize . sfloor . unAstNoVectorize
-  tsfromIntegral = AstNoVectorize . sfromIntegral . unAstNoVectorize
-  tscast = AstNoVectorize . scast . unAstNoVectorize
-  tsminIndex = AstNoVectorize . sminIndex . unAstNoVectorize
-  tsmaxIndex = AstNoVectorize . smaxIndex . unAstNoVectorize
-  tsiota = AstNoVectorize siota
+  tsfloor = AstNoVectorize . tsfloor . unAstNoVectorize
+  tsfromIntegral = AstNoVectorize . tsfromIntegral . unAstNoVectorize
+  tscast = AstNoVectorize . tscast . unAstNoVectorize
+  tsminIndex = AstNoVectorize . tsminIndex . unAstNoVectorize
+  tsmaxIndex = AstNoVectorize . tsmaxIndex . unAstNoVectorize
+  tsiota = AstNoVectorize tsiota
   tsappend u v =
     AstNoVectorize $ tsappend (unAstNoVectorize u) (unAstNoVectorize v)
   tsslice i n k = AstNoVectorize . tsslice i n k . unAstNoVectorize
@@ -1324,8 +1324,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   -- Mixed ops
   xshape = xshape . unAstNoVectorize
   xlength = xlength . unAstNoVectorize
-  txsum = AstNoVectorize . xsum . unAstNoVectorize
-  txreplicate = AstNoVectorize . xreplicate . unAstNoVectorize
+  txsum = AstNoVectorize . txsum . unAstNoVectorize
+  txreplicate = AstNoVectorize . txreplicate . unAstNoVectorize
   txindex v ix =
     AstNoVectorize $ txindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   txscatter @_ @shm @shn @shp sh t f =
@@ -1335,11 +1335,11 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ txgather @_ @_ @shm @shn @shp sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
   txconcrete = AstNoVectorize . txconcrete
-  txfloor = AstNoVectorize . xfloor . unAstNoVectorize
-  txfromIntegral = AstNoVectorize . xfromIntegral . unAstNoVectorize
-  txcast = AstNoVectorize . xcast . unAstNoVectorize
-  txminIndex = AstNoVectorize . xminIndex . unAstNoVectorize
-  txmaxIndex = AstNoVectorize . xmaxIndex . unAstNoVectorize
+  txfloor = AstNoVectorize . txfloor . unAstNoVectorize
+  txfromIntegral = AstNoVectorize . txfromIntegral . unAstNoVectorize
+  txcast = AstNoVectorize . txcast . unAstNoVectorize
+  txminIndex = AstNoVectorize . txminIndex . unAstNoVectorize
+  txmaxIndex = AstNoVectorize . txmaxIndex . unAstNoVectorize
   txiota @n = AstNoVectorize $ txiota @_ @n
   txappend u v =
     AstNoVectorize $ txappend (unAstNoVectorize u) (unAstNoVectorize v)
@@ -1504,8 +1504,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   -- Ranked ops
   rshape = rshape . wunAstNoSimplify
   rlength = rlength . wunAstNoSimplify
-  trsum = wAstNoSimplify . rsum . wunAstNoSimplify
-  trreplicate k = wAstNoSimplify . rreplicate k . wunAstNoSimplify
+  trsum = wAstNoSimplify . trsum . wunAstNoSimplify
+  trreplicate k = wAstNoSimplify . trreplicate k . wunAstNoSimplify
   trindex v ix =
     wAstNoSimplify $ trindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
   trscatter sh t f =
@@ -1531,7 +1531,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   -- Shaped ops
   sshape = sshape . wunAstNoSimplify
   slength = slength . wunAstNoSimplify
-  tssum = wAstNoSimplify . ssum . wunAstNoSimplify
+  tssum = wAstNoSimplify . tssum . wunAstNoSimplify
   tsindex v ix =
     wAstNoSimplify $ tsindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
   tsscatter @_ @shm @shn @shp t f =
@@ -1555,8 +1555,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   -- Mixed ops
   xshape = xshape . wunAstNoSimplify
   xlength = xlength . wunAstNoSimplify
-  txsum = wAstNoSimplify . xsum . wunAstNoSimplify
-  txreplicate = wAstNoSimplify . xreplicate . wunAstNoSimplify
+  txsum = wAstNoSimplify . txsum . wunAstNoSimplify
+  txreplicate = wAstNoSimplify . txreplicate . wunAstNoSimplify
   txindex v ix =
     wAstNoSimplify $ txindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
   txscatter @_ @shm @shn @shp sh t f =
@@ -1614,30 +1614,30 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tfromVector k stk =
     wAstNoSimplify . tfromVector k stk . V.map wunAstNoSimplify
   tsum snat@SNat stk u = case stk of
-    STKScalar -> kfromS $ ssum u
-    STKR SNat x | Dict <- lemKnownSTK x -> rsum u
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ ssum u
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xsum u
+    STKScalar -> kfromS $ tssum u
+    STKR SNat x | Dict <- lemKnownSTK x -> trsum u
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tssum u
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txsum u
     STKProduct stk1 stk2 ->
-      tlet u $ \ !u3 ->
+      ttlet u $ \ !u3 ->
         tpair (tsum snat stk1 (tproject1 u3))
               (tsum snat stk2 (tproject2 u3))
   treplicate snat@SNat stk u = case stk of
     STKScalar -> tsreplicate ZSS $ sfromK u
-    STKR SNat x | Dict <- lemKnownSTK x -> rreplicate (sNatValue snat) u
+    STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (sNatValue snat) u
     STKS sh x | Dict <- lemKnownSTK x -> tsreplicate sh u
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xreplicate u
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txreplicate u
     STKProduct stk1 stk2 ->
-      tlet u $ \ !u3 ->
+      ttlet u $ \ !u3 ->
         tpair (treplicate snat stk1 (tproject1 u3))
               (treplicate snat stk2 (tproject2 u3))
   tindexBuild snat@SNat stk u i = case stk of
-    STKScalar -> kfromS $ sindex u (i :.$ ZIS)
-    STKR SNat x | Dict <- lemKnownSTK x -> rindex u (i :.: ZIR)
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ sindex u (i :.$ ZIS)
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ xindex u (i :.% ZIX)
+    STKScalar -> kfromS $ tsindex u (i :.$ ZIS)
+    STKR SNat x | Dict <- lemKnownSTK x -> trindex u (i :.: ZIR)
+    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tsindex u (i :.$ ZIS)
+    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txindex u (i :.% ZIX)
     STKProduct stk1 stk2 ->
-      tlet u $ \ !u3 ->
+      ttlet u $ \ !u3 ->
         tpair (tindexBuild snat stk1 (tproject1 u3) i)
               (tindexBuild snat stk2 (tproject2 u3) i)
 

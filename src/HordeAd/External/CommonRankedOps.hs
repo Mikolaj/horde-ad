@@ -21,6 +21,7 @@ import Data.Array.Nested qualified as Nested
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.OpsTensor
 
 rminIndexN :: forall target n r.
               (BaseTensor target, ConvertTensor target, GoodScalar r)

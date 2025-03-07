@@ -19,7 +19,6 @@ module HordeAd.Core.Adaptor
 import Prelude
 
 import Data.Default
-import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:))
 import Data.Vector.Generic qualified as V
@@ -134,8 +133,8 @@ instance forall r target. (GoodScalar r, BaseTensor target)
     ifDifferentiable @r
       (let (r, g2) = random g
            m = 2 * realToFrac range * (r - 0.5)
-       in (kconcrete m, g2))
-      (kconcrete def, g)
+       in (tkconcrete m, g2))
+      (tkconcrete def, g)
 
 instance forall sh r target. (KnownShS sh, GoodScalar r, BaseTensor target)
          => RandomValue (target (TKS sh r)) where
@@ -144,13 +143,14 @@ instance forall sh r target. (KnownShS sh, GoodScalar r, BaseTensor target)
       (let createRandomVector :: Int -> StdGen -> target (TKS sh r)
            createRandomVector n seed =
              srepl (2 * realToFrac range)
-             * (sconcrete
+             * (tsconcrete
                   (Nested.sfromVector knownShS (V.fromListN n (randoms seed)))
                 - srepl 0.5)
            (g1, g2) = splitGen g
            arr = createRandomVector (shsSize (knownShS @sh)) g1
        in (arr, g2))
-      (sconcrete $ Nested.sreplicateScal (knownShS @sh) def, g)
+      (srepl def, g)
+   where srepl = tsconcrete . Nested.sreplicateScal knownShS
   -- {-# SPECIALIZE instance (KnownShS sh, GoodScalar r, Fractional r, Random r) => RandomValue (RepN (TKS sh r)) #-}
   {-# SPECIALIZE instance KnownShS sh => RandomValue (RepN (TKS sh Double)) #-}
   {-# SPECIALIZE instance KnownShS sh => RandomValue (RepN (TKS sh Float)) #-}
@@ -175,7 +175,7 @@ instance ( ForgetShape (target a)
   type NoShape (target (TKProduct a b)) =
     target (TKProduct (NoShapeTensorKind a) (NoShapeTensorKind b))
   forgetShape ab =
-    tlet ab $ \abShared ->
+    ttlet ab $ \abShared ->
       tpair (forgetShape (tproject1 abShared))
             (forgetShape (tproject2 abShared))
 
@@ -189,10 +189,10 @@ instance (RandomValue (target a), RandomValue (target b), BaseTensor target)
 instance (BaseTensor target, ConvertTensor target, GoodScalar r)
          => AdaptableTarget target [target (TKScalar r)] where
   type X [target (TKScalar r)] = TKR 1 r
-  toTarget l = case NonEmpty.nonEmpty l of
-    Nothing -> rconcrete Nested.remptyArray
-    Just nl -> rfromList $ NonEmpty.map rfromK nl
-  fromTarget = map kfromR . runravelToList  -- TODO: inefficient (indexing)
+  toTarget l = if null l
+               then trconcrete Nested.remptyArray
+               else trfromVector $ V.fromList $ map rfromK l
+  fromTarget = map kfromR . trunravelToList  -- TODO: inefficient (indexing)
 
 instance TermValue a => TermValue [a] where
   type Value [a] = [Value a]
@@ -211,9 +211,9 @@ instance (BaseTensor target, ConvertTensor target, GoodScalar r)
                             (Data.Vector.Vector (target (TKScalar r))) where
   type X (Data.Vector.Vector (target (TKScalar r))) = TKR 1 r
   toTarget v = if V.null v
-               then rconcrete Nested.remptyArray
-               else rfromVector $ V.map rfromK v
-  fromTarget = V.fromList . map kfromR . runravelToList
+               then trconcrete Nested.remptyArray
+               else trfromVector $ V.map rfromK v
+  fromTarget = V.fromList . map kfromR . trunravelToList
                                            -- TODO: inefficient (indexing)
 
 instance TermValue a => TermValue (Data.Vector.Vector a) where
@@ -243,7 +243,7 @@ stkOfListR stk SNat =
 instance (BaseTensor target, KnownNat n, AdaptableTarget target a)
          => AdaptableTarget target (ListR n a) where
   type X (ListR n a) = Tups n (X a)
-  toTarget ZR = tunit
+  toTarget ZR = tkconcrete Z0
   toTarget ((:::) @n1 a rest) =
     gcastWith (unsafeCoerceRefl
                :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $

@@ -20,6 +20,7 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import HordeAd.External.CommonShapedOps
+import HordeAd.OpsTensor
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
