@@ -24,11 +24,10 @@ import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
 
+import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (snatPlus)
-import Data.Array.Nested (Rank, ShS (..))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  (shsAppend, shsInit, shsPermutePrefix, shsRank)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind

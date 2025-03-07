@@ -25,20 +25,9 @@ import GHC.Exts (withDict)
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat)
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Shape (ssxFromShape, withKnownShX)
+import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Nested
-  ( IShR
-  , IShX
-  , KnownShS (..)
-  , KnownShX (..)
-  , SMayNat (..)
-  , ShR (..)
-  , ShS (..)
-  , ShX (..)
-  , StaticShX (..)
-  )
-import Data.Array.Nested.Internal.Shape (shrRank, shsRank, withKnownShS)
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Types
 

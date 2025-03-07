@@ -21,8 +21,7 @@ import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (ListS (..), ShS (..))
-import Data.Array.Nested.Internal.Shape (withKnownShS)
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv

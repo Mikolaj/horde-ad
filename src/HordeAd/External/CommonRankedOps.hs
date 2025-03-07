@@ -15,8 +15,8 @@ import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat)
 
-import Data.Array.Nested (IShR, ShR (..), pattern (:$:), pattern ZSR)
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind

@@ -12,10 +12,9 @@ import GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Nested
-  (IShR, IxR (..), IxS (..), KnownShS (..), ListR (..), Rank, ShR (..))
+import Data.Array.Mixed.Shape
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shrTail)
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd
 import HordeAd.Core.Ops (tfromPrimal)

@@ -14,8 +14,8 @@ import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 
-import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Types

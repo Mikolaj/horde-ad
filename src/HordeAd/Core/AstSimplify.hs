@@ -83,34 +83,12 @@ import Type.Reflection (typeRep)
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation (DropLen, Perm (..), TakeLen, permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (ssxReplicate, ssxAppend, ssxFromShape)
+import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (Init, Last, Tail, unsafeCoerceRefl)
-import Data.Array.Nested
-  (IxS (..), KnownShS (..), ListS (..), Product, Rank, ShS (..), type (++))
+import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Lemmas
 import Data.Array.Nested.Internal.Shape
-  ( shrRank, ixsAppend
-  , ixsInit
-  , ixsLast
-  , ixsPermutePrefix
-  , listsAppend
-  , listsFmap
-  , listsInit
-  , listsLast
-  , listsRank
-  , listsToList
-  , shCvtSX
-  , shsAppend
-  , shsLast
-  , shsLength
-  , shsPermute
-  , shsPermutePrefix
-  , shsRank
-  , shsTakeLen
-  , withKnownShS
-  )
-import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 import Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
@@ -2149,7 +2127,7 @@ astTransposeS perm t = case perm of
     -- TODO: should the below be backpermute or permute?
     | gcompare (Permutation.permRank perm) (listsRank vars) /= GGT ->
         let vars2 :: AstVarListS (Permutation.PermutePrefix perm shm)
-            vars2 = Nested.Internal.Shape.listsPermutePrefix perm vars
+            vars2 = listsPermutePrefix perm vars
         in gcastWith (unsafeCoerceRefl
                       :: Permutation.PermutePrefix perm shm ++ shn
                          :~: Permutation.PermutePrefix perm (shm ++ shn)) $
@@ -2170,7 +2148,7 @@ astTransposeS perm t = case perm of
       $ gcastWith (unsafeCoerceRefl
                    :: Permutation.PermutePrefix perm3 sh2
                       :~: Permutation.PermutePrefix perm sh) $
-        case compare (length perm3V) (Nested.Internal.Shape.shsLength sh2) of
+        case compare (length perm3V) (shsLength sh2) of
           LT -> gcastWith (unsafeCoerceRefl
                            :: Compare (Rank perm3) (Rank sh2) :~: LT) $
                 astTransposeS perm3 u

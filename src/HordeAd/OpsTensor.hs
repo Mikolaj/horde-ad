@@ -72,26 +72,10 @@ import Numeric.LinearAlgebra (Numeric)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
-  ( IShX
-  , fromSMayNat'
-  , shxLength
-  , ssxFromShape
-  , withKnownShX
-  )
 import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
-import Data.Array.Nested
-  ( IShR
-  , IxS (..)
-  , IxX (..)
-  , KnownShS (..)
-  , KnownShX (..)
-  , Rank
-  , ShR (..)
-  , ShX (..)
-  , StaticShX (..)
-  , type (++)
-  )
+import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind

@@ -17,7 +17,7 @@ import Test.Tasty.HUnit hiding (assert)
 import Test.Tasty.QuickCheck hiding (label, shuffle)
 import Text.Printf
 
-import Data.Array.Nested (ShR (..))
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd
 import HordeAd.Core.Adaptor

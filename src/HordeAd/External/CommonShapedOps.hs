@@ -16,10 +16,10 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
 
+import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Nested (KnownShS (..), Rank)
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shsRank)
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind

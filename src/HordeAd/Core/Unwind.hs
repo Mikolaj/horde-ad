@@ -18,12 +18,10 @@ import GHC.TypeLits (type (+))
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape
-  (shxAppend, ssxAppend, ssxFromShape, ssxReplicate, withKnownShX)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Nested (IShR, IShX, MapJust, Replicate, ShS (..), type (++))
+import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  (shCvtRX, shCvtSX, shrAppend, shrRank, shsAppend, withKnownShS)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Ops

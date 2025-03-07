@@ -16,19 +16,9 @@ import GHC.TypeLits (KnownNat)
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Nested
-  ( IxR (..)
-  , IxS (..)
-  , IxX (..)
-  , KnownShS (..)
-  , ListR (..)
-  , SMayNat (..)
-  , ShR (..)
-  , ShS (..)
-  , ShX (..)
-  , StaticShX (..)
-  )
+import Data.Array.Mixed.Shape
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd
 import HordeAd.Core.Adaptor

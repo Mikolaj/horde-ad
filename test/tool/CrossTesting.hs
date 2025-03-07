@@ -12,7 +12,7 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Nested (KnownShS (..), ShR (..), pattern (:$:), pattern ZSR)
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast

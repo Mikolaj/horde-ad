@@ -22,10 +22,10 @@ import Data.Type.Equality (gcastWith)
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Maybe (fromMaybe)
 
-import Data.Array.Nested (StaticShX(..), type (++), Rank, KnownShS (..), KnownShX (..), ShX (..), ShS (..), IxR (..), IxS (..), IxX (..))
+import Data.Array.Nested (type (++))
 import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
-import Data.Array.Mixed.Shape (shxRank, withKnownShX, shxInit, shxEqual, ssxAppend, ssxReplicate, ssxFromShape)
-import Data.Array.Nested.Internal.Shape (shCvtSX, shsProduct, shsRank, shrRank, withKnownShS)
+import Data.Array.Mixed.Shape
+import Data.Array.Nested.Internal.Shape
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested qualified as Nested
 

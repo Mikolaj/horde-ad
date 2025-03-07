@@ -24,8 +24,7 @@ import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (fromSNat)
 
-import Data.Array.Nested (ShS (..))
-import Data.Array.Nested.Internal.Shape (listsToList, shsSize, withKnownShS)
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Ast (AstBool, AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))

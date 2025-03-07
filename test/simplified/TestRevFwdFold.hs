@@ -13,8 +13,8 @@ import GHC.TypeLits (KnownNat, type (+))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Nested (IShR, IxR (..), KnownShS (..), ShR (..), ShS (..))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)

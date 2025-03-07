@@ -20,8 +20,8 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.External.OptimizerTools
 
-import Data.Array.Nested (ShR (..))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape
 
 import MnistData
 import MnistFcnnRanked1 qualified
@@ -410,9 +410,9 @@ mnistBGroup2VTO chunkLength =
 --
 -- The `Storable` is only needed for overloaded profiling, e.g., with
 -- cabal bench longMnistBench -ftest_seq -w /home/mikolaj/r/ghc.HEAD/ghc/_build/stage1/bin/ghc --allow-newer --enable-optimization --enable-profiling --profiling-detail=none --ghc-options="-fprof-late-overloaded -fpolymorphic-specialisation" --benchmark-options='-n1 -m pattern "1 VTA MNIST nn with samples: 400/500|150 v" +RTS -pj'
-inspect $ hasNoTypeClassesExcept 'mnistTrainBench1VTA [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Storable]
-inspect $ hasNoTypeClassesExcept 'mnistTrainBench1VTO [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Storable]
-inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTA [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Storable]
-inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTC [''(~), ''KnownNat, ''WithDict, ''Nested.KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
+inspect $ hasNoTypeClassesExcept 'mnistTrainBench1VTA [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Storable]
+inspect $ hasNoTypeClassesExcept 'mnistTrainBench1VTO [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Storable]
+inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTA [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Storable]
+inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTC [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
 inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTO [''(~), ''GoodScalar, ''Show, ''Num, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
 -- inspect $ coreOf 'mnistTrainBench1VTA

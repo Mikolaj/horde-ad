@@ -63,32 +63,10 @@ import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
-  (shxAppend, shxDropSSX, shxTakeSSX, ssxFromShape, withKnownShX)
 import Data.Array.Mixed.Types (snatPlus, unsafeCoerceRefl)
-import Data.Array.Nested
-  ( IShR
-  , IShX
-  , MapJust
-  , Rank
-  , Replicate
-  , ShR (..)
-  , ShS (..)
-  , ShX (..)
-  , StaticShX (..)
-  , type (++)
-  )
+import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
-  ( ixrRank
-  , shCvtRX
-  , shCvtSX
-  , shCvtXR'
-  , shrTail
-  , shsAppend
-  , shsPermutePrefix
-  , shsRank
-  )
-import Data.Array.Nested.Internal.Shape qualified as Nested.Internal.Shape
 
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
@@ -420,7 +398,7 @@ data Delta :: Target -> TensorKindType -> Type where
                   -> Delta target (TKS2 sh r)
                   -> Delta target (TKS2 (Permutation.PermutePrefix perm sh) r)
     -- ^ Transpose according to the permutation.
-  DeltaReshapeS :: Nested.Product sh ~ Nested.Product sh2
+  DeltaReshapeS :: Product sh ~ Product sh2
                 => ShS sh2
                 -> Delta target (TKS2 sh r)
                 -> Delta target (TKS2 sh2 r)
@@ -561,7 +539,7 @@ ftkDelta = \case
     FTKR sh x -> FTKR (n :$: shrTail sh) x
   DeltaReverseR d -> ftkDelta d
   DeltaTransposeR perm d -> case ftkDelta d of
-    FTKR sh x -> FTKR (Nested.Internal.Shape.shrPermutePrefix perm sh) x
+    FTKR sh x -> FTKR (shrPermutePrefix perm sh) x
   DeltaReshapeR sh d -> case ftkDelta d of
     FTKR _ x -> FTKR sh x
   DeltaZipR d -> case ftkDelta d of

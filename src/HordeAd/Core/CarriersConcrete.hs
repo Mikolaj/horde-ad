@@ -13,14 +13,13 @@ import Prelude hiding (foldl')
 import Control.DeepSeq (NFData (..))
 import Data.Vector.Generic qualified as V
 
-import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
+import Data.Array.Mixed.Internal.Arith qualified as Nested.Internal.Arith
   (liftVEltwise2)
-import Data.Array.Mixed.Shape (withKnownShX)
+import Data.Array.Mixed.Shape
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Mixed as Mixed
-import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
+import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
-import Data.Array.Nested.Internal.Shape (withKnownShS)
+import Data.Array.Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.TensorKind
@@ -34,8 +33,8 @@ instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
   -- and so the counterfactual branches, with zeros, may get executed
   -- even though they are subsequently ignored.
   quotF = Nested.Internal.arithPromoteRanked2
-            (Nested.Internal.Mixed.mliftNumElt2
-               (flip Mixed.Internal.Arith.liftVEltwise2
+            (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
                      let (x, y) = case (x', y') of
                            (Left x2, Left y2) ->
@@ -47,8 +46,8 @@ instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
                           (\a b -> if b == 0 then 0 else quotF a b) x y)))
                             -- TODO: do better somehow
   remF = Nested.Internal.arithPromoteRanked2
-            (Nested.Internal.Mixed.mliftNumElt2
-               (flip Mixed.Internal.Arith.liftVEltwise2
+            (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
                      let (x, y) = case (x', y') of
                            (Left x2, Left y2) ->
@@ -63,8 +62,8 @@ instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
 instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
          => IntegralF (Nested.Shaped sh r) where
   quotF = Nested.Internal.arithPromoteShaped2
-            (Nested.Internal.Mixed.mliftNumElt2
-               (flip Mixed.Internal.Arith.liftVEltwise2
+            (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
                      let (x, y) = case (x', y') of
                            (Left x2, Left y2) ->
@@ -76,8 +75,8 @@ instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
                           (\a b -> if b == 0 then 0 else quotF a b) x y)))
                             -- TODO: do better somehow
   remF = Nested.Internal.arithPromoteShaped2
-            (Nested.Internal.Mixed.mliftNumElt2
-               (flip Mixed.Internal.Arith.liftVEltwise2
+            (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
                      let (x, y) = case (x', y') of
                            (Left x2, Left y2) ->
@@ -91,8 +90,8 @@ instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
 
 instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
          => IntegralF (Nested.Mixed sh r) where
-  quotF =   (Nested.Internal.Mixed.mliftNumElt2
-               (flip Mixed.Internal.Arith.liftVEltwise2
+  quotF =   (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
                      let (x, y) = case (x', y') of
                            (Left x2, Left y2) ->
@@ -103,8 +102,8 @@ instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
                      in V.zipWith
                           (\a b -> if b == 0 then 0 else quotF a b) x y)))
                             -- TODO: do better somehow
-  remF =    (Nested.Internal.Mixed.mliftNumElt2
-               (flip Mixed.Internal.Arith.liftVEltwise2
+  remF =    (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
                      let (x, y) = case (x', y') of
                            (Left x2, Left y2) ->
@@ -119,8 +118,8 @@ instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
 instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
          => RealFloatF (Nested.Ranked n r) where
   atan2F = Nested.Internal.arithPromoteRanked2
-            (Nested.Internal.Mixed.mliftNumElt2
-               (flip Mixed.Internal.Arith.liftVEltwise2
+            (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
                      let (x, y) = case (x', y') of
                            (Left x2, Left y2) ->
@@ -133,8 +132,8 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
 instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
          => RealFloatF (Nested.Shaped sh r) where
   atan2F = Nested.Internal.arithPromoteShaped2
-            (Nested.Internal.Mixed.mliftNumElt2
-               (flip Mixed.Internal.Arith.liftVEltwise2
+            (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
                      let (x, y) = case (x', y') of
                            (Left x2, Left y2) ->
@@ -146,8 +145,8 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
 
 instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
          => RealFloatF (Nested.Mixed sh r) where
-  atan2F =   (Nested.Internal.Mixed.mliftNumElt2
-               (flip Mixed.Internal.Arith.liftVEltwise2
+  atan2F =   (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
                      let (x, y) = case (x', y') of
                            (Left x2, Left y2) ->
@@ -169,7 +168,8 @@ type family RepORArray (y :: TensorKindType) where
 
 tftkG :: STensorKind y -> RepORArray y -> FullTensorKind y
 tftkG stk t =
-  let repackShapeTree :: STensorKind y -> Mixed.ShapeTree (RepORArray y)
+  let repackShapeTree :: STensorKind y
+                      -> Nested.Internal.ShapeTree (RepORArray y)
                       -> FullTensorKind y
       repackShapeTree stk0 tree = case stk0 of
         STKScalar -> FTKScalar
@@ -187,13 +187,13 @@ tftkG stk t =
     STKScalar -> FTKScalar
     STKR _ stk1 | Dict <- eltDictRep stk1 ->
       FTKR (Nested.rshape t) $ repackShapeTree stk1
-      $ snd $ Mixed.mshapeTree t
+      $ snd $ Nested.Internal.mshapeTree t
     STKS sh stk1 | Dict <- eltDictRep stk1 ->
       FTKS sh $ repackShapeTree stk1
-      $ snd $ Mixed.mshapeTree t
+      $ snd $ Nested.Internal.mshapeTree t
     STKX _ stk1 | Dict <- eltDictRep stk1 ->
       FTKX (Nested.mshape t) $ repackShapeTree stk1
-      $ snd $ Mixed.mshapeTree t
+      $ snd $ Nested.Internal.mshapeTree t
     STKProduct stk1 stk2 ->
       FTKProduct (tftkG stk1 (fst t))
                  (tftkG stk2 (snd t))

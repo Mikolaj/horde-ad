@@ -35,9 +35,11 @@ import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (Init)
-import Data.Array.Nested (IxS (..), ListS (..), Rank, ShS (..), type (++))
+import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -358,7 +360,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstTransposeS :: (Permutation.IsPermutation perm, Rank perm <= Rank sh)
                 => Permutation.Perm perm -> AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 (Permutation.PermutePrefix perm sh) x)
-  AstReshapeS :: Nested.Product sh ~ Nested.Product sh2
+  AstReshapeS :: Product sh ~ Product sh2
               => ShS sh2
               -> AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh2 x)
   AstZipS :: AstTensor ms s (TKProduct (TKS2 sh y) (TKS2 sh z))

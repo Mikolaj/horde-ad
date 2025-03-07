@@ -9,8 +9,8 @@ import Prelude
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, Nat)
 
-import Data.Array.Nested (ListR (..))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersADVal

@@ -12,8 +12,8 @@ import GHC.Exts (inline)
 import GHC.TypeLits (Nat)
 import System.Random
 
-import Data.Array.Nested (ShR (..))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast

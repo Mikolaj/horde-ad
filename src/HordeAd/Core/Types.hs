@@ -77,37 +77,12 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Mixed.Internal.Arith (NumElt (..))
 import Data.Array.Mixed.Permutation (DropLen, PermR, TakeLen)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (fromSMayNat', listxRank, shxSize)
+import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (Dict (..), Tail, fromSNat', unsafeCoerceRefl)
-import Data.Array.Nested
-  ( IShR
-  , IShX
-  , IxR (..)
-  , IxS (..)
-  , IxX (..)
-  , KnownShS (..)
-  , KnownShX (..)
-  , ListR (..)
-  , ListS (..)
-  , ListX (..)
-  , Rank
-  , ShR (..)
-  , ShS (..)
-  , ShX (..)
-  , StaticShX (..)
-  , type (++)
-  )
+import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal.Mixed
+import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape
-  ( listrHead
-  , listrTail
-  , listsDropLenPerm
-  , listsRank
-  , shrSize
-  , shsLength
-  , shsSize
-  )
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -249,9 +224,9 @@ instance Default Z0 where
   def = Z0
 
 instance Nested.PrimElt Z0
-newtype instance Nested.Internal.Mixed.Mixed sh Z0 = M_NilZ0 (Nested.Internal.Mixed.Mixed sh (Nested.Internal.Mixed.Primitive Z0)) deriving (Eq, Generic)  -- no content, orthotope optimises this (via Vector)
+newtype instance Nested.Internal.Mixed sh Z0 = M_NilZ0 (Nested.Internal.Mixed sh (Nested.Internal.Primitive Z0)) deriving (Eq, Generic)  -- no content, orthotope optimises this (via Vector)
 deriving instance Ord (Nested.Mixed sh Z0)
-newtype instance Nested.Internal.Mixed.MixedVecs s sh Z0 = MV_NilZ0 (V.MVector s Z0)  -- no content, MVector optimises this
+newtype instance Nested.Internal.MixedVecs s sh Z0 = MV_NilZ0 (V.MVector s Z0)  -- no content, MVector optimises this
 deriving via Nested.Primitive Z0 instance Nested.Elt Z0
 deriving via Nested.Primitive Z0 instance Nested.KnownElt Z0
 

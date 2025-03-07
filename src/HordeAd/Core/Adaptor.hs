@@ -26,10 +26,10 @@ import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (-), type (<=?))
 import System.Random
 
+import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Nested (KnownShS (..), ListR (..), Rank)
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (shsSize)
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersADVal

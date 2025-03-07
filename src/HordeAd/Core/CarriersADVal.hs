@@ -18,7 +18,8 @@ import Prelude
 import Data.Int (Int64)
 import Data.Type.Equality ((:~:) (Refl))
 
-import Data.Array.Nested (Rank, ShS (..))
+import Data.Array.Mixed.Shape
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta

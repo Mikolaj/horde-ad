@@ -24,11 +24,10 @@ import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Unsafe (unsafePerformIO)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
-import Data.Array.Nested
-  (IShX, IxS (..), ListS (..), Rank, ShS (..), ShX (..), type (++))
+import Data.Array.Nested (type (++))
 import Data.Array.Nested.Internal.Shape
-  (shrRank, shsPermutePrefix, shsRank, shsTail)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))

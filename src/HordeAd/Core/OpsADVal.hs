@@ -19,19 +19,11 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
 import Data.Maybe (fromMaybe)
 
-import Data.Array.Nested
-  ( StaticShX(..)
-  , ShR (..)
-  , ShX (..)
-  , ShS (..)
-  , KnownShS (..)
-  , KnownShX (..)
-  )
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape (withKnownShS)
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape (withKnownShX, ssxFromShape, fromSMayNat')
+import Data.Array.Nested.Internal.Shape
+import Data.Array.Mixed.Shape
 
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete

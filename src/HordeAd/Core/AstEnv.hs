@@ -22,7 +22,7 @@ import Data.Foldable qualified as Foldable
 import Text.Show (showListWith)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested.Internal.Shape (listsToList)
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Ops

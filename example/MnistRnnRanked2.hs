@@ -12,8 +12,8 @@ import Data.Vector.Storable (Vector)
 import GHC.TypeLits (KnownNat, Nat, type (+))
 import Numeric.LinearAlgebra (Numeric)
 
-import Data.Array.Nested (IShR, ShR (..))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Types
