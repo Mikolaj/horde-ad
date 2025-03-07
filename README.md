@@ -1,10 +1,8 @@
 # HORDE-AD: Higher Order Reverse Derivatives Efficiently
 
-This is an Automatic Differentiation library based on the paper [_"Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation"_](https://dl.acm.org/doi/10.1145/3498710) by Krawiec, Krishnaswami, Peyton Jones, Ellis, Fitzgibbon, and Eisenberg, developed in collaboration with the paper's authors.
+This is an Automatic Differentiation library based on the paper [_"Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation"_](https://dl.acm.org/doi/10.1145/3498710) by Krawiec, Krishnaswami, Peyton Jones, Ellis, Fitzgibbon, and Eisenberg, developed in collaboration with the paper's authors. Compared to the paper, the library additionally efficiently supports array operations and can generate symbolic derivative programs, the latter only for more narrowly typed source programs, where the higher-orderness is limited to a closed set of functionals over arrays.
 
-This is an early prototype, both in terms of the engine performance and the API augmented with a set of tools and examples. The user should be ready to add missing primitives, as well as any obvious tools that should be predefined but aren't. You can already differentiate all basic neural network architectures, such as fully connected, recurrent, convolutional and residual networks. The library, due to its loose coupling of differentiation and data containers, can naturally handle exotic variants of such networks that wouldn't express well in a limited language of matrices or tensors.
-
-Applications outside machine learning are very much in scope, given that the notion of a neural network is not hardwired into the formalism, but ad hoc redefined from basic building blocks of general automatic differentiation whenever it's needed.
+This is an early prototype, both in terms of the engine performance, the API andthe preliminary tools and examples build with it. The user should be ready to add missing primitives, as well as any obvious tools that should be predefined but aren't. It's already possible to differentiate basic neural network architectures, such as fully connected, recurrent, convolutional and residual. The library should also be suitable for defining exotic machine learning architectures and non-machine learning systems, given that the notion of a neural network is not hardwired into the formalism, but compositionally and type-safely built up from general automatic differentiation building blocks.
 
 Mature Haskell libraries with similar capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. See also https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md. Benchmarks suggest that horde-ad has competitive performance.
 <!--
@@ -12,7 +10,7 @@ Mature Haskell libraries with similar capabilities, but varying efficiency, are 
 
 The benchmarks at SOMEWHERE show that this library has performance highly competitive with (i.e. faster than) those and PyTorch on CPU.
 -->
-It is hoped that the separation of AD logic from matrix and tensor manipulation (deferred to [hmatrix] and [orthotope], respectively) will enable similar speedups on numerical accelerators.
+It is hoped that the (well-typed) separation of AD logic and the tensor manipulation backend will enable similar speedups on numerical accelerators.
 
 
 # WIP: The examples below are outdated and will be replaced soon using a new API
