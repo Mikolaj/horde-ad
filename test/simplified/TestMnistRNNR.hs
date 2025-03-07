@@ -29,6 +29,7 @@ import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
+import HordeAd.Core.AstInterpret
 import HordeAd.External.OptimizerTools
 
 import EqEpsilon
