@@ -18,7 +18,6 @@ import Data.Array.Nested (KnownShS (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonShapedOps
@@ -131,8 +130,7 @@ convMnistLossFusedS kh@SNat kw@SNat
                              input adparameters
       targets = str labelS
       loss = lossSoftMaxCrossEntropyS targets result
-  in tfromPrimal knownSTK
-                 (recip $ kconcrete $ fromInteger $ fromSNat batch_size) * loss
+  in kfromPrimal (recip $ kconcrete $ fromInteger $ fromSNat batch_size) * loss
 
 convMnistTestS
   :: forall kh kw h w c_out n_hidden batch_size target r.

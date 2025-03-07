@@ -16,8 +16,6 @@ import Data.Array.Nested (IShR, ShR (..))
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.Ops
-import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
 import HordeAd.OpsTensor
@@ -142,8 +140,7 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
       result = rnnMnistZeroR batch_size xs adparameters
       targets = rtr labelR
       loss = lossSoftMaxCrossEntropyR targets result
-  in tfromPrimal knownSTK
-                 (recip $ kconcrete $ fromIntegral batch_size) * loss
+  in kfromPrimal (recip $ kconcrete $ fromIntegral batch_size) * loss
 
 -- TODO: theses three require the use of `rmatmul2` method so that
 -- the RepN instance can use the hmatrix implementation and avoid

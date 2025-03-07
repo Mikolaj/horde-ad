@@ -45,6 +45,7 @@ module HordeAd.OpsTensor
   , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
   , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
   , xprimalPart, xdualPart, xfromPrimal, xfromDual, xScale
+  , kprimalPart, kdualPart, kfromPrimal, kfromDual, kScale
   , ADReady
   , ConvertTensor(..)
   , LetTensor, BaseTensor
@@ -1049,3 +1050,22 @@ xScale :: forall target sh r.
        => PrimalOf target (TKX sh r) -> DualOf target (TKX sh r)
        -> DualOf target (TKX sh r)
 xScale = tScale @target knownSTK
+
+kprimalPart :: BaseTensor target
+            => target (TKScalar r) -> PrimalOf target (TKScalar r)
+kprimalPart = tprimalPart
+kdualPart :: (BaseTensor target, GoodScalar r)
+          => target (TKScalar r) -> DualOf target (TKScalar r)
+kdualPart = tdualPart knownSTK
+kfromPrimal :: (BaseTensor target, GoodScalar r)
+            => PrimalOf target (TKScalar r) -> target (TKScalar r)
+kfromPrimal = tfromPrimal knownSTK
+kfromDual :: BaseTensor target
+          => DualOf target (TKScalar r) -> target (TKScalar r)
+kfromDual = tfromDual
+kScale :: forall target r.
+          ( BaseTensor target, GoodScalar r
+          , Num (target (TKScalar r)), Num (PrimalOf target (TKScalar r)) )
+       => PrimalOf target (TKScalar r) -> DualOf target (TKScalar r)
+       -> DualOf target (TKScalar r)
+kScale = tScale @target knownSTK

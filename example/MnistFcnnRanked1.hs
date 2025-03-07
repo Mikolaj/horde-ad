@@ -15,7 +15,7 @@ import Data.Array.Nested qualified as Nested
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.Ops
+import HordeAd.Core.Ops (tfromListR)
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps
