@@ -107,7 +107,7 @@ afcnnMnistTest1 widthHidden widthHidden2 dataList testParams =
                -> target (TKR 1 r)
             nn = afcnnMnist1 logisticS softMax1S
                              widthHidden widthHidden2 (sfromR glyph1)
-            v = Nested.rtoVector $ unRepN $ nn testParams
+            v = rtoVector $ nn testParams
         in V.maxIndex v == V.maxIndex (Nested.rtoVector label)
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

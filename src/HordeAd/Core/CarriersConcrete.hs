@@ -2,16 +2,17 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor operations implementation using the ox-arrays package.
 module HordeAd.Core.CarriersConcrete
-  ( -- * RepORArray and its operations and instances
+  ( -- * RepORArray and its operations
     RepORArray, tftkG, eltDictRep, showDictRep
-    -- * RepN and its instances
-  , RepN(..)
+    -- * RepN its operations
+  , RepN(..), rtoVector, stoVector, xtoVector
   ) where
 
 import Prelude hiding (foldl')
 
 import Control.DeepSeq (NFData (..))
 import Data.Vector.Generic qualified as V
+import Data.Vector.Storable qualified as VS
 
 import Data.Array.Mixed.Internal.Arith qualified as Nested.Internal.Arith
   (liftVEltwise2)
@@ -288,3 +289,12 @@ deriving instance IntegralF (RepORArray y) => IntegralF (RepN y)
 deriving instance Fractional (RepORArray y) => Fractional (RepN y)
 deriving instance Floating (RepORArray y) => Floating (RepN y)
 deriving instance RealFloatF (RepORArray y) => RealFloatF (RepN y)
+
+rtoVector :: GoodScalar r => RepN (TKR n r) -> VS.Vector r
+rtoVector  = Nested.rtoVector . unRepN
+
+stoVector :: GoodScalar r => RepN (TKS sh r) -> VS.Vector r
+stoVector = Nested.stoVector . unRepN
+
+xtoVector :: GoodScalar r => RepN (TKX sh r) -> VS.Vector r
+xtoVector = Nested.mtoVector . unRepN

@@ -238,7 +238,7 @@ instance BaseTensor RepN where
       STKScalar ->  -- optimized
         let shm = knownShS @shm
             s = shsSize shm
-            l = [ Nested.stoVector $ unRepN
+            l = [ stoVector
                   $ tsindex @_ @_ @shn
                       t (f (fmap RepN
                             $ fromLinearIdxS fromIntegral shm i))
@@ -386,7 +386,7 @@ instance BaseTensor RepN where
       STKScalar ->  -- optimized
         let shm = shxTakeSSX (Proxy @shn) sh (knownShX @shm)
             s = shxSize shm
-            l = [ Nested.mtoVector $ unRepN
+            l = [ xtoVector
                   $ txindex @_ @_ @shn
                       t (f (fmap RepN
                             $ fromLinearIdxX fromIntegral shm i))
@@ -648,10 +648,10 @@ updateNR :: forall n m x. (KnownNat n, KnownNat m, KnownSTK x)
          -> RepN (TKR2 (n + m) x)
 updateNR arr upd = case knownSTK @x of
   STKScalar ->  -- optimized
-    let values = Nested.rtoVector $ unRepN arr
+    let values = rtoVector arr
         sh = rshape arr
         f !t (ix, u) =
-          let v = Nested.rtoVector $ unRepN u
+          let v = rtoVector u
               i = fromIntegral $ unRepN $ toLinearIdx @n @m fromIntegral sh ix
           in V.concat [V.take i t, v, V.drop (i + V.length v) t]
     in RepN $ Nested.rfromVector sh (foldl' f values upd)
@@ -883,7 +883,7 @@ tgatherZR sh t f = case knownSTK @r of
   STKScalar ->  -- optimized
     let shm = takeShape @m sh
         s = shrSize shm
-        l = [ Nested.rtoVector $ unRepN
+        l = [ rtoVector
               $ t `trindex` f (fmap RepN $ fromLinearIdx fromIntegral shm i)
             | i <- [0 .. fromIntegral s - 1] ]
     in RepN $ Nested.rfromVector sh $ V.concat l
@@ -914,10 +914,10 @@ updateNS :: forall n sh r.
          -> RepN (TKS2 sh r)
 updateNS arr upd = case knownSTK @r of
   STKScalar ->
-    let values = Nested.stoVector $ unRepN arr
+    let values = stoVector arr
         sh = knownShS @sh
         f !t (ix, u) =
-          let v = Nested.stoVector $ unRepN u
+          let v = stoVector u
               i = gcastWith (unsafeCoerceRefl
                              :: sh :~: Take n sh ++ Drop n sh)
                   $ fromIntegral $ unRepN
@@ -1134,10 +1134,10 @@ updateNX :: forall n sh r.
          -> RepN (TKX2 sh r)
 updateNX arr upd = case knownSTK @r of
   STKScalar ->
-    let values = Nested.mtoVector $ unRepN arr
+    let values = xtoVector arr
         sh = xshape arr
         f !t (ix, u) =
-          let v = Nested.mtoVector $ unRepN u
+          let v = xtoVector u
               i = gcastWith (unsafeCoerceRefl
                              :: sh :~: Take n sh ++ Drop n sh)
                   $ fromIntegral $ unRepN

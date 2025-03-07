@@ -208,9 +208,9 @@ rnnMnistTestR batch_size (glyphR, labelR) testParams =
                -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]
             nn = rnnMnistZeroR2 batch_size input
         in nn testParams
-      outputs = map (Nested.rtoVector . unRepN) $ runravelToList
+      outputs = map rtoVector $ runravelToList
                 $ rtranspose [1, 0] outputR
-      labels = map (Nested.rtoVector . unRepN)
+      labels = map rtoVector
                $ runravelToList @_ @(TKScalar r)
                $ rconcrete labelR
       matchesLabels :: Vector r -> Vector r -> Int

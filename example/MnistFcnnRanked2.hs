@@ -102,7 +102,7 @@ afcnnMnistTest2 dataList testParams =
             nn :: ADFcnnMnist2Parameters target r q
                -> target (TKR 1 r)
             nn = inline afcnnMnist2 logistic softMax1 glyph1
-            v = Nested.rtoVector $ unRepN $ nn testParams
+            v = rtoVector $ nn testParams
         in V.maxIndex v == V.maxIndex (Nested.rtoVector label)
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

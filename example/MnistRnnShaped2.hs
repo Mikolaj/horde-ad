@@ -160,9 +160,9 @@ rnnMnistTestS out_width@SNat batch_size@SNat
                                (SNat @h) (SNat @w)
                                input
         in nn testParams
-      outputs = map (Nested.stoVector . unRepN) $ sunravelToList
+      outputs = map stoVector $ sunravelToList
                 $ stranspose @'[1, 0] outputS
-      labels = map (Nested.stoVector . unRepN)
+      labels = map stoVector
                $ sunravelToList @_ @_ @(TKScalar r)
                $ sconcrete labelS
       matchesLabels :: Vector r -> Vector r -> Int
