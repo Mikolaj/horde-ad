@@ -283,6 +283,8 @@ instance Ord (ADVal f z) where
   (<=) = error "AST requires that OrdB be used instead"
 
 -- This is copied from below to permit fromRational for TKScalar.
+-- This OVERLAPPABLE seems to work 100% reliably for indexes
+-- and not at all for a variant of rfromListLinear that takes scalars.
 instance (GoodScalar r, ShareTensor f, ADReadyNoLet f)
          => Num (ADVal f (TKScalar r)) where
   D u u' + D v v' = dD (u + v) (dAdd u' v')

@@ -1,10 +1,10 @@
 # HORDE-AD: Higher Order Reverse Derivatives Efficiently
 
-This is an Automatic Differentiation library based on the paper [_"Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation"_](https://dl.acm.org/doi/10.1145/3498710) by Krawiec, Krishnaswami, Peyton Jones, Ellis, Fitzgibbon, and Eisenberg, developed in collaboration with the paper's authors. Compared to the paper, the library additionally efficiently supports array operations and can generate symbolic derivative programs, the latter only for more narrowly typed source programs, where the higher-orderness is limited to a closed set of functionals over arrays.
+This is an Automatic Differentiation library based on the paper [_"Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation"_](https://dl.acm.org/doi/10.1145/3498710) by Krawiec, Krishnaswami, Peyton Jones, Ellis, Fitzgibbon, and Eisenberg, developed in collaboration with the paper's authors. Compared to the paper, the library additionally efficiently supports array operations and can generate symbolic derivative programs, though the latter only for more narrowly typed source programs, where the higher-orderness is limited to a closed set of functionals over arrays.
 
-This is an early prototype, both in terms of the engine performance, the API andthe preliminary tools and examples build with it. The user should be ready to add missing primitives, as well as any obvious tools that should be predefined but aren't. It's already possible to differentiate basic neural network architectures, such as fully connected, recurrent, convolutional and residual. The library should also be suitable for defining exotic machine learning architectures and non-machine learning systems, given that the notion of a neural network is not hardwired into the formalism, but compositionally and type-safely built up from general automatic differentiation building blocks.
+This is an early prototype, both in terms of the engine performance, the API and the preliminary tools and examples built with it. The user should be ready to add missing primitives, as well as any obvious tools that should be predefined but aren't. It's already possible to differentiate basic neural network architectures, such as fully connected, recurrent, convolutional and residual. The library should also be suitable for defining exotic machine learning architectures and non-machine learning systems, given that the notion of a neural network is not hardwired into the formalism, but instead it's compositionally and type-safely built up from general automatic differentiation building blocks.
 
-Mature Haskell libraries with similar capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. See also https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md. Benchmarks suggest that horde-ad has competitive performance.
+Mature Haskell libraries with similar capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. See also https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md. Benchmarks suggest that horde-ad has competitive performance. (TODO: boasting)
 <!--
 -- TODO: do and redo the benchmarks
 
@@ -13,58 +13,86 @@ The benchmarks at SOMEWHERE show that this library has performance highly compet
 It is hoped that the (well-typed) separation of AD logic and the tensor manipulation backend will enable similar speedups on numerical accelerators.
 
 
-# WIP: The examples below are outdated and will be replaced soon using a new API
-
-
 ## Computing the derivative of a simple function
 
 Here is an example of a Haskell function to be differentiated:
 
 ```hs
 -- A function that goes from R^3 to R.
-foo :: RealFloat a => (a,a,a) -> a
-foo (x,y,z) =
+foo :: RealFloat a => (a, a, a) -> a
+foo (x, y, z) =
   let w = x * sin y
   in atan2 z w + z * w  -- note that w appears twice
 ```
 
-The gradient of `foo` is:
-<!--
-TODO: this may yet get simpler and the names not leaking implementation details
-("delta") so much, when the adaptor gets used at scale and redone.
-Alternatively, we could settle on Double already here.
--->
+The gradient of `foo` instantiated to `Double` can be expressed in Haskell with horde-ad as:
 ```hs
-grad_foo :: forall r. (HasDelta r, AdaptableScalar 'ADModeGradient r)
-         => (r, r, r) -> (r, r, r)
-grad_foo = rev @r foo
+gradFooDouble :: (Double, Double, Double) -> (Double, Double, Double)
+gradFooDouble = fromDValue . crev foo . fromValue
 ```
 
-As can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
+which can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
 ```hs
->>> grad_foo (1.1 :: Double, 2.2, 3.3)
+>>> gradFooDouble (1.1, 2.2, 3.3)
 (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 ```
 
-As a side note, `w` is processed only once during gradient computation and this property of sharing preservation is guaranteed universally by horde-ad without any action required from the user. The property holds not only for scalar values, but for arbitrary tensors, e.g., those in further examples. We won't mention the property further.
-
-<!--
-Do we want yet another example here, before we reach Jacobians or shaped tensors? Perhaps one with the testing infrastructure, e.g., generating a single set of random tensors, or a full QuickCheck example or just a simple
+Instantiated to matrices, the gradient is:
 ```hs
-  assertEqualUpToEpsilon 1e-9
-    (6.221706565357043, -12.856908977773593, 6.043601532156671)
-    (rev bar (1.1, 2.2, 3.3))
+gradFooMatrix :: Differentiable r, GoodScalar r)
+              => (RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r))
+              -> (RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r))
+gradFooMatrix = crev foo
 ```
-? Or is there a risk the reader won't make it to the shaped example below if we tarry here? Or perhaps finish the shaped tensor example below with an invocation of `assertEqualUpToEpsilon`?
--->
+
+as can be verified by:
+```hs
+>>> gradFooMatrix (srepl 1.1, srepl 2.2, srepl (3.3 :: Double))
+(sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
+```
+
+Note that `w` is processed only once during gradient computation and this property of sharing preservation is guaranteed for the `crev` tool universally, without any action required from the user. When computing symbolic derivative programs, however, the user has to explicitly mark values for sharing using `tlet` with a more specific type of the objective function, as shown below.
+
+```hs
+fooLet :: (RealFloatH (target a), LetTensor target)
+       => (target a, target a, target a) -> target a
+fooLet (x, y, z) =
+  tlet (x * sin y) $ \w ->
+    atan2H z w + z * w
+```
+
+The symbolic gradient program (here presented with additional formatting) can be then obtained using the `revArtifactAdapt` tool:
+```hs
+>>> let ftk = FTKS @'[2, 2] [2, 2] (FTKScalar @Double)
+    in printArtifactGradient
+         (fst $ revArtifactAdapt True fooLet (FTKProduct (FTKProduct ftk ftk) ftk))
+"\m6 m1 ->
+   let m3 = sin (tproject2 (tproject1 m1))
+       m4 = tproject1 (tproject1 m1) * m3
+       m5 = recip (tproject2 m1 * tproject2 m1 + m4 * m4)
+       m7 = (negate (tproject2 m1) * m5) * m6 + tproject2 m1 * m6
+    in tpair
+         ( tpair (m3 * m7, cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7))
+         , (m4 * m5) * m6 + m4 * m6)"
+```
+
+A quick inspection of the gradient program reveals that computations are not repeated, which is thanks to the sharing mechanism. A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value should be the same (after accounting for the 3-tuple represented with binary product) as when evaluating `fooLet` with `crev` on the same input. A shorthand that creates the symbolic derivative program and interprets it with a given input on the default CPU backend is called `rev` and is used exactly the same (but with often much better performance) as `crev`.
+
+```hs
+>>> rev (fooLet @_ @(TKS [2, 2] Double)) (srepl 1.1, srepl 2.2, srepl 3.3)
+(sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
+```
 
 
-<!--
+# WIP: The examples below are outdated and will be replaced soon using a new API
+
+
 ## Computing Jacobians
 
 -- TODO: we can have vector/matrix/tensor codomains, but not pair codomains
 -- until #68 is done;
 -- perhaps a vector codomain example, with a 1000x3 Jacobian, would make sense?
+-- 2 years later: actually, we can now have TKProduct codomains.
 
 Now let's consider a function from 'R^n` to `R^m'.  We don't want the gradient, but instead the Jacobian.
 ```hs
@@ -75,7 +103,7 @@ foo (x,y,z) =
   in (atan2 z w, z * w)
 ```
 TODO: show how the 2x3 Jacobian emerges from here
--->
+
 
 
 ## Forall shapes and sizes

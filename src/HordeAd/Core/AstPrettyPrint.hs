@@ -7,7 +7,7 @@ module HordeAd.Core.AstPrettyPrint
     printAstVarName
   , printAstSimple, printAstPretty, printAstPrettyButNested
   , printArtifactSimple, printArtifactPretty
-  , printArtifactPrimalSimple, printArtifactPrimalPretty
+  , printArtifactPrimalSimple, printArtifactPrimalPretty, printArtifactGradient
   ) where
 
 import Prelude
@@ -722,3 +722,7 @@ printArtifactPrimalPretty
 printArtifactPrimalPretty renames !AstArtifactRev{..} =
   "\\" ++ printAstVarName renames artVarDomainRev
        ++ " -> " ++ printAstPretty renames artPrimalRev
+
+printArtifactGradient
+  :: AstArtifactRev x z -> String
+printArtifactGradient = printArtifactPretty IM.empty

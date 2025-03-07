@@ -147,7 +147,7 @@ class GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
 
 type Differentiable r =
-  (RealFloatH r, Nested.FloatElt r, RealFrac r, Random r)
+  (RealFloatH r, Nested.FloatElt r, RealFrac r, RealFloat r, Random r)
 
 -- We white-list all types on which we permit differentiation (e.g., SGD)
 -- to work. This is for technical typing purposes and imposes updates

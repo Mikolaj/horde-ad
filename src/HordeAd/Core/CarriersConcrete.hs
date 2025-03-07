@@ -114,7 +114,31 @@ instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralH r)
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith
                           (\a b -> if b == 0 then 0 else remH a b) x y)))
-                            -- TODO: do better somehow
+                            -- TODO: do better somehow'
+
+instance GoodScalar r
+         => Real (Nested.Ranked n r) where
+  toRational = error "horde-ad: operation not defined for tensor"
+
+instance GoodScalar r
+         => Real (Nested.Shaped sh r) where
+  toRational = error "horde-ad: operation not defined for tensor"
+
+instance GoodScalar r
+         => Real (Nested.Mixed sh r) where
+  toRational = error "horde-ad: operation not defined for tensor"
+
+instance (GoodScalar r, Nested.FloatElt r)
+         => RealFrac (Nested.Ranked n r) where
+  properFraction = error "horde-ad: operation not defined for tensor"
+
+instance (GoodScalar r, RealFrac r, Nested.FloatElt r)
+         => RealFrac (Nested.Shaped sh r) where
+  properFraction = error "horde-ad: operation not defined for tensor"
+
+instance (GoodScalar r, Nested.FloatElt r)
+         => RealFrac (Nested.Mixed sh r) where
+  properFraction = error "horde-ad: operation not defined for tensor"
 
 instance (Nested.NumElt r, Nested.PrimElt r, RealFloatH r, Nested.FloatElt r)
          => RealFloatH (Nested.Ranked n r) where
@@ -156,6 +180,77 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloatH r, Nested.FloatElt r)
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith atan2H x y)))  -- TODO: do better somehow
+
+instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
+         => RealFloat (Nested.Ranked n r) where
+  atan2 = Nested.Internal.arithPromoteRanked2
+            (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in V.zipWith atan2 x y)))  -- TODO: do better somehow
+  floatRadix = error "horde-ad: operation not defined for tensor"
+  floatDigits = error "horde-ad: operation not defined for tensor"
+  floatRange = error "horde-ad: operation not defined for tensor"
+  decodeFloat = error "horde-ad: operation not defined for tensor"
+  encodeFloat = error "horde-ad: operation not defined for tensor"
+  isNaN = error "horde-ad: operation not defined for tensor"
+  isInfinite = error "horde-ad: operation not defined for tensor"
+  isDenormalized = error "horde-ad: operation not defined for tensor"
+  isNegativeZero = error "horde-ad: operation not defined for tensor"
+  isIEEE = error "horde-ad: operation not defined for tensor"
+
+instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
+         => RealFloat (Nested.Shaped sh r) where
+  atan2 = Nested.Internal.arithPromoteShaped2
+            (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in V.zipWith atan2 x y)))  -- TODO: do better somehow
+  floatRadix = error "horde-ad: operation not defined for tensor"
+  floatDigits = error "horde-ad: operation not defined for tensor"
+  floatRange = error "horde-ad: operation not defined for tensor"
+  decodeFloat = error "horde-ad: operation not defined for tensor"
+  encodeFloat = error "horde-ad: operation not defined for tensor"
+  isNaN = error "horde-ad: operation not defined for tensor"
+  isInfinite = error "horde-ad: operation not defined for tensor"
+  isDenormalized = error "horde-ad: operation not defined for tensor"
+  isNegativeZero = error "horde-ad: operation not defined for tensor"
+  isIEEE = error "horde-ad: operation not defined for tensor"
+
+instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
+         => RealFloat (Nested.Mixed sh r) where
+  atan2 =   (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in V.zipWith atan2 x y)))  -- TODO: do better somehow
+  floatRadix = error "horde-ad: operation not defined for tensor"
+  floatDigits = error "horde-ad: operation not defined for tensor"
+  floatRange = error "horde-ad: operation not defined for tensor"
+  decodeFloat = error "horde-ad: operation not defined for tensor"
+  encodeFloat = error "horde-ad: operation not defined for tensor"
+  isNaN = error "horde-ad: operation not defined for tensor"
+  isInfinite = error "horde-ad: operation not defined for tensor"
+  isDenormalized = error "horde-ad: operation not defined for tensor"
+  isNegativeZero = error "horde-ad: operation not defined for tensor"
+  isIEEE = error "horde-ad: operation not defined for tensor"
 
 
 -- * RepORArray and its operations
@@ -286,9 +381,12 @@ deriving instance Eq (RepORArray y) => Eq (RepN y)
 deriving instance Ord (RepORArray y) => Ord (RepN y)
 deriving instance Num (RepORArray y) => Num (RepN y)
 deriving instance IntegralH (RepORArray y) => IntegralH (RepN y)
+deriving instance Real (RepORArray y) => Real (RepN y)
 deriving instance Fractional (RepORArray y) => Fractional (RepN y)
 deriving instance Floating (RepORArray y) => Floating (RepN y)
+deriving instance RealFrac (RepORArray y) => RealFrac (RepN y)
 deriving instance RealFloatH (RepORArray y) => RealFloatH (RepN y)
+deriving instance RealFloat (RepORArray y) => RealFloat (RepN y)
 
 rtoVector :: GoodScalar r => RepN (TKR n r) -> VS.Vector r
 rtoVector  = Nested.rtoVector . unRepN

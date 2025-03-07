@@ -67,6 +67,14 @@ testTrees =
   , testCase "2overleafCIntToFloatp" testOverleafCIntToFloatp
   , testCase "2overleafPP" testOverleafPP
   , testCase "2foo" testFoo
+  , testCase "2fooGradDouble" testGradFooDouble
+  , testCase "2fooGradMatrix" testGradFooMatrix
+  , testCase "2fooGradMatrix2" testGradFooMatrix2
+  , testCase "2fooGradMatrixPP" testGradFooMatrixPP
+  , testCase "2fooGradMatrixSimpPP" testGradFooMatrixSimpPP
+  , testCase "2fooLetGradMatrixPP" testGradFooLetMatrixPP
+  , testCase "2fooGradMatrixRev" testGradFooMatrixRev
+  , testCase "2fooLetGradMatrixSimpRPP" testGradFooLetMatrixSimpRPP
   , testCase "2fooGrad" testGradFooScalar
   , testCase "2fooGradC" testGradCFooScalar
   , testCase "2fooS" testFooS
@@ -511,21 +519,93 @@ testOverleafPP = do
   show deltas
     @?= "DeltaFromS (STKR (SNat @0) STKScalar) (DeltaShare 100000002 (DeltaSum (SNat @50) (STKS [] STKScalar) (DeltaShare 100000001 (DeltaGatherS [50] [] [28] (DeltaSFromR [28] (DeltaInput (InputId 0))) <function>))))"
 
-foo :: RealFloatH a => (a, a, a) -> a
+foo :: RealFloat a => (a, a, a) -> a
 foo (x, y, z) =
   let w = x * sin y
-  in atan2H z w + z * w
+  in atan2 z w + z * w  -- note that w appears twice
 
 testFoo :: Assertion
 testFoo = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
-    (rev @_ @(TKR 0 Double)
+    (crev @_ @(TKR 0 Double)
          foo (rscalar 1.1, rscalar 2.2, rscalar 3.3))
+
+gradFooDouble :: (Double, Double, Double) -> (Double, Double, Double)
+gradFooDouble = fromDValue . crev foo . fromValue
+
+testGradFooDouble :: Assertion
+testGradFooDouble =
+  assertEqualUpToEpsilon 1e-10
+    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+    (gradFooDouble (1.1, 2.2, 3.3))
+
+gradFooMatrix :: (Differentiable r, GoodScalar r)
+              => (RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r))
+              -> (RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r))
+gradFooMatrix = crev foo
+
+testGradFooMatrix :: Assertion
+testGradFooMatrix =
+  assertEqualUpToEpsilon 1e-10
+    (singestData [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],singestData [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],singestData [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
+    (gradFooMatrix (srepl 1.1, srepl 2.2, srepl (3.3 :: Double)))
+
+fooLet :: (RealFloatH (target a), LetTensor target)
+       => (target a, target a, target a) -> target a
+fooLet (x, y, z) =
+  tlet (x * sin y) $ \w ->
+    atan2H z w + z * w
+
+testGradFooLetMatrixPP :: Assertion
+testGradFooLetMatrixPP = do
+  resetVarCounter >> resetIdCounter
+  (let ftk = FTKS @'[2, 2] [2, 2] (FTKScalar @Double)
+   in printArtifactGradient (fst $ revArtifactAdapt True fooLet (FTKProduct (FTKProduct ftk ftk) ftk))) @?= "\\m6 m1 -> let m3 = sin (tproject2 (tproject1 m1)) ; m4 = tproject1 (tproject1 m1) * m3 ; m5 = recip (tproject2 m1 * tproject2 m1 + m4 * m4) ; m7 = (negate (tproject2 m1) * m5) * m6 + tproject2 m1 * m6 in tpair (tpair (m3 * m7, cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7)), (m4 * m5) * m6 + m4 * m6)"
+
+testGradFooMatrixRev :: Assertion
+testGradFooMatrixRev =
+  assertEqualUpToEpsilon 1e-10
+    (singestData [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],singestData [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],singestData [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
+    (rev (fooLet @_ @(TKS [2, 2] Double)) (srepl 1.1, srepl 2.2, srepl 3.3))
+
+testGradFooLetMatrixSimpRPP :: Assertion
+testGradFooLetMatrixSimpRPP = do
+  resetVarCounter >> resetIdCounter
+  (let ftk = FTKR (2 :$: 2 :$: ZSR) (FTKScalar @Double)
+    in printArtifactGradient (simplifyArtifact $ fst $ revArtifactAdapt True fooLet (FTKProduct (FTKProduct ftk ftk) ftk))) @?= "\\m6 m1 -> tfromS (let m3 = sin (sfromR (tproject2 (tproject1 m1))) ; m4 = sfromR (tproject1 (tproject1 m1)) * m3 ; m5 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m4 * m4) ; m7 = (negate (sfromR (tproject2 m1)) * m5) * sfromR m6 + sfromR (tproject2 m1) * sfromR m6 in tpair (tpair (m3 * m7, cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m7)), (m4 * m5) * sfromR m6 + m4 * sfromR m6))"
+
+foo2 :: RealFloatH a => (a, a, a) -> a
+foo2 (x, y, z) =
+  let w = x * sin y
+  in atan2H z w + z * w
+
+gradFooMatrix2 :: (Differentiable r, GoodScalar r)
+               => (RepN (TKR 2 r), RepN (TKR 2 r), RepN (TKR 2 r))
+               -> (RepN (TKR 2 r), RepN (TKR 2 r), RepN (TKR 2 r))
+gradFooMatrix2 = rev foo2
+
+testGradFooMatrix2 :: Assertion
+testGradFooMatrix2 =
+  assertEqualUpToEpsilon 1e-10
+    (ringestData [2, 2] [2.4396285219055063 :: Double,2.4396285219055063,2.4396285219055063,2.4396285219055063], ringestData [2, 2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421], ringestData [2, 2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
+    (gradFooMatrix2 (rreplicate0N [2, 2] (rscalar 1.1), rreplicate0N [2, 2] (rscalar 2.2), rreplicate0N [2, 2] (rscalar 3.3)))
+
+testGradFooMatrixPP :: Assertion
+testGradFooMatrixPP = do
+  resetVarCounter >> resetIdCounter
+  (let ftk = FTKR (2 :$: 2 :$: ZSR) (FTKScalar @Double)
+    in printArtifactGradient (fst $ revArtifactAdapt True foo2 (FTKProduct (FTKProduct ftk ftk) ftk))) @?= "\\m7 m1 -> let m2 = sin (sfromR (tproject2 (tproject1 m1))) ; m3 = sfromR (tproject1 (tproject1 m1)) * m2 ; m4 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m3 * m3) ; m5 = sin (sfromR (tproject2 (tproject1 m1))) ; m6 = sfromR (tproject1 (tproject1 m1)) * m5 ; m8 = sfromR (tproject2 m1) * sfromR m7 ; m9 = (negate (sfromR (tproject2 m1)) * m4) * sfromR m7 in tpair (tpair (rfromS (m2 * m9 + m5 * m8), rfromS (cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m9) + cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m8))), rfromS ((m3 * m4) * sfromR m7 + m6 * sfromR m7))"
+
+testGradFooMatrixSimpPP :: Assertion
+testGradFooMatrixSimpPP = do
+  resetVarCounter >> resetIdCounter
+  (let ftk = FTKR (2 :$: 2 :$: ZSR) (FTKScalar @Double)
+    in printArtifactGradient (simplifyArtifact $ fst $ revArtifactAdapt True foo2 (FTKProduct (FTKProduct ftk ftk) ftk))) @?= "\\m7 m1 -> tfromS (let m2 = sin (sfromR (tproject2 (tproject1 m1))) ; m3 = sfromR (tproject1 (tproject1 m1)) * m2 ; m4 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m3 * m3) ; m5 = sin (sfromR (tproject2 (tproject1 m1))) ; m8 = sfromR (tproject2 m1) * sfromR m7 ; m9 = (negate (sfromR (tproject2 m1)) * m4) * sfromR m7 in tpair (tpair (m2 * m9 + m5 * m8, cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m9) + cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m8)), (m3 * m4) * sfromR m7 + (sfromR (tproject1 (tproject1 m1)) * m5) * sfromR m7))"
 
 gradFooScalar :: forall r. r ~ Double
               => (r, r, r) -> (r, r, r)
-gradFooScalar = fromDValue . rev foo . fromValue
+gradFooScalar = fromDValue . rev foo2 . fromValue
 
 testGradFooScalar :: Assertion
 testGradFooScalar =
@@ -535,7 +615,7 @@ testGradFooScalar =
 
 gradCFooScalar :: forall r. r ~ Float
                => (r, r, r) -> (r, r, r)
-gradCFooScalar = fromDValue . crev foo . fromValue
+gradCFooScalar = fromDValue . crev foo2 . fromValue
 
 testGradCFooScalar :: Assertion
 testGradCFooScalar =
@@ -543,24 +623,19 @@ testGradCFooScalar =
     (2.4396284,-1.9533751,0.96548253)
     (gradCFooScalar (1.1, 2.2, 3.3))
 
-fooF :: RealFloatH a => (a, a, a) -> a
-fooF (x, y, z) =
-  let w = x * sin y
-  in atan2H z w + z * w
-
 testFooS :: Assertion
 testFooS = do
   assertEqualUpToEpsilon 1e-10
     (srepl 2.4396285219055063, srepl (-1.953374825727421), srepl 0.9654825811012627)
     (rev @_ @(TKS '[3, 534, 3] Double)
-         fooF (srepl 1.1, srepl 2.2, srepl 3.3))
+         foo2 (srepl 1.1, srepl 2.2, srepl 3.3))
 
 testFooSToFloat :: Assertion
 testFooSToFloat = do
   assertEqualUpToEpsilon 1e-5
     (srepl 2.4396285219055063, srepl (-1.953374825727421), srepl 0.9654825811012627)
     (rev @_ @(TKS '[3, 534, 3] Float)
-         (scast . fooF)
+         (scast . foo2)
          (srepl 1.1 :: RepN (TKS '[3, 534, 3] Double), srepl 2.2, srepl 3.3))
 
 testFooSBoth :: Assertion
@@ -568,7 +643,7 @@ testFooSBoth = do
   assertEqualUpToEpsilon 1e-5
     (srepl 2.439628436155373, srepl (-1.9533749), srepl 0.9654825479484146)
     (rev @_ @(TKS '[3, 534, 3] Float)
-         (scast . fooF . (\(d, f, d2) -> (d, scast f, d2)))
+         (scast . foo2 . (\(d, f, d2) -> (d, scast f, d2)))
          ( srepl 1.1 :: RepN (TKS '[3, 534, 3] Double)
          , srepl 2.2 :: RepN (TKS '[3, 534, 3] Float)
          , srepl 3.3 ))
@@ -578,7 +653,7 @@ testFooBoth = do
   assertEqualUpToEpsilon 1e-5
     (rscalar 2.439628436155373, rscalar (-1.9533749), rscalar 0.9654825479484146)
     (rev @_ @(TKR 0 Float)
-         (rcast . foo . (\(d, f, d2) -> (d, rcast f, d2)))
+         (rcast . foo2 . (\(d, f, d2) -> (d, rcast f, d2)))
          ( rscalar 1.1 :: RepN (TKR 0 Double)
          , rscalar 2.2 :: RepN (TKR 0 Float)
          , rscalar 3.3 ))
@@ -587,7 +662,7 @@ testFooPP :: Assertion
 testFooPP = do
   resetVarCounter
   let renames = IM.fromList [(2, "x"), (3, "y"), (4, "z")]
-      fooT = foo @(AstTensor AstMethodLet FullSpan (TKR 0 Double))
+      fooT = foo2 @(AstTensor AstMethodLet FullSpan (TKR 0 Double))
       foo3 x = fooT (x, x, x)
       (var3, ast3) = funToAst (FTKR ZSR FTKScalar) $ foo3
   "\\" ++ printAstVarName IM.empty var3
@@ -600,10 +675,10 @@ testFooPP = do
   printArtifactPrimalSimple renames artifactRev
     @?= "\\x1 -> tlet (sin (sfromR (tproject2 (tproject1 x1)))) (\\x -> tlet (sfromR (tproject1 (tproject1 x1)) * x) (\\y -> tlet (sin (sfromR (tproject2 (tproject1 x1)))) (\\x5 -> tlet (sfromR (tproject1 (tproject1 x1)) * x5) (\\x6 -> rfromS (atan2H (sfromR (tproject2 x1)) y + sfromR (tproject2 x1) * x6)))))"
 
-fooLet :: forall target r n.
+fooLetOld :: forall target r n.
           (RealFloatH (target (TKR n r)), LetTensor target)
        => (target (TKR n r), target (TKR n r), target (TKR n r)) -> target (TKR n r)
-fooLet (x, y, z) =
+fooLetOld (x, y, z) =
   let w0 = x * sin y
   in tlet w0 $ \w ->
      atan2H z w + z * w
@@ -613,14 +688,14 @@ testFooLet = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
     (rev @_ @(TKR 0 Double)
-         fooLet (rscalar 1.1, rscalar 2.2, rscalar 3.3))
+         fooLetOld (rscalar 1.1, rscalar 2.2, rscalar 3.3))
 
 testFooLetPP :: Assertion
 testFooLetPP = do
   resetVarCounter
   let renames = IM.fromList [(2, "x"), (3, "y"), (4, "z")]
       renamesNull = IM.fromList [(1, "x1"), (2, "x2")]
-      fooLetT = fooLet @(AstTensor AstMethodLet FullSpan) @Double
+      fooLetT = fooLetOld @(AstTensor AstMethodLet FullSpan) @Double
       fooLet3 x = fooLetT (x, x, x)
       (var3, ast3) = funToAst (FTKR ZSR FTKScalar) $ fooLet3
   "\\" ++ printAstVarName renamesNull var3
@@ -1239,12 +1314,12 @@ testMatmul2SpeedBig =
 
 bar :: forall a. RealFloatH a => (a, a) -> a
 bar (x, y) =
-  let w = foo (x, y, x) * sin y
+  let w = foo2 (x, y, x) * sin y
   in atan2H x w + y * w
 
 barF :: forall a. RealFloatH a => (a, a) -> a
 barF (x, y) =
-  let w = fooF (x, y, x) * sin y
+  let w = foo2 (x, y, x) * sin y
   in atan2H x w + y * w
 
 testBar :: Assertion
@@ -1281,7 +1356,7 @@ testBarFwd =
 barADVal2 :: forall a. RealFloatH a
           => (a, a, a) -> a
 barADVal2 (x,y,z) =
-  let w = foo (x,y,z) * sin y
+  let w = foo2 (x,y,z) * sin y
   in atan2H z w + z * w
 
 -- A check if gradient computation is re-entrant.
@@ -1305,7 +1380,7 @@ baz (_x,y,z) =
 
 -- An "old term", computed once, stored at top level.
 fooFromPrimal :: ADVal RepN (TKR 0 Double)
-fooFromPrimal = foo (rscalar 7, rscalar 8, rscalar 9)
+fooFromPrimal = foo2 (rscalar 7, rscalar 8, rscalar 9)
 
 testBaz :: Assertion
 testBaz =
@@ -1349,7 +1424,7 @@ fooBuild1 v =
   let r = rsum0 v
       v' = rminimum v
   in rbuild1 3 $ \ix ->
-       r * foo ( rscalar 3
+       r * foo2 ( rscalar 3
                , rscalar 5 * r
                , r * rminimum v * v')
        + bar (r, rindex v [ix + 1])

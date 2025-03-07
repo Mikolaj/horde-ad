@@ -85,6 +85,7 @@ import HordeAd.Core.Ops
 tunit :: BaseTensor target
       => target TKUnit
 tunit = kconcrete Z0
+
 tlet :: forall x z target. LetTensor target
      => target x -> (target x -> target z) -> target z
 tlet = ttlet
