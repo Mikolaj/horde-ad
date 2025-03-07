@@ -75,8 +75,8 @@ import HordeAd.Core.Types
 -- * Delta identifiers
 
 type role NodeId nominal nominal
-data NodeId :: Target -> TensorKindType -> Type where
-  NodeId :: forall target y. FullTensorKind y -> Int -> NodeId target y
+data NodeId :: Target -> TK -> Type where
+  NodeId :: forall target y. FullShapeTK y -> Int -> NodeId target y
 
 -- No Eq instance to limit hacks outside this module.
 
@@ -85,7 +85,7 @@ instance Show (NodeId target y) where
     showsPrec d n  -- less verbose, more readable
 
 instance DMap.Enum1 (NodeId target) where
-  type Enum1Info (NodeId target) = Some FullTensorKind
+  type Enum1Info (NodeId target) = Some FullShapeTK
   fromEnum1 (NodeId ftk n) = (n, Some ftk)
   toEnum1 n (Some ftk) = Some $ NodeId ftk n
 
@@ -93,15 +93,15 @@ instance TestEquality (NodeId target) where
   testEquality (NodeId ftk1 _) (NodeId ftk2 _) = matchingFTK ftk1 ftk2
 
 -- | Wrap non-negative (only!) integers in the `NodeId` newtype.
-mkNodeId :: FullTensorKind y -> Int -> NodeId f y
+mkNodeId :: FullShapeTK y -> Int -> NodeId f y
 mkNodeId ftk i = assert (i >= 0) $ NodeId ftk i
 
-nodeIdToFTK :: NodeId f y -> FullTensorKind y
+nodeIdToFTK :: NodeId f y -> FullShapeTK y
 nodeIdToFTK (NodeId ftk _) = ftk
 
 type role InputId nominal nominal
-data InputId :: Target -> TensorKindType -> Type where
-  InputId :: forall target y. FullTensorKind y -> Int -> InputId target y
+data InputId :: Target -> TK -> Type where
+  InputId :: forall target y. FullShapeTK y -> Int -> InputId target y
 
 -- No Eq instance to limit hacks outside this module.
 
@@ -112,7 +112,7 @@ instance Show (InputId target y) where  -- backward compatibility
       . shows n
 
 instance DMap.Enum1 (InputId target) where
-  type Enum1Info (InputId target) = Some FullTensorKind
+  type Enum1Info (InputId target) = Some FullShapeTK
   fromEnum1 (InputId ftk n) = (n, Some ftk)
   toEnum1 n (Some ftk) = Some $ InputId ftk n
 
@@ -120,10 +120,10 @@ instance TestEquality (InputId target) where
   testEquality (InputId ftk1 _) (InputId ftk2 _) = matchingFTK ftk1 ftk2
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
-mkInputId :: FullTensorKind y -> Int -> InputId f y
+mkInputId :: FullShapeTK y -> Int -> InputId f y
 mkInputId ftk i = assert (i >= 0) $ InputId ftk i
 
-inputIdToFTK :: InputId f y -> FullTensorKind y
+inputIdToFTK :: InputId f y -> FullShapeTK y
 inputIdToFTK (InputId ftk _) = ftk
 
 
@@ -198,7 +198,7 @@ inputIdToFTK (InputId ftk _) = ftk
 -- provides a different semantics.
 
 type role Delta nominal nominal
-data Delta :: Target -> TensorKindType -> Type where
+data Delta :: Target -> TK -> Type where
   -- Sharing-related operations
   DeltaShare :: NodeId target y -> Delta target y -> Delta target y
   DeltaInput :: InputId target y -> Delta target y
@@ -212,16 +212,16 @@ data Delta :: Target -> TensorKindType -> Type where
   DeltaProject2 :: forall y z target.
                    Delta target (TKProduct y z) -> Delta target z
   DeltaFromVector :: forall y k target.
-                     SNat k -> STensorKind y
+                     SNat k -> SingletonTK y
                   -> Data.Vector.Vector (Delta target y)
                   -> Delta target (BuildTensorKind k y)
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   DeltaSum :: forall y k target.
-              SNat k -> STensorKind y
+              SNat k -> SingletonTK y
            -> Delta target (BuildTensorKind k y)
            -> Delta target y
   DeltaReplicate :: forall y k target.
-                    SNat k -> STensorKind y
+                    SNat k -> SingletonTK y
                  -> Delta target y
                  -> Delta target (BuildTensorKind k y)
     -- ^ Copy the given tensor along the new, outermost dimension.
@@ -230,8 +230,8 @@ data Delta :: Target -> TensorKindType -> Type where
        ( Show (target (BuildTensorKind k accShs))
        , Show (target (BuildTensorKind k eShs)) )
     => SNat k
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
+    -> FullShapeTK bShs
+    -> FullShapeTK eShs
     -> target (BuildTensorKind k accShs)
     -> target (BuildTensorKind k eShs)
     -> HFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
@@ -248,8 +248,8 @@ data Delta :: Target -> TensorKindType -> Type where
        ( Show (target (BuildTensorKind k accShs))
        , Show (target (BuildTensorKind k eShs)) )
     => SNat k
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
+    -> FullShapeTK bShs
+    -> FullShapeTK eShs
     -> target (BuildTensorKind k accShs)
     -> target (BuildTensorKind k eShs)
     -> HFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
@@ -263,7 +263,7 @@ data Delta :: Target -> TensorKindType -> Type where
     -> Delta target (TKProduct accShs (BuildTensorKind k bShs))
 
   -- Vector space operations
-  DeltaZero :: FullTensorKind y -> Delta target y
+  DeltaZero :: FullShapeTK y -> Delta target y
   DeltaScale :: Num (target y)
              => NestedTarget target y -> Delta target y -> Delta target y
   DeltaAdd :: Num (target y)
@@ -449,7 +449,7 @@ data Delta :: Target -> TensorKindType -> Type where
 
   -- Conversions
   DeltaFromS :: forall y z target.
-                STensorKind z -> Delta target y -> Delta target z
+                SingletonTK z -> Delta target y -> Delta target z
   DeltaSFromK :: GoodScalar r
               => Delta target (TKScalar r) -> Delta target (TKS '[] r)
   DeltaSFromR :: forall sh r target.
@@ -481,7 +481,7 @@ deriving instance Show (IntOf target) => Show (Delta target y)
 -- Defined only to cut the knot of Show instances in DeltaScale
 -- that appears in Delta terms a lot (so the primal bloats PP of Delta terms,
 -- though OTOH they are often important) and is used in the engine a lot.
-type NestedTarget :: Target -> TensorKindType -> Type
+type NestedTarget :: Target -> TK -> Type
 type role NestedTarget nominal nominal
 newtype NestedTarget target y = NestedTarget (target y)
 
@@ -492,7 +492,7 @@ instance Show (NestedTarget target y) where
 -- * Full tensor kind derivation for delta expressions
 
 ftkDelta :: forall target y.
-            Delta target y -> FullTensorKind y
+            Delta target y -> FullShapeTK y
 ftkDelta = \case
   DeltaShare i _ -> nodeIdToFTK i
   DeltaInput i -> inputIdToFTK i
@@ -603,7 +603,7 @@ ftkDelta = \case
     FTKX sh (FTKProduct y z) -> FTKProduct (FTKX sh y) (FTKX sh z)
 
   DeltaFromS stk0 d ->
-    let fromS :: FullTensorKind y2 -> STensorKind z2 -> FullTensorKind z2
+    let fromS :: FullShapeTK y2 -> SingletonTK z2 -> FullShapeTK z2
         fromS ftk stk = case (ftk, stk) of
           _ | Just Refl <- sameSTK (ftkToSTK ftk) stk -> ftk
           (FTKS ZSS (FTKScalar @r1), STKScalar @r2) ->

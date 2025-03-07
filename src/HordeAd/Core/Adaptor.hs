@@ -44,7 +44,7 @@ import HordeAd.Core.Types
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class AdaptableTarget (target :: Target) vals where
-  type X vals :: TensorKindType
+  type X vals :: TK
   toTarget :: vals -> target (X vals)
     -- ^ represent a collection of tensors
   fromTarget :: target (X vals) -> vals
@@ -233,7 +233,7 @@ type family Tups n t where
   Tups n t = TKProduct t (Tups (n - 1) t)
 
 stkOfListR :: forall t n.
-              STensorKind t -> SNat n -> STensorKind (Tups n t)
+              SingletonTK t -> SNat n -> SingletonTK (Tups n t)
 stkOfListR _ (SNat' @0) = stkUnit
 stkOfListR stk SNat =
   gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $

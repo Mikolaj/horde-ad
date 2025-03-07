@@ -28,12 +28,12 @@ import HordeAd.Core.Types
 
 -- * Orphan ox-arrays instances
 
-instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
-         => IntegralF (Nested.Ranked n r) where
+instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralH r)
+         => IntegralH (Nested.Ranked n r) where
   -- These can't be partial, because our conditionals are not lazy
   -- and so the counterfactual branches, with zeros, may get executed
   -- even though they are subsequently ignored.
-  quotF = Nested.Internal.arithPromoteRanked2
+  quotH = Nested.Internal.arithPromoteRanked2
             (Nested.Internal.mliftNumElt2
                (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
@@ -44,9 +44,9 @@ instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith
-                          (\a b -> if b == 0 then 0 else quotF a b) x y)))
+                          (\a b -> if b == 0 then 0 else quotH a b) x y)))
                             -- TODO: do better somehow
-  remF = Nested.Internal.arithPromoteRanked2
+  remH = Nested.Internal.arithPromoteRanked2
             (Nested.Internal.mliftNumElt2
                (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
@@ -57,68 +57,12 @@ instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
                      in V.zipWith
-                          (\a b -> if b == 0 then 0 else remF a b) x y)))
-                            -- TODO: do better somehow
-
-instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
-         => IntegralF (Nested.Shaped sh r) where
-  quotF = Nested.Internal.arithPromoteShaped2
-            (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith
-                          (\a b -> if b == 0 then 0 else quotF a b) x y)))
-                            -- TODO: do better somehow
-  remF = Nested.Internal.arithPromoteShaped2
-            (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith
-                          (\a b -> if b == 0 then 0 else remF a b) x y)))
+                          (\a b -> if b == 0 then 0 else remH a b) x y)))
                             -- TODO: do better somehow
 
-instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralF r)
-         => IntegralF (Nested.Mixed sh r) where
-  quotF =   (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith
-                          (\a b -> if b == 0 then 0 else quotF a b) x y)))
-                            -- TODO: do better somehow
-  remF =    (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith
-                          (\a b -> if b == 0 then 0 else remF a b) x y)))
-                            -- TODO: do better somehow
-
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
-         => RealFloatF (Nested.Ranked n r) where
-  atan2F = Nested.Internal.arithPromoteRanked2
+instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralH r)
+         => IntegralH (Nested.Shaped sh r) where
+  quotH = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.mliftNumElt2
                (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
@@ -128,11 +72,10 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith atan2F x y)))  -- TODO: do better somehow
-
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
-         => RealFloatF (Nested.Shaped sh r) where
-  atan2F = Nested.Internal.arithPromoteShaped2
+                     in V.zipWith
+                          (\a b -> if b == 0 then 0 else quotH a b) x y)))
+                            -- TODO: do better somehow
+  remH = Nested.Internal.arithPromoteShaped2
             (Nested.Internal.mliftNumElt2
                (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
@@ -142,11 +85,13 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith atan2F x y)))  -- TODO: do better somehow
+                     in V.zipWith
+                          (\a b -> if b == 0 then 0 else remH a b) x y)))
+                            -- TODO: do better somehow
 
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
-         => RealFloatF (Nested.Mixed sh r) where
-  atan2F =   (Nested.Internal.mliftNumElt2
+instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralH r)
+         => IntegralH (Nested.Mixed sh r) where
+  quotH =   (Nested.Internal.mliftNumElt2
                (flip Nested.Internal.Arith.liftVEltwise2
                   (\x' y' ->
                      let (x, y) = case (x', y') of
@@ -155,23 +100,78 @@ instance (Nested.NumElt r, Nested.PrimElt r, RealFloatF r, Nested.FloatElt r)
                            _ ->
                              ( either (V.replicate (V.length y)) id x'
                              , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith atan2F x y)))  -- TODO: do better somehow
+                     in V.zipWith
+                          (\a b -> if b == 0 then 0 else quotH a b) x y)))
+                            -- TODO: do better somehow
+  remH =    (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in V.zipWith
+                          (\a b -> if b == 0 then 0 else remH a b) x y)))
+                            -- TODO: do better somehow
+
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloatH r, Nested.FloatElt r)
+         => RealFloatH (Nested.Ranked n r) where
+  atan2H = Nested.Internal.arithPromoteRanked2
+            (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in V.zipWith atan2H x y)))  -- TODO: do better somehow
+
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloatH r, Nested.FloatElt r)
+         => RealFloatH (Nested.Shaped sh r) where
+  atan2H = Nested.Internal.arithPromoteShaped2
+            (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in V.zipWith atan2H x y)))  -- TODO: do better somehow
+
+instance (Nested.NumElt r, Nested.PrimElt r, RealFloatH r, Nested.FloatElt r)
+         => RealFloatH (Nested.Mixed sh r) where
+  atan2H =   (Nested.Internal.mliftNumElt2
+               (flip Nested.Internal.Arith.liftVEltwise2
+                  (\x' y' ->
+                     let (x, y) = case (x', y') of
+                           (Left x2, Left y2) ->
+                             (V.singleton x2, V.singleton y2)
+                           _ ->
+                             ( either (V.replicate (V.length y)) id x'
+                             , either (V.replicate (V.length x)) id y' )
+                     in V.zipWith atan2H x y)))  -- TODO: do better somehow
 
 
 -- * RepORArray and its operations
 
-type family RepORArray (y :: TensorKindType) where
+type family RepORArray (y :: TK) where
   RepORArray (TKScalar r) = r
   RepORArray (TKR2 n x) = Nested.Ranked n (RepORArray x)
   RepORArray (TKS2 sh x) = Nested.Shaped sh (RepORArray x)
   RepORArray (TKX2 sh x) = Nested.Mixed sh (RepORArray x)
   RepORArray (TKProduct x z) = (RepORArray x, RepORArray z)
 
-tftkG :: STensorKind y -> RepORArray y -> FullTensorKind y
+tftkG :: SingletonTK y -> RepORArray y -> FullShapeTK y
 tftkG stk t =
-  let repackShapeTree :: STensorKind y
+  let repackShapeTree :: SingletonTK y
                       -> Nested.Internal.ShapeTree (RepORArray y)
-                      -> FullTensorKind y
+                      -> FullShapeTK y
       repackShapeTree stk0 tree = case stk0 of
         STKScalar -> FTKScalar
         STKR _ stk1 -> let (sh, rest) = tree
@@ -199,7 +199,7 @@ tftkG stk t =
       FTKProduct (tftkG stk1 (fst t))
                  (tftkG stk2 (snd t))
 
-eltDictRep :: STensorKind y -> Dict Nested.KnownElt (RepORArray y)
+eltDictRep :: SingletonTK y -> Dict Nested.KnownElt (RepORArray y)
 eltDictRep = \case
     STKScalar -> Dict
     STKR SNat x | Dict <- eltDictRep x -> Dict
@@ -208,7 +208,7 @@ eltDictRep = \case
     STKProduct stk1 stk2 | Dict <- eltDictRep stk1
                          , Dict <- eltDictRep stk2 -> Dict
 
-showDictRep :: STensorKind y -> Dict Show (RepORArray y)
+showDictRep :: SingletonTK y -> Dict Show (RepORArray y)
 showDictRep = \case
     STKScalar -> Dict
     STKR _ x | Dict <- showDictRep x
@@ -220,7 +220,7 @@ showDictRep = \case
     STKProduct stk1 stk2 | Dict <- showDictRep stk1
                          , Dict <- showDictRep stk2 -> Dict
 
-nfdataDictRep :: STensorKind y -> Dict NFData (RepORArray y)
+nfdataDictRep :: SingletonTK y -> Dict NFData (RepORArray y)
 nfdataDictRep = \case
     STKScalar -> Dict
     STKR _ x | Dict <- nfdataDictRep x
@@ -258,37 +258,37 @@ type instance DualOf RepN = DummyDualTarget
 
 type instance ShareOf RepN = RepN
 
-instance GoodScalar r => EqF RepN (TKScalar r) where
+instance GoodScalar r => EqH RepN (TKScalar r) where
   RepN u ==. RepN v = u == v
 
-instance GoodScalar r => OrdF RepN (TKScalar r) where
+instance GoodScalar r => OrdH RepN (TKScalar r) where
   RepN u <. RepN v = u < v
 
-instance GoodScalar r => EqF RepN (TKR n r) where
+instance GoodScalar r => EqH RepN (TKR n r) where
   RepN u ==. RepN v = u == v
 
-instance GoodScalar r => OrdF RepN (TKR n r) where
+instance GoodScalar r => OrdH RepN (TKR n r) where
   RepN u <. RepN v = u < v
 
-instance GoodScalar r => EqF RepN (TKS sh r) where
+instance GoodScalar r => EqH RepN (TKS sh r) where
   RepN u ==. RepN v = u == v
 
-instance GoodScalar r => OrdF RepN (TKS sh r) where
+instance GoodScalar r => OrdH RepN (TKS sh r) where
   RepN u <. RepN v = u < v
 
-instance GoodScalar r => EqF RepN (TKX sh r) where
+instance GoodScalar r => EqH RepN (TKX sh r) where
   RepN u ==. RepN v = u == v
 
-instance GoodScalar r => OrdF RepN (TKX sh r) where
+instance GoodScalar r => OrdH RepN (TKX sh r) where
   RepN u <. RepN v = u < v
 
 deriving instance Eq (RepORArray y) => Eq (RepN y)
 deriving instance Ord (RepORArray y) => Ord (RepN y)
 deriving instance Num (RepORArray y) => Num (RepN y)
-deriving instance IntegralF (RepORArray y) => IntegralF (RepN y)
+deriving instance IntegralH (RepORArray y) => IntegralH (RepN y)
 deriving instance Fractional (RepORArray y) => Fractional (RepN y)
 deriving instance Floating (RepORArray y) => Floating (RepN y)
-deriving instance RealFloatF (RepORArray y) => RealFloatF (RepN y)
+deriving instance RealFloatH (RepORArray y) => RealFloatH (RepN y)
 
 rtoVector :: GoodScalar r => RepN (TKR n r) -> VS.Vector r
 rtoVector  = Nested.rtoVector . unRepN

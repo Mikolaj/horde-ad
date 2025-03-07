@@ -9,7 +9,7 @@ module HordeAd.Core.Types
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat, valueOf
   , pattern SNat'
     -- * Kinds of the functors that determine the structure of a tensor type
-  , Target, TensorKindType (..), TKR, TKS, TKX, TKUnit
+  , Target, TK (..), TKR, TKS, TKX, TKUnit
     -- * Some fundamental constraints and types
   , GoodScalar, Differentiable, IfDifferentiable(..)
   , BuildTensorKind, RazeTensorKind, ADTensorKind, ADTensorScalar, Z0(..)
@@ -17,7 +17,7 @@ module HordeAd.Core.Types
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf
   , IxROf, IxSOf, IxXOf
     -- * Misc
-  , Dict(..), IntegralF(..), RealFloatF(..)
+  , Dict(..), IntegralH(..), RealFloatH(..)
   , backpermutePrefixList
   , toLinearIdx, fromLinearIdx, toLinearIdxS, fromLinearIdxS
   , toLinearIdxX, fromLinearIdxX
@@ -115,7 +115,7 @@ matchSNat p m@SNat = sameNat p m
 
 -- * Types of types of tensors
 
-type Target = TensorKindType -> Type
+type Target = TK -> Type
 
 type GoodScalarConstraint r =
   ( Show r, Ord r, Num r, Typeable r, IfDifferentiable r, Default r
@@ -123,12 +123,12 @@ type GoodScalarConstraint r =
   , forall sh. Show (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r)
   , forall sh. NFData (Nested.Mixed sh r))
 
-type data TensorKindType =
+type data TK =
     TKScalar Type
-  | TKR2 Nat TensorKindType
-  | TKS2 [Nat] TensorKindType
-  | TKX2 [Maybe Nat] TensorKindType
-  | TKProduct TensorKindType TensorKindType
+  | TKR2 Nat TK
+  | TKS2 [Nat] TK
+  | TKX2 [Maybe Nat] TK
+  | TKProduct TK TK
 
 type TKR n r = TKR2 n (TKScalar r)
 type TKS sh r = TKS2 sh (TKScalar r)
@@ -147,7 +147,7 @@ class GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
 
 type Differentiable r =
-  (RealFloatF r, Nested.FloatElt r, RealFrac r, Random r)
+  (RealFloatH r, Nested.FloatElt r, RealFrac r, Random r)
 
 -- We white-list all types on which we permit differentiation (e.g., SGD)
 -- to work. This is for technical typing purposes and imposes updates
@@ -262,7 +262,7 @@ type IntOf (f :: Target) = PrimalOf f (TKScalar Int64)
 -- The type family can't easily be made injective, because the @ADVal f@
 -- instance is independent of @f@.
 type family HFunOf (f :: Target)
-                   (x :: TensorKindType) (z :: TensorKindType) :: Type
+                   (x :: TK) (z :: TK) :: Type
 
 type family PrimalOf (f :: Target) :: Target
 
@@ -292,33 +292,40 @@ type IxXOf (f :: Target) (sh :: [Maybe Nat]) = IxX sh (IntOf f)
 
 -- TODO: move all these somewhere
 
-class Num a => IntegralF a where
-  quotF, remF :: a -> a -> a
+-- The variant of Integral for horde-ad without the problematic operations:
+-- mod and rem that are very slow, pair-producing operations that don't fit
+-- and AST GADT format and toInteger that doesn't make sense on AST
+-- without an environment to look up variables in.
+class Num a => IntegralH a where
+  quotH, remH :: a -> a -> a
 
-instance IntegralF Int64 where
-  quotF = quot
-  remF = rem
+instance IntegralH Int64 where
+  quotH = quot
+  remH = rem
 
-instance IntegralF CInt where
-  quotF = quot
-  remF = rem
+instance IntegralH CInt where
+  quotH = quot
+  remH = rem
 
-class Floating a => RealFloatF a where
-  atan2F :: a -> a -> a
+-- The standard RealFloat brings in a lot of operations we are not
+-- interested in and RealFrac and Real that we can't faithfully implement
+-- (e.g., toRational doesn't make sense on AST without an environment).
+class (Floating a) => RealFloatH a where
+  atan2H :: a -> a -> a
 
-instance RealFloatF Float where
-  atan2F = atan2
+instance RealFloatH Float where
+  atan2H = atan2
 
-instance RealFloatF Double where
-  atan2F = atan2
+instance RealFloatH Double where
+  atan2H = atan2
 
 {- TODO: these would be better, but everything then overlaps with everything:
-instance {-# OVERLAPPABLE #-} Integral r => IntegralF r where
-  quotF = quot
-  remF = rem
+instance {-# OVERLAPPABLE #-} Integral r => IntegralH r where
+  quotH = quot
+  remH = rem
 
-instance {-# OVERLAPPABLE #-} (Floating r, RealFloat r) => RealFloatF r where
-  atan2F = atan2
+instance {-# OVERLAPPABLE #-} (Floating r, RealFloat r) => RealFloatH r where
+  atan2H = atan2
 -}
 
 backpermutePrefixList :: PermR -> [i] -> [i]
@@ -354,7 +361,7 @@ toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
 -- of the empty buffer anyway.
 --
 -- Warning: @fromInteger@ of type @j@ cannot be used.
-fromLinearIdx :: forall n j. IntegralF j
+fromLinearIdx :: forall n j. IntegralH j
               => (Int -> j) -> ShR n Int -> j -> IxR n j
 fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
   where
@@ -366,8 +373,8 @@ fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
       (fromInt 0, fromInt 0 :.: zeroOf fromInt sh)
     go (n :$: sh) lin =
       let (tensLin, idxInTens) = go sh lin
-          tensLin' = tensLin `quotF` fromInt n
-          i = tensLin `remF` fromInt n
+          tensLin' = tensLin `quotH` fromInt n
+          i = tensLin `remH` fromInt n
       in (tensLin', i :.: idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
@@ -403,7 +410,7 @@ toLinearIdxS fromInt = \sh idx -> go sh idx (fromInt 0)
 -- and a fake index with correct length but lots of zeroes is produced,
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
-fromLinearIdxS :: forall sh j. IntegralF j
+fromLinearIdxS :: forall sh j. IntegralH j
                => (Int -> j) -> ShS sh -> j -> IxS sh j
 fromLinearIdxS fromInt = \sh lin -> snd (go sh lin)
   where
@@ -415,8 +422,8 @@ fromLinearIdxS fromInt = \sh lin -> snd (go sh lin)
       (fromInt 0, fromInt 0 :.$ zeroOfS fromInt sh)
     go ((:$$) n sh) lin =
       let (tensLin, idxInTens) = go sh lin
-          tensLin' = tensLin `quotF` fromInt (sNatValue n)
-          i = tensLin `remF` fromInt (sNatValue n)
+          tensLin' = tensLin `quotH` fromInt (sNatValue n)
+          i = tensLin `remH` fromInt (sNatValue n)
       in (tensLin', i :.$ idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
@@ -437,7 +444,7 @@ toLinearIdxX fromInt = \sh idx -> go sh idx (fromInt 0)
       go sh idx (fromInt (fromSMayNat' n) * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
-fromLinearIdxX :: forall sh j. IntegralF j
+fromLinearIdxX :: forall sh j. IntegralH j
                => (Int -> j) -> IShX sh -> j -> IxX sh j
 fromLinearIdxX fromInt = \sh lin -> snd (go sh lin)
   where
@@ -449,8 +456,8 @@ fromLinearIdxX fromInt = \sh lin -> snd (go sh lin)
       (fromInt 0, fromInt 0 :.% zeroOfX fromInt sh)
     go ((:$%) n sh) lin =
       let (tensLin, idxInTens) = go sh lin
-          tensLin' = tensLin `quotF` fromInt (fromSMayNat' n)
-          i = tensLin `remF` fromInt (fromSMayNat' n)
+          tensLin' = tensLin `quotH` fromInt (fromSMayNat' n)
+          i = tensLin `remH` fromInt (fromSMayNat' n)
       in (tensLin', i :.% idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).

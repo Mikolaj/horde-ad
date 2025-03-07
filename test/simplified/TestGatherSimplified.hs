@@ -100,7 +100,7 @@ testGatherNestedBuild1 =
                  [3.0,1.0,1.0,1.0,1.0,3.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rbuild1 5 (\i ->
-             ifF (i >. 2) (gatherNested1 t) (t ! [i])))
+             ifH (i >. 2) (gatherNested1 t) (t ! [i])))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 gather1 :: forall target r. (ADReady target, GoodScalar r)
@@ -126,7 +126,7 @@ testGatherBuild1 =
                  [3.0,1.0,1.0,1.0,1.0,3.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rbuild1 5 (\i ->
-             ifF (i >. 2) (gather1 t) (t ! [i])))
+             ifH (i >. 2) (gather1 t) (t ! [i])))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherSimpPP1 :: Assertion
@@ -245,7 +245,7 @@ testGatherNestedBuild12 =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rindex (rbuild1 5 (\i ->
-             ifF (i >. 2) (gatherNested12 t)
+             ifH (i >. 2) (gatherNested12 t)
                           (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
@@ -272,7 +272,7 @@ testGatherBuild12 =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rindex (rbuild1 5 (\i ->
-             ifF (i >. 2) (gather12 t)
+             ifH (i >. 2) (gather12 t)
                           (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
@@ -489,7 +489,7 @@ scatterNested1 t =
           (rscatter @1
                    (7 :$: 2 :$: ZSR) t
                    (\(k3 :.: ZIR) -> k3 :.: ZIR))
-          (\(i1 :.: i2 :.: ZIR) -> i2 `quotF` (1 + i1) :.: ZIR)
+          (\(i1 :.: i2 :.: ZIR) -> i2 `quotH` (1 + i1) :.: ZIR)
 
 testScatterNested1 :: Assertion
 testScatterNested1 =
@@ -505,7 +505,7 @@ testScatterNestedBuild1 =
                  [3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
     (rev' @Double @2
           (\t -> rbuild1 5 (\i ->
-             ifF (i >. 2) (scatterNested1 t) (t ! [i])))
+             ifH (i >. 2) (scatterNested1 t) (t ! [i])))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 scatter1 :: forall target r. (ADReady target, GoodScalar r)
@@ -514,7 +514,7 @@ scatter1 t =
   rscatter @2
           (2 :$: ZSR)
           t
-          (\(i1 :.: i2 :.: ZIR) -> minF (i2 + 2 * i1) 1 :.: ZIR)
+          (\(i1 :.: i2 :.: ZIR) -> minH (i2 + 2 * i1) 1 :.: ZIR)
 
 testScatter1 :: Assertion
 testScatter1 =
@@ -530,7 +530,7 @@ testScatterBuild1 =
                  [3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
     (rev' @Double @2
           (\t -> rbuild1 5 (\i ->
-             ifF (i >. 2) (scatter1 t) (t ! [i])))
+             ifH (i >. 2) (scatter1 t) (t ! [i])))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterSimpPP1 :: Assertion
@@ -551,9 +551,9 @@ scatterNested2 t =
           (2 :$: 3 :$: ZSR)
           (rscatter @1
                    (2 :$: 3 :$: 4 :$: 2 :$: ZSR) t
-                   (\(k1 :.: ZIR) -> minF k1 1 :.: minF k1 2  :.: minF k1 3 :.: ZIR))
+                   (\(k1 :.: ZIR) -> minH k1 1 :.: minH k1 2  :.: minH k1 3 :.: ZIR))
           (\(i1 :.: i2 :.: _i3 :.: i4 :.: ZIR) ->
-            minF (i1 + i2) 1 :.: minF (i4 + i1) 2 :.: ZIR)
+            minH (i1 + i2) 1 :.: minH (i4 + i1) 2 :.: ZIR)
 
 testScatterNested2 :: Assertion
 testScatterNested2 =
@@ -579,7 +579,7 @@ scatter2 t =
   rscatter @2
           (2 :$: 3 :$: ZSR)
           t
-          (\(i1 :.: i2 :.: ZIR) -> minF (i1 + i2 + i1 + i2) 1 :.: minF i1 2 :.: ZIR)
+          (\(i1 :.: i2 :.: ZIR) -> minH (i1 + i2 + i1 + i2) 1 :.: minH i1 2 :.: ZIR)
 
 testScatter2 :: Assertion
 testScatter2 =
@@ -618,8 +618,8 @@ scatterNested12 t =
           (rscatter @2
                    (2 :$: 3 :$: 4 :$: ZSR) t
                    (\(k1 :.: k2 :.: ZIR) ->
-                     minF k1 1 :.: minF (k2 + k1) 2 :.: minF k1 3 :.: ZIR))
-          (\(i1 :.: _i2 :.: ZIR) -> minF (i1 + i1) 1 :.: ZIR)
+                     minH k1 1 :.: minH (k2 + k1) 2 :.: minH k1 3 :.: ZIR))
+          (\(i1 :.: _i2 :.: ZIR) -> minH (i1 + i1) 1 :.: ZIR)
 
 testScatterNested12 :: Assertion
 testScatterNested12 =
@@ -636,7 +636,7 @@ testScatterNestedBuild12 =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rindex (rbuild1 5 (\i ->
-             ifF (i >. 2) (scatterNested12 t)
+             ifH (i >. 2) (scatterNested12 t)
                           (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
@@ -646,7 +646,7 @@ scatter12 t =
   rscatter @2
           (2 :$: 4 :$: ZSR)
           t
-          (\(i1 :.: k3 :.: ZIR) -> minF (i1 + i1 + i1 + k3) 1 :.: minF i1 3 :.: ZIR)
+          (\(i1 :.: k3 :.: ZIR) -> minH (i1 + i1 + i1 + k3) 1 :.: minH i1 3 :.: ZIR)
 
 testScatter12 :: Assertion
 testScatter12 =
@@ -663,7 +663,7 @@ testScatterBuild12 =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rindex (rbuild1 5 (\i ->
-             ifF (i >. 2) (scatter12 t)
+             ifH (i >. 2) (scatter12 t)
                           (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
@@ -678,15 +678,15 @@ testScatterSimpPP12 = do
   length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 874
   length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 642
 
-foo :: RealFloatF a => (a,a,a) -> a
+foo :: RealFloatH a => (a,a,a) -> a
 foo (x,y,z) =
   let w = x * sin y
-  in atan2F z w + z * w
+  in atan2H z w + z * w
 
-bar :: forall a. RealFloatF a => (a, a) -> a
+bar :: forall a. RealFloatH a => (a, a) -> a
 bar (x, y) =
   let w = foo (x, y, x) * sin y
-  in atan2F x w + y * w
+  in atan2H x w + y * w
 
 barRelu
   :: ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )

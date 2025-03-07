@@ -36,7 +36,7 @@ import HordeAd.Core.Types
 -- * Full tensor kind derivation
 
 isTensorInt :: forall s y ms. AstSpan s
-            => Proxy s -> FullTensorKind y
+            => Proxy s -> FullShapeTK y
             -> Maybe (AstTensor ms s y :~: AstInt ms)
 isTensorInt _ ftk = case ftk of
   FTKScalar @r -> case ( testEquality (typeRep @r) (typeRep @Int64)
@@ -50,7 +50,7 @@ isTensorInt _ ftk = case ftk of
 -- only one path and fail if it doesn't contain enough information
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
-ftkAst :: forall s y ms. AstTensor ms s y -> FullTensorKind y
+ftkAst :: forall s y ms. AstTensor ms s y -> FullShapeTK y
 ftkAst t = case t of
   AstPair t1 t2 -> FTKProduct (ftkAst t1) (ftkAst t2)
   AstProject1 v -> case ftkAst v of
@@ -135,7 +135,7 @@ ftkAst t = case t of
     FTKS sh1 (FTKS sh2 x) -> FTKS (sh1 `shsAppend` sh2) x
 
   AstFromS stkz v ->
-    let fromS :: FullTensorKind y2 -> STensorKind z2 -> FullTensorKind z2
+    let fromS :: FullShapeTK y2 -> SingletonTK z2 -> FullShapeTK z2
         fromS ftk stk = case (ftk, stk) of
           _ | Just Refl <- sameSTK (ftkToSTK ftk) stk -> ftk
           (FTKS ZSS (FTKScalar @r1), STKScalar @r2) ->

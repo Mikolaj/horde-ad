@@ -108,8 +108,8 @@ intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
 type role AstVarName nominal nominal
-data AstVarName :: AstSpanType -> TensorKindType -> Type where
-  AstVarName :: forall s y. FullTensorKind y -> AstVarId -> AstVarName s y
+data AstVarName :: AstSpanType -> TK -> Type where
+  AstVarName :: forall s y. FullShapeTK y -> AstVarId -> AstVarName s y
 
 instance Eq (AstVarName s y) where
   AstVarName _ varId1 == AstVarName _ varId2 = varId1 == varId2
@@ -119,20 +119,20 @@ instance Show (AstVarName s y) where
     showsPrec d varId  -- less verbose, more readable
 
 instance DMap.Enum1 (AstVarName s) where
-  type Enum1Info (AstVarName s) = Some FullTensorKind
+  type Enum1Info (AstVarName s) = Some FullShapeTK
   fromEnum1 (AstVarName ftk varId) = (fromEnum varId, Some ftk)
   toEnum1 varIdInt (Some ftk) = Some $ AstVarName ftk $ toEnum varIdInt
 
 instance TestEquality (AstVarName s) where
   testEquality (AstVarName ftk1 _) (AstVarName ftk2 _) = matchingFTK ftk1 ftk2
 
-mkAstVarName :: forall s y. FullTensorKind y -> AstVarId -> AstVarName s y
+mkAstVarName :: forall s y. FullShapeTK y -> AstVarId -> AstVarName s y
 mkAstVarName = AstVarName
 
 varNameToAstVarId :: AstVarName s y -> AstVarId
 varNameToAstVarId (AstVarName _ varId) = varId
 
-varNameToFTK :: AstVarName s y -> FullTensorKind y
+varNameToFTK :: AstVarName s y -> FullShapeTK y
 varNameToFTK (AstVarName ftk _) = ftk
 
 -- The reverse derivative artifact from step 6) of our full pipeline.
@@ -174,7 +174,7 @@ type data AstMethodOfSharing = AstMethodShare | AstMethodLet
 
 -- | AST for tensors that are meant to be differentiated
 type role AstTensor nominal nominal nominal
-data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
+data AstTensor :: AstMethodOfSharing -> AstSpanType -> TK
                -> Type where
   -- General operations, for scalar, ranked, shared and other tensors at once
   AstPair :: forall y z ms s.
@@ -185,22 +185,22 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstProject2 :: forall y z ms s.
                  AstTensor ms s (TKProduct y z) -> AstTensor ms s z
   AstFromVector :: forall y k ms s.
-                   SNat k -> STensorKind y
+                   SNat k -> SingletonTK y
                 -> Data.Vector.Vector (AstTensor ms s y)
                 -> AstTensor ms s (BuildTensorKind k y)
   AstSum :: forall y k ms s.
-            SNat k -> STensorKind y
+            SNat k -> SingletonTK y
          -> AstTensor ms s (BuildTensorKind k y)
          -> AstTensor ms s y
   AstReplicate :: forall y k ms s.
-                  SNat k -> STensorKind y
+                  SNat k -> SingletonTK y
                -> AstTensor ms s y
                -> AstTensor ms s (BuildTensorKind k y)
   AstMapAccumRDer
     :: forall accShs bShs eShs k ms s.
        SNat k
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
+    -> FullShapeTK bShs
+    -> FullShapeTK eShs
     -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
                           (TKProduct accShs eShs))
@@ -214,8 +214,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstMapAccumLDer
     :: forall accShs bShs eShs k ms s.
        SNat k
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
+    -> FullShapeTK bShs
+    -> FullShapeTK eShs
     -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
                           (TKProduct accShs eShs))
@@ -232,7 +232,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
              AstBool ms -> AstTensor ms s y -> AstTensor ms s y
           -> AstTensor ms s y
   AstBuild1 :: forall y k ms s.
-               SNat k -> STensorKind y
+               SNat k -> SingletonTK y
             -> (IntVarName, AstTensor ms s y)
             -> AstTensor ms s (BuildTensorKind k y)
 
@@ -268,14 +268,14 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstN1K :: GoodScalar r
          => OpCodeNum1 -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
-  AstR1K :: (RealFloatF r, Nested.FloatElt r, GoodScalar r)
+  AstR1K :: (RealFloatH r, Nested.FloatElt r, GoodScalar r)
          => OpCode1 -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
-  AstR2K :: (RealFloatF r, Nested.FloatElt r, GoodScalar r)
+  AstR2K :: (RealFloatH r, Nested.FloatElt r, GoodScalar r)
          => OpCode2 -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
-  AstI2K :: (IntegralF r, GoodScalar r)
+  AstI2K :: (IntegralH r, GoodScalar r)
          => OpCodeIntegral2 -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
@@ -302,14 +302,14 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
   AstN1S :: GoodScalar r
          => OpCodeNum1 -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
-  AstR1S :: (RealFloatF r, Nested.FloatElt r, GoodScalar r)
+  AstR1S :: (RealFloatH r, Nested.FloatElt r, GoodScalar r)
          => OpCode1 -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
-  AstR2S :: (RealFloatF r, Nested.FloatElt r, GoodScalar r)
+  AstR2S :: (RealFloatH r, Nested.FloatElt r, GoodScalar r)
          => OpCode2 -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
-  AstI2S :: (IntegralF r, GoodScalar r)
+  AstI2S :: (IntegralH r, GoodScalar r)
          => OpCodeIntegral2 -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
@@ -377,7 +377,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TensorKindType
 
   -- Conversions
   AstFromS :: forall y z ms s.
-              STensorKind z
+              SingletonTK z
            -> AstTensor ms s y -> AstTensor ms s z
   AstSFromK :: GoodScalar r
             => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)

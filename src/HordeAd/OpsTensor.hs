@@ -6,7 +6,7 @@
 {-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
 -- | The tensor operations intended for the library user..
 module HordeAd.OpsTensor
-  ( tunit, tlet, ifF, minF, maxF
+  ( tunit, tlet, ifH, minH, maxH
   , rshape, rlength, rsize, rwidth
   , sshape, slength, ssize, swidth
   , xshape, xlength, xsize, xwidth
@@ -89,16 +89,16 @@ tlet :: forall x z target. LetTensor target
      => target x -> (target x -> target z) -> target z
 tlet = ttlet
 
-ifF :: forall y target.
+ifH :: forall y target.
        (Boolean (BoolOf target), KnownSTK y, BaseTensor target)
     => BoolOf target -> target y -> target y -> target y
-ifF = tcond knownSTK
-minF :: forall y target. (OrdF target y, KnownSTK y, BaseTensor target)
+ifH = tcond knownSTK
+minH :: forall y target. (OrdH target y, KnownSTK y, BaseTensor target)
      => target y -> target y -> target y
-minF u v = ifF (u <=. v) u v
-maxF :: forall y target. (OrdF target y, KnownSTK y, BaseTensor target)
+minH u v = ifH (u <=. v) u v
+maxH :: forall y target. (OrdH target y, KnownSTK y, BaseTensor target)
      => target y -> target y -> target y
-maxF u v = ifF (u >=. v) u v
+maxH u v = ifH (u >=. v) u v
 
 rconcrete :: (GoodScalar r, BaseTensor target)
           => Nested.Ranked n r -> target (TKR n r)
@@ -318,7 +318,7 @@ rindex0 = trindex0
 roneHot :: forall m n x target.
            ( KnownSTK x, KnownNat m, KnownNat n
            , BoolOf (PrimalOf target) ~ BoolOf target
-           , EqF (PrimalOf target) (TKScalar Int64), BaseTensor target)
+           , EqH (PrimalOf target) (TKScalar Int64), BaseTensor target)
         => IShR m -> target (TKR2 n x) -> IxROf target m
         -> target (TKR2 (m + n) x)
 roneHot = troneHot
@@ -358,7 +358,7 @@ sindex0 = tsindex0
 soneHot :: forall sh1 sh2 x target.
            ( KnownShS sh1, KnownShS sh2, KnownSTK x
            , BoolOf (PrimalOf target) ~ BoolOf target
-           , EqF (PrimalOf target) (TKScalar Int64), BaseTensor target )
+           , EqH (PrimalOf target) (TKScalar Int64), BaseTensor target )
         => target (TKS2 sh2 x) -> IxSOf target sh1
         -> target (TKS2 (sh1 ++ sh2) x)
 soneHot = tsoneHot
@@ -400,7 +400,7 @@ xindex0 = txindex0
 xoneHot :: forall sh1 sh2 x target.
            ( KnownShX sh1, KnownShX sh2, KnownSTK x
            , BoolOf (PrimalOf target) ~ BoolOf target
-           , EqF (PrimalOf target) (TKScalar Int64)
+           , EqH (PrimalOf target) (TKScalar Int64)
            , BaseTensor target, ConvertTensor target )
         => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
         -> target (TKX2 (sh1 ++ sh2) x)
@@ -930,7 +930,7 @@ xscan = tscan (SNat @k) knownSTK knownSTK
 -- which shouldn't know about lets, etc.
 rrev :: forall n x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKR2 n r))
-     -> FullTensorKind x
+     -> FullShapeTK x
      -> target x
      -> target (ADTensorKind x)
 rrev f xftk =
@@ -939,7 +939,7 @@ rrev f xftk =
 -- rrev f shs es = rrevDt f shs es (rreplicate0N sh 1)
 rrevDt :: forall n x r target. BaseTensor target
        => (forall f. ADReady f => f x -> f (TKR2 n r))
-       -> FullTensorKind x
+       -> FullShapeTK x
        -> target x
        -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent (dt)
        -> target (ADTensorKind x)
@@ -947,7 +947,7 @@ rrevDt f xftk =
   \ !es !dt -> tApply (trevDt @target xftk $ HFun f) (tpair dt es)
 rfwd :: forall n x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKR2 n r))
-     -> FullTensorKind x
+     -> FullShapeTK x
      -> target x
      -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
      -> target (ADTensorKind (TKR2 n r))
@@ -955,14 +955,14 @@ rfwd f xftk =
   \ !es !ds -> tApply (tfwd @target xftk $ HFun f) (tpair ds es)
 srev :: forall sh x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKS2 sh r))
-     -> FullTensorKind x
+     -> FullShapeTK x
      -> target x
      -> target (ADTensorKind x)
 srev f xftk =
   \ !es -> tApply (trev @target xftk (HFun f)) es
 srevDt :: forall sh x r target. BaseTensor target
        => (forall f. ADReady f => f x -> f (TKS2 sh r))
-       -> FullTensorKind x
+       -> FullShapeTK x
        -> target x
        -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent (dt)
        -> target (ADTensorKind x)
@@ -970,7 +970,7 @@ srevDt f xftk =
   \ !es !dt -> tApply (trevDt @target xftk $ HFun f) (tpair dt es)
 sfwd :: forall sh x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKS2 sh r))
-     -> FullTensorKind x
+     -> FullShapeTK x
      -> target x
      -> target (ADTensorKind x)  -- ^ incoming tangent (ds)
      -> target (ADTensorKind (TKS2 sh r))

@@ -578,21 +578,21 @@ instance ConvertTensor RepN where
 -- * MapAccum internal definitions
 
 ravel :: forall k y.
-         SNat k -> STensorKind y -> [RepN y]
+         SNat k -> SingletonTK y -> [RepN y]
       -> RepN (BuildTensorKind k y)
 ravel k stk l = tfromVector k stk (V.fromList l)
 
 unravel :: forall k y.
-           SNat k -> STensorKind y -> RepN (BuildTensorKind k y)
+           SNat k -> SingletonTK y -> RepN (BuildTensorKind k y)
         -> [RepN y]
 unravel = tunravelToListShare
 
 oRtmapAccumR
   :: forall k accShs bShs eShs.
      SNat k
-  -> FullTensorKind accShs
-  -> FullTensorKind bShs
-  -> FullTensorKind eShs
+  -> FullShapeTK accShs
+  -> FullShapeTK bShs
+  -> FullShapeTK eShs
   -> (RepN accShs -> RepN eShs -> RepN (TKProduct accShs bShs))
   -> RepN accShs
   -> RepN (BuildTensorKind k eShs)
@@ -609,9 +609,9 @@ oRtmapAccumR k _ bShs eShs f acc0 es = case sNatValue k of
 oRtmapAccumL
   :: forall k accShs bShs eShs.
      SNat k
-  -> FullTensorKind accShs
-  -> FullTensorKind bShs
-  -> FullTensorKind eShs
+  -> FullShapeTK accShs
+  -> FullShapeTK bShs
+  -> FullShapeTK eShs
   -> (RepN accShs -> RepN eShs -> RepN (TKProduct accShs bShs))
   -> RepN accShs
   -> RepN (BuildTensorKind k eShs)

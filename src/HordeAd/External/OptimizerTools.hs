@@ -22,7 +22,7 @@ import HordeAd.Core.Types
 import HordeAd.Core.Unwind
 
 updateWithGradient :: forall y.
-                      Double -> STensorKind y -> RepN y -> RepN (ADTensorKind y)
+                      Double -> SingletonTK y -> RepN y -> RepN (ADTensorKind y)
                    -> RepN y
 updateWithGradient gamma stk p@(RepN params) g@(RepN gradient) = case stk of
   STKScalar @r -> RepN $
@@ -110,7 +110,7 @@ type family Triplify y where
   Triplify (TKProduct x z) = TKProduct (Triplify x) (Triplify z)
 
 unzip3Rep
-  :: STensorKind y -> RepN (Triplify y)
+  :: SingletonTK y -> RepN (Triplify y)
   -> (RepN y, RepN y, RepN y)
 unzip3Rep stk (RepN t) = case stk of
   STKScalar -> (RepN $ fst $ fst t, RepN $ snd $ fst t, RepN $ snd t)
@@ -132,7 +132,7 @@ data StateAdam y = StateAdam
   }
 
 -- TODO: introduce and use something like TensorOrZero
-initialStateAdam :: FullTensorKind y -> StateAdam y
+initialStateAdam :: FullShapeTK y -> StateAdam y
 initialStateAdam ftk =
   StateAdam { tAdam = 0
                 , mAdam = constantTarget 0 ftk
@@ -140,7 +140,7 @@ initialStateAdam ftk =
                 }
 
 updateWithGradientAdam
-  :: ArgsAdam -> StateAdam y -> STensorKind y -> RepN y -> RepN (ADTensorKind y)
+  :: ArgsAdam -> StateAdam y -> SingletonTK y -> RepN y -> RepN (ADTensorKind y)
   -> (RepN y, StateAdam y)
 updateWithGradientAdam ArgsAdam{..} StateAdam{..} stk0 paramsR gradientR =
   let mAdamR = mAdam
@@ -168,7 +168,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} stk0 paramsR gradientR =
                  / (sqrt vANew
                     + Nested.rreplicateScal sh (realToFrac epsilon)) )
       updateProd :: forall y2.
-                    STensorKind y2
+                    SingletonTK y2
                  -> RepN y2 -> RepN y2
                  -> RepN y2 -> RepN (ADTensorKind y2)
                  -> RepN (Triplify y2)

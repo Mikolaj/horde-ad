@@ -134,9 +134,9 @@ tmapAccumR
   :: forall accShs bShs eShs k target. BaseTensor target
   => Proxy target
   -> SNat k
-  -> FullTensorKind accShs
-  -> FullTensorKind bShs
-  -> FullTensorKind eShs
+  -> FullShapeTK accShs
+  -> FullShapeTK bShs
+  -> FullShapeTK eShs
   -> (forall f. ADReady f
       => f accShs -> f eShs
       -> f (TKProduct accShs bShs))
@@ -161,9 +161,9 @@ tmapAccumL
   :: forall accShs bShs eShs k target. BaseTensor target
   => Proxy target
   -> SNat k
-  -> FullTensorKind accShs
-  -> FullTensorKind bShs
-  -> FullTensorKind eShs
+  -> FullShapeTK accShs
+  -> FullShapeTK bShs
+  -> FullShapeTK eShs
   -> (forall f. ADReady f
       => f accShs -> f eShs
       -> f (TKProduct accShs bShs))
@@ -204,9 +204,9 @@ type TensorSupportsX c1 c2 f =
   forall r sh. GoodScalar r
                => c1 r => c2 (f (TKX sh r))
 
-class (RealFloatF r, Nested.FloatElt r)
+class (RealFloatH r, Nested.FloatElt r)
       => RealFloatAndFloatElt r
-instance (RealFloatF r, Nested.FloatElt r)
+instance (RealFloatH r, Nested.FloatElt r)
          => RealFloatAndFloatElt r
 
 class LetTensor (target :: Target) where
@@ -215,7 +215,7 @@ class LetTensor (target :: Target) where
   tunshare :: ShareOf target y -> target y
   tunshare = error "tunshare: this instance should never be used"
   tappend :: forall y m n. BaseTensor target
-          => SNat m -> SNat n -> STensorKind y
+          => SNat m -> SNat n -> SingletonTK y
           -> target (BuildTensorKind m y) -> target (BuildTensorKind n y)
           -> target (BuildTensorKind (m + n) y)
   tappend msnat@SNat nsnat@SNat stk a b = case stk of
@@ -228,7 +228,7 @@ class LetTensor (target :: Target) where
         tpair (tappend msnat nsnat stk1 (tproject1 aShared) (tproject1 bShared))
               (tappend msnat nsnat stk2 (tproject2 aShared) (tproject2 bShared))
   tD :: BaseTensor target
-     => STensorKind y -> PrimalOf target y -> DualOf target y
+     => SingletonTK y -> PrimalOf target y -> DualOf target y
      -> target y
   tD stk p d =
     -- Lets needed, because taddTarget requires duplicable arguments.
@@ -238,7 +238,7 @@ class LetTensor (target :: Target) where
   -- | A strict left fold.
   tfold
     :: forall yn ym k. BaseTensor target
-    => SNat k -> STensorKind yn -> STensorKind ym
+    => SNat k -> SingletonTK yn -> SingletonTK ym
     -> (forall f. ADReady f => f yn -> f ym -> f yn)
     -> target yn  -- ^ initial value
     -> target (BuildTensorKind k ym)
@@ -261,7 +261,7 @@ class LetTensor (target :: Target) where
   -- | A strict left scan.
   tscan
     :: forall yn ym k. BaseTensor target
-    => SNat k -> STensorKind yn -> STensorKind ym
+    => SNat k -> SingletonTK yn -> SingletonTK ym
     -> (forall f. ADReady f => f yn -> f ym -> f yn)
     -> target yn
     -> target (BuildTensorKind k ym)
@@ -290,7 +290,7 @@ class ShareTensor (target :: Target) where
   -- This would suffers from lack of sharing with LetTensor, because
   -- ttlet doesn't work over a list. With sharing it's fine.
   tunravelToListShare :: forall y k. (BaseTensor target, ConvertTensor target)
-                      => SNat k -> STensorKind y
+                      => SNat k -> SingletonTK y
                       -> target (BuildTensorKind k y)
                       -> [target y]
   tunravelToListShare snat@SNat stk u = case stk of
@@ -306,23 +306,23 @@ class ShareTensor (target :: Target) where
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
 class ( Num (IntOf target)
-      , IntegralF (IntOf target)
+      , IntegralH (IntOf target)
       , TensorSupports Num Num target
       , TensorSupports RealFloatAndFloatElt Floating target
-      , TensorSupports RealFloatAndFloatElt RealFloatF target
-      , TensorSupports IntegralF IntegralF target
+      , TensorSupports RealFloatAndFloatElt RealFloatH target
+      , TensorSupports IntegralH IntegralH target
       , TensorSupportsR Num Num target
       , TensorSupportsR RealFloatAndFloatElt Floating target
-      , TensorSupportsR RealFloatAndFloatElt RealFloatF target
-      , TensorSupportsR IntegralF IntegralF target
+      , TensorSupportsR RealFloatAndFloatElt RealFloatH target
+      , TensorSupportsR IntegralH IntegralH target
       , TensorSupportsS Num Num target
       , TensorSupportsS RealFloatAndFloatElt Floating target
-      , TensorSupportsS RealFloatAndFloatElt RealFloatF target
-      , TensorSupportsS IntegralF IntegralF target
+      , TensorSupportsS RealFloatAndFloatElt RealFloatH target
+      , TensorSupportsS IntegralH IntegralH target
       , TensorSupportsX Num Num target
       , TensorSupportsX RealFloatAndFloatElt Floating target
-      , TensorSupportsX RealFloatAndFloatElt RealFloatF target
-      , TensorSupportsX IntegralF IntegralF target )
+      , TensorSupportsX RealFloatAndFloatElt RealFloatH target
+      , TensorSupportsX IntegralH IntegralH target )
       => BaseTensor (target :: Target) where
 
   -- First type argument being @target@ is acceptable here, since these
@@ -364,7 +364,7 @@ class ( Num (IntOf target)
   xwidth a = case xshape a of
     mn :$% _ -> fromSMayNat' mn
 
-  tsize :: STensorKind y -> target y -> Int
+  tsize :: SingletonTK y -> target y -> Int
   tsize stk a = case stk of
     STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
       Just Refl -> 0
@@ -374,7 +374,7 @@ class ( Num (IntOf target)
     STKX _ x | Dict <- lemKnownSTK x -> xsize a
     STKProduct stk1 stk2 ->
       tsize stk1 (tproject1 a) + tsize stk2 (tproject2 a)
-  tftk :: STensorKind y -> target y -> FullTensorKind y
+  tftk :: SingletonTK y -> target y -> FullShapeTK y
 
   -- Unlikely to require type applications at all
   tpair :: target x -> target z -> target (TKProduct x z)
@@ -387,7 +387,7 @@ class ( Num (IntOf target)
   --------------
 
   tcond :: Boolean (BoolOf target)
-        => STensorKind y
+        => SingletonTK y
         -> BoolOf target -> target y -> target y -> target y
 
   trconcrete :: GoodScalar r
@@ -397,7 +397,7 @@ class ( Num (IntOf target)
   txconcrete :: GoodScalar r
              => Nested.Mixed sh r -> target (TKX sh r)
   tkconcrete :: GoodScalar r => r -> target (TKScalar r)
-  tconcrete :: FullTensorKind y -> RepN y -> target y
+  tconcrete :: FullShapeTK y -> RepN y -> target y
 
   -- These nine methods can't be replaced by tfromVector, because the concrete
   -- instance has much faster implementations.
@@ -469,9 +469,9 @@ class ( Num (IntOf target)
 
   tfromVector
     :: forall y k.
-       SNat k -> STensorKind y -> Data.Vector.Vector (target y)
+       SNat k -> SingletonTK y -> Data.Vector.Vector (target y)
     -> target (BuildTensorKind k y)
-  tfromListR :: STensorKind y -> ListR k (target y)
+  tfromListR :: SingletonTK y -> ListR k (target y)
              -> target (BuildTensorKind k y)
   tfromListR stk l =
     tfromVector (listrRank l) stk . V.fromList . Foldable.toList $ l
@@ -600,7 +600,7 @@ class ( Num (IntOf target)
   troneHot :: forall m n x.
               ( KnownSTK x, KnownNat m, KnownNat n
               , BoolOf (PrimalOf target) ~ BoolOf target
-              , EqF (PrimalOf target) (TKScalar Int64))
+              , EqH (PrimalOf target) (TKScalar Int64))
            => IShR m -> target (TKR2 n x) -> IxROf target m
            -> target (TKR2 (m + n) x)
   troneHot sh v ix = case knownSTK @x of
@@ -648,7 +648,7 @@ class ( Num (IntOf target)
   tsoneHot :: forall sh1 sh2 x.
               ( KnownShS sh1, KnownShS sh2, KnownSTK x
               , BoolOf (PrimalOf target) ~ BoolOf target
-              , EqF (PrimalOf target) (TKScalar Int64) )
+              , EqH (PrimalOf target) (TKScalar Int64) )
            => target (TKS2 sh2 x) -> IxSOf target sh1
            -> target (TKS2 (sh1 ++ sh2) x)
   tsoneHot v ix | SNat <- shsRank (knownShS @sh1) = case knownSTK @x of
@@ -707,7 +707,7 @@ class ( Num (IntOf target)
   txoneHot :: forall sh1 sh2 x.
               ( KnownShX sh1, KnownShX sh2, KnownSTK x
               , BoolOf (PrimalOf target) ~ BoolOf target
-              , EqF (PrimalOf target) (TKScalar Int64), ConvertTensor target )
+              , EqH (PrimalOf target) (TKScalar Int64), ConvertTensor target )
            => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
            -> target (TKX2 (sh1 ++ sh2) x)
   txoneHot sh1 v ix | SNat <- ssxRank (knownShX @sh1) = case knownSTK @x of
@@ -890,10 +890,10 @@ class ( Num (IntOf target)
 
   tbuild1 :: forall y k. ConvertTensor target
                -- y comes first, because k easy to set via SNat
-          => SNat k -> STensorKind y -> (IntOf target -> target y)
+          => SNat k -> SingletonTK y -> (IntOf target -> target y)
           -> target (BuildTensorKind k y)
   tbuild1 snat@SNat stk0 f =
-    let replSTK :: STensorKind z -> (IntOf target -> target z)
+    let replSTK :: SingletonTK z -> (IntOf target -> target z)
                 -> target (BuildTensorKind k z)
         replSTK stk g = case stk of
           STKScalar -> tsbuild1 (sfromK . g)
@@ -926,9 +926,9 @@ class ( Num (IntOf target)
     :: forall accShs bShs eShs k.
        Proxy target
     -> SNat k
-    -> FullTensorKind accShs  -- ^ shapes of acc, the accumulator
-    -> FullTensorKind bShs -- ^ shapes of b
-    -> FullTensorKind eShs -- ^ shapes of e
+    -> FullShapeTK accShs  -- ^ shapes of acc, the accumulator
+    -> FullShapeTK bShs -- ^ shapes of b
+    -> FullShapeTK eShs -- ^ shapes of e
     -> HFunOf target (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf target (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                 (TKProduct accShs eShs))
@@ -946,9 +946,9 @@ class ( Num (IntOf target)
     :: forall accShs bShs eShs k.
        Proxy target
     -> SNat k
-    -> FullTensorKind accShs
-    -> FullTensorKind bShs
-    -> FullTensorKind eShs
+    -> FullShapeTK accShs
+    -> FullShapeTK bShs
+    -> FullShapeTK eShs
     -> HFunOf target (TKProduct accShs eShs) (TKProduct accShs bShs)
     -> HFunOf target (TKProduct (ADTensorKind (TKProduct accShs eShs))
                                 (TKProduct accShs eShs))
@@ -960,7 +960,7 @@ class ( Num (IntOf target)
     -> target (BuildTensorKind k eShs)
     -> target (TKProduct accShs (BuildTensorKind k bShs))
   tApply :: HFunOf target x z -> target x -> target z
-  tlambda :: FullTensorKind x -> HFun x z -> HFunOf target x z
+  tlambda :: FullShapeTK x -> HFun x z -> HFunOf target x z
 
   -- If the result of the argument function is not a scalar, the result
   -- of this operation is the gradient of a function that additionally
@@ -972,26 +972,26 @@ class ( Num (IntOf target)
   -- These methods (and tlambda) are exactly what is needed as arguments
   -- of tmapAccumRDer.
   trev
-    :: FullTensorKind x  -- shape of x and dx
+    :: FullShapeTK x  -- shape of x and dx
     -> HFun x z  -- x |-> z
     -> HFunOf target x (ADTensorKind x)  -- x |-> dx
   trevDt
-    :: FullTensorKind x  -- shape of x and dx
+    :: FullShapeTK x  -- shape of x and dx
     -> HFun x z  -- x |-> z
     -> HFunOf target (TKProduct (ADTensorKind z) x) (ADTensorKind x)
                  -- [dz, x] |-> dx
   tfwd
-    :: FullTensorKind x  -- shape of x and dx
+    :: FullShapeTK x  -- shape of x and dx
     -> HFun x z  -- x |-> z
     -> HFunOf target (TKProduct (ADTensorKind x) x) (ADTensorKind z)
                  -- [dx, x] |-> dz
 
   tprimalPart :: target y -> PrimalOf target y
-  tdualPart :: STensorKind y -> target y -> DualOf target y
-  tfromPrimal :: STensorKind y -> PrimalOf target y -> target y
+  tdualPart :: SingletonTK y -> target y -> DualOf target y
+  tfromPrimal :: SingletonTK y -> PrimalOf target y -> target y
   tfromDual :: DualOf target y -> target y
   tScale :: (Num (target y), Num (PrimalOf target y))
-         => STensorKind y -> PrimalOf target y -> DualOf target y
+         => SingletonTK y -> PrimalOf target y -> DualOf target y
          -> DualOf target y
   tScale stk s t =
     tdualPart stk $ tfromPrimal @target stk s * tfromDual t
@@ -999,11 +999,11 @@ class ( Num (IntOf target)
   -- General operations that use ShareTensor if available, LetTensor otherwise
   tsum
     :: forall z k. ConvertTensor target
-    => SNat k -> STensorKind z -> target (BuildTensorKind k z)
+    => SNat k -> SingletonTK z -> target (BuildTensorKind k z)
     -> target z
   default tsum
     :: forall z k. (ShareTensor target, ConvertTensor target)
-    => SNat k -> STensorKind z -> target (BuildTensorKind k z)
+    => SNat k -> SingletonTK z -> target (BuildTensorKind k z)
     -> target z
   tsum snat@SNat stk u = case stk of
     STKScalar -> kfromS $ tssum u
@@ -1016,11 +1016,11 @@ class ( Num (IntOf target)
                (tsum snat stk2 u2)
   treplicate
     :: forall z k. ConvertTensor target
-    => SNat k -> STensorKind z -> target z
+    => SNat k -> SingletonTK z -> target z
     -> target (BuildTensorKind k z)
   default treplicate
     :: forall z k. (ShareTensor target, ConvertTensor target)
-    => SNat k -> STensorKind z -> target z
+    => SNat k -> SingletonTK z -> target z
     -> target (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
     STKScalar -> tsreplicate ZSS $ sfromK u
@@ -1033,11 +1033,11 @@ class ( Num (IntOf target)
                (treplicate snat stk2 u2)
   tindexBuild
     :: forall z k. ConvertTensor target
-    => SNat k -> STensorKind z -> target (BuildTensorKind k z) -> IntOf target
+    => SNat k -> SingletonTK z -> target (BuildTensorKind k z) -> IntOf target
     -> target z
   default tindexBuild
     :: forall z k. (ShareTensor target, ConvertTensor target)
-    => SNat k -> STensorKind z -> target (BuildTensorKind k z) -> IntOf target
+    => SNat k -> SingletonTK z -> target (BuildTensorKind k z) -> IntOf target
     -> target z
   tindexBuild snat@SNat stk u i = case stk of
     STKScalar -> kfromS $ tsindex u (i :.$ ZIS)
@@ -1051,9 +1051,9 @@ class ( Num (IntOf target)
 
   -- Methods needed only to split off the module that defines them
   tconstantTarget
-    :: (forall r. GoodScalar r => r) -> FullTensorKind y -> target y
+    :: (forall r. GoodScalar r => r) -> FullShapeTK y -> target y
   -- The arguments need to be duplicable
-  taddTarget :: STensorKind y -> target y -> target y -> target y
+  taddTarget :: SingletonTK y -> target y -> target y -> target y
 
   -- TODO: express without ConvertTensor or move there
   xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)
@@ -1071,7 +1071,7 @@ class ConvertTensor (target :: Target) where
   -- by hiding some (or none) type information (so the codomain has to be
   -- a "subtype" of the domain) or error.
   -- A corollary is that tfromS behaves uniformly vs BuildTensorKind.
-  tfromS :: STensorKind y -> STensorKind z -> target y -> target z
+  tfromS :: SingletonTK y -> SingletonTK z -> target y -> target z
 
   kfromR :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
   kfromR = kfromS . sfromR
@@ -1280,7 +1280,7 @@ class ConvertTensor (target :: Target) where
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.
 type role HFun nominal nominal
-newtype HFun (x :: TensorKindType) (z :: TensorKindType) =
+newtype HFun (x :: TK) (z :: TK) =
   HFun {unHFun :: forall f. ADReady f
                => f x -> f z}
 
@@ -1335,22 +1335,22 @@ instance
       => AllTargetShow target where
 
 type CommonTargetEqOrd :: Target -> Constraint
-class ( forall r. GoodScalar r => EqF target (TKScalar r)
-      , forall r. GoodScalar r => OrdF target (TKScalar r)
-      , forall r n. GoodScalar r => EqF target (TKR n r)
-      , forall r n. GoodScalar r => OrdF target (TKR n r)
-      , forall r sh. GoodScalar r => EqF target (TKS sh r)
-      , forall r sh. GoodScalar r => OrdF target (TKS sh r)
-      , forall r sh. GoodScalar r => EqF target (TKX sh r)
-      , forall r sh. GoodScalar r => OrdF target (TKX sh r) )
+class ( forall r. GoodScalar r => EqH target (TKScalar r)
+      , forall r. GoodScalar r => OrdH target (TKScalar r)
+      , forall r n. GoodScalar r => EqH target (TKR n r)
+      , forall r n. GoodScalar r => OrdH target (TKR n r)
+      , forall r sh. GoodScalar r => EqH target (TKS sh r)
+      , forall r sh. GoodScalar r => OrdH target (TKS sh r)
+      , forall r sh. GoodScalar r => EqH target (TKX sh r)
+      , forall r sh. GoodScalar r => OrdH target (TKX sh r) )
       => CommonTargetEqOrd target where
 instance
-      ( forall r. GoodScalar r => EqF target (TKScalar r)
-      , forall r. GoodScalar r => OrdF target (TKScalar r)
-      , forall r n. GoodScalar r => EqF target (TKR n r)
-      , forall r n. GoodScalar r => OrdF target (TKR n r)
-      , forall r sh. GoodScalar r => EqF target (TKS sh r)
-      , forall r sh. GoodScalar r => OrdF target (TKS sh r)
-      , forall r sh. GoodScalar r => EqF target (TKX sh r)
-      , forall r sh. GoodScalar r => OrdF target (TKX sh r) )
+      ( forall r. GoodScalar r => EqH target (TKScalar r)
+      , forall r. GoodScalar r => OrdH target (TKScalar r)
+      , forall r n. GoodScalar r => EqH target (TKR n r)
+      , forall r n. GoodScalar r => OrdH target (TKR n r)
+      , forall r sh. GoodScalar r => EqH target (TKS sh r)
+      , forall r sh. GoodScalar r => OrdH target (TKS sh r)
+      , forall r sh. GoodScalar r => EqH target (TKX sh r)
+      , forall r sh. GoodScalar r => OrdH target (TKX sh r) )
       => CommonTargetEqOrd target where

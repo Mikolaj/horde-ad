@@ -82,11 +82,11 @@ reluS, reluLeakyS
      (KnownShS sh, ADReady target, GoodScalar r, Differentiable r)
   => target (TKS sh r) -> target (TKS sh r)
 reluS v0 = tlet v0 $ \v ->
-  let oneIfGtZero = smap0N (\x -> ifF (x <=. sscalar 0) (sscalar 0.0) (sscalar 1.0)) v
+  let oneIfGtZero = smap0N (\x -> ifH (x <=. sscalar 0) (sscalar 0.0) (sscalar 1.0)) v
   in oneIfGtZero * v
 
 reluLeakyS v0 = tlet v0 $ \v ->
-  let oneIfGtZero = smap0N (\x -> ifF (x <=. sscalar 0) (sscalar 00.01) (sscalar 01.0)) v
+  let oneIfGtZero = smap0N (\x -> ifH (x <=. sscalar 0) (sscalar 00.01) (sscalar 01.0)) v
   in oneIfGtZero * v
 
 -- TODO: verify how faster a dedicated BaseTensor method would be
@@ -249,7 +249,7 @@ indexz0SLet
   => target (TKS sh r) -> IxROf target (Rank shOut) -> target (TKS '[] r)
 indexz0SLet d ix0 =
   sletIx ix0 $ \ix ->
-    ifF (within0S @shOut @target ix)
+    ifH (within0S @shOut @target ix)
         (sindex0 d (ShapedList.listToIndex (indexToList ix)))
         (srepl 0)
 -}
@@ -268,7 +268,7 @@ indexz0S
      (KnownShS shOut, KnownShS sh, ADReady target, GoodScalar r)
   => target (TKS sh r) -> IxROf target (Rank shOut) -> target (TKS '[] r)
 indexz0S d ix | SNat <- shsRank (knownShS @shOut) =
-  ifF (within0S @shOut @target ix)
+  ifH (within0S @shOut @target ix)
       (sindex0 d (fromList (toList ix)))
       (srepl 0)
 

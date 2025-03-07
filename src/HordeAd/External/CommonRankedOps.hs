@@ -108,11 +108,11 @@ relu, reluLeaky
      (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
   => target (TKR n r) -> target (TKR n r)
 relu v0 = tlet v0 $ \v ->
-  let oneIfGtZero = rmap0N (\x -> ifF (x <=. rscalar 0) (rscalar 0.0) (rscalar 1.0)) v
+  let oneIfGtZero = rmap0N (\x -> ifH (x <=. rscalar 0) (rscalar 0.0) (rscalar 1.0)) v
   in oneIfGtZero * v
 
 reluLeaky v0 = tlet v0 $ \v ->
-  let oneIfGtZero = rmap0N (\x -> ifF (x <=. rscalar 0) (rscalar 0.01) (rscalar 1.0)) v
+  let oneIfGtZero = rmap0N (\x -> ifH (x <=. rscalar 0) (rscalar 0.01) (rscalar 1.0)) v
   in oneIfGtZero * v
 
 -- TODO: verify how faster a dedicated BaseTensor method would be
@@ -242,7 +242,7 @@ indexz0Let
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
   => target (TKR n r) -> IxROf target n -> target (TKR 0 r)
 indexz0Let d ix0 = tletIx ix0 $ \ix ->
-                     ifF (within0 @target (rshape @target d) ix) (d ! ix) 0
+                     ifH (within0 @target (rshape @target d) ix) (d ! ix) 0
 -}
 
 -- | Retrieve the element at the given index,
@@ -257,7 +257,7 @@ indexz0Let d ix0 = tletIx ix0 $ \ix ->
 indexz0
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
   => target (TKR n r) -> IxROf target n -> target (TKR 0 r)
-indexz0 d ix = ifF (within0 @target (rshape @target d) ix) (d ! ix) (rscalar 0)
+indexz0 d ix = ifH (within0 @target (rshape @target d) ix) (d ! ix) (rscalar 0)
 
 -- | Given an index and shape, check if the index is fully within the shape.
 -- Note that @ix@ is used twice, so should be shared outside.

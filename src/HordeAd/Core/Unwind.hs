@@ -51,18 +51,18 @@ data RepW target y where
              -> RepW target (TKProduct x z)
 
 -- This captures the normal form of type family UnWind for full singletons.
-type role FullTensorKindW nominal
-data FullTensorKindW y where
+type role FullShapeTKW nominal
+data FullShapeTKW y where
   WFTKScalar :: GoodScalar r
-             => FullTensorKindW (TKScalar r)
+             => FullShapeTKW (TKScalar r)
   WFTKR :: GoodScalar r
-        => IShR n -> FullTensorKindW (TKR n r)
+        => IShR n -> FullShapeTKW (TKR n r)
   WFTKS :: GoodScalar r
-        => ShS sh -> FullTensorKindW (TKS sh r)
+        => ShS sh -> FullShapeTKW (TKS sh r)
   WFTKX :: GoodScalar r
-        => IShX sh -> FullTensorKindW (TKX sh r)
-  WFTKProduct :: FullTensorKindW y -> FullTensorKindW z
-              -> FullTensorKindW (TKProduct y z)
+        => IShX sh -> FullShapeTKW (TKX sh r)
+  WFTKProduct :: FullShapeTKW y -> FullShapeTKW z
+              -> FullShapeTKW (TKProduct y z)
 
 addRepW :: forall y target. BaseTensor target
         => RepW target y -> RepW target y -> RepW target y
@@ -86,7 +86,7 @@ multRepW a b = case (a, b) of
 
 -- TODO: maybe instead of ifDifferentiable perform only on ADTensorKind?
 dotRepW :: forall y target. (BaseTensor target, ConvertTensor target)
-        => FullTensorKindW y -> RepW target y -> RepW target y
+        => FullShapeTKW y -> RepW target y -> RepW target y
         -> target (TKScalar Double)
 dotRepW ftk a b = case (ftk, a, b) of
   (_, WTKScalar @r ta, WTKScalar tb) ->
@@ -104,7 +104,7 @@ dotRepW ftk a b = case (ftk, a, b) of
 
 constantRepW :: forall y target. BaseTensor target
             => (forall r. GoodScalar r => r)
-            -> FullTensorKindW y -> RepW target y
+            -> FullShapeTKW y -> RepW target y
 constantRepW r = \case
   WFTKScalar -> WTKScalar $ kconcrete r
   WFTKR sh -> WTKR $ rrepl sh r
@@ -114,7 +114,7 @@ constantRepW r = \case
     WTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
 
 defRepW :: forall y target. BaseTensor target
-        => FullTensorKindW y -> RepW target y
+        => FullShapeTKW y -> RepW target y
 defRepW = \case
   WFTKScalar -> WTKScalar $ kconcrete def
   WFTKR sh -> WTKR $ rrepl sh def
@@ -127,7 +127,7 @@ concreteRepW
   :: forall y target. (ConvertTensor RepN, ConvertTensor target)
   => (forall r. GoodScalar r => RepN (TKScalar r) -> target (TKScalar r))
   -> (forall r sh. GoodScalar r => RepN (TKS sh r) -> target (TKS sh r))
-  -> (forall x z. STensorKind z -> target x -> target z)
+  -> (forall x z. SingletonTK z -> target x -> target z)
   -> RepW RepN y -> RepW target y
 {-# INLINE concreteRepW #-}
 concreteRepW concreteK concreteS fromS w = case w of
@@ -151,7 +151,7 @@ concreteRepW concreteK concreteS fromS w = case w of
 
 toADTensorKindW
   :: forall y target. BaseTensor target
-  => RepW target y -> FullTensorKindW y -> RepW target (ADTensorKind y)
+  => RepW target y -> FullShapeTKW y -> RepW target (ADTensorKind y)
 toADTensorKindW t = \case
   WFTKScalar @r -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
@@ -183,7 +183,7 @@ toADTensorKindW t = \case
 
 fromADTensorKindW
   :: forall y target. BaseTensor target
-  => STensorKind y -> RepW target (ADTensorKind y) -> RepW target y
+  => SingletonTK y -> RepW target (ADTensorKind y) -> RepW target y
 fromADTensorKindW stk t = case (stk, t) of
   (STKScalar @r1, WTKScalar @r2 _) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
@@ -203,7 +203,7 @@ fromADTensorKindW stk t = case (stk, t) of
       _ -> constantRepW 0 (WFTKX (xshape v))
   (STKProduct stk1 stk2, WTKProduct t1 t2) ->
     WTKProduct (fromADTensorKindW stk1 t1) (fromADTensorKindW stk2 t2)
-  _ -> error "fromADTensorKindW: impossible STensorKind"
+  _ -> error "fromADTensorKindW: impossible SingletonTK"
 
 type family UnWind y where
   UnWind (TKScalar r) =
@@ -241,7 +241,7 @@ type family UnWind y where
   UnWind (TKProduct y z) =
     TKProduct (UnWind y) (UnWind z)
 
-unWindSTK :: STensorKind y -> STensorKind (UnWind y)
+unWindSTK :: SingletonTK y -> SingletonTK (UnWind y)
 unWindSTK = \case
   stk@STKScalar -> stk
   stk@(STKR _ STKScalar) -> stk
@@ -275,7 +275,7 @@ unWindSTK = \case
     unWindSTK $ STKProduct (STKX sh1 y) (STKX sh1 z)
   STKProduct y z -> STKProduct (unWindSTK y) (unWindSTK z)
 
-unWindFTK :: FullTensorKind y -> FullTensorKindW (UnWind y)
+unWindFTK :: FullShapeTK y -> FullShapeTKW (UnWind y)
 unWindFTK = \case
   FTKScalar -> WFTKScalar
   FTKR sh FTKScalar -> WFTKR sh
@@ -317,7 +317,7 @@ unWindFTK = \case
 -- that's of logarithmic length, so maybe even better than sharing
 -- excessively, which is hard for technical typing reasons.
 unWindTarget :: ConvertTensor target
-             => STensorKind y -> target y -> RepW target (UnWind y)
+             => SingletonTK y -> target y -> RepW target (UnWind y)
 unWindTarget stk t = case stk of
   STKScalar -> WTKScalar t
   STKR SNat STKScalar -> WTKR t
@@ -367,7 +367,7 @@ unWindTarget stk t = case stk of
     in WTKProduct (unWindTarget stk1 t1) (unWindTarget stk2 t2)
 
 windTarget :: ConvertTensor target
-           => STensorKind y -> RepW target (UnWind y) -> target y
+           => SingletonTK y -> RepW target (UnWind y) -> target y
 windTarget stk t = case (stk, t) of
   (STKScalar, WTKScalar v) -> v
   (STKR _ STKScalar, WTKR v) -> v
@@ -420,7 +420,7 @@ windTarget stk t = case (stk, t) of
 
 -- Requires duplicable arguments or a ShareTensor instance.
 addTarget :: (BaseTensor target, ConvertTensor target)
-          => STensorKind y -> target y -> target y -> target y
+          => SingletonTK y -> target y -> target y -> target y
 addTarget stk a b =
   let a2 = unWindTarget stk a
       b2 = unWindTarget stk b
@@ -428,7 +428,7 @@ addTarget stk a b =
 
 -- Requires duplicable arguments or a ShareTensor instance.
 multTarget :: (BaseTensor target, ConvertTensor target)
-           => STensorKind y -> target y -> target y -> target y
+           => SingletonTK y -> target y -> target y -> target y
 multTarget stk a b =
   let a2 = unWindTarget stk a
       b2 = unWindTarget stk b
@@ -437,7 +437,7 @@ multTarget stk a b =
 -- Dot product each component and then sum it all.
 -- Requires duplicable arguments or a ShareTensor instance.
 dotTarget :: (BaseTensor target, ConvertTensor target)
-          => FullTensorKind y -> target y -> target y
+          => FullShapeTK y -> target y -> target y
           -> target (TKScalar Double)
 dotTarget ftk a b =
   let a2 = unWindTarget (ftkToSTK ftk) a
@@ -446,12 +446,12 @@ dotTarget ftk a b =
 
 constantTarget :: forall y target. (BaseTensor target, ConvertTensor target)
                => (forall r. GoodScalar r => r)
-               -> FullTensorKind y -> target y
+               -> FullShapeTK y -> target y
 constantTarget r ftk =
   windTarget (ftkToSTK ftk) $ constantRepW r (unWindFTK ftk)
 
 defTarget :: forall y target. (BaseTensor target, ConvertTensor target)
-          => FullTensorKind y -> target y
+          => FullShapeTK y -> target y
 defTarget ftk =
   windTarget (ftkToSTK ftk) $ defRepW (unWindFTK ftk)
 
@@ -459,14 +459,14 @@ concreteTarget
   :: forall y target. (ConvertTensor RepN, ConvertTensor target)
   => (forall r. GoodScalar r => RepN (TKScalar r) -> target (TKScalar r))
   -> (forall r sh. GoodScalar r => RepN (TKS sh r) -> target (TKS sh r))
-  -> (forall x z. STensorKind z -> target x -> target z)
-  -> STensorKind y -> RepN y -> target y
+  -> (forall x z. SingletonTK z -> target x -> target z)
+  -> SingletonTK y -> RepN y -> target y
 concreteTarget concreteK concreteS fromS stk v =
   windTarget stk
   $ concreteRepW concreteK concreteS fromS
   $ unWindTarget stk v
 
-lemUnWindOfAD :: STensorKind y
+lemUnWindOfAD :: SingletonTK y
               -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)
 lemUnWindOfAD _ = unsafeCoerceRefl
 
@@ -474,7 +474,7 @@ lemUnWindOfAD _ = unsafeCoerceRefl
 -- in order not to require duplicable arguments.
 toADTensorKindShared
   :: (BaseTensor target, ConvertTensor target, ShareTensor target)
-  => FullTensorKind y -> target y
+  => FullShapeTK y -> target y
   -> target (ADTensorKind y)
 toADTensorKindShared ftk a | Refl <- lemUnWindOfAD (ftkToSTK ftk) =
   windTarget (adSTK $ ftkToSTK ftk)
@@ -484,7 +484,7 @@ toADTensorKindShared ftk a | Refl <- lemUnWindOfAD (ftkToSTK ftk) =
 -- in order not to require duplicable arguments.
 fromADTensorKindShared
   :: (BaseTensor target, ConvertTensor target, ShareTensor target)
-  => STensorKind y -> target (ADTensorKind y)
+  => SingletonTK y -> target (ADTensorKind y)
   -> target y
 fromADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =
   windTarget stk

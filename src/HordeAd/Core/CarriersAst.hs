@@ -50,11 +50,11 @@ type instance BoolOf (AstTensor ms s) = AstBool ms
 
 -- These are, unfortunately, required by some numeric instances.
 instance Eq (AstTensor ms s y) where
-  (==) = error "AST requires that EqF be used instead"
-  (/=) = error "AST requires that EqF be used instead"
+  (==) = error "AST requires that EqH be used instead"
+  (/=) = error "AST requires that EqH be used instead"
 
 instance Ord (AstTensor ms s y) where
-  (<=) = error "AST requires that OrdF be used instead"
+  (<=) = error "AST requires that OrdH be used instead"
 
 -- TODO: perhaps aim for a polynomial normal form? but that requires global
 -- inspection of the whole expression
@@ -219,40 +219,40 @@ instance (GoodScalar r, AstSpan s)
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (GoodScalar r, IntegralF r, AstSpan s)
-         => IntegralF (AstTensor ms s (TKScalar r)) where
-  quotF (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotF n k)
-  quotF (AstConcreteK 0) _ = AstConcreteK 0
-  quotF u (AstConcreteK 1) = u
-  quotF (AstI2K RemOp _ (AstConcreteK k)) (AstConcreteK k')
+instance (GoodScalar r, IntegralH r, AstSpan s)
+         => IntegralH (AstTensor ms s (TKScalar r)) where
+  quotH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotH n k)
+  quotH (AstConcreteK 0) _ = AstConcreteK 0
+  quotH u (AstConcreteK 1) = u
+  quotH (AstI2K RemOp _ (AstConcreteK k)) (AstConcreteK k')
     | k' >= k && k >= 0 = 0
-  quotF (AstI2K QuotOp u v) w = quotF u (v * w)
-  quotF (AstTimesK (AstConcreteK n) v) (AstConcreteK n')
+  quotH (AstI2K QuotOp u v) w = quotH u (v * w)
+  quotH (AstTimesK (AstConcreteK n) v) (AstConcreteK n')
     | n == n' = v
-  quotF u v = AstI2K QuotOp u v
+  quotH u v = AstI2K QuotOp u v
 
-  remF (AstConcreteK n) (AstConcreteK k) = AstConcreteK (remF n k)
-  remF (AstConcreteK 0) _ = AstConcreteK 0
-  remF _ (AstConcreteK 1) = AstConcreteK 0
-  remF (AstI2K RemOp u (AstConcreteK k)) (AstConcreteK k')
+  remH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (remH n k)
+  remH (AstConcreteK 0) _ = AstConcreteK 0
+  remH _ (AstConcreteK 1) = AstConcreteK 0
+  remH (AstI2K RemOp u (AstConcreteK k)) (AstConcreteK k')
     | k' >= k && k >= 0 = AstI2K RemOp u (AstConcreteK k)
-  remF (AstI2K RemOp u (AstConcreteK k)) (AstConcreteK k')
-    | remF k k' == 0 && k > 0 = remF u (AstConcreteK k')
-  remF (AstTimesK (AstConcreteK n) _) (AstConcreteK n')
-    | remF n n' == 0 = 0
-  remF u v = AstI2K RemOp u v
-  {-# SPECIALIZE instance IntegralF (AstTensor ms FullSpan (TKScalar Int64)) #-}
-  {-# SPECIALIZE instance IntegralF (AstTensor ms PrimalSpan (TKScalar Int64)) #-}
-  {-# SPECIALIZE instance IntegralF (AstTensor ms FullSpan (TKScalar CInt)) #-}
-  {-# SPECIALIZE instance IntegralF (AstTensor ms PrimalSpan (TKScalar CInt)) #-}
+  remH (AstI2K RemOp u (AstConcreteK k)) (AstConcreteK k')
+    | remH k k' == 0 && k > 0 = remH u (AstConcreteK k')
+  remH (AstTimesK (AstConcreteK n) _) (AstConcreteK n')
+    | remH n n' == 0 = 0
+  remH u v = AstI2K RemOp u v
+  {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int64)) #-}
+  {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int64)) #-}
+  {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar CInt)) #-}
+  {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar CInt)) #-}
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
   u / v = AstR2K DivideOp u v
   recip = AstR1K RecipOp
   fromRational r = fromPrimal $ AstConcreteK (fromRational r)
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
   pi = error "pi not defined for ranked tensors"
   exp = AstR1K ExpOp
@@ -273,9 +273,9 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
   acosh = AstR1K AcoshOp
   atanh = AstR1K AtanhOp
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
-         => RealFloatF (AstTensor ms s (TKScalar r)) where
-  atan2F = AstR2K Atan2Op
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+         => RealFloatH (AstTensor ms s (TKScalar r)) where
+  atan2H = AstR2K Atan2Op
 
 
 -- * Unlawful numeric instances for ranked AST; lawful modulo evaluation
@@ -294,19 +294,19 @@ instance GoodScalar r
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (GoodScalar r, IntegralF r)
-         => IntegralF (AstTensor ms s (TKR n r)) where
-  quotF = liftRFromS2 quotF
-  remF = liftRFromS2 remF
+instance (GoodScalar r, IntegralH r)
+         => IntegralH (AstTensor ms s (TKR n r)) where
+  quotH = liftRFromS2 quotH
+  remH = liftRFromS2 remH
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r)
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r)
          => Fractional (AstTensor ms s (TKR n r)) where
   (/) = liftRFromS2 (/)
   recip = liftRFromS1 recip
   fromRational r = error $ "fromRational not defined for ranked tensors: "
                            ++ show r
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKR n r)) where
   pi = error "pi not defined for ranked tensors"
   exp = liftRFromS1 exp
@@ -327,9 +327,9 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
   acosh = liftRFromS1 acosh
   atanh = liftRFromS1 atanh
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
-         => RealFloatF (AstTensor ms s (TKR n r)) where
-  atan2F = liftRFromS2 atan2F
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+         => RealFloatH (AstTensor ms s (TKR n r)) where
+  atan2H = liftRFromS2 atan2H
 
 
 -- * Unlawful numeric instances for shaped AST; lawful modulo evaluation
@@ -405,19 +405,19 @@ instance GoodScalar r
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (IntegralF r, GoodScalar r)
-         => IntegralF (AstTensor ms s (TKS sh r)) where
-  quotF = AstI2S QuotOp
-  remF = AstI2S RemOp
+instance (IntegralH r, GoodScalar r)
+         => IntegralH (AstTensor ms s (TKS sh r)) where
+  quotH = AstI2S QuotOp
+  remH = AstI2S RemOp
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r)
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r)
          => Fractional (AstTensor ms s (TKS sh r)) where
   u / v = AstR2S DivideOp u v
   recip = AstR1S RecipOp
   fromRational r = error $ "fromRational not defined for shaped tensors: "
                            ++ show r
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
   pi = error "pi not defined for shaped tensors"
   exp = AstR1S ExpOp
@@ -438,9 +438,9 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
   acosh = AstR1S AcoshOp
   atanh = AstR1S AtanhOp
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
-         => RealFloatF (AstTensor ms s (TKS sh r)) where
-  atan2F = AstR2S Atan2Op
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+         => RealFloatH (AstTensor ms s (TKS sh r)) where
+  atan2H = AstR2S Atan2Op
 
 
 -- * Unlawful numeric instances for mixed AST; lawful modulo evaluation
@@ -459,19 +459,19 @@ instance GoodScalar r
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (IntegralF r, GoodScalar r)
-         => IntegralF (AstTensor ms s (TKX sh r)) where
-  quotF = liftXFromS2 quotF
-  remF = liftXFromS2 remF
+instance (IntegralH r, GoodScalar r)
+         => IntegralH (AstTensor ms s (TKX sh r)) where
+  quotH = liftXFromS2 quotH
+  remH = liftXFromS2 remH
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r)
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r)
          => Fractional (AstTensor ms s (TKX sh r)) where
   (/) = liftXFromS2 (/)
   recip = liftXFromS1 recip
   fromRational r = error $ "fromRational not defined for mixed tensors: "
                            ++ show r
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKX sh r)) where
   pi = error "pi not defined for mixed tensors"
   exp = liftXFromS1 exp
@@ -492,9 +492,9 @@ instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
   acosh = liftXFromS1 acosh
   atanh = liftXFromS1 atanh
 
-instance (GoodScalar r, RealFloatF r, Nested.FloatElt r, AstSpan s)
-         => RealFloatF (AstTensor ms s (TKX sh r)) where
-  atan2F = liftXFromS2 atan2F
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+         => RealFloatH (AstTensor ms s (TKX sh r)) where
+  atan2H = liftXFromS2 atan2H
 
 
 -- * Unlawful instances of AST for bool; they are lawful modulo evaluation
@@ -508,7 +508,7 @@ instance Boolean (AstBool ms) where
   b &&* c = AstB2 AndOp b c
   b ||* c = AstB2 OrOp b c
 
-instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKR n r) where
+instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKR n r) where
   v ==. u = case ftkAst v of
     FTKR shv' _ -> case ftkAst u of
       FTKR shu' _ ->
@@ -532,7 +532,7 @@ instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKR n r) where
               _ -> error $ "(/=.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKX sh r) where
+instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKX sh r) where
   v ==. u = case ftkAst v of
     FTKX shv' _ -> case ftkAst u of
       FTKX shu' _ ->
@@ -556,7 +556,7 @@ instance (AstSpan s, GoodScalar r) => EqF (AstTensor ms s) (TKX sh r) where
               _ -> error $ "(/=.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKR n r) where
+instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKR n r) where
   v <. u = case ftkAst v of
     FTKR shv' _ -> case ftkAst u of
       FTKR shu' _ ->
@@ -602,7 +602,7 @@ instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKR n r) where
               _ -> error $ "(>=.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKX sh r) where
+instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
   v <. u = case ftkAst v of
     FTKX shv' _ -> case ftkAst u of
       FTKX shu' _ ->
@@ -650,7 +650,7 @@ instance (AstSpan s, GoodScalar r) => OrdF (AstTensor ms s) (TKX sh r) where
 
 -- These are common in indexing, so worth optimizing early via AstConcrete.
 instance (AstSpan s, GoodScalar r)
-         => EqF (AstTensor ms s) (TKScalar r) where
+         => EqH (AstTensor ms s) (TKScalar r) where
   AstConcreteK u ==. AstConcreteK v =
     AstBoolConst $ RepN @(TKScalar r) u ==. RepN v
   v ==. u = AstRelK EqOp (primalPart v) (primalPart u)
@@ -659,7 +659,7 @@ instance (AstSpan s, GoodScalar r)
   v /=. u = AstRelK NeqOp (primalPart v) (primalPart u)
 
 instance (AstSpan s, GoodScalar r)
-         => EqF (AstTensor ms s) (TKS sh r) where
+         => EqH (AstTensor ms s) (TKS sh r) where
   AstConcreteS u ==. AstConcreteS v =
     AstBoolConst $ RepN @(TKS sh r) u ==. RepN v
   v ==. u = AstRelS EqOp (primalPart v) (primalPart u)
@@ -668,7 +668,7 @@ instance (AstSpan s, GoodScalar r)
   v /=. u = AstRelS NeqOp (primalPart v) (primalPart u)
 
 instance (AstSpan s, GoodScalar r)
-         => OrdF (AstTensor ms s) (TKScalar r) where
+         => OrdH (AstTensor ms s) (TKScalar r) where
   AstConcreteK u <. AstConcreteK v =
     AstBoolConst $ RepN  @(TKScalar r)u <. RepN v
   v <. u = AstRelK LsOp (primalPart v) (primalPart u)
@@ -683,7 +683,7 @@ instance (AstSpan s, GoodScalar r)
   v >=. u = AstRelK GeqOp (primalPart v) (primalPart u)
 
 instance (AstSpan s, GoodScalar r)
-         => OrdF (AstTensor ms s) (TKS sh r) where
+         => OrdH (AstTensor ms s) (TKS sh r) where
   AstConcreteS u <. AstConcreteS v =
     AstBoolConst $ RepN @(TKS sh r) u <. RepN v
   v <. u = AstRelS LsOp (primalPart v) (primalPart u)
@@ -739,10 +739,10 @@ type instance BoolOf (AstNoSimplify s) = AstBool AstMethodLet
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify other instances
 
-instance EqF (AstTensor AstMethodShare s) y => EqF (AstRaw s) y where
+instance EqH (AstTensor AstMethodShare s) y => EqH (AstRaw s) y where
   AstRaw v ==. AstRaw u = v ==. u
   AstRaw v /=. AstRaw u = v /=. u
-instance OrdF (AstTensor AstMethodShare s) y => OrdF (AstRaw s) y where
+instance OrdH (AstTensor AstMethodShare s) y => OrdH (AstRaw s) y where
   AstRaw v <. AstRaw u = v <. u
   AstRaw v <=. AstRaw u = v <=. u
   AstRaw v >. AstRaw u = v >. u
@@ -751,19 +751,19 @@ instance OrdF (AstTensor AstMethodShare s) y => OrdF (AstRaw s) y where
 deriving instance Eq (AstRaw s y)
 deriving instance Ord (AstRaw s y)
 deriving instance Num (AstTensor AstMethodShare s y) => Num (AstRaw s y)
-deriving instance IntegralF (AstTensor AstMethodShare s y)
-                  => IntegralF (AstRaw s y)
+deriving instance IntegralH (AstTensor AstMethodShare s y)
+                  => IntegralH (AstRaw s y)
 deriving instance Fractional (AstTensor AstMethodShare s y)
                   => Fractional (AstRaw s y)
 deriving instance Floating (AstTensor AstMethodShare s y)
                   => Floating (AstRaw s y)
-deriving instance RealFloatF (AstTensor AstMethodShare s y)
-                  => RealFloatF (AstRaw s y)
+deriving instance RealFloatH (AstTensor AstMethodShare s y)
+                  => RealFloatH (AstRaw s y)
 
-instance EqF (AstTensor AstMethodLet s) y => EqF (AstNoVectorize s) y where
+instance EqH (AstTensor AstMethodLet s) y => EqH (AstNoVectorize s) y where
   AstNoVectorize v ==. AstNoVectorize u = v ==. u
   AstNoVectorize v /=. AstNoVectorize u = v /=. u
-instance OrdF (AstTensor AstMethodLet s) y => OrdF (AstNoVectorize s) y where
+instance OrdH (AstTensor AstMethodLet s) y => OrdH (AstNoVectorize s) y where
   AstNoVectorize v <. AstNoVectorize u = v <. u
   AstNoVectorize v <=. AstNoVectorize u = v <=. u
   AstNoVectorize v >. AstNoVectorize u = v >. u
@@ -771,19 +771,19 @@ instance OrdF (AstTensor AstMethodLet s) y => OrdF (AstNoVectorize s) y where
 deriving instance Eq (AstNoVectorize s y)
 deriving instance Ord (AstNoVectorize s y)
 deriving instance Num (AstTensor AstMethodLet s y) => Num (AstNoVectorize s y)
-deriving instance (IntegralF (AstTensor AstMethodLet s y))
-                  => IntegralF (AstNoVectorize s y)
+deriving instance (IntegralH (AstTensor AstMethodLet s y))
+                  => IntegralH (AstNoVectorize s y)
 deriving instance Fractional (AstTensor AstMethodLet s y)
                   => Fractional (AstNoVectorize s y)
 deriving instance Floating (AstTensor AstMethodLet s y)
                   => Floating (AstNoVectorize s y)
-deriving instance (RealFloatF (AstTensor AstMethodLet s y))
-                  => RealFloatF (AstNoVectorize s y)
+deriving instance (RealFloatH (AstTensor AstMethodLet s y))
+                  => RealFloatH (AstNoVectorize s y)
 
-instance EqF (AstTensor AstMethodLet s) y => EqF (AstNoSimplify s) y where
+instance EqH (AstTensor AstMethodLet s) y => EqH (AstNoSimplify s) y where
   AstNoSimplify v ==. AstNoSimplify u = v ==. u
   AstNoSimplify v /=. AstNoSimplify u = v /=. u
-instance OrdF (AstTensor AstMethodLet s) y => OrdF (AstNoSimplify s) y where
+instance OrdH (AstTensor AstMethodLet s) y => OrdH (AstNoSimplify s) y where
   AstNoSimplify v <. AstNoSimplify u = v <. u
   AstNoSimplify v <=. AstNoSimplify u = v <=. u
   AstNoSimplify v >. AstNoSimplify u = v >. u
@@ -791,11 +791,11 @@ instance OrdF (AstTensor AstMethodLet s) y => OrdF (AstNoSimplify s) y where
 deriving instance Eq (AstNoSimplify s y)
 deriving instance Ord (AstNoSimplify s y)
 deriving instance Num (AstTensor AstMethodLet s y) => Num (AstNoSimplify s y)
-deriving instance (IntegralF (AstTensor AstMethodLet s y))
-                  => IntegralF (AstNoSimplify s y)
+deriving instance (IntegralH (AstTensor AstMethodLet s y))
+                  => IntegralH (AstNoSimplify s y)
 deriving instance Fractional (AstTensor AstMethodLet s y)
                   => Fractional (AstNoSimplify s y)
 deriving instance Floating (AstTensor AstMethodLet s y)
                   => Floating (AstNoSimplify s y)
-deriving instance (RealFloatF (AstTensor AstMethodLet s y))
-                  => RealFloatF (AstNoSimplify s y)
+deriving instance (RealFloatH (AstTensor AstMethodLet s y))
+                  => RealFloatH (AstNoSimplify s y)

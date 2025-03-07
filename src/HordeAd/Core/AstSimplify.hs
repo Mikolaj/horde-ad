@@ -170,7 +170,7 @@ astTransposeAsGatherS knobs perm v =
 -- the range of all integer variables (taken from shapes) and the floor
 -- and minimum/maximum terms (obtained by analysing the embedded Ast term),
 -- because many of the emerging terms are not equal to their simplifed
--- forms without this data. Probably we could just subsitute @var `remF` range@
+-- forms without this data. Probably we could just subsitute @var `remH` range@
 -- for each variable.
 --
 -- TODO: To make this less disastrous, we need to add an extra constructor
@@ -277,7 +277,7 @@ astProject2 u = case u of
   _ -> Ast.AstProject2 u
 
 astFromVector :: forall y k s. AstSpan s
-              => SNat k -> STensorKind y
+              => SNat k -> SingletonTK y
               -> Data.Vector.Vector (AstTensor AstMethodLet s y)
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astFromVector snat stk v | Just Refl <- testEquality snat (SNat @1) =
@@ -328,7 +328,7 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
-  (let unFrom :: FullTensorKind x
+  (let unFrom :: FullShapeTK x
               -> AstTensor AstMethodLet s y
               -> Maybe (AstTensor AstMethodLet s x)
        unFrom ftkx (Ast.AstFromS _ t) =
@@ -347,7 +347,7 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
      Nothing -> error "astFromVector: empty vector")
 
 astSum :: forall y k s. AstSpan s
-       => SNat k -> STensorKind y
+       => SNat k -> SingletonTK y
        -> AstTensor AstMethodLet s (BuildTensorKind k y)
        -> AstTensor AstMethodLet s y
 astSum snat@SNat stk t0 = case t0 of
@@ -415,7 +415,7 @@ astSum snat@SNat stk t0 = case t0 of
   _ -> Ast.AstSum snat stk t0
 
 astReplicate :: forall y k s. AstSpan s
-             => SNat k -> STensorKind y
+             => SNat k -> SingletonTK y
              -> AstTensor AstMethodLet s y
              -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astReplicate snat@SNat stk = \case
@@ -454,8 +454,8 @@ astReplicate snat@SNat stk = \case
 astMapAccumRDer
   :: forall accShs bShs eShs k s.
      SNat k
-  -> FullTensorKind bShs
-  -> FullTensorKind eShs
+  -> FullShapeTK bShs
+  -> FullShapeTK eShs
   -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
   -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
                         (TKProduct accShs eShs))
@@ -537,7 +537,7 @@ astMapAccumRDer k bShs eShs (AstLambda varf vf)
       esShsFrom = ftkAst esFrom
       esShsFromSTK = ftkToSTK esShsFrom
   in case razeSTK esShsFromSTK of
-    (eShsFromSTK :: STensorKind eShsFrom) ->
+    (eShsFromSTK :: SingletonTK eShsFrom) ->
       gcastWith (unsafeCoerceRefl
                  :: BuildTensorKind k eShsFrom :~: esShsFrom) $
       let eShsFrom = razeFTK k eShsFromSTK esShsFrom
@@ -595,8 +595,8 @@ astMapAccumRDer k bShs eShs f df rf acc0 es =
 astMapAccumLDer
   :: forall accShs bShs eShs k s.
      SNat k
-  -> FullTensorKind bShs
-  -> FullTensorKind eShs
+  -> FullShapeTK bShs
+  -> FullShapeTK eShs
   -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
   -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
                         (TKProduct accShs eShs))
@@ -678,7 +678,7 @@ astMapAccumLDer k bShs eShs (AstLambda varf vf)
       esShsFrom = ftkAst esFrom
       esShsFromSTK = ftkToSTK esShsFrom
   in case razeSTK esShsFromSTK of
-    (eShsFromSTK :: STensorKind eShsFrom) ->
+    (eShsFromSTK :: SingletonTK eShsFrom) ->
       gcastWith (unsafeCoerceRefl
                  :: BuildTensorKind k eShsFrom :~: esShsFrom) $
       let eShsFrom = razeFTK k eShsFromSTK esShsFrom
@@ -869,8 +869,8 @@ astPrimalPart t = case t of
   Ast.AstN1K SignumOp u -> signum (astPrimalPart u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (astPrimalPart u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astPrimalPart u) (astPrimalPart v)
-  Ast.AstI2K QuotOp u v -> quotF (astPrimalPart u) (astPrimalPart v)
-  Ast.AstI2K RemOp u v -> remF (astPrimalPart u) (astPrimalPart v)
+  Ast.AstI2K QuotOp u v -> quotH (astPrimalPart u) (astPrimalPart v)
+  Ast.AstI2K RemOp u v -> remH (astPrimalPart u) (astPrimalPart v)
   Ast.AstCastK v -> astCastK $ astPrimalPart v
 
   AstPlusS u v -> astPrimalPart u + astPrimalPart v
@@ -955,8 +955,8 @@ astDualPart t = case t of
   Ast.AstN1K SignumOp u -> signum (astDualPart u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (astDualPart u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astDualPart u) (astDualPart v)
-  Ast.AstI2K QuotOp u v -> quotF (astDualPart u) (astDualPart v)
-  Ast.AstI2K RemOp u v -> remF (astDualPart u) (astDualPart v)
+  Ast.AstI2K QuotOp u v -> quotH (astDualPart u) (astDualPart v)
+  Ast.AstI2K RemOp u v -> remH (astDualPart u) (astDualPart v)
   Ast.AstCastK v -> astCastK $ astDualPart v
 
   AstPlusS u v -> astDualPart u + astDualPart v
@@ -2223,7 +2223,7 @@ astUnNestS t = case t of
   _ -> Ast.AstUnNestS t
 
 astFromS :: forall y z s.
-            STensorKind z -> AstTensor AstMethodLet s y
+            SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
 astFromS stkz v | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
 astFromS stkz (Ast.AstFromPrimal v) =
@@ -2243,7 +2243,7 @@ astFromS stkz v = Ast.AstFromS stkz v
 
 -- Compare with tfromS.
 astSFrom :: forall y z s. AstSpan s
-         => STensorKind z -> AstTensor AstMethodLet s y
+         => SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
 astSFrom stkz (Ast.AstFromS _ v)  -- shortcut
          | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
@@ -2496,7 +2496,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
 -- * Helper combinators
 
 -- All but the last case are shortcuts for common forms.
-astConcrete :: FullTensorKind y -> RepN y
+astConcrete :: FullShapeTK y -> RepN y
             -> AstTensor AstMethodLet PrimalSpan y
 astConcrete ftk v = case ftk of
   FTKScalar -> astConcreteK v
@@ -2585,8 +2585,8 @@ astNonIndexStep t = case t of
   Ast.AstN1K{} -> t
   Ast.AstR1K{} -> t
   Ast.AstR2K{} -> t
-  Ast.AstI2K QuotOp u v -> quotF u v
-  Ast.AstI2K RemOp u v -> remF u v
+  Ast.AstI2K QuotOp u v -> quotH u v
+  Ast.AstI2K RemOp u v -> remH u v
   AstConcreteK k -> AstConcreteK k
   Ast.AstFloorK{} -> t
   Ast.AstFromIntegralK v -> astFromIntegralK v
@@ -2692,8 +2692,8 @@ expandAst t = case t of
   Ast.AstN1K SignumOp u -> signum (expandAst u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (expandAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (expandAst u) (expandAst v)
-  Ast.AstI2K QuotOp u v -> quotF (expandAst u) (expandAst v)
-  Ast.AstI2K RemOp u v -> remF (expandAst u) (expandAst v)
+  Ast.AstI2K QuotOp u v -> quotH (expandAst u) (expandAst v)
+  Ast.AstI2K RemOp u v -> remH (expandAst u) (expandAst v)
   AstConcreteK k -> AstConcreteK k
   Ast.AstFloorK a -> Ast.AstFloorK (expandAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ expandAst v
@@ -2877,8 +2877,8 @@ simplifyAst t = case t of
   Ast.AstN1K SignumOp u -> signum (simplifyAst u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (simplifyAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (simplifyAst u) (simplifyAst v)
-  Ast.AstI2K QuotOp u v -> quotF (simplifyAst u) (simplifyAst v)
-  Ast.AstI2K RemOp u v -> remF (simplifyAst u) (simplifyAst v)
+  Ast.AstI2K QuotOp u v -> quotH (simplifyAst u) (simplifyAst v)
+  Ast.AstI2K RemOp u v -> remH (simplifyAst u) (simplifyAst v)
   AstConcreteK k -> AstConcreteK k
   Ast.AstFloorK a -> Ast.AstFloorK (simplifyAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ simplifyAst v
@@ -3234,8 +3234,8 @@ contractAst t = case t of
   Ast.AstN1K SignumOp u -> signum (contractAst u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (contractAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (contractAst u) (contractAst v)
-  Ast.AstI2K QuotOp u v -> quotF (contractAst u) (contractAst v)
-  Ast.AstI2K RemOp u v -> remF (contractAst u) (contractAst v)
+  Ast.AstI2K QuotOp u v -> quotH (contractAst u) (contractAst v)
+  Ast.AstI2K RemOp u v -> remH (contractAst u) (contractAst v)
   AstConcreteK k -> AstConcreteK k
   Ast.AstFloorK a -> Ast.AstFloorK (contractAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ contractAst v
@@ -3539,13 +3539,13 @@ substitute1Ast i var = subst where
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ quotF (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ quotH (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstI2K RemOp u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ remF (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ remH (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstConcreteK{} -> Nothing
   Ast.AstFloorK a -> Ast.AstFloorK <$> subst a

@@ -5,15 +5,15 @@
 -- | Various singletons for tensors and their associated constraints and lemmas.
 module HordeAd.Core.TensorKind
   ( -- * Singletons
-    STensorKind(..), KnownSTK(..)
+    SingletonTK(..), KnownSTK(..)
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, rankSTK, widthSTK
-  , FullTensorKind(..), KnownFTK(..)
+  , FullShapeTK(..), KnownFTK(..)
   , matchingFTK, ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK
   , DummyDualTarget(..)
     -- * Generic types of booleans and related class definitions
-  , BoolOf, Boolean(..), EqF(..), OrdF(..)
+  , BoolOf, Boolean(..), EqH(..), OrdH(..)
   ) where
 
 import Prelude
@@ -33,20 +33,20 @@ import HordeAd.Core.Types
 
 -- * Singletons
 
-type role STensorKind nominal
-data STensorKind y where
+type role SingletonTK nominal
+data SingletonTK y where
   STKScalar :: GoodScalar r
-            => STensorKind (TKScalar r)
-  STKR :: SNat n -> STensorKind x -> STensorKind (TKR2 n x)
-  STKS :: ShS sh -> STensorKind x -> STensorKind (TKS2 sh x)
-  STKX :: StaticShX sh -> STensorKind x -> STensorKind (TKX2 sh x)
-  STKProduct :: STensorKind y -> STensorKind z
-             -> STensorKind (TKProduct y z)
+            => SingletonTK (TKScalar r)
+  STKR :: SNat n -> SingletonTK x -> SingletonTK (TKR2 n x)
+  STKS :: ShS sh -> SingletonTK x -> SingletonTK (TKS2 sh x)
+  STKX :: StaticShX sh -> SingletonTK x -> SingletonTK (TKX2 sh x)
+  STKProduct :: SingletonTK y -> SingletonTK z
+             -> SingletonTK (TKProduct y z)
 
-deriving instance Show (STensorKind y)
+deriving instance Show (SingletonTK y)
 
-class KnownSTK (y :: TensorKindType) where
-  knownSTK :: STensorKind y
+class KnownSTK (y :: TK) where
+  knownSTK :: SingletonTK y
 
 instance GoodScalar r => KnownSTK (TKScalar r) where
   knownSTK = STKScalar
@@ -67,10 +67,10 @@ instance (KnownSTK y, KnownSTK z)
          => KnownSTK (TKProduct y z) where
   knownSTK = STKProduct (knownSTK @y) (knownSTK @z)
 
-withKnownSTK :: forall y r. STensorKind y -> (KnownSTK y => r) -> r
+withKnownSTK :: forall y r. SingletonTK y -> (KnownSTK y => r) -> r
 withKnownSTK = withDict @(KnownSTK y)
 
-lemKnownSTK :: STensorKind y -> Dict KnownSTK y
+lemKnownSTK :: SingletonTK y -> Dict KnownSTK y
 lemKnownSTK = \case
   STKScalar -> Dict
   STKR SNat x | Dict <- lemKnownSTK x -> Dict
@@ -83,7 +83,7 @@ sameKnownSTK :: forall y1 y2. (KnownSTK y1, KnownSTK y2)
                => Maybe (y1 :~: y2)
 sameKnownSTK = sameSTK (knownSTK @y1) (knownSTK @y2)
 
-sameSTK :: STensorKind y1 -> STensorKind y2 -> Maybe (y1 :~: y2)
+sameSTK :: SingletonTK y1 -> SingletonTK y2 -> Maybe (y1 :~: y2)
 sameSTK stk1 stk2 = case (stk1, stk2) of
   (STKScalar @r1, STKScalar @r2)
     | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
@@ -102,10 +102,10 @@ sameSTK stk1 stk2 = case (stk1, stk2) of
       Just Refl
   _ -> Nothing
 
-stkUnit :: STensorKind TKUnit
+stkUnit :: SingletonTK TKUnit
 stkUnit = STKScalar
 
-buildSTK :: SNat k -> STensorKind y -> STensorKind (BuildTensorKind k y)
+buildSTK :: SNat k -> SingletonTK y -> SingletonTK (BuildTensorKind k y)
 buildSTK snat@SNat = \case
   stk@(STKScalar) -> STKS (snat :$$ ZSS) stk
   STKR SNat x -> STKR SNat x
@@ -113,7 +113,7 @@ buildSTK snat@SNat = \case
   STKX sh x -> STKX (SKnown snat :!% sh) x
   STKProduct stk1 stk2 -> STKProduct (buildSTK snat stk1) (buildSTK snat stk2)
 
-razeSTK :: STensorKind z -> STensorKind (RazeTensorKind z)
+razeSTK :: SingletonTK z -> SingletonTK (RazeTensorKind z)
 razeSTK = \case
   STKScalar -> error "razeSTK: impossible argument"
   STKR snat@SNat x ->
@@ -128,8 +128,8 @@ razeSTK = \case
   STKX (SKnown _ :!% sh) x -> STKX sh x
   STKProduct stk1 stk2 -> STKProduct (razeSTK stk1) (razeSTK stk2)
 
-adSTK :: STensorKind y
-      -> STensorKind (ADTensorKind y)
+adSTK :: SingletonTK y
+      -> SingletonTK (ADTensorKind y)
 adSTK = \case
   t@(STKScalar @r) -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
@@ -142,15 +142,15 @@ adSTK = \case
   STKX sh x -> STKX sh $ adSTK x
   STKProduct stk1 stk2 -> STKProduct (adSTK stk1) (adSTK stk2)
 
-lemKnownSTKOfBuild :: SNat k -> STensorKind y
+lemKnownSTKOfBuild :: SNat k -> SingletonTK y
                      -> Dict KnownSTK (BuildTensorKind k y)
 lemKnownSTKOfBuild snat = lemKnownSTK . buildSTK snat
 
-lemKnownSTKOfAD :: STensorKind y
+lemKnownSTKOfAD :: SingletonTK y
                   -> Dict KnownSTK (ADTensorKind y)
 lemKnownSTKOfAD = lemKnownSTK . adSTK
 
-lemBuildOfAD :: SNat k -> STensorKind y
+lemBuildOfAD :: SNat k -> SingletonTK y
              -> BuildTensorKind k (ADTensorKind y)
                 :~: ADTensorKind (BuildTensorKind k y)
 lemBuildOfAD snat@SNat = \case
@@ -161,14 +161,14 @@ lemBuildOfAD snat@SNat = \case
   STKProduct stk1 stk2 | Refl <- lemBuildOfAD snat stk1
                        , Refl <- lemBuildOfAD snat stk2 -> Refl
 
-rankSTK :: STensorKind x -> Int
+rankSTK :: SingletonTK x -> Int
 rankSTK (STKScalar) = 0
 rankSTK (STKR snat _) = fromInteger $ fromSNat snat
 rankSTK (STKS sh _) = fromInteger $ fromSNat $ shsRank sh
 rankSTK (STKX sh _) = fromInteger $ fromSNat $ ssxRank sh
 rankSTK (STKProduct sy sz) = rankSTK sy `max` rankSTK sz
 
-widthSTK :: STensorKind y -> Int
+widthSTK :: SingletonTK y -> Int
 widthSTK stk = case stk of
   STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
     Just Refl -> 0
@@ -178,21 +178,21 @@ widthSTK stk = case stk of
   STKX{} -> 1
   STKProduct stk1 stk2 -> widthSTK stk1 + widthSTK stk2
 
-type role FullTensorKind nominal
-data FullTensorKind y where
+type role FullShapeTK nominal
+data FullShapeTK y where
   FTKScalar :: GoodScalar r
-            => FullTensorKind (TKScalar r)
-  FTKR :: IShR n -> FullTensorKind x -> FullTensorKind (TKR2 n x)
-  FTKS :: ShS sh -> FullTensorKind x -> FullTensorKind (TKS2 sh x)
-  FTKX :: IShX sh -> FullTensorKind x -> FullTensorKind (TKX2 sh x)
-  FTKProduct :: FullTensorKind y -> FullTensorKind z
-             -> FullTensorKind (TKProduct y z)
+            => FullShapeTK (TKScalar r)
+  FTKR :: IShR n -> FullShapeTK x -> FullShapeTK (TKR2 n x)
+  FTKS :: ShS sh -> FullShapeTK x -> FullShapeTK (TKS2 sh x)
+  FTKX :: IShX sh -> FullShapeTK x -> FullShapeTK (TKX2 sh x)
+  FTKProduct :: FullShapeTK y -> FullShapeTK z
+             -> FullShapeTK (TKProduct y z)
 
-deriving instance Show (FullTensorKind y)
-deriving instance Eq (FullTensorKind y)
+deriving instance Show (FullShapeTK y)
+deriving instance Eq (FullShapeTK y)
 
-class KnownFTK (y :: TensorKindType) where
-  knownFTK :: FullTensorKind y
+class KnownFTK (y :: TK) where
+  knownFTK :: FullShapeTK y
 
 instance GoodScalar r => KnownFTK (TKScalar r) where
   knownFTK = FTKScalar
@@ -205,7 +205,7 @@ instance (KnownFTK y, KnownFTK z)
          => KnownFTK (TKProduct y z) where
   knownFTK = FTKProduct (knownFTK @y) (knownFTK @z)
 
-matchingFTK :: FullTensorKind y1 -> FullTensorKind y2 -> Maybe (y1 :~: y2)
+matchingFTK :: FullShapeTK y1 -> FullShapeTK y2 -> Maybe (y1 :~: y2)
 matchingFTK ftk1 ftk2 = case (ftk1, ftk2) of
   (FTKScalar @r1, FTKScalar @r2)
     | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
@@ -227,7 +227,7 @@ matchingFTK ftk1 ftk2 = case (ftk1, ftk2) of
       Just Refl
   _ -> Nothing
 
-ftkToSTK :: FullTensorKind y -> STensorKind y
+ftkToSTK :: FullShapeTK y -> SingletonTK y
 ftkToSTK = \case
   FTKScalar -> STKScalar
   FTKR sh x -> STKR (shrRank sh) (ftkToSTK x)
@@ -235,10 +235,10 @@ ftkToSTK = \case
   FTKX sh x -> STKX (ssxFromShape sh) (ftkToSTK x)
   FTKProduct ftk1 ftk2 -> STKProduct (ftkToSTK ftk1) (ftkToSTK ftk2)
 
-ftkUnit :: FullTensorKind TKUnit
+ftkUnit :: FullShapeTK TKUnit
 ftkUnit = FTKScalar
 
-buildFTK :: SNat k -> FullTensorKind y -> FullTensorKind (BuildTensorKind k y)
+buildFTK :: SNat k -> FullShapeTK y -> FullShapeTK (BuildTensorKind k y)
 buildFTK snat@SNat = \case
   FTKScalar -> FTKS (snat :$$ ZSS) FTKScalar
   FTKR sh x -> FTKR (sNatValue snat :$: sh) x
@@ -247,9 +247,9 @@ buildFTK snat@SNat = \case
   FTKProduct ftk1 ftk2 -> FTKProduct (buildFTK snat ftk1) (buildFTK snat ftk2)
 
 razeFTK :: forall y k.
-           SNat k -> STensorKind y
-        -> FullTensorKind (BuildTensorKind k y)
-        -> FullTensorKind y
+           SNat k -> SingletonTK y
+        -> FullShapeTK (BuildTensorKind k y)
+        -> FullShapeTK y
 razeFTK snat@SNat stk ftk = case (stk, ftk) of
   (STKScalar, FTKS (_ :$$ ZSS) FTKScalar) -> FTKScalar
   (STKR{}, FTKR (_ :$: sh) x) -> FTKR sh x
@@ -259,8 +259,8 @@ razeFTK snat@SNat stk ftk = case (stk, ftk) of
   (STKProduct stk1 stk2, FTKProduct ftk1 ftk2) ->
     FTKProduct (razeFTK snat stk1 ftk1) (razeFTK snat stk2 ftk2)
 
-adFTK :: FullTensorKind y
-      -> FullTensorKind (ADTensorKind y)
+adFTK :: FullShapeTK y
+      -> FullShapeTK (ADTensorKind y)
 adFTK = \case
   t@(FTKScalar @r) -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
@@ -275,7 +275,7 @@ adFTK = \case
 
 type role DummyDualTarget nominal
 type DummyDualTarget :: Target
-data DummyDualTarget y = DummyDualTarget (FullTensorKind y)
+data DummyDualTarget y = DummyDualTarget (FullShapeTK y)
 
 
 -- * Generic types of booleans and related class definitions
@@ -283,12 +283,12 @@ data DummyDualTarget y = DummyDualTarget (FullTensorKind y)
 type family BoolOf (t :: Target) :: Type
 
 infix 4 ==., /=.
-class Boolean (BoolOf f) => EqF (f :: Target) y where
+class Boolean (BoolOf f) => EqH (f :: Target) y where
   (==.), (/=.) :: f y -> f y -> BoolOf f
   u /=. v = notB (u ==. v)
 
 infix 4 <., <=., >=., >.
-class Boolean (BoolOf f) => OrdF (f :: Target) y where
+class Boolean (BoolOf f) => OrdH (f :: Target) y where
   (<.), (<=.), (>.), (>=.) :: f y -> f y -> BoolOf f
   u >. v = v <. u
   u >=. v = notB (u <. v)

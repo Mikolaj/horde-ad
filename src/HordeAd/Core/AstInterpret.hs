@@ -46,7 +46,7 @@ interpretAstPrimal !env v1 = case v1 of
   AstPrimalPart (AstFromPrimal u) -> interpretAstPrimal env u
   AstPrimalPart (AstFromDual u) -> tconstantTarget 0 (ftkAst u)
   AstCond b a1 a2 ->
-    -- This avoids multiple ifF expansions in ADVal.
+    -- This avoids multiple ifH expansions in ADVal.
     let c = interpretAstBool env b
     in tcond (ftkToSTK $ ftkAst a1) c
              (interpretAstPrimal env a1) (interpretAstPrimal env a2)

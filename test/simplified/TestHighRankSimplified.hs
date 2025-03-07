@@ -72,15 +72,15 @@ testTrees =
   , testCase "3concatBuild3" testConcatBuild3
   ]
 
-foo :: RealFloatF a => (a,a,a) -> a
+foo :: RealFloatH a => (a,a,a) -> a
 foo (x,y,z) =
   let w = x * sin y
-  in atan2F z w + z * w
+  in atan2H z w + z * w
 
-fooF :: RealFloatF a => (a,a,a) -> a
+fooF :: RealFloatH a => (a,a,a) -> a
 fooF (x,y,z) =
   let w = x * sin y
-  in atan2F z w + z * w
+  in atan2H z w + z * w
 
 testFoo :: Assertion
 testFoo =
@@ -88,15 +88,15 @@ testFoo =
     (ringestData [2,2,1, 2,2] [-4.6947093,1.5697206,-1.6332961,0.34882763,1.5697206,-1.0,-0.9784988,-0.9158946,6.6326222,3.6699238,7.85237,-2.9069107,17.976654,0.3914159,32.98194,19.807974], ringestData [2,2,1, 2,2] [6.943779,-1.436789,33.67549,0.22397964,-1.436789,-1.0,-0.975235,-0.90365005,147.06645,-73.022705,-9.238474,-10.042692,-980.2843,-7.900571,-14.451739,436.9084], ringestData [2,2,1, 2,2] [-4.8945336,2.067469,-1.7196897,1.3341143,2.067469,1.0,0.99846554,0.99536234,6.6943173,3.7482092,7.977362,-3.1475093,18.000969,0.48736274,33.01224,19.845064])
     (rev @_ @(TKR 5 Float) foo (t16, t16, t16))
 
-bar :: forall a. RealFloatF a => (a, a) -> a
+bar :: forall a. RealFloatH a => (a, a) -> a
 bar (x, y) =
   let w = foo (x, y, x) * sin y
-  in atan2F x w + y * w
+  in atan2H x w + y * w
 
-barF :: forall a. RealFloatF a => (a, a) -> a
+barF :: forall a. RealFloatH a => (a, a) -> a
 barF (x, y) =
   let w = fooF (x, y, x) * sin y
-  in atan2F x w + y * w
+  in atan2H x w + y * w
 
 testBar :: Assertion
 testBar =
@@ -112,11 +112,11 @@ testBarS =
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
-fooD :: forall r n. (RealFloatF (ADVal RepN (TKR n r)))
+fooD :: forall r n. (RealFloatH (ADVal RepN (TKR n r)))
      => ListR 3 (ADVal RepN (TKR n r)) -> ADVal RepN (TKR n r)
 fooD (x ::: y ::: z ::: ZR) =
   let w = x * sin y
-  in atan2F z w + z * w
+  in atan2H z w + z * w
 
 testFooD :: Assertion
 testFooD =
@@ -142,7 +142,7 @@ fooBuildOut
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
   => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuildOut v =
-  rbuild1 2 $ \ix -> ifF (ix ==. 0)
+  rbuild1 2 $ \ix -> ifH (ix ==. 0)
                          (rindex v [ix + 1])  -- index out of bounds; guarded
                          (rsum v)
 
@@ -159,7 +159,7 @@ fooBuild2
 fooBuild2 v =
   rbuild1 2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
                           ix = sfromR $ rfromK ix' in
-    ifF (ix - (sprimalPart . sfloor . sfromR) (rsum0  @5 @(TKScalar r)
+    ifH (ix - (sprimalPart . sfloor . sfromR) (rsum0  @5 @(TKScalar r)
                       $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - sscalar 10001 >=. sscalar 0
          &&* ix - (sprimalPart . sfloor . sfromR) (rsum0 @5 @(TKScalar r) @target
                           $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - sscalar 10001 <=. sscalar 1)
@@ -167,8 +167,8 @@ fooBuild2 v =
                                 $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - sscalar 10001])
            -- index out of bounds; also fine
         (sqrt $ abs $ rindex v [kfromS
-                                $ let rr = (ix - (sfromR . rprimalPart . rfloor) (rsum0 v) - sscalar 10001) `remF` sscalar 2
-                                  in ifF (signum rr ==. negate (signum $ sscalar 2))
+                                $ let rr = (ix - (sfromR . rprimalPart . rfloor) (rsum0 v) - sscalar 10001) `remH` sscalar 2
+                                  in ifH (signum rr ==. negate (signum $ sscalar 2))
                                      (rr + sscalar 2)
                                      rr])
 
@@ -213,15 +213,15 @@ fooBuild2S
 fooBuild2S v = rfromS $
   sbuild1 @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
                            ix = sfromR $ rfromK ix' in
-    ifF (ix - (sprimalPart . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
+    ifH (ix - (sprimalPart . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
              $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
          &&* ix - (sprimalPart . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
              $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
         (sindex v ((kfromS $ ix - (sprimalPart . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
              $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001) :.$ ZIS ))
            -- index out of bounds; also fine
-        (sqrt $ abs $ sindex v ((kfromR $ rfromS $ let rr = (ix - (sprimalPart . sfloor) (ssum0 v) - srepl 10001) `remF` srepl 2
-                                in ifF (signum rr ==. negate (signum $ srepl 2))
+        (sqrt $ abs $ sindex v ((kfromR $ rfromS $ let rr = (ix - (sprimalPart . sfloor) (ssum0 v) - srepl 10001) `remH` srepl 2
+                                in ifH (signum rr ==. negate (signum $ srepl 2))
                                    (rr + srepl 2)
                                    rr) :.$ ZIS))
 
@@ -244,7 +244,7 @@ fooBuildNest2S
 fooBuildNest2S v = rfromS $
   sbuild1 @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
                            ix = sfromR $ rfromK ix' in
-    ifF (ix - (sunNest @_ @'[] @'[] . sprimalPart . snest knownShS . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
+    ifH (ix - (sunNest @_ @'[] @'[] . sprimalPart . snest knownShS . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
              $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
          &&* ix - (sprimalPart . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
              $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
@@ -252,8 +252,8 @@ fooBuildNest2S v = rfromS $
         (sindex v ((kfromR $ rfromS $ ix - (sprimalPart . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r) @target $ sunNest $ tproject2 $ tfromPrimal knownSTK $ tpair tunit (sprimalPart $ snest (knownShS @[5,12,11])
              $ sreplicate0N @[5,12,11,9,4] (ssum0 v))) - srepl 10001) :.$ ZIS))
            -- index out of bounds; also fine
--- TODO:        (sunNest @_ @'[] @sh $ tlet (snest (knownShS @'[]) $ (sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v (ShapedList.singletonIndex (ifF (signum (sprimalPart (sunNest rr)) ==. negate (signum $ srepl 2)) (sprimalPart (sunNest rr) + srepl 2) (sprimalPart (sunNest rr)))))
-        (sunNest @_ @'[] @sh $ tlet ((sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remF` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v ((kfromS $ ifF (signum (sprimalPart rr) ==. negate (signum $ srepl 2)) (sprimalPart rr + srepl 2) (sprimalPart rr)) :.$ ZIS))
+-- TODO:        (sunNest @_ @'[] @sh $ tlet (snest (knownShS @'[]) $ (sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remH` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v (ShapedList.singletonIndex (ifH (signum (sprimalPart (sunNest rr)) ==. negate (signum $ srepl 2)) (sprimalPart (sunNest rr) + srepl 2) (sprimalPart (sunNest rr)))))
+        (sunNest @_ @'[] @sh $ tlet ((sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remH` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v ((kfromS $ ifH (signum (sprimalPart rr) ==. negate (signum $ srepl 2)) (sprimalPart rr + srepl 2) (sprimalPart rr)) :.$ ZIS))
 
 testFooBuildNest21S :: Assertion
 testFooBuildNest21S =
@@ -268,12 +268,12 @@ testFooBuildNest25S =
     (rev' @Double @5 (fooBuildNest2S @2 @[2, 1, 2, 2] . sfromR) t16)
 
 fooBuild3 :: forall target r n.
-             ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR n r)) )
+             ( ADReady target, GoodScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild3 v =
   rbuild1 22 $ \ix ->
     bar ( rreplicate0N (shrTail $ rshape v) (rscalar 1)
-        , rindex v [minF 1 (ix + 1)] )  -- index not out of bounds
+        , rindex v [minH 1 (ix + 1)] )  -- index not out of bounds
 
 testFooBuild3 :: Assertion
 testFooBuild3 =
@@ -282,7 +282,7 @@ testFooBuild3 =
     (rev' @Double @5 fooBuild3 t16)
 
 fooBuild5 :: forall target r n.
-             ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR n r)) )
+             ( ADReady target, GoodScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild5 v =
   let r = rsum v
@@ -291,7 +291,7 @@ fooBuild5 v =
        r * foo ( rreplicate0N (shrTail $ rshape v) (rscalar 3)
                , rrepl (rshape r) 5 * r
                , r * v')
-       + bar (r, rindex v [minF 1 (ix + 1)])  -- index not out of bounds
+       + bar (r, rindex v [minH 1 (ix + 1)])  -- index not out of bounds
 
 testFooBuildDt :: Assertion
 testFooBuildDt =
@@ -314,7 +314,7 @@ testFooBuild5 =
     (rev' @Double @7 fooBuild5 t48)
 
 fooBuild1 :: forall target r n.
-             ( ADReady target, GoodScalar r, KnownNat n, RealFloatF (target (TKR n r)) )
+             ( ADReady target, GoodScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild1 v =
   let r = rsum v
@@ -324,7 +324,7 @@ fooBuild1 v =
        r * foo ( tk (rscalar 3)
                , tk (rscalar 5) * r
                , r * v')
-       + bar (r, rindex v [minF 1 (ix + 1)])
+       + bar (r, rindex v [minH 1 (ix + 1)])
 
 testFooBuild1 :: Assertion
 testFooBuild1 =
@@ -363,9 +363,9 @@ fooNoGo v =
        bar ( rreplicate0N shTail (rscalar 3.14)
            , bar ( rrepl shTail 3.14
                  , rindex v [ix]) )
-       + ifF (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail (rscalar 0) &&* 6 >. abs ix)
+       + ifH (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail (rscalar 0) &&* 6 >. abs ix)
                r (rreplicate0N shTail (rscalar 5) * r))
-     / rslice 1 3 (rmap0N (\x -> ifF (x >. r0) r0 x) v)
+     / rslice 1 3 (rmap0N (\x -> ifH (x >. r0) r0 x) v)
      * rbuild1 3 (const $ rrepl shTail 1)
 
 testFooNoGo :: Assertion
@@ -435,12 +435,12 @@ nestedSumBuild
   => target (TKR n r) -> target (TKR (2 + n) r)
 nestedSumBuild v =
   rbuild1 13 $ \ix1 -> rbuild1 4 $ \ix2 ->
-    ifF (ix2 >. ix1)
+    ifH (ix2 >. ix1)
         (rmap0N ((* rscalar (-0.00000003)) . sqrt . abs)
          $ nestedBuildMap (rsum0 v)
-           `rindex` (ix2 `remF` 3 :.: minF 1 ix1 :.: minF ix1 3 :.: ZIR))
+           `rindex` (ix2 `remH` 3 :.: minH 1 ix1 :.: minH ix1 3 :.: ZIR))
         (nestedBuildMap (rscalar 0.00042)
-         `rindex` (ix2 `remF` 3 :.: minF 1 ix1 :.: minF ix1 3 :.: ZIR))
+         `rindex` (ix2 `remH` 3 :.: minH 1 ix1 :.: minH ix1 3 :.: ZIR))
 
 testNestedSumBuild1 :: Assertion
 testNestedSumBuild1 =
@@ -465,7 +465,7 @@ nestedSumBuildB v =
              , rsum $ rbuild [9, 2] $ const $ rfromIndex0 ix
              , rindex v (fromList
                          $ replicate (rlength v - 1)
-                             (maxF 0 $ minF 1 $ ix2 `quotF` 2 + ix `quotF` 4 - 1))
+                             (maxH 0 $ minH 1 $ ix2 `quotH` 2 + ix `quotH` 4 - 1))
              , rbuild1 2 (\_ -> rsum0 v)
              , rsum (rbuild1 7 (\ix7 ->
                  rreplicate 2 (rfromIndex0 ix7)))
@@ -481,7 +481,7 @@ testNestedSumBuildB =
 nestedBuildIndex :: forall target r. (ADReady target, GoodScalar r)
                  => target (TKR 5 r) -> target (TKR 3 r)
 nestedBuildIndex v =
-  rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 3 $ \ix4 -> rindex v (ix4 `remF` 2 :.: ix2 :.: 0 :.: ZIR)) [ix3]) (ix2 :.: ZIR)
+  rbuild1 2 $ \ix2 -> rindex (rbuild1 3 $ \ix3 -> rindex (rbuild1 3 $ \ix4 -> rindex v (ix4 `remH` 2 :.: ix2 :.: 0 :.: ZIR)) [ix3]) (ix2 :.: ZIR)
 
 testNestedBuildIndex :: Assertion
 testNestedBuildIndex =
@@ -573,11 +573,11 @@ concatBuild r =
             , rbuild1 1 (\j -> rmap0N (* rfromIndex0 (j - i)) r)
             , rbuild1 11 (\j ->
                 rmap0N (* (rfromIndex0
-                  (kfromR (rprimalPart @target (rscalar 125)) * (j `remF` (abs (signum i + abs i) + 1))
-                   + maxF j (i `quotF` (j + 1)) * (kfromR . rprimalPart . rfloor) (rsum0 r)
-                   - ifF (r <=. r &&* i <. j)
+                  (kfromR (rprimalPart @target (rscalar 125)) * (j `remH` (abs (signum i + abs i) + 1))
+                   + maxH j (i `quotH` (j + 1)) * (kfromR . rprimalPart . rfloor) (rsum0 r)
+                   - ifH (r <=. r &&* i <. j)
                          (kfromR $ rprimalPart $ rminIndex (rflatten r))
-                         ((kfromR . rprimalPart . rfloor) $ rsum0 $ r ! ((i * j) `remF` 7 :.: ZIR))))) r)
+                         ((kfromR . rprimalPart . rfloor) $ rsum0 $ r ! ((i * j) `remH` 7 :.: ZIR))))) r)
             , rbuild1 13 (\_k ->
                 rsum $ rtr $ rreplicate (rwidth r) (rslice 0 1 r)) ])
 
@@ -619,7 +619,7 @@ concatBuild2 :: (ADReady target, GoodScalar r, KnownNat n)
              => target (TKR (1 + n) r) -> target (TKR (3 + n) r)
 concatBuild2 r =
   rbuild1 5 (\i ->
-    rbuild1 2 (\j -> rmap0N (* rfromIndex0 (maxF j (i `quotF` (j + 1)))) r))
+    rbuild1 2 (\j -> rmap0N (* rfromIndex0 (maxH j (i `quotH` (j + 1)))) r))
 
 testConcatBuild2 :: Assertion
 testConcatBuild2 =
@@ -637,7 +637,7 @@ concatBuild3 :: (ADReady target, GoodScalar r)
              => target (TKR 1 r) -> target (TKR 2 r)
 concatBuild3 _r =
   rbuild1 5 (\i ->
-    rbuild1 2 (\j -> rfromIndex0 (maxF j (i `quotF` (j + 1)))))
+    rbuild1 2 (\j -> rfromIndex0 (maxH j (i `quotH` (j + 1)))))
 
 testConcatBuild3 :: Assertion
 testConcatBuild3 =

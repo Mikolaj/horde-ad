@@ -116,7 +116,7 @@ revArtifactAdapt
   :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
   => Bool
   -> (astvals -> AstTensor AstMethodLet FullSpan z)
-  -> FullTensorKind (X astvals)
+  -> FullShapeTK (X astvals)
   -> (AstArtifactRev (X astvals) z, Delta (AstRaw PrimalSpan) z )
 {-# INLINE revArtifactAdapt #-}
 revArtifactAdapt hasDt f xftk =
@@ -131,7 +131,7 @@ revProduceArtifactWithoutInterpretation
      Bool
   -> (ADVal (AstRaw PrimalSpan) x
       -> ADVal (AstRaw PrimalSpan) z)
-  -> FullTensorKind x
+  -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation hasDt f xftk =
@@ -315,8 +315,8 @@ cfwdBoth f vals ds =
 
 -- This specialization is not possible where the functions are defined,
 -- due to dependency cycles, but it's possible here:
-{-# SPECIALIZE gradientFromDelta :: FullTensorKind x -> FullTensorKind z -> RepN (ADTensorKind z) -> Delta RepN z -> RepN (ADTensorKind x) #-}
-{-# SPECIALIZE evalRev :: FullTensorKind y -> EvalState RepN -> RepN (ADTensorKind y) -> Delta RepN y -> EvalState RepN #-}
+{-# SPECIALIZE gradientFromDelta :: FullShapeTK x -> FullShapeTK z -> RepN (ADTensorKind z) -> Delta RepN z -> RepN (ADTensorKind x) #-}
+{-# SPECIALIZE evalRev :: FullShapeTK y -> EvalState RepN -> RepN (ADTensorKind y) -> Delta RepN y -> EvalState RepN #-}
 {-# SPECIALIZE evalRevFTK :: EvalState RepN -> RepN (ADTensorKind y) -> Delta RepN y -> EvalState RepN #-}
 -- RULE left-hand side too complicated to desugar:
 -- {-# SPECIALIZE evalRevSame :: y ~ ADTensorKind y => EvalState RepN -> RepN (ADTensorKind y) -> Delta RepN y -> EvalState RepN #-}

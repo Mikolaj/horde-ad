@@ -276,7 +276,7 @@ printAstAux cfg d = \case
   AstVar var -> printAstVar cfg var
   AstCond b a1 a2 ->
     showParen (d > 10)
-    $ showString "ifF "
+    $ showString "ifH "
       . printAstBool cfg 11 b
       . showString " "
       . printAst cfg 11 a1
@@ -623,13 +623,13 @@ printAstR2R pr cfg d opCode u v = case opCode of
   DivideOp -> printBinaryOp pr cfg d u (7, " / ") v
   PowerOp -> printBinaryOp pr cfg d u (8, " ** ") v
   LogBaseOp -> printPrefixOp pr cfg d "logBase" [u, v]
-  Atan2Op -> printPrefixOp pr cfg d "atan2F" [u, v]
+  Atan2Op -> printPrefixOp pr cfg d "atan2H" [u, v]
 
 printAstI2R :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCodeIntegral2 -> a -> a -> ShowS
 printAstI2R pr cfg d opCode u v = case opCode of
-  QuotOp -> printPrefixOp pr cfg d "quotF" [u, v]
-  RemOp -> printPrefixOp pr cfg d "remF" [u, v]
+  QuotOp -> printPrefixOp pr cfg d "quotH" [u, v]
+  RemOp -> printPrefixOp pr cfg d "remH" [u, v]
 
 printPrefixOp :: (PrintConfig -> Int -> a -> ShowS)
               -> PrintConfig -> Int -> String -> [a]

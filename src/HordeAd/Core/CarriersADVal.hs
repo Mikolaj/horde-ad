@@ -149,7 +149,7 @@ dAdd v w = DeltaAdd v w
 
 -- Avoids building huge Delta terms, not only evaluating them.
 dFromS :: forall y z target.
-          STensorKind z -> Delta target y -> Delta target z
+          SingletonTK z -> Delta target y -> Delta target z
 dFromS stk (DeltaSFromR _sh d)
   | y2 <- ftkDelta d
   , Just Refl <- sameSTK stk (ftkToSTK y2) = d
@@ -204,9 +204,9 @@ multNotShared (D u u') (D v v') =
 
 generateDeltaInputs
   :: forall x target.
-     FullTensorKind x -> Delta target x
+     FullShapeTK x -> Delta target x
 generateDeltaInputs =
-  let gen :: Int -> FullTensorKind y -> (Delta target y, Int)
+  let gen :: Int -> FullShapeTK y -> (Delta target y, Int)
       gen j ftk = case ftk of
         FTKProduct ftk1 ftk2 ->
           let (d1, j1) = gen j ftk1
@@ -220,41 +220,41 @@ generateDeltaInputs =
 
 type instance BoolOf (ADVal f) = BoolOf f
 
-instance EqF f (TKScalar r) => EqF (ADVal f) (TKScalar r) where
+instance EqH f (TKScalar r) => EqH (ADVal f) (TKScalar r) where
   D u _ ==. D v _ = u ==. v
   D u _ /=. D v _ = u /=. v
 
-instance OrdF f (TKScalar r) => OrdF (ADVal f) (TKScalar r) where
+instance OrdH f (TKScalar r) => OrdH (ADVal f) (TKScalar r) where
   D u _ <. D v _ = u <. v
   D u _ <=. D v _ = u <=. v
   D u _ >. D v _ = u >. v
   D u _ >=. D v _ = u >=. v
 
-instance EqF f (TKR n r) => EqF (ADVal f) (TKR n r) where
+instance EqH f (TKR n r) => EqH (ADVal f) (TKR n r) where
   D u _ ==. D v _ = u ==. v
   D u _ /=. D v _ = u /=. v
 
-instance OrdF f (TKR n r) => OrdF (ADVal f) (TKR n r) where
+instance OrdH f (TKR n r) => OrdH (ADVal f) (TKR n r) where
   D u _ <. D v _ = u <. v
   D u _ <=. D v _ = u <=. v
   D u _ >. D v _ = u >. v
   D u _ >=. D v _ = u >=. v
 
-instance EqF f (TKS sh r) => EqF (ADVal f) (TKS sh r) where
+instance EqH f (TKS sh r) => EqH (ADVal f) (TKS sh r) where
   D u _ ==. D v _ = u ==. v
   D u _ /=. D v _ = u /=. v
 
-instance OrdF f (TKS sh r) => OrdF (ADVal f) (TKS sh r) where
+instance OrdH f (TKS sh r) => OrdH (ADVal f) (TKS sh r) where
   D u _ <. D v _ = u <. v
   D u _ <=. D v _ = u <=. v
   D u _ >. D v _ = u >. v
   D u _ >=. D v _ = u >=. v
 
-instance EqF f (TKX sh r) => EqF (ADVal f) (TKX sh r) where
+instance EqH f (TKX sh r) => EqH (ADVal f) (TKX sh r) where
   D u _ ==. D v _ = u ==. v
   D u _ /=. D v _ = u /=. v
 
-instance OrdF f (TKX sh r) => OrdF (ADVal f) (TKX sh r) where
+instance OrdH f (TKX sh r) => OrdH (ADVal f) (TKX sh r) where
   D u _ <. D v _ = u <. v
   D u _ <=. D v _ = u <=. v
   D u _ >. D v _ = u >. v
@@ -333,13 +333,13 @@ instance (Real (f z), ShareTensor f, ADReadyNoLet f)
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (IntegralF (f z), ShareTensor f, ADReadyNoLet f)
-         => IntegralF (ADVal f z) where
-  quotF (D u _) (D v v') = dDnotShared (quotF u v) (DeltaZero $ ftkDelta v')
-  remF (D u _) (D v v') = dDnotShared (remF u v) (DeltaZero $ ftkDelta v')
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => IntegralF (ADVal RepN (TKR n Int64)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => IntegralF (ADVal RepN (TKS sh Int64)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => IntegralF (ADVal RepN (TKX sh Int64)) #-}
+instance (IntegralH (f z), ShareTensor f, ADReadyNoLet f)
+         => IntegralH (ADVal f z) where
+  quotH (D u _) (D v v') = dDnotShared (quotH u v) (DeltaZero $ ftkDelta v')
+  remH (D u _) (D v v') = dDnotShared (remH u v) (DeltaZero $ ftkDelta v')
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => IntegralH (ADVal RepN (TKR n Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => IntegralH (ADVal RepN (TKS sh Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => IntegralH (ADVal RepN (TKX sh Int64)) #-}
 
 -- This is copied from below to permit fromRational for TKScalar.
 instance ( GoodScalar r, Fractional (f (TKScalar r)), ShareTensor f
@@ -423,13 +423,13 @@ instance (RealFrac (f z), ShareTensor f, ADReadyNoLet f)
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (Fractional (f z), RealFloatF (f z), ShareTensor f, ADReadyNoLet f)
-         => RealFloatF (ADVal f z) where
-  atan2F (D ue u') (D ve v') =
+instance (Fractional (f z), RealFloatH (f z), ShareTensor f, ADReadyNoLet f)
+         => RealFloatH (ADVal f z) where
+  atan2H (D ue u') (D ve v') =
     let !u = tshare ue in
     let !v = tshare ve in
     let !t = tshare (recip (u * u + v * v))
-    in dD (atan2F u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
+    in dD (atan2H u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
 
 instance (RealFloat (f z), ShareTensor f, ADReadyNoLet f)
          => RealFloat (ADVal f z) where

@@ -36,7 +36,7 @@ type AstEnv target = DEnumMap (AstVarName FullSpan) (AstEnvElem target)
   -- the FullSpan is a lie
 
 type role AstEnvElem nominal nominal
-data AstEnvElem (target :: Target) (y :: TensorKindType) where
+data AstEnvElem (target :: Target) (y :: TK) where
   AstEnvElem :: target y -> AstEnvElem target y
 
 deriving instance Show (target y) => Show (AstEnvElem target y)
@@ -124,27 +124,27 @@ interpretAstR1 AsinhOp u = asinh u
 interpretAstR1 AcoshOp u = acosh u
 interpretAstR1 AtanhOp u = atanh u
 
-interpretAstR2 :: RealFloatF a
+interpretAstR2 :: RealFloatH a
                => OpCode2 -> a -> a -> a
 {-# INLINE interpretAstR2 #-}
 interpretAstR2 DivideOp u v = u / v
 interpretAstR2 PowerOp u v = u ** v
 interpretAstR2 LogBaseOp u v = logBase u v
-interpretAstR2 Atan2Op u v = atan2F u v
+interpretAstR2 Atan2Op u v = atan2H u v
 
-interpretAstR2F :: RealFloatF a
+interpretAstR2F :: RealFloatH a
                 => OpCode2 -> a -> a -> a
 {-# INLINE interpretAstR2F #-}
 interpretAstR2F DivideOp u v = u / v
 interpretAstR2F PowerOp u v = u ** v
 interpretAstR2F LogBaseOp u v = logBase u v
-interpretAstR2F Atan2Op u v = atan2F u v
+interpretAstR2F Atan2Op u v = atan2H u v
 
-interpretAstI2F :: IntegralF a
+interpretAstI2F :: IntegralH a
                 => OpCodeIntegral2 -> a -> a -> a
 {-# INLINE interpretAstI2F #-}
-interpretAstI2F QuotOp u v = quotF u v
-interpretAstI2F RemOp u v = remF u v
+interpretAstI2F QuotOp u v = quotH u v
+interpretAstI2F RemOp u v = remH u v
 
 interpretAstB2 :: Boolean b
                => OpCodeBool -> b -> b -> b
@@ -152,7 +152,7 @@ interpretAstB2 :: Boolean b
 interpretAstB2 AndOp u v = u &&* v
 interpretAstB2 OrOp u v = u ||* v
 
-interpretAstRelOp :: (EqF f y, OrdF f y)
+interpretAstRelOp :: (EqH f y, OrdH f y)
                   => OpCodeRel -> f y -> f y -> BoolOf f
 {-# INLINE interpretAstRelOp #-}
 interpretAstRelOp EqOp u v = u ==. v

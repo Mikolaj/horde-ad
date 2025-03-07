@@ -77,8 +77,8 @@ import HordeAd.Core.Unwind
 
 gradientFromDelta
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
-  => FullTensorKind x
-  -> FullTensorKind z
+  => FullShapeTK x
+  -> FullShapeTK z
   -> target (ADTensorKind z)
   -> Delta target z
   -> target (ADTensorKind x)
@@ -93,7 +93,7 @@ gradientFromDelta !xftk !zftk !dt deltaTopLevel =
 
 derivativeFromDelta
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
-  => Delta target z -> FullTensorKind (ADTensorKind x)
+  => Delta target z -> FullShapeTK (ADTensorKind x)
   -> target (ADTensorKind x)
   -> target (ADTensorKind z)
 derivativeFromDelta deltaTopLevel ftk ds =
@@ -138,7 +138,7 @@ newtype Cotangent target y =
 type role TensorOrZero nominal nominal
 data TensorOrZero target y =
     TOTensor (target y)
-  | TOZero (FullTensorKind y)
+  | TOZero (FullShapeTK y)
   deriving Show
 
 evalTensorOrZero :: forall target x. ADReadyNoLet target
@@ -150,7 +150,7 @@ evalTensorOrZero = \case
 -- The ShareTensor constraint is needed, despite what GHC says,
 -- in order not to require duplicable arguments.
 addTensorOrZero :: forall target y. (ADReadyNoLet target, ShareTensor target)
-                => STensorKind y
+                => SingletonTK y
                 -> TensorOrZero target y -> TensorOrZero target y
                 -> TensorOrZero target y
 addTensorOrZero stk a b = case (a, b) of
@@ -164,7 +164,7 @@ addTensorOrZero stk a b = case (a, b) of
 rebuildInputs :: forall ady target. ADReadyNoLet target
               => [DSum (InputId target) (TensorOrZero target)]
               -> EvalState target  -- original state; only for error messages
-              -> FullTensorKind ady
+              -> FullShapeTK ady
               -> (target ady, [DSum (InputId target) (TensorOrZero target)])
 rebuildInputs els s2 ftk = case ftk of
   FTKProduct ftk1 ftk2 ->
@@ -195,7 +195,7 @@ rebuildInputs els s2 ftk = case ftk of
                  ++ show_IMap (iMap s2)
 
 -- Matches generateDeltaInputs.
-generateDSumsDummy :: Int -> FullTensorKind y
+generateDSumsDummy :: Int -> FullShapeTK y
                    -> ([DSum (InputId target) (TensorOrZero target)], Int)
 generateDSumsDummy j ftk  = case ftk of
   FTKProduct ftk1 ftk2 ->
@@ -206,7 +206,7 @@ generateDSumsDummy j ftk  = case ftk of
 
 -- Matches generateDeltaInputs.
 generateDSums :: ShareTensor target
-              => Int -> FullTensorKind y -> target y
+              => Int -> FullShapeTK y -> target y
               -> ([DSum (InputId target) (TensorOrZero target)], Int)
 generateDSums j ftk t = case ftk of
   FTKProduct ftk1 ftk2 ->
@@ -299,7 +299,7 @@ data EvalState target = EvalState
 -- Requested lengths of the vectors are given in the first few arguments.
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) are given as arguments.
-initEvalState :: FullTensorKind x -> EvalState target
+initEvalState :: FullShapeTK x -> EvalState target
 initEvalState ftk0 =
   let -- Create finite maps that hold values associated with inputs
       -- and with (possibly shared) term tree nodes.
@@ -387,7 +387,7 @@ evalXRuntimeSpecialized !s !c =
 evalRev
   :: forall y target.
      (ADReadyNoLet target, ShareTensor target)
-  => FullTensorKind y
+  => FullShapeTK y
   -> EvalState target -> target (ADTensorKind y) -> Delta target y
   -> EvalState target
 evalRev ftk !s !c d = case ftk of

@@ -18,7 +18,7 @@ import HordeAd.External.OptimizerTools
 
 -- | Stochastic Gradient Descent.
 sgdSTK :: forall a x z.
-          STensorKind x
+          SingletonTK x
        -> Double  -- ^ gamma (learning_rate?)
        -> (a -> ADVal RepN x -> ADVal RepN z)
        -> [a]  -- ^ training data

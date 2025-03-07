@@ -74,7 +74,7 @@ revArtifactFromForwardPass
       -> AstVarName FullSpan x
       -> AstTensor AstMethodLet FullSpan x
       -> ADVal (AstRaw PrimalSpan) z)
-  -> FullTensorKind x
+  -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 -- Break the inline chain to prevent false positives in inspection testing.
 -- {-# INLINE revArtifactFromForwardPass #-}
@@ -102,7 +102,7 @@ revProduceArtifact
   -> (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> FullTensorKind x
+  -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact hasDt g envInit xftk =
@@ -115,7 +115,7 @@ fwdArtifactFromForwardPass
       -> AstVarName FullSpan x
       -> AstTensor AstMethodLet FullSpan x
       -> ADVal (AstRaw PrimalSpan) z)
-  -> FullTensorKind x
+  -> FullShapeTK x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 -- Break the inline chain to prevent false positives in inspection testing.
 -- {-# INLINE fwdArtifactFromForwardPass #-}
@@ -134,7 +134,7 @@ fwdProduceArtifact
      (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> FullTensorKind x
+  -> FullShapeTK x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact f envInit xftk =
@@ -151,7 +151,7 @@ fwdProduceArtifact f envInit xftk =
 -- This combinator also introduces new variable names.
 astBuild1Vectorize
   :: AstSpan s
-  => SNat k -> STensorKind y
+  => SNat k -> SingletonTK y
   -> (AstInt AstMethodLet -> AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astBuild1Vectorize k stk f = build1Vectorize k stk $ funToAstI f
@@ -1229,7 +1229,7 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
             a
 
 -- All but the last case are shortcuts for common forms.
-astConcreteRaw :: FullTensorKind y -> RepN y
+astConcreteRaw :: FullShapeTK y -> RepN y
                -> AstRaw PrimalSpan y
 astConcreteRaw ftk v = case ftk of
   FTKScalar -> AstRaw $ AstConcreteK $ unRepN v

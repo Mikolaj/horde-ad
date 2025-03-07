@@ -50,7 +50,7 @@ import HordeAd.Core.Types
 -- have any, either.
 build1Vectorize
   :: forall y k s. AstSpan s
-  => SNat k -> STensorKind y -> (IntVarName, AstTensor AstMethodLet s y)
+  => SNat k -> SingletonTK y -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE build1Vectorize #-}
 build1Vectorize snat@SNat stk (var, v0) = unsafePerformIO $ do
@@ -472,7 +472,7 @@ astTrX a = case Permutation.makePerm @'[1, 0] of
 
 astTrBuild
   :: forall k1 k2 s y. AstSpan s
-  => SNat k1 -> SNat k2 -> STensorKind y
+  => SNat k1 -> SNat k2 -> SingletonTK y
   -> AstTensor AstMethodLet s (BuildTensorKind k1 (BuildTensorKind k2 y))
   -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
 astTrBuild SNat SNat stk t = case stk of
@@ -487,7 +487,7 @@ astTrBuild SNat SNat stk t = case stk of
                  (astTrBuild (SNat @k1) (SNat @k2) stk2 u2)
 
 astIndexBuild :: forall y k s. AstSpan s
-              => SNat k -> STensorKind y
+              => SNat k -> SingletonTK y
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
               -> AstInt AstMethodLet
               -> AstTensor AstMethodLet s y

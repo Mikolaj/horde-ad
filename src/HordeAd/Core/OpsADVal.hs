@@ -42,7 +42,7 @@ crevOnADInputs
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => Maybe (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
-  -> FullTensorKind x -> ADVal target x
+  -> FullShapeTK x -> ADVal target x
   -> (target (ADTensorKind x), target z)
 -- Break the inline chain to prevent false positives in inspection testing.
 -- {-# INLINE crevOnADInputs #-}
@@ -59,7 +59,7 @@ crevOnHVector
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => Maybe (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
-  -> FullTensorKind x -> target x
+  -> FullShapeTK x -> target x
   -> (target (ADTensorKind x), target z)
 {-# INLINE crevOnHVector #-}
 crevOnHVector edt f xftk parameters =
@@ -69,7 +69,7 @@ crevOnHVector edt f xftk parameters =
 
 cfwdOnADInputs
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
-  => FullTensorKind x -> ADVal target x
+  => FullShapeTK x -> ADVal target x
   -> (ADVal target x -> ADVal target z)
   -> target (ADTensorKind x)
   -> (target (ADTensorKind z), target z)
@@ -82,7 +82,7 @@ cfwdOnADInputs xftk inputs f ds =
 
 cfwdOnHVector
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
-  => FullTensorKind x -> target x
+  => FullShapeTK x -> target x
   -> (ADVal target x -> ADVal target z)
   -> target (ADTensorKind x)
   -> (target (ADTensorKind z), target z)
@@ -95,7 +95,7 @@ cfwdOnHVector xftk parameters f ds =
 
 -- * Instances
 
-fromPrimalFTK :: FullTensorKind z -> f z -> ADVal f z
+fromPrimalFTK :: FullShapeTK z -> f z -> ADVal f z
 fromPrimalFTK ftk a = dDnotShared a (DeltaZero ftk)
 
 -- This instance can be sped up by defining and simplifying all default
