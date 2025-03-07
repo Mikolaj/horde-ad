@@ -744,7 +744,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastRS sh' $ \(sh :: ShS sh) ->
         AstFromS @(TKS sh r2) (STKR (shsRank sh) STKScalar)
         . AstCastS . AstSFromR sh $ a
-  trminIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  trminIndex @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ rest ->
@@ -754,7 +754,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           AstFromS @(TKS (Init sh) r2) (STKR (shsRank rest) STKScalar)
           . fromPrimal . AstMinIndexS . primalPart . AstSFromR @sh sh $ a
         ZSS -> error "rminIndex: impossible shape"
-  trmaxIndex @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  trmaxIndex @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ rest ->
