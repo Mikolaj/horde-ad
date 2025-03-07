@@ -18,6 +18,7 @@ import Data.Array.Nested qualified as Nested
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
+import HordeAd.Core.Ops (tbuild1, treplicate)
 import HordeAd.Core.OpsConcrete ()
 
 import CrossTesting

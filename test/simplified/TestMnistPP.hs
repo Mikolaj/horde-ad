@@ -17,6 +17,7 @@ import Data.Array.Nested qualified as Nested
 import HordeAd
 import HordeAd.Core.Adaptor
 import HordeAd.Core.AstFreshId
+import HordeAd.Core.Ops (treplicate)
 
 import MnistData
 import MnistFcnnRanked1 qualified
@@ -65,8 +66,7 @@ testVTOPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = treplicate (SNat @SizeMnistGlyph) knownSTK
-                   $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
-                   $ RepN $ Nested.rscalar 7
+                   $ fromPrimal $ rconcrete $ Nested.rscalar 7
       afcnn2T :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                    (AstTensor AstMethodLet FullSpan) 3 4 Float
               -> AstTensor AstMethodLet FullSpan (TKR 1 Float)
@@ -90,8 +90,7 @@ testVTOPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = treplicate (SNat @SizeMnistGlyph) knownSTK
-                   $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
-                   $ RepN $ Nested.rscalar 7
+                   $ fromPrimal $ rconcrete $ Nested.rscalar 7
       afcnn2TnonLin :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                          (AstTensor AstMethodLet FullSpan) 3 4 Double
                     -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
@@ -127,8 +126,7 @@ testVT2OPP = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = treplicate (SNat @3) knownSTK
-                   $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
-                   $ RepN $ Nested.rscalar 7
+                   $ fromPrimal $ rconcrete $ Nested.rscalar 7
       afcnn2T :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                    (AstTensor AstMethodLet FullSpan) Double Float
               -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
@@ -150,20 +148,19 @@ testVT2OPPNonLin = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = treplicate (SNat @3) knownSTK
-                   $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
-                   $ RepN $ Nested.rscalar 7
+                   $ fromPrimal $ rconcrete $ Nested.rscalar 7
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Float Float
                     -> AstTensor AstMethodLet FullSpan (TKR 1 Float)
       afcnn2TnonLin = MnistFcnnRanked2.afcnnMnist2 logistic softMax1 blackGlyph
       constant =
         let ((a1, a2), (a3, a4), (a5, a6)) = valsInitVT2OPP
-        in ( ( rcast $ fromPrimal $ tconcrete (FTKR [4, 3] FTKScalar) a1
-             , rcast $ fromPrimal $ tconcrete (FTKR [4] FTKScalar) a2 )
-           , ( fromPrimal $ rcast $ tconcrete (FTKR [5, 4] FTKScalar) a3
-             , fromPrimal $ rcast $ tconcrete (FTKR [5] FTKScalar) a4 )
-           , ( rcast $ fromPrimal $ tconcrete (FTKR [2, 5] FTKScalar) a5
-             , fromPrimal $ rcast $ tconcrete (FTKR [2] FTKScalar) a6 ) )
+        in ( ( rcast $ fromPrimal $ rconcrete $ unRepN a1
+             , rcast $ fromPrimal $ rconcrete $ unRepN a2 )
+           , ( fromPrimal $ rcast $ rconcrete $ unRepN a3
+             , fromPrimal $ rcast $ rconcrete $ unRepN a4 )
+           , ( rcast $ fromPrimal $ rconcrete $ unRepN a5
+             , fromPrimal $ rcast $ rconcrete $ unRepN a6 ) )
       (_, ast3) = funToAst (FTKR (0 :$: ZSR) (FTKScalar @Float))
                            (const $ afcnn2TnonLin constant)
   "\\dummy" ++ " -> " ++ printAstSimple renames ast3
@@ -176,8 +173,7 @@ testVT2OPPNonLin2 = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = treplicate (SNat @3) knownSTK
-                   $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
-                   $ RepN $ Nested.rscalar 7
+                   $ fromPrimal $ rconcrete $ Nested.rscalar 7
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Double Float
                     -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
@@ -199,11 +195,9 @@ testVT2OPPNonLin3 = do
   resetVarCounter
   let renames = IM.empty
       blackGlyph = treplicate (SNat @3) knownSTK
-                   $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
-                   $ RepN $ Nested.rscalar 7
+                   $ fromPrimal $ rconcrete $ Nested.rscalar 7
       blackLabel = treplicate (SNat @2) knownSTK
-                   $ fromPrimal $ tconcrete (FTKR ZSR FTKScalar)
-                   $ RepN $ Nested.rscalar 8
+                   $ fromPrimal $ rconcrete $ Nested.rscalar 8
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Double Float
                     -> AstTensor AstMethodLet FullSpan (TKScalar Double)
@@ -267,8 +261,7 @@ testRNNOPP = do
       blackGlyph = AstReplicate (SNat @1) knownSTK
                    $ AstReplicate (SNat @1) knownSTK
                    $ AstReplicate (SNat @1) knownSTK
-                       (tconcrete (FTKR ZSR FTKScalar)
-                                  (RepN $ Nested.rscalar 7)
+                       (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                       Double
@@ -296,8 +289,7 @@ testRNNOPP2 = do
       blackGlyph = AstReplicate (SNat @2) knownSTK
                    $ AstReplicate (SNat @2) knownSTK
                    $ AstReplicate (SNat @2) knownSTK
-                       (tconcrete (FTKR ZSR FTKScalar)
-                                  (RepN $ Nested.rscalar 7)
+                       (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)
                                                       Double

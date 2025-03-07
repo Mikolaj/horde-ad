@@ -14,7 +14,6 @@ module HordeAd
   , module HordeAd.Core.TensorKind
   , module HordeAd.Core.Unwind
   , module HordeAd.Core.OpsADVal
-  , module HordeAd.Core.Ops
   , module HordeAd.Core.Types
   , module HordeAd.External.CommonRankedOps
   , module HordeAd.External.CommonShapedOps
@@ -32,7 +31,6 @@ import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Engine
-import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
