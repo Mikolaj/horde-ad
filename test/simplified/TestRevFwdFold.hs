@@ -1551,7 +1551,7 @@ testSin0rmapAccumRD01SN5 = do
                                g x a =
                                  tpair (sin x
                                            - smaxIndex
-                                               @'[] @2
+                                               @2 @'[]
                                                (tproject2 $ tproject1 a))
                                    (tpair (sreplicate @3
                                              (sindex0 @'[2]
@@ -1598,7 +1598,7 @@ testSin0rmapAccumRD01SN51 = do
                                  in tpair (tpair
                                             (sin x
                                            - smaxIndex
-                                               @'[] @2
+                                               @2 @'[]
                                                (tproject2 $ tproject2 a))
                                             (sreplicate @3
                                              (sindex0 @'[2]
@@ -1658,7 +1658,7 @@ testSin0rmapAccumRD01SN531a = do
                                              (sindex0 @'[3]
                                                        (tproject2 a) [1]
                                              - smaxIndex
-                                                 @'[] @3
+                                                 @3 @'[]
                                                  (sin x / srepl 3)))
                            in g)
                           (tpair (x0 / (srepl 1 + sreplicate @3 (sfromIndex0 j)))
@@ -1843,7 +1843,7 @@ testSin0rmapAccumRD01SN55 = do
                                        (tpair (sreplicate @3
                                              (sindex0 @'[3] x [1]
                                               - smaxIndex
-                                                  @'[] @3
+                                                  @3 @'[]
                                                   (x / sin x / srepl 3)))
                                           (sreplicate @3
                                              (ssum @3 x)
@@ -1896,7 +1896,7 @@ testSin0rmapAccumRD01SN55acc = do
                                              (sindex0 @'[3]
                                                        (tproject2 a) [1]
                                              - smaxIndex
-                                                 @'[] @3
+                                                 @3 @'[]
                                                  (sin x / sreplicate0N (sscalar 3)))))
                            in g)
                           tunit
@@ -1953,7 +1953,7 @@ testSin0rmapAccumRD01SN7 = do
                                g x a =
                                   tpair (sin x
                                            ** smaxIndex
-                                                @'[] @2
+                                                @2 @'[]
                                                 (tproject2 $ tproject1 a))
                                     (tpair (sreplicate @3
                                              (sin x / srepl 6
