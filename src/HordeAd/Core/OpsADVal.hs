@@ -356,25 +356,25 @@ instance ( ADReadyNoLet target, ShareTensor target
   tstranspose perm (D u u') =
     dD (tstranspose perm u) (DeltaTransposeS @_ @_ @_ @target perm u')
   tsreshape sh (D u u') = dD (tsreshape sh u) (DeltaReshapeS sh u')
-  tmapAccumRDer @accShs @bShs @eShs _ !k accShs bShs eShs f df rf acc0D esD
-   | Dict <- lemKnownSTKOfBuild k (ftkToSTK accShs)
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs) =
+  tmapAccumRDer @accy @by @ey _ !k accftk bftk eftk f df rf acc0D esD
+   | Dict <- lemKnownSTKOfBuild k (ftkToSTK accftk)
+   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk) =
     let !(D acc0 acc0') = acc0D in
     let !(D esNotShared es') = esD in
     let es = tshare esNotShared
-        codomainShs = FTKProduct accShs bShs
+        codomainShs = FTKProduct accftk bftk
         g :: forall f. ADReady f
-          => f (TKProduct accShs eShs)
-          -> f (TKProduct accShs (TKProduct accShs bShs))
+          => f (TKProduct accy ey)
+          -> f (TKProduct accy (TKProduct accy by))
         g !acc_e =
           ttlet acc_e $ \ !acc_e1 ->
           ttlet (unHFun f acc_e) $ \ !accRes_bRes ->
             tpair (tproject1 accRes_bRes)
                   (tpair (tproject1 acc_e1) (tproject2 accRes_bRes))
         dg :: forall f. ADReady f
-           => f (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                           (TKProduct accShs eShs))
-           -> f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
+           => f (TKProduct (ADTensorKind (TKProduct accy ey))
+                           (TKProduct accy ey))
+           -> f (ADTensorKind (TKProduct accy (TKProduct accy by)))
         dg !dacc_de_acc_e =
           ttlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
             let (!dacc_de, !_acc_e) =
@@ -384,10 +384,10 @@ instance ( ADReadyNoLet target, ShareTensor target
                  tpair (tproject1 accRes_bRes)
                        (tpair dacc1 (tproject2 accRes_bRes))
         rg :: forall f. ADReady f
-           => f (TKProduct (ADTensorKind (TKProduct accShs
-                                         (TKProduct accShs bShs)))
-                           (TKProduct accShs eShs))
-           -> f (ADTensorKind (TKProduct accShs eShs))
+           => f (TKProduct (ADTensorKind (TKProduct accy
+                                         (TKProduct accy by)))
+                           (TKProduct accy ey))
+           -> f (ADTensorKind (TKProduct accy ey))
         rg !args =
           ttlet args $ \ args1 ->
             let (!dx_db, !acc_e) = (tproject1 args1, tproject2 args1)
@@ -396,48 +396,48 @@ instance ( ADReadyNoLet target, ShareTensor target
               in ttlet db $ \ !db1 ->
                 let dx_dbRes = tpair dx (tproject2 db1)
                 in ttlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
-                  let added = addTarget (adSTK $ ftkToSTK accShs)
+                  let added = addTarget (adSTK $ ftkToSTK accftk)
                                         (tproject1 daccRes_deRes)
                                         (tproject1 db1)
                   in tpair added (tproject2 daccRes_deRes)
         p = tmapAccumRDer (Proxy @target)
-                          k accShs codomainShs eShs
-                          (tlambda @target (FTKProduct accShs eShs)
+                          k accftk codomainShs eftk
+                          (tlambda @target (FTKProduct accftk eftk)
                            $ HFun g)
                           (tlambda @target
-                             (FTKProduct (adFTK (FTKProduct accShs eShs))
-                                         (FTKProduct accShs eShs))
+                             (FTKProduct (adFTK (FTKProduct accftk eftk))
+                                         (FTKProduct accftk eftk))
                            $ HFun dg)
                           (tlambda @target
-                             (FTKProduct (adFTK (FTKProduct accShs codomainShs))
-                                         (FTKProduct accShs eShs))
+                             (FTKProduct (adFTK (FTKProduct accftk codomainShs))
+                                         (FTKProduct accftk eftk))
                            $ HFun rg)
                           acc0 es
         (accFin, qbs) = tunpair p
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
-        dual = DeltaMapAccumR k bShs eShs q es df rf acc0' es'
+        dual = DeltaMapAccumR k bftk eftk q es df rf acc0' es'
     in dD (tpair accFin bs) dual
-  tmapAccumLDer @accShs @bShs @eShs _ !k accShs bShs eShs f df rf acc0D esD
-   | Dict <- lemKnownSTKOfBuild k (ftkToSTK accShs)
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eShs) =
+  tmapAccumLDer @accy @by @ey _ !k accftk bftk eftk f df rf acc0D esD
+   | Dict <- lemKnownSTKOfBuild k (ftkToSTK accftk)
+   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk) =
     let !(D acc0 acc0') = acc0D in
     let !(D esNotShared es') = esD in
     let es = tshare esNotShared
-        codomainShs = FTKProduct accShs bShs
+        codomainShs = FTKProduct accftk bftk
         g :: forall f. ADReady f
-          => f (TKProduct accShs eShs)
-          -> f (TKProduct accShs (TKProduct accShs bShs))
+          => f (TKProduct accy ey)
+          -> f (TKProduct accy (TKProduct accy by))
         g !acc_e =
           ttlet acc_e $ \ !acc_e1 ->
           ttlet (unHFun f acc_e) $ \ !accRes_bRes ->
             tpair (tproject1 accRes_bRes)
                   (tpair (tproject1 acc_e1) (tproject2 accRes_bRes))
         dg :: forall f. ADReady f
-           => f (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                           (TKProduct accShs eShs))
-           -> f (ADTensorKind (TKProduct accShs (TKProduct accShs bShs)))
+           => f (TKProduct (ADTensorKind (TKProduct accy ey))
+                           (TKProduct accy ey))
+           -> f (ADTensorKind (TKProduct accy (TKProduct accy by)))
         dg !dacc_de_acc_e =
           ttlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
             let (!dacc_de, !_acc_e) =
@@ -447,10 +447,10 @@ instance ( ADReadyNoLet target, ShareTensor target
                  tpair (tproject1 accRes_bRes)
                        (tpair dacc1 (tproject2 accRes_bRes))
         rg :: forall f. ADReady f
-           => f (TKProduct (ADTensorKind (TKProduct accShs
-                                         (TKProduct accShs bShs)))
-                           (TKProduct accShs eShs))
-           -> f (ADTensorKind (TKProduct accShs eShs))
+           => f (TKProduct (ADTensorKind (TKProduct accy
+                                         (TKProduct accy by)))
+                           (TKProduct accy ey))
+           -> f (ADTensorKind (TKProduct accy ey))
         rg !args =
           ttlet args $ \ args1 ->
             let (!dx_db, !acc_e) = (tproject1 args1, tproject2 args1)
@@ -459,28 +459,28 @@ instance ( ADReadyNoLet target, ShareTensor target
               in ttlet db $ \ !db1 ->
                 let dx_dbRes = tpair dx (tproject2 db1)
                 in ttlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
-                  let added = addTarget (adSTK $ ftkToSTK accShs)
+                  let added = addTarget (adSTK $ ftkToSTK accftk)
                                         (tproject1 daccRes_deRes)
                                         (tproject1 db1)
                   in tpair added (tproject2 daccRes_deRes)
         p = tmapAccumLDer (Proxy @target)
-                          k accShs codomainShs eShs
-                          (tlambda @target (FTKProduct accShs eShs)
+                          k accftk codomainShs eftk
+                          (tlambda @target (FTKProduct accftk eftk)
                            $ HFun g)
                           (tlambda @target
-                             (FTKProduct (adFTK (FTKProduct accShs eShs))
-                                         (FTKProduct accShs eShs))
+                             (FTKProduct (adFTK (FTKProduct accftk eftk))
+                                         (FTKProduct accftk eftk))
                            $ HFun dg)
                           (tlambda @target
-                             (FTKProduct (adFTK (FTKProduct accShs codomainShs))
-                                         (FTKProduct accShs eShs))
+                             (FTKProduct (adFTK (FTKProduct accftk codomainShs))
+                                         (FTKProduct accftk eftk))
                            $ HFun rg)
                           acc0 es
         (accFin, qbs) = tunpair p
         -- This code makes sense only thanks to HVector being a representation
         -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
-        dual = DeltaMapAccumL k bShs eShs q es df rf acc0' es'
+        dual = DeltaMapAccumL k bftk eftk q es df rf acc0' es'
     in dD (tpair accFin bs) dual
   tApply (HFun f) = f
   tlambda _ = id

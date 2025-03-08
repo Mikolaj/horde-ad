@@ -128,54 +128,54 @@ xbuild @m @sh @x @target sh0 f0 =
 
 -- | A strict right mapAccum.
 tmapAccumR
-  :: forall accShs bShs eShs k target. BaseTensor target
+  :: forall accy by ey k target. BaseTensor target
   => Proxy target
   -> SNat k
-  -> FullShapeTK accShs
-  -> FullShapeTK bShs
-  -> FullShapeTK eShs
+  -> FullShapeTK accy
+  -> FullShapeTK by
+  -> FullShapeTK ey
   -> (forall f. ADReady f
-      => f accShs -> f eShs
-      -> f (TKProduct accShs bShs))
-  -> target accShs
-  -> target (BuildTensorKind k eShs)
-  -> target (TKProduct accShs (BuildTensorKind k bShs))
+      => f accy -> f ey
+      -> f (TKProduct accy by))
+  -> target accy
+  -> target (BuildTensorKind k ey)
+  -> target (TKProduct accy (BuildTensorKind k by))
 {-# INLINE tmapAccumR #-}  -- this doesn't want to specialize
-tmapAccumR proxy !k !accShs !bShs !eShs f acc0 es =
-  let xftk = FTKProduct accShs eShs
+tmapAccumR proxy !k !accftk !bftk !eftk f acc0 es =
+  let xftk = FTKProduct accftk eftk
       fl :: forall f. ADReady f
-         => f (TKProduct accShs eShs)
-         -> f (TKProduct accShs bShs)
+         => f (TKProduct accy ey)
+         -> f (TKProduct accy by)
       fl !args = ttlet args $ \ !args1 ->
                    f (tproject1 args1) (tproject2 args1)
-  in tmapAccumRDer proxy k accShs bShs eShs
+  in tmapAccumRDer proxy k accftk bftk eftk
                    (tlambda @target xftk (HFun fl))
                    (tfwd @target xftk $ HFun fl)
                    (trevDt @target xftk $ HFun fl)
                    acc0 es
 -- | A strict left mapAccum.
 tmapAccumL
-  :: forall accShs bShs eShs k target. BaseTensor target
+  :: forall accy by ey k target. BaseTensor target
   => Proxy target
   -> SNat k
-  -> FullShapeTK accShs
-  -> FullShapeTK bShs
-  -> FullShapeTK eShs
+  -> FullShapeTK accy
+  -> FullShapeTK by
+  -> FullShapeTK ey
   -> (forall f. ADReady f
-      => f accShs -> f eShs
-      -> f (TKProduct accShs bShs))
-  -> target accShs
-  -> target (BuildTensorKind k eShs)
-  -> target (TKProduct accShs (BuildTensorKind k bShs))
+      => f accy -> f ey
+      -> f (TKProduct accy by))
+  -> target accy
+  -> target (BuildTensorKind k ey)
+  -> target (TKProduct accy (BuildTensorKind k by))
 {-# INLINE tmapAccumL #-}  -- this doesn't want to specialize
-tmapAccumL proxy !k !accShs !bShs !eShs f acc0 es =
-  let xftk = FTKProduct accShs eShs
+tmapAccumL proxy !k !accftk !bftk !eftk f acc0 es =
+  let xftk = FTKProduct accftk eftk
       fl :: forall f. ADReady f
-         => f (TKProduct accShs eShs)
-         -> f (TKProduct accShs bShs)
+         => f (TKProduct accy ey)
+         -> f (TKProduct accy by)
       fl !args = ttlet args $ \ !args1 ->
                    f (tproject1 args1) (tproject2 args1)
-  in tmapAccumLDer proxy k accShs bShs eShs
+  in tmapAccumLDer proxy k accftk bftk eftk
                    (tlambda @target xftk (HFun fl))
                    (tfwd @target xftk $ HFun fl)
                    (trevDt @target xftk $ HFun fl)
@@ -908,42 +908,42 @@ class ( Num (IntOf target)
   -- > let f = ...; df = tfwd f; rf = trev f
   -- > in ... (tmapAccumRDer f df rf ...) ... (tmapAccumLDer f df rf ...)
   tmapAccumRDer
-    :: forall accShs bShs eShs k.
+    :: forall accy by ey k.
        Proxy target
     -> SNat k
-    -> FullShapeTK accShs  -- ^ shapes of acc, the accumulator
-    -> FullShapeTK bShs -- ^ shapes of b
-    -> FullShapeTK eShs -- ^ shapes of e
-    -> HFunOf target (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf target (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                                (TKProduct accShs eShs))
-                     (ADTensorKind (TKProduct accShs bShs))
-    -> HFunOf target (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                (TKProduct accShs eShs))
-                     (ADTensorKind (TKProduct accShs eShs))
-    -> target accShs  -- ^ acc0 :: accShs
-    -> target (BuildTensorKind k eShs)
-         -- ^ es :: k ': eShs
-    -> target (TKProduct accShs (BuildTensorKind k bShs))
-         -- ^ (x, bs) :: (accShs, k ': bShs)
+    -> FullShapeTK accy  -- ^ shapes of acc, the accumulator
+    -> FullShapeTK by -- ^ shapes of b
+    -> FullShapeTK ey -- ^ shapes of e
+    -> HFunOf target (TKProduct accy ey) (TKProduct accy by)
+    -> HFunOf target (TKProduct (ADTensorKind (TKProduct accy ey))
+                                (TKProduct accy ey))
+                     (ADTensorKind (TKProduct accy by))
+    -> HFunOf target (TKProduct (ADTensorKind (TKProduct accy by))
+                                (TKProduct accy ey))
+                     (ADTensorKind (TKProduct accy ey))
+    -> target accy  -- ^ acc0 :: accy
+    -> target (BuildTensorKind k ey)
+         -- ^ es :: k ': ey
+    -> target (TKProduct accy (BuildTensorKind k by))
+         -- ^ (x, bs) :: (accy, k ': by)
   -- | A strict left mapAccum.
   tmapAccumLDer
-    :: forall accShs bShs eShs k.
+    :: forall accy by ey k.
        Proxy target
     -> SNat k
-    -> FullShapeTK accShs
-    -> FullShapeTK bShs
-    -> FullShapeTK eShs
-    -> HFunOf target (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> HFunOf target (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                                (TKProduct accShs eShs))
-                     (ADTensorKind (TKProduct accShs bShs))
-    -> HFunOf target (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                                (TKProduct accShs eShs))
-                     (ADTensorKind (TKProduct accShs eShs))
-    -> target accShs
-    -> target (BuildTensorKind k eShs)
-    -> target (TKProduct accShs (BuildTensorKind k bShs))
+    -> FullShapeTK accy
+    -> FullShapeTK by
+    -> FullShapeTK ey
+    -> HFunOf target (TKProduct accy ey) (TKProduct accy by)
+    -> HFunOf target (TKProduct (ADTensorKind (TKProduct accy ey))
+                                (TKProduct accy ey))
+                     (ADTensorKind (TKProduct accy by))
+    -> HFunOf target (TKProduct (ADTensorKind (TKProduct accy by))
+                                (TKProduct accy ey))
+                     (ADTensorKind (TKProduct accy ey))
+    -> target accy
+    -> target (BuildTensorKind k ey)
+    -> target (TKProduct accy (BuildTensorKind k by))
   tApply :: HFunOf target x z -> target x -> target z
   tlambda :: FullShapeTK x -> HFun x z -> HFunOf target x z
 

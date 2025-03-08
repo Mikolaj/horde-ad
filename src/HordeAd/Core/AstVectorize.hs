@@ -150,42 +150,42 @@ build1V snat@SNat (var, v0)
     Ast.AstReplicate snat2@(SNat @k2) stk v -> traceRule $
       astTrBuild (SNat @k2) SNat stk
       $ astReplicate snat2 (buildSTK snat stk) $ build1V snat (var, v)
-    Ast.AstMapAccumRDer k5@(SNat @k5) bShs eShs f df rf acc0 es
+    Ast.AstMapAccumRDer k5@(SNat @k5) bftk eftk f df rf acc0 es
      | Refl <- lemBuildOfAD snat (ftkToSTK (ftkAst acc0))
-     , Refl <- lemBuildOfAD snat (ftkToSTK bShs)
-     , Refl <- lemBuildOfAD snat (ftkToSTK eShs) -> traceRule $
+     , Refl <- lemBuildOfAD snat (ftkToSTK bftk)
+     , Refl <- lemBuildOfAD snat (ftkToSTK eftk) -> traceRule $
       astLetFun
         (astMapAccumRDer
            k5
-           (buildFTK snat bShs)
-           (buildFTK snat eShs)
+           (buildFTK snat bftk)
+           (buildFTK snat eftk)
            (build1VHFun snat (var, f))
            (build1VHFun snat (var, df))
            (build1VHFun snat (var, rf))
            (build1VOccurenceUnknown snat (var, acc0))
-           (astTrBuild (SNat @k) (SNat @k5) (ftkToSTK eShs)
+           (astTrBuild (SNat @k) (SNat @k5) (ftkToSTK eftk)
             $ build1VOccurenceUnknown snat (var, es)))
         (\x1bs1 -> astPair (astProject1 x1bs1)
                            (astTrBuild (SNat @k5) (SNat @k)
-                                       (ftkToSTK bShs) (astProject2 x1bs1)))
-    Ast.AstMapAccumLDer k5@(SNat @k5) bShs eShs f df rf acc0 es
+                                       (ftkToSTK bftk) (astProject2 x1bs1)))
+    Ast.AstMapAccumLDer k5@(SNat @k5) bftk eftk f df rf acc0 es
      | Refl <- lemBuildOfAD snat (ftkToSTK (ftkAst acc0))
-     , Refl <- lemBuildOfAD snat (ftkToSTK bShs)
-     , Refl <- lemBuildOfAD snat (ftkToSTK eShs) -> traceRule $
+     , Refl <- lemBuildOfAD snat (ftkToSTK bftk)
+     , Refl <- lemBuildOfAD snat (ftkToSTK eftk) -> traceRule $
       astLetFun
         (astMapAccumLDer
            k5
-           (buildFTK snat bShs)
-           (buildFTK snat eShs)
+           (buildFTK snat bftk)
+           (buildFTK snat eftk)
            (build1VHFun snat (var, f))
            (build1VHFun snat (var, df))
            (build1VHFun snat (var, rf))
            (build1VOccurenceUnknown snat (var, acc0))
-           (astTrBuild (SNat @k) (SNat @k5) (ftkToSTK eShs)
+           (astTrBuild (SNat @k) (SNat @k5) (ftkToSTK eftk)
             $ build1VOccurenceUnknown snat (var, es)))
         (\x1bs1 -> astPair (astProject1 x1bs1)
                            (astTrBuild (SNat @k5) (SNat @k)
-                                       (ftkToSTK bShs) (astProject2 x1bs1)))
+                                       (ftkToSTK bftk) (astProject2 x1bs1)))
     Ast.AstApply t ll -> traceRule $
       astApply (build1VHFun snat (var, t))
                (build1VOccurenceUnknown snat (var, ll))

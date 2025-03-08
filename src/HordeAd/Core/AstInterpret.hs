@@ -88,20 +88,20 @@ interpretAst !env = \case
   --   tconcrete
   --   $ OR.ravel . ORB.fromVector [k] . V.generate k
   --   $ interpretLambdaI interpretAstPrimal env (var, v)
-  AstMapAccumRDer k bShs eShs f0 df0 rf0 acc0 es ->
+  AstMapAccumRDer k bftk eftk f0 df0 rf0 acc0 es ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
         rf = interpretAstHFun env rf0
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
-    in tmapAccumRDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
-  AstMapAccumLDer k bShs eShs f0 df0 rf0 acc0 es ->
+    in tmapAccumRDer (Proxy @target) k (ftkAst acc0) bftk eftk f df rf acc02 es2
+  AstMapAccumLDer k bftk eftk f0 df0 rf0 acc0 es ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
         rf = interpretAstHFun env rf0
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
-    in tmapAccumLDer (Proxy @target) k (ftkAst acc0) bShs eShs f df rf acc02 es2
+    in tmapAccumLDer (Proxy @target) k (ftkAst acc0) bftk eftk f df rf acc02 es2
   AstApply t ll ->
     let t2 = interpretAstHFun env t
           -- this is a bunch of PrimalSpan terms interpreted in, perhaps,

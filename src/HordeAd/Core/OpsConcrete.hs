@@ -442,10 +442,10 @@ instance BaseTensor RepN where
   tsreshape @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
     RepN . Nested.sreshape sh . unRepN
   -- The eta-expansion below is needed for typing.
-  tmapAccumRDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRtmapAccumR k accShs bShs eShs (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
-  tmapAccumLDer _ k accShs bShs eShs f _df _rf acc0 es =
-    oRtmapAccumL k accShs bShs eShs (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
+  tmapAccumRDer _ k accftk bftk eftk f _df _rf acc0 es =
+    oRtmapAccumR k accftk bftk eftk (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
+  tmapAccumLDer _ k accftk bftk eftk f _df _rf acc0 es =
+    oRtmapAccumL k accftk bftk eftk (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
   tApply f x = RepN $ f $ unRepN x
   tlambda _ f x = unRepN $ unHFun f $ RepN x
   tcond _ b u v = if b then u else v
@@ -588,41 +588,41 @@ unravel :: forall k y.
 unravel = tunravelToListShare
 
 oRtmapAccumR
-  :: forall k accShs bShs eShs.
+  :: forall k accy by ey.
      SNat k
-  -> FullShapeTK accShs
-  -> FullShapeTK bShs
-  -> FullShapeTK eShs
-  -> (RepN accShs -> RepN eShs -> RepN (TKProduct accShs bShs))
-  -> RepN accShs
-  -> RepN (BuildTensorKind k eShs)
-  -> RepN (TKProduct accShs (BuildTensorKind k bShs))
-oRtmapAccumR k _ bShs eShs f acc0 es = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (ftkToSTK bShs) (constantTarget 0 bShs))
+  -> FullShapeTK accy
+  -> FullShapeTK by
+  -> FullShapeTK ey
+  -> (RepN accy -> RepN ey -> RepN (TKProduct accy by))
+  -> RepN accy
+  -> RepN (BuildTensorKind k ey)
+  -> RepN (TKProduct accy (BuildTensorKind k by))
+oRtmapAccumR k _ bftk eftk f acc0 es = case sNatValue k of
+  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (constantTarget 0 bftk))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
-        (xout, lout) = mapAccumR g acc0 (unravel k (ftkToSTK eShs) es)
-    in tpair xout (ravel k (ftkToSTK bShs) lout)
+        (xout, lout) = mapAccumR g acc0 (unravel k (ftkToSTK eftk) es)
+    in tpair xout (ravel k (ftkToSTK bftk) lout)
       -- TODO: reimplement not with Haskell's mapAccumR to avoid the ravels
 
 oRtmapAccumL
-  :: forall k accShs bShs eShs.
+  :: forall k accy by ey.
      SNat k
-  -> FullShapeTK accShs
-  -> FullShapeTK bShs
-  -> FullShapeTK eShs
-  -> (RepN accShs -> RepN eShs -> RepN (TKProduct accShs bShs))
-  -> RepN accShs
-  -> RepN (BuildTensorKind k eShs)
-  -> RepN (TKProduct accShs (BuildTensorKind k bShs))
-oRtmapAccumL k _ bShs eShs f acc0 es = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (ftkToSTK bShs) (constantTarget 0 bShs))
+  -> FullShapeTK accy
+  -> FullShapeTK by
+  -> FullShapeTK ey
+  -> (RepN accy -> RepN ey -> RepN (TKProduct accy by))
+  -> RepN accy
+  -> RepN (BuildTensorKind k ey)
+  -> RepN (TKProduct accy (BuildTensorKind k by))
+oRtmapAccumL k _ bftk eftk f acc0 es = case sNatValue k of
+  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (constantTarget 0 bftk))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
-        (xout, lout) = mapAccumL g acc0 (unravel k (ftkToSTK eShs) es)
-    in tpair xout (ravel k (ftkToSTK bShs) lout)
+        (xout, lout) = mapAccumL g acc0 (unravel k (ftkToSTK eftk) es)
+    in tpair xout (ravel k (ftkToSTK bftk) lout)
 
 
 -- * Ranked internal definitions

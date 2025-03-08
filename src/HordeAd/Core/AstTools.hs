@@ -62,10 +62,10 @@ ftkAst t = case t of
     v : _ -> buildFTK snat (ftkAst v)
   AstSum snat stk v -> razeFTK snat stk (ftkAst v)
   AstReplicate snat _ v -> buildFTK snat (ftkAst v)
-  AstMapAccumRDer k bShs _eShs _f _df _rf acc0 _es->
-    FTKProduct (ftkAst acc0) (buildFTK k bShs)
-  AstMapAccumLDer k bShs _eShs _f _df _rf acc0 _es ->
-    FTKProduct (ftkAst acc0) (buildFTK k bShs)
+  AstMapAccumRDer k bftk _eftk _f _df _rf acc0 _es->
+    FTKProduct (ftkAst acc0) (buildFTK k bftk)
+  AstMapAccumLDer k bftk _eftk _f _df _rf acc0 _es ->
+    FTKProduct (ftkAst acc0) (buildFTK k bftk)
   AstApply (AstLambda !_ !l) _ -> ftkAst l
   AstVar var -> varNameToFTK var
   AstCond _b v _w -> ftkAst v
@@ -189,9 +189,9 @@ varInAst var = \case
   AstFromVector _ _ vl -> any (varInAst var) $ V.toList vl
   AstSum _ _ v -> varInAst var v
   AstReplicate _ _ v -> varInAst var v
-  AstMapAccumRDer _k _bShs _eShs _f _df _rf acc0 es ->
+  AstMapAccumRDer _k _bftk _eftk _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
-  AstMapAccumLDer _k _bShs _eShs _f _df _rf acc0 es ->
+  AstMapAccumLDer _k _bftk _eftk _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
   AstApply t ll -> varInAstHFun var t || varInAst var ll
   AstVar var2 -> var == varNameToAstVarId var2

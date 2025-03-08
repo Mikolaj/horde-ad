@@ -1979,12 +1979,12 @@ rscanZip :: forall rn n rn2 n2 target.
          -> target (TKR n rn)
          -> target (TKR (1 + n2) rn2)
          -> target (TKR (1 + n) rn)
-rscanZip f eShs acc0 es =
+rscanZip f eftk acc0 es =
   let width = rwidth es
       ftk = tftk knownSTK acc0
   in withSNat width $ \snat ->
     tlet
-      (tmapAccumL Proxy snat ftk ftk eShs
+      (tmapAccumL Proxy snat ftk ftk eftk
          (let g :: forall f. ADReady f
                 => f (TKR n rn) -> f (TKR n2 rn2)
                 -> f (TKProduct (TKR n rn) (TKR n rn))

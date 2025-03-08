@@ -553,10 +553,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tsreplicate sh = astReplicate SNat (STKS sh knownSTK)
   tstranspose perm = astTransposeS perm
   tsreshape sh = astReshapeS sh
-  tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
-    astMapAccumRDer k bShs eShs f df rf acc0 es
-  tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
-    astMapAccumLDer k bShs eShs f df rf acc0 es
+  tmapAccumRDer _ !k _ !bftk !eftk f df rf acc0 es =
+    astMapAccumRDer k bftk eftk f df rf acc0 es
+  tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
+    astMapAccumLDer k bftk eftk f df rf acc0 es
   tApply t ll = astApply t ll
   tlambda ftk f =
     let (var, ast) = funToAst ftk $ unHFun f
@@ -1055,10 +1055,10 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tsreplicate sh = AstRaw . AstReplicate SNat (STKS sh knownSTK) . unAstRaw
   tstranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   tsreshape sh = AstRaw . AstReshapeS sh . unAstRaw
-  tmapAccumRDer _ !k _ !bShs !eShs f df rf acc0 es =
-      AstRaw $ AstMapAccumRDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
-  tmapAccumLDer _ !k _ !bShs !eShs f df rf acc0 es =
-      AstRaw $ AstMapAccumLDer k bShs eShs f df rf (unAstRaw acc0) (unAstRaw es)
+  tmapAccumRDer _ !k _ !bftk !eftk f df rf acc0 es =
+      AstRaw $ AstMapAccumRDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
+  tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
+      AstRaw $ AstMapAccumLDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
   tApply t ll = AstRaw $ AstApply t (unAstRaw ll)
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
   tcond _ !b !u !v = AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
@@ -1369,11 +1369,11 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tstranspose perm =
     AstNoVectorize . tstranspose perm . unAstNoVectorize
   tsreshape sh = AstNoVectorize . tsreshape sh . unAstNoVectorize
-  tmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    AstNoVectorize $ tmapAccumRDer Proxy k accShs bShs eShs f df rf
+  tmapAccumRDer _ !k !accftk !bftk !eftk f df rf acc0 es =
+    AstNoVectorize $ tmapAccumRDer Proxy k accftk bftk eftk f df rf
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
-  tmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    AstNoVectorize $ tmapAccumLDer Proxy k accShs bShs eShs f df rf
+  tmapAccumLDer _ !k !accftk !bftk !eftk f df rf acc0 es =
+    AstNoVectorize $ tmapAccumLDer Proxy k accftk bftk eftk f df rf
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
   tApply t ll = AstNoVectorize $ tApply t (unAstNoVectorize ll)
   tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
@@ -1597,11 +1597,11 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tstranspose perm =
     wAstNoSimplify . tstranspose perm . wunAstNoSimplify
   tsreshape sh = wAstNoSimplify . tsreshape sh . wunAstNoSimplify
-  tmapAccumRDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    wAstNoSimplify $ tmapAccumRDer Proxy k accShs bShs eShs f df rf
+  tmapAccumRDer _ !k !accftk !bftk !eftk f df rf acc0 es =
+    wAstNoSimplify $ tmapAccumRDer Proxy k accftk bftk eftk f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)
-  tmapAccumLDer _ !k !accShs !bShs !eShs f df rf acc0 es =
-    wAstNoSimplify $ tmapAccumLDer Proxy k accShs bShs eShs f df rf
+  tmapAccumLDer _ !k !accftk !bftk !eftk f df rf acc0 es =
+    wAstNoSimplify $ tmapAccumLDer Proxy k accftk bftk eftk f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)
   tApply t ll = wAstNoSimplify $ tApply t (wunAstNoSimplify ll)
   tlambda = tlambda @(AstRaw PrimalSpan)

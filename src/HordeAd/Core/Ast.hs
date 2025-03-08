@@ -197,35 +197,35 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TK
                -> AstTensor ms s y
                -> AstTensor ms s (BuildTensorKind k y)
   AstMapAccumRDer
-    :: forall accShs bShs eShs k ms s.
+    :: forall accy by ey k ms s.
        SNat k
-    -> FullShapeTK bShs
-    -> FullShapeTK eShs
-    -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                          (TKProduct accShs eShs))
-               (ADTensorKind (TKProduct accShs bShs))
-    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                          (TKProduct accShs eShs))
-               (ADTensorKind (TKProduct accShs eShs))
-    -> AstTensor ms s accShs
-    -> AstTensor ms s (BuildTensorKind k eShs)
-    -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
+    -> FullShapeTK by
+    -> FullShapeTK ey
+    -> AstHFun (TKProduct accy ey) (TKProduct accy by)
+    -> AstHFun (TKProduct (ADTensorKind (TKProduct accy ey))
+                          (TKProduct accy ey))
+               (ADTensorKind (TKProduct accy by))
+    -> AstHFun (TKProduct (ADTensorKind (TKProduct accy by))
+                          (TKProduct accy ey))
+               (ADTensorKind (TKProduct accy ey))
+    -> AstTensor ms s accy
+    -> AstTensor ms s (BuildTensorKind k ey)
+    -> AstTensor ms s (TKProduct accy (BuildTensorKind k by))
   AstMapAccumLDer
-    :: forall accShs bShs eShs k ms s.
+    :: forall accy by ey k ms s.
        SNat k
-    -> FullShapeTK bShs
-    -> FullShapeTK eShs
-    -> AstHFun (TKProduct accShs eShs) (TKProduct accShs bShs)
-    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                          (TKProduct accShs eShs))
-               (ADTensorKind (TKProduct accShs bShs))
-    -> AstHFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                          (TKProduct accShs eShs))
-               (ADTensorKind (TKProduct accShs eShs))
-    -> AstTensor ms s accShs
-    -> AstTensor ms s (BuildTensorKind k eShs)
-    -> AstTensor ms s (TKProduct accShs (BuildTensorKind k bShs))
+    -> FullShapeTK by
+    -> FullShapeTK ey
+    -> AstHFun (TKProduct accy ey) (TKProduct accy by)
+    -> AstHFun (TKProduct (ADTensorKind (TKProduct accy ey))
+                          (TKProduct accy ey))
+               (ADTensorKind (TKProduct accy by))
+    -> AstHFun (TKProduct (ADTensorKind (TKProduct accy by))
+                          (TKProduct accy ey))
+               (ADTensorKind (TKProduct accy ey))
+    -> AstTensor ms s accy
+    -> AstTensor ms s (BuildTensorKind k ey)
+    -> AstTensor ms s (TKProduct accy (BuildTensorKind k by))
   AstApply :: AstHFun x z -> AstTensor ms s x -> AstTensor ms s z
   AstVar :: AstVarName s y -> AstTensor ms s y
   AstCond :: forall y ms s.

@@ -226,41 +226,41 @@ data Delta :: Target -> TK -> Type where
                  -> Delta target (BuildTensorKind k y)
     -- ^ Copy the given tensor along the new, outermost dimension.
   DeltaMapAccumR
-    :: forall target k accShs bShs eShs.
-       ( Show (target (BuildTensorKind k accShs))
-       , Show (target (BuildTensorKind k eShs)) )
+    :: forall target k accy by ey.
+       ( Show (target (BuildTensorKind k accy))
+       , Show (target (BuildTensorKind k ey)) )
     => SNat k
-    -> FullShapeTK bShs
-    -> FullShapeTK eShs
-    -> target (BuildTensorKind k accShs)
-    -> target (BuildTensorKind k eShs)
-    -> HFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                       (TKProduct accShs eShs))
-            (ADTensorKind (TKProduct accShs bShs))
-    -> HFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                       (TKProduct accShs eShs))
-            (ADTensorKind (TKProduct accShs eShs))
-    -> Delta target accShs
-    -> Delta target (BuildTensorKind k eShs)
-    -> Delta target (TKProduct accShs (BuildTensorKind k bShs))
+    -> FullShapeTK by
+    -> FullShapeTK ey
+    -> target (BuildTensorKind k accy)
+    -> target (BuildTensorKind k ey)
+    -> HFun (TKProduct (ADTensorKind (TKProduct accy ey))
+                       (TKProduct accy ey))
+            (ADTensorKind (TKProduct accy by))
+    -> HFun (TKProduct (ADTensorKind (TKProduct accy by))
+                       (TKProduct accy ey))
+            (ADTensorKind (TKProduct accy ey))
+    -> Delta target accy
+    -> Delta target (BuildTensorKind k ey)
+    -> Delta target (TKProduct accy (BuildTensorKind k by))
   DeltaMapAccumL
-    :: forall target k accShs bShs eShs.
-       ( Show (target (BuildTensorKind k accShs))
-       , Show (target (BuildTensorKind k eShs)) )
+    :: forall target k accy by ey.
+       ( Show (target (BuildTensorKind k accy))
+       , Show (target (BuildTensorKind k ey)) )
     => SNat k
-    -> FullShapeTK bShs
-    -> FullShapeTK eShs
-    -> target (BuildTensorKind k accShs)
-    -> target (BuildTensorKind k eShs)
-    -> HFun (TKProduct (ADTensorKind (TKProduct accShs eShs))
-                       (TKProduct accShs eShs))
-            (ADTensorKind (TKProduct accShs bShs))
-    -> HFun (TKProduct (ADTensorKind (TKProduct accShs bShs))
-                       (TKProduct accShs eShs))
-            (ADTensorKind (TKProduct accShs eShs))
-    -> Delta target accShs
-    -> Delta target (BuildTensorKind k eShs)
-    -> Delta target (TKProduct accShs (BuildTensorKind k bShs))
+    -> FullShapeTK by
+    -> FullShapeTK ey
+    -> target (BuildTensorKind k accy)
+    -> target (BuildTensorKind k ey)
+    -> HFun (TKProduct (ADTensorKind (TKProduct accy ey))
+                       (TKProduct accy ey))
+            (ADTensorKind (TKProduct accy by))
+    -> HFun (TKProduct (ADTensorKind (TKProduct accy by))
+                       (TKProduct accy ey))
+            (ADTensorKind (TKProduct accy ey))
+    -> Delta target accy
+    -> Delta target (BuildTensorKind k ey)
+    -> Delta target (TKProduct accy (BuildTensorKind k by))
 
   -- Vector space operations
   DeltaZero :: FullShapeTK y -> Delta target y
@@ -507,10 +507,10 @@ ftkDelta = \case
     d : _ -> buildFTK snat (ftkDelta d)
   DeltaSum snat stk d -> razeFTK snat stk (ftkDelta d)
   DeltaReplicate snat _ d -> buildFTK snat (ftkDelta d)
-  DeltaMapAccumR k bShs _eShs _q _es _df _rf acc0' _es' ->
-    FTKProduct (ftkDelta acc0') (buildFTK k bShs)
-  DeltaMapAccumL k bShs _eShs _q _es _df _rf acc0' _es' ->
-    FTKProduct (ftkDelta acc0') (buildFTK k bShs)
+  DeltaMapAccumR k bftk _eftk _q _es _df _rf acc0' _es' ->
+    FTKProduct (ftkDelta acc0') (buildFTK k bftk)
+  DeltaMapAccumL k bftk _eftk _q _es _df _rf acc0' _es' ->
+    FTKProduct (ftkDelta acc0') (buildFTK k bftk)
 
   DeltaZero ftk -> ftk
   DeltaScale _ d -> ftkDelta d
