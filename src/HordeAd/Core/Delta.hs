@@ -215,7 +215,6 @@ data Delta :: Target -> TK -> Type where
                      SNat k -> SingletonTK y
                   -> Data.Vector.Vector (Delta target y)
                   -> Delta target (BuildTensorKind k y)
-    -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   DeltaSum :: forall y k target.
               SNat k -> SingletonTK y
            -> Delta target (BuildTensorKind k y)
@@ -224,7 +223,6 @@ data Delta :: Target -> TK -> Type where
                     SNat k -> SingletonTK y
                  -> Delta target y
                  -> Delta target (BuildTensorKind k y)
-    -- ^ Copy the given tensor along the new, outermost dimension.
   DeltaMapAccumR
     :: forall target k accy by ey.
        ( Show (target (BuildTensorKind k accy))
@@ -284,53 +282,27 @@ data Delta :: Target -> TK -> Type where
                  SNat n
               -> Delta target (TKR2 (m + n) r) -> IxROf target m
               -> Delta target (TKR2 n r)
-    -- ^ The sub-tensor at the given index. The given shape is of the
-    -- large tensor. If index is out of bounds, the result is defined and is 0.
   DeltaScatterR :: forall m n p r target.
                    SNat m -> SNat n -> SNat p
                 -> IShR (p + n) -> Delta target (TKR2 (m + n) r)
                 -> (IxROf target m -> IxROf target p)
                 -> Delta target (TKR2 (p + n) r)
-    -- ^ Build a tensor by adding up tensors of rank @n@ taken from
-    -- the third argument and inserted in a zero tensor
-    -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
-    -- so that, e.g, @DeltaScatter1 5 (const ZR) (Replicate0R [5] d) []@ is equivalent
-    -- to @5 * d@. If an index of length @p@ is out of bounds, no tensor
-    -- is added at such an index (and similarly in @DeltaScatterN@).
-    -- The semantics of the operation permits index out of bounds
-    -- and then no tensors is added at such an index.
-    -- TODO: this is a haddock for DeltaScatter1; fix.
   DeltaGatherR :: forall m n p r target.
                   SNat m -> SNat n -> SNat p
                -> IShR (m + n) -> Delta target (TKR2 (p + n) r)
                -> (IxROf target m -> IxROf target p)
                -> Delta target (TKR2 (m + n) r)
-    -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
-    -- of length @p@. Index of length 0 results in identity, so that,
-    -- e.g, @DeltaGather1 (const ZR) [] (ScalarR d) k@ is equivalent
-    -- to @Replicate0R [k] d@. If an index of length @p@ is out of bounds,
-    -- tensor 0 is chosen instead or projecting (and similarly in @DeltaGatherN@).
-    -- The semantics of the operation permits index out of bounds
-    -- and the result of such indexing is zero.
-    -- TODO: this is a haddock for DeltaGather1; fix.
   DeltaAppendR :: Delta target (TKR2 (1 + n) r)
                -> Delta target (TKR2 (1 + n) r)
                -> Delta target (TKR2 (1 + n) r)
-    -- ^ Append two arrays along the outermost dimension.
-    -- All dimensions, except the outermost, must be the same.
   DeltaSliceR :: Int -> Int -> Delta target (TKR2 (1 + n) r)
               -> Delta target (TKR2 (1 + n) r)
-    -- ^ Extract a slice of an array along the outermost dimension.
-    -- The extracted slice must fall within the dimension.
   DeltaReverseR :: Delta target (TKR2 (1 + n) r)
                 -> Delta target (TKR2 (1 + n) r)
-    -- ^ Reverse elements of the outermost dimension.
   DeltaTransposeR :: Permutation.PermR -> Delta target (TKR2 n r)
                   -> Delta target (TKR2 n r)
-    -- ^ Transpose according to the permutation.
   DeltaReshapeR :: IShR m -> Delta target (TKR2 n r)
                 -> Delta target (TKR2 m r)
-    -- ^ Change the shape of the tensor to the given one.
   DeltaZipR :: Delta target (TKProduct (TKR2 n y) (TKR2 n z))
             -> Delta target (TKR2 n (TKProduct y z))
   DeltaUnzipR :: Delta target (TKR2 n (TKProduct y z))
@@ -339,8 +311,6 @@ data Delta :: Target -> TK -> Type where
   -- Shaped tensor operations
   DeltaCastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2)
              => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
-    -- ^ The sub-tensor at the given index.
-    -- If index is out of bounds, the result is defined and is 0.
   DeltaSum0S :: Delta target (TKS2 sh r) -> Delta target (TKS2 '[] r)
   DeltaDot0S :: (GoodScalar r, Show (target (TKS sh r)))
              => target (TKS sh r) -> Delta target (TKS sh r)
@@ -354,55 +324,29 @@ data Delta :: Target -> TK -> Type where
                 -> Delta target (TKS2 (shm ++ shn) r)
                 -> (IxSOf target shm -> IxSOf target shp)
                 -> Delta target (TKS2 (shp ++ shn) r)
-    -- ^ Build a tensor by adding up tensors of rank @n@ taken from
-    -- the third argument and inserted in a zero tensor
-    -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
-    -- so that, e.g, @DeltaScatter1 5 (const ZR) (Replicate0R [5] d) []@ is equivalent
-    -- to @5 * d@. If an index of length @p@ is out of bounds, no tensor
-    -- is added at such an index (and similarly in @DeltaScatterN@).
-    -- The semantics of the operation permits index out of bounds
-    -- and then no tensors is added at such an index.
-    -- TODO: this is a haddock for DeltaScatter1; fix.
   DeltaGatherS :: forall shm shn shp r target.
                   ShS shm -> ShS shn -> ShS shp
                -> Delta target (TKS2 (shp ++ shn) r)
                -> (IxSOf target shm -> IxSOf target shp)
                -> Delta target (TKS2 (shm ++ shn) r)
-    -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
-    -- of length @p@. Index of length 0 results in identity, so that,
-    -- e.g, @DeltaGather1 (const ZR) [] (ScalarR d) k@ is equivalent
-    -- to @Replicate0R [k] d@. If an index of length @p@ is out of bounds,
-    -- tensor 0 is chosen instead or projecting (and similarly in @DeltaGatherN@).
-    -- The semantics of the operation permits index out of bounds
-    -- and the result of such indexing is zero.
-    -- TODO: this is a haddock for DeltaGather1; fix.
   DeltaAppendS :: forall target r m n sh.
                   Delta target (TKS2 (m ': sh) r)
                -> Delta target (TKS2 (n ': sh) r)
                -> Delta target (TKS2 ((m + n) ': sh) r)
-    -- ^ Append two arrays along the outermost dimension.
-    -- All dimensions, except the outermost, must be the same.
-    -- The integer argument is the outermost size of the first array.
   DeltaSliceS :: SNat i -> SNat n -> SNat k
               -> Delta target (TKS2 (i + n + k ': sh) r)
               -> Delta target (TKS2 (n ': sh) r)
-    -- ^ Extract a slice of an array along the outermost dimension.
-    -- The extracted slice must fall within the dimension.
-    -- The last argument is the outermost size of the argument array.
   DeltaReverseS :: Delta target (TKS2 (n ': sh) r)
                 -> Delta target (TKS2 (n ': sh) r)
-    -- ^ Reverse elements of the outermost dimension.
   DeltaTransposeS :: forall perm sh r target.
                      (Permutation.IsPermutation perm, Rank perm <= Rank sh)
                   => Permutation.Perm perm
                   -> Delta target (TKS2 sh r)
                   -> Delta target (TKS2 (Permutation.PermutePrefix perm sh) r)
-    -- ^ Transpose according to the permutation.
   DeltaReshapeS :: Product sh ~ Product sh2
                 => ShS sh2
                 -> Delta target (TKS2 sh r)
                 -> Delta target (TKS2 sh2 r)
-    -- ^ Change the shape of the tensor from the first to the second.
   DeltaZipS :: Delta target (TKProduct (TKS2 sh y) (TKS2 sh z))
             -> Delta target (TKS2 sh (TKProduct y z))
   DeltaUnzipS :: Delta target (TKS2 sh (TKProduct y z))

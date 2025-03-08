@@ -159,6 +159,7 @@ rfromList :: (KnownNat n, KnownSTK x, BaseTensor target)
           => NonEmpty (target (TKR2 n x)) -> target (TKR2 (1 + n) x)
 rfromList = trfromVector . V.fromList . NonEmpty.toList
   -- going through strict vectors, because laziness is risky with impurity
+-- | Create a tensor from a boxed vector treated as the outermost dimension.
 rfromVector :: (KnownNat n, KnownSTK x, BaseTensor target)
             => Data.Vector.Vector (target (TKR2 n x))
             -> target (TKR2 (1 + n) x)
@@ -235,6 +236,7 @@ rmatvecmul = trmatvecmul
 rmatmul2 :: (GoodScalar r, Numeric r, BaseTensor target)
          => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 rmatmul2 = trmatmul2
+-- | Copy the given tensor along the new, outermost dimension.
 rreplicate :: (KnownNat n, KnownSTK x, BaseTensor target)
            => Int -> target (TKR2 n x) -> target (TKR2 (1 + n) x)
 rreplicate = trreplicate
@@ -306,6 +308,8 @@ xreplicate0N :: (KnownShX sh, KnownSTK x, BaseTensor target)
              => IShX sh -> target (TKX2 '[] x) -> target (TKX2 sh x)
 xreplicate0N = txreplicate0N
 
+-- | The sub-tensor at the given index. If index is out of bounds,
+-- the result is defined and is @def@.
 rindex, (!) :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
             => target (TKR2 (m + n) x) -> IxROf target m -> target (TKR2 n x)
 rindex = trindex
@@ -325,6 +329,11 @@ rscatter :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
          -> (IxROf target m -> IxROf target p)
          -> target (TKR2 (p + n) x)
 rscatter = trscatter
+-- | Build a tensor by adding up tensors of rank @n@ taken from
+-- the second argument and inserted in a zero tensor
+-- at indexes of length @p@.
+-- The semantics of the operation permits index out of bounds
+-- and then no tensor is added at such an index.
 rscatter1 :: (KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
           => IShR (p + n) -> target (TKR2 (1 + n) x)
           -> (IntOf target -> IxROf target p)
@@ -335,6 +344,10 @@ rgather :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
         -> (IxROf target m -> IxROf target p)
         -> target (TKR2 (m + n) x)
 rgather = trgather
+-- | Build a tensor by collecting tensors of rank @n@ obtained by indexing
+-- in the second argument at the given indexes of length @p@.
+-- The semantics of the operation permits index out of bounds
+-- and the result of such indexing is zero.
 rgather1 :: (KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
          => Int -> target (TKR2 (p + n) x)
          -> (IntOf target -> IxROf target p)
@@ -495,6 +508,8 @@ kcast :: ( RealFrac r1, GoodScalar r1, RealFrac r2, GoodScalar r2
       => target (TKScalar r1) -> target (TKScalar r2)
 kcast = tkcast
 
+-- | Append two arrays along the outermost dimension.
+-- All dimensions, except the outermost, must be the same.
 rappend :: forall n x target. (KnownSTK x, BaseTensor target)
         => target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
         -> target (TKR2 (1 + n) x)
@@ -502,6 +517,8 @@ rappend = trappend
 rconcat :: forall n x target. (KnownSTK x, BaseTensor target)
         => NonEmpty (target (TKR2 (1 + n) x)) -> target (TKR2 (1 + n) x)
 rconcat = foldr1 rappend
+-- | Extract a slice of an array along the outermost dimension.
+-- The extracted slice must fall within the dimension.
 rslice :: forall n x target. (KnownSTK x, BaseTensor target)
        => Int -> Int -> target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
 rslice = trslice
@@ -510,12 +527,15 @@ runcons :: (KnownNat n, KnownSTK x, BaseTensor target)
         -> Maybe (target (TKR2 n x), target (TKR2 (1 + n) x))
 runcons v = case rshape v of
               len :$: _ -> Just (v ! [0], rslice 1 (len - 1) v)
+-- | Reverse elements of the outermost dimension.
 rreverse :: forall n x target. (KnownSTK x, BaseTensor target)
          => target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
 rreverse = trreverse
+-- | Transpose according to the permutation.
 rtranspose :: forall n x target. (KnownSTK x, BaseTensor target)
            => Permutation.PermR -> target (TKR2 n x) -> target (TKR2 n x)
 rtranspose = trtranspose
+-- | Change the shape of the tensor to the given one.
 rreshape :: forall n m x target. (KnownSTK x, BaseTensor target)
          => IShR m -> target (TKR2 n x) -> target (TKR2 m x)
 rreshape = trreshape
