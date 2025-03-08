@@ -66,7 +66,7 @@ class Typeable s => AstSpan (s :: AstSpanType) where
 
 instance AstSpan PrimalSpan where
   fromPrimal = id
-  fromDual t = AstPrimalPart $ AstFromDual t  -- this primal zero
+  fromDual t = AstPrimalPart $ AstFromDual t  -- this is primal zero
     -- AstTools is split off, so ftkAst can'be used here,
     -- so the following is brought here via simplification later on:
     -- let ftk = ftkAst t
@@ -77,7 +77,7 @@ instance AstSpan PrimalSpan where
 instance AstSpan DualSpan where
   fromPrimal t = AstDualPart $ AstFromPrimal t  -- this is dual zero
   fromDual = id
-  primalPart t = AstPrimalPart $ AstFromDual t  -- this primal zero, see above
+  primalPart t = AstPrimalPart $ AstFromDual t  -- primal zero, see above
   dualPart t = t
 
 instance AstSpan FullSpan where

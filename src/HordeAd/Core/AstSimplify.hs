@@ -793,24 +793,24 @@ astLet var u v@(Ast.AstVar var2) =
   then case sameAstSpan @s @s2 of
     Just Refl -> case testEquality var var2 of
       Just Refl -> u
-      _ -> v
-    _ -> v
+      _ -> error "astLet: wrong variable types at AstVar"
+    _ -> error "astLet: wrong span at AstVar"
   else v
 astLet var u v@(Ast.AstPrimalPart (Ast.AstVar var2)) =  -- a common noop
   if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case testEquality var var2 of
       Just Refl -> astPrimalPart u
-      _ -> v
-    _ -> v
+      _ -> error "astLet: wrong variable types at AstPrimalPart"
+    _ -> error "astLet: wrong span at AstPrimalPart"
   else v
 astLet var u v@(Ast.AstDualPart (Ast.AstVar var2)) =  -- a noop
   if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @FullSpan of
     Just Refl -> case testEquality var var2 of
       Just Refl -> astDualPart u
-      _ -> v
-    _ -> v
+      _ -> error "astLet: wrong variable types at AstDualPart"
+    _ -> error "astLet: wrong span at AstDualPart"
   else v
 astLet var u (Ast.AstFromPrimal v0) = Ast.AstFromPrimal $ astLet var u v0
 astLet var u (Ast.AstFromDual v0) = Ast.AstFromDual $ astLet var u v0
@@ -946,7 +946,12 @@ astDualPart t = case t of
 
   Ast.AstLet var u v -> astLet var u (astDualPart v)
 
-  Ast.AstFromPrimal{} -> Ast.AstDualPart t  -- TODO: replace t with something small
+  Ast.AstFromPrimal v ->
+    let ftk = ftkAst v
+    in Ast.AstDualPart $ Ast.AstFromPrimal   v
+       -- TODO: this gives wrong results, see interpretAst (AstPrimalPart)
+       -- $ astConcrete ftk (tconstantTarget 0 ftk)
+           -- let's hope this is smaller than v
   Ast.AstFromDual v -> v
 
   AstPlusK u v -> astDualPart u + astDualPart v
@@ -1282,7 +1287,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
 
   Ast.AstPrimalPart{} -> Ast.AstIndexS shn v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndexS shn v0 ix
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astIndex shn  v ix
+  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astIndex shn v ix
   Ast.AstFromDual v -> Ast.AstFromDual $ astIndex shn v ix
 
   AstPlusS u v ->

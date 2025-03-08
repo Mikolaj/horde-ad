@@ -44,8 +44,6 @@ interpretAstPrimal
   -> AstTensor AstMethodLet PrimalSpan y
   -> PrimalOf target y
 interpretAstPrimal !env v1 = case v1 of
-  AstPrimalPart (AstFromPrimal u) -> interpretAstPrimal env u
-  AstPrimalPart (AstFromDual u) -> tconstantTarget 0 (ftkAst u)
   AstCond b a1 a2 ->
     -- This avoids multiple ifH expansions in ADVal.
     let c = interpretAstBool env b
@@ -58,10 +56,8 @@ interpretAstDual
   :: forall target y. ADReady target
   => AstEnv target
   -> AstTensor AstMethodLet DualSpan y -> DualOf target y
-interpretAstDual !env v1 = case v1 of
-  AstDualPart (AstFromDual u) -> interpretAstDual env u
-  _ ->
-    tdualPart (ftkToSTK $ ftkAst v1) (interpretAst env v1)
+interpretAstDual !env v1 =
+  tdualPart (ftkToSTK $ ftkAst v1) (interpretAst env v1)
 
 interpretAst
   :: forall target s y. (ADReady target, AstSpan s)
@@ -167,6 +163,8 @@ interpretAst !env = \case
     -- Probably doesn't matter, because none of this can be created by AD.
     -- If we had an @AstRanked@ variant without the dual number constructors,
     -- instead of the spans, the mixup would vanish.
+    --
+    -- TODO: this confusion probably bites us in astDualPart(AstFromPrimal).
   AstDualPart a -> interpretAst env a
     -- This is correct, because @s@ must be @DualSpan@ and so @target@ must
     -- be morally the dual part of a dual numbers type that is the codomain
