@@ -309,7 +309,7 @@ unWindFTK = \case
     unWindFTK $ FTKProduct (FTKX sh1 y) (FTKX sh1 z)
   FTKProduct y z -> WFTKProduct (unWindFTK y) (unWindFTK z)
 
--- This uses tunpairDup so to preserve sharing, `target` either has
+-- This uses tunpairConv so to preserve sharing, `target` either has
 -- to have a ShareTensor instance or the argument has to be duplicable.
 -- Only the argument of the first call, not of recursive calls,
 -- is assumed to be duplicable. In the AST case, this creates
@@ -363,7 +363,7 @@ unWindTarget stk t = case stk of
   STKX sh1 (STKProduct stk1 stk2) ->
     unWindTarget (STKProduct (STKX sh1 stk1) (STKX sh1 stk2)) (xunzip t)
   STKProduct stk1 stk2 ->
-    let (t1, t2) = tunpairDup t
+    let (t1, t2) = tunpairConv t
     in WTKProduct (unWindTarget stk1 t1) (unWindTarget stk2 t2)
 
 windTarget :: ConvertTensor target

@@ -570,3 +570,6 @@ instance ( ADReadyNoLet target, ShareTensor target
   xunNestR (D u u') = dD (xunNestR u) (DeltaXUnNestR u')
   xunNestS (D u u') = dD (xunNestS u) (DeltaXUnNestS u')
   xunNest (D u u') = dD (xunNest u) (DeltaXUnNest u')
+
+  tpairConv = tpair
+  tunpairConv = tunpair

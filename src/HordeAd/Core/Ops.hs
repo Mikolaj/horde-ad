@@ -1258,15 +1258,12 @@ class ConvertTensor (target :: Target) where
           => target (TKX2 sh1 (TKX2 sh2 x)) -> target (TKX2 (sh1 ++ sh2) x)
 
   -- Two aliases to make the class sufficient for Unwind.
+  -- | A clone of tpair, to make this class independent of @BaseTensor@
+  -- but sufficient for "Unwind".
   tpairConv :: target x -> target z -> target (TKProduct x z)
-    -- a clone of tpair, to make this class independent of BaseTensor
-  default tpairConv :: BaseTensor target
-                    => target x -> target z -> target (TKProduct x z)
-  tpairConv = tpair
-  tunpairDup :: target (TKProduct x z) -> (target x, target z)
-  default tunpairDup :: ShareTensor target
-                     => target (TKProduct x z) -> (target x, target z)
-  tunpairDup = tunpair
+  -- | A clone of tunpair, if @ShareTensor@ is available, or an implementation
+  -- that duplicates the argument, otherwise.
+  tunpairConv :: target (TKProduct x z) -> (target x, target z)
 
 -- These are user-accessible, so the constraint is `ADReady`, which means
 -- lets, but no shares.

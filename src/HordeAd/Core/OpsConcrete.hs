@@ -574,6 +574,9 @@ instance ConvertTensor RepN where
     . unRepN
   xunNest = RepN . Nested.munNest . unRepN
 
+  tpairConv = tpair
+  tunpairConv = tunpair
+
 
 -- * MapAccum internal definitions
 

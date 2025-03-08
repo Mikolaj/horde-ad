@@ -1228,6 +1228,9 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
              -> AstTensor AstMethodShare s (TKX2 sh1' (TKS2 sh2 x)))
             a
 
+  tpairConv = tpair
+  tunpairConv = tunpair
+
 -- All but the last case are shortcuts for common forms.
 astConcreteRaw :: FullShapeTK y -> RepN y
                -> AstRaw PrimalSpan y
@@ -1397,9 +1400,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ tindexBuild k stk (unAstNoVectorize u) (unAstNoVectorize i)
 
 instance AstSpan s => ConvertTensor (AstNoVectorize s) where
-  tunpairDup a = let (b, c) = tunpairDup $ unAstNoVectorize a
-                 in (AstNoVectorize b, AstNoVectorize c)
-
   rzip = AstNoVectorize . rzip . unAstNoVectorize
   runzip = AstNoVectorize . runzip . unAstNoVectorize
   szip = AstNoVectorize . szip . unAstNoVectorize
@@ -1422,6 +1422,9 @@ instance AstSpan s => ConvertTensor (AstNoVectorize s) where
   xunNestS = AstNoVectorize . xunNestS . unAstNoVectorize
   xunNest = AstNoVectorize . xunNest . unAstNoVectorize
 
+  tpairConv = tpair
+  tunpairConv a = let (b, c) = tunpairConv $ unAstNoVectorize a
+                  in (AstNoVectorize b, AstNoVectorize c)
 
 -- * AstNoSimplify instances
 
@@ -1642,10 +1645,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
               (tindexBuild snat stk2 (tproject2 u3) i)
 
 instance AstSpan s => ConvertTensor (AstNoSimplify s) where
-  tunpairDup (AstNoSimplify (AstPair t1 t2)) =  -- a tiny bit of simplification
-    (AstNoSimplify t1, AstNoSimplify t2)
-  tunpairDup t = (tproject1 t, tproject2 t)
-
   rzip = wAstNoSimplify . rzip . wunAstNoSimplify
   runzip = wAstNoSimplify . runzip . wunAstNoSimplify
   szip = wAstNoSimplify . szip . wunAstNoSimplify
@@ -1667,3 +1666,8 @@ instance AstSpan s => ConvertTensor (AstNoSimplify s) where
   xunNestR = wAstNoSimplify . xunNestR . wunAstNoSimplify
   xunNestS = wAstNoSimplify . xunNestS . wunAstNoSimplify
   xunNest = wAstNoSimplify . xunNest . wunAstNoSimplify
+
+  tpairConv = tpair
+  tunpairConv (AstNoSimplify (AstPair t1 t2)) =  -- a tiny bit of simplification
+    (AstNoSimplify t1, AstNoSimplify t2)
+  tunpairConv t = (tproject1 t, tproject2 t)

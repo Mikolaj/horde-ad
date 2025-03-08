@@ -2350,14 +2350,11 @@ astSFromX sh v = Ast.AstSFromX sh v
 -- * ConvertTensor instances needed for unwinding in astConcrete
 
 instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
-  tpairConv = astPair
-  tunpairDup t = (astProject1 t, astProject2 t)
-
   rzip @y @z a = case ftkAst a of
     FTKProduct (FTKR sh' y) (FTKR _ z) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         astLetFun a $ \a3 ->
-          let (a31, a32) = tunpairDup a3
+          let (a31, a32) = tunpairConv a3
           in astFromS @(TKS2 sh (TKProduct y z))
                       (STKR (shrRank sh')
                             (STKProduct (ftkToSTK y) (ftkToSTK z)))
@@ -2367,7 +2364,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
     FTKR sh' (FTKProduct y z) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         astLetFun (Ast.AstUnzipS $ astSFromR @sh sh a) $ \b3 ->
-          let (b31, b32) = tunpairDup b3
+          let (b31, b32) = tunpairConv b3
           in astPair (astFromS @(TKS2 sh y)
                                (STKR (shrRank sh') (ftkToSTK y)) b31)
                      (astFromS @(TKS2 sh z)
@@ -2378,7 +2375,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
     FTKProduct (FTKX sh' y) (FTKX _ z) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         astLetFun a $ \a3 ->
-          let (a31, a32) = tunpairDup a3
+          let (a31, a32) = tunpairConv a3
           in astFromS @(TKS2 sh (TKProduct y z))
                       (STKX (ssxFromShape sh')
                             (STKProduct (ftkToSTK y) (ftkToSTK z)))
@@ -2388,7 +2385,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
     FTKX sh' (FTKProduct y z) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         astLetFun (Ast.AstUnzipS $ astSFromX @sh @sh' sh a) $ \b3 ->
-          let (b31, b32) = tunpairDup b3
+          let (b31, b32) = tunpairConv b3
           in astPair (astFromS @(TKS2 sh y)
                                (STKX (ssxFromShape sh') (ftkToSTK y)) b31)
                      (astFromS @(TKS2 sh z)
@@ -2491,6 +2488,9 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
              :: AstTensor AstMethodLet s (TKX2 sh1' (TKX2 sh2' x))
              -> AstTensor AstMethodLet s (TKX2 sh1' (TKS2 sh2 x)))
             a
+
+  tpairConv = astPair
+  tunpairConv t = (astProject1 t, astProject2 t)
 
 
 -- * Helper combinators
