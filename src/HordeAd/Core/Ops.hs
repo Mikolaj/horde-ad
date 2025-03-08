@@ -79,7 +79,9 @@ xflatten :: forall sh x target. (KnownSTK x, BaseTensor target)
 xflatten u = txreshape (Nested.SUnknown (xsize u) :$% ZSX) u
 
 rbuild :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
-       => IShR (m + n) -> (IxROf target m -> target (TKR2 n x))
+       => IShR (m + n)  -- ^ the shape of the resulting tensor
+       -> (IxROf target m -> target (TKR2 n x))
+            -- ^ the function to build with
        -> target (TKR2 (m + n) x)
 rbuild @m @n @x @target sh0 f0 =
   let buildSh :: IShR m1 -> (IxROf target m1 -> target (TKR2 n x))
@@ -91,6 +93,7 @@ rbuild @m @n @x @target sh0 f0 =
   in buildSh (takeShape @m @n sh0) f0
 sbuild :: (KnownShS (Take m sh), KnownShS sh, KnownSTK x, BaseTensor target)
        => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) x))
+            -- ^ the function to build with
        -> target (TKS2 sh x)
 sbuild @m @sh @x @target =
   let buildSh
@@ -108,8 +111,9 @@ sbuild @m @sh @x @target =
      $ buildSh (knownShS @(Take m sh)) (knownShS @sh)
 xbuild :: ( KnownShX (Take m sh), KnownSTK x
           , BaseTensor target, ConvertTensor target )
-       => IShX sh
+       => IShX sh  -- ^ the shape of the resulting tensor
        -> (IxXOf target (Take m sh) -> target (TKX2 (Drop m sh) x))
+            -- ^ the function to build with
        -> target (TKX2 sh x)
 xbuild @m @sh @x @target sh0 f0 =
   let buildSh :: IShX sh1 -> IShX (sh1 ++ Drop m sh)
@@ -130,15 +134,15 @@ xbuild @m @sh @x @target sh0 f0 =
 tmapAccumR
   :: forall accy by ey k target. BaseTensor target
   => Proxy target
-  -> SNat k
-  -> FullShapeTK accy
-  -> FullShapeTK by
-  -> FullShapeTK ey
+  -> SNat k  -- ^ length of the input
+  -> FullShapeTK accy  -- ^ shape of the accumulator
+  -> FullShapeTK by  -- ^ shape of the output
+  -> FullShapeTK ey  -- ^ shape of an individual input
   -> (forall f. ADReady f
-      => f accy -> f ey
-      -> f (TKProduct accy by))
-  -> target accy
-  -> target (BuildTensorKind k ey)
+      => f accy -> f ey -> f (TKProduct accy by))
+       -- ^ the function to mapAccum with
+  -> target accy  -- ^ the initial accumulator
+  -> target (BuildTensorKind k ey)  -- ^ the inputs
   -> target (TKProduct accy (BuildTensorKind k by))
 {-# INLINE tmapAccumR #-}  -- this doesn't want to specialize
 tmapAccumR proxy !k !accftk !bftk !eftk f acc0 es =
@@ -157,15 +161,15 @@ tmapAccumR proxy !k !accftk !bftk !eftk f acc0 es =
 tmapAccumL
   :: forall accy by ey k target. BaseTensor target
   => Proxy target
-  -> SNat k
-  -> FullShapeTK accy
-  -> FullShapeTK by
-  -> FullShapeTK ey
+  -> SNat k  -- ^ length of the input
+  -> FullShapeTK accy  -- ^ shape of the accumulator
+  -> FullShapeTK by  -- ^ shape of the output
+  -> FullShapeTK ey  -- ^ shape of an individual input
   -> (forall f. ADReady f
-      => f accy -> f ey
-      -> f (TKProduct accy by))
-  -> target accy
-  -> target (BuildTensorKind k ey)
+      => f accy -> f ey -> f (TKProduct accy by))
+       -- ^ the function to mapAccum with
+  -> target accy  -- ^ the initial accumulator
+  -> target (BuildTensorKind k ey)  -- ^ the inputs
   -> target (TKProduct accy (BuildTensorKind k by))
 {-# INLINE tmapAccumL #-}  -- this doesn't want to specialize
 tmapAccumL proxy !k !accftk !bftk !eftk f acc0 es =
@@ -235,11 +239,13 @@ class LetTensor (target :: Target) where
   -- | A strict left fold.
   tfold
     :: forall yn ym k. BaseTensor target
-    => SNat k -> SingletonTK yn -> SingletonTK ym
+    => SNat k  -- ^ length of the input
+    -> SingletonTK yn  -- ^ partial shape of the accumulator
+    -> SingletonTK ym  -- ^ partial shape of an individual input
     -> (forall f. ADReady f => f yn -> f ym -> f yn)
-    -> target yn  -- ^ initial value
-    -> target (BuildTensorKind k ym)
-         -- ^ iteration is over the outermost dimension of this tensor
+         -- ^ the function to fold with
+    -> target yn  -- ^ the initial accumulator
+    -> target (BuildTensorKind k ym)  -- ^ the inputs
     -> target yn
   {-# INLINE tfold #-}  -- this doesn't want to specialize
   tfold k nstk mstk f acc0 es =
@@ -258,10 +264,13 @@ class LetTensor (target :: Target) where
   -- | A strict left scan.
   tscan
     :: forall yn ym k. BaseTensor target
-    => SNat k -> SingletonTK yn -> SingletonTK ym
+    => SNat k  -- ^ length of the input
+    -> SingletonTK yn  -- ^ partial shape of the accumulator
+    -> SingletonTK ym  -- ^ partial shape of an individual input
     -> (forall f. ADReady f => f yn -> f ym -> f yn)
-    -> target yn
-    -> target (BuildTensorKind k ym)
+         -- ^ the function to scan with
+    -> target yn  -- ^ the initial accumulator
+    -> target (BuildTensorKind k ym)  -- ^ the inputs
     -> target (BuildTensorKind (1 + k) yn)
   {-# INLINE tscan #-}  -- this doesn't want to specialize
   tscan k nstk mstk f acc0 es =
@@ -584,7 +593,7 @@ class ( Num (IntOf target)
   txreplicate0N sh = withSNat (shxSize sh) $ \ (SNat @k) ->
     txreshape sh . txreplicate @_ @k
 
-  -- First index is for outermost dimension; empty index means identity,
+  -- | First index is for outermost dimension; empty index means identity,
   -- if index is out of bounds, the result is defined and is 0,
   -- but vectorization is permitted to change the value.
   trindex :: (KnownNat m, KnownNat n, KnownSTK x)
@@ -727,7 +736,7 @@ class ( Num (IntOf target)
             => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) x)
             -> (IxXOf target shm -> IxXOf target shp)
             -> target (TKX2 (shp ++ shn) x)
-  -- TODO: when we switch to singletons, generalize this to non-Just types.
+  -- TODO: generalize this to non-Just types.
   txscatter1 :: (KnownNat n2, KnownShX shn, KnownShX shp, KnownSTK x)
              => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) x)
              -> (IntOf target -> IxXOf target shp)
@@ -910,43 +919,49 @@ class ( Num (IntOf target)
   tmapAccumRDer
     :: forall accy by ey k.
        Proxy target
-    -> SNat k
-    -> FullShapeTK accy  -- ^ shapes of acc, the accumulator
-    -> FullShapeTK by -- ^ shapes of b
-    -> FullShapeTK ey -- ^ shapes of e
+    -> SNat k  -- ^ length of the input
+    -> FullShapeTK accy  -- ^ shape of the accumulator
+    -> FullShapeTK by  -- ^ shape of the output
+    -> FullShapeTK ey  -- ^ shape of an individual input
     -> HFunOf target (TKProduct accy ey) (TKProduct accy by)
+         -- ^ the function to mapAccum with
     -> HFunOf target (TKProduct (ADTensorKind (TKProduct accy ey))
                                 (TKProduct accy ey))
                      (ADTensorKind (TKProduct accy by))
+         -- ^ the derivative of the function to mapAccum with
     -> HFunOf target (TKProduct (ADTensorKind (TKProduct accy by))
                                 (TKProduct accy ey))
                      (ADTensorKind (TKProduct accy ey))
-    -> target accy  -- ^ acc0 :: accy
-    -> target (BuildTensorKind k ey)
-         -- ^ es :: k ': ey
+         -- ^ the reverse derivative of the function to mapAccum with
+    -> target accy  -- ^ the initial accumulator
+    -> target (BuildTensorKind k ey)  -- ^ the inputs
     -> target (TKProduct accy (BuildTensorKind k by))
-         -- ^ (x, bs) :: (accy, k ': by)
   -- | A strict left mapAccum.
   tmapAccumLDer
     :: forall accy by ey k.
        Proxy target
-    -> SNat k
-    -> FullShapeTK accy
-    -> FullShapeTK by
-    -> FullShapeTK ey
+    -> SNat k  -- ^ length of the input
+    -> FullShapeTK accy  -- ^ shape of the accumulator
+    -> FullShapeTK by  -- ^ shape of the output
+    -> FullShapeTK ey  -- ^ shape of an individual input
     -> HFunOf target (TKProduct accy ey) (TKProduct accy by)
+         -- ^ the function to mapAccum with
     -> HFunOf target (TKProduct (ADTensorKind (TKProduct accy ey))
                                 (TKProduct accy ey))
                      (ADTensorKind (TKProduct accy by))
+         -- ^ the derivative of the function to mapAccum with
     -> HFunOf target (TKProduct (ADTensorKind (TKProduct accy by))
                                 (TKProduct accy ey))
                      (ADTensorKind (TKProduct accy ey))
-    -> target accy
-    -> target (BuildTensorKind k ey)
+         -- ^ the reverse derivative of the function to mapAccum with
+    -> target accy  -- ^ the initial accumulator
+    -> target (BuildTensorKind k ey)  -- ^ the inputs
     -> target (TKProduct accy (BuildTensorKind k by))
   tApply :: HFunOf target x z -> target x -> target z
   tlambda :: FullShapeTK x -> HFun x z -> HFunOf target x z
 
+  -- | Reverse derivative.
+  --
   -- If the result of the argument function is not a scalar, the result
   -- of this operation is the gradient of a function that additionally
   -- sums all elements of the result. If all elements are equally important
@@ -957,19 +972,19 @@ class ( Num (IntOf target)
   -- These methods (and tlambda) are exactly what is needed as arguments
   -- of tmapAccumRDer.
   trev
-    :: FullShapeTK x  -- shape of x and dx
-    -> HFun x z  -- x |-> z
-    -> HFunOf target x (ADTensorKind x)  -- x |-> dx
+    :: FullShapeTK x  -- ^ shape of x and dx
+    -> HFun x z  -- ^ x |-> z
+    -> HFunOf target x (ADTensorKind x)  -- ^ x |-> dx
   trevDt
-    :: FullShapeTK x  -- shape of x and dx
-    -> HFun x z  -- x |-> z
+    :: FullShapeTK x  -- ^ shape of x and dx
+    -> HFun x z  -- ^ x |-> z
     -> HFunOf target (TKProduct (ADTensorKind z) x) (ADTensorKind x)
-                 -- [dz, x] |-> dx
+         -- ^ (dz, x) |-> dx
   tfwd
-    :: FullShapeTK x  -- shape of x and dx
-    -> HFun x z  -- x |-> z
+    :: FullShapeTK x  -- ^ shape of x and dx
+    -> HFun x z  -- ^ x |-> z
     -> HFunOf target (TKProduct (ADTensorKind x) x) (ADTensorKind z)
-                 -- [dx, x] |-> dz
+         -- ^ (dx, x) |-> dz
 
   tprimalPart :: target y -> PrimalOf target y
   tdualPart :: SingletonTK y -> target y -> DualOf target y
