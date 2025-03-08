@@ -442,10 +442,10 @@ instance BaseTensor RepN where
   tsreshape @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
     RepN . Nested.sreshape sh . unRepN
   -- The eta-expansion below is needed for typing.
-  tmapAccumRDer _ k accftk bftk eftk f _df _rf acc0 es =
-    oRtmapAccumR k accftk bftk eftk (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
-  tmapAccumLDer _ k accftk bftk eftk f _df _rf acc0 es =
-    oRtmapAccumL k accftk bftk eftk (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
+  tmapAccumRDer _ k _ bftk eftk f _df _rf acc0 es =
+    oRtmapAccumR k bftk eftk (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
+  tmapAccumLDer _ k _ bftk eftk f _df _rf acc0 es =
+    oRtmapAccumL k bftk eftk (\ !(RepN a) !(RepN b) -> RepN $ f (a, b)) acc0 es
   tApply f x = RepN $ f $ unRepN x
   tlambda _ f x = unRepN $ unHFun f $ RepN x
   tcond _ b u v = if b then u else v
@@ -590,14 +590,13 @@ unravel = tunravelToListShare
 oRtmapAccumR
   :: forall k accy by ey.
      SNat k
-  -> FullShapeTK accy
   -> FullShapeTK by
   -> FullShapeTK ey
   -> (RepN accy -> RepN ey -> RepN (TKProduct accy by))
   -> RepN accy
   -> RepN (BuildTensorKind k ey)
   -> RepN (TKProduct accy (BuildTensorKind k by))
-oRtmapAccumR k _ bftk eftk f acc0 es = case sNatValue k of
+oRtmapAccumR k bftk eftk f acc0 es = case sNatValue k of
   0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (constantTarget 0 bftk))
   _ ->
     let g a b = let res = f a b
@@ -609,14 +608,13 @@ oRtmapAccumR k _ bftk eftk f acc0 es = case sNatValue k of
 oRtmapAccumL
   :: forall k accy by ey.
      SNat k
-  -> FullShapeTK accy
   -> FullShapeTK by
   -> FullShapeTK ey
   -> (RepN accy -> RepN ey -> RepN (TKProduct accy by))
   -> RepN accy
   -> RepN (BuildTensorKind k ey)
   -> RepN (TKProduct accy (BuildTensorKind k by))
-oRtmapAccumL k _ bftk eftk f acc0 es = case sNatValue k of
+oRtmapAccumL k bftk eftk f acc0 es = case sNatValue k of
   0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (constantTarget 0 bftk))
   _ ->
     let g a b = let res = f a b
