@@ -947,7 +947,7 @@ astDualPart t = case t of
   Ast.AstLet var u v -> astLet var u (astDualPart v)
 
   Ast.AstFromPrimal v ->
-    let ftk = ftkAst v
+    let _ftk = ftkAst v
     in Ast.AstDualPart $ Ast.AstFromPrimal   v
        -- TODO: this gives wrong results, see interpretAst (AstPrimalPart)
        -- $ astConcrete ftk (tconstantTarget 0 ftk)
@@ -1021,6 +1021,7 @@ astFromIntegralK :: forall r1 r2. (GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
 astFromIntegralK t = case t of
+  _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
   Ast.AstSum snat STKScalar a -> astSum snat STKScalar (astFromIntegralS a)
 --  Ast.AstCond b a2 a3 ->
 --    Ast.AstCond b (astFromIntegralK a2) (astFromIntegralK a3)
@@ -1030,15 +1031,14 @@ astFromIntegralK t = case t of
   Ast.AstN1K SignumOp u -> signum (astFromIntegralK u)
 --  AstN2K opCode u v -> AstN2K opCode (astFromIntegralK u) (astFromIntegralK v)
   Ast.AstFromIntegralK v -> astFromIntegralK v
-  _ -> case testEquality (typeRep @r1) (typeRep @r2) of
-    Just Refl -> t
-    _ -> Ast.AstFromIntegralK t
+  _ -> Ast.AstFromIntegralK t
 
 astCastK :: forall r1 r2 s.
             (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2, AstSpan s)
          => AstTensor AstMethodLet s (TKScalar r1)
          -> AstTensor AstMethodLet s (TKScalar r2)
 astCastK t = case t of
+  _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
   Ast.AstSum snat STKScalar a -> astSum snat STKScalar (astCastS a)
 --  Ast.AstCond b a2 a3 -> Ast.AstCond b (astCastK a2) (astCastK a3)
   AstConcreteK k -> astConcreteK (tkcast $ RepN k)
@@ -1055,9 +1055,7 @@ astCastK t = case t of
 --  Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astCastK u) (astCastK v)
   Ast.AstFromIntegralK v -> astFromIntegralK v
   Ast.AstCastK v -> astCastK v
-  _ -> case testEquality (typeRep @r1) (typeRep @r2) of
-    Just Refl -> t
-    _ -> Ast.AstCastK t
+  _ -> Ast.AstCastK t
 
 astConcreteS :: GoodScalar r
              => RepN (TKS sh r)
@@ -1068,6 +1066,7 @@ astFromIntegralS :: forall r1 r2 sh. (GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
 astFromIntegralS t = case t of
+  _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
 --  Ast.AstFromVector snat (STKS sh STKScalar) l ->
 --   astFromVector snat (STKS sh STKScalar) (V.map astFromIntegralS l)
 --  Ast.AstFromVector snat STKScalar l ->
@@ -1104,15 +1103,14 @@ astFromIntegralS t = case t of
   Ast.AstTransposeS perm v -> astTransposeS perm (astFromIntegralS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astFromIntegralS v)
   Ast.AstSFromK v -> astSFromK (astFromIntegralK v)
-  _ -> case testEquality (typeRep @r1) (typeRep @r2) of
-    Just Refl -> t
-    _ -> Ast.AstFromIntegralS t
+  _ -> Ast.AstFromIntegralS t
 
 astCastS :: forall r1 r2 s sh.
             (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2, AstSpan s)
          => AstTensor AstMethodLet s (TKS sh r1)
          -> AstTensor AstMethodLet s (TKS sh r2)
 astCastS t = case t of
+  _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
 --  Ast.AstFromVector snat (STKS sh STKScalar) l ->
 --   astFromVector snat (STKS sh STKScalar) (V.map astCastS l)
 --  Ast.AstFromVector snat STKScalar l ->
@@ -1153,9 +1151,7 @@ astCastS t = case t of
   Ast.AstTransposeS perm v -> astTransposeS perm (astCastS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astCastS v)
   Ast.AstSFromK v -> astSFromK (astCastK v)
-  _ -> case testEquality (typeRep @r1) (typeRep @r2) of
-    Just Refl -> t
-    _ -> Ast.AstCastS t
+  _ -> Ast.AstCastS t
 
 astIndexS
   :: forall shm shn s r. AstSpan s
