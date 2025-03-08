@@ -49,6 +49,7 @@ import HordeAd.Core.OpsADVal
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Core.ConvertTensor
 
 -- * Tensor classes instance
 

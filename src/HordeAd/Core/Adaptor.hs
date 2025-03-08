@@ -34,6 +34,7 @@ import Data.Array.Nested.Internal.Shape
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsAst ()
 import HordeAd.Core.OpsConcrete ()

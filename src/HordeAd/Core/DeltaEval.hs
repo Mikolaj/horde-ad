@@ -67,6 +67,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.CarriersADVal (unDeltaPairUnshared)
+import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Delta
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind

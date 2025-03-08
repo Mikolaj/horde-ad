@@ -105,6 +105,7 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
+import HordeAd.Core.ConvertTensor
 
 -- * Expressing operations as Gather; introduces new variable names
 

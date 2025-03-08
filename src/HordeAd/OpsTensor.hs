@@ -81,6 +81,7 @@ import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Ops
+import HordeAd.Core.ConvertTensor
 
 tunit :: BaseTensor target
       => target TKUnit

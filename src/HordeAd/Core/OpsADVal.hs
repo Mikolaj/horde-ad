@@ -33,6 +33,7 @@ import HordeAd.Core.Unwind
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Core.ConvertTensor
 
 -- * Non-symbolic reverse and forward derivative computation
 

@@ -26,6 +26,7 @@ import Data.Array.Nested.Internal.Shape
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstTools
+import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types

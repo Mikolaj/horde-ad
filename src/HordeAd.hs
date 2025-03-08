@@ -8,6 +8,7 @@ module HordeAd
   , module HordeAd.Core.AstPrettyPrint
   , module HordeAd.Core.CarriersADVal
   , module HordeAd.Core.CarriersConcrete
+  , module HordeAd.Core.ConvertTensor
   , module HordeAd.Core.Engine
   , module HordeAd.Core.TensorKind
   , module HordeAd.Core.Types
@@ -25,6 +26,7 @@ import HordeAd.Core.AstInline
 import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
