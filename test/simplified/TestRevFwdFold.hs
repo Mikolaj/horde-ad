@@ -1665,7 +1665,7 @@ testSin0rmapAccumRD01SN531a = do
                                  (sreplicate @6 (sfromIndex0 i)
                                           - sflatten (sappend x0 x0)))
                           (tpair (sfromList [srepl (-0.1), sreshape @'[] @'[1] $ sfromIndex0 j])
-                                 ((sfromListLinear
+                                 ((sfromList0N
                                            [sscalar 0.4, sscalar (-0.01), sscalar (-0.3), sfromIndex0 i, sscalar 0.5, sscalar 1.3]))))
            in rfromS . f . sfromR) (ringestData [3] [1.1, 2, 3.14]))
 
@@ -1792,7 +1792,7 @@ testSin0rmapAccumRD01SN531c = do
                                       (srepl 1 - sin x / srepl 3 - a)
                            in g)
                           (x0 / (srepl 1 + sfromIndex0 j))
-                          (sfromListLinear [sscalar 0.4, sfromIndex0 i])))
+                          (sfromList0N [sscalar 0.4, sfromIndex0 i])))
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN531Slice :: Assertion
@@ -1901,7 +1901,7 @@ testSin0rmapAccumRD01SN55acc = do
                            in g)
                           tunit
                           (tpair (singestData [-0.1, 0.23])
-                                 (sfromListLinear
+                                 (sfromList0N
                                     [sindex0 x0 [1], sscalar (-0.01), sscalar (-0.3), ssum x0, sscalar 0.5, sscalar 1.3]))
            in rfromS . f . sfromR) (ringestData [3] [1.1, 2, 3.14]))
 

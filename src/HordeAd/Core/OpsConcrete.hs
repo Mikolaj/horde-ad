@@ -76,8 +76,8 @@ instance BaseTensor RepN where
     sNatValue . Nested.rrank . unRepN
   trfromVector @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.rfromListOuter . NonEmpty.fromList . V.toList . V.map unRepN
-  trfromVectorLinear @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
-    RepN . tfromVectorLinearR sh . V.map unRepN
+  trfromVector0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
+    RepN . tfromVector0NR sh . V.map unRepN
   trunravelToList @_ @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.rtoListOuter . unRepN
   trsum t = case tftk knownSTK t of
@@ -149,8 +149,8 @@ instance BaseTensor RepN where
   tsfromVector @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.sfromListOuter SNat . NonEmpty.fromList . V.toList
     . V.map unRepN
-  tsfromVectorLinear @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    RepN . tfromVectorLinearS . V.map unRepN
+  tsfromVector0N @_ @r | Dict <- eltDictRep (knownSTK @r) =
+    RepN . tfromVector0NS . V.map unRepN
   tsunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.stoListOuter . unRepN
   tssum t = case tftk knownSTK t of
@@ -296,8 +296,8 @@ instance BaseTensor RepN where
     RepN . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
     . Nested.mfromListOuter . NonEmpty.fromList . V.toList
     . V.map unRepN
-  txfromVectorLinear @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
-    RepN . tfromVectorLinearX sh . V.map unRepN
+  txfromVector0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
+    RepN . tfromVector0NX sh . V.map unRepN
   txunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     map RepN . Nested.mtoListOuter . unRepN
   txsum t = case tftk knownSTK t of
@@ -663,7 +663,7 @@ updateNR arr upd = case knownSTK @x of
                                shNested ((RepN . fromIntegral) i)) upd of
           Just u -> rnest (SNat @0) u
           Nothing -> v
-    in runNest $ trfromVectorLinear shNested $ V.fromList
+    in runNest $ trfromVector0N shNested $ V.fromList
        $ imap f $ trunravelToList $ rflatten arrNested
 
 tminIndexR
@@ -839,10 +839,10 @@ tscatterZ1R sh t f = case tftk knownSTK t of
         lu = imap g lt
     in foldr (addTarget knownSTK) zero lu
 
-tfromVectorLinearR
+tfromVector0NR
   :: Nested.KnownElt r
   => IShR n -> Data.Vector.Vector (Nested.Ranked 0 r) -> Nested.Ranked n r
-tfromVectorLinearR sh l = case NonEmpty.nonEmpty $ V.toList l of
+tfromVector0NR sh l = case NonEmpty.nonEmpty $ V.toList l of
   Nothing -> Nested.rreshape sh Nested.remptyArray
   Just nl -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar nl
 
@@ -935,7 +935,7 @@ updateNS arr upd = case knownSTK @r of
                                  shNested ((RepN . fromIntegral) i)) upd of
             Just u -> snest (knownShS @'[]) u
             Nothing -> v
-      in sunNest @_ @(Take n sh) $ tsfromVectorLinear $ V.fromList
+      in sunNest @_ @(Take n sh) $ tsfromVector0N $ V.fromList
          $ imap f $ tsunravelToList $ sflatten arrNested
 
 tfromIntegralS :: (GoodScalar r1, Integral r1, GoodScalar r2)
@@ -1076,10 +1076,10 @@ tscatterZ1S t f = case tftk knownSTK t of
         lu = imap g lt
     in foldr (addTarget (STKS shpshn (knownSTK @r))) zero lu
 
-tfromVectorLinearS
+tfromVector0NS
   :: forall r sh. (Nested.KnownElt r, KnownShS sh)
   => Data.Vector.Vector (Nested.Shaped '[] r) -> Nested.Shaped sh r
-tfromVectorLinearS l = case NonEmpty.nonEmpty $ V.toList l of
+tfromVector0NS l = case NonEmpty.nonEmpty $ V.toList l of
   Nothing -> case testEquality (shsProduct (knownShS @sh)) (SNat @0) of
     Just Refl -> Nested.sreshape (knownShS @sh)
                  $ Nested.semptyArray (knownShS @sh)
@@ -1155,7 +1155,7 @@ updateNX arr upd = case knownSTK @r of
             Just u -> xnest ZKX u
             Nothing -> v
       in withSNat (shxSize shNested) $ \snat ->
-           xunNest @_ @(Take n sh) $ txfromVectorLinear shNested $ V.fromList
+           xunNest @_ @(Take n sh) $ txfromVector0N shNested $ V.fromList
            $ imap f $ txunravelToList
            $ RepN $ Nested.mcast (Nested.SKnown snat :!% ZKX)
            $ unRepN $ xflatten arrNested
@@ -1271,10 +1271,10 @@ tscatterZ1X sh t f =
           lu = imap g lt
       in foldr (addTarget knownSTK) zero lu
 
-tfromVectorLinearX
+tfromVector0NX
   :: forall r sh. Nested.KnownElt r
   => IShX sh -> Data.Vector.Vector (Nested.Mixed '[] r) -> Nested.Mixed sh r
-tfromVectorLinearX sh l = case NonEmpty.nonEmpty $ V.toList l of
+tfromVector0NX sh l = case NonEmpty.nonEmpty $ V.toList l of
   Nothing -> if shxSize sh == 0
              then Nested.mreshape sh $ Nested.memptyArray sh
              else error "tfromListLinearS: empty list, but not shape"

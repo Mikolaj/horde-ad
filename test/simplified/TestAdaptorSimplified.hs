@@ -297,13 +297,13 @@ testZero7S =
 testZero8 :: Assertion
 testZero8 =
   assertEqualUpToEpsilon 1e-10
-    (rfromListLinear [] [rscalar 0])
+    (rfromList0N [] [rscalar 0])
     (rev (const (sscalar 3) :: AstTensor AstMethodLet FullSpan (TKR 0 Double) -> AstTensor AstMethodLet FullSpan (TKS '[] Double)) (rscalar 42))
 
 testZero9S :: Assertion
 testZero9S =
   assertEqualUpToEpsilon 1e-9
-    (rfromListLinear [0, 2, 4, 0, 1] [])
+    (rfromList0N [0, 2, 4, 0, 1] [])
     (crev (let f :: ADVal RepN (TKR 5 Double)
                  -> ADVal RepN (TKS '[0, 2, 4, 0, 1] Double)
                f = const (srepl 3)
@@ -333,7 +333,7 @@ testFwdZero9S =
 testZero10S :: Assertion
 testZero10S =
   assertEqualUpToEpsilon 1e-9
-    ( rfromListLinear [0, 2, 4, 0, 1] []
+    ( rfromList0N [0, 2, 4, 0, 1] []
     , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
     (crev (let f = const (srepl 3) . snd
            in f :: ( ADVal RepN (TKR 5 Double)
@@ -349,9 +349,9 @@ testCFwdZero10S =
            in f :: ( ADVal RepN (TKR 5 Double)
                    , ADVal RepN (TKS '[0, 2, 4, 0, 1] Double) )
                    -> ADVal RepN (TKS '[0, 2, 4, 0, 1] Double))
-          ( rfromListLinear [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
-          ( rfromListLinear [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] ))
 
 testFwdZero10S :: Assertion
@@ -362,15 +362,15 @@ testFwdZero10S =
            in f :: ( AstTensor AstMethodLet FullSpan (TKR 5 Double)
                    , AstTensor AstMethodLet FullSpan (TKS '[0, 2, 4, 0, 1] Double) )
                    -> AstTensor AstMethodLet FullSpan (TKS '[0, 2, 4, 0, 1] Double))
-          ( rfromListLinear [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
-          ( rfromListLinear [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] ))
 
 testZero11S :: Assertion
 testZero11S =
   assertEqualUpToEpsilon 1e-9
-    ( rfromListLinear [0, 2, 4, 0, 1] []
+    ( rfromList0N [0, 2, 4, 0, 1] []
     , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
     (crev (let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
            in f :: ( ADVal RepN (TKR 5 Double)
@@ -381,27 +381,27 @@ testZero11S =
 testCFwdZero11S :: Assertion
 testCFwdZero11S =
   assertEqualUpToEpsilon 1e-9
-    (rfromListLinear [0, 2, 4, 0, 1] [])
+    (rfromList0N [0, 2, 4, 0, 1] [])
     (cfwd (let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
            in f :: ( ADVal RepN (TKR 5 Double)
                    , ADVal RepN (TKS '[0, 2, 4, 0, 1] Double) )
                    -> ADVal RepN (TKR 5 Double))
-          ( rfromListLinear [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
-          ( rfromListLinear [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] ))
 
 testFwdZero11S :: Assertion
 testFwdZero11S =
   assertEqualUpToEpsilon 1e-9
-    (rfromListLinear [0, 2, 4, 0, 1] [])
+    (rfromList0N [0, 2, 4, 0, 1] [])
     (fwd  (let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
            in f :: ( AstTensor AstMethodLet FullSpan (TKR 5 Double)
                    , AstTensor AstMethodLet FullSpan (TKS '[0, 2, 4, 0, 1] Double) )
                    -> AstTensor AstMethodLet FullSpan (TKR 5 Double))
-          ( rfromListLinear [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
-          ( rfromListLinear [0, 2, 4, 0, 1] []
+          ( rfromList0N [0, 2, 4, 0, 1] []
           , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] ))
 
 testPiecewiseLinear :: Assertion
@@ -474,7 +474,7 @@ testOverleafCIntn =
 testOverleafCIntToFloatn :: Assertion
 testOverleafCIntToFloatn =
   assertEqualUpToEpsilon 1e-10
-    (rfromListLinear [28] (replicate 28 (rscalar 0.0)))
+    (rfromList0N [28] (replicate 28 (rscalar 0.0)))
     (rev @_ @(TKR 0 Float)
          (rfromIntegral . overleaf @CInt . rfloor) (ringestData @_ @Float [28] [0 .. 27]))
 
@@ -548,7 +548,7 @@ gradFooMatrix = crev foo
 testGradFooMatrix :: Assertion
 testGradFooMatrix =
   assertEqualUpToEpsilon 1e-10
-    (singestData [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],singestData [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],singestData [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
+    (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
     (gradFooMatrix (srepl 1.1, srepl 2.2, srepl (3.3 :: Double)))
 
 fooLet :: (RealFloatH (target a), LetTensor target)
@@ -566,7 +566,7 @@ testGradFooLetMatrixPP = do
 testGradFooMatrixRev :: Assertion
 testGradFooMatrixRev =
   assertEqualUpToEpsilon 1e-10
-    (singestData [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],singestData [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],singestData [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
+    (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
     (rev (fooLet @_ @(TKS [2, 2] Double)) (srepl 1.1, srepl 2.2, srepl 3.3))
 
 testGradFooLetMatrixSimpRPP :: Assertion
@@ -1585,7 +1585,7 @@ testBarReluMaxDt =
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [191.20462646925841])
     (revDt @_ @(TKR 0 Double)
-           barReluMax (rfromListLinear [] [rscalar 1.1]) (rscalar 42.2))
+           barReluMax (rfromList0N [] [rscalar 1.1]) (rscalar 42.2))
 
 testBarReluMax :: Assertion
 testBarReluMax =
@@ -1710,7 +1710,7 @@ braidedBuilds :: forall target r.
               => target (TKR 0 r) -> target (TKR 2 r)
 braidedBuilds r =
   rbuild1 3 (\ix1 ->
-    rbuild1 4 (\ix2 -> rindex (rfromListLinear [4]
+    rbuild1 4 (\ix2 -> rindex (rfromList0N [4]
       [rfromIndex0 ix2, rscalar 7, r, rscalar (-0.2)]) (ix1 :.: ZIR)))
 
 testBraidedBuilds1 :: Assertion
@@ -1900,9 +1900,9 @@ emptyArgs :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
           => target (TKR 1 r) -> target (TKR 1 r)
 emptyArgs t =
   emptyTensor
-  - rfromListLinear (rshape @target @_ @(TKScalar r) emptyTensor) []
+  - rfromList0N (rshape @target @_ @(TKScalar r) emptyTensor) []
   + rconcrete Nested.remptyArray
-  - rsum (rfromListLinear (0 :$: rshape @target @_ @(TKScalar r) emptyTensor) [])
+  - rsum (rfromList0N (0 :$: rshape @target @_ @(TKScalar r) emptyTensor) [])
   * rsum (rconcrete $ Nested.rreshape (0 :$: 0 :$: ZSR) Nested.remptyArray)
   * rconcrete (Nested.rsumOuter1 $ Nested.rfromListOuter
                $ NonEmpty.fromList [Nested.remptyArray])
@@ -1910,11 +1910,11 @@ emptyArgs t =
           $ NonEmpty.fromList [Nested.remptyArray])
   * rsum (rfromList [rconcrete Nested.remptyArray])
   * rsum (rfromList [emptyTensor])
-  * rsum (rfromList [rsum (rfromListLinear
+  * rsum (rfromList [rsum (rfromList0N
                              (0 :$: rshape @target @_ @(TKScalar r)
                                       emptyTensor) [])])
-  - rindex (rfromListLinear (0 :$: 0 :$: ZSR) []) (42 :.: ZIR)
-  - rindex (rfromListLinear (0 :$: rshape @target @_ @(TKScalar r)
+  - rindex (rfromList0N (0 :$: 0 :$: ZSR) []) (42 :.: ZIR)
+  - rindex (rfromList0N (0 :$: rshape @target @_ @(TKScalar r)
                                      emptyTensor) []) (42 :.: ZIR)
   - rreshape @1 [0] emptyTensor
   - rsum (rreshape @1 [0, 0] emptyTensor)
@@ -1930,9 +1930,9 @@ emptyArgs t =
   - rsum (rbuild @0 (0 :$: 0 :$: ZSR)
                  (const (rreplicate 1 emptyTensor)))
   + rfromS
-      (sfromListLinear []
+      (sfromList0N []
        + sconcrete (Nested.semptyArray ZSS)
-       - ssum @0 (sfromListLinear [])
+       - ssum @0 (sfromList0N [])
        * ssum @0 (sconcrete $ Nested.semptyArray (SNat @0 :$$ ZSS))
        * sconcrete (Nested.ssumOuter1 $ Nested.sfromListOuter (SNat @1)
                     $ NonEmpty.fromList [Nested.semptyArray ZSS])
@@ -1940,9 +1940,9 @@ emptyArgs t =
                         $ NonEmpty.fromList [Nested.semptyArray ZSS])
        * ssum @1 (sfromList [sconcrete $ Nested.semptyArray ZSS])
        * ssum @1 (sfromList [sfromR @_ @'[0] emptyTensor])
-       * ssum @1 (sfromList [ssum @0 (sfromListLinear [])])
-       - sindex @'[0] (sfromListLinear []) (42 :.$ ZIS)
-       - sindex @'[0] (sfromListLinear []) (42 :.$ ZIS)
+       * ssum @1 (sfromList [ssum @0 (sfromList0N [])])
+       - sindex @'[0] (sfromList0N []) (42 :.$ ZIS)
+       - sindex @'[0] (sfromList0N []) (42 :.$ ZIS)
        - sreshape @_ @'[0] (sfromR @_ @'[0] emptyTensor)
        - ssum (sreshape @_ @'[0, 0] (sfromR @_ @'[0] emptyTensor))
        * sbuild1 @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t) !$ (i :.$ ZIS))
@@ -1953,9 +1953,9 @@ emptyArgs t =
        - ssum (sbuild @0
                       (const (sreplicate @1 (sfromR emptyTensor)))))
   + rfromX
-      (xfromListLinear (SKnown (SNat @0) :$% ZSX) []
+      (xfromList0N (SKnown (SNat @0) :$% ZSX) []
        + xconcrete (Nested.memptyArray ZSX)
-       - xsum @0 (xfromListLinear
+       - xsum @0 (xfromList0N
                           (SKnown (SNat @0) :$% SKnown (SNat @0) :$% ZSX) [])
        * xsum @0 (xconcrete
                         $ Nested.memptyArray (SKnown (SNat @0) :$% ZSX))
@@ -1969,16 +1969,16 @@ emptyArgs t =
        * xsum @1 (xfromList [xconcrete $ Nested.memptyArray ZSX])
        * xsum @1 (xfromList [xfromR @_ @'[Just 0] emptyTensor])
        * xsum @1 (xfromList [xsum @0
-                                     (xfromListLinear
+                                     (xfromList0N
                                         (SKnown (SNat @0)
                                          :$% xshape @target @_ @(TKScalar r)
                                                (xfromR @_ @'[Just 0]
                                                   emptyTensor)) [])])
-       - xindex @_ @'[Just 0] (xfromListLinear
+       - xindex @_ @'[Just 0] (xfromList0N
                                     (SKnown (SNat @0)
                                      :$% SKnown (SNat @0)
                                      :$% ZSX) []) (42 :.% ZIX)
-       - xindex @_ @'[Just 0] (xfromListLinear
+       - xindex @_ @'[Just 0] (xfromList0N
                                     (SKnown (SNat @0)
                                      :$% xshape @target @_ @(TKScalar r)
                                              (xfromR @_ @'[Just 0]

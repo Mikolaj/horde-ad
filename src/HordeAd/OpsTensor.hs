@@ -12,13 +12,13 @@ module HordeAd.OpsTensor
   , xshape, xlength, xsize, xwidth
   , tsize, tftk
   , tpair, tproject1, tproject2
-  , rconcrete, rscalar, rrepl, ringestData
-  , sconcrete, sscalar, srepl, singestData
-  , xconcrete, xscalar, xrepl, xingestData
+  , rconcrete, rscalar, rrepl, ringestData, rfromListLinear
+  , sconcrete, sscalar, srepl, singestData, sfromListLinear
+  , xconcrete, xscalar, xrepl, xingestData, xfromListLinear
   , kconcrete
-  , rfromList, rfromVector, rfromListLinear, rfromVectorLinear, runravelToList
-  , sfromList, sfromVector, sfromListLinear, sfromVectorLinear, sunravelToList
-  , xfromList, xfromVector, xfromListLinear, xfromVectorLinear, xunravelToList
+  , rfromList, rfromVector, rfromVector0N, rfromList0N, runravelToList
+  , sfromList, sfromVector, sfromVector0N, sfromList0N, sunravelToList
+  , xfromList, xfromVector, xfromVector0N, xfromList0N, xunravelToList
   , rsum, rsum0, rdot0, rdot1In, rmatvecmul, rmatmul2, rreplicate, rreplicate0N
   , ssum, ssum0, sdot0, sdot1In, smatvecmul, smatmul2, sreplicate, sreplicate0N
   , xsum, xsum0, xdot0, xdot1In, xmatvecmul, xmatmul2, xreplicate, xreplicate0N
@@ -114,6 +114,10 @@ ringestData :: forall n r target. (GoodScalar r, BaseTensor target)
             => IShR n -> [r] -> target (TKR n r)
 ringestData sh l =
   tconcrete (FTKR sh FTKScalar) (RepN $ Nested.rfromListPrimLinear sh l)
+rfromListLinear :: forall n r target. (GoodScalar r, BaseTensor target)
+                => IShR n -> NonEmpty r -> target (TKR n r)
+rfromListLinear sh = ringestData sh . NonEmpty.toList
+  -- used by ox-arrays to pretty-print values, so the type has to agree
 
 sconcrete :: (GoodScalar r, BaseTensor target)
           => Nested.Shaped sh r -> target (TKS sh r)
@@ -133,6 +137,9 @@ srepl = sconcrete . Nested.sreplicateScal knownShS
 singestData :: (KnownShS sh, GoodScalar r, BaseTensor target)
             => [r] -> target (TKS sh r)
 singestData l = sconcrete $ Nested.sfromListPrimLinear knownShS l
+sfromListLinear :: forall sh r target. (GoodScalar r, BaseTensor target)
+                => ShS sh -> NonEmpty r -> target (TKS sh r)
+sfromListLinear sh = sconcrete . Nested.sfromListPrimLinear sh . NonEmpty.toList
 
 xconcrete :: (GoodScalar r, BaseTensor target)
           => Nested.Mixed sh r -> target (TKX sh r)
@@ -147,6 +154,9 @@ xingestData :: forall sh r target. (GoodScalar r, BaseTensor target)
             => IShX sh -> [r] -> target (TKX sh r)
 xingestData sh l =
   tconcrete (FTKX sh FTKScalar) (RepN $ Nested.mfromListPrimLinear sh l)
+xfromListLinear :: forall sh r target. (GoodScalar r, BaseTensor target)
+                => IShX sh -> NonEmpty r -> target (TKX sh r)
+xfromListLinear sh = xingestData sh . NonEmpty.toList
 
 kconcrete :: (GoodScalar r, BaseTensor target)
           => r -> target (TKScalar r)
@@ -160,13 +170,14 @@ rfromVector :: (KnownNat n, KnownSTK x, BaseTensor target)
             => Data.Vector.Vector (target (TKR2 n x))
             -> target (TKR2 (1 + n) x)
 rfromVector = trfromVector
-rfromListLinear :: forall n x target. (KnownSTK x, BaseTensor target)
-                => IShR n -> [target (TKR2 0 x)] -> target (TKR2 n x)
-rfromListLinear sh = trfromVectorLinear sh . V.fromList
-rfromVectorLinear :: forall n x target. (KnownSTK x, BaseTensor target)
-                  => IShR n -> Data.Vector.Vector (target (TKR2 0 x))
-                  -> target (TKR2 n x)
-rfromVectorLinear = trfromVectorLinear
+rfromVector0N :: forall n x target. (KnownSTK x, BaseTensor target)
+              => IShR n -> Data.Vector.Vector (target (TKR2 0 x))
+              -> target (TKR2 n x)
+rfromVector0N = trfromVector0N
+rfromList0N :: forall n x target. (KnownSTK x, BaseTensor target)
+            => IShR n -> [target (TKR2 0 x)]
+            -> target (TKR2 n x)
+rfromList0N sh = trfromVector0N sh . V.fromList
 runravelToList :: forall n x target.
                   (KnownSTK x, KnownNat n, BaseTensor target)
                => target (TKR2 (1 + n) x) -> [target (TKR2 n x)]
@@ -180,14 +191,15 @@ sfromVector :: (KnownNat n, KnownShS sh, KnownSTK x, BaseTensor target)
             => Data.Vector.Vector (target (TKS2 sh x))
             -> target (TKS2 (n ': sh) x)
 sfromVector = tsfromVector
-sfromListLinear :: (KnownShS sh, KnownSTK x, BaseTensor target)
-                => [target (TKS2 '[] x)] -> target (TKS2 sh x)
-sfromListLinear = tsfromVectorLinear . V.fromList
-sfromVectorLinear :: forall sh x target.
-                     (KnownSTK x, KnownShS sh, BaseTensor target)
-                  => Data.Vector.Vector (target (TKS2 '[] x))
-                  -> target (TKS2 sh x)
-sfromVectorLinear = tsfromVectorLinear
+sfromVector0N :: forall sh x target.
+                 (KnownSTK x, KnownShS sh, BaseTensor target)
+              => Data.Vector.Vector (target (TKS2 '[] x))
+              -> target (TKS2 sh x)
+sfromVector0N = tsfromVector0N
+sfromList0N :: forall sh x target. (KnownSTK x, KnownShS sh, BaseTensor target)
+            => [target (TKS2 '[] x)]
+            -> target (TKS2 sh x)
+sfromList0N = tsfromVector0N . V.fromList
 sunravelToList :: forall n sh x target.
                   (KnownSTK x, KnownNat n, KnownShS sh, BaseTensor target)
                => target (TKS2 (n ': sh) x) -> [target (TKS2 sh x)]
@@ -202,13 +214,14 @@ xfromVector :: (KnownNat n, KnownShX sh, KnownSTK x, BaseTensor target)
             => Data.Vector.Vector (target (TKX2 sh x))
             -> target (TKX2 (Just n ': sh) x)
 xfromVector = txfromVector
-xfromListLinear :: forall sh x target. (KnownSTK x, BaseTensor target)
-                => IShX sh -> [target (TKX2 '[] x)] -> target (TKX2 sh x)
-xfromListLinear sh = txfromVectorLinear sh . V.fromList
-xfromVectorLinear :: forall sh x target. (KnownSTK x, BaseTensor target)
-                  => IShX sh -> Data.Vector.Vector (target (TKX2 '[] x))
-                  -> target (TKX2 sh x)
-xfromVectorLinear = txfromVectorLinear
+xfromVector0N :: forall sh x target. (KnownSTK x, BaseTensor target)
+              => IShX sh -> Data.Vector.Vector (target (TKX2 '[] x))
+              -> target (TKX2 sh x)
+xfromVector0N = txfromVector0N
+xfromList0N :: forall sh x target. (KnownSTK x, BaseTensor target)
+            => IShX sh -> [target (TKX2 '[] x)]
+            -> target (TKX2 sh x)
+xfromList0N sh = txfromVector0N sh . V.fromList
 xunravelToList :: forall n sh x target.
                   (KnownSTK x, KnownNat n, KnownShX sh, BaseTensor target)
                => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
