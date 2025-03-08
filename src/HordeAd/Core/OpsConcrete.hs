@@ -316,7 +316,7 @@ instance BaseTensor RepN where
   {-# INLINE txdot0 #-}  -- this doesn't want to specialize
   txdot0 u v =
     RepN $ Nested.mscalar $ Nested.mdot (unRepN u) (unRepN v)
-  txdot1In @n u v =
+  txdot1In @_ @n u v =
     RepN $ Nested.mdot1Inner (Proxy @(Just n)) (unRepN u) (unRepN v)
   txmatvecmul mm mn m v =
     withKnownShX (ssxFromShape $ mn :$% ZSX) $
