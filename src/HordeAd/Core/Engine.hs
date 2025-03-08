@@ -162,7 +162,7 @@ revEvalArtifact AstArtifactRev{..} parameters mdt =
   let env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = case mdt of
         Nothing ->
-          let oneAtF = constantTarget 1 $ varNameToFTK artVarDtRev
+          let oneAtF = tconstantTarget 1 $ varNameToFTK artVarDtRev
           in extendEnv artVarDtRev oneAtF env
         Just dt ->
           extendEnv artVarDtRev dt env

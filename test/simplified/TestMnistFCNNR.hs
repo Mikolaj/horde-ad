@@ -24,6 +24,7 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.Unwind
 import HordeAd.External.OptimizerTools
 
 import EqEpsilon

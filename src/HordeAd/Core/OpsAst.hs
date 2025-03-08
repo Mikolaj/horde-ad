@@ -89,7 +89,7 @@ revArtifactFromForwardPass hasDt forwardPass xftk =
       !(D primalBody delta) = forwardPass hVectorPrimal var hVector in
   let zftk = ftkAst $ unAstRaw primalBody
       (!varDt, astDt) = funToAst (adFTK zftk) id in
-  let oneAtF = constantTarget 1 $ adFTK zftk
+  let oneAtF = tconstantTarget 1 $ adFTK zftk
       !dt = if hasDt then AstRaw astDt else oneAtF in
   let !gradient = gradientFromDelta xftk zftk dt delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
@@ -171,9 +171,6 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
 -- shape-checking of the ranked and mixed user code (shaped is already
 -- fully checked by Haskell).
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
-  tconstantTarget = constantTarget
-  taddTarget = addTarget
-
   -- Ranked ops
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
@@ -636,6 +633,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         tpair (tindexBuild snat stk1 (tproject1 u3) i)
               (tindexBuild snat stk2 (tproject2 u3) i)
 
+  tconstantTarget = constantTarget
+  tdefTarget = defTarget
+  taddTarget = addTarget
+
 
 -- * AstRaw instances
 
@@ -656,9 +657,6 @@ instance AstSpan s => ShareTensor (AstRaw s) where
               in (tproject1 tShared, tproject2 tShared)
 
 instance AstSpan s => BaseTensor (AstRaw s) where
-  tconstantTarget = constantTarget
-  taddTarget = addTarget
-
   -- Ranked ops
   rshape t = case ftkAst $ unAstRaw t of
     FTKR sh _ -> sh
@@ -1083,6 +1081,10 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tfromVector k stk =
     AstRaw . AstFromVector k stk . V.map unAstRaw
 
+  tconstantTarget = constantTarget
+  tdefTarget = defTarget
+  taddTarget = addTarget
+
 instance AstSpan s => ConvertTensor (AstRaw s) where
   rzip @y @z (AstRaw a) = AstRaw $ case ftkAst a of
     FTKProduct (FTKR sh' y) (FTKR _ z) ->
@@ -1263,10 +1265,6 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
   toShare t = toShare $ unAstNoVectorize t
 
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
-  tconstantTarget r ftk = AstNoVectorize $ tconstantTarget r ftk
-  taddTarget stk a b = AstNoVectorize $ taddTarget stk (unAstNoVectorize a)
-                                                       (unAstNoVectorize b)
-
   -- Ranked ops
   rshape = rshape . unAstNoVectorize
   rlength = rlength . unAstNoVectorize
@@ -1400,6 +1398,11 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tindexBuild k stk u i =
     AstNoVectorize $ tindexBuild k stk (unAstNoVectorize u) (unAstNoVectorize i)
 
+  tconstantTarget r ftk = AstNoVectorize $ tconstantTarget r ftk
+  tdefTarget = AstNoVectorize . tdefTarget
+  taddTarget stk a b = AstNoVectorize $ taddTarget stk (unAstNoVectorize a)
+                                                       (unAstNoVectorize b)
+
 instance AstSpan s => ConvertTensor (AstNoVectorize s) where
   rzip = AstNoVectorize . rzip . unAstNoVectorize
   runzip = AstNoVectorize . runzip . unAstNoVectorize
@@ -1501,10 +1504,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tfromDual t = AstNoSimplify $ fromDual t
 
   -- All the following implementations piggy-back on AstRaw implementations.
-  tconstantTarget r ftk = wAstNoSimplify $ tconstantTarget r ftk
-  taddTarget stk a b = wAstNoSimplify $ taddTarget stk (wunAstNoSimplify a)
-                                                       (wunAstNoSimplify b)
-
   -- Ranked ops
   rshape = rshape . wunAstNoSimplify
   rlength = rlength . wunAstNoSimplify
@@ -1644,6 +1643,11 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
       ttlet u $ \ !u3 ->
         tpair (tindexBuild snat stk1 (tproject1 u3) i)
               (tindexBuild snat stk2 (tproject2 u3) i)
+
+  tconstantTarget r ftk = wAstNoSimplify $ tconstantTarget r ftk
+  tdefTarget = wAstNoSimplify . tdefTarget
+  taddTarget stk a b = wAstNoSimplify $ taddTarget stk (wunAstNoSimplify a)
+                                                       (wunAstNoSimplify b)
 
 instance AstSpan s => ConvertTensor (AstNoSimplify s) where
   rzip = wAstNoSimplify . rzip . wunAstNoSimplify

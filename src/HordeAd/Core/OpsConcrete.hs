@@ -68,9 +68,6 @@ instance ShareTensor RepN where
   tunpair (RepN (t1, t2)) = (RepN t1, RepN t2)
 
 instance BaseTensor RepN where
-  tconstantTarget = constantTarget
-  taddTarget = addTarget
-
   -- Ranked ops
   rshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.rshape . unRepN
   rlength @_ @r | Dict <- eltDictRep (knownSTK @r) =
@@ -87,8 +84,8 @@ instance BaseTensor RepN where
     FTKR _ x ->
       let l = trunravelToList t
           sh = shrTail $ rshape t
-      in foldr (addTarget knownSTK) (constantTarget 0 (FTKR sh x)) l
-        -- RepN has a ShareTensor instance, so addTarget arguments
+      in foldr (taddTarget knownSTK) (tconstantTarget 0 (FTKR sh x)) l
+        -- RepN has a ShareTensor instance, so taddTarget arguments
         -- don't need to be duplicable
   trsum0 @_ @r t = case knownSTK @r of
     STKScalar ->  -- optimized
@@ -160,7 +157,7 @@ instance BaseTensor RepN where
     FTKS _ x ->
       let l = tsunravelToList t
           sh = shsTail $ sshape t
-      in foldr (addTarget knownSTK) (constantTarget 0 (FTKS sh x)) l
+      in foldr (taddTarget knownSTK) (tconstantTarget 0 (FTKS sh x)) l
   tssum0 @sh @r t | SNat <- shsProduct (knownShS @sh) = case knownSTK @r of
     STKScalar ->  -- optimized
       RepN . Nested.sscalar . Nested.ssumAllPrim . unRepN $ t
@@ -191,7 +188,7 @@ instance BaseTensor RepN where
          FTKS _ x@FTKScalar ->  -- optimized
            gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-           let zero = constantTarget 0 (FTKS shpshn x)
+           let zero = tconstantTarget 0 (FTKS shpshn x)
                shm = knownShS @shm
                s = shsSize shm
                g ix =
@@ -212,14 +209,14 @@ instance BaseTensor RepN where
          FTKS _ x | Dict <- eltDictRep (ftkToSTK x) ->
            gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-           let zero = constantTarget 0 (FTKS shpshn x)
+           let zero = tconstantTarget 0 (FTKS shpshn x)
                shm = knownShS @shm
                s = shsSize shm
                g ix =
                  let ix2 = f $ fmap RepN ix
                  in if ixInBounds (map unRepN $ toList $ ix2)
                                   (shsToList shpshn)
-                    then M.insertWith (addTarget knownSTK) ix2
+                    then M.insertWith (taddTarget knownSTK) ix2
                            (RepN
                             $ tindexNS @_ @shm @shn (unRepN t) ix)
                     else id
@@ -307,7 +304,7 @@ instance BaseTensor RepN where
     FTKX _ x ->
       let l = txunravelToList t
           sh = shxTail $ xshape t
-      in foldr (addTarget knownSTK) (constantTarget 0 (FTKX sh x)) l
+      in foldr (taddTarget knownSTK) (tconstantTarget 0 (FTKX sh x)) l
   txsum0 @_ @r t =
    case knownSTK @r of
     STKScalar ->  -- optimized
@@ -346,7 +343,7 @@ instance BaseTensor RepN where
     gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
     case tftk knownSTK t of
       FTKX _ x@FTKScalar ->  -- optimized
-        let zero = constantTarget 0 (FTKX sh x)
+        let zero = tconstantTarget 0 (FTKX sh x)
             shm = shxTakeSSX (Proxy @shn) (xshape t) (knownShX @shm)
             shDropP = shxDropSSX (xshape t) (knownShX @shm)
             s = shxSize shm
@@ -364,13 +361,13 @@ instance BaseTensor RepN where
            $ map (second $ RepN . Nested.mfromVector shDropP)
            $ M.assocs ivs
       FTKX _ x | Dict <- eltDictRep (ftkToSTK x) ->
-        let zero = constantTarget 0 (FTKX sh x)
+        let zero = tconstantTarget 0 (FTKX sh x)
             shm = shxTakeSSX (Proxy @shn) (xshape t) (knownShX @shm)
             s = shxSize shm
             g ix =
               let ix2 = f $ fmap RepN ix
               in if ixInBounds (map unRepN $ toList $ ix2) (shxToList sh)
-                 then M.insertWith (addTarget knownSTK) ix2
+                 then M.insertWith (taddTarget knownSTK) ix2
                         (RepN
                          $ tindexNX @_ @shm @shn (unRepN t) ix)
                  else id
@@ -453,7 +450,7 @@ instance BaseTensor RepN where
   tprimalPart = id
   tdualPart stk t = DummyDualTarget (tftk stk t)
   tfromPrimal _ t = t
-  tfromDual (DummyDualTarget ftk) = constantTarget 0 ftk
+  tfromDual (DummyDualTarget ftk) = tconstantTarget 0 ftk
   tScale _ _ t = t
   -- The code for trevDt and tfwd in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
@@ -485,6 +482,10 @@ instance BaseTensor RepN where
     STKProduct stk1 stk2 ->
       let (v1, v2) = V.unzip $ V.map tunpair v
       in tpair (tfromVector snat stk1 v1) (tfromVector snat stk2 v2)
+
+  tconstantTarget = constantTarget
+  tdefTarget = defTarget
+  taddTarget = addTarget
 
 instance ConvertTensor RepN where
   rzip (RepN (a, b)) = RepN $ Nested.rzip a b
@@ -601,7 +602,7 @@ oRtmapAccumR
   -> RepN (BuildTensorKind k ey)
   -> RepN (TKProduct accy (BuildTensorKind k by))
 oRtmapAccumR k bftk eftk f acc0 es = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (constantTarget 0 bftk))
+  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (tconstantTarget 0 bftk))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
@@ -619,7 +620,7 @@ oRtmapAccumL
   -> RepN (BuildTensorKind k ey)
   -> RepN (TKProduct accy (BuildTensorKind k by))
 oRtmapAccumL k bftk eftk f acc0 es = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (constantTarget 0 bftk))
+  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (tconstantTarget 0 bftk))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
@@ -741,7 +742,7 @@ tindexZR v ixRepN | Dict <- showDictRep (knownSTK @r)
     FTKR sh x ->
      if ixInBounds (Foldable.toList ix) (Foldable.toList sh)
      then RepN $ tindexNR (unRepN v) ix
-     else defTarget (FTKR (dropShape @m sh) x)
+     else tdefTarget (FTKR (dropShape @m sh) x)
 
 tindex0R
   :: forall r m. (KnownSTK r, KnownNat m)
@@ -754,7 +755,7 @@ tindex0R v ixRepN | Dict <- eltDictRep (knownSTK @r) =
       then let arr = Nested.rscalar
                      $ Nested.rindex (unRepN v) (fmap fromIntegral ix)
            in RepN arr
-      else defTarget (FTKR ZSR x)
+      else tdefTarget (FTKR ZSR x)
 {- TODO: see above
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
@@ -793,7 +794,7 @@ tscatterZR :: forall m p n r.
 tscatterZR sh t f
  | Dict <- eltDictRep (knownSTK @r) = case tftk knownSTK t of
   FTKR _ x@FTKScalar ->  -- optimized
-    let zero = constantTarget 0 (FTKR sh x)
+    let zero = tconstantTarget 0 (FTKR sh x)
         (shm, shDropP) = splitAt_Shape @m $ rshape t
         s = shrSize shm
         g ix =
@@ -808,13 +809,13 @@ tscatterZR sh t f
        $ map (second $ RepN . Nested.rfromVector shDropP)
        $ M.assocs ivs
   FTKR _ x | Dict <- showDictRep (ftkToSTK x) ->
-    let zero = constantTarget 0 (FTKR sh x)
+    let zero = tconstantTarget 0 (FTKR sh x)
         (shm, _) = splitAt_Shape @m $ rshape t
         s = shrSize shm
         g ix =
           let ix2 = f $ fmap RepN ix
           in if ixInBounds (map unRepN $ toList ix2) (toList sh)
-             then M.insertWith (addTarget knownSTK) ix2
+             then M.insertWith (taddTarget knownSTK) ix2
                                (RepN $ unRepN t `tindexNR` ix)
              else id
         ivs = foldr g M.empty [ fromLinearIdx fromIntegral shm i
@@ -832,14 +833,14 @@ tscatterZ1R :: (KnownSTK r, KnownNat p, KnownNat n)
             -> RepN (TKR2 (p + n) r)
 tscatterZ1R sh t f = case tftk knownSTK t of
   FTKR _ x ->
-    let zero = constantTarget 0 (FTKR sh x)
+    let zero = tconstantTarget 0 (FTKR sh x)
         lt = trunravelToList t
         g i ti = let ix2 = f $ RepN $ fromIntegral i
                  in if ixInBounds (map unRepN $ toList ix2) (toList sh)
                     then updateNR zero [(ix2, ti)]
                     else zero
         lu = imap g lt
-    in foldr (addTarget knownSTK) zero lu
+    in foldr (taddTarget knownSTK) zero lu
 
 tfromVector0NR
   :: Nested.KnownElt r
@@ -1019,7 +1020,7 @@ tindexZS v ixRepN | Dict <- eltDictRep (knownSTK @r) =
        FTKS sh x ->
          if ixInBounds (Foldable.toList ix) (shsToList sh)
          then RepN $ tindexNS (unRepN v) ix
-         else defTarget (FTKS knownShS x)
+         else tdefTarget (FTKS knownShS x)
 
 tindex0S
   :: forall r sh. (KnownSTK r, KnownShS sh)
@@ -1032,7 +1033,7 @@ tindex0S v ixRepN | Dict <- eltDictRep (knownSTK @r) =
       then let arr = Nested.sscalar
                      $ Nested.sindex (unRepN v) (fmap fromIntegral ix)
            in RepN arr
-      else defTarget (FTKS ZSS x)
+      else tdefTarget (FTKS ZSS x)
 {- TODO: benchmark if this is faster enough for its complexity;
          probably not, becasue orthotope's index does no canonicalization either
 tindex0S (SS.A (SG.A OI.T{..})) ix =
@@ -1067,7 +1068,7 @@ tscatterZ1S t f = case tftk knownSTK t of
     gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
     let shpshn = knownShS @shp `shsAppend` knownShS @shn
-        zero = constantTarget 0 (FTKS shpshn x)
+        zero = tconstantTarget 0 (FTKS shpshn x)
         lt = tsunravelToList t
         g i ti = let ix2 = f $ RepN $ fromIntegral i
                  in if ixInBounds (map unRepN $ Foldable.toList ix2)
@@ -1076,7 +1077,7 @@ tscatterZ1S t f = case tftk knownSTK t of
                          updateNS @(Rank shp) zero [(ix2, ti)]
                     else zero
         lu = imap g lt
-    in foldr (addTarget (STKS shpshn (knownSTK @r))) zero lu
+    in foldr (taddTarget (STKS shpshn (knownSTK @r))) zero lu
 
 tfromVector0NS
   :: forall r sh. (Nested.KnownElt r, KnownShS sh)
@@ -1225,7 +1226,7 @@ tindexZX v ixRepN | Dict <- eltDictRep (knownSTK @r) =
        FTKX sh x ->
          if ixInBounds (Foldable.toList ix) (shxToList sh)
          then RepN $ tindexNX (unRepN v) ix
-         else defTarget (FTKX (shxDropSSX sh (knownShX @sh1)) x)
+         else tdefTarget (FTKX (shxDropSSX sh (knownShX @sh1)) x)
 
 tindex0X
   :: forall r sh. (KnownSTK r, KnownShX sh)
@@ -1238,7 +1239,7 @@ tindex0X v ixRepN | Dict <- eltDictRep (knownSTK @r) =
       then let arr = Nested.mscalar
                      $ Nested.mindex (unRepN v) (fmap fromIntegral ix)
            in RepN arr
-      else defTarget (FTKX ZSX x)
+      else tdefTarget (FTKX ZSX x)
 
 tmatmul2X
   :: forall m n p r.
@@ -1263,7 +1264,7 @@ tscatterZ1X sh t f =
       withKnownShX (ssxFromShape sh) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
       gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-      let zero = constantTarget 0 (FTKX sh x)
+      let zero = tconstantTarget 0 (FTKX sh x)
           lt = txunravelToList t
           g i ti = let ix2 = f $ RepN $ fromIntegral i
                    in if ixInBounds (map unRepN $ Foldable.toList ix2)
@@ -1271,7 +1272,7 @@ tscatterZ1X sh t f =
                       then updateNX @(Rank shp) zero [(ix2, ti)]
                       else zero
           lu = imap g lt
-      in foldr (addTarget knownSTK) zero lu
+      in foldr (taddTarget knownSTK) zero lu
 
 tfromVector0NX
   :: forall r sh. Nested.KnownElt r

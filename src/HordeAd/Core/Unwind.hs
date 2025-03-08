@@ -461,7 +461,8 @@ concreteTarget
   => (forall r. GoodScalar r => RepN (TKScalar r) -> target (TKScalar r))
   -> (forall r sh. GoodScalar r => RepN (TKS sh r) -> target (TKS sh r))
   -> (forall x z. SingletonTK z -> target x -> target z)
-  -> SingletonTK y -> RepN y -> target y
+  -> SingletonTK y -> RepN y
+  -> target y
 concreteTarget concreteK concreteS fromS stk v =
   windTarget stk
   $ concreteRepW concreteK concreteS fromS

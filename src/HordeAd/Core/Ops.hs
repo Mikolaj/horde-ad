@@ -1050,10 +1050,10 @@ class ( Num (IntOf target)
       in tpair (tindexBuild snat stk1 u1 i)
                (tindexBuild snat stk2 u2 i)
 
-  -- Methods needed only to split off the module that defines them
-  tconstantTarget
-    :: (forall r. GoodScalar r => r) -> FullShapeTK y -> target y
-  -- The arguments need to be duplicable
+  -- Methods needed mostly to split off a module; also a minor speedup
+  tconstantTarget :: (forall r. GoodScalar r => r) -> FullShapeTK y -> target y
+  tdefTarget :: FullShapeTK y -> target y
+  -- The arguments need to be duplicable.
   taddTarget :: SingletonTK y -> target y -> target y -> target y
 
   -- TODO: express without ConvertTensor or move there

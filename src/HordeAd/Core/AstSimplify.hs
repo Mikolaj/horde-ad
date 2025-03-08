@@ -1227,7 +1227,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     in if 0 <= i && i < sNatValue snat
        then astIndex shn (l V.! i) rest1
        else let ftk = FTKS shn x
-            in fromPrimal $ astConcrete ftk (defTarget ftk)
+            in fromPrimal $ astConcrete ftk (tdefTarget ftk)
   Ast.AstFromVector{} | ZIS <- rest1 ->  -- normal form, STKScalar case included
     Ast.AstIndexS shn v0 ix
   Ast.AstFromVector snat stk l | STKS{} <- stk ->
@@ -1256,7 +1256,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
       in if 0 <= i && i < sNatValue snat
          then astIndex shn v rest1
          else let ftk = FTKS shn x
-              in fromPrimal $ astConcrete ftk (defTarget ftk)
+              in fromPrimal $ astConcrete ftk (tdefTarget ftk)
 {- TODO: this generalization of the above case slows down test 3nestedSumBuild1
    orders of magnitude
   Ast.AstReplicate k v ->
@@ -1621,7 +1621,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
       in if 0 <= i && i < sNatValue snat
          then astGather @shm' @shn' @shp1' shn' (l V.! i) (vars4, rest4)
          else let ftk = FTKS (listsToShS vars4 `shsAppend` shn') x
-              in fromPrimal $ astConcrete ftk (defTarget ftk)
+              in fromPrimal $ astConcrete ftk (tdefTarget ftk)
     Ast.AstFromVector{} | gatherFromNFS (ixsToShS rest4) vars4 ix4 ->
         -- normal form,
         -- STKScalar case included
@@ -1680,7 +1680,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
       in if 0 <= i && i < sNatValue snat
          then astGather @shm' @shn' @shp1' shn' v (vars4, rest4)
          else let ftk = FTKS (listsToShS vars4 `shsAppend` shn') x
-              in fromPrimal $ astConcrete ftk (defTarget ftk)
+              in fromPrimal $ astConcrete ftk (tdefTarget ftk)
     Ast.AstReplicate _ STKS{} v ->
       astGather @shm' @shn' @shp1' shn' v (vars4, rest4)
     Ast.AstReplicate _ STKScalar v | ZIS <- rest4 ->
@@ -1747,7 +1747,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
                          (astScatterS shn7 v (vars, ix2))
                          (vars4, rest4)
           else let ftk = FTKS (listsToShS vars4 `shsAppend` shn') x
-               in fromPrimal $ astConcrete ftk (defTarget ftk)
+               in fromPrimal $ astConcrete ftk (tdefTarget ftk)
                     -- TODO: or 0? review again and comment
     Ast.AstScatterS{} ->  -- normal form
       Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
@@ -1842,7 +1842,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
     Ast.AstIotaS{} | AstConcreteK i <- i4 ->
       astFromIntegralS
       $ let ftk = FTKS (listsToShS vars4 `shsAppend` shn') (FTKScalar @Int64)
-        in fromPrimal $ astConcreteS (constantTarget (fromIntegral i) ftk)
+        in fromPrimal $ astConcreteS (tconstantTarget (fromIntegral i) ftk)
     Ast.AstIotaS{} ->  -- probably nothing can be simplified; a normal form
       Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->

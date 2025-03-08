@@ -52,7 +52,7 @@ crevOnADInputs mdt f xftk inputs =
       -- before evaluation allocates new memory and new FFI is started.
       !(D v delta) = f inputs in
   let zftk = ftkDelta delta
-      dt = fromMaybe (constantTarget 1 $ adFTK zftk) mdt
+      dt = fromMaybe (tconstantTarget 1 $ adFTK zftk) mdt
       !gradient = gradientFromDelta xftk zftk dt delta
   in (gradient, v)
 
@@ -129,9 +129,6 @@ instance (ADReadyNoLet target, ShareTensor target)
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )
          => BaseTensor (ADVal target) where
-  tconstantTarget = constantTarget
-  taddTarget = addTarget
-
   -- Ranked ops
   rshape (D u _) = rshape u
   rlength (D u _) = rlength u
@@ -397,9 +394,9 @@ instance ( ADReadyNoLet target, ShareTensor target
               in ttlet db $ \ !db1 ->
                 let dx_dbRes = tpair dx (tproject2 db1)
                 in ttlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
-                  let added = addTarget (adSTK $ ftkToSTK accftk)
-                                        (tproject1 daccRes_deRes)
-                                        (tproject1 db1)
+                  let added = taddTarget (adSTK $ ftkToSTK accftk)
+                                         (tproject1 daccRes_deRes)
+                                         (tproject1 db1)
                   in tpair added (tproject2 daccRes_deRes)
         p = tmapAccumRDer (Proxy @target)
                           k accftk codomainShs eftk
@@ -460,9 +457,9 @@ instance ( ADReadyNoLet target, ShareTensor target
               in ttlet db $ \ !db1 ->
                 let dx_dbRes = tpair dx (tproject2 db1)
                 in ttlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
-                  let added = addTarget (adSTK $ ftkToSTK accftk)
-                                        (tproject1 daccRes_deRes)
-                                        (tproject1 db1)
+                  let added = taddTarget (adSTK $ ftkToSTK accftk)
+                                         (tproject1 daccRes_deRes)
+                                         (tproject1 db1)
                   in tpair added (tproject2 daccRes_deRes)
         p = tmapAccumLDer (Proxy @target)
                           k accftk codomainShs eftk
@@ -492,7 +489,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tprimalPart (D u _) = u
   tdualPart _stk (D _ u') = u'
   tfromPrimal stk t = fromPrimalFTK (tftk stk t) t
-  tfromDual t = dDnotShared (constantTarget 0 (ftkDelta t)) t
+  tfromDual t = dDnotShared (tconstantTarget 0 (ftkDelta t)) t
   tScale stk k = withKnownSTK stk $ dScale k
   trev @x xftk h =
     let rf :: forall f. ADReady f
@@ -534,6 +531,10 @@ instance ( ADReadyNoLet target, ShareTensor target
   tfromVector snat stk lu =
     dD (tfromVector snat stk $ V.map (\(D u _) -> u) lu)
        (DeltaFromVector snat stk $ V.map (\(D _ u') -> u') lu)
+
+  tconstantTarget r ftk = dDnotShared (tconstantTarget r ftk) (DeltaZero ftk)
+  tdefTarget ftk = dDnotShared (tdefTarget ftk) (DeltaZero ftk)
+  taddTarget = addTarget
 
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )

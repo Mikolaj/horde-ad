@@ -12,7 +12,6 @@ module HordeAd
   , module HordeAd.Core.Engine
   , module HordeAd.Core.TensorKind
   , module HordeAd.Core.Types
-  , module HordeAd.Core.Unwind
   , module HordeAd.External.CommonRankedOps
   , module HordeAd.External.CommonShapedOps
   , module HordeAd.External.Optimizer
@@ -30,7 +29,6 @@ import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Core.Unwind
 import HordeAd.External.CommonRankedOps
 import HordeAd.External.CommonShapedOps
 import HordeAd.External.Optimizer
