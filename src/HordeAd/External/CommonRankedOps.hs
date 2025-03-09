@@ -128,7 +128,7 @@ logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   in tlet (rfromPrimal @target y0)  -- we don't have tletPrimal
      $ \y1 -> let y = rprimalPart @target y1
               in tD knownSTK y (rScale @target (y * (rrepl sh 1 - y))
-                       $ rdualPart @target d)
+                                $ rdualPart @target d)
 
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.

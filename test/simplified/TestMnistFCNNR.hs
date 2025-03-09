@@ -208,7 +208,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
           let env = extendEnv var varInputs emptyEnv
               envMnist = extendEnv varGlyph (rconcrete glyph)
                          $ extendEnv varLabel (rconcrete label) env
-          in interpretAst envMnist ast
+          in interpretAstFull envMnist ast
     let runBatch :: RepN (XParams widthHidden widthHidden2 r)
                  -> (Int, [MnistDataLinearR r])
                  -> IO (RepN (XParams widthHidden widthHidden2 r))
@@ -519,7 +519,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
           let env = extendEnv var varInputs emptyEnv
               envMnist = extendEnv varGlyph (rconcrete glyph)
                          $ extendEnv varLabel (rconcrete label) env
-          in interpretAst envMnist ast
+          in interpretAstFull envMnist ast
     let runBatch :: RepN (XParams2 r Float) -> (Int, [MnistDataLinearR r])
                  -> IO (RepN (XParams2 r Float))
         runBatch !params (k, chunk) = do

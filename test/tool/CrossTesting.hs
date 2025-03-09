@@ -91,7 +91,7 @@ rev' f vals =
       hGeneral fx1 fx2 gx inputs =
         let (var, ast) = funToAst (FTKR (rshape vals) FTKScalar) (fx1 . f . fx2)
             env = extendEnv var inputs emptyEnv
-        in interpretAst env (gx ast)
+        in interpretAst env (gx ast)  -- why is it PrimalSpan? given that, why not interpretAstPrimal?
       h :: ADReady f1
         => (f1 (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
         -> (AstTensor AstMethodLet PrimalSpan (TKR n r) -> f1 (TKR n r))
