@@ -12,16 +12,8 @@ import GHC.TypeLits (KnownNat, Nat)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
 
-import HordeAd.Core.Ast
-import HordeAd.Core.CarriersADVal
-import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.ConvertTensor
+import HordeAd
 import HordeAd.Core.Ops (tfromListR)
-import HordeAd.Core.TensorKind
-import HordeAd.Core.Types
-import HordeAd.External.CommonRankedOps
-import HordeAd.External.CommonShapedOps
-import HordeAd.OpsTensor
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.

@@ -17,10 +17,7 @@ import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
 
-import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.Types
-import HordeAd.External.CommonShapedOps
-import HordeAd.OpsTensor
+import HordeAd
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
