@@ -7,11 +7,10 @@ module HordeAd
     module HordeAd.OpsTensor
   , module HordeAd.Core.ConvertTensor
     -- * The main AD API
-  , module HordeAd.Core.Engine
+  , module HordeAd.Core.ADEngine
+  , module HordeAd.Core.AstEngine
     -- * Additional support types and operations
   , module HordeAd.Core.Ast
-  , module HordeAd.Core.AstInline
-  , module HordeAd.Core.AstPrettyPrint
   , module HordeAd.Core.CarriersADVal
   , module HordeAd.Core.CarriersConcrete
   , module HordeAd.Core.TensorKind
@@ -23,13 +22,12 @@ module HordeAd
 
 import Prelude ()
 
+import HordeAd.Core.ADEngine
 import HordeAd.Core.Ast
-import HordeAd.Core.AstInline
-import HordeAd.Core.AstPrettyPrint
+import HordeAd.Core.AstEngine
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
-import HordeAd.Core.Engine
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps

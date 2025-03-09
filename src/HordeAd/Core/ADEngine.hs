@@ -4,15 +4,15 @@
 -- types (e.g., with tuple domains) expressed using the tensor classes.
 -- Together with "HordeAd.Core.Ops", this forms the basic
 -- high-level API of the horde-ad library. Optimizers are add-ons.
-module HordeAd.Core.Engine
+module HordeAd.Core.ADEngine
   ( -- * Reverse derivative adaptors
     rev, revDt, revArtifactAdapt
   , revProduceArtifactWithoutInterpretation, revEvalArtifact
     -- * Forward derivative adaptors
   , fwd, fwdEvalArtifact
-    -- * Old gradient adaptors
+    -- * Non-AST gradient adaptors
   , crev, crevDt
-    -- * Old derivative adaptors
+    -- * Non-AST derivative adaptors
   , cfwd, cfwdBoth
   ) where
 
@@ -223,7 +223,7 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds =
      else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shape"
 
 
--- * Old gradient adaptors, with constant and fixed inputs and dt
+-- * Non-AST gradient adaptors, with constant and fixed inputs and dt
 
 -- We are inlining these functions because they take function arguments
 -- and are not too large. However, becausethey are called in many places,
@@ -275,7 +275,7 @@ crevDtMaybe f vals mdt =
      $ fst $ crevOnHVector mdt g xftk valsTarget
 
 
--- * Old derivative adaptors, with constant and fixed inputs
+-- * Non-AST derivative adaptors, with constant and fixed inputs
 
 -- | This takes the sensitivity parameter, by convention.
 cfwd

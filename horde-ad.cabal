@@ -131,8 +131,10 @@ library horde-ad-simplified
     import:           options
 
     exposed-modules:  HordeAd
+                      HordeAd.Core.ADEngine
                       HordeAd.Core.Adaptor
                       HordeAd.Core.Ast
+                      HordeAd.Core.AstEngine
                       HordeAd.Core.AstEnv
                       HordeAd.Core.AstFreshId
                       HordeAd.Core.AstInline
@@ -148,7 +150,6 @@ library horde-ad-simplified
                       HordeAd.Core.Delta
                       HordeAd.Core.DeltaEval
                       HordeAd.Core.DeltaFreshId
-                      HordeAd.Core.Engine
                       HordeAd.Core.Ops
                       HordeAd.Core.OpsADVal
                       HordeAd.Core.OpsAst

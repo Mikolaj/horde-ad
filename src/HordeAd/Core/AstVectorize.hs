@@ -32,8 +32,8 @@ import Data.Array.Nested.Internal.Shape
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
+import HordeAd.Core.AstEngine
 import HordeAd.Core.AstFreshId
-import HordeAd.Core.AstPrettyPrint
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.TensorKind

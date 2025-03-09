@@ -16,10 +16,10 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
+import HordeAd.Core.ADEngine
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.Engine
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.External.CommonRankedOps

@@ -15,16 +15,16 @@ import Test.Tasty.HUnit hiding (assert)
 import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
+import HordeAd.Core.ADEngine
+  (cfwd, fwd, revEvalArtifact, revProduceArtifactWithoutInterpretation)
 import HordeAd.Core.Ast
+import HordeAd.Core.AstEngine
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
-import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.Engine
-  (cfwd, fwd, revEvalArtifact, revProduceArtifactWithoutInterpretation)
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorKind

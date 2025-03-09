@@ -3,11 +3,8 @@
 -- | Pretty-printing of the AST. Some of the variants of pretty-printing
 -- almost roundtrip, while others are more readable but less faithful.
 module HordeAd.Core.AstPrettyPrint
-  ( -- * Pretty-printing terms in a few useful configurations
-    printAstVarName
-  , printAstSimple, printAstPretty, printAstPrettyButNested
-  , printArtifactSimple, printArtifactPretty
-  , printArtifactPrimalSimple, printArtifactPrimalPretty, printArtifactGradient
+  ( PrintConfig(..), defaulPrintConfig, defaulPrintConfig2
+  , printAst, printAstVar
   ) where
 
 import Prelude
@@ -668,61 +665,3 @@ printAstRelOp pr cfg d opCode u v = case opCode of
   GeqOp -> printBinaryOp pr cfg d u (4, " >=. ") v
   LsOp -> printBinaryOp pr cfg d u (4, " <. ") v
   GtOp -> printBinaryOp pr cfg d u (4, " >. ") v
-
-
--- * Pretty-printing terms in a few useful configurations
-
-printAstVarName :: IntMap String -> AstVarName s y -> String
-printAstVarName renames var =
-  printAstVar (defaulPrintConfig False renames) var ""
-
-printAstSimple :: AstSpan s
-               => IntMap String -> AstTensor ms s y -> String
-printAstSimple renames t = printAst (defaulPrintConfig False renames) 0 t ""
-
-printAstPretty :: AstSpan s
-               => IntMap String -> AstTensor ms s y -> String
-printAstPretty renames t = printAst (defaulPrintConfig True renames) 0 t ""
-
-printAstPrettyButNested :: AstSpan s
-                        => IntMap String -> AstTensor ms s y -> String
-printAstPrettyButNested renames t =
-  printAst (defaulPrintConfig2 True False renames) 0 t ""
-
-printArtifactSimple
-  :: forall x z.
-     IntMap String -> AstArtifactRev x z -> String
-printArtifactSimple renames !AstArtifactRev{..} =
-  let !varsPP =
-        [ printAstVarName renames artVarDtRev
-        , printAstVarName renames artVarDomainRev ]
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstSimple renames artDerivativeRev
-
-printArtifactPretty
-  :: forall x z.
-     IntMap String -> AstArtifactRev x z -> String
-printArtifactPretty renames !AstArtifactRev{..} =
-  let varsPP =
-        [ printAstVarName renames artVarDtRev
-        , printAstVarName renames artVarDomainRev ]
-  in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstPretty renames artDerivativeRev
-
-printArtifactPrimalSimple
-  :: forall x z.
-     IntMap String -> AstArtifactRev x z -> String
-printArtifactPrimalSimple renames !AstArtifactRev{..} =
-  "\\" ++ printAstVarName renames artVarDomainRev
-       ++ " -> " ++ printAstSimple renames artPrimalRev
-
-printArtifactPrimalPretty
-  :: forall x z.
-     IntMap String -> AstArtifactRev x z -> String
-printArtifactPrimalPretty renames !AstArtifactRev{..} =
-  "\\" ++ printAstVarName renames artVarDomainRev
-       ++ " -> " ++ printAstPretty renames artPrimalRev
-
-printArtifactGradient
-  :: AstArtifactRev x z -> String
-printArtifactGradient = printArtifactPretty IM.empty

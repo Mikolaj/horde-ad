@@ -2,10 +2,9 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Inlining and global sharing elimination.
 module HordeAd.Core.AstInline
-  ( -- * The joint inlining and simplification term transformation
-    simplifyArtifact, simplifyArtifactGradient
-  , simplifyInline, simplifyInlineContract
-    -- * The translates global sharing to normal lets
+  ( -- * Inlining
+    inlineAst
+    -- * The translation of global sharing to local lets
   , unshareAstTensor
   ) where
 
@@ -29,52 +28,10 @@ import Data.Array.Nested.Internal.Shape
 import HordeAd.Core.Ast (AstBool, AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
-import HordeAd.Core.AstSimplify
+import HordeAd.Core.AstSimplify (substituteAst)
 import HordeAd.Core.AstTools
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-
--- * The joint inlining and simplification term transformation
-
-simplifyArtifact :: forall x z.
-                    AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifact art =
-  let !der = simplifyInlineContract $ artDerivativeRev art in
-  let !prim = simplifyInlineContract $ artPrimalRev art
-  in art {artDerivativeRev = der, artPrimalRev = prim}
-
-simplifyArtifactGradient :: forall x z.
-                            AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifactGradient art =
-  art { artDerivativeRev =
-        simplifyInlineContract $ artDerivativeRev art }
-
--- Potentially, some more inlining could be triggered after the second
--- simplification, but it's probably rare, so we don't insisit on a fixpoint.
--- The second simplification is very likely to trigger, because substitution
--- often reveals redexes.
-simplifyInline
-  :: forall z s. AstSpan s
-  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
-simplifyInline =
-  snd . inlineAst EM.empty
-  . simplifyAst . expandAst
-  . snd . inlineAst EM.empty . simplifyAst
-    -- no specialization possible except for the tag type s
-
--- Potentially, some more inlining could be triggered after the second
--- simplification, but it's probably rare, so we don't insisit on a fixpoint.
--- The second simplification is very likely to trigger, because substitution
--- often reveals redexes.
-simplifyInlineContract
-  :: forall z s. AstSpan s
-  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
-simplifyInlineContract =
-  snd . inlineAst EM.empty
-  . contractAst . expandAst  -- TODO: when/if contractAst does less simplification, add simplifyAst in-between
-  . snd . inlineAst EM.empty . simplifyAst
-    -- no specialization possible except for the tag type s
-
 
 -- * The pass that inlines lets with the bottom-up strategy
 
