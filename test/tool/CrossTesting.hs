@@ -83,19 +83,19 @@ rev' f vals =
       revEvalArtifact7 a1 = revEvalArtifact a1 vals Nothing
       hGeneral
         :: (ADReady fgen, ADReady f1)
-        => (f1 (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
-        -> (AstTensor AstMethodLet PrimalSpan (TKR n r) -> f1 (TKR n r))
-        -> (AstTensor AstMethodLet PrimalSpan (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
+        => (f1 (TKR m r) -> AstTensor AstMethodLet FullSpan (TKR m r))
+        -> (AstTensor AstMethodLet FullSpan (TKR n r) -> f1 (TKR n r))
+        -> (AstTensor AstMethodLet FullSpan (TKR m r) -> AstTensor AstMethodLet FullSpan (TKR m r))
         -> fgen (TKR n r)
         -> fgen (TKR m r)
       hGeneral fx1 fx2 gx inputs =
         let (var, ast) = funToAst (FTKR (rshape vals) FTKScalar) (fx1 . f . fx2)
             env = extendEnv var inputs emptyEnv
-        in interpretAst env (gx ast)  -- why is it PrimalSpan? given that, why not interpretAstPrimal?
+        in interpretAstFull env (gx ast)
       h :: ADReady f1
-        => (f1 (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
-        -> (AstTensor AstMethodLet PrimalSpan (TKR n r) -> f1 (TKR n r))
-        -> (AstTensor AstMethodLet PrimalSpan (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
+        => (f1 (TKR m r) -> AstTensor AstMethodLet FullSpan (TKR m r))
+        -> (AstTensor AstMethodLet FullSpan (TKR n r) -> f1 (TKR n r))
+        -> (AstTensor AstMethodLet FullSpan (TKR m r) -> AstTensor AstMethodLet FullSpan (TKR m r))
         -> ADVal RepN (TKR n r)
         -> ADVal RepN (TKR m r)
       h fx1 fx2 gx inputs =
@@ -136,9 +136,9 @@ rev' f vals =
         $ funToAst (FTKR (rshape vals) FTKScalar) (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1
-           => (f1 (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
-           -> (AstTensor AstMethodLet PrimalSpan (TKR n r) -> f1 (TKR n r))
-           -> (AstTensor AstMethodLet PrimalSpan (TKR m r) -> AstTensor AstMethodLet PrimalSpan (TKR m r))
+           => (f1 (TKR m r) -> AstTensor AstMethodLet FullSpan (TKR m r))
+           -> (AstTensor AstMethodLet FullSpan (TKR n r) -> f1 (TKR n r))
+           -> (AstTensor AstMethodLet FullSpan (TKR m r) -> AstTensor AstMethodLet FullSpan (TKR m r))
            -> ADVal (AstRaw PrimalSpan) (TKR n r)
            -> ADVal (AstRaw PrimalSpan) (TKR m r)
       hAst fx1 fx2 gx inputs
