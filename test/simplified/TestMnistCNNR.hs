@@ -210,7 +210,7 @@ mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
              let env = extendEnv var varInputs emptyEnv
                  envMnist = extendEnv varGlyph (rconcrete glyph)
                             $ extendEnv varLabel (rconcrete label) env
-             in interpretAst envMnist ast
+             in interpretAstFull envMnist ast
            runBatch :: (RepN (XParams r), StateAdam (XParams r))
                     -> (Int, [MnistDataR r])
                     -> IO (RepN (XParams r), StateAdam (XParams r))

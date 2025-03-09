@@ -41,7 +41,7 @@ type instance ShareOf (AstTensor ms s) = AstRaw s
 -- would not eliminate the variable and also would likely results
 -- in more costly computations. Also, that would prevent simplification
 -- of the instances, especially after applied to arguments that are terms.
-type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun x z  -- TODO: PrimalSpan
+type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun x z
 
 type instance BoolOf (AstTensor ms s) = AstBool ms
 

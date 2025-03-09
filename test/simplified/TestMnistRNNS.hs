@@ -203,7 +203,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
              let env = extendEnv var varInputs emptyEnv
                  envMnist = extendEnv varGlyph (sconcrete glyph)
                             $ extendEnv varLabel (sconcrete label) env
-             in interpretAst envMnist ast
+             in interpretAstFull envMnist ast
            runBatch :: ( RepN (XParams width r)
                        , StateAdam (XParams width r) )
                     -> (Int, [MnistDataS r])

@@ -67,7 +67,7 @@ forwardPassByInterpretation g envInit hVectorPrimal var hVector =
       varInputs = dDnotShared (AstRaw hVectorPrimal) deltaInputs
       ast = g hVector
       env = extendEnv var varInputs envInit
-  in interpretAst env ast
+  in interpretAstFull env ast
 
 revArtifactFromForwardPass
   :: forall x z.

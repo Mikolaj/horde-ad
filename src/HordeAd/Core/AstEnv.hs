@@ -33,7 +33,9 @@ import HordeAd.Core.Types
 
 -- | The environment that keeps variables values during interpretation
 type AstEnv target = DEnumMap (AstVarName FullSpan) (AstEnvElem target)
-  -- the FullSpan is a lie
+  -- The FullSpan is a lie. We can't easily index over span and tensor kind
+  -- at once, so instead we represent PrimalOf values as dual number values
+  -- with zero dual component and DualOf values via zero primal component.
 
 type role AstEnvElem nominal nominal
 data AstEnvElem (target :: Target) (y :: TK) where

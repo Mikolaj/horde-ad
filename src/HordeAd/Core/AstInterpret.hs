@@ -9,7 +9,9 @@
 -- The sharing mechanisms are translated so as to preserve sharing in case
 -- the instance is a term algebra as well.
 module HordeAd.Core.AstInterpret
-  ( interpretAst
+  ( interpretAstFull, interpretAstPrimal, interpretAstDual
+    -- * Exported only to specialize elsewhere
+  , interpretAst, interpretAstBool
   ) where
 
 import Prelude
@@ -31,7 +33,14 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
--- Strict environment and strict ADVal and Delta make this is hard to optimize.
+interpretAstFull
+  :: forall target y. ADReady target
+  => AstEnv target -> AstTensor AstMethodLet FullSpan y
+  -> target y
+{-# INLINE interpretAstFull #-}
+interpretAstFull = interpretAst
+
+-- Strict environment and strict ADVal and Delta make this hard to optimize.
 -- Either the environment has to be traversed to remove the dual parts or
 -- the dual part needs to be potentially needlessly computed.
 -- However, with correct sharing and large tensors, the overall cost
@@ -40,9 +49,9 @@ import HordeAd.Core.Types
 -- to be zero or is used elsewhere. It's rarely really lost and forgotten.
 interpretAstPrimal
   :: forall target y. ADReady target
-  => AstEnv target
-  -> AstTensor AstMethodLet PrimalSpan y
+  => AstEnv target -> AstTensor AstMethodLet PrimalSpan y
   -> PrimalOf target y
+{-# INLINE interpretAstPrimal #-}
 interpretAstPrimal !env v1 = case v1 of
   AstCond b a1 a2 ->
     -- This avoids multiple ifH expansions in ADVal.
@@ -54,15 +63,30 @@ interpretAstPrimal !env v1 = case v1 of
 
 interpretAstDual
   :: forall target y. ADReady target
-  => AstEnv target
-  -> AstTensor AstMethodLet DualSpan y -> DualOf target y
+  => AstEnv target -> AstTensor AstMethodLet DualSpan y
+  -> DualOf target y
+{-# INLINE interpretAstDual #-}
 interpretAstDual !env v1 =
   tdualPart (ftkToSTK $ ftkAst v1) (interpretAst env v1)
 
-interpretAst
-  :: forall target s y. (ADReady target, AstSpan s)
-  => AstEnv target
-  -> AstTensor AstMethodLet s y -> target y
+-- Correctly forall should go to @PrimalOf target@ when @s@ is @PrimalSpan@,
+-- but this would complicate things, e.g., we'd need an extra type family
+--
+-- type family SpanTarget s target :: Target where
+--   SpanTarget PrimalSpan target = PrimalOf target
+--   SpanTarget DualSpan target = DualOf target
+--   SpanTarget FullSpan target = target
+--
+-- to be used in AstEnv and the codomain of interpretAst.
+-- So instead we promote results to @target@, but then apply @tprimalPart@
+-- in @interpretAstPrimal@ and elsewhere. Therefore, similarly as in AstEnv,
+-- we represent PrimalOf values as dual number values with zero dual component
+-- and DualOf values via zero primal component.
+-- This coincides with most operations that in Ast have PrimalSpan
+-- defined without PrimalOf in Ops, for user comfort.
+interpretAst  :: forall target s y. (ADReady target, AstSpan s)
+  => AstEnv target -> AstTensor AstMethodLet s y
+  -> target y
 interpretAst !env = \case
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
@@ -139,40 +163,15 @@ interpretAst !env = \case
         env2 w = extendEnv var w env
     in ttlet t (\w -> interpretAst (env2 w) v)
 
-  AstPrimalPart a -> interpretAst env a
-    -- This is correct, because @s@ must be @PrimalSpan@ and so @target@ must
-    -- be morally the primal part of a dual numbers type that is the codomain
-    -- of the interpretation of the same AST but marked with @FullSpan@.
-    -- Consequently, the result is a primal part, despite the appearances.
-    -- This whole notation abuse is for user comfort (less @PrimalOf@
-    -- in the tensor classes) and to avoid repeating the @interpretAst@ code
-    -- in @interpretAstPrimal@. TODO: make this sane.
-    --
-    -- For example, if I'm interpreting @AstRanked PrimalSpan@ in
-    -- @AstRanked FullSpan@ (basically doing the forward pass
-    -- via interpretation), then @target@ is a primal part
-    -- of @ADVal (AstRanked FullSpan)@, even though @ADVal@ never appears
-    -- and @a@ could even be returned as is (but @AstPrimalPart@ never occurs
-    -- in terms created by AD, I think, so no point optimizing). What happens
-    -- is that the term gets flattened and the @FullSpan@ terms inside
-    -- @AstPrimalPart@ get merged with those created from @PrimalSpan@ terms
-    -- via interpretation. Which is as good as any semantics of forward
-    -- pass of a function that has dual numbers somewhere inside it.
-    -- An alternative semantics would remove the dual parts and use
-    -- the primal parts to reconstruct the dual in the simple way.
-    -- Probably doesn't matter, because none of this can be created by AD.
-    -- If we had an @AstRanked@ variant without the dual number constructors,
-    -- instead of the spans, the mixup would vanish.
-    --
-    -- TODO: this confusion probably bites us in astDualPart(AstFromPrimal).
-  AstDualPart a -> interpretAst env a
-    -- This is correct, because @s@ must be @DualSpan@ and so @target@ must
-    -- be morally the dual part of a dual numbers type that is the codomain
-    -- of the interpretation of the same AST but marked with @FullSpan@.
-    -- Consequently, the result is a dual part, despite the appearances.
+  AstPrimalPart a ->
+    tfromPrimal (ftkToSTK (ftkAst a)) (tprimalPart $ interpretAstFull env a)
+  AstDualPart a -> interpretAstFull env a
+    -- This breaks test "VTO2 rev vs fwd":
+    -- tfromDual (tdualPart (ftkToSTK (ftkAst a)) $ interpretAstFull env a)
   AstFromPrimal a ->
     tfromPrimal (ftkToSTK (ftkAst a)) (interpretAstPrimal env a)
-  AstFromDual a -> tfromDual (interpretAstDual env a)
+  AstFromDual a ->
+    tfromDual (interpretAstDual env a)
 
   AstPlusK u v -> interpretAst env u + interpretAst env v
   AstTimesK u v -> interpretAst env u * interpretAst env v
@@ -190,11 +189,17 @@ interpretAst !env = \case
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstI2F opCode u2 v2
-  AstConcreteK k -> tkconcrete k
+  AstConcreteK k ->
+    tkconcrete @target k
+      -- this is equal to the following
+      -- (and similarly for tsconcretet and tsiota below):
+      -- tfromPrimal @target STKScalar $ tkconcrete @(PrimalOf target) k
   AstFloorK v ->
-    tkfloor $ tfromPrimal STKScalar $ interpretAstPrimal env v
+    tfromPrimal STKScalar $ tkfloor $ interpretAstPrimal env v
+      -- tfromPrimal is needed to end up in @target@ instead of the correct
+      -- @PrimalOf target@, see the comment about interpretAst
   AstFromIntegralK v ->
-    tkfromIntegral $ tfromPrimal STKScalar $ interpretAstPrimal env v
+    tfromPrimal STKScalar $ tkfromIntegral $ interpretAstPrimal env v
   AstCastK v -> tkcast $ interpretAst env v
 
   AstPlusS u v -> interpretAst env u + interpretAst env v
@@ -209,11 +214,11 @@ interpretAst !env = \case
   AstFloorS v -> case ftkAst v of
     FTKS sh _ ->
       withKnownShS sh $
-      tsfloor $ tfromPrimal knownSTK $ interpretAstPrimal env v
+      tfromPrimal knownSTK $ tsfloor $ interpretAstPrimal env v
   AstFromIntegralS v -> case ftkAst v of
     FTKS sh _ ->
       withKnownShS sh $
-      tsfromIntegral $ tfromPrimal knownSTK $ interpretAstPrimal env v
+      tfromPrimal knownSTK $ tsfromIntegral $ interpretAstPrimal env v
   AstCastS @r1 @r2 v ->
     -- Specializing for the cases covered by rules in GHC.Internal.Float.
     case testEquality (typeRep @r1) (typeRep @Double) of
@@ -281,15 +286,13 @@ interpretAst !env = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
   AstMinIndexS v -> case ftkToSTK (ftkAst v) of
-    STKS (_ :$$ sh) x ->
-      withKnownShS sh $
-      withKnownSTK x $
-      tsminIndex $ tfromPrimal knownSTK $ interpretAstPrimal env v
+    STKS nsh _ ->
+      tfromPrimal (STKS (shsInit nsh) STKScalar)
+      $ tsminIndex $ interpretAstPrimal env v
   AstMaxIndexS v -> case ftkToSTK (ftkAst v) of
-    STKS (_ :$$ sh) x ->
-      withKnownShS sh $
-      withKnownSTK x $
-      tsmaxIndex $ tfromPrimal knownSTK $ interpretAstPrimal env v
+    STKS nsh _ ->
+      tfromPrimal (STKS (shsInit nsh) STKScalar)
+      $ tsmaxIndex $ interpretAstPrimal env v
   AstIotaS SNat -> tsiota
   AstAppendS a b -> case ftkToSTK (ftkAst a) of
     STKS _ x ->
@@ -368,16 +371,24 @@ interpretAst !env = \case
 
 interpretAstHFun
   :: forall target x y. BaseTensor target
-  => AstEnv target -> AstHFun x y -> HFunOf target x y
+  => AstEnv target -> AstHFun x y
+  -> HFunOf target x y
+{-# INLINE interpretAstHFun #-}
 interpretAstHFun _env = \case
   AstLambda var l ->
     tlambda @target (varNameToFTK var)
     $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
-      -- interpretation in empty environment; makes sense here, because
-      -- there are no free variables outside of those listed
+      -- Interpretation in empty environment; makes sense here, because
+      -- there are no free variables outside of those listed.
+      -- We ignore the variable and term having PrimalSpanm because
+      -- we don't have FullShapeTK y in order to use tfromPrimal.
+      -- Consequently, in the rare case when the user-supplied function
+      -- has a non-trivial dual number component, it won't be GCed early,
+      -- but only in OpsADVal.
 
 interpretAstBool :: ADReady target
-                 => AstEnv target -> AstBool AstMethodLet -> BoolOf target
+                 => AstEnv target -> AstBool AstMethodLet
+                 -> BoolOf target
 interpretAstBool !env = \case
   AstBoolNot arg -> notB $ interpretAstBool env arg
   AstB2 opCodeBool arg1 arg2 ->
