@@ -1,12 +1,10 @@
-{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists, QuantifiedConstraints,
-             UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
--- | The tensor operations intended for the library user..
+-- | The tensor operations intended for the library user.
 module HordeAd.OpsTensor
-  ( tunit, tlet, ifH, minH, maxH
+  ( -- * Basic array opertations
+    tunit, tlet, ifH, minH, maxH
   , rshape, rlength, rsize, rwidth
   , sshape, slength, ssize, swidth
   , xshape, xlength, xsize, xwidth
@@ -35,20 +33,25 @@ module HordeAd.OpsTensor
   , str, stranspose, sflatten, sreshape
   , xappend, xappend0, xconcat, xslice, xuncons, xreverse
   , xtr, xtranspose, xflatten, xreshape
+    -- * Array opertations derived from `build`
   , rbuild, rbuild1, rmap, rmap1, rmap0N, rzipWith, rzipWith1, rzipWith0N
   , rzipWith3, rzipWith31, rzipWith30N, rzipWith4, rzipWith41, rzipWith40N
   , sbuild, sbuild1, smap, smap1, smap0N, szipWith, szipWith1, szipWith0N
   , szipWith3, szipWith31, szipWith30N, szipWith4, szipWith41, szipWith40N
   , xbuild, xbuild1
+    -- * Array operations derived from `mapAccum`
   , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
+    -- * Array operations producing derivatives
   , rrev, rrevDt, rfwd, srev, srevDt, sfwd
+    -- * Operations about dual numbers
   , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
   , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
   , xprimalPart, xdualPart, xfromPrimal, xfromDual, xScale
   , kprimalPart, kdualPart, kfromPrimal, kfromDual, kScale
+    -- * Array operations that utilize unwinding of nested arrays
   , tconstantTarget, tdefTarget, taddTarget, tmultTarget, tdotTarget
+    -- * Minimal re-exports to make this module a higher level replacement for HordeAd.Core.Ops
   , ADReady
-  , ConvertTensor(..)
   , LetTensor, BaseTensor
   ) where
 

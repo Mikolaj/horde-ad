@@ -3,19 +3,22 @@
 -- applications, such as fully connect neural networks operating on MNIST
 -- data, some extra imports may be needed that are not covered here.
 module HordeAd
-  ( module HordeAd.Core.Ast
+  ( -- * The main array API
+    module HordeAd.OpsTensor
+  , module HordeAd.Core.ConvertTensor
+    -- * The main AD API
+  , module HordeAd.Core.Engine
+    -- * Additional support types and operations
+  , module HordeAd.Core.Ast
   , module HordeAd.Core.AstInline
   , module HordeAd.Core.AstPrettyPrint
   , module HordeAd.Core.CarriersADVal
   , module HordeAd.Core.CarriersConcrete
-  , module HordeAd.Core.ConvertTensor
-  , module HordeAd.Core.Engine
   , module HordeAd.Core.TensorKind
   , module HordeAd.Core.Types
   , module HordeAd.External.CommonRankedOps
   , module HordeAd.External.CommonShapedOps
   , module HordeAd.External.Optimizer
-  , module HordeAd.OpsTensor
   ) where
 
 import Prelude ()
