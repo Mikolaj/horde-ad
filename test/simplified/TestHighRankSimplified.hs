@@ -70,6 +70,12 @@ testTrees =
   , testCase "3concatBuild2" testConcatBuild2
   , testCase "3concatBuild22" testConcatBuild22
   , testCase "3concatBuild3" testConcatBuild3
+  , testCase "3logistic0" testLogistic0
+  , testCase "3logistic5" testLogistic5
+  , testCase "3logistic52" testLogistic52
+  , testCase "3logisticA0" testLogisticA0
+  , testCase "3logisticB0" testLogisticB0
+  , testCase "3logisticC0" testLogisticC0
   ]
 
 foo :: RealFloatH a => (a,a,a) -> a
@@ -644,3 +650,73 @@ testConcatBuild3 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [0] [])
     (rev' @Double @2 concatBuild3 (ringestData [0] []))
+
+testLogistic0 :: Assertion
+testLogistic0 =
+  assertEqualUpToEpsilon' 1e-10
+    (rscalar 4.5176659730912e-2)
+    (rev' @Double @0 logistic (rscalar 3))
+
+testLogistic5 :: Assertion
+testLogistic5 =
+  assertEqualUpToEpsilon' 1e-10
+    (rfromListLinear [2,2,1,2,2] [6.648056670790033e-3,0.10499358540350662,2.466509291359931e-3,0.19661193324148185,0.1049935854035065,0.2499999999999375,0.24937604019289197,0.24751657271185995,2.0452222584760427e-6,1.2337934976493025e-4,3.3523767075636815e-4,1.7662706213291118e-2,1.7763568394002473e-15,4.540945566439111e-2,4.6588861451033536e-15,5.109024314693943e-12])
+    (rev' @Double @5 logistic t16)
+
+testLogistic52 :: Assertion
+testLogistic52 =
+  assertEqualUpToEpsilon' 1e-10
+    (rfromListLinear [2,2,1,2,2] [1.3111246391159124e-3,2.1750075272657612e-2,4.8549901151740267e-4,4.312916016242333e-2,2.6155373652699744e-2,5.8750924453083504e-2,5.8238333583278255e-2,5.8847120842749026e-2,4.0211548220008027e-7,2.425923569564766e-5,6.592194028602285e-5,4.415319450597324e-3,3.4925295232121135e-16,9.12284655835676e-3,1.1647215362758384e-15,1.0044951474920845e-12])
+    (rev' @Double @5 (logistic . logistic) t16)
+
+logisticA :: forall target r n.
+            ( BaseTensor target, LetTensor target
+            , BaseTensor (PrimalOf target), KnownNat n, GoodScalar r
+            , Floating (PrimalOf target (TKR n r)) )
+         => target (TKR n r) -> target (TKR n r)
+logisticA d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
+  let sh = rshape d
+      y0 = recip (rrepl sh 1 + exp (- rprimalPart @target d))
+  in tlet (rfromPrimal @target y0)  -- we don't have tletPrimal
+     $ \y1 -> let y = rprimalPart @target y1
+              in rfromPrimal y
+                 + rfromDual (rScale @target (y * (rrepl sh 1 - y))
+                              $ rdualPart @target d)
+
+testLogisticA0 :: Assertion
+testLogisticA0 =
+  assertEqualUpToEpsilon' 1e-10
+    (rscalar 4.5176659730912e-2)
+    (rev' @Double @0 logisticA (rscalar 3))
+
+logisticB :: forall target r n.
+            ( BaseTensor target, LetTensor target
+            , BaseTensor (PrimalOf target), KnownNat n, GoodScalar r
+            , Floating (PrimalOf target (TKR n r)) )
+         => target (TKR n r) -> target (TKR n r)
+logisticB d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
+  let sh = rshape d
+      y0 = recip (rrepl sh 1 + exp (- rprimalPart @target d))
+  in tlet (rfromPrimal @target y0)  -- we don't have tletPrimal
+     $ \y1 -> let y = rprimalPart @target y1
+              in rfromPrimal y + rfromDual (rdualPart @target d)
+
+testLogisticB0 :: Assertion
+testLogisticB0 =
+  assertEqualUpToEpsilon' 1e-10
+    (rscalar 1)
+    (rev' @Double @0 logisticB (rscalar 3))
+
+logisticC :: forall target r n.
+            ( BaseTensor target, LetTensor target
+            , KnownNat n, GoodScalar r )
+         => target (TKR n r) -> target (TKR n r)
+logisticC d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
+  let y0 = rprimalPart @target d
+  in rfromPrimal @target y0
+
+testLogisticC0 :: Assertion
+testLogisticC0 =
+  assertEqualUpToEpsilon' 1e-10
+    (rscalar 0)
+    (rev' @Double @0 logisticC (rscalar 3))
