@@ -636,6 +636,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tconstantTarget = constantTarget
   tdefTarget = defTarget
   taddTarget = addTarget
+  tmultTarget = multTarget
+  tdotTarget = dotTarget
 
 
 -- * AstRaw instances
@@ -1084,6 +1086,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tconstantTarget = constantTarget
   tdefTarget = defTarget
   taddTarget = addTarget
+  tmultTarget = multTarget
+  tdotTarget = dotTarget
 
 instance AstSpan s => ConvertTensor (AstRaw s) where
   rzip @y @z (AstRaw a) = AstRaw $ case ftkAst a of
@@ -1402,6 +1406,10 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tdefTarget = AstNoVectorize . tdefTarget
   taddTarget stk a b = AstNoVectorize $ taddTarget stk (unAstNoVectorize a)
                                                        (unAstNoVectorize b)
+  tmultTarget stk a b = AstNoVectorize $ tmultTarget stk (unAstNoVectorize a)
+                                                         (unAstNoVectorize b)
+  tdotTarget stk a b = AstNoVectorize $ tdotTarget stk (unAstNoVectorize a)
+                                                       (unAstNoVectorize b)
 
 instance AstSpan s => ConvertTensor (AstNoVectorize s) where
   rzip = AstNoVectorize . rzip . unAstNoVectorize
@@ -1647,6 +1655,10 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tconstantTarget r ftk = wAstNoSimplify $ tconstantTarget r ftk
   tdefTarget = wAstNoSimplify . tdefTarget
   taddTarget stk a b = wAstNoSimplify $ taddTarget stk (wunAstNoSimplify a)
+                                                       (wunAstNoSimplify b)
+  tmultTarget stk a b = wAstNoSimplify $ tmultTarget stk (wunAstNoSimplify a)
+                                                         (wunAstNoSimplify b)
+  tdotTarget stk a b = wAstNoSimplify $ tdotTarget stk (wunAstNoSimplify a)
                                                        (wunAstNoSimplify b)
 
 instance AstSpan s => ConvertTensor (AstNoSimplify s) where

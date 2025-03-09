@@ -24,7 +24,6 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
-import HordeAd.Core.Unwind
 import HordeAd.External.OptimizerTools
 
 import EqEpsilon
@@ -711,9 +710,9 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
         goodPerturbation :: forall r. GoodScalar r => r
         goodPerturbation = ifDifferentiable @r (realToFrac perturbation) 0
         targetPerturbed :: RepN (XParams2 Double Double)
-        targetPerturbed = constantTarget goodPerturbation ftk
+        targetPerturbed = tconstantTarget goodPerturbation ftk
         targetInitPerturbed :: RepN (XParams2 Double Double)
-        targetInitPerturbed = addTarget stk targetInit targetPerturbed
+        targetInitPerturbed = taddTarget stk targetInit targetPerturbed
         (derivative3, value3) = cfwdBoth f targetInit targetPerturbed
         value4 :: RepN (TKScalar Double)
         value4 = MnistFcnnRanked2.afcnnMnistLoss2
@@ -727,14 +726,14 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
             (abs (value1 - value2) < 1e-10)
         , counterexample
             ("Gradient and derivative agrees: "
-             ++ show ( dt, derivative2, dotTarget ftk gradient1 ds
-                     , dotTarget FTKScalar (kconcrete dt) derivative2
-                       - dotTarget ftk gradient1 ds ))
-            (abs (dotTarget FTKScalar (kconcrete dt) derivative2
-                  - dotTarget ftk gradient1 ds) < 1e-10)
+             ++ show ( dt, derivative2, tdotTarget ftk gradient1 ds
+                     , tdotTarget FTKScalar (kconcrete dt) derivative2
+                       - tdotTarget ftk gradient1 ds ))
+            (abs (tdotTarget FTKScalar (kconcrete dt) derivative2
+                  - tdotTarget ftk gradient1 ds) < 1e-10)
 --        , counterexample
 --            "Gradient is a linear function"
---            (gradient1 === multTarget stk targetDt gradient0)
+--            (gradient1 === tmultTarget stk targetDt gradient0)
         , counterexample
             "Objective function value unaffected by incoming cotangent"
             (value0 === value1)

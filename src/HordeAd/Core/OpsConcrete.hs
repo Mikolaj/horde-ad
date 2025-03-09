@@ -486,6 +486,8 @@ instance BaseTensor RepN where
   tconstantTarget = constantTarget
   tdefTarget = defTarget
   taddTarget = addTarget
+  tmultTarget = multTarget
+  tdotTarget = dotTarget
 
 instance ConvertTensor RepN where
   rzip (RepN (a, b)) = RepN $ Nested.rzip a b

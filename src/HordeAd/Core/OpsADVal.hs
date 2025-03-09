@@ -535,6 +535,8 @@ instance ( ADReadyNoLet target, ShareTensor target
   tconstantTarget r ftk = dDnotShared (tconstantTarget r ftk) (DeltaZero ftk)
   tdefTarget ftk = dDnotShared (tdefTarget ftk) (DeltaZero ftk)
   taddTarget = addTarget
+  tmultTarget = multTarget
+  tdotTarget = dotTarget
 
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )

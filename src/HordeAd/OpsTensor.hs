@@ -46,6 +46,7 @@ module HordeAd.OpsTensor
   , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
   , xprimalPart, xdualPart, xfromPrimal, xfromDual, xScale
   , kprimalPart, kdualPart, kfromPrimal, kfromDual, kScale
+  , tconstantTarget, tdefTarget, taddTarget, tmultTarget, tdotTarget
   , ADReady
   , ConvertTensor(..)
   , LetTensor, BaseTensor

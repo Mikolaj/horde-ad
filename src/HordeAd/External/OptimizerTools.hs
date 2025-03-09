@@ -19,7 +19,6 @@ import HordeAd.Core.Ops
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Core.Unwind
 
 updateWithGradient :: forall y.
                       Double -> SingletonTK y -> RepN y -> RepN (ADTensorKind y)
@@ -135,9 +134,9 @@ data StateAdam y = StateAdam
 initialStateAdam :: FullShapeTK y -> StateAdam y
 initialStateAdam ftk =
   StateAdam { tAdam = 0
-                , mAdam = constantTarget 0 ftk
-                , vAdam = constantTarget 0 ftk
-                }
+            , mAdam = tconstantTarget 0 ftk
+            , vAdam = tconstantTarget 0 ftk
+            }
 
 updateWithGradientAdam
   :: ArgsAdam -> StateAdam y -> SingletonTK y -> RepN y -> RepN (ADTensorKind y)

@@ -1050,11 +1050,26 @@ class ( Num (IntOf target)
       in tpair (tindexBuild snat stk1 u1 i)
                (tindexBuild snat stk2 u2 i)
 
-  -- Methods needed mostly to split off a module; also a minor speedup
+  -- Unwinding methods, needed mostly to split off the Unwind module.
+    -- | Construct tensors with the given constant in each cell.
   tconstantTarget :: (forall r. GoodScalar r => r) -> FullShapeTK y -> target y
+  -- | Construct tensors with @def@ in each cell.
   tdefTarget :: FullShapeTK y -> target y
-  -- The arguments need to be duplicable.
+  -- | Add pointwise all corresponding tensors within nested product, if any.
+  --
+  -- Requires duplicable arguments or a ShareTensor instance.
   taddTarget :: SingletonTK y -> target y -> target y -> target y
+  -- | Multiply pointwise all corresponding tensors within nested products,
+  -- if any.
+  --
+  -- Requires duplicable arguments or a ShareTensor instance.
+  tmultTarget :: SingletonTK y -> target y -> target y -> target y
+  -- | Dot product each component and then sum it all. Ignore all
+  -- tensors with non-differentiable elements.
+  --
+  -- Requires duplicable arguments or a ShareTensor instance.
+  tdotTarget :: FullShapeTK y -> target y -> target y
+             -> target (TKScalar Double)
 
   -- TODO: express without ConvertTensor or move there
   xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)
