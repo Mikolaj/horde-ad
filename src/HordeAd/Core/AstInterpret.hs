@@ -165,9 +165,8 @@ interpretAst !env = \case
 
   AstPrimalPart a ->
     tfromPrimal (ftkToSTK (ftkAst a)) (tprimalPart $ interpretAstFull env a)
-  AstDualPart a -> interpretAstFull env a
-    -- This breaks test "VTO2 rev vs fwd":
-    -- tfromDual (tdualPart (ftkToSTK (ftkAst a)) $ interpretAstFull env a)
+  AstDualPart a ->
+    tfromDual (tdualPart (ftkToSTK (ftkAst a)) $ interpretAstFull env a)
   AstFromPrimal a ->
     tfromPrimal (ftkToSTK (ftkAst a)) (interpretAstPrimal env a)
   AstFromDual a ->

@@ -947,10 +947,9 @@ astDualPart t = case t of
   Ast.AstLet var u v -> astLet var u (astDualPart v)
 
   Ast.AstFromPrimal v ->
-    let _ftk = ftkAst v
-    in Ast.AstDualPart $ Ast.AstFromPrimal   v
-       -- TODO: this gives wrong results, see interpretAst (AstPrimalPart)
-       -- $ astConcrete ftk (tconstantTarget 0 ftk)
+    let ftk = ftkAst v
+    in Ast.AstDualPart $ Ast.AstFromPrimal
+       $ astConcrete ftk (tconstantTarget 0 ftk)
            -- let's hope this is smaller than v
   Ast.AstFromDual v -> v
 
