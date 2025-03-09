@@ -938,7 +938,7 @@ astDualPart t = case t of
       astMapAccumLDer k bftk eftk f df rf
                       (astDualPart acc0) (astDualPart es)
   Ast.AstApply v ll -> astApply v (astDualPart ll)
-  Ast.AstVar{} -> Ast.AstDualPart t  -- the only normal form
+  Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = astDualPart v
@@ -955,19 +955,24 @@ astDualPart t = case t of
   Ast.AstFromDual v -> v
 
   AstPlusK u v -> astDualPart u + astDualPart v
-  AstTimesK u v -> astDualPart u * astDualPart v
+  -- This one is mathematically wrong, dual numbers don't mult like that:
+  -- AstTimesK u v -> astDualPart u * astDualPart v
   Ast.AstN1K NegateOp u -> negate (astDualPart u)
+  {- Some of these are wrong, so let's be conservative:
   Ast.AstN1K AbsOp u -> abs (astDualPart u)
   Ast.AstN1K SignumOp u -> signum (astDualPart u)
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (astDualPart u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astDualPart u) (astDualPart v)
   Ast.AstI2K QuotOp u v -> quotH (astDualPart u) (astDualPart v)
   Ast.AstI2K RemOp u v -> remH (astDualPart u) (astDualPart v)
+  -}
   Ast.AstCastK v -> astCastK $ astDualPart v
 
   AstPlusS u v -> astDualPart u + astDualPart v
-  AstTimesS u v -> astDualPart u * astDualPart v
+  -- This one is mathematically wrong, dual numbers don't mult like that:
+  -- AstTimesS u v -> astDualPart u * astDualPart v
   Ast.AstN1S NegateOp u -> negate (astDualPart u)
+  {- Some of these are wrong, so let's be conservative:
   Ast.AstN1S AbsOp u -> abs (astDualPart u)
   Ast.AstN1S SignumOp u -> signum (astDualPart u)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astDualPart u)
@@ -975,6 +980,7 @@ astDualPart t = case t of
                                              (astDualPart v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (astDualPart u)
                                              (astDualPart v)
+  -}
   Ast.AstCastS v -> astCastS $ astDualPart v
 
   Ast.AstIndexS shn v ix ->
@@ -1008,6 +1014,8 @@ astDualPart t = case t of
   Ast.AstDot1InS{} -> Ast.AstDualPart t
   Ast.AstMatvecmulS{} -> Ast.AstDualPart t
   Ast.AstMatmul2S{} -> Ast.AstDualPart t
+
+  _ -> Ast.AstDualPart t
 
 astConcreteK :: GoodScalar r
              => RepN (TKScalar r)
