@@ -16,7 +16,12 @@ import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.ADEngine
-  (cfwd, fwd, revEvalArtifact, revProduceArtifactWithoutInterpretation)
+  ( IncomingCotangentHandling (..)
+  , cfwd
+  , fwd
+  , revEvalArtifact
+  , revProduceArtifactWithoutInterpretation
+  )
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEngine
 import HordeAd.Core.AstEnv
@@ -75,7 +80,7 @@ rev' f vals =
                   $ fromTarget inputs
       artifactsGradAst9 =
         fst $ revProduceArtifactWithoutInterpretation
-                False g9 ftk
+                IgnoreIncomingCotangent g9 ftk
       (gradient9, value9) = revEvalArtifact7 artifactsGradAst9
       revEvalArtifact7
         :: AstArtifactRev (TKR n r) (TKR m r)
@@ -146,33 +151,33 @@ rev' f vals =
                    fx1 fx2 gx (fromTarget inputs)
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst id id id) ftk
+                IgnoreIncomingCotangent (hAst id id id) ftk
       (gradient2Ast, value2Ast) =
         revEvalArtifact7 artifactsGradAst
       (gradient2AstS, value2AstS) =
         revEvalArtifact7 (simplifyArtifact artifactsGradAst)
       artifactsGradAstT =
         fst $ revProduceArtifactWithoutInterpretation
-                True (hAst id id id) ftk
+                UseIncomingCotangent (hAst id id id) ftk
       (gradient2AstST, value2AstST) =
         revEvalArtifact7 (simplifyArtifact artifactsGradAstT)
       artifactsSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst id id simplifyInlineContract) ftk
+                IgnoreIncomingCotangent (hAst id id simplifyInlineContract) ftk
       (gradient3Ast, value3Ast) =
         revEvalArtifact7 artifactsSimpleAst
       (gradient3AstS, value3AstS) =
         revEvalArtifact7 (simplifyArtifact artifactsSimpleAst)
       artifactsGradAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst unAstNoSimplify AstNoSimplify id) ftk
+                IgnoreIncomingCotangent (hAst unAstNoSimplify AstNoSimplify id) ftk
       (gradient2AstUnSimp, value2AstUnSimp) =
         revEvalArtifact7 artifactsGradAstUnSimp
       (gradient2AstSUnSimp, value2AstSUnSimp) =
         revEvalArtifact7 (simplifyArtifact artifactsGradAstUnSimp)
       artifactsSimpleAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst unAstNoSimplify AstNoSimplify simplifyInlineContract)
+                IgnoreIncomingCotangent (hAst unAstNoSimplify AstNoSimplify simplifyInlineContract)
                 ftk
       (gradient3AstUnSimp, value3AstUnSimp) =
         revEvalArtifact7 artifactsSimpleAstUnSimp
@@ -180,14 +185,14 @@ rev' f vals =
         revEvalArtifact7 (simplifyArtifact artifactsSimpleAstUnSimp)
       artifactsPrimalAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst unAstNoVectorize AstNoVectorize id) ftk
+                IgnoreIncomingCotangent (hAst unAstNoVectorize AstNoVectorize id) ftk
       (gradient4Ast, value4Ast) =
         revEvalArtifact7 artifactsPrimalAst
       (gradient4AstS, value4AstS) =
         revEvalArtifact7 (simplifyArtifact artifactsPrimalAst)
       artifactsPSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
-                False (hAst unAstNoVectorize AstNoVectorize simplifyInlineContract)
+                IgnoreIncomingCotangent (hAst unAstNoVectorize AstNoVectorize simplifyInlineContract)
                 ftk
       (gradient5Ast, value5Ast) =
         revEvalArtifact7 artifactsPSimpleAst

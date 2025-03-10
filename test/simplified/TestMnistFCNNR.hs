@@ -316,7 +316,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
           MnistFcnnRanked1.afcnnMnistLoss1
             widthHiddenSNat widthHidden2SNat
             (glyphR, labelR) pars
-        (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
+        (artRaw, _) = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
         art = simplifyArtifactGradient artRaw
         go :: [MnistDataLinearR r]
            -> RepN (XParams widthHidden widthHidden2 r)
@@ -586,7 +586,7 @@ mnistTestCase2VTO
 mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let (!targetInit, !artRaw) =
-        MnistFcnnRanked2.mnistTrainBench2VTOGradient @r (Proxy @Float) False
+        MnistFcnnRanked2.mnistTrainBench2VTOGradient @r (Proxy @Float) IgnoreIncomingCotangent
           1 (mkStdGen 44) widthHidden widthHidden2
       !art = simplifyArtifactGradient artRaw
       name = prefix ++ ": "
@@ -688,7 +688,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
             range seed3
         (targetInit, artRaw) =
           MnistFcnnRanked2.mnistTrainBench2VTOGradient
-            @Double (Proxy @Double) True
+            @Double (Proxy @Double) UseIncomingCotangent
             range2 seed4 (1 + width1Hidden) (1 + width1Hidden2)
         art = iterate simplifyArtifactGradient artRaw !! simp
         stk = knownSTK @(XParams2 Double Double)

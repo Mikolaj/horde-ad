@@ -103,7 +103,7 @@ afcnnMnistTest2 dataList testParams =
 mnistTrainBench2VTOGradient
   :: forall r q. ( GoodScalar r, Differentiable r
                  , GoodScalar q, Differentiable q )
-  => Proxy q -> Bool -> Double -> StdGen -> Int -> Int
+  => Proxy q -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int
   -> ( RepN (XParams2 r q)
      , AstArtifactRev
          (TKProduct
@@ -111,7 +111,7 @@ mnistTrainBench2VTOGradient
             (TKProduct (TKR2 1 (TKScalar r))
                        (TKR2 1 (TKScalar r))))
          (TKScalar r) )
-mnistTrainBench2VTOGradient Proxy hasDt range seed widthHidden widthHidden2 =
+mnistTrainBench2VTOGradient Proxy cotangentHandling range seed widthHidden widthHidden2 =
   withSNat widthHidden $ \(SNat @widthHidden) ->
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   -- Initial parameter generation is counted as part of compilation time.
@@ -130,8 +130,8 @@ mnistTrainBench2VTOGradient Proxy hasDt range seed widthHidden widthHidden2 =
         -> AstTensor AstMethodLet FullSpan (TKScalar r)
       f (pars, (glyphR, labelR)) =
         afcnnMnistLoss2 (glyphR, labelR) pars
-      (artRaw, _) = revArtifactAdapt hasDt f (FTKProduct ftk ftkData)
+      (artRaw, _) = revArtifactAdapt cotangentHandling f (FTKProduct ftk ftkData)
   in (targetInit, artRaw)
-{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> Bool -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Double Float), AstArtifactRev (TKProduct (XParams2 Double Float) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
-{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> Bool -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Float Float), AstArtifactRev (TKProduct (XParams2 Float Float) (TKProduct (TKR2 1 (TKScalar Float)) (TKR2 1 (TKScalar Float)))) (TKScalar Float) ) #-}
-{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Double -> Bool -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Double Double), AstArtifactRev (TKProduct (XParams2 Double Double) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
+{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Double Float), AstArtifactRev (TKProduct (XParams2 Double Float) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
+{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Float Float), AstArtifactRev (TKProduct (XParams2 Float Float) (TKProduct (TKR2 1 (TKScalar Float)) (TKR2 1 (TKScalar Float)))) (TKScalar Float) ) #-}
+{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Double -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Double Double), AstArtifactRev (TKProduct (XParams2 Double Double) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}

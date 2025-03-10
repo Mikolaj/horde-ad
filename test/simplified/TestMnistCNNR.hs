@@ -330,7 +330,7 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
            f = \ (pars, (glyphR, labelR)) ->
              MnistCnnRanked2.convMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
-           (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
+           (artRaw, _) = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchR r]
               -> (RepN (XParams r), StateAdam (XParams r))

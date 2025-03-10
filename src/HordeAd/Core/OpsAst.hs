@@ -7,7 +7,8 @@
 -- The AST term instances can be used as building blocks for 'ADVal'
 -- instances defined in "TensorADVal" but may also be used standalone.
 module HordeAd.Core.OpsAst
-  ( forwardPassByInterpretation
+  ( IncomingCotangentHandling(..)
+  , forwardPassByInterpretation
   , revArtifactFromForwardPass, revProduceArtifact
   , fwdArtifactFromForwardPass, fwdProduceArtifact
   ) where
@@ -71,7 +72,7 @@ forwardPassByInterpretation g envInit hVectorPrimal var hVector =
 
 revArtifactFromForwardPass
   :: forall x z.
-     Bool
+     IncomingCotangentHandling
   -> (AstTensor AstMethodShare PrimalSpan x
       -> AstVarName FullSpan x
       -> AstTensor AstMethodLet FullSpan x
@@ -80,7 +81,7 @@ revArtifactFromForwardPass
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 -- Break the inline chain to prevent false positives in inspection testing.
 -- {-# INLINE revArtifactFromForwardPass #-}
-revArtifactFromForwardPass hasDt forwardPass xftk =
+revArtifactFromForwardPass cotangentHandling forwardPass xftk =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
@@ -91,25 +92,29 @@ revArtifactFromForwardPass hasDt forwardPass xftk =
   let zftk = ftkAst $ unAstRaw primalBody
       (!varDt, astDt) = funToAst (adFTK zftk) id in
   let oneAtF = tconstantTarget 1 $ adFTK zftk
-      !dt = if hasDt then AstRaw astDt else oneAtF in
+      !dt = case cotangentHandling of
+        UseIncomingCotangent -> AstRaw astDt
+        IgnoreIncomingCotangent -> oneAtF in
   let !gradient = gradientFromDelta xftk zftk dt delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
       !unPrimal = unshareAstTensor $ unAstRaw primalBody
   in ( AstArtifactRev varDt varPrimal unGradient unPrimal
      , delta )
 
+data IncomingCotangentHandling = UseIncomingCotangent | IgnoreIncomingCotangent
+
 revProduceArtifact
   :: forall x z.
-     Bool
+     IncomingCotangentHandling
   -> (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifact #-}
-revProduceArtifact hasDt g envInit xftk =
+revProduceArtifact cotangentHandling g envInit xftk =
   revArtifactFromForwardPass
-    hasDt (forwardPassByInterpretation g envInit) xftk
+    cotangentHandling (forwardPassByInterpretation g envInit) xftk
 
 fwdArtifactFromForwardPass
   :: forall x z.
@@ -579,13 +584,13 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         -- `error "tunshare: used not at PrimalSpan"`, because no derivative
         -- should be taken of spans other than PrimalSpan)
         (AstArtifactRev{..}, _delta) =
-          revProduceArtifact False (unHFun f) emptyEnv xftk
+          revProduceArtifact IgnoreIncomingCotangent (unHFun f) emptyEnv xftk
     in AstLambda artVarDomainRev (simplifyInline artDerivativeRev)
   trevDt ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactRev{..}, _delta) =
-          revProduceArtifact True (unHFun f) emptyEnv ftkx
+          revProduceArtifact UseIncomingCotangent (unHFun f) emptyEnv ftkx
         ftkz = varNameToFTK artVarDtRev
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->

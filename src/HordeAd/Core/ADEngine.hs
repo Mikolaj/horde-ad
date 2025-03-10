@@ -6,7 +6,8 @@
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.Core.ADEngine
   ( -- * Reverse derivative adaptors
-    rev, revDt, revArtifactAdapt
+    IncomingCotangentHandling(..)
+  , rev, revDt, revArtifactAdapt
   , revProduceArtifactWithoutInterpretation, revEvalArtifact
     -- * Forward derivative adaptors
   , fwd, fwdEvalArtifact
@@ -17,8 +18,6 @@ module HordeAd.Core.ADEngine
   ) where
 
 import Prelude
-
-import Data.Maybe (isJust)
 
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
@@ -108,34 +107,37 @@ revDtMaybe f vals0 mdt =
         f $ fromTarget hvShared
       valsTarget = toTarget vals0
       xftk = tftkG (knownSTK @(X astvals)) $ unRepN valsTarget
-      artifact = fst $ revProduceArtifact (isJust mdt) g emptyEnv xftk
+      cotangentHandling =
+        maybe (IgnoreIncomingCotangent) (const UseIncomingCotangent) mdt
+      artifact = fst $ revProduceArtifact cotangentHandling g emptyEnv xftk
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
      $ fst $ revEvalArtifact artifact valsTarget mdt
 
 revArtifactAdapt
   :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-  => Bool
+  => IncomingCotangentHandling
   -> (astvals -> AstTensor AstMethodLet FullSpan z)
   -> FullShapeTK (X astvals)
   -> (AstArtifactRev (X astvals) z, Delta (AstRaw PrimalSpan) z )
 {-# INLINE revArtifactAdapt #-}
-revArtifactAdapt hasDt f xftk =
+revArtifactAdapt cotangentHandling f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
       g !hv = ttlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
-  in revProduceArtifact hasDt g emptyEnv xftk
+  in revProduceArtifact cotangentHandling g emptyEnv xftk
 
 revProduceArtifactWithoutInterpretation
   :: forall x z.
-     Bool
+     IncomingCotangentHandling
   -> (ADVal (AstRaw PrimalSpan) x
       -> ADVal (AstRaw PrimalSpan) z)
   -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
-revProduceArtifactWithoutInterpretation hasDt f xftk =
-  revArtifactFromForwardPass @x @z hasDt (forwardPassByApplication f) xftk
+revProduceArtifactWithoutInterpretation cotangentHandling f xftk =
+  revArtifactFromForwardPass @x @z cotangentHandling
+                             (forwardPassByApplication f) xftk
 
 forwardPassByApplication
   :: forall x z.
