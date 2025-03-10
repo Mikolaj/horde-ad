@@ -34,8 +34,9 @@ import HordeAd.Core.Types
 -- | The environment that keeps variables values during interpretation
 type AstEnv target = DEnumMap (AstVarName FullSpan) (AstEnvElem target)
   -- The FullSpan is a lie. We can't easily index over span and tensor kind
-  -- at once, so instead we represent PrimalOf values as dual number values
-  -- with zero dual component and DualOf values via zero primal component.
+  -- at once, so instead we represent PrimalSpan values as FullSpan
+  -- (dual number) values with zero dual component and DualSpan values
+  -- via zero primal component.
 
 type role AstEnvElem nominal nominal
 data AstEnvElem (target :: Target) (y :: TK) where
@@ -58,9 +59,6 @@ showsPrecAstEnv d demap =
            showsPrec 2 k . showString " :=> " . showsPrec 1 target)
         (DMap.toList demap)
 
--- An informal invariant: if s is FullSpan, target is dual numbers,
--- and if s is PrimalSpan, target is their primal part.
--- The same for all functions below.
 extendEnv :: forall target s y.
              AstVarName s y -> target y -> AstEnv target
           -> AstEnv target

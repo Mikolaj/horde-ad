@@ -77,14 +77,19 @@ interpretAstDual !env v1 =
 --   SpanTarget DualSpan target = DualOf target
 --   SpanTarget FullSpan target = target
 --
--- to be used in AstEnv and the codomain of interpretAst.
--- So instead we promote results to @target@, but then apply @tprimalPart@
--- in @interpretAstPrimal@ and elsewhere. Therefore, similarly as in AstEnv,
--- we represent PrimalOf values as dual number values with zero dual component
--- and DualOf values via zero primal component.
--- This coincides with most operations that in Ast have PrimalSpan
--- defined without PrimalOf in Ops, for user comfort.
-interpretAst  :: forall target s y. (ADReady target, AstSpan s)
+-- to be used in AstEnv and the codomain of interpretAst and a lot of other
+-- code would need to be changed. So instead we promote results to @target@
+-- similarly as in AstEnv. We maintain an invariant that a value
+-- of interpretation of a term with PrimalSpan has zero dual part
+-- and of a term with DualSpan has zero primal part.
+-- The invariants holds by the properties of instances of Ops
+-- (see especially the ADVal instance, which zeroes dual part of many ops)
+-- and structural induction on Ast, inspecting spans of constructors.
+-- This promotion to @target@ coincides with how most operations that in Ast
+-- have PrimalSpan, don't have PrimalOf (but have full target instead)
+-- in their method signatures in Ops, for user comfort.
+interpretAst
+  :: forall target s y. (ADReady target, AstSpan s)
   => AstEnv target -> AstTensor AstMethodLet s y
   -> target y
 interpretAst !env = \case
@@ -168,9 +173,18 @@ interpretAst !env = \case
   AstDualPart a ->
     tfromDual (tdualPart (ftkToSTK (ftkAst a)) $ interpretAstFull env a)
   AstFromPrimal a ->
+    -- By the invariant, interpretation of @a@ has zero dual part,
+    -- so we don't have to do the following to remove the dual part,
+    -- but we still do, because there's almost no rewriting of delta
+    -- expressions, so even though they are semantically zero, they'd build
+    -- up considerably if not wiped out regularly. By constrast, operations
+    -- on AstConstant are rewritten eagerly to AstConstant, so for AstFromDual
+    -- we really don't need to do anything.
     tfromPrimal (ftkToSTK (ftkAst a)) (interpretAstPrimal env a)
-  AstFromDual a ->
-    tfromDual (interpretAstDual env a)
+  AstFromDual a -> interpretAst env a
+    -- By the invariant, interpretation of @a@ has zero primal part,
+    -- so we don't have to do the following to remove the primal part:
+    --   tfromDual (interpretAstDual env a)
 
   AstPlusK u v -> interpretAst env u + interpretAst env v
   AstTimesK u v -> interpretAst env u * interpretAst env v
@@ -194,11 +208,11 @@ interpretAst !env = \case
       -- (and similarly for tsconcretet and tsiota below):
       -- tfromPrimal @target STKScalar $ tkconcrete @(PrimalOf target) k
   AstFloorK v ->
-    tfromPrimal STKScalar $ tkfloor $ interpretAstPrimal env v
-      -- tfromPrimal is needed to end up in @target@ instead of the correct
-      -- @PrimalOf target@, see the comment about interpretAst
+    -- By the invariant v has zero dual part, so the following suffices:
+    tkfloor $ interpretAst env v
   AstFromIntegralK v ->
-    tfromPrimal STKScalar $ tkfromIntegral $ interpretAstPrimal env v
+    -- By the invariant v has zero dual part, so the following suffices:
+    tkfromIntegral $ interpretAst env v
   AstCastK v -> tkcast $ interpretAst env v
 
   AstPlusS u v -> interpretAst env u + interpretAst env v
@@ -210,14 +224,12 @@ interpretAst !env = \case
   AstI2S opCode u v ->
     interpretAstI2F opCode (interpretAst env u) (interpretAst env v)
   AstConcreteS a -> tsconcrete a
-  AstFloorS v -> case ftkAst v of
-    FTKS sh _ ->
-      withKnownShS sh $
-      tfromPrimal knownSTK $ tsfloor $ interpretAstPrimal env v
-  AstFromIntegralS v -> case ftkAst v of
-    FTKS sh _ ->
-      withKnownShS sh $
-      tfromPrimal knownSTK $ tsfromIntegral $ interpretAstPrimal env v
+  AstFloorS v ->
+    -- By the invariant v has zero dual part, so the following suffices:
+    tsfloor $ interpretAst env v
+  AstFromIntegralS v ->
+    -- By the invariant v has zero dual part, so the following suffices:
+    tsfromIntegral $ interpretAst env v
   AstCastS @r1 @r2 v ->
     -- Specializing for the cases covered by rules in GHC.Internal.Float.
     case testEquality (typeRep @r1) (typeRep @Double) of
@@ -284,14 +296,12 @@ interpretAst !env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstMinIndexS v -> case ftkToSTK (ftkAst v) of
-    STKS nsh _ ->
-      tfromPrimal (STKS (shsInit nsh) STKScalar)
-      $ tsminIndex $ interpretAstPrimal env v
-  AstMaxIndexS v -> case ftkToSTK (ftkAst v) of
-    STKS nsh _ ->
-      tfromPrimal (STKS (shsInit nsh) STKScalar)
-      $ tsmaxIndex $ interpretAstPrimal env v
+  AstMinIndexS v ->
+    -- By the invariant v has zero dual part, so the following suffices:
+    tsminIndex $ interpretAst env v
+  AstMaxIndexS v ->
+    -- By the invariant v has zero dual part, so the following suffices:
+    tsmaxIndex $ interpretAst env v
   AstIotaS SNat -> tsiota
   AstAppendS a b -> case ftkToSTK (ftkAst a) of
     STKS _ x ->
@@ -382,7 +392,7 @@ interpretAstHFun _env = \case
       -- We ignore the variable and term having PrimalSpanm because
       -- we don't have FullShapeTK y in order to use tfromPrimal.
       -- Consequently, in the rare case when the user-supplied function
-      -- has a non-trivial dual number component, it won't be GCed early,
+      -- has a non-trivial dual number part, it won't be GCed early,
       -- but only in OpsADVal.
 
 interpretAstBool :: ADReady target
