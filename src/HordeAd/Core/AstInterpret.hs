@@ -52,6 +52,23 @@ interpretAstPrimal
   => AstEnv target -> AstTensor AstMethodLet PrimalSpan y
   -> PrimalOf target y
 interpretAstPrimal !env v1 = case v1 of
+  AstMapAccumRDer k bftk eftk f0 df0 rf0 acc0 es ->
+    -- This avoids computing the complex dual parts for mapAccum in ADVal.
+    let f = interpretAstHFunPrimal env f0
+        df = interpretAstHFunPrimal env df0
+        rf = interpretAstHFunPrimal env rf0
+        acc02 = interpretAstPrimal env acc0
+        es2 = interpretAstPrimal env es
+    in tmapAccumRDer (Proxy @(PrimalOf target))
+                     k (ftkAst acc0) bftk eftk f df rf acc02 es2
+  AstMapAccumLDer k bftk eftk f0 df0 rf0 acc0 es ->
+    let f = interpretAstHFunPrimal env f0
+        df = interpretAstHFunPrimal env df0
+        rf = interpretAstHFunPrimal env rf0
+        acc02 = interpretAstPrimal env acc0
+        es2 = interpretAstPrimal env es
+    in tmapAccumLDer (Proxy @(PrimalOf target))
+                     k (ftkAst acc0) bftk eftk f df rf acc02 es2
   AstCond b a1 a2 ->
     -- This avoids multiple ifH expansions in ADVal.
     let c = interpretAstBool env b
@@ -393,6 +410,16 @@ interpretAstHFun _env = \case
       -- Consequently, in the rare case when the user-supplied function
       -- has a non-trivial dual number part, it won't be GCed early,
       -- but only in OpsADVal.
+
+interpretAstHFunPrimal
+  :: forall target x y. ADReady target
+  => AstEnv target -> AstHFun x y
+  -> HFunOf (PrimalOf target) x y
+{-# INLINE interpretAstHFunPrimal #-}
+interpretAstHFunPrimal _env = \case
+  AstLambda var l ->
+    tlambda @(PrimalOf target) (varNameToFTK var)
+    $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
 
 interpretAstBool :: ADReady target
                  => AstEnv target -> AstBool AstMethodLet
