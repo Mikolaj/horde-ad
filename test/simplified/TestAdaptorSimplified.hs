@@ -8,6 +8,7 @@ module TestAdaptorSimplified
 import Prelude
 
 import Data.Int (Int64)
+import Data.Kind (Type)
 import Data.List.NonEmpty qualified as NonEmpty
 import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
@@ -536,19 +537,23 @@ testGradFooDouble =
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
     (gradFooDouble (1.1, 2.2, 3.3))
 
+type TwoByTwoMatrix :: forall {k}. (TK -> k) -> Type -> k
+type TwoByTwoMatrix f r = f (TKS '[2, 2] r)
+type ThreeConcreteMatrices r = (TwoByTwoMatrix RepN r, TwoByTwoMatrix RepN r, TwoByTwoMatrix RepN r)
+threeSimpleMatrices :: ThreeConcreteMatrices Double
+threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)
 gradFooMatrix :: (Differentiable r, GoodScalar r)
-              => (RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r))
-              -> (RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r))
+              => ThreeConcreteMatrices r -> ThreeConcreteMatrices r
 gradFooMatrix = crev foo
 
 testGradFooMatrix :: Assertion
 testGradFooMatrix =
   assertEqualUpToEpsilon 1e-10
     (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
-    (gradFooMatrix (srepl 1.1, srepl 2.2, srepl (3.3 :: Double)))
+    (gradFooMatrix threeSimpleMatrices)
 
-fooLet :: (RealFloatH (target a), LetTensor target)
-       => (target a, target a, target a) -> target a
+fooLet :: (RealFloatH (f r), LetTensor f)
+       => (f r, f r, f r) -> f r
 fooLet (x, y, z) =
   tlet (x * sin y) $ \w ->
     atan2H z w + z * w
@@ -556,16 +561,16 @@ fooLet (x, y, z) =
 testGradFooLetMatrixPP :: Assertion
 testGradFooLetMatrixPP = do
   resetVarCounter >> resetIdCounter
-  (let ftk = FTKS @'[2, 2] [2, 2] (FTKScalar @Double)
-   in printArtifactPretty
-        (fst $ revArtifactAdapt True fooLet (FTKProduct (FTKProduct ftk ftk) ftk)))
-      @?= "\\dret m1 -> let m3 = sin (tproject2 (tproject1 m1)) ; m4 = tproject1 (tproject1 m1) * m3 ; m5 = recip (tproject2 m1 * tproject2 m1 + m4 * m4) ; m7 = (negate (tproject2 m1) * m5) * dret + tproject2 m1 * dret in tpair (tpair (m3 * m7, cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7)), (m4 * m5) * dret + m4 * dret)"
+  printArtifactPretty
+    (let shapes = tftk @RepN knownSTK (toTarget threeSimpleMatrices)
+     in fst $ revArtifactAdapt True fooLet shapes)
+    @?= "\\dret m1 -> let m3 = sin (tproject2 (tproject1 m1)) ; m4 = tproject1 (tproject1 m1) * m3 ; m5 = recip (tproject2 m1 * tproject2 m1 + m4 * m4) ; m7 = (negate (tproject2 m1) * m5) * dret + tproject2 m1 * dret in tpair (tpair (m3 * m7, cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7)), (m4 * m5) * dret + m4 * dret)"
 
 testGradFooMatrixRev :: Assertion
 testGradFooMatrixRev =
   assertEqualUpToEpsilon 1e-10
     (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
-    (rev (fooLet @_ @(TKS [2, 2] Double)) (srepl 1.1, srepl 2.2, srepl 3.3))
+    (rev fooLet threeSimpleMatrices)
 
 testGradFooLetMatrixSimpPP :: Assertion
 testGradFooLetMatrixSimpPP = do

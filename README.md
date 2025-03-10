@@ -39,23 +39,26 @@ which can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
 
 Instantiated to matrices, the gradient is:
 ```hs
-gradFooMatrix :: Differentiable r, GoodScalar r)
-              => (RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r))
-              -> (RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r), RepN (TKS '[2, 2] r))
+type TwoByTwoMatrix f r = f (TKS '[2, 2] r)
+type ThreeConcreteMatrices r = (TwoByTwoMatrix RepN r, TwoByTwoMatrix RepN r, TwoByTwoMatrix RepN r)
+threeSimpleMatrices :: ThreeConcreteMatrices Double
+threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)
+gradFooMatrix :: (Differentiable r, GoodScalar r)
+              => ThreeConcreteMatrices r -> ThreeConcreteMatrices r
 gradFooMatrix = crev foo
 ```
 
 as can be verified by:
 ```hs
->>> gradFooMatrix (srepl 1.1, srepl 2.2, srepl (3.3 :: Double))
+>>> gradFooMatrix threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
 ```
 
 Note that `w` is processed only once during gradient computation and this property of sharing preservation is guaranteed for the `crev` tool universally, without any action required from the user. When computing symbolic derivative programs, however, the user has to explicitly mark values for sharing using `tlet` with a more specific type of the objective function, as shown below.
 
 ```hs
-fooLet :: (RealFloatH (target a), LetTensor target)
-       => (target a, target a, target a) -> target a
+fooLet :: (RealFloatH (f r), LetTensor f)
+       => (f r, f r, f r) -> f r
 fooLet (x, y, z) =
   tlet (x * sin y) $ \w ->
     atan2H z w + z * w
@@ -63,9 +66,9 @@ fooLet (x, y, z) =
 
 The symbolic gradient program (here presented with additional formatting) can be then obtained using the `revArtifactAdapt` tool:
 ```hs
->>> let ftk = FTKS @'[2, 2] [2, 2] (FTKScalar @Double)
-    in printArtifactPretty
-         (fst $ revArtifactAdapt True fooLet (FTKProduct (FTKProduct ftk ftk) ftk))
+>>> printArtifactPretty
+      (let staticShapes = tftk @RepN knownSTK (toTarget threeSimpleMatrices)
+       in fst $ revArtifactAdapt True fooLet staticShapes)
 "\dret m1 ->
    let m3 = sin (tproject2 (tproject1 m1))
        m4 = tproject1 (tproject1 m1) * m3
@@ -79,7 +82,7 @@ The symbolic gradient program (here presented with additional formatting) can be
 A quick inspection of the gradient program reveals that computations are not repeated, which is thanks to the sharing mechanism. A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value should be the same (after accounting for the 3-tuple represented with binary product) as when evaluating `fooLet` with `crev` on the same input. A shorthand that creates the symbolic derivative program and interprets it with a given input on the default CPU backend is called `rev` and is used exactly the same (but with often much better performance) as `crev`.
 
 ```hs
->>> rev (fooLet @_ @(TKS [2, 2] Double)) (srepl 1.1, srepl 2.2, srepl 3.3)
+>>> rev fooLet threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
 ```
 
