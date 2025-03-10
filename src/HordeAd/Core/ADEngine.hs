@@ -166,8 +166,8 @@ revEvalArtifact AstArtifactRev{..} parameters mdt =
           in extendEnv artVarDtRev oneAtF env
         Just dt ->
           extendEnv artVarDtRev dt env
-      gradient = interpretAst{-TODO once specialization under onctrol Primal-} envDt artDerivativeRev
-      primal = interpretAst{-Primal-} env artPrimalRev
+      gradient = interpretAstPrimal envDt artDerivativeRev
+      primal = interpretAstPrimal env artPrimalRev
   in (gradient, primal)
 
 
@@ -217,8 +217,8 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds =
   in if adFTK (tftkG xstk (unRepN parameters)) == tftkG astk (unRepN ds) then
        let env = extendEnv artVarDomainFwd parameters emptyEnv
            envD = extendEnv artVarDsFwd ds env
-           derivative = interpretAst{-Primal-} envD artDerivativeFwd
-           primal = interpretAst{-Primal-} env artPrimalFwd
+           derivative = interpretAstPrimal envD artDerivativeFwd
+           primal = interpretAstPrimal env artPrimalFwd
        in (derivative, primal)
      else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shape"
 
