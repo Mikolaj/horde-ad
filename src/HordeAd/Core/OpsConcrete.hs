@@ -91,10 +91,10 @@ instance BaseTensor RepN where
     STKScalar ->  -- optimized
       RepN . Nested.rscalar . Nested.rsumAllPrim . unRepN $ t
     _ -> trsum . rflatten $ t
-  {-# INLINE trdot0 #-}  -- this doesn't want to specialize
+  {-# INLINE trdot0 #-}
   trdot0 u v = RepN $ Nested.rscalar $ Nested.rdot (unRepN u) (unRepN v)
   trdot1In u v = RepN $ Nested.rdot1Inner (unRepN u) (unRepN v)
-  {-# INLINE trmatvecmul #-}  -- this doesn't want to specialize
+  {-# INLINE trmatvecmul #-}
   trmatvecmul m v = trsum (rtr (trreplicate (rwidth m) v * m))
   trmatmul2 m1 m2 = RepN $ tmatmul2R (unRepN m1) (unRepN m2)
   trreplicate @_ @r k | Dict <- eltDictRep (knownSTK @r) =
@@ -110,7 +110,7 @@ instance BaseTensor RepN where
   trconcrete = RepN
   trfloor = RepN . liftVR (V.map floor) . unRepN
   trfromIntegral = RepN . liftVR (V.map fromIntegral) . unRepN
-  {-# INLINE trcast #-}  -- this doesn't want to specialize
+  {-# INLINE trcast #-}
   trcast = RepN . liftVR (V.map realToFrac) . unRepN
   trminIndex = RepN . tminIndexR . unRepN
   trmaxIndex = RepN . tmaxIndexR . unRepN
@@ -311,7 +311,7 @@ instance BaseTensor RepN where
       RepN . Nested.mscalar . Nested.msumAllPrim . unRepN $ t
     _ -> withSNat (shxSize $ xshape t) $ \snat ->
       txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
-  {-# INLINE txdot0 #-}  -- this doesn't want to specialize
+  {-# INLINE txdot0 #-}
   txdot0 u v =
     RepN $ Nested.mscalar $ Nested.mdot (unRepN u) (unRepN v)
   txdot1In @_ @n u v =
@@ -328,7 +328,7 @@ instance BaseTensor RepN where
                     * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
                                             :$% Nested.SKnown (SNat @n)
                                             :$% ZSX)) m))
-  {-# INLINE txmatvecmul #-}  -- this doesn't want to specialize
+  {-# INLINE txmatvecmul #-}
   txmatmul2 m1 m2 = RepN $ tmatmul2X (unRepN m1) (unRepN m2)
   txreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     RepN . Nested.mreplicate (Nested.SKnown SNat :$% ZSX) . unRepN
@@ -397,7 +397,7 @@ instance BaseTensor RepN where
   txconcrete = RepN
   txfloor = RepN . liftVX (V.map floor) . unRepN
   txfromIntegral = RepN . liftVX (V.map fromIntegral) . unRepN
-  {-# INLINE txcast #-}  -- this doesn't want to specialize
+  {-# INLINE txcast #-}
   txcast = RepN . liftVX (V.map realToFrac) . unRepN
   txminIndex = RepN . tminIndexX . unRepN
   txmaxIndex = RepN . tmaxIndexX . unRepN

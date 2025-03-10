@@ -374,6 +374,19 @@ cfwdBoth f vals ds =
   -> AstTensor AstMethodLet FullSpan y
   -> RepN y #-}
 
+{-# SPECIALIZE interpretAstPrimal
+  :: AstEnv (ADVal RepN)
+  -> AstTensor AstMethodLet PrimalSpan y
+  -> RepN y #-}
+{-# SPECIALIZE interpretAstPrimal
+  :: AstEnv (ADVal (AstRaw PrimalSpan))
+  -> AstTensor AstMethodLet PrimalSpan y
+  -> AstRaw PrimalSpan y #-}
+{-# SPECIALIZE interpretAstPrimal
+  :: AstEnv RepN
+  -> AstTensor AstMethodLet PrimalSpan y
+  -> RepN y #-}
+
 {-# SPECIALIZE interpretAstBool
   :: AstEnv (ADVal RepN)
   -> AstBool AstMethodLet

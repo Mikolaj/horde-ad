@@ -2281,7 +2281,7 @@ astSFromK :: forall r s. (GoodScalar r, AstSpan s)
               => AstTensor AstMethodLet s (TKScalar r)
               -> AstTensor AstMethodLet s (TKS '[] r)
 astSFromK t = case t of
-  Ast.AstCond b a2 a3 -> Ast.AstCond b (astSFromK a2) (astSFromK a3)
+  Ast.AstCond b a2 a3 -> astCond b (astSFromK a2) (astSFromK a3)
   AstConcreteK k -> astConcreteS (tsconcrete $ Nested.sscalar k)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSFromK v
   Ast.AstFromDual v -> Ast.AstFromDual $ astSFromK v

@@ -51,15 +51,13 @@ interpretAstPrimal
   :: forall target y. ADReady target
   => AstEnv target -> AstTensor AstMethodLet PrimalSpan y
   -> PrimalOf target y
-{-# INLINE interpretAstPrimal #-}
 interpretAstPrimal !env v1 = case v1 of
   AstCond b a1 a2 ->
     -- This avoids multiple ifH expansions in ADVal.
     let c = interpretAstBool env b
     in tcond (ftkToSTK $ ftkAst a1) c
              (interpretAstPrimal env a1) (interpretAstPrimal env a2)
-  _ ->
-    tprimalPart (interpretAst env v1)
+  _ -> tprimalPart (interpretAst env v1)
 
 interpretAstDual
   :: forall target y. ADReady target
@@ -254,12 +252,13 @@ interpretAst !env = \case
       -- value of the correct rank and shape; this is needed, because
       -- vectorization can produce out of bound indexing from code where
       -- the indexing is guarded by conditionals
+  {- TODO: this breaks specialization:
   AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
       withKnownShS (ixsToShS ix) $
       withKnownSTK x $
-      tsoneHot (interpretAst env v) (interpretAstPrimal env <$> ix)
+      tsoneHot (interpretAst env v) (interpretAstPrimal env <$> ix) -}
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->

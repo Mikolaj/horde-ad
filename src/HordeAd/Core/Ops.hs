@@ -607,6 +607,7 @@ class ( Num (IntOf target)
               , EqH (PrimalOf target) (TKScalar Int64))
            => IShR m -> target (TKR2 n x) -> IxROf target m
            -> target (TKR2 (m + n) x)
+  {-# INLINE troneHot #-}
   troneHot @_ @_ @x sh v ix = case knownSTK @x of
     STKScalar ->
       trscatter @_ @0 (shrAppend sh (rshape v)) v (const ix)
@@ -654,6 +655,7 @@ class ( Num (IntOf target)
               , EqH (PrimalOf target) (TKScalar Int64) )
            => target (TKS2 sh2 x) -> IxSOf target sh1
            -> target (TKS2 (sh1 ++ sh2) x)
+  {-# INLINE tsoneHot #-}  -- this doesn't want to specialize
   tsoneHot @sh1 @sh2 @x v ix
    | SNat <- shsRank (knownShS @sh1) = case knownSTK @x of
     STKScalar ->
@@ -711,6 +713,7 @@ class ( Num (IntOf target)
               , EqH (PrimalOf target) (TKScalar Int64), ConvertTensor target )
            => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
            -> target (TKX2 (sh1 ++ sh2) x)
+  {-# INLINE txoneHot #-}
   txoneHot @sh1 @sh2 @x sh1 v ix
    | SNat <- ssxRank (knownShX @sh1) = case knownSTK @x of
     STKScalar ->
