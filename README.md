@@ -64,16 +64,16 @@ fooLet (x, y, z) =
 The symbolic gradient program (here presented with additional formatting) can be then obtained using the `revArtifactAdapt` tool:
 ```hs
 >>> let ftk = FTKS @'[2, 2] [2, 2] (FTKScalar @Double)
-    in printArtifactGradient
+    in printArtifactPretty
          (fst $ revArtifactAdapt True fooLet (FTKProduct (FTKProduct ftk ftk) ftk))
-"\m6 m1 ->
+"\dret m1 ->
    let m3 = sin (tproject2 (tproject1 m1))
        m4 = tproject1 (tproject1 m1) * m3
        m5 = recip (tproject2 m1 * tproject2 m1 + m4 * m4)
-       m7 = (negate (tproject2 m1) * m5) * m6 + tproject2 m1 * m6
+       m7 = (negate (tproject2 m1) * m5) * dret + tproject2 m1 * dret
     in tpair
          ( tpair (m3 * m7, cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7))
-         , (m4 * m5) * m6 + m4 * m6)"
+         , (m4 * m5) * dret + m4 * dret)
 ```
 
 A quick inspection of the gradient program reveals that computations are not repeated, which is thanks to the sharing mechanism. A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value should be the same (after accounting for the 3-tuple represented with binary product) as when evaluating `fooLet` with `crev` on the same input. A shorthand that creates the symbolic derivative program and interprets it with a given input on the default CPU backend is called `rev` and is used exactly the same (but with often much better performance) as `crev`.

@@ -8,7 +8,6 @@ module TestConvSimplified (testTrees) where
 import Prelude
 
 import Control.Exception (assert)
-import Data.IntMap.Strict qualified as IM
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 import Test.Tasty
@@ -564,8 +563,8 @@ testConv2dUnpadded2PP = do
       (artifactRev, _) =
         revArtifactFromForwardPass
           True (forwardPassByInterpretation f emptyEnv) ftk
-  printArtifactPretty IM.empty (simplifyArtifact artifactRev)
-    @?= "\\u56 u1 -> tfromS (let w57 = sgather (sfromR u56) (\\[i81, i82, i83, i84, i85, i86, i87, i88] -> [remH (quotH (((((((64 * i81 + 32 * i82) + 16 * i83) + 8 * i84) + 8 * i85) + 4 * i86) + 2 * i87) + i88) 64) 2, remH (quotH (((((((64 * i81 + 32 * i82) + 16 * i83) + 8 * i84) + 8 * i85) + 4 * i86) + 2 * i87) + i88) 32) 2, remH (quotH (((((((64 * i81 + 32 * i82) + 16 * i83) + 8 * i84) + 8 * i85) + 4 * i86) + 2 * i87) + i88) 16) 2, remH (quotH (((((((64 * i81 + 32 * i82) + 16 * i83) + 8 * i84) + 8 * i85) + 4 * i86) + 2 * i87) + i88) 8) 2]) in tpair (sscatter (sscatter (ssum @2 (ssum @2 (ssum @2 (stranspose @[1,2,3,0] (sreplicate @2 (sgather (sfromVector (fromList [sgather (sfromR (tproject2 u1)) (\\[i33, i34, i35, i36, i37, i38, i39] -> [i33 + i36, i37, i34 + i38, i35 + i39]), sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))])) (\\[i40, i41, i42, i43, i44, i45, i46] -> [ifH ((0 <=. i40 + i43 &&* 2 >. i40 + i43) &&* ((0 <=. i44 &&* 2 >. i44) &&* ((0 <=. i41 + i45 &&* 2 >. i41 + i45) &&* (0 <=. i42 + i46 &&* 2 >. i42 + i46)))) 0 1, i40, i41, i42, i43, i44, i45, i46]))) * stranspose @[0,2,3,1] w57)))) (\\[i58, i59, i60, i61, i62] -> [ifH ((0 <=. i58 + i59 &&* 2 >. i58 + i59) &&* ((0 <=. i60 &&* 2 >. i60) &&* ((0 <=. i61 &&* 2 >. i61) &&* (0 <=. i62 &&* 2 >. i62)))) 0 1, i58, i59, i60, i61, i62]) !$ [0]) (\\[i64, i65] -> [i64 + i65]), sscatter (sscatter (ssum @2 (stranspose @[3,0,1,2] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sgather (sfromVector (fromList [sgather (sfromR (tproject1 u1)) (\\[i47, i48] -> [i47 + i48]), sreplicate @2 (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))])) (\\[i49, i50, i51, i52, i53] -> [ifH ((0 <=. i49 + i50 &&* 2 >. i49 + i50) &&* ((0 <=. i51 &&* 2 >. i51) &&* ((0 <=. i52 &&* 2 >. i52) &&* (0 <=. i53 &&* 2 >. i53)))) 0 1, i49, i50, i51, i52, i53]))))) * str w57)) (\\[i66, i67, i68, i69, i70, i71, i72] -> [ifH ((0 <=. i66 + i69 &&* 2 >. i66 + i69) &&* ((0 <=. i70 &&* 2 >. i70) &&* ((0 <=. i67 + i71 &&* 2 >. i67 + i71) &&* (0 <=. i68 + i72 &&* 2 >. i68 + i72)))) 0 1, i66, i67, i68, i69, i70, i71, i72]) !$ [0]) (\\[i74, i75, i76, i77, i78, i79, i80] -> [i74 + i77, i78, i75 + i79, i76 + i80])))"
+  printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\dret u1 -> tfromS (let w57 = sgather (sfromR dret) (\\[i81, i82, i83, i84, i85, i86, i87, i88] -> [remH (quotH (((((((64 * i81 + 32 * i82) + 16 * i83) + 8 * i84) + 8 * i85) + 4 * i86) + 2 * i87) + i88) 64) 2, remH (quotH (((((((64 * i81 + 32 * i82) + 16 * i83) + 8 * i84) + 8 * i85) + 4 * i86) + 2 * i87) + i88) 32) 2, remH (quotH (((((((64 * i81 + 32 * i82) + 16 * i83) + 8 * i84) + 8 * i85) + 4 * i86) + 2 * i87) + i88) 16) 2, remH (quotH (((((((64 * i81 + 32 * i82) + 16 * i83) + 8 * i84) + 8 * i85) + 4 * i86) + 2 * i87) + i88) 8) 2]) in tpair (sscatter (sscatter (ssum @2 (ssum @2 (ssum @2 (stranspose @[1,2,3,0] (sreplicate @2 (sgather (sfromVector (fromList [sgather (sfromR (tproject2 u1)) (\\[i33, i34, i35, i36, i37, i38, i39] -> [i33 + i36, i37, i34 + i38, i35 + i39]), sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))])) (\\[i40, i41, i42, i43, i44, i45, i46] -> [ifH ((0 <=. i40 + i43 &&* 2 >. i40 + i43) &&* ((0 <=. i44 &&* 2 >. i44) &&* ((0 <=. i41 + i45 &&* 2 >. i41 + i45) &&* (0 <=. i42 + i46 &&* 2 >. i42 + i46)))) 0 1, i40, i41, i42, i43, i44, i45, i46]))) * stranspose @[0,2,3,1] w57)))) (\\[i58, i59, i60, i61, i62] -> [ifH ((0 <=. i58 + i59 &&* 2 >. i58 + i59) &&* ((0 <=. i60 &&* 2 >. i60) &&* ((0 <=. i61 &&* 2 >. i61) &&* (0 <=. i62 &&* 2 >. i62)))) 0 1, i58, i59, i60, i61, i62]) !$ [0]) (\\[i64, i65] -> [i64 + i65]), sscatter (sscatter (ssum @2 (stranspose @[3,0,1,2] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sgather (sfromVector (fromList [sgather (sfromR (tproject1 u1)) (\\[i47, i48] -> [i47 + i48]), sreplicate @2 (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))])) (\\[i49, i50, i51, i52, i53] -> [ifH ((0 <=. i49 + i50 &&* 2 >. i49 + i50) &&* ((0 <=. i51 &&* 2 >. i51) &&* ((0 <=. i52 &&* 2 >. i52) &&* (0 <=. i53 &&* 2 >. i53)))) 0 1, i49, i50, i51, i52, i53]))))) * str w57)) (\\[i66, i67, i68, i69, i70, i71, i72] -> [ifH ((0 <=. i66 + i69 &&* 2 >. i66 + i69) &&* ((0 <=. i70 &&* 2 >. i70) &&* ((0 <=. i67 + i71 &&* 2 >. i67 + i71) &&* (0 <=. i68 + i72 &&* 2 >. i68 + i72)))) 0 1, i66, i67, i68, i69, i70, i71, i72]) !$ [0]) (\\[i74, i75, i76, i77, i78, i79, i80] -> [i74 + i77, i78, i75 + i79, i76 + i80])))"
 
 -- This is fragile due to indexing out of bounds, see above.
 testConv2dUnpadded3PP :: Assertion
@@ -581,19 +580,19 @@ testConv2dUnpadded3PP = do
       (artifactRev, _) =
         revArtifactFromForwardPass
           True (forwardPassByInterpretation f emptyEnv) ftk
-  printArtifactPretty IM.empty artifactRev
-    @?= "\\u32 u1 -> let w30 = str (sreplicate @2 (sgather (sfromR (tproject2 u1)) (\\[i21, i22, i23, i24, i25, i26, i27] -> [i21 + i24, i25, i22 + i26, i23 + i27]))) ; w31 = stranspose @[0,3,1,2] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sgather (sfromR (tproject1 u1)) (\\[i28, i29] -> [i28 + i29]))))) ; w33 = sreshape (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR u32))) in tpair (rfromS (sscatter (ssum @2 (ssum @2 (ssum @2 (stranspose @[0,2,3,1] (w30 * w33))))) (\\[i34, i35] -> [i34 + i35])), rfromS (sscatter (ssum @2 (str (w31 * w33))) (\\[i36, i37, i38, i39, i40, i41, i42] -> [i36 + i39, i40, i37 + i41, i38 + i42])))"
-  printArtifactPretty IM.empty (simplifyArtifact artifactRev)
-    @?= "\\u32 u1 -> tfromS (let w33 = sgather (sfromR u32) (\\[i43, i44, i45, i46, i47, i48, i49, i50] -> [remH (quotH (((((((64 * i43 + 32 * i44) + 16 * i45) + 8 * i46) + 8 * i47) + 4 * i48) + 2 * i49) + i50) 64) 2, remH (quotH (((((((64 * i43 + 32 * i44) + 16 * i45) + 8 * i46) + 8 * i47) + 4 * i48) + 2 * i49) + i50) 32) 2, remH (quotH (((((((64 * i43 + 32 * i44) + 16 * i45) + 8 * i46) + 8 * i47) + 4 * i48) + 2 * i49) + i50) 16) 2, remH (quotH (((((((64 * i43 + 32 * i44) + 16 * i45) + 8 * i46) + 8 * i47) + 4 * i48) + 2 * i49) + i50) 8) 2]) in tpair (sscatter (ssum @2 (ssum @2 (ssum @2 (stranspose @[1,2,3,0] (sreplicate @2 (sgather (sfromR (tproject2 u1)) (\\[i21, i22, i23, i24, i25, i26, i27] -> [i21 + i24, i25, i22 + i26, i23 + i27]))) * stranspose @[0,2,3,1] w33)))) (\\[i34, i35] -> [i34 + i35]), sscatter (ssum @2 (stranspose @[3,0,1,2] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sgather (sfromR (tproject1 u1)) (\\[i28, i29] -> [i28 + i29]))))) * str w33)) (\\[i36, i37, i38, i39, i40, i41, i42] -> [i36 + i39, i40, i37 + i41, i38 + i42])))"
-  printArtifactPrimalPretty IM.empty artifactRev
+  printArtifactPretty artifactRev
+    @?= "\\dret u1 -> let w30 = str (sreplicate @2 (sgather (sfromR (tproject2 u1)) (\\[i21, i22, i23, i24, i25, i26, i27] -> [i21 + i24, i25, i22 + i26, i23 + i27]))) ; w31 = stranspose @[0,3,1,2] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sgather (sfromR (tproject1 u1)) (\\[i28, i29] -> [i28 + i29]))))) ; w33 = sreshape (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (rfromS (sscatter (ssum @2 (ssum @2 (ssum @2 (stranspose @[0,2,3,1] (w30 * w33))))) (\\[i34, i35] -> [i34 + i35])), rfromS (sscatter (ssum @2 (str (w31 * w33))) (\\[i36, i37, i38, i39, i40, i41, i42] -> [i36 + i39, i40, i37 + i41, i38 + i42])))"
+  printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\dret u1 -> tfromS (let w33 = sgather (sfromR dret) (\\[i43, i44, i45, i46, i47, i48, i49, i50] -> [remH (quotH (((((((64 * i43 + 32 * i44) + 16 * i45) + 8 * i46) + 8 * i47) + 4 * i48) + 2 * i49) + i50) 64) 2, remH (quotH (((((((64 * i43 + 32 * i44) + 16 * i45) + 8 * i46) + 8 * i47) + 4 * i48) + 2 * i49) + i50) 32) 2, remH (quotH (((((((64 * i43 + 32 * i44) + 16 * i45) + 8 * i46) + 8 * i47) + 4 * i48) + 2 * i49) + i50) 16) 2, remH (quotH (((((((64 * i43 + 32 * i44) + 16 * i45) + 8 * i46) + 8 * i47) + 4 * i48) + 2 * i49) + i50) 8) 2]) in tpair (sscatter (ssum @2 (ssum @2 (ssum @2 (stranspose @[1,2,3,0] (sreplicate @2 (sgather (sfromR (tproject2 u1)) (\\[i21, i22, i23, i24, i25, i26, i27] -> [i21 + i24, i25, i22 + i26, i23 + i27]))) * stranspose @[0,2,3,1] w33)))) (\\[i34, i35] -> [i34 + i35]), sscatter (ssum @2 (stranspose @[3,0,1,2] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sgather (sfromR (tproject1 u1)) (\\[i28, i29] -> [i28 + i29]))))) * str w33)) (\\[i36, i37, i38, i39, i40, i41, i42] -> [i36 + i39, i40, i37 + i41, i38 + i42])))"
+  printArtifactPrimalPretty artifactRev
     @?= "\\u1 -> let w30 = str (sreplicate @2 (sgather (sfromR (tproject2 u1)) (\\[i21, i22, i23, i24, i25, i26, i27] -> [i21 + i24, i25, i22 + i26, i23 + i27]))) ; w31 = stranspose @[0,3,1,2] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sgather (sfromR (tproject1 u1)) (\\[i28, i29] -> [i28 + i29]))))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape (w30 * w31))))"
-  printArtifactPrimalPretty IM.empty (simplifyArtifact artifactRev)
+  printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\u1 -> rfromS (ssum @8 (sgather (str (sreplicate @2 (sgather (sfromR (tproject2 u1)) (\\[i21, i22, i23, i24, i25, i26, i27] -> [i21 + i24, i25, i22 + i26, i23 + i27]))) * stranspose @[0,3,1,2] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sgather (sfromR (tproject1 u1)) (\\[i28, i29] -> [i28 + i29])))))) (\\[i69, i70, i71, i72, i73] -> [remH (quotH ((((64 * i70 + 32 * i71) + 16 * i72) + 8 * i73) + i69) 64) 2, remH (quotH ((((64 * i70 + 32 * i71) + 16 * i72) + 8 * i73) + i69) 32) 2, remH (quotH ((((64 * i70 + 32 * i71) + 16 * i72) + 8 * i73) + i69) 16) 2, remH (quotH ((((64 * i70 + 32 * i71) + 16 * i72) + 8 * i73) + i69) 8) 2, 0, remH (quotH ((((64 * i70 + 32 * i71) + 16 * i72) + 8 * i73) + i69) 4) 2, remH (quotH ((((64 * i70 + 32 * i71) + 16 * i72) + 8 * i73) + i69) 2) 2, remH ((((64 * i70 + 32 * i71) + 16 * i72) + 8 * i73) + i69) 2])))"
 
 testCNNOPP2 :: Assertion
 testCNNOPP2 = do
   resetVarCounter
-  printAstPretty IM.empty maxPool2dUnpadded2
+  printAstPretty maxPool2dUnpadded2
     @?= "rfromS (sreplicate @1 (sreplicate @1 (let w46 = stranspose @[1,2,3,0] (sreplicate @1 (sgather (sfromVector (fromList [let w22 = stranspose @[0,1,4,2,3] (sreplicate @1 (sreplicate @1 (sreplicate @2 (sreplicate @2 (treplicate (SNat @1) (STKScalar) 1 + siota (SNat @1)))))) ; w27 = stranspose @[3,0,1,4,2] (sreplicate @1 (sreplicate @1 (sreplicate @2 (str (sreplicate @2 (treplicate (SNat @1) (STKScalar) 2 * siota (SNat @1))) + sreplicate @1 (siota (SNat @2)))))) ; w28 = stranspose @[0,3,1,2] (sreplicate @1 (sreplicate @1 (sreplicate @2 (str (sreplicate @2 (treplicate (SNat @1) (STKScalar) 2 * siota (SNat @1))) + sreplicate @1 (siota (SNat @2)))))) in sgather (sfromVector (fromList [sgather (sconcrete (sfromListLinear [1,1,2,2] [1.0,1.0,1.0,1.0])) (\\[i61, i53, i45, i39, i32] -> [kfromS (w22 !$ [i61, i53, i45, i39, i32]), 0, kfromS (w27 !$ [i61, i53, i45, i39, i32]), kfromS (w28 !$ [i61, i53, i45, i39, i32])]), sreplicate @1 (sreplicate @1 (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))])) (\\[i60, i52, i44, i38, i33] -> [ifH (1 >. kfromS (w22 !$ [i60, i52, i44, i38, i33])) 0 1, i60, i52, i44, i38, i33]), sreplicate @1 (sreplicate @1 (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))])) (\\[i56, i48, i40] -> [ifH (1 >. 1 + i40) 0 1, i56, i48, i40]))) in sgather w46 (\\[i55, i47] -> [i55, i47, 0, 0, 0, 0]))))"
 
 maxPool2dUnpadded2
@@ -646,7 +645,7 @@ testCNNOPP3 = do
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       afcnn2T = maxPool2dUnpadded3 $ conv2dUnpadded3 blackGlyph
-  printAstPretty IM.empty afcnn2T
+  printAstPretty afcnn2T
     @?= "rfromS (sreplicate @1 (sreplicate @1 (sreplicate @1 (sreplicate @1 (sscalar 0.0)))))"
 
 maxPool2dUnpadded3
@@ -697,9 +696,9 @@ testCNNOPP4 = do
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       afcnn2T = maxPool2dUnpadded4 $ conv2dUnpadded4 blackGlyph
-  printAstPretty IM.empty afcnn2T
+  printAstPretty afcnn2T
     @?= "rfromS (sreplicate @1 (sreplicate @1 (let w41 = sgather (sfromVector (fromList [let w21 = stranspose @[0,1,4,2,3] (sreplicate @1 (sreplicate @1 (sreplicate @2 (sreplicate @2 (treplicate (SNat @1) (STKScalar) 1 + siota (SNat @1)))))) ; w20 = stranspose @[3,0,1,4,2] (sreplicate @1 (sreplicate @1 (sreplicate @2 (str (sreplicate @2 (treplicate (SNat @1) (STKScalar) 2 * siota (SNat @1))) + sreplicate @1 (siota (SNat @2)))))) ; w12 = stranspose @[0,3,1,2] (sreplicate @1 (sreplicate @1 (sreplicate @2 (str (sreplicate @2 (treplicate (SNat @1) (STKScalar) 2 * siota (SNat @1))) + sreplicate @1 (siota (SNat @2)))))) in sgather (sconcrete (sfromListLinear [2] [7.0,0.0])) (\\[i54, i47, i36, i31, i30, i25] -> [ifH ((0 <=. kfromS (w21 !$ [i54, i47, i36, i30, i25]) &&* 1 >. kfromS (w21 !$ [i54, i47, i36, i30, i25])) &&* ((0 <=. kfromS (w20 !$ [i54, i47, i36, i30, i25]) &&* 2 >. kfromS (w20 !$ [i54, i47, i36, i30, i25])) &&* (0 <=. kfromS (w12 !$ [i54, i47, i36, i30, i25]) &&* 2 >. kfromS (w12 !$ [i54, i47, i36, i30, i25])))) 0 1]), sreplicate @1 (sreplicate @1 (sreplicate @1 (sgather (sreplicate @2 (sreplicate @2 (sscalar 0.0))) (\\[i31, i26, i22] -> [i26, i22]))))])) (\\[i50, i43, i35, i32, i33, i34] -> [ifH ((0 <=. 1 + i35 &&* 1 >. 1 + i35) &&* ((0 <=. 1 + i32 &&* 1 >. 1 + i32) &&* ((0 <=. 2 * i50 + i33 &&* 2 >. 2 * i50 + i33) &&* (0 <=. 2 * i43 + i34 &&* 2 >. 2 * i43 + i34)))) 0 1, i50, i43, i35, i32, i33, i34]) in sgather w41 (\\[i49, i42] -> [i49, i42, 0, 0, 0, 0]))))"
-  printAstPretty IM.empty (simplifyInlineContract afcnn2T)
+  printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (sreplicate @1 (sreplicate @1 (sreplicate @1 (sreplicate @1 (sscalar 0.0)))))"
 
 maxPool2dUnpadded4
@@ -749,14 +748,13 @@ testTomsSlice = do
 testTomsSlicePP :: Assertion
 testTomsSlicePP = do
   resetVarCounter >> resetIdCounter
-  let renames = IM.empty
-      f = codeTomsSlice
+  let f = codeTomsSlice
       (artifactRev, _delta) = revArtifactAdapt True f (FTKR [32, 4] FTKScalar)
-  printArtifactPretty renames artifactRev
-    @?= "\\x17 m1 -> let m14 = sgather (sfromR m1) (\\[i10, i11] -> [i10, i11]) ; m15 = sgather (sfromR m1) (\\[i12, i13] -> [i12, 1 + i13]) ; m18 = sreshape (sreplicate @96 (ssum @32 (siota (SNat @32) * ssum @4 (str (sreshape (sreplicate @128 (sfromR x17))))))) in rfromS (sscatter (m15 * m18) (\\[i21, i22] -> [i21, i22]) + sscatter (m14 * m18) (\\[i19, i20] -> [i19, 1 + i20]))"
-  printArtifactPretty renames (simplifyArtifact artifactRev)
-    @?= "\\x17 m1 -> rfromS (let m18 = sreplicate @32 (sreplicate @3 (sdot0 (siota (SNat @32)) (sconcrete (sfromListLinear [32] [4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0]) * sreplicate @32 (sfromR x17)))) in sscatter (sgather (sfromR m1) (\\[i12, i13] -> [i12, 1 + i13]) * m18) (\\[i21, i22] -> [i21, i22]) + sscatter (sgather (sfromR m1) (\\[i10, i11] -> [i10, i11]) * m18) (\\[i19, i20] -> [i19, 1 + i20]))"
-  printArtifactPrimalPretty renames artifactRev
+  printArtifactPretty artifactRev
+    @?= "\\dret m1 -> let m14 = sgather (sfromR m1) (\\[i10, i11] -> [i10, i11]) ; m15 = sgather (sfromR m1) (\\[i12, i13] -> [i12, 1 + i13]) ; m18 = sreshape (sreplicate @96 (ssum @32 (siota (SNat @32) * ssum @4 (str (sreshape (sreplicate @128 (sfromR dret))))))) in rfromS (sscatter (m15 * m18) (\\[i21, i22] -> [i21, i22]) + sscatter (m14 * m18) (\\[i19, i20] -> [i19, 1 + i20]))"
+  printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\dret m1 -> rfromS (let m18 = sreplicate @32 (sreplicate @3 (sdot0 (siota (SNat @32)) (sconcrete (sfromListLinear [32] [4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0]) * sreplicate @32 (sfromR dret)))) in sscatter (sgather (sfromR m1) (\\[i12, i13] -> [i12, 1 + i13]) * m18) (\\[i21, i22] -> [i21, i22]) + sscatter (sgather (sfromR m1) (\\[i10, i11] -> [i10, i11]) * m18) (\\[i19, i20] -> [i19, 1 + i20]))"
+  printArtifactPrimalPretty artifactRev
     @?= "\\m1 -> let m14 = sgather (sfromR m1) (\\[i10, i11] -> [i10, i11]) ; m15 = sgather (sfromR m1) (\\[i12, i13] -> [i12, 1 + i13]) ; v16 = sreplicate @32 (ssum @96 (sreshape (m14 * m15))) in rfromS (ssum @128 (sreshape (str (sreplicate @4 (siota (SNat @32) * v16)))))"
-  printArtifactPrimalPretty renames (simplifyArtifact artifactRev)
+  printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (ssum @128 (sgather (siota (SNat @32) * sreplicate @32 (sdot0 (sgather (sfromR m1) (\\[i10, i11] -> [i10, i11])) (sgather (sfromR m1) (\\[i12, i13] -> [i12, 1 + i13])))) (\\[i36] -> [remH (quotH i36 4) 32])))"

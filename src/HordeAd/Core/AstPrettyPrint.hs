@@ -45,16 +45,14 @@ data PrintConfig = PrintConfig
   }
 
 defaulPrintConfig :: Bool -> IntMap String -> PrintConfig
-defaulPrintConfig loseRoudtrip renames =
-  let varRenames = renames  -- TODO: `IM.union` IM.fromList [(1, "dret")]
-      ignoreNestedLambdas = loseRoudtrip
+defaulPrintConfig loseRoudtrip varRenames =
+  let ignoreNestedLambdas = loseRoudtrip
       representsIntIndex = False
   in PrintConfig {..}
 
 defaulPrintConfig2 :: Bool -> Bool -> IntMap String -> PrintConfig
-defaulPrintConfig2 loseRoudtrip ignoreNestedLambdas renames =
-  let varRenames = renames  -- TODO: `IM.union` IM.fromList [(1, "dret")]
-      representsIntIndex = False
+defaulPrintConfig2 loseRoudtrip ignoreNestedLambdas varRenames =
+  let representsIntIndex = False
   in PrintConfig {..}
 
 
