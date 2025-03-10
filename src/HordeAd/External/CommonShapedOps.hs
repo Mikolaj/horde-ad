@@ -90,17 +90,17 @@ reluLeakyS v0 = tlet v0 $ \v ->
   let oneIfGtZero = smap0N (\x -> ifH (x <=. sscalar 0) (sscalar 00.01) (sscalar 01.0)) v
   in oneIfGtZero * v
 
--- TODO: verify how faster a dedicated BaseTensor method would be
 logisticS :: forall target r sh.
              ( BaseTensor target, LetTensor target
              , KnownShS sh, GoodScalar r
              , Floating (PrimalOf target (TKS sh r)) )
           => target (TKS sh r) -> target (TKS sh r)
 logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
-  let y0 = recip (sprimalPart @target (srepl 1) + exp (- sprimalPart d))
+  let one = sprimalPart @target (srepl 1)
+      y0 = recip (one + exp (- sprimalPart d))
   in tlet (sfromPrimal y0)  -- we don't have tletPrimal
      $ \y1 -> let y = sprimalPart y1
-              in tD knownSTK y (sScale @target (y * (sprimalPart @target (srepl 1) - y)) $ sdualPart d)
+              in y1 + sfromDual (sScale @target (y * (one - y)) $ sdualPart d)
 
 -- TODO: verify how faster a @x * x@ version would be
 -- Optimized and more clearly written @u ** 2@.
