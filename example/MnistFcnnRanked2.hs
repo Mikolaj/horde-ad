@@ -130,7 +130,7 @@ mnistTrainBench2VTOGradient Proxy cotangentHandling range seed widthHidden width
         -> AstTensor AstMethodLet FullSpan (TKScalar r)
       f (pars, (glyphR, labelR)) =
         afcnnMnistLoss2 (glyphR, labelR) pars
-      (artRaw, _) = revArtifactAdapt cotangentHandling f (FTKProduct ftk ftkData)
+      artRaw = revArtifactAdapt cotangentHandling f (FTKProduct ftk ftkData)
   in (targetInit, artRaw)
 {-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Double Float), AstArtifactRev (TKProduct (XParams2 Double Float) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
 {-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Float Float), AstArtifactRev (TKProduct (XParams2 Float Float) (TKProduct (TKR2 1 (TKScalar Float)) (TKR2 1 (TKScalar Float)))) (TKScalar Float) ) #-}

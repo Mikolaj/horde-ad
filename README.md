@@ -68,7 +68,7 @@ The symbolic gradient program (here presented with additional formatting) can be
 ```hs
 >>> printArtifactPretty
       (let staticShapes = tftk @RepN knownSTK (toTarget threeSimpleMatrices)
-       in fst $ revArtifactAdapt UseIncomingCotangent fooLet staticShapes)
+       in revArtifactAdapt UseIncomingCotangent fooLet staticShapes)
 "\dret m1 ->
    let m3 = sin (tproject2 (tproject1 m1))
        m4 = tproject1 (tproject1 m1) * m3

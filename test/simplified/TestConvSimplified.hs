@@ -749,7 +749,7 @@ testTomsSlicePP :: Assertion
 testTomsSlicePP = do
   resetVarCounter >> resetIdCounter
   let f = codeTomsSlice
-      (artifactRev, _delta) = revArtifactAdapt UseIncomingCotangent f (FTKR [32, 4] FTKScalar)
+      artifactRev = revArtifactAdapt UseIncomingCotangent f (FTKR [32, 4] FTKScalar)
   printArtifactPretty artifactRev
     @?= "\\dret m1 -> let m14 = sgather (sfromR m1) (\\[i10, i11] -> [i10, i11]) ; m15 = sgather (sfromR m1) (\\[i12, i13] -> [i12, 1 + i13]) ; m18 = sreshape (sreplicate @96 (ssum @32 (siota (SNat @32) * ssum @4 (str (sreshape (sreplicate @128 (sfromR dret))))))) in rfromS (sscatter (m15 * m18) (\\[i21, i22] -> [i21, i22]) + sscatter (m14 * m18) (\\[i19, i20] -> [i19, 1 + i20]))"
   printArtifactPretty (simplifyArtifact artifactRev)

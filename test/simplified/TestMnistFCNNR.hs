@@ -316,7 +316,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
           MnistFcnnRanked1.afcnnMnistLoss1
             widthHiddenSNat widthHidden2SNat
             (glyphR, labelR) pars
-        (artRaw, _) = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
+        artRaw = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
         art = simplifyArtifactGradient artRaw
         go :: [MnistDataLinearR r]
            -> RepN (XParams widthHidden widthHidden2 r)

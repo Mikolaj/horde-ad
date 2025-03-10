@@ -7,7 +7,7 @@
 module HordeAd.Core.ADEngine
   ( -- * Reverse derivative adaptors
     IncomingCotangentHandling(..)
-  , rev, revDt, revArtifactAdapt
+  , rev, revDt, revArtifactAdapt, revArtifactDelta
   , revProduceArtifactWithoutInterpretation, revEvalArtifact
     -- * Forward derivative adaptors
   , fwd, fwdEvalArtifact
@@ -109,7 +109,7 @@ revDtMaybe f vals0 mdt =
       xftk = tftkG (knownSTK @(X astvals)) $ unRepN valsTarget
       cotangentHandling =
         maybe (IgnoreIncomingCotangent) (const UseIncomingCotangent) mdt
-      artifact = fst $ revProduceArtifact cotangentHandling g emptyEnv xftk
+      artifact = revProduceArtifact cotangentHandling g emptyEnv xftk
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
      $ fst $ revEvalArtifact artifact valsTarget mdt
 
@@ -118,7 +118,7 @@ revArtifactAdapt
   => IncomingCotangentHandling
   -> (astvals -> AstTensor AstMethodLet FullSpan z)
   -> FullShapeTK (X astvals)
-  -> (AstArtifactRev (X astvals) z, Delta (AstRaw PrimalSpan) z )
+  -> AstArtifactRev (X astvals) z
 {-# INLINE revArtifactAdapt #-}
 revArtifactAdapt cotangentHandling f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
@@ -126,6 +126,22 @@ revArtifactAdapt cotangentHandling f xftk =
       g !hv = ttlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
   in revProduceArtifact cotangentHandling g emptyEnv xftk
+
+-- For tests only.
+revArtifactDelta
+  :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+  => IncomingCotangentHandling
+  -> (astvals -> AstTensor AstMethodLet FullSpan z)
+  -> FullShapeTK (X astvals)
+  -> (AstArtifactRev (X astvals) z, Delta (AstRaw PrimalSpan) z)
+{-# INLINE revArtifactDelta #-}
+revArtifactDelta cotangentHandling f xftk =
+  let g :: AstTensor AstMethodLet FullSpan (X astvals)
+        -> AstTensor AstMethodLet FullSpan z
+      g !hv = ttlet hv $ \ !hvShared ->
+        f $ fromTarget hvShared
+  in revArtifactFromForwardPass
+       cotangentHandling (forwardPassByInterpretation g emptyEnv) xftk
 
 revProduceArtifactWithoutInterpretation
   :: forall x z.

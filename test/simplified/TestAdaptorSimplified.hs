@@ -419,7 +419,7 @@ testPiecewiseLinearPP = do
   let fT :: AstTensor AstMethodLet FullSpan (TKR 0 Double)
          -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT x = ifH (x >. rscalar 0) (rscalar 2 * x) (rscalar 5 * x)
-      (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKR ZSR FTKScalar)
+      (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKR ZSR FTKScalar)
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> rfromS (let v3 = soneHot (sfromR dret) [ifH (sfromR x1 >. sscalar 0.0) 0 1] in sscalar 5.0 * v3 !$ [1] + sscalar 2.0 * v3 !$ [0])"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -439,7 +439,7 @@ testPiecewiseLinear2PP = do
   let fT :: AstTensor AstMethodLet FullSpan (TKR 0 Double)
          -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT x = ifH (x >. rscalar 0) (rscalar 2) (rscalar 5) * x
-      (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKR ZSR FTKScalar)
+      (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKR ZSR FTKScalar)
   printArtifactPretty artifactRev
     @?= "\\dret x1 -> let x2 = ifH (sfromR x1 >. sscalar 0.0) (sscalar 2.0) (sscalar 5.0) in rfromS (x2 * sfromR dret)"
   printArtifactPrimalPretty artifactRev
@@ -508,7 +508,7 @@ testOverleafPP = do
        ++ " -> " ++ printAstSimple ast3
     @?= "\\v1 -> rfromS (ssum @50 (sgather [] (sfromR v1) (\\[i2] -> [remH i2 28])))"
   resetVarCounter
-  let (artifactRev, deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKR [28] FTKScalar)
+  let (artifactRev, deltas) = revArtifactDelta UseIncomingCotangent fT (FTKR [28] FTKScalar)
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret v1 -> rfromS (sscatter (sreplicate @50 (sfromR dret)) (\\[i5] -> [remH i5 28]))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -563,7 +563,7 @@ testGradFooLetMatrixPP = do
   resetVarCounter >> resetIdCounter
   printArtifactPretty
     (let shapes = tftk @RepN knownSTK (toTarget threeSimpleMatrices)
-     in fst $ revArtifactAdapt UseIncomingCotangent fooLet shapes)
+     in revArtifactAdapt UseIncomingCotangent fooLet shapes)
     @?= "\\dret m1 -> let m3 = sin (tproject2 (tproject1 m1)) ; m4 = tproject1 (tproject1 m1) * m3 ; m5 = recip (tproject2 m1 * tproject2 m1 + m4 * m4) ; m7 = (negate (tproject2 m1) * m5) * dret + tproject2 m1 * dret in tpair (tpair (m3 * m7, cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7)), (m4 * m5) * dret + m4 * dret)"
 
 testGradFooMatrixRev :: Assertion
@@ -577,14 +577,14 @@ testGradFooLetMatrixSimpPP = do
   resetVarCounter >> resetIdCounter
   (let ftk = FTKS @'[2, 2] [2, 2] (FTKScalar @Double)
    in printArtifactPretty
-        (simplifyArtifact $ fst $ revArtifactAdapt UseIncomingCotangent fooLet (FTKProduct (FTKProduct ftk ftk) ftk)))
+        (simplifyArtifact $ revArtifactAdapt UseIncomingCotangent fooLet (FTKProduct (FTKProduct ftk ftk) ftk)))
       @?= "\\dret m1 -> let m3 = sin (tproject2 (tproject1 m1)) ; m4 = tproject1 (tproject1 m1) * m3 ; m5 = recip (tproject2 m1 * tproject2 m1 + m4 * m4) ; m7 = (negate (tproject2 m1) * m5) * dret + tproject2 m1 * dret in tpair (tpair (m3 * m7, cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7)), (m4 * m5) * dret + m4 * dret)"
 
 testGradFooLetMatrixSimpRPP :: Assertion
 testGradFooLetMatrixSimpRPP = do
   resetVarCounter >> resetIdCounter
   (let ftk = FTKR (2 :$: 2 :$: ZSR) (FTKScalar @Double)
-    in printArtifactPretty (simplifyArtifact $ fst $ revArtifactAdapt UseIncomingCotangent fooLet (FTKProduct (FTKProduct ftk ftk) ftk)))
+    in printArtifactPretty (simplifyArtifact $ revArtifactAdapt UseIncomingCotangent fooLet (FTKProduct (FTKProduct ftk ftk) ftk)))
        @?= "\\dret m1 -> tfromS (let m3 = sin (sfromR (tproject2 (tproject1 m1))) ; m4 = sfromR (tproject1 (tproject1 m1)) * m3 ; m5 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m4 * m4) ; m7 = (negate (sfromR (tproject2 m1)) * m5) * sfromR dret + sfromR (tproject2 m1) * sfromR dret in tpair (tpair (m3 * m7, cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m7)), (m4 * m5) * sfromR dret + m4 * sfromR dret))"
 
 foo2 :: RealFloatH a => (a, a, a) -> a
@@ -607,13 +607,13 @@ testGradFooMatrixPP :: Assertion
 testGradFooMatrixPP = do
   resetVarCounter >> resetIdCounter
   (let ftk = FTKR (2 :$: 2 :$: ZSR) (FTKScalar @Double)
-    in printArtifactPretty (fst $ revArtifactAdapt UseIncomingCotangent foo2 (FTKProduct (FTKProduct ftk ftk) ftk))) @?= "\\dret m1 -> let m2 = sin (sfromR (tproject2 (tproject1 m1))) ; m3 = sfromR (tproject1 (tproject1 m1)) * m2 ; m4 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m3 * m3) ; m5 = sin (sfromR (tproject2 (tproject1 m1))) ; m6 = sfromR (tproject1 (tproject1 m1)) * m5 ; m8 = sfromR (tproject2 m1) * sfromR dret ; m9 = (negate (sfromR (tproject2 m1)) * m4) * sfromR dret in tpair (tpair (rfromS (m2 * m9 + m5 * m8), rfromS (cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m9) + cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m8))), rfromS ((m3 * m4) * sfromR dret + m6 * sfromR dret))"
+    in printArtifactPretty (revArtifactAdapt UseIncomingCotangent foo2 (FTKProduct (FTKProduct ftk ftk) ftk))) @?= "\\dret m1 -> let m2 = sin (sfromR (tproject2 (tproject1 m1))) ; m3 = sfromR (tproject1 (tproject1 m1)) * m2 ; m4 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m3 * m3) ; m5 = sin (sfromR (tproject2 (tproject1 m1))) ; m6 = sfromR (tproject1 (tproject1 m1)) * m5 ; m8 = sfromR (tproject2 m1) * sfromR dret ; m9 = (negate (sfromR (tproject2 m1)) * m4) * sfromR dret in tpair (tpair (rfromS (m2 * m9 + m5 * m8), rfromS (cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m9) + cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m8))), rfromS ((m3 * m4) * sfromR dret + m6 * sfromR dret))"
 
 testGradFooMatrixSimpPP :: Assertion
 testGradFooMatrixSimpPP = do
   resetVarCounter >> resetIdCounter
   (let ftk = FTKR (2 :$: 2 :$: ZSR) (FTKScalar @Double)
-    in printArtifactPretty (simplifyArtifact $ fst $ revArtifactAdapt UseIncomingCotangent foo2 (FTKProduct (FTKProduct ftk ftk) ftk))) @?= "\\dret m1 -> tfromS (let m2 = sin (sfromR (tproject2 (tproject1 m1))) ; m3 = sfromR (tproject1 (tproject1 m1)) * m2 ; m4 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m3 * m3) ; m5 = sin (sfromR (tproject2 (tproject1 m1))) ; m8 = sfromR (tproject2 m1) * sfromR dret ; m9 = (negate (sfromR (tproject2 m1)) * m4) * sfromR dret in tpair (tpair (m2 * m9 + m5 * m8, cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m9) + cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m8)), (m3 * m4) * sfromR dret + (sfromR (tproject1 (tproject1 m1)) * m5) * sfromR dret))"
+    in printArtifactPretty (simplifyArtifact $ revArtifactAdapt UseIncomingCotangent foo2 (FTKProduct (FTKProduct ftk ftk) ftk))) @?= "\\dret m1 -> tfromS (let m2 = sin (sfromR (tproject2 (tproject1 m1))) ; m3 = sfromR (tproject1 (tproject1 m1)) * m2 ; m4 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m3 * m3) ; m5 = sin (sfromR (tproject2 (tproject1 m1))) ; m8 = sfromR (tproject2 m1) * sfromR dret ; m9 = (negate (sfromR (tproject2 m1)) * m4) * sfromR dret in tpair (tpair (m2 * m9 + m5 * m8, cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m9) + cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m8)), (m3 * m4) * sfromR dret + (sfromR (tproject1 (tproject1 m1)) * m5) * sfromR dret))"
 
 gradFooScalar :: forall r. r ~ Double
               => (r, r, r) -> (r, r, r)
@@ -680,7 +680,7 @@ testFooPP = do
        ++ " -> " ++ printAstSimple ast3
     @?= "\\x1 -> rfromS (atan2H (sfromR x1) (sfromR x1 * sin (sfromR x1)) + sfromR x1 * (sfromR x1 * sin (sfromR x1)))"
   resetVarCounter
-  let (artifactRev, _) = revArtifactAdapt UseIncomingCotangent fooT (FTKProduct (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar)) (FTKR ZSR FTKScalar))
+  let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fooT (FTKProduct (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar)) (FTKR ZSR FTKScalar))
   printArtifactSimple artifactRev
     @?= "\\dret x1 -> tlet (sin (sfromR (tproject2 (tproject1 x1)))) (\\x2 -> tlet (sfromR (tproject1 (tproject1 x1)) * x2) (\\x3 -> tlet (recip (sfromR (tproject2 x1) * sfromR (tproject2 x1) + x3 * x3)) (\\x4 -> tlet (sin (sfromR (tproject2 (tproject1 x1)))) (\\x5 -> tlet (sfromR (tproject1 (tproject1 x1)) * x5) (\\x6 -> tlet (sfromR (tproject2 x1) * sfromR dret) (\\x8 -> tlet ((negate (sfromR (tproject2 x1)) * x4) * sfromR dret) (\\x9 -> tpair (tpair (rfromS (x2 * x9 + x5 * x8), rfromS (cos (sfromR (tproject2 (tproject1 x1))) * (sfromR (tproject1 (tproject1 x1)) * x9) + cos (sfromR (tproject2 (tproject1 x1))) * (sfromR (tproject1 (tproject1 x1)) * x8))), rfromS ((x3 * x4) * sfromR dret + x6 * sfromR dret)))))))))"
   printArtifactPrimalSimple artifactRev
@@ -711,7 +711,7 @@ testFooLetPP = do
        ++ " -> " ++ printAstSimple ast3
     @?= "\\x1 -> rfromS (tlet (sfromR x1 * sin (sfromR x1)) (\\x2 -> atan2H (sfromR x1) x2 + sfromR x1 * x2))"
   resetVarCounter
-  let (artifactRev, _) = revArtifactAdapt UseIncomingCotangent fooLetT (FTKProduct (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar)) (FTKR ZSR FTKScalar))
+  let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fooLetT (FTKProduct (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar)) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> tfromS (let x3 = sin (sfromR (tproject2 (tproject1 x1))) ; x4 = sfromR (tproject1 (tproject1 x1)) * x3 ; x5 = recip (sfromR (tproject2 x1) * sfromR (tproject2 x1) + x4 * x4) ; x7 = (negate (sfromR (tproject2 x1)) * x5) * sfromR dret + sfromR (tproject2 x1) * sfromR dret in tpair (tpair (x3 * x7, cos (sfromR (tproject2 (tproject1 x1))) * (sfromR (tproject1 (tproject1 x1)) * x7)), (x4 * x5) * sfromR dret + x4 * sfromR dret))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -726,7 +726,7 @@ testListProdPP = do
   resetVarCounter >> resetIdCounter
   let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKS '[] Double)) -> AstTensor AstMethodLet FullSpan (TKS '[] Double)
       fT = shapedListProd
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKProduct (FTKS ZSS FTKScalar) (FTKProduct (FTKS ZSS FTKScalar) (FTKProduct (FTKS ZSS FTKScalar) (FTKProduct (FTKS ZSS FTKScalar) ftkUnit))))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKS ZSS FTKScalar) (FTKProduct (FTKS ZSS FTKScalar) (FTKProduct (FTKS ZSS FTKScalar) (FTKProduct (FTKS ZSS FTKScalar) ftkUnit))))
   printArtifactSimple artifactRev
     @?= "\\dret x1 -> tlet (tproject1 (tproject2 (tproject2 x1)) * tproject1 (tproject2 (tproject2 (tproject2 x1)))) (\\x2 -> tlet (tproject1 (tproject2 x1) * x2) (\\x3 -> tlet (tproject1 x1 * dret) (\\x5 -> tlet (tproject1 (tproject2 x1) * x5) (\\x6 -> tpair (x3 * dret, tpair (x2 * x5, tpair (tproject1 (tproject2 (tproject2 (tproject2 x1))) * x6, tpair (tproject1 (tproject2 (tproject2 x1)) * x6, Z0))))))))"
   printArtifactPrimalSimple artifactRev
@@ -745,7 +745,7 @@ testListProdrPP = do
   resetVarCounter
   let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListProdr
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> tfromS (let x2 = sfromR (tproject1 (tproject2 (tproject2 x1))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) ; x5 = sfromR (tproject1 x1) * sfromR dret ; x6 = sfromR (tproject1 (tproject2 x1)) * x5 in tpair ((sfromR (tproject1 (tproject2 x1)) * x2) * sfromR dret, tpair (x2 * x5, tpair (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * x6, tpair (sfromR (tproject1 (tproject2 (tproject2 x1))) * x6, Z0)))))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -757,7 +757,7 @@ testListProdrLongPP = do
   let fT :: ListR 13 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListProdr
   let (artifactRev, _) =
-        revArtifactAdapt UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit)))))))))))))
+        revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit)))))))))))))
   printArtifactSimple artifactRev
     @?= "\\dret x1 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))))) (\\x2 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))) * x2) (\\x3 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))) * x3) (\\x4 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))) * x4) (\\x5 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))) * x5) (\\x6 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))) * x6) (\\x7 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))) * x7) (\\x8 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 x1))))) * x8) (\\x9 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * x9) (\\x10 -> tlet (sfromR (tproject1 (tproject2 (tproject2 x1))) * x10) (\\x11 -> tlet (sfromR (tproject1 (tproject2 x1)) * x11) (\\x12 -> tlet (sfromR (tproject1 x1) * sfromR dret) (\\x14 -> tlet (sfromR (tproject1 (tproject2 x1)) * x14) (\\x15 -> tlet (sfromR (tproject1 (tproject2 (tproject2 x1))) * x15) (\\x16 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * x16) (\\x17 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 x1))))) * x17) (\\x18 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))) * x18) (\\x19 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))) * x19) (\\x20 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))) * x20) (\\x21 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))) * x21) (\\x22 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))) * x22) (\\x23 -> tlet (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))) * x23) (\\x24 -> tpair (rfromS (x12 * sfromR dret), tpair (rfromS (x11 * x14), tpair (rfromS (x10 * x15), tpair (rfromS (x9 * x16), tpair (rfromS (x8 * x17), tpair (rfromS (x7 * x18), tpair (rfromS (x6 * x19), tpair (rfromS (x5 * x20), tpair (rfromS (x4 * x21), tpair (rfromS (x3 * x22), tpair (rfromS (x2 * x23), tpair (rfromS (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1))))))))))))) * x24), tpair (rfromS (sfromR (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 x1)))))))))))) * x24), Z0)))))))))))))))))))))))))))))))))))"
   printArtifactPrimalSimple artifactRev
@@ -790,7 +790,7 @@ testListSumrPP = do
   resetVarCounter >> resetIdCounter
   let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSumr
-  let (artifactRev, deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
+  let (artifactRev, deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> tpair (dret, tpair (dret, tpair (dret, tpair (dret, Z0))))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -808,7 +808,7 @@ testListSum2rPP = do
   resetVarCounter >> resetIdCounter
   let fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum2r
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> tfromS (let x5 = sscalar 2.0 * sfromR dret ; x6 = sscalar 2.0 * x5 in tpair (dret, tpair (x5, tpair (x6, tpair (sscalar 2.0 * x6, Z0)))))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -823,7 +823,7 @@ testListSum22rPP = do
   resetVarCounter >> resetIdCounter
   let fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum22r
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> tfromS (let x5 = sscalar 2.0 * sfromR dret ; x6 = sscalar 2.0 * x5 in tpair (sscalar 2.0 * sfromR dret, tpair (sscalar 2.0 * x5, tpair (sscalar 2.0 * x6, tpair (sscalar 2.0 * x6, Z0)))))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -840,7 +840,7 @@ testListSumk22rPP = do
   resetVarCounter >> resetIdCounter
   let fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSumk22r
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> tfromS (let x5 = sscalar 2.0 * sfromR dret ; x6 = sscalar 2.0 * x5 in tpair (sscalar 2.0 * sfromR dret, tpair (sscalar 2.0 * x5, tpair (sscalar 2.0 * x6, tpair (sscalar 2.0 * x6, Z0)))))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -855,7 +855,7 @@ testListSum2xpyrPP = do
   resetVarCounter >> resetIdCounter
   let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum2xpyr
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> tfromS (let x6 = sscalar 2.0 * sfromR dret ; x7 = sscalar 2.0 * x6 ; x8 = sscalar 2.0 * x7 in tpair (x6, tpair (x7, tpair (x8, tpair (x8, Z0)))))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -870,7 +870,7 @@ testListSum2xyrPP = do
   resetVarCounter >> resetIdCounter
   let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum2xyr
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> tfromS (let x3 = sscalar 2.0 * (sfromR (tproject1 (tproject2 (tproject2 x1))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1))))) ; x8 = sscalar 2.0 * sfromR dret ; x9 = sscalar 2.0 * (sfromR (tproject1 x1) * x8) ; x10 = sscalar 2.0 * (sfromR (tproject1 (tproject2 x1)) * x9) in tpair (sscalar 2.0 * ((sfromR (tproject1 (tproject2 x1)) * x3) * x8), tpair (x3 * x9, tpair (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))) * x10, tpair (sfromR (tproject1 (tproject2 (tproject2 x1))) * x10, Z0)))))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -886,7 +886,7 @@ test2xyPP = do
   let fT :: (AstTensor AstMethodLet FullSpan (TKR 0 Double), AstTensor AstMethodLet FullSpan (TKR 0 Double))
          -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = ranked2xy
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> tfromS (tpair (sscalar 2.0 * (sfromR (tproject2 x1) * sfromR dret), sscalar 2.0 * (sfromR (tproject1 x1) * sfromR dret)))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -902,7 +902,7 @@ testListSum23rPP = do
   resetVarCounter >> resetIdCounter
   let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum23r
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> tfromS (let x5 = sscalar 3.0 * sfromR dret ; x6 = sscalar 3.0 * x5 in tpair (sscalar 2.0 * sfromR dret, tpair (sscalar 2.0 * x5, tpair (sscalar 2.0 * x6, tpair (sscalar 3.0 * x6, Z0)))))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -918,7 +918,7 @@ test23PP = do
   let fT :: (AstTensor AstMethodLet FullSpan (TKR 0 Double), AstTensor AstMethodLet FullSpan (TKR 0 Double))
          -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = ranked23
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> tfromS (tpair (sscalar 2.0 * sfromR dret, sscalar 3.0 * sfromR dret))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -943,7 +943,7 @@ testReluPP = do
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (tfromPrimal (STKS [3,4] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifH (tprimalPart (sfromR m1) !$ [i4, i3] <=. sscalar 0.0) 0 1])) * sfromR m1)"
   resetVarCounter
-  let (artifactRev, deltas) = revArtifactAdapt UseIncomingCotangent reluT (FTKR [3, 4] FTKScalar)
+  let (artifactRev, deltas) = revArtifactDelta UseIncomingCotangent reluT (FTKR [3, 4] FTKScalar)
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret m1 -> rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifH (sfromR m1 !$ [i5, i6] <=. sscalar 0.0) 0 1]) * sfromR dret)"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -962,7 +962,7 @@ testReluPP2 = do
        ++ " -> " ++ printAstSimple ast3
     @?= "\\v1 -> rfromS (tfromPrimal (STKS [5] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i2] -> [ifH (sscalar 7.0 * tprimalPart (sfromR v1) !$ [i2] <=. sscalar 0.0) 0 1])) * (sfromR v1 * tfromPrimal (STKS [5] STKScalar) (sreplicate @5 (sscalar 7.0))))"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret v1 -> tfromS (let v8 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifH (sfromR (tproject1 v1) !$ [i3] * sfromR (tproject2 v1) <=. sscalar 0.0) 0 1]) * sfromR dret in tpair (sreplicate @5 (sfromR (tproject2 v1)) * v8, sdot0 (sfromR (tproject1 v1)) v8))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -984,7 +984,7 @@ testReluSimplerPP = do
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (tfromPrimal (STKS [3,4] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifH (tprimalPart (sfromR m1) !$ [i4, i3] <=. sscalar 0.0) 0 1])) * sfromR m1)"
   resetVarCounter
-  let (artifactRev, deltas) = revArtifactAdapt UseIncomingCotangent reluT (FTKR [3, 4] FTKScalar)
+  let (artifactRev, deltas) = revArtifactDelta UseIncomingCotangent reluT (FTKR [3, 4] FTKScalar)
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret m1 -> rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifH (sfromR m1 !$ [i5, i6] <=. sscalar 0.0) 0 1]) * sfromR dret)"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -1003,7 +1003,7 @@ testReluSimplerPP2 = do
        ++ " -> " ++ printAstSimple ast3
     @?= "\\v1 -> rfromS (tlet (sfromR v1 * tfromPrimal (STKS [5] STKScalar) (sreplicate @5 (sscalar 7.0))) (\\v2 -> tfromPrimal (STKS [5] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifH (tprimalPart v2 !$ [i3] <=. sscalar 0.0) 0 1])) * v2))"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret v1 -> tfromS (let v8 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5] -> [ifH (sfromR (tproject1 v1) !$ [i5] * sfromR (tproject2 v1) <=. sscalar 0.0) 0 1]) * sfromR dret in tpair (sreplicate @5 (sfromR (tproject2 v1)) * v8, sdot0 (sfromR (tproject1 v1)) v8))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -1020,7 +1020,7 @@ testReluSimplerPP3 = do
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (tlet (sfromR m1 * tfromPrimal (STKS [3,4] STKScalar) (sreplicate @3 (sreplicate @4 (sscalar 7.0)))) (\\m2 -> tfromPrimal (STKS [3,4] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifH (tprimalPart m2 !$ [i5, i4] <=. sscalar 0.0) 0 1])) * m2))"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent reluT2 (FTKProduct (FTKR [3, 4] FTKScalar) (FTKR ZSR FTKScalar))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [3, 4] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret m1 -> tfromS (let m11 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i7, i8] -> [ifH (sfromR (tproject1 m1) !$ [i7, i8] * sfromR (tproject2 m1) <=. sscalar 0.0) 0 1]) * sfromR dret in tpair (sreplicate @3 (sreplicate @4 (sfromR (tproject2 m1))) * m11, ssum0 (sfromR (tproject1 m1) * m11)))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -1047,7 +1047,7 @@ testReluSimplerPP4 = do
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (tlet (sfromR m1 * tfromPrimal (STKS [3,4] STKScalar) (sreshape (sreplicate @12 (sscalar 7.0)))) (\\m2 -> tfromPrimal (STKS [3,4] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifH (tprimalPart m2 !$ [i5, i4] <=. sscalar 0.0) 0 1])) * m2))"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent reluT2 (FTKProduct (FTKR [3, 4] FTKScalar) (FTKR ZSR FTKScalar))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [3, 4] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret m1 -> tfromS (let m12 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifH (sfromR (tproject1 m1) !$ [i8, i9] * sfromR (tproject2 m1) <=. sscalar 0.0) 0 1]) * sfromR dret in tpair (sreplicate @3 (sreplicate @4 (sfromR (tproject2 m1))) * m12, sdot0 (sfromR (tproject1 m1)) m12))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -1082,7 +1082,7 @@ testReluSimplerPP4s2 = do
       -- This is tweaked compared to above to avoid test artifacts coming
       -- from counter resets, which are inherently unsafe (cse, etc.).
       reluT2 (t, r) = reluS (t * sreplicate0N r)
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent reluT2 (FTKProduct (FTKS [3, 4] FTKScalar) (FTKS ZSS FTKScalar))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKS [3, 4] FTKScalar) (FTKS ZSS FTKScalar))
   printArtifactPretty artifactRev
     @?= "\\dret m1 -> let m6 = sreshape (sreplicate @12 (tproject2 m1)) ; m7 = tproject1 m1 * m6 ; m10 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i8, i9] -> [ifH (m7 !$ [i8, i9] <=. sscalar 0.0) 0 1]) ; m12 = m10 * dret in tpair (m6 * m12, ssum @12 (sreshape (tproject1 m1 * m12)))"
   printArtifactPrimalPretty artifactRev
@@ -1123,7 +1123,7 @@ testReluMaxPP = do
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (sgather [] (tfromVector (SNat @2) (STKS [3,4] STKScalar) (fromList [tfromPrimal (STKS [3,4] STKScalar) (sreplicate @3 (sreplicate @4 (sscalar 0.0))), sfromR m1])) (\\[i5, i4] -> [ifH (sscalar 0.0 >=. tprimalPart (sfromR m1) !$ [i5, i4]) 0 1, i5, i4]))"
   resetVarCounter
-  let (artifactRev, deltas) = revArtifactAdapt UseIncomingCotangent reluT (FTKR [3, 4] FTKScalar)
+  let (artifactRev, deltas) = revArtifactDelta UseIncomingCotangent reluT (FTKR [3, 4] FTKScalar)
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret m1 -> rfromS (sscatter (sfromR dret) (\\[i9, i10] -> [ifH (sscalar 0.0 >=. sfromR m1 !$ [i9, i10]) 0 1, i9, i10]) !$ [1])"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -1142,7 +1142,7 @@ testReluMaxPP2 = do
        ++ " -> " ++ printAstSimple ast3
     @?= "\\v1 -> rfromS (sgather [] (tfromVector (SNat @2) (STKS [5] STKScalar) (fromList [tfromPrimal (STKS [5] STKScalar) (sreplicate @5 (sscalar 0.0)), sfromR v1 * tfromPrimal (STKS [5] STKScalar) (sreplicate @5 (sscalar 7.0))])) (\\[i3] -> [ifH (sscalar 0.0 >=. sscalar 7.0 * tprimalPart (sfromR v1) !$ [i3]) 0 1, i3]))"
   resetVarCounter
-  let (artifactRev, _deltas) = revArtifactAdapt UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty artifactRev
     @?= "\\dret v1 -> let m9 = sscatter (sfromR dret) (\\[i7] -> [let x8 = sfromR (tproject1 v1) !$ [i7] in ifH (sscalar 0.0 >=. x8 * sfromR (tproject2 v1)) 0 1, i7]) ; v10 = m9 !$ [1] in tpair (rfromS (sreplicate @5 (sfromR (tproject2 v1)) * v10), rfromS (ssum @5 (sfromR (tproject1 v1) * v10)))"
   printArtifactPrimalPretty artifactRev
@@ -1164,7 +1164,7 @@ testDot1PP :: Assertion
 testDot1PP = do
   resetVarCounter
   let (artifactRev, _) =
-        revArtifactAdapt UseIncomingCotangent (uncurry (rdot0 @1 @Double))
+        revArtifactDelta UseIncomingCotangent (uncurry (rdot0 @1 @Double))
                  (FTKProduct (FTKR [3] FTKScalar) (FTKR [3] FTKScalar))
   printArtifactPretty artifactRev
     @?= "\\dret v1 -> tpair (rfromS (sfromR (tproject2 v1) * sreplicate @3 (sfromR dret)), rfromS (sfromR (tproject1 v1) * sreplicate @3 (sfromR dret)))"
@@ -1175,7 +1175,7 @@ testDot2PP :: Assertion
 testDot2PP = do
   resetVarCounter >> resetIdCounter
   let (artifactRev, _deltas) =
-        revArtifactAdapt UseIncomingCotangent (uncurry (rdot0 @2 @Double))
+        revArtifactDelta UseIncomingCotangent (uncurry (rdot0 @2 @Double))
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [2, 3] FTKScalar))
   printArtifactPretty artifactRev
     @?= "\\dret m1 -> let m3 = sreshape (sreplicate @6 (sfromR dret)) in tpair (rfromS (sfromR (tproject2 m1) * m3), rfromS (sfromR (tproject1 m1) * m3))"
@@ -1190,7 +1190,7 @@ testMatvecmulPP :: Assertion
 testMatvecmulPP = do
   resetVarCounter
   let (artifactRev, _) =
-        revArtifactAdapt
+        revArtifactDelta
                  UseIncomingCotangent (uncurry rmatvecmul)
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [3] FTKScalar))
   printArtifactPretty @_ @(TKR 1 Double) artifactRev
@@ -1206,7 +1206,7 @@ testMatmul2PP :: Assertion
 testMatmul2PP = do
   resetVarCounter
   let (artifactRev, _) =
-        revArtifactAdapt
+        revArtifactDelta
                  UseIncomingCotangent (uncurry rmatmul2)
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [3, 4] FTKScalar))
   printArtifactPretty @_ @(TKR 2 Double) artifactRev
@@ -1226,7 +1226,7 @@ testMatmul2FromMatvecmulPP = do
       rmatmul2F m1 m2 =
         rbuild1 (rwidth m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
       (artifactRev, _) =
-        revArtifactAdapt
+        revArtifactDelta
                  UseIncomingCotangent (uncurry rmatmul2F)
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [3, 4] FTKScalar))
   printArtifactPretty @_ @(TKR 2 Double) artifactRev
@@ -1246,7 +1246,7 @@ testMatmul2PaperPP = do
              rbuild1 n (\j ->
                rsum (rbuild1 m (\p -> a ! [i, p] * b ! [p, j]))))
       (artifactRev, _) =
-        revArtifactAdapt
+        revArtifactDelta
                  UseIncomingCotangent (uncurry rmatmul2P)
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [3, 4] FTKScalar))
   printArtifactPretty @_ @(TKR 2 Double) artifactRev
@@ -1258,7 +1258,7 @@ testMatmul2PPS :: Assertion
 testMatmul2PPS = do
   resetVarCounter
   let (artifactRev, _) =
-        revArtifactAdapt
+        revArtifactDelta
                  UseIncomingCotangent (uncurry smatmul2)
                  (FTKProduct (FTKS (SNat @2 :$$ SNat @3 :$$ ZSS) (FTKScalar @Float)) (FTKS (SNat @3 :$$ SNat @4 :$$ ZSS) (FTKScalar @Float)))
   printArtifactPretty artifactRev
@@ -2075,7 +2075,7 @@ fblowupPP :: Assertion
 fblowupPP = do
   resetVarCounter
   let fblowupT = fblowup @(AstTensor AstMethodLet FullSpan) @Double 1
-  let (artifactRev, _) = revArtifactAdapt UseIncomingCotangent fblowupT (FTKR [4] FTKScalar)
+  let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fblowupT (FTKR [4] FTKScalar)
   printArtifactSimple artifactRev
     @?= "\\dret v1 -> tlet (sfromR v1 !$ [0]) (\\x2 -> tlet (sfromR v1 !$ [1]) (\\x3 -> tlet (sfromR v1 !$ [0]) (\\x4 -> tlet (sfromR v1 !$ [1]) (\\x5 -> tlet (sscalar 0.499999985 * sfromR dret) (\\x8 -> rfromS (soneHot (recip x3 * x8) [0] + (soneHot ((negate x2 / (x3 * x3)) * x8) [1] + (soneHot (recip x5 * x8) [0] + soneHot ((negate x4 / (x5 * x5)) * x8) [1]))))))))"
   printArtifactPrimalSimple artifactRev
@@ -2085,7 +2085,7 @@ fblowupLetPP :: Assertion
 fblowupLetPP = do
   resetVarCounter
   let fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 0 1
-  let (artifactRev, _) = revArtifactAdapt UseIncomingCotangent fblowupLetT (FTKR [4] FTKScalar)
+  let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fblowupLetT (FTKR [4] FTKScalar)
   printArtifactSimple artifactRev
     @?= "\\dret v1 -> tlet (sfromR v1 !$ [0]) (\\x3 -> tlet (sfromR v1 !$ [1]) (\\x4 -> tlet (sscalar 0.499999985 * sfromR dret) (\\x8 -> tlet (x8 + x8) (\\x9 -> rfromS (soneHot (recip x4 * x9) [0] + soneHot ((negate x3 / (x4 * x4)) * x9) [1])))))"
   printArtifactPrimalSimple artifactRev
@@ -2095,7 +2095,7 @@ fblowupLetPP23 :: Assertion
 fblowupLetPP23 = do
   resetVarCounter
   let fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 2 3
-  let (artifactRev, _) = revArtifactAdapt UseIncomingCotangent fblowupLetT (FTKR [4] FTKScalar)
+  let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fblowupLetT (FTKR [4] FTKScalar)
   printArtifactSimple artifactRev
     @?= "\\dret v1 -> tlet (sfromR v1 !$ [0]) (\\x5 -> tlet (sfromR v1 !$ [1]) (\\x6 -> tlet (sscalar 0.499999985 * sfromR dret) (\\x14 -> tlet (sscalar 0.499999985 * x14 + sscalar 0.499999985 * x14) (\\x15 -> tlet (sscalar 0.499999985 * x15 + sscalar 0.499999985 * x15) (\\x16 -> tlet (x16 + x16) (\\x17 -> rfromS (soneHot (recip x6 * x17) [0] + soneHot ((negate x5 / (x6 * x6)) * x17) [1])))))))"
   printArtifactPrimalSimple artifactRev
@@ -2107,7 +2107,7 @@ fblowupLetPP10 :: Assertion
 fblowupLetPP10 = do
   resetVarCounter
   let fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 0 6
-  let (artifactRev, _) = revArtifactAdapt UseIncomingCotangent fblowupLetT (FTKR [2] FTKScalar)
+  let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fblowupLetT (FTKR [2] FTKScalar)
   printArtifactSimple artifactRev
     @?= "\\dret v1 -> tlet (sfromR v1 !$ [0]) (\\x8 -> tlet (sfromR v1 !$ [1]) (\\x9 -> tlet (sscalar 0.499999985 * sfromR dret) (\\x23 -> tlet (sscalar 0.499999985 * x23 + sscalar 0.499999985 * x23) (\\x24 -> tlet (sscalar 0.499999985 * x24 + sscalar 0.499999985 * x24) (\\x25 -> tlet (sscalar 0.499999985 * x25 + sscalar 0.499999985 * x25) (\\x26 -> tlet (sscalar 0.499999985 * x26 + sscalar 0.499999985 * x26) (\\x27 -> tlet (sscalar 0.499999985 * x27 + sscalar 0.499999985 * x27) (\\x28 -> tlet (x28 + x28) (\\x29 -> rfromS (soneHot (recip x9 * x29) [0] + soneHot ((negate x8 / (x9 * x9)) * x29) [1]))))))))))"
   printArtifactPrimalSimple artifactRev
@@ -2203,7 +2203,7 @@ testConcatBuild3PP2 = do
   resetVarCounter
   let t = concatBuild33 @(AstTensor AstMethodLet FullSpan) @Double
   let (artifactRev, _) =
-        revArtifactAdapt UseIncomingCotangent t (FTKR [3] FTKScalar)
+        revArtifactDelta UseIncomingCotangent t (FTKR [3] FTKScalar)
   printArtifactSimple artifactRev
     @?=  "\\dret v1 -> rfromS (sconcrete (sfromListLinear [3] [0.0,0.0,0.0]))"
   printArtifactPrimalSimple artifactRev

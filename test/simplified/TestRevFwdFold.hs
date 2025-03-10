@@ -1063,8 +1063,7 @@ testSin0Scan1Rev2PP1 = do
 testSin0Scan1Rev2PPA :: Assertion
 testSin0Scan1Rev2PPA = do
   resetVarCounter
-  let (art, _) =
-        revArtifactAdapt
+  let art = revArtifactAdapt
                  UseIncomingCotangent
                  (\x0 -> rscan @_ @_ @_ @(TKScalar Double) (\x a -> sin x - a) x0
                            (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7])))
@@ -1075,8 +1074,7 @@ testSin0Scan1Rev2PPA = do
 testSin0Scan1Rev2PPForComparison :: Assertion
 testSin0Scan1Rev2PPForComparison = do
   resetVarCounter
-  let (art, _) =
-        revArtifactAdapt
+  let art = revArtifactAdapt
                  UseIncomingCotangent
                  (\x0 -> rfromList [sin (sin x0 - rscalar 5) - rscalar 7, sin x0 - rscalar 5, x0])
                  (FTKR ZSR FTKScalar)

@@ -53,6 +53,8 @@ import HordeAd.Core.AstEngine
 
 -- * Symbolic reverse and forward derivative computation
 
+data IncomingCotangentHandling = UseIncomingCotangent | IgnoreIncomingCotangent
+
 forwardPassByInterpretation
   :: forall x z.
      (AstTensor AstMethodLet FullSpan x
@@ -98,10 +100,7 @@ revArtifactFromForwardPass cotangentHandling forwardPass xftk =
   let !gradient = gradientFromDelta xftk zftk dt delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
       !unPrimal = unshareAstTensor $ unAstRaw primalBody
-  in ( AstArtifactRev varDt varPrimal unGradient unPrimal
-     , delta )
-
-data IncomingCotangentHandling = UseIncomingCotangent | IgnoreIncomingCotangent
+  in (AstArtifactRev varDt varPrimal unGradient unPrimal, delta)
 
 revProduceArtifact
   :: forall x z.
@@ -110,11 +109,11 @@ revProduceArtifact
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> FullShapeTK x
-  -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
+  -> AstArtifactRev x z
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact cotangentHandling g envInit xftk =
-  revArtifactFromForwardPass
-    cotangentHandling (forwardPassByInterpretation g envInit) xftk
+  fst $ revArtifactFromForwardPass
+          cotangentHandling (forwardPassByInterpretation g envInit) xftk
 
 fwdArtifactFromForwardPass
   :: forall x z.
@@ -583,13 +582,13 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         -- or even incorrect (and so, e.g., trigger
         -- `error "tunshare: used not at PrimalSpan"`, because no derivative
         -- should be taken of spans other than PrimalSpan)
-        (AstArtifactRev{..}, _delta) =
+        AstArtifactRev{..} =
           revProduceArtifact IgnoreIncomingCotangent (unHFun f) emptyEnv xftk
     in AstLambda artVarDomainRev (simplifyInline artDerivativeRev)
   trevDt ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
-    let (AstArtifactRev{..}, _delta) =
+    let AstArtifactRev{..} =
           revProduceArtifact UseIncomingCotangent (unHFun f) emptyEnv ftkx
         ftkz = varNameToFTK artVarDtRev
         ftk2 = FTKProduct ftkz ftkx

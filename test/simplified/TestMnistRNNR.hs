@@ -335,7 +335,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
            f = \ (pars, (glyphR, labelR)) ->
              MnistRnnRanked2.rnnMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
-           (artRaw, _) = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
+           artRaw = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchR r]
               -> ( RepN (X (ADRnnMnistParameters RepN r))
