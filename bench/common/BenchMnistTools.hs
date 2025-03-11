@@ -183,7 +183,7 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
           MnistFcnnRanked1.afcnnMnistLoss1 @_ @Double
             widthHiddenSNat widthHidden2SNat
             (glyphR, labelR) pars
-        (artRaw, _) = revArtifactAdapt False f (FTKProduct ftk ftkData)
+        artRaw = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
         art = simplifyArtifactGradient artRaw
         go :: [MnistDataLinearR r]
            -> RepN (XParams widthHidden widthHidden2 r)
@@ -337,7 +337,7 @@ mnistTrainBench2VTC prefix widthHidden widthHidden2 =
   bench prefix
   $ whnf (simplifyArtifactGradient . snd
           . MnistFcnnRanked2.mnistTrainBench2VTOGradient
-              @Double (Proxy @Float) False 1 (mkStdGen 44) widthHidden)
+              @Double (Proxy @Float) IgnoreIncomingCotangent 1 (mkStdGen 44) widthHidden)
          widthHidden2
 
 mnistBGroup2VTC :: Int -> Benchmark
@@ -393,7 +393,7 @@ mnistBGroup2VTO :: Int -> Benchmark
 mnistBGroup2VTO chunkLength =
   let (!targetInit, !artRaw) =
         MnistFcnnRanked2.mnistTrainBench2VTOGradient
-          @Double (Proxy @Float) False 1 (mkStdGen 44) 500 150
+          @Double (Proxy @Float) IgnoreIncomingCotangent 1 (mkStdGen 44) 500 150
       !art = simplifyArtifactGradient artRaw  -- no NFData for AST
   in env (do
     testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total

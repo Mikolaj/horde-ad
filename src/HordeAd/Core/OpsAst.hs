@@ -22,6 +22,7 @@ import GHC.TypeLits (cmpNat, OrderingI (..), type (+), type (-), type (<=?))
 import Data.Type.Equality (gcastWith)
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Maybe (fromMaybe)
+import GHC.Exts (inline)
 
 import Data.Array.Nested (type (++))
 import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
@@ -110,9 +111,8 @@ revProduceArtifact
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> FullShapeTK x
   -> AstArtifactRev x z
-{-# INLINE revProduceArtifact #-}
 revProduceArtifact cotangentHandling g envInit xftk =
-  fst $ revArtifactFromForwardPass
+  fst $ inline revArtifactFromForwardPass
           cotangentHandling (forwardPassByInterpretation g envInit) xftk
 
 fwdArtifactFromForwardPass

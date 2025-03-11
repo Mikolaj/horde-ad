@@ -140,8 +140,8 @@ revArtifactDelta cotangentHandling f xftk =
         -> AstTensor AstMethodLet FullSpan z
       g !hv = ttlet hv $ \ !hvShared ->
         f $ fromTarget hvShared
-  in revArtifactFromForwardPass
-       cotangentHandling (forwardPassByInterpretation g emptyEnv) xftk
+  in revArtifactFromForwardPass cotangentHandling
+                                (forwardPassByInterpretation g emptyEnv) xftk
 
 revProduceArtifactWithoutInterpretation
   :: forall x z.
@@ -152,7 +152,7 @@ revProduceArtifactWithoutInterpretation
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation cotangentHandling f xftk =
-  revArtifactFromForwardPass @x @z cotangentHandling
+  revArtifactFromForwardPass cotangentHandling
                              (forwardPassByApplication f) xftk
 
 forwardPassByApplication
