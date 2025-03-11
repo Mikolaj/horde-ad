@@ -207,7 +207,7 @@ testCFwdZeroS :: Assertion
 testCFwdZeroS =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
-    (cfwd (let f :: ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
+    (cjvp (let f :: ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
                  -> ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
                f = const (srepl 3)
            in f) 42 41)
@@ -216,7 +216,7 @@ testFwdZeroS :: Assertion
 testFwdZeroS =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
-    (fwd (let f :: AstTensor AstMethodLet FullSpan (TKS '[0, 2, 4, 0, 1] Double)
+    (jvp (let f :: AstTensor AstMethodLet FullSpan (TKS '[0, 2, 4, 0, 1] Double)
                 -> AstTensor AstMethodLet FullSpan (TKS '[0, 2, 4, 0, 1] Double)
               f = const (srepl 3)
           in f) (srepl 42) (srepl 41))
@@ -234,7 +234,7 @@ testCFwdZero2S :: Assertion
 testCFwdZero2S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[] knownShS [41])
-    (cfwd @_ @(TKS '[] Double)
+    (cjvp @_ @(TKS '[] Double)
           (let f :: a -> a
                f = id
            in f) (srepl 42) (srepl 41))
@@ -243,7 +243,7 @@ testFwdZero2S :: Assertion
 testFwdZero2S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[] knownShS [41])
-    (fwd @_ @(TKS '[] Double)
+    (jvp @_ @(TKS '[] Double)
           (let f :: a -> a
                f = id
            in f) (srepl 42) (srepl 41))
@@ -258,13 +258,13 @@ testCFwdZero3S :: Assertion
 testCFwdZero3S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[33, 2] knownShS (replicate 66 3.9791525693535674))
-    (cfwd (\x -> barF @(ADVal Concrete (TKS '[33, 2] Double)) (x, x)) (srepl 1) (srepl 1.1))
+    (cjvp (\x -> barF @(ADVal Concrete (TKS '[33, 2] Double)) (x, x)) (srepl 1) (srepl 1.1))
 
 testFwdZero3S :: Assertion
 testFwdZero3S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[33, 2] knownShS (replicate 66 3.9791525693535674))
-    (fwd (\x -> barF @(AstTensor AstMethodLet FullSpan (TKS '[33, 2] Double)) (x, x)) (srepl 1) (srepl 1.1))
+    (jvp (\x -> barF @(AstTensor AstMethodLet FullSpan (TKS '[33, 2] Double)) (x, x)) (srepl 1) (srepl 1.1))
 
 testZero4s :: Assertion
 testZero4s =
@@ -315,7 +315,7 @@ testCFwdZero9S :: Assertion
 testCFwdZero9S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
-    (cfwd (let f :: ADVal Concrete (TKR 5 Double)
+    (cjvp (let f :: ADVal Concrete (TKR 5 Double)
                  -> ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
                f = const (srepl 3)
            in f)
@@ -325,7 +325,7 @@ testFwdZero9S :: Assertion
 testFwdZero9S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
-    (fwd (let f :: AstTensor AstMethodLet FullSpan (TKR 5 Double)
+    (jvp (let f :: AstTensor AstMethodLet FullSpan (TKR 5 Double)
                 -> AstTensor AstMethodLet FullSpan (TKS '[0, 2, 4, 0, 1] Double)
               f = const (srepl 3)
           in f)
@@ -346,7 +346,7 @@ testCFwdZero10S :: Assertion
 testCFwdZero10S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
-    (cfwd (let f = const (srepl 3) . snd
+    (cjvp (let f = const (srepl 3) . snd
            in f :: ( ADVal Concrete (TKR 5 Double)
                    , ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double) )
                    -> ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double))
@@ -359,7 +359,7 @@ testFwdZero10S :: Assertion
 testFwdZero10S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
-    (fwd  (let f = const (srepl 3) . snd
+    (jvp  (let f = const (srepl 3) . snd
            in f :: ( AstTensor AstMethodLet FullSpan (TKR 5 Double)
                    , AstTensor AstMethodLet FullSpan (TKS '[0, 2, 4, 0, 1] Double) )
                    -> AstTensor AstMethodLet FullSpan (TKS '[0, 2, 4, 0, 1] Double))
@@ -383,7 +383,7 @@ testCFwdZero11S :: Assertion
 testCFwdZero11S =
   assertEqualUpToEpsilon 1e-9
     (rfromList0N [0, 2, 4, 0, 1] [])
-    (cfwd (let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
+    (cjvp (let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
            in f :: ( ADVal Concrete (TKR 5 Double)
                    , ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double) )
                    -> ADVal Concrete (TKR 5 Double))
@@ -396,7 +396,7 @@ testFwdZero11S :: Assertion
 testFwdZero11S =
   assertEqualUpToEpsilon 1e-9
     (rfromList0N [0, 2, 4, 0, 1] [])
-    (fwd  (let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
+    (jvp  (let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
            in f :: ( AstTensor AstMethodLet FullSpan (TKR 5 Double)
                    , AstTensor AstMethodLet FullSpan (TKS '[0, 2, 4, 0, 1] Double) )
                    -> AstTensor AstMethodLet FullSpan (TKR 5 Double))
@@ -1316,13 +1316,13 @@ testBarCFwd :: Assertion
 testBarCFwd =
   assertEqualUpToEpsilon 1e-9
     (rscalar 9.327500345189534e-2)
-    (cfwd (bar @(ADVal Concrete (TKR 0 Double))) (rscalar 1.1, rscalar 2.2) (rscalar 0.1, rscalar 0.2))
+    (cjvp (bar @(ADVal Concrete (TKR 0 Double))) (rscalar 1.1, rscalar 2.2) (rscalar 0.1, rscalar 0.2))
 
 testBarFwd :: Assertion
 testBarFwd =
   assertEqualUpToEpsilon 1e-9
     (rscalar 9.327500345189534e-2)
-    (fwd @_ @(TKR 0 Double)
+    (jvp @_ @(TKR 0 Double)
          bar (rscalar 1.1, rscalar 2.2) (rscalar 0.1, rscalar 0.2))
 
 barADVal2 :: forall a. RealFloatH a
@@ -1412,14 +1412,14 @@ testFooBuildCFwd :: Assertion
 testFooBuildCFwd =
   assertEqualUpToEpsilon 1e-5
     (rconcrete $ Nested.rfromListPrimLinear [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
-    (cfwd @_ @(TKR 1 Double)
+    (cjvp @_ @(TKR 1 Double)
           fooBuild1 (ringestData [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
 
 testFooBuildFwd :: Assertion
 testFooBuildFwd =
   assertEqualUpToEpsilon 1e-5
     (rconcrete $ Nested.rfromListPrimLinear [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
-    (fwd @_ @(TKR 1 Double)
+    (jvp @_ @(TKR 1 Double)
          fooBuild1 (ringestData [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
 
 testFooBuild :: Assertion
@@ -1581,7 +1581,7 @@ testBarReluMax3CFwd :: Assertion
 testBarReluMax3CFwd =
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
-    (cfwd @_ @(TKR 3 Double)
+    (cjvp @_ @(TKR 3 Double)
           barReluMax
                      (rconcrete $ Nested.rfromListPrimLinear (fromList [2, 1, 2]) [1.1, 2, 3, 4.2])
                      (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
@@ -1602,7 +1602,7 @@ testBarReluMax3FwdS :: Assertion
 testBarReluMax3FwdS =
   assertEqualUpToEpsilon 1e-10
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
-    (fwd @_ @(TKS '[2, 1, 2] Double)
+    (jvp @_ @(TKS '[2, 1, 2] Double)
          barReluMaxS
          (sconcrete $ Nested.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [1.1, 2, 3, 4.2])
          (sconcrete $ Nested.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [0.1, 0.2, 0.3, 0.42]))
@@ -1611,7 +1611,7 @@ testBarReluMax3FwdFrom :: Assertion
 testBarReluMax3FwdFrom =
   assertEqualUpToEpsilon 1e-10
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
-    (fwd @_ @(TKS '[2, 1, 2] Double)
+    (jvp @_ @(TKS '[2, 1, 2] Double)
          (sfromR . barReluMax . rfromS)
          (sconcrete $ Nested.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [1.1, 2, 3, 4.2])
          (sconcrete $ Nested.sfromListPrimLinear @_ @'[2, 1, 2] knownShS [0.1, 0.2, 0.3, 0.42]))
@@ -1620,7 +1620,7 @@ testBarReluMax3FwdR :: Assertion
 testBarReluMax3FwdR =
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
-    (fwd @_ @(TKR 3 Double)
+    (jvp @_ @(TKR 3 Double)
          barReluMax
          (ringestData [2, 1, 2] [1.1, 2, 3, 4.2])
          (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
@@ -1667,14 +1667,14 @@ testF2CFwd :: Assertion
 testF2CFwd =
   assertEqualUpToEpsilon 1e-10
     (rscalar 47)
-    (cfwd @_ @(TKR 0 Double)
+    (cjvp @_ @(TKR 0 Double)
           f2 (rscalar 1.1) (rscalar 0.1))
 
 testF2Fwd :: Assertion
 testF2Fwd =
   assertEqualUpToEpsilon 1e-10
     (rscalar 47)
-    (fwd @_ @(TKR 0 Double)
+    (jvp @_ @(TKR 0 Double)
          f2 (rscalar 1.1) (rscalar 0.1))
 
 braidedBuilds :: forall target r.

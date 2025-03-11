@@ -597,7 +597,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           $ astLet artVarDomainRev (astProject2 astP)
           $ simplifyInline artDerivativeRev
     in AstLambda varP ast
-  tfwd ftkx f =
+  tjvp ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let (AstArtifactFwd{..}, _delta) =
@@ -1083,7 +1083,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- simplifying the resulting terms, but it's not clear that's more consistent.
   tgrad = tgrad @(AstTensor AstMethodLet PrimalSpan)
   tvjp = tvjp @(AstTensor AstMethodLet PrimalSpan)
-  tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
+  tjvp = tjvp @(AstTensor AstMethodLet PrimalSpan)
 
   tfromVector k stk =
     AstRaw . AstFromVector k stk . V.map unAstRaw
@@ -1396,7 +1396,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tfromDual t = AstNoVectorize $ tfromDual t
   tgrad = tgrad @(AstTensor AstMethodLet PrimalSpan)
   tvjp = tvjp @(AstTensor AstMethodLet PrimalSpan)
-  tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
+  tjvp = tjvp @(AstTensor AstMethodLet PrimalSpan)
 
   tfromVector k stk =
     AstNoVectorize . tfromVector k stk . V.map unAstNoVectorize
@@ -1625,7 +1625,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tfromPrimal stk t = wAstNoSimplify $ tfromPrimal stk $ wunAstNoSimplify t
   tgrad = tgrad @(AstRaw PrimalSpan)
   tvjp = tvjp @(AstRaw PrimalSpan)
-  tfwd = tfwd @(AstRaw PrimalSpan)
+  tjvp = tjvp @(AstRaw PrimalSpan)
 
   tfromVector k stk =
     wAstNoSimplify . tfromVector k stk . V.map wunAstNoSimplify

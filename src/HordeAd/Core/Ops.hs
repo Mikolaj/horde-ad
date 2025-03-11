@@ -155,7 +155,7 @@ tmapAccumR proxy !k !accftk !bftk !eftk f acc0 es =
                    f (tproject1 args1) (tproject2 args1)
   in tmapAccumRDer proxy k accftk bftk eftk
                    (tlambda @target xftk (HFun fl))
-                   (tfwd @target xftk $ HFun fl)
+                   (tjvp @target xftk $ HFun fl)
                    (tvjp @target xftk $ HFun fl)
                    acc0 es
 -- | A strict left mapAccum.
@@ -182,7 +182,7 @@ tmapAccumL proxy !k !accftk !bftk !eftk f acc0 es =
                    f (tproject1 args1) (tproject2 args1)
   in tmapAccumLDer proxy k accftk bftk eftk
                    (tlambda @target xftk (HFun fl))
-                   (tfwd @target xftk $ HFun fl)
+                   (tjvp @target xftk $ HFun fl)
                    (tvjp @target xftk $ HFun fl)
                    acc0 es
 
@@ -908,7 +908,7 @@ class ( Num (IntOf target)
 
   -- | A strict right mapAccum.
   --
-  -- The applications of 'tfwd' and 'tvjp' performed already at this point
+  -- The applications of 'tjvp' and 'tvjp' performed already at this point
   -- ensure that the computation of a derivative is not repeated
   -- and that its result is shared. However, most of the time
   -- the computation is unnneeded, so the AST instance uses a non-strict
@@ -918,7 +918,7 @@ class ( Num (IntOf target)
   -- > let f = ... in ... (tmapAccumR ... f ...) ... (tmapAccumL ... f ...)
   -- extra care is needed to prevent double derivative computation.
   -- One needs to use tmapAccumRDer manually as in (simplified)
-  -- > let f = ...; df = tfwd f; rf = tgrad f
+  -- > let f = ...; df = tjvp f; rf = tgrad f
   -- > in ... (tmapAccumRDer f df rf ...) ... (tmapAccumLDer f df rf ...)
   tmapAccumRDer
     :: forall accy by ey k.
@@ -984,7 +984,7 @@ class ( Num (IntOf target)
     -> HFun x z  -- ^ x |-> z
     -> HFunOf target (TKProduct (ADTensorKind z) x) (ADTensorKind x)
          -- ^ (dz, x) |-> dx
-  tfwd
+  tjvp
     :: FullShapeTK x  -- ^ shape of x and dx
     -> HFun x z  -- ^ x |-> z
     -> HFunOf target (TKProduct (ADTensorKind x) x) (ADTensorKind z)

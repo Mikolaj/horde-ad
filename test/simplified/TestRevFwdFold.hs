@@ -41,7 +41,7 @@ testTrees =
   , testCase "4S0Rrev3'" testSin0Rrev3'
   , testCase "4S0Rrev4'" testSin0Rrev4'
   , testCase "4S0Rrev5'" testSin0Rrev5'
-  , testCase "4S0Rfwd" testSin0Rfwd
+  , testCase "4S0Rfwd" testSin0Rjvp
   , testCase "4S0RfwdPP0" testSin0RfwdPP0
   , testCase "4S0RfwdPP1" testSin0RfwdPP1
   , testCase "4S0RfwdPP1FullUnsimp" testSin0RfwdPP1FullUnsimp
@@ -90,11 +90,11 @@ testTrees =
   , testCase "4S0Fold182Srev" testSin0Fold182Sgrad
   , testCase "4S0Fold182SrevPP" testSin0Fold182SrevPP
   , testCase "4S0Fold18Srev" testSin0Fold18Sgrad
-  , testCase "4S0Fold8fwd" testSin0Fold8fwd
+  , testCase "4S0Fold8fwd" testSin0Fold8jvp
   , testCase "4S0Fold8fwd2" testSin0Fold8fwd2
-  , testCase "4S0Fold8Sfwd" testSin0Fold8Sfwd
+  , testCase "4S0Fold8Sfwd" testSin0Fold8Sjvp
   , testCase "4S0Fold8Sfwd2" testSin0Fold8Sfwd2
-  , testCase "4S0Fold5Sfwd" testSin0Fold5Sfwd
+  , testCase "4S0Fold5Sfwd" testSin0Fold5Sjvp
   , testCase "4S0Fold5Sfwds" testSin0Fold5Sfwds
   , testCase "4S0Scan0" testSin0Scan0
   , testCase "4S0Scan1" testSin0Scan1
@@ -123,10 +123,10 @@ testTrees =
   , testCase "4S0ScanFwd3PP" testSin0ScanFwd3PP
   , testCase "4S0Scan1Rev3" testSin0Scan1Rev3
   , testCase "4S0Scan1Rev3ForComparison" testSin0Scan1Rev3ForComparison
-  , testCase "4S0Scan0fwd" testSin0Scan0fwd
-  , testCase "4S0Scan1fwd" testSin0Scan1fwd
+  , testCase "4S0Scan0fwd" testSin0Scan0jvp
+  , testCase "4S0Scan1fwd" testSin0Scan1jvp
   , testCase "4S0Scan1FwdForComparison" testSin0Scan1FwdForComparison
-  , testCase "4S0Scan8fwd" testSin0Scan8fwd
+  , testCase "4S0Scan8fwd" testSin0Scan8jvp
   , testCase "4S0Scan8fwd2" testSin0Scan8fwd2
   , testCase "4SUnitriangular0PP" testUnitriangular0PP
   , testCase "4SUnitriangular1PP" testUnitriangular1PP
@@ -170,8 +170,8 @@ testTrees =
   , testCase "4S0ScanD1Rev2PP" testSin0ScanD1Rev2PP
   , testCase "4S0ScanDFwd2PP" testSin0ScanDFwd2PP
   , testCase "4S0ScanDFwd3PP" testSin0ScanDFwd3PP
-  , testCase "4S0ScanD1fwd" testSin0ScanD1fwd
-  , testCase "4S0ScanD8fwd" testSin0ScanD8fwd
+  , testCase "4S0ScanD1fwd" testSin0ScanD1jvp
+  , testCase "4S0ScanD8fwd" testSin0ScanD8jvp
   , testCase "4S0ScanD8fwdMapAccum" testSin0ScanD8fwdMapAccum
   , testCase "4S0ScanD8fwd2" testSin0ScanD8fwd2
   , testCase "4S0FoldNestedS1" testSin0FoldNestedS1
@@ -194,7 +194,7 @@ testTrees =
   , testCase "4S0FoldNestedS4" testSin0FoldNestedS4
   , testCase "4S0FoldNestedS5" testSin0FoldNestedS5
   , testCase "4S0FoldNestedS5rev" testSin0FoldNestedS5grad
-  , testCase "4S0FoldNestedS5fwd" testSin0FoldNestedS5fwd
+  , testCase "4S0FoldNestedS5fwd" testSin0FoldNestedS5jvp
   , testCase "4S0FoldNestedSi" testSin0FoldNestedSi
   , testCase "4S0FoldNestedR1" testSin0FoldNestedR1
   , testCase "4S0FoldNestedR1RevFwd" testSin0FoldNestedR1RevFwd
@@ -343,8 +343,8 @@ testSin0Rrev5' = do
     (rscalar (-0.4535961214255773) :: Concrete (TKR 0 Double))
     (rev' (rrev1 (rrev1 sin)) (rscalar 1.1))
 
-testSin0Rfwd :: Assertion
-testSin0Rfwd = do
+testSin0Rjvp :: Assertion
+testSin0Rjvp = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.4535961214255773)
     (rfwd1 @Concrete @Double @0 @0 sin (rscalar 1.1))
@@ -382,7 +382,7 @@ testSin0Rfwd3 = do
   let f = rfwd1 @(ADVal Concrete) @Double @0 @0 sin
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.9803280960675791))
-    (cfwd f (rscalar 1.1) (rscalar 1.1))
+    (cjvp f (rscalar 1.1) (rscalar 1.1))
 
 testSin0Rfwd4 :: Assertion
 testSin0Rfwd4 = do
@@ -795,8 +795,8 @@ testSin0Fold18Sgrad = do
                         (sreplicate @2 a0)
             in rfromS . f . sfromR) (rscalar 1.1))
 
-testSin0Fold8fwd :: Assertion
-testSin0Fold8fwd = do
+testSin0Fold8jvp :: Assertion
+testSin0Fold8jvp = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2, 5] (replicate 10 (-0.2200311410593445)))
     (rfwd1 @Concrete @Double @0 @2
@@ -820,8 +820,8 @@ testSin0Fold8fwd2 = do
     (rscalar 98.72666469795735)
     (cgrad h (rscalar 1.1))
 
-testSin0Fold8Sfwd :: Assertion
-testSin0Fold8Sfwd = do
+testSin0Fold8Sjvp :: Assertion
+testSin0Fold8Sjvp = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2, 5] (replicate 10 (-0.2200311410593445)))
     (rfwd1 @Concrete
@@ -850,13 +850,13 @@ testSin0Fold8Sfwd2 = do
                  in rfromS . f . sfromR)
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2, 5] (replicate 10 10.859933116775313))
-    (cfwd h (rscalar 1.1) (rscalar 1.1))
+    (cjvp h (rscalar 1.1) (rscalar 1.1))
 
-testSin0Fold5Sfwd :: Assertion
-testSin0Fold5Sfwd = do
+testSin0Fold5Sjvp :: Assertion
+testSin0Fold5Sjvp = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 1.4291653807319993)
-    (cfwd (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
+    (cjvp (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (let g :: forall f2. ADReady f2
                                    => f2 (TKS '[] Double) -> f2 (TKS '[2, 5] Double)
                                    -> f2 (TKS '[] Double)
@@ -875,7 +875,7 @@ testSin0Fold5Sfwds :: Assertion
 testSin0Fold5Sfwds = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1.4291653807319993)
-    (cfwd (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
+    (cjvp (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (let g :: forall f2. ADReady f2
                                    => f2 (TKS '[] Double) -> f2 (TKS '[2, 5] Double)
                                    -> f2 (TKS '[] Double)
@@ -1134,8 +1134,8 @@ testSin0Scan1Rev3ForComparison = do
     (ringestData [] [-10.076255083995068] :: Concrete (TKR 0 Double))
     (rev' (\x0 -> rfromList [sin (sin x0 - x0 * rscalar 5) - x0 * rscalar 7, sin x0 - x0 * rscalar 5, x0]) (rscalar 1.1))
 
-testSin0Scan0fwd :: Assertion
-testSin0Scan0fwd = do
+testSin0Scan0jvp :: Assertion
+testSin0Scan0jvp = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [1] [1.0])
     (rfwd1 @Concrete @Double @0 @1
@@ -1144,8 +1144,8 @@ testSin0Scan0fwd = do
                       x0 (rrepl @_ @Double (0 :$: ZSR) 0)
      in f) (rscalar 1.1))
 
-testSin0Scan1fwd :: Assertion
-testSin0Scan1fwd = do
+testSin0Scan1jvp :: Assertion
+testSin0Scan1jvp = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2] [1.0,0.4535961214255773])
     (rfwd1 @Concrete @Double @0 @1
@@ -1160,8 +1160,8 @@ testSin0Scan1FwdForComparison = do
     (rfwd1 @Concrete @Double @0 @1
     (\x0 -> rfromList [x0, sin x0]) (rscalar 1.1))
 
-testSin0Scan8fwd :: Assertion
-testSin0Scan8fwd = do
+testSin0Scan8jvp :: Assertion
+testSin0Scan8jvp = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
     (rfwd1 @Concrete @Double @0 @3
@@ -1904,7 +1904,7 @@ testSin0rmapAccumRD01SN58 :: Assertion
 testSin0rmapAccumRD01SN58 = do
   assertEqualUpToEpsilon 1e-10
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[5] knownShS [0,0,0,0,1.1])
-    (cfwd (let f :: forall f. ADReady f
+    (cjvp (let f :: forall f. ADReady f
                  => f (TKS '[] Double) -> f (TKS '[5] Double)
                f x0 = tproject2
                       $ tmapAccumR (Proxy @f) (SNat @5)
@@ -2123,8 +2123,8 @@ testSin0ScanDFwd3PP = do
   printAstPretty (simplifyInlineContract a1)
     @?= "rfromS (sappend (sreplicate @1 (sscalar 1.0)) (sfromR (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sconcrete (sfromListLinear [2] [5.0,7.0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) (sconcrete (sfromListLinear [2] [5.5,7.700000000000001])))), sconcrete (sfromListLinear [2] [5.5,7.700000000000001]))))))))"
 
-testSin0ScanD1fwd :: Assertion
-testSin0ScanD1fwd = do
+testSin0ScanD1jvp :: Assertion
+testSin0ScanD1jvp = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2] [1.0,0.4535961214255773])
     (rfwd1 @Concrete @Double @0 @1
@@ -2133,8 +2133,8 @@ testSin0ScanD1fwd = do
                    x0 (rrepl @1 @Double [1] 42))
           (rscalar 1.1))
 
-testSin0ScanD8fwd :: Assertion
-testSin0ScanD8fwd = do
+testSin0ScanD8jvp :: Assertion
+testSin0ScanD8jvp = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
     (rfwd1 @Concrete @Double @0 @3
@@ -2507,8 +2507,8 @@ testSin0FoldNestedS5grad = do
     (srepl 0.22000000000000003)
     (srev1 @Concrete @Double @'[] @'[] f (sscalar 1.1))
 
-testSin0FoldNestedS5fwd :: Assertion
-testSin0FoldNestedS5fwd = do
+testSin0FoldNestedS5jvp :: Assertion
+testSin0FoldNestedS5jvp = do
   let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
       f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->

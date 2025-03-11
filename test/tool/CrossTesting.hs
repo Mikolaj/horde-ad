@@ -16,8 +16,8 @@ import Data.Array.Nested.Internal.Shape
 
 import HordeAd.ADEngine
   ( IncomingCotangentHandling (..)
-  , cfwd
-  , fwd
+  , cjvp
+  , jvp
   , revEvalArtifact
   , revProduceArtifactWithoutInterpretation
   )
@@ -202,8 +202,8 @@ rev' f vals =
         revEvalArtifact7 artifactsPSimpleAst
       (gradient5AstS, value5AstS) =
         revEvalArtifact7 (simplifyArtifact artifactsPSimpleAst)
-      cderivative = cfwd f vals vals
-      derivative = fwd f vals vals
+      cderivative = cjvp f vals vals
+      derivative = jvp f vals vals
       derivativeRfwd1 = rfwd1ds @Concrete @r @n @m @r f vals
                         $ toADTensorKindShared ftk vals
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
@@ -331,7 +331,7 @@ assertEqualUpToEpsilon'
   assertEqualUpToEpsilonWithMark "Val ADVal Ast" errMargin value0 value9
   assertEqualUpToEpsilonWithMark "Grad ADVal Ast" errMargin expected gradient9
   assertEqualUpToEpsilonWithMark "Derivatives" errMargin cderivative derivative
-  assertEqualUpToEpsilonWithMark "Derivatives rfwd"
+  assertEqualUpToEpsilonWithMark "Derivatives rjvp"
                                  errMargin cderivative derivativeRfwd1
   -- The formula for comparing derivative and gradient is due to @awf
   -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
@@ -485,7 +485,7 @@ rfwd1ds :: forall g r n m r3.
         => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
         -> g (ADTensorKind (TKR n r))
         -> g (ADTensorKind (TKR m r3))
-rfwd1ds f u ds = rfwd f (tftk knownSTK u) u ds
+rfwd1ds f u ds = rjvp f (tftk knownSTK u) u ds
 
 rfwd1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r), KnownNat n)
@@ -503,4 +503,4 @@ sfwd1 :: forall g r sh sh2 r3.
          (ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r), KnownShS sh)
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh2 r3))
-sfwd1 f u = sfwd f (tftk knownSTK u) u (srepl @_ @(ADTensorScalar r) 1)
+sfwd1 f u = sjvp f (tftk knownSTK u) u (srepl @_ @(ADTensorScalar r) 1)

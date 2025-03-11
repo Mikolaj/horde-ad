@@ -10,11 +10,11 @@ module HordeAd.ADEngine
   , grad, vjp, revArtifactAdapt, revArtifactDelta
   , revProduceArtifactWithoutInterpretation, revEvalArtifact
     -- * Forward derivative adaptors
-  , fwd, fwdEvalArtifact
+  , jvp, fwdEvalArtifact
     -- * Non-AST gradient adaptors
   , cgrad, cvjp
     -- * Non-AST derivative adaptors
-  , cfwd, cfwdBoth
+  , cjvp, cfwdBoth
   ) where
 
 import Prelude
@@ -197,7 +197,7 @@ revEvalArtifact AstArtifactRev{..} parameters mdt =
 -- to determine the tensor shapes, see test testBarReluMax3Fwd.
 -- Shaped tensors work fine. Similarly, the complex codomain resolution
 -- may fail at runtime if it contains lists or vectors of tensors, etc.
-fwd
+jvp
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
@@ -206,8 +206,8 @@ fwd
   -> Value astvals
   -> Value astvals  -- morally (ADTensorKind astvals)
   -> Concrete (ADTensorKind z)
-{-# INLINE fwd #-}
-fwd f vals ds =
+{-# INLINE jvp #-}
+jvp f vals ds =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
       g !arg = ttlet arg $ f . fromTarget
@@ -292,7 +292,7 @@ cvjpMaybe f vals mdt =
 -- * Non-AST derivative adaptors, with constant and fixed inputs
 
 -- | This takes the sensitivity parameter, by convention.
-cfwd
+cjvp
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal Concrete) advals
@@ -301,8 +301,8 @@ cfwd
   -> DValue advals
   -> DValue advals  -- morally (ADTensorKind advals)
   -> Concrete (ADTensorKind z)
-{-# INLINE cfwd #-}
-cfwd f vals ds = fst $ cfwdBoth f vals ds
+{-# INLINE cjvp #-}
+cjvp f vals ds = fst $ cfwdBoth f vals ds
 
 cfwdBoth
   :: forall advals z.

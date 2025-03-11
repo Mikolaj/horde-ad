@@ -515,7 +515,7 @@ instance ( ADReadyNoLet target, ShareTensor target
                              xftk
                              (toShare $ tproject2 db_aShared)
     in HFun rf
-  tfwd @x @z xftk h =
+  tjvp @x @z xftk h =
     let df :: forall f. ADReady f
            => f (TKProduct (ADTensorKind x) x)
            -> f (ADTensorKind z)

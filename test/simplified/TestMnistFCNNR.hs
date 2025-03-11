@@ -721,7 +721,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
     in
       conjoin
         [ counterexample
-            ("Objective function value from grad and fwd matches: "
+            ("Objective function value from grad and jvp matches: "
              ++ show (value1, value2, value1 - value2))
             (abs (value1 - value2) < 1e-10)
         , counterexample

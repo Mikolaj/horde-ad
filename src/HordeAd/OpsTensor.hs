@@ -42,7 +42,7 @@ module HordeAd.OpsTensor
     -- * Array operations derived from `mapAccum`
   , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
     -- * Array operations producing derivatives
-  , rgrad, rvjp, rfwd, sgrad, svjp, sfwd
+  , rgrad, rvjp, rjvp, sgrad, svjp, sjvp
     -- * Operations about dual numbers
   , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
   , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
@@ -1023,14 +1023,14 @@ rvjp :: forall n x r target. BaseTensor target
        -> target (ADTensorKind x)  -- ^ gradient dx
 rvjp f xftk =
   \ !es !dt -> tApply (tvjp @target xftk $ HFun f) (tpair dt es)
-rfwd :: forall n x r target. BaseTensor target
+rjvp :: forall n x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKR2 n r))  -- ^ x |-> z
      -> FullShapeTK x  -- ^ shape of x and dx
      -> target x  -- ^ input x
      -> target (ADTensorKind x)  -- ^ incoming tangent dx
      -> target (ADTensorKind (TKR2 n r))  -- ^ derivative dz
-rfwd f xftk =
-  \ !es !ds -> tApply (tfwd @target xftk $ HFun f) (tpair ds es)
+rjvp f xftk =
+  \ !es !ds -> tApply (tjvp @target xftk $ HFun f) (tpair ds es)
 sgrad :: forall sh x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKS2 sh r))  -- ^ x |-> z
      -> FullShapeTK x  -- ^ shape of x and dx
@@ -1046,14 +1046,14 @@ svjp :: forall sh x r target. BaseTensor target
        -> target (ADTensorKind x)  -- ^ gradient dx
 svjp f xftk =
   \ !es !dt -> tApply (tvjp @target xftk $ HFun f) (tpair dt es)  -- ^ x |-> z
-sfwd :: forall sh x r target. BaseTensor target
+sjvp :: forall sh x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKS2 sh r))
      -> FullShapeTK x  -- ^ shape of x and dx
      -> target x  -- ^ input x
      -> target (ADTensorKind x)  -- ^ incoming tangent dx
      -> target (ADTensorKind (TKS2 sh r))  -- ^ derivative dz
-sfwd f xftk =
-  \ !es !ds -> tApply (tfwd @target xftk $ HFun f) (tpair ds es)
+sjvp f xftk =
+  \ !es !ds -> tApply (tjvp @target xftk $ HFun f) (tpair ds es)
 
 -- These take @target@ first, because they change the target.
 rprimalPart :: BaseTensor target
