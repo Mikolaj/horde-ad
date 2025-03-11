@@ -706,11 +706,11 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
 --        goodDt :: forall r. GoodScalar r => r
 --        goodDt = ifDifferentiable @r (realToFrac dt) 0
 --        targetDt :: Concrete (XParams2 Double Double)
---        targetDt = constantTarget goodDt ftk
+--        targetDt = replTarget goodDt ftk
         goodPerturbation :: forall r. GoodScalar r => r
         goodPerturbation = ifDifferentiable @r (realToFrac perturbation) 0
         targetPerturbed :: Concrete (XParams2 Double Double)
-        targetPerturbed = tconstantTarget goodPerturbation ftk
+        targetPerturbed = treplTarget goodPerturbation ftk
         targetInitPerturbed :: Concrete (XParams2 Double Double)
         targetInitPerturbed = taddTarget stk targetInit targetPerturbed
         (derivative3, value3) = cfwdBoth f targetInit targetPerturbed

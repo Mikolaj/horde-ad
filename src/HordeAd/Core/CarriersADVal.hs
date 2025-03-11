@@ -179,7 +179,7 @@ dSFromX sh d = DeltaSFromX sh d
 -- in particular in case of numeric literals and also for forward derivative.
 intOfShape :: forall z f. ADReadyNoLet f
            => Delta f z -> Int -> f z
-intOfShape tsh c = tconstantTarget (fromIntegral c) (ftkDelta tsh)
+intOfShape tsh c = treplTarget (fromIntegral c) (ftkDelta tsh)
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.

@@ -52,7 +52,7 @@ crevOnADInputs mdt f xftk inputs =
       -- before evaluation allocates new memory and new FFI is started.
       !(D v delta) = f inputs in
   let zftk = ftkDelta delta
-      dt = fromMaybe (tconstantTarget 1 $ adFTK zftk) mdt
+      dt = fromMaybe (treplTarget 1 $ adFTK zftk) mdt
       !gradient = gradientFromDelta xftk zftk dt delta
   in (gradient, v)
 
@@ -489,7 +489,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tprimalPart (D u _) = u
   tdualPart _stk (D _ u') = u'
   tfromPrimal stk t = fromPrimalFTK (tftk stk t) t
-  tfromDual t = dDnotShared (tconstantTarget 0 (ftkDelta t)) t
+  tfromDual t = dDnotShared (treplTarget 0 (ftkDelta t)) t
   tScale _stk k = dScale k
   trev @x xftk h =
     let rf :: forall f. ADReady f
@@ -532,7 +532,7 @@ instance ( ADReadyNoLet target, ShareTensor target
     dD (tfromVector snat stk $ V.map (\(D u _) -> u) lu)
        (DeltaFromVector snat stk $ V.map (\(D _ u') -> u') lu)
 
-  tconstantTarget r ftk = dDnotShared (tconstantTarget r ftk) (DeltaZero ftk)
+  treplTarget r ftk = dDnotShared (treplTarget r ftk) (DeltaZero ftk)
   tdefTarget ftk = dDnotShared (tdefTarget ftk) (DeltaZero ftk)
   taddTarget = addTarget
   tmultTarget = multTarget

@@ -146,7 +146,7 @@ evalTensorOrZero :: forall target x. ADReadyNoLet target
                  => TensorOrZero target x -> target x
 evalTensorOrZero = \case
   TOTensor t -> t
-  TOZero ftk -> tconstantTarget 0 ftk
+  TOZero ftk -> treplTarget 0 ftk
 
 -- The ShareTensor constraint is needed, despite what GHC says,
 -- in order not to require duplicable arguments.
@@ -184,7 +184,7 @@ rebuildInputs els s2 ftk = case ftk of
     (n :=> tz@(TOZero ftk2)) : rest ->
       case matchingFTK ftk2 ftk of
         Just Refl ->
-          let !zero = tconstantTarget 0 ftk
+          let !zero = treplTarget 0 ftk
           in (zero, rest)
           -- TODO: actually pass this ZERO through to optimizers
           -- and use there to avoid updating the gradient
@@ -460,13 +460,13 @@ evalRevFTK !s !c d0 = case d0 of
     in evalRevFTK (evalRevFTK s c1 d1) c2 d2
   DeltaProject1 d -> case ftkDelta d of
     FTKProduct _ ftk2 ->
-      let zero = tconstantTarget 0 $ adFTK ftk2
+      let zero = treplTarget 0 $ adFTK ftk2
       in evalRevFTK s (tpair c zero) d
     -- if y is, e.g., TKR Int 0, we eval this delta even though we could ignore it
     -- at the price of complicating or duplicating the code slightly more
   DeltaProject2 d -> case ftkDelta d of
     FTKProduct ftk1 _ ->
-      let zero = tconstantTarget 0 $ adFTK ftk1
+      let zero = treplTarget 0 $ adFTK ftk1
       in evalRevFTK s (tpair zero c) d
   DeltaFromVector snat stk ld | Refl <- lemBuildOfAD snat stk ->
     let cShared = tshare c
@@ -633,9 +633,9 @@ evalRevSame !s !c = \case
     FTKR (l :$: rest) x ->
       withKnownSTK (ftkToSTK x) $
       evalRevSame s (trappend
-                       (tconstantTarget 0 (FTKR (i :$: rest) x))
+                       (treplTarget 0 (FTKR (i :$: rest) x))
                        (trappend c
-                          (tconstantTarget 0 (FTKR (l - i - n :$: rest) x)))) d
+                          (treplTarget 0 (FTKR (l - i - n :$: rest) x)))) d
     FTKR ZSR _ -> error "evalRevSame: impossible pattern needlessly required"
   DeltaReverseR d -> case ftkDelta d of
     FTKR _ x ->
@@ -695,9 +695,9 @@ evalRevSame !s !c = \case
     FTKS (_ :$$ sh) x ->
       withKnownSTK (ftkToSTK x) $
       evalRevSame s (tsappend
-                       (tconstantTarget 0 (FTKS (i :$$ sh) x))
+                       (treplTarget 0 (FTKS (i :$$ sh) x))
                           (tsappend
-                             c (tconstantTarget 0 (FTKS (k :$$ sh) x)))) d
+                             c (treplTarget 0 (FTKS (k :$$ sh) x)))) d
   DeltaReverseS d -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -768,9 +768,9 @@ evalRevSame !s !c = \case
     FTKX (_ :$% sh) x ->
       withKnownSTK (ftkToSTK x) $
       evalRevSame s (txappend
-                       (tconstantTarget 0 (FTKX (Nested.SKnown i :$% sh) x))
+                       (treplTarget 0 (FTKX (Nested.SKnown i :$% sh) x))
                           (txappend
-                             c (tconstantTarget
+                             c (treplTarget
                                   0 (FTKX (Nested.SKnown k :$% sh) x)))) d
   DeltaReverseX d -> case ftkDelta d of
     FTKX _ x ->
@@ -1002,7 +1002,7 @@ evalFwd params s d0 = case d0 of
   _ -> case ftkDelta d0 of
     y -> case matchingFTK y (adFTK y) of
         Just Refl -> evalFwdSame params s d0
-        _ -> (s, tconstantTarget 0 $ adFTK y)
+        _ -> (s, treplTarget 0 $ adFTK y)
 
 evalFwdSame
   :: forall target y.
@@ -1016,7 +1016,7 @@ evalFwdSame params s = \case
       Nothing -> error "evalFwdSame: missing input"
 
   -- See the comment about these three in evalRevSame.
-  DeltaZero ftk -> (s, tconstantTarget 0 $ adFTK ftk)
+  DeltaZero ftk -> (s, treplTarget 0 $ adFTK ftk)
   DeltaScale (NestedTarget k) d -> second (* k) $ evalFwdSame params s d
   DeltaAdd d e -> let (s2, t) = evalFwdSame params s d
                       (s3, u) = evalFwdSame params s2 e
@@ -1025,14 +1025,14 @@ evalFwdSame params s = \case
   d0@(DeltaCastK @r1 d) ->
     case sameSTK (STKScalar @r1) (adSTK (STKScalar @r1)) of
       Just Refl -> second tkcast $ evalFwdSame params s d
-      _ -> (s, tconstantTarget 0 $ adFTK $ ftkDelta d0)
+      _ -> (s, treplTarget 0 $ adFTK $ ftkDelta d0)
 
   d0@(DeltaCastR d) -> case ftkDelta d of
     y ->
       case sameSTK (ftkToSTK y) (adSTK (ftkToSTK y)) of
         Just Refl -> second trcast $ evalFwdSame params s d
-        _ -> (s, tconstantTarget 0 $ adFTK $ ftkDelta d0)
-  DeltaSum0R (DeltaZero (FTKR _ x)) -> (s, tconstantTarget 0 (FTKR ZSR x))
+        _ -> (s, treplTarget 0 $ adFTK $ ftkDelta d0)
+  DeltaSum0R (DeltaZero (FTKR _ x)) -> (s, treplTarget 0 (FTKR ZSR x))
   DeltaSum0R d -> case ftkDelta d of
     FTKR sh x | SNat <- shrRank sh ->
       withKnownSTK (ftkToSTK x) $
@@ -1085,8 +1085,8 @@ evalFwdSame params s = \case
     y ->
       case sameSTK (ftkToSTK y) (adSTK (ftkToSTK y)) of
         Just Refl -> second tscast $ evalFwdSame params s d
-        _ -> (s, tconstantTarget 0 $ adFTK $ ftkDelta d0)
-  DeltaSum0S (DeltaZero (FTKS _ x)) -> (s, tconstantTarget 0 (FTKS ZSS x))
+        _ -> (s, treplTarget 0 $ adFTK $ ftkDelta d0)
+  DeltaSum0S (DeltaZero (FTKS _ x)) -> (s, treplTarget 0 (FTKS ZSS x))
   DeltaSum0S d -> case ftkDelta d of
     FTKS sh x ->
       withKnownSTK (ftkToSTK x) $
@@ -1148,8 +1148,8 @@ evalFwdSame params s = \case
     y ->
       case sameSTK (ftkToSTK y) (adSTK (ftkToSTK y)) of
         Just Refl -> second txcast $ evalFwdSame params s d
-        _ -> (s, tconstantTarget 0 $ adFTK $ ftkDelta d0)
-  DeltaSum0X (DeltaZero (FTKX _ x)) -> (s, tconstantTarget 0 (FTKX ZSX x))
+        _ -> (s, treplTarget 0 $ adFTK $ ftkDelta d0)
+  DeltaSum0X (DeltaZero (FTKX _ x)) -> (s, treplTarget 0 (FTKX ZSX x))
   DeltaSum0X d -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $

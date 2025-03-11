@@ -134,8 +134,8 @@ data StateAdam y = StateAdam
 initialStateAdam :: FullShapeTK y -> StateAdam y
 initialStateAdam ftk =
   StateAdam { tAdam = 0
-            , mAdam = tconstantTarget 0 ftk
-            , vAdam = tconstantTarget 0 ftk
+            , mAdam = treplTarget 0 ftk
+            , vAdam = treplTarget 0 ftk
             }
 
 updateWithGradientAdam

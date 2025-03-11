@@ -70,7 +70,7 @@ instance AstSpan PrimalSpan where
     -- AstTools is split off, so ftkAst can'be used here,
     -- so the following is brought here via simplification later on:
     -- let ftk = ftkAst t
-    -- in AstConcrete ftk $ tconstantTarget 0 ftk
+    -- in AstConcrete ftk $ treplTarget 0 ftk
   primalPart t = t
   dualPart t = AstDualPart $ AstFromPrimal t  -- this is dual zero
 

@@ -618,7 +618,7 @@ class ( Num (IntOf target)
                           (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                            $ zip (toList ix) (toList ix2))
                           (trindex0 v (dropIndex ix2))
-                          (tconstantTarget 0 (FTKR ZSR ftk2))
+                          (treplTarget 0 (FTKR ZSR ftk2))
         in rbuild (shrAppend sh (rshape v)) f
            -- TODO: if this is used often, maybe express this as the gather that
            -- would come out of vectorization, making sure it simplifies well
@@ -676,7 +676,7 @@ class ( Num (IntOf target)
                           (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                            $ zip (Foldable.toList ix) (Foldable.toList ix2))
                           (tsindex0 v (dropIxS @(Rank sh1) ix2))
-                          (tconstantTarget 0 (FTKS ZSS ftk2))
+                          (treplTarget 0 (FTKS ZSS ftk2))
         in sbuild @(Rank (sh1 ++ sh2)) f
   tsscatter
      :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x)
@@ -734,7 +734,7 @@ class ( Num (IntOf target)
                           (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                            $ zip (Foldable.toList ix) (Foldable.toList ix2))
                           (txindex0 v (dropIxX @(Rank sh1) ix2))
-                          (tconstantTarget 0 (FTKX ZSX ftk2))
+                          (treplTarget 0 (FTKX ZSX ftk2))
         in xbuild @(Rank (sh1 ++ sh2)) (shxAppend sh1 (xshape v)) f
   txscatter :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
             => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) x)
@@ -1054,8 +1054,8 @@ class ( Num (IntOf target)
                (tindexBuild snat stk2 u2 i)
 
   -- Unwinding methods, needed mostly to split off the Unwind module.
-    -- | Construct tensors with the given constant in each cell.
-  tconstantTarget :: (forall r. GoodScalar r => r) -> FullShapeTK y -> target y
+  -- | Construct tensors with the given constant in each cell.
+  treplTarget :: (forall r. GoodScalar r => r) -> FullShapeTK y -> target y
   -- | Construct tensors with @def@ in each cell.
   tdefTarget :: FullShapeTK y -> target y
   -- | Add pointwise all corresponding tensors within nested product, if any.

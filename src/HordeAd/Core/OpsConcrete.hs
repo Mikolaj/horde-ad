@@ -84,7 +84,7 @@ instance BaseTensor Concrete where
     FTKR _ x ->
       let l = trunravelToList t
           sh = shrTail $ rshape t
-      in foldr (taddTarget knownSTK) (tconstantTarget 0 (FTKR sh x)) l
+      in foldr (taddTarget knownSTK) (treplTarget 0 (FTKR sh x)) l
         -- Concrete has a ShareTensor instance, so taddTarget arguments
         -- don't need to be duplicable
   trsum0 @_ @r t = case knownSTK @r of
@@ -157,7 +157,7 @@ instance BaseTensor Concrete where
     FTKS _ x ->
       let l = tsunravelToList t
           sh = shsTail $ sshape t
-      in foldr (taddTarget knownSTK) (tconstantTarget 0 (FTKS sh x)) l
+      in foldr (taddTarget knownSTK) (treplTarget 0 (FTKS sh x)) l
   tssum0 @sh @r t | SNat <- shsProduct (knownShS @sh) = case knownSTK @r of
     STKScalar ->  -- optimized
       Concrete . Nested.sscalar . Nested.ssumAllPrim . unConcrete $ t
@@ -188,7 +188,7 @@ instance BaseTensor Concrete where
          FTKS _ x@FTKScalar ->  -- optimized
            gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-           let zero = tconstantTarget 0 (FTKS shpshn x)
+           let zero = treplTarget 0 (FTKS shpshn x)
                shm = knownShS @shm
                s = shsSize shm
                g ix =
@@ -209,7 +209,7 @@ instance BaseTensor Concrete where
          FTKS _ x | Dict <- eltDictRep (ftkToSTK x) ->
            gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-           let zero = tconstantTarget 0 (FTKS shpshn x)
+           let zero = treplTarget 0 (FTKS shpshn x)
                shm = knownShS @shm
                s = shsSize shm
                g ix =
@@ -304,7 +304,7 @@ instance BaseTensor Concrete where
     FTKX _ x ->
       let l = txunravelToList t
           sh = shxTail $ xshape t
-      in foldr (taddTarget knownSTK) (tconstantTarget 0 (FTKX sh x)) l
+      in foldr (taddTarget knownSTK) (treplTarget 0 (FTKX sh x)) l
   txsum0 @_ @r t =
    case knownSTK @r of
     STKScalar ->  -- optimized
@@ -343,7 +343,7 @@ instance BaseTensor Concrete where
     gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
     case tftk knownSTK t of
       FTKX _ x@FTKScalar ->  -- optimized
-        let zero = tconstantTarget 0 (FTKX sh x)
+        let zero = treplTarget 0 (FTKX sh x)
             shm = shxTakeSSX (Proxy @shn) (xshape t) (knownShX @shm)
             shDropP = shxDropSSX (xshape t) (knownShX @shm)
             s = shxSize shm
@@ -361,7 +361,7 @@ instance BaseTensor Concrete where
            $ map (second $ Concrete . Nested.mfromVector shDropP)
            $ M.assocs ivs
       FTKX _ x | Dict <- eltDictRep (ftkToSTK x) ->
-        let zero = tconstantTarget 0 (FTKX sh x)
+        let zero = treplTarget 0 (FTKX sh x)
             shm = shxTakeSSX (Proxy @shn) (xshape t) (knownShX @shm)
             s = shxSize shm
             g ix =
@@ -450,7 +450,7 @@ instance BaseTensor Concrete where
   tprimalPart = id
   tdualPart stk t = DummyDualTarget (tftk stk t)
   tfromPrimal _ t = t
-  tfromDual (DummyDualTarget ftk) = tconstantTarget 0 ftk
+  tfromDual (DummyDualTarget ftk) = treplTarget 0 ftk
   tScale _ _ t = t
   -- The code for trevDt and tfwd in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
@@ -483,7 +483,7 @@ instance BaseTensor Concrete where
       let (v1, v2) = V.unzip $ V.map tunpair v
       in tpair (tfromVector snat stk1 v1) (tfromVector snat stk2 v2)
 
-  tconstantTarget = constantTarget
+  treplTarget = replTarget
   tdefTarget = defTarget
   taddTarget = addTarget
   tmultTarget = multTarget
@@ -604,7 +604,7 @@ oRtmapAccumR
   -> Concrete (BuildTensorKind k ey)
   -> Concrete (TKProduct accy (BuildTensorKind k by))
 oRtmapAccumR k bftk eftk f acc0 es = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (tconstantTarget 0 bftk))
+  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (treplTarget 0 bftk))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
@@ -622,7 +622,7 @@ oRtmapAccumL
   -> Concrete (BuildTensorKind k ey)
   -> Concrete (TKProduct accy (BuildTensorKind k by))
 oRtmapAccumL k bftk eftk f acc0 es = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (tconstantTarget 0 bftk))
+  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (treplTarget 0 bftk))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
@@ -796,7 +796,7 @@ tscatterZR :: forall m p n r.
 tscatterZR sh t f
  | Dict <- eltDictRep (knownSTK @r) = case tftk knownSTK t of
   FTKR _ x@FTKScalar ->  -- optimized
-    let zero = tconstantTarget 0 (FTKR sh x)
+    let zero = treplTarget 0 (FTKR sh x)
         (shm, shDropP) = splitAt_Shape @m $ rshape t
         s = shrSize shm
         g ix =
@@ -811,7 +811,7 @@ tscatterZR sh t f
        $ map (second $ Concrete . Nested.rfromVector shDropP)
        $ M.assocs ivs
   FTKR _ x | Dict <- showDictRep (ftkToSTK x) ->
-    let zero = tconstantTarget 0 (FTKR sh x)
+    let zero = treplTarget 0 (FTKR sh x)
         (shm, _) = splitAt_Shape @m $ rshape t
         s = shrSize shm
         g ix =
@@ -835,7 +835,7 @@ tscatterZ1R :: (KnownSTK r, KnownNat p, KnownNat n)
             -> Concrete (TKR2 (p + n) r)
 tscatterZ1R sh t f = case tftk knownSTK t of
   FTKR _ x ->
-    let zero = tconstantTarget 0 (FTKR sh x)
+    let zero = treplTarget 0 (FTKR sh x)
         lt = trunravelToList t
         g i ti = let ix2 = f $ Concrete $ fromIntegral i
                  in if ixInBounds (map unConcrete $ toList ix2) (toList sh)
@@ -1070,7 +1070,7 @@ tscatterZ1S t f = case tftk knownSTK t of
     gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
     let shpshn = knownShS @shp `shsAppend` knownShS @shn
-        zero = tconstantTarget 0 (FTKS shpshn x)
+        zero = treplTarget 0 (FTKS shpshn x)
         lt = tsunravelToList t
         g i ti = let ix2 = f $ Concrete $ fromIntegral i
                  in if ixInBounds (map unConcrete $ Foldable.toList ix2)
@@ -1266,7 +1266,7 @@ tscatterZ1X sh t f =
       withKnownShX (ssxFromShape sh) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
       gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-      let zero = tconstantTarget 0 (FTKX sh x)
+      let zero = treplTarget 0 (FTKX sh x)
           lt = txunravelToList t
           g i ti = let ix2 = f $ Concrete $ fromIntegral i
                    in if ixInBounds (map unConcrete $ Foldable.toList ix2)

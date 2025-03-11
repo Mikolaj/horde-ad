@@ -94,7 +94,7 @@ revArtifactFromForwardPass cotangentHandling forwardPass xftk =
       !(D primalBody delta) = forwardPass hVectorPrimal var hVector in
   let zftk = ftkAst $ unAstRaw primalBody
       (!varDt, astDt) = funToAst (adFTK zftk) id in
-  let oneAtF = tconstantTarget 1 $ adFTK zftk
+  let oneAtF = treplTarget 1 $ adFTK zftk
       !dt = case cotangentHandling of
         UseIncomingCotangent -> AstRaw astDt
         IgnoreIncomingCotangent -> oneAtF in
@@ -638,7 +638,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         tpair (tindexBuild snat stk1 (tproject1 u3) i)
               (tindexBuild snat stk2 (tproject2 u3) i)
 
-  tconstantTarget = constantTarget
+  treplTarget = replTarget
   tdefTarget = defTarget
   taddTarget = addTarget
   tmultTarget = multTarget
@@ -1088,7 +1088,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tfromVector k stk =
     AstRaw . AstFromVector k stk . V.map unAstRaw
 
-  tconstantTarget = constantTarget
+  treplTarget = replTarget
   tdefTarget = defTarget
   taddTarget = addTarget
   tmultTarget = multTarget
@@ -1407,7 +1407,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tindexBuild k stk u i =
     AstNoVectorize $ tindexBuild k stk (unAstNoVectorize u) (unAstNoVectorize i)
 
-  tconstantTarget r ftk = AstNoVectorize $ tconstantTarget r ftk
+  treplTarget r ftk = AstNoVectorize $ treplTarget r ftk
   tdefTarget = AstNoVectorize . tdefTarget
   taddTarget stk a b = AstNoVectorize $ taddTarget stk (unAstNoVectorize a)
                                                        (unAstNoVectorize b)
@@ -1657,7 +1657,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         tpair (tindexBuild snat stk1 (tproject1 u3) i)
               (tindexBuild snat stk2 (tproject2 u3) i)
 
-  tconstantTarget r ftk = wAstNoSimplify $ tconstantTarget r ftk
+  treplTarget r ftk = wAstNoSimplify $ treplTarget r ftk
   tdefTarget = wAstNoSimplify . tdefTarget
   taddTarget stk a b = wAstNoSimplify $ taddTarget stk (wunAstNoSimplify a)
                                                        (wunAstNoSimplify b)

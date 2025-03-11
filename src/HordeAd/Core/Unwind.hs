@@ -6,7 +6,7 @@
 -- API of the horde-ad library and it's relatively orthogonal to the
 -- differentiation interface in "HordeAd.Core.Engine".
 module HordeAd.Core.Unwind
-  ( addTarget, multTarget, dotTarget, constantTarget, defTarget, concreteTarget
+  ( addTarget, multTarget, dotTarget, replTarget, defTarget, concreteTarget
   , toADTensorKindShared, fromADTensorKindShared
   ) where
 
@@ -103,16 +103,16 @@ dotRepW ftk a b = case (ftk, a, b) of
   (WFTKProduct ftk1 ftk2, WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
     dotRepW ftk1 ta1 tb1 + dotRepW ftk2 ta2 tb2
 
-constantRepW :: forall y target. BaseTensor target
-            => (forall r. GoodScalar r => r)
-            -> FullShapeTKW y -> RepW target y
-constantRepW r = \case
+replRepW :: forall y target. BaseTensor target
+         => (forall r. GoodScalar r => r)
+         -> FullShapeTKW y -> RepW target y
+replRepW r = \case
   WFTKScalar -> WTKScalar $ kconcrete r
   WFTKR sh -> WTKR $ rrepl sh r
   WFTKS sh -> WTKS $ sconcrete $ Nested.sreplicateScal sh r
   WFTKX sh -> WTKX $ xrepl sh r
   WFTKProduct ftk1 ftk2 ->
-    WTKProduct (constantRepW r ftk1) (constantRepW r ftk2)
+    WTKProduct (replRepW r ftk1) (replRepW r ftk2)
 
 defRepW :: forall y target. BaseTensor target
         => FullShapeTKW y -> RepW target y
@@ -189,19 +189,19 @@ fromADTensorKindW stk t = case (stk, t) of
   (STKScalar @r1, WTKScalar @r2 _) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> constantRepW 0 WFTKScalar
+      _ -> replRepW 0 WFTKScalar
   (STKR _ (STKScalar @r1), WTKR @r2 v) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> constantRepW 0 (WFTKR (rshape v))
+      _ -> replRepW 0 (WFTKR (rshape v))
   (STKS sh (STKScalar @r1), WTKS @r2 _) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> constantRepW 0 (WFTKS sh)
+      _ -> replRepW 0 (WFTKS sh)
   (STKX _ (STKScalar @r1), WTKX @r2 v) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> constantRepW 0 (WFTKX (xshape v))
+      _ -> replRepW 0 (WFTKX (xshape v))
   (STKProduct stk1 stk2, WTKProduct t1 t2) ->
     WTKProduct (fromADTensorKindW stk1 t1) (fromADTensorKindW stk2 t2)
   _ -> error "fromADTensorKindW: impossible SingletonTK"
@@ -445,11 +445,11 @@ dotTarget ftk a b =
       b2 = unWindTarget (ftkToSTK ftk) b
   in dotRepW (unWindFTK ftk) a2 b2
 
-constantTarget :: forall y target. (BaseTensor target, ConvertTensor target)
-               => (forall r. GoodScalar r => r)
-               -> FullShapeTK y -> target y
-constantTarget r ftk =
-  windTarget (ftkToSTK ftk) $ constantRepW r (unWindFTK ftk)
+replTarget :: forall y target. (BaseTensor target, ConvertTensor target)
+           => (forall r. GoodScalar r => r)
+           -> FullShapeTK y -> target y
+replTarget r ftk =
+  windTarget (ftkToSTK ftk) $ replRepW r (unWindFTK ftk)
 
 defTarget :: forall y target. (BaseTensor target, ConvertTensor target)
           => FullShapeTK y -> target y
