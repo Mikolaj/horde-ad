@@ -28,10 +28,10 @@ import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested.Internal.Shape
 
+import HordeAd.AstEngine
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
-import HordeAd.Core.AstEngine
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools

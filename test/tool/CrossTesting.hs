@@ -14,16 +14,16 @@ import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested.Internal.Shape
 
-import HordeAd.Core.Adaptor
-import HordeAd.Core.ADEngine
+import HordeAd.ADEngine
   ( IncomingCotangentHandling (..)
   , cfwd
   , fwd
   , revEvalArtifact
   , revProduceArtifactWithoutInterpretation
   )
+import HordeAd.AstEngine
+import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
-import HordeAd.Core.AstEngine
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret

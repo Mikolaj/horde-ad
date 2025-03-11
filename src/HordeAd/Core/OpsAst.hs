@@ -50,7 +50,7 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
 import HordeAd.Core.ConvertTensor
-import HordeAd.Core.AstEngine
+import HordeAd.AstEngine
 
 -- * Symbolic reverse and forward derivative computation
 

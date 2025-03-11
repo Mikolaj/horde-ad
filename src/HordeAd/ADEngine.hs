@@ -4,7 +4,7 @@
 -- types (e.g., with tuple domains) expressed using the tensor classes.
 -- Together with "HordeAd.Core.Ops", this forms the basic
 -- high-level API of the horde-ad library. Optimizers are add-ons.
-module HordeAd.Core.ADEngine
+module HordeAd.ADEngine
   ( -- * Reverse derivative adaptors
     IncomingCotangentHandling(..)
   , rev, revDt, revArtifactAdapt, revArtifactDelta

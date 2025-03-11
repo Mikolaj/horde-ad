@@ -1,6 +1,6 @@
 -- | Predefined basic variants of  functions for simplification
 -- and pretty-printing of AST.
-module HordeAd.Core.AstEngine
+module HordeAd.AstEngine
   ( -- * The joint inlining and simplification term transformation
     simplifyArtifact, simplifyArtifactGradient
   , simplifyInline, simplifyInlineContract

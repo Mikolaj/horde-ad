@@ -7,8 +7,8 @@ module HordeAd
     module HordeAd.OpsTensor
   , module HordeAd.Core.ConvertTensor
     -- * The main AD API
-  , module HordeAd.Core.ADEngine
-  , module HordeAd.Core.AstEngine
+  , module HordeAd.ADEngine
+  , module HordeAd.AstEngine
     -- * Additional support types and operations
   , module HordeAd.Core.Ast
   , module HordeAd.Core.CarriersADVal
@@ -22,9 +22,9 @@ module HordeAd
 
 import Prelude ()
 
-import HordeAd.Core.ADEngine
+import HordeAd.ADEngine
+import HordeAd.AstEngine
 import HordeAd.Core.Ast
-import HordeAd.Core.AstEngine
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
