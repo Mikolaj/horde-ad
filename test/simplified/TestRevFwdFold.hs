@@ -271,7 +271,7 @@ testFooRrev3 = do
         in a1
   assertEqualUpToEpsilon 1e-10
     (rscalar 0)
-    (cgrad f (rscalar 1.1))
+    (cgrad (kfromR . f) (rscalar 1.1))
 
 testSin0Rgrad :: Assertion
 testSin0Rgrad = do
@@ -298,7 +298,7 @@ testSin0Rrev3 = do
   let f = rrev1 @(ADVal Concrete) @Double @0 @0 sin
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.8912073600614354))
-    (cgrad f (rscalar 1.1))
+    (cgrad (kfromR . f) (rscalar 1.1))
 
 testSin0Rrev4 :: Assertion
 testSin0Rrev4 = do
@@ -720,7 +720,7 @@ testSin0Fold8rev2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rscalar 98.72666469795736)
-    (cgrad h (rscalar 1.1))
+    (cgrad (kfromR . h) (rscalar 1.1))
 
 testSin0Fold8Sgrad :: Assertion
 testSin0Fold8Sgrad = do
@@ -751,7 +751,7 @@ testSin0Fold8Srev2 = do
                  in f)
   assertEqualUpToEpsilon 1e-10
     (Concrete $ Nested.sscalar 6.182232283434464e-2)  -- seems quite unstable
-    (cgrad h (srepl 0.0001))
+    (cgrad (kfromS . h) (srepl 0.0001))
 
 testSin0Fold182Sgrad :: Assertion
 testSin0Fold182Sgrad = do
@@ -818,7 +818,7 @@ testSin0Fold8fwd2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rscalar 98.72666469795735)
-    (cgrad h (rscalar 1.1))
+    (cgrad (kfromR . rsum0 . h) (rscalar 1.1))
 
 testSin0Fold8Sjvp :: Assertion
 testSin0Fold8Sjvp = do
@@ -1001,7 +1001,7 @@ testSin0Scan8rev2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.9579482947575])
-    (cgrad h (rscalar 1.1))
+    (cgrad (kfromR . h) (rscalar 1.1))
 
 testSin0Scan8Srev2 :: Assertion
 testSin0Scan8Srev2 = do
@@ -1014,7 +1014,7 @@ testSin0Scan8Srev2 = do
                         (sreplicate @3 a0))
   assertEqualUpToEpsilon 1e-10
     (sconcrete $ Nested.sfromListPrimLinear [] [285.9579482947575])
-    (cgrad h (sscalar 1.1))
+    (cgrad (kfromS . h) (sscalar 1.1))
 
 testSin0Scan1RevPP1 :: Assertion
 testSin0Scan1RevPP1 = do
@@ -1183,7 +1183,7 @@ testSin0Scan8fwd2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.95794829475744])
-    (cgrad h (rscalar 1.1))
+    (cgrad (kfromR . rsum0 . h) (rscalar 1.1))
 
 testUnitriangular0PP :: Assertion
 testUnitriangular0PP = do
@@ -2004,7 +2004,11 @@ testSin0rmapAccumRD01SN7 = do
                                     (sreplicate0N $ sscalar 0))
                              (tpair (sreplicate0N $ sscalar 0)
                                     (sreplicate0N $ sscalar 0)))
-            in f @(ADVal Concrete)) (sscalar 1.1))
+            in tdotTarget (FTKProduct (FTKS ZSS FTKScalar)
+                             (FTKProduct (FTKS (SNat @1 :$$ SNat @3 :$$ ZSS) FTKScalar)
+                                         (FTKS (SNat @1 :$$ SNat @3 :$$ ZSS) FTKScalar))) (treplTarget 1 (FTKProduct (FTKS ZSS FTKScalar)
+                             (FTKProduct (FTKS (SNat @1 :$$ SNat @3 :$$ ZSS) FTKScalar)
+                                         (FTKS (SNat @1 :$$ SNat @3 :$$ ZSS) FTKScalar)))) . f @(ADVal Concrete)) (sscalar 1.1))
 
 rscanZip :: forall rn n rn2 n2 target.
             (GoodScalar rn, KnownNat n, GoodScalar rn2, ADReady target)
@@ -2220,7 +2224,7 @@ testSin0ScanD8fwd2 = do
                        (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.95794829475744])
-    (cgrad h (rscalar 1.1))
+    (cgrad (kfromR . rsum0 . h) (rscalar 1.1))
 
 testSin0FoldNestedS1 :: Assertion
 testSin0FoldNestedS1 = do
@@ -2817,7 +2821,7 @@ testSin0revhV4 = do
                 doms3 x (ringestData [4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (rfromList [rscalar 0, rscalar 0, rscalar 0])
-    (cgrad f (rreplicate 3 (rscalar 1.1)))
+    (cgrad (kfromR . rsum0 . f) (rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV5 :: Assertion
 testSin0revhV5 = do
@@ -2831,7 +2835,7 @@ testSin0revhV5 = do
                 doms3 x (singestData @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (sfromList @3 [sscalar 0, sscalar 0, sscalar 0])
-    (cgrad f (sreplicate @3 (sscalar 1.1)))
+    (cgrad (kfromS . ssum0 . f) (sreplicate @3 (sscalar 1.1)))
 
 testSin0revhV6 :: Assertion
 testSin0revhV6 = do
@@ -2845,7 +2849,7 @@ testSin0revhV6 = do
                 doms3 x (ringestData [4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (ringestData [3] [4.0,6.0,8.0])
-    (cgrad f (rreplicate 3 (rscalar 1.1)))
+    (cgrad (kfromR . rsum0 . f) (rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV7 :: Assertion
 testSin0revhV7 = do
@@ -2859,4 +2863,4 @@ testSin0revhV7 = do
                 doms3 x (singestData @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (singestData @'[3] [4.0,6.0,8.0])
-    (cgrad f (sreplicate @3 (sscalar 1.1)))
+    (cgrad (kfromS . ssum0 . f) (sreplicate @3 (sscalar 1.1)))

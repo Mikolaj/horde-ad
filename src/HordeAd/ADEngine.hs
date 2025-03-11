@@ -247,11 +247,11 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds =
 --
 -- These work for @f@ both ranked and shaped.
 cgrad
-  :: forall advals z.
+  :: forall advals r.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal Concrete) advals
      , AdaptableTarget Concrete (DValue advals) )
-  => (advals -> ADVal Concrete z)
+  => (advals -> ADVal Concrete (TKScalar r))
   -> DValue advals
   -> DValue advals
 {-# INLINE cgrad #-}

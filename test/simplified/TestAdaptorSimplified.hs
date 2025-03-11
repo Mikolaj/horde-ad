@@ -198,7 +198,8 @@ testZeroS :: Assertion
 testZeroS =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [])
-    (cgrad (let f :: ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
+    (cgrad (kfromS . ssum0 .
+            let f :: ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
                   -> ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
                 f = const (srepl 3)
             in f) (srepl 42))
@@ -225,8 +226,8 @@ testZero2S :: Assertion
 testZero2S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[] knownShS [1])
-    (cgrad @_ @(TKS '[] Double)
-          (let f :: a -> a
+    (cgrad (kfromS @_ @Double .
+           let f :: a -> a
                f = id
            in f) (srepl 42))
 
@@ -252,7 +253,7 @@ testZero3S :: Assertion
 testZero3S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[33, 2] knownShS (replicate 66 3.6174114266850617))
-    (cgrad (\x -> barF @(ADVal Concrete (TKS '[33, 2] Double)) (x, x)) (srepl 1))
+    (cgrad (kfromS . ssum0 . (\x -> barF @(ADVal Concrete (TKS '[33, 2] Double)) (x, x))) (srepl 1))
 
 testCFwdZero3S :: Assertion
 testCFwdZero3S =
@@ -306,7 +307,8 @@ testZero9S :: Assertion
 testZero9S =
   assertEqualUpToEpsilon 1e-9
     (rfromList0N [0, 2, 4, 0, 1] [])
-    (cgrad (let f :: ADVal Concrete (TKR 5 Double)
+    (cgrad (kfromS . ssum0 .
+            let f :: ADVal Concrete (TKR 5 Double)
                   -> ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
                 f = const (srepl 3)
             in f)
@@ -337,10 +339,11 @@ testZero10S =
   assertEqualUpToEpsilon 1e-9
     ( rfromList0N [0, 2, 4, 0, 1] []
     , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
-    (cgrad (let f = const (srepl 3) . snd
-           in f :: ( ADVal Concrete (TKR 5 Double)
-                   , ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double) )
-                   -> ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double))
+    (cgrad (kfromS . ssum0 .
+            let f = const (srepl 3) . snd
+            in f :: ( ADVal Concrete (TKR 5 Double)
+                    , ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double) )
+                 -> ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double))
           (rreplicate0N [0, 2, 4, 0, 1] (rscalar 42), srepl 21))
 
 testCFwdZero10S :: Assertion
@@ -374,10 +377,11 @@ testZero11S =
   assertEqualUpToEpsilon 1e-9
     ( rfromList0N [0, 2, 4, 0, 1] []
     , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] )
-    (cgrad (let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
-           in f :: ( ADVal Concrete (TKR 5 Double)
-                   , ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double) )
-                   -> ADVal Concrete (TKR 5 Double))
+    (cgrad (kfromR . rsum0 .
+            let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
+            in f :: ( ADVal Concrete (TKR 5 Double)
+                    , ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double) )
+                 -> ADVal Concrete (TKR 5 Double))
           (rreplicate0N [0, 2, 4, 0, 1] (rscalar 42), srepl 21))
 
 testCFwdZero11S :: Assertion
@@ -523,8 +527,7 @@ testFoo :: Assertion
 testFoo = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
-    (cgrad @_ @(TKR 0 Double)
-         foo (rscalar 1.1, rscalar 2.2, rscalar 3.3))
+    (cgrad (kfromR @_ @Double . foo) (rscalar 1.1, rscalar 2.2, rscalar 3.3))
 
 gradFooDouble :: (Double, Double, Double) -> (Double, Double, Double)
 gradFooDouble = fromDValue . cgrad foo . fromValue
@@ -1289,13 +1292,13 @@ testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-9
     (rscalar 3.1435239435581166,rscalar (-1.1053869545195814))
-    (cgrad (bar @(ADVal Concrete (TKR 0 Double))) (rscalar 1.1, rscalar 2.2))
+    (cgrad (kfromR . bar @(ADVal Concrete (TKR 0 Double))) (rscalar 1.1, rscalar 2.2))
 
 testBarS :: Assertion
 testBarS =
   assertEqualUpToEpsilon 1e-9
     (srepl 3.1435239435581166, srepl (-1.1053869545195814))
-    (cgrad (barF @(ADVal Concrete (TKS '[] Double))) (srepl 1.1, srepl 2.2))
+    (cgrad (kfromS . barF @(ADVal Concrete (TKS '[] Double))) (srepl 1.1, srepl 2.2))
 
 testBar2S :: Assertion
 testBar2S =
@@ -1349,7 +1352,7 @@ testBaz :: Assertion
 testBaz =
   assertEqualUpToEpsilon 1e-9
     (rscalar 0, rscalar (-5219.20995030263), rscalar 2782.276274462047)
-    (cgrad baz (rscalar 1.1, rscalar 2.2, rscalar 3.3))
+    (cgrad (kfromR . baz) (rscalar 1.1, rscalar 2.2, rscalar 3.3))
 
 -- If terms are numbered and @z@ is, wrongly, decorated with number 0,
 -- here @fooFromPrimal@ is likely to clash with @z@, since it was numbered
@@ -1365,7 +1368,7 @@ testBazRenumbered :: Assertion
 testBazRenumbered =
   assertEqualUpToEpsilon 1e-9
     (rscalar 0, rscalar (-5219.20995030263), rscalar 2783.276274462047)
-    (cgrad (\(x,y,z) -> z + baz (x,y,z)) (rscalar 1.1, rscalar 2.2, rscalar 3.3))
+    (cgrad (kfromR . (\(x,y,z) -> z + baz (x,y,z))) (rscalar 1.1, rscalar 2.2, rscalar 3.3))
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
@@ -1379,7 +1382,7 @@ testFooD :: Assertion
 testFooD =
   assertEqualUpToEpsilon 1e-10
     (fromList [rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627])
-    (cgrad fooD (fromList [rscalar 1.1, rscalar 2.2, rscalar 3.3]))
+    (cgrad (kfromR . fooD) (fromList [rscalar 1.1, rscalar 2.2, rscalar 3.3]))
 
 fooBuild1 :: (ADReady target, GoodScalar r, Differentiable r)
           => target (TKR 1 r) -> target (TKR 1 r)
@@ -2139,8 +2142,7 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   , testCase "blowupLet tbuildc" $ do
       assertEqualUpToEpsilon 1e-7
         (ringestData [2] [333.326333406717,-222.21755560448116])
-        (cgrad @(ADVal Concrete (TKR 1 Double))
-              (\intputs -> rbuild1 1000 (\i -> fblowupLet i 700 intputs))
+        (cgrad (kfromR @_ @Double . rsum0 . (\intputs -> rbuild1 1000 (\i -> fblowupLet i 700 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupLet prim tbuild" $ do
       assertEqualUpToEpsilonShort 1e-7
