@@ -107,14 +107,14 @@ instance ( ADReadyNoLet target, ShareTensor target
          => LetTensor (ADVal target) where
   ttlet (D u u') f =
     let !var2 = tshare u
-    in f (dDnotShared var2 u')
+    in f (dDnotShared var2 u')  -- u' was already shared
   toShare = id
   tunshare = id
   tD _stk t d = dD t d
 
 instance (ADReadyNoLet target, ShareTensor target)
          => ShareTensor (ADVal target) where
-  tshare = id
+  tshare (D u u') = dDnotShared (tshare u) u'  -- u' was already shared
   tunpair (D u u') = let (u1, u2) = tunpair u
                          (d1, d2) = unDeltaPair u'
                      in (dDnotShared u1 d1, dDnotShared u2 d2)

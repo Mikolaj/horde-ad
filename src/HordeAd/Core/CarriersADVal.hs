@@ -266,6 +266,8 @@ type instance PrimalOf (ADVal f) = f
 type instance DualOf (ADVal f) = Delta f
 
 type instance ShareOf (ADVal f) = ADVal f
+  -- TODO: maybe this should be ADVal (ShareOf f), but we'd need tests
+  -- that use this, probably tests with ADVal (AST) nested in ADVal
 
 
 -- * Numeric instances
