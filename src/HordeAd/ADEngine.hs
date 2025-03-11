@@ -7,12 +7,12 @@
 module HordeAd.ADEngine
   ( -- * Reverse derivative adaptors
     IncomingCotangentHandling(..)
-  , rev, revDt, revArtifactAdapt, revArtifactDelta
+  , grad, revDt, revArtifactAdapt, revArtifactDelta
   , revProduceArtifactWithoutInterpretation, revEvalArtifact
     -- * Forward derivative adaptors
   , fwd, fwdEvalArtifact
     -- * Non-AST gradient adaptors
-  , crev, crevDt
+  , cgrad, crevDt
     -- * Non-AST derivative adaptors
   , cfwd, cfwdBoth
   ) where
@@ -46,7 +46,7 @@ instance KnownSTK y
 -- * Reverse derivative adaptors
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
--- names to @rev@, but newcomers may have trouble understanding them.
+-- names to @grad@, but newcomers may have trouble understanding them.
 
 -- | This simplified version of the reverse derivative operation
 -- sets the incoming cotangent @dt@ to be 1 and assumes the codomain
@@ -59,7 +59,7 @@ instance KnownSTK y
 -- is closed, because we evaluate the result of the differentiation
 -- down to concrete arrays and so there's no risk of confusion of cotangents
 -- from different levels of differentiation if it's done multiple times.
-rev
+grad
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
@@ -67,8 +67,8 @@ rev
   => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
   -> Value astvals
-{-# INLINE rev #-}
-rev f vals = revDtMaybe f vals Nothing
+{-# INLINE grad #-}
+grad f vals = revDtMaybe f vals Nothing
 
 -- | This version of the reverse derivative operation
 -- explicitly takes the sensitivity parameter (the incoming cotangent).
@@ -246,7 +246,7 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds =
 -- only at these values, both transposing and evaluating at the same time.
 --
 -- These work for @f@ both ranked and shaped.
-crev
+cgrad
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal Concrete) advals
@@ -254,8 +254,8 @@ crev
   => (advals -> ADVal Concrete z)
   -> DValue advals
   -> DValue advals
-{-# INLINE crev #-}
-crev f vals = crevDtMaybe f vals Nothing
+{-# INLINE cgrad #-}
+cgrad f vals = crevDtMaybe f vals Nothing
 
 -- | This version additionally takes the sensitivity parameter.
 crevDt

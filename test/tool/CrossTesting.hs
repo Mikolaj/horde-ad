@@ -478,7 +478,7 @@ rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, KnownNat n)
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR n r))
-rrev1 f u = rrev f (tftk knownSTK u) u
+rrev1 f u = rgrad f (tftk knownSTK u) u
 
 rfwd1ds :: forall g r n m r3.
            (ADReady g, GoodScalar r, KnownNat n)
@@ -497,7 +497,7 @@ srev1 :: forall g r sh sh2 r3.
          (ADReady g, GoodScalar r, KnownShS sh)
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh r))
-srev1 f u = srev f (tftk knownSTK u) u
+srev1 f u = sgrad f (tftk knownSTK u) u
 
 sfwd1 :: forall g r sh sh2 r3.
          (ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r), KnownShS sh)

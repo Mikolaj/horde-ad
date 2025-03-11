@@ -918,7 +918,7 @@ class ( Num (IntOf target)
   -- > let f = ... in ... (tmapAccumR ... f ...) ... (tmapAccumL ... f ...)
   -- extra care is needed to prevent double derivative computation.
   -- One needs to use tmapAccumRDer manually as in (simplified)
-  -- > let f = ...; df = tfwd f; rf = trev f
+  -- > let f = ...; df = tfwd f; rf = tgrad f
   -- > in ... (tmapAccumRDer f df rf ...) ... (tmapAccumLDer f df rf ...)
   tmapAccumRDer
     :: forall accy by ey k.
@@ -975,7 +975,7 @@ class ( Num (IntOf target)
   --
   -- These methods (and tlambda) are exactly what is needed as arguments
   -- of tmapAccumRDer.
-  trev
+  tgrad
     :: FullShapeTK x  -- ^ shape of x and dx
     -> HFun x z  -- ^ x |-> z
     -> HFunOf target x (ADTensorKind x)  -- ^ x |-> dx

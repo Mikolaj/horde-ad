@@ -454,7 +454,7 @@ instance BaseTensor Concrete where
   tScale _ _ t = t
   -- The code for trevDt and tfwd in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
-  trev @x xftk h =
+  tgrad @x xftk h =
     let rf :: RepConcrete x -> RepConcrete (ADTensorKind x)
         rf !a = unConcrete $ fst $ crevOnHVector Nothing (unHFun h)
                                              xftk (Concrete a)

@@ -25,12 +25,12 @@ import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees =
-  [ testCase "4SRrev" testFooRrev
+  [ testCase "4SRrev" testFooRgrad
   , testCase "4SRrev2" testFooRrev2
   , testCase "4SRrevPP1" testFooRrevPP1
   , testCase "4SRrevPP2" testFooRrevPP2
   , testCase "4SRrev3" testFooRrev3
-  , testCase "4S0Rrev" testSin0Rrev
+  , testCase "4S0Rrev" testSin0Rgrad
   , testCase "4S0RrevPP1" testSin0RrevPP1
   , testCase "4S0RrevPP2" testSin0RrevPP2
   , testCase "4S0Rrev3" testSin0Rrev3
@@ -83,13 +83,13 @@ testTrees =
   , testCase "4S0Fold6S" testSin0Fold6S
   , testCase "4S0Fold7S" testSin0Fold7S
   , testCase "4S0Fold8S" testSin0Fold8S
-  , testCase "4S0Fold8rev" testSin0Fold8rev
+  , testCase "4S0Fold8rev" testSin0Fold8grad
   , testCase "4S0Fold8rev2" testSin0Fold8rev2
-  , testCase "4S0Fold8Srev" testSin0Fold8Srev
+  , testCase "4S0Fold8Srev" testSin0Fold8Sgrad
   , testCase "4S0Fold8Srev2" testSin0Fold8Srev2
-  , testCase "4S0Fold182Srev" testSin0Fold182Srev
+  , testCase "4S0Fold182Srev" testSin0Fold182Sgrad
   , testCase "4S0Fold182SrevPP" testSin0Fold182SrevPP
-  , testCase "4S0Fold18Srev" testSin0Fold18Srev
+  , testCase "4S0Fold18Srev" testSin0Fold18Sgrad
   , testCase "4S0Fold8fwd" testSin0Fold8fwd
   , testCase "4S0Fold8fwd2" testSin0Fold8fwd2
   , testCase "4S0Fold8Sfwd" testSin0Fold8Sfwd
@@ -106,7 +106,7 @@ testTrees =
   , testCase "4S0Scan6" testSin0Scan6
   , testCase "4S0Scan7" testSin0Scan7
   , testCase "4S0Scan8" testSin0Scan8
-  , testCase "4S0Scan8rev" testSin0Scan8rev
+  , testCase "4S0Scan8rev" testSin0Scan8grad
   , testCase "4S0Scan8rev2" testSin0Scan8rev2
   , testCase "4S0Scan8Srev2" testSin0Scan8Srev2
   , testCase "4S0Scan1RevPP1" testSin0Scan1RevPP1
@@ -163,7 +163,7 @@ testTrees =
   , testCase "4S0ScanD51" testSin0ScanD51
   , testCase "4S0ScanD8" testSin0ScanD8
   , testCase "4S0ScanD8MapAccum" testSin0ScanD8MapAccum
-  , testCase "4S0ScanD8rev" testSin0ScanD8rev
+  , testCase "4S0ScanD8rev" testSin0ScanD8grad
   , testCase "4S0ScanD8rev4" testSin0ScanD8rev4
   , testCase "4S0ScanD1RevPP" testSin0ScanD1RevPP
   , testCase "4S0ScanDFwdPP" testSin0ScanDFwdPP
@@ -193,7 +193,7 @@ testTrees =
   , testCase "4S0FoldNestedS3" testSin0FoldNestedS3
   , testCase "4S0FoldNestedS4" testSin0FoldNestedS4
   , testCase "4S0FoldNestedS5" testSin0FoldNestedS5
-  , testCase "4S0FoldNestedS5rev" testSin0FoldNestedS5rev
+  , testCase "4S0FoldNestedS5rev" testSin0FoldNestedS5grad
   , testCase "4S0FoldNestedS5fwd" testSin0FoldNestedS5fwd
   , testCase "4S0FoldNestedSi" testSin0FoldNestedSi
   , testCase "4S0FoldNestedR1" testSin0FoldNestedR1
@@ -222,14 +222,14 @@ foo (x, y, z) =
   let w = x * sin y
   in atan2H z w + z * w
 
-fooRrev :: forall g a.
+fooRgrad :: forall g a.
            (ADReady g, GoodScalar a, Differentiable a, ADTensorScalar a ~ a)
         => (a, a, a) -> (g (TKR 0 a), g (TKR 0 a), g (TKR 0 a))
-fooRrev (x, y, z) =
+fooRgrad (x, y, z) =
   let fHVector :: forall f. ADReady f => f (TKProduct (TKProduct (TKR 0 a) (TKR 0 a)) (TKR 0 a)) -> f (TKR 0 a)
       fHVector v = foo (tproject1 (tproject1 v), tproject2 (tproject1 v), tproject2 v)
       shapes = FTKProduct (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar)) (FTKR ZSR FTKScalar)
-      domsOf = rrev fHVector shapes
+      domsOf = rgrad fHVector shapes
                     (tpair (tpair (rconcrete $ Nested.rscalar x)
                                   (rconcrete $ Nested.rscalar y))
                            (rconcrete $ Nested.rscalar z))
@@ -237,28 +237,28 @@ fooRrev (x, y, z) =
      , tlet domsOf (\v -> tproject2 (tproject1 v))
      , tlet domsOf (\v -> tproject2 v) )
 
-testFooRrev :: Assertion
-testFooRrev = do
+testFooRgrad :: Assertion
+testFooRgrad = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
-    (fooRrev @Concrete @Double (1.1, 2.2, 3.3))
+    (fooRgrad @Concrete @Double (1.1, 2.2, 3.3))
 
 testFooRrev2 :: Assertion
 testFooRrev2 = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.4396284, rscalar (-1.9533751), rscalar 0.96548253)
-    (fooRrev @Concrete @Float (1.1, 2.2, 3.3))
+    (fooRgrad @Concrete @Float (1.1, 2.2, 3.3))
 
 testFooRrevPP1 :: Assertion
 testFooRrevPP1 = do
   resetVarCounter
-  let (a1, _, _) = fooRrev @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
+  let (a1, _, _) = fooRgrad @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstPretty a1
     @?= "rfromS (let x10 = let x2 = sin (sscalar 2.2) ; x3 = sscalar 1.1 * x2 ; x4 = recip (sscalar 10.889999999999999 + x3 * x3) ; x5 = sin (sscalar 2.2) ; x8 = sscalar (-3.3) * x4 in tpair (tpair (x2 * x8 + sscalar 3.3 * x5, sscalar 1.1 * (cos (sscalar 2.2) * x8) + sscalar 3.63 * cos (sscalar 2.2)), sscalar 1.0 * (x3 * x4) + sscalar 1.1 * x5) in tproject1 (tproject1 x10))"
 
 testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
-  let (a1, _, _) = fooRrev @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
+  let (a1, _, _) = fooRgrad @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple (simplifyInlineContract a1)
     @?= "rfromS (tlet (sin (sscalar 2.2)) (\\x12 -> tlet (sscalar 1.1 * x12) (\\x13 -> sscalar (-3.3) * (x12 * recip (sscalar 10.889999999999999 + x13 * x13)) + sscalar 3.3 * sin (sscalar 2.2))))"
 
@@ -266,15 +266,15 @@ testFooRrev3 :: Assertion
 testFooRrev3 = do
   let f :: ADVal Concrete (TKR 0 Double) -> ADVal Concrete (TKR 0 Double)
       f (D a _) =
-        let (a1, _, _) = fooRrev @(ADVal Concrete) @Double
+        let (a1, _, _) = fooRgrad @(ADVal Concrete) @Double
                                  (Nested.runScalar (unConcrete a), 2.2, 3.3)
         in a1
   assertEqualUpToEpsilon 1e-10
     (rscalar 0)
-    (crev f (rscalar 1.1))
+    (cgrad f (rscalar 1.1))
 
-testSin0Rrev :: Assertion
-testSin0Rrev = do
+testSin0Rgrad :: Assertion
+testSin0Rgrad = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.4535961214255773)
     (rrev1 @Concrete @Double @0 @0 sin (rscalar 1.1))
@@ -298,7 +298,7 @@ testSin0Rrev3 = do
   let f = rrev1 @(ADVal Concrete) @Double @0 @0 sin
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.8912073600614354))
-    (crev f (rscalar 1.1))
+    (cgrad f (rscalar 1.1))
 
 testSin0Rrev4 :: Assertion
 testSin0Rrev4 = do
@@ -493,10 +493,10 @@ testSin0FoldB2 :: Assertion
 testSin0FoldB2 = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 0 :: Concrete (TKR 0 Double))
-    (rev (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-              f x0 = rfold (\_x _a -> rscalar 7)
-                       (rscalar 5) (rreplicate 1 x0)
-          in f) (rscalar 1.1))
+    (grad (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
+               f x0 = rfold (\_x _a -> rscalar 7)
+                        (rscalar 5) (rreplicate 1 x0)
+           in f) (rscalar 1.1))
 
 testSin0FoldB3 :: Assertion
 testSin0FoldB3 = do
@@ -697,8 +697,8 @@ testSin0Fold8S = do
                         (sreplicate @3 a0)
            in rfromS . f . sfromR) (rscalar 1.1))
 
-testSin0Fold8rev :: Assertion
-testSin0Fold8rev = do
+testSin0Fold8grad :: Assertion
+testSin0Fold8grad = do
   assertEqualUpToEpsilon 1e-10
     (rscalar (-2.200311410593445) :: Concrete (TKR 0 Double))
     (rrev1 @Concrete @Double @0 @2
@@ -720,10 +720,10 @@ testSin0Fold8rev2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rscalar 98.72666469795736)
-    (crev h (rscalar 1.1))
+    (cgrad h (rscalar 1.1))
 
-testSin0Fold8Srev :: Assertion
-testSin0Fold8Srev = do
+testSin0Fold8Sgrad :: Assertion
+testSin0Fold8Sgrad = do
   assertEqualUpToEpsilon 1e-10
     (rscalar (-2.200311410593445) :: Concrete (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
@@ -751,10 +751,10 @@ testSin0Fold8Srev2 = do
                  in f)
   assertEqualUpToEpsilon 1e-10
     (Concrete $ Nested.sscalar 6.182232283434464e-2)  -- seems quite unstable
-    (crev h (srepl 0.0001))
+    (cgrad h (srepl 0.0001))
 
-testSin0Fold182Srev :: Assertion
-testSin0Fold182Srev = do
+testSin0Fold182Sgrad :: Assertion
+testSin0Fold182Sgrad = do
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.4409160296923509) :: Concrete (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5] Double)
@@ -781,8 +781,8 @@ testSin0Fold182SrevPP = do
   printAstPretty a1
     @?= "rfromS (let v4 = tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sfromListLinear [5] [1.0,1.0,1.0,1.0,1.0])) (tpair (sconcrete (sfromListLinear [1] [Z0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate @5 (sscalar 1.1)) (sreplicate @1 (sscalar 1.1)))), sreplicate @1 (sscalar 1.1)))) in ssum @5 (tproject1 v4) + ssum @1 (tproject2 v4))"
 
-testSin0Fold18Srev :: Assertion
-testSin0Fold18Srev = do
+testSin0Fold18Sgrad :: Assertion
+testSin0Fold18Sgrad = do
   assertEqualUpToEpsilon 1e-10
     (rscalar (-2.4026418024701366) :: Concrete (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
@@ -818,7 +818,7 @@ testSin0Fold8fwd2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rscalar 98.72666469795735)
-    (crev h (rscalar 1.1))
+    (cgrad h (rscalar 1.1))
 
 testSin0Fold8Sfwd :: Assertion
 testSin0Fold8Sfwd = do
@@ -978,8 +978,8 @@ testSin0Scan8 = do
                         (rreplicate 2 (rreplicate 5 (rreplicate0N [1,1,1] (rscalar 2) * a0)))
                         (rreplicate 3 a0)) (ringestData [1,1,1] [1.1]))
 
-testSin0Scan8rev :: Assertion
-testSin0Scan8rev = do
+testSin0Scan8grad :: Assertion
+testSin0Scan8grad = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [9.53298735735276])
     (rrev1 @Concrete @Double @0 @3
@@ -1001,7 +1001,7 @@ testSin0Scan8rev2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.9579482947575])
-    (crev h (rscalar 1.1))
+    (cgrad h (rscalar 1.1))
 
 testSin0Scan8Srev2 :: Assertion
 testSin0Scan8Srev2 = do
@@ -1014,7 +1014,7 @@ testSin0Scan8Srev2 = do
                         (sreplicate @3 a0))
   assertEqualUpToEpsilon 1e-10
     (sconcrete $ Nested.sfromListPrimLinear [] [285.9579482947575])
-    (crev h (sscalar 1.1))
+    (cgrad h (sscalar 1.1))
 
 testSin0Scan1RevPP1 :: Assertion
 testSin0Scan1RevPP1 = do
@@ -1183,7 +1183,7 @@ testSin0Scan8fwd2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.95794829475744])
-    (crev h (rscalar 1.1))
+    (cgrad h (rscalar 1.1))
 
 testUnitriangular0PP :: Assertion
 testUnitriangular0PP = do
@@ -1232,26 +1232,8 @@ testSin0rmapAccumRD0S :: Assertion
 testSin0rmapAccumRD0S = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f x0 = tproject1 $ tmapAccumR (Proxy @f) (SNat @0)
-                          (FTKS ZSS FTKScalar)
-                          (FTKS ZSS FTKScalar)
-                          (FTKS ZSS FTKScalar)
-                          (let g :: forall g. ADReady g
-                                 => g (TKS '[] Double) -> g (TKS '[] Double)
-                                 -> g (TKProduct (TKS '[] Double) (TKS '[] Double))
-                               g x _a = tpair (sin x) (sin x)
-                           in g)
-                          x0
-                          (srepl 0)
-           in f) (srepl 1.1))
-
-testSin0rmapAccumRD00SC :: Assertion
-testSin0rmapAccumRD00SC = do
-  assertEqualUpToEpsilon 1e-10
-    (srepl 1)
-    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-               f x0 = tproject1 $ tmapAccumL (Proxy @f) (SNat @0)
+    (grad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
+               f x0 = tproject1 $ tmapAccumR (Proxy @f) (SNat @0)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
@@ -1264,12 +1246,30 @@ testSin0rmapAccumRD00SC = do
                           (srepl 0)
             in f) (srepl 1.1))
 
+testSin0rmapAccumRD00SC :: Assertion
+testSin0rmapAccumRD00SC = do
+  assertEqualUpToEpsilon 1e-10
+    (srepl 1)
+    (cgrad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
+                f x0 = tproject1 $ tmapAccumL (Proxy @f) (SNat @0)
+                          (FTKS ZSS FTKScalar)
+                          (FTKS ZSS FTKScalar)
+                          (FTKS ZSS FTKScalar)
+                          (let g :: forall g. ADReady g
+                                 => g (TKS '[] Double) -> g (TKS '[] Double)
+                                 -> g (TKProduct (TKS '[] Double) (TKS '[] Double))
+                               g x _a = tpair (sin x) (sin x)
+                           in g)
+                          x0
+                          (srepl 0)
+             in f) (srepl 1.1))
+
 testSin0rmapAccumRD00S0 :: Assertion
 testSin0rmapAccumRD00S0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1)
-    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f x0 = tproject1 $ tmapAccumL (Proxy @f) (SNat @0)
+    (grad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
+               f x0 = tproject1 $ tmapAccumL (Proxy @f) (SNat @0)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
@@ -1280,14 +1280,14 @@ testSin0rmapAccumRD00S0 = do
                            in g)
                           x0
                           (treplicate (SNat @0) stkUnit tunit)
-           in f) (srepl 1.1))
+            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00S :: Assertion
 testSin0rmapAccumRD00S = do
   assertEqualUpToEpsilon 1e-10
     (srepl 8.621412119476068e-2)
-    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-              f x0 = tproject1 $ tmapAccumR (Proxy @f) (SNat @7)
+    (grad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
+               f x0 = tproject1 $ tmapAccumR (Proxy @f) (SNat @7)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
@@ -1298,14 +1298,14 @@ testSin0rmapAccumRD00S = do
                            in g)
                           x0
                           (treplicate (SNat @7) stkUnit tunit)
-           in f) (srepl 1.1))
+            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00S7 :: Assertion
 testSin0rmapAccumRD00S7 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 1.4091291405664697)
-    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Double)
-              f x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @7)
+    (grad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Double)
+               f x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @7)
                           (FTKS ZSS FTKScalar)
                           (FTKS ZSS FTKScalar)
                           ftkUnit
@@ -1316,14 +1316,14 @@ testSin0rmapAccumRD00S7 = do
                            in g)
                           x0
                           (treplicate (SNat @7) stkUnit tunit)
-           in f) (srepl 1.1))
+            in f) (srepl 1.1))
 
 testSin0rmapAccumRD00SCacc0 :: Assertion
 testSin0rmapAccumRD00SCacc0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
-               f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @0)
+    (cgrad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
+                f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @0)
                           ftkUnit
                           ftkUnit
                           (FTKS ZSS FTKScalar)
@@ -1334,14 +1334,14 @@ testSin0rmapAccumRD00SCacc0 = do
                            in g)
                           tunit
                           (srepl 0)
-            in f) (srepl 1.1))
+             in f) (srepl 1.1))
 
 testSin0rmapAccumRD00SCacc :: Assertion
 testSin0rmapAccumRD00SCacc = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
-               f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @7)
+    (cgrad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
+                f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @7)
                           ftkUnit
                           ftkUnit
                           (FTKS ZSS FTKScalar)
@@ -1352,14 +1352,14 @@ testSin0rmapAccumRD00SCacc = do
                            in g)
                           tunit
                           (srepl 0)
-            in f) (srepl 1.1))
+             in f) (srepl 1.1))
 
 testSin0rmapAccumRD00Sacc0 :: Assertion
 testSin0rmapAccumRD00Sacc0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
-              f _x0 = tproject2 $ tmapAccumL (Proxy @f) (SNat @0)
+    (grad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
+               f _x0 = tproject2 $ tmapAccumL (Proxy @f) (SNat @0)
                           ftkUnit
                           ftkUnit
                           (FTKS ZSS FTKScalar)
@@ -1370,14 +1370,14 @@ testSin0rmapAccumRD00Sacc0 = do
                            in g)
                           tunit
                           (srepl 0)
-            in f) (srepl 1.1))
+             in f) (srepl 1.1))
 
 testSin0rmapAccumRD00Sacc :: Assertion
 testSin0rmapAccumRD00Sacc = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
-              f _x0 = tproject2 $ tmapAccumL (Proxy @f) (SNat @7)
+    (grad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
+               f _x0 = tproject2 $ tmapAccumL (Proxy @f) (SNat @7)
                           ftkUnit
                           ftkUnit
                           (FTKS ZSS FTKScalar)
@@ -1388,14 +1388,14 @@ testSin0rmapAccumRD00Sacc = do
                            in g)
                           tunit
                           (srepl 0)
-            in f) (srepl 1.1))
+             in f) (srepl 1.1))
 
 testSin0rmapAccumRD00SCall0 :: Assertion
 testSin0rmapAccumRD00SCall0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
-               f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @0)
+    (cgrad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
+                f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @0)
                           ftkUnit
                           ftkUnit
                           ftkUnit
@@ -1406,14 +1406,14 @@ testSin0rmapAccumRD00SCall0 = do
                            in g)
                           tunit
                           (treplicate (SNat @0) stkUnit tunit)
-            in f) (srepl 1.1))
+             in f) (srepl 1.1))
 
 testSin0rmapAccumRD00SCall :: Assertion
 testSin0rmapAccumRD00SCall = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (crev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
-               f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @7)
+    (cgrad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
+                f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @7)
                           ftkUnit
                           ftkUnit
                           ftkUnit
@@ -1430,8 +1430,8 @@ testSin0rmapAccumRD00Sall0 :: Assertion
 testSin0rmapAccumRD00Sall0 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
-              f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @0)
+    (grad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
+               f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @0)
                           ftkUnit
                           ftkUnit
                           ftkUnit
@@ -1442,14 +1442,14 @@ testSin0rmapAccumRD00Sall0 = do
                            in g)
                           tunit
                           (treplicate (SNat @0) stkUnit tunit)
-            in f) (srepl 1.1))
+             in f) (srepl 1.1))
 
 testSin0rmapAccumRD00Sall :: Assertion
 testSin0rmapAccumRD00Sall = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
-    (rev (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
-              f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @7)
+    (grad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[7] Z0)
+               f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @7)
                           ftkUnit
                           ftkUnit
                           ftkUnit
@@ -1460,7 +1460,7 @@ testSin0rmapAccumRD00Sall = do
                            in g)
                           tunit
                           (treplicate (SNat @7) stkUnit tunit)
-            in f) (srepl 1.1))
+             in f) (srepl 1.1))
 
 testSin0rmapAccumRD0R :: Assertion
 testSin0rmapAccumRD0R = do
@@ -1926,11 +1926,11 @@ testSin0rmapAccumRD01SN7 :: Assertion
 testSin0rmapAccumRD01SN7 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0.4535961214255773)
-    (crev (let f :: forall f. ADReady f
-                 => f (TKS '[] Double) -> f (TKProduct (TKS '[] Double)
+    (cgrad (let f :: forall f. ADReady f
+                  => f (TKS '[] Double) -> f (TKProduct (TKS '[] Double)
                                                  (TKProduct (TKS '[1, 3] Double)
                                                             (TKS '[1, 3] Double)))
-               f x0 = tmapAccumR (Proxy @f) (SNat @1)
+                f x0 = tmapAccumR (Proxy @f) (SNat @1)
                           (FTKS ZSS FTKScalar)
                           (FTKProduct (FTKS (SNat @3 :$$ ZSS) FTKScalar)
                                       (FTKS (SNat @3 :$$ ZSS) FTKScalar))
@@ -1965,7 +1965,7 @@ testSin0rmapAccumRD01SN7 = do
                                     (sreplicate0N $ sscalar 0))
                              (tpair (sreplicate0N $ sscalar 0)
                                     (sreplicate0N $ sscalar 0)))
-           in f @(ADVal Concrete)) (sscalar 1.1))
+            in f @(ADVal Concrete)) (sscalar 1.1))
 
 rscanZip :: forall rn n rn2 n2 target.
             (GoodScalar rn, KnownNat n, GoodScalar rn2, ADReady target)
@@ -2043,8 +2043,8 @@ testSin0ScanD8MapAccum = do
                       (rreplicate 4 a0))
        (ringestData [1,1,1] [1.1]))
 
-testSin0ScanD8rev :: Assertion
-testSin0ScanD8rev = do
+testSin0ScanD8grad :: Assertion
+testSin0ScanD8grad = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [9.53298735735276])
     (rrev1 @Concrete @Double @0 @3
@@ -2181,7 +2181,7 @@ testSin0ScanD8fwd2 = do
                        (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.95794829475744])
-    (crev h (rscalar 1.1))
+    (cgrad h (rscalar 1.1))
 
 testSin0FoldNestedS1 :: Assertion
 testSin0FoldNestedS1 = do
@@ -2203,7 +2203,7 @@ testSin0FoldNestedS1PP = do
                      a (sreplicate @22 x))
                   z (sreplicate @11 z)
       g :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-      g x = srev f (FTKS ZSS FTKScalar) x
+      g x = sgrad f (FTKS ZSS FTKScalar) x
   printAstPretty
     (g @(AstTensor AstMethodLet PrimalSpan) ((sscalar 1.1)))
     @?= "let v4 = tmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sconcrete (sfromListLinear [11] [Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate @11 (sscalar 1.1)))), sreplicate @11 (sscalar 1.1)))) in ssum @11 (tproject2 v4) + tproject1 v4"
@@ -2217,7 +2217,7 @@ testSin0FoldNestedR1PP = do
                      a (rreplicate 22 x))
                   z (rreplicate 11 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = rrev f (FTKR ZSR FTKScalar) x
+      g x = rgrad f (FTKR ZSR FTKScalar) x
   printAstPretty
     (g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
     @?= "rfromS (let v4 = tmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sconcrete (sfromListLinear [11] [Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0]), tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate @11 (sscalar 1.1)))), sreplicate @11 (sscalar 1.1)))) in ssum @11 (sfromR (tproject2 v4)) + tproject1 v4)"
@@ -2229,7 +2229,7 @@ testSin0FoldNestedR0LengthPPs = do
       f z = rfold (\x a -> x + tan a)
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = rrev f (FTKR ZSR FTKScalar) x
+      g x = rgrad f (FTKR ZSR FTKScalar) x
   length
     (printAstSimple
       (simplifyInlineContract
@@ -2245,7 +2245,7 @@ testSin0FoldNestedR1LengthPPs = do
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = rrev f (FTKR ZSR FTKScalar) x
+      g x = rgrad f (FTKR ZSR FTKScalar) x
   length
     (printAstSimple
       (simplifyInlineContract
@@ -2263,7 +2263,7 @@ testSin0FoldNestedR2LengthPPs = do
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = rrev f (FTKR ZSR FTKScalar) x
+      g x = rgrad f (FTKR ZSR FTKScalar) x
   length
     (printAstSimple
        (simplifyInlineContract
@@ -2283,7 +2283,7 @@ testSin0FoldNestedR3LengthPPs = do
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = rrev f (FTKR ZSR FTKScalar) x
+      g x = rgrad f (FTKR ZSR FTKScalar) x
   length
     (printAstSimple
        (simplifyInlineContract
@@ -2306,7 +2306,7 @@ _testSin0FoldNestedR4LengthPPs = do
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = rrev f (FTKR ZSR FTKScalar) x
+      g x = rgrad f (FTKR ZSR FTKScalar) x
   length
     (printAstSimple
        (simplifyInlineContract
@@ -2330,7 +2330,7 @@ _testSin0FoldNestedR5LengthPPs = do
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = rrev f (FTKR ZSR FTKScalar) x
+      g x = rgrad f (FTKR ZSR FTKScalar) x
   length
     (printAstSimple
        (simplifyInlineContract
@@ -2350,7 +2350,7 @@ testSin0FoldNestedR2LengthPPsDummy7 = do
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = rrev f (FTKR ZSR FTKScalar) x
+      g x = rgrad f (FTKR ZSR FTKScalar) x
   length
     (printAstSimple
        (simplifyInlineContract
@@ -2488,8 +2488,8 @@ testSin0FoldNestedS5 = do
 
            in rfromS . f . sfromR) (rscalar 1.1))
 
-testSin0FoldNestedS5rev :: Assertion
-testSin0FoldNestedS5rev = do
+testSin0FoldNestedS5grad :: Assertion
+testSin0FoldNestedS5grad = do
   let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
       f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
@@ -2751,7 +2751,7 @@ testSin0revhV :: Assertion
 testSin0revhV = do
   let f :: forall g. BaseTensor g
         => g (TKR 0 Double) -> g (TKR 0 Double)
-      f x = rrev @0 @_ @(TKScalar Double) @g sin (FTKR ZSR FTKScalar) x
+      f x = rgrad @0 @_ @(TKScalar Double) @g sin (FTKR ZSR FTKScalar) x
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.4535961214255773)
     (f @Concrete (rscalar 1.1))
@@ -2761,7 +2761,7 @@ testSin0revhVPP = do
   resetVarCounter
   let f :: forall g. BaseTensor g
         => g (TKR 0 Double) -> g (TKR 0 Double)
-      f x = rrev @0 @_ @(TKScalar Double) @g sin (FTKR ZSR FTKScalar) x
+      f x = rgrad @0 @_ @(TKScalar Double) @g sin (FTKR ZSR FTKScalar) x
   printAstSimple (f @(AstTensor AstMethodLet PrimalSpan)
                                     (rscalar 1.1))
     @?= "rfromS (sscalar 1.0 * cos (sscalar 1.1))"
@@ -2778,7 +2778,7 @@ testSin0revhV4 = do
                 doms3 x (ringestData [4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (rfromList [rscalar 0, rscalar 0, rscalar 0])
-    (crev f (rreplicate 3 (rscalar 1.1)))
+    (cgrad f (rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV5 :: Assertion
 testSin0revhV5 = do
@@ -2792,7 +2792,7 @@ testSin0revhV5 = do
                 doms3 x (singestData @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (sfromList @3 [sscalar 0, sscalar 0, sscalar 0])
-    (crev f (sreplicate @3 (sscalar 1.1)))
+    (cgrad f (sreplicate @3 (sscalar 1.1)))
 
 testSin0revhV6 :: Assertion
 testSin0revhV6 = do
@@ -2806,7 +2806,7 @@ testSin0revhV6 = do
                 doms3 x (ringestData [4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (ringestData [3] [4.0,6.0,8.0])
-    (crev f (rreplicate 3 (rscalar 1.1)))
+    (cgrad f (rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV7 :: Assertion
 testSin0revhV7 = do
@@ -2820,4 +2820,4 @@ testSin0revhV7 = do
                 doms3 x (singestData @'[4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (singestData @'[3] [4.0,6.0,8.0])
-    (crev f (sreplicate @3 (sscalar 1.1)))
+    (cgrad f (sreplicate @3 (sscalar 1.1)))

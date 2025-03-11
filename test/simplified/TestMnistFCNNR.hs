@@ -663,7 +663,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
                        (0.8325 :: Double)
   , mnistTestCase2VTO "VTO2 1 epoch, 0 batch" 1 0 300 100 0.02 500
                        (1 :: Float)
-  , testProperty "VTO2 rev vs fwd" $
+  , testProperty "VTO2 grad vs fwd" $
     \seed0 ->
     forAllShrink (chooseInt (0, 600)) shrinkIntegral $ \width1Hidden ->
     forAllShrink (chooseInt (0, 200)) shrinkIntegral $ \width1Hidden2 ->
@@ -721,7 +721,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
     in
       conjoin
         [ counterexample
-            ("Objective function value from rev and fwd matches: "
+            ("Objective function value from grad and fwd matches: "
              ++ show (value1, value2, value1 - value2))
             (abs (value1 - value2) < 1e-10)
         , counterexample

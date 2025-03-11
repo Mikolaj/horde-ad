@@ -573,7 +573,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- In this instance, these three ops are only used for some rare tests that
   -- use the non-symbolic pipeline to compute a symbolic
   -- value of the derivative at a particular fixed input.
-  trev xftk f =
+  tgrad xftk f =
     -- we don't have an AST constructor to hold it, so we compute
     --
     -- This computes the (AST of) derivative of f once and interprets it again
@@ -1081,7 +1081,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- These three methods are called at this type in delta evaluation via
   -- tmapAccumR and tmapAccumL, they have to work. We could refrain from
   -- simplifying the resulting terms, but it's not clear that's more consistent.
-  trev = trev @(AstTensor AstMethodLet PrimalSpan)
+  tgrad = tgrad @(AstTensor AstMethodLet PrimalSpan)
   trevDt = trevDt @(AstTensor AstMethodLet PrimalSpan)
   tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
 
@@ -1394,7 +1394,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
   tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
   tfromDual t = AstNoVectorize $ tfromDual t
-  trev = trev @(AstTensor AstMethodLet PrimalSpan)
+  tgrad = tgrad @(AstTensor AstMethodLet PrimalSpan)
   trevDt = trevDt @(AstTensor AstMethodLet PrimalSpan)
   tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
 
@@ -1623,7 +1623,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tlambda = tlambda @(AstRaw PrimalSpan)
   tprimalPart t = wAstNoSimplify $ tprimalPart $ wunAstNoSimplify t
   tfromPrimal stk t = wAstNoSimplify $ tfromPrimal stk $ wunAstNoSimplify t
-  trev = trev @(AstRaw PrimalSpan)
+  tgrad = tgrad @(AstRaw PrimalSpan)
   trevDt = trevDt @(AstRaw PrimalSpan)
   tfwd = tfwd @(AstRaw PrimalSpan)
 
