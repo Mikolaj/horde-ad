@@ -113,10 +113,10 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 
 convMnistTestR
   :: forall target r.
-     (target ~ RepN, GoodScalar r, Numeric r, Differentiable r)
+     (target ~ Concrete, GoodScalar r, Numeric r, Differentiable r)
   => Int
   -> MnistDataBatchR r
-  -> ADCnnMnistParameters RepN r
+  -> ADCnnMnistParameters Concrete r
   -> r
 convMnistTestR 0 _ _ = 0
 convMnistTestR batch_size (glyphR, labelR) testParams =
@@ -125,7 +125,7 @@ convMnistTestR batch_size (glyphR, labelR) testParams =
         rconcrete $ Nested.rreshape [ batch_size, 1
                                     , sizeMnistHeightInt, sizeMnistWidthInt ]
                                     glyphR
-      outputR :: RepN (TKR 2 r)
+      outputR :: Concrete (TKR 2 r)
       outputR =
         let nn :: ADCnnMnistParameters target r
                -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]

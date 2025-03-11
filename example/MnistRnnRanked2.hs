@@ -140,7 +140,7 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
   in kfromPrimal (recip $ kconcrete $ fromIntegral batch_size) * loss
 
 -- TODO: theses three require the use of `rmatmul2` method so that
--- the RepN instance can use the hmatrix implementation and avoid
+-- the Concrete instance can use the hmatrix implementation and avoid
 -- the order of magnitude slowdown. Remove as soon as `rmatmul2m`
 -- is not needed.
 rnnMnistLayerR2
@@ -190,7 +190,7 @@ rnnMnistZeroR2 batch_size xs
 
 rnnMnistTestR
   :: forall target r.
-     (target ~ RepN, GoodScalar r, Numeric r, Differentiable r)
+     (target ~ Concrete, GoodScalar r, Numeric r, Differentiable r)
   => Int
   -> MnistDataBatchR r  -- batch_size
   -> ADRnnMnistParameters target r
@@ -199,7 +199,7 @@ rnnMnistTestR 0 _ _ = 0
 rnnMnistTestR batch_size (glyphR, labelR) testParams =
   let input :: target (TKR 3 r)
       input = rconcrete $ Nested.rtranspose [2, 1, 0] glyphR
-      outputR :: RepN (TKR 2 r)
+      outputR :: Concrete (TKR 2 r)
       outputR =
         let nn :: ADRnnMnistParameters target r  -- SizeMnistHeight out_width
                -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]

@@ -133,7 +133,7 @@ convMnistTestS
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
      , 1 <= kh
      , 1 <= kw
-     , target ~ RepN
+     , target ~ Concrete
      , GoodScalar r, Numeric r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat c_out
@@ -148,7 +148,7 @@ convMnistTestS kh@SNat kw@SNat
                (glyphS, labelS) testParams =
   let input :: target (TKS '[batch_size, 1, h, w] r)
       input = sconcrete $ Nested.sreshape knownShS glyphS
-      outputS :: RepN (TKS '[SizeMnistLabel, batch_size] r)
+      outputS :: Concrete (TKS '[SizeMnistLabel, batch_size] r)
       outputS =
         let nn :: ADCnnMnistParametersShaped target h w kh kw c_out n_hidden r
                -> target (TKS '[SizeMnistLabel, batch_size] r)

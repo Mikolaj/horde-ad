@@ -242,7 +242,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (dropShS @p shpshn, dropShS @m shmshn)
-  trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (RepN a)
+  trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (Concrete a)
   trfloor @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
@@ -452,7 +452,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           _ -> error $ "xgather: shapes don't match: "
                        ++ show ( dropShS @(Rank shp) shpshn
                                , dropShS @(Rank shm) shmshn )
-  txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (RepN a)
+  txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (Concrete a)
   txfloor @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
@@ -734,7 +734,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (dropShS @p shpshn, dropShS @m shmshn)
-  trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (RepN a)
+  trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (Concrete a)
   trfloor @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
@@ -955,7 +955,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           _ -> error $ "xgather: shapes don't match: "
                        ++ show ( dropShS @(Rank shp) shpshn
                                , dropShS @(Rank shm) shmshn )
-  txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (RepN a)
+  txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (Concrete a)
   txfloor @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
@@ -1244,23 +1244,23 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
   tunpairConv = tunpair
 
 -- All but the last case are shortcuts for common forms.
-astConcreteRaw :: FullShapeTK y -> RepN y
+astConcreteRaw :: FullShapeTK y -> Concrete y
                -> AstRaw PrimalSpan y
 astConcreteRaw ftk v = case ftk of
-  FTKScalar -> AstRaw $ AstConcreteK $ unRepN v
+  FTKScalar -> AstRaw $ AstConcreteK $ unConcrete v
   FTKR sh' FTKScalar -> AstRaw $
     withCastRS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      AstFromS (ftkToSTK ftk) $ AstConcreteS (unRepN $ sfromR @_ @sh v)
-  FTKS _ FTKScalar -> AstRaw $ AstConcreteS $ unRepN v
+      AstFromS (ftkToSTK ftk) $ AstConcreteS (unConcrete $ sfromR @_ @sh v)
+  FTKS _ FTKScalar -> AstRaw $ AstConcreteS $ unConcrete v
   FTKX sh' FTKScalar -> AstRaw $
     withCastXS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      AstFromS (ftkToSTK ftk) $ AstConcreteS (unRepN $ sfromX @_ @sh v)
+      AstFromS (ftkToSTK ftk) $ AstConcreteS (unConcrete $ sfromX @_ @sh v)
   FTKProduct ftk1 ftk2 -> AstRaw $
     AstPair (unAstRaw $ astConcreteRaw ftk1 (tproject1 v))
                 (unAstRaw $ astConcreteRaw ftk2 (tproject2 v))
-  _ -> concreteTarget (tkconcrete . unRepN) (tsconcrete . unRepN)
+  _ -> concreteTarget (tkconcrete . unConcrete) (tsconcrete . unConcrete)
                       (\stk a -> AstRaw $ AstFromS stk $ unAstRaw a)
                       (ftkToSTK ftk) v
 

@@ -45,9 +45,9 @@ envProd :: r ~ Double
         => Rational
         -> (forall n.
             ( SNat n
-            , ListR n (RepN (TKScalar r))
-            , ListR n (RepN (TKS '[] r))
-            , RepN (TKS '[n] r) )
+            , ListR n (Concrete (TKScalar r))
+            , ListR n (Concrete (TKS '[] r))
+            , Concrete (TKS '[n] r) )
             -> Benchmark)
         -> [r]
         -> Benchmark
@@ -58,16 +58,16 @@ envProd rat f allxs =
       let l = take k allxs
           lt = map sscalar l
       in ( SNat @k
-         , fromList (map RepN l)
+         , fromList (map Concrete l)
          , fromList lt
          , sfromList . fromList $ lt) )
         (f @k)
 
 benchProd :: r ~ Double
           => ( SNat n
-             , ListR n (RepN (TKScalar r))
-             , ListR n (RepN (TKS '[] r))
-             , RepN (TKS '[n] r) )
+             , ListR n (Concrete (TKScalar r))
+             , ListR n (Concrete (TKS '[] r))
+             , Concrete (TKS '[n] r) )
           -> [Benchmark]
 benchProd ~(snat, l, lt, t) = case snat of
   SNat ->
@@ -92,15 +92,15 @@ multScalarL :: (BaseTensor target, GoodScalar r)
 multScalarL = foldl1' (*) . Foldable.toList
 
 crevScalarL
-  :: SNat n -> ListR n (RepN (TKScalar Double))
-  -> ListR n (RepN (TKScalar Double))
+  :: SNat n -> ListR n (Concrete (TKScalar Double))
+  -> ListR n (Concrete (TKScalar Double))
 crevScalarL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   crev multScalarL
 
 revScalarL
-  :: SNat n -> ListR n (RepN (TKScalar Double))
-  -> ListR n (RepN (TKScalar Double))
+  :: SNat n -> ListR n (Concrete (TKScalar Double))
+  -> ListR n (Concrete (TKScalar Double))
 revScalarL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   rev multScalarL
@@ -110,15 +110,15 @@ multScalarR :: (BaseTensor target, GoodScalar r)
 multScalarR = foldr1 (*)
 
 crevScalarR
-  :: SNat n -> ListR n (RepN (TKScalar Double))
-  -> ListR n (RepN (TKScalar Double))
+  :: SNat n -> ListR n (Concrete (TKScalar Double))
+  -> ListR n (Concrete (TKScalar Double))
 crevScalarR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   crev multScalarR
 
 revScalarR
-  :: SNat n -> ListR n (RepN (TKScalar Double))
-  -> ListR n (RepN (TKScalar Double))
+  :: SNat n -> ListR n (Concrete (TKScalar Double))
+  -> ListR n (Concrete (TKScalar Double))
 revScalarR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   rev multScalarR
@@ -129,8 +129,8 @@ multScalarNotShared :: (BaseTensor target, GoodScalar r)
 multScalarNotShared = foldr1 multNotShared
 
 crevScalarNotShared
-  :: SNat n -> ListR n (RepN (TKScalar Double))
-  -> ListR n (RepN (TKScalar Double))
+  :: SNat n -> ListR n (Concrete (TKScalar Double))
+  -> ListR n (Concrete (TKScalar Double))
 crevScalarNotShared snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   crev multScalarNotShared
@@ -140,15 +140,15 @@ multSL :: (BaseTensor target, GoodScalar r)
 multSL = foldl1' (*) . Foldable.toList
 
 crevSL
-  :: SNat n -> ListR n (RepN (TKS '[] Double))
-  -> ListR n (RepN (TKS '[] Double))
+  :: SNat n -> ListR n (Concrete (TKS '[] Double))
+  -> ListR n (Concrete (TKS '[] Double))
 crevSL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   crev multSL
 
 revSL
-  :: SNat n -> ListR n (RepN (TKS '[] Double))
-  -> ListR n (RepN (TKS '[] Double))
+  :: SNat n -> ListR n (Concrete (TKS '[] Double))
+  -> ListR n (Concrete (TKS '[] Double))
 revSL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   rev multSL
@@ -158,15 +158,15 @@ multSR :: (BaseTensor target, GoodScalar r)
 multSR = foldr1 (*)
 
 crevSR
-  :: SNat n -> ListR n (RepN (TKS '[] Double))
-  -> ListR n (RepN (TKS '[] Double))
+  :: SNat n -> ListR n (Concrete (TKS '[] Double))
+  -> ListR n (Concrete (TKS '[] Double))
 crevSR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   crev multSR
 
 revSR
-  :: SNat n -> ListR n (RepN (TKS '[] Double))
-  -> ListR n (RepN (TKS '[] Double))
+  :: SNat n -> ListR n (Concrete (TKS '[] Double))
+  -> ListR n (Concrete (TKS '[] Double))
 revSR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   rev multSR
@@ -177,8 +177,8 @@ multSNotShared :: (BaseTensor target, GoodScalar r)
 multSNotShared = foldr1 multNotShared
 
 crevSNotShared
-  :: SNat n -> ListR n (RepN (TKS '[] Double))
-  -> ListR n (RepN (TKS '[] Double))
+  :: SNat n -> ListR n (Concrete (TKS '[] Double))
+  -> ListR n (Concrete (TKS '[] Double))
 crevSNotShared snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   crev multSNotShared
@@ -190,15 +190,15 @@ crevSNotShared snat@SNat =
 multSMapAccum :: (BaseTensor target, LetTensor target, GoodScalar r)
               => SNat n -> target (TKS '[n] r) -> target (TKS '[] r)
 multSMapAccum SNat = sfold (*) (sscalar 1)
-{-# SPECIALIZE multSMapAccum :: SNat n -> ADVal RepN (TKS '[n] Double) -> ADVal RepN (TKS '[] Double) #-}
+{-# SPECIALIZE multSMapAccum :: SNat n -> ADVal Concrete (TKS '[n] Double) -> ADVal Concrete (TKS '[] Double) #-}
 {-# SPECIALIZE multSMapAccum :: SNat n -> AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKS '[] Double) #-}
 
 crevSMapAccum
-  :: SNat n -> RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
+  :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
 crevSMapAccum snat@SNat = crev (multSMapAccum snat)
 
 revSMapAccum
-  :: SNat n -> RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
+  :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
 revSMapAccum snat@SNat = rev (multSMapAccum snat)
 
 multScalarMapAccum :: forall target n r.
@@ -217,15 +217,15 @@ multScalarMapAccum snat@SNat  =
           g !acc !e = tpair (acc * e) tunit
       in g)
      1
-{-# SPECIALIZE multScalarMapAccum :: SNat n -> ADVal RepN (TKS '[n] Double) -> ADVal RepN (TKScalar Double) #-}
+{-# SPECIALIZE multScalarMapAccum :: SNat n -> ADVal Concrete (TKS '[n] Double) -> ADVal Concrete (TKScalar Double) #-}
 {-# SPECIALIZE multScalarMapAccum :: SNat n -> AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKScalar Double) #-}
 
 crevScalarMapAccum
-  :: SNat n -> RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
+  :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
 crevScalarMapAccum snat@SNat = crev (multScalarMapAccum snat)
 
 revScalarMapAccum
-  :: SNat n -> RepN (TKS '[n] Double) -> RepN (TKS '[n] Double)
+  :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
 revScalarMapAccum snat@SNat = rev (multScalarMapAccum snat)
 
 -- TODO: not enough specialized

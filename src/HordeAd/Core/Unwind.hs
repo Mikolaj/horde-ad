@@ -125,23 +125,23 @@ defRepW = \case
     WTKProduct (defRepW ftk1) (defRepW ftk2)
 
 concreteRepW
-  :: forall y target. (ConvertTensor RepN, ConvertTensor target)
-  => (forall r. GoodScalar r => RepN (TKScalar r) -> target (TKScalar r))
-  -> (forall r sh. GoodScalar r => RepN (TKS sh r) -> target (TKS sh r))
+  :: forall y target. (ConvertTensor Concrete, ConvertTensor target)
+  => (forall r. GoodScalar r => Concrete (TKScalar r) -> target (TKScalar r))
+  -> (forall r sh. GoodScalar r => Concrete (TKS sh r) -> target (TKS sh r))
   -> (forall x z. SingletonTK z -> target x -> target z)
-  -> RepW RepN y -> RepW target y
+  -> RepW Concrete y -> RepW target y
 {-# INLINE concreteRepW #-}
 concreteRepW concreteK concreteS fromS w = case w of
   WTKScalar v -> WTKScalar $ concreteK v
   WTKR v -> WTKR $
-    let sh' = Nested.rshape $ unRepN v
+    let sh' = Nested.rshape $ unConcrete v
     in withCastRS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
       fromS (STKR (shrRank sh') STKScalar)
       $ concreteS (sfromR @_ @sh v)
   WTKS v -> WTKS $ concreteS v
   WTKX v -> WTKX $
-    let sh' = Nested.mshape $ unRepN v
+    let sh' = Nested.mshape $ unConcrete v
     in withCastXS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
       fromS (STKX (ssxFromShape sh') STKScalar)
@@ -457,11 +457,11 @@ defTarget ftk =
   windTarget (ftkToSTK ftk) $ defRepW (unWindFTK ftk)
 
 concreteTarget
-  :: forall y target. (ConvertTensor RepN, ConvertTensor target)
-  => (forall r. GoodScalar r => RepN (TKScalar r) -> target (TKScalar r))
-  -> (forall r sh. GoodScalar r => RepN (TKS sh r) -> target (TKS sh r))
+  :: forall y target. (ConvertTensor Concrete, ConvertTensor target)
+  => (forall r. GoodScalar r => Concrete (TKScalar r) -> target (TKScalar r))
+  -> (forall r sh. GoodScalar r => Concrete (TKS sh r) -> target (TKS sh r))
   -> (forall x z. SingletonTK z -> target x -> target z)
-  -> SingletonTK y -> RepN y
+  -> SingletonTK y -> Concrete y
   -> target y
 concreteTarget concreteK concreteS fromS stk v =
   windTarget stk

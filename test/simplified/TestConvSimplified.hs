@@ -124,7 +124,7 @@ conv2dA = conv2d $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]
 conv2dB
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dB = conv2d (rconcrete $ unRepN t16b)
+conv2dB = conv2d (rconcrete $ unConcrete t16b)
 
 testKonstG0Rev :: Assertion
 testKonstG0Rev =
@@ -143,7 +143,7 @@ testKonstG0TinyS =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2d $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unRepN t16b)))
+          (conv2d $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unConcrete t16b)))
           (ringestData [1, 1, 1, 1] [0]))
 
 testKonstG0TinyA :: Assertion
@@ -180,32 +180,32 @@ conv2dALaborious =
 conv2dBLaborious
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dBLaborious = conv2dUnpadded (rconcrete $ unRepN t16b)
+conv2dBLaborious = conv2dUnpadded (rconcrete $ unConcrete t16b)
 
 conv2dCLaborious
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dCLaborious = flip conv2dUnpadded (rconcrete $ unRepN t16b)
+conv2dCLaborious = flip conv2dUnpadded (rconcrete $ unConcrete t16b)
 
 conv2dBLaborious128b
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dBLaborious128b = conv2dUnpadded (rconcrete $ unRepN t128b)
+conv2dBLaborious128b = conv2dUnpadded (rconcrete $ unConcrete t128b)
 
 conv2dCLaborious128b
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dCLaborious128b = flip conv2dUnpadded (rconcrete $ unRepN t128b)
+conv2dCLaborious128b = flip conv2dUnpadded (rconcrete $ unConcrete t128b)
 
 conv2dBLaborious128c
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dBLaborious128c = conv2dUnpadded (rconcrete $ unRepN t128c)
+conv2dBLaborious128c = conv2dUnpadded (rconcrete $ unConcrete t128c)
 
 conv2dCLaborious128c
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dCLaborious128c = flip conv2dUnpadded (rconcrete $ unRepN t128c)
+conv2dCLaborious128c = flip conv2dUnpadded (rconcrete $ unConcrete t128c)
 
 testReplicate0RevLaborious :: Assertion
 testReplicate0RevLaborious =
@@ -224,7 +224,7 @@ testReplicate0TinySLaborious =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2dUnpadded $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unRepN t16b)))
+          (conv2dUnpadded $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unConcrete t16b)))
           (ringestData [1, 1, 1, 1] [0]))
 
 testReplicate0TinyALaborious :: Assertion
@@ -499,9 +499,9 @@ test_disparityKonst2 = do
       arrO = rreplicate0N [1, 4, 4, 6] (rscalar (1 :: Double))
       res1 = rconcrete $ Nested.rfromListPrimLinear [1,2,4,6] [4.0,2.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,0.0,0.0,-2.0,0.0,4.0,4.0,2.0,0.0,-4.0,1.0,4.0,4.0,4.0,-4.0,2.0,4.0,2.0]
       res2 = rconcrete $ Nested.rfromListPrimLinear [1,2,4,6] [-4.0,0.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-2.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,4.0,4.0,-4.0,1.0,-2.0,-1.0,-2.0,3.0,2.0,-1.0,-2.0,-1.0,-2.0,0.0,-2.0,-3.0,-2.0,1.0]
-      arrDL :: RepN (TKR 4 Double)
+      arrDL :: Concrete (TKR 4 Double)
       arrDL = revDt (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
-      arrDR :: RepN (TKR 4 Double)
+      arrDR :: Concrete (TKR 4 Double)
       arrDR = revDt (costVolume 0 4 (rfromPrimal arrL)) arrR arrO
   assertEqualUpToEpsilon 1e-7
     res1

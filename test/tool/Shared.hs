@@ -36,8 +36,8 @@ instance (KnownNat n, Nested.PrimElt a) => HasShape (Nested.Ranked n a) where
 instance KnownShS sh => HasShape (Nested.Shaped sh a) where
   shapeL _ = toList $ knownShS @sh
 
-instance HasShape (RepORArray y) => HasShape (RepN y) where
-  shapeL = shapeL . unRepN
+instance HasShape (RepConcrete y) => HasShape (Concrete y) where
+  shapeL = shapeL . unConcrete
 
 instance HasShape Double where
   shapeL _ = []
@@ -72,9 +72,9 @@ instance (VS.Storable a, Nested.PrimElt a)
          => Linearizable (Nested.Shaped sh a) a where
   linearize = VS.toList . Nested.stoVector
 
-instance Linearizable (RepORArray y) a
-         => Linearizable (RepN y) a where
-  linearize = linearize . unRepN
+instance Linearizable (RepConcrete y) a
+         => Linearizable (Concrete y) a where
+  linearize = linearize . unConcrete
 
 instance Linearizable Double Double where
   linearize x = [x]

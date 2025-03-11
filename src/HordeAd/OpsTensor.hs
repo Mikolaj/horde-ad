@@ -113,11 +113,11 @@ rscalar :: (GoodScalar r, BaseTensor target)
 rscalar r = rconcrete $ Nested.rscalar r
 rrepl :: forall n r target. (GoodScalar r, BaseTensor target)
       => IShR n -> r -> target (TKR n r)
-rrepl sh a = tconcrete (FTKR sh FTKScalar) (RepN $ Nested.rreplicateScal sh a)
+rrepl sh a = tconcrete (FTKR sh FTKScalar) (Concrete $ Nested.rreplicateScal sh a)
 ringestData :: forall n r target. (GoodScalar r, BaseTensor target)
             => IShR n -> [r] -> target (TKR n r)
 ringestData sh l =
-  tconcrete (FTKR sh FTKScalar) (RepN $ Nested.rfromListPrimLinear sh l)
+  tconcrete (FTKR sh FTKScalar) (Concrete $ Nested.rfromListPrimLinear sh l)
 rfromListLinear :: forall n r target. (GoodScalar r, BaseTensor target)
                 => IShR n -> NonEmpty r -> target (TKR n r)
 rfromListLinear sh = ringestData sh . NonEmpty.toList
@@ -147,11 +147,11 @@ xscalar :: (GoodScalar r, BaseTensor target)
 xscalar r = xconcrete $ Nested.mscalar r
 xrepl :: forall sh r target. (GoodScalar r, BaseTensor target)
       => IShX sh -> r -> target (TKX sh r)
-xrepl sh a = tconcrete (FTKX sh FTKScalar) (RepN $ Nested.mreplicateScal sh a)
+xrepl sh a = tconcrete (FTKX sh FTKScalar) (Concrete $ Nested.mreplicateScal sh a)
 xingestData :: forall sh r target. (GoodScalar r, BaseTensor target)
             => IShX sh -> [r] -> target (TKX sh r)
 xingestData sh l =
-  tconcrete (FTKX sh FTKScalar) (RepN $ Nested.mfromListPrimLinear sh l)
+  tconcrete (FTKX sh FTKScalar) (Concrete $ Nested.mfromListPrimLinear sh l)
 xfromListLinear :: forall sh r target. (GoodScalar r, BaseTensor target)
                 => IShX sh -> NonEmpty r -> target (TKX sh r)
 xfromListLinear sh = xingestData sh . NonEmpty.toList

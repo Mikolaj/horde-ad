@@ -412,7 +412,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TK
               -> AstTensor ms s (TKS '[m, p] r)
 
 deriving instance Show (AstTensor ms s y)
-  -- for this to work, AstConcreteS can't take a RepN
+  -- for this to work, AstConcreteS can't take a Concrete
 
 type role AstHFun nominal nominal
 data AstHFun x z where

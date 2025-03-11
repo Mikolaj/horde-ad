@@ -287,8 +287,8 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   (case (sameAstSpan @s @PrimalSpan, stk) of
      (Just Refl, STKScalar) ->
        let unConc :: AstTensor AstMethodLet PrimalSpan y
-                  -> Maybe (RepN y)
-           unConc (AstConcreteK a) = Just $ RepN a
+                  -> Maybe (Concrete y)
+           unConc (AstConcreteK a) = Just $ Concrete a
            unConc _ = Nothing
        in case V.mapM unConc l of
          Just l4 | V.null l4 -> error "astFromVector: empty vector"
@@ -296,8 +296,8 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
          Nothing -> Nothing
      (Just Refl, STKS _ STKScalar) ->
        let unConc :: AstTensor AstMethodLet PrimalSpan y
-                  -> Maybe (RepN y)
-           unConc (AstConcreteS a) = Just $ RepN a
+                  -> Maybe (Concrete y)
+           unConc (AstConcreteS a) = Just $ Concrete a
            unConc _ = Nothing
        in case V.mapM unConc l of
          Just l4 | V.null l4 -> error "astFromVector: empty vector"
@@ -394,10 +394,10 @@ astSum snat@SNat stk t0 = case t0 of
   AstConcreteS @_ @sh2 t -> case stk of
     STKS @sh _ STKScalar ->
       gcastWith (unsafeCoerceRefl :: k ': sh :~: sh2) $
-      astConcreteS (tsum snat stk $ RepN t)
+      astConcreteS (tsum snat stk $ Concrete t)
     STKScalar ->
       gcastWith (unsafeCoerceRefl :: '[k] :~: sh2) $
-      astConcreteK (tsum snat stk $ RepN t)
+      astConcreteK (tsum snat stk $ Concrete t)
   -- Ast.AstLet var u v -> astLet var u (astSum snat v)
     -- this is problematic, because it keeps huge tensors alive for longer
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSum snat stk v
@@ -1017,9 +1017,9 @@ astDualPart t = case t of
   _ -> Ast.AstDualPart t
 
 astConcreteK :: GoodScalar r
-             => RepN (TKScalar r)
+             => Concrete (TKScalar r)
              -> AstTensor AstMethodLet PrimalSpan (TKScalar r)
-astConcreteK = AstConcreteK . unRepN
+astConcreteK = AstConcreteK . unConcrete
 
 -- Beware that increasing the number of calls to this constructor
 -- sometimes increases runtime, because not enough copies cancel out.
@@ -1032,7 +1032,7 @@ astFromIntegralK t = case t of
   Ast.AstSum snat STKScalar a -> astSum snat STKScalar (astFromIntegralS a)
 --  Ast.AstCond b a2 a3 ->
 --    Ast.AstCond b (astFromIntegralK a2) (astFromIntegralK a3)
-  AstConcreteK k -> astConcreteK (tkfromIntegral $ RepN k)
+  AstConcreteK k -> astConcreteK (tkfromIntegral $ Concrete k)
   Ast.AstN1K NegateOp u -> negate (astFromIntegralK u)
   Ast.AstN1K AbsOp u -> abs (astFromIntegralK u)
   Ast.AstN1K SignumOp u -> signum (astFromIntegralK u)
@@ -1048,7 +1048,7 @@ astCastK t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
   Ast.AstSum snat STKScalar a -> astSum snat STKScalar (astCastS a)
 --  Ast.AstCond b a2 a3 -> Ast.AstCond b (astCastK a2) (astCastK a3)
-  AstConcreteK k -> astConcreteK (tkcast $ RepN k)
+  AstConcreteK k -> astConcreteK (tkcast $ Concrete k)
   -- TODO: which should go deeper, casts or fromPrimal? Or maybe alternate
   -- to make sure both can cancel out? Rethink. For now, astFromPrimal
   -- is not called to avoid loops. The same with many others
@@ -1065,9 +1065,9 @@ astCastK t = case t of
   _ -> Ast.AstCastK t
 
 astConcreteS :: GoodScalar r
-             => RepN (TKS sh r)
+             => Concrete (TKS sh r)
              -> AstTensor AstMethodLet PrimalSpan (TKS sh r)
-astConcreteS = AstConcreteS . unRepN
+astConcreteS = AstConcreteS . unConcrete
 
 astFromIntegralS :: forall r1 r2 sh. (GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
@@ -1089,7 +1089,7 @@ astFromIntegralS t = case t of
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astFromIntegralS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astFromIntegralK v)
-  AstConcreteS a -> astConcreteS (tsfromIntegral $ RepN a)
+  AstConcreteS a -> astConcreteS (tsfromIntegral $ Concrete a)
   Ast.AstLet var u v -> astLet var u (astFromIntegralS v)
   Ast.AstN1S NegateOp u -> negate (astFromIntegralS u)
   Ast.AstN1S AbsOp u -> abs (astFromIntegralS u)
@@ -1133,7 +1133,7 @@ astCastS t = case t of
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astCastS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astCastK v)
-  AstConcreteS a -> astConcreteS (tscast $ RepN a)
+  AstConcreteS a -> astConcreteS (tscast $ Concrete a)
   Ast.AstLet var u v -> astLet var u (astCastS v)
   Ast.AstPrimalPart a -> Ast.AstPrimalPart $ astCastS a
   Ast.AstDualPart a -> Ast.AstDualPart $ astCastS a
@@ -1312,15 +1312,15 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     $ \ !ix2 -> Ast.AstI2S opCode (astIndexRec shn u ix2)
                                   (astIndexRec shn v ix2)
   AstConcreteS a ->
-    let unConc :: AstInt AstMethodLet -> Maybe [IntOf RepN]
-               -> Maybe [IntOf RepN]
-        unConc (AstConcreteK i) (Just l) = Just $ RepN i : l
+    let unConc :: AstInt AstMethodLet -> Maybe [IntOf Concrete]
+               -> Maybe [IntOf Concrete]
+        unConc (AstConcreteK i) (Just l) = Just $ Concrete i : l
         unConc _ _ = Nothing
     in case foldr unConc (Just []) ix of
       Just ixInt -> withKnownSTK (ftkToSTK x) $
                     withKnownShS shn $
                     withKnownShS (ixsToShS ix) $
-                    astConcreteS (tsindex @_ @shm (RepN a) (fromList ixInt))
+                    astConcreteS (tsindex @_ @shm (Concrete a) (fromList ixInt))
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS shn v0 ix
   Ast.AstFloorS v -> Ast.AstFloorS $ astIndexKnobsS knobs shn v ix
@@ -1468,7 +1468,7 @@ astScatterS :: forall shm shn shp r s . AstSpan s
 astScatterS _shn v (ZS, ZIS) = v
 {- TODO: this is impossible, due to strongly typed index,
 -- and checked when indexes are created, right?
-astScatterS _v (_vars, (:.$) @k (AstConcrete _ (RepN it)) _ix)
+astScatterS _v (_vars, (:.$) @k (AstConcrete _ (Concrete it)) _ix)
   | let i = fromIntegral it
   , not (0 <= i && i < valueOf @k)
   , STKScalar <- knownSTK @r =
@@ -2006,7 +2006,7 @@ astAppendS (Ast.AstFromVector (SNat @k1) stk2 l1)
                                                   , STKS{} <- stk3 =
   astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2
 astAppendS (AstConcreteS u) (AstConcreteS v) =
-  astConcreteS (tsappend (RepN u) (RepN v))
+  astConcreteS (tsappend (Concrete u) (Concrete v))
 astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
   Ast.AstFromPrimal $ astAppendS u v
 astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
@@ -2021,7 +2021,7 @@ astSliceS SNat SNat SNat (Ast.AstFromVector _ stk l) | STKS{} <- stk =
   astFromVector (SNat @n) stk $ V.take (valueOf @n) $ V.drop (valueOf @i) l
 astSliceS SNat SNat SNat (Ast.AstReplicate _ snat@STKS{} v) =
   astReplicate (SNat @n) snat v
-astSliceS i n@SNat k (AstConcreteS t) = astConcreteS (tsslice i n k $ RepN t)
+astSliceS i n@SNat k (AstConcreteS t) = astConcreteS (tsslice i n k $ Concrete t)
 astSliceS i n k (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSliceS i n k v
 astSliceS i n k (Ast.AstFromDual v) = Ast.AstFromDual $ astSliceS i n k v
 astSliceS SNat SNat SNat v | Just Refl <- sameNat (Proxy @i) (Proxy @0)
@@ -2052,7 +2052,7 @@ astSliceS i n k v = Ast.AstSliceS i n k v
         n = valueOf @n
     in interpretAst env
        $ AstConcrete (FTKS knownShS FTKScalar)
-       $ RepN $ Nested.sfromListPrimLinear Nested.knownShS
+       $ Concrete $ Nested.sfromListPrimLinear Nested.knownShS
        $ map fromIntegral [i :: Int .. i + n - 1]
 -}
 
@@ -2062,7 +2062,7 @@ astReverseS :: forall n sh s r. AstSpan s
 astReverseS (Ast.AstFromVector snat stk l) =
   astFromVector snat stk $ V.reverse l
 astReverseS (Ast.AstReplicate snat stk v) = astReplicate snat stk v
-astReverseS (AstConcreteS t) = astConcreteS (tsreverse $ RepN t)
+astReverseS (AstConcreteS t) = astConcreteS (tsreverse $ Concrete t)
 astReverseS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astReverseS v
 astReverseS (Ast.AstFromDual v) = Ast.AstFromDual $ astReverseS v
 astReverseS (Ast.AstGatherS @shm @shn @shp
@@ -2097,7 +2097,7 @@ astTransposeS perm t = case perm of
       fromMaybe (error "astTransposeS: impossible non-permutation")
       $ Permutation.permCheckPermutation zsuccP
       $ astSum snat (STKS (shsPermutePrefix perm sh) x) $ astTransposeS zsuccP v
-  AstConcreteS v -> astConcreteS (tstranspose perm $ RepN v)
+  AstConcreteS v -> astConcreteS (tstranspose perm $ Concrete v)
 
   Ast.AstLet var u v ->
     astLet var u (astTransposeS perm v)
@@ -2181,7 +2181,7 @@ astReshapeS sh2 = \case
   Ast.AstReplicate (SNat @k) (STKS _ _) x
     | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
       astReshapeS sh2 x
-  AstConcreteS t -> astConcreteS (tsreshape sh2 $ RepN t)
+  AstConcreteS t -> astConcreteS (tsreshape sh2 $ Concrete t)
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 sh2 v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS sh2 v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReshapeS sh2 v
@@ -2505,7 +2505,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
 -- * Helper combinators
 
 -- All but the last case are shortcuts for common forms.
-astConcrete :: FullShapeTK y -> RepN y
+astConcrete :: FullShapeTK y -> Concrete y
             -> AstTensor AstMethodLet PrimalSpan y
 astConcrete ftk v = case ftk of
   FTKScalar -> astConcreteK v

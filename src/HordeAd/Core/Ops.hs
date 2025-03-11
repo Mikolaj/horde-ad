@@ -404,7 +404,7 @@ class ( Num (IntOf target)
   txconcrete :: GoodScalar r
              => Nested.Mixed sh r -> target (TKX sh r)
   tkconcrete :: GoodScalar r => r -> target (TKScalar r)
-  tconcrete :: FullShapeTK y -> RepN y -> target y
+  tconcrete :: FullShapeTK y -> Concrete y -> target y
 
   -- These nine methods can't be replaced by tfromVector, because the concrete
   -- instance has much faster implementations.
@@ -421,7 +421,7 @@ class ( Num (IntOf target)
   trfromVector0N sh v | Dict <- eltDictRep (knownSTK @x) =
     if V.null v
     then let arr = Nested.remptyArray
-         in trreshape sh $ tconcrete (tftkG knownSTK arr) (RepN arr)
+         in trreshape sh $ tconcrete (tftkG knownSTK arr) (Concrete arr)
     else trreshape sh $ trfromVector v
   -- | Warning: during computation, sharing between the elements
   -- of the resulting list is likely to be lost, so it needs to be ensured
@@ -445,7 +445,7 @@ class ( Num (IntOf target)
     if V.null v
     then gcastWith (unsafeCoerceRefl :: Product sh :~: 0) $
          let arr = Nested.semptyArray ZSS
-         in tsreshape knownShS $ tconcrete (tftkG knownSTK arr) (RepN arr)
+         in tsreshape knownShS $ tconcrete (tftkG knownSTK arr) (Concrete arr)
     else tsreshape (knownShS @sh) $ tsfromVector v
   tsunravelToList :: (KnownNat n, KnownShS sh, KnownSTK x)
                   => target (TKS2 (n ': sh) x) -> [target (TKS2 sh x)]
@@ -464,7 +464,7 @@ class ( Num (IntOf target)
   txfromVector0N sh v | Dict <- eltDictRep (knownSTK @x) =
     if V.null v
     then let arr = Nested.memptyArray ZSX
-         in txreshape sh $ tconcrete (tftkG knownSTK arr) (RepN arr)
+         in txreshape sh $ tconcrete (tftkG knownSTK arr) (Concrete arr)
     else withSNat (shxSize sh) $ \(SNat @n) ->
            txreshape @_ @'[Just n] sh $ txfromVector v
   txunravelToList :: (KnownNat n, KnownShX sh, KnownSTK x)

@@ -136,7 +136,7 @@ rnnMnistLossFusedS out_width@SNat
 rnnMnistTestS
   :: forall target h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
-     , target ~ RepN, Differentiable r
+     , target ~ Concrete, Differentiable r
      , GoodScalar r, Numeric r )
   => SNat out_width
   -> SNat batch_size
@@ -148,7 +148,7 @@ rnnMnistTestS out_width@SNat batch_size@SNat
   let -- input :: PrimalOf target (TKS '[sizeMnistW, sizeMnistH, batch_size] r)
       input = sconcrete
               $ Nested.stranspose (Permutation.makePerm @'[2, 1, 0]) glyphS
-      outputS :: RepN (TKS '[SizeMnistLabel, batch_size] r)
+      outputS :: Concrete (TKS '[SizeMnistLabel, batch_size] r)
       outputS =
         let nn :: ADRnnMnistParametersShaped target h out_width r
                -> target (TKS '[SizeMnistLabel, batch_size] r)

@@ -39,8 +39,8 @@ import HordeAd.Core.Unwind
 -- An orphan needed to tweak dependencies to specialize better.
 instance KnownSTK y
          => TermValue (AstTensor AstMethodLet FullSpan y) where
-  type Value (AstTensor AstMethodLet FullSpan y) = RepN y
-  fromValue t = tconcrete (tftkG (knownSTK @y) $ unRepN t) t
+  type Value (AstTensor AstMethodLet FullSpan y) = Concrete y
+  fromValue t = tconcrete (tftkG (knownSTK @y) $ unConcrete t) t
 
 
 -- * Reverse derivative adaptors
@@ -63,7 +63,7 @@ rev
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget RepN (Value astvals) )
+     , AdaptableTarget Concrete (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
   -> Value astvals
@@ -82,10 +82,10 @@ revDt
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget RepN (Value astvals) )
+     , AdaptableTarget Concrete (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
-  -> RepN (ADTensorKind z)
+  -> Concrete (ADTensorKind z)
   -> Value astvals
 {-# INLINE revDt #-}
 revDt f vals dt = revDtMaybe f vals (Just dt)
@@ -94,15 +94,15 @@ revDtMaybe
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget RepN (Value astvals) )
+     , AdaptableTarget Concrete (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
-  -> Maybe (RepN (ADTensorKind z))
+  -> Maybe (Concrete (ADTensorKind z))
   -> Value astvals  -- morally Value (ADTensorKind astvals)
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals0 mdt =
   let valsTarget = toTarget vals0
-      xftk = tftkG (knownSTK @(X astvals)) $ unRepN valsTarget
+      xftk = tftkG (knownSTK @(X astvals)) $ unConcrete valsTarget
       cotangentHandling =
         maybe (IgnoreIncomingCotangent) (const UseIncomingCotangent) mdt
       artifact = revArtifactAdapt cotangentHandling f xftk
@@ -166,9 +166,9 @@ forwardPassByApplication g hVectorPrimal var _hVector =
 revEvalArtifact
   :: forall x z.
      AstArtifactRev x z
-  -> RepN x
-  -> Maybe (RepN (ADTensorKind z))
-  -> (RepN (ADTensorKind x), RepN z)
+  -> Concrete x
+  -> Maybe (Concrete (ADTensorKind z))
+  -> (Concrete (ADTensorKind x), Concrete z)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt =
   let env = extendEnv artVarDomainRev parameters emptyEnv
@@ -198,18 +198,18 @@ fwd
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget RepN (Value astvals) )
+     , AdaptableTarget Concrete (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
   -> Value astvals  -- morally (ADTensorKind astvals)
-  -> RepN (ADTensorKind z)
+  -> Concrete (ADTensorKind z)
 {-# INLINE fwd #-}
 fwd f vals ds =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
       g !arg = ttlet arg $ f . fromTarget
       valsTarget = toTarget vals
-      xftk = tftkG (knownSTK @(X astvals)) $ unRepN valsTarget
+      xftk = tftkG (knownSTK @(X astvals)) $ unConcrete valsTarget
       artifact = fst $ fwdProduceArtifact g emptyEnv xftk
       dsTarget = toTarget ds
   in fst $ fwdEvalArtifact @_ @z artifact valsTarget
@@ -218,14 +218,14 @@ fwd f vals ds =
 fwdEvalArtifact
   :: forall x z. KnownSTK x
   => AstArtifactFwd x z
-  -> RepN x
-  -> RepN (ADTensorKind x)
-  -> (RepN (ADTensorKind z), RepN z)
+  -> Concrete x
+  -> Concrete (ADTensorKind x)
+  -> (Concrete (ADTensorKind z), Concrete z)
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact AstArtifactFwd{..} parameters ds =
   let xstk = knownSTK @x
       astk = adSTK xstk
-  in if adFTK (tftkG xstk (unRepN parameters)) == tftkG astk (unRepN ds) then
+  in if adFTK (tftkG xstk (unConcrete parameters)) == tftkG astk (unConcrete ds) then
        let env = extendEnv artVarDomainFwd parameters emptyEnv
            envD = extendEnv artVarDsFwd ds env
            derivative = interpretAstPrimal envD artDerivativeFwd
@@ -246,9 +246,9 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds =
 crev
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
-     , AdaptableTarget (ADVal RepN) advals
-     , AdaptableTarget RepN (DValue advals) )
-  => (advals -> ADVal RepN z)
+     , AdaptableTarget (ADVal Concrete) advals
+     , AdaptableTarget Concrete (DValue advals) )
+  => (advals -> ADVal Concrete z)
   -> DValue advals
   -> DValue advals
 {-# INLINE crev #-}
@@ -258,11 +258,11 @@ crev f vals = crevDtMaybe f vals Nothing
 crevDt
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
-     , AdaptableTarget (ADVal RepN) advals
-     , AdaptableTarget RepN (DValue advals) )
-  => (advals -> ADVal RepN z)
+     , AdaptableTarget (ADVal Concrete) advals
+     , AdaptableTarget Concrete (DValue advals) )
+  => (advals -> ADVal Concrete z)
   -> DValue advals
-  -> RepN (ADTensorKind z)
+  -> Concrete (ADTensorKind z)
   -> DValue advals
 {-# INLINE crevDt #-}
 crevDt f vals dt = crevDtMaybe f vals (Just dt)
@@ -270,17 +270,17 @@ crevDt f vals dt = crevDtMaybe f vals (Just dt)
 crevDtMaybe
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
-     , AdaptableTarget (ADVal RepN) advals
-     , AdaptableTarget RepN (DValue advals) )
-  => (advals -> ADVal RepN z)
+     , AdaptableTarget (ADVal Concrete) advals
+     , AdaptableTarget Concrete (DValue advals) )
+  => (advals -> ADVal Concrete z)
   -> DValue advals
-  -> Maybe (RepN (ADTensorKind z))
+  -> Maybe (Concrete (ADTensorKind z))
   -> DValue advals  -- morally DValue (ADTensorKind advals)
 {-# INLINE crevDtMaybe #-}
 crevDtMaybe f vals mdt =
-  let g :: ADVal RepN (X advals) -> ADVal RepN z
+  let g :: ADVal Concrete (X advals) -> ADVal Concrete z
       g = f . fromTarget
-      xftk = tftkG (knownSTK @(X advals)) $ unRepN valsTarget
+      xftk = tftkG (knownSTK @(X advals)) $ unConcrete valsTarget
       valsTarget = toTarget vals
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
      $ fst $ crevOnHVector mdt g xftk valsTarget
@@ -292,29 +292,29 @@ crevDtMaybe f vals mdt =
 cfwd
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
-     , AdaptableTarget (ADVal RepN) advals
-     , AdaptableTarget RepN (DValue advals) )
-  => (advals -> ADVal RepN z)
+     , AdaptableTarget (ADVal Concrete) advals
+     , AdaptableTarget Concrete (DValue advals) )
+  => (advals -> ADVal Concrete z)
   -> DValue advals
   -> DValue advals  -- morally (ADTensorKind advals)
-  -> RepN (ADTensorKind z)
+  -> Concrete (ADTensorKind z)
 {-# INLINE cfwd #-}
 cfwd f vals ds = fst $ cfwdBoth f vals ds
 
 cfwdBoth
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
-     , AdaptableTarget (ADVal RepN) advals
-     , AdaptableTarget RepN (DValue advals) )
-  => (advals -> ADVal RepN z)
+     , AdaptableTarget (ADVal Concrete) advals
+     , AdaptableTarget Concrete (DValue advals) )
+  => (advals -> ADVal Concrete z)
   -> DValue advals
   -> DValue advals  -- morally (ADTensorKind advals)
-  -> (RepN (ADTensorKind z), RepN z)
+  -> (Concrete (ADTensorKind z), Concrete z)
 {-# INLINE cfwdBoth #-}
 cfwdBoth f vals ds =
-  let xftk = tftkG (knownSTK @(X advals)) $ unRepN valsTarget
+  let xftk = tftkG (knownSTK @(X advals)) $ unConcrete valsTarget
       valsTarget = toTarget vals
-      g :: ADVal RepN (X advals) -> ADVal RepN z
+      g :: ADVal Concrete (X advals) -> ADVal Concrete z
       g = f . fromTarget
       dsTarget = toTarget ds
   in cfwdOnHVector xftk valsTarget g
@@ -326,21 +326,21 @@ cfwdBoth f vals ds =
 
 -- This specialization is not possible where the functions are defined,
 -- due to dependency cycles, but it's possible here:
-{-# SPECIALIZE gradientFromDelta :: FullShapeTK x -> FullShapeTK z -> RepN (ADTensorKind z) -> Delta RepN z -> RepN (ADTensorKind x) #-}
-{-# SPECIALIZE evalRev :: FullShapeTK y -> EvalState RepN -> RepN (ADTensorKind y) -> Delta RepN y -> EvalState RepN #-}
-{-# SPECIALIZE evalRevFTK :: EvalState RepN -> RepN (ADTensorKind y) -> Delta RepN y -> EvalState RepN #-}
+{-# SPECIALIZE gradientFromDelta :: FullShapeTK x -> FullShapeTK z -> Concrete (ADTensorKind z) -> Delta Concrete z -> Concrete (ADTensorKind x) #-}
+{-# SPECIALIZE evalRev :: FullShapeTK y -> EvalState Concrete -> Concrete (ADTensorKind y) -> Delta Concrete y -> EvalState Concrete #-}
+{-# SPECIALIZE evalRevFTK :: EvalState Concrete -> Concrete (ADTensorKind y) -> Delta Concrete y -> EvalState Concrete #-}
 -- RULE left-hand side too complicated to desugar:
--- {-# SPECIALIZE evalRevSame :: y ~ ADTensorKind y => EvalState RepN -> RepN (ADTensorKind y) -> Delta RepN y -> EvalState RepN #-}
-{-# SPECIALIZE evalRevFromnMap :: EvalState RepN -> EvalState RepN #-}
+-- {-# SPECIALIZE evalRevSame :: y ~ ADTensorKind y => EvalState Concrete -> Concrete (ADTensorKind y) -> Delta Concrete y -> EvalState Concrete #-}
+{-# SPECIALIZE evalRevFromnMap :: EvalState Concrete -> EvalState Concrete #-}
 
-{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKScalar Double) -> Delta RepN (TKScalar Double) -> EvalState RepN #-}
-{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKScalar Float) -> Delta RepN (TKScalar Float) -> EvalState RepN #-}
-{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKR n Double) -> Delta RepN (TKR n Double) -> EvalState RepN #-}
-{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKR n Float) -> Delta RepN (TKR n Float) -> EvalState RepN #-}
-{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKS sh Double) -> Delta RepN (TKS sh Double) -> EvalState RepN #-}
-{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKS sh Float) -> Delta RepN (TKS sh Float) -> EvalState RepN #-}
-{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKX sh Double) -> Delta RepN (TKX sh Double) -> EvalState RepN #-}
-{-# SPECIALIZE evalRevSame :: EvalState RepN -> RepN (TKX sh Float) -> Delta RepN (TKX sh Float) -> EvalState RepN #-}
+{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKScalar Double) -> Delta Concrete (TKScalar Double) -> EvalState Concrete #-}
+{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKScalar Float) -> Delta Concrete (TKScalar Float) -> EvalState Concrete #-}
+{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKR n Double) -> Delta Concrete (TKR n Double) -> EvalState Concrete #-}
+{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKR n Float) -> Delta Concrete (TKR n Float) -> EvalState Concrete #-}
+{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKS sh Double) -> Delta Concrete (TKS sh Double) -> EvalState Concrete #-}
+{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKS sh Float) -> Delta Concrete (TKS sh Float) -> EvalState Concrete #-}
+{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKX sh Double) -> Delta Concrete (TKX sh Double) -> EvalState Concrete #-}
+{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKX sh Float) -> Delta Concrete (TKX sh Float) -> EvalState Concrete #-}
 
 
 -- These and all other SPECIALIZE pragmas are needed due to the already
@@ -349,57 +349,57 @@ cfwdBoth f vals ds =
 -- This is needed for all three AstSpan values, to handle recursive calls
 -- from interpretAstDual, etc.
 {-# SPECIALIZE interpretAst
-  :: AstEnv (ADVal RepN)
+  :: AstEnv (ADVal Concrete)
   -> AstTensor AstMethodLet PrimalSpan y
-  -> ADVal RepN y #-}
+  -> ADVal Concrete y #-}
 {-# SPECIALIZE interpretAst
   :: AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan y
   -> ADVal (AstRaw PrimalSpan) y #-}
 {-# SPECIALIZE interpretAst
-  :: AstEnv RepN
+  :: AstEnv Concrete
   -> AstTensor AstMethodLet PrimalSpan y
-  -> RepN y #-}
+  -> Concrete y #-}
 {-# SPECIALIZE interpretAst
-  :: AstEnv (ADVal RepN)
+  :: AstEnv (ADVal Concrete)
   -> AstTensor AstMethodLet DualSpan y
-  -> ADVal RepN y #-}
+  -> ADVal Concrete y #-}
 {-# SPECIALIZE interpretAst
   :: AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet DualSpan y
   -> ADVal (AstRaw PrimalSpan) y #-}
 {-# SPECIALIZE interpretAst
-  :: AstEnv RepN
+  :: AstEnv Concrete
   -> AstTensor AstMethodLet DualSpan y
-  -> RepN y #-}
+  -> Concrete y #-}
 {-# SPECIALIZE interpretAst
-  :: AstEnv (ADVal RepN)
+  :: AstEnv (ADVal Concrete)
   -> AstTensor AstMethodLet FullSpan y
-  -> ADVal RepN y #-}
+  -> ADVal Concrete y #-}
 {-# SPECIALIZE interpretAst
   :: AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet FullSpan y
   -> ADVal (AstRaw PrimalSpan) y #-}
 {-# SPECIALIZE interpretAst
-  :: AstEnv RepN
+  :: AstEnv Concrete
   -> AstTensor AstMethodLet FullSpan y
-  -> RepN y #-}
+  -> Concrete y #-}
 
 {-# SPECIALIZE interpretAstPrimal
-  :: AstEnv (ADVal RepN)
+  :: AstEnv (ADVal Concrete)
   -> AstTensor AstMethodLet PrimalSpan y
-  -> RepN y #-}
+  -> Concrete y #-}
 {-# SPECIALIZE interpretAstPrimal
   :: AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodLet PrimalSpan y
   -> AstRaw PrimalSpan y #-}
 {-# SPECIALIZE interpretAstPrimal
-  :: AstEnv RepN
+  :: AstEnv Concrete
   -> AstTensor AstMethodLet PrimalSpan y
-  -> RepN y #-}
+  -> Concrete y #-}
 
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal RepN)
+  :: AstEnv (ADVal Concrete)
   -> AstBool AstMethodLet
   -> Bool #-}
 {-# SPECIALIZE interpretAstBool
@@ -407,6 +407,6 @@ cfwdBoth f vals ds =
   -> AstBool AstMethodLet
   -> AstBool AstMethodShare #-}
 {-# SPECIALIZE interpretAstBool
-  :: AstEnv RepN
+  :: AstEnv Concrete
   -> AstBool AstMethodLet
   -> Bool #-}

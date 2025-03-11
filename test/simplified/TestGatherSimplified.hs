@@ -348,7 +348,7 @@ testGatherSimpPP23 = do
 gatherTranspose33 :: forall target r. (ADReady target, GoodScalar r, Numeric r, RealFloat r)
                   => target (TKR 10 r) -> target (TKR 2 r)
 gatherTranspose33 t =
-  rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
+  rmatmul2 (rreshape [6, 8] (rconcrete $ unConcrete t48))
     (rtr
      $ rreshape @4 [16, 8]
      $ rtranspose [0, 1, 2]
@@ -456,7 +456,7 @@ testGatherSimpPP33 = do
   length (show t1) @?= 1574
   length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 1334
   resetVarCounter
-  let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
+  let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconcrete $ unConcrete t48))
                             (rreshape @10 [8, 16] t))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) . intToAstVarId $ 100000000)
   length (show t2) @?= 710
@@ -472,7 +472,7 @@ testGatherSimpPP34 = do
   length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 2163
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
-              (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ unRepN t48))
+              (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ unConcrete t48))
                                (rreshape @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) . intToAstVarId $ 100000000)

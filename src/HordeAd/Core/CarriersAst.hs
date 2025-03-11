@@ -652,49 +652,49 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
 instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKScalar r) where
   AstConcreteK u ==. AstConcreteK v =
-    AstBoolConst $ RepN @(TKScalar r) u ==. RepN v
+    AstBoolConst $ Concrete @(TKScalar r) u ==. Concrete v
   v ==. u = AstRelK EqOp (primalPart v) (primalPart u)
   AstConcreteK u /=. AstConcreteK v =
-    AstBoolConst $ RepN @(TKScalar r) u /=. RepN v
+    AstBoolConst $ Concrete @(TKScalar r) u /=. Concrete v
   v /=. u = AstRelK NeqOp (primalPart v) (primalPart u)
 
 instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKS sh r) where
   AstConcreteS u ==. AstConcreteS v =
-    AstBoolConst $ RepN @(TKS sh r) u ==. RepN v
+    AstBoolConst $ Concrete @(TKS sh r) u ==. Concrete v
   v ==. u = AstRelS EqOp (primalPart v) (primalPart u)
   AstConcreteS u /=. AstConcreteS v =
-    AstBoolConst $ RepN @(TKS sh r) u /=. RepN v
+    AstBoolConst $ Concrete @(TKS sh r) u /=. Concrete v
   v /=. u = AstRelS NeqOp (primalPart v) (primalPart u)
 
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKScalar r) where
   AstConcreteK u <. AstConcreteK v =
-    AstBoolConst $ RepN  @(TKScalar r)u <. RepN v
+    AstBoolConst $ Concrete  @(TKScalar r)u <. Concrete v
   v <. u = AstRelK LsOp (primalPart v) (primalPart u)
   AstConcreteK u <=. AstConcreteK v =
-    AstBoolConst $ RepN @(TKScalar r) u <=. RepN v
+    AstBoolConst $ Concrete @(TKScalar r) u <=. Concrete v
   v <=. u = AstRelK LeqOp (primalPart v) (primalPart u)
   AstConcreteK u >. AstConcreteK v =
-    AstBoolConst $ RepN @(TKScalar r) u >. RepN v
+    AstBoolConst $ Concrete @(TKScalar r) u >. Concrete v
   v >. u = AstRelK GtOp (primalPart v) (primalPart u)
   AstConcreteK u >=. AstConcreteK v =
-    AstBoolConst $ RepN @(TKScalar r) u >=. RepN v
+    AstBoolConst $ Concrete @(TKScalar r) u >=. Concrete v
   v >=. u = AstRelK GeqOp (primalPart v) (primalPart u)
 
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
   AstConcreteS u <. AstConcreteS v =
-    AstBoolConst $ RepN @(TKS sh r) u <. RepN v
+    AstBoolConst $ Concrete @(TKS sh r) u <. Concrete v
   v <. u = AstRelS LsOp (primalPart v) (primalPart u)
   AstConcreteS u <=. AstConcreteS v =
-    AstBoolConst $ RepN @(TKS sh r) u <=. RepN v
+    AstBoolConst $ Concrete @(TKS sh r) u <=. Concrete v
   v <=. u = AstRelS LeqOp (primalPart v) (primalPart u)
   AstConcreteS u >. AstConcreteS v =
-    AstBoolConst $ RepN @(TKS sh r) u >. RepN v
+    AstBoolConst $ Concrete @(TKS sh r) u >. Concrete v
   v >. u = AstRelS GtOp (primalPart v) (primalPart u)
   AstConcreteS u >=. AstConcreteS v =
-    AstBoolConst $ RepN @(TKS sh r) u >=. RepN v
+    AstBoolConst $ Concrete @(TKS sh r) u >=. Concrete v
   v >=. u = AstRelS GeqOp (primalPart v) (primalPart u)
 
 

@@ -83,34 +83,34 @@ class RandomValue vals where
 
 -- TODO: these instances are messy and hard to use
 instance DualNumberValue Double where
-  type DValue Double = RepN (TKScalar Double)
-  fromDValue (RepN d) = d
+  type DValue Double = Concrete (TKScalar Double)
+  fromDValue (Concrete d) = d
 
 instance DualNumberValue Float where
-  type DValue Float = RepN (TKScalar Float)
-  fromDValue (RepN d) = d
+  type DValue Float = Concrete (TKScalar Float)
+  fromDValue (Concrete d) = d
 
-instance TermValue (RepN (TKScalar Double)) where
-  type Value (RepN (TKScalar Double)) = Double
-  fromValue = RepN
+instance TermValue (Concrete (TKScalar Double)) where
+  type Value (Concrete (TKScalar Double)) = Double
+  fromValue = Concrete
 
-instance TermValue (RepN (TKScalar Float)) where
-  type Value (RepN (TKScalar Float)) = Float
-  fromValue = RepN
+instance TermValue (Concrete (TKScalar Float)) where
+  type Value (Concrete (TKScalar Float)) = Float
+  fromValue = Concrete
 
 instance AdaptableTarget target (target y) where
   type X (target y) = y
   toTarget = id
   fromTarget t = t
-  {-# SPECIALIZE instance AdaptableTarget RepN (RepN (TKS sh Double)) #-}
-  {-# SPECIALIZE instance AdaptableTarget RepN (RepN (TKS sh Float)) #-}
+  {-# SPECIALIZE instance AdaptableTarget Concrete (Concrete (TKS sh Double)) #-}
+  {-# SPECIALIZE instance AdaptableTarget Concrete (Concrete (TKS sh Float)) #-}
     -- a failed attempt to specialize without -fpolymorphic-specialisation
 
 instance (BaseTensor target, BaseTensor (PrimalOf target), KnownSTK y)
          => DualNumberValue (target y) where
-  type DValue (target y) = RepN y
+  type DValue (target y) = Concrete y
   fromDValue t = tfromPrimal (knownSTK @y)
-                 $ tconcrete (tftkG (knownSTK @y) $ unRepN t) t
+                 $ tconcrete (tftkG (knownSTK @y) $ unConcrete t) t
 
 instance ForgetShape (target (TKScalar r)) where
   type NoShape (target (TKScalar r)) = target (TKScalar r)
@@ -153,9 +153,9 @@ instance forall sh r target. (KnownShS sh, GoodScalar r, BaseTensor target)
        in (arr, g2))
       (srepl def, g)
    where srepl = tsconcrete . Nested.sreplicateScal knownShS
-  -- {-# SPECIALIZE instance (KnownShS sh, GoodScalar r, Fractional r, Random r) => RandomValue (RepN (TKS sh r)) #-}
-  {-# SPECIALIZE instance KnownShS sh => RandomValue (RepN (TKS sh Double)) #-}
-  {-# SPECIALIZE instance KnownShS sh => RandomValue (RepN (TKS sh Float)) #-}
+  -- {-# SPECIALIZE instance (KnownShS sh, GoodScalar r, Fractional r, Random r) => RandomValue (Concrete (TKS sh r)) #-}
+  {-# SPECIALIZE instance KnownShS sh => RandomValue (Concrete (TKS sh Double)) #-}
+  {-# SPECIALIZE instance KnownShS sh => RandomValue (Concrete (TKS sh Float)) #-}
 
 
 -- * Compound instances
@@ -263,7 +263,7 @@ instance (BaseTensor target, KnownNat n, AdaptableTarget target a)
           rest = fromTarget rest1
       in (a ::: rest)
   {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (AstTensor AstMethodLet FullSpan) a) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (ListR n a) #-}
-  {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (ADVal RepN) a) => AdaptableTarget (ADVal RepN) (ListR n a) #-}
+  {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (ADVal Concrete) a) => AdaptableTarget (ADVal Concrete) (ListR n a) #-}
 
 instance TermValue a => TermValue (ListR n a) where
   type Value (ListR n a) = ListR n (Value a)

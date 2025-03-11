@@ -32,7 +32,7 @@ import MnistFcnnRanked2 qualified
 -- * Using lists of vectors, which is rank 1
 
 type XParams widthHidden widthHidden2 r =
-  X (MnistFcnnRanked1.ADFcnnMnist1Parameters RepN widthHidden widthHidden2 r)
+  X (MnistFcnnRanked1.ADFcnnMnist1Parameters Concrete widthHidden widthHidden2 r)
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
@@ -50,14 +50,14 @@ mnistTrainBench1VTA prefix widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
-                    RepN widthHidden widthHidden2 r
+                    Concrete widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
-      targetInit :: RepN (XParams widthHidden widthHidden2 r)
-      targetInit = toTarget @RepN valsInit
+      targetInit :: Concrete (XParams widthHidden widthHidden2 r)
+      targetInit = toTarget @Concrete valsInit
   in do
     let f :: MnistDataLinearR Double
-          -> ADVal RepN (XParams widthHidden widthHidden2 Double)
-          -> ADVal RepN (TKScalar Double)
+          -> ADVal Concrete (XParams widthHidden widthHidden2 Double)
+          -> ADVal Concrete (TKScalar Double)
         f (glyph, label) adinputs =
           MnistFcnnRanked1.afcnnMnistLoss1
             widthHiddenSNat widthHidden2SNat
@@ -86,13 +86,13 @@ mnistTestBench1VTA prefix widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
-                    RepN widthHidden widthHidden2 r
+                    Concrete widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
-      targetInit :: RepN (XParams widthHidden widthHidden2 r)
-      targetInit = toTarget @RepN valsInit
+      targetInit :: Concrete (XParams widthHidden widthHidden2 r)
+      targetInit = toTarget @Concrete valsInit
       ftest :: [MnistDataLinearR r]
             -> MnistFcnnRanked1.ADFcnnMnist1Parameters
-                 RepN widthHidden widthHidden2 r
+                 Concrete widthHidden widthHidden2 r
             -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 widthHiddenSNat widthHidden2SNat
   in do
@@ -149,11 +149,11 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
-                    RepN widthHidden widthHidden2 r
+                    Concrete widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
-      targetInit :: RepN (XParams widthHidden widthHidden2 r)
-      targetInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (knownSTK @(XParams widthHidden widthHidden2 r))
+      targetInit :: Concrete (XParams widthHidden widthHidden2 r)
+      targetInit = toTarget @Concrete valsInit
+      ftk = tftk @Concrete (knownSTK @(XParams widthHidden widthHidden2 r))
                        targetInit
   in do
     let ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
@@ -186,8 +186,8 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
         artRaw = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
         art = simplifyArtifactGradient artRaw
         go :: [MnistDataLinearR r]
-           -> RepN (XParams widthHidden widthHidden2 r)
-           -> RepN (XParams widthHidden widthHidden2 r)
+           -> Concrete (XParams widthHidden widthHidden2 r)
+           -> Concrete (XParams widthHidden widthHidden2 r)
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =
@@ -252,17 +252,17 @@ mnistTrainBench2VTA prefix widthHidden widthHidden2
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   RepN widthHidden widthHidden2 r Float)))
+        $ randomValue @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                                   Concrete widthHidden widthHidden2 r Float)))
                       1 (mkStdGen 44)
   in do
-{-    let f :: MnistDataLinearR r -> ADVal RepN (XParams2 r Float)
-          -> ADVal RepN (TKScalar r)
+{-    let f :: MnistDataLinearR r -> ADVal Concrete (XParams2 r Float)
+          -> ADVal Concrete (TKScalar r)
         f (glyph, label) adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2
             (rconcrete glyph, rconcrete label) (fromTarget adinputs) -}
-    let f :: MnistDataLinearR Double -> ADVal RepN (XParams2 Double Float)
-          -> ADVal RepN (TKScalar Double)
+    let f :: MnistDataLinearR Double -> ADVal Concrete (XParams2 Double Float)
+          -> ADVal Concrete (TKScalar Double)
         f (glyph, label) adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2
             (rconcrete glyph, rconcrete label) (fromTarget adinputs)
@@ -286,8 +286,8 @@ mnistTestBench2VTA prefix widthHidden widthHidden2
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   RepN widthHidden widthHidden2 r Float)))
+        $ randomValue @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                                   Concrete widthHidden widthHidden2 r Float)))
                       1 (mkStdGen 44)
   in do
     let chunk = take batchSize xs
@@ -362,7 +362,7 @@ mnistTrainBench2VTO
   :: forall r. r ~ Double
   => String
   -> Double -> Int -> [MnistDataLinearR r]
-  -> ( RepN (XParams2 r Float)
+  -> ( Concrete (XParams2 r Float)
      , AstArtifactRev
          (TKProduct
             (XParams2 r Float)
@@ -371,8 +371,8 @@ mnistTrainBench2VTO
          (TKScalar r) )
   -> Benchmark
 mnistTrainBench2VTO prefix gamma batchSize xs (targetInit, art) = do
-    let go :: [MnistDataLinearR r] -> RepN (XParams2 r Float)
-           -> RepN (XParams2 r Float)
+    let go :: [MnistDataLinearR r] -> Concrete (XParams2 r Float)
+           -> Concrete (XParams2 r Float)
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =

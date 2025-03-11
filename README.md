@@ -40,11 +40,11 @@ which can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
 Instantiated to matrices, the gradient is:
 ```hs
 type Matrix2x2 f r = f (TKS '[2, 2] r)
-type ThreeConcreteMatrices r = (Matrix2x2 RepN r, Matrix2x2 RepN r, Matrix2x2 RepN r)
-threeSimpleMatrices :: ThreeConcreteMatrices Double
+type ThreeMatrices r = (Matrix2x2 Concrete r, Matrix2x2 Concrete r, Matrix2x2 Concrete r)
+threeSimpleMatrices :: ThreeMatrices Double
 threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)
 gradFooMatrix :: (Differentiable r, GoodScalar r)
-              => ThreeConcreteMatrices r -> ThreeConcreteMatrices r
+              => ThreeMatrices r -> ThreeMatrices r
 gradFooMatrix = crev foo
 ```
 
@@ -67,7 +67,7 @@ fooLet (x, y, z) =
 The symbolic gradient program (here presented with additional formatting) can be then obtained using the `revArtifactAdapt` tool:
 ```hs
 >>> printArtifactPretty
-      (let staticShapes = tftk @RepN knownSTK (toTarget threeSimpleMatrices)
+      (let staticShapes = tftk @Concrete knownSTK (toTarget threeSimpleMatrices)
        in revArtifactAdapt UseIncomingCotangent fooLet staticShapes)
 "\dret m1 ->
    let m3 = sin (tproject2 (tproject1 m1))

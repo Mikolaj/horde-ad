@@ -192,7 +192,7 @@ instance ( ADReadyNoLet target, ShareTensor target
        then case sameNat (Proxy @n) (Proxy @0) of
          Just Refl | Dict <- eltDictRep (knownSTK @x) ->
            let arr = Nested.remptyArray
-           in tconcrete (tftkG knownSTK arr) (RepN arr)
+           in tconcrete (tftkG knownSTK arr) (Concrete arr)
          Nothing -> error "rbuild1: shape ambiguity"
        else trfromVector $ V.fromList $ map (f . fromInteger) l
               -- hope this fuses
@@ -249,9 +249,9 @@ instance ( ADReadyNoLet target, ShareTensor target
   tsbuild1 @k @sh @r f | Dict <- eltDictRep (knownSTK @r) =
     let l = [0 .. valueOf @k - 1]
     in if null l
-       then let arr = Nested.semptyArray @(RepORArray r) (knownShS @sh)
+       then let arr = Nested.semptyArray @(RepConcrete r) (knownShS @sh)
             in gcastWith (unsafeCoerceRefl :: k :~: 0) $
-               tconcrete (tftkG knownSTK arr) (RepN arr)
+               tconcrete (tftkG knownSTK arr) (Concrete arr)
        else tsfromVector $ V.fromList $ map (f . fromInteger) l
               -- hope this fuses
 
@@ -323,9 +323,9 @@ instance ( ADReadyNoLet target, ShareTensor target
     in if null l
        then case testEquality (knownShX @sh) ZKX of
          Just Refl | Dict <- eltDictRep (knownSTK @r) ->
-           let arr = Nested.memptyArray @(RepORArray r) ZSX
+           let arr = Nested.memptyArray @(RepConcrete r) ZSX
            in gcastWith (unsafeCoerceRefl :: k :~: 0) $
-              tconcrete (tftkG knownSTK arr) (RepN arr)
+              tconcrete (tftkG knownSTK arr) (Concrete arr)
          Nothing -> error "xbuild1: shape ambiguity"
        else txfromVector $ V.fromList $ map (f . fromInteger) l
               -- hope this fuses

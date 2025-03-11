@@ -2,10 +2,10 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor operations implementation using the ox-arrays package.
 module HordeAd.Core.CarriersConcrete
-  ( -- * RepORArray and its operations
-    RepORArray, tftkG, eltDictRep, showDictRep
-    -- * RepN its operations
-  , RepN(..), rtoVector, stoVector, xtoVector
+  ( -- * RepConcrete and its operations
+    RepConcrete, tftkG, eltDictRep, showDictRep
+    -- * Concrete its operations
+  , Concrete(..), rtoVector, stoVector, xtoVector
   ) where
 
 import Prelude hiding (foldl')
@@ -253,19 +253,19 @@ instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
   isIEEE = error "horde-ad: operation not defined for tensor"
 
 
--- * RepORArray and its operations
+-- * RepConcrete and its operations
 
-type family RepORArray (y :: TK) where
-  RepORArray (TKScalar r) = r
-  RepORArray (TKR2 n x) = Nested.Ranked n (RepORArray x)
-  RepORArray (TKS2 sh x) = Nested.Shaped sh (RepORArray x)
-  RepORArray (TKX2 sh x) = Nested.Mixed sh (RepORArray x)
-  RepORArray (TKProduct x z) = (RepORArray x, RepORArray z)
+type family RepConcrete (y :: TK) where
+  RepConcrete (TKScalar r) = r
+  RepConcrete (TKR2 n x) = Nested.Ranked n (RepConcrete x)
+  RepConcrete (TKS2 sh x) = Nested.Shaped sh (RepConcrete x)
+  RepConcrete (TKX2 sh x) = Nested.Mixed sh (RepConcrete x)
+  RepConcrete (TKProduct x z) = (RepConcrete x, RepConcrete z)
 
-tftkG :: SingletonTK y -> RepORArray y -> FullShapeTK y
+tftkG :: SingletonTK y -> RepConcrete y -> FullShapeTK y
 tftkG stk t =
   let repackShapeTree :: SingletonTK y
-                      -> Nested.Internal.ShapeTree (RepORArray y)
+                      -> Nested.Internal.ShapeTree (RepConcrete y)
                       -> FullShapeTK y
       repackShapeTree stk0 tree = case stk0 of
         STKScalar -> FTKScalar
@@ -294,7 +294,7 @@ tftkG stk t =
       FTKProduct (tftkG stk1 (fst t))
                  (tftkG stk2 (snd t))
 
-eltDictRep :: SingletonTK y -> Dict Nested.KnownElt (RepORArray y)
+eltDictRep :: SingletonTK y -> Dict Nested.KnownElt (RepConcrete y)
 eltDictRep = \case
     STKScalar -> Dict
     STKR SNat x | Dict <- eltDictRep x -> Dict
@@ -303,7 +303,7 @@ eltDictRep = \case
     STKProduct stk1 stk2 | Dict <- eltDictRep stk1
                          , Dict <- eltDictRep stk2 -> Dict
 
-showDictRep :: SingletonTK y -> Dict Show (RepORArray y)
+showDictRep :: SingletonTK y -> Dict Show (RepConcrete y)
 showDictRep = \case
     STKScalar -> Dict
     STKR _ x | Dict <- showDictRep x
@@ -315,7 +315,7 @@ showDictRep = \case
     STKProduct stk1 stk2 | Dict <- showDictRep stk1
                          , Dict <- showDictRep stk2 -> Dict
 
-nfdataDictRep :: SingletonTK y -> Dict NFData (RepORArray y)
+nfdataDictRep :: SingletonTK y -> Dict NFData (RepConcrete y)
 nfdataDictRep = \case
     STKScalar -> Dict
     STKR _ x | Dict <- nfdataDictRep x
@@ -328,71 +328,71 @@ nfdataDictRep = \case
                          , Dict <- nfdataDictRep stk2 -> Dict
 
 
--- * RepN and its instances
+-- * Concrete and its instances
 
--- Needed because `RepORArray` can't be partially applied.
+-- Needed because `RepConcrete` can't be partially applied.
 -- This type also lets us work around the woes with defining Show
 -- for the Rep type family. It gives us a concrete thing
 -- to attach a Show instance to.
-type role RepN nominal
-newtype RepN y = RepN {unRepN :: RepORArray y}
+type role Concrete nominal
+newtype Concrete y = Concrete {unConcrete :: RepConcrete y}
 
-instance KnownSTK y => Show (RepN y) where
-  showsPrec d (RepN t) | Dict <- showDictRep (knownSTK @y) = showsPrec d t
+instance KnownSTK y => Show (Concrete y) where
+  showsPrec d (Concrete t) | Dict <- showDictRep (knownSTK @y) = showsPrec d t
 
-instance KnownSTK y => NFData (RepN y) where
-  rnf (RepN t) | Dict <- nfdataDictRep (knownSTK @y) = rnf t
+instance KnownSTK y => NFData (Concrete y) where
+  rnf (Concrete t) | Dict <- nfdataDictRep (knownSTK @y) = rnf t
 
-type instance BoolOf RepN = Bool
+type instance BoolOf Concrete = Bool
 
-type instance HFunOf RepN x z = RepORArray x -> RepORArray z
+type instance HFunOf Concrete x z = RepConcrete x -> RepConcrete z
 
-type instance PrimalOf RepN = RepN
+type instance PrimalOf Concrete = Concrete
 
-type instance DualOf RepN = DummyDualTarget
+type instance DualOf Concrete = DummyDualTarget
 
-type instance ShareOf RepN = RepN
+type instance ShareOf Concrete = Concrete
 
-instance GoodScalar r => EqH RepN (TKScalar r) where
-  RepN u ==. RepN v = u == v
+instance GoodScalar r => EqH Concrete (TKScalar r) where
+  Concrete u ==. Concrete v = u == v
 
-instance GoodScalar r => OrdH RepN (TKScalar r) where
-  RepN u <. RepN v = u < v
+instance GoodScalar r => OrdH Concrete (TKScalar r) where
+  Concrete u <. Concrete v = u < v
 
-instance GoodScalar r => EqH RepN (TKR n r) where
-  RepN u ==. RepN v = u == v
+instance GoodScalar r => EqH Concrete (TKR n r) where
+  Concrete u ==. Concrete v = u == v
 
-instance GoodScalar r => OrdH RepN (TKR n r) where
-  RepN u <. RepN v = u < v
+instance GoodScalar r => OrdH Concrete (TKR n r) where
+  Concrete u <. Concrete v = u < v
 
-instance GoodScalar r => EqH RepN (TKS sh r) where
-  RepN u ==. RepN v = u == v
+instance GoodScalar r => EqH Concrete (TKS sh r) where
+  Concrete u ==. Concrete v = u == v
 
-instance GoodScalar r => OrdH RepN (TKS sh r) where
-  RepN u <. RepN v = u < v
+instance GoodScalar r => OrdH Concrete (TKS sh r) where
+  Concrete u <. Concrete v = u < v
 
-instance GoodScalar r => EqH RepN (TKX sh r) where
-  RepN u ==. RepN v = u == v
+instance GoodScalar r => EqH Concrete (TKX sh r) where
+  Concrete u ==. Concrete v = u == v
 
-instance GoodScalar r => OrdH RepN (TKX sh r) where
-  RepN u <. RepN v = u < v
+instance GoodScalar r => OrdH Concrete (TKX sh r) where
+  Concrete u <. Concrete v = u < v
 
-deriving instance Eq (RepORArray y) => Eq (RepN y)
-deriving instance Ord (RepORArray y) => Ord (RepN y)
-deriving instance Num (RepORArray y) => Num (RepN y)
-deriving instance IntegralH (RepORArray y) => IntegralH (RepN y)
-deriving instance Real (RepORArray y) => Real (RepN y)
-deriving instance Fractional (RepORArray y) => Fractional (RepN y)
-deriving instance Floating (RepORArray y) => Floating (RepN y)
-deriving instance RealFrac (RepORArray y) => RealFrac (RepN y)
-deriving instance RealFloatH (RepORArray y) => RealFloatH (RepN y)
-deriving instance RealFloat (RepORArray y) => RealFloat (RepN y)
+deriving instance Eq (RepConcrete y) => Eq (Concrete y)
+deriving instance Ord (RepConcrete y) => Ord (Concrete y)
+deriving instance Num (RepConcrete y) => Num (Concrete y)
+deriving instance IntegralH (RepConcrete y) => IntegralH (Concrete y)
+deriving instance Real (RepConcrete y) => Real (Concrete y)
+deriving instance Fractional (RepConcrete y) => Fractional (Concrete y)
+deriving instance Floating (RepConcrete y) => Floating (Concrete y)
+deriving instance RealFrac (RepConcrete y) => RealFrac (Concrete y)
+deriving instance RealFloatH (RepConcrete y) => RealFloatH (Concrete y)
+deriving instance RealFloat (RepConcrete y) => RealFloat (Concrete y)
 
-rtoVector :: GoodScalar r => RepN (TKR n r) -> VS.Vector r
-rtoVector  = Nested.rtoVector . unRepN
+rtoVector :: GoodScalar r => Concrete (TKR n r) -> VS.Vector r
+rtoVector  = Nested.rtoVector . unConcrete
 
-stoVector :: GoodScalar r => RepN (TKS sh r) -> VS.Vector r
-stoVector = Nested.stoVector . unRepN
+stoVector :: GoodScalar r => Concrete (TKS sh r) -> VS.Vector r
+stoVector = Nested.stoVector . unConcrete
 
-xtoVector :: GoodScalar r => RepN (TKX sh r) -> VS.Vector r
-xtoVector = Nested.mtoVector . unRepN
+xtoVector :: GoodScalar r => Concrete (TKX sh r) -> VS.Vector r
+xtoVector = Nested.mtoVector . unConcrete

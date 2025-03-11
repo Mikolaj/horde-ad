@@ -41,7 +41,7 @@ type ADFcnnMnist2Parameters (target :: Target) r q =
     , target (TKR 1 r) )
   )
 
-type XParams2 r q = X (MnistFcnnRanked2.ADFcnnMnist2Parameters RepN r q)
+type XParams2 r q = X (MnistFcnnRanked2.ADFcnnMnist2Parameters Concrete r q)
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.
@@ -74,15 +74,15 @@ afcnnMnistLoss2
 afcnnMnistLoss2 (datum, target) adparams =
   let result = inline afcnnMnist2 logistic softMax1 datum adparams
   in lossCrossEntropyV target result
-{-# SPECIALIZE afcnnMnistLoss2 :: (ADVal RepN (TKR 1 Double), ADVal RepN (TKR 1 Double)) -> ADFcnnMnist2Parameters (ADVal RepN) Double Float -> ADVal RepN (TKScalar Double) #-}
-{-# SPECIALIZE afcnnMnistLoss2 :: (ADVal RepN (TKR 1 Float), ADVal RepN (TKR 1 Float)) -> ADFcnnMnist2Parameters (ADVal RepN) Float Float -> ADVal RepN (TKScalar Float) #-}
-{-# SPECIALIZE afcnnMnistLoss2 :: (ADVal RepN (TKR 1 Double), ADVal RepN (TKR 1 Double)) -> ADFcnnMnist2Parameters (ADVal RepN) Double Double -> ADVal RepN (TKScalar Double) #-}
+{-# SPECIALIZE afcnnMnistLoss2 :: (ADVal Concrete (TKR 1 Double), ADVal Concrete (TKR 1 Double)) -> ADFcnnMnist2Parameters (ADVal Concrete) Double Float -> ADVal Concrete (TKScalar Double) #-}
+{-# SPECIALIZE afcnnMnistLoss2 :: (ADVal Concrete (TKR 1 Float), ADVal Concrete (TKR 1 Float)) -> ADFcnnMnist2Parameters (ADVal Concrete) Float Float -> ADVal Concrete (TKScalar Float) #-}
+{-# SPECIALIZE afcnnMnistLoss2 :: (ADVal Concrete (TKR 1 Double), ADVal Concrete (TKR 1 Double)) -> ADFcnnMnist2Parameters (ADVal Concrete) Double Double -> ADVal Concrete (TKScalar Double) #-}
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 afcnnMnistTest2
   :: forall target r q.
-     ( target ~ RepN, GoodScalar r, Differentiable r
+     ( target ~ Concrete, GoodScalar r, Differentiable r
      , GoodScalar q, Differentiable q )
   => [MnistDataLinearR r]
   -> ADFcnnMnist2Parameters target r q
@@ -104,7 +104,7 @@ mnistTrainBench2VTOGradient
   :: forall r q. ( GoodScalar r, Differentiable r
                  , GoodScalar q, Differentiable q )
   => Proxy q -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int
-  -> ( RepN (XParams2 r q)
+  -> ( Concrete (XParams2 r q)
      , AstArtifactRev
          (TKProduct
             (XParams2 r q)
@@ -117,10 +117,10 @@ mnistTrainBench2VTOGradient Proxy cotangentHandling range seed widthHidden width
   -- Initial parameter generation is counted as part of compilation time.
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   RepN widthHidden widthHidden2 r q)))
+        $ randomValue @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                                   Concrete widthHidden widthHidden2 r q)))
                       range seed
-      ftk = tftk @RepN (knownSTK @(XParams2 r q)) targetInit
+      ftk = tftk @Concrete (knownSTK @(XParams2 r q)) targetInit
       ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
                            (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
       f :: ( MnistFcnnRanked2.ADFcnnMnist2Parameters
@@ -132,6 +132,6 @@ mnistTrainBench2VTOGradient Proxy cotangentHandling range seed widthHidden width
         afcnnMnistLoss2 (glyphR, labelR) pars
       artRaw = revArtifactAdapt cotangentHandling f (FTKProduct ftk ftkData)
   in (targetInit, artRaw)
-{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Double Float), AstArtifactRev (TKProduct (XParams2 Double Float) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
-{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Float Float), AstArtifactRev (TKProduct (XParams2 Float Float) (TKProduct (TKR2 1 (TKScalar Float)) (TKR2 1 (TKScalar Float)))) (TKScalar Float) ) #-}
-{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Double -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( RepN (XParams2 Double Double), AstArtifactRev (TKProduct (XParams2 Double Double) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
+{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( Concrete (XParams2 Double Float), AstArtifactRev (TKProduct (XParams2 Double Float) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
+{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( Concrete (XParams2 Float Float), AstArtifactRev (TKProduct (XParams2 Float Float) (TKProduct (TKR2 1 (TKScalar Float)) (TKR2 1 (TKScalar Float)))) (TKScalar Float) ) #-}
+{-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Double -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( Concrete (XParams2 Double Double), AstArtifactRev (TKProduct (XParams2 Double Double) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}

@@ -41,39 +41,39 @@ import EqEpsilon
 
 crevDtMaybeBoth
   :: forall r y f advals.
-     ( f ~ RepN, X advals ~ X (DValue advals), KnownSTK (X advals)
-     , AdaptableTarget (ADVal RepN) advals
-     , AdaptableTarget (ADVal RepN) (ADVal f (TKR y r))
-     , AdaptableTarget RepN (DValue advals) )
+     ( f ~ Concrete, X advals ~ X (DValue advals), KnownSTK (X advals)
+     , AdaptableTarget (ADVal Concrete) advals
+     , AdaptableTarget (ADVal Concrete) (ADVal f (TKR y r))
+     , AdaptableTarget Concrete (DValue advals) )
   => (advals -> ADVal f (TKR y r)) -> DValue advals
   -> (f (ADTensorKind (X advals)), f (TKR y r))
 {-# INLINE crevDtMaybeBoth #-}
 crevDtMaybeBoth f vals =
-  let g :: ADVal RepN (X advals) -> ADVal RepN (TKR y r)
+  let g :: ADVal Concrete (X advals) -> ADVal Concrete (TKR y r)
       g = toTarget . f . fromTarget
       valsH = toTarget vals
   in crevOnHVector Nothing g (tftk knownSTK valsH) valsH
 
 rev' :: forall r m n v a w.
         ( KnownNat n, GoodScalar r
-        , v ~ RepN (TKR m r)
-        , w ~ RepN (ADTensorKind (TKR m r))
-        , a ~ RepN (ADTensorKind (TKR n r)) )
+        , v ~ Concrete (TKR m r)
+        , w ~ Concrete (ADTensorKind (TKR m r))
+        , a ~ Concrete (ADTensorKind (TKR n r)) )
      => (forall f. ADReady f => f (TKR n r) -> f (TKR m r))
-     -> RepN (TKR n r)
+     -> Concrete (TKR n r)
      -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
         , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-        , RepN (TKR n r), w, w, w )
+        , Concrete (TKR n r), w, w, w )
 rev' f vals =
   let value0 = f vals
       ftk = tftk knownSTK vals
-      g :: ADVal RepN (TKR n r)
-        -> ADVal RepN (TKR m r)
+      g :: ADVal Concrete (TKR n r)
+        -> ADVal Concrete (TKR m r)
       g inputs = f $ fromTarget inputs
       (gradient1, value1) = crevDtMaybeBoth g vals
-      gradientRrev1 = rrev1 @RepN @r @n @m f vals
+      gradientRrev1 = rrev1 @Concrete @r @n @m f vals
       g9 :: ADVal (AstRaw PrimalSpan) (TKR n r)
          -> ADVal (AstRaw PrimalSpan) (TKR m r)
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
@@ -86,7 +86,7 @@ rev' f vals =
       (gradient9, value9) = revEvalArtifact7 artifactsGradAst9
       revEvalArtifact7
         :: AstArtifactRev (TKR n r) (TKR m r)
-        -> (RepN (ADTensorKind (TKR n r)), RepN (TKR m r))
+        -> (Concrete (ADTensorKind (TKR n r)), Concrete (TKR m r))
       revEvalArtifact7 a1 = revEvalArtifact a1 vals Nothing
       hGeneral
         :: (ADReady fgen, ADReady f1)
@@ -103,10 +103,10 @@ rev' f vals =
         => (f1 (TKR m r) -> AstTensor AstMethodLet FullSpan (TKR m r))
         -> (AstTensor AstMethodLet FullSpan (TKR n r) -> f1 (TKR n r))
         -> (AstTensor AstMethodLet FullSpan (TKR m r) -> AstTensor AstMethodLet FullSpan (TKR m r))
-        -> ADVal RepN (TKR n r)
-        -> ADVal RepN (TKR m r)
+        -> ADVal Concrete (TKR n r)
+        -> ADVal Concrete (TKR m r)
       h fx1 fx2 gx inputs =
-        hGeneral @(ADVal RepN) fx1 fx2 gx
+        hGeneral @(ADVal Concrete) fx1 fx2 gx
                  (fromTarget inputs)
       (gradient2, value2) =
         crevDtMaybeBoth (h id id id) vals
@@ -115,13 +115,13 @@ rev' f vals =
       (gradient2UnSimp, value2UnSimp) =
         crevDtMaybeBoth (h unAstNoSimplify AstNoSimplify id) vals
       gradientRrev2UnSimp =
-        rrev1 @RepN @r @n @m @r
+        rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (gradient3UnSimp, value3UnSimp) =
         crevDtMaybeBoth (h unAstNoSimplify AstNoSimplify simplifyInlineContract)
                       vals
       gradientRrev3UnSimp =
-        rrev1 @RepN @r @n @m @r
+        rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify simplifyInlineContract) vals
       (gradient4, value4) =
         crevDtMaybeBoth (h unAstNoVectorize AstNoVectorize id)
@@ -129,13 +129,13 @@ rev' f vals =
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradientRrev4 =
-        rrev1 @RepN @r @n @m @r
+        rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoVectorize AstNoVectorize id) vals
       (gradient5, value5) =
         crevDtMaybeBoth (h unAstNoVectorize AstNoVectorize simplifyInlineContract)
                       vals
       gradientRrev5 =
-        rrev1 @RepN @r @n @m @r
+        rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoVectorize AstNoVectorize simplifyInlineContract) vals
       astVectSimp = simplifyInlineContract $ snd $ funToAst (FTKR (rshape vals) FTKScalar) f
       astSimp =
@@ -204,7 +204,7 @@ rev' f vals =
         revEvalArtifact7 (simplifyArtifact artifactsPSimpleAst)
       cderivative = cfwd f vals vals
       derivative = fwd f vals vals
-      derivativeRfwd1 = rfwd1ds @RepN @r @n @m @r f vals
+      derivativeRfwd1 = rfwd1ds @Concrete @r @n @m @r f vals
                         $ toADTensorKindShared ftk vals
   in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
      , value4, value5
@@ -225,19 +225,19 @@ rev' f vals =
 
 assertEqualUpToEpsilon'
     :: ( KnownNat n, KnownNat m
-       , v ~ RepN (TKR m r)
-       , w ~ RepN (ADTensorKind (TKR m r))
-       , a ~ RepN (ADTensorKind (TKR n r))
+       , v ~ Concrete (TKR m r)
+       , w ~ Concrete (ADTensorKind (TKR m r))
+       , a ~ Concrete (ADTensorKind (TKR n r))
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon (ADTensorScalar r)
        , GoodScalar r, GoodScalar (ADTensorScalar r), HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
-    -> RepN (TKR n r)  -- ^ expected reverse derivative value
+    -> Concrete (TKR n r)  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
        , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , RepN (TKR n r), w, w, w )
+       , Concrete (TKR n r), w, w, w )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
@@ -354,19 +354,19 @@ assertEqualUpToEpsilon'
 
 assertEqualUpToEpsilonShort
     :: ( KnownNat n, KnownNat m
-       , v ~ RepN (TKR m r)
-       , w ~ RepN (ADTensorKind (TKR m r))
-       , a ~ RepN (ADTensorKind (TKR n r))
+       , v ~ Concrete (TKR m r)
+       , w ~ Concrete (ADTensorKind (TKR m r))
+       , a ~ Concrete (ADTensorKind (TKR n r))
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon (ADTensorScalar r)
        , GoodScalar r, GoodScalar (ADTensorScalar r), HasCallStack)
     => Rational  -- ^ errom rargin (i.e., the epsilon)
-    -> RepN (TKR n r)  -- ^ expected reverse derivative value
+    -> Concrete (TKR n r)  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
        , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , RepN (TKR n r), w, w, w )
+       , Concrete (TKR n r), w, w, w )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShort
@@ -456,22 +456,22 @@ assertEqualUpToEpsilonShort
               (show (simplifyInlineContract astVectSimp))
   -}
 
-t16 :: (GoodScalar r, Fractional r) => RepN (TKR 5 r)
+t16 :: (GoodScalar r, Fractional r) => Concrete (TKR 5 r)
 t16 = ringestData (fromList [2, 2, 1, 2, 2]) [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
 
-t16b :: (GoodScalar r, Fractional r) => RepN (TKR 4 r)
+t16b :: (GoodScalar r, Fractional r) => Concrete (TKR 4 r)
 t16b = ringestData (fromList [2, 2, 2, 2]) [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
 
-t48 :: (GoodScalar r, Fractional r) => RepN (TKR 7 r)
+t48 :: (GoodScalar r, Fractional r) => Concrete (TKR 7 r)
 t48 = ringestData (fromList [3, 1, 2, 2, 1, 2, 2]) [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.8943200001, 5, 2, 6, 1, -2, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]
 
-t128 :: (GoodScalar r, Fractional r) => RepN (TKR 10 r)
+t128 :: (GoodScalar r, Fractional r) => Concrete (TKR 10 r)
 t128 = ringestData (fromList [1, 2, 2, 1, 2, 2, 2, 2, 2, 1]) [29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6, 1, -2, 97.1,58.8943200001,97.1,55.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,32.1,40.1,53.0,53.99432, -0.00001, 0.1, -0.2, 13.1, 9, 8, -4, 29, 2.99432, -335, 26, 2, 2, 2, 2, -0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,40.1,8.0,11.0,-3.0,25.89432,28.79432,-39.09999999999997,25.8,40.1,8.0,11.0,-3.0,25.89432,28.79432,-19.09999999999997,25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432,97.1,55.8943200001,97.1,85.8943200001,97.1,85.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001,97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,89.0,53.99432,97.1,56.8943200001,97.1,52.8943200001,97.1,55.8943200001]
 
-t128b :: (GoodScalar r, Fractional r) => RepN (TKR 4 r)
+t128b :: (GoodScalar r, Fractional r) => Concrete (TKR 4 r)
 t128b = rreshape (4 :$: 2 :$: 4 :$: 4 :$: ZSR) t128
 
-t128c :: (GoodScalar r, Fractional r) => RepN (TKR 4 r)
+t128c :: (GoodScalar r, Fractional r) => Concrete (TKR 4 r)
 t128c = rreshape (2 :$: 2 :$: 8 :$: 4 :$: ZSR) t128
 
 rrev1 :: forall g r n m r3.

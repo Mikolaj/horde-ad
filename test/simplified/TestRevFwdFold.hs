@@ -241,13 +241,13 @@ testFooRrev :: Assertion
 testFooRrev = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
-    (fooRrev @RepN @Double (1.1, 2.2, 3.3))
+    (fooRrev @Concrete @Double (1.1, 2.2, 3.3))
 
 testFooRrev2 :: Assertion
 testFooRrev2 = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.4396284, rscalar (-1.9533751), rscalar 0.96548253)
-    (fooRrev @RepN @Float (1.1, 2.2, 3.3))
+    (fooRrev @Concrete @Float (1.1, 2.2, 3.3))
 
 testFooRrevPP1 :: Assertion
 testFooRrevPP1 = do
@@ -264,10 +264,10 @@ testFooRrevPP2 = do
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
-  let f :: ADVal RepN (TKR 0 Double) -> ADVal RepN (TKR 0 Double)
+  let f :: ADVal Concrete (TKR 0 Double) -> ADVal Concrete (TKR 0 Double)
       f (D a _) =
-        let (a1, _, _) = fooRrev @(ADVal RepN) @Double
-                                 (Nested.runScalar (unRepN a), 2.2, 3.3)
+        let (a1, _, _) = fooRrev @(ADVal Concrete) @Double
+                                 (Nested.runScalar (unConcrete a), 2.2, 3.3)
         in a1
   assertEqualUpToEpsilon 1e-10
     (rscalar 0)
@@ -277,7 +277,7 @@ testSin0Rrev :: Assertion
 testSin0Rrev = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.4535961214255773)
-    (rrev1 @RepN @Double @0 @0 sin (rscalar 1.1))
+    (rrev1 @Concrete @Double @0 @0 sin (rscalar 1.1))
 
 testSin0RrevPP1 :: Assertion
 testSin0RrevPP1 = do
@@ -295,7 +295,7 @@ testSin0RrevPP2 = do
 
 testSin0Rrev3 :: Assertion
 testSin0Rrev3 = do
-  let f = rrev1 @(ADVal RepN) @Double @0 @0 sin
+  let f = rrev1 @(ADVal Concrete) @Double @0 @0 sin
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.8912073600614354))
     (crev f (rscalar 1.1))
@@ -304,7 +304,7 @@ testSin0Rrev4 :: Assertion
 testSin0Rrev4 = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.8988770945225438)
-    ((rrev1 sin . rrev1 @RepN @Double @0 @0 sin) (rscalar 1.1))
+    ((rrev1 sin . rrev1 @Concrete @Double @0 @0 sin) (rscalar 1.1))
 
 testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
@@ -316,7 +316,7 @@ testSin0Rrev5 :: Assertion
 testSin0Rrev5 = do
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.8912073600614354))
-    (rrev1 @RepN @Double @0 @0 (rrev1 sin) (rscalar 1.1))
+    (rrev1 @Concrete @Double @0 @0 (rrev1 sin) (rscalar 1.1))
 
 testSin0RrevPP5 :: Assertion
 testSin0RrevPP5 = do
@@ -328,26 +328,26 @@ testSin0RrevPP5 = do
 testSin0Rrev3' :: Assertion
 testSin0Rrev3' = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-0.8912073600614354) :: RepN (TKR 0 Double))
+    (rscalar (-0.8912073600614354) :: Concrete (TKR 0 Double))
     (rev' (rrev1 sin) (rscalar 1.1))
 
 testSin0Rrev4' :: Assertion
 testSin0Rrev4' = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.39052780643689855 :: RepN (TKR 0 Double))
+    (rscalar 0.39052780643689855 :: Concrete (TKR 0 Double))
     (rev' (rrev1 sin . rrev1 sin) (rscalar 1.1))
 
 testSin0Rrev5' :: Assertion
 testSin0Rrev5' = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-0.4535961214255773) :: RepN (TKR 0 Double))
+    (rscalar (-0.4535961214255773) :: Concrete (TKR 0 Double))
     (rev' (rrev1 (rrev1 sin)) (rscalar 1.1))
 
 testSin0Rfwd :: Assertion
 testSin0Rfwd = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.4535961214255773)
-    (rfwd1 @RepN @Double @0 @0 sin (rscalar 1.1))
+    (rfwd1 @Concrete @Double @0 @0 sin (rscalar 1.1))
 
 testSin0RfwdPP0 :: Assertion
 testSin0RfwdPP0 = do
@@ -379,7 +379,7 @@ testSin0RfwdPP1Full = do
 
 testSin0Rfwd3 :: Assertion
 testSin0Rfwd3 = do
-  let f = rfwd1 @(ADVal RepN) @Double @0 @0 sin
+  let f = rfwd1 @(ADVal Concrete) @Double @0 @0 sin
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.9803280960675791))
     (cfwd f (rscalar 1.1) (rscalar 1.1))
@@ -388,7 +388,7 @@ testSin0Rfwd4 :: Assertion
 testSin0Rfwd4 = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.8988770945225438)
-    ((rfwd1 sin . rfwd1 @RepN @Double @0 @0 sin) (rscalar 1.1))
+    ((rfwd1 sin . rfwd1 @Concrete @Double @0 @0 sin) (rscalar 1.1))
 
 testSin0RfwdPP4P :: Assertion
 testSin0RfwdPP4P = do
@@ -406,7 +406,7 @@ testSin0Rfwd5 :: Assertion
 testSin0Rfwd5 = do
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.8912073600614354))
-    (rfwd1 @RepN @Double @0 @0 (rfwd1 sin) (rscalar 1.1))
+    (rfwd1 @Concrete @Double @0 @0 (rfwd1 sin) (rscalar 1.1))
 
 testSin0RfwdPP5 :: Assertion
 testSin0RfwdPP5 = do
@@ -417,26 +417,26 @@ testSin0RfwdPP5 = do
 testSin0Rfwd3' :: Assertion
 testSin0Rfwd3' = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-0.8912073600614354) :: RepN (TKR 0 Double))
+    (rscalar (-0.8912073600614354) :: Concrete (TKR 0 Double))
     (rev' (rfwd1 sin) (rscalar 1.1))
 
 testSin0Rfwd4' :: Assertion
 testSin0Rfwd4' = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.39052780643689855 :: RepN (TKR 0 Double))
+    (rscalar 0.39052780643689855 :: Concrete (TKR 0 Double))
     (rev' (rfwd1 sin . rfwd1 sin) (rscalar 1.1))
 
 testSin0Rfwd5' :: Assertion
 testSin0Rfwd5' = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-0.4535961214255773) :: RepN (TKR 0 Double))
+    (rscalar (-0.4535961214255773) :: Concrete (TKR 0 Double))
     (rev' (rfwd1 (rfwd1 sin)) (rscalar 1.1))
 
 testSin0Rrev5S :: Assertion
 testSin0Rrev5S = do
   assertEqualUpToEpsilon 1e-10
     (srepl (-0.8912073600614354))
-    (srev1 @RepN @Double @'[] @'[] (srev1 sin) (srepl 1.1))
+    (srev1 @Concrete @Double @'[] @'[] (srev1 sin) (srepl 1.1))
 
 testSin0RrevPP5S :: Assertion
 testSin0RrevPP5S = do
@@ -448,7 +448,7 @@ testSin0RrevPP5S = do
 testSin0Fold0 :: Assertion
 testSin0Fold0 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.0 :: RepN (TKR 0 Double))
+    (rscalar 1.0 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f x0 = rfold (\x _a -> sin x)
                             x0 (rrepl @_ @Double (0 :$: ZSR) 0)
@@ -457,7 +457,7 @@ testSin0Fold0 = do
 testSin0Fold0ForComparison :: Assertion
 testSin0Fold0ForComparison = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.0 :: RepN (TKR 0 Double))
+    (rscalar 1.0 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. f (TKR 0 Double) -> f (TKR 0 Double)
                f = id
            in f) (rscalar 1.1))
@@ -465,14 +465,14 @@ testSin0Fold0ForComparison = do
 testSin0Fold1 :: Assertion
 testSin0Fold1 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.4535961214255773 :: RepN (TKR 0 Double))
+    (rscalar 0.4535961214255773 :: Concrete (TKR 0 Double))
     (rev' (\x0 -> rfold (\x _a -> sin x)
                         x0 (rrepl @1 @Double [1] 42)) (rscalar 1.1))
 
 testSin0FoldB1 :: Assertion
 testSin0FoldB1 = do
   assertEqualUpToEpsilon 1e-10
-    (rscalar 0 :: RepN (TKR 0 Double))
+    (rscalar 0 :: Concrete (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                 f x0 = rfold (\_x _a -> rscalar 7)
                          (rscalar 5) (rreplicate 1 x0)
@@ -492,7 +492,7 @@ testSin0FoldB1PP = do
 testSin0FoldB2 :: Assertion
 testSin0FoldB2 = do
   assertEqualUpToEpsilon 1e-10
-    (rscalar 0 :: RepN (TKR 0 Double))
+    (rscalar 0 :: Concrete (TKR 0 Double))
     (rev (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
               f x0 = rfold (\_x _a -> rscalar 7)
                        (rscalar 5) (rreplicate 1 x0)
@@ -501,7 +501,7 @@ testSin0FoldB2 = do
 testSin0FoldB3 :: Assertion
 testSin0FoldB3 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0 :: RepN (TKR 0 Double))
+    (rscalar 0 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f x0 = rfold (\_x _a -> rscalar 7)
                         (rscalar 5) (rreplicate 1 x0)
@@ -510,7 +510,7 @@ testSin0FoldB3 = do
 testSin0FoldB4 :: Assertion
 testSin0FoldB4 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0 :: RepN (TKR 0 Double))
+    (rscalar 0 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f x0 = rfold (\_x _a -> rscalar 7)
                         x0 (rrepl @1 @Double [1] 42)
@@ -519,34 +519,34 @@ testSin0FoldB4 = do
 testSin0Fold2 :: Assertion
 testSin0Fold2 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.12389721944941383 :: RepN (TKR 0 Double))
+    (rscalar 0.12389721944941383 :: Concrete (TKR 0 Double))
     (rev' (\x0 -> rfold (\x _a -> sin x)
                         x0 (rrepl @1 @Double [5] 42)) (rscalar 1.1))
 
 testSin0FoldForComparison :: Assertion
 testSin0FoldForComparison = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.12389721944941383 :: RepN (TKR 0 Double))
+    (rscalar 0.12389721944941383 :: Concrete (TKR 0 Double))
     (rev' (sin . sin . sin . sin . sin) (rscalar 1.1))
 
 testSin0Fold3 :: Assertion
 testSin0Fold3 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.4535961214255773 :: RepN (TKR 0 Double))
+    (rscalar 0.4535961214255773 :: Concrete (TKR 0 Double))
     (rev' (\a0 -> rfold (\_x a -> sin a)
                         (rscalar 84) (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Fold4 :: Assertion
 testSin0Fold4 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar  (-0.7053476446727861) :: RepN (TKR 0 Double))
+    (rscalar  (-0.7053476446727861) :: Concrete (TKR 0 Double))
     (rev' (\a0 -> rfold (\x a -> atan2H (sin x) (sin a))
                         (rscalar 2 * a0) (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Fold5 :: Assertion
 testSin0Fold5 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.2992412552109085 :: RepN (TKR 0 Double))
+    (rscalar 1.2992412552109085 :: Concrete (TKR 0 Double))
     (rev' (\a0 -> rfold (\x a -> rsum
                                  $ atan2H (sin $ rreplicate 5 x)
                                           (rsum $ sin $ rsum
@@ -557,7 +557,7 @@ testSin0Fold5 = do
 testSin0Fold6 :: Assertion
 testSin0Fold6 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 6 :: RepN (TKR 0 Double))
+    (rscalar 6 :: Concrete (TKR 0 Double))
     (rev' (\a0 -> rfold (\x a -> rtr
                                  $ rtr x + rreplicate 1 (rreplicate 2 a))
                         (rreplicate 2 (rreplicate 1 a0))
@@ -566,7 +566,7 @@ testSin0Fold6 = do
 testSin0Fold7 :: Assertion
 testSin0Fold7 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 250 :: RepN (TKR 0 Double))
+    (rscalar 250 :: Concrete (TKR 0 Double))
     (rev' (\a0 -> rfold (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
                         (rreplicate 2 (rreplicate 5 a0))
                         (rreplicate 2 a0)) (rscalar 1.1))
@@ -574,7 +574,7 @@ testSin0Fold7 = do
 testSin0Fold8 :: Assertion
 testSin0Fold8 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-2.200311410593445) :: RepN (TKR 0 Double))
+    (rscalar (-2.200311410593445) :: Concrete (TKR 0 Double))
     (rev' (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -585,7 +585,7 @@ testSin0Fold8 = do
 testSin0Fold0S :: Assertion
 testSin0Fold0S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.0 :: RepN (TKR 0 Double))
+    (rscalar 1.0 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f x0 = sfold @0 @'[] @'[] @(TKScalar Double) @(TKScalar Double)
                             (\x _a -> sin x)
@@ -595,7 +595,7 @@ testSin0Fold0S = do
 testSin0Fold1S :: Assertion
 testSin0Fold1S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.4535961214255773 :: RepN (TKR 0 Double))
+    (rscalar 0.4535961214255773 :: Concrete (TKR 0 Double))
     (rev' ((let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                 f x0 = sfold (let g :: forall f2. ADReady f2
                                    => f2 (TKS '[] Double) -> f2 (TKS '[] Double)
@@ -608,7 +608,7 @@ testSin0Fold1S = do
 testSin0Fold2S :: Assertion
 testSin0Fold2S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.12389721944941383 :: RepN (TKR 0 Double))
+    (rscalar 0.12389721944941383 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f x0 = sfold (\x _a -> sin x)
                         x0 (srepl @'[5] @Double 42)
@@ -617,7 +617,7 @@ testSin0Fold2S = do
 testSin0FoldForComparisonS :: Assertion
 testSin0FoldForComparisonS = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.12389721944941383 :: RepN (TKR 0 Double))
+    (rscalar 0.12389721944941383 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f = sin . sin . sin . sin . sin
           in rfromS . f . sfromR) (rscalar 1.1))
@@ -625,7 +625,7 @@ testSin0FoldForComparisonS = do
 testSin0Fold3S :: Assertion
 testSin0Fold3S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.4535961214255773 :: RepN (TKR 0 Double))
+    (rscalar 0.4535961214255773 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\_x a -> sin a)
                         (srepl 84) (sreplicate @3 @_ @_ @f a0)
@@ -634,7 +634,7 @@ testSin0Fold3S = do
 testSin0Fold4S :: Assertion
 testSin0Fold4S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar  (-0.7053476446727861) :: RepN (TKR 0 Double))
+    (rscalar  (-0.7053476446727861) :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a -> atan2H (sin x) (sin a))
                         (srepl 2 * a0) (sreplicate @3 @_ @_ @f a0)
@@ -643,7 +643,7 @@ testSin0Fold4S = do
 testSin0Fold5S :: Assertion
 testSin0Fold5S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.2992412552109085 :: RepN (TKR 0 Double))
+    (rscalar 1.2992412552109085 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (let g :: forall f2. ADReady f2
                                    => f2 (TKS '[] Double) -> f2 (TKS '[2, 5] Double)
@@ -662,7 +662,7 @@ testSin0Fold5S = do
 testSin0Fold6S :: Assertion
 testSin0Fold6S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 6 :: RepN (TKR 0 Double))
+    (rscalar 6 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 1] Double)
                f a0 = sfold @2 @'[2, 1] @'[] @(TKScalar Double) @(TKScalar Double)
                         (\x a -> str
@@ -675,7 +675,7 @@ testSin0Fold6S = do
 testSin0Fold7S :: Assertion
 testSin0Fold7S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 250 :: RepN (TKR 0 Double))
+    (rscalar 250 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                f a0 = sfold @2 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
                         (\x _a -> str $ sreplicate @5 $ ssum (str x))
@@ -686,7 +686,7 @@ testSin0Fold7S = do
 testSin0Fold8S :: Assertion
 testSin0Fold8S = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-2.200311410593445) :: RepN (TKR 0 Double))
+    (rscalar (-2.200311410593445) :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                f a0 = sfold @3 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
                         (\x a -> str $ sreplicate @5
@@ -700,8 +700,8 @@ testSin0Fold8S = do
 testSin0Fold8rev :: Assertion
 testSin0Fold8rev = do
   assertEqualUpToEpsilon 1e-10
-    (rscalar (-2.200311410593445) :: RepN (TKR 0 Double))
-    (rrev1 @RepN @Double @0 @2
+    (rscalar (-2.200311410593445) :: Concrete (TKR 0 Double))
+    (rrev1 @Concrete @Double @0 @2
        (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -711,7 +711,7 @@ testSin0Fold8rev = do
 
 testSin0Fold8rev2 :: Assertion
 testSin0Fold8rev2 = do
-  let h = rrev1 @(ADVal RepN) @Double @0 @2
+  let h = rrev1 @(ADVal Concrete) @Double @0 @2
         (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -725,7 +725,7 @@ testSin0Fold8rev2 = do
 testSin0Fold8Srev :: Assertion
 testSin0Fold8Srev = do
   assertEqualUpToEpsilon 1e-10
-    (rscalar (-2.200311410593445) :: RepN (TKR 0 Double))
+    (rscalar (-2.200311410593445) :: Concrete (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                 f a0 = sfold @3 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
                         (\x a -> str $ sreplicate @5
@@ -738,7 +738,7 @@ testSin0Fold8Srev = do
 
 testSin0Fold8Srev2 :: Assertion
 testSin0Fold8Srev2 = do
-  let h = srev1 @(ADVal RepN)
+  let h = srev1 @(ADVal Concrete)
                 (let f :: forall f. ADReady f
                        => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                      f a0 = sfold @3 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
@@ -750,13 +750,13 @@ testSin0Fold8Srev2 = do
                         (sreplicate @3 a0)
                  in f)
   assertEqualUpToEpsilon 1e-10
-    (RepN $ Nested.sscalar 6.182232283434464e-2)  -- seems quite unstable
+    (Concrete $ Nested.sscalar 6.182232283434464e-2)  -- seems quite unstable
     (crev h (srepl 0.0001))
 
 testSin0Fold182Srev :: Assertion
 testSin0Fold182Srev = do
   assertEqualUpToEpsilon 1e-10
-    (rscalar (-0.4409160296923509) :: RepN (TKR 0 Double))
+    (rscalar (-0.4409160296923509) :: Concrete (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[5] Double)
                 f a0 = sfold @1 @'[5] @'[] @(TKScalar Double) @(TKScalar Double)
                         (\_x a -> atan2H (sreplicate @5 a)
@@ -784,7 +784,7 @@ testSin0Fold182SrevPP = do
 testSin0Fold18Srev :: Assertion
 testSin0Fold18Srev = do
   assertEqualUpToEpsilon 1e-10
-    (rscalar (-2.4026418024701366) :: RepN (TKR 0 Double))
+    (rscalar (-2.4026418024701366) :: Concrete (TKR 0 Double))
     (rrev1 (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                 f a0 = sfold @2 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
                         (\x a -> str $ sreplicate @5
@@ -799,7 +799,7 @@ testSin0Fold8fwd :: Assertion
 testSin0Fold8fwd = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2, 5] (replicate 10 (-0.2200311410593445)))
-    (rfwd1 @RepN @Double @0 @2
+    (rfwd1 @Concrete @Double @0 @2
        (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -809,7 +809,7 @@ testSin0Fold8fwd = do
 
 testSin0Fold8fwd2 :: Assertion
 testSin0Fold8fwd2 = do
-  let h = rfwd1 @(ADVal RepN) @Double @0 @2
+  let h = rfwd1 @(ADVal Concrete) @Double @0 @2
         (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -824,7 +824,7 @@ testSin0Fold8Sfwd :: Assertion
 testSin0Fold8Sfwd = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2, 5] (replicate 10 (-0.2200311410593445)))
-    (rfwd1 @RepN
+    (rfwd1 @Concrete
            (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                 f a0 = sfold @3  @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
                         (\x a -> str $ sreplicate @5
@@ -837,7 +837,7 @@ testSin0Fold8Sfwd = do
 
 testSin0Fold8Sfwd2 :: Assertion
 testSin0Fold8Sfwd2 = do
-  let h = rfwd1 @(ADVal RepN)
+  let h = rfwd1 @(ADVal Concrete)
                 (let f :: forall f. ADReady f
                        => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                      f a0 = sfold @3 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
@@ -902,7 +902,7 @@ testSin0Scan0 = do
 testSin0Scan1 :: Assertion
 testSin0Scan1 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [1.4535961214255773] :: RepN (TKR 5 Double))
+    (ringestData [1,1,1,1,1] [1.4535961214255773] :: Concrete (TKR 5 Double))
     (rev' (\x0 -> rscan (\x _a -> sin x)
                         x0 (rrepl @1 @Double [1] 42))
           (ringestData [1,1,1,1,1] [1.1]))
@@ -910,14 +910,14 @@ testSin0Scan1 = do
 testSin0Scan1ForComparison :: Assertion
 testSin0Scan1ForComparison = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [1.4535961214255773] :: RepN (TKR 5 Double))
+    (ringestData [1,1,1,1,1] [1.4535961214255773] :: Concrete (TKR 5 Double))
     (rev' (\x0 -> rfromList [x0, sin x0])
           (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0Scan2 :: Assertion
 testSin0Scan2 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [2.2207726343670955] :: RepN (TKR 5 Double))
+    (ringestData [1,1,1,1,1] [2.2207726343670955] :: Concrete (TKR 5 Double))
     (rev' (\x0 -> rscan (\x _a -> sin x)
                         x0 (rrepl @1 @Double [5] 42))
           (ringestData [1,1,1,1,1] [1.1]))
@@ -925,7 +925,7 @@ testSin0Scan2 = do
 testSin0Scan3 :: Assertion
 testSin0Scan3 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [1.360788364276732] :: RepN (TKR 5 Double))
+    (ringestData [1,1,1,1,1] [1.360788364276732] :: Concrete (TKR 5 Double))
     (rev' (\a0 -> rscan (\_x a -> sin a)
                         (rreplicate0N [1,1,1,1,1] (rscalar 84))
                         (rreplicate 3 a0)) (ringestData [1,1,1,1,1] [1.1]))
@@ -933,7 +933,7 @@ testSin0Scan3 = do
 testSin0Scan4 :: Assertion
 testSin0Scan4 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1,1] [-0.4458209450295252] :: RepN (TKR 5 Double))
+    (ringestData [1,1,1,1,1] [-0.4458209450295252] :: Concrete (TKR 5 Double))
     (rev' (\a0 -> rscan (\x a -> atan2H (sin x) (sin a))
                         (rreplicate0N [1,1,1,1,1] (rscalar 2) * a0)
                         (rreplicate 3 a0)) (ringestData [1,1,1,1,1] [1.1]))
@@ -941,7 +941,7 @@ testSin0Scan4 = do
 testSin0Scan5 :: Assertion
 testSin0Scan5 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1] [4.126141830000979] :: RepN (TKR 4 Double))
+    (ringestData [1,1,1,1] [4.126141830000979] :: Concrete (TKR 4 Double))
     (rev' (\a0 -> rscan (\x a -> rsum
                                  $ atan2H (sin $ rreplicate 5 x)
                                          (rsum $ sin $ rsum
@@ -953,7 +953,7 @@ testSin0Scan5 = do
 testSin0Scan6 :: Assertion
 testSin0Scan6 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1] [12] :: RepN (TKR 2 Double))
+    (ringestData [1,1] [12] :: Concrete (TKR 2 Double))
     (rev' (\a0 -> rscan (\x a -> rtr
                                  $ rtr x + rreplicate 1 (rreplicate 2 a))
                         (rreplicate 2 (rreplicate 1 a0))
@@ -962,7 +962,7 @@ testSin0Scan6 = do
 testSin0Scan7 :: Assertion
 testSin0Scan7 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1] [310] :: RepN (TKR 2 Double))
+    (ringestData [1,1] [310] :: Concrete (TKR 2 Double))
     (rev' (\a0 -> rscan (\x _a -> rtr $ rreplicate 5 $ rsum (rtr x))
                         (rreplicate 2 (rreplicate 5 a0))
                         (rreplicate 2 a0)) (ringestData [1,1] [1.1]))
@@ -970,7 +970,7 @@ testSin0Scan7 = do
 testSin0Scan8 :: Assertion
 testSin0Scan8 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1] [9.532987357352765] :: RepN (TKR 3 Double))
+    (ringestData [1,1,1] [9.532987357352765] :: Concrete (TKR 3 Double))
     (rev' (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -982,7 +982,7 @@ testSin0Scan8rev :: Assertion
 testSin0Scan8rev = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [9.53298735735276])
-    (rrev1 @RepN @Double @0 @3
+    (rrev1 @Concrete @Double @0 @3
        (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -992,7 +992,7 @@ testSin0Scan8rev = do
 
 testSin0Scan8rev2 :: Assertion
 testSin0Scan8rev2 = do
-  let h = rrev1 @(ADVal RepN) @Double @0 @3
+  let h = rrev1 @(ADVal Concrete) @Double @0 @3
         (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                $ atan2H (rsum (rtr $ sin x))
                                         (rreplicate 2
@@ -1005,7 +1005,7 @@ testSin0Scan8rev2 = do
 
 testSin0Scan8Srev2 :: Assertion
 testSin0Scan8Srev2 = do
-  let h = srev1 @(ADVal RepN) @Double @'[]
+  let h = srev1 @(ADVal Concrete) @Double @'[]
         (\a0 -> sscan (\x a -> str $ sreplicate @5
                                $ atan2H (ssum (str $ sin x))
                                         (sreplicate @2
@@ -1084,14 +1084,14 @@ testSin0Scan1Rev2PPForComparison = do
 testSin0Scan1Rev2 :: Assertion
 testSin0Scan1Rev2 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [] [1.1961317861865948] :: RepN (TKR 0 Double))
+    (ringestData [] [1.1961317861865948] :: Concrete (TKR 0 Double))
     (rev' (\x0 -> rscan (\x a -> sin x - a) x0
                     (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1))
 
 testSin0Scan1Rev2ForComparison :: Assertion
 testSin0Scan1Rev2ForComparison = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [] [1.1961317861865948] :: RepN (TKR 0 Double))
+    (ringestData [] [1.1961317861865948] :: Concrete (TKR 0 Double))
     (rev' (\x0 -> rfromList [sin (sin x0 - rscalar 5) - rscalar 7, sin x0 - rscalar 5, x0]) (rscalar 1.1))
 
 testSin0Scan1Rev3PP0 :: Assertion
@@ -1124,21 +1124,21 @@ testSin0ScanFwd3PP = do
 testSin0Scan1Rev3 :: Assertion
 testSin0Scan1Rev3 = do
   assertEqualUpToEpsilon' 1e-5
-    (ringestData [] [-10.076255083995068] :: RepN (TKR 0 Double))
+    (ringestData [] [-10.076255083995068] :: Concrete (TKR 0 Double))
     (rev' (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1))
 
 testSin0Scan1Rev3ForComparison :: Assertion
 testSin0Scan1Rev3ForComparison = do
   assertEqualUpToEpsilon' 1e-5
-    (ringestData [] [-10.076255083995068] :: RepN (TKR 0 Double))
+    (ringestData [] [-10.076255083995068] :: Concrete (TKR 0 Double))
     (rev' (\x0 -> rfromList [sin (sin x0 - x0 * rscalar 5) - x0 * rscalar 7, sin x0 - x0 * rscalar 5, x0]) (rscalar 1.1))
 
 testSin0Scan0fwd :: Assertion
 testSin0Scan0fwd = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [1] [1.0])
-    (rfwd1 @RepN @Double @0 @1
+    (rfwd1 @Concrete @Double @0 @1
     (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 1 Double)
          f x0 = rscan (\x _a -> sin x)
                       x0 (rrepl @_ @Double (0 :$: ZSR) 0)
@@ -1148,7 +1148,7 @@ testSin0Scan1fwd :: Assertion
 testSin0Scan1fwd = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2] [1.0,0.4535961214255773])
-    (rfwd1 @RepN @Double @0 @1
+    (rfwd1 @Concrete @Double @0 @1
     (\x0 -> rscan (\x _a -> sin x)
                   x0 (rrepl @1 @Double [1] 42))
           (rscalar 1.1))
@@ -1157,14 +1157,14 @@ testSin0Scan1FwdForComparison :: Assertion
 testSin0Scan1FwdForComparison = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2] [1.0,0.4535961214255773])
-    (rfwd1 @RepN @Double @0 @1
+    (rfwd1 @Concrete @Double @0 @1
     (\x0 -> rfromList [x0, sin x0]) (rscalar 1.1))
 
 testSin0Scan8fwd :: Assertion
 testSin0Scan8fwd = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
-    (rfwd1 @RepN @Double @0 @3
+    (rfwd1 @Concrete @Double @0 @3
        (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -1174,7 +1174,7 @@ testSin0Scan8fwd = do
 
 testSin0Scan8fwd2 :: Assertion
 testSin0Scan8fwd2 = do
-  let h = rfwd1 @(ADVal RepN) @Double @0 @3
+  let h = rfwd1 @(ADVal Concrete) @Double @0 @3
         (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -1965,7 +1965,7 @@ testSin0rmapAccumRD01SN7 = do
                                     (sreplicate0N $ sscalar 0))
                              (tpair (sreplicate0N $ sscalar 0)
                                     (sreplicate0N $ sscalar 0)))
-           in f @(ADVal RepN)) (sscalar 1.1))
+           in f @(ADVal Concrete)) (sscalar 1.1))
 
 rscanZip :: forall rn n rn2 n2 target.
             (GoodScalar rn, KnownNat n, GoodScalar rn2, ADReady target)
@@ -1991,7 +1991,7 @@ rscanZip f eftk acc0 es =
 testSin0ScanD51 :: Assertion
 testSin0ScanD51 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1,1] [319.68688158967257] :: RepN (TKR 4 Double))
+    (ringestData [1,1,1,1] [319.68688158967257] :: Concrete (TKR 4 Double))
     (rev' (\a0 -> rscanZip (\x a -> rsum
                                  $ atan2H (sin $ rreplicate 5 x)
                                          (rsum $ sin $ rsum
@@ -2007,7 +2007,7 @@ testSin0ScanD51 = do
 testSin0ScanD8 :: Assertion
 testSin0ScanD8 = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1] [9.532987357352765] :: RepN (TKR 3 Double))
+    (ringestData [1,1,1] [9.532987357352765] :: Concrete (TKR 3 Double))
     (rev' (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -2021,7 +2021,7 @@ testSin0ScanD8 = do
 testSin0ScanD8MapAccum :: Assertion
 testSin0ScanD8MapAccum = do
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [1,1,1] [9.532987357352765] :: RepN (TKR 3 Double))
+    (ringestData [1,1,1] [9.532987357352765] :: Concrete (TKR 3 Double))
     (rev'
        (\a0 -> tproject2
                $ tmapAccumR Proxy (SNat @4)
@@ -2047,7 +2047,7 @@ testSin0ScanD8rev :: Assertion
 testSin0ScanD8rev = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [9.53298735735276])
-    (rrev1 @RepN @Double @0 @3
+    (rrev1 @Concrete @Double @0 @3
        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -2127,7 +2127,7 @@ testSin0ScanD1fwd :: Assertion
 testSin0ScanD1fwd = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2] [1.0,0.4535961214255773])
-    (rfwd1 @RepN @Double @0 @1
+    (rfwd1 @Concrete @Double @0 @1
     (\x0 -> rscanZip (\x _a -> sin x)
                    (FTKR ZSR FTKScalar)
                    x0 (rrepl @1 @Double [1] 42))
@@ -2137,7 +2137,7 @@ testSin0ScanD8fwd :: Assertion
 testSin0ScanD8fwd = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
-    (rfwd1 @RepN @Double @0 @3
+    (rfwd1 @Concrete @Double @0 @3
        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -2150,7 +2150,7 @@ testSin0ScanD8fwdMapAccum :: Assertion
 testSin0ScanD8fwdMapAccum = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [4,2,5] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.5864059429583657,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.24026418024701368,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445,-0.2200311410593445])
-    (rfwd1 @RepN @Double @0 @3 @Double
+    (rfwd1 @Concrete @Double @0 @3 @Double
        (\a0 -> rreverse $ tproject2
                $ tmapAccumR Proxy (SNat @4)
                    (FTKR (2 :$: 5 :$: ZSR) FTKScalar)
@@ -2171,7 +2171,7 @@ testSin0ScanD8fwdMapAccum = do
 
 testSin0ScanD8fwd2 :: Assertion
 testSin0ScanD8fwd2 = do
-  let h = rfwd1 @(ADVal RepN) @Double @0 @3
+  let h = rfwd1 @(ADVal Concrete) @Double @0 @3
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -2186,7 +2186,7 @@ testSin0ScanD8fwd2 = do
 testSin0FoldNestedS1 :: Assertion
 testSin0FoldNestedS1 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 2.0504979297616553e-43 :: RepN (TKR 0 Double))
+    (rscalar 2.0504979297616553e-43 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 -> srepl 0.7 * x2 * a2)
@@ -2361,7 +2361,7 @@ testSin0FoldNestedR2Dummy7 :: Assertion
 testSin0FoldNestedR2Dummy7 = do
  resetVarCounter
  assertEqualUpToEpsilon' 1e-10
-  (rscalar 0 :: RepN (TKR 0 Double))
+  (rscalar 0 :: Concrete (TKR 0 Double))
   (rev'
    (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
         f z = rfold (\x a ->
@@ -2377,7 +2377,7 @@ testSin0FoldNestedR2Dummy7 = do
 testSin0FoldNestedR2Tan :: Assertion
 testSin0FoldNestedR2Tan = do
  assertEqualUpToEpsilon' 1e-10
-  (rscalar 25.000016360009603 :: RepN (TKR 0 Double))
+  (rscalar 25.000016360009603 :: Concrete (TKR 0 Double))
   (rev'
    (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
         f z = rfold (\x a ->
@@ -2391,7 +2391,7 @@ testSin0FoldNestedR2Tan = do
 testSin0FoldNestedS1FwdFwd0 :: Assertion
 testSin0FoldNestedS1FwdFwd0 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 2.0504979297616553e-43 :: RepN (TKR 0 Double))
+    (rscalar 2.0504979297616553e-43 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 -> srepl 0.7 * x2 * a2)
@@ -2402,7 +2402,7 @@ testSin0FoldNestedS1FwdFwd0 = do
 testSin0FoldNestedS1FwdFwd :: Assertion
 testSin0FoldNestedS1FwdFwd = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 2.0504979297616553e-43 :: RepN (TKR 0 Double))
+    (rscalar 2.0504979297616553e-43 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
@@ -2414,7 +2414,7 @@ testSin0FoldNestedS1FwdFwd = do
 testSin0FoldNestedS1RevRev :: Assertion
 testSin0FoldNestedS1RevRev = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 2.0504979297616553e-43 :: RepN (TKR 0 Double))
+    (rscalar 2.0504979297616553e-43 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
@@ -2426,7 +2426,7 @@ testSin0FoldNestedS1RevRev = do
 testSin0FoldNestedS2 :: Assertion
 testSin0FoldNestedS2 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 3.175389686661287e-207 :: RepN (TKR 0 Double))
+    (rscalar 3.175389686661287e-207 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
@@ -2439,7 +2439,7 @@ testSin0FoldNestedS2 = do
 testSin0FoldNestedS3 :: Assertion
 testSin0FoldNestedS3 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 7.320500000000004e-4 :: RepN (TKR 0 Double))
+    (rscalar 7.320500000000004e-4 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
@@ -2454,7 +2454,7 @@ testSin0FoldNestedS3 = do
 testSin0FoldNestedS4 :: Assertion
 testSin0FoldNestedS4 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.2400927000000009e-5 :: RepN (TKR 0 Double))
+    (rscalar 1.2400927000000009e-5 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
@@ -2471,7 +2471,7 @@ testSin0FoldNestedS4 = do
 testSin0FoldNestedS5 :: Assertion
 testSin0FoldNestedS5 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.22000000000000003 :: RepN (TKR 0 Double))
+    (rscalar 0.22000000000000003 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
                f a0 = sfold (\x a ->
                         sfold (\x2 a2 ->
@@ -2505,7 +2505,7 @@ testSin0FoldNestedS5rev = do
                             a0 (sreplicate @1 a0)
   assertEqualUpToEpsilon 1e-10
     (srepl 0.22000000000000003)
-    (srev1 @RepN @Double @'[] @'[] f (sscalar 1.1))
+    (srev1 @Concrete @Double @'[] @'[] f (sscalar 1.1))
 
 testSin0FoldNestedS5fwd :: Assertion
 testSin0FoldNestedS5fwd = do
@@ -2524,12 +2524,12 @@ testSin0FoldNestedS5fwd = do
                             a0 (sreplicate @1 a0)
   assertEqualUpToEpsilon 1e-10
     (srepl 0.22000000000000003)
-    (sfwd1 @RepN @Double @'[] @'[] f (sscalar 1.1))
+    (sfwd1 @Concrete @Double @'[] @'[] f (sscalar 1.1))
 
 testSin0FoldNestedSi :: Assertion
 testSin0FoldNestedSi = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar  (-0.20775612781643243) :: RepN (TKR 0 Double))
+    (rscalar  (-0.20775612781643243) :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[3] Double)
                f a0 = sfold (\x a -> atan2H
                                        (sscan (+) (ssum x)
@@ -2550,7 +2550,7 @@ testSin0FoldNestedSi = do
 testSin0FoldNestedR1 :: Assertion
 testSin0FoldNestedR1 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 2.0504979297616553e-43 :: RepN (TKR 0 Double))
+    (rscalar 2.0504979297616553e-43 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 -> rscalar 0.7 * x2 * a2)
@@ -2561,7 +2561,7 @@ testSin0FoldNestedR1 = do
 testSin0FoldNestedR1RevFwd :: Assertion
 testSin0FoldNestedR1RevFwd = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 3.175389686661287e-207 :: RepN (TKR 0 Double))
+    (rscalar 3.175389686661287e-207 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
@@ -2573,7 +2573,7 @@ testSin0FoldNestedR1RevFwd = do
 testSin0FoldNestedR2 :: Assertion
 testSin0FoldNestedR2 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 3.175389686661287e-207 :: RepN (TKR 0 Double))
+    (rscalar 3.175389686661287e-207 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
@@ -2586,7 +2586,7 @@ testSin0FoldNestedR2 = do
 testSin0FoldNestedR2RevFwd :: Assertion
 testSin0FoldNestedR2RevFwd = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 3.175389686661287e-207 :: RepN (TKR 0 Double))
+    (rscalar 3.175389686661287e-207 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
@@ -2601,7 +2601,7 @@ testSin0FoldNestedR2RevFwd = do
 testSin0FoldNestedR3 :: Assertion
 testSin0FoldNestedR3 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 7.320500000000004e-4 :: RepN (TKR 0 Double))
+    (rscalar 7.320500000000004e-4 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
@@ -2616,7 +2616,7 @@ testSin0FoldNestedR3 = do
 testSin0FoldNestedR4 :: Assertion
 testSin0FoldNestedR4 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.2400927000000009e-5 :: RepN (TKR 0 Double))
+    (rscalar 1.2400927000000009e-5 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
@@ -2633,7 +2633,7 @@ testSin0FoldNestedR4 = do
 testSin0FoldNestedR41 :: Assertion
 testSin0FoldNestedR41 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 0.22000000000000003 :: RepN (TKR 0 Double))
+    (rscalar 0.22000000000000003 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
@@ -2650,7 +2650,7 @@ testSin0FoldNestedR41 = do
 testSin0FoldNestedR40 :: Assertion
 testSin0FoldNestedR40 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.0 :: RepN (TKR 0 Double))
+    (rscalar 1.0 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
@@ -2667,7 +2667,7 @@ testSin0FoldNestedR40 = do
 testSin0FoldNestedR400 :: Assertion
 testSin0FoldNestedR400 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 1.0 :: RepN (TKR 0 Double))
+    (rscalar 1.0 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
@@ -2684,7 +2684,7 @@ testSin0FoldNestedR400 = do
 testSin0FoldNestedRi :: Assertion
 testSin0FoldNestedRi = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar (-0.20775612781643243) :: RepN (TKR 0 Double))
+    (rscalar (-0.20775612781643243) :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 1 Double)
                f a0 = rfold (\x a -> atan2H
                                        (rscan (+) (rsum x)
@@ -2704,7 +2704,7 @@ testSin0FoldNestedRi = do
 testSin0FoldNestedR22 :: Assertion
 testSin0FoldNestedR22 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 2.877421010384167e-5 :: RepN (TKR 0 Double))
+    (rscalar 2.877421010384167e-5 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a ->
                         rfold (\x2 a2 ->
@@ -2719,7 +2719,7 @@ testSin0FoldNestedR22 = do
 testSin0FoldNestedR21 :: Assertion
 testSin0FoldNestedR21 = do
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 7.667553331540788e-3 :: RepN (TKR 0 Double))
+    (rscalar 7.667553331540788e-3 :: Concrete (TKR 0 Double))
     (rev' (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f a0 = rfold (\x a -> tlet (x + a) $ \xpa ->
                           rfold (\x3 a3 -> rscalar 0.1 * x3 * a3)
@@ -2754,7 +2754,7 @@ testSin0revhV = do
       f x = rrev @0 @_ @(TKScalar Double) @g sin (FTKR ZSR FTKScalar) x
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.4535961214255773)
-    (f @RepN (rscalar 1.1))
+    (f @Concrete (rscalar 1.1))
 
 testSin0revhVPP :: Assertion
 testSin0revhVPP = do

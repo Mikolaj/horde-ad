@@ -301,9 +301,9 @@ instance (GoodScalar r, ShareTensor f, ADReadyNoLet f)
                   in dD (abs v) (dScale (signum v) v')
   signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
   fromInteger i = dDnotShared (fromInteger i) (DeltaZero FTKScalar)
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKScalar Double)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKScalar Float)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKScalar Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Double)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Float)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Int64)) #-}
 
 instance {-# OVERLAPPABLE #-}
          (Num (f z), ShareTensor f, ADReadyNoLet f)
@@ -321,15 +321,15 @@ instance {-# OVERLAPPABLE #-}
                   in dD (abs v) (dScale (signum v) v')
   signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
   fromInteger = error "fromInteger not defined for tensors"
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKR n Double)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKR n Float)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKR n Int64)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKS sh Double)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKS sh Float)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKS sh Int64)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKX sh Double)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKX sh Float)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => Num (ADVal RepN (TKX sh Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Double)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Float)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKS sh Double)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKS sh Float)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKS sh Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKX sh Double)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKX sh Float)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKX sh Int64)) #-}
 
 instance (Real (f z), ShareTensor f, ADReadyNoLet f)
          => Real (ADVal f z) where
@@ -340,9 +340,9 @@ instance (IntegralH (f z), ShareTensor f, ADReadyNoLet f)
          => IntegralH (ADVal f z) where
   quotH (D u _) (D v v') = dDnotShared (quotH u v) (DeltaZero $ ftkDelta v')
   remH (D u _) (D v v') = dDnotShared (remH u v) (DeltaZero $ ftkDelta v')
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => IntegralH (ADVal RepN (TKR n Int64)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => IntegralH (ADVal RepN (TKS sh Int64)) #-}
-  {-# SPECIALIZE instance (ShareTensor RepN, ADReadyNoLet RepN) => IntegralH (ADVal RepN (TKX sh Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKR n Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKS sh Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKX sh Int64)) #-}
 
 -- This is copied from below to permit fromRational for TKScalar.
 instance ( GoodScalar r, Fractional (f (TKScalar r)), ShareTensor f

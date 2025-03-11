@@ -46,7 +46,7 @@ testTrees = [ tensorADValMnistTests
 -- * Using lists of vectors, which is rank 1
 
 type XParams widthHidden widthHidden2 r =
-  X (MnistFcnnRanked1.ADFcnnMnist1Parameters RepN widthHidden widthHidden2 r)
+  X (MnistFcnnRanked1.ADFcnnMnist1Parameters Concrete widthHidden widthHidden2 r)
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
@@ -66,10 +66,10 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
-                    RepN widthHidden widthHidden2 r
+                    Concrete widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
-      targetInit :: RepN (XParams widthHidden widthHidden2 r)
-      targetInit = toTarget @RepN valsInit
+      targetInit :: Concrete (XParams widthHidden widthHidden2 r)
+      targetInit = toTarget @Concrete valsInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int
@@ -79,7 +79,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
                         , show gamma ]
       ftest :: [MnistDataLinearR r]
             -> MnistFcnnRanked1.ADFcnnMnist1Parameters
-                 RepN widthHidden widthHidden2 r
+                 Concrete widthHidden widthHidden2 r
             -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 widthHiddenSNat widthHidden2SNat
   in testCase name $ do
@@ -90,17 +90,17 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
     testData <- map mkMnistDataLinearR . take (batchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
     let f :: MnistDataLinearR r
-          -> ADVal RepN (XParams widthHidden widthHidden2 r)
-          -> ADVal RepN (TKScalar r)
+          -> ADVal Concrete (XParams widthHidden widthHidden2 r)
+          -> ADVal Concrete (TKScalar r)
         f (glyph, label) adinputs =
           MnistFcnnRanked1.afcnnMnistLoss1
             widthHiddenSNat widthHidden2SNat
             (rconcrete glyph, rconcrete label) (fromTarget adinputs)
     -- Mimic how backprop tests and display it, even though tests
     -- should not print, in principle.
-    let runBatch :: RepN (XParams widthHidden widthHidden2 r)
+    let runBatch :: Concrete (XParams widthHidden widthHidden2 r)
                  -> (Int, [MnistDataLinearR r])
-                 -> IO (RepN (XParams widthHidden widthHidden2 r))
+                 -> IO (Concrete (XParams widthHidden widthHidden2 r))
         runBatch !params (k, chunk) = do
           let res = fst $ sgd gamma f chunk params
               trainScore = ftest chunk (fromTarget res)
@@ -118,8 +118,8 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
                      prefix ((1 - testScore ) * 100)
           return res
     let runEpoch :: Int
-                 -> RepN (XParams widthHidden widthHidden2 r)
-                 -> IO (RepN (XParams widthHidden widthHidden2 r))
+                 -> Concrete (XParams widthHidden widthHidden2 r)
+                 -> IO (Concrete (XParams widthHidden widthHidden2 r))
         runEpoch n params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHiddenInt < 10) $
@@ -167,11 +167,11 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
-                    RepN widthHidden widthHidden2 r
+                    Concrete widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
-      targetInit :: RepN (XParams widthHidden widthHidden2 r)
-      targetInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (knownSTK @(XParams widthHidden widthHidden2 r))
+      targetInit :: Concrete (XParams widthHidden widthHidden2 r)
+      targetInit = toTarget @Concrete valsInit
+      ftk = tftk @Concrete (knownSTK @(XParams widthHidden widthHidden2 r))
                        targetInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -182,7 +182,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
                         , show gamma ]
       ftest :: [MnistDataLinearR r]
             -> MnistFcnnRanked1.ADFcnnMnist1Parameters
-                 RepN widthHidden widthHidden2 r
+                 Concrete widthHidden widthHidden2 r
             -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 widthHiddenSNat widthHidden2SNat
   in testCase name $ do
@@ -202,16 +202,16 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
                 widthHiddenSNat widthHidden2SNat (astGlyph, astLabel)
                 (fromTarget varAst)
         f :: MnistDataLinearR r
-          -> ADVal RepN (XParams widthHidden widthHidden2 r)
-          -> ADVal RepN (TKScalar r)
+          -> ADVal Concrete (XParams widthHidden widthHidden2 r)
+          -> ADVal Concrete (TKScalar r)
         f (glyph, label) varInputs =
           let env = extendEnv var varInputs emptyEnv
               envMnist = extendEnv varGlyph (rconcrete glyph)
                          $ extendEnv varLabel (rconcrete label) env
           in interpretAstFull envMnist ast
-    let runBatch :: RepN (XParams widthHidden widthHidden2 r)
+    let runBatch :: Concrete (XParams widthHidden widthHidden2 r)
                  -> (Int, [MnistDataLinearR r])
-                 -> IO (RepN (XParams widthHidden widthHidden2 r))
+                 -> IO (Concrete (XParams widthHidden widthHidden2 r))
         runBatch !params (k, chunk) = do
           let res = fst $ sgd gamma f chunk params
               trainScore = ftest chunk (fromTarget res)
@@ -229,8 +229,8 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
                      prefix ((1 - testScore ) * 100)
           return res
     let runEpoch :: Int
-                 -> RepN (XParams widthHidden widthHidden2 r)
-                 -> IO (RepN (XParams widthHidden widthHidden2 r))
+                 -> Concrete (XParams widthHidden widthHidden2 r)
+                 -> IO (Concrete (XParams widthHidden widthHidden2 r))
         runEpoch n params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHiddenInt < 10) $
@@ -279,11 +279,11 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
-                    RepN widthHidden widthHidden2 r
+                    Concrete widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
-      targetInit :: RepN (XParams widthHidden widthHidden2 r)
-      targetInit = toTarget @RepN valsInit
-      ftk = tftk @RepN (knownSTK @(XParams widthHidden widthHidden2 r))
+      targetInit :: Concrete (XParams widthHidden widthHidden2 r)
+      targetInit = toTarget @Concrete valsInit
+      ftk = tftk @Concrete (knownSTK @(XParams widthHidden widthHidden2 r))
                        targetInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -294,7 +294,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
                         , show gamma ]
       ftest :: [MnistDataLinearR r]
             -> MnistFcnnRanked1.ADFcnnMnist1Parameters
-                 RepN widthHidden widthHidden2 r
+                 Concrete widthHidden widthHidden2 r
             -> r
       ftest = MnistFcnnRanked1.afcnnMnistTest1 widthHiddenSNat widthHidden2SNat
   in testCase name $ do
@@ -319,8 +319,8 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
         artRaw = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
         art = simplifyArtifactGradient artRaw
         go :: [MnistDataLinearR r]
-           -> RepN (XParams widthHidden widthHidden2 r)
-           -> RepN (XParams widthHidden widthHidden2 r)
+           -> Concrete (XParams widthHidden widthHidden2 r)
+           -> Concrete (XParams widthHidden widthHidden2 r)
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =
@@ -328,9 +328,9 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
               gradient = tproject1 $ fst
                          $ revEvalArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma knownSTK parameters gradient)
-    let runBatch :: RepN (XParams widthHidden widthHidden2 r)
+    let runBatch :: Concrete (XParams widthHidden widthHidden2 r)
                  -> (Int, [MnistDataLinearR r])
-                 -> IO (RepN (XParams widthHidden widthHidden2 r))
+                 -> IO (Concrete (XParams widthHidden widthHidden2 r))
         runBatch !params (k, chunk) = do
           let res = go chunk params
               trainScore = ftest chunk (fromTarget res)
@@ -348,8 +348,8 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
                      prefix ((1 - testScore ) * 100)
           return res
     let runEpoch :: Int
-                 -> RepN (XParams widthHidden widthHidden2 r)
-                 -> IO (RepN (XParams widthHidden widthHidden2 r))
+                 -> Concrete (XParams widthHidden widthHidden2 r)
+                 -> IO (Concrete (XParams widthHidden widthHidden2 r))
         runEpoch n params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHiddenInt < 10) $
@@ -397,8 +397,8 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   RepN widthHidden widthHidden2 r Float)))
+        $ randomValue @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                                   Concrete widthHidden widthHidden2 r Float)))
                       1 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -413,13 +413,13 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map mkMnistDataLinearR . take (batchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    let f :: MnistDataLinearR r -> ADVal RepN (XParams2 r Float)
-          -> ADVal RepN (TKScalar r)
+    let f :: MnistDataLinearR r -> ADVal Concrete (XParams2 r Float)
+          -> ADVal Concrete (TKScalar r)
         f (glyph, label) adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2
             (rconcrete glyph, rconcrete label) (fromTarget adinputs)
-    let runBatch :: RepN (XParams2 r Float) -> (Int, [MnistDataLinearR r])
-                 -> IO (RepN (XParams2 r Float))
+    let runBatch :: Concrete (XParams2 r Float) -> (Int, [MnistDataLinearR r])
+                 -> IO (Concrete (XParams2 r Float))
         runBatch !params (k, chunk) = do
           let res = fst $ sgd gamma f chunk params
               trainScore =
@@ -438,8 +438,8 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
               printf "%s: Validation error: %.2f%%"
                      prefix ((1 - testScore ) * 100)
           return res
-    let runEpoch :: Int -> RepN (XParams2 r Float)
-                 -> IO (RepN (XParams2 r Float))
+    let runEpoch :: Int -> Concrete (XParams2 r Float)
+                 -> IO (Concrete (XParams2 r Float))
         runEpoch n params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHidden < 10) $
@@ -487,8 +487,8 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   RepN widthHidden widthHidden2 r Float)))
+        $ randomValue @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                                   Concrete widthHidden widthHidden2 r Float)))
                       1 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -503,7 +503,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map mkMnistDataLinearR . take (batchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    let ftk = tftk @RepN (knownSTK @(XParams2 r Float)) targetInit
+    let ftk = tftk @Concrete (knownSTK @(XParams2 r Float)) targetInit
     (_, _, var, varAst) <- funToAstRevIO ftk
     (varGlyph, astGlyph) <-
       funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) id
@@ -513,15 +513,15 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
         ast = MnistFcnnRanked2.afcnnMnistLoss2
                 (astGlyph, astLabel)
                 (fromTarget varAst)
-        f :: MnistDataLinearR r -> ADVal RepN (XParams2 r Float)
-          -> ADVal RepN (TKScalar r)
+        f :: MnistDataLinearR r -> ADVal Concrete (XParams2 r Float)
+          -> ADVal Concrete (TKScalar r)
         f (glyph, label) varInputs =
           let env = extendEnv var varInputs emptyEnv
               envMnist = extendEnv varGlyph (rconcrete glyph)
                          $ extendEnv varLabel (rconcrete label) env
           in interpretAstFull envMnist ast
-    let runBatch :: RepN (XParams2 r Float) -> (Int, [MnistDataLinearR r])
-                 -> IO (RepN (XParams2 r Float))
+    let runBatch :: Concrete (XParams2 r Float) -> (Int, [MnistDataLinearR r])
+                 -> IO (Concrete (XParams2 r Float))
         runBatch !params (k, chunk) = do
           let res = fst $ sgd gamma f chunk params
               trainScore =
@@ -540,7 +540,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
               printf "%s: Validation error: %.2f%%"
                      prefix ((1 - testScore ) * 100)
           return res
-    let runEpoch :: Int -> RepN (XParams2 r Float) -> IO (RepN (XParams2 r Float))
+    let runEpoch :: Int -> Concrete (XParams2 r Float) -> IO (Concrete (XParams2 r Float))
         runEpoch n params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHidden < 10) $
@@ -602,8 +602,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map mkMnistDataLinearR . take (batchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    let go :: [MnistDataLinearR r] -> RepN (XParams2 r Float)
-           -> RepN (XParams2 r Float)
+    let go :: [MnistDataLinearR r] -> Concrete (XParams2 r Float)
+           -> Concrete (XParams2 r Float)
         go [] parameters = parameters
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =
@@ -611,8 +611,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
               gradient = tproject1 $ fst
                          $ revEvalArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma knownSTK parameters gradient)
-    let runBatch :: RepN (XParams2 r Float) -> (Int, [MnistDataLinearR r])
-                 -> IO (RepN (XParams2 r Float))
+    let runBatch :: Concrete (XParams2 r Float) -> (Int, [MnistDataLinearR r])
+                 -> IO (Concrete (XParams2 r Float))
         runBatch !params (k, chunk) = do
           let res = go chunk params
               trainScore =
@@ -631,8 +631,8 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
               printf "%s: Validation error: %.2f%%"
                      prefix ((1 - testScore ) * 100)
           return res
-    let runEpoch :: Int -> RepN (XParams2 r Float)
-                 -> IO (RepN (XParams2 r Float))
+    let runEpoch :: Int -> Concrete (XParams2 r Float)
+                 -> IO (Concrete (XParams2 r Float))
         runEpoch n params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHidden < 10) $
@@ -674,17 +674,17 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
     forAll (choose (0, 1e-7)) $ \(perturbation :: Double) ->
     withSNat (1 + width1Hidden) $ \(SNat @widthHidden) ->
     withSNat (1 + width1Hidden2) $ \(SNat @widthHidden2) ->
-    let (glyph0, seed2) = randomValue @(RepN (TKS '[SizeMnistGlyph] Double))
+    let (glyph0, seed2) = randomValue @(Concrete (TKS '[SizeMnistGlyph] Double))
                                       0.5 (mkStdGen seed0)
-        (label0, seed3) = randomValue @(RepN (TKS '[SizeMnistLabel] Double))
+        (label0, seed3) = randomValue @(Concrete (TKS '[SizeMnistLabel] Double))
                                       5 seed2
         (glyph, label) = ( rmap1 (rscalar 0.5 +) $ forgetShape glyph0
                          , rmap1 (rscalar 5 + ) $ forgetShape label0 )
-        ds :: RepN (XParams2 Double Double)
+        ds :: Concrete (XParams2 Double Double)
         (ds, seed4) = first forgetShape $
           randomValue
-            @(RepN (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                         RepN widthHidden widthHidden2 Double Double)))
+            @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                         Concrete widthHidden widthHidden2 Double Double)))
             range seed3
         (targetInit, artRaw) =
           MnistFcnnRanked2.mnistTrainBench2VTOGradient
@@ -692,29 +692,29 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
             range2 seed4 (1 + width1Hidden) (1 + width1Hidden2)
         art = iterate simplifyArtifactGradient artRaw !! simp
         stk = knownSTK @(XParams2 Double Double)
-        ftk = tftk @RepN stk targetInit
+        ftk = tftk @Concrete stk targetInit
         parametersAndInput = tpair targetInit (tpair glyph label)
         (_gradient0, value0) = first tproject1 $
           revEvalArtifact art parametersAndInput Nothing
         (gradient1, value1) = first tproject1 $
           revEvalArtifact art parametersAndInput (Just $ kconcrete dt)
-        f :: ADVal RepN (XParams2 Double Double) -> ADVal RepN (TKScalar Double)
+        f :: ADVal Concrete (XParams2 Double Double) -> ADVal Concrete (TKScalar Double)
         f adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2
             (rfromPrimal glyph, rfromPrimal label) (fromTarget adinputs)
         (derivative2, value2) = cfwdBoth f targetInit ds
 --        goodDt :: forall r. GoodScalar r => r
 --        goodDt = ifDifferentiable @r (realToFrac dt) 0
---        targetDt :: RepN (XParams2 Double Double)
+--        targetDt :: Concrete (XParams2 Double Double)
 --        targetDt = constantTarget goodDt ftk
         goodPerturbation :: forall r. GoodScalar r => r
         goodPerturbation = ifDifferentiable @r (realToFrac perturbation) 0
-        targetPerturbed :: RepN (XParams2 Double Double)
+        targetPerturbed :: Concrete (XParams2 Double Double)
         targetPerturbed = tconstantTarget goodPerturbation ftk
-        targetInitPerturbed :: RepN (XParams2 Double Double)
+        targetInitPerturbed :: Concrete (XParams2 Double Double)
         targetInitPerturbed = taddTarget stk targetInit targetPerturbed
         (derivative3, value3) = cfwdBoth f targetInit targetPerturbed
-        value4 :: RepN (TKScalar Double)
+        value4 :: Concrete (TKScalar Double)
         value4 = MnistFcnnRanked2.afcnnMnistLoss2
                    (rfromPrimal glyph, rfromPrimal label)
                    (fromTarget targetInitPerturbed)

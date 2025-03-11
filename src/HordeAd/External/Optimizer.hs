@@ -20,18 +20,18 @@ import HordeAd.External.OptimizerTools
 sgdSTK :: forall a x z.
           SingletonTK x
        -> Double  -- ^ gamma (learning_rate?)
-       -> (a -> ADVal RepN x -> ADVal RepN z)
+       -> (a -> ADVal Concrete x -> ADVal Concrete z)
        -> [a]  -- ^ training data
-       -> RepN x  -- ^ initial parameters
-       -> (RepN x, RepN z)
+       -> Concrete x  -- ^ initial parameters
+       -> (Concrete x, Concrete z)
 sgdSTK stk gamma f trainingData parameters0 = go trainingData parameters0 where
-  zftk = tftkG stk $ unRepN parameters0
-  deltaInputs :: Delta RepN x
+  zftk = tftkG stk $ unConcrete parameters0
+  deltaInputs :: Delta Concrete x
   deltaInputs = generateDeltaInputs zftk
-  go :: [a] -> RepN x -> (RepN x, RepN z)
+  go :: [a] -> Concrete x -> (Concrete x, Concrete z)
   go [] parameters = (parameters, undefined)
   go (a : rest) !parameters =
-    let inputs :: ADVal RepN x
+    let inputs :: ADVal Concrete x
         inputs = dDnotShared parameters deltaInputs
         (gradients, valueNew) = crevOnADInputs Nothing (f a) zftk inputs
         parametersNew = updateWithGradient gamma stk parameters gradients
@@ -41,10 +41,10 @@ sgdSTK stk gamma f trainingData parameters0 = go trainingData parameters0 where
 
 sgd :: forall a x z. KnownSTK x
     => Double  -- ^ gamma (learning_rate?)
-    -> (a -> ADVal RepN x -> ADVal RepN z)
+    -> (a -> ADVal Concrete x -> ADVal Concrete z)
     -> [a]  -- ^ training data
-    -> RepN x  -- ^ initial parameters
-    -> (RepN x, RepN z)
+    -> Concrete x  -- ^ initial parameters
+    -> (Concrete x, Concrete z)
 sgd = sgdSTK knownSTK
 
 -- We inline (possibly causing a binary blowup) until we are able to work around
@@ -53,33 +53,33 @@ sgd = sgdSTK knownSTK
 -- | An implementation of the Adam gradient descent.
 sgdAdam
   :: forall a x z . KnownSTK x
-  => (a -> ADVal RepN x -> ADVal RepN z)
+  => (a -> ADVal Concrete x -> ADVal Concrete z)
   -> [a]
-  -> RepN x
+  -> Concrete x
   -> StateAdam x
-  -> (RepN x, StateAdam x)
+  -> (Concrete x, StateAdam x)
 {-# INLINE sgdAdam #-}
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs
   :: forall a x z. KnownSTK x
   => ArgsAdam
-  -> (a -> ADVal RepN x -> ADVal RepN z)
+  -> (a -> ADVal Concrete x -> ADVal Concrete z)
   -> [a]
-  -> RepN x
+  -> Concrete x
   -> StateAdam x
-  -> (RepN x, StateAdam x)
+  -> (Concrete x, StateAdam x)
 {-# INLINE sgdAdamArgs #-}
 sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
-  zftk = tftkG knownSTK $ unRepN parameters0
-  deltaInputs :: Delta RepN x
+  zftk = tftkG knownSTK $ unConcrete parameters0
+  deltaInputs :: Delta Concrete x
   deltaInputs = generateDeltaInputs zftk
-  go :: [a] -> RepN x -> StateAdam x -> (RepN x, StateAdam x)
+  go :: [a] -> Concrete x -> StateAdam x -> (Concrete x, StateAdam x)
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =
-    let inputs :: ADVal RepN x
+    let inputs :: ADVal Concrete x
         inputs = dDnotShared parameters deltaInputs
         gradients = fst $ crevOnADInputs Nothing (f a) zftk inputs
         (parametersNew, stateAdamNew) =
