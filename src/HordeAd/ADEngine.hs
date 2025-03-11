@@ -7,12 +7,12 @@
 module HordeAd.ADEngine
   ( -- * Reverse derivative adaptors
     IncomingCotangentHandling(..)
-  , grad, revDt, revArtifactAdapt, revArtifactDelta
+  , grad, vjp, revArtifactAdapt, revArtifactDelta
   , revProduceArtifactWithoutInterpretation, revEvalArtifact
     -- * Forward derivative adaptors
   , fwd, fwdEvalArtifact
     -- * Non-AST gradient adaptors
-  , cgrad, crevDt
+  , cgrad, cvjp
     -- * Non-AST derivative adaptors
   , cfwd, cfwdBoth
   ) where
@@ -68,7 +68,7 @@ grad
   -> Value astvals
   -> Value astvals
 {-# INLINE grad #-}
-grad f vals = revDtMaybe f vals Nothing
+grad f vals = vjpMaybe f vals Nothing
 
 -- | This version of the reverse derivative operation
 -- explicitly takes the sensitivity parameter (the incoming cotangent).
@@ -78,7 +78,7 @@ grad f vals = revDtMaybe f vals Nothing
 -- the type often has to be spelled in full, instead of giving
 -- only the rank or shape and/or the base scalar type of a single
 -- tensor codomain.
-revDt
+vjp
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
@@ -87,10 +87,10 @@ revDt
   -> Value astvals
   -> Concrete (ADTensorKind z)
   -> Value astvals
-{-# INLINE revDt #-}
-revDt f vals dt = revDtMaybe f vals (Just dt)
+{-# INLINE vjp #-}
+vjp f vals dt = vjpMaybe f vals (Just dt)
 
-revDtMaybe
+vjpMaybe
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
@@ -99,8 +99,8 @@ revDtMaybe
   -> Value astvals
   -> Maybe (Concrete (ADTensorKind z))
   -> Value astvals  -- morally Value (ADTensorKind astvals)
-{-# INLINE revDtMaybe #-}
-revDtMaybe f vals0 mdt =
+{-# INLINE vjpMaybe #-}
+vjpMaybe f vals0 mdt =
   let valsTarget = toTarget vals0
       xftk = tftkG (knownSTK @(X astvals)) $ unConcrete valsTarget
       cotangentHandling =
@@ -255,10 +255,10 @@ cgrad
   -> DValue advals
   -> DValue advals
 {-# INLINE cgrad #-}
-cgrad f vals = crevDtMaybe f vals Nothing
+cgrad f vals = cvjpMaybe f vals Nothing
 
 -- | This version additionally takes the sensitivity parameter.
-crevDt
+cvjp
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal Concrete) advals
@@ -267,10 +267,10 @@ crevDt
   -> DValue advals
   -> Concrete (ADTensorKind z)
   -> DValue advals
-{-# INLINE crevDt #-}
-crevDt f vals dt = crevDtMaybe f vals (Just dt)
+{-# INLINE cvjp #-}
+cvjp f vals dt = cvjpMaybe f vals (Just dt)
 
-crevDtMaybe
+cvjpMaybe
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal Concrete) advals
@@ -279,8 +279,8 @@ crevDtMaybe
   -> DValue advals
   -> Maybe (Concrete (ADTensorKind z))
   -> DValue advals  -- morally DValue (ADTensorKind advals)
-{-# INLINE crevDtMaybe #-}
-crevDtMaybe f vals mdt =
+{-# INLINE cvjpMaybe #-}
+cvjpMaybe f vals mdt =
   let g :: ADVal Concrete (X advals) -> ADVal Concrete z
       g = f . fromTarget
       xftk = tftkG (knownSTK @(X advals)) $ unConcrete valsTarget

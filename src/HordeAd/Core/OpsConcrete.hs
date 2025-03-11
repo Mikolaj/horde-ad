@@ -452,14 +452,14 @@ instance BaseTensor Concrete where
   tfromPrimal _ t = t
   tfromDual (DummyDualTarget ftk) = treplTarget 0 ftk
   tScale _ _ t = t
-  -- The code for trevDt and tfwd in this instance is similar as for the
+  -- The code for tvjp and tfwd in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
   tgrad @x xftk h =
     let rf :: RepConcrete x -> RepConcrete (ADTensorKind x)
         rf !a = unConcrete $ fst $ crevOnHVector Nothing (unHFun h)
                                              xftk (Concrete a)
     in rf
-  trevDt @x @z xftk h =
+  tvjp @x @z xftk h =
     let rf :: RepConcrete (TKProduct (ADTensorKind z) x) -> RepConcrete (ADTensorKind x)
         rf !db_a = unConcrete $ fst
                    $ crevOnHVector (Just $ Concrete $ fst db_a) (unHFun h)

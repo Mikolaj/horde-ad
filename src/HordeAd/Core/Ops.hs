@@ -156,7 +156,7 @@ tmapAccumR proxy !k !accftk !bftk !eftk f acc0 es =
   in tmapAccumRDer proxy k accftk bftk eftk
                    (tlambda @target xftk (HFun fl))
                    (tfwd @target xftk $ HFun fl)
-                   (trevDt @target xftk $ HFun fl)
+                   (tvjp @target xftk $ HFun fl)
                    acc0 es
 -- | A strict left mapAccum.
 tmapAccumL
@@ -183,7 +183,7 @@ tmapAccumL proxy !k !accftk !bftk !eftk f acc0 es =
   in tmapAccumLDer proxy k accftk bftk eftk
                    (tlambda @target xftk (HFun fl))
                    (tfwd @target xftk $ HFun fl)
-                   (trevDt @target xftk $ HFun fl)
+                   (tvjp @target xftk $ HFun fl)
                    acc0 es
 
 type TensorSupports :: (Type -> Constraint) -> (Type -> Constraint) -> Target -> Constraint
@@ -908,7 +908,7 @@ class ( Num (IntOf target)
 
   -- | A strict right mapAccum.
   --
-  -- The applications of 'tfwd' and 'trevDt' performed already at this point
+  -- The applications of 'tfwd' and 'tvjp' performed already at this point
   -- ensure that the computation of a derivative is not repeated
   -- and that its result is shared. However, most of the time
   -- the computation is unnneeded, so the AST instance uses a non-strict
@@ -979,7 +979,7 @@ class ( Num (IntOf target)
     :: FullShapeTK x  -- ^ shape of x and dx
     -> HFun x z  -- ^ x |-> z
     -> HFunOf target x (ADTensorKind x)  -- ^ x |-> dx
-  trevDt
+  tvjp
     :: FullShapeTK x  -- ^ shape of x and dx
     -> HFun x z  -- ^ x |-> z
     -> HFunOf target (TKProduct (ADTensorKind z) x) (ADTensorKind x)

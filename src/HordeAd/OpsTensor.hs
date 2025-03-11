@@ -42,7 +42,7 @@ module HordeAd.OpsTensor
     -- * Array operations derived from `mapAccum`
   , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
     -- * Array operations producing derivatives
-  , rgrad, rrevDt, rfwd, sgrad, srevDt, sfwd
+  , rgrad, rvjp, rfwd, sgrad, svjp, sfwd
     -- * Operations about dual numbers
   , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
   , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
@@ -1014,15 +1014,15 @@ rgrad :: forall n x r target. BaseTensor target
 rgrad f xftk =
   \ !es -> tApply (tgrad @target xftk (HFun f)) es
 -- We can't get sh from anywhere, so this is not possible:
--- rgrad f shs es = rrevDt f shs es (rreplicate0N sh 1)
-rrevDt :: forall n x r target. BaseTensor target
+-- rgrad f shs es = rvjp f shs es (rreplicate0N sh 1)
+rvjp :: forall n x r target. BaseTensor target
        => (forall f. ADReady f => f x -> f (TKR2 n r))  -- ^ x |-> z
        -> FullShapeTK x  -- ^ shape of x and dx
        -> target x  -- ^ input x
        -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent dz
        -> target (ADTensorKind x)  -- ^ gradient dx
-rrevDt f xftk =
-  \ !es !dt -> tApply (trevDt @target xftk $ HFun f) (tpair dt es)
+rvjp f xftk =
+  \ !es !dt -> tApply (tvjp @target xftk $ HFun f) (tpair dt es)
 rfwd :: forall n x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKR2 n r))  -- ^ x |-> z
      -> FullShapeTK x  -- ^ shape of x and dx
@@ -1038,14 +1038,14 @@ sgrad :: forall sh x r target. BaseTensor target
      -> target (ADTensorKind x)  -- ^ gradient dx
 sgrad f xftk =
   \ !es -> tApply (tgrad @target xftk (HFun f)) es
-srevDt :: forall sh x r target. BaseTensor target
+svjp :: forall sh x r target. BaseTensor target
        => (forall f. ADReady f => f x -> f (TKS2 sh r))  -- ^ x |-> z
        -> FullShapeTK x  -- ^ shape of x and dx
        -> target x  -- ^ input x
        -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent dz
        -> target (ADTensorKind x)  -- ^ gradient dx
-srevDt f xftk =
-  \ !es !dt -> tApply (trevDt @target xftk $ HFun f) (tpair dt es)  -- ^ x |-> z
+svjp f xftk =
+  \ !es !dt -> tApply (tvjp @target xftk $ HFun f) (tpair dt es)  -- ^ x |-> z
 sfwd :: forall sh x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKS2 sh r))
      -> FullShapeTK x  -- ^ shape of x and dx

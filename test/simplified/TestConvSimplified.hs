@@ -469,8 +469,8 @@ test_disparityKonst = do
       arrR :: ADReady target => target (TKR 4 Double)
       arrR = rreplicate0N [1, 2, 4, 6] (rscalar 0.3)
       arrO = costVolume @Double 0 4 arrL arrR
-      arrDL = revDt (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 4 (rfromPrimal arrL) aR) arrR arrO
+      arrDL = vjp (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
+      arrDR = vjp (\aR -> costVolume 0 4 (rfromPrimal arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
     (rconcrete $ Nested.rfromListPrimLinear [1,4,4,6] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0])
     arrO
@@ -500,9 +500,9 @@ test_disparityKonst2 = do
       res1 = rconcrete $ Nested.rfromListPrimLinear [1,2,4,6] [4.0,2.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,2.0,0.0,0.0,-2.0,0.0,4.0,4.0,2.0,0.0,-4.0,1.0,4.0,4.0,4.0,-4.0,2.0,4.0,2.0]
       res2 = rconcrete $ Nested.rfromListPrimLinear [1,2,4,6] [-4.0,0.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,-4.0,-2.0,-4.0,-3.0,-2.0,-1.0,-4.0,-4.0,-4.0,-3.0,-2.0,-1.0,4.0,4.0,-4.0,1.0,-2.0,-1.0,-2.0,3.0,2.0,-1.0,-2.0,-1.0,-2.0,0.0,-2.0,-3.0,-2.0,1.0]
       arrDL :: Concrete (TKR 4 Double)
-      arrDL = revDt (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
+      arrDL = vjp (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
       arrDR :: Concrete (TKR 4 Double)
-      arrDR = revDt (costVolume 0 4 (rfromPrimal arrL)) arrR arrO
+      arrDR = vjp (costVolume 0 4 (rfromPrimal arrL)) arrR arrO
   assertEqualUpToEpsilon 1e-7
     res1
     arrDL
@@ -523,8 +523,8 @@ test_disparitySmall = do
       arrR :: ADReady target => target (TKR 4 Double)
       arrR = ringestData [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
       arrO = costVolume @Double 0 4 arrL arrR
-      arrDL = revDt (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 4 (rfromPrimal arrL) aR) arrR arrO
+      arrDL = vjp (\aL -> costVolume 0 4 aL (rfromPrimal arrR)) arrL arrO
+      arrDR = vjp (\aR -> costVolume 0 4 (rfromPrimal arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
     (rconcrete $ Nested.rfromListPrimLinear [1,4,3,2] [1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3])
     arrO

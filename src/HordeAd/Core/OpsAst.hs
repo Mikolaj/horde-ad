@@ -585,7 +585,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         AstArtifactRev{..} =
           revProduceArtifact IgnoreIncomingCotangent (unHFun f) emptyEnv xftk
     in AstLambda artVarDomainRev (simplifyInline artDerivativeRev)
-  trevDt ftkx f =
+  tvjp ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let AstArtifactRev{..} =
@@ -1082,7 +1082,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- tmapAccumR and tmapAccumL, they have to work. We could refrain from
   -- simplifying the resulting terms, but it's not clear that's more consistent.
   tgrad = tgrad @(AstTensor AstMethodLet PrimalSpan)
-  trevDt = trevDt @(AstTensor AstMethodLet PrimalSpan)
+  tvjp = tvjp @(AstTensor AstMethodLet PrimalSpan)
   tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
 
   tfromVector k stk =
@@ -1395,7 +1395,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
   tfromDual t = AstNoVectorize $ tfromDual t
   tgrad = tgrad @(AstTensor AstMethodLet PrimalSpan)
-  trevDt = trevDt @(AstTensor AstMethodLet PrimalSpan)
+  tvjp = tvjp @(AstTensor AstMethodLet PrimalSpan)
   tfwd = tfwd @(AstTensor AstMethodLet PrimalSpan)
 
   tfromVector k stk =
@@ -1624,7 +1624,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tprimalPart t = wAstNoSimplify $ tprimalPart $ wunAstNoSimplify t
   tfromPrimal stk t = wAstNoSimplify $ tfromPrimal stk $ wunAstNoSimplify t
   tgrad = tgrad @(AstRaw PrimalSpan)
-  trevDt = trevDt @(AstRaw PrimalSpan)
+  tvjp = tvjp @(AstRaw PrimalSpan)
   tfwd = tfwd @(AstRaw PrimalSpan)
 
   tfromVector k stk =

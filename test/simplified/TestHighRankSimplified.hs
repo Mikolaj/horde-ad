@@ -306,14 +306,14 @@ testFooBuildDt :: Assertion
 testFooBuildDt =
   assertEqualUpToEpsilon 1e-5
     (rconcrete $ Nested.rfromListPrimLinear [2,2,1,2,2] [1.1033568028244503e7,74274.22833989389,-5323238.2765011545,253074.03394016018,4.14744804041263e7,242643.98750578283,-1.922371592087736e7,2.730274503834733e7,1.135709425204681e7,6924.195066252549,-5345004.080027547,255679.51406100337,3.8870981856703006e7,241810.92121468345,-1.9380955730171032e7,2.877024321777493e7])
-    (revDt @_ @(TKR 5 Double)
+    (vjp @_ @(TKR 5 Double)
            fooBuild5 t16 (rreplicate0N [2, 2, 1, 2, 2] (rscalar 42)))
 
 testFooBuildDt2 :: Assertion
 testFooBuildDt2 =
   assertEqualUpToEpsilon 1e-5
     (rconcrete $ Nested.rfromListPrimLinear [2,2,1,2,2] [2.206713605648901e7,148548.45667978778,-1.0646476553002307e7,506148.0678803204,8.294896080825263e7,485287.9750115657,-3.844743184175473e7,5.460549007669466e7,2.271418850409362e7,13848.390132505112,-1.0690008160055092e7,511359.0281220066,7.774196371340603e7,483621.8424293669,-3.876191146034207e7,5.754048643554987e7])
-    (revDt @_ @(TKProduct (TKR 5 Double) (TKR 5 Double))
+    (vjp @_ @(TKProduct (TKR 5 Double) (TKR 5 Double))
            (\x -> let y = fooBuild5 x in tpair y y) t16 (let dt = rreplicate0N [2, 2, 1, 2, 2] (rscalar 42) in tpair dt dt))
 
 testFooBuild5 :: Assertion
@@ -508,14 +508,14 @@ testBarReluADValDt :: Assertion
 testBarReluADValDt =
   assertEqualUpToEpsilon 1e-6
     (rconcrete $ Nested.rfromListPrimLinear [2,2,1,2,2] [1.2916050471365906e-2,1.2469757606504572e-2,1.3064120086501589e-2,1.2320300700062944e-2,0.0,1.217049789428711e-2,1.2185494267265312e-2,0.0,1.4105363649830907e-2,1.3506236503127638e-2,1.3359213691150671e-2,0.0,1.7066665416485535e-2,1.2618022646204737e-2,0.0,1.595161947206668e-2])
-    (revDt @_ @(TKR 5 Double)
+    (vjp @_ @(TKR 5 Double)
            barRelu t16 (rreplicate0N [ 2 , 2 , 1 , 2 , 2 ] (rscalar 42.2)))
 
 testBarReluADValDt2 :: Assertion
 testBarReluADValDt2 =
   assertEqualUpToEpsilon 1e-6
     (rconcrete $ Nested.rfromListPrimLinear [2,2,1,2,2] [84.42583210117625,84.42493951543845,84.4261282404092,84.42464060162287,84.4,84.42434099465609,84.4243709887547,84.4,84.42821072755468,84.42701247325044,84.42671842762383,84.4,84.43413333114152,84.42523604552053,84.4,84.43190323923253])
-    (revDt @_ @(TKProduct
+    (vjp @_ @(TKProduct
                   (TKR 4 Double)
                   (TKProduct (TKR 5 Float)
                              (TKS [2,2,1,2,2] Double)))

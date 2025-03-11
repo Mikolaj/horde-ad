@@ -1405,7 +1405,7 @@ testFooBuildDt :: Assertion
 testFooBuildDt =
   assertEqualUpToEpsilon 1e-5
     (rconcrete $ Nested.rfromListPrimLinear [4] [-189890.46351219364,-233886.08744601303,-222532.22669716467,-206108.68889329425])
-    (revDt @_ @(TKR 1 Double)
+    (vjp @_ @(TKR 1 Double)
            fooBuild1 (ringestData [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [3] (rscalar 42)))
 
 testFooBuildCFwd :: Assertion
@@ -1527,7 +1527,7 @@ testBarReluDt :: Assertion
 testBarReluDt =
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [191.20462646925841])
-    (revDt @_ @(TKR 0 Double)
+    (vjp @_ @(TKR 0 Double)
            barRelu (rscalar 1.1) (rscalar 42.2))
 
 testBarRelu :: Assertion
@@ -1556,7 +1556,7 @@ testBarReluMaxDt :: Assertion
 testBarReluMaxDt =
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [191.20462646925841])
-    (revDt @_ @(TKR 0 Double)
+    (vjp @_ @(TKR 0 Double)
            barReluMax (rfromList0N [] [rscalar 1.1]) (rscalar 42.2))
 
 testBarReluMax :: Assertion

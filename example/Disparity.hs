@@ -61,8 +61,8 @@ testCostVolume
         arrS    = random @'[1, 4, 4, 6] @Double 3
           -- TODO: this is unused
         arrO    = primal $ costVolume 0 (SNat :: SNat 4) (constant arrL) (constant arrR)
-        arrDL   = revDt (\aL -> costVolume 0 SNat aL (constant arrR)) arrL arrO
-        arrDR   = revDt (\aR -> costVolume 0 SNat (constant arrL) aR) arrR arrO
+        arrDL   = vjp (\aL -> costVolume 0 SNat aL (constant arrR)) arrL arrO
+        arrDR   = vjp (\aR -> costVolume 0 SNat (constant arrL) aR) arrR arrO
    in   putStrLn $ unlines
          [ "arrL  = " ++ show arrL
          , "arrR  = " ++ show arrR

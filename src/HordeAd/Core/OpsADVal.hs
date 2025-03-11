@@ -503,7 +503,7 @@ instance ( ADReadyNoLet target, ShareTensor target
                              xftk
                              (toShare aShared)
     in HFun rf
-  trevDt @x @z xftk h =
+  tvjp @x @z xftk h =
     let rf :: forall f. ADReady f
            => f (TKProduct (ADTensorKind z) x)
            -> f (ADTensorKind x)
