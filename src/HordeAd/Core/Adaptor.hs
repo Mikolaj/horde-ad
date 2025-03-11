@@ -49,7 +49,8 @@ class AdaptableTarget (target :: Target) vals where
   toTarget :: vals -> target (X vals)
     -- ^ represent a collection of tensors
   fromTarget :: target (X vals) -> vals
-    -- ^ recovers a collection of tensors from its canonical representation
+    -- ^ recovers a collection of tensors from its canonical representation;
+    --   requires a duplicable argument
 
 class TermValue vals where
   type Value vals = result | result -> vals

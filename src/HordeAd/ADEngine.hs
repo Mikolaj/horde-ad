@@ -119,8 +119,7 @@ revArtifactAdapt
 revArtifactAdapt cotangentHandling f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
-      g !hv = ttlet hv $ \ !hvShared ->
-        f $ fromTarget hvShared
+      g !arg = ttlet arg $ f . fromTarget  -- fromTarget requires duplicable
   in revProduceArtifact cotangentHandling g emptyEnv xftk
 
 -- For tests only.
@@ -134,8 +133,7 @@ revArtifactDelta
 revArtifactDelta cotangentHandling f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
-      g !hv = ttlet hv $ \ !hvShared ->
-        f $ fromTarget hvShared
+      g !arg = ttlet arg $ f . fromTarget
   in revArtifactFromForwardPass cotangentHandling
                                 (forwardPassByInterpretation g emptyEnv) xftk
 
@@ -209,8 +207,7 @@ fwd
 fwd f vals ds =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
-      g !hv = ttlet hv $ \ !hvShared ->
-        f $ fromTarget hvShared
+      g !arg = ttlet arg $ f . fromTarget
       valsTarget = toTarget vals
       xftk = tftkG (knownSTK @(X astvals)) $ unRepN valsTarget
       artifact = fst $ fwdProduceArtifact g emptyEnv xftk

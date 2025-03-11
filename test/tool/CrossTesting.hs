@@ -78,6 +78,8 @@ rev' f vals =
          -> ADVal (AstRaw PrimalSpan) (TKR m r)
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
                   $ fromTarget inputs
+        -- fromTarget is fine, because primal of inputs is a variable,
+        -- hence it's duplicable
       artifactsGradAst9 =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent g9 ftk
@@ -149,6 +151,8 @@ rev' f vals =
       hAst fx1 fx2 gx inputs
         = hGeneral @(ADVal (AstRaw PrimalSpan))
                    fx1 fx2 gx (fromTarget inputs)
+        -- fromTarget is fine, because primal of inputs is a variable,
+        -- hence it's duplicable
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst id id id) ftk
