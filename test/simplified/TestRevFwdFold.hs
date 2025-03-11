@@ -496,7 +496,7 @@ testSin0FoldB2 = do
     (grad (let f :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
                f x0 = rfold (\_x _a -> rscalar 7)
                         (rscalar 5) (rreplicate 1 x0)
-           in f) (rscalar 1.1))
+           in kfromR . f) (rscalar 1.1))
 
 testSin0FoldB3 :: Assertion
 testSin0FoldB3 = do
@@ -1244,7 +1244,7 @@ testSin0rmapAccumRD0S = do
                            in g)
                           x0
                           (srepl 0)
-            in f) (srepl 1.1))
+            in kfromS . f) (srepl 1.1))
 
 testSin0rmapAccumRD00SC :: Assertion
 testSin0rmapAccumRD00SC = do
@@ -1262,7 +1262,7 @@ testSin0rmapAccumRD00SC = do
                            in g)
                           x0
                           (srepl 0)
-             in f) (srepl 1.1))
+             in kfromS . f) (srepl 1.1))
 
 testSin0rmapAccumRD00S0 :: Assertion
 testSin0rmapAccumRD00S0 = do
@@ -1280,7 +1280,7 @@ testSin0rmapAccumRD00S0 = do
                            in g)
                           x0
                           (treplicate (SNat @0) stkUnit tunit)
-            in f) (srepl 1.1))
+            in kfromS . f) (srepl 1.1))
 
 testSin0rmapAccumRD00S :: Assertion
 testSin0rmapAccumRD00S = do
@@ -1298,7 +1298,7 @@ testSin0rmapAccumRD00S = do
                            in g)
                           x0
                           (treplicate (SNat @7) stkUnit tunit)
-            in f) (srepl 1.1))
+            in kfromS . f) (srepl 1.1))
 
 testSin0rmapAccumRD00S7 :: Assertion
 testSin0rmapAccumRD00S7 = do
@@ -1316,8 +1316,27 @@ testSin0rmapAccumRD00S7 = do
                            in g)
                           x0
                           (treplicate (SNat @7) stkUnit tunit)
-            in f) (srepl 1.1))
+            in kfromS . ssum0 . f) (srepl 1.1))
 
+testSin0rmapAccumRD00SCacc0 :: Assertion
+testSin0rmapAccumRD00SCacc0 = do
+  assertEqualUpToEpsilon 1e-10
+    (srepl 0)
+    (cvjp (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
+               f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @0)
+                          ftkUnit
+                          ftkUnit
+                          (FTKS ZSS FTKScalar)
+                          (let g :: forall g. ADReady g
+                                 => g TKUnit -> g (TKS '[] Double)
+                                 -> g (TKProduct TKUnit TKUnit)
+                               g x _a = tpair x tunit
+                           in g)
+                          tunit
+                          (srepl 0)
+            in f) (srepl 1.1) (sfromList0N []))
+
+{- TODO: crashes
 testSin0rmapAccumRD00SCacc0 :: Assertion
 testSin0rmapAccumRD00SCacc0 = do
   assertEqualUpToEpsilon 1e-10
@@ -1334,7 +1353,8 @@ testSin0rmapAccumRD00SCacc0 = do
                            in g)
                           tunit
                           (srepl 0)
-             in f) (srepl 1.1))
+             in kfromS . ssum0 . f) (srepl 1.1))
+-}
 
 testSin0rmapAccumRD00SCacc :: Assertion
 testSin0rmapAccumRD00SCacc = do
@@ -1352,7 +1372,7 @@ testSin0rmapAccumRD00SCacc = do
                            in g)
                           tunit
                           (srepl 0)
-             in f) (srepl 1.1))
+             in kfromS . ssum0 . f) (srepl 1.1))
 
 testSin0rmapAccumRD00Sacc0 :: Assertion
 testSin0rmapAccumRD00Sacc0 = do
@@ -1370,7 +1390,7 @@ testSin0rmapAccumRD00Sacc0 = do
                            in g)
                           tunit
                           (srepl 0)
-             in f) (srepl 1.1))
+             in kfromS . ssum0 . f) (srepl 1.1))
 
 testSin0rmapAccumRD00Sacc :: Assertion
 testSin0rmapAccumRD00Sacc = do
@@ -1388,10 +1408,29 @@ testSin0rmapAccumRD00Sacc = do
                            in g)
                           tunit
                           (srepl 0)
-             in f) (srepl 1.1))
+             in kfromS . ssum0 . f) (srepl 1.1))
 
 testSin0rmapAccumRD00SCall0 :: Assertion
 testSin0rmapAccumRD00SCall0 = do
+  assertEqualUpToEpsilon 1e-10
+    (srepl 0)
+    (cvjp (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
+               f _x0 = tproject2 $ tmapAccumR (Proxy @f) (SNat @0)
+                          ftkUnit
+                          ftkUnit
+                          ftkUnit
+                          (let g :: forall g. ADReady g
+                                 => g TKUnit -> g TKUnit
+                                 -> g (TKProduct TKUnit TKUnit)
+                               g x _a = tpair x tunit
+                           in g)
+                          tunit
+                          (treplicate (SNat @0) stkUnit tunit)
+            in f) (srepl 1.1) (sfromList0N []))
+
+{- TODO: crashes
+testSin0rmapAccumRD00SCall00 :: Assertion
+testSin0rmapAccumRD00SCall00 = do
   assertEqualUpToEpsilon 1e-10
     (srepl 0)
     (cgrad (let f :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[0] Z0)
@@ -1406,8 +1445,8 @@ testSin0rmapAccumRD00SCall0 = do
                            in g)
                           tunit
                           (treplicate (SNat @0) stkUnit tunit)
-             in f) (srepl 1.1))
-
+             in kfromS . ssum0 . f) (srepl 1.1))
+-}
 testSin0rmapAccumRD00SCall :: Assertion
 testSin0rmapAccumRD00SCall = do
   assertEqualUpToEpsilon 1e-10
@@ -1424,7 +1463,7 @@ testSin0rmapAccumRD00SCall = do
                            in g)
                           tunit
                           (treplicate (SNat @7) stkUnit tunit)
-            in f) (srepl 1.1))
+            in kfromS . ssum0 . f) (srepl 1.1))
 
 testSin0rmapAccumRD00Sall0 :: Assertion
 testSin0rmapAccumRD00Sall0 = do
@@ -1442,7 +1481,7 @@ testSin0rmapAccumRD00Sall0 = do
                            in g)
                           tunit
                           (treplicate (SNat @0) stkUnit tunit)
-             in f) (srepl 1.1))
+             in kfromS . ssum0 . f) (srepl 1.1))
 
 testSin0rmapAccumRD00Sall :: Assertion
 testSin0rmapAccumRD00Sall = do
@@ -1460,7 +1499,7 @@ testSin0rmapAccumRD00Sall = do
                            in g)
                           tunit
                           (treplicate (SNat @7) stkUnit tunit)
-             in f) (srepl 1.1))
+             in kfromS . ssum0 . f) (srepl 1.1))
 
 testSin0rmapAccumRD0R :: Assertion
 testSin0rmapAccumRD0R = do

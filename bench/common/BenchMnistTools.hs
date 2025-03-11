@@ -63,14 +63,14 @@ mnistTrainBench1VTA prefix widthHiddenInt widthHidden2Int
             widthHiddenSNat widthHidden2SNat
             (rconcrete glyph, rconcrete label) (fromTarget adinputs)
         chunk = take batchSize xs
-        grad c = fst $ sgdSTK knownSTK gamma f c targetInit
+        gradf c = fst $ sgdSTK knownSTK gamma f c targetInit
         name =
           prefix
           ++ unwords
                [ "v" ++ show (widthSTK
                               $ knownSTK @(XParams widthHidden widthHidden2 r))
                , "m0" ++ " =" ++ show (tsize knownSTK targetInit) ]
-    bench name $ nf grad chunk
+    bench name $ nf gradf chunk
 
 mnistTestBench1VTA
   :: forall r. r ~ Double
@@ -196,14 +196,14 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
                          $ revEvalArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma knownSTK parameters gradient)
         chunk = take batchSize xs
-        grad c = go c targetInit
+        gradf c = go c targetInit
         name =
           prefix
           ++ unwords
                [ "v" ++ show (widthSTK
                               $ knownSTK @(XParams widthHidden widthHidden2 r))
                , "m0" ++ " =" ++ show (tsize knownSTK targetInit) ]
-    bench name $ nf grad chunk
+    bench name $ nf gradf chunk
 
 mnistTestBench1VTO
   :: forall r. r ~ Double
@@ -267,13 +267,13 @@ mnistTrainBench2VTA prefix widthHidden widthHidden2
           MnistFcnnRanked2.afcnnMnistLoss2
             (rconcrete glyph, rconcrete label) (fromTarget adinputs)
         chunk = take batchSize xs
-        grad c = fst $ sgd gamma f c targetInit
+        gradf c = fst $ sgd gamma f c targetInit
         name =
           prefix
           ++ unwords
                [ "v0 m" ++ show (widthSTK $ knownSTK @(XParams2 r Float))
                , "=" ++ show (tsize knownSTK targetInit) ]
-    bench name $ nf grad chunk
+    bench name $ nf gradf chunk
 
 mnistTestBench2VTA
   :: forall r. r ~ Double
@@ -381,13 +381,13 @@ mnistTrainBench2VTO prefix gamma batchSize xs (targetInit, art) = do
                          $ revEvalArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma knownSTK parameters gradient)
         chunk = take batchSize xs
-        grad c = go c targetInit
+        gradf c = go c targetInit
         name =
           prefix
           ++ unwords
                [ "v0 m" ++ show (widthSTK $ knownSTK @(XParams2 r Float))
                , "=" ++ show (tsize knownSTK targetInit) ]
-    bench name $ nf grad chunk
+    bench name $ nf gradf chunk
 
 mnistBGroup2VTO :: Int -> Benchmark
 mnistBGroup2VTO chunkLength =

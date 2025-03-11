@@ -60,11 +60,11 @@ instance KnownSTK y
 -- down to concrete arrays and so there's no risk of confusion of cotangents
 -- from different levels of differentiation if it's done multiple times.
 grad
-  :: forall astvals z.
+  :: forall astvals r.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
      , AdaptableTarget Concrete (Value astvals) )
-  => (astvals -> AstTensor AstMethodLet FullSpan z)
+  => (astvals -> AstTensor AstMethodLet FullSpan (TKScalar r))
   -> Value astvals
   -> Value astvals
 {-# INLINE grad #-}

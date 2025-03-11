@@ -270,15 +270,17 @@ testZero4s :: Assertion
 testZero4s =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[] knownShS [0])
-    (grad @(AstTensor AstMethodLet FullSpan (TKS '[] Double)) @(TKS '[] Double)
-         (let f = const (srepl 3)
+    (grad @(AstTensor AstMethodLet FullSpan (TKS '[] Double))
+          (kfromS @_ @Double .
+          let f = const (srepl 3)
           in f) (srepl 42))
 
 testZero5S :: Assertion
 testZero5S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[44] knownShS (replicate 44 1))
-    (grad (let f :: a -> a
+    (grad (kfromS . ssum0 .
+           let f :: a -> a
                f = id
            in f @(AstTensor AstMethodLet FullSpan (TKS '[44] Double))) (srepl 42))
 
@@ -286,20 +288,19 @@ testZero6S :: Assertion
 testZero6S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] knownShS (replicate (product ([2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] :: [Int])) 3.6174114266850617))
-    (grad @_ @(TKS '[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] Double)
-         (\x -> barF (x, x)) (srepl 1))
+    (grad (kfromS . ssum0 @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] @(TKScalar Double) . (\x -> barF (x, x))) (srepl 1))
 
 testZero7S :: Assertion
 testZero7S =
   assertEqualUpToEpsilon 1e-10
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[] knownShS [0])
-    (grad (const (rscalar 3) :: AstTensor AstMethodLet FullSpan (TKS '[] Double) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)) (srepl 42))
+    (grad (kfromR . (const (rscalar 3) :: AstTensor AstMethodLet FullSpan (TKS '[] Double) -> AstTensor AstMethodLet FullSpan (TKR 0 Double))) (srepl 42))
 
 testZero8 :: Assertion
 testZero8 =
   assertEqualUpToEpsilon 1e-10
     (rfromList0N [] [rscalar 0])
-    (grad (const (sscalar 3) :: AstTensor AstMethodLet FullSpan (TKR 0 Double) -> AstTensor AstMethodLet FullSpan (TKS '[] Double)) (rscalar 42))
+    (grad (kfromS . (const (sscalar 3) :: AstTensor AstMethodLet FullSpan (TKR 0 Double) -> AstTensor AstMethodLet FullSpan (TKS '[] Double))) (rscalar 42))
 
 testZero9S :: Assertion
 testZero9S =
@@ -460,22 +461,19 @@ testOverleafInt64n :: Assertion
 testOverleafInt64n =
   assertEqualUpToEpsilon 1e-10
     (ringestData [28] (map round [0 :: Double,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]))
-    (cgrad @_ @(TKR 0 Int64)
-          overleaf (ringestData [28] [0 .. 27]))
+    (cgrad (kfromR @_ @Int64 . overleaf) (ringestData [28] [0 .. 27]))
 
 testOverleafCIntn :: Assertion
 testOverleafCIntn =
   assertEqualUpToEpsilon 1e-10
     (ringestData [28] (map round [0 :: Double,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]))
-    (grad @_ @(TKR 0 CInt)
-         overleaf (ringestData [28] [0 .. 27]))
+    (grad (kfromR @_ @CInt . overleaf) (ringestData [28] [0 .. 27]))
 
 testOverleafCIntToFloatn :: Assertion
 testOverleafCIntToFloatn =
   assertEqualUpToEpsilon 1e-10
     (rfromList0N [28] (replicate 28 (rscalar 0.0)))
-    (grad @_ @(TKR 0 Float)
-         (rfromIntegral . overleaf @CInt . rfloor) (ringestData @_ @Float [28] [0 .. 27]))
+    (grad (kfromR @_ @CInt . rfromIntegral . overleaf @CInt . rfloor) (ringestData @_ @Float [28] [0 .. 27]))
 
 testOverleafInt64p :: Assertion
 testOverleafInt64p =
@@ -544,7 +542,7 @@ threeSimpleMatrices :: ThreeConcreteMatrices Double
 threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)
 gradFooMatrix :: (Differentiable r, GoodScalar r)
               => ThreeConcreteMatrices r -> ThreeConcreteMatrices r
-gradFooMatrix = cgrad foo
+gradFooMatrix = cgrad (kfromS . ssum0 . foo)
 
 testGradFooMatrix :: Assertion
 testGradFooMatrix =
@@ -570,7 +568,7 @@ testGradFooMatrixRev :: Assertion
 testGradFooMatrixRev =
   assertEqualUpToEpsilon 1e-10
     (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
-    (grad fooLet threeSimpleMatrices)
+    (grad (kfromS . ssum0 . fooLet) threeSimpleMatrices)
 
 testGradFooLetMatrixSimpPP :: Assertion
 testGradFooLetMatrixSimpPP = do
@@ -595,7 +593,7 @@ foo2 (x, y, z) =
 gradFooMatrix2 :: (Differentiable r, GoodScalar r)
                => (Concrete (TKR 2 r), Concrete (TKR 2 r), Concrete (TKR 2 r))
                -> (Concrete (TKR 2 r), Concrete (TKR 2 r), Concrete (TKR 2 r))
-gradFooMatrix2 = grad foo2
+gradFooMatrix2 = grad (kfromR . rsum0 . foo2)
 
 testGradFooMatrix2 :: Assertion
 testGradFooMatrix2 =
@@ -639,23 +637,20 @@ testFooS :: Assertion
 testFooS = do
   assertEqualUpToEpsilon 1e-10
     (srepl 2.4396285219055063, srepl (-1.953374825727421), srepl 0.9654825811012627)
-    (grad @_ @(TKS '[3, 534, 3] Double)
-         foo2 (srepl 1.1, srepl 2.2, srepl 3.3))
+    (grad (kfromS @_ @Double . ssum0 @'[3, 534, 3] @(TKScalar Double) . foo2) (srepl 1.1, srepl 2.2, srepl 3.3))
 
 testFooSToFloat :: Assertion
 testFooSToFloat = do
   assertEqualUpToEpsilon 1e-5
     (srepl 2.4396285219055063, srepl (-1.953374825727421), srepl 0.9654825811012627)
-    (grad @_ @(TKS '[3, 534, 3] Float)
-         (scast . foo2)
+    (grad (kfromS @_ @Float . ssum0 . scast . foo2)
          (srepl 1.1 :: Concrete (TKS '[3, 534, 3] Double), srepl 2.2, srepl 3.3))
 
 testFooSBoth :: Assertion
 testFooSBoth = do
   assertEqualUpToEpsilon 1e-5
     (srepl 2.439628436155373, srepl (-1.9533749), srepl 0.9654825479484146)
-    (grad @_ @(TKS '[3, 534, 3] Float)
-         (scast . foo2 . (\(d, f, d2) -> (d, scast f, d2)))
+    (grad (kfromS @_ @Float . ssum0 . scast . foo2 . (\(d, f, d2) -> (d, scast f, d2)))
          ( srepl 1.1 :: Concrete (TKS '[3, 534, 3] Double)
          , srepl 2.2 :: Concrete (TKS '[3, 534, 3] Float)
          , srepl 3.3 ))
@@ -664,8 +659,7 @@ testFooBoth :: Assertion
 testFooBoth = do
   assertEqualUpToEpsilon 1e-5
     (rscalar 2.439628436155373, rscalar (-1.9533749), rscalar 0.9654825479484146)
-    (grad @_ @(TKR 0 Float)
-         (rcast . foo2 . (\(d, f, d2) -> (d, rcast f, d2)))
+    (grad (kfromR @_ @Float . rcast . foo2 . (\(d, f, d2) -> (d, rcast f, d2)))
          ( rscalar 1.1 :: Concrete (TKR 0 Double)
          , rscalar 2.2 :: Concrete (TKR 0 Float)
          , rscalar 3.3 ))
@@ -698,8 +692,7 @@ testFooLet :: Assertion
 testFooLet = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
-    (grad @_ @(TKR 0 Double)
-         fooLetOld (rscalar 1.1, rscalar 2.2, rscalar 3.3))
+    (grad (kfromR @_ @Double . fooLetOld) (rscalar 1.1, rscalar 2.2, rscalar 3.3))
 
 testFooLetPP :: Assertion
 testFooLetPP = do
@@ -771,15 +764,13 @@ testListProd :: Assertion
 testListProd = do
   assertEqualUpToEpsilon 1e-10
     [srepl 24, srepl 12, srepl 8, srepl 6]
-    (grad @_ @(TKS '[] Double)
-         (shapedListProd @4) [srepl 1, srepl 2, srepl 3, srepl 4])
+    (grad (kfromS @_ @Double . shapedListProd @4) [srepl 1, srepl 2, srepl 3, srepl 4])
 
 testListProdr :: Assertion
 testListProdr = do
   assertEqualUpToEpsilon 1e-10
     [rscalar 24, rscalar 12, rscalar 8, rscalar 6]
-    (grad @_ @(TKR 0 Double)
-         (rankedListProdr @4) [rscalar 1, rscalar 2, rscalar 3, rscalar 4])
+    (grad (kfromR @_ @Double . rankedListProdr @4) [rscalar 1, rscalar 2, rscalar 3, rscalar 4])
 
 rankedListSumr :: (BaseTensor target, GoodScalar r)
                => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
@@ -1034,7 +1025,7 @@ testReluSimpler3 = do
   assertEqualUpToEpsilon 1e-10
     ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , rscalar 57.1 )
-    (grad reluT2 (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
+    (grad (kfromR . rsum0 . reluT2) (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
 
 testReluSimplerPP4 :: Assertion
 testReluSimplerPP4 = do
@@ -1061,7 +1052,7 @@ testReluSimpler4 = do
   assertEqualUpToEpsilon 1e-10
     ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , rscalar 57.1 )
-    (grad reluT2 (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
+    (grad (kfromR . rsum0 . reluT2) (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
 
 testReluSimplerPP4s :: Assertion
 testReluSimplerPP4s = do
@@ -1101,7 +1092,7 @@ testReluSimpler4s = do
     ( sconcrete
       $ Nested.sfromListPrimLinear @_ @'[3, 4] knownShS [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , srepl 57.1 )
-    (grad reluT2 (sconcrete $ Nested.sfromListPrimLinear @_ @'[3, 4] knownShS [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
+    (grad (kfromS . ssum0 . reluT2) (sconcrete $ Nested.sfromListPrimLinear @_ @'[3, 4] knownShS [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
 
 reluMax :: forall target n r. (ADReady target, GoodScalar r, KnownNat n)
         => target (TKR n r) -> target (TKR n r)
@@ -1158,7 +1149,7 @@ testReluMax3 = do
   assertEqualUpToEpsilon 1e-10
     ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , rscalar 57.1 )
-    (grad reluT2 (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
+    (grad (kfromR . rsum0 . reluT2) (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
 
 testDot1PP :: Assertion
 testDot1PP = do
@@ -1310,7 +1301,7 @@ testBar2S :: Assertion
 testBar2S =
   assertEqualUpToEpsilon 1e-9
     (srepl 3.1435239435581166, srepl (-1.1053869545195814))
-    (grad (barF @(AstTensor AstMethodLet FullSpan (TKS '[52, 2, 2, 1, 1, 3] Double))) (srepl 1.1, srepl 2.2))
+    (grad (kfromS . ssum0 . barF @(AstTensor AstMethodLet FullSpan (TKS '[52, 2, 2, 1, 1, 3] Double))) (srepl 1.1, srepl 2.2))
 
 testBarCFwd :: Assertion
 testBarCFwd =
@@ -1632,7 +1623,7 @@ testF1 :: Assertion
 testF1 =
   assertEqualUpToEpsilon 1e-10
     (rscalar 45.0)
-    (grad @_ @(TKR 0 Double) f1 (rscalar 1.1))
+    (grad (kfromR @_ @Double . f1) (rscalar 1.1))
 
 testF11 :: Assertion
 testF11 =
@@ -1655,7 +1646,7 @@ testF2 :: Assertion
 testF2 =
   assertEqualUpToEpsilon 1e-10
     (rscalar 470)
-    (grad @_ @(TKR 0 Double) f2 (rscalar 1.1))
+    (grad (kfromR @_ @Double . f2) (rscalar 1.1))
 
 testF21 :: Assertion
 testF21 =
@@ -2129,25 +2120,21 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   , testCase "blowupLet 7000" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [0.3332633406816766,-0.22217556045445108])
-        (grad @(AstTensor AstMethodLet FullSpan (TKR 1 Double))
-             (fblowupLet 0 7000) (ringestData [2] [2, 3]))
+        (grad (kfromR @_ @Double . rsum0 . (fblowupLet 0 7000)) (ringestData [2] [2, 3]))
   , testCase "blowupLet tbuild0" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [333.2633406816765,-222.175560454451])
-        (grad @(AstTensor AstMethodLet FullSpan (TKR 1 Double))
-              (\intputs -> rbuild1 1000 (\_ -> fblowupLet 0 7000 intputs))
+        (grad (kfromR @_ @Double . rsum0 . (\intputs -> rbuild1 1000 (\_ -> fblowupLet 0 7000 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupLet tbuild2" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [333.2633406816765,-222.175560454451])
-        (grad @(AstTensor AstMethodLet FullSpan (TKR 1 Double))
-              (\intputs -> rbuild1 1000 (\_ -> fblowupLet 2 7000 intputs))
+        (grad (kfromR @_ @Double . rsum0 . (\intputs -> rbuild1 1000 (\_ -> fblowupLet 2 7000 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupLet tbuildi" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [333.2983351701977,-222.19889011346513])
-        (grad @(AstTensor AstMethodLet FullSpan (TKR 1 Double))
-              (\intputs -> rbuild1 1000 (\i -> fblowupLet i 3500 intputs))
+        (grad (kfromR @_ @Double . rsum0 . (\intputs -> rbuild1 1000 (\i -> fblowupLet i 3500 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupLet tbuildc" $ do
       assertEqualUpToEpsilon 1e-7

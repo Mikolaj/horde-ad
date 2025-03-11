@@ -144,14 +144,14 @@ crevSL
   -> ListR n (Concrete (TKS '[] Double))
 crevSL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  cgrad multSL
+  cgrad (kfromS . multSL)
 
 revSL
   :: SNat n -> ListR n (Concrete (TKS '[] Double))
   -> ListR n (Concrete (TKS '[] Double))
 revSL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  grad multSL
+  grad (kfromS . multSL)
 
 multSR :: (BaseTensor target, GoodScalar r)
        => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
@@ -162,14 +162,14 @@ crevSR
   -> ListR n (Concrete (TKS '[] Double))
 crevSR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  cgrad multSR
+  cgrad (kfromS . multSL)
 
 revSR
   :: SNat n -> ListR n (Concrete (TKS '[] Double))
   -> ListR n (Concrete (TKS '[] Double))
 revSR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  grad multSR
+  grad (kfromS . multSL)
 
 multSNotShared :: (BaseTensor target, GoodScalar r)
                => ListR n (ADVal target (TKS '[] r))
@@ -181,7 +181,7 @@ crevSNotShared
   -> ListR n (Concrete (TKS '[] Double))
 crevSNotShared snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  cgrad multSNotShared
+  cgrad (kfromS . multSNotShared)
 
 -- Another variant, with foldl1' and indexing, would be a disaster.
 -- We can define sproduct if this benchmark ends up used anywhere,
@@ -195,11 +195,11 @@ multSMapAccum SNat = sfold (*) (sscalar 1)
 
 crevSMapAccum
   :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
-crevSMapAccum snat@SNat = cgrad (multSMapAccum snat)
+crevSMapAccum snat@SNat = cgrad (kfromS . multSMapAccum snat)
 
 revSMapAccum
   :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
-revSMapAccum snat@SNat = grad (multSMapAccum snat)
+revSMapAccum snat@SNat = grad (kfromS . multSMapAccum snat)
 
 multScalarMapAccum :: forall target n r.
                       (BaseTensor target, GoodScalar r)
