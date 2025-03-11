@@ -171,13 +171,16 @@ revEvalArtifact
   -> (Concrete (ADTensorKind x), Concrete z)
 {-# INLINE revEvalArtifact #-}
 revEvalArtifact AstArtifactRev{..} parameters mdt =
-  let env = extendEnv artVarDomainRev parameters emptyEnv
+  let azstk = varNameToFTK artVarDtRev
+      env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = case mdt of
         Nothing ->
-          let oneAtF = treplTarget 1 $ varNameToFTK artVarDtRev
+          let oneAtF = treplTarget 1 azstk
           in extendEnv artVarDtRev oneAtF env
         Just dt ->
-          extendEnv artVarDtRev dt env
+          if tftkG (ftkToSTK azstk) (unConcrete dt) == azstk
+          then extendEnv artVarDtRev dt env
+          else error "revEvalArtifact: reverse derivative incoming cotangent should have the same shape as the codomain of the objective function"
       gradient = interpretAstPrimal envDt artDerivativeRev
       primal = interpretAstPrimal env artPrimalRev
   in (gradient, primal)
@@ -224,13 +227,13 @@ fwdEvalArtifact
 {-# INLINE fwdEvalArtifact #-}
 fwdEvalArtifact AstArtifactFwd{..} parameters ds =
   let xstk = knownSTK @x
-      astk = adSTK xstk
-  in if adFTK (tftkG xstk (unConcrete parameters)) == tftkG astk (unConcrete ds) then
-       let env = extendEnv artVarDomainFwd parameters emptyEnv
-           envD = extendEnv artVarDsFwd ds env
-           derivative = interpretAstPrimal envD artDerivativeFwd
-           primal = interpretAstPrimal env artPrimalFwd
-       in (derivative, primal)
+      axstk = adSTK xstk
+  in if adFTK (tftkG xstk (unConcrete parameters)) == tftkG axstk (unConcrete ds)
+     then let env = extendEnv artVarDomainFwd parameters emptyEnv
+              envD = extendEnv artVarDsFwd ds env
+              derivative = interpretAstPrimal envD artDerivativeFwd
+              primal = interpretAstPrimal env artPrimalFwd
+          in (derivative, primal)
      else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shape"
 
 
