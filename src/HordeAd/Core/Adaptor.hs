@@ -174,7 +174,7 @@ instance ( ForgetShape (target a)
          , BaseTensor target, LetTensor target )
          => ForgetShape (target (TKProduct a b)) where
   type NoShape (target (TKProduct a b)) =
-    target (TKProduct (NoShapeTensorKind a) (NoShapeTensorKind b))
+    target (NoShapeTensorKind (TKProduct a b))
   forgetShape ab =
     ttlet ab $ \abShared ->
       tpair (forgetShape (tproject1 abShared))
@@ -298,11 +298,8 @@ instance ( BaseTensor target
         b1 = toTarget b
     in tpair a1 b1
   fromTarget ab =
-    let (a1, b1) =
-          ( tproject1 ab
-          , tproject2 ab )
-        a = fromTarget a1
-        b = fromTarget b1
+    let a = fromTarget $ tproject1 ab
+        b = fromTarget $ tproject2 ab
     in (a, b)
   {-# SPECIALIZE instance (AdaptableTarget (AstTensor AstMethodLet FullSpan) a, AdaptableTarget (AstTensor AstMethodLet FullSpan) b) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (a, b) #-}
 
@@ -338,13 +335,9 @@ instance ( BaseTensor target
         c1 = toTarget c
     in tpair (tpair a1 b1) c1
   fromTarget abc =
-    let (a1, b1, c1) =
-          ( tproject1 (tproject1 abc)
-          , tproject2 (tproject1 abc)
-          , tproject2 abc )
-        a = fromTarget a1
-        b = fromTarget b1
-        c = fromTarget c1
+    let a = fromTarget $ tproject1 $ tproject1 abc
+        b = fromTarget $ tproject2 $ tproject1 abc
+        c = fromTarget $ tproject2 abc
     in (a, b, c)
   {-# SPECIALIZE instance (AdaptableTarget (AstTensor AstMethodLet FullSpan) a, AdaptableTarget (AstTensor AstMethodLet FullSpan) b, AdaptableTarget (AstTensor AstMethodLet FullSpan) c) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (a, b, c) #-}
 
@@ -388,15 +381,10 @@ instance ( BaseTensor target
         d1 = toTarget d
     in  tpair (tpair a1 b1) (tpair c1 d1)
   fromTarget abcd =
-    let (a1, b1, c1, d1) =
-          ( tproject1 (tproject1 abcd)
-          , tproject2 (tproject1 abcd)
-          , tproject1 (tproject2 abcd)
-          , tproject2 (tproject2 abcd) )
-        a = fromTarget a1
-        b = fromTarget b1
-        c = fromTarget c1
-        d = fromTarget d1
+    let a = fromTarget $ tproject1 $ tproject1 abcd
+        b = fromTarget $ tproject2 $ tproject1 abcd
+        c = fromTarget $ tproject1 $ tproject2 abcd
+        d = fromTarget $ tproject2 $ tproject2 abcd
     in (a, b, c, d)
   {-# SPECIALIZE instance (AdaptableTarget (AstTensor AstMethodLet FullSpan) a, AdaptableTarget (AstTensor AstMethodLet FullSpan) b, AdaptableTarget (AstTensor AstMethodLet FullSpan) c, AdaptableTarget (AstTensor AstMethodLet FullSpan) d) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (a, b, c, d) #-}
 
@@ -450,17 +438,11 @@ instance ( BaseTensor target
         e1 = toTarget e
     in tpair (tpair (tpair a1 b1) c1) (tpair d1 e1)
   fromTarget abcde =
-    let (a1, b1, c1, d1, e1) =
-          ( tproject1 (tproject1 (tproject1 abcde))
-          , tproject2 (tproject1 (tproject1 abcde))
-          , tproject2 (tproject1 abcde)
-          , tproject1 (tproject2 abcde)
-          , tproject2 (tproject2 abcde) )
-        a = fromTarget a1
-        b = fromTarget b1
-        c = fromTarget c1
-        d = fromTarget d1
-        e = fromTarget e1
+    let a = fromTarget $ tproject1 $ tproject1 $ tproject1 abcde
+        b = fromTarget $ tproject2 $ tproject1 $ tproject1 abcde
+        c = fromTarget $ tproject2 $ tproject1 abcde
+        d = fromTarget $ tproject1 $ tproject2 abcde
+        e = fromTarget $ tproject2 $ tproject2 abcde
     in (a, b, c, d, e)
   {-# SPECIALIZE instance (AdaptableTarget (AstTensor AstMethodLet FullSpan) a, AdaptableTarget (AstTensor AstMethodLet FullSpan) b, AdaptableTarget (AstTensor AstMethodLet FullSpan) c, AdaptableTarget (AstTensor AstMethodLet FullSpan) d, AdaptableTarget (AstTensor AstMethodLet FullSpan) e) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (a, b, c, d, e) #-}
 
