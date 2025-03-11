@@ -101,15 +101,11 @@ revDtMaybe
   -> Value astvals  -- morally Value (ADTensorKind astvals)
 {-# INLINE revDtMaybe #-}
 revDtMaybe f vals0 mdt =
-  let g :: AstTensor AstMethodLet FullSpan (X astvals)
-        -> AstTensor AstMethodLet FullSpan z
-      g !hv = ttlet hv $ \ !hvShared ->
-        f $ fromTarget hvShared
-      valsTarget = toTarget vals0
+  let valsTarget = toTarget vals0
       xftk = tftkG (knownSTK @(X astvals)) $ unRepN valsTarget
       cotangentHandling =
         maybe (IgnoreIncomingCotangent) (const UseIncomingCotangent) mdt
-      artifact = revProduceArtifact cotangentHandling g emptyEnv xftk
+      artifact = revArtifactAdapt cotangentHandling f xftk
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
      $ fst $ revEvalArtifact artifact valsTarget mdt
 
