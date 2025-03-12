@@ -70,6 +70,7 @@ testTrees =
   , testCase "2fooGradDouble" testGradFooDouble
   , testCase "2fooGradMatrix" testGradFooMatrix
   , testCase "2fooLetGradMatrixPP" testGradFooLetMatrixPP
+  , testCase "2fooGradMatrixVjp" testGradFooMatrixVjp
   , testCase "2fooGradMatrixRev" testGradFooMatrixRev
   , testCase "2fooLetGradMatrixSimpPP" testGradFooLetMatrixSimpPP
   , testCase "2fooLetGradMatrixSimpRPP" testGradFooLetMatrixSimpRPP
@@ -559,13 +560,20 @@ fooLet (x, y, z) =
   tlet (x * sin y) $ \w ->
     atan2H z w + z * w
 
+artifact :: AstArtifactRev (X (ThreeConcreteMatrices Double)) (TKS '[2, 2] Double)
+artifact = vjpArtifact fooLet threeSimpleMatrices
+
 testGradFooLetMatrixPP :: Assertion
 testGradFooLetMatrixPP = do
   resetVarCounter >> resetIdCounter
-  printArtifactPretty
-    (let shapes = tftk @Concrete knownSTK (toTarget threeSimpleMatrices)
-     in revArtifactAdapt UseIncomingCotangent fooLet shapes)
+  printArtifactPretty artifact
     @?= "\\dret m1 -> let m3 = sin (tproject2 (tproject1 m1)) ; m4 = tproject1 (tproject1 m1) * m3 ; m5 = recip (tproject2 m1 * tproject2 m1 + m4 * m4) ; m7 = (negate (tproject2 m1) * m5) * dret + tproject2 m1 * dret in tpair (tpair (m3 * m7, cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7)), (m4 * m5) * dret + m4 * dret)"
+
+testGradFooMatrixVjp :: Assertion
+testGradFooMatrixVjp =
+  assertEqualUpToEpsilon 1e-10
+    ((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeConcreteMatrices Double)
+    (vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1))
 
 testGradFooMatrixRev :: Assertion
 testGradFooMatrixRev =

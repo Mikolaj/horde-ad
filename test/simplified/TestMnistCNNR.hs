@@ -123,8 +123,7 @@ mnistTestCaseCNNA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-           ftk = tftk @Concrete (knownSTK @(XParams r))
-                      targetInit
+           ftk = tftk @Concrete (knownSTK @(XParams r)) targetInit
        res <- runEpoch 1 (targetInit, initialStateAdam ftk)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res
@@ -188,8 +187,7 @@ mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
        testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = mkMnistDataBatchR testData
-           ftk = tftk @Concrete (knownSTK @(XParams r))
-                      targetInit
+           ftk = tftk @Concrete (knownSTK @(XParams r)) targetInit
        (_, _, var, varAst2) <- funToAstRevIO ftk
        (varGlyph, astGlyph) <-
          funToAstIO (FTKR (miniBatchSize
@@ -313,15 +311,10 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
        testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = mkMnistDataBatchR testData
-           ftk = tftk @Concrete (knownSTK @(XParams r))
-                      targetInit
-           ftkData = FTKProduct (FTKR (miniBatchSize
-                                       :$: sizeMnistHeightInt
-                                       :$: sizeMnistWidthInt
-                                       :$: ZSR) FTKScalar)
-                                (FTKR (miniBatchSize
-                                       :$: sizeMnistLabelInt
-                                       :$: ZSR) FTKScalar)
+           dataInit = case chunksOf miniBatchSize testData of
+             d : _ -> let (dglyph, dlabel) = mkMnistDataBatchR d
+                      in (rconcrete dglyph, rconcrete dlabel)
+             [] -> error "empty test data"
            f :: ( MnistCnnRanked2.ADCnnMnistParameters
                     (AstTensor AstMethodLet FullSpan) r
                 , ( AstTensor AstMethodLet FullSpan (TKR 3 r)
@@ -330,7 +323,7 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
            f = \ (pars, (glyphR, labelR)) ->
              MnistCnnRanked2.convMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
-           artRaw = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
+           artRaw = gradArtifact f (fromTarget targetInit, dataInit)
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchR r]
               -> (Concrete (XParams r), StateAdam (XParams r))
@@ -382,6 +375,7 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
+           ftk = tftk @Concrete (knownSTK @(XParams r)) targetInit
        res <- runEpoch 1 (targetInit, initialStateAdam ftk)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res

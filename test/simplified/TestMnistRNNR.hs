@@ -319,15 +319,10 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
        testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = mkMnistDataBatchR testData
-           ftk = tftk @Concrete (knownSTK @(X (ADRnnMnistParameters Concrete r)))
-                      targetInit
-           ftkData = FTKProduct (FTKR (miniBatchSize
-                                       :$: sizeMnistHeightInt
-                                       :$: sizeMnistWidthInt
-                                       :$: ZSR) FTKScalar)
-                                (FTKR (miniBatchSize
-                                       :$: sizeMnistLabelInt
-                                       :$: ZSR) FTKScalar)
+           dataInit = case chunksOf miniBatchSize testData of
+             d : _ -> let (dglyph, dlabel) = mkMnistDataBatchR d
+                      in (rconcrete dglyph, rconcrete dlabel)
+             [] -> error "empty test data"
            f :: ( ADRnnMnistParameters (AstTensor AstMethodLet FullSpan) r
                 , ( AstTensor AstMethodLet FullSpan (TKR 3 r)
                   , AstTensor AstMethodLet FullSpan (TKR 2 r) ) )
@@ -335,7 +330,7 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
            f = \ (pars, (glyphR, labelR)) ->
              MnistRnnRanked2.rnnMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
-           artRaw = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
+           artRaw = gradArtifact f (fromTarget targetInit, dataInit)
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchR r]
               -> ( Concrete (X (ADRnnMnistParameters Concrete r))
@@ -392,6 +387,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
+           ftk = tftk @Concrete (knownSTK @(X (ADRnnMnistParameters Concrete r)))
+                      targetInit
        res <- runEpoch 1 (targetInit, initialStateAdam ftk)
        let testErrorFinal =
              1 - ftest (totalBatchSize * maxBatches) testDataR res

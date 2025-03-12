@@ -5,6 +5,7 @@ module BenchMnistTools where
 
 import Prelude
 
+import Control.Arrow ((***))
 import Control.DeepSeq (NFData (..))
 import Criterion.Main
 import Data.Default qualified as Default
@@ -153,11 +154,7 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
       valsInit = fst $ randomValue 1 (mkStdGen 44)
       targetInit :: Concrete (XParams widthHidden widthHidden2 r)
       targetInit = toTarget @Concrete valsInit
-      ftk = tftk @Concrete (knownSTK @(XParams widthHidden widthHidden2 r))
-                       targetInit
   in do
-    let ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
-                             (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
 {-      -- g is not enough to specialize to Double instead of to r,
         -- despite the declaration of r ~ Double above
         f :: ( MnistFcnnRanked1.ADFcnnMnist1Parameters
@@ -173,6 +170,9 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
         g :: ( MnistFcnnRanked1.ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 Double, ( AstTensor AstMethodLet FullSpan (TKR 1 Double), AstTensor AstMethodLet FullSpan (TKR 1 Double) ) ) -> AstTensor AstMethodLet FullSpan (TKScalar Double)
         g = f
 -}
+    let dataInit = case xs of
+          d : _ -> (rconcrete *** rconcrete) d
+          [] -> error "empty test data"
         f :: ( MnistFcnnRanked1.ADFcnnMnist1Parameters
                  (AstTensor AstMethodLet FullSpan)
                  widthHidden widthHidden2 Double
@@ -183,7 +183,7 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
           MnistFcnnRanked1.afcnnMnistLoss1 @_ @Double
             widthHiddenSNat widthHidden2SNat
             (glyphR, labelR) pars
-        artRaw = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
+        artRaw = gradArtifact f (valsInit, dataInit)
         art = simplifyArtifactGradient artRaw
         go :: [MnistDataLinearR r]
            -> Concrete (XParams widthHidden widthHidden2 r)

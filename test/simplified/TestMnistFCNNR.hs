@@ -7,6 +7,7 @@ module TestMnistFCNNR
 
 import Prelude
 
+import Control.Arrow ((***))
 import Control.Monad (foldM, unless)
 import Data.Bifunctor (first)
 import Data.Proxy (Proxy (Proxy))
@@ -283,8 +284,6 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
       valsInit = fst $ randomValue 1 (mkStdGen 44)
       targetInit :: Concrete (XParams widthHidden widthHidden2 r)
       targetInit = toTarget @Concrete valsInit
-      ftk = tftk @Concrete (knownSTK @(XParams widthHidden widthHidden2 r))
-                       targetInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int
@@ -304,8 +303,9 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map mkMnistDataLinearR . take (batchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    let ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
-                             (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
+    let dataInit = case testData of
+          d : _ -> (rconcrete *** rconcrete) d
+          [] -> error "empty test data"
         f :: ( MnistFcnnRanked1.ADFcnnMnist1Parameters
                  (AstTensor AstMethodLet FullSpan)
                  widthHidden widthHidden2 r
@@ -316,7 +316,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
           MnistFcnnRanked1.afcnnMnistLoss1
             widthHiddenSNat widthHidden2SNat
             (glyphR, labelR) pars
-        artRaw = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
+        artRaw = gradArtifact f (valsInit, dataInit)
         art = simplifyArtifactGradient artRaw
         go :: [MnistDataLinearR r]
            -> Concrete (XParams widthHidden widthHidden2 r)
