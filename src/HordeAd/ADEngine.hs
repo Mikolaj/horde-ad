@@ -6,7 +6,9 @@
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.ADEngine
   ( -- * Reverse derivative adaptors
-    grad, vjp, gradArtifact, vjpArtifact
+    grad, vjp
+  , gradArtifact, vjpArtifact
+  , gradInterpretArtifact, vjpInterpretArtifact
     -- * Forward derivative adaptors
   , jvp
     -- * Non-AST reverse derivative adaptors
@@ -56,6 +58,8 @@ instance KnownSTK y
 -- is closed, because we evaluate the result of the differentiation
 -- down to concrete arrays and so there's no risk of confusion of cotangents
 -- from different levels of differentiation if it's done multiple times.
+-- For simplicity of the type signature, the resulting value is converted from
+-- the type of concrete contangents to the type of concrete input parameters.
 grad
   :: forall astvals r.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
@@ -74,6 +78,8 @@ grad f vals = revMaybe f vals Nothing
 -- of the function to be differentiated. The downside
 -- is that if the function doesn't have a type signature,
 -- the type often has to be spelled in full to aid type reconstruction.
+-- For simplicity of the type signature, the resulting value is converted from
+-- the type of concrete contangents to the type of concrete input parameters.
 vjp
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
@@ -111,6 +117,36 @@ vjpArtifact
 vjpArtifact f vals0 =
   let xftk = tftkG (knownSTK @(X astvals)) $ unConcrete $ toTarget vals0
   in revArtifactAdapt UseIncomingCotangent f xftk
+
+gradInterpretArtifact
+  :: forall x r avals.
+     (X avals ~ ADTensorKind x, AdaptableTarget Concrete avals)
+  => AstArtifactRev x (TKScalar r)
+  -> Concrete x
+  -> avals
+{-# INLINE gradInterpretArtifact #-}
+gradInterpretArtifact AstArtifactRev{..} parameters =
+  let azstk = varNameToFTK artVarDtRev
+      oneAtF = treplTarget 1 azstk
+      env = extendEnv artVarDtRev oneAtF
+            $ extendEnv artVarDomainRev parameters emptyEnv
+  in fromTarget $ interpretAstPrimal env artDerivativeRev
+
+vjpInterpretArtifact
+  :: forall x z avals.
+     (X avals ~ ADTensorKind x, AdaptableTarget Concrete avals)
+  => AstArtifactRev x z
+  -> Concrete x
+  -> Concrete (ADTensorKind z)
+  -> avals
+{-# INLINE vjpInterpretArtifact #-}
+vjpInterpretArtifact AstArtifactRev{..} parameters dt =
+  let azstk = varNameToFTK artVarDtRev
+      env = extendEnv artVarDomainRev parameters emptyEnv
+      envDt = if tftkG (ftkToSTK azstk) (unConcrete dt) == azstk
+              then extendEnv artVarDtRev dt env
+              else error "vjpInterpretArtifact: reverse derivative incoming cotangent should have the same shape as the codomain of the objective function"
+  in fromTarget $ interpretAstPrimal envDt artDerivativeRev
 
 
 -- * Reverse derivative adaptors' internal machinery
