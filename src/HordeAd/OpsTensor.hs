@@ -988,24 +988,11 @@ xscan
 {-# INLINE xscan #-}
 xscan @k = tscan (SNat @k) knownSTK knownSTK
 
--- | Reverse derivative for ranked tensors.
---
--- If the result of the argument function is not a scalar,
--- the result of this operation is the gradient of a function that additionally
--- sums all elements of the result. If all elements are equally important
--- for optimization, this may be exactly what is needed for gradient descent.
---
--- The second argument is only used to determine tensor shapes
--- and the third has to have the same shapes as the second.
+-- | Reverse derivative.
 --
 -- The function argument needs to be quantified,
 -- because otherwise in the ADVal instance one could put an illegal
--- InputR there, confusing the two levels of contangents.
---
--- These methods are in this class, because their implementations
--- use the let operations and also their signatures mention @ADReady@,
--- so it's awkward to put the methods into @BaseTensor@,
--- which shouldn't know about lets, etc.
+-- @DeltaInput@ there, confusing the two levels of contangents.
 kgrad :: forall x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKScalar r))  -- ^ x |-> TKScalar r
      -> FullShapeTK x  -- ^ shape of x and dx
@@ -1013,8 +1000,6 @@ kgrad :: forall x r target. BaseTensor target
      -> target (ADTensorKind x)  -- ^ gradient dx
 kgrad f xftk =
   \ !es -> tApply (tgrad @target xftk (HFun f)) es
--- We can't get sh from anywhere, so this is not possible:
--- kgrad f shs es = rvjp f shs es (rreplicate0N sh 1)
 rvjp :: forall n x r target. BaseTensor target
        => (forall f. ADReady f => f x -> f (TKR2 n r))  -- ^ x |-> z
        -> FullShapeTK x  -- ^ shape of x and dx

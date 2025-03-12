@@ -966,14 +966,7 @@ class ( Num (IntOf target)
 
   -- | Reverse derivative.
   --
-  -- If the result of the argument function is not a scalar, the result
-  -- of this operation is the gradient of a function that additionally
-  -- sums all elements of the result. If all elements are equally important
-  -- for optimization, this may be exactly what is needed for gradient descent,
-  -- unless there are floats of different resolution among the elements and,
-  -- e.g., one wants to compensate for that.
-  --
-  -- These methods (and tlambda) are exactly what is needed as arguments
+  -- The followign methods (and tlambda) are exactly what is needed as arguments
   -- of tmapAccumRDer.
   tgrad
     :: FullShapeTK x  -- ^ shape of x and dx
