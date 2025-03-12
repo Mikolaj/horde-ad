@@ -42,7 +42,7 @@ module HordeAd.OpsTensor
     -- * Array operations derived from `mapAccum`
   , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
     -- * Array operations producing derivatives
-  , rgrad, rvjp, rjvp, sgrad, svjp, sjvp
+  , kgrad, rvjp, rjvp, svjp, sjvp
     -- * Operations about dual numbers
   , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
   , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
@@ -1006,15 +1006,15 @@ xscan @k = tscan (SNat @k) knownSTK knownSTK
 -- use the let operations and also their signatures mention @ADReady@,
 -- so it's awkward to put the methods into @BaseTensor@,
 -- which shouldn't know about lets, etc.
-rgrad :: forall n x r target. BaseTensor target
-     => (forall f. ADReady f => f x -> f (TKR2 n r))  -- ^ x |-> z
+kgrad :: forall x r target. BaseTensor target
+     => (forall f. ADReady f => f x -> f (TKScalar r))  -- ^ x |-> TKScalar r
      -> FullShapeTK x  -- ^ shape of x and dx
      -> target x  -- ^ input x
      -> target (ADTensorKind x)  -- ^ gradient dx
-rgrad f xftk =
+kgrad f xftk =
   \ !es -> tApply (tgrad @target xftk (HFun f)) es
 -- We can't get sh from anywhere, so this is not possible:
--- rgrad f shs es = rvjp f shs es (rreplicate0N sh 1)
+-- kgrad f shs es = rvjp f shs es (rreplicate0N sh 1)
 rvjp :: forall n x r target. BaseTensor target
        => (forall f. ADReady f => f x -> f (TKR2 n r))  -- ^ x |-> z
        -> FullShapeTK x  -- ^ shape of x and dx
@@ -1031,13 +1031,6 @@ rjvp :: forall n x r target. BaseTensor target
      -> target (ADTensorKind (TKR2 n r))  -- ^ derivative dz
 rjvp f xftk =
   \ !es !ds -> tApply (tjvp @target xftk $ HFun f) (tpair ds es)
-sgrad :: forall sh x r target. BaseTensor target
-     => (forall f. ADReady f => f x -> f (TKS2 sh r))  -- ^ x |-> z
-     -> FullShapeTK x  -- ^ shape of x and dx
-     -> target x  -- ^ input x
-     -> target (ADTensorKind x)  -- ^ gradient dx
-sgrad f xftk =
-  \ !es -> tApply (tgrad @target xftk (HFun f)) es
 svjp :: forall sh x r target. BaseTensor target
        => (forall f. ADReady f => f x -> f (TKS2 sh r))  -- ^ x |-> z
        -> FullShapeTK x  -- ^ shape of x and dx

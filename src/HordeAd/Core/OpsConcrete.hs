@@ -457,7 +457,7 @@ instance BaseTensor Concrete where
   tgrad @x xftk h =
     let rf :: RepConcrete x -> RepConcrete (ADTensorKind x)
         rf !a = unConcrete $ fst $ crevOnHVector Nothing (unHFun h)
-                                             xftk (Concrete a)
+                                                 xftk (Concrete a)
     in rf
   tvjp @x @z xftk h =
     let rf :: RepConcrete (TKProduct (ADTensorKind z) x) -> RepConcrete (ADTensorKind x)

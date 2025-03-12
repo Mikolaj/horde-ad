@@ -977,7 +977,7 @@ class ( Num (IntOf target)
   -- of tmapAccumRDer.
   tgrad
     :: FullShapeTK x  -- ^ shape of x and dx
-    -> HFun x z  -- ^ x |-> z
+    -> HFun x (TKScalar r)  -- ^ x |-> TKScalar r
     -> HFunOf target x (ADTensorKind x)  -- ^ x |-> dx
   tvjp
     :: FullShapeTK x  -- ^ shape of x and dx

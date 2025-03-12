@@ -30,6 +30,7 @@ import HordeAd.Core.AstInterpret
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.ConvertTensor (kfromR, kfromS)
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorKind
@@ -55,7 +56,7 @@ cvjpMaybeBoth f vals =
   in crevOnHVector Nothing g (tftk knownSTK valsH) valsH
 
 rev' :: forall r m n v a w.
-        ( KnownNat n, GoodScalar r
+        ( KnownNat m, KnownNat n, GoodScalar r
         , v ~ Concrete (TKR m r)
         , w ~ Concrete (ADTensorKind (TKR m r))
         , a ~ Concrete (ADTensorKind (TKR n r)) )
@@ -475,10 +476,10 @@ t128c :: (GoodScalar r, Fractional r) => Concrete (TKR 4 r)
 t128c = rreshape (2 :$: 2 :$: 8 :$: 4 :$: ZSR) t128
 
 rrev1 :: forall g r n m r3.
-         (ADReady g, GoodScalar r, KnownNat n)
+         (ADReady g, GoodScalar r, KnownNat n, GoodScalar r3, KnownNat m)
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR n r))
-rrev1 f u = rgrad f (tftk knownSTK u) u
+rrev1 f u = kgrad (kfromR . rsum0 . f) (tftk knownSTK u) u
 
 rfwd1ds :: forall g r n m r3.
            (ADReady g, GoodScalar r, KnownNat n)
@@ -494,10 +495,10 @@ rfwd1 :: forall g r n m r3.
 rfwd1 f u = rfwd1ds f u (rrepl (rshape u) 1)
 
 srev1 :: forall g r sh sh2 r3.
-         (ADReady g, GoodScalar r, KnownShS sh)
+         (ADReady g, GoodScalar r, KnownShS sh, GoodScalar r3, KnownShS sh2)
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh r))
-srev1 f u = sgrad f (tftk knownSTK u) u
+srev1 f u = kgrad (kfromS. ssum0 . f) (tftk knownSTK u) u
 
 sfwd1 :: forall g r sh sh2 r3.
          (ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r), KnownShS sh)
