@@ -24,6 +24,7 @@ module HordeAd.ADEngine
 
 import Prelude
 
+import HordeAd.AstEngine
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -166,7 +167,8 @@ revMaybe f vals0 mdt =
       xftk = tftkG (knownSTK @(X astvals)) $ unConcrete valsTarget
       cotangentHandling =
         maybe (IgnoreIncomingCotangent) (const UseIncomingCotangent) mdt
-      artifact = revArtifactAdapt cotangentHandling f xftk
+      artifactRaw = revArtifactAdapt cotangentHandling f xftk
+      artifact = simplifyArtifactGradient artifactRaw
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
      $ fst $ revInterpretArtifact artifact valsTarget mdt
 
@@ -277,7 +279,8 @@ jvp f vals ds =
       g !arg = ttlet arg $ f . fromTarget
       valsTarget = toTarget vals
       xftk = tftkG (knownSTK @(X astvals)) $ unConcrete valsTarget
-      artifact = fst $ fwdProduceArtifact g emptyEnv xftk
+      artifactRaw = fst $ fwdProduceArtifact g emptyEnv xftk
+      artifact = simplifyArtifactFwd artifactRaw
       dsTarget = toTarget ds
   in fst $ fwdInterpretArtifact @_ @z artifact valsTarget
          $ toADTensorKindShared xftk dsTarget

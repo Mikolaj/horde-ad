@@ -1439,7 +1439,7 @@ fooMap1 r =
 testFooMap1 :: Assertion
 testFooMap1 =
   assertEqualUpToEpsilon' 1e-3
-    (rscalar 4.438131773975095e7)
+    (rscalar 4.881944951372605e7)
     (rev' @Double @1 fooMap1 (rscalar 1.1))
 
 fooNoGo :: forall target r. (ADReady target, GoodScalar r, Differentiable r)

@@ -90,7 +90,7 @@ A concrete value of the symbolic gradient at the same input as before can be obt
 ((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeConcreteMatrices Double)
 ```
 
-A shorthand that creates the symbolic derivative program and interprets it with a given input on the default CPU backend is called `grad` and is used exactly the same (but with often much better performance) as `cgrad`:
+A shorthand that creates the symbolic derivative program, simplifies it and interprets it with a given input on the default CPU backend is called `grad` and is used exactly the same (but with often much better performance) as `cgrad`:
 ```hs
 >>> grad (kfromS . ssum0 . fooLet) threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
