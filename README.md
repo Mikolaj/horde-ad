@@ -16,7 +16,6 @@ It is hoped that the (well-typed) separation of AD logic and the tensor manipula
 ## Computing the derivative of a simple function
 
 Here is an example of a Haskell function to be differentiated:
-
 ```hs
 -- A function that goes from R^3 to R.
 foo :: RealFloat a => (a, a, a) -> a
@@ -28,7 +27,7 @@ foo (x, y, z) =
 The gradient of `foo` instantiated to `Double` can be expressed in Haskell with horde-ad as:
 ```hs
 gradFooDouble :: (Double, Double, Double) -> (Double, Double, Double)
-gradFooDouble = fromDValue . crev foo . fromValue
+gradFooDouble = fromDValue . cgrad foo . fromValue
 ```
 
 which can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
@@ -37,7 +36,7 @@ which can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
 (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 ```
 
-Instantiated to matrices, the gradient is:
+When `foo` is instantiated to matrices, which is a similarly trivial example due to the arithmetic operations working on the arrays element-wise, the gradient is:
 ```hs
 type Matrix2x2 f r = f (TKS '[2, 2] r)
 type ThreeMatrices r = (Matrix2x2 Concrete r, Matrix2x2 Concrete r, Matrix2x2 Concrete r)
@@ -45,16 +44,16 @@ threeSimpleMatrices :: ThreeMatrices Double
 threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)
 gradFooMatrix :: (Differentiable r, GoodScalar r)
               => ThreeMatrices r -> ThreeMatrices r
-gradFooMatrix = crev foo
+gradFooMatrix = cgrad (kfromS . ssum0 . foo)
 ```
 
-as can be verified by:
+where we had to amend function `foo`, because `cgrad` expects a function with a scalar codomain (e.g., a loss function for neural networks). This works as well as before:
 ```hs
 >>> gradFooMatrix threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
 ```
 
-Note that `w` is processed only once during gradient computation and this property of sharing preservation is guaranteed for the `crev` tool universally, without any action required from the user. When computing symbolic derivative programs, however, the user has to explicitly mark values for sharing using `tlet` with a more specific type of the objective function, as shown below.
+Note that `w` is processed only once during gradient computation and this property of sharing preservation is guaranteed for the `cgrad` tool universally, without any action required from the user. When computing symbolic derivative programs, however, the user has to explicitly mark values for sharing using `tlet` with a more specific type of the objective function, as shown below.
 
 ```hs
 fooLet :: (RealFloatH (f r), LetTensor f)
@@ -64,11 +63,16 @@ fooLet (x, y, z) =
     atan2H z w + z * w
 ```
 
-The symbolic gradient program (here presented with additional formatting) can be then obtained using the `revArtifactAdapt` tool:
+The most general symbolic gradient program can be then obtained using the `vjpArtifact` tool:
 ```hs
->>> printArtifactPretty
-      (let staticShapes = tftk @Concrete knownSTK (toTarget threeSimpleMatrices)
-       in revArtifactAdapt UseIncomingCotangent fooLet staticShapes)
+artifact :: AstArtifactRev (X (ThreeConcreteMatrices Double)) (TKS '[2, 2] Double)
+artifact = vjpArtifact fooLet threeSimpleMatrices
+```
+
+With additional formatting, it looks like an ordinary functional program with a lot of nested pairs and projections to represent tuples present in the objective function. A quick inspection of the gradient program reveals that computations are not repeated, which is thanks to the sharing mechanism, as promised.
+
+```hs
+>>> printArtifactPretty artifact
 "\dret m1 ->
    let m3 = sin (tproject2 (tproject1 m1))
        m4 = tproject1 (tproject1 m1) * m3
@@ -79,10 +83,16 @@ The symbolic gradient program (here presented with additional formatting) can be
          , (m4 * m5) * dret + m4 * dret)
 ```
 
-A quick inspection of the gradient program reveals that computations are not repeated, which is thanks to the sharing mechanism. A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value should be the same (after accounting for the 3-tuple represented with binary product) as when evaluating `fooLet` with `crev` on the same input. A shorthand that creates the symbolic derivative program and interprets it with a given input on the default CPU backend is called `rev` and is used exactly the same (but with often much better performance) as `crev`.
+A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value is the same as for `fooLet` evaluated by `cgrad` on the same input:
 
 ```hs
->>> rev fooLet threeSimpleMatrices
+>>> vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1)
+((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeConcreteMatrices Double)
+```
+
+A shorthand that creates the symbolic derivative program and interprets it with a given input on the default CPU backend is called `grad` and is used exactly the same (but with often much better performance) as `cgrad`:
+```hs
+>>> grad (kfromS . ssum0 . fooLet) threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
 ```
 
