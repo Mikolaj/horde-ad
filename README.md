@@ -36,7 +36,7 @@ which can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
 (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 ```
 
-When `foo` is instantiated to matrices, which is a similarly trivial example due to the arithmetic operations working on the arrays element-wise, the gradient is:
+When `foo` is instantiated to matrices, which is a similarly trivial example as before due to the arithmetic operations working on the arrays element-wise, the gradient is:
 ```hs
 type Matrix2x2 f r = f (TKS '[2, 2] r)
 type ThreeMatrices r = (Matrix2x2 Concrete r, Matrix2x2 Concrete r, Matrix2x2 Concrete r)
@@ -63,13 +63,13 @@ fooLet (x, y, z) =
     atan2H z w + z * w
 ```
 
-The most general symbolic gradient program can be then obtained using the `vjpArtifact` tool:
+The most general symbolic gradient program can be then obtained using the `vjpArtifact` tool. We are using `fooLet` without `ssum0` this time, because the `vjp` family of tools by convention permits non-scalar codomains (but expects an incoming cotangent argument to compensate, visible in the code as `dret`).
 ```hs
 artifact :: AstArtifactRev (X (ThreeConcreteMatrices Double)) (TKS '[2, 2] Double)
 artifact = vjpArtifact fooLet threeSimpleMatrices
 ```
 
-With additional formatting, it looks like an ordinary functional program with a lot of nested pairs and projections to represent tuples present in the objective function. A quick inspection of the gradient program reveals that computations are not repeated, which is thanks to the sharing mechanism, as promised.
+With additional formatting, the gradient program below looks like ordinary functional code with a lot of nested pairs and projections to represent tuples. A quick inspection of the gradient code reveals that computations are not repeated, which is thanks to the sharing mechanism, as promised.
 
 ```hs
 >>> printArtifactPretty artifact
@@ -83,14 +83,14 @@ With additional formatting, it looks like an ordinary functional program with a 
          , (m4 * m5) * dret + m4 * dret)
 ```
 
-A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value is the same as for `fooLet` evaluated by `cgrad` on the same input:
+A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value is the same as for `fooLet` evaluated by `cgrad` on the same input, as long as the incoming cotangent argument consists of ones in all array cells, which is denoted by `srepl 1` in this case:
 
 ```hs
 >>> vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1)
 ((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeConcreteMatrices Double)
 ```
 
-A shorthand that creates the symbolic derivative program, simplifies it and interprets it with a given input on the default CPU backend is called `grad` and is used exactly the same (but with often much better performance) as `cgrad`:
+A shorthand that creates the symbolic derivative program, simplifies it and interprets it with a given input on the default CPU backend is called `grad` and is used exactly the same as (but with often much better performance than) `cgrad`:
 ```hs
 >>> grad (kfromS . ssum0 . fooLet) threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
