@@ -6,15 +6,18 @@
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.ADEngine
   ( -- * Reverse derivative adaptors
-    IncomingCotangentHandling(..)
-  , grad, vjp, revArtifactAdapt, revArtifactDelta
-  , revProduceArtifactWithoutInterpretation, revEvalArtifact
+    grad, vjp
     -- * Forward derivative adaptors
-  , jvp, fwdEvalArtifact
-    -- * Non-AST gradient adaptors
+  , jvp
+    -- * Non-AST reverse derivative adaptors
   , cgrad, cvjp
-    -- * Non-AST derivative adaptors
-  , cjvp, cfwdBoth
+    -- * Non-AST forward derivative adaptors
+  , cjvp
+    -- * Internal machinery
+  , IncomingCotangentHandling(..)
+  , revArtifactAdapt, revArtifactDelta
+  , revProduceArtifactWithoutInterpretation, revEvalArtifact
+  , cfwdBoth, fwdEvalArtifact
   ) where
 
 import Prelude
@@ -90,6 +93,9 @@ vjp
 {-# INLINE vjp #-}
 vjp f vals dt = revMaybe f vals (Just dt)
 
+
+-- * Reverse derivative adaptors' internal machinery
+
 revMaybe
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
@@ -121,6 +127,31 @@ revArtifactAdapt cotangentHandling f xftk =
         -> AstTensor AstMethodLet FullSpan z
       g !arg = ttlet arg $ f . fromTarget  -- fromTarget requires duplicable
   in revProduceArtifact cotangentHandling g emptyEnv xftk
+
+revEvalArtifact
+  :: forall x z.
+     AstArtifactRev x z
+  -> Concrete x
+  -> Maybe (Concrete (ADTensorKind z))
+  -> (Concrete (ADTensorKind x), Concrete z)
+{-# INLINE revEvalArtifact #-}
+revEvalArtifact AstArtifactRev{..} parameters mdt =
+  let azstk = varNameToFTK artVarDtRev
+      env = extendEnv artVarDomainRev parameters emptyEnv
+      envDt = case mdt of
+        Nothing ->
+          let oneAtF = treplTarget 1 azstk
+          in extendEnv artVarDtRev oneAtF env
+        Just dt ->
+          if tftkG (ftkToSTK azstk) (unConcrete dt) == azstk
+          then extendEnv artVarDtRev dt env
+          else error "revEvalArtifact: reverse derivative incoming cotangent should have the same shape as the codomain of the objective function"
+      gradient = interpretAstPrimal envDt artDerivativeRev
+      primal = interpretAstPrimal env artPrimalRev
+  in (gradient, primal)
+
+
+-- * Reverse derivative adaptors' testing-only internal machinery
 
 -- For tests only.
 revArtifactDelta
@@ -163,28 +194,6 @@ forwardPassByApplication g hVectorPrimal var _hVector =
       varInputs = dDnotShared (AstRaw hVectorPrimal) deltaInputs
   in g varInputs
 
-revEvalArtifact
-  :: forall x z.
-     AstArtifactRev x z
-  -> Concrete x
-  -> Maybe (Concrete (ADTensorKind z))
-  -> (Concrete (ADTensorKind x), Concrete z)
-{-# INLINE revEvalArtifact #-}
-revEvalArtifact AstArtifactRev{..} parameters mdt =
-  let azstk = varNameToFTK artVarDtRev
-      env = extendEnv artVarDomainRev parameters emptyEnv
-      envDt = case mdt of
-        Nothing ->
-          let oneAtF = treplTarget 1 azstk
-          in extendEnv artVarDtRev oneAtF env
-        Just dt ->
-          if tftkG (ftkToSTK azstk) (unConcrete dt) == azstk
-          then extendEnv artVarDtRev dt env
-          else error "revEvalArtifact: reverse derivative incoming cotangent should have the same shape as the codomain of the objective function"
-      gradient = interpretAstPrimal envDt artDerivativeRev
-      primal = interpretAstPrimal env artPrimalRev
-  in (gradient, primal)
-
 
 -- * Forward derivative adaptors
 
@@ -218,6 +227,9 @@ jvp f vals ds =
   in fst $ fwdEvalArtifact @_ @z artifact valsTarget
          $ toADTensorKindShared xftk dsTarget
 
+
+-- * Forward derivative adaptors' internal machinery
+
 fwdEvalArtifact
   :: forall x z. KnownSTK x
   => AstArtifactFwd x z
@@ -237,7 +249,7 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds =
      else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shape"
 
 
--- * Non-AST gradient adaptors, with constant and fixed inputs and dt
+-- * Non-AST reverse derivative adaptors
 
 -- We are inlining these functions because they take function arguments
 -- and are not too large. However, becausethey are called in many places,
@@ -270,6 +282,9 @@ cvjp
 {-# INLINE cvjp #-}
 cvjp f vals dt = crevMaybe f vals (Just dt)
 
+
+-- * Non-AST reverse derivative adaptors' internal machinery
+
 crevMaybe
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
@@ -289,7 +304,7 @@ crevMaybe f vals mdt =
      $ fst $ crevOnHVector mdt g xftk valsTarget
 
 
--- * Non-AST derivative adaptors, with constant and fixed inputs
+-- * Non-AST forward derivative adaptors
 
 -- | This takes the sensitivity parameter, by convention.
 cjvp
@@ -303,6 +318,9 @@ cjvp
   -> Concrete (ADTensorKind z)
 {-# INLINE cjvp #-}
 cjvp f vals ds = fst $ cfwdBoth f vals ds
+
+
+-- * Non-AST forward derivative adaptors' internal machinery
 
 cfwdBoth
   :: forall advals z.
