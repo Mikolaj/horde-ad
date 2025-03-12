@@ -336,7 +336,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
              let parametersAndInput =
                    tpair parameters (tpair (sconcrete glyph) (sconcrete label))
                  gradient = tproject1 $ fst
-                            $ revEvalArtifact art parametersAndInput Nothing
+                            $ revInterpretArtifact art parametersAndInput Nothing
              in go rest (updateWithGradientAdam
                            @(XParams width r)
                            defaultArgsAdam stateAdam knownSTK parameters

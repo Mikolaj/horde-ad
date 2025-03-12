@@ -16,8 +16,8 @@ module HordeAd.ADEngine
     -- * Internal machinery
   , IncomingCotangentHandling(..)
   , revArtifactAdapt, revArtifactDelta
-  , revProduceArtifactWithoutInterpretation, revEvalArtifact
-  , cfwdBoth, fwdEvalArtifact
+  , revProduceArtifactWithoutInterpretation, revInterpretArtifact
+  , cfwdBoth, fwdInterpretArtifact
   ) where
 
 import Prelude
@@ -132,7 +132,7 @@ revMaybe f vals0 mdt =
         maybe (IgnoreIncomingCotangent) (const UseIncomingCotangent) mdt
       artifact = revArtifactAdapt cotangentHandling f xftk
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
-     $ fst $ revEvalArtifact artifact valsTarget mdt
+     $ fst $ revInterpretArtifact artifact valsTarget mdt
 
 revArtifactAdapt
   :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
@@ -147,14 +147,14 @@ revArtifactAdapt cotangentHandling f xftk =
       g !arg = ttlet arg $ f . fromTarget  -- fromTarget requires duplicable
   in revProduceArtifact cotangentHandling g emptyEnv xftk
 
-revEvalArtifact
+revInterpretArtifact
   :: forall x z.
      AstArtifactRev x z
   -> Concrete x
   -> Maybe (Concrete (ADTensorKind z))
   -> (Concrete (ADTensorKind x), Concrete z)
-{-# INLINE revEvalArtifact #-}
-revEvalArtifact AstArtifactRev{..} parameters mdt =
+{-# INLINE revInterpretArtifact #-}
+revInterpretArtifact AstArtifactRev{..} parameters mdt =
   let azstk = varNameToFTK artVarDtRev
       env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = case mdt of
@@ -164,7 +164,7 @@ revEvalArtifact AstArtifactRev{..} parameters mdt =
         Just dt ->
           if tftkG (ftkToSTK azstk) (unConcrete dt) == azstk
           then extendEnv artVarDtRev dt env
-          else error "revEvalArtifact: reverse derivative incoming cotangent should have the same shape as the codomain of the objective function"
+          else error "revInterpretArtifact: reverse derivative incoming cotangent should have the same shape as the codomain of the objective function"
       gradient = interpretAstPrimal envDt artDerivativeRev
       primal = interpretAstPrimal env artPrimalRev
   in (gradient, primal)
@@ -243,20 +243,20 @@ jvp f vals ds =
       xftk = tftkG (knownSTK @(X astvals)) $ unConcrete valsTarget
       artifact = fst $ fwdProduceArtifact g emptyEnv xftk
       dsTarget = toTarget ds
-  in fst $ fwdEvalArtifact @_ @z artifact valsTarget
+  in fst $ fwdInterpretArtifact @_ @z artifact valsTarget
          $ toADTensorKindShared xftk dsTarget
 
 
 -- * Forward derivative adaptors' internal machinery
 
-fwdEvalArtifact
+fwdInterpretArtifact
   :: forall x z. KnownSTK x
   => AstArtifactFwd x z
   -> Concrete x
   -> Concrete (ADTensorKind x)
   -> (Concrete (ADTensorKind z), Concrete z)
-{-# INLINE fwdEvalArtifact #-}
-fwdEvalArtifact AstArtifactFwd{..} parameters ds =
+{-# INLINE fwdInterpretArtifact #-}
+fwdInterpretArtifact AstArtifactFwd{..} parameters ds =
   let xstk = knownSTK @x
       axstk = adSTK xstk
   in if adFTK (tftkG xstk (unConcrete parameters)) == tftkG axstk (unConcrete ds)
@@ -265,7 +265,7 @@ fwdEvalArtifact AstArtifactFwd{..} parameters ds =
               derivative = interpretAstPrimal envD artDerivativeFwd
               primal = interpretAstPrimal env artPrimalFwd
           in (derivative, primal)
-     else error "fwdEvalArtifact: forward derivative input and sensitivity arguments should have same shape"
+     else error "fwdInterpretArtifact: forward derivative input and sensitivity arguments should have same shape"
 
 
 -- * Non-AST reverse derivative adaptors

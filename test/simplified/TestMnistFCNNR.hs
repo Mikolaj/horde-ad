@@ -326,7 +326,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
           let parametersAndInput =
                 tpair parameters (tpair (rconcrete glyph) (rconcrete label))
               gradient = tproject1 $ fst
-                         $ revEvalArtifact art parametersAndInput Nothing
+                         $ revInterpretArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma knownSTK parameters gradient)
     let runBatch :: Concrete (XParams widthHidden widthHidden2 r)
                  -> (Int, [MnistDataLinearR r])
@@ -609,7 +609,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
           let parametersAndInput =
                 tpair parameters (tpair (rconcrete glyph) (rconcrete label))
               gradient = tproject1 $ fst
-                         $ revEvalArtifact art parametersAndInput Nothing
+                         $ revInterpretArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma knownSTK parameters gradient)
     let runBatch :: Concrete (XParams2 r Float) -> (Int, [MnistDataLinearR r])
                  -> IO (Concrete (XParams2 r Float))
@@ -695,9 +695,9 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
         ftk = tftk @Concrete stk targetInit
         parametersAndInput = tpair targetInit (tpair glyph label)
         (_gradient0, value0) = first tproject1 $
-          revEvalArtifact art parametersAndInput Nothing
+          revInterpretArtifact art parametersAndInput Nothing
         (gradient1, value1) = first tproject1 $
-          revEvalArtifact art parametersAndInput (Just $ kconcrete dt)
+          revInterpretArtifact art parametersAndInput (Just $ kconcrete dt)
         f :: ADVal Concrete (XParams2 Double Double) -> ADVal Concrete (TKScalar Double)
         f adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2

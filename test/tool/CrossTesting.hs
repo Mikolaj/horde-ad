@@ -18,7 +18,7 @@ import HordeAd.ADEngine
   ( IncomingCotangentHandling (..)
   , cjvp
   , jvp
-  , revEvalArtifact
+  , revInterpretArtifact
   , revProduceArtifactWithoutInterpretation
   )
 import HordeAd.AstEngine
@@ -84,11 +84,11 @@ rev' f vals =
       artifactsGradAst9 =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent g9 ftk
-      (gradient9, value9) = revEvalArtifact7 artifactsGradAst9
-      revEvalArtifact7
+      (gradient9, value9) = revInterpretArtifact7 artifactsGradAst9
+      revInterpretArtifact7
         :: AstArtifactRev (TKR n r) (TKR m r)
         -> (Concrete (ADTensorKind (TKR n r)), Concrete (TKR m r))
-      revEvalArtifact7 a1 = revEvalArtifact a1 vals Nothing
+      revInterpretArtifact7 a1 = revInterpretArtifact a1 vals Nothing
       hGeneral
         :: (ADReady fgen, ADReady f1)
         => (f1 (TKR m r) -> AstTensor AstMethodLet FullSpan (TKR m r))
@@ -158,51 +158,51 @@ rev' f vals =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst id id id) ftk
       (gradient2Ast, value2Ast) =
-        revEvalArtifact7 artifactsGradAst
+        revInterpretArtifact7 artifactsGradAst
       (gradient2AstS, value2AstS) =
-        revEvalArtifact7 (simplifyArtifact artifactsGradAst)
+        revInterpretArtifact7 (simplifyArtifact artifactsGradAst)
       artifactsGradAstT =
         fst $ revProduceArtifactWithoutInterpretation
                 UseIncomingCotangent (hAst id id id) ftk
       (gradient2AstST, value2AstST) =
-        revEvalArtifact7 (simplifyArtifact artifactsGradAstT)
+        revInterpretArtifact7 (simplifyArtifact artifactsGradAstT)
       artifactsSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst id id simplifyInlineContract) ftk
       (gradient3Ast, value3Ast) =
-        revEvalArtifact7 artifactsSimpleAst
+        revInterpretArtifact7 artifactsSimpleAst
       (gradient3AstS, value3AstS) =
-        revEvalArtifact7 (simplifyArtifact artifactsSimpleAst)
+        revInterpretArtifact7 (simplifyArtifact artifactsSimpleAst)
       artifactsGradAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst unAstNoSimplify AstNoSimplify id) ftk
       (gradient2AstUnSimp, value2AstUnSimp) =
-        revEvalArtifact7 artifactsGradAstUnSimp
+        revInterpretArtifact7 artifactsGradAstUnSimp
       (gradient2AstSUnSimp, value2AstSUnSimp) =
-        revEvalArtifact7 (simplifyArtifact artifactsGradAstUnSimp)
+        revInterpretArtifact7 (simplifyArtifact artifactsGradAstUnSimp)
       artifactsSimpleAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst unAstNoSimplify AstNoSimplify simplifyInlineContract)
                 ftk
       (gradient3AstUnSimp, value3AstUnSimp) =
-        revEvalArtifact7 artifactsSimpleAstUnSimp
+        revInterpretArtifact7 artifactsSimpleAstUnSimp
       (gradient3AstSUnSimp, value3AstSUnSimp) =
-        revEvalArtifact7 (simplifyArtifact artifactsSimpleAstUnSimp)
+        revInterpretArtifact7 (simplifyArtifact artifactsSimpleAstUnSimp)
       artifactsPrimalAst =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst unAstNoVectorize AstNoVectorize id) ftk
       (gradient4Ast, value4Ast) =
-        revEvalArtifact7 artifactsPrimalAst
+        revInterpretArtifact7 artifactsPrimalAst
       (gradient4AstS, value4AstS) =
-        revEvalArtifact7 (simplifyArtifact artifactsPrimalAst)
+        revInterpretArtifact7 (simplifyArtifact artifactsPrimalAst)
       artifactsPSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst unAstNoVectorize AstNoVectorize simplifyInlineContract)
                 ftk
       (gradient5Ast, value5Ast) =
-        revEvalArtifact7 artifactsPSimpleAst
+        revInterpretArtifact7 artifactsPSimpleAst
       (gradient5AstS, value5AstS) =
-        revEvalArtifact7 (simplifyArtifact artifactsPSimpleAst)
+        revInterpretArtifact7 (simplifyArtifact artifactsPSimpleAst)
       cderivative = cjvp f vals vals
       derivative = jvp f vals vals
       derivativeRfwd1 = rfwd1ds @Concrete @r @n @m @r f vals
