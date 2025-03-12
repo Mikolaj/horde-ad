@@ -6,7 +6,7 @@
 -- high-level API of the horde-ad library. Optimizers are add-ons.
 module HordeAd.ADEngine
   ( -- * Reverse derivative adaptors
-    grad, vjp
+    grad, vjp, gradArtifact, vjpArtifact
     -- * Forward derivative adaptors
   , jvp
     -- * Non-AST reverse derivative adaptors
@@ -48,15 +48,9 @@ instance KnownSTK y
 
 -- * Reverse derivative adaptors
 
--- VJP (vector-jacobian product) or Lop (left operations) are alternative
--- names to @grad@, but newcomers may have trouble understanding them.
-
 -- | This simplified version of the reverse derivative operation
 -- sets the incoming cotangent @dt@ to be 1 and assumes the codomain
--- of the function to be differentiated is a single ranked or shaped tensor
--- (or another datatype known to the libray but determined by only three
--- parameters @r@, @y@ and @g@, which is already not true for a pair
--- of different tensors).
+-- of the function to be differentiated is a scalar.
 --
 -- We don't enforce (e.g., by quantifcation) that the objective function
 -- is closed, because we evaluate the result of the differentiation
@@ -75,12 +69,11 @@ grad f vals = revMaybe f vals Nothing
 
 -- | This version of the reverse derivative operation
 -- explicitly takes the sensitivity parameter (the incoming cotangent).
--- It also permits an aribtrary (nested tuple+) type of not only the domain
--- but also the codomain of the function to be differentiated. The downside
+-- It also permits an aribtrary (nested tuple+) type of the domain
+-- and aribtrary (nested product) tensor kind of the codomain
+-- of the function to be differentiated. The downside
 -- is that if the function doesn't have a type signature,
--- the type often has to be spelled in full, instead of giving
--- only the rank or shape and/or the base scalar type of a single
--- tensor codomain.
+-- the type often has to be spelled in full to aid type reconstruction.
 vjp
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
@@ -92,6 +85,32 @@ vjp
   -> Value astvals
 {-# INLINE vjp #-}
 vjp f vals dt = revMaybe f vals (Just dt)
+
+gradArtifact
+  :: forall astvals r.
+     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableTarget Concrete (Value astvals) )
+  => (astvals -> AstTensor AstMethodLet FullSpan (TKScalar r))
+  -> Value astvals
+  -> AstArtifactRev (X astvals) (TKScalar r)
+{-# INLINE gradArtifact #-}
+gradArtifact f vals0 =
+  let xftk = tftkG (knownSTK @(X astvals)) $ unConcrete $ toTarget vals0
+  in revArtifactAdapt IgnoreIncomingCotangent f xftk
+
+vjpArtifact
+  :: forall astvals z.
+     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableTarget Concrete (Value astvals) )
+  => (astvals -> AstTensor AstMethodLet FullSpan z)
+  -> Value astvals
+  -> AstArtifactRev (X astvals) z
+{-# INLINE vjpArtifact #-}
+vjpArtifact f vals0 =
+  let xftk = tftkG (knownSTK @(X astvals)) $ unConcrete $ toTarget vals0
+  in revArtifactAdapt UseIncomingCotangent f xftk
 
 
 -- * Reverse derivative adaptors' internal machinery
