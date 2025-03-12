@@ -68,7 +68,7 @@ grad
   -> Value astvals
   -> Value astvals
 {-# INLINE grad #-}
-grad f vals = vjpMaybe f vals Nothing
+grad f vals = revMaybe f vals Nothing
 
 -- | This version of the reverse derivative operation
 -- explicitly takes the sensitivity parameter (the incoming cotangent).
@@ -88,9 +88,9 @@ vjp
   -> Concrete (ADTensorKind z)
   -> Value astvals
 {-# INLINE vjp #-}
-vjp f vals dt = vjpMaybe f vals (Just dt)
+vjp f vals dt = revMaybe f vals (Just dt)
 
-vjpMaybe
+revMaybe
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
@@ -99,8 +99,8 @@ vjpMaybe
   -> Value astvals
   -> Maybe (Concrete (ADTensorKind z))
   -> Value astvals  -- morally Value (ADTensorKind astvals)
-{-# INLINE vjpMaybe #-}
-vjpMaybe f vals0 mdt =
+{-# INLINE revMaybe #-}
+revMaybe f vals0 mdt =
   let valsTarget = toTarget vals0
       xftk = tftkG (knownSTK @(X astvals)) $ unConcrete valsTarget
       cotangentHandling =
@@ -255,7 +255,7 @@ cgrad
   -> DValue advals
   -> DValue advals
 {-# INLINE cgrad #-}
-cgrad f vals = cvjpMaybe f vals Nothing
+cgrad f vals = crevMaybe f vals Nothing
 
 -- | This version additionally takes the sensitivity parameter.
 cvjp
@@ -268,9 +268,9 @@ cvjp
   -> Concrete (ADTensorKind z)
   -> DValue advals
 {-# INLINE cvjp #-}
-cvjp f vals dt = cvjpMaybe f vals (Just dt)
+cvjp f vals dt = crevMaybe f vals (Just dt)
 
-cvjpMaybe
+crevMaybe
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal Concrete) advals
@@ -279,8 +279,8 @@ cvjpMaybe
   -> DValue advals
   -> Maybe (Concrete (ADTensorKind z))
   -> DValue advals  -- morally DValue (ADTensorKind advals)
-{-# INLINE cvjpMaybe #-}
-cvjpMaybe f vals mdt =
+{-# INLINE crevMaybe #-}
+crevMaybe f vals mdt =
   let g :: ADVal Concrete (X advals) -> ADVal Concrete z
       g = f . fromTarget
       xftk = tftkG (knownSTK @(X advals)) $ unConcrete valsTarget

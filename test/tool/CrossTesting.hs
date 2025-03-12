@@ -40,7 +40,7 @@ import HordeAd.OpsTensor
 
 import EqEpsilon
 
-cvjpMaybeBoth
+crevMaybeBoth
   :: forall r y f advals.
      ( f ~ Concrete, X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal Concrete) advals
@@ -48,8 +48,8 @@ cvjpMaybeBoth
      , AdaptableTarget Concrete (DValue advals) )
   => (advals -> ADVal f (TKR y r)) -> DValue advals
   -> (f (ADTensorKind (X advals)), f (TKR y r))
-{-# INLINE cvjpMaybeBoth #-}
-cvjpMaybeBoth f vals =
+{-# INLINE crevMaybeBoth #-}
+crevMaybeBoth f vals =
   let g :: ADVal Concrete (X advals) -> ADVal Concrete (TKR y r)
       g = toTarget . f . fromTarget
       valsH = toTarget vals
@@ -73,7 +73,7 @@ rev' f vals =
       g :: ADVal Concrete (TKR n r)
         -> ADVal Concrete (TKR m r)
       g inputs = f $ fromTarget inputs
-      (gradient1, value1) = cvjpMaybeBoth g vals
+      (gradient1, value1) = crevMaybeBoth g vals
       gradientRrev1 = rrev1 @Concrete @r @n @m f vals
       g9 :: ADVal (AstRaw PrimalSpan) (TKR n r)
          -> ADVal (AstRaw PrimalSpan) (TKR m r)
@@ -110,22 +110,22 @@ rev' f vals =
         hGeneral @(ADVal Concrete) fx1 fx2 gx
                  (fromTarget inputs)
       (gradient2, value2) =
-        cvjpMaybeBoth (h id id id) vals
+        crevMaybeBoth (h id id id) vals
       (gradient3, value3) =
-        cvjpMaybeBoth (h id id simplifyInlineContract) vals
+        crevMaybeBoth (h id id simplifyInlineContract) vals
       (gradient2UnSimp, value2UnSimp) =
-        cvjpMaybeBoth (h unAstNoSimplify AstNoSimplify id) vals
+        crevMaybeBoth (h unAstNoSimplify AstNoSimplify id) vals
       gradientRrev2UnSimp =
         rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (gradient3UnSimp, value3UnSimp) =
-        cvjpMaybeBoth (h unAstNoSimplify AstNoSimplify simplifyInlineContract)
+        crevMaybeBoth (h unAstNoSimplify AstNoSimplify simplifyInlineContract)
                       vals
       gradientRrev3UnSimp =
         rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify simplifyInlineContract) vals
       (gradient4, value4) =
-        cvjpMaybeBoth (h unAstNoVectorize AstNoVectorize id)
+        crevMaybeBoth (h unAstNoVectorize AstNoVectorize id)
                       vals
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
@@ -133,7 +133,7 @@ rev' f vals =
         rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoVectorize AstNoVectorize id) vals
       (gradient5, value5) =
-        cvjpMaybeBoth (h unAstNoVectorize AstNoVectorize simplifyInlineContract)
+        crevMaybeBoth (h unAstNoVectorize AstNoVectorize simplifyInlineContract)
                       vals
       gradientRrev5 =
         rrev1 @Concrete @r @n @m @r
