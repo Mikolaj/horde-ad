@@ -13,4 +13,5 @@ main = defaultMain
          , mnistBGroup2VTA 400
          , mnistBGroup2VTC 400
          , mnistBGroup2VTO 400
+         , mnistBGroup2VTOZ 400
          ]
