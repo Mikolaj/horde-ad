@@ -115,22 +115,17 @@ mnistBGroup1VTA chunkLength =
     return $! map mkMnistDataLinearR $ take chunkLength testData) $
   \ xs ->
   bgroup ("2-hidden-layer rank 1 VTA MNIST nn with samples: "
-          ++ show chunkLength) $
-    (if chunkLength <= 1000
-     then
+          ++ show chunkLength)
        [ mnistTestBench1VTA "30|10 " 30 10 0.02 chunkLength xs
-           -- toy width
        , mnistTrainBench1VTA "30|10 " 30 10 0.02 chunkLength xs
+           -- toy width
        , mnistTestBench1VTA "300|100 " 300 100 0.02 chunkLength xs
-           -- ordinary width
        , mnistTrainBench1VTA "300|100 " 300 100 0.02 chunkLength xs
-       ]
-     else
-       [])
-    ++ [ mnistTestBench1VTA "500|150 " 500 150 0.02 chunkLength xs
-           -- another common width
-       , mnistTrainBench1VTA "500|150 warm-up " 500 150 0.02 chunkLength xs
+           -- ordinary width
+       , mnistTestBench1VTA "500|150 " 500 150 0.02 chunkLength xs
        , mnistTrainBench1VTA "500|150 " 500 150 0.02 chunkLength xs
+           -- another common width
+       , mnistTrainBench1VTA "1500|500 " 1500 500 0.02 chunkLength xs
        ]
 
 -- JAX differentiation, Ast term built and differentiated only once
@@ -220,21 +215,14 @@ mnistBGroup1VTO chunkLength =
     return $! map mkMnistDataLinearR $ take chunkLength testData) $
   \ xs ->
   bgroup ("2-hidden-layer rank 1 VTO MNIST nn with samples: "
-          ++ show chunkLength) $
-    (if chunkLength <= 1000
-     then
+          ++ show chunkLength)
        [ mnistTestBench1VTO "30|10 " 30 10 0.02 chunkLength xs
-           -- toy width
        , mnistTrainBench1VTO "30|10 " 30 10 0.02 chunkLength xs
        , mnistTestBench1VTO "300|100 " 300 100 0.02 chunkLength xs
-           -- ordinary width
        , mnistTrainBench1VTO "300|100 " 300 100 0.02 chunkLength xs
-       ]
-     else
-       [])
-    ++ [ mnistTestBench1VTO "500|150 " 500 150 0.02 chunkLength xs
-           -- another common width
+       , mnistTestBench1VTO "500|150 " 500 150 0.02 chunkLength xs
        , mnistTrainBench1VTO "500|150 " 500 150 0.02 chunkLength xs
+       , mnistTrainBench1VTO "1500|500 " 1500 500 0.02 chunkLength xs
        ]
 
 -- * Using matrices, which is rank 2
@@ -307,21 +295,14 @@ mnistBGroup2VTA chunkLength =
     return $! map mkMnistDataLinearR $ take chunkLength testData) $
   \ xs ->
   bgroup ("2-hidden-layer rank 2 VTA MNIST nn with samples: "
-          ++ show chunkLength) $
-    (if chunkLength <= 1000
-     then
+          ++ show chunkLength)
        [ mnistTestBench2VTA "30|10 "30 10 0.02 chunkLength xs
-           -- toy width
        , mnistTrainBench2VTA "30|10 " 30 10 0.02 chunkLength xs
        , mnistTestBench2VTA "300|100 " 300 100 0.02 chunkLength xs
-           -- ordinary width
        , mnistTrainBench2VTA "300|100 " 300 100 0.02 chunkLength xs
-       ]
-     else
-       [])
-    ++ [ mnistTestBench2VTA "500|150 " 500 150 0.02 chunkLength xs
-           -- another common width
+       , mnistTestBench2VTA "500|150 " 500 150 0.02 chunkLength xs
        , mnistTrainBench2VTA "500|150 " 500 150 0.02 chunkLength xs
+       , mnistTrainBench2VTA "1500|500 " 1500 500 0.02 chunkLength xs
        ]
 
 -- JAX differentiation, Ast term built and differentiated only once
@@ -343,18 +324,11 @@ mnistTrainBench2VTC prefix widthHidden widthHidden2 =
 mnistBGroup2VTC :: Int -> Benchmark
 mnistBGroup2VTC chunkLength =
   bgroup ("2-hidden-layer rank 2 VTC compilation MNIST nn with samples: "
-          ++ show chunkLength) $
-    (if chunkLength <= 1000
-     then
+          ++ show chunkLength)
        [ mnistTrainBench2VTC "30|10 " 30 10
-           -- toy width
        , mnistTrainBench2VTC "300|100 " 300 100
-           -- ordinary width
-       ]
-     else
-       [])
-    ++ [ mnistTrainBench2VTC "500|150 " 500 150
-           -- another common width
+       , mnistTrainBench2VTC "500|150 " 500 150
+       , mnistTrainBench2VTC "1500|500 " 1500 500
        ]
 
 -- The same as above, but only runtime.
@@ -393,7 +367,7 @@ mnistBGroup2VTO :: Int -> Benchmark
 mnistBGroup2VTO chunkLength =
   let (!targetInit, !artRaw) =
         MnistFcnnRanked2.mnistTrainBench2VTOGradient
-          @Double (Proxy @Float) IgnoreIncomingCotangent 1 (mkStdGen 44) 500 150
+          @Double (Proxy @Float) IgnoreIncomingCotangent 1 (mkStdGen 44) 1500 500
       !art = simplifyArtifactGradient artRaw  -- no NFData for AST
   in env (do
     testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
@@ -402,7 +376,7 @@ mnistBGroup2VTO chunkLength =
   \ xs ->
    bgroup ("2-hidden-layer rank 2 VTO runtime MNIST nn with samples: "
            ++ show chunkLength)
-     [ mnistTrainBench2VTO "500|150 " 0.02 chunkLength xs (targetInit, art)
+     [ mnistTrainBench2VTO "1500|500 " 0.02 chunkLength xs (targetInit, art)
      ]
 
 {- TODO: re-enable once -fpolymorphic-specialisation works

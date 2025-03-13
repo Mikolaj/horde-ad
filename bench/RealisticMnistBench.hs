@@ -11,12 +11,10 @@ import BenchMnistTools
 
 main :: IO ()
 main = do
-  testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
-  let testData = shuffle (mkStdGen 42) testData0
   defaultMain
-    [ mnistBGroup1VTA testData 4000
-    , mnistBGroup1VTO testData 4000
-    , mnistBGroup2VTA testData 4000
+    [ mnistBGroup1VTA 4000
+    , mnistBGroup1VTO 4000
+    , mnistBGroup2VTA 4000
     , mnistBGroup2VTC 4000
-    , mnistBGroup2VTO testData 4000
+    , mnistBGroup2VTO 4000
     ]
