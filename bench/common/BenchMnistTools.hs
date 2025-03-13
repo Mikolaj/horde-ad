@@ -425,6 +425,53 @@ mnistBGroup2VTOZ chunkLength =
      [ mnistTrainBench2VTO "1500|500 " 0.02 chunkLength xs (targetInit, art)
      ]
 
+-- The same as above, but without any simplification, even the smart constructors.
+mnistTrainBench2VTOX
+  :: forall r. r ~ Double
+  => String
+  -> Double -> Int -> [MnistDataLinearR r]
+  -> ( Concrete (XParams2 r Float)
+     , AstArtifactRev
+         (TKProduct
+            (XParams2 r Float)
+            (TKProduct (TKR2 1 (TKScalar Double))
+                       (TKR2 1 (TKScalar Double))))
+         (TKScalar r) )
+  -> Benchmark
+mnistTrainBench2VTOX prefix gamma batchSize xs (targetInit, art) = do
+    let go :: [MnistDataLinearR r] -> Concrete (XParams2 r Float)
+           -> Concrete (XParams2 r Float)
+        go [] parameters = parameters
+        go ((glyph, label) : rest) !parameters =
+          let parametersAndInput =
+                tpair parameters (tpair (rconcrete glyph) (rconcrete label))
+              gradient = tproject1 $ fst
+                         $ revInterpretArtifact art parametersAndInput Nothing
+          in go rest (updateWithGradient gamma knownSTK parameters gradient)
+        chunk = take batchSize xs
+        gradf c = go c targetInit
+        name =
+          prefix
+          ++ unwords
+               [ "v0 m" ++ show (widthSTK $ knownSTK @(XParams2 r Float))
+               , "=" ++ show (tsize knownSTK targetInit) ]
+    bench name $ nf gradf chunk
+
+mnistBGroup2VTOX :: Int -> Benchmark
+mnistBGroup2VTOX chunkLength =
+  let (!targetInit, !art) =
+        MnistFcnnRanked2.mnistTrainBench2VTOGradientX
+          @Double (Proxy @Float) IgnoreIncomingCotangent 1 (mkStdGen 44) 1500 500
+  in env (do
+    testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
+    let testData = shuffle (mkStdGen 42) testData0
+    return $! map mkMnistDataLinearR $ take chunkLength testData) $
+  \ xs ->
+   bgroup ("2-hidden-layer rank 2 VTOX runtime MNIST nn with samples: "
+           ++ show chunkLength)
+     [ mnistTrainBench2VTO "1500|500 " 0.02 chunkLength xs (targetInit, art)
+     ]
+
 {- TODO: re-enable once -fpolymorphic-specialisation works
 
 -- This is expected to fail with -O0 and to pass with -O1

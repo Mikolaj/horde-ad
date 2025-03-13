@@ -17,6 +17,7 @@ import Data.Array.Nested.Internal.Shape
 
 import HordeAd
 import HordeAd.Core.Adaptor
+import HordeAd.Core.CarriersAst
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
@@ -135,3 +136,44 @@ mnistTrainBench2VTOGradient Proxy cotangentHandling range seed widthHidden width
 {-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( Concrete (XParams2 Double Float), AstArtifactRev (TKProduct (XParams2 Double Float) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
 {-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( Concrete (XParams2 Float Float), AstArtifactRev (TKProduct (XParams2 Float Float) (TKProduct (TKR2 1 (TKScalar Float)) (TKR2 1 (TKScalar Float)))) (TKScalar Float) ) #-}
 {-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Double -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( Concrete (XParams2 Double Double), AstArtifactRev (TKProduct (XParams2 Double Double) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
+
+-- | A version without any simplification, even the AST smart constructors.
+mnistTrainBench2VTOGradientX
+  :: forall r q. ( GoodScalar r, Differentiable r
+                 , GoodScalar q, Differentiable q )
+  => Proxy q -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int
+  -> ( Concrete (XParams2 r q)
+     , AstArtifactRev
+         (TKProduct
+            (XParams2 r q)
+            (TKProduct (TKR2 1 (TKScalar r))
+                       (TKR2 1 (TKScalar r))))
+         (TKScalar r) )
+mnistTrainBench2VTOGradientX Proxy cotangentHandling range seed widthHidden widthHidden2 =
+  withSNat widthHidden $ \(SNat @widthHidden) ->
+  withSNat widthHidden2 $ \(SNat @widthHidden2) ->
+  -- Initial parameter generation is counted as part of compilation time.
+  let targetInit =
+        forgetShape $ fst
+        $ randomValue @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                                   Concrete widthHidden widthHidden2 r q)))
+                      range seed
+      ftk = tftk @Concrete (knownSTK @(XParams2 r q)) targetInit
+      ftkData = FTKProduct (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar)
+                           (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar)
+      f :: ( MnistFcnnRanked2.ADFcnnMnist2Parameters
+               (AstTensor AstMethodLet FullSpan) r q
+           , ( AstTensor AstMethodLet FullSpan (TKR 1 r)
+             , AstTensor AstMethodLet FullSpan (TKR 1 r) ) )
+        -> AstTensor AstMethodLet FullSpan (TKScalar r)
+      f (((hidden, bias), (hidden2, bias2), (readout, biasr)), (glyphR, labelR)) =
+        unAstNoSimplify
+        $ afcnnMnistLoss2 (AstNoSimplify glyphR, AstNoSimplify labelR)
+                          ( (AstNoSimplify hidden, AstNoSimplify bias)
+                          , (AstNoSimplify hidden2, AstNoSimplify bias2)
+                          , (AstNoSimplify readout, AstNoSimplify biasr) )
+      artRaw = revArtifactAdapt cotangentHandling f (FTKProduct ftk ftkData)
+  in (targetInit, artRaw)
+{-# SPECIALIZE mnistTrainBench2VTOGradientX :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( Concrete (XParams2 Double Float), AstArtifactRev (TKProduct (XParams2 Double Float) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
+{-# SPECIALIZE mnistTrainBench2VTOGradientX :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( Concrete (XParams2 Float Float), AstArtifactRev (TKProduct (XParams2 Float Float) (TKProduct (TKR2 1 (TKScalar Float)) (TKR2 1 (TKScalar Float)))) (TKScalar Float) ) #-}
+{-# SPECIALIZE mnistTrainBench2VTOGradientX :: Proxy Double -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( Concrete (XParams2 Double Double), AstArtifactRev (TKProduct (XParams2 Double Double) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
