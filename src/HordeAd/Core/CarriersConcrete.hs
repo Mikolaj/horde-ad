@@ -13,33 +13,37 @@ import Prelude hiding (foldl')
 import Control.DeepSeq (NFData (..))
 import Data.Vector.Storable qualified as VS
 
+import Data.Array.Mixed.Internal.Arith qualified as Nested.Internal.Arith
+  (liftVEltwise1)
 import Data.Array.Mixed.Shape
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal
+import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 -- * Orphan ox-arrays instances
 
-instance (Nested.IntElt r, Nested.PrimElt r)
+instance (Nested.IntElt r, Nested.PrimElt r, Eq r, Num r)
          => IntegralH (Nested.Ranked n r) where
   -- These can't be partial, because our conditionals are not lazy
   -- and so the counterfactual branches, with zeros, may get executed
   -- even though they are subsequently ignored.
-  quotH = Nested.rquotArray
-  remH = Nested.rremArray
+  quotH a b = Nested.rquotArray a (Nested.Internal.liftRanked1 mmakeNonZero b)
+  remH a b = Nested.rremArray a (Nested.Internal.liftRanked1 mmakeNonZero b)
 
-instance (Nested.IntElt r, Nested.PrimElt r)
+instance (Nested.IntElt r, Nested.PrimElt r, Eq r, Num r)
          => IntegralH (Nested.Shaped sh r) where
-  quotH = Nested.squotArray
-  remH = Nested.sremArray
+  quotH a b = Nested.squotArray a (Nested.Internal.liftShaped1 mmakeNonZero b)
+  remH a b = Nested.sremArray a (Nested.Internal.liftShaped1 mmakeNonZero b)
 
-instance (Nested.IntElt r, Nested.PrimElt r)
+instance (Nested.IntElt r, Nested.PrimElt r, Eq r, Num r)
          => IntegralH (Nested.Mixed sh r) where
-  quotH = Nested.mquotArray
-  remH = Nested.mremArray
+  quotH a b = Nested.mquotArray a (mmakeNonZero b)
+  remH a b = Nested.mremArray a (mmakeNonZero b)
 
 instance GoodScalar r
          => Real (Nested.Ranked n r) where
@@ -118,6 +122,13 @@ instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
   isDenormalized = error "horde-ad: operation not defined for tensor"
   isNegativeZero = error "horde-ad: operation not defined for tensor"
   isIEEE = error "horde-ad: operation not defined for tensor"
+
+-- TODO: make more efficient somehow?
+mmakeNonZero :: (Nested.PrimElt r, Eq r, Num r) => Nested.Mixed sh r -> Nested.Mixed sh r
+mmakeNonZero =
+  Nested.Internal.mliftNumElt1
+    (flip Nested.Internal.Arith.liftVEltwise1
+      (VS.map (\x -> if x == 0 then 1 else x)))
 
 
 -- * RepConcrete and its operations
