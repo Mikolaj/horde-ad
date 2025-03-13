@@ -9,7 +9,6 @@ module TestMnistCNNR
 import Prelude
 
 import Control.Monad (foldM, unless)
-import Numeric.LinearAlgebra (Numeric)
 import System.IO (hPutStrLn, stderr)
 import System.Random
 import Test.Tasty
@@ -42,8 +41,7 @@ type XParams r = X (MnistCnnRanked2.ADCnnMnistParameters Concrete r)
 -- which side-steps vectorization.
 mnistTestCaseCNNA
   :: forall r.
-     ( Differentiable r, GoodScalar r, Numeric r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     (Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
@@ -150,8 +148,7 @@ tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseCNNI
   :: forall r.
-     ( Differentiable r, GoodScalar r, Numeric r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     (Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
@@ -274,7 +271,7 @@ tensorADValMnistTestsCNNI = testGroup "CNN Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseCNNO
   :: forall r.
-     ( Differentiable r, GoodScalar r, Numeric r
+     ( Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r

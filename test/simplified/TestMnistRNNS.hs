@@ -10,7 +10,6 @@ import Control.Monad (foldM, unless)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.TypeLits (KnownNat, sameNat)
-import Numeric.LinearAlgebra (Numeric)
 import System.IO (hPutStrLn, stderr)
 import System.Random
 import Test.Tasty
@@ -45,8 +44,7 @@ testTrees = [ tensorADValMnistTestsRNNSA
 -- which side-steps vectorization.
 mnistTestCaseRNNSA
   :: forall width batch_size r.
-     ( Differentiable r, GoodScalar r, Numeric r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     (Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
@@ -154,8 +152,7 @@ tensorADValMnistTestsRNNSA = testGroup "RNNS ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseRNNSI
   :: forall width batch_size r.
-     ( Differentiable r, GoodScalar r, Numeric r
-     , PrintfArg r, AssertEqualUpToEpsilon r )
+     (Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
@@ -272,7 +269,7 @@ tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseRNNSO
   :: forall width batch_size r.
-     ( Differentiable r, GoodScalar r, Numeric r
+     ( Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r

@@ -31,7 +31,6 @@ import Data.Vector.Generic qualified as V
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+), type (<=), type (<=?))
-import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Lemmas
@@ -511,7 +510,7 @@ class ( Num (IntOf target)
 -- differ in types but all are far from matmul2.
 -- rmatvecmul m v = rflatten $ rmap1 (rreplicate 1 . rdot0 v) m
   trmatvecmul m v = trbuild1 (rwidth m) (\i -> trdot0 v (m `trindex` [i]))
-  trmatmul2 :: (GoodScalar r, Numeric r)
+  trmatmul2 :: GoodScalar r
             => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 -- How to generalize to tmatmul (#69)?
 -- Just rmatmul2 the two outermost dimensions?
@@ -541,7 +540,7 @@ class ( Num (IntOf target)
               => target (TKS '[m, n] r) -> target (TKS '[n] r)
               -> target (TKS '[m] r)
   tsmatvecmul @m m v = tsbuild1 @_ @m (\i -> tsdot0 v (m `tsindex` (i :.$ ZIS)))
-  tsmatmul2 :: (KnownNat m, KnownNat n, KnownNat p, GoodScalar r, Numeric r)
+  tsmatmul2 :: (KnownNat m, KnownNat n, KnownNat p, GoodScalar r)
             => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
             -> target (TKS '[m, p] r)
   tsmatmul2 @m m1 m2 =
@@ -583,8 +582,8 @@ class ( Num (IntOf target)
     withSNat (fromSMayNat' mm) $ \(SNat @k) ->
       xmcast (ssxFromShape $ mm :$% ZSX)
       $ txbuild1 @_ @k (\i -> txdot0 v (m `txindex` (i :.% ZIX)))
-  txmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p
-               , GoodScalar r, Numeric r, ConvertTensor target )
+  txmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p, GoodScalar r
+               , ConvertTensor target )
             => target (TKX '[Just m, Just n] r)
             -> target (TKX '[Just n, Just p] r)
             -> target (TKX '[Just m, Just p] r)

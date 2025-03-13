@@ -177,7 +177,6 @@ library horde-ad-simplified
       , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
-      , hmatrix
       , ilist
       , orthotope
       , ox-arrays
@@ -211,7 +210,6 @@ library exampleLibrary
       , bytestring
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
-      , hmatrix
       , mnist-idx
       , ox-arrays
       , random
@@ -239,7 +237,6 @@ library benchCommonLibrary
       , criterion
       , deepseq
       , data-default
-      , hmatrix
       , inspection-testing
       , ox-arrays
       , random
@@ -398,7 +395,6 @@ library testCommonLibrary
       , base
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
-      , hmatrix
       , ox-arrays
       , random
       , tasty >= 1.0

@@ -72,7 +72,6 @@ import GHC.TypeLits
   , type (-)
   , type (<=)
   )
-import Numeric.LinearAlgebra (Numeric)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
@@ -238,7 +237,7 @@ rdot1In = trdot1In
 rmatvecmul :: (GoodScalar r, BaseTensor target)
            => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
 rmatvecmul = trmatvecmul
-rmatmul2 :: (GoodScalar r, Numeric r, BaseTensor target)
+rmatmul2 :: (GoodScalar r, BaseTensor target)
          => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 rmatmul2 = trmatmul2
 -- | Copy the given tensor along the new, outermost dimension.
@@ -267,8 +266,7 @@ smatvecmul :: (KnownNat m, KnownNat n, GoodScalar r, BaseTensor target)
            => target (TKS '[m, n] r) -> target (TKS '[n] r)
            -> target (TKS '[m] r)
 smatvecmul = tsmatvecmul
-smatmul2 :: ( KnownNat m, KnownNat n, KnownNat p, GoodScalar r, Numeric r
-            , BaseTensor target )
+smatmul2 :: (KnownNat m, KnownNat n, KnownNat p, GoodScalar r, BaseTensor target)
          => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
          -> target (TKS '[m, p] r)
 smatmul2 = tsmatmul2
@@ -301,7 +299,7 @@ xmatvecmul :: forall mm mn r target.
            -> target (TKX '[mm] r)
 xmatvecmul = txmatvecmul
 xmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p
-            , GoodScalar r, Numeric r, BaseTensor target, ConvertTensor target )
+            , GoodScalar r, BaseTensor target, ConvertTensor target )
          => target (TKX '[Just m, Just n] r)
          -> target (TKX '[Just n, Just p] r)
          -> target (TKX '[Just m, Just p] r)

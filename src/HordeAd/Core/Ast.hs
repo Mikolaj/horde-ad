@@ -31,7 +31,6 @@ import Data.Some
 import Data.Type.Equality (TestEquality (..), (:~:) (Refl))
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (type (+), type (<=))
-import Numeric.LinearAlgebra (Numeric)
 import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -405,7 +404,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TK
                 -> AstTensor ms s (TKS '[m, n] r)
                 -> AstTensor ms s (TKS '[n] r)
                 -> AstTensor ms s (TKS '[m] r)
-  AstMatmul2S :: (GoodScalar r, Numeric r)
+  AstMatmul2S :: GoodScalar r
               => SNat m -> SNat n -> SNat p
               -> AstTensor ms s (TKS '[m, n] r)
               -> AstTensor ms s (TKS '[n, p] r)

@@ -10,7 +10,6 @@ import Prelude
 import Data.Int (Int64)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
-import Numeric.LinearAlgebra (Numeric)
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
@@ -345,7 +344,7 @@ testGatherSimpPP23 = do
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
-gatherTranspose33 :: forall target r. (ADReady target, GoodScalar r, Numeric r, RealFloat r)
+gatherTranspose33 :: forall target r. (ADReady target, GoodScalar r, RealFloat r)
                   => target (TKR 10 r) -> target (TKR 2 r)
 gatherTranspose33 t =
   rmatmul2 (rreshape [6, 8] (rconcrete $ unConcrete t48))

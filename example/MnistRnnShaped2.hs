@@ -12,7 +12,6 @@ import Data.List (foldl')
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
 import GHC.TypeLits (KnownNat, Nat, fromSNat, type (*))
-import Numeric.LinearAlgebra (Numeric)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested qualified as Nested
@@ -53,7 +52,7 @@ unrollLastS f s0 xs w =
   in foldl' g (undefined, s0) (sunravelToList xs)
 
 rnnMnistLayerS
-  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Differentiable r)
   => SNat in_width -> SNat out_width -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
        -- value parameters (@SNat@ below) denoting basic dimensions
@@ -68,7 +67,7 @@ rnnMnistLayerS SNat SNat SNat
     in tanh y
 
 rnnMnistTwoS
-  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Differentiable r)
   => SNat out_width -> SNat batch_size -> SNat sizeMnistH
   -> target (TKS '[2 * out_width, batch_size] r)  -- initial state
   -> PrimalOf target (TKS '[sizeMnistH, batch_size] r)
@@ -95,7 +94,7 @@ rnnMnistTwoS out_width@SNat
     in (sslice out_width out_width SNat s3, s3)
 
 rnnMnistZeroS
-  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Differentiable r)
   => SNat out_width
   -> SNat batch_size
   -> SNat sizeMnistH -> SNat sizeMnistW
@@ -114,7 +113,7 @@ rnnMnistZeroS out_width@SNat
 rnnMnistLossFusedS
   :: forall target h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth, Differentiable r
-     , ADReady target, ADReady (PrimalOf target), GoodScalar r, Numeric r)
+     , ADReady target, ADReady (PrimalOf target), GoodScalar r)
   => SNat out_width
   -> SNat batch_size
   -> ( PrimalOf target (TKS '[batch_size, h, w] r)
@@ -136,8 +135,7 @@ rnnMnistLossFusedS out_width@SNat
 rnnMnistTestS
   :: forall target h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
-     , target ~ Concrete, Differentiable r
-     , GoodScalar r, Numeric r )
+     , target ~ Concrete, Differentiable r, GoodScalar r )
   => SNat out_width
   -> SNat batch_size
   -> MnistDataBatchS batch_size r

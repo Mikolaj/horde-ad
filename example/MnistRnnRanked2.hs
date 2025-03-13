@@ -10,7 +10,6 @@ import Data.List (foldl')
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
 import GHC.TypeLits (KnownNat, Nat, type (+))
-import Numeric.LinearAlgebra (Numeric)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
@@ -61,7 +60,7 @@ unrollLastR f s0 xs w =
   in foldl' g (undefined, s0) (runravelToList xs)
 
 rnnMnistLayerR
-  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 2 r)  -- in state, [out_width, batch_size]
   -> target (TKR 2 r)  -- input, [in_width, batch_size]
   -> LayerWeigthsRNN target r  -- in_width out_width
@@ -73,7 +72,7 @@ rnnMnistLayerR s x (wX, wS, b) = case rshape s of
     in tanh y
 
 rnnMnistTwoR
-  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 2 r)  -- initial state, [2 * out_width, batch_size]
   -> PrimalOf target (TKR 2 r)  -- [sizeMnistHeight, batch_size]
   -> ( LayerWeigthsRNN target r  -- sizeMnistHeight out_width
@@ -92,7 +91,7 @@ rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
     in (rslice out_width out_width s3, s3)
 
 rnnMnistZeroR
-  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Differentiable r)
   => Int
   -> PrimalOf target (TKR 3 r)  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
   -> ADRnnMnistParameters target r  -- sizeMnistHeight out_width
@@ -118,7 +117,7 @@ rnnMnistZeroR batch_size xs
 -- TODO: Investigate. Either one of those is always better once
 -- enough good primitives are available or we need a way to guide
 -- term rewriting to one of these depending on the backend.
-rmatmul2m :: (BaseTensor target, GoodScalar r, Numeric r)
+rmatmul2m :: (BaseTensor target, GoodScalar r)
           => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 rmatmul2m m1 m2 = case rshape m2 of
   _ :$: width2 :$: ZSR ->
@@ -126,8 +125,7 @@ rmatmul2m m1 m2 = case rshape m2 of
           * rtranspose [1,0] (rreplicate (rwidth m1) m2))
 
 rnnMnistLossFusedR
-  :: ( ADReady target, ADReady (PrimalOf target), GoodScalar r
-     , Numeric r, Differentiable r )
+  :: (ADReady target, ADReady (PrimalOf target), GoodScalar r, Differentiable r)
   => Int
   -> (PrimalOf target (TKR 3 r), PrimalOf target (TKR 2 r))  -- batch_size
   -> ADRnnMnistParameters target r  -- SizeMnistHeight out_width
@@ -144,7 +142,7 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 -- the order of magnitude slowdown. Remove as soon as `rmatmul2m`
 -- is not needed.
 rnnMnistLayerR2
-  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 2 r)  -- in state, [out_width, batch_size]
   -> target (TKR 2 r)  -- input, [in_width, batch_size]
   -> LayerWeigthsRNN target r  -- in_width out_width
@@ -156,7 +154,7 @@ rnnMnistLayerR2 s x (wX, wS, b) = case rshape s of
     in tanh y
 
 rnnMnistTwoR2
-  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 2 r)  -- initial state, [2 * out_width, batch_size]
   -> PrimalOf target (TKR 2 r)  -- [sizeMnistHeight, batch_size]
   -> ( LayerWeigthsRNN target r  -- sizeMnistHeight out_width
@@ -175,7 +173,7 @@ rnnMnistTwoR2 s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
     in (rslice out_width out_width s3, s3)
 
 rnnMnistZeroR2
-  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Differentiable r)
   => Int
   -> PrimalOf target (TKR 3 r)  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
   -> ADRnnMnistParameters target r  -- sizeMnistHeight out_width
@@ -190,7 +188,7 @@ rnnMnistZeroR2 batch_size xs
 
 rnnMnistTestR
   :: forall target r.
-     (target ~ Concrete, GoodScalar r, Numeric r, Differentiable r)
+     (target ~ Concrete, GoodScalar r, Differentiable r)
   => Int
   -> MnistDataBatchR r  -- batch_size
   -> ADRnnMnistParameters target r

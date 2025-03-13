@@ -9,7 +9,6 @@ import Prelude
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
 import GHC.TypeLits (type (*), type (+), type Div)
-import Numeric.LinearAlgebra (Numeric)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
@@ -61,7 +60,7 @@ convMnistLayerR ker input bias =
   in maxPool2dUnpadded 2 2 yRelu
 
 convMnistTwoR
-  :: (ADReady target, GoodScalar r, Numeric r, Differentiable r)
+  :: (ADReady target, GoodScalar r, Differentiable r)
   => Int -> Int -> Int
   -> PrimalOf target (TKR 4 r)
        -- [batch_size, 1, SizeMnistHeight, SizeMnistWidth]
@@ -90,8 +89,7 @@ convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
      + rtr (rreplicate batch_size biasesReadout)
 
 convMnistLossFusedR
-  ::  (ADReady target, ADReady (PrimalOf target), GoodScalar r, Numeric r
-     , Differentiable r )
+  :: (ADReady target, ADReady (PrimalOf target), GoodScalar r, Differentiable r)
   => Int
   -> ( PrimalOf target (TKR 3 r)
          -- [batch_size, SizeMnistHeight, SizeMnistWidth]
@@ -113,7 +111,7 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 
 convMnistTestR
   :: forall target r.
-     (target ~ Concrete, GoodScalar r, Numeric r, Differentiable r)
+     (target ~ Concrete, GoodScalar r, Differentiable r)
   => Int
   -> MnistDataBatchR r
   -> ADCnnMnistParameters Concrete r

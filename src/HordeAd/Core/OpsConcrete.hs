@@ -22,11 +22,7 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
 import GHC.Exts (IsList (..))
-import GHC.IsList qualified as IsList
-import GHC.TypeLits
-  (KnownNat, sameNat, type (+))
-import Numeric.LinearAlgebra (Numeric)
-import Numeric.LinearAlgebra qualified as LA
+import GHC.TypeLits (KnownNat, sameNat, type (+))
 import Type.Reflection (typeRep)
 import Data.Vector.Strict qualified as Data.Vector
 
@@ -96,7 +92,10 @@ instance BaseTensor Concrete where
   trdot1In u v = Concrete $ Nested.rdot1Inner (unConcrete u) (unConcrete v)
   {-# INLINE trmatvecmul #-}
   trmatvecmul m v = trsum (rtr (trreplicate (rwidth m) v * m))
-  trmatmul2 m1 m2 = Concrete $ tmatmul2R (unConcrete m1) (unConcrete m2)
+  trmatmul2 m1 m2 = case rshape m2 of
+    _ :$: width2 :$: ZSR ->
+      trsum (trtranspose [2,1,0] (trreplicate width2 m1)
+             * trtranspose [1,0] (trreplicate (rwidth m1) m2))
   trreplicate @_ @r k | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.rreplicate (k :$: ZSR) . unConcrete
   trreplicate0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
@@ -169,7 +168,11 @@ instance BaseTensor Concrete where
     Concrete $ Nested.sdot1Inner (Proxy @n) (unConcrete u) (unConcrete v)
   {-# INLINE tsmatvecmul #-}  -- this doesn't want to specialize
   tsmatvecmul m v = tssum (str (tsreplicate knownShS v * m))
-  tsmatmul2 m1 m2 = Concrete $ tmatmul2S (unConcrete m1) (unConcrete m2)
+  tsmatmul2 m1 m2 =
+    tssum (tstranspose (Permutation.makePerm @'[2, 1, 0])
+                       (tsreplicate knownShS m1)
+           * tstranspose (Permutation.makePerm @'[1, 0])
+                         (tsreplicate knownShS m2))
   tsindex = tindexZS
   tsindex0 = tindex0S
   -- Performance depends a lot on the number and size of tensors.
@@ -329,7 +332,9 @@ instance BaseTensor Concrete where
                                             :$% Nested.SKnown (SNat @n)
                                             :$% ZSX)) m))
   {-# INLINE txmatvecmul #-}
-  txmatmul2 m1 m2 = Concrete $ tmatmul2X (unConcrete m1) (unConcrete m2)
+  txmatmul2 m1 m2 =
+    txsum (txtranspose @_ @'[2, 1, 0] (txreplicate m1)
+           * txtranspose @_ @'[1, 0] (txreplicate m2))
   txreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mreplicate (Nested.SKnown SNat :$% ZSX) . unConcrete
   txreplicate0N @sh @r sh | Refl <- lemAppNil @sh
@@ -764,21 +769,6 @@ tindex0R (RS.A (RG.A _ OI.T{..})) ix =
                                         strides))
 -}
 
-tmatmul2R
-  :: (Nested.PrimElt r, Numeric r)
-  => Nested.Ranked 2 r -> Nested.Ranked 2 r -> Nested.Ranked 2 r
-tmatmul2R t u =
-  let t2 = Nested.rtoVector t
-      u2 = Nested.rtoVector u
-      (trows, tcols) = case Foldable.toList $ Nested.rshape t of
-        [r, c] -> (r, c)
-        _ -> error "tmatmul2R: impossible wrong shape"
-      ucols = case Foldable.toList $ Nested.rshape u of
-        [_, c] -> c
-        _ -> error "tmatmul2R: impossible wrong shape"
-  in Nested.rfromVector (IsList.fromList [trows, ucols]) $ LA.flatten
-     $ LA.reshape tcols t2 LA.<> LA.reshape ucols u2
-
 -- Performance depends a lot on the number and size of tensors.
 -- If tensors are not tiny, memory taken by underlying vectors matters most
 -- and this implementation is probbaly optimal in this respect
@@ -1045,16 +1035,6 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
     -- to avoid linearizing @values@, we do everything in unsized way
 -}
 
-tmatmul2S
-  :: forall m n p r.
-     (Nested.PrimElt r, KnownNat m, KnownNat n, KnownNat p, Numeric r)
-  => Nested.Shaped '[m, n] r -> Nested.Shaped '[n, p] r -> Nested.Shaped '[m, p] r
-tmatmul2S t u =
-  let t2 = Nested.stoVector t
-      u2 = Nested.stoVector u
-  in Nested.sfromVector knownShS $ LA.flatten
-     $ LA.reshape (valueOf @n) t2 LA.<> LA.reshape (valueOf @p) u2
-
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OS.fromVector
@@ -1242,17 +1222,6 @@ tindex0X v ixConcrete | Dict <- eltDictRep (knownSTK @r) =
                      $ Nested.mindex (unConcrete v) (fmap fromIntegral ix)
            in Concrete arr
       else tdefTarget (FTKX ZSX x)
-
-tmatmul2X
-  :: forall m n p r.
-     (Nested.PrimElt r, KnownNat m, KnownNat n, KnownNat p, Numeric r)
-  => Nested.Mixed '[Just m, Just n] r -> Nested.Mixed '[Just n, Just p] r
-  -> Nested.Mixed '[Just m, Just p] r
-tmatmul2X t u =
-  let t2 = Nested.mtoVector t
-      u2 = Nested.mtoVector u
-  in Nested.mfromVector (IsList.fromList [valueOf @m, valueOf @p]) $ LA.flatten
-     $ LA.reshape (valueOf @n) t2 LA.<> LA.reshape (valueOf @p) u2
 
 tscatterZ1X
   :: forall r n2 shn shp.
