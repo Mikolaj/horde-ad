@@ -11,110 +11,35 @@ module HordeAd.Core.CarriersConcrete
 import Prelude hiding (foldl')
 
 import Control.DeepSeq (NFData (..))
-import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
 
-import Data.Array.Mixed.Internal.Arith qualified as Nested.Internal.Arith
-  (liftVEltwise2)
 import Data.Array.Mixed.Shape
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal
-import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape
-import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 -- * Orphan ox-arrays instances
 
-instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralH r)
+instance (Nested.IntElt r, Nested.PrimElt r)
          => IntegralH (Nested.Ranked n r) where
   -- These can't be partial, because our conditionals are not lazy
   -- and so the counterfactual branches, with zeros, may get executed
   -- even though they are subsequently ignored.
-  quotH = Nested.Internal.arithPromoteRanked2
-            (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith
-                          (\a b -> if b == 0 then 0 else quotH a b) x y)))
-                            -- TODO: do better somehow
-  remH = Nested.Internal.arithPromoteRanked2
-            (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith
-                          (\a b -> if b == 0 then 0 else remH a b) x y)))
-                            -- TODO: do better somehow
+  quotH = Nested.rquotArray
+  remH = Nested.rremArray
 
-instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralH r)
+instance (Nested.IntElt r, Nested.PrimElt r)
          => IntegralH (Nested.Shaped sh r) where
-  quotH = Nested.Internal.arithPromoteShaped2
-            (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith
-                          (\a b -> if b == 0 then 0 else quotH a b) x y)))
-                            -- TODO: do better somehow
-  remH = Nested.Internal.arithPromoteShaped2
-            (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith
-                          (\a b -> if b == 0 then 0 else remH a b) x y)))
-                            -- TODO: do better somehow
+  quotH = Nested.squotArray
+  remH = Nested.sremArray
 
-instance (Nested.NumElt r, Nested.PrimElt r, Eq r, IntegralH r)
+instance (Nested.IntElt r, Nested.PrimElt r)
          => IntegralH (Nested.Mixed sh r) where
-  quotH =   (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith
-                          (\a b -> if b == 0 then 0 else quotH a b) x y)))
-                            -- TODO: do better somehow
-  remH =    (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith
-                          (\a b -> if b == 0 then 0 else remH a b) x y)))
-                            -- TODO: do better somehow'
+  quotH = Nested.mquotArray
+  remH = Nested.mremArray
 
 instance GoodScalar r
          => Real (Nested.Ranked n r) where
@@ -140,60 +65,21 @@ instance (GoodScalar r, Nested.FloatElt r)
          => RealFrac (Nested.Mixed sh r) where
   properFraction = error "horde-ad: operation not defined for tensor"
 
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloatH r, Nested.FloatElt r)
+instance (Nested.PrimElt r, Nested.FloatElt r)
          => RealFloatH (Nested.Ranked n r) where
-  atan2H = Nested.Internal.arithPromoteRanked2
-            (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith atan2H x y)))  -- TODO: do better somehow
+  atan2H = Nested.ratan2Array
 
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloatH r, Nested.FloatElt r)
+instance (Nested.PrimElt r, Nested.FloatElt r)
          => RealFloatH (Nested.Shaped sh r) where
-  atan2H = Nested.Internal.arithPromoteShaped2
-            (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith atan2H x y)))  -- TODO: do better somehow
+  atan2H = Nested.satan2Array
 
-instance (Nested.NumElt r, Nested.PrimElt r, RealFloatH r, Nested.FloatElt r)
+instance (Nested.PrimElt r, Nested.FloatElt r)
          => RealFloatH (Nested.Mixed sh r) where
-  atan2H =   (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith atan2H x y)))  -- TODO: do better somehow
+  atan2H = Nested.matan2Array
 
 instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
          => RealFloat (Nested.Ranked n r) where
-  atan2 = Nested.Internal.arithPromoteRanked2
-            (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith atan2 x y)))  -- TODO: do better somehow
+  atan2 = Nested.ratan2Array
   floatRadix = error "horde-ad: operation not defined for tensor"
   floatDigits = error "horde-ad: operation not defined for tensor"
   floatRange = error "horde-ad: operation not defined for tensor"
@@ -207,17 +93,7 @@ instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
 
 instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
          => RealFloat (Nested.Shaped sh r) where
-  atan2 = Nested.Internal.arithPromoteShaped2
-            (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith atan2 x y)))  -- TODO: do better somehow
+  atan2 = Nested.satan2Array
   floatRadix = error "horde-ad: operation not defined for tensor"
   floatDigits = error "horde-ad: operation not defined for tensor"
   floatRange = error "horde-ad: operation not defined for tensor"
@@ -231,16 +107,7 @@ instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
 
 instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
          => RealFloat (Nested.Mixed sh r) where
-  atan2 =   (Nested.Internal.mliftNumElt2
-               (flip Nested.Internal.Arith.liftVEltwise2
-                  (\x' y' ->
-                     let (x, y) = case (x', y') of
-                           (Left x2, Left y2) ->
-                             (V.singleton x2, V.singleton y2)
-                           _ ->
-                             ( either (V.replicate (V.length y)) id x'
-                             , either (V.replicate (V.length x)) id y' )
-                     in V.zipWith atan2 x y)))  -- TODO: do better somehow
+  atan2 = Nested.matan2Array
   floatRadix = error "horde-ad: operation not defined for tensor"
   floatDigits = error "horde-ad: operation not defined for tensor"
   floatRange = error "horde-ad: operation not defined for tensor"
