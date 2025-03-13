@@ -702,7 +702,7 @@ liftVR
   => (VS.Vector r1 -> VS.Vector r2)
   -> Nested.Ranked n r1 -> Nested.Ranked n r2
 liftVR f =
-  Nested.Internal.arithPromoteRanked
+  Nested.Internal.liftRanked1
     (Nested.Internal.mliftNumElt1
        (`Mixed.Internal.Arith.liftVEltwise1` f))
 {-# SPECIALIZE liftVR :: (VS.Vector Double -> VS.Vector Double) -> Nested.Ranked n Double -> Nested.Ranked n Double #-}
@@ -864,7 +864,7 @@ tmap0NR
   :: (Nested.PrimElt r1, Nested.PrimElt r)
   => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r) -> Nested.Ranked n r1 -> Nested.Ranked n r
 tmap0NR f =
-  Nested.Internal.arithPromoteRanked
+  Nested.Internal.liftRanked1
     (Nested.Internal.mliftPrim (Nested.runScalar . f . Nested.rscalar ))
       -- too slow: tbuildNR (Nested.rshape v) (\ix -> f $ v `tindexNR` ix)
 
@@ -873,7 +873,7 @@ tzipWith0NR
   => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r2 -> Nested.Ranked 0 r)
   -> Nested.Ranked n r1 -> Nested.Ranked n r2 -> Nested.Ranked n r
 tzipWith0NR f =
-  Nested.Internal.arithPromoteRanked2
+  Nested.Internal.liftRanked2
     (Nested.Internal.mliftPrim2
        (\x y -> Nested.runScalar $ f (Nested.rscalar x) (Nested.rscalar y)))
 
@@ -986,7 +986,7 @@ liftVS
   => (VS.Vector r1 -> VS.Vector r)
   -> Nested.Shaped sh r1 -> Nested.Shaped sh r
 liftVS f =
-  Nested.Internal.arithPromoteShaped
+  Nested.Internal.liftShaped1
     (Nested.Internal.mliftNumElt1
        (`Mixed.Internal.Arith.liftVEltwise1` f))
 {-# SPECIALIZE liftVS :: (VS.Vector Double -> VS.Vector Double) -> Nested.Shaped sh Double -> Nested.Shaped sh Double #-}
@@ -1103,7 +1103,7 @@ tmap0NS
   :: forall r1 r sh. (Nested.PrimElt r1, Nested.PrimElt r)
   => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r) -> Nested.Shaped sh r1 -> Nested.Shaped sh r
 tmap0NS f =
-  Nested.Internal.arithPromoteShaped
+  Nested.Internal.liftShaped1
     (Nested.Internal.mliftPrim (Nested.sunScalar . f . Nested.sscalar))
       -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
 
@@ -1112,7 +1112,7 @@ tzipWith0NS
   => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r2 -> Nested.Shaped '[] r)
   -> Nested.Shaped sh r1 -> Nested.Shaped sh r2 -> Nested.Shaped sh r
 tzipWith0NS f =
-  Nested.Internal.arithPromoteShaped2
+  Nested.Internal.liftShaped2
     (Nested.Internal.mliftPrim2
        (\x y -> Nested.sunScalar $ f (Nested.sscalar x) (Nested.sscalar y)))
 
