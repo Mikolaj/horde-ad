@@ -219,7 +219,7 @@ instance (GoodScalar r, AstSpan s)
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (GoodScalar r, IntegralH r, AstSpan s)
+instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKScalar r)) where
   quotH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotH n k)
   quotH (AstConcreteK 0) _ = AstConcreteK 0
@@ -294,7 +294,7 @@ instance GoodScalar r
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (GoodScalar r, IntegralH r)
+instance (GoodScalar r, IntegralH r, Nested.IntElt r)
          => IntegralH (AstTensor ms s (TKR n r)) where
   quotH = liftRFromS2 quotH
   remH = liftRFromS2 remH
@@ -405,7 +405,7 @@ instance GoodScalar r
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (IntegralH r, GoodScalar r)
+instance (GoodScalar r, IntegralH r, Nested.IntElt r)
          => IntegralH (AstTensor ms s (TKS sh r)) where
   quotH = AstI2S QuotOp
   remH = AstI2S RemOp
@@ -459,7 +459,7 @@ instance GoodScalar r
 -- Warning: div and mod operations are very costly (simplifying them
 -- requires constructing conditionals, etc). If this error is removed,
 -- they are going to work, but slowly.
-instance (IntegralH r, GoodScalar r)
+instance (GoodScalar r, IntegralH r, Nested.IntElt r)
          => IntegralH (AstTensor ms s (TKX sh r)) where
   quotH = liftXFromS2 quotH
   remH = liftXFromS2 remH

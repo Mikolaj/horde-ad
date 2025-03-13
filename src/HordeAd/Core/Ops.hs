@@ -211,6 +211,11 @@ class (RealFloatH r, Nested.FloatElt r)
 instance (RealFloatH r, Nested.FloatElt r)
          => RealFloatAndFloatElt r
 
+class (IntegralH r, Nested.IntElt r)
+      => IntegralHAndIntElt r
+instance (IntegralH r, Nested.IntElt r)
+      => IntegralHAndIntElt r
+
 class LetTensor (target :: Target) where
   ttlet :: target x -> (target x -> target z) -> target z
   toShare :: target y -> ShareOf target y
@@ -317,19 +322,19 @@ class ( Num (IntOf target)
       , TensorSupports Num Num target
       , TensorSupports RealFloatAndFloatElt Floating target
       , TensorSupports RealFloatAndFloatElt RealFloatH target
-      , TensorSupports IntegralH IntegralH target
+      , TensorSupports IntegralHAndIntElt IntegralH target
       , TensorSupportsR Num Num target
       , TensorSupportsR RealFloatAndFloatElt Floating target
       , TensorSupportsR RealFloatAndFloatElt RealFloatH target
-      , TensorSupportsR IntegralH IntegralH target
+      , TensorSupportsR IntegralHAndIntElt IntegralH target
       , TensorSupportsS Num Num target
       , TensorSupportsS RealFloatAndFloatElt Floating target
       , TensorSupportsS RealFloatAndFloatElt RealFloatH target
-      , TensorSupportsS IntegralH IntegralH target
+      , TensorSupportsS IntegralHAndIntElt IntegralH target
       , TensorSupportsX Num Num target
       , TensorSupportsX RealFloatAndFloatElt Floating target
       , TensorSupportsX RealFloatAndFloatElt RealFloatH target
-      , TensorSupportsX IntegralH IntegralH target )
+      , TensorSupportsX IntegralHAndIntElt IntegralH target )
       => BaseTensor (target :: Target) where
 
   -- First type argument being @target@ is acceptable here, since these

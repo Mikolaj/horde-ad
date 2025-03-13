@@ -147,8 +147,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} stk0 paramsR gradientR =
       tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
-      updateR :: ( Fractional r
-                 , Nested.NumElt r, Nested.FloatElt r, Nested.PrimElt r )
+      updateR :: (Fractional r, Nested.FloatElt r, Nested.PrimElt r)
               => Nested.Ranked n r -> Nested.Ranked n r
               -> Nested.Ranked n r -> Nested.Ranked n r
               -> (Nested.Ranked n r, Nested.Ranked n r, Nested.Ranked n r)
