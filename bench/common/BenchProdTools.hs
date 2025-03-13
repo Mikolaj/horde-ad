@@ -228,6 +228,8 @@ revScalarMapAccum
   :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
 revScalarMapAccum snat@SNat = grad (multScalarMapAccum snat)
 
+{- TODO: re-enable once -fpolymorphic-specialisation works
+
 -- TODO: not enough specialized
 -- TODO: outdated explanation:
 -- The GoodScalar and it's component occurrences are due to creating
@@ -249,3 +251,4 @@ inspect $ hasNoTypeClassesExcept 'revSMapAccum [''(~), ''KnownNat, ''WithDict, '
 inspect $ hasNoTypeClassesExcept 'crevScalarMapAccum [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
 inspect $ hasNoTypeClassesExcept 'revScalarMapAccum [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor,      ''AstSpan, ''RealFloatH, ''Nested.FloatElt, ''Fractional, ''Floating, ''IntegralH, ''RealFrac, ''Real, ''Nested.Storable, ''Numeric, ''Integral]
 -- inspect $ coreOf 'revScalarL
+-}

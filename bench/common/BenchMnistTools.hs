@@ -405,6 +405,8 @@ mnistBGroup2VTO chunkLength =
      [ mnistTrainBench2VTO "500|150 " 0.02 chunkLength xs (targetInit, art)
      ]
 
+{- TODO: re-enable once -fpolymorphic-specialisation works
+
 -- This is expected to fail with -O0 and to pass with -O1
 -- and -fpolymorphic-specialisation.
 -- This prevents running benchmarks without optimization, which is a good thing.
@@ -417,3 +419,4 @@ inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTA [''(~), ''KnownNat, ''With
 inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTC [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default]
 inspect $ hasNoTypeClassesExcept 'mnistTrainBench2VTO [''(~), ''GoodScalar, ''Show, ''Num, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default,       ''AstSpan, ''RealFloatH, ''Nested.FloatElt, ''Fractional, ''Floating, ''IntegralH, ''RealFrac, ''Real, ''Nested.Storable, ''WithDict, ''KnownShS, ''KnownSTK, ''KnownNat, ''Nested.Elt, ''Numeric, ''Integral]
 -- inspect $ coreOf 'mnistTrainBench1VTA
+-}
