@@ -138,7 +138,6 @@ testTrees =
   , testCase "2fooBuildCFwd" testFooBuildCFwd
   , testCase "2fooBuildFwd" testFooBuildFwd
   , testCase "2fooBuild" testFooBuild
-  , testCase "2fooMap1" testFooMap1
   , testCase "2fooNoGo0" testFooNoGo0
   , testCase "2nestedBuildMap1" testNestedBuildMap1
   , testCase "2nestedSumBuild" testNestedSumBuild
@@ -1430,18 +1429,6 @@ testFooBuild =
     (ringestData [4] [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
     (rev' @Double @1 fooBuild1 (ringestData [4] [1.1, 2.2, 3.3, 4]))
 
-fooMap1 :: (ADReady target, GoodScalar r, Differentiable r)
-        => target (TKR 0 r) -> target (TKR 1 r)
-fooMap1 r =
-  let v = fooBuild1 $ rreplicate0N [130] r
-  in rmap0N (\x -> x * r + rscalar 5) v
-
-testFooMap1 :: Assertion
-testFooMap1 =
-  assertEqualUpToEpsilon' 1e-3
-    (rscalar 4.881944951372605e7)
-    (rev' @Double @1 fooMap1 (rscalar 1.1))
-
 fooNoGo :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
         => target (TKR 1 r) -> target (TKR 1 r)
 fooNoGo v =
@@ -1472,6 +1459,10 @@ nestedBuildMap r =
     let nestedMap x0 = tlet x0 $ \x -> rmap0N (x /) (w x)
         variableLengthBuild iy = rbuild1 7 (\ix -> rindex v' (ix + iy :.: ZIR))
         doublyBuild = rbuild1 5 (rminimum . variableLengthBuild)
+        fooMap1 :: target (TKR 0 r) -> target (TKR 1 r)
+        fooMap1 r2 =
+          let v = fooBuild1 $ rreplicate0N [130] r2
+          in rmap0N (\x -> x * r2 + rscalar 5) v
     in rmap0N (\x0 -> tlet x0 $ \x -> x * rsum0
                            (rbuild1 3 (\ix -> bar (x, rindex v' [ix]))
                             + (tlet (nestedMap x) $ \x3 -> fooBuild1 x3)
