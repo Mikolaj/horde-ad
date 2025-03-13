@@ -2,7 +2,7 @@
 -- and pretty-printing of AST.
 module HordeAd.AstEngine
   ( -- * The joint inlining and simplification term transformation
-    simplifyArtifact, simplifyArtifactGradient, simplifyArtifactFwd
+    simplifyArtifact, simplifyArtifactGradient, simplifyArtifactDerivative
   , simplifyInline, simplifyInlineContract
     -- * Pretty-printing terms in a few useful configurations
   , printAstVarName
@@ -37,9 +37,9 @@ simplifyArtifactGradient art =
   art { artDerivativeRev =
         simplifyInlineContract $ artDerivativeRev art }
 
-simplifyArtifactFwd :: forall x z.
-                       AstArtifactFwd x z -> AstArtifactFwd x z
-simplifyArtifactFwd art =
+simplifyArtifactDerivative :: forall x z.
+                              AstArtifactFwd x z -> AstArtifactFwd x z
+simplifyArtifactDerivative art =
   art { artDerivativeFwd =
         simplifyInlineContract $ artDerivativeFwd art }
 

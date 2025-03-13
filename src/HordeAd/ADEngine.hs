@@ -280,7 +280,7 @@ jvp f vals ds =
       valsTarget = toTarget vals
       xftk = tftkG (knownSTK @(X astvals)) $ unConcrete valsTarget
       artifactRaw = fst $ fwdProduceArtifact g emptyEnv xftk
-      artifact = simplifyArtifactFwd artifactRaw
+      artifact = simplifyArtifactDerivative artifactRaw
       dsTarget = toTarget ds
   in fst $ fwdInterpretArtifact @_ @z artifact valsTarget
          $ toADTensorKindShared xftk dsTarget
