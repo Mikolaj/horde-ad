@@ -1029,14 +1029,12 @@ astFromIntegralK :: forall r1 r2. (GoodScalar r1, GoodScalar r2, Integral r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
 astFromIntegralK t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
-  Ast.AstSum snat STKScalar a -> astSum snat STKScalar (astFromIntegralS a)
 --  Ast.AstCond b a2 a3 ->
 --    Ast.AstCond b (astFromIntegralK a2) (astFromIntegralK a3)
   AstConcreteK k -> astConcreteK (tkfromIntegral $ Concrete k)
   Ast.AstN1K NegateOp u -> negate (astFromIntegralK u)
   Ast.AstN1K AbsOp u -> abs (astFromIntegralK u)
   Ast.AstN1K SignumOp u -> signum (astFromIntegralK u)
---  AstN2K opCode u v -> AstN2K opCode (astFromIntegralK u) (astFromIntegralK v)
   Ast.AstFromIntegralK v -> astFromIntegralK v
   _ -> Ast.AstFromIntegralK t
 
@@ -1046,7 +1044,6 @@ astCastK :: forall r1 r2 s.
          -> AstTensor AstMethodLet s (TKScalar r2)
 astCastK t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
-  Ast.AstSum snat STKScalar a -> astSum snat STKScalar (astCastS a)
 --  Ast.AstCond b a2 a3 -> Ast.AstCond b (astCastK a2) (astCastK a3)
   AstConcreteK k -> astConcreteK (tkcast $ Concrete k)
   -- TODO: which should go deeper, casts or fromPrimal? Or maybe alternate
@@ -1057,9 +1054,7 @@ astCastK t = case t of
   Ast.AstN1K NegateOp u -> negate (astCastK u)
   Ast.AstN1K AbsOp u -> abs (astCastK u)
   Ast.AstN1K SignumOp u -> signum (astCastK u)
---  AstN2K opCode u v -> AstN2K opCode (astCastK u) (astCastK v)
 --  Ast.AstR1K opCode u -> Ast.AstR1K opCode (astCastK u)
---  Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astCastK u) (astCastK v)
   Ast.AstFromIntegralK v -> astFromIntegralK v
   Ast.AstCastK v -> astCastK v
   _ -> Ast.AstCastK t
@@ -1078,8 +1073,6 @@ astFromIntegralS t = case t of
 --   astFromVector snat (STKS sh STKScalar) (V.map astFromIntegralS l)
 --  Ast.AstFromVector snat STKScalar l ->
 --   astFromVector snat STKScalar (V.map astFromIntegralK l)
-  Ast.AstSum snat (STKS sh STKScalar) a ->
-    astSum snat (STKS sh STKScalar) (astFromIntegralS a)
   Ast.AstReplicate snat (STKS sh STKScalar) a ->
     astReplicate snat (STKS sh STKScalar) (astFromIntegralS a)
   Ast.AstReplicate snat STKScalar a ->
@@ -1094,9 +1087,6 @@ astFromIntegralS t = case t of
   Ast.AstN1S NegateOp u -> negate (astFromIntegralS u)
   Ast.AstN1S AbsOp u -> abs (astFromIntegralS u)
   Ast.AstN1S SignumOp u -> signum (astFromIntegralS u)
---  AstN2S opCode u v -> AstN2S opCode (astFromIntegralS u) (astFromIntegralS v)
---  Ast.AstI2S opCode u v ->
---    Ast.AstI2S opCode (astFromIntegralS u) (astFromIntegralS v)
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (astFromIntegralS v) ix
   Ast.AstScatterS shn v (vars, ix) ->
@@ -1104,7 +1094,6 @@ astFromIntegralS t = case t of
   Ast.AstGatherS shn v (vars, ix) ->
     Ast.AstGatherS shn (astFromIntegralS v) (vars, ix)
   Ast.AstIotaS snat -> Ast.AstIotaS snat
---  Ast.AstAppendS u v -> astAppendS (astFromIntegralS u) (astFromIntegralS v)
   Ast.AstSliceS i n k v -> astSliceS i n k (astFromIntegralS v)
   Ast.AstReverseS v -> astReverseS (astFromIntegralS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astFromIntegralS v)
@@ -1122,8 +1111,10 @@ astCastS t = case t of
 --   astFromVector snat (STKS sh STKScalar) (V.map astCastS l)
 --  Ast.AstFromVector snat STKScalar l ->
 --   astFromVector snat STKScalar (V.map astCastK l)
+  {- This (and other similar rules) is bad, because it changes semantics
+     and also impacts performance negatively (a is larger than sum a):
   Ast.AstSum snat (STKS sh STKScalar) a ->
-    astSum snat (STKS sh STKScalar) (astCastS a)
+    astSum snat (STKS sh STKScalar) (astCastS a) -}
   Ast.AstReplicate snat (STKS sh STKScalar) a ->
     astReplicate snat (STKS sh STKScalar) (astCastS a)
   Ast.AstReplicate snat STKScalar a ->
@@ -1142,7 +1133,6 @@ astCastS t = case t of
   Ast.AstN1S NegateOp u -> negate (astCastS u)
   Ast.AstN1S AbsOp u -> abs (astCastS u)
   Ast.AstN1S SignumOp u -> signum (astCastS u)
---  AstN2S opCode u v -> AstN2S opCode (astCastS u) (astCastS v)
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstCastS v -> astCastS v
   Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (astCastS v) ix
@@ -1152,7 +1142,6 @@ astCastS t = case t of
     Ast.AstGatherS shn (astCastS v) (vars, ix)
 --  Ast.AstMinIndexS v -> Ast.AstMinIndexS (astCastS v)
   Ast.AstIotaS snat -> Ast.AstIotaS snat
---  Ast.AstAppendS u v -> astAppendS (astCastS u) (astCastS v)
   Ast.AstSliceS i n k v -> astSliceS i n k (astCastS v)
   Ast.AstReverseS v -> astReverseS (astCastS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astCastS v)
