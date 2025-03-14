@@ -141,10 +141,11 @@ fwdProduceArtifact
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> FullShapeTK x
-  -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
+  -> AstArtifactFwd x z
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact f envInit xftk =
-  fwdArtifactFromForwardPass (forwardPassByInterpretation f envInit) xftk
+  fst $ inline fwdArtifactFromForwardPass
+          (forwardPassByInterpretation f envInit) xftk
 
 
 -- * AstTensor instances
@@ -600,8 +601,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tjvp ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
-    let (AstArtifactFwd{..}, _delta) =
-          fwdProduceArtifact (unHFun f) emptyEnv ftkx
+    let AstArtifactFwd{..} = fwdProduceArtifact (unHFun f) emptyEnv ftkx
         ftk2 = FTKProduct (adFTK ftkx) ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
           astLet artVarDsFwd (astProject1 astP)

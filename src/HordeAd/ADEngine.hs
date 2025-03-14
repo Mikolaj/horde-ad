@@ -10,7 +10,7 @@ module HordeAd.ADEngine
   , gradArtifact, vjpArtifact
   , gradInterpretArtifact, vjpInterpretArtifact
     -- * Forward derivative adaptors
-  , jvp
+  , jvp, jvpArtifact, jvpInterpretArtifact
     -- * Non-AST reverse derivative adaptors
   , cgrad, cvjp
     -- * Non-AST forward derivative adaptors
@@ -19,7 +19,8 @@ module HordeAd.ADEngine
   , IncomingCotangentHandling(..)
   , revArtifactAdapt, revArtifactDelta
   , revProduceArtifactWithoutInterpretation, revInterpretArtifact
-  , cfwdBoth, fwdInterpretArtifact
+  , fwdArtifactAdapt, fwdArtifactDelta, fwdInterpretArtifact
+  , cfwdBoth
   ) where
 
 import Prelude
@@ -68,7 +69,7 @@ grad
      , AdaptableTarget Concrete (Value astvals) )
   => (astvals -> AstTensor AstMethodLet FullSpan (TKScalar r))
   -> Value astvals
-  -> Value astvals
+  -> Value astvals  -- morally Value (ADTensorKind astvals)
 {-# INLINE grad #-}
 grad f vals = revMaybe f vals Nothing
 
@@ -89,7 +90,7 @@ vjp
   => (astvals -> AstTensor AstMethodLet FullSpan z)
   -> Value astvals
   -> Concrete (ADTensorKind z)
-  -> Value astvals
+  -> Value astvals  -- morally Value (ADTensorKind astvals)
 {-# INLINE vjp #-}
 vjp f vals dt = revMaybe f vals (Just dt)
 
@@ -210,7 +211,6 @@ revInterpretArtifact AstArtifactRev{..} parameters mdt =
 
 -- * Reverse derivative adaptors' testing-only internal machinery
 
--- For tests only.
 revArtifactDelta
   :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
   => IncomingCotangentHandling
@@ -273,38 +273,84 @@ jvp
   -> Value astvals  -- morally (ADTensorKind astvals)
   -> Concrete (ADTensorKind z)
 {-# INLINE jvp #-}
-jvp f vals ds =
-  let g :: AstTensor AstMethodLet FullSpan (X astvals)
-        -> AstTensor AstMethodLet FullSpan z
-      g !arg = ttlet arg $ f . fromTarget
-      valsTarget = toTarget vals
+jvp f vals0 ds =
+  let valsTarget = toTarget vals0
       xftk = tftkG (knownSTK @(X astvals)) $ unConcrete valsTarget
-      artifactRaw = fst $ fwdProduceArtifact g emptyEnv xftk
+      artifactRaw = fwdArtifactAdapt f xftk
       artifact = simplifyArtifactDerivative artifactRaw
-      dsTarget = toTarget ds
-  in fst $ fwdInterpretArtifact @_ @z artifact valsTarget
-         $ toADTensorKindShared xftk dsTarget
+  in fst $ fwdInterpretArtifact artifact valsTarget
+         $ toADTensorKindShared xftk (toTarget ds)
+
+jvpArtifact
+  :: forall astvals z.
+     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+     , AdaptableTarget Concrete (Value astvals) )
+  => (astvals -> AstTensor AstMethodLet FullSpan z)
+  -> Value astvals
+  -> AstArtifactFwd (X astvals) z
+{-# INLINE jvpArtifact #-}
+jvpArtifact f vals0 =
+  let xftk = tftkG (knownSTK @(X astvals)) $ unConcrete $ toTarget vals0
+  in fwdArtifactAdapt f xftk
+
+jvpInterpretArtifact
+  :: forall x z.
+     AstArtifactFwd x z
+  -> Concrete x  -- one of these could be adapted if convenient, but rather not
+  -> Concrete (ADTensorKind x)
+  -> Concrete (ADTensorKind z)
+{-# INLINE jvpInterpretArtifact #-}
+jvpInterpretArtifact art parameters = fst . fwdInterpretArtifact art parameters
 
 
 -- * Forward derivative adaptors' internal machinery
 
+fwdArtifactAdapt
+  :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+  => (astvals -> AstTensor AstMethodLet FullSpan z)
+  -> FullShapeTK (X astvals)
+  -> AstArtifactFwd (X astvals) z
+{-# INLINE fwdArtifactAdapt #-}
+fwdArtifactAdapt f xftk =
+  let g :: AstTensor AstMethodLet FullSpan (X astvals)
+        -> AstTensor AstMethodLet FullSpan z
+      g !arg = ttlet arg $ f . fromTarget  -- fromTarget requires duplicable
+  in fwdProduceArtifact g emptyEnv xftk
+
 fwdInterpretArtifact
-  :: forall x z. KnownSTK x
-  => AstArtifactFwd x z
+  :: forall x z.
+     AstArtifactFwd x z
   -> Concrete x
   -> Concrete (ADTensorKind x)
   -> (Concrete (ADTensorKind z), Concrete z)
 {-# INLINE fwdInterpretArtifact #-}
 fwdInterpretArtifact AstArtifactFwd{..} parameters ds =
-  let xstk = knownSTK @x
-      axstk = adSTK xstk
-  in if adFTK (tftkG xstk (unConcrete parameters)) == tftkG axstk (unConcrete ds)
+  let xftk = varNameToFTK artVarDomainFwd
+      xstk = ftkToSTK xftk
+  in if xftk == tftkG xstk (unConcrete parameters)
+        && adFTK xftk == tftkG (adSTK xstk) (unConcrete ds)
      then let env = extendEnv artVarDomainFwd parameters emptyEnv
               envD = extendEnv artVarDsFwd ds env
               derivative = interpretAstPrimal envD artDerivativeFwd
               primal = interpretAstPrimal env artPrimalFwd
           in (derivative, primal)
-     else error "fwdInterpretArtifact: forward derivative input and sensitivity arguments should have same shape"
+     else error "fwdInterpretArtifact: forward derivative input and sensitivity arguments should have same shape as the domain of the objective function"
+
+
+-- * Forward derivative adaptors' testing-only internal machinery
+
+fwdArtifactDelta
+  :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+  => (astvals -> AstTensor AstMethodLet FullSpan z)
+  -> FullShapeTK (X astvals)
+  -> (AstArtifactFwd (X astvals) z, Delta (AstRaw PrimalSpan) z)
+{-# INLINE fwdArtifactDelta #-}
+fwdArtifactDelta f xftk =
+  let g :: AstTensor AstMethodLet FullSpan (X astvals)
+        -> AstTensor AstMethodLet FullSpan z
+      g !arg = ttlet arg $ f . fromTarget  -- fromTarget requires duplicable
+  in fwdArtifactFromForwardPass (forwardPassByInterpretation g emptyEnv) xftk
 
 
 -- * Non-AST reverse derivative adaptors
@@ -323,7 +369,7 @@ cgrad
      , AdaptableTarget Concrete (DValue advals) )
   => (advals -> ADVal Concrete (TKScalar r))
   -> DValue advals
-  -> DValue advals
+  -> DValue advals  -- morally DValue (ADTensorKind advals)
 {-# INLINE cgrad #-}
 cgrad f vals = crevMaybe f vals Nothing
 
@@ -336,7 +382,7 @@ cvjp
   => (advals -> ADVal Concrete z)
   -> DValue advals
   -> Concrete (ADTensorKind z)
-  -> DValue advals
+  -> DValue advals  -- morally DValue (ADTensorKind advals)
 {-# INLINE cvjp #-}
 cvjp f vals dt = crevMaybe f vals (Just dt)
 
