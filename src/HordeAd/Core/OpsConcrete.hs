@@ -91,7 +91,7 @@ instance BaseTensor Concrete where
   trdot0 u v = Concrete $ Nested.rscalar $ Nested.rdot (unConcrete u) (unConcrete v)
   trdot1In u v = Concrete $ Nested.rdot1Inner (unConcrete u) (unConcrete v)
   {-# INLINE trmatvecmul #-}
-  trmatvecmul m v = trsum (rtr (trreplicate (rwidth m) v * m))
+  trmatvecmul m v = trdot1In m (trreplicate (rwidth m) v)
   trmatmul2 m1 m2 = case rshape m2 of
     _ :$: width2 :$: ZSR ->
       trsum (trtranspose [2,1,0] (trreplicate width2 m1)
@@ -167,7 +167,7 @@ instance BaseTensor Concrete where
   tsdot1In (SNat @n) u v =
     Concrete $ Nested.sdot1Inner (Proxy @n) (unConcrete u) (unConcrete v)
   {-# INLINE tsmatvecmul #-}  -- this doesn't want to specialize
-  tsmatvecmul m v = tssum (str (tsreplicate knownShS v * m))
+  tsmatvecmul @_ @n m v = tsdot1In (SNat @n) m (tsreplicate knownShS v)
   tsmatmul2 m1 m2 =
     tssum (tstranspose (Permutation.makePerm @'[2, 1, 0])
                        (tsreplicate knownShS m1)
