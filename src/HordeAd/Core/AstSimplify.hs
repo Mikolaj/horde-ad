@@ -2996,6 +2996,11 @@ contractAst t = case t of
             (contractAst $ Ast.AstSum  -- the crucial exposed redex
                snat stk (Ast.AstTransposeS tperm (contractAst t2)
                          * Ast.AstTransposeS uperm (contractAst u)))))
+  Ast.AstSum snat stk (Ast.AstLet var v t2) ->
+    contractAst (Ast.AstLet var v (Ast.AstSum snat stk t2))
+  Ast.AstSum snat stk (Ast.AstReshapeS @sh sh (Ast.AstLet var v t2)) ->
+    contractAst
+      (Ast.AstLet var v (Ast.AstSum snat stk (Ast.AstReshapeS @sh sh t2)))
   Ast.AstSum
     snat@(SNat @m2)
     stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) (STKScalar @r))
@@ -3084,9 +3089,22 @@ contractAst t = case t of
         attemptMatmul2 (astTransposeS perm10 u2)
                        (astTransposeS perm10 t2)
       _ -> Nothing
-  Ast.AstSum SNat (STKS ZSS _) (AstTimesS t2 u) ->
+  Ast.AstSum snat stk@(STKS ZSS _)
+             (Ast.AstReshapeS @sh3 sh (Ast.AstTransposeS @_ @sh2
+                                                         _ (AstTimesS t2 u))) ->
+    gcastWith (unsafeCoerceRefl :: Product sh2 :~: Product sh3) $
+    contractAst (Ast.AstSum snat stk (Ast.AstReshapeS sh (AstTimesS t2 u)))
+  Ast.AstSum snat stk@(STKS ZSS _)
+             (Ast.AstReshapeS sh (Ast.AstReverseS (AstTimesS t2 u))) ->
+    contractAst (Ast.AstSum snat stk (Ast.AstReshapeS sh (AstTimesS t2 u)))
+  Ast.AstSum _snat (STKS ZSS _)
+             (Ast.AstReshapeS _sh (Ast.AstSum _ _ (AstTimesS t2 u))) ->
+    Ast.AstDot0S (contractAst t2) (contractAst u)
+  Ast.AstSum _snat (STKS ZSS _) (Ast.AstSum _ _ (AstTimesS t2 u)) ->
     Ast.AstDot0S (contractAst t2) (contractAst u)
   Ast.AstSum _ (STKS ZSS _) (Ast.AstReshapeS _ (AstTimesS t2 u)) ->
+    Ast.AstDot0S (contractAst t2) (contractAst u)
+  Ast.AstSum SNat (STKS ZSS _) (AstTimesS t2 u) ->
     Ast.AstDot0S (contractAst t2) (contractAst u)
   Ast.AstSum
     n@(SNat @n)
@@ -3109,23 +3127,20 @@ contractAst t = case t of
                             (contractAst $ astTransposeS perm10 u)
   Ast.AstSum
     snat stk@(STKS ZSS _) (Ast.AstReshapeS
-                             @sh3 @sh sh (Ast.AstTransposeS @_ @sh2 _ t2)) ->
+                             @sh3 sh (Ast.AstTransposeS @_ @sh2 _ t2)) ->
     gcastWith (unsafeCoerceRefl :: Product sh2 :~: Product sh3) $
-    contractAst (Ast.AstSum snat stk (Ast.AstReshapeS @sh2 @sh sh t2))
+    contractAst (Ast.AstSum snat stk (Ast.AstReshapeS sh t2))
   Ast.AstSum snat stk@(STKS ZSS _) (Ast.AstReshapeS
-                                      @_ @sh sh (Ast.AstReverseS t2)) ->
-    contractAst (Ast.AstSum snat stk (Ast.AstReshapeS @_ @sh sh t2))
-  Ast.AstSum _k1 (STKS ZSS _) (Ast.AstReshapeS _sh (Ast.AstSum SNat _ t2)) ->
+                                      sh (Ast.AstReverseS t2)) ->
+    contractAst (Ast.AstSum snat stk (Ast.AstReshapeS sh t2))
+  Ast.AstSum _snat (STKS ZSS _) (Ast.AstReshapeS _sh (Ast.AstSum SNat _ t2)) ->
     Ast.AstSum0S (contractAst t2)
   Ast.AstSum SNat (STKS ZSS _) (Ast.AstSum SNat _ t2) ->
     Ast.AstSum0S (contractAst t2)
-      -- TODO: more cases are needed
-  Ast.AstSum snat stk (Ast.AstLet var v t2) ->
-    contractAst (Ast.AstLet var v (Ast.AstSum snat stk t2))
-  Ast.AstSum snat stk (Ast.AstReshapeS @sh sh (Ast.AstLet var v t2)) ->
-    contractAst
-      (Ast.AstLet var v (Ast.AstSum snat stk (Ast.AstReshapeS @sh sh t2)))
+      -- TODO: more cases are needed or we should simplify inside AstSum0S
   Ast.AstSum _ (STKS ZSS _) (Ast.AstReshapeS _sh t2) ->
+    Ast.AstSum0S (contractAst t2)
+  Ast.AstSum _ (STKS ZSS _) t2 ->
     Ast.AstSum0S (contractAst t2)
   Ast.AstSum snat stk v -> astSum snat stk (contractAst v)
   Ast.AstReplicate snat stk v -> astReplicate snat stk (contractAst v)
