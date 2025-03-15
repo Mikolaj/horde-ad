@@ -245,9 +245,9 @@ forwardPassByApplication
   -> AstTensor AstMethodLet FullSpan x
   -> ADVal (AstRaw PrimalSpan) z
 {-# INLINE forwardPassByApplication #-}
-forwardPassByApplication g hVectorPrimal var _hVector =
+forwardPassByApplication g astVarPrimal var _astVar =
   let deltaInputs = generateDeltaInputs $ varNameToFTK var
-      varInputs = dDnotShared (AstRaw hVectorPrimal) deltaInputs
+      varInputs = dDnotShared (AstRaw astVarPrimal) deltaInputs
   in g varInputs
 
 
@@ -356,7 +356,7 @@ fwdArtifactDelta f xftk =
 
 -- We are inlining these functions because they take function arguments
 -- and are not too large. However, becausethey are called in many places,
--- we break the inline chain at crevOnHVector, to avoid exe blowup.
+-- we break the inline chain at crevOnParams, to avoid exe blowup.
 -- | The old versions that use the fixed input and @dt@ to compute gradient
 -- only at these values, both transposing and evaluating at the same time.
 --
@@ -398,13 +398,13 @@ crevMaybe
   -> Maybe (Concrete (ADTensorKind z))
   -> DValue advals  -- morally DValue (ADTensorKind advals)
 {-# INLINE crevMaybe #-}
-crevMaybe f vals mdt =
-  let g :: ADVal Concrete (X advals) -> ADVal Concrete z
+crevMaybe f vals0 mdt =
+  let valsTarget = toTarget vals0
+      g :: ADVal Concrete (X advals) -> ADVal Concrete z
       g = f . fromTarget
       xftk = tftkG (knownSTK @(X advals)) $ unConcrete valsTarget
-      valsTarget = toTarget vals
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
-     $ fst $ crevOnHVector mdt g xftk valsTarget
+     $ fst $ crevOnParams mdt g xftk valsTarget
 
 
 -- * Non-AST forward derivative adaptors
@@ -435,13 +435,13 @@ cfwdBoth
   -> DValue advals  -- morally (ADTensorKind advals)
   -> (Concrete (ADTensorKind z), Concrete z)
 {-# INLINE cfwdBoth #-}
-cfwdBoth f vals ds =
-  let xftk = tftkG (knownSTK @(X advals)) $ unConcrete valsTarget
-      valsTarget = toTarget vals
+cfwdBoth f vals0 ds =
+  let valsTarget = toTarget vals0
+      xftk = tftkG (knownSTK @(X advals)) $ unConcrete valsTarget
       g :: ADVal Concrete (X advals) -> ADVal Concrete z
       g = f . fromTarget
       dsTarget = toTarget ds
-  in cfwdOnHVector xftk valsTarget g
+  in cfwdOnParams xftk valsTarget g
      $ toADTensorKindShared xftk dsTarget
 
 

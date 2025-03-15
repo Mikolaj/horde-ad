@@ -66,10 +66,10 @@ forwardPassByInterpretation
   -> AstTensor AstMethodLet FullSpan x
   -> ADVal (AstRaw PrimalSpan) z
 {-# INLINE forwardPassByInterpretation #-}
-forwardPassByInterpretation g envInit hVectorPrimal var hVector =
+forwardPassByInterpretation g envInit astVarPrimal var astVar =
   let deltaInputs = generateDeltaInputs $ varNameToFTK var
-      varInputs = dDnotShared (AstRaw hVectorPrimal) deltaInputs
-      ast = g hVector
+      varInputs = dDnotShared (AstRaw astVarPrimal) deltaInputs
+      ast = g astVar
       env = extendEnv var varInputs envInit
   in interpretAstFull env ast
 
@@ -88,10 +88,10 @@ revArtifactFromForwardPass cotangentHandling forwardPass xftk =
   let -- Bangs and the compound function to fix the numbering of variables
       -- for pretty-printing and prevent sharing the impure values/effects
       -- in tests that reset the impure counters.
-      !(!varPrimal, hVectorPrimal, var, hVector) = funToAstRev xftk in
+      !(!varPrimal, astVarPrimal, var, astVar) = funToAstRev xftk in
   let -- Evaluate completely after terms constructed, to free memory
       -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D primalBody delta) = forwardPass hVectorPrimal var hVector in
+      !(D primalBody delta) = forwardPass astVarPrimal var astVar in
   let zftk = ftkAst $ unAstRaw primalBody
       (!varDt, astDt) = funToAst (adFTK zftk) id in
   let oneAtF = treplTarget 1 $ adFTK zftk
@@ -126,10 +126,10 @@ fwdArtifactFromForwardPass
 -- Break the inline chain to prevent false positives in inspection testing.
 -- {-# INLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass xftk =
-  let !(!varPrimalD, hVectorD, varPrimal, hVectorPrimal, var, hVector) =
+  let !(!varPrimalD, astVarD, varPrimal, astVarPrimal, var, astVar) =
         funToAstFwd xftk in
-  let !(D primalBody delta) = forwardPass hVectorPrimal var hVector in
-  let !derivative = derivativeFromDelta @x delta (adFTK xftk) (AstRaw hVectorD)
+  let !(D primalBody delta) = forwardPass astVarPrimal var astVar in
+  let !derivative = derivativeFromDelta @x delta (adFTK xftk) (AstRaw astVarD)
       !unDerivative = unshareAstTensor $ unAstRaw derivative
       !unPrimal = unshareAstTensor $ unAstRaw primalBody
   in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal

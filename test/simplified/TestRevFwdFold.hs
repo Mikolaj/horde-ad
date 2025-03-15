@@ -226,10 +226,10 @@ fooRgrad :: forall g a.
            (ADReady g, GoodScalar a, Differentiable a, ADTensorScalar a ~ a)
         => (a, a, a) -> (g (TKR 0 a), g (TKR 0 a), g (TKR 0 a))
 fooRgrad (x, y, z) =
-  let fHVector :: forall f. ADReady f => f (TKProduct (TKProduct (TKR 0 a) (TKR 0 a)) (TKR 0 a)) -> f (TKR 0 a)
-      fHVector v = foo (tproject1 (tproject1 v), tproject2 (tproject1 v), tproject2 v)
+  let f :: forall f. ADReady f => f (TKProduct (TKProduct (TKR 0 a) (TKR 0 a)) (TKR 0 a)) -> f (TKR 0 a)
+      f v = foo (tproject1 (tproject1 v), tproject2 (tproject1 v), tproject2 v)
       shapes = FTKProduct (FTKProduct (FTKR ZSR FTKScalar) (FTKR ZSR FTKScalar)) (FTKR ZSR FTKScalar)
-      domsOf = kgrad (kfromR . fHVector) shapes
+      domsOf = kgrad (kfromR . f) shapes
                     (tpair (tpair (rconcrete $ Nested.rscalar x)
                                   (rconcrete $ Nested.rscalar y))
                            (rconcrete $ Nested.rscalar z))

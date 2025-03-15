@@ -53,7 +53,7 @@ crevMaybeBoth f vals =
   let g :: ADVal Concrete (X advals) -> ADVal Concrete (TKR y r)
       g = toTarget . f . fromTarget
       valsH = toTarget vals
-  in crevOnHVector Nothing g (tftk knownSTK valsH) valsH
+  in crevOnParams Nothing g (tftk knownSTK valsH) valsH
 
 rev' :: forall r m n v a w.
         ( KnownNat m, KnownNat n, GoodScalar r

@@ -757,8 +757,6 @@ astCond b (Ast.AstFromS stkzv v) (Ast.AstFromS _ w) =
     Nothing -> error "astCond: shapes don't match"
 astCond b v w = Ast.AstCond b v w
 
--- Inlining works for this let constructor, because it has just one variable,
--- unlike astLetHVectorIn, etc., so we don't try to eliminate it.
 astLet :: forall y z s s2. (AstSpan s, AstSpan s2)
        => AstVarName s y -> AstTensor AstMethodLet s y
        -> AstTensor AstMethodLet s2 z

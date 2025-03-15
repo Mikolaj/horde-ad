@@ -8,7 +8,7 @@
 -- the typing of tensors and so we give separate instances
 -- for ranked tensors and shaped tensors.
 module HordeAd.Core.OpsADVal
-  ( crevOnADInputs, crevOnHVector, cfwdOnHVector
+  ( crevOnADInputs, crevOnParams, cfwdOnParams
   ) where
 
 import Prelude hiding (foldl')
@@ -56,14 +56,14 @@ crevOnADInputs mdt f xftk inputs =
       !gradient = gradientFromDelta xftk zftk dt delta
   in (gradient, v)
 
-crevOnHVector
+crevOnParams
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => Maybe (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
   -> FullShapeTK x -> target x
   -> (target (ADTensorKind x), target z)
-{-# INLINE crevOnHVector #-}
-crevOnHVector edt f xftk parameters =
+{-# INLINE crevOnParams #-}
+crevOnParams edt f xftk parameters =
   let deltaInputs = generateDeltaInputs xftk
       inputs = dDnotShared parameters deltaInputs
   in crevOnADInputs edt f xftk inputs
@@ -81,14 +81,14 @@ cfwdOnADInputs xftk inputs f ds =
   let !derivative = derivativeFromDelta @x delta (adFTK xftk) ds
   in (derivative, v)
 
-cfwdOnHVector
+cfwdOnParams
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => FullShapeTK x -> target x
   -> (ADVal target x -> ADVal target z)
   -> target (ADTensorKind x)
   -> (target (ADTensorKind z), target z)
-{-# INLINE cfwdOnHVector #-}
-cfwdOnHVector xftk parameters f ds =
+{-# INLINE cfwdOnParams #-}
+cfwdOnParams xftk parameters f ds =
   let deltaInputs = generateDeltaInputs xftk
       inputs = dDnotShared parameters deltaInputs
   in cfwdOnADInputs xftk inputs f ds
@@ -412,8 +412,6 @@ instance ( ADReadyNoLet target, ShareTensor target
                            $ HFun rg)
                           acc0 es
         (accFin, qbs) = tunpair p
-        -- This code makes sense only thanks to HVector being a representation
-        -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
         dual = DeltaMapAccumR k bftk eftk q es df rf acc0' es'
     in dD (tpair accFin bs) dual
@@ -475,8 +473,6 @@ instance ( ADReadyNoLet target, ShareTensor target
                            $ HFun rg)
                           acc0 es
         (accFin, qbs) = tunpair p
-        -- This code makes sense only thanks to HVector being a representation
-        -- of tuples in the struct of arrays format.
         (q, bs) = tunpair qbs
         dual = DeltaMapAccumL k bftk eftk q es df rf acc0' es'
     in dD (tpair accFin bs) dual
@@ -497,7 +493,7 @@ instance ( ADReadyNoLet target, ShareTensor target
            -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new a.
         rf !a = ttlet a $ \ !aShared ->
-          tunshare $ fst $ crevOnHVector
+          tunshare $ fst $ crevOnParams
                              Nothing
                              (unHFun h @(ADVal (ShareOf f)))
                              xftk
@@ -509,7 +505,7 @@ instance ( ADReadyNoLet target, ShareTensor target
            -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new db and a.
         rf !db_a = ttlet db_a $ \ !db_aShared ->
-          tunshare $ fst $ crevOnHVector
+          tunshare $ fst $ crevOnParams
                              (Just $ toShare $ tproject1 db_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
                              xftk
@@ -521,7 +517,7 @@ instance ( ADReadyNoLet target, ShareTensor target
            -> f (ADTensorKind z)
         -- This computes the derivative of g again for each new da and a.
         df !da_a = ttlet da_a $ \ !da_aShared ->
-          tunshare $ fst $ cfwdOnHVector
+          tunshare $ fst $ cfwdOnParams
                              xftk
                              (toShare $ tproject2 da_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
