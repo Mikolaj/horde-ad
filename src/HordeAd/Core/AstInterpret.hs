@@ -84,8 +84,9 @@ interpretAstDual
 interpretAstDual !env v1 =
   tdualPart (ftkToSTK $ ftkAst v1) (interpretAst env v1)
 
--- Correctly forall should go to @PrimalOf target@ when @s@ is @PrimalSpan@,
--- but this would complicate things, e.g., we'd need an extra type family
+-- A more precise type signature would result in @PrimalOf target@
+-- whenever @s@ is @PrimalSpan@, but this would complicate things,
+-- e.g., we'd need an extra type family
 --
 -- type family SpanTarget s target :: Target where
 --   SpanTarget PrimalSpan target = PrimalOf target
@@ -94,15 +95,19 @@ interpretAstDual !env v1 =
 --
 -- to be used in AstEnv and the codomain of interpretAst and a lot of other
 -- code would need to be changed. So instead we promote results to @target@
--- similarly as in AstEnv. We maintain an invariant that a value
--- of interpretation of a term with PrimalSpan has zero dual part
+-- similarly as in AstEnv and simiarly as we omit @PrimalOf@ in the signatures
+-- of most "Ops" methods.
+--
+-- We maintain an invariant that a value of interpretation
+-- of a term with PrimalSpan has zero dual part
 -- and of a term with DualSpan has zero primal part.
 -- The invariants holds by the properties of instances of Ops
 -- (see especially the ADVal instance, which zeroes dual part of many ops)
 -- and structural induction on Ast, inspecting spans of constructors.
 -- This promotion to @target@ coincides with how most operations that in Ast
 -- have PrimalSpan, don't have PrimalOf (but have full target instead)
--- in their method signatures in Ops, for user comfort.
+-- in their method signatures in Ops, for user comfort. E.g., AstConcreteS
+-- vs 'tsconcrete' and AstFloorS vs tsfloor.
 interpretAst
   :: forall target s y. (ADReady target, AstSpan s)
   => AstEnv target -> AstTensor AstMethodLet s y

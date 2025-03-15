@@ -401,6 +401,10 @@ class ( Num (IntOf target)
         => SingletonTK y
         -> BoolOf target -> target y -> target y -> target y
 
+  -- A more precise type would have `PrimalOf target`, but it's require
+  -- the user to convert, so we leave that precision to the AST only
+  -- which means the AST instance will automatically insert such
+  -- conversions as needed. The same holds for trfloor and many others.
   trconcrete :: GoodScalar r
              => Nested.Ranked n r -> target (TKR n r)
   tsconcrete :: GoodScalar r
