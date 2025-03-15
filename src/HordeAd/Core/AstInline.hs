@@ -245,10 +245,6 @@ inlineAst memo v0 = case v0 of
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
     in (memo3, Ast.AstDot1InS m n u2 v3)
-  Ast.AstMatvecmulS m n u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
-    in (memo3, Ast.AstMatvecmulS m n u2 v3)
   Ast.AstMatmul2S m n p u v ->
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
@@ -530,10 +526,6 @@ unshareAst memo = \case
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v
     in (memo3, Ast.AstDot1InS m n u2 v3)
-  Ast.AstMatvecmulS m n u v ->
-    let (memo2, u2) = unshareAst memo u
-        (memo3, v3) = unshareAst memo2 v
-    in (memo3, Ast.AstMatvecmulS m n u2 v3)
   Ast.AstMatmul2S m n p u v ->
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v

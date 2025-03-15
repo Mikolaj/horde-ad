@@ -383,14 +383,6 @@ interpretAst !env = \case
       tsdot0 (interpretAst env u) (interpretAst env v)
   AstDot1InS SNat n@SNat u v ->
     tsdot1In n (interpretAst env u) (interpretAst env v)
-  AstMatvecmulS @r SNat SNat u v ->
-    case testEquality (typeRep @r) (typeRep @Double) of
-      Just Refl ->
-        tsmatvecmul @_ @_ @_ @Double (interpretAst env u) (interpretAst env v)
-      _ -> case testEquality (typeRep @r) (typeRep @Float) of
-        Just Refl ->
-          tsmatvecmul @_ @_ @_ @Float (interpretAst env u) (interpretAst env v)
-        _ -> tsmatvecmul (interpretAst env u) (interpretAst env v)
   AstMatmul2S SNat SNat SNat u v ->
     tsmatmul2 (interpretAst env u) (interpretAst env v)
 

@@ -339,7 +339,6 @@ build1V snat@SNat (var, v0)
     Ast.AstSum0S{} -> error "build1V: term not accessible from user API"
     Ast.AstDot0S{} -> error "build1V: term not accessible from user API"
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"
-    Ast.AstMatvecmulS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatmul2S{} -> error "build1V: term not accessible from user API"
 
 intBindingRefreshS

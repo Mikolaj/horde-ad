@@ -399,11 +399,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TK
              => SNat m -> SNat n
              -> AstTensor ms s (TKS '[m, n] r) -> AstTensor ms s (TKS '[m, n] r)
              -> AstTensor ms s (TKS '[m] r)
-  AstMatvecmulS :: GoodScalar r
-                => SNat m -> SNat n
-                -> AstTensor ms s (TKS '[m, n] r)
-                -> AstTensor ms s (TKS '[n] r)
-                -> AstTensor ms s (TKS '[m] r)
   AstMatmul2S :: GoodScalar r
               => SNat m -> SNat n -> SNat p
               -> AstTensor ms s (TKS '[m, n] r)

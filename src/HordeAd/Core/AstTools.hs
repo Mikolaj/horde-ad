@@ -171,7 +171,6 @@ ftkAst t = case t of
     FTKS _ x -> FTKS ZSS x
   AstDot0S _u _v -> FTKS ZSS FTKScalar
   AstDot1InS m@SNat _ _u _v -> FTKS (m :$$ ZSS) FTKScalar
-  AstMatvecmulS m@SNat _ _u _v -> FTKS (m :$$ ZSS) FTKScalar
   AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar
 
 
@@ -256,7 +255,6 @@ varInAst var = \case
   AstSum0S v -> varInAst var v
   AstDot0S u v -> varInAst var u || varInAst var v
   AstDot1InS _ _ u v -> varInAst var u || varInAst var v
-  AstMatvecmulS _ _ u v -> varInAst var u || varInAst var v
   AstMatmul2S _ _ _ u v -> varInAst var u || varInAst var v
 
 varInIndexS :: AstVarId -> AstIxS ms sh -> Bool

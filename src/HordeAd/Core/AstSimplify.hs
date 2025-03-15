@@ -915,7 +915,6 @@ astPrimalPart t = case t of
   Ast.AstSum0S{} -> Ast.AstPrimalPart t
   Ast.AstDot0S{} -> Ast.AstPrimalPart t
   Ast.AstDot1InS{} -> Ast.AstPrimalPart t
-  Ast.AstMatvecmulS{} -> Ast.AstPrimalPart t
   Ast.AstMatmul2S{} -> Ast.AstPrimalPart t
 
 -- Note how this can't be pushed down, say, multiplication, because it
@@ -1011,7 +1010,6 @@ astDualPart t = case t of
   Ast.AstSum0S{} -> Ast.AstDualPart t
   Ast.AstDot0S{} -> Ast.AstDualPart t
   Ast.AstDot1InS{} -> Ast.AstDualPart t
-  Ast.AstMatvecmulS{} -> Ast.AstDualPart t
   Ast.AstMatmul2S{} -> Ast.AstDualPart t
 
   _ -> Ast.AstDualPart t
@@ -1425,7 +1423,6 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
 -- impossible: Ast.AstSum0S{} -> Ast.AstIndexS shn v0 ix
 -- impossible: Ast.AstDot0S{} -> Ast.AstIndexS shn v0 ix
   Ast.AstDot1InS{} -> Ast.AstIndexS shn v0 ix
-  Ast.AstMatvecmulS{} -> Ast.AstIndexS shn v0 ix
   Ast.AstMatmul2S{} -> Ast.AstIndexS shn v0 ix
 
 -- TODO: compared to tletIx, it adds many lets, not one, but does not
@@ -1960,7 +1957,6 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
 --    Ast.AstSum0S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
 --    Ast.AstDot0S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstDot1InS{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
-    Ast.AstMatvecmulS{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstMatmul2S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
 
 gatherFromNFS :: forall shm n shp.
@@ -2632,7 +2628,6 @@ astNonIndexStep t = case t of
   Ast.AstSum0S{} -> t
   Ast.AstDot0S{} -> t
   Ast.AstDot1InS{} -> t
-  Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
 
 
@@ -2796,7 +2791,6 @@ expandAst t = case t of
   Ast.AstSum0S{} -> t
   Ast.AstDot0S{} -> t
   Ast.AstDot1InS{} -> t
-  Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
 
 expandAstHFun :: AstHFun x y -> AstHFun x y
@@ -2925,7 +2919,6 @@ simplifyAst t = case t of
   Ast.AstSum0S{} -> t
   Ast.AstDot0S{} -> t
   Ast.AstDot1InS{} -> t
-  Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
 
 simplifyAstHFun :: AstHFun x y -> AstHFun x y
@@ -3100,55 +3093,22 @@ contractAst t = case t of
   Ast.AstSum
     n@(SNat @n)
     (STKS (m@(SNat @m) :$$ ZSS) _)
-    (AstTimesS
-            (Ast.AstTransposeS @perm @sh
-               (SNat' @1 `Permutation.PCons` SNat' @0
-                `Permutation.PCons` Permutation.PNil)
-               (Ast.AstReplicate _ STKS{} t2))
-            u) ->
-      gcastWith (unsafeCoerceRefl :: Permutation.Permute perm [n, m] :~: sh) $
-      let perm10 = Permutation.makePerm @'[1, 0]
-      in Ast.AstMatvecmulS m n (contractAst $ astTransposeS perm10 u)
-                               (contractAst t2)
-  Ast.AstSum
-    n@(SNat @n)
-    (STKS (m@(SNat @m) :$$ ZSS) _)
-    (AstTimesS
-            t2
-            (Ast.AstTransposeS @perm2 @sh2
-               (SNat' @1 `Permutation.PCons` SNat' @0
-                `Permutation.PCons` Permutation.PNil)
-               (Ast.AstReplicate _ STKS{} u))) ->
-      gcastWith (unsafeCoerceRefl :: Permutation.Permute perm2 [n, m] :~: sh2) $
-      let perm10 = Permutation.makePerm @'[1, 0]
-      in Ast.AstMatvecmulS m n (contractAst $ astTransposeS perm10 t2)
-                               (contractAst u)
-  Ast.AstSum
-    n@(SNat @n)
-    (STKS (m@(SNat @m) :$$ ZSS) _)
     (Ast.AstTransposeS @perm @sh
        (SNat' @1 `Permutation.PCons` SNat' @0
         `Permutation.PCons` Permutation.PNil)
        (AstTimesS t2 u)) ->  -- TODO: generalize
-      -- TODO: Why is this needed? Would a more general lemma suffice?
       gcastWith (unsafeCoerceRefl :: Permutation.Permute perm [n, m] :~: sh) $
       Ast.AstDot1InS m n (contractAst t2) (contractAst u)
   Ast.AstSum
     n@(SNat @n)
     (STKS (m@(SNat @m) :$$ ZSS) _)
-    (AstTimesS
-            (Ast.AstTransposeS @perm @sh
-               (SNat' @1 `Permutation.PCons` SNat' @0
-                `Permutation.PCons` Permutation.PNil)
-               t2)
-            (Ast.AstTransposeS @perm2 @sh2
-               (SNat' @1 `Permutation.PCons` SNat' @0
-                `Permutation.PCons` Permutation.PNil)
-               u)) ->  -- TODO: generalize
-          -- TODO: Why is this needed? Would a more general lemma suffice?
+    (AstTimesS t2 u) ->
+      -- TODO: Why is this needed? Would a more general lemma suffice?
       gcastWith (unsafeCoerceRefl :: Permutation.Permute perm [n, m] :~: sh) $
       gcastWith (unsafeCoerceRefl :: Permutation.Permute perm2 [n, m] :~: sh2) $
-      Ast.AstDot1InS m n (contractAst t2) (contractAst u)
+      let perm10 = Permutation.makePerm @'[1, 0]
+      in Ast.AstDot1InS m n (contractAst $ astTransposeS perm10 t2)
+                            (contractAst $ astTransposeS perm10 u)
   Ast.AstSum
     snat stk@(STKS ZSS _) (Ast.AstReshapeS
                              @sh3 @sh sh (Ast.AstTransposeS @_ @sh2 _ t2)) ->
@@ -3199,8 +3159,10 @@ contractAst t = case t of
     | STKS ZSS _ <- stk
     , Just Refl <- testEquality snat (SNat @m)
     , var == var2
-    , not (varNameInAst var t2),  not (varNameInAst var u) ->
-        Ast.AstMatvecmulS snat n (contractAst u) (contractAst t2)
+    , not (varNameInAst var t2), not (varNameInAst var u) ->
+        Ast.AstDot1InS snat n (contractAst u)
+                              (contractAst
+                               $ astReplicate snat (ftkToSTK (ftkAst t2)) t2)
   Ast.AstBuild1
     snat stk (var, Ast.AstSum _ _
                      (Ast.AstReshapeS
@@ -3209,11 +3171,13 @@ contractAst t = case t of
                                (Ast.AstIndexS _shn
                                   u (((:.$) @m (AstIntVar var2) ZIS))))))
     | STKS ZSS _ <- stk
-    , FTKS (n :$$ ZSS) _ <- ftkAst t2
+    , ftk2@(FTKS (n :$$ ZSS) _) <- ftkAst t2
     , Just Refl <- testEquality snat (SNat @m)
     , var == var2
-    , not (varNameInAst var t2),  not (varNameInAst var u) ->
-        Ast.AstMatvecmulS snat n (contractAst u) (contractAst t2)
+    , not (varNameInAst var t2), not (varNameInAst var u) ->
+        Ast.AstDot1InS snat n (contractAst u)
+                              (contractAst
+                               $ astReplicate snat (ftkToSTK ftk2) t2)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = contractAst v
     in Ast.AstBuild1 k stk (var, v2)
@@ -3332,7 +3296,6 @@ contractAst t = case t of
   Ast.AstSum0S{} -> t
   Ast.AstDot0S{} -> t
   Ast.AstDot1InS{} -> t
-  Ast.AstMatvecmulS{} -> t
   Ast.AstMatmul2S{} -> t
 
 contractAstHFun :: AstHFun x y -> AstHFun x y
@@ -3634,12 +3597,6 @@ substitute1Ast i var = subst where
         mv = subst v
     in if isJust mu || isJust mv
        then Just $ Ast.AstDot1InS m n (fromMaybe u mu) (fromMaybe v mv)
-       else Nothing
-  Ast.AstMatvecmulS m@SNat n@SNat u v ->
-    let mu = subst u
-        mv = subst v
-    in if isJust mu || isJust mv
-       then Just $ Ast.AstMatvecmulS m n (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstMatmul2S m@SNat n@SNat p@SNat u v ->
     let mu = subst u
