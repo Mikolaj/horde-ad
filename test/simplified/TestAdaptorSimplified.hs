@@ -514,7 +514,7 @@ testOverleafPP = do
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret v1 -> rfromS (sscatter (sreplicate @50 (sfromR dret)) (\\[i5] -> [remH i5 28]))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\v1 -> rfromS (ssum @50 (sgather (sfromR v1) (\\[i3] -> [remH i3 28])))"
+    @?= "\\v1 -> rfromS (ssum0 (sgather (sfromR v1) (\\[i3] -> [remH i3 28])))"
   show deltas
     @?= "DeltaFromS (STKR (SNat @0) STKScalar) (DeltaShare 100000002 (DeltaSum (SNat @50) (STKS [] STKScalar) (DeltaShare 100000001 (DeltaGatherS [50] [] [28] (DeltaSFromR [28] (DeltaInput (InputId 0))) <function>))))"
 
@@ -1023,7 +1023,7 @@ testReluSimplerPP3 = do
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [3, 4] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret m1 -> tfromS (let m11 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i7, i8] -> [ifH (sfromR (tproject1 m1) !$ [i7, i8] * sfromR (tproject2 m1) <=. sscalar 0.0) 0 1]) * sfromR dret in tpair (sreplicate @3 (sreplicate @4 (sfromR (tproject2 m1))) * m11, ssum0 (sfromR (tproject1 m1) * m11)))"
+    @?= "\\dret m1 -> tfromS (let m11 = sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i7, i8] -> [ifH (sfromR (tproject1 m1) !$ [i7, i8] * sfromR (tproject2 m1) <=. sscalar 0.0) 0 1]) * sfromR dret in tpair (sreplicate @3 (sreplicate @4 (sfromR (tproject2 m1))) * m11, sdot0 (sfromR (tproject1 m1)) m11))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (let m6 = sfromR (tproject1 m1) * sreplicate @3 (sreplicate @4 (sfromR (tproject2 m1))) in sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i7, i8] -> [ifH (m6 !$ [i7, i8] <=. sscalar 0.0) 0 1]) * m6)"
 

@@ -2966,48 +2966,33 @@ contractAst t = case t of
   Ast.AstProject1 v -> astProject1 (contractAst v)
   Ast.AstProject2 v -> astProject2 (contractAst v)
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map contractAst l)
-  Ast.AstSum snat stk (AstTimesS
-                         (Ast.AstLet vart vt (Ast.AstTransposeS tperm t2))
-                         (Ast.AstTransposeS uperm u)) ->
-      (Ast.AstLet
-         vart
-         (contractAst vt)
-         (contractAst $ Ast.AstSum  -- the crucial exposed redex
-            snat stk (Ast.AstTransposeS tperm (contractAst t2)
-                      *  Ast.AstTransposeS uperm (contractAst u))))
-  Ast.AstSum snat stk (AstTimesS
-                         (Ast.AstTransposeS tperm t2)
-                         (Ast.AstLet varu vu (Ast.AstTransposeS uperm u))) ->
-      (Ast.AstLet
-         varu
-         (contractAst vu)
-         (contractAst $ Ast.AstSum  -- the crucial exposed redex
-            snat stk (Ast.AstTransposeS tperm (contractAst t2)
-                      * Ast.AstTransposeS uperm (contractAst u))))
-  Ast.AstSum snat stk (AstTimesS
-                         (Ast.AstLet vart vt (Ast.AstTransposeS tperm t2))
-                         (Ast.AstLet varu vu (Ast.AstTransposeS uperm u))) ->
-      (Ast.AstLet
-         vart
-         (contractAst vt)
-         (Ast.AstLet
-            varu
-            (contractAst vu)
-            (contractAst $ Ast.AstSum  -- the crucial exposed redex
-               snat stk (Ast.AstTransposeS tperm (contractAst t2)
-                         * Ast.AstTransposeS uperm (contractAst u)))))
+  Ast.AstSum snat stk (AstTimesS (Ast.AstLet vart vt t2) u) ->
+    astLet vart
+           (contractAst vt)
+           (contractAst $ Ast.AstSum snat stk  -- the crucial exposed redex
+                                     (AstTimesS t2 u))
+  Ast.AstSum snat stk (AstTimesS t2 (Ast.AstLet varu vu u)) ->
+    astLet varu
+           (contractAst vu)
+           (contractAst $ Ast.AstSum snat stk (AstTimesS t2 u))
   Ast.AstSum snat stk (Ast.AstLet var v t2) ->
-    contractAst (Ast.AstLet var v (Ast.AstSum snat stk t2))
+    astLet var (contractAst v) (contractAst (Ast.AstSum snat stk t2))
+  Ast.AstSum snat stk (Ast.AstTransposeS perm (Ast.AstLet var v t2)) ->
+    astLet var (contractAst v)
+               (contractAst (Ast.AstSum snat stk (Ast.AstTransposeS perm t2)))
   Ast.AstSum snat stk (Ast.AstReshapeS @sh sh (Ast.AstLet var v t2)) ->
-    contractAst
-      (Ast.AstLet var v (Ast.AstSum snat stk (Ast.AstReshapeS @sh sh t2)))
+    astLet var (contractAst v)
+               (contractAst (Ast.AstSum snat stk (Ast.AstReshapeS @sh sh t2)))
+  Ast.AstSum snat stk (Ast.AstSum snat2 stk2 (Ast.AstLet var v t2)) ->
+    astLet var (contractAst v)
+               (contractAst (Ast.AstSum snat stk (Ast.AstSum snat2 stk2 t2)))
   Ast.AstSum
     snat@(SNat @m2)
     stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) (STKScalar @r))
     v@(AstTimesS (Ast.AstTransposeS @permt permt
-                         (Ast.AstReplicate (SNat @kt) (STKS @sht _ _) t2))
-                      (Ast.AstTransposeS @permu permu
-                         (Ast.AstReplicate (SNat @ku) (STKS @shu _ _) u2))) ->
+                    (Ast.AstReplicate (SNat @kt) (STKS @sht _ _) t2))
+                 (Ast.AstTransposeS @permu permu
+                    (Ast.AstReplicate (SNat @ku) (STKS @shu _ _) u2))) ->
     let perm10 = Permutation.makePerm @'[1, 0]
         attemptMatmul2
           :: forall m' n' p'. (KnownNat m', KnownNat n', KnownNat p')
@@ -3225,7 +3210,7 @@ contractAst t = case t of
         -- capture is impossible, because we don't create nested lets
         -- with the same variable, we could create such nested lets
         -- if we omitted this check.
-        Ast.AstLet
+        astLet
           var
           (contractAst u)
           (v * Ast.AstReshapeS @_ @sh sh
@@ -3235,14 +3220,14 @@ contractAst t = case t of
                       (Ast.AstLet
                          var u (Ast.AstReplicate (SNat' @0) stk s)))
     | not (varNameInAst var v) ->
-      Ast.AstLet var
+          astLet var
                  (contractAst u)
                  (v * (astReshapeS @_ @sh sh
                          (Ast.AstReplicate
                            (SNat @0) stk (contractAst s))))
   AstTimesS v (Ast.AstLet var u (Ast.AstReplicate (SNat' @0) stk s))
     | not (varNameInAst var v) ->
-      Ast.AstLet var
+          astLet var
                  (contractAst u)
                  (v * Ast.AstReplicate
                                      (SNat @0) stk (contractAst s))
@@ -3289,7 +3274,7 @@ contractAst t = case t of
       --    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
       --      astReplicate0N shOut x
   Ast.AstReshapeS sh (Ast.AstLet var v (Ast.AstReplicate snat stk t2)) ->
-    Ast.AstLet var
+        astLet var
                (contractAst v)
                (astReshapeS sh (Ast.AstReplicate snat stk (contractAst t2)))
   Ast.AstReshapeS sh v -> astReshapeS sh $ contractAst v

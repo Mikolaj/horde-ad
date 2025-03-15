@@ -757,4 +757,4 @@ testTomsSlicePP = do
   printArtifactPrimalPretty artifactRev
     @?= "\\m1 -> let m14 = sgather (sfromR m1) (\\[i10, i11] -> [i10, i11]) ; m15 = sgather (sfromR m1) (\\[i12, i13] -> [i12, 1 + i13]) ; v16 = sreplicate @32 (ssum @96 (sreshape (m14 * m15))) in rfromS (ssum @128 (sreshape (str (sreplicate @4 (siota (SNat @32) * v16)))))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\m1 -> rfromS (ssum @128 (sgather (siota (SNat @32) * sreplicate @32 (sdot0 (sgather (sfromR m1) (\\[i10, i11] -> [i10, i11])) (sgather (sfromR m1) (\\[i12, i13] -> [i12, 1 + i13])))) (\\[i36] -> [remH (quotH i36 4) 32])))"
+    @?= "\\m1 -> rfromS (ssum0 (sgather (siota (SNat @32) * sreplicate @32 (sdot0 (sgather (sfromR m1) (\\[i10, i11] -> [i10, i11])) (sgather (sfromR m1) (\\[i12, i13] -> [i12, 1 + i13])))) (\\[i36] -> [remH (quotH i36 4) 32])))"
