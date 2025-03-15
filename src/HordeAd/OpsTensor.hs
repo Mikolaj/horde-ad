@@ -1,15 +1,16 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | The tensor operations intended for the library user.
+-- | The tensor operations intended for the library user. The less user-friendly
+-- prototypes of most of these operation can be found in "HordeAd.Core.Ops"
+-- where some additional rarely used operations reside as well.
 module HordeAd.OpsTensor
-  ( -- * Basic array opertations
-    tunit, tlet, ifH, minH, maxH
-  , rshape, rlength, rsize, rwidth
+  ( -- * Shape manipulation
+    rshape, rlength, rsize, rwidth
   , sshape, slength, ssize, swidth
   , xshape, xlength, xsize, xwidth
   , tsize, tftk
-  , tpair, tproject1, tproject2
+    -- * Constructing arrays from concrete values, lists and vectors
   , rconcrete, rscalar, rrepl, ringestData, rfromListLinear
   , sconcrete, sscalar, srepl, singestData, sfromListLinear
   , xconcrete, xscalar, xrepl, xingestData, xfromListLinear
@@ -17,23 +18,26 @@ module HordeAd.OpsTensor
   , rfromList, rfromVector, rfromVector0N, rfromList0N, runravelToList
   , sfromList, sfromVector, sfromVector0N, sfromList0N, sunravelToList
   , xfromList, xfromVector, xfromVector0N, xfromList0N, xunravelToList
+    -- * Main array operations
+  , tunit, tlet, ifH, minH, maxH, tpair, tproject1, tproject2
   , rsum, rsum0, rdot0, rdot1In, rmatvecmul, rmatmul2, rreplicate, rreplicate0N
   , ssum, ssum0, sdot0, sdot1In, smatvecmul, smatmul2, sreplicate, sreplicate0N
   , xsum, xsum0, xdot0, xdot1In, xmatvecmul, xmatmul2, xreplicate, xreplicate0N
   , rindex, (!), rindex0, roneHot, rscatter, rscatter1, rgather, rgather1
   , sindex, (!$), sindex0, soneHot, sscatter, sscatter1, sgather, sgather1
   , xindex, xindex0, xoneHot, xscatter, xscatter1, xgather, xgather1
+  , rtr, rtranspose, rflatten, rreshape
+  , str, stranspose, sflatten, sreshape
+  , xtr, xtranspose, xflatten, xreshape
+   -- * Auxiliary array operations
   , rfloor, rfromIntegral, rcast, rminIndex, rmaxIndex, riota
   , sfloor, sfromIntegral, scast, sminIndex, smaxIndex, siota
   , xfloor, xfromIntegral, xcast, xminIndex, xmaxIndex, xiota
   , kfloor, kfromIntegral, kcast
   , rappend, rconcat, rslice, runcons, rreverse
-  , rtr, rtranspose, rflatten, rreshape
   , sappend, sslice, suncons, sreverse
-  , str, stranspose, sflatten, sreshape
   , xappend, xappend0, xconcat, xslice, xuncons, xreverse
-  , xtr, xtranspose, xflatten, xreshape
-    -- * Array opertations derived from `build`
+    -- * Array operations derived from `build`
   , rbuild, rbuild1, rmap, rmap1, rmap0N, rzipWith, rzipWith1, rzipWith0N
   , rzipWith3, rzipWith31, rzipWith30N, rzipWith4, rzipWith41, rzipWith40N
   , sbuild, sbuild1, smap, smap1, smap0N, szipWith, szipWith1, szipWith0N
@@ -43,14 +47,14 @@ module HordeAd.OpsTensor
   , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
     -- * Array operations producing derivatives
   , kgrad, rvjp, rjvp, svjp, sjvp
-    -- * Operations about dual numbers
+    -- * Operations dealing with dual numbers
   , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
   , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
   , xprimalPart, xdualPart, xfromPrimal, xfromDual, xScale
   , kprimalPart, kdualPart, kfromPrimal, kfromDual, kScale
     -- * Array operations that utilize unwinding of nested arrays
   , treplTarget, tdefTarget, taddTarget, tmultTarget, tdotTarget
-    -- * Minimal re-exports to make this module a higher level replacement for HordeAd.Core.Ops
+    -- * Minimal re-exports to make this module a higher level replacement for "HordeAd.Core.Ops"
   , ADReady
   , LetTensor, BaseTensor
   ) where
@@ -85,24 +89,6 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Ops
 import HordeAd.Core.ConvertTensor
-
-tunit :: BaseTensor target
-      => target TKUnit
-tunit = kconcrete Z0
-
-tlet :: forall x z target. LetTensor target
-     => target x -> (target x -> target z) -> target z
-tlet = ttlet
-
-ifH :: (KnownSTK y, Boolean (BoolOf target), BaseTensor target)
-    => BoolOf target -> target y -> target y -> target y
-ifH = tcond knownSTK
-minH :: (KnownSTK y, OrdH target y, BaseTensor target)
-     => target y -> target y -> target y
-minH u v = ifH (u <=. v) u v
-maxH :: (KnownSTK y, OrdH target y, BaseTensor target)
-     => target y -> target y -> target y
-maxH u v = ifH (u >=. v) u v
 
 rconcrete :: (GoodScalar r, BaseTensor target)
           => Nested.Ranked n r -> target (TKR n r)
@@ -220,6 +206,24 @@ xfromList0N sh = txfromVector0N sh . V.fromList
 xunravelToList :: (KnownNat n, KnownShX sh, KnownSTK x, BaseTensor target)
                => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
 xunravelToList = txunravelToList
+
+tunit :: BaseTensor target
+      => target TKUnit
+tunit = kconcrete Z0
+
+tlet :: forall x z target. LetTensor target
+     => target x -> (target x -> target z) -> target z
+tlet = ttlet
+
+ifH :: (KnownSTK y, Boolean (BoolOf target), BaseTensor target)
+    => BoolOf target -> target y -> target y -> target y
+ifH = tcond knownSTK
+minH :: (KnownSTK y, OrdH target y, BaseTensor target)
+     => target y -> target y -> target y
+minH u v = ifH (u <=. v) u v
+maxH :: (KnownSTK y, OrdH target y, BaseTensor target)
+     => target y -> target y -> target y
+maxH u v = ifH (u >=. v) u v
 
 rsum :: (KnownNat n, KnownSTK x, BaseTensor target)
      => target (TKR2 (1 + n) x) -> target (TKR2 n x)
@@ -439,6 +443,32 @@ xgather1 :: ( KnownNat n2, KnownShX shn, KnownShX shp, KnownSTK x
          -> target (TKX2 (Just n2 ': shn) x)
 xgather1 = txgather1
 
+-- | Transpose according to the permutation.
+rtranspose :: forall n x target. (KnownSTK x, BaseTensor target)
+           => Permutation.PermR -> target (TKR2 n x) -> target (TKR2 n x)
+rtranspose = trtranspose
+-- | Change the shape of the tensor to the given one.
+rreshape :: forall n m x target. (KnownSTK x, BaseTensor target)
+         => IShR m -> target (TKR2 n x) -> target (TKR2 m x)
+rreshape = trreshape
+stranspose :: ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
+              , Rank perm <= Rank sh, KnownSTK x, BaseTensor target )
+           => target (TKS2 sh x)
+           -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
+stranspose @perm = tstranspose (Permutation.makePerm @perm)
+sreshape :: ( Nested.Product sh ~ Nested.Product sh2, KnownShS sh2
+            , KnownSTK x, BaseTensor target )
+         => target (TKS2 sh x) -> target (TKS2 sh2 x)
+sreshape = tsreshape knownShS
+xtranspose :: ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
+              , Rank perm <= Rank sh, KnownSTK x, BaseTensor target )
+           => target (TKX2 sh x)
+           -> target (TKX2 (Permutation.PermutePrefix perm sh) x)
+xtranspose @perm = txtranspose @_ @perm
+xreshape :: forall sh sh2 x target. (KnownSTK x, BaseTensor target)
+         => IShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
+xreshape = txreshape
+
 rfloor :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
           , BaseTensor target )
        => target (TKR n r) -> target (TKR n r2)
@@ -534,14 +564,6 @@ runcons v = case rshape v of
 rreverse :: forall n x target. (KnownSTK x, BaseTensor target)
          => target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
 rreverse = trreverse
--- | Transpose according to the permutation.
-rtranspose :: forall n x target. (KnownSTK x, BaseTensor target)
-           => Permutation.PermR -> target (TKR2 n x) -> target (TKR2 n x)
-rtranspose = trtranspose
--- | Change the shape of the tensor to the given one.
-rreshape :: forall n m x target. (KnownSTK x, BaseTensor target)
-         => IShR m -> target (TKR2 n x) -> target (TKR2 m x)
-rreshape = trreshape
 
 sappend :: forall m n sh x target. (KnownSTK x, BaseTensor target)
         => target (TKS2 (m ': sh) x) -> target (TKS2 (n ': sh) x)
@@ -563,15 +585,6 @@ suncons @n v = case cmpNat (Proxy @1) (Proxy @n) of
 sreverse :: forall n sh x target. (KnownSTK x, BaseTensor target)
          => target (TKS2 (n ': sh) x) -> target (TKS2 (n ': sh) x)
 sreverse = tsreverse
-stranspose :: ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
-              , Rank perm <= Rank sh, KnownSTK x, BaseTensor target )
-           => target (TKS2 sh x)
-           -> target (TKS2 (Permutation.PermutePrefix perm sh) x)
-stranspose @perm = tstranspose (Permutation.makePerm @perm)
-sreshape :: ( Nested.Product sh ~ Nested.Product sh2, KnownShS sh2
-            , KnownSTK x, BaseTensor target )
-         => target (TKS2 sh x) -> target (TKS2 sh2 x)
-sreshape = tsreshape knownShS
 
 xappend :: forall m n sh x target. (KnownSTK x, BaseTensor target)
         => target (TKX2 (Just m ': sh) x) -> target (TKX2 (Just n ': sh) x)
@@ -612,14 +625,6 @@ xuncons @n v = case cmpNat (Proxy @1) (Proxy @n) of
 xreverse :: forall mn sh x target. (KnownSTK x, BaseTensor target)
          => target (TKX2 (mn ': sh) x) -> target (TKX2 (mn ': sh) x)
 xreverse = txreverse
-xtranspose :: ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
-              , Rank perm <= Rank sh, KnownSTK x, BaseTensor target )
-           => target (TKX2 sh x)
-           -> target (TKX2 (Permutation.PermutePrefix perm sh) x)
-xtranspose @perm = txtranspose @_ @perm
-xreshape :: forall sh sh2 x target. (KnownSTK x, BaseTensor target)
-         => IShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
-xreshape = txreshape
 
 rbuild1 :: (KnownNat n, KnownSTK x, BaseTensor target)
         => Int  -- ^ width of the outermost dimension of the created tensor

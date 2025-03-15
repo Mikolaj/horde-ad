@@ -1,7 +1,6 @@
--- | Predefined basic variants of  functions for simplification
--- and pretty-printing of AST.
+-- | Predefined common functions for simplification and pretty-printing of AST.
 module HordeAd.AstEngine
-  ( -- * The joint inlining and simplification term transformation
+  ( -- * The joint inlining and simplification term transformations
     simplifyArtifact, simplifyArtifactGradient, simplifyArtifactDerivative
   , simplifyInline, simplifyInlineContract
     -- * Pretty-printing terms in a few useful configurations
@@ -24,6 +23,30 @@ import HordeAd.Core.AstSimplify
 
 -- * The joint inlining and simplification term transformation
 
+-- Potentially, some more inlining could be triggered after the second
+-- simplification, but it's probably rare, so we don't insisit on a fixpoint.
+-- The second simplification is very likely to trigger, because substitution
+-- often reveals redexes.
+simplifyInline
+  :: forall z s. AstSpan s
+  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
+simplifyInline =
+  snd . inlineAst EM.empty
+  . simplifyAst . expandAst
+  . snd . inlineAst EM.empty . simplifyAst
+
+-- Potentially, some more inlining could be triggered after the second
+-- simplification, but it's probably rare, so we don't insisit on a fixpoint.
+-- The second simplification is very likely to trigger, because substitution
+-- often reveals redexes.
+simplifyInlineContract
+  :: forall z s. AstSpan s
+  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
+simplifyInlineContract =
+  snd . inlineAst EM.empty
+  . contractAst . expandAst  -- TODO: when/if contractAst does less simplification, add simplifyAst in-between
+  . snd . inlineAst EM.empty . simplifyAst
+
 simplifyArtifact :: forall x z.
                     AstArtifactRev x z -> AstArtifactRev x z
 simplifyArtifact art =
@@ -42,32 +65,6 @@ simplifyArtifactDerivative :: forall x z.
 simplifyArtifactDerivative art =
   art { artDerivativeFwd =
         simplifyInlineContract $ artDerivativeFwd art }
-
--- Potentially, some more inlining could be triggered after the second
--- simplification, but it's probably rare, so we don't insisit on a fixpoint.
--- The second simplification is very likely to trigger, because substitution
--- often reveals redexes.
-simplifyInline
-  :: forall z s. AstSpan s
-  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
-simplifyInline =
-  snd . inlineAst EM.empty
-  . simplifyAst . expandAst
-  . snd . inlineAst EM.empty . simplifyAst
-    -- no specialization possible except for the tag type s
-
--- Potentially, some more inlining could be triggered after the second
--- simplification, but it's probably rare, so we don't insisit on a fixpoint.
--- The second simplification is very likely to trigger, because substitution
--- often reveals redexes.
-simplifyInlineContract
-  :: forall z s. AstSpan s
-  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
-simplifyInlineContract =
-  snd . inlineAst EM.empty
-  . contractAst . expandAst  -- TODO: when/if contractAst does less simplification, add simplifyAst in-between
-  . snd . inlineAst EM.empty . simplifyAst
-    -- no specialization possible except for the tag type s
 
 
 -- * Pretty-printing terms in a few useful configurations

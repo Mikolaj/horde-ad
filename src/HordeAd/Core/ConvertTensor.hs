@@ -4,8 +4,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
--- | A class for converting tensors to other forms that contain the same
--- data but have different types.
+-- | A class for converting tensors between various forms that contain
+-- the same data but varying amounts of shape information.
 module HordeAd.Core.ConvertTensor
   ( ConvertTensor(..)
   ) where

@@ -1,9 +1,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
--- | The implementation of reverse derivative and (forward) derivative
--- calculation for an objective function on values of complicated
--- types (e.g., with tuple domains) expressed using the tensor classes.
--- Together with "HordeAd.Core.Ops", this forms the basic
--- high-level API of the horde-ad library. Optimizers are add-ons.
+-- | The implementation of reverse derivative and forward derivative
+-- calculation for an objective function on values of complicated types,
+-- e.g., nested tuples of tensors.
 module HordeAd.ADEngine
   ( -- * Reverse derivative adaptors
     grad, vjp
@@ -15,11 +13,12 @@ module HordeAd.ADEngine
   , cgrad, cvjp
     -- * Non-AST forward derivative adaptors
   , cjvp
-    -- * Internal machinery
+    -- * Internal machinery for AST adaptors
   , IncomingCotangentHandling(..)
   , revArtifactAdapt, revArtifactDelta
   , revProduceArtifactWithoutInterpretation, revInterpretArtifact
   , fwdArtifactAdapt, fwdArtifactDelta, fwdInterpretArtifact
+    -- * Internal machinery for non-AST adaptors
   , cfwdBoth
   ) where
 
