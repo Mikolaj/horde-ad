@@ -1,9 +1,8 @@
 -- | A couple of gradient descent scheme implementations.
 module HordeAd.External.Optimizer
-  ( sgd, sgdSTK
-  , sgdAdam, sgdAdamArgs
-  , StateAdam, initialStateAdam
-  , defaultArgsAdam
+  ( sgd, sgdSTK, updateWithGradient
+  , sgdAdam, sgdAdamArgs, updateWithGradientAdam
+  , StateAdam, initialStateAdam, defaultArgsAdam
   ) where
 
 import Prelude
