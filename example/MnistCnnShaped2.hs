@@ -43,10 +43,8 @@ convMnistLayerS
      ( 1 <= kh
      , 1 <= kw  -- wrongly reported as redundant due to plugins
      , ADReady target, GoodScalar r, Differentiable r )
-  => SNat kh -> SNat kw
-  -> SNat h -> SNat w
-  -> SNat c_in -> SNat c_out
-  -> SNat batch_size
+  => SNat kh -> SNat kw -> SNat h -> SNat w
+  -> SNat c_in -> SNat c_out -> SNat batch_size
   -> target (TKS '[c_out, c_in, kh + 1, kw + 1] r)
   -> target (TKS '[batch_size, c_in, h, w] r)
   -> target (TKS '[c_out] r)
@@ -63,43 +61,38 @@ convMnistLayerS SNat SNat SNat SNat SNat SNat SNat
 
 convMnistTwoS
   :: forall kh kw h w c_out n_hidden batch_size target r.
-       -- @h@ and @w@ are fixed for MNIST, but may be different, e.g., in tests
-     ( 1 <= kh             -- kernel height is large enough
-     , 1 <= kw             -- kernel width is large enough
+       -- @h@ and @w@ are fixed with MNIST data, but not with test data
+     ( 1 <= kh  -- kernel height is large enough
+     , 1 <= kw  -- kernel width is large enough
      , ADReady target, GoodScalar r, Differentiable r )
-  => SNat kh -> SNat kw
-  -> SNat h -> SNat w
+  => SNat kh -> SNat kw -> SNat h -> SNat w
   -> SNat c_out -> SNat n_hidden -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
-       -- value parameters (@SNat@ below) denoting basic dimensions
+       -- SNat value parameters denoting basic dimensions
   -> PrimalOf target (TKS '[batch_size, 1, h, w] r)  -- ^ input images
   -> ADCnnMnistParametersShaped target h w kh kw c_out n_hidden r
-  -> target (TKS '[SizeMnistLabel, batch_size] r)  -- ^ classification
-convMnistTwoS kh@SNat kw@SNat
-              h@SNat w@SNat
+       -- ^ parameters
+  -> target (TKS '[SizeMnistLabel, batch_size] r)  -- ^ output classification
+convMnistTwoS kh@SNat kw@SNat h@SNat w@SNat
               c_out@SNat _n_hidden@SNat batch_size@SNat
               input
               ( (ker1, bias1), (ker2, bias2)
               , (weightsDense, biasesDense), (weightsReadout, biasesReadout) ) =
   gcastWith (unsafeCoerceRefl :: Div (Div w 2) 2 :~: Div w 4) $
   gcastWith (unsafeCoerceRefl :: Div (Div h 2) 2 :~: Div h 4) $
-  let t1 = convMnistLayerS kh kw
-                           h w
+  let t1 = convMnistLayerS kh kw h w
                            (SNat @1) c_out batch_size
                            ker1 (sfromPrimal input) bias1
-      t2 :: target (TKS '[batch_size, c_out, h `Div` 4, w `Div` 4] r)
-      t2 = convMnistLayerS kh kw
-                           (SNat @(h `Div` 2)) (SNat @(w `Div` 2))
+--      t2 :: target (TKS '[batch_size, c_out, h `Div` 4, w `Div` 4] r)
+      t2 = convMnistLayerS kh kw (SNat @(h `Div` 2)) (SNat @(w `Div` 2))
                            c_out c_out batch_size
                            ker2 t1 bias2
-      m1 :: target (TKS '[batch_size, c_out * (h `Div` 4) * (w `Div` 4)] r)
+--      m1 :: target (TKS '[batch_size, c_out * (h `Div` 4) * (w `Div` 4)] r)
       m1 = sreshape t2
-      m2 = str m1
-      denseLayer = weightsDense `smatmul2` m2
-                   + str (sreplicate {-@batch_size-} biasesDense)
-      denseRelu = reluS denseLayer
-  in weightsReadout `smatmul2` denseRelu
-     + str (sreplicate {-@batch_size-} biasesReadout)
+      denseLayer = weightsDense `smatmul2` str m1
+                   + str (sreplicate biasesDense)
+  in weightsReadout `smatmul2` reluS denseLayer
+     + str (sreplicate biasesReadout)
 
 convMnistLossFusedS
   :: forall kh kw h w c_out n_hidden batch_size target r.

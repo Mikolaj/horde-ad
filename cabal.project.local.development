@@ -1,6 +1,6 @@
-ignore-project: False
-tests: True
-benchmarks: True
+package horde-ad
+  tests: True
+  benchmarks: True
+
 test-show-details: direct
 optimization: False
-
