@@ -208,6 +208,7 @@ library exampleLibrary
 
       , base
       , bytestring
+      , ghc-typelits-extra
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , mnist-idx

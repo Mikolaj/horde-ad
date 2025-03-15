@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Extra.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
@@ -79,15 +80,15 @@ convMnistTwoS kh@SNat kw@SNat h@SNat w@SNat
               ( (ker1, bias1), (ker2, bias2)
               , (weightsDense, biasesDense), (weightsReadout, biasesReadout) ) =
   gcastWith (unsafeCoerceRefl :: Div (Div w 2) 2 :~: Div w 4) $
-  gcastWith (unsafeCoerceRefl :: Div (Div h 2) 2 :~: Div h 4) $
+--  gcastWith (unsafeCoerceRefl :: Div (Div h 2) 2 :~: Div h 4) $
   let t1 = convMnistLayerS kh kw h w
                            (SNat @1) c_out batch_size
                            ker1 (sfromPrimal input) bias1
---      t2 :: target (TKS '[batch_size, c_out, h `Div` 4, w `Div` 4] r)
+      t2 :: target (TKS '[batch_size, c_out, h `Div` 4, w `Div` 4] r)
       t2 = convMnistLayerS kh kw (SNat @(h `Div` 2)) (SNat @(w `Div` 2))
                            c_out c_out batch_size
                            ker2 t1 bias2
---      m1 :: target (TKS '[batch_size, c_out * (h `Div` 4) * (w `Div` 4)] r)
+      m1 :: target (TKS '[batch_size, c_out * (h `Div` 4) * (w `Div` 4)] r)
       m1 = sreshape t2
       denseLayer = weightsDense `smatmul2` str m1
                    + str (sreplicate biasesDense)
