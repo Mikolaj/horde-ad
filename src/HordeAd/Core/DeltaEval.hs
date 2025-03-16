@@ -173,7 +173,7 @@ rebuildInputs els s2 ftk = case ftk of
           (t2, rest2) = rebuildInputs rest1 s2 ftk2
           !t = tpair t1 t2
       in (t, rest2)
-  _ -> case els of
+  _ | differentiableFTK ftk -> case els of
     (n :=> tz@(TOTensor t)) : rest ->
       case matchingFTK (inputIdToFTK n) ftk of
         Just Refl ->
@@ -194,6 +194,7 @@ rebuildInputs els s2 ftk = case ftk of
                   ++ show (n, tz, show_IMap (iMap s2))
     _ -> error $ "rebuildInputs: illegal TensorOrZero: "
                  ++ show_IMap (iMap s2)
+  _ -> (treplTarget 0 ftk, els)
 
 -- Matches generateDeltaInputs.
 generateDSumsDummy :: Int -> FullShapeTK y
@@ -203,7 +204,8 @@ generateDSumsDummy j ftk  = case ftk of
     let (ds1, j1) = generateDSumsDummy j ftk1
         (ds2, j2) = generateDSumsDummy j1 ftk2
     in (ds1 ++ ds2, j2)
-  _ -> ([mkInputId ftk j :=> TOZero ftk], j + 1)
+  _ | differentiableFTK ftk -> ([mkInputId ftk j :=> TOZero ftk], j + 1)
+  _ -> ([], j)
 
 -- Matches generateDeltaInputs.
 generateDSums :: ShareTensor target
@@ -215,7 +217,8 @@ generateDSums j ftk t = case ftk of
         (ds1, j1) = generateDSums j ftk1 t1
         (ds2, j2) = generateDSums j1 ftk2 t2
     in (ds1 ++ ds2, j2)
-  _ -> ([mkInputId ftk j :=> TOTensor t], j + 1)
+  _ | differentiableFTK ftk -> ([mkInputId ftk j :=> TOTensor t], j + 1)
+  _ -> ([], j)
 
 -- * Delta evaluation state
 
@@ -557,12 +560,13 @@ evalRevFTK !s !c d0 = case d0 of
              -- TODO: make this compositional and evaluated d only once
     _ -> error "evalRev: wrong tensor kinds"
 
-  _ -> case ftkDelta d0 of
-    y -> case matchingFTK y (adFTK y) of
-      Just Refl -> evalRevSame s c d0
-      _ -> s  -- the constructors remaining here have y that is a non-TKProduct
-              -- so if y is equal to ADTensorKind y, the latter has
-              -- the Z0 scalar type and so no influence on the derivative.
+  _ -> let y = ftkDelta d0
+       in case matchingFTK y (adFTK y) of
+         Just Refl -> evalRevSame s c d0
+         _ -> s  -- the constructors remaining here have y that is
+                 -- a non-TKProduct so if y is equal to ADTensorKind y,
+                 -- the latter has the Z0 scalar type and so no influence
+                 -- on the derivative.
 
 evalRevSame
   :: forall y target.
@@ -999,10 +1003,11 @@ evalFwd params s d0 = case d0 of
     let stk2 = ftkToSTK $ ftkDelta d
     in second (tfromS (adSTK stk2) (adSTK stk)) $ evalFwd params s d
 
-  _ -> case ftkDelta d0 of
-    y -> case matchingFTK y (adFTK y) of
-        Just Refl -> evalFwdSame params s d0
-        _ -> (s, treplTarget 0 $ adFTK y)
+  _ -> let y = ftkDelta d0
+           ay = adFTK y
+       in case matchingFTK y ay of
+         Just Refl -> evalFwdSame params s d0
+         _ -> (s, treplTarget 0 ay)
 
 evalFwdSame
   :: forall target y.

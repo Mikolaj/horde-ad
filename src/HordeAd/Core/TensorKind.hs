@@ -10,7 +10,7 @@ module HordeAd.Core.TensorKind
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, rankSTK, widthSTK
   , FullShapeTK(..), KnownFTK(..)
-  , matchingFTK, ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK
+  , matchingFTK, ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK, differentiableFTK
   , DummyDualTarget(..)
     -- * Generic types of booleans and related class definitions
   , BoolOf, Boolean(..), EqH(..), OrdH(..)
@@ -272,6 +272,18 @@ adFTK = \case
   FTKS sh x -> FTKS sh $ adFTK x
   FTKX sh x -> FTKX sh $ adFTK x
   FTKProduct ftk1 ftk2 -> FTKProduct (adFTK ftk1) (adFTK ftk2)
+
+differentiableFTK :: FullShapeTK y -> Bool
+differentiableFTK = \case
+  FTKScalar @r -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> True
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> True
+      _ -> False
+  FTKR _ x -> differentiableFTK x
+  FTKS _ x -> differentiableFTK x
+  FTKX _ x -> differentiableFTK x
+  FTKProduct ftk1 ftk2 -> differentiableFTK ftk1 && differentiableFTK ftk2
 
 type role DummyDualTarget nominal
 type DummyDualTarget :: Target

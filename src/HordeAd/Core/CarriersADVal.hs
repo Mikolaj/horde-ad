@@ -201,9 +201,8 @@ multNotShared :: forall f z. Num (f z)
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 
-generateDeltaInputs
-  :: forall x target.
-     FullShapeTK x -> Delta target x
+generateDeltaInputs :: forall x target.
+                       FullShapeTK x -> Delta target x
 generateDeltaInputs =
   let gen :: Int -> FullShapeTK y -> (Delta target y, Int)
       gen j ftk = case ftk of
@@ -211,7 +210,8 @@ generateDeltaInputs =
           let (d1, j1) = gen j ftk1
               (d2, j2) = gen j1 ftk2
           in (DeltaPair d1 d2, j2)
-        _ -> (DeltaInput (mkInputId ftk j), j + 1)
+        _ | differentiableFTK ftk -> (DeltaInput (mkInputId ftk j), j + 1)
+        _ -> (DeltaZero ftk, j)
   in fst . gen 0
 
 
