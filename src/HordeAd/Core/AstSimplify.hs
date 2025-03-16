@@ -365,31 +365,25 @@ astSum snat@SNat stk t0 = case t0 of
       STKX _ STKScalar -> foldr1 (+) $ V.toList l
       _ -> Ast.AstSum snat stk t0
   Ast.AstReplicate _ STKScalar v | STKScalar <- stk ->
-    let ftk = FTKScalar
-    in v * (fromPrimal
-            $ astConcreteK (treplTarget (fromInteger $ fromSNat snat) ftk))
+    v * (fromPrimal $ AstConcreteK $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ _ v | STKR _ (STKScalar @r) <- stk ->
     case ftkAst v of
       FTKR sh' FTKScalar ->
         withCastRS sh' $ \(sh :: ShS sh) ->
-          let ftk = FTKS sh (FTKScalar @r)
-          in v * astFromS
-                   stk (fromPrimal
-                        $ astConcreteS (treplTarget (fromInteger
-                                                     $ fromSNat snat) ftk))
+          v * astFromS
+                stk (fromPrimal $ AstConcreteS @r
+                     $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ _ v | STKX _ (STKScalar @r) <- stk ->
     case ftkAst v of
       FTKX sh' FTKScalar ->
         withCastXS sh' $ \(sh :: ShS sh) ->
-          let ftk = FTKS sh (FTKScalar @r)
-          in v * astFromS
-                   stk (fromPrimal
-                        $ astConcreteS (treplTarget (fromInteger
-                                                     $ fromSNat snat) ftk))
+          v * astFromS
+                stk (fromPrimal $ AstConcreteS @r
+                     $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ STKS{} v | STKS sh (STKScalar @r) <- stk ->
-    let ftk = FTKS sh (FTKScalar @r)
-    in v * (fromPrimal $ astConcreteS (treplTarget (fromInteger
-                                                    $ fromSNat snat) ftk))
+          v * astFromS
+                stk (fromPrimal $ AstConcreteS @r
+                     $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
   AstConcreteS @_ @sh2 t -> case stk of
     STKS @sh _ STKScalar ->
       gcastWith (unsafeCoerceRefl :: k ': sh :~: sh2) $
@@ -408,7 +402,7 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstIotaS (SNat @n) ->
     let i = fromInteger $ valueOf @n * (valueOf @n - 1) `div` 2
     in case stk of
-      STKScalar -> astConcreteK (tkconcrete i)
+      STKScalar -> AstConcreteK i
       STKS ZSS STKScalar -> AstConcreteS $ Nested.sscalar i
   Ast.AstSliceS (SNat @i) n SNat v | STKS sh _ <- stk
                                    , Just Refl <- sameNat n (SNat @1) ->
@@ -1376,14 +1370,9 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
          Ast.AstMaxIndexS @(Head (shn ++ '[nl]))
                           @(Tail (shn ++ '[nl]))
          $ astIndexKnobsS @shm @(shn ++ '[nl]) knobs shnl v ix
-  Ast.AstIotaS{}
-    | AstConcreteK i <- i1 -> case testEquality shn ZSS of
-      Just Refl ->
-        astFromIntegralS $ AstConcreteS $ Nested.sscalar i
-      _ -> error "astIndexKnobsS: shape not []"
--- TODO:  AstIndexS AstIotaS (i :.$ ZIS) ->
---    sfromIntegral . sfromPrimal . sfromR . rfromK $ interpretAstPrimal env i
-  Ast.AstIotaS{} -> Ast.AstIndexS shn v0 ix
+  Ast.AstIotaS{} -> case testEquality shn ZSS of
+    Just Refl -> astFromIntegralS $ astSFromK i1
+    _ -> error "astIndexKnobsS: shape not []"
   Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
     let ulen = AstConcreteK (valueOf @m)
         ix1 = i1 :.$ rest1
@@ -1836,9 +1825,9 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
                             @(Tail (shm' ++ (shn' ++ '[nl])))
            $ astGatherKnobsS knobs shnl v (vars4, ix4)
     Ast.AstIotaS{} | AstConcreteK i <- i4 ->
-      astFromIntegralS
-      $ let ftk = FTKS (listsToShS vars4 `shsAppend` shn') (FTKScalar @Int64)
-        in fromPrimal $ astConcreteS (treplTarget (fromIntegral i) ftk)
+      fromPrimal $ AstConcreteS
+      $ Nested.sreplicateScal (listsToShS vars4 `shsAppend` shn')
+      $ fromIntegral i
     Ast.AstIotaS{} ->  -- probably nothing can be simplified; a normal form
       Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
@@ -3230,8 +3219,6 @@ contractAst t = case t of
   Ast.AstFromIntegralS v -> astFromIntegralS $ contractAst v
   Ast.AstCastS v -> astCastS $ contractAst v
 
-  Ast.AstIndexS _shn Ast.AstIotaS{} (i :.$ ZIS) ->
-    astFromIntegralS $ astSFromK $ contractAstInt i
   Ast.AstIndexS shn v ix ->
     astIndexS shn (contractAst v) (contractAstIxS ix)
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
