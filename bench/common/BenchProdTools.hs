@@ -229,13 +229,9 @@ revScalarMapAccum snat@SNat = grad (multScalarMapAccum snat)
 
 {- TODO: re-enable once -fpolymorphic-specialisation works
 
--- TODO: not enough specialized
--- TODO: outdated explanation:
--- The GoodScalar and it's component occurrences are due to creating
--- a value of an existential type that satisfies GoodScalar,
--- so it's intended and not a specialization failure.
--- OTOH, KnownNat and AstSpan are tag types, so it's fine not to specialize
--- for them.
+-- KnownNat and AstSpan are tag types, so it's fine not to specialize
+-- for them. Some of the other classes come from existential types,
+-- some of which it's not advantageous to specialize.
 --
 -- This is expected to fail with -O0 and to pass with -O1
 -- and -fpolymorphic-specialisation.

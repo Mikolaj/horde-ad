@@ -7,12 +7,12 @@ module Disparity where
 
 import Prelude
 
-import qualified Data.Array.ShapedS as OS
-import           Data.List
-import           Data.Vector.Storable (Storable)
-import           GHC.TypeLits (KnownNat)
-import           HordeAd
-import qualified System.Random as R
+import Data.Array.ShapedS qualified as OS
+import Data.List
+import Data.Vector.Storable (Storable)
+import GHC.TypeLits (KnownNat)
+import HordeAd
+import System.Random qualified as R
 
 -- | Disparity cost volume.
 --
@@ -60,7 +60,7 @@ testCostVolume
         arrR    = random @'[1, 2, 4, 6] @Double 2
         arrS    = random @'[1, 4, 4, 6] @Double 3
           -- TODO: this is unused
-        arrO    = primal $ costVolume 0 (SNat :: SNat 4) (constant arrL) (constant arrR)
+        arrO    = primalPart $ costVolume 0 (SNat :: SNat 4) (constant arrL) (constant arrR)
         arrDL   = vjp (\aL -> costVolume 0 SNat aL (constant arrR)) arrL arrO
         arrDR   = vjp (\aR -> costVolume 0 SNat (constant arrL) aR) arrR arrO
    in   putStrLn $ unlines
@@ -82,8 +82,3 @@ random seed
            $ take (OS.size xs)
            $ unfoldr (Just . R.uniformR (-1, 1)) (R.mkStdGen seed)
    in   xs
-
-
--- TODO: where is the real version of this defined?
-primal :: ADVal 'ADModeValue a -> a
-primal (D a _) = a

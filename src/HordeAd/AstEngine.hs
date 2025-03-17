@@ -23,29 +23,25 @@ import HordeAd.Core.AstSimplify
 
 -- * The joint inlining and simplification term transformation
 
--- Potentially, some more inlining could be triggered after the second
--- simplification, but it's probably rare, so we don't insisit on a fixpoint.
--- The second simplification is very likely to trigger, because substitution
--- often reveals redexes.
+-- | A mixture of simplification and inlining to use when the resultng
+-- term is not yet supposed to be interpreted using a computational backed,
+-- but rather to be stored and later composed with other terms.
 simplifyInline
   :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInline =
-  snd . inlineAst EM.empty
+  simplifyAst . snd . inlineAst EM.empty
   . simplifyAst . expandAst
   . snd . inlineAst EM.empty . simplifyAst
 
--- Potentially, some more inlining could be triggered after the second
--- simplification, but it's probably rare, so we don't insisit on a fixpoint.
--- The second simplification is very likely to trigger, because substitution
--- often reveals redexes.
+-- | A mixture of simplification and inlining to use when the resultng
+-- term is not to be interpreted using a computational backed
+-- and producing a concrete value.
 simplifyInlineContract
   :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContract =
-  snd . inlineAst EM.empty
-  . contractAst . expandAst  -- TODO: when/if contractAst does less simplification, add simplifyAst in-between
-  . snd . inlineAst EM.empty . simplifyAst
+  contractAst . simplifyInline
 
 simplifyArtifact :: forall x z.
                     AstArtifactRev x z -> AstArtifactRev x z
