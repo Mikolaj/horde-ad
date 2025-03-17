@@ -491,7 +491,7 @@ printAstAux cfg d = \case
     printPrefixOp printAst cfg d "ssum0" [v]
   AstDot0S u v ->
     printPrefixOp printAst cfg d "sdot0" [u, v]
-  AstDot1InS SNat SNat u v ->
+  AstDot1InS _ _ u v ->
     printPrefixOp printAst cfg d "ssdot1In" [u, v]
   AstMatmul2S SNat SNat SNat u v ->
     showParen (d > 10)

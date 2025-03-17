@@ -395,10 +395,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TK
   AstDot0S :: GoodScalar r
            => AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
            -> AstTensor ms s (TKS '[] r)
-  AstDot1InS :: GoodScalar r
-             => SNat m -> SNat n
-             -> AstTensor ms s (TKS '[m, n] r) -> AstTensor ms s (TKS '[m, n] r)
-             -> AstTensor ms s (TKS '[m] r)
+  AstDot1InS :: forall sh n r ms s. GoodScalar r
+             => ShS sh -> SNat n
+             -> AstTensor ms s (TKS (sh ++ '[n]) r)
+             -> AstTensor ms s (TKS (sh ++ '[n]) r)
+             -> AstTensor ms s (TKS sh r)
   AstMatmul2S :: GoodScalar r
               => SNat m -> SNat n -> SNat p
               -> AstTensor ms s (TKS '[m, n] r)

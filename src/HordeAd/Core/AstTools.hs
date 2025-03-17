@@ -170,7 +170,7 @@ ftkAst t = case t of
   AstSum0S v ->  case ftkAst v of
     FTKS _ x -> FTKS ZSS x
   AstDot0S _u _v -> FTKS ZSS FTKScalar
-  AstDot1InS m@SNat _ _u _v -> FTKS (m :$$ ZSS) FTKScalar
+  AstDot1InS sh _ _u _v -> FTKS sh FTKScalar
   AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar
 
 

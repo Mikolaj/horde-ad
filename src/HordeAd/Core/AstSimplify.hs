@@ -3063,23 +3063,20 @@ contractAst t = case t of
     astDot0S (contractAst t2) (contractAst u)
   Ast.AstSum
     n@(SNat @n)
-    (STKS (m@(SNat @m) :$$ ZSS) _)
-    (Ast.AstTransposeS @perm @sh
+    (STKS sh@(SNat @m :$$ ZSS) _)
+    (Ast.AstTransposeS @perm @sh1
        (SNat' @1 `Permutation.PCons` SNat' @0
         `Permutation.PCons` Permutation.PNil)
        (AstTimesS t2 u)) ->  -- TODO: generalize
-      gcastWith (unsafeCoerceRefl :: Permutation.Permute perm [n, m] :~: sh) $
-      astDot1InS m n (contractAst t2) (contractAst u)
+      gcastWith (unsafeCoerceRefl :: Permutation.Permute perm [n, m] :~: sh1) $
+      astDot1InS sh n (contractAst t2) (contractAst u)
   Ast.AstSum
-    n@(SNat @n)
-    (STKS (m@(SNat @m) :$$ ZSS) _)
+    n
+    (STKS sh@(_ :$$ ZSS) _)
     (AstTimesS t2 u) ->
-      -- TODO: Why is this needed? Would a more general lemma suffice?
-      gcastWith (unsafeCoerceRefl :: Permutation.Permute perm [n, m] :~: sh) $
-      gcastWith (unsafeCoerceRefl :: Permutation.Permute perm2 [n, m] :~: sh2) $
       let perm10 = Permutation.makePerm @'[1, 0]
-      in astDot1InS m n (contractAst $ astTransposeS perm10 t2)
-                        (contractAst $ astTransposeS perm10 u)
+      in astDot1InS sh n (contractAst $ astTransposeS perm10 t2)
+                         (contractAst $ astTransposeS perm10 u)
   Ast.AstSum _ (STKS ZSS _) t2 -> astSum0S (contractAst t2)
   Ast.AstSum snat stk v -> astSum snat stk (contractAst v)
   Ast.AstReplicate snat stk v -> astReplicate snat stk (contractAst v)
@@ -3112,9 +3109,9 @@ contractAst t = case t of
     , Just Refl <- testEquality snat (SNat @m)
     , var == var2
     , not (varNameInAst var t2), not (varNameInAst var u) ->
-        astDot1InS snat n (contractAst u)
-                          (contractAst
-                           $ astReplicate snat (ftkToSTK (ftkAst t2)) t2)
+        astDot1InS (snat :$$ ZSS) n
+                   (contractAst u)
+                   (contractAst $ astReplicate snat (ftkToSTK (ftkAst t2)) t2)
   Ast.AstBuild1
     snat stk (var, Ast.AstSum _ _
                      (Ast.AstReshapeS
@@ -3127,8 +3124,9 @@ contractAst t = case t of
     , Just Refl <- testEquality snat (SNat @m)
     , var == var2
     , not (varNameInAst var t2), not (varNameInAst var u) ->
-        astDot1InS snat n (contractAst u)
-                          (contractAst $ astReplicate snat (ftkToSTK ftk2) t2)
+        astDot1InS (snat :$$ ZSS) n
+                   (contractAst u)
+                   (contractAst $ astReplicate snat (ftkToSTK ftk2) t2)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = contractAst v
     in Ast.AstBuild1 k stk (var, v2)
@@ -3289,19 +3287,20 @@ astDot0S t1 t2 = case (t1, t2) of
   (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot0S u1 u2
   _ -> Ast.AstDot0S t1 t2
 
-astDot1InS :: GoodScalar r
-           => SNat m -> SNat n
-           -> AstTensor AstMethodLet s (TKS '[m, n] r)
-           -> AstTensor AstMethodLet s (TKS '[m, n] r)
-           -> AstTensor AstMethodLet s (TKS '[m] r)
-astDot1InS m@SNat n@SNat t1 t2 = case (t1, t2) of
+astDot1InS :: forall sh n r s. GoodScalar r
+           => ShS sh -> SNat n
+           -> AstTensor AstMethodLet s (TKS (sh ++ '[n]) r)
+           -> AstTensor AstMethodLet s (TKS (sh ++ '[n]) r)
+           -> AstTensor AstMethodLet s (TKS sh r)
+astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
   (AstConcreteS v1, AstConcreteS v2) ->
-    astConcreteS $ tsdot1In (Concrete v1) (Concrete v2)
+    withKnownShS sh $
+    astConcreteS $ tsdot1In @_ @sh @n (Concrete v1) (Concrete v2)
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
-    Ast.AstFromPrimal $ astDot1InS m n u1 u2
+    Ast.AstFromPrimal $ astDot1InS sh n u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
-    Ast.AstFromDual $ astDot1InS m n u1 u2
-  _ -> Ast.AstDot1InS m n t1 t2
+    Ast.AstFromDual $ astDot1InS sh n u1 u2
+  _ -> Ast.AstDot1InS sh n t1 t2
 
 astMatmul2S :: GoodScalar r
             => SNat m -> SNat n -> SNat p
@@ -3611,13 +3610,13 @@ substitute1Ast i var = subst where
     in if isJust mu || isJust mv
        then Just $ Ast.AstDot0S (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstDot1InS m@SNat n@SNat u v ->
+  Ast.AstDot1InS sh n u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ Ast.AstDot1InS m n (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ Ast.AstDot1InS sh n (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstMatmul2S m@SNat n@SNat p@SNat u v ->
+  Ast.AstMatmul2S m n p u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
