@@ -3062,21 +3062,24 @@ contractAst t = case t of
   Ast.AstSum SNat (STKS ZSS _) (AstTimesS t2 u) ->
     astDot0S (contractAst t2) (contractAst u)
   Ast.AstSum
-    n@(SNat @n)
-    (STKS sh@(SNat @m :$$ ZSS) _)
+    n@(SNat @n) (STKS sh@(SNat @m :$$ ZSS) _)
     (Ast.AstTransposeS @perm @sh1
        (SNat' @1 `Permutation.PCons` SNat' @0
         `Permutation.PCons` Permutation.PNil)
-       (AstTimesS t2 u)) ->  -- TODO: generalize
+       (AstTimesS t2 u)) ->  -- TODO: generalize or distribute AstTransposeS
       gcastWith (unsafeCoerceRefl :: Permutation.Permute perm [n, m] :~: sh1) $
       astDot1InS sh n (contractAst t2) (contractAst u)
-  Ast.AstSum
-    n
-    (STKS sh@(_ :$$ ZSS) _)
-    (AstTimesS t2 u) ->
-      let perm10 = Permutation.makePerm @'[1, 0]
-      in astDot1InS sh n (contractAst $ astTransposeS perm10 t2)
-                         (contractAst $ astTransposeS perm10 u)
+  Ast.AstSum n@(SNat @n) (STKS @sh sh _) (AstTimesS t2 u) ->
+    let cpermR = backpermCycle $ 1 + sNatValue (shsRank sh)
+    in Permutation.permFromList cpermR $ \(cperm :: Permutation.Perm cperm) ->
+         gcastWith (unsafeCoerceRefl :: Rank cperm :~: Rank (n : sh)) $
+         gcastWith (unsafeCoerceRefl
+                    :: Permutation.PermutePrefix cperm (n : sh)
+                       :~: sh ++ '[n]) $
+         fromMaybe (error "tsdot1In: impossible non-permutation")
+         $ Permutation.permCheckPermutation cperm
+         $ astDot1InS sh n (contractAst $ Ast.AstTransposeS cperm t2)
+                           (contractAst $ Ast.AstTransposeS cperm u)
   Ast.AstSum _ (STKS ZSS _) t2 -> astSum0S (contractAst t2)
   Ast.AstSum snat stk v -> astSum snat stk (contractAst v)
   Ast.AstReplicate snat stk v -> astReplicate snat stk (contractAst v)
@@ -3105,13 +3108,14 @@ contractAst t = case t of
                                 t2
                                 (Ast.AstIndexS _shn
                                    u (((:.$) @m (AstIntVar var2) ZIS)))))
-    | STKS ZSS _ <- stk
+    | STKS ZSS _ <- stk  -- generalize
     , Just Refl <- testEquality snat (SNat @m)
     , var == var2
     , not (varNameInAst var t2), not (varNameInAst var u) ->
         astDot1InS (snat :$$ ZSS) n
                    (contractAst u)
-                   (contractAst $ astReplicate snat (ftkToSTK (ftkAst t2)) t2)
+                   (contractAst
+                    $ Ast.AstReplicate snat (ftkToSTK (ftkAst t2)) t2)
   Ast.AstBuild1
     snat stk (var, Ast.AstSum _ _
                      (Ast.AstReshapeS
@@ -3126,7 +3130,7 @@ contractAst t = case t of
     , not (varNameInAst var t2), not (varNameInAst var u) ->
         astDot1InS (snat :$$ ZSS) n
                    (contractAst u)
-                   (contractAst $ astReplicate snat (ftkToSTK ftk2) t2)
+                   (contractAst $ Ast.AstReplicate snat (ftkToSTK ftk2) t2)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = contractAst v
     in Ast.AstBuild1 k stk (var, v2)
