@@ -6,8 +6,6 @@ This is an early prototype, both in terms of the engine performance, the API and
 
 Mature Haskell libraries with similar capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. See also https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md. Benchmarks suggest that horde-ad has competitive performance on CPU. (TODO)
 <!--
--- TODO: do and redo the benchmarks
-
 The benchmarks at SOMEWHERE show that this library has performance highly competitive with (i.e. faster than) those and PyTorch on CPU.
 -->
 It is hoped that the (well-typed) separation of AD logic and the tensor manipulation backend will enable similar speedups on numerical accelerators.
@@ -47,7 +45,7 @@ gradFooMatrix :: (Differentiable r, GoodScalar r)
 gradFooMatrix = cgrad (kfromS . ssum0 . foo)
 ```
 
-where we had to amend function `foo`, because `cgrad` expects a function with a scalar codomain (e.g., a loss function for neural networks). This works as well as before:
+where we had to augment function `foo`, because `cgrad` expects a function with a scalar codomain (e.g., a loss function for neural networks). This works as well as before:
 ```hs
 >>> gradFooMatrix threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
@@ -84,7 +82,7 @@ The gradient program presented below with additional formatting looks like ordin
          ((m4 * m5) * dret + m4 * dret)"
 ```
 
-A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value is the same as for `fooLet` evaluated by `cgrad` on the same input, as long as the incoming cotangent argument consists of ones in all array cells, which is denoted by `srepl 1` in this case:
+A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value is the same as it would be for augmented `fooLet` evaluated by `cgrad` on the same input, as long as the incoming cotangent supplied for the interpretation consists of ones in all array cells, which is denoted by `srepl 1` in this case:
 
 ```hs
 >>> vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1)

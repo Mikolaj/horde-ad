@@ -8,7 +8,7 @@ Simon Peyton Jones, who sketched in "Provably correct, asymptotically efficient,
 
 Faustyna Krawiec, Neel Krishnaswami, Tom Ellis, Andrew Fitzgibbon, Richard Eisenberg, the remaining authors of the paper "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation" from POPL 2022 that describes and proves correct a comprehensive AD formalism, including some ingenious algorithmic ideas this Haskell codebase implements
 
-Oleg Grenrus, whose https://hackage.haskell.org/package/overloaded contain inspiring examples related to AD
+Oleg Grenrus, whose https://hackage.haskell.org/package/overloaded contains inspiring examples related to AD
 
 Edward Kmett, author of the archetype Haskell https://github.com/ekmett/ad library
 
