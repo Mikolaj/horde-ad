@@ -262,8 +262,7 @@ sdot0 :: (KnownShS sh, GoodScalar r, BaseTensor target)
       => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
 sdot0 = tsdot0
 sdot1In :: (KnownNat m, KnownNat n, GoodScalar r, BaseTensor target)
-        => SNat n
-        -> target (TKS '[m, n] r) -> target (TKS '[m, n] r)
+        => target (TKS '[m, n] r) -> target (TKS '[m, n] r)
         -> target (TKS '[m] r)  -- TODO: generalize
 sdot1In = tsdot1In
 smatvecmul :: (KnownNat m, KnownNat n, GoodScalar r, BaseTensor target)

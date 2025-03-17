@@ -165,10 +165,10 @@ instance BaseTensor Concrete where
   {-# INLINE tsdot0 #-}  -- this doesn't want to specialize
   tsdot0 u v  =
     Concrete $ Nested.sscalar $ Nested.sdot (unConcrete u) (unConcrete v)
-  tsdot1In (SNat @n) u v =
+  tsdot1In @_ @n u v =
     Concrete $ Nested.sdot1Inner (Proxy @n) (unConcrete u) (unConcrete v)
   {-# INLINE tsmatvecmul #-}  -- this doesn't want to specialize
-  tsmatvecmul @_ @n m v = tsdot1In (SNat @n) m (tsreplicate knownShS v)
+  tsmatvecmul m v = tsdot1In m (tsreplicate knownShS v)
   tsmatmul2 m1 m2 =
     tssum (tstranspose (Permutation.makePerm @'[2, 1, 0])
                        (tsreplicate knownShS m1)

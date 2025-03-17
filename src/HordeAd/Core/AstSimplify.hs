@@ -3319,7 +3319,7 @@ astDot1InS :: GoodScalar r
            -> AstTensor AstMethodLet s (TKS '[m] r)
 astDot1InS m@SNat n@SNat t1 t2 = case (t1, t2) of
   (AstConcreteS v1, AstConcreteS v2) ->
-    astConcreteS $ tsdot1In n (Concrete v1) (Concrete v2)
+    astConcreteS $ tsdot1In (Concrete v1) (Concrete v2)
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
     Ast.AstFromPrimal $ astDot1InS m n u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->

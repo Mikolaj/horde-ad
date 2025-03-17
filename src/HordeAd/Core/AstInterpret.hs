@@ -386,8 +386,8 @@ interpretAst !env = \case
     FTKS sh _ ->
       withKnownShS sh $
       tsdot0 (interpretAst env u) (interpretAst env v)
-  AstDot1InS SNat n@SNat u v ->
-    tsdot1In n (interpretAst env u) (interpretAst env v)
+  AstDot1InS SNat SNat u v ->
+    tsdot1In (interpretAst env u) (interpretAst env v)
   AstMatmul2S SNat SNat SNat u v ->
     tsmatmul2 (interpretAst env u) (interpretAst env v)
 
