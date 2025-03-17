@@ -790,8 +790,7 @@ evalRevSame !s !c = \case
                    :: Rank (Permutation.PermutePrefix perm sh2) :~: Rank sh2) $
         gcastWith (unsafeCoerceRefl
                    :: Rank permR :~: Rank perm) $
-        withKnownPerm permR $
-        evalRevSame s (txtranspose @_ @permR c) d
+        evalRevSame s (txtranspose permR c) d
   DeltaReshapeX _sh2 d -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
@@ -1202,11 +1201,10 @@ evalFwdSame params s = \case
     FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
       second txreverse $ evalFwdSame params s d
-  DeltaTransposeX @perm perm d -> case ftkDelta d of
+  DeltaTransposeX perm d -> case ftkDelta d of
     FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownPerm perm $
-      second (txtranspose @_ @perm) $ evalFwdSame params s d
+      second (txtranspose perm) $ evalFwdSame params s d
   DeltaReshapeX sh2 d -> case ftkDelta d of
     FTKX _ x ->
       withKnownSTK (ftkToSTK x) $

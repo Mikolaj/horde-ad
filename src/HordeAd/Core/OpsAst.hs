@@ -521,12 +521,12 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
       withCastXS sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
         astFromS (STKX (ssxFromShape sh') (ftkToSTK x))
         . astReverseS . astSFromX @sh sh $ a
-  txtranspose @perm a = case ftkAst a of
+  txtranspose perm a = case ftkAst a of
     FTKX sh' x ->
-      let sh2' = shxPermutePrefix (Permutation.makePerm @perm) sh'
+      let sh2' = shxPermutePrefix perm sh'
       in withCastXS sh' $ \sh ->
            astFromS (STKX (ssxFromShape sh2') (ftkToSTK x))
-           . astTransposeS (Permutation.makePerm @perm)
+           . astTransposeS perm
            . astSFromX sh $ a
   txreshape sh2' a = case ftkAst a of
     FTKX sh' x ->
@@ -1023,12 +1023,12 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastXS sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
         AstFromS (STKX (ssxFromShape sh') (ftkToSTK x))
         . AstReverseS . AstSFromX @sh sh $ a
-  txtranspose @perm (AstRaw a) = AstRaw $ case ftkAst a of
+  txtranspose perm (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
-      let sh2' = shxPermutePrefix (Permutation.makePerm @perm) sh'
+      let sh2' = shxPermutePrefix perm sh'
       in withCastXS sh' $ \sh ->
            AstFromS (STKX (ssxFromShape sh2') (ftkToSTK x))
-           . AstTransposeS (Permutation.makePerm @perm)
+           . AstTransposeS perm
            . AstSFromX sh $ a
   txreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
@@ -1356,8 +1356,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ txappend (unAstNoVectorize u) (unAstNoVectorize v)
   txslice i n k = AstNoVectorize . txslice i n k . unAstNoVectorize
   txreverse = AstNoVectorize . txreverse . unAstNoVectorize
-  txtranspose @perm =
-    AstNoVectorize . txtranspose @_ @perm . unAstNoVectorize
+  txtranspose perm = AstNoVectorize . txtranspose perm . unAstNoVectorize
   txreshape sh = AstNoVectorize . txreshape sh . unAstNoVectorize
   txbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
                   $ funToAstI  -- this introduces new variable names
@@ -1592,8 +1591,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ txappend (wunAstNoSimplify u) (wunAstNoSimplify v)
   txslice i n k = wAstNoSimplify . txslice i n k . wunAstNoSimplify
   txreverse = wAstNoSimplify . txreverse . wunAstNoSimplify
-  txtranspose @perm =
-    wAstNoSimplify . txtranspose @_ @perm . wunAstNoSimplify
+  txtranspose perm = wAstNoSimplify . txtranspose perm . wunAstNoSimplify
   txreshape sh = wAstNoSimplify . txreshape sh . wunAstNoSimplify
 
   -- Scalar ops

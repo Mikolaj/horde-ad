@@ -57,7 +57,6 @@ import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import Data.GADT.Compare
 import Data.Int (Int64)
-import Data.List (dropWhileEnd)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -208,28 +207,6 @@ astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
     in gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
        gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
        astGatherKnobsS @sh2 @'[] @sh knobs ZSS v (vars, asts)
-
-
--- * Permutation-related operations
-
---  map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
--- TODO: port to shaped permutations and then remove the Hack suffix
-normalizePermutationHack :: Permutation.PermR -> Permutation.PermR
-normalizePermutationHack perm =
-  map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
-
--- A representation of a cycle backpermutation.
-backpermCycle :: Int -> Permutation.PermR
-backpermCycle 0 = []
-backpermCycle 1 = []
-backpermCycle n = [k `mod` n | k <- [1 .. n]]
-
--- A representation of a cycle permutation.
--- TODO: make sure and state if it's reverse to the above and, if not, why.
-permCycle :: Int -> Permutation.PermR
-permCycle 0 = []
-permCycle 1 = []
-permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
 
 
 -- * The simplifying combinators, one for almost each AST constructor

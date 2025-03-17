@@ -334,8 +334,8 @@ instance BaseTensor Concrete where
                                             :$% ZSX)) m))
   {-# INLINE txmatvecmul #-}
   txmatmul2 m1 m2 =
-    txsum (txtranspose @_ @'[2, 1, 0] (txreplicate m1)
-           * txtranspose @_ @'[1, 0] (txreplicate m2))
+    txsum (txtranspose (Permutation.makePerm @'[2, 1, 0]) (txreplicate m1)
+           * txtranspose (Permutation.makePerm @'[1, 0]) (txreplicate m2))
   txreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mreplicate (Nested.SKnown SNat :$% ZSX) . unConcrete
   txreplicate0N @sh @r sh | Refl <- lemAppNil @sh
@@ -417,8 +417,8 @@ instance BaseTensor Concrete where
     Concrete . Nested.mslice i n . unConcrete
   txreverse @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mrev1 . unConcrete
-  txtranspose @perm @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    Concrete . Nested.mtranspose (Permutation.makePerm @perm) . unConcrete
+  txtranspose @_ @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
+    Concrete . Nested.mtranspose perm . unConcrete
   txreshape @_ @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mreshape sh . unConcrete
   txbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =

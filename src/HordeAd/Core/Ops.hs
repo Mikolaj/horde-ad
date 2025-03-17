@@ -32,6 +32,7 @@ import Data.Vector.Strict qualified as Data.Vector
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+), type (<=), type (<=?))
 import Type.Reflection (typeRep)
+import Data.Maybe (fromMaybe)
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -73,7 +74,7 @@ xtr :: forall n m sh x target. (KnownSTK x, BaseTensor target)
     -> target (TKX2 (Just m ': Just n ': sh) x)
 xtr = gcastWith (unsafeCoerceRefl
                  :: (2 <=? Rank (Just n ': Just m ': sh)) :~: True) $
-      txtranspose @_ @'[1, 0]
+      txtranspose (Permutation.makePerm @'[1, 0])
 xflatten :: forall sh x target. (KnownSTK x, BaseTensor target)
          => target (TKX2 sh x) -> target (TKX2 '[Nothing] x)
 xflatten u = txreshape (Nested.SUnknown (xsize u) :$% ZSX) u
@@ -504,10 +505,10 @@ class ( Num (IntOf target)
   trdot0 :: (KnownNat n, GoodScalar r)
          => target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
   trdot0 t u = trsum (rflatten (t * u))
-  trdot1In :: GoodScalar r
-           => target (TKR 2 r) -> target (TKR 2 r)
-           -> target (TKR 1 r)  -- TODO: generalize
-  trdot1In t u = trsum $ rtr (t * u)
+  trdot1In :: (KnownNat n, GoodScalar r)
+           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
+           -> target (TKR n r)
+  trdot1In @n t u = trsum $ trtranspose (permCycle $ 1 + valueOf @n) (t * u)
   trmatvecmul :: GoodScalar r
               => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
 -- How to generalize (#69)? The few straightforward generalizations
@@ -535,10 +536,19 @@ class ( Num (IntOf target)
   tsdot0 :: (KnownShS sh, GoodScalar r)
          => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
   tsdot0 @sh t u | SNat <- shsProduct (knownShS @sh) = tssum (sflatten (t * u))
-  tsdot1In :: (KnownNat m, KnownNat n, GoodScalar r)
-           => target (TKS '[m, n] r) -> target (TKS '[m, n] r)
-           -> target (TKS '[m] r)  -- TODO: generalize
-  tsdot1In t u = tssum $ str (t * u)
+  tsdot1In :: (KnownShS sh, KnownNat n, GoodScalar r)
+           => target (TKS (sh ++ '[n]) r) -> target (TKS (sh ++ '[n]) r)
+           -> target (TKS sh r)
+  tsdot1In @sh @n t u =
+    let cpermR = permCycle $ 1 + sNatValue (shsRank (knownShS @sh))
+    in Permutation.permFromList cpermR $ \(cperm :: Permutation.Perm cperm) ->
+         gcastWith (unsafeCoerceRefl :: Rank cperm :~: Rank (sh ++ '[n])) $
+         gcastWith (unsafeCoerceRefl
+                    :: Permutation.PermutePrefix cperm (sh ++ '[n])
+                       :~: n : sh) $
+         fromMaybe (error "tsdot1In: impossible non-permutation")
+         $ Permutation.permCheckPermutation cperm
+         $ tssum $ tstranspose cperm (t * u)
   tsmatvecmul :: (KnownNat m, KnownNat n, GoodScalar r)
               => target (TKS '[m, n] r) -> target (TKS '[n] r)
               -> target (TKS '[m] r)
@@ -570,11 +580,20 @@ class ( Num (IntOf target)
          => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
   txdot0 t u = withSNat (shxSize $ xshape t) $ \snat ->
     txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten (t * u))
-  txdot1In :: (KnownNat m, KnownNat n, GoodScalar r)
-           => target (TKX '[Just m, Just n] r)
-           -> target (TKX '[Just m, Just n] r)
-           -> target (TKX '[Just m] r)  -- TODO: generalize
-  txdot1In t u = txsum $ xtr (t * u)
+  txdot1In :: (KnownShX sh, KnownNat n, GoodScalar r)
+           => target (TKX (sh ++ '[Just n]) r)
+           -> target (TKX (sh ++ '[Just n]) r)
+           -> target (TKX sh r)
+  txdot1In @sh @n t u =
+    let cpermR = permCycle $ 1 + sNatValue (ssxRank (knownShX @sh))
+    in Permutation.permFromList cpermR $ \(cperm :: Permutation.Perm cperm) ->
+         gcastWith (unsafeCoerceRefl :: Rank cperm :~: Rank (sh ++ '[Just n])) $
+         gcastWith (unsafeCoerceRefl
+                    :: Permutation.PermutePrefix cperm (sh ++ '[Just n])
+                       :~: Just n : sh) $
+         fromMaybe (error "txdot1In: impossible non-permutation")
+         $ Permutation.permCheckPermutation cperm
+         $ txsum $ txtranspose cperm (t * u)
   txmatvecmul :: forall mm mn r. (GoodScalar r, ConvertTensor target)
               => Nested.SMayNat Int SNat mm -> Nested.SMayNat Int SNat mn
               -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
@@ -848,9 +867,9 @@ class ( Num (IntOf target)
           -> target (TKX2 (Just n ': sh) x)
   txreverse :: forall mn sh x. KnownSTK x
             => target (TKX2 (mn ': sh) x) -> target (TKX2 (mn ': sh) x)
-  txtranspose :: ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
+  txtranspose :: ( Permutation.IsPermutation perm
                  , Rank perm <= Rank sh, KnownSTK x )
-              => target (TKX2 sh x)
+              => Permutation.Perm perm -> target (TKX2 sh x)
               -> target (TKX2 (Permutation.PermutePrefix perm sh) x)
   txreshape :: forall sh sh2 x. KnownSTK x
             => IShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)

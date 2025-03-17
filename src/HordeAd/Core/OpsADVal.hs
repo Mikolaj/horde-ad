@@ -280,8 +280,8 @@ instance ( ADReadyNoLet target, ShareTensor target
                                             :$% Nested.SKnown (SNat @n)
                                             :$% ZSX)) m))
   txmatmul2 m1 m2 =
-    txsum (txtranspose @_ @'[2, 1, 0] (txreplicate m1)
-           * txtranspose @_ @'[1, 0] (txreplicate m2))
+    txsum (txtranspose (Permutation.makePerm @'[2, 1, 0]) (txreplicate m1)
+           * txtranspose (Permutation.makePerm @'[1, 0]) (txreplicate m2))
   txreplicate (D u u') = dD (txreplicate u) (DeltaReplicate SNat knownSTK u')
   txindex (D u u') i =
     let ix = tprimalPart <$> i
@@ -314,9 +314,8 @@ instance ( ADReadyNoLet target, ShareTensor target
   txappend (D u u') (D v v') = dD (txappend u v) (DeltaAppendX u' v')
   txslice i n k (D u u') = dD (txslice i n k u) (DeltaSliceX i n k u')
   txreverse (D u u') = dD (txreverse u) (DeltaReverseX u')
-  txtranspose @perm (D u u') =
-    dD (txtranspose @_ @perm u)
-       (DeltaTransposeX @_ @_ @_ @target (Permutation.makePerm @perm) u')
+  txtranspose perm (D u u') =
+    dD (txtranspose perm u) (DeltaTransposeX @_ @_ @_ @target perm u')
   txreshape sh (D u u') = dD (txreshape sh u) (DeltaReshapeX sh u')
   txbuild1 @k @sh @r f =
     let l = [0 .. valueOf @k - 1]

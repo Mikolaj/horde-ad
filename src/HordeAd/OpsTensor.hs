@@ -463,7 +463,7 @@ xtranspose :: ( Permutation.KnownPerm perm, Permutation.IsPermutation perm
               , Rank perm <= Rank sh, KnownSTK x, BaseTensor target )
            => target (TKX2 sh x)
            -> target (TKX2 (Permutation.PermutePrefix perm sh) x)
-xtranspose @perm = txtranspose @_ @perm
+xtranspose @perm = txtranspose (Permutation.makePerm @perm)
 xreshape :: forall sh sh2 x target. (KnownSTK x, BaseTensor target)
          => IShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
 xreshape = txreshape

@@ -35,7 +35,7 @@ module HordeAd.Core.Types
   , withCastRS, withCastXS, shCastSR, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
   , ixsToShS, {-ixxToSSX,-} listsToShS, listrToNonEmpty
-  , withKnownPerm
+  , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
     -- * Ops only needed as a workaround for other ops not provided.
   , ssxTakeIx
   ) where
@@ -50,7 +50,7 @@ import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import Data.Int (Int64)
 import Data.Kind (Type)
-import Data.List (sort)
+import Data.List (dropWhileEnd, sort)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -781,3 +781,24 @@ listxTake (i ::% long') ((::%) @_ @_ @sh2 _ short) = i ::% listxTake @f @g @sh2 
 
 ssxTakeIx :: forall sh sh' i. StaticShX (sh ++ sh') -> IxX sh i -> StaticShX sh
 ssxTakeIx = coerce (listxTake @(Nested.SMayNat () SNat) @(Const i) @_ @sh')
+
+
+-- * Permutation-related operations
+
+-- TODO: port to shaped permutations and then remove the Hack suffix
+normalizePermutationHack :: Permutation.PermR -> Permutation.PermR
+normalizePermutationHack perm =
+  map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
+
+-- A representation of a cycle backpermutation that moves elements
+-- to indexes one less (the the left, to the back).
+backpermCycle :: Int -> Permutation.PermR
+backpermCycle 0 = []
+backpermCycle 1 = []
+backpermCycle n = [k `mod` n | k <- [1 .. n]]
+
+-- A representation of a cycle permutation that is reverse to @backpermCycle@.
+permCycle :: Int -> Permutation.PermR
+permCycle 0 = []
+permCycle 1 = []
+permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
