@@ -117,22 +117,15 @@ printAstAux :: forall s y ms. AstSpan s
 printAstAux cfg d = \case
   AstPair t1 t2 ->
     showParen (d > 10)
-    $ showString "tpair ("
-      . printAst cfg 0 t1
-      . showString ", "
-      . printAst cfg 0 t2
-      . showString ")"
+    $ showString "tpair "
+      . printAst cfg 11 t1
+      . showString " "
+      . printAst cfg 11 t2
   AstProject1 t -> printPrefixOp printAst cfg d "tproject1" [t]
   AstProject2 t -> printPrefixOp printAst cfg d "tproject2" [t]
   AstFromVector snat stk l ->
    if loseRoudtrip cfg
    then case stk of
-    STKScalar ->
-      showParen (d > 10)
-      $ showString "tfromVector "
-        . (showParen True
-           $ showString "fromList "
-             . showListWith (printAst cfg 0) (V.toList l))
     STKR{} ->
       showParen (d > 10)
       $ showString "rfromVector "
@@ -151,7 +144,7 @@ printAstAux cfg d = \case
         . (showParen True
            $ showString "fromList "
              . showListWith (printAst cfg 0) (V.toList l))
-    STKProduct{} ->
+    _ ->  -- scalar and product
       showParen (d > 10)
       $ showString "tfromVector "
         . (showParen True
@@ -164,28 +157,23 @@ printAstAux cfg d = \case
                . showListWith (printAst cfg 0) (V.toList l))
   -- This is too common to be verbose even in no loseRoudtrip mode.
   AstSum snat stk v -> case stk of
-    STKScalar ->
-      printPrefixOp printAst cfg d
-                    ("tsum (" ++ show snat ++ ") (" ++ show stk ++ ")") [v]
     STKR{} -> printPrefixOp printAst cfg d "rsum" [v]
-    STKS{} -> printPrefixOp printAst cfg d ("ssum @" ++ show (sNatValue snat)) [v]
-    STKX{} -> printPrefixOp printAst cfg d ("xsum @" ++ show (sNatValue snat)) [v]
-    STKProduct{} ->
+    STKS{} -> printPrefixOp printAst cfg d
+                            ("ssum @" ++ show (sNatValue snat)) [v]
+    STKX{} -> printPrefixOp printAst cfg d
+                            ("xsum @" ++ show (sNatValue snat)) [v]
+    _ ->  -- scalar and product
       printPrefixOp printAst cfg d
                     ("tsum (" ++ show snat ++ ") (" ++ show stk ++ ")") [v]
   -- This is too common to be verbose even in no loseRoudtrip mode.
   AstReplicate snat stk v -> case stk of
-    STKScalar ->
-      printPrefixOp
-        printAst cfg d
-        ("treplicate (" ++ show snat ++ ") (" ++ show stk ++ ")") [v]
     STKR{} -> printPrefixOp printAst cfg d
                             ("rreplicate " ++ show (sNatValue snat)) [v]
     STKS{} -> printPrefixOp printAst cfg d
                             ("sreplicate @" ++ show (sNatValue snat)) [v]
     STKX{} -> printPrefixOp printAst cfg d
                             ("xreplicate @" ++ show (sNatValue snat)) [v]
-    STKProduct{} ->
+    _ ->  -- scalar and product
       printPrefixOp
         printAst cfg d
         ("treplicate (" ++ show snat ++ ") (" ++ show stk ++ ")") [v]
@@ -257,17 +245,11 @@ printAstAux cfg d = \case
       . printAst cfg 11 acc0
       . showString " "
       . printAst cfg 11 es
-  AstApply t ll ->
-    if loseRoudtrip cfg
-    then showParen (d > 9)
-         $ printAstHFunOneUnignore cfg 10 t
-           . showString " "
-           . printAst cfg 11 ll
-    else showParen (d > 10)
-         $ showString "tApply "
-           . printAstHFunOneUnignore cfg 10 t
-           . showString " "
-           . printAst cfg 11 ll
+  AstApply t ll -> showParen (d > 10)
+                   $ showString "tApply "
+                     . printAstHFunOneUnignore cfg 10 t
+                     . showString " "
+                     . printAst cfg 11 ll
   AstVar var -> printAstVar cfg var
   AstCond b a1 a2 ->
     showParen (d > 10)
@@ -328,13 +310,8 @@ printAstAux cfg d = \case
              . printAstVarFromLet cfg var0
              . showString " -> "
              . printAst cfg 0 v0)
-  AstShare var v ->
-    showParen (d > 10)
-    $ showString "rshare "
-      . printAstVar cfg var
-      . showString " "
-      . printAst cfg 11 v
-  AstToShare v -> printAstAux cfg d v  -- ignored
+  AstShare _var v -> printPrefixOp printAst cfg d "tshare" [v]
+  AstToShare v -> printPrefixOp printAst cfg d "toShare" [v]
 
   AstPrimalPart a ->
     if loseRoudtrip cfg
@@ -392,10 +369,12 @@ printAstAux cfg d = \case
          $ showString "sconcrete "
            . (showParen True
               $ shows a)
-  AstFloorS a ->  printPrefixOp printAst cfg d "sfloor" [a]
+  AstFloorS a ->
+    printPrefixOp printAst cfg d "sfloor" [a]
   AstFromIntegralS a ->
     printPrefixOp printAst cfg d "sfromIntegral" [a]
-  AstCastS v -> printPrefixOp printAst cfg d "scast" [v]
+  AstCastS a ->
+    printPrefixOp printAst cfg d "scast" [a]
 
   AstIndexS _ v ix ->
     showParen (d > 9)
@@ -432,11 +411,14 @@ printAstAux cfg d = \case
                           (listsToList vars)
            . showString " -> "
            . showListWith (printAstInt cfg 0) (Foldable.toList ix))
+  {- Let's re-enable this when/if we remove AstIndexS altogether
+     or at least stop rewriting this to AstIndexS but instead optimize
+     the instances for this case:
   AstGatherS _ v (ZS, ix) ->
     showParen (d > 9)
     $ printAst cfg 10 v
       . showString " !$ "
-      . showListWith (printAstInt cfg 0) (Foldable.toList ix)
+      . showListWith (printAstInt cfg 0) (Foldable.toList ix) -}
   AstGatherS sh v (vars, ix) ->
    if loseRoudtrip cfg
    then
@@ -466,15 +448,15 @@ printAstAux cfg d = \case
   AstIotaS snat ->
     showParen (d > 10)
     $ showString ("siota (" ++ show snat ++ ")")
-  AstAppendS x y ->
-    -- x and y have different types, unlike in AstAppend, so we
-    -- have to inline printPrefixOp:
-    let rs = [ showString " " . printAst cfg 11 x
-             , showString " " . printAst cfg 11 y ]
-    in showParen (d > 10)
-       $ showString "sappend"
-         . foldr (.) id rs
-  AstSliceS _ _ _ v -> printPrefixOp printAst cfg d "sslice" [v]
+  AstAppendS t1 t2 ->
+    showParen (d > 10)
+    $ showString "sappend "
+      . printAst cfg 11 t1
+      . showString " "
+      . printAst cfg 11 t2
+  AstSliceS i n _k v ->
+    printPrefixOp printAst cfg d
+                  ("sslice (" ++ show i ++ ") (" ++ show n ++ ")") [v]
   AstReverseS v -> printPrefixOp printAst cfg d "sreverse" [v]
   AstTransposeS (SNat' @1 `PCons` SNat' @0 `PCons` PNil) v ->
     printPrefixOp printAst cfg d "str" [v]
@@ -484,13 +466,13 @@ printAstAux cfg d = \case
                       ("stranspose @" ++ show (permToList perm)) [v]
    else printPrefixOp
           printAst cfg d
-         ("ttranspose (makePerm @" ++ show (permToList perm) ++ ")") [v]
-  AstReshapeS _ v ->
-    printPrefixOp printAst cfg d "sreshape" [v]
+          ("ttranspose (makePerm @" ++ show (permToList perm) ++ ")") [v]
+  AstReshapeS sh2 v ->
+    printPrefixOp printAst cfg d ("sreshape @" ++ show (shsToList sh2)) [v]
   AstZipS v -> printPrefixOp printAst cfg d "szip" [v]
   AstUnzipS v -> printPrefixOp printAst cfg d "sunzip" [v]
-  AstNestS _ _ v ->
-    printPrefixOp printAst cfg d "snestS" [v]
+  AstNestS sh1 _ v ->
+    printPrefixOp printAst cfg d ("snestS " ++ show sh1) [v]
   AstUnNestS v -> printPrefixOp printAst cfg d "sunNestS" [v]
 
   AstFromS stkz v ->
@@ -498,7 +480,7 @@ printAstAux cfg d = \case
       STKScalar -> printPrefixOp printAst cfg d "kfromS" [v]
       STKR{} -> printPrefixOp printAst cfg d "rfromS" [v]
       STKX{} -> printPrefixOp printAst cfg d "xfromS" [v]
-      _ -> printPrefixOp printAst cfg d "tfromS" [v]
+      _ -> printPrefixOp printAst cfg d ("tfromS (" ++ show stkz ++ ")") [v]
   AstSFromK t -> printPrefixOp printAst cfg d "sfromK" [t]
   AstSFromR _ v -> printPrefixOp printAst cfg d "sfromR" [v]
   AstSFromX _ v -> printPrefixOp printAst cfg d "sfromX" [v]
@@ -547,9 +529,7 @@ printAstHFun cfg d = \case
                 . showString " -> "
                 . printAst cfg 0 l
     else showParen (d > 0)
-         $ {- showString "tlambda $ "  -- TODO: enable for full roundtrip
-           . -}
-           showString "\\"
+         $ showString "tlambda $ \\"
            . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l
@@ -564,9 +544,7 @@ printAstHFunOneUnignore cfg d = \case
            . showString " -> "
            . printAst cfg 0 l
     else showParen (d > 0)
-         $ {- showString "tlambda $ "  -- TODO: enable for full roundtrip
-           . -}
-           showString "\\"
+         $ showString "tlambda $ \\"
            . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l

@@ -4,7 +4,7 @@ This is an Automatic Differentiation library based on the paper [_"Provably corr
 
 This is an early prototype, both in terms of the engine performance, the API and the preliminary tools and examples built with it. The user should be ready to add missing primitives, as well as any obvious tools that should be predefined but aren't. It's already possible to differentiate basic neural network architectures, such as fully connected, recurrent, convolutional and residual. The library should also be suitable for defining exotic machine learning architectures and non-machine learning systems, given that the notion of a neural network is not hardwired into the formalism, but instead it's compositionally and type-safely built up from general automatic differentiation building blocks.
 
-Mature Haskell libraries with similar capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. See also https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md. Benchmarks suggest that horde-ad has competitive performance. (TODO: boasting)
+Mature Haskell libraries with similar capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. See also https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md. Benchmarks suggest that horde-ad has competitive performance on CPU. (TODO)
 <!--
 -- TODO: do and redo the benchmarks
 
@@ -60,16 +60,16 @@ fooLet :: (RealFloatH (f r), LetTensor f)
        => (f r, f r, f r) -> f r
 fooLet (x, y, z) =
   tlet (x * sin y) $ \w ->
-    atan2H z w + z * w
+    atan2H z w + z * w  -- note that w still appears twice
 ```
 
-The most general symbolic gradient program can be then obtained using the `vjpArtifact` tool. We are using `fooLet` without `ssum0` this time, because the `vjp` family of tools by convention permits non-scalar codomains (but expects an incoming cotangent argument to compensate, visible in the code as `dret`).
+The most general symbolic gradient program for this function can be obtained using the `vjpArtifact` tool. We are using `fooLet` without `ssum0` this time, because the `vjp` family of tools by convention permits non-scalar codomains (but expects an incoming cotangent argument to compensate, visible in the code below as `dret`).
 ```hs
 artifact :: AstArtifactRev (X (ThreeConcreteMatrices Double)) (TKS '[2, 2] Double)
 artifact = vjpArtifact fooLet threeSimpleMatrices
 ```
 
-With additional formatting, the gradient program below looks like ordinary functional code with a lot of nested pairs and projections to represent tuples. A quick inspection of the gradient code reveals that computations are not repeated, which is thanks to the sharing mechanism, as promised.
+The gradient program presented below with additional formatting looks like ordinary functional code with a lot of nested pairs and projections that represent tuples. A quick inspection of the gradient code reveals that computations are not repeated, which is thanks to the sharing mechanism, as promised above.
 
 ```hs
 >>> printArtifactPretty artifact
@@ -79,8 +79,9 @@ With additional formatting, the gradient program below looks like ordinary funct
        m5 = recip (tproject2 m1 * tproject2 m1 + m4 * m4)
        m7 = (negate (tproject2 m1) * m5) * dret + tproject2 m1 * dret
     in tpair
-         ( tpair (m3 * m7, cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7))
-         , (m4 * m5) * dret + m4 * dret)
+         (tpair (m3 * m7)
+                (cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7)))
+         ((m4 * m5) * dret + m4 * dret)"
 ```
 
 A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value is the same as for `fooLet` evaluated by `cgrad` on the same input, as long as the incoming cotangent argument consists of ones in all array cells, which is denoted by `srepl 1` in this case:
@@ -97,7 +98,7 @@ A shorthand that creates the symbolic derivative program, simplifies it and inte
 ```
 
 
-## Forall shapes and sizes
+## For all shapes and sizes
 
 An additional feature of this library is a type system for tensor shape arithmetic. The following code is a part of convolutional neural network definition, for which horde-ad computes the gradient of a shape determined by the shape of input data and of initial parameters. The compiler is able to infer a lot of tensor shapes, deriving them both from dynamic dimension arguments (the first two lines of parameters to the function) and from static type-level hints. Look at this beauty.
 ```hs
