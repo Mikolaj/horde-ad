@@ -10,7 +10,7 @@ module HordeAd.Core.AstEnv
   , interpretLambdaIndexToIndexS
     -- * Interpretation of arithmetic, boolean and relation operations
   , interpretAstN1, interpretAstR1, interpretAstR2
-  , interpretAstR2F, interpretAstI2F, interpretAstB2, interpretAstRelOp
+  , interpretAstI2, interpretAstB2, interpretAstRelOp
   ) where
 
 import Prelude
@@ -132,19 +132,11 @@ interpretAstR2 PowerOp u v = u ** v
 interpretAstR2 LogBaseOp u v = logBase u v
 interpretAstR2 Atan2Op u v = atan2H u v
 
-interpretAstR2F :: RealFloatH a
-                => OpCode2 -> a -> a -> a
-{-# INLINE interpretAstR2F #-}
-interpretAstR2F DivideOp u v = u / v
-interpretAstR2F PowerOp u v = u ** v
-interpretAstR2F LogBaseOp u v = logBase u v
-interpretAstR2F Atan2Op u v = atan2H u v
-
-interpretAstI2F :: IntegralH a
-                => OpCodeIntegral2 -> a -> a -> a
-{-# INLINE interpretAstI2F #-}
-interpretAstI2F QuotOp u v = quotH u v
-interpretAstI2F RemOp u v = remH u v
+interpretAstI2 :: IntegralH a
+               => OpCodeIntegral2 -> a -> a -> a
+{-# INLINE interpretAstI2 #-}
+interpretAstI2 QuotOp u v = quotH u v
+interpretAstI2 RemOp u v = remH u v
 
 interpretAstB2 :: Boolean b
                => OpCodeBool -> b -> b -> b

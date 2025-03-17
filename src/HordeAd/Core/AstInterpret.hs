@@ -221,7 +221,7 @@ interpretAst !env = \case
   AstI2K opCode u v ->
     let u2 = interpretAst env u
         v2 = interpretAst env v
-    in interpretAstI2F opCode u2 v2
+    in interpretAstI2 opCode u2 v2
   AstConcreteK k ->
     tkconcrete @target k
       -- this is equal to the following
@@ -240,9 +240,9 @@ interpretAst !env = \case
   AstN1S opCode u -> interpretAstN1 opCode (interpretAst env u)
   AstR1S opCode u -> interpretAstR1 opCode (interpretAst env u)
   AstR2S opCode u v ->
-    interpretAstR2F opCode (interpretAst env u) (interpretAst env v)
+    interpretAstR2 opCode (interpretAst env u) (interpretAst env v)
   AstI2S opCode u v ->
-    interpretAstI2F opCode (interpretAst env u) (interpretAst env v)
+    interpretAstI2 opCode (interpretAst env u) (interpretAst env v)
   AstConcreteS a -> tsconcrete a
   AstFloorS v ->
     -- By the invariant v has zero dual part, so the following suffices:
