@@ -2922,37 +2922,12 @@ contractAst t = case t of
   Ast.AstSum _ (STKS ZSS _) t2 -> astSum0S (contractAst t2)
   Ast.AstSum
     snat@(SNat @m2)
-    stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) (STKScalar @r))
+    stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar)
     v@(AstTimesS (Ast.AstTransposeS @permt permt
                     (Ast.AstReplicate (SNat @kt) (STKS @sht _ _) t2))
                  (Ast.AstTransposeS @permu permu
                     (Ast.AstReplicate (SNat @ku) (STKS @shu _ _) u2))) ->
     let perm10 = Permutation.makePerm @'[1, 0]
-        attemptMatmul2
-          :: forall m' n' p'. (KnownNat m', KnownNat n', KnownNat p')
-          => AstTensor AstMethodLet s (TKS '[m', n'] r)
-          -> AstTensor AstMethodLet s (TKS '[n', p'] r)
-          -> Maybe (AstTensor AstMethodLet s (TKS '[m', p'] r))
-        attemptMatmul2 t3 u3 =
-          let t4 = contractAst t3
-              u4 = contractAst u3
-          in case testEquality (typeRep @r) (typeRep @Double) of
-            Just Refl ->
-              Just $ astMatmul2S
-                       (SNat @m') (SNat @n') (SNat @p') t4 u4
-            _ -> case testEquality (typeRep @r) (typeRep @Float) of
-              Just Refl ->
-                Just $ astMatmul2S
-                         (SNat @m') (SNat @n') (SNat @p') t4 u4
-              _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-                Just Refl ->
-                  Just $ astMatmul2S
-                           (SNat @m') (SNat @n') (SNat @p') t4 u4
-                _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-                  Just Refl ->
-                    Just $ astMatmul2S
-                             (SNat @m') (SNat @n') (SNat @p') t4 u4
-                  _ -> Nothing
     in fromMaybe (astSum snat stk (contractAst v))
        $ case (permt, permu) of
       ( SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil
@@ -2964,7 +2939,7 @@ contractAst t = case t of
                    :: Permutation.PermutePrefix permu (ku ': shu)
                       :~: [m2, n2, p2]) $
         -- Sadly, the casts below, though implied by the permutations
-        -- (as edundantly spelled out by the casts above) are required
+        -- (as redundantly spelled out by the casts above) are required
         -- to make it type-check and they easily mask bugs, too.
         -- In the result, this is as type-unsafe as ranked code would be.
         gcastWith (unsafeCoerceRefl :: sht :~: [n2, m2]) $
@@ -3270,6 +3245,32 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
     Ast.AstFromDual $ astMatmul2S m n p u1 u2
   _ -> Ast.AstMatmul2S m n p t1 t2
+
+attemptMatmul2
+  :: forall m n p r s.
+     (KnownNat m, KnownNat n, KnownNat p, GoodScalar r, AstSpan s)
+  => AstTensor AstMethodLet s (TKS '[m, n] r)
+  -> AstTensor AstMethodLet s (TKS '[n, p] r)
+  -> Maybe (AstTensor AstMethodLet s (TKS '[m, p] r))
+attemptMatmul2 t3 u3 = Just $
+  let t4 = contractAst t3
+      u4 = contractAst u3
+  in case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl ->
+      astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl ->
+        astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+        Just Refl ->
+          astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+          Just Refl ->
+            astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+          _ -> case testEquality (typeRep @r) (typeRep @Z0) of
+            Just Refl ->
+              astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+            _ -> error "attemptMatmul2: unexpected scalar"
 
 contractAstHFun :: AstHFun x y -> AstHFun x y
 contractAstHFun = \case

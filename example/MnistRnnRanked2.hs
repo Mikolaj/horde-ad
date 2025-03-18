@@ -104,12 +104,10 @@ rnnMnistZeroR batch_size xs
                                   ((wX, wS, b), (wX2, wS2, b2))
     in w3 `rmatmul2m` out + rtr (rreplicate batch_size b3)
 
--- TODO: This manual vectorization performs much better than the automatic
--- vectorization, even though it should perform the same. Investigate,
--- though maybe only after we decide whether to recognize rmatmul
--- or rather generalized tsdot1In or something yet different.
--- This problem probrably comes from earlier stages than recognizing
--- but the solution may depend on how we recognize.
+-- TODO: This manual vectorization performs differently than the automatic
+-- vectorization, even though it should perform the same. Also,
+-- fewer tsmatmul2 get recognized and pretty-printed in tests,
+-- even though the recognizing should be exhaustive as is. Investigate.
 rmatmul2m :: (BaseTensor target, GoodScalar r)
           => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 rmatmul2m m1 m2 = case rshape m2 of
