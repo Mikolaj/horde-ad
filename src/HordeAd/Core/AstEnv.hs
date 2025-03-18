@@ -95,8 +95,6 @@ interpretLambdaIndexToIndexS f !env (!vars, !asts) =
 
 -- * Interpretation of arithmetic, boolean and relation operations
 
--- TODO: when the code again tests with GHC >= 9.6, check whether
--- these INLINEs are still needed (removal causes 10% slowdown ATM).
 interpretAstN1 :: Num a
                => OpCodeNum1 -> a -> a
 {-# INLINE interpretAstN1 #-}

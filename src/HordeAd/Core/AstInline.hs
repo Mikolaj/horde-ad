@@ -46,28 +46,11 @@ inlineAst memo v0 = case v0 of
     let (memo2, v1) = inlineAst memo t1
         (memo3, v2) = inlineAst memo2 t2
     in (memo3, Ast.AstPair v1 v2)
-  -- TODO: these are correct only if each component appears once,
-  -- as opposed to one appearing twice and ther other not at all
-  -- (or if both components are similar enough)
-  -- but without this we miss many other simplifications and simple
-  -- examples become unreadable
-  -- TODO: these trigger variable capture and real duplication
-{-
-  Ast.AstProject1 (Ast.AstVar var) ->
-    let f Nothing = Just 0.5
-        f (Just count) = Just $ count + 0.5
-    in (EM.alter f (varNameToAstVarId var) memo, v0)
-  Ast.AstProject2 (Ast.AstVar var) ->
-    let f Nothing = Just 0.5
-        f (Just count) = Just $ count + 0.5
-    in (EM.alter f (varNameToAstVarId var) memo, v0)
--}
   Ast.AstProject1 t -> second Ast.AstProject1 (inlineAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (inlineAst memo t)
   Ast.AstFromVector snat stk l ->
-    let (memo2, l2) = mapAccumR inlineAst memo (V.toList l)
-    in (memo2, Ast.AstFromVector snat stk $ V.fromList l2)
-      -- TODO: emulate mapAccum using mapM?
+    let (memo2, l2) = mapAccumR inlineAst memo l
+    in (memo2, Ast.AstFromVector snat stk l2)
   Ast.AstSum snat stk v ->
     second (Ast.AstSum snat stk) (inlineAst memo v)
   Ast.AstReplicate snat stk v ->
@@ -342,8 +325,8 @@ unshareAst memo = \case
   Ast.AstProject1 t -> second Ast.AstProject1 (unshareAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (unshareAst memo t)
   Ast.AstFromVector snat stk l ->
-    let (memo2, l2) = mapAccumR unshareAst memo (V.toList l)
-    in (memo2, Ast.AstFromVector snat stk $ V.fromList l2)
+    let (memo2, l2) = mapAccumR unshareAst memo l
+    in (memo2, Ast.AstFromVector snat stk l2)
   Ast.AstSum snat stk v ->
     second (Ast.AstSum snat stk) (unshareAst memo v)
   Ast.AstReplicate snat stk v ->

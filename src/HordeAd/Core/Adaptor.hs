@@ -81,7 +81,7 @@ class RandomValue vals where
 
 -- * Base instances
 
--- TODO: these instances are messy and hard to use
+-- These instances are messy and hard to use, but we probably can't do better.
 instance DualNumberValue Double where
   type DValue Double = Concrete (TKScalar Double)
   fromDValue (Concrete d) = d
@@ -194,7 +194,8 @@ instance (BaseTensor target, ConvertTensor target, GoodScalar r)
   toTarget l = if null l
                then trconcrete Nested.remptyArray
                else trfromVector $ V.fromList $ map rfromK l
-  fromTarget = map kfromR . trunravelToList  -- TODO: inefficient (indexing)
+  fromTarget = map kfromR . trunravelToList
+                              -- inefficient, but we probabl can't do better
 
 instance TermValue a => TermValue [a] where
   type Value [a] = [Value a]
@@ -215,8 +216,9 @@ instance (BaseTensor target, ConvertTensor target, GoodScalar r)
   toTarget v = if V.null v
                then trconcrete Nested.remptyArray
                else trfromVector $ V.map rfromK v
-  fromTarget = V.fromList . map kfromR . trunravelToList
-                                           -- TODO: inefficient (indexing)
+  fromTarget =
+    V.fromList . map kfromR . trunravelToList
+                                -- inefficient, but we probably can't do better
 
 instance TermValue a => TermValue (Data.Vector.Vector a) where
   type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)

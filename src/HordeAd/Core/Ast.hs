@@ -426,7 +426,7 @@ data AstHFun x z where
     -- big environments from which values for the variables would be drawn).
     -- The cost of computing a reverse derivative of a fold nested inside
     -- the function argument n times is reduced by the laziness from 20^n
-    -- to under 2^n (TODO: determine the exact cost). Note, however,
+    -- to under 2^n (old experimental results). Note, however,
     -- that if the n-th forward and reverse derivative is taken,
     -- the laziness is defeated.
 

@@ -446,9 +446,9 @@ ftkDelta = \case
     FTKProduct ftk1 _ -> ftk1
   DeltaProject2 v -> case ftkDelta v of
     FTKProduct _ ftk2 -> ftk2
-  DeltaFromVector snat _ l -> case V.toList l of
-    [] -> error "ftkDelta: empty vector"
-    d : _ -> buildFTK snat (ftkDelta d)
+  DeltaFromVector snat _ l -> case V.uncons l of
+    Nothing -> error "ftkDelta: empty vector"
+    Just (d, _) -> buildFTK snat (ftkDelta d)
   DeltaSum snat stk d -> razeFTK snat stk (ftkDelta d)
   DeltaReplicate snat _ d -> buildFTK snat (ftkDelta d)
   DeltaMapAccumR k bftk _eftk _q _es _df _rf acc0' _es' ->

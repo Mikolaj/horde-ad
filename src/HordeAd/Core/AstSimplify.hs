@@ -336,10 +336,10 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstFromVector @y2 _ _ l ->
     gcastWith (unsafeCoerceRefl :: y2 :~: y) $
     case stk of
-      STKScalar -> foldr1 (+) $ V.toList l
-      STKR _ STKScalar -> foldr1 (+) $ V.toList l
-      STKS _ STKScalar -> foldr1 (+) $ V.toList l
-      STKX _ STKScalar -> foldr1 (+) $ V.toList l
+      STKScalar -> foldr1 (+) l
+      STKR _ STKScalar -> foldr1 (+) l
+      STKS _ STKScalar -> foldr1 (+) l
+      STKX _ STKScalar -> foldr1 (+) l
       _ -> Ast.AstSum snat stk t0
   Ast.AstReplicate _ STKScalar v | STKScalar <- stk ->
     v * (fromPrimal $ AstConcreteK $ fromInteger $ fromSNat snat)

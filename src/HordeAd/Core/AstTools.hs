@@ -57,9 +57,9 @@ ftkAst t = case t of
     FTKProduct ftk1 _ -> ftk1
   AstProject2 v -> case ftkAst v of
     FTKProduct _ ftk2 -> ftk2
-  AstFromVector snat _ l -> case V.toList l of
-    [] -> error "ftkAst: empty vector"
-    v : _ -> buildFTK snat (ftkAst v)
+  AstFromVector snat _ l -> case V.uncons l of
+    Nothing -> error "ftkAst: empty vector"
+    Just (v, _) -> buildFTK snat (ftkAst v)
   AstSum snat stk v -> razeFTK snat stk (ftkAst v)
   AstReplicate snat _ v -> buildFTK snat (ftkAst v)
   AstMapAccumRDer k bftk _eftk _f _df _rf acc0 _es->
@@ -185,7 +185,7 @@ varInAst var = \case
   AstPair t1 t2 -> varInAst var t1 || varInAst var t2
   AstProject1 t -> varInAst var t
   AstProject2 t -> varInAst var t
-  AstFromVector _ _ vl -> any (varInAst var) $ V.toList vl
+  AstFromVector _ _ vl -> any (varInAst var) vl
   AstSum _ _ v -> varInAst var v
   AstReplicate _ _ v -> varInAst var v
   AstMapAccumRDer _k _bftk _eftk _f _df _rf acc0 es ->
