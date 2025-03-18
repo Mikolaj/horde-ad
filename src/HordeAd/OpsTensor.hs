@@ -275,7 +275,7 @@ smatmul2 :: (KnownNat m, KnownNat n, KnownNat p, GoodScalar r, BaseTensor target
 smatmul2 = tsmatmul2
 sreplicate :: (KnownNat k, KnownShS sh, KnownSTK x, BaseTensor target)
            => target (TKS2 sh x) -> target (TKS2 (k ': sh) x)
-sreplicate = tsreplicate knownShS
+sreplicate = tsreplicate SNat knownShS
 sreplicate0N :: (KnownShS sh, KnownSTK x, BaseTensor target)
              => target (TKS2 '[] x) -> target (TKS2 sh x)
 sreplicate0N = tsreplicate0N knownShS
@@ -309,7 +309,7 @@ xmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p
 xmatmul2 = txmatmul2
 xreplicate :: (KnownNat k, KnownShX sh, KnownSTK x, BaseTensor target)
            => target (TKX2 sh x) -> target (TKX2 (Just k ': sh) x)
-xreplicate = txreplicate
+xreplicate = txreplicate SNat knownShX
 xreplicate0N :: (KnownShX sh, KnownSTK x, BaseTensor target)
              => IShX sh -> target (TKX2 '[] x) -> target (TKX2 sh x)
 xreplicate0N = txreplicate0N

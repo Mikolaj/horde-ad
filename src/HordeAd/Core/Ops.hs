@@ -558,13 +558,13 @@ class ( Num (IntOf target)
             -> target (TKS '[m, p] r)
   tsmatmul2 @m m1 m2 =
     tsbuild1 @_ @m (\i -> tsmatvecmul (str m2) (m1 `tsindex` (i :.$ ZIS)))
-  tsreplicate :: forall k sh x. (KnownNat k, KnownSTK x)
-              => ShS sh -> target (TKS2 sh x) -> target (TKS2 (k ': sh) x)
+  tsreplicate :: forall sh k x. KnownSTK x
+              => SNat k -> ShS sh -> target (TKS2 sh x)
+              -> target (TKS2 (k ': sh) x)
   tsreplicate0N :: forall sh x. KnownSTK x
                 => ShS sh -> target (TKS2 '[] x)
                 -> target (TKS2 sh x)
-  tsreplicate0N sh | SNat <- shsProduct sh =
-    tsreshape sh . tsreplicate @target @(Product sh) ZSS
+  tsreplicate0N sh = tsreshape sh . tsreplicate (shsProduct sh) ZSS
 
   -- The choice in BuildTensorKind makes it hard to support this one,
   -- due to DeltaSum and AstSum being typed with BuildTensorKind:
@@ -613,12 +613,13 @@ class ( Num (IntOf target)
     txbuild1 @_ @m (\i ->
       txmatvecmul (Nested.SKnown (SNat @p)) (Nested.SKnown (SNat @n))
                   (xtr m2) (m1 `txindex` (i :.% ZIX)))
-  txreplicate :: (KnownNat k, KnownShX sh, KnownSTK x)
-              => target (TKX2 sh x) -> target (TKX2 (Just k ': sh) x)
+  txreplicate :: forall sh k x. KnownSTK x
+              => SNat k -> StaticShX sh -> target (TKX2 sh x)
+              -> target (TKX2 (Just k ': sh) x)
   txreplicate0N :: (KnownShX sh, KnownSTK x)
                 => IShX sh -> target (TKX2 '[] x) -> target (TKX2 sh x)
-  txreplicate0N sh = withSNat (shxSize sh) $ \ (SNat @k) ->
-    txreshape sh . txreplicate @_ @k
+  txreplicate0N sh = withSNat (shxSize sh) $ \snat ->
+    txreshape sh . txreplicate snat knownShX
 
   -- | First index is for outermost dimension; empty index means identity,
   -- if index is out of bounds, the result is defined and is 0,
@@ -1046,10 +1047,10 @@ class ( Num (IntOf target)
     => SNat k -> SingletonTK z -> target z
     -> target (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
-    STKScalar -> tsreplicate ZSS $ sfromK u
+    STKScalar -> tsreplicate snat ZSS $ sfromK u
     STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (sNatValue snat) u
-    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate sh u
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txreplicate u
+    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate snat sh u
+    STKX sh x | Dict <- lemKnownSTK x -> txreplicate snat sh u
     STKProduct stk1 stk2 ->
       let (u1, u2) = tunpair u
       in tpair (treplicate snat stk1 u1)

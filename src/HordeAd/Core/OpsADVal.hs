@@ -209,12 +209,12 @@ instance ( ADReadyNoLet target, ShareTensor target
     in dD (tsdot0 u v) (dAdd (DeltaDot0S v u') (DeltaDot0S u v'))
   -- These two are manually vectorized to avoid delta blowup when run
   -- via primitive pipelines.
-  tsmatvecmul m v = tssum (str (tsreplicate knownShS v * m))
+  tsmatvecmul m v = tssum (str (tsreplicate SNat knownShS v * m))
   tsmatmul2 m1 m2 =
     tssum (tstranspose (Permutation.makePerm @'[2, 1, 0])
-                       (tsreplicate knownShS m1)
+                       (tsreplicate SNat knownShS m1)
            * tstranspose (Permutation.makePerm @'[1, 0])
-                         (tsreplicate knownShS m2))
+                         (tsreplicate SNat knownShS m2))
   tsindex (D u u') i =
     let ix = tprimalPart <$> i
     in dD (tsindex u ix) (DeltaIndexS knownShS u' ix)
@@ -273,16 +273,19 @@ instance ( ADReadyNoLet target, ShareTensor target
     withSNat (fromSMayNat' mm) $ \(SNat @m) ->
     withSNat (fromSMayNat' mn) $ \(SNat @n) ->
       xmcast (ssxFromShape (mm :$% ZSX))
-      $ txsum (xtr (txreplicate @_ @m
+      $ txsum (xtr (txreplicate (SNat @m) knownShX
                       (xmcast (ssxFromShape (Nested.SKnown (SNat @n)
                                              :$% ZSX)) v)
                     * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
                                             :$% Nested.SKnown (SNat @n)
                                             :$% ZSX)) m))
   txmatmul2 m1 m2 =
-    txsum (txtranspose (Permutation.makePerm @'[2, 1, 0]) (txreplicate m1)
-           * txtranspose (Permutation.makePerm @'[1, 0]) (txreplicate m2))
-  txreplicate (D u u') = dD (txreplicate u) (DeltaReplicate SNat knownSTK u')
+    txsum (txtranspose (Permutation.makePerm @'[2, 1, 0])
+                       (txreplicate SNat knownShX m1)
+           * txtranspose (Permutation.makePerm @'[1, 0])
+                         (txreplicate SNat knownShX m2))
+  txreplicate snat sh (D u u') =
+    dD (txreplicate snat sh u) (DeltaReplicate snat (STKX sh knownSTK) u')
   txindex (D u u') i =
     let ix = tprimalPart <$> i
     in dD (txindex u ix) (DeltaIndexX knownShX u' ix)
@@ -348,8 +351,8 @@ instance ( ADReadyNoLet target, ShareTensor target
   tpair (D u u') (D v v') = dDnotShared (tpair u v) (DeltaPair u' v')
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unDeltaPairUnshared u')
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
-  tsreplicate sh (D u u') =
-    dD (tsreplicate sh u) (DeltaReplicate SNat (STKS sh knownSTK) u')
+  tsreplicate snat sh (D u u') =
+    dD (tsreplicate snat sh u) (DeltaReplicate snat (STKS sh knownSTK) u')
   tstranspose perm (D u u') =
     dD (tstranspose perm u) (DeltaTransposeS @_ @_ @_ @target perm u')
   tsreshape sh (D u u') = dD (tsreshape sh u) (DeltaReshapeS sh u')

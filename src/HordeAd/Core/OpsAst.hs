@@ -385,7 +385,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xlength t = case ftkAst t of
     FTKX sh _ -> sNatValue $ shxRank sh
   txsum = astSum SNat knownSTK
-  txreplicate = astReplicate SNat knownSTK
+  txreplicate snat sh = astReplicate snat (STKX sh knownSTK)
   txindex @sh1 @sh2 a ix = case ftkAst a of
     FTKX @sh1sh2 @x sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
       withCastXS sh1sh2 $ \(sh :: ShS sh) ->
@@ -554,7 +554,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tpair t1 t2 = astPair t1 t2
   tproject1 = astProject1
   tproject2 = astProject2
-  tsreplicate sh = astReplicate SNat (STKS sh knownSTK)
+  tsreplicate snat sh = astReplicate snat (STKS sh knownSTK)
   tstranspose perm = astTransposeS perm
   tsreshape sh = astReshapeS sh
   tmapAccumRDer _ !k _ !bftk !eftk f df rf acc0 es =
@@ -620,10 +620,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         tpair (tsum snat stk1 (tproject1 u3))
               (tsum snat stk2 (tproject2 u3))
   treplicate snat@SNat stk u = case stk of
-    STKScalar -> tsreplicate ZSS $ sfromK u
+    STKScalar -> tsreplicate snat ZSS $ sfromK u
     STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (sNatValue snat) u
-    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate sh u
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txreplicate u
+    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate snat sh u
+    STKX sh x | Dict <- lemKnownSTK x -> txreplicate snat sh u
     STKProduct stk1 stk2 ->
       ttlet u $ \ !u3 ->
         tpair (treplicate snat stk1 (tproject1 u3))
@@ -883,7 +883,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   xlength t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sNatValue $ shxRank sh
   txsum = AstRaw . AstSum SNat knownSTK . unAstRaw
-  txreplicate = AstRaw . AstReplicate SNat knownSTK . unAstRaw
+  txreplicate snat sh = AstRaw . AstReplicate snat (STKX sh knownSTK) . unAstRaw
   txindex @sh1 @sh2 (AstRaw a) ix = case ftkAst a of
     FTKX @sh1sh2 @x sh1sh2 _ | SNat <- ssxRank (knownShX @sh1) ->
       withCastXS sh1sh2 $ \(sh :: ShS sh) ->
@@ -1058,7 +1058,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
-  tsreplicate sh = AstRaw . AstReplicate SNat (STKS sh knownSTK) . unAstRaw
+  tsreplicate snat sh = AstRaw . AstReplicate snat (STKS sh knownSTK) . unAstRaw
   tstranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   tsreshape sh = AstRaw . AstReshapeS sh . unAstRaw
   tmapAccumRDer _ !k _ !bftk !eftk f df rf acc0 es =
@@ -1336,7 +1336,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xshape = xshape . unAstNoVectorize
   xlength = xlength . unAstNoVectorize
   txsum = AstNoVectorize . txsum . unAstNoVectorize
-  txreplicate = AstNoVectorize . txreplicate . unAstNoVectorize
+  txreplicate snat sh = AstNoVectorize . txreplicate snat sh . unAstNoVectorize
   txindex v ix =
     AstNoVectorize $ txindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   txscatter @_ @shm @shn @shp sh t f =
@@ -1375,7 +1375,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ tpair (unAstNoVectorize t1) (unAstNoVectorize t2)
   tproject1 t = AstNoVectorize $ tproject1 $ unAstNoVectorize t
   tproject2 t = AstNoVectorize $ tproject2 $ unAstNoVectorize t
-  tsreplicate sh = AstNoVectorize . tsreplicate sh. unAstNoVectorize
+  tsreplicate snat sh = AstNoVectorize . tsreplicate snat sh. unAstNoVectorize
   tstranspose perm =
     AstNoVectorize . tstranspose perm . unAstNoVectorize
   tsreshape sh = AstNoVectorize . tsreshape sh . unAstNoVectorize
@@ -1571,7 +1571,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   xshape = xshape . wunAstNoSimplify
   xlength = xlength . wunAstNoSimplify
   txsum = wAstNoSimplify . txsum . wunAstNoSimplify
-  txreplicate = wAstNoSimplify . txreplicate . wunAstNoSimplify
+  txreplicate snat sh = wAstNoSimplify . txreplicate snat sh . wunAstNoSimplify
   txindex v ix =
     wAstNoSimplify $ txindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
   txscatter @_ @shm @shn @shp sh t f =
@@ -1607,7 +1607,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ tpair (wunAstNoSimplify t1) (wunAstNoSimplify t2)
   tproject1 t = wAstNoSimplify $ tproject1 $ wunAstNoSimplify t
   tproject2 t = wAstNoSimplify $ tproject2 $ wunAstNoSimplify t
-  tsreplicate sh = wAstNoSimplify . tsreplicate sh . wunAstNoSimplify
+  tsreplicate snat sh = wAstNoSimplify . tsreplicate snat sh . wunAstNoSimplify
   tstranspose perm =
     wAstNoSimplify . tstranspose perm . wunAstNoSimplify
   tsreshape sh = wAstNoSimplify . tsreshape sh . wunAstNoSimplify
@@ -1637,10 +1637,10 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
         tpair (tsum snat stk1 (tproject1 u3))
               (tsum snat stk2 (tproject2 u3))
   treplicate snat@SNat stk u = case stk of
-    STKScalar -> tsreplicate ZSS $ sfromK u
+    STKScalar -> tsreplicate snat ZSS $ sfromK u
     STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (sNatValue snat) u
-    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate sh u
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txreplicate u
+    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate snat sh u
+    STKX sh x | Dict <- lemKnownSTK x -> txreplicate snat sh u
     STKProduct stk1 stk2 ->
       ttlet u $ \ !u3 ->
         tpair (treplicate snat stk1 (tproject1 u3))

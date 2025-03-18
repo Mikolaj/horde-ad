@@ -170,12 +170,12 @@ instance BaseTensor Concrete where
   tsdot1In @_ @n u v =
     Concrete $ Nested.sdot1Inner (Proxy @n) (unConcrete u) (unConcrete v)
   {-# INLINE tsmatvecmul #-}  -- this doesn't want to specialize
-  tsmatvecmul m v = tsdot1In m (tsreplicate knownShS v)
+  tsmatvecmul m v = tsdot1In m (tsreplicate SNat knownShS v)
   tsmatmul2 m1 m2 =
     tsdot1In (tstranspose (Permutation.makePerm @'[1, 0])
-                          (tsreplicate knownShS m1))
+                          (tsreplicate SNat knownShS m1))
              (tstranspose (Permutation.makePerm @'[0, 2, 1])
-                          (tsreplicate knownShS m2))
+                          (tsreplicate SNat knownShS m2))
   tsindex = tindexZS
   tsindex0 = tindex0S
   -- Performance depends a lot on the number and size of tensors.
@@ -328,7 +328,7 @@ instance BaseTensor Concrete where
     withSNat (fromSMayNat' mm) $ \(SNat @m) ->
     withSNat (fromSMayNat' mn) $ \(SNat @n) ->
       xmcast (ssxFromShape (mm :$% ZSX))
-      $ txsum (xtr (txreplicate @_ @m
+      $ txsum (xtr (txreplicate (SNat @m) knownShX
                       (xmcast (ssxFromShape (Nested.SKnown (SNat @n)
                                              :$% ZSX)) v)
                     * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
@@ -337,11 +337,11 @@ instance BaseTensor Concrete where
   {-# INLINE txmatvecmul #-}
   txmatmul2 m1 m2 =
     txdot1In (txtranspose (Permutation.makePerm @'[1, 0])
-                          (txreplicate m1))
+                          (txreplicate SNat knownShX m1))
              (txtranspose (Permutation.makePerm @'[0, 2, 1])
-                          (txreplicate m2))
-  txreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    Concrete . Nested.mreplicate (Nested.SKnown SNat :$% ZSX) . unConcrete
+                          (txreplicate SNat knownShX m2))
+  txreplicate @_ @_ @r snat _sh | Dict <- eltDictRep (knownSTK @r) =
+    Concrete . Nested.mreplicate (Nested.SKnown snat :$% ZSX) . unConcrete
   txreplicate0N @sh @r sh | Refl <- lemAppNil @sh
                           , Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mreplicate sh . unConcrete
@@ -440,8 +440,8 @@ instance BaseTensor Concrete where
   tpair !u !v = Concrete (unConcrete u, unConcrete v)
   tproject1 = Concrete . fst . unConcrete
   tproject2 = Concrete . snd . unConcrete
-  tsreplicate @_ @_ @x _sh | Dict <- eltDictRep (knownSTK @x) =
-    Concrete . Nested.sreplicate (SNat :$$ ZSS) . unConcrete
+  tsreplicate @_ @_ @x snat@SNat _sh | Dict <- eltDictRep (knownSTK @x) =
+    Concrete . Nested.sreplicate (snat :$$ ZSS) . unConcrete
   tsreplicate0N @sh @r sh | Refl <- lemAppNil @sh
                           , Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.sreplicate sh . unConcrete
