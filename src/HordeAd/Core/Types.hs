@@ -35,7 +35,7 @@ module HordeAd.Core.Types
   , withCastRS, withCastXS, shCastSR, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
   , ixsToShS, {-ixxToSSX,-} listsToShS, listrToNonEmpty
-  , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
+  , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle, eqPerm
     -- * Ops only needed as a workaround for other ops not provided.
   , ssxTakeIx
   ) where
@@ -802,3 +802,10 @@ permCycle :: Int -> Permutation.PermR
 permCycle 0 = []
 permCycle 1 = []
 permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
+
+eqPerm :: Permutation.Perm perm1 -> Permutation.Perm perm2
+       -> Maybe (perm1 :~: perm2)
+eqPerm perm1 perm2 =
+  if Permutation.permToList' perm1 == Permutation.permToList' perm2
+  then Just unsafeCoerceRefl
+  else Nothing

@@ -2919,20 +2919,7 @@ contractAst t = case t of
   Ast.AstProject1 v -> astProject1 (contractAst v)
   Ast.AstProject2 v -> astProject2 (contractAst v)
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map contractAst l)
-  Ast.AstSum snat stk (AstTimesS (Ast.AstLet vart vt t2) u) ->
-    astLet vart
-           (contractAst vt)
-           (contractAst $ Ast.AstSum snat stk  -- the crucial exposed redex
-                                     (AstTimesS t2 u))
-  Ast.AstSum snat stk (AstTimesS t2 (Ast.AstLet varu vu u)) ->
-    astLet varu
-           (contractAst vu)
-           (contractAst $ Ast.AstSum snat stk (AstTimesS t2 u))
-  Ast.AstSum snat stk (Ast.AstLet var v t2) ->
-    astLet var (contractAst v) (contractAst (Ast.AstSum snat stk t2))
-  Ast.AstSum snat stk (Ast.AstSum snat2 stk2 (Ast.AstLet var v t2)) ->
-    astLet var (contractAst v)
-               (contractAst (Ast.AstSum snat stk (Ast.AstSum snat2 stk2 t2)))
+  Ast.AstSum _ (STKS ZSS _) t2 -> astSum0S (contractAst t2)
   Ast.AstSum
     snat@(SNat @m2)
     stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) (STKScalar @r))
@@ -3021,18 +3008,6 @@ contractAst t = case t of
         attemptMatmul2 (astTransposeS perm10 u2)
                        (astTransposeS perm10 t2)
       _ -> Nothing
-  Ast.AstSum snat stk@(STKS ZSS _)
-             (Ast.AstReshapeS sh (Ast.AstReverseS (AstTimesS t2 u))) ->
-    contractAst (Ast.AstSum snat stk (Ast.AstReshapeS sh (AstTimesS t2 u)))
-  Ast.AstSum _snat (STKS ZSS _)
-             (Ast.AstReshapeS _sh (Ast.AstSum _ _ (AstTimesS t2 u))) ->
-    astDot0S (contractAst t2) (contractAst u)
-  Ast.AstSum _snat (STKS ZSS _) (Ast.AstSum _ _ (AstTimesS t2 u)) ->
-    astDot0S (contractAst t2) (contractAst u)  -- TODO: more cases
-  Ast.AstSum _ (STKS ZSS _) (Ast.AstReshapeS _ (AstTimesS t2 u)) ->
-    astDot0S (contractAst t2) (contractAst u)
-  Ast.AstSum SNat (STKS ZSS _) (AstTimesS t2 u) ->
-    astDot0S (contractAst t2) (contractAst u)
   Ast.AstSum n@(SNat @n) (STKS @sh sh _) (AstTimesS t2 u) ->
     let cpermR = backpermCycle $ 1 + sNatValue (shsRank sh)
     in Permutation.permFromList cpermR $ \(cperm :: Permutation.Perm cperm) ->
@@ -3044,7 +3019,20 @@ contractAst t = case t of
          $ Permutation.permCheckPermutation cperm
          $ astDot1InS sh n (contractAst $ Ast.AstTransposeS cperm t2)
                            (contractAst $ Ast.AstTransposeS cperm u)
-  Ast.AstSum _ (STKS ZSS _) t2 -> astSum0S (contractAst t2)
+  Ast.AstSum snat stk (AstTimesS (Ast.AstLet vart vt t2) u) ->
+    astLet vart
+           (contractAst vt)
+           (contractAst $ Ast.AstSum snat stk  -- the crucial exposed redex
+                                     (AstTimesS t2 u))
+  Ast.AstSum snat stk (AstTimesS t2 (Ast.AstLet varu vu u)) ->
+    astLet varu
+           (contractAst vu)
+           (contractAst $ Ast.AstSum snat stk (AstTimesS t2 u))
+  Ast.AstSum snat stk (Ast.AstLet var v t2) ->
+    astLet var (contractAst v) (contractAst (Ast.AstSum snat stk t2))
+  Ast.AstSum snat stk (Ast.AstSum snat2 stk2 (Ast.AstLet var v t2)) ->
+    astLet var (contractAst v)
+               (contractAst (Ast.AstSum snat stk (Ast.AstSum snat2 stk2 t2)))
   Ast.AstSum snat stk v -> astSum snat stk (contractAst v)
   Ast.AstReplicate snat stk v -> astReplicate snat stk (contractAst v)
   Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
@@ -3204,13 +3192,14 @@ astSum0S :: AstSpan s
          => AstTensor AstMethodLet s (TKS2 sh x)
          -> AstTensor AstMethodLet s (TKS2 '[] x)
 astSum0S t = case t of
+  Ast.AstSum SNat _ u -> astSum0S u
   Ast.AstReplicate snat (STKS _ STKScalar) u ->
     astSum0S u * (fromPrimal $ AstConcreteS
                   $ Nested.sscalar $ fromInteger $ fromSNat snat)
+  AstTimesS t1 t2 -> astDot0S t1 t2
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
     astConcreteS $ tssum0 (Concrete v)
-  Ast.AstSum SNat _ u -> astSum0S u
   Ast.AstFromPrimal u -> Ast.AstFromPrimal $ astSum0S u
   Ast.AstFromDual u -> Ast.AstFromDual $ astSum0S u
   Ast.AstIotaS (SNat @n) ->
@@ -3219,8 +3208,15 @@ astSum0S t = case t of
   Ast.AstReverseS u -> astSum0S u
   Ast.AstTransposeS _ u -> astSum0S u
   Ast.AstReshapeS _ u -> astSum0S u
-  Ast.AstSum0S u -> astSum0S u
   Ast.AstN1S NegateOp u -> negate $ astSum0S u
+  Ast.AstSum0S u -> astSum0S u
+  Ast.AstDot0S{} -> t
+  Ast.AstDot1InS _ _ t1 t2 -> astDot0S t1 t2
+  Ast.AstMatmul2S m@SNat SNat p@SNat m1 m2 ->
+    astDot0S (astTransposeS (Permutation.makePerm @'[1, 0])
+                            (astReplicate p knownSTK m1))
+             (astTransposeS (Permutation.makePerm @'[0, 2, 1])
+                            (astReplicate m knownSTK m2))
   _ -> Ast.AstSum0S t
 
 astDot0S :: (GoodScalar r, AstSpan s)
@@ -3238,6 +3234,10 @@ astDot0S t1 t2 = case (t1, t2) of
     Ast.AstFromPrimal $ astDot0S u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
     Ast.AstFromDual $ astDot0S u1 u2
+  (Ast.AstTransposeS @_ @sh1 perm1 u1, Ast.AstTransposeS @_ @sh2 perm2 u2)
+    | Just Refl <- eqPerm perm1 perm2 ->
+      gcastWith (unsafeCoerceRefl :: sh1 :~: sh2) $
+      astDot0S u1 u2
   (Ast.AstReverseS u1, Ast.AstReverseS u2) -> astDot0S u1 u2
   (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot0S u1 u2
   _ -> Ast.AstDot0S t1 t2
