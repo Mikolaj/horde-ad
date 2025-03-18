@@ -2052,27 +2052,18 @@ astTransposeS perm t = case perm of
       $ astSum snat (STKS (shsPermutePrefix perm sh) x) $ astTransposeS zsuccP v
   AstConcreteS v -> astConcreteS (tstranspose perm $ Concrete v)
 
-  Ast.AstLet var u v ->
-    astLet var u (astTransposeS perm v)
+  Ast.AstLet var u v -> astLet var u (astTransposeS perm v)
 
-  Ast.AstFromPrimal v ->
-    Ast.AstFromPrimal $ astTransposeS perm v
-  Ast.AstFromDual v ->
-    Ast.AstFromDual $ astTransposeS perm v
+  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astTransposeS perm v
+  Ast.AstFromDual v -> Ast.AstFromDual $ astTransposeS perm v
 
-  AstPlusS u v | not (isVar u && isVar v) ->
-    astTransposeS perm u + astTransposeS perm v
-  AstTimesS u v | not (isVar u && isVar v) ->
-    astTransposeS perm u * astTransposeS perm v
-  Ast.AstN1S NegateOp u | not (isVar u) ->
-    negate (astTransposeS perm u)
-  Ast.AstN1S AbsOp u | not (isVar u) ->
-    abs (astTransposeS perm u)
-  Ast.AstN1S SignumOp u | not (isVar u) ->
-    signum (astTransposeS perm u)
-  Ast.AstR1S opCode u | not (isVar u) ->
-    Ast.AstR1S opCode (astTransposeS perm u)
-  Ast.AstR2S opCode u v | not (isVar u && isVar v) ->
+  AstPlusS u v -> astTransposeS perm u + astTransposeS perm v
+  AstTimesS u v -> astTransposeS perm u * astTransposeS perm v
+  Ast.AstN1S NegateOp u -> negate (astTransposeS perm u)
+  Ast.AstN1S AbsOp u -> abs (astTransposeS perm u)
+  Ast.AstN1S SignumOp u -> signum (astTransposeS perm u)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astTransposeS perm u)
+  Ast.AstR2S opCode u v ->
     Ast.AstR2S opCode (astTransposeS perm u) (astTransposeS perm v)
 
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix)
@@ -2139,11 +2130,10 @@ astReshapeS sh2 = \case
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS sh2 v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReshapeS sh2 v
   -- Reshaping can be costly, so we don't touch AstTimesS, etc.
-  Ast.AstN1S NegateOp u | not (isVar u) -> negate (astReshapeS @_ @sh2 sh2 u)
-  Ast.AstN1S AbsOp u | not (isVar u) -> abs (astReshapeS @_ @sh2 sh2 u)
-  Ast.AstN1S SignumOp u | not (isVar u) -> signum (astReshapeS @_ @sh2 sh2 u)
-  Ast.AstR1S opCode u | not (isVar u) ->
-    Ast.AstR1S opCode (astReshapeS @_ @sh2 sh2 u)
+  Ast.AstN1S NegateOp u -> negate (astReshapeS @_ @sh2 sh2 u)
+  Ast.AstN1S AbsOp u -> abs (astReshapeS @_ @sh2 sh2 u)
+  Ast.AstN1S SignumOp u -> signum (astReshapeS @_ @sh2 sh2 u)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astReshapeS @_ @sh2 sh2 u)
   Ast.AstReshapeS _ v -> astReshapeS @_ @sh2 sh2 v
   v | FTKS sh _ <- ftkAst v -> case testEquality sh sh2 of
     Just Refl -> v
@@ -2708,11 +2698,6 @@ expandAst t = case t of
       -- we should extend orthotope to any gather schemes, not only
       -- the simple ones.
       -- TODO: review also other nfs here and for AstReshapeS below
-    AstPlusS x y | isVar x && isVar y -> t  -- normal form
-    AstTimesS x y | isVar x && isVar y -> t  -- normal form
-    Ast.AstN1S _ w | isVar w -> t  -- normal form
-    Ast.AstR1S _ w | isVar w -> t  -- normal form
-    Ast.AstR2S _ x y | isVar x && isVar y -> t  -- normal form
     Ast.AstScatterS _ _ (_, ix)
      | gcompare (Permutation.permRank perm) (ixsRank ix) == GGT -> t  -- nf
     Ast.AstSFromR{} -> t  -- normal form
@@ -2733,8 +2718,6 @@ expandAst t = case t of
     Ast.AstCastS{} -> t  -- normal form
     AstPlusS{} -> t  -- normal form
     AstTimesS{} -> t  -- normal form
-    Ast.AstN1S _ w | isVar w -> t  -- normal form
-    Ast.AstR1S _ w | isVar w -> t  -- normal form
     Ast.AstR2S{} -> t  -- normal form
     Ast.AstScatterS{} -> t  -- normal form
     Ast.AstSFromR{} -> t  -- normal form
@@ -2947,12 +2930,6 @@ contractAst t = case t of
            (contractAst $ Ast.AstSum snat stk (AstTimesS t2 u))
   Ast.AstSum snat stk (Ast.AstLet var v t2) ->
     astLet var (contractAst v) (contractAst (Ast.AstSum snat stk t2))
-  Ast.AstSum snat stk (Ast.AstTransposeS perm (Ast.AstLet var v t2)) ->
-    astLet var (contractAst v)
-               (contractAst (Ast.AstSum snat stk (Ast.AstTransposeS perm t2)))
-  Ast.AstSum snat stk (Ast.AstReshapeS @sh sh (Ast.AstLet var v t2)) ->
-    astLet var (contractAst v)
-               (contractAst (Ast.AstSum snat stk (Ast.AstReshapeS @sh sh t2)))
   Ast.AstSum snat stk (Ast.AstSum snat2 stk2 (Ast.AstLet var v t2)) ->
     astLet var (contractAst v)
                (contractAst (Ast.AstSum snat stk (Ast.AstSum snat2 stk2 t2)))
@@ -3045,11 +3022,6 @@ contractAst t = case t of
                        (astTransposeS perm10 t2)
       _ -> Nothing
   Ast.AstSum snat stk@(STKS ZSS _)
-             (Ast.AstReshapeS @sh3 sh (Ast.AstTransposeS @_ @sh2
-                                                         _ (AstTimesS t2 u))) ->
-    gcastWith (unsafeCoerceRefl :: Product sh2 :~: Product sh3) $
-    contractAst (Ast.AstSum snat stk (Ast.AstReshapeS sh (AstTimesS t2 u)))
-  Ast.AstSum snat stk@(STKS ZSS _)
              (Ast.AstReshapeS sh (Ast.AstReverseS (AstTimesS t2 u))) ->
     contractAst (Ast.AstSum snat stk (Ast.AstReshapeS sh (AstTimesS t2 u)))
   Ast.AstSum _snat (STKS ZSS _)
@@ -3061,14 +3033,6 @@ contractAst t = case t of
     astDot0S (contractAst t2) (contractAst u)
   Ast.AstSum SNat (STKS ZSS _) (AstTimesS t2 u) ->
     astDot0S (contractAst t2) (contractAst u)
-  Ast.AstSum
-    n@(SNat @n) (STKS sh@(SNat @m :$$ ZSS) _)
-    (Ast.AstTransposeS @perm @sh1
-       (SNat' @1 `Permutation.PCons` SNat' @0
-        `Permutation.PCons` Permutation.PNil)
-       (AstTimesS t2 u)) ->  -- TODO: generalize or distribute AstTransposeS
-      gcastWith (unsafeCoerceRefl :: Permutation.Permute perm [n, m] :~: sh1) $
-      astDot1InS sh n (contractAst t2) (contractAst u)
   Ast.AstSum n@(SNat @n) (STKS @sh sh _) (AstTimesS t2 u) ->
     let cpermR = backpermCycle $ 1 + sNatValue (shsRank sh)
     in Permutation.permFromList cpermR $ \(cperm :: Permutation.Perm cperm) ->
@@ -3171,15 +3135,6 @@ contractAst t = case t of
           (v * Ast.AstReshapeS @_ @sh sh
                           (Ast.AstReplicate
                              (SNat @0) stk (contractAst s)))
-  AstTimesS v (Ast.AstReshapeS @_ @sh sh
-                      (Ast.AstLet
-                         var u (Ast.AstReplicate (SNat' @0) stk s)))
-    | not (varNameInAst var v) ->
-          astLet var
-                 (contractAst u)
-                 (v * (astReshapeS @_ @sh sh
-                         (Ast.AstReplicate
-                           (SNat @0) stk (contractAst s))))
   AstTimesS v (Ast.AstLet var u (Ast.AstReplicate (SNat' @0) stk s))
     | not (varNameInAst var v) ->
           astLet var
@@ -3226,10 +3181,6 @@ contractAst t = case t of
       -- Ast.AstReplicate _ (STKR @m _ STKScalar) x
       --    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
       --      astReplicate0N shOut x
-  Ast.AstReshapeS sh (Ast.AstLet var v (Ast.AstReplicate snat stk t2)) ->
-        astLet var
-               (contractAst v)
-               (astReshapeS sh (Ast.AstReplicate snat stk (contractAst t2)))
   Ast.AstReshapeS sh v -> astReshapeS sh $ contractAst v
   Ast.AstZipS v -> Ast.AstZipS (contractAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (contractAst v)
