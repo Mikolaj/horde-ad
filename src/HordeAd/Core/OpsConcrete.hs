@@ -95,8 +95,10 @@ instance BaseTensor Concrete where
   trmatvecmul m v = trdot1In m (trreplicate (rwidth m) v)
   trmatmul2 m1 m2 = case rshape m2 of
     _ :$: width2 :$: ZSR ->
-      trsum (trtranspose [2,1,0] (trreplicate width2 m1)
-             * trtranspose [1,0] (trreplicate (rwidth m1) m2))
+      trdot1In (trtranspose [1, 0]
+                            (trreplicate width2 m1))
+               (trtranspose [0, 2, 1]
+                            (trreplicate (rwidth m1) m2))
   trreplicate @_ @r k | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.rreplicate (k :$: ZSR) . unConcrete
   trreplicate0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
@@ -170,10 +172,10 @@ instance BaseTensor Concrete where
   {-# INLINE tsmatvecmul #-}  -- this doesn't want to specialize
   tsmatvecmul m v = tsdot1In m (tsreplicate knownShS v)
   tsmatmul2 m1 m2 =
-    tssum (tstranspose (Permutation.makePerm @'[2, 1, 0])
-                       (tsreplicate knownShS m1)
-           * tstranspose (Permutation.makePerm @'[1, 0])
-                         (tsreplicate knownShS m2))
+    tsdot1In (tstranspose (Permutation.makePerm @'[1, 0])
+                          (tsreplicate knownShS m1))
+             (tstranspose (Permutation.makePerm @'[0, 2, 1])
+                          (tsreplicate knownShS m2))
   tsindex = tindexZS
   tsindex0 = tindex0S
   -- Performance depends a lot on the number and size of tensors.
@@ -334,8 +336,10 @@ instance BaseTensor Concrete where
                                             :$% ZSX)) m))
   {-# INLINE txmatvecmul #-}
   txmatmul2 m1 m2 =
-    txsum (txtranspose (Permutation.makePerm @'[2, 1, 0]) (txreplicate m1)
-           * txtranspose (Permutation.makePerm @'[1, 0]) (txreplicate m2))
+    txdot1In (txtranspose (Permutation.makePerm @'[1, 0])
+                          (txreplicate m1))
+             (txtranspose (Permutation.makePerm @'[0, 2, 1])
+                          (txreplicate m2))
   txreplicate @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mreplicate (Nested.SKnown SNat :$% ZSX) . unConcrete
   txreplicate0N @sh @r sh | Refl <- lemAppNil @sh
