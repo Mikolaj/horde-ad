@@ -234,9 +234,9 @@ rsum0 = trsum0
 rdot0 :: ( KnownNat n, GoodScalar r, BaseTensor target)
       => target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
 rdot0 = trdot0
-rdot1In :: (GoodScalar r, BaseTensor target)
-        => target (TKR 2 r) -> target (TKR 2 r)
-        -> target (TKR 1 r)
+rdot1In :: (KnownNat n, GoodScalar r, BaseTensor target)
+        => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
+        -> target (TKR n r)
 rdot1In = trdot1In
 rmatvecmul :: (GoodScalar r, BaseTensor target)
            => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
@@ -261,10 +261,10 @@ ssum0 = tssum0
 sdot0 :: (KnownShS sh, GoodScalar r, BaseTensor target)
       => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
 sdot0 = tsdot0
-sdot1In :: (KnownNat m, KnownNat n, GoodScalar r, BaseTensor target)
-        => target (TKS '[m, n] r) -> target (TKS '[m, n] r)
-        -> target (TKS '[m] r)  -- TODO: generalize
-sdot1In = tsdot1In
+sdot1In :: (KnownShS sh, KnownNat n, GoodScalar r, BaseTensor target)
+        => target (TKS (sh ++ '[n]) r) -> target (TKS (sh ++ '[n]) r)
+        -> target (TKS sh r)
+sdot1In @sh @n = tsdot1In @_ @sh @n
 smatvecmul :: (KnownNat m, KnownNat n, GoodScalar r, BaseTensor target)
            => target (TKS '[m, n] r) -> target (TKS '[n] r)
            -> target (TKS '[m] r)
@@ -290,11 +290,11 @@ xdot0 :: ( KnownShX sh, GoodScalar r
          , BaseTensor target, ConvertTensor target )
       => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
 xdot0 = txdot0
-xdot1In :: (KnownNat m, KnownNat n, GoodScalar r, BaseTensor target)
-        => target (TKX '[Just m, Just n] r)
-        -> target (TKX '[Just m, Just n] r)
-        -> target (TKX '[Just m] r)
-xdot1In = txdot1In
+xdot1In :: (KnownShX sh, KnownNat n, GoodScalar r, BaseTensor target)
+        => target (TKX (sh ++ '[Just n]) r)
+        -> target (TKX (sh ++ '[Just n]) r)
+        -> target (TKX sh r)
+xdot1In @sh @n = txdot1In @_ @sh @n
 xmatvecmul :: forall mm mn r target.
               (GoodScalar r, BaseTensor target, ConvertTensor target)
            => Nested.SMayNat Int SNat mm -> Nested.SMayNat Int SNat mn
