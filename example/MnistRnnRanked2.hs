@@ -108,6 +108,17 @@ rnnMnistZeroR batch_size xs
 -- vectorization, even though it should perform the same. Also,
 -- fewer tsmatmul2 get recognized and pretty-printed in tests,
 -- even though the recognizing should be exhaustive as is. Investigate.
+--
+-- The answer is the reverse of this rule (and similar)
+--   transpose perm (Ast.AstReplicate snat1@SNat _ (Ast.AstReplicate snat2 (STKS sh2 x) u))
+--    | SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
+--      Ast.AstReplicate snat2 (STKS (snat1 :$$ sh2) x)
+--                       (Ast.AstReplicate snat1 (STKS sh2 x) u)
+-- which permits creating a transpose our of nested replicates
+-- and so proves more matmuls can be recognized than we do currently.
+-- Sadly, this is very messy, we need to check if there are >=2 or >=3 nested
+-- replicates, depending on which permutation we require, etc.
+-- OTOH, recognizing matmuls for nested replicates is probably not important.
 rmatmul2m :: (BaseTensor target, GoodScalar r)
           => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 rmatmul2m m1 m2 = case rshape m2 of

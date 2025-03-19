@@ -2034,6 +2034,26 @@ astTransposeS perm t = case perm of
       fromMaybe (error "astTransposeS: impossible non-permutation")
       $ Permutation.permCheckPermutation zsuccP
       $ astSum snat (STKS (shsPermutePrefix perm sh) x) $ astTransposeS zsuccP v
+  Ast.AstReplicate snat@(SNat @n) (STKS @sh3 sh3 _) u
+    | Just u2 <- unRepl u
+    , FTKS _ x <- ftkAst u2
+    , Refl <- lemAppNil @(Permutation.PermutePrefix perm (n : sh3)) ->
+      mkRepl ZSS (ftkToSTK x) (shsPermutePrefix perm (snat :$$ sh3)) u2
+  Ast.AstReplicate snat1@SNat _  -- nesting 4 is probably already an overkill
+    (Ast.AstReplicate snat2@SNat _
+      (Ast.AstReplicate snat3@SNat _
+        (Ast.AstReplicate snat4@SNat (STKS sh0 x) u)))
+    | _ `PCons` _ `PCons` _ `PCons` _ `PCons` PNil <- perm ->
+      mkRepl sh0 x (shsPermutePrefix
+                      perm (snat1 :$$ snat2 :$$ snat3 :$$ snat4 :$$ ZSS)) u
+  Ast.AstReplicate snat1@SNat _
+    (Ast.AstReplicate snat2@SNat _
+      (Ast.AstReplicate snat3@SNat (STKS sh0 x) u))
+    | _ `PCons` _ `PCons` _ `PCons` PNil <- perm ->
+      mkRepl sh0 x (shsPermutePrefix perm (snat1 :$$ snat2 :$$ snat3 :$$ ZSS)) u
+  Ast.AstReplicate snat1@SNat _ (Ast.AstReplicate snat2@SNat (STKS sh0 x) u)
+    | _ `PCons` _ `PCons` PNil <- perm ->
+      mkRepl sh0 x (shsPermutePrefix perm (snat1 :$$ snat2 :$$ ZSS)) u
   AstConcreteS v -> astConcreteS (tstranspose perm $ Concrete v)
 
   Ast.AstLet var u v -> astLet var u (astTransposeS perm v)
@@ -2095,6 +2115,19 @@ astTransposeS perm t = case perm of
           GT -> error "astTransposeS: GT"
   u -> Ast.AstTransposeS perm u
 
+unRepl :: AstTensor AstMethodLet s (TKS2 sh x)
+       -> Maybe (AstTensor AstMethodLet s (TKS2 '[] x))
+unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
+unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
+unRepl _ = Nothing
+
+mkRepl :: ShS sh2 -> SingletonTK x -> ShS sh1
+       -> AstTensor AstMethodLet s (TKS2 sh2 x)
+       -> AstTensor AstMethodLet s (TKS2 (sh1 ++ sh2) x)
+mkRepl _ _ ZSS u = u
+mkRepl sh2 x (snat :$$ rest) u =
+  Ast.AstReplicate snat (STKS (rest `shsAppend` sh2) x) (mkRepl sh2 x rest u)
+
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
 -- if full simplification is required.
@@ -2106,9 +2139,11 @@ astReshapeS sh2 = \case
     | Just Refl <- testEquality snat (SNat @1)
     , STKS{} <- stk ->
       astReshapeS sh2 (l V.! 0)
-  Ast.AstReplicate (SNat @k) (STKS _ _) x
-    | Just Refl <- sameNat (Proxy @k) (Proxy @1) ->
-      astReshapeS sh2 x
+  Ast.AstReplicate _ STKS{} u | Just u2 <- unRepl u
+                              , FTKS _ x <- ftkAst u2
+                              , Refl <- lemAppNil @sh2 ->
+    mkRepl ZSS (ftkToSTK x) sh2 u2
+  Ast.AstReplicate (SNat' @1) (STKS _ _) x -> astReshapeS sh2 x
   AstConcreteS t -> astConcreteS (tsreshape sh2 $ Concrete t)
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 sh2 v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS sh2 v
@@ -2675,7 +2710,7 @@ expandAst t = case t of
     Ast.AstCastS{} -> t  -- normal form
     Ast.AstReplicate{} -> t  -- normal form
       -- TODO: this nf is silly, but right now transposes of replicates
-      -- are small srrays and equivalent gathers are large terms and arrays,
+      -- are small arrays and equivalent gathers are large terms and arrays,
       -- so this has to stay. Maybe we should contract gathers back
       -- to transposes of replicates (not only to replicates). Or maybe
       -- we should extend orthotope to any gather schemes, not only
