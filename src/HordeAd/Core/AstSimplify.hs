@@ -403,10 +403,7 @@ astReplicate snat@SNat stk = \case
 --  AstConcrete t -> astConcrete $ treplicateR k t
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat stk v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReplicate snat stk v
-  {- TODO: this may be counterproductive with many gathers and their fusion
-           though these let transpose cancel out with each other sometimes
-           (instead we should try to cancel out inside replicate and only move
-            if they don't) -}
+  {- This is a bad idea, because transpose is pushed down, not pulled up.
   Ast.AstTransposeS @perm @sh1 perm v -> case stk of
     STKS @sh _ _ ->
       let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)
@@ -419,7 +416,7 @@ astReplicate snat@SNat stk = \case
                    :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
         fromMaybe (error "astReplicate: impossible non-permutation")
         $ Permutation.permCheckPermutation zsuccPerm
-        $ astTransposeS zsuccPerm $ astReplicate snat (ftkToSTK (ftkAst v)) v
+        $ astTransposeS zsuccPerm $ astReplicate snat (ftkToSTK (ftkAst v)) v -}
   -- This is a bad idea, because reshape is pushed down, not pulled up.
   -- Ast.AstReshape sh v ->
   --  AstReshape (k :$: sh) $ astReplicate k v
