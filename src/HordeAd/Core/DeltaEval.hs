@@ -188,7 +188,8 @@ rebuildInputs els s2 ftk = case ftk of
           in (zero, rest)
           -- TODO: actually pass this ZERO through to optimizers
           -- and use there to avoid updating the gradient
-          -- and maybe use elsewhere, too.
+          -- and maybe use elsewhere, too, to manage sparsity a bit.
+          -- We'd probably need TKProduct to take TensorOrZero.
         _ | Dict <- lemKnownSTK (ftkToSTK $ inputIdToFTK n) ->
           error $ "rebuildInputs: wrong Zero type: "
                   ++ show (n, tz, show_IMap (iMap s2))
@@ -353,7 +354,6 @@ evalRevRRuntimeSpecialized !s !c =
   -- an existential type. All IfDifferentiable and RowSum instances should
   -- be included in the list of expected underlying scalar types.
   -- If the scalar type is not on the list, performance suffers greatly.
-  -- TODO: can I pattern match on (typeRep @r) instead?
   case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> evalRevSame @(TKR n Double) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
@@ -557,7 +557,7 @@ evalRevFTK !s !c d0 = case d0 of
             (d1, d2) = unDeltaPairUnshared d
         in evalRevFTK (evalRevFTK s c1 (DeltaFromS stkz1 d1))
                       c2 (DeltaFromS stkz2 d2)
-             -- TODO: make this compositional and evaluated d only once
+             -- TODO: make this compositional and evaluate d only once
     _ -> error "evalRev: wrong tensor kinds"
 
   _ -> let y = ftkDelta d0

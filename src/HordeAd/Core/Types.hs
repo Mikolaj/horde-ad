@@ -270,21 +270,31 @@ type family DualOf (f :: Target) :: Target
 
 type family ShareOf (f :: Target) :: Target
 
--- TODO: move this comment elsewhere?
--- | Thanks to the OverloadedLists mechanism, values of this type can be
--- written using the normal list notation. However, such values, if not
+-- | Ranked index, that is, a sized list of individual indices into
+-- ranked tensors.
+--
+-- Thanks to the OverloadedLists mechanism, values of this type
+-- and of 'IxSOf' and 'IxXOf' can be written using the normal
+-- list notation. However, such values, if not
 -- explicitly typed, do not inform the compiler about the length
 -- of the list until runtime. That means that some errors are hidden
 -- and also extra type applications may be needed to satisfy the compiler.
 -- Therefore, there is a real trade-off between @[2]@ and @(2 :.: ZIR).
 type IxROf (f :: Target) n = IxR n (IntOf f)
 
--- TODO: ensure this is checked (runtime-checked, if necessary):
--- | The values of this type are bounded by the shape.
--- If the values are terms, this is relative to environment
--- and up to evaluation.
+-- | Shaped index, that is, a sized list of individual indices into
+-- shaped tensors.
+--
+-- The values of this type are additionally decorated with a shape type @sh@,
+-- which indirectly determines in what tensor operations
+-- (e.g., what indexing) the values can appear. The type has no direct
+-- relation to the runtime payload of the list, except that the list
+-- has the same length as the shape. In particular, the individual
+-- indices can be "out of bounds" with respect to the shape type.
 type IxSOf (f :: Target) (sh :: [Nat]) = IxS sh (IntOf f)
 
+-- | Mixed index, that is, a sized list of individual indices
+-- into tensors with mixed ranked-shaped typing.
 type IxXOf (f :: Target) (sh :: [Maybe Nat]) = IxX sh (IntOf f)
 
 

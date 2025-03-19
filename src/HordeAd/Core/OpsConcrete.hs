@@ -132,14 +132,14 @@ instance BaseTensor Concrete where
     Concrete $ tbuild1R k (unConcrete . f . Concrete)
   trmap0N @_ @r @r1 f t = case (knownSTK @r1, knownSTK @r) of
     (STKScalar, STKScalar) -> Concrete $ tmap0NR (unConcrete . f . Concrete) (unConcrete t)
-    _ ->  -- TODO: how to call the default implementation?
+    _ ->  -- this is the default implementation from the class
       rbuild (rshape t) (f . trindex t)
   trzipWith0N @_ @r1 @r2 @r f t u =
     case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
       (STKScalar, STKScalar, STKScalar) ->
         Concrete $ tzipWith0NR (\v w -> unConcrete $ f (Concrete v) (Concrete w))
                            (unConcrete t) (unConcrete u)
-      _ ->  -- TODO: how to call the default implementation?
+      _ ->  -- this is the default implementation from the class
         rbuild (rshape u) (\ix -> f (trindex t ix) (trindex u ix))
 
   -- Shaped ops
@@ -277,7 +277,7 @@ instance BaseTensor Concrete where
     (STKScalar, STKScalar) ->
       Concrete $ tmap0NS (unConcrete . f . Concrete) (unConcrete v)
     _ | Refl <- lemAppNil @sh ->
-      -- TODO: how to call the default implementation?
+      -- this is the default implementation from the class
       gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
       $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
       $ sbuild @(Rank sh) (f . tsindex v)
@@ -287,7 +287,7 @@ instance BaseTensor Concrete where
         Concrete $ tzipWith0NS (\v w -> unConcrete $ f (Concrete v) (Concrete w))
                            (unConcrete t) (unConcrete u)
       _ | Refl <- lemAppNil @sh ->
-        -- TODO: how to call the default implementation?
+        -- this is the default implementation from the class
         gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
         $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
         $ sbuild @(Rank sh) (\ix -> f (tsindex t ix) (tsindex u ix))

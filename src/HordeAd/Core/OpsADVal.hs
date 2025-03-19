@@ -149,9 +149,6 @@ instance ( ADReadyNoLet target, ShareTensor target
              * trtranspose [1,0] (trreplicate (rwidth m1) m2))
   trreplicate k (D u u') = withSNat k $ \snat ->
     dD (trreplicate k u) (DeltaReplicate snat knownSTK u')
-  -- TODO: speed up by using tindex0R and dDeltaIndex0 if the codomain has rank 0
-  -- and dD (u `tindex1R` ix) (dDeltaIndex1 u' ix (tlengthR u)) if only outermost
-  -- dimension affected.
   trindex (D u u') i =
     let ix = tprimalPart <$> i
     in dD (trindex u ix) (DeltaIndexR SNat u' ix)

@@ -447,8 +447,7 @@ astTrS :: forall n m sh s r. AstSpan s
        => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r)
        -> AstTensor AstMethodLet s (TKS2 (m ': n ': sh) r)
 astTrS a | FTKS (_ :$$ _ :$$ sh) _ <- ftkAst a
-         , SNat <- shsRank sh =
-             -- TODO: why on Earth is this needed?
+         , SNat <- shsRank sh =  -- why on Earth is this needed?
   astTransposeS (Permutation.makePerm @'[1, 0]) a
 
 astTrX :: forall n m shx s r. AstSpan s
@@ -515,7 +514,7 @@ substProjRep
   -> (AstVarName s2 (BuildTensorKind k y2), AstTensor AstMethodLet s y)
 substProjRep snat@SNat var var1 v =
   let var3 :: AstVarName s2 (BuildTensorKind k y2)
-      var3 = mkAstVarName ftk3 (varNameToAstVarId var1)  -- changed shape; TODO: shall we rename?
+      var3 = mkAstVarName ftk3 (varNameToAstVarId var1)
       ftk3 = buildFTK snat $ varNameToFTK var1
       astVar3 = Ast.AstVar var3
       v2 = substituteAst
@@ -530,7 +529,6 @@ substProjRep snat@SNat var var1 v =
 
 -- * Rule tracing machinery
 
--- TODO: set from the testing commandline, just as eqEpsilonRef in EqEpsilon.hs
 traceRuleEnabledRef :: IORef Bool
 {-# NOINLINE traceRuleEnabledRef #-}
 traceRuleEnabledRef = unsafePerformIO $ newIORef False

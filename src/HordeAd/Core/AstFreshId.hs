@@ -9,6 +9,7 @@ module HordeAd.Core.AstFreshId
   , funToAstFwdIO, funToAstFwd
   , funToAstIOI, funToAstI, funToAstIntVarIO, funToAstIntVar
   , funToVarsIxS, funToAstIxS
+    -- * Low level counter manipulation to be used only in sequential tests
   , resetVarCounter
   ) where
 

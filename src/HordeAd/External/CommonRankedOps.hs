@@ -116,7 +116,6 @@ reluLeaky v0 = tlet v0 $ \v ->
   let oneIfGtZero = rmap0N (\x -> ifH (x <=. rscalar 0) (rscalar 0.01) (rscalar 1.0)) v
   in oneIfGtZero * v
 
--- TODO: verify how faster a dedicated BaseTensor method would be
 logistic :: forall target r n.
             ( BaseTensor target, LetTensor target, BaseTensor (PrimalOf target)
             , KnownNat n, GoodScalar r, Differentiable r )
@@ -128,8 +127,9 @@ logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
      $ \y1 -> let y = rprimalPart y1
               in y1 + rfromDual (rScale @target (y * (one - y)) $ rdualPart d)
 
--- TODO: verify how faster a @x * x@ version would be
--- Optimized and more clearly written @u ** 2@.
+-- Optimized and more clearly written @u ** 2@. It's not clear if this is
+-- currently faster than @u ** 2@ and in which pipelines, but it's different,
+-- so useful as a test.
 square :: forall target r n.
           ( BaseTensor target, LetTensor target
           , KnownNat n, Num (PrimalOf target (TKR n r)), GoodScalar r )
@@ -180,8 +180,6 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
        (negate $ log (rprimalPart @target softMaxU) `rdot0` target)
          -- TODO: avoid: log . exp
        (rdualPart @target $ (softMaxU - rfromPrimal @target target) `rdot0` d)
-         -- TODO: probably defining tDot0 would lead to a faster
-         -- tDot0 (softMaxU - target) u'
 
 -- No padding; remaining areas ignored.
 maxPool1 :: ( BaseTensor target, ConvertTensor target, LetTensor target
@@ -234,7 +232,8 @@ slicez shOut d ixBase =
   rbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
 
 {-
--- TODO: this makes tests unbearably slow; does it still?
+-- This makes tests unbearably slow, so not used.
+--
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
 indexz0Let

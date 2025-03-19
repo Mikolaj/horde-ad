@@ -73,23 +73,6 @@ dDnotShared = ADVal
 
 -- TODO: maybe create a separate module of Delta smart constructors
 -- and then use the following haddocks for the module:
---
--- | The impurity in this module, stemming from the use of this operation
--- under @unsafePerformIO@, is thread-safe, admits parallel tests
--- and does not require @-fno-full-laziness@ nor @-fno-cse@.
--- The only tricky point is mandatory use of the smart constructors
--- above and that any new smart constructors should be similarly
--- call-by-value to ensure proper order of identifiers of subterms.
---
--- | This module uses and rather safely encapsulates impure side-effects.
--- The impurity produces pure data with a particular property.
--- The property is an order of per-node integer identifiers that represents
--- data dependencies and sharing between delta expressions. The low-level API
--- depends on this property, but is completely isolated from the impurity.
--- The high-level API triggers the impurity but can't observe
--- any impure behaviour. Neither can any other module in the package,
--- except for the testing modules that import testing-exclusive class instances
--- and operations for reading or reseting the impure counter.
 
 -- | The instances are impure, because 'shareDelta'
 -- adorns terms with an @Int@ identifier from a counter that is afterwards
@@ -117,17 +100,12 @@ dDnotShared = ADVal
 -- they increase sharing and make evaluation yet cheaper.
 -- Of course, if the compiler, e.g., stops honouring @NOINLINE@,
 -- all this breaks down.
---
--- The pattern-matching in 'shareDelta' is a crucial optimization
--- and it could, presumably, be extended to further limit which
--- terms get an identifier. Alternatively, 'HordeAd.Core.CarriersADVal.dD'
--- or library definitions that use it could be made smarter.
 
 unDeltaPair :: Delta target (TKProduct x y) -> (Delta target x, Delta target y)
 unDeltaPair (DeltaPair a b) = (a, b)
 unDeltaPair (DeltaZero (FTKProduct ftk1 ftk2)) =
   (DeltaZero ftk1, DeltaZero ftk2)
-unDeltaPair d = let dShared = shareDelta d  -- TODO: more cases
+unDeltaPair d = let dShared = shareDelta d
                 in (DeltaProject1 dShared, DeltaProject2 dShared)
 
 unDeltaPairUnshared :: Delta target (TKProduct x y)
@@ -266,7 +244,7 @@ type instance PrimalOf (ADVal f) = f
 type instance DualOf (ADVal f) = Delta f
 
 type instance ShareOf (ADVal f) = ADVal f
-  -- TODO: maybe this should be ADVal (ShareOf f), but we'd need tests
+  -- Maybe this should be ADVal (ShareOf f), but we'd need tests
   -- that use this, probably tests with ADVal (AST) nested in ADVal
 
 

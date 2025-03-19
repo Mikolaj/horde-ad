@@ -124,7 +124,8 @@ instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
   isIEEE = error "horde-ad: operation not defined for tensor"
 
 -- TODO: make more efficient somehow?
-mmakeNonZero :: (Nested.PrimElt r, Eq r, Num r) => Nested.Mixed sh r -> Nested.Mixed sh r
+mmakeNonZero :: (Nested.PrimElt r, Eq r, Num r)
+             => Nested.Mixed sh r -> Nested.Mixed sh r
 mmakeNonZero =
   Nested.Internal.mliftNumElt1
     (flip Nested.Internal.Arith.liftVEltwise1

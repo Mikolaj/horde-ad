@@ -334,8 +334,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                   . astTransposeS perm . astSFromR sh $ a
           in case (Permutation.permRank perm, shsRank sh) of
             (psnat@SNat, shsnat@SNat) ->
-              -- TODO: why is the above needed? define cmpSNat?
-              case cmpNat (Permutation.permRank perm) (shsRank sh) of
+              case cmpNat psnat shsnat of
                 GTI -> error $ "rtranspose: rank mismatch: "
                                ++ show (sNatValue psnat, sNatValue shsnat)
                 EQI -> result
@@ -570,10 +569,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tdualPart _ t = dualPart t
   tfromPrimal _ t = fromPrimal t
   tfromDual t = fromDual t
-  -- TODO: (still) relevant?
-  -- In this instance, these three ops are only used for some rare tests that
-  -- use the non-symbolic pipeline to compute a symbolic
-  -- value of the derivative at a particular fixed input.
   tgrad xftk f =
     -- we don't have an AST constructor to hold it, so we compute
     --
@@ -826,8 +821,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                   . AstTransposeS perm . AstSFromR sh $ a
           in case (Permutation.permRank perm, shsRank sh) of
             (psnat@SNat, shsnat@SNat) ->
-              -- TODO: why is the above needed? define cmpSNat?
-              case cmpNat (Permutation.permRank perm) (shsRank sh) of
+              case cmpNat psnat shsnat of
                 GTI -> error $ "rtranspose: rank mismatch: "
                                ++ show (sNatValue psnat, sNatValue shsnat)
                 EQI -> result
@@ -1072,14 +1066,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tdualPart _ t = dualPart $ unAstRaw t
   tfromPrimal _ t = AstRaw $ fromPrimal $ unAstRaw t
   tfromDual t = AstRaw $ fromDual t
-  -- TODO: (still) relevant?
-  -- In this instance, these two ops are only used for some rare tests that
-  -- use the non-symbolic pipeline to compute a symbolic
-  -- value of the derivative at a particular fixed input.
-  --
-  -- TODO: dupe?
   -- These three methods are called at this type in delta evaluation via
-  -- tmapAccumR and tmapAccumL, they have to work. We could refrain from
+  -- tmapAccumR and tmapAccumL, so they have to work. We could refrain from
   -- simplifying the resulting terms, but it's not clear that's more consistent.
   tgrad = tgrad @(AstTensor AstMethodLet PrimalSpan)
   tvjp = tvjp @(AstTensor AstMethodLet PrimalSpan)
@@ -1471,7 +1459,7 @@ astLetFunNoSimplify a f = case a of
         let (var, ast) =
               funToAst (FTKS sh x) (f . AstFromS @(TKS2 sh x) (ftkToSTK ftk))
         in AstLet var (AstSFromX @sh sh a) ast
-    -- TODO: also recursively product, though may be not worth it
+    -- processing product recursively may be not worth it
     ftk -> let (var, ast) = funToAst ftk f
            in AstLet var a ast
 

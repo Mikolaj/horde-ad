@@ -9,7 +9,7 @@
 -- low level operations on the impure counter.
 module HordeAd.Core.DeltaFreshId
   ( shareDelta
-    -- * Low level counter manipulation to be used only in tests
+    -- * Low level counter manipulation to be used only in sequential tests
   , resetIdCounter
   ) where
 
@@ -44,6 +44,15 @@ resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
 
 -- Tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
+--
+-- | The impurity exported from this module by 'shareDelta',
+-- stemming from the use of 'unsafeGetFreshId' under @unsafePerformIO@,
+-- is thread-safe, admits parallel tests
+-- and does not require @-fno-full-laziness@ nor @-fno-cse@.
+--
+-- The pattern-matching in 'shareDelta' is a crucial optimization
+-- and it could, be extended to further limit which terms get an identifier,
+-- trading off sharing for limiting direct memory usage.
 shareDelta :: forall y target.
               Delta target y -> Delta target y
 {-# NOINLINE shareDelta #-}

@@ -801,8 +801,6 @@ class ( Num (IntOf target)
 
   tsfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
           => target (TKS sh r) -> target (TKS sh r2)
-    -- the integer can be negative
-    -- TODO: shall we make it abs (floor v)?
   tsfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
                  => target (TKS sh r1) -> target (TKS sh r2)
   tscast :: (RealFrac r1, GoodScalar r1, RealFrac r2, GoodScalar r2)

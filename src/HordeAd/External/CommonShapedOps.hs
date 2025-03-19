@@ -102,8 +102,9 @@ logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
      $ \y1 -> let y = sprimalPart y1
               in y1 + sfromDual (sScale @target (y * (one - y)) $ sdualPart d)
 
--- TODO: verify how faster a @x * x@ version would be
--- Optimized and more clearly written @u ** 2@.
+-- Optimized and more clearly written @u ** 2@. It's not clear if this is
+-- currently faster than @u ** 2@ and in which pipelines, but it's different,
+-- so useful as a test.
 squareS :: forall target r sh.
            ( KnownShS sh, BaseTensor target, LetTensor target
            , Num (PrimalOf target (TKS sh r)), GoodScalar r )
@@ -153,8 +154,6 @@ lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
        (negate $ log (sprimalPart softMaxU) `sdot0` target)
          -- TODO: avoid: log . exp
        (sdualPart $ (softMaxU - sfromPrimal target) `sdot0` d)
-         -- TODO: probably defining sDot0 would lead to a faster
-         -- sDot0 (softMaxU - target) u'
 
 -- No padding; remaining areas ignored.
 maxPool1S :: forall ksize stride m target r.
@@ -231,10 +230,7 @@ slicezS d ixBase =
                                        (ixsToIxr ixResult))
 
 {-
--- TODO: this makes tests unbearably slow
---
--- TODO: explain why the argument is not IxSOf but IxROf (is it because
--- of the spurious verification thata index fits in?)
+-- This makes tests unbearably slow, so not used.
 --
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
@@ -247,7 +243,7 @@ indexz0SLet
   :: forall shOut sh target r.
      ( KnownShS shOut, KnownNat (Rank shOut), KnownShS sh
      , ADReady target, GoodScalar r )
-  => target (TKS sh r) -> IxROf target (Rank shOut) -> target (TKS '[] r)
+  => target (TKS sh r) -> IxSOf target shOut -> target (TKS '[] r)
 indexz0SLet d ix0 =
   sletIx ix0 $ \ix ->
     ifH (within0S @shOut @target ix)

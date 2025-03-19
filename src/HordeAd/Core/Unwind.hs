@@ -85,7 +85,6 @@ multRepW a b = case (a, b) of
   (WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
     WTKProduct (multRepW ta1 tb1) (multRepW ta2 tb2)
 
--- TODO: maybe instead of ifDifferentiable perform only on ADTensorKind?
 dotRepW :: forall y target. (BaseTensor target, ConvertTensor target)
         => FullShapeTKW y -> RepW target y -> RepW target y
         -> target (TKScalar Double)
