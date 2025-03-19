@@ -21,9 +21,11 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 updateWithGradient :: forall y.
-                      Double -> SingletonTK y -> Concrete y -> Concrete (ADTensorKind y)
+                      Double -> SingletonTK y
+                   -> Concrete y -> Concrete (ADTensorKind y)
                    -> Concrete y
-updateWithGradient gamma stk p@(Concrete params) g@(Concrete gradient) = case stk of
+updateWithGradient gamma stk p@(Concrete params)
+                             g@(Concrete gradient) = case stk of
   STKScalar @r -> Concrete $
     ifDifferentiable @r
       (gcastWith (unsafeCoerceRefl :: y :~: ADTensorKind y) $
@@ -43,28 +45,21 @@ updateWithGradient gamma stk p@(Concrete params) g@(Concrete gradient) = case st
                                       (realToFrac gamma)
                 * gradient)
       params
-{- TODO
-  STKR _ x -> Concrete $
-    case sameSTK x (adSTK x) of
-      Just Refl ->
-        (params - Nested.rreplicateScal (Nested.rshape params)
-                                        (realToFrac gamma)
-                  * gradient)
-      Nothing -> params
-  STKS _ x -> Concrete $
-    case sameSTK x (adSTK x) of
-      Just Refl ->
-        (params - Nested.sreplicateScal (Nested.sshape params)
-                                        (realToFrac gamma)
-                  * gradient)
-      Nothing -> params
--}
+  STKX _ (STKScalar @r) -> Concrete $
+    ifDifferentiable @r
+      (gcastWith (unsafeCoerceRefl :: y :~: ADTensorKind y) $
+       params - Nested.mreplicateScal (Nested.mshape params)
+                                      (realToFrac gamma)
+                * gradient)
+      params
   STKProduct stk1 stk2 ->
     tpair (updateWithGradient gamma stk1 (tproject1 p) (tproject1 g))
           (updateWithGradient gamma stk2 (tproject2 p) (tproject2 g))
-  _ -> error "updateWithGradient: TODO"
+  _ -> error "updateWithGradient: only non-nested arrays supported"
+         -- we could support nested arrays, but some new unwinding code
+         -- woudl be needed here and for Adam, with no existing use case
 
-{-
+{- there are mostly for debugging
 gradientIsNil :: (Eq r) => HVector Concrete -> Bool
 gradientIsNil (HVector Concrete gradient0 gradientR) =
   V.all (== 0) gradient0
@@ -112,16 +107,21 @@ unzip3Rep
   :: SingletonTK y -> Concrete (Triplify y)
   -> (Concrete y, Concrete y, Concrete y)
 unzip3Rep stk (Concrete t) = case stk of
-  STKScalar -> (Concrete $ fst $ fst t, Concrete $ snd $ fst t, Concrete $ snd t)
-  STKR _ STKScalar -> (Concrete $ fst $ fst t, Concrete $ snd $ fst t, Concrete $ snd t)
-  STKS _ STKScalar -> (Concrete $ fst $ fst t, Concrete $ snd $ fst t, Concrete $ snd t)
-  STKX _ STKScalar -> (Concrete $ fst $ fst t, Concrete $ snd $ fst t, Concrete $ snd t)
-  STKProduct stk1 stk2 -> let !(!a1, !b1, !c1) = unzip3Rep stk1 $ Concrete $ fst t
-                              !(!a2, !b2, !c2) = unzip3Rep stk2 $ Concrete $ snd t
-                          in ( Concrete (unConcrete a1, unConcrete a2)
-                             , Concrete (unConcrete b1, unConcrete b2)
-                             , Concrete (unConcrete c1, unConcrete c2))
-  _ -> error "TODO"
+  STKScalar ->
+    (Concrete $ fst $ fst t, Concrete $ snd $ fst t, Concrete $ snd t)
+  STKR _ STKScalar ->
+    (Concrete $ fst $ fst t, Concrete $ snd $ fst t, Concrete $ snd t)
+  STKS _ STKScalar ->
+    (Concrete $ fst $ fst t, Concrete $ snd $ fst t, Concrete $ snd t)
+  STKX _ STKScalar ->
+    (Concrete $ fst $ fst t, Concrete $ snd $ fst t, Concrete $ snd t)
+  STKProduct stk1 stk2 ->
+    let !(!a1, !b1, !c1) = unzip3Rep stk1 $ Concrete $ fst t
+        !(!a2, !b2, !c2) = unzip3Rep stk2 $ Concrete $ snd t
+    in ( Concrete (unConcrete a1, unConcrete a2)
+       , Concrete (unConcrete b1, unConcrete b2)
+       , Concrete (unConcrete c1, unConcrete c2))
+  _ -> error "unzip3Rep: only non-nested arrays supported"
 
 type role StateAdam nominal
 data StateAdam y = StateAdam
@@ -139,7 +139,8 @@ initialStateAdam ftk =
             }
 
 updateWithGradientAdam
-  :: ArgsAdam -> StateAdam y -> SingletonTK y -> Concrete y -> Concrete (ADTensorKind y)
+  :: ArgsAdam -> StateAdam y -> SingletonTK y
+  -> Concrete y -> Concrete (ADTensorKind y)
   -> (Concrete y, StateAdam y)
 updateWithGradientAdam ArgsAdam{..} StateAdam{..} stk0 paramsR gradientR =
   let mAdamR = mAdam
@@ -170,8 +171,8 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} stk0 paramsR gradientR =
                  -> Concrete y2 -> Concrete y2
                  -> Concrete y2 -> Concrete (ADTensorKind y2)
                  -> Concrete (Triplify y2)
-      updateProd stk (Concrete mA) (Concrete vA) (Concrete p) (Concrete g) = case stk of
-        -- TODO: short-circuit like in updateWithGradient
+      updateProd stk (Concrete mA) (Concrete vA)
+                     (Concrete p) (Concrete g) = case stk of
         STKScalar @r ->
           ifDifferentiable @r
             (gcastWith (unsafeCoerceRefl :: y2 :~: ADTensorKind y2) $
@@ -220,56 +221,17 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} stk0 paramsR gradientR =
                 , Nested.mreshape (Nested.mshape p)
                   $ Nested.rtoMixed pN ))
             (Concrete ((mA, vA), p))
-{- TODO
-        STKR SNat (STKScalar @r) ->
-          case sameSTK stk (adSTK stk) of
-            Just Refl ->
-              ifDifferentiable @r
-                (let !(!mAN, !vAN, !pN) = updateR mA vA p g
-                 in Concrete ((mAN, vAN), pN))
-                (Concrete ((mA, vA), p))
-            _ -> Concrete ((mA, vA), p)
-        STKS sh (STKScalar @r) ->
-          case sameSTK stk (adSTK stk) of
-            Just Refl ->
-              ifDifferentiable @r
-                (let !(!mAN, !vAN, !pN) =
-                       updateR (Nested.stoRanked mA)
-                               (Nested.stoRanked vA)
-                               (Nested.stoRanked p)
-                               (Nested.stoRanked g)
-                 in Concrete
-                    ( ( Nested.rcastToShaped mAN sh
-                      , Nested.rcastToShaped vAN sh )
-                    , Nested.rcastToShaped pN sh ))
-                (Concrete ((mA, vA), p))
-            _ -> Concrete ((mA, vA), p)
-        STKX _ (STKScalar @r) ->
-          case sameSTK stk (adSTK stk) of
-            Just Refl ->
-              ifDifferentiable @r
-                (let !(!mAN, !vAN, !pN) =
-                       updateR (Nested.mtoRanked mA)
-                               (Nested.mtoRanked vA)
-                               (Nested.mtoRanked p)
-                               (Nested.mtoRanked g)
-                 in Concrete
-                    ( ( Nested.mreshape (Nested.mshape mA)
-                        $ Nested.rtoMixed mAN
-                      , Nested.mreshape (Nested.mshape vA)
-                        $ Nested.rtoMixed vAN )
-                    , Nested.mreshape (Nested.mshape p)
-                      $ Nested.rtoMixed pN ))
-                (Concrete ((mA, vA), p))
-            _ -> Concrete ((mA, vA), p)
--}
         STKProduct stk1 stk2 ->
           let !a1 = unConcrete $ updateProd stk1
-                (Concrete $ fst mA) (Concrete $ fst vA) (Concrete $ fst p) (Concrete $ fst g)
+                      (Concrete $ fst mA) (Concrete $ fst vA)
+                      (Concrete $ fst p) (Concrete $ fst g)
               !a2 = unConcrete $ updateProd stk2
-                (Concrete $ snd mA) (Concrete $ snd vA) (Concrete $ snd p) (Concrete $ snd g)
+                      (Concrete $ snd mA) (Concrete $ snd vA)
+                      (Concrete $ snd p) (Concrete $ snd g)
           in Concrete (a1, a2)
-        _ -> error "TODO"
+        _ -> error "updateWithGradientAdam: only non-nested arrays supported"
+               -- we could support nested arrays, but some new unwinding code
+               -- woudl be needed, with no existing use case
       (!mAdamRNew, !vAdamRNew, !paramsRNew) =
         unzip3Rep stk0 $ updateProd stk0 mAdamR vAdamR paramsR gradientR
   in ( paramsRNew
