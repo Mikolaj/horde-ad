@@ -165,8 +165,6 @@ ftkAst t = case t of
   AstSFromX sh v -> case ftkAst v of
     FTKX _ x -> FTKS sh x
 
-  AstReplicate0NS sh v -> case ftkAst v of
-    FTKS _ x -> FTKS sh x
   AstSum0S v ->  case ftkAst v of
     FTKS _ x -> FTKS ZSS x
   AstDot0S _u _v -> FTKS ZSS FTKScalar
@@ -251,7 +249,6 @@ varInAst var = \case
   AstSFromR _ v -> varInAst var v
   AstSFromX _ v -> varInAst var v
 
-  AstReplicate0NS _ v -> varInAst var v
   AstSum0S v -> varInAst var v
   AstDot0S u v -> varInAst var u || varInAst var v
   AstDot1InS _ _ u v -> varInAst var u || varInAst var v

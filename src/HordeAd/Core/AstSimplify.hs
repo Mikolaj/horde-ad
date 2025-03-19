@@ -885,7 +885,6 @@ astPrimalPart t = case t of
   Ast.AstSFromX{} -> Ast.AstPrimalPart t
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstReplicate0NS{} -> Ast.AstPrimalPart t
   Ast.AstSum0S{} -> Ast.AstPrimalPart t
   Ast.AstDot0S{} -> Ast.AstPrimalPart t
   Ast.AstDot1InS{} -> Ast.AstPrimalPart t
@@ -980,7 +979,6 @@ astDualPart t = case t of
   Ast.AstSFromX{} -> Ast.AstDualPart t
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstReplicate0NS{} -> Ast.AstDualPart t
   Ast.AstSum0S{} -> Ast.AstDualPart t
   Ast.AstDot0S{} -> Ast.AstDualPart t
   Ast.AstDot1InS{} -> Ast.AstDualPart t
@@ -1388,9 +1386,6 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstSFromX{} -> Ast.AstIndexS shn v0 ix
 
   -- These should not appear here unless via wacky tests.
-  Ast.AstReplicate0NS{} -> Ast.AstIndexS shn v0 ix
--- impossible: Ast.AstSum0S{} -> Ast.AstIndexS shn v0 ix
--- impossible: Ast.AstDot0S{} -> Ast.AstIndexS shn v0 ix
   Ast.AstDot1InS{} -> Ast.AstIndexS shn v0 ix
   Ast.AstMatmul2S{} -> Ast.AstIndexS shn v0 ix
 
@@ -1922,9 +1917,6 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
     Ast.AstSFromX{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
 
     -- These should not appear here unless via wacky tests.
-    Ast.AstReplicate0NS{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
---    Ast.AstSum0S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
---    Ast.AstDot0S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstDot1InS{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstMatmul2S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
 
@@ -2000,15 +1992,6 @@ astSliceS i@SNat n@SNat k@SNat
         EQI -> astSliceS (SNat @0) n k v
         GTI -> Ast.AstSliceS i n k w -- cheap iff fits in one
 astSliceS i n k v = Ast.AstSliceS i n k v
-{- TODO: is this beneficial? for i==0 and for i/=0?
-  AstSliceS @i @n AstIotaS ->
-    let i = valueOf @i
-        n = valueOf @n
-    in interpretAst env
-       $ AstConcrete (FTKS knownShS FTKScalar)
-       $ Concrete $ Nested.sfromListPrimLinear Nested.knownShS
-       $ map fromIntegral [i :: Int .. i + n - 1]
--}
 
 astReverseS :: forall n sh s r. AstSpan s
             => AstTensor AstMethodLet s (TKS2 (n ': sh) r)
@@ -2110,7 +2093,7 @@ astTransposeS perm t = case perm of
                            :: Compare (Rank perm3) (Rank sh2) :~: EQ) $
                 astTransposeS perm3 u
           GT -> error "astTransposeS: GT"
-  u -> Ast.AstTransposeS @perm perm u  -- TODO
+  u -> Ast.AstTransposeS perm u
 
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
@@ -2151,7 +2134,7 @@ astNestS
 astNestS sh1 sh2 t = case t of
 --  Ast.AstCond b v1 v2 ->
 --    Ast.AstCond b (astNestS sh1 sh2 v1) (astNestS sh1 sh2 v2)  -- TODO: ??
-  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
+  Ast.AstLet var u2 d2 ->
     astLet var u2 (astNestS sh1 sh2 d2)
   Ast.AstFromPrimal u ->
     Ast.AstFromPrimal $ astNestS sh1 sh2 u
@@ -2166,7 +2149,7 @@ astUnNestS
 astUnNestS t = case t of
 --  Ast.AstCond b v1 v2 ->
 --    Ast.AstCond b (astUnNestS v1) (astUnNestS v2)  -- TODO: ??
-  Ast.AstLet var u2 d2 ->  -- TODO: good idea?
+  Ast.AstLet var u2 d2 ->
     astLet var u2 (astUnNestS d2)
   Ast.AstFromPrimal u ->
     Ast.AstFromPrimal $ astUnNestS u
@@ -2470,7 +2453,7 @@ astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
           => AstTensor AstMethodLet s y
           -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
           -> AstTensor AstMethodLet s2 z
-astLetFun a f | astIsSmall True a = f a  -- TODO: since astLetFun is now called recursively a lot, ensure astIsSmall is constant, at least except for a constant number of the recursive calls
+astLetFun a f | astIsSmall True a = f a
 astLetFun a f = case a of
   Ast.AstFromS @y2 stkz v ->
     let (var, ast) = funToAst (ftkAst v) (f . astFromS @y2 stkz)
@@ -2487,7 +2470,7 @@ astLetFun a f = case a of
         let (var, ast) =
               funToAst (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
         in astLet var (astSFromX sh a) ast
-    -- TODO: also recursively product, though may be not worth it
+    -- calling recursively for product may be not worth it
     ftk -> let (var, ast) = funToAst ftk f
            in astLet var a ast
 
@@ -2583,7 +2566,6 @@ astNonIndexStep t = case t of
   Ast.AstSFromX sh v -> astSFromX sh v
 
   -- These should not appear here unless via wacky tests.
-  Ast.AstReplicate0NS{} -> t
   Ast.AstSum0S{} -> t
   Ast.AstDot0S{} -> t
   Ast.AstDot1InS{} -> t
@@ -2693,7 +2675,7 @@ expandAst t = case t of
     Ast.AstCastS{} -> t  -- normal form
     Ast.AstReplicate{} -> t  -- normal form
       -- TODO: this nf is silly, but right now transposes of replicates
-      -- are small OR.Arrays and equivalent gathers are large OR.Arrays,
+      -- are small srrays and equivalent gathers are large terms and arrays,
       -- so this has to stay. Maybe we should contract gathers back
       -- to transposes of replicates (not only to replicates). Or maybe
       -- we should extend orthotope to any gather schemes, not only
@@ -2739,7 +2721,6 @@ expandAst t = case t of
   Ast.AstSFromX sh v -> astSFromX sh $ expandAst v
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstReplicate0NS{} -> t
   Ast.AstSum0S{} -> t
   Ast.AstDot0S{} -> t
   Ast.AstDot1InS{} -> t
@@ -2867,7 +2848,6 @@ simplifyAst t = case t of
   Ast.AstSFromX sh v -> astSFromX sh $ simplifyAst v
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstReplicate0NS{} -> t
   Ast.AstSum0S{} -> t
   Ast.AstDot0S{} -> t
   Ast.AstDot1InS{} -> t
@@ -2903,8 +2883,6 @@ simplifyAstBool t = case t of
 -- Note that unlike all the other code in this module, this function
 -- is not written in a compositional style nor close to it,
 -- but it's instead defined in an ad-hoc way based on benchmarks.
---
--- TODO: Generalize some of the extra term constructors and the rules.
 
 contractAstInt :: AstInt AstMethodLet -> AstInt AstMethodLet
 contractAstInt = contractAst
@@ -3138,13 +3116,6 @@ contractAst t = case t of
   Ast.AstSliceS i n k v -> astSliceS i n k (contractAst v)
   Ast.AstReverseS v -> astReverseS (contractAst v)
   Ast.AstTransposeS perm v -> astTransposeS perm $ contractAst v  -- TODO:(normalizePermutation perm)
-  Ast.AstReshapeS sh (Ast.AstReplicate _ (STKS ZSS _) s) ->
-    Ast.AstReplicate0NS sh (contractAst s)
-      -- TODO: maybe move this and others to astReshape and maybe somehow join
-      -- with astReplicate0NS and also do this in this case and others:
-      -- Ast.AstReplicate _ (STKR @m _ STKScalar) x
-      --    | Just Refl <- sameNat (Proxy @m) (Proxy @0) ->
-      --      astReplicate0N shOut x
   Ast.AstReshapeS sh v -> astReshapeS sh $ contractAst v
   Ast.AstZipS v -> Ast.AstZipS (contractAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (contractAst v)
@@ -3158,7 +3129,6 @@ contractAst t = case t of
   Ast.AstSFromX sh v -> astSFromX sh $ contractAst v
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstReplicate0NS{} -> t  -- TODO: flesh out or remove
   Ast.AstSum0S{} -> t
   Ast.AstDot0S{} -> t
   Ast.AstDot1InS{} -> t
@@ -3559,7 +3529,6 @@ substitute1Ast i var = subst where
   Ast.AstSFromR sh v -> astSFromR sh <$> subst v
   Ast.AstSFromX sh v -> astSFromX sh <$> subst v
 
-  Ast.AstReplicate0NS sh v -> Ast.AstReplicate0NS sh <$> subst v
   Ast.AstSum0S v -> Ast.AstSum0S <$> subst v
   Ast.AstDot0S u v ->
     let mu = subst u

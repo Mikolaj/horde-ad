@@ -485,8 +485,6 @@ printAstAux cfg d = \case
   AstSFromR _ v -> printPrefixOp printAst cfg d "sfromR" [v]
   AstSFromX _ v -> printPrefixOp printAst cfg d "sfromX" [v]
 
-  AstReplicate0NS _sh v ->
-    printPrefixOp printAst cfg d "sreplicate0N" [v]
   AstSum0S v ->
     printPrefixOp printAst cfg d "ssum0" [v]
   AstDot0S u v ->

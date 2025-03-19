@@ -335,7 +335,6 @@ build1V snat@SNat (var, v0)
     Ast.AstSFromX sh v -> traceRule $
       astSFromX (snat :$$ sh) $ build1V snat (var, v)
 
-    Ast.AstReplicate0NS{} -> error "build1V: term not accessible from user API"
     Ast.AstSum0S{} -> error "build1V: term not accessible from user API"
     Ast.AstDot0S{} -> error "build1V: term not accessible from user API"
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"

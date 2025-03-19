@@ -388,8 +388,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> TK
             -> AstTensor ms s (TKS2 sh x)
 
   -- Backend-specific primitives
-  AstReplicate0NS :: ShS sh -> AstTensor ms s (TKS2 '[] x)
-                  -> AstTensor ms s (TKS2 sh x)
   AstSum0S :: AstTensor ms s (TKS2 sh x)
            -> AstTensor ms s (TKS2 '[] x)
   AstDot0S :: GoodScalar r

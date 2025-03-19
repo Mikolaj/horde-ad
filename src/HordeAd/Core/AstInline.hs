@@ -215,8 +215,6 @@ inlineAst memo v0 = case v0 of
   Ast.AstSFromR sh v -> second (Ast.AstSFromR sh) $ inlineAst memo v
   Ast.AstSFromX sh v -> second (Ast.AstSFromX sh) $ inlineAst memo v
 
-  Ast.AstReplicate0NS sh v ->
-    second (Ast.AstReplicate0NS sh) (inlineAst memo v)
   Ast.AstSum0S v ->
     second Ast.AstSum0S (inlineAst memo v)
   Ast.AstDot0S u v ->
@@ -497,8 +495,6 @@ unshareAst memo = \case
   Ast.AstNestS sh1 sh2 v -> second (Ast.AstNestS sh1 sh2) $ unshareAst memo v
   Ast.AstUnNestS v -> second Ast.AstUnNestS $ unshareAst memo v
 
-  Ast.AstReplicate0NS sh v ->
-    second (Ast.AstReplicate0NS sh) (unshareAst memo v)
   Ast.AstSum0S v ->
     second Ast.AstSum0S (unshareAst memo v)
   Ast.AstDot0S u v ->

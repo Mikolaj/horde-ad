@@ -361,10 +361,6 @@ interpretAst !env = \case
       withKnownSTK x $
       sfromX $ interpretAst env v
 
-  AstReplicate0NS sh v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tsreplicate0N sh (interpretAst env v)
   AstSum0S v -> case ftkToSTK (ftkAst v) of
     STKS sh x ->
       withKnownShS sh $
