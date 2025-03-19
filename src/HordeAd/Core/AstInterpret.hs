@@ -120,9 +120,6 @@ interpretAst !env = \case
     let l2 = V.map (interpretAst env) l
     in tfromVector snat stk l2
   AstSum snat stk v -> tsum snat stk $ interpretAst env v
-    -- TODO: recognize when sum0 may be used instead, which is much cheaper
-    -- or should I do that in Delta instead? no, because tsum0R
-    -- is cheaper, too
   AstReplicate snat stk v ->
     treplicate snat stk (interpretAst env v)
   -- The following can't be, in general, so partially evaluated, because v
@@ -161,9 +158,8 @@ interpretAst !env = \case
   AstVar var ->
    let var2 :: AstVarName FullSpan y
        var2 = unsafeCoerce var
--- TODO: this unsafe call is needed for benchmark VTO1.
--- Once VTO1 is fixed in another way, try to make it safe.
--- BTW, the old assertion tests the same thing and more.
+   -- The old assertion test below the same thing as this lookup doesn't
+   -- and more.
    in case DMap.Unsafe.lookupUnsafe var2 env of
     Just (AstEnvElem t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
@@ -173,7 +169,7 @@ interpretAst !env = \case
 #endif
       t
     _ -> error $ "interpretAst: unknown AstVar " ++ show var
--- TODO:                 ++ " in environment " ++ showsPrecAstEnv 0 env ""
+                 -- ++ " in environment " ++ showsPrecAstEnv 0 env ""
   AstCond b a1 a2 ->
     let c = interpretAstBool env b
     in tcond (ftkToSTK (ftkAst a1))
@@ -309,14 +305,6 @@ interpretAst !env = \case
       in tsgather @_ @shm @shn @shp t1 f2
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
-    -- TODO: currently we store the function on tape, because it doesn't
-    -- cause recomputation of the gradient per-cell, unlike storing the build
-    -- function on tape; for GPUs and libraries that don't understand Haskell
-    -- closures, we can check if the expressions involve tensor operations
-    -- too hard for GPUs and, if not, we can store the AST expression
-    -- on tape and translate it to whatever backend sooner or later;
-    -- and if yes, fall back to POPL pre-computation that, unfortunately,
-    -- leads to a tensor of deltas
   AstMinIndexS v ->
     -- By the invariant v has zero dual part, so the following suffices:
     tsminIndex $ interpretAst env v

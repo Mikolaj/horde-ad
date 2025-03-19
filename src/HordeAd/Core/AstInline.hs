@@ -19,7 +19,6 @@ import Data.Foldable qualified as Foldable
 import Data.List (mapAccumR)
 import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
-import Data.Vector.Generic qualified as V
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (fromSNat)
 
@@ -386,11 +385,12 @@ unshareAst memo = \case
              then (memo, astVar)
              else let (memo1, !a2) = unshareAst memo (Ast.AstSFromX @sh sh a)
                   in (DMap.insert var a2 memo1, astVar)
-      -- TODO: also recursively product
+      -- it maybe not be worth it to recursively convert product
+      -- so let's not do that until profiling shows we need it
       _ -> let var = varRaw
                astVar = Ast.AstVar var
            in if var `DMap.member` memo
-              then (memo, astVar)  -- TODO: memoize AstVar itself
+              then (memo, astVar)
               else let (memo1, !a2) = unshareAst memo a
                    in (DMap.insert var a2 memo1, astVar)
   Ast.AstShare{} -> error "unshareAst: AstShare not in PrimalSpan"

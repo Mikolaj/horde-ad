@@ -284,16 +284,14 @@ testSin0RrevPP1 = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty a1
-    @?= "rfromS (sreshape @[] (cos (sconcrete (sfromListLinear [1] [1.1])) * sreplicate @1 (sscalar 1.0)))"
--- TODO:"rfromS (sscalar 1.0 * cos (sscalar 1.1))"
+    @?= "rfromS (sscalar 1.0 * cos (sscalar 1.1))"
 
 testSin0RrevPP2 :: Assertion
 testSin0RrevPP2 = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstSimple a1
-    @?= "rfromS (sreshape @[] (cos (sconcrete (sfromListLinear [1] [1.1])) * sreplicate @1 (sscalar 1.0)))"
--- TODO:"rfromS (sscalar 1.0 * cos (sscalar 1.1))"
+    @?= "rfromS (sscalar 1.0 * cos (sscalar 1.1))"
 
 testSin0Rrev3 :: Assertion
 testSin0Rrev3 = do
@@ -312,8 +310,7 @@ testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
   let a1 = (rrev1 sin . rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromS (sreshape @[] (cos (cos (sconcrete (sfromListLinear [1] [1.1])) * sreplicate @1 (sscalar 1.0)) * sreplicate @1 (sscalar 1.0)))"
--- TODO: "rfromS (sscalar 1.0 * cos (sscalar 1.0 * cos (sscalar 1.1)))"
+    @?= "rfromS (sscalar 1.0 * cos (sscalar 1.0 * cos (sscalar 1.1)))"
 
 testSin0Rrev5 :: Assertion
 testSin0Rrev5 = do
@@ -326,8 +323,7 @@ testSin0RrevPP5 = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 (rrev1 sin) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromS (sreshape @[] (sconcrete (sfromListLinear [1] [1.0]) * (negate (sin (sconcrete (sfromListLinear [1] [1.1]))) * sreplicate @1 (sscalar 1.0))))"
--- TODO:"rfromS (sscalar 1.0 * negate (sin (sscalar 1.1)))"
+    @?= "rfromS (sscalar 1.0 * negate (sin (sscalar 1.1)))"
 
 testSin0Rrev3' :: Assertion
 testSin0Rrev3' = do
@@ -447,8 +443,7 @@ testSin0RrevPP5S = do
   resetVarCounter
   let a1 = srev1 @(AstTensor AstMethodLet PrimalSpan) @Double @'[] @'[] (srev1 sin) (srepl 1.1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "sreshape @[] (sconcrete (sfromListLinear [1] [1.0]) * (negate (sin (sconcrete (sfromListLinear [1] [1.1]))) * sreplicate @1 (sscalar 1.0)))"
--- TODO    @?= "sscalar 1.0 * negate (sin (sscalar 1.1))"
+    @?= "sscalar 1.0 * negate (sin (sscalar 1.1))"
 
 testSin0Fold0 :: Assertion
 testSin0Fold0 = do
@@ -784,7 +779,7 @@ testSin0Fold182SrevPP = do
                         (sreplicate @1 a0)
             in rfromS . f . sfromR) (rscalar 1.1)
   printAstPretty a1
-    @?= "rfromS (let v4 = tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate @5 (sscalar 1.0)) (tpair (sconcrete (sfromListLinear [1] [Z0])) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate @5 (sscalar 1.1)) (sreplicate @1 (sscalar 1.1))))) (sreplicate @1 (sscalar 1.1)))) in ssum @5 (tproject1 v4) + ssum @1 (tproject2 v4))"
+    @?= "rfromS (let v4 = tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate @5 (sscalar 1.0)) (tpair (sconcrete (sfromListLinear [1] [Z0])) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate @5 (sscalar 1.1)) (sreplicate @1 (sscalar 1.1))))) (sreplicate @1 (sscalar 1.1)))) in ssum @5 (tproject1 v4) + tproject2 v4 !$ [0])"
 
 testSin0Fold18Sgrad :: Assertion
 testSin0Fold18Sgrad = do
