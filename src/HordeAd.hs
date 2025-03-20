@@ -5,6 +5,9 @@
 module HordeAd
   ( -- * The main array API
     module HordeAd.OpsTensor
+  , module HordeAd.OpsTensorRanked
+  , module HordeAd.OpsTensorShaped
+  , module HordeAd.OpsTensorMixed
   , module HordeAd.Core.ConvertTensor
     -- * The main AD API
   , module HordeAd.ADEngine
@@ -34,3 +37,6 @@ import HordeAd.External.CommonRankedOps
 import HordeAd.External.CommonShapedOps
 import HordeAd.External.Optimizer
 import HordeAd.OpsTensor
+import HordeAd.OpsTensorMixed
+import HordeAd.OpsTensorRanked
+import HordeAd.OpsTensorShaped

@@ -162,6 +162,9 @@ library horde-ad-simplified
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.OpsTensor
+                      HordeAd.OpsTensorRanked
+                      HordeAd.OpsTensorShaped
+                      HordeAd.OpsTensorMixed
 
     hs-source-dirs:   src
 
