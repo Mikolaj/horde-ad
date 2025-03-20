@@ -1,14 +1,22 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
--- | AST of the code built using the @RankedTensor@ and related classes.
--- The AST is needed for handling second order operations (such as build
--- and map, via IET (vectorization), and for producing reusable reverse
--- derivative terms. However, it can also be used for other code
--- transformations, e.g., simplification.
+-- | AST of the code built using the horde-ad operations as specified
+-- in the 'BaseTensor' class and elsewhere.
+-- The AST is essential for efficient handling of second order operations
+-- such as build and map via IET (stuff),
+-- and fold and mapAccum via symbolic nested derivatives
+-- and for producing reusable reverse derivative terms.
+-- It also enables other code transformations,
+-- such as simplification, fusion and inlining.
+--
+-- Note that Ast* modules rarely depend on Ops* and Carriers* modules
+-- (except AstInterpret and AstEnv that describe how to go from Ast to Ops
+-- and vice versa (except OpsAst and CarriersAst that describe how to
+-- define Ops in terms of Ast). Syntax is relatively separated
+-- from semantics and they meet in the interpreter (AstInterpret)
+-- and in the semantic model constructed from syntax (OpsAst).
 module HordeAd.Core.Ast
-  ( -- * The AstSpan kind
+  ( -- * The AstSpan tags and class
     AstSpanType(..), AstSpan(..), sameAstSpan
-    -- * More and less typed variables and related type synonyms
+    -- * Variables and related type synonyms
   , AstVarId, intToAstVarId
   , AstInt, IntVarName, pattern AstIntVar
   , AstVarName, mkAstVarName, varNameToAstVarId, varNameToFTK
@@ -28,10 +36,10 @@ import Data.Functor.Const
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.Some
-import Data.Type.Equality (TestEquality (..), (:~:) (Refl))
+import Data.Type.Equality (TestEquality (..), (:~:))
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (type (+), type (<=))
-import Type.Reflection (Typeable, eqTypeRep, typeRep, (:~~:) (HRefl))
+import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
@@ -43,18 +51,12 @@ import Data.Array.Nested.Internal.Shape
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
--- Note that no Ast* module except AstInterpret and AstEnv
--- depends on any Tensor*, Carriers* and Ops* modules
--- and vice versa except CarriersAst and OpsAst.
--- Syntax is separated from semantics and they meet in the interpreter
--- and in the semantic model constructed from syntax (TensorAst).
-
--- * The AstSpan kind
+-- * The AstSpan tags and class
 
 -- | A kind (a type intended to be promoted) marking whether an AST term
 -- is supposed to denote the primal part of a dual number, the dual part
 -- or the whole dual number. It's mainly used to index the terms
--- of the AstTensor and related GADTs.
+-- of the AstTensor type  and related GADTs.
 type data AstSpanType = PrimalSpan | DualSpan | FullSpan
 
 class Typeable s => AstSpan (s :: AstSpanType) where
@@ -67,7 +69,8 @@ instance AstSpan PrimalSpan where
   fromPrimal = id
   fromDual t = AstPrimalPart $ AstFromDual t  -- this is primal zero
     -- AstTools is split off, so ftkAst can'be used here,
-    -- so the following is brought here via simplification later on:
+    -- so the term is replaced by the following potentially smaller term
+    -- only later on during the simplification process:
     -- let ftk = ftkAst t
     -- in AstConcrete ftk $ treplTarget 0 ftk
   primalPart t = t
@@ -86,26 +89,20 @@ instance AstSpan FullSpan where
   dualPart = AstDualPart
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
-sameAstSpan = case eqTypeRep (typeRep @s1) (typeRep @s2) of
-                Just HRefl -> Just Refl
-                Nothing -> Nothing
+sameAstSpan = testEquality (typeRep @s1) (typeRep @s2)
 
 
 -- * More and less typed variables and related type synonyms
 
--- We avoid adding a phantom type denoting the tensor functor,
--- because it can't be easily compared (even fully applied) and so the phantom
--- is useless. We don't add the underlying scalar nor the rank/shape,
--- because some collections differ in those too. We don't add a phantom span,
--- because carrying around type constructors that need to be applied to span
--- complicates the system greatly for moderate type safety gain
--- and a high number of different ID types induces many conversions.
 newtype AstVarId = AstVarId Int
  deriving (Eq, Ord, Show, Enum)
 
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
+-- We avoid adding a phantom type denoting the tensor functor,
+-- because it can't be easily compared (even fully applied)
+-- and so the phantom is useless.
 type role AstVarName nominal nominal
 data AstVarName :: AstSpanType -> TK -> Type where
   AstVarName :: forall s y. FullShapeTK y -> AstVarId -> AstVarName s y
@@ -171,10 +168,9 @@ type AstVarListS sh = ListS sh (Const IntVarName)
 
 type data AstMethodOfSharing = AstMethodShare | AstMethodLet
 
--- | AST for tensors that are meant to be differentiated
+-- | AST for tensors that are meant to be differentiated.
 type role AstTensor nominal nominal nominal
-data AstTensor :: AstMethodOfSharing -> AstSpanType -> TK
-               -> Type where
+data AstTensor :: AstMethodOfSharing -> AstSpanType -> TK -> Type where
   -- General operations, for scalar, ranked, shared and other tensors at once
   AstPair :: forall y z ms s.
              AstTensor ms s y -> AstTensor ms s z
