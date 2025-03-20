@@ -1336,7 +1336,7 @@ testSin0rmapAccumRD00SCacc0 = do
                           (srepl 0)
             in f) (srepl 1.1) (sfromList0N []))
 
-{- TODO: crashes
+{- TODO: crashes due to a zero dimension
 testSin0rmapAccumRD00SCacc0 :: Assertion
 testSin0rmapAccumRD00SCacc0 = do
   assertEqualUpToEpsilon 1e-10
@@ -1428,7 +1428,7 @@ testSin0rmapAccumRD00SCall0 = do
                           (treplicate (SNat @0) stkUnit tunit)
             in f) (srepl 1.1) (sfromList0N []))
 
-{- TODO: crashes
+{- TODO: crashes due to a zero dimension
 testSin0rmapAccumRD00SCall00 :: Assertion
 testSin0rmapAccumRD00SCall00 = do
   assertEqualUpToEpsilon 1e-10

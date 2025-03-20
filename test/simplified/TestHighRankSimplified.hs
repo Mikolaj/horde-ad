@@ -353,7 +353,6 @@ testFooMap =
     (rev' @Float @1 (fooMap1 [130]) (rscalar 0.1))
 
 -- Reduced test, because this takes forever with Ast but without vectorization.
--- TODO: investigate why.
 testFooMap1 :: Assertion
 testFooMap1 =
   assertEqualUpToEpsilonShort 1e-6

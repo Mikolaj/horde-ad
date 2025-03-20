@@ -1,24 +1,23 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
 -- | The implementation of reverse derivative and forward derivative
 -- calculation for an objective function on values of complicated types,
 -- e.g., nested tuples of tensors.
 module HordeAd.ADEngine
-  ( -- * Reverse derivative adaptors
+  ( -- * Symbolic reverse derivative adaptors
     grad, vjp
   , gradArtifact, vjpArtifact
   , gradInterpretArtifact, vjpInterpretArtifact
-    -- * Forward derivative adaptors
+    -- * Symbolic forward derivative adaptors
   , jvp, jvpArtifact, jvpInterpretArtifact
-    -- * Non-AST reverse derivative adaptors
+    -- * Non-symbolic reverse derivative adaptors
   , cgrad, cvjp
-    -- * Non-AST forward derivative adaptors
+    -- * Non-symbolic forward derivative adaptors
   , cjvp
-    -- * Internal machinery for AST adaptors
+    -- * Internal machinery for symbolic adaptors
   , IncomingCotangentHandling(..)
   , revArtifactAdapt, revArtifactDelta
   , revProduceArtifactWithoutInterpretation, revInterpretArtifact
   , fwdArtifactAdapt, fwdArtifactDelta, fwdInterpretArtifact
-    -- * Internal machinery for non-AST adaptors
+    -- * Internal machinery for non-symbolic adaptors
   , cfwdBoth
   ) where
 
@@ -42,14 +41,7 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
 
--- An orphan needed to tweak dependencies to specialize better.
-instance KnownSTK y
-         => TermValue (AstTensor AstMethodLet FullSpan y) where
-  type Value (AstTensor AstMethodLet FullSpan y) = Concrete y
-  fromValue t = tconcrete (tftkG (knownSTK @y) $ unConcrete t) t
-
-
--- * Reverse derivative adaptors
+-- * Symbolic reverse derivative adaptors
 
 -- | This simplified version of the reverse derivative operation
 -- sets the incoming cotangent @dt@ to be 1 and assumes the codomain
@@ -150,7 +142,7 @@ vjpInterpretArtifact AstArtifactRev{..} parameters dt =
   in fromTarget $ interpretAstPrimal envDt artDerivativeRev
 
 
--- * Reverse derivative adaptors' internal machinery
+-- * Symbolic reverse derivative adaptors' internal machinery
 
 revMaybe
   :: forall astvals z.
@@ -208,7 +200,7 @@ revInterpretArtifact AstArtifactRev{..} parameters mdt =
   in (gradient, primal)
 
 
--- * Reverse derivative adaptors' testing-only internal machinery
+-- * Symbolic reverse derivative adaptors' testing-only internal machinery
 
 revArtifactDelta
   :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
@@ -251,7 +243,7 @@ forwardPassByApplication g astVarPrimal var _astVar =
   in g varInputs
 
 
--- * Forward derivative adaptors
+-- * Symbolic forward derivative adaptors
 
 -- | The forward derivative operation takes the sensitivity parameter
 -- (the incoming tangent). It also permits an aribtrary (nested tuple+)
@@ -303,7 +295,7 @@ jvpInterpretArtifact
 jvpInterpretArtifact art parameters = fst . fwdInterpretArtifact art parameters
 
 
--- * Forward derivative adaptors' internal machinery
+-- * Symbolic forward derivative adaptors' internal machinery
 
 fwdArtifactAdapt
   :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
@@ -337,7 +329,7 @@ fwdInterpretArtifact AstArtifactFwd{..} parameters ds =
      else error "fwdInterpretArtifact: forward derivative input and sensitivity arguments should have same shape as the domain of the objective function"
 
 
--- * Forward derivative adaptors' testing-only internal machinery
+-- * Symbolic forward derivative adaptors' testing-only internal machinery
 
 fwdArtifactDelta
   :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
@@ -352,7 +344,7 @@ fwdArtifactDelta f xftk =
   in fwdArtifactFromForwardPass (forwardPassByInterpretation g emptyEnv) xftk
 
 
--- * Non-AST reverse derivative adaptors
+-- * Non-symbolic reverse derivative adaptors
 
 -- We are inlining these functions because they take function arguments
 -- and are not too large. However, becausethey are called in many places,
@@ -386,7 +378,7 @@ cvjp
 cvjp f vals dt = crevMaybe f vals (Just dt)
 
 
--- * Non-AST reverse derivative adaptors' internal machinery
+-- * Non-symbolic reverse derivative adaptors' internal machinery
 
 crevMaybe
   :: forall advals z.
@@ -407,7 +399,7 @@ crevMaybe f vals0 mdt =
      $ fst $ crevOnParams mdt g xftk valsTarget
 
 
--- * Non-AST forward derivative adaptors
+-- * Non-symbolic forward derivative adaptors
 
 -- | This takes the sensitivity parameter, by convention.
 cjvp
@@ -423,7 +415,7 @@ cjvp
 cjvp f vals ds = fst $ cfwdBoth f vals ds
 
 
--- * Non-AST forward derivative adaptors' internal machinery
+-- * Non-symbolic forward derivative adaptors' internal machinery
 
 cfwdBoth
   :: forall advals z.

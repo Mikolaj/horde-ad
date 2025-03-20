@@ -1,7 +1,7 @@
--- | An API of the library that should be sufficient for general use.
+-- | An API of the horde-ad library that should be sufficient for general use.
 -- To (ab)use implementation details or to access ready tools for specific
--- applications, such as fully connect neural networks operating on MNIST
--- data, some extra imports may be needed that are not covered here.
+-- applications, such as neural networks operating on MNIST data,
+-- extra imports may be needed that are not covered here.
 module HordeAd
   ( -- * The main array API
     module HordeAd.OpsTensor

@@ -81,6 +81,11 @@ class RandomValue vals where
 
 -- * Base instances
 
+instance KnownSTK y
+         => TermValue (AstTensor AstMethodLet FullSpan y) where
+  type Value (AstTensor AstMethodLet FullSpan y) = Concrete y
+  fromValue t = tconcrete (tftkG (knownSTK @y) $ unConcrete t) t
+
 -- These instances are messy and hard to use, but we probably can't do better.
 instance DualNumberValue Double where
   type DValue Double = Concrete (TKScalar Double)
