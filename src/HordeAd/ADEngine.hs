@@ -227,8 +227,7 @@ revArtifactDelta cotangentHandling f xftk =
 revProduceArtifactWithoutInterpretation
   :: forall x z.
      IncomingCotangentHandling
-  -> (ADVal (AstRaw PrimalSpan) x
-      -> ADVal (AstRaw PrimalSpan) z)
+  -> (ADVal (AstRaw PrimalSpan) x -> ADVal (AstRaw PrimalSpan) z)
   -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
@@ -238,8 +237,7 @@ revProduceArtifactWithoutInterpretation cotangentHandling f xftk =
 
 forwardPassByApplication
   :: forall x z.
-     (ADVal (AstRaw PrimalSpan) x
-      -> ADVal (AstRaw PrimalSpan) z)
+     (ADVal (AstRaw PrimalSpan) x -> ADVal (AstRaw PrimalSpan) z)
   -> AstTensor AstMethodShare PrimalSpan x
   -> AstVarName FullSpan x
   -> AstTensor AstMethodLet FullSpan x
@@ -255,13 +253,9 @@ forwardPassByApplication g astVarPrimal var _astVar =
 
 -- | The forward derivative operation takes the perturbation parameter
 -- (the incoming tangent). It also permits an aribtrary (nested tuple+)
--- type of not only the domain but also the codomain of the function
--- to be differentiated.
---
--- Warning: this fails often with ranked tensor due to inability
--- to determine the tensor shapes, see test testBarReluMax3Fwd.
--- Shaped tensors work fine. Similarly, the complex codomain resolution
--- may fail at runtime if it contains lists or vectors of tensors, etc.
+-- type of the domain and aribtrary (nested pair) tensor kind of the codomain
+-- of the function to be differentiated. The generality sometimes makes it
+-- necessary to suppy type hints when applying this operation.
 jvp
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
@@ -297,7 +291,7 @@ jvpArtifact f vals0 =
 jvpInterpretArtifact
   :: forall x z.
      AstArtifactFwd x z
-  -> Concrete x  -- one of these could be adapted if convenient, but rather not
+  -> Concrete x
   -> Concrete (ADTensorKind x)
   -> Concrete (ADTensorKind z)
 {-# INLINE jvpInterpretArtifact #-}
@@ -358,12 +352,11 @@ fwdArtifactDelta f xftk =
 -- * Non-symbolic reverse derivative adaptors
 
 -- We are inlining these functions because they take function arguments
--- and are not too large. However, becausethey are called in many places,
--- we break the inline chain at crevOnParams, to avoid exe blowup.
--- | The old versions that use the fixed input and @dt@ to compute gradient
--- only at these values, both transposing and evaluating at the same time.
---
--- These work for @f@ both ranked and shaped.
+-- and are not too large. However, because they are called in many places,
+-- we break the inline chain not far from the top, to avoid exe blowup.
+-- | This simplified version of the concrete (non-symbolic)
+-- reverse derivative operation sets the incoming cotangent @dt@ to be 1
+-- and assumes the codomain of the function to be differentiated is a scalar.
 cgrad
   :: forall advals r.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
@@ -375,7 +368,9 @@ cgrad
 {-# INLINE cgrad #-}
 cgrad f vals = crevMaybe f vals Nothing
 
--- | This version additionally takes the sensitivity parameter.
+-- | This more general version of the concrete (non-symbolic)
+-- reverse derivative operation additionally takes the sensitivity parameter
+-- (the incoming cotangent).
 cvjp
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)

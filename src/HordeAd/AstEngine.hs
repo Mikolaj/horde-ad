@@ -34,9 +34,9 @@ simplifyInline =
   . simplifyAst . expandAst
   . snd . inlineAst EM.empty . simplifyAst
 
--- | A mixture of simplification and inlining to use when the resultng
--- term is not to be interpreted using a computational backed
--- and producing a concrete value.
+-- | A mixture of simplification, inlining and recognition of additional
+-- backend-specific primitives, to use before a term
+-- is interpreted as a value in the computational backend.
 simplifyInlineContract
   :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
@@ -100,36 +100,30 @@ printAstPrettyButNested t =
   let renames = IM.empty
   in printAst (defaulPrintConfig2 True False renames) 0 t ""
 
-printArtifactSimple
-  :: AstArtifactRev x z -> String
+printArtifactSimple :: AstArtifactRev x z -> String
 printArtifactSimple !AstArtifactRev{..} =
   let nDt = fromEnum (varNameToAstVarId artVarDtRev) - 100000000
       renames = IM.singleton nDt "dret"
-      varsPP =
-        [ printAstVarReName renames artVarDtRev
-        , printAstVarReName renames artVarDomainRev ]
+      varsPP = [ printAstVarReName renames artVarDtRev
+               , printAstVarReName renames artVarDomainRev ]
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstSimpleRe renames artDerivativeRev
 
-printArtifactPretty
-  :: AstArtifactRev x z -> String
+printArtifactPretty :: AstArtifactRev x z -> String
 printArtifactPretty !AstArtifactRev{..} =
   let nDt = fromEnum (varNameToAstVarId artVarDtRev) - 100000000
       renames = IM.singleton nDt "dret"
-      varsPP =
-        [ printAstVarReName renames artVarDtRev
-        , printAstVarReName renames artVarDomainRev ]
+      varsPP = [ printAstVarReName renames artVarDtRev
+               , printAstVarReName renames artVarDomainRev ]
   in "\\" ++ unwords varsPP
           ++ " -> " ++ printAstPrettyRe renames artDerivativeRev
 
-printArtifactPrimalSimple
-  :: AstArtifactRev x z -> String
+printArtifactPrimalSimple :: AstArtifactRev x z -> String
 printArtifactPrimalSimple !AstArtifactRev{..} =
   "\\" ++ printAstVarName artVarDomainRev
        ++ " -> " ++ printAstSimple artPrimalRev
 
-printArtifactPrimalPretty
-  :: AstArtifactRev x z -> String
+printArtifactPrimalPretty :: AstArtifactRev x z -> String
 printArtifactPrimalPretty !AstArtifactRev{..} =
   "\\" ++ printAstVarName artVarDomainRev
        ++ " -> " ++ printAstPretty artPrimalRev
