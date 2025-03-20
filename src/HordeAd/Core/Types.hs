@@ -74,7 +74,7 @@ import System.Random
 import Type.Reflection (Typeable)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Internal.Arith (NumElt (..))
+import Data.Array.Mixed.Internal.Arith (NumElt (..), fromO, toO)
 import Data.Array.Mixed.Permutation (DropLen, PermR, TakeLen)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
@@ -237,14 +237,13 @@ instance NumElt Z0 where
   numEltNeg _ arr = arr
   numEltAbs _ arr = arr
   numEltSignum _ arr = arr
-  numEltSum1Inner _ arr = RS.index arr 0
-  numEltProduct1Inner _ arr = RS.index arr 0
+  numEltSum1Inner _ arr = fromO (RS.index (toO arr) 0)
+  numEltProduct1Inner _ arr = fromO (RS.index (toO arr) 0)
   numEltSumFull _ _arr = Z0
   numEltProductFull _ _arr = Z0
   numEltMinIndex snat _arr = replicate (sNatValue snat) 0
   numEltMaxIndex snat _arr = replicate (sNatValue snat) 0
-  numEltDotprodInner _ arr1 _arr2 = RS.index arr1 0
-
+  numEltDotprodInner _ arr1 _arr2 = fromO (RS.index (toO arr1) 0)
 
 -- * Type families that tensors will belong to
 
