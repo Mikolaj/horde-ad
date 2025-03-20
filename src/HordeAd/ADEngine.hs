@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- | The implementation of reverse derivative and forward derivative
 -- calculation for an objective function on values of complicated types,
 -- e.g., nested tuples of tensors.
@@ -67,8 +68,8 @@ grad f vals = revMaybe f vals Nothing
 -- | This version of the reverse derivative operation
 -- explicitly takes the sensitivity parameter (the incoming cotangent).
 -- It also permits an aribtrary (nested tuple+) type of the domain
--- and aribtrary (nested product) tensor kind of the codomain
--- of the function to be differentiated. The downside
+-- and aribtrary (nested pair) tensor kind of the codomain
+-- of the function to be differentiated. The downside of the generality
 -- is that if the function doesn't have a type signature,
 -- the type often has to be spelled in full to aid type reconstruction.
 -- For simplicity of the type signature, the resulting value is converted from
@@ -119,11 +120,15 @@ gradInterpretArtifact
   -> avals
 {-# INLINE gradInterpretArtifact #-}
 gradInterpretArtifact AstArtifactRev{..} parameters =
-  let azstk = varNameToFTK artVarDtRev
-      oneAtF = treplTarget 1 azstk
+  let xftk = varNameToFTK artVarDomainRev
+      azftk = varNameToFTK artVarDtRev
+                -- STKScalar @(ADTensorScalar r) or STKScalar @Z0
+      oneAtF = treplTarget 1 azftk
       env = extendEnv artVarDtRev oneAtF
             $ extendEnv artVarDomainRev parameters emptyEnv
-  in fromTarget $ interpretAstPrimal env artDerivativeRev
+  in if tftkG (ftkToSTK xftk) (unConcrete parameters) == xftk
+     then fromTarget $ interpretAstPrimal env artDerivativeRev
+     else error "gradInterpretArtifact: reverse derivative parameters must have the same shape as the domain of the objective function"
 
 vjpInterpretArtifact
   :: forall x z avals.
@@ -134,12 +139,15 @@ vjpInterpretArtifact
   -> avals
 {-# INLINE vjpInterpretArtifact #-}
 vjpInterpretArtifact AstArtifactRev{..} parameters dt =
-  let azstk = varNameToFTK artVarDtRev
-      env = extendEnv artVarDomainRev parameters emptyEnv
-      envDt = if tftkG (ftkToSTK azstk) (unConcrete dt) == azstk
-              then extendEnv artVarDtRev dt env
-              else error "vjpInterpretArtifact: reverse derivative incoming cotangent should have the same shape as the codomain of the objective function"
-  in fromTarget $ interpretAstPrimal envDt artDerivativeRev
+  let xftk = varNameToFTK artVarDomainRev
+      azftk = varNameToFTK artVarDtRev
+      env = extendEnv artVarDtRev dt
+            $ extendEnv artVarDomainRev parameters emptyEnv
+  in if tftkG (ftkToSTK xftk) (unConcrete parameters) == xftk
+     then if tftkG (ftkToSTK azftk) (unConcrete dt) == azftk
+          then fromTarget $ interpretAstPrimal env artDerivativeRev
+          else error "vjpInterpretArtifact: reverse derivative incoming cotangent must have the same shape as the codomain of the objective function"
+     else error "vjpInterpretArtifact: reverse derivative parameters must have the same shape as the domain of the objective function"
 
 
 -- * Symbolic reverse derivative adaptors' internal machinery
@@ -185,16 +193,16 @@ revInterpretArtifact
   -> (Concrete (ADTensorKind x), Concrete z)
 {-# INLINE revInterpretArtifact #-}
 revInterpretArtifact AstArtifactRev{..} parameters mdt =
-  let azstk = varNameToFTK artVarDtRev
+  let azftk = varNameToFTK artVarDtRev
       env = extendEnv artVarDomainRev parameters emptyEnv
       envDt = case mdt of
         Nothing ->
-          let oneAtF = treplTarget 1 azstk
+          let oneAtF = treplTarget 1 azftk
           in extendEnv artVarDtRev oneAtF env
         Just dt ->
-          if tftkG (ftkToSTK azstk) (unConcrete dt) == azstk
+          if tftkG (ftkToSTK azftk) (unConcrete dt) == azftk
           then extendEnv artVarDtRev dt env
-          else error "revInterpretArtifact: reverse derivative incoming cotangent should have the same shape as the codomain of the objective function"
+          else error "revInterpretArtifact: reverse derivative incoming cotangent must have the same shape as the codomain of the objective function"
       gradient = interpretAstPrimal envDt artDerivativeRev
       primal = interpretAstPrimal env artPrimalRev
   in (gradient, primal)
@@ -245,7 +253,7 @@ forwardPassByApplication g astVarPrimal var _astVar =
 
 -- * Symbolic forward derivative adaptors
 
--- | The forward derivative operation takes the sensitivity parameter
+-- | The forward derivative operation takes the perturbation parameter
 -- (the incoming tangent). It also permits an aribtrary (nested tuple+)
 -- type of not only the domain but also the codomain of the function
 -- to be differentiated.
@@ -271,6 +279,7 @@ jvp f vals0 ds =
       artifact = simplifyArtifactDerivative artifactRaw
   in fst $ fwdInterpretArtifact artifact valsTarget
          $ toADTensorKindShared xftk (toTarget ds)
+       -- the shapes of vals0 vs ds are checked in fwdInterpretArtifact
 
 jvpArtifact
   :: forall astvals z.
@@ -293,6 +302,7 @@ jvpInterpretArtifact
   -> Concrete (ADTensorKind z)
 {-# INLINE jvpInterpretArtifact #-}
 jvpInterpretArtifact art parameters = fst . fwdInterpretArtifact art parameters
+  -- the shapes of parameters vs ds are checked in fwdInterpretArtifact
 
 
 -- * Symbolic forward derivative adaptors' internal machinery
@@ -319,14 +329,15 @@ fwdInterpretArtifact
 fwdInterpretArtifact AstArtifactFwd{..} parameters ds =
   let xftk = varNameToFTK artVarDomainFwd
       xstk = ftkToSTK xftk
-  in if xftk == tftkG xstk (unConcrete parameters)
-        && adFTK xftk == tftkG (adSTK xstk) (unConcrete ds)
-     then let env = extendEnv artVarDomainFwd parameters emptyEnv
-              envD = extendEnv artVarDsFwd ds env
-              derivative = interpretAstPrimal envD artDerivativeFwd
-              primal = interpretAstPrimal env artPrimalFwd
-          in (derivative, primal)
-     else error "fwdInterpretArtifact: forward derivative input and sensitivity arguments should have same shape as the domain of the objective function"
+      env = extendEnv artVarDomainFwd parameters emptyEnv
+      envD = extendEnv artVarDsFwd ds env
+  in if tftkG xstk (unConcrete parameters) == xftk
+     then if tftkG (adSTK xstk) (unConcrete ds) == adFTK xftk
+          then let derivative = interpretAstPrimal envD artDerivativeFwd
+                   primal = interpretAstPrimal env artPrimalFwd
+               in (derivative, primal)
+          else error "fwdInterpretArtifact: forward derivative perturbation must have the same shape as the domain of the objective function"
+     else error "fwdInterpretArtifact: forward derivative input must have the same shape as the domain of the objective function"
 
 
 -- * Symbolic forward derivative adaptors' testing-only internal machinery
@@ -340,7 +351,7 @@ fwdArtifactDelta
 fwdArtifactDelta f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
-      g !arg = ttlet arg $ f . fromTarget  -- fromTarget requires duplicable
+      g !arg = ttlet arg $ f . fromTarget
   in fwdArtifactFromForwardPass (forwardPassByInterpretation g emptyEnv) xftk
 
 
@@ -401,7 +412,7 @@ crevMaybe f vals0 mdt =
 
 -- * Non-symbolic forward derivative adaptors
 
--- | This takes the sensitivity parameter, by convention.
+-- | This takes the perturbation parameter, by convention.
 cjvp
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)
@@ -433,8 +444,10 @@ cfwdBoth f vals0 ds =
       g :: ADVal Concrete (X advals) -> ADVal Concrete z
       g = f . fromTarget
       dsTarget = toTarget ds
-  in cfwdOnParams xftk valsTarget g
-     $ toADTensorKindShared xftk dsTarget
+  in if tftkG (ftkToSTK xftk) (unConcrete dsTarget) == xftk
+     then cfwdOnParams xftk valsTarget g
+          $ toADTensorKindShared xftk dsTarget
+     else error "cfwdBoth: forward derivative input must have the same shape as the perturbation argument"
 
 
 
