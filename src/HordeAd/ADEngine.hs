@@ -37,7 +37,6 @@ import HordeAd.Core.DeltaEval
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.OpsAst
-import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind

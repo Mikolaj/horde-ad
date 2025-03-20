@@ -6,7 +6,7 @@
 -- and user types of statically known size, as long as they have
 -- the proper instances defined.
 --
--- The collectionsare necessary as a representation of the domains
+-- The collections are used as representations of the domains
 -- of objective functions that become the codomains of the reverse
 -- derivative functions and also to handle multiple arguments
 -- and results of fold-like operations.
@@ -37,7 +37,6 @@ import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsAst ()
-import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
@@ -54,54 +53,37 @@ class AdaptableTarget (target :: Target) vals where
 
 class TermValue vals where
   type Value vals = result | result -> vals
-                    -- ^ a helper type, with the same general shape,
-                    -- but possibly more concrete, e.g., arrays instead of terms
-                    -- where the injectivity is crucial to limit the number
-                    -- of type applications the library user has to supply
+    -- ^ a helper type, with the same general shape,
+    -- but possibly more concrete, e.g., arrays instead of terms,
+    -- where the injectivity is crucial to limit the number
+    -- of type applications the library user has to supply
   fromValue :: Value vals -> vals  -- ^ an embedding
 
 class DualNumberValue vals where
-  type DValue vals  -- ^ a helper type, with the same general shape,
-                    -- but possibly more concrete, e.g., arrays instead of terms
-                    -- where the injectivity is hard to obtain, but is not
-                    -- so important, because the type is used more internally
-                    -- and for tests rather than by the library users
+  type DValue vals
+    -- ^ a helper type, with the same general shape,
+    -- but possibly more concrete, e.g., arrays instead of terms,
+    -- where the injectivity is hard to obtain, but is not so important,
+    -- because the type is not used in the best pipeline
   fromDValue :: DValue vals -> vals  -- ^ an embedding
 
 -- | A helper class for for converting all tensors inside a type
--- from shaped to ranked.
+-- from shaped to ranked. It's useful when a collection of parameters
+-- is defined as shaped tensor for 'RandomValue' but then is going
+-- to be used as ranked tensor to make type reconstruction easier.
 class ForgetShape vals where
   type NoShape vals
   forgetShape :: vals -> NoShape vals
 
 -- | A helper class for randomly generating initial parameters.
+-- Only instance for collections of shaped tensors and scalars are possible,
+-- because only then the shapes of the tensors to generate are known
+-- from their types.
 class RandomValue vals where
   randomValue :: Double -> StdGen -> (vals, StdGen)
 
 
 -- * Base instances
-
-instance KnownSTK y
-         => TermValue (AstTensor AstMethodLet FullSpan y) where
-  type Value (AstTensor AstMethodLet FullSpan y) = Concrete y
-  fromValue t = tconcrete (tftkG (knownSTK @y) $ unConcrete t) t
-
--- These instances are messy and hard to use, but we probably can't do better.
-instance DualNumberValue Double where
-  type DValue Double = Concrete (TKScalar Double)
-  fromDValue (Concrete d) = d
-
-instance DualNumberValue Float where
-  type DValue Float = Concrete (TKScalar Float)
-  fromDValue (Concrete d) = d
-
-instance TermValue (Concrete (TKScalar Double)) where
-  type Value (Concrete (TKScalar Double)) = Double
-  fromValue = Concrete
-
-instance TermValue (Concrete (TKScalar Float)) where
-  type Value (Concrete (TKScalar Float)) = Float
-  fromValue = Concrete
 
 instance AdaptableTarget target (target y) where
   type X (target y) = y
@@ -110,6 +92,11 @@ instance AdaptableTarget target (target y) where
   {-# SPECIALIZE instance AdaptableTarget Concrete (Concrete (TKS sh Double)) #-}
   {-# SPECIALIZE instance AdaptableTarget Concrete (Concrete (TKS sh Float)) #-}
     -- a failed attempt to specialize without -fpolymorphic-specialisation
+
+instance KnownSTK y
+         => TermValue (AstTensor AstMethodLet FullSpan y) where
+  type Value (AstTensor AstMethodLet FullSpan y) = Concrete y
+  fromValue t = tconcrete (tftkG (knownSTK @y) $ unConcrete t) t
 
 instance (BaseTensor target, BaseTensor (PrimalOf target), KnownSTK y)
          => DualNumberValue (target y) where
@@ -133,6 +120,27 @@ instance (KnownShS sh, GoodScalar r, ConvertTensor target)
 instance ForgetShape (target (TKX sh r)) where
   type NoShape (target (TKX sh r)) = target (TKX sh r)
   forgetShape = id
+
+type family NoShapeTensorKind tk where
+  NoShapeTensorKind (TKScalar r) = TKScalar r
+  NoShapeTensorKind (TKR2 n r) = TKR2 n r
+  NoShapeTensorKind (TKS2 sh r) = TKR2 (Rank sh) r
+  NoShapeTensorKind (TKX2 sh r) = TKX2 sh r
+  NoShapeTensorKind (TKProduct y z) =
+    TKProduct (NoShapeTensorKind y) (NoShapeTensorKind z)
+
+instance ( ForgetShape (target a)
+         , ForgetShape (target b)
+         , target (NoShapeTensorKind a) ~ NoShape (target a)
+         , target (NoShapeTensorKind b) ~ NoShape (target b)
+         , BaseTensor target, LetTensor target )
+         => ForgetShape (target (TKProduct a b)) where
+  type NoShape (target (TKProduct a b)) =
+    target (NoShapeTensorKind (TKProduct a b))
+  forgetShape ab =
+    ttlet ab $ \abShared ->
+      tpair (forgetShape (tproject1 abShared))
+            (forgetShape (tproject2 abShared))
 
 instance forall r target. (GoodScalar r, BaseTensor target)
          => RandomValue (target (TKScalar r)) where
@@ -162,36 +170,32 @@ instance forall sh r target. (KnownShS sh, GoodScalar r, BaseTensor target)
   {-# SPECIALIZE instance KnownShS sh => RandomValue (Concrete (TKS sh Double)) #-}
   {-# SPECIALIZE instance KnownShS sh => RandomValue (Concrete (TKS sh Float)) #-}
 
-
--- * Compound instances
-
-type family NoShapeTensorKind tk where
-  NoShapeTensorKind (TKScalar r) = TKScalar r
-  NoShapeTensorKind (TKR2 n r) = TKR2 n r
-  NoShapeTensorKind (TKS2 sh r) = TKR2 (Rank sh) r
-  NoShapeTensorKind (TKX2 sh r) = TKX2 sh r
-  NoShapeTensorKind (TKProduct y z) =
-    TKProduct (NoShapeTensorKind y) (NoShapeTensorKind z)
-
-instance ( ForgetShape (target a)
-         , ForgetShape (target b)
-         , target (NoShapeTensorKind a) ~ NoShape (target a)
-         , target (NoShapeTensorKind b) ~ NoShape (target b)
-         , BaseTensor target, LetTensor target )
-         => ForgetShape (target (TKProduct a b)) where
-  type NoShape (target (TKProduct a b)) =
-    target (NoShapeTensorKind (TKProduct a b))
-  forgetShape ab =
-    ttlet ab $ \abShared ->
-      tpair (forgetShape (tproject1 abShared))
-            (forgetShape (tproject2 abShared))
-
 instance (RandomValue (target a), RandomValue (target b), BaseTensor target)
          => RandomValue (target (TKProduct a b)) where
   randomValue range g =
     let (v1, g1) = randomValue range g
         (v2, g2) = randomValue range g1
     in (tpair v1 v2, g2)
+
+-- These instances are messy and hard to use, but we probably can't do better.
+instance DualNumberValue Double where
+  type DValue Double = Concrete (TKScalar Double)
+  fromDValue (Concrete d) = d
+
+instance DualNumberValue Float where
+  type DValue Float = Concrete (TKScalar Float)
+  fromDValue (Concrete d) = d
+
+instance TermValue (Concrete (TKScalar Double)) where
+  type Value (Concrete (TKScalar Double)) = Double
+  fromValue = Concrete
+
+instance TermValue (Concrete (TKScalar Float)) where
+  type Value (Concrete (TKScalar Float)) = Float
+  fromValue = Concrete
+
+
+-- * Compound instances
 
 instance (BaseTensor target, ConvertTensor target, GoodScalar r)
          => AdaptableTarget target [target (TKScalar r)] where
@@ -201,18 +205,6 @@ instance (BaseTensor target, ConvertTensor target, GoodScalar r)
                else trfromVector $ V.fromList $ map rfromK l
   fromTarget = map kfromR . trunravelToList
                               -- inefficient, but we probabl can't do better
-
-instance TermValue a => TermValue [a] where
-  type Value [a] = [Value a]
-  fromValue = map fromValue
-
-instance DualNumberValue a => DualNumberValue [a] where
-  type DValue [a] = [DValue a]
-  fromDValue = map fromDValue
-
-instance ForgetShape [a] where
-  type NoShape [a] = [a]
-  forgetShape = id
 
 instance (BaseTensor target, ConvertTensor target, GoodScalar r)
          => AdaptableTarget target
@@ -224,18 +216,6 @@ instance (BaseTensor target, ConvertTensor target, GoodScalar r)
   fromTarget =
     V.fromList . map kfromR . trunravelToList
                                 -- inefficient, but we probably can't do better
-
-instance TermValue a => TermValue (Data.Vector.Vector a) where
-  type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
-  fromValue = V.map fromValue
-
-instance DualNumberValue a => DualNumberValue (Data.Vector.Vector a) where
-  type DValue (Data.Vector.Vector a) = Data.Vector.Vector (DValue a)
-  fromDValue = V.map fromDValue
-
-instance ForgetShape (Data.Vector.Vector a) where
-  type NoShape (Data.Vector.Vector a) = Data.Vector.Vector a
-  forgetShape = id
 
 type family Tups n t where
   Tups 0 t = TKUnit
@@ -272,15 +252,39 @@ instance (BaseTensor target, KnownNat n, AdaptableTarget target a)
   {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (AstTensor AstMethodLet FullSpan) a) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (ListR n a) #-}
   {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (ADVal Concrete) a) => AdaptableTarget (ADVal Concrete) (ListR n a) #-}
 
+instance TermValue a => TermValue [a] where
+  type Value [a] = [Value a]
+  fromValue = map fromValue
+
+instance TermValue a => TermValue (Data.Vector.Vector a) where
+  type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
+  fromValue = V.map fromValue
+
 instance TermValue a => TermValue (ListR n a) where
   type Value (ListR n a) = ListR n (Value a)
   fromValue ZR = ZR
   fromValue (a ::: rest) = fromValue a ::: fromValue rest
 
+instance DualNumberValue a => DualNumberValue [a] where
+  type DValue [a] = [DValue a]
+  fromDValue = map fromDValue
+
+instance DualNumberValue a => DualNumberValue (Data.Vector.Vector a) where
+  type DValue (Data.Vector.Vector a) = Data.Vector.Vector (DValue a)
+  fromDValue = V.map fromDValue
+
 instance DualNumberValue a => DualNumberValue (ListR n a) where
   type DValue (ListR n a) = ListR n (DValue a)
   fromDValue ZR = ZR
   fromDValue (a ::: rest) = fromDValue a ::: fromDValue rest
+
+instance ForgetShape [a] where
+  type NoShape [a] = [a]
+  forgetShape = id
+
+instance ForgetShape (Data.Vector.Vector a) where
+  type NoShape (Data.Vector.Vector a) = Data.Vector.Vector a
+  forgetShape = id
 
 instance ForgetShape a => ForgetShape (ListR n a) where
   type NoShape (ListR n a) = ListR n (NoShape a)
@@ -295,6 +299,9 @@ instance (RandomValue a, KnownNat n) => RandomValue (ListR n a) where
            let (v, g1) = randomValue range g
                (rest, g2) = randomValue @(ListR (n - 1) a) range g1
            in (v ::: rest, g2)
+
+
+-- * Tuple instances
 
 instance ( BaseTensor target
          , AdaptableTarget target a
