@@ -3420,13 +3420,13 @@ substitute1Ast i var = subst where
   Ast.AstVar var2 ->
     if varNameToAstVarId var == varNameToAstVarId var2
     then case sameAstSpan @s3 @s2 of
-        Just Refl -> case testEquality var var2 of
-          Just Refl -> Just i
-          _ -> error $ "substitute1Ast: kind of the variable "
-                       ++ show var2 ++ ": " ++ show (varNameToFTK var)
-                       ++ ", payload kind: " ++ show (varNameToFTK var2)
-                       ++ ", payload: " ++ show i
-        _ -> error "substitute1Ast: span"
+      Just Refl -> case testEquality var var2 of
+        Just Refl -> Just i
+        _ -> error $ "substitute1Ast: kind of the variable "
+                     ++ show var2 ++ ": " ++ show (varNameToFTK var)
+                    ++ ", payload kind: " ++ show (varNameToFTK var2)
+                     ++ ", payload: " ++ show i
+      _ -> error "substitute1Ast: span"
     else Nothing
   Ast.AstCond b v w ->
     case ( substitute1AstBool i var b

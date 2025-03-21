@@ -156,20 +156,20 @@ interpretAst !env = \case
           -- getting interpreted
     in tApply t2 ll2
   AstVar var ->
-   let var2 :: AstVarName FullSpan y
-       var2 = coerce var  -- only FullSpan variables permitted in env
-   -- The old assertion test below checks the same thing this lookup doesn't
-   -- and more.
-   in case DMap.Unsafe.lookupUnsafe var2 env of
-    Just (AstEnvElem t) ->
+    let var2 :: AstVarName FullSpan y
+        var2 = coerce var  -- only FullSpan variables permitted in env
+    -- The old assertion test below checks the same thing this lookup doesn't
+    -- and more.
+    in case DMap.Unsafe.lookupUnsafe var2 env of
+      Just t ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
-      assert (tftk (ftkToSTK $ varNameToFTK var) t == varNameToFTK var
-              `blame` ( tftk (ftkToSTK $ varNameToFTK var) t
-                      , varNameToFTK var, var, t ))
+        assert (tftk (ftkToSTK $ varNameToFTK var) t == varNameToFTK var
+                `blame` ( tftk (ftkToSTK $ varNameToFTK var) t
+                        , varNameToFTK var, var, t ))
 #endif
-      t
-    _ -> error $ "interpretAst: unknown AstVar " ++ show var
-                 -- ++ " in environment " ++ showsPrecAstEnv 0 env ""
+        t
+      _ -> error $ "interpretAst: unknown AstVar " ++ show var
+                   -- ++ " in environment " ++ showsPrecAstEnv 0 env ""
   AstCond b a1 a2 ->
     let c = interpretAstBool env b
     in tcond (ftkToSTK (ftkAst a1))
@@ -285,7 +285,8 @@ interpretAst !env = \case
       withKnownShS (ixsToShS ix) $
       withKnownSTK x $
       let t1 = interpretAst env v
-          f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
+          f2 :: IxSOf target shm -> IxSOf target shp
+          f2 !ix2 = interpretAstPrimal (extendEnvVarsS vars ix2 env) <$> ix
       in tsscatter @_ @shm @shn @shp t1 f2
   AstGatherS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -301,7 +302,8 @@ interpretAst !env = \case
       withKnownShS (ixsToShS ix) $
       withKnownSTK x $
       let t1 = interpretAst env v
-          f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
+          f2 :: IxSOf target shm -> IxSOf target shp
+          f2 !ix2 = interpretAstPrimal (extendEnvVarsS vars ix2 env) <$> ix
       in tsgather @_ @shm @shn @shp t1 f2
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
@@ -421,3 +423,63 @@ interpretAstBool !env = \case
     let r1 = interpretAstPrimal env arg1
         r2 = interpretAstPrimal env arg2
     in interpretAstRelOp opCodeRel r1 r2
+
+
+-- * Interpretation of arithmetic, boolean and relation operations
+
+interpretAstN1 :: Num a
+               => OpCodeNum1 -> a -> a
+{-# INLINE interpretAstN1 #-}
+interpretAstN1 NegateOp u = negate u
+interpretAstN1 AbsOp u = abs u
+interpretAstN1 SignumOp u = signum u
+
+interpretAstR1 :: Floating a
+               => OpCode1 -> a -> a
+{-# INLINE interpretAstR1 #-}
+interpretAstR1 RecipOp u = recip u
+interpretAstR1 ExpOp u = exp u
+interpretAstR1 LogOp u = log u
+interpretAstR1 SqrtOp u = sqrt u
+interpretAstR1 SinOp u = sin u
+interpretAstR1 CosOp u = cos u
+interpretAstR1 TanOp u = tan u
+interpretAstR1 AsinOp u = asin u
+interpretAstR1 AcosOp u = acos u
+interpretAstR1 AtanOp u = atan u
+interpretAstR1 SinhOp u = sinh u
+interpretAstR1 CoshOp u = cosh u
+interpretAstR1 TanhOp u = tanh u
+interpretAstR1 AsinhOp u = asinh u
+interpretAstR1 AcoshOp u = acosh u
+interpretAstR1 AtanhOp u = atanh u
+
+interpretAstR2 :: RealFloatH a
+               => OpCode2 -> a -> a -> a
+{-# INLINE interpretAstR2 #-}
+interpretAstR2 DivideOp u v = u / v
+interpretAstR2 PowerOp u v = u ** v
+interpretAstR2 LogBaseOp u v = logBase u v
+interpretAstR2 Atan2Op u v = atan2H u v
+
+interpretAstI2 :: IntegralH a
+               => OpCodeIntegral2 -> a -> a -> a
+{-# INLINE interpretAstI2 #-}
+interpretAstI2 QuotOp u v = quotH u v
+interpretAstI2 RemOp u v = remH u v
+
+interpretAstB2 :: Boolean b
+               => OpCodeBool -> b -> b -> b
+{-# INLINE interpretAstB2 #-}
+interpretAstB2 AndOp u v = u &&* v
+interpretAstB2 OrOp u v = u ||* v
+
+interpretAstRelOp :: (EqH f y, OrdH f y)
+                  => OpCodeRel -> f y -> f y -> BoolOf f
+{-# INLINE interpretAstRelOp #-}
+interpretAstRelOp EqOp u v = u ==. v
+interpretAstRelOp NeqOp u v = u /=. v
+interpretAstRelOp LeqOp u v = u <=. v
+interpretAstRelOp GeqOp u v = u >=. v
+interpretAstRelOp LsOp u v = u <. v
+interpretAstRelOp GtOp u v = u >. v

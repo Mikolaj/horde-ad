@@ -1,7 +1,7 @@
 -- | AST of the code built using the horde-ad operations as specified
 -- in the 'BaseTensor' class and elsewhere.
 -- The AST is essential for efficient handling of second order operations
--- such as build and map via IET (stuff),
+-- such as build and map via BOT (bulk-operation transformation),
 -- and fold and mapAccum via symbolic nested derivatives
 -- and for producing reusable reverse derivative terms.
 -- It also enables other code transformations,
@@ -167,7 +167,7 @@ type data AstMethodOfSharing = AstMethodShare | AstMethodLet
 
 -- | AST for tensors that are meant to be differentiated.
 type role AstTensor nominal nominal nominal
-data AstTensor :: AstMethodOfSharing -> AstSpanType -> TK -> Type where
+data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   -- General operations, for scalar, ranked, shared and other tensors at once
   AstPair :: forall y z ms s.
              AstTensor ms s y -> AstTensor ms s z

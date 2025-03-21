@@ -198,7 +198,7 @@ inputIdToFTK (InputId ftk _) = ftk
 -- provides a different semantics.
 
 type role Delta nominal nominal
-data Delta :: Target -> TK -> Type where
+data Delta :: Target -> Target where
   -- Sharing-related operations
   DeltaShare :: NodeId target y -> Delta target y -> Delta target y
   DeltaInput :: InputId target y -> Delta target y
@@ -425,7 +425,7 @@ deriving instance Show (IntOf target) => Show (Delta target y)
 -- Defined only to cut the knot of Show instances in DeltaScale
 -- that appears in Delta terms a lot (so the primal bloats PP of Delta terms,
 -- though OTOH they are often important) and is used in the engine a lot.
-type NestedTarget :: Target -> TK -> Type
+type NestedTarget :: Target -> Target
 type role NestedTarget nominal nominal
 newtype NestedTarget target y = NestedTarget (target y)
 
