@@ -574,10 +574,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     --
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
-    let -- No bangs here, because this goes under lambda and may be unneeded
-        -- or even incorrect (and so, e.g., trigger
-        -- `error "tunshare: used not at PrimalSpan"`, because no derivative
-        -- should be taken of spans other than PrimalSpan)
+    let -- No bangs here, because this goes under lambda and should not be
+        -- evaluated too early (which at some point was even incorrect
+        -- and triggered error "tunshare: used not at PrimalSpan"; maybe this
+        -- is related to terms getting spans converted when interpreted)
         AstArtifactRev{..} =
           revProduceArtifact IgnoreIncomingCotangent (unHFun f) emptyEnv xftk
     in AstLambda artVarDomainRev (simplifyInline artDerivativeRev)

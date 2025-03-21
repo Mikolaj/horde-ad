@@ -515,7 +515,8 @@ showCollectionWith start sep end showx (x:xs) s = start ++ showx x (showl xs)
   showl []     = end ++ s
   showl (y:ys) = sep ++ showx y (showl ys)
 
-printAstHFun :: PrintConfig -> Int -> AstHFun x y -> ShowS
+printAstHFun :: AstSpan s2
+             => PrintConfig -> Int -> AstHFun s s2 x y -> ShowS
 printAstHFun cfg d = \case
   AstLambda var l ->
     if loseRoudtrip cfg
@@ -532,7 +533,8 @@ printAstHFun cfg d = \case
            . showString " -> "
            . printAst cfg 0 l
 
-printAstHFunOneUnignore :: PrintConfig -> Int -> AstHFun x y -> ShowS
+printAstHFunOneUnignore :: AstSpan s2
+                        => PrintConfig -> Int -> AstHFun s s2 x y -> ShowS
 printAstHFunOneUnignore cfg d = \case
   AstLambda var l ->
     if loseRoudtrip cfg

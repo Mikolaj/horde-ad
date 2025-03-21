@@ -193,11 +193,14 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
        SNat k
     -> FullShapeTK by
     -> FullShapeTK ey
-    -> AstHFun (TKProduct accy ey) (TKProduct accy by)
-    -> AstHFun (TKProduct (ADTensorKind (TKProduct accy ey))
+    -> AstHFun PrimalSpan PrimalSpan
+               (TKProduct accy ey) (TKProduct accy by)
+    -> AstHFun PrimalSpan PrimalSpan
+               (TKProduct (ADTensorKind (TKProduct accy ey))
                           (TKProduct accy ey))
                (ADTensorKind (TKProduct accy by))
-    -> AstHFun (TKProduct (ADTensorKind (TKProduct accy by))
+    -> AstHFun PrimalSpan PrimalSpan
+               (TKProduct (ADTensorKind (TKProduct accy by))
                           (TKProduct accy ey))
                (ADTensorKind (TKProduct accy ey))
     -> AstTensor ms s accy
@@ -208,17 +211,26 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
        SNat k
     -> FullShapeTK by
     -> FullShapeTK ey
-    -> AstHFun (TKProduct accy ey) (TKProduct accy by)
-    -> AstHFun (TKProduct (ADTensorKind (TKProduct accy ey))
+    -> AstHFun PrimalSpan PrimalSpan
+               (TKProduct accy ey) (TKProduct accy by)
+    -> AstHFun PrimalSpan PrimalSpan
+               (TKProduct (ADTensorKind (TKProduct accy ey))
                           (TKProduct accy ey))
                (ADTensorKind (TKProduct accy by))
-    -> AstHFun (TKProduct (ADTensorKind (TKProduct accy by))
+    -> AstHFun PrimalSpan PrimalSpan
+               (TKProduct (ADTensorKind (TKProduct accy by))
                           (TKProduct accy ey))
                (ADTensorKind (TKProduct accy ey))
     -> AstTensor ms s accy
     -> AstTensor ms s (BuildTensorKind k ey)
     -> AstTensor ms s (TKProduct accy (BuildTensorKind k by))
-  AstApply :: AstHFun x z -> AstTensor ms s x -> AstTensor ms s z
+  AstApply :: (AstSpan s1, AstSpan s2, AstSpan s3, AstSpan s)
+           => AstHFun s1 s2 x z -> AstTensor ms s3 x -> AstTensor ms s z
+    -- this is a weird constructor that can be interpreted correctly only
+    -- because during interpretation terms of any span result in full
+    -- dual numbers and so their types agree regardless of spans; the weirdness
+    -- saves us another interpretation pass (interpreting PrimalSpan terms
+    -- in FullSpan terms and possibly other variants)
   AstVar :: AstVarName s y -> AstTensor ms s y
   AstCond :: forall y ms s.
              AstBool ms -> AstTensor ms s y -> AstTensor ms s y
@@ -400,11 +412,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
 deriving instance Show (AstTensor ms s y)
   -- for this to work, AstConcreteS can't take a Concrete
 
-type role AstHFun nominal nominal
-data AstHFun x z where
-  AstLambda :: ~(AstVarName PrimalSpan x)
-            -> ~(AstTensor AstMethodLet PrimalSpan z)
-            -> AstHFun x z
+type role AstHFun nominal nominal nominal nominal
+data AstHFun s s2 x z where
+  AstLambda :: ~(AstVarName s x)
+            -> ~(AstTensor AstMethodLet s2 z)
+            -> AstHFun s s2 x z
     -- ^ The function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects
     -- the quantification in 'rrev' and prevents cotangent confusion.
@@ -421,7 +433,7 @@ data AstHFun x z where
     -- that if the n-th forward and reverse derivative is taken,
     -- the laziness is defeated.
 
-deriving instance Show (AstHFun x z)
+deriving instance Show (AstHFun s s2 x z)
 
 type role AstBool nominal
 data AstBool ms where

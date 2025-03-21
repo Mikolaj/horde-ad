@@ -430,11 +430,14 @@ astMapAccumRDer
      SNat k
   -> FullShapeTK by
   -> FullShapeTK ey
-  -> AstHFun (TKProduct accy ey) (TKProduct accy by)
-  -> AstHFun (TKProduct (ADTensorKind (TKProduct accy ey))
+  -> AstHFun PrimalSpan PrimalSpan
+             (TKProduct accy ey) (TKProduct accy by)
+  -> AstHFun PrimalSpan PrimalSpan
+             (TKProduct (ADTensorKind (TKProduct accy ey))
                         (TKProduct accy ey))
              (ADTensorKind (TKProduct accy by))
-  -> AstHFun (TKProduct (ADTensorKind (TKProduct accy by))
+  -> AstHFun PrimalSpan PrimalSpan
+             (TKProduct (ADTensorKind (TKProduct accy by))
                         (TKProduct accy ey))
              (ADTensorKind (TKProduct accy ey))
   -> AstTensor AstMethodLet s accy
@@ -571,11 +574,14 @@ astMapAccumLDer
      SNat k
   -> FullShapeTK by
   -> FullShapeTK ey
-  -> AstHFun (TKProduct accy ey) (TKProduct accy by)
-  -> AstHFun (TKProduct (ADTensorKind (TKProduct accy ey))
+  -> AstHFun PrimalSpan PrimalSpan
+             (TKProduct accy ey) (TKProduct accy by)
+  -> AstHFun PrimalSpan PrimalSpan
+             (TKProduct (ADTensorKind (TKProduct accy ey))
                         (TKProduct accy ey))
              (ADTensorKind (TKProduct accy by))
-  -> AstHFun (TKProduct (ADTensorKind (TKProduct accy by))
+  -> AstHFun PrimalSpan PrimalSpan
+             (TKProduct (ADTensorKind (TKProduct accy by))
                         (TKProduct accy ey))
              (ADTensorKind (TKProduct accy ey))
   -> AstTensor AstMethodLet s accy
@@ -707,14 +713,14 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
 astMapAccumLDer k bftk eftk f df rf acc0 es =
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es
 
-astApply :: forall s x z. AstSpan s
-         => AstHFun x z -> AstTensor AstMethodLet s x
+astApply :: forall x z s1 s2 s3 s.
+            (AstSpan s1, AstSpan s2, AstSpan s3, AstSpan s)
+         => AstHFun s1 s2 x z -> AstTensor AstMethodLet s3 x
          -> AstTensor AstMethodLet s z
-astApply t u = case t of
-  Ast.AstLambda !var !v ->
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> astLet var u v
-      _ -> Ast.AstApply t u
+astApply t@(AstLambda !var !v) u =
+  case (sameAstSpan @s1 @s3, sameAstSpan @s2 @s) of
+    (Just Refl, Just Refl) -> astLet var u v
+    _ -> Ast.AstApply t u  -- wait until interpretation equates the spans
 
 astCond :: AstBool AstMethodLet
         -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
@@ -815,12 +821,15 @@ astPrimalPart t = case t of
   Ast.AstReplicate snat stk v ->
     astReplicate snat stk (astPrimalPart v)
   Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
-      astMapAccumRDer k bftk eftk f df rf
-                      (astPrimalPart acc0) (astPrimalPart es)
+    astMapAccumRDer k bftk eftk f df rf
+                    (astPrimalPart acc0) (astPrimalPart es)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
-      astMapAccumLDer k bftk eftk f df rf
-                      (astPrimalPart acc0) (astPrimalPart es)
-  Ast.AstApply v ll -> astApply v (astPrimalPart ll)
+    astMapAccumLDer k bftk eftk f df rf
+                    (astPrimalPart acc0) (astPrimalPart es)
+  Ast.AstApply @_ @s2 (AstLambda !var !v) ll ->
+    case sameAstSpan @s2 @FullSpan of
+      Just Refl -> astApply (AstLambda var (astPrimalPart v)) ll
+      _ -> Ast.AstPrimalPart t
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -901,12 +910,15 @@ astDualPart t = case t of
   Ast.AstReplicate snat stk v ->
     astReplicate snat stk (astDualPart v)
   Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
-      astMapAccumRDer k bftk eftk f df rf
-                      (astDualPart acc0) (astDualPart es)
+    astMapAccumRDer k bftk eftk f df rf
+                    (astDualPart acc0) (astDualPart es)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
-      astMapAccumLDer k bftk eftk f df rf
-                      (astDualPart acc0) (astDualPart es)
-  Ast.AstApply v ll -> astApply v (astDualPart ll)
+    astMapAccumLDer k bftk eftk f df rf
+                    (astDualPart acc0) (astDualPart es)
+  Ast.AstApply @_ @s2 (AstLambda !var !v) ll ->
+    case sameAstSpan @s2 @FullSpan of
+      Just Refl -> astApply (AstLambda var (astDualPart v)) ll
+      _ -> Ast.AstDualPart t
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -2756,9 +2768,9 @@ expandAst t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatmul2S{} -> t
 
-expandAstHFun :: AstHFun x y -> AstHFun x y
-expandAstHFun = \case
-  Ast.AstLambda var l -> Ast.AstLambda var (expandAst l)
+expandAstHFun :: AstSpan s2
+              => AstHFun s s2 x y -> AstHFun s s2 x y
+expandAstHFun (AstLambda var l) = AstLambda var (expandAst l)
 
 expandAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 expandAstBool t = case t of
@@ -2883,9 +2895,9 @@ simplifyAst t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatmul2S{} -> t
 
-simplifyAstHFun :: AstHFun x y -> AstHFun x y
-simplifyAstHFun = \case
-  Ast.AstLambda var l -> Ast.AstLambda var (simplifyAst l)
+simplifyAstHFun :: AstSpan s2
+                => AstHFun s s2 x y -> AstHFun s s2 x y
+simplifyAstHFun (AstLambda var l) = AstLambda var (simplifyAst l)
 
 simplifyAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 simplifyAstBool t = case t of
@@ -3273,9 +3285,9 @@ attemptMatmul2 t3 u3 = Just $
               astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
             _ -> error "attemptMatmul2: unexpected scalar"
 
-contractAstHFun :: AstHFun x y -> AstHFun x y
-contractAstHFun = \case
-  Ast.AstLambda var l -> Ast.AstLambda var (contractAst l)
+contractAstHFun :: AstSpan s2
+                => AstHFun s s2 x y -> AstHFun s s2 x y
+contractAstHFun (AstLambda var l) = AstLambda var (contractAst l)
 
 contractAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 contractAstBool t = case t of
@@ -3590,11 +3602,11 @@ substitute1AstIxS i var ix =
      else Nothing
 
 substitute1AstHFun
-  :: forall s2 x y z.
-     AstTensor AstMethodLet s2 z -> AstVarName s2 z -> AstHFun x y
-  -> Maybe (AstHFun x y)
-substitute1AstHFun _i _var = \case
-  Ast.AstLambda{} -> Nothing  -- no outside free variables
+  :: forall s s2 s3 x y z.
+     AstTensor AstMethodLet s3 z -> AstVarName s3 z -> AstHFun s s2 x y
+  -> Maybe (AstHFun s s2 x y)
+substitute1AstHFun _i _var AstLambda{} =
+  Nothing  -- no outside free variables
 
 substitute1AstBool :: AstSpan s2
                    => AstTensor AstMethodLet s2 y -> AstVarName s2 y

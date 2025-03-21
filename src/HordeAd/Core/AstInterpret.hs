@@ -107,7 +107,15 @@ interpretAstDual !env v1 =
 -- This promotion to @target@ coincides with how most operations that in Ast
 -- have PrimalSpan, don't have PrimalOf (but have full target instead)
 -- in their method signatures in Ops, for user comfort. E.g., AstConcreteS
--- vs 'tsconcrete' and AstFloorS vs tsfloor.
+-- vs tsconcrete and AstFloorS vs tsfloor.
+--
+-- The invariant only holds for valuations of PrimalSpan variables
+-- that have zero primal part, etc., which holds for variables coming
+-- from AstLet, but not for variables inside AstHFun. We specifically
+-- in interpretAstHFun don't zero primal parts of arguments assigned
+-- to PrimalSpan variables in order to promote PrimalSpan -> PrimalSpan
+-- functions from AST to full dual number functions in target
+-- so that derivatives can be cheaply used as dual number functions.
 interpretAst
   :: forall target s y. (ADReady target, AstSpan s)
   => AstEnv target -> AstTensor AstMethodLet s y
@@ -147,13 +155,25 @@ interpretAst !env = \case
     in tmapAccumLDer (Proxy @target) k (ftkAst acc0) bftk eftk f df rf acc02 es2
   AstApply t ll ->
     let t2 = interpretAstHFun env t
-          -- this is a bunch of PrimalSpan terms interpreted in, perhaps,
-          -- FullSpan terms
+          -- The function or function-like object resulting from this
+          -- interpretation is not affected by the span of the term inside t,
+          -- but only by the AST constructors used (it matters for
+          -- the constructors that can be made well typed with more
+          -- than one span). Therefore, the function can be made compatible
+          -- with the ll argument, with which it agrees in every other way
+          -- (specifically, the tensor kind), from type-checking.
+          -- Moreover, even if the variable in t was PrimalSpan, the dual part
+          -- won't be removed from the value assigned to it, unless
+          -- a constructor that can only accept PrimalSpan argument
+          -- is applied to the variable.
+          -- This is the weirdness of the AstApply constructor semantics
+          -- and it's essential for the implicit promotion of derivaties
+          -- to general dual number functions.
         ll2 = interpretAst env ll
-          -- these are, perhaps, FullSpan terms, interpreted in the same
-          -- as above so that the mixture becomes compatible; if the spans
-          -- agreed, the AstApply would likely be simplified before
-          -- getting interpreted
+          -- See above. The interpretation makes t2 and ll2 agree in types
+          -- so that t2 can finally be applied to ll2. If the spans
+          -- agreed earlier, AstApply would likely be simplified before
+          -- getting interpreted.
     in tApply t2 ll2
   AstVar var ->
     let var2 :: AstVarName FullSpan y
@@ -379,31 +399,33 @@ interpretAst !env = \case
     tsmatmul2 (interpretAst env u) (interpretAst env v)
 
 interpretAstHFun
-  :: forall target x y. BaseTensor target
-  => AstEnv target -> AstHFun x y
+  :: forall target x y s s2. (AstSpan s2, BaseTensor target)
+  => AstEnv target -> AstHFun s s2 x y
   -> HFunOf target x y
 {-# INLINE interpretAstHFun #-}
-interpretAstHFun _env = \case
-  AstLambda var l ->
-    tlambda @target (varNameToFTK var)
-    $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
-      -- Interpretation in empty environment; makes sense here, because
+interpretAstHFun _env (AstLambda var l) =
+  tlambda @target (varNameToFTK var)
+  $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
+      -- Interpretation in empty environment makes sense here, because
       -- there are no free variables outside of those listed.
-      -- We ignore the variable and term having PrimalSpanm because
-      -- we don't have FullShapeTK y in order to use tfromPrimal.
-      -- Consequently, in the rare case when the user-supplied function
-      -- has a non-trivial dual number part, it won't be GCed early,
-      -- but only in OpsADVal.
+      -- The spans don't affect the interpretation, though the invariant
+      -- still holds for term l and so the dual number into which it is
+      -- interpreted has zero dual part if the span was PrimalSpan.
 
 interpretAstHFunPrimal
   :: forall target x y. ADReady target
-  => AstEnv target -> AstHFun x y
+  => AstEnv target -> AstHFun PrimalSpan PrimalSpan x y
   -> HFunOf (PrimalOf target) x y
 {-# INLINE interpretAstHFunPrimal #-}
-interpretAstHFunPrimal _env = \case
-  AstLambda var l ->
-    tlambda @(PrimalOf target) (varNameToFTK var)
-    $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
+interpretAstHFunPrimal _env (AstLambda var l) =
+  tlambda @(PrimalOf target) (varNameToFTK var)
+  $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
+      -- This is probably optimized as much as possible, because
+      -- thanks to the invariant, we get zero dual part from this
+      -- PrimalSpan term and so interpretAstPrimal and tfromPrimal
+      -- is not needed (and would not be possible, because we lack
+      -- FullShapeTK y). From the other end, due to (PrimalOf target),
+      -- there won't be any dual part coming from an argument.
 
 interpretAstBool :: ADReady target
                  => AstEnv target -> AstBool AstMethodLet

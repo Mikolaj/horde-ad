@@ -410,9 +410,9 @@ build1VIndexS k@SNat shn (var, v0, ix)
             astGatherStepS shn v0 (Const var ::$ ZS, ix)
 
 build1VHFun
-  :: forall k x z.
-     SNat k -> (IntVarName, AstHFun x z)
-  -> AstHFun (BuildTensorKind k x) (BuildTensorKind k z)
+  :: forall k x z s s2. (AstSpan s, AstSpan s2)
+  => SNat k -> (IntVarName, AstHFun s s2 x z)
+  -> AstHFun s s2 (BuildTensorKind k x) (BuildTensorKind k z)
 build1VHFun snat@SNat (var, v0) = case v0 of
   Ast.AstLambda var1 l ->
     -- This handles the case of l having free variables beyond var1,

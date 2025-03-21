@@ -257,9 +257,9 @@ varInAst var = \case
 varInIndexS :: AstVarId -> AstIxS ms sh -> Bool
 varInIndexS var = any (varInAst var)
 
-varInAstHFun :: AstVarId -> AstHFun x y -> Bool
-varInAstHFun _var = \case
-  AstLambda{} -> False  -- we take advantage of the term being closed
+varInAstHFun :: AstVarId -> AstHFun s s2 x y -> Bool
+varInAstHFun _var AstLambda{} =
+  False  -- we take advantage of the term being closed
 
 varInAstBool :: AstVarId -> AstBool ms -> Bool
 varInAstBool var = \case

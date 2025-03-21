@@ -41,7 +41,13 @@ type instance ShareOf (AstTensor ms s) = AstRaw s
 -- would not eliminate the variable and also would likely results
 -- in more costly computations. Also, that would prevent simplification
 -- of the instances, especially after applied to arguments that are terms.
-type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun x z
+type instance HFunOf (AstTensor AstMethodLet s) x z =
+  AstHFun PrimalSpan PrimalSpan x z
+    -- these spans are chosen, because it's easiest to obtain such terms,
+    -- e.g., from the artifact in tgrad; converting them to other spans
+    -- would alter their semantics, e.g., the dual part of the input
+    -- would be removed, which won't happen in the original derivative
+    -- from the artifact is interpreted as if it had FullSpan
 
 type instance BoolOf (AstTensor ms s) = AstBool ms
 
@@ -721,19 +727,19 @@ newtype AstNoSimplify s y =
 type instance PrimalOf (AstRaw s) = AstRaw PrimalSpan
 type instance DualOf (AstRaw s) = AstTensor AstMethodShare DualSpan
 type instance ShareOf (AstRaw s) = AstRaw s
-type instance HFunOf (AstRaw s) x y = AstHFun x y
+type instance HFunOf (AstRaw s) x y = AstHFun PrimalSpan PrimalSpan x y
 type instance BoolOf (AstRaw s) = AstBool AstMethodShare
 
 type instance PrimalOf (AstNoVectorize s) = AstNoVectorize PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstTensor AstMethodLet DualSpan
 type instance ShareOf (AstNoVectorize s) = AstRaw s
-type instance HFunOf (AstNoVectorize s) x z = AstHFun x z
+type instance HFunOf (AstNoVectorize s) x z = AstHFun PrimalSpan PrimalSpan x z
 type instance BoolOf (AstNoVectorize s) = AstBool AstMethodLet
 
 type instance PrimalOf (AstNoSimplify s) = AstNoSimplify PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstTensor AstMethodLet DualSpan
 type instance ShareOf (AstNoSimplify s) = AstRaw s
-type instance HFunOf (AstNoSimplify s) x z = AstHFun x z
+type instance HFunOf (AstNoSimplify s) x z = AstHFun PrimalSpan PrimalSpan x z
 type instance BoolOf (AstNoSimplify s) = AstBool AstMethodLet
 
 
