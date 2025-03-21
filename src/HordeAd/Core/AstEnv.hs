@@ -15,12 +15,12 @@ module HordeAd.Core.AstEnv
 
 import Prelude
 
+import Data.Coerce (coerce)
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum
 import Data.Foldable qualified as Foldable
 import Text.Show (showListWith)
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested.Internal.Shape
 
@@ -33,10 +33,10 @@ import HordeAd.Core.Types
 
 -- | The environment that keeps variables values during interpretation
 type AstEnv target = DEnumMap (AstVarName FullSpan) (AstEnvElem target)
-  -- The FullSpan is a lie. We can't easily index over span and tensor kind
-  -- at once, so instead we represent PrimalSpan values as FullSpan
+  -- We can't easily index over span and tensor kind at once,
+  -- so instead we represent PrimalSpan values as FullSpan
   -- (dual number) values with zero dual component and DualSpan values
-  -- via zero primal component.
+  -- as FullSpan values with zero primal component.
 
 type role AstEnvElem nominal nominal
 data AstEnvElem (target :: Target) (y :: TK) where
@@ -64,8 +64,7 @@ extendEnv :: forall target s y.
           -> AstEnv target
 extendEnv var !t !env =
   let var2 :: AstVarName FullSpan y
-      var2 = unsafeCoerce var
-        -- to uphold the lie about FullSpan
+      var2 = coerce var  -- only FullSpan variables permitted in env; see above
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
                         var2 (AstEnvElem t) env
 

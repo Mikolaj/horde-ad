@@ -1588,8 +1588,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
         let f v = astGatherRec @shm' @shn' @shp1' shn' v (vars4, rest4)
             -- This subst doesn't currently break sharing because it's a rename.
             subst i =
-              foldr (\(i2, var2) v2 ->
-                      substituteAst i2 var2 v2)
+              foldr (\(i2, var2) v2 -> substituteAst i2 var2 v2)
                     i
                     (listsToList $ zipSizedS ixFresh vars4)
             i5 = subst i4
@@ -2002,8 +2001,7 @@ astReverseS (Ast.AstFromDual v) = Ast.AstFromDual $ astReverseS v
 astReverseS (Ast.AstGatherS @shm @shn @shp
                             shn v ((::$) @k (Const var) vars, ix)) =
   let ivar = valueOf @k - AstIntVar var
-      ix2 = substituteAstIxS  -- cheap subst, because ivar is tiny
-              ivar var ix
+      ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
   in astGatherS @shm @shn @shp shn v (Const var ::$ vars, ix2)
 astReverseS (Ast.AstReverseS v) = v
 astReverseS v = Ast.AstReverseS v

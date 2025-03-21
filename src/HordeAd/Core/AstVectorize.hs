@@ -112,8 +112,8 @@ build1VOccurenceUnknownRefresh
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh snat@SNat (var, v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
-    let !v2 = substituteAst  -- cheap subst, because only a renaming
-                astVarFresh var v0
+    let !v2 = substituteAst astVarFresh var v0
+                -- cheap subst, because only a renaming
     in build1VOccurenceUnknown snat (varFresh, v2)
 
 -- | The application @build1V k (var, v)@ vectorizes
@@ -346,9 +346,8 @@ intBindingRefreshS
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS var ix =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
-    let !ix2 = substituteAstIxS  -- cheap subst, because only a renaming
-                 astVarFresh
-                 var ix
+    let !ix2 = substituteAstIxS astVarFresh var ix
+                 -- cheap subst, because only a renaming
     in (varFresh, astVarFresh, ix2)
 
 -- | The application @build1VIndex snat (var, v, ix)@ vectorizes
@@ -513,9 +512,9 @@ substProjRep
   -> AstVarName s2 y2 -> AstTensor AstMethodLet s y
   -> (AstVarName s2 (BuildTensorKind k y2), AstTensor AstMethodLet s y)
 substProjRep snat@SNat var var1 v =
-  let var3 :: AstVarName s2 (BuildTensorKind k y2)
+  let ftk3 = buildFTK snat $ varNameToFTK var1
+      var3 :: AstVarName s2 (BuildTensorKind k y2)
       var3 = mkAstVarName ftk3 (varNameToAstVarId var1)
-      ftk3 = buildFTK snat $ varNameToFTK var1
       astVar3 = Ast.AstVar var3
       v2 = substituteAst
              (astIndexBuild snat (ftkToSTK $ varNameToFTK var1)

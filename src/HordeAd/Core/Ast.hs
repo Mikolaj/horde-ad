@@ -100,10 +100,7 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
--- We avoid adding a phantom type denoting the tensor functor,
--- because it can't be easily compared (even fully applied)
--- and so the phantom is useless.
-type role AstVarName nominal nominal
+type role AstVarName phantom nominal
 data AstVarName :: AstSpanType -> TK -> Type where
   AstVarName :: forall s y. FullShapeTK y -> AstVarId -> AstVarName s y
 
