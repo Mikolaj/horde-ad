@@ -199,10 +199,24 @@ interpretAst !env = \case
     in tbuild1 snat stk f
 
   -- We assume there are no nested lets with the same variable.
-  AstLet var u v ->
-    let t = interpretAst env u
-        env2 w = extendEnv var w env
-    in ttlet t (\w -> interpretAst (env2 w) v)
+  --
+  -- The commented out optimization breaks tests currently, because
+  -- it violates another invariant: the interpretation of a term
+  -- is not affected by its span but only by its constructors. E.g., u can be
+  -- a variable from a AstLambda and its primal part is here zeroed.
+  -- The invariant is needed to promote derivatives cheaply, see elsewhere.
+  AstLet {-@_ @_ @s1-} var u v -> {-case sameAstSpan @s1 @PrimalSpan of
+    Just Refl ->
+      let t = interpretAstPrimal env u
+          stk = ftkToSTK (ftkAst u)
+          env2 wPrimal = extendEnv var (tfromPrimal stk wPrimal) env
+      in ttletPrimal t (\wPrimal -> interpretAst (env2 wPrimal) v)
+        -- @ttletPrimal@ can be more frugal in some targets, though we pay
+        -- for it with @ftkAst@
+    Nothing -> -}
+      let t = interpretAst env u
+          env2 w = extendEnv var w env
+      in ttlet t (\w -> interpretAst (env2 w) v)
 
   AstPrimalPart a ->
     tfromPrimal (ftkToSTK (ftkAst a)) (tprimalPart $ interpretAstFull env a)

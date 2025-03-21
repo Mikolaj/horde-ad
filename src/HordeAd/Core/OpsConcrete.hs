@@ -52,6 +52,7 @@ import HordeAd.Core.ConvertTensor
 
 instance LetTensor Concrete where
   ttlet = (&)
+  ttletPrimal = (&)
   toShare = id
   tunshare = id
   tD _stk t DummyDualTarget{} = t

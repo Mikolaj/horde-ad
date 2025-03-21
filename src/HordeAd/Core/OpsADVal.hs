@@ -108,6 +108,9 @@ instance ( ADReadyNoLet target, ShareTensor target
   ttlet (D u u') f =
     let !var2 = tshare u
     in f (dDnotShared var2 u')  -- u' was already shared
+  ttletPrimal u f =
+    let !var2 = tshare u
+    in f var2
   toShare = id
   tunshare = id
   tD _stk t d = dD t d

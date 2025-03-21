@@ -2012,7 +2012,8 @@ testSin0rmapAccumRD01SN7 = do
 
 rscanZip :: forall rn n rn2 n2 target.
             (GoodScalar rn, KnownNat n, GoodScalar rn2, ADReady target)
-         => (forall f. ADReady f => f (TKR n rn) -> f (TKR n2 rn2) -> f (TKR n rn))
+         => (forall f. ADReady f
+             => f (TKR n rn) -> f (TKR n2 rn2) -> f (TKR n rn))
          -> FullShapeTK (TKR n2 rn2)
          -> target (TKR n rn)
          -> target (TKR (1 + n2) rn2)
@@ -2091,25 +2092,25 @@ testSin0ScanD8grad = do
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [9.53298735735276])
     (rrev1 @Concrete @Double @0 @3
-       (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
-                                 $ atan2H (rsum (rtr $ sin x))
-                                         (rreplicate 2
-                                          $ sin (rsum (rreplicate 7 a))))
-                       (FTKR ZSR FTKScalar)
-                       (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
-                       (rreplicate 3 a0)) (rscalar 1.1))
+        (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
+                                  $ atan2H (rsum (rtr $ sin x))
+                                           (rreplicate 2
+                                            $ sin (rsum (rreplicate 7 a))))
+                         (FTKR ZSR FTKScalar)
+                         (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                         (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0ScanD8rev4 :: Assertion
 testSin0ScanD8rev4 = do
   let h :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       h = rrev1 @f @Double @0 @3
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
-                                 $ atan2H (rsum (rtr $ sin x))
-                                         (rreplicate 2
-                                          $ sin (rsum (rreplicate 7 a))))
-                       (FTKR ZSR FTKScalar)
-                       (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
-                       (rreplicate 3 a0))
+                                  $ atan2H (rsum (rtr $ sin x))
+                                           (rreplicate 2
+                                            $ sin (rsum (rreplicate 7 a))))
+                         (FTKR ZSR FTKScalar)
+                         (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                         (rreplicate 3 a0))
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [285.95794829475744])
     (rev' h (rscalar 1.1))
