@@ -179,8 +179,13 @@ interpretAst !env = \case
   -- which doesn't make a difference in a translation from PrimalSpan
   -- terms to PrimalSpan terms, but does in a translation from PrimalSpan
   -- terms to FullSpan terms, causing a loss of a dual part.
-  AstLet @_ @_ @s1 var u v -> case ( sameAstSpan @s1 @PrimalSpan
-                                   , sameAstSpan @s @FullSpan ) of
+  --
+  -- However, right now this whole code fragment is disabled, because
+  -- it increases the allocation in testsuites by ~3% and slows down the VTO1
+  -- benchmark 5 times. To be re-evaluated when rewriting is changed
+  -- and also more examples are available.
+  AstLet {-@_ @_ @s1-} var u v -> {- case ( sameAstSpan @s1 @PrimalSpan
+                                          , sameAstSpan @s @FullSpan ) of
     (Just Refl, Just Refl) ->
       let t = interpretAstPrimal env u
           stk = ftkToSTK (ftkAst u)
@@ -188,7 +193,7 @@ interpretAst !env = \case
       in ttletPrimal t (\wPrimal -> interpretAst (env2 wPrimal) v)
         -- @ttletPrimal@ can be more frugal in some targets, though we pay
         -- for it with @ftkAst@
-    _ ->
+    _ -> -}
       let t = interpretAst env u
           env2 w = extendEnv var w env
       in ttlet t (\w -> interpretAst (env2 w) v)
