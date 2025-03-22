@@ -284,7 +284,7 @@ printAstAux cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
 
-  t@(AstLet var0 u0 v0) ->
+  t@(AstLet @_ @_ @s1 var0 u0 v0) ->
     if loseRoudtrip cfg
     then let collect :: AstTensor AstMethodLet s y -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet var u v) =
@@ -300,16 +300,19 @@ printAstAux cfg d = \case
                   [name . showString " = " . uPP | (name, uPP) <- pairs])
               . showString " in "
               . core
-    else
-      showParen (d > 10)
-      $ showString "tlet "
-        . printAst cfg 11 u0
-        . showString " "
-        . (showParen True
-           $ showString "\\"
-             . printAstVarFromLet cfg var0
-             . showString " -> "
-             . printAst cfg 0 v0)
+    else let keyword = case ( sameAstSpan @s1 @PrimalSpan
+                            , sameAstSpan @s @FullSpan ) of
+               (Just Refl, Just Refl) -> "ttletPrimal "
+               _ -> "tlet "
+         in showParen (d > 10)
+            $ showString keyword
+              . printAst cfg 11 u0
+              . showString " "
+              . (showParen True
+                 $ showString "\\"
+                   . printAstVarFromLet cfg var0
+                   . showString " -> "
+                   . printAst cfg 0 v0)
   AstShare _var v -> printPrefixOp printAst cfg d "tshare" [v]
   AstToShare v -> printPrefixOp printAst cfg d "toShare" [v]
 
