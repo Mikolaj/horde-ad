@@ -1,10 +1,9 @@
 {-# LANGUAGE CPP #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
 {-# OPTIONS_GHC -freduction-depth=10000 #-}
--- | Interpretation of AST terms in an aribtrary @RankedTensor@ & Co instance.
--- With the exception of the the interpretation of the sharing mechanisms,
+-- | Interpretation of AST terms in an aribtrary tensor operations
+-- class instance. With the exception of the the interpretation
+-- of the sharing mechanisms and any other performance tweaks,
 -- the interpretation is the unique homorphism determined by the instance.
 -- The sharing mechanisms are translated so as to preserve sharing in case
 -- the instance is a term algebra as well.
