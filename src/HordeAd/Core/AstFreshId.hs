@@ -1,13 +1,13 @@
 -- | Operations that (impurely, via a strictly increasing thread-safe counter)
 -- generate fresh variables and sometimes also produce AST terms
--- by applying functions to such variables. This modules encapsulates
+-- by applying functions to such variables. This module encapsulates
 -- the impurity, though some functions are in IO and they are used
--- with @unsafePerformIO@ outside, so some of the impurity escapes.
+-- with @unsafePerformIO@ outside, so some of the impurity escapes
+-- and is encapsulated elsewhere.
 module HordeAd.Core.AstFreshId
-  ( funToAstIO, funToAst, fun1ToAst
-  , funToAstRevIO, funToAstRev
-  , funToAstFwdIO, funToAstFwd
-  , funToAstIOI, funToAstI, funToAstIntVarIO, funToAstIntVar
+  ( funToAstIO, funToAst, funToAst2, fun1ToAst
+  , funToAstRevIO, funToAstFwdIO
+  , funToAstIntVarIO, funToAstIntVar, funToAstI
   , funToVarsIxS, funToAstIxS
     -- * Low level counter manipulation to be used only in sequential tests
   , resetVarCounter
@@ -47,22 +47,39 @@ unsafeGetFreshAstVarName :: FullShapeTK y -> IO (AstVarName s y)
 unsafeGetFreshAstVarName ftk =
   mkAstVarName ftk . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-funToAstIO :: forall y z s s2 ms.
-              FullShapeTK y
-           -> (AstTensor ms s y -> AstTensor ms s2 z)
-           -> IO (AstVarName s y, AstTensor ms s2 z)
-{-# INLINE funToAstIO #-}
-funToAstIO ftk f = do
-  freshId <- unsafeGetFreshAstVarId
+funToAstIO2 :: forall y z s s2 ms.
+               FullShapeTK y
+            -> (AstTensor ms s y -> AstTensor ms s2 z)
+            -> IO (AstVarName s y, AstTensor ms s2 z)
+{-# INLINE funToAstIO2 #-}
+funToAstIO2 ftk f = do
+  !freshId <- unsafeGetFreshAstVarId
   let varName = mkAstVarName ftk freshId
-      !x = f (AstVar varName)
+  let !x = f (AstVar varName)
   return (varName, x)
+-- Warning: adding a bang before varName breaks fragile tests.
+-- Probably GHC then optimizes differently and less predictably
+-- and so changes results between -O0 vs -O1 and possibly also
+-- between different GHC versions and between local vs CI setup.
+
+funToAst2 :: FullShapeTK y
+          -> (AstTensor ms s y -> AstTensor ms s2 z)
+          -> (AstVarName s y, AstTensor ms s2 z)
+{-# NOINLINE funToAst2 #-}
+funToAst2 ftk = unsafePerformIO . funToAstIO2 ftk
+
+funToAstIO :: forall y z s ms.
+              FullShapeTK y
+           -> (AstTensor ms s y -> AstTensor ms s z)
+           -> IO (AstVarName s y, AstTensor ms s z)
+{-# INLINE funToAstIO #-}
+funToAstIO = funToAstIO2
 
 funToAst :: FullShapeTK y
-         -> (AstTensor ms s y -> AstTensor ms s2 z)
-         -> (AstVarName s y, AstTensor ms s2 z)
+         -> (AstTensor ms s y -> AstTensor ms s z)
+         -> (AstVarName s y, AstTensor ms s z)
 {-# NOINLINE funToAst #-}
-funToAst ftk f = unsafePerformIO $ funToAstIO ftk f
+funToAst ftk = unsafePerformIO . funToAstIO ftk
 
 fun1ToAstIO :: FullShapeTK y -> (AstVarName s y -> AstTensor ms s y)
             -> IO (AstTensor ms s y)
@@ -74,16 +91,17 @@ fun1ToAstIO ftk f = do
 fun1ToAst :: FullShapeTK y -> (AstVarName s y -> AstTensor ms s y)
           -> AstTensor ms s y
 {-# NOINLINE fun1ToAst #-}
-fun1ToAst ftk f = unsafePerformIO $ fun1ToAstIO ftk f
+fun1ToAst ftk = unsafePerformIO . fun1ToAstIO ftk
 
-funToAstRevIO :: forall x. FullShapeTK x
+funToAstRevIO :: forall x.
+                 FullShapeTK x
               -> IO ( AstVarName PrimalSpan x
                     , AstTensor AstMethodShare PrimalSpan x
                     , AstVarName FullSpan x
                     , AstTensor AstMethodLet FullSpan x )
 {-# INLINE funToAstRevIO #-}
 funToAstRevIO ftk = do
-  freshId <- unsafeGetFreshAstVarId
+  !freshId <- unsafeGetFreshAstVarId
   let varPrimal :: AstVarName PrimalSpan x
       varPrimal = mkAstVarName ftk freshId
       var :: AstVarName FullSpan x
@@ -94,15 +112,8 @@ funToAstRevIO ftk = do
       !astVar = AstVar var
   return (varPrimal, astVarPrimal, var, astVar)
 
-funToAstRev :: FullShapeTK x
-            -> ( AstVarName PrimalSpan x
-               , AstTensor AstMethodShare PrimalSpan x
-               , AstVarName FullSpan x
-               , AstTensor AstMethodLet FullSpan x )
-{-# NOINLINE funToAstRev #-}
-funToAstRev = unsafePerformIO . funToAstRevIO
-
-funToAstFwdIO :: forall x. FullShapeTK x
+funToAstFwdIO :: forall x.
+                 FullShapeTK x
               -> IO ( AstVarName PrimalSpan (ADTensorKind x)
                     , AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
                     , AstVarName PrimalSpan x
@@ -111,8 +122,8 @@ funToAstFwdIO :: forall x. FullShapeTK x
                     , AstTensor AstMethodLet FullSpan x )
 {-# INLINE funToAstFwdIO #-}
 funToAstFwdIO ftk = do
-  freshIdDs <- unsafeGetFreshAstVarId
-  freshId <- unsafeGetFreshAstVarId
+  !freshIdDs <- unsafeGetFreshAstVarId
+  !freshId <- unsafeGetFreshAstVarId
   let varPrimalD :: AstVarName PrimalSpan (ADTensorKind x)
       varPrimalD = mkAstVarName (adFTK ftk) freshIdDs
       varPrimal :: AstVarName PrimalSpan x
@@ -127,47 +138,30 @@ funToAstFwdIO ftk = do
       !astVar = AstVar var
   return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVar)
 
-funToAstFwd :: FullShapeTK x
-            -> ( AstVarName PrimalSpan (ADTensorKind x)
-               , AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
-               , AstVarName PrimalSpan x
-               , AstTensor AstMethodShare PrimalSpan x
-               , AstVarName FullSpan x
-               , AstTensor AstMethodLet FullSpan x )
-{-# NOINLINE funToAstFwd #-}
-funToAstFwd = unsafePerformIO . funToAstFwdIO
-
-funToAstIOI :: (AstInt ms -> t) -> IO (IntVarName, t)
-{-# INLINE funToAstIOI #-}
-funToAstIOI f = do
-  !varName <- unsafeGetFreshAstVarName (FTKScalar @Int64)
-  let !x = f (AstIntVar varName)
-  return (varName, x)
-
-funToAstI :: (AstInt ms -> t) -> (IntVarName, t)
-{-# NOINLINE funToAstI #-}
-funToAstI = unsafePerformIO . funToAstIOI
-
 funToAstIntVarIO :: ((IntVarName, AstInt ms) -> a) -> IO a
 {-# INLINE funToAstIntVarIO #-}
 funToAstIntVarIO f = do
   !varName <- unsafeGetFreshAstVarName (FTKScalar @Int64)
-  let !ast = AstIntVar varName
-  return $! f (varName, ast)
+  return $! f (varName, AstIntVar varName)
 
 funToAstIntVar :: ((IntVarName, AstInt ms) -> a) -> a
 {-# NOINLINE funToAstIntVar #-}
 funToAstIntVar = unsafePerformIO . funToAstIntVarIO
 
+funToAstI :: (AstInt ms -> t) -> (IntVarName, t)
+{-# NOINLINE funToAstI #-}
+funToAstI f = unsafePerformIO . funToAstIntVarIO
+              $ \ (!var, !i) -> let !x = f i in (var, x)
+
 funToVarsIxIOS
   :: forall sh a ms.
      ShS sh -> ((AstVarListS sh, AstIxS ms sh) -> a) -> IO a
 {-# INLINE funToVarsIxIOS #-}
-funToVarsIxIOS sh f = do
+funToVarsIxIOS sh f = withKnownShS sh $ do
   let p = sNatValue $ shsRank sh
-  varList <- replicateM p $ unsafeGetFreshAstVarName (FTKScalar @Int64)
-  let !vars = withKnownShS sh $ fromList varList
-      !ix = withKnownShS sh $ fromList $ map AstIntVar varList
+  !varList <- replicateM p $ unsafeGetFreshAstVarName (FTKScalar @Int64)
+  let !vars = fromList varList
+  let !ix = fromList $ map AstIntVar varList
   return $! f (vars, ix)
 
 funToVarsIxS

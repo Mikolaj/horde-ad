@@ -2496,22 +2496,22 @@ astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f = case a of
   Ast.AstFromS @y2 stkz v ->
-    let (var, ast) = funToAst (ftkAst v) (f . astFromS @y2 stkz)
+    let (var, ast) = funToAst2 (ftkAst v) (f . astFromS @y2 stkz)
     in astLet var v ast
   _ -> case ftkAst a of
     ftk@(FTKR @_ @x sh' x) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
-              funToAst (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
+              funToAst2 (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
         in astLet var (astSFromR sh a) ast
              -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
-              funToAst (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
+              funToAst2 (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
         in astLet var (astSFromX sh a) ast
     -- calling recursively for product may be not worth it
-    ftk -> let (var, ast) = funToAst ftk f
+    ftk -> let (var, ast) = funToAst2 ftk f
            in astLet var a ast
 
 astReplicateNS :: forall shn shp s x. AstSpan s

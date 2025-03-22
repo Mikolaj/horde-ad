@@ -23,6 +23,7 @@ import Data.Type.Equality (gcastWith)
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Maybe (fromMaybe)
 import GHC.Exts (inline)
+import System.IO.Unsafe (unsafePerformIO)
 
 import Data.Array.Nested (type (++))
 import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
@@ -87,26 +88,28 @@ revArtifactFromForwardPass
       -> ADVal (AstRaw PrimalSpan) z)
   -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
--- Break the inline chain to prevent false positives in inspection testing.
--- {-# INLINE revArtifactFromForwardPass #-}
-revArtifactFromForwardPass cotangentHandling forwardPass xftk =
-  let -- Bangs and the compound function to fix the numbering of variables
-      -- for pretty-printing and prevent sharing the impure values/effects
-      -- in tests that reset the impure counters.
-      !(!varPrimal, astVarPrimal, var, astVar) = funToAstRev xftk in
-  let -- Evaluate completely after terms constructed, to free memory
-      -- before gradientFromDelta allocates new memory and new FFI is started.
-      !(D primalBody delta) = forwardPass astVarPrimal var astVar in
+-- Break the inline chain to prevent false positives in inspection testing
+-- and protect the unsafePerformIO.
+{-# NOINLINE revArtifactFromForwardPass #-}
+revArtifactFromForwardPass cotangentHandling
+                           forwardPass xftk = unsafePerformIO $ do
+  -- IO and bangs and the compound function to fix the numbering of variables
+  -- for pretty-printing and prevent sharing the impure values
+  -- in tests that reset the impure counters.
+  !(!varPrimal, astVarPrimal, var, astVar) <- funToAstRevIO xftk
+  -- Evaluate completely after terms constructed, to free memory
+  -- before gradientFromDelta allocates new memory and new FFI is started.
+  let !(D primalBody delta) = forwardPass astVarPrimal var astVar
   let zftk = ftkAst $ unAstRaw primalBody
-      (!varDt, astDt) = funToAst (adFTK zftk) id in
+      (!varDt, astDt) = funToAst (adFTK zftk) id
   let oneAtF = treplTarget 1 $ adFTK zftk
       !dt = case cotangentHandling of
         UseIncomingCotangent -> AstRaw astDt
-        IgnoreIncomingCotangent -> oneAtF in
+        IgnoreIncomingCotangent -> oneAtF
   let !gradient = gradientFromDelta xftk zftk dt delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
       !unPrimal = unshareAstTensor $ unAstRaw primalBody
-  in (AstArtifactRev varDt varPrimal unGradient unPrimal, delta)
+  return (AstArtifactRev varDt varPrimal unGradient unPrimal, delta)
 
 revProduceArtifact
   :: forall x z.
@@ -128,17 +131,17 @@ fwdArtifactFromForwardPass
       -> ADVal (AstRaw PrimalSpan) z)
   -> FullShapeTK x
   -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
--- Break the inline chain to prevent false positives in inspection testing.
--- {-# INLINE fwdArtifactFromForwardPass #-}
-fwdArtifactFromForwardPass forwardPass xftk =
-  let !(!varPrimalD, astVarD, varPrimal, astVarPrimal, var, astVar) =
-        funToAstFwd xftk in
-  let !(D primalBody delta) = forwardPass astVarPrimal var astVar in
+-- Break the inline chain to prevent false positives in inspection testing
+-- and protect the unsafePerformIO.
+{-# NOINLINE fwdArtifactFromForwardPass #-}
+fwdArtifactFromForwardPass forwardPass xftk = unsafePerformIO $ do
+  !(!varPrimalD, astVarD, varPrimal, astVarPrimal, var, astVar)
+    <- funToAstFwdIO xftk
+  let !(D primalBody delta) = forwardPass astVarPrimal var astVar
   let !derivative = derivativeFromDelta @x delta (adFTK xftk) (AstRaw astVarD)
       !unDerivative = unshareAstTensor $ unAstRaw derivative
       !unPrimal = unshareAstTensor $ unAstRaw primalBody
-  in ( AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal
-     , delta )
+  return (AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal, delta)
 
 fwdProduceArtifact
   :: forall x z.
@@ -1444,6 +1447,7 @@ instance AstSpan s => ConvertTensor (AstNoVectorize s) where
   tunpairConv a = let (b, c) = tunpairConv $ unAstNoVectorize a
                   in (AstNoVectorize b, AstNoVectorize c)
 
+
 -- * AstNoSimplify instances
 
 astLetFunNoSimplify
@@ -1455,26 +1459,26 @@ astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
 astLetFunNoSimplify a f = case a of
   AstFromS @y2 stkz v ->
-    let (var, ast) = funToAst (ftkAst v) (f . AstFromS @y2 stkz)
+    let (var, ast) = funToAst2 (ftkAst v) (f . AstFromS @y2 stkz)
     in AstLet var v ast
   AstFromPrimal (AstFromS @y2 stkz vRaw) ->
     let v = AstFromPrimal vRaw
-        (var, ast) = funToAst (ftkAst v) (f . AstFromS @y2 stkz)
+        (var, ast) = funToAst2 (ftkAst v) (f . AstFromS @y2 stkz)
     in AstLet var v ast
   _ -> case ftkAst a of
     ftk@(FTKR @_ @x2 sh' x) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
-              funToAst (FTKS sh x) (f . AstFromS @(TKS2 sh x2) (ftkToSTK ftk))
+              funToAst2 (FTKS sh x) (f . AstFromS @(TKS2 sh x2) (ftkToSTK ftk))
         in AstLet var (AstSFromR @sh sh a) ast
              -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
-              funToAst (FTKS sh x) (f . AstFromS @(TKS2 sh x) (ftkToSTK ftk))
+              funToAst2 (FTKS sh x) (f . AstFromS @(TKS2 sh x) (ftkToSTK ftk))
         in AstLet var (AstSFromX @sh sh a) ast
     -- processing product recursively may be not worth it
-    ftk -> let (var, ast) = funToAst ftk f
+    ftk -> let (var, ast) = funToAst2 ftk f
            in AstLet var a ast
 
 instance AstSpan s => LetTensor (AstNoSimplify s) where
