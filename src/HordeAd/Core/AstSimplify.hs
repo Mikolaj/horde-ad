@@ -426,17 +426,17 @@ astReplicate snat@SNat stk = \case
 
 -- TODO: also push up AstFromPrimal, etc.
 astMapAccumRDer
-  :: forall accy by ey k s.
-     SNat k
+  :: forall accy by ey k s. AstSpan s
+  => SNat k
   -> FullShapeTK by
   -> FullShapeTK ey
-  -> AstHFun PrimalSpan PrimalSpan
+  -> AstHFun s s
              (TKProduct accy ey) (TKProduct accy by)
-  -> AstHFun PrimalSpan PrimalSpan
+  -> AstHFun s s
              (TKProduct (ADTensorKind (TKProduct accy ey))
                         (TKProduct accy ey))
              (ADTensorKind (TKProduct accy by))
-  -> AstHFun PrimalSpan PrimalSpan
+  -> AstHFun s s
              (TKProduct (ADTensorKind (TKProduct accy by))
                         (TKProduct accy ey))
              (ADTensorKind (TKProduct accy ey))
@@ -570,17 +570,17 @@ astMapAccumRDer k bftk eftk f df rf acc0 es =
   Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es
 
 astMapAccumLDer
-  :: forall accy by ey k s.
-     SNat k
+  :: forall accy by ey k s. AstSpan s
+  => SNat k
   -> FullShapeTK by
   -> FullShapeTK ey
-  -> AstHFun PrimalSpan PrimalSpan
+  -> AstHFun s s
              (TKProduct accy ey) (TKProduct accy by)
-  -> AstHFun PrimalSpan PrimalSpan
+  -> AstHFun s s
              (TKProduct (ADTensorKind (TKProduct accy ey))
                         (TKProduct accy ey))
              (ADTensorKind (TKProduct accy by))
-  -> AstHFun PrimalSpan PrimalSpan
+  -> AstHFun s s
              (TKProduct (ADTensorKind (TKProduct accy by))
                         (TKProduct accy ey))
              (ADTensorKind (TKProduct accy ey))
@@ -713,14 +713,10 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
 astMapAccumLDer k bftk eftk f df rf acc0 es =
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es
 
-astApply :: forall x z s1 s2 s3 s.
-            (AstSpan s1, AstSpan s2, AstSpan s3, AstSpan s)
-         => AstHFun s1 s2 x z -> AstTensor AstMethodLet s3 x
+astApply :: forall x z s1 s. (AstSpan s1, AstSpan s)
+         => AstHFun s1 s x z -> AstTensor AstMethodLet s1 x
          -> AstTensor AstMethodLet s z
-astApply t@(AstLambda !var !v) u =
-  case (sameAstSpan @s1 @s3, sameAstSpan @s2 @s) of
-    (Just Refl, Just Refl) -> astLet var u v
-    _ -> Ast.AstApply t u  -- wait until interpretation equates the spans
+astApply (AstLambda !var !v) u = astLet var u v
 
 astCond :: AstBool AstMethodLet
         -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
@@ -820,16 +816,18 @@ astPrimalPart t = case t of
     astSum snat stk (astPrimalPart v)
   Ast.AstReplicate snat stk v ->
     astReplicate snat stk (astPrimalPart v)
-  Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
+  {- Ast.AstMapAccumRDer k bftk eftk (AstLambda varf vf)
+                                  (AstLambda vard vd)
+                                  (AstLambda varr vr) acc0 es ->
     astMapAccumRDer k bftk eftk f df rf
                     (astPrimalPart acc0) (astPrimalPart es)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     astMapAccumLDer k bftk eftk f df rf
-                    (astPrimalPart acc0) (astPrimalPart es)
-  Ast.AstApply @_ @s2 (AstLambda !var !v) ll ->
-    case sameAstSpan @s2 @FullSpan of
-      Just Refl -> astApply (AstLambda var (astPrimalPart v)) ll
-      _ -> Ast.AstPrimalPart t
+                    (astPrimalPart acc0) (astPrimalPart es) -}
+  Ast.AstMapAccumRDer{} -> Ast.AstPrimalPart t  -- TODO
+  Ast.AstMapAccumLDer{} -> Ast.AstPrimalPart t
+  Ast.AstApply (AstLambda !var !v) ll ->
+    astApply (AstLambda var (astPrimalPart v)) ll
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -909,16 +907,16 @@ astDualPart t = case t of
     astSum snat stk (astDualPart v)
   Ast.AstReplicate snat stk v ->
     astReplicate snat stk (astDualPart v)
-  Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
+  {- Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
     astMapAccumRDer k bftk eftk f df rf
                     (astDualPart acc0) (astDualPart es)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     astMapAccumLDer k bftk eftk f df rf
-                    (astDualPart acc0) (astDualPart es)
-  Ast.AstApply @_ @s2 (AstLambda !var !v) ll ->
-    case sameAstSpan @s2 @FullSpan of
-      Just Refl -> astApply (AstLambda var (astDualPart v)) ll
-      _ -> Ast.AstDualPart t
+                    (astDualPart acc0) (astDualPart es) -}
+  Ast.AstMapAccumRDer{} -> Ast.AstDualPart t  -- TODO
+  Ast.AstMapAccumLDer{} -> Ast.AstDualPart t
+  Ast.AstApply (AstLambda !var !v) ll ->
+    astApply (AstLambda var (astDualPart v)) ll
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstBuild1 k stk (var, v) ->

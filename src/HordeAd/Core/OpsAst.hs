@@ -581,7 +581,12 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         -- is related to terms getting spans converted when interpreted)
         AstArtifactRev{..} =
           revProduceArtifact IgnoreIncomingCotangent (unHFun f) emptyEnv xftk
-    in AstLambda artVarDomainRev (simplifyInline artDerivativeRev)
+        -- A new variable is created to give it the right span as opposed
+        -- to the fixed PrimalSpan that artVarDomainRev has.
+        (varP, ast) = funToAst xftk $ \ !astP ->
+          let env = extendEnv artVarDomainRev astP emptyEnv
+          in interpretAst env $ simplifyInline artDerivativeRev
+    in AstLambda varP ast
   tvjp ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
@@ -590,9 +595,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         ftkz = varNameToFTK artVarDtRev
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
-          astLet artVarDtRev (astProject1 astP)
-          $ astLet artVarDomainRev (astProject2 astP)
-          $ simplifyInline artDerivativeRev
+          let env = extendEnv artVarDtRev (astProject1 astP)
+                    $ extendEnv artVarDomainRev (astProject2 astP) emptyEnv
+          in interpretAst env $ simplifyInline artDerivativeRev
     in AstLambda varP ast
   tjvp ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
@@ -600,9 +605,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     let AstArtifactFwd{..} = fwdProduceArtifact (unHFun f) emptyEnv ftkx
         ftk2 = FTKProduct (adFTK ftkx) ftkx
         (varP, ast) = funToAst ftk2 $ \ !astP ->
-          astLet artVarDsFwd (astProject1 astP)
-          $ astLet artVarDomainFwd (astProject2 astP)
-          $ simplifyInline artDerivativeFwd
+          let env = extendEnv artVarDsFwd (astProject1 astP)
+                    $ extendEnv artVarDomainFwd (astProject2 astP) emptyEnv
+          in interpretAst env $ simplifyInline artDerivativeFwd
     in AstLambda varP ast
 
   tfromVector = astFromVector
@@ -1061,7 +1066,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
       AstRaw $ AstMapAccumLDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
   tApply t ll = AstRaw $ AstApply t (unAstRaw ll)
-  tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
+  tlambda = tlambda @(AstTensor AstMethodLet s)
   tcond _ !b !u !v = AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
   tprimalPart t = AstRaw $ primalPart $ unAstRaw t
   tdualPart _ t = dualPart $ unAstRaw t
@@ -1070,9 +1075,9 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- These three methods are called at this type in delta evaluation via
   -- tmapAccumR and tmapAccumL, so they have to work. We could refrain from
   -- simplifying the resulting terms, but it's not clear that's more consistent.
-  tgrad = tgrad @(AstTensor AstMethodLet PrimalSpan)
-  tvjp = tvjp @(AstTensor AstMethodLet PrimalSpan)
-  tjvp = tjvp @(AstTensor AstMethodLet PrimalSpan)
+  tgrad = tgrad @(AstTensor AstMethodLet s)
+  tvjp = tvjp @(AstTensor AstMethodLet s)
+  tjvp = tjvp @(AstTensor AstMethodLet s)
 
   tfromVector k stk =
     AstRaw . AstFromVector k stk . V.map unAstRaw
@@ -1248,7 +1253,7 @@ astConcreteRaw ftk v = case ftk of
       AstFromS (ftkToSTK ftk) $ AstConcreteS (unConcrete $ sfromX @_ @sh v)
   FTKProduct ftk1 ftk2 -> AstRaw $
     AstPair (unAstRaw $ astConcreteRaw ftk1 (tproject1 v))
-                (unAstRaw $ astConcreteRaw ftk2 (tproject2 v))
+            (unAstRaw $ astConcreteRaw ftk2 (tproject2 v))
   _ -> concreteTarget (tkconcrete . unConcrete) (tsconcrete . unConcrete)
                       (\stk a -> AstRaw $ AstFromS stk $ unAstRaw a)
                       (ftkToSTK ftk) v
@@ -1378,16 +1383,16 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ tmapAccumLDer Proxy k accftk bftk eftk f df rf
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
   tApply t ll = AstNoVectorize $ tApply t (unAstNoVectorize ll)
-  tlambda = tlambda @(AstTensor AstMethodLet PrimalSpan)
+  tlambda = tlambda @(AstTensor AstMethodLet s)
   tcond !stk !b !u !v =
     AstNoVectorize $ tcond stk b (unAstNoVectorize u) (unAstNoVectorize v)
   tprimalPart t = AstNoVectorize $ tprimalPart $ unAstNoVectorize t
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
   tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
   tfromDual t = AstNoVectorize $ tfromDual t
-  tgrad = tgrad @(AstTensor AstMethodLet PrimalSpan)
-  tvjp = tvjp @(AstTensor AstMethodLet PrimalSpan)
-  tjvp = tjvp @(AstTensor AstMethodLet PrimalSpan)
+  tgrad = tgrad @(AstTensor AstMethodLet s)
+  tvjp = tvjp @(AstTensor AstMethodLet s)
+  tjvp = tjvp @(AstTensor AstMethodLet s)
 
   tfromVector k stk =
     AstNoVectorize . tfromVector k stk . V.map unAstNoVectorize
@@ -1613,12 +1618,12 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ tmapAccumLDer Proxy k accftk bftk eftk f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)
   tApply t ll = wAstNoSimplify $ tApply t (wunAstNoSimplify ll)
-  tlambda = tlambda @(AstRaw PrimalSpan)
+  tlambda = tlambda @(AstRaw s)
   tprimalPart t = wAstNoSimplify $ tprimalPart $ wunAstNoSimplify t
   tfromPrimal stk t = wAstNoSimplify $ tfromPrimal stk $ wunAstNoSimplify t
-  tgrad = tgrad @(AstRaw PrimalSpan)
-  tvjp = tvjp @(AstRaw PrimalSpan)
-  tjvp = tjvp @(AstRaw PrimalSpan)
+  tgrad = tgrad @(AstRaw s)
+  tvjp = tvjp @(AstRaw s)
+  tjvp = tjvp @(AstRaw s)
 
   tfromVector k stk =
     wAstNoSimplify . tfromVector k stk . V.map wunAstNoSimplify

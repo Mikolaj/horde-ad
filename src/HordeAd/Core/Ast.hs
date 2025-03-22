@@ -193,13 +193,13 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
        SNat k
     -> FullShapeTK by
     -> FullShapeTK ey
-    -> AstHFun PrimalSpan PrimalSpan
+    -> AstHFun s s
                (TKProduct accy ey) (TKProduct accy by)
-    -> AstHFun PrimalSpan PrimalSpan
+    -> AstHFun s s
                (TKProduct (ADTensorKind (TKProduct accy ey))
                           (TKProduct accy ey))
                (ADTensorKind (TKProduct accy by))
-    -> AstHFun PrimalSpan PrimalSpan
+    -> AstHFun s s
                (TKProduct (ADTensorKind (TKProduct accy by))
                           (TKProduct accy ey))
                (ADTensorKind (TKProduct accy ey))
@@ -211,26 +211,21 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
        SNat k
     -> FullShapeTK by
     -> FullShapeTK ey
-    -> AstHFun PrimalSpan PrimalSpan
+    -> AstHFun s s
                (TKProduct accy ey) (TKProduct accy by)
-    -> AstHFun PrimalSpan PrimalSpan
+    -> AstHFun s s
                (TKProduct (ADTensorKind (TKProduct accy ey))
                           (TKProduct accy ey))
                (ADTensorKind (TKProduct accy by))
-    -> AstHFun PrimalSpan PrimalSpan
+    -> AstHFun s s
                (TKProduct (ADTensorKind (TKProduct accy by))
                           (TKProduct accy ey))
                (ADTensorKind (TKProduct accy ey))
     -> AstTensor ms s accy
     -> AstTensor ms s (BuildTensorKind k ey)
     -> AstTensor ms s (TKProduct accy (BuildTensorKind k by))
-  AstApply :: (AstSpan s1, AstSpan s2, AstSpan s3, AstSpan s)
-           => AstHFun s1 s2 x z -> AstTensor ms s3 x -> AstTensor ms s z
-    -- this is a weird constructor that can be interpreted correctly only
-    -- because during interpretation terms of any span result in full
-    -- dual numbers and so their types agree regardless of spans; the weirdness
-    -- saves us another interpretation pass (interpreting PrimalSpan terms
-    -- in FullSpan terms and possibly other variants)
+  AstApply :: (AstSpan s1, AstSpan s)
+           => AstHFun s1 s x z -> AstTensor ms s1 x -> AstTensor ms s z
   AstVar :: AstVarName s y -> AstTensor ms s y
   AstCond :: forall y ms s.
              AstBool ms -> AstTensor ms s y -> AstTensor ms s y
