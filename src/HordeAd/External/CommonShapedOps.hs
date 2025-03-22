@@ -91,16 +91,14 @@ reluLeakyS v0 = tlet v0 $ \v ->
   in oneIfGtZero * v
 
 logisticS :: forall target r sh.
-             ( BaseTensor target, LetTensor target
-             , KnownShS sh, GoodScalar r
-             , Floating (PrimalOf target (TKS sh r)) )
+             ( BaseTensor target, LetTensor target, BaseTensor (PrimalOf target)
+             , KnownShS sh, GoodScalar r, Differentiable r )
           => target (TKS sh r) -> target (TKS sh r)
 logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
-  let one = sprimalPart @target (srepl 1)
+  let one = srepl 1
       y0 = recip (one + exp (- sprimalPart d))
-  in tlet (sfromPrimal y0)  -- we don't have tletPrimal
-     $ \y1 -> let y = sprimalPart y1
-              in y1 + sfromDual (sScale @target (y * (one - y)) $ sdualPart d)
+  in ttletPrimal y0 $ \y ->
+       sfromPrimal y + sfromDual (sScale @target (y * (one - y)) $ sdualPart d)
 
 -- Optimized and more clearly written @u ** 2@. It's not clear if this is
 -- currently faster than @u ** 2@ and in which pipelines, but it's different,
@@ -108,7 +106,7 @@ logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
 squareS :: forall target r sh.
            ( KnownShS sh, BaseTensor target, LetTensor target
            , Num (PrimalOf target (TKS sh r)), GoodScalar r )
-       => target (TKS sh r) -> target (TKS sh r)
+        => target (TKS sh r) -> target (TKS sh r)
 squareS d = let u = sprimalPart d
                 u' = sdualPart d
             in tD knownSTK (u * u) (sScale @target (2 * u) u')
@@ -141,19 +139,18 @@ lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
   -- values we don't fully control.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
-  let softMaxU' =
+  let softMaxU0 =
         let u = sprimalPart d
             expU' = exp (u - sreplicate0N (sminimum u))
         in tlet expU' $ \expU ->
           let sumExpU = ssum0 expU
               recipSum = recip sumExpU
           in sreplicate0N recipSum * expU
-               -- not exposed: LA.scaleRecip sumExpU expU
-  in tlet (sfromPrimal softMaxU') $ \softMaxU -> kfromS $
+  in ttletPrimal softMaxU0 $ \softMaxU -> kfromS $
     tD knownSTK
-       (negate $ log (sprimalPart softMaxU) `sdot0` target)
+       (negate $ log softMaxU `sdot0` target)
          -- TODO: avoid: log . exp
-       (sdualPart $ (softMaxU - sfromPrimal target) `sdot0` d)
+       (sdualPart $ sfromPrimal (softMaxU - target) `sdot0` d)
 
 -- No padding; remaining areas ignored.
 maxPool1S :: forall ksize stride m target r.

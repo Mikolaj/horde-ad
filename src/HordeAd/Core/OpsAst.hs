@@ -56,6 +56,11 @@ import HordeAd.AstEngine
 
 data IncomingCotangentHandling = UseIncomingCotangent | IgnoreIncomingCotangent
 
+-- Here a choice is made that derivatives are PrimalSpan terms.
+-- This makes them easier to simplify and expresses via type that they
+-- don't introduce tangents nor cotangents, but are purely primal functions.
+-- They can still be liften to dual number functions via interpretations,
+-- as is done in tgrad below and others.
 forwardPassByInterpretation
   :: forall x z.
      (AstTensor AstMethodLet FullSpan x

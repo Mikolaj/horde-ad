@@ -122,10 +122,9 @@ logistic :: forall target r n.
          => target (TKR n r) -> target (TKR n r)
 logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let one = rrepl (rshape d) 1
-      y0 = recip (one + exp (- rprimalPart @target d))
-  in tlet (rfromPrimal y0)  -- we don't have tletPrimal
-     $ \y1 -> let y = rprimalPart y1
-              in y1 + rfromDual (rScale @target (y * (one - y)) $ rdualPart d)
+      y0 = recip (one + exp (- rprimalPart d))
+  in ttletPrimal y0 $ \y ->
+       rfromPrimal y + rfromDual (rScale @target (y * (one - y)) $ rdualPart d)
 
 -- Optimized and more clearly written @u ** 2@. It's not clear if this is
 -- currently faster than @u ** 2@ and in which pipelines, but it's different,
@@ -156,9 +155,9 @@ lossCrossEntropyV targ res = kfromR $ negate $ log res `rdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
   :: forall target n r.
-     ( BaseTensor target, ConvertTensor target
+     ( BaseTensor target, ConvertTensor target, LetTensor target
      , BaseTensor (PrimalOf target), ConvertTensor (PrimalOf target)
-     , LetTensor target, LetTensor (PrimalOf target)
+     , LetTensor (PrimalOf target)
      , KnownNat n, GoodScalar r, Differentiable r )
   => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
 lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
@@ -167,19 +166,18 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
   -- values we don't fully control.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
-  let softMaxU' =
-        let u = rprimalPart @target d
-            expU' = exp (u - rreplicate0N (rshape u) (rminimum u))
-        in tlet expU' $ \expU ->
+  let u = rprimalPart d
+      expU' = exp (u - rreplicate0N (rshape u) (rminimum u))
+  in ttletPrimal expU' $ \expU ->
+    let softMaxU0 =
           let sumExpU = rsum0 expU
               recipSum = recip sumExpU
           in rreplicate0N (rshape u) recipSum * expU
-               -- not exposed: LA.scaleRecip sumExpU expU
-  in tlet (rfromPrimal @target softMaxU') $ \softMaxU -> kfromR $
-    tD knownSTK
-       (negate $ log (rprimalPart @target softMaxU) `rdot0` target)
-         -- TODO: avoid: log . exp
-       (rdualPart @target $ (softMaxU - rfromPrimal @target target) `rdot0` d)
+    in ttletPrimal softMaxU0 $ \softMaxU -> kfromR $
+      tD knownSTK
+         (negate $ log softMaxU `rdot0` target)
+           -- TODO: avoid: log . exp
+         (rdualPart $ rfromPrimal (softMaxU - target) `rdot0` d)
 
 -- No padding; remaining areas ignored.
 maxPool1 :: ( BaseTensor target, ConvertTensor target, LetTensor target

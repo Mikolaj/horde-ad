@@ -241,9 +241,9 @@ class LetTensor (target :: Target) where
      -> target y
   tD stk p d =
     -- Lets needed, because taddTarget requires duplicable arguments.
-    ttlet (tfromPrimal stk p) $ \pShared ->
+    ttletPrimal p $ \pShared ->
     ttlet (tfromDual d) $ \dShared ->
-      taddTarget stk pShared dShared
+      taddTarget stk (tfromPrimal stk pShared) dShared
   -- | A strict left fold.
   tfold
     :: forall yn ym k. BaseTensor target
