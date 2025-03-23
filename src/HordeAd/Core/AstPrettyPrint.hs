@@ -1,10 +1,8 @@
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 -- | Pretty-printing of the AST. Some of the variants of pretty-printing
 -- almost roundtrip, while others are more readable but less faithful.
 module HordeAd.Core.AstPrettyPrint
-  ( PrintConfig(..), defaulPrintConfig, defaulPrintConfig2
-  , printAst, printAstVar
+  ( PrintConfig(..), defaulPrintConfig
+  , printAstVar, printAst
   ) where
 
 import Prelude
@@ -26,17 +24,15 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
--- * Pretty-printing setup and checks
+-- * Pretty-printing config
 
 -- Modeled after https://github.com/VMatthijs/CHAD/blob/755fc47e1f8d1c3d91455f123338f44a353fc265/src/TargetLanguage.hs#L335.
 
 -- TODO: ensure that terms roundtrip if neither loseRoudtrip
--- nor ignoreNestedLambdas is set.
--- Ideally, pretty-printing would also preserve the explicit sharing
--- in this case instead of displaying it as Haskell sharing.
--- Note that other options may cause the roundtrip to cost more than
--- a single pass over the term, e.g., ignoreNestedLambdas causes derivatives
--- to be recomputed.
+-- nor ignoreNestedLambdas is set and that explicit sharing is then preserved
+-- as opposed to displaying sharing as Haskell lets.
+-- Note that disabling ignoreNestedLambdas causes derivatives to be computed,
+-- so pretty-printing in this way can be very expensive.
 data PrintConfig = PrintConfig
   { loseRoudtrip        :: Bool
   , ignoreNestedLambdas :: Bool
@@ -44,16 +40,13 @@ data PrintConfig = PrintConfig
   , representsIntIndex  :: Bool
   }
 
-defaulPrintConfig :: Bool -> IntMap String -> PrintConfig
-defaulPrintConfig loseRoudtrip varRenames =
-  let ignoreNestedLambdas = loseRoudtrip
-      representsIntIndex = False
-  in PrintConfig {..}
-
-defaulPrintConfig2 :: Bool -> Bool -> IntMap String -> PrintConfig
-defaulPrintConfig2 loseRoudtrip ignoreNestedLambdas varRenames =
-  let representsIntIndex = False
-  in PrintConfig {..}
+defaulPrintConfig :: PrintConfig
+defaulPrintConfig = PrintConfig
+  { loseRoudtrip        = True
+  , ignoreNestedLambdas = True
+  , varRenames          = IM.empty
+  , representsIntIndex  = False
+  }
 
 
 -- * Pretty-printing of variables
@@ -91,7 +84,7 @@ printAstVarFromLet cfg var =
   else printAstVar cfg var
 
 
--- * General pretty-printing of AST terms
+-- * Pretty-printing of AST terms
 
 printAstInt :: PrintConfig -> Int -> AstInt ms -> ShowS
 printAstInt cfgOld d t =
@@ -248,6 +241,7 @@ printAstAux cfg d = \case
   AstApply t ll -> showParen (d > 10)
                    $ showString "tApply "
                      . printAstHFunOneUnignore cfg 10 t
+                         -- this is a lambda, but not nested, so always printed
                      . showString " "
                      . printAst cfg 11 ll
   AstVar var -> printAstVar cfg var
@@ -344,8 +338,8 @@ printAstAux cfg d = \case
     then printAst cfg d a
     else printPrefixOp printAst cfg d "tfromDual" [a]
 
-  AstPlusK u v -> printBinaryOp printAst cfg d u (6, " + ") v
-  AstTimesK u v -> printBinaryOp printAst cfg d u (7, " * ") v
+  AstPlusK u v -> printBinaryOp printAst cfg d u (6, "+") v
+  AstTimesK u v -> printBinaryOp printAst cfg d u (7, "*") v
   AstN1K opCode u -> printAstN1R printAst cfg d opCode u
   AstR1K opCode u -> printAstR1R printAst cfg d opCode u
   AstR2K opCode u v -> printAstR2R printAst cfg d opCode u v
@@ -358,8 +352,8 @@ printAstAux cfg d = \case
   AstCastK v ->
     printPrefixOp printAst cfg d "kcast" [v]
 
-  AstPlusS u v -> printBinaryOp printAst cfg d u (6, " + ") v
-  AstTimesS u v -> printBinaryOp printAst cfg d u (7, " * ") v
+  AstPlusS u v -> printBinaryOp printAst cfg d u (6, "+") v
+  AstTimesS u v -> printBinaryOp printAst cfg d u (7, "*") v
   AstN1S opCode u -> printAstN1R printAst cfg d opCode u
   AstR1S opCode u -> printAstR1R printAst cfg d opCode u
   AstR2S opCode u v -> printAstR2R printAst cfg d opCode u v
@@ -590,8 +584,8 @@ printAstR1R pr cfg d opCode u = case opCode of
 printAstR2R :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCode2 -> a -> a -> ShowS
 printAstR2R pr cfg d opCode u v = case opCode of
-  DivideOp -> printBinaryOp pr cfg d u (7, " / ") v
-  PowerOp -> printBinaryOp pr cfg d u (8, " ** ") v
+  DivideOp -> printBinaryOp pr cfg d u (7, "/") v
+  PowerOp -> printBinaryOp pr cfg d u (8, "**") v
   LogBaseOp -> printPrefixOp pr cfg d "logBase" [u, v]
   Atan2Op -> printPrefixOp pr cfg d "atan2H" [u, v]
 
@@ -618,23 +612,23 @@ printBinaryOp :: (PrintConfig -> Int -> a -> ShowS)
 printBinaryOp pr cfg d left (prec, opstr) right =
   showParen (d > prec)
   $ pr cfg (prec + 1) left
-    . showString opstr
+    . showString (" " ++ opstr ++ " ")
     . pr cfg (prec + 1) right
 
 printAstB2
   :: PrintConfig -> Int -> OpCodeBool -> AstBool ms -> AstBool ms -> ShowS
 printAstB2 cfg d opCode arg1 arg2 = case opCode of
-  AndOp -> printBinaryOp printAstBool cfg d arg1 (3, " &&* ") arg2
-  OrOp -> printBinaryOp printAstBool cfg d arg1 (2, " ||* ") arg2
+  AndOp -> printBinaryOp printAstBool cfg d arg1 (3, "&&*") arg2
+  OrOp -> printBinaryOp printAstBool cfg d arg1 (2, "||*") arg2
 
 printAstRelOp :: (PrintConfig -> Int -> a -> ShowS)
               -> PrintConfig -> Int -> OpCodeRel -> a -> a
               -> ShowS
 {-# INLINE printAstRelOp #-}
 printAstRelOp pr cfg d opCode u v = case opCode of
-  EqOp -> printBinaryOp pr cfg d u (4, " ==. ") v
-  NeqOp -> printBinaryOp pr cfg d u (4, " /=. ") v
-  LeqOp -> printBinaryOp pr cfg d u (4, " <=. ") v
-  GeqOp -> printBinaryOp pr cfg d u (4, " >=. ") v
-  LsOp -> printBinaryOp pr cfg d u (4, " <. ") v
-  GtOp -> printBinaryOp pr cfg d u (4, " >. ") v
+  EqOp -> printBinaryOp pr cfg d u (4, "==.") v
+  NeqOp -> printBinaryOp pr cfg d u (4, "/=.") v
+  LeqOp -> printBinaryOp pr cfg d u (4, "<=.") v
+  GeqOp -> printBinaryOp pr cfg d u (4, ">=.") v
+  LsOp -> printBinaryOp pr cfg d u (4, "<.") v
+  GtOp -> printBinaryOp pr cfg d u (4, ">.") v

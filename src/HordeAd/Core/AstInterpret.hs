@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
 {-# OPTIONS_GHC -freduction-depth=10000 #-}
+{-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 -- | Interpretation of AST terms in an aribtrary tensor operations
 -- class instance. With the exception of the the interpretation
 -- of the sharing mechanisms and any other performance tweaks,
@@ -51,8 +52,8 @@ interpretAstPrimal
   => AstEnv target -> AstTensor AstMethodLet PrimalSpan y
   -> PrimalOf target y
 interpretAstPrimal !env v1 = case v1 of
+  -- This prevents computing the complex dual parts for mapAccum in ADVal.
   AstMapAccumRDer k bftk eftk f0 df0 rf0 acc0 es ->
-    -- This avoids computing the complex dual parts for mapAccum in ADVal.
     let f = interpretAstHFunPrimal env f0
         df = interpretAstHFunPrimal env df0
         rf = interpretAstHFunPrimal env rf0
@@ -68,8 +69,8 @@ interpretAstPrimal !env v1 = case v1 of
         es2 = interpretAstPrimal env es
     in tmapAccumLDer (Proxy @(PrimalOf target))
                      k (ftkAst acc0) bftk eftk f df rf acc02 es2
+  -- This prevents multiple ifH expansions in ADVal.
   AstCond b a1 a2 ->
-    -- This avoids multiple ifH expansions in ADVal.
     let c = interpretAstBool env b
     in tcond (ftkToSTK $ ftkAst a1) c
              (interpretAstPrimal env a1) (interpretAstPrimal env a2)
@@ -121,15 +122,6 @@ interpretAst !env = \case
   AstSum snat stk v -> tsum snat stk $ interpretAst env v
   AstReplicate snat stk v ->
     treplicate snat stk (interpretAst env v)
-  -- The following can't be, in general, so partially evaluated, because v
-  -- may contain variables that the evironment sends to terms,
-  -- not to concrete numbers (and so Primal a is not equal to a).
-  -- However, this matters only for POPL AD, not JAX AD and also it matters
-  -- only with no vectorization of, at least, constant (primal-only) terms.
-  -- AstBuild1 k (var, AstFromPrimal v) ->
-  --   tconcrete
-  --   $ OR.ravel . ORB.fromVector [k] . V.generate k
-  --   $ interpretLambdaI interpretAstPrimal env (var, v)
   AstMapAccumRDer k bftk eftk f0 df0 rf0 acc0 es ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0
@@ -151,8 +143,9 @@ interpretAst !env = \case
   AstVar var ->
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env
-    -- The old assertion test below checks the same thing this lookup doesn't
-    -- and more.
+    -- The safe version of this lookup is expensive in benchmarks with
+    -- many variables (e.g., prod). The old assertion test below checks
+    -- the same thing this lookup doesn't and more (and is expensive, too).
     in case DMap.Unsafe.lookupUnsafe var2 env of
       Just t ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
@@ -279,7 +272,7 @@ interpretAst !env = \case
       let v2 = interpretAst env v
           ix3 = interpretAstPrimal env <$> ix
       in tsindex @target @sh1 v2 ix3
-        -- if index is out of bounds, the operations returns with an undefined
+        -- if index is out of bounds, the operation returns with an undefined
         -- value of the correct rank and shape; this is needed, because
         -- vectorization can produce out of bound indexing from code where
         -- the indexing is guarded by conditionals
@@ -402,7 +395,7 @@ interpretAstHFun _env (AstLambda var l) =
   tlambda @target (varNameToFTK var)
   $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
       -- Interpretation in empty environment makes sense here, because
-      -- there are no free variables outside of those listed.
+      -- there are no free variables except for the one declared.
 
 interpretAstHFunPrimal
   :: forall target x y. ADReady target

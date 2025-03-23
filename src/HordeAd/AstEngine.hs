@@ -65,58 +65,57 @@ simplifyArtifactDerivative art =
 
 -- * Pretty-printing terms in a few useful configurations
 
-printAstVarReName :: IntMap String -> AstVarName s y -> String
-printAstVarReName renames var =
-  printAstVar (defaulPrintConfig False renames) var ""
+printAstVarRename :: IntMap String -> AstVarName s y -> String
+printAstVarRename renames var =
+  printAstVar (defaulPrintConfig {varRenames = renames}) var ""
 
-printAstSimpleRe :: AstSpan s
+printAstSimpleRename :: AstSpan s
                  => IntMap String -> AstTensor ms s y -> String
-printAstSimpleRe renames t = printAst (defaulPrintConfig False renames) 0 t ""
+printAstSimpleRename renames t =
+  printAst
+    (defaulPrintConfig {loseRoudtrip = False, varRenames = renames}) 0 t ""
 
-printAstPrettyRe :: AstSpan s
-                 => IntMap String -> AstTensor ms s y -> String
-printAstPrettyRe renames t = printAst (defaulPrintConfig True renames) 0 t ""
+printAstPrettyRename :: AstSpan s
+                     => IntMap String -> AstTensor ms s y -> String
+printAstPrettyRename renames t =
+  printAst (defaulPrintConfig {varRenames = renames}) 0 t ""
 
 printAstVarName :: AstVarName s y -> String
 printAstVarName var =
-  let renames = IM.empty
-  in printAstVar (defaulPrintConfig False renames) var ""
+  printAstVar defaulPrintConfig var ""
 
 printAstSimple :: AstSpan s
                => AstTensor ms s y -> String
 printAstSimple t =
-  let renames = IM.empty
-  in printAst (defaulPrintConfig False renames) 0 t ""
+  printAst (defaulPrintConfig {loseRoudtrip = False}) 0 t ""
 
 printAstPretty :: AstSpan s
                => AstTensor ms s y -> String
 printAstPretty t =
-  let renames = IM.empty
-  in printAst (defaulPrintConfig True renames) 0 t ""
+  printAst defaulPrintConfig 0 t ""
 
 printAstPrettyButNested :: AstSpan s
                         => AstTensor ms s y -> String
 printAstPrettyButNested t =
-  let renames = IM.empty
-  in printAst (defaulPrintConfig2 True False renames) 0 t ""
+  printAst (defaulPrintConfig {ignoreNestedLambdas = False}) 0 t ""
 
 printArtifactSimple :: AstArtifactRev x z -> String
 printArtifactSimple !AstArtifactRev{..} =
   let nDt = fromEnum (varNameToAstVarId artVarDtRev) - 100000000
       renames = IM.singleton nDt "dret"
-      varsPP = [ printAstVarReName renames artVarDtRev
-               , printAstVarReName renames artVarDomainRev ]
+      varsPP = [ printAstVarRename renames artVarDtRev
+               , printAstVarRename renames artVarDomainRev ]
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstSimpleRe renames artDerivativeRev
+          ++ " -> " ++ printAstSimpleRename renames artDerivativeRev
 
 printArtifactPretty :: AstArtifactRev x z -> String
 printArtifactPretty !AstArtifactRev{..} =
   let nDt = fromEnum (varNameToAstVarId artVarDtRev) - 100000000
       renames = IM.singleton nDt "dret"
-      varsPP = [ printAstVarReName renames artVarDtRev
-               , printAstVarReName renames artVarDomainRev ]
+      varsPP = [ printAstVarRename renames artVarDtRev
+               , printAstVarRename renames artVarDomainRev ]
   in "\\" ++ unwords varsPP
-          ++ " -> " ++ printAstPrettyRe renames artDerivativeRev
+          ++ " -> " ++ printAstPrettyRename renames artDerivativeRev
 
 printArtifactPrimalSimple :: AstArtifactRev x z -> String
 printArtifactPrimalSimple !AstArtifactRev{..} =
