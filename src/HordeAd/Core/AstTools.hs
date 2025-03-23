@@ -1,8 +1,6 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 -- | An assortment of operations working on AST of the code to be differentiated
--- or resulting from the differentiation.
+-- or code resulting from the differentiation.
 module HordeAd.Core.AstTools
   ( -- * Full tensor kind derivation
     isTensorInt, ftkAst
