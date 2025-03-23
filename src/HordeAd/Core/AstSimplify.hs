@@ -2367,7 +2367,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                      (astFromS @(TKS2 sh z)
                                (STKX (ssxFromShape sh') (ftkToSTK z)) b32)
 
-  tfromS _ zstk = astFromS zstk
+  tfromS zstk = astFromS zstk
   rfromX a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->

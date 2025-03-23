@@ -511,7 +511,7 @@ instance ConvertTensor Concrete where
   xunzip a = let (!a1, !a2) = Nested.munzip $ unConcrete a
              in Concrete (a1, a2)
 
-  tfromS ystk zstk v = case (ystk, zstk) of
+  tfromS @y zstk v = case (knownSTK @y, zstk) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
     (STKS ZSS (STKScalar @ry), STKScalar @rz) ->
       case testEquality (typeRep @ry) (typeRep @rz) of
@@ -532,7 +532,9 @@ instance ConvertTensor Concrete where
         _ -> error "tfromS: tensor kinds don't match"
     (STKProduct ystk1 ystk2, STKProduct zstk1 zstk2) ->
         let (u1, u2) = tunpair v
-        in tpair (tfromS ystk1 zstk1 u1) (tfromS ystk2 zstk2 u2)
+        in withKnownSTK ystk1 $
+           withKnownSTK ystk2 $
+           tpair (tfromS zstk1 u1) (tfromS zstk2 u2)
     _ -> error "tfromS: wrong tensor kinds"
 
   kfromR = Concrete . Nested.runScalar . unConcrete

@@ -30,19 +30,20 @@ class ConvertTensor (target :: Target) where
   -- by hiding some (or none) type information (so the codomain has to be
   -- a "subtype" of the domain) or error.
   -- A corollary is that tfromS behaves uniformly vs BuildTensorKind.
-  tfromS :: SingletonTK y -> SingletonTK z -> target y -> target z
+  tfromS :: KnownSTK y
+         => SingletonTK z -> target y -> target z
 
   kfromR :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
   kfromR = kfromS . sfromR
   kfromS :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
-  kfromS = tfromS knownSTK knownSTK
+  kfromS = tfromS knownSTK
   kfromX :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
   kfromX = kfromS . sfromX
   rfromK :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
   rfromK = rfromS . sfromK
   rfromS :: (KnownShS sh, KnownSTK x)
          => target (TKS2 sh x) -> target (TKR2 (Rank sh) x)
-  rfromS @sh @x = tfromS knownSTK (STKR (shsRank (knownShS @sh)) (knownSTK @x))
+  rfromS @sh @x = tfromS (STKR (shsRank (knownShS @sh)) (knownSTK @x))
   rfromX :: forall sh x. KnownSTK x
          => target (TKX2 sh x) -> target (TKR2 (Rank sh) x)
   sfromK :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
@@ -56,7 +57,7 @@ class ConvertTensor (target :: Target) where
          => target (TKR2 (Rank sh') x) -> target (TKX2 sh' x)
   xfromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownSTK x)
          => target (TKS2 sh x) -> target (TKX2 sh' x)
-  xfromS = tfromS knownSTK knownSTK
+  xfromS = tfromS knownSTK
 
   rzip :: forall y z n.
           target (TKProduct (TKR2 n y) (TKR2 n z))
@@ -125,7 +126,7 @@ class ConvertTensor (target :: Target) where
   snest sh1 =
     gcastWith (lemRankMapJust sh1) $
     gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1 ++ MapJust sh2)
-                                    :~: Rank (sh1 ++ sh2)) $
+                                   :~: Rank (sh1 ++ sh2)) $
     withKnownShS sh1 $
     withKnownShX (ssxFromShape (shCvtSX sh1)) $
     withKnownShS (sh1 `shsAppend` knownShS @sh2) $

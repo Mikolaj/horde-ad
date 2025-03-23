@@ -999,8 +999,8 @@ evalFwd params s d0 = case d0 of
     , Just Refl <- sameSTK (adSTK stk) (adSTK $ ftkToSTK y2) ->
       evalFwd params s d
   DeltaFromS stk d ->
-    let stk2 = ftkToSTK $ ftkDelta d
-    in second (tfromS (adSTK stk2) (adSTK stk)) $ evalFwd params s d
+    withKnownSTK (adSTK $ ftkToSTK $ ftkDelta d) $
+    second (tfromS (adSTK stk)) $ evalFwd params s d
 
   _ -> let y = ftkDelta d0
            ay = adFTK y

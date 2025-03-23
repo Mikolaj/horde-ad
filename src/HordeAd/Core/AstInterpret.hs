@@ -279,10 +279,10 @@ interpretAst !env = \case
       let v2 = interpretAst env v
           ix3 = interpretAstPrimal env <$> ix
       in tsindex @target @sh1 v2 ix3
-      -- if index is out of bounds, the operations returns with an undefined
-      -- value of the correct rank and shape; this is needed, because
-      -- vectorization can produce out of bound indexing from code where
-      -- the indexing is guarded by conditionals
+        -- if index is out of bounds, the operations returns with an undefined
+        -- value of the correct rank and shape; this is needed, because
+        -- vectorization can produce out of bound indexing from code where
+        -- the indexing is guarded by conditionals
   {- TODO: this breaks specialization:
   AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -363,7 +363,9 @@ interpretAst !env = \case
       withKnownSTK x $
       sunNest $ interpretAst env v
 
-  AstFromS stkz v -> tfromS (ftkToSTK (ftkAst v)) stkz (interpretAst env v)
+  AstFromS stkz v ->
+    withKnownSTK (ftkToSTK (ftkAst v)) $
+    tfromS stkz (interpretAst env v)
   AstSFromK t -> sfromK $ interpretAst env t
   AstSFromR sh v -> case ftkToSTK (ftkAst v) of
     STKR _ x ->
