@@ -33,21 +33,11 @@ import HordeAd.Core.Types
 
 -- * Full tensor kind derivation
 
-isTensorInt :: forall s y ms. AstSpan s
-            => Proxy s -> FullShapeTK y
-            -> Maybe (AstTensor ms s y :~: AstInt ms)
-isTensorInt _ ftk = case ftk of
-  FTKScalar @r -> case ( testEquality (typeRep @r) (typeRep @Int64)
-                       , sameAstSpan @s @PrimalSpan ) of
-                    (Just Refl, Just Refl) -> Just Refl
-                    _ -> Nothing
-  _ -> Nothing
-
 -- This is cheap and dirty. We don't shape-check the terms and we don't
--- unify or produce (partial) results with variables. Instead, we investigate
+-- unify or produce (partial) results with unknowns. Instead, we investigate
 -- only one path and fail if it doesn't contain enough information
--- to determine shape. If we don't switch to @Data.Array.Shaped@
--- or revert to fully dynamic shapes, we need to redo this with more rigour.
+-- to determine shape (which rarely happens in our AST that is based
+-- on shaped tensors).
 ftkAst :: forall s y ms. AstTensor ms s y -> FullShapeTK y
 ftkAst t = case t of
   AstPair t1 t2 -> FTKProduct (ftkAst t1) (ftkAst t2)
@@ -60,7 +50,7 @@ ftkAst t = case t of
     Just (v, _) -> buildFTK snat (ftkAst v)
   AstSum snat stk v -> razeFTK snat stk (ftkAst v)
   AstReplicate snat _ v -> buildFTK snat (ftkAst v)
-  AstMapAccumRDer k bftk _eftk _f _df _rf acc0 _es->
+  AstMapAccumRDer k bftk _eftk _f _df _rf acc0 _es ->
     FTKProduct (ftkAst acc0) (buildFTK k bftk)
   AstMapAccumLDer k bftk _eftk _f _df _rf acc0 _es ->
     FTKProduct (ftkAst acc0) (buildFTK k bftk)
@@ -169,6 +159,16 @@ ftkAst t = case t of
   AstDot1InS sh _ _u _v -> FTKS sh FTKScalar
   AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar
 
+isTensorInt :: forall s y ms. AstSpan s
+            => Proxy s -> FullShapeTK y
+            -> Maybe (AstTensor ms s y :~: AstInt ms)
+isTensorInt _ ftk = case ftk of
+  FTKScalar @r -> case ( testEquality (typeRep @r) (typeRep @Int64)
+                       , sameAstSpan @s @PrimalSpan ) of
+                    (Just Refl, Just Refl) -> Just Refl
+                    _ -> Nothing
+  _ -> Nothing
+
 
 -- * Variable occurrence detection
 
@@ -270,6 +270,7 @@ varInAstBool var = \case
 varNameInAst :: AstVarName f y -> AstTensor ms s2 y2 -> Bool
 varNameInAst var = varInAst (varNameToAstVarId var)
 
+
 -- * Determining if a term requires sharing
 
 -- A term requires sharing if it's too large as a term and so duplicating
@@ -349,8 +350,7 @@ liftRFromS1 f (AstFromS stkz@(STKR snat x) u) = case ftkAst u of
   FTKS _ xu ->
     case sameSTK x (ftkToSTK xu) of
       Just Refl -> case f u of
-        AstSFromR sh a
-          | Just Refl <- testEquality (shsRank sh) snat -> a
+        AstSFromR sh a | Just Refl <- testEquality (shsRank sh) snat -> a
         a -> AstFromS stkz a
       _ -> error $ "liftRFromS1: tensor kinds don't agree: "
                    ++ show x ++ " " ++ show xu
@@ -379,8 +379,7 @@ liftRFromS2 f (AstFromS stkz@(STKR snat x) u) (AstFromS _ v) =
            , sameSTK (ftkToSTK xv) x
            , testEquality shu shv ) of
       (Just Refl, Just Refl, Just Refl) -> case f u v of
-        AstSFromR sh a
-          | Just Refl <- testEquality (shsRank sh) snat -> a
+        AstSFromR sh a | Just Refl <- testEquality (shsRank sh) snat -> a
         a -> AstFromS stkz a
       _ -> error $ "liftRFromS2: tensor kinds don't agree: "
                    ++ show ftku ++ " " ++ show ftkv ++ " "
@@ -403,8 +402,7 @@ liftXFromS1 f (AstFromS stkz@(STKX _ x) u) = case ftkAst u of
   FTKS _ xu ->
     case sameSTK x (ftkToSTK xu) of
       Just Refl -> case f u of
-        AstSFromX _ a
-          | Just Refl <- sameSTK stkz (ftkToSTK (ftkAst a)) -> a
+        AstSFromX _ a | Just Refl <- sameSTK stkz (ftkToSTK (ftkAst a)) -> a
         a -> AstFromS stkz a
       _ -> error $ "liftXFromS1: tensor kinds don't agree: "
                    ++ show x ++ " " ++ show xu
@@ -428,8 +426,7 @@ liftXFromS2 f (AstFromS stkz@(STKX _ x) u) (AstFromS _ v) =
            , sameSTK (ftkToSTK xv) x
            , testEquality shu shv ) of
         (Just Refl, Just Refl, Just Refl) -> case f u v of
-          AstSFromX _ a
-            | Just Refl <- sameSTK stkz (ftkToSTK (ftkAst a)) -> a
+          AstSFromX _ a | Just Refl <- sameSTK stkz (ftkToSTK (ftkAst a)) -> a
           a -> AstFromS stkz a
         _ -> error $ "liftXFromS2: tensor kinds don't agree: "
                      ++ show ftku ++ " " ++ show ftkv ++ " "
@@ -460,8 +457,7 @@ cAstSFromR sh w@(AstFromS _ v) | FTKR _ x <- ftkAst w =
   case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> v
     _ -> error "cAstSFromR: different shapes in AstSFromR(AstFromS)"
-cAstSFromR sh (AstFromPrimal w@(AstFromS _ v))
- | FTKR _ x <- ftkAst w =
+cAstSFromR sh (AstFromPrimal w@(AstFromS _ v)) | FTKR _ x <- ftkAst w =
   case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> AstFromPrimal v
     _ -> error "cAstSFromR: different shapes in AstSFromR(AstFromS)"
@@ -474,8 +470,7 @@ cAstSFromX sh w@(AstFromS _ v) | FTKX _ x <- ftkAst w =
   case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> v
     _ -> error "cAstSFromX: different shapes in AstSFromX(AstFromS)"
-cAstSFromX sh (AstFromPrimal w@(AstFromS _ v))
- | FTKX _ x <- ftkAst w =
+cAstSFromX sh (AstFromPrimal w@(AstFromS _ v)) | FTKX _ x <- ftkAst w =
   case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> AstFromPrimal v
     _ -> error "cAstSFromX: different shapes in AstSFromX(AstFromS)"

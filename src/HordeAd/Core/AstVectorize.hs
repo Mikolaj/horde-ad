@@ -1,8 +1,9 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Vectorization of the AST, eliminating the build operation.
+-- | BOT (bulk-operation transformation) of the AST, which is a kind
+-- of vectorization. It eliminates the build operation and, consequently,
+-- any occurence of indexing under build, which would cause delta expression
+-- explosion and afterwards one-hot explosion when evaluation deltas.
 module HordeAd.Core.AstVectorize
   ( build1Vectorize, traceRuleEnabledRef
   ) where
@@ -16,15 +17,14 @@ import Data.IORef
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
-import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (type (+))
+import GHC.TypeLits (type (+), type (<=?))
 import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Unsafe (unsafePerformIO)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Array.Mixed.Types (Tail, unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested.Internal.Shape
 
@@ -52,7 +52,7 @@ build1Vectorize
   => SNat k -> SingletonTK y -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE build1Vectorize #-}
-build1Vectorize snat@SNat stk (var, v0) = unsafePerformIO $ do
+build1Vectorize snat@SNat stk !(!var, !v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
       startTerm = Ast.AstBuild1 snat stk (var, v0)
@@ -86,13 +86,13 @@ build1VOccurenceUnknown
   :: forall y k s. AstSpan s
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
-build1VOccurenceUnknown snat@SNat (var, v00)
+build1VOccurenceUnknown snat@SNat !(!var, !v00)
   | stk0 <- ftkToSTK (ftkAst v00) =
     let v0 = astNonIndexStep v00
           -- Almost surely the term will be transformed, so it can just
-          -- as well we one-step simplified first (many steps if redexes
-          -- get uncovered and so the simplification requires only constant
-          -- look-ahead, but has a guaranteed net benefit).
+          -- as well be one-step simplified first (many steps if redexes
+          -- get uncovered but then simplification still requires only constant
+          -- look-ahead and has a guaranteed net benefit).
         traceRule =
           mkTraceRule "build1VOcc" (Ast.AstBuild1 snat stk0 (var, v0)) v0 1
     in if varNameInAst var v0
@@ -100,6 +100,7 @@ build1VOccurenceUnknown snat@SNat (var, v00)
        else traceRule $
          astReplicate snat stk0 v0
 
+-- This refreshes the indexing variable in a build body.
 -- This is used to avoid biding the same variable twice in the code,
 -- (unless in very safe situations, e.g., different branches
 -- of an arithmetic expression) which may end up as nested bindings eventually
@@ -110,7 +111,7 @@ build1VOccurenceUnknownRefresh
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
-build1VOccurenceUnknownRefresh snat@SNat (var, v0) =
+build1VOccurenceUnknownRefresh snat@SNat !(!var, !v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAst astVarFresh var v0
                 -- cheap subst, because only a renaming
@@ -126,8 +127,7 @@ build1V
   :: forall y k s. AstSpan s
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
-build1V snat@SNat (var, v0)
- | stk0 <- ftkToSTK (ftkAst v0) =
+build1V snat@SNat !(!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
   let bv = Ast.AstBuild1 snat stk0 (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
@@ -229,8 +229,10 @@ build1V snat@SNat (var, v0)
         -- which may get inlined
     Ast.AstN1K NegateOp u -> traceRule $
       negate (build1V snat (var, u))
-    Ast.AstN1K opCode u -> traceRule $
-      Ast.AstN1S opCode (build1V snat (var, u))
+    Ast.AstN1K AbsOp u -> traceRule $
+      abs (build1V snat (var, u))
+    Ast.AstN1K SignumOp u -> traceRule $
+      signum (build1V snat (var, u))
     Ast.AstR1K opCode u -> traceRule $
       Ast.AstR1S opCode (build1V snat (var, u))
     Ast.AstR2K opCode u v -> traceRule $
@@ -259,8 +261,10 @@ build1V snat@SNat (var, v0)
         -- which may get inlined
     Ast.AstN1S NegateOp u -> traceRule $
       negate (build1V snat (var, u))
-    Ast.AstN1S opCode u -> traceRule $
-      Ast.AstN1S opCode (build1V snat (var, u))
+    Ast.AstN1S AbsOp u -> traceRule $
+      abs (build1V snat (var, u))
+    Ast.AstN1S SignumOp u -> traceRule $
+      signum (build1V snat (var, u))
     Ast.AstR1S opCode u -> traceRule $
       Ast.AstR1S opCode (build1V snat (var, u))
     Ast.AstR2S opCode u v -> traceRule $
@@ -281,12 +285,12 @@ build1V snat@SNat (var, v0)
     Ast.AstIndexS shn v ix -> traceRule $
       build1VIndexS snat shn (var, v, ix)  -- @var@ is in @v@ or @ix@
     Ast.AstScatterS @shm @shn @shp shn v (vars, ix) -> traceRule $
-      let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
+      let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix)
       in astScatterS @(k ': shm) @shn @(k ': shp) shn
                      (build1VOccurenceUnknown snat (var, v))
                      (Const varFresh ::$ vars, astVarFresh :.$ ix2)
     Ast.AstGatherS @shm @shn @shp shn v (vars, ix) -> traceRule $
-      let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix
+      let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix)
       in astGatherStepS @(k ': shm) @shn @(k ': shp) shn
                         (build1VOccurenceUnknown snat (var, v))
                         (Const varFresh ::$ vars, astVarFresh :.$ ix2)
@@ -295,7 +299,7 @@ build1V snat@SNat (var, v0)
     Ast.AstMaxIndexS v -> traceRule $
       Ast.AstMaxIndexS $ build1V snat (var, v)
     Ast.AstIotaS{} ->
-      error "build1V: AstIotaS can't have free index variables"
+      error "build1V: AstIotaS can't have free variables"
     Ast.AstAppendS v w -> traceRule $
       astTrS $ astAppendS (astTrS $ build1VOccurenceUnknown snat (var, v))
                           (astTrS $ build1VOccurenceUnknown snat (var, w))
@@ -325,11 +329,13 @@ build1V snat@SNat (var, v0)
       Ast.AstUnzipS $ build1V snat (var, v)
     Ast.AstNestS sh1 sh2 v -> traceRule $
       astNestS (snat :$$ sh1) sh2 $ build1V snat (var, v)
-    Ast.AstUnNestS v -> traceRule $ astUnNestS $ build1V snat (var, v)
+    Ast.AstUnNestS v -> traceRule $
+      astUnNestS $ build1V snat (var, v)
 
     Ast.AstFromS stkz v -> traceRule $
       astFromS (buildSTK snat stkz) $ build1V snat (var, v)
-    Ast.AstSFromK t -> build1V snat (var, t)
+    Ast.AstSFromK t -> traceRule $
+      build1V snat (var, t)
     Ast.AstSFromR sh v -> traceRule $
       astSFromR (snat :$$ sh) $ build1V snat (var, v)
     Ast.AstSFromX sh v -> traceRule $
@@ -340,11 +346,12 @@ build1V snat@SNat (var, v0)
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatmul2S{} -> error "build1V: term not accessible from user API"
 
+-- This refreshes an index variable in a list of index expressions.
 intBindingRefreshS
-  :: IntVarName -> AstIxS AstMethodLet sh
+  :: (IntVarName, AstIxS AstMethodLet sh)
   -> (IntVarName, AstInt AstMethodLet, AstIxS AstMethodLet sh)
 {-# NOINLINE intBindingRefreshS #-}
-intBindingRefreshS var ix =
+intBindingRefreshS !(!var, !ix) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !ix2 = substituteAstIxS astVarFresh var ix
                  -- cheap subst, because only a renaming
@@ -360,8 +367,8 @@ intBindingRefreshS var ix =
 -- the vectorization.
 --
 -- This pushing down is performed by alternating steps of simplification,
--- in @astIndexStep@, that eliminated indexing from the top of a term
--- position (except two permissible normal forms) and vectorization,
+-- in @astIndexStep@, that eliminates indexing from the top of a term
+-- position (except for two permissible normal forms) and vectorization,
 -- @build1VOccurenceUnknown@, that recursively goes down under constructors
 -- until it encounter indexing again. We have to do this in lockstep
 -- so that we simplify terms only as much as needed to vectorize.
@@ -378,10 +385,9 @@ build1VIndexS
      , AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
      , AstIxS AstMethodLet shm )
   -> AstTensor AstMethodLet s (TKS2 (k ': shn) x)
-build1VIndexS k _ (var, v0, ZIS) =
+build1VIndexS k _ (!var, !v0, ZIS) =
   build1VOccurenceUnknown k (var, v0)
-build1VIndexS k@SNat shn (var, v0, ix)
- | STKS _ x <- ftkToSTK (ftkAst v0) =
+build1VIndexS k@SNat shn (var, v0, ix) | STKS _ x <- ftkToSTK (ftkAst v0) =
   let vTrace = Ast.AstBuild1 k (STKS shn x) (var, Ast.AstIndexS shn v0 ix)
       traceRule = mkTraceRule "build1VIndexS" vTrace v0 1
   in if varNameInAst var v0
@@ -389,10 +395,9 @@ build1VIndexS k@SNat shn (var, v0, ix)
        Ast.AstIndexS _ v1 ZIS -> traceRule $
          build1VOccurenceUnknown k (var, v1)
        v@(Ast.AstIndexS shn1 v1 ix1) -> traceRule $
-         let (varFresh, astVarFresh, ix2) = intBindingRefreshS var ix1
+         let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix1)
              ruleD :: AstTensor AstMethodLet s (TKS2 (k ': shn) x)
-             ruleD =
-               astGatherStepS
+             ruleD = astGatherStepS
                        shn1 (build1VOccurenceUnknown k (var, v1))
                        (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = sNatValue $ ixsRank ix1
@@ -413,7 +418,7 @@ build1VHFun
   :: forall k x z s s2. (AstSpan s, AstSpan s2)
   => SNat k -> (IntVarName, AstHFun s s2 x z)
   -> AstHFun s s2 (BuildTensorKind k x) (BuildTensorKind k z)
-build1VHFun snat@SNat (var, v0) = case v0 of
+build1VHFun snat@SNat !(!var, !v0) = case v0 of
   Ast.AstLambda var1 l ->
     -- This handles the case of l having free variables beyond var1,
     -- which is not possible for lambdas used in folds, etc.
@@ -429,18 +434,13 @@ build1VHFun snat@SNat (var, v0) = case v0 of
 astTr :: forall n s r. AstSpan s
       => AstTensor AstMethodLet s (TKR2 (2 + n) r)
       -> AstTensor AstMethodLet s (TKR2 (2 + n) r)
-astTr a = case ftkAst a of
-  FTKR @_ @x sh' x | SNat <- shrRank sh' ->
-    withCastRS sh' $ \(sh :: ShS sh) ->
-      Permutation.permFromList [1, 0] $ \(perm :: Permutation.Perm perm) ->
-        gcastWith (unsafeCoerceRefl :: Compare (Rank perm) (Rank sh) :~: LT) $
-        fromMaybe (error "astTr: impossible non-permutation")
-        $ Permutation.permCheckPermutation perm
-        $ case shsPermutePrefix perm sh of
-          (_ :: ShS sh2) ->
-            gcastWith (unsafeCoerceRefl :: Rank sh2 :~: Rank sh) $
-            astFromS @(TKS2 sh2 x) (STKR (SNat @(2 + n)) (ftkToSTK x))
-            . astTransposeS perm . astSFromR @sh sh $ a
+astTr a = case Permutation.makePerm @'[1, 0] of
+  (perm :: Permutation.Perm perm) -> case ftkAst a of
+    FTKR sh' x | SNat <- shrRank sh' ->
+      withCastRS sh' $ \(sh :: ShS sh) ->
+        gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank sh) :~: True) $
+        astFromS (STKR (SNat @(2 + n)) (ftkToSTK x))
+        . astTransposeS perm . astSFromR sh $ a
 
 astTrS :: forall n m sh s r. AstSpan s
        => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r)
@@ -454,15 +454,11 @@ astTrX :: forall n m shx s r. AstSpan s
        -> AstTensor AstMethodLet s (TKX2 (Just m ': Just n ': shx) r)
 astTrX a = case Permutation.makePerm @'[1, 0] of
   (perm :: Permutation.Perm perm) -> case ftkAst a of
-    FTKX @sh' @x sh'@(mn :$% mm :$% shx) x -> case shxPermutePrefix perm sh' of
-      (sh2' :: IShX sh2') ->
-        withCastXS sh' $ \(sh :: ShS sh) ->
-        withCastXS sh2' $ \(_ :: ShS sh2) ->
-          gcastWith (unsafeCoerceRefl :: Compare (Rank perm) (Rank sh) :~: LT) $
-          gcastWith (unsafeCoerceRefl
-                     :: Permutation.PermutePrefix perm sh :~: sh2) $
-          astFromS @(TKS2 sh2 x) (ftkToSTK $ FTKX (mm :$% mn :$% shx) x)
-          . astTransposeS perm . astSFromX @sh @sh' sh $ a
+    FTKX sh'@(mn :$% mm :$% shx) x ->
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank sh) :~: True) $
+        astFromS (ftkToSTK $ FTKX (mm :$% mn :$% shx) x)
+        . astTransposeS perm . astSFromX sh $ a
 
 astTrBuild
   :: forall k1 k2 s y. AstSpan s
@@ -490,17 +486,14 @@ astIndexBuild snat@SNat stk u i = case stk of
   STKR{} -> case ftkAst u of
     FTKR shmshn _ ->
       withCastRS shmshn $ \(sh :: ShS sh) ->
-        gcastWith (unsafeCoerceRefl :: k ': Drop 1 sh :~: sh) $
-        astFromS stk
-        $ astIndexStepS (shsTail sh) (astSFromR @sh sh u) (i :.$ ZIS)
+        gcastWith (unsafeCoerceRefl :: k ': Tail sh :~: sh) $
+        astFromS stk $ astIndexStepS (shsTail sh) (astSFromR sh u) (i :.$ ZIS)
   STKS sh _ -> astIndexStepS sh u (i :.$ ZIS)
-  STKX @sh' _ _ -> case ftkAst u of
+  STKX _ _ -> case ftkAst u of
    FTKX shBuild' _->
-    withCastXS shBuild' $ \(shBuild :: ShS shBuild) -> case shBuild of
+    withCastXS shBuild' $ \shBuild -> case shBuild of
       _ :$$ rest ->
-        astFromS stk
-        $ astIndexStepS rest (astSFromX @shBuild @(Just k ': sh') shBuild u)
-                        (i :.$ ZIS)
+        astFromS stk $ astIndexStepS rest (astSFromX shBuild u) (i :.$ ZIS)
   STKProduct stk1 stk2 ->
     astLetFun u $ \ !u3 ->
       astPair (astIndexBuild snat stk1 (astProject1 u3) i)

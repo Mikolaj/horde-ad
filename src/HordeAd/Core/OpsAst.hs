@@ -424,7 +424,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         case testEquality (dropShS @(Rank shp) shpshn)
                           (dropShS @(Rank shm) shmshn) of
           Just Refl ->
-            astFromS (STKX (ssxFromShape shpshn0) (ftkToSTK x))
+            astFromS (ftkToSTK $ FTKX shpshn0 x)
             $ astScatterS @(Take (Rank shm) shmshn)
                           @(Drop (Rank shm) shmshn)
                           @(Take (Rank shp) shpshn) knownShS (astSFromX shmshn t)
@@ -452,7 +452,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         case testEquality (dropShS @(Rank shp) shpshn)
                           (dropShS @(Rank shm) shmshn) of
           Just Refl ->
-            astFromS (STKX (ssxFromShape shmshn0) (ftkToSTK x))
+            astFromS (ftkToSTK $ FTKX shmshn0 x)
             $ astGatherStepS @(Take (Rank shm) shmshn)
                              @(Drop (Rank shm) shmshn)
                              @(Take (Rank shp) shpshn) knownShS (astSFromX shpshn t)
@@ -527,22 +527,21 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   txreverse a = case ftkAst a of
     FTKX sh' x ->
       withCastXS sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
-        astFromS (STKX (ssxFromShape sh') (ftkToSTK x))
+        astFromS (ftkToSTK $ FTKX sh' x)
         . astReverseS . astSFromX @sh sh $ a
   txtranspose perm a = case ftkAst a of
     FTKX sh' x ->
       let sh2' = shxPermutePrefix perm sh'
       in withCastXS sh' $ \sh ->
-           astFromS (STKX (ssxFromShape sh2') (ftkToSTK x))
-           . astTransposeS perm
-           . astSFromX sh $ a
+           astFromS (ftkToSTK $ FTKX sh2' x)
+           . astTransposeS perm . astSFromX sh $ a
   txreshape sh2' a = case ftkAst a of
     FTKX sh' x ->
       withCastXS sh' $ \sh ->
       withCastXS sh2' $ \sh2 ->
         case testEquality (shsProduct sh) (shsProduct sh2) of
           Just Refl ->
-            astFromS (STKX (ssxFromShape sh2') (ftkToSTK x))
+            astFromS (ftkToSTK $ FTKX sh2' x)
             . astReshapeS sh2 . astSFromX sh $ a
           _ -> error $ "xreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
@@ -924,7 +923,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         case testEquality (dropShS @(Rank shp) shpshn)
                           (dropShS @(Rank shm) shmshn) of
           Just Refl ->
-            AstFromS (STKX (ssxFromShape shpshn0) (ftkToSTK x))
+            AstFromS (ftkToSTK $ FTKX shpshn0 x)
             $ AstScatterS @(Take (Rank shm) shmshn)
                           @(Drop (Rank shm) shmshn)
                           @(Take (Rank shp) shpshn) knownShS (AstSFromX shmshn t)
@@ -953,7 +952,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         case testEquality (dropShS @(Rank shp) shpshn)
                           (dropShS @(Rank shm) shmshn) of
           Just Refl ->
-            AstFromS (STKX (ssxFromShape shmshn0) (ftkToSTK x))
+            AstFromS (ftkToSTK $ FTKX shmshn0 x)
             $ AstGatherS @(Take (Rank shm) shmshn)
                          @(Drop (Rank shm) shmshn)
                          @(Take (Rank shp) shpshn) knownShS (AstSFromX shpshn t)
@@ -1029,13 +1028,13 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   txreverse (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
       withCastXS sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
-        AstFromS (STKX (ssxFromShape sh') (ftkToSTK x))
+        AstFromS (ftkToSTK $ FTKX sh' x)
         . AstReverseS . AstSFromX @sh sh $ a
   txtranspose perm (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
       let sh2' = shxPermutePrefix perm sh'
       in withCastXS sh' $ \sh ->
-           AstFromS (STKX (ssxFromShape sh2') (ftkToSTK x))
+           AstFromS (ftkToSTK $ FTKX sh2' x)
            . AstTransposeS perm
            . AstSFromX sh $ a
   txreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
@@ -1044,7 +1043,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastXS sh2' $ \sh2 ->
         case testEquality (shsProduct sh) (shsProduct sh2) of
           Just Refl ->
-            AstFromS (STKX (ssxFromShape sh2') (ftkToSTK x))
+            AstFromS (ftkToSTK $ FTKX sh2' x)
             . AstReshapeS sh2 . AstSFromX sh $ a
           _ -> error $ "xreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
@@ -1123,8 +1122,7 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
         AstRaw
         $ let (a31, a32) = tunpair $ AstRaw a
           in AstFromS @(TKS2 sh (TKProduct y z))
-                      (STKX (ssxFromShape sh')
-                            (STKProduct (ftkToSTK y) (ftkToSTK z)))
+                      (ftkToSTK $ FTKX sh' (FTKProduct y z))
              $ AstZipS $ AstPair (AstSFromX @sh @sh' sh $ unAstRaw a31)
                                  (AstSFromX @sh @sh' sh $ unAstRaw a32)
   xunzip @y @z @sh' (AstRaw a) = case ftkAst a of
@@ -1133,11 +1131,9 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
         AstRaw
         $ let b3 = AstRaw $ AstUnzipS $ AstSFromX @sh @sh' sh a
               (b31, b32) = tunpair b3
-          in AstPair (AstFromS @(TKS2 sh y)
-                               (STKX (ssxFromShape sh') (ftkToSTK y))
+          in AstPair (AstFromS @(TKS2 sh y) (ftkToSTK $ FTKX sh' y)
                       $ unAstRaw b31)
-                     (AstFromS @(TKS2 sh z)
-                               (STKX (ssxFromShape sh') (ftkToSTK z))
+                     (AstFromS @(TKS2 sh z) (ftkToSTK $ FTKX sh' z)
                       $ unAstRaw b32)
 
   tfromS zstk (AstRaw a) = AstRaw $ AstFromS zstk a

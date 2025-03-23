@@ -799,6 +799,7 @@ normalizePermutationHack :: Permutation.PermR -> Permutation.PermR
 normalizePermutationHack perm =
   map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
 
+-- TODO: can this be defined for Permutation.Perm using @Mod@?
 -- A representation of a cycle backpermutation that moves elements
 -- to indexes one less (the the left, to the back).
 backpermCycle :: Int -> Permutation.PermR
@@ -806,6 +807,7 @@ backpermCycle 0 = []
 backpermCycle 1 = []
 backpermCycle n = [k `mod` n | k <- [1 .. n]]
 
+-- TODO: can this be defined for Permutation.Perm using @Mod@?
 -- A representation of a cycle permutation that is reverse to @backpermCycle@.
 permCycle :: Int -> Permutation.PermR
 permCycle 0 = []
