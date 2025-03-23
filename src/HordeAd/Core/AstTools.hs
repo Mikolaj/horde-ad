@@ -3,7 +3,7 @@
 -- or code resulting from the differentiation.
 module HordeAd.Core.AstTools
   ( -- * Full tensor kind derivation
-    isTensorInt, ftkAst
+    ftkAst, isTensorInt
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIndexS, varNameInAst
     -- * Determining if a term is too small to require sharing

@@ -2780,11 +2780,9 @@ expandAstBool t = case t of
     normalizeAstB2 opCodeBool (expandAstBool arg1) (expandAstBool arg2)
   AstBoolConst{} -> t
   Ast.AstRelK opCodeRel arg1 arg2 ->
-    normalizeAstRelK opCodeRel (expandAst arg1) (expandAst arg2)
-      -- Because the scalar tensors sometimes represent indexes,
-      -- we expand them a bit more than all the others.
+    normalizeAstRel opCodeRel (expandAst arg1) (expandAst arg2)
   Ast.AstRelS opCodeRel arg1 arg2 ->
-    Ast.AstRelS opCodeRel (expandAst arg1) (expandAst arg2)
+    normalizeAstRel opCodeRel (expandAst arg1) (expandAst arg2)
 
 
 -- * The simplifying bottom-up pass
@@ -2907,11 +2905,9 @@ simplifyAstBool t = case t of
     normalizeAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
   AstBoolConst{} -> t
   Ast.AstRelK opCodeRel arg1 arg2 ->
-    normalizeAstRelK opCodeRel (simplifyAst arg1) (simplifyAst arg2)
-      -- Because the scalar tensors sometimes represent indexes,
-      -- we simplify them a bit more than all the others.
+    normalizeAstRel opCodeRel (simplifyAst arg1) (simplifyAst arg2)
   Ast.AstRelS opCodeRel arg1 arg2 ->
-    Ast.AstRelS opCodeRel (simplifyAst arg1) (simplifyAst arg2)
+    normalizeAstRel opCodeRel (simplifyAst arg1) (simplifyAst arg2)
 
 
 -- * The contraction (e.g., from gather expressions) bottom-up pass
@@ -3295,43 +3291,25 @@ contractAstBool t = case t of
     normalizeAstB2 opCodeBool (contractAstBool arg1) (contractAstBool arg2)
   AstBoolConst{} -> t
   Ast.AstRelK opCodeRel arg1 arg2 ->
-    normalizeAstRelK opCodeRel (contractAst arg1) (contractAst arg2)
+    normalizeAstRel opCodeRel (contractAst arg1) (contractAst arg2)
   Ast.AstRelS opCodeRel arg1 arg2 ->
-    Ast.AstRelS opCodeRel (contractAst arg1) (contractAst arg2)
+    normalizeAstRel opCodeRel (contractAst arg1) (contractAst arg2)
 
 
 -- * Normalization of boolean and relation operators
 
-normalizeAstRelK :: GoodScalar r
-                 => OpCodeRel
-                 -> AstTensor AstMethodLet PrimalSpan (TKScalar r)
-                 -> AstTensor AstMethodLet PrimalSpan (TKScalar r)
-                 -> AstBool AstMethodLet
-normalizeAstRelK EqOp (AstConcreteK u) (AstConcreteK v) =
-  AstBoolConst $ u == v
-normalizeAstRelK NeqOp (AstConcreteK u) (AstConcreteK v) =
-  AstBoolConst $ u /= v
-normalizeAstRelK LeqOp (AstConcreteK u) (AstConcreteK v) =
-  AstBoolConst $ u <= v
-normalizeAstRelK GeqOp (AstConcreteK u) (AstConcreteK v) =
-  AstBoolConst $ u >= v
-normalizeAstRelK LsOp (AstConcreteK u) (AstConcreteK v) =
-  AstBoolConst $ u < v
-normalizeAstRelK GtOp (AstConcreteK u) (AstConcreteK v) =
-  AstBoolConst $ u > v
-normalizeAstRelK EqOp (Ast.AstVar u) (Ast.AstVar v) | u == v =
-  AstBoolConst True
-normalizeAstRelK LeqOp (Ast.AstVar u) (Ast.AstVar v) | u == v =
-  AstBoolConst True
-normalizeAstRelK GeqOp (Ast.AstVar u) (Ast.AstVar v) | u == v =
-  AstBoolConst True
-normalizeAstRelK NeqOp (Ast.AstVar u) (Ast.AstVar v) | u == v =
-  AstBoolConst False
-normalizeAstRelK LsOp (Ast.AstVar u) (Ast.AstVar v) | u == v =
-  AstBoolConst False
-normalizeAstRelK GtOp (Ast.AstVar u) (Ast.AstVar v) | u == v =
-  AstBoolConst False
-normalizeAstRelK opCodeRel arg1 arg2 = Ast.AstRelK opCodeRel arg1 arg2
+normalizeAstRel :: ( EqH (AstTensor AstMethodLet PrimalSpan) y
+                   , OrdH (AstTensor AstMethodLet PrimalSpan) y )
+                => OpCodeRel
+                -> AstTensor AstMethodLet PrimalSpan y
+                -> AstTensor AstMethodLet PrimalSpan y
+                -> AstBool AstMethodLet
+normalizeAstRel EqOp u v = u ==. v
+normalizeAstRel NeqOp u v = u /=. v
+normalizeAstRel LeqOp u v = u <=. v
+normalizeAstRel GeqOp u v = u >=. v
+normalizeAstRel LsOp u v = u <. v
+normalizeAstRel GtOp u v = u >. v
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right.
@@ -3631,15 +3609,15 @@ substitute1AstBool i var = subst where
     let mr1 = substitute1Ast i var arg1
         mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
-       then Just $ normalizeAstRelK opCodeRel (fromMaybe arg1 mr1)
-                                              (fromMaybe arg2 mr2)
+       then Just $ normalizeAstRel opCodeRel (fromMaybe arg1 mr1)
+                                             (fromMaybe arg2 mr2)
        else Nothing
   Ast.AstRelS opCodeRel arg1 arg2 ->
     let mr1 = substitute1Ast i var arg1
         mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
-       then Just $ Ast.AstRelS opCodeRel (fromMaybe arg1 mr1)
-                                         (fromMaybe arg2 mr2)
+       then Just $ normalizeAstRel opCodeRel (fromMaybe arg1 mr1)
+                                             (fromMaybe arg2 mr2)
        else Nothing
 
 
