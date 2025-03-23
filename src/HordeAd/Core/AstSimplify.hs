@@ -2774,8 +2774,7 @@ expandAstHFun (AstLambda var l) = AstLambda var (expandAst l)
 
 expandAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 expandAstBool t = case t of
-  Ast.AstBoolNot (AstBoolConst b) -> AstBoolConst $ not b
-  Ast.AstBoolNot arg -> Ast.AstBoolNot $ expandAstBool arg
+  Ast.AstBoolNot arg -> notB $ expandAstBool arg
   Ast.AstB2 opCodeBool arg1 arg2 ->
     normalizeAstB2 opCodeBool (expandAstBool arg1) (expandAstBool arg2)
   AstBoolConst{} -> t
@@ -2899,8 +2898,7 @@ simplifyAstHFun (AstLambda var l) = AstLambda var (simplifyAst l)
 
 simplifyAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 simplifyAstBool t = case t of
-  Ast.AstBoolNot (AstBoolConst b) -> AstBoolConst $ not b
-  Ast.AstBoolNot arg -> Ast.AstBoolNot $ simplifyAstBool arg
+  Ast.AstBoolNot arg -> notB $ simplifyAstBool arg
   Ast.AstB2 opCodeBool arg1 arg2 ->
     normalizeAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
   AstBoolConst{} -> t
@@ -3285,8 +3283,7 @@ contractAstHFun (AstLambda var l) = AstLambda var (contractAst l)
 
 contractAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 contractAstBool t = case t of
-  Ast.AstBoolNot (AstBoolConst b) -> AstBoolConst $ not b
-  Ast.AstBoolNot arg -> Ast.AstBoolNot $ contractAstBool arg
+  Ast.AstBoolNot arg -> notB $ contractAstBool arg
   Ast.AstB2 opCodeBool arg1 arg2 ->
     normalizeAstB2 opCodeBool (contractAstBool arg1) (contractAstBool arg2)
   AstBoolConst{} -> t
@@ -3304,26 +3301,17 @@ normalizeAstRel :: ( EqH (AstTensor AstMethodLet PrimalSpan) y
                 -> AstTensor AstMethodLet PrimalSpan y
                 -> AstTensor AstMethodLet PrimalSpan y
                 -> AstBool AstMethodLet
-normalizeAstRel EqOp u v = u ==. v
-normalizeAstRel NeqOp u v = u /=. v
-normalizeAstRel LeqOp u v = u <=. v
-normalizeAstRel GeqOp u v = u >=. v
-normalizeAstRel LsOp u v = u <. v
-normalizeAstRel GtOp u v = u >. v
+normalizeAstRel EqOp = (==.)
+normalizeAstRel NeqOp = (/=.)
+normalizeAstRel LeqOp = (<=.)
+normalizeAstRel GeqOp = (>=.)
+normalizeAstRel LsOp = (<.)
+normalizeAstRel GtOp = (>.)
 
--- TODO: let's aim at SOP (Sum-of-Products) form, just as
--- ghc-typelits-natnormalise does. Also, let's associate to the right.
 normalizeAstB2 :: OpCodeBool -> AstBool AstMethodLet -> AstBool AstMethodLet
                -> AstBool AstMethodLet
-normalizeAstB2 AndOp (AstBoolConst True) b = b
-normalizeAstB2 AndOp (AstBoolConst False) _b = AstBoolConst False
-normalizeAstB2 AndOp b (AstBoolConst True) = b
-normalizeAstB2 AndOp _b (AstBoolConst False) = AstBoolConst False
-normalizeAstB2 OrOp (AstBoolConst True) _b = AstBoolConst True
-normalizeAstB2 OrOp (AstBoolConst False) b = b
-normalizeAstB2 OrOp _b (AstBoolConst True) = AstBoolConst True
-normalizeAstB2 OrOp b (AstBoolConst False) = b
-normalizeAstB2 opCodeBool arg1 arg2 = Ast.AstB2 opCodeBool arg1 arg2
+normalizeAstB2 AndOp = (&&*)
+normalizeAstB2 OrOp = (||*)
 
 
 -- * Substitution wrappers
@@ -3595,7 +3583,7 @@ substitute1AstBool i var = subst where
  subst :: AstBool AstMethodLet
        -> Maybe (AstBool AstMethodLet)
  subst = \case
-  Ast.AstBoolNot arg -> Ast.AstBoolNot <$> subst arg
+  Ast.AstBoolNot arg -> notB <$> subst arg
     -- this can't be simplified, because constant boolean can't have variables
   Ast.AstB2 opCodeBool arg1 arg2 ->
     let mb1 = subst arg1

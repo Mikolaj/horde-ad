@@ -502,10 +502,17 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 instance Boolean (AstBool ms) where
   true = AstBoolConst True
   false = AstBoolConst False
-  notB = AstBoolNot
-  AstBoolConst b &&* AstBoolConst c = AstBoolConst $ b && c
-                                        -- common in indexing
+  notB (AstBoolConst b) = AstBoolConst $ not b
+  notB b = AstBoolNot b
+  AstBoolConst True &&* b = b
+  AstBoolConst False &&* _b = AstBoolConst False
+  b &&* AstBoolConst True = b
+  _b &&* AstBoolConst False = AstBoolConst False
   b &&* c = AstB2 AndOp b c
+  AstBoolConst True ||* _b = AstBoolConst True
+  AstBoolConst False ||* b = b
+  _b ||* AstBoolConst True = AstBoolConst True
+  b ||* AstBoolConst False = b
   b ||* c = AstB2 OrOp b c
 
 instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKR n r) where
