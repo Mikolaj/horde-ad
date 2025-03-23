@@ -1,7 +1,4 @@
 {-# LANGUAGE CPP #-}
-{-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
-{-# OPTIONS_GHC -freduction-depth=10000 #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 -- | Interpretation of AST terms in an aribtrary tensor operations
 -- class instance. With the exception of the the interpretation
 -- of the sharing mechanisms and any other performance tweaks,
