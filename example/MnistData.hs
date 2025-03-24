@@ -1,6 +1,5 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
--- | Parsing and pre-processing MNIST data.
+-- | Parsing and pre-processing of MNIST data.
 module MnistData where
 
 import Prelude

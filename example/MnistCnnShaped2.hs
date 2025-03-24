@@ -37,9 +37,11 @@ type ADCnnMnistParametersShaped
     , target (TKS '[SizeMnistLabel] r) )
   )
 
+-- | A single convolutional layer with @relu@ and @maxPool@.
+-- The @c_in@ type parameter is going to be alwayst 1, meaning grayscale,
+-- but this function works for any @c_in@.
 convMnistLayerS
   :: forall kh kw h w c_in c_out batch_size target r.
-     -- @c_in@ will be alwayst 1, grayscale, but this function works for any
      ( 1 <= kh
      , 1 <= kw  -- wrongly reported as redundant due to plugins
      , ADReady target, GoodScalar r, Differentiable r )
@@ -59,6 +61,7 @@ convMnistLayerS SNat SNat SNat SNat SNat SNat SNat
       yRelu = reluS $ yConv + biasStretched
   in maxPool2dUnpaddedS @2 @2 yRelu
 
+-- | Composition of two convolutional layers.
 convMnistTwoS
   :: forall kh kw h w c_out n_hidden batch_size target r.
        -- @h@ and @w@ are fixed with MNIST data, but not with test data
@@ -94,6 +97,7 @@ convMnistTwoS kh@SNat kw@SNat h@SNat w@SNat
   in weightsReadout `smatmul2` reluS denseLayer
      + str (sreplicate biasesReadout)
 
+-- | The neural network composed with the SoftMax-CrossEntropy loss function.
 convMnistLossFusedS
   :: forall kh kw h w c_out n_hidden batch_size target r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
@@ -120,6 +124,8 @@ convMnistLossFusedS kh@SNat kw@SNat
       loss = lossSoftMaxCrossEntropyS targets result
   in kfromPrimal (recip $ kconcrete $ fromInteger $ fromSNat batch_size) * loss
 
+-- | A function testing the neural network given testing set of inputs
+-- and the trained parameters.
 convMnistTestS
   :: forall kh kw h w c_out n_hidden batch_size target r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth

@@ -2,6 +2,8 @@
 -- | Implementation of fully connected neutral network for classification
 -- of MNIST digits with sized lists of rank 1 tensors (vectors)
 -- as the trainable parameters. Sports 2 hidden layers. No mini-batches.
+-- This is an exotic and fundamentally inefficient way of implementing nns,
+-- but it's valuable for comparative benchmarking.
 module MnistFcnnRanked1 where
 
 import Prelude
@@ -27,6 +29,8 @@ type ADFcnnMnist1Parameters
     , target (TKS '[SizeMnistLabel] r) )
   )
 
+-- | An ad-hoc matrix multiplication analogue for matrices represented
+-- as lists of vectors.
 listMatmul1
   :: forall target r w1 w2.
      (ADReady target, GoodScalar r, KnownNat w1)

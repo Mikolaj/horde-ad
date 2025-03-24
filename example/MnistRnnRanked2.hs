@@ -59,26 +59,28 @@ unrollLastR f s0 xs w =
       g (_, !s) x = f s x w
   in foldl' g (undefined, s0) (runravelToList xs)
 
+-- | A single recurrent layer with @tanh@ activation function.
 rnnMnistLayerR
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR 2 r)  -- in state, [out_width, batch_size]
-  -> target (TKR 2 r)  -- input, [in_width, batch_size]
-  -> LayerWeigthsRNN target r  -- in_width out_width
-  -> target (TKR 2 r)  -- output state, [out_width, batch_size]
+  => target (TKR 2 r)  -- ^ in state, @[out_width, batch_size]@
+  -> target (TKR 2 r)  -- ^ input, @[in_width, batch_size]@
+  -> LayerWeigthsRNN target r  -- ^ parameters
+  -> target (TKR 2 r)  -- ^ output state, @[out_width, batch_size]@
 rnnMnistLayerR s x (wX, wS, b) = case rshape s of
   _out_width :$: batch_size :$: ZSR ->
     let y = wX `rmatmul2m` x + wS `rmatmul2m` s
             + rtr (rreplicate batch_size b)
     in tanh y
 
+-- | Composition of two recurrent layers.
 rnnMnistTwoR
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR 2 r)  -- initial state, [2 * out_width, batch_size]
-  -> PrimalOf target (TKR 2 r)  -- [sizeMnistHeight, batch_size]
+  => target (TKR 2 r)  -- initial state, @[2 * out_width, batch_size]@
+  -> PrimalOf target (TKR 2 r)  -- @[sizeMnistHeight, batch_size]@
   -> ( LayerWeigthsRNN target r  -- sizeMnistHeight out_width
      , LayerWeigthsRNN target r )  -- out_width out_width
-  -> ( target (TKR 2 r)  -- [out_width, batch_size]
-     , target (TKR 2 r) )  -- final state, [2 * out_width, batch_size]
+  -> ( target (TKR 2 r)  -- @[out_width, batch_size]@
+     , target (TKR 2 r) )  -- final state, @[2 * out_width, batch_size]@
 rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
   out_width_x_2 :$: _batch_size :$: ZSR ->
     let out_width = out_width_x_2 `div` 2
@@ -90,12 +92,15 @@ rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
           in rappend vec1 vec2
     in (rslice out_width out_width s3, s3)
 
+-- | The two-layer recurrent nn with its state initialized to zero
+-- and the result composed with a fully connected layer.
 rnnMnistZeroR
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => Int
-  -> PrimalOf target (TKR 3 r)  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
-  -> ADRnnMnistParameters target r  -- sizeMnistHeight out_width
-  -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]
+  => Int  -- ^ batch_size
+  -> PrimalOf target (TKR 3 r)
+       -- ^ input data @[sizeMnistWidth, sizeMnistHeight, batch_size]@
+  -> ADRnnMnistParameters target r  -- ^ parameters
+  -> target (TKR 2 r)  -- ^ output classification @[SizeMnistLabel, batch_size]@
 rnnMnistZeroR batch_size xs
               ((wX, wS, b), (wX2, wS2, b2), (w3, b3)) = case rshape b of
   out_width :$: ZSR ->
@@ -119,6 +124,9 @@ rnnMnistZeroR batch_size xs
 -- Sadly, this is very messy, we need to check if there are >=2 or >=3 nested
 -- replicates, depending on which permutation we require, etc.
 -- OTOH, recognizing matmuls for nested replicates is probably not important.
+--
+-- | A version of matrix multiplication with manually performed
+-- vectorization, for benchmarking purposes.
 rmatmul2m :: (BaseTensor target, GoodScalar r)
           => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 rmatmul2m m1 m2 = case rshape m2 of
@@ -126,6 +134,7 @@ rmatmul2m m1 m2 = case rshape m2 of
     rsum (rtranspose [2,1,0] (rreplicate width2 m1)
           * rtranspose [1,0] (rreplicate (rwidth m1) m2))
 
+-- | The neural network composed with the SoftMax-CrossEntropy loss function.
 rnnMnistLossFusedR
   :: (ADReady target, ADReady (PrimalOf target), GoodScalar r, Differentiable r)
   => Int
@@ -139,20 +148,8 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
       loss = lossSoftMaxCrossEntropyR targets result
   in kfromPrimal (recip $ kconcrete $ fromIntegral batch_size) * loss
 
-rnnMnistZeroR2
-  :: (ADReady target, GoodScalar r, Differentiable r)
-  => Int
-  -> PrimalOf target (TKR 3 r)  -- [sizeMnistWidth, sizeMnistHeight, batch_size]
-  -> ADRnnMnistParameters target r  -- sizeMnistHeight out_width
-  -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]
-rnnMnistZeroR2 batch_size xs
-              ((wX, wS, b), (wX2, wS2, b2), (w3, b3)) = case rshape b of
-  out_width :$: ZSR ->
-    let sh = 2 * out_width :$: batch_size :$: ZSR
-        (out, _s) = zeroStateR sh (unrollLastR rnnMnistTwoR) xs
-                                  ((wX, wS, b), (wX2, wS2, b2))
-    in w3 `rmatmul2m` out + rtr (rreplicate batch_size b3)
-
+-- | A function testing the neural network given testing set of inputs
+-- and the trained parameters.
 rnnMnistTestR
   :: forall target r.
      (target ~ Concrete, GoodScalar r, Differentiable r)
@@ -168,7 +165,7 @@ rnnMnistTestR batch_size (glyphR, labelR) testParams =
       outputR =
         let nn :: ADRnnMnistParameters target r  -- SizeMnistHeight out_width
                -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]
-            nn = rnnMnistZeroR2 batch_size input
+            nn = rnnMnistZeroR batch_size input
         in nn testParams
       outputs = map rtoVector $ runravelToList
                 $ rtranspose [1, 0] outputR

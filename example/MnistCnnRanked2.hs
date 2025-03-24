@@ -35,6 +35,7 @@ type ADCnnMnistParametersShaped
   )
 
 -- | The differentiable type of all trainable parameters of this nn.
+-- Ranked version.
 type ADCnnMnistParameters (target :: Target) r =
   ( ( target (TKR 4 r)
     , target (TKR 1 r) )
@@ -45,12 +46,13 @@ type ADCnnMnistParameters (target :: Target) r =
   , ( target (TKR 2 r)
     , target (TKR 1 r) ) )
 
+-- | A single convolutional layer with @relu@ and @maxPool@.
 convMnistLayerR
   :: (ADReady target, GoodScalar r, Differentiable r)
-  => target (TKR 4 r)  -- [c_out, c_in, kh + 1, kw + 1]
-  -> target (TKR 4 r)  -- [batch_size, c_in, h, w]
-  -> target (TKR 1 r)  -- [c_out]
-  -> target (TKR 4 r)  -- [batch_size, c_out, h `Div` 2, w `Div` 2]
+  => target (TKR 4 r)  -- ^ @[c_out, c_in, kh + 1, kw + 1]@
+  -> target (TKR 4 r)  -- ^ @[batch_size, c_in, h, w]@
+  -> target (TKR 1 r)  -- ^ @[c_out]@
+  -> target (TKR 4 r)  -- ^ @[batch_size, c_out, h \`Div\` 2, w \`Div\` 2]@
 convMnistLayerR ker input bias =
   let (batch_size :$: _ :$: h :$: w :$: ZSR) = rshape input
       yConv = conv2dUnpadded ker input
@@ -59,15 +61,14 @@ convMnistLayerR ker input bias =
       yRelu = relu $ yConv + biasStretched
   in maxPool2dUnpadded 2 2 yRelu
 
+-- | Composition of two convolutional layers.
 convMnistTwoR
   :: (ADReady target, GoodScalar r, Differentiable r)
   => Int -> Int -> Int
   -> PrimalOf target (TKR 4 r)
-       -- [batch_size, 1, SizeMnistHeight, SizeMnistWidth]
-       -- ^ input images
-  -> ADCnnMnistParameters target r
-  -> target (TKR 2 r)  -- [SizeMnistLabel, batch_size]
-                       -- ^ classification
+       -- ^ input images @[batch_size, 1, SizeMnistHeight, SizeMnistWidth]@
+  -> ADCnnMnistParameters target r  -- ^ parameters
+  -> target (TKR 2 r)  -- ^ output classification @[SizeMnistLabel, batch_size]@
 convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
               ( (ker1, bias1), (ker2, bias2)
               , (weightsDense, biasesDense), (weightsReadout, biasesReadout) ) =
@@ -88,12 +89,13 @@ convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
   in weightsReadout `rmatmul2` denseRelu
      + rtr (rreplicate batch_size biasesReadout)
 
+-- | The neural network composed with the SoftMax-CrossEntropy loss function.
 convMnistLossFusedR
   :: (ADReady target, ADReady (PrimalOf target), GoodScalar r, Differentiable r)
-  => Int
+  => Int  -- ^ batch_size
   -> ( PrimalOf target (TKR 3 r)
-         -- [batch_size, SizeMnistHeight, SizeMnistWidth]
-     , PrimalOf target (TKR 2 r) )  -- [batch_size, SizeMnistLabel]
+         -- ^ @[batch_size, SizeMnistHeight, SizeMnistWidth]@
+     , PrimalOf target (TKR 2 r) )  -- ^ @[batch_size, SizeMnistLabel]@
   -> ADCnnMnistParameters target r  -- kh kw c_out n_hidden
   -> target (TKScalar r)
 convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
@@ -109,6 +111,8 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
       loss = lossSoftMaxCrossEntropyR targets result
   in kfromPrimal (recip $ kconcrete $ fromIntegral batch_size) * loss
 
+-- | A function testing the neural network given testing set of inputs
+-- and the trained parameters.
 convMnistTestR
   :: forall target r.
      (target ~ Concrete, GoodScalar r, Differentiable r)

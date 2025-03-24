@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Ranked tensor-based implementation of fully connected neutral network
 -- for classification of MNIST digits. Sports 2 hidden layers. No mini-batches,
--- so the maximum rank tensors being used is 2.
+-- so the maximum rank of tensors being used is 2.
 module MnistFcnnRanked2 where
 
 import Prelude
@@ -101,6 +101,10 @@ afcnnMnistTest2 dataList testParams =
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)
 
+-- | The loss function applied to randomly generated initial parameters
+-- and wrapped in artifact generation. This is helpful to share code
+-- between tests and benchmarks and to separate compile-time and run-time
+-- for benchmarking (this part is considered compile-time).
 mnistTrainBench2VTOGradient
   :: forall r q. ( GoodScalar r, Differentiable r
                  , GoodScalar q, Differentiable q )
@@ -137,7 +141,8 @@ mnistTrainBench2VTOGradient Proxy cotangentHandling range seed widthHidden width
 {-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Float -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( Concrete (XParams2 Float Float), AstArtifactRev (TKProduct (XParams2 Float Float) (TKProduct (TKR2 1 (TKScalar Float)) (TKR2 1 (TKScalar Float)))) (TKScalar Float) ) #-}
 {-# SPECIALIZE mnistTrainBench2VTOGradient :: Proxy Double -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int -> ( Concrete (XParams2 Double Double), AstArtifactRev (TKProduct (XParams2 Double Double) (TKProduct (TKR2 1 (TKScalar Double)) (TKR2 1 (TKScalar Double)))) (TKScalar Double) ) #-}
 
--- | A version without any simplification, even the AST smart constructors.
+-- | A version of 'mnistTrainBench2VTOGradient' without any simplification,
+-- even the AST smart constructors. Intended for benchmarking.
 mnistTrainBench2VTOGradientX
   :: forall r q. ( GoodScalar r, Differentiable r
                  , GoodScalar q, Differentiable q )

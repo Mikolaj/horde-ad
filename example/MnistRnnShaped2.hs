@@ -51,6 +51,7 @@ unrollLastS f s0 xs w =
       g (_, !s) x = f s x w
   in foldl' g (undefined, s0) (sunravelToList xs)
 
+-- | A single recurrent layer with @tanh@ activation function.
 rnnMnistLayerS
   :: (ADReady target, GoodScalar r, Differentiable r)
   => SNat in_width -> SNat out_width -> SNat batch_size
@@ -66,6 +67,7 @@ rnnMnistLayerS SNat SNat SNat
             + str (sreplicate {-@batch_size-} b)
     in tanh y
 
+-- | Composition of two recurrent layers.
 rnnMnistTwoS
   :: (ADReady target, GoodScalar r, Differentiable r)
   => SNat out_width -> SNat batch_size -> SNat sizeMnistH
@@ -93,6 +95,8 @@ rnnMnistTwoS out_width@SNat
           in sappend vec1 vec2
     in (sslice out_width out_width SNat s3, s3)
 
+-- | The two-layer recurrent nn with its state initialized to zero
+-- and the result composed with a fully connected layer.
 rnnMnistZeroS
   :: (ADReady target, GoodScalar r, Differentiable r)
   => SNat out_width
@@ -110,6 +114,7 @@ rnnMnistZeroS out_width@SNat
                                ((wX, wS, b), (wX2, wS2, b2))
     in w3 `smatmul2` out + str (sreplicate {-@batch_size-} b3)
 
+-- | The neural network composed with the SoftMax-CrossEntropy loss function.
 rnnMnistLossFusedS
   :: forall target h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth, Differentiable r
@@ -132,6 +137,8 @@ rnnMnistLossFusedS out_width@SNat
       loss = lossSoftMaxCrossEntropyS targets result
   in kfromPrimal (recip $ kconcrete $ fromInteger $ fromSNat batch_size) * loss
 
+-- | A function testing the neural network given testing set of inputs
+-- and the trained parameters.
 rnnMnistTestS
   :: forall target h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
