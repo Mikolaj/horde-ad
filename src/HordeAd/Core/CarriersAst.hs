@@ -1,11 +1,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
--- | AST of the code built using the @RankedTensor@ and related classes.
--- The AST is needed for handling second order operations (such as build
--- and map, via IET (vectorization), and for producing reusable reverse
--- derivative terms. However, it can also be used for other code
--- transformations, e.g., simplification.
+-- | Definitions, mostly class instances, needed to make AST a valid
+-- carrier for a tensor class algebra (instance) defined in "OpsAst".
+-- This algebra permits both user programs to be instantiated as AST terms
+-- and derivatives to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..)
   , AstNoVectorize(..)

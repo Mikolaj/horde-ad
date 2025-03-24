@@ -1,10 +1,11 @@
-{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
-             UndecidableInstances #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Dual numbers and arithmetic operations on them.
+{-# LANGUAGE UndecidableInstances #-}
+-- | Dual numbers type and operations on it.
+-- These definitions, mostly class instances, are needed to make dual numbers
+-- a valid carrier for a tensor class algebra (instance) defined in "OpsADVal"
+-- so that user programs can be instantiated to or interpreted into it
+-- and subsequently differentiated.
 module HordeAd.Core.CarriersADVal
-  ( -- * The main dual number type
+  ( -- * The dual number type
     ADVal, pattern D, dD, dDnotShared
     -- * Auxiliary definitions
   , unDeltaPair, unDeltaPairUnshared, dScale, dAdd
@@ -28,18 +29,16 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
--- * The main dual number type
+-- * The dual number type
 
--- | Values that the objective functions operate on when they are being
--- differentiated. The values are, in general, tensors.
--- The first type argument is the functor determining the structure
--- of the tensors (whether ranked, shaped, dynamic, storable, unboxed, etc.).
--- The second argument is the underlying scalar type. The third
--- is the rank or shape of the tensor value.
---
--- The datatype is implemented as dual numbers (hence @D@).,
--- The @f z@ value is the primal component, which is the normal,
--- the basic value.
+-- | The type of dual numbers that are the values of objective functions
+-- when they are being differentiated. In general, the primal parts
+-- of the dual numbers represent tensors or tuples of tensors.
+-- The dual parts are fixed to be delta expressions.
+-- The first type argument is the functor determining the nature
+-- of the tensors (concrete, symbolic, etc.).
+-- The second argument is the tensor kind, which constraints the shapes
+-- of the particular tensor (or tensor tuple).
 type role ADVal nominal nominal
 data ADVal (f :: Target) y = ADVal (f y) (Delta f y)
 
@@ -51,19 +50,19 @@ deriving instance (Show (f z), Show (Delta f z))
                   => Show (ADVal f z)
 
 -- | Smart constructor for 'D' of 'ADVal' that additionally records delta
--- expression sharing information (regardless if the basic value
+-- expression sharing information (regardless if the primal part
 -- of the dual number is an AST term or not).
--- The bare constructor should not be used directly (which is not enforced
--- by the types yet), except when deconstructing via pattern-matching.
+-- The bare constructor should not be used directly, except when
+-- deconstructing dual numbers via pattern-matching.
 dD :: forall f z.
       f z -> Delta f z -> ADVal f z
 dD !a !dual = dDnotShared a (shareDelta dual)
 
--- | This a not so smart a constructor for 'D' of 'ADVal' that does not record
--- sharing information. If used in contexts where sharing may occur,
--- it may cause exponential blowup when evaluating the term
+-- | This a not so smart constructor for 'D' of 'ADVal' that does not record
+-- sharing information. If used in contexts where duplication occurs,
+-- it may cause exponential blowup when a delta expression is evaluated
 -- in backpropagation phase. In contexts without sharing, it saves
--- some evaluation time and memory (in term structure, but even more
+-- some evaluation time and memory (in delta term structure, but even more
 -- in the per-node data stored while evaluating).
 dDnotShared :: f z -> Delta f z -> ADVal f z
 dDnotShared = ADVal
@@ -80,8 +79,8 @@ dDnotShared = ADVal
 --
 -- The identifiers are not part of any non-internal module API
 -- and the impure counter that gets incremented is not exposed
--- (except for low level tests). The identifiers are read only in internal
--- modules. They are assigned here once and ever accessed read-only.
+-- (except for low level tests). The identifiers are assigned here once
+-- and ever accessed read-only.
 -- Their uniqueness ensures that subterms that are shared in memory
 -- are evaluated only once. If pointer equality worked efficiently
 -- (e.g., if compact regions with sharing were cheaper), we wouldn't need
@@ -90,16 +89,15 @@ dDnotShared = ADVal
 -- Given that we have to use impurity anyway, we make the implementation
 -- faster by ensuring the order of identifiers reflects data dependency,
 -- that is, parent nodes always have higher identifier than child nodes.
--- The @StrictData@ extension ensures that the implementation of the instances
+-- The @StrictData@ extension ensures that the delta constructors
 -- are call by value, which is needed for that identifier ordering.
 --
 -- As long as "HordeAd.Core.Delta" is used exclusively through
--- smart constructors from this API, the impurity is completely safe.
--- Even compiler optimizations, e.g., cse and full-laziness,
+-- smart constructors from this API, the impurity is completely safe
+-- (currently, it's enough that @DeltaShare@ is used exclusively
+-- via @shareDelta@). Even compiler optimizations, e.g., cse and full-laziness,
 -- can't break the required invariants. On the contrary,
 -- they increase sharing and make evaluation yet cheaper.
--- Of course, if the compiler, e.g., stops honouring @NOINLINE@,
--- all this breaks down.
 
 unDeltaPair :: Delta target (TKProduct x y) -> (Delta target x, Delta target y)
 unDeltaPair (DeltaPair a b) = (a, b)
@@ -124,22 +122,20 @@ dAdd DeltaZero{} w = w
 dAdd v DeltaZero{} = v
 dAdd v w = DeltaAdd v w
 
--- Avoids building huge Delta terms, not only evaluating them.
+-- Prevents building huge Delta terms, not only evaluating them.
 dFromS :: forall y z target.
           SingletonTK z -> Delta target y -> Delta target z
 dFromS stk (DeltaSFromR _sh d)
-  | y2 <- ftkDelta d
-  , Just Refl <- sameSTK stk (ftkToSTK y2) = d
+  | Just Refl <- sameSTK stk (ftkToSTK $ ftkDelta d) = d
 dFromS stk (DeltaSFromX _sh d)
-    | y2 <- ftkDelta d
-    , Just Refl <- sameSTK stk (ftkToSTK y2) = d
+  | Just Refl <- sameSTK stk (ftkToSTK $ ftkDelta d) = d
 dFromS stk d = DeltaFromS stk d
 
 dSFromR :: forall sh x target.
            ShS sh -> Delta target (TKR2 (Rank sh) x)
         -> Delta target (TKS2 sh x)
-dSFromR sh (DeltaFromS (STKR _ x) d) = case ftkDelta d of
-  y2 -> case sameSTK (ftkToSTK y2) (STKS sh x) of
+dSFromR sh (DeltaFromS (STKR _ x) d) =
+  case sameSTK (ftkToSTK $ ftkDelta d) (STKS sh x) of
     Just Refl -> d
     _ -> error "sfromR: different shapes in DeltaSFromR(DeltaFromS)"
 dSFromR sh d = DeltaSFromR sh d
@@ -147,8 +143,8 @@ dSFromR sh d = DeltaSFromR sh d
 dSFromX :: forall sh sh' x target. Rank sh ~ Rank sh'
         => ShS sh -> Delta target (TKX2 sh' x)
         -> Delta target (TKS2 sh x)
-dSFromX sh (DeltaFromS (STKX _ x) d) = case ftkDelta d of
-  y2 -> case sameSTK (ftkToSTK y2) (STKS sh x) of
+dSFromX sh (DeltaFromS (STKX _ x) d) =
+  case sameSTK (ftkToSTK $ ftkDelta d) (STKS sh x) of
     Just Refl -> d
     _ -> error "sfromR: different shapes in DeltaSFromX(DeltaFromS)"
 dSFromX sh d = DeltaSFromX sh d
@@ -255,11 +251,11 @@ type instance ShareOf (ADVal f) = ADVal f
 -- they can be compared with an instant Bool result, so let's fail early
 -- also here.
 instance Eq (ADVal f z) where
-  (==) = error "AST requires that EqB be used instead"
-  (/=) = error "AST requires that EqB be used instead"
+  (==) = error "horde-ad: please use EqH instead"
+  (/=) = error "horde-ad: please use EqH instead"
 
 instance Ord (ADVal f z) where
-  (<=) = error "AST requires that OrdB be used instead"
+  (<=) = error "horde-ad: please use OrdH instead"
 
 -- This is copied from below to permit fromInteger for TKScalar.
 -- This OVERLAPPABLE seems to work 100% reliably for indexes
@@ -329,8 +325,7 @@ instance ( GoodScalar r, Fractional (f (TKScalar r)), ShareTensor f
   D ue u' / D ve v' =
     let !u = tshare ue in
     let !v = tshare ve
-    in dD (u / v)
-          (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
+    in dD (u / v) (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
   recip (D ve v') =
     let !v = tshare ve
         minusRecipSq = - recip (v * v)
@@ -343,8 +338,7 @@ instance {-# OVERLAPPABLE #-}
   D ue u' / D ve v' =
     let !u = tshare ue in
     let !v = tshare ve
-    in dD (u / v)
-          (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
+    in dD (u / v) (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
   recip (D ve v') =
     let !v = tshare ve
         minusRecipSq = - recip (v * v)
@@ -419,15 +413,11 @@ instance (RealFloat (f z), ShareTensor f, ADReadyNoLet f)
     let !v = tshare ve in
     let !t = tshare (recip (u * u + v * v))
     in dD (atan2 u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
-  -- Note that for term types @a@ this is invalid without an extra let
-  -- containing the first field of @D@. However, for terms this is
-  -- unimplemented anyway.
   floatRadix (D u _) = floatRadix u
   floatDigits (D u _) = floatDigits u
   floatRange (D u _) = floatRange u
   decodeFloat (D u _) = decodeFloat u
   encodeFloat _i _j = error "encodeFloat not defined for tensors"
-                      -- fromPrimalADVal (encodeFloat i j)
   isNaN (D u _) = isNaN u
   isInfinite (D u _) = isInfinite u
   isDenormalized (D u _) = isDenormalized u

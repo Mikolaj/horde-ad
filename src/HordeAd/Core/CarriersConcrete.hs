@@ -1,6 +1,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor operations implementation using the ox-arrays package.
+-- These definitions, mostly class instances, are needed to make concrete
+-- arrays a valid carrier for a tensor class algebra (instance) defined in
+-- "OpsConcrete".
 module HordeAd.Core.CarriersConcrete
   ( -- * RepConcrete and its operations
     RepConcrete, tftkG, eltDictRep, showDictRep
