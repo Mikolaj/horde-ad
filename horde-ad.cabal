@@ -74,17 +74,13 @@ flag test_seq
   manual:             True
 
 common options
-  default-language:   GHC2021
-  default-extensions: StrictData, ImportQualifiedPost, GADTs, TypeFamilies,
-                      TypeFamilyDependencies, FunctionalDependencies,
-                      RecordWildCards, MultiWayIf, LambdaCase,
+  default-language:   GHC2024
+  default-extensions: StrictData, TypeFamilies, TypeFamilyDependencies,
+                      FunctionalDependencies, RecordWildCards, MultiWayIf,
                       DefaultSignatures, PatternSynonyms, NoStarIsType,
-                      DataKinds, RoleAnnotations, TypeData
-  if impl(ghc >= 9.8)
-    default-extensions: TypeAbstractions
+                      TypeData, TypeAbstractions
   other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists,
-                      DerivingStrategies, DeriveAnyClass, TupleSections,
-                      UndecidableInstances, AllowAmbiguousTypes,
+                      DeriveAnyClass, UndecidableInstances, AllowAmbiguousTypes,
                       QuantifiedConstraints
   ghc-options:        -Wall -Wcompat -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
   ghc-options:        -Wno-unticked-promoted-constructors -fprint-explicit-kinds
