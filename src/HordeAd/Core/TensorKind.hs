@@ -1,14 +1,15 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Various singletons for tensors and constraints and lemmas associated
--- to the singletons.
+-- with the singletons.
 module HordeAd.Core.TensorKind
-  ( -- * Singletons
+  ( -- * Tensor kind singleton
     SingletonTK(..), KnownSTK(..)
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, rankSTK, widthSTK
-  , FullShapeTK(..), KnownFTK(..)
+    -- * Full shape tensor kind quasi-singleton
+  , FullShapeTK(..)
   , matchingFTK, ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK, differentiableFTK
   , DummyDualTarget(..)
   ) where
@@ -26,7 +27,7 @@ import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Types
 
--- * Singletons
+-- * Tensor kind singleton
 
 type role SingletonTK nominal
 data SingletonTK y where
@@ -173,6 +174,9 @@ widthSTK stk = case stk of
   STKX{} -> 1
   STKProduct stk1 stk2 -> widthSTK stk1 + widthSTK stk2
 
+
+-- * Full shape tensor kind quasi-singleton
+
 type role FullShapeTK nominal
 data FullShapeTK y where
   FTKScalar :: GoodScalar r
@@ -185,20 +189,6 @@ data FullShapeTK y where
 
 deriving instance Show (FullShapeTK y)
 deriving instance Eq (FullShapeTK y)
-
-class KnownFTK (y :: TK) where
-  knownFTK :: FullShapeTK y
-
-instance GoodScalar r => KnownFTK (TKScalar r) where
-  knownFTK = FTKScalar
-
-instance (KnownFTK x, KnownShS sh)
-         => KnownFTK (TKS2 sh x) where
-  knownFTK = FTKS knownShS knownFTK
-
-instance (KnownFTK y, KnownFTK z)
-         => KnownFTK (TKProduct y z) where
-  knownFTK = FTKProduct (knownFTK @y) (knownFTK @z)
 
 matchingFTK :: FullShapeTK y1 -> FullShapeTK y2 -> Maybe (y1 :~: y2)
 matchingFTK ftk1 ftk2 = case (ftk1, ftk2) of
