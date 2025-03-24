@@ -1,9 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes, DerivingVia, ImpredicativeTypes,
-             UndecidableInstances, UndecidableSuperClasses, ViewPatterns #-}
+             UndecidableInstances, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
--- | Some fundamental type families and types.
+-- | An assortment of type families and types fundamental for horde-ad.
 module HordeAd.Core.Types
   ( -- * Definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat, valueOf
@@ -13,7 +13,7 @@ module HordeAd.Core.Types
     -- * Some fundamental constraints and types
   , GoodScalar, Differentiable, IfDifferentiable(..)
   , BuildTensorKind, RazeTensorKind, ADTensorKind, ADTensorScalar, Z0(..)
-    -- * Type families that tensors will belong to
+    -- * Type families that tensors belong to
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf, BoolOf
   , IxROf, IxSOf, IxXOf
     -- * Misc
@@ -114,7 +114,7 @@ matchSNat :: forall n m proxy. KnownNat n => proxy n -> SNat m -> Maybe (n :~: m
 matchSNat p m@SNat = sameNat p m
 
 
--- * Types of types of tensors
+-- * Kinds of the functors that determine the structure of a tensor type
 
 type Target = TK -> Type
 
@@ -138,7 +138,7 @@ type TKX sh r = TKX2 sh (TKScalar r)
 type TKUnit = TKScalar Z0
 
 
--- * Some fundamental constraints
+-- * Some fundamental constraints and types
 
 -- Attempted optimization via storing one pointer to a class dictionary
 -- in existential datatypes instead of six pointers. No effect, strangely.
@@ -246,7 +246,8 @@ instance NumElt Z0 where
   numEltMaxIndex snat _arr = replicate (sNatValue snat) 0
   numEltDotprodInner _ arr1 _arr2 = fromO (RS.index (toO arr1) 0)
 
--- * Type families that tensors will belong to
+
+-- * Type families that tensors belong to
 
 -- This is used only in indexing and similar contexts.
 -- If used as size or shape, it would give more expressiveness,

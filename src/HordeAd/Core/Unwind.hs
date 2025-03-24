@@ -1,10 +1,8 @@
-{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | A class containing array operations, with some extra algebraic operations
--- and dual numbers operations added in. This is a part of the high-level
--- API of the horde-ad library and it's relatively orthogonal to the
--- differentiation interface in "HordeAd.Core.Engine".
+-- | Types and functions needed to define general tensor operations
+-- that work for any tensor kind, including nested (product) arrays
+-- and an assortment of such operations.
 module HordeAd.Core.Unwind
   ( addTarget, multTarget, dotTarget, replTarget, defTarget, concreteTarget
   , toADTensorKindShared, fromADTensorKindShared
@@ -434,7 +432,7 @@ multTarget stk a b =
       b2 = unWindTarget stk b
   in windTarget stk $ multRepW a2 b2
 
--- Dot product each component and then sum it all.
+-- | Dot product each component and then sum it all.
 -- Requires duplicable arguments or a ShareTensor instance.
 dotTarget :: (BaseTensor target, ConvertTensor target)
           => FullShapeTK y -> target y -> target y
