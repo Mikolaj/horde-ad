@@ -44,6 +44,7 @@ envProd :: r ~ Double
         => Rational
         -> (forall n.
             ( SNat n
+            , [Concrete (TKScalar r)]
             , ListR n (Concrete (TKScalar r))
             , ListR n (Concrete (TKS '[] r))
             , Concrete (TKS '[n] r) )
@@ -57,6 +58,7 @@ envProd rat f allxs =
       let l = take k allxs
           lt = map sscalar l
       in ( SNat @k
+         , map Concrete l
          , fromList (map Concrete l)
          , fromList lt
          , sfromList . fromList $ lt) )
@@ -64,16 +66,19 @@ envProd rat f allxs =
 
 benchProd :: r ~ Double
           => ( SNat n
+             , [Concrete (TKScalar r)]
              , ListR n (Concrete (TKScalar r))
              , ListR n (Concrete (TKS '[] r))
              , Concrete (TKS '[n] r) )
           -> [Benchmark]
-benchProd ~(snat, l, lt, t) = case snat of
+benchProd ~(snat, list, l, lt, t) = case snat of
   SNat ->
     [ bench "cgrad s MapAccum" $ nf (crevSMapAccum snat) t
     , bench "grad s MapAccum" $ nf (revSMapAccum snat) t
     , bench "cgrad scalar MapAccum" $ nf (crevScalarMapAccum snat) t
     , bench "grad scalar MapAccum" $ nf (revScalarMapAccum snat) t
+    , bench "cgrad scalar list" $ nf crevScalarList list
+    , bench "grad scalar list" $ nf revScalarList list
     , bench "cgrad scalar l" $ nf (crevScalarL snat) l
     , bench "grad scalar l" $ nf (revScalarL snat) l
     , bench "cgrad scalar r" $ nf (crevScalarR snat) l
@@ -85,6 +90,20 @@ benchProd ~(snat, l, lt, t) = case snat of
     , bench "grad s r" $ nf (revSR snat) lt
     , bench "cgrad s NotShared" $ nf (crevSNotShared snat) lt
     ]
+
+multScalarList :: (BaseTensor target, GoodScalar r)
+               => [target (TKScalar r)] -> target (TKScalar r)
+multScalarList = foldl1' (*)
+
+crevScalarList
+  :: [Concrete (TKScalar Double)] -> [Concrete (TKScalar Double)]
+crevScalarList =
+  cgrad multScalarList
+
+revScalarList
+  :: [Concrete (TKScalar Double)] -> [Concrete (TKScalar Double)]
+revScalarList =
+  grad multScalarList
 
 multScalarL :: (BaseTensor target, GoodScalar r)
             => ListR n (target (TKScalar r)) -> target (TKScalar r)
