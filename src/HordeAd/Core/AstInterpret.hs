@@ -13,6 +13,7 @@ module HordeAd.Core.AstInterpret
 
 import Prelude
 
+import Data.Boolean (Boolean (..))
 import Data.Coerce (coerce)
 import Data.Dependent.EnumMap.Strict.Unsafe qualified as DMap.Unsafe
 import Data.Proxy (Proxy (Proxy))

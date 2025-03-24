@@ -79,6 +79,7 @@ import GHC.TypeLits
   )
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
+import Data.Boolean (Boolean (..))
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation (DropLen, Perm (..), TakeLen, permInverse)

@@ -29,6 +29,7 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+), type (<=), type (<=?))
 import Type.Reflection (typeRep)
 import Data.Maybe (fromMaybe)
+import Data.Boolean (Boolean (..))
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation

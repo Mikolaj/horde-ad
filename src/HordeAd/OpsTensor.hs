@@ -79,6 +79,7 @@ import GHC.TypeLits
   , type (-)
   , type (<=)
   )
+import Data.Boolean (Boolean (..))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape

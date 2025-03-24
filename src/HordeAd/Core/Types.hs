@@ -14,10 +14,10 @@ module HordeAd.Core.Types
   , GoodScalar, Differentiable, IfDifferentiable(..)
   , BuildTensorKind, RazeTensorKind, ADTensorKind, ADTensorScalar, Z0(..)
     -- * Type families that tensors will belong to
-  , IntOf, HFunOf, PrimalOf, DualOf, ShareOf
+  , IntOf, HFunOf, PrimalOf, DualOf, ShareOf, BoolOf
   , IxROf, IxSOf, IxXOf
     -- * Misc
-  , Dict(..), IntegralH(..), RealFloatH(..)
+  , Dict(..), IntegralH(..), RealFloatH(..), EqH(..), OrdH(..)
   , backpermutePrefixList
   , toLinearIdx, fromLinearIdx, toLinearIdxS, fromLinearIdxS
   , toLinearIdxX, fromLinearIdxX
@@ -44,6 +44,7 @@ import Prelude
 
 import Control.DeepSeq (NFData (..))
 import Data.Array.Internal.RankedS qualified as RS
+import Data.Boolean (Boolean (..))
 import Data.Coerce (coerce)
 import Data.Default
 import Data.Foldable qualified as Foldable
@@ -269,6 +270,8 @@ type family DualOf (f :: Target) :: Target
 
 type family ShareOf (f :: Target) :: Target
 
+type family BoolOf (t :: Target) :: Type
+
 -- | Ranked index, that is, a sized list of individual indices into
 -- ranked tensors.
 --
@@ -336,6 +339,18 @@ instance {-# OVERLAPPABLE #-} Integral r => IntegralH r where
 instance {-# OVERLAPPABLE #-} (Floating r, RealFloat r) => RealFloatH r where
   atan2H = atan2
 -}
+
+infix 4 ==., /=.
+class Boolean (BoolOf f) => EqH (f :: Target) y where
+  (==.), (/=.) :: f y -> f y -> BoolOf f
+  u /=. v = notB (u ==. v)
+
+infix 4 <., <=., >=., >.
+class Boolean (BoolOf f) => OrdH (f :: Target) y where
+  (<.), (<=.), (>.), (>=.) :: f y -> f y -> BoolOf f
+  u >. v = v <. u
+  u >=. v = notB (u <. v)
+  u <=. v = v >=. u
 
 backpermutePrefixList :: PermR -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l

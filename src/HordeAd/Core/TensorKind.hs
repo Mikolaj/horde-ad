@@ -11,14 +11,10 @@ module HordeAd.Core.TensorKind
   , FullShapeTK(..), KnownFTK(..)
   , matchingFTK, ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK, differentiableFTK
   , DummyDualTarget(..)
-    -- * Generic types of booleans and related class definitions
-  , BoolOf, Boolean(..), EqH(..), OrdH(..)
   ) where
 
 import Prelude
 
-import Data.Boolean (Boolean (..))
-import Data.Kind (Type)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import GHC.Exts (withDict)
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat)
@@ -287,20 +283,3 @@ differentiableFTK = \case
 type role DummyDualTarget nominal
 type DummyDualTarget :: Target
 data DummyDualTarget y = DummyDualTarget (FullShapeTK y)
-
-
--- * Generic types of booleans and related class definitions
-
-type family BoolOf (t :: Target) :: Type
-
-infix 4 ==., /=.
-class Boolean (BoolOf f) => EqH (f :: Target) y where
-  (==.), (/=.) :: f y -> f y -> BoolOf f
-  u /=. v = notB (u ==. v)
-
-infix 4 <., <=., >=., >.
-class Boolean (BoolOf f) => OrdH (f :: Target) y where
-  (<.), (<=.), (>.), (>=.) :: f y -> f y -> BoolOf f
-  u >. v = v <. u
-  u >=. v = notB (u <. v)
-  u <=. v = v >=. u

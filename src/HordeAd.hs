@@ -21,10 +21,12 @@ module HordeAd
   , module HordeAd.External.CommonRankedOps
   , module HordeAd.External.CommonShapedOps
   , module HordeAd.External.Optimizer
+  , Boolean (..)
   ) where
 
 import Prelude ()
 
+import Data.Boolean (Boolean (..))
 import HordeAd.ADEngine
 import HordeAd.AstEngine
 import HordeAd.Core.Ast
