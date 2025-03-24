@@ -17,7 +17,7 @@ module HordeAd.Core.Types
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf, BoolOf
   , IxROf, IxSOf, IxXOf
     -- * Misc
-  , Dict(..), IntegralH(..), RealFloatH(..), EqH(..), OrdH(..)
+  , Dict(..), IntegralH(..), RealFloatH(..), Boolean (..), EqH(..), OrdH(..)
   , backpermutePrefixList
   , toLinearIdx, fromLinearIdx, toLinearIdxS, fromLinearIdxS
   , toLinearIdxX, fromLinearIdxX

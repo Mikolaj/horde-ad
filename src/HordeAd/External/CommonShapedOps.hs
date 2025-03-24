@@ -8,7 +8,6 @@ module HordeAd.External.CommonShapedOps
 
 import Prelude
 
-import Data.Boolean (Boolean (..))
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))

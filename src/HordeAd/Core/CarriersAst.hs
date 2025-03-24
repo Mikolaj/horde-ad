@@ -12,7 +12,6 @@ module HordeAd.Core.CarriersAst
 
 import Prelude hiding (foldl')
 
-import Data.Boolean (Boolean (..))
 import Data.Int (Int64)
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Foreign.C (CInt)
