@@ -59,41 +59,24 @@ instance Ord (AstTensor ms s y) where
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right
 -- and let's push negation down.
--- TODO: these docs are outdated
 --
--- | Normally, we wouldn't simplify tensor arithmetic so much, but some
--- of these ranked tensors can represent integers in indexes, so we have to.
--- Integer terms need to be simplified, because large ones they are sometimes
+-- | Integer terms need to be simplified, because large ones are sometimes
 -- created due to vectorization, e.g., via astTransposeAsGather
 -- or astReshapeAsGather and can be a deciding factor in whether
 -- the other tensor terms can be simplified in turn.
 --
--- We mix Num and Integral operations in the code below, so we have
--- to limit out underling scalar to @Int64@, which is very well,
--- because we mutiply by zero and compare (big) tensors there,
--- which are both problematic operations with floats.
--- Another problematic operations is comparing big tensors,
--- but we don't have to limit tensor rank to 0, because we compare
--- only tensors from inside bare AstConcreteK and float tensors are always
--- wrapped in AstFromPrimal, so they can't be involved.
---
--- Rank has to be 0 so that the value expressions @0@ below don't crash.
---
--- Several first paragraphs are modelled on @Num@ instance for @AstRanked@
--- and depend on the normal form where @AstConcreteK@, if any, is the first element
--- and the list if fully flattened and of length >= 2.
--- Additionally we here ensure the @AstConcreteK@ is never zero.
+-- The normal form has AstConcreteK, if any, as the first argument
+-- of the constructor. No flattening is performed beyond that.
 --
 -- Not considered are rules that would require comparing non-constant terms
 -- or that would duplicate a non-constant term, as well as most rules
 -- informed by inequalities, expressed via max or min, such as
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
--- We could use sharing via @tlet@ when terms are duplicated, but it's
--- unclear if the term bloat is worth it.
+-- We could use sharing via @tlet@ if terms are duplicated, but it's
+-- unclear if the term bloat is worth it and also we'd need to restrict
+-- this extended simplification to AstMethodLet.
 instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
-  -- The normal form has AstConcreteK, if any, as the first argument
-  -- of the constructor. No flattening is performed beyond that.
   AstConcreteK 0 + u = u
   u + AstConcreteK 0 = u
   AstConcreteK n + AstConcreteK k = AstConcreteK (n + k)
@@ -214,9 +197,8 @@ instance (GoodScalar r, AstSpan s)
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Float)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Float)) #-}
 
--- Warning: div and mod operations are very costly (simplifying them
--- requires constructing conditionals, etc). If this error is removed,
--- they are going to work, but slowly.
+-- Div and mod operations are very costly (simplifying them requires
+-- constructing conditionals, etc), so they are not included in IntegralH.
 instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKScalar r)) where
   quotH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotH n k)
@@ -289,9 +271,6 @@ instance GoodScalar r
   fromInteger i = error $ "fromInteger not defined for ranked tensors: "
                           ++ show i
 
--- Warning: div and mod operations are very costly (simplifying them
--- requires constructing conditionals, etc). If this error is removed,
--- they are going to work, but slowly.
 instance (GoodScalar r, IntegralH r, Nested.IntElt r)
          => IntegralH (AstTensor ms s (TKR n r)) where
   quotH = liftRFromS2 quotH
@@ -400,9 +379,6 @@ instance GoodScalar r
   fromInteger i = error $ "fromInteger not defined for shaped tensors: "
                           ++ show i
 
--- Warning: div and mod operations are very costly (simplifying them
--- requires constructing conditionals, etc). If this error is removed,
--- they are going to work, but slowly.
 instance (GoodScalar r, IntegralH r, Nested.IntElt r)
          => IntegralH (AstTensor ms s (TKS sh r)) where
   quotH = AstI2S QuotOp
@@ -454,9 +430,6 @@ instance GoodScalar r
   fromInteger i = error $ "fromInteger not defined for mixed tensors: "
                           ++ show i
 
--- Warning: div and mod operations are very costly (simplifying them
--- requires constructing conditionals, etc). If this error is removed,
--- they are going to work, but slowly.
 instance (GoodScalar r, IntegralH r, Nested.IntElt r)
          => IntegralH (AstTensor ms s (TKX sh r)) where
   quotH = liftXFromS2 quotH
@@ -513,6 +486,7 @@ instance Boolean (AstBool ms) where
   b ||* AstBoolConst False = b
   b ||* c = AstB2 OrOp b c
 
+-- TODO: refactor with something like liftRFromS2
 instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKR n r) where
   v ==. u = case ftkAst v of
     FTKR shv' _ -> case ftkAst u of

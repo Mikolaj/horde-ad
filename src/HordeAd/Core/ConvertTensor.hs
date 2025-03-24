@@ -1,10 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists, QuantifiedConstraints,
-             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
--- | A class for converting tensors between various forms that contain
+-- | A class for converting tensors between different forms that contain
 -- the same data but varying amounts of shape information.
 module HordeAd.Core.ConvertTensor
   ( ConvertTensor(..)
@@ -92,8 +87,9 @@ class ConvertTensor (target :: Target) where
     withKnownShX (ssxReplicate n) $
     withKnownShX (ssxReplicate (SNat @(n + m))) $
     rfromX . xnestR (ssxReplicate n) . xfromR @_ @(Replicate (n + m) Nothing)
-  -- Some of these operations have akward type signatures, but these
-  -- are the most type-safe or the strongest versions of the typing possible.
+  -- Some of these operations have awkward type signatures, but the signatures
+  -- express the most type-safe, or in other words the strongest versions
+  -- of the typing possible.
   rnestS :: forall n sh2 x.
             (KnownShS sh2, KnownSTK x)
          => SNat n -> target (TKX2 (Replicate n Nothing ++ MapJust sh2) x)

@@ -4,6 +4,9 @@
 -- | The tensor operations intended for the library user. The less user-friendly
 -- prototypes of most of these operation can be found in "HordeAd.Core.Ops"
 -- where some additional rarely used operations reside as well.
+-- This is a major part of the high-level API of the horde-ad library
+-- and it's relatively orthogonal to the other major part, which is
+-- differentiation interface in "HordeAd.ADEngine".
 module HordeAd.OpsTensor
   ( -- * Shape manipulation
     rshape, rlength, rsize, rwidth

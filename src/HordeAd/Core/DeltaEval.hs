@@ -1,41 +1,9 @@
-{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies, QuantifiedConstraints,
-             UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
--- | TODO: This and most of other haddocks in this module are out of date.
---
--- The second component of our rendition of dual numbers:
--- delta expressions, with their semantics.
---
--- A delta expression can be viewed as a concise representation
--- of a linear map (which is the derivative of the objective function)
--- and its evaluation on a given argument as an adjoint (in the algebraic
--- sense) of the linear map applied to that argument. Since linear maps
--- can be represented as matrices, this operation corresponds
--- to a transposition of the matrix. However, the matrix is not constructed,
--- but is represented and transposed preserving the sparsity
--- of the representation.
---
--- The \'sparsity\' is less obvious when the domain of the function consists
--- of multiple vectors, matrices and tensors and when the expressions themselves
--- contain vectors, matrices and tensors. However, a single tiny delta
--- expression (e.g., a sum of two inputs) may denote a vector of matrices.
--- Even a delta expression containing a big matrix usually denotes something
--- much bigger: a whole vector of such matrices and more.
---
--- The algebraic structure here is an extension of vector space.
--- The crucial extra constructor of an input replaces the one-hot
--- access to parameters with something cheaper and more uniform.
--- A lot of the remaining additional structure is for introducing
--- and reducing dimensions (ranks).
---
--- This simplified rendering of the library now contains two ranks:
--- scalars and (ranked) tensors. However, most haddocks and code comments
--- are unchanged since the times vectors were available instead of tensors.
--- The newer setting is a straightforward generalization of the older one,
--- so the rewritten comments would be very similar and slightly harder
--- to understand.
+-- | Evaluation of delta expressions, that is, transpose of the linear
+-- maps of which the delta expressions are sparse representations.
+-- See comments in "Delta" and related papers.
 module HordeAd.Core.DeltaEval
   ( -- * Delta expression evaluation
     gradientFromDelta, derivativeFromDelta
@@ -74,8 +42,28 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
 
--- * Computing derivatives from delta expressions
+-- * Top-level functions for computing derivatives from delta expressions
 
+-- | The top-level function for computing a gradient of an objective function.
+--
+-- Delta expressions naturally denote forward derivatives, as encoded
+-- in function 'derivativeFromDelta'. However, we are usually more
+-- interested in computing gradients, which is what 'gradientFromDelta' does.
+-- The two functions are bound by the equation from Lemma 5 from the paper
+-- "Provably correct, asymptotically efficient, higher-order reverse-mode
+-- automatic differentiation":
+--
+-- > dt <.> derivativeFromDelta d ds = gradientFromDelta d dt <.> ds
+--
+-- where @\<.\>@ denotes generalized dot product (multiplying
+-- all tensors element-wise and summing the results), @d@ is the top level
+-- delta expression from translation of the objective function @f@ to dual
+-- numbers, @ds@ belongs to the domain of @f@ and @dt@ to the codomain.
+-- In other words, @ds@ is a perturbation (small change) of the arguments
+-- of @f@, for which we compute the derivative, and @dt@ is a sensitivity
+-- of the result of @f@, for which we compute the gradient.
+-- Nota bene, this property is checked for many example objective functions
+-- (and perturbations and sensitivities) in the horde-ad testsuite.
 gradientFromDelta
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => FullShapeTK x
@@ -92,6 +80,8 @@ gradientFromDelta !xftk !zftk !dt deltaTopLevel =
         $ adFTK xftk
   in assert (null remainder) res
 
+-- | The top-level function for computing a (forward) derivative
+-- of an objective function.
 derivativeFromDelta
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => Delta target z -> FullShapeTK (ADTensorKind x)
@@ -133,9 +123,9 @@ newtype Cotangent target y =
 
 -- This is a tensor representation where, as much as feasible,
 -- zero tensors are marked specially in order to be cheap to detect
--- (as opposed to require traversing large terms or checking that
--- each cell of a huge array is zero or both).
--- It also makes (an insignificant) case of addTensorOrZero cheaper.
+-- (as opposed to requiring a traversal of large terms or checking that
+-- each cell of a huge array is zero or both). It also makes the computation
+-- of a special case of addTensorOrZero cheaper.
 type role TensorOrZero nominal nominal
 data TensorOrZero target y =
     TOTensor (target y)
@@ -221,6 +211,7 @@ generateDSums j ftk t = case ftk of
   _ | differentiableFTK ftk -> ([mkInputId ftk j :=> TOTensor t], j + 1)
   _ -> ([], j)
 
+
 -- * Delta evaluation state
 
 -- | The state of evaluation. It consists of several maps.
@@ -229,9 +220,7 @@ generateDSums j ftk t = case ftk of
 -- The cotangents are built gradually during the evaluation,
 -- by summing cotangent contributions.
 --
--- Data invariant:
--- 1. keys nMap == keys dMap
--- 2. key `member` dMap == nMap!key is ...
+-- Data invariant: keys nMap == keys dMap.
 type role EvalState nominal
 data EvalState target = EvalState
   { iMap :: IMap target
@@ -246,76 +235,21 @@ data EvalState target = EvalState
       -- ^ nodes left to be evaluated;
       -- we can't evaluate them at once, because their other shared copies
       -- may still not be processed, so we'd not take advantage of the sharing
-      -- and not take into account the whole summed context when finally
+      -- and/or not take into account the whole summed context when finally
       -- evaluating
   }
 
--- | Delta expressions naturally denote forward derivatives, as encoded
--- in function 'derivativeFromDelta'. However, we are usually more
--- interested in computing gradients, which is what @gradientFromDelta@ does.
--- The two functions are bound by the equation from Lemma 5 from the paper
--- "Provably correct, asymptotically efficient, higher-order reverse-mode
--- automatic differentiation":
---
--- > dt <.> derivativeFromDelta d ds = gradientFromDelta d dt <.> ds
---
--- where @\<.\>@ denotes generalized dot product (multiplying
--- all tensors element-wise and summing the results), @d@ is the top level
--- delta expression from translation of the objective function @f@ to dual
--- numbers, @ds@ belongs to the domain of @f@ and @dt@ to the codomain.
--- In other words, @ds@ is a perturbation (small change) of the arguments
--- of @f@, for which we compute the derivative, and @dt@ is a perturbation
--- of the result of @f@, for which we compute the gradient.
--- We omitted for clarity the @dim@ arguments that are
--- the lengths of vectors of the tensors in the domain of @f@.
---
--- Let's first discuss in detail the semantics of delta-expressions
--- in terms of forward derivatives, since it's more straightforward.
--- Let @r@ be the type of underlying scalars. Let @f@ be a mathematical
--- differentiable function that takes arguments (a collection
--- of finite maps or vectors) of type @HVector r@ and produces
--- a single result of type @r@. Let a dual number counterpart
--- of @f@ applied to a fixed collection of parameters @P@
--- of type @HVector r@ be represented as a Haskell value @b@.
--- Let @d :: Delta0 r@ be the delta expression that is
--- the second component of @b@, let @ds@ belong to @HVector r@.
--- The semantics of @d@ is a linear function from @HVector r@
--- to @r@ that is the derivative of @f@ at point @P@
--- with respect to the perturbation @ds@. The mathematical formula
--- for the derivative follows straightforwardly the syntactic form
--- of the delta expression @d@ (see 'derivativeFromDelta').
---
--- Let's now describe the semantics of a delta expression @d@
--- as the gradient of @f@ at point @P@ with respect to a @dt@ that belongs
--- to @r@. Here the semantics of @d@ is a collection of finite maps
--- (vectors) @v0@, @v1@, ..., corresponding to @HVector r@.
--- The value of @vi@ at index @k@ is the partial derivative
--- of function @f@ at @P@ with respect to its parameter of type @ai@
--- residing at index @k@.
---
--- Consequently, obtaining the gradient amounts to transposing the linear map
--- that is straightforwardly represented by a delta expression. The @eval@
--- functions in @buildFinMaps@ below transpose a linear map and,
--- at the same time, evalute the transposed map, producing its value
--- when applied to afixed argument (contained in the second
--- parameter of @buildFinMaps@).
---
--- Function @gradientFromDelta@ computes the four vectors described above.
--- Requested lengths of the vectors are given in the first few arguments.
--- The delta expression to be evaluated, together with the @dt@ perturbation
--- value (usually set to @1@) are given as arguments.
+-- | Initialization of the evalutation state, which consists of
+-- creating the finite maps that hold values associated with inputs
+-- and with (possibly shared) term tree nodes.
+-- The former are usually initialized with dummy values so that it's cheap
+-- to check if any update has already been performed to a cell
+-- (allocating big vectors filled with zeros is too costly,
+-- especially if never used in an iteration, and adding to such vectors
+-- and especially using them as cotangent accumulators is wasteful).
 initEvalState :: FullShapeTK x -> EvalState target
 initEvalState ftk0 =
-  let -- Create finite maps that hold values associated with inputs
-      -- and with (possibly shared) term tree nodes.
-      -- The former are usually initialized with dummy values so that it's cheap
-      -- to check if any update has already been performed to a cell
-      -- (allocating big vectors filled with zeros is too costly,
-      -- especially if never used in an iteration, and adding to such vectors
-      -- and especially using them as cotangent accumulators is wasteful.
-      -- We take care to keep the scalar type of the dummy correct,
-      -- but a shape is not preserved in a dummy, so it's not shape-correct.
-      iMap = DMap.fromDistinctAscList $ fst $ generateDSumsDummy 0 $ adFTK ftk0
+  let iMap = DMap.fromDistinctAscList $ fst $ generateDSumsDummy 0 $ adFTK ftk0
       dMap = DMap.empty
       nMap = DMap.empty
   in EvalState {..}
@@ -337,10 +271,6 @@ evalRevScalarRuntimeSpecialized !s !c =
       Just Refl -> evalRevSame @(TKScalar Float) s c
       _ -> const s
 
--- The first argument is the evaluation state being modified,
--- the second is the cotangent accumulator that will become an actual
--- cotangent contribution when complete (see below for an explanation)
--- and the third argument is the node to evaluate.
 evalRevRRuntimeSpecialized
   :: forall n r target.
      (GoodScalar r, ADReadyNoLet target, ShareTensor target)
@@ -351,7 +281,7 @@ evalRevRRuntimeSpecialized
 evalRevRRuntimeSpecialized !s !c =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
-  -- an existential type. All IfDifferentiable and RowSum instances should
+  -- an existential type. All IfDifferentiable instances should
   -- be included in the list of expected underlying scalar types.
   -- If the scalar type is not on the list, performance suffers greatly.
   case testEquality (typeRep @r) (typeRep @Double) of
@@ -388,6 +318,24 @@ evalXRuntimeSpecialized !s !c =
       Just Refl -> evalRevSame @(TKX sh Float) s c
       _ -> const s
 
+-- | Reverse pass, that is, transpose/evaluation of the delta expressions
+-- in orderto produce the gradient for the objective function runtime
+-- trace represented by the delta expression.
+--
+-- The first argument is the tensor kind that constrains the shapes
+-- of the contangent accumulator and the delta expression arguments.
+-- The second is the evaluation state being modified.
+-- The third is the cotangent accumulator that will become an actual
+-- cotangent contribution when complete (see below for an explanation).
+-- The fourth is the delta expression node to evaluate.
+--
+-- Obtaining the gradient amounts to transposing the linear map
+-- that is straightforwardly represented by the delta expression.
+-- The @evalRev@ function transposes the linear map and,
+-- at the same time, evaluates the transposed map on the cotangent accumulator
+-- value contained in the third argument. If the cotangent and the tensor
+-- operations are symbolic, the resulting value represents the transposed
+-- map itself, if its free variables are treated as the map's inputs.
 evalRev
   :: forall y target.
      (ADReadyNoLet target, ShareTensor target)
@@ -401,29 +349,33 @@ evalRev ftk !s !c d = case ftk of
   FTKX @sh _ (FTKScalar @r) -> evalXRuntimeSpecialized @sh @r s c d
   _ -> evalRevFTK s c d
 
--- The "FTK" denotes it doesn't get an FTK but reconstructs it as needed.
+-- | A helper function to `evalRev`. The @FTK@ suffix denotes it doesn't get
+-- an FTK as an argument but reconstructs it as needed.
+--
+-- All constructors that admit a TKProduct kind need to be handled here,
+-- as opposed to in 'evalRevSame', except for DeltaInput that is always
+-- constructed only in basic kinds even though its type permits others.
 evalRevFTK
   :: forall y target.
      (ADReadyNoLet target, ShareTensor target)
   => EvalState target -> target (ADTensorKind y) -> Delta target y
   -> EvalState target
 evalRevFTK !s !c d0 = case d0 of
-  -- All constructors that admit a TKProduct kind need to be handled in evalRev
-  -- except for DeltaInput that is always constructed only in basic kinds.
   DeltaShare n d ->
     -- In this context, by construction, @d@ is the dual component
     -- of a dual number term. Let's say that, at this point, evaluation
     -- considers position (node) p out of possibly multiple positions
     -- at which that dual number resides in the whole term tree
     -- of the dual number representation of the objective function.
-    -- (Equivalently, considers edges p, one of many leading to the only
+    -- (Equivalently, considers edge p, one of many leading to the only
     -- node with identifier @n@ in the DAG representing the term).
     -- If so, the @c@ argument of @eval0@ is the cotangent
     -- contribution for position p, that is, the partial derivative
     -- of the objective function with respect to position p.
     --
-    -- If there are indeed multiple such positions (the term is shared)
-    -- then, over the course of evaluation, cotangent contributions
+    -- If there are indeed multiple such positions
+    -- (the term is non-trivially shared) then,
+    -- over the course of evaluation, cotangent contributions
     -- of them all are gradually accumulated in the finite
     -- maps and eventually their total sum represents the total
     -- influence of the objective function's subcomputation
@@ -465,8 +417,9 @@ evalRevFTK !s !c d0 = case d0 of
     FTKProduct _ ftk2 ->
       let zero = treplTarget 0 $ adFTK ftk2
       in evalRevFTK s (tpair c zero) d
-    -- if y is, e.g., TKR Int 0, we eval this delta even though we could ignore it
-    -- at the price of complicating or duplicating the code slightly more
+    -- if y is, e.g., TKR 0 Int64, we eval this delta anyway, even though
+    -- we could ignore it at the price of complicating or duplicating
+    -- the code slightly more
   DeltaProject2 d -> case ftkDelta d of
     FTKProduct ftk1 _ ->
       let zero = treplTarget 0 $ adFTK ftk1
@@ -568,16 +521,18 @@ evalRevFTK !s !c d0 = case d0 of
                  -- the latter has the Z0 scalar type and so no influence
                  -- on the derivative.
 
+-- | A helper function to `evalRev`. It assumes the scalar underlying
+-- the tensor kind of its argumets is differentiable.
+--
+-- All constructors that only admit a non-TKProduct kind
+-- (and the DeltaInput constructor and the vector space constructors)
+-- can be handled here, where the extra equality constraint makes it easier.
 evalRevSame
   :: forall y target.
      (ADReadyNoLet target, ShareTensor target, y ~ ADTensorKind y)
   => EvalState target -> target (ADTensorKind y) -> Delta target y
   -> EvalState target
 evalRevSame !s !c = \case
-  -- All constructors that only admit a non-TKProduct kind
-  -- (and the DeltaInput constructor and the vector space constructors)
-  -- can be handled here, where the extra
-  -- constraint makes it easier.
   DeltaInput i ->
     let cs = TOTensor c
     in s {iMap = DMap.adjust (addTensorOrZero (ftkToSTK $ inputIdToFTK i) cs) i
@@ -668,7 +623,6 @@ evalRevSame !s !c = \case
   DeltaDot0S v d -> case ftkDelta d of
     FTKS sh FTKScalar ->
       evalRevSame s (v * tsreplicate0N sh c) d
-        -- too slow: evalRevSame s (smap0N (* (sscalar c)) v) vd
   DeltaIndexS shn d ix -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
@@ -711,7 +665,8 @@ evalRevSame !s !c = \case
       withKnownSTK (ftkToSTK x) $
       permInverse perm $ \(permRev :: Permutation.Perm permR) _ ->
         gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permR (Permutation.PermutePrefix perm sh2) :~: sh2)
+                   :: Permutation.PermutePrefix
+                        permR (Permutation.PermutePrefix perm sh2) :~: sh2)
         $ gcastWith (unsafeCoerceRefl
                      :: Rank (Permutation.PermutePrefix perm sh2) :~: Rank sh2)
         $ gcastWith (unsafeCoerceRefl
@@ -737,7 +692,6 @@ evalRevSame !s !c = \case
     FTKX sh FTKScalar ->
       withKnownShX (ssxFromShape sh) $
       evalRevSame s (v * txreplicate0N (xshape v) c) d
-        -- too slow: evalRevSame s (smap0N (* (sscalar c)) v) vd
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x | SNat @len <- ixxRank ix ->
       withKnownSTK (ftkToSTK x) $
@@ -785,7 +739,8 @@ evalRevSame !s !c = \case
       withKnownSTK (ftkToSTK x) $
       permInverse perm $ \(permR :: Permutation.Perm permR) _ ->
         gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permR (Permutation.PermutePrefix perm sh2) :~: sh2) $
+                   :: Permutation.PermutePrefix
+                        permR (Permutation.PermutePrefix perm sh2) :~: sh2) $
         gcastWith (unsafeCoerceRefl
                    :: Rank (Permutation.PermutePrefix perm sh2) :~: Rank sh2) $
         gcastWith (unsafeCoerceRefl
@@ -866,7 +821,7 @@ evalRevFromnMap s@EvalState{nMap, dMap} =
       in evalRevFromnMap s3
     Nothing -> s  -- loop ends
 
-{-
+{- TODO: optimize similarly?
         -- The general case is given as the last one below,
         -- but for a few constructors it's faster to inline @evalRev@ instead.
         -- BTW, such an optimization doesn't really belong in the simplified
@@ -905,8 +860,8 @@ evalRevFromnMap s@EvalState{nMap, dMap} =
 -- This is the directional derivative, calculated for the point,
 -- at which the delta expression was computed (which is the point
 -- represented by the parameters of the objective function and used
--- to compute it's dual number result) and along the direction vector(s)
--- given in the last parameter called @ds@.
+-- to compute it's dual number result) and along the direction vector
+-- given by the parameters in the arguments.
 --
 -- This mimics the reverse derivative code, but in reverse. Perhaps this can be
 -- simplified, but the obvious simplest formulation does not honour sharing

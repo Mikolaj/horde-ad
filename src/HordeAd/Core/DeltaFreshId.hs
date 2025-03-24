@@ -31,7 +31,7 @@ unsafeGlobalCounter = unsafePerformIO (newCounter 100000001)
 -- printed terms less fragile. @Counter@ datatype is just as safe,
 -- but faster than an @MVar@ or an atomic @IORef@ (and even non-atomic @IORef@).
 -- The operation is manually inlined to prevent GHCs deciding otherwise
--- and causing performance anomalies.
+-- and causing performance anomalies in benchmarks.
 unsafeGetFreshId :: IO Int
 {-# INLINE unsafeGetFreshId #-}
 unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1

@@ -2,13 +2,9 @@
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
 -- | A collection of classes containing array operations,
 -- with some extra algebraic operations and dual numbers
--- operations added in. This is a part of the high-level
--- API of the horde-ad library and it's relatively orthogonal to the
--- differentiation interface in "HordeAd.Core.Engine".
+-- operations added in.
 module HordeAd.Core.Ops
   ( -- * The tensor classes and support datatypes
     LetTensor(..), ShareTensor(..), BaseTensor(..), HFun(..)
@@ -186,22 +182,26 @@ tmapAccumL proxy !k !accftk !bftk !eftk f acc0 es =
                    (tvjp @target xftk $ HFun fl)
                    acc0 es
 
-type TensorSupports :: (Type -> Constraint) -> (Type -> Constraint) -> Target -> Constraint
+type TensorSupports :: (Type -> Constraint) -> (Type -> Constraint)
+                    -> Target -> Constraint
 type TensorSupports c1 c2 f =
   forall r. GoodScalar r
             => c1 r => c2 (f (TKScalar r))
 
-type TensorSupportsR :: (Type -> Constraint) -> (Type -> Constraint) -> Target -> Constraint
+type TensorSupportsR :: (Type -> Constraint) -> (Type -> Constraint)
+                     -> Target -> Constraint
 type TensorSupportsR c1 c2 f =
   forall r n. GoodScalar r
               => c1 r => c2 (f (TKR n r))
 
-type TensorSupportsS :: (Type -> Constraint) -> (Type -> Constraint) -> Target -> Constraint
+type TensorSupportsS :: (Type -> Constraint) -> (Type -> Constraint)
+                     -> Target -> Constraint
 type TensorSupportsS c1 c2 f =
   forall r sh. GoodScalar r
                => c1 r => c2 (f (TKS sh r))
 
-type TensorSupportsX :: (Type -> Constraint) -> (Type -> Constraint) -> Target -> Constraint
+type TensorSupportsX :: (Type -> Constraint) -> (Type -> Constraint)
+                     -> Target -> Constraint
 type TensorSupportsX c1 c2 f =
   forall r sh. GoodScalar r
                => c1 r => c2 (f (TKX sh r))
@@ -397,7 +397,8 @@ class ( Num (IntOf target)
 
   -----------
   -- Everything below is indended to be rarely used and usually there are
-  -- more specific and/or more convienient functions that do the same job.
+  -- more specific and/or more convienient functions that do the same job
+  -- in other modules.
   --------------
 
   tcond :: Boolean (BoolOf target)

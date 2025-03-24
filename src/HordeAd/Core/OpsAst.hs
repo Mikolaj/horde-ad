@@ -1,11 +1,10 @@
-{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor class instances for AST terms. Most of these instances
 -- vectorize any terms starting with the build constructor.
--- The AST term instances can be used as building blocks for 'ADVal'
--- instances defined in "TensorADVal" but may also be used standalone.
+-- The AST term instances can be used as building blocks for @ADVal(AST)@
+-- instances defined in "OpsADVal" but may also be used standalone.
 module HordeAd.Core.OpsAst
   ( IncomingCotangentHandling(..)
   , forwardPassByInterpretation
@@ -61,7 +60,7 @@ data IncomingCotangentHandling = UseIncomingCotangent | IgnoreIncomingCotangent
 -- This makes them easier to simplify and expresses via type that they
 -- don't introduce tangents nor cotangents, but are purely primal functions.
 -- They can still be liften to dual number functions via interpretations,
--- as is done in tgrad below and others.
+-- as is done, e.g., in tgrad below.
 forwardPassByInterpretation
   :: forall x z.
      (AstTensor AstMethodLet FullSpan x
@@ -158,9 +157,9 @@ fwdProduceArtifact f envInit xftk =
 
 -- * AstTensor instances
 
--- This is a vectorizing combinator that also simplifies
+-- | This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.
--- Due to how the Ast instance of Tensor is defined above, vectorization
+-- Due to how the Ast tensor instances are defined, vectorization
 -- works bottom-up, which removes the need to backtrack in the vectorization
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
@@ -182,9 +181,9 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
       Just Refl -> unshareAstTensor . unAstRaw
       _ -> error "tunshare: used not at PrimalSpan"
 
--- The checks and error messages in these function result in complete
+-- | The checks and error messages in these function result in complete
 -- shape-checking of the ranked and mixed user code (shaped is already
--- fully checked by Haskell).
+-- fully checked by the Haskell type system).
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Ranked ops
   rshape t = case ftkAst t of
@@ -404,7 +403,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         withKnownShS (takeShS @(Rank sh1) sh) $
         astFromS @(TKS2 (Drop (Rank sh1) sh) x) (knownSTK @(TKX2 sh2 x))
         $ astIndexStepS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
-                        (dropShS @(Rank sh1) sh) (astSFromX @sh @sh1sh2 sh a) (ixxToIxs ix)
+                        (dropShS @(Rank sh1) sh) (astSFromX @sh @sh1sh2 sh a)
+                        (ixxToIxs ix)
   txscatter @shm @_ @shp shpshn0 t f = case ftkAst t of
     FTKX shmshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
@@ -427,7 +427,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             astFromS (ftkToSTK $ FTKX shpshn0 x)
             $ astScatterS @(Take (Rank shm) shmshn)
                           @(Drop (Rank shm) shmshn)
-                          @(Take (Rank shp) shpshn) knownShS (astSFromX shmshn t)
+                          @(Take (Rank shp) shpshn)
+                          knownShS (astSFromX shmshn t)
             $ funToAstIxS knownShS (ixxToIxs . f . ixsToIxx)
                 -- this introduces new variable names
           _ -> error $ "xscatter: shapes don't match: "
@@ -455,7 +456,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             astFromS (ftkToSTK $ FTKX shmshn0 x)
             $ astGatherStepS @(Take (Rank shm) shmshn)
                              @(Drop (Rank shm) shmshn)
-                             @(Take (Rank shp) shpshn) knownShS (astSFromX shpshn t)
+                             @(Take (Rank shp) shpshn)
+                             knownShS (astSFromX shpshn t)
             $ funToAstIxS knownShS (ixxToIxs . f . ixsToIxx)
                 -- this introduces new variable names
           _ -> error $ "xgather: shapes don't match: "
@@ -578,7 +580,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tfromPrimal _ t = fromPrimal t
   tfromDual t = fromDual t
   tgrad xftk f =
-    -- we don't have an AST constructor to hold it, so we compute
+    -- We don't have an AST constructor to hold it, so we compute outright.
     --
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
@@ -691,7 +693,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         withKnownShS (takeShS @m sh) $
         AstFromS @(TKS2 (Drop m sh) x) (knownSTK @(TKR2 n x))
         $ AstIndexS @(Take m sh) @(Drop m sh)
-                    (dropShS @m sh) (AstSFromR @sh sh a) (ixrToIxs (unAstRaw <$> ix))
+                    (dropShS @m sh) (AstSFromR @sh sh a)
+                    (ixrToIxs (unAstRaw <$> ix))
   trscatter @m @_ @p shpshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKR @_ @x shmshn0 x ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -926,7 +929,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
             AstFromS (ftkToSTK $ FTKX shpshn0 x)
             $ AstScatterS @(Take (Rank shm) shmshn)
                           @(Drop (Rank shm) shmshn)
-                          @(Take (Rank shp) shpshn) knownShS (AstSFromX shmshn t)
+                          @(Take (Rank shp) shpshn)
+                          knownShS (AstSFromX shmshn t)
             $ funToAstIxS knownShS (fmap unAstRaw . ixxToIxs . f . ixsToIxx
                            . fmap AstRaw)
                 -- this introduces new variable names

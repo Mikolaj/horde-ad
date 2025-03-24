@@ -7,7 +7,7 @@
 module HordeAd.Core.CarriersConcrete
   ( -- * RepConcrete and its operations
     RepConcrete, tftkG, eltDictRep, showDictRep
-    -- * Concrete its operations
+    -- * Concrete and its operations
   , Concrete(..), rtoVector, stoVector, xtoVector
   ) where
 

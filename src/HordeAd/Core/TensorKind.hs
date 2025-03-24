@@ -1,8 +1,7 @@
-{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints,
-             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Various singletons for tensors and their associated constraints and lemmas.
+-- | Various singletons for tensors and constraints and lemmas associated
+-- to the singletons.
 module HordeAd.Core.TensorKind
   ( -- * Singletons
     SingletonTK(..), KnownSTK(..)

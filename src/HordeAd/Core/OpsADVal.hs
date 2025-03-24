@@ -1,12 +1,8 @@
-{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
--- | Tensor class instances for dual numbers. Most of the definitions
+-- | Tensor class instances for dual numbers. All definitions
 -- are generic over whether the dual numbers are built from concrete arrays
--- of floats or from AST terms. However, here we do not abstract over
--- the typing of tensors and so we give separate instances
--- for ranked tensors and shaped tensors.
+-- of floats or from AST terms or anything else (e.g., nested 'ADVal').
 module HordeAd.Core.OpsADVal
   ( crevOnADInputs, crevOnParams, cfwdOnParams
   ) where
@@ -35,7 +31,7 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.ConvertTensor
 
--- * Non-symbolic reverse and forward derivative computation
+-- * Non-symbolic (or at least non-sharing) reverse and forward derivative computation
 
 -- The user-written function f can do anything, so the inputs
 -- argument has to be duplicable.
@@ -99,9 +95,6 @@ cfwdOnParams xftk parameters f ds =
 fromPrimalFTK :: FullShapeTK z -> f z -> ADVal f z
 fromPrimalFTK ftk a = dDnotShared a (DeltaZero ftk)
 
--- This instance can be sped up by defining and simplifying all default
--- methods (or only tfromVector?), but it probably benefits only product
--- tensor kinds, which are probably not a bottleneck in realistic examples.
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )
          => LetTensor (ADVal target) where
@@ -122,13 +115,16 @@ instance (ADReadyNoLet target, ShareTensor target)
                          (d1, d2) = unDeltaPair u'
                      in (dDnotShared u1 d1, dDnotShared u2 d2)
 
+-- This instance can be sped up by defining and simplifying all default
+-- methods (or only tfromVector?), but it probably benefits only product
+-- tensor kinds, which are probably not a bottleneck in realistic examples.
+--
 -- Note that these instances don't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
 -- In any case, only the Ast instantiation of this instance
--- is used in the codebase, in particular, to satisfy the constraints
+-- is used in the main codebase, in particular, to satisfy the constraints
 -- needed for the interpretation of Ast in ADVal.
--- The ADVal Double and ADVal Float instantiations are only used
--- in tests. None others are used anywhere.
+-- The ADVal Concrete instantiations are only used in tests.
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )
          => BaseTensor (ADVal target) where
@@ -395,7 +391,8 @@ instance ( ADReadyNoLet target, ShareTensor target
               let (!dx, !db) = (tproject1 dx_db1, tproject2 dx_db1)
               in ttlet db $ \ !db1 ->
                 let dx_dbRes = tpair dx (tproject2 db1)
-                in ttlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
+                in ttlet (unHFun rf (tpair dx_dbRes acc_e))
+                   $ \ !daccRes_deRes ->
                   let added = taddTarget (adSTK $ ftkToSTK accftk)
                                          (tproject1 daccRes_deRes)
                                          (tproject1 db1)
@@ -456,7 +453,8 @@ instance ( ADReadyNoLet target, ShareTensor target
               let (!dx, !db) = (tproject1 dx_db1, tproject2 dx_db1)
               in ttlet db $ \ !db1 ->
                 let dx_dbRes = tpair dx (tproject2 db1)
-                in ttlet (unHFun rf (tpair dx_dbRes acc_e)) $ \ !daccRes_deRes ->
+                in ttlet (unHFun rf (tpair dx_dbRes acc_e))
+                   $ \ !daccRes_deRes ->
                   let added = taddTarget (adSTK $ ftkToSTK accftk)
                                          (tproject1 daccRes_deRes)
                                          (tproject1 db1)
@@ -546,8 +544,8 @@ instance ( ADReadyNoLet target, ShareTensor target
   xzip (D u u') = dD (xzip u) (DeltaZipX u')
   xunzip (D u u') = dD (xunzip u) (DeltaUnzipX u')
 
-  -- This avoids product eta-expansions for AST instance primal,
-  -- though contangent expands anyway.
+  -- This avoid product eta-expansions for AST instance primal,
+  -- though the contangent expands anyway.
   tfromS zstk (D u u') =
     dDnotShared (tfromS zstk u) (dFromS zstk u')
   rfromX a@(D _ u') = case ftkDelta u' of

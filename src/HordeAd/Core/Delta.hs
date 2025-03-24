@@ -1,46 +1,37 @@
-{-# LANGUAGE AllowAmbiguousTypes, DerivingStrategies, QuantifiedConstraints,
-             UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
--- | TODO: This and most of other haddocks in this module are out of date.
---
--- The second component of our rendition of dual numbers:
--- delta expressions, with their semantics.
+-- | The grammar of delta expressions.
 --
 -- A delta expression can be viewed as a concise representation
 -- of a linear map (which is the derivative of the objective function)
--- and its evaluation on a given argument as an adjoint (in the algebraic
--- sense) of the linear map applied to that argument. Since linear maps
--- can be represented as matrices, this operation corresponds
--- to a transposition of the matrix. However, the matrix is not constructed,
+-- and its evaluation on a given argument (in module "DeltaEval")
+-- as an adjoint (in the algebraic sense) of the linear map
+-- applied to that argument. Since linear maps can be represented
+-- as matrices, this operation corresponds to a transposition
+-- of the matrix. However, the matrix is not constructed,
 -- but is represented and transposed preserving the sparsity
 -- of the representation.
 --
--- The \'sparsity\' is less obvious when the domain of the function consists
--- of multiple vectors, matrices and tensors and when the expressions themselves
--- contain vectors, matrices and tensors. However, a single tiny delta
--- expression (e.g., a sum of two inputs) may denote a vector of matrices.
--- Even a delta expression containing a big matrix usually denotes something
--- much bigger: a whole vector of such matrices and more.
+-- The \'sparsity\' is less obvious when a delta expression
+-- contain big concrete tensors, e.g., via the `DeltaScale` constructor.
+-- However, via 'DeltaReplicate' and other constructors, the tensors
+-- can be enlarged much beyond what's embedded in the delta term.
+-- Also, if the expression refers to unknown inputs ('DeltaInput')
+-- it may denote, after evaluation, a still larger tensor or a collection
+-- of tensors.
 --
 -- The algebraic structure here is an extension of vector space.
--- The crucial extra constructor of an input replaces the one-hot
+-- The crucial extra constructor of an input ('DeltaInput') replaces the one-hot
 -- access to parameters with something cheaper and more uniform.
 -- A lot of the remaining additional structure is for introducing
--- and reducing dimensions (ranks).
---
--- This simplified rendering of the library now contains two ranks:
--- scalars and (ranked) tensors. However, most haddocks and code comments
--- are unchanged since the times vectors were available instead of tensors.
--- The newer setting is a straightforward generalization of the older one,
--- so the rewritten comments would be very similar and slightly harder
--- to understand.
+-- and reducing dimensions on tensors and it mimics many of the operations
+-- available for the primal value arrays.
 module HordeAd.Core.Delta
   ( -- * Delta identifiers
     NodeId, mkNodeId, nodeIdToFTK
   , InputId, mkInputId, inputIdToFTK
-    -- * AST of delta expressions
+    -- * The grammar of delta expressions
   , Delta(..), NestedTarget(..)
     -- * Full tensor kind derivation for delta expressions
   , ftkDelta
@@ -127,24 +118,9 @@ inputIdToFTK :: InputId f y -> FullShapeTK y
 inputIdToFTK (InputId ftk _) = ftk
 
 
--- * AST of delta expressions
+-- * The grammar of delta expressions
 
--- | TODO: This and most of other haddocks are out of date.
---
--- For each choice of the underlying scalar type @r@,
--- we have several primitive differentiable types based on the scalar:
--- the scalar type @r@ itself, @Vector r@ and (in the non-simplified
--- version of delta expressions) @Matrix r@ and tensors.
--- Many operations span the ranks and so span the datatypes, which makes
--- the datatypes mutually recursive. Later on in this module,
--- algorithms are implemented for computing gradients and for computing
--- derivatives of objective functions from which such delta expressions
--- are obtained via our dual number method.
---
--- The first pair of grammars given below are of delta-expressions
--- at tensor rank 0, that is, at the scalar level. The first few operations
--- have analogues at the level of vectors, matrices and arbitrary tensors,
--- but the other operations are specific to the rank.
+-- | The grammar of delta expressions.
 --
 -- The `NodeId` identifier that appears in a @DeltaShare n d@ expression
 -- is the unique identity stamp of subterm @d@, that is, there is
@@ -159,20 +135,6 @@ inputIdToFTK (InputId ftk _) = ftk
 -- agrees with the subterm relation, but is faster than traversing
 -- the term tree in order to determine the relation of terms.
 --
--- There is one exception to the subterm data dependency rule:
--- any term containing a function (e.g., a @DeltaGather@ node)
--- may depend on terms generated by applying the function,
--- regardless of their node identifiers (which in our implementation
--- are going to be larger than their ancestors').
--- Note that the functions inside constructors can be readily converted
--- to AST terms (with distinguished variables) when we are working
--- in an AST instance. However, this is not needed, because the AST term
--- resulting from differentiation for that instance won't have any functions
--- embedded, so there's no problem with sending Haskell closures to a GPU.
--- And in other instances we can't directly use GPUs anyway (though we can
--- indirectly, e.g., via ArrayFire), because we don't produce AST terms
--- that could be compiled for a GPU, so we don't worry about it.
---
 -- When computing gradients, node identifiers are also used to index,
 -- directly or indirectly, the data accumulated for each node,
 -- in the form of cotangents, that is partial derivatives
@@ -180,30 +142,22 @@ inputIdToFTK (InputId ftk _) = ftk
 -- of the node in the whole objective function dual number term
 -- (or, more precisely, with respect to the single node in the term DAG,
 -- in which subterms with the same node identifier are collapsed).
--- Only the @Input@ nodes of all ranks have a separate data storage.
--- The per-rank `InputId` identifiers in the @Input@ term constructors
--- are indexes into contiguous vectors of cotangents of exclusively @Input@
+-- Only the @DeltaInput@ nodes have a separate data storage.
+-- The `InputId` identifiers in the @DeltaInput@ term constructors
+-- are indexes into a contiguous vector of cotangents of @DeltaInput@
 -- subterms of the whole term. The value at that index is the partial
 -- derivative of the objective function (represented by the whole term,
 -- or more precisely by (the data flow graph of) its particular
 -- evaluation from which the delta expression originates)
 -- with respect to the input parameter component at that index
--- in the objective function domain. The collection of all such
--- vectors of partial derivatives across all ranks is the gradient.
---
--- This is the grammar of delta-expressions corresponding to ranked tensors.
--- The comments refer to the ordinary (forward) semantics of the terms,
--- as given in @buildDerivative@. Evaluating the terms backwards
--- (transposing the represented linear map) in order to compute gradients
--- provides a different semantics.
-
+-- in the objective function domain.
 type role Delta nominal nominal
 data Delta :: Target -> Target where
   -- Sharing-related operations
   DeltaShare :: NodeId target y -> Delta target y -> Delta target y
   DeltaInput :: InputId target y -> Delta target y
 
-  -- General operations, for scalar, ranked, shared and other tensors at once
+  -- General operations
   DeltaPair :: forall y z target.
                Delta target y -> Delta target z
             -> Delta target (TKProduct y z)
@@ -406,7 +360,6 @@ data Delta :: Target -> Target where
   DeltaXNestR :: StaticShX sh1 -> SNat m
               -> Delta target (TKX2 (sh1 ++ Replicate m Nothing) x)
               -> Delta target (TKX2 sh1 (TKR2 m x))
-    -- The constraints about ++ in these three are needed for deriving Show.
   DeltaXNestS :: StaticShX sh1 -> ShS sh2
               -> Delta target (TKX2 (sh1 ++ MapJust sh2) x)
               -> Delta target (TKX2 sh1 (TKS2 sh2 x))
