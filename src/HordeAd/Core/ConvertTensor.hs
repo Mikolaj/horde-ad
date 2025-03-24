@@ -20,28 +20,38 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 class ConvertTensor (target :: Target) where
+  -- | The conversion of a tensor or a nested pair of tensors,
+  -- where the type of the result is determined by the singleton
+  -- given in the first argument.
+  --
   -- The semantics for products is element-wise and for others it's either
-  -- identity or the domain is shaped and tfromS type-casts to the codomain
+  -- identity or the domain is shaped and @tfromS@ type-casts to the codomain
   -- by hiding some (or none) type information (so the codomain has to be
   -- a "subtype" of the domain) or error.
-  -- A corollary is that tfromS behaves uniformly vs BuildTensorKind.
+  -- A corollary is that @tfromS@ behaves uniformly vs 'BuildTensorKind'.
   tfromS :: KnownSTK y
          => SingletonTK z -> target y -> target z
 
+  -- | The conversion from a ranked 0 ranked tensor to a scalar.
   kfromR :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
   kfromR = kfromS . sfromR
+  -- | The conversion from an empty shape shaped tensor to a scalar.
   kfromS :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
   kfromS = tfromS knownSTK
   kfromX :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
   kfromX = kfromS . sfromX
   rfromK :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
   rfromK = rfromS . sfromK
+  -- | The conversion from a shaped tensor to the corresponding ranked tensor
+  -- of the same rank.
   rfromS :: (KnownShS sh, KnownSTK x)
          => target (TKS2 sh x) -> target (TKR2 (Rank sh) x)
   rfromS @sh @x = tfromS (STKR (shsRank (knownShS @sh)) (knownSTK @x))
   rfromX :: forall sh x. KnownSTK x
          => target (TKX2 sh x) -> target (TKR2 (Rank sh) x)
   sfromK :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
+  -- | The conversion from a ranked tensor to the corresponding shaped tensor
+  -- of the same rank.
   sfromR :: (KnownShS sh, KnownSTK x)
          => target (TKR2 (Rank sh) x) -> target (TKS2 sh x)
   sfromX :: (KnownShS sh, Rank sh ~ Rank sh', KnownSTK x)

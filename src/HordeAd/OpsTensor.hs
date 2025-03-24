@@ -4,9 +4,9 @@
 -- | The tensor operations intended for the library user. The less user-friendly
 -- prototypes of most of these operation can be found in "HordeAd.Core.Ops"
 -- where some additional rarely used operations reside as well.
--- This is a major part of the high-level API of the horde-ad library
--- and it's relatively orthogonal to the other major part, which is
--- differentiation interface in "HordeAd.ADEngine".
+-- These modules are a major part of the high-level API of the horde-ad library,
+-- which is relatively orthogonal to the other major part,
+-- the differentiation interface exposed in "HordeAd.ADEngine".
 module HordeAd.OpsTensor
   ( -- * Shape manipulation
     rshape, rlength, rsize, rwidth
@@ -107,10 +107,14 @@ ringestData :: forall n r target. (GoodScalar r, BaseTensor target)
             => IShR n -> [r] -> target (TKR n r)
 ringestData sh l =
   tconcrete (FTKR sh FTKScalar) (Concrete $ Nested.rfromListPrimLinear sh l)
+-- | Create a tensor from a list of individual underlying scalar values.
+--
+-- An operation with the same name is used in @ox-arrays@ to represent
+-- pretty-printed concrete arrays. The types agree, so the same representation
+-- results in analogous horde-ad array when this operation is used instead.
 rfromListLinear :: forall n r target. (GoodScalar r, BaseTensor target)
                 => IShR n -> NonEmpty r -> target (TKR n r)
 rfromListLinear sh = ringestData sh . NonEmpty.toList
-  -- used by ox-arrays to pretty-print values, so the types have to agree
 
 sconcrete :: (GoodScalar r, BaseTensor target)
           => Nested.Shaped sh r -> target (TKS sh r)
@@ -124,6 +128,11 @@ srepl = sconcrete . Nested.sreplicateScal knownShS
 singestData :: (KnownShS sh, GoodScalar r, BaseTensor target)
             => [r] -> target (TKS sh r)
 singestData l = sconcrete $ Nested.sfromListPrimLinear knownShS l
+-- | Create a tensor from a list of individual underlying scalar values.
+--
+-- An operation with the same name is used in @ox-arrays@ to represent
+-- pretty-printed concrete arrays. The types agree, so the same representation
+-- results in analogous horde-ad array when this operation is used instead.
 sfromListLinear :: forall sh r target. (GoodScalar r, BaseTensor target)
                 => ShS sh -> NonEmpty r -> target (TKS sh r)
 sfromListLinear sh = sconcrete . Nested.sfromListPrimLinear sh . NonEmpty.toList
@@ -150,11 +159,14 @@ kconcrete :: (GoodScalar r, BaseTensor target)
           => r -> target (TKScalar r)
 kconcrete = tkconcrete
 
+-- | Create a tensor from a list treated as the outermost dimension,
+-- going through strict boxed vectors, because laziness is risky with
+-- impurity, e.g., it easily perturbs results of fragile tests.
 rfromList :: (KnownNat n, KnownSTK x, BaseTensor target)
           => NonEmpty (target (TKR2 n x)) -> target (TKR2 (1 + n) x)
 rfromList = trfromVector . V.fromList . NonEmpty.toList
-  -- going through strict vectors, because laziness is risky with impurity
--- | Create a tensor from a boxed vector treated as the outermost dimension.
+-- | Create a tensor from a non-empty strict boxed vector treated
+-- as the outermost dimension.
 rfromVector :: (KnownNat n, KnownSTK x, BaseTensor target)
             => Data.Vector.Vector (target (TKR2 n x))
             -> target (TKR2 (1 + n) x)
@@ -167,15 +179,24 @@ rfromList0N :: forall n x target. (KnownSTK x, BaseTensor target)
             => IShR n -> [target (TKR2 0 x)]
             -> target (TKR2 n x)
 rfromList0N sh = trfromVector0N sh . V.fromList
+-- | Unravel a tensor into a list of its immediate subtensors.
+--
+-- Warning: during computation, sharing between the elements
+-- of the resulting list is likely to be lost, so it needs to be ensured
+-- by explicit sharing, e.g., 'ttlet'.
 runravelToList :: forall n x target.
                   (KnownSTK x, KnownNat n, BaseTensor target)
                => target (TKR2 (1 + n) x) -> [target (TKR2 n x)]
 runravelToList = trunravelToList
 
+-- | Create a tensor from a list treated as the outermost dimension,
+-- going through strict boxed vectors, because laziness is risky with
+-- impurity, e.g., it easily perturbs results of fragile tests.
 sfromList :: (KnownNat n, KnownShS sh, KnownSTK x, BaseTensor target)
           => NonEmpty (target (TKS2 sh x)) -> target (TKS2 (n ': sh) x)
 sfromList = tsfromVector . V.fromList . NonEmpty.toList
--- This is morally non-empty strict vectors:
+-- | Create a tensor from a non-empty strict boxed vector treated
+-- as the outermost dimension.
 sfromVector :: (KnownNat n, KnownShS sh, KnownSTK x, BaseTensor target)
             => Data.Vector.Vector (target (TKS2 sh x))
             -> target (TKS2 (n ': sh) x)
@@ -188,14 +209,23 @@ sfromList0N :: (KnownShS sh, KnownSTK x, BaseTensor target)
             => [target (TKS2 '[] x)]
             -> target (TKS2 sh x)
 sfromList0N = tsfromVector0N . V.fromList
+-- | Unravel a tensor into a list of its immediate subtensors.
+--
+-- Warning: during computation, sharing between the elements
+-- of the resulting list is likely to be lost, so it needs to be ensured
+-- by explicit sharing, e.g., 'ttlet'.
 sunravelToList :: (KnownNat n, KnownShS sh, KnownSTK x, BaseTensor target)
                => target (TKS2 (n ': sh) x) -> [target (TKS2 sh x)]
 sunravelToList = tsunravelToList
 
+-- | Create a tensor from a list treated as the outermost dimension,
+-- going through strict boxed vectors, because laziness is risky with
+-- impurity, e.g., it easily perturbs results of fragile tests.
 xfromList :: (KnownNat n, KnownShX sh, KnownSTK x, BaseTensor target)
           => NonEmpty (target (TKX2 sh x)) -> target (TKX2 (Just n ': sh) x)
 xfromList = txfromVector . V.fromList . NonEmpty.toList
-  -- going through strict vectors, because laziness is risky with impurity
+-- | Create a tensor from a non-empty strict boxed vector treated
+-- as the outermost dimension.
 xfromVector :: (KnownNat n, KnownShX sh, KnownSTK x, BaseTensor target)
             => Data.Vector.Vector (target (TKX2 sh x))
             -> target (TKX2 (Just n ': sh) x)
@@ -208,6 +238,11 @@ xfromList0N :: forall sh x target. (KnownSTK x, BaseTensor target)
             => IShX sh -> [target (TKX2 '[] x)]
             -> target (TKX2 sh x)
 xfromList0N sh = txfromVector0N sh . V.fromList
+-- | Unravel a tensor into a list of its immediate subtensors.
+--
+-- Warning: during computation, sharing between the elements
+-- of the resulting list is likely to be lost, so it needs to be ensured
+-- by explicit sharing, e.g., 'ttlet'.
 xunravelToList :: (KnownNat n, KnownShX sh, KnownSTK x, BaseTensor target)
                => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
 xunravelToList = txunravelToList
@@ -320,8 +355,9 @@ xreplicate0N :: (KnownShX sh, KnownSTK x, BaseTensor target)
              => IShX sh -> target (TKX2 '[] x) -> target (TKX2 sh x)
 xreplicate0N = txreplicate0N
 
--- | The sub-tensor at the given index. If index is out of bounds,
--- the result is defined and is @def@.
+-- | First index is for outermost dimension; empty index means identity,
+-- if index is out of bounds, the result is defined and is @def@,
+-- but vectorization is permitted to change the value.
 rindex, (!) :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
             => target (TKR2 (m + n) x) -> IxROf target m -> target (TKR2 n x)
 rindex = trindex

@@ -2,9 +2,9 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The shaped tensor operations intended for the library user.
--- All these operations together with operations of the remaining two variants
--- are gathered in "HordeAd.OpsTensor". The less user-friendly prototypes
--- of most of these operation can be found in "HordeAd.Core.Ops"
+-- All these operations together with operations of the remaining two tensor
+-- variants are gathered in "HordeAd.OpsTensor". The less user-friendly
+-- prototypes of most of these operation can be found in "HordeAd.Core.Ops"
 -- where some additional rarely used operations reside as well.
 module HordeAd.OpsTensorShaped
   ( -- * Shape manipulation

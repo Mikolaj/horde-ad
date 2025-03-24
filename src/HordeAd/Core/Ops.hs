@@ -435,9 +435,6 @@ class ( Num (IntOf target)
     then let arr = Nested.remptyArray
          in trreshape sh $ tconcrete (tftkG knownSTK arr) (Concrete arr)
     else trreshape sh $ trfromVector v
-  -- | Warning: during computation, sharing between the elements
-  -- of the resulting list is likely to be lost, so it needs to be ensured
-  -- by explicit sharing, e.g., 'ttlet'.
   trunravelToList :: (KnownNat n, KnownSTK x)
                   => target (TKR2 (1 + n) x) -> [target (TKR2 n x)]
   trunravelToList @n @x t =
@@ -624,9 +621,6 @@ class ( Num (IntOf target)
   txreplicate0N sh = withSNat (shxSize sh) $ \snat ->
     txreshape sh . txreplicate snat knownShX
 
-  -- | First index is for outermost dimension; empty index means identity,
-  -- if index is out of bounds, the result is defined and is 0,
-  -- but vectorization is permitted to change the value.
   trindex :: (KnownNat m, KnownNat n, KnownSTK x)
           => target (TKR2 (m + n) x) -> IxROf target m -> target (TKR2 n x)
   trindex0 :: (KnownNat m, KnownSTK x)

@@ -43,7 +43,7 @@ import HordeAd.Core.Unwind
 
 -- * Symbolic reverse derivative adaptors
 
--- | This simplified version of the reverse derivative operation
+-- | This simplified version of the symbolic reverse derivative operation
 -- sets the incoming cotangent @dt@ to be 1 and assumes the codomain
 -- of the function to be differentiated is a scalar.
 --
@@ -64,13 +64,14 @@ grad
 {-# INLINE grad #-}
 grad f vals = revMaybe f vals Nothing
 
--- | This version of the reverse derivative operation
+-- | This version of the symbolic reverse derivative operation
 -- explicitly takes the sensitivity parameter (the incoming cotangent).
--- It also permits an aribtrary (nested tuple+) type of the domain
--- and aribtrary (nested pair) tensor kind of the codomain
+-- It also permits an arbitrary (nested tuple+) type of the domain
+-- and arbitrary (nested pair) tensor kind of the codomain
 -- of the function to be differentiated. The downside of the generality
--- is that if the function doesn't have a type signature,
--- the type often has to be spelled in full to aid type reconstruction.
+-- is that if the function doesn't have an explicit type signature,
+-- the type to which this operation is instantiated often has to be spelled
+-- in full via explicit type applications to aid type reconstruction.
 -- For simplicity of the type signature, the resulting value is converted from
 -- the type of concrete contangents to the type of concrete input parameters.
 vjp
@@ -85,6 +86,10 @@ vjp
 {-# INLINE vjp #-}
 vjp f vals dt = revMaybe f vals (Just dt)
 
+-- | Compute the reverse derivative not for a specific input, but as symbolic
+-- function from inputs to the gradient value.
+-- The function is represented as an "artifact", which is the gradient
+-- AST term together with the variable corresponding to the input.
 gradArtifact
   :: forall astvals r.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
@@ -98,6 +103,10 @@ gradArtifact f vals0 =
   let xftk = tftkG (knownSTK @(X astvals)) $ unConcrete $ toTarget vals0
   in revArtifactAdapt IgnoreIncomingCotangent f xftk
 
+-- | Compute the reverse derivative not for a specific input, but as symbolic
+-- function from inputs and incoming cotangents to the gradient value.
+-- The function is represented as an "artifact", which is the gradient
+-- AST term together with variables corresponding to the input and cotangent.
 vjpArtifact
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
@@ -111,6 +120,9 @@ vjpArtifact f vals0 =
   let xftk = tftkG (knownSTK @(X astvals)) $ unConcrete $ toTarget vals0
   in revArtifactAdapt UseIncomingCotangent f xftk
 
+-- | Interpret the "artifact" as a function from a concrete tensor
+-- to a concrete tensor (possibly adapted, e.g., from horde-ad nested pairs
+-- to Haskell n-tuples).
 gradInterpretArtifact
   :: forall x r avals.
      (X avals ~ ADTensorKind x, AdaptableTarget Concrete avals)
@@ -129,6 +141,9 @@ gradInterpretArtifact AstArtifactRev{..} parameters =
      then fromTarget $ interpretAstPrimal env artDerivativeRev
      else error "gradInterpretArtifact: reverse derivative parameters must have the same shape as the domain of the objective function"
 
+-- | Interpret the "artifact" as a function from concrete tensors
+-- to a concrete tensor (possibly adapted, e.g., from horde-ad nested pairs
+-- to Haskell n-tuples).
 vjpInterpretArtifact
   :: forall x z avals.
      (X avals ~ ADTensorKind x, AdaptableTarget Concrete avals)
@@ -251,8 +266,8 @@ forwardPassByApplication g astVarPrimal var _astVar =
 -- * Symbolic forward derivative adaptors
 
 -- | The forward derivative operation takes the perturbation parameter
--- (the incoming tangent). It also permits an aribtrary (nested tuple+)
--- type of the domain and aribtrary (nested pair) tensor kind of the codomain
+-- by convention. It permits an arbitrary (nested tuple+)
+-- type of the domain and arbitrary (nested pair) tensor kind of the codomain
 -- of the function to be differentiated. The generality sometimes makes it
 -- necessary to suppy type hints when applying this operation.
 jvp
@@ -274,6 +289,10 @@ jvp f vals0 ds =
          $ toADTensorKindShared xftk (toTarget ds)
        -- the shapes of vals0 vs ds are checked in fwdInterpretArtifact
 
+-- | Compute the forward derivative not for a specific input, but as symbolic
+-- function from inputs and perturbation to the derivative value.
+-- The function is represented as an "artifact", which is the derivative
+-- AST term together with variables corresponding to the input and perturbation.
 jvpArtifact
   :: forall astvals z.
      ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
@@ -287,6 +306,8 @@ jvpArtifact f vals0 =
   let xftk = tftkG (knownSTK @(X astvals)) $ unConcrete $ toTarget vals0
   in fwdArtifactAdapt f xftk
 
+-- | Interpret the "artifact" as a function from concrete tensors
+-- to a concrete tensor.
 jvpInterpretArtifact
   :: forall x z.
      AstArtifactFwd x z
@@ -406,7 +427,8 @@ crevMaybe f vals0 mdt =
 
 -- * Non-symbolic forward derivative adaptors
 
--- | This takes the perturbation parameter, by convention.
+-- | Concrete (non-symbolic) forward derivative operation. It always takes
+-- the perturbation parameter, by convention.
 cjvp
   :: forall advals z.
      ( X advals ~ X (DValue advals), KnownSTK (X advals)

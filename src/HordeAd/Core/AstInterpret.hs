@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
--- | Interpretation of AST terms in an aribtrary tensor operations
+-- | Interpretation of AST terms in an arbitrary tensor operations
 -- class instance. With the exception of the the interpretation
 -- of the sharing mechanisms and any other performance tweaks,
 -- the interpretation is the unique homorphism determined by the instance.

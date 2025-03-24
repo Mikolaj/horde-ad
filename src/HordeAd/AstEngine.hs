@@ -23,6 +23,29 @@ import HordeAd.Core.AstSimplify
 
 -- * The joint inlining and simplification term transformation
 
+-- | Simplify the whole reverse derivative artifact (which includes
+-- also the primal value computed during the differentiation process).
+simplifyArtifact :: forall x z.
+                    AstArtifactRev x z -> AstArtifactRev x z
+simplifyArtifact art =
+  let !der = simplifyInlineContract $ artDerivativeRev art in
+  let !prim = simplifyInlineContract $ artPrimalRev art
+  in art {artDerivativeRev = der, artPrimalRev = prim}
+
+-- | Simplify only the gradient in the reverse derivative artifact.
+simplifyArtifactGradient :: forall x z.
+                            AstArtifactRev x z -> AstArtifactRev x z
+simplifyArtifactGradient art =
+  art { artDerivativeRev =
+        simplifyInlineContract $ artDerivativeRev art }
+
+-- | Simplify only the derivative in the forward derivative artifact.
+simplifyArtifactDerivative :: forall x z.
+                              AstArtifactFwd x z -> AstArtifactFwd x z
+simplifyArtifactDerivative art =
+  art { artDerivativeFwd =
+        simplifyInlineContract $ artDerivativeFwd art }
+
 -- | A mixture of simplification and inlining to use when the resultng
 -- term is not yet supposed to be interpreted using a computational backed,
 -- but rather to be stored and later composed with other terms.
@@ -35,32 +58,13 @@ simplifyInline =
   . snd . inlineAst EM.empty . simplifyAst
 
 -- | A mixture of simplification, inlining and recognition of additional
--- backend-specific primitives, to use before a term
+-- backend-specific primitives, to be used just before a term
 -- is interpreted as a value in the computational backend.
 simplifyInlineContract
   :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContract =
   contractAst . simplifyInline
-
-simplifyArtifact :: forall x z.
-                    AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifact art =
-  let !der = simplifyInlineContract $ artDerivativeRev art in
-  let !prim = simplifyInlineContract $ artPrimalRev art
-  in art {artDerivativeRev = der, artPrimalRev = prim}
-
-simplifyArtifactGradient :: forall x z.
-                            AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifactGradient art =
-  art { artDerivativeRev =
-        simplifyInlineContract $ artDerivativeRev art }
-
-simplifyArtifactDerivative :: forall x z.
-                              AstArtifactFwd x z -> AstArtifactFwd x z
-simplifyArtifactDerivative art =
-  art { artDerivativeFwd =
-        simplifyInlineContract $ artDerivativeFwd art }
 
 
 -- * Pretty-printing terms in a few useful configurations
@@ -84,11 +88,16 @@ printAstVarName :: AstVarName s y -> String
 printAstVarName var =
   printAstVar defaulPrintConfig var ""
 
+-- | Print an AST term in a form close to being able to roundtrip,
+-- including explicit sharing preservation.
 printAstSimple :: AstSpan s
                => AstTensor ms s y -> String
 printAstSimple t =
   printAst (defaulPrintConfig {loseRoudtrip = False}) 0 t ""
 
+-- | Print an AST term in a readable form that does not roundtrip,
+-- and where Haskell @let@ (sharing on Haskell heap) is used instead
+-- of explicit sharing of subterms.
 printAstPretty :: AstSpan s
                => AstTensor ms s y -> String
 printAstPretty t =
