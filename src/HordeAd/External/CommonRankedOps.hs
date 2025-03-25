@@ -9,10 +9,11 @@ import Prelude
 import Control.Exception (assert)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat)
 
+import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
 
@@ -21,6 +22,10 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.OpsTensor
+
+-- This is not only ranked, so move it once we have CommonAnyOps.hs.
+assumeEquality :: forall a b r. (a ~ b => r) -> r
+assumeEquality = gcastWith (unsafeCoerceRefl :: a :~: b)
 
 rminIndexN :: forall target n r.
               (BaseTensor target, ConvertTensor target, GoodScalar r)
