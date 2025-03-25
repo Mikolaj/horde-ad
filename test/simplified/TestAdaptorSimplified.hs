@@ -22,7 +22,9 @@ import Data.Array.Nested.Internal.Shape
 
 import HordeAd
 import HordeAd.Core.Adaptor
+import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (funToAst, resetVarCounter)
+import HordeAd.Core.AstInterpret
 import HordeAd.Core.DeltaFreshId (resetIdCounter)
 
 import CrossTesting
@@ -83,6 +85,13 @@ testTrees =
   , testCase "2fooSToFloat" testFooSToFloat
   , testCase "2fooSBoth" testFooSBoth
   , testCase "2fooBoth" testFooBoth
+  , testCase "2vstackConcatConcr10" testVstackConcatConcr10
+  , testCase "2vstackConcatConcrete" testVstackConcatConcrete
+  , testCase "2vstackBuildConcrete" testVstackBuildConcrete
+  , testCase "2vstackConcatAst" testVstackConcatAst
+  , testCase "2vstackBuildAst" testVstackBuildAst
+  , testCase "2vstackBuildAstSimp" testVstackBuildAstSimp
+  , testCase "2vstackBuildAstPP" testVstackBuildAstPP
   , testCase "2fooPP" testFooPP
   , testCase "2fooLet" testFooLet
   , testCase "2fooLetPP" testFooLetPP
@@ -675,6 +684,124 @@ testFooBoth = do
          ( rscalar 1.1 :: Concrete (TKR 0 Double)
          , rscalar 2.2 :: Concrete (TKR 0 Float)
          , rscalar 3.3 ))
+
+-- Add arrays a,b,c, but shifting b and c one to left/right
+-- and then remove the first and last element.
+--
+-- In PyTorch
+-- vstack( a[0] + b[1]
+--       , a[1:N-1] + b[2:N] + c[:N-2]
+--       , a[N-1] + c[N-2] )
+vstackABC :: (ADReady target, GoodScalar r)
+          => (target (TKR 1 r), target (TKR 1 r), target (TKR 1 r))
+          -> target (TKR 1 r)
+vstackABC (a, b, c) =
+  let n = rwidth a
+  in rconcat [ rreplicate 1 (a ! [0] + b ! [1])
+             , rslice 1 (n - 2) a + rslice 2 (n - 2) b + rslice 0 (n - 2) c
+             , rreplicate 1 (a ! [fromIntegral n - 1]
+                             + c ! [fromIntegral n - 2]) ]
+
+vstackBuild :: (ADReady target, GoodScalar r)
+            => (target (TKR 1 r), target (TKR 1 r), target (TKR 1 r))
+            -> target (TKR 1 r)
+vstackBuild (a, b, c) =
+  let n = rwidth a
+  in rbuild1 n (\i ->
+       ifH (i ==. 0)
+           (a ! [0] + b ! [1])
+           (ifH (i ==. fromIntegral n - 1)
+                (a ! [fromIntegral n - 1] + c ! [fromIntegral n - 2])
+                (a ! [i] + b ! [i + 1] + c ! [i - 1])))
+
+testVstackConcatConcr10 :: Assertion
+testVstackConcatConcr10 = do
+  (vstackABC @Concrete @Double (rrepl [10] 1, rrepl [10] 2, rrepl [10] 3))
+  @?= rfromListLinear [10] [3.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,4.0]
+
+nN :: Int
+nN = (round :: Double -> Int) 1e5  -- 1e5
+
+trustedResult :: Concrete (TKR 1 Double)
+trustedResult =
+  rcast $ vstackABC @Concrete @Float (rrepl [nN] 1, rrepl [nN] 2, rrepl [nN] 3)
+    -- the cast prevents computation sharing with the first test below
+
+testVstackConcatConcrete :: Assertion
+testVstackConcatConcrete = do
+  (vstackABC @Concrete @Double (rrepl [nN] 1, rrepl [nN] 2, rrepl [nN] 3))
+  @?= trustedResult
+
+testVstackBuildConcrete :: Assertion
+testVstackBuildConcrete = do
+  (vstackBuild @Concrete @Double (rrepl [nN] 1, rrepl [nN] 2, rrepl [nN] 3))
+  @?= trustedResult
+
+testVstackConcatAst :: Assertion
+testVstackConcatAst = do
+  interpretAstFull @Concrete
+    emptyEnv
+    (vstackABC @(AstTensor AstMethodLet FullSpan) @Double
+               (rrepl [nN] 1, rrepl [nN] 2, rrepl [nN] 3))
+  @?= trustedResult
+
+testVstackBuildAst :: Assertion
+testVstackBuildAst = do
+  interpretAstFull @Concrete
+    emptyEnv
+    (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
+                 (rrepl [nN] 1, rrepl [nN] 2, rrepl [nN] 3))
+  @?= trustedResult
+
+testVstackBuildAstSimp :: Assertion
+testVstackBuildAstSimp = do
+  interpretAstFull @Concrete
+    emptyEnv
+      (simplifyInlineContract
+         (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
+                      (rrepl [nN] 1, rrepl [nN] 2, rrepl [nN] 3)))
+  @?= trustedResult
+
+testVstackBuildAstPP :: Assertion
+testVstackBuildAstPP = do
+  resetVarCounter
+  (printAstPretty
+     (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
+                  (rrepl [10] 1, rrepl [10] 2, rrepl [10] 3)))
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 1.0 + sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 1.0 + sscalar 3.0), (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) + sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i1] -> [1 + i1])) + sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i1] -> [(-1) + i1])])) (\\[i3] -> [ifH (i3 ==. 9) 0 1, i3])])) (\\[i2] -> [ifH (i2 ==. 0) 0 1, i2]))"
+  (printAstPretty
+     (simplifyInlineContract
+        (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
+                     (rrepl [10] 1, rrepl [10] 2, rrepl [10] 3))))
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 1.0 + sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 1.0 + sscalar 3.0), (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) + sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i4] -> [1 + i4])) + sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i4] -> [(-1) + i4])])) (\\[i6] -> [ifH (i6 ==. 9) 0 1, i6])])) (\\[i5] -> [ifH (i5 ==. 0) 0 1, i5]))"
+
+{- The above is:
+rfromS
+  (sgather
+     (sfromVector
+        (fromList
+           [ sreplicate @10 (sscalar 1.0 + sscalar 2.0)
+           , sgather
+               (sfromVector
+                  (fromList
+                     [ sreplicate @10 (sscalar 1.0 + sscalar 3.0)
+                     , (sconcrete
+                          (sfromListLinear [10] [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) +
+                        sgather
+                          (sconcrete
+                             (sfromListLinear
+                                [10]
+                                [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]))
+                          (\[i1] -> [1 + i1])) +
+                       sgather
+                         (sconcrete
+                            (sfromListLinear [10] [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0]))
+                         (\[i1] -> [(-1) + i1])
+                     ]))
+               (\[i3] -> [ifH (i3 ==. 9) 0 1, i3])
+           ]))
+     (\[i2] -> [ifH (i2 ==. 0) 0 1, i2]))
+-}
 
 testFooPP :: Assertion
 testFooPP = do
