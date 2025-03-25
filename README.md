@@ -34,36 +34,40 @@ which can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
 (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 ```
 
-We can instantiate `foo` to matrices; the operations within (`sin`, `+`, `*`) etc applying elementwise:
+We can instantiate `foo` to matrices; the operations within (`sin`, `+`, `*`, etc.) applying elementwise:
 ```hs
-type Matrix2x2 f r = f (TKS '[2, 2] r) -- AWF: TKS means [...?]
+type Matrix2x2 f r = f (TKS '[2, 2] r)  -- TKS means shapely-typed tensor kind
 type ThreeMatrices r = (Matrix2x2 Concrete r, Matrix2x2 Concrete r, Matrix2x2 Concrete r)
 threeSimpleMatrices :: ThreeMatrices Double
-threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3) -- srepl replicates its argument to fill the whole matrix
-foo_value :: Matrix2x2 Concrete Double = foo threeSimpleMatrices
+threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)  -- srepl replicates its argument to fill the whole matrix
+fooMatrixValue :: Matrix2x2 Concrete Double
+fooMatrixValue = foo threeSimpleMatrices
+>>> fooMatrixValue
+sfromListLinear [2,2] [4.242393641025528,4.242393641025528,4.242393641025528,4.242393641025528])
 ```
+
 Instantiated to matrices, `foo` now returns a matrix, not a scalar &mdash; but a gradient can only be computed of a function that returns a scalar.
-Thus, let's define `sumfoo` which sums the output of `foo`: (note that `ssum0` returns a zero-dimensional array; `kfromS` extract the (single) scalar from that)
+Thus, let's define `sumFooMatrix` which sums the output of `foo`: (note that `ssum0` returns a zero-dimensional array; `kfromS` extracts the (single) scalar from that)
 ```hs
-sumfoo :: ThreeMatrices r -> r
-sumfoo = kfromS . ssum0 . foo
->>> sumfoo threeSimpleMatrices
-1.23456789 ????
+sumFooMatrix :: (ADReady f, RealFloat (Matrix2x2 f r), GoodScalar r)
+             => (Matrix2x2 f r, Matrix2x2 f r, Matrix2x2 f r) -> f (TKScalar r)
+sumFooMatrix = kfromS . ssum0 . foo
+>>> sumFooMatrix threeSimpleMatrices
+16.96957456410211
 ```
-This function we can compute the gradient of as follows:
+
+For this function we can compute the gradient as follows:
 ```hs
-gradsumfoo :: (Differentiable r, GoodScalar r)
-              => ThreeMatrices r -> ThreeMatrices r
-gradsumfoo = cgrad sumfoo
+gradSumFooMatrix :: (Differentiable r, GoodScalar r)  -- GoodScalar means "supported as array element by horde-ad"
+                 => ThreeMatrices r -> ThreeMatrices r
+gradSumFooMatrix = cgrad sumFooMatrix
 ```
 
 This works as well as before:
 ```hs
->>> gradsumfoo threeSimpleMatrices
+>>> gradSumFooMatrix threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
 ```
-
-[AWF: better explain `GoodScalar` name somewhere here]
 
 ### Efficiency: preserving sharing
 
@@ -88,7 +92,7 @@ artifact :: AstArtifactRev (X (ThreeConcreteMatrices Double)) (TKS '[2, 2] Doubl
 artifact = vjpArtifact fooLet threeSimpleMatrices
 ```
 
-The gradient program presented below with additional formatting looks like ordinary functional code with a lot of nested pairs and projections that represent tuples. A quick inspection of the gradient code reveals that computations are not repeated, which is thanks to the sharing mechanism, as promised above.
+The gradient program presented below with additional formatting looks like ordinary functional code with a lot of nested pairs and projections that represent tuples. A quick inspection of the gradient code reveals that computations are not repeated, which is thanks to the `tlet` used above.
 
 ```hs
 >>> printArtifactPretty artifact
@@ -103,25 +107,21 @@ The gradient program presented below with additional formatting looks like ordin
          ((m4 * m5) * dret + m4 * dret)"
 ```
 
-A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value is the same as it would be for augmented `fooLet` evaluated by `cgrad` on the same input, as long as the incoming cotangent supplied for the interpretation consists of ones in all array cells, which is denoted by `srepl 1` in this case:
+A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value is the same as it would be for augmented `fooLet` evaluated by `cgrad` on the same input, as long as the incoming cotangent supplied for the interpretation consists of ones in all array cells, which is denoted by `srepl 1`:
 
 ```hs
 >>> vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1)
 ((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeConcreteMatrices Double)
 ```
 
+Note that, as evidenced by the `printArtifactPretty` call above, `artifact` contains the complete and simplified code of the VJP of `fooLet` so repeated calls of `vjpInterpretArtifact artifact` won't ever repeat differentiation nor simplification and will only incur the cost of straightforward interpretation. However the repeated call would fail with an error if the provided argument had a different shape than `threeSimpleMatrices`, which is however impossible for the examples we use here, because all tensors we present are shaped, meaning their full shape is stated in their type and so can't differ for two (tuples of) tensors of the same type.
+
 A shorthand that creates the symbolic derivative program, simplifies it and interprets it with a given input on the default CPU backend is called `grad` and is used exactly the same as (but with often much better performance than) `cgrad`:
 ```hs
 >>> grad (kfromS . ssum0 . fooLet) threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
 ```
-AWF note: can we separate (creation and simplification) from interpretation, i.e. do that work once before applying many times?
-```hs
->>> foograd = grad (kfromS . ssum0 . fooLet)  -- do all simplification etc here
->>> foograd threeSimpleMatrices -- just interpret here?
->>> foograd threeOtherSimpleMatrices
-```
-or maybe that happens automatically?
+
 
 ## For all shapes and sizes
 
@@ -136,14 +136,13 @@ convMnistTwoS
   input              -- input images, shape [batch_size, 1, h, w]
   (ker1, bias1)      -- layer1 kernel, shape [c_out, 1, kh+1, kw+1]; and bias, shape [c_out]
   (ker2, bias2)      -- layer2 kernel, shape [c_out, c_out, kh+1, kw+1]; and bias, shape [c_out]
-  ( weightsDense     -- dense layer weights,
-                     -- shape [n_hidden, c_out * (h/4) * (w/4)]
+  ( weightsDense     -- dense layer weights, shape [n_hidden, c_out * (h/4) * (w/4)]
   , biasesDense )    -- dense layer biases, shape [n_hidden]
   ( weightsReadout   -- readout layer weights, shape [10, n_hidden]
-  , biasesReadout )  -- readout layer biases [10]
+  , biasesReadout )  -- readout layer biases, shape [10]
   =                  -- -> output classification, shape [10, batch_size]
-  gcastWith (unsafeCoerceRefl :: Div (Div w 2) 2 :~: Div w 4) $ -- ensure w divisible by 4 - what is :~:?
-  gcastWith (unsafeCoerceRefl :: Div (Div h 2) 2 :~: Div h 4) $ -- similar ?
+  assumeEquality @(Div (Div w 2) 2) @(Div w 4) $
+  assumeEquality @(Div (Div h 2) 2) @(Div h 4) $
   let t1 = convMnistLayerS kh kw h w
                            (SNat @1) c_out batch_size
                            ker1 (sfromPrimal input) bias1
@@ -167,26 +166,27 @@ convMnistTwoS
   -> SNat c_out -> SNat n_hidden -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
        -- SNat value parameters denoting basic dimensions
-  -> PrimalOf target (TKS '[batch_size, 1, h, w] r) -- `input` shape [batch_size, 1, h, w]
-  -> ( ( target (TKS '[c_out, 1, kh + 1, kw + 1] r) -- `ker1` shape [c_out, 1, kh+1, kw+1]; 
-       , target (TKS '[c_out] r) )                  -- `bias2` shape [c_out]
-     , ( target (TKS '[c_out, c_out, kh + 1, kw + 1] r) -- `ker2` shape [c_out, c_out, kh+1, kw+1]; 
-       , target (TKS '[c_out] r) )                      -- `bias2` shape [c_out]
-     , ( target (TKS '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ] r) -- `weightsDense` shape [n_hidden, c_out * (h/4) * (w/4)]
-       , target (TKS '[n_hidden] r) )   -- `biasesDense` shape [n_hidden]
-     , ( target (TKS '[10, n_hidden] r) -- `weightsReadout` shape [10, n_hidden]
-       , target (TKS '[10] r) ) )       -- `biasesReadout` shape [10]
-  -> target (TKS '[SizeMnistLabel, batch_size] r) -- -> output classification, shape [10, batch_size]
-convMnistTwoS -- AWF: Do repeat this here
+  -> PrimalOf target (TKS '[batch_size, 1, h, w] r)  -- `input` shape [batch_size, 1, h, w]
+  -> ( ( target (TKS '[c_out, 1, kh + 1, kw + 1] r)  -- `ker1` shape [c_out, 1, kh+1, kw+1]
+       , target (TKS '[c_out] r) )                   -- `bias2` shape [c_out]
+     , ( target (TKS '[c_out, c_out, kh + 1, kw + 1] r)  -- `ker2` shape [c_out, c_out, kh+1, kw+1]
+       , target (TKS '[c_out] r) )                       -- `bias2` shape [c_out]
+     , ( target (TKS '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ] r)
+           -- `weightsDense` shape [n_hidden, c_out * (h/4) * (w/4)]
+       , target (TKS '[n_hidden] r) )    -- `biasesDense` shape [n_hidden]
+     , ( target (TKS '[10, n_hidden] r)  -- `weightsReadout` shape [10, n_hidden]
+       , target (TKS '[10] r) ) )        -- `biasesReadout` shape [10]
+  -> target (TKS '[SizeMnistLabel, batch_size] r)  -- -> `output` shape [10, batch_size]
+convMnistTwoS
   kh@SNat kw@SNat h@SNat w@SNat
   c_out@SNat _n_hidden@SNat batch_size@SNat
-  input -- input images
-  (ker1, bias1) -- layer1 kernel
-  (ker2, bias2) -- layer2 kernel
-  ( weightsDense -- dense layer weights
-  , biasesDense ) -- dense layer biases   
-  ( weightsReadout -- readout layer weights
-  , biasesReadout ) -- readout layer biases
+  input  -- input images
+  (ker1, bias1)  -- layer1 kernel
+  (ker2, bias2)  -- layer2 kernel
+  ( weightsDense  -- dense layer weights
+  , biasesDense )  -- dense layer biases
+  ( weightsReadout  -- readout layer weights
+  , biasesReadout )  -- readout layer biases
   =
 ...
 ```
