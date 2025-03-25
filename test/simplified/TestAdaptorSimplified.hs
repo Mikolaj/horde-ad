@@ -85,13 +85,22 @@ testTrees =
   , testCase "2fooSToFloat" testFooSToFloat
   , testCase "2fooSBoth" testFooSBoth
   , testCase "2fooBoth" testFooBoth
-  , testCase "2vstackConcatConcr10" testVstackConcatConcr10
+  , testCase "2trustVstackConcatRepl10" testTrustVstackConcatRepl10
+  , testCase "2trustVstackConcatIota10" testTrustVstackConcatIota10
+  , testCase "2trustVstackConcatReplIota10" testTrustVstackConcatReplIota10
+  , testCase "2vstackWarmup" testVstackWarmup
   , testCase "2vstackConcatConcrete" testVstackConcatConcrete
   , testCase "2vstackBuildConcrete" testVstackBuildConcrete
   , testCase "2vstackConcatAst" testVstackConcatAst
   , testCase "2vstackBuildAst" testVstackBuildAst
   , testCase "2vstackBuildAstSimp" testVstackBuildAstSimp
   , testCase "2vstackBuildAstPP" testVstackBuildAstPP
+  , testCase "2vstackConcatConcrete2" testVstackConcatConcrete2
+  , testCase "2vstackBuildConcrete2" testVstackBuildConcrete2
+  , testCase "2vstackConcatAst2" testVstackConcatAst2
+  , testCase "2vstackBuildAst2" testVstackBuildAst2
+  , testCase "2vstackBuildAstSimp2" testVstackBuildAstSimp2
+  , testCase "2vstackBuildAstPP2" testVstackBuildAstPP2
   , testCase "2fooPP" testFooPP
   , testCase "2fooLet" testFooLet
   , testCase "2fooLetPP" testFooLetPP
@@ -714,27 +723,49 @@ vstackBuild (a, b, c) =
                 (a ! [fromIntegral n - 1] + c ! [fromIntegral n - 2])
                 (a ! [i] + b ! [i + 1] + c ! [i - 1])))
 
-testVstackConcatConcr10 :: Assertion
-testVstackConcatConcr10 = do
+testTrustVstackConcatRepl10 :: Assertion
+testTrustVstackConcatRepl10 = do
   (vstackABC @Concrete @Double (rrepl [10] 1, rrepl [10] 2, rrepl [10] 3))
   @?= rfromListLinear [10] [3.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,4.0]
+
+testTrustVstackConcatIota10 :: Assertion
+testTrustVstackConcatIota10 = do
+  (vstackABC @Concrete @Double (riota 10, riota 10, riota 10))
+  @?= rfromListLinear [10] [1.0,3.0,6.0,9.0,12.0,15.0,18.0,21.0,24.0,17.0]
+
+replIota :: (ADReady target, GoodScalar r)
+         => Int -> (target (TKR 1 r), target (TKR 1 r), target (TKR 1 r))
+replIota n =
+  ( rconcrete (unConcrete $ rrepl [n] 1 * riota n)
+  , rconcrete (unConcrete $ rrepl [n] 2 * riota n)
+  , rconcrete (unConcrete $ rrepl [n] 3 * riota n) )
+
+testTrustVstackConcatReplIota10 :: Assertion
+testTrustVstackConcatReplIota10 = do
+  (vstackABC @Concrete @Double (replIota 10))
+  @?= rfromListLinear [10] [2.0,5.0,11.0,17.0,23.0,29.0,35.0,41.0,47.0,33.0]
 
 nN :: Int
 nN = (round :: Double -> Int) 1e5  -- 1e5
 
 trustedResult :: Concrete (TKR 1 Double)
 trustedResult =
-  rcast $ vstackABC @Concrete @Float (rrepl [nN] 1, rrepl [nN] 2, rrepl [nN] 3)
+  rcast $ (vstackABC @Concrete @Float (replIota nN))
     -- the cast prevents computation sharing with the first test below
+
+testVstackWarmup :: Assertion
+testVstackWarmup = do
+  trustedResult
+  @?= trustedResult
 
 testVstackConcatConcrete :: Assertion
 testVstackConcatConcrete = do
-  (vstackABC @Concrete @Double (rrepl [nN] 1, rrepl [nN] 2, rrepl [nN] 3))
+  (vstackABC @Concrete @Double (replIota nN))
   @?= trustedResult
 
 testVstackBuildConcrete :: Assertion
 testVstackBuildConcrete = do
-  (vstackBuild @Concrete @Double (rrepl [nN] 1, rrepl [nN] 2, rrepl [nN] 3))
+  (vstackBuild @Concrete @Double (replIota nN))
   @?= trustedResult
 
 testVstackConcatAst :: Assertion
@@ -742,7 +773,7 @@ testVstackConcatAst = do
   interpretAstFull @Concrete
     emptyEnv
     (vstackABC @(AstTensor AstMethodLet FullSpan) @Double
-               (rrepl [nN] 1, rrepl [nN] 2, rrepl [nN] 3))
+               (replIota nN))
   @?= trustedResult
 
 testVstackBuildAst :: Assertion
@@ -750,7 +781,7 @@ testVstackBuildAst = do
   interpretAstFull @Concrete
     emptyEnv
     (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
-                 (rrepl [nN] 1, rrepl [nN] 2, rrepl [nN] 3))
+                 (replIota nN))
   @?= trustedResult
 
 testVstackBuildAstSimp :: Assertion
@@ -759,7 +790,7 @@ testVstackBuildAstSimp = do
     emptyEnv
       (simplifyInlineContract
          (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
-                      (rrepl [nN] 1, rrepl [nN] 2, rrepl [nN] 3)))
+                      (replIota nN)))
   @?= trustedResult
 
 testVstackBuildAstPP :: Assertion
@@ -767,41 +798,101 @@ testVstackBuildAstPP = do
   resetVarCounter
   (printAstPretty
      (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
-                  (rrepl [10] 1, rrepl [10] 2, rrepl [10] 3)))
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 1.0 + sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 1.0 + sscalar 3.0), (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) + sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i1] -> [1 + i1])) + sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i1] -> [(-1) + i1])])) (\\[i3] -> [ifH (i3 ==. 9) 0 1, i3])])) (\\[i2] -> [ifH (i2 ==. 0) 0 1, i2]))"
+                  (replIota 10)))
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 0.0 + sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 9.0 + sscalar 24.0), (sconcrete (sfromListLinear [10] [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]) + sgather (sconcrete (sfromListLinear [10] [0.0,2.0,4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0])) (\\[i1] -> [1 + i1])) + sgather (sconcrete (sfromListLinear [10] [0.0,3.0,6.0,9.0,12.0,15.0,18.0,21.0,24.0,27.0])) (\\[i1] -> [(-1) + i1])])) (\\[i3] -> [ifH (i3 ==. 9) 0 1, i3])])) (\\[i2] -> [ifH (i2 ==. 0) 0 1, i2]))"
   (printAstPretty
      (simplifyInlineContract
         (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
-                     (rrepl [10] 1, rrepl [10] 2, rrepl [10] 3))))
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 1.0 + sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 1.0 + sscalar 3.0), (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) + sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i4] -> [1 + i4])) + sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i4] -> [(-1) + i4])])) (\\[i6] -> [ifH (i6 ==. 9) 0 1, i6])])) (\\[i5] -> [ifH (i5 ==. 0) 0 1, i5]))"
+                     (replIota 10))))
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 0.0 + sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 9.0 + sscalar 24.0), (sconcrete (sfromListLinear [10] [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]) + sgather (sconcrete (sfromListLinear [10] [0.0,2.0,4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0])) (\\[i4] -> [1 + i4])) + sgather (sconcrete (sfromListLinear [10] [0.0,3.0,6.0,9.0,12.0,15.0,18.0,21.0,24.0,27.0])) (\\[i4] -> [(-1) + i4])])) (\\[i6] -> [ifH (i6 ==. 9) 0 1, i6])])) (\\[i5] -> [ifH (i5 ==. 0) 0 1, i5]))"
 
 {- The above is:
 rfromS
   (sgather
      (sfromVector
         (fromList
-           [ sreplicate @10 (sscalar 1.0 + sscalar 2.0)
+           [ sreplicate @10 (sscalar 0.0 + sscalar 2.0)
            , sgather
                (sfromVector
                   (fromList
-                     [ sreplicate @10 (sscalar 1.0 + sscalar 3.0)
+                     [ sreplicate @10 (sscalar 9.0 + sscalar 24.0)
                      , (sconcrete
-                          (sfromListLinear [10] [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) +
+                          (sfromListLinear [10] [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]) +
                         sgather
                           (sconcrete
                              (sfromListLinear
                                 [10]
-                                [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]))
-                          (\[i1] -> [1 + i1])) +
+                                [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0]))
+                          (\[i4] -> [1 + i4])) +
                        sgather
                          (sconcrete
-                            (sfromListLinear [10] [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0]))
-                         (\[i1] -> [(-1) + i1])
+                            (sfromListLinear
+                               [10]
+                               [0.0, 3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 21.0, 24.0, 27.0]))
+                         (\[i4] -> [(-1) + i4])
                      ]))
-               (\[i3] -> [ifH (i3 ==. 9) 0 1, i3])
+               (\[i6] -> [ifH (i6 ==. 9) 0 1, i6])
            ]))
-     (\[i2] -> [ifH (i2 ==. 0) 0 1, i2]))
+     (\[i5] -> [ifH (i5 ==. 0) 0 1, i5]))
 -}
+
+replIota2 :: (ADReady target, GoodScalar r)
+          => Int -> (target (TKR 1 r), target (TKR 1 r), target (TKR 1 r))
+replIota2 n =
+  (rrepl [n] 1 * riota n, rrepl [n] 2 * riota n, rrepl [n] 3 * riota n)
+
+trustedResult2 :: Concrete (TKR 1 Double)
+trustedResult2 =
+  rcast $ (vstackABC @Concrete @Float (replIota2 nN))
+    -- the cast prevents computation sharing with the first test below
+
+testVstackConcatConcrete2 :: Assertion
+testVstackConcatConcrete2 = do
+  (vstackABC @Concrete @Double (replIota nN))
+  @?= trustedResult2
+
+testVstackBuildConcrete2 :: Assertion
+testVstackBuildConcrete2 = do
+  (vstackBuild @Concrete @Double (replIota2 nN))
+  @?= trustedResult2
+
+testVstackConcatAst2 :: Assertion
+testVstackConcatAst2 = do
+  interpretAstFull @Concrete
+    emptyEnv
+    (vstackABC @(AstTensor AstMethodLet FullSpan) @Double
+               (replIota2 nN))
+  @?= trustedResult2
+
+testVstackBuildAst2 :: Assertion
+testVstackBuildAst2 = do
+  interpretAstFull @Concrete
+    emptyEnv
+    (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
+                 (replIota2 nN))
+  @?= trustedResult2
+
+testVstackBuildAstSimp2 :: Assertion
+testVstackBuildAstSimp2 = do
+  interpretAstFull @Concrete
+    emptyEnv
+      (simplifyInlineContract
+         (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
+                      (replIota2 nN)))
+  @?= trustedResult2
+
+testVstackBuildAstPP2 :: Assertion
+testVstackBuildAstPP2 = do
+  resetVarCounter
+  (printAstPretty
+     (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
+                  (replIota2 10)))
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) !$ [0] * siota (SNat @10) !$ [0] + sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0]) !$ [1] * siota (SNat @10) !$ [1]), sgather (sfromVector (fromList [sreplicate @10 (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) !$ [9] * siota (SNat @10) !$ [9] + sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]) !$ [8] * siota (SNat @10) !$ [8]), (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) * siota (SNat @10) + (let v2 = treplicate (SNat @10) (STKScalar) 1 + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i6] -> [kfromS (v2 !$ [i6])]) * sfromIntegral v2)) + (let v3 = treplicate (SNat @10) (STKScalar) (-1) + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i7] -> [kfromS (v3 !$ [i7])]) * sfromIntegral v3)])) (\\[i5] -> [ifH (i5 ==. 9) 0 1, i5])])) (\\[i4] -> [ifH (i4 ==. 0) 0 1, i4]))"
+  (printAstPretty
+     (simplifyInlineContract
+        (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
+                     (replIota2 10))))
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 1.0 * sscalar 0.0 + sscalar 2.0 * sscalar 1.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 1.0 * sscalar 9.0 + sscalar 3.0 * sscalar 8.0), (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) * siota (SNat @10) + (let v9 = treplicate (SNat @10) (STKScalar) 1 + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i13] -> [kfromS (v9 !$ [i13])]) * sfromIntegral v9)) + (let v10 = treplicate (SNat @10) (STKScalar) (-1) + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i14] -> [kfromS (v10 !$ [i14])]) * sfromIntegral v10)])) (\\[i12] -> [ifH (i12 ==. 9) 0 1, i12])])) (\\[i11] -> [ifH (i11 ==. 0) 0 1, i11]))"
 
 testFooPP :: Assertion
 testFooPP = do
