@@ -91,6 +91,51 @@ benchProd ~(snat, list, l, lt, t) = case snat of
     , bench "cgrad s NotShared" $ nf (crevSNotShared snat) lt
     ]
 
+-- Another variant, with foldl1' and indexing, would be a disaster.
+-- We can define sproduct if this benchmark ends up used anywhere,
+-- because the current codomain of gradientFromDelta rules out
+-- low-level hacky pipeline tricks that could avoid indexing.
+multSMapAccum :: (BaseTensor target, LetTensor target, GoodScalar r)
+              => SNat n -> target (TKS '[n] r) -> target (TKS '[] r)
+multSMapAccum SNat = sfold (*) (sscalar 1)
+{-# SPECIALIZE multSMapAccum :: SNat n -> ADVal Concrete (TKS '[n] Double) -> ADVal Concrete (TKS '[] Double) #-}
+{-# SPECIALIZE multSMapAccum :: SNat n -> AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKS '[] Double) #-}
+
+crevSMapAccum
+  :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
+crevSMapAccum snat@SNat = cgrad (kfromS . multSMapAccum snat)
+
+revSMapAccum
+  :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
+revSMapAccum snat@SNat = grad (kfromS . multSMapAccum snat)
+
+multScalarMapAccum :: forall target n r.
+                      (BaseTensor target, GoodScalar r)
+                   => SNat n -> target (TKS '[n] r) -> target (TKScalar r)
+multScalarMapAccum snat@SNat  =
+  tproject1
+  . tmapAccumL (Proxy @target)
+     snat
+     (FTKScalar @r)
+     (FTKScalar @Z0)
+     (FTKScalar @r)
+     (let g :: forall f. ADReady f
+            => f (TKScalar r) -> f (TKScalar r)
+            -> f (TKProduct (TKScalar r) TKUnit)
+          g !acc !e = tpair (acc * e) tunit
+      in g)
+     1
+{-# SPECIALIZE multScalarMapAccum :: SNat n -> ADVal Concrete (TKS '[n] Double) -> ADVal Concrete (TKScalar Double) #-}
+{-# SPECIALIZE multScalarMapAccum :: SNat n -> AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKScalar Double) #-}
+
+crevScalarMapAccum
+  :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
+crevScalarMapAccum snat@SNat = cgrad (multScalarMapAccum snat)
+
+revScalarMapAccum
+  :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
+revScalarMapAccum snat@SNat = grad (multScalarMapAccum snat)
+
 multScalarList :: (BaseTensor target, GoodScalar r)
                => [target (TKScalar r)] -> target (TKScalar r)
 multScalarList = foldl1' (*)
@@ -200,51 +245,6 @@ crevSNotShared
 crevSNotShared snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   cgrad (kfromS . multSNotShared)
-
--- Another variant, with foldl1' and indexing, would be a disaster.
--- We can define sproduct if this benchmark ends up used anywhere,
--- because the current codomain of gradientFromDelta rules out
--- low-level hacky pipeline tricks that could avoid indexing.
-multSMapAccum :: (BaseTensor target, LetTensor target, GoodScalar r)
-              => SNat n -> target (TKS '[n] r) -> target (TKS '[] r)
-multSMapAccum SNat = sfold (*) (sscalar 1)
-{-# SPECIALIZE multSMapAccum :: SNat n -> ADVal Concrete (TKS '[n] Double) -> ADVal Concrete (TKS '[] Double) #-}
-{-# SPECIALIZE multSMapAccum :: SNat n -> AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKS '[] Double) #-}
-
-crevSMapAccum
-  :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
-crevSMapAccum snat@SNat = cgrad (kfromS . multSMapAccum snat)
-
-revSMapAccum
-  :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
-revSMapAccum snat@SNat = grad (kfromS . multSMapAccum snat)
-
-multScalarMapAccum :: forall target n r.
-                      (BaseTensor target, GoodScalar r)
-                   => SNat n -> target (TKS '[n] r) -> target (TKScalar r)
-multScalarMapAccum snat@SNat  =
-  tproject1
-  . tmapAccumL (Proxy @target)
-     snat
-     (FTKScalar @r)
-     (FTKScalar @Z0)
-     (FTKScalar @r)
-     (let g :: forall f. ADReady f
-            => f (TKScalar r) -> f (TKScalar r)
-            -> f (TKProduct (TKScalar r) TKUnit)
-          g !acc !e = tpair (acc * e) tunit
-      in g)
-     1
-{-# SPECIALIZE multScalarMapAccum :: SNat n -> ADVal Concrete (TKS '[n] Double) -> ADVal Concrete (TKScalar Double) #-}
-{-# SPECIALIZE multScalarMapAccum :: SNat n -> AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKScalar Double) #-}
-
-crevScalarMapAccum
-  :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
-crevScalarMapAccum snat@SNat = cgrad (multScalarMapAccum snat)
-
-revScalarMapAccum
-  :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
-revScalarMapAccum snat@SNat = grad (multScalarMapAccum snat)
 
 {- TODO: re-enable once -fpolymorphic-specialisation works
 

@@ -1,4 +1,4 @@
-{-# LANGUAGE QuantifiedConstraints, UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- | Additional classes that help in comparing values in tests.
 module Shared
   ( lowercase, HasShape (shapeL), Linearizable (linearize)
@@ -23,10 +23,7 @@ import HordeAd.Core.Types
 lowercase :: String -> String
 lowercase = map Data.Char.toLower
 
-----------------------------------------------------------------------------
--- Things that have shape
-----------------------------------------------------------------------------
-
+-- | Things that have shape.
 class HasShape a where
   shapeL :: a -> [Int]
 
@@ -57,10 +54,7 @@ instance HasShape Z0 where
 instance {-# OVERLAPPABLE #-} (Foldable t) => HasShape (t a) where
   shapeL = (: []) . length
 
-----------------------------------------------------------------------------
--- Things that can be linearized, i.e. converted to a list
-----------------------------------------------------------------------------
-
+-- | Things that can be linearized, i.e. converted to a list.
 class Linearizable a b | a -> b where
   linearize :: a -> [b]
 

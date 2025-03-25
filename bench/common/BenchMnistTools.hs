@@ -224,6 +224,7 @@ mnistBGroup1VTO chunkLength =
        , mnistTrainBench1VTO "1500|500 " 1500 500 0.02 chunkLength xs
        ]
 
+
 -- * Using matrices, which is rank 2
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,

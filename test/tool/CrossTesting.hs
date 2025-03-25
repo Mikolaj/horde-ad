@@ -1,5 +1,5 @@
 -- | Testing harness that differentiates a single objective function using
--- over a twenty different pipeline variants and compares the results.
+-- over a twenty different pipeline variants and cross-checks the results.
 module CrossTesting
   ( rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShort
   , t16, t16b, t48, t128, t128b, t128c

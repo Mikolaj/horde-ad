@@ -2,14 +2,14 @@ module Main (main) where
 
 import Prelude
 
-import           Data.Proxy
-import qualified System.IO as SIO
-import           Test.Tasty
-import           Test.Tasty.Options
-import           Test.Tasty.Runners
+import Data.Proxy
+import System.IO qualified as SIO
+import Test.Tasty
+import Test.Tasty.Options
+import Test.Tasty.Runners
 
-import           EqEpsilon
-import qualified TestGatherSimplified
+import EqEpsilon
+import TestGatherSimplified qualified
 
 main :: IO ()
 main = do
