@@ -39,17 +39,18 @@ We can instantiate `foo` to matrices; the operations within (`sin`, `+`, `*`) et
 type Matrix2x2 f r = f (TKS '[2, 2] r) -- AWF: TKS means [...?]
 type ThreeMatrices r = (Matrix2x2 Concrete r, Matrix2x2 Concrete r, Matrix2x2 Concrete r)
 threeSimpleMatrices :: ThreeMatrices Double
-threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3) -- srepl duplicates its argument in each matrix entry
+threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3) -- srepl replicates its argument to fill the whole matrix
 foo_value :: Matrix2x2 Concrete Double = foo threeSimpleMatrices
 ```
-We can compute a gradient of a function from matrices to scalar, say `sumfoo`:
+Instantiated to matrices, `foo` now returns a matrix, not a scalar &mdash; but a gradient can only be computed of a function that returns a scalar.
+Thus, let's define `sumfoo` which sums the output of `foo`: (note that `ssum0` returns a zero-dimensional array; `kfromS` extract the (single) scalar from that)
 ```hs
 sumfoo :: ThreeMatrices r -> r
 sumfoo = kfromS . ssum0 . foo
 >>> sumfoo threeSimpleMatrices
 1.23456789 ????
 ```
-and its gradient is given by
+This function we can compute the gradient of as follows:
 ```hs
 gradsumfoo :: (Differentiable r, GoodScalar r)
               => ThreeMatrices r -> ThreeMatrices r
@@ -68,7 +69,9 @@ This works as well as before:
 
 We noted above that `w` appears twice in `foo`.  A property of tracing-based AD systems is that such re-use may not be captured, with explosive results.
 In `cgrad`, such sharing is preserved, so `w` is processed only once during gradient computation and this property is guaranteed for the `cgrad` tool universally, without any action required from the user.
-When computing symbolic derivative programs, however, the user has to explicitly mark values for sharing using `tlet` with a more specific type of the objective function, as shown below.
+`horde-ad` also allows computing _symbolic_ derivative programs: using this API, a program is differentiated only once, after which it can be run on many different input values.
+In this case, however, sharing is _not_ automatically preserved, so shared variables have to be explicitly marked using `tlet`, as shown below in `fooLet`.
+This also makes the type of the function more specific: it now does not work on an arbitrary `Num` any more, but instead on an arbitrary `horde-ad` tensor that implements arithmetic operations like `atan2H`.
 ```hs
 fooLet :: (RealFloatH (f r), LetTensor f)
        => (f r, f r, f r) -> f r
@@ -122,7 +125,7 @@ or maybe that happens automatically?
 
 ## For all shapes and sizes
 
-An additional feature of this library is a type system for tensor shape arithmetic. The following code is a part of convolutional neural network definition, for which horde-ad computes the gradient of a shape determined by the shape of input data and of initial parameters. The compiler is able to infer a lot of tensor shapes, deriving them both from dynamic dimension arguments (the first two lines of parameters to the function) and from static type-level hints.
+An additional feature of this library is a type system for tensor shape arithmetic. The following code is part of a convolutional neural network definition, for which horde-ad computes the shape of the gradient from the shape of the input data and the initial parameters. The compiler is able to infer many tensor shapes, deriving them both from dynamic dimension arguments (the first two lines of parameters to the function) and from static type-level hints.
 
 It is common to see neural network code with shape annotations in comments, hidden from the compiler:
 ```hs
