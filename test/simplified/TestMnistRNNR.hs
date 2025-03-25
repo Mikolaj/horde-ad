@@ -1,14 +1,15 @@
 {-# LANGUAGE OverloadedLists #-}
--- | Tests of "MnistRnnRanked2" neural networks using a few different
+-- | Tests of "MnistRnnRanked2" recurrent neural networks using a few different
 -- optimization pipelines.
 --
--- *Not* LSTM.
+-- Not LSTM.
 -- Doesn't train without Adam, regardless of whether mini-batches used. It does
 -- train with Adam, but only after very carefully tweaking initialization.
 -- This is extremely sensitive to initial parameters, more than to anything
 -- else. Probably, gradient is vanishing if parameters are initialized
 -- with a probability distribution that doesn't have the right variance. See
 -- https://stats.stackexchange.com/questions/301285/what-is-vanishing-gradient.
+-- Regularization/normalization might help as well.
 module TestMnistRNNR
   ( testTrees
   ) where
@@ -55,7 +56,8 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
   withSNat width $ \(SNat @width) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(Concrete (X (ADRnnMnistParametersShaped Concrete width r)))
+        $ randomValue @(Concrete (X (ADRnnMnistParametersShaped
+                                       Concrete width r)))
                       0.4 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -128,7 +130,8 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-           ftk = tftk @Concrete (knownSTK @(X (ADRnnMnistParameters Concrete r)))
+           ftk = tftk @Concrete
+                      (knownSTK @(X (ADRnnMnistParameters Concrete r)))
                       targetInit
        res <- runEpoch 1 (targetInit, initialStateAdam ftk)
        let testErrorFinal =
@@ -165,7 +168,8 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
   withSNat width $ \(SNat @width) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(Concrete (X (ADRnnMnistParametersShaped Concrete width r)))
+        $ randomValue @(Concrete (X (ADRnnMnistParametersShaped
+                                       Concrete width r)))
                       0.4 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -188,7 +192,8 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
        testData <- map mkMnistDataR . take (totalBatchSize * maxBatches)
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = mkMnistDataBatchR testData
-           ftk = tftk @Concrete (knownSTK @(X (ADRnnMnistParameters Concrete r)))
+           ftk = tftk @Concrete
+                      (knownSTK @(X (ADRnnMnistParameters Concrete r)))
                       targetInit
        (_, _, var, varAst) <- funToAstRevIO ftk
        (varGlyph, astGlyph) <-
@@ -292,7 +297,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
   withSNat width $ \(SNat @width) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(Concrete (X (ADRnnMnistParametersShaped Concrete width r)))
+        $ randomValue @(Concrete (X (ADRnnMnistParametersShaped
+                                       Concrete width r)))
                       0.4 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -338,7 +344,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
              let parametersAndInput =
                    tpair parameters (tpair (rconcrete glyph) (rconcrete label))
                  gradient = tproject1 $ fst
-                            $ revInterpretArtifact art parametersAndInput Nothing
+                            $ revInterpretArtifact
+                                art parametersAndInput Nothing
              in go rest (updateWithGradientAdam
                            @(X (ADRnnMnistParameters Concrete r))
                            defaultArgsAdam stateAdam knownSTK parameters
@@ -383,7 +390,8 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
                           $ chunksOf totalBatchSize trainDataShuffled
              res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-           ftk = tftk @Concrete (knownSTK @(X (ADRnnMnistParameters Concrete r)))
+           ftk = tftk @Concrete (knownSTK @(X (ADRnnMnistParameters
+                                                 Concrete r)))
                       targetInit
        res <- runEpoch 1 (targetInit, initialStateAdam ftk)
        let testErrorFinal =

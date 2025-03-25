@@ -1,8 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Tests of the gather and scatter operations, operations that expand
--- to gather and fusion of all of these.
+-- | Tests of the gather and scatter operations and of operations that expand
+-- to gather and of fusion of all of them.
 module TestGatherSimplified (testTrees) where
 
 import Prelude
@@ -73,6 +71,9 @@ testTrees =
   , testCase "shmatterBarReluADVal320" testBarReluADVal320
   , testCase "shmatterReluSimpPP" testReluSimpPP
   ]
+
+
+-- * Gathers
 
 gatherNested1 :: forall target r. (ADReady target, GoodScalar r)
               => target (TKR 2 r) -> target (TKR 1 r)
@@ -478,7 +479,8 @@ testGatherSimpPP34 = do
   length (show t2) @?= 1082
   length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 1111
 
--- scatters instead of gathers
+
+-- * Scatters instead of gathers
 
 scatterNested1 :: forall target r. (ADReady target, GoodScalar r)
                => target (TKR 2 r) -> target (TKR 1 r)

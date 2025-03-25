@@ -1,5 +1,14 @@
--- | Tests of "MnistRnnShaped2" neural networks using a few different
+-- | Tests of "MnistRnnShaped2" recurrent neural networks using a few different
 -- optimization pipelines.
+--
+-- Not LSTM.
+-- Doesn't train without Adam, regardless of whether mini-batches used. It does
+-- train with Adam, but only after very carefully tweaking initialization.
+-- This is extremely sensitive to initial parameters, more than to anything
+-- else. Probably, gradient is vanishing if parameters are initialized
+-- with a probability distribution that doesn't have the right variance. See
+-- https://stats.stackexchange.com/questions/301285/what-is-vanishing-gradient.
+-- Regularization/normalization might help as well.
 module TestMnistRNNS
   ( testTrees
   ) where
@@ -183,8 +192,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                 <$> loadMnistData testGlyphsPath testLabelsPath
     withSNat (totalBatchSize * maxBatches) $ \(SNat @lenTestData) -> do
        let testDataS = mkMnistDataBatchS @lenTestData testData
-           ftk = tftk @Concrete (knownSTK @(XParams width r))
-                      targetInit
+           ftk = tftk @Concrete (knownSTK @(XParams width r)) targetInit
        (_, _, var, varAst) <- funToAstRevIO ftk
        (varGlyph, astGlyph) <- funToAstIO (FTKS knownShS FTKScalar) id
        (varLabel, astLabel) <- funToAstIO (FTKS knownShS FTKScalar) id
@@ -301,8 +309,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                 <$> loadMnistData testGlyphsPath testLabelsPath
     withSNat (totalBatchSize * maxBatches) $ \(SNat @lenTestData) -> do
        let testDataS = mkMnistDataBatchS @lenTestData testData
-           ftk = tftk @Concrete (knownSTK @(XParams width r))
-                      targetInit
+           ftk = tftk @Concrete (knownSTK @(XParams width r)) targetInit
            ftkData = FTKProduct (FTKS (batch_size
                                        :$$ sizeMnistHeight
                                        :$$ sizeMnistWidth
@@ -320,7 +327,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
            f = \ (pars, (glyphS, labelS)) ->
              MnistRnnShaped2.rnnMnistLossFusedS
                width batch_size (sprimalPart glyphS, sprimalPart labelS) pars
-           artRaw = revArtifactAdapt IgnoreIncomingCotangent f (FTKProduct ftk ftkData)
+           artRaw = revArtifactAdapt IgnoreIncomingCotangent
+                                     f (FTKProduct ftk ftkData)
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchS batch_size r]
               -> ( Concrete (XParams width r)
@@ -332,7 +340,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
              let parametersAndInput =
                    tpair parameters (tpair (sconcrete glyph) (sconcrete label))
                  gradient = tproject1 $ fst
-                            $ revInterpretArtifact art parametersAndInput Nothing
+                            $ revInterpretArtifact
+                                art parametersAndInput Nothing
              in go rest (updateWithGradientAdam
                            @(XParams width r)
                            defaultArgsAdam stateAdam knownSTK parameters

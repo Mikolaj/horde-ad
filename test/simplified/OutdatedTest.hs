@@ -1,4 +1,3 @@
-{-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 -- | TODO: outdated, uses the old API, but has some features we may want to copy, such as 'writeFile "walltimeLoss.txt"', decay, unitVarianceRange and maybe "Gradients without Backpropagation"
 module TestMnistFCNN
   ( testTrees, shortTestForCITrees, mnistTestCase2T, mnistTestCase2D

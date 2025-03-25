@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
--- | Tests of "MnistFcnnRanked1" and "MnistFcnnRanked2" neural networks
+-- | Tests of "MnistFcnnRanked1" and "MnistFcnnRanked2" dense neural networks
 -- using a few different optimization pipelines.
 module TestMnistFCNNR
   ( testTrees
@@ -42,11 +42,11 @@ testTrees = [ tensorADValMnistTests
             , tensorADOnceMnistTests2
             ]
 
-
 -- * Using lists of vectors, which is rank 1
 
 type XParams widthHidden widthHidden2 r =
-  X (MnistFcnnRanked1.ADFcnnMnist1Parameters Concrete widthHidden widthHidden2 r)
+  X (MnistFcnnRanked1.ADFcnnMnist1Parameters
+       Concrete widthHidden widthHidden2 r)
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
@@ -396,9 +396,10 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   Concrete widthHidden widthHidden2 r Float)))
-                      1 (mkStdGen 44)
+        $ randomValue
+            @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                             Concrete widthHidden widthHidden2 r Float)))
+            1 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
@@ -486,9 +487,10 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   Concrete widthHidden widthHidden2 r Float)))
-                      1 (mkStdGen 44)
+        $ randomValue
+            @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                             Concrete widthHidden widthHidden2 r Float)))
+            1 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
@@ -539,7 +541,8 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
               printf "%s: Validation error: %.2f%%"
                      prefix ((1 - testScore ) * 100)
           return res
-    let runEpoch :: Int -> Concrete (XParams2 r Float) -> IO (Concrete (XParams2 r Float))
+    let runEpoch :: Int -> Concrete (XParams2 r Float)
+                 -> IO (Concrete (XParams2 r Float))
         runEpoch n params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHidden < 10) $
@@ -585,7 +588,8 @@ mnistTestCase2VTO
 mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
                   gamma batchSize expected =
   let (!targetInit, !artRaw) =
-        MnistFcnnRanked2.mnistTrainBench2VTOGradient @r (Proxy @Float) IgnoreIncomingCotangent
+        MnistFcnnRanked2.mnistTrainBench2VTOGradient
+          @r (Proxy @Float) IgnoreIncomingCotangent
           1 (mkStdGen 44) widthHidden widthHidden2
       !art = simplifyArtifactGradient artRaw
       name = prefix ++ ": "
@@ -683,7 +687,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
         (ds, seed4) = first forgetShape $
           randomValue
             @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                         Concrete widthHidden widthHidden2 Double Double)))
+                             Concrete widthHidden widthHidden2 Double Double)))
             range seed3
         (targetInit, artRaw) =
           MnistFcnnRanked2.mnistTrainBench2VTOGradient
@@ -697,7 +701,8 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
           revInterpretArtifact art parametersAndInput Nothing
         (gradient1, value1) = first tproject1 $
           revInterpretArtifact art parametersAndInput (Just $ kconcrete dt)
-        f :: ADVal Concrete (XParams2 Double Double) -> ADVal Concrete (TKScalar Double)
+        f :: ADVal Concrete (XParams2 Double Double)
+          -> ADVal Concrete (TKScalar Double)
         f adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2
             (rfromPrimal glyph, rfromPrimal label) (fromTarget adinputs)
@@ -730,7 +735,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
                        - tdotTarget ftk gradient1 ds ))
             (abs (tdotTarget FTKScalar (kconcrete dt) derivative2
                   - tdotTarget ftk gradient1 ds) < 1e-10)
---        , counterexample
+--        , counterexample  -- this is implied by the other clauses
 --            "Gradient is a linear function"
 --            (gradient1 === tmultTarget stk targetDt gradient0)
         , counterexample

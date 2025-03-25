@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
--- | Tests of "MnistCnnRanked2" neural networks using a few different
--- optimization pipelines.
+-- | Tests of "MnistCnnRanked2" concolutional neural network
+-- using a few different optimization pipelines.
 module TestMnistCNNR
   ( testTrees
   ) where
@@ -52,10 +51,11 @@ mnistTestCaseCNNA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
   withSNat n_hiddenInt $ \(_n_hiddenSNat :: SNat n_hidden) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(Concrete (X (MnistCnnRanked2.ADCnnMnistParametersShaped
-                                   Concrete SizeMnistHeight SizeMnistWidth
-                                   kh kw c_out n_hidden r)))
-                      0.4 (mkStdGen 44)
+        $ randomValue
+            @(Concrete (X (MnistCnnRanked2.ADCnnMnistParametersShaped
+                             Concrete SizeMnistHeight SizeMnistWidth
+                             kh kw c_out n_hidden r)))
+            0.4 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show khInt, show kwInt
@@ -159,10 +159,11 @@ mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
   withSNat n_hiddenInt $ \(_n_hiddenSNat :: SNat n_hidden) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(Concrete (X (MnistCnnRanked2.ADCnnMnistParametersShaped
-                                   Concrete SizeMnistHeight SizeMnistWidth
-                                   kh kw c_out n_hidden r)))
-                      0.4 (mkStdGen 44)
+        $ randomValue
+            @(Concrete (X (MnistCnnRanked2.ADCnnMnistParametersShaped
+                             Concrete SizeMnistHeight SizeMnistWidth
+                             kh kw c_out n_hidden r)))
+            0.4 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show khInt, show kwInt
@@ -283,10 +284,11 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
   withSNat n_hiddenInt $ \(_n_hiddenSNat :: SNat n_hidden) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(Concrete (X (MnistCnnRanked2.ADCnnMnistParametersShaped
-                                   Concrete SizeMnistHeight SizeMnistWidth
-                                   kh kw c_out n_hidden r)))
-                      0.4 (mkStdGen 44)
+        $ randomValue
+            @(Concrete (X (MnistCnnRanked2.ADCnnMnistParametersShaped
+                             Concrete SizeMnistHeight SizeMnistWidth
+                             kh kw c_out n_hidden r)))
+            0.4 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show khInt, show kwInt
@@ -328,8 +330,9 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
              let parametersAndInput =
                    tpair parameters (tpair (rconcrete glyph) (rconcrete label))
-                 gradient = tproject1 $ fst
-                            $ revInterpretArtifact art parametersAndInput Nothing
+                 gradient =
+                   tproject1 $ fst
+                   $ revInterpretArtifact art parametersAndInput Nothing
              in go rest (updateWithGradientAdam
                            @(XParams r)
                            defaultArgsAdam stateAdam knownSTK parameters
