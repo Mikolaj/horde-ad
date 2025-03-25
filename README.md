@@ -34,25 +34,41 @@ which can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
 (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 ```
 
-When `foo` is instantiated to matrices, which is a similarly trivial example as before due to the arithmetic operations working on the arrays element-wise, the gradient is:
+We can instantiate `foo` to matrices; the operations within (`sin`, `+`, `*`) etc applying elementwise:
 ```hs
-type Matrix2x2 f r = f (TKS '[2, 2] r)
+type Matrix2x2 f r = f (TKS '[2, 2] r) -- AWF: TKS means [...?]
 type ThreeMatrices r = (Matrix2x2 Concrete r, Matrix2x2 Concrete r, Matrix2x2 Concrete r)
 threeSimpleMatrices :: ThreeMatrices Double
-threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)
-gradFooMatrix :: (Differentiable r, GoodScalar r)
+threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3) -- srepl duplicates its argument in each matrix entry
+foo_value :: Matrix2x2 Concrete Double = foo threeSimpleMatrices
+```
+We can compute a gradient of a function from matrices to scalar, say `sumfoo`:
+```hs
+sumfoo :: ThreeMatrices r -> r
+sumfoo = kfromS . ssum0 . foo
+>>> sumfoo threeSimpleMatrices
+1.23456789 ????
+```
+and its gradient is given by
+```hs
+gradsumfoo :: (Differentiable r, GoodScalar r)
               => ThreeMatrices r -> ThreeMatrices r
-gradFooMatrix = cgrad (kfromS . ssum0 . foo)
+gradsumfoo = cgrad sumfoo
 ```
 
-where we had to augment function `foo`, because `cgrad` expects a function with a scalar codomain (e.g., a loss function for neural networks). This works as well as before:
+This works as well as before:
 ```hs
->>> gradFooMatrix threeSimpleMatrices
+>>> gradsumfoo threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
 ```
 
-Note that `w` is processed only once during gradient computation and this property of sharing preservation is guaranteed for the `cgrad` tool universally, without any action required from the user. When computing symbolic derivative programs, however, the user has to explicitly mark values for sharing using `tlet` with a more specific type of the objective function, as shown below.
+[AWF: better explain `GoodScalar` name somewhere here]
 
+### Efficiency: preserving sharing
+
+We noted above that `w` appears twice in `foo`.  A property of tracing-based AD systems is that such re-use may not be captured, with explosive results.
+In `cgrad`, such sharing is preserved, so `w` is processed only once during gradient computation and this property is guaranteed for the `cgrad` tool universally, without any action required from the user.
+When computing symbolic derivative programs, however, the user has to explicitly mark values for sharing using `tlet` with a more specific type of the objective function, as shown below.
 ```hs
 fooLet :: (RealFloatH (f r), LetTensor f)
        => (f r, f r, f r) -> f r
@@ -60,6 +76,8 @@ fooLet (x, y, z) =
   tlet (x * sin y) $ \w ->
     atan2H z w + z * w  -- note that w still appears twice
 ```
+
+### Vector-Jacobian product (VJP)
 
 The most general symbolic gradient program for this function can be obtained using the `vjpArtifact` tool. We are using `fooLet` without `ssum0` this time, because the `vjp` family of tools by convention permits non-scalar codomains (but expects an incoming cotangent argument to compensate, visible in the code below as `dret`).
 ```hs
@@ -94,11 +112,19 @@ A shorthand that creates the symbolic derivative program, simplifies it and inte
 >>> grad (kfromS . ssum0 . fooLet) threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
 ```
-
+AWF note: can we separate (creation and simplification) from interpretation, i.e. do that work once before applying many times?
+```hs
+>>> foograd = grad (kfromS . ssum0 . fooLet)  -- do all simplification etc here
+>>> foograd threeSimpleMatrices -- just interpret here?
+>>> foograd threeOtherSimpleMatrices
+```
+or maybe that happens automatically?
 
 ## For all shapes and sizes
 
-An additional feature of this library is a type system for tensor shape arithmetic. The following code is a part of convolutional neural network definition, for which horde-ad computes the gradient of a shape determined by the shape of input data and of initial parameters. The compiler is able to infer a lot of tensor shapes, deriving them both from dynamic dimension arguments (the first two lines of parameters to the function) and from static type-level hints. Look at this beauty.
+An additional feature of this library is a type system for tensor shape arithmetic. The following code is a part of convolutional neural network definition, for which horde-ad computes the gradient of a shape determined by the shape of input data and of initial parameters. The compiler is able to infer a lot of tensor shapes, deriving them both from dynamic dimension arguments (the first two lines of parameters to the function) and from static type-level hints.
+
+It is common to see neural network code with shape annotations in comments, hidden from the compiler:
 ```hs
 convMnistTwoS
   kh@SNat kw@SNat h@SNat w@SNat
@@ -113,8 +139,8 @@ convMnistTwoS
   ( weightsReadout   -- readout layer weights, shape [10, n_hidden]
   , biasesReadout )  -- readout layer biases [10]
   =                  -- -> output classification, shape [10, batch_size]
-  gcastWith (unsafeCoerceRefl :: Div (Div w 2) 2 :~: Div w 4) $
-  gcastWith (unsafeCoerceRefl :: Div (Div h 2) 2 :~: Div h 4) $
+  gcastWith (unsafeCoerceRefl :: Div (Div w 2) 2 :~: Div w 4) $ -- ensure w divisible by 4 - what is :~:?
+  gcastWith (unsafeCoerceRefl :: Div (Div h 2) 2 :~: Div h 4) $ -- similar ?
   let t1 = convMnistLayerS kh kw h w
                            (SNat @1) c_out batch_size
                            ker1 (sfromPrimal input) bias1
@@ -138,16 +164,28 @@ convMnistTwoS
   -> SNat c_out -> SNat n_hidden -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
        -- SNat value parameters denoting basic dimensions
-  -> PrimalOf target (TKS '[batch_size, 1, h, w] r)
-  -> ( ( target (TKS '[c_out, 1, kh + 1, kw + 1] r)
-       , target (TKS '[c_out] r) )
-     , ( target (TKS '[c_out, c_out, kh + 1, kw + 1] r)
-       , target (TKS '[c_out] r) )
-     , ( target (TKS '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ] r)
-       , target (TKS '[n_hidden] r) )
-     , ( target (TKS '[10, n_hidden] r)
-       , target (TKS '[10] r) ) )
-  -> target (TKS '[SizeMnistLabel, batch_size] r)
+  -> PrimalOf target (TKS '[batch_size, 1, h, w] r) -- `input` shape [batch_size, 1, h, w]
+  -> ( ( target (TKS '[c_out, 1, kh + 1, kw + 1] r) -- `ker1` shape [c_out, 1, kh+1, kw+1]; 
+       , target (TKS '[c_out] r) )                  -- `bias2` shape [c_out]
+     , ( target (TKS '[c_out, c_out, kh + 1, kw + 1] r) -- `ker2` shape [c_out, c_out, kh+1, kw+1]; 
+       , target (TKS '[c_out] r) )                      -- `bias2` shape [c_out]
+     , ( target (TKS '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ] r) -- `weightsDense` shape [n_hidden, c_out * (h/4) * (w/4)]
+       , target (TKS '[n_hidden] r) )   -- `biasesDense` shape [n_hidden]
+     , ( target (TKS '[10, n_hidden] r) -- `weightsReadout` shape [10, n_hidden]
+       , target (TKS '[10] r) ) )       -- `biasesReadout` shape [10]
+  -> target (TKS '[SizeMnistLabel, batch_size] r) -- -> output classification, shape [10, batch_size]
+convMnistTwoS -- AWF: Do repeat this here
+  kh@SNat kw@SNat h@SNat w@SNat
+  c_out@SNat _n_hidden@SNat batch_size@SNat
+  input -- input images
+  (ker1, bias1) -- layer1 kernel
+  (ker2, bias2) -- layer2 kernel
+  ( weightsDense -- dense layer weights
+  , biasesDense ) -- dense layer biases   
+  ( weightsReadout -- readout layer weights
+  , biasesReadout ) -- readout layer biases
+  =
+...
 ```
 
 The full neural network definition from which this function is taken can be found at
