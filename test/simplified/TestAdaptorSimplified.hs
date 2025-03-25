@@ -547,13 +547,13 @@ testGradFooDouble =
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
     (gradFooDouble (1.1, 2.2, 3.3))
 
-type TwoByTwoMatrix :: forall {k}. (TK -> k) -> Type -> k
-type TwoByTwoMatrix f r = f (TKS '[2, 2] r)
-type ThreeConcreteMatrices r = (TwoByTwoMatrix Concrete r, TwoByTwoMatrix Concrete r, TwoByTwoMatrix Concrete r)
-threeSimpleMatrices :: ThreeConcreteMatrices Double
+type Matrix2x2 :: Target -> Type -> Type
+type Matrix2x2 f r = f (TKS '[2, 2] r)
+type ThreeMatrices r = (Matrix2x2 Concrete r, Matrix2x2 Concrete r, Matrix2x2 Concrete r)
+threeSimpleMatrices :: ThreeMatrices Double
 threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)
 gradFooMatrix :: (Differentiable r, GoodScalar r)
-              => ThreeConcreteMatrices r -> ThreeConcreteMatrices r
+              => ThreeMatrices r -> ThreeMatrices r
 gradFooMatrix = cgrad (kfromS . ssum0 . foo)
 
 testGradFooMatrix :: Assertion
@@ -566,9 +566,9 @@ fooLet :: (RealFloatH (f r), LetTensor f)
        => (f r, f r, f r) -> f r
 fooLet (x, y, z) =
   tlet (x * sin y) $ \w ->
-    atan2H z w + z * w
+    atan2H z w + z * w  -- note that w still appears twice
 
-artifact :: AstArtifactRev (X (ThreeConcreteMatrices Double)) (TKS '[2, 2] Double)
+artifact :: AstArtifactRev (X (ThreeMatrices Double)) (TKS '[2, 2] Double)
 artifact = vjpArtifact fooLet threeSimpleMatrices
 
 testGradFooLetMatrixPP :: Assertion
@@ -580,7 +580,7 @@ testGradFooLetMatrixPP = do
 testGradFooMatrixVjp :: Assertion
 testGradFooMatrixVjp =
   assertEqualUpToEpsilon 1e-10
-    ((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeConcreteMatrices Double)
+    ((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeMatrices Double)
     (vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1))
 
 testGradFooMatrixRev :: Assertion
