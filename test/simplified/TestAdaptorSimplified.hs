@@ -799,37 +799,37 @@ testVstackBuildAstPP = do
   (printAstPretty
      (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
                   (replIota 10)))
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 0.0 + sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 9.0 + sscalar 24.0), (sconcrete (sfromListLinear [10] [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]) + sgather (sconcrete (sfromListLinear [10] [0.0,2.0,4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0])) (\\[i1] -> [1 + i1])) + sgather (sconcrete (sfromListLinear [10] [0.0,3.0,6.0,9.0,12.0,15.0,18.0,21.0,24.0,27.0])) (\\[i1] -> [(-1) + i1])])) (\\[i3] -> [ifH (i3 ==. 9) 0 1, i3])])) (\\[i2] -> [ifH (i2 ==. 0) 0 1, i2]))"
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 33.0), sconcrete (sfromListLinear [10] [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]) + (sgather (sconcrete (sfromListLinear [10] [0.0,2.0,4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0])) (\\[i1] -> [1 + i1]) + sgather (sconcrete (sfromListLinear [10] [0.0,3.0,6.0,9.0,12.0,15.0,18.0,21.0,24.0,27.0])) (\\[i1] -> [(-1) + i1]))])) (\\[i3] -> [ifH (i3 ==. 9) 0 1, i3])])) (\\[i2] -> [ifH (i2 ==. 0) 0 1, i2]))"
   (printAstPretty
      (simplifyInlineContract
         (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
                      (replIota 10))))
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 0.0 + sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 9.0 + sscalar 24.0), (sconcrete (sfromListLinear [10] [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]) + sgather (sconcrete (sfromListLinear [10] [0.0,2.0,4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0])) (\\[i4] -> [1 + i4])) + sgather (sconcrete (sfromListLinear [10] [0.0,3.0,6.0,9.0,12.0,15.0,18.0,21.0,24.0,27.0])) (\\[i4] -> [(-1) + i4])])) (\\[i6] -> [ifH (i6 ==. 9) 0 1, i6])])) (\\[i5] -> [ifH (i5 ==. 0) 0 1, i5]))"
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 33.0), sconcrete (sfromListLinear [10] [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]) + (sgather (sconcrete (sfromListLinear [10] [0.0,2.0,4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0])) (\\[i4] -> [1 + i4]) + sgather (sconcrete (sfromListLinear [10] [0.0,3.0,6.0,9.0,12.0,15.0,18.0,21.0,24.0,27.0])) (\\[i4] -> [(-1) + i4]))])) (\\[i6] -> [ifH (i6 ==. 9) 0 1, i6])])) (\\[i5] -> [ifH (i5 ==. 0) 0 1, i5]))"
 
 {- The above is:
 rfromS
   (sgather
      (sfromVector
         (fromList
-           [ sreplicate @10 (sscalar 0.0 + sscalar 2.0)
+           [ sreplicate @10 (sscalar 2.0)
            , sgather
                (sfromVector
                   (fromList
-                     [ sreplicate @10 (sscalar 9.0 + sscalar 24.0)
-                     , (sconcrete
-                          (sfromListLinear [10] [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]) +
-                        sgather
+                     [ sreplicate @10 (sscalar 33.0)
+                     , sconcrete
+                         (sfromListLinear [10] [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]) +
+                       (sgather
                           (sconcrete
                              (sfromListLinear
                                 [10]
                                 [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0]))
-                          (\[i4] -> [1 + i4])) +
-                       sgather
-                         (sconcrete
-                            (sfromListLinear
-                               [10]
-                               [0.0, 3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 21.0, 24.0, 27.0]))
-                         (\[i4] -> [(-1) + i4])
+                          (\[i4] -> [1 + i4]) +
+                        sgather
+                          (sconcrete
+                             (sfromListLinear
+                                [10]
+                                [0.0, 3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 21.0, 24.0, 27.0]))
+                          (\[i4] -> [(-1) + i4]))
                      ]))
                (\[i6] -> [ifH (i6 ==. 9) 0 1, i6])
            ]))
@@ -887,12 +887,12 @@ testVstackBuildAstPP2 = do
   (printAstPretty
      (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
                   (replIota2 10)))
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) !$ [0] * siota (SNat @10) !$ [0] + sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0]) !$ [1] * siota (SNat @10) !$ [1]), sgather (sfromVector (fromList [sreplicate @10 (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) !$ [9] * siota (SNat @10) !$ [9] + sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]) !$ [8] * siota (SNat @10) !$ [8]), (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) * siota (SNat @10) + (let v2 = treplicate (SNat @10) (STKScalar) 1 + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i6] -> [kfromS (v2 !$ [i6])]) * sfromIntegral v2)) + (let v3 = treplicate (SNat @10) (STKScalar) (-1) + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i7] -> [kfromS (v3 !$ [i7])]) * sfromIntegral v3)])) (\\[i5] -> [ifH (i5 ==. 9) 0 1, i5])])) (\\[i4] -> [ifH (i4 ==. 0) 0 1, i4]))"
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) !$ [0] * siota (SNat @10) !$ [0] + sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0]) !$ [1] * siota (SNat @10) !$ [1]), sgather (sfromVector (fromList [sreplicate @10 (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) !$ [9] * siota (SNat @10) !$ [9] + sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]) !$ [8] * siota (SNat @10) !$ [8]), (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) * siota (SNat @10) + (let v2 = treplicate (SNat @10) (STKScalar) 1 + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i7] -> [kfromS (v2 !$ [i7])]) * sfromIntegral v2)) + (let v3 = treplicate (SNat @10) (STKScalar) (-1) + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i6] -> [kfromS (v3 !$ [i6])]) * sfromIntegral v3)])) (\\[i5] -> [ifH (i5 ==. 9) 0 1, i5])])) (\\[i4] -> [ifH (i4 ==. 0) 0 1, i4]))"
   (printAstPretty
      (simplifyInlineContract
         (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
                      (replIota2 10))))
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 1.0 * sscalar 0.0 + sscalar 2.0 * sscalar 1.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 1.0 * sscalar 9.0 + sscalar 3.0 * sscalar 8.0), (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) * siota (SNat @10) + (let v9 = treplicate (SNat @10) (STKScalar) 1 + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i13] -> [kfromS (v9 !$ [i13])]) * sfromIntegral v9)) + (let v10 = treplicate (SNat @10) (STKScalar) (-1) + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i14] -> [kfromS (v10 !$ [i14])]) * sfromIntegral v10)])) (\\[i12] -> [ifH (i12 ==. 9) 0 1, i12])])) (\\[i11] -> [ifH (i11 ==. 0) 0 1, i11]))"
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 33.0), (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) * siota (SNat @10) + (let v9 = treplicate (SNat @10) (STKScalar) 1 + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i14] -> [kfromS (v9 !$ [i14])]) * sfromIntegral v9)) + (let v10 = treplicate (SNat @10) (STKScalar) (-1) + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i13] -> [kfromS (v10 !$ [i13])]) * sfromIntegral v10)])) (\\[i12] -> [ifH (i12 ==. 9) 0 1, i12])])) (\\[i11] -> [ifH (i11 ==. 0) 0 1, i11]))"
 
 testFooPP :: Assertion
 testFooPP = do

@@ -77,6 +77,8 @@ instance Ord (AstTensor ms s y) where
 -- this extended simplification to AstMethodLet.
 instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
+  AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
+  AstFromDual u + AstFromDual v = AstFromDual $ u + v
   AstConcreteK 0 + u = u
   u + AstConcreteK 0 = u
   AstConcreteK n + AstConcreteK k = AstConcreteK (n + k)
@@ -115,6 +117,8 @@ instance (GoodScalar r, AstSpan s)
   u + AstPlusK v@AstConcreteK{} w = AstPlusK v (AstPlusK u w)  -- as above
   u + v = AstPlusK u v
 
+  AstFromPrimal u * AstFromPrimal v = AstFromPrimal $ u * v
+    -- TODO: this is not mathematically correct for AstFromDual, right?
   AstConcreteK 0 * _ = 0
   _ * AstConcreteK 0 = 0
   AstConcreteK 1 * u = u
@@ -170,6 +174,8 @@ instance (GoodScalar r, AstSpan s)
   u * AstTimesK v@AstConcreteK{} w = AstTimesK v (AstTimesK u w)  -- as above
   u * v = AstTimesK u v
 
+  negate (AstFromPrimal n) = AstFromPrimal (negate n)
+  negate (AstFromDual n) = AstFromDual (negate n)
   negate (AstConcreteK n) = AstConcreteK (negate n)
   negate (AstPlusK u v) = AstPlusK (negate u) (negate v)
   negate (AstTimesK u v) = negate u * v
@@ -180,10 +186,14 @@ instance (GoodScalar r, AstSpan s)
   negate (AstI2K RemOp u v) = AstI2K RemOp (negate u) v
     -- v is likely positive and let's keep it so
   negate u = AstN1K NegateOp u
+  abs (AstFromPrimal n) = AstFromPrimal (abs n)
+  abs (AstFromDual n) = AstFromDual (abs n)
   abs (AstConcreteK n) = AstConcreteK (abs n)
   abs (AstN1K AbsOp u) = AstN1K AbsOp u
   abs (AstN1K NegateOp u) = abs u
   abs u = AstN1K AbsOp u
+  signum (AstFromPrimal n) = AstFromPrimal (signum n)
+  signum (AstFromDual n) = AstFromDual (signum n)
   signum (AstConcreteK n) = AstConcreteK (signum n)
   signum (AstN1K SignumOp u) = AstN1K SignumOp u
   signum u = AstN1K SignumOp u
@@ -201,6 +211,7 @@ instance (GoodScalar r, AstSpan s)
 -- constructing conditionals, etc), so they are not included in IntegralH.
 instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKScalar r)) where
+  quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
   quotH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotH n k)
   quotH (AstConcreteK 0) _ = AstConcreteK 0
   quotH u (AstConcreteK 1) = u
@@ -211,6 +222,7 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
     | n == n' = v
   quotH u v = AstI2K QuotOp u v
 
+  remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
   remH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (remH n k)
   remH (AstConcreteK 0) _ = AstConcreteK 0
   remH _ (AstConcreteK 1) = AstConcreteK 0
@@ -228,34 +240,55 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
+  AstFromPrimal u / AstFromPrimal v = AstFromPrimal $ u / v
   u / v = AstR2K DivideOp u v
-  recip = AstR1K RecipOp
+  recip (AstFromPrimal u) = AstFromPrimal (recip u)
+  recip u = AstR1K RecipOp u
   fromRational r = fromPrimal $ AstConcreteK (fromRational r)
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
   pi = error "pi not defined for ranked tensors"
-  exp = AstR1K ExpOp
-  log = AstR1K LogOp
-  sqrt = AstR1K SqrtOp
-  (**) = AstR2K PowerOp
-  logBase = AstR2K LogBaseOp
-  sin = AstR1K SinOp
-  cos = AstR1K CosOp
-  tan = AstR1K TanOp
-  asin = AstR1K AsinOp
-  acos = AstR1K AcosOp
-  atan = AstR1K AtanOp
-  sinh = AstR1K SinhOp
-  cosh = AstR1K CoshOp
-  tanh = AstR1K TanhOp
-  asinh = AstR1K AsinhOp
-  acosh = AstR1K AcoshOp
-  atanh = AstR1K AtanhOp
+  exp (AstFromPrimal u) = AstFromPrimal $ exp u
+  exp u = AstR1K ExpOp u
+  log (AstFromPrimal u) = AstFromPrimal $ log u
+  log u = AstR1K LogOp u
+  sqrt (AstFromPrimal u) = AstFromPrimal $ sqrt u
+  sqrt u = AstR1K SqrtOp u
+  (AstFromPrimal u) ** (AstFromPrimal v) = AstFromPrimal $ u ** v
+  u ** v = AstR2K PowerOp u v
+  logBase (AstFromPrimal u) (AstFromPrimal v) = AstFromPrimal $ logBase u v
+  logBase u v = AstR2K LogBaseOp u v
+  sin (AstFromPrimal u) = AstFromPrimal $ sin u
+  sin u = AstR1K SinOp u
+  cos (AstFromPrimal u) = AstFromPrimal $ cos u
+  cos u = AstR1K CosOp u
+  tan (AstFromPrimal u) = AstFromPrimal $ tan u
+  tan u = AstR1K TanOp u
+  asin (AstFromPrimal u) = AstFromPrimal $ asin u
+  asin u = AstR1K AsinOp u
+  acos (AstFromPrimal u) = AstFromPrimal $ acos u
+  acos u = AstR1K AcosOp u
+  atan (AstFromPrimal u) = AstFromPrimal $ atan u
+  atan u = AstR1K AtanOp u
+  sinh (AstFromPrimal u) = AstFromPrimal $ sinh u
+  sinh u = AstR1K SinhOp u
+  cosh (AstFromPrimal u) = AstFromPrimal $ cosh u
+  cosh u = AstR1K CoshOp u
+  tanh (AstFromPrimal u) = AstFromPrimal $ tanh u
+  tanh u = AstR1K TanhOp u
+  asinh (AstFromPrimal u) = AstFromPrimal $ asinh u
+  asinh u = AstR1K AsinhOp u
+  acosh (AstFromPrimal u) = AstFromPrimal $ acosh u
+  acosh u = AstR1K AcoshOp u
+  atanh (AstFromPrimal u) = AstFromPrimal $ atanh u
+  atanh u = AstR1K AtanhOp u
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKScalar r)) where
-  atan2H = AstR2K Atan2Op
+  atan2H (AstFromPrimal u) (AstFromPrimal v) =
+    AstFromPrimal $ AstR2K Atan2Op u v
+  atan2H u v = AstR2K Atan2Op u v
 
 
 -- * Unlawful numeric instances for ranked AST; lawful modulo evaluation
@@ -313,6 +346,8 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 
 instance GoodScalar r
          => Num (AstTensor ms s (TKS sh r)) where
+  AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
+  AstFromDual u + AstFromDual v = AstFromDual $ u + v
 --  AstConcreteS 0 + u = u
 --  u + AstConcreteS 0 = u
   AstConcreteS n + AstConcreteS k = AstConcreteS (n + k)
@@ -337,6 +372,7 @@ instance GoodScalar r
   u + AstPlusS v@AstConcreteS{} w = AstPlusS v (AstPlusS u w)
   u + v = AstPlusS u v
 
+  AstFromPrimal u * AstFromPrimal v = AstFromPrimal $ u * v
   AstConcreteS n * AstConcreteS k = AstConcreteS (n * k)
   AstConcreteS n * AstTimesS (AstConcreteS k) u =
     AstTimesS (AstConcreteS (n * k)) u
@@ -359,6 +395,8 @@ instance GoodScalar r
   u * AstTimesS v@AstConcreteS{} w = AstTimesS v (AstTimesS u w)
   u * v = AstTimesS u v
 
+  negate (AstFromPrimal n) = AstFromPrimal (negate n)
+  negate (AstFromDual n) = AstFromDual (negate n)
   negate (AstConcreteS n) = AstConcreteS (negate n)
   negate (AstPlusS u v) = AstPlusS (negate u) (negate v)
   negate (AstTimesS u v) = AstTimesS (negate u) v
@@ -369,10 +407,14 @@ instance GoodScalar r
   negate (AstI2S RemOp u v) = AstI2S RemOp (negate u) v
     -- v is likely positive and let's keep it so
   negate u = AstN1S NegateOp u
+  abs (AstFromPrimal n) = AstFromPrimal (abs n)
+  abs (AstFromDual n) = AstFromDual (abs n)
   abs (AstConcreteS u) = AstConcreteS (abs u)
   abs (AstN1S AbsOp u) = AstN1S AbsOp u
   abs (AstN1S NegateOp u) = abs u
   abs u = AstN1S AbsOp u
+  signum (AstFromPrimal n) = AstFromPrimal (signum n)
+  signum (AstFromDual n) = AstFromDual (signum n)
   signum (AstConcreteS u) = AstConcreteS (signum u)
   signum (AstN1S SignumOp u) = AstN1S SignumOp u
   signum u = AstN1S SignumOp u
@@ -381,40 +423,63 @@ instance GoodScalar r
 
 instance (GoodScalar r, IntegralH r, Nested.IntElt r)
          => IntegralH (AstTensor ms s (TKS sh r)) where
-  quotH = AstI2S QuotOp
-  remH = AstI2S RemOp
+  quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
+  quotH u v = AstI2S QuotOp u v
+  remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
+  remH u v = AstI2S RemOp u v
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r)
          => Fractional (AstTensor ms s (TKS sh r)) where
+  AstFromPrimal u / AstFromPrimal v = AstFromPrimal $ u / v
   u / v = AstR2S DivideOp u v
-  recip = AstR1S RecipOp
+  recip (AstFromPrimal u) = AstFromPrimal (recip u)
+  recip u = AstR1S RecipOp u
   fromRational r = error $ "fromRational not defined for shaped tensors: "
                            ++ show r
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
   pi = error "pi not defined for shaped tensors"
-  exp = AstR1S ExpOp
-  log = AstR1S LogOp
-  sqrt = AstR1S SqrtOp
-  (**) = AstR2S PowerOp
-  logBase = AstR2S LogBaseOp
-  sin = AstR1S SinOp
-  cos = AstR1S CosOp
-  tan = AstR1S TanOp
-  asin = AstR1S AsinOp
-  acos = AstR1S AcosOp
-  atan = AstR1S AtanOp
-  sinh = AstR1S SinhOp
-  cosh = AstR1S CoshOp
-  tanh = AstR1S TanhOp
-  asinh = AstR1S AsinhOp
-  acosh = AstR1S AcoshOp
-  atanh = AstR1S AtanhOp
+  exp (AstFromPrimal u) = AstFromPrimal $ exp u
+  exp u = AstR1S ExpOp u
+  log (AstFromPrimal u) = AstFromPrimal $ log u
+  log u = AstR1S LogOp u
+  sqrt (AstFromPrimal u) = AstFromPrimal $ sqrt u
+  sqrt u = AstR1S SqrtOp u
+  (AstFromPrimal u) ** (AstFromPrimal v) = AstFromPrimal $ u ** v
+  u ** v = AstR2S PowerOp u v
+  logBase (AstFromPrimal u) (AstFromPrimal v) = AstFromPrimal $ logBase u v
+  logBase u v = AstR2S LogBaseOp u v
+  sin (AstFromPrimal u) = AstFromPrimal $ sin u
+  sin u = AstR1S SinOp u
+  cos (AstFromPrimal u) = AstFromPrimal $ cos u
+  cos u = AstR1S CosOp u
+  tan (AstFromPrimal u) = AstFromPrimal $ tan u
+  tan u = AstR1S TanOp u
+  asin (AstFromPrimal u) = AstFromPrimal $ asin u
+  asin u = AstR1S AsinOp u
+  acos (AstFromPrimal u) = AstFromPrimal $ acos u
+  acos u = AstR1S AcosOp u
+  atan (AstFromPrimal u) = AstFromPrimal $ atan u
+  atan u = AstR1S AtanOp u
+  sinh (AstFromPrimal u) = AstFromPrimal $ sinh u
+  sinh u = AstR1S SinhOp u
+  cosh (AstFromPrimal u) = AstFromPrimal $ cosh u
+  cosh u = AstR1S CoshOp u
+  tanh (AstFromPrimal u) = AstFromPrimal $ tanh u
+  tanh u = AstR1S TanhOp u
+  asinh (AstFromPrimal u) = AstFromPrimal $ asinh u
+  asinh u = AstR1S AsinhOp u
+  acosh (AstFromPrimal u) = AstFromPrimal $ acosh u
+  acosh u = AstR1S AcoshOp u
+  atanh (AstFromPrimal u) = AstFromPrimal $ atanh u
+  atanh u = AstR1S AtanhOp u
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKS sh r)) where
-  atan2H = AstR2S Atan2Op
+  atan2H (AstFromPrimal u) (AstFromPrimal v) =
+    AstFromPrimal $ AstR2S Atan2Op u v
+  atan2H u v = AstR2S Atan2Op u v
 
 
 -- * Unlawful numeric instances for mixed AST; lawful modulo evaluation
