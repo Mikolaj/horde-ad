@@ -71,13 +71,13 @@ testTrees =
   , testCase "2foo" testFoo
   , testCase "2fooGradDouble" testGradFooDouble
   , testCase "2fooMatrix" testFooMatrix
-  , testCase "2fooSumMatrix" testfooSumMatrix
   , testCase "2fooGradMatrix" testGradFooMatrix
   , testCase "2fooLetGradMatrixPP" testGradFooLetMatrixPP
   , testCase "2fooGradMatrixVjp" testGradFooMatrixVjp
   , testCase "2fooGradMatrixRev" testGradFooMatrixRev
   , testCase "2fooLetGradMatrixSimpPP" testGradFooLetMatrixSimpPP
   , testCase "2fooLetGradMatrixSimpRPP" testGradFooLetMatrixSimpRPP
+  , testCase "2fooSumMatrix" testfooSumMatrix
   , testCase "2fooGradMatrix2" testGradFooMatrix2
   , testCase "2fooGradMatrixPP" testGradFooMatrixPP
   , testCase "2fooGradMatrixSimpPP" testGradFooMatrixSimpPP
@@ -572,24 +572,14 @@ threeSimpleMatrices :: ThreeMatrices Double
 threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)
 fooMatrixValue :: Matrix2x2 Concrete Double
 fooMatrixValue = foo threeSimpleMatrices
-sumFooMatrix :: (ADReady f, RealFloat (Matrix2x2 f r), GoodScalar r)
-             => (Matrix2x2 f r, Matrix2x2 f r, Matrix2x2 f r) -> f (TKScalar r)
-sumFooMatrix = kfromS . ssum0 . foo
-gradSumFooMatrix :: (Differentiable r, GoodScalar r)  -- GoodScalar means "supported as array element by horde-ad"
-                 => ThreeMatrices r -> ThreeMatrices r
-gradSumFooMatrix = cgrad sumFooMatrix
+gradSumFooMatrix :: ThreeMatrices Double -> ThreeMatrices Double
+gradSumFooMatrix = cgrad (kfromS . ssum0 . foo)
 
 testFooMatrix :: Assertion
 testFooMatrix =
   assertEqualUpToEpsilon 1e-10
     (sfromListLinear [2,2] [4.242393641025528,4.242393641025528,4.242393641025528,4.242393641025528])
     fooMatrixValue
-
-testfooSumMatrix :: Assertion
-testfooSumMatrix =
-  assertEqualUpToEpsilon 1e-10
-    16.96957456410211
-    (sumFooMatrix threeSimpleMatrices)
 
 testGradFooMatrix :: Assertion
 testGradFooMatrix =
@@ -638,6 +628,16 @@ testGradFooLetMatrixSimpRPP = do
   (let ftk = FTKR (2 :$: 2 :$: ZSR) (FTKScalar @Double)
     in printArtifactPretty (simplifyArtifact $ revArtifactAdapt UseIncomingCotangent fooLet (FTKProduct (FTKProduct ftk ftk) ftk)))
        @?= "\\dret m1 -> tfromS (STKProduct (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @2) STKScalar)) (STKR (SNat @2) STKScalar)) (let m3 = sin (sfromR (tproject2 (tproject1 m1))) ; m4 = sfromR (tproject1 (tproject1 m1)) * m3 ; m5 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m4 * m4) ; m7 = (negate (sfromR (tproject2 m1)) * m5) * sfromR dret + sfromR (tproject2 m1) * sfromR dret in tpair (tpair (m3 * m7) (cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m7))) ((m4 * m5) * sfromR dret + m4 * sfromR dret))"
+
+sumFooMatrix :: (ADReady f, RealFloat (Matrix2x2 f r), GoodScalar r)
+             => (Matrix2x2 f r, Matrix2x2 f r, Matrix2x2 f r) -> f (TKScalar r)
+sumFooMatrix = kfromS . ssum0 . foo
+
+testfooSumMatrix :: Assertion
+testfooSumMatrix =
+  assertEqualUpToEpsilon 1e-10
+    16.96957456410211
+    (sumFooMatrix threeSimpleMatrices)
 
 foo2 :: RealFloatH a => (a, a, a) -> a
 foo2 (x, y, z) =
