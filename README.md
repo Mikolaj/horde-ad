@@ -47,20 +47,11 @@ sfromListLinear [2,2] [4.242393641025528,4.242393641025528,4.242393641025528,4.2
 ```
 
 Instantiated to matrices, `foo` now returns a matrix, not a scalar &mdash; but a gradient can only be computed of a function that returns a scalar.
-Thus, let's define `sumFooMatrix` which sums the output of `foo`: (note that `ssum0` returns a zero-dimensional array; `kfromS` extracts the (single) scalar from that)
-```hs
-sumFooMatrix :: (ADReady f, RealFloat (Matrix2x2 f r), GoodScalar r)
-             => (Matrix2x2 f r, Matrix2x2 f r, Matrix2x2 f r) -> f (TKScalar r)
-sumFooMatrix = kfromS . ssum0 . foo
->>> sumFooMatrix threeSimpleMatrices
-16.96957456410211
-```
-
-For this function we can compute the gradient as follows:
+Thus, let's sums all the output of `foo` and compute the gradient as follows: (note that `ssum0` returns a zero-dimensional array; `kfromS` extracts the (single) scalar from that)
 ```hs
 gradSumFooMatrix :: (Differentiable r, GoodScalar r)  -- GoodScalar means "supported as array element by horde-ad"
                  => ThreeMatrices r -> ThreeMatrices r
-gradSumFooMatrix = cgrad sumFooMatrix
+gradSumFooMatrix = cgrad (kfromS . ssum0 . foo)
 ```
 
 This works as well as before:
@@ -107,8 +98,7 @@ The gradient program presented below with additional formatting looks like ordin
          ((m4 * m5) * dret + m4 * dret)"
 ```
 
-A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value is the same as it would be for augmented `fooLet` evaluated by `cgrad` on the same input, as long as the incoming cotangent supplied for the interpretation consists of ones in all array cells, which is denoted by `srepl 1`:
-
+A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. (Note that the output happens to be the same as `gradSumFooMatrix threeSimpleMatrices` above, which used `cgrad` on `kfromS . ssum0 . foo`; the reason is that `srepl 1.0` happens to be the reverse derivative of `kfromS . ssum0`.)
 ```hs
 >>> vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1)
 ((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeConcreteMatrices Double)
