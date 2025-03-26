@@ -49,8 +49,7 @@ sfromListLinear [2,2] [4.242393641025528,4.242393641025528,4.242393641025528,4.2
 Instantiated to matrices, `foo` now returns a matrix, not a scalar &mdash; but a gradient can only be computed of a function that returns a scalar.
 Thus, let's sums all the output of `foo` and compute the gradient as follows: (note that `ssum0` returns a zero-dimensional array; `kfromS` extracts the (single) scalar from that)
 ```hs
-gradSumFooMatrix :: (Differentiable r, GoodScalar r)  -- GoodScalar means "supported as array element by horde-ad"
-                 => ThreeMatrices r -> ThreeMatrices r
+gradSumFooMatrix :: ThreeMatrices Double -> ThreeMatrices Double
 gradSumFooMatrix = cgrad (kfromS . ssum0 . foo)
 ```
 
@@ -68,7 +67,7 @@ In `cgrad`, such sharing is preserved, so `w` is processed only once during grad
 In this case, however, sharing is _not_ automatically preserved, so shared variables have to be explicitly marked using `tlet`, as shown below in `fooLet`.
 This also makes the type of the function more specific: it now does not work on an arbitrary `Num` any more, but instead on an arbitrary `horde-ad` tensor that implements arithmetic operations like `atan2H`.
 ```hs
-fooLet :: (RealFloatH (f r), LetTensor f)
+fooLet :: (RealFloatH (f r), ADReady f)  -- ADReady means the container type supports AD
        => (f r, f r, f r) -> f r
 fooLet (x, y, z) =
   tlet (x * sin y) $ \w ->
@@ -152,6 +151,7 @@ convMnistTwoS
      ( 1 <= kh  -- kernel height is large enough
      , 1 <= kw  -- kernel width is large enough
      , ADReady target, GoodScalar r, Differentiable r )
+         -- GoodScalar means "supported as array element by horde-ad"
   => SNat kh -> SNat kw -> SNat h -> SNat w
   -> SNat c_out -> SNat n_hidden -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
