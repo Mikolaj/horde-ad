@@ -86,7 +86,7 @@ fooLet (x, y, z) =
 
 ### Vector-Jacobian product (VJP)
 
-The most general symbolic gradient program for this function can be obtained using the `vjpArtifact` tool. We are using `fooLet` without `ssum0` this time, because the `vjp` family of tools by convention permits non-scalar codomains (but expects an incoming cotangent argument to compensate, visible in the code below as `dret`).
+The most general symbolic gradient program for this function can be obtained using the `vjpArtifact` tool. Because the `vjp` family of tools permits non-scalar codomains (but expects an incoming cotangent argument to compensate, visible in the code below as `dret`), we illustrate it using the original `fooLet`, without `ssum0`.
 ```hs
 artifact :: AstArtifactRev (X (ThreeConcreteMatrices Double)) (TKS '[2, 2] Double)
 artifact = vjpArtifact fooLet threeSimpleMatrices
