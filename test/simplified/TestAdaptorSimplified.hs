@@ -746,7 +746,7 @@ testTrustVstackConcatReplIota10 = do
   @?= rfromListLinear [10] [2.0,5.0,11.0,17.0,23.0,29.0,35.0,41.0,47.0,33.0]
 
 nN :: Int
-nN = (round :: Double -> Int) 1e5  -- 1e5
+nN = (round :: Double -> Int) 1e6  -- 1e6
 
 trustedResult :: Concrete (TKR 1 Double)
 trustedResult =
@@ -804,9 +804,9 @@ testVstackBuildAstPP = do
      (simplifyInlineContract
         (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
                      (replIota 10))))
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 33.0), sconcrete (sfromListLinear [10] [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]) + (sgather (sconcrete (sfromListLinear [10] [0.0,2.0,4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0])) (\\[i4] -> [1 + i4]) + sgather (sconcrete (sfromListLinear [10] [0.0,3.0,6.0,9.0,12.0,15.0,18.0,21.0,24.0,27.0])) (\\[i4] -> [(-1) + i4]))])) (\\[i6] -> [ifH (i6 ==. 9) 0 1, i6])])) (\\[i5] -> [ifH (i5 ==. 0) 0 1, i5]))"
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @10 (sscalar 2.0), sgather (sfromVector (fromList [sreplicate @10 (sscalar 33.0), sconcrete (sfromListLinear [10] [2.0,5.0,11.0,17.0,23.0,29.0,35.0,41.0,47.0,33.0])])) (\\[i6] -> [ifH (i6 ==. 9) 0 1, i6])])) (\\[i5] -> [ifH (i5 ==. 0) 0 1, i5]))"
 
-{- The above is:
+{- The above two are:
 rfromS
   (sgather
      (sfromVector
@@ -823,13 +823,32 @@ rfromS
                              (sfromListLinear
                                 [10]
                                 [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0]))
-                          (\[i4] -> [1 + i4]) +
+                          (\[i1] -> [1 + i1]) +
                         sgather
                           (sconcrete
                              (sfromListLinear
                                 [10]
                                 [0.0, 3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 21.0, 24.0, 27.0]))
-                          (\[i4] -> [(-1) + i4]))
+                          (\[i1] -> [(-1) + i1]))
+                     ]))
+               (\[i3] -> [ifH (i3 ==. 9) 0 1, i3])
+           ]))
+     (\[i2] -> [ifH (i2 ==. 0) 0 1, i2]))
+
+
+rfromS
+  (sgather
+     (sfromVector
+        (fromList
+           [ sreplicate @10 (sscalar 2.0)
+           , sgather
+               (sfromVector
+                  (fromList
+                     [ sreplicate @10 (sscalar 33.0)
+                     , sconcrete
+                         (sfromListLinear
+                            [10]
+                            [2.0, 5.0, 11.0, 17.0, 23.0, 29.0, 35.0, 41.0, 47.0, 33.0])
                      ]))
                (\[i6] -> [ifH (i6 ==. 9) 0 1, i6])
            ]))

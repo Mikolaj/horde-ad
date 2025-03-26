@@ -76,6 +76,7 @@ import GHC.TypeLits
   , type (+)
   , type (-)
   , type (<=)
+  , type (<=?)
   )
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
@@ -3133,6 +3134,69 @@ contractAst t = case t of
     astIndexS shn (contractAst v) (contractAstIxS ix)
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     astScatterS @shm @shn @shp shn (contractAst v) (vars, contractAstIxS ix)
+  Ast.AstGatherS shn v ( (::$) @m (Const varm) mrest
+                       , (:.$) @p (AstIntVar varp) prest )
+    | varm == varp
+    , valueOf @m /= (valueOf @p :: Int)  -- otherwise leave for astGatherKnobsS
+    , FTKS _ x <- ftkAst v ->
+      withSNat (min (valueOf @p) (valueOf @m)) $ \ (SNat @m2) ->
+        gcastWith (unsafeCoerceRefl :: (m2 <=? p) :~: True) $
+        gcastWith (unsafeCoerceRefl :: (m2 <=? m) :~: True) $
+        let v2 = Ast.AstSliceS (SNat @0) (SNat @m2) (SNat @(p - m2)) v
+            ftk = FTKS (SNat @(m - m2) :$$ listsToShS mrest `shsAppend` shn) x
+        in contractAst
+           $ Ast.AstGatherS  -- now m2 and p2 are equal
+               shn v2 ((::$) @m2 (Const varm) mrest, AstIntVar varp :.$ prest)
+             `Ast.AstAppendS`
+             fromPrimal (astConcrete ftk (tdefTarget ftk))
+  Ast.AstGatherS shn v
+                 (vars, AstPlusK i1@AstIntVar{} (AstConcreteK i64) :.$ prest)
+    | FTKS (SNat @p :$$ _) x <- ftkAst v
+    , i64 >= 0 ->
+      withSNat (fromIntegral i64) $ \ (SNat @i) ->
+        if i64 > valueOf @p
+        then
+          let ftk = FTKS (listsToShS vars `shsAppend` shn) x
+          in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        else
+          gcastWith (unsafeCoerceRefl :: (i <=? p) :~: True) $
+          let v2 = Ast.AstSliceS (SNat @i) (SNat @(p - i)) (SNat @0) v
+          in contractAst $ Ast.AstGatherS shn v2 (vars, i1 :.$ prest)
+               -- this gather may still index out of bounds, which is fine
+  Ast.AstGatherS shn v
+                 (vars, AstPlusK i1@AstIntVar{} (AstConcreteK i64) :.$ prest)
+    | FTKS _ x <- ftkAst v ->  -- i64 < 0
+      withSNat (negate $ fromIntegral i64) $ \ (SNat @i) ->
+        let ftk = FTKS (SNat @i :$$ ixsToShS prest `shsAppend` shn) x
+            v2 = fromPrimal (astConcrete ftk (tdefTarget ftk))
+                 `Ast.AstAppendS`
+                 v
+        in contractAst $ Ast.AstGatherS shn v2 (vars, i1 :.$ prest)
+             -- this gather may still index out of bounds, which is fine
+  Ast.AstGatherS shn v
+                 (vars, AstPlusK (AstConcreteK i64) i1@AstIntVar{} :.$ prest)
+    | FTKS (SNat @p :$$ _) x <- ftkAst v
+    , i64 >= 0 ->
+      withSNat (fromIntegral i64) $ \ (SNat @i) ->
+        if i64 > valueOf @p
+        then
+          let ftk = FTKS (listsToShS vars `shsAppend` shn) x
+          in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        else
+          gcastWith (unsafeCoerceRefl :: (i <=? p) :~: True) $
+          let v2 = Ast.AstSliceS (SNat @i) (SNat @(p - i)) (SNat @0) v
+          in contractAst $ Ast.AstGatherS shn v2 (vars, i1 :.$ prest)
+               -- this gather may still index out of bounds, which is fine
+  Ast.AstGatherS shn v
+                 (vars, AstPlusK (AstConcreteK i64) i1@AstIntVar{} :.$ prest)
+    | FTKS _ x <- ftkAst v ->  -- i64 < 0
+      withSNat (negate $ fromIntegral i64) $ \ (SNat @i) ->
+        let ftk = FTKS (SNat @i :$$ ixsToShS prest `shsAppend` shn) x
+            v2 = fromPrimal (astConcrete ftk (tdefTarget ftk))
+                 `Ast.AstAppendS`
+                 v
+        in contractAst $ Ast.AstGatherS shn v2 (vars, i1 :.$ prest)
+             -- this gather may still index out of bounds, which is fine
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     astGatherS @shm @shn @shp shn (contractAst v) (vars, contractAstIxS ix)
 {- TODO, but sbuild is tricky, so only if benchmarks show it's worth it:
