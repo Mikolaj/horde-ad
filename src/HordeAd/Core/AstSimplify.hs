@@ -1857,7 +1857,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
           gcastWith (lemRankMapJust $ shsTakeLen perm sh) $
           gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
           permInverse perm
-          $ \ (invperm :: Nested.Perm invperm) proof ->
+          $ \(invperm :: Nested.Perm invperm) proof ->
             case proof (ssxFromShape $ shCvtSX $ shsTakeLen perm sh) of
               Refl ->
                 -- from PermutePrefix and ranks:
@@ -1957,6 +1957,8 @@ astAppendS :: AstSpan s
            => AstTensor AstMethodLet s (TKS2 (m ': sh) r)
            -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
            -> AstTensor AstMethodLet s (TKS2 ((m + n) ': sh) r)
+astAppendS u v | FTKS (SNat' @0 :$$ _) _ <- ftkAst u = v
+astAppendS u v | FTKS (SNat' @0 :$$ _) _ <- ftkAst v = u
 astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
            (Ast.AstFromVector (SNat @k2) STKS{} l2) =
   astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2
@@ -3134,12 +3136,74 @@ contractAst t = case t of
     astIndexS shn (contractAst v) (contractAstIxS ix)
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     astScatterS @shm @shn @shp shn (contractAst v) (vars, contractAstIxS ix)
+  Ast.AstGatherS shn v (vars, Ast.AstCond b i1 i2 :.$ prest)
+    | not $ any ((`varInAstBool` b) . varNameToAstVarId) (listsToList vars) ->
+      contractAst
+      $ Ast.AstCond
+          b
+          (Ast.AstGatherS shn (Ast.AstIndexS (ixsToShS prest `shsAppend` shn)
+                                             v (i1 :.$ ZIS)) (vars, prest))
+          (Ast.AstGatherS shn (Ast.AstIndexS (ixsToShS prest `shsAppend` shn)
+                                             v (i2 :.$ ZIS)) (vars, prest))
+  Ast.AstGatherS
+    shn v ( vars@((::$) @m (Const varm) mrest)
+          , Ast.AstCond (Ast.AstRelK EqOp (Ast.AstVar varp)
+                                          (AstConcreteK @r j)) i1 i2
+            :.$ ZIS )
+    | varNameToAstVarId varm == varNameToAstVarId varp
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) ->
+      if j < 0 || j > valueOf @m - 1
+      then
+        Ast.AstGatherS shn v (vars, i2 :.$ ZIS)
+      else
+        withSNat (fromIntegral j) $ \(SNat @j) ->
+        gcastWith (unsafeCoerceRefl :: (j + 1 <=? m) :~: True) $
+        contractAst
+        $ Ast.AstGatherS
+            shn (Ast.AstIndexS shn v (i2 :.$ ZIS))
+            ((::$) @j (Const varm) mrest, ZIS)
+          `Ast.AstAppendS`
+          Ast.AstGatherS
+            shn (Ast.AstIndexS shn v (i1 :.$ ZIS))
+            ((::$) @1 (Const varm) mrest, ZIS)
+          `Ast.AstAppendS`
+          Ast.AstGatherS
+            shn (Ast.AstIndexS shn v (i2 :.$ ZIS))
+            ((::$) @(m - (j + 1)) (Const varm) mrest, ZIS)
+  -- TODO: fix AstIntVar to be usable here (maybe look at SNat'?),
+  Ast.AstGatherS
+    shn v ( vars@((::$) @m (Const varm) mrest)
+          , Ast.AstCond (Ast.AstRelK EqOp (Ast.AstVar varp)
+                                          (AstConcreteK @r j)) i1 i2
+            :.$ prest@(i3 :.$ prest3) )
+    | varNameToAstVarId varm == varNameToAstVarId varp
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) ->
+      if j < 0 || j > valueOf @m - 1
+      then
+        Ast.AstGatherS shn v (vars, i2 :.$ prest)
+      else
+        withSNat (fromIntegral j) $ \(SNat @j) ->
+        gcastWith (unsafeCoerceRefl :: (j + 1 <=? m) :~: True) $
+        contractAst
+        $ Ast.AstGatherS
+            shn (Ast.AstIndexS (ixsToShS prest `shsAppend` shn) v (i2 :.$ ZIS))
+            ((::$) @j (Const varm) mrest, prest)
+          `Ast.AstAppendS`
+          Ast.AstGatherS
+            shn (Ast.AstIndexS (ixsToShS prest `shsAppend` shn) v (i1 :.$ ZIS))
+            ( (::$) @1 (Const varm) mrest
+            , AstPlusK (AstConcreteK j) i3 :.$ prest3)
+          `Ast.AstAppendS`
+          Ast.AstGatherS
+            shn (Ast.AstIndexS (ixsToShS prest `shsAppend` shn) v (i2 :.$ ZIS))
+            ( (::$) @(m - (j + 1)) (Const varm) mrest
+            , AstPlusK (AstConcreteK $ j + 1) i3 :.$ prest3 )
   Ast.AstGatherS shn v ( (::$) @m (Const varm) mrest
                        , (:.$) @p (AstIntVar varp) prest )
     | varm == varp
     , valueOf @m /= (valueOf @p :: Int)  -- otherwise leave for astGatherKnobsS
     , FTKS _ x <- ftkAst v ->
-      withSNat (min (valueOf @p) (valueOf @m)) $ \ (SNat @m2) ->
+      withSNat (min (valueOf @p) (valueOf @m)) $ \(SNat @m2) ->
         gcastWith (unsafeCoerceRefl :: (m2 <=? p) :~: True) $
         gcastWith (unsafeCoerceRefl :: (m2 <=? m) :~: True) $
         let v2 = Ast.AstSliceS (SNat @0) (SNat @m2) (SNat @(p - m2)) v
@@ -3150,10 +3214,10 @@ contractAst t = case t of
              `Ast.AstAppendS`
              fromPrimal (astConcrete ftk (tdefTarget ftk))
   Ast.AstGatherS shn v
-                 (vars, AstPlusK i1@AstIntVar{} (AstConcreteK i64) :.$ prest)
+                 (vars, AstPlusK i1 (AstConcreteK i64) :.$ prest)
     | FTKS (SNat @p :$$ _) x <- ftkAst v
     , i64 >= 0 ->
-      withSNat (fromIntegral i64) $ \ (SNat @i) ->
+      withSNat (fromIntegral i64) $ \(SNat @i) ->
         if i64 > valueOf @p
         then
           let ftk = FTKS (listsToShS vars `shsAppend` shn) x
@@ -3164,9 +3228,9 @@ contractAst t = case t of
           in contractAst $ Ast.AstGatherS shn v2 (vars, i1 :.$ prest)
                -- this gather may still index out of bounds, which is fine
   Ast.AstGatherS shn v
-                 (vars, AstPlusK i1@AstIntVar{} (AstConcreteK i64) :.$ prest)
+                 (vars, AstPlusK i1 (AstConcreteK i64) :.$ prest)
     | FTKS _ x <- ftkAst v ->  -- i64 < 0
-      withSNat (negate $ fromIntegral i64) $ \ (SNat @i) ->
+      withSNat (negate $ fromIntegral i64) $ \(SNat @i) ->
         let ftk = FTKS (SNat @i :$$ ixsToShS prest `shsAppend` shn) x
             v2 = fromPrimal (astConcrete ftk (tdefTarget ftk))
                  `Ast.AstAppendS`
@@ -3174,10 +3238,10 @@ contractAst t = case t of
         in contractAst $ Ast.AstGatherS shn v2 (vars, i1 :.$ prest)
              -- this gather may still index out of bounds, which is fine
   Ast.AstGatherS shn v
-                 (vars, AstPlusK (AstConcreteK i64) i1@AstIntVar{} :.$ prest)
+                 (vars, AstPlusK (AstConcreteK i64) i1 :.$ prest)
     | FTKS (SNat @p :$$ _) x <- ftkAst v
     , i64 >= 0 ->
-      withSNat (fromIntegral i64) $ \ (SNat @i) ->
+      withSNat (fromIntegral i64) $ \(SNat @i) ->
         if i64 > valueOf @p
         then
           let ftk = FTKS (listsToShS vars `shsAppend` shn) x
@@ -3188,9 +3252,9 @@ contractAst t = case t of
           in contractAst $ Ast.AstGatherS shn v2 (vars, i1 :.$ prest)
                -- this gather may still index out of bounds, which is fine
   Ast.AstGatherS shn v
-                 (vars, AstPlusK (AstConcreteK i64) i1@AstIntVar{} :.$ prest)
+                 (vars, AstPlusK (AstConcreteK i64) i1 :.$ prest)
     | FTKS _ x <- ftkAst v ->  -- i64 < 0
-      withSNat (negate $ fromIntegral i64) $ \ (SNat @i) ->
+      withSNat (negate $ fromIntegral i64) $ \(SNat @i) ->
         let ftk = FTKS (SNat @i :$$ ixsToShS prest `shsAppend` shn) x
             v2 = fromPrimal (astConcrete ftk (tdefTarget ftk))
                  `Ast.AstAppendS`
