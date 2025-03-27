@@ -1,5 +1,5 @@
 {-# LANGUAGE QuantifiedConstraints #-}
--- | The environment and operations for extending it.
+-- | The environment datatype and operations for creating and accessing it.
 module HordeAd.Core.AstEnv
   ( AstEnv, emptyEnv, showsPrecAstEnv
   , extendEnv, extendEnvI, extendEnvVarsS
@@ -22,7 +22,8 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
--- | The environment that keeps variables values during interpretation
+-- | The environment that keeps values assigned to variables
+-- during interpretation.
 type AstEnv :: Target -> Type
 type AstEnv target = DEnumMap (AstVarName FullSpan) target
   -- We can't easily index over span and tensor kind at once,

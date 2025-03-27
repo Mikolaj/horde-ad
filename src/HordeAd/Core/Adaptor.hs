@@ -1,11 +1,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Adaptors for working with types of collections of tensors
--- that are isomorphic to products, that is, tuples, sized lists
--- and user types of statically known size, as long as they have
--- the proper instances defined.
---
+-- | Adaptors for working with types of collections of tensors,
+-- e.g., tuples, sized lists and user types of statically known size,
+-- as long as they have the proper instances defined.
 -- The collections are used as representations of the domains
 -- of objective functions that become the codomains of the reverse
 -- derivative functions and also to handle multiple arguments
@@ -43,14 +41,20 @@ import HordeAd.Core.Types
 -- * Adaptor classes
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
+--
+-- | The class that makes it possible to treat @vals@ (e.g., a tuple of tensors)
+-- as a @target@-based (e.g., concrete or symbolic) value
+-- of tensor kind @X vals@.
 class AdaptableTarget (target :: Target) vals where
-  type X vals :: TK
+  type X vals :: TK  -- ^ what tensor kind represents the collection
   toTarget :: vals -> target (X vals)
     -- ^ represent a collection of tensors
   fromTarget :: target (X vals) -> vals
     -- ^ recovers a collection of tensors from its canonical representation;
     --   requires a duplicable argument
 
+-- | An embedding of a concrete collection of tensors to a non-concrete
+-- counterpart of the same shape and containing the same data.
 class TermValue vals where
   type Value vals = result | result -> vals
     -- ^ a helper type, with the same general shape,
@@ -59,6 +63,10 @@ class TermValue vals where
     -- of type applications the library user has to supply
   fromValue :: Value vals -> vals  -- ^ an embedding
 
+-- | An embedding of a concrete collection of tensors to a non-concrete
+-- counterpart of the same shape and containing the same data.
+-- This variant is possible to define more often, but the associated
+-- type family is not injective.
 class DualNumberValue vals where
   type DValue vals
     -- ^ a helper type, with the same general shape,

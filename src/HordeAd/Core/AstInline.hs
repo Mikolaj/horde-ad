@@ -2,7 +2,7 @@
 module HordeAd.Core.AstInline
   ( -- * Inlining
     inlineAst
-    -- * The translation of global sharing to local lets
+    -- * Translation of global sharing to local lets
   , unshareAstTensor
   ) where
 
@@ -33,6 +33,7 @@ import HordeAd.Core.Types
 
 type AstMemo = EM.EnumMap AstVarId Int
 
+-- | This inlines 'AstLet', traversing the term bottom-up.
 inlineAst
   :: forall s y. AstSpan s
   => AstMemo -> AstTensor AstMethodLet s y
@@ -253,7 +254,7 @@ inlineAstBool memo v0 = case v0 of
     in (memo2, Ast.AstRelS opCodeRel r1 r2)
 
 
--- * The translates global sharing to normal lets
+-- * Translation of global sharing to normal lets
 
 type AstBindings = DEnumMap (AstVarName PrimalSpan)
                             (AstTensor AstMethodLet PrimalSpan)
@@ -270,6 +271,7 @@ bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
             -> AstTensor AstMethodLet s y
   bindToLet !u (var :=> w) = Ast.AstLet var w u
 
+-- | This replaces 'AstShare' with 'AstLet', traversing the term bottom-up.
 unshareAstTensor :: AstTensor AstMethodShare PrimalSpan y
                  -> AstTensor AstMethodLet PrimalSpan y
 unshareAstTensor tShare =

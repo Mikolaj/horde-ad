@@ -32,8 +32,9 @@ unsafeAstVarCounter :: Counter
 {-# NOINLINE unsafeAstVarCounter #-}
 unsafeAstVarCounter = unsafePerformIO (newCounter 100000001)
 
--- | Only for tests, e.g., to ensure show applied to terms has stable length.
--- Tests using this need to be run with -ftest_seq to avoid variable confusion.
+-- | Only for tests, e.g., to ensure `show` applied to terms has stable length.
+-- Tests that use this tool need to be run sequentially
+-- to avoid variable confusion.
 resetVarCounter :: IO ()
 resetVarCounter = writeIORefU unsafeAstVarCounter 100000001
 

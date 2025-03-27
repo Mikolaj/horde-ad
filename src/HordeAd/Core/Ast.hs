@@ -1,28 +1,31 @@
--- | AST of the code built using the horde-ad operations as specified
--- in the 'BaseTensor' class and elsewhere.
+-- | AST of corresponding to the horde-ad operations specified
+-- in the 'BaseTensor' class and others.
 -- The AST is essential for efficient handling of second order operations
 -- such as build and map via BOT (bulk-operation transformation),
--- and fold and mapAccum via symbolic nested derivatives
--- and for producing reusable reverse derivative terms.
--- It also enables other code transformations,
--- such as simplification, fusion and inlining.
+-- and fold and mapAccum via symbolic nested derivatives.
+-- It also permits producing reusable reverse derivative terms,
+-- which can be simplified, fused, inlined once and then
+-- interpreted many times.
 --
 -- Note that Ast* modules rarely depend on Ops* and Carriers* modules
--- (except AstInterpret and AstEnv that describe how to go from Ast to Ops
--- and vice versa (except OpsAst and CarriersAst that describe how to
--- define Ops in terms of Ast). Syntax is relatively separated
--- from semantics and they meet in the interpreter (AstInterpret)
--- and in the semantic model constructed from syntax (OpsAst).
+-- (except for "HordeAd.Core.AstInterpret" and "HordeAd.Core.AstEnv"
+-- that describe how to go from Ast to Ops). Similarly, Ops* and Carriers*
+-- modules rarely depend on Ast* modules
+-- (except for "HordeAd.Core.OpsAst" and "HordeAd.Core.CarriersAst"
+-- that describe how to define Ops in terms of Ast).
+-- Syntax is relatively separated from semantics and they meet
+-- in the interpreter ("HordeAd.Core.AstInterpret")
+-- and in the semantic model constructed from syntax ("HordeAd.Core.OpsAst").
 module HordeAd.Core.Ast
   ( -- * The AstSpan tags and class
     AstSpanType(..), AstSpan(..), sameAstSpan
-    -- * Variables and related type synonyms
+    -- * Variables and related types
   , AstVarId, intToAstVarId
   , AstInt, IntVarName, pattern AstIntVar
   , AstVarName, mkAstVarName, varNameToAstVarId, varNameToFTK
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIxS, AstVarListS
-    -- * ASTs
+    -- * AST
   , AstMethodOfSharing(..), AstTensor(..)
   , AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCode1(..), OpCode2(..)
@@ -92,7 +95,7 @@ sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = testEquality (typeRep @s1) (typeRep @s2)
 
 
--- * More and less typed variables and related type synonyms
+-- * Variables and related types
 
 newtype AstVarId = AstVarId Int
  deriving (Eq, Ord, Show, Enum)
@@ -128,7 +131,7 @@ varNameToAstVarId (AstVarName _ varId) = varId
 varNameToFTK :: AstVarName s y -> FullShapeTK y
 varNameToFTK (AstVarName ftk _) = ftk
 
--- The reverse derivative artifact from step 6) of our full pipeline.
+-- | The reverse derivative artifact.
 type role AstArtifactRev nominal nominal
 data AstArtifactRev x z = AstArtifactRev
   { artVarDtRev      :: AstVarName PrimalSpan (ADTensorKind z)
@@ -137,7 +140,7 @@ data AstArtifactRev x z = AstArtifactRev
   , artPrimalRev     :: AstTensor AstMethodLet PrimalSpan z
   }
 
--- The forward derivative artifact.
+-- | The forward derivative artifact.
 type role AstArtifactFwd nominal nominal
 data AstArtifactFwd x z = AstArtifactFwd
   { artVarDsFwd      :: AstVarName PrimalSpan (ADTensorKind x)
@@ -442,10 +445,10 @@ data AstBool ms where
           -> AstTensor ms PrimalSpan (TKScalar r)
           -> AstBool ms
   AstRelS :: forall sh r ms. GoodScalar r
-         => OpCodeRel
-         -> AstTensor ms PrimalSpan (TKS sh r)
-         -> AstTensor ms PrimalSpan (TKS sh r)
-         -> AstBool ms
+          => OpCodeRel
+          -> AstTensor ms PrimalSpan (TKS sh r)
+          -> AstTensor ms PrimalSpan (TKS sh r)
+          -> AstBool ms
 deriving instance Show (AstBool ms)
 
 data OpCodeNum1 =
