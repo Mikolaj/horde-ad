@@ -1164,7 +1164,12 @@ reluPrimal
 reluPrimal v =
   let oneIfGtZero = rmap0N (\x -> ifH (x <=. rscalar 0) (rscalar 0.0) (rscalar 1.0))
                            (rprimalPart v)
-  in scale oneIfGtZero v
+  in scale2 oneIfGtZero v
+
+scale2 :: forall target r n.
+          (ADReady target, GoodScalar r, KnownNat n)
+       => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKR n r)
+scale2 a d = rfromPrimal @target a * d
 
 testReluPP :: Assertion
 testReluPP = do

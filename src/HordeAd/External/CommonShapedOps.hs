@@ -1,7 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Commonly used operations on tensors.
+-- | Commonly used operations on shaped tensors.
 module HordeAd.External.CommonShapedOps
   ( module HordeAd.External.CommonShapedOps
   ) where
@@ -67,27 +67,25 @@ sfromIndex1 | SNat <- shsRank (knownShS @sh) =
 {-
 sletIx :: forall r sh n target.
           (ADReady target, GoodScalar r, KnownShS sh, KnownNat n)
-       => IxROf target n -> (IxROf target n -> target (TKS sh r)) -> target (TKS sh r)
+       => IxROf target n -> (IxROf target n -> target (TKS sh r))
+       -> target (TKS sh r)
 sletIx ix0 f = tlet (sfromR @target @Int64 @'[n]
                      $ rint64FromIndex1 ix0) $ \ixT ->
                  f $ rint64ToIndex1 $ rfromS @target ixT
 -}
-
-scaleS :: forall target r sh.
-          (KnownShS sh, ADReady target, GoodScalar r)
-       => PrimalOf target (TKS sh r) -> target (TKS sh r) -> target (TKS sh r)
-scaleS a d = sfromPrimal a * d
 
 reluS, reluLeakyS
   :: forall target sh r.
      (KnownShS sh, ADReady target, GoodScalar r, Differentiable r)
   => target (TKS sh r) -> target (TKS sh r)
 reluS v0 = tlet v0 $ \v ->
-  let oneIfGtZero = smap0N (\x -> ifH (x <=. sscalar 0) (sscalar 0.0) (sscalar 1.0)) v
+  let oneIfGtZero =
+        smap0N (\x -> ifH (x <=. sscalar 0) (sscalar 0.0) (sscalar 1.0)) v
   in oneIfGtZero * v
 
 reluLeakyS v0 = tlet v0 $ \v ->
-  let oneIfGtZero = smap0N (\x -> ifH (x <=. sscalar 0) (sscalar 00.01) (sscalar 01.0)) v
+  let oneIfGtZero =
+        smap0N (\x -> ifH (x <=. sscalar 0) (sscalar 00.01) (sscalar 01.0)) v
   in oneIfGtZero * v
 
 logisticS :: forall target r sh.
@@ -125,15 +123,15 @@ lossCrossEntropyVS :: ( KnownShS sh, GoodScalar r, Differentiable r
                    -> target (TKScalar r)
 lossCrossEntropyVS targ res = kfromS $ negate $ log res `sdot0` targ
 
--- Note that this is equivalent to a composition of softMax and cross entropy
--- only when @target@ is one-hot. Otherwise, results vary wildly. In our
+-- | Note that this is equivalent to a composition of softMax and cross entropy
+-- only when @expected@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyS
   :: forall target sh r.
      ( ADReady target, ADReady (PrimalOf target), GoodScalar r, KnownShS sh
      , Differentiable r )
   => PrimalOf target (TKS sh r) -> target (TKS sh r) -> target (TKScalar r)
-lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
+lossSoftMaxCrossEntropyS expected d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by QuickCheck tests to avoid NaNs, etc., for argument
   -- values we don't fully control.
@@ -148,11 +146,11 @@ lossSoftMaxCrossEntropyS target d' = tlet d' $ \d ->
           in sreplicate0N recipSum * expU
   in ttletPrimal softMaxU0 $ \softMaxU -> kfromS $
     tD knownSTK
-       (negate $ log softMaxU `sdot0` target)
+       (negate $ log softMaxU `sdot0` expected)
          -- TODO: avoid: log . exp
-       (sdualPart $ sfromPrimal (softMaxU - target) `sdot0` d)
+       (sdualPart $ sfromPrimal (softMaxU - expected) `sdot0` d)
 
--- No padding; remaining areas ignored.
+-- | No padding; remaining areas ignored.
 maxPool1S :: forall ksize stride m target r.
              ( ADReady target, GoodScalar r
              , KnownNat ksize, KnownNat stride, KnownNat m )

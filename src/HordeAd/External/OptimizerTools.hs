@@ -57,7 +57,7 @@ updateWithGradient gamma stk p@(Concrete params)
           (updateWithGradient gamma stk2 (tproject2 p) (tproject2 g))
   _ -> error "updateWithGradient: only non-nested arrays supported"
          -- we could support nested arrays, but some new unwinding code
-         -- woudl be needed here and for Adam, with no existing use case
+         -- would be needed here and for Adam, with no existing use case
 
 {- there are mostly for debugging
 gradientIsNil :: (Eq r) => HVector Concrete -> Bool

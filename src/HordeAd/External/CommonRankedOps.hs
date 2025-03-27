@@ -1,7 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Commonly used operations on tensors.
+-- | Commonly used ranked operations on tensors.
 module HordeAd.External.CommonRankedOps
   ( module HordeAd.External.CommonRankedOps
   ) where
@@ -46,19 +44,23 @@ rminimum :: forall target n r.
          => target (TKR n r) -> target (TKR 0 r)
 -- The let is required to preserve the sharing of the argument, which is
 -- used twice: in rminIndex and in rindex0.
-rminimum t0 = tlet t0 $ \t ->
-                rindex0 t $ fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
-                                          (rshape t)
-                                          (tprimalPart @target $ kfromR $ rminIndex (rflatten t))
+rminimum t0 =
+  tlet t0 $ \t ->
+    rindex0 t
+    $ fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
+                    (rshape t)
+                    (tprimalPart @target $ kfromR $ rminIndex (rflatten t))
 
 rmaximum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
             , KnownNat n, GoodScalar r )
          => target (TKR n r) -> target (TKR 0 r)
-rmaximum t0 = tlet t0 $ \t ->
-                rindex0 t $ fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
-                                          (rshape t)
-                                          (tprimalPart @target $ kfromR $ rmaxIndex (rflatten t))
+rmaximum t0 =
+  tlet t0 $ \t ->
+    rindex0 t
+    $ fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
+                    (rshape t)
+                    (tprimalPart @target $ kfromR $ rmaxIndex (rflatten t))
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, ConvertTensor target, GoodScalar r)
@@ -72,7 +74,8 @@ rfromIndex1 :: forall n r target.
             => IxROf target n -> target (TKR 1 r)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
-  _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList . map rfromK . toList
+  _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList
+       . map rfromK . toList
 
 {-
 rint64FromIndex1 :: forall n target.
@@ -92,28 +95,23 @@ rint64ToIndex1 v = listToIndex $ runravelToList $ rprimalPart v
 tletIx :: ( KnownNat n, KnownNat m, GoodScalar r
           , BaseTensor target, BaseTensor (PrimalOf target)
           , LetTensor target )
-       => IxROf target n -> (IxROf target n -> target (TKR m r)) -> target (TKR m r)
+       => IxROf target n -> (IxROf target n -> target (TKR m r))
+       -> target (TKR m r)
 tletIx ix0 f = tlet (rint64FromIndex1 ix0) $ \ixT -> f $ rint64ToIndex1 ixT
 -}
-
-scale :: forall target r n.
-         (ADReady target, GoodScalar r, KnownNat n)
-      => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKR n r)
-scale a d = rfromPrimal @target a * d
--- This should be faster, but is slower. This may be caused by the lets repeated
--- both in primal part and the D constructor.
--- scale a d = tD knownSTK (a * rprimalPart d) (rScale @r a (rdualPart d))
 
 relu, reluLeaky
   :: forall target n r.
      (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
   => target (TKR n r) -> target (TKR n r)
 relu v0 = tlet v0 $ \v ->
-  let oneIfGtZero = rmap0N (\x -> ifH (x <=. rscalar 0) (rscalar 0.0) (rscalar 1.0)) v
+  let oneIfGtZero =
+        rmap0N (\x -> ifH (x <=. rscalar 0) (rscalar 0.0) (rscalar 1.0)) v
   in oneIfGtZero * v
 
 reluLeaky v0 = tlet v0 $ \v ->
-  let oneIfGtZero = rmap0N (\x -> ifH (x <=. rscalar 0) (rscalar 0.01) (rscalar 1.0)) v
+  let oneIfGtZero =
+        rmap0N (\x -> ifH (x <=. rscalar 0) (rscalar 0.01) (rscalar 1.0)) v
   in oneIfGtZero * v
 
 logistic :: forall target r n.
@@ -150,8 +148,8 @@ lossCrossEntropyV
   => target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
 lossCrossEntropyV targ res = kfromR $ negate $ log res `rdot0` targ
 
--- Note that this is equivalent to a composition of softMax and cross entropy
--- only when @target@ is one-hot. Otherwise, results vary wildly. In our
+-- | Note that this is equivalent to a composition of softMax and cross entropy
+-- only when @expected@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
   :: forall target n r.
@@ -160,7 +158,7 @@ lossSoftMaxCrossEntropyR
      , LetTensor (PrimalOf target)
      , KnownNat n, GoodScalar r, Differentiable r )
   => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
-lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
+lossSoftMaxCrossEntropyR expected d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by QuickCheck tests to avoid NaNs, etc., for argument
   -- values we don't fully control.
@@ -175,11 +173,11 @@ lossSoftMaxCrossEntropyR target d' = tlet d' $ \d ->
           in rreplicate0N (rshape u) recipSum * expU
     in ttletPrimal softMaxU0 $ \softMaxU -> kfromR $
       tD knownSTK
-         (negate $ log softMaxU `rdot0` target)
+         (negate $ log softMaxU `rdot0` expected)
            -- TODO: avoid: log . exp
-         (rdualPart $ rfromPrimal (softMaxU - target) `rdot0` d)
+         (rdualPart $ rfromPrimal (softMaxU - expected) `rdot0` d)
 
--- No padding; remaining areas ignored.
+-- | No padding; remaining areas ignored.
 maxPool1 :: ( BaseTensor target, ConvertTensor target, LetTensor target
             , GoodScalar r )
          => Int -> Int -> target (TKR 1 r) -> target (TKR 1 r)
