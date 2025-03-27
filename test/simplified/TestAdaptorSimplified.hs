@@ -438,7 +438,7 @@ testPiecewiseLinear =
 
 testPiecewiseLinearPP :: Assertion
 testPiecewiseLinearPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let fT :: AstTensor AstMethodLet FullSpan (TKR 0 Double)
          -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT x = ifH (x >. rscalar 0) (rscalar 2 * x) (rscalar 5 * x)
@@ -582,7 +582,7 @@ artifact = vjpArtifact fooLet threeSimpleMatrices
 
 testGradFooLetMatrixPP :: Assertion
 testGradFooLetMatrixPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   printArtifactPretty artifact
     @?= "\\dret m1 -> let m3 = sin (tproject2 (tproject1 m1)) ; m4 = tproject1 (tproject1 m1) * m3 ; m5 = recip (tproject2 m1 * tproject2 m1 + m4 * m4) ; m7 = (negate (tproject2 m1) * m5) * dret + tproject2 m1 * dret in tpair (tpair (m3 * m7) (cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7))) ((m4 * m5) * dret + m4 * dret)"
 
@@ -600,7 +600,7 @@ testGradFooMatrixRev =
 
 testGradFooLetMatrixSimpPP :: Assertion
 testGradFooLetMatrixSimpPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   (let ftk = FTKS @'[2, 2] [2, 2] (FTKScalar @Double)
    in printArtifactPretty
         (simplifyArtifact $ revArtifactAdapt UseIncomingCotangent fooLet (FTKProduct (FTKProduct ftk ftk) ftk)))
@@ -608,7 +608,7 @@ testGradFooLetMatrixSimpPP = do
 
 testGradFooLetMatrixSimpRPP :: Assertion
 testGradFooLetMatrixSimpRPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   (let ftk = FTKR (2 :$: 2 :$: ZSR) (FTKScalar @Double)
     in printArtifactPretty (simplifyArtifact $ revArtifactAdapt UseIncomingCotangent fooLet (FTKProduct (FTKProduct ftk ftk) ftk)))
        @?= "\\dret m1 -> tfromS (STKProduct (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @2) STKScalar)) (STKR (SNat @2) STKScalar)) (let m3 = sin (sfromR (tproject2 (tproject1 m1))) ; m4 = sfromR (tproject1 (tproject1 m1)) * m3 ; m5 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m4 * m4) ; m7 = (negate (sfromR (tproject2 m1)) * m5) * sfromR dret + sfromR (tproject2 m1) * sfromR dret in tpair (tpair (m3 * m7) (cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m7))) ((m4 * m5) * sfromR dret + m4 * sfromR dret))"
@@ -631,14 +631,14 @@ testGradFooMatrix2 =
 
 testGradFooMatrixPP :: Assertion
 testGradFooMatrixPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   (let ftk = FTKR (2 :$: 2 :$: ZSR) (FTKScalar @Double)
     in printArtifactPretty (revArtifactAdapt UseIncomingCotangent foo2 (FTKProduct (FTKProduct ftk ftk) ftk)))
       @?= "\\dret m1 -> let m2 = sin (sfromR (tproject2 (tproject1 m1))) ; m3 = sfromR (tproject1 (tproject1 m1)) * m2 ; m4 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m3 * m3) ; m5 = sin (sfromR (tproject2 (tproject1 m1))) ; m6 = sfromR (tproject1 (tproject1 m1)) * m5 ; m8 = sfromR (tproject2 m1) * sfromR dret ; m9 = (negate (sfromR (tproject2 m1)) * m4) * sfromR dret in tpair (tpair (rfromS (m2 * m9 + m5 * m8)) (rfromS (cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m9) + cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m8)))) (rfromS ((m3 * m4) * sfromR dret + m6 * sfromR dret))"
 
 testGradFooMatrixSimpPP :: Assertion
 testGradFooMatrixSimpPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   (let ftk = FTKR (2 :$: 2 :$: ZSR) (FTKScalar @Double)
     in printArtifactPretty (simplifyArtifact $ revArtifactAdapt UseIncomingCotangent foo2 (FTKProduct (FTKProduct ftk ftk) ftk)))
       @?= "\\dret m1 -> tfromS (STKProduct (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @2) STKScalar)) (STKR (SNat @2) STKScalar)) (let m2 = sin (sfromR (tproject2 (tproject1 m1))) ; m3 = sfromR (tproject1 (tproject1 m1)) * m2 ; m4 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m3 * m3) ; m5 = sin (sfromR (tproject2 (tproject1 m1))) ; m8 = sfromR (tproject2 m1) * sfromR dret ; m9 = (negate (sfromR (tproject2 m1)) * m4) * sfromR dret in tpair (tpair (m2 * m9 + m5 * m8) (cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m9) + cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m8))) ((m3 * m4) * sfromR dret + (sfromR (tproject1 (tproject1 m1)) * m5) * sfromR dret))"
@@ -958,7 +958,7 @@ shapedListProd = foldr1 (*)
 
 testListProdPP :: Assertion
 testListProdPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKS '[] Double)) -> AstTensor AstMethodLet FullSpan (TKS '[] Double)
       fT = shapedListProd
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKS ZSS FTKScalar) (FTKProduct (FTKS ZSS FTKScalar) (FTKProduct (FTKS ZSS FTKScalar) (FTKProduct (FTKS ZSS FTKScalar) ftkUnit))))
@@ -1038,7 +1038,7 @@ rankedListSum2r = foldr1 (\x y -> x + rscalar 2 * y)
 
 testListSum2rPP :: Assertion
 testListSum2rPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum2r
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
@@ -1053,7 +1053,7 @@ rankedListSum22r = foldr1 (\x y -> rscalar 2 * x + rscalar 2 * y)
 
 testListSum22rPP :: Assertion
 testListSum22rPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum22r
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
@@ -1070,7 +1070,7 @@ rankedListSumk22r = foldr1 (\x y -> tlet (rscalar 2) (\k -> k * x + k * y))
 
 testListSumk22rPP :: Assertion
 testListSumk22rPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSumk22r
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
@@ -1085,7 +1085,7 @@ rankedListSum2xpyr = foldr1 (\x y -> rscalar 2 * (x + y))
 
 testListSum2xpyrPP :: Assertion
 testListSum2xpyrPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum2xpyr
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
@@ -1100,7 +1100,7 @@ rankedListSum2xyr = foldr1 (\x y -> rscalar 2 * (x * y))
 
 testListSum2xyrPP :: Assertion
 testListSum2xyrPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum2xyr
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
@@ -1115,7 +1115,7 @@ ranked2xy = \(x, y) -> rscalar 2 * x * y
 
 test2xyPP :: Assertion
 test2xyPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let fT :: (AstTensor AstMethodLet FullSpan (TKR 0 Double), AstTensor AstMethodLet FullSpan (TKR 0 Double))
          -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = ranked2xy
@@ -1132,7 +1132,7 @@ rankedListSum23r = foldr1 (\x y -> rscalar 2 * x + rscalar 3 * y)
 
 testListSum23rPP :: Assertion
 testListSum23rPP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum23r
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
@@ -1147,7 +1147,7 @@ ranked23 = \(x, y) -> rscalar 2 * x + rscalar 3 * y
 
 test23PP :: Assertion
 test23PP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let fT :: (AstTensor AstMethodLet FullSpan (TKR 0 Double), AstTensor AstMethodLet FullSpan (TKR 0 Double))
          -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = ranked23
@@ -1276,7 +1276,7 @@ testReluSimpler3 = do
 
 testReluSimplerPP4 :: Assertion
 testReluSimplerPP4 = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let reluT2 :: (AstTensor AstMethodLet FullSpan (TKR 2 Double), AstTensor AstMethodLet FullSpan (TKR 0 Double))
              -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       reluT2 (t, r) = relu (t * rreplicate0N [3, 4] r)
@@ -1314,7 +1314,7 @@ testReluSimplerPP4s = do
 
 testReluSimplerPP4s2 :: Assertion
 testReluSimplerPP4s2 = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let reluT2 :: (AstTensor AstMethodLet FullSpan (TKS '[3, 4] Double), AstTensor AstMethodLet FullSpan (TKS '[] Double))
              -> AstTensor AstMethodLet FullSpan (TKS '[3, 4] Double)
       -- This is tweaked compared to above to avoid test artifacts coming
@@ -1411,7 +1411,7 @@ testDot1PP = do
 
 testDot2PP :: Assertion
 testDot2PP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let (artifactRev, _deltas) =
         revArtifactDelta UseIncomingCotangent (uncurry (rdot0 @2 @Double))
                  (FTKProduct (FTKR [2, 3] FTKScalar) (FTKR [2, 3] FTKScalar))

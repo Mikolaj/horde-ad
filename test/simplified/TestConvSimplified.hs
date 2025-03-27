@@ -19,7 +19,6 @@ import Data.Array.Nested.Internal.Shape
 import HordeAd
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Core.DeltaFreshId (resetIdCounter)
 import HordeAd.Core.OpsAst
 
 import CrossTesting
@@ -727,7 +726,7 @@ testTomsSlice = do
 
 testTomsSlicePP :: Assertion
 testTomsSlicePP = do
-  resetVarCounter >> resetIdCounter
+  resetVarCounter
   let f = codeTomsSlice
       artifactRev = revArtifactAdapt UseIncomingCotangent f (FTKR [32, 4] FTKScalar)
   printArtifactPretty artifactRev
