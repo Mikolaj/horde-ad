@@ -587,7 +587,7 @@ testGradFooMatrix =
     (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
     (gradSumFooMatrix threeSimpleMatrices)
 
-fooLet :: (RealFloatH (f r), LetTensor f)
+fooLet :: (RealFloatH (f r), ADReady f)
        => (f r, f r, f r) -> f r
 fooLet (x, y, z) =
   tlet (x * sin y) $ \w ->
