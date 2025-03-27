@@ -8,7 +8,7 @@ Mature Haskell libraries with similar capabilities, but varying efficiency, are 
 <!--
 The benchmarks at SOMEWHERE show that this library has performance highly competitive with (i.e. faster than) those and PyTorch on CPU.
 -->
-It is hoped that the (well-typed) separation of AD logic and the tensor manipulation backend will enable similar speedups on numerical accelerators.
+It is hoped that the (well-typed) separation of AD logic and the tensor manipulation backend will enable similar speedups on numerical accelerators, when their support is implemented. Contributions to this and other tasks are very welcome.
 
 
 ## Computing the derivative of a simple function
@@ -34,40 +34,55 @@ which can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
 (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 ```
 
-When `foo` is instantiated to matrices, which is a similarly trivial example as before due to the arithmetic operations working on the arrays element-wise, the gradient is:
+We can instantiate `foo` to matrices; the operations within (`sin`, `+`, `*`, etc.) applying elementwise:
 ```hs
-type Matrix2x2 f r = f (TKS '[2, 2] r)
+type Matrix2x2 f r = f (TKS '[2, 2] r)  -- TKS means shapely-typed tensor kind
 type ThreeMatrices r = (Matrix2x2 Concrete r, Matrix2x2 Concrete r, Matrix2x2 Concrete r)
 threeSimpleMatrices :: ThreeMatrices Double
-threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)
-gradFooMatrix :: (Differentiable r, GoodScalar r)
-              => ThreeMatrices r -> ThreeMatrices r
-gradFooMatrix = cgrad (kfromS . ssum0 . foo)
+threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)  -- srepl replicates its argument to fill the whole matrix
+fooMatrixValue :: Matrix2x2 Concrete Double
+fooMatrixValue = foo threeSimpleMatrices
+>>> fooMatrixValue
+sfromListLinear [2,2] [4.242393641025528,4.242393641025528,4.242393641025528,4.242393641025528])
 ```
 
-where we had to augment function `foo`, because `cgrad` expects a function with a scalar codomain (e.g., a loss function for neural networks). This works as well as before:
+Instantiated to matrices, `foo` now returns a matrix, not a scalar &mdash; but a gradient can only be computed of a function that returns a scalar.
+To remediate this, let's sum the whole output of `foo` and only then compute its gradient: (note that `ssum0` returns a zero-dimensional array; `kfromS` extracts the (single) scalar from that)
 ```hs
->>> gradFooMatrix threeSimpleMatrices
+gradSumFooMatrix :: ThreeMatrices Double -> ThreeMatrices Double
+gradSumFooMatrix = cgrad (kfromS . ssum0 . foo)
+```
+
+This works as well as before:
+```hs
+>>> gradSumFooMatrix threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
 ```
 
-Note that `w` is processed only once during gradient computation and this property of sharing preservation is guaranteed for the `cgrad` tool universally, without any action required from the user. When computing symbolic derivative programs, however, the user has to explicitly mark values for sharing using `tlet` with a more specific type of the objective function, as shown below.
+### Efficiency: preserving sharing
 
+We noted above that `w` appears twice in `foo`.  A property of tracing-based AD systems is that such re-use may not be captured, with explosive results.
+In `cgrad`, such sharing is preserved, so `w` is processed only once during gradient computation and this property is guaranteed for the `cgrad` tool universally, without any action required from the user.
+`horde-ad` also allows computing _symbolic_ derivative programs: using this API, a program is differentiated only once, after which it can be run on many different input values.
+In this case, however, sharing is _not_ automatically preserved, so shared variables have to be explicitly marked using `tlet`, as shown below in `fooLet`.
+This also makes the type of the function more specific: it now does not work on an arbitrary `Num` any more, but instead on an arbitrary `horde-ad` tensor that implements the standard arithmetic operations, some of which (e.g., `atan2H`) are implemented in custom numeric classes.
 ```hs
-fooLet :: (RealFloatH (f r), LetTensor f)
+fooLet :: (RealFloatH (f r), ADReady f)  -- ADReady means the container type f supports AD
        => (f r, f r, f r) -> f r
 fooLet (x, y, z) =
   tlet (x * sin y) $ \w ->
     atan2H z w + z * w  -- note that w still appears twice
 ```
 
-The most general symbolic gradient program for this function can be obtained using the `vjpArtifact` tool. We are using `fooLet` without `ssum0` this time, because the `vjp` family of tools by convention permits non-scalar codomains (but expects an incoming cotangent argument to compensate, visible in the code below as `dret`).
+### Vector-Jacobian product (VJP) and symbolic derivatives
+
+The most general symbolic reverse derivative program for this function can be obtained using the `vjpArtifact` tool. Because the `vjp` family of tools permits non-scalar codomains (but expects an incoming cotangent argument to compensate, visible in the code below as `dret`), we illustrate it using the original `fooLet`, without `ssum0`.
 ```hs
 artifact :: AstArtifactRev (X (ThreeConcreteMatrices Double)) (TKS '[2, 2] Double)
 artifact = vjpArtifact fooLet threeSimpleMatrices
 ```
 
-The gradient program presented below with additional formatting looks like ordinary functional code with a lot of nested pairs and projections that represent tuples. A quick inspection of the gradient code reveals that computations are not repeated, which is thanks to the sharing mechanism, as promised above.
+The vector-Jacobian product program presented below with additional formatting looks like ordinary functional code with a lot of nested pairs and projections that represent tuples. A quick inspection of the code reveals that computations are not repeated, which is thanks to the `tlet` used above.
 
 ```hs
 >>> printArtifactPretty artifact
@@ -82,14 +97,15 @@ The gradient program presented below with additional formatting looks like ordin
          ((m4 * m5) * dret + m4 * dret)"
 ```
 
-A concrete value of the symbolic gradient at the same input as before can be obtained by interpreting the gradient program in the context of the operations supplied by the horde-ad library. The value is the same as it would be for augmented `fooLet` evaluated by `cgrad` on the same input, as long as the incoming cotangent supplied for the interpretation consists of ones in all array cells, which is denoted by `srepl 1` in this case:
-
+A concrete value of the symbolic reverse derivative at the same input as before can be obtained by interpreting its program in the context of the operations supplied by the horde-ad library. (Note that the output happens to be the same as `gradSumFooMatrix threeSimpleMatrices` above, which used `cgrad` on `kfromS . ssum0 . foo`; the reason is that `srepl 1.0` happens to be the reverse derivative of `kfromS . ssum0`.)
 ```hs
 >>> vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1)
 ((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeConcreteMatrices Double)
 ```
 
-A shorthand that creates the symbolic derivative program, simplifies it and interprets it with a given input on the default CPU backend is called `grad` and is used exactly the same as (but with often much better performance than) `cgrad`:
+Note that, as evidenced by the `printArtifactPretty` call above, `artifact` contains the complete and simplified code of the VJP of `fooLet` so repeated calls of `vjpInterpretArtifact artifact` won't ever repeat differentiation nor simplification and will only incur the cost of straightforward interpretation. However the repeated call would fail with an error if the provided argument had a different shape than `threeSimpleMatrices`, which is nevertheless impossible for the examples we use here, because all tensors we present are shaped, meaning their full shape is stated in their type and so can't differ for two (tuples of) tensors of the same type.
+
+A shorthand that creates a symbolic gradient program, simplifies it and interprets it with a given input on the default CPU backend is called `grad` and is used exactly the same as (but with often much better performance on the same program than) `cgrad`:
 ```hs
 >>> grad (kfromS . ssum0 . fooLet) threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
@@ -98,7 +114,15 @@ A shorthand that creates the symbolic derivative program, simplifies it and inte
 
 ## For all shapes and sizes
 
-An additional feature of this library is a type system for tensor shape arithmetic. The following code is a part of convolutional neural network definition, for which horde-ad computes the gradient of a shape determined by the shape of input data and of initial parameters. The compiler is able to infer a lot of tensor shapes, deriving them both from dynamic dimension arguments (the first two lines of parameters to the function) and from static type-level hints. Look at this beauty.
+An important feature of this library is a type system for tensor shape
+arithmetic. The following code is part of a convolutional neural network
+definition, for which horde-ad computes the shape of the gradient from
+the shape of the input data and the initial parameters.
+The compiler is able to infer many tensor shapes, deriving them both
+from dynamic dimension arguments (the first two lines of parameters
+to the function below) and from static type-level hints.
+
+It is common to see neural network code with shape annotations in comments, hidden from the compiler:
 ```hs
 convMnistTwoS
   kh@SNat kw@SNat h@SNat w@SNat
@@ -107,14 +131,13 @@ convMnistTwoS
   input              -- input images, shape [batch_size, 1, h, w]
   (ker1, bias1)      -- layer1 kernel, shape [c_out, 1, kh+1, kw+1]; and bias, shape [c_out]
   (ker2, bias2)      -- layer2 kernel, shape [c_out, c_out, kh+1, kw+1]; and bias, shape [c_out]
-  ( weightsDense     -- dense layer weights,
-                     -- shape [n_hidden, c_out * (h/4) * (w/4)]
+  ( weightsDense     -- dense layer weights, shape [n_hidden, c_out * (h/4) * (w/4)]
   , biasesDense )    -- dense layer biases, shape [n_hidden]
   ( weightsReadout   -- readout layer weights, shape [10, n_hidden]
-  , biasesReadout )  -- readout layer biases [10]
+  , biasesReadout )  -- readout layer biases, shape [10]
   =                  -- -> output classification, shape [10, batch_size]
-  gcastWith (unsafeCoerceRefl :: Div (Div w 2) 2 :~: Div w 4) $
-  gcastWith (unsafeCoerceRefl :: Div (Div h 2) 2 :~: Div h 4) $
+  assumeEquality @(Div (Div w 2) 2) @(Div w 4) $
+  assumeEquality @(Div (Div h 2) 2) @(Div h 4) $
   let t1 = convMnistLayerS kh kw h w
                            (SNat @1) c_out batch_size
                            ker1 (sfromPrimal input) bias1
@@ -134,33 +157,53 @@ convMnistTwoS
      ( 1 <= kh  -- kernel height is large enough
      , 1 <= kw  -- kernel width is large enough
      , ADReady target, GoodScalar r, Differentiable r )
+         -- GoodScalar means r is supported as array elements by horde-ad
   => SNat kh -> SNat kw -> SNat h -> SNat w
   -> SNat c_out -> SNat n_hidden -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
        -- SNat value parameters denoting basic dimensions
-  -> PrimalOf target (TKS '[batch_size, 1, h, w] r)
-  -> ( ( target (TKS '[c_out, 1, kh + 1, kw + 1] r)
-       , target (TKS '[c_out] r) )
-     , ( target (TKS '[c_out, c_out, kh + 1, kw + 1] r)
-       , target (TKS '[c_out] r) )
+  -> PrimalOf target (TKS '[batch_size, 1, h, w] r)  -- `input` shape [batch_size, 1, h, w]
+  -> ( ( target (TKS '[c_out, 1, kh + 1, kw + 1] r)  -- `ker1` shape [c_out, 1, kh+1, kw+1]
+       , target (TKS '[c_out] r) )                   -- `bias2` shape [c_out]
+     , ( target (TKS '[c_out, c_out, kh + 1, kw + 1] r)  -- `ker2` shape [c_out, c_out, kh+1, kw+1]
+       , target (TKS '[c_out] r) )                       -- `bias2` shape [c_out]
      , ( target (TKS '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ] r)
-       , target (TKS '[n_hidden] r) )
-     , ( target (TKS '[10, n_hidden] r)
-       , target (TKS '[10] r) ) )
-  -> target (TKS '[SizeMnistLabel, batch_size] r)
+           -- `weightsDense` shape [n_hidden, c_out * (h/4) * (w/4)]
+       , target (TKS '[n_hidden] r) )    -- `biasesDense` shape [n_hidden]
+     , ( target (TKS '[10, n_hidden] r)  -- `weightsReadout` shape [10, n_hidden]
+       , target (TKS '[10] r) ) )        -- `biasesReadout` shape [10]
+  -> target (TKS '[SizeMnistLabel, batch_size] r)  -- -> `output` shape [10, batch_size]
+convMnistTwoS
+  kh@SNat kw@SNat h@SNat w@SNat
+  c_out@SNat _n_hidden@SNat batch_size@SNat
+  input  -- input images
+  (ker1, bias1)  -- layer1 kernel
+  (ker2, bias2)  -- layer2 kernel
+  ( weightsDense  -- dense layer weights
+  , biasesDense )  -- dense layer biases
+  ( weightsReadout  -- readout layer weights
+  , biasesReadout )  -- readout layer biases
+  =
+...
 ```
 
 The full neural network definition from which this function is taken can be found at
 
 https://github.com/Mikolaj/horde-ad/tree/master/example
 
-in file `MnistCnnShaped2.hs` and the directory contains several other sample neural networks for MNIST digit classification. Among them are recurrent, convolutional and fully connected networks based on fully typed tensors (sizes of all dimensions are tracked in the types, as above) as well as their weakly typed variants that track only the ranks of tensors. It's possible to mix the two typing styles within one function signature and even within one shape description.
+in file `MnistCnnShaped2.hs` and the directory contains several other sample neural networks for MNIST digit classification. Among them are recurrent, convolutional and fully connected networks based on fully typed tensors (sizes of all dimensions are tracked in the types, as above) as well as on the weakly typed ranked tensors, where only tensor ranks are tracked. It's possible to mix the two typing styles within one function signature and even within one shape description.
 
 
 Compilation from source
 -----------------------
 
-The Haskell packages [we depend on](https://github.com/Mikolaj/horde-ad/blob/master/horde-ad.cabal) need their usual C library dependencies,
+Our library is inspired by and crucially depends in its performance on ox-arrays
+(TODO: Hackage link)
+and [orthotope](https://hackage.haskell.org/package/orthotope),
+which don't require any special installation.
+Some of the other
+[Haskell packages we depend on](https://github.com/Mikolaj/horde-ad/blob/master/horde-ad.cabal)
+need their usual C library dependencies to be installed manually,
 e.g., package zlib needs the C library zlib1g-dev or an equivalent.
 At this time, we don't depend on any GPU hardware nor bindings.
 

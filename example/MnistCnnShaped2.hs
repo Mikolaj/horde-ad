@@ -81,8 +81,8 @@ convMnistTwoS kh@SNat kw@SNat h@SNat w@SNat
               input
               ( (ker1, bias1), (ker2, bias2)
               , (weightsDense, biasesDense), (weightsReadout, biasesReadout) ) =
-  gcastWith (unsafeCoerceRefl :: Div (Div w 2) 2 :~: Div w 4) $
-  gcastWith (unsafeCoerceRefl :: Div (Div h 2) 2 :~: Div h 4) $
+  assumeEquality @(Div (Div w 2) 2) @(Div w 4) $
+  assumeEquality @(Div (Div h 2) 2) @(Div h 4) $
   let t1 = convMnistLayerS kh kw h w
                            (SNat @1) c_out batch_size
                            ker1 (sfromPrimal input) bias1
