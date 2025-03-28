@@ -1,9 +1,12 @@
 {-# LANGUAGE UndecidableInstances #-}
 -- | Dual numbers type and operations on it.
 -- These definitions, mostly class instances, are needed to make dual numbers
--- a valid carrier for a tensor class algebra (instance) defined in "OpsADVal"
--- so that user programs can be instantiated to or interpreted into it
--- and subsequently differentiated.
+-- a valid carrier for a tensor class algebra (instance) defined
+-- in "HordeAd.Core.OpsADVal" so that user programs can be instantiated to
+-- or interpreted into it (which corresponds to the forward pass)
+-- and subsequently differentiated by evaluating the resulting
+-- delta expressions (which corresponds to the backpropagation phase
+-- in case of reverse derivatives).
 module HordeAd.Core.CarriersADVal
   ( -- * The dual number type
     ADVal, pattern D, dD, dDnotShared
@@ -52,16 +55,16 @@ deriving instance (Show (f z), Show (Delta f z))
 -- | Smart constructor for 'D' of 'ADVal' that additionally records delta
 -- expression sharing information (regardless if the primal part
 -- of the dual number is an AST term or not).
--- The bare constructor should not be used directly, except when
--- deconstructing dual numbers via pattern-matching.
+-- The bare constructor should not (and cannot) be used for constructing
+-- values, but only for deconstructing dual numbers via pattern-matching.
 dD :: forall f z.
       f z -> Delta f z -> ADVal f z
 dD !a !dual = dDnotShared a (shareDelta dual)
 
--- | This a not so smart constructor for 'D' of 'ADVal' that does not record
+-- | This is a not so smart constructor for 'D' of 'ADVal' that does not record
 -- sharing information. If used in contexts where duplication occurs,
 -- it may cause exponential blowup when a delta expression is evaluated
--- in backpropagation phase. In contexts without sharing, it saves
+-- in backpropagation phase. In contexts without duplication, it saves
 -- some evaluation time and memory (in delta term structure, but even more
 -- in the per-node data stored while evaluating).
 dDnotShared :: f z -> Delta f z -> ADVal f z
@@ -73,7 +76,7 @@ dDnotShared = ADVal
 -- TODO: maybe create a separate module of Delta smart constructors
 -- and then use the following haddocks for the module:
 
--- | The instances are impure, because 'shareDelta'
+-- The instances are impure, because 'shareDelta'
 -- adorns terms with an @Int@ identifier from a counter that is afterwards
 -- incremented (and never changed in any other way).
 --

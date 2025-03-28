@@ -3,7 +3,7 @@
 -- | BOT (bulk-operation transformation) of the AST, which is a kind
 -- of vectorization. It eliminates the build operation and, consequently,
 -- any occurence of indexing under build, which would cause delta expression
--- explosion and afterwards one-hot explosion when evaluation deltas.
+-- explosion and afterwards one-hot explosion when evaluating deltas.
 module HordeAd.Core.AstVectorize
   ( build1Vectorize, traceRuleEnabledRef
   ) where

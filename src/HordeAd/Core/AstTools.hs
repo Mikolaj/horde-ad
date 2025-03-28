@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | An assortment of operations working on AST of the code to be differentiated
--- or code resulting from the differentiation.
+-- or the code resulting from differentiation.
 module HordeAd.Core.AstTools
   ( -- * Full tensor kind derivation
     ftkAst, isTensorInt
@@ -33,11 +33,11 @@ import HordeAd.Core.Types
 
 -- * Full tensor kind derivation
 
--- This is cheap and dirty. We don't shape-check the terms and we don't
+-- | This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with unknowns. Instead, we investigate
 -- only one path and fail if it doesn't contain enough information
 -- to determine shape (which rarely happens in our AST that is based
--- on shaped tensors).
+-- on shaped tensors and always indicates an ill-typed term).
 ftkAst :: forall s y ms. AstTensor ms s y -> FullShapeTK y
 ftkAst t = case t of
   AstPair t1 t2 -> FTKProduct (ftkAst t1) (ftkAst t2)
@@ -172,7 +172,7 @@ isTensorInt _ ftk = case ftk of
 
 -- * Variable occurrence detection
 
--- We assume no variable is shared between a binding and its nested binding
+-- | We assume no variable is shared between a binding and its nested binding
 -- and nobody asks about occurrences of variables that are bound.
 -- This keeps the occurrence checking code simple, because we never need
 -- to compare variables to any variable in the bindings.
@@ -273,11 +273,10 @@ varNameInAst var = varInAst (varNameToAstVarId var)
 
 -- * Determining if a term requires sharing
 
--- A term requires sharing if it's too large as a term and so duplicating
+-- | A term requires sharing if it's too large as a term and so duplicating
 -- it could affect the performance of simplification
 -- or if it's too expensive when interpreted and so duplicating it
 -- would increase the work done at runtime.
-
 astIsSmall :: Bool -> AstTensor ms s y -> Bool
 astIsSmall True = astIsSmallN 20
 astIsSmall False = astIsSmallN 10

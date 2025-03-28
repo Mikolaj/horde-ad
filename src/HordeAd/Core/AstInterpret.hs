@@ -95,16 +95,21 @@ interpretAstDual !env v1 =
 -- similarly as in AstEnv and simiarly as we omit @PrimalOf@ in the signatures
 -- of most "Ops" methods.
 --
--- We maintain an invariant that a value of interpretation
--- of a term with PrimalSpan has zero dual part
--- and of a term with DualSpan has zero primal part.
--- The invariants holds by the properties of instances of Ops
+-- | Interpret a term in an environment.
+--
+-- Note that for 'PrimalSpan' term, the results of this function
+-- land in @target y@ and not in @PrimalOf target y@.
+-- To make it sound nevertheless, we maintain an invariant that a value
+-- of interpretation of a term with 'PrimalSpan' has zero dual part
+-- and of a term with 'DualSpan' has zero primal part.
+-- The invariants holds by the properties of instances of @Ops@
 -- (see especially the ADVal instance, which zeroes dual part of many ops)
 -- and structural induction on Ast, inspecting spans of constructors.
--- This promotion to @target@ coincides with how most operations that in Ast
--- have PrimalSpan, don't have PrimalOf (but have full target instead)
--- in their method signatures in Ops, for user comfort. E.g., AstConcreteS
--- vs tsconcrete and AstFloorS vs tsfloor.
+-- This promotion from @PrimalOf target y@ to @target y@ coincides
+-- with how most operations that in Ast have 'PrimalSpan',
+-- don't have 'PrimalOf' (but have full target instead)
+-- in their method signatures in @Ops@, for user convenience.
+-- See, e.g., 'AstConcreteS' vs 'tsconcrete' and 'AstFloorS' vs 'tsfloor'.
 interpretAst
   :: forall target s y. (ADReady target, AstSpan s)
   => AstEnv target -> AstTensor AstMethodLet s y

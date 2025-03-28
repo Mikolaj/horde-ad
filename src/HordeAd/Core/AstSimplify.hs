@@ -119,7 +119,7 @@ data SimplifyKnobs = SimplifyKnobs
 defaultKnobs :: SimplifyKnobs
 defaultKnobs = SimplifyKnobs False False
 
--- We keep AstTranspose terms for as long as possible, because
+-- | We keep AstTranspose terms for as long as possible, because
 -- they are small and fuse nicely in many cases. For some forms of indexing
 -- and nesting with reshape and gather they don't fuse, which is when
 -- this function is invoked.
@@ -166,16 +166,6 @@ astTransposeAsGatherS knobs perm v =
                              @(TakeLen perm sh)
                              knobs (shsDropLen perm shn) v (vars, asts)
 
--- This generates big terms that don't simplify well,
--- so we keep the AstReshape form until simplification gets stuck.
--- In fact, to simplify the terms we'd need advanced solving of equations
--- in integer arithmetic modulo. Moreover, when solving, we'd need to know
--- the range of all integer variables (taken from shapes) and the floor
--- and minimum/maximum terms (obtained by analysing the embedded Ast term),
--- because many of the emerging terms are not equal to their simplifed
--- forms without this data. Probably we could just subsitute @var `remH` range@
--- for each variable.
---
 -- TODO: To make this less disastrous, we need to add an extra constructor
 -- to AstIndex with the semantics "this index reshaped from shIn to shOut"
 -- that fuses perfectly with itself and absorbs normal indexes
@@ -191,6 +181,16 @@ astTransposeAsGatherS knobs perm v =
 -- that the list of variables fo the gather). There are probably bad cases
 -- where term size blowup can't be avoided, because the index has to be
 -- normalized between each reshape.
+--
+-- | This generates big terms that don't simplify well,
+-- so we keep the AstReshape form until simplification gets stuck.
+-- In fact, to simplify the terms we'd need advanced solving of equations
+-- in integer arithmetic modulo. Moreover, when solving, we'd need to know
+-- the range of all integer variables (taken from shapes) and the floor
+-- and minimum/maximum terms (obtained by analysing the embedded Ast term),
+-- because many of the emerging terms are not equal to their simplifed
+-- forms without this data. Probably we could just subsitute @var `remH` range@
+-- for each variable.
 astReshapeAsGatherS
   :: forall sh sh2 r s. AstSpan s
   => SimplifyKnobs -> ShS sh2 -> AstTensor AstMethodLet s (TKS2 sh r)
@@ -797,7 +797,7 @@ astLet var (Ast.AstFromS stkz a) v =
   in astLet var2 a (substituteAst ast var v)
 astLet var u v = Ast.AstLet var u v
 
--- A special variant to bind integer expressions inside indexes.
+-- | A special variant to bind integer expressions inside indexes.
 -- It check if the bound variables appears in the body at all.
 -- Normally, that's asymptotically worse than doing this
 -- in a global inlining pass, but we assume indexes expressions
@@ -2049,7 +2049,7 @@ astReverseS (Ast.AstGatherS @shm @shn @shp
 astReverseS (Ast.AstReverseS v) = v
 astReverseS v = Ast.AstReverseS v
 
--- Beware, this does not do full simplification, which often requires
+-- | Beware, this does not do full simplification, which often requires
 -- the gather form, so astTransposeAsGather needs to be called in addition
 -- if full simplification is required.
 astTransposeS
@@ -2167,7 +2167,7 @@ mkRepl _ _ ZSS u = u
 mkRepl sh2 x (snat :$$ rest) u =
   Ast.AstReplicate snat (STKS (rest `shsAppend` sh2) x) (mkRepl sh2 x rest u)
 
--- Beware, this does not do full simplification, which often requires
+-- | Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
 -- if full simplification is required.
 astReshapeS :: forall sh sh2 x s. (Product sh ~ Product sh2, AstSpan s)
@@ -2558,9 +2558,9 @@ astReplicateNS shn v | STKS shp x <- ftkToSTK (ftkAst v) =
 
 -- * A cheap simplification of only the topmost nodes
 
--- This does a single step of simplification of any non-indexing term
+-- | This does a single step of simplification of any non-indexing term
 -- (many steps if guaranteed net beneficial). Terms representing integers
--- and and AstBool terms are simplified as much as possible.
+-- and 'AstBool' terms are simplified as much as possible.
 astNonIndexStep
   :: AstSpan s
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
@@ -2653,6 +2653,11 @@ expandAstInt = expandAst
 expandAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
 expandAstIxS = fmap expandAstInt
 
+-- | This pass expands terms, e.g., into @AstGather@ terms, in order
+-- to expose redexes and enable fusion. It assumes that a contraction
+-- pass follows that undoes some of the remaining expansion and applies
+-- fusion rules that would be immediately counteracted by expansion rules
+-- if applied earlier.
 expandAst
   :: forall s y. AstSpan s
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
@@ -2823,7 +2828,8 @@ simplifyAstInt = simplifyAst
 simplifyAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
 simplifyAstIxS = fmap simplifyAstInt
 
--- | This function guarantees full simplification: every redex
+-- | This function guarantees full simplification (unless redexes are obscured,
+-- for which the expansion pass is sometimes a remedy): every redex
 -- is visited and each combinator applied. The most exhaustive and costly
 -- variants of each combinator are used, e.g., astIndexR.
 simplifyAst
@@ -2941,22 +2947,21 @@ simplifyAstBool t = case t of
 
 -- * The contraction (e.g., from gather expressions) bottom-up pass
 
--- When we have multiple backends, there should be one such pass
--- per backend that chooses a representation that is best for the backend.
--- Then AST should be extended with backend-specific constructors
--- and the interpreter would interpret all of them, but the simplifier
--- would ignore all and the user API would not make them available.
---
--- Note that unlike all the other code in this module, this function
--- is not written in a compositional style nor close to it,
--- but it's instead defined in an ad-hoc way based on benchmarks.
-
 contractAstInt :: AstInt AstMethodLet -> AstInt AstMethodLet
 contractAstInt = contractAst
 
 contractAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
 contractAstIxS = fmap contractAstInt
 
+-- | When we have multiple backends, there should be one such pass
+-- per backend that chooses a representation that is best for the backend.
+-- The interpreter would interpret all of the backend-specific term
+-- constructors, but the simplifier would ignore all and the user API
+-- would not make them available.
+--
+-- Note that unlike all the other code in this module, this function
+-- is not written in a compositional style nor close to it,
+-- but it's instead defined in an ad-hoc way based on benchmarks.
 contractAst
   :: forall s y. AstSpan s
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
@@ -3472,6 +3477,10 @@ normalizeAstB2 OrOp = (||*)
 
 -- * Substitution wrappers
 
+-- | We assume no variable is shared between a binding and its nested binding
+-- and nobody substitutes into variables that are bound.
+-- This keeps the substitution code simple, because we never need to compare
+-- variables to any variable in the bindings.
 substituteAst :: forall s s2 y z. (AstSpan s, AstSpan s2)
               => AstTensor AstMethodLet s2 z -> AstVarName s2 z
               -> AstTensor AstMethodLet s y
@@ -3496,10 +3505,6 @@ substituteAstBool i var v1 =
 
 -- * Substitution workers
 
--- | We assume no variable is shared between a binding and its nested binding
--- and nobody substitutes into variables that are bound.
--- This keeps the substitution code simple, because we never need to compare
--- variables to any variable in the bindings.
 substitute1Ast :: forall s s2 y z. (AstSpan s, AstSpan s2)
                => AstTensor AstMethodLet s2 z -> AstVarName s2 z
                -> AstTensor AstMethodLet s y

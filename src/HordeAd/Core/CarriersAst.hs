@@ -1,9 +1,11 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Definitions, mostly class instances, needed to make AST a valid
--- carrier for a tensor class algebra (instance) defined in "OpsAst".
--- This algebra permits both user programs to be instantiated as AST terms
--- and derivatives to be expressed as AST terms.
+-- carrier for a tensor class algebra (instance) defined
+-- in "HordeAd.Core.OpsAst".
+-- This algebra permits user programs to be instantiated as AST terms,
+-- to be interpreted into AST terms and permits derivatives
+-- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..)
   , AstNoVectorize(..)
