@@ -25,7 +25,9 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.Ops (tconcrete)
 
+import CrossTesting
 import EqEpsilon
 
 import MnistData
@@ -34,13 +36,39 @@ import MnistFcnnRanked2 (XParams2)
 import MnistFcnnRanked2 qualified
 
 testTrees :: [TestTree]
-testTrees = [ tensorADValMnistTests
+testTrees = [ testCase "2VTOrev" mnistTestCase2VTOrev
+            , tensorADValMnistTests
             , tensorIntermediateMnistTests
             , tensorADOnceMnistTests
             , tensorADValMnistTests2
             , tensorIntermediateMnistTests2
             , tensorADOnceMnistTests2
             ]
+
+
+-- * Running rev' on the gradient of afcnnMnistLoss2
+
+mnistTestCase2VTOrev :: Assertion
+mnistTestCase2VTOrev =
+  let (!targetInit, !art) =
+        MnistFcnnRanked2.mnistTrainBench2VTOGradientX
+          @Double (Proxy @Float) IgnoreIncomingCotangent
+          1 (mkStdGen 44) 1500 500
+      blackGlyph = rreplicate sizeMnistGlyphInt $ rscalar 7
+      ftk = tftk @Concrete (knownSTK @(XParams2 Double Float))
+                 targetInit
+      f :: forall target r. (ADReady target, r ~ Double)
+        => target (TKR 1 r) -> target (TKR 1 r)
+      f label =
+        let val = tpair (tconcrete ftk targetInit)
+                        (tpair (rconcrete $ unConcrete blackGlyph) label)
+            env = extendEnv (artVarDomainRev art) val emptyEnv
+        in tproject1 $ tproject2
+           $ interpretAst @target env (artDerivativeRev art)
+  in assertEqualUpToEpsilon' 1e-10
+       (ringestData [10] [6.922657834114052e-2,-3.2210167235305924e-5,0.12334696753032606,-4.892729845753193e-3,3.010762414514606e-2,2.0344986964700877e-2,-3.78339785604896e-2,5.77360835535866e-2,0.10761507003315526,-7.909016076299641e-2])
+       (rev' f (rreplicate sizeMnistLabelInt $ rscalar 8))
+
 
 -- * Using lists of vectors, which is rank 1
 
@@ -172,7 +200,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
       targetInit :: Concrete (XParams widthHidden widthHidden2 r)
       targetInit = toTarget @Concrete valsInit
       ftk = tftk @Concrete (knownSTK @(XParams widthHidden widthHidden2 r))
-                       targetInit
+                 targetInit
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHiddenInt, show widthHidden2Int

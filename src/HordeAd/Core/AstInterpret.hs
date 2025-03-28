@@ -6,9 +6,9 @@
 -- The sharing mechanisms are translated so as to preserve sharing in case
 -- the instance is a term algebra as well.
 module HordeAd.Core.AstInterpret
-  ( interpretAstFull, interpretAstPrimal, interpretAstDual
+  ( interpretAstFull, interpretAstPrimal, interpretAstDual, interpretAst
     -- * Exported only to specialize elsewhere
-  , interpretAst, interpretAstBool
+  , interpretAstBool
   ) where
 
 import Prelude
