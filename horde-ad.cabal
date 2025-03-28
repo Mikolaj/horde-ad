@@ -377,6 +377,7 @@ library testCommonLibrary
                       TestGatherSimplified
                       TestHighRankSimplified
                       TestMnistCNNR
+                      TestMnistCNNS
                       TestMnistFCNNR
                       TestMnistPP
                       TestMnistRNNR

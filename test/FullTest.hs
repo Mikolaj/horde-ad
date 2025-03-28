@@ -14,6 +14,7 @@ import TestConvSimplified qualified
 import TestGatherSimplified qualified
 import TestHighRankSimplified qualified
 import TestMnistCNNR qualified
+import TestMnistCNNS qualified
 import TestMnistFCNNR qualified
 import TestMnistPP qualified
 import TestMnistRNNR qualified
@@ -43,6 +44,7 @@ tests =
          ++ TestMnistPP.testTrees)
     , testGroup "Long_tests"
         (TestMnistCNNR.testTrees
+         ++ TestMnistCNNS.testTrees
          ++ TestMnistFCNNR.testTrees
          ++ TestMnistRNNR.testTrees
          ++ TestMnistRNNS.testTrees)

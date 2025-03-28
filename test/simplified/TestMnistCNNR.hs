@@ -28,23 +28,23 @@ import MnistCnnRanked2 qualified
 import MnistData
 
 testTrees :: [TestTree]
-testTrees = [ tensorADValMnistTestsCNNA
-            , tensorADValMnistTestsCNNI
-            , tensorADValMnistTestsCNNO
+testTrees = [ tensorADValMnistTestsCNNRA
+            , tensorADValMnistTestsCNNRI
+            , tensorADValMnistTestsCNNRO
             ]
 
 type XParams r = X (MnistCnnRanked2.ADCnnMnistParameters Concrete r)
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
-mnistTestCaseCNNA
+mnistTestCaseCNNRA
   :: forall r.
      (Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
-mnistTestCaseCNNA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
-                  miniBatchSize totalBatchSize expected =
+mnistTestCaseCNNRA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
+                   miniBatchSize totalBatchSize expected =
   withSNat khInt $ \(_khSNat :: SNat kh) ->
   withSNat kwInt $ \(_kwSNat :: SNat kw) ->
   withSNat c_outInt $ \(_c_outSNat :: SNat c_out) ->
@@ -126,33 +126,33 @@ mnistTestCaseCNNA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
 
-{-# SPECIALIZE mnistTestCaseCNNA
+{-# SPECIALIZE mnistTestCaseCNNRA
   :: String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Double
   -> TestTree #-}
 
-tensorADValMnistTestsCNNA :: TestTree
-tensorADValMnistTestsCNNA = testGroup "CNN ADVal MNIST tests"
-  [ mnistTestCaseCNNA "CNNA 1 epoch, 1 batch" 1 1 2 2 4 4 1 1
+tensorADValMnistTestsCNNRA :: TestTree
+tensorADValMnistTestsCNNRA = testGroup "CNNR ADVal MNIST tests"
+  [ mnistTestCaseCNNRA "CNNRA 1 epoch, 1 batch" 1 1 2 2 4 4 1 1
                        (1 :: Double)
-  , mnistTestCaseCNNA "CNNA artificial 1 2 3 4 5" 1 1 2 3 4 5 1 1
+  , mnistTestCaseCNNRA "CNNRA artificial 1 2 3 4 5" 1 1 2 3 4 5 1 1
                        (1 :: Float)
-  , mnistTestCaseCNNA "CNNA artificial 5 4 3 2 1" 1 4 3 2 1 1 1 1
+  , mnistTestCaseCNNRA "CNNRA artificial 5 4 3 2 1" 1 4 3 2 1 1 1 1
                        (1 :: Double)
-  , mnistTestCaseCNNA "CNNA 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
+  , mnistTestCaseCNNRA "CNNRA 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
                        (1.0 :: Float)
   ]
 
 -- POPL differentiation, with Ast term defined and vectorized only once,
 -- but differentiated anew in each gradient descent iteration.
-mnistTestCaseCNNI
+mnistTestCaseCNNRI
   :: forall r.
      (Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
-mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
-                  miniBatchSize totalBatchSize expected =
+mnistTestCaseCNNRI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
+                   miniBatchSize totalBatchSize expected =
   withSNat khInt $ \(_khSNat :: SNat kh) ->
   withSNat kwInt $ \(_kwSNat :: SNat kw) ->
   withSNat c_outInt $ \(_c_outSNat :: SNat c_out) ->
@@ -249,35 +249,35 @@ mnistTestCaseCNNI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
 
-{-# SPECIALIZE mnistTestCaseCNNI
+{-# SPECIALIZE mnistTestCaseCNNRI
   :: String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Double
   -> TestTree #-}
 
-tensorADValMnistTestsCNNI :: TestTree
-tensorADValMnistTestsCNNI = testGroup "CNN Intermediate MNIST tests"
-  [ mnistTestCaseCNNI "CNNI 1 epoch, 1 batch" 1 1 2 2 4 4 1 1
+tensorADValMnistTestsCNNRI :: TestTree
+tensorADValMnistTestsCNNRI = testGroup "CNNR Intermediate MNIST tests"
+  [ mnistTestCaseCNNRI "CNNRI 1 epoch, 1 batch" 1 1 2 2 4 4 1 1
                        (1 :: Double)
-  , mnistTestCaseCNNI "CNNI artificial 1 2 3 4 5" 1 1 2 3 4 5 1 1
+  , mnistTestCaseCNNRI "CNNRI artificial 1 2 3 4 5" 1 1 2 3 4 5 1 1
                        (1 :: Float)
-  , mnistTestCaseCNNI "CNNI artificial 5 4 3 2 1" 1 4 3 2 1 1 1 1
+  , mnistTestCaseCNNRI "CNNRI artificial 5 4 3 2 1" 1 4 3 2 1 1 1 1
                        (1 :: Double)
-  , mnistTestCaseCNNI "CNNI 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
+  , mnistTestCaseCNNRI "CNNRI 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
                        (1.0 :: Float)
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
-mnistTestCaseCNNO
+mnistTestCaseCNNRO
   :: forall r.
      ( Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
-mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
-                  miniBatchSize totalBatchSize expected =
+mnistTestCaseCNNRO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
+                   miniBatchSize totalBatchSize expected =
   withSNat khInt $ \(_khSNat :: SNat kh) ->
   withSNat kwInt $ \(_kwSNat :: SNat kw) ->
   withSNat c_outInt $ \(_c_outSNat :: SNat c_out) ->
@@ -380,20 +380,20 @@ mnistTestCaseCNNO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        assertEqualUpToEpsilon 1e-1 expected testErrorFinal
 
-{-# SPECIALIZE mnistTestCaseCNNO
+{-# SPECIALIZE mnistTestCaseCNNRO
   :: String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Double
   -> TestTree #-}
 
-tensorADValMnistTestsCNNO :: TestTree
-tensorADValMnistTestsCNNO = testGroup "CNN Once MNIST tests"
-  [ mnistTestCaseCNNO "CNNO 1 epoch, 1 batch" 1 1 2 2 4 4 1 1
+tensorADValMnistTestsCNNRO :: TestTree
+tensorADValMnistTestsCNNRO = testGroup "CNNR Once MNIST tests"
+  [ mnistTestCaseCNNRO "CNNRO 1 epoch, 1 batch" 1 1 2 2 4 4 1 1
                        (1 :: Double)
-  , mnistTestCaseCNNO "CNNO artificial 1 2 3 4 5" 1 1 2 3 4 5 1 1
+  , mnistTestCaseCNNRO "CNNRO artificial 1 2 3 4 5" 1 1 2 3 4 5 1 1
                        (1 :: Float)
-  , mnistTestCaseCNNO "CNNO artificial 5 4 3 2 1" 1 4 3 2 1 1 1 1
+  , mnistTestCaseCNNRO "CNNRO artificial 5 4 3 2 1" 1 4 3 2 1 1 1 1
                        (1 :: Double)
-  , mnistTestCaseCNNO "CNNO 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
+  , mnistTestCaseCNNRO "CNNRO 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
                        (1.0 :: Float)
   ]
 

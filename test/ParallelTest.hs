@@ -10,6 +10,7 @@ import Test.Tasty.Runners
 
 import EqEpsilon
 import TestMnistCNNR qualified
+import TestMnistCNNS qualified
 import TestMnistFCNNR qualified
 import TestMnistRNNR qualified
 import TestMnistRNNS qualified
@@ -30,6 +31,7 @@ tests =
   testGroup "The set of tests for simplified horde-ad that can run in parallel"
     [ testGroup "Long_tests"
         (TestMnistCNNR.testTrees
+         ++ TestMnistCNNS.testTrees
          ++ TestMnistFCNNR.testTrees
          ++ TestMnistRNNR.testTrees
          ++ TestMnistRNNS.testTrees)
