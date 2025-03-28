@@ -15,7 +15,10 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
 
 import HordeAd
+import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (resetVarCounter)
+import HordeAd.Core.AstInterpret
+import HordeAd.Core.CarriersAst
 
 import CrossTesting
 
@@ -26,21 +29,26 @@ testTrees =
   , testCase "gather1" testGather1
   , testCase "gatherBuild1" testGatherBuild1
   , testCase "gatherSimpPP1" testGatherSimpPP1
+  , testCase "gatherSimp1" testGatherSimp1
   , testCase "gatherNested02" testGatherNested02
   , testCase "gatherNested2" testGatherNested2
   , testCase "gatherNestedBuild2" testGatherNestedBuild2
   , testCase "gather2" testGather2
   , testCase "gatherBuild2" testGatherBuild2
   , testCase "gatherSimpPP2" testGatherSimpPP2
+  , testCase "gatherSimp2" testGatherSimp2
   , testCase "gatherNested12" testGatherNested12
   , testCase "gatherNestedBuild12" testGatherNestedBuild12
   , testCase "gather12" testGather12
   , testCase "gatherBuild12" testGatherBuild12
   , testCase "gatherSimpPP12" testGatherSimpPP12
+  , testCase "gatherSimp12" testGatherSimp12
   , testCase "gatherReshape22" testGatherReshape22
   , testCase "gatherReshapeBuild22" testGatherReshapeBuild22
   , testCase "gatherSimpPP22" testGatherSimpPP22
+  , testCase "gatherSimp22" testGatherSimp22
   , testCase "gatherSimpPP23" testGatherSimpPP23
+  , testCase "gatherSimp23" testGatherSimp23
   , testCase "gatherTranspose33" testGatherTranspose33
   , testCase "gatherTransposeBuild33" testGatherTransposeBuild33
   , testCase "gatherTransposeBuild331" testGatherTransposeBuild331
@@ -57,16 +65,19 @@ testTrees =
   , testCase "scatter1" testScatter1
   , testCase "scatterBuild1" testScatterBuild1
   , testCase "scatterSimpPP1" testScatterSimpPP1
+  , testCase "scatterSimp1" testScatterSimp1
   , testCase "scatterNested2" testScatterNested2
   , testCase "scatterNestedBuild2" testScatterNestedBuild2
   , testCase "scatter2" testScatter2
   , testCase "scatterBuild2" testScatterBuild2
   , testCase "scatterSimpPP2" testScatterSimpPP2
+  , testCase "scatterSimp2" testScatterSimp2
   , testCase "scatterNested12" testScatterNested12
   , testCase "scatterNestedBuild12" testScatterNestedBuild12
   , testCase "scatter12" testScatter12
   , testCase "scatterBuild12" testScatterBuild12
   , testCase "scatterSimpPP12" testScatterSimpPP12
+  , testCase "scatterSimp12" testScatterSimp12
 
   , testCase "shmatterBarReluADVal320" testBarReluADVal320
   , testCase "shmatterReluSimpPP" testReluSimpPP
@@ -90,8 +101,7 @@ testGatherNested1 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [7,2]
                  [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
-    (rev' @Double @1 gatherNested1
-                               (rreplicate 7 $ ringestData [2] [0, 1]))
+    (rev' @Double @1 gatherNested1 (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherNestedBuild1 :: Assertion
 testGatherNestedBuild1 =
@@ -139,6 +149,35 @@ testGatherSimpPP1 = do
   length (show t2) @?= 229
   length (show (simplifyInlineContract @(TKR 1 Float) t1))
     @?= length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t2))
+
+testGatherSimp1 :: Assertion
+testGatherSimp1 = do
+  let varName = mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000
+      var = AstVar varName
+      vals = [-1, 0, 2.0,5.0,11.0,-17.0,23.0,29.0,-35.0,41.0,47.0,33.0, 0.1, 0.007]
+      env = extendEnv varName (ringestData [7, 2] vals) emptyEnv
+  let !t1 = gatherNested1 @(AstTensor AstMethodLet PrimalSpan) var
+  let !t2 = gather1 (ringestData [7, 2] vals)
+  let !t1n = unAstNoSimplify $ gatherNested1 $ AstNoSimplify var
+  let !t2n = unAstNoSimplify $ gather1 $ AstNoSimplify $ var
+  interpretAstPrimal @Concrete env t1
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete env t1n
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete emptyEnv t2
+    @?= interpretAstPrimal @Concrete env t2n
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 1 Float) t1)
+    @?= interpretAstPrimal @Concrete env t1
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 1 Float) t1n)
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete emptyEnv
+                     (simplifyInlineContract @(TKR 1 Float) t2)
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 1 Float) t2n)
+    @?= interpretAstPrimal @Concrete env t2n
 
 gatherNested02 :: forall target r. (ADReady target, GoodScalar r)
                => target (TKR 1 r) -> target (TKR 1 r)
@@ -220,6 +259,35 @@ testGatherSimpPP2 = do
   length (show (simplifyInlineContract @(TKR 2 Float) @PrimalSpan t1)) @?= 338
   length (show (simplifyInlineContract @(TKR 2 Float) @PrimalSpan t2)) @?= 338
 
+testGatherSimp2 :: Assertion
+testGatherSimp2 = do
+  let varName = mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000
+      var = AstVar varName
+      vals = [-1, 0, 2.0,5.0,11.0,-17.0,23.0,29.0,-35.0,41.0,47.0,33.0, 0.1, 0.007]
+      env = extendEnv varName (ringestData [7, 2] vals) emptyEnv
+  let !t1 = gatherNested2 @(AstTensor AstMethodLet PrimalSpan) var
+  let !t2 = gather2 (ringestData [7, 2] vals)
+  let !t1n = unAstNoSimplify $ gatherNested2 $ AstNoSimplify var
+  let !t2n = unAstNoSimplify $ gather2 $ AstNoSimplify var
+  interpretAstPrimal @Concrete env t1
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete env t1n
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete emptyEnv t2
+    @?= interpretAstPrimal @Concrete env t2n
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1)
+    @?= interpretAstPrimal @Concrete env t1
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1n)
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete emptyEnv
+                     (simplifyInlineContract @(TKR 2 Float) t2)
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t2n)
+    @?= interpretAstPrimal @Concrete env t2n
+
 gatherNested12 :: forall target r. (ADReady target, GoodScalar r)
                => target (TKR 2 r) -> target (TKR 2 r)
 gatherNested12 t =
@@ -235,8 +303,7 @@ testGatherNested12 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [7,2]
                  [1.0,0.0,1.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0])
-    (rev' @Double @2 gatherNested12
-                               (rreplicate 7 $ ringestData [2] [0, 1]))
+    (rev' @Double @2 gatherNested12 (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherNestedBuild12 :: Assertion
 testGatherNestedBuild12 =
@@ -262,8 +329,7 @@ testGather12 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [7,2]
                  [1.0,0.0,1.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0])
-    (rev' @Double @2 gather12
-                               (rreplicate 7 $ ringestData [2] [0, 1]))
+    (rev' @Double @2 gather12 (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherBuild12 :: Assertion
 testGatherBuild12 =
@@ -286,6 +352,35 @@ testGatherSimpPP12 = do
   length (show t2) @?= 338
   length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 338
   length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 338
+
+testGatherSimp12 :: Assertion
+testGatherSimp12 = do
+  let varName = mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000
+      var = AstVar varName
+      vals = [-1, 0, 2.0,5.0,11.0,-17.0,23.0,29.0,-35.0,41.0,47.0,33.0, 0.1, 0.007]
+      env = extendEnv varName (ringestData [7, 2] vals) emptyEnv
+  let !t1 = gatherNested12 @(AstTensor AstMethodLet PrimalSpan) var
+  let !t2 = gather12 (ringestData [7, 2] vals)
+  let !t1n = unAstNoSimplify $ gatherNested12 $ AstNoSimplify var
+  let !t2n = unAstNoSimplify $ gather12 $ AstNoSimplify var
+  interpretAstPrimal @Concrete env t1
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete env t1n
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete emptyEnv t2
+    @?= interpretAstPrimal @Concrete env t2n
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1)
+    @?= interpretAstPrimal @Concrete env t1
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1n)
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete emptyEnv
+                     (simplifyInlineContract @(TKR 2 Float) t2)
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t2n)
+    @?= interpretAstPrimal @Concrete env t2n
 
 gatherReshape22 :: forall target r. (ADReady target, GoodScalar r)
                 => target (TKR 2 r) -> target (TKR 2 r)
@@ -326,6 +421,35 @@ testGatherSimpPP22 = do
   length (show t2) @?= 103
   length (show (simplifyInlineContract @(TKR 2 Float) @PrimalSpan t2)) @?= 103
 
+testGatherSimp22 :: Assertion
+testGatherSimp22 = do
+  let varName = mkAstVarName (FTKR [6, 2] FTKScalar) . intToAstVarId $ 100000000
+      var = AstVar varName
+      vals = [-1, 0, 2.0,5.0,11.0,-17.0,23.0,29.0,-35.0,41.0,47.0,33.0]
+      env = extendEnv varName (ringestData [6, 2] vals) emptyEnv
+  let !t1 = gatherReshape22 @(AstTensor AstMethodLet PrimalSpan) var
+  let !t2 = rreshape @2 @2 [2, 6] (ringestData [6, 2] vals)
+  let !t1n = unAstNoSimplify $ gatherReshape22 $ AstNoSimplify var
+  let !t2n = unAstNoSimplify $ rreshape @2 @2 [2, 6] $ AstNoSimplify var
+  interpretAstPrimal @Concrete env t1
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete env t1n
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete emptyEnv t2
+    @?= interpretAstPrimal @Concrete env t2n
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1)
+    @?= interpretAstPrimal @Concrete env t1
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1n)
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete emptyEnv
+                     (simplifyInlineContract @(TKR 2 Float) t2)
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t2n)
+    @?= interpretAstPrimal @Concrete env t2n
+
 testGatherSimpPP23 :: Assertion
 testGatherSimpPP23 = do
   resetVarCounter
@@ -342,6 +466,43 @@ testGatherSimpPP23 = do
             $ AstVar (mkAstVarName (FTKR [6, 2] FTKScalar) . intToAstVarId $ 100000000)
   length (show t2) @?= 312
   length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 312
+
+testGatherSimp23 :: Assertion
+testGatherSimp23 = do
+  let varName = mkAstVarName (FTKR [6, 2] FTKScalar) . intToAstVarId $ 100000000
+      var = AstVar varName
+      vals = [-1, 0, 2.0,5.0,11.0,-17.0,23.0,29.0,-35.0,41.0,47.0,33.0]
+      env = extendEnv varName (ringestData [6, 2] vals) emptyEnv
+  let !t1 = (\t -> rbuild1 4 (\i ->
+              gatherReshape22 @(AstTensor AstMethodLet PrimalSpan)
+                (t * rreplicate0N [6, 2] (rfromIndex0 i)))) var
+  let !t2 = (\t -> rbuild1 4 (\i ->
+              rreshape @2 @2 [2, 6]
+                (t * rreplicate0N [6, 2] (rfromIndex0 i)))) (ringestData [6, 2] vals)
+  let !t1n = unAstNoSimplify $ (\t -> rbuild1 4 (\i ->
+              gatherReshape22
+                (t * rreplicate0N [6, 2] (rfromIndex0 i)))) $ AstNoSimplify var
+  let !t2n = unAstNoSimplify $ (\t -> rbuild1 4 (\i ->
+              rreshape @2 @2 [2, 6]
+                (t * rreplicate0N [6, 2] (rfromIndex0 i)))) $ AstNoSimplify var
+  interpretAstPrimal @Concrete env t1
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete env t1n
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete emptyEnv t2
+    @?= interpretAstPrimal @Concrete env t2n
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 3 Float) t1)
+    @?= interpretAstPrimal @Concrete env t1
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 3 Float) t1n)
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete emptyEnv
+                     (simplifyInlineContract @(TKR 3 Float) t2)
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 3 Float) t2n)
+    @?= interpretAstPrimal @Concrete env t2n
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -545,6 +706,36 @@ testScatterSimpPP1 = do
   length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t1)) @?= 341
   length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t2)) @?= 418
 
+testScatterSimp1 :: Assertion
+testScatterSimp1 = do
+  let varName = mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000
+      var = AstVar varName
+      vals = [-1, 0, 2.0,5.0,11.0,-17.0,23.0,29.0,-35.0,41.0,47.0,33.0, 0.1, 0.007]
+      env = extendEnv varName (ringestData [7, 2] vals) emptyEnv
+  let !t1 = scatterNested1 @(AstTensor AstMethodLet PrimalSpan) var
+  let !t2 = scatter1 (ringestData [7, 2] vals)
+  let !t1n = unAstNoSimplify $ scatterNested1 $ AstNoSimplify var
+  let !t2n = unAstNoSimplify $ scatter1 $ AstNoSimplify var
+  interpretAstPrimal @Concrete env t1
+    @?= interpretAstPrimal @Concrete env t1n
+  -- TODO: scatter fusion isn't sound? or just incorrectly manually done here?
+  -- interpretAstPrimal @Concrete env t1n
+  --   @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete emptyEnv t2
+    @?= interpretAstPrimal @Concrete env t2n
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 1 Float) t1)
+    @?= interpretAstPrimal @Concrete env t1
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 1 Float) t1n)
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete emptyEnv
+                     (simplifyInlineContract @(TKR 1 Float) t2)
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 1 Float) t2n)
+    @?= interpretAstPrimal @Concrete env t2n
+
 scatterNested2 :: forall target r. (ADReady target, GoodScalar r)
               => target (TKR 2 r) -> target (TKR 2 r)
 scatterNested2 t =
@@ -561,8 +752,7 @@ testScatterNested2 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @Double @2 scatterNested2
-                               (rreplicate 7 $ ringestData [2] [0, 1]))
+    (rev' @Double @2 scatterNested2 (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterNestedBuild2 :: Assertion
 testScatterNestedBuild2 =
@@ -587,8 +777,7 @@ testScatter2 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @Double @2 scatter2
-                               (rreplicate 7 $ ringestData [2] [0, 1]))
+    (rev' @Double @2 scatter2 (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterBuild2 :: Assertion
 testScatterBuild2 =
@@ -611,6 +800,36 @@ testScatterSimpPP2 = do
   length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 1019
   length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 642
 
+testScatterSimp2 :: Assertion
+testScatterSimp2 = do
+  let varName = mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000
+      var = AstVar varName
+      vals = [-1, 0, 2.0,5.0,11.0,-17.0,23.0,29.0,-35.0,41.0,47.0,33.0, 0.1, 0.007]
+      env = extendEnv varName (ringestData [7, 2] vals) emptyEnv
+  let !t1 = scatterNested2 @(AstTensor AstMethodLet PrimalSpan) var
+  let !t2 = scatter2 (ringestData [7, 2] vals)
+  let !t1n = unAstNoSimplify $ scatterNested2 $ AstNoSimplify var
+  let !t2n = unAstNoSimplify $ scatter2 $ AstNoSimplify var
+  interpretAstPrimal @Concrete env t1
+    @?= interpretAstPrimal @Concrete env t1n
+  -- TODO: scatter fusion isn't sound? or just incorrectly manually done here?
+  -- interpretAstPrimal @Concrete env t1n
+  --  @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete emptyEnv t2
+    @?= interpretAstPrimal @Concrete env t2n
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1)
+    @?= interpretAstPrimal @Concrete env t1
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1n)
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete emptyEnv
+                     (simplifyInlineContract @(TKR 2 Float) t2)
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t2n)
+    @?= interpretAstPrimal @Concrete env t2n
+
 scatterNested12 :: forall target r. (ADReady target, GoodScalar r)
                => target (TKR 2 r) -> target (TKR 2 r)
 scatterNested12 t =
@@ -627,8 +846,7 @@ testScatterNested12 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @Double @2 scatterNested12
-                               (rreplicate 7 $ ringestData [2] [0, 1]))
+    (rev' @Double @2 scatterNested12 (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterNestedBuild12 :: Assertion
 testScatterNestedBuild12 =
@@ -654,8 +872,7 @@ testScatter12 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [7,2]
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
-    (rev' @Double @2 scatter12
-                               (rreplicate 7 $ ringestData [2] [0, 1]))
+    (rev' @Double @2 scatter12 (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterBuild12 :: Assertion
 testScatterBuild12 =
@@ -678,6 +895,35 @@ testScatterSimpPP12 = do
   length (show t2) @?= 642
   length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 874
   length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 642
+
+testScatterSimp12 :: Assertion
+testScatterSimp12 = do
+  let varName = mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000
+      var = AstVar varName
+      vals = [-1, 0, 2.0,5.0,11.0,-17.0,23.0,29.0,-35.0,41.0,47.0,33.0, 0.1, 0.007]
+      env = extendEnv varName (ringestData [7, 2] vals) emptyEnv
+  let !t1 = scatterNested12 @(AstTensor AstMethodLet PrimalSpan) var
+  let !t2 = scatter12 (ringestData [7, 2] vals)
+  let !t1n = unAstNoSimplify $ scatterNested12 $ AstNoSimplify var
+  let !t2n = unAstNoSimplify $ scatter12 $ AstNoSimplify var
+  interpretAstPrimal @Concrete env t1
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete env t1n
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete emptyEnv t2
+    @?= interpretAstPrimal @Concrete env t2n
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1)
+    @?= interpretAstPrimal @Concrete env t1
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1n)
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete emptyEnv
+                     (simplifyInlineContract @(TKR 2 Float) t2)
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t2n)
+    @?= interpretAstPrimal @Concrete env t2n
 
 foo :: RealFloatH a => (a,a,a) -> a
 foo (x,y,z) =

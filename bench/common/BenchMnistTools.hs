@@ -32,7 +32,8 @@ import MnistFcnnRanked2 qualified
 -- * Using lists of vectors, which is rank 1
 
 type XParams widthHidden widthHidden2 r =
-  X (MnistFcnnRanked1.ADFcnnMnist1Parameters Concrete widthHidden widthHidden2 r)
+  X (MnistFcnnRanked1.ADFcnnMnist1Parameters
+       Concrete widthHidden widthHidden2 r)
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
@@ -240,9 +241,10 @@ mnistTrainBench2VTA prefix widthHidden widthHidden2
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   Concrete widthHidden widthHidden2 r Float)))
-                      1 (mkStdGen 44)
+        $ randomValue
+            @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                             Concrete widthHidden widthHidden2 r Float)))
+            1 (mkStdGen 44)
   in do
 {-    let f :: MnistDataLinearR r -> ADVal Concrete (XParams2 r Float)
           -> ADVal Concrete (TKScalar r)
@@ -274,9 +276,10 @@ mnistTestBench2VTA prefix widthHidden widthHidden2
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   let targetInit =
         forgetShape $ fst
-        $ randomValue @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
-                                   Concrete widthHidden widthHidden2 r Float)))
-                      1 (mkStdGen 44)
+        $ randomValue
+            @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                             Concrete widthHidden widthHidden2 r Float)))
+            1 (mkStdGen 44)
   in do
     let chunk = take batchSize xs
         score c = MnistFcnnRanked2.afcnnMnistTest2 c (fromTarget targetInit)
@@ -318,7 +321,8 @@ mnistTrainBench2VTC prefix widthHidden widthHidden2 =
   bench prefix
   $ whnf (simplifyArtifactGradient . snd
           . MnistFcnnRanked2.mnistTrainBench2VTOGradient
-              @Double (Proxy @Float) IgnoreIncomingCotangent 1 (mkStdGen 44) widthHidden)
+              @Double (Proxy @Float) IgnoreIncomingCotangent
+              1 (mkStdGen 44) widthHidden)
          widthHidden2
 
 mnistBGroup2VTC :: Int -> Benchmark
@@ -367,7 +371,8 @@ mnistBGroup2VTO :: Int -> Benchmark
 mnistBGroup2VTO chunkLength =
   let (!targetInit, !artRaw) =
         MnistFcnnRanked2.mnistTrainBench2VTOGradient
-          @Double (Proxy @Float) IgnoreIncomingCotangent 1 (mkStdGen 44) 1500 500
+          @Double (Proxy @Float) IgnoreIncomingCotangent
+          1 (mkStdGen 44) 1500 500
       !art = simplifyArtifactGradient artRaw  -- no NFData for AST
   in env (do
     testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
@@ -415,7 +420,8 @@ mnistBGroup2VTOZ :: Int -> Benchmark
 mnistBGroup2VTOZ chunkLength =
   let (!targetInit, !art) =
         MnistFcnnRanked2.mnistTrainBench2VTOGradient
-          @Double (Proxy @Float) IgnoreIncomingCotangent 1 (mkStdGen 44) 1500 500
+          @Double (Proxy @Float) IgnoreIncomingCotangent
+          1 (mkStdGen 44) 1500 500
   in env (do
     testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
     let testData = shuffle (mkStdGen 42) testData0
@@ -426,7 +432,8 @@ mnistBGroup2VTOZ chunkLength =
      [ mnistTrainBench2VTO "1500|500 " 0.02 chunkLength xs (targetInit, art)
      ]
 
--- The same as above, but without any simplification, even the smart constructors.
+-- The same as above, but without any simplification, even the smart
+-- constructors.
 mnistTrainBench2VTOX
   :: forall r. r ~ Double
   => String
@@ -462,7 +469,8 @@ mnistBGroup2VTOX :: Int -> Benchmark
 mnistBGroup2VTOX chunkLength =
   let (!targetInit, !art) =
         MnistFcnnRanked2.mnistTrainBench2VTOGradientX
-          @Double (Proxy @Float) IgnoreIncomingCotangent 1 (mkStdGen 44) 1500 500
+          @Double (Proxy @Float) IgnoreIncomingCotangent
+          1 (mkStdGen 44) 1500 500
   in env (do
     testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
     let testData = shuffle (mkStdGen 42) testData0
