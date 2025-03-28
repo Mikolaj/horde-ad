@@ -85,7 +85,7 @@ import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation (DropLen, Perm (..), TakeLen, permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
-import Data.Array.Mixed.Types (Init, Last, Tail, unsafeCoerceRefl)
+import Data.Array.Mixed.Types (Init, Last, Tail, snatPlus, unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Lemmas
@@ -1073,7 +1073,7 @@ astFromIntegralS t = case t of
   Ast.AstGatherS shn v (vars, ix) ->
     Ast.AstGatherS shn (astFromIntegralS v) (vars, ix)
   Ast.AstIotaS snat -> Ast.AstIotaS snat
-  Ast.AstSliceS i n k v -> astSliceS i n k (astFromIntegralS v)
+--  Ast.AstSliceS i n k v -> astSliceS i n k (astFromIntegralS v)
   Ast.AstReverseS v -> astReverseS (astFromIntegralS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astFromIntegralS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astFromIntegralS v)
@@ -1121,7 +1121,7 @@ astCastS t = case t of
     Ast.AstGatherS shn (astCastS v) (vars, ix)
 --  Ast.AstMinIndexS v -> Ast.AstMinIndexS (astCastS v)
   Ast.AstIotaS snat -> Ast.AstIotaS snat
-  Ast.AstSliceS i n k v -> astSliceS i n k (astCastS v)
+--  Ast.AstSliceS i n k v -> astSliceS i n k (astCastS v)
   Ast.AstReverseS v -> astReverseS (astCastS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astCastS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astCastS v)
@@ -1976,33 +1976,61 @@ astSliceS :: forall i n k sh s r. AstSpan s
           -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astSliceS SNat SNat SNat (Ast.AstFromVector _ stk@STKS{} l) =
   astFromVector (SNat @n) stk $ V.take (valueOf @n) $ V.drop (valueOf @i) l
-astSliceS SNat SNat SNat (Ast.AstReplicate _ snat@STKS{} v) =
-  astReplicate (SNat @n) snat v
+astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKScalar v) =
+  astReplicate (SNat @n) stk v
+astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKS{} v) =
+  astReplicate (SNat @n) stk v
 astSliceS i n@SNat k (AstConcreteS t) =
   astConcreteS (tsslice i n k $ Concrete t)
-astSliceS i n k (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSliceS i n k v
-astSliceS i n k (Ast.AstFromDual v) = Ast.AstFromDual $ astSliceS i n k v
 astSliceS (SNat' @0) SNat (SNat' @0) v = v
 astSliceS SNat SNat SNat (Ast.AstGatherS shn v (Const var ::$ vars, ix)) =
   let ivar = AstIntVar var + valueOf @i
       ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
       vars2 = Const var ::$ vars
   in astGatherS shn v (vars2, ix2)
-astSliceS i@SNat n@SNat k@SNat
-          w@(Ast.AstAppendS
-               (u :: AstTensor AstMethodLet s (TKS2 (ulen : sh) r))
-               (v :: AstTensor AstMethodLet s (TKS2 (vlen : sh) r)))
- | FTKS (SNat :$$ _) _ <- ftkAst u =
-  case cmpNat (Proxy @(i + n)) (Proxy @ulen) of
-    LTI -> astSliceS i n (SNat @(ulen - (i + n))) u
-    EQI -> astSliceS i n (SNat @0) u
-    GTI ->
-      gcastWith (unsafeCoerceRefl :: vlen :~: i - ulen + n + k) $
-      case cmpNat (Proxy @ulen) (Proxy @i) of
-        LTI -> astSliceS (SNat @(i - ulen)) n k v
-        EQI -> astSliceS (SNat @0) n k v
-        GTI -> Ast.AstSliceS i n k w -- cheap iff fits in one
-astSliceS i n k v = Ast.AstSliceS i n k v
+astSliceS i n@(SNat @n0) _k (Ast.AstAppendS v1 v2)
+  | FTKS (m1@(SNat @m1) :$$ _) _ <- ftkAst v1
+  , FTKS (m2@(SNat @m2) :$$ _) _ <- ftkAst v2 =
+    let i1 = sNatValue i `min` sNatValue m1
+        n1 = sNatValue n `min` (sNatValue m1 - i1)
+        k1 = sNatValue m1 - i1 - n1
+        i2' = sNatValue i `max` sNatValue m1
+        i2 = i2' - sNatValue m1
+        n2 = sNatValue n - n1
+        k2 = sNatValue m2 - i2 - n2
+    in withSNat i1 $ \si1@(SNat @i1) ->
+       withSNat n1 $ \sn1@(SNat @n1) ->
+       withSNat k1 $ \sk1@(SNat @k1) ->
+       withSNat i2 $ \si2@(SNat @i2) ->
+       withSNat n2 $ \sn2@(SNat @n2) ->
+       withSNat k2 $ \sk2@(SNat @k2) ->
+         gcastWith (unsafeCoerceRefl :: n1 + n2 :~: n0) $
+         gcastWith (unsafeCoerceRefl :: i1 + n1 + k1 :~: m1) $
+         gcastWith (unsafeCoerceRefl :: i2 + n2 + k2 :~: m2) $
+         astAppendS (astSliceS si1 sn1 sk1 v1) (astSliceS si2 sn2 sk2 v2)
+astSliceS i n k (Ast.AstSliceS i2 _n2 k2 v) =
+  astSliceS (snatPlus i i2) n (snatPlus k k2) v
+astSliceS i n k (Ast.AstReverseS v) = astReverseS (astSliceS k n i v)
+astSliceS i n k v1 = case v1 of
+  Ast.AstCond b a2 a3 ->
+    astCond b (astSliceS i n k a2) (astSliceS i n k a3)
+  Ast.AstLet var u v -> astLet var u (astSliceS i n k v)
+  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSliceS i n k v
+  Ast.AstFromDual v -> Ast.AstFromDual $ astSliceS i n k v
+  AstPlusS u v -> astSliceS i n k u + astSliceS i n k v
+  AstTimesS u v -> astSliceS i n k u * astSliceS i n k v
+  Ast.AstN1S NegateOp u -> negate (astSliceS i n k u)
+  Ast.AstN1S AbsOp u -> abs (astSliceS i n k u)
+  Ast.AstN1S SignumOp u -> signum (astSliceS i n k u)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astSliceS i n k u)
+  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astSliceS i n k u)
+                                             (astSliceS i n k v)
+  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (astSliceS i n k u)
+                                             (astSliceS i n k v)
+  Ast.AstFloorS a -> Ast.AstFloorS $ astSliceS i n k a
+  Ast.AstFromIntegralS v -> astFromIntegralS $ astSliceS i n k v
+  Ast.AstCastS v -> astCastS $ astSliceS i n k v
+  _ -> Ast.AstSliceS i n k v1
 
 astReverseS :: forall n sh s r. AstSpan s
             => AstTensor AstMethodLet s (TKS2 (n ': sh) r)

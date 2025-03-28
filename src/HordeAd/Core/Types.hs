@@ -93,7 +93,7 @@ instance NFData (SNat n) where
 withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
 withSNat i f = withSomeSNat (fromIntegral i) $ \case
   Just snat@SNat -> f snat
-  Nothing -> error "withSNat: negative argument"
+  Nothing -> error $ "withSNat: negative argument: " ++ show i
 
 sNatValue :: forall n. SNat n -> Int
 {-# INLINE sNatValue #-}
