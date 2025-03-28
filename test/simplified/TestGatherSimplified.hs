@@ -59,6 +59,11 @@ testTrees =
   , testCase "gatherTransposeBuild336" testGatherTransposeBuild336
   , testCase "gatherSimpPP33" testGatherSimpPP33
   , testCase "gatherSimpPP34" testGatherSimpPP34
+  , testCase "gatherCond" testGatherCond
+  , testCase "gatherCondBuild" testGatherCondBuild
+  , testCase "gatherCond2" testGatherCond2
+  , testCase "gatherCondBuild2" testGatherCondBuild2
+  , testCase "gatherSimpCond" testGatherSimpCond
 
   , testCase "scatterNested1" testScatterNested1
   , testCase "scatterNestedBuild1" testScatterNestedBuild1
@@ -639,6 +644,85 @@ testGatherSimpPP34 = do
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) . intToAstVarId $ 100000000)
   length (show t2) @?= 1082
   length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 1111
+
+gatherCond :: forall target r. (ADReady target, GoodScalar r)
+           => target (TKR 2 r) -> target (TKR 2 r)
+gatherCond u =
+  let v = rtranspose [2, 0, 1] $ rreplicate (2 * rwidth u) u
+  in rgather [rwidth u, 2] v (\(i :.: j :.: ZIR) ->
+                                ifH (i ==. 3) 0 j :.: 2 * i :.: i :.: ZIR)
+
+testGatherCond :: Assertion
+testGatherCond =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [7,2]
+                 [1.0,1.0,1.0,1.0,1.0,1.0,2.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0])
+    (rev' @Double @2 gatherCond (rreplicate 7 $ ringestData [2] [0, 1]))
+
+testGatherCondBuild :: Assertion
+testGatherCondBuild =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [7,2]
+                 [6.0,6.0,6.0,6.0,6.0,6.0,12.0,0.0,6.0,6.0,6.0,6.0,6.0,6.0])
+    (rev' @Double @3
+          (\t -> rbuild1 4 (\i ->
+             gatherCond (t * rreplicate0N [7, 2] (rfromIndex0 i))))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
+
+gatherCond2 :: forall target r. (ADReady target, GoodScalar r)
+            => target (TKR 2 r) -> target (TKR 2 r)
+gatherCond2 u = gatherCond u
+{- TODO: enable once the bad gather rule fixed
+  let v = rreplicate (2 * rwidth u) u
+  in rtr $ rgather [2, rwidth u] v (\(j :.: i :.: ZIR) ->
+                                      i :.: ifH (i ==. 3) 0 j :.: 2 * i :.: ZIR)
+-}
+
+testGatherCond2 :: Assertion
+testGatherCond2 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [7,2]
+                 [1.0,1.0,1.0,1.0,1.0,1.0,2.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0])
+    (rev' @Double @2 gatherCond2 (rreplicate 7 $ ringestData [2] [0, 1]))
+
+testGatherCondBuild2 :: Assertion
+testGatherCondBuild2 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [7,2]
+                 [6.0,6.0,6.0,6.0,6.0,6.0,12.0,0.0,6.0,6.0,6.0,6.0,6.0,6.0])
+    (rev' @Double @3
+          (\t -> rbuild1 4 (\i ->
+             gatherCond2 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
+
+testGatherSimpCond :: Assertion
+testGatherSimpCond = do
+  let varName = mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000
+      var = AstVar varName
+      vals = [-1, 0, 2.0,5.0,11.0,-17.0,23.0,29.0,-35.0,41.0,47.0,33.0, 0.1, 0.007]
+      env = extendEnv varName (ringestData [7, 2] vals) emptyEnv
+  let !t1 = gatherCond @(AstTensor AstMethodLet PrimalSpan) var
+  let !t2 = gatherCond2 (ringestData [7, 2] vals)
+  let !t1n = unAstNoSimplify $ gatherCond $ AstNoSimplify var
+  let !t2n = unAstNoSimplify $ gatherCond2 $ AstNoSimplify var
+  interpretAstPrimal @Concrete env t1
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete env t1n
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete emptyEnv t2
+    @?= interpretAstPrimal @Concrete env t2n
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1)
+    @?= interpretAstPrimal @Concrete env t1
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1n)
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete emptyEnv
+                     (simplifyInlineContract @(TKR 2 Float) t2)
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t2n)
+    @?= interpretAstPrimal @Concrete env t2n
 
 
 -- * Scatters instead of gathers
