@@ -3172,12 +3172,9 @@ contractAst t = case t of
   Ast.AstGatherS shn v (vars, Ast.AstCond b i1 i2 :.$ prest)
     | not $ any ((`varInAstBool` b) . varNameToAstVarId) (listsToList vars) ->
       contractAst
-      $ Ast.AstCond
-          b
-          (Ast.AstGatherS shn (Ast.AstIndexS (ixsToShS prest `shsAppend` shn)
-                                             v (i1 :.$ ZIS)) (vars, prest))
-          (Ast.AstGatherS shn (Ast.AstIndexS (ixsToShS prest `shsAppend` shn)
-                                             v (i2 :.$ ZIS)) (vars, prest))
+      $ Ast.AstCond b
+                    (Ast.AstGatherS shn v (vars, i1 :.$ prest))
+                    (Ast.AstGatherS shn v (vars, i2 :.$ prest))
   -- TODO: fix AstIntVar to be usable here (maybe look at SNat'?),
   Ast.AstGatherS
     shn v ( vars@((::$) @m (Const varm) mrest)
