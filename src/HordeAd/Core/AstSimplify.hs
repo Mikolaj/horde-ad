@@ -1817,6 +1817,8 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
       $ fromIntegral i
     Ast.AstIotaS{} ->  -- probably nothing can be simplified; a normal form
       Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+    Ast.AstAppendS{} | not $ knobExpand knobs ->
+      Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
       let ulen = AstConcreteK (valueOf @m)
           iu = simplifyAstInt (i4 - ulen)
@@ -1841,6 +1843,8 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
                                          (ftkToSTK x))
                        $ V.fromList [u2, v2])
                  (varsFresh, astCond bExpr5 0 1 :.$ IxS ixFresh)
+    Ast.AstSliceS{} | not $ knobExpand knobs ->
+      Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstSliceS i@SNat _ SNat v ->
       let ii = simplifyAstInt (fromIntegral (sNatValue i) + i4)
         -- we generate this index, so we simplify on the spot
