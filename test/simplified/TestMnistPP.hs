@@ -15,7 +15,9 @@ import Data.Array.Nested.Internal.Shape
 
 import HordeAd
 import HordeAd.Core.Adaptor
+import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
+import HordeAd.Core.AstInterpret
 import HordeAd.Core.Ops (treplicate)
 
 import MnistData
@@ -37,13 +39,18 @@ type XParams widthHidden widthHidden2 r =
        Concrete widthHidden widthHidden2 r)
 
 tensorMnistPPFCNNR :: TestTree
-tensorMnistPPFCNNR = testGroup "PP tests for Short Ranked MNIST tests"
+tensorMnistPPFCNNR = testGroup "PP and Ast tests for Short Ranked MNIST"
   [ testCase "VTO1 PP Lin" testVTOPP
+  , testCase "VTO1 Ast Lin" testVTOAst
   , testCase "VTO1 PP NonLin" testVTOPPNonLin
+  , testCase "VTO1 Ast NonLin" testVTOAstNonLin
   , testCase "VTO2 PP Lin" testVT2OPP
+  , testCase "VTO2 Ast Lin" testVT2OAst
   , testCase "VTO2 PP NonLin" testVT2OPPNonLin
   , testCase "VTO2 PP NonLin2" testVT2OPPNonLin2
+  , testCase "VTO2 Ast NonLin2" testVT2OAstNonLin2
   , testCase "VTO2 PP NonLin3" testVT2OPPNonLin3
+  , testCase "VTO2 Ast NonLin3" testVT2OAstNonLin3
   ]
 
 valsInitVTOPP :: (Num r, Enum r, Nested.PrimElt r)
@@ -86,6 +93,32 @@ testVTOPP = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\v1 -> rfromS (let v4 = sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject1 (tproject1 v1)))) (sreplicate @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) (sreplicate @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1)))))) (sreplicate @784 (sscalar 7.0))]) + tproject2 (tproject1 (tproject1 v1)) ; v5 = sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject2 (tproject1 v1)))) v4, sdot0 (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) v4, sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) v4, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))))) v4]) + tproject2 (tproject2 (tproject1 v1)) in sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject2 v1))) v5, sdot0 (tproject1 (tproject2 (tproject1 (tproject2 v1)))) v5, sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) v5, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) v5, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) v5, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) v5, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) v5, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) v5, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) v5, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))))) v5]) + tproject2 (tproject2 v1))"
 
+testVTOAst :: Assertion
+testVTOAst = do
+  let ftk = tftk @Concrete (knownSTK @(XParams 3 4 Float))
+                 (toTarget @Concrete valsInitVTOPP)
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
+      var :: AstTensor AstMethodLet FullSpan (XParams 3 4 Float)
+      var = AstVar varName
+      vals = toTarget @Concrete valsInitVTOPP
+      env = extendEnv varName vals emptyEnv
+      blackGlyph = treplicate (SNat @SizeMnistGlyph) knownSTK $ rscalar 7
+      afcnn2 :: ADReady f
+             => MnistFcnnRanked1.ADFcnnMnist1Parameters f 3 4 Float
+             -> f (TKR 1 Float)
+      afcnn2 = MnistFcnnRanked1.afcnnMnist1
+                 id id (SNat @3) (SNat @4)
+                 (sfromR $ rconcrete $ unConcrete blackGlyph)
+      afcnn1 = afcnn2 $ fromTarget var
+  interpretAstFull @Concrete env afcnn1
+    @?= afcnn2 valsInitVTOPP
+  interpretAstFull @Concrete env
+                   (simplifyInline @(TKR 1 Float) afcnn1)
+    @?= afcnn2 valsInitVTOPP
+  interpretAstFull @Concrete env
+                   (simplifyInlineContract @(TKR 1 Float) afcnn1)
+    @?= afcnn2 valsInitVTOPP
+
 testVTOPPNonLin :: Assertion
 testVTOPPNonLin = do
   resetVarCounter
@@ -109,6 +142,32 @@ testVTOPPNonLin = do
     @?= "\\dret v1 -> let v12 = recip (sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) + exp (negate (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject1 (tproject1 v1)))) (sreplicate @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) (sreplicate @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1)))))) (sreplicate @784 (sscalar 7.0))])) + negate (tproject2 (tproject1 (tproject1 v1))))) ; v15 = scast (sconcrete (sfromListLinear [3] [0.0,0.0,0.0]) + v12) ; v19 = recip (sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + exp (negate (scast (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject2 (tproject1 v1)))) v15, sdot0 (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) v15, sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) v15, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))))) v15]))) + negate (tproject2 (tproject2 (tproject1 v1))))) ; v22 = sconcrete (sfromListLinear [4] [0.0,0.0,0.0,0.0]) + v19 ; v23 = exp (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject2 v1))) v22, sdot0 (tproject1 (tproject2 (tproject1 (tproject2 v1)))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))))) v22]) + tproject2 (tproject2 v1)) ; x24 = ssum0 v23 ; v27 = v23 * (sreplicate @10 (negate (recip (x24 * x24)) * sdot0 v23 (sfromR dret)) + sreplicate @10 (recip x24) * sfromR dret) ; v28 = sreplicate @4 (v27 !$ [9]) ; v29 = sreplicate @4 (v27 !$ [8]) ; v30 = sreplicate @4 (v27 !$ [7]) ; v31 = sreplicate @4 (v27 !$ [6]) ; v32 = sreplicate @4 (v27 !$ [5]) ; v33 = sreplicate @4 (v27 !$ [4]) ; v34 = sreplicate @4 (v27 !$ [3]) ; v35 = sreplicate @4 (v27 !$ [2]) ; v36 = sreplicate @4 (v27 !$ [1]) ; v37 = sreplicate @4 (v27 !$ [0]) ; v38 = (v19 * (sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + negate v19)) * (tproject1 (tproject1 (tproject2 v1)) * v37 + (tproject1 (tproject2 (tproject1 (tproject2 v1))) * v36 + (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1)))) * v35 + (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) * v34 + (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) * v33 + (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) * v32 + (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) * v31 + (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) * v30 + (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) * v29 + tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) * v28))))))))) ; v39 = scast v38 ; v40 = sreplicate @3 (v39 !$ [3]) ; v41 = sreplicate @3 (v39 !$ [2]) ; v42 = sreplicate @3 (v39 !$ [1]) ; v43 = sreplicate @3 (v39 !$ [0]) ; v44 = (v12 * (sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) + negate v12)) * scast (tproject1 (tproject1 (tproject2 (tproject1 v1))) * v43 + (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1)))) * v42 + (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) * v41 + tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) * v40))) in tpair (tpair (tpair (tpair (sreplicate @784 (sscalar 7.0) * sreplicate @784 (v44 !$ [0])) (tpair (sreplicate @784 (sscalar 7.0) * sreplicate @784 (v44 !$ [1])) (tpair (sreplicate @784 (sscalar 7.0) * sreplicate @784 (v44 !$ [2])) Z0))) v44) (tpair (tpair (v15 * v43) (tpair (v15 * v42) (tpair (v15 * v41) (tpair (v15 * v40) Z0)))) v38)) (tpair (tpair (v22 * v37) (tpair (v22 * v36) (tpair (v22 * v35) (tpair (v22 * v34) (tpair (v22 * v33) (tpair (v22 * v32) (tpair (v22 * v31) (tpair (v22 * v30) (tpair (v22 * v29) (tpair (v22 * v28) Z0)))))))))) v27)"
   printArtifactPrimalPretty (simplifyArtifact artifactRevnonLin)
     @?= "\\v1 -> rfromS (let v15 = scast (sconcrete (sfromListLinear [3] [0.0,0.0,0.0]) + recip (sconcrete (sfromListLinear [3] [1.0,1.0,1.0]) + exp (negate (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject1 (tproject1 v1)))) (sreplicate @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject1 (tproject1 (tproject1 v1))))) (sreplicate @784 (sscalar 7.0)), sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject1 (tproject1 v1)))))) (sreplicate @784 (sscalar 7.0))])) + negate (tproject2 (tproject1 (tproject1 v1)))))) ; v22 = sconcrete (sfromListLinear [4] [0.0,0.0,0.0,0.0]) + recip (sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + exp (negate (scast (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject2 (tproject1 v1)))) v15, sdot0 (tproject1 (tproject2 (tproject1 (tproject2 (tproject1 v1))))) v15, sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1)))))) v15, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 (tproject1 v1))))))) v15]))) + negate (tproject2 (tproject2 (tproject1 v1))))) ; v23 = exp (sfromVector (fromList [sdot0 (tproject1 (tproject1 (tproject2 v1))) v22, sdot0 (tproject1 (tproject2 (tproject1 (tproject2 v1)))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject1 (tproject2 v1))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1))))))))))) v22, sdot0 (tproject1 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject2 (tproject1 (tproject2 v1)))))))))))) v22]) + tproject2 (tproject2 v1)) in sreplicate @10 (recip (ssum0 v23)) * v23)"
+
+testVTOAstNonLin :: Assertion
+testVTOAstNonLin = do
+  let ftk = tftk @Concrete (knownSTK @(XParams 3 4 Double))
+                 (toTarget @Concrete valsInitVTOPP)
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
+      var :: AstTensor AstMethodLet FullSpan (XParams 3 4 Double)
+      var = AstVar varName
+      vals = toTarget @Concrete valsInitVTOPP
+      env = extendEnv varName vals emptyEnv
+      blackGlyph = treplicate (SNat @SizeMnistGlyph) knownSTK $ rscalar 7
+      afcnn2 :: ADReady f
+             => MnistFcnnRanked1.ADFcnnMnist1Parameters f 3 4 Double
+             -> f (TKR 1 Double)
+      afcnn2 = MnistFcnnRanked1.afcnnMnist1
+                 logisticS softMax1S (SNat @3) (SNat @4)
+                 (sfromR $ rconcrete $ unConcrete blackGlyph)
+      afcnn1 = afcnn2 $ fromTarget var
+  interpretAstFull @Concrete env afcnn1
+    @?= afcnn2 valsInitVTOPP
+  interpretAstFull @Concrete env
+                   (simplifyInline @(TKR 1 Double) afcnn1)
+    @?= afcnn2 valsInitVTOPP
+  interpretAstFull @Concrete env
+                   (simplifyInlineContract @(TKR 1 Double) afcnn1)
+    @?= afcnn2 valsInitVTOPP
 
 valsInitVT2OPP :: MnistFcnnRanked2.ADFcnnMnist2Parameters Concrete Double Float
 valsInitVT2OPP =
@@ -142,6 +201,32 @@ testVT2OPP = do
     @?= "\\dret m1 -> tfromS (STKProduct (STKProduct (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @1) STKScalar)) (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @1) STKScalar))) (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @1) STKScalar))) (let m5 = str (sreplicate @5 (scast (ssdot1In (sreplicate @4 (sreplicate @3 (sscalar 7.0))) (sfromR (tproject1 (tproject1 (tproject1 m1)))) + sfromR (tproject2 (tproject1 (tproject1 m1)))))) ; v8 = ssdot1In (str (sfromR (tproject1 (tproject2 m1)))) (sreplicate @5 (sfromR dret)) ; m9 = sreplicate @4 (scast v8) ; v10 = scast (ssdot1In (str (sfromR (tproject1 (tproject2 (tproject1 m1))))) m9) in tpair (tpair (tpair (sreplicate @4 (sreplicate @3 (sscalar 7.0)) * str (sreplicate @3 v10)) v10) (tpair (str m5 * str m9) v8)) (tpair (sreplicate @2 (scast (ssdot1In (str m5) (sfromR (tproject1 (tproject2 (tproject1 m1))))) + sfromR (tproject2 (tproject2 (tproject1 m1)))) * str (sreplicate @5 (sfromR dret))) dret))"
   printArtifactSimple (simplifyArtifact artifactRev)
     @?= "\\dret m1 -> tfromS (STKProduct (STKProduct (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @1) STKScalar)) (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @1) STKScalar))) (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @1) STKScalar))) (tlet (str (sreplicate @5 (scast (ssdot1In (sreplicate @4 (sreplicate @3 (sscalar 7.0))) (sfromR (tproject1 (tproject1 (tproject1 m1)))) + sfromR (tproject2 (tproject1 (tproject1 m1))))))) (\\m5 -> tlet (ssdot1In (str (sfromR (tproject1 (tproject2 m1)))) (sreplicate @5 (sfromR dret))) (\\v8 -> tlet (sreplicate @4 (scast v8)) (\\m9 -> tlet (scast (ssdot1In (str (sfromR (tproject1 (tproject2 (tproject1 m1))))) m9)) (\\v10 -> tpair (tpair (tpair (sreplicate @4 (sreplicate @3 (sscalar 7.0)) * str (sreplicate @3 v10)) v10) (tpair (str m5 * str m9) v8)) (tpair (sreplicate @2 (scast (ssdot1In (str m5) (sfromR (tproject1 (tproject2 (tproject1 m1))))) + sfromR (tproject2 (tproject2 (tproject1 m1)))) * str (sreplicate @5 (sfromR dret))) dret))))))"
+
+testVT2OAst :: Assertion
+testVT2OAst = do
+  let ftk = tftk @Concrete (knownSTK @(XParams2 Double Float))
+                 (toTarget @Concrete valsInitVT2OPP)
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
+      var :: AstTensor AstMethodLet FullSpan (XParams2 Double Float)
+      var = AstVar varName
+      vals = toTarget @Concrete valsInitVT2OPP
+      env = extendEnv varName vals emptyEnv
+      blackGlyph = treplicate (SNat @3) knownSTK $ rscalar 7
+      afcnn2 :: ADReady f
+             => MnistFcnnRanked2.ADFcnnMnist2Parameters f Double Float
+             -> f (TKR 1 Double)
+      afcnn2 = MnistFcnnRanked2.afcnnMnist2
+                 id id
+                 (rconcrete $ unConcrete blackGlyph)
+      afcnn1 = afcnn2 $ fromTarget var
+  interpretAstFull @Concrete env afcnn1
+    @?= afcnn2 valsInitVT2OPP
+  interpretAstFull @Concrete env
+                   (simplifyInline @(TKR 1 Double) afcnn1)
+    @?= afcnn2 valsInitVT2OPP
+  interpretAstFull @Concrete env
+                   (simplifyInlineContract @(TKR 1 Double) afcnn1)
+    @?= afcnn2 valsInitVT2OPP
 
 testVT2OPPNonLin :: Assertion
 testVT2OPPNonLin = do
@@ -189,6 +274,32 @@ testVT2OPPNonLin2 = do
   printArtifactPrimalPretty (simplifyArtifact artifactRevnonLin)
     @?= "\\m1 -> rfromS (let v24 = exp (ssdot1In (sreplicate @2 (sconcrete (sfromListLinear [5] [0.0,0.0,0.0,0.0,0.0]) + recip (sconcrete (sfromListLinear [5] [1.0,1.0,1.0,1.0,1.0]) + exp (negate (scast (ssdot1In (sreplicate @5 (scast (sconcrete (sfromListLinear [4] [0.0,0.0,0.0,0.0]) + recip (sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + exp (negate (ssdot1In (sreplicate @4 (sreplicate @3 (sscalar 7.0))) (sfromR (tproject1 (tproject1 (tproject1 m1))))) + negate (sfromR (tproject2 (tproject1 (tproject1 m1))))))))) (sfromR (tproject1 (tproject2 (tproject1 m1)))))) + negate (sfromR (tproject2 (tproject2 (tproject1 m1)))))))) (sfromR (tproject1 (tproject2 m1))) + sfromR (tproject2 (tproject2 m1))) in sreplicate @2 (recip (ssum0 v24)) * v24)"
 
+testVT2OAstNonLin2 :: Assertion
+testVT2OAstNonLin2 = do
+  let ftk = tftk @Concrete (knownSTK @(XParams2 Double Float))
+                 (toTarget @Concrete valsInitVT2OPP)
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
+      var :: AstTensor AstMethodLet FullSpan (XParams2 Double Float)
+      var = AstVar varName
+      vals = toTarget @Concrete valsInitVT2OPP
+      env = extendEnv varName vals emptyEnv
+      blackGlyph = treplicate (SNat @3) knownSTK $ rscalar 7
+      afcnn2 :: ADReady f
+             => MnistFcnnRanked2.ADFcnnMnist2Parameters f Double Float
+             -> f (TKR 1 Double)
+      afcnn2 = MnistFcnnRanked2.afcnnMnist2
+                 logistic softMax1
+                 (rconcrete $ unConcrete blackGlyph)
+      afcnn1 = afcnn2 $ fromTarget var
+  interpretAstFull @Concrete env afcnn1
+    @?= afcnn2 valsInitVT2OPP
+  interpretAstFull @Concrete env
+                   (simplifyInline @(TKR 1 Double) afcnn1)
+    @?= afcnn2 valsInitVT2OPP
+  interpretAstFull @Concrete env
+                   (simplifyInlineContract @(TKR 1 Double) afcnn1)
+    @?= afcnn2 valsInitVT2OPP
+
 testVT2OPPNonLin3 :: Assertion
 testVT2OPPNonLin3 = do
   resetVarCounter
@@ -199,7 +310,7 @@ testVT2OPPNonLin3 = do
       afcnn2TnonLin :: MnistFcnnRanked2.ADFcnnMnist2Parameters
                          (AstTensor AstMethodLet FullSpan) Double Float
                     -> AstTensor AstMethodLet FullSpan (TKScalar Double)
-      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnistLoss2 (blackGlyph,  blackLabel)
+      afcnn2TnonLin = MnistFcnnRanked2.afcnnMnistLoss2 (blackGlyph, blackLabel)
       ftk = tftk @Concrete (knownSTK @(XParams2 Double Float))
                            (toTarget @Concrete valsInitVT2OPP)
       artifactRevnonLin =
@@ -213,13 +324,42 @@ testVT2OPPNonLin3 = do
   printArtifactPrimalPretty (simplifyArtifact artifactRevnonLin)
     @?= "\\m1 -> kfromS (let v24 = exp (ssdot1In (sreplicate @2 (sconcrete (sfromListLinear [5] [0.0,0.0,0.0,0.0,0.0]) + recip (sconcrete (sfromListLinear [5] [1.0,1.0,1.0,1.0,1.0]) + exp (negate (scast (ssdot1In (sreplicate @5 (scast (sconcrete (sfromListLinear [4] [0.0,0.0,0.0,0.0]) + recip (sconcrete (sfromListLinear [4] [1.0,1.0,1.0,1.0]) + exp (negate (ssdot1In (sreplicate @4 (sreplicate @3 (sscalar 7.0))) (sfromR (tproject1 (tproject1 (tproject1 m1))))) + negate (sfromR (tproject2 (tproject1 (tproject1 m1))))))))) (sfromR (tproject1 (tproject2 (tproject1 m1)))))) + negate (sfromR (tproject2 (tproject2 (tproject1 m1)))))))) (sfromR (tproject1 (tproject2 m1))) + sfromR (tproject2 (tproject2 m1))) in negate (sdot0 (log (sreplicate @2 (recip (ssum0 v24)) * v24)) (sreplicate @2 (sscalar 8.0))))"
 
+testVT2OAstNonLin3 :: Assertion
+testVT2OAstNonLin3 = do
+  let ftk = tftk @Concrete (knownSTK @(XParams2 Double Float))
+                 (toTarget @Concrete valsInitVT2OPP)
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
+      var :: AstTensor AstMethodLet FullSpan (XParams2 Double Float)
+      var = AstVar varName
+      vals = toTarget @Concrete valsInitVT2OPP
+      env = extendEnv varName vals emptyEnv
+      blackGlyph = treplicate (SNat @3) knownSTK $ rscalar 7
+      blackLabel = treplicate (SNat @2) knownSTK $ rscalar 8
+      afcnn2 :: ADReady f
+             => MnistFcnnRanked2.ADFcnnMnist2Parameters f Double Float
+             -> f (TKScalar Double)
+      afcnn2 = MnistFcnnRanked2.afcnnMnistLoss2
+                 ( rconcrete $ unConcrete blackGlyph
+                 , rconcrete $ unConcrete blackLabel )
+      afcnn1 = afcnn2 $ fromTarget var
+  interpretAstFull @Concrete env afcnn1
+    @?= afcnn2 valsInitVT2OPP
+  interpretAstFull @Concrete env
+                   (simplifyInline @(TKScalar Double) afcnn1)
+    @?= afcnn2 valsInitVT2OPP
+  interpretAstFull @Concrete env
+                   (simplifyInlineContract @(TKScalar Double) afcnn1)
+    @?= afcnn2 valsInitVT2OPP
+
 
 -- * RNNR tests
 
 tensorMnistPPRNNR :: TestTree
-tensorMnistPPRNNR = testGroup "PP tests for RNN MNIST tests"
+tensorMnistPPRNNR = testGroup "PP and Ast tests for RNN MNIST"
   [ testCase "RNNO PP" testRNNOPP
+  , testCase "RNNO Ast" testRNNOAst
   , testCase "RNNO PP 2" testRNNOPP2
+  , testCase "RNNO Ast 2" testRNNOAst2
   ]
 
 valsInitRNNOPP
@@ -278,6 +418,37 @@ testRNNOPP = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (sgather (sfromR (tproject1 (tproject2 m1))) (\\[i66, i67] -> [i66, 0]) * sreplicate @10 (tanh ((sreplicate @1 (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1)))) !$ [0, 0]) * tanh ((sreplicate @1 (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1)))) !$ [0, 0]) * sreplicate @1 (sscalar 7.0) + sconcrete (sfromListLinear [1] [0.0]) * sreplicate @1 (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1)))) !$ [0, 0])) + sreplicate @1 (sfromR (tproject2 (tproject1 (tproject1 m1))) !$ [0])) + sconcrete (sfromListLinear [1] [0.0]) * sreplicate @1 (sfromR (tproject2 (tproject1 (tproject2 (tproject1 m1)))) !$ [0, 0])) + sreplicate @1 (sfromR (tproject2 (tproject2 (tproject1 m1))) !$ [0]))) + str (sreplicate @1 (sfromR (tproject2 (tproject2 m1)))))"
 
+testRNNOAst :: Assertion
+testRNNOAst = do
+  let batch_size = 1
+      sizeMnistHeightI = 1
+      ftk = tftk @Concrete
+                 (knownSTK @(X (ADRnnMnistParameters Concrete Double)))
+                 (toTarget @Concrete $ valsInitRNNOPP 1 sizeMnistHeightI)
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
+      var :: AstTensor AstMethodLet FullSpan
+                       (X (ADRnnMnistParameters Concrete Double))
+      var = AstVar varName
+      vals = toTarget @Concrete $ valsInitRNNOPP 1 sizeMnistHeightI
+      env = extendEnv varName vals emptyEnv
+      blackGlyph = treplicate (SNat @1) knownSTK
+                   $ treplicate (SNat @1) knownSTK
+                   $ treplicate (SNat @1) knownSTK $ rscalar 7
+      afcnn2 :: ADReady f
+             => ADRnnMnistParameters f Double
+             -> f (TKR 2 Double)
+      afcnn2 = MnistRnnRanked2.rnnMnistZeroR
+                 batch_size (rconcrete $ unConcrete blackGlyph)
+      afcnn1 = afcnn2 $ fromTarget var
+  interpretAstFull @Concrete env afcnn1
+    @?= afcnn2 (valsInitRNNOPP 1 sizeMnistHeightI)
+  interpretAstFull @Concrete env
+                   (simplifyInline @(TKR 2 Double) afcnn1)
+    @?= afcnn2 (valsInitRNNOPP 1 sizeMnistHeightI)
+  interpretAstFull @Concrete env
+                   (simplifyInlineContract @(TKR 2 Double) afcnn1)
+    @?= afcnn2 (valsInitRNNOPP 1 sizeMnistHeightI)
+
 testRNNOPP2 :: Assertion
 testRNNOPP2 = do
   resetVarCounter
@@ -305,3 +476,34 @@ testRNNOPP2 = do
     @?= "\\dret m1 -> tfromS (STKProduct (STKProduct (STKProduct (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @2) STKScalar)) (STKR (SNat @1) STKScalar)) (STKProduct (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @2) STKScalar)) (STKR (SNat @1) STKScalar))) (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @1) STKScalar))) (let m3 = tanh ((ssdot1In (str (sreplicate @2 (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1))))))) (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 7.0)))) + smatmul2 (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1))))) (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]))) + str (sreplicate @2 (sfromR (tproject2 (tproject1 (tproject1 m1)))))) ; m4 = tanh ((ssdot1In (str (sreplicate @2 (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1))))))) (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 7.0)))) + smatmul2 (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1))))) (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]))) + str (sreplicate @2 (sfromR (tproject2 (tproject1 (tproject1 m1)))))) ; m6 = tanh ((smatmul2 (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1))))) m4 + smatmul2 (sfromR (tproject2 (tproject1 (tproject2 (tproject1 m1))))) (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]))) + str (sreplicate @2 (sfromR (tproject2 (tproject2 (tproject1 m1)))))) ; m7 = sappend m3 m6 ; m9 = tanh ((ssdot1In (str (sreplicate @2 (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1))))))) (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 7.0)))) + smatmul2 (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1))))) (sslice (SNat @0) (SNat @2) m7)) + str (sreplicate @2 (sfromR (tproject2 (tproject1 (tproject1 m1)))))) ; m12 = tanh ((smatmul2 (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1))))) m9 + smatmul2 (sfromR (tproject2 (tproject1 (tproject2 (tproject1 m1))))) (sslice (SNat @2) (SNat @2) m7)) + str (sreplicate @2 (sfromR (tproject2 (tproject2 (tproject1 m1)))))) ; m15 = (sconcrete (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]) + negate m12 * m12) * smatmul2 (str (sfromR (tproject1 (tproject2 m1)))) (sfromR dret) ; m18 = (sconcrete (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]) + negate m9 * m9) * smatmul2 (str (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1)))))) m15 ; m20 = sappend (smatmul2 (str (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1)))))) m18) (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0])) + sappend (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0])) (smatmul2 (str (sfromR (tproject2 (tproject1 (tproject2 (tproject1 m1)))))) m15) ; m21 = (sconcrete (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]) + negate m6 * m6) * sslice (SNat @2) (SNat @2) m20 ; m23 = (sconcrete (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]) + negate m4 * m4) * smatmul2 (str (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1)))))) m21 ; m24 = (sconcrete (sfromListLinear [2,2] [1.0,1.0,1.0,1.0]) + negate m3 * m3) * sslice (SNat @0) (SNat @2) m20 in tpair (tpair (tpair (tpair (ssdot1In (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 7.0)))) (str (sreplicate @2 m24)) + (ssdot1In (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 7.0)))) (str (sreplicate @2 m23)) + ssdot1In (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 7.0)))) (str (sreplicate @2 m18)))) (smatmul2 m24 (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0])) + (smatmul2 m23 (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0])) + smatmul2 m18 (str (sslice (SNat @0) (SNat @2) m7))))) (ssum @2 (str m24) + (ssum @2 (str m23) + ssum @2 (str m18)))) (tpair (tpair (smatmul2 m21 (str m4) + smatmul2 m15 (str m9)) (smatmul2 m21 (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0])) + smatmul2 m15 (str (sslice (SNat @2) (SNat @2) m7)))) (ssum @2 (str m21) + ssum @2 (str m15)))) (tpair (smatmul2 (sfromR dret) (str m12)) (ssum @2 (str (sfromR dret)))))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (let m7 = sappend (tanh ((ssdot1In (str (sreplicate @2 (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1))))))) (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 7.0)))) + smatmul2 (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1))))) (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]))) + str (sreplicate @2 (sfromR (tproject2 (tproject1 (tproject1 m1))))))) (tanh ((smatmul2 (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1))))) (tanh ((ssdot1In (str (sreplicate @2 (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1))))))) (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 7.0)))) + smatmul2 (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1))))) (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]))) + str (sreplicate @2 (sfromR (tproject2 (tproject1 (tproject1 m1))))))) + smatmul2 (sfromR (tproject2 (tproject1 (tproject2 (tproject1 m1))))) (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0]))) + str (sreplicate @2 (sfromR (tproject2 (tproject2 (tproject1 m1))))))) in smatmul2 (sfromR (tproject1 (tproject2 m1))) (tanh ((smatmul2 (sfromR (tproject1 (tproject1 (tproject2 (tproject1 m1))))) (tanh ((ssdot1In (str (sreplicate @2 (sfromR (tproject1 (tproject1 (tproject1 (tproject1 m1))))))) (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 7.0)))) + smatmul2 (sfromR (tproject2 (tproject1 (tproject1 (tproject1 m1))))) (sslice (SNat @0) (SNat @2) m7)) + str (sreplicate @2 (sfromR (tproject2 (tproject1 (tproject1 m1))))))) + smatmul2 (sfromR (tproject2 (tproject1 (tproject2 (tproject1 m1))))) (sslice (SNat @2) (SNat @2) m7)) + str (sreplicate @2 (sfromR (tproject2 (tproject2 (tproject1 m1))))))) + str (sreplicate @2 (sfromR (tproject2 (tproject2 m1)))))"
+
+testRNNOAst2 :: Assertion
+testRNNOAst2 = do
+  let batch_size = 2
+      sizeMnistHeightI = 2
+      ftk = tftk @Concrete
+                 (knownSTK @(X (ADRnnMnistParameters Concrete Double)))
+                 (toTarget @Concrete $ valsInitRNNOPP 2 sizeMnistHeightI)
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
+      var :: AstTensor AstMethodLet FullSpan
+                       (X (ADRnnMnistParameters Concrete Double))
+      var = AstVar varName
+      vals = toTarget @Concrete $ valsInitRNNOPP 2 sizeMnistHeightI
+      env = extendEnv varName vals emptyEnv
+      blackGlyph = treplicate (SNat @2) knownSTK
+                   $ treplicate (SNat @2) knownSTK
+                   $ treplicate (SNat @2) knownSTK $ rscalar 7
+      afcnn2 :: ADReady f
+             => ADRnnMnistParameters f Double
+             -> f (TKR 2 Double)
+      afcnn2 = MnistRnnRanked2.rnnMnistZeroR
+                 batch_size (rconcrete $ unConcrete blackGlyph)
+      afcnn1 = afcnn2 $ fromTarget var
+  interpretAstFull @Concrete env afcnn1
+    @?= afcnn2 (valsInitRNNOPP 2 sizeMnistHeightI)
+  interpretAstFull @Concrete env
+                   (simplifyInline @(TKR 2 Double) afcnn1)
+    @?= afcnn2 (valsInitRNNOPP 2 sizeMnistHeightI)
+  interpretAstFull @Concrete env
+                   (simplifyInlineContract @(TKR 2 Double) afcnn1)
+    @?= afcnn2 (valsInitRNNOPP 2 sizeMnistHeightI)
