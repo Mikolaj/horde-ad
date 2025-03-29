@@ -867,7 +867,7 @@ astPrimalPart t = case t of
   Ast.AstCastS v -> astCastS $ astPrimalPart v
 
   Ast.AstIndexS shn v ix ->
-    astIndexS shn (astPrimalPart v) ix
+    astIndexStepS shn (astPrimalPart v) ix
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     astScatterS @shm @shn @shp shn (astPrimalPart v) (vars, ix)
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
@@ -964,7 +964,7 @@ astDualPart t = case t of
   Ast.AstCastS v -> astCastS $ astDualPart v
 
   Ast.AstIndexS shn v ix ->
-    astIndexS shn (astDualPart v) ix
+    astIndexStepS shn (astDualPart v) ix
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     astScatterS @shm @shn @shp shn (astDualPart v) (vars, ix)
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
@@ -1068,10 +1068,12 @@ astFromIntegralS t = case t of
   Ast.AstN1S SignumOp u -> signum (astFromIntegralS u)
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (astFromIntegralS v) ix
+    -- index goes into fromIntegral, so we'd loop
   Ast.AstScatterS shn v (vars, ix) ->
-    Ast.AstScatterS shn (astFromIntegralS v) (vars, ix)
+    astScatterS shn (astFromIntegralS v) (vars, ix)
   Ast.AstGatherS shn v (vars, ix) ->
     Ast.AstGatherS shn (astFromIntegralS v) (vars, ix)
+      -- gather goes into fromIntegral, so we'd loop
   Ast.AstIotaS snat -> Ast.AstIotaS snat
 --  Ast.AstSliceS i n k v -> astSliceS i n k (astFromIntegralS v)
   Ast.AstReverseS v -> astReverseS (astFromIntegralS v)
@@ -1115,10 +1117,12 @@ astCastS t = case t of
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstCastS v -> astCastS v
   Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (astCastS v) ix
+    -- index goes into cast, so we'd loop
   Ast.AstScatterS shn v (vars, ix) ->
-    Ast.AstScatterS shn (astCastS v) (vars, ix)
+    astScatterS shn (astCastS v) (vars, ix)
   Ast.AstGatherS shn v (vars, ix) ->
     Ast.AstGatherS shn (astCastS v) (vars, ix)
+      -- gather goes into cast, so we'd loop
 --  Ast.AstMinIndexS v -> Ast.AstMinIndexS (astCastS v)
   Ast.AstIotaS snat -> Ast.AstIotaS snat
 --  Ast.AstSliceS i n k v -> astSliceS i n k (astCastS v)
@@ -1296,7 +1300,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
 
   Ast.AstIndexS _ v (ix2 :: AstIxS AstMethodLet sh4)
     | Refl <- lemAppAssoc (Proxy @sh4) (Proxy @shm) (Proxy @shn) ->
-      astIndexS shn v (ix2 `ixsAppend` ix)
+      astIndex shn v (ix2 `ixsAppend` ix)
   Ast.AstScatterS @shm7 @shn7 @shp7 shn7 v (vars, AstIntVar var5 :.$ ix2)
     | AstIntVar var6 <- i1, var6 == var5 ->
         astIndex shn (astScatterS @shm7 @shn7 @(Tail shp7)
@@ -1323,7 +1327,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     gcastWith (unsafeCoerceRefl :: shm71 ++ shn' :~: shm1 ++ shn) $
       let w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
           w = astGather @shm71 @shn' @shp' shn' v (vars, ix2)
-      in astLet var2 i1 $ astIndexS @shm1 @shn shn w rest1
+      in astLet var2 i1 $ astIndex @shm1 @shn shn w rest1
   Ast.AstMinIndexS @n1 @shz v -> case ftkAst v of
     FTKS nsh _ -> case shsLast nsh of
      nl@(SNat @nl) ->
