@@ -819,17 +819,17 @@ testGatherCond5 :: Assertion
 testGatherCond5 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [2,4,2]
-                 [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0])
+                 [1.0,0.0,0.0,0.0,0.0,2.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2 gatherCond5 (rreplicate 2 $ rreplicate 4 $ ringestData [2] [0, 1]))
 
 testGatherCondBuild5 :: Assertion
 testGatherCondBuild5 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [2,4,2]
-                 [6.0,0.0,0.0,0.0,0.0,6.0,0.0,0.0,6.0,0.0,0.0,0.0,0.0,6.0,0.0,0.0])
+                 [6.0,0.0,0.0,0.0,0.0,12.0,0.0,0.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             gatherCond5 (t * rreplicate0N [2, 4, 2] (rfromIndex0 i))))
+             gatherCond5 (t * rreplicate0N [2,4,2] (rfromIndex0 i))))
           (rreplicate 2 $ rreplicate 4 $ ringestData [2] [0, 1]))
 
 gatherCond6 :: forall target r. (ADReady target, GoodScalar r)
@@ -843,17 +843,17 @@ testGatherCond6 :: Assertion
 testGatherCond6 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [2,4,2]
-                 [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0])
+                 [1.0,0.0,0.0,0.0,0.0,2.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2 gatherCond6 (rreplicate 2 $ rreplicate 4 $ ringestData [2] [0, 1]))
 
 testGatherCondBuild6 :: Assertion
 testGatherCondBuild6 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [2,4,2]
-                 [6.0,0.0,0.0,0.0,0.0,6.0,0.0,0.0,6.0,0.0,0.0,0.0,0.0,6.0,0.0,0.0])
+                 [6.0,0.0,0.0,0.0,0.0,12.0,0.0,0.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             gatherCond6 (t * rreplicate0N [2, 4, 2] (rfromIndex0 i))))
+             gatherCond6 (t * rreplicate0N [2,4,2] (rfromIndex0 i))))
           (rreplicate 2 $ rreplicate 4 $ ringestData [2] [0, 1]))
 
 testGatherSimpCond5 :: Assertion

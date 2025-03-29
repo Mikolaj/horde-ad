@@ -3178,34 +3178,12 @@ contractAst t = case t of
                                              v (i1 :.$ ZIS)) (vars, prest))
           (Ast.AstGatherS shn (Ast.AstIndexS (ixsToShS prest `shsAppend` shn)
                                              v (i2 :.$ ZIS)) (vars, prest))
-  Ast.AstGatherS
-    shn v ( vars@((::$) @m (Const varm) mrest)
-          , Ast.AstCond (Ast.AstRelK EqOp (Ast.AstVar varp)
-                                          (AstConcreteK @r j)) i1 i2
-            :.$ ZIS )
-    | varNameToAstVarId varm == varNameToAstVarId varp
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) ->
-      if j < 0 || j > valueOf @m - 1
-      then
-        Ast.AstGatherS shn v (vars, i2 :.$ ZIS)
-      else
-        withSNat (fromIntegral j) $ \(SNat @j) ->
-        gcastWith (unsafeCoerceRefl :: (j + 1 <=? m) :~: True) $
-        contractAst
-        $ Ast.AstGatherS
-            shn v ((::$) @j (Const varm) mrest, i2 :.$ ZIS)
-          `Ast.AstAppendS`
-          Ast.AstGatherS
-            shn v ((::$) @1 (Const varm) mrest, i1 :.$ ZIS)
-          `Ast.AstAppendS`
-          Ast.AstGatherS
-            shn v ((::$) @(m - (j + 1)) (Const varm) mrest, i2 :.$ ZIS)
   -- TODO: fix AstIntVar to be usable here (maybe look at SNat'?),
   Ast.AstGatherS
     shn v ( vars@((::$) @m (Const varm) mrest)
           , Ast.AstCond (Ast.AstRelK EqOp (Ast.AstVar varp)
                                           (AstConcreteK @r j)) i1 i2
-            :.$ prest@(i3 :.$ prest3) )
+            :.$ prest )
     | varNameToAstVarId varm == varNameToAstVarId varp
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) ->
       if j < 0 || j > valueOf @m - 1
@@ -3221,11 +3199,15 @@ contractAst t = case t of
           `Ast.AstAppendS`
           Ast.AstGatherS
             shn v ( (::$) @1 (Const varm) mrest
-                  , i1 :.$ AstPlusK (AstConcreteK j) i3 :.$ prest3)
+                  , i1 :.$ substituteAstIxS
+                             (AstPlusK (AstIntVar varm) (AstConcreteK j))
+                             varm prest)
           `Ast.AstAppendS`
           Ast.AstGatherS
             shn v ( (::$) @(m - (j + 1)) (Const varm) mrest
-                  , i2 :.$ AstPlusK (AstConcreteK $ j + 1) i3 :.$ prest3 )
+                  , i2 :.$ substituteAstIxS
+                             (AstPlusK (AstIntVar varm) (AstConcreteK (j + 1)))
+                             varm prest)
   Ast.AstGatherS shn v ( (::$) @m (Const varm) mrest
                        , (:.$) @p (AstIntVar varp) prest )
     | varm == varp
