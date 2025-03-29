@@ -7,6 +7,7 @@ module TestMnistPP
 import Prelude
 
 import GHC.Exts (IsList (..))
+import System.Random
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
@@ -20,6 +21,7 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.Ops (treplicate)
 
+import MnistCnnRanked2 qualified
 import MnistData
 import MnistFcnnRanked1 qualified
 import MnistFcnnRanked2 (XParams2)
@@ -30,6 +32,7 @@ import MnistRnnRanked2 qualified
 testTrees :: [TestTree]
 testTrees = [ tensorMnistPPFCNNR
             , tensorMnistPPRNNR
+            , tensorMnistCNNRPP
             ]
 
 -- * FCNNR tests
@@ -355,7 +358,7 @@ testVT2OAstNonLin3 = do
 -- * RNNR tests
 
 tensorMnistPPRNNR :: TestTree
-tensorMnistPPRNNR = testGroup "PP and Ast tests for RNN MNIST"
+tensorMnistPPRNNR = testGroup "PP and Ast tests for RNNR MNIST"
   [ testCase "RNNO PP" testRNNOPP
   , testCase "RNNO Ast" testRNNOAst
   , testCase "RNNO PP 2" testRNNOPP2
@@ -507,3 +510,98 @@ testRNNOAst2 = do
   interpretAstFull @Concrete env
                    (simplifyInlineContract @(TKR 2 Double) afcnn1)
     @?= afcnn2 (valsInitRNNOPP 2 sizeMnistHeightI)
+
+
+-- * CNNR tests
+
+tensorMnistCNNRPP :: TestTree
+tensorMnistCNNRPP = testGroup "Ast tests for CNNR MNIST"
+  [ testCase "CNNO Ast" testCNNOAst
+  , testCase "CNNO Ast 2" testCNNOAst2
+  ]
+
+testCNNOAst :: Assertion
+testCNNOAst = do
+  let batch_size = 5
+      sizeMnistWidthI = 7
+      sizeMnistHeightI = 9
+      ftk = tftk @Concrete
+                 (knownSTK @(X (MnistCnnRanked2.ADCnnMnistParameters
+                                  Concrete Double)))
+                 vals
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
+      var :: AstTensor AstMethodLet FullSpan
+                       (X (MnistCnnRanked2.ADCnnMnistParameters
+                             Concrete Double))
+      var = AstVar varName
+      valsInit :: MnistCnnRanked2.ADCnnMnistParameters Concrete Double
+      valsInit =
+        forgetShape $ fst
+        $ randomValue @(MnistCnnRanked2.ADCnnMnistParametersShaped
+                         Concrete 7 9  -- see sizeMnistWidthI, etc.
+                         1 1 1 1 Double)
+                     0.4 (mkStdGen 44)
+      vals = toTarget @Concrete valsInit
+      env = extendEnv varName vals emptyEnv
+      blackGlyph = treplicate (SNat @5) knownSTK
+                   $ treplicate (SNat @1) knownSTK
+                   $ treplicate (SNat @7) knownSTK
+                   $ treplicate (SNat @9) knownSTK $ rscalar 7
+      afcnn2 :: ADReady f
+             => MnistCnnRanked2.ADCnnMnistParameters f Double
+             -> f (TKR 2 Double)
+      afcnn2 = MnistCnnRanked2.convMnistTwoR
+                 sizeMnistHeightI sizeMnistWidthI batch_size
+                 (rconcrete $ unConcrete blackGlyph)
+      afcnn1 = afcnn2 $ fromTarget var
+  interpretAstFull @Concrete env afcnn1
+    @?= afcnn2 valsInit
+  interpretAstFull @Concrete env
+                   (simplifyInline @(TKR 2 Double) afcnn1)
+    @?= afcnn2 valsInit
+  interpretAstFull @Concrete env
+                   (simplifyInlineContract @(TKR 2 Double) afcnn1)
+    @?= afcnn2 valsInit
+
+testCNNOAst2 :: Assertion
+testCNNOAst2 = do
+  let batch_size = 7
+      sizeMnistWidthI = 14
+      sizeMnistHeightI = 23
+      ftk = tftk @Concrete
+                 (knownSTK @(X (MnistCnnRanked2.ADCnnMnistParameters
+                                  Concrete Double)))
+                 vals
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
+      var :: AstTensor AstMethodLet FullSpan
+                       (X (MnistCnnRanked2.ADCnnMnistParameters
+                             Concrete Double))
+      var = AstVar varName
+      valsInit :: MnistCnnRanked2.ADCnnMnistParameters Concrete Double
+      valsInit =
+        forgetShape $ fst
+        $ randomValue @(MnistCnnRanked2.ADCnnMnistParametersShaped
+                         Concrete 14 23  -- see sizeMnistWidthI, etc.
+                         2 3 4 5 Double)
+                     0.4 (mkStdGen 44)
+      vals = toTarget @Concrete valsInit
+      env = extendEnv varName vals emptyEnv
+      blackGlyph = treplicate (SNat @7) knownSTK
+                   $ treplicate (SNat @1) knownSTK
+                   $ treplicate (SNat @14) knownSTK
+                   $ treplicate (SNat @23) knownSTK $ rscalar 7
+      afcnn2 :: ADReady f
+             => MnistCnnRanked2.ADCnnMnistParameters f Double
+             -> f (TKR 2 Double)
+      afcnn2 = MnistCnnRanked2.convMnistTwoR
+                 sizeMnistHeightI sizeMnistWidthI batch_size
+                 (rconcrete $ unConcrete blackGlyph)
+      afcnn1 = afcnn2 $ fromTarget var
+  interpretAstFull @Concrete env afcnn1
+    @?= afcnn2 valsInit
+  interpretAstFull @Concrete env
+                   (simplifyInline @(TKR 2 Double) afcnn1)
+    @?= afcnn2 valsInit
+  interpretAstFull @Concrete env
+                   (simplifyInlineContract @(TKR 2 Double) afcnn1)
+    @?= afcnn2 valsInit
