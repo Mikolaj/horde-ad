@@ -69,6 +69,11 @@ testTrees =
   , testCase "gatherCond4" testGatherCond4
   , testCase "gatherCondBuild4" testGatherCondBuild4
   , testCase "gatherSimpCond3" testGatherSimpCond3
+  , testCase "gatherCond5" testGatherCond5
+  , testCase "gatherCondBuild5" testGatherCondBuild5
+  , testCase "gatherCond6" testGatherCond6
+  , testCase "gatherCondBuild6" testGatherCondBuild6
+  , testCase "gatherSimpCond5" testGatherSimpCond5
 
   , testCase "scatterNested1" testScatterNested1
   , testCase "scatterNestedBuild1" testScatterNestedBuild1
@@ -727,7 +732,6 @@ testGatherSimpCond = do
                      (simplifyInlineContract @(TKR 2 Float) t2n)
     @?= interpretAstPrimal @Concrete env t2n
 
-
 gatherCond3 :: forall target r. (ADReady target, GoodScalar r)
             => target (TKR 2 r) -> target (TKR 2 r)
 gatherCond3 u =
@@ -786,6 +790,82 @@ testGatherSimpCond3 = do
   let !t2 = gatherCond4 (ringestData [7, 2] vals)
   let !t1n = unAstNoSimplify $ gatherCond3 $ AstNoSimplify var
   let !t2n = unAstNoSimplify $ gatherCond4 $ AstNoSimplify var
+  interpretAstPrimal @Concrete env t1
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete env t1n
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete emptyEnv t2
+    @?= interpretAstPrimal @Concrete env t2n
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1)
+    @?= interpretAstPrimal @Concrete env t1
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1n)
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete emptyEnv
+                     (simplifyInlineContract @(TKR 2 Float) t2)
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t2n)
+    @?= interpretAstPrimal @Concrete env t2n
+
+gatherCond5 :: forall target r. (ADReady target, GoodScalar r)
+            => target (TKR 3 r) -> target (TKR 2 r)
+gatherCond5 v =
+  rgather [rwidth v, 2] v (\(i :.: j :.: ZIR) ->
+                             ifH (i ==. 1) 0 j :.: 2 * i :.: i :.: ZIR)
+
+testGatherCond5 :: Assertion
+testGatherCond5 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [2,4,2]
+                 [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0])
+    (rev' @Double @2 gatherCond5 (rreplicate 2 $ rreplicate 4 $ ringestData [2] [0, 1]))
+
+testGatherCondBuild5 :: Assertion
+testGatherCondBuild5 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [2,4,2]
+                 [6.0,0.0,0.0,0.0,0.0,6.0,0.0,0.0,6.0,0.0,0.0,0.0,0.0,6.0,0.0,0.0])
+    (rev' @Double @3
+          (\t -> rbuild1 4 (\i ->
+             gatherCond5 (t * rreplicate0N [2, 4, 2] (rfromIndex0 i))))
+          (rreplicate 2 $ rreplicate 4 $ ringestData [2] [0, 1]))
+
+gatherCond6 :: forall target r. (ADReady target, GoodScalar r)
+            => target (TKR 3 r) -> target (TKR 2 r)
+gatherCond6 u =
+  let v = rtranspose [2, 0, 1] $ u
+  in rtr $ rgather [2, rwidth v] v (\(j :.: i :.: ZIR) ->
+                                      i :.: ifH (i ==. 1) 0 j :.: 2 * i :.: ZIR)
+
+testGatherCond6 :: Assertion
+testGatherCond6 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [2,4,2]
+                 [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0])
+    (rev' @Double @2 gatherCond6 (rreplicate 2 $ rreplicate 4 $ ringestData [2] [0, 1]))
+
+testGatherCondBuild6 :: Assertion
+testGatherCondBuild6 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [2,4,2]
+                 [6.0,0.0,0.0,0.0,0.0,6.0,0.0,0.0,6.0,0.0,0.0,0.0,0.0,6.0,0.0,0.0])
+    (rev' @Double @3
+          (\t -> rbuild1 4 (\i ->
+             gatherCond6 (t * rreplicate0N [2, 4, 2] (rfromIndex0 i))))
+          (rreplicate 2 $ rreplicate 4 $ ringestData [2] [0, 1]))
+
+testGatherSimpCond5 :: Assertion
+testGatherSimpCond5 = do
+  let varName = mkAstVarName (FTKR [2,4,2] FTKScalar) . intToAstVarId $ 100000000
+      var = AstVar varName
+      vals = [-1,0,2.0,2.13,0.2,11.0,-17.0,23.0,29.0,-35.0,41.0,1.4,-0.33,33.0,0.1,0.007]
+      env = extendEnv varName (ringestData [2,4,2] vals) emptyEnv
+  let !t1 = gatherCond5 @(AstTensor AstMethodLet PrimalSpan) var
+  let !t2 = gatherCond6 (ringestData [2,4,2] vals)
+  let !t1n = unAstNoSimplify $ gatherCond5 $ AstNoSimplify var
+  let !t2n = unAstNoSimplify $ gatherCond6 $ AstNoSimplify var
   interpretAstPrimal @Concrete env t1
     @?= interpretAstPrimal @Concrete env t1n
   interpretAstPrimal @Concrete env t1n
