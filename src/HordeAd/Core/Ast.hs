@@ -477,6 +477,5 @@ data OpCodeBool =
  deriving Show
 
 data OpCodeRel =
-    EqOp | NeqOp
-  | LeqOp| GeqOp | LsOp | GtOp
+    EqOp | LsOp
  deriving Show

@@ -627,8 +627,4 @@ printAstRelOp :: (PrintConfig -> Int -> a -> ShowS)
 {-# INLINE printAstRelOp #-}
 printAstRelOp pr cfg d opCode u v = case opCode of
   EqOp -> printBinaryOp pr cfg d u (4, "==.") v
-  NeqOp -> printBinaryOp pr cfg d u (4, "/=.") v
-  LeqOp -> printBinaryOp pr cfg d u (4, "<=.") v
-  GeqOp -> printBinaryOp pr cfg d u (4, ">=.") v
   LsOp -> printBinaryOp pr cfg d u (4, "<.") v
-  GtOp -> printBinaryOp pr cfg d u (4, ">.") v

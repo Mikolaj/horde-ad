@@ -271,7 +271,7 @@ deriving instance RealFloatH (RepConcrete y) => RealFloatH (Concrete y)
 deriving instance RealFloat (RepConcrete y) => RealFloat (Concrete y)
 
 rtoVector :: GoodScalar r => Concrete (TKR n r) -> VS.Vector r
-rtoVector  = Nested.rtoVector . unConcrete
+rtoVector = Nested.rtoVector . unConcrete
 
 stoVector :: GoodScalar r => Concrete (TKS sh r) -> VS.Vector r
 stoVector = Nested.stoVector . unConcrete

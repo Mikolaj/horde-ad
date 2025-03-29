@@ -198,43 +198,27 @@ type instance BoolOf (ADVal f) = BoolOf f
 
 instance EqH f (TKScalar r) => EqH (ADVal f) (TKScalar r) where
   D u _ ==. D v _ = u ==. v
-  D u _ /=. D v _ = u /=. v
 
 instance OrdH f (TKScalar r) => OrdH (ADVal f) (TKScalar r) where
   D u _ <. D v _ = u <. v
-  D u _ <=. D v _ = u <=. v
-  D u _ >. D v _ = u >. v
-  D u _ >=. D v _ = u >=. v
 
 instance EqH f (TKR n r) => EqH (ADVal f) (TKR n r) where
   D u _ ==. D v _ = u ==. v
-  D u _ /=. D v _ = u /=. v
 
 instance OrdH f (TKR n r) => OrdH (ADVal f) (TKR n r) where
   D u _ <. D v _ = u <. v
-  D u _ <=. D v _ = u <=. v
-  D u _ >. D v _ = u >. v
-  D u _ >=. D v _ = u >=. v
 
 instance EqH f (TKS sh r) => EqH (ADVal f) (TKS sh r) where
   D u _ ==. D v _ = u ==. v
-  D u _ /=. D v _ = u /=. v
 
 instance OrdH f (TKS sh r) => OrdH (ADVal f) (TKS sh r) where
   D u _ <. D v _ = u <. v
-  D u _ <=. D v _ = u <=. v
-  D u _ >. D v _ = u >. v
-  D u _ >=. D v _ = u >=. v
 
 instance EqH f (TKX sh r) => EqH (ADVal f) (TKX sh r) where
   D u _ ==. D v _ = u ==. v
-  D u _ /=. D v _ = u /=. v
 
 instance OrdH f (TKX sh r) => OrdH (ADVal f) (TKX sh r) where
   D u _ <. D v _ = u <. v
-  D u _ <=. D v _ = u <=. v
-  D u _ >. D v _ = u >. v
-  D u _ >=. D v _ = u >=. v
 
 type instance HFunOf (ADVal f) x y = HFun x y
 

@@ -3418,11 +3418,7 @@ normalizeAstRel :: ( EqH (AstTensor AstMethodLet PrimalSpan) y
                 -> AstTensor AstMethodLet PrimalSpan y
                 -> AstBool AstMethodLet
 normalizeAstRel EqOp = (==.)
-normalizeAstRel NeqOp = (/=.)
-normalizeAstRel LeqOp = (<=.)
-normalizeAstRel GeqOp = (>=.)
 normalizeAstRel LsOp = (<.)
-normalizeAstRel GtOp = (>.)
 
 normalizeAstB2 :: OpCodeBool -> AstBool AstMethodLet -> AstBool AstMethodLet
                -> AstBool AstMethodLet
