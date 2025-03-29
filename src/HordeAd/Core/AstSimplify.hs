@@ -3193,16 +3193,13 @@ contractAst t = case t of
         gcastWith (unsafeCoerceRefl :: (j + 1 <=? m) :~: True) $
         contractAst
         $ Ast.AstGatherS
-            shn (Ast.AstIndexS shn v (i2 :.$ ZIS))
-            ((::$) @j (Const varm) mrest, ZIS)
+            shn v ((::$) @j (Const varm) mrest, i2 :.$ ZIS)
           `Ast.AstAppendS`
           Ast.AstGatherS
-            shn (Ast.AstIndexS shn v (i1 :.$ ZIS))
-            ((::$) @1 (Const varm) mrest, ZIS)
+            shn v ((::$) @1 (Const varm) mrest, i1 :.$ ZIS)
           `Ast.AstAppendS`
           Ast.AstGatherS
-            shn (Ast.AstIndexS shn v (i2 :.$ ZIS))
-            ((::$) @(m - (j + 1)) (Const varm) mrest, ZIS)
+            shn v ((::$) @(m - (j + 1)) (Const varm) mrest, i2 :.$ ZIS)
   -- TODO: fix AstIntVar to be usable here (maybe look at SNat'?),
   Ast.AstGatherS
     shn v ( vars@((::$) @m (Const varm) mrest)
@@ -3219,18 +3216,16 @@ contractAst t = case t of
         gcastWith (unsafeCoerceRefl :: (j + 1 <=? m) :~: True) $
         contractAst
         $ Ast.AstGatherS
-            shn (Ast.AstIndexS (ixsToShS prest `shsAppend` shn) v (i2 :.$ ZIS))
-            ((::$) @j (Const varm) mrest, prest)
+            shn v ( (::$) @j (Const varm) mrest
+                  , i2 :.$ prest )
           `Ast.AstAppendS`
           Ast.AstGatherS
-            shn (Ast.AstIndexS (ixsToShS prest `shsAppend` shn) v (i1 :.$ ZIS))
-            ( (::$) @1 (Const varm) mrest
-            , AstPlusK (AstConcreteK j) i3 :.$ prest3)
+            shn v ( (::$) @1 (Const varm) mrest
+                  , i1 :.$ AstPlusK (AstConcreteK j) i3 :.$ prest3)
           `Ast.AstAppendS`
           Ast.AstGatherS
-            shn (Ast.AstIndexS (ixsToShS prest `shsAppend` shn) v (i2 :.$ ZIS))
-            ( (::$) @(m - (j + 1)) (Const varm) mrest
-            , AstPlusK (AstConcreteK $ j + 1) i3 :.$ prest3 )
+            shn v ( (::$) @(m - (j + 1)) (Const varm) mrest
+                  , i2 :.$ AstPlusK (AstConcreteK $ j + 1) i3 :.$ prest3 )
   Ast.AstGatherS shn v ( (::$) @m (Const varm) mrest
                        , (:.$) @p (AstIntVar varp) prest )
     | varm == varp

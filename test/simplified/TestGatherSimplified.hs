@@ -64,6 +64,11 @@ testTrees =
   , testCase "gatherCond2" testGatherCond2
   , testCase "gatherCondBuild2" testGatherCondBuild2
   , testCase "gatherSimpCond" testGatherSimpCond
+  , testCase "gatherCond3" testGatherCond3
+  , testCase "gatherCondBuild3" testGatherCondBuild3
+  , testCase "gatherCond4" testGatherCond4
+  , testCase "gatherCondBuild4" testGatherCondBuild4
+  , testCase "gatherSimpCond3" testGatherSimpCond3
 
   , testCase "scatterNested1" testScatterNested1
   , testCase "scatterNestedBuild1" testScatterNestedBuild1
@@ -703,6 +708,84 @@ testGatherSimpCond = do
   let !t2 = gatherCond2 (ringestData [7, 2] vals)
   let !t1n = unAstNoSimplify $ gatherCond $ AstNoSimplify var
   let !t2n = unAstNoSimplify $ gatherCond2 $ AstNoSimplify var
+  interpretAstPrimal @Concrete env t1
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete env t1n
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete emptyEnv t2
+    @?= interpretAstPrimal @Concrete env t2n
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1)
+    @?= interpretAstPrimal @Concrete env t1
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t1n)
+    @?= interpretAstPrimal @Concrete env t1n
+  interpretAstPrimal @Concrete emptyEnv
+                     (simplifyInlineContract @(TKR 2 Float) t2)
+    @?= interpretAstPrimal @Concrete emptyEnv t2
+  interpretAstPrimal @Concrete env
+                     (simplifyInlineContract @(TKR 2 Float) t2n)
+    @?= interpretAstPrimal @Concrete env t2n
+
+
+gatherCond3 :: forall target r. (ADReady target, GoodScalar r)
+            => target (TKR 2 r) -> target (TKR 2 r)
+gatherCond3 u =
+  let v = rtranspose [2, 0, 1] $ rreplicate (2 * rwidth u) u
+  in rgather [rwidth u, 2] v (\(i :.: j :.: ZIR) ->
+                                2 * i :.: i :.: ifH (i ==. 3) 0 j :.: ZIR)
+
+testGatherCond3 :: Assertion
+testGatherCond3 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [7,2]
+                 [1.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @Double @2 gatherCond3 (rreplicate 7 $ ringestData [2] [0, 1]))
+
+testGatherCondBuild3 :: Assertion
+testGatherCondBuild3 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [7,2]
+                 [6.0,0.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @Double @3
+          (\t -> rbuild1 4 (\i ->
+             gatherCond3 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
+
+gatherCond4 :: forall target r. (ADReady target, GoodScalar r)
+            => target (TKR 2 r) -> target (TKR 2 r)
+gatherCond4 u =
+  let v = rreplicate (2 * rwidth u) u
+  in rtr $ rgather [2, rwidth u] v (\(j :.: i :.: ZIR) ->
+                                      i :.: ifH (i ==. 3) 0 j :.: 2 * i :.: ZIR)
+
+testGatherCond4 :: Assertion
+testGatherCond4 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [7,2]
+                 [1.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @Double @2 gatherCond4 (rreplicate 7 $ ringestData [2] [0, 1]))
+
+testGatherCondBuild4 :: Assertion
+testGatherCondBuild4 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [7,2]
+                 [6.0,0.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @Double @3
+          (\t -> rbuild1 4 (\i ->
+             gatherCond4 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
+          (rreplicate 7 $ ringestData [2] [0, 1]))
+
+testGatherSimpCond3 :: Assertion
+testGatherSimpCond3 = do
+  let varName = mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000
+      var = AstVar varName
+      vals = [-1, 0, 2.0,5.0,11.0,-17.0,23.0,29.0,-35.0,41.0,47.0,33.0, 0.1, 0.007]
+      env = extendEnv varName (ringestData [7, 2] vals) emptyEnv
+  let !t1 = gatherCond3 @(AstTensor AstMethodLet PrimalSpan) var
+  let !t2 = gatherCond4 (ringestData [7, 2] vals)
+  let !t1n = unAstNoSimplify $ gatherCond3 $ AstNoSimplify var
+  let !t2n = unAstNoSimplify $ gatherCond4 $ AstNoSimplify var
   interpretAstPrimal @Concrete env t1
     @?= interpretAstPrimal @Concrete env t1n
   interpretAstPrimal @Concrete env t1n
