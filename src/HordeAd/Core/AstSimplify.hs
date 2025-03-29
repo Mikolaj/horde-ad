@@ -1365,7 +1365,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
       AstBoolConst b -> if b then astIndex shn u ix1 else astIndex shn v ix2
       bExpr -> astCond bExpr (astIndexRec shn u ix1) (astIndexRec shn v ix2)
   Ast.AstSliceS (SNat @i) _ SNat v ->
-    let ii = simplifyAstInt (i1 + fromIntegral (valueOf @i :: Int))
+    let ii = simplifyAstInt (fromIntegral (valueOf @i :: Int) + i1)
       -- we generate this index, so we simplify on the spot
     in astIndex shn v (ii :.$ rest1)
   Ast.AstReverseS v ->
@@ -1838,7 +1838,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
                        $ V.fromList [u2, v2])
                  (varsFresh, astCond bExpr5 0 1 :.$ IxS ixFresh)
     Ast.AstSliceS i@SNat _ SNat v ->
-      let ii = simplifyAstInt (i4 + fromIntegral (sNatValue i))
+      let ii = simplifyAstInt (fromIntegral (sNatValue i) + i4)
         -- we generate this index, so we simplify on the spot
       in astGather shn' v (vars4, ii :.$ rest4)
     Ast.AstReverseS @n v ->
@@ -1984,7 +1984,7 @@ astSliceS i n@SNat k (AstConcreteS t) =
   astConcreteS (tsslice i n k $ Concrete t)
 astSliceS (SNat' @0) SNat (SNat' @0) v = v
 astSliceS SNat SNat SNat (Ast.AstGatherS shn v (Const var ::$ vars, ix)) =
-  let ivar = AstIntVar var + valueOf @i
+  let ivar = valueOf @i + AstIntVar var
       ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
       vars2 = Const var ::$ vars
   in astGatherS shn v (vars2, ix2)
@@ -3181,33 +3181,78 @@ contractAst t = case t of
   -- TODO: fix AstIntVar to be usable here (maybe look at SNat'?),
   Ast.AstGatherS
     shn v ( vars@((::$) @m (Const varm) mrest)
+          , Ast.AstCond (Ast.AstRelK LsOp (AstConcreteK @r j)
+                                          (Ast.AstN1K NegateOp
+                                                      (Ast.AstVar varp))) i1 i2
+            :.$ prest )
+    | varNameToAstVarId varm == varNameToAstVarId varp
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) -> contractAst $
+      if | - j <= 0 ->
+           Ast.AstGatherS shn v (vars, i2 :.$ prest)
+         | - j >= valueOf @m ->
+           Ast.AstGatherS shn v (vars, i1 :.$ prest)
+         | otherwise ->
+           withSNat (- fromIntegral j) $ \(SNat @mj) ->
+           gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
+           Ast.AstGatherS
+             shn v ( (::$) @mj (Const varm) mrest
+                   , i1 :.$ prest )
+           `Ast.AstAppendS`
+           Ast.AstGatherS
+             shn v ( (::$) @(m - mj) (Const varm) mrest
+                   , i2 :.$ substituteAstIxS
+                              (AstConcreteK (- j) + AstIntVar varm)
+                              varm prest)
+  Ast.AstGatherS
+    shn v ( vars@((::$) @m (Const varm) mrest)
+          , Ast.AstCond (Ast.AstRelK LsOp (AstConcreteK @r j)
+                                          (Ast.AstVar varp)) i1 i2
+            :.$ prest )
+    | varNameToAstVarId varm == varNameToAstVarId varp
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) -> contractAst $
+      if | j + 1 <= 0 ->
+           Ast.AstGatherS shn v (vars, i1 :.$ prest)
+         | j + 1 >= valueOf @m ->
+           Ast.AstGatherS shn v (vars, i2 :.$ prest)
+         | otherwise ->
+           withSNat (fromIntegral j + 1) $ \(SNat @j1) ->
+           gcastWith (unsafeCoerceRefl :: (j1 <=? m) :~: True) $
+           Ast.AstGatherS
+             shn v ( (::$) @j1 (Const varm) mrest
+                   , i2 :.$ prest )
+           `Ast.AstAppendS`
+           Ast.AstGatherS
+             shn v ( (::$) @(m - j1) (Const varm) mrest
+                   , i1 :.$ substituteAstIxS
+                              (AstConcreteK (j + 1) + AstIntVar varm)
+                              varm prest)
+  Ast.AstGatherS
+    shn v ( vars@((::$) @m (Const varm) mrest)
           , Ast.AstCond (Ast.AstRelK EqOp (AstConcreteK @r j)
                                           (Ast.AstVar varp)) i1 i2
             :.$ prest )
     | varNameToAstVarId varm == varNameToAstVarId varp
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) ->
-      if j < 0 || j > valueOf @m - 1
-      then
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) -> contractAst $
+      if j < 0 || j >= valueOf @m then
         Ast.AstGatherS shn v (vars, i2 :.$ prest)
       else
         withSNat (fromIntegral j) $ \(SNat @j) ->
         gcastWith (unsafeCoerceRefl :: (j + 1 <=? m) :~: True) $
-        contractAst
-        $ Ast.AstGatherS
-            shn v ( (::$) @j (Const varm) mrest
-                  , i2 :.$ prest )
-          `Ast.AstAppendS`
-          Ast.AstGatherS
-            shn v ( (::$) @1 (Const varm) mrest
-                  , i1 :.$ substituteAstIxS
-                             (AstPlusK (AstIntVar varm) (AstConcreteK j))
-                             varm prest)
-          `Ast.AstAppendS`
-          Ast.AstGatherS
-            shn v ( (::$) @(m - (j + 1)) (Const varm) mrest
-                  , i2 :.$ substituteAstIxS
-                             (AstPlusK (AstIntVar varm) (AstConcreteK (j + 1)))
-                             varm prest)
+        Ast.AstGatherS
+          shn v ( (::$) @j (Const varm) mrest
+                , i2 :.$ prest )
+        `Ast.AstAppendS`
+        Ast.AstGatherS
+          shn v ( (::$) @1 (Const varm) mrest
+                , i1 :.$ substituteAstIxS
+                           (AstConcreteK j + AstIntVar varm)
+                           varm prest)
+        `Ast.AstAppendS`
+        Ast.AstGatherS
+          shn v ( (::$) @(m - (j + 1)) (Const varm) mrest
+                , i2 :.$ substituteAstIxS
+                           (AstConcreteK (j + 1) + AstIntVar varm)
+                           varm prest)
   Ast.AstGatherS shn v ( (::$) @m (Const varm) mrest
                        , (:.$) @p (AstIntVar varp) prest )
     | varm == varp
@@ -3230,8 +3275,7 @@ contractAst t = case t of
     | FTKS (SNat @p :$$ _) x <- ftkAst v
     , i64 >= 0 ->
       withSNat (fromIntegral i64) $ \(SNat @i) ->
-        if i64 > valueOf @p
-        then
+        if i64 > valueOf @p then
           let ftk = FTKS (listsToShS vars `shsAppend` shn) x
           in fromPrimal $ astConcrete ftk (tdefTarget ftk)
         else
