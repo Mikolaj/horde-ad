@@ -3223,30 +3223,8 @@ contractAst t = case t of
                shn v2 ((::$) @m2 (Const varm) mrest, AstIntVar varp :.$ prest)
              `Ast.AstAppendS`
              fromPrimal (astConcrete ftk (tdefTarget ftk))
-  Ast.AstGatherS shn v
-                 (vars, AstPlusK i1 (AstConcreteK i64) :.$ prest)
-    | FTKS (SNat @p :$$ _) x <- ftkAst v
-    , i64 >= 0 ->
-      withSNat (fromIntegral i64) $ \(SNat @i) ->
-        if i64 > valueOf @p
-        then
-          let ftk = FTKS (listsToShS vars `shsAppend` shn) x
-          in fromPrimal $ astConcrete ftk (tdefTarget ftk)
-        else
-          gcastWith (unsafeCoerceRefl :: (i <=? p) :~: True) $
-          let v2 = Ast.AstSliceS (SNat @i) (SNat @(p - i)) (SNat @0) v
-          in contractAst $ Ast.AstGatherS shn v2 (vars, i1 :.$ prest)
-               -- this gather may still index out of bounds, which is fine
-  Ast.AstGatherS shn v
-                 (vars, AstPlusK i1 (AstConcreteK i64) :.$ prest)
-    | FTKS _ x <- ftkAst v ->  -- i64 < 0
-      withSNat (negate $ fromIntegral i64) $ \(SNat @i) ->
-        let ftk = FTKS (SNat @i :$$ ixsToShS prest `shsAppend` shn) x
-            v2 = fromPrimal (astConcrete ftk (tdefTarget ftk))
-                 `Ast.AstAppendS`
-                 v
-        in contractAst $ Ast.AstGatherS shn v2 (vars, i1 :.$ prest)
-             -- this gather may still index out of bounds, which is fine
+  -- Rules with AstConcreteK on the right hand side of AstPlusK are
+  -- not needed, thanks to the normal form of AstPlusK rewriting.
   Ast.AstGatherS shn v
                  (vars, AstPlusK (AstConcreteK i64) i1 :.$ prest)
     | FTKS (SNat @p :$$ _) x <- ftkAst v
