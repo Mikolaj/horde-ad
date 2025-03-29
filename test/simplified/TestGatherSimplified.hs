@@ -671,12 +671,10 @@ testGatherCondBuild =
 
 gatherCond2 :: forall target r. (ADReady target, GoodScalar r)
             => target (TKR 2 r) -> target (TKR 2 r)
-gatherCond2 u = gatherCond u
-{- TODO: enable once the bad gather rule fixed
+gatherCond2 u =
   let v = rreplicate (2 * rwidth u) u
   in rtr $ rgather [2, rwidth u] v (\(j :.: i :.: ZIR) ->
-                                      i :.: ifH (i ==. 3) 0 j :.: 2 * i :.: ZIR)
--}
+                                      2 * i :.: i :.: ifH (i ==. 3) 0 j :.: ZIR)
 
 testGatherCond2 :: Assertion
 testGatherCond2 =
