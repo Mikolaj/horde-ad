@@ -3181,8 +3181,8 @@ contractAst t = case t of
   -- TODO: fix AstIntVar to be usable here (maybe look at SNat'?),
   Ast.AstGatherS
     shn v ( vars@((::$) @m (Const varm) mrest)
-          , Ast.AstCond (Ast.AstRelK EqOp (Ast.AstVar varp)
-                                          (AstConcreteK @r j)) i1 i2
+          , Ast.AstCond (Ast.AstRelK EqOp (AstConcreteK @r j)
+                                          (Ast.AstVar varp)) i1 i2
             :.$ prest )
     | varNameToAstVarId varm == varNameToAstVarId varp
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) ->

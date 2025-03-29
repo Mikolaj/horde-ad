@@ -607,32 +607,75 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
                            ++ show (shu, shv)
 
 -- These are common in indexing, so worth optimizing early via AstConcrete.
+-- We keep AstConcrete on the left, as with AstPlusK and others.
 instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKScalar r) where
+  AstFromPrimal u ==. AstFromPrimal v = u ==. v
+  AstFromDual u ==. AstFromDual v = u ==. v  -- TODO: correct?
   AstConcreteK u ==. AstConcreteK v =
     AstBoolConst $ Concrete @(TKScalar r) u ==. Concrete v
-  AstVar u ==. AstVar v | u == v = AstBoolConst True
-  v ==. u = AstRelK EqOp (primalPart v) (primalPart u)
+  u ==. AstPlusK (AstConcreteK v) w =
+    u - AstConcreteK v ==. w
+  AstPlusK (AstConcreteK u) w ==. v =
+    AstConcreteK u ==. v - w
+  u ==. AstConcreteK v =
+    AstConcreteK v ==. u
+  AstConcreteK u ==. AstN1K NegateOp v =
+    AstConcreteK (negate u) ==. v
+  v@AstConcreteK{} ==. u =
+    AstRelK EqOp (primalPart v) (primalPart u)
+  v ==. u =
+    AstConcreteK 0 ==. primalPart u - primalPart v
 
 instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKS sh r) where
+  AstFromPrimal u ==. AstFromPrimal v = u ==. v
+  AstFromDual u ==. AstFromDual v = u ==. v  -- TODO: correct?
   AstConcreteS u ==. AstConcreteS v =
     AstBoolConst $ Concrete @(TKS sh r) u ==. Concrete v
-  AstVar u ==. AstVar v | u == v = AstBoolConst True
+  u ==. AstPlusS (AstConcreteS v) w =
+    u - AstConcreteS v ==. w
+  AstPlusS (AstConcreteS u) w ==. v =
+    AstConcreteS u ==. v - w
+  u ==. AstConcreteS v =
+    AstConcreteS v ==. u
+  AstConcreteS u ==. AstN1S NegateOp v =
+    AstConcreteS (negate u) ==. v
+  AstVar u ==. AstVar v | u == v =
+    AstBoolConst True
   v ==. u = AstRelS EqOp (primalPart v) (primalPart u)
 
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKScalar r) where
+  AstFromPrimal u <. AstFromPrimal v = u <. v
+  AstFromDual u <. AstFromDual v = u <. v  -- TODO: correct?
   AstConcreteK u <. AstConcreteK v =
-    AstBoolConst $ Concrete  @(TKScalar r)u <. Concrete v
-  AstVar u <. AstVar v | u == v = AstBoolConst False
-  v <. u = AstRelK LsOp (primalPart v) (primalPart u)
+    AstBoolConst $ Concrete @(TKScalar r) u <. Concrete v
+  u <. AstPlusK (AstConcreteK v) w =
+    u - AstConcreteK v <. w
+  AstPlusK (AstConcreteK u) w <. v =
+    AstConcreteK u <. v - w
+  u <. AstConcreteK v =
+    AstConcreteK (negate v) <. negate u
+  v@AstConcreteK{} <. u =
+    AstRelK LsOp (primalPart v) (primalPart u)
+  v <. u =
+    AstConcreteK 0 <. primalPart u - primalPart v
 
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
+  AstFromPrimal u <. AstFromPrimal v = u <. v
+  AstFromDual u <. AstFromDual v = u <. v  -- TODO: correct?
   AstConcreteS u <. AstConcreteS v =
     AstBoolConst $ Concrete @(TKS sh r) u <. Concrete v
-  AstVar u <. AstVar v | u == v = AstBoolConst False
+  u <. AstPlusS (AstConcreteS v) w =
+    u - AstConcreteS v <. w
+  AstPlusS (AstConcreteS u) w <. v =
+    AstConcreteS u <. v - w
+  u <. AstConcreteS v =
+    AstConcreteS (negate v) <. negate u
+  AstVar u <. AstVar v | u == v =
+    AstBoolConst False
   v <. u = AstRelS LsOp (primalPart v) (primalPart u)
 
 
