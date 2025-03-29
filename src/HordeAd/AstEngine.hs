@@ -64,7 +64,10 @@ simplifyInlineContract
   :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContract =
-  contractAst . simplifyInline
+  contractAst  -- TODO: this is needed, but shoult not be; fix in AstSimplify;
+               -- generally, contractAst and all the other should be
+               -- idempotent up to renaming, or close
+  . contractAst . simplifyInline
 
 
 -- * Pretty-printing terms in a few useful configurations
