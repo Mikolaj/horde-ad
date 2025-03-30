@@ -1998,11 +1998,11 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
                    :: TakeLen perm sh ++ DropLen perm sh :~: sh) $
                 let invix4 = ixsPermutePrefix invperm ix4
                 in astGather shn' v (vars4, invix4)
-    Ast.AstReshapeS sh v ->
-      if knobExpand knobs
+    Ast.AstReshapeS sh v -> {-  -- too hard to fuse back to reshape
+      if && knobExpand knobs
       then astGather @shm' @shn' @shp' shn'
                      (astReshapeAsGatherS knobs sh v) (vars4, ix4)
-      else Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+      else -} Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstZipS _v -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstNestS{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstUnNestS _v -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
@@ -2863,7 +2863,8 @@ expandAst t = case t of
       astTransposeAsGatherS (defaultKnobs {knobExpand = True})
                             perm v2  -- TODO: (normalizePermutation perm)
         -- this is expensive but the only way to guarantee full simplification
-  Ast.AstReshapeS sh v -> case expandAst v of
+  Ast.AstReshapeS sh v -> {-  -- too hard to fuse back to reshape
+   case expandAst v of
     Ast.AstVar{} -> t  -- normal form
     Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
     Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
@@ -2883,6 +2884,7 @@ expandAst t = case t of
       astReshapeAsGatherS (defaultKnobs {knobExpand = True})
                           sh v2
         -- this is expensive but the only way to guarantee full simplification
+    -} astReshapeS sh (expandAst v)
   Ast.AstZipS v -> Ast.AstZipS (expandAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (expandAst v)
   Ast.AstNestS sh1 sh2 v ->
