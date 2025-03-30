@@ -47,7 +47,7 @@ module HordeAd.Core.AstSimplify
     -- * The contraction (e.g., from gather expressions) bottom-up pass
   , contractAst
     -- * Substitution operations
-  , substituteAst, substituteAstIxS
+  , substituteAst, substituteAstIxS, substituteAstBool
   ) where
 
 import Prelude
@@ -1073,8 +1073,7 @@ astFromIntegralS t = case t of
   Ast.AstScatterS shn v (vars, ix) ->
     astScatterS shn (astFromIntegralS v) (vars, ix)
   Ast.AstGatherS shn v (vars, ix) ->
-    Ast.AstGatherS shn (astFromIntegralS v) (vars, ix)
-      -- gather goes into fromIntegral, so we'd loop
+    astGatherS shn (astFromIntegralS v) (vars, ix)
   Ast.AstIotaS snat -> Ast.AstIotaS snat
 --  Ast.AstSliceS i n k v -> astSliceS i n k (astFromIntegralS v)
   Ast.AstReverseS v -> astReverseS (astFromIntegralS v)
@@ -1119,11 +1118,8 @@ astCastS t = case t of
   Ast.AstCastS v -> astCastS v
   Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (astCastS v) ix
     -- index goes into cast, so we'd loop
-  Ast.AstScatterS shn v (vars, ix) ->
-    astScatterS shn (astCastS v) (vars, ix)
-  Ast.AstGatherS shn v (vars, ix) ->
-    Ast.AstGatherS shn (astCastS v) (vars, ix)
-      -- gather goes into cast, so we'd loop
+  Ast.AstScatterS shn v (vars, ix) -> astScatterS shn (astCastS v) (vars, ix)
+  Ast.AstGatherS shn v (vars, ix) -> astGatherS shn (astCastS v) (vars, ix)
 --  Ast.AstMinIndexS v -> Ast.AstMinIndexS (astCastS v)
   Ast.AstIotaS snat -> Ast.AstIotaS snat
 --  Ast.AstSliceS i n k v -> astSliceS i n k (astCastS v)
@@ -1683,6 +1679,7 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
       -- so it's not practical.
     Ast.AstN1S NegateOp v | not (isVar v) ->
       negate (astGatherRec @shm' @shn' @shp' shn' v (vars4, ix4))
+        -- TODO: make these go under AstGatherS instead
     Ast.AstN1S AbsOp v | not (isVar v) ->
       abs (astGatherRec @shm' @shn' @shp' shn' v (vars4, ix4))
     Ast.AstN1S SignumOp v | not (isVar v) ->
@@ -1696,9 +1693,12 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
     Ast.AstFloorS v ->
       Ast.AstFloorS
       $ astGatherKnobsS @shm' @shn' @shp' knobs shn' v (vars4, ix4)
-    Ast.AstFromIntegralS v ->
-      astFromIntegralS $ astGather @shm' @shn' @shp' shn' v (vars4, ix4)
-    Ast.AstCastS v -> astCastS $ astGather @shm' @shn' @shp' shn' v (vars4, ix4)
+          -- TODO: define astFloor and then treat as AstFromIntegralS
+    Ast.AstFromIntegralS{} ->  -- see next comment
+      Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+    Ast.AstCastS{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+      -- work would increate otherwise and most probably gather can't
+      -- simplify anything that cast could not
 
     Ast.AstIndexS @shm2 _shn2 v2 ix2 -> case (v2, ix2) of
       (Ast.AstFromVector{}, i2 :.$ ZIS) ->
@@ -1818,42 +1818,13 @@ astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
       $ fromIntegral i
     Ast.AstIotaS{} ->  -- probably nothing can be simplified; a normal form
       Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
-    Ast.AstAppendS{} | not $ knobExpand knobs ->
-      Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
-    Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
-      let ulen = AstConcreteK (valueOf @m)
-          iu = simplifyAstInt (i4 - ulen)
-      in case simplifyAstBool $ Ast.AstRelK LsOp i4 ulen of
-        AstBoolConst b -> if b
-                          then astGather shn' u (vars4, i4 :.$ rest4)
-                          else astGather shn' v (vars4, iu :.$ rest4)
-        bExpr ->
-          funToVarsIxS @shm' (listsToShS vars4)
-          $ \ (!varsFresh, IxS !ixFresh) ->
-            let u2 = astGatherRec shn' u (vars4, i4 :.$ rest4)
-                v2 = astGatherRec shn' v (vars4, iu :.$ rest4)
-                -- This subst doesn't break sharing because it's a rename.
-                subst i =
-                  foldr (uncurry substituteAstBool) i
-                        (listsToList $ zipSizedS ixFresh vars4)
-                bExpr5 = subst bExpr
-            in astGather
-                 shn' (astFromVector
-                         (SNat @2) (STKS (listsToShS vars4
-                                          `shsAppend` shn')
-                                         (ftkToSTK x))
-                       $ V.fromList [u2, v2])
-                 (varsFresh, astCond bExpr5 0 1 :.$ IxS ixFresh)
-    Ast.AstSliceS{} | not $ knobExpand knobs ->
-      Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
-    Ast.AstSliceS i@SNat _ SNat v ->
-      let ii = simplifyAstInt (fromIntegral (sNatValue i) + i4)
-        -- we generate this index, so we simplify on the spot
-      in astGather shn' v (vars4, ii :.$ rest4)
-    Ast.AstReverseS @n v ->
-      let iRev = simplifyAstInt ((valueOf @n - 1) - i4)
-        -- we generate this index, so we simplify on the spot
-      in astGather @shm' @shn' shn' v (vars4, iRev :.$ rest4)
+    Ast.AstAppendS{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+      -- fusing would result in gather([gather, gather]), so no gain
+    Ast.AstSliceS{}-> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+      -- slicing is O(1) so no point fusing and complicating the expression;
+      -- if it did not simplify further with slice, it wouldn't with gather
+    Ast.AstReverseS{}-> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+      -- reversing  is O(1)
     Ast.AstTransposeS @perm @sh perm v | FTKS sh _ <- ftkAst v ->
       let rankPerm = Permutation.permRank perm
       in case gcompare (ixsRank ix4) rankPerm of
@@ -1995,8 +1966,7 @@ astSliceS (SNat' @0) SNat (SNat' @0) v = v
 astSliceS SNat SNat SNat (Ast.AstGatherS shn v (Const var ::$ vars, ix)) =
   let ivar = valueOf @i + AstIntVar var
       ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
-      vars2 = Const var ::$ vars
-  in astGatherS shn v (vars2, ix2)
+  in astGatherS shn v (Const var ::$ vars, ix2)
 astSliceS i n@(SNat @n0) _k (Ast.AstAppendS v1 v2)
   | FTKS (m1@(SNat @m1) :$$ _) _ <- ftkAst v1
   , FTKS (m2@(SNat @m2) :$$ _) _ <- ftkAst v2 =
@@ -2058,6 +2028,8 @@ astReverseS (Ast.AstGatherS @shm @shn @shp
 astReverseS (Ast.AstReverseS v) = v
 astReverseS v = Ast.AstReverseS v
 
+-- TODO: try to completely cover the AstGatherS case here, which would permit
+-- not expanding to astTransposeAsGatherS in astGatherCase
 -- | Beware, this does not do full simplification, which often requires
 -- the gather form, so astTransposeAsGather needs to be called in addition
 -- if full simplification is required.
@@ -2176,6 +2148,8 @@ mkRepl _ _ ZSS u = u
 mkRepl sh2 x (snat :$$ rest) u =
   Ast.AstReplicate snat (STKS (rest `shsAppend` sh2) x) (mkRepl sh2 x rest u)
 
+-- TODO: try to cover the AstGatherS case here, which would permit
+-- not expanding to astReshapeAsGatherS in astGatherCase
 -- | Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
 -- if full simplification is required.
