@@ -133,7 +133,7 @@ gather1 :: forall target r. (ADReady target, GoodScalar r)
 gather1 t =
   rgather @1
           (2 :$: ZSR)
-          t
+          (rslice 0 4 t)
           (\(i2 :.: ZIR) -> i2 + i2 :.: i2 :.: ZIR)
 
 testGather1 :: Assertion
@@ -158,10 +158,10 @@ testGatherSimpPP1 :: Assertion
 testGatherSimpPP1 = do
   resetVarCounter
   let !t1 = gatherNested1 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t1) @?= 229
+  length (show t1) @?= 271
   resetVarCounter
   let !t2 = gather1 $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t2) @?= 229
+  length (show t2) @?= 271
   length (show (simplifyInlineContract @(TKR 1 Float) t1))
     @?= length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t2))
 
