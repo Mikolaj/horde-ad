@@ -1494,52 +1494,52 @@ astGatherKnobsS
   -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
   -> (AstVarListS shm, AstIxS AstMethodLet shp)
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
-astGatherKnobsS knobs shn v0 (!vars0, !ix0) | FTKS _ x <- ftkAst v0 =
-  case (listsToShS vars0, (vars0, ix0)) of
-    _ | any (`varNameInAst` v0) $ listsToList vars0 ->
-      error $ "astGatherS: gather vars in v0: "
-              ++ show (vars0, v0)
-    (_, (ZS, _)) -> astIndex shn v0 ix0
-    (_, (_, ZIS)) -> if knobExpand knobs
-                     then Ast.AstGatherS shn v0 (vars0, ix0)
-                     else astReplicateNS @shm @shn (listsToShS vars0) v0
-    (shm@( k :$$ sh'), (var ::$ vars, i1 :.$ rest1)) ->
-      if | not (any (`varNameInAst` i1) $ listsToList vars0) ->
-           astGatherKnobsS @shm @shn @(Tail shp)
-             knobs shn
-             (astIndex (ixsToShS rest1 `shsAppend` shn) v0 (i1 :.$ ZIS))
-             (vars0, rest1)
-         | case iN of
-             AstIntVar varN' ->
-               varN' == getConst varN
-               && not (any (getConst varN `varNameInAst`) restN)
-             _ -> False
-         , kN@SNat <- shsLast shm
-         , vkN@SNat <- shsLast (ixsToShS ix0)
-         , case testEquality kN vkN of
-             Just Refl -> True
-             _ -> False
-           -> gcastWith (unsafeCoerceRefl
-                         :: Init shp ++ (Last shm ': shn) :~: shp ++ shn) $
-              gcastWith (unsafeCoerceRefl
-                         :: Init shm ++ (Last shm ': shn) :~: shm ++ shn) $
-              astGatherKnobsS @(Init shm) @(Last shm ': shn) @(Init shp)
-                              knobs (shsLast (listsToShS vars0) :$$ shn)
-                              v0 (varsN, restN)
-         | varInIndexS (varNameToAstVarId $ getConst var) ix0 ->
-           astGatherCase @shm @shn @shp shn v0 (vars0, ix0)
-         | otherwise ->
-           if knobExpand knobs
-           then Ast.AstGatherS @shm @shn @shp shn v0 (vars0, ix0)
-           else astReplicate k (STKS (sh' `shsAppend` shn) (ftkToSTK x))
-                             (astGatherKnobsS @(Tail shm) @shn @shp
-                                              knobs shn v0 (vars, ix0))
-       where
-        restN = ixsInit ix0
-        iN = ixsLast ix0
-        varsN = listsInit vars0
-        varN = listsLast vars0
+astGatherKnobsS _ _ v0 (!vars0, !_ix0)
+  | any (`varNameInAst` v0) $ listsToList vars0 =
+    error $ "astGatherS: gather vars in v0: " ++ show (vars0, v0)
+astGatherKnobsS knobs shn v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
+astGatherKnobsS knobs shn v0 (vars0, ZIS) =
+  if knobExpand knobs
+  then Ast.AstGatherS shn v0 (vars0, ZIS)
+  else astReplicateNS @shm @shn (listsToShS vars0) v0
+astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
+  if | not (any (`varNameInAst` i1) $ listsToList vars0) ->
+       astGatherKnobsS @shm @shn @(Tail shp)
+         knobs shn
+         (astIndex (ixsToShS rest1 `shsAppend` shn) v0 (i1 :.$ ZIS))
+         (vars0, rest1)
+     | case iN of
+         AstIntVar varN' ->
+           varN' == getConst varN
+           && not (any (getConst varN `varNameInAst`) restN)
+         _ -> False
+     , kN@SNat <- shsLast (listsToShS vars0)
+     , vkN@SNat <- shsLast (ixsToShS ix0)
+     , case testEquality kN vkN of
+         Just Refl -> True
+         _ -> False
+       -> gcastWith (unsafeCoerceRefl
+                     :: Init shp ++ (Last shm ': shn) :~: shp ++ shn) $
+          gcastWith (unsafeCoerceRefl
+                     :: Init shm ++ (Last shm ': shn) :~: shm ++ shn) $
+          astGatherKnobsS @(Init shm) @(Last shm ': shn) @(Init shp)
+                          knobs (shsLast (listsToShS vars0) :$$ shn)
+                          v0 (varsN, restN)
+     | varInIndexS (varNameToAstVarId $ getConst var1) ix0 ->
+       astGatherCase @shm @shn @shp shn v0 (vars0, ix0)
+     | otherwise ->
+       let k :$$ sh' = listsToShS vars0
+           FTKS _ x = ftkAst v0
+       in if knobExpand knobs
+          then Ast.AstGatherS @shm @shn @shp shn v0 (vars0, ix0)
+          else astReplicate k (STKS (sh' `shsAppend` shn) (ftkToSTK x))
+                            (astGatherKnobsS @(Tail shm) @shn @shp
+                                             knobs shn v0 (vars1, ix0))
  where
+  restN = ixsInit ix0
+  iN = ixsLast ix0
+  varsN = listsInit vars0
+  varN = listsLast vars0
   astIndex
     :: forall shm' shn' s'. AstSpan s'
     => ShS shn' -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r)
