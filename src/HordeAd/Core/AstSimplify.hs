@@ -236,7 +236,7 @@ astProject1
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s x
 astProject1 u = case u of
   Ast.AstPair x _z -> x
-  Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject1 v1) (astProject1 v2)
+  Ast.AstCond b v1 v2 -> astCond b (astProject1 v1) (astProject1 v2)
   Ast.AstLet var t v -> Ast.AstLet var t (astProject1 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject1 u1
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject1 u1
@@ -249,7 +249,7 @@ astProject2
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s z
 astProject2 u = case u of
   Ast.AstPair _x z -> z
-  Ast.AstCond b v1 v2 -> Ast.AstCond b (astProject2 v1) (astProject2 v2)
+  Ast.AstCond b v1 v2 -> astCond b (astProject2 v1) (astProject2 v2)
   Ast.AstLet var t v -> Ast.AstLet var t (astProject2 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject2 u1
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject2 u1
@@ -724,6 +724,7 @@ astCond :: AstBool AstMethodLet
         -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s y
 astCond (AstBoolConst b) v w = if b then v else w
+astCond (Ast.AstBoolNot b) v w = astCond b w v
 astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
   Ast.AstFromPrimal $ astCond b v w
 astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
