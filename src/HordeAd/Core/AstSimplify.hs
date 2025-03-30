@@ -2167,11 +2167,10 @@ astTransposeS perm t = case perm of
       fromMaybe (error "astTransposeS: impossible non-permutation")
       $ Permutation.permCheckPermutation zsuccP
       $ astSum snat (STKS (shsPermutePrefix perm sh) x) $ astTransposeS zsuccP v
-  Ast.AstReplicate snat@(SNat @n) (STKS @sh3 sh3 _) u
-    | Just u2 <- unRepl u
-    , FTKS _ x <- ftkAst u2
+  Ast.AstReplicate snat@(SNat @n) (STKS @sh3 sh3 x) _
+    | Just u2 <- unRepl t
     , Refl <- lemAppNil @(Permutation.PermutePrefix perm (n : sh3)) ->
-      mkRepl ZSS (ftkToSTK x) (shsPermutePrefix perm (snat :$$ sh3)) u2
+      mkRepl ZSS x (shsPermutePrefix perm (snat :$$ sh3)) u2
   Ast.AstReplicate snat1@SNat _  -- nesting 4 is probably already an overkill
     (Ast.AstReplicate snat2@SNat _
       (Ast.AstReplicate snat3@SNat _
@@ -2248,9 +2247,11 @@ astTransposeS perm t = case perm of
           GT -> error "astTransposeS: GT"
   u -> Ast.AstTransposeS perm u
 
-unRepl :: AstTensor AstMethodLet s (TKS2 sh x)
+unRepl :: AstSpan s
+       => AstTensor AstMethodLet s (TKS2 sh x)
        -> Maybe (AstTensor AstMethodLet s (TKS2 '[] x))
 unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
+unRepl (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
 unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
 unRepl _ = Nothing
 
@@ -2269,14 +2270,19 @@ mkRepl sh2 x (snat :$$ rest) u =
 astReshapeS :: forall sh sh2 x s. (Product sh ~ Product sh2, AstSpan s)
             => ShS sh2 -> AstTensor AstMethodLet s (TKS2 sh x)
             -> AstTensor AstMethodLet s (TKS2 sh2 x)
-astReshapeS sh2 = \case
+astReshapeS sh2 t = case t of
   Ast.AstFromVector (SNat' @1) STKS{} l -> astReshapeS sh2 (l V.! 0)
-  Ast.AstReplicate _ STKS{} u | Just u2 <- unRepl u
-                              , FTKS _ x <- ftkAst u2
-                              , Refl <- lemAppNil @sh2 ->
-    mkRepl ZSS (ftkToSTK x) sh2 u2
-  Ast.AstReplicate (SNat' @1) (STKS _ _) x -> astReshapeS sh2 x
-  AstConcreteS t -> astConcreteS (tsreshape sh2 $ Concrete t)
+  Ast.AstReplicate (SNat' @1) STKS{} x -> astReshapeS sh2 x
+  Ast.AstReplicate _ STKScalar u | Refl <- lemAppNil @sh2 ->
+    mkRepl ZSS STKScalar sh2 (astSFromK u)
+  Ast.AstReplicate _ (STKS _ x) _ | Just u2 <- unRepl t
+                                  , Refl <- lemAppNil @sh2 ->
+    mkRepl ZSS x sh2 u2
+  Ast.AstReplicate k (STKS @sh1 _ x) u | (:$$) @_ @rest2 k2 rest2 <- sh2
+                                       , Just Refl <- testEquality k k2 ->
+    gcastWith (unsafeCoerceRefl :: Product rest2 :~: Product sh1) $
+    astReplicate k (STKS rest2 x) $ astReshapeS rest2 u
+  AstConcreteS v -> astConcreteS (tsreshape sh2 $ Concrete v)
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 sh2 v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS sh2 v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReshapeS sh2 v
@@ -2286,9 +2292,9 @@ astReshapeS sh2 = \case
   Ast.AstN1S SignumOp u -> signum (astReshapeS @_ @sh2 sh2 u)
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astReshapeS @_ @sh2 sh2 u)
   Ast.AstReshapeS _ v -> astReshapeS @_ @sh2 sh2 v
-  v | FTKS sh _ <- ftkAst v -> case testEquality sh sh2 of
-    Just Refl -> v
-    _ -> Ast.AstReshapeS sh2 v
+  _ | FTKS sh _ <- ftkAst t -> case testEquality sh sh2 of
+    Just Refl -> t
+    _ -> Ast.AstReshapeS sh2 t
 
 -- Beware that increasing the number of calls to this constructor
 -- sometimes increases runtime, because not enough copies cancel out.
@@ -3067,6 +3073,7 @@ contractAst t = case t of
   Ast.AstProject2 v -> astProject2 (contractAst v)
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map contractAst l)
   Ast.AstSum _ (STKS ZSS _) t2 -> astSum0S (contractAst t2)
+  Ast.AstSum _ STKScalar t2 -> astFromS STKScalar $ astSum0S (contractAst t2)
   Ast.AstSum
     snat@(SNat @m2)
     stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar)
