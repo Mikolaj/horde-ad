@@ -1259,13 +1259,13 @@ testReluSimplerPP4 = do
       (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
-    @?= "\\m1 -> rfromS (tlet (sfromR m1 * tfromPrimal (STKS [3,4] STKScalar) (sreshape @[3,4] (sreplicate @12 (sscalar 7.0)))) (\\m2 -> tfromPrimal (STKS [3,4] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i5, i4] -> [ifH (sscalar 0.0 <. tprimalPart m2 !$ [i5, i4]) 0 1])) * m2))"
+    @?= "\\m1 -> rfromS (tlet (sfromR m1 * tfromPrimal (STKS [3,4] STKScalar) (sreplicate @3 (sreplicate @4 (sscalar 7.0)))) (\\m2 -> tfromPrimal (STKS [3,4] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i5, i4] -> [ifH (sscalar 0.0 <. tprimalPart m2 !$ [i5, i4]) 0 1])) * m2))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [3, 4] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret m1 -> tfromS (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @0) STKScalar)) (let m12 = sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i8, i9] -> [ifH (sscalar 0.0 <. sfromR (tproject1 m1) !$ [i8, i9] * sfromR (tproject2 m1)) 0 1]) * sfromR dret in tpair (sreplicate @3 (sreplicate @4 (sfromR (tproject2 m1))) * m12) (sdot0 (sfromR (tproject1 m1)) m12))"
+    @?= "\\dret m1 -> tfromS (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @0) STKScalar)) (let m11 = sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i7, i8] -> [ifH (sscalar 0.0 <. sfromR (tproject1 m1) !$ [i7, i8] * sfromR (tproject2 m1)) 0 1]) * sfromR dret in tpair (sreplicate @3 (sreplicate @4 (sfromR (tproject2 m1))) * m11) (sdot0 (sfromR (tproject1 m1)) m11))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\m1 -> rfromS (let m7 = sfromR (tproject1 m1) * sreplicate @3 (sreplicate @4 (sfromR (tproject2 m1))) in sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i8, i9] -> [ifH (sscalar 0.0 <. m7 !$ [i8, i9]) 0 1]) * m7)"
+    @?= "\\m1 -> rfromS (let m6 = sfromR (tproject1 m1) * sreplicate @3 (sreplicate @4 (sfromR (tproject2 m1))) in sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i7, i8] -> [ifH (sscalar 0.0 <. m6 !$ [i7, i8]) 0 1]) * m6)"
 
 testReluSimpler4 :: Assertion
 testReluSimpler4 = do
@@ -1286,7 +1286,7 @@ testReluSimplerPP4s = do
       (var3, ast3) = funToAst (FTKS knownShS FTKScalar) (\t -> reluT2 (t, srepl 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
-    @?= "\\m1 -> tlet (m1 * tfromPrimal (STKS [3,4] STKScalar) (sreshape @[3,4] (sreplicate @12 (sscalar 7.0)))) (\\m2 -> tfromPrimal (STKS [3,4] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i5, i4] -> [ifH (sscalar 0.0 <. tprimalPart m2 !$ [i5, i4]) 0 1])) * m2)"
+    @?= "\\m1 -> tlet (m1 * tfromPrimal (STKS [3,4] STKScalar) (sreplicate @3 (sreplicate @4 (sscalar 7.0)))) (\\m2 -> tfromPrimal (STKS [3,4] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i5, i4] -> [ifH (sscalar 0.0 <. tprimalPart m2 !$ [i5, i4]) 0 1])) * m2)"
 
 testReluSimplerPP4s2 :: Assertion
 testReluSimplerPP4s2 = do
@@ -1298,14 +1298,13 @@ testReluSimplerPP4s2 = do
       reluT2 (t, r) = reluS (t * sreplicate0N r)
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKS [3, 4] FTKScalar) (FTKS ZSS FTKScalar))
   printArtifactPretty artifactRev
-    @?= "\\dret m1 -> let m6 = sreshape @[3,4] (sreplicate @12 (tproject2 m1)) ; m7 = tproject1 m1 * m6 ; m10 = sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i8, i9] -> [ifH (sscalar 0.0 <. m7 !$ [i8, i9]) 0 1]) ; m12 = m10 * dret in tpair (m6 * m12) (ssum @12 (sreshape @[12] (tproject1 m1 * m12)))"
+    @?= "\\dret m1 -> let m6 = tproject1 m1 * sreplicate @3 (sreplicate @4 (tproject2 m1)) ; m9 = sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i7, i8] -> [ifH (sscalar 0.0 <. m6 !$ [i7, i8]) 0 1]) ; m11 = m9 * dret in tpair (sreplicate @3 (sreplicate @4 (tproject2 m1)) * m11) (ssum @4 (ssum @3 (tproject1 m1 * m11)))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\m1 -> let m6 = sreshape @[3,4] (sreplicate @12 (tproject2 m1)) ; m7 = tproject1 m1 * m6 ; m10 = sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i8, i9] -> [ifH (sscalar 0.0 <. m7 !$ [i8, i9]) 0 1]) in m10 * m7"
-
+    @?= "\\m1 -> let m6 = tproject1 m1 * sreplicate @3 (sreplicate @4 (tproject2 m1)) ; m9 = sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i7, i8] -> [ifH (sscalar 0.0 <. m6 !$ [i7, i8]) 0 1]) in m9 * m6"
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret m1 -> let m12 = sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i8, i9] -> [ifH (sscalar 0.0 <. tproject1 m1 !$ [i8, i9] * tproject2 m1) 0 1]) * dret in tpair (sreplicate @3 (sreplicate @4 (tproject2 m1)) * m12) (sdot0 (tproject1 m1) m12)"
+    @?= "\\dret m1 -> let m11 = sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i7, i8] -> [ifH (sscalar 0.0 <. tproject1 m1 !$ [i7, i8] * tproject2 m1) 0 1]) * dret in tpair (sreplicate @3 (sreplicate @4 (tproject2 m1)) * m11) (sdot0 (tproject1 m1) m11)"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\m1 -> let m7 = tproject1 m1 * sreplicate @3 (sreplicate @4 (tproject2 m1)) in sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i8, i9] -> [ifH (sscalar 0.0 <. m7 !$ [i8, i9]) 0 1]) * m7"
+    @?= "\\m1 -> let m6 = tproject1 m1 * sreplicate @3 (sreplicate @4 (tproject2 m1)) in sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i7, i8] -> [ifH (sscalar 0.0 <. m6 !$ [i7, i8]) 0 1]) * m6"
 
 testReluSimpler4s :: Assertion
 testReluSimpler4s = do

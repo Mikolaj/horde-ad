@@ -472,15 +472,15 @@ testGatherSimpPP23 = do
               gatherReshape22 @(AstTensor AstMethodLet PrimalSpan)
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [6, 2] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t1) @?= 312
-  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 312
+  length (show t1) @?= 394
+  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 394
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               rreshape @2 @2 [2, 6]
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [6, 2] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t2) @?= 312
-  length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 312
+  length (show t2) @?= 394
+  length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 394
 
 testGatherSimp23 :: Assertion
 testGatherSimp23 = do
@@ -644,16 +644,16 @@ testGatherSimpPP34 = do
   let !t1 = (\t -> rbuild1 4 (\i ->
              gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t1) @?= 2184
-  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 2213
+  length (show t1) @?= 2978
+  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 3007
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ unConcrete t48))
                                (rreshape @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t2) @?= 1082
-  length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 1111
+  length (show t2) @?= 2059
+  length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 2088
 
 gatherCond :: forall target r. (ADReady target, GoodScalar r)
            => target (TKR 2 r) -> target (TKR 2 r)
@@ -1209,5 +1209,5 @@ testReluSimpPP = do
   resetVarCounter
   let !t2 = barRelu @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t2) @?= 10278
+  length (show t2) @?= 17446
   length (show (simplifyInlineContract @(TKR 10 Float) t2)) @?= 17446

@@ -237,7 +237,7 @@ astProject1
 astProject1 u = case u of
   Ast.AstPair x _z -> x
   Ast.AstCond b v1 v2 -> astCond b (astProject1 v1) (astProject1 v2)
-  Ast.AstLet var t v -> Ast.AstLet var t (astProject1 v)
+  Ast.AstLet var t v -> astLet var t (astProject1 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject1 u1
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject1 u1
   Ast.AstFromS (STKProduct stk1 _) u1 | FTKProduct{} <- ftkAst u1 ->
@@ -250,7 +250,7 @@ astProject2
 astProject2 u = case u of
   Ast.AstPair _x z -> z
   Ast.AstCond b v1 v2 -> astCond b (astProject2 v1) (astProject2 v2)
-  Ast.AstLet var t v -> Ast.AstLet var t (astProject2 v)
+  Ast.AstLet var t v -> astLet var t (astProject2 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject2 u1
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject2 u1
   Ast.AstFromS (STKProduct _ stk2) u1 | FTKProduct{} <- ftkAst u1 ->
@@ -1498,7 +1498,7 @@ astGatherKnobsS _ _ v0 (!vars0, !_ix0)
   | any (`varNameInAst` v0) $ listsToList vars0 =
     error $ "astGatherS: gather vars in v0: " ++ show (vars0, v0)
 astGatherKnobsS knobs shn v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
-astGatherKnobsS knobs shn v0 (vars0, ZIS) =
+astGatherKnobsS _knobs _shn v0 (vars0, ZIS) =
   astReplicateNS @shm @shn (listsToShS vars0) v0
 -- TODO: fix AstIntVar to be usable here (maybe look at SNat'?),
 astGatherKnobsS knobs shn v
@@ -1747,10 +1747,12 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
                            (snat :$$ shn') (astTransposeS perm3S v) (vars4, ix4)
            in astSum snat (STKS (listsToShS vars4 `shsAppend` shn')
                                 (ftkToSTK x))
-              $ if not (knobExpand knobs)
+              $ astTransposeS perm4S innerGather
+                {- -- disabled until we can reliably fuse back to transpose
+                if not (knobExpand knobs)
                    || length perm4 <= shsLength (listsToShS vars4)
                 then astTransposeS perm4S innerGather
-                else astTransposeAsGatherS knobs perm4S innerGather
+                else astTransposeAsGatherS knobs perm4S innerGather -}
     Ast.AstReplicate snat STKS{} v | AstConcreteK it <- i4 ->
       let i = fromIntegral it
       in if 0 <= i && i < sNatValue snat
@@ -1938,10 +1940,12 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
       let rankPerm = Permutation.permRank perm
       in case gcompare (ixsRank ix4) rankPerm of
         GLT ->  -- TODO: this does not provide any proof, so use cmpNat :(
+          Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+          {- -- disabled until we can reliably fuse back to transpose
           if knobExpand knobs
           then astGather @shm' @shn' @shp'
                          shn' (astTransposeAsGatherS knobs perm v) (vars4, ix4)
-          else Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+          else Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4) -}
         _ ->
           gcastWith (lemRankMapJust $ shsTakeLen perm sh) $
           gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
@@ -1998,7 +2002,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
                    :: TakeLen perm sh ++ DropLen perm sh :~: sh) $
                 let invix4 = ixsPermutePrefix invperm ix4
                 in astGather shn' v (vars4, invix4)
-    Ast.AstReshapeS sh v -> {-  -- too hard to fuse back to reshape
+    Ast.AstReshapeS _sh _v -> {-  -- too hard to fuse back to reshape
       if && knobExpand knobs
       then astGather @shm' @shn' @shp' shn'
                      (astReshapeAsGatherS knobs sh v) (vars4, ix4)
@@ -2837,7 +2841,9 @@ expandAst t = case t of
   Ast.AstAppendS x y -> astAppendS (expandAst x) (expandAst y)
   Ast.AstSliceS i n k v -> astSliceS i n k (expandAst v)
   Ast.AstReverseS v -> astReverseS (expandAst v)
-  Ast.AstTransposeS perm v -> case expandAst v of
+  Ast.AstTransposeS perm v -> {-
+   -- disabled until we can reliably fuse back to transpose
+   case expandAst v of
     Ast.AstVar{} -> t  -- normal form
     Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
     Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
@@ -2863,6 +2869,7 @@ expandAst t = case t of
       astTransposeAsGatherS (defaultKnobs {knobExpand = True})
                             perm v2  -- TODO: (normalizePermutation perm)
         -- this is expensive but the only way to guarantee full simplification
+    -} astTransposeS perm (expandAst v)
   Ast.AstReshapeS sh v -> {-  -- too hard to fuse back to reshape
    case expandAst v of
     Ast.AstVar{} -> t  -- normal form
