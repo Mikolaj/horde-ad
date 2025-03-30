@@ -1499,10 +1499,8 @@ astGatherKnobsS _ _ v0 (!vars0, !_ix0)
     error $ "astGatherS: gather vars in v0: " ++ show (vars0, v0)
 astGatherKnobsS knobs shn v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
 astGatherKnobsS knobs shn v0 (vars0, ZIS) =
-  if knobExpand knobs
-  then Ast.AstGatherS shn v0 (vars0, ZIS)
-  else astReplicateNS @shm @shn (listsToShS vars0) v0
-  -- TODO: fix AstIntVar to be usable here (maybe look at SNat'?),
+  astReplicateNS @shm @shn (listsToShS vars0) v0
+-- TODO: fix AstIntVar to be usable here (maybe look at SNat'?),
 astGatherKnobsS knobs shn v
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (Ast.AstRelK EqOp (AstConcreteK @r1 j)
@@ -1643,11 +1641,9 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
      | otherwise ->
        let k :$$ sh' = listsToShS vars0
            FTKS _ x = ftkAst v0
-       in if knobExpand knobs
-          then Ast.AstGatherS @shm @shn @shp shn v0 (vars0, ix0)
-          else astReplicate k (STKS (sh' `shsAppend` shn) (ftkToSTK x))
-                            (astGatherKnobsS @(Tail shm) @shn @shp
-                                             knobs shn v0 (vars1, ix0))
+       in astReplicate k (STKS (sh' `shsAppend` shn) (ftkToSTK x))
+                      (astGatherKnobsS @(Tail shm) @shn @shp
+                                       knobs shn v0 (vars1, ix0))
  where
   restN = ixsInit ix0
   iN = ixsLast ix0
@@ -2828,9 +2824,7 @@ expandAst t = case t of
 
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobExpand = True})
-                   shn
-                   (expandAst v)
-                   (expandAstIxS ix)
+                   shn (expandAst v) (expandAstIxS ix)
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     astScatterS @shm @shn @shp shn (expandAst v) (vars, expandAstIxS ix)
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
