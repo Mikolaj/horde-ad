@@ -1165,6 +1165,12 @@ astIndexKnobsS
 astIndexKnobsS knobs shn (Ast.AstIndexS _ v ix) ZIS =
   astIndexKnobsS knobs shn v ix  -- no non-indexing constructor yet revealed
 astIndexKnobsS _ _ v0 ZIS = v0
+astIndexKnobsS _ shn v0 (AstConcreteK it :.$ _)
+  | let i = fromIntegral it
+        FTKS (snat :$$ _) x = ftkAst v0
+  , not (0 <= i && i < sNatValue snat) =
+    let ftk = FTKS shn x
+    in fromPrimal $ astConcrete ftk (tdefTarget ftk)
 astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
  let FTKS _ x = ftkAst v0
      astIndexRec, astIndex
@@ -1198,20 +1204,19 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
  in case v0 of
   Ast.AstProject1{} -> Ast.AstIndexS shn v0 ix
   Ast.AstProject2{} -> Ast.AstIndexS shn v0 ix
-  Ast.AstFromVector snat STKS{} l | AstConcreteK it <- i1 ->
+  Ast.AstFromVector _ STKS{} l | AstConcreteK it <- i1 ->
     let i = fromIntegral it
-    in if 0 <= i && i < sNatValue snat
-       then astIndex shn (l V.! i) rest1
-       else let ftk = FTKS shn x
-            in fromPrimal $ astConcrete ftk (tdefTarget ftk)
-  Ast.AstFromVector{} | ZIS <- rest1 ->  -- normal form, STKScalar case included
+    in astIndex shn (l V.! i) rest1
+  Ast.AstFromVector _ STKScalar l | AstConcreteK it <- i1, ZIS <- rest1 ->
+    let i = fromIntegral it
+    in astSFromK (l V.! i)
+  Ast.AstFromVector{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS shn v0 ix
   Ast.AstFromVector snat STKS{} l ->
     shareIx rest1 $ \ !ix2 ->
       Ast.AstIndexS @'[in1] @shn shn (astFromVector snat (STKS shn (ftkToSTK x))
                                       $ V.map (\a -> astIndexRec shn a ix2) l)
                     (i1 :.$ ZIS)
-  Ast.AstFromVector{} -> error "astIndexKnobsS: impossible case"
   Ast.AstSum snat@(SNat @n1) STKS{} v ->
     let perm3 = backpermCycle $ shsLength (ixsToShS ix) + 1
     in Permutation.permFromList perm3 $ \(perm :: Permutation.Perm perm3P) ->
@@ -1227,14 +1232,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
          $ astIndex @shm @(n1 : shn) (snat :$$ shn)
                     (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
                     ix
-  Ast.AstReplicate snat STKS{} v | AstConcreteK it <- i1 ->
-      let i = fromIntegral it
-      in if 0 <= i && i < sNatValue snat
-         then astIndex shn v rest1
-         else let ftk = FTKS shn x
-              in fromPrimal $ astConcrete ftk (tdefTarget ftk)
-{- TODO: this generalization of the above case slows down test 3nestedSumBuild1
-   orders of magnitude
+{- TODO: this slows down test 3nestedSumBuild1 orders of magnitude:
   Ast.AstReplicate k v ->
     let len = astConcrete $ fromIntegral k
         zero = astReplicate0N (dropShape $ shapeAst v) 0
@@ -1251,8 +1249,8 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     shareIx ix $ \ !ix2 ->
       astCond b (astIndexRec shn v ix2) (astIndexRec shn w ix2)
   Ast.AstBuild1 _snat stk (var2, v) -> case stk of
-    STKScalar | ZIS <- rest1 -> astSFromK $ astLet var2 i1 v
     STKS{} -> astIndex shn (astLet var2 i1 v) rest1
+    STKScalar | ZIS <- rest1 -> astSFromK $ astLet var2 i1 v
 
   Ast.AstLet var u v -> astLet var u (astIndexRec shn v ix)
 
@@ -1314,6 +1312,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZIR)
   Ast.AstScatterS{} ->  -- normal form
     Ast.AstIndexS shn v0 ix
+  -- This is not a possible normal form, but pattern needs to be exhaustive.
   Ast.AstGatherS @_ @_ @shp' _shn' v (ZS, ix2) ->
     gcastWith (unsafeCoerceRefl
               :: shp' ++ (in1 ': shm1) ++ shn
@@ -1430,9 +1429,11 @@ astScatterS shn v (_vars, ix@((:.$) @k (AstConcreteK i) _))
   , FTKS _ x <- ftkAst v =
     let ftk = FTKS (ixsToShS ix `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk $ tdefTarget ftk
-astScatterS _shn v (ZS, (:.$) @k (AstConcreteK _) ZIS)
-  | Just Refl <- sameNat (SNat @k) (SNat @1) =
-    astReplicate (SNat @1) (ftkToSTK $ ftkAst v) v
+astScatterS shn v (vars, (:.$) @k (AstConcreteK _) rest)
+  | Just Refl <- sameNat (SNat @k) (SNat @1)
+  , FTKS _ x <- ftkAst v =
+    astReplicate (SNat @1) (STKS (ixsToShS rest `shsAppend` shn) (ftkToSTK x))
+    $ astScatterS shn v (vars, rest)
 astScatterS shn v (Const var ::$ (vars :: AstVarListS sh3), ix)
   | not $ varNameToAstVarId var `varInIndexS` ix
   , FTKS _ x <- ftkAst v =
@@ -1498,8 +1499,14 @@ astGatherKnobsS _ _ v0 (!vars0, !_ix0)
   | any (`varNameInAst` v0) $ listsToList vars0 =
     error $ "astGatherS: gather vars in v0: " ++ show (vars0, v0)
 astGatherKnobsS knobs shn v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
-astGatherKnobsS _knobs _shn v0 (vars0, ZIS) =
+astGatherKnobsS _ _ v0 (vars0, ZIS) =
   astReplicateNS @shm @shn (listsToShS vars0) v0
+astGatherKnobsS _ shn v0 (vars, AstConcreteK it :.$ _)
+  | let i = fromIntegral it
+        FTKS (snat :$$ _) x = ftkAst v0
+  , not (0 <= i && i < sNatValue snat) =
+    let ftk = FTKS (listsToShS vars `shsAppend` shn) x
+    in fromPrimal $ astConcrete ftk (tdefTarget ftk)
 -- TODO: fix AstIntVar to be usable here (maybe look at SNat'?),
 astGatherKnobsS knobs shn v
   ( vars@((::$) @m (Const varm) mrest)
@@ -1691,15 +1698,14 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
    | FTKS _ x <- ftkAst v4 = case v4 of
     Ast.AstProject1{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstProject2{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
-    Ast.AstFromVector snat STKS{} l | AstConcreteK it <- i4 ->
+    Ast.AstFromVector _ STKS{} l | AstConcreteK it <- i4 ->
       let i = fromIntegral it
-      in if 0 <= i && i < sNatValue snat
-         then astGather @shm' @shn' @shp1' shn' (l V.! i) (vars4, rest4)
-         else let ftk = FTKS (listsToShS vars4 `shsAppend` shn') x
-              in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+      in astGather @shm' @shn' @shp1' shn' (l V.! i) (vars4, rest4)
+    Ast.AstFromVector _ STKScalar l | AstConcreteK it <- i4, ZIS <- rest4 ->
+      let i = fromIntegral it
+      in astGather @shm' @shn' @shp1' shn' (astSFromK (l V.! i)) (vars4, rest4)
     Ast.AstFromVector{} | gatherFromNF (ixsToShS rest4) vars4 ix4 ->
-        -- normal form,
-        -- STKScalar case included
+        -- normal form
       Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstFromVector snat STKS{} l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
@@ -1756,12 +1762,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
                 if not (knobExpand knobs)
                 then astTransposeS perm4S innerGather
                 else astTransposeAsGatherS knobs perm4S innerGather -}
-    Ast.AstReplicate snat STKS{} v | AstConcreteK it <- i4 ->
-      let i = fromIntegral it
-      in if 0 <= i && i < sNatValue snat
-         then astGather @shm' @shn' @shp1' shn' v (vars4, rest4)
-         else let ftk = FTKS (listsToShS vars4 `shsAppend` shn') x
-              in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+    -- TODO: the two below are probably wrong, should catch out of bounds
     Ast.AstReplicate _ STKS{} v ->
       astGather @shm' @shn' @shp1' shn' v (vars4, rest4)
     Ast.AstReplicate _ STKScalar v | ZIS <- rest4 ->
@@ -1777,7 +1778,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
         -- free variables possible in the index, so can't compute the tensor
 
     Ast.AstLet var u v ->
-      astLet var u (astGatherCase @shm' @shn' @shp' shn' v (vars4, ix4))
+      astLet var u (astGather @shm' @shn' @shp' shn' v (vars4, ix4))
 
     Ast.AstPrimalPart{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstDualPart{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
@@ -1832,8 +1833,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
                          (astScatterS shn7 v (vars, ix2))
                          (vars4, rest4)
           else let ftk = FTKS (listsToShS vars4 `shsAppend` shn') x
-               in fromPrimal $ astConcrete ftk (tdefTarget ftk)
-                    -- TODO: or 0? review again and comment
+               in fromPrimal $ astConcrete ftk (treplTarget 0 ftk)
     Ast.AstScatterS{} ->  -- normal form
       Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstGatherS @shm2 @shn2 @shp2 shn2 v2 (vars2, ix2)
@@ -2015,7 +2015,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
     Ast.AstUnNestS _v -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
 
     Ast.AstFromS stkz v -> case sameSTK (ftkToSTK (ftkAst v)) stkz of
-      Just Refl -> astGatherCase @shm' @shn' @shp' shn' v (vars4, ix4)
+      Just Refl -> astGather @shm' @shn' @shp' shn' v (vars4, ix4)
         -- rare, usually simplifies away earlier
       Nothing -> error "astGatherCase: wrong tensor kinds in AstFromS"
     -- These conversions need to stay down.
@@ -2058,6 +2058,9 @@ astAppendS u v | FTKS (SNat' @0 :$$ _) _ <- ftkAst v = u
 astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
            (Ast.AstFromVector (SNat @k2) STKS{} l2) =
   astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2
+astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKScalar l1)
+           (Ast.AstFromVector (SNat @k2) STKScalar l2) =
+  astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2
 astAppendS (AstConcreteS u) (AstConcreteS v) =
   astConcreteS (tsappend (Concrete u) (Concrete v))
 astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
@@ -2072,9 +2075,11 @@ astSliceS :: forall i n k sh s r. AstSpan s
           -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astSliceS SNat SNat SNat (Ast.AstFromVector _ stk@STKS{} l) =
   astFromVector (SNat @n) stk $ V.take (valueOf @n) $ V.drop (valueOf @i) l
-astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKScalar v) =
-  astReplicate (SNat @n) stk v
+astSliceS SNat SNat SNat (Ast.AstFromVector _ stk@STKScalar l) =
+  astFromVector (SNat @n) stk $ V.take (valueOf @n) $ V.drop (valueOf @i) l
 astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKS{} v) =
+  astReplicate (SNat @n) stk v
+astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKScalar v) =
   astReplicate (SNat @n) stk v
 astSliceS i n@SNat k (AstConcreteS t) =
   astConcreteS (tsslice i n k $ Concrete t)
@@ -2170,25 +2175,45 @@ astTransposeS perm t = case perm of
       fromMaybe (error "astTransposeS: impossible non-permutation")
       $ Permutation.permCheckPermutation zsuccP
       $ astSum snat (STKS (shsPermutePrefix perm sh) x) $ astTransposeS zsuccP v
-  Ast.AstReplicate snat@(SNat @n) (STKS @sh3 sh3 x) _
+  Ast.AstReplicate snat@(SNat @n) (STKS @sh3 sh3 _) _
     | Just u2 <- unRepl t
     , Refl <- lemAppNil @(Permutation.PermutePrefix perm (n : sh3)) ->
-      mkRepl ZSS x (shsPermutePrefix perm (snat :$$ sh3)) u2
+      astReplicateNS (shsPermutePrefix perm (snat :$$ sh3)) u2
   Ast.AstReplicate snat1@SNat _  -- nesting 4 is probably already an overkill
     (Ast.AstReplicate snat2@SNat _
       (Ast.AstReplicate snat3@SNat _
-        (Ast.AstReplicate snat4@SNat (STKS sh0 x) u)))
+        (Ast.AstReplicate snat4@SNat STKS{} u)))
     | _ `PCons` _ `PCons` _ `PCons` _ `PCons` PNil <- perm ->
-      mkRepl sh0 x (shsPermutePrefix
-                      perm (snat1 :$$ snat2 :$$ snat3 :$$ snat4 :$$ ZSS)) u
+      astReplicateNS
+        (shsPermutePrefix perm (snat1 :$$ snat2 :$$ snat3 :$$ snat4 :$$ ZSS)) u
   Ast.AstReplicate snat1@SNat _
     (Ast.AstReplicate snat2@SNat _
-      (Ast.AstReplicate snat3@SNat (STKS sh0 x) u))
+      (Ast.AstReplicate snat3@SNat _
+        (Ast.AstReplicate snat4@SNat STKScalar u)))
+    | _ `PCons` _ `PCons` _ `PCons` _ `PCons` PNil <- perm ->
+      astReplicateNS
+        (shsPermutePrefix perm (snat1 :$$ snat2 :$$ snat3 :$$ snat4 :$$ ZSS))
+        (astSFromK u)
+  Ast.AstReplicate snat1@SNat _
+    (Ast.AstReplicate snat2@SNat _
+      (Ast.AstReplicate snat3@SNat STKS{} u))
     | _ `PCons` _ `PCons` _ `PCons` PNil <- perm ->
-      mkRepl sh0 x (shsPermutePrefix perm (snat1 :$$ snat2 :$$ snat3 :$$ ZSS)) u
-  Ast.AstReplicate snat1@SNat _ (Ast.AstReplicate snat2@SNat (STKS sh0 x) u)
+      astReplicateNS
+        (shsPermutePrefix perm (snat1 :$$ snat2 :$$ snat3 :$$ ZSS)) u
+  Ast.AstReplicate snat1@SNat _
+    (Ast.AstReplicate snat2@SNat _
+      (Ast.AstReplicate snat3@SNat STKScalar u))
+    | _ `PCons` _ `PCons` _ `PCons` PNil <- perm ->
+      astReplicateNS
+        (shsPermutePrefix perm (snat1 :$$ snat2 :$$ snat3 :$$ ZSS))
+        (astSFromK u)
+  Ast.AstReplicate snat1@SNat _ (Ast.AstReplicate snat2@SNat STKS{} u)
     | _ `PCons` _ `PCons` PNil <- perm ->
-      mkRepl sh0 x (shsPermutePrefix perm (snat1 :$$ snat2 :$$ ZSS)) u
+      astReplicateNS (shsPermutePrefix perm (snat1 :$$ snat2 :$$ ZSS)) u
+  Ast.AstReplicate snat1@SNat _ (Ast.AstReplicate snat2@SNat STKScalar u)
+    | _ `PCons` _ `PCons` PNil <- perm ->
+      astReplicateNS (shsPermutePrefix perm (snat1 :$$ snat2 :$$ ZSS))
+                     (astSFromK u)
   AstConcreteS v -> astConcreteS (tstranspose perm $ Concrete v)
 
   Ast.AstLet var u v -> astLet var u (astTransposeS perm v)
@@ -2250,21 +2275,6 @@ astTransposeS perm t = case perm of
           GT -> error "astTransposeS: GT"
   u -> Ast.AstTransposeS perm u
 
-unRepl :: AstSpan s
-       => AstTensor AstMethodLet s (TKS2 sh x)
-       -> Maybe (AstTensor AstMethodLet s (TKS2 '[] x))
-unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
-unRepl (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
-unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
-unRepl _ = Nothing
-
-mkRepl :: ShS sh2 -> SingletonTK x -> ShS sh1
-       -> AstTensor AstMethodLet s (TKS2 sh2 x)
-       -> AstTensor AstMethodLet s (TKS2 (sh1 ++ sh2) x)
-mkRepl _ _ ZSS u = u
-mkRepl sh2 x (snat :$$ rest) u =
-  Ast.AstReplicate snat (STKS (rest `shsAppend` sh2) x) (mkRepl sh2 x rest u)
-
 -- TODO: try to cover the AstGatherS case here, which would permit
 -- not expanding to astReshapeAsGatherS in astGatherCase
 -- | Beware, this does not do full simplification, which often requires
@@ -2274,13 +2284,13 @@ astReshapeS :: forall sh sh2 x s. (Product sh ~ Product sh2, AstSpan s)
             => ShS sh2 -> AstTensor AstMethodLet s (TKS2 sh x)
             -> AstTensor AstMethodLet s (TKS2 sh2 x)
 astReshapeS sh2 t = case t of
-  Ast.AstFromVector (SNat' @1) STKS{} l -> astReshapeS sh2 (l V.! 0)
   Ast.AstReplicate (SNat' @1) STKS{} x -> astReshapeS sh2 x
+  Ast.AstReplicate (SNat' @1) STKScalar x -> astReshapeS sh2 (astSFromK x)
+  Ast.AstReplicate _ STKS{} _ | Just u2 <- unRepl t
+                              , Refl <- lemAppNil @sh2 ->
+    astReplicateNS sh2 u2
   Ast.AstReplicate _ STKScalar u | Refl <- lemAppNil @sh2 ->
-    mkRepl ZSS STKScalar sh2 (astSFromK u)
-  Ast.AstReplicate _ (STKS _ x) _ | Just u2 <- unRepl t
-                                  , Refl <- lemAppNil @sh2 ->
-    mkRepl ZSS x sh2 u2
+    astReplicateNS sh2 (astSFromK u)
   Ast.AstReplicate k (STKS @sh1 _ x) u | (:$$) @_ @rest2 k2 rest2 <- sh2
                                        , Just Refl <- testEquality k k2 ->
     gcastWith (unsafeCoerceRefl :: Product rest2 :~: Product sh1) $
@@ -2656,9 +2666,17 @@ astReplicateNS :: forall shn shp s x. AstSpan s
 astReplicateNS shn v | STKS shp x <- ftkToSTK (ftkAst v) =
   let go :: ShS shn' -> AstTensor AstMethodLet s (TKS2 (shn' ++ shp) x)
       go ZSS = v
-      go ((:$$) @k SNat shn2) =
-        astReplicate (SNat @k) (STKS (shn2 `shsAppend` shp) x) $ go shn2
+      go (snat :$$ shn2) =
+        astReplicate snat (STKS (shn2 `shsAppend` shp) x) $ go shn2
   in go shn
+
+unRepl :: AstSpan s
+       => AstTensor AstMethodLet s (TKS2 sh x)
+       -> Maybe (AstTensor AstMethodLet s (TKS2 '[] x))
+unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
+unRepl (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
+unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
+unRepl _ = Nothing
 
 
 -- * A cheap simplification of only the topmost nodes
@@ -3316,6 +3334,9 @@ astSum0S t = case t of
   Ast.AstReplicate snat (STKS _ STKScalar) u ->
     astSum0S u * (fromPrimal $ AstConcreteS
                   $ Nested.sscalar $ fromInteger $ fromSNat snat)
+  Ast.AstReplicate snat STKScalar u ->
+    astSFromK u * (fromPrimal $ AstConcreteS
+                   $ Nested.sscalar $ fromInteger $ fromSNat snat)
   AstTimesS t1 t2 -> astDot0S t1 t2
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
@@ -3347,6 +3368,9 @@ astDot0S t1 t2 = case (t1, t2) of
   (Ast.AstReplicate snat STKS{} u1, Ast.AstReplicate _ STKS{} u2) ->
     astDot0S u1 u2 * (fromPrimal $ AstConcreteS
                       $ Nested.sscalar $ fromInteger $ fromSNat snat)
+  (Ast.AstReplicate snat STKScalar u1, Ast.AstReplicate _ STKScalar u2) ->
+    astSFromK (u1 * u2) * (fromPrimal $ AstConcreteS
+                           $ Nested.sscalar $ fromInteger $ fromSNat snat)
   (AstConcreteS v1, AstConcreteS v2) ->
     withKnownShS (Nested.sshape v1) $
     astConcreteS $ tsdot0 (Concrete v1) (Concrete v2)
