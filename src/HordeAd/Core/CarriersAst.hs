@@ -7,9 +7,7 @@
 -- to be interpreted into AST terms and permits derivatives
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
-  ( AstRaw(..)
-  , AstNoVectorize(..)
-  , AstNoSimplify(..)
+  ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
   ) where
 
 import Prelude hiding (foldl')
@@ -17,12 +15,15 @@ import Prelude hiding (foldl')
 import Data.Int (Int64)
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Foreign.C (CInt)
+import Type.Reflection (typeRep)
 
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.ConvertTensor
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -81,6 +82,11 @@ instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
   AstFromDual u + AstFromDual v = AstFromDual $ u + v
+  AstFromS STKScalar u + AstFromS STKScalar v
+    | FTKS ZSS (FTKScalar @ru) <- ftkAst u
+    , FTKS ZSS (FTKScalar @rv) <- ftkAst v
+    , Just Refl <- testEquality (typeRep @ru) (typeRep @rv)
+    = AstFromS STKScalar $ u + v
   AstConcreteK 0 + u = u
   u + AstConcreteK 0 = u
   AstConcreteK n + AstConcreteK k = AstConcreteK (n + k)
@@ -94,25 +100,54 @@ instance (GoodScalar r, AstSpan s)
   -- We could keep variables at the top, but they'd compete with AstConcreteK.
   AstN1K NegateOp (AstVar var) + AstVar var'
     | var == var' = 0
+  AstN1K NegateOp (AstFromS STKScalar (AstVar var))
+    + AstFromS STKScalar (AstVar var')
+    | varNameToAstVarId var == varNameToAstVarId var' = 0
   AstN1K NegateOp (AstVar var) + AstPlusK (AstVar var') u
     | var == var' = u
+  AstN1K NegateOp (AstFromS STKScalar (AstVar var))
+    + AstPlusK (AstFromS STKScalar (AstVar var')) u
+    | varNameToAstVarId var == varNameToAstVarId var' = u
   AstVar var' + AstN1K NegateOp (AstVar var)
     | var == var' = 0
+  AstFromS STKScalar (AstVar var')
+    + AstN1K NegateOp (AstFromS STKScalar (AstVar var))
+    | varNameToAstVarId var == varNameToAstVarId var' = 0
   AstVar var' + AstPlusK (AstN1K NegateOp (AstVar var)) u
     | var == var' = u
+  AstFromS STKScalar (AstVar var')
+    + AstPlusK (AstN1K NegateOp (AstFromS STKScalar (AstVar var))) u
+    | varNameToAstVarId var == varNameToAstVarId var' = u
 
   AstI2K RemOp (AstN1K NegateOp (AstVar var)) (AstConcreteK n)
    + AstI2K RemOp (AstVar var') (AstConcreteK n')
      | var == var' && n == n' = 0
+  AstI2K RemOp (AstN1K NegateOp (AstFromS STKScalar (AstVar var)))
+               (AstConcreteK n)
+   + AstI2K RemOp (AstFromS STKScalar (AstVar var')) (AstConcreteK n')
+     | varNameToAstVarId var == varNameToAstVarId var' && n == n' = 0
   AstI2K RemOp (AstN1K NegateOp (AstVar var)) (AstConcreteK n)
    + AstPlusK (AstI2K RemOp (AstVar var') (AstConcreteK n')) u
      | var == var' && n == n' = u
+  AstI2K RemOp (AstN1K NegateOp (AstFromS STKScalar (AstVar var)))
+               (AstConcreteK n)
+   + AstPlusK (AstI2K RemOp (AstFromS STKScalar (AstVar var'))
+                            (AstConcreteK n')) u
+     | varNameToAstVarId var == varNameToAstVarId var' && n == n' = u
   AstI2K RemOp (AstVar var') (AstConcreteK n')
    + AstI2K RemOp (AstN1K NegateOp (AstVar var)) (AstConcreteK n)
      | var == var' && n == n' = 0
+  AstI2K RemOp (AstFromS STKScalar (AstVar var')) (AstConcreteK n')
+   + AstI2K RemOp (AstN1K NegateOp (AstFromS STKScalar (AstVar var)))
+                                   (AstConcreteK n)
+     | varNameToAstVarId var == varNameToAstVarId var' && n == n' = 0
   AstI2K RemOp (AstVar var') (AstConcreteK n')
    + AstPlusK (AstI2K RemOp (AstN1K NegateOp (AstVar var)) (AstConcreteK n)) u
      | var == var' && n == n' = u
+  AstI2K RemOp (AstFromS STKScalar (AstVar var')) (AstConcreteK n')
+   + AstPlusK (AstI2K RemOp (AstN1K NegateOp (AstFromS STKScalar (AstVar var)))
+                            (AstConcreteK n)) u
+     | varNameToAstVarId var == varNameToAstVarId var' && n == n' = u
 
   AstPlusK u@AstConcreteK{} v + w = AstPlusK u (AstPlusK v w)  -- as above
   u + v@AstConcreteK{} = AstPlusK v u
@@ -121,6 +156,11 @@ instance (GoodScalar r, AstSpan s)
 
   AstFromPrimal u * AstFromPrimal v = AstFromPrimal $ u * v
     -- TODO: this is not mathematically correct for AstFromDual, right?
+  AstFromS STKScalar u * AstFromS STKScalar v
+    | FTKS ZSS (FTKScalar @ru) <- ftkAst u
+    , FTKS ZSS (FTKScalar @rv) <- ftkAst v
+    , Just Refl <- testEquality (typeRep @ru) (typeRep @rv)
+    = AstFromS STKScalar $ u * v
   AstConcreteK 0 * _ = 0
   _ * AstConcreteK 0 = 0
   AstConcreteK 1 * u = u
@@ -178,6 +218,8 @@ instance (GoodScalar r, AstSpan s)
 
   negate (AstFromPrimal n) = AstFromPrimal (negate n)
   negate (AstFromDual n) = AstFromDual (negate n)
+  negate (AstFromS STKScalar n) | FTKS ZSS FTKScalar <- ftkAst n =
+    AstFromS STKScalar (negate n)
   negate (AstConcreteK n) = AstConcreteK (negate n)
   negate (AstPlusK u v) = AstPlusK (negate u) (negate v)
   negate (AstTimesK u v) = negate u * v
@@ -190,12 +232,16 @@ instance (GoodScalar r, AstSpan s)
   negate u = AstN1K NegateOp u
   abs (AstFromPrimal n) = AstFromPrimal (abs n)
   abs (AstFromDual n) = AstFromDual (abs n)
+  abs (AstFromS STKScalar n) | FTKS ZSS FTKScalar <- ftkAst n =
+    AstFromS STKScalar (abs n)
   abs (AstConcreteK n) = AstConcreteK (abs n)
   abs (AstN1K AbsOp u) = AstN1K AbsOp u
   abs (AstN1K NegateOp u) = abs u
   abs u = AstN1K AbsOp u
   signum (AstFromPrimal n) = AstFromPrimal (signum n)
   signum (AstFromDual n) = AstFromDual (signum n)
+  signum (AstFromS STKScalar n) | FTKS ZSS FTKScalar <- ftkAst n =
+    AstFromS STKScalar (signum n)
   signum (AstConcreteK n) = AstConcreteK (signum n)
   signum (AstN1K SignumOp u) = AstN1K SignumOp u
   signum u = AstN1K SignumOp u
@@ -214,6 +260,12 @@ instance (GoodScalar r, AstSpan s)
 instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKScalar r)) where
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
+  quotH (AstFromS STKScalar n) (AstFromS STKScalar k)
+    | FTKS ZSS (FTKScalar @rn) <- ftkAst n
+    , FTKS ZSS (FTKScalar @rk) <- ftkAst k
+    , Just Refl <- testEquality (typeRep @rn) (typeRep @r)
+    , Just Refl <- testEquality (typeRep @rk) (typeRep @r)
+    = AstFromS STKScalar (quotH n k)
   quotH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotH n k)
   quotH (AstConcreteK 0) _ = AstConcreteK 0
   quotH u (AstConcreteK 1) = u
@@ -225,6 +277,12 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   quotH u v = AstI2K QuotOp u v
 
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
+  remH (AstFromS STKScalar n) (AstFromS STKScalar k)
+    | FTKS ZSS (FTKScalar @rn) <- ftkAst n
+    , FTKS ZSS (FTKScalar @rk) <- ftkAst k
+    , Just Refl <- testEquality (typeRep @rn) (typeRep @r)
+    , Just Refl <- testEquality (typeRep @rk) (typeRep @r)
+    = AstFromS STKScalar (remH n k)
   remH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (remH n k)
   remH (AstConcreteK 0) _ = AstConcreteK 0
   remH _ (AstConcreteK 1) = AstConcreteK 0
@@ -295,7 +353,7 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 
 -- * Unlawful numeric instances for ranked AST; lawful modulo evaluation
 
-instance GoodScalar r
+instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKR n r)) where
   (+) = liftRFromS2 (+)
   (-) = liftRFromS2 (-)
@@ -306,12 +364,12 @@ instance GoodScalar r
   fromInteger i = error $ "fromInteger not defined for ranked tensors: "
                           ++ show i
 
-instance (GoodScalar r, IntegralH r, Nested.IntElt r)
+instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKR n r)) where
   quotH = liftRFromS2 quotH
   remH = liftRFromS2 remH
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r)
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKR n r)) where
   (/) = liftRFromS2 (/)
   recip = liftRFromS1 recip
@@ -346,10 +404,11 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 
 -- * Unlawful numeric instances for shaped AST; lawful modulo evaluation
 
-instance GoodScalar r
+instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKS sh r)) where
   AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
   AstFromDual u + AstFromDual v = AstFromDual $ u + v
+  AstSFromK u + AstSFromK v = AstSFromK $ u + v
 --  AstConcreteS 0 + u = u
 --  u + AstConcreteS 0 = u
   AstConcreteS n + AstConcreteS k = AstConcreteS (n + k)
@@ -375,6 +434,7 @@ instance GoodScalar r
   u + v = AstPlusS u v
 
   AstFromPrimal u * AstFromPrimal v = AstFromPrimal $ u * v
+  AstSFromK u * AstSFromK v = AstSFromK $ u * v
   AstConcreteS n * AstConcreteS k = AstConcreteS (n * k)
   AstConcreteS n * AstTimesS (AstConcreteS k) u =
     AstTimesS (AstConcreteS (n * k)) u
@@ -399,6 +459,7 @@ instance GoodScalar r
 
   negate (AstFromPrimal n) = AstFromPrimal (negate n)
   negate (AstFromDual n) = AstFromDual (negate n)
+  negate (AstSFromK n) = AstSFromK (negate n)
   negate (AstConcreteS n) = AstConcreteS (negate n)
   negate (AstPlusS u v) = AstPlusS (negate u) (negate v)
   negate (AstTimesS u v) = AstTimesS (negate u) v
@@ -411,11 +472,13 @@ instance GoodScalar r
   negate u = AstN1S NegateOp u
   abs (AstFromPrimal n) = AstFromPrimal (abs n)
   abs (AstFromDual n) = AstFromDual (abs n)
+  abs (AstSFromK n) = AstSFromK (abs n)
   abs (AstConcreteS u) = AstConcreteS (abs u)
   abs (AstN1S AbsOp u) = AstN1S AbsOp u
   abs (AstN1S NegateOp u) = abs u
   abs u = AstN1S AbsOp u
   signum (AstFromPrimal n) = AstFromPrimal (signum n)
+  signum (AstSFromK n) = AstSFromK (signum n)
   signum (AstFromDual n) = AstFromDual (signum n)
   signum (AstConcreteS u) = AstConcreteS (signum u)
   signum (AstN1S SignumOp u) = AstN1S SignumOp u
@@ -423,14 +486,16 @@ instance GoodScalar r
   fromInteger i = error $ "fromInteger not defined for shaped tensors: "
                           ++ show i
 
-instance (GoodScalar r, IntegralH r, Nested.IntElt r)
+instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKS sh r)) where
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
+  quotH (AstSFromK n) (AstSFromK k) = AstSFromK (quotH n k)
   quotH u v = AstI2S QuotOp u v
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
+  remH (AstSFromK n) (AstSFromK k) = AstSFromK (remH n k)
   remH u v = AstI2S RemOp u v
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r)
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKS sh r)) where
   AstFromPrimal u / AstFromPrimal v = AstFromPrimal $ u / v
   u / v = AstR2S DivideOp u v
@@ -486,7 +551,7 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 
 -- * Unlawful numeric instances for mixed AST; lawful modulo evaluation
 
-instance GoodScalar r
+instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKX sh r)) where
   (+) = liftXFromS2 (+)
   (-) = liftXFromS2 (-)
@@ -497,12 +562,12 @@ instance GoodScalar r
   fromInteger i = error $ "fromInteger not defined for mixed tensors: "
                           ++ show i
 
-instance (GoodScalar r, IntegralH r, Nested.IntElt r)
+instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKX sh r)) where
   quotH = liftXFromS2 quotH
   remH = liftXFromS2 remH
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r)
+instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKX sh r)) where
   (/) = liftXFromS2 (/)
   recip = liftXFromS1 recip
@@ -537,10 +602,12 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 
 -- * Unlawful instances of AST for bool; they are lawful modulo evaluation
 
+-- TODO: rewrite to some standard normal form
 instance Boolean (AstBool ms) where
   true = AstBoolConst True
   false = AstBoolConst False
   notB (AstBoolConst b) = AstBoolConst $ not b
+  notB (AstBoolNot b) = b
   notB b = AstBoolNot b
   AstBoolConst True &&* b = b
   AstBoolConst False &&* _b = AstBoolConst False
@@ -612,6 +679,15 @@ instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKScalar r) where
   AstFromPrimal u ==. AstFromPrimal v = u ==. v
   AstFromDual u ==. AstFromDual v = u ==. v  -- TODO: correct?
+  AstFromS STKScalar u ==. AstFromS STKScalar v
+    | FTKS ZSS (FTKScalar @ru) <- ftkAst u
+    , FTKS ZSS (FTKScalar @rv) <- ftkAst v
+    , Just Refl <- testEquality (typeRep @ru) (typeRep @rv)
+    = u ==. v
+  AstConcreteK u ==. AstFromS STKScalar v
+    | FTKS ZSS (FTKScalar @rv) <- ftkAst v
+    , Just Refl <- testEquality (typeRep @rv) (typeRep @r)
+    = AstConcreteS (unConcrete $ sfromK $ Concrete u) ==. v
   AstConcreteK u ==. AstConcreteK v =
     AstBoolConst $ Concrete @(TKScalar r) u ==. Concrete v
   u ==. AstPlusK (AstConcreteK v) w =
@@ -631,6 +707,9 @@ instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKS sh r) where
   AstFromPrimal u ==. AstFromPrimal v = u ==. v
   AstFromDual u ==. AstFromDual v = u ==. v  -- TODO: correct?
+  AstSFromK u ==. AstSFromK v = u ==. v
+  AstConcreteS u ==. AstSFromK v =
+    AstConcreteK (unConcrete $ kfromS $ Concrete u) ==. v
   AstConcreteS u ==. AstConcreteS v =
     AstBoolConst $ Concrete @(TKS sh r) u ==. Concrete v
   u ==. AstPlusS (AstConcreteS v) w =
@@ -643,12 +722,26 @@ instance (AstSpan s, GoodScalar r)
     AstConcreteS (negate u) ==. v
   AstVar u ==. AstVar v | u == v =
     AstBoolConst True
+  AstSFromR _ (AstVar u) ==. AstSFromR _ (AstVar v) | u == v =
+    AstBoolConst True
+  AstSFromX _ (AstVar u) ==. AstSFromX _ (AstVar v)
+    | varNameToAstVarId u == varNameToAstVarId v =
+      AstBoolConst True
   v ==. u = AstRelS EqOp (primalPart v) (primalPart u)
 
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKScalar r) where
   AstFromPrimal u <. AstFromPrimal v = u <. v
   AstFromDual u <. AstFromDual v = u <. v  -- TODO: correct?
+  AstFromS STKScalar u <. AstFromS STKScalar v
+    | FTKS ZSS (FTKScalar @ru) <- ftkAst u
+    , FTKS ZSS (FTKScalar @rv) <- ftkAst v
+    , Just Refl <- testEquality (typeRep @ru) (typeRep @rv)
+    = u <. v
+  AstConcreteK u <. AstFromS STKScalar v
+    | FTKS ZSS (FTKScalar @rv) <- ftkAst v
+    , Just Refl <- testEquality (typeRep @rv) (typeRep @r)
+    = AstConcreteS (unConcrete $ sfromK $ Concrete u) <. v
   AstConcreteK u <. AstConcreteK v =
     AstBoolConst $ Concrete @(TKScalar r) u <. Concrete v
   u <. AstPlusK (AstConcreteK v) w =
@@ -666,6 +759,9 @@ instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
   AstFromPrimal u <. AstFromPrimal v = u <. v
   AstFromDual u <. AstFromDual v = u <. v  -- TODO: correct?
+  AstSFromK u <. AstSFromK v = u <. v
+  AstConcreteS u <. AstSFromK v =
+    AstConcreteK (unConcrete $ kfromS $ Concrete u) <. v
   AstConcreteS u <. AstConcreteS v =
     AstBoolConst $ Concrete @(TKS sh r) u <. Concrete v
   u <. AstPlusS (AstConcreteS v) w =
@@ -676,6 +772,11 @@ instance (AstSpan s, GoodScalar r)
     AstConcreteS (negate v) <. negate u
   AstVar u <. AstVar v | u == v =
     AstBoolConst False
+  AstSFromR _ (AstVar u) <. AstSFromR _ (AstVar v) | u == v =
+    AstBoolConst False
+  AstSFromX _ (AstVar u) <. AstSFromX _ (AstVar v)
+    | varNameToAstVarId u == varNameToAstVarId v =
+      AstBoolConst False
   v <. u = AstRelS LsOp (primalPart v) (primalPart u)
 
 

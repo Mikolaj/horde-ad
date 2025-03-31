@@ -435,9 +435,9 @@ deriving instance Show (AstHFun s s2 x z)
 
 type role AstBool nominal
 data AstBool ms where
+  AstBoolConst :: Bool -> AstBool ms
   AstBoolNot :: AstBool ms -> AstBool ms
   AstB2 :: OpCodeBool -> AstBool ms -> AstBool ms -> AstBool ms
-  AstBoolConst :: Bool -> AstBool ms
   -- There are existential variables here.
   AstRelK :: forall r ms. GoodScalar r
           => OpCodeRel

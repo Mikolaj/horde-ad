@@ -68,6 +68,7 @@ testTrees =
   , testCase "minimizedCNNOPP2" testCNNOPP2
   , testCase "minimizedCNNOPP3" testCNNOPP3
   , testCase "minimizedCNNOPP4" testCNNOPP4
+  , testCase "minimizedCNNOPP5" testCNNOPP5
   , testCase "ConvTomsSlice" testTomsSlice
   , testCase "ConvTomsSlicePP" testTomsSlicePP
   ]
@@ -676,9 +677,26 @@ testCNNOPP4 = do
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       afcnn2T = maxPool2dUnpadded4 $ conv2dUnpadded4 blackGlyph
   printAstPretty afcnn2T
-    @?= "rfromS (sreplicate @1 (sreplicate @1 (let w41 = sgather (sfromVector (fromList [let w21 = sreplicate @1 (sreplicate @1 (str (sreplicate @2 (str (sreplicate @2 (treplicate (SNat @1) (STKScalar) 1 + siota (SNat @1))))))) ; w20 = str (sreplicate @1 (str (sreplicate @1 (stranspose @[1,2,0] (sreplicate @2 (str (sreplicate @2 (treplicate (SNat @1) (STKScalar) 2 * siota (SNat @1))) + sreplicate @1 (siota (SNat @2)))))))) ; w12 = sreplicate @1 (str (sreplicate @1 (str (sreplicate @2 (str (sreplicate @2 (treplicate (SNat @1) (STKScalar) 2 * siota (SNat @1))) + sreplicate @1 (siota (SNat @2))))))) in sgather (sconcrete (sfromListLinear [2] [7.0,0.0])) (\\[i54, i47, i36, i31, i30, i25] -> [ifH ((notB (0 <. negate (kfromS (w21 !$ [i54, i47, i36, i30, i25]))) &&* (-1) <. negate (kfromS (w21 !$ [i54, i47, i36, i30, i25]))) &&* ((notB (0 <. negate (kfromS (w20 !$ [i54, i47, i36, i30, i25]))) &&* (-2) <. negate (kfromS (w20 !$ [i54, i47, i36, i30, i25]))) &&* (notB (0 <. negate (kfromS (w12 !$ [i54, i47, i36, i30, i25]))) &&* (-2) <. negate (kfromS (w12 !$ [i54, i47, i36, i30, i25]))))) 0 1]), sreplicate @1 (sreplicate @1 (sreplicate @1 (sgather (sreplicate @2 (sreplicate @2 (sscalar 0.0))) (\\[i31, i26, i22] -> [i26, i22]))))])) (\\[i50, i43, i35, i32, i33, i34] -> [ifH ((notB (1 <. negate i35) &&* 0 <. negate i35) &&* ((notB (1 <. negate i32) &&* 0 <. negate i32) &&* ((notB (0 <. (-2) * i50 + negate i33) &&* (-2) <. (-2) * i50 + negate i33) &&* (notB (0 <. (-2) * i43 + negate i34) &&* (-2) <. (-2) * i43 + negate i34)))) 0 1, i50, i43, i35, i32, i33, i34]) in sgather w41 (\\[i49, i42] -> [i49, i42, 0, 0, 0, 0]))))"
+    @?= "rfromS (sreplicate @1 (sreplicate @1 (let w41 = sgather (sfromVector (fromList [let w21 = sreplicate @1 (sreplicate @1 (str (sreplicate @2 (str (sreplicate @2 (treplicate (SNat @1) (STKScalar) 1 + siota (SNat @1))))))) ; w20 = str (sreplicate @1 (str (sreplicate @1 (stranspose @[1,2,0] (sreplicate @2 (str (sreplicate @2 (treplicate (SNat @1) (STKScalar) 2 * siota (SNat @1))) + sreplicate @1 (siota (SNat @2)))))))) ; w12 = sreplicate @1 (str (sreplicate @1 (str (sreplicate @2 (str (sreplicate @2 (treplicate (SNat @1) (STKScalar) 2 * siota (SNat @1))) + sreplicate @1 (siota (SNat @2))))))) in sgather (sconcrete (sfromListLinear [2] [7.0,0.0])) (\\[i54, i47, i36, i31, i30, i25] -> [ifH ((notB (sscalar 0 <. negate (w21 !$ [i54, i47, i36, i30, i25])) &&* sscalar (-1) <. negate (w21 !$ [i54, i47, i36, i30, i25])) &&* ((notB (sscalar 0 <. negate (w20 !$ [i54, i47, i36, i30, i25])) &&* sscalar (-2) <. negate (w20 !$ [i54, i47, i36, i30, i25])) &&* (notB (sscalar 0 <. negate (w12 !$ [i54, i47, i36, i30, i25])) &&* sscalar (-2) <. negate (w12 !$ [i54, i47, i36, i30, i25])))) 0 1]), sreplicate @1 (sreplicate @1 (sreplicate @1 (sgather (sreplicate @2 (sreplicate @2 (sscalar 0.0))) (\\[i31, i26, i22] -> [i26, i22]))))])) (\\[i50, i43, i35, i32, i33, i34] -> [ifH ((notB (1 <. negate i35) &&* 0 <. negate i35) &&* ((notB (1 <. negate i32) &&* 0 <. negate i32) &&* ((notB (0 <. (-2) * i50 + negate i33) &&* (-2) <. (-2) * i50 + negate i33) &&* (notB (0 <. (-2) * i43 + negate i34) &&* (-2) <. (-2) * i43 + negate i34)))) 0 1, i50, i43, i35, i32, i33, i34]) in sgather w41 (\\[i49, i42] -> [i49, i42, 0, 0, 0, 0]))))"
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (sreplicate @1 (sreplicate @1 (sreplicate @1 (sreplicate @1 (sscalar 0.0)))))"
+
+testCNNOPP5 :: Assertion
+testCNNOPP5 = do
+  resetVarCounter
+  let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
+      blackGlyph = AstFromPrimal $ AstReplicate (SNat @2) knownSTK
+                   $ AstReplicate (SNat @2) knownSTK
+                   $ AstReplicate (SNat @2) knownSTK
+                   $ AstReplicate (SNat @2) knownSTK
+                       (rconcrete $ Nested.rscalar 7
+                        :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
+      afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
+      afcnn2T = conv2dUnpadded4 blackGlyph
+  printAstPretty afcnn2T
+    @?= "rfromS (str (sreplicate @1 (sgather (sconcrete (sfromListLinear [2] [7.0,0.0])) (\\[i13, i12, i4] -> [ifH ((notB (0 <. negate i13) &&* (-2) <. negate i13) &&* ((notB (0 <. negate i12) &&* (-2) <. negate i12) &&* (notB (0 <. negate i4) &&* (-2) <. negate i4))) 0 1]))))"
+  printAstPretty (simplifyInlineContract afcnn2T)
+    @?= "rfromS (str (sreplicate @1 (sgather (sconcrete (sfromListLinear [2] [7.0,0.0])) (\\[i13, i12, i4] -> [ifH ((notB (0 <. negate i13) &&* (-2) <. negate i13) &&* ((notB (0 <. negate i12) &&* (-2) <. negate i12) &&* (notB (0 <. negate i4) &&* (-2) <. negate i4))) 0 1]))))"
 
 maxPool2dUnpadded4
   :: (ADReady target, GoodScalar r)
