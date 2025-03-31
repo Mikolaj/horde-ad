@@ -3155,6 +3155,13 @@ contractAst t = case t of
          $ astDot1InS sh n (contractAst $ Ast.AstTransposeS cperm t2)
                            (contractAst $ Ast.AstTransposeS cperm u)
   Ast.AstSum snat stk (AstTimesS (Ast.AstLet vart vt t2) u) ->
+    {- TODO: do we really need this check?
+    | not (varNameInAst vart u) ->
+        -- The varNameInAst check is needed, because although variable
+        -- capture is impossible, because we don't create nested lets
+        -- with the same variable, we could create such nested lets
+        -- if we omitted this check.
+    -}
     astLet vart
            (contractAst vt)
            (contractAst $ Ast.AstSum snat stk  -- the crucial exposed redex
@@ -3243,25 +3250,6 @@ contractAst t = case t of
   Ast.AstCastK v -> astCastK $ contractAst v
 
   AstPlusS u v -> contractAst u + contractAst v
-  AstTimesS v (Ast.AstLet var u
-                 (Ast.AstReshapeS @_ @sh sh
-                    (Ast.AstReplicate (SNat' @0) stk s)))
-    | not (varNameInAst var v) ->
-        -- The varNameInAst check is needed, because although variable
-        -- capture is impossible, because we don't create nested lets
-        -- with the same variable, we could create such nested lets
-        -- if we omitted this check.
-        astLet
-          var
-          (contractAst u)
-          (v * Ast.AstReshapeS @_ @sh sh
-                 (Ast.AstReplicate
-                    (SNat @0) stk (contractAst s)))
-  AstTimesS v (Ast.AstLet var u (Ast.AstReplicate (SNat' @0) stk s))
-    | not (varNameInAst var v) ->
-          astLet var
-                 (contractAst u)
-                 (v * Ast.AstReplicate (SNat @0) stk (contractAst s))
   AstTimesS u v -> contractAst u * contractAst v
   Ast.AstN1S NegateOp u -> negate (contractAst u)
   Ast.AstN1S AbsOp u -> abs (contractAst u)
