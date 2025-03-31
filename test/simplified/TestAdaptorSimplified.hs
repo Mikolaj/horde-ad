@@ -55,7 +55,7 @@ testTrees =
   , testCase "2FwdZero10S" testFwdZero10S
   , testCase "2zero11S" testZero11S
   , testCase "2CFwdZero11S" testCFwdZero11S
---  , testCase "2FwdZero11S" testFwdZero11S
+  , testCase "2FwdZero11S" testFwdZero11S
   , testCase "2piecewiseLinear" testPiecewiseLinear
   , testCase "2piecewiseLinearPP" testPiecewiseLinearPP
   , testCase "2piecewiseLinear2" testPiecewiseLinear2
@@ -417,15 +417,8 @@ testCFwdZero11S =
           ( rfromList0N [0, 2, 4, 0, 1] []
           , sconcrete $ Nested.sfromListPrimLinear @_ @'[0, 2, 4, 0, 1] knownShS [] ))
 
--- TODO: orthotope manifests a bug here:
---      Exception: reshape: size mismatch ([2,4,0,1],[])
---      Use -p '/2FwdZero11S/' to rerun this test only.
--- due to
---  | n /= n' = error $ "reshape: size mismatch " ++ show (sh, sh')
---  where n : st = getStridesT sh
---        n' = product sh'
-_testFwdZero11S :: Assertion
-_testFwdZero11S =
+testFwdZero11S :: Assertion
+testFwdZero11S =
   assertEqualUpToEpsilon 1e-9
     (rfromList0N [0, 2, 4, 0, 1] [])
     (jvp  (let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
