@@ -1068,8 +1068,8 @@ astFromIntegralS t = case t of
   Ast.AstN1S AbsOp u -> abs (astFromIntegralS u)
   Ast.AstN1S SignumOp u -> signum (astFromIntegralS u)
   Ast.AstFromIntegralS v -> astFromIntegralS v
-  Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (astFromIntegralS v) ix
-    -- index goes into fromIntegral, so we'd loop
+--  Ast.AstIndexS shn v ix -> astIndexS shn (astFromIntegralS v) ix
+    -- increases work; also index goes into fromIntegral, so we'd loop
   Ast.AstScatterS shn v (vars, ix) ->
     astScatterS shn (astFromIntegralS v) (vars, ix)
   Ast.AstGatherS shn v (vars, ix) ->
@@ -1116,8 +1116,8 @@ astCastS t = case t of
   Ast.AstN1S SignumOp u -> signum (astCastS u)
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstCastS v -> astCastS v
-  Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (astCastS v) ix
-    -- index goes into cast, so we'd loop
+--  Ast.AstIndexS shn v ix -> astIndexS shn (astCastS v) ix
+    -- increases work; also index goes into fromIntegral, so we'd loop
   Ast.AstScatterS shn v (vars, ix) -> astScatterS shn (astCastS v) (vars, ix)
   Ast.AstGatherS shn v (vars, ix) -> astGatherS shn (astCastS v) (vars, ix)
 --  Ast.AstMinIndexS v -> Ast.AstMinIndexS (astCastS v)
@@ -1719,6 +1719,10 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
                           $ V.map f l)
                     (varsFresh, i5 :.$ IxS ixFresh)
     Ast.AstFromVector{} -> error "astGatherCase: impossible case"
+    -- This accomplishes fusion if v is a gather or anything
+    -- that gather can fuse with, but at the cost of an extra transpose
+    -- that doesn't fuse here unless astTransposeAsGatherS is used.
+    -- Since the transpose is O(1), let's leave this as is.
     Ast.AstSum snat@(SNat @n1) STKS{} v ->
       let perm3 = backpermCycle $ shsLength (ixsToShS ix4) + 1
           perm4 = permCycle $ shsLength (listsToShS vars4) + 1
@@ -1750,7 +1754,6 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
               $ astTransposeS perm4S innerGather
                 {- -- disabled until we can reliably fuse back to transpose
                 if not (knobExpand knobs)
-                   || length perm4 <= shsLength (listsToShS vars4)
                 then astTransposeS perm4S innerGather
                 else astTransposeAsGatherS knobs perm4S innerGather -}
     Ast.AstReplicate snat STKS{} v | AstConcreteK it <- i4 ->
