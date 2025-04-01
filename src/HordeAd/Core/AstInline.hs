@@ -173,7 +173,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstIndexS @sh1 shn v ix ->
     let (memo1, v2) = inlineAst memo v
         (memo2, ix2) = mapAccumR inlineAst memo1 (Foldable.toList ix)
-    in withKnownShS (ixsToShS ix) $
+    in withKnownShS (ixsToShS ix)
        (memo2, Ast.AstIndexS @sh1 shn v2 (fromList ix2))
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
@@ -447,7 +447,7 @@ unshareAst memo = \case
   Ast.AstIndexS @sh1 shn v ix ->
     let (memo1, v2) = unshareAst memo v
         (memo2, ix2) = mapAccumR unshareAst memo1 (Foldable.toList ix)
-    in withKnownShS (ixsToShS ix) $
+    in withKnownShS (ixsToShS ix)
        (memo2, Ast.AstIndexS @sh1 shn v2 (fromList ix2))
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, ix2) =

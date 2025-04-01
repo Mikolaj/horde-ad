@@ -787,7 +787,7 @@ instance NFData i => NFData (ListR n i) where
   rnf (x ::: l) = rnf x `seq` rnf l
 
 withKnownPerm :: forall perm r. Permutation.Perm perm -> (Permutation.KnownPerm perm => r) -> r
-withKnownPerm perm = withDict @(Permutation.KnownPerm perm) perm
+withKnownPerm = withDict @(Permutation.KnownPerm perm)
 
 -- TODO:
 _withPermShift1 :: forall is r. -- Permutation.IsPermutation is

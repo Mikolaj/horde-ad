@@ -525,7 +525,7 @@ testOverleafPP = do
   let fT :: AstTensor AstMethodLet FullSpan (TKR 1 Double)
          -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = overleaf
-      (var3, ast3) = funToAst (FTKR [28] FTKScalar) $ fT
+      (var3, ast3) = funToAst (FTKR [28] FTKScalar) fT
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\v1 -> rfromS (ssum @50 (sgather [] (sfromR v1) (\\[i2] -> [remH i2 28])))"
@@ -744,12 +744,12 @@ vstackBuild (a, b, c) =
 
 testTrustVstackConcatRepl10 :: Assertion
 testTrustVstackConcatRepl10 = do
-  (vstackABC @Concrete @Double (rrepl [10] 1, rrepl [10] 2, rrepl [10] 3))
+  vstackABC @Concrete @Double (rrepl [10] 1, rrepl [10] 2, rrepl [10] 3)
   @?= rfromListLinear [10] [3.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,4.0]
 
 testTrustVstackConcatIota10 :: Assertion
 testTrustVstackConcatIota10 = do
-  (vstackABC @Concrete @Double (riota 10, riota 10, riota 10))
+  vstackABC @Concrete @Double (riota 10, riota 10, riota 10)
   @?= rfromListLinear [10] [1.0,3.0,6.0,9.0,12.0,15.0,18.0,21.0,24.0,17.0]
 
 replIota :: (ADReady target, GoodScalar r)
@@ -761,7 +761,7 @@ replIota n =
 
 testTrustVstackConcatReplIota10 :: Assertion
 testTrustVstackConcatReplIota10 = do
-  (vstackABC @Concrete @Double (replIota 10))
+  vstackABC @Concrete @Double (replIota 10)
   @?= rfromListLinear [10] [2.0,5.0,11.0,17.0,23.0,29.0,35.0,41.0,47.0,33.0]
 
 nN :: Int
@@ -769,7 +769,7 @@ nN = (round :: Double -> Int) 1e6  -- 1e6
 
 trustedResult :: Concrete (TKR 1 Double)
 trustedResult =
-  rcast $ (vstackABC @Concrete @Float (replIota nN))
+  rcast (vstackABC @Concrete @Float (replIota nN))
     -- the cast prevents computation sharing with the first test below
 
 testVstackWarmup :: Assertion
@@ -779,12 +779,12 @@ testVstackWarmup = do
 
 testVstackConcatConcrete :: Assertion
 testVstackConcatConcrete = do
-  (vstackABC @Concrete @Double (replIota nN))
+  vstackABC @Concrete @Double (replIota nN)
   @?= trustedResult
 
 testVstackBuildConcrete :: Assertion
 testVstackBuildConcrete = do
-  (vstackBuild @Concrete @Double (replIota nN))
+  vstackBuild @Concrete @Double (replIota nN)
   @?= trustedResult
 
 testVstackConcatAst :: Assertion
@@ -816,7 +816,7 @@ testVstackBuildAstPP :: Assertion
 testVstackBuildAstPP = do
   resetVarCounter
   let (var3, ast3) =
-        funToAst (FTKProduct (FTKProduct (FTKR [10] FTKScalar) (FTKR [10] FTKScalar)) (FTKR [10] FTKScalar)) $
+        funToAst (FTKProduct (FTKProduct (FTKR [10] FTKScalar) (FTKR [10] FTKScalar)) (FTKR [10] FTKScalar))
           (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double . fromTarget)
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstPretty ast3
@@ -848,12 +848,12 @@ replIota2 n =
 
 testVstackConcatConcrete2 :: Assertion
 testVstackConcatConcrete2 = do
-  (vstackABC @Concrete @Double (replIota nN))
+  vstackABC @Concrete @Double (replIota nN)
   @?= trustedResult
 
 testVstackBuildConcrete2 :: Assertion
 testVstackBuildConcrete2 = do
-  (vstackBuild @Concrete @Double (replIota2 nN))
+  vstackBuild @Concrete @Double (replIota2 nN)
   @?= trustedResult
 
 testVstackConcatAst2 :: Assertion
@@ -899,7 +899,7 @@ testFooPP = do
   resetVarCounter
   let fooT = foo2 @(AstTensor AstMethodLet FullSpan (TKR 0 Double))
       foo3 x = fooT (x, x, x)
-      (var3, ast3) = funToAst (FTKR ZSR FTKScalar) $ foo3
+      (var3, ast3) = funToAst (FTKR ZSR FTKScalar) foo3
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\x1 -> rfromS (atan2H (sfromR x1) (sfromR x1 * sin (sfromR x1)) + sfromR x1 * (sfromR x1 * sin (sfromR x1)))"
@@ -929,7 +929,7 @@ testFooLetPP = do
   resetVarCounter
   let fooLetT = fooLetOld @(AstTensor AstMethodLet FullSpan) @Double
       fooLet3 x = fooLetT (x, x, x)
-      (var3, ast3) = funToAst (FTKR ZSR FTKScalar) $ fooLet3
+      (var3, ast3) = funToAst (FTKR ZSR FTKScalar) fooLet3
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\x1 -> rfromS (tlet (sfromR x1 * sin (sfromR x1)) (\\x2 -> atan2H (sfromR x1) x2 + sfromR x1 * x2))"
@@ -1164,7 +1164,7 @@ testReluPP = do
   resetVarCounter >> resetIdCounter
   let reluT :: AstTensor AstMethodLet FullSpan (TKR 2 Double) -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       reluT = reluPrimal
-      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) $ reluT
+      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) reluT
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (tfromPrimal (STKS [3,4] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i4, i3] -> [ifH (sscalar 0.0 <. tprimalPart (sfromR m1) !$ [i4, i3]) 0 1])) * sfromR m1)"
@@ -1205,7 +1205,7 @@ testReluSimplerPP = do
   resetVarCounter >> resetIdCounter
   let reluT :: AstTensor AstMethodLet FullSpan (TKR 2 Double) -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       reluT = relu
-      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) $ reluT
+      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) reluT
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (tfromPrimal (STKS [3,4] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i4, i3] -> [ifH (sscalar 0.0 <. tprimalPart (sfromR m1) !$ [i4, i3]) 0 1])) * sfromR m1)"
@@ -1344,7 +1344,7 @@ testReluMaxPP = do
   resetVarCounter >> resetIdCounter
   let reluT :: AstTensor AstMethodLet FullSpan (TKR 2 Double) -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       reluT = reluMax
-      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) $ reluT
+      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) reluT
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (sgather [] (tfromVector (SNat @2) (STKS [3,4] STKScalar) (fromList [sfromR m1, tfromPrimal (STKS [3,4] STKScalar) (sreplicate @3 (sreplicate @4 (sscalar 0.0)))])) (\\[i5, i4] -> [ifH (sscalar 0.0 <. tprimalPart (sfromR m1) !$ [i5, i4]) 0 1, i5, i4]))"
@@ -2347,7 +2347,7 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   , testCase "blowupLet 7000" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [0.3332633406816766,-0.22217556045445108])
-        (grad (kfromR @_ @Double . rsum0 . (fblowupLet 0 7000)) (ringestData [2] [2, 3]))
+        (grad (kfromR @_ @Double . rsum0 . fblowupLet 0 7000) (ringestData [2] [2, 3]))
   , testCase "blowupLet tbuild0" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [333.2633406816765,-222.175560454451])
@@ -2406,7 +2406,7 @@ testConcatBuild3PP :: Assertion
 testConcatBuild3PP = do
   resetVarCounter
   let t = concatBuild33 @(AstTensor AstMethodLet FullSpan) @Float
-      (var3, ast3) = funToAst (FTKR [3] FTKScalar) $ t
+      (var3, ast3) = funToAst (FTKR [3] FTKScalar) t
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\v1 -> tfromPrimal (STKR (SNat @2) STKScalar) (rfromS (sgather [] (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sreplicate @2 (sscalar 1) + siota (SNat @2))), sreplicate @5 (siota (SNat @2))]))) (\\[i5, i4] -> [ifH (0 <. quotH i5 (1 + i4) + negate i4) 0 1, i5, i4])))"

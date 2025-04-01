@@ -103,7 +103,7 @@ stkUnit = STKScalar
 
 buildSTK :: SNat k -> SingletonTK y -> SingletonTK (BuildTensorKind k y)
 buildSTK snat@SNat = \case
-  stk@(STKScalar) -> STKS (snat :$$ ZSS) stk
+  stk@STKScalar -> STKS (snat :$$ ZSS) stk
   STKR SNat x -> STKR SNat x
   STKS sh x -> STKS (snat :$$ sh) x
   STKX sh x -> STKX (SKnown snat :!% sh) x
@@ -131,7 +131,7 @@ adSTK = \case
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0)
            STKScalar
   STKR sh x -> STKR sh $ adSTK x
   STKS sh x -> STKS sh $ adSTK x
@@ -158,7 +158,7 @@ lemBuildOfAD snat@SNat = \case
                        , Refl <- lemBuildOfAD snat stk2 -> Refl
 
 rankSTK :: SingletonTK x -> Int
-rankSTK (STKScalar) = 0
+rankSTK STKScalar = 0
 rankSTK (STKR snat _) = fromInteger $ fromSNat snat
 rankSTK (STKS sh _) = fromInteger $ fromSNat $ shsRank sh
 rankSTK (STKX sh _) = fromInteger $ fromSNat $ ssxRank sh
@@ -272,4 +272,4 @@ differentiableFTK = \case
 
 type role DummyDualTarget nominal
 type DummyDualTarget :: Target
-data DummyDualTarget y = DummyDualTarget (FullShapeTK y)
+newtype DummyDualTarget y = DummyDualTarget (FullShapeTK y)

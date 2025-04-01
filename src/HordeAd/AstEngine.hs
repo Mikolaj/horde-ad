@@ -109,7 +109,7 @@ printAstPrettyButNested t =
   printAst (defaulPrintConfig {ignoreNestedLambdas = False}) 0 t ""
 
 printArtifactSimple :: AstArtifactRev x z -> String
-printArtifactSimple !AstArtifactRev{..} =
+printArtifactSimple AstArtifactRev{..} =
   let nDt = fromEnum (varNameToAstVarId artVarDtRev) - 100000000
       renames = IM.singleton nDt "dret"
       varsPP = [ printAstVarRename renames artVarDtRev
@@ -118,7 +118,7 @@ printArtifactSimple !AstArtifactRev{..} =
           ++ " -> " ++ printAstSimpleRename renames artDerivativeRev
 
 printArtifactPretty :: AstArtifactRev x z -> String
-printArtifactPretty !AstArtifactRev{..} =
+printArtifactPretty AstArtifactRev{..} =
   let nDt = fromEnum (varNameToAstVarId artVarDtRev) - 100000000
       renames = IM.singleton nDt "dret"
       varsPP = [ printAstVarRename renames artVarDtRev
@@ -127,11 +127,11 @@ printArtifactPretty !AstArtifactRev{..} =
           ++ " -> " ++ printAstPrettyRename renames artDerivativeRev
 
 printArtifactPrimalSimple :: AstArtifactRev x z -> String
-printArtifactPrimalSimple !AstArtifactRev{..} =
+printArtifactPrimalSimple AstArtifactRev{..} =
   "\\" ++ printAstVarName artVarDomainRev
        ++ " -> " ++ printAstSimple artPrimalRev
 
 printArtifactPrimalPretty :: AstArtifactRev x z -> String
-printArtifactPrimalPretty !AstArtifactRev{..} =
+printArtifactPrimalPretty AstArtifactRev{..} =
   "\\" ++ printAstVarName artVarDomainRev
        ++ " -> " ++ printAstPretty artPrimalRev

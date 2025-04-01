@@ -180,7 +180,7 @@ revMaybe f vals0 mdt =
   let valsTarget = toTarget vals0
       xftk = tftkG (knownSTK @(X astvals)) $ unConcrete valsTarget
       cotangentHandling =
-        maybe (IgnoreIncomingCotangent) (const UseIncomingCotangent) mdt
+        maybe IgnoreIncomingCotangent (const UseIncomingCotangent) mdt
       artifactRaw = revArtifactAdapt cotangentHandling f xftk
       artifact = simplifyArtifactGradient artifactRaw
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)

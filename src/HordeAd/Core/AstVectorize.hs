@@ -52,7 +52,7 @@ build1Vectorize
   => SNat k -> SingletonTK y -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE build1Vectorize #-}
-build1Vectorize snat@SNat stk !(!var, !v0) = unsafePerformIO $ do
+build1Vectorize snat@SNat stk (!var, !v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
       startTerm = Ast.AstBuild1 snat stk (var, v0)
@@ -86,7 +86,7 @@ build1VOccurenceUnknown
   :: forall y k s. AstSpan s
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
-build1VOccurenceUnknown snat@SNat !(!var, !v00)
+build1VOccurenceUnknown snat@SNat (!var, !v00)
   | stk0 <- ftkToSTK (ftkAst v00) =
     let v0 = astNonIndexStep v00
           -- Almost surely the term will be transformed, so it can just
@@ -111,7 +111,7 @@ build1VOccurenceUnknownRefresh
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
-build1VOccurenceUnknownRefresh snat@SNat !(!var, !v0) =
+build1VOccurenceUnknownRefresh snat@SNat (!var, !v0) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAst astVarFresh var v0
                 -- cheap subst, because only a renaming
@@ -127,7 +127,7 @@ build1V
   :: forall y k s. AstSpan s
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
-build1V snat@SNat !(!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
+build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
   let bv = Ast.AstBuild1 snat stk0 (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
@@ -351,7 +351,7 @@ intBindingRefreshS
   :: (IntVarName, AstIxS AstMethodLet sh)
   -> (IntVarName, AstInt AstMethodLet, AstIxS AstMethodLet sh)
 {-# NOINLINE intBindingRefreshS #-}
-intBindingRefreshS !(!var, !ix) =
+intBindingRefreshS (!var, !ix) =
   funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
     let !ix2 = substituteAstIxS astVarFresh var ix
                  -- cheap subst, because only a renaming
@@ -418,7 +418,7 @@ build1VHFun
   :: forall k x z s s2. (AstSpan s, AstSpan s2)
   => SNat k -> (IntVarName, AstHFun s s2 x z)
   -> AstHFun s s2 (BuildTensorKind k x) (BuildTensorKind k z)
-build1VHFun snat@SNat !(!var, !v0) = case v0 of
+build1VHFun snat@SNat (!var, !v0) = case v0 of
   Ast.AstLambda var1 l ->
     -- This handles the case of l having free variables beyond var1,
     -- which is not possible for lambdas used in folds, etc.

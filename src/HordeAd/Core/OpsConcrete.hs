@@ -204,7 +204,7 @@ instance BaseTensor Concrete where
                s = shsSize shm
                g ix =
                  let ix2 = f $ fmapConcrete ix
-                 in if ixInBounds (fmapUnConcrete $ toList $ ix2)
+                 in if ixInBounds (fmapUnConcrete $ toList ix2)
                                   (shsToList shpshn)
                     then M.insertWith (V.zipWith (+)) ix2
                            (Nested.stoVector
@@ -227,7 +227,7 @@ instance BaseTensor Concrete where
                s = shsSize shm
                g ix =
                  let ix2 = f $ fmapConcrete ix
-                 in if ixInBounds (fmapUnConcrete $ toList $ ix2)
+                 in if ixInBounds (fmapUnConcrete $ toList ix2)
                                   (shsToList shpshn)
                     then M.insertWith (taddTarget knownSTK) ix2
                            (Concrete
@@ -266,8 +266,8 @@ instance BaseTensor Concrete where
   tsfromIntegral = Concrete . tfromIntegralS . unConcrete
   {-# INLINE tscast #-}  -- this doesn't want to specialize
   tscast = Concrete . liftVS (V.map realToFrac) . unConcrete
-  tsminIndex a = Concrete . tminIndexS . unConcrete $ a
-  tsmaxIndex a = Concrete . tmaxIndexS . unConcrete $ a
+  tsminIndex = Concrete . tminIndexS . unConcrete
+  tsmaxIndex = Concrete . tmaxIndexS . unConcrete
   tsiota @n = case NonEmpty.nonEmpty [0 .. valueOf @n - 1] of
     Nothing -> case sameNat (Proxy @n) (Proxy @0) of
       Just Refl -> Concrete $ Nested.semptyArray ZSS
@@ -368,7 +368,7 @@ instance BaseTensor Concrete where
             s = shxSize shm
             g ix =
               let ix2 = f $ fmapConcrete ix
-              in if ixInBounds (fmapUnConcrete $ toList $ ix2) (shxToList sh)
+              in if ixInBounds (fmapUnConcrete $ toList ix2) (shxToList sh)
                  then M.insertWith (V.zipWith (+)) ix2
                         (Nested.mtoVector
                          $ tindexNX @_ @shm @shn (unConcrete t) ix)
@@ -385,7 +385,7 @@ instance BaseTensor Concrete where
             s = shxSize shm
             g ix =
               let ix2 = f $ fmapConcrete ix
-              in if ixInBounds (fmapUnConcrete $ toList $ ix2) (shxToList sh)
+              in if ixInBounds (fmapUnConcrete $ toList ix2) (shxToList sh)
                  then M.insertWith (taddTarget knownSTK) ix2
                         (Concrete
                          $ tindexNX @_ @shm @shn (unConcrete t) ix)
@@ -460,10 +460,10 @@ instance BaseTensor Concrete where
     Concrete . Nested.sreshape sh . unConcrete
   -- The eta-expansion below is needed for typing.
   tmapAccumRDer _ k _ bftk eftk f _df _rf acc0 es =
-    oRtmapAccumR k bftk eftk (\ !(Concrete a) !(Concrete b) ->
+    oRtmapAccumR k bftk eftk (\ (Concrete a) (Concrete b) ->
                                 Concrete $ f (a, b)) acc0 es
   tmapAccumLDer _ k _ bftk eftk f _df _rf acc0 es =
-    oRtmapAccumL k bftk eftk (\ !(Concrete a) !(Concrete b) ->
+    oRtmapAccumL k bftk eftk (\ (Concrete a) (Concrete b) ->
                                 Concrete $ f (a, b)) acc0 es
   tApply f x = Concrete $ f $ unConcrete x
   tlambda _ f x = unConcrete $ unHFun f $ Concrete x

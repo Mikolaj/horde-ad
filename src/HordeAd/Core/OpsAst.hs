@@ -95,7 +95,7 @@ revArtifactFromForwardPass cotangentHandling
   -- IO and bangs and the compound function to fix the numbering of variables
   -- for pretty-printing and prevent sharing the impure values
   -- in tests that reset the impure counters.
-  !(!varPrimal, astVarPrimal, var, astVar) <- funToAstRevIO xftk
+  (!varPrimal, astVarPrimal, var, astVar) <- funToAstRevIO xftk
   -- Evaluate completely after terms constructed, to free memory
   -- before gradientFromDelta allocates new memory and new FFI is started.
   let !(D primalBody delta) = forwardPass astVarPrimal var astVar
@@ -134,7 +134,7 @@ fwdArtifactFromForwardPass
 -- and protect the unsafePerformIO.
 {-# NOINLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass xftk = unsafePerformIO $ do
-  !(!varPrimalD, astVarD, varPrimal, astVarPrimal, var, astVar)
+  (!varPrimalD, astVarD, varPrimal, astVarPrimal, var, astVar)
     <- funToAstFwdIO xftk
   let !(D primalBody delta) = forwardPass astVarPrimal var astVar
   let !derivative = derivativeFromDelta @x delta (adFTK xftk) (AstRaw astVarD)
@@ -171,8 +171,8 @@ astBuild1Vectorize
 astBuild1Vectorize k stk f = build1Vectorize k stk $ funToAstI f
 
 instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
-  ttlet u f = astLetFun u f
-  ttletPrimal u f = astLetFun u f
+  ttlet = astLetFun
+  ttletPrimal = astLetFun
   toShare t = AstRaw $ AstToShare t
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
@@ -366,7 +366,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   slength t = case ftkAst t of
     FTKS sh _ -> sNatValue $ shsRank sh
   tssum = astSum SNat knownSTK
-  tsindex v ix = astIndexStepS knownShS v ix
+  tsindex = astIndexStepS knownShS
   tsscatter @shm @shn @shp t f =
     astScatterS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
@@ -380,11 +380,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tsminIndex = fromPrimal . AstMinIndexS . primalPart
   tsmaxIndex = fromPrimal . AstMaxIndexS . primalPart
   tsiota = fromPrimal $ AstIotaS SNat
-  tsappend u v = astAppendS u v
-  tsslice i n k = astSliceS i n k
+  tsappend = astAppendS
+  tsslice = astSliceS
   tsreverse = astReverseS
-  tsbuild1 @k @sh @x f =
-    astBuild1Vectorize (SNat @k) (STKS (knownShS @sh) (knownSTK @x)) f
+  tsbuild1 @k @sh @x =
+    astBuild1Vectorize (SNat @k) (STKS (knownShS @sh) (knownSTK @x))
 
   -- Mixed ops
   xshape t = case ftkAst t of
@@ -548,8 +548,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           _ -> error $ "xreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
-  txbuild1 @k @sh @x f =
-    astBuild1Vectorize (SNat @k) (STKX (knownShX @sh) (knownSTK @x)) f
+  txbuild1 @k @sh @x =
+    astBuild1Vectorize (SNat @k) (STKX (knownShX @sh) (knownSTK @x))
 
   -- Scalar ops
   tkconcrete = fromPrimal . AstConcreteK
@@ -560,25 +560,25 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst
   tconcrete ftk a = fromPrimal $ astConcrete ftk a
-  tpair t1 t2 = astPair t1 t2
+  tpair = astPair
   tproject1 = astProject1
   tproject2 = astProject2
   tsreplicate snat sh = astReplicate snat (STKS sh knownSTK)
-  tstranspose perm = astTransposeS perm
-  tsreshape sh = astReshapeS sh
+  tstranspose = astTransposeS
+  tsreshape = astReshapeS
   tmapAccumRDer _ !k _ !bftk !eftk f df rf acc0 es =
     astMapAccumRDer k bftk eftk f df rf acc0 es
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
     astMapAccumLDer k bftk eftk f df rf acc0 es
-  tApply t ll = astApply t ll
+  tApply = astApply
   tlambda ftk f =
     let (var, ast) = funToAst ftk $ unHFun f
     in AstLambda var ast
   tcond _ !b !u !v = astCond b u v
-  tprimalPart t = primalPart t
-  tdualPart _ t = dualPart t
-  tfromPrimal _ t = fromPrimal t
-  tfromDual t = fromDual t
+  tprimalPart = primalPart
+  tdualPart _ = dualPart
+  tfromPrimal _ = fromPrimal
+  tfromDual = fromDual
   tgrad xftk f =
     -- We don't have an AST constructor to hold it, so we compute outright.
     --
@@ -877,8 +877,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tsfromIntegral =
     AstRaw . fromPrimal . AstFromIntegralS . primalPart . unAstRaw
   tscast = AstRaw . AstCastS . unAstRaw
-  tsminIndex a = AstRaw . fromPrimal . AstMinIndexS . primalPart . unAstRaw $ a
-  tsmaxIndex a = AstRaw . fromPrimal . AstMaxIndexS . primalPart . unAstRaw $ a
+  tsminIndex = AstRaw . fromPrimal . AstMinIndexS . primalPart . unAstRaw
+  tsmaxIndex = AstRaw . fromPrimal . AstMaxIndexS . primalPart . unAstRaw
   tsiota = AstRaw . fromPrimal $ AstIotaS SNat
   tsappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
   tsslice i n k = AstRaw . AstSliceS i n k . unAstRaw

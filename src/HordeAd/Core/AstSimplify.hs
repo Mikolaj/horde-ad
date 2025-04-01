@@ -362,7 +362,7 @@ astSum snat@SNat stk t0 = case t0 of
       STKX _ STKScalar -> foldr1 (+) l
       _ -> Ast.AstSum snat stk t0
   Ast.AstReplicate _ STKScalar v | STKScalar <- stk ->
-    v * (fromPrimal $ AstConcreteK $ fromInteger $ fromSNat snat)
+    v * fromPrimal (AstConcreteK $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ _ v | STKR _ (STKScalar @r) <- stk ->
     case ftkAst v of
       FTKR sh' FTKScalar ->
@@ -1902,7 +1902,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
                      :: shp' ++ (shn' ++ '[nl]) :~: n ': sh) $
            gcastWith (unsafeCoerceRefl
                       :: Head (shm' ++ (shn' ++ '[nl]))
-                         ': (Tail (shm' ++ (shn' ++ '[nl])))
+                         ': Tail (shm' ++ (shn' ++ '[nl]))
                          :~: shm' ++ (shn' ++ '[nl])) $
            gcastWith (unsafeCoerceRefl
                       :: Init (shm' ++ (shn' ++ '[nl]))
@@ -1918,7 +1918,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
                      :: shp' ++ (shn' ++ '[nl]) :~: n ': sh) $
            gcastWith (unsafeCoerceRefl
                       :: Head (shm' ++ (shn' ++ '[nl]))
-                         ': (Tail (shm' ++ (shn' ++ '[nl])))
+                         ': Tail (shm' ++ (shn' ++ '[nl]))
                          :~: shm' ++ (shn' ++ '[nl])) $
            gcastWith (unsafeCoerceRefl
                       :: Init (shm' ++ (shn' ++ '[nl]))
@@ -2409,7 +2409,7 @@ astSFromK t = case t of
   Ast.AstFromS _ v ->
     case matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) of
       Just Refl -> v
-      _ -> error $ "astSFromK: unexpected tensor kinds"
+      _ -> error "astSFromK: unexpected tensor kinds"
   _ -> Ast.AstSFromK t
 
 -- We are pushing conversions to shaped tensors down, into concrete values
@@ -2513,7 +2513,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                      (astFromS @(TKS2 sh z)
                                (STKX (ssxFromShape sh') (ftkToSTK z)) b32)
 
-  tfromS zstk = astFromS zstk
+  tfromS = astFromS
   rfromX a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
@@ -3520,7 +3520,7 @@ substitute1Ast i var = subst where
   Ast.AstProject1 a -> astProject1 <$> subst a
   Ast.AstProject2 a -> astProject2 <$> subst a
   Ast.AstFromVector snat stk args ->
-    let margs = V.map (subst) args
+    let margs = V.map subst args
     in if V.any isJust margs
        then Just $ astFromVector snat stk $ V.zipWith fromMaybe args margs
        else Nothing
@@ -3600,9 +3600,9 @@ substitute1Ast i var = subst where
     in if isJust mu || isJust mv
        then Just $ fromMaybe u mu * fromMaybe v mv
        else Nothing
-  Ast.AstN1K NegateOp u -> (\u2 -> negate u2) <$> subst u
-  Ast.AstN1K AbsOp u -> (\u2 -> abs u2) <$> subst u
-  Ast.AstN1K SignumOp u -> (\u2 -> signum u2) <$> subst u
+  Ast.AstN1K NegateOp u -> negate <$> subst u
+  Ast.AstN1K AbsOp u -> abs <$> subst u
+  Ast.AstN1K SignumOp u -> signum <$> subst u
   Ast.AstR1K opCode u -> Ast.AstR1K opCode <$> subst u
   Ast.AstR2K opCode u v ->
     let mu = subst u
@@ -3640,8 +3640,8 @@ substitute1Ast i var = subst where
        then Just $ fromMaybe u mu * fromMaybe v mv
        else Nothing
   Ast.AstN1S NegateOp u -> negate <$> subst u
-  Ast.AstN1S AbsOp u -> (\u2 -> abs u2) <$> subst u
-  Ast.AstN1S SignumOp u -> (\u2 -> signum u2) <$> subst u
+  Ast.AstN1S AbsOp u -> abs <$> subst u
+  Ast.AstN1S SignumOp u -> signum <$> subst u
   Ast.AstR1S opCode u -> Ast.AstR1S opCode <$> subst u
   Ast.AstR2S opCode u v ->
     let mu = subst u

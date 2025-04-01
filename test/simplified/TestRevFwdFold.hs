@@ -580,7 +580,7 @@ testSin0Fold8 = do
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
-                        (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                        (rreplicate 2 (rreplicate 5 (rscalar 2 * a0)))
                         (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Fold0S :: Assertion
@@ -805,7 +805,7 @@ testSin0Fold8jvp = do
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
-                        (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                        (rreplicate 2 (rreplicate 5 (rscalar 2 * a0)))
                         (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Fold8fwd2 :: Assertion
@@ -988,7 +988,7 @@ testSin0Scan8grad = do
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
-                        (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                        (rreplicate 2 (rreplicate 5 (rscalar 2 * a0)))
                         (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Scan8rev2 :: Assertion
@@ -998,7 +998,7 @@ testSin0Scan8rev2 = do
                                $ atan2H (rsum (rtr $ sin x))
                                         (rreplicate 2
                                          $ sin (rsum $ rreplicate 7 a)))
-                        (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                        (rreplicate 2 (rreplicate 5 (rscalar 2 * a0)))
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.9579482947575])
@@ -1011,7 +1011,7 @@ testSin0Scan8Srev2 = do
                                $ atan2H (ssum (str $ sin x))
                                         (sreplicate @2
                                          $ sin (ssum $ sreplicate @7 a)))
-                        (sreplicate @2 (sreplicate @5 ((sscalar 2) * a0)))
+                        (sreplicate @2 (sreplicate @5 (sscalar 2 * a0)))
                         (sreplicate @3 a0))
   assertEqualUpToEpsilon 1e-10
     (sconcrete $ Nested.sfromListPrimLinear [] [285.9579482947575])
@@ -1170,7 +1170,7 @@ testSin0Scan8jvp = do
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
-                        (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                        (rreplicate 2 (rreplicate 5 (rscalar 2 * a0)))
                         (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0Scan8fwd2 :: Assertion
@@ -1180,7 +1180,7 @@ testSin0Scan8fwd2 = do
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
-                        (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                        (rreplicate 2 (rreplicate 5 (rscalar 2 * a0)))
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.95794829475744])
@@ -1662,7 +1662,7 @@ testSin0rmapAccumRD01SN531a = do
     (rev' (let f :: forall f. ADReady f
                  => f (TKS '[3] Double) -> f (TKS '[2, 2, 2, 3] Double)
                f x0 = (\res -> srepl 2 - sreplicate @2 (tproject1 $ tproject1 res)
-                               - (tproject2 res))
+                               - tproject2 res)
                       $ tbuild1 @f (SNat @2) knownSTK $ \i ->
                        (tbuild1 @f (SNat @2) knownSTK $ \j ->
                          tmapAccumR (Proxy @f) (SNat @2)
@@ -1685,10 +1685,10 @@ testSin0rmapAccumRD01SN531a = do
                                  in tpair (tpair
                                             (sfromList
                                              [srepl 0.01, ssum @6 x2, srepl 0.3]
-                                           - sin x - (tproject2 a))
+                                           - sin x - tproject2 a)
                                             (srepl 1 - x2
                                            - sreplicate @6
-                                                 (ssum (sin x - (tproject2 a)))))
+                                                 (ssum (sin x - tproject2 a))))
                                          (srepl 1 - sreplicate @3
                                              (ssum @1 (tproject1 a))
                                            - sin x / srepl 3
@@ -2098,7 +2098,7 @@ testSin0ScanD8grad = do
                                            (rreplicate 2
                                             $ sin (rsum (rreplicate 7 a))))
                          (FTKR ZSR FTKScalar)
-                         (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                         (rreplicate 2 (rreplicate 5 (rscalar 2 * a0)))
                          (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0ScanD8rev4 :: Assertion
@@ -2110,7 +2110,7 @@ testSin0ScanD8rev4 = do
                                            (rreplicate 2
                                             $ sin (rsum (rreplicate 7 a))))
                          (FTKR ZSR FTKScalar)
-                         (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                         (rreplicate 2 (rreplicate 5 (rscalar 2 * a0)))
                          (rreplicate 3 a0))
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [285.95794829475744])
@@ -2187,7 +2187,7 @@ testSin0ScanD8jvp = do
                                          (rreplicate 2
                                           $ sin (rsum (rreplicate 7 a))))
                       (FTKR ZSR FTKScalar)
-                      (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                      (rreplicate 2 (rreplicate 5 (rscalar 2 * a0)))
                       (rreplicate 3 a0)) (rscalar 1.1))
 
 testSin0ScanD8fwdMapAccum :: Assertion
@@ -2210,7 +2210,7 @@ testSin0ScanD8fwdMapAccum = do
                                           $ sin (rsum $ rreplicate 7 a)))
                                x
                     in g)
-                      (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                      (rreplicate 2 (rreplicate 5 (rscalar 2 * a0)))
                       (rreplicate 4 a0)) (rscalar 1.1))
 
 testSin0ScanD8fwd2 :: Assertion
@@ -2221,7 +2221,7 @@ testSin0ScanD8fwd2 = do
                                          (rreplicate 2
                                           $ sin (rsum (rreplicate 7 a))))
                        (FTKR ZSR FTKScalar)
-                       (rreplicate 2 (rreplicate 5 ((rscalar 2) * a0)))
+                       (rreplicate 2 (rreplicate 5 (rscalar 2 * a0)))
                        (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.95794829475744])
@@ -2247,9 +2247,9 @@ testSin0FoldNestedS1PP = do
                      a (sreplicate @22 x))
                   z (sreplicate @11 z)
       g :: forall f. ADReady f => f (TKS '[] Double) -> f (TKS '[] Double)
-      g x = kgrad (kfromS . f) (FTKS ZSS FTKScalar) x
+      g = kgrad (kfromS . f) (FTKS ZSS FTKScalar)
   printAstPretty
-    (g @(AstTensor AstMethodLet PrimalSpan) ((sscalar 1.1)))
+    (g @(AstTensor AstMethodLet PrimalSpan) (sscalar 1.1))
     @?= "let v7 = tmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sconcrete (sfromListLinear [11] [Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0])) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate @11 (sscalar 1.1))))) (sreplicate @11 (sscalar 1.1)))) in ssum @11 (tproject2 v7) + tproject1 v7"
 
 testSin0FoldNestedR1PP :: Assertion
@@ -2261,7 +2261,7 @@ testSin0FoldNestedR1PP = do
                      a (rreplicate 22 x))
                   z (rreplicate 11 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = kgrad (kfromR . f) (FTKR ZSR FTKScalar) x
+      g = kgrad (kfromR . f) (FTKR ZSR FTKScalar)
   printAstPretty
     (g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
     @?= "rfromS (let v7 = tmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sconcrete (sfromListLinear [11] [Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0,Z0])) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate @11 (sscalar 1.1))))) (sreplicate @11 (sscalar 1.1)))) in ssum @11 (sfromR (tproject2 v7)) + tproject1 v7)"
@@ -2273,7 +2273,7 @@ testSin0FoldNestedR0LengthPPs = do
       f z = rfold (\x a -> x + tan a)
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = kgrad (kfromR . f) (FTKR ZSR FTKScalar) x
+      g = kgrad (kfromR . f) (FTKR ZSR FTKScalar)
   length
     (printAstSimple
       (simplifyInlineContract
@@ -2289,7 +2289,7 @@ testSin0FoldNestedR1LengthPPs = do
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = kgrad (kfromR . f) (FTKR ZSR FTKScalar) x
+      g = kgrad (kfromR . f) (FTKR ZSR FTKScalar)
   length
     (printAstSimple
       (simplifyInlineContract
@@ -2307,7 +2307,7 @@ testSin0FoldNestedR2LengthPPs = do
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = kgrad (kfromR . f) (FTKR ZSR FTKScalar) x
+      g = kgrad (kfromR . f) (FTKR ZSR FTKScalar)
   length
     (printAstSimple
        (simplifyInlineContract
@@ -2327,7 +2327,7 @@ testSin0FoldNestedR3LengthPPs = do
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = kgrad (kfromR . f) (FTKR ZSR FTKScalar) x
+      g = kgrad (kfromR . f) (FTKR ZSR FTKScalar)
   length
     (printAstSimple
        (simplifyInlineContract
@@ -2350,7 +2350,7 @@ _testSin0FoldNestedR4LengthPPs = do
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = kgrad (kfromR . f) (FTKR ZSR FTKScalar) x
+      g = kgrad (kfromR . f) (FTKR ZSR FTKScalar)
   length
     (printAstSimple
        (simplifyInlineContract
@@ -2374,7 +2374,7 @@ _testSin0FoldNestedR5LengthPPs = do
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = kgrad (kfromR . f) (FTKR ZSR FTKScalar) x
+      g = kgrad (kfromR . f) (FTKR ZSR FTKScalar)
   length
     (printAstSimple
        (simplifyInlineContract
@@ -2394,7 +2394,7 @@ testSin0FoldNestedR2LengthPPsDummy7 = do
                      a (rreplicate 2 x))
                   z (rreplicate 2 z)
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
-      g x = kgrad (kfromR . f) (FTKR ZSR FTKScalar) x
+      g = kgrad (kfromR . f) (FTKR ZSR FTKScalar)
   length
     (printAstSimple
        (simplifyInlineContract
@@ -2582,7 +2582,7 @@ testSin0FoldNestedSi = do
                                        (sscan (\x1 a1 ->
                                           sfold (\x2 a2 ->
                                             sfold (\x3 a3 ->
-                                                     (srepl 0.001) * (x3 * a3 - x3))
+                                                     srepl 0.001 * (x3 * a3 - x3))
                                                   a2 (sscan (+) x2
                                                         (sreplicate @3 a2)))
                                                 x1 (sreplicate @1 a1))
@@ -2737,12 +2737,12 @@ testSin0FoldNestedRi = do
                                        (rscan (\x1 a1 ->
                                           rfold (\x2 a2 ->
                                             rfold (\x3 a3 ->
-                                                     (rscalar 0.001) * (x3 * a3 - x3))
+                                                     rscalar 0.001 * (x3 * a3 - x3))
                                                   a2 (rscan (+) x2
                                                             (rreplicate 3 a2)))
                                                 x1 (rreplicate 1 a1))
                                               a (rscan (-) (rscalar 0) (rslice 0 1 x))))
-                            (rreplicate 3 $ (rscalar 2) * a0) (rreplicate 2 a0)
+                            (rreplicate 3 $ rscalar 2 * a0) (rreplicate 2 a0)
            in f) (rscalar 1.1))
 
 testSin0FoldNestedR22 :: Assertion
@@ -2795,7 +2795,7 @@ testSin0revhV :: Assertion
 testSin0revhV = do
   let f :: forall g. BaseTensor g
         => g (TKR 0 Double) -> g (TKR 0 Double)
-      f x = kgrad @_ @Double @g (kfromR . sin) (FTKR ZSR FTKScalar) x
+      f = kgrad @_ @Double @g (kfromR . sin) (FTKR ZSR FTKScalar)
   assertEqualUpToEpsilon 1e-10
     (rscalar 0.4535961214255773)
     (f @Concrete (rscalar 1.1))
@@ -2805,7 +2805,7 @@ testSin0revhVPP = do
   resetVarCounter
   let f :: forall g. BaseTensor g
         => g (TKR 0 Double) -> g (TKR 0 Double)
-      f x = kgrad @_ @Double @g (kfromR . sin) (FTKR ZSR FTKScalar) x
+      f = kgrad @_ @Double @g (kfromR . sin) (FTKR ZSR FTKScalar)
   printAstSimple (f @(AstTensor AstMethodLet PrimalSpan)
                                     (rscalar 1.1))
     @?= "rfromS (sscalar 1.0 * cos (sscalar 1.1))"
@@ -2818,8 +2818,8 @@ testSin0revhV4 = do
         => g (TKR 1 Double) -> g (TKR 1 Double)
       f x =
         rvjp @1 @_ @(TKScalar Double) @g
-               (\v -> rscanZip const doms (rscalar 5) v)
-                doms3 x (ringestData [4] [1, 2, 3, 4])
+               (rscanZip const doms (rscalar 5))
+               doms3 x (ringestData [4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (rfromList [rscalar 0, rscalar 0, rscalar 0])
     (cgrad (kfromR . rsum0 . f) (rreplicate 3 (rscalar 1.1)))
@@ -2846,8 +2846,8 @@ testSin0revhV6 = do
         => g (TKR 1 Double) -> g (TKR 1 Double)
       f x =
         rvjp @1 @_ @(TKScalar Double) @g
-               (\v -> rscanZip (\_ z -> z * z) doms (rscalar 5) v)
-                doms3 x (ringestData [4] [1, 2, 3, 4])
+               (rscanZip (\_ z -> z * z) doms (rscalar 5))
+               doms3 x (ringestData [4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (ringestData [3] [4.0,6.0,8.0])
     (cgrad (kfromR . rsum0 . f) (rreplicate 3 (rscalar 1.1)))

@@ -106,7 +106,7 @@ instance ( ADReadyNoLet target, ShareTensor target
     in f var2
   toShare = id
   tunshare = id
-  tD _stk t d = dD t d
+  tD _stk = dD
 
 instance (ADReadyNoLet target, ShareTensor target)
          => ShareTensor (ADVal target) where
@@ -486,7 +486,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tdualPart _stk (D _ u') = u'
   tfromPrimal stk t = fromPrimalFTK (tftk stk t) t
   tfromDual t = dDnotShared (treplTarget 0 (ftkDelta t)) t
-  tScale _stk k = dScale k
+  tScale _stk = dScale
   tgrad @x xftk h =
     let rf :: forall f. ADReady f
            => f x

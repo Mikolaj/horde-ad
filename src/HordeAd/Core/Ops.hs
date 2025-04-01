@@ -451,7 +451,7 @@ class ( Num (IntOf target)
   tsfromVector :: (KnownNat n, KnownShS sh, KnownSTK x)
                => Data.Vector.Vector (target (TKS2 sh x))
                -> target (TKS2 (n ': sh) x)
-  tsfromVector v = tfromVector SNat (STKS knownShS knownSTK) v
+  tsfromVector = tfromVector SNat (STKS knownShS knownSTK)
   tsfromVector0N :: (KnownShS sh, KnownSTK x)
                  => Data.Vector.Vector (target (TKS2 '[] x))
                  -> target (TKS2 sh x)
@@ -472,7 +472,7 @@ class ( Num (IntOf target)
   txfromVector :: (KnownNat n, KnownShX sh, KnownSTK x)
                => Data.Vector.Vector (target (TKX2 sh x))
                -> target (TKX2 (Just n ': sh) x)
-  txfromVector v = tfromVector SNat (STKX knownShX knownSTK) v
+  txfromVector = tfromVector SNat (STKX knownShX knownSTK)
   txfromVector0N :: forall sh x. KnownSTK x
                  => IShX sh -> Data.Vector.Vector (target (TKX2 '[] x))
                  -> target (TKX2 sh x)
