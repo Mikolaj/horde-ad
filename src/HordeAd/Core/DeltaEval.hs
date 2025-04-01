@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Evaluation of delta expressions, that is, transpose of the linear
 -- maps of which the delta expressions are sparse representations.
--- See comments in "Delta" and related papers.
+-- See comments in "HordeAd.Core.Delta".
 module HordeAd.Core.DeltaEval
   ( -- * Delta expression evaluation
     gradientFromDelta, derivativeFromDelta
@@ -48,7 +48,7 @@ import HordeAd.Core.Unwind
 --
 -- Delta expressions naturally denote forward derivatives, as encoded
 -- in function 'derivativeFromDelta'. However, we are usually more
--- interested in computing gradients, which is what 'gradientFromDelta' does.
+-- interested in computing gradients, which is what @gradientFromDelta@ does.
 -- The two functions are bound by the equation from Lemma 5 from the paper
 -- "Provably correct, asymptotically efficient, higher-order reverse-mode
 -- automatic differentiation":
@@ -121,10 +121,10 @@ type role Cotangent nominal nominal
 newtype Cotangent target y =
   Cotangent {unCotangent :: target (ADTensorKind y)}
 
--- This is a tensor representation where, as much as feasible,
--- zero tensors are marked specially in order to be cheap to detect
--- (as opposed to requiring a traversal of large terms or checking that
--- each cell of a huge array is zero or both). It also makes the computation
+-- | This is a tensor representation where zero tensors are marked specially
+-- at construction, when it's cheap to do so (as opposed to, later on.
+-- requiring a traversal of large terms or checking that each cell
+-- of a huge concrete array is zero). It also makes the computation
 -- of a special case of addTensorOrZero cheaper.
 type role TensorOrZero nominal nominal
 data TensorOrZero target y =
@@ -319,7 +319,7 @@ evalXRuntimeSpecialized !s !c =
       _ -> const s
 
 -- | Reverse pass, that is, transpose/evaluation of the delta expressions
--- in orderto produce the gradient for the objective function runtime
+-- in order to produce the gradient for the objective function runtime
 -- trace represented by the delta expression.
 --
 -- The first argument is the tensor kind that constrains the shapes
@@ -352,7 +352,8 @@ evalRev ftk !s !c d = case ftk of
 -- | A helper function to `evalRev`. The @FTK@ suffix denotes it doesn't get
 -- an FTK as an argument but reconstructs it as needed.
 --
--- All constructors that admit a TKProduct kind need to be handled here,
+-- All constructors that can have a type with TKProduct kind
+-- need to be handled here,
 -- as opposed to in 'evalRevSame', except for DeltaInput that is always
 -- constructed only in basic kinds even though its type permits others.
 evalRevFTK
@@ -522,9 +523,9 @@ evalRevFTK !s !c d0 = case d0 of
                  -- on the derivative.
 
 -- | A helper function to `evalRev`. It assumes the scalar underlying
--- the tensor kind of its argumets is differentiable.
+-- the tensor kind of its arguments is differentiable.
 --
--- All constructors that only admit a non-TKProduct kind
+-- All constructors that can only have types with non-TKProduct kinds
 -- (and the DeltaInput constructor and the vector space constructors)
 -- can be handled here, where the extra equality constraint makes it easier.
 evalRevSame

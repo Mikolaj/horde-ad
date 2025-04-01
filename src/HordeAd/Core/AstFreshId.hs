@@ -27,7 +27,8 @@ import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
--- Impure but in the most trivial way (only ever incremented counter).
+-- | A counter that is impure but only in the most trivial way
+-- (only ever incremented by one).
 unsafeAstVarCounter :: Counter
 {-# NOINLINE unsafeAstVarCounter #-}
 unsafeAstVarCounter = unsafePerformIO (newCounter 100000001)

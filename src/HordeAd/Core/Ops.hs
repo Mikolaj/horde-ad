@@ -5,6 +5,18 @@
 -- | A collection of classes containing array operations,
 -- with some extra algebraic operations and dual numbers
 -- operations added in.
+--
+-- Note that @Ast*@ modules rarely depend on @Ops*@ and @Carriers*@ modules
+-- (except for "HordeAd.Core.AstInterpret" and "HordeAd.Core.AstEnv"
+-- that describe how to go from @Ast*@ to @Ops*@). Similarly, @Ops*@
+-- and @Carriers*@ modules rarely depend on @Ast*@ modules
+-- (except for "HordeAd.Core.OpsAst" and "HordeAd.Core.CarriersAst"
+-- that describe how to define @Ops*@ in terms of @Ast*@).
+-- Syntax is relatively separated from semantics and they meet
+-- in the interpreter ("HordeAd.Core.AstInterpret")
+-- and in the semantic model constructed from syntax ("HordeAd.Core.OpsAst").
+--
+-- (A copy of the text above is in "HordeAd.Core.Ast".)
 module HordeAd.Core.Ops
   ( -- * The tensor classes and support datatypes
     LetTensor(..), ShareTensor(..), BaseTensor(..), HFun(..)
@@ -42,12 +54,6 @@ import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.ConvertTensor
-
--- Note that no Ast* module except AstInterpret and AstEnv
--- depends on any Tensor*, Carriers* and Ops* modules
--- and vice versa except CarriersAst and OpsAst.
--- Syntax is separated from semantics and they meet in the interpreter
--- and in the semantic model constructed from syntax (TensorAst).
 
 -- These user API functions are used in default definitions of methods,
 -- so they have to be defined already here:
@@ -399,7 +405,7 @@ class ( Num (IntOf target)
   -- Everything below is indended to be rarely used and usually there are
   -- more specific and/or more convienient functions that do the same job
   -- in other modules.
-  --------------
+  -----------------
 
   tcond :: Boolean (BoolOf target)
         => SingletonTK y

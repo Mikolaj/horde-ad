@@ -7,15 +7,17 @@
 -- which can be simplified, fused, inlined once and then
 -- interpreted many times.
 --
--- Note that Ast* modules rarely depend on Ops* and Carriers* modules
+-- Note that @Ast*@ modules rarely depend on @Ops*@ and @Carriers*@ modules
 -- (except for "HordeAd.Core.AstInterpret" and "HordeAd.Core.AstEnv"
--- that describe how to go from Ast to Ops). Similarly, Ops* and Carriers*
--- modules rarely depend on Ast* modules
+-- that describe how to go from @Ast*@ to @Ops*@). Similarly, @Ops*@
+-- and @Carriers*@ modules rarely depend on @Ast*@ modules
 -- (except for "HordeAd.Core.OpsAst" and "HordeAd.Core.CarriersAst"
--- that describe how to define Ops in terms of Ast).
+-- that describe how to define @Ops*@ in terms of @Ast*@).
 -- Syntax is relatively separated from semantics and they meet
 -- in the interpreter ("HordeAd.Core.AstInterpret")
 -- and in the semantic model constructed from syntax ("HordeAd.Core.OpsAst").
+--
+-- (A copy of the text above is in "HordeAd.Core.Ops".)
 module HordeAd.Core.Ast
   ( -- * The AstSpan tags and class
     AstSpanType(..), AstSpan(..), sameAstSpan

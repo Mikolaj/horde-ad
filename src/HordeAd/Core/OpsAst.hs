@@ -181,7 +181,7 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
       Just Refl -> unshareAstTensor . unAstRaw
       _ -> error "tunshare: used not at PrimalSpan"
 
--- | The checks and error messages in these function result in complete
+-- | The checks and error messages in these functions result in complete
 -- shape-checking of the ranked and mixed user code (shaped is already
 -- fully checked by the Haskell type system).
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where

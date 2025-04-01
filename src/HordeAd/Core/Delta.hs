@@ -5,7 +5,7 @@
 --
 -- A delta expression can be viewed as a concise representation
 -- of a linear map (which is the derivative of the objective function)
--- and its evaluation on a given argument (in module "DeltaEval")
+-- and its evaluation on a given argument (in module "HordeAd.Core.DeltaEval")
 -- as an adjoint (in the algebraic sense) of the linear map
 -- applied to that argument. Since linear maps can be represented
 -- as matrices, this operation corresponds to a transposition
@@ -14,18 +14,18 @@
 -- of the representation.
 --
 -- The \'sparsity\' is less obvious when a delta expression
--- contain big concrete tensors, e.g., via the `DeltaScale` constructor.
+-- contains big concrete tensors, e.g., via the `DeltaScale` constructor.
 -- However, via 'DeltaReplicate' and other constructors, the tensors
 -- can be enlarged much beyond what's embedded in the delta term.
 -- Also, if the expression refers to unknown inputs ('DeltaInput')
--- it may denote, after evaluation, a still larger tensor or a collection
--- of tensors.
+-- it may denote, after evaluation, a still larger tensor.
 --
--- The algebraic structure here is an extension of vector space.
--- The crucial extra constructor of an input ('DeltaInput') replaces the one-hot
--- access to parameters with something cheaper and more uniform.
--- A lot of the remaining additional structure is for introducing
--- and reducing dimensions on tensors and it mimics many of the operations
+-- The algebraic structure here is an extension of vector space
+-- with some additional constructors. The crucial extra constructor
+-- 'DeltaInput' replaces the usual one-hot access to parameters
+-- with something cheaper and more uniform.
+-- A lot of the remaining additional constructors is for introducing
+-- and reducing dimensions of tensors and it mimics many of the operations
 -- available for the primal value arrays.
 module HordeAd.Core.Delta
   ( -- * Delta identifiers
@@ -65,6 +65,7 @@ import HordeAd.Core.Types
 
 -- * Delta identifiers
 
+-- | The identifiers for nodes of delta expression trees.
 type role NodeId nominal nominal
 data NodeId :: Target -> TK -> Type where
   NodeId :: forall target y. FullShapeTK y -> Int -> NodeId target y
@@ -90,6 +91,7 @@ mkNodeId ftk i = assert (i >= 0) $ NodeId ftk i
 nodeIdToFTK :: NodeId f y -> FullShapeTK y
 nodeIdToFTK (NodeId ftk _) = ftk
 
+-- | The identifiers for input leaves of delta expressions.
 type role InputId nominal nominal
 data InputId :: Target -> TK -> Type where
   InputId :: forall target y. FullShapeTK y -> Int -> InputId target y
@@ -128,7 +130,7 @@ inputIdToFTK (InputId ftk _) = ftk
 -- expression term in memory during the same run of an executable.
 -- The subterm identity is used to avoid evaluating shared
 -- subterms repeatedly in gradient and derivative computations.
--- The identifier also represents data dependencies among terms
+-- The identifiers also represent data dependencies among terms
 -- for the purpose of gradient and derivative computation. Computation for
 -- a term may depend only on data obtained from terms with lower value
 -- of their node identifiers. Such data dependency determination
@@ -375,9 +377,12 @@ data Delta :: Target -> Target where
 
 deriving instance Show (IntOf target) => Show (Delta target y)
 
--- Defined only to cut the knot of Show instances in DeltaScale
--- that appears in Delta terms a lot (so the primal bloats PP of Delta terms,
--- though OTOH they are often important) and is used in the engine a lot.
+-- | A newtype defined only to cut the knot of 'Show' instances in 'DeltaScale'
+-- that are problematic to pass around as dictionaries without
+-- bloating each constructor. The @DeltaScale@ constructor appears
+-- in delta expressions a lot and so the primal
+-- subterm would bloat the pretty-printed output (though OTOH the primal
+-- terms are often important).
 type NestedTarget :: Target -> Target
 type role NestedTarget nominal nominal
 newtype NestedTarget target y = NestedTarget (target y)
@@ -388,6 +393,7 @@ instance Show (NestedTarget target y) where
 
 -- * Full tensor kind derivation for delta expressions
 
+-- | Full tensor kind derivation for delta expressions.
 ftkDelta :: forall target y.
             Delta target y -> FullShapeTK y
 ftkDelta = \case

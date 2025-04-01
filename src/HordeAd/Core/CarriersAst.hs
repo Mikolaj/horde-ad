@@ -4,7 +4,7 @@
 -- carrier for a tensor class algebra (instance) defined
 -- in "HordeAd.Core.OpsAst".
 -- This algebra permits user programs to be instantiated as AST terms,
--- to be interpreted into AST terms and permits derivatives
+-- as well as to be interpreted into AST terms and it also permits derivatives
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
@@ -63,14 +63,6 @@ instance Ord (AstTensor ms s y) where
 -- ghc-typelits-natnormalise does. Also, let's associate to the right
 -- and let's push negation down.
 --
--- | Integer terms need to be simplified, because large ones are sometimes
--- created due to vectorization, e.g., via astTransposeAsGather
--- or astReshapeAsGather and can be a deciding factor in whether
--- the other tensor terms can be simplified in turn.
---
--- The normal form has AstConcreteK, if any, as the first argument
--- of the constructor. No flattening is performed beyond that.
---
 -- Not considered are rules that would require comparing non-constant terms
 -- or that would duplicate a non-constant term, as well as most rules
 -- informed by inequalities, expressed via max or min, such as
@@ -78,6 +70,14 @@ instance Ord (AstTensor ms s y) where
 -- We could use sharing via @tlet@ if terms are duplicated, but it's
 -- unclear if the term bloat is worth it and also we'd need to restrict
 -- this extended simplification to AstMethodLet.
+--
+-- | Integer terms need to be simplified, because large ones are sometimes
+-- created due to vectorization, e.g., via astTransposeAsGather
+-- or astReshapeAsGather and can be a deciding factor in whether
+-- the other tensor terms can be simplified in turn.
+--
+-- The normal form has AstConcreteK, if any, as the first argument
+-- of the constructor. No flattening is performed beyond that.
 instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
@@ -782,16 +782,24 @@ instance (AstSpan s, GoodScalar r)
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify definitions
 
+-- | An AST variant that doesn't vectorize terms and also builds them
+-- with ordinary, non-simplifying constructors. It's based on sharing
+-- rather than lets and commonly used as the instance for primals
+-- inside ADVal and, consequently, used for evaluating delta expressions.
 type role AstRaw nominal nominal
 newtype AstRaw s y =
   AstRaw {unAstRaw :: AstTensor AstMethodShare s y}
  deriving Show
 
+-- | An AST variant for testing that doesn't vectorize terms, but still
+-- builds them using simplifying smart constructors.
 type role AstNoVectorize nominal nominal
 newtype AstNoVectorize s y =
   AstNoVectorize {unAstNoVectorize :: AstTensor AstMethodLet s y}
  deriving Show
 
+-- | An AST variant for testing that vectorizes terms, but builds them
+-- with ordinary, non-simplifying constructors.
 type role AstNoSimplify nominal nominal
 newtype AstNoSimplify s y =
   AstNoSimplify {unAstNoSimplify :: AstTensor AstMethodLet s y}

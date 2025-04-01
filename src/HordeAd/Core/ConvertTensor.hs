@@ -27,12 +27,12 @@ class ConvertTensor (target :: Target) where
   -- The semantics for products is element-wise and for others it's either
   -- identity or the domain is shaped and @tfromS@ type-casts to the codomain
   -- by hiding some (or none) type information (so the codomain has to be
-  -- a "subtype" of the domain) or error.
+  -- a "subtype" of the domain).
   -- A corollary is that @tfromS@ behaves uniformly vs 'BuildTensorKind'.
   tfromS :: KnownSTK y
          => SingletonTK z -> target y -> target z
 
-  -- | The conversion from a ranked 0 ranked tensor to a scalar.
+  -- | The conversion from a rank 0 ranked tensor to a scalar.
   kfromR :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
   kfromR = kfromS . sfromR
   -- | The conversion from an empty shape shaped tensor to a scalar.

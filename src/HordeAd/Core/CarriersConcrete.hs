@@ -3,7 +3,7 @@
 -- | Tensor operations implementation using the ox-arrays package.
 -- These definitions, mostly class instances, are needed to make concrete
 -- arrays a valid carrier for a tensor class algebra (instance) defined in
--- "OpsConcrete".
+-- "HordeAd.Core.OpsConcrete".
 module HordeAd.Core.CarriersConcrete
   ( -- * RepConcrete and its operations
     RepConcrete, tftkG, eltDictRep, showDictRep
@@ -137,6 +137,7 @@ mmakeNonZero =
 
 -- * RepConcrete and its operations
 
+-- | The type family that represents tensor kinds in concrete arrays.
 type family RepConcrete (y :: TK) where
   RepConcrete (TKScalar r) = r
   RepConcrete (TKR2 n x) = Nested.Ranked n (RepConcrete x)
@@ -144,6 +145,7 @@ type family RepConcrete (y :: TK) where
   RepConcrete (TKX2 sh x) = Nested.Mixed sh (RepConcrete x)
   RepConcrete (TKProduct x z) = (RepConcrete x, RepConcrete z)
 
+-- | Computing full shape tensor kinds for concrete arrays.
 tftkG :: SingletonTK y -> RepConcrete y -> FullShapeTK y
 tftkG stk t =
   let repackShapeTree :: SingletonTK y
@@ -212,10 +214,11 @@ nfdataDictRep = \case
 
 -- * Concrete and its instances
 
--- Needed because `RepConcrete` can't be partially applied.
--- This type also lets us work around the woes with defining Show
--- for the Rep type family. It gives us a concrete thing
--- to attach a Show instance to.
+-- | A newtype wrapper over 'RepConcrete'.
+-- It's needed because @RepConcrete@ can't be partially applied.
+-- This type also lets us work around the woes with defining 'Show'
+-- for the @RepConcrete@ type family. It gives us a concrete thing
+-- to attach a @Show@ instance to.
 type role Concrete nominal
 newtype Concrete y = Concrete {unConcrete :: RepConcrete y}
 
