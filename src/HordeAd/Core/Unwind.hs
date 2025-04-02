@@ -30,7 +30,7 @@ import HordeAd.OpsTensor
 
 -- * Winding and unwinding
 
--- This captures the normal form of type family UnWind and also
+-- | This captures the normal form of type family UnWind and also
 -- corresponds to the portion of ox-arrays that has Num defined.
 type role RepW nominal nominal
 data RepW target y where
@@ -49,7 +49,8 @@ data RepW target y where
   WTKProduct :: RepW target x -> RepW target z
              -> RepW target (TKProduct x z)
 
--- This captures the normal form of type family UnWind for full singletons.
+-- | This captures the normal form of type family UnWind for full shape
+-- singletons.
 type role FullShapeTKW nominal
 data FullShapeTKW y where
   WFTKScalar :: GoodScalar r
@@ -307,8 +308,8 @@ unWindFTK = \case
     unWindFTK $ FTKProduct (FTKX sh1 y) (FTKX sh1 z)
   FTKProduct y z -> WFTKProduct (unWindFTK y) (unWindFTK z)
 
--- This uses tunpairConv so to preserve sharing, `target` either has
--- to have a ShareTensor instance or the argument has to be duplicable.
+-- This uses tunpairConv so to preserve sharing, @target@ either has
+-- to have a `ShareTensor` instance or the argument has to be duplicable.
 -- Only the argument of the first call, not of recursive calls,
 -- is assumed to be duplicable. In the AST case, this creates
 -- a tower of projections for product, but if it's balanced,
@@ -416,7 +417,8 @@ windTarget stk t = case (stk, t) of
 
 -- * Operations defined using unwinding
 
--- Requires duplicable arguments or a ShareTensor instance.
+-- | Add two (nested pairs of) tensors. Requires duplicable arguments
+-- or a `ShareTensor` instance.
 addTarget :: (BaseTensor target, ConvertTensor target)
           => SingletonTK y -> target y -> target y -> target y
 addTarget stk a b =
@@ -424,7 +426,8 @@ addTarget stk a b =
       b2 = unWindTarget stk b
   in windTarget stk $ addRepW a2 b2
 
--- Requires duplicable arguments or a ShareTensor instance.
+-- | Multiply two (nested pairs of) tensors. Requires duplicable arguments
+-- or a `ShareTensor` instance.
 multTarget :: (BaseTensor target, ConvertTensor target)
            => SingletonTK y -> target y -> target y -> target y
 multTarget stk a b =
@@ -433,7 +436,7 @@ multTarget stk a b =
   in windTarget stk $ multRepW a2 b2
 
 -- | Dot product each component and then sum it all.
--- Requires duplicable arguments or a ShareTensor instance.
+-- Requires duplicable arguments or a `ShareTensor` instance.
 dotTarget :: (BaseTensor target, ConvertTensor target)
           => FullShapeTK y -> target y -> target y
           -> target (TKScalar Double)
@@ -442,12 +445,14 @@ dotTarget ftk a b =
       b2 = unWindTarget (ftkToSTK ftk) b
   in dotRepW (unWindFTK ftk) a2 b2
 
+-- | Replicate a scalar along the given full shape singleton.
 replTarget :: forall y target. (BaseTensor target, ConvertTensor target)
            => (forall r. GoodScalar r => r)
            -> FullShapeTK y -> target y
 replTarget r ftk =
   windTarget (ftkToSTK ftk) $ replRepW r (unWindFTK ftk)
 
+-- | Replicate the default value along the given full shape singleton.
 defTarget :: forall y target. (BaseTensor target, ConvertTensor target)
           => FullShapeTK y -> target y
 defTarget ftk =
@@ -469,7 +474,8 @@ lemUnWindOfAD :: SingletonTK y
               -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)
 lemUnWindOfAD _ = unsafeCoerceRefl
 
--- The ShareTensor constraint is needed, despite what GHC says,
+-- | Convert a tensor into a tensor with only trivial non-differentiable
+-- scalars. The `ShareTensor` constraint is needed, despite what GHC says,
 -- in order not to require duplicable arguments.
 toADTensorKindShared
   :: (BaseTensor target, ConvertTensor target, ShareTensor target)
@@ -479,8 +485,11 @@ toADTensorKindShared ftk a | Refl <- lemUnWindOfAD (ftkToSTK ftk) =
   windTarget (adSTK $ ftkToSTK ftk)
   $ toADTensorKindW (unWindTarget (ftkToSTK ftk) a) (unWindFTK ftk)
 
--- The ShareTensor constraint is needed, despite what GHC says,
--- in order not to require duplicable arguments.
+-- | Convert a tensor with only trivial non-differentiable scalars
+-- into a tensor with the non-differentiable scalars given by the singleton
+-- and with zero values at the non-differentiable types. The `ShareTensor`
+-- constraint is needed, despite what GHC says, in order not to require
+-- duplicable arguments.
 fromADTensorKindShared
   :: (BaseTensor target, ConvertTensor target, ShareTensor target)
   => SingletonTK y -> target (ADTensorKind y)

@@ -115,16 +115,12 @@ instance (ADReadyNoLet target, ShareTensor target)
                          (d1, d2) = unDeltaPair u'
                      in (dDnotShared u1 d1, dDnotShared u2 d2)
 
--- This instance can be sped up by defining and simplifying all default
--- methods (or only tfromVector?), but it probably benefits only product
--- tensor kinds, which are probably not a bottleneck in realistic examples.
---
--- Note that these instances don't do vectorization. To enable it,
+-- Note that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance and only then interpret in ADVal.
 -- In any case, only the Ast instantiation of this instance
--- is used in the main codebase, in particular, to satisfy the constraints
+-- is used in the best pipeline, in particular, to satisfy the constraints
 -- needed for the interpretation of Ast in ADVal.
--- The ADVal Concrete instantiations are only used in tests.
+-- The ADVal Concrete instantiation is used in other pipelines and tests.
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )
          => BaseTensor (ADVal target) where

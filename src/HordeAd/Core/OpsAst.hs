@@ -2,9 +2,9 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor class instances for AST terms. Most of these instances
--- vectorize any terms starting with the build constructor.
--- The AST term instances can be used as building blocks for @ADVal(AST)@
--- instances defined in "OpsADVal" but may also be used standalone.
+-- vectorize any term with the build constructor in the root.
+-- The AST term instances can be used as building blocks for ADVal(AST)
+-- instances defined in "HordeAd.Core.OpsADVal" but may also be used standalone.
 module HordeAd.Core.OpsAst
   ( IncomingCotangentHandling(..)
   , forwardPassByInterpretation

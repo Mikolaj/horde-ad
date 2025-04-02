@@ -1,7 +1,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
--- | Tensor class instances for concrete arrays backed by @Storable@ @Vector@
+-- | Tensor class instances for concrete arrays backed
+-- by 'Data.Vector.Storable.Vector'
 -- and defined in @ox-arrays@ on the basis of @orthotope@.
 module HordeAd.Core.OpsConcrete
   () where

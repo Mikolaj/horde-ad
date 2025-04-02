@@ -5,12 +5,12 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | An assortment of type families and types fundamental for horde-ad.
 module HordeAd.Core.Types
-  ( -- * Definitions to help express and manipulate type-level natural numbers
-    SNat, pattern SNat, withSNat, sNatValue, proxyFromSNat, valueOf
-  , pattern SNat'
-    -- * Kinds of the functors that determine the structure of a tensor type
+  ( -- * Re-exports and definitions to help express and manipulate type-level natural numbers
+    SNat, pattern SNat, pattern SNat'
+  , withSNat, sNatValue, proxyFromSNat, valueOf
+    -- * Kinds of the parameterized types that determine the structure of a tensor
   , Target, TK (..), TKR, TKS, TKX, TKUnit
-    -- * Some fundamental constraints and types
+    -- * Some fundamental constraints and types related to tensors
   , GoodScalar, Differentiable, IfDifferentiable(..)
   , BuildTensorKind, RazeTensorKind, ADTensorKind, ADTensorScalar, Z0(..)
     -- * Type families that tensors belong to
@@ -116,14 +116,15 @@ matchSNat p m@SNat = sameNat p m
 
 -- * Kinds of the functors that determine the structure of a tensor type
 
+-- | The parameterized carrier types of the algebras
+-- that are the targets of interpretation -- of AST
+-- and instantiation of the @Ops@ tensor classes. E.g., the type
+-- that represents tensor kinds in concrete arrays is one such target.
+-- AST itself is another. Dual numbers is yet another target.
 type Target = TK -> Type
 
-type GoodScalarConstraint r =
-  ( Show r, Ord r, Num r, Typeable r, IfDifferentiable r, Default r
-  , NFData r, Nested.PrimElt r, Nested.KnownElt r, Nested.NumElt r
-  , forall sh. Show (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r)
-  , forall sh. NFData (Nested.Mixed sh r))
-
+-- | The type of tensor kinds constraining the shapes
+-- of (nested pairs of) tensors.
 type data TK =
     TKScalar Type
   | TKR2 Nat TK
@@ -140,21 +141,32 @@ type TKUnit = TKScalar Z0
 
 -- * Some fundamental constraints and types
 
+type GoodScalarConstraint r =
+  ( Show r, Ord r, Num r, Typeable r, IfDifferentiable r, Default r
+  , NFData r, Nested.PrimElt r, Nested.KnownElt r, Nested.NumElt r
+  , forall sh. Show (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r)
+  , forall sh. NFData (Nested.Mixed sh r))
+
 -- Attempted optimization via storing one pointer to a class dictionary
 -- in existential datatypes instead of six pointers. No effect, strangely.
 -- As a side effect, this avoids ImpredicativeTypes.
 -- Also, the constraint can be represented by a single Dict.
+--
+-- | The constraint that signifies a scalar type, e.g., a float or an integers,
+-- is a well-behaved cell content of tensors supported by horde-ad.
 class GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
 
+-- | The constraint for scalars that can be non-trivially differentiated,
+-- e.g., floating numbers, but not integers.
 type Differentiable r =
   (RealFloatH r, Nested.FloatElt r, RealFrac r, RealFloat r, Random r)
 
 -- We white-list all types on which we permit differentiation (e.g., SGD)
 -- to work. This is for technical typing purposes and imposes updates
 -- (and buggy omissions) when new scalar types are added, but it has
--- the advantage of giving more control and visiblity. As of the time
--- of writing, this is the only place underlying scalars are enumerated.
+-- the advantage of giving more control and visiblity. Sadly the list
+-- is repeated in several other places.
 class IfDifferentiable r where
   ifDifferentiable :: (Differentiable r => a) -> a -> a
 
@@ -256,7 +268,7 @@ instance NumElt Z0 where
 type IntOf (f :: Target) = PrimalOf f (TKScalar Int64)
 
 -- | The type family is defined in order to give a special instance
--- for AST that preservs sharing and, even more importantly, keeps
+-- for AST that preserves sharing and, even more importantly, keeps
 -- the computation of dervative functions lazy. See the definition
 -- of 'AstLambda' and the code that processes it, maintaining laziness.
 --
@@ -305,9 +317,9 @@ type IxXOf (f :: Target) (sh :: [Maybe Nat]) = IxX sh (IntOf f)
 
 -- TODO: move all these somewhere
 
--- The variant of Integral for horde-ad without the problematic operations:
--- mod and rem that are very slow, pair-producing operations that don't fit
--- and AST GADT format and toInteger that doesn't make sense on AST
+-- | A variant of Integral for horde-ad without the problematic operations:
+-- 'mod' and 'rem' that are very slow, pair-producing operations that don't fit
+-- the AST GADT format and 'toInteger' that doesn't make sense with AST
 -- without an environment to look up variables in.
 class Num a => IntegralH a where
   quotH, remH :: a -> a -> a
@@ -320,9 +332,9 @@ instance IntegralH CInt where
   quotH = quot
   remH = rem
 
--- The standard RealFloat brings in a lot of operations we are not
--- interested in and RealFrac and Real that we can't faithfully implement
--- (e.g., toRational doesn't make sense on AST without an environment).
+-- | The standard 'RealFloat' brings in a lot of operations we are not
+-- interested in and 'RealFrac' and 'Real' that we can't faithfully implement
+-- (e.g., 'toRational' doesn't make sense with AST without an environment).
 class (Floating a) => RealFloatH a where
   atan2H :: a -> a -> a
 
@@ -414,6 +426,8 @@ zeroOf fromInt (_ :$: sh) = fromInt 0 :.: zeroOf fromInt sh
 -- If any of the dimensions is 0 or if rank is 0, the result will be 0,
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
+--
+-- Warning: @fromInteger@ of type @j@ cannot be used.
 toLinearIdxS :: forall sh1 sh2 j. Num j
              => (Int -> j) -> ShS (sh1 ++ sh2) -> IxS sh1 j -> j
 toLinearIdxS fromInt = \sh idx -> go sh idx (fromInt 0)
@@ -435,6 +449,8 @@ toLinearIdxS fromInt = \sh idx -> go sh idx (fromInt 0)
 -- and a fake index with correct length but lots of zeroes is produced,
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
+--
+-- Warning: @fromInteger@ of type @j@ cannot be used.
 fromLinearIdxS :: forall sh j. IntegralH j
                => (Int -> j) -> ShS sh -> j -> IxS sh j
 fromLinearIdxS fromInt = \sh lin -> snd (go sh lin)

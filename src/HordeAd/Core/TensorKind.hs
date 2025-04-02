@@ -1,14 +1,14 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Various singletons for tensors and constraints and lemmas associated
--- with the singletons.
+-- | Two kinds of singletons for tensor kindss and constraints
+-- and lemmas associated with the singletons.
 module HordeAd.Core.TensorKind
-  ( -- * Tensor kind singleton
+  ( -- * Tensor kind singletons
     SingletonTK(..), KnownSTK(..)
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, rankSTK, widthSTK
-    -- * Full shape tensor kind quasi-singleton
+    -- * Full shape tensor kind quasi-singletons
   , FullShapeTK(..)
   , matchingFTK, ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK, differentiableFTK
   , DummyDualTarget(..)
@@ -27,8 +27,9 @@ import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Types
 
--- * Tensor kind singleton
+-- * Tensor kind singletons
 
+-- | Tensor kind singleton type.
 type role SingletonTK nominal
 data SingletonTK y where
   STKScalar :: GoodScalar r
@@ -41,6 +42,7 @@ data SingletonTK y where
 
 deriving instance Show (SingletonTK y)
 
+-- | The constraints corresponding to 'SingletonTK'.
 class KnownSTK (y :: TK) where
   knownSTK :: SingletonTK y
 
@@ -63,9 +65,11 @@ instance (KnownSTK y, KnownSTK z)
          => KnownSTK (TKProduct y z) where
   knownSTK = STKProduct (knownSTK @y) (knownSTK @z)
 
+-- | Turning a singleton into a constraint via a continuation.
 withKnownSTK :: forall y r. SingletonTK y -> (KnownSTK y => r) -> r
 withKnownSTK = withDict @(KnownSTK y)
 
+-- | Turning a singleton into a dictionary containing constraint.
 lemKnownSTK :: SingletonTK y -> Dict KnownSTK y
 lemKnownSTK = \case
   STKScalar -> Dict
@@ -76,9 +80,10 @@ lemKnownSTK = \case
                        , Dict <- lemKnownSTK stk2 -> Dict
 
 sameKnownSTK :: forall y1 y2. (KnownSTK y1, KnownSTK y2)
-               => Maybe (y1 :~: y2)
+             => Maybe (y1 :~: y2)
 sameKnownSTK = sameSTK (knownSTK @y1) (knownSTK @y2)
 
+-- | A plausible implementation of `testEquality` on `SingletonTK`.
 sameSTK :: SingletonTK y1 -> SingletonTK y2 -> Maybe (y1 :~: y2)
 sameSTK stk1 stk2 = case (stk1, stk2) of
   (STKScalar @r1, STKScalar @r2)
@@ -124,8 +129,7 @@ razeSTK = \case
   STKX (SKnown _ :!% sh) x -> STKX sh x
   STKProduct stk1 stk2 -> STKProduct (razeSTK stk1) (razeSTK stk2)
 
-adSTK :: SingletonTK y
-      -> SingletonTK (ADTensorKind y)
+adSTK :: SingletonTK y -> SingletonTK (ADTensorKind y)
 adSTK = \case
   t@(STKScalar @r) -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
@@ -175,8 +179,9 @@ widthSTK stk = case stk of
   STKProduct stk1 stk2 -> widthSTK stk1 + widthSTK stk2
 
 
--- * Full shape tensor kind quasi-singleton
+-- * Full shape tensor kind quasi-singletons
 
+-- | Full shape tensor kind singleton type.
 type role FullShapeTK nominal
 data FullShapeTK y where
   FTKScalar :: GoodScalar r
@@ -190,6 +195,9 @@ data FullShapeTK y where
 deriving instance Show (FullShapeTK y)
 deriving instance Eq (FullShapeTK y)
 
+-- | A plausible implementation of `testEquality` on `FullShapeTK`. It does not
+-- take into account shape difference in ranked and mixed tensors
+-- that `FullShapeTK`, but not `SingletonTK`, captures.
 matchingFTK :: FullShapeTK y1 -> FullShapeTK y2 -> Maybe (y1 :~: y2)
 matchingFTK ftk1 ftk2 = case (ftk1, ftk2) of
   (FTKScalar @r1, FTKScalar @r2)
@@ -212,6 +220,8 @@ matchingFTK ftk1 ftk2 = case (ftk1, ftk2) of
       Just Refl
   _ -> Nothing
 
+-- | A conversion that is fully determined by the property that it
+-- commutes with the `testEquality` implementations.
 ftkToSTK :: FullShapeTK y -> SingletonTK y
 ftkToSTK = \case
   FTKScalar -> STKScalar
@@ -258,6 +268,8 @@ adFTK = \case
   FTKX sh x -> FTKX sh $ adFTK x
   FTKProduct ftk1 ftk2 -> FTKProduct (adFTK ftk1) (adFTK ftk2)
 
+-- A test whether the argument tensor collection is free
+-- from any non-differentiable types, such as integers.
 differentiableFTK :: FullShapeTK y -> Bool
 differentiableFTK = \case
   FTKScalar @r -> case testEquality (typeRep @r) (typeRep @Double) of
