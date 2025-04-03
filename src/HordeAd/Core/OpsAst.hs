@@ -256,7 +256,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKR (shrRank sh') knownSTK)
-        . fromPrimal . AstFloorS . primalPart . astSFromR @sh sh $ a
+        . fromPrimal . astFloorS . primalPart . astSFromR @sh sh $ a
   trfromIntegral @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
@@ -374,7 +374,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astGatherStepS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
   tsconcrete = fromPrimal . AstConcreteS
-  tsfloor = fromPrimal . AstFloorS . primalPart
+  tsfloor = fromPrimal . astFloorS . primalPart
   tsfromIntegral = fromPrimal . astFromIntegralS . primalPart
   tscast = astCastS
   tsminIndex = fromPrimal . AstMinIndexS . primalPart
@@ -468,7 +468,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKX (ssxFromShape sh') knownSTK)
-        . fromPrimal . AstFloorS . primalPart . astSFromX @sh @sh' sh $ a
+        . fromPrimal . astFloorS . primalPart . astSFromX @sh @sh' sh $ a
   txfromIntegral @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
@@ -553,7 +553,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
 
   -- Scalar ops
   tkconcrete = fromPrimal . AstConcreteK
-  tkfloor = fromPrimal . AstFloorK . primalPart
+  tkfloor = fromPrimal . astFloorK . primalPart
   tkfromIntegral = fromPrimal . astFromIntegralK . primalPart
   tkcast = astCastK
 

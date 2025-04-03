@@ -26,9 +26,9 @@ module HordeAd.Core.AstSimplify
 
   , astPrimalPart, astDualPart
 
-  , astFromIntegralK, astCastK
+  , astFloorK, astFromIntegralK, astCastK
 
-  , astFromIntegralS, astCastS
+  , astFloorS, astFromIntegralS, astCastS
 
   , astIndexStepS, astScatterS, astGatherStepS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
@@ -1001,6 +1001,16 @@ astConcreteK :: GoodScalar r
              -> AstTensor AstMethodLet PrimalSpan (TKScalar r)
 astConcreteK = AstConcreteK . unConcrete
 
+astFloorK :: (GoodScalar r1, RealFrac r1, GoodScalar r2, Integral r2)
+          => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
+          -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
+astFloorK t = case t of
+  AstConcreteK k -> astConcreteK (tkfloor $ Concrete k)
+  Ast.AstFloorK v -> astFloorK v
+  Ast.AstFromIntegralK v -> astFromIntegralK v
+  Ast.AstCastK v -> astFloorK v
+  _ -> Ast.AstFloorK t
+
 -- Beware that increasing the number of calls to this constructor
 -- sometimes increases runtime, because not enough copies cancel out.
 -- Hence the commented out rules below.
@@ -1043,6 +1053,34 @@ astConcreteS :: GoodScalar r
              => Concrete (TKS sh r)
              -> AstTensor AstMethodLet PrimalSpan (TKS sh r)
 astConcreteS = AstConcreteS . unConcrete
+
+astFloorS :: (GoodScalar r1, RealFrac r1, Integral r2, GoodScalar r2)
+          => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
+          -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
+astFloorS t = case t of
+  Ast.AstReplicate snat (STKS sh STKScalar) a ->
+    astReplicate snat (STKS sh STKScalar) (astFloorS a)
+  Ast.AstReplicate snat STKScalar a ->
+    astReplicate snat STKScalar (astFloorK a)
+  Ast.AstBuild1 snat (STKS sh STKScalar) (var, v) ->
+    Ast.AstBuild1 snat (STKS sh STKScalar) (var, astFloorS v)
+  Ast.AstBuild1 snat STKScalar (var, v) ->
+    Ast.AstBuild1 snat STKScalar (var, astFloorK v)
+  AstConcreteS a -> astConcreteS (tsfloor $ Concrete a)
+  Ast.AstLet var u v -> astLet var u (astFloorS v)
+  Ast.AstScatterS shn v (vars, ix) ->
+    astScatterS shn (astFloorS v) (vars, ix)
+  Ast.AstGatherS shn v (vars, ix) ->
+    astGatherS shn (astFloorS v) (vars, ix)
+  Ast.AstIotaS snat -> Ast.AstIotaS snat
+  Ast.AstReverseS v -> astReverseS (astFloorS v)
+  Ast.AstTransposeS perm v -> astTransposeS perm (astFloorS v)
+  Ast.AstReshapeS sh v -> astReshapeS sh (astFloorS v)
+  Ast.AstSFromK v -> astSFromK (astFloorK v)
+  Ast.AstFloorS v -> astFloorS v
+  Ast.AstFromIntegralS v -> astFromIntegralS v
+  Ast.AstCastS v -> astFloorS v
+  _ -> Ast.AstFloorS t
 
 astFromIntegralS :: forall r1 r2 sh. (GoodScalar r1, GoodScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
@@ -1289,7 +1327,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                     astConcreteS (tsindex @_ @shm (Concrete a) (fromList ixInt))
         -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS shn v0 ix
-  Ast.AstFloorS v -> Ast.AstFloorS $ astIndexKnobsS knobs shn v ix
+  Ast.AstFloorS v -> astFloorS $ astIndexKnobsS knobs shn v ix
   Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexKnobsS knobs shn v ix
   Ast.AstCastS t -> astCastS $ astIndexKnobsS knobs shn t ix
 
@@ -1805,10 +1843,8 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
     Ast.AstR1S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstR2S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstI2S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
-    Ast.AstFloorS v ->
-      Ast.AstFloorS
-      $ astGatherKnobsS @shm' @shn' @shp' knobs shn' v (vars4, ix4)
-          -- TODO: define astFloor and then treat as AstFromIntegralS
+    Ast.AstFloorS{} ->  -- see next comment
+      Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstFromIntegralS{} ->  -- see next comment
       Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstCastS{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
@@ -2127,7 +2163,7 @@ astSliceS i n k v1 = case v1 of
                                              (astSliceS i n k v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (astSliceS i n k u)
                                              (astSliceS i n k v)
-  Ast.AstFloorS a -> Ast.AstFloorS $ astSliceS i n k a
+  Ast.AstFloorS a -> astFloorS $ astSliceS i n k a
   Ast.AstFromIntegralS v -> astFromIntegralS $ astSliceS i n k v
   Ast.AstCastS v -> astCastS $ astSliceS i n k v
   _ -> Ast.AstSliceS i n k v1
@@ -2718,7 +2754,7 @@ astNonIndexStep t = case t of
   Ast.AstI2K QuotOp u v -> quotH u v
   Ast.AstI2K RemOp u v -> remH u v
   AstConcreteK k -> AstConcreteK k
-  Ast.AstFloorK{} -> t
+  Ast.AstFloorK v -> astFloorK v
   Ast.AstFromIntegralK v -> astFromIntegralK v
   Ast.AstCastK v -> astCastK v
 
@@ -2729,7 +2765,7 @@ astNonIndexStep t = case t of
   Ast.AstR2S{} -> t
   Ast.AstI2S{} -> t
   AstConcreteS a -> AstConcreteS a
-  Ast.AstFloorS{} -> t
+  Ast.AstFloorS v -> astFloorS v
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstCastS v -> astCastS v
 
@@ -2830,7 +2866,7 @@ expandAst t = case t of
   Ast.AstI2K QuotOp u v -> quotH (expandAst u) (expandAst v)
   Ast.AstI2K RemOp u v -> remH (expandAst u) (expandAst v)
   AstConcreteK k -> AstConcreteK k
-  Ast.AstFloorK a -> Ast.AstFloorK (expandAst a)
+  Ast.AstFloorK a -> astFloorK (expandAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ expandAst v
   Ast.AstCastK v -> astCastK $ expandAst v
 
@@ -2843,7 +2879,7 @@ expandAst t = case t of
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (expandAst u) (expandAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (expandAst u) (expandAst v)
   AstConcreteS a -> AstConcreteS a
-  Ast.AstFloorS a -> Ast.AstFloorS (expandAst a)
+  Ast.AstFloorS a -> astFloorS (expandAst a)
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAst v
   Ast.AstCastS v -> astCastS $ expandAst v
 
@@ -3007,7 +3043,7 @@ simplifyAst t = case t of
   Ast.AstI2K QuotOp u v -> quotH (simplifyAst u) (simplifyAst v)
   Ast.AstI2K RemOp u v -> remH (simplifyAst u) (simplifyAst v)
   AstConcreteK k -> AstConcreteK k
-  Ast.AstFloorK a -> Ast.AstFloorK (simplifyAst a)
+  Ast.AstFloorK a -> astFloorK (simplifyAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ simplifyAst v
   Ast.AstCastK v -> astCastK $ simplifyAst v
 
@@ -3020,7 +3056,7 @@ simplifyAst t = case t of
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (simplifyAst u) (simplifyAst v)
   AstConcreteS a -> AstConcreteS a
-  Ast.AstFloorS a -> Ast.AstFloorS (simplifyAst a)
+  Ast.AstFloorS a -> astFloorS (simplifyAst a)
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
   Ast.AstCastS v -> astCastS $ simplifyAst v
 
@@ -3263,7 +3299,7 @@ contractAst t = case t of
   Ast.AstI2K QuotOp u v -> quotH (contractAst u) (contractAst v)
   Ast.AstI2K RemOp u v -> remH (contractAst u) (contractAst v)
   AstConcreteK k -> AstConcreteK k
-  Ast.AstFloorK a -> Ast.AstFloorK (contractAst a)
+  Ast.AstFloorK a -> astFloorK (contractAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ contractAst v
   Ast.AstCastK v -> astCastK $ contractAst v
 
@@ -3276,7 +3312,7 @@ contractAst t = case t of
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (contractAst u) (contractAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (contractAst u) (contractAst v)
   AstConcreteS a -> AstConcreteS a
-  Ast.AstFloorS a -> Ast.AstFloorS (contractAst a)
+  Ast.AstFloorS a -> astFloorS (contractAst a)
   Ast.AstFromIntegralS v -> astFromIntegralS $ contractAst v
   Ast.AstCastS v -> astCastS $ contractAst v
 
@@ -3623,7 +3659,7 @@ substitute1Ast i var = subst where
        then Just $ remH (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstConcreteK{} -> Nothing
-  Ast.AstFloorK a -> Ast.AstFloorK <$> subst a
+  Ast.AstFloorK a -> astFloorK <$> subst a
   Ast.AstFromIntegralK v -> astFromIntegralK <$> subst v
   Ast.AstCastK v -> astCastK <$> subst v
 
@@ -3656,7 +3692,7 @@ substitute1Ast i var = subst where
        then Just $ Ast.AstI2S opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstConcreteS{} -> Nothing
-  Ast.AstFloorS a -> Ast.AstFloorS <$> subst a
+  Ast.AstFloorS a -> astFloorS <$> subst a
   Ast.AstFromIntegralS a -> astFromIntegralS <$> subst a
   Ast.AstCastS v -> astCastS <$> subst v
 

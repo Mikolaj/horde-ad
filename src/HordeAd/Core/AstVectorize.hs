@@ -244,7 +244,7 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
     Ast.AstConcreteK{} ->
       error "build1V: AstConcreteK can't have free index variables"
     Ast.AstFloorK v -> traceRule $
-     Ast.AstFloorS $ build1V snat (var, v)
+      astFloorS $ build1V snat (var, v)
     Ast.AstFromIntegralK v -> traceRule $
       astFromIntegralS $ build1V snat (var, v)
     Ast.AstCastK v -> traceRule $
@@ -276,7 +276,7 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
     Ast.AstConcreteS{} ->
       error "build1V: AstConcreteS can't have free index variables"
     Ast.AstFloorS v -> traceRule $
-      Ast.AstFloorS $ build1V snat (var, v)
+      astFloorS $ build1V snat (var, v)
     Ast.AstFromIntegralS v -> traceRule $
       astFromIntegralS $ build1V snat (var, v)
     Ast.AstCastS v -> traceRule $
@@ -419,14 +419,14 @@ build1VHFun
   => SNat k -> (IntVarName, AstHFun s s2 x z)
   -> AstHFun s s2 (BuildTensorKind k x) (BuildTensorKind k z)
 build1VHFun snat@SNat (!var, !v0) = case v0 of
-  Ast.AstLambda var1 l ->
+  Ast.AstLambda var1 t ->
     -- This handles the case of l having free variables beyond var1,
     -- which is not possible for lambdas used in folds, etc.
     -- But note that, due to substProjVars, l2 has var occurences,
     -- so build1VOccurenceUnknownRefresh is neccessary to handle
     -- them and to eliminate them so that the function is closed again.
-    let (var2, l2) = substProjRep snat var var1 l
-    in Ast.AstLambda var2 (build1VOccurenceUnknownRefresh snat (var, l2))
+    let (var2, t2) = substProjRep snat var var1 t
+    in Ast.AstLambda var2 (build1VOccurenceUnknownRefresh snat (var, t2))
 
 
 -- * Auxiliary operations
