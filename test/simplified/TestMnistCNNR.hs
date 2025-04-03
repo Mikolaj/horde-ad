@@ -27,6 +27,10 @@ import EqEpsilon
 import MnistCnnRanked2 qualified
 import MnistData
 
+-- TODO: optimize enough that it can run for one full epoch in reasonable time
+-- and then verify it trains down to ~20% validation error in a short enough
+-- time to include such a training run in tests.
+
 testTrees :: [TestTree]
 testTrees = [ tensorADValMnistTestsCNNRA
             , tensorADValMnistTestsCNNRI

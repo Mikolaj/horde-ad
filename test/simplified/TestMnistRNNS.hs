@@ -39,6 +39,10 @@ import MnistData
 import MnistRnnShaped2 (ADRnnMnistParametersShaped)
 import MnistRnnShaped2 qualified
 
+-- TODO: optimize enough that it can run for one full epoch in reasonable time
+-- and then verify it trains down to ~20% validation error in a short enough
+-- time to include such a training run in tests.
+
 type XParams out_width r =
  X (ADRnnMnistParametersShaped Concrete SizeMnistHeight out_width r)
 

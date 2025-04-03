@@ -37,21 +37,25 @@ import MnistData
 import MnistRnnRanked2 (ADRnnMnistParameters, ADRnnMnistParametersShaped)
 import MnistRnnRanked2 qualified
 
+-- TODO: optimize enough that it can run for one full epoch in reasonable time
+-- and then verify it trains down to ~20% validation error in a short enough
+-- time to include such a training run in tests.
+
 testTrees :: [TestTree]
-testTrees = [ tensorADValMnistTestsRNNA
-            , tensorADValMnistTestsRNNI
-            , tensorADValMnistTestsRNNO
+testTrees = [ tensorADValMnistTestsRNNRA
+            , tensorADValMnistTestsRNNRI
+            , tensorADValMnistTestsRNNRO
             ]
 
 -- POPL differentiation, straight via the ADVal instance of RankedTensor,
 -- which side-steps vectorization.
-mnistTestCaseRNNA
+mnistTestCaseRNNRA
   :: forall r.
      (Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
-mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
+mnistTestCaseRNNRA prefix epochs maxBatches width miniBatchSize totalBatchSize
                   expected =
   withSNat width $ \(SNat @width) ->
   let targetInit =
@@ -138,33 +142,33 @@ mnistTestCaseRNNA prefix epochs maxBatches width miniBatchSize totalBatchSize
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
 
-{-# SPECIALIZE mnistTestCaseRNNA
+{-# SPECIALIZE mnistTestCaseRNNRA
   :: String
   -> Int -> Int -> Int -> Int -> Int -> Double
   -> TestTree #-}
 
-tensorADValMnistTestsRNNA :: TestTree
-tensorADValMnistTestsRNNA = testGroup "RNN ADVal MNIST tests"
-  [ mnistTestCaseRNNA "RNNA 1 epoch, 1 batch" 1 1 128 5 50
+tensorADValMnistTestsRNNRA :: TestTree
+tensorADValMnistTestsRNNRA = testGroup "RNNR ADVal MNIST tests"
+  [ mnistTestCaseRNNRA "RNNRA 1 epoch, 1 batch" 1 1 128 5 50
                        (0.86 :: Double)
-  , mnistTestCaseRNNA "RNNA artificial 1 2 3 4 5" 2 3 4 5 50
+  , mnistTestCaseRNNRA "RNNRA artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
-  , mnistTestCaseRNNA "RNNA artificial 5 4 3 2 1" 5 4 3 2 49
+  , mnistTestCaseRNNRA "RNNRA artificial 5 4 3 2 1" 5 4 3 2 49
                        (0.8928571428571429 :: Double)
-  , mnistTestCaseRNNA "RNNA 1 epoch, 0 batch" 1 0 128 5 50
+  , mnistTestCaseRNNRA "RNNRA 1 epoch, 0 batch" 1 0 128 5 50
                        (1.0 :: Float)
   ]
 
 -- POPL differentiation, with Ast term defined and vectorized only once,
 -- but differentiated anew in each gradient descent iteration.
-mnistTestCaseRNNI
+mnistTestCaseRNNRI
   :: forall r.
      (Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
-mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
-                  expected =
+mnistTestCaseRNNRI prefix epochs maxBatches width miniBatchSize totalBatchSize
+                   expected =
   withSNat width $ \(SNat @width) ->
   let targetInit =
         forgetShape $ fst
@@ -265,35 +269,35 @@ mnistTestCaseRNNI prefix epochs maxBatches width miniBatchSize totalBatchSize
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        testErrorFinal @?~ expected
 
-{-# SPECIALIZE mnistTestCaseRNNI
+{-# SPECIALIZE mnistTestCaseRNNRI
   :: String
   -> Int -> Int -> Int -> Int -> Int -> Double
   -> TestTree #-}
 
-tensorADValMnistTestsRNNI :: TestTree
-tensorADValMnistTestsRNNI = testGroup "RNN Intermediate MNIST tests"
-  [ mnistTestCaseRNNI "RNNI 1 epoch, 1 batch" 1 1 128 5 50
+tensorADValMnistTestsRNNRI :: TestTree
+tensorADValMnistTestsRNNRI = testGroup "RNNR Intermediate MNIST tests"
+  [ mnistTestCaseRNNRI "RNNRI 1 epoch, 1 batch" 1 1 128 5 50
                        (0.88 :: Double)
-  , mnistTestCaseRNNI "RNNI artificial 1 2 3 4 5" 2 3 4 5 50
+  , mnistTestCaseRNNRI "RNNRI artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
-  , mnistTestCaseRNNI "RNNI artificial 5 4 3 2 1" 5 4 3 2 49
+  , mnistTestCaseRNNRI "RNNRI artificial 5 4 3 2 1" 5 4 3 2 49
                        (0.8928571428571429 :: Double)
-  , mnistTestCaseRNNI "RNNI 1 epoch, 0 batch" 1 0 128 5 50
+  , mnistTestCaseRNNRI "RNNRI 1 epoch, 0 batch" 1 0 128 5 50
                        (1.0 :: Float)
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
-mnistTestCaseRNNO
+mnistTestCaseRNNRO
   :: forall r.
      ( Differentiable r, GoodScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
-mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
-                  expected =
+mnistTestCaseRNNRO prefix epochs maxBatches width miniBatchSize totalBatchSize
+                   expected =
   withSNat width $ \(SNat @width) ->
   let targetInit =
         forgetShape $ fst
@@ -398,19 +402,19 @@ mnistTestCaseRNNO prefix epochs maxBatches width miniBatchSize totalBatchSize
              1 - ftest (totalBatchSize * maxBatches) testDataR res
        assertEqualUpToEpsilon 1e-1 expected testErrorFinal
 
-{-# SPECIALIZE mnistTestCaseRNNO
+{-# SPECIALIZE mnistTestCaseRNNRO
   :: String
   -> Int -> Int -> Int -> Int -> Int -> Double
   -> TestTree #-}
 
-tensorADValMnistTestsRNNO :: TestTree
-tensorADValMnistTestsRNNO = testGroup "RNN Once MNIST tests"
-  [ mnistTestCaseRNNO "RNNO 1 epoch, 1 batch" 1 1 128 5 500
+tensorADValMnistTestsRNNRO :: TestTree
+tensorADValMnistTestsRNNRO = testGroup "RNNR Once MNIST tests"
+  [ mnistTestCaseRNNRO "RNNRO 1 epoch, 1 batch" 1 1 128 5 500
                        (0.898 :: Double)
-  , mnistTestCaseRNNO "RNNO artificial 1 2 3 4 5" 2 3 4 5 50
+  , mnistTestCaseRNNRO "RNNRO artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
-  , mnistTestCaseRNNO "RNNO artificial 5 4 3 2 1" 5 4 3 2 49
+  , mnistTestCaseRNNRO "RNNRO artificial 5 4 3 2 1" 5 4 3 2 49
                        (0.8928571428571429 :: Double)
-  , mnistTestCaseRNNO "RNNO 1 epoch, 0 batch" 1 0 128 5 50
+  , mnistTestCaseRNNRO "RNNRO 1 epoch, 0 batch" 1 0 128 5 50
                        (1.0 :: Float)
   ]
