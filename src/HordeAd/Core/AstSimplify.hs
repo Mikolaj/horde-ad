@@ -95,7 +95,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
   , AstTensor ( AstConcreteK, AstConcreteS, AstPlusK, AstTimesK, AstPlusS
-              , AstTimesS )
+              , AstTimesS)
   )
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
@@ -1399,7 +1399,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let ulen = AstConcreteK (valueOf @m)
         ix1 = i1 :.$ rest1
         ix2 = simplifyAstInt (i1 - ulen) :.$ rest1
-    in case simplifyAstBool $ Ast.AstRelK LsOp i1 ulen of
+    in case simplifyAstBool $ AstRelInt LsOp i1 ulen of
       AstBoolConst b -> if b then astIndex shn u ix1 else astIndex shn v ix2
       bExpr -> astCond bExpr (astIndexRec shn u ix1) (astIndexRec shn v ix2)
   Ast.AstSliceS (SNat @i) _ SNat v ->
@@ -1545,14 +1545,12 @@ astGatherKnobsS _ shn v0 (vars, AstConcreteK it :.$ _)
   , not (0 <= i && i < sNatValue snat) =
     let ftk = FTKS (listsToShS vars `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
--- TODO: fix AstIntVar to be usable here (maybe look at SNat'?),
 astGatherKnobsS knobs shn v
   ( vars@((::$) @m (Const varm) mrest)
-  , Ast.AstCond (Ast.AstRelK EqOp (AstConcreteK @r1 j)
-                                  (Ast.AstVar varp)) i1 i2
+  , Ast.AstCond (AstRelInt EqOp (AstConcreteK j)
+                                (AstIntVar varp)) i1 i2
     :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp
-  , Just Refl <- testEquality (typeRep @r1) (typeRep @Int64) =
+  | varNameToAstVarId varm == varNameToAstVarId varp =
     if j < 0 || j >= valueOf @m then
       astGatherKnobsS knobs shn v (vars, i2 :.$ prest)
     else
@@ -1575,11 +1573,10 @@ astGatherKnobsS knobs shn v
                    varm prest )
 astGatherKnobsS knobs shn v
   ( vars@((::$) @m (Const varm) mrest)
-  , Ast.AstCond (Ast.AstRelK LsOp (AstConcreteK @r1 j)
-                                  (Ast.AstVar varp)) i1 i2
+  , Ast.AstCond (AstRelInt LsOp (AstConcreteK j)
+                                (AstIntVar varp)) i1 i2
     :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp
-  , Just Refl <- testEquality (typeRep @r1) (typeRep @Int64) =
+  | varNameToAstVarId varm == varNameToAstVarId varp =
     if | j + 1 <= 0 ->
          astGatherKnobsS knobs shn v (vars, i1 :.$ prest)
        | j + 1 >= valueOf @m ->
@@ -1598,12 +1595,11 @@ astGatherKnobsS knobs shn v
                       varm prest )
 astGatherKnobsS knobs shn v
   ( vars@((::$) @m (Const varm) mrest)
-  , Ast.AstCond (Ast.AstRelK LsOp (AstConcreteK @r1 j)
-                                  (Ast.AstN1K NegateOp
-                                              (Ast.AstVar varp))) i1 i2
+  , Ast.AstCond (AstRelInt LsOp (AstConcreteK j)
+                                (Ast.AstN1K NegateOp
+                                            (AstIntVar varp))) i1 i2
     :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp
-  , Just Refl <- testEquality (typeRep @r1) (typeRep @Int64) =
+  | varNameToAstVarId varm == varNameToAstVarId varp =
     if | - j <= 0 ->
          astGatherKnobsS knobs shn v (vars, i2 :.$ prest)
        | - j >= valueOf @m ->

@@ -110,7 +110,8 @@ pattern SNat' :: forall n m. KnownNat n => (KnownNat m, n ~ m) => SNat m
 pattern SNat' <- (matchSNat (Proxy @n) -> Just (Refl :: n :~: m))
   where SNat' = SNat
 
-matchSNat :: forall n m proxy. KnownNat n => proxy n -> SNat m -> Maybe (n :~: m)
+matchSNat :: forall n m proxy. KnownNat n
+          => proxy n -> SNat m -> Maybe (n :~: m)
 matchSNat p m@SNat = sameNat p m
 
 

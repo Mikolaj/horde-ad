@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 -- | AST of corresponding to the horde-ad operations specified
 -- in the 'BaseTensor' class and others.
 -- The AST is essential for efficient handling of second order operations
@@ -26,7 +27,7 @@ module HordeAd.Core.Ast
   , AstInt, IntVarName, pattern AstIntVar
   , AstVarName, mkAstVarName, varNameToAstVarId, varNameToFTK
   , AstArtifactRev(..), AstArtifactFwd(..)
-  , AstIxS, AstVarListS
+  , AstIxS, AstVarListS, pattern AstRelInt
     -- * AST
   , AstMethodOfSharing(..), AstTensor(..)
   , AstHFun(..)
@@ -41,7 +42,7 @@ import Data.Functor.Const
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.Some
-import Data.Type.Equality (TestEquality (..), (:~:))
+import Data.Type.Equality (TestEquality (..), (:~:) (Refl))
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (type (+), type (<=))
 import Type.Reflection (Typeable, typeRep)
@@ -164,6 +165,16 @@ pattern AstIntVar var = AstVar var
 type AstIxS ms sh = IxS sh (AstInt ms)
 
 type AstVarListS sh = ListS sh (Const IntVarName)
+
+pattern AstRelInt :: OpCodeRel -> AstInt ms -> AstInt ms -> AstBool ms
+pattern AstRelInt opCode t u <- (matchAstRelInt -> Just (opCode, t, u))
+  where AstRelInt opCode t u = AstRelK opCode t u
+
+matchAstRelInt :: AstBool ms -> Maybe (OpCodeRel, AstInt ms, AstInt ms)
+matchAstRelInt (AstRelK @r opCode t u)
+  | Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+      Just (opCode, t, u)
+matchAstRelInt _ = Nothing
 
 
 -- * AST
