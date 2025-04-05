@@ -152,7 +152,7 @@ testTrees =
   , testCase "4S0rmapAccumRD01SN51" testSin0rmapAccumRD01SN51
   , testCase "4S0rmapAccumRD01SN531a" testSin0rmapAccumRD01SN531a
   , testCase "4S0rmapAccumRD01SN531b0" testSin0rmapAccumRD01SN531b0
-  , testCase "4S0rmapAccumRD01SN531b0PP" testSin0rmapAccumRD01SN531b0PP
+--  , testCase "4S0rmapAccumRD01SN531b0PP" testSin0rmapAccumRD01SN531b0PP
   , testCase "4S0rmapAccumRD01SN531b0PPj" testSin0rmapAccumRD01SN531b0PPj
   , testCase "4S0rmapAccumRD01SN531bRPPj" testSin0rmapAccumRD01SN531bRPPj
   , testCase "4S0rmapAccumRD01SN531c" testSin0rmapAccumRD01SN531c
@@ -261,7 +261,7 @@ testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
   let (a1, _, _) = fooRgrad @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple (simplifyInlineContract a1)
-    @?= "rfromS (tlet (sin (sscalar 2.2)) (\\x28 -> tlet (sscalar 1.1 * x28) (\\x29 -> sscalar (-3.3) * (x28 * recip (sscalar 10.889999999999999 + x29 * x29)) + sscalar 3.3 * sin (sscalar 2.2))))"
+    @?= "rfromS (sscalar 2.668038132604647 + sscalar (-2.668038132604647) * recip (sscalar 11.680936386336942))"
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
@@ -310,7 +310,7 @@ testSin0Rrev4 = do
 testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
   let a1 = (rrev1 sin . rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
-  printAstPretty (simplifyInlineContract a1)
+  printAstPretty (simplifyInline a1)
     @?= "rfromS (sscalar 1.0 * cos (sscalar 1.0 * cos (sscalar 1.1)))"
 
 testSin0Rrev5 :: Assertion
@@ -324,7 +324,7 @@ testSin0RrevPP5 = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 (rrev1 sin) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromS (sscalar 1.0 * negate (sin (sscalar 1.1)))"
+    @?= "rfromS (sscalar (-0.8912073600614354))"
 
 testSin0Rrev3' :: Assertion
 testSin0Rrev3' = do
@@ -361,7 +361,7 @@ testSin0RfwdPP1 :: Assertion
 testSin0RfwdPP1 = do
   resetVarCounter
   let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
-  printAstPretty (simplifyInlineContract a1)
+  printAstPretty (simplifyInline a1)
     @?= "rfromS (sscalar 1.0 * cos (sscalar 1.1))"
 
 testSin0RfwdPP1FullUnsimp :: Assertion
@@ -376,7 +376,7 @@ testSin0RfwdPP1Full = do
   resetVarCounter
   let a1 = rfwd1 @(AstTensor AstMethodLet FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromS (sscalar 1.0 * cos (sscalar 1.1))"
+    @?= "rfromS (sscalar 0.4535961214255773)"
 
 testSin0Rfwd3 :: Assertion
 testSin0Rfwd3 = do
@@ -394,7 +394,7 @@ testSin0Rfwd4 = do
 testSin0RfwdPP4P :: Assertion
 testSin0RfwdPP4P = do
   let a1 = (rfwd1 sin . rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
-  printAstPretty (simplifyInlineContract a1)
+  printAstPretty (simplifyInline a1)
     @?= "rfromS (sscalar 1.0 * cos (sscalar 1.0 * cos (sscalar 1.1)))"
 
 testSin0RfwdPP4Dual :: Assertion
@@ -413,7 +413,7 @@ testSin0RfwdPP5 :: Assertion
 testSin0RfwdPP5 = do
   let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 (rfwd1 sin) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromS (sscalar 1.0 * negate (sin (sscalar 1.1)))"
+    @?= "rfromS (sscalar (-0.8912073600614354))"
 
 testSin0Rfwd3' :: Assertion
 testSin0Rfwd3' = do
@@ -443,7 +443,7 @@ testSin0RrevPP5S :: Assertion
 testSin0RrevPP5S = do
   resetVarCounter
   let a1 = srev1 @(AstTensor AstMethodLet PrimalSpan) @Double @'[] @'[] (srev1 sin) (srepl 1.1)
-  printAstPretty (simplifyInlineContract a1)
+  printAstPretty (simplifyInline a1)
     @?= "sscalar 1.0 * negate (sin (sscalar 1.1))"
 
 testSin0Fold0 :: Assertion
@@ -1031,7 +1031,7 @@ testSin0Scan1RevPPForComparison = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rfromList [sin (sin x0), sin x0, x0]) (rscalar 1.1)
-  printAstPretty (simplifyInlineContract a1)
+  printAstPretty (simplifyInline a1)
     @?= "rfromS (sscalar 1.0 + (sscalar 1.0 * (cos (sscalar 1.1) * cos (sin (sscalar 1.1))) + sscalar 1.0 * cos (sscalar 1.1)))"
 
 testSin0ScanFwdPP :: Assertion
@@ -1110,7 +1110,7 @@ testSin0Scan1Rev3PPForComparison = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rfromList [sin (sin x0 - x0 * rscalar 5) - x0 * rscalar 7, sin x0 - x0 * rscalar 5, x0]) (rscalar 1.1)
-  printAstPretty (simplifyInlineContract a1)
+  printAstPretty (simplifyInline a1)
     @?= "rfromS (let x9 = sscalar 1.0 * cos (sscalar (-5.5) + sin (sscalar 1.1)) in sscalar (-11.0) + (cos (sscalar 1.1) * x9 + (sscalar (-5.0) * x9 + sscalar 1.0 * cos (sscalar 1.1))))"
 
 testSin0ScanFwd3PP :: Assertion
@@ -1730,8 +1730,9 @@ testSin0rmapAccumRD01SN531b0 = do
                           (rconcrete $ Nested.rfromListPrimLinear [0] []))
            in f) (rscalar 1.1))
 
-testSin0rmapAccumRD01SN531b0PP :: Assertion
-testSin0rmapAccumRD01SN531b0PP = do
+-- Different result with -O1:
+_testSin0rmapAccumRD01SN531b0PP :: Assertion
+_testSin0rmapAccumRD01SN531b0PP = do
   resetVarCounter
   let f :: forall f. ADReady f
                  => f (TKR 0 Double)

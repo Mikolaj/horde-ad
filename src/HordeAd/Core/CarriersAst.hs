@@ -301,8 +301,10 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
   AstFromPrimal u / AstFromPrimal v = AstFromPrimal $ u / v
+  AstConcreteK u / AstConcreteK v = AstConcreteK $ u / v
   u / v = AstR2K DivideOp u v
   recip (AstFromPrimal u) = AstFromPrimal (recip u)
+  recip (AstConcreteK u) = AstConcreteK (recip u)
   recip u = AstR1K RecipOp u
   fromRational r = fromPrimal $ AstConcreteK (fromRational r)
 
@@ -310,44 +312,61 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
   pi = error "pi not defined for ranked tensors"
   exp (AstFromPrimal u) = AstFromPrimal $ exp u
+  exp (AstConcreteK u) = AstConcreteK $ exp u
   exp u = AstR1K ExpOp u
   log (AstFromPrimal u) = AstFromPrimal $ log u
+  log (AstConcreteK u) = AstConcreteK $ log u
   log u = AstR1K LogOp u
   sqrt (AstFromPrimal u) = AstFromPrimal $ sqrt u
+  sqrt (AstConcreteK u) = AstConcreteK $ sqrt u
   sqrt u = AstR1K SqrtOp u
   (AstFromPrimal u) ** (AstFromPrimal v) = AstFromPrimal $ u ** v
+  (AstConcreteK u) ** (AstConcreteK v) = AstConcreteK $ u ** v
   u ** v = AstR2K PowerOp u v
   logBase (AstFromPrimal u) (AstFromPrimal v) = AstFromPrimal $ logBase u v
+  logBase (AstConcreteK u) (AstConcreteK v) = AstConcreteK $ logBase u v
   logBase u v = AstR2K LogBaseOp u v
   sin (AstFromPrimal u) = AstFromPrimal $ sin u
+  sin (AstConcreteK u) = AstConcreteK $ sin u
   sin u = AstR1K SinOp u
   cos (AstFromPrimal u) = AstFromPrimal $ cos u
+  cos (AstConcreteK u) = AstConcreteK $ cos u
   cos u = AstR1K CosOp u
   tan (AstFromPrimal u) = AstFromPrimal $ tan u
+  tan (AstConcreteK u) = AstConcreteK $ tan u
   tan u = AstR1K TanOp u
   asin (AstFromPrimal u) = AstFromPrimal $ asin u
+  asin (AstConcreteK u) = AstConcreteK $ asin u
   asin u = AstR1K AsinOp u
   acos (AstFromPrimal u) = AstFromPrimal $ acos u
+  acos (AstConcreteK u) = AstConcreteK $ acos u
   acos u = AstR1K AcosOp u
   atan (AstFromPrimal u) = AstFromPrimal $ atan u
+  atan (AstConcreteK u) = AstConcreteK $ atan u
   atan u = AstR1K AtanOp u
   sinh (AstFromPrimal u) = AstFromPrimal $ sinh u
+  sinh (AstConcreteK u) = AstConcreteK $ sinh u
   sinh u = AstR1K SinhOp u
   cosh (AstFromPrimal u) = AstFromPrimal $ cosh u
+  cosh (AstConcreteK u) = AstConcreteK $ cosh u
   cosh u = AstR1K CoshOp u
   tanh (AstFromPrimal u) = AstFromPrimal $ tanh u
+  tanh (AstConcreteK u) = AstConcreteK $ tanh u
   tanh u = AstR1K TanhOp u
   asinh (AstFromPrimal u) = AstFromPrimal $ asinh u
+  asinh (AstConcreteK u) = AstConcreteK $ asinh u
   asinh u = AstR1K AsinhOp u
   acosh (AstFromPrimal u) = AstFromPrimal $ acosh u
+  acosh (AstConcreteK u) = AstConcreteK $ acosh u
   acosh u = AstR1K AcoshOp u
   atanh (AstFromPrimal u) = AstFromPrimal $ atanh u
+  atanh (AstConcreteK u) = AstConcreteK $ atanh u
   atanh u = AstR1K AtanhOp u
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKScalar r)) where
-  atan2H (AstFromPrimal u) (AstFromPrimal v) =
-    AstFromPrimal $ AstR2K Atan2Op u v
+  atan2H (AstFromPrimal u) (AstFromPrimal v) = AstFromPrimal $ atan2H u v
+  atan2H (AstConcreteK u) (AstConcreteK v) = AstConcreteK $ atan2H u v
   atan2H u v = AstR2K Atan2Op u v
 
 
@@ -490,16 +509,21 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKS sh r)) where
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
   quotH (AstSFromK n) (AstSFromK k) = AstSFromK (quotH n k)
+  quotH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (quotH n k)
+  quotH (AstI2S QuotOp u v) w = quotH u (v * w)
   quotH u v = AstI2S QuotOp u v
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
   remH (AstSFromK n) (AstSFromK k) = AstSFromK (remH n k)
+  remH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (remH n k)
   remH u v = AstI2S RemOp u v
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKS sh r)) where
   AstFromPrimal u / AstFromPrimal v = AstFromPrimal $ u / v
+  AstConcreteS u / AstConcreteS v = AstConcreteS $ u / v
   u / v = AstR2S DivideOp u v
   recip (AstFromPrimal u) = AstFromPrimal (recip u)
+  recip (AstConcreteS u) = AstConcreteS (recip u)
   recip u = AstR1S RecipOp u
   fromRational r = error $ "fromRational not defined for shaped tensors: "
                            ++ show r
@@ -508,44 +532,61 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
   pi = error "pi not defined for shaped tensors"
   exp (AstFromPrimal u) = AstFromPrimal $ exp u
+  exp (AstConcreteS u) = AstConcreteS $ exp u
   exp u = AstR1S ExpOp u
   log (AstFromPrimal u) = AstFromPrimal $ log u
+  log (AstConcreteS u) = AstConcreteS $ log u
   log u = AstR1S LogOp u
   sqrt (AstFromPrimal u) = AstFromPrimal $ sqrt u
+  sqrt (AstConcreteS u) = AstConcreteS $ sqrt u
   sqrt u = AstR1S SqrtOp u
   (AstFromPrimal u) ** (AstFromPrimal v) = AstFromPrimal $ u ** v
+  (AstConcreteS u) ** (AstConcreteS v) = AstConcreteS $ u ** v
   u ** v = AstR2S PowerOp u v
   logBase (AstFromPrimal u) (AstFromPrimal v) = AstFromPrimal $ logBase u v
+  logBase (AstConcreteS u) (AstConcreteS v) = AstConcreteS $ logBase u v
   logBase u v = AstR2S LogBaseOp u v
   sin (AstFromPrimal u) = AstFromPrimal $ sin u
+  sin (AstConcreteS u) = AstConcreteS $ sin u
   sin u = AstR1S SinOp u
   cos (AstFromPrimal u) = AstFromPrimal $ cos u
+  cos (AstConcreteS u) = AstConcreteS $ cos u
   cos u = AstR1S CosOp u
   tan (AstFromPrimal u) = AstFromPrimal $ tan u
+  tan (AstConcreteS u) = AstConcreteS $ tan u
   tan u = AstR1S TanOp u
   asin (AstFromPrimal u) = AstFromPrimal $ asin u
+  asin (AstConcreteS u) = AstConcreteS $ asin u
   asin u = AstR1S AsinOp u
   acos (AstFromPrimal u) = AstFromPrimal $ acos u
+  acos (AstConcreteS u) = AstConcreteS $ acos u
   acos u = AstR1S AcosOp u
   atan (AstFromPrimal u) = AstFromPrimal $ atan u
+  atan (AstConcreteS u) = AstConcreteS $ atan u
   atan u = AstR1S AtanOp u
   sinh (AstFromPrimal u) = AstFromPrimal $ sinh u
+  sinh (AstConcreteS u) = AstConcreteS $ sinh u
   sinh u = AstR1S SinhOp u
   cosh (AstFromPrimal u) = AstFromPrimal $ cosh u
+  cosh (AstConcreteS u) = AstConcreteS $ cosh u
   cosh u = AstR1S CoshOp u
   tanh (AstFromPrimal u) = AstFromPrimal $ tanh u
+  tanh (AstConcreteS u) = AstConcreteS $ tanh u
   tanh u = AstR1S TanhOp u
   asinh (AstFromPrimal u) = AstFromPrimal $ asinh u
+  asinh (AstConcreteS u) = AstConcreteS $ asinh u
   asinh u = AstR1S AsinhOp u
   acosh (AstFromPrimal u) = AstFromPrimal $ acosh u
+  acosh (AstConcreteS u) = AstConcreteS $ acosh u
   acosh u = AstR1S AcoshOp u
   atanh (AstFromPrimal u) = AstFromPrimal $ atanh u
+  atanh (AstConcreteS u) = AstConcreteS $ atanh u
   atanh u = AstR1S AtanhOp u
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKS sh r)) where
-  atan2H (AstFromPrimal u) (AstFromPrimal v) =
-    AstFromPrimal $ AstR2S Atan2Op u v
+  atan2H (AstFromPrimal u) (AstFromPrimal v) = AstFromPrimal $ atan2H u v
+  atan2H (AstConcreteS u) (AstConcreteS v) = AstConcreteS $ atan2H u v
   atan2H u v = AstR2S Atan2Op u v
 
 

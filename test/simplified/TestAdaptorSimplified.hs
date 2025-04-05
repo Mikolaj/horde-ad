@@ -2422,4 +2422,4 @@ testConcatBuild3PP2 = do
   printArtifactPrimalSimple artifactRev
     @?= "\\v1 -> rfromS (sgather [] (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sreplicate @2 (sscalar 1) + siota (SNat @2))), sreplicate @5 (siota (SNat @2))]))) (\\[i6, i7] -> [ifH (0 <. quotH i6 (1 + i7) + negate i7) 0 1, i6, i7]))"
   printArtifactPrimalSimple (simplifyArtifact artifactRev)
-    @?= "\\v1 -> rfromS (sgather [] (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [quotH (sconcrete (sfromListLinear [5,2] [0,0,1,1,2,2,3,3,4,4])) (sconcrete (sfromListLinear [5,2] [1,2,1,2,1,2,1,2,1,2])), sconcrete (sfromListLinear [5,2] [0,1,0,1,0,1,0,1,0,1])]))) (\\[i6, i7] -> [ifH (0 <. quotH i6 (1 + i7) + negate i7) 0 1, i6, i7]))"
+    @?= "\\v1 -> rfromS (sgather [] (sconcrete (sfromListLinear [2,5,2] [0.0,0.0,1.0,0.0,2.0,1.0,3.0,1.0,4.0,2.0,0.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0])) (\\[i6, i7] -> [ifH (0 <. quotH i6 (1 + i7) + negate i7) 0 1, i6, i7]))"
