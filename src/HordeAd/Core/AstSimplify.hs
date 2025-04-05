@@ -738,6 +738,7 @@ astLet :: forall y z s s2. (AstSpan s, AstSpan s2)
        -> AstTensor AstMethodLet s2 z
 astLet _var _u v@Ast.AstConcreteK{} = v
 astLet _var _u v@Ast.AstConcreteS{} = v
+astLet _var _u v@Ast.AstIotaS{} = v
 astLet var u v | astIsSmall True u =
   substituteAst u var v
 astLet var (Ast.AstPair u1 u2) v =
@@ -2350,6 +2351,10 @@ astFromS :: forall y z s.
             SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
 astFromS stkz v | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
+astFromS (STKScalar @r1) (AstConcreteS @r2 v)
+  | ZSS <- Nested.sshape v
+  , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) =
+    AstConcreteK (Nested.sunScalar v)
 astFromS stkz (Ast.AstFromPrimal v) =
   Ast.AstFromPrimal $ astFromS stkz v
   -- the only case where we don't push up but down so that conversions
@@ -3197,8 +3202,8 @@ contractAst t0 = case t0 of
                (contractAst (Ast.AstSum snat stk (Ast.AstSum snat2 stk2 t2)))
   Ast.AstSum snat stk v -> astSum snat stk (contractAst v)
   Ast.AstReplicate snat stk v -> case contractAst v of
---    AstConcreteK t -> astConcreteS $ treplicate snat stk $ Concrete t
---    AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
+    AstConcreteK t -> astConcreteS $ treplicate snat stk $ Concrete t
+    AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
     v2 -> astReplicate snat stk v2
   Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
     astMapAccumRDer k bftk eftk
@@ -3314,7 +3319,7 @@ contractAst t0 = case t0 of
               (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromK i)) -}
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (contractAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (contractAst a)
-  Ast.AstIotaS{} -> t0
+  Ast.AstIotaS (SNat @n) -> astConcreteS $ tsiota @_ @n
   Ast.AstAppendS x y -> case (contractAst x, contractAst y) of
     (AstConcreteS u, AstConcreteS v) ->
       astConcreteS (tsappend (Concrete u) (Concrete v))
@@ -3363,9 +3368,6 @@ astSum0S t = case t of
     astConcreteS $ tssum0 (Concrete v)
   Ast.AstFromPrimal u -> Ast.AstFromPrimal $ astSum0S u
   Ast.AstFromDual u -> Ast.AstFromDual $ astSum0S u
-  Ast.AstIotaS (SNat @n) ->
-    let i = fromInteger $ valueOf @n * (valueOf @n - 1) `div` 2
-    in AstConcreteS $ Nested.sscalar i
   Ast.AstReverseS u -> astSum0S u
   Ast.AstTransposeS _ u -> astSum0S u
   Ast.AstReshapeS _ u -> astSum0S u

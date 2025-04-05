@@ -892,7 +892,7 @@ testVstackBuildAstPP2 = do
      (simplifyInlineContract
         (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
                      (replIota2 10))))
-    @?= "rfromS (sappend (sreplicate @1 (sscalar 2.0)) (sappend ((sconcrete (sfromListLinear [8] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) * sslice (SNat @1) (SNat @8) (siota (SNat @10)) + (let v9 = treplicate (SNat @10) (STKScalar) 1 + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i14] -> [kfromS (v9 !$ [1 + i14])]) * sfromIntegral (sslice (SNat @1) (SNat @8) v9))) + (let v10 = treplicate (SNat @10) (STKScalar) (-1) + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i13] -> [kfromS (v10 !$ [1 + i13])]) * sfromIntegral (sslice (SNat @1) (SNat @8) v10))) (sreplicate @1 (sscalar 33.0))))"
+    @?= "rfromS (sappend (sconcrete (sfromListLinear [1] [2.0])) (sappend (sconcrete (sfromListLinear [8] [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0]) + (sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i14] -> [kfromS (sconcrete (sfromListLinear [10] [1,2,3,4,5,6,7,8,9,10]) !$ [1 + i14])]) * sfromIntegral (sslice (SNat @1) (SNat @8) (sconcrete (sfromListLinear [10] [1,2,3,4,5,6,7,8,9,10]))) + sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i13] -> [kfromS (sconcrete (sfromListLinear [10] [-1,0,1,2,3,4,5,6,7,8]) !$ [1 + i13])]) * sfromIntegral (sslice (SNat @1) (SNat @8) (sconcrete (sfromListLinear [10] [-1,0,1,2,3,4,5,6,7,8]))))) (sconcrete (sfromListLinear [1] [33.0]))))"
 
 testFooPP :: Assertion
 testFooPP = do
@@ -1353,7 +1353,7 @@ testReluMaxPP = do
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret m1 -> rfromS (sscatter (sfromR dret) (\\[i9, i10] -> [ifH (sscalar 0.0 <. sfromR m1 !$ [i9, i10]) 0 1, i9, i10]) !$ [0])"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\m1 -> rfromS (sgather (sfromVector (fromList [sfromR m1, sreplicate @3 (sreplicate @4 (sscalar 0.0))])) (\\[i6, i7] -> [ifH (sscalar 0.0 <. sfromR m1 !$ [i6, i7]) 0 1, i6, i7]))"
+    @?= "\\m1 -> rfromS (sgather (sfromVector (fromList [sfromR m1, sconcrete (sfromListLinear [3,4] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])])) (\\[i6, i7] -> [ifH (sscalar 0.0 <. sfromR m1 !$ [i6, i7]) 0 1, i6, i7]))"
   show deltas
     @?= "DeltaFromS (STKR (SNat @2) STKScalar) (DeltaShare 100000005 (DeltaGatherS [3,4] [] [2,3,4] (DeltaShare 100000003 (DeltaFromVector (SNat @2) (STKS [3,4] STKScalar) [DeltaSFromR [3,4] (DeltaInput (InputId 0)),DeltaZero (FTKS [3,4] FTKScalar)])) <function>))"
 
@@ -2422,4 +2422,4 @@ testConcatBuild3PP2 = do
   printArtifactPrimalSimple artifactRev
     @?= "\\v1 -> rfromS (sgather [] (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sreplicate @2 (sscalar 1) + siota (SNat @2))), sreplicate @5 (siota (SNat @2))]))) (\\[i6, i7] -> [ifH (0 <. quotH i6 (1 + i7) + negate i7) 0 1, i6, i7]))"
   printArtifactPrimalSimple (simplifyArtifact artifactRev)
-    @?= "\\v1 -> rfromS (sgather [] (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sreplicate @2 (sscalar 1) + siota (SNat @2))), sreplicate @5 (siota (SNat @2))]))) (\\[i6, i7] -> [ifH (0 <. quotH i6 (1 + i7) + negate i7) 0 1, i6, i7]))"
+    @?= "\\v1 -> rfromS (sgather [] (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [quotH (sconcrete (sfromListLinear [5,2] [0,0,1,1,2,2,3,3,4,4])) (sconcrete (sfromListLinear [5,2] [1,2,1,2,1,2,1,2,1,2])), sconcrete (sfromListLinear [5,2] [0,1,0,1,0,1,0,1,0,1])]))) (\\[i6, i7] -> [ifH (0 <. quotH i6 (1 + i7) + negate i7) 0 1, i6, i7]))"
