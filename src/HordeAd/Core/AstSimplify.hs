@@ -1845,11 +1845,10 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
       -- work would increate otherwise and most probably gather can't
       -- simplify anything that cast could not
 
-    Ast.AstIndexS @shm2 _shn2 v2 ix2 -> case (v2, ix2) of
-      (Ast.AstFromVector{}, i2 :.$ ZIS) ->
-        astGather @shm' @shn' @(shm2 ++ shp') shn' v2 (vars4, i2 :.$ ix4)
-      _ ->  -- AstVar, AstConcrete
-        Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+    {- is reverted in astGatherKnobsS immediatedly; maybe move to contraction?
+    Ast.AstIndexS @shm2 _shn2 v2 (i2 :.$ ZIS) ->
+        astGather @shm' @shn' @(shm2 ++ shp') shn' v2 (vars4, i2 :.$ ix4) -}
+    Ast.AstIndexS{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstScatterS @shm7 @shn7 @shp7 shn7 v (vars, AstIntVar var5 :.$ ix2)
       | AstIntVar var6 <- i4, var6 == var5 ->
           astGather @shm' @shn' @shp1' shn'
