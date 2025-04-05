@@ -1726,12 +1726,14 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
    | FTKS _ x <- ftkAst v4 = case v4 of
     Ast.AstProject1{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstProject2{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+    {- not possible at this point:
     Ast.AstFromVector _ STKS{} l | AstConcreteK it <- i4 ->
       let i = fromIntegral it
       in astGather @shm' @shn' @shp1' shn' (l V.! i) (vars4, rest4)
     Ast.AstFromVector _ STKScalar l | AstConcreteK it <- i4, ZIS <- rest4 ->
       let i = fromIntegral it
       in astGather @shm' @shn' @shp1' shn' (astSFromK (l V.! i)) (vars4, rest4)
+    -}
     {- Ast.AstFromVector{} | gatherFromNF (ixsToShS rest4) vars4 ix4 ->
         -- normal form
       Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4) -}
@@ -1854,6 +1856,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
                     (astScatterS @shm7 @shn7 @(Tail shp7) shn7
                                  v (vars, ix2))
                     (vars4, rest4)
+    {- not possible at this point:
     Ast.AstScatterS shn7 v (vars, AstConcreteK i5 :.$ ix2)
       | AstConcreteK i6 <- i4 ->
           if i6 == i5
@@ -1861,7 +1864,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
                          (astScatterS shn7 v (vars, ix2))
                          (vars4, rest4)
           else let ftk = FTKS (listsToShS vars4 `shsAppend` shn') x
-               in fromPrimal $ astConcrete ftk (treplTarget 0 ftk)
+               in fromPrimal $ astConcrete ftk (treplTarget 0 ftk) -}
     Ast.AstScatterS{} ->  -- normal form
       Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstGatherS @shm2 @shn2 @shp2 shn2 v2 (vars2, ix2)
@@ -1954,10 +1957,11 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
            Ast.AstMaxIndexS @(Head (shm' ++ (shn' ++ '[nl])))
                             @(Tail (shm' ++ (shn' ++ '[nl])))
            $ astGatherKnobsS knobs shnl v (vars4, ix4)
+    {- not possible at this point:
     Ast.AstIotaS{} | AstConcreteK i <- i4 ->
       fromPrimal $ AstConcreteS
       $ Nested.sreplicateScal (listsToShS vars4 `shsAppend` shn')
-      $ fromIntegral i
+      $ fromIntegral i -}
     Ast.AstIotaS{} ->  -- probably nothing can be simplified; a normal form
       Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstAppendS{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
