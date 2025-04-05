@@ -1210,7 +1210,7 @@ testUnitriangular1PP = do
       k = 1000000
       a1 = unitriangular1 @3 @Double @(AstTensor AstMethodLet PrimalSpan) k sh
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @1000000 (sreplicate @1000000 (sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 1.0))))), sreplicate @1000000 (sreplicate @1000000 (sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 0.0)))))])) (\\[i5, i6] -> [ifH (0 <. i5 + negate i6) 0 1, i5, i6]))"
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 1.0))), sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 0.0)))])) (\\[i3, i2] -> [ifH (0 <. i3 + negate i2) 0 1]))"
 
 unitriangular2 :: (KnownNat k, GoodScalar rk, ADReady target)
                => Int -> IShR k -> target (TKR (2 + k) rk)
@@ -1227,7 +1227,7 @@ testUnitriangular2PP = do
       k = 1000000
       a1 = unitriangular2 @3 @Double @(AstTensor AstMethodLet PrimalSpan) k sh
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @1000000 (sreplicate @1000000 (sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 0.0))))), sreplicate @1000000 (sreplicate @1000000 (sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 1.0)))))])) (\\[i3, i4] -> [ifH (0 <. i4 + negate i3) 0 1, i3, i4]))"
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 0.0))), sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 1.0)))])) (\\[i1, i2] -> [ifH (0 <. i2 + negate i1) 0 1]))"
 
 testSin0rmapAccumRD0S :: Assertion
 testSin0rmapAccumRD0S = do

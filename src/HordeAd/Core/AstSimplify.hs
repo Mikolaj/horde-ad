@@ -1738,9 +1738,11 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
     Ast.AstFromVector _ STKScalar l | AstConcreteK it <- i4, ZIS <- rest4 ->
       let i = fromIntegral it
       in astGather @shm' @shn' @shp1' shn' (astSFromK (l V.! i)) (vars4, rest4)
-    Ast.AstFromVector{} | gatherFromNF (ixsToShS rest4) vars4 ix4 ->
+    {- Ast.AstFromVector{} | gatherFromNF (ixsToShS rest4) vars4 ix4 ->
         -- normal form
-      Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
+      Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4) -}
+    {- this rule seems counterproductive in many cases, so disabled until
+       we can detect cases where it helps:
     Ast.AstFromVector snat STKS{} l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use tlet.
@@ -1757,8 +1759,8 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
                                                     `shsAppend` shn')
                                                    (ftkToSTK x))
                           $ V.map f l)
-                    (varsFresh, i5 :.$ IxS ixFresh)
-    Ast.AstFromVector{} -> error "astGatherCase: impossible case"
+                    (varsFresh, i5 :.$ IxS ixFresh) -}
+    Ast.AstFromVector{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     -- This accomplishes fusion if v is a gather or anything
     -- that gather can fuse with, but at the cost of an extra transpose
     -- that doesn't fuse here unless astTransposeAsGatherS is used.
