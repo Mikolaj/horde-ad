@@ -216,9 +216,6 @@ astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
 
 astPair :: AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s (TKProduct x y)
--- TODO, but maybe not the best idea?:
--- astPair (Ast.AstConcrete v1) (Ast.AstConcrete v2) =
---   Ast.AstConcrete (v1, v2)
 astPair (Ast.AstFromPrimal v1) (Ast.AstFromPrimal v2) =
   Ast.AstFromPrimal $ astPair v1 v2
 astPair (Ast.AstFromDual v1) (Ast.AstFromDual v2) =
@@ -263,6 +260,10 @@ astFromVector :: forall y k s. AstSpan s
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astFromVector (SNat' @1) stk v = astReplicate (SNat @1) stk (v V.! 0)
 astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
+  -- This disable some rules, e.g., indexing or summing of fromVector
+  -- of concrete arrays, but allocating an extra array of the same size
+  -- as the fromVector is not a big deal and early rules are better
+  -- then the same rules in contraction phase.
   (case (sameAstSpan @s @PrimalSpan, stk) of
      (Just Refl, STKScalar) ->
        let unConc :: AstTensor AstMethodLet PrimalSpan y
@@ -399,10 +400,6 @@ astReplicate :: forall y k s. AstSpan s
              -> AstTensor AstMethodLet s y
              -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astReplicate snat@SNat stk = \case
--- This allocates a tensor too early, while it's still possible a projection
--- reduces this away. Thanks to strides, the cost is neglible, though.
--- This would also hide AstReplicate from hacks that recover tmatmul2, etc.
---  AstConcrete t -> astConcrete $ treplicateR k t
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat stk v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReplicate snat stk v
   {- This is a bad idea, because transpose should be pushed down, not pulled up.
@@ -1005,6 +1002,7 @@ astFloorK :: (GoodScalar r1, RealFrac r1, GoodScalar r2, Integral r2)
           => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
           -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
 astFloorK t = case t of
+  -- These values are small, so we can simplify then ASAP.
   AstConcreteK k -> astConcreteK (tkfloor $ Concrete k)
   Ast.AstFloorK v -> astFloorK v
   Ast.AstFromIntegralK v -> astFromIntegralK v
@@ -1066,7 +1064,6 @@ astFloorS t = case t of
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astFloorS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astFloorK v)
-  AstConcreteS a -> astConcreteS (tsfloor $ Concrete a)
   Ast.AstLet var u v -> astLet var u (astFloorS v)
   Ast.AstScatterS shn v (vars, ix) ->
     astScatterS shn (astFloorS v) (vars, ix)
@@ -1100,7 +1097,6 @@ astFromIntegralS t = case t of
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astFromIntegralS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astFromIntegralK v)
-  AstConcreteS a -> astConcreteS (tsfromIntegral $ Concrete a)
   Ast.AstLet var u v -> astLet var u (astFromIntegralS v)
   Ast.AstN1S NegateOp u -> negate (astFromIntegralS u)
   Ast.AstN1S AbsOp u -> abs (astFromIntegralS u)
@@ -1143,7 +1139,6 @@ astCastS t = case t of
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astCastS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astCastK v)
-  AstConcreteS a -> astConcreteS (tscast $ Concrete a)
   Ast.AstLet var u v -> astLet var u (astCastS v)
   Ast.AstPrimalPart a -> Ast.AstPrimalPart $ astCastS a
   Ast.AstDualPart a -> Ast.AstDualPart $ astCastS a
@@ -1325,7 +1320,6 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                     withKnownShS shn $
                     withKnownShS (ixsToShS ix) $
                     astConcreteS (tsindex @_ @shm (Concrete a) (fromList ixInt))
-        -- TODO: we'd need mapM for Index to keep this rank-typed
       Nothing -> Ast.AstIndexS shn v0 ix
   Ast.AstFloorS v -> astFloorS $ astIndexKnobsS knobs shn v ix
   Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexKnobsS knobs shn v ix
@@ -1728,7 +1722,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
   astGatherCase _shn' v4 (vars4, ZIS) =
     astReplicateNS @shm' @shn' (listsToShS vars4) v4  -- not really possible
   astGatherCase shn' v4 ( !vars4
-                        , ix4@((:.$) @p1' @shp1' i4 rest4) )
+                        , ix4@((:.$) @_ @shp1' i4 rest4) )
    | FTKS _ x <- ftkAst v4 = case v4 of
     Ast.AstProject1{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstProject2{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
@@ -2060,29 +2054,6 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
     Ast.AstDot1InS{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstMatmul2S{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
 
-gatherFromNF :: forall shm n shp.
-                ShS shp -> AstVarListS shm
-                -> AstIxS AstMethodLet (n ': shp) -> Bool
-gatherFromNF shp vars (i :.$ IxS rest) | SNat <- shsRank shp =
-  case gcompare (listsRank rest) (listsRank vars) of
-    GGT -> False  -- this does not provide any proof, but it's fine
-    _ ->
-      withKnownShS (listsToShS vars) $
-      withKnownShS (takeShS @(Rank shp) $ listsToShS vars) $
-      withKnownShS (dropShS @(Rank shp) $ listsToShS vars) $
-      let cmp (AstIntVar var1, AstIntVar var2) = var1 == var2
-          cmp _ = False
-          (varsP, varsPM) = splitAt_Sized @_ @(Rank shp) vars
-          --TODO: varsP = listsTakeLen rest vars
-          --varsPM = listsDropLen rest vars
-          --varsP = takeShS @(Rank shp) vars
-          --varsPM = dropShS @(Rank shp) vars
-          intVars = listsFmap (Const . AstIntVar . getConst) varsP
-      in case testEquality (takeShS @(Rank shp) (listsToShS vars)) shp of
-           Just Refl -> all cmp (listsToList $ zipSizedS rest intVars)
-                        && not (any (`varNameInAst` i) $ listsToList varsPM)
-           Nothing -> False
-
 astAppendS :: AstSpan s
            => AstTensor AstMethodLet s (TKS2 (m ': sh) r)
            -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
@@ -2095,8 +2066,6 @@ astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
 astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKScalar l1)
            (Ast.AstFromVector (SNat @k2) STKScalar l2) =
   astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2
-astAppendS (AstConcreteS u) (AstConcreteS v) =
-  astConcreteS (tsappend (Concrete u) (Concrete v))
 astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
   Ast.AstFromPrimal $ astAppendS u v
 astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
@@ -2115,8 +2084,6 @@ astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKS{} v) =
   astReplicate (SNat @n) stk v
 astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKScalar v) =
   astReplicate (SNat @n) stk v
-astSliceS i n@SNat k (AstConcreteS t) =
-  astConcreteS (tsslice i n k $ Concrete t)
 astSliceS (SNat' @0) SNat (SNat' @0) v = v
 astSliceS SNat SNat SNat (Ast.AstGatherS shn v (Const var ::$ vars, ix)) =
   let ivar = valueOf @i + AstIntVar var
@@ -2172,7 +2139,6 @@ astReverseS :: forall n sh s r. AstSpan s
 astReverseS (Ast.AstFromVector snat stk l) =
   astFromVector snat stk $ V.reverse l
 astReverseS (Ast.AstReplicate snat stk v) = astReplicate snat stk v
-astReverseS (AstConcreteS t) = astConcreteS (tsreverse $ Concrete t)
 astReverseS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astReverseS v
 astReverseS (Ast.AstFromDual v) = Ast.AstFromDual $ astReverseS v
 astReverseS (Ast.AstGatherS @shm @shn @shp
@@ -2329,7 +2295,6 @@ astReshapeS sh2 t = case t of
                                        , Just Refl <- testEquality k k2 ->
     gcastWith (unsafeCoerceRefl :: Product rest2 :~: Product sh1) $
     astReplicate k (STKS rest2 x) $ astReshapeS rest2 u
-  AstConcreteS v -> astConcreteS (tsreshape sh2 $ Concrete v)
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 sh2 v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS sh2 v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReshapeS sh2 v
@@ -3125,7 +3090,7 @@ contractAstIxS = fmap contractAstInt
 contractAst
   :: forall s y. AstSpan s
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
-contractAst t = case t of
+contractAst t0 = case t0 of
   Ast.AstPair t1 t2 -> astPair (contractAst t1) (contractAst t2)
   Ast.AstProject1 v -> astProject1 (contractAst v)
   Ast.AstProject2 v -> astProject2 (contractAst v)
@@ -3228,7 +3193,10 @@ contractAst t = case t of
     astLet var (contractAst v)
                (contractAst (Ast.AstSum snat stk (Ast.AstSum snat2 stk2 t2)))
   Ast.AstSum snat stk v -> astSum snat stk (contractAst v)
-  Ast.AstReplicate snat stk v -> astReplicate snat stk (contractAst v)
+  Ast.AstReplicate snat stk v -> case contractAst v of
+--    AstConcreteK t -> astConcreteS $ treplicate snat stk $ Concrete t
+--    AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
+    v2 -> astReplicate snat stk v2
   Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
     astMapAccumRDer k bftk eftk
                     (contractAstHFun f)
@@ -3244,7 +3212,7 @@ contractAst t = case t of
                     (contractAst acc0)
                     (contractAst es)
   Ast.AstApply v ll -> astApply (contractAstHFun v) (contractAst ll)
-  Ast.AstVar{} -> t
+  Ast.AstVar{} -> t0
   Ast.AstCond b a2 a3 ->
     astCond (contractAstBool b) (contractAst a2) (contractAst a3)
   -- These are only needed for tests that don't vectorize Ast.
@@ -3310,9 +3278,15 @@ contractAst t = case t of
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (contractAst u) (contractAst v)
   Ast.AstI2S opCode u v -> Ast.AstI2S opCode (contractAst u) (contractAst v)
   AstConcreteS a -> AstConcreteS a
-  Ast.AstFloorS a -> astFloorS (contractAst a)
-  Ast.AstFromIntegralS v -> astFromIntegralS $ contractAst v
-  Ast.AstCastS v -> astCastS $ contractAst v
+  Ast.AstFloorS t -> case contractAst t of
+    AstConcreteS a -> astConcreteS (tsfloor $ Concrete a)
+    t2 -> astFloorS t2
+  Ast.AstFromIntegralS t -> case contractAst t of
+    AstConcreteS a -> astConcreteS (tsfromIntegral $ Concrete a)
+    t2 -> astFromIntegralS t2
+  Ast.AstCastS t -> case contractAst t of
+    AstConcreteS a -> astConcreteS (tscast $ Concrete a)
+    t2 -> astCastS t2
 
   Ast.AstIndexS shn v ix ->
     astIndexS shn (contractAst v) (contractAstIxS ix)
@@ -3337,12 +3311,21 @@ contractAst t = case t of
               (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromK i)) -}
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (contractAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (contractAst a)
-  Ast.AstIotaS{} -> t
-  Ast.AstAppendS x y -> astAppendS (contractAst x) (contractAst y)
-  Ast.AstSliceS i n k v -> astSliceS i n k (contractAst v)
-  Ast.AstReverseS v -> astReverseS (contractAst v)
+  Ast.AstIotaS{} -> t0
+  Ast.AstAppendS x y -> case (contractAst x, contractAst y) of
+    (AstConcreteS u, AstConcreteS v) ->
+      astConcreteS (tsappend (Concrete u) (Concrete v))
+    (x2, y2) -> astAppendS x2 y2
+  Ast.AstSliceS i n k t -> case contractAst t of
+    AstConcreteS v -> astConcreteS (tsslice i n k $ Concrete v)
+    t2 -> astSliceS i n k t2
+  Ast.AstReverseS t -> case contractAst t of
+    AstConcreteS v -> astConcreteS (tsreverse $ Concrete v)
+    t2 -> astReverseS t2
   Ast.AstTransposeS perm v -> astTransposeS perm $ contractAst v  -- TODO:(normalizePermutation perm)
-  Ast.AstReshapeS sh v -> astReshapeS sh $ contractAst v
+  Ast.AstReshapeS sh2 t -> case contractAst t of
+    AstConcreteS v -> astConcreteS (tsreshape sh2 $ Concrete v)
+    t2 -> astReshapeS sh2 t2
   Ast.AstZipS v -> Ast.AstZipS (contractAst v)
   Ast.AstUnzipS v -> Ast.AstUnzipS (contractAst v)
   Ast.AstNestS sh1 sh2 v ->
@@ -3355,10 +3338,10 @@ contractAst t = case t of
   Ast.AstSFromX sh v -> astSFromX sh $ contractAst v
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstSum0S{} -> t
-  Ast.AstDot0S{} -> t
-  Ast.AstDot1InS{} -> t
-  Ast.AstMatmul2S{} -> t
+  Ast.AstSum0S{} -> t0
+  Ast.AstDot0S{} -> t0
+  Ast.AstDot1InS{} -> t0
+  Ast.AstMatmul2S{} -> t0
 
 astSum0S :: AstSpan s
          => AstTensor AstMethodLet s (TKS2 sh x)

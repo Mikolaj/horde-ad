@@ -629,14 +629,14 @@ testGatherSimpPP33 = do
   resetVarCounter
   let !t1 = gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t1) @?= 1574
-  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 1334
+  length (show t1) @?= 2473
+  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 2233
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconcrete $ unConcrete t48))
                             (rreshape @10 [8, 16] t))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t2) @?= 710
-  length (show (simplifyInlineContract @(TKR 2 Float) @PrimalSpan t2)) @?= 470
+  length (show t2) @?= 1609
+  length (show (simplifyInlineContract @(TKR 2 Float) @PrimalSpan t2)) @?= 1369
 
 testGatherSimpPP34 :: Assertion
 testGatherSimpPP34 = do
@@ -644,16 +644,16 @@ testGatherSimpPP34 = do
   let !t1 = (\t -> rbuild1 4 (\i ->
              gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t1) @?= 2978
-  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 3007
+  length (show t1) @?= 3877
+  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 3906
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ unConcrete t48))
                                (rreshape @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t2) @?= 2059
-  length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 2088
+  length (show t2) @?= 2958
+  length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 2987
 
 gatherCond :: forall target r. (ADReady target, GoodScalar r)
            => target (TKR 2 r) -> target (TKR 2 r)
