@@ -69,6 +69,8 @@ testTrees =
   , testCase "minimizedCNNOPP3" testCNNOPP3
   , testCase "minimizedCNNOPP4" testCNNOPP4
   , testCase "minimizedCNNOPP5" testCNNOPP5
+  , testCase "minimizedCNNOPP6" testCNNOPP6
+  , testCase "ConvTomsSliceRev" testTomsSliceRev
   , testCase "ConvTomsSlice" testTomsSlice
   , testCase "ConvTomsSlicePP" testTomsSlicePP
   ]
@@ -698,6 +700,19 @@ testCNNOPP5 = do
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (str (sreplicate @1 (sgather (sconcrete (sfromListLinear [2] [7.0,0.0])) (\\[i13, i12, i4] -> [ifH ((notB (0 <. negate i13) &&* (-2) <. negate i13) &&* ((notB (0 <. negate i12) &&* (-2) <. negate i12) &&* (notB (0 <. negate i4) &&* (-2) <. negate i4))) 0 1]))))"
 
+testCNNOPP6 :: Assertion
+testCNNOPP6 = do
+  resetVarCounter
+  let artifactRev = revArtifactAdapt UseIncomingCotangent conv2dUnpadded4 (FTKR [2, 2, 2, 2] (FTKScalar @Double))
+  printArtifactPretty artifactRev
+    @?= "\\dret u1 -> let u27 = sscatter (ssum @1 (str (sfromR dret))) (\\[i24, i25, i26] -> [ifH ((notB (0 <. negate i24) &&* (-2) <. negate i24) &&* ((notB (0 <. negate i25) &&* (-2) <. negate i25) &&* (notB (0 <. negate i26) &&* (-2) <. negate i26))) 0 1, i24, i25, i26]) in rfromS (soneHot (ssum @1 (u27 !$ [0])) [0, 0])"
+  printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\dret u1 -> rfromS (soneHot (sscatter (sgather (sfromR dret) (\\[i29] -> [i29, 0])) (\\[i24, i25, i26] -> [ifH ((notB (0 <. negate i24) &&* (-2) <. negate i24) &&* ((notB (0 <. negate i25) &&* (-2) <. negate i25) &&* (notB (0 <. negate i26) &&* (-2) <. negate i26))) 0 1, i24, i25, i26]) !$ [0, 0]) [0, 0])"
+  printArtifactPrimalPretty artifactRev
+    @?= "\\u1 -> rfromS (str (sreplicate @1 (sgather (sfromVector (fromList [sreplicate @1 (sfromR u1 !$ [0, 0]), sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))])) (\\[i20, i21, i22] -> [ifH ((notB (0 <. negate i20) &&* (-2) <. negate i20) &&* ((notB (0 <. negate i21) &&* (-2) <. negate i21) &&* (notB (0 <. negate i22) &&* (-2) <. negate i22))) 0 1, i20, i21, i22]))))"
+  printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\u1 -> rfromS (str (sreplicate @1 (sgather (sfromVector (fromList [sreplicate @1 (sfromR u1 !$ [0, 0]), sconcrete (sfromListLinear [1,2,2] [0.0,0.0,0.0,0.0])])) (\\[i20, i21, i22] -> [ifH ((notB (0 <. negate i20) &&* (-2) <. negate i20) &&* ((notB (0 <. negate i21) &&* (-2) <. negate i21) &&* (notB (0 <. negate i22) &&* (-2) <. negate i22))) 0 1, i20, i21, i22]))))"
+
 maxPool2dUnpadded4
   :: (ADReady target, GoodScalar r)
   => target (TKR 4 r) -> target (TKR 4 r)
@@ -736,6 +751,12 @@ codeTomsSlice a =
   in rsum0 @2 $ rbuild [n,m] $ \[i, _j] ->
        rfromIndex0 i * rsum0 (a1 * a2)
 
+testTomsSliceRev :: Assertion
+testTomsSliceRev = do
+  assertEqualUpToEpsilon 1e-5
+    (ringestData [32,4] [63686.39999999999,137292.80000000002,121222.4,79558.40000000002,192646.40000000005,223971.0617601984,228556.80000000005,116846.33088019838,63686.39999999999,137292.80000000002,127174.4,79558.40000000002,192646.40000000005,158499.06176019844,202566.40000000005,51374.330880198424,11904.0,5952.0,7936.0,1984.0,116846.33088019838,385292.8000000001,227740.66176039676,192646.40000000005,116846.33088019838,228556.80000000005,174580.73088019836,35910.399999999994,79558.40000000002,127372.79999999997,143244.80000000002,63686.39999999999,105152.0,186683.13088000007,105151.98016,107124.73088000003,-396.79999999999995,26188.8,17459.2,25990.399999999998,-7936.0,73408.0,-1995.2691200000017,57536.0,51584.0,-660672.0,55552.0,3968.0,3968.0,3571.2,3571.2,-396.79999999999995,-396.79999999999995,49203.79519999998,49203.79519999998,49600.59519999998,49600.59519999998,49203.79519999998,49203.79519999998,-396.79999999999995,-396.79999999999995,49203.79519999998,49203.79519999998,49600.59519999998,49600.59519999998,129158.9952,65472.59519999998,79558.40000000002,-5952.0,73198.33087999995,51175.930880000036,51374.33087999995,51187.20000000001,1984.0000000000146,67059.20000000001,79558.40000000002,-5952.0,73198.33087999995,51175.930880000036,51374.33087999995,51187.20000000001,-21823.99999999993,108921.6,16070.400000000005,79558.40000000002,127372.79999999997,159116.80000000005,63686.39999999999,107124.73088000003,771974.4,218019.0617601984,192646.40000000005,170414.3308801984,385292.8000000001,340828.6617603968,192646.40000000005,57734.399999999994,99596.79999999999,137292.80000000002,63686.39999999999,79558.40000000002,127372.79999999997,159116.80000000005,63686.39999999999,107124.73088000003,236294.40000000005,271587.0617601984,192646.40000000005,45422.33088019842,385292.8000000001,162268.6617603968,192646.40000000005,57734.399999999994,99596.79999999999,137292.80000000002,63686.39999999999,79558.40000000002,127372.79999999997,159116.80000000005,63686.39999999999,107124.73088000003,369222.4,220003.0617601984,192646.40000000005,104942.33088019838,385292.8000000001,215836.66176039676,192646.40000000005])
+    (grad (kfromR . codeTomsSlice) (rreshape [32, 4] t128))
+
 testTomsSlice :: Assertion
 testTomsSlice = do
   assertEqualUpToEpsilon' 1e-5
@@ -745,8 +766,7 @@ testTomsSlice = do
 testTomsSlicePP :: Assertion
 testTomsSlicePP = do
   resetVarCounter
-  let f = codeTomsSlice
-      artifactRev = revArtifactAdapt UseIncomingCotangent f (FTKR [32, 4] FTKScalar)
+  let artifactRev = revArtifactAdapt UseIncomingCotangent codeTomsSlice (FTKR [32, 4] FTKScalar)
   printArtifactPretty artifactRev
     @?= "\\dret m1 -> let m10 = sreshape @[32,3] (sreplicate @96 (ssum @32 (siota (SNat @32) * ssum @4 (str (sreshape @[32,4] (sreplicate @128 (sfromR dret))))))) in rfromS (str (sappend (sconcrete (sfromListLinear [0,32] [])) (sappend (str (str (sslice (SNat @1) (SNat @3) (str (sfromR m1))) * m10)) (sconcrete (sfromListLinear [1,32] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])))) + str (sappend (sconcrete (sfromListLinear [1,32] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])) (sappend (str (str (sslice (SNat @0) (SNat @3) (str (sfromR m1))) * m10)) (sconcrete (sfromListLinear [0,32] [])))))"
   printArtifactPretty (simplifyArtifact artifactRev)

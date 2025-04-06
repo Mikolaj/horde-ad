@@ -2089,6 +2089,9 @@ astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKS{} v) =
 astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKScalar v) =
   astReplicate (SNat @n) stk v
 astSliceS (SNat' @0) SNat (SNat' @0) v = v
+astSliceS SNat (SNat' @1) SNat v | FTKS (_ :$$ sh) x <- ftkAst v =
+  astReplicate (SNat @1) (STKS sh (ftkToSTK x))
+               (astIndexS sh v (valueOf @i :.$ ZIS))
 astSliceS SNat SNat SNat (Ast.AstGatherS shn v (Const var ::$ vars, ix)) =
   let ivar = valueOf @i + AstIntVar var
       ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
