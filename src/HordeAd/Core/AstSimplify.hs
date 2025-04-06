@@ -3176,7 +3176,7 @@ contractAst t0 = case t0 of
          gcastWith (unsafeCoerceRefl
                     :: Permutation.PermutePrefix cperm (n : sh)
                        :~: sh ++ '[n]) $
-         fromMaybe (error "tsdot1In: impossible non-permutation")
+         fromMaybe (error "contractAst: impossible non-permutation")
          $ Permutation.permCheckPermutation cperm
          $ astDot1InS sh n (contractAst $ Ast.AstTransposeS cperm t2)
                            (contractAst $ Ast.AstTransposeS cperm u)
@@ -3764,24 +3764,24 @@ substitute1Ast i var = subst where
   Ast.AstSFromR sh v -> astSFromR sh <$> subst v
   Ast.AstSFromX sh v -> astSFromX sh <$> subst v
 
-  Ast.AstSum0S v -> Ast.AstSum0S <$> subst v
+  Ast.AstSum0S v -> astSum0S <$> subst v
   Ast.AstDot0S u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ Ast.AstDot0S (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ astDot0S (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstDot1InS sh n u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ Ast.AstDot1InS sh n (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ astDot1InS sh n (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstMatmul2S m n p u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ Ast.AstMatmul2S m n p (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ astMatmul2S m n p (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
 
 substitute1AstIxS
