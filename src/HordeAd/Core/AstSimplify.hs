@@ -1550,17 +1550,18 @@ astGatherKnobsS _ shn v0 (vars, AstConcreteK it :.$ _)
   , not (0 <= i && i < sNatValue snat) =
     let ftk = FTKS (listsToShS vars `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
-astGatherKnobsS knobs shn v
+astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (AstRelInt EqOp (AstConcreteK j)
                                 (AstIntVar varp)) i1 i2
     :.$ prest )
   | varNameToAstVarId varm == varNameToAstVarId varp =
     if j < 0 || j >= valueOf @m then
-      astGatherKnobsS knobs shn v (vars, i2 :.$ prest)
+      astGatherKnobsS knobs shn v0 (vars, i2 :.$ prest)
     else
       withSNat (fromIntegral j) $ \(SNat @j) ->
       gcastWith (unsafeCoerceRefl :: (j + 1 <=? m) :~: True) $
+      astLetFun v0 $ \v ->  -- TODO: share i2, prest, too; and elsewhere
       astGatherKnobsS knobs shn v
         ( (::$) @j (Const varm) mrest
         , i2 :.$ prest )
@@ -1576,19 +1577,20 @@ astGatherKnobsS knobs shn v
         , i2 :.$ substituteAstIxS
                    (AstConcreteK (j + 1) + AstIntVar varm)
                    varm prest )
-astGatherKnobsS knobs shn v
+astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (AstRelInt LsOp (AstConcreteK j)
                                 (AstIntVar varp)) i1 i2
     :.$ prest )
   | varNameToAstVarId varm == varNameToAstVarId varp =
     if | j + 1 <= 0 ->
-         astGatherKnobsS knobs shn v (vars, i1 :.$ prest)
+         astGatherKnobsS knobs shn v0 (vars, i1 :.$ prest)
        | j + 1 >= valueOf @m ->
-         astGatherKnobsS knobs shn v (vars, i2 :.$ prest)
+         astGatherKnobsS knobs shn v0 (vars, i2 :.$ prest)
        | otherwise ->
          withSNat (fromIntegral j + 1) $ \(SNat @j1) ->
          gcastWith (unsafeCoerceRefl :: (j1 <=? m) :~: True) $
+         astLetFun v0 $ \v ->
          astGatherKnobsS knobs shn v
            ( (::$) @j1 (Const varm) mrest
            , i2 :.$ prest )
@@ -1598,7 +1600,7 @@ astGatherKnobsS knobs shn v
            , i1 :.$ substituteAstIxS
                       (AstConcreteK (j + 1) + AstIntVar varm)
                       varm prest )
-astGatherKnobsS knobs shn v
+astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (AstRelInt LsOp (AstConcreteK j)
                                 (Ast.AstN1K NegateOp
@@ -1606,12 +1608,13 @@ astGatherKnobsS knobs shn v
     :.$ prest )
   | varNameToAstVarId varm == varNameToAstVarId varp =
     if | - j <= 0 ->
-         astGatherKnobsS knobs shn v (vars, i2 :.$ prest)
+         astGatherKnobsS knobs shn v0 (vars, i2 :.$ prest)
        | - j >= valueOf @m ->
-         astGatherKnobsS knobs shn v (vars, i1 :.$ prest)
+         astGatherKnobsS knobs shn v0 (vars, i1 :.$ prest)
        | otherwise ->
          withSNat (- fromIntegral j) $ \(SNat @mj) ->
          gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
+         astLetFun v0 $ \v ->
          astGatherKnobsS knobs shn v
            ( (::$) @mj (Const varm) mrest
            , i1 :.$ prest )
@@ -1621,22 +1624,22 @@ astGatherKnobsS knobs shn v
            , i2 :.$ substituteAstIxS
                       (AstConcreteK (- j) + AstIntVar varm)
                       varm prest)
-astGatherKnobsS knobs shn v
+astGatherKnobsS knobs shn v0
   ( (::$) @m (Const varm) mrest
   , (:.$) @p (AstIntVar varp) prest )
   | varm == varp
   , Nothing <- sameNat (Proxy @m) (Proxy @p)
-  , FTKS _ x <- ftkAst v =
+  , FTKS _ x <- ftkAst v0 =
     withSNat (min (valueOf @p) (valueOf @m)) $ \(SNat @m2) ->
       gcastWith (unsafeCoerceRefl :: (m2 <=? p) :~: True) $
       gcastWith (unsafeCoerceRefl :: (m2 <=? m) :~: True) $
-      let v2 = astSliceS (SNat @0) (SNat @m2) (SNat @(p - m2)) v
+      let v2 = astSliceS (SNat @0) (SNat @m2) (SNat @(p - m2)) v0
           ftk = FTKS (SNat @(m - m2) :$$ listsToShS mrest `shsAppend` shn) x
       in astGatherKnobsS knobs shn v2  -- now m2 and p2 are equal
            ((::$) @m2 (Const varm) mrest, AstIntVar varp :.$ prest)
          `astAppendS`
          fromPrimal (astConcrete ftk (tdefTarget ftk))
-astGatherKnobsS knobs shn v
+astGatherKnobsS knobs shn v0
   ( (::$) @m @shmTail (Const varm) mrest
   , (:.$) @p @shpTail (AstIntVar varp) prest )
   | knobPhase knobs == PhaseSimplification  -- prevent a loop
@@ -1665,15 +1668,15 @@ astGatherKnobsS knobs shn v
        $ Permutation.permCheckPermutation permVars
        $ fromMaybe (error "astGatherKnobsS: impossible non-permutation")
        $ Permutation.permCheckPermutation permIx
-       $ let v2 = astTransposeS permIx v
+       $ let v2 = astTransposeS permIx v0
          in astTransposeS
               permVars (astGatherKnobsS knobs (SNat @m :$$ shn)
                                         v2 (mrest, prest))
 -- Rules with AstConcreteK on the right hand side of AstPlusK are
 -- not needed, thanks to the normal form of AstPlusK rewriting.
-astGatherKnobsS knobs shn v
+astGatherKnobsS knobs shn v0
   (vars, AstPlusK (AstConcreteK i64) i1 :.$ prest)
-  | FTKS (SNat @p :$$ _) x <- ftkAst v =
+  | FTKS (SNat @p :$$ _) x <- ftkAst v0 =
     if i64 >= 0 then
       withSNat (fromIntegral i64) $ \(SNat @i) ->
         if i64 > valueOf @p then
@@ -1681,7 +1684,7 @@ astGatherKnobsS knobs shn v
           in fromPrimal $ astConcrete ftk (tdefTarget ftk)
         else
           gcastWith (unsafeCoerceRefl :: (i <=? p) :~: True) $
-          let v2 = astSliceS (SNat @i) (SNat @(p - i)) (SNat @0) v
+          let v2 = astSliceS (SNat @i) (SNat @(p - i)) (SNat @0) v0
           in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
                -- this gather may still index out of bounds, which is fine
     else
@@ -1689,7 +1692,7 @@ astGatherKnobsS knobs shn v
         let ftk = FTKS (SNat @i :$$ ixsToShS prest `shsAppend` shn) x
             v2 = fromPrimal (astConcrete ftk (tdefTarget ftk))
                  `astAppendS`
-                 v
+                 v0
         in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
              -- this gather may still index out of bounds, which is fine
 astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
