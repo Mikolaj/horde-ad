@@ -111,13 +111,17 @@ import HordeAd.Core.ConvertTensor
 
 -- * Expressing operations as Gather; introduces new variable names
 
+data RewritePhase =
+  PhaseNone | PhaseSimplification | PhaseExpansion | PhaseContraction
+ deriving Eq
+
 data SimplifyKnobs = SimplifyKnobs
   { knobStepOnly :: Bool
-  , knobExpand   :: Bool
+  , knobPhase    :: RewritePhase
   }
 
 defaultKnobs :: SimplifyKnobs
-defaultKnobs = SimplifyKnobs False False
+defaultKnobs = SimplifyKnobs False PhaseNone
 
 -- | We keep AstTranspose terms for as long as possible, because
 -- they are small and fuse nicely in many cases. For some forms of indexing
@@ -1650,51 +1654,33 @@ astGatherKnobsS knobs shn v
         in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
              -- this gather may still index out of bounds, which is fine
 astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
-  if | not (any (`varNameInAst` i1) $ listsToList vars0) ->
-       astGatherKnobsS @shm @shn @(Tail shp)
-         knobs shn
-         (astIndex (ixsToShS rest1 `shsAppend` shn) v0 (i1 :.$ ZIS))
-         (vars0, rest1)
-     | case iN of
-         AstIntVar varN' ->
-           varN' == getConst varN
-           && not (any (getConst varN `varNameInAst`) restN)
-         _ -> False
+  if | let restN = ixsInit ix0
+           varsN = listsInit vars0
+           varN = getConst $ listsLast vars0
      , kN@SNat <- shsLast (listsToShS vars0)
      , vkN@SNat <- shsLast (ixsToShS ix0)
-     , case testEquality kN vkN of
-         Just Refl -> True
-         _ -> False
-       -> gcastWith (unsafeCoerceRefl
-                     :: Init shp ++ (Last shm ': shn) :~: shp ++ shn) $
-          gcastWith (unsafeCoerceRefl
-                     :: Init shm ++ (Last shm ': shn) :~: shm ++ shn) $
-          astGatherKnobsS @(Init shm) @(Last shm ': shn) @(Init shp)
-                          knobs (shsLast (listsToShS vars0) :$$ shn)
-                          v0 (varsN, restN)
-     | varInIndexS (varNameToAstVarId $ getConst var1) ix0 ->
-       astGatherCase @shm @shn @shp shn v0 (vars0, ix0)
-     | otherwise ->
+     , AstIntVar ixvarN <- ixsLast ix0
+     , ixvarN == varN && not (any (varN `varNameInAst`) restN)
+     , Just Refl <- testEquality kN vkN ->
+       gcastWith (unsafeCoerceRefl
+                   :: Init shp ++ (Last shm ': shn) :~: shp ++ shn) $
+       gcastWith (unsafeCoerceRefl
+                   :: Init shm ++ (Last shm ': shn) :~: shm ++ shn) $
+       astGatherKnobsS @(Init shm) @(Last shm ': shn) @(Init shp)
+                       knobs (kN :$$ shn) v0 (varsN, restN)
+     | not (varInIndexS (varNameToAstVarId $ getConst var1) ix0) ->
        let k :$$ sh' = listsToShS vars0
            FTKS _ x = ftkAst v0
        in astReplicate k (STKS (sh' `shsAppend` shn) (ftkToSTK x))
-                      (astGatherKnobsS @(Tail shm) @shn @shp
-                                       knobs shn v0 (vars1, ix0))
+                       (astGatherKnobsS @(Tail shm) @shn @shp
+                                        knobs shn v0 (vars1, ix0))
+     | not (any (`varNameInAst` i1) $ listsToList vars0) ->
+       astGatherKnobsS @shm @shn
+         knobs shn
+         (astIndexKnobsS knobs (ixsToShS rest1 `shsAppend` shn) v0 (i1 :.$ ZIS))
+         (vars0, rest1)
+     | otherwise -> astGatherCase @shm @shn @shp shn v0 (vars0, ix0)
  where
-  restN = ixsInit ix0
-  iN = ixsLast ix0
-  varsN = listsInit vars0
-  varN = listsLast vars0
-  astIndex
-    :: forall shm' shn' s'. AstSpan s'
-    => ShS shn' -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r)
-    -> AstIxS AstMethodLet shm'
-    -> AstTensor AstMethodLet s' (TKS2 shn' r)
-  astIndex shn' v2 ix2 =
-    if knobStepOnly knobs
-    then astIndexKnobsS knobs shn'
-                        (astNonIndexStep v2) (simplifyAstIxS ix2)
-    else astIndexKnobsS knobs shn' v2 ix2
   astGatherRec, astGather
     :: forall shm' shn' shp' s' r'. AstSpan s'
     => ShS shn'
@@ -2858,13 +2844,13 @@ expandAst t = case t of
   Ast.AstCastS v -> astCastS $ expandAst v
 
   Ast.AstIndexS shn v ix ->
-    astIndexKnobsS (defaultKnobs {knobExpand = True})
+    astIndexKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
                    shn (expandAst v) (expandAstIxS ix)
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     astScatterS @shm @shn @shp shn (expandAst v) (vars, expandAstIxS ix)
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     astGatherKnobsS @shm @shn @shp
-                    (defaultKnobs {knobExpand = True})
+                    (defaultKnobs {knobPhase = PhaseExpansion})
                     shn (expandAst v) (vars, expandAstIxS ix)
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (expandAst a)
@@ -3036,11 +3022,14 @@ simplifyAst t = case t of
   Ast.AstCastS v -> astCastS $ simplifyAst v
 
   Ast.AstIndexS shn v ix ->
-    astIndexS shn (simplifyAst v) (simplifyAstIxS ix)
+    astIndexKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
+                   shn (simplifyAst v) (simplifyAstIxS ix)
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     astScatterS @shm @shn @shp shn (simplifyAst v) (vars, simplifyAstIxS ix)
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
-    astGatherS @shm @shn @shp shn (simplifyAst v) (vars, simplifyAstIxS ix)
+    astGatherKnobsS @shm @shn @shp
+                    (defaultKnobs {knobPhase = PhaseSimplification})
+                    shn (simplifyAst v) (vars, simplifyAstIxS ix)
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAst a)
   Ast.AstIotaS{} -> t
@@ -3338,7 +3327,8 @@ contractAst t0 = case t0 of
     t2 -> astCastS t2
 
   Ast.AstIndexS shn v ix ->
-    astIndexS shn (contractAst v) (contractAstIxS ix)
+    astIndexKnobsS (defaultKnobs {knobPhase = PhaseContraction})
+                   shn (contractAst v) (contractAstIxS ix)
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     astScatterS @shm @shn @shp shn (contractAst v) (vars, contractAstIxS ix)
   -- This rule is reverted in vectorization, so contraction phase may be fine.
@@ -3349,7 +3339,9 @@ contractAst t0 = case t0 of
                     (Ast.AstGatherS shn v (vars, i1 :.$ prest))
                     (Ast.AstGatherS shn v (vars, i2 :.$ prest))
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
-    astGatherS @shm @shn @shp shn (contractAst v) (vars, contractAstIxS ix)
+    astGatherKnobsS @shm @shn @shp
+                    (defaultKnobs {knobPhase = PhaseContraction})
+                    shn (contractAst v) (vars, contractAstIxS ix)
 {- TODO, but sbuild is tricky, so only if benchmarks show it's worth it:
   AstGatherS @shm AstIotaS (vars, i :.$ ZIS) | Refl <- lemAppNil @shm ->
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) shm :~: '[]) $
