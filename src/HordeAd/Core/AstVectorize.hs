@@ -227,12 +227,8 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
         -- we permit duplicated bindings, because they can't easily
         -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
-    Ast.AstN1K NegateOp u -> traceRule $
-      negate (build1V snat (var, u))
-    Ast.AstN1K AbsOp u -> traceRule $
-      abs (build1V snat (var, u))
-    Ast.AstN1K SignumOp u -> traceRule $
-      signum (build1V snat (var, u))
+    Ast.AstN1K opCode u -> traceRule $
+      Ast.AstN1S opCode (build1V snat (var, u))
     Ast.AstR1K opCode u -> traceRule $
       Ast.AstR1S opCode (build1V snat (var, u))
     Ast.AstR2K opCode u v -> traceRule $
@@ -259,12 +255,8 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
         -- we permit duplicated bindings, because they can't easily
         -- be substituted into one another unlike. e.g., inside a let,
         -- which may get inlined
-    Ast.AstN1S NegateOp u -> traceRule $
-      negate (build1V snat (var, u))
-    Ast.AstN1S AbsOp u -> traceRule $
-      abs (build1V snat (var, u))
-    Ast.AstN1S SignumOp u -> traceRule $
-      signum (build1V snat (var, u))
+    Ast.AstN1S opCode u -> traceRule $
+      Ast.AstN1S opCode (build1V snat (var, u))
     Ast.AstR1S opCode u -> traceRule $
       Ast.AstR1S opCode (build1V snat (var, u))
     Ast.AstR2S opCode u v -> traceRule $
