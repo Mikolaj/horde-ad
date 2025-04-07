@@ -707,7 +707,7 @@ testCNNOPP6 = do
   printArtifactPretty artifactRev
     @?= "\\dret u1 -> let u27 = sscatter (ssum @1 (str (sfromR dret))) (\\[i24, i25, i26] -> [ifH ((notB (0 <. negate i24) &&* (-2) <. negate i24) &&* ((notB (0 <. negate i25) &&* (-2) <. negate i25) &&* (notB (0 <. negate i26) &&* (-2) <. negate i26))) 0 1, i24, i25, i26]) in rfromS (soneHot (ssum @1 (u27 !$ [0])) [0, 0])"
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> rfromS (soneHot (sscatter (sgather (sfromR dret) (\\[i29] -> [i29, 0])) (\\[i24, i25, i26] -> [ifH ((notB (0 <. negate i24) &&* (-2) <. negate i24) &&* ((notB (0 <. negate i25) &&* (-2) <. negate i25) &&* (notB (0 <. negate i26) &&* (-2) <. negate i26))) 0 1, i24, i25, i26]) !$ [0, 0]) [0, 0])"
+    @?= "\\dret u1 -> rfromS (soneHot (sscatter (str (sfromR dret) !$ [0]) (\\[i24, i25, i26] -> [ifH ((notB (0 <. negate i24) &&* (-2) <. negate i24) &&* ((notB (0 <. negate i25) &&* (-2) <. negate i25) &&* (notB (0 <. negate i26) &&* (-2) <. negate i26))) 0 1, i24, i25, i26]) !$ [0, 0]) [0, 0])"
   printArtifactPrimalPretty artifactRev
     @?= "\\u1 -> rfromS (str (sreplicate @1 (sgather (sfromVector (fromList [sreplicate @1 (sfromR u1 !$ [0, 0]), sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))])) (\\[i20, i21, i22] -> [ifH ((notB (0 <. negate i20) &&* (-2) <. negate i20) &&* ((notB (0 <. negate i21) &&* (-2) <. negate i21) &&* (notB (0 <. negate i22) &&* (-2) <. negate i22))) 0 1, i20, i21, i22]))))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)

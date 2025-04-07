@@ -5,7 +5,7 @@ module HordeAd.Core.AstTools
   ( -- * Full tensor kind derivation
     ftkAst, isTensorInt
     -- * Variable occurrence detection
-  , varInAst, varInAstBool, varInIndexS, varNameInAst
+  , varInAst, varInAstBool, varInIxS, varNameInAst, varNameInIxS
     -- * Determining if a term is too small to require sharing
   , astIsSmall
     -- * Odds and ends
@@ -226,9 +226,9 @@ varInAst var = \case
   AstFromIntegralS a -> varInAst var a
   AstCastS t -> varInAst var t
 
-  AstIndexS _ v ix -> varInAst var v || varInIndexS var ix
-  AstScatterS _ v (_vars, ix) -> varInIndexS var ix || varInAst var v
-  AstGatherS _ v (_vars, ix) -> varInIndexS var ix || varInAst var v
+  AstIndexS _ v ix -> varInAst var v || varInIxS var ix
+  AstScatterS _ v (_vars, ix) -> varInIxS var ix || varInAst var v
+  AstGatherS _ v (_vars, ix) -> varInIxS var ix || varInAst var v
   AstMinIndexS a -> varInAst var a
   AstMaxIndexS a -> varInAst var a
   AstIotaS{} -> False
@@ -252,8 +252,8 @@ varInAst var = \case
   AstDot1InS _ _ u v -> varInAst var u || varInAst var v
   AstMatmul2S _ _ _ u v -> varInAst var u || varInAst var v
 
-varInIndexS :: AstVarId -> AstIxS ms sh -> Bool
-varInIndexS var = any (varInAst var)
+varInIxS :: AstVarId -> AstIxS ms sh -> Bool
+varInIxS var = any (varInAst var)
 
 varInAstHFun :: AstVarId -> AstHFun s s2 x y -> Bool
 varInAstHFun _var AstLambda{} =
@@ -269,6 +269,9 @@ varInAstBool var = \case
 
 varNameInAst :: AstVarName f y -> AstTensor ms s2 y2 -> Bool
 varNameInAst var = varInAst (varNameToAstVarId var)
+
+varNameInIxS :: AstVarName f y -> AstIxS ms sh -> Bool
+varNameInIxS var = varInIxS (varNameToAstVarId var)
 
 
 -- * Determining if a term requires sharing

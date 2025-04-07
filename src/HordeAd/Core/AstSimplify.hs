@@ -1409,15 +1409,21 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let iRev = simplifyAstInt (fromIntegral (valueOf @in1 - 1 :: Int) - i1)
       -- we generate this index, so we simplify on the spot
     in astIndex shn v (iRev :.$ rest1)
-  Ast.AstTransposeS @perm perm v
-    | gcompare (shsRank (ixsToShS ix)) (Permutation.permRank perm) == GLT ->
-        astIndex shn (astTransposeAsGatherS @perm knobs perm v) ix
-  Ast.AstTransposeS @perm @sh2 perm v ->
-    let ix2 :: AstIxS AstMethodLet (Permutation.PermutePrefix perm shm)
-        ix2 = ixsPermutePrefix perm ix
-    in gcastWith (unsafeCoerceRefl
-                  :: sh2 :~: Permutation.PermutePrefix perm shm ++ shn) $
-       astIndex @(Permutation.PermutePrefix perm shm) shn v ix2
+  Ast.AstTransposeS @perm @sh2 perm v
+    | gcompare (shsRank (ixsToShS ix)) (Permutation.permRank perm) /= GLT ->
+      let ix2 :: AstIxS AstMethodLet (Permutation.PermutePrefix perm shm)
+          ix2 = ixsPermutePrefix perm ix
+      in gcastWith (unsafeCoerceRefl
+                    :: sh2 :~: Permutation.PermutePrefix perm shm ++ shn) $
+         astIndex @(Permutation.PermutePrefix perm shm) shn v ix2
+  Ast.AstTransposeS{} | not (knobStepOnly knobs)
+                        && knobPhase knobs /= PhaseExpansion ->
+    Ast.AstIndexS shn v0 ix
+  Ast.AstTransposeS @perm perm v ->
+    astIndex shn (astTransposeAsGatherS @perm knobs perm v) ix
+  Ast.AstReshapeS{} | not (knobStepOnly knobs)
+                      && knobPhase knobs /= PhaseExpansion ->
+    Ast.AstIndexS shn v0 ix
   Ast.AstReshapeS sh v -> astIndex shn (astReshapeAsGatherS knobs sh v) ix
   Ast.AstZipS _ -> Ast.AstIndexS shn v0 ix
   Ast.AstNestS{} -> Ast.AstIndexS shn v0 ix
@@ -1472,7 +1478,7 @@ astScatterS shn v (vars, (:.$) @k (AstConcreteK _) rest)
     astReplicate (SNat @1) (STKS (ixsToShS rest `shsAppend` shn) (ftkToSTK x))
     $ astScatterS shn v (vars, rest)
 astScatterS shn v (Const var ::$ (vars :: AstVarListS sh3), ix)
-  | not $ varNameToAstVarId var `varInIndexS` ix
+  | not $ var `varNameInIxS` ix
   , FTKS _ x <- ftkAst v =
       astScatterS @sh3 @shn @shp shn
         (astSum SNat (STKS (listsToShS vars `shsAppend` shn) (ftkToSTK x)) v)
@@ -1619,7 +1625,7 @@ astGatherKnobsS knobs shn v
   ( (::$) @m (Const varm) mrest
   , (:.$) @p (AstIntVar varp) prest )
   | varm == varp
-  , valueOf @m /= (valueOf @p :: Int)  -- otherwise leave it for the iN case
+  , Nothing <- sameNat (Proxy @m) (Proxy @p)
   , FTKS _ x <- ftkAst v =
     withSNat (min (valueOf @p) (valueOf @m)) $ \(SNat @m2) ->
       gcastWith (unsafeCoerceRefl :: (m2 <=? p) :~: True) $
@@ -1630,6 +1636,39 @@ astGatherKnobsS knobs shn v
            ((::$) @m2 (Const varm) mrest, AstIntVar varp :.$ prest)
          `astAppendS`
          fromPrimal (astConcrete ftk (tdefTarget ftk))
+astGatherKnobsS knobs shn v
+  ( (::$) @m @shmTail (Const varm) mrest
+  , (:.$) @p @shpTail (AstIntVar varp) prest )
+  | knobPhase knobs == PhaseSimplification  -- prevent a loop
+  , varm == varp
+  , Just Refl <- sameNat (Proxy @m) (Proxy @p)
+  , not (varm `varNameInIxS` prest) =
+    let permVars3 = permCycle $ shsLength (listsToShS mrest) + 1
+        permIx3 = backpermCycle $ shsLength (ixsToShS prest) + 1
+    in Permutation.permFromList permVars3
+       $ \(permVars :: Permutation.Perm permVars) ->
+       Permutation.permFromList permIx3
+       $ \(permIx :: Permutation.Perm permIx) ->
+       gcastWith (unsafeCoerceRefl
+                  :: shm ++ shn
+                     :~: Permutation.PermutePrefix
+                           permVars (shmTail ++ (m ': shn))) $
+       gcastWith (unsafeCoerceRefl
+                  :: shpTail ++ (m ': shn)
+                     :~: Permutation.PermutePrefix permIx (shp ++ shn)) $
+       gcastWith (unsafeCoerceRefl
+                  :: (Rank permVars <=? Rank (shmTail ++ (m ': shn)))
+                     :~: True) $
+       gcastWith (unsafeCoerceRefl
+                  :: (Rank permIx <=? Rank (shp ++ shn)) :~: True) $
+       fromMaybe (error "astGatherKnobsS: impossible non-permutation")
+       $ Permutation.permCheckPermutation permVars
+       $ fromMaybe (error "astGatherKnobsS: impossible non-permutation")
+       $ Permutation.permCheckPermutation permIx
+       $ let v2 = astTransposeS permIx v
+         in astTransposeS
+              permVars (astGatherKnobsS knobs (SNat @m :$$ shn)
+                                        v2 (mrest, prest))
 -- Rules with AstConcreteK on the right hand side of AstPlusK are
 -- not needed, thanks to the normal form of AstPlusK rewriting.
 astGatherKnobsS knobs shn v
@@ -1660,7 +1699,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
      , kN@SNat <- shsLast (listsToShS vars0)
      , vkN@SNat <- shsLast (ixsToShS ix0)
      , AstIntVar ixvarN <- ixsLast ix0
-     , ixvarN == varN && not (any (varN `varNameInAst`) restN)
+     , ixvarN == varN && not (varN `varNameInIxS` restN)
      , Just Refl <- testEquality kN vkN ->
        gcastWith (unsafeCoerceRefl
                    :: Init shp ++ (Last shm ': shn) :~: shp ++ shn) $
@@ -1668,7 +1707,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
                    :: Init shm ++ (Last shm ': shn) :~: shm ++ shn) $
        astGatherKnobsS @(Init shm) @(Last shm ': shn) @(Init shp)
                        knobs (kN :$$ shn) v0 (varsN, restN)
-     | not (varInIndexS (varNameToAstVarId $ getConst var1) ix0) ->
+     | not (varNameInIxS (getConst var1) ix0) ->
        let k :$$ sh' = listsToShS vars0
            FTKS _ x = ftkAst v0
        in astReplicate k (STKS (sh' `shsAppend` shn) (ftkToSTK x))
@@ -1679,6 +1718,50 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
          knobs shn
          (astIndexKnobsS knobs (ixsToShS rest1 `shsAppend` shn) v0 (i1 :.$ ZIS))
          (vars0, rest1)
+     | i :.$ rest <- rest1  -- TODO: generalize
+     , not (any (`varNameInAst` i) $ listsToList vars0)
+     , knobPhase knobs == PhaseSimplification ->  -- prevent a loop
+       gcastWith (unsafeCoerceRefl :: (2 <=? Rank (shp ++ shn)) :~: True) $
+       astGatherKnobsS @shm @shn
+         knobs shn
+         (astIndexKnobsS knobs
+            (ixsToShS (i1 :.$ rest) `shsAppend` shn)
+            (astTransposeS (Permutation.makePerm @'[1, 0]) v0)
+            (i :.$ ZIS))
+         (vars0, i1 :.$ rest)
+     | i2 :.$ i :.$ rest <- rest1
+     , not (any (`varNameInAst` i) $ listsToList vars0)
+     , knobPhase knobs == PhaseSimplification ->
+       gcastWith (unsafeCoerceRefl :: (3 <=? Rank (shp ++ shn)) :~: True) $
+       astGatherKnobsS @shm @shn
+         knobs shn
+         (astIndexKnobsS knobs
+            (ixsToShS (i1 :.$ i2 :.$ rest) `shsAppend` shn)
+            (astTransposeS (Permutation.makePerm @'[2, 0, 1]) v0)
+            (i :.$ ZIS))
+         (vars0, i1 :.$ i2 :.$ rest)
+     | i2 :.$ i3 :.$ i :.$ rest <- rest1
+     , not (any (`varNameInAst` i) $ listsToList vars0)
+     , knobPhase knobs == PhaseSimplification ->
+       gcastWith (unsafeCoerceRefl :: (4 <=? Rank (shp ++ shn)) :~: True) $
+       astGatherKnobsS @shm @shn
+         knobs shn
+         (astIndexKnobsS knobs
+            (ixsToShS (i1 :.$ i2 :.$ i3 :.$ rest) `shsAppend` shn)
+            (astTransposeS (Permutation.makePerm @'[3, 0, 1, 2]) v0)
+            (i :.$ ZIS))
+         (vars0, i1 :.$ i2 :.$ i3 :.$ rest)
+     | i2 :.$ i3 :.$ i4 :.$ i :.$ rest <- rest1
+     , not (any (`varNameInAst` i) $ listsToList vars0)
+     , knobPhase knobs == PhaseSimplification ->
+       gcastWith (unsafeCoerceRefl :: (5 <=? Rank (shp ++ shn)) :~: True) $
+       astGatherKnobsS @shm @shn
+         knobs shn
+         (astIndexKnobsS knobs
+            (ixsToShS (i1 :.$ i2 :.$ i3 :.$ i4 :.$ rest) `shsAppend` shn)
+            (astTransposeS (Permutation.makePerm @'[4, 0, 1, 2, 3]) v0)
+            (i :.$ ZIS))
+         (vars0, i1 :.$ i2 :.$ i3 :.$ i4 :.$ rest)
      | otherwise -> astGatherCase @shm @shn @shp shn v0 (vars0, ix0)
  where
   astGatherRec, astGather
