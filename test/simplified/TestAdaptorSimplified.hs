@@ -820,42 +820,12 @@ testVstackBuildAstPP = do
           (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double . fromTarget)
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstPretty ast3
-    @?= "\\v1 -> rfromS (let m6 = sfromVector (fromList [sreplicate @10 (sfromR (tproject1 (tproject1 v1)) !$ [0] + sfromR (tproject2 (tproject1 v1)) !$ [1]), let m5 = sfromVector (fromList [sreplicate @10 (sfromR (tproject1 (tproject1 v1)) !$ [9] + sfromR (tproject2 v1) !$ [8]), (sfromR (tproject1 (tproject1 v1)) + sappend (sslice (SNat @1) (SNat @9) (sfromR (tproject2 (tproject1 v1)))) (sconcrete (sfromListLinear [1] [0.0]))) + sappend (sconcrete (sfromListLinear [1] [0.0])) (sslice (SNat @0) (SNat @9) (sfromR (tproject2 v1)))]) in sappend (sslice (SNat @0) (SNat @9) (m5 !$ [1])) (sreplicate @1 (m5 !$ [0, 9]))]) in sappend (sreplicate @1 (m6 !$ [0, 0])) (sslice (SNat @1) (SNat @9) (m6 !$ [1])))"
+    @?= "\\v1 -> rfromS (let v9 = sreplicate @10 (sfromR (tproject1 (tproject1 v1)) !$ [0] + sfromR (tproject2 (tproject1 v1)) !$ [1]) ; v10 = let v6 = sreplicate @10 (sfromR (tproject1 (tproject1 v1)) !$ [9] + sfromR (tproject2 v1) !$ [8]) ; v7 = (sfromR (tproject1 (tproject1 v1)) + sappend (sslice (SNat @1) (SNat @9) (sfromR (tproject2 (tproject1 v1)))) (sconcrete (sfromListLinear [1] [0.0]))) + sappend (sconcrete (sfromListLinear [1] [0.0])) (sslice (SNat @0) (SNat @9) (sfromR (tproject2 v1))) in sappend (sslice (SNat @0) (SNat @9) v7) (sreplicate @1 (v6 !$ [9])) in sappend (sreplicate @1 (v9 !$ [0])) (sslice (SNat @1) (SNat @9) v10))"
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstPretty (simplifyInlineContract ast3)
-    @?= "\\v1 -> rfromS (let m6 = sfromVector (fromList [sreplicate @10 (sfromR (tproject1 (tproject1 v1)) !$ [0] + sfromR (tproject2 (tproject1 v1)) !$ [1]), let m5 = sfromVector (fromList [sreplicate @10 (sfromR (tproject1 (tproject1 v1)) !$ [9] + sfromR (tproject2 v1) !$ [8]), (sfromR (tproject1 (tproject1 v1)) + sappend (sslice (SNat @1) (SNat @9) (sfromR (tproject2 (tproject1 v1)))) (sconcrete (sfromListLinear [1] [0.0]))) + sappend (sconcrete (sfromListLinear [1] [0.0])) (sslice (SNat @0) (SNat @9) (sfromR (tproject2 v1)))]) in sappend (sslice (SNat @0) (SNat @9) (m5 !$ [1])) (sreplicate @1 (m5 !$ [0, 9]))]) in sappend (sreplicate @1 (m6 !$ [0, 0])) (sslice (SNat @1) (SNat @9) (m6 !$ [1])))"
+    @?= "\\v1 -> rfromS (sappend (sreplicate @1 (sfromR (tproject1 (tproject1 v1)) !$ [0] + sfromR (tproject2 (tproject1 v1)) !$ [1])) (sappend ((sslice (SNat @1) (SNat @8) (sfromR (tproject1 (tproject1 v1))) + sslice (SNat @2) (SNat @8) (sfromR (tproject2 (tproject1 v1)))) + sslice (SNat @0) (SNat @8) (sfromR (tproject2 v1))) (sreplicate @1 (sfromR (tproject1 (tproject1 v1)) !$ [9] + sfromR (tproject2 v1) !$ [8]))))"
 
 {- The above is:
-\v1 ->
-  rfromS
-    (let m6 =
-           sfromVector
-             (fromList
-                [ sreplicate @10
-                    (sfromR (tproject1 (tproject1 v1)) 80 [0] +
-                     sfromR (tproject2 (tproject1 v1)) 80 [1])
-                , let m5 =
-                        sfromVector
-                          (fromList
-                             [ sreplicate @10
-                                 (sfromR (tproject1 (tproject1 v1)) 80 [9] +
-                                  sfromR (tproject2 v1) 80 [8])
-                             , (sfromR (tproject1 (tproject1 v1)) +
-                                sappend
-                                  (sslice (SNat @1) (SNat @9) (sfromR (tproject2 (tproject1 v1))))
-                                  (sconcrete (sfromListLinear [1] [0.0]))) +
-                               sappend
-                                 (sconcrete (sfromListLinear [1] [0.0]))
-                                 (sslice (SNat @0) (SNat @9) (sfromR (tproject2 v1)))
-                             ])
-                   in sappend
-                        (sslice (SNat @0) (SNat @9) (m5 80 [1]))
-                        (sreplicate @1 (m5 80 [0, 9]))
-                ])
-      in sappend (sreplicate @1 (m6 80 [0, 0])) (sslice (SNat @1) (SNat @9) (m6 80 [1])))
-
-was:
-
 \v1 ->
   rfromS
     (sappend
@@ -917,12 +887,12 @@ testVstackBuildAstPP2 = do
   (printAstPretty
      (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
                   (replIota2 10)))
-    @?= "rfromS (let m9 = sfromVector (fromList [sreplicate @10 (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) !$ [0] * siota (SNat @10) !$ [0] + sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0]) !$ [1] * siota (SNat @10) !$ [1]), let m8 = sfromVector (fromList [sreplicate @10 (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) !$ [9] * siota (SNat @10) !$ [9] + sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]) !$ [8] * siota (SNat @10) !$ [8]), (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) * siota (SNat @10) + (let v2 = treplicate (SNat @10) (STKScalar) 1 + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i7] -> [kfromS (v2 !$ [i7])]) * sfromIntegral v2)) + (let v3 = treplicate (SNat @10) (STKScalar) (-1) + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i6] -> [kfromS (v3 !$ [i6])]) * sfromIntegral v3)]) in sappend (sslice (SNat @0) (SNat @9) (m8 !$ [1])) (sreplicate @1 (m8 !$ [0, 9]))]) in sappend (sreplicate @1 (m9 !$ [0, 0])) (sslice (SNat @1) (SNat @9) (m9 !$ [1])))"
+    @?= "rfromS (let v12 = sreplicate @10 (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) !$ [0] * siota (SNat @10) !$ [0] + sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0]) !$ [1] * siota (SNat @10) !$ [1]) ; v13 = let v9 = sreplicate @10 (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) !$ [9] * siota (SNat @10) !$ [9] + sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]) !$ [8] * siota (SNat @10) !$ [8]) ; v10 = (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) * siota (SNat @10) + (let v2 = treplicate (SNat @10) (STKScalar) 1 + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i7] -> [kfromS (v2 !$ [i7])]) * sfromIntegral v2)) + (let v3 = treplicate (SNat @10) (STKScalar) (-1) + siota (SNat @10) in sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i6] -> [kfromS (v3 !$ [i6])]) * sfromIntegral v3) in sappend (sslice (SNat @0) (SNat @9) v10) (sreplicate @1 (v9 !$ [9])) in sappend (sreplicate @1 (v12 !$ [0])) (sslice (SNat @1) (SNat @9) v13))"
   (printAstPretty
      (simplifyInlineContract
         (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
                      (replIota2 10))))
-    @?= "rfromS (let m18 = sfromVector (fromList [sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0]), let m17 = sfromVector (fromList [sconcrete (sfromListLinear [10] [33.0,33.0,33.0,33.0,33.0,33.0,33.0,33.0,33.0,33.0]), sconcrete (sfromListLinear [10] [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]) + (sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i16] -> [kfromS (sconcrete (sfromListLinear [10] [1,2,3,4,5,6,7,8,9,10]) !$ [i16])]) * sfromIntegral (sconcrete (sfromListLinear [10] [1,2,3,4,5,6,7,8,9,10])) + sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i15] -> [kfromS (sconcrete (sfromListLinear [10] [-1,0,1,2,3,4,5,6,7,8]) !$ [i15])]) * sfromIntegral (sconcrete (sfromListLinear [10] [-1,0,1,2,3,4,5,6,7,8])))]) in sappend (sslice (SNat @0) (SNat @9) (m17 !$ [1])) (sreplicate @1 (m17 !$ [0, 9]))]) in sappend (sreplicate @1 (m18 !$ [0, 0])) (sslice (SNat @1) (SNat @9) (m18 !$ [1])))"
+    @?= "rfromS (sappend (sconcrete (sfromListLinear [1] [2.0])) (sappend (sconcrete (sfromListLinear [8] [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0]) + (sgather (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])) (\\[i20] -> [kfromS (sconcrete (sfromListLinear [10] [1,2,3,4,5,6,7,8,9,10]) !$ [1 + i20])]) * sfromIntegral (sslice (SNat @1) (SNat @8) (sconcrete (sfromListLinear [10] [1,2,3,4,5,6,7,8,9,10]))) + sgather (sconcrete (sfromListLinear [10] [3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0])) (\\[i19] -> [kfromS (sconcrete (sfromListLinear [10] [-1,0,1,2,3,4,5,6,7,8]) !$ [1 + i19])]) * sfromIntegral (sslice (SNat @1) (SNat @8) (sconcrete (sfromListLinear [10] [-1,0,1,2,3,4,5,6,7,8]))))) (sconcrete (sfromListLinear [1] [33.0]))))"
 
 testFooPP :: Assertion
 testFooPP = do

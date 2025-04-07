@@ -766,6 +766,39 @@ astLet var (Ast.AstFromDual (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
       substituteAst (Ast.AstFromDual (Ast.AstPair ast1 ast2)) var v
+-- This is a common case, e.g., from representing conditionals.
+astLet var (Ast.AstFromVector snat stk u) v | V.length u == 2 =
+  astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
+    substituteAst (Ast.AstFromVector snat stk $ fromList [ast1, ast2]) var v
+astLet var (Ast.AstFromPrimal
+              (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
+  astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
+    substituteAst (Ast.AstFromPrimal (Ast.AstFromVector snat stk
+                                      $ fromList [ast1, ast2])) var v
+astLet var (Ast.AstFromDual
+              (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
+  astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
+    substituteAst (Ast.AstFromDual (Ast.AstFromVector snat stk
+                                    $ fromList [ast1, ast2])) var v
+astLet var (Ast.AstLet varN uN
+              (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
+  astLet varN uN
+  $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
+      substituteAst (Ast.AstFromVector snat stk $ fromList [ast1, ast2]) var v
+astLet var (Ast.AstFromPrimal
+              (Ast.AstLet varN uN
+                 (Ast.AstFromVector snat stk u))) v | V.length u == 2 =
+  astLet varN uN
+  $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
+      substituteAst (Ast.AstFromPrimal (Ast.AstFromVector snat stk
+                                        $ fromList [ast1, ast2])) var v
+astLet var (Ast.AstFromDual
+              (Ast.AstLet varN uN
+                 (Ast.AstFromVector snat stk u))) v | V.length u == 2 =
+  astLet varN uN
+  $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
+      substituteAst (Ast.AstFromDual (Ast.AstFromVector snat stk
+                                      $ fromList [ast1, ast2])) var v
 astLet var u v@(Ast.AstVar var2) =
   if varNameToAstVarId var2 == varNameToAstVarId var
   then case sameAstSpan @s @s2 of

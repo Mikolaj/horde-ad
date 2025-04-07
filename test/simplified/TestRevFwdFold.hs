@@ -1102,7 +1102,7 @@ testSin0Scan1Rev3PP0 = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromS (let v10 = tmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sconcrete (sfromListLinear [2] [1.0,1.0])) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) (sconcrete (sfromListLinear [2] [5.5,7.700000000000001]))))) (sconcrete (sfromListLinear [2] [5.5,7.700000000000001])))) in sscalar 1.0 + (sscalar 5.0 * tproject2 v10 !$ [0] + (sscalar 7.0 * tproject2 v10 !$ [1] + tproject1 v10)))"
+    @?= "rfromS (let v13 = tmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sconcrete (sfromListLinear [2] [1.0,1.0])) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) (sconcrete (sfromListLinear [2] [5.5,7.700000000000001]))))) (sconcrete (sfromListLinear [2] [5.5,7.700000000000001])))) in sscalar 1.0 + (sscalar 5.0 * tproject2 v13 !$ [0] + (sscalar 7.0 * tproject2 v13 !$ [1] + tproject1 v13)))"
 
 
 testSin0Scan1Rev3PPForComparison :: Assertion
