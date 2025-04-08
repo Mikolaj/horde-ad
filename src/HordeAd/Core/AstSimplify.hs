@@ -1477,7 +1477,8 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
 -- so it's probably more efficient. Use this instead of tletIx
 -- or design something even better.
-shareIx :: AstIxS AstMethodLet shm
+shareIx :: AstSpan s
+        => AstIxS AstMethodLet shm
         -> (AstIxS AstMethodLet shm -> AstTensor AstMethodLet s y)
         -> AstTensor AstMethodLet s y
 {-# NOINLINE shareIx #-}
@@ -1489,7 +1490,7 @@ shareIx ix f = unsafePerformIO $ do
       shareI i = funToAstIntVarIO $ \ (!varFresh, !astVarFresh) ->
                    (Just (varFresh, i), astVarFresh)
   (bindings, ix2) <- mapAndUnzipM shareI (Foldable.toList ix)
-  return $! foldr (uncurry Ast.AstLet)
+  return $! foldr (uncurry astLet)
                   (withKnownShS (ixsToShS ix) $ f $ fromList ix2)
                   (catMaybes bindings)
 
