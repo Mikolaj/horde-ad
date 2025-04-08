@@ -548,9 +548,9 @@ printAstHFunOneUnignore cfg d = \case
 
 printAstBool :: PrintConfig -> Int -> AstBool ms -> ShowS
 printAstBool cfg d = \case
-  AstBoolNot u -> printPrefixOp printAstBool cfg d "notB" [u]
-  AstB2 opCode arg1 arg2 -> printAstB2 cfg d opCode arg1 arg2
   AstBoolConst b -> showString $ if b then "true" else "false"
+  AstBoolNot u -> printPrefixOp printAstBool cfg d "notB" [u]
+  AstBoolAnd u v -> printBinaryOp printAstBool cfg d u (3, "&&*") v
   AstRelK opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
   AstRelS opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
 
@@ -614,12 +614,6 @@ printBinaryOp pr cfg d left (prec, opstr) right =
   $ pr cfg (prec + 1) left
     . showString (" " ++ opstr ++ " ")
     . pr cfg (prec + 1) right
-
-printAstB2
-  :: PrintConfig -> Int -> OpCodeBool -> AstBool ms -> AstBool ms -> ShowS
-printAstB2 cfg d opCode arg1 arg2 = case opCode of
-  AndOp -> printBinaryOp printAstBool cfg d arg1 (3, "&&*") arg2
-  OrOp -> printBinaryOp printAstBool cfg d arg1 (2, "||*") arg2
 
 printAstRelOp :: (PrintConfig -> Int -> a -> ShowS)
               -> PrintConfig -> Int -> OpCodeRel -> a -> a

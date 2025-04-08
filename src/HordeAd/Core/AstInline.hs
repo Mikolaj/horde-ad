@@ -236,14 +236,14 @@ inlineAstHFun memo v0 = case v0 of
 inlineAstBool :: AstMemo -> AstBool AstMethodLet
               -> (AstMemo, AstBool AstMethodLet)
 inlineAstBool memo v0 = case v0 of
+  Ast.AstBoolConst{} -> (memo, v0)
   Ast.AstBoolNot arg ->
     let (memo2, arg2) = inlineAstBool memo arg
     in (memo2, Ast.AstBoolNot arg2)
-  Ast.AstB2 opCodeBool arg1 arg2 ->
+  Ast.AstBoolAnd arg1 arg2 ->
     let (memo1, b1) = inlineAstBool memo arg1
         (memo2, b2) = inlineAstBool memo1 arg2
-    in (memo2, Ast.AstB2 opCodeBool b1 b2)
-  Ast.AstBoolConst{} -> (memo, v0)
+    in (memo2, Ast.AstBoolAnd b1 b2)
   Ast.AstRelK opCodeRel arg1 arg2 ->
     let (memo1, r1) = inlineAst memo arg1
         (memo2, r2) = inlineAst memo1 arg2
@@ -511,14 +511,14 @@ unshareAstHFun memo v0 = case v0 of
 unshareAstBool :: AstBindings -> AstBool AstMethodShare
                -> (AstBindings, AstBool AstMethodLet)
 unshareAstBool memo = \case
+  Ast.AstBoolConst t -> (memo, Ast.AstBoolConst t)
   Ast.AstBoolNot arg ->
     let (memo2, arg2) = unshareAstBool memo arg
     in (memo2, Ast.AstBoolNot arg2)
-  Ast.AstB2 opCodeBool arg1 arg2 ->
+  Ast.AstBoolAnd arg1 arg2 ->
     let (memo1, b1) = unshareAstBool memo arg1
         (memo2, b2) = unshareAstBool memo1 arg2
-    in (memo2, Ast.AstB2 opCodeBool b1 b2)
-  Ast.AstBoolConst t -> (memo, Ast.AstBoolConst t)
+    in (memo2, Ast.AstBoolAnd b1 b2)
   Ast.AstRelK opCodeRel arg1 arg2 ->
     let (memo1, r1) = unshareAst memo arg1
         (memo2, r2) = unshareAst memo1 arg2

@@ -32,7 +32,7 @@ module HordeAd.Core.Ast
   , AstMethodOfSharing(..), AstTensor(..)
   , AstHFun(..)
   , AstBool(..), OpCodeNum1(..), OpCode1(..), OpCode2(..)
-  , OpCodeIntegral2(..), OpCodeBool(..), OpCodeRel(..)
+  , OpCodeIntegral2(..), OpCodeRel(..)
   ) where
 
 import Prelude hiding (foldl')
@@ -450,7 +450,7 @@ type role AstBool nominal
 data AstBool ms where
   AstBoolConst :: Bool -> AstBool ms
   AstBoolNot :: AstBool ms -> AstBool ms
-  AstB2 :: OpCodeBool -> AstBool ms -> AstBool ms -> AstBool ms
+  AstBoolAnd :: AstBool ms -> AstBool ms -> AstBool ms
   -- There are existential variables here.
   AstRelK :: forall r ms. GoodScalar r
           => OpCodeRel
@@ -483,10 +483,6 @@ data OpCode2 =
 
 data OpCodeIntegral2 =
     QuotOp | RemOp
- deriving Show
-
-data OpCodeBool =
-    AndOp | OrOp
  deriving Show
 
 data OpCodeRel =

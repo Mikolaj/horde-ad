@@ -261,9 +261,9 @@ varInAstHFun _var AstLambda{} =
 
 varInAstBool :: AstVarId -> AstBool ms -> Bool
 varInAstBool var = \case
-  AstBoolNot b -> varInAstBool var b
-  AstB2 _ arg1 arg2 -> varInAstBool var arg1 || varInAstBool var arg2
   AstBoolConst{} -> False
+  AstBoolNot b -> varInAstBool var b
+  AstBoolAnd arg1 arg2 -> varInAstBool var arg1 || varInAstBool var arg2
   AstRelK _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
   AstRelS _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
 

@@ -654,12 +654,8 @@ instance Boolean (AstBool ms) where
   AstBoolConst False &&* _b = AstBoolConst False
   b &&* AstBoolConst True = b
   _b &&* AstBoolConst False = AstBoolConst False
-  b &&* c = AstB2 AndOp b c
-  AstBoolConst True ||* _b = AstBoolConst True
-  AstBoolConst False ||* b = b
-  _b ||* AstBoolConst True = AstBoolConst True
-  b ||* AstBoolConst False = b
-  b ||* c = AstB2 OrOp b c
+  b &&* c = AstBoolAnd b c
+  b ||* c = notB (notB b &&* notB c)
 
 -- TODO: refactor with something like liftRFromS2
 instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKR n r) where

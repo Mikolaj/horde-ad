@@ -3052,10 +3052,9 @@ expandAstHFun (AstLambda var l) = AstLambda var (expandAst l)
 
 expandAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 expandAstBool t = case t of
-  Ast.AstBoolNot arg -> notB $ expandAstBool arg
-  Ast.AstB2 opCodeBool arg1 arg2 ->
-    normalizeAstB2 opCodeBool (expandAstBool arg1) (expandAstBool arg2)
   AstBoolConst{} -> t
+  Ast.AstBoolNot arg -> notB $ expandAstBool arg
+  Ast.AstBoolAnd arg1 arg2 -> expandAstBool arg1 &&* expandAstBool arg2
   Ast.AstRelK opCodeRel arg1 arg2 ->
     normalizeAstRel opCodeRel (expandAst arg1) (expandAst arg2)
   Ast.AstRelS opCodeRel arg1 arg2 ->
@@ -3181,10 +3180,9 @@ simplifyAstHFun (AstLambda var l) = AstLambda var (simplifyAst l)
 
 simplifyAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 simplifyAstBool t = case t of
-  Ast.AstBoolNot arg -> notB $ simplifyAstBool arg
-  Ast.AstB2 opCodeBool arg1 arg2 ->
-    normalizeAstB2 opCodeBool (simplifyAstBool arg1) (simplifyAstBool arg2)
   AstBoolConst{} -> t
+  Ast.AstBoolNot arg -> notB $ simplifyAstBool arg
+  Ast.AstBoolAnd arg1 arg2 -> simplifyAstBool arg1 &&* simplifyAstBool arg2
   Ast.AstRelK opCodeRel arg1 arg2 ->
     normalizeAstRel opCodeRel (simplifyAst arg1) (simplifyAst arg2)
   Ast.AstRelS opCodeRel arg1 arg2 ->
@@ -3622,10 +3620,9 @@ contractAstHFun (AstLambda var l) = AstLambda var (contractAst l)
 
 contractAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
 contractAstBool t = case t of
-  Ast.AstBoolNot arg -> notB $ contractAstBool arg
-  Ast.AstB2 opCodeBool arg1 arg2 ->
-    normalizeAstB2 opCodeBool (contractAstBool arg1) (contractAstBool arg2)
   AstBoolConst{} -> t
+  Ast.AstBoolNot arg -> notB $ contractAstBool arg
+  Ast.AstBoolAnd arg1 arg2 -> contractAstBool arg1 &&* contractAstBool arg2
   Ast.AstRelK opCodeRel arg1 arg2 ->
     normalizeAstRel opCodeRel (contractAst arg1) (contractAst arg2)
   Ast.AstRelS opCodeRel arg1 arg2 ->
@@ -3642,11 +3639,6 @@ normalizeAstRel :: ( EqH (AstTensor AstMethodLet PrimalSpan) y
                 -> AstBool AstMethodLet
 normalizeAstRel EqOp = (==.)
 normalizeAstRel LsOp = (<.)
-
-normalizeAstB2 :: OpCodeBool -> AstBool AstMethodLet -> AstBool AstMethodLet
-               -> AstBool AstMethodLet
-normalizeAstB2 AndOp = (&&*)
-normalizeAstB2 OrOp = (||*)
 
 
 -- * Substitution wrappers
@@ -3926,12 +3918,11 @@ substitute1AstBool i var = subst where
  subst = \case
   Ast.AstBoolNot arg -> notB <$> subst arg
     -- this can't be simplified, because constant boolean can't have variables
-  Ast.AstB2 opCodeBool arg1 arg2 ->
+  Ast.AstBoolAnd arg1 arg2 ->
     let mb1 = subst arg1
         mb2 = subst arg2
     in if isJust mb1 || isJust mb2
-       then Just $ normalizeAstB2 opCodeBool (fromMaybe arg1 mb1)
-                                             (fromMaybe arg2 mb2)
+       then Just $ fromMaybe arg1 mb1 &&* fromMaybe arg2 mb2
        else Nothing
   Ast.AstBoolConst{} -> Nothing
   Ast.AstRelK opCodeRel arg1 arg2 ->

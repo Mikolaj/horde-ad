@@ -418,12 +418,12 @@ interpretAstBool :: ADReady target
                  => AstEnv target -> AstBool AstMethodLet
                  -> BoolOf target
 interpretAstBool !env = \case
+  AstBoolConst a -> if a then true else false
   AstBoolNot arg -> notB $ interpretAstBool env arg
-  AstB2 opCodeBool arg1 arg2 ->
+  AstBoolAnd arg1 arg2 ->
     let b1 = interpretAstBool env arg1
         b2 = interpretAstBool env arg2
-    in interpretAstB2 opCodeBool b1 b2
-  AstBoolConst a -> if a then true else false
+    in b1 &&* b2
   AstRelK opCodeRel arg1 arg2 ->
     let r1 = interpretAstPrimal env arg1
         r2 = interpretAstPrimal env arg2
@@ -476,12 +476,6 @@ interpretAstI2 :: IntegralH a
 {-# INLINE interpretAstI2 #-}
 interpretAstI2 QuotOp u v = quotH u v
 interpretAstI2 RemOp u v = remH u v
-
-interpretAstB2 :: Boolean b
-               => OpCodeBool -> b -> b -> b
-{-# INLINE interpretAstB2 #-}
-interpretAstB2 AndOp u v = u &&* v
-interpretAstB2 OrOp u v = u ||* v
 
 interpretAstRelOp :: (EqH f y, OrdH f y)
                   => OpCodeRel -> f y -> f y -> BoolOf f
