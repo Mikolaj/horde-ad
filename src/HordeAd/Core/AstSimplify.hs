@@ -1599,21 +1599,28 @@ astGatherKnobsS knobs shn v0
       withSNat (fromIntegral j) $ \(SNat @j) ->
       gcastWith (unsafeCoerceRefl :: (j + 1 <=? m) :~: True) $
       astLetFun v0 $ \v ->
-      astGatherKnobsS knobs shn v
-        ( (::$) @j (Const varm) mrest
-        , i2 :.$ prest )
-      `astAppendS`
-      astReplicate
-        (SNat @1) (STKS (listsToShS mrest `shsAppend` shn) (ftkToSTK x))
-        (astGatherKnobsS knobs shn v
-           ( mrest
-           , substituteAstIxS (AstConcreteK j)
-                              varm (i1 :.$ prest) ))
-      `astAppendS`
-      astGatherKnobsS knobs shn v
-        ( (::$) @(m - (j + 1)) (Const varm) mrest
-        , substituteAstIxS (AstConcreteK (j + 1) + AstIntVar varm)
-                           varm (i2 :.$ prest) )
+      let a1 =
+            astGatherKnobsS knobs shn v
+              ( (::$) @j (Const varm) mrest
+              , i2 :.$ prest )
+          a2 =
+            astReplicate
+              (SNat @1) (STKS (listsToShS mrest `shsAppend` shn) (ftkToSTK x))
+              (astGatherKnobsS knobs shn v
+                 ( mrest
+                 , substituteAstIxS (AstConcreteK j)
+                                    varm (i1 :.$ prest) ))
+          a3 =
+            astGatherKnobsS knobs shn v
+              ( (::$) @(m - (j + 1)) (Const varm) mrest
+              , substituteAstIxS (AstConcreteK (j + 1) + AstIntVar varm)
+                                 varm (i2 :.$ prest) )
+      in if | Just Refl <- sameNat (Proxy @j) (Proxy @0) ->  -- very common
+              a2 `astAppendS` a3
+            | Just Refl <- sameNat (Proxy @(j + 1)) (Proxy @m) ->
+              a1 `astAppendS` a2
+            | otherwise ->
+              a1 `astAppendS` a2 `astAppendS` a3
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (AstRelInt LsOp (AstConcreteK j)
