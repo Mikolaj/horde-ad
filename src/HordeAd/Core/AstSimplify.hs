@@ -1589,28 +1589,29 @@ astGatherKnobsS knobs shn v0
   , Ast.AstCond (AstRelInt EqOp (AstConcreteK j)
                                 (AstIntVar varp)) i1 i2
     :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp =
+  | varNameToAstVarId varm == varNameToAstVarId varp
+  , FTKS _ x <- ftkAst v0 =
     if j < 0 || j >= valueOf @m then
       astGatherKnobsS knobs shn v0 (vars, i2 :.$ prest)
     else
       withSNat (fromIntegral j) $ \(SNat @j) ->
       gcastWith (unsafeCoerceRefl :: (j + 1 <=? m) :~: True) $
-      astLetFun v0 $ \v ->  -- TODO: share i2, prest, too; and elsewhere
+      astLetFun v0 $ \v ->
       astGatherKnobsS knobs shn v
         ( (::$) @j (Const varm) mrest
         , i2 :.$ prest )
       `astAppendS`
-      astGatherKnobsS knobs shn v
-        ( (::$) @1 (Const varm) mrest
-        , i1 :.$ substituteAstIxS
-                   (AstConcreteK j + AstIntVar varm)
-                   varm prest )
+      astReplicate
+        (SNat @1) (STKS (listsToShS mrest `shsAppend` shn) (ftkToSTK x))
+        (astGatherKnobsS knobs shn v
+           ( mrest
+           , substituteAstIxS (AstConcreteK j)
+                              varm (i1 :.$ prest) ))
       `astAppendS`
       astGatherKnobsS knobs shn v
         ( (::$) @(m - (j + 1)) (Const varm) mrest
-        , i2 :.$ substituteAstIxS
-                   (AstConcreteK (j + 1) + AstIntVar varm)
-                   varm prest )
+        , substituteAstIxS (AstConcreteK (j + 1) + AstIntVar varm)
+                           varm (i2 :.$ prest) )
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (AstRelInt LsOp (AstConcreteK j)
@@ -1631,9 +1632,8 @@ astGatherKnobsS knobs shn v0
          `astAppendS`
          astGatherKnobsS knobs shn v
            ( (::$) @(m - j1) (Const varm) mrest
-           , i1 :.$ substituteAstIxS
-                      (AstConcreteK (j + 1) + AstIntVar varm)
-                      varm prest )
+           , substituteAstIxS (AstConcreteK (j + 1) + AstIntVar varm)
+                              varm (i1 :.$ prest) )
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (AstRelInt LsOp (AstConcreteK j)
@@ -1655,9 +1655,8 @@ astGatherKnobsS knobs shn v0
          `astAppendS`
          astGatherKnobsS knobs shn v
            ( (::$) @(m - mj) (Const varm) mrest
-           , i2 :.$ substituteAstIxS
-                      (AstConcreteK (- j) + AstIntVar varm)
-                      varm prest)
+           , substituteAstIxS (AstConcreteK (- j) + AstIntVar varm)
+                              varm (i2 :.$ prest))
 astGatherKnobsS knobs shn v0
   ( (::$) @m (Const varm) mrest
   , (:.$) @p (AstIntVar varp) prest )
@@ -1828,8 +1827,7 @@ astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
     -> AstTensor AstMethodLet s (TKS2 (shm' ++ shn') r)
   astGatherCase _shn' v4 (vars4, ZIS) =
     astReplicateNS @shm' @shn' (listsToShS vars4) v4  -- not really possible
-  astGatherCase shn' v4 ( !vars4
-                        , ix4@((:.$) @_ @shp1' i4 rest4) )
+  astGatherCase shn' v4 (!vars4, ix4@((:.$) @_ @shp1' i4 rest4))
    | FTKS _ x <- ftkAst v4 = case v4 of
     Ast.AstProject1{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
     Ast.AstProject2{} -> Ast.AstGatherS @shm' @shn' @shp' shn' v4 (vars4, ix4)
