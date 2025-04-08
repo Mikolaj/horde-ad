@@ -1442,13 +1442,15 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let iRev = simplifyAstInt (fromIntegral (valueOf @in1 - 1 :: Int) - i1)
       -- we generate this index, so we simplify on the spot
     in astIndex shn v (iRev :.$ rest1)
-  Ast.AstTransposeS @perm @sh2 perm v
+  Ast.AstTransposeS @_ @sh2 perm v
     | gcompare (shsRank (ixsToShS ix)) (Permutation.permRank perm) /= GLT ->
-      let ix2 :: AstIxS AstMethodLet (Permutation.PermutePrefix perm shm)
-          ix2 = ixsPermutePrefix perm ix
+      -- TODO: remake once there's an S version of permInverse:
+      permInverse perm $ \(permR :: Permutation.Perm permR) _ ->
+      let ix2 :: AstIxS AstMethodLet (Permutation.PermutePrefix permR shm)
+          ix2 = ixsPermutePrefix permR ix
       in gcastWith (unsafeCoerceRefl
-                    :: sh2 :~: Permutation.PermutePrefix perm shm ++ shn) $
-         astIndex @(Permutation.PermutePrefix perm shm) shn v ix2
+                    :: sh2 :~: Permutation.PermutePrefix permR shm ++ shn) $
+         astIndex @(Permutation.PermutePrefix permR shm) shn v ix2
   Ast.AstTransposeS{} | not (knobStepOnly knobs)
                         && knobPhase knobs /= PhaseExpansion ->
     Ast.AstIndexS shn v0 ix
