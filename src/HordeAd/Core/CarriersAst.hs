@@ -781,11 +781,7 @@ instance (AstSpan s, GoodScalar r)
     = AstConcreteS (unConcrete $ sfromK $ Concrete u) <=. v
   AstConcreteK u <=. AstConcreteK v =
     AstBoolConst $ Concrete @(TKScalar r) u <=. Concrete v
-  AstConcreteK u <=. v
-    | u <= 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64)
-    , nonNegativeIntSum v =
-      AstBoolConst True
+  AstConcreteK u <=. v | u <= 0, nonNegativeIntSum v = AstBoolConst True
   u <=. AstPlusK (AstConcreteK v) w =
     u - AstConcreteK v <=. w
   AstPlusK (AstConcreteK u) w <=. v =
@@ -798,7 +794,7 @@ instance (AstSpan s, GoodScalar r)
     AstConcreteK 0 <=. primalPart u - primalPart v
 
 -- An approximation.
-nonPositiveIntSum :: AstTensor ms s (TKScalar Int64) -> Bool
+nonPositiveIntSum :: AstTensor ms s (TKScalar r) -> Bool
 nonPositiveIntSum (AstFromPrimal u) = nonPositiveIntSum u
 nonPositiveIntSum (AstConcreteK u) = u <= 0
 nonPositiveIntSum (AstPlusK u v) = nonPositiveIntSum u && nonPositiveIntSum v
@@ -813,8 +809,9 @@ nonPositiveIntSum (AstI2K _ u v) =
 nonPositiveIntSum _ = False
 
 -- An approximation.
-nonNegativeIntSum :: AstTensor ms s (TKScalar Int64) -> Bool
-nonNegativeIntSum AstVar{} = True  -- the key case
+nonNegativeIntSum :: AstTensor ms s (TKScalar r) -> Bool
+nonNegativeIntSum (AstVar var) | Just{} <- varNameToBounds var =
+  True  -- the key case
 nonNegativeIntSum (AstFromPrimal u) = nonNegativeIntSum u
 nonNegativeIntSum (AstConcreteK u) = u >= 0
 nonNegativeIntSum (AstPlusK u v) = nonNegativeIntSum u && nonNegativeIntSum v

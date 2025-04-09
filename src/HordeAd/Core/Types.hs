@@ -266,10 +266,7 @@ instance NumElt Z0 where
 -- If used as size or shape, it would give more expressiveness,
 -- but would lead to irregular tensors, especially after vectorization,
 -- and would prevent statically known shapes.
--- TODO: ensure it's not used for anything else. Maybe newtype it?
 -- | The (arbitrariliy chosen) type of scalars to be used for indexing.
--- It should not be used for anything else (which is not yet checked),
--- e.g., as the type of parameters of user-defined functions.
 type IntOf (f :: Target) = PrimalOf f (TKScalar Int64)
 
 -- | The type family is defined in order to give a special instance
