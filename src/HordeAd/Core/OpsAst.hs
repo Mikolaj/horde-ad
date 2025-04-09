@@ -100,7 +100,7 @@ revArtifactFromForwardPass cotangentHandling
   -- before gradientFromDelta allocates new memory and new FFI is started.
   let !(D primalBody delta) = forwardPass astVarPrimal var astVar
   let zftk = ftkAst $ unAstRaw primalBody
-      (!varDt, astDt) = funToAst (adFTK zftk) id
+      (!varDt, astDt) = funToAst (adFTK zftk) Nothing id
   let oneAtF = treplTarget 1 $ adFTK zftk
       !dt = case cotangentHandling of
         UseIncomingCotangent -> AstRaw astDt
@@ -168,7 +168,8 @@ astBuild1Vectorize
   => SNat k -> SingletonTK y
   -> (AstInt AstMethodLet -> AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
-astBuild1Vectorize k stk f = build1Vectorize k stk $ funToAstI f
+astBuild1Vectorize k@(SNat @k) stk f =
+  build1Vectorize k stk $ funToAstI (Just (0, valueOf @k)) f
 
 instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
   ttlet = astLetFun
@@ -572,7 +573,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astMapAccumLDer k bftk eftk f df rf acc0 es
   tApply = astApply
   tlambda ftk f =
-    let (var, ast) = funToAst ftk $ unHFun f
+    let (var, ast) = funToAst ftk Nothing $ unHFun f
     in AstLambda var ast
   tcond _ !b !u !v = astCond b u v
   tprimalPart = primalPart
@@ -592,7 +593,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           revProduceArtifact IgnoreIncomingCotangent (unHFun f) emptyEnv xftk
         -- A new variable is created to give it the right span as opposed
         -- to the fixed PrimalSpan that artVarDomainRev has.
-        (varP, ast) = funToAst xftk $ \ !astP ->
+        (varP, ast) = funToAst xftk Nothing $ \ !astP ->
           let env = extendEnv artVarDomainRev astP emptyEnv
           in interpretAst env $ simplifyInline artDerivativeRev
     in AstLambda varP ast
@@ -603,7 +604,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           revProduceArtifact UseIncomingCotangent (unHFun f) emptyEnv ftkx
         ftkz = varNameToFTK artVarDtRev
         ftk2 = FTKProduct ftkz ftkx
-        (varP, ast) = funToAst ftk2 $ \ !astP ->
+        (varP, ast) = funToAst ftk2 Nothing $ \ !astP ->
           let env = extendEnv artVarDtRev (astProject1 astP)
                     $ extendEnv artVarDomainRev (astProject2 astP) emptyEnv
           in interpretAst env $ simplifyInline artDerivativeRev
@@ -613,7 +614,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     -- for each new tensor of arguments, which is better than computing it anew.
     let AstArtifactFwd{..} = fwdProduceArtifact (unHFun f) emptyEnv ftkx
         ftk2 = FTKProduct (adFTK ftkx) ftkx
-        (varP, ast) = funToAst ftk2 $ \ !astP ->
+        (varP, ast) = funToAst ftk2 Nothing $ \ !astP ->
           let env = extendEnv artVarDsFwd (astProject1 astP)
                     $ extendEnv artVarDomainFwd (astProject2 astP) emptyEnv
           in interpretAst env $ simplifyInline artDerivativeFwd
@@ -854,7 +855,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                                , sNatValue (shsProduct sh2) )
   trbuild1 k f = withSNat k $ \snat ->
     AstRaw $ AstBuild1 snat knownSTK
-    $ funToAstI  -- this introduces new variable names
+    $ funToAstI (Just (0, fromIntegral k))
+        -- this introduces new variable names
     $ unAstRaw . f . AstRaw
 
   -- Shaped ops
@@ -884,7 +886,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tsslice i n k = AstRaw . AstSliceS i n k . unAstRaw
   tsreverse = AstRaw . AstReverseS . unAstRaw
   tsbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
-                  $ funToAstI  -- this introduces new variable names
+                  $ funToAstI (Just (0, valueOf @k))
+                      -- this introduces new variable names
                   $ unAstRaw . f . AstRaw
 
   -- Mixed ops
@@ -1053,7 +1056,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )
   txbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
-                  $ funToAstI  -- this introduces new variable names
+                  $ funToAstI (Just (0, valueOf @k))
+                      -- this introduces new variable names
                   $ unAstRaw . f . AstRaw
 
   -- Scalar ops
@@ -1307,7 +1311,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   trreshape sh = AstNoVectorize . trreshape sh . unAstNoVectorize
   trbuild1 k f = withSNat k $ \snat ->
     AstNoVectorize $ AstBuild1 snat knownSTK
-    $ funToAstI  -- this introduces new variable names
+    $ funToAstI (Just (0, fromIntegral k))
+        -- this introduces new variable names
     $ unAstNoVectorize . f . AstNoVectorize
 
   -- Shaped ops
@@ -1334,7 +1339,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tsslice i n k = AstNoVectorize . tsslice i n k . unAstNoVectorize
   tsreverse = AstNoVectorize . tsreverse . unAstNoVectorize
   tsbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
-                  $ funToAstI  -- this introduces new variable names
+                  $ funToAstI (Just (0, valueOf @k))
+                      -- this introduces new variable names
                   $ unAstNoVectorize . f . AstNoVectorize
 
   -- Mixed ops
@@ -1364,7 +1370,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   txtranspose perm = AstNoVectorize . txtranspose perm . unAstNoVectorize
   txreshape sh = AstNoVectorize . txreshape sh . unAstNoVectorize
   txbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
-                  $ funToAstI  -- this introduces new variable names
+                  $ funToAstI (Just (0, valueOf @k))
+                      -- this introduces new variable names
                   $ unAstNoVectorize . f . AstNoVectorize
 
   -- Scalar ops
@@ -1450,6 +1457,7 @@ instance AstSpan s => ConvertTensor (AstNoVectorize s) where
 
 -- * AstNoSimplify instances
 
+-- TODO: check if we ever have variables bounds to apply.
 astLetFunNoSimplify
   :: forall y z s s2. AstSpan s
   => AstTensor AstMethodLet s y
@@ -1459,26 +1467,28 @@ astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
 astLetFunNoSimplify a f = case a of
   AstFromS @y2 stkz v ->
-    let (var, ast) = funToAst2 (ftkAst v) (f . AstFromS @y2 stkz)
+    let (var, ast) = funToAst2 (ftkAst v) Nothing (f . AstFromS @y2 stkz)
     in AstLet var v ast
   AstFromPrimal (AstFromS @y2 stkz vRaw) ->
     let v = AstFromPrimal vRaw
-        (var, ast) = funToAst2 (ftkAst v) (f . AstFromS @y2 stkz)
+        (var, ast) = funToAst2 (ftkAst v) Nothing (f . AstFromS @y2 stkz)
     in AstLet var v ast
   _ -> case ftkAst a of
     ftk@(FTKR @_ @x2 sh' x) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
-              funToAst2 (FTKS sh x) (f . AstFromS @(TKS2 sh x2) (ftkToSTK ftk))
+              funToAst2 (FTKS sh x) Nothing
+                        (f . AstFromS @(TKS2 sh x2) (ftkToSTK ftk))
         in AstLet var (AstSFromR @sh sh a) ast
              -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
-              funToAst2 (FTKS sh x) (f . AstFromS @(TKS2 sh x) (ftkToSTK ftk))
+              funToAst2 (FTKS sh x) Nothing
+                        (f . AstFromS @(TKS2 sh x) (ftkToSTK ftk))
         in AstLet var (AstSFromX @sh sh a) ast
     -- processing product recursively may be not worth it
-    ftk -> let (var, ast) = funToAst2 ftk f
+    ftk -> let (var, ast) = funToAst2 ftk Nothing f
            in AstLet var a ast
 
 instance AstSpan s => LetTensor (AstNoSimplify s) where

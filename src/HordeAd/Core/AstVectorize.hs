@@ -112,7 +112,7 @@ build1VOccurenceUnknownRefresh
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE build1VOccurenceUnknownRefresh #-}
 build1VOccurenceUnknownRefresh snat@SNat (!var, !v0) =
-  funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
+  funToAstIntVar (varNameToBounds var) $ \ (!varFresh, !astVarFresh) ->
     let !v2 = substituteAst astVarFresh var v0
                 -- cheap subst, because only a renaming
     in build1VOccurenceUnknown snat (varFresh, v2)
@@ -344,7 +344,7 @@ intBindingRefreshS
   -> (IntVarName, AstInt AstMethodLet, AstIxS AstMethodLet sh)
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS (!var, !ix) =
-  funToAstIntVar $ \ (!varFresh, !astVarFresh) ->
+  funToAstIntVar (varNameToBounds var) $ \ (!varFresh, !astVarFresh) ->
     let !ix2 = substituteAstIxS astVarFresh var ix
                  -- cheap subst, because only a renaming
     in (varFresh, astVarFresh, ix2)
@@ -499,7 +499,7 @@ substProjRep
 substProjRep snat@SNat var var1 v =
   let ftk3 = buildFTK snat $ varNameToFTK var1
       var3 :: AstVarName s2 (BuildTensorKind k y2)
-      var3 = mkAstVarName ftk3 (varNameToAstVarId var1)
+      var3 = mkAstVarName ftk3 (varNameToBounds var1) (varNameToAstVarId var1)
       astVar3 = Ast.AstVar var3
       v2 = substituteAst
              (astIndexBuild snat (ftkToSTK $ varNameToFTK var1)

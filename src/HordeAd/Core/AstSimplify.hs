@@ -453,7 +453,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
   let accftkFrom = ftkAst acc0From
       accFromSTK = ftkToSTK accftkFrom
       ftkf2 = FTKProduct accftkFrom eftk
-      varf2 = mkAstVarName ftkf2 (varNameToAstVarId varf)
+      varf2 = mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
       astf2 = Ast.AstVar varf2
       vf2 =
         let subbed =
@@ -467,7 +467,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
       ftkd2 = FTKProduct
                 (adFTK $ FTKProduct accftkFrom eftk)
                 (FTKProduct accftkFrom eftk)
-      vard2 = mkAstVarName ftkd2 (varNameToAstVarId vard)
+      vard2 = mkAstVarName ftkd2 (varNameToBounds vard) (varNameToAstVarId vard)
       astd2 = Ast.AstVar vard2
       vd2 =
         let subbed =
@@ -486,7 +486,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
       ftkr2 = FTKProduct
                 (adFTK $ FTKProduct accftkFrom bftk)
                 (FTKProduct accftkFrom eftk)
-      varr2 = mkAstVarName ftkr2 (varNameToAstVarId varr)
+      varr2 = mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
       astr2 = Ast.AstVar varr2
       vr2 =
         let subbed =
@@ -522,7 +522,8 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
                  :: BuildTensorKind k eyFrom :~: esShsFrom) $
       let eftkFrom = razeFTK k eftkFromSTK esShsFrom
           ftkf2 = FTKProduct accftk eftkFrom
-          varf2 = mkAstVarName ftkf2 (varNameToAstVarId varf)
+          varf2 =
+            mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
           astf2 = Ast.AstVar varf2
           vf2 =
             let subbed =
@@ -535,7 +536,8 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
           ftkd2 = FTKProduct
                     (adFTK $ FTKProduct accftk eftkFrom)
                     (FTKProduct accftk eftkFrom)
-          vard2 = mkAstVarName ftkd2 (varNameToAstVarId vard)
+          vard2 =
+            mkAstVarName ftkd2 (varNameToBounds vard) (varNameToAstVarId vard)
           astd2 = Ast.AstVar vard2
           vd2 =
             let subbed =
@@ -552,7 +554,8 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
           ftkr2 = FTKProduct
                     (adFTK $ FTKProduct accftk bftk)
                     (FTKProduct accftk eftkFrom)
-          varr2 = mkAstVarName ftkr2 (varNameToAstVarId varr)
+          varr2 =
+            mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
           astr2 = Ast.AstVar varr2
           vr2 =
             let subbed =
@@ -597,7 +600,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
   let accftkFrom = ftkAst acc0From
       accFromSTK = ftkToSTK accftkFrom
       ftkf2 = FTKProduct accftkFrom eftk
-      varf2 = mkAstVarName ftkf2 (varNameToAstVarId varf)
+      varf2 = mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
       astf2 = Ast.AstVar varf2
       vf2 =
         let subbed =
@@ -611,7 +614,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
       ftkd2 = FTKProduct
                 (adFTK $ FTKProduct accftkFrom eftk)
                 (FTKProduct accftkFrom eftk)
-      vard2 = mkAstVarName ftkd2 (varNameToAstVarId vard)
+      vard2 = mkAstVarName ftkd2 (varNameToBounds vard) (varNameToAstVarId vard)
       astd2 = Ast.AstVar vard2
       vd2 =
         let subbed =
@@ -630,7 +633,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
       ftkr2 = FTKProduct
                 (adFTK $ FTKProduct accftkFrom bftk)
                 (FTKProduct accftkFrom eftk)
-      varr2 = mkAstVarName ftkr2 (varNameToAstVarId varr)
+      varr2 = mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
       astr2 = Ast.AstVar varr2
       vr2 =
         let subbed =
@@ -666,7 +669,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                  :: BuildTensorKind k eyFrom :~: esShsFrom) $
       let eftkFrom = razeFTK k eftkFromSTK esShsFrom
           ftkf2 = FTKProduct accftk eftkFrom
-          varf2 = mkAstVarName ftkf2 (varNameToAstVarId varf)
+          varf2 =
+            mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
           astf2 = Ast.AstVar varf2
           vf2 =
             let subbed =
@@ -679,7 +683,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
           ftkd2 = FTKProduct
                     (adFTK $ FTKProduct accftk eftkFrom)
                     (FTKProduct accftk eftkFrom)
-          vard2 = mkAstVarName ftkd2 (varNameToAstVarId vard)
+          vard2 =
+            mkAstVarName ftkd2 (varNameToBounds vard) (varNameToAstVarId vard)
           astd2 = Ast.AstVar vard2
           vd2 =
             let subbed =
@@ -696,7 +701,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
           ftkr2 = FTKProduct
                     (adFTK $ FTKProduct accftk bftk)
                     (FTKProduct accftk eftkFrom)
-          varr2 = mkAstVarName ftkr2 (varNameToAstVarId varr)
+          varr2 =
+            mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
           astr2 = Ast.AstVar varr2
           vr2 =
             let subbed =
@@ -828,7 +834,8 @@ astLet var u (Ast.AstFromDual v0) = Ast.AstFromDual $ astLet var u v0
 astLet var u (Ast.AstFromS stkz v) =
   astFromS stkz $ astLet var u v
 astLet var (Ast.AstFromS stkz a) v =
-  let var2 = mkAstVarName (ftkAst a) (varNameToAstVarId var)
+  let var2 =
+        mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
       ast = astFromS stkz $ Ast.AstVar var2
   in astLet var2 a (substituteAst ast var v)
 astLet var u v = Ast.AstLet var u v
@@ -1485,13 +1492,15 @@ shareIx :: AstSpan s
         -> AstTensor AstMethodLet s y
 {-# NOINLINE shareIx #-}
 shareIx ix f = unsafePerformIO $ do
-  let shareI :: AstInt AstMethodLet
+  let shareI :: (AstInt AstMethodLet, Int)
              -> IO ( Maybe (IntVarName, AstInt AstMethodLet)
                    , AstInt AstMethodLet )
-      shareI i | astIsSmall True i = return (Nothing, i)
-      shareI i = funToAstIntVarIO $ \ (!varFresh, !astVarFresh) ->
-                   (Just (varFresh, i), astVarFresh)
-  (bindings, ix2) <- mapAndUnzipM shareI (Foldable.toList ix)
+      shareI (i, _) | astIsSmall True i = return (Nothing, i)
+      shareI (i, bound) = funToAstIntVarIO (Just (0, fromIntegral bound))
+                          $ \ (!varFresh, !astVarFresh) ->
+                              (Just (varFresh, i), astVarFresh)
+  (bindings, ix2) <- mapAndUnzipM shareI
+                     $ zip (Foldable.toList ix) (shsToList $ ixsToShS ix)
   return $! foldr (uncurry astLet)
                   (withKnownShS (ixsToShS ix) $ f $ fromList ix2)
                   (catMaybes bindings)
@@ -2758,6 +2767,7 @@ astConcrete ftk v = case ftk of
     astPair (astConcrete ftk1 (tproject1 v)) (astConcrete ftk2 (tproject2 v))
   _ -> concreteTarget astConcreteK astConcreteS astFromS (ftkToSTK ftk) v
 
+-- TODO: check if we ever have variables bounds to apply.
 astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
           => AstTensor AstMethodLet s y
           -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
@@ -2765,22 +2775,24 @@ astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f = case a of
   Ast.AstFromS @y2 stkz v ->
-    let (var, ast) = funToAst2 (ftkAst v) (f . astFromS @y2 stkz)
+    let (var, ast) = funToAst2 (ftkAst v) Nothing (f . astFromS @y2 stkz)
     in astLet var v ast
   _ -> case ftkAst a of
     ftk@(FTKR @_ @x sh' x) ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
-              funToAst2 (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
+              funToAst2 (FTKS sh x) Nothing
+                        (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
         in astLet var (astSFromR sh a) ast
              -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
-              funToAst2 (FTKS sh x) (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
+              funToAst2 (FTKS sh x) Nothing
+                        (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
         in astLet var (astSFromX sh a) ast
     -- calling recursively for product may be not worth it
-    ftk -> let (var, ast) = funToAst2 ftk f
+    ftk -> let (var, ast) = funToAst2 ftk Nothing f
            in astLet var a ast
 
 astReplicateNS :: forall shn shp s x. AstSpan s

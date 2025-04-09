@@ -348,7 +348,8 @@ unshareAst memo = \case
   -- We assume v is the same if var is the same.
   Ast.AstShare varRaw a | Just Refl <- sameAstSpan @s @PrimalSpan -> case a of
     Ast.AstFromS @y2 stkz v ->
-      let var = mkAstVarName (ftkAst v) $ varNameToAstVarId varRaw
+      let var = mkAstVarName
+                  (ftkAst v) (varNameToBounds varRaw) (varNameToAstVarId varRaw)
           astVar = Ast.AstFromS @y2 stkz $ Ast.AstVar var
       in if var `DMap.member` memo
          then (memo, astVar)
@@ -360,7 +361,8 @@ unshareAst memo = \case
     _ -> case varNameToFTK varRaw of
       ftk@(FTKR @_ @x sh' x) ->
         withCastRS sh' $ \(sh :: ShS sh) ->
-          let var = mkAstVarName (FTKS sh x) $ varNameToAstVarId varRaw
+          let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
+                                 (varNameToAstVarId varRaw)
               astVar = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk) $ Ast.AstVar var
           in if var `DMap.member` memo
              then (memo, astVar)
@@ -368,7 +370,8 @@ unshareAst memo = \case
                   in (DMap.insert var a2 memo1, astVar)
       ftk@(FTKX @_ @x sh' x) ->
         withCastXS sh' $ \(sh :: ShS sh) ->
-          let var = mkAstVarName (FTKS sh x) $ varNameToAstVarId varRaw
+          let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
+                                 (varNameToAstVarId varRaw)
               astVar = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk) $ Ast.AstVar var
           in if var `DMap.member` memo
              then (memo, astVar)

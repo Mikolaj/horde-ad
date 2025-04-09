@@ -97,7 +97,8 @@ rev' f vals =
         -> fgen (TKR n r)
         -> fgen (TKR m r)
       hGeneral fx1 fx2 gx inputs =
-        let (var, ast) = funToAst (FTKR (rshape vals) FTKScalar) (fx1 . f . fx2)
+        let (var, ast) =
+              funToAst (FTKR (rshape vals) FTKScalar) Nothing (fx1 . f . fx2)
             env = extendEnv var inputs emptyEnv
         in interpretAstFull env (gx ast)
       h :: ADReady f1
@@ -138,10 +139,10 @@ rev' f vals =
       gradientRrev5 =
         rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoVectorize AstNoVectorize simplifyInlineContract) vals
-      astVectSimp = simplifyInlineContract $ snd $ funToAst (FTKR (rshape vals) FTKScalar) f
+      astVectSimp = simplifyInlineContract $ snd $ funToAst (FTKR (rshape vals) FTKScalar) Nothing f
       astSimp =
         simplifyInlineContract $ simplifyInlineContract $ snd  -- builds simplify with difficulty
-        $ funToAst (FTKR (rshape vals) FTKScalar) (unAstNoVectorize . f . AstNoVectorize)
+        $ funToAst (FTKR (rshape vals) FTKScalar) Nothing (unAstNoVectorize . f . AstNoVectorize)
       -- Here comes the part with Ast gradients.
       hAst :: ADReady f1
            => (f1 (TKR m r) -> AstTensor AstMethodLet FullSpan (TKR m r))
