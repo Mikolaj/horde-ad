@@ -781,7 +781,7 @@ instance (AstSpan s, GoodScalar r)
     = AstConcreteS (unConcrete $ sfromK $ Concrete u) <=. v
   AstConcreteK u <=. AstConcreteK v =
     AstBoolConst $ Concrete @(TKScalar r) u <=. Concrete v
-  AstConcreteK u <=. v | u <= 0, nonNegativeIntSum v = AstBoolConst True
+  AstConcreteK u <=. v | u <= 0, 0 <= lowerBound v = AstBoolConst True
   u <=. AstPlusK (AstConcreteK v) w =
     u - AstConcreteK v <=. w
   AstPlusK (AstConcreteK u) w <=. v =
@@ -794,37 +794,28 @@ instance (AstSpan s, GoodScalar r)
     AstConcreteK 0 <=. primalPart u - primalPart v
 
 -- An approximation.
-nonPositiveIntSum :: AstTensor ms s (TKScalar r) -> Bool
-nonPositiveIntSum (AstFromPrimal u) = nonPositiveIntSum u
-nonPositiveIntSum (AstConcreteK u) = u <= 0
-nonPositiveIntSum (AstPlusK u v) = nonPositiveIntSum u && nonPositiveIntSum v
-nonPositiveIntSum (AstN1K NegateOp u) = nonNegativeIntSum u
-nonPositiveIntSum (AstN1K SignumOp u) = nonPositiveIntSum u
-nonPositiveIntSum (AstTimesK u v) =
-  nonPositiveIntSum u && nonNegativeIntSum v
-  || nonNegativeIntSum u && nonPositiveIntSum v
-nonPositiveIntSum (AstI2K _ u v) =
-  nonPositiveIntSum u && nonNegativeIntSum v
-  || nonNegativeIntSum u && nonPositiveIntSum v
-nonPositiveIntSum _ = False
+upperBound :: GoodScalar r => AstTensor ms s (TKScalar r) -> r
+upperBound (AstVar var) | Just (_, ub) <- varNameToBounds var = fromIntegral ub
+upperBound (AstFromPrimal u) = upperBound u
+upperBound (AstConcreteK u) = u
+upperBound (AstPlusK u v) = upperBound u + upperBound v
+upperBound (AstN1K NegateOp u) = - lowerBound u
+upperBound (AstTimesK u v) =
+  maximum [ lowerBound u * lowerBound v, lowerBound u * upperBound v
+          , upperBound u * lowerBound v, upperBound u * upperBound v ]
+upperBound _ = fromIntegral (maxBound :: Int64)
 
 -- An approximation.
-nonNegativeIntSum :: AstTensor ms s (TKScalar r) -> Bool
-nonNegativeIntSum (AstVar var) | Just{} <- varNameToBounds var =
-  True  -- the key case
-nonNegativeIntSum (AstFromPrimal u) = nonNegativeIntSum u
-nonNegativeIntSum (AstConcreteK u) = u >= 0
-nonNegativeIntSum (AstPlusK u v) = nonNegativeIntSum u && nonNegativeIntSum v
-nonNegativeIntSum (AstN1K NegateOp u) = nonPositiveIntSum u
-nonNegativeIntSum (AstN1K AbsOp _) = True
-nonNegativeIntSum (AstN1K SignumOp u) = nonNegativeIntSum u
-nonNegativeIntSum (AstTimesK u v) =
-  nonPositiveIntSum u && nonPositiveIntSum v
-  || nonNegativeIntSum u && nonNegativeIntSum v
-nonNegativeIntSum (AstI2K _ u v) =
-  nonPositiveIntSum u && nonPositiveIntSum v
-  || nonNegativeIntSum u && nonNegativeIntSum v
-nonNegativeIntSum _ = False
+lowerBound :: GoodScalar r => AstTensor ms s (TKScalar r) -> r
+lowerBound (AstVar var) | Just (lb, _) <- varNameToBounds var = fromIntegral lb
+lowerBound (AstFromPrimal u) = lowerBound u
+lowerBound (AstConcreteK u) = u
+lowerBound (AstPlusK u v) = lowerBound u + lowerBound v
+lowerBound (AstN1K NegateOp u) = - upperBound u
+lowerBound (AstTimesK u v) =
+  minimum [ lowerBound u * lowerBound v, lowerBound u * upperBound v
+          , upperBound u * lowerBound v, upperBound u * upperBound v ]
+lowerBound _ = - fromIntegral (maxBound :: Int64)
 
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
