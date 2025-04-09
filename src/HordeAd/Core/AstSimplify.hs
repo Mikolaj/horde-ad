@@ -1308,7 +1308,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let len = astConcrete $ fromIntegral k
         zero = astReplicate0N (dropShape $ shapeAst v) 0
     in case simplifyAstBool $ Ast.AstB2 AndOp (Ast.AstRel LeqOp 0 i1)
-                                              (Ast.AstRel LsOp i1 len) of
+                                              (Ast.AstRel LeqOp i1 len) of
       AstBoolConst b -> if b then astIndex v rest1 else zero
       bExpr -> astCond bExpr (astIndex v rest1) zero -}
   -- TODO: the two below are wrong, should catch out of bounds instead
@@ -1431,9 +1431,9 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let ulen = AstConcreteK (valueOf @m)
         ix1 = i1 :.$ rest1
         ix2 = simplifyAstInt (i1 - ulen) :.$ rest1
-    in case simplifyAstBool $ AstRelInt LsOp i1 ulen of
-      AstBoolConst b -> if b then astIndex shn u ix1 else astIndex shn v ix2
-      bExpr -> astCond bExpr (astIndexRec shn u ix1) (astIndexRec shn v ix2)
+    in case simplifyAstBool $ AstRelInt LeqOp ulen i1 of
+      AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
+      bExpr -> astCond bExpr (astIndexRec shn v ix2) (astIndexRec shn u ix1)
   Ast.AstSliceS (SNat @i) _ SNat v ->
     let ii = simplifyAstInt (fromIntegral (valueOf @i :: Int) + i1)
       -- we generate this index, so we simplify on the spot
@@ -1623,39 +1623,39 @@ astGatherKnobsS knobs shn v0
               a1 `astAppendS` a2 `astAppendS` a3
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
-  , Ast.AstCond (AstRelInt LsOp (AstConcreteK j)
-                                (AstIntVar varp)) i1 i2
+  , Ast.AstCond (AstRelInt LeqOp (AstConcreteK j)
+                                 (AstIntVar varp)) i1 i2
     :.$ prest )
   | varNameToAstVarId varm == varNameToAstVarId varp =
-    if | j + 1 <= 0 ->
+    if | j <= 0 ->
          astGatherKnobsS knobs shn v0 (vars, i1 :.$ prest)
-       | j + 1 >= valueOf @m ->
+       | j >= valueOf @m ->
          astGatherKnobsS knobs shn v0 (vars, i2 :.$ prest)
        | otherwise ->
-         withSNat (fromIntegral j + 1) $ \(SNat @j1) ->
-         gcastWith (unsafeCoerceRefl :: (j1 <=? m) :~: True) $
+         withSNat (fromIntegral j) $ \(SNat @j) ->
+         gcastWith (unsafeCoerceRefl :: (j <=? m) :~: True) $
          astLetFun v0 $ \v ->
          astGatherKnobsS knobs shn v
-           ( (::$) @j1 (Const varm) mrest
+           ( (::$) @j (Const varm) mrest
            , i2 :.$ prest )
          `astAppendS`
          astGatherKnobsS knobs shn v
-           ( (::$) @(m - j1) (Const varm) mrest
-           , substituteAstIxS (AstConcreteK (j + 1) + AstIntVar varm)
+           ( (::$) @(m - j) (Const varm) mrest
+           , substituteAstIxS (AstConcreteK j + AstIntVar varm)
                               varm (i1 :.$ prest) )
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
-  , Ast.AstCond (AstRelInt LsOp (AstConcreteK j)
-                                (Ast.AstN1K NegateOp
-                                            (AstIntVar varp))) i1 i2
+  , Ast.AstCond (AstRelInt LeqOp (AstConcreteK j)
+                                 (Ast.AstN1K NegateOp
+                                             (AstIntVar varp))) i1 i2
     :.$ prest )
   | varNameToAstVarId varm == varNameToAstVarId varp =
-    if | - j <= 0 ->
+    if | - j + 1 <= 0 ->
          astGatherKnobsS knobs shn v0 (vars, i2 :.$ prest)
-       | - j >= valueOf @m ->
+       | - j + 1 >= valueOf @m ->
          astGatherKnobsS knobs shn v0 (vars, i1 :.$ prest)
        | otherwise ->
-         withSNat (- fromIntegral j) $ \(SNat @mj) ->
+         withSNat (- fromIntegral j + 1) $ \(SNat @mj) ->
          gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
          astLetFun v0 $ \v ->
          astGatherKnobsS knobs shn v
@@ -1664,7 +1664,7 @@ astGatherKnobsS knobs shn v0
          `astAppendS`
          astGatherKnobsS knobs shn v
            ( (::$) @(m - mj) (Const varm) mrest
-           , substituteAstIxS (AstConcreteK (- j) + AstIntVar varm)
+           , substituteAstIxS (AstConcreteK (- j + 1) + AstIntVar varm)
                               varm (i2 :.$ prest))
 astGatherKnobsS knobs shn v0
   ( (::$) @m (Const varm) mrest
@@ -3645,7 +3645,7 @@ normalizeAstRel :: ( EqH (AstTensor AstMethodLet PrimalSpan) y
                 -> AstTensor AstMethodLet PrimalSpan y
                 -> AstBool AstMethodLet
 normalizeAstRel EqOp = (==.)
-normalizeAstRel LsOp = (<.)
+normalizeAstRel LeqOp = (<=.)
 
 
 -- * Substitution wrappers

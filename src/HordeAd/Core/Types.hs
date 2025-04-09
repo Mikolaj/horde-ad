@@ -366,9 +366,9 @@ class Boolean (BoolOf f) => EqH (f :: Target) y where
 infix 4 <., <=., >=., >.
 class Boolean (BoolOf f) => OrdH (f :: Target) y where
   (<.), (<=.), (>.), (>=.) :: f y -> f y -> BoolOf f
-  u >. v = v <. u
-  u >=. v = notB (u <. v)
-  u <=. v = v >=. u
+  u <. v = notB (v <=. u)
+  u >. v = notB (u <=. v)
+  u >=. v = v <=. u
 
 backpermutePrefixList :: PermR -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l

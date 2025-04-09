@@ -486,5 +486,5 @@ data OpCodeIntegral2 =
  deriving Show
 
 data OpCodeRel =
-    EqOp | LsOp
+    EqOp | LeqOp
  deriving Show

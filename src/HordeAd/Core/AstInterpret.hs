@@ -481,4 +481,4 @@ interpretAstRelOp :: (EqH f y, OrdH f y)
                   => OpCodeRel -> f y -> f y -> BoolOf f
 {-# INLINE interpretAstRelOp #-}
 interpretAstRelOp EqOp u v = u ==. v
-interpretAstRelOp LsOp u v = u <. v
+interpretAstRelOp LeqOp u v = u <=. v

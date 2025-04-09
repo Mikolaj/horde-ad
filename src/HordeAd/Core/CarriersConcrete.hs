@@ -242,25 +242,25 @@ instance GoodScalar r => EqH Concrete (TKScalar r) where
   Concrete u ==. Concrete v = u == v
 
 instance GoodScalar r => OrdH Concrete (TKScalar r) where
-  Concrete u <. Concrete v = u < v
+  Concrete u <=. Concrete v = u <= v
 
 instance GoodScalar r => EqH Concrete (TKR n r) where
   Concrete u ==. Concrete v = u == v
 
 instance GoodScalar r => OrdH Concrete (TKR n r) where
-  Concrete u <. Concrete v = u < v
+  Concrete u <=. Concrete v = u <= v
 
 instance GoodScalar r => EqH Concrete (TKS sh r) where
   Concrete u ==. Concrete v = u == v
 
 instance GoodScalar r => OrdH Concrete (TKS sh r) where
-  Concrete u <. Concrete v = u < v
+  Concrete u <=. Concrete v = u <= v
 
 instance GoodScalar r => EqH Concrete (TKX sh r) where
   Concrete u ==. Concrete v = u == v
 
 instance GoodScalar r => OrdH Concrete (TKX sh r) where
-  Concrete u <. Concrete v = u < v
+  Concrete u <=. Concrete v = u <= v
 
 deriving instance Eq (RepConcrete y) => Eq (Concrete y)
 deriving instance Ord (RepConcrete y) => Ord (Concrete y)

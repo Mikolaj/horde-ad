@@ -1194,7 +1194,7 @@ testUnitriangular0PP = do
            $ \i -> rbuild1 k
            $ \j -> ifH (i <=. j) (rscalar 0) (rscalar 1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromS (sgather (sconcrete (sfromListLinear [2] [1.0,0.0])) (\\[i3, i2] -> [ifH (0 <. i3 + negate i2) 0 1]))"
+    @?= "rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3, i2] -> [ifH (0 <=. i2 + negate i3) 0 1]))"
 
 unitriangular1 :: (KnownNat k, GoodScalar rk, ADReady target)
                => Int -> IShR k -> target (TKR (2 + k) rk)
@@ -1210,7 +1210,7 @@ testUnitriangular1PP = do
       k = 1000000
       a1 = unitriangular1 @3 @Double @(AstTensor AstMethodLet PrimalSpan) k sh
   printAstPretty (simplifyInline a1)
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 1.0))), sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 0.0)))])) (\\[i3, i2] -> [ifH (0 <. i3 + negate i2) 0 1]))"
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 0.0))), sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 1.0)))])) (\\[i3, i2] -> [ifH (0 <=. i2 + negate i3) 0 1]))"
 
 unitriangular2 :: (KnownNat k, GoodScalar rk, ADReady target)
                => Int -> IShR k -> target (TKR (2 + k) rk)
@@ -1227,7 +1227,7 @@ testUnitriangular2PP = do
       k = 1000000
       a1 = unitriangular2 @3 @Double @(AstTensor AstMethodLet PrimalSpan) k sh
   printAstPretty (simplifyInline a1)
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 0.0))), sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 1.0)))])) (\\[i1, i2] -> [ifH (0 <. i2 + negate i1) 0 1]))"
+    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 0.0))), sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 1.0)))])) (\\[i1, i2] -> [ifH (0 <=. i1 + negate i2) 1 0]))"
 
 testSin0rmapAccumRD0S :: Assertion
 testSin0rmapAccumRD0S = do

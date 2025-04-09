@@ -685,29 +685,29 @@ instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKX sh r) where
                            ++ show (shu, shv)
 
 instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKR n r) where
-  v <. u = case ftkAst v of
+  v <=. u = case ftkAst v of
     FTKR shv' _ -> case ftkAst u of
       FTKR shu' _ ->
         withCastRS shv' $ \shv ->
           withCastRS shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                AstRelS LsOp (AstSFromR shu $ primalPart v)
-                             (AstSFromR shv $ primalPart u)
-              _ -> error $ "(<.): shapes don't match: "
+                AstRelS LeqOp (AstSFromR shu $ primalPart v)
+                              (AstSFromR shv $ primalPart u)
+              _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
 instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
-  v <. u = case ftkAst v of
+  v <=. u = case ftkAst v of
     FTKX shv' _ -> case ftkAst u of
       FTKX shu' _ ->
         withCastXS shv' $ \shv ->
           withCastXS shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                AstRelS LsOp (AstSFromX shu $ primalPart v)
-                             (AstSFromX shv $ primalPart u)
-              _ -> error $ "(<.): shapes don't match: "
+                AstRelS LeqOp (AstSFromX shu $ primalPart v)
+                              (AstSFromX shv $ primalPart u)
+              _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
 -- These are common in indexing, so worth optimizing early via AstConcrete.
@@ -768,36 +768,36 @@ instance (AstSpan s, GoodScalar r)
 
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKScalar r) where
-  AstFromPrimal u <. AstFromPrimal v = u <. v
-  AstFromDual u <. AstFromDual v = u <. v  -- TODO: correct?
-  AstFromS STKScalar u <. AstFromS STKScalar v
+  AstFromPrimal u <=. AstFromPrimal v = u <=. v
+  AstFromDual u <=. AstFromDual v = u <=. v  -- TODO: correct?
+  AstFromS STKScalar u <=. AstFromS STKScalar v
     | FTKS ZSS (FTKScalar @ru) <- ftkAst u
     , FTKS ZSS (FTKScalar @rv) <- ftkAst v
     , Just Refl <- testEquality (typeRep @ru) (typeRep @rv)
-    = u <. v
-  AstConcreteK u <. AstFromS STKScalar v
+    = u <=. v
+  AstConcreteK u <=. AstFromS STKScalar v
     | FTKS ZSS (FTKScalar @rv) <- ftkAst v
     , Just Refl <- testEquality (typeRep @rv) (typeRep @r)
-    = AstConcreteS (unConcrete $ sfromK $ Concrete u) <. v
-  AstConcreteK u <. AstConcreteK v =
-    AstBoolConst $ Concrete @(TKScalar r) u <. Concrete v
-  AstConcreteK u <. v
-    | u >= 0
+    = AstConcreteS (unConcrete $ sfromK $ Concrete u) <=. v
+  AstConcreteK u <=. AstConcreteK v =
+    AstBoolConst $ Concrete @(TKScalar r) u <=. Concrete v
+  AstConcreteK u <=. v
+    | u <= 0
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int64)
-    , nonPositiveIntSum v =
-      AstBoolConst False
-  u <. AstPlusK (AstConcreteK v) w =
-    u - AstConcreteK v <. w
-  AstPlusK (AstConcreteK u) w <. v =
-    AstConcreteK u <. v - w
-  u <. AstConcreteK v =
-    AstConcreteK (negate v) <. negate u
-  v@AstConcreteK{} <. u =
-    AstRelK LsOp (primalPart v) (primalPart u)
-  v <. u =
-    AstConcreteK 0 <. primalPart u - primalPart v
+    , nonNegativeIntSum v =
+      AstBoolConst True
+  u <=. AstPlusK (AstConcreteK v) w =
+    u - AstConcreteK v <=. w
+  AstPlusK (AstConcreteK u) w <=. v =
+    AstConcreteK u <=. v - w
+  u <=. AstConcreteK v =
+    AstConcreteK (negate v) <=. negate u
+  v@AstConcreteK{} <=. u =
+    AstRelK LeqOp (primalPart v) (primalPart u)
+  v <=. u =
+    AstConcreteK 0 <=. primalPart u - primalPart v
 
--- An approximation. False doesn't mean it's a negative sum.
+-- An approximation.
 nonPositiveIntSum :: AstTensor ms s (TKScalar Int64) -> Bool
 nonPositiveIntSum (AstFromPrimal u) = nonPositiveIntSum u
 nonPositiveIntSum (AstConcreteK u) = u <= 0
@@ -831,27 +831,27 @@ nonNegativeIntSum _ = False
 
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
-  AstFromPrimal u <. AstFromPrimal v = u <. v
-  AstFromDual u <. AstFromDual v = u <. v  -- TODO: correct?
-  AstSFromK u <. AstSFromK v = u <. v
-  AstConcreteS u <. AstSFromK v =
-    AstConcreteK (unConcrete $ kfromS $ Concrete u) <. v
-  AstConcreteS u <. AstConcreteS v =
-    AstBoolConst $ Concrete @(TKS sh r) u <. Concrete v
-  u <. AstPlusS (AstConcreteS v) w =
-    u - AstConcreteS v <. w
-  AstPlusS (AstConcreteS u) w <. v =
-    AstConcreteS u <. v - w
-  u <. AstConcreteS v =
-    AstConcreteS (negate v) <. negate u
-  AstVar u <. AstVar v | u == v =
-    AstBoolConst False
-  AstSFromR _ (AstVar u) <. AstSFromR _ (AstVar v) | u == v =
-    AstBoolConst False
-  AstSFromX _ (AstVar u) <. AstSFromX _ (AstVar v)
+  AstFromPrimal u <=. AstFromPrimal v = u <=. v
+  AstFromDual u <=. AstFromDual v = u <=. v  -- TODO: correct?
+  AstSFromK u <=. AstSFromK v = u <=. v
+  AstConcreteS u <=. AstSFromK v =
+    AstConcreteK (unConcrete $ kfromS $ Concrete u) <=. v
+  AstConcreteS u <=. AstConcreteS v =
+    AstBoolConst $ Concrete @(TKS sh r) u <=. Concrete v
+  u <=. AstPlusS (AstConcreteS v) w =
+    u - AstConcreteS v <=. w
+  AstPlusS (AstConcreteS u) w <=. v =
+    AstConcreteS u <=. v - w
+  u <=. AstConcreteS v =
+    AstConcreteS (negate v) <=. negate u
+  AstVar u <=. AstVar v | u == v =
+    AstBoolConst True
+  AstSFromR _ (AstVar u) <=. AstSFromR _ (AstVar v) | u == v =
+    AstBoolConst True
+  AstSFromX _ (AstVar u) <=. AstSFromX _ (AstVar v)
     | varNameToAstVarId u == varNameToAstVarId v =
-      AstBoolConst False
-  v <. u = AstRelS LsOp (primalPart v) (primalPart u)
+      AstBoolConst True
+  v <=. u = AstRelS LeqOp (primalPart v) (primalPart u)
 
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify definitions
@@ -906,7 +906,7 @@ type instance BoolOf (AstNoSimplify s) = AstBool AstMethodLet
 instance EqH (AstTensor AstMethodShare s) y => EqH (AstRaw s) y where
   AstRaw v ==. AstRaw u = v ==. u
 instance OrdH (AstTensor AstMethodShare s) y => OrdH (AstRaw s) y where
-  AstRaw v <. AstRaw u = v <. u
+  AstRaw v <=. AstRaw u = v <=. u
 
 deriving instance Eq (AstRaw s y)
 deriving instance Ord (AstRaw s y)
@@ -923,7 +923,7 @@ deriving instance RealFloatH (AstTensor AstMethodShare s y)
 instance EqH (AstTensor AstMethodLet s) y => EqH (AstNoVectorize s) y where
   AstNoVectorize v ==. AstNoVectorize u = v ==. u
 instance OrdH (AstTensor AstMethodLet s) y => OrdH (AstNoVectorize s) y where
-  AstNoVectorize v <. AstNoVectorize u = v <. u
+  AstNoVectorize v <=. AstNoVectorize u = v <=. u
 deriving instance Eq (AstNoVectorize s y)
 deriving instance Ord (AstNoVectorize s y)
 deriving instance Num (AstTensor AstMethodLet s y) => Num (AstNoVectorize s y)
@@ -939,7 +939,7 @@ deriving instance (RealFloatH (AstTensor AstMethodLet s y))
 instance EqH (AstTensor AstMethodLet s) y => EqH (AstNoSimplify s) y where
   AstNoSimplify v ==. AstNoSimplify u = v ==. u
 instance OrdH (AstTensor AstMethodLet s) y => OrdH (AstNoSimplify s) y where
-  AstNoSimplify v <. AstNoSimplify u = v <. u
+  AstNoSimplify v <=. AstNoSimplify u = v <=. u
 deriving instance Eq (AstNoSimplify s y)
 deriving instance Ord (AstNoSimplify s y)
 deriving instance Num (AstTensor AstMethodLet s y) => Num (AstNoSimplify s y)
