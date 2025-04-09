@@ -698,22 +698,22 @@ testCNNOPP5 = do
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       afcnn2T = conv2dUnpadded4 blackGlyph
   printAstPretty afcnn2T
-    @?= "rfromS (str (sreplicate @1 (sgather (sconcrete (sfromListLinear [2] [7.0,0.0])) (\\[i13, i12, i4] -> [ifH (notB (2 <=. i13) &&* (notB (2 <=. i12) &&* notB (2 <=. i4))) 0 1]))))"
+    @?= "rfromS (sreplicate @1 (sreplicate @1 (sgather (sconcrete (sfromListLinear [2] [7.0,0.0])) (\\[i11, i4] -> [ifH (notB (2 <=. i11) &&* notB (2 <=. i4)) 0 1]))))"
   printAstPretty (simplifyInlineContract afcnn2T)
-    @?= "rfromS (str (sreplicate @1 (sgather (sconcrete (sfromListLinear [2] [7.0,0.0])) (\\[i13, i12, i4] -> [ifH (notB (2 <=. i13) &&* (notB (2 <=. i12) &&* notB (2 <=. i4))) 0 1]))))"
+    @?= "rfromS (sreplicate @1 (sreplicate @1 (sgather (sconcrete (sfromListLinear [2] [7.0,0.0])) (\\[i11, i4] -> [ifH (notB (2 <=. i11) &&* notB (2 <=. i4)) 0 1]))))"
 
 testCNNOPP6 :: Assertion
 testCNNOPP6 = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent conv2dUnpadded4 (FTKR [2, 2, 2, 2] (FTKScalar @Double))
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> let u27 = sscatter (ssum @1 (str (sfromR dret))) (\\[i24, i25, i26] -> [ifH (notB (2 <=. i24) &&* (notB (2 <=. i25) &&* notB (2 <=. i26))) 0 1, i24, i25, i26]) in rfromS (soneHot (ssum @1 (u27 !$ [0])) [0, 0])"
+    @?= "\\dret u1 -> let u27 = sscatter (ssum @1 (str (sfromR dret))) (\\[i24, i25, i26] -> [ifH (notB (2 <=. i25) &&* notB (2 <=. i26)) 0 1, i24, i25, i26]) in rfromS (soneHot (ssum @1 (u27 !$ [0])) [0, 0])"
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> rfromS (soneHot (sscatter (str (sfromR dret) !$ [0]) (\\[i24, i25, i26] -> [ifH (notB (2 <=. i24) &&* (notB (2 <=. i25) &&* notB (2 <=. i26))) 0 1, i24, i25, i26]) !$ [0, 0]) [0, 0])"
+    @?= "\\dret u1 -> rfromS (soneHot (sscatter (str (sfromR dret) !$ [0]) (\\[i24, i25, i26] -> [ifH (notB (2 <=. i25) &&* notB (2 <=. i26)) 0 1, i24, i25, i26]) !$ [0, 0]) [0, 0])"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> rfromS (str (sreplicate @1 (sgather (sfromVector (fromList [sreplicate @1 (sfromR u1 !$ [0, 0]), sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))])) (\\[i20, i21, i22] -> [ifH (notB (2 <=. i20) &&* (notB (2 <=. i21) &&* notB (2 <=. i22))) 0 1, i20, i21, i22]))))"
+    @?= "\\u1 -> rfromS (str (sreplicate @1 (sgather (sfromVector (fromList [sreplicate @1 (sfromR u1 !$ [0, 0]), sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))])) (\\[i20, i21, i22] -> [ifH (notB (2 <=. i21) &&* notB (2 <=. i22)) 0 1, i20, i21, i22]))))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u1 -> rfromS (str (sreplicate @1 (sgather (sfromVector (fromList [sreplicate @1 (sfromR u1 !$ [0, 0]), sconcrete (sfromListLinear [1,2,2] [0.0,0.0,0.0,0.0])])) (\\[i20, i21, i22] -> [ifH (notB (2 <=. i20) &&* (notB (2 <=. i21) &&* notB (2 <=. i22))) 0 1, i20, i21, i22]))))"
+    @?= "\\u1 -> rfromS (str (sreplicate @1 (sgather (sfromVector (fromList [sreplicate @1 (sfromR u1 !$ [0, 0]), sconcrete (sfromListLinear [1,2,2] [0.0,0.0,0.0,0.0])])) (\\[i20, i21, i22] -> [ifH (notB (2 <=. i21) &&* notB (2 <=. i22)) 0 1, i20, i21, i22]))))"
 
 maxPool2dUnpadded4
   :: (ADReady target, GoodScalar r)

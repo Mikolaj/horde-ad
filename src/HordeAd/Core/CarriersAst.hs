@@ -716,6 +716,7 @@ instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKScalar r) where
   AstFromPrimal u ==. AstFromPrimal v = u ==. v
   AstFromDual u ==. AstFromDual v = u ==. v  -- TODO: correct?
+  AstPrimalPart u ==. AstPrimalPart v = u ==. v
   AstFromS STKScalar u ==. AstFromS STKScalar v
     | FTKS ZSS (FTKScalar @ru) <- ftkAst u
     , FTKS ZSS (FTKScalar @rv) <- ftkAst v
@@ -744,6 +745,7 @@ instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKS sh r) where
   AstFromPrimal u ==. AstFromPrimal v = u ==. v
   AstFromDual u ==. AstFromDual v = u ==. v  -- TODO: correct?
+  AstPrimalPart u ==. AstPrimalPart v = u ==. v
   AstSFromK u ==. AstSFromK v = u ==. v
   AstConcreteS u ==. AstSFromK v =
     AstConcreteK (unConcrete $ kfromS $ Concrete u) ==. v
@@ -768,7 +770,11 @@ instance (AstSpan s, GoodScalar r)
 
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKScalar r) where
+  u <=. v | let (u1, u2) = bounds u
+                (v1, v2) = bounds v
+          , u2 <= v1 || u1 > v2 = AstBoolConst (u2 <= v1)
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
+  AstPrimalPart u <=. AstPrimalPart v = u <=. v
   AstFromDual u <=. AstFromDual v = u <=. v  -- TODO: correct?
   AstFromS STKScalar u <=. AstFromS STKScalar v
     | FTKS ZSS (FTKScalar @ru) <- ftkAst u
@@ -779,9 +785,6 @@ instance (AstSpan s, GoodScalar r)
     | FTKS ZSS (FTKScalar @rv) <- ftkAst v
     , Just Refl <- testEquality (typeRep @rv) (typeRep @r)
     = AstConcreteS (unConcrete $ sfromK $ Concrete u) <=. v
-  AstConcreteK u <=. AstConcreteK v =
-    AstBoolConst $ Concrete @(TKScalar r) u <=. Concrete v
-  AstConcreteK u <=. v | u <= 0, 0 <= lowerBound v = AstBoolConst True
   u <=. AstPlusK (AstConcreteK v) w =
     u - AstConcreteK v <=. w
   AstPlusK (AstConcreteK u) w <=. v =
@@ -793,34 +796,43 @@ instance (AstSpan s, GoodScalar r)
   v <=. u =
     AstConcreteK 0 <=. primalPart u - primalPart v
 
--- An approximation.
-upperBound :: GoodScalar r => AstTensor ms s (TKScalar r) -> r
-upperBound (AstVar var) | Just (_, ub) <- varNameToBounds var = fromIntegral ub
-upperBound (AstFromPrimal u) = upperBound u
-upperBound (AstConcreteK u) = u
-upperBound (AstPlusK u v) = upperBound u + upperBound v
-upperBound (AstN1K NegateOp u) = - lowerBound u
-upperBound (AstTimesK u v) =
-  maximum [ lowerBound u * lowerBound v, lowerBound u * upperBound v
-          , upperBound u * lowerBound v, upperBound u * upperBound v ]
-upperBound _ = fromIntegral (maxBound :: Int64)
-
--- An approximation.
-lowerBound :: GoodScalar r => AstTensor ms s (TKScalar r) -> r
-lowerBound (AstVar var) | Just (lb, _) <- varNameToBounds var = fromIntegral lb
-lowerBound (AstFromPrimal u) = lowerBound u
-lowerBound (AstConcreteK u) = u
-lowerBound (AstPlusK u v) = lowerBound u + lowerBound v
-lowerBound (AstN1K NegateOp u) = - upperBound u
-lowerBound (AstTimesK u v) =
-  minimum [ lowerBound u * lowerBound v, lowerBound u * upperBound v
-          , upperBound u * lowerBound v, upperBound u * upperBound v ]
-lowerBound _ = - fromIntegral (maxBound :: Int64)
+-- An approximation: lower and upper bound.
+-- TODO: extend, e.g., to quot and rem.
+bounds :: GoodScalar r => AstTensor ms s (TKScalar r) -> (r, r)
+bounds (AstConcreteK u) = (u, u)
+bounds (AstVar var) = case varNameToBounds var of
+  Nothing -> (-1000000000, 1000000000)
+  Just (u1, u2) -> (fromIntegral u1, fromIntegral u2)
+bounds (AstFromPrimal u) = bounds u
+bounds (AstPrimalPart u) = bounds u
+bounds (AstCond _b u v) = let (u1, u2) = bounds u
+                              (v1, v2) = bounds v
+                          in (min u1 v1, max u2 v2)
+bounds (AstLet _ _ u) = bounds u  -- TODO: substitute?
+bounds (AstPlusK u v) = let (u1, u2) = bounds u
+                            (v1, v2) = bounds v
+                        in (u1 + v1, u2 + v2)
+bounds (AstN1K NegateOp u) = let (u1, u2) = bounds u in (- u2, - u1)
+bounds (AstTimesK u v) =
+  let (u1, u2) = bounds u
+      (v1, v2) = bounds v
+      l = [u1 * v1, u1 * v2, u2 * v1, u2 * v2]
+  in (minimum l, maximum l)
+bounds (AstI2K QuotOp u (AstConcreteK v)) | v > 0 =  -- a common case
+  let (u1, u2) = bounds u
+  in (u1 `quotH` v, u2 `quotH` v)
+bounds (AstI2K RemOp u (AstConcreteK v)) | v > 0 =
+  let (u1, u2) = bounds u
+  in if | u1 >= 0 -> (0, min u2 (v - 1))  -- very crude
+        | u2 <= 0 -> (max u1 (- v + 1), 0)
+        | otherwise -> (- v + 1, v - 1)
+bounds _ = (-1000000000, 1000000000)
 
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
   AstFromDual u <=. AstFromDual v = u <=. v  -- TODO: correct?
+  AstPrimalPart u <=. AstPrimalPart v = u <=. v
   AstSFromK u <=. AstSFromK v = u <=. v
   AstConcreteS u <=. AstSFromK v =
     AstConcreteK (unConcrete $ kfromS $ Concrete u) <=. v
