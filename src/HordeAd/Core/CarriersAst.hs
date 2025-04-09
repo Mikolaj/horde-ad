@@ -643,7 +643,6 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 
 -- * Unlawful instances of AST for bool; they are lawful modulo evaluation
 
--- TODO: rewrite to some standard normal form
 instance Boolean (AstBool ms) where
   true = AstBoolConst True
   false = AstBoolConst False
@@ -654,6 +653,7 @@ instance Boolean (AstBool ms) where
   AstBoolConst False &&* _b = AstBoolConst False
   b &&* AstBoolConst True = b
   _b &&* AstBoolConst False = AstBoolConst False
+  AstBoolAnd b c &&* d = b &&* (c &&* d)
   b &&* c = AstBoolAnd b c
   b ||* c = notB (notB b &&* notB c)
 

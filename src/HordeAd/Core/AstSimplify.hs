@@ -727,7 +727,8 @@ astApply :: forall x z s1 s. (AstSpan s1, AstSpan s)
          -> AstTensor AstMethodLet s z
 astApply (AstLambda !var !v) u = astLet var u v
 
-astCond :: AstBool AstMethodLet
+astCond :: AstSpan s
+        => AstBool AstMethodLet
         -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s y
 astCond (AstBoolConst b) v w = if b then v else w
@@ -1595,6 +1596,11 @@ astGatherKnobsS _ shn v0 (vars, AstConcreteK it :.$ _)
   , not (0 <= i && i < sNatValue snat) =
     let ftk = FTKS (listsToShS vars `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+astGatherKnobsS knobs shn v0
+                (vars, Ast.AstCond (Ast.AstBoolAnd a b) v w :.$ prest) =
+  astLetFun w $ \wShared ->
+    let i = astCond a (astCond b v wShared) wShared
+    in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (AstRelInt EqOp (AstConcreteK j)
