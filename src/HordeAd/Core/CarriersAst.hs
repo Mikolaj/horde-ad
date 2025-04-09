@@ -781,6 +781,11 @@ instance (AstSpan s, GoodScalar r)
     = AstConcreteS (unConcrete $ sfromK $ Concrete u) <. v
   AstConcreteK u <. AstConcreteK v =
     AstBoolConst $ Concrete @(TKScalar r) u <. Concrete v
+  AstConcreteK u <. v
+    | u >= 0
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64)
+    , nonPositiveIntSum v =
+      AstBoolConst False
   u <. AstPlusK (AstConcreteK v) w =
     u - AstConcreteK v <. w
   AstPlusK (AstConcreteK u) w <. v =
@@ -791,6 +796,38 @@ instance (AstSpan s, GoodScalar r)
     AstRelK LsOp (primalPart v) (primalPart u)
   v <. u =
     AstConcreteK 0 <. primalPart u - primalPart v
+
+-- An approximation. False doesn't mean it's a negative sum.
+nonPositiveIntSum :: AstTensor ms s (TKScalar Int64) -> Bool
+nonPositiveIntSum (AstFromPrimal u) = nonPositiveIntSum u
+nonPositiveIntSum (AstConcreteK u) = u <= 0
+nonPositiveIntSum (AstPlusK u v) = nonPositiveIntSum u && nonPositiveIntSum v
+nonPositiveIntSum (AstN1K NegateOp u) = nonNegativeIntSum u
+nonPositiveIntSum (AstN1K SignumOp u) = nonPositiveIntSum u
+nonPositiveIntSum (AstTimesK u v) =
+  nonPositiveIntSum u && nonNegativeIntSum v
+  || nonNegativeIntSum u && nonPositiveIntSum v
+nonPositiveIntSum (AstI2K _ u v) =
+  nonPositiveIntSum u && nonNegativeIntSum v
+  || nonNegativeIntSum u && nonPositiveIntSum v
+nonPositiveIntSum _ = False
+
+-- An approximation.
+nonNegativeIntSum :: AstTensor ms s (TKScalar Int64) -> Bool
+nonNegativeIntSum AstVar{} = True  -- the key case
+nonNegativeIntSum (AstFromPrimal u) = nonNegativeIntSum u
+nonNegativeIntSum (AstConcreteK u) = u >= 0
+nonNegativeIntSum (AstPlusK u v) = nonNegativeIntSum u && nonNegativeIntSum v
+nonNegativeIntSum (AstN1K NegateOp u) = nonPositiveIntSum u
+nonNegativeIntSum (AstN1K AbsOp _) = True
+nonNegativeIntSum (AstN1K SignumOp u) = nonNegativeIntSum u
+nonNegativeIntSum (AstTimesK u v) =
+  nonPositiveIntSum u && nonPositiveIntSum v
+  || nonNegativeIntSum u && nonNegativeIntSum v
+nonNegativeIntSum (AstI2K _ u v) =
+  nonPositiveIntSum u && nonPositiveIntSum v
+  || nonNegativeIntSum u && nonNegativeIntSum v
+nonNegativeIntSum _ = False
 
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
