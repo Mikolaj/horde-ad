@@ -6,7 +6,7 @@ module HordeAd.External.CommonRankedOps
 
 import Prelude
 
-import Control.Exception (assert)
+import Control.Exception.Assert.Sugar
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -211,7 +211,7 @@ conv2dUnpadded
 conv2dUnpadded arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
       [nCoutK, nCinpK, nKh, nKw] = rshape arrK
-      nCinp = assert (nCinpA == nCinpK) nCinpA
+      nCinp = assert (nCinpA == nCinpK`blame` (nCinpA, nCinpK)) nCinpA
       shB = [nImgs, nCoutK, nAh, nAw]
       shK1 = [1, nCinp, nKh, nKw]
   in rbuild shB $ \case
