@@ -80,6 +80,7 @@ import GHC.TypeLits
   )
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
+import Data.List (findIndex)
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation (DropLen, Perm (..), TakeLen, permInverse)
@@ -1703,12 +1704,10 @@ astGatherKnobsS knobs shn v0
   , varm == varp
   , Just Refl <- sameNat (Proxy @m) (Proxy @p)
   , not (varm `varNameInIxS` prest) =
-    let permVars3 = permCycle $ shsLength (listsToShS mrest) + 1
-        permIx3 = backpermCycle $ shsLength (ixsToShS prest) + 1
-    in Permutation.permFromList permVars3
-       $ \(permVars :: Permutation.Perm permVars) ->
-       Permutation.permFromList permIx3
-       $ \(permIx :: Permutation.Perm permIx) ->
+    Permutation.permFromList (permCycle $ shsLength (listsToShS mrest) + 1)
+    $ \(permVars :: Permutation.Perm permVars) ->
+    Permutation.permFromList (backpermCycle $ shsLength (ixsToShS prest) + 1)
+    $ \(permIx :: Permutation.Perm permIx) ->
        gcastWith (unsafeCoerceRefl
                   :: shm ++ shn
                      :~: Permutation.PermutePrefix
@@ -1729,6 +1728,40 @@ astGatherKnobsS knobs shn v0
          in astTransposeS
               permVars (astGatherKnobsS knobs (SNat @m :$$ shn)
                                         v2 (mrest, prest))
+astGatherKnobsS knobs shn v0
+  (vars, ix@(i1 :.$ prest))
+  | let varInteresting = \case
+          Ast.AstCond (AstRelInt LeqOp AstConcreteK{}
+                                       (AstIntVar var)) _ _ ->
+            Just var
+          Ast.AstCond (AstRelInt LeqOp AstConcreteK{}
+                                       (Ast.AstN1K NegateOp
+                                                   (AstIntVar var))) _ _ ->
+            Just var
+          AstIntVar var | knobPhase knobs == PhaseSimplification
+                            -- prevent a loop
+                        , not (var `varNameInIxS` prest) -> Just var
+          _ -> Nothing
+  , Just varp <- varInteresting i1
+  , Just i <- findIndex ((== varNameToAstVarId varp) . varNameToAstVarId)
+                        (listsToList vars) = assert (i > 0) $
+    Permutation.permFromList (backpermCycle $ i + 1)
+    $ \(permWhole :: Permutation.Perm permWhole) ->
+    permInverse permWhole $ \(invperm :: Nested.Perm invperm) _ ->
+    gcastWith (unsafeCoerceRefl
+               :: shm ++ shn
+                  :~: Permutation.PermutePrefix permWhole
+                        (Permutation.PermutePrefix invperm shm ++ shn)) $
+    gcastWith (unsafeCoerceRefl
+               :: (Rank permWhole
+                   <=? Rank (Permutation.PermutePrefix invperm shm ++ shn))
+                  :~: True) $
+    fromMaybe (error "astGatherKnobsS: impossible non-permutation")
+    $ Permutation.permCheckPermutation permWhole
+    $ astTransposeS permWhole
+    $ astGatherKnobsS knobs shn v0 (listsPermutePrefix invperm vars, ix)
+        -- this call is guaranteed to simplify as above, so the tranpose
+        -- won't reduce it back to the original and cause a loop
 -- Rules with AstConcreteK on the right hand side of AstPlusK are
 -- not needed, thanks to the normal form of AstPlusK rewriting.
 astGatherKnobsS knobs shn v0
