@@ -1597,11 +1597,63 @@ astGatherKnobsS _ shn v0 (vars, AstConcreteK it :.$ _)
   , not (0 <= i && i < sNatValue snat) =
     let ftk = FTKS (listsToShS vars `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
+  | not (any (`varNameInAst` i1) $ listsToList vars0) =
+    astGatherKnobsS @shm @shn
+      knobs shn
+      (astIndexKnobsS knobs (ixsToShS rest1 `shsAppend` shn) v0 (i1 :.$ ZIS))
+      (vars0, rest1)
+astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0)
+  | not (getConst var1 `varNameInIxS` ix0) =
+    let k :$$ sh' = listsToShS vars0
+        FTKS _ x = ftkAst v0
+    in astReplicate k (STKS (sh' `shsAppend` shn) (ftkToSTK x))
+                    (astGatherKnobsS @(Tail shm) @shn @shp
+                                     knobs shn v0 (vars1, ix0))
+-- This is only a shorthand not to have to wait for the simplification phase.
+astGatherKnobsS knobs shn v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))
+  | let ixInit = ixsInit ix0
+        varInit = listsInit vars0
+        varLast = getConst $ listsLast vars0
+  , AstIntVar ixvarLast <- ixsLast ix0
+  , ixvarLast == varLast
+  , not (varLast `varNameInIxS` ixInit)
+  , kLast@SNat <- shsLast (listsToShS vars0)
+  , Just Refl <- testEquality kLast (shsLast (ixsToShS ix0)) =
+    gcastWith (unsafeCoerceRefl
+               :: Init shp ++ (Last shm ': shn) :~: shp ++ shn) $
+    gcastWith (unsafeCoerceRefl
+               :: Init shm ++ (Last shm ': shn) :~: shm ++ shn) $
+    astGatherKnobsS @(Init shm) @(Last shm ': shn) @(Init shp)
+                    knobs (kLast :$$ shn) v0 (varInit, ixInit)
 astGatherKnobsS knobs shn v0
                 (vars, Ast.AstCond (Ast.AstBoolAnd a b) v w :.$ prest) =
   astLetFun w $ \wShared ->
     let i = astCond a (astCond b v wShared) wShared
     in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
+-- Rules with AstConcreteK on the right hand side of AstPlusK are
+-- not needed, thanks to the normal form of AstPlusK rewriting.
+astGatherKnobsS knobs shn v0
+  (vars, AstPlusK (AstConcreteK i64) i1 :.$ prest)
+  | FTKS (SNat @p :$$ _) x <- ftkAst v0 =
+    if i64 >= 0 then
+      withSNat (fromIntegral i64) $ \(SNat @i) ->
+        if i64 > valueOf @p then
+          let ftk = FTKS (listsToShS vars `shsAppend` shn) x
+          in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        else
+          gcastWith (unsafeCoerceRefl :: (i <=? p) :~: True) $
+          let v2 = astSliceS (SNat @i) (SNat @(p - i)) (SNat @0) v0
+          in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
+               -- this gather may still index out of bounds, which is fine
+    else
+      withSNat (- fromIntegral i64) $ \(SNat @i) ->
+        let ftk = FTKS (SNat @i :$$ ixsToShS prest `shsAppend` shn) x
+            v2 = fromPrimal (astConcrete ftk (tdefTarget ftk))
+                 `astAppendS`
+                 v0
+        in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
+             -- this gather may still index out of bounds, which is fine
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (AstRelInt EqOp (AstConcreteK j)
@@ -1729,6 +1781,41 @@ astGatherKnobsS knobs shn v0
               permVars (astGatherKnobsS knobs (SNat @m :$$ shn)
                                         v2 (mrest, prest))
 astGatherKnobsS knobs shn v0
+  (vars, ix@(i1 :.$ _))
+  | let intInteresting = \case
+          Ast.AstCond (Ast.AstBoolAnd{}) _ _ -> True
+          AstPlusK (AstConcreteK _) _ -> True
+          Ast.AstCond (AstRelInt LeqOp AstConcreteK{}
+                                       (AstIntVar var)) _ _
+            | any ((== varNameToAstVarId var) . varNameToAstVarId)
+                  (listsToList vars) -> True
+          Ast.AstCond (AstRelInt LeqOp AstConcreteK{}
+                                       (Ast.AstN1K NegateOp
+                                                   (AstIntVar var))) _ _
+            | any ((== varNameToAstVarId var) . varNameToAstVarId)
+                  (listsToList vars) -> True
+          AstIntVar var
+            | knobPhase knobs == PhaseSimplification  -- prevent a loop
+            , null $ drop 1 $ filter (var `varNameInAst`) (Foldable.toList ix)
+            , any ((== varNameToAstVarId var) . varNameToAstVarId)
+                  (listsToList vars) -> True
+          _ -> False
+  , not (intInteresting i1)  -- now vars need to be reordered, too
+  , Just i <- findIndex intInteresting
+                        (Foldable.toList ix) = assert (i > 0) $
+    Permutation.permFromList (backpermCycle $ i + 1)
+    $ \(perm :: Permutation.Perm perm) ->
+    gcastWith (unsafeCoerceRefl
+               :: Permutation.PermutePrefix perm (shp ++ shn)
+                  :~: Permutation.PermutePrefix perm shp ++ shn) $
+    gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank (shp ++ shn)) :~: True) $
+    fromMaybe (error "astGatherKnobsS: impossible non-permutation")
+    $ Permutation.permCheckPermutation perm
+    $ let v2 = astTransposeS perm v0
+      in astGatherKnobsS knobs shn v2 (vars, ixsPermutePrefix perm ix)
+        -- this call is guaranteed to simplify as above, so the tranpose
+        -- won't reduce it back to the original and cause a loop
+astGatherKnobsS knobs shn v0
   (vars, ix@(i1 :.$ prest))
   | let varInteresting = \case
           Ast.AstCond (AstRelInt LeqOp AstConcreteK{}
@@ -1738,9 +1825,9 @@ astGatherKnobsS knobs shn v0
                                        (Ast.AstN1K NegateOp
                                                    (AstIntVar var))) _ _ ->
             Just var
-          AstIntVar var | knobPhase knobs == PhaseSimplification
-                            -- prevent a loop
-                        , not (var `varNameInIxS` prest) -> Just var
+          AstIntVar var
+            | knobPhase knobs == PhaseSimplification  -- prevent a loop
+            , not (var `varNameInIxS` prest) -> Just var
           _ -> Nothing
   , Just varp <- varInteresting i1
   , Just i <- findIndex ((== varNameToAstVarId varp) . varNameToAstVarId)
@@ -1762,56 +1849,8 @@ astGatherKnobsS knobs shn v0
     $ astGatherKnobsS knobs shn v0 (listsPermutePrefix invperm vars, ix)
         -- this call is guaranteed to simplify as above, so the tranpose
         -- won't reduce it back to the original and cause a loop
--- Rules with AstConcreteK on the right hand side of AstPlusK are
--- not needed, thanks to the normal form of AstPlusK rewriting.
-astGatherKnobsS knobs shn v0
-  (vars, AstPlusK (AstConcreteK i64) i1 :.$ prest)
-  | FTKS (SNat @p :$$ _) x <- ftkAst v0 =
-    if i64 >= 0 then
-      withSNat (fromIntegral i64) $ \(SNat @i) ->
-        if i64 > valueOf @p then
-          let ftk = FTKS (listsToShS vars `shsAppend` shn) x
-          in fromPrimal $ astConcrete ftk (tdefTarget ftk)
-        else
-          gcastWith (unsafeCoerceRefl :: (i <=? p) :~: True) $
-          let v2 = astSliceS (SNat @i) (SNat @(p - i)) (SNat @0) v0
-          in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
-               -- this gather may still index out of bounds, which is fine
-    else
-      withSNat (- fromIntegral i64) $ \(SNat @i) ->
-        let ftk = FTKS (SNat @i :$$ ixsToShS prest `shsAppend` shn) x
-            v2 = fromPrimal (astConcrete ftk (tdefTarget ftk))
-                 `astAppendS`
-                 v0
-        in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
-             -- this gather may still index out of bounds, which is fine
-astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0@(i1 :.$ rest1)) =
-  if | let restN = ixsInit ix0
-           varsN = listsInit vars0
-           varN = getConst $ listsLast vars0
-     , kN@SNat <- shsLast (listsToShS vars0)
-     , vkN@SNat <- shsLast (ixsToShS ix0)
-     , AstIntVar ixvarN <- ixsLast ix0
-     , ixvarN == varN && not (varN `varNameInIxS` restN)
-     , Just Refl <- testEquality kN vkN ->
-       gcastWith (unsafeCoerceRefl
-                   :: Init shp ++ (Last shm ': shn) :~: shp ++ shn) $
-       gcastWith (unsafeCoerceRefl
-                   :: Init shm ++ (Last shm ': shn) :~: shm ++ shn) $
-       astGatherKnobsS @(Init shm) @(Last shm ': shn) @(Init shp)
-                       knobs (kN :$$ shn) v0 (varsN, restN)
-     | not (varNameInIxS (getConst var1) ix0) ->
-       let k :$$ sh' = listsToShS vars0
-           FTKS _ x = ftkAst v0
-       in astReplicate k (STKS (sh' `shsAppend` shn) (ftkToSTK x))
-                       (astGatherKnobsS @(Tail shm) @shn @shp
-                                        knobs shn v0 (vars1, ix0))
-     | not (any (`varNameInAst` i1) $ listsToList vars0) ->
-       astGatherKnobsS @shm @shn
-         knobs shn
-         (astIndexKnobsS knobs (ixsToShS rest1 `shsAppend` shn) v0 (i1 :.$ ZIS))
-         (vars0, rest1)
-     | i :.$ rest <- rest1  -- TODO: generalize
+astGatherKnobsS knobs shn v0 (vars0, ix0@(i1 :.$ rest1)) =
+  if | i :.$ rest <- rest1  -- TODO: generalize
      , not (any (`varNameInAst` i) $ listsToList vars0)
      , knobPhase knobs == PhaseSimplification ->  -- prevent a loop
        gcastWith (unsafeCoerceRefl :: (2 <=? Rank (shp ++ shn)) :~: True) $
