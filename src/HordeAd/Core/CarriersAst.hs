@@ -98,6 +98,12 @@ instance (GoodScalar r, AstSpan s)
   -- Unfortunately, these only fire if the required subterms are at the top
   -- of the reduced term, which happens rarely except in small terms.
   -- We could keep variables at the top, but they'd compete with AstConcreteK.
+  AstVar var + AstVar var'
+    | var == var' = 2 * AstVar var
+  AstVar var + AstTimesK (AstConcreteK n) (AstVar var')
+    | var == var' = AstConcreteK (n + 1) * AstVar var
+  AstTimesK (AstConcreteK n) (AstVar var) + AstVar var'
+    | var == var' = AstConcreteK (n + 1) * AstVar var
   AstN1K NegateOp (AstVar var) + AstVar var'
     | var == var' = 0
   AstN1K NegateOp (AstFromS STKScalar (AstVar var))
@@ -752,6 +758,18 @@ instance (AstSpan s, GoodScalar r)
     AstConcreteK u <=. v - w
   u <=. AstConcreteK v =
     AstConcreteK (negate v) <=. negate u
+  AstConcreteK u <=. AstTimesK (AstConcreteK v) w
+    | v > 0 && u >= 0
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+      AstConcreteK ((u + v - 1) `quotH` v) <=. w -- 10 == 5 * 2, 11 > 5 * 2
+  AstConcreteK u <=. AstTimesK (AstConcreteK v) w
+    | v > 0 && u < 0
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+      AstConcreteK (u `quotH` v) <=. w  -- -10 == 5 * -2, -9 > 5 * -2
+  AstConcreteK u <=. AstTimesK (AstConcreteK v) w
+    | v < 0
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+      AstConcreteK u <=. AstTimesK (AstConcreteK $ negate v) (AstN1K NegateOp w)
   v@AstConcreteK{} <=. u =
     AstLeqK (primalPart v) (primalPart u)
   v <=. u =
