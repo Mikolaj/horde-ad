@@ -4,4 +4,139 @@ packages: ./
 package statistics
   ghc-options: -fsimpl-tick-factor=10000
 
+source-repository-package
+    type: git
+    location: https://github.com/sheaf/ghc-tcplugins-extra
+    tag: 8de05916f8b905f6d2c99ddf10dbfa1add1a416f
 
+source-repository-package
+    type: git
+    location: https://github.com/sheaf/ghc-typelits-natnormalise/
+    tag: aec0035fc68a274c71f4a2c39c85b01def97fb3d
+
+source-repository-package
+    type: git
+    location: https://github.com/sheaf/ghc-typelits-knownnat
+    tag: 0c3e727bec8f5f64209ccfd754a07d5cf56f5c2b
+
+package horde-ad
+  tests: True
+  benchmarks: True
+
+source-repository-package
+    type: git
+    location: https://git.tomsmeding.com/dependent-enummap
+    tag: b5ac69674eada517052ee9bb046b9f977c42f330
+source-repository-package
+    type: git
+    location: https://git.tomsmeding.com/ox-arrays
+    tag: a78ddeaa5d34fa8b6fa52eee42977cc46e8c36a5
+
+
+repository head.hackage.ghc.haskell.org
+   url: https://ghc.gitlab.haskell.org/head.hackage/
+   secure: True
+   key-threshold: 3
+   root-keys:
+       f76d08be13e9a61a377a85e2fb63f4c5435d40f8feb3e12eb05905edb8cdea89
+       7541f32a4ccca4f97aea3b22f5e593ba2c0267546016b992dfadcd2fe944e55d
+       26021a13b401500c8eb2761ca95c61f2d625bfef951b939a8124ed12ecf07329
+
+allow-newer:
+  Cabal,
+  base,
+  binary,
+  bytestring,
+  containers,
+  deepseq,
+  ghc,
+  ghc-bignum,
+  ghc-boot,
+  ghc-boot-th,
+  ghc-prim,
+  integer-gmp,
+  template-haskell,
+  text,
+  time
+
+constraints:
+  base installed,
+  ghc installed,
+  ghc-bignum installed,
+  ghc-prim installed,
+  integer-gmp installed,
+  template-haskell installed
+
+constraints:
+  Agda ==2.7.0.1,
+  Cabal ==2.4.1.0 || ==3.0.2.0 || ==3.2.1.0,
+  Cabal-syntax ==3.8.1.0,
+  FPretty ==1.1,
+  JuicyPixels ==3.3.8,
+  ansi-pretty ==0.1.2.2,
+  arith-encode ==1.0.2,
+  aur ==7.0.7,
+  aura ==3.2.9,
+  barbies-th ==0.1.11,
+  box-tuples ==0.2.0.4,
+  charsetdetect ==1.1.0.3,
+  charsetdetect-ae ==1.1.0.4,
+  chaselev-deque ==0.5.0.5,
+  containers ==0.6.7 || ==0.6.8 || ==0.7,
+  critbit ==0.2.0.0,
+  crypto-random ==0.0.9,
+  cryptol ==3.1.0,
+  data-default-instances-new-base ==0.0.2,
+  data-r-tree ==0.6.0,
+  datetime ==0.3.1,
+  derive-lifted-instances ==0.2.2,
+  drinkery ==0.4,
+  endo ==0.3.0.1,
+  enumeration ==0.2.0,
+  extra ==1.7.14,
+  free-functors ==1.2.1,
+  freer-simple ==1.2.1.2,
+  ghc-lib-parser ==9.8.4.20241130,
+  ghcide ==2.9.0.0,
+  haskell-src-meta ==0.8.13,
+  haxl ==2.4.0.0,
+  hgeometry ==0.14,
+  hgeometry-combinatorial ==0.14,
+  hgeometry-ipe ==0.13,
+  inj-base ==0.2.0.0,
+  io-choice ==0.0.7,
+  language-bash ==0.9.2,
+  language-haskell-extract ==0.2.4,
+  lens ==5.2.3,
+  liquidhaskell-boot ==0.9.10.1,
+  mainland-pretty ==0.7.1,
+  monoidal-containers ==0.6.4.0,
+  packman ==0.5.0,
+  partial-isomorphisms ==0.2.3.0,
+  pgp-wordlist ==0.1.0.3,
+  refinery ==0.4.0.0,
+  row-types ==1.0.1.2,
+  salak ==0.3.6,
+  sbv ==10.2,
+  singletons ==3.0.2,
+  singletons-base ==3.1.1,
+  singletons-th ==3.1.1,
+  siphash ==1.0.3,
+  strict-containers ==0.2,
+  text-short ==0.1.5,
+  text-show ==3.10.5,
+  th-abstraction ==0.5.0.0 || ==0.6.0.0,
+  th-compat ==0.1.4,
+  th-desugar ==1.14,
+  th-lift ==0.8.4,
+  th-orphans ==0.13.14,
+  true-name ==0.1.0.3,
+  typelits-printf ==0.2.0.0,
+  vector-circular ==0.1.4,
+  vector-space ==0.16,
+  what4 ==1.5.1,
+  winery ==1.4
+
+constraints:
+  optparse-applicative -process,
+  tasty -unix
