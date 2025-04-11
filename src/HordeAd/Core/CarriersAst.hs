@@ -688,30 +688,10 @@ instance Boolean (AstBool ms) where
 
 -- TODO: refactor with something like liftRFromS2
 instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKR n r) where
-  v ==. u = case ftkAst v of
-    FTKR shv' _ -> case ftkAst u of
-      FTKR shu' _ ->
-        withCastRS shv' $ \shv ->
-          withCastRS shu' $ \shu ->
-            case testEquality shv shu of
-              Just Refl ->
-                AstRelS EqOp (AstSFromR shu $ primalPart v)
-                             (AstSFromR shv $ primalPart u)
-              _ -> error $ "(==.): shapes don't match: "
-                           ++ show (shu, shv)
+  v ==. u = v <=. u &&* u <=. v
 
 instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKX sh r) where
-  v ==. u = case ftkAst v of
-    FTKX shv' _ -> case ftkAst u of
-      FTKX shu' _ ->
-        withCastXS shv' $ \shv ->
-          withCastXS shu' $ \shu ->
-            case testEquality shv shu of
-              Just Refl ->
-                AstRelS EqOp (AstSFromX shu $ primalPart v)
-                             (AstSFromX shv $ primalPart u)
-              _ -> error $ "(==.): shapes don't match: "
-                           ++ show (shu, shv)
+  v ==. u = v <=. u &&* u <=. v
 
 instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKR n r) where
   v <=. u = case ftkAst v of
@@ -739,64 +719,16 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
--- These are common in indexing, so worth optimizing early via AstConcrete.
--- We keep AstConcrete on the left, as with AstPlusK and others.
 instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKScalar r) where
-  AstFromPrimal u ==. AstFromPrimal v = u ==. v
-  AstFromDual u ==. AstFromDual v = u ==. v  -- TODO: correct?
-  AstPrimalPart u ==. AstPrimalPart v = u ==. v
-  AstFromS STKScalar u ==. AstFromS STKScalar v
-    | FTKS ZSS (FTKScalar @ru) <- ftkAst u
-    , FTKS ZSS (FTKScalar @rv) <- ftkAst v
-    , Just Refl <- testEquality (typeRep @ru) (typeRep @rv)
-    = u ==. v
-  AstConcreteK u ==. AstFromS STKScalar v
-    | FTKS ZSS (FTKScalar @rv) <- ftkAst v
-    , Just Refl <- testEquality (typeRep @rv) (typeRep @r)
-    = AstConcreteS (unConcrete $ sfromK $ Concrete u) ==. v
-  AstConcreteK u ==. AstConcreteK v =
-    AstBoolConst $ Concrete @(TKScalar r) u ==. Concrete v
-  u ==. AstPlusK (AstConcreteK v) w =
-    u - AstConcreteK v ==. w
-  AstPlusK (AstConcreteK u) w ==. v =
-    AstConcreteK u ==. v - w
-  u ==. AstConcreteK v =
-    AstConcreteK v ==. u
-  AstConcreteK u ==. AstN1K NegateOp v =
-    AstConcreteK (negate u) ==. v
-  v@AstConcreteK{} ==. u =
-    AstRelK EqOp (primalPart v) (primalPart u)
-  v ==. u =
-    AstConcreteK 0 ==. primalPart u - primalPart v
+  v ==. u = v <=. u &&* u <=. v
 
 instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKS sh r) where
-  AstFromPrimal u ==. AstFromPrimal v = u ==. v
-  AstFromDual u ==. AstFromDual v = u ==. v  -- TODO: correct?
-  AstPrimalPart u ==. AstPrimalPart v = u ==. v
-  AstSFromK u ==. AstSFromK v = u ==. v
-  AstConcreteS u ==. AstSFromK v =
-    AstConcreteK (unConcrete $ kfromS $ Concrete u) ==. v
-  AstConcreteS u ==. AstConcreteS v =
-    AstBoolConst $ Concrete @(TKS sh r) u ==. Concrete v
-  u ==. AstPlusS (AstConcreteS v) w =
-    u - AstConcreteS v ==. w
-  AstPlusS (AstConcreteS u) w ==. v =
-    AstConcreteS u ==. v - w
-  u ==. AstConcreteS v =
-    AstConcreteS v ==. u
-  AstConcreteS u ==. AstN1S NegateOp v =
-    AstConcreteS (negate u) ==. v
-  AstVar u ==. AstVar v | u == v =
-    AstBoolConst True
-  AstSFromR _ (AstVar u) ==. AstSFromR _ (AstVar v) | u == v =
-    AstBoolConst True
-  AstSFromX _ (AstVar u) ==. AstSFromX _ (AstVar v)
-    | varNameToAstVarId u == varNameToAstVarId v =
-      AstBoolConst True
-  v ==. u = AstRelS EqOp (primalPart v) (primalPart u)
+  v ==. u = v <=. u &&* u <=. v
 
+-- These are common in indexing, so worth optimizing early via AstConcrete.
+-- We keep AstConcrete on the left, as with AstPlusK and others.
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKScalar r) where
   u <=. v | let (u1, u2) = bounds u
