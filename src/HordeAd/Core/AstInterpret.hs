@@ -424,14 +424,14 @@ interpretAstBool !env = \case
     let b1 = interpretAstBool env arg1
         b2 = interpretAstBool env arg2
     in b1 &&* b2
-  AstRelK opCodeRel arg1 arg2 ->
+  AstLeqK arg1 arg2 ->
     let r1 = interpretAstPrimal env arg1
         r2 = interpretAstPrimal env arg2
-    in interpretAstRelOp opCodeRel r1 r2
-  AstRelS opCodeRel arg1 arg2 ->
+    in r1 <=. r2
+  AstLeqS arg1 arg2 ->
     let r1 = interpretAstPrimal env arg1
         r2 = interpretAstPrimal env arg2
-    in interpretAstRelOp opCodeRel r1 r2
+    in r1 <=. r2
 
 
 -- * Interpretation of arithmetic, boolean and relation operations
@@ -476,9 +476,3 @@ interpretAstI2 :: IntegralH a
 {-# INLINE interpretAstI2 #-}
 interpretAstI2 QuotOp u v = quotH u v
 interpretAstI2 RemOp u v = remH u v
-
-interpretAstRelOp :: (EqH f y, OrdH f y)
-                  => OpCodeRel -> f y -> f y -> BoolOf f
-{-# INLINE interpretAstRelOp #-}
-interpretAstRelOp EqOp u v = u ==. v
-interpretAstRelOp LeqOp u v = u <=. v

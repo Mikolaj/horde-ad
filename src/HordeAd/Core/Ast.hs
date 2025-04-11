@@ -27,12 +27,11 @@ module HordeAd.Core.Ast
   , AstInt, IntVarName, pattern AstIntVar
   , AstVarName, mkAstVarName, varNameToAstVarId, varNameToFTK, varNameToBounds
   , AstArtifactRev(..), AstArtifactFwd(..)
-  , AstIxS, AstVarListS, pattern AstRelInt
+  , AstIxS, AstVarListS, pattern AstLeqInt
     -- * AST
   , AstMethodOfSharing(..), AstTensor(..)
   , AstHFun(..)
-  , AstBool(..), OpCodeNum1(..), OpCode1(..), OpCode2(..)
-  , OpCodeIntegral2(..), OpCodeRel(..)
+  , AstBool(..), OpCodeNum1(..), OpCode1(..), OpCode2(..), OpCodeIntegral2(..)
   ) where
 
 import Prelude hiding (foldl')
@@ -182,15 +181,15 @@ type AstIxS ms sh = IxS sh (AstInt ms)
 
 type AstVarListS sh = ListS sh (Const IntVarName)
 
-pattern AstRelInt :: OpCodeRel -> AstInt ms -> AstInt ms -> AstBool ms
-pattern AstRelInt opCode t u <- (matchAstRelInt -> Just (opCode, t, u))
-  where AstRelInt opCode t u = AstRelK opCode t u
+pattern AstLeqInt :: AstInt ms -> AstInt ms -> AstBool ms
+pattern AstLeqInt t u <- (matchAstLeqInt -> Just (t, u))
+  where AstLeqInt t u = AstLeqK t u
 
-matchAstRelInt :: AstBool ms -> Maybe (OpCodeRel, AstInt ms, AstInt ms)
-matchAstRelInt (AstRelK @r opCode t u)
+matchAstLeqInt :: AstBool ms -> Maybe (AstInt ms, AstInt ms)
+matchAstLeqInt (AstLeqK @r t u)
   | Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
-      Just (opCode, t, u)
-matchAstRelInt _ = Nothing
+      Just (t, u)
+matchAstLeqInt _ = Nothing
 
 
 -- * AST
@@ -468,14 +467,12 @@ data AstBool ms where
   AstBoolNot :: AstBool ms -> AstBool ms
   AstBoolAnd :: AstBool ms -> AstBool ms -> AstBool ms
   -- There are existential variables here.
-  AstRelK :: forall r ms. GoodScalar r
-          => OpCodeRel
-          -> AstTensor ms PrimalSpan (TKScalar r)
+  AstLeqK :: forall r ms. GoodScalar r
+          => AstTensor ms PrimalSpan (TKScalar r)
           -> AstTensor ms PrimalSpan (TKScalar r)
           -> AstBool ms
-  AstRelS :: forall sh r ms. GoodScalar r
-          => OpCodeRel
-          -> AstTensor ms PrimalSpan (TKS sh r)
+  AstLeqS :: forall sh r ms. GoodScalar r
+          => AstTensor ms PrimalSpan (TKS sh r)
           -> AstTensor ms PrimalSpan (TKS sh r)
           -> AstBool ms
 deriving instance Show (AstBool ms)
@@ -499,8 +496,4 @@ data OpCode2 =
 
 data OpCodeIntegral2 =
     QuotOp | RemOp
- deriving Show
-
-data OpCodeRel =
-    EqOp | LeqOp
  deriving Show

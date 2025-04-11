@@ -1316,8 +1316,8 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstReplicate k v ->
     let len = astConcrete $ fromIntegral k
         zero = astReplicate0N (dropShape $ shapeAst v) 0
-    in case simplifyAstBool $ Ast.AstB2 AndOp (Ast.AstRel LeqOp 0 i1)
-                                              (Ast.AstRel LeqOp i1 len) of
+    in case simplifyAstBool $ Ast.AstB2 AndOp (Ast.AstLeq 0 i1)
+                                              (Ast.AstLeq i1 len) of
       AstBoolConst b -> if b then astIndex v rest1 else zero
       bExpr -> astCond bExpr (astIndex v rest1) zero -}
   -- TODO: the two below are wrong, should catch out of bounds instead
@@ -1440,7 +1440,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let ulen = AstConcreteK (valueOf @m)
         ix1 = i1 :.$ rest1
         ix2 = simplifyAstInt (i1 - ulen) :.$ rest1
-    in case simplifyAstBool $ AstRelInt LeqOp ulen i1 of
+    in case simplifyAstBool $ AstLeqInt ulen i1 of
       AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
       bExpr -> astCond bExpr (astIndexRec shn v ix2) (astIndexRec shn u ix1)
   Ast.AstSliceS (SNat @i) _ SNat v ->
@@ -1655,8 +1655,7 @@ astGatherKnobsS knobs shn v0
              -- this gather may still index out of bounds, which is fine
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
-  , Ast.AstCond (AstRelInt LeqOp (AstConcreteK j)
-                                 (AstIntVar varp)) i1 i2
+  , Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2
     :.$ prest )
   | varNameToAstVarId varm == varNameToAstVarId varp =
     if | j <= 0 ->
@@ -1677,9 +1676,8 @@ astGatherKnobsS knobs shn v0
                               varm (i1 :.$ prest) )
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
-  , Ast.AstCond (AstRelInt LeqOp (AstConcreteK j)
-                                 (Ast.AstN1K NegateOp
-                                             (AstIntVar varp))) i1 i2
+  , Ast.AstCond (AstLeqInt (AstConcreteK j)
+                           (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2
     :.$ prest )
   | varNameToAstVarId varm == varNameToAstVarId varp =
     if | - j + 1 <= 0 ->
@@ -1749,13 +1747,11 @@ astGatherKnobsS knobs shn v0
   | let intInteresting = \case
           Ast.AstCond (Ast.AstBoolAnd{}) _ _ -> True
           AstPlusK (AstConcreteK _) _ -> True
-          Ast.AstCond (AstRelInt LeqOp AstConcreteK{}
-                                       (AstIntVar var)) _ _
+          Ast.AstCond (AstLeqInt AstConcreteK{} (AstIntVar var)) _ _
             | any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
-          Ast.AstCond (AstRelInt LeqOp AstConcreteK{}
-                                       (Ast.AstN1K NegateOp
-                                                   (AstIntVar var))) _ _
+          Ast.AstCond (AstLeqInt AstConcreteK{}
+                                 (Ast.AstN1K NegateOp (AstIntVar var))) _ _
             | any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
           AstIntVar var
@@ -1782,12 +1778,10 @@ astGatherKnobsS knobs shn v0
 astGatherKnobsS knobs shn v0
   (vars, ix@(i1 :.$ prest))
   | let varInteresting = \case
-          Ast.AstCond (AstRelInt LeqOp AstConcreteK{}
-                                       (AstIntVar var)) _ _ ->
+          Ast.AstCond (AstLeqInt AstConcreteK{} (AstIntVar var)) _ _ ->
             Just var
-          Ast.AstCond (AstRelInt LeqOp AstConcreteK{}
-                                       (Ast.AstN1K NegateOp
-                                                   (AstIntVar var))) _ _ ->
+          Ast.AstCond (AstLeqInt AstConcreteK{}
+                                 (Ast.AstN1K NegateOp (AstIntVar var))) _ _ ->
             Just var
           AstIntVar var
             | knobPhase knobs == PhaseSimplification  -- prevent a loop
@@ -3116,10 +3110,8 @@ expandAstBool t = case t of
   AstBoolConst{} -> t
   Ast.AstBoolNot arg -> notB $ expandAstBool arg
   Ast.AstBoolAnd arg1 arg2 -> expandAstBool arg1 &&* expandAstBool arg2
-  Ast.AstRelK opCodeRel arg1 arg2 ->
-    normalizeAstRel opCodeRel (expandAst arg1) (expandAst arg2)
-  Ast.AstRelS opCodeRel arg1 arg2 ->
-    normalizeAstRel opCodeRel (expandAst arg1) (expandAst arg2)
+  Ast.AstLeqK arg1 arg2 -> expandAst arg1 <=. expandAst arg2
+  Ast.AstLeqS arg1 arg2 -> expandAst arg1 <=. expandAst arg2
 
 
 -- * The simplifying bottom-up pass
@@ -3244,11 +3236,8 @@ simplifyAstBool t = case t of
   AstBoolConst{} -> t
   Ast.AstBoolNot arg -> notB $ simplifyAstBool arg
   Ast.AstBoolAnd arg1 arg2 -> simplifyAstBool arg1 &&* simplifyAstBool arg2
-  Ast.AstRelK opCodeRel arg1 arg2 ->
-    normalizeAstRel opCodeRel (simplifyAst arg1) (simplifyAst arg2)
-  Ast.AstRelS opCodeRel arg1 arg2 ->
-    normalizeAstRel opCodeRel (simplifyAst arg1) (simplifyAst arg2)
-
+  Ast.AstLeqK arg1 arg2 -> simplifyAst arg1 <=. simplifyAst arg2
+  Ast.AstLeqS arg1 arg2 -> simplifyAst arg1 <=. simplifyAst arg2
 
 -- * The contraction (e.g., from gather expressions) bottom-up pass
 
@@ -3684,22 +3673,8 @@ contractAstBool t = case t of
   AstBoolConst{} -> t
   Ast.AstBoolNot arg -> notB $ contractAstBool arg
   Ast.AstBoolAnd arg1 arg2 -> contractAstBool arg1 &&* contractAstBool arg2
-  Ast.AstRelK opCodeRel arg1 arg2 ->
-    normalizeAstRel opCodeRel (contractAst arg1) (contractAst arg2)
-  Ast.AstRelS opCodeRel arg1 arg2 ->
-    normalizeAstRel opCodeRel (contractAst arg1) (contractAst arg2)
-
-
--- * Normalization of boolean and relation operators
-
-normalizeAstRel :: ( EqH (AstTensor AstMethodLet PrimalSpan) y
-                   , OrdH (AstTensor AstMethodLet PrimalSpan) y )
-                => OpCodeRel
-                -> AstTensor AstMethodLet PrimalSpan y
-                -> AstTensor AstMethodLet PrimalSpan y
-                -> AstBool AstMethodLet
-normalizeAstRel EqOp = (==.)
-normalizeAstRel LeqOp = (<=.)
+  Ast.AstLeqK arg1 arg2 -> contractAst arg1 <=. contractAst arg2
+  Ast.AstLeqS arg1 arg2 -> contractAst arg1 <=. contractAst arg2
 
 
 -- * Substitution wrappers
@@ -3985,17 +3960,15 @@ substitute1AstBool i var = subst where
     in if isJust mb1 || isJust mb2
        then Just $ fromMaybe arg1 mb1 &&* fromMaybe arg2 mb2
        else Nothing
-  Ast.AstRelK opCodeRel arg1 arg2 ->
+  Ast.AstLeqK arg1 arg2 ->
     let mr1 = substitute1Ast i var arg1
         mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
-       then Just $ normalizeAstRel opCodeRel (fromMaybe arg1 mr1)
-                                             (fromMaybe arg2 mr2)
+       then Just $ fromMaybe arg1 mr1 <=. fromMaybe arg2 mr2
        else Nothing
-  Ast.AstRelS opCodeRel arg1 arg2 ->
+  Ast.AstLeqS arg1 arg2 ->
     let mr1 = substitute1Ast i var arg1
         mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
-       then Just $ normalizeAstRel opCodeRel (fromMaybe arg1 mr1)
-                                             (fromMaybe arg2 mr2)
+       then Just $ fromMaybe arg1 mr1 <=. fromMaybe arg2 mr2
        else Nothing

@@ -551,8 +551,8 @@ printAstBool cfg d = \case
   AstBoolConst b -> showString $ if b then "true" else "false"
   AstBoolNot u -> printPrefixOp printAstBool cfg d "notB" [u]
   AstBoolAnd u v -> printBinaryOp printAstBool cfg d u (3, "&&*") v
-  AstRelK opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
-  AstRelS opCode arg1 arg2 -> printAstRelOp printAst cfg d opCode arg1 arg2
+  AstLeqK u v -> printBinaryOp printAst cfg d u (4, "<=.") v
+  AstLeqS u v -> printBinaryOp printAst cfg d u (4, "<=.") v
 
 printAstN1R :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCodeNum1 -> a -> ShowS
@@ -614,11 +614,3 @@ printBinaryOp pr cfg d left (prec, opstr) right =
   $ pr cfg (prec + 1) left
     . showString (" " ++ opstr ++ " ")
     . pr cfg (prec + 1) right
-
-printAstRelOp :: (PrintConfig -> Int -> a -> ShowS)
-              -> PrintConfig -> Int -> OpCodeRel -> a -> a
-              -> ShowS
-{-# INLINE printAstRelOp #-}
-printAstRelOp pr cfg d opCode u v = case opCode of
-  EqOp -> printBinaryOp pr cfg d u (4, "==.") v
-  LeqOp -> printBinaryOp pr cfg d u (4, "<=.") v

@@ -960,9 +960,9 @@ testScatterSimpPP1 = do
   length (show t1) @?= 341
   resetVarCounter
   let !t2 = scatter1 $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t2) @?= 442
+  length (show t2) @?= 436
   length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t1)) @?= 341
-  length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t2)) @?= 442
+  length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t2)) @?= 436
 
 testScatterSimp1 :: Assertion
 testScatterSimp1 = do
@@ -1051,12 +1051,12 @@ testScatterSimpPP2 :: Assertion
 testScatterSimpPP2 = do
   resetVarCounter
   let !t1 = scatterNested2 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t1) @?= 1160
+  length (show t1) @?= 1130
   resetVarCounter
   let !t2 = scatter2 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t2) @?= 738
-  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 1160
-  length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 738
+  length (show t2) @?= 726
+  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 1130
+  length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 726
 
 testScatterSimp2 :: Assertion
 testScatterSimp2 = do
@@ -1147,12 +1147,12 @@ testScatterSimpPP12 :: Assertion
 testScatterSimpPP12 = do
   resetVarCounter
   let !t1 = scatterNested12 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t1) @?= 994
+  length (show t1) @?= 970
   resetVarCounter
   let !t2 = scatter12 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t2) @?= 738
-  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 994
-  length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 738
+  length (show t2) @?= 726
+  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 970
+  length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 726
 
 testScatterSimp12 :: Assertion
 testScatterSimp12 = do
@@ -1217,13 +1217,13 @@ testReluSimpPP = do
   resetVarCounter
   let !t1 = barRelu10xSlower @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t1) @?= 17606
-  length (show (simplifyInlineContract @(TKR 10 Float) t1)) @?= 23244
+  length (show t1) @?= 17558
+  length (show (simplifyInlineContract @(TKR 10 Float) t1)) @?= 23196
   resetVarCounter
   let !t2 = barRelu @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t2) @?= 17606
-  length (show (simplifyInlineContract @(TKR 10 Float) t2)) @?= 23244
+  length (show t2) @?= 17558
+  length (show (simplifyInlineContract @(TKR 10 Float) t2)) @?= 23196
 
 testCNNOPP2 :: Assertion
 testCNNOPP2 = do

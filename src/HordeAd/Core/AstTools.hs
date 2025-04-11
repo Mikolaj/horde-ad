@@ -264,8 +264,8 @@ varInAstBool var = \case
   AstBoolConst{} -> False
   AstBoolNot b -> varInAstBool var b
   AstBoolAnd arg1 arg2 -> varInAstBool var arg1 || varInAstBool var arg2
-  AstRelK _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
-  AstRelS _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstLeqK arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstLeqS arg1 arg2 -> varInAst var arg1 || varInAst var arg2
 
 varNameInAst :: AstVarName f y -> AstTensor ms s2 y2 -> Bool
 varNameInAst var = varInAst (varNameToAstVarId var)

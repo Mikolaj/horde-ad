@@ -655,33 +655,33 @@ instance Boolean (AstBool ms) where
   b &&* AstBoolConst True = b
   _b &&* AstBoolConst False = AstBoolConst False
   AstBoolAnd b c &&* d = b &&* (c &&* d)
-  b@(AstRelK LeqOp AstConcreteK{} AstVar{}) &&* c = AstBoolAnd b c
-  b@(AstRelK LeqOp AstConcreteK{} (AstN1K NegateOp
-                                          AstVar{})) &&* c = AstBoolAnd b c
+  b@(AstLeqK AstConcreteK{} AstVar{}) &&* c = AstBoolAnd b c
+  b@(AstLeqK AstConcreteK{} (AstN1K NegateOp
+                                    AstVar{})) &&* c = AstBoolAnd b c
   b@(AstBoolNot
-       (AstRelK LeqOp AstConcreteK{} AstVar{})) &&* c = AstBoolAnd b c
+       (AstLeqK AstConcreteK{} AstVar{})) &&* c = AstBoolAnd b c
   b@(AstBoolNot
-       (AstRelK LeqOp AstConcreteK{} (AstN1K NegateOp
-                                             AstVar{}))) &&* c = AstBoolAnd b c
-  b &&* c@(AstRelK LeqOp AstConcreteK{} AstVar{}) = AstBoolAnd c b
-  b &&* c@(AstRelK LeqOp AstConcreteK{} (AstN1K NegateOp
-                                                AstVar{})) = AstBoolAnd c b
+       (AstLeqK AstConcreteK{} (AstN1K NegateOp
+                                       AstVar{}))) &&* c = AstBoolAnd b c
+  b &&* c@(AstLeqK AstConcreteK{} AstVar{}) = AstBoolAnd c b
+  b &&* c@(AstLeqK AstConcreteK{} (AstN1K NegateOp
+                                          AstVar{})) = AstBoolAnd c b
   b &&* c@(AstBoolNot
-             (AstRelK LeqOp AstConcreteK{} AstVar{})) = AstBoolAnd c b
+             (AstLeqK AstConcreteK{} AstVar{})) = AstBoolAnd c b
   b &&* c@(AstBoolNot
-             (AstRelK LeqOp AstConcreteK{} (AstN1K NegateOp
-                                                   AstVar{}))) = AstBoolAnd c b
-  b &&* AstBoolAnd c@(AstRelK LeqOp AstConcreteK{} AstVar{}) d =
+             (AstLeqK AstConcreteK{} (AstN1K NegateOp
+                                             AstVar{}))) = AstBoolAnd c b
+  b &&* AstBoolAnd c@(AstLeqK AstConcreteK{} AstVar{}) d =
     AstBoolAnd c (b &&* d)
-  b &&* AstBoolAnd c@(AstRelK LeqOp AstConcreteK{} (AstN1K NegateOp
-                                                           AstVar{})) d =
+  b &&* AstBoolAnd c@(AstLeqK AstConcreteK{} (AstN1K NegateOp
+                                                     AstVar{})) d =
     AstBoolAnd c (b &&* d)
   b &&* AstBoolAnd c@(AstBoolNot
-                        (AstRelK LeqOp AstConcreteK{} AstVar{})) d =
+                        (AstLeqK AstConcreteK{} AstVar{})) d =
     AstBoolAnd c (b &&* d)
   b &&* AstBoolAnd c@(AstBoolNot
-                        (AstRelK LeqOp AstConcreteK{} (AstN1K NegateOp
-                                                              AstVar{}))) d =
+                        (AstLeqK AstConcreteK{} (AstN1K NegateOp
+                                                        AstVar{}))) d =
     AstBoolAnd c (b &&* d)
   b &&* c = AstBoolAnd b c
   b ||* c = notB (notB b &&* notB c)
@@ -701,8 +701,8 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKR n r) where
           withCastRS shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                AstRelS LeqOp (AstSFromR shu $ primalPart v)
-                              (AstSFromR shv $ primalPart u)
+                AstLeqS (AstSFromR shu $ primalPart v)
+                        (AstSFromR shv $ primalPart u)
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -714,8 +714,8 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
           withCastXS shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                AstRelS LeqOp (AstSFromX shu $ primalPart v)
-                              (AstSFromX shv $ primalPart u)
+                AstLeqS (AstSFromX shu $ primalPart v)
+                        (AstSFromX shv $ primalPart u)
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -753,7 +753,7 @@ instance (AstSpan s, GoodScalar r)
   u <=. AstConcreteK v =
     AstConcreteK (negate v) <=. negate u
   v@AstConcreteK{} <=. u =
-    AstRelK LeqOp (primalPart v) (primalPart u)
+    AstLeqK (primalPart v) (primalPart u)
   v <=. u =
     AstConcreteK 0 <=. primalPart u - primalPart v
 
@@ -812,7 +812,7 @@ instance (AstSpan s, GoodScalar r)
   AstSFromX _ (AstVar u) <=. AstSFromX _ (AstVar v)
     | varNameToAstVarId u == varNameToAstVarId v =
       AstBoolConst True
-  v <=. u = AstRelS LeqOp (primalPart v) (primalPart u)
+  v <=. u = AstLeqS (primalPart v) (primalPart u)
 
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify definitions
