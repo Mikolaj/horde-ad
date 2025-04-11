@@ -160,8 +160,8 @@ interpretAst !env = \case
                    -- ++ " in environment " ++ showsPrecAstEnv 0 env ""
   AstCond b a1 a2 ->
     let c = interpretAstBool env b
-    in tcond (ftkToSTK (ftkAst a1))
-             c (interpretAst env a1) (interpretAst env a2)
+    in tcond (ftkToSTK (ftkAst a1)) c
+             (interpretAst env a1) (interpretAst env a2)
   AstBuild1 snat stk (var, v) ->
     let f i = interpretAst (extendEnvI var i env) v
     in tbuild1 snat stk f

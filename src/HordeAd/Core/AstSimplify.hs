@@ -1628,9 +1628,8 @@ astGatherKnobsS knobs shn v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))
                     knobs (kLast :$$ shn) v0 (varInit, ixInit)
 astGatherKnobsS knobs shn v0
                 (vars, Ast.AstCond (Ast.AstBoolAnd a b) v w :.$ prest) =
-  astLetFun w $ \wShared ->
-    let i = astCond a (astCond b v wShared) wShared
-    in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
+  in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 -- Rules with AstConcreteK on the right hand side of AstPlusK are
 -- not needed, thanks to the normal form of AstPlusK rewriting.
 astGatherKnobsS knobs shn v0
@@ -4013,15 +4012,14 @@ substitute1AstBool i var = subst where
  subst :: AstBool AstMethodLet
        -> Maybe (AstBool AstMethodLet)
  subst = \case
+  Ast.AstBoolConst{} -> Nothing
   Ast.AstBoolNot arg -> notB <$> subst arg
-    -- this can't be simplified, because constant boolean can't have variables
   Ast.AstBoolAnd arg1 arg2 ->
     let mb1 = subst arg1
         mb2 = subst arg2
     in if isJust mb1 || isJust mb2
        then Just $ fromMaybe arg1 mb1 &&* fromMaybe arg2 mb2
        else Nothing
-  Ast.AstBoolConst{} -> Nothing
   Ast.AstRelK opCodeRel arg1 arg2 ->
     let mr1 = substitute1Ast i var arg1
         mr2 = substitute1Ast i var arg2
