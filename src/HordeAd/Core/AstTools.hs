@@ -302,6 +302,7 @@ astIsSmallN n t0 = case t0 of
   AstProject1 t -> astIsSmallN n t
   AstProject2 t -> astIsSmallN n t
   AstFromVector (SNat' @1) _ v -> astIsSmallN (n - 1) $ v V.! 0
+  AstSum (SNat' @1) _ v -> astIsSmallN (n - 1) v
   AstReplicate _ _ v ->
     astIsSmallN (n - 1) v  -- a really good redex and often in series
       -- executed as a metadata change, which is however not free
@@ -314,6 +315,16 @@ astIsSmallN n t0 = case t0 of
   AstDualPart v -> astIsSmallN (n - 1) v
   AstFromPrimal v -> astIsSmallN (n - 1) v
   AstFromDual v -> astIsSmallN (n - 1) v
+
+  AstPlusK u v -> astIsSmallN (n - 2) u && astIsSmallN (n - 2) v
+  AstTimesK u v -> astIsSmallN (n - 2) u && astIsSmallN (n - 2) v
+  AstN1K _ u -> astIsSmallN (n - 1) u
+  AstR1K _ u -> astIsSmallN (n - 1) u
+  AstR2K _ u v -> astIsSmallN (n - 2) u && astIsSmallN (n - 2) v
+  AstI2K _ u v -> astIsSmallN (n - 2) u && astIsSmallN (n - 2) v
+  AstFloorK u -> astIsSmallN (n - 1) u
+  AstFromIntegralK v -> astIsSmallN (n - 1) v
+  AstCastK v -> astIsSmallN (n - 1) v
 
   AstIotaS{} -> True
   AstSliceS _ _ _ v ->
@@ -332,7 +343,7 @@ astIsSmallN n t0 = case t0 of
     astIsSmallN (n - 1) v  -- executed as a cheap metadata change
 
   AstFromS _ v -> astIsSmallN (n - 1) v
-  AstSFromK{} -> True
+  AstSFromK v -> astIsSmallN (n - 1) v
   AstSFromR _ v -> astIsSmallN (n - 1) v
   AstSFromX _ v -> astIsSmallN (n - 1) v
 
