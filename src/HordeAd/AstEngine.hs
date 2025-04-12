@@ -19,7 +19,7 @@ import Data.IntMap.Strict qualified as IM
 import HordeAd.Core.Ast
 import HordeAd.Core.AstInline
 import HordeAd.Core.AstPrettyPrint
-import HordeAd.Core.AstSimplify
+import HordeAd.Core.AstTraverse
 
 -- * The joint inlining and simplification term transformation
 

@@ -138,6 +138,7 @@ library horde-ad-simplified
                       HordeAd.Core.AstPrettyPrint
                       HordeAd.Core.AstSimplify
                       HordeAd.Core.AstTools
+                      HordeAd.Core.AstTraverse
                       HordeAd.Core.AstVectorize
                       HordeAd.Core.CarriersADVal
                       HordeAd.Core.CarriersAst
