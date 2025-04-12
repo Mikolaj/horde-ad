@@ -71,28 +71,27 @@ class Typeable s => AstSpan (s :: AstSpanType) where
   primalPart :: AstTensor ms s y -> AstTensor ms PrimalSpan y
   dualPart :: AstTensor ms s y -> AstTensor ms DualSpan y
 
-instance AstSpan PrimalSpan where
+-- These are weak instance and we can't move them to AstSimplify,
+-- because it's too late and also astPrimalPart only works on AstMethodLet.
+instance {-# OVERLAPPABLE #-} AstSpan PrimalSpan where
   fromPrimal = id
   fromDual t = AstPrimalPart $ AstFromDual t  -- this is primal zero
-    -- AstTools is split off, so ftkAst can'be used here,
-    -- so the term is replaced by the following potentially smaller term
-    -- only later on during the simplification process:
-    -- let ftk = ftkAst t
-    -- in AstConcrete ftk $ treplTarget 0 ftk
   primalPart t = t
   dualPart t = AstDualPart $ AstFromPrimal t  -- this is dual zero
 
-instance AstSpan DualSpan where
+instance {-# OVERLAPPABLE #-} AstSpan DualSpan where
   fromPrimal t = AstDualPart $ AstFromPrimal t  -- this is dual zero
   fromDual = id
-  primalPart t = AstPrimalPart $ AstFromDual t  -- primal zero, see above
+  primalPart t = AstPrimalPart $ AstFromDual t  -- this is primal zero
   dualPart t = t
 
-instance AstSpan FullSpan where
+instance {-# OVERLAPPABLE #-} AstSpan FullSpan where
   fromPrimal = AstFromPrimal
   fromDual = AstFromDual
-  primalPart = AstPrimalPart
-  dualPart = AstDualPart
+  primalPart (AstFromPrimal t) = t
+  primalPart t = AstPrimalPart t
+  dualPart (AstFromDual t) = t
+  dualPart t = AstDualPart t
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = testEquality (typeRep @s1) (typeRep @s2)

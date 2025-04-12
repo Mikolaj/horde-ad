@@ -210,8 +210,7 @@ astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
         asts :: AstIxS AstMethodLet sh
         asts = let i :: AstInt AstMethodLet
                    i = toLinearIdxS @sh2 @'[] fromInt shOut ix
-               in simplifyAstIxS $ fromLinearIdxS fromInt shIn i
-                    -- we generate these, so we simplify
+               in fromLinearIdxS fromInt shIn i
     in gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
        gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
        astGatherKnobsS @sh2 @'[] @sh knobs ZSS v (vars, asts)
@@ -1224,9 +1223,7 @@ astIndexStepS
   -> AstTensor AstMethodLet s (TKS2 shn r)
 astIndexStepS shn v ix =
   astIndexKnobsS (defaultKnobs {knobStepOnly = True})
-                 shn
-                 (astNonIndexStep v)
-                 (simplifyAstIxS ix)
+                 shn (astNonIndexStep v) ix
 
 -- If knobStepOnly is set, we reduce only as long as needed to reveal
 -- a non-indexing constructor or one of the normal forms (one-element
@@ -1273,7 +1270,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
        else astIndexKnobsS knobs shn' v2 ix2
      astIndex shn' v2 ix2 =
        if knobStepOnly knobs
-       then astIndexKnobsS knobs shn' (astNonIndexStep v2) (simplifyAstIxS ix2)
+       then astIndexKnobsS knobs shn' (astNonIndexStep v2) ix2
        else astIndexKnobsS knobs shn' v2 ix2
      astGather
        :: forall shm' shn' shp'.
@@ -1284,9 +1281,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
      astGather shn' v2 (vars2, ix2) =
        if knobStepOnly knobs
        then astGatherKnobsS @shm' @shn' @shp'
-                            knobs
-                            shn' (astNonIndexStep v2)
-                            (vars2, simplifyAstIxS ix2)
+                            knobs shn' (astNonIndexStep v2) (vars2, ix2)
        else astGatherKnobsS @shm' @shn' @shp' knobs shn' v2 (vars2, ix2)
  in case v0 of
   Ast.AstProject1{} -> Ast.AstIndexS shn v0 ix
@@ -1323,8 +1318,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstReplicate k v ->
     let len = astConcrete $ fromIntegral k
         zero = astReplicate0N (dropShape $ shapeAst v) 0
-    in case simplifyAstBool $ Ast.AstB2 AndOp (Ast.AstLeq 0 i1)
-                                              (Ast.AstLeq i1 len) of
+    in case Ast.AstB2 AndOp (Ast.AstLeq 0 i1) (Ast.AstLeq i1 len) of
       AstBoolConst b -> if b then astIndex v rest1 else zero
       bExpr -> astCond bExpr (astIndex v rest1) zero -}
   -- TODO: the two below are wrong, should catch out of bounds instead
@@ -1446,17 +1440,15 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
     let ulen = AstConcreteK (valueOf @m)
         ix1 = i1 :.$ rest1
-        ix2 = simplifyAstInt (i1 - ulen) :.$ rest1
-    in case simplifyAstBool $ AstLeqInt ulen i1 of
+        ix2 = i1 - ulen :.$ rest1
+    in case ulen <=. i1 of
       AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
       bExpr -> astCond bExpr (astIndexRec shn v ix2) (astIndexRec shn u ix1)
   Ast.AstSliceS (SNat @i) _ SNat v ->
-    let ii = simplifyAstInt (fromIntegral (valueOf @i :: Int) + i1)
-      -- we generate this index, so we simplify on the spot
+    let ii = fromIntegral (valueOf @i :: Int) + i1
     in astIndex shn v (ii :.$ rest1)
   Ast.AstReverseS v ->
-    let iRev = simplifyAstInt (fromIntegral (valueOf @in1 - 1 :: Int) - i1)
-      -- we generate this index, so we simplify on the spot
+    let iRev = fromIntegral (valueOf @in1 - 1 :: Int) - i1
     in astIndex shn v (iRev :.$ rest1)
   Ast.AstTransposeS @_ @sh2 perm v
     | gcompare (shsRank (ixsToShS ix)) (Permutation.permRank perm) /= GLT ->
@@ -1564,8 +1556,7 @@ astGatherStepS
 astGatherStepS shn v (vars, ix) =
   astGatherKnobsS @shm @shn @shp
                   (defaultKnobs {knobStepOnly = True})
-                  shn (astNonIndexStep v)
-                  (vars, simplifyAstIxS ix)
+                  shn (astNonIndexStep v) (vars, ix)
 
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
 flipCompare = unsafeCoerceRefl
@@ -1970,9 +1961,7 @@ astGatherKnobsS knobs shn v0 (vars0, ix0@(i1 :.$ rest1)) =
   astGather shn' v2 (vars2, ix2) =
     if knobStepOnly knobs
     then astGatherKnobsS @shm' @shn' @shp'
-                         knobs
-                         shn' (astNonIndexStep v2)
-                         (vars2, simplifyAstIxS ix2)
+                         knobs shn' (astNonIndexStep v2) (vars2, ix2)
     else astGatherKnobsS @shm' @shn' @shp' knobs shn' v2 (vars2, ix2)
   -- Note that v4 is in weak head normal form and so can't one-step reduce
   -- and so we don't have to reduce it to expose any top redexes.
@@ -2142,9 +2131,7 @@ astGatherKnobsS knobs shn v0 (vars0, ix0@(i1 :.$ rest1)) =
                    -> AstInt AstMethodLet
                    -> AstInt AstMethodLet
           substLet (IxS ix) vars i =
-            simplifyAstInt  -- we generate the index, so we simplify on the spot
-            $ foldr (uncurry astLetInt) i
-                    (listsToList $ zipSizedS vars ix)
+            foldr (uncurry astLetInt) i (listsToList $ zipSizedS vars ix)
           IxS list4 = ix4
           composedGather ::  -- rank4 <= rank2
                             AstTensor AstMethodLet s (TKS2 (shm' ++ shn') r)
@@ -3044,13 +3031,8 @@ astNonIndexStep t = case t of
 
 -- * The expansion (e.g., into gather expressions) bottom-up pass
 
--- TODO: perhaps move this and contractAst to separate modules
-
-expandAstInt :: AstInt AstMethodLet -> AstInt AstMethodLet
-expandAstInt = expandAst
-
 expandAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
-expandAstIxS = fmap expandAstInt
+expandAstIxS = fmap expandAst
 
 -- | This pass expands terms, e.g., into @AstGather@ terms, in order
 -- to expose redexes and enable fusion. It assumes that a contraction
@@ -3222,11 +3204,8 @@ expandAstBool t = case t of
 
 -- * The simplifying bottom-up pass
 
-simplifyAstInt :: AstInt AstMethodLet -> AstInt AstMethodLet
-simplifyAstInt = simplifyAst
-
 simplifyAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
-simplifyAstIxS = fmap simplifyAstInt
+simplifyAstIxS = fmap simplifyAst
 
 -- | This function guarantees full simplification (unless redexes are obscured,
 -- for which the expansion pass is sometimes a remedy): every redex
@@ -3345,13 +3324,11 @@ simplifyAstBool t = case t of
   Ast.AstLeqK arg1 arg2 -> simplifyAst arg1 <=. simplifyAst arg2
   Ast.AstLeqS arg1 arg2 -> simplifyAst arg1 <=. simplifyAst arg2
 
+
 -- * The contraction (e.g., from gather expressions) bottom-up pass
 
-contractAstInt :: AstInt AstMethodLet -> AstInt AstMethodLet
-contractAstInt = contractAst
-
 contractAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
-contractAstIxS = fmap contractAstInt
+contractAstIxS = fmap contractAst
 
 -- | When we have multiple backends, there should be one such pass
 -- per backend that chooses a representation that is best for the backend.
