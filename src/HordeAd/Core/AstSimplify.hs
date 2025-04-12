@@ -1822,11 +1822,6 @@ astGatherKnobsS knobs shn v0
                                  (Ast.AstN1K NegateOp (AstIntVar var))) _ _
             | any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
-          AstIntVar var
-            | knobPhase knobs == PhaseSimplification  -- prevent a loop
-            , null $ drop 1 $ filter (var `varNameInAst`) (Foldable.toList ix)
-            , any ((== varNameToAstVarId var) . varNameToAstVarId)
-                  (listsToList vars) -> True
           Ast.AstLet _ _ (Ast.AstCond (Ast.AstBoolAnd{}) _ _) -> True
           Ast.AstLet _ _ (AstPlusK (AstConcreteK _) _) -> True
           Ast.AstLet _ _
@@ -1838,8 +1833,15 @@ astGatherKnobsS knobs shn v0
                                     (Ast.AstN1K NegateOp (AstIntVar var))) _ _)
             | any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
+          AstIntVar var
+            | knobPhase knobs == PhaseSimplification  -- prevent a loop
+            , null $ drop 1 $ filter (var `varNameInAst`) (Foldable.toList ix)
+            , any ((== varNameToAstVarId var) . varNameToAstVarId)
+                  (listsToList vars) -> True
+          ik | knobPhase knobs == PhaseSimplification  -- prevent a loop
+             , not (any (`varNameInAst` ik) $ listsToList vars) -> True
           _ -> False
-  , not (intInteresting i1)  -- now vars need to be reordered, too
+  , not (intInteresting i1)  -- now vars may need to be reordered, too
   , Just i <- findIndex intInteresting
                         (Foldable.toList ix) = assert (i > 0) $
     Permutation.permFromList (backpermCycle $ i + 1)
@@ -1862,9 +1864,6 @@ astGatherKnobsS knobs shn v0
           Ast.AstCond (AstLeqInt AstConcreteK{}
                                  (Ast.AstN1K NegateOp (AstIntVar var))) _ _ ->
             Just var
-          AstIntVar var
-            | knobPhase knobs == PhaseSimplification  -- prevent a loop
-            , not (var `varNameInIxS` prest) -> Just var
           Ast.AstLet _ _
             (Ast.AstCond (AstLeqInt AstConcreteK{} (AstIntVar var)) _ _) ->
             Just var
@@ -1873,6 +1872,9 @@ astGatherKnobsS knobs shn v0
                                     (Ast.AstN1K NegateOp
                                                 (AstIntVar var))) _ _) ->
             Just var
+          AstIntVar var
+            | knobPhase knobs == PhaseSimplification  -- prevent a loop
+            , not (var `varNameInIxS` prest) -> Just var
           _ -> Nothing
   , Just varp <- varInteresting i1
   , Just i <- findIndex ((== varNameToAstVarId varp) . varNameToAstVarId)
@@ -1894,52 +1896,8 @@ astGatherKnobsS knobs shn v0
     $ astGatherKnobsS knobs shn v0 (listsPermutePrefix invperm vars, ix)
         -- this call is guaranteed to simplify as above, so the tranpose
         -- won't reduce it back to the original and cause a loop
-astGatherKnobsS knobs shn v0 (vars0, ix0@(i1 :.$ rest1)) =
-  if | i :.$ rest <- rest1  -- TODO: generalize
-     , not (any (`varNameInAst` i) $ listsToList vars0)
-     , knobPhase knobs == PhaseSimplification ->  -- prevent a loop
-       gcastWith (unsafeCoerceRefl :: (2 <=? Rank (shp ++ shn)) :~: True) $
-       astGatherKnobsS @shm @shn
-         knobs shn
-         (astIndexKnobsS knobs
-            (ixsToShS (i1 :.$ rest) `shsAppend` shn)
-            (astTransposeS (Permutation.makePerm @'[1, 0]) v0)
-            (i :.$ ZIS))
-         (vars0, i1 :.$ rest)
-     | i2 :.$ i :.$ rest <- rest1
-     , not (any (`varNameInAst` i) $ listsToList vars0)
-     , knobPhase knobs == PhaseSimplification ->
-       gcastWith (unsafeCoerceRefl :: (3 <=? Rank (shp ++ shn)) :~: True) $
-       astGatherKnobsS @shm @shn
-         knobs shn
-         (astIndexKnobsS knobs
-            (ixsToShS (i1 :.$ i2 :.$ rest) `shsAppend` shn)
-            (astTransposeS (Permutation.makePerm @'[2, 0, 1]) v0)
-            (i :.$ ZIS))
-         (vars0, i1 :.$ i2 :.$ rest)
-     | i2 :.$ i3 :.$ i :.$ rest <- rest1
-     , not (any (`varNameInAst` i) $ listsToList vars0)
-     , knobPhase knobs == PhaseSimplification ->
-       gcastWith (unsafeCoerceRefl :: (4 <=? Rank (shp ++ shn)) :~: True) $
-       astGatherKnobsS @shm @shn
-         knobs shn
-         (astIndexKnobsS knobs
-            (ixsToShS (i1 :.$ i2 :.$ i3 :.$ rest) `shsAppend` shn)
-            (astTransposeS (Permutation.makePerm @'[3, 0, 1, 2]) v0)
-            (i :.$ ZIS))
-         (vars0, i1 :.$ i2 :.$ i3 :.$ rest)
-     | i2 :.$ i3 :.$ i4 :.$ i :.$ rest <- rest1
-     , not (any (`varNameInAst` i) $ listsToList vars0)
-     , knobPhase knobs == PhaseSimplification ->
-       gcastWith (unsafeCoerceRefl :: (5 <=? Rank (shp ++ shn)) :~: True) $
-       astGatherKnobsS @shm @shn
-         knobs shn
-         (astIndexKnobsS knobs
-            (ixsToShS (i1 :.$ i2 :.$ i3 :.$ i4 :.$ rest) `shsAppend` shn)
-            (astTransposeS (Permutation.makePerm @'[4, 0, 1, 2, 3]) v0)
-            (i :.$ ZIS))
-         (vars0, i1 :.$ i2 :.$ i3 :.$ i4 :.$ rest)
-     | otherwise -> astGatherCase @shm @shn @shp shn v0 (vars0, ix0)
+astGatherKnobsS knobs shn v0 (vars0, ix0) =
+  astGatherCase @shm @shn @shp shn v0 (vars0, ix0)
  where
   astGatherRec, astGather
     :: forall shm' shn' shp' s' r'. AstSpan s'
