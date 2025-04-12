@@ -738,6 +738,7 @@ astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
   Ast.AstFromPrimal $ astCond b v w
 astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
   Ast.AstFromDual $ astCond b v w
+astCond b v@(Ast.AstFromS STKScalar _) w = Ast.AstCond b v w
 astCond b (Ast.AstFromS stkzv v) (Ast.AstFromS _ w) =
   case matchingFTK (ftkAst v) (ftkAst w) of
     Just Refl -> astFromS stkzv $ astCond b v w
@@ -1251,6 +1252,12 @@ astIndexKnobsS _ shn v0 (AstConcreteK it :.$ _)
   , not (0 <= i && i < sNatValue snat) =
     let ftk = FTKS shn x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
+  | knobPhase knobs /= PhaseNone =  -- don't undo what vectorization is doing
+    astLetFun v0 $ \v ->
+    shareIx rest0 $ \rest ->
+      Ast.AstCond b (Ast.AstIndexS shn v (i1 :.$ rest))
+                    (Ast.AstIndexS shn v (i2 :.$ rest))
 astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
  let FTKS _ x = ftkAst v0
      astIndexRec, astIndex
@@ -1287,9 +1294,9 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstFromVector _ STKS{} l | AstConcreteK it <- i1 ->
     let i = fromIntegral it
     in astIndex shn (l V.! i) rest1
-  Ast.AstFromVector _ STKScalar l | AstConcreteK it <- i1, ZIS <- rest1 ->
+  Ast.AstFromVector _ STKScalar l | AstConcreteK it <- i1 ->
     let i = fromIntegral it
-    in astSFromK (l V.! i)
+    in astIndex shn (astSFromK (l V.! i)) rest1
   Ast.AstFromVector{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS shn v0 ix
   Ast.AstFromVector snat STKS{} l ->
@@ -1630,6 +1637,11 @@ astGatherKnobsS knobs shn v0
                 (vars, Ast.AstCond (Ast.AstBoolAnd a b) v w :.$ prest) =
   let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
+astGatherKnobsS knobs shn v0
+                (vars, Ast.AstLet varN uN
+                         (Ast.AstCond (Ast.AstBoolAnd a b) v w) :.$ prest) =
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
+  in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 -- Rules with AstConcreteK on the right hand side of AstPlusK are
 -- not needed, thanks to the normal form of AstPlusK rewriting.
 astGatherKnobsS knobs shn v0
@@ -1654,6 +1666,28 @@ astGatherKnobsS knobs shn v0
         in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
              -- this gather may still index out of bounds, which is fine
 astGatherKnobsS knobs shn v0
+  (vars, Ast.AstLet varN uN (AstPlusK (AstConcreteK i64) i1) :.$ prest)
+  | FTKS (SNat @p :$$ _) x <- ftkAst v0 =
+    if i64 >= 0 then
+      withSNat (fromIntegral i64) $ \(SNat @i) ->
+        if i64 > valueOf @p then
+          let ftk = FTKS (listsToShS vars `shsAppend` shn) x
+          in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        else
+          gcastWith (unsafeCoerceRefl :: (i <=? p) :~: True) $
+          let v2 = astSliceS (SNat @i) (SNat @(p - i)) (SNat @0) v0
+          in astGatherKnobsS knobs shn v2
+                             (vars, Ast.AstLet varN uN i1 :.$ prest)
+               -- this gather may still index out of bounds, which is fine
+    else
+      withSNat (- fromIntegral i64) $ \(SNat @i) ->
+        let ftk = FTKS (SNat @i :$$ ixsToShS prest `shsAppend` shn) x
+            v2 = fromPrimal (astConcrete ftk (tdefTarget ftk))
+                 `astAppendS`
+                 v0
+        in astGatherKnobsS knobs shn v2 (vars, Ast.AstLet varN uN i1 :.$ prest)
+             -- this gather may still index out of bounds, which is fine
+astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2
     :.$ prest )
@@ -1666,6 +1700,9 @@ astGatherKnobsS knobs shn v0
          withSNat (fromIntegral j) $ \(SNat @j) ->
          gcastWith (unsafeCoerceRefl :: (j <=? m) :~: True) $
          astLetFun v0 $ \v ->
+         -- Unavoidably, prest gets duplicated here. Tough luck.
+         -- TODO: so maybe only permit when astIsSmall prest
+         -- after we refine astIsSmall and have enough tests to judge
          astGatherKnobsS knobs shn v
            ( (::$) @j (Const varm) mrest
            , i2 :.$ prest )
@@ -1674,6 +1711,30 @@ astGatherKnobsS knobs shn v0
            ( (::$) @(m - j) (Const varm) mrest
            , substituteAstIxS (AstConcreteK j + AstIntVar varm)
                               varm (i1 :.$ prest) )
+astGatherKnobsS knobs shn v0
+  ( vars@((::$) @m (Const varm) mrest)
+  , Ast.AstLet varN uN
+      (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2)
+      :.$ prest )
+  | varNameToAstVarId varm == varNameToAstVarId varp =
+    if | j <= 0 ->
+         astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i1 :.$ prest)
+       | j >= valueOf @m ->
+         astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i2 :.$ prest)
+       | otherwise ->
+         withSNat (fromIntegral j) $ \(SNat @j) ->
+         gcastWith (unsafeCoerceRefl :: (j <=? m) :~: True) $
+         astLetFun v0 $ \v ->
+         -- Both uN and prest gets duplicated here. Tough luck.
+         -- TODO: so maybe remove this subcase?
+         astGatherKnobsS knobs shn v
+           ( (::$) @j (Const varm) mrest
+           , Ast.AstLet varN uN i2 :.$ prest )
+         `astAppendS`
+         astGatherKnobsS knobs shn v
+           ( (::$) @(m - j) (Const varm) mrest
+           , substituteAstIxS (AstConcreteK j + AstIntVar varm)
+                              varm (Ast.AstLet varN uN i1 :.$ prest) )
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (AstLeqInt (AstConcreteK j)
@@ -1696,6 +1757,29 @@ astGatherKnobsS knobs shn v0
            ( (::$) @(m - mj) (Const varm) mrest
            , substituteAstIxS (AstConcreteK (- j + 1) + AstIntVar varm)
                               varm (i2 :.$ prest))
+astGatherKnobsS knobs shn v0
+  ( vars@((::$) @m (Const varm) mrest)
+  , Ast.AstLet varN uN
+      (Ast.AstCond (AstLeqInt (AstConcreteK j)
+                              (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2)
+    :.$ prest )
+  | varNameToAstVarId varm == varNameToAstVarId varp =
+    if | - j + 1 <= 0 ->
+         astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i2 :.$ prest)
+       | - j + 1 >= valueOf @m ->
+         astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i1 :.$ prest)
+       | otherwise ->
+         withSNat (- fromIntegral j + 1) $ \(SNat @mj) ->
+         gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
+         astLetFun v0 $ \v ->
+         astGatherKnobsS knobs shn v
+           ( (::$) @mj (Const varm) mrest
+           , Ast.AstLet varN uN i1 :.$ prest )
+         `astAppendS`
+         astGatherKnobsS knobs shn v
+           ( (::$) @(m - mj) (Const varm) mrest
+           , substituteAstIxS (AstConcreteK (- j + 1) + AstIntVar varm)
+                              varm (Ast.AstLet varN uN i2 :.$ prest))
 astGatherKnobsS knobs shn v0
   ( (::$) @m (Const varm) mrest
   , (:.$) @p (AstIntVar varp) prest )
@@ -1759,6 +1843,17 @@ astGatherKnobsS knobs shn v0
             , null $ drop 1 $ filter (var `varNameInAst`) (Foldable.toList ix)
             , any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
+          Ast.AstLet _ _ (Ast.AstCond (Ast.AstBoolAnd{}) _ _) -> True
+          Ast.AstLet _ _ (AstPlusK (AstConcreteK _) _) -> True
+          Ast.AstLet _ _
+            (Ast.AstCond (AstLeqInt AstConcreteK{} (AstIntVar var)) _ _)
+            | any ((== varNameToAstVarId var) . varNameToAstVarId)
+                  (listsToList vars) -> True
+          Ast.AstLet _ _
+            (Ast.AstCond (AstLeqInt AstConcreteK{}
+                                    (Ast.AstN1K NegateOp (AstIntVar var))) _ _)
+            | any ((== varNameToAstVarId var) . varNameToAstVarId)
+                  (listsToList vars) -> True
           _ -> False
   , not (intInteresting i1)  -- now vars need to be reordered, too
   , Just i <- findIndex intInteresting
@@ -1786,6 +1881,14 @@ astGatherKnobsS knobs shn v0
           AstIntVar var
             | knobPhase knobs == PhaseSimplification  -- prevent a loop
             , not (var `varNameInIxS` prest) -> Just var
+          Ast.AstLet _ _
+            (Ast.AstCond (AstLeqInt AstConcreteK{} (AstIntVar var)) _ _) ->
+            Just var
+          Ast.AstLet _ _
+            (Ast.AstCond (AstLeqInt AstConcreteK{}
+                                    (Ast.AstN1K NegateOp
+                                                (AstIntVar var))) _ _) ->
+            Just var
           _ -> Nothing
   , Just varp <- varInteresting i1
   , Just i <- findIndex ((== varNameToAstVarId varp) . varNameToAstVarId)
@@ -2512,13 +2615,16 @@ astFromS :: forall y z s.
             SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
 astFromS stkz v | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
+astFromS STKScalar (Ast.AstCond b v1 v2) =
+  Ast.AstCond b (astFromS STKScalar v1) (astFromS STKScalar v2)
+  -- a rare case where we don't push up but down
 astFromS (STKScalar @r1) (AstConcreteS @r2 v)
   | ZSS <- Nested.sshape v
   , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) =
     AstConcreteK (Nested.sunScalar v)
 astFromS stkz (Ast.AstFromPrimal v) =
   Ast.AstFromPrimal $ astFromS stkz v
-  -- the only case where we don't push up but down so that conversions
+  -- a rare case where we don't push up but down so that conversions
   -- don't end up interspersed with AstFromPrimal
 astFromS stkz (Ast.AstFromDual v) =
   Ast.AstFromDual $ astFromS stkz v

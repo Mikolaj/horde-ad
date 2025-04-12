@@ -448,7 +448,7 @@ testPiecewiseLinearPP = do
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret x1 -> rfromS (let v3 = soneHot (sfromR dret) [ifH (sscalar -0.0 <=. negate (sfromR x1)) 0 1] in sscalar 2.0 * v3 !$ [1] + sscalar 5.0 * v3 !$ [0])"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\x1 -> rfromS (sfromVector (fromList [sscalar 5.0 * sfromR x1, sscalar 2.0 * sfromR x1]) !$ [ifH (sscalar -0.0 <=. negate (sfromR x1)) 0 1])"
+    @?= "\\x1 -> rfromS (ifH (sscalar -0.0 <=. negate (sfromR x1)) (sscalar 5.0 * sfromR x1) (sscalar 2.0 * sfromR x1))"
 
 testPiecewiseLinear2 :: Assertion
 testPiecewiseLinear2 =
