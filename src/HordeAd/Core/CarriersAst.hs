@@ -98,12 +98,6 @@ instance (GoodScalar r, AstSpan s)
   -- Unfortunately, these only fire if the required subterms are at the top
   -- of the reduced term, which happens rarely except in small terms.
   -- We could keep variables at the top, but they'd compete with AstConcreteK.
-  AstVar var + AstVar var'
-    | var == var' = 2 * AstVar var
-  AstVar var + AstTimesK (AstConcreteK n) (AstVar var')
-    | var == var' = AstConcreteK (n + 1) * AstVar var
-  AstTimesK (AstConcreteK n) (AstVar var) + AstVar var'
-    | var == var' = AstConcreteK (n + 1) * AstVar var
   AstN1K NegateOp (AstVar var) + AstVar var'
     | var == var' = 0
   AstN1K NegateOp (AstFromS STKScalar (AstVar var))
@@ -158,6 +152,11 @@ instance (GoodScalar r, AstSpan s)
   AstPlusK u@AstConcreteK{} v + w = AstPlusK u (AstPlusK v w)  -- as above
   u + v@AstConcreteK{} = AstPlusK v u
   u + AstPlusK v@AstConcreteK{} w = AstPlusK v (AstPlusK u w)  -- as above
+  t1 + t2 | eqK t1 t2 = 2 * t1
+  t1 + AstTimesK (AstConcreteK n) t2 | eqK t1 t2 = AstConcreteK (n + 1) * t1
+  AstTimesK (AstConcreteK n) t2 + t1 | eqK t1 t2 = AstConcreteK (n + 1) * t1
+  AstTimesK (AstConcreteK n1) t1 + AstTimesK (AstConcreteK n2) t2
+    | eqK t1 t2 = AstConcreteK (n1 + n2) * t1
   u + v = AstPlusK u v
 
   AstFromPrimal u * AstFromPrimal v = AstFromPrimal $ u * v
@@ -186,6 +185,9 @@ instance (GoodScalar r, AstSpan s)
 
   AstN1K NegateOp u * AstN1K NegateOp v = AstTimesK u v
 
+  {- TODO: these rules increase the number of occurences of a variable
+     and trade multiplication and quotient for an equally problematic remnant,
+     so they are disabled until we find a way to profit from them.
   -- With static shapes, the second argument to QuotOp and RemOp
   -- is often a constant, which makes such rules worth including,
   -- since they are likely to fire. To help them fire, we avoid changing
@@ -216,6 +218,7 @@ instance (GoodScalar r, AstSpan s)
            (AstVar var)
            (negate (AstI2K RemOp (AstVar var) (AstConcreteK n))))
         x
+  -}
 
   AstTimesK u@AstConcreteK{} v * w = AstTimesK u (AstTimesK v w)  -- as above
   u * v@AstConcreteK{} = AstTimesK v u
@@ -260,6 +263,38 @@ instance (GoodScalar r, AstSpan s)
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Double)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Float)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Float)) #-}
+
+-- An approximation. False doesn't imply terms have different semantics,
+-- but True implies they have equal semantics.
+eqK :: AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r) -> Bool
+eqK (AstVar var1) (AstVar var2) = var1 == var2
+eqK (AstLet @_ @_ @s1 var1 u1 v1) (AstLet @_ @_ @s2 var2 u2 v2)
+  | FTKScalar @r1 <- ftkAst u1, FTKScalar @r2 <- ftkAst u2
+  , Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- sameAstSpan @s1 @s2 =
+    var1 == var2 && eqK u1 u2 && eqK v1 v2
+eqK (AstPrimalPart u1) (AstPrimalPart u2) = eqK u1 u2
+eqK (AstDualPart u1) (AstDualPart u2) = eqK u1 u2
+eqK (AstFromPrimal u1) (AstFromPrimal u2) = eqK u1 u2
+eqK (AstFromDual u1) (AstFromDual u2) = eqK u1 u2
+eqK (AstPlusK u1 v1) (AstPlusK u2 v2) =
+  eqK u1 u2 && eqK v1 v2 || eqK u1 v2 && eqK v1 u2
+eqK (AstTimesK u1 v1) (AstTimesK u2 v2) =
+  eqK u1 u2 && eqK v1 v2 || eqK u1 v2 && eqK v1 u2
+eqK (AstN1K opCode1 u1) (AstN1K opCode2 u2) = opCode1 == opCode2 && eqK u1 u2
+eqK (AstR1K opCode1 u1) (AstR1K opCode2 u2) = opCode1 == opCode2 && eqK u1 u2
+eqK (AstR2K opCode1 u1 v1) (AstR2K opCode2 u2 v2) =
+  opCode1 == opCode2 && eqK u1 u2 && eqK v1 v2
+eqK (AstI2K opCode1 u1 v1) (AstI2K opCode2 u2 v2) =
+  opCode1 == opCode2 && eqK u1 u2 && eqK v1 v2
+eqK (AstConcreteK u1) (AstConcreteK u2) = u1 == u2
+eqK (AstFloorK @r1 u1) (AstFloorK @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqK u1 u2
+eqK (AstFromIntegralK @r1 u1) (AstFromIntegralK @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqK u1 u2
+eqK (AstCastK @r1 u1) (AstCastK @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqK u1 u2
+eqK _ _ = False
 
 -- Div and mod operations are very costly (simplifying them requires
 -- constructing conditionals, etc), so they are not included in IntegralH.

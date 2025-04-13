@@ -478,21 +478,21 @@ deriving instance Show (AstBool ms)
 
 data OpCodeNum1 =
     NegateOp | AbsOp | SignumOp
- deriving Show
+ deriving (Show, Eq)
 
 data OpCode1 =
     RecipOp
   | ExpOp | LogOp | SqrtOp
   | SinOp | CosOp | TanOp | AsinOp | AcosOp | AtanOp
   | SinhOp | CoshOp | TanhOp | AsinhOp | AcoshOp | AtanhOp
- deriving Show
+ deriving (Show, Eq)
 
 data OpCode2 =
     DivideOp
   | PowerOp | LogBaseOp
   | Atan2Op
- deriving Show
+ deriving (Show, Eq)
 
 data OpCodeIntegral2 =
     QuotOp | RemOp
- deriving Show
+ deriving (Show, Eq)
