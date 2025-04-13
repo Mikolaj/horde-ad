@@ -637,7 +637,7 @@ maxPool2dUnpadded2
 maxPool2dUnpadded2 a =
   rbuild [2, 2, 2, 2] $ \case
     [_, _, iBh, iBw] ->
-      let arrt = slicez2 (conv2dUnpadded2 a) [iBw, 3, 2 * iBh, 2 * iBw]
+      let arrt = slicez2 (conv2dUnpadded2 a) [iBw, 1, 2 * iBh, 2 * iBw]
       in rmaximum2 arrt
     _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
 
@@ -678,24 +678,24 @@ testCNNOPP3 = do
                        (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
-      afcnn2T = maxPool2dUnpadded3 $ conv2dUnpadded3 blackGlyph
+      afcnn2T = maxPool2dUnpadded33 $ conv2dUnpadded3 blackGlyph
   printAstPretty afcnn2T
-    @?= "rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (str (sappend (sreplicate @1 (str (sappend (sreplicate @1 (sreplicate @1 (sscalar 0.0))) (sreplicate @1 (sreplicate @1 (sscalar 0.0)))))) (sreplicate @1 (sreplicate @1 (sreplicate @2 (sscalar 0.0)))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
+    @?= "rfromS (let w40 = sgather (sfromVector (fromList [let w23 = sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sappend (sgather (sconcrete (sfromListLinear [2] [7.0,0.0])) (\\[i25, i21, i12] -> [ifH (notB (2 <=. remH i25 4 + i21) &&* notB (2 <=. i25 + i12)) 0 1])) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))))) in sgather (sfromVector (fromList [sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))), sgather w23 (\\[i57, i51, i45, i39, i34, i29] -> [i57, i51, i45, i39, i34, i29, remH i51 4 + i39, 0, i45 + i29])])) (\\[i56, i50, i44, i38, i33] -> [ifH (1 <=. i56 + i33) 0 1, i56, i50, i44, i38, i33]), sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))))])) (\\[i60, i54, i48, i42, i36, i35, i31, i28] -> [ifH (notB (2 <=. remH i48 4 + i36) &&* (notB (2 <=. i60 + i35) &&* (notB (2 <=. i54 + i31) &&* notB (2 <=. i42 + i28)))) 0 1, i54, i48, i42, i36, i31, i28]) in sgather w40 (\\[i59, i53, i47, i41] -> [i59, i53, i47, i41, 0, 0, 0, 0]))"
   printAstPretty (simplifyInlineContract afcnn2T)
-    @?= "rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
+    @?= "rfromS (let w61 = stranspose @[0,1,5,4,3,2] (sfromVector (fromList [sconcrete (sfromListLinear [2,2,2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]), sreplicate @2 (sgather (str (sappend (sgather (sconcrete (sfromListLinear [2] [7.0,0.0])) (\\[i25, i21, i12] -> [ifH (notB (2 <=. remH i25 4 + i21) &&* notB (2 <=. i25 + i12)) 0 1])) (sconcrete (sfromListLinear [1,2,2] [0.0,0.0,0.0,0.0]))) !$ [0]) (\\[i51, i45, i39, i69, i29] -> [remH i51 4 + i39, i45 + i29]))])) in stranspose @[3,0,2,1] (sappend (sreplicate @1 (stranspose @[2,1,0] (sreplicate @2 (stranspose @[2,1,0] (w61 !$ [1, 0, 0, 0]) !$ [0])))) (sreplicate @1 (stranspose @[2,1,0] (sreplicate @2 (stranspose @[2,1,0] (w61 !$ [0, 1, 0, 0]) !$ [0]))))))"
 
 testCNNOPP3b :: Assertion
 testCNNOPP3b = do
   resetVarCounter
-  let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded3 . conv2dUnpadded3) (FTKR [2, 2, 2, 2] (FTKScalar @Double))
+  let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded33 . conv2dUnpadded3) (FTKR [2, 2, 2, 2] (FTKScalar @Double))
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (str (sappend (sreplicate @1 (str (sappend (sreplicate @1 (sreplicate @1 (sscalar 0.0))) (sreplicate @1 (sreplicate @1 (sscalar 0.0)))))) (sreplicate @1 (sreplicate @1 (sreplicate @2 (sscalar 0.0)))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
+    @?= "\\u1 -> let w108 = sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (stranspose @[1,2,3,4,0] (sappend (sreplicate @1 (sgather (sfromR u1) (\\[i104, i105, i106, i107] -> [remH i104 4 + i105, i104 + i106, i104 + i107, 1]))) (str (sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (sconcrete (sfromListLinear [1] [0.0]))))))))))))))))))))) ; w118 = sgather w108 (\\[i109, i110, i111, i112, i113, i114, i115, i116, i117] -> [i109, i110, i111, i112, i113, i114, i115, i116, i117, i116, i117, i115, 0]) ; w128 = stranspose @[1,2,3,4,5,6,0] (sappend (sgather (sfromVector (fromList [w118, sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))))])) (\\[i119, i120, i121, i122, i123, i124, i125, i126, i127] -> [ifH true 0 1, i120, i121, i122, i123, i124, i125, i119, i126, i127])) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))))))))) ; w148 = sgather (sfromVector (fromList [sgather (sfromVector (fromList [sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))), sgather w128 (\\[i129, i130, i131, i132, i133, i134] -> [i129, i130, i131, i132, i133, i134, remH i130 4 + i132, 0, i131 + i134])])) (\\[i135, i136, i137, i138, i139] -> [ifH (1 <=. i135 + i139) 0 1, i135, i136, i137, i138, i139]), sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))))])) (\\[i140, i141, i142, i143, i144, i145, i146, i147] -> [ifH (notB (2 <=. remH i142 4 + i144) &&* (notB (2 <=. i140 + i145) &&* (notB (2 <=. i141 + i146) &&* notB (2 <=. i143 + i147)))) 0 1, i141, i142, i143, i144, i146, i147]) in rfromS (sgather w148 (\\[i149, i150, i151, i152] -> [i149, i150, i151, i152, 0, 0, 0, 0]))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u1 -> rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
+    @?= "\\u1 -> rfromS (let w204 = stranspose @[0,1,5,4,3,2] (sfromVector (fromList [sconcrete (sfromListLinear [2,2,2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]), stranspose @[5,0,1,2,4,3] (sgather (stranspose @[7,6,0,2,3,4,8,5,1] (sappend (stranspose @[0,6,5,4,3,2,1] (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (str (stranspose @[2,3,1,0] (sfromR u1) !$ [0, 1])))))))))) (sconcrete (sfromListLinear [1,2,2,2,2,2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))) !$ [0]) (\\[i130, i131, i132, i134] -> [i134, remH i130 4 + i132, i130, i131, i132, i131 + i134]))])) in stranspose @[3,0,2,1] (sappend (sreplicate @1 (stranspose @[2,1,0] (sreplicate @2 (stranspose @[2,1,0] (w204 !$ [1, 0, 0, 0]) !$ [0])))) (sreplicate @1 (stranspose @[2,1,0] (sreplicate @2 (stranspose @[2,1,0] (w204 !$ [0, 1, 0, 0]) !$ [0]))))))"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
+    @?= "\\dret u1 -> let w166 = sscatter (sscatter (sfromR dret) (\\[i154, i155, i156, i157] -> [i154, i155, i156, i157, 0, 0, 0, 0])) (\\[i158, i159, i160, i161, i162, i163, i164, i165] -> [ifH (notB (2 <=. remH i160 4 + i162) &&* (notB (2 <=. i158 + i163) &&* (notB (2 <=. i159 + i164) &&* notB (2 <=. i161 + i165)))) 0 1, i159, i160, i161, i162, i164, i165]) ; w172 = sscatter (w166 !$ [0]) (\\[i167, i168, i169, i170, i171] -> [ifH (1 <=. i167 + i171) 0 1, i167, i168, i169, i170, i171]) ; w179 = stranspose @[6,0,1,2,3,4,5] (sscatter (w172 !$ [1]) (\\[i173, i174, i175, i176, i177, i178] -> [i173, i174, i175, i176, i177, i178, remH i174 4 + i176, 0, i175 + i178])) ; w189 = sscatter (sslice (SNat @0) (SNat @1) w179) (\\[i180, i181, i182, i183, i184, i185, i186, i187, i188] -> [ifH true 0 1, i181, i182, i183, i184, i185, i186, i180, i187, i188]) ; w199 = stranspose @[4,0,1,2,3] (ssum @2 (str (ssum @2 (str (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (sscatter (w189 !$ [0]) (\\[i190, i191, i192, i193, i194, i195, i196, i197, i198] -> [i190, i191, i192, i193, i194, i195, i196, i197, i198, i197, i198, i196, 0])))))))))))) in rfromS (sscatter (ssum @1 (sslice (SNat @0) (SNat @1) w199)) (\\[i200, i201, i202, i203] -> [remH i200 4 + i201, i200 + i202, i200 + i203, 1]))"
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
+    @?= "\\dret u1 -> rfromS (sscatter (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (sscatter (sscatter (sreplicate @1 (sscatter (sscatter (sscatter (sscatter (sfromR dret) (\\[i154, i155, i156, i157] -> [i154, i155, i156, i157, 0, 0, 0, 0])) (\\[i158, i159, i160, i161, i162, i163, i164, i165] -> [ifH (notB (2 <=. remH i160 4 + i162) &&* (notB (2 <=. i158 + i163) &&* (notB (2 <=. i159 + i164) &&* notB (2 <=. i161 + i165)))) 0 1, i159, i160, i161, i162, i164, i165]) !$ [0]) (\\[i167, i168, i169, i170, i171] -> [ifH (1 <=. i167 + i171) 0 1, i167, i168, i169, i170, i171]) !$ [1]) (\\[i173, i174, i175, i176, i177, i178] -> [remH i174 4 + i176, i173, i174, i175, i176, i177, i178, 0, i175 + i178]) !$ [0])) (\\[i180, i181, i182, i183, i184, i185, i186, i187, i188] -> [i181, i182, i183, i184, i185, i186, i180, i187, i188])) (\\[i190, i191, i192, i193, i194, i195, i196, i197, i198] -> [i190, i191, i192, i193, i194, i195, i197, i198, i196, i197, i198, i196])))))))))) (\\[i200, i201, i202, i203] -> [remH i200 4 + i201, i200 + i202, i200 + i203, 1]))"
 
 maxPool2dUnpadded3
   :: (ADReady target, GoodScalar r)
@@ -703,7 +703,17 @@ maxPool2dUnpadded3
 maxPool2dUnpadded3 arr =
   rbuild [2, 2, 2, 2] $ \case
     [aa, bb, iBh, iBw] ->
-      let arrt = slicez3 [2, 2, 2, 2] arr [iBh `quotH` 2, aa, bb, iBw]
+      let arrt = slicez3 [2, 2, 2, 2] arr [iBh `quotH` 4, aa, bb, iBw]
+      in rmaximum3 arrt
+    _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
+
+maxPool2dUnpadded33
+  :: (ADReady target, GoodScalar r)
+  => target (TKR 4 r) -> target (TKR 4 r)
+maxPool2dUnpadded33 arr =
+  rbuild [2, 2, 2, 2] $ \case
+    [aa, bb, iBh, iBw] ->
+      let arrt = slicez33 [2, 2, 2, 2] arr [iBh `remH` 4, aa, bb, iBw]
       in rmaximum3 arrt
     _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
 
@@ -714,7 +724,7 @@ conv2dUnpadded3 arrA =
   let shB = [2, 2, 2, 2]
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
-      let arrAt = slicez3 shB arrA [iImg `remH` 2, iImg, iImg, 2]
+      let arrAt = slicez33 shB arrA [iImg `remH` 4, iImg, iImg, 1]
       in rindex0 arrAt [iBh, iBw, iImg, iBh]
     _ -> error "conv2dUnpadded: impossible pattern needlessly required"
 
@@ -722,7 +732,13 @@ slicez3
   :: (ADReady target, GoodScalar r, KnownNat n)
   => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez3 shOut d ixBase =
-  rbuild shOut $ \_ixResult -> indexz03 d (zipWith_Index (+) ixBase ixBase) -- ixResult)
+  rbuild shOut $ \_ -> indexz03 d (zipWith_Index (+) ixBase ixBase)
+
+slicez33
+  :: (ADReady target, GoodScalar r, KnownNat n)
+  => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
+slicez33 shOut d ixBase =
+  rbuild shOut $ \ixResult -> indexz03 d (zipWith_Index (+) ixBase ixResult)
 
 indexz03
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
@@ -833,7 +849,7 @@ testCNNOPP6 = do
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
       afcnn2T = maxPool2dUnpadded3 $ conv2dUnpadded3z blackGlyph
   printAstPretty afcnn2T
-    @?= "rfromS (let w24 = stranspose @[1,2,3,4,0] (sreplicate @2 (stranspose @[1,2,3,4,0] (sreplicate @2 (stranspose @[1,2,3,4,0] (sreplicate @2 (stranspose @[1,2,3,4,0] (sreplicate @2 (let u41 = str (sreplicate @2 (sfromVector (fromList [let m29 = sgather (sappend (sconcrete (sfromListLinear [1,1] [0.0])) (sreplicate @1 (sreplicate @1 (sscalar 0.0)))) (\\[i34, i4] -> [2 * i4, 2 * quotH i34 2]) in str (sappend (sreplicate @1 (sreplicate @2 (sscalar 7.0))) (sreplicate @1 (sgather m29 (\\[i33] -> [i33, 1])))), sreplicate @2 (sreplicate @2 (sscalar 0.0))]))) in sappend (str (sappend (sreplicate @1 (stranspose @[1,2,0] (sappend (sgather (u41 !$ [0]) (\\[i26, i40, i32] -> [i40, i32, i26])) (sreplicate @1 (sgather (stranspose @[2,1,0] (u41 !$ [1]) !$ [1]) (\\[i40, i32] -> [i32, i40])))))) (sreplicate @1 (sreplicate @1 (u41 !$ [1, 0]))))) (sreplicate @1 (sreplicate @2 (u41 !$ [1, 1]))))))))))) in sgather w24 (\\[i39, i36, i31, i25] -> [i39, i36, i31, i25, 0, 0, 0, 0]))"
+    @?= "rfromS (let w24 = stranspose @[1,2,3,4,0] (sreplicate @2 (stranspose @[1,2,3,4,0] (sreplicate @2 (stranspose @[1,2,3,4,0] (sreplicate @2 (stranspose @[1,2,3,4,0] (sreplicate @2 (let u41 = str (sreplicate @2 (sfromVector (fromList [let m29 = sgather (sappend (sconcrete (sfromListLinear [1,1] [0.0])) (sreplicate @1 (sreplicate @1 (sscalar 0.0)))) (\\[i34, i4] -> [2 * i4, 2 * quotH i34 4]) in str (sappend (sreplicate @1 (sreplicate @2 (sscalar 7.0))) (sreplicate @1 (sgather m29 (\\[i33] -> [i33, 1])))), sreplicate @2 (sreplicate @2 (sscalar 0.0))]))) in sappend (str (sappend (sreplicate @1 (stranspose @[1,2,0] (sappend (sgather (u41 !$ [0]) (\\[i26, i40, i32] -> [i40, i32, i26])) (sreplicate @1 (sgather (stranspose @[2,1,0] (u41 !$ [1]) !$ [1]) (\\[i40, i32] -> [i32, i40])))))) (sreplicate @1 (sreplicate @1 (u41 !$ [1, 0]))))) (sreplicate @1 (sreplicate @2 (u41 !$ [1, 1]))))))))))) in sgather w24 (\\[i39, i36, i31, i25] -> [i39, i36, i31, i25, 0, 0, 0, 0]))"
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (sappend (str (sappend (sreplicate @1 (stranspose @[1,2,0] (sappend (stranspose @[0,2,1] (sreplicate @1 (str (sreplicate @1 (sconcrete (sfromListLinear [2] [7.0,7.0])))))) (sreplicate @1 (sreplicate @1 (sconcrete (sfromListLinear [2] [0.0,0.0]))))))) (sreplicate @1 (sreplicate @1 (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0])))))) (sreplicate @1 (sreplicate @2 (sconcrete (sfromListLinear [2,2] [0.0,0.0,0.0,0.0])))))"
 
