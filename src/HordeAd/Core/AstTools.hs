@@ -281,10 +281,10 @@ varNameInIxS var = varInIxS (varNameToAstVarId var)
 -- or if it's too expensive when interpreted and so duplicating it
 -- would increase the work done at runtime.
 astIsSmall :: Bool -> AstTensor ms s y -> Bool
-astIsSmall True = astIsSmallN 20
-astIsSmall False = astIsSmallN 10
+astIsSmall True t = astIsSmallN 50 t > 0
+astIsSmall False t = astIsSmallN 20 t > 0
 
--- The cases with n >= 10 are usually good redex candidates,
+-- The cases with n <= 20 are usually good redex candidates,
 -- so we expose them, but only if they are not burried too deeply.
 -- Some of these constructors change tensor metadata into
 -- a non-canonical form, which sometimes incurs the cost of converting
@@ -292,11 +292,10 @@ astIsSmall False = astIsSmallN 10
 -- when the constructor is not the root of the shared term,
 -- so when inlining (the False argument) we share them
 -- unless they are at the root of the term tree.
-astIsSmallN :: Int -> AstTensor ms s y -> Bool
-astIsSmallN n _ | n <= 0 = False
+astIsSmallN :: Int -> AstTensor ms s y -> Int
+astIsSmallN n _ | n <= 0 = 0
 astIsSmallN n t0 = case t0 of
-  AstPair t1 t2 ->
-    astIsSmallN (n - 2) t1 && astIsSmallN (n - 2) t2
+  AstPair t1 t2 -> astIsSmallN (astIsSmallN (n - 1) t1) t2
   -- Projections are so cheap that the environment machinery is expensive
   -- in comparison, so no limit to the length of projections chains.
   AstProject1 t -> astIsSmallN n t
@@ -306,39 +305,40 @@ astIsSmallN n t0 = case t0 of
   AstReplicate _ _ v ->
     astIsSmallN (n - 1) v  -- a really good redex and often in series
       -- executed as a metadata change, which is however not free
-  AstVar{} -> True
-  AstConcreteK _ -> True  -- small term with zero interpretation cost;
-  AstConcreteS _ -> True  -- small term with zero interpretation cost;
-                          -- the physical arrays is shared on GHC heap
+  AstVar{} -> n
+  AstCond b u v -> astIsSmallN (astIsSmallN (astBoolIsSmallN (n - 1) b) u) v
+  AstConcreteK _ -> n  -- small term with zero interpretation cost;
+  AstConcreteS _ -> n  -- small term with zero interpretation cost;
+                       -- the physical arrays is shared on GHC heap
 
   AstPrimalPart v -> astIsSmallN (n - 1) v
   AstDualPart v -> astIsSmallN (n - 1) v
   AstFromPrimal v -> astIsSmallN (n - 1) v
   AstFromDual v -> astIsSmallN (n - 1) v
 
-  AstPlusK u v -> astIsSmallN (n - 2) u && astIsSmallN (n - 2) v
-  AstTimesK u v -> astIsSmallN (n - 2) u && astIsSmallN (n - 2) v
+  AstPlusK u v -> astIsSmallN (astIsSmallN (n - 1) u) v
+  AstTimesK u v -> astIsSmallN (astIsSmallN (n - 1) u) v
   AstN1K _ u -> astIsSmallN (n - 1) u
   AstR1K _ u -> astIsSmallN (n - 1) u
-  AstR2K _ u v -> astIsSmallN (n - 2) u && astIsSmallN (n - 2) v
-  AstI2K _ u v -> astIsSmallN (n - 2) u && astIsSmallN (n - 2) v
+  AstR2K _ u v -> astIsSmallN (astIsSmallN (n - 1) u) v
+  AstI2K _ u v -> astIsSmallN (astIsSmallN (n - 1) u) v
   AstFloorK u -> astIsSmallN (n - 1) u
   AstFromIntegralK v -> astIsSmallN (n - 1) v
   AstCastK v -> astIsSmallN (n - 1) v
 
-  AstIotaS{} -> True
+  AstIotaS{} -> n
   AstSliceS _ _ _ v ->
-    n >= 10 && astIsSmallN (n - 1) v  -- executed as metadata change
+    if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change
   AstReverseS v ->
     astIsSmallN (n - 1) v  -- executed as a cheap metadata change
   AstTransposeS _perm v ->
-    n >= 10 && astIsSmallN (n - 1) v  -- executed as metadata change
+    if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change
   AstZipS v ->
     astIsSmallN (n - 1) v  -- executed as a cheap metadata change
   AstUnzipS v ->
     astIsSmallN (n - 1) v  -- executed as a cheap metadata change
   AstNestS _ _ v ->
-    n >= 10 && astIsSmallN (n - 1) v  -- executed as metadata change
+    if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change
   AstUnNestS v ->
     astIsSmallN (n - 1) v  -- executed as a cheap metadata change
 
@@ -347,8 +347,16 @@ astIsSmallN n t0 = case t0 of
   AstSFromR _ v -> astIsSmallN (n - 1) v
   AstSFromX _ v -> astIsSmallN (n - 1) v
 
-  _ -> False
+  _ -> 0
 
+astBoolIsSmallN :: Int -> AstBool ms -> Int
+astBoolIsSmallN n _ | n <= 0 = 0
+astBoolIsSmallN n t0 = case t0 of
+  AstBoolConst{} -> n
+  AstBoolNot v -> astBoolIsSmallN (n - 1) v
+  AstBoolAnd u v -> astBoolIsSmallN (astBoolIsSmallN (n - 1) u) v
+  AstLeqK u v -> astIsSmallN (astIsSmallN (n - 1) u) v
+  AstLeqS u v -> astIsSmallN (astIsSmallN (n - 1) u) v
 
 -- * Odds and ends
 
