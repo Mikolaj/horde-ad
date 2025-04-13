@@ -82,11 +82,6 @@ instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
   AstFromDual u + AstFromDual v = AstFromDual $ u + v
-  AstFromS STKScalar u + AstFromS STKScalar v
-    | FTKS ZSS (FTKScalar @ru) <- ftkAst u
-    , FTKS ZSS (FTKScalar @rv) <- ftkAst v
-    , Just Refl <- testEquality (typeRep @ru) (typeRep @rv)
-    = AstFromS STKScalar $ u + v
   AstConcreteK 0 + u = u
   u + AstConcreteK 0 = u
   AstConcreteK n + AstConcreteK k = AstConcreteK (n + k)
@@ -161,11 +156,6 @@ instance (GoodScalar r, AstSpan s)
 
   AstFromPrimal u * AstFromPrimal v = AstFromPrimal $ u * v
     -- TODO: this is not mathematically correct for AstFromDual, right?
-  AstFromS STKScalar u * AstFromS STKScalar v
-    | FTKS ZSS (FTKScalar @ru) <- ftkAst u
-    , FTKS ZSS (FTKScalar @rv) <- ftkAst v
-    , Just Refl <- testEquality (typeRep @ru) (typeRep @rv)
-    = AstFromS STKScalar $ u * v
   AstConcreteK 0 * _ = 0
   _ * AstConcreteK 0 = 0
   AstConcreteK 1 * u = u
@@ -227,8 +217,6 @@ instance (GoodScalar r, AstSpan s)
 
   negate (AstFromPrimal n) = AstFromPrimal (negate n)
   negate (AstFromDual n) = AstFromDual (negate n)
-  negate (AstFromS STKScalar n) | FTKS ZSS FTKScalar <- ftkAst n =
-    AstFromS STKScalar (negate n)
   negate (AstConcreteK n) = AstConcreteK (negate n)
   negate (AstPlusK u v) = AstPlusK (negate u) (negate v)
   negate (AstTimesK u v) = negate u * v
@@ -241,16 +229,12 @@ instance (GoodScalar r, AstSpan s)
   negate u = AstN1K NegateOp u
   abs (AstFromPrimal n) = AstFromPrimal (abs n)
   abs (AstFromDual n) = AstFromDual (abs n)
-  abs (AstFromS STKScalar n) | FTKS ZSS FTKScalar <- ftkAst n =
-    AstFromS STKScalar (abs n)
   abs (AstConcreteK n) = AstConcreteK (abs n)
   abs (AstN1K AbsOp u) = AstN1K AbsOp u
   abs (AstN1K NegateOp u) = abs u
   abs u = AstN1K AbsOp u
   signum (AstFromPrimal n) = AstFromPrimal (signum n)
   signum (AstFromDual n) = AstFromDual (signum n)
-  signum (AstFromS STKScalar n) | FTKS ZSS FTKScalar <- ftkAst n =
-    AstFromS STKScalar (signum n)
   signum (AstConcreteK n) = AstConcreteK (signum n)
   signum (AstN1K SignumOp u) = AstN1K SignumOp u
   signum u = AstN1K SignumOp u
@@ -301,12 +285,6 @@ eqK _ _ = False
 instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKScalar r)) where
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
-  quotH (AstFromS STKScalar n) (AstFromS STKScalar k)
-    | FTKS ZSS (FTKScalar @rn) <- ftkAst n
-    , FTKS ZSS (FTKScalar @rk) <- ftkAst k
-    , Just Refl <- testEquality (typeRep @rn) (typeRep @r)
-    , Just Refl <- testEquality (typeRep @rk) (typeRep @r)
-    = AstFromS STKScalar (quotH n k)
   quotH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotH n k)
   quotH (AstConcreteK 0) _ = AstConcreteK 0
   quotH u (AstConcreteK 1) = u
@@ -318,12 +296,6 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   quotH u v = AstI2K QuotOp u v
 
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
-  remH (AstFromS STKScalar n) (AstFromS STKScalar k)
-    | FTKS ZSS (FTKScalar @rn) <- ftkAst n
-    , FTKS ZSS (FTKScalar @rk) <- ftkAst k
-    , Just Refl <- testEquality (typeRep @rn) (typeRep @r)
-    , Just Refl <- testEquality (typeRep @rk) (typeRep @r)
-    = AstFromS STKScalar (remH n k)
   remH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (remH n k)
   remH (AstConcreteK 0) _ = AstConcreteK 0
   remH _ (AstConcreteK 1) = AstConcreteK 0

@@ -255,7 +255,7 @@ testFooRrevPP1 = do
   resetVarCounter
   let (a1, _, _) = fooRgrad @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstPretty a1
-    @?= "rfromS (let x17 = let x11 = sin (sscalar 2.2) ; x12 = sscalar 1.1 * x11 ; x13 = recip (sscalar 10.889999999999999 + x12 * x12) ; x14 = sin (sscalar 2.2) ; x16 = sscalar (-3.3) * x13 in tpair (tpair (x11 * x16 + sscalar 3.3 * x14) (sscalar 1.1 * (cos (sscalar 2.2) * x16) + sscalar 3.63 * cos (sscalar 2.2))) (sscalar 1.0 * (x12 * x13) + sscalar 1.1 * x14) in tproject1 (tproject1 x17))"
+    @?= "rfromS (let x15 = let x10 = sin (sscalar 2.2) ; x11 = sscalar 1.1 * x10 ; x12 = recip (sscalar 10.889999999999999 + x11 * x11) ; x13 = sin (sscalar 2.2) ; x14 = sscalar (-3.3) * x12 in tpair (tpair (x10 * x14 + sscalar 3.3 * x13) (sscalar 1.1 * (cos (sscalar 2.2) * x14) + sscalar 3.63 * cos (sscalar 2.2))) (sscalar 1.0 * (x11 * x12) + sscalar 1.1 * x13) in tproject1 (tproject1 x15))"
 
 testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
@@ -1111,7 +1111,7 @@ testSin0Scan1Rev3PPForComparison = do
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rfromList [sin (sin x0 - x0 * rscalar 5) - x0 * rscalar 7, sin x0 - x0 * rscalar 5, x0]) (rscalar 1.1)
   printAstPretty (simplifyInline a1)
-    @?= "rfromS (let x9 = sscalar 1.0 * cos (sscalar (-5.5) + sin (sscalar 1.1)) in sscalar (-11.0) + (cos (sscalar 1.1) * x9 + (sscalar (-5.0) * x9 + sscalar 1.0 * cos (sscalar 1.1))))"
+    @?= "rfromS (let x7 = sscalar 1.0 * cos (sscalar (-5.5) + sin (sscalar 1.1)) in sscalar (-11.0) + (cos (sscalar 1.1) * x7 + (sscalar (-5.0) * x7 + sscalar 1.0 * cos (sscalar 1.1))))"
 
 testSin0ScanFwd3PP :: Assertion
 testSin0ScanFwd3PP = do

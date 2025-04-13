@@ -211,7 +211,8 @@ astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
 
 -- * The simplifying combinators, one for almost each AST constructor
 
-astPair :: AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
+astPair :: AstSpan s
+        => AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s (TKProduct x y)
 astPair (Ast.AstFromPrimal v1) (Ast.AstFromPrimal v2) =
   Ast.AstFromPrimal $ astPair v1 v2
@@ -826,8 +827,10 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar var2)) =  -- a noop
   else v
 astLet var u (Ast.AstFromPrimal v0) = Ast.AstFromPrimal $ astLet var u v0
 astLet var u (Ast.AstFromDual v0) = Ast.AstFromDual $ astLet var u v0
+astLet var u v@(Ast.AstFromS STKScalar _) = Ast.AstLet var u v
 astLet var u (Ast.AstFromS stkz v) =
   astFromS stkz $ astLet var u v
+astLet var u@(Ast.AstFromS STKScalar _) v = Ast.AstLet var u v
 astLet var (Ast.AstFromS stkz a) v =
   let var2 =
         mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
@@ -921,9 +924,8 @@ astPrimalPart t = case t of
     astNestS sh1 sh2 $ astPrimalPart v
   Ast.AstUnNestS v -> astUnNestS $ astPrimalPart v
 
-  Ast.AstFromS stkz v ->
-    astFromS stkz $ astPrimalPart v
-  -- These conversions need to stay down.
+  -- All conversions need to stay down here to cancel out.
+  Ast.AstFromS{} -> Ast.AstPrimalPart t
   Ast.AstSFromK{} -> Ast.AstPrimalPart t
   Ast.AstSFromR{} -> Ast.AstPrimalPart t
   Ast.AstSFromX{} -> Ast.AstPrimalPart t
@@ -1018,9 +1020,8 @@ astDualPart t = case t of
     astNestS sh1 sh2 $ astDualPart v
   Ast.AstUnNestS v -> astUnNestS $ astDualPart v
 
-  Ast.AstFromS stkz v ->
-    astFromS stkz $ astDualPart v
-   -- These conversions need to stay down.
+  -- All conversions need to stay down here to cancel out.
+  Ast.AstFromS{} -> Ast.AstDualPart t
   Ast.AstSFromK{} -> Ast.AstDualPart t
   Ast.AstSFromR{} -> Ast.AstDualPart t
   Ast.AstSFromX{} -> Ast.AstDualPart t
@@ -1072,7 +1073,7 @@ astCastK :: forall r1 r2 s.
          -> AstTensor AstMethodLet s (TKScalar r2)
 astCastK t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
---  Ast.AstCond b a2 a3 -> Ast.AstCond b (astCastK a2) (astCastK a3)
+--  Ast.AstCond b a2 a3 -> astCond b (astCastK a2) (astCastK a3)
   AstConcreteK k -> astConcreteK (tkcast $ Concrete k)
   -- TODO: which should go deeper, casts or fromPrimal? Or maybe alternate
   -- to make sure both can cancel out? Rethink. For now, astFromPrimal
@@ -1246,8 +1247,8 @@ astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
   | knobPhase knobs /= PhaseNone =  -- don't undo what vectorization is doing
     astLetFun v0 $ \v ->
     shareIx rest0 $ \rest ->
-      Ast.AstCond b (Ast.AstIndexS shn v (i1 :.$ rest))
-                    (Ast.AstIndexS shn v (i2 :.$ rest))
+      astCond b (astIndexKnobsS knobs shn v (i1 :.$ rest))
+                (astIndexKnobsS knobs shn v (i2 :.$ rest))
 astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
  let FTKS _ x = ftkAst v0
      astIndexRec, astIndex
@@ -2715,23 +2716,39 @@ astUnNestS t = case t of
 --  Ast.AstNestS u -> u
   _ -> Ast.AstUnNestS t
 
-astFromS :: forall y z s.
-            SingletonTK z -> AstTensor AstMethodLet s y
+astFromS :: forall y z s. AstSpan s
+         => SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
 astFromS stkz v | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
 astFromS STKScalar (Ast.AstCond b v1 v2) =
-  Ast.AstCond b (astFromS STKScalar v1) (astFromS STKScalar v2)
-  -- a rare case where we don't push up but down
+  astCond b (astFromS STKScalar v1) (astFromS STKScalar v2)
+    -- for scalars, we don't push up but down
+astFromS STKScalar (Ast.AstLet var u v) = astLet var u (astFromS STKScalar v)
 astFromS (STKScalar @r1) (AstConcreteS @r2 v)
   | ZSS <- Nested.sshape v
   , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) =
     AstConcreteK (Nested.sunScalar v)
+astFromS STKScalar (Ast.AstPrimalPart v) =
+  astPrimalPart $ astFromS STKScalar v
+astFromS STKScalar (Ast.AstDualPart v) =
+  astDualPart $ astFromS STKScalar v
 astFromS stkz (Ast.AstFromPrimal v) =
   Ast.AstFromPrimal $ astFromS stkz v
-  -- a rare case where we don't push up but down so that conversions
-  -- don't end up interspersed with AstFromPrimal
+    -- a rare case where we don't push up but down so that conversions
+    -- don't end up interspersed with AstFromPrimal and similar
 astFromS stkz (Ast.AstFromDual v) =
   Ast.AstFromDual $ astFromS stkz v
+astFromS STKScalar (AstPlusS u v) = astFromS STKScalar u + astFromS STKScalar v
+astFromS STKScalar (AstTimesS u v) = astFromS STKScalar u * astFromS STKScalar v
+astFromS STKScalar (Ast.AstN1S NegateOp u) = negate (astFromS STKScalar u)
+astFromS STKScalar (Ast.AstN1S AbsOp u) = abs (astFromS STKScalar u)
+astFromS STKScalar (Ast.AstN1S SignumOp u) = signum (astFromS STKScalar u)
+astFromS (STKScalar @r1) (Ast.AstI2S @r2 QuotOp u v)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) =
+    astFromS STKScalar u `quotH` astFromS STKScalar v
+astFromS (STKScalar @r1) (Ast.AstI2S @r2 RemOp u v)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) =
+    astFromS STKScalar u `remH` astFromS STKScalar v
 astFromS stkz (Ast.AstSFromK v)
          | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
 astFromS stkz (Ast.AstFromS _ v) = astFromS stkz v
@@ -2783,7 +2800,8 @@ astSFromK t = case t of
   Ast.AstN1K SignumOp u -> signum (astSFromK u)
 -- TODO:  Ast.AstR1K opCode u -> Ast.AstR1S opCode (astSFromK u)
 -- TODO:  Ast.AstR2K opCode u v -> Ast.AstR2S opCode (astSFromK u) (astSFromK v)
-  Ast.AstI2K opCode u v -> Ast.AstI2S opCode (astSFromK u) (astSFromK v)
+  Ast.AstI2K QuotOp u v -> astSFromK u `quotH` astSFromK v
+  Ast.AstI2K RemOp u v -> astSFromK u `remH` astSFromK v
   Ast.AstFromS _ v ->
     case matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) of
       Just Refl -> v
@@ -3106,6 +3124,8 @@ astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
           -> AstTensor AstMethodLet s2 z
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f = case a of
+  Ast.AstFromS STKScalar _ -> let (var, ast) = funToAst2 (ftkAst a) Nothing f
+                              in astLet var a ast
   Ast.AstFromS @y2 stkz v ->
     let (var, ast) = funToAst2 (ftkAst v) Nothing (f . astFromS @y2 stkz)
     in astLet var v ast
