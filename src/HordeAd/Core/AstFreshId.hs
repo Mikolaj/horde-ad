@@ -162,7 +162,8 @@ funToVarsIxIOS
 {-# INLINE funToVarsIxIOS #-}
 funToVarsIxIOS sh f = withKnownShS sh $ do
   let freshBound n =
-        unsafeGetFreshAstVarName (FTKScalar @Int64) (Just (0, fromIntegral n))
+        unsafeGetFreshAstVarName (FTKScalar @Int64)
+                                 (Just (0, fromIntegral n - 1))
   !varList <- mapM freshBound $ shsToList sh
   let !vars = fromList varList
   let !ix = fromList $ map AstIntVar varList
