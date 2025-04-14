@@ -223,6 +223,7 @@ slicezS d ixBase =
       indexz0S @shOut d (zipWith_Index (+)
                                        (ixsToIxr ixBase)
                                        (ixsToIxr ixResult))
+      -- TODO: use zipWith_IndexS once defined?
 
 {-
 -- This makes tests unbearably slow, so not used.

@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Test with folds and nested derivatives.
@@ -353,34 +353,39 @@ testSin0Rjvp = do
 testSin0RfwdPP0 :: Assertion
 testSin0RfwdPP0 = do
   resetVarCounter
-  let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
+  let a1 :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double)
+      a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty a1
     @?= "rfromS (sscalar 1.0 * cos (sscalar 1.1))"
 
 testSin0RfwdPP1 :: Assertion
 testSin0RfwdPP1 = do
   resetVarCounter
-  let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
+  let a1 :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double)
+      a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty (simplifyInline a1)
     @?= "rfromS (sscalar 1.0 * cos (sscalar 1.1))"
 
 testSin0RfwdPP1FullUnsimp :: Assertion
 testSin0RfwdPP1FullUnsimp = do
   resetVarCounter
-  let a1 = rfwd1 @(AstTensor AstMethodLet FullSpan) @Double @0 @0 sin (rscalar 1.1)
+  let a1 :: AstTensor AstMethodLet FullSpan (TKR 0 Double)
+      a1 = rfwd1 @(AstTensor AstMethodLet FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty a1
     @?= "rfromS (sscalar 1.0 * cos (sscalar 1.1))"
 
 testSin0RfwdPP1Full :: Assertion
 testSin0RfwdPP1Full = do
   resetVarCounter
-  let a1 = rfwd1 @(AstTensor AstMethodLet FullSpan) @Double @0 @0 sin (rscalar 1.1)
+  let a1 :: AstTensor AstMethodLet FullSpan (TKR 0 Double)
+      a1 = rfwd1 @(AstTensor AstMethodLet FullSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
     @?= "rfromS (sscalar 0.4535961214255773)"
 
 testSin0Rfwd3 :: Assertion
 testSin0Rfwd3 = do
-  let f = rfwd1 @(ADVal Concrete) @Double @0 @0 sin
+  let f :: ADVal Concrete (TKR 0 Double) -> ADVal Concrete (TKR 0 Double)
+      f = rfwd1 @(ADVal Concrete) @Double @0 @0 sin
   assertEqualUpToEpsilon 1e-10
     (rscalar (-0.9803280960675791))
     (cjvp f (rscalar 1.1) (rscalar 1.1))
@@ -393,13 +398,15 @@ testSin0Rfwd4 = do
 
 testSin0RfwdPP4P :: Assertion
 testSin0RfwdPP4P = do
-  let a1 = (rfwd1 sin . rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
+  let a1 :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double)
+      a1 = (rfwd1 sin . rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
   printAstPretty (simplifyInline a1)
     @?= "rfromS (sscalar 1.0 * cos (sscalar 1.0 * cos (sscalar 1.1)))"
 
 testSin0RfwdPP4Dual :: Assertion
 testSin0RfwdPP4Dual = do
-  let a1 = (rfwd1 sin . rfwd1 @(AstTensor AstMethodLet DualSpan) @Double @0 @0 sin) (rscalar 1.1)
+  let a1 :: AstTensor AstMethodLet DualSpan (TKR 0 Double)
+      a1 = (rfwd1 sin . rfwd1 @(AstTensor AstMethodLet DualSpan) @Double @0 @0 sin) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
     @?= "rfromS (sdualPart (sscalar 0.0) * cos (sdualPart (sscalar 0.0) * cos (sdualPart (sscalar 0.0))))"
 
@@ -411,7 +418,8 @@ testSin0Rfwd5 = do
 
 testSin0RfwdPP5 :: Assertion
 testSin0RfwdPP5 = do
-  let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 (rfwd1 sin) (rscalar 1.1)
+  let a1 :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double)
+      a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 (rfwd1 sin) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
     @?= "rfromS (sscalar (-0.8912073600614354))"
 
@@ -810,7 +818,8 @@ testSin0Fold8jvp = do
 
 testSin0Fold8fwd2 :: Assertion
 testSin0Fold8fwd2 = do
-  let h = rfwd1 @(ADVal Concrete) @Double @0 @2
+  let h :: ADVal Concrete (TKR 0 Double) -> ADVal Concrete (TKR 2 Double)
+      h = rfwd1 @(ADVal Concrete) @Double @0 @2
         (\a0 -> rfold (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -838,7 +847,8 @@ testSin0Fold8Sjvp = do
 
 testSin0Fold8Sfwd2 :: Assertion
 testSin0Fold8Sfwd2 = do
-  let h = rfwd1 @(ADVal Concrete)
+  let h :: ADVal Concrete (TKR 0 Double) -> ADVal Concrete (TKR 2 Double)
+      h = rfwd1 @(ADVal Concrete)
                 (let f :: forall f. ADReady f
                        => f (TKS '[] Double) -> f (TKS '[2, 5] Double)
                      f a0 = sfold @3 @'[2, 5] @'[] @(TKScalar Double) @(TKScalar Double)
@@ -1116,7 +1126,8 @@ testSin0Scan1Rev3PPForComparison = do
 testSin0ScanFwd3PP :: Assertion
 testSin0ScanFwd3PP = do
   resetVarCounter
-  let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
+  let a1 :: AstTensor AstMethodLet PrimalSpan (TKR 1 Double)
+      a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
@@ -1175,7 +1186,8 @@ testSin0Scan8jvp = do
 
 testSin0Scan8fwd2 :: Assertion
 testSin0Scan8fwd2 = do
-  let h = rfwd1 @(ADVal Concrete) @Double @0 @3
+  let h :: ADVal Concrete (TKR 0 Double) -> ADVal Concrete (TKR 3 Double)
+      h = rfwd1 @(ADVal Concrete) @Double @0 @3
         (\a0 -> rscan (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
@@ -2150,7 +2162,8 @@ testSin0ScanD1Rev2PP = do
 testSin0ScanDFwd2PP :: Assertion
 testSin0ScanDFwd2PP = do
   resetVarCounter
-  let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
+  let a1 :: AstTensor AstMethodLet PrimalSpan (TKR 1 Double)
+      a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> sin x - a)
                          (FTKR ZSR FTKScalar)
                          x0 (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
@@ -2160,7 +2173,8 @@ testSin0ScanDFwd2PP = do
 testSin0ScanDFwd3PP :: Assertion
 testSin0ScanDFwd3PP = do
   resetVarCounter
-  let a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
+  let a1 :: AstTensor AstMethodLet PrimalSpan (TKR 1 Double)
+      a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> sin x - a)
                                 (FTKR ZSR FTKScalar)
                                 x0 (rfromList [x0 * rscalar 5, x0 * rscalar 7]))
@@ -2216,7 +2230,8 @@ testSin0ScanD8fwdMapAccum = do
 
 testSin0ScanD8fwd2 :: Assertion
 testSin0ScanD8fwd2 = do
-  let h = rfwd1 @(ADVal Concrete) @Double @0 @3
+  let h :: ADVal Concrete (TKR 0 Double) -> ADVal Concrete (TKR 3 Double)
+      h = rfwd1 @(ADVal Concrete) @Double @0 @3
         (\a0 -> rscanZip (\x a -> rtr $ rreplicate 5
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
