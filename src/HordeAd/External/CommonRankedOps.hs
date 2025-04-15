@@ -205,6 +205,9 @@ softMax1 d =
 -- despite the indexing giving 0 when out of bounds.
 -- If another value than 0 was needed, the conditional
 -- would be necessary even without vectorization.
+--
+-- BTW, the indexing lower bounds in the code are spurious,
+-- so they get simplified away in the resulting AST program.
 conv2dUnpadded
   :: (ADReady target, GoodScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
@@ -220,6 +223,89 @@ conv2dUnpadded arrK arrA =
           arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
       in rdot0 arrAt arrKt
     _ -> error "conv2dUnpadded: impossible pattern needlessly required"
+
+-- | Full convolution with custom padding,
+--   where the output size depends on the input size, kernel size and padding.
+--
+-- Here, if padding is not zero, both upper and lower indexing bound checks
+-- are non-trivial.
+conv2dCustomPadded
+  :: (ADReady target, GoodScalar r)
+  => (Int, Int) -> target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
+conv2dCustomPadded (nPh, nPw) arrK arrA =
+  let [nImgs, nCinpA, nAh, nAw] = rshape arrA
+      [nCoutK, nCinpK, nKh, nKw] = rshape arrK
+      nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
+      nBh = nAh + 2 * nPh - nKh + 1
+      nBw = nAw + 2 * nPw - nKw + 1
+      shB = [nImgs, nCoutK, nBh, nBw]
+      shK1 = [1, nCinp, nKh, nKw]
+  in rbuild shB $ \case
+    [iImg, iCout, iBh, iBw] ->
+      let iFh = iBh - fromIntegral nPh
+          iFw = iBw - fromIntegral nPw
+          arrAt = slicez shK1 arrA [iImg, 0, iFh, iFw]
+          arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
+      in rdot0 arrAt arrKt
+    _ -> error "conv2dCustomPadded: impossible pattern needlessly required"
+
+-- | Full convolution with just enough padding to ensure all output points
+--   are affected by the same number of input points,
+--   where the output size shrinks depending on the input size and kernel size.
+--   Also no input points are ever ignored, though some are read less often.
+--
+--   This amount of padding ensures all bounds checks in the code are spurious
+--   and will be simplified away in the resulting AST program.
+conv2dShrinking
+  :: (ADReady target, GoodScalar r)
+  => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
+conv2dShrinking arrK arrA =
+  let [nImgs, nCinpA, nAh, nAw] = rshape arrA
+      [nCoutK, nCinpK, nKh, nKw] = rshape arrK
+      nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
+      shB = [nImgs, nCoutK, nAh - nKh, nAw - nKw]
+      shK1 = [1, nCinp, nKh, nKw]
+  in rbuild shB $ \case
+    [iImg, iCout, iBh, iBw] ->
+      let arrAt = slicez shK1 arrA [iImg, 0, iBh, iBw]
+          arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
+      in rdot0 arrAt arrKt
+    _ -> error "conv2dShrinking: impossible pattern needlessly required"
+
+-- | Full convolution with just enough extra external zero padding
+--   to ensure that the output size is the same as the input size
+--   and all input points are read the same number of times.
+--
+--   The same result could be accomplished by tweaking indexes slightly
+--   in conv2dUnpadded, but here additionally all bounds checks in the code
+--   are spurious and will be simplified away in the resulting AST program.
+conv2dPadded
+  :: forall target r. (ADReady target, GoodScalar r)
+  => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
+conv2dPadded arrK arrA =
+  let [nImgs, nCinpA, nAh, nAw] = rshape arrA
+      [nCoutK, nCinpK, nKh, nKw] = rshape arrK
+      shAPadded = [nImgs, nCinpA, nAh + nKh, nAw + nKw]
+      arrAPadded = rbuild @4 @0 @(TKScalar r) @target shAPadded $ \case
+        [iImg, iCinp, iPh, iPw] ->
+          ifH (iPh <. fromIntegral (nKh `div` 2)
+               ||* iPw <. fromIntegral (nKw `div` 2)
+               ||* iPh >=. fromIntegral (nAh + nKh `div` 2)
+               ||* iPw >=. fromIntegral (nAw + nKw `div` 2))
+              (rscalar 0)
+              (arrA ! [ iImg
+                      , iCinp
+                      , iPh - fromIntegral (nKh `div` 2)
+                      , iPw - fromIntegral (nKw `div` 2) ])
+      nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
+      shB = [nImgs, nCoutK, nAh, nAw]
+      shK1 = [1, nCinp, nKh, nKw]
+  in rbuild shB $ \case
+    [iImg, iCout, iBh, iBw] ->
+      let arrAt = slicez shK1 arrAPadded [iImg, 0, iBh, iBw]
+          arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
+      in rdot0 arrAt arrKt
+    _ -> error "conv2dPadded: impossible pattern needlessly required"
 
 -- | Slice a section out of a tensor,
 --   given a base offset and shape of the section.
