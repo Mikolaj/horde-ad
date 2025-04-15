@@ -349,10 +349,10 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstReverseS v -> astSum snat stk v
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKScalar <- stk ->
-      astFromS STKScalar $ astIndexStepS ZSS t0 (0 :.$ ZIS)
+      astFromS STKScalar $ astIndexS ZSS t0 (0 :.$ ZIS)
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKS sh _  <- stk ->  -- other cases too rare
-      astIndexStepS sh t0 (0 :.$ ZIS)  -- astReshape slows down the CNNO test
+      astIndexS sh t0 (0 :.$ ZIS)  -- astReshape slows down the CNNO test
   Ast.AstFromVector @y2 _ _ l ->
     gcastWith (unsafeCoerceRefl :: y2 :~: y) $
     case stk of
@@ -909,7 +909,7 @@ astPrimalPart t = case t of
   Ast.AstCastS v -> astCastS $ astPrimalPart v
 
   Ast.AstIndexS shn v ix ->
-    astIndexStepS shn (astPrimalPart v) ix
+    astIndexS shn (astPrimalPart v) ix
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     astScatterS @shm @shn @shp shn (astPrimalPart v) (vars, ix)
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
@@ -1005,7 +1005,7 @@ astDualPart t = case t of
   Ast.AstCastS v -> astCastS $ astDualPart v
 
   Ast.AstIndexS shn v ix ->
-    astIndexStepS shn (astDualPart v) ix
+    astIndexS shn (astDualPart v) ix
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     astScatterS @shm @shn @shp shn (astDualPart v) (vars, ix)
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
