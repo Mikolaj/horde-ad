@@ -107,12 +107,13 @@ import HordeAd.Core.ConvertTensor
 
 data RewritePhase =
   PhaseNone | PhaseSimplification | PhaseExpansion | PhaseContraction
- deriving Eq
+ deriving (Show, Eq)
 
 data SimplifyKnobs = SimplifyKnobs
   { knobStepOnly :: Bool
   , knobPhase    :: RewritePhase
   }
+ deriving Show
 
 defaultKnobs :: SimplifyKnobs
 defaultKnobs = SimplifyKnobs False PhaseNone
