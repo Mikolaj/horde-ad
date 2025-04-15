@@ -1591,7 +1591,9 @@ astGatherKnobsS _ shn v0 (vars, AstConcreteK it :.$ _)
     let ftk = FTKS (listsToShS vars `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
 astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
-  | not (any (`varNameInAst` i1) $ listsToList vars0) =
+  | not (knobStepOnly knobs)
+    && knobPhase knobs /= PhaseExpansion  -- prevent a loop
+  , not (any (`varNameInAst` i1) $ listsToList vars0) =
     astGatherKnobsS @shm @shn
       knobs shn
       (astIndexKnobsS knobs (ixsToShS rest1 `shsAppend` shn) v0 (i1 :.$ ZIS))
