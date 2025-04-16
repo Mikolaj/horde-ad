@@ -104,7 +104,7 @@ import HordeAd.Core.ConvertTensor
 -- * Expressing operations as Gather; introduces new variable names
 
 data RewritePhase =
-  PhaseNone | PhaseSimplification | PhaseExpansion | PhaseContraction
+  PhaseUnspecified | PhaseSimplification | PhaseExpansion | PhaseContraction
  deriving (Show, Eq)
 
 data SimplifyKnobs = SimplifyKnobs
@@ -113,7 +113,7 @@ data SimplifyKnobs = SimplifyKnobs
  deriving Show
 
 defaultKnobs :: SimplifyKnobs
-defaultKnobs = SimplifyKnobs PhaseNone
+defaultKnobs = SimplifyKnobs PhaseUnspecified
 
 -- | We keep AstTranspose terms for as long as possible, because
 -- they are small and fuse nicely in many cases. For some forms of indexing
@@ -1225,7 +1225,7 @@ astIndexKnobsS _ shn v0 (AstConcreteK it :.$ _)
     let ftk = FTKS shn x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
 astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
-  | knobPhase knobs /= PhaseNone =  -- don't undo what vectorization is doing
+  | knobPhase knobs /= PhaseUnspecified =  -- don't undo vectorization tweaks
     astLetFun v0 $ \v ->
     shareIx rest0 $ \rest ->
       astCond b (astIndexKnobsS knobs shn v (i1 :.$ rest))
@@ -1423,13 +1423,12 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
       in gcastWith (unsafeCoerceRefl
                     :: sh2 :~: Permutation.PermutePrefix permR shm ++ shn) $
          astIndex @(Permutation.PermutePrefix permR shm) shn v ix2
-  Ast.AstTransposeS{} | knobPhase knobs /= PhaseExpansion ->
-    Ast.AstIndexS shn v0 ix
-  Ast.AstTransposeS @perm perm v ->
+  Ast.AstTransposeS @perm perm v | knobPhase knobs == PhaseExpansion ->
     astIndex shn (astTransposeAsGatherS @perm knobs perm v) ix
-  Ast.AstReshapeS{} | knobPhase knobs /= PhaseExpansion ->
-    Ast.AstIndexS shn v0 ix
-  Ast.AstReshapeS sh v -> astIndex shn (astReshapeAsGatherS knobs sh v) ix
+  Ast.AstTransposeS{} -> Ast.AstIndexS shn v0 ix
+  Ast.AstReshapeS sh v | knobPhase knobs == PhaseExpansion ->
+    astIndex shn (astReshapeAsGatherS knobs sh v) ix
+  Ast.AstReshapeS{} -> Ast.AstIndexS shn v0 ix
   Ast.AstZipS _ -> Ast.AstIndexS shn v0 ix
   Ast.AstNestS{} -> Ast.AstIndexS shn v0 ix
   Ast.AstUnNestS _ -> Ast.AstIndexS shn v0 ix
@@ -1541,7 +1540,8 @@ astGatherKnobsS _ shn v0 (vars, AstConcreteK it :.$ _)
     let ftk = FTKS (listsToShS vars `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
 astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
-  | knobPhase knobs /= PhaseExpansion  -- prevent a loop
+  | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
+      -- prevent a loop
   , not (any (`varNameInAst` i1) $ listsToList vars0) =
     astGatherKnobsS @shm @shn
       knobs shn
@@ -1891,7 +1891,8 @@ astGatherKnobsS knobs shn v0
 astGatherKnobsS knobs shn v0
   ( (::$) @m @shmTail (Const varm) mrest
   , (:.$) @p @shpTail (AstIntVar varp) prest )
-  | knobPhase knobs == PhaseSimplification  -- prevent a loop
+  | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
+      -- prevent a loop
   , varm == varp
   , Just Refl <- sameNat (Proxy @m) (Proxy @p)
   , not (varm `varNameInIxS` prest) =
@@ -1965,11 +1966,11 @@ astGatherKnobsS knobs shn v0
             | any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
           AstIntVar var
-            | knobPhase knobs == PhaseSimplification  -- prevent a loop
+            | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
             , null $ drop 1 $ filter (var `varNameInAst`) (Foldable.toList ix)
             , any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
-          ik | knobPhase knobs == PhaseSimplification  -- prevent a loop
+          ik | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
              , not (any (`varNameInAst` ik) $ listsToList vars) -> True
           _ -> False
   , not (intInteresting i1)  -- now vars may need to be reordered, too
@@ -2024,7 +2025,7 @@ astGatherKnobsS knobs shn v0
                              (Ast.AstN1K NegateOp (AstIntVar var))) _) _ _) ->
             Just var
           AstIntVar var
-            | knobPhase knobs == PhaseSimplification  -- prevent a loop
+            | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
             , not (var `varNameInIxS` prest) -> Just var
           _ -> Nothing
   , Just varp <- varInteresting i1
