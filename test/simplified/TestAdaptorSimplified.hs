@@ -1370,9 +1370,9 @@ testReluMaxPP2 = do
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty artifactRev
-    @?= "\\dret v1 -> let m11 = sscatter (sfromR dret) (\\[i8] -> [let x9 = sfromR (tproject1 v1) !$ [i8] ; x10 = sfromR (rreplicate 5 (tproject2 v1)) !$ [i8] in ifH (sscalar -0.0 <=. negate x9 * x10) 0 1, i8]) ; v12 = m11 !$ [1] in tpair (rfromS (sreplicate @5 (sfromR (tproject2 v1)) * v12)) (rfromS (ssum @5 (sfromR (tproject1 v1) * v12)))"
+    @?= "\\dret v1 -> let m11 = sscatter (sfromR dret) (\\[i8] -> [let x9 = sfromR (tproject1 v1) !$ [i8] ; x10 = sfromR (rreplicate 5 (tproject2 v1)) !$ [i8] in ifH (sscalar -0.0 <=. negate x9 * x10) 0 1, i8]) ; v12 = m11 !$ [1] in tpair (rfromS (sfromR (rreplicate 5 (tproject2 v1)) * v12)) (rsum (rfromS (sfromR (tproject1 v1) * v12)))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\v1 -> rfromS (sgather (sfromVector (fromList [sreplicate @5 (sscalar 0.0), sfromR (tproject1 v1) * sreplicate @5 (sfromR (tproject2 v1))])) (\\[i4] -> [let x5 = sfromR (tproject1 v1) !$ [i4] ; x6 = sfromR (rreplicate 5 (tproject2 v1)) !$ [i4] in ifH (sscalar -0.0 <=. negate x5 * x6) 0 1, i4]))"
+    @?= "\\v1 -> rfromS (sgather (sfromVector (fromList [sreplicate @5 (sscalar 0.0), sfromR (tproject1 v1) * sfromR (rreplicate 5 (tproject2 v1))])) (\\[i4] -> [let x5 = sfromR (tproject1 v1) !$ [i4] ; x6 = sfromR (rreplicate 5 (tproject2 v1)) !$ [i4] in ifH (sscalar -0.0 <=. negate x5 * x6) 0 1, i4]))"
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret v1 -> tfromS (STKProduct (STKR (SNat @1) STKScalar) (STKR (SNat @0) STKScalar)) (let v12 = sscatter (sfromR dret) (\\[i8] -> [ifH (sscalar -0.0 <=. negate (sfromR (tproject1 v1) !$ [i8]) * sfromR (tproject2 v1)) 0 1, i8]) !$ [1] in tpair (sreplicate @5 (sfromR (tproject2 v1)) * v12) (sdot0 (sfromR (tproject1 v1)) v12))"
 

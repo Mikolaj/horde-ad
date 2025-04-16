@@ -86,14 +86,9 @@ build1VOccurenceUnknown
   :: forall y k s. AstSpan s
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
-build1VOccurenceUnknown snat@SNat (!var, !v00)
-  | stk0 <- ftkToSTK (ftkAst v00) =
-    let v0 = astNonIndexStep v00
-          -- Almost surely the term will be transformed, so it can just
-          -- as well be one-step simplified first (many steps if redexes
-          -- get uncovered but then simplification still requires only constant
-          -- look-ahead and has a guaranteed net benefit).
-        traceRule =
+build1VOccurenceUnknown snat@SNat (!var, !v0)
+  | stk0 <- ftkToSTK (ftkAst v0) =
+    let traceRule =
           mkTraceRule "build1VOcc" (Ast.AstBuild1 snat stk0 (var, v0)) v0 1
     in if varNameInAst var v0
        then build1V snat (var, v0)

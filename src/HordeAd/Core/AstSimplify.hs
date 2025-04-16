@@ -40,8 +40,6 @@ module HordeAd.Core.AstSimplify
 
     -- * Helper combinators
   , astLetFun
-    -- * A cheap simplification of only the topmost nodes
-  , astNonIndexStep
     -- * Substitution operations
   , substituteAst, substituteAstIxS, substituteAstBool
   ) where
@@ -1217,8 +1215,7 @@ astIndexStepS
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r) -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKS2 shn r)
 astIndexStepS shn v ix =
-  astIndexKnobsS (defaultKnobs {knobStepOnly = True})
-                 shn (astNonIndexStep v) ix
+  astIndexKnobsS (defaultKnobs {knobStepOnly = True}) shn v ix
 
 -- If knobStepOnly is set, we reduce only as long as needed to reveal
 -- a non-indexing constructor or one of the normal forms (one-element
@@ -1263,10 +1260,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
        if knobStepOnly knobs
        then Ast.AstIndexS shn' v2 ix2
        else astIndexKnobsS knobs shn' v2 ix2
-     astIndex shn' v2 ix2 =
-       if knobStepOnly knobs
-       then astIndexKnobsS knobs shn' (astNonIndexStep v2) ix2
-       else astIndexKnobsS knobs shn' v2 ix2
+     astIndex shn' v2 ix2 = astIndexKnobsS knobs shn' v2 ix2
      astGather
        :: forall shm' shn' shp'.
           ShS shn'
@@ -1274,10 +1268,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
        -> (AstVarListS shm', AstIxS AstMethodLet shp')
        -> AstTensor AstMethodLet s (TKS2 (shm' ++ shn') r)
      astGather shn' v2 (vars2, ix2) =
-       if knobStepOnly knobs
-       then astGatherKnobsS @shm' @shn' @shp'
-                            knobs shn' (astNonIndexStep v2) (vars2, ix2)
-       else astGatherKnobsS @shm' @shn' @shp' knobs shn' v2 (vars2, ix2)
+       astGatherKnobsS @shm' @shn' @shp' knobs shn' v2 (vars2, ix2)
  in case v0 of
   Ast.AstProject1{} -> Ast.AstIndexS shn v0 ix
   Ast.AstProject2{} -> Ast.AstIndexS shn v0 ix
@@ -1550,8 +1541,7 @@ astGatherStepS
 --  | varId == varId2 = ...
 astGatherStepS shn v (vars, ix) =
   astGatherKnobsS @shm @shn @shp
-                  (defaultKnobs {knobStepOnly = True})
-                  shn (astNonIndexStep v) (vars, ix)
+                  (defaultKnobs {knobStepOnly = True}) shn v (vars, ix)
 
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
 flipCompare = unsafeCoerceRefl
@@ -2422,10 +2412,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
     then Ast.AstGatherS @shm' @shn' @shp' shn' v2 (vars2, ix2)
     else astGatherKnobsS @shm' @shn' @shp' knobs shn' v2 (vars2, ix2)
   astGather shn' v2 (vars2, ix2) =
-    if knobStepOnly knobs
-    then astGatherKnobsS @shm' @shn' @shp'
-                         knobs shn' (astNonIndexStep v2) (vars2, ix2)
-    else astGatherKnobsS @shm' @shn' @shp' knobs shn' v2 (vars2, ix2)
+    astGatherKnobsS @shm' @shn' @shp' knobs shn' v2 (vars2, ix2)
 
 astAppendS :: AstSpan s
            => AstTensor AstMethodLet s (TKS2 (m ': sh) r)
@@ -3167,92 +3154,6 @@ unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
 unRepl (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
 unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
 unRepl _ = Nothing
-
-
--- * A cheap simplification of only the topmost nodes
-
--- | This does a single step of simplification of any non-indexing term
--- (many steps if guaranteed net beneficial). Terms representing integers
--- and 'AstBool' terms are simplified as much as possible.
-astNonIndexStep
-  :: AstSpan s
-  => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
-astNonIndexStep t = case t of
-  Ast.AstPair t1 t2 -> astPair (astNonIndexStep t1) (astNonIndexStep t2)
-  Ast.AstProject1 u -> astProject1 u
-  Ast.AstProject2 u -> astProject2 u
-  Ast.AstFromVector snat stk l -> astFromVector snat stk l
-  Ast.AstSum snat stk v -> astSum snat stk v
-  Ast.AstReplicate snat stk v -> astReplicate snat stk v
-  Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
-    astMapAccumRDer k bftk eftk f df rf acc0 es
-  Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
-    astMapAccumLDer k bftk eftk f df rf acc0 es
-  Ast.AstApply v ll -> astApply v ll
-  Ast.AstVar{} -> t
-  Ast.AstCond a b c -> astCond a b c
-  Ast.AstBuild1{} -> t
-
-  Ast.AstLet var u v -> astLet var u v
-
-  Ast.AstPrimalPart v -> astPrimalPart v  -- has to be done sooner or later
-  Ast.AstDualPart v -> astDualPart v
-  Ast.AstFromPrimal{} -> t
-  Ast.AstFromDual{} -> t
-
-  AstPlusK{} -> t  -- already reduced upon creation in CarriersAst
-  AstTimesK{} -> t
-  Ast.AstN1K{} -> t
-  Ast.AstR1K{} -> t
-  Ast.AstR2K{} -> t
-  Ast.AstI2K{} -> t
-  AstConcreteK k -> AstConcreteK k
-  Ast.AstFloorK v -> astFloorK v
-  Ast.AstFromIntegralK v -> astFromIntegralK v
-  Ast.AstCastK v -> astCastK v
-
-  AstPlusS{} -> t
-  AstTimesS{} -> t
-  Ast.AstN1S{} -> t
-  Ast.AstR1S{} -> t
-  Ast.AstR2S{} -> t
-  Ast.AstI2S{} -> t
-  AstConcreteS a -> AstConcreteS a
-  Ast.AstFloorS v -> astFloorS v
-  Ast.AstFromIntegralS v -> astFromIntegralS v
-  Ast.AstCastS v -> astCastS v
-
-  Ast.AstIndexS{} -> t  -- was supposed to be *non*-index
-  Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
-    astScatterS @shm @shn @shp shn v (vars, ix)
-  Ast.AstGatherS shn v0 (ZS, ix) ->
-    Ast.AstIndexS shn v0 ix
-  Ast.AstGatherS @shm @shn @shp _shn v0 (vars, ZIS) ->
-    astReplicateNS @shm @(shp ++ shn) (listsToShS vars) v0
-  Ast.AstGatherS{} -> t  -- this is "index" enough
-  Ast.AstMinIndexS{} -> t
-  Ast.AstMaxIndexS{} -> t
-  Ast.AstIotaS{} -> t
-  Ast.AstAppendS x y -> astAppendS x y
-  Ast.AstSliceS i n k v -> astSliceS i n k v
-  Ast.AstReverseS v -> astReverseS v
-  Ast.AstTransposeS perm v -> astTransposeS perm v
-  Ast.AstReshapeS sh v -> astReshapeS sh v
-  Ast.AstZipS _ -> t
-  Ast.AstUnzipS _ -> t
-  Ast.AstNestS sh1 sh2 v -> astNestS sh1 sh2 v
-  Ast.AstUnNestS v -> astUnNestS v
-
-  Ast.AstFromS stkz v -> astFromS stkz v
-  Ast.AstSFromK u -> astSFromK $ astNonIndexStep u
-  Ast.AstSFromR sh v -> astSFromR sh v
-  Ast.AstSFromX sh v -> astSFromX sh v
-
-  -- These should not appear here unless via wacky tests.
-  Ast.AstSum0S{} -> t
-  Ast.AstDot0S{} -> t
-  Ast.AstDot1InS{} -> t
-  Ast.AstMatmul2S{} -> t
 
 
 -- * Substitution wrappers
