@@ -2475,6 +2475,14 @@ astSliceS i n@(SNat @n0) _k (Ast.AstAppendS v1 v2)
 astSliceS i n k (Ast.AstSliceS i2 _n2 k2 v) =
   astSliceS (snatPlus i i2) n (snatPlus k k2) v
 astSliceS i n k (Ast.AstReverseS v) = astReverseS (astSliceS k n i v)
+-- This enlarges the term and increases computation, but sometimes
+-- it permits eliminating the AstFromVector node altogether, so we risk it
+-- for cases that commonly emerge from conditionals.
+astSliceS i n@SNat k (Ast.AstTransposeS
+                        perm@(SNat' @1 `PCons` SNat' @0 `PCons` PNil)
+                        (Ast.AstFromVector (SNat' @2) (STKS (_ :$$ sh) x) l)) =
+    Ast.AstTransposeS perm
+    $ astFromVector (SNat @2) (STKS (n :$$ sh) x) (V.map (astSliceS i n k) l)
 astSliceS i n k v1 = case v1 of
   Ast.AstCond b a2 a3 ->
     astCond b (astSliceS i n k a2) (astSliceS i n k a3)
