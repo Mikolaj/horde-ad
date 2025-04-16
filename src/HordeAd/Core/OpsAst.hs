@@ -202,8 +202,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
         withKnownShS (takeShS @m sh) $
         astFromS @(TKS2 (Drop m sh) x) (knownSTK @(TKR2 n x))
-        $ astIndexStepS @(Take m sh) @(Drop m sh)
-                        (dropShS @m sh) (astSFromR @sh sh a) (ixrToIxs ix)
+        $ astIndexS @(Take m sh) @(Drop m sh)
+                    (dropShS @m sh) (astSFromR @sh sh a) (ixrToIxs ix)
   trscatter @m @_ @p shpshn0 t f = case ftkAst t of
     FTKR @_ @x shmshn0 x ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -246,8 +246,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         case testEquality (dropShS @p shpshn) (dropShS @m shmshn) of
           Just Refl ->
             astFromS (STKR (shrRank shmshn0) (ftkToSTK x))
-            $ astGatherStepS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
-                             knownShS (astSFromR shpshn t)
+            $ astGatherS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
+                         knownShS (astSFromR shpshn t)
             $ funToAstIxS knownShS (ixrToIxs . f . ixsToIxr)
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
@@ -367,12 +367,12 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   slength t = case ftkAst t of
     FTKS sh _ -> sNatValue $ shsRank sh
   tssum = astSum SNat knownSTK
-  tsindex = astIndexStepS knownShS
+  tsindex = astIndexS knownShS
   tsscatter @shm @shn @shp t f =
     astScatterS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
   tsgather @shm @shn @shp t f =
-    astGatherStepS @shm @shn @shp knownShS t
+    astGatherS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
   tsconcrete = fromPrimal . AstConcreteS
   tsfloor = fromPrimal . astFloorS . primalPart
@@ -403,9 +403,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
         withKnownShS (takeShS @(Rank sh1) sh) $
         astFromS @(TKS2 (Drop (Rank sh1) sh) x) (knownSTK @(TKX2 sh2 x))
-        $ astIndexStepS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
-                        (dropShS @(Rank sh1) sh) (astSFromX @sh @sh1sh2 sh a)
-                        (ixxToIxs ix)
+        $ astIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
+                    (dropShS @(Rank sh1) sh) (astSFromX @sh @sh1sh2 sh a)
+                    (ixxToIxs ix)
   txscatter @shm @_ @shp shpshn0 t f = case ftkAst t of
     FTKX shmshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
@@ -455,10 +455,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                           (dropShS @(Rank shm) shmshn) of
           Just Refl ->
             astFromS (ftkToSTK $ FTKX shmshn0 x)
-            $ astGatherStepS @(Take (Rank shm) shmshn)
-                             @(Drop (Rank shm) shmshn)
-                             @(Take (Rank shp) shpshn)
-                             knownShS (astSFromX shpshn t)
+            $ astGatherS @(Take (Rank shm) shmshn)
+                         @(Drop (Rank shm) shmshn)
+                         @(Take (Rank shp) shpshn)
+                         knownShS (astSFromX shpshn t)
             $ funToAstIxS knownShS (ixxToIxs . f . ixsToIxx)
                 -- this introduces new variable names
           _ -> error $ "xgather: shapes don't match: "

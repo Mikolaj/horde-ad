@@ -31,7 +31,7 @@ module HordeAd.Core.AstSimplify
 
   , astFloorS, astFromIntegralS, astCastS
 
-  , astIndexStepS, astIndexKnobsS, astScatterS, astGatherStepS, astGatherKnobsS
+  , astIndexS, astIndexKnobsS, astScatterS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
   , astNestS, astUnNestS
 
@@ -108,13 +108,12 @@ data RewritePhase =
  deriving (Show, Eq)
 
 data SimplifyKnobs = SimplifyKnobs
-  { knobStepOnly :: Bool
-  , knobPhase    :: RewritePhase
+  { knobPhase :: RewritePhase
   }
  deriving Show
 
 defaultKnobs :: SimplifyKnobs
-defaultKnobs = SimplifyKnobs False PhaseNone
+defaultKnobs = SimplifyKnobs PhaseNone
 
 -- | We keep AstTranspose terms for as long as possible, because
 -- they are small and fuse nicely in many cases. For some forms of indexing
@@ -1209,22 +1208,6 @@ astIndexS
   -> AstTensor AstMethodLet s (TKS2 shn r)
 astIndexS = astIndexKnobsS defaultKnobs
 
-astIndexStepS
-  :: forall shm shn s r. AstSpan s
-  => ShS shn
-  -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r) -> AstIxS AstMethodLet shm
-  -> AstTensor AstMethodLet s (TKS2 shn r)
-astIndexStepS shn v ix =
-  astIndexKnobsS (defaultKnobs {knobStepOnly = True}) shn v ix
-
--- If knobStepOnly is set, we reduce only as long as needed to reveal
--- a non-indexing constructor or one of the normal forms (one-element
--- indexing applied to AstFromVector or indexing
--- of a term with no possible occurrences of Int variables). Otherwise,
--- we simplify exhaustively.
---
--- The v0 term is already at least one step simplified,
--- either from full recursive simplification or from astIndexStep.
 astIndexKnobsS
   :: forall shm shn s r. AstSpan s
   => SimplifyKnobs
@@ -1249,17 +1232,12 @@ astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
                 (astIndexKnobsS knobs shn v (i2 :.$ rest))
 astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
  let FTKS _ x = ftkAst v0
-     astIndexRec, astIndex
+     astIndex
        :: forall shm' shn' s'. AstSpan s'
        => ShS shn'
        -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r)
        -> AstIxS AstMethodLet shm'
        -> AstTensor AstMethodLet s' (TKS2 shn' r)
-     astIndexRec _shn' v2 ZIS = v2
-     astIndexRec shn' v2 ix2 =
-       if knobStepOnly knobs
-       then Ast.AstIndexS shn' v2 ix2
-       else astIndexKnobsS knobs shn' v2 ix2
      astIndex shn' v2 ix2 = astIndexKnobsS knobs shn' v2 ix2
      astGather
        :: forall shm' shn' shp'.
@@ -1283,7 +1261,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstFromVector snat STKS{} l ->
     shareIx rest1 $ \ !ix2 ->
       Ast.AstIndexS @'[in1] @shn shn (astFromVector snat (STKS shn (ftkToSTK x))
-                                      $ V.map (\a -> astIndexRec shn a ix2) l)
+                                      $ V.map (\a -> astIndex shn a ix2) l)
                     (i1 :.$ ZIS)
   Ast.AstSum snat@(SNat @n1) STKS{} v ->
     let perm3 = backpermCycle $ shsLength (ixsToShS ix) + 1
@@ -1314,12 +1292,12 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstVar{} -> Ast.AstIndexS shn v0 ix
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 ->
-      astCond b (astIndexRec shn v ix2) (astIndexRec shn w ix2)
+      astCond b (astIndex shn v ix2) (astIndex shn w ix2)
   Ast.AstBuild1 _snat stk (var2, v) -> case stk of
     STKS{} -> astIndex shn (astLet var2 i1 v) rest1
     STKScalar | ZIS <- rest1 -> astSFromK $ astLet var2 i1 v
 
-  Ast.AstLet var u v -> astLet var u (astIndexRec shn v ix)
+  Ast.AstLet var u v -> astLet var u (astIndex shn v ix)
 
   Ast.AstPrimalPart{} -> Ast.AstIndexS shn v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndexS shn v0 ix
@@ -1328,22 +1306,22 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
 
   AstPlusS u v ->
     shareIx ix $ \ !ix2 ->
-    astIndexRec shn u ix2 + astIndexRec shn v ix2
+    astIndex shn u ix2 + astIndex shn v ix2
   AstTimesS u v ->
     shareIx ix $ \ !ix2 ->
-    astIndexRec shn u ix2 * astIndexRec shn v ix2
-  Ast.AstN1S NegateOp u -> negate (astIndexRec shn u ix)
-  Ast.AstN1S AbsOp u -> abs (astIndexRec shn u ix)
-  Ast.AstN1S SignumOp u -> signum (astIndexRec shn u ix)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astIndexRec shn u ix)
+    astIndex shn u ix2 * astIndex shn v ix2
+  Ast.AstN1S NegateOp u -> negate (astIndex shn u ix)
+  Ast.AstN1S AbsOp u -> abs (astIndex shn u ix)
+  Ast.AstN1S SignumOp u -> signum (astIndex shn u ix)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astIndex shn u ix)
   Ast.AstR2S opCode u v ->
     shareIx ix
-    $ \ !ix2 -> Ast.AstR2S opCode (astIndexRec shn u ix2)
-                                  (astIndexRec shn v ix2)
+    $ \ !ix2 -> Ast.AstR2S opCode (astIndex shn u ix2)
+                                  (astIndex shn v ix2)
   Ast.AstI2S opCode u v ->
     shareIx ix
-    $ \ !ix2 -> Ast.AstI2S opCode (astIndexRec shn u ix2)
-                                  (astIndexRec shn v ix2)
+    $ \ !ix2 -> Ast.AstI2S opCode (astIndex shn u ix2)
+                                  (astIndex shn v ix2)
   AstConcreteS a ->
     let unConc :: AstInt AstMethodLet -> Maybe [IntOf Concrete]
                -> Maybe [IntOf Concrete]
@@ -1429,7 +1407,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
         ix2 = i1 - ulen :.$ rest1
     in case ulen <=. i1 of
       AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
-      bExpr -> astCond bExpr (astIndexRec shn v ix2) (astIndexRec shn u ix1)
+      bExpr -> astCond bExpr (astIndex shn v ix2) (astIndex shn u ix1)
   Ast.AstSliceS (SNat @i) _ SNat v ->
     let ii = fromIntegral (valueOf @i :: Int) + i1
     in astIndex shn v (ii :.$ rest1)
@@ -1445,13 +1423,11 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
       in gcastWith (unsafeCoerceRefl
                     :: sh2 :~: Permutation.PermutePrefix permR shm ++ shn) $
          astIndex @(Permutation.PermutePrefix permR shm) shn v ix2
-  Ast.AstTransposeS{} | not (knobStepOnly knobs)
-                        && knobPhase knobs /= PhaseExpansion ->
+  Ast.AstTransposeS{} | knobPhase knobs /= PhaseExpansion ->
     Ast.AstIndexS shn v0 ix
   Ast.AstTransposeS @perm perm v ->
     astIndex shn (astTransposeAsGatherS @perm knobs perm v) ix
-  Ast.AstReshapeS{} | not (knobStepOnly knobs)
-                      && knobPhase knobs /= PhaseExpansion ->
+  Ast.AstReshapeS{} | knobPhase knobs /= PhaseExpansion ->
     Ast.AstIndexS shn v0 ix
   Ast.AstReshapeS sh v -> astIndex shn (astReshapeAsGatherS knobs sh v) ix
   Ast.AstZipS _ -> Ast.AstIndexS shn v0 ix
@@ -1530,19 +1506,6 @@ astGatherS
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
 astGatherS = astGatherKnobsS @shm @shn @shp defaultKnobs
 
-astGatherStepS
-  :: forall shm shn shp r s. AstSpan s
-  => ShS shn
-  -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
-  -> (AstVarListS shm, AstIxS AstMethodLet shp)
-  -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
--- TODO: this probably needs an extra condition similar to kN == vkN below
---astGatherStepS v (AstVarName varId ::$ ZSS, AstIntVarS varId2 :.$ ZIS)
---  | varId == varId2 = ...
-astGatherStepS shn v (vars, ix) =
-  astGatherKnobsS @shm @shn @shp
-                  (defaultKnobs {knobStepOnly = True}) shn v (vars, ix)
-
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
 flipCompare = unsafeCoerceRefl
 
@@ -1558,9 +1521,6 @@ isVar _ = False
 -- when newly generated variables are fresh, which is the case as long
 -- as resetVarCounter is not used. The assumption makes it easier to spot
 -- bugs or corruption, hence we assert it in the code below.
---
--- The v0 term is already at least one step simplified,
--- either from full recursive simplification or from astGatherStep.
 astGatherKnobsS
   :: forall shm shn shp r s. AstSpan s
   => SimplifyKnobs
@@ -1570,7 +1530,7 @@ astGatherKnobsS
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
 astGatherKnobsS _ _ v0 (!vars0, !_ix0)
   | any (`varNameInAst` v0) $ listsToList vars0 =
-    error $ "astGatherS: gather vars in v0: " ++ show (vars0, v0)
+    error $ "astGatherKnobsS: gather vars in v0: " ++ show (vars0, v0)
 astGatherKnobsS knobs shn v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
 astGatherKnobsS _ _ v0 (vars0, ZIS) =
   astReplicateNS @shm @shn (listsToShS vars0) v0
@@ -1581,8 +1541,7 @@ astGatherKnobsS _ shn v0 (vars, AstConcreteK it :.$ _)
     let ftk = FTKS (listsToShS vars `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
 astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
-  | not (knobStepOnly knobs)
-    && knobPhase knobs /= PhaseExpansion  -- prevent a loop
+  | knobPhase knobs /= PhaseExpansion  -- prevent a loop
   , not (any (`varNameInAst` i1) $ listsToList vars0) =
     astGatherKnobsS @shm @shn
       knobs shn
@@ -2103,7 +2062,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
       -- Term rest4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use tlet.
       funToVarsIxS @shm (listsToShS vars4) $ \ (!varsFresh, IxS !ixFresh) ->
-        let f v = astGatherRec @shm @shn @shp1' shn v (vars4, rest4)
+        let f v = astGather @shm @shn @shp1' shn v (vars4, rest4)
             -- This subst doesn't currently break sharing because it's a rename.
             subst i =
               foldr (\(i2, var2) v2 -> substituteAst i2 var2 v2)
@@ -2185,15 +2144,15 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
       -- and reverting this transformation requires comparing two arguments,
       -- so it's not practical.
     Ast.AstN1S NegateOp v | not (isVar v) ->
-      negate (astGatherRec @shm @shn @shp shn v (vars4, ix4))
+      negate (astGather @shm @shn @shp shn v (vars4, ix4))
         -- TODO: make these go under AstGatherS instead
     Ast.AstN1S AbsOp v | not (isVar v) ->
-      abs (astGatherRec @shm @shn @shp shn v (vars4, ix4))
+      abs (astGather @shm @shn @shp shn v (vars4, ix4))
     Ast.AstN1S SignumOp v | not (isVar v) ->
-      signum (astGatherRec @shm @shn @shp shn v (vars4, ix4))
+      signum (astGather @shm @shn @shp shn v (vars4, ix4))
     Ast.AstN1S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstR1S opCode v | not (isVar v) ->
-      Ast.AstR1S opCode (astGatherRec @shm @shn @shp shn v (vars4, ix4))
+      Ast.AstR1S opCode (astGather @shm @shn @shp shn v (vars4, ix4))
     Ast.AstR1S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstR2S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstI2S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
@@ -2288,7 +2247,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
                       :~: shm ++ shn) $
            Ast.AstMinIndexS @(Head (shm ++ (shn ++ '[nl])))
                             @(Tail (shm ++ (shn ++ '[nl])))
-           $ astGatherKnobsS knobs shnl v (vars4, ix4)
+           $ astGather shnl v (vars4, ix4)
     Ast.AstMaxIndexS @n @sh v -> case ftkAst v of
      FTKS nsh _ -> case shsLast nsh of
       nl@(SNat @nl) ->
@@ -2304,7 +2263,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
                       :~: shm ++ shn) $
            Ast.AstMaxIndexS @(Head (shm ++ (shn ++ '[nl])))
                             @(Tail (shm ++ (shn ++ '[nl])))
-           $ astGatherKnobsS knobs shnl v (vars4, ix4)
+           $ astGather shnl v (vars4, ix4)
     Ast.AstIotaS{} ->  -- probably nothing can be simplified; a normal form
       Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstAppendS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
@@ -2401,16 +2360,12 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
     Ast.AstDot1InS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstMatmul2S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
  where
-  astGatherRec, astGather
+  astGather
     :: forall shm' shn' shp' s' r'. AstSpan s'
     => ShS shn'
     -> AstTensor AstMethodLet s' (TKS2 (shp' ++ shn') r')
     -> (AstVarListS shm', AstIxS AstMethodLet shp')
     -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r')
-  astGatherRec shn' v2 (!vars2, !ix2) =
-    if knobStepOnly knobs
-    then Ast.AstGatherS @shm' @shn' @shp' shn' v2 (vars2, ix2)
-    else astGatherKnobsS @shm' @shn' @shp' knobs shn' v2 (vars2, ix2)
   astGather shn' v2 (vars2, ix2) =
     astGatherKnobsS @shm' @shn' @shp' knobs shn' v2 (vars2, ix2)
 

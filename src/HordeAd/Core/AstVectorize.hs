@@ -278,9 +278,9 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
                      (Const varFresh ::$ vars, astVarFresh :.$ ix2)
     Ast.AstGatherS @shm @shn @shp shn v (vars, ix) -> traceRule $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix)
-      in astGatherStepS @(k ': shm) @shn @(k ': shp) shn
-                        (build1VOccurenceUnknown snat (var, v))
-                        (Const varFresh ::$ vars, astVarFresh :.$ ix2)
+      in astGatherS @(k ': shm) @shn @(k ': shp) shn
+                    (build1VOccurenceUnknown snat (var, v))
+                    (Const varFresh ::$ vars, astVarFresh :.$ ix2)
     Ast.AstMinIndexS v -> traceRule $
       Ast.AstMinIndexS $ build1V snat (var, v)
     Ast.AstMaxIndexS v -> traceRule $
@@ -354,7 +354,7 @@ intBindingRefreshS (!var, !ix) =
 -- the vectorization.
 --
 -- This pushing down is performed by alternating steps of simplification,
--- in @astIndexStep@, that eliminates indexing from the top of a term
+-- in @astIndex@, that eliminates indexing from the top of a term
 -- position (except for two permissible normal forms) and vectorization,
 -- @build1VOccurenceUnknown@, that recursively goes down under constructors
 -- until it encounter indexing again. We have to do this in lockstep
@@ -378,13 +378,13 @@ build1VIndexS k@SNat shn (var, v0, ix) | STKS _ x <- ftkToSTK (ftkAst v0) =
   let vTrace = Ast.AstBuild1 k (STKS shn x) (var, Ast.AstIndexS shn v0 ix)
       traceRule = mkTraceRule "build1VIndexS" vTrace v0 1
   in if varNameInAst var v0
-     then case astIndexStepS shn v0 ix of  -- push deeper
+     then case astIndexS shn v0 ix of  -- push deeper
        Ast.AstIndexS _ v1 ZIS -> traceRule $
          build1VOccurenceUnknown k (var, v1)
        v@(Ast.AstIndexS shn1 v1 ix1) -> traceRule $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix1)
              ruleD :: AstTensor AstMethodLet s (TKS2 (k ': shn) x)
-             ruleD = astGatherStepS
+             ruleD = astGatherS
                        shn1 (build1VOccurenceUnknown k (var, v1))
                        (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = sNatValue $ ixsRank ix1
@@ -392,6 +392,8 @@ build1VIndexS k@SNat shn (var, v0, ix) | STKS _ x <- ftkToSTK (ftkAst v0) =
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromVector{} | len == 1 -> ruleD
               Ast.AstScatterS{} -> ruleD
+              Ast.AstTransposeS{} -> ruleD
+              Ast.AstReshapeS{} -> ruleD
               Ast.AstSFromR{} -> ruleD
               Ast.AstSFromX{} -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
@@ -399,7 +401,7 @@ build1VIndexS k@SNat shn (var, v0, ix) | STKS _ x <- ftkToSTK (ftkAst v0) =
        v -> traceRule $
          build1VOccurenceUnknown k (var, v)  -- peel off yet another constructor
      else traceRule $
-            astGatherStepS shn v0 (Const var ::$ ZS, ix)
+            astGatherS shn v0 (Const var ::$ ZS, ix)
 
 build1VHFun
   :: forall k x z s s2. (AstSpan s, AstSpan s2)
@@ -469,18 +471,18 @@ astIndexBuild :: forall y k s. AstSpan s
               -> AstInt AstMethodLet
               -> AstTensor AstMethodLet s y
 astIndexBuild snat@SNat stk u i = case stk of
-  STKScalar -> astFromS stk $ astIndexStepS ZSS u (i :.$ ZIS)
+  STKScalar -> astFromS stk $ astIndexS ZSS u (i :.$ ZIS)
   STKR{} -> case ftkAst u of
     FTKR shmshn _ ->
       withCastRS shmshn $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: k ': Tail sh :~: sh) $
-        astFromS stk $ astIndexStepS (shsTail sh) (astSFromR sh u) (i :.$ ZIS)
-  STKS sh _ -> astIndexStepS sh u (i :.$ ZIS)
+        astFromS stk $ astIndexS (shsTail sh) (astSFromR sh u) (i :.$ ZIS)
+  STKS sh _ -> astIndexS sh u (i :.$ ZIS)
   STKX _ _ -> case ftkAst u of
    FTKX shBuild' _->
     withCastXS shBuild' $ \shBuild -> case shBuild of
       _ :$$ rest ->
-        astFromS stk $ astIndexStepS rest (astSFromX shBuild u) (i :.$ ZIS)
+        astFromS stk $ astIndexS rest (astSFromX shBuild u) (i :.$ ZIS)
   STKProduct stk1 stk2 ->
     astLetFun u $ \ !u3 ->
       astPair (astIndexBuild snat stk1 (astProject1 u3) i)
