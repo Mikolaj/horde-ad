@@ -2541,6 +2541,18 @@ astTransposeS perm t = case perm of
     | _ `PCons` _ `PCons` PNil <- perm ->
       astReplicateNS (shsPermutePrefix perm (snat1 :$$ snat2 :$$ ZSS))
                      (astSFromK u)
+  -- This increases term size and work, so limited to size 2.
+  Ast.AstReplicate snat1@SNat _
+                   (Ast.AstFromVector snat2@(SNat' @2) stk2@STKScalar l)
+    | SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
+      astFromVector snat2 (STKS (snat1 :$$ ZSS) stk2)
+                    (V.map (astReplicate snat1 stk2) l)
+  -- TODO: generalize
+  Ast.AstReplicate snat1@SNat _
+                   (Ast.AstFromVector snat2@(SNat' @2) stk2@(STKS sh x) l)
+    | SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
+      astFromVector snat2 (STKS (snat1 :$$ sh) x)
+                    (V.map (astReplicate snat1 stk2) l)
   AstConcreteS v -> astConcreteS (tstranspose perm $ Concrete v)
 
   Ast.AstLet var u v -> astLet var u (astTransposeS perm v)
