@@ -1539,14 +1539,6 @@ astGatherKnobsS _ shn v0 (vars, AstConcreteK it :.$ _)
   , not (0 <= i && i < sNatValue snat) =
     let ftk = FTKS (listsToShS vars `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
-astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
-  | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
-      -- prevent a loop
-  , not (any (`varNameInAst` i1) $ listsToList vars0) =
-    astGatherKnobsS @shm @shn
-      knobs shn
-      (astIndexKnobsS knobs (ixsToShS rest1 `shsAppend` shn) v0 (i1 :.$ ZIS))
-      (vars0, rest1)
 astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0)
   | not (getConst var1 `varNameInIxS` ix0) =
     let k :$$ sh' = listsToShS vars0
@@ -1806,6 +1798,28 @@ astGatherKnobsS knobs shn v0
                               varm (i1 :.$ prest) )
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
+  , Ast.AstCond (AstLeqInt (AstConcreteK j)
+                           (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2
+    :.$ prest )
+  | varNameToAstVarId varm == varNameToAstVarId varp =
+    if | - j + 1 <= 0 ->
+         astGatherKnobsS knobs shn v0 (vars, i2 :.$ prest)
+       | - j + 1 >= valueOf @m ->
+         astGatherKnobsS knobs shn v0 (vars, i1 :.$ prest)
+       | otherwise ->
+         withSNat (- fromIntegral j + 1) $ \(SNat @mj) ->
+         gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
+         astLetFun v0 $ \v ->
+         astGatherKnobsS knobs shn v
+           ( (::$) @mj (Const varm) mrest
+           , i1 :.$ prest )
+         `astAppendS`
+         astGatherKnobsS knobs shn v
+           ( (::$) @(m - mj) (Const varm) mrest
+           , substituteAstIxS (AstConcreteK (- j + 1) + AstIntVar varm)
+                              varm (i2 :.$ prest))
+astGatherKnobsS knobs shn v0
+  ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstLet varN uN
       (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2)
       :.$ prest )
@@ -1828,28 +1842,6 @@ astGatherKnobsS knobs shn v0
            ( (::$) @(m - j) (Const varm) mrest
            , substituteAstIxS (AstConcreteK j + AstIntVar varm)
                               varm (Ast.AstLet varN uN i1 :.$ prest) )
-astGatherKnobsS knobs shn v0
-  ( vars@((::$) @m (Const varm) mrest)
-  , Ast.AstCond (AstLeqInt (AstConcreteK j)
-                           (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2
-    :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp =
-    if | - j + 1 <= 0 ->
-         astGatherKnobsS knobs shn v0 (vars, i2 :.$ prest)
-       | - j + 1 >= valueOf @m ->
-         astGatherKnobsS knobs shn v0 (vars, i1 :.$ prest)
-       | otherwise ->
-         withSNat (- fromIntegral j + 1) $ \(SNat @mj) ->
-         gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
-         astLetFun v0 $ \v ->
-         astGatherKnobsS knobs shn v
-           ( (::$) @mj (Const varm) mrest
-           , i1 :.$ prest )
-         `astAppendS`
-         astGatherKnobsS knobs shn v
-           ( (::$) @(m - mj) (Const varm) mrest
-           , substituteAstIxS (AstConcreteK (- j + 1) + AstIntVar varm)
-                              varm (i2 :.$ prest))
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstLet varN uN
@@ -1920,6 +1912,14 @@ astGatherKnobsS knobs shn v0
          in astTransposeS
               permVars (astGatherKnobsS knobs (SNat @m :$$ shn)
                                         v2 (mrest, prest))
+astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
+  | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
+      -- prevent a loop
+  , not (any (`varNameInAst` i1) $ listsToList vars0) =
+    astGatherKnobsS @shm @shn
+      knobs shn
+      (astIndexKnobsS knobs (ixsToShS rest1 `shsAppend` shn) v0 (i1 :.$ ZIS))
+      (vars0, rest1)
 astGatherKnobsS knobs shn v0
   (vars, ix@(i1 :.$ _))
   | let intInteresting = \case
