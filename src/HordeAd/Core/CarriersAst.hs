@@ -293,7 +293,10 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   quotH (AstI2K QuotOp u v) w = quotH u (v * w)
   quotH (AstTimesK (AstConcreteK n) v) (AstConcreteK n')
     | n == n' = v
-  quotH u v = AstI2K QuotOp u v
+  quotH u v =
+    let t = AstI2K QuotOp u v
+        (u1, u2) = bounds t
+    in if u1 == u2 then fromPrimal $ AstConcreteK u1 else t
 
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
   remH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (remH n k)
@@ -305,7 +308,10 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
     | remH k k' == 0 && k > 0 = remH u (AstConcreteK k')
   remH (AstTimesK (AstConcreteK n) _) (AstConcreteK n')
     | remH n n' == 0 = 0
-  remH u v = AstI2K RemOp u v
+  remH u v =
+    let t = AstI2K RemOp u v
+        (u1, u2) = bounds t
+    in if u1 == u2 then fromPrimal $ AstConcreteK u1 else t
   {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int64)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int64)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar CInt)) #-}
