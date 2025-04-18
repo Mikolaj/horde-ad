@@ -37,7 +37,6 @@ data PrintConfig = PrintConfig
   { loseRoudtrip        :: Bool
   , ignoreNestedLambdas :: Bool
   , varRenames          :: IntMap String
-  , representsIntIndex  :: Bool
   }
 
 defaulPrintConfig :: PrintConfig
@@ -45,7 +44,6 @@ defaulPrintConfig = PrintConfig
   { loseRoudtrip        = True
   , ignoreNestedLambdas = True
   , varRenames          = IM.empty
-  , representsIntIndex  = False
   }
 
 
@@ -73,41 +71,13 @@ printAstVar cfg var =
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
 printAstIntVar cfg var = printAstVarId "i" cfg (varNameToAstVarId var)
 
-printAstVarFromLet
-  :: forall s y. AstSpan s
-  => PrintConfig -> AstVarName s y -> ShowS
-printAstVarFromLet cfg var =
-  if representsIntIndex cfg
-  then case isTensorInt (Proxy @s) (varNameToFTK var) of
-    Just Refl -> printAstIntVar cfg var
-    _ -> printAstVar cfg var
-  else printAstVar cfg var
-
 
 -- * Pretty-printing of AST terms
 
-printAstInt :: PrintConfig -> Int -> AstInt ms -> ShowS
-printAstInt cfgOld d t =
-  let cfg = cfgOld {representsIntIndex = True}
-  in printAst cfg d t
-
+-- Precedences used are as in Haskell.
 printAst :: forall s y ms. AstSpan s
          => PrintConfig -> Int -> AstTensor ms s y -> ShowS
-printAst cfgOld d t =
-  if representsIntIndex cfgOld
-  then case isTensorInt (Proxy @s) (ftkAst t) of
-    Just Refl -> case t of
-      AstVar var -> printAstIntVar cfgOld var
-      AstConcreteK i -> showNumber i
-      _ -> printAstAux cfgOld d t
-    _ -> let cfg = cfgOld {representsIntIndex = False}
-         in printAstAux cfg d t
-  else printAstAux cfgOld d t
-
--- Precedences used are as in Haskell.
-printAstAux :: forall s y ms. AstSpan s
-            => PrintConfig -> Int -> AstTensor ms s y -> ShowS
-printAstAux cfg d = \case
+printAst cfg d = \case
   AstPair t1 t2 ->
     showParen (d > 10)
     $ showString "tpair "
@@ -244,6 +214,8 @@ printAstAux cfg d = \case
                          -- this is a lambda, but not nested, so always printed
                      . showString " "
                      . printAst cfg 11 ll
+  AstVar var | Just Refl <- isTensorInt (Proxy @s) (varNameToFTK var) ->
+    printAstIntVar cfg var
   AstVar var -> printAstVar cfg var
   AstCond b a1 a2 ->
     showParen (d > 10)
@@ -282,7 +254,7 @@ printAstAux cfg d = \case
     if loseRoudtrip cfg
     then let collect :: AstTensor AstMethodLet s y -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet var u v) =
-               let name = printAstVarFromLet cfg var
+               let name = printAstVar cfg var
                    uPP = printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
@@ -304,7 +276,7 @@ printAstAux cfg d = \case
               . showString " "
               . (showParen True
                  $ showString "\\"
-                   . printAstVarFromLet cfg var0
+                   . printAstVar cfg var0
                    . showString " -> "
                    . printAst cfg 0 v0)
   AstShare _var v -> printPrefixOp printAst cfg d "tshare" [v]
@@ -377,13 +349,13 @@ printAstAux cfg d = \case
     showParen (d > 9)
     $ printAst cfg 10 v
       . showString " !$ "
-      . showListWith (printAstInt cfg 0) (Foldable.toList ix)
+      . showListWith (printAst cfg 0) (Foldable.toList ix)
   AstScatterS _ v (ZS, ix) ->
     showParen (d > 9)
     $ showString "soneHot "
       . printAst cfg 11 v
       . showString " "
-      . showListWith (printAstInt cfg 0) (Foldable.toList ix)
+      . showListWith (printAst cfg 0) (Foldable.toList ix)
   AstScatterS sh v (vars, ix) ->
    if loseRoudtrip cfg
    then
@@ -396,7 +368,7 @@ printAstAux cfg d = \case
            . showListWith (printAstIntVar cfg)
                           (listsToList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (Foldable.toList ix))
+           . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
     showParen (d > 10)
     $ showString ("sscatter " ++ show sh ++ " ")
@@ -407,7 +379,7 @@ printAstAux cfg d = \case
            . showListWith (printAstIntVar cfg)
                           (listsToList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (Foldable.toList ix))
+           . showListWith (printAst cfg 0) (Foldable.toList ix))
   {- Let's re-enable this when/if we remove AstIndexS altogether
      or at least stop rewriting this to AstIndexS but instead optimize
      the instances for this case:
@@ -415,7 +387,7 @@ printAstAux cfg d = \case
     showParen (d > 9)
     $ printAst cfg 10 v
       . showString " !$ "
-      . showListWith (printAstInt cfg 0) (Foldable.toList ix) -}
+      . showListWith (printAst cfg 0) (Foldable.toList ix) -}
   AstGatherS sh v (vars, ix) ->
    if loseRoudtrip cfg
    then
@@ -428,7 +400,7 @@ printAstAux cfg d = \case
            . showListWith (printAstIntVar cfg)
                           (listsToList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (Foldable.toList ix))
+           . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
     showParen (d > 10)
     $ showString ("sgather " ++ show sh ++ " ")
@@ -439,7 +411,7 @@ printAstAux cfg d = \case
            . showListWith (printAstIntVar cfg)
                           (listsToList vars)
            . showString " -> "
-           . showListWith (printAstInt cfg 0) (Foldable.toList ix))
+           . showListWith (printAst cfg 0) (Foldable.toList ix))
   AstMinIndexS a -> printPrefixOp printAst cfg d "sminIndex" [a]
   AstMaxIndexS a -> printPrefixOp printAst cfg d "smaxIndex" [a]
   AstIotaS snat ->
