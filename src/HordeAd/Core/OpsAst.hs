@@ -14,23 +14,23 @@ module HordeAd.Core.OpsAst
 
 import Prelude
 
-import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (testEquality, (:~:) (Refl))
-import Data.Vector.Generic qualified as V
-import GHC.TypeLits (cmpNat, OrderingI (..), type (+), type (-), type (<=?))
-import Data.Type.Equality (gcastWith)
-import Unsafe.Coerce (unsafeCoerce)
 import Data.Maybe (fromMaybe)
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
 import GHC.Exts (inline)
+import GHC.TypeLits (OrderingI (..), cmpNat, type (+), type (-), type (<=?))
 import System.IO.Unsafe (unsafePerformIO)
+import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (type (++))
-import Data.Array.Mixed.Types (snatPlus, Init, unsafeCoerceRefl)
-import Data.Array.Mixed.Shape
-import Data.Array.Nested.Internal.Shape
 import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape
+import Data.Array.Mixed.Types (Init, snatPlus, unsafeCoerceRefl)
+import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Internal.Shape
 
+import HordeAd.AstEngine
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
@@ -42,15 +42,14 @@ import HordeAd.Core.AstVectorize
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.DeltaEval
+import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Delta
-import HordeAd.Core.OpsConcrete ()
+import HordeAd.Core.DeltaEval
 import HordeAd.Core.Ops
+import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
-import HordeAd.Core.ConvertTensor
-import HordeAd.AstEngine
 
 -- * Symbolic reverse and forward derivative computation
 

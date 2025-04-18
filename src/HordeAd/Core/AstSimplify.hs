@@ -51,6 +51,7 @@ import Control.Monad (mapAndUnzipM, mplus)
 import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import Data.GADT.Compare
+import Data.List (findIndex)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -71,7 +72,6 @@ import GHC.TypeLits
   )
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
-import Data.List (findIndex)
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation (DropLen, Perm (..), TakeLen, permInverse)
@@ -86,8 +86,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
   ( AstBool (AstBoolConst)
-  , AstTensor ( AstConcreteK, AstConcreteS, AstPlusK, AstTimesK, AstPlusS
-              , AstTimesS)
+  , AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
   )
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
@@ -95,11 +94,11 @@ import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersAst ()
 import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
-import HordeAd.Core.ConvertTensor
 
 -- * Expressing operations as Gather; introduces new variable names
 

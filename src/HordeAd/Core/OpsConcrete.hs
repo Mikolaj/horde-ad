@@ -11,6 +11,7 @@ import Prelude hiding (foldl')
 
 import Control.Arrow (second)
 import Control.Exception.Assert.Sugar
+import Data.Coerce (Coercible, coerce)
 import Data.Foldable qualified as Foldable
 import Data.Function ((&))
 import Data.Int (Int64)
@@ -22,32 +23,31 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
+import Data.Vector.Strict qualified as Data.Vector
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+))
 import Type.Reflection (typeRep)
-import Data.Vector.Strict qualified as Data.Vector
-import Data.Coerce (Coercible, coerce)
 
 import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
   (liftVEltwise1)
 import Data.Array.Mixed.Lemmas
+import Data.Array.Mixed.Permutation qualified as Permutation
+import Data.Array.Mixed.Shape
+import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal
 import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
 import Data.Array.Nested.Internal.Shape
 import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
-import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
-import Data.Array.Mixed.Shape
-import Data.Array.Mixed.Permutation qualified as Permutation
 
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.Unwind
-import HordeAd.Core.OpsADVal
+import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
+import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Core.ConvertTensor
+import HordeAd.Core.Unwind
 
 -- * Tensor classes instance
 

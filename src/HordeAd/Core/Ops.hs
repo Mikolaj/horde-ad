@@ -33,6 +33,7 @@ import Prelude
 import Data.Foldable qualified as Foldable
 import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
+import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -40,7 +41,6 @@ import Data.Vector.Strict qualified as Data.Vector
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+), type (<=), type (<=?))
 import Type.Reflection (typeRep)
-import Data.Maybe (fromMaybe)
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
@@ -51,9 +51,9 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.ConvertTensor
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Core.ConvertTensor
 
 -- These user API functions are used in default definitions of methods,
 -- so they have to be defined already here:
