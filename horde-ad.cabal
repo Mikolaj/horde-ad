@@ -393,6 +393,7 @@ library testCommonLibrary
       , horde-ad:exampleLibrary
       , horde-ad:testToolLibrary
 
+      , assert-failure
       , base
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
