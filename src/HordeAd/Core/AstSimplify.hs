@@ -1217,10 +1217,10 @@ astIndexKnobsS
 astIndexKnobsS knobs shn (Ast.AstIndexS _ v ix) ZIS =
   astIndexKnobsS knobs shn v ix  -- no non-indexing constructor yet revealed
 astIndexKnobsS _ _ v0 ZIS = v0
-astIndexKnobsS _ shn v0 (AstConcreteK it :.$ _)
-  | let i = fromIntegral it
+astIndexKnobsS _ shn v0 (i1 :.$ _)
+  | let (lb, ub) = bounds i1
         FTKS (snat :$$ _) x = ftkAst v0
-  , not (0 <= i && i < sNatValue snat) =
+  , ub < 0 || lb >= fromInteger (fromSNat snat) =
     let ftk = FTKS shn x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
 astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
@@ -1532,10 +1532,10 @@ astGatherKnobsS _ _ v0 (!vars0, !_ix0)
 astGatherKnobsS knobs shn v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
 astGatherKnobsS _ _ v0 (vars0, ZIS) =
   astReplicateNS @shm @shn (listsToShS vars0) v0
-astGatherKnobsS _ shn v0 (vars, AstConcreteK it :.$ _)
-  | let i = fromIntegral it
+astGatherKnobsS _ shn v0 (vars, i1 :.$ _)
+  | let (lb, ub) = bounds i1
         FTKS (snat :$$ _) x = ftkAst v0
-  , not (0 <= i && i < sNatValue snat) =
+  , ub < 0 || lb >= fromInteger (fromSNat snat) =
     let ftk = FTKS (listsToShS vars `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
 astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0)

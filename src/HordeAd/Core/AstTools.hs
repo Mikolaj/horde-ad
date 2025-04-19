@@ -9,6 +9,7 @@ module HordeAd.Core.AstTools
     -- * Determining if a term is too small to require sharing
   , astIsSmall
     -- * Odds and ends
+  , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstSFromK, cAstSFromR, cAstSFromX
   ) where
@@ -359,6 +360,38 @@ astBoolIsSmallN n t0 = case t0 of
   AstLeqS u v -> astIsSmallN (astIsSmallN (n - 1) u) v
 
 -- * Odds and ends
+
+-- An approximation: lower and upper bound.
+-- TODO: extend, e.g., to general quot and rem.
+bounds :: GoodScalar r => AstTensor ms s (TKScalar r) -> (r, r)
+bounds (AstConcreteK u) = (u, u)
+bounds (AstVar var) = case varNameToBounds var of
+  Nothing -> (-1000000000, 1000000000)
+  Just (u1, u2) -> (fromIntegral u1, fromIntegral u2)
+bounds (AstFromPrimal u) = bounds u
+bounds (AstPrimalPart u) = bounds u
+bounds (AstCond _b u v) = let (u1, u2) = bounds u
+                              (v1, v2) = bounds v
+                          in (min u1 v1, max u2 v2)
+bounds (AstLet _ _ u) = bounds u  -- TODO: substitute?
+bounds (AstPlusK u v) = let (u1, u2) = bounds u
+                            (v1, v2) = bounds v
+                        in (u1 + v1, u2 + v2)
+bounds (AstN1K NegateOp u) = let (u1, u2) = bounds u in (- u2, - u1)
+bounds (AstTimesK u v) =
+  let (u1, u2) = bounds u
+      (v1, v2) = bounds v
+      l = [u1 * v1, u1 * v2, u2 * v1, u2 * v2]
+  in (minimum l, maximum l)
+bounds (AstI2K QuotOp u (AstConcreteK v)) | v > 0 =  -- a common case
+  let (u1, u2) = bounds u
+  in (u1 `quotH` v, u2 `quotH` v)
+bounds (AstI2K RemOp u (AstConcreteK v)) | v > 0 =
+  let (u1, u2) = bounds u
+  in if | u1 >= 0 -> (0, min u2 (v - 1))  -- very crude
+        | u2 <= 0 -> (max u1 (- v + 1), 0)
+        | otherwise -> (- v + 1, v - 1)
+bounds _ = (-1000000000, 1000000000)
 
 liftRFromS1 :: forall n x ms s.
                (forall sh.
