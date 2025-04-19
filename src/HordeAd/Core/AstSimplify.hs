@@ -1906,6 +1906,23 @@ astGatherKnobsS knobs shn v0
          in astTransposeS
               permVars (astGatherKnobsS knobs (SNat @m :$$ shn)
                                         v2 (mrest, prest))
+astGatherKnobsS knobs shn (Ast.AstFromVector _ (STKS _ x2) l)
+                ( ((::$) @m1' @shm4 (Const var4) vrest4)
+                , ((:.$) @_ @shp1' i4 rest4) )
+  | knobPhase knobs /= PhaseExpansion
+  , let g = case i4 of
+          AstIntVar var | var == var4 -> Just id
+          AstTimesK (AstConcreteK n) (AstIntVar var)
+            | var == var4 -> Just (n *)
+          -- TODO: add more or define evaluation
+          _ -> Nothing
+  , Just h <- g =
+    let subst i = substituteAstIxS (AstConcreteK i) var4
+        f i = astGatherKnobsS @shm4 @shn @shp1' knobs shn
+                              (l V.! fromIntegral (h i)) (vrest4, subst i rest4)
+    in astFromVector (SNat @m1')
+                     (STKS (listsToShS vrest4 `shsAppend` shn) x2)
+       $ V.fromList $ map f [0 .. valueOf @m1' - 1]
 astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
   | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
       -- prevent a loop
@@ -1968,6 +1985,8 @@ astGatherKnobsS knobs shn v0
                   (listsToList vars) -> True
           ik | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
              , not (any (`varNameInAst` ik) $ listsToList vars) -> True
+          -- We can't reorder ix for the gather(fromVector) rule above,
+          -- because it becomes gather(transpose); we can only reorder vars.
           _ -> False
   , not (intInteresting i1)  -- now vars may need to be reordered, too
   , Just i <- findIndex intInteresting
@@ -2023,6 +2042,14 @@ astGatherKnobsS knobs shn v0
           AstIntVar var
             | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
             , not (var `varNameInIxS` prest) -> Just var
+          i4  -- has to be last, because ix can't be reordered
+            | knobPhase knobs /= PhaseExpansion
+            , Ast.AstFromVector{} <- v0
+            , mvar <- case i4 of
+                AstIntVar var -> Just var
+                AstTimesK AstConcreteK{} (AstIntVar var) -> Just var
+                _ -> Nothing
+            , Just{} <- mvar -> mvar
           _ -> Nothing
   , Just varp <- varInteresting i1
   , Just i <- findIndex ((== varNameToAstVarId varp) . varNameToAstVarId)
