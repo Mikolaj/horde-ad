@@ -1730,17 +1730,15 @@ astGatherKnobsS
 -- not needed, thanks to the normal form of AstPlusK rewriting.
 astGatherKnobsS knobs shn v0
   (vars, AstPlusK (AstConcreteK i64) i1 :.$ prest)
-  | FTKS (SNat @p :$$ _) x <- ftkAst v0 =
+  | fst (bounds i1) >= 0  -- if not, we may need to apply astReverse first
+  , FTKS (SNat @p :$$ _) x <- ftkAst v0 =
     if i64 >= 0 then
       withSNat (fromIntegral i64) $ \(SNat @i) ->
-        if i64 > valueOf @p then
-          let ftk = FTKS (listsToShS vars `shsAppend` shn) x
-          in fromPrimal $ astConcrete ftk (tdefTarget ftk)
-        else
-          gcastWith (unsafeCoerceRefl :: (i <=? p) :~: True) $
-          let v2 = astSliceS (SNat @i) (SNat @(p - i)) (SNat @0) v0
-          in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
-               -- this gather may still index out of bounds, which is fine
+        gcastWith (unsafeCoerceRefl :: (i <=? p) :~: True) $
+        let v2 = astSliceS (SNat @i) (SNat @(p - i)) (SNat @0) v0
+        in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
+             -- this gather may still index out of bounds, which is fine,
+             -- and we also don't attempt to slice off an unused portion
     else
       withSNat (- fromIntegral i64) $ \(SNat @i) ->
         let ftk = FTKS (SNat @i :$$ ixsToShS prest `shsAppend` shn) x
@@ -1751,18 +1749,15 @@ astGatherKnobsS knobs shn v0
              -- this gather may still index out of bounds, which is fine
 astGatherKnobsS knobs shn v0
   (vars, Ast.AstLet varN uN (AstPlusK (AstConcreteK i64) i1) :.$ prest)
-  | FTKS (SNat @p :$$ _) x <- ftkAst v0 =
+  | fst (bounds i1) >= 0  -- if not, we may need to apply astReverse first
+  , FTKS (SNat @p :$$ _) x <- ftkAst v0 =
     if i64 >= 0 then
       withSNat (fromIntegral i64) $ \(SNat @i) ->
-        if i64 > valueOf @p then
-          let ftk = FTKS (listsToShS vars `shsAppend` shn) x
-          in fromPrimal $ astConcrete ftk (tdefTarget ftk)
-        else
-          gcastWith (unsafeCoerceRefl :: (i <=? p) :~: True) $
-          let v2 = astSliceS (SNat @i) (SNat @(p - i)) (SNat @0) v0
-          in astGatherKnobsS knobs shn v2
-                             (vars, Ast.AstLet varN uN i1 :.$ prest)
-               -- this gather may still index out of bounds, which is fine
+        gcastWith (unsafeCoerceRefl :: (i <=? p) :~: True) $
+        let v2 = astSliceS (SNat @i) (SNat @(p - i)) (SNat @0) v0
+        in astGatherKnobsS knobs shn v2 (vars, Ast.AstLet varN uN i1 :.$ prest)
+             -- this gather may still index out of bounds, which is fine,
+             -- and we also don't attempt to slice off an unused portion
     else
       withSNat (- fromIntegral i64) $ \(SNat @i) ->
         let ftk = FTKS (SNat @i :$$ ixsToShS prest `shsAppend` shn) x
@@ -1922,8 +1917,10 @@ astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
 astGatherKnobsS knobs shn v0
   (vars, ix@(i1 :.$ _))
   | let intInteresting = \case
-          AstPlusK (AstConcreteK _) _ -> True
-          Ast.AstLet _ _ (AstPlusK (AstConcreteK _) _) -> True
+          AstPlusK (AstConcreteK _) i2
+            | fst (bounds i2) >= 0 -> True
+          Ast.AstLet _ _ (AstPlusK (AstConcreteK _) i2)
+            | fst (bounds i2) >= 0 -> True
           Ast.AstCond (AstLeqInt AstConcreteK{} (AstIntVar var)) _ _
             | any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
