@@ -1877,8 +1877,7 @@ astGatherKnobsS knobs shn v0
 astGatherKnobsS knobs shn v0
   ( (::$) @m @shmTail (Const varm) mrest
   , (:.$) @p @shpTail (AstIntVar varp) prest )
-  | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
-      -- prevent a loop
+  | knobPhase knobs /= PhaseExpansion  -- prevent a loop
   , varm == varp
   , Just Refl <- sameNat (Proxy @m) (Proxy @p)
   , not (varm `varNameInIxS` prest) =
@@ -1924,8 +1923,7 @@ astGatherKnobsS knobs shn (Ast.AstFromVector _ (STKS _ x2) l)
                      (STKS (listsToShS vrest4 `shsAppend` shn) x2)
        $ V.fromList $ map f [0 .. valueOf @m1' - 1]
 astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
-  | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
-      -- prevent a loop
+  | knobPhase knobs /= PhaseExpansion  -- prevent a loop
   , not (any (`varNameInAst` i1) $ listsToList vars0) =
     astGatherKnobsS @shm @shn
       knobs shn
