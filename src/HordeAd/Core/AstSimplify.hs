@@ -1400,6 +1400,41 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstIotaS{} -> case testEquality shn ZSS of
     Just Refl -> astFromIntegralS $ astSFromK i1
     _ -> error "astIndexKnobsS: shape not []"
+{-
+from the original rule below we get in convolution
+(\\[i71, i72] -> [i71, ifH (1 <=. i71 + i72) 0 1, i72]))
+which is constructed via
+    Ast.AstGatherS @shm @shn @shp shn v (vars, ix) -> traceRule $
+      let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix)
+      in astGatherS @(k ': shm) @shn @(k ': shp) shn
+                    (build1VOccurenceUnknown snat (var, v))
+                    (Const varFresh ::$ vars, astVarFresh :.$ ix2)
+applied twice:
+build (\x -> build (y -> index (append u v) [x + y])) ==
+build (\x -> build (y -> index ((fromVector (astIndex shn v ix2) (astIndex shn u ix1))) [astCond (ulen <=. x + y) 0 1]))
+build (\x -> build (y -> gather ((fromVector (astIndex shn v ix2) (astIndex shn u ix1))) (ZS, [astCond (ulen <=. x + y) 0 1])))
+so the following is an alternative that probably results in higher
+rank tensors, but simpler terms (so maybe cheaper operations),
+in particular <=. no longer appears in vectorization of convolution.
+The problems with 1 <=. x1 + x2 is that we can't eliminated it afterwards,
+while we possibly can eliminate the appends and transposes we get otherwise
+(certainly the indexing of append gets eliminated and does not result
+in a conditional).
+When we have a good implementation of gather, benchmark this variant.
+  Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u
+                     , let ulen = AstConcreteK (valueOf @m)
+                           ix1 = i1 :.$ rest1
+                           ix2 = i1 - ulen :.$ rest1
+                           bExpr = ulen <=. i1
+                     , case bExpr of
+                         AstBoolConst{} -> True
+                         _ -> knobPhase knobs /= PhaseUnspecified ->
+    case bExpr of
+      AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
+      _ -> astCond bExpr (astIndex shn v ix2) (astIndex shn u ix1)
+  Ast.AstAppendS{} -> Ast.AstIndexS shn v0 ix
+              Ast.AstAppendS{} -> ruleD
+-}
   Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
     let ulen = AstConcreteK (valueOf @m)
         ix1 = i1 :.$ rest1
