@@ -378,7 +378,8 @@ build1VIndexS k@SNat shn (var, v0, ix) | STKS _ x <- ftkToSTK (ftkAst v0) =
   let vTrace = Ast.AstBuild1 k (STKS shn x) (var, Ast.AstIndexS shn v0 ix)
       traceRule = mkTraceRule "build1VIndexS" vTrace v0 1
   in if varNameInAst var v0
-     then case astIndexS shn v0 ix of  -- push deeper
+     then case astIndexKnobsS (defaultKnobs {knobPhase = PhaseVectorization})
+                              shn v0 ix of  -- push deeper
        Ast.AstIndexS _ v1 ZIS -> traceRule $
          build1VOccurenceUnknown k (var, v1)
        v@(Ast.AstIndexS shn1 v1 ix1) -> traceRule $

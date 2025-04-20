@@ -103,7 +103,11 @@ import HordeAd.Core.Unwind
 -- * Expressing operations as Gather; introduces new variable names
 
 data RewritePhase =
-  PhaseUnspecified | PhaseSimplification | PhaseExpansion | PhaseContraction
+    PhaseUnspecified
+  | PhaseVectorization
+  | PhaseSimplification
+  | PhaseExpansion
+  | PhaseContraction
  deriving (Show, Eq)
 
 data SimplifyKnobs = SimplifyKnobs
@@ -113,6 +117,11 @@ data SimplifyKnobs = SimplifyKnobs
 
 defaultKnobs :: SimplifyKnobs
 defaultKnobs = SimplifyKnobs PhaseUnspecified
+
+-- @PhaseVectorization@ should only affect the topmost redex.
+deVect :: SimplifyKnobs -> SimplifyKnobs
+deVect (SimplifyKnobs PhaseVectorization) = SimplifyKnobs PhaseUnspecified
+deVect knobs = knobs
 
 -- | We keep AstTranspose terms for as long as possible, because
 -- they are small and fuse nicely in many cases. For some forms of indexing
@@ -1215,7 +1224,7 @@ astIndexKnobsS
   -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKS2 shn r)
 astIndexKnobsS knobs shn (Ast.AstIndexS _ v ix) ZIS =
-  astIndexKnobsS knobs shn v ix  -- no non-indexing constructor yet revealed
+  astIndexKnobsS (deVect knobs) shn v ix
 astIndexKnobsS _ _ v0 ZIS = v0
 astIndexKnobsS _ shn v0 (i1 :.$ _)
   | let (lb, ub) = bounds i1
@@ -1224,20 +1233,21 @@ astIndexKnobsS _ shn v0 (i1 :.$ _)
     let ftk = FTKS shn x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
 astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
-  | knobPhase knobs /= PhaseUnspecified =  -- don't undo vectorization tweaks
+  | knobPhase knobs `notElem` [PhaseUnspecified, PhaseVectorization] =
+      -- don't undo vectorization tweaks
     astLetFun v0 $ \v ->
     shareIx rest0 $ \rest ->
-      astCond b (astIndexKnobsS knobs shn v (i1 :.$ rest))
-                (astIndexKnobsS knobs shn v (i2 :.$ rest))
+      astCond b (astIndexKnobsS (deVect knobs) shn v (i1 :.$ rest))
+                (astIndexKnobsS (deVect knobs) shn v (i2 :.$ rest))
 astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
  let FTKS _ x = ftkAst v0
      astIndex
-       :: forall shm' shn' s'. AstSpan s'
+       :: forall shm' shn' s' r'. AstSpan s'
        => ShS shn'
-       -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r)
+       -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r')
        -> AstIxS AstMethodLet shm'
-       -> AstTensor AstMethodLet s' (TKS2 shn' r)
-     astIndex shn' v2 ix2 = astIndexKnobsS knobs shn' v2 ix2
+       -> AstTensor AstMethodLet s' (TKS2 shn' r')
+     astIndex shn' v2 ix2 = astIndexKnobsS (deVect knobs) shn' v2 ix2
      astGather
        :: forall shm' shn' shp'.
           ShS shn'
@@ -1245,7 +1255,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
        -> (AstVarListS shm', AstIxS AstMethodLet shp')
        -> AstTensor AstMethodLet s (TKS2 (shm' ++ shn') r)
      astGather shn' v2 (vars2, ix2) =
-       astGatherKnobsS @shm' @shn' @shp' knobs shn' v2 (vars2, ix2)
+       astGatherKnobsS @shm' @shn' @shp' (deVect knobs) shn' v2 (vars2, ix2)
  in case v0 of
   Ast.AstProject1{} -> Ast.AstIndexS shn v0 ix
   Ast.AstProject2{} -> Ast.AstIndexS shn v0 ix
@@ -1332,9 +1342,9 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                     withKnownShS (ixsToShS ix) $
                     astConcreteS (tsindex @_ @shm (Concrete a) (fromList ixInt))
       Nothing -> Ast.AstIndexS shn v0 ix
-  Ast.AstFloorS v -> astFloorS $ astIndexKnobsS knobs shn v ix
-  Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexKnobsS knobs shn v ix
-  Ast.AstCastS t -> astCastS $ astIndexKnobsS knobs shn t ix
+  Ast.AstFloorS v -> astFloorS $ astIndex shn v ix
+  Ast.AstFromIntegralS v -> astFromIntegralS $ astIndex shn v ix
+  Ast.AstCastS t -> astCastS $ astIndex shn t ix
 
   Ast.AstIndexS _ v (ix2 :: AstIxS AstMethodLet sh4)
     | Refl <- lemAppAssoc (Proxy @sh4) (Proxy @shm) (Proxy @shn) ->
@@ -1381,7 +1391,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                     :: shm ++ (shn ++ '[nl]) :~: n1 ': shz) $
          Ast.AstMinIndexS @(Head (shn ++ '[nl]))
                           @(Tail (shn ++ '[nl]))
-         $ astIndexKnobsS @shm @(shn ++ '[nl]) knobs shnl v ix
+         $ astIndex @shm @(shn ++ '[nl]) shnl v ix
   Ast.AstMaxIndexS @n1 @shz v -> case ftkAst v of
     FTKS nsh _ -> case shsLast nsh of
      nl@(SNat @nl) ->
@@ -1396,7 +1406,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                     :: shm ++ (shn ++ '[nl]) :~: n1 ': shz) $
          Ast.AstMaxIndexS @(Head (shn ++ '[nl]))
                           @(Tail (shn ++ '[nl]))
-         $ astIndexKnobsS @shm @(shn ++ '[nl]) knobs shnl v ix
+         $ astIndex @shm @(shn ++ '[nl]) shnl v ix
   Ast.AstIotaS{} -> case testEquality shn ZSS of
     Just Refl -> astFromIntegralS $ astSFromK i1
     _ -> error "astIndexKnobsS: shape not []"
@@ -1428,7 +1438,7 @@ When we have a good implementation of gather, benchmark this variant.
                            bExpr = ulen <=. i1
                      , case bExpr of
                          AstBoolConst{} -> True
-                         _ -> knobPhase knobs /= PhaseUnspecified ->
+                         _ -> knobPhase knobs /= PhaseVectorization ->
     case bExpr of
       AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
       _ -> astCond bExpr (astIndex shn v ix2) (astIndex shn u ix1)
@@ -1458,10 +1468,10 @@ When we have a good implementation of gather, benchmark this variant.
                     :: sh2 :~: Permutation.PermutePrefix permR shm ++ shn) $
          astIndex @(Permutation.PermutePrefix permR shm) shn v ix2
   Ast.AstTransposeS @perm perm v | knobPhase knobs == PhaseExpansion ->
-    astIndex shn (astTransposeAsGatherS @perm knobs perm v) ix
+    astIndex shn (astTransposeAsGatherS @perm (deVect knobs) perm v) ix
   Ast.AstTransposeS{} -> Ast.AstIndexS shn v0 ix
   Ast.AstReshapeS sh v | knobPhase knobs == PhaseExpansion ->
-    astIndex shn (astReshapeAsGatherS knobs sh v) ix
+    astIndex shn (astReshapeAsGatherS (deVect knobs) sh v) ix
   Ast.AstReshapeS{} -> Ast.AstIndexS shn v0 ix
   Ast.AstZipS _ -> Ast.AstIndexS shn v0 ix
   Ast.AstNestS{} -> Ast.AstIndexS shn v0 ix
