@@ -2055,7 +2055,7 @@ astGatherKnobsS knobs shn v0
             | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
             , not (var `varNameInIxS` prest) -> Just var
           i4  -- has to be last, because ix can't be reordered
-            | knobPhase knobs /= PhaseExpansion
+            | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
             , Ast.AstFromVector{} <- v0
             , mvar <- case i4 of
                 AstIntVar var -> Just var
