@@ -1223,8 +1223,6 @@ astIndexKnobsS
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
   -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKS2 shn r)
-astIndexKnobsS knobs shn (Ast.AstIndexS _ v ix) ZIS =
-  astIndexKnobsS (deVect knobs) shn v ix
 astIndexKnobsS _ _ v0 ZIS = v0
 astIndexKnobsS _ shn v0 (i1 :.$ _)
   | let (lb, ub) = bounds i1
@@ -1302,6 +1300,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 ->
       astCond b (astIndex shn v ix2) (astIndex shn w ix2)
+  -- TODO: out of bounds
   Ast.AstBuild1 _snat stk (var2, v) -> case stk of
     STKS{} -> astIndex shn (astLet var2 i1 v) rest1
     STKScalar | ZIS <- rest1 -> astSFromK $ astLet var2 i1 v
@@ -1371,6 +1370,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
               :: shp' ++ (in1 ': shm1) ++ shn
                  :~: shp' ++ (in1 ': shm1 ++ shn)) $
     astIndex @(shp' ++ shm) @shn shn v (ix2 `ixsAppend` ix)
+  -- TODO: out of bounds
   Ast.AstGatherS @_ @shn' @shp' shn'
                  v ((::$) @_ @shm71 (Const var2) vars, ix2) ->
     gcastWith (unsafeCoerceRefl :: shm71 ++ shn' :~: shm1 ++ shn) $
@@ -1407,6 +1407,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
          Ast.AstMaxIndexS @(Head (shn ++ '[nl]))
                           @(Tail (shn ++ '[nl]))
          $ astIndex @shm @(shn ++ '[nl]) shnl v ix
+  -- TODO: out of bounds
   Ast.AstIotaS{} -> case testEquality shn ZSS of
     Just Refl -> astFromIntegralS $ astSFromK i1
     _ -> error "astIndexKnobsS: shape not []"
@@ -1421,6 +1422,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
         if knobPhase knobs == PhaseExpansion
         then astCond bExpr (astIndex shn v ix2) (astIndex shn u ix1)
         else Ast.AstIndexS shn v0 ix
+  -- TODO: out of bounds
   Ast.AstSliceS (SNat @i) _ SNat v ->
     let ii = fromIntegral (valueOf @i :: Int) + i1
     in astIndex shn v (ii :.$ rest1)
@@ -1510,14 +1512,6 @@ astScatterS shn (Ast.AstFromDual v) (vars, ix) =
   Ast.AstFromDual $ astScatterS @shm @shn @shp shn v (vars, ix)
 astScatterS shn v (vars, ix) = Ast.AstScatterS @shm @shn @shp shn v (vars, ix)
 
-astGatherS
-  :: forall shm shn shp r s. AstSpan s
-  => ShS shn
-  -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
-  -> (AstVarListS shm, AstIxS AstMethodLet shp)
-  -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
-astGatherS = astGatherKnobsS @shm @shn @shp defaultKnobs
-
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
 flipCompare = unsafeCoerceRefl
 
@@ -1528,6 +1522,14 @@ isVar (Ast.AstDualPart Ast.AstVar{}) = True
 isVar (Ast.AstFromPrimal Ast.AstVar{}) = True
 isVar (Ast.AstFromDual Ast.AstVar{}) = True
 isVar _ = False
+
+astGatherS
+  :: forall shm shn shp r s. AstSpan s
+  => ShS shn
+  -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
+  -> (AstVarListS shm, AstIxS AstMethodLet shp)
+  -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
+astGatherS = astGatherKnobsS @shm @shn @shp defaultKnobs
 
 -- Assumption: vars0 don't not occur in v0. The assumption only holds
 -- when newly generated variables are fresh, which is the case as long
@@ -1919,7 +1921,7 @@ astGatherKnobsS knobs shn v0
          in astTransposeS
               permVars (astGatherKnobsS knobs (SNat @m :$$ shn)
                                         v2 (mrest, prest))
-astGatherKnobsS knobs shn (Ast.AstFromVector _ (STKS _ x2) l)
+astGatherKnobsS knobs shn v7@(Ast.AstFromVector _ (STKS _ x2) l)
                 ( ((::$) @m1' @shm4 (Const var4) vrest4)
                 , ((:.$) @_ @shp1' i4 rest4) )
   | knobPhase knobs /= PhaseExpansion
@@ -1931,8 +1933,14 @@ astGatherKnobsS knobs shn (Ast.AstFromVector _ (STKS _ x2) l)
           _ -> Nothing
   , Just h <- g =
     let subst i = substituteAstIxS (AstConcreteK i) var4
-        f i = astGatherKnobsS @shm4 @shn @shp1' knobs shn
-                              (l V.! fromIntegral (h i)) (vrest4, subst i rest4)
+        f i =
+          let j = fromIntegral $ h i
+          in if j >= V.length l
+             then let FTKS _ x = ftkAst v7
+                      ftk = FTKS (listsToShS vrest4 `shsAppend` shn) x
+                  in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+             else astGatherKnobsS @shm4 @shn @shp1' knobs shn
+                                  (l V.! j) (vrest4, subst i rest4)
     in astFromVector (SNat @m1')
                      (STKS (listsToShS vrest4 `shsAppend` shn) x2)
        $ V.fromList $ map f [0 .. valueOf @m1' - 1]
@@ -2162,7 +2170,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
     Ast.AstBuild1{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     AstConcreteS{} ->
       Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-        -- free variables possible in the index, so can't compute the tensor
+        -- free variables possible in the index, so can't compute the array
 
     Ast.AstLet var u v ->
       astLet var u (astGather @shm @shn @shp shn v (vars4, ix4))
@@ -2200,7 +2208,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
       -- work would increate otherwise and most probably gather can't
       -- simplify anything that cast could not
 
-    {- is reverted in astGatherKnobsS immediatedly; maybe move to contraction?
+    {- is reverted in astGatherKnobsS immediatedly; only do in expansion phase?
     Ast.AstIndexS @shm2 _shn2 v2 (i2 :.$ ZIS) ->
         astGather @shm @shn @(shm2 ++ shp) shn v2 (vars4, i2 :.$ ix4) -}
     Ast.AstIndexS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
@@ -2308,7 +2316,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
       -- slicing is O(1) so no point fusing and complicating the expression;
       -- if it did not simplify further with slice, it wouldn't with gather
     Ast.AstReverseS{}-> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-      -- reversing  is O(1)
+      -- reversing is O(1)
     Ast.AstTransposeS @perm @sh perm v | FTKS sh _ <- ftkAst v ->
       let rankPerm = Permutation.permRank perm
       in case gcompare (ixsRank ix4) rankPerm of
