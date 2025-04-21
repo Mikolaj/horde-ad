@@ -2430,6 +2430,8 @@ astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
   Ast.AstFromPrimal $ astAppendS u v
 astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
   Ast.AstFromDual $ astAppendS u v
+astAppendS (AstConcreteS u) (AstConcreteS v) =
+  astConcreteS (tsappend (Concrete u) (Concrete v))
 astAppendS u v = Ast.AstAppendS u v
 
 astSliceS :: forall i n k sh s r. AstSpan s
@@ -2502,6 +2504,7 @@ astSliceS i n k v1 = case v1 of
   Ast.AstFloorS a -> astFloorS $ astSliceS i n k a
   Ast.AstFromIntegralS v -> astFromIntegralS $ astSliceS i n k v
   Ast.AstCastS v -> astCastS $ astSliceS i n k v
+  AstConcreteS v -> astConcreteS (tsslice i n k $ Concrete v)
   _ -> Ast.AstSliceS i n k v1
 
 astReverseS :: forall n sh s r. AstSpan s
@@ -2518,6 +2521,7 @@ astReverseS (Ast.AstGatherS @shm @shn @shp
       ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
   in astGatherS @shm @shn @shp shn v (Const var ::$ vars, ix2)
 astReverseS (Ast.AstReverseS v) = v
+astReverseS (AstConcreteS v) = astConcreteS (tsreverse $ Concrete v)
 astReverseS v = Ast.AstReverseS v
 
 -- TODO: try to completely cover the AstGatherS case here, which would permit

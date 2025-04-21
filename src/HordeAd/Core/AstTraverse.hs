@@ -614,16 +614,9 @@ contractAst t0 = case t0 of
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (contractAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (contractAst a)
   Ast.AstIotaS (SNat @n) -> astConcreteS $ tsiota @_ @n
-  Ast.AstAppendS x y -> case (contractAst x, contractAst y) of
-    (AstConcreteS u, AstConcreteS v) ->
-      astConcreteS (tsappend (Concrete u) (Concrete v))
-    (x2, y2) -> astAppendS x2 y2
-  Ast.AstSliceS i n k t -> case contractAst t of
-    AstConcreteS v -> astConcreteS (tsslice i n k $ Concrete v)
-    t2 -> astSliceS i n k t2
-  Ast.AstReverseS t -> case contractAst t of
-    AstConcreteS v -> astConcreteS (tsreverse $ Concrete v)
-    t2 -> astReverseS t2
+  Ast.AstAppendS x y -> astAppendS (contractAst x) (contractAst y)
+  Ast.AstSliceS i n k t -> astSliceS i n k (contractAst t)
+  Ast.AstReverseS t -> astReverseS (contractAst t)
   Ast.AstTransposeS perm v -> astTransposeS perm $ contractAst v  -- TODO:(normalizePermutation perm)
   Ast.AstReshapeS sh2 t -> case contractAst t of
     AstConcreteS v -> astConcreteS (tsreshape sh2 $ Concrete v)
