@@ -1441,7 +1441,8 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstTransposeS @perm perm v | knobPhase knobs == PhaseExpansion ->
     astIndex shn (astTransposeAsGatherS @perm (deVect knobs) perm v) ix
   Ast.AstTransposeS{} -> Ast.AstIndexS shn v0 ix
-  Ast.AstReshapeS sh v | knobPhase knobs == PhaseExpansion ->
+  Ast.AstReshapeS sh v | knobPhase knobs == PhaseExpansion
+                         || shsLength sh <= 1 ->
     astIndex shn (astReshapeAsGatherS (deVect knobs) sh v) ix
   Ast.AstReshapeS{} -> Ast.AstIndexS shn v0 ix
   Ast.AstZipS _ -> Ast.AstIndexS shn v0 ix
@@ -2383,11 +2384,11 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
                    :: TakeLen perm sh ++ DropLen perm sh :~: sh) $
                 let invix4 = ixsPermutePrefix invperm ix4
                 in astGather shn v (vars4, invix4)
-    Ast.AstReshapeS _sh _v -> {-  -- too hard to fuse back to reshape
-      if && knobExpand knobs
+    Ast.AstReshapeS sh v ->
+      if shsLength sh <= 1
       then astGather @shm @shn @shp shn
                      (astReshapeAsGatherS knobs sh v) (vars4, ix4)
-      else -} Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+      else Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstZipS _v -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstNestS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstUnNestS _v -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
