@@ -393,6 +393,8 @@ build1VIndexS k@SNat shn (var, v0, ix) | STKS _ x <- ftkToSTK (ftkAst v0) =
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromVector{} | len == 1 -> ruleD
               Ast.AstScatterS{} -> ruleD
+              Ast.AstAppendS{} -> ruleD
+                -- can only be simplified to the AstFromVector NF above
               Ast.AstTransposeS{} -> ruleD
               Ast.AstReshapeS{} -> ruleD
               Ast.AstSFromR{} -> ruleD
