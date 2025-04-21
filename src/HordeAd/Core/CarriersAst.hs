@@ -444,6 +444,8 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 
 instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKS sh r)) where
+  AstReplicate snat stk@STKS{} u + AstReplicate _ STKS{} v =
+    AstReplicate snat stk $ u + v
   AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
   AstFromDual u + AstFromDual v = AstFromDual $ u + v
   AstSFromK u + AstSFromK v = AstSFromK $ u + v
@@ -471,6 +473,8 @@ instance (GoodScalar r, AstSpan s)
   u + AstPlusS v@AstConcreteS{} w = AstPlusS v (AstPlusS u w)
   u + v = AstPlusS u v
 
+  AstReplicate snat stk@STKS{} u * AstReplicate _ STKS{} v =
+    AstReplicate snat stk $ u * v
   AstFromPrimal u * AstFromPrimal v = AstFromPrimal $ u * v
   AstSFromK u * AstSFromK v = AstSFromK $ u * v
   AstConcreteS n * AstConcreteS k = AstConcreteS (n * k)
@@ -495,6 +499,7 @@ instance (GoodScalar r, AstSpan s)
   u * AstTimesS v@AstConcreteS{} w = AstTimesS v (AstTimesS u w)
   u * v = AstTimesS u v
 
+  negate (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (negate u)
   negate (AstFromPrimal n) = AstFromPrimal (negate n)
   negate (AstFromDual n) = AstFromDual (negate n)
   negate (AstSFromK n) = AstSFromK (negate n)
@@ -508,6 +513,7 @@ instance (GoodScalar r, AstSpan s)
   negate (AstI2S RemOp u v) = AstI2S RemOp (negate u) v
     -- v is likely positive and let's keep it so
   negate u = AstN1S NegateOp u
+  abs (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (abs u)
   abs (AstFromPrimal n) = AstFromPrimal (abs n)
   abs (AstFromDual n) = AstFromDual (abs n)
   abs (AstSFromK n) = AstSFromK (abs n)
@@ -515,6 +521,7 @@ instance (GoodScalar r, AstSpan s)
   abs (AstN1S AbsOp u) = AstN1S AbsOp u
   abs (AstN1S NegateOp u) = abs u
   abs u = AstN1S AbsOp u
+  signum (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (signum u)
   signum (AstFromPrimal n) = AstFromPrimal (signum n)
   signum (AstSFromK n) = AstSFromK (signum n)
   signum (AstFromDual n) = AstFromDual (signum n)
@@ -526,11 +533,15 @@ instance (GoodScalar r, AstSpan s)
 
 instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKS sh r)) where
+  quotH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
+    AstReplicate snat stk $ quotH u v
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
   quotH (AstSFromK n) (AstSFromK k) = AstSFromK (quotH n k)
   quotH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (quotH n k)
   quotH (AstI2S QuotOp u v) w = quotH u (v * w)
   quotH u v = AstI2S QuotOp u v
+  remH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
+    AstReplicate snat stk $ remH u v
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
   remH (AstSFromK n) (AstSFromK k) = AstSFromK (remH n k)
   remH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (remH n k)

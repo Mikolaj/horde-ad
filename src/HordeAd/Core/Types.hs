@@ -35,7 +35,8 @@ module HordeAd.Core.Types
   , withCastRS, withCastXS, shCastSR, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
   , ixsToShS, {-ixxToSSX,-} listsToShS, listrToNonEmpty
-  , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle, eqPerm
+  , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
+  , eqPerm, permUnShift1
     -- * Ops only needed as a workaround for other ops not provided.
   , ssxTakeIx
   ) where
@@ -854,3 +855,20 @@ eqPerm perm1 perm2 =
   if Permutation.permToList' perm1 == Permutation.permToList' perm2
   then Just unsafeCoerceRefl
   else Nothing
+
+type family UnMapSucc is where
+  UnMapSucc '[] = '[]
+  UnMapSucc (i : is) = i - 1 : UnMapSucc is
+
+-- The inverse of permShift1. Morally:
+-- permUnShift1 :: Permutation.Perm (0 : Permutation.MapSucc l)
+--              -> Permutation.Perm l
+permUnShift1 :: Permutation.Perm (0 : l)
+             -> Permutation.Perm (UnMapSucc l)
+permUnShift1 (Permutation.PCons _ permRest) =
+  Permutation.permFromList
+    (permUnMapSucc (Permutation.permToList' permRest)) unsafeCoerce
+ where
+  permUnMapSucc :: [Int] -> [Int]
+  permUnMapSucc [] = []
+  permUnMapSucc (i : ns) = i - 1 : permUnMapSucc ns

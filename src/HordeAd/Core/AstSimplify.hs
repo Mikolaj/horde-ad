@@ -2414,6 +2414,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
   astGather shn' v2 (vars2, ix2) =
     astGatherKnobsS @shm' @shn' @shp' knobs shn' v2 (vars2, ix2)
 
+-- Normal form of chains of appends has the append constructor on the right.
 astAppendS :: AstSpan s
            => AstTensor AstMethodLet s (TKS2 (m ': sh) r)
            -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
@@ -2432,6 +2433,9 @@ astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
   Ast.AstFromDual $ astAppendS u v
 astAppendS (AstConcreteS u) (AstConcreteS v) =
   astConcreteS (tsappend (Concrete u) (Concrete v))
+astAppendS (AstConcreteS u) (Ast.AstAppendS (AstConcreteS v) w) =
+  astAppendS (astConcreteS (tsappend (Concrete u) (Concrete v))) w
+astAppendS (Ast.AstAppendS v u) w = astAppendS v (astAppendS u w)
 astAppendS u v = Ast.AstAppendS u v
 
 astSliceS :: forall i n k sh s r. AstSpan s
@@ -2535,8 +2539,22 @@ astTransposeS
   => Permutation.Perm perm -> AstTensor AstMethodLet s (TKS2 sh r)
   -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
 astTransposeS perm t = case perm of
- Permutation.PNil -> t
+ PNil -> t
+ PCons (SNat' @0) PNil ->
+   gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix '[0] sh :~: sh) $
+   t
  _ -> case t of
+  Ast.AstFromVector snat@(SNat @n) (STKS @sh2 sh2 x) l
+    | SNat' @0 `PCons` _ <- perm -> case permUnShift1 perm of
+      (perm2 :: Permutation.Perm perm2) ->
+        fromMaybe (error "astTransposeS: impossible non-permutation")
+        $ Permutation.permCheckPermutation perm2
+        $ gcastWith (unsafeCoerceRefl :: Rank perm2 + 1 :~: Rank perm)
+        $ gcastWith (unsafeCoerceRefl
+                     :: Permutation.PermutePrefix perm (n : sh2)
+                        :~: n : Permutation.PermutePrefix perm2 sh2)
+        $ astFromVector snat (STKS (shsPermutePrefix perm2 sh2) x)
+                        (V.map (astTransposeS perm2) l)
   Ast.AstSum snat@(SNat @n) (STKS sh x) v ->
     let zsuccP :: Permutation.Perm (0 : Permutation.MapSucc perm)
         zsuccP = Permutation.permShift1 perm
@@ -2550,6 +2568,17 @@ astTransposeS perm t = case perm of
       fromMaybe (error "astTransposeS: impossible non-permutation")
       $ Permutation.permCheckPermutation zsuccP
       $ astSum snat (STKS (shsPermutePrefix perm sh) x) $ astTransposeS zsuccP v
+  Ast.AstReplicate snat@(SNat @n) (STKS @sh2 sh2 x) u
+    | SNat' @0 `PCons` _ <- perm -> case permUnShift1 perm of
+      (perm2 :: Permutation.Perm perm2) ->
+        fromMaybe (error "astTransposeS: impossible non-permutation")
+        $ Permutation.permCheckPermutation perm2
+        $ gcastWith (unsafeCoerceRefl :: Rank perm2 + 1 :~: Rank perm)
+        $ gcastWith (unsafeCoerceRefl
+                     :: Permutation.PermutePrefix perm (n : sh2)
+                        :~: n : Permutation.PermutePrefix perm2 sh2)
+        $ astReplicate snat (STKS (shsPermutePrefix perm2 sh2) x)
+                       (astTransposeS perm2 u)
   Ast.AstReplicate snat@(SNat @n) (STKS @sh3 sh3 _) _
     | Just u2 <- unRepl t
     , Refl <- lemAppNil @(Permutation.PermutePrefix perm (n : sh3)) ->
@@ -2601,7 +2630,7 @@ astTransposeS perm t = case perm of
     | SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
       astFromVector snat2 (STKS (snat1 :$$ sh) x)
                     (V.map (astReplicate snat1 stk2) l)
-  AstConcreteS v -> astConcreteS (tstranspose perm $ Concrete v)
+  Ast.AstCond b u v -> astCond b (astTransposeS perm u) (astTransposeS perm v)
 
   Ast.AstLet var u v -> astLet var u (astTransposeS perm v)
 
@@ -2616,6 +2645,12 @@ astTransposeS perm t = case perm of
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astTransposeS perm u)
   Ast.AstR2S opCode u v ->
     Ast.AstR2S opCode (astTransposeS perm u) (astTransposeS perm v)
+  Ast.AstI2S opCode u v ->
+    Ast.AstI2S opCode (astTransposeS perm u) (astTransposeS perm v)
+  AstConcreteS v -> astConcreteS (tstranspose perm $ Concrete v)
+--  Ast.AstFloorS v -> astFloorS $ astTransposeS perm v
+--  Ast.AstFromIntegralS v -> astFromIntegralS $ astTransposeS perm v
+--  Ast.AstCastS v -> astCastS $ astTransposeS perm v
 
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix)
     -- TODO: should the below be backpermute or permute?
@@ -2637,6 +2672,26 @@ astTransposeS perm t = case perm of
                          :~: Permutation.PermutePrefix perm (shm ++ shn)) $
            astGatherS @(Permutation.PermutePrefix perm shm) @shn @shp
                       shn v (vars2, ix)
+  Ast.AstAppendS u v | SNat' @0 `PCons` _ <- perm
+                     , FTKS ((:$$) @m @sh2 _ _) _ <- ftkAst u
+                     , FTKS ((:$$) @n _ _) _ <- ftkAst v ->
+    gcastWith (unsafeCoerceRefl
+               :: Permutation.PermutePrefix perm ((m + n) : sh2)
+                  :~: m + n : Tail (Permutation.PermutePrefix
+                                      perm (m : sh2))) $
+    gcastWith (unsafeCoerceRefl
+               :: Permutation.PermutePrefix perm ((m + n) : sh2)
+                  :~: m + n : Tail (Permutation.PermutePrefix
+                                      perm (n : sh2))) $
+    astAppendS (astTransposeS perm u) (astTransposeS perm v)
+  Ast.AstSliceS i n@(SNat @n) k u | SNat' @0 `PCons` _ <- perm
+                                  , FTKS ((:$$) @ink @sh2 _ _) _ <- ftkAst u ->
+    gcastWith (unsafeCoerceRefl
+               :: Permutation.PermutePrefix perm (n : sh2)
+                  :~: n : Tail (Permutation.PermutePrefix perm (ink : sh2))) $
+    astSliceS i n k (astTransposeS perm u)
+  Ast.AstReverseS u | SNat' @0 `PCons` _ <- perm ->
+    astReverseS (astTransposeS perm u)
   Ast.AstTransposeS @_ @sh2 perm2 u | FTKS sh2 _ <- ftkAst u ->
     -- TODO: try to perform at type level
     let permV = Permutation.permToList' perm
