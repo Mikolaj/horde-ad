@@ -393,10 +393,13 @@ build1VIndexS k@SNat shn (var, v0, ix) | STKS _ x <- ftkToSTK (ftkAst v0) =
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromVector{} | len == 1 -> ruleD
               Ast.AstScatterS{} -> ruleD
+              -- Can only be simplified to the AstFromVector NF above.
               Ast.AstAppendS{} -> ruleD
-                -- can only be simplified to the AstFromVector NF above
+              -- These two, in general, simplify to gathers, so as bad as ruleD.
               Ast.AstTransposeS{} -> ruleD
               Ast.AstReshapeS{} -> ruleD
+              -- Rarely these don't simplify enough; left as an escape hatch:
+              -- (TODO: simplify better)
               Ast.AstSFromR{} -> ruleD
               Ast.AstSFromX{} -> ruleD
               _ -> build1VOccurenceUnknown k (var, v)  -- not a normal form
