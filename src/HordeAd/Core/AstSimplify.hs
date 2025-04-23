@@ -51,7 +51,6 @@ import Control.Monad (mapAndUnzipM, mplus)
 import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import Data.GADT.Compare
-import Data.Int (Int64)
 import Data.List (findIndex)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
@@ -1228,7 +1227,9 @@ astIndexKnobsS
 astIndexKnobsS _ _ v0 ZIS = v0
 astIndexKnobsS _ shn v0 (i1 :.$ _)
   | let (lb, ub) = bounds i1
-        FTKS (snat :$$ _) x = ftkAst v0
+-- this doesn't work in GHC 9.10:
+--      FTKS (snat :$$ _) x = ftkAst v0
+  , FTKS (snat :$$ _) x <- ftkAst v0
   , ub < 0 || lb >= fromInteger (fromSNat snat) =
     let ftk = FTKS shn x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
@@ -1494,7 +1495,9 @@ astScatterS :: forall shm shn shp r s. AstSpan s
 astScatterS _shn v (ZS, ZIS) = v
 astScatterS shn v0 (_vars, ix@(i1 :.$ _))
   | let (lb, ub) = bounds i1
-        FTKS (snat :$$ _) x = ftkAst v0
+-- this doesn't work in GHC >= 9.10:
+--      FTKS (snat :$$ _) x = ftkAst v0
+  , FTKS (snat :$$ _) x <- ftkAst v0
   , ub < 0 || lb >= fromInteger (fromSNat snat) =
     let ftk = FTKS (ixsToShS ix `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
@@ -1554,7 +1557,9 @@ astGatherKnobsS _ _ v0 (vars0, ZIS) =
   astReplicateNS @shm @shn (listsToShS vars0) v0
 astGatherKnobsS _ shn v0 (vars, i1 :.$ _)
   | let (lb, ub) = bounds i1
-        FTKS (snat :$$ _) x = ftkAst v0
+-- this doesn't work in GHC 9.10:
+--      FTKS (snat :$$ _) x = ftkAst v0
+  , FTKS (snat :$$ _) x <- ftkAst v0
   , ub < 0 || lb >= fromInteger (fromSNat snat) =
     let ftk = FTKS (listsToShS vars `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
