@@ -298,7 +298,7 @@ sdot0 = tsdot0
 sdot1In :: (KnownShS sh, KnownNat n, GoodScalar r, BaseTensor target)
         => target (TKS (sh ++ '[n]) r) -> target (TKS (sh ++ '[n]) r)
         -> target (TKS sh r)
-sdot1In @sh @n = tsdot1In @_ @sh @n
+sdot1In @sh @n = tsdot1In @_ @sh (SNat @n)
 smatvecmul :: (KnownNat m, KnownNat n, GoodScalar r, BaseTensor target)
            => target (TKS '[m, n] r) -> target (TKS '[n] r)
            -> target (TKS '[m] r)
@@ -329,7 +329,7 @@ xdot1In :: (KnownShX sh, KnownNat n, GoodScalar r, BaseTensor target)
         => target (TKX (sh ++ '[Just n]) r)
         -> target (TKX (sh ++ '[Just n]) r)
         -> target (TKX sh r)
-xdot1In @sh @n = txdot1In @_ @sh @n
+xdot1In @sh @n = txdot1In @_ @sh (SNat @n)
 xmatvecmul :: forall mm mn r target.
               (GoodScalar r, BaseTensor target, ConvertTensor target)
            => Nested.SMayNat Int SNat mm -> Nested.SMayNat Int SNat mn

@@ -51,6 +51,7 @@ import Control.Monad (mapAndUnzipM, mplus)
 import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import Data.GADT.Compare
+import Data.Int (Int64)
 import Data.List (findIndex)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
@@ -346,8 +347,9 @@ astSum snat@SNat stk t0 = case t0 of
     STKScalar ->
       gcastWith (unsafeCoerceRefl :: '[k] :~: sh2) $
       astConcreteK (tsum snat stk $ Concrete t)
-  Ast.AstIotaS (SNat @n) ->
-    let i = fromInteger $ valueOf @n * (valueOf @n - 1) `div` 2
+  Ast.AstIotaS @_ @r (SNat @n) ->
+    let i :: r
+        i = fromInteger $ valueOf @n * (valueOf @n - 1) `div` 2
     in case stk of
       STKScalar -> AstConcreteK i
       STKS ZSS STKScalar -> AstConcreteS $ Nested.sscalar i
@@ -2550,6 +2552,8 @@ astTransposeS perm t = case perm of
         fromMaybe (error "astTransposeS: impossible non-permutation")
         $ Permutation.permCheckPermutation perm2
         $ gcastWith (unsafeCoerceRefl :: Rank perm2 + 1 :~: Rank perm)
+        -- for GHC 9.10 only:
+        $ gcastWith (unsafeCoerceRefl :: (Rank perm2 <=? Rank sh2) :~: True)
         $ gcastWith (unsafeCoerceRefl
                      :: Permutation.PermutePrefix perm (n : sh2)
                         :~: n : Permutation.PermutePrefix perm2 sh2)
@@ -2574,6 +2578,8 @@ astTransposeS perm t = case perm of
         fromMaybe (error "astTransposeS: impossible non-permutation")
         $ Permutation.permCheckPermutation perm2
         $ gcastWith (unsafeCoerceRefl :: Rank perm2 + 1 :~: Rank perm)
+        -- for GHC 9.10 only:
+        $ gcastWith (unsafeCoerceRefl :: (Rank perm2 <=? Rank sh2) :~: True)
         $ gcastWith (unsafeCoerceRefl
                      :: Permutation.PermutePrefix perm (n : sh2)
                         :~: n : Permutation.PermutePrefix perm2 sh2)
@@ -2998,7 +3004,7 @@ astDot1InS :: forall sh n r s. GoodScalar r
 astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
   (AstConcreteS v1, AstConcreteS v2) ->
     withKnownShS sh $
-    astConcreteS $ tsdot1In @_ @sh @n (Concrete v1) (Concrete v2)
+    astConcreteS $ tsdot1In @_ @sh (SNat @n) (Concrete v1) (Concrete v2)
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
     Ast.AstFromPrimal $ astDot1InS sh n u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->

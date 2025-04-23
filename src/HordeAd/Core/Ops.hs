@@ -542,10 +542,11 @@ class ( Num (IntOf target)
   tsdot0 :: (KnownShS sh, GoodScalar r)
          => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
   tsdot0 @sh t u | SNat <- shsProduct (knownShS @sh) = tssum (sflatten (t * u))
-  tsdot1In :: (KnownShS sh, KnownNat n, GoodScalar r)
-           => target (TKS (sh ++ '[n]) r) -> target (TKS (sh ++ '[n]) r)
+  tsdot1In :: (KnownShS sh, GoodScalar r)
+           => SNat n -> target (TKS (sh ++ '[n]) r)
+           -> target (TKS (sh ++ '[n]) r)
            -> target (TKS sh r)
-  tsdot1In @sh @n t u =
+  tsdot1In @sh (SNat @n) t u =
     let cpermR = permCycle $ 1 + sNatValue (shsRank (knownShS @sh))
     in Permutation.permFromList cpermR $ \(cperm :: Permutation.Perm cperm) ->
          gcastWith (unsafeCoerceRefl :: Rank cperm :~: Rank (sh ++ '[n])) $
@@ -586,11 +587,11 @@ class ( Num (IntOf target)
          => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
   txdot0 t u = withSNat (shxSize $ xshape t) $ \snat ->
     txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten (t * u))
-  txdot1In :: (KnownShX sh, KnownNat n, GoodScalar r)
-           => target (TKX (sh ++ '[Just n]) r)
+  txdot1In :: (KnownShX sh, GoodScalar r)
+           => SNat n -> target (TKX (sh ++ '[Just n]) r)
            -> target (TKX (sh ++ '[Just n]) r)
            -> target (TKX sh r)
-  txdot1In @sh @n t u =
+  txdot1In @sh (SNat @n) t u =
     let cpermR = permCycle $ 1 + sNatValue (ssxRank (knownShX @sh))
     in Permutation.permFromList cpermR $ \(cperm :: Permutation.Perm cperm) ->
          gcastWith (unsafeCoerceRefl :: Rank cperm :~: Rank (sh ++ '[Just n])) $

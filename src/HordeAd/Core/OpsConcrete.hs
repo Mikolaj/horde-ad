@@ -171,12 +171,13 @@ instance BaseTensor Concrete where
   {-# INLINE tsdot0 #-}  -- this doesn't want to specialize
   tsdot0 u v  =
     Concrete $ Nested.sscalar $ Nested.sdot (unConcrete u) (unConcrete v)
-  tsdot1In @_ @n u v =
+  tsdot1In @_ (SNat @n) u v =
     Concrete $ Nested.sdot1Inner (Proxy @n) (unConcrete u) (unConcrete v)
   {-# INLINE tsmatvecmul #-}  -- this doesn't want to specialize
-  tsmatvecmul m v = tsdot1In m (tsreplicate SNat knownShS v)
+  tsmatvecmul m v = tsdot1In SNat m (tsreplicate SNat knownShS v)
   tsmatmul2 m1 m2 =
-    tsdot1In (tstranspose (Permutation.makePerm @'[1, 0])
+    tsdot1In SNat
+             (tstranspose (Permutation.makePerm @'[1, 0])
                           (tsreplicate SNat knownShS m1))
              (tstranspose (Permutation.makePerm @'[0, 2, 1])
                           (tsreplicate SNat knownShS m2))
@@ -330,7 +331,7 @@ instance BaseTensor Concrete where
   {-# INLINE txdot0 #-}
   txdot0 u v =
     Concrete $ Nested.mscalar $ Nested.mdot (unConcrete u) (unConcrete v)
-  txdot1In @_ @n u v =
+  txdot1In @_ (SNat @n) u v =
     Concrete $ Nested.mdot1Inner (Proxy @(Just n)) (unConcrete u) (unConcrete v)
   txmatvecmul mm mn m v =
     withKnownShX (ssxFromShape $ mn :$% ZSX) $
@@ -346,7 +347,8 @@ instance BaseTensor Concrete where
                                             :$% ZSX)) m))
   {-# INLINE txmatvecmul #-}
   txmatmul2 m1 m2 =
-    txdot1In (txtranspose (Permutation.makePerm @'[1, 0])
+    txdot1In SNat
+             (txtranspose (Permutation.makePerm @'[1, 0])
                           (txreplicate SNat knownShX m1))
              (txtranspose (Permutation.makePerm @'[0, 2, 1])
                           (txreplicate SNat knownShX m2))

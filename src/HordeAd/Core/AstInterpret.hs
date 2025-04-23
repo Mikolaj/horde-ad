@@ -384,7 +384,7 @@ interpretAst !env = \case
       tsdot0 (interpretAst env u) (interpretAst env v)
   AstDot1InS @sh @n sh SNat u v ->
     withKnownShS sh $
-    tsdot1In @_ @sh @n (interpretAst env u) (interpretAst env v)
+    tsdot1In @_ @sh (SNat @n) (interpretAst env u) (interpretAst env v)
   AstMatmul2S SNat SNat SNat u v ->
     tsmatmul2 (interpretAst env u) (interpretAst env v)
 
