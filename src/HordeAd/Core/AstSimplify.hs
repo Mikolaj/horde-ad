@@ -1492,11 +1492,12 @@ astScatterS :: forall shm shn shp r s. AstSpan s
             -> (AstVarListS shm, AstIxS AstMethodLet shp)
             -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
 astScatterS _shn v (ZS, ZIS) = v
-astScatterS shn v (_vars, ix@((:.$) @k (AstConcreteK i) _))
-  | not (0 <= i && i < valueOf @k)
-  , FTKS _ x <- ftkAst v =
+astScatterS shn v0 (_vars, ix@(i1 :.$ _))
+  | let (lb, ub) = bounds i1
+        FTKS (snat :$$ _) x = ftkAst v0
+  , ub < 0 || lb >= fromInteger (fromSNat snat) =
     let ftk = FTKS (ixsToShS ix `shsAppend` shn) x
-    in fromPrimal $ astConcrete ftk $ tdefTarget ftk
+    in fromPrimal $ astConcrete ftk (tdefTarget ftk)
 astScatterS shn v (vars, (:.$) @k (AstConcreteK _) rest)
   | Just Refl <- sameNat (SNat @k) (SNat @1)
   , FTKS _ x <- ftkAst v =
