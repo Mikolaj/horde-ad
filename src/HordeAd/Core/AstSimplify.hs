@@ -1493,12 +1493,10 @@ astScatterS :: forall shm shn shp r s. AstSpan s
             -> (AstVarListS shm, AstIxS AstMethodLet shp)
             -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
 astScatterS _shn v (ZS, ZIS) = v
-astScatterS shn v0 (_vars, ix@(i1 :.$ _))
+astScatterS shn v0 (_vars, ix@((:.$) @k i1 _))
   | let (lb, ub) = bounds i1
--- this doesn't work in GHC >= 9.10:
---      FTKS (snat :$$ _) x = ftkAst v0
-  , FTKS (snat :$$ _) x <- ftkAst v0
-  , ub < 0 || lb >= fromInteger (fromSNat snat) =
+        FTKS _ x = ftkAst v0
+  , ub < 0 || lb >= valueOf @k =
     let ftk = FTKS (ixsToShS ix `shsAppend` shn) x
     in fromPrimal $ astConcrete ftk (tdefTarget ftk)
 astScatterS shn v (vars, (:.$) @k (AstConcreteK _) rest)
