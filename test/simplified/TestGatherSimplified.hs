@@ -59,6 +59,8 @@ testTrees =
   , testCase "gatherTransposeBuild336" testGatherTransposeBuild336
   , testCase "gatherSimpPP33" testGatherSimpPP33
   , testCase "gatherSimpPP34" testGatherSimpPP34
+{- TODO: re-enable the tests once we drop GHC 9.10
+   (they don't type-check with 9.10)
   , testCase "gatherCond" testGatherCond
   , testCase "gatherCondBuild" testGatherCondBuild
   , testCase "gatherCond2" testGatherCond2
@@ -74,6 +76,7 @@ testTrees =
   , testCase "gatherCond6" testGatherCond6
   , testCase "gatherCondBuild6" testGatherCondBuild6
   , testCase "gatherSimpCond5" testGatherSimpCond5
+-}
 
   , testCase "scatterNested1" testScatterNested1
   , testCase "scatterNestedBuild1" testScatterNestedBuild1
@@ -668,6 +671,8 @@ testGatherSimpPP34 = do
   length (show t2) @?= 2089
   length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 19423
 
+{- TODO: re-enable the tests once we drop GHC 9.10
+   (they don't type-check with 9.10)
 gatherCond :: forall target r. (ADReady target, GoodScalar r)
            => target (TKR 2 r) -> target (TKR 2 r)
 gatherCond u =
@@ -897,6 +902,7 @@ testGatherSimpCond5 = do
   interpretAstPrimal @Concrete env
                      (simplifyInlineContract @(TKR 2 Float) t2n)
     @?= interpretAstPrimal @Concrete env t2n
+-}
 
 
 -- * Scatters instead of gathers
