@@ -175,7 +175,7 @@ instance (GoodScalar r, AstSpan s)
 
   AstN1K NegateOp u * AstN1K NegateOp v = AstTimesK u v
 
-  {- TODO: these rules increase the number of occurences of a variable
+  {- TODO: these rules increase the number of occurrences of a variable
      and trade multiplication and quotient for an equally problematic remnant,
      so they are disabled until we find a way to profit from them.
   -- With static shapes, the second argument to QuotOp and RemOp

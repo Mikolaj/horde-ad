@@ -95,7 +95,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstLet var u v ->
     -- We assume there are no nested lets with the same variable, hence
     -- the delete and hence var couldn't appear in memo, so we can make
-    -- the recursive call for v with memo intact, to record extra occurences
+    -- the recursive call for v with memo intact, to record extra occurrences
     -- of other variables without the costly summing of maps.
     let vv = varNameToAstVarId var
         (memo1, v2) = inlineAst memo v
