@@ -36,7 +36,6 @@ module HordeAd.Core.Ast
 
 import Prelude hiding (foldl')
 
-import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Functor.Const
 import Data.Int (Int64)
@@ -108,45 +107,47 @@ intToAstVarId = AstVarId
 type role AstVarName phantom nominal
 data AstVarName :: AstSpanType -> TK -> Type where
   AstVarName :: forall s y.
-                FullShapeTK y -> Int64 -> AstVarId
+                FullShapeTK y -> Int64 -> Int64 -> AstVarId
              -> AstVarName s y
 
 instance Eq (AstVarName s y) where
-  AstVarName _ _ varId1 == AstVarName _ _ varId2 = varId1 == varId2
+  AstVarName _ _ _ varId1 == AstVarName _ _ _ varId2 = varId1 == varId2
 
 instance Show (AstVarName s y) where
-  showsPrec d (AstVarName _ _ varId) =
+  showsPrec d (AstVarName _ _ _ varId) =
     showsPrec d varId  -- less verbose, more readable
 
 instance DMap.Enum1 (AstVarName s) where
-  type Enum1Info (AstVarName s) = Some FtkAndBound
-  fromEnum1 (AstVarName ftk bounds varId) =
-    (fromEnum varId, Some (FtkAndBound ftk bounds))
-  toEnum1 varIdInt (Some (FtkAndBound ftk bounds)) =
-    Some $ AstVarName ftk bounds $ toEnum varIdInt
+  type Enum1Info (AstVarName s) = Some FtkAndBounds
+  fromEnum1 (AstVarName ftk minb maxb varId) =
+    (fromEnum varId, Some (FtkAndBounds ftk minb maxb))
+  toEnum1 varIdInt (Some (FtkAndBounds ftk minb maxb)) =
+    Some $ AstVarName ftk minb maxb $ toEnum varIdInt
 
-type role FtkAndBound nominal
-data FtkAndBound y = FtkAndBound (FullShapeTK y) Int64
+type role FtkAndBounds nominal
+data FtkAndBounds y = FtkAndBounds (FullShapeTK y) Int64 Int64
 
 instance TestEquality (AstVarName s) where
-  testEquality (AstVarName ftk1 _ _) (AstVarName ftk2 _ _) =
+  testEquality (AstVarName ftk1 _ _ _) (AstVarName ftk2 _ _ _) =
     matchingFTK ftk1 ftk2
 
 mkAstVarName :: forall s y.
                 FullShapeTK y -> Maybe (Int64, Int64) -> AstVarId
              -> AstVarName s y
-mkAstVarName ftk Nothing = AstVarName ftk maxBound
-mkAstVarName ftk (Just (minb, maxb)) = assert (minb == 0) $ AstVarName ftk maxb
+mkAstVarName ftk Nothing = AstVarName ftk (-1000000000) 1000000000
+mkAstVarName ftk (Just (minb, maxb)) = AstVarName ftk minb maxb
 
 varNameToAstVarId :: AstVarName s y -> AstVarId
-varNameToAstVarId (AstVarName _ _ varId) = varId
+varNameToAstVarId (AstVarName _ _ _ varId) = varId
 
 varNameToFTK :: AstVarName s y -> FullShapeTK y
-varNameToFTK (AstVarName ftk _ _) = ftk
+varNameToFTK (AstVarName ftk _ _ _) = ftk
 
 varNameToBounds :: AstVarName s y -> Maybe (Int64, Int64)
-varNameToBounds (AstVarName _ int64 _) =
-  if int64 == maxBound then Nothing else Just (0, int64)
+varNameToBounds (AstVarName _ minb maxb _) =
+  if minb == -1000000000 && maxb == 1000000000
+  then Nothing
+  else Just (minb, maxb)
 
 -- | The reverse derivative artifact.
 type role AstArtifactRev nominal nominal

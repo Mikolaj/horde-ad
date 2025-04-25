@@ -3335,9 +3335,12 @@ substitute1Ast i var = subst where
       Just Refl -> case testEquality var var2 of
         Just Refl -> case i of
           Ast.AstVar var3 | FTKScalar <- varNameToFTK var3 ->
-            let (lb, ub) = fromMaybe (0, maxBound) $ varNameToBounds var
-                (lb2, ub2) = fromMaybe (0, maxBound) $ varNameToBounds var2
-                (lb3, ub3) = fromMaybe (0, maxBound) $ varNameToBounds var3
+            let (lb, ub) = fromMaybe (-1000000000, 1000000000)
+                           $ varNameToBounds var
+                (lb2, ub2) = fromMaybe (-1000000000, 1000000000)
+                             $ varNameToBounds var2
+                (lb3, ub3) = fromMaybe (-1000000000, 1000000000)
+                             $ varNameToBounds var3
                 bs = (max (max lb lb2) lb3, min (min ub ub2) ub3)
             in Just $ Ast.AstVar $ mkAstVarName (varNameToFTK var3)
                                                 (Just bs)
