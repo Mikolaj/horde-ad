@@ -407,6 +407,7 @@ class ( Num (IntOf target)
   -- in other modules.
   -----------------
 
+  -- | The operation is potentially strict in all arguments.
   tcond :: Boolean (BoolOf target)
         => SingletonTK y
         -> BoolOf target -> target y -> target y -> target y

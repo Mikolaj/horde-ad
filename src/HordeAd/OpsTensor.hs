@@ -249,6 +249,7 @@ tlet :: forall x z target. LetTensor target
      => target x -> (target x -> target z) -> target z
 tlet = ttlet
 
+-- | The operation is potentially strict in all arguments.
 ifH :: (KnownSTK y, Boolean (BoolOf target), BaseTensor target)
     => BoolOf target -> target y -> target y -> target y
 ifH = tcond knownSTK
