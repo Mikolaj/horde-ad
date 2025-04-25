@@ -100,8 +100,6 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
 
--- * Expressing operations as Gather; introduces new variable names
-
 data RewritePhase =
     PhaseUnspecified
   | PhaseVectorization
@@ -122,6 +120,9 @@ defaultKnobs = SimplifyKnobs PhaseUnspecified
 deVect :: SimplifyKnobs -> SimplifyKnobs
 deVect (SimplifyKnobs PhaseVectorization) = SimplifyKnobs PhaseUnspecified
 deVect knobs = knobs
+
+
+-- * Expressing operations as Gather; introduces new variable names
 
 -- | We keep AstTranspose terms for as long as possible, because
 -- they are small and fuse nicely in many cases. For some forms of indexing
@@ -1050,7 +1051,7 @@ astFloorK :: (GoodScalar r1, RealFrac r1, GoodScalar r2, Integral r2)
           => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
           -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
 astFloorK t = case t of
-  -- These values are small, so we can simplify then ASAP.
+  -- These values are small, so we can simplify them ASAP.
   AstConcreteK k -> astConcreteK (tkfloor $ Concrete k)
   Ast.AstFloorK v -> astFloorK v
   Ast.AstFromIntegralK v -> astFromIntegralK v
@@ -2100,8 +2101,6 @@ astGatherKnobsS knobs shn v0
     $ astGatherKnobsS knobs shn v0 (listsPermutePrefix invperm vars, ix)
         -- this call is guaranteed to simplify as above, so the tranpose
         -- won't reduce it back to the original and cause a loop
--- Note that v4 is in weak head normal form and so can't one-step reduce
--- and so we don't have to reduce it to expose any top redexes.
 astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
   | FTKS _ x <- ftkAst v4 = case v4 of
     Ast.AstProject1{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
@@ -2209,13 +2208,13 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
     Ast.AstR1S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstR2S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstI2S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-    Ast.AstFloorS{} ->  -- see next comment
+    Ast.AstFloorS{} ->
       Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-    Ast.AstFromIntegralS{} ->  -- see next comment
+        -- work would increate otherwise and most probably gather can't
+        -- simplify anything that cast could not
+    Ast.AstFromIntegralS{} ->
       Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstCastS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-      -- work would increate otherwise and most probably gather can't
-      -- simplify anything that cast could not
 
     {- is reverted in astGatherKnobsS immediatedly; only do in expansion phase?
     Ast.AstIndexS @shm2 _shn2 v2 (i2 :.$ ZIS) ->
@@ -2234,6 +2233,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
                    , SNat @rank2 <- listsRank vars2 ->
       -- Term ix4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use tlet.
+      -- (So maybe only apply this rule when ix4 isSmall?)
       --
       -- Independently, we need to insert lets to each index element,
       -- bloating the term. TODO: would going via a rank 1 vector,
@@ -3198,7 +3198,7 @@ astConcrete ftk v = case ftk of
     astPair (astConcrete ftk1 (tproject1 v)) (astConcrete ftk2 (tproject2 v))
   _ -> concreteTarget astConcreteK astConcreteS astFromS (ftkToSTK ftk) v
 
--- TODO: check if we ever have variables bounds to apply.
+-- TODO: check if we ever have variable bounds to apply.
 astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
           => AstTensor AstMethodLet s y
           -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
@@ -3333,10 +3333,19 @@ substitute1Ast i var = subst where
     if varNameToAstVarId var == varNameToAstVarId var2
     then case sameAstSpan @s3 @s2 of
       Just Refl -> case testEquality var var2 of
-        Just Refl -> Just i
+        Just Refl -> case i of
+          Ast.AstVar var3 | FTKScalar <- varNameToFTK var3 ->
+            let (lb, ub) = fromMaybe (0, maxBound) $ varNameToBounds var
+                (lb2, ub2) = fromMaybe (0, maxBound) $ varNameToBounds var2
+                (lb3, ub3) = fromMaybe (0, maxBound) $ varNameToBounds var3
+                bs = (max (max lb lb2) lb3, min (min ub ub2) ub3)
+            in Just $ Ast.AstVar $ mkAstVarName (varNameToFTK var3)
+                                                (Just bs)
+                                                (varNameToAstVarId var3)
+          _ -> Just i
         _ -> error $ "substitute1Ast: kind of the variable "
                      ++ show var2 ++ ": " ++ show (varNameToFTK var)
-                    ++ ", payload kind: " ++ show (varNameToFTK var2)
+                     ++ ", payload kind: " ++ show (varNameToFTK var2)
                      ++ ", payload: " ++ show i
       _ -> error "substitute1Ast: span"
     else Nothing
