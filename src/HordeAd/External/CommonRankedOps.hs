@@ -318,18 +318,6 @@ slicez
 slicez shOut d ixBase =
   rbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
 
-{-
--- This makes tests unbearably slow, so not used.
---
--- | Retrieve the element at the given index,
---   returning zero for out of range indices.
-indexz0Let
-  :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
-  => target (TKR n r) -> IxROf target n -> target (TKR 0 r)
-indexz0Let d ix0 = tletIx ix0 $ \ix ->
-                     ifH (within0 @target (rshape @target d) ix) (d ! ix) 0
--}
-
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
 --

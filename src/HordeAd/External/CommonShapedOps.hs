@@ -225,28 +225,6 @@ slicezS d ixBase =
                                        (ixsToIxr ixResult))
       -- TODO: use zipWith_IndexS once defined?
 
-{-
--- This makes tests unbearably slow, so not used.
---
--- | Retrieve the element at the given index,
---   returning zero for out of range indices.
---
--- The @ShapedList.listToIndex@ in the implementation here should not verify
--- that the index fits inside the type-level shape, because vectorization
--- may make it not fit and that's fine. In the worst case, indexing ignores
--- such invalid indexes and returns 0.
-indexz0SLet
-  :: forall shOut sh target r.
-     ( KnownShS shOut, KnownNat (Rank shOut), KnownShS sh
-     , ADReady target, GoodScalar r )
-  => target (TKS sh r) -> IxSOf target shOut -> target (TKS '[] r)
-indexz0SLet d ix0 =
-  sletIx ix0 $ \ix ->
-    ifH (within0S @shOut @target ix)
-        (sindex0 d (ShapedList.listToIndex (indexToList ix)))
-        (srepl 0)
--}
-
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
 --

@@ -351,8 +351,8 @@ xreplicate0N :: (KnownShX sh, KnownSTK x, BaseTensor target)
 xreplicate0N = txreplicate0N
 
 -- | First index is for outermost dimension; empty index means identity,
--- if index is out of bounds, the result is defined and is @def@,
--- but vectorization is permitted to change the value.
+-- if index is out of bounds, the result is defined and is @def@.
+-- The same holds for all operations with indexes.
 rindex, (!) :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
             => target (TKR2 (m + n) x) -> IxROf target m -> target (TKR2 n x)
 rindex = trindex
@@ -390,7 +390,7 @@ rgather = trgather
 -- | Build a tensor by collecting tensors of rank @n@ obtained by indexing
 -- in the second argument at the given indexes of length @p@.
 -- The semantics of the operation permits index out of bounds
--- and the result of such indexing is zero.
+-- and the result of such indexing is def.
 rgather1 :: (KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
          => Int -> target (TKR2 (p + n) x)
          -> (IntOf target -> IxROf target p)

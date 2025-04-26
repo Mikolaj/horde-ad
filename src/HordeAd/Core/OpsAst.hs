@@ -1459,7 +1459,6 @@ instance AstSpan s => ConvertTensor (AstNoVectorize s) where
 
 -- * AstNoSimplify instances
 
--- TODO: check if we ever have variables bounds to apply.
 astLetFunNoSimplify
   :: forall y z s s2. AstSpan s
   => AstTensor AstMethodLet s y

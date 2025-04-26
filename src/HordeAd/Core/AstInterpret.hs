@@ -274,10 +274,6 @@ interpretAst !env = \case
       let v2 = interpretAst env v
           ix3 = interpretAstPrimal env <$> ix
       in tsindex @target @sh1 v2 ix3
-        -- if index is out of bounds, the operation returns with an undefined
-        -- value of the correct rank and shape; this is needed, because
-        -- vectorization can produce out of bound indexing from code where
-        -- the indexing is guarded by conditionals
   {- TODO: this breaks specialization:
   AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -313,8 +309,6 @@ interpretAst !env = \case
           f2 :: IxSOf target shm -> IxSOf target shp
           f2 !ix2 = interpretAstPrimal (extendEnvVarsS vars ix2 env) <$> ix
       in tsgather @_ @shm @shn @shp t1 f2
-    -- the operation accepts out of bounds indexes,
-    -- for the same reason ordinary indexing does, see above
   AstMinIndexS v ->
     -- By the invariant v has zero dual part, so the following suffices:
     tsminIndex $ interpretAst env v

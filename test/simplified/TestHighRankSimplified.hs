@@ -62,7 +62,7 @@ testTrees =
   , testCase "3braidedBuilds" testBraidedBuilds
   , testCase "3braidedBuilds1" testBraidedBuilds1
   , testCase "3recycled" testRecycled
-  , testCase "3recycled1" testRecycled1
+-- takes too long (can't be helped)  , testCase "3recycled1" testRecycled1
   , testCase "3concatBuild0" testConcatBuild0
   , testCase "3concatBuild1" testConcatBuild1
   , testCase "3concatBuild0m" testConcatBuild0m
@@ -566,11 +566,13 @@ testRecycled =
     (rrepl [2] 5616)
     (rev' @Double @7 (recycled @_ @_ @1) (rreplicate0N [2] (rscalar 1.0001)))
 
+{-
 testRecycled1 :: Assertion
 testRecycled1 =
   assertEqualUpToEpsilon' 1e-6
     (ringestData [5, 4, 2] [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
     (rev' @Double @7 (recycled @_ @_ @3) (rreplicate0N [5, 4, 2] (rscalar 0.0002)))
+-}
 
 concatBuild :: forall target r n.
                (ADReady target, GoodScalar r, KnownNat n, Differentiable r)

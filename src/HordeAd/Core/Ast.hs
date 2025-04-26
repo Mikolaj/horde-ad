@@ -360,15 +360,17 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
                ShS shn
             -> AstTensor ms s (TKS2 (shm ++ shn) x) -> AstIxS ms shm
             -> AstTensor ms s (TKS2 shn x)
+    -- out of bounds indexing is permitted and the results is def
   AstScatterS :: forall shm shn shp x s ms.
                  ShS shn -> AstTensor ms s (TKS2 (shm ++ shn) x)
               -> (AstVarListS shm, AstIxS ms shp)
               -> AstTensor ms s (TKS2 (shp ++ shn) x)
+    -- out of bounds indexing is permitted and the results is def or 0
   AstGatherS :: forall shm shn shp x s ms.
                 ShS shn -> AstTensor ms s (TKS2 (shp ++ shn) x)
              -> (AstVarListS shm, AstIxS ms shp)
              -> AstTensor ms s (TKS2 (shm ++ shn) x)
-    -- out of bounds indexing is permitted
+    -- out of bounds indexing is permitted and the results is def
   AstMinIndexS :: forall n sh r r2 ms. (GoodScalar r, GoodScalar r2)
                => AstTensor ms PrimalSpan (TKS (n ': sh) r)
                -> AstTensor ms PrimalSpan (TKS (Init (n ': sh)) r2)

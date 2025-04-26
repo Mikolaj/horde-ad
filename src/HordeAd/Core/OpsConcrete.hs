@@ -244,6 +244,8 @@ instance BaseTensor Concrete where
   tsscatter1 = tscatterZ1S
   -- The semantics of the operation permits index out of bounds
   -- and the result of such indexing is def.
+  -- TODO: or should it be 0? Also, are bounds checked in the optimized case?
+  -- The same question also elsewhere.
   tsgather @shm @shn @_ @r t f =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $

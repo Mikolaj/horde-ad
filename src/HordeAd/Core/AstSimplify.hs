@@ -191,12 +191,7 @@ astTransposeAsGatherS knobs perm v =
 -- | This generates big terms that don't simplify well,
 -- so we keep the AstReshape form until simplification gets stuck.
 -- In fact, to simplify the terms we'd need advanced solving of equations
--- in integer arithmetic modulo. Moreover, when solving, we'd need to know
--- the range of all integer variables (taken from shapes) and the floor
--- and minimum/maximum terms (obtained by analysing the embedded Ast term),
--- because many of the emerging terms are not equal to their simplifed
--- forms without this data. Probably we could just subsitute @var `remH` range@
--- for each variable.
+-- in integer arithmetic modulo.
 astReshapeAsGatherS
   :: forall sh sh2 r s. AstSpan s
   => SimplifyKnobs -> ShS sh2 -> AstTensor AstMethodLet s (TKS2 sh r)
@@ -266,7 +261,7 @@ astFromVector :: forall y k s. AstSpan s
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
 astFromVector (SNat' @1) stk v = astReplicate (SNat @1) stk (v V.! 0)
 astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
-  -- This disable some rules, e.g., indexing or summing of fromVector
+  -- This disables some rules, e.g., indexing or summing of fromVector
   -- of concrete arrays, but allocating an extra array of the same size
   -- as the fromVector is not a big deal and early rules are better
   -- then the same rules in contraction phase.
@@ -1085,8 +1080,9 @@ astCastK t = case t of
 --  Ast.AstCond b a2 a3 -> astCond b (astCastK a2) (astCastK a3)
   AstConcreteK k -> astConcreteK (tkcast $ Concrete k)
   -- TODO: which should go deeper, casts or fromPrimal? Or maybe alternate
-  -- to make sure both can cancel out? Rethink. For now, astFromPrimal
-  -- is not called to avoid loops. The same with many others
+  -- in different phases to make sure both can cancel out?
+  -- Rethink. For now, astFromPrimalis not called, to avoid loops.
+  -- The same with many others
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astCastK v
   Ast.AstFromDual v -> Ast.AstFromDual $ astCastK v
   Ast.AstN1K NegateOp u -> negate (astCastK u)
@@ -1265,9 +1261,9 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstFromVector _ STKS{} l | AstConcreteK it <- i1 ->
     let i = fromIntegral it
     in astIndex shn (l V.! i) rest1
-  Ast.AstFromVector _ STKScalar l | AstConcreteK it <- i1 ->
+  Ast.AstFromVector _ STKScalar l | AstConcreteK it <- i1, ZIS <- rest1 ->
     let i = fromIntegral it
-    in astIndex shn (astSFromK (l V.! i)) rest1
+    in astSFromK (l V.! i)
   Ast.AstFromVector{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS shn v0 ix
   Ast.AstFromVector snat STKS{} l ->
@@ -1290,25 +1286,37 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
          $ astIndex @shm @(n1 : shn) (snat :$$ shn)
                     (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
                     ix
-{- TODO: this slows down test 3nestedSumBuild1 orders of magnitude:
-  Ast.AstReplicate k v ->
-    let len = astConcrete $ fromIntegral k
-        zero = astReplicate0N (dropShape $ shapeAst v) 0
-    in case Ast.AstB2 AndOp (Ast.AstLeq 0 i1) (Ast.AstLeq i1 len) of
-      AstBoolConst b -> if b then astIndex v rest1 else zero
-      bExpr -> astCond bExpr (astIndex v rest1) zero -}
-  -- TODO: the two below are wrong, should catch out of bounds instead
-  Ast.AstReplicate _ STKS{} v -> astIndex shn v rest1
-  Ast.AstReplicate _ STKScalar v | ZIS <- rest1 -> astSFromK v
+  Ast.AstReplicate (SNat @k) STKS{} v ->
+    let bound = AstConcreteK $ valueOf @k - 1
+        ftk = FTKS shn x
+        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+    in case 0 <=. i1 &&* i1 <=. bound of
+      AstBoolConst b -> if b then astIndex shn v rest1 else defArr
+      _ -> Ast.AstIndexS shn v0 ix
+  Ast.AstReplicate (SNat @k) STKScalar v | ZIS <- rest1 ->
+    let bound = AstConcreteK $ valueOf @k - 1
+        ftk = FTKS shn x
+        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+    in case 0 <=. i1 &&* i1 <=. bound of
+      AstBoolConst b -> if b then astSFromK v else defArr
+      _ -> Ast.AstIndexS shn v0 ix
   Ast.AstApply{} -> Ast.AstIndexS shn v0 ix
   Ast.AstVar{} -> Ast.AstIndexS shn v0 ix
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 ->
       astCond b (astIndex shn v ix2) (astIndex shn w ix2)
-  -- TODO: out of bounds
-  Ast.AstBuild1 _snat stk (var2, v) -> case stk of
-    STKS{} -> astIndex shn (astLet var2 i1 v) rest1
-    STKScalar | ZIS <- rest1 -> astSFromK $ astLet var2 i1 v
+  Ast.AstBuild1 (SNat @k) STKS{} (var2, v) ->
+    let bound = AstConcreteK $ valueOf @k - 1
+        ftk = FTKS shn x
+        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        b = 0 <=. i1 &&* i1 <=. bound
+    in astCond b (astIndex shn (astLet var2 i1 v) rest1) defArr
+  Ast.AstBuild1 (SNat @k) STKScalar (var2, v) | ZIS <- rest1 ->
+    let bound = AstConcreteK $ valueOf @k - 1
+        ftk = FTKS shn x
+        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        b = 0 <=. i1 &&* i1 <=. bound
+    in astCond b (astSFromK $ astLet var2 i1 v) defArr
 
   Ast.AstLet var u v -> astLet var u (astIndex shn v ix)
 
@@ -1375,13 +1383,17 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
               :: shp' ++ (in1 ': shm1) ++ shn
                  :~: shp' ++ (in1 ': shm1 ++ shn)) $
     astIndex @(shp' ++ shm) @shn shn v (ix2 `ixsAppend` ix)
-  -- TODO: out of bounds
   Ast.AstGatherS @_ @shn' @shp' shn'
-                 v ((::$) @_ @shm71 (Const var2) vars, ix2) ->
+                 v ((::$) @m71 @shm71 (Const var2) vars, ix2) ->
     gcastWith (unsafeCoerceRefl :: shm71 ++ shn' :~: shm1 ++ shn) $
-      let w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
-          w = astGather @shm71 @shn' @shp' shn' v (vars, ix2)
-      in astLet var2 i1 $ astIndex @shm1 @shn shn w rest1
+    let bound = AstConcreteK $ valueOf @m71 - 1
+        ftk = FTKS shn x
+        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        b = 0 <=. i1 &&* i1 <=. bound
+        w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
+        w = astGather @shm71 @shn' @shp' shn' v (vars, ix2)
+        u = astLet var2 i1 $ astIndex @shm1 @shn shn w rest1
+    in astCond b u defArr
   Ast.AstMinIndexS @n1 @shz v -> case ftkAst v of
     FTKS nsh _ -> case shsLast nsh of
      nl@(SNat @nl) ->
@@ -1412,9 +1424,13 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
          Ast.AstMaxIndexS @(Head (shn ++ '[nl]))
                           @(Tail (shn ++ '[nl]))
          $ astIndex @shm @(shn ++ '[nl]) shnl v ix
-  -- TODO: out of bounds
-  Ast.AstIotaS{} -> case testEquality shn ZSS of
-    Just Refl -> astFromIntegralS $ astSFromK i1
+  Ast.AstIotaS (SNat @k) -> case testEquality shn ZSS of
+    Just Refl ->
+      let bound = AstConcreteK $ valueOf @k - 1
+          ftk = FTKS ZSS x
+          defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+          b = 0 <=. i1 &&* i1 <=. bound
+      in astCond b (astFromIntegralS $ astSFromK i1) defArr
     _ -> error "astIndexKnobsS: shape not []"
   Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
     let ulen = AstConcreteK (valueOf @m)
@@ -1427,12 +1443,16 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
         if knobPhase knobs == PhaseExpansion
         then astCond bExpr (astIndex shn v ix2) (astIndex shn u ix1)
         else Ast.AstIndexS shn v0 ix
-  -- TODO: out of bounds
-  Ast.AstSliceS (SNat @i) _ SNat v ->
-    let ii = fromIntegral (valueOf @i :: Int) + i1
-    in astIndex shn v (ii :.$ rest1)
+  Ast.AstSliceS i@(SNat @i) (SNat @n) k@SNat v ->
+    let bound = AstConcreteK $ valueOf @n - 1
+        ftk = FTKS shn x
+        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        b = (if sNatValue i == 0 then true else 0 <=. i1)
+            &&* (if sNatValue k == 0 then true else i1 <=. bound)
+        ii = valueOf @i + i1
+    in astCond b (astIndex shn v (ii :.$ rest1)) defArr
   Ast.AstReverseS v ->
-    let iRev = fromIntegral (valueOf @in1 - 1 :: Int) - i1
+    let iRev = valueOf @in1 - 1 - i1
     in astIndex shn v (iRev :.$ rest1)
   Ast.AstTransposeS @_ @sh2 perm v
     | gcompare (shsRank (ixsToShS ix)) (Permutation.permRank perm) /= GLT ->
@@ -2162,15 +2182,27 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
            in astSum snat (STKS (listsToShS vars4 `shsAppend` shn)
                                 (ftkToSTK x))
               $ astTransposeS perm4S innerGather
-                {- -- disabled until we can reliably fuse back to transpose
+                {- TODO: disabled until we can reliably fuse back to transpose
                 if not (knobExpand knobs)
                 then astTransposeS perm4S innerGather
                 else astTransposeAsGatherS knobs perm4S innerGather -}
-    -- TODO: the two below are probably wrong, should catch out of bounds
-    Ast.AstReplicate _ STKS{} v ->
-      astGather @shm @shn @shp1' shn v (vars4, rest4)
-    Ast.AstReplicate _ STKScalar v | ZIS <- rest4 ->
-      astGather @shm @shn @shp1' shn (astSFromK v) (vars4, rest4)
+    Ast.AstReplicate (SNat @k) STKS{} v ->
+      let bound = AstConcreteK $ valueOf @k - 1
+          ftk = FTKS (listsToShS vars4 `shsAppend` shn) x
+          defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+      in case 0 <=. i4 &&* i4 <=. bound of
+        AstBoolConst b ->
+          if b then astGather @shm @shn @shp1' shn v (vars4, rest4) else defArr
+        _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+    Ast.AstReplicate (SNat @k) STKScalar v | ZIS <- rest4 ->
+      let bound = AstConcreteK $ valueOf @k - 1
+          ftk = FTKS (listsToShS vars4 `shsAppend` shn) x
+          defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+      in case 0 <=. i4 &&* i4 <=. bound of
+        AstBoolConst b ->
+          if b then astGather @shm @shn @shp1'
+                              shn (astSFromK v) (vars4, rest4) else defArr
+        _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstApply{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstVar{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstCond b v w ->
@@ -2332,7 +2364,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
       in case gcompare (ixsRank ix4) rankPerm of
         GLT ->  -- TODO: this does not provide any proof, so use cmpNat :(
           Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-          {- -- disabled until we can reliably fuse back to transpose
+          {- TODO: disabled until we can reliably fuse back to transpose
           if knobExpand knobs
           then astGather @shm @shn @shp
                          shn (astTransposeAsGatherS knobs perm v) (vars4, ix4)
