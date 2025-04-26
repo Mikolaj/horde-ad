@@ -887,7 +887,7 @@ testVstackBuildAstPP2 = do
   (printAstPretty
      (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
                   (replIota2 10)))
-    @?= "rfromS (let v8 = sreplicate @10 (sscalar 1.0 * sfromIntegral (sscalar 0) + sscalar 2.0 * sfromIntegral (sscalar 1)) ; v9 = let v5 = sreplicate @10 (sscalar 1.0 * sfromIntegral (sscalar 9) + sscalar 3.0 * sfromIntegral (sscalar 8)) ; v6 = (sconcrete (sfromListLinear [10] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0]) * siota (SNat @10) + sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,0.0]) * sfromIntegral (sreplicate @10 (sscalar 1) + siota (SNat @10))) + sconcrete (sfromListLinear [10] [0.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]) * sfromIntegral (sreplicate @10 (sscalar (-1)) + siota (SNat @10)) in sappend (sslice (SNat @0) (SNat @9) v6) (sreplicate @1 (v5 !$ [9])) in sappend (sreplicate @1 (v8 !$ [0])) (sslice (SNat @1) (SNat @9) v9))"
+    @?= "rfromS (let v8 = sreplicate @10 (sscalar 1.0 * sfromIntegral (sscalar 0) + sscalar 2.0 * sfromIntegral (sscalar 1)) ; v9 = let v5 = sreplicate @10 (sscalar 1.0 * sfromIntegral (sscalar 9) + sscalar 3.0 * sfromIntegral (sscalar 8)) ; v6 = (sconcrete (sreplicate [10] 1.0) * siota (SNat @10) + sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,0.0]) * sfromIntegral (sreplicate @10 (sscalar 1) + siota (SNat @10))) + sconcrete (sfromListLinear [10] [0.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]) * sfromIntegral (sreplicate @10 (sscalar (-1)) + siota (SNat @10)) in sappend (sslice (SNat @0) (SNat @9) v6) (sreplicate @1 (v5 !$ [9])) in sappend (sreplicate @1 (v8 !$ [0])) (sslice (SNat @1) (SNat @9) v9))"
   (printAstPretty
      (simplifyInlineContract
         (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
@@ -1353,7 +1353,7 @@ testReluMaxPP = do
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret m1 -> rfromS (sscatter (sfromR dret) (\\[i9, i10] -> [ifH (sscalar -0.0 <=. negate (sfromR m1 !$ [i9, i10])) 0 1, i9, i10]) !$ [1])"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\m1 -> rfromS (sgather (sfromVector (fromList [sconcrete (sfromListLinear [3,4] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]), sfromR m1])) (\\[i6, i7] -> [ifH (sscalar -0.0 <=. negate (sfromR m1 !$ [i6, i7])) 0 1, i6, i7]))"
+    @?= "\\m1 -> rfromS (sgather (sfromVector (fromList [sconcrete (sreplicate [3,4] 0.0), sfromR m1])) (\\[i6, i7] -> [ifH (sscalar -0.0 <=. negate (sfromR m1 !$ [i6, i7])) 0 1, i6, i7]))"
   show deltas
     @?= "DeltaFromS (STKR (SNat @2) STKScalar) (DeltaShare 100000005 (DeltaGatherS [3,4] [] [2,3,4] (DeltaShare 100000003 (DeltaFromVector (SNat @2) (STKS [3,4] STKScalar) [DeltaZero (FTKS [3,4] FTKScalar),DeltaSFromR [3,4] (DeltaInput (InputId 0))])) <function>))"
 
@@ -2418,7 +2418,7 @@ testConcatBuild3PP2 = do
   let (artifactRev, _) =
         revArtifactDelta UseIncomingCotangent t (FTKR [3] FTKScalar)
   printArtifactSimple artifactRev
-    @?=  "\\dret v1 -> rfromS (sconcrete (sfromListLinear [3] [0.0,0.0,0.0]))"
+    @?= "\\dret v1 -> rfromS (sconcrete (sreplicate [3] 0.0))"
   printArtifactPrimalSimple artifactRev
     @?= "\\v1 -> rfromS (sgather [] (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @5 (siota (SNat @2)), quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sreplicate @2 (sscalar 1) + siota (SNat @2)))]))) (\\[i6, i7] -> [ifH (0 <=. i7 + quotH (negate i6) (1 + i7)) 0 1, i6, i7]))"
   printArtifactPrimalSimple (simplifyArtifact artifactRev)
