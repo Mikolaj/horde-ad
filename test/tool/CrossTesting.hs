@@ -120,7 +120,7 @@ rev' f vals =
         rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
       (gradient3UnSimp, value3UnSimp) =
-        crevMaybeBoth (h unAstNoSimplify AstNoSimplify simplifyInlineContract)
+        crevMaybeBoth (h (simplifyInline . unAstNoSimplify) AstNoSimplify simplifyInlineContract)
                       vals
       gradientRrev3UnSimp =
         rrev1 @Concrete @r @n @m @r
@@ -164,7 +164,7 @@ rev' f vals =
         revInterpretArtifact7 (simplifyArtifact artifactsGradAst)
       artifactsGradAstT =
         fst $ revProduceArtifactWithoutInterpretation
-                UseIncomingCotangent (hAst id id id) ftk
+                UseIncomingCotangent (hAst simplifyInline id id) ftk
       (gradient2AstST, value2AstST) =
         revInterpretArtifact7 (simplifyArtifact artifactsGradAstT)
       artifactsSimpleAst =

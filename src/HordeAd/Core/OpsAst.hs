@@ -589,7 +589,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         -- and triggered error "tunshare: used not at PrimalSpan"; maybe this
         -- is related to terms getting spans converted when interpreted)
         AstArtifactRev{..} =
-          revProduceArtifact IgnoreIncomingCotangent (unHFun f) emptyEnv xftk
+          revProduceArtifact
+            IgnoreIncomingCotangent (simplifyInline . unHFun f) emptyEnv xftk
         -- A new variable is created to give it the right span as opposed
         -- to the fixed PrimalSpan that artVarDomainRev has.
         (varP, ast) = funToAst xftk Nothing $ \ !astP ->
@@ -600,7 +601,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let AstArtifactRev{..} =
-          revProduceArtifact UseIncomingCotangent (unHFun f) emptyEnv ftkx
+          revProduceArtifact
+            UseIncomingCotangent (simplifyInline . unHFun f) emptyEnv ftkx
         ftkz = varNameToFTK artVarDtRev
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 Nothing $ \ !astP ->
@@ -611,7 +613,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tjvp ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
-    let AstArtifactFwd{..} = fwdProduceArtifact (unHFun f) emptyEnv ftkx
+    let AstArtifactFwd{..} =
+          fwdProduceArtifact (simplifyInline . unHFun f) emptyEnv ftkx
         ftk2 = FTKProduct (adFTK ftkx) ftkx
         (varP, ast) = funToAst ftk2 Nothing $ \ !astP ->
           let env = extendEnv artVarDsFwd (astProject1 astP)

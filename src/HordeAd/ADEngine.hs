@@ -196,7 +196,8 @@ revArtifactAdapt
 revArtifactAdapt cotangentHandling f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
-      g !arg = ttlet arg $ f . fromTarget  -- fromTarget requires duplicable
+      g !arg = simplifyInline $ ttlet arg $ f . fromTarget
+                                  -- fromTarget requires duplicable
   in revProduceArtifact cotangentHandling g emptyEnv xftk
 
 revInterpretArtifact
@@ -246,8 +247,10 @@ revProduceArtifactWithoutInterpretation
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation cotangentHandling f xftk =
+  -- No simplification performed to let individual tests decide.
   revArtifactFromForwardPass cotangentHandling
-                             (forwardPassByApplication f) xftk
+                             (forwardPassByApplication f)
+                             xftk
 
 forwardPassByApplication
   :: forall x z.
@@ -330,7 +333,8 @@ fwdArtifactAdapt
 fwdArtifactAdapt f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X astvals)
         -> AstTensor AstMethodLet FullSpan z
-      g !arg = ttlet arg $ f . fromTarget  -- fromTarget requires duplicable
+      g !arg = simplifyInline $ ttlet arg $ f . fromTarget
+                                  -- fromTarget requires duplicable
   in fwdProduceArtifact g emptyEnv xftk
 
 fwdInterpretArtifact
