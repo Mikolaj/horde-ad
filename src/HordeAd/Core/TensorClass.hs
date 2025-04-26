@@ -68,33 +68,16 @@ import HordeAd.Util.ShapedList qualified as ShapedList
 import HordeAd.Util.SizedList
 
 class BaseTensor (target :: Target) where
-  (!$) :: forall r sh1 sh2.
-                  ( TensorKind r, KnownShS sh1, KnownShS sh2
-                  , KnownShS (sh1 ++ sh2) )
-               => target (TKS2 (sh1 ++ sh2) r) -> IxSOf target sh1
-               -> target (TKS2 sh2 r)
-  infixl 9 !$
-  sbuild1 :: forall r n sh. (TensorKind r, KnownNat n, KnownShS sh)
-          => (IntOf target -> target (TKS2 sh r))
-          -> target (TKS2 (n ': sh) r)
-  szipWith41 :: forall r1 r2 r3 r4 r n sh1 sh2 sh3 sh4 sh.
-                ( TensorKind r1, TensorKind r2, TensorKind r3, TensorKind r4
-                , TensorKind r, KnownNat n
-                , KnownShS sh1, KnownShS sh2, KnownShS sh3, KnownShS sh4
-                , KnownShS sh )
-             => (target (TKS2 sh1 r1)  -> target (TKS2 sh r))
-             -> target (TKS2 (n ': sh1) r1)
-             -> target (TKS2 (n ': sh) r)
-  szipWith41 f u = sbuild1 (\i -> f (u !$ (i :.$ ZIS)))
-  tproject1 :: (TensorKind x, TensorKind z)
-            => target (TKProduct x z)
-            -> target x
-  tftk :: STensorKindType y -> target y -> FullTensorKind y
-  sfold
-    :: forall rn rm sh shm k.
-       (KnownShS sh)
-    => target (TKS2 sh rn)
-  sfold  = dmapAccumL
+  index :: (TensorKind r, KnownShS sh1, KnownShS sh2, KnownShS (sh1 ++ sh2))
+        => target (TKS2 (sh1 ++ sh2) r) -> IxSOf target sh1
+        -> target (TKS2 sh2 r)
+  szipWith41 :: (TensorKind r1, KnownNat n, KnownShS sh1)
+             => target (TKS2 (n ': sh1) r1)
+             -> target (TKS2 (sh1) r1)
+  szipWith41 u = index u (undefined :.$ ZIS)
+  sfold :: forall rn sh. KnownShS sh
+        => FullTensorKind (TKS2 sh rn)
+  sfold = 
 
 
 -- this is the only error
@@ -102,10 +85,4 @@ class BaseTensor (target :: Target) where
 -- this fixes it:
 --         (FTKS @sh knownShS undefined)
 
-
       
-  dmapAccumL
-    :: forall k accShs bShs eShs.
-       FullTensorKind accShs
-    -> target accShs
-    
