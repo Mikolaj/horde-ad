@@ -203,13 +203,14 @@ astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
   funToVarsIxS shOut $ \ (!vars, !ix) ->
     let fromInt :: Int -> AstInt AstMethodLet
         fromInt i = AstConcreteK (fromIntegral i)
-        asts :: AstIxS AstMethodLet sh
-        asts = let i :: AstInt AstMethodLet
-                   i = toLinearIdxS @sh2 @'[] fromInt shOut ix
-               in fromLinearIdxS fromInt shIn i
+        iUnshared :: AstInt AstMethodLet
+        iUnshared = toLinearIdxS @sh2 @'[] fromInt shOut ix
+        asts :: AstInt AstMethodLet -> AstIxS AstMethodLet sh
+        asts i = fromLinearIdxS fromInt shIn i
     in gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
        gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
-       astGatherKnobsS @sh2 @'[] @sh knobs ZSS v (vars, asts)
+       astLetFunB iUnshared $ \i ->
+         astGatherKnobsS @sh2 @'[] @sh knobs ZSS v (vars, asts i)
 
 
 -- * The simplifying combinators, one for almost each AST constructor

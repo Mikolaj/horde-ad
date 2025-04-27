@@ -27,29 +27,23 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.OpsTensor
 
-sminIndexN :: forall target sh r. (ADReady target, GoodScalar r, KnownShS sh)
-           => target (TKS sh r) -> IxSOf target sh
-sminIndexN t =
-  fromLinearIdxS
-    (tprimalPart @target . kconcrete . fromIntegral)
-    (sshape t)
-    (tprimalPart @target $ kfromS $ sminIndex (sflatten t))
-
-smaxIndexN :: forall target sh r. (ADReady target, GoodScalar r, KnownShS sh)
-           => target (TKS sh r) -> IxSOf target sh
-smaxIndexN t =
-  fromLinearIdxS
-    (tprimalPart @target . kconcrete . fromIntegral)
-    (sshape t)
-    (tprimalPart @target $ kfromS $ smaxIndex (sflatten t))
-
 sminimum :: forall r sh target. (ADReady target, GoodScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
-sminimum t = sindex0 t (sminIndexN t)
+sminimum t0 =
+  tlet t0 $ \t -> tlet (sminIndex (sflatten t)) $ \minIndex ->
+    sindex0 t
+    $ fromLinearIdxS (tprimalPart @target . kconcrete . fromIntegral)
+                     (sshape t)
+                     (tprimalPart @target $ kfromS minIndex)
 
 smaximum :: forall r sh target. (ADReady target, GoodScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
-smaximum t = sindex0 t (smaxIndexN t)
+smaximum t0 =
+  tlet t0 $ \t -> tlet (smaxIndex (sflatten t)) $ \maxIndex ->
+    sindex0 t
+    $ fromLinearIdxS (tprimalPart @target . kconcrete . fromIntegral)
+                     (sshape t)
+                     (tprimalPart @target $ kfromS maxIndex)
 
 sfromIndex0 :: forall r target. (ADReady target, GoodScalar r)
             => IntOf target -> target (TKS '[] r)

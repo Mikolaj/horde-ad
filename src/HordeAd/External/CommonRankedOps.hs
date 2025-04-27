@@ -27,45 +27,27 @@ import HordeAd.OpsTensor
 assumeEquality :: forall a b r. (a ~ b => r) -> r
 assumeEquality = gcastWith (unsafeCoerceRefl :: a :~: b)
 
-rminIndexN :: forall target n r.
-              (BaseTensor target, ConvertTensor target, GoodScalar r)
-           => target (TKR n r) -> IxROf target n
-rminIndexN t =
-  fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
-                (rshape t)
-                (tprimalPart @target $ kfromR $ rminIndex (rflatten t))
-
-rmaxIndexN :: forall target n r. (
-              BaseTensor target, ConvertTensor target, GoodScalar r)
-           => target (TKR n r) -> IxROf target n
-rmaxIndexN t =
-  fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
-                (rshape t)
-                (tprimalPart @target $ kfromR $ rmaxIndex (rflatten t))
-
 rminimum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
             , KnownNat n, GoodScalar r )
          => target (TKR n r) -> target (TKR 0 r)
--- The let is required to preserve the sharing of the argument, which is
--- used twice: in rminIndex and in rindex0.
 rminimum t0 =
-  tlet t0 $ \t ->
+  tlet t0 $ \t -> tlet (rminIndex (rflatten t)) $ \minIndex ->
     rindex0 t
     $ fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
                     (rshape t)
-                    (tprimalPart @target $ kfromR $ rminIndex (rflatten t))
+                    (tprimalPart @target $ kfromR minIndex)
 
 rmaximum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
             , KnownNat n, GoodScalar r )
          => target (TKR n r) -> target (TKR 0 r)
 rmaximum t0 =
-  tlet t0 $ \t ->
+  tlet t0 $ \t -> tlet (rmaxIndex (rflatten t)) $ \maxIndex ->
     rindex0 t
     $ fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
                     (rshape t)
-                    (tprimalPart @target $ kfromR $ rmaxIndex (rflatten t))
+                    (tprimalPart @target $ kfromR maxIndex)
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, ConvertTensor target, GoodScalar r)
