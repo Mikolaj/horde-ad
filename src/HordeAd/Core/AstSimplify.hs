@@ -1901,51 +1901,43 @@ astGatherKnobsS knobs shn v0
            , substituteAstIxS (AstConcreteK (- j + 1) + AstIntVar varm)
                               varm (Ast.AstLet varN uN i2 :.$ prest))
 astGatherKnobsS knobs shn v0
-  ( (::$) @m (Const varm) mrest
-  , (:.$) @p (AstIntVar varp) prest )
-  | varm == varp
-  , Nothing <- sameNat (Proxy @m) (Proxy @p)
-  , FTKS _ x <- ftkAst v0 =
-    withSNat (min (valueOf @p) (valueOf @m)) $ \(SNat @m2) ->
-      gcastWith (unsafeCoerceRefl :: (m2 <=? p) :~: True) $
-      gcastWith (unsafeCoerceRefl :: (m2 <=? m) :~: True) $
-      let v2 = astSliceS (SNat @0) (SNat @m2) (SNat @(p - m2)) v0
-          ftk = FTKS (SNat @(m - m2) :$$ listsToShS mrest `shsAppend` shn) x
-      in astGatherKnobsS knobs shn v2  -- now m2 and p2 are equal
-           ((::$) @m2 (Const varm) mrest, AstIntVar varp :.$ prest)
-         `astAppendS`
-         fromPrimal (astConcrete ftk (tdefTarget ftk))
-astGatherKnobsS knobs shn v0
   ( (::$) @m @shmTail (Const varm) mrest
   , (:.$) @p @shpTail (AstIntVar varp) prest )
   | knobPhase knobs /= PhaseExpansion  -- prevent a loop
   , varm == varp
-  , Just Refl <- sameNat (Proxy @m) (Proxy @p)
-  , not (varm `varNameInIxS` prest) =
+  , not (varm `varNameInIxS` prest)
+  , FTKS _ x <- ftkAst v0 =
+    withSNat (min (valueOf @p) (valueOf @m)) $ \(SNat @m2) ->
+    gcastWith (unsafeCoerceRefl :: (m2 <=? p) :~: True) $
+    gcastWith (unsafeCoerceRefl :: (m2 <=? m) :~: True) $
     Permutation.permFromList (permCycle $ shsLength (listsToShS mrest) + 1)
     $ \(permVars :: Permutation.Perm permVars) ->
     Permutation.permFromList (backpermCycle $ shsLength (ixsToShS prest) + 1)
     $ \(permIx :: Permutation.Perm permIx) ->
        gcastWith (unsafeCoerceRefl
-                  :: shm ++ shn
+                  :: m2 ': shmTail ++ shn
                      :~: Permutation.PermutePrefix
-                           permVars (shmTail ++ (m ': shn))) $
+                           permVars (shmTail ++ (m2 ': shn))) $
        gcastWith (unsafeCoerceRefl
-                  :: shpTail ++ (m ': shn)
-                     :~: Permutation.PermutePrefix permIx (shp ++ shn)) $
+                  :: shpTail ++ (m2 ': shn)
+                     :~: Permutation.PermutePrefix
+                           permIx (m2 ': shpTail ++ shn)) $
        gcastWith (unsafeCoerceRefl
-                  :: (Rank permVars <=? Rank (shmTail ++ (m ': shn)))
+                  :: (Rank permVars <=? Rank (shmTail ++ (m2 ': shn)))
                      :~: True) $
        gcastWith (unsafeCoerceRefl
-                  :: (Rank permIx <=? Rank (shp ++ shn)) :~: True) $
+                  :: (Rank permIx <=? Rank (m2 ': shpTail ++ shn)) :~: True) $
        fromMaybe (error "astGatherKnobsS: impossible non-permutation")
        $ Permutation.permCheckPermutation permVars
        $ fromMaybe (error "astGatherKnobsS: impossible non-permutation")
        $ Permutation.permCheckPermutation permIx
-       $ let v2 = astTransposeS permIx v0
-         in astTransposeS
-              permVars (astGatherKnobsS knobs (SNat @m :$$ shn)
-                                        v2 (mrest, prest))
+       $ let v2 = astTransposeS permIx
+                  $ astSliceS (SNat @0) (SNat @m2) (SNat @(p - m2)) v0
+             u = astGatherKnobsS knobs (SNat @m2 :$$ shn) v2 (mrest, prest)
+             ftk = FTKS (SNat @(m - m2) :$$ listsToShS mrest `shsAppend` shn) x
+         in astTransposeS permVars u
+            `astAppendS`
+            fromPrimal (astConcrete ftk (tdefTarget ftk))
 astGatherKnobsS knobs shn v7@(Ast.AstFromVector _ (STKS _ x2) l)
                 ( ((::$) @m1' @shm4 (Const var4) vrest4)
                 , ((:.$) @_ @shp1' i4 rest4) )
