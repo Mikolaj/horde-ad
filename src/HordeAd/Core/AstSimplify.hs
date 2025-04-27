@@ -388,10 +388,14 @@ astSum snat@SNat stk t0 = case t0 of
     -- this is problematic, because it keeps huge tensors alive for longer
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSum snat stk v
   Ast.AstFromDual v -> Ast.AstFromDual $ astSum snat stk v
-  {- TODO: this requires a check that the eliminated index is in bounds:
-  Ast.AstScatterS @shm @shn @shp v (vars, _ :.$ ix)
+  Ast.AstScatterS @shm @shn @shp shn v (vars, (:.$) @k2 i1 rest)
     | STKS{} <- stk ->
-      astScatterS @shm @shn @(Tail shp) v (vars, ix) -}
+      -- This boolean term may have free variables that act as universally
+      -- quantified.
+      case 0 <=. i1 &&* i1 <=. valueOf @k2 - 1 of
+        AstBoolConst True ->
+          astScatterS @shm @shn @(Tail shp) shn v (vars, rest)
+        _ -> Ast.AstSum snat stk t0
   Ast.AstFromS _ v -> case ftkToSTK (ftkAst v) of
     STKS (snat2 :$$ rest) x -> astFromS stk $ astSum snat2 (STKS rest x) v
     _ -> Ast.AstSum snat stk t0  -- products probably not worth the effort
@@ -1287,17 +1291,15 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                     (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
                     ix
   Ast.AstReplicate (SNat @k) STKS{} v ->
-    let bound = AstConcreteK $ valueOf @k - 1
-        ftk = FTKS shn x
+    let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
-    in case 0 <=. i1 &&* i1 <=. bound of
+    in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
       AstBoolConst b -> if b then astIndex shn v rest1 else defArr
       _ -> Ast.AstIndexS shn v0 ix
   Ast.AstReplicate (SNat @k) STKScalar v | ZIS <- rest1 ->
-    let bound = AstConcreteK $ valueOf @k - 1
-        ftk = FTKS shn x
+    let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
-    in case 0 <=. i1 &&* i1 <=. bound of
+    in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
       AstBoolConst b -> if b then astSFromK v else defArr
       _ -> Ast.AstIndexS shn v0 ix
   Ast.AstApply{} -> Ast.AstIndexS shn v0 ix
@@ -1306,16 +1308,14 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     shareIx ix $ \ !ix2 ->
       astCond b (astIndex shn v ix2) (astIndex shn w ix2)
   Ast.AstBuild1 (SNat @k) STKS{} (var2, v) ->
-    let bound = AstConcreteK $ valueOf @k - 1
-        ftk = FTKS shn x
+    let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
-        b = 0 <=. i1 &&* i1 <=. bound
+        b = 0 <=. i1 &&* i1 <=. valueOf @k - 1
     in astCond b (astIndex shn (astLet var2 i1 v) rest1) defArr
   Ast.AstBuild1 (SNat @k) STKScalar (var2, v) | ZIS <- rest1 ->
-    let bound = AstConcreteK $ valueOf @k - 1
-        ftk = FTKS shn x
+    let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
-        b = 0 <=. i1 &&* i1 <=. bound
+        b = 0 <=. i1 &&* i1 <=. valueOf @k - 1
     in astCond b (astSFromK $ astLet var2 i1 v) defArr
 
   Ast.AstLet var u v -> astLet var u (astIndex shn v ix)
@@ -1380,10 +1380,9 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstGatherS @_ @shn' @shp' shn'
                  v ((::$) @m71 @shm71 (Const var2) vars, ix2) ->
     gcastWith (unsafeCoerceRefl :: shm71 ++ shn' :~: shm1 ++ shn) $
-    let bound = AstConcreteK $ valueOf @m71 - 1
-        ftk = FTKS shn x
+    let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
-        b = 0 <=. i1 &&* i1 <=. bound
+        b = 0 <=. i1 &&* i1 <=. valueOf @m71 - 1
         w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
         w = astGather @shm71 @shn' @shp' shn' v (vars, ix2)
         u = astLet var2 i1 $ astIndex @shm1 @shn shn w rest1
@@ -1420,14 +1419,13 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
          $ astIndex @shm @(shn ++ '[nl]) shnl v ix
   Ast.AstIotaS (SNat @k) -> case testEquality shn ZSS of
     Just Refl ->
-      let bound = AstConcreteK $ valueOf @k - 1
-          ftk = FTKS ZSS x
+      let ftk = FTKS ZSS x
           defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
-          b = 0 <=. i1 &&* i1 <=. bound
+          b = 0 <=. i1 &&* i1 <=. valueOf @k - 1
       in astCond b (astFromIntegralS $ astSFromK i1) defArr
     _ -> error "astIndexKnobsS: shape not []"
   Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
-    let ulen = AstConcreteK (valueOf @m)
+    let ulen = valueOf @m
         ix1 = i1 :.$ rest1
         ix2 = i1 - ulen :.$ rest1
     in case ulen <=. i1 of
@@ -1438,11 +1436,10 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
         then astCond bExpr (astIndex shn v ix2) (astIndex shn u ix1)
         else Ast.AstIndexS shn v0 ix
   Ast.AstSliceS i@(SNat @i) (SNat @n) k@SNat v ->
-    let bound = AstConcreteK $ valueOf @n - 1
-        ftk = FTKS shn x
+    let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
         b = (if sNatValue i == 0 then true else 0 <=. i1)
-            &&* (if sNatValue k == 0 then true else i1 <=. bound)
+            &&* (if sNatValue k == 0 then true else i1 <=. valueOf @n - 1)
         ii = valueOf @i + i1
     in astCond b (astIndex shn v (ii :.$ rest1)) defArr
   Ast.AstReverseS v ->
@@ -2201,18 +2198,18 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
                 then astTransposeS perm4S innerGather
                 else astTransposeAsGatherS knobs perm4S innerGather -}
     Ast.AstReplicate (SNat @k) STKS{} v ->
-      let bound = AstConcreteK $ valueOf @k - 1
-          ftk = FTKS (listsToShS vars4 `shsAppend` shn) x
+      let ftk = FTKS (listsToShS vars4 `shsAppend` shn) x
           defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
-      in case 0 <=. i4 &&* i4 <=. bound of
+      -- This boolean term may have free variables that act as universally
+      -- quantified.
+      in case 0 <=. i4 &&* i4 <=. valueOf @k - 1 of
         AstBoolConst b ->
           if b then astGather @shm @shn @shp1' shn v (vars4, rest4) else defArr
         _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstReplicate (SNat @k) STKScalar v | ZIS <- rest4 ->
-      let bound = AstConcreteK $ valueOf @k - 1
-          ftk = FTKS (listsToShS vars4 `shsAppend` shn) x
+      let ftk = FTKS (listsToShS vars4 `shsAppend` shn) x
           defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
-      in case 0 <=. i4 &&* i4 <=. bound of
+      in case 0 <=. i4 &&* i4 <=. valueOf @k - 1 of
         AstBoolConst b ->
           if b then astGather @shm @shn @shp1'
                               shn (astSFromK v) (vars4, rest4) else defArr
