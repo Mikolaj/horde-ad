@@ -1343,17 +1343,11 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     shareIx ix
     $ \ !ix2 -> Ast.AstI2S opCode (astIndex shn u ix2)
                                   (astIndex shn v ix2)
-  AstConcreteS a ->
-    let unConc :: AstInt AstMethodLet -> Maybe [IntOf Concrete]
-               -> Maybe [IntOf Concrete]
-        unConc (AstConcreteK i) (Just l) = Just $ Concrete i : l
-        unConc _ _ = Nothing
-    in case foldr unConc (Just []) ix of
-      Just ixInt -> withKnownSTK (ftkToSTK x) $
-                    withKnownShS shn $
-                    withKnownShS (ixsToShS ix) $
-                    astConcreteS (tsindex @_ @shm (Concrete a) (fromList ixInt))
-      Nothing -> Ast.AstIndexS shn v0 ix
+  AstConcreteS a | AstConcreteK i <- i1 ->
+    let u = withKnownShS (ixsToShS rest1 `shsAppend` shn) $
+            tsindex (Concrete a) (Concrete i :.$ ZIS)
+    in astIndex shn (astConcreteS u) rest1
+  AstConcreteS{} -> Ast.AstIndexS shn v0 ix
   Ast.AstFloorS v -> astFloorS $ astIndex shn v ix
   Ast.AstFromIntegralS v -> astFromIntegralS $ astIndex shn v ix
   Ast.AstCastS t -> astCastS $ astIndex shn t ix
