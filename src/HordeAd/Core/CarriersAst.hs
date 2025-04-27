@@ -215,9 +215,10 @@ instance (GoodScalar r, AstSpan s)
   u * AstTimesK v@AstConcreteK{} w = AstTimesK v (AstTimesK u w)  -- as above
   u * v = AstTimesK u v
 
+  negate (AstCond b n k) = AstCond b (negate n) (negate k)
+  negate (AstLet var n k) = AstLet var n (negate k)
   negate (AstFromPrimal n) = AstFromPrimal (negate n)
   negate (AstFromDual n) = AstFromDual (negate n)
-  negate (AstConcreteK n) = AstConcreteK (negate n)
   negate (AstPlusK u v) = AstPlusK (negate u) (negate v)
   negate (AstTimesK u v) = negate u * v
   negate (AstN1K NegateOp u) = u
@@ -226,6 +227,8 @@ instance (GoodScalar r, AstSpan s)
     -- v is likely positive and let's keep it so
   negate (AstI2K RemOp u v) = AstI2K RemOp (negate u) v
     -- v is likely positive and let's keep it so
+-- TODO: negate (AstFromS stk u) = AstFromS stk (negate u)
+  negate (AstConcreteK n) = AstConcreteK (negate n)
   negate u = AstN1K NegateOp u
   abs (AstFromPrimal n) = AstFromPrimal (abs n)
   abs (AstFromDual n) = AstFromDual (abs n)
@@ -500,10 +503,11 @@ instance (GoodScalar r, AstSpan s)
   u * v = AstTimesS u v
 
   negate (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (negate u)
+  negate (AstCond b n k) = AstCond b (negate n) (negate k)
+-- TODO: negate (AstBuild1 k stk (var, v)) = AstBuild1 k stk (var, negate v)
+  negate (AstLet var n k) = AstLet var n (negate k)
   negate (AstFromPrimal n) = AstFromPrimal (negate n)
   negate (AstFromDual n) = AstFromDual (negate n)
-  negate (AstSFromK n) = AstSFromK (negate n)
-  negate (AstConcreteS n) = AstConcreteS (negate n)
   negate (AstPlusS u v) = AstPlusS (negate u) (negate v)
   negate (AstTimesS u v) = AstTimesS (negate u) v
   negate (AstN1S NegateOp u) = u
@@ -512,21 +516,25 @@ instance (GoodScalar r, AstSpan s)
     -- v is likely positive and let's keep it so
   negate (AstI2S RemOp u v) = AstI2S RemOp (negate u) v
     -- v is likely positive and let's keep it so
+  negate (AstConcreteS n) = AstConcreteS (negate n)
+  negate (AstGatherS @shm @shn @shp shn v (vars, ix)) =
+    AstGatherS @shm @shn @shp shn (negate v) (vars, ix)
+  negate (AstSFromK n) = AstSFromK (negate n)
   negate u = AstN1S NegateOp u
   abs (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (abs u)
   abs (AstFromPrimal n) = AstFromPrimal (abs n)
   abs (AstFromDual n) = AstFromDual (abs n)
-  abs (AstSFromK n) = AstSFromK (abs n)
-  abs (AstConcreteS u) = AstConcreteS (abs u)
   abs (AstN1S AbsOp u) = AstN1S AbsOp u
+  abs (AstConcreteS u) = AstConcreteS (abs u)
+  abs (AstSFromK n) = AstSFromK (abs n)
   abs (AstN1S NegateOp u) = abs u
   abs u = AstN1S AbsOp u
   signum (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (signum u)
   signum (AstFromPrimal n) = AstFromPrimal (signum n)
-  signum (AstSFromK n) = AstSFromK (signum n)
   signum (AstFromDual n) = AstFromDual (signum n)
-  signum (AstConcreteS u) = AstConcreteS (signum u)
   signum (AstN1S SignumOp u) = AstN1S SignumOp u
+  signum (AstConcreteS u) = AstConcreteS (signum u)
+  signum (AstSFromK n) = AstSFromK (signum n)
   signum u = AstN1S SignumOp u
   fromInteger i = error $ "fromInteger not defined for shaped tensors: "
                           ++ show i

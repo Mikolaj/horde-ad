@@ -1533,14 +1533,6 @@ astScatterS shn v (vars, ix) = Ast.AstScatterS @shm @shn @shp shn v (vars, ix)
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
 flipCompare = unsafeCoerceRefl
 
-isVar :: AstTensor AstMethodLet s y -> Bool
-isVar Ast.AstVar{} = True
-isVar (Ast.AstPrimalPart Ast.AstVar{}) = True
-isVar (Ast.AstDualPart Ast.AstVar{}) = True
-isVar (Ast.AstFromPrimal Ast.AstVar{}) = True
-isVar (Ast.AstFromDual Ast.AstVar{}) = True
-isVar _ = False
-
 astGatherS
   :: forall shm shn shp r s. AstSpan s
   => ShS shn
@@ -2234,30 +2226,17 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
     Ast.AstFromDual v ->
       Ast.AstFromDual $ astGather @shm @shn @shp shn v (vars4, ix4)
 
+    -- Going inside a binary ops usually makes a term more expensive
+    -- to interpret and inverting that requires comparing two arguments,
+    -- so it's not practical.
     AstPlusS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     AstTimesS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-      -- Going inside AstTimesS usually makes term more expensive to interpret
-      -- and reverting this transformation requires comparing two arguments,
-      -- so it's not practical.
-    Ast.AstN1S NegateOp v | not (isVar v) ->
-      negate (astGather @shm @shn @shp shn v (vars4, ix4))
-        -- TODO: make these go under AstGatherS instead
-    Ast.AstN1S AbsOp v | not (isVar v) ->
-      abs (astGather @shm @shn @shp shn v (vars4, ix4))
-    Ast.AstN1S SignumOp v | not (isVar v) ->
-      signum (astGather @shm @shn @shp shn v (vars4, ix4))
     Ast.AstN1S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-    Ast.AstR1S opCode v | not (isVar v) ->
-      Ast.AstR1S opCode (astGather @shm @shn @shp shn v (vars4, ix4))
     Ast.AstR1S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstR2S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstI2S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-    Ast.AstFloorS{} ->
-      Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-        -- work would increate otherwise and most probably gather can't
-        -- simplify anything that cast could not
-    Ast.AstFromIntegralS{} ->
-      Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+    Ast.AstFloorS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+    Ast.AstFromIntegralS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstCastS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
 
     {- is reverted in astGatherKnobsS immediatedly; only do in expansion phase?
