@@ -176,12 +176,6 @@ softMax1S d =
 
 -- | Unpadded full convolution,
 --   where the output size is the same as the input size.
---
--- It guards the out of bounds indexing behind a conditional
--- to prevent changed values after vectorization,
--- despite the indexing giving 0 when out of bounds.
--- If another value than 0 was needed, the conditional
--- would be necessary even without vectorization.
 conv2dUnpaddedS
   :: forall nCoutK nCinpK nKh nKw nImgs nCinpA nAh nAw
             target r shB shK1.
@@ -220,43 +214,8 @@ slicezS d ixBase =
   gcastWith (unsafeCoerceRefl :: Drop (Rank sh) shOut :~: '[]) $
   sbuild @(Rank shOut)
   $ \ixResult ->
-      indexz0S @shOut d (zipWith_Index (+)
-                                       (ixsToIxr ixBase)
-                                       (ixsToIxr ixResult))
-      -- TODO: use zipWith_IndexS once defined?
-
--- | Retrieve the element at the given index,
---   returning zero for out of range indices.
---
--- Warning: this uses ix twice and within0 again uses it twice,
--- so this variant without tlet should be used only when it's known
--- that ix is of small constant size (e.g., if it contains conditionals
--- that compare big tensors or their minimal elements, it likely is not,
--- unless the tensors are under tlet and only variables representing them
--- are used).
-indexz0S
-  :: forall shOut sh target r.
-     (KnownShS shOut, KnownShS sh, ADReady target, GoodScalar r)
-  => target (TKS sh r) -> IxROf target (Rank shOut) -> target (TKS '[] r)
-indexz0S d ix | SNat <- shsRank (knownShS @shOut) =
-  ifH (within0S @shOut @target ix)
-      (sindex0 d (fromList (toList ix)))
-      (srepl 0)
-
--- | Given an index and shape, check if the index is fully within the shape.
--- Note that @ix@ is used twice, so should be shared outside.
-within0S
-  :: forall shOut target. (KnownShS shOut, ADReady target)
-  => IxROf target (Rank shOut)
-       -- the indexes may be outside shOut and even negative (e.g., for
-       -- convolutions with padding)
-  -> BoolOf target
-within0S ix | SNat <- shsRank (knownShS @shOut) =
-  let within :: IntOf target -> IntOf target -> BoolOf target
-      within i dim = 0 <=. i &&* dim >. i
-  in foldr (&&*) true
-     $ zipWith within (toList ix) (map fromIntegral $ toList $ knownShS @shOut)
-       -- or use sfromIndex1 and compare vectors?
+      sindex0 d (ixrToIxs $ zipWith_Index (+) (ixsToIxr ixBase) (ixsToIxr ixResult))
+      -- TODO: use zipWith_IndexS once defined
 
 maxPool2dUnpaddedS
   :: forall ksize stride batch_size channels h w target r shOut shK1.

@@ -200,12 +200,6 @@ softMax1 d =
 -- | Unpadded full convolution,
 --   where the output size is the same as the input size.
 --
--- It guards the out of bounds indexing behind a conditional
--- to prevent changed values after vectorization,
--- despite the indexing giving 0 when out of bounds.
--- If another value than 0 was needed, the conditional
--- would be necessary even without vectorization.
---
 -- BTW, the indexing lower bounds in the code are spurious,
 -- so they get simplified away in the resulting AST program.
 conv2dUnpadded
@@ -226,9 +220,6 @@ conv2dUnpadded arrK arrA =
 
 -- | Full convolution with custom padding,
 --   where the output size depends on the input size, kernel size and padding.
---
--- Here, if padding is not zero, both upper and lower indexing bound checks
--- are non-trivial.
 conv2dCustomPadded
   :: (ADReady target, GoodScalar r)
   => (Int, Int) -> target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
@@ -253,9 +244,6 @@ conv2dCustomPadded (nPh, nPw) arrK arrA =
 --   are affected by the same number of input points,
 --   where the output size shrinks depending on the input size and kernel size.
 --   Also no input points are ever ignored, though some are read less often.
---
---   This amount of padding ensures all bounds checks in the code are spurious
---   and will be simplified away in the resulting AST program.
 conv2dShrinking
   :: (ADReady target, GoodScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
@@ -272,41 +260,6 @@ conv2dShrinking arrK arrA =
       in rdot0 arrAt arrKt
     _ -> error "conv2dShrinking: impossible pattern needlessly required"
 
--- | Full convolution with just enough extra external zero padding
---   to ensure that the output size is the same as the input size
---   and all input points are read the same number of times.
---
---   The same result could be accomplished by tweaking indexes slightly
---   in conv2dUnpadded, but here additionally all bounds checks in the code
---   are spurious and will be simplified away in the resulting AST program.
-conv2dPadded
-  :: forall target r. (ADReady target, GoodScalar r)
-  => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
-conv2dPadded arrK arrA =
-  let [nImgs, nCinpA, nAh, nAw] = rshape arrA
-      [nCoutK, nCinpK, nKh, nKw] = rshape arrK
-      shAPadded = [nImgs, nCinpA, nAh + nKh, nAw + nKw]
-      arrAPadded = rbuild @4 @0 @(TKScalar r) @target shAPadded $ \case
-        [iImg, iCinp, iPh, iPw] ->
-          ifH (iPh <. fromIntegral (nKh `div` 2)
-               ||* iPw <. fromIntegral (nKw `div` 2)
-               ||* iPh >=. fromIntegral (nAh + nKh `div` 2)
-               ||* iPw >=. fromIntegral (nAw + nKw `div` 2))
-              (rscalar 0)
-              (arrA ! [ iImg
-                      , iCinp
-                      , iPh - fromIntegral (nKh `div` 2)
-                      , iPw - fromIntegral (nKw `div` 2) ])
-      nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
-      shB = [nImgs, nCoutK, nAh, nAw]
-      shK1 = [1, nCinp, nKh, nKw]
-  in rbuild shB $ \case
-    [iImg, iCout, iBh, iBw] ->
-      let arrAt = slicez shK1 arrAPadded [iImg, 0, iBh, iBw]
-          arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
-      in rdot0 arrAt arrKt
-    _ -> error "conv2dPadded: impossible pattern needlessly required"
-
 -- | Slice a section out of a tensor,
 --   given a base offset and shape of the section.
 --
@@ -316,32 +269,7 @@ slicez
   :: (ADReady target, GoodScalar r, KnownNat n)
   => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez shOut d ixBase =
-  rbuild shOut $ \ixResult -> indexz0 d (zipWith_Index (+) ixBase ixResult)
-
--- | Retrieve the element at the given index,
---   returning zero for out of range indices.
---
--- Warning: this uses ix twice and within0 again uses it twice,
--- so this variant without tlet should be used only when it's known
--- that ix is of small constant size (e.g., if it contains conditionals
--- that compare big tensors or their minimal elements, it likely is not,
--- unless the tensors are under tlet and only variables representing them
--- are used).
-indexz0
-  :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
-  => target (TKR n r) -> IxROf target n -> target (TKR 0 r)
-indexz0 d ix = ifH (within0 @target (rshape @target d) ix) (d ! ix) (rscalar 0)
-
--- | Given an index and shape, check if the index is fully within the shape.
--- Note that @ix@ is used twice, so should be shared outside.
-within0
-  :: forall target n. (ADReady target, KnownNat n)
-  => IShR n -> IxROf target n -> BoolOf target
-within0 sh ix =
-  let within :: IntOf target -> IntOf target -> BoolOf target
-      within i dim = 0 <=. i &&* dim >. i
-  in foldr (&&*) true
-     $ zipWith within (toList ix) (map fromIntegral $ toList sh)
+  rbuild shOut $ \ixResult -> rindex0 d (zipWith_Index (+) ixBase ixResult)
 
 maxPool2dUnpadded
   :: (ADReady target, GoodScalar r)

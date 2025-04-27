@@ -86,8 +86,8 @@ foo (x,y,z) =
   let w = x * sin y
   in atan2H z w + z * w
 
-fooF :: RealFloatH a => (a,a,a) -> a
-fooF (x,y,z) =
+_fooF :: RealFloatH a => (a,a,a) -> a
+_fooF (x,y,z) =
   let w = x * sin y
   in atan2H z w + z * w
 
@@ -102,9 +102,9 @@ bar (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2H x w + y * w
 
-barF :: forall a. RealFloatH a => (a, a) -> a
-barF (x, y) =
-  let w = fooF (x, y, x) * sin y
+_barF :: forall a. RealFloatH a => (a, a) -> a
+_barF (x, y) =
+  let w = _fooF (x, y, x) * sin y
   in atan2H x w + y * w
 
 testBar :: Assertion
