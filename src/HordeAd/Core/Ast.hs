@@ -177,9 +177,13 @@ type IntVarName = AstVarName PrimalSpan (TKScalar Int64)
 pattern AstIntVar :: IntVarName -> AstInt ms
 pattern AstIntVar var = AstVar var
 
-type AstIxS ms sh = IxS sh (AstInt ms)
-
+-- Data invariant: the var names have bounds of the form (0, k - 1),
+-- where the corresponding dimension in sh is k. This is never checked.
 type AstVarListS sh = ListS sh (Const IntVarName)
+
+-- There's no data invariant here. The shape matches rather the argument
+-- of indexing (or gather) than the indexes.
+type AstIxS ms sh = IxS sh (AstInt ms)
 
 pattern AstLeqInt :: AstInt ms -> AstInt ms -> AstBool ms
 pattern AstLeqInt t u <- (matchAstLeqInt -> Just (t, u))

@@ -368,7 +368,7 @@ intBindingRefreshS (!var, !ix) =
 build1VIndexS
   :: forall k shm shn x s. AstSpan s
   => SNat k -> ShS shn
-  -> ( IntVarName
+  -> ( IntVarName  -- bounds (0, k - 1)
      , AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
      , AstIxS AstMethodLet shm )
   -> AstTensor AstMethodLet s (TKS2 (k ': shn) x)

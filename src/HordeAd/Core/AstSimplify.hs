@@ -1823,14 +1823,21 @@ astGatherKnobsS knobs shn v0
          -- Unavoidably, prest gets duplicated here. Tough luck.
          -- TODO: so maybe only permit when astIsSmall prest
          -- after we refine astIsSmall and have enough tests to judge
-         astGatherKnobsS knobs shn v
-           ( (::$) @j (Const varm) mrest
-           , i2 :.$ prest )
-         `astAppendS`
-         astGatherKnobsS knobs shn v
-           ( (::$) @(m - j) (Const varm) mrest
-           , substituteAstIxS (AstConcreteK j + AstIntVar varm)
-                              varm (i1 :.$ prest) )
+         let varm2 = mkAstVarName (varNameToFTK varm)
+                                  (Just (0, j - 1))
+                                  (varNameToAstVarId varm)
+             varm3 = mkAstVarName (varNameToFTK varm)
+                                  (Just (0, valueOf @m - j - 1))
+                                  (varNameToAstVarId varm)
+         in astGatherKnobsS knobs shn v
+              ( (::$) @j (Const varm2) mrest
+              , substituteAstIxS (AstIntVar varm2)
+                                 varm (i2 :.$ prest) )
+            `astAppendS`
+            astGatherKnobsS knobs shn v
+              ( (::$) @(m - j) (Const varm3) mrest
+              , substituteAstIxS (AstConcreteK j + AstIntVar varm3)
+                                 varm (i1 :.$ prest) )
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (AstLeqInt (AstConcreteK j)
@@ -1845,14 +1852,21 @@ astGatherKnobsS knobs shn v0
          withSNat (- fromIntegral j + 1) $ \(SNat @mj) ->
          gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
          astLetFun v0 $ \v ->
-         astGatherKnobsS knobs shn v
-           ( (::$) @mj (Const varm) mrest
-           , i1 :.$ prest )
-         `astAppendS`
-         astGatherKnobsS knobs shn v
-           ( (::$) @(m - mj) (Const varm) mrest
-           , substituteAstIxS (AstConcreteK (- j + 1) + AstIntVar varm)
-                              varm (i2 :.$ prest))
+         let varm2 = mkAstVarName (varNameToFTK varm)
+                                  (Just (0, valueOf @mj - 1))
+                                  (varNameToAstVarId varm)
+             varm3 = mkAstVarName (varNameToFTK varm)
+                                  (Just (0, valueOf @m - valueOf @mj - 1))
+                                  (varNameToAstVarId varm)
+         in astGatherKnobsS knobs shn v
+              ( (::$) @mj (Const varm2) mrest
+              , substituteAstIxS (AstIntVar varm2)
+                                 varm (i1 :.$ prest) )
+            `astAppendS`
+            astGatherKnobsS knobs shn v
+              ( (::$) @(m - mj) (Const varm3) mrest
+              , substituteAstIxS (AstConcreteK (- j + 1) + AstIntVar varm3)
+                                 varm (i2 :.$ prest))
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstLet varN uN
@@ -1869,14 +1883,21 @@ astGatherKnobsS knobs shn v0
          astLetFun v0 $ \v ->
          -- Both uN and prest gets duplicated here. Tough luck.
          -- TODO: so maybe remove this subcase?
-         astGatherKnobsS knobs shn v
-           ( (::$) @j (Const varm) mrest
-           , Ast.AstLet varN uN i2 :.$ prest )
-         `astAppendS`
-         astGatherKnobsS knobs shn v
-           ( (::$) @(m - j) (Const varm) mrest
-           , substituteAstIxS (AstConcreteK j + AstIntVar varm)
-                              varm (Ast.AstLet varN uN i1 :.$ prest) )
+         let varm2 = mkAstVarName (varNameToFTK varm)
+                                  (Just (0, j - 1))
+                                  (varNameToAstVarId varm)
+             varm3 = mkAstVarName (varNameToFTK varm)
+                                  (Just (0, valueOf @m - j - 1))
+                                  (varNameToAstVarId varm)
+         in astGatherKnobsS knobs shn v
+              ( (::$) @j (Const varm2) mrest
+              , substituteAstIxS (AstIntVar varm2) varm
+                                 (Ast.AstLet varN uN i2 :.$ prest) )
+            `astAppendS`
+            astGatherKnobsS knobs shn v
+              ( (::$) @(m - j) (Const varm3) mrest
+              , substituteAstIxS (AstConcreteK j + AstIntVar varm3)
+                                 varm (Ast.AstLet varN uN i1 :.$ prest) )
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstLet varN uN
@@ -1892,14 +1913,21 @@ astGatherKnobsS knobs shn v0
          withSNat (- fromIntegral j + 1) $ \(SNat @mj) ->
          gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
          astLetFun v0 $ \v ->
-         astGatherKnobsS knobs shn v
-           ( (::$) @mj (Const varm) mrest
-           , Ast.AstLet varN uN i1 :.$ prest )
-         `astAppendS`
-         astGatherKnobsS knobs shn v
-           ( (::$) @(m - mj) (Const varm) mrest
-           , substituteAstIxS (AstConcreteK (- j + 1) + AstIntVar varm)
-                              varm (Ast.AstLet varN uN i2 :.$ prest))
+         let varm2 = mkAstVarName (varNameToFTK varm)
+                                  (Just (0, valueOf @mj - 1))
+                                  (varNameToAstVarId varm)
+             varm3 = mkAstVarName (varNameToFTK varm)
+                                  (Just (0, valueOf @m - valueOf @mj - 1))
+                                  (varNameToAstVarId varm)
+         in astGatherKnobsS knobs shn v
+              ( (::$) @mj (Const varm2) mrest
+              , substituteAstIxS (AstIntVar varm2)
+                                 varm (Ast.AstLet varN uN i1 :.$ prest) )
+            `astAppendS`
+            astGatherKnobsS knobs shn v
+              ( (::$) @(m - mj) (Const varm3) mrest
+              , substituteAstIxS (AstConcreteK (- j + 1) + AstIntVar varm3)
+                                 varm (Ast.AstLet varN uN i2 :.$ prest))
 astGatherKnobsS knobs shn v0
   ( (::$) @m @shmTail (Const varm) mrest
   , (:.$) @p @shpTail (AstIntVar varp) prest )
@@ -2482,9 +2510,12 @@ astSliceS SNat (SNat' @1) SNat v | FTKS (_ :$$ sh) x <- ftkAst v =
   astReplicate (SNat @1) (STKS sh (ftkToSTK x))
                (astIndexS sh v (valueOf @i :.$ ZIS))
 astSliceS SNat SNat SNat (Ast.AstGatherS shn v (Const var ::$ vars, ix)) =
-  let ivar = valueOf @i + AstIntVar var
+  let varn = mkAstVarName (varNameToFTK var)
+                          (Just (0, valueOf @n - 1))
+                          (varNameToAstVarId var)
+      ivar = valueOf @i + AstIntVar varn
       ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
-  in astGatherS shn v (Const var ::$ vars, ix2)
+  in astGatherS shn v (Const varn ::$ vars, ix2)
 astSliceS i n@(SNat @n0) _k (Ast.AstAppendS v1 v2)
   | FTKS (m1@(SNat @m1) :$$ _) _ <- ftkAst v1
   , FTKS (m2@(SNat @m2) :$$ _) _ <- ftkAst v2 =

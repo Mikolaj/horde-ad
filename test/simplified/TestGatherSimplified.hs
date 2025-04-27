@@ -1318,9 +1318,9 @@ testCNNOPP3b = do
   printArtifactPrimalPretty artifactRev
     @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (str (sappend (stranspose @[1,2,0] (sappend (sreplicate @1 (sreplicate @1 (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 1] + sfromR u1 !$ [0, 1, 1, 1])))) (sreplicate @1 (sreplicate @1 (sreplicate @1 (sscalar 0.0)))))) (sreplicate @1 (sreplicate @1 (sreplicate @2 (sscalar 0.0)))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> let t159 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) ; t160 = str (sslice (SNat @0) (SNat @1) t159) ; t161 = stranspose @[2,0,1] (sslice (SNat @0) (SNat @1) t160) ; x162 = ssum @1 (ssum @1 (ssum @1 (sslice (SNat @0) (SNat @1) t161))) in rfromS (soneHot x162 [0, 0, 0, 1] + soneHot x162 [0, 1, 1, 1])"
+    @?= "\\dret u1 -> let t152 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) ; t153 = str (sslice (SNat @0) (SNat @1) t152) ; t154 = stranspose @[2,0,1] (sslice (SNat @0) (SNat @1) t153) ; x155 = ssum @1 (ssum @1 (ssum @1 (sslice (SNat @0) (SNat @1) t154))) in rfromS (soneHot x155 [0, 0, 0, 1] + soneHot x155 [0, 1, 1, 1])"
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> rfromS (let x162 = ssum0 (str (sfromR dret !$ [0, 0]) !$ [0]) in soneHot x162 [0, 0, 0, 1] + soneHot x162 [0, 1, 1, 1])"
+    @?= "\\dret u1 -> rfromS (let x155 = ssum0 (str (sfromR dret !$ [0, 0]) !$ [0]) in soneHot x155 [0, 0, 0, 1] + soneHot x155 [0, 1, 1, 1])"
 
 maxPool2dUnpadded3
   :: (ADReady target, GoodScalar r)
