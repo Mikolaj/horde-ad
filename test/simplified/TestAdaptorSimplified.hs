@@ -132,6 +132,8 @@ testTrees =
   , testCase "2reluSimplerPP4s" testReluSimplerPP4s
   , testCase "2reluSimplerPP4s2" testReluSimplerPP4s2
   , testCase "2reluSimpler4s" testReluSimpler4s
+  , testCase "2reluSimplerPP7s2" testReluSimplerPP7s2
+  , testCase "2reluSimpler7s" testReluSimpler7s
   , testCase "2reluMax" testReluMax
   , testCase "2reluMaxPP" testReluMaxPP
   , testCase "2reluMaxPP2" testReluMaxPP2
@@ -1323,6 +1325,33 @@ testReluSimpler4s = do
   let reluT2 :: (AstTensor AstMethodLet FullSpan (TKS '[3, 4] Double), AstTensor AstMethodLet FullSpan (TKS '[] Double))
              -> AstTensor AstMethodLet FullSpan (TKS '[3, 4] Double)
       reluT2 (t, r) = reluS (t * sreplicate0N r)
+  assertEqualUpToEpsilon 1e-10
+    ( sconcrete
+      $ Nested.sfromListPrimLinear @_ @'[3, 4] knownShS [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
+    , srepl 57.1 )
+    (grad (kfromS . ssum0 . reluT2) (sconcrete $ Nested.sfromListPrimLinear @_ @'[3, 4] knownShS [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
+
+testReluSimplerPP7s2 :: Assertion
+testReluSimplerPP7s2 = do
+  resetVarCounter
+  let reluT2 :: (AstTensor AstMethodLet FullSpan (TKS '[3, 4] Double), AstTensor AstMethodLet FullSpan (TKS '[] Double))
+             -> AstTensor AstMethodLet FullSpan (TKS '[3, 4] Double)
+      reluT2 (t, r) = smap0N (flip tlet $ \x -> ifH (x <=. sscalar 0) (sscalar 0.0) x) (t * sreplicate0N r)
+  let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKS [3, 4] FTKScalar) (FTKS ZSS FTKScalar))
+  printArtifactPretty artifactRev
+    @?= "\\dret m1 -> let m9 = tproject1 m1 * sreplicate @3 (sreplicate @4 (tproject2 m1)) ; t15 = sscatter dret (\\[i13, i14] -> [ifH (sscalar -0.0 <=. negate (m9 !$ [i13, i14])) 0 1, i13, i14]) ; m16 = t15 !$ [1] in tpair (sreplicate @3 (sreplicate @4 (tproject2 m1)) * m16) (ssum @4 (ssum @3 (tproject1 m1 * m16)))"
+  printArtifactPrimalPretty artifactRev
+    @?= "\\m1 -> let m9 = tproject1 m1 * sreplicate @3 (sreplicate @4 (tproject2 m1)) in sgather (sfromVector (fromList [sreplicate @3 (sreplicate @4 (sscalar 0.0)), m9])) (\\[i10, i11] -> [ifH (sscalar -0.0 <=. negate (m9 !$ [i10, i11])) 0 1, i10, i11])"
+  printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\dret m1 -> let m16 = sscatter dret (\\[i13, i14] -> [ifH (sscalar -0.0 <=. negate (tproject1 m1 !$ [i13, i14]) * tproject2 m1) 0 1, i13, i14]) !$ [1] in tpair (sreplicate @3 (sreplicate @4 (tproject2 m1)) * m16) (sdot0 (tproject1 m1) m16)"
+  printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\m1 -> let m9 = tproject1 m1 * sreplicate @3 (sreplicate @4 (tproject2 m1)) in sgather (sfromVector (fromList [sconcrete (sreplicate [3,4] 0.0), m9])) (\\[i10, i11] -> [ifH (sscalar -0.0 <=. negate (m9 !$ [i10, i11])) 0 1, i10, i11])"
+
+testReluSimpler7s :: Assertion
+testReluSimpler7s = do
+  let reluT2 :: (AstTensor AstMethodLet FullSpan (TKS '[3, 4] Double), AstTensor AstMethodLet FullSpan (TKS '[] Double))
+             -> AstTensor AstMethodLet FullSpan (TKS '[3, 4] Double)
+      reluT2 (t, r) = smap0N (flip tlet $ \x -> ifH (x <=. sscalar 0) (sscalar 0.0) x) (t * sreplicate0N r)
   assertEqualUpToEpsilon 1e-10
     ( sconcrete
       $ Nested.sfromListPrimLinear @_ @'[3, 4] knownShS [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
