@@ -645,7 +645,7 @@ testCNNOPP2 = do
 
 testCNNOAst2 :: Assertion
 testCNNOAst2 = do
-{-  let batch_size = 7
+  let batch_size = 7
       sizeMnistWidthI = 14
       sizeMnistHeightI = 23
       ftk = tftk @Concrete
@@ -676,8 +676,7 @@ testCNNOAst2 = do
       afcnn2 = MnistCnnRanked2.convMnistTwoR
                  sizeMnistHeightI sizeMnistWidthI batch_size
                  (rconcrete $ unConcrete blackGlyph)
-      afcnn1 = afcnn2 $ fromTarget var -}
-{- this currently OOMs, probably when interpreting:
+      afcnn1 = afcnn2 $ fromTarget var
   interpretAstFull @Concrete env afcnn1
     @?= afcnn2 valsInit
   interpretAstFull @Concrete env
@@ -686,8 +685,6 @@ testCNNOAst2 = do
   interpretAstFull @Concrete env
                    (simplifyInlineContract @(TKR 2 Double) afcnn1)
     @?= afcnn2 valsInit
--}
-  "a" @?= "a"
 
 testCNNOPP2S :: Assertion
 testCNNOPP2S = do
