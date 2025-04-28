@@ -29,27 +29,19 @@ assumeEquality = gcastWith (unsafeCoerceRefl :: a :~: b)
 
 rminimum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
-            , KnownNat n, GoodScalar r )
+            , GoodScalar r )
          => target (TKR n r) -> target (TKR 0 r)
-rminimum t0 =
-  tlet t0 $ \t ->
-  ttletPrimal (tprimalPart $ kfromR $ rminIndex (rflatten t)) $ \minIndex ->
-    rindex0 t
-    $ fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
-                    (rshape t)
-                    minIndex
+rminimum t =
+  tlet (rflatten t) $ \tf ->
+    rindex0 tf (tprimalPart (kfromR (rminIndex tf)) :.: ZIR)
 
 rmaximum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
-            , KnownNat n, GoodScalar r )
+            , GoodScalar r )
          => target (TKR n r) -> target (TKR 0 r)
-rmaximum t0 =
-  tlet t0 $ \t ->
-  ttletPrimal (tprimalPart $ kfromR $ rmaxIndex (rflatten t)) $ \maxIndex ->
-    rindex0 t
-    $ fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
-                    (rshape t)
-                    maxIndex
+rmaximum t =
+  tlet (rflatten t) $ \tf ->
+    rindex0 tf (tprimalPart (kfromR (rmaxIndex tf)) :.: ZIR)
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, ConvertTensor target, GoodScalar r)

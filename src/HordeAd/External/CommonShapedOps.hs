@@ -29,23 +29,15 @@ import HordeAd.OpsTensor
 
 sminimum :: forall r sh target. (ADReady target, GoodScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
-sminimum t0 =
-  tlet t0 $ \t ->
-  ttletPrimal (tprimalPart $ kfromS $ sminIndex (sflatten t)) $ \minIndex ->
-    sindex0 t
-    $ fromLinearIdxS (tprimalPart @target . kconcrete . fromIntegral)
-                     (sshape t)
-                     minIndex
+sminimum t | SNat <- shsProduct (knownShS @sh) =
+  tlet (sflatten t) $ \tf ->
+    sindex0 tf (tprimalPart (kfromS (sminIndex tf)) :.$ ZIS)
 
 smaximum :: forall r sh target. (ADReady target, GoodScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
-smaximum t0 =
-  tlet t0 $ \t ->
-  ttletPrimal (tprimalPart $ kfromS $ smaxIndex (sflatten t)) $ \maxIndex ->
-    sindex0 t
-    $ fromLinearIdxS (tprimalPart @target . kconcrete . fromIntegral)
-                     (sshape t)
-                     maxIndex
+smaximum t | SNat <- shsProduct (knownShS @sh) =
+  tlet (sflatten t) $ \tf ->
+    sindex0 tf (tprimalPart (kfromS (smaxIndex tf)) :.$ ZIS)
 
 sfromIndex0 :: forall r target. (ADReady target, GoodScalar r)
             => IntOf target -> target (TKS '[] r)
