@@ -30,20 +30,22 @@ import HordeAd.OpsTensor
 sminimum :: forall r sh target. (ADReady target, GoodScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
 sminimum t0 =
-  tlet t0 $ \t -> tlet (sminIndex (sflatten t)) $ \minIndex ->
+  tlet t0 $ \t ->
+  ttletPrimal (tprimalPart $ kfromS $ sminIndex (sflatten t)) $ \minIndex ->
     sindex0 t
     $ fromLinearIdxS (tprimalPart @target . kconcrete . fromIntegral)
                      (sshape t)
-                     (tprimalPart @target $ kfromS minIndex)
+                     minIndex
 
 smaximum :: forall r sh target. (ADReady target, GoodScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
 smaximum t0 =
-  tlet t0 $ \t -> tlet (smaxIndex (sflatten t)) $ \maxIndex ->
+  tlet t0 $ \t ->
+  ttletPrimal (tprimalPart $ kfromS $ smaxIndex (sflatten t)) $ \maxIndex ->
     sindex0 t
     $ fromLinearIdxS (tprimalPart @target . kconcrete . fromIntegral)
                      (sshape t)
-                     (tprimalPart @target $ kfromS maxIndex)
+                     maxIndex
 
 sfromIndex0 :: forall r target. (ADReady target, GoodScalar r)
             => IntOf target -> target (TKS '[] r)
@@ -226,9 +228,7 @@ maxPool2dUnpaddedS arr =
   let stride = valueOf @stride :: Int
   in sbuild @(Rank shOut) $ \case
     [iImg, iChan, iBh, iBw] ->
-      let arrt = slicezS @shK1
-                         arr [ iImg, iChan
-                             , fromIntegral stride * iBh
-                             , fromIntegral stride * iBw ]
-      in smaximum arrt
+      smaximum $ slicezS @shK1 arr [ iImg, iChan
+                                   , fromIntegral stride * iBh
+                                   , fromIntegral stride * iBw ]
     _ -> error "maxPool2dUnpaddedS: impossible pattern needlessly required"

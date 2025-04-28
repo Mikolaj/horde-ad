@@ -681,7 +681,7 @@ logisticOld :: forall target r n.
 logisticOld d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let sh = rshape d
       y0 = recip (rrepl sh 1 + exp (- rprimalPart @target d))
-  in tlet (rfromPrimal @target y0)  -- we don't have tletPrimal
+  in tlet (rfromPrimal @target y0)
      $ \y1 -> let y = rprimalPart @target y1
               in tD knownSTK y (rScale @target (y * (rrepl sh 1 - y))
                                 $ rdualPart @target d)
@@ -712,7 +712,7 @@ logisticA :: forall target r n.
 logisticA d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let sh = rshape d
       y0 = recip (rrepl sh 1 + exp (- rprimalPart @target d))
-  in tlet (rfromPrimal @target y0)  -- we don't have tletPrimal
+  in tlet (rfromPrimal @target y0)
      $ \y1 -> let y = rprimalPart @target y1
               in rfromPrimal y
                  + rfromDual (rScale @target (y * (rrepl sh 1 - y))
@@ -732,7 +732,7 @@ logisticB :: forall target r n.
 logisticB d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let sh = rshape d
       y0 = recip (rrepl sh 1 + exp (- rprimalPart @target d))
-  in tlet (rfromPrimal @target y0)  -- we don't have tletPrimal
+  in tlet (rfromPrimal @target y0)
      $ \y1 -> let y = rprimalPart @target y1
               in rfromPrimal y + rfromDual (rdualPart @target d)
 

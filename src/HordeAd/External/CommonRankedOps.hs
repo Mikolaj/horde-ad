@@ -32,22 +32,24 @@ rminimum :: forall target n r.
             , KnownNat n, GoodScalar r )
          => target (TKR n r) -> target (TKR 0 r)
 rminimum t0 =
-  tlet t0 $ \t -> tlet (rminIndex (rflatten t)) $ \minIndex ->
+  tlet t0 $ \t ->
+  ttletPrimal (tprimalPart $ kfromR $ rminIndex (rflatten t)) $ \minIndex ->
     rindex0 t
     $ fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
                     (rshape t)
-                    (tprimalPart @target $ kfromR minIndex)
+                    minIndex
 
 rmaximum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
             , KnownNat n, GoodScalar r )
          => target (TKR n r) -> target (TKR 0 r)
 rmaximum t0 =
-  tlet t0 $ \t -> tlet (rmaxIndex (rflatten t)) $ \maxIndex ->
+  tlet t0 $ \t ->
+  ttletPrimal (tprimalPart $ kfromR $ rmaxIndex (rflatten t)) $ \maxIndex ->
     rindex0 t
     $ fromLinearIdx (tprimalPart @target . kconcrete . fromIntegral)
                     (rshape t)
-                    (tprimalPart @target $ kfromR maxIndex)
+                    maxIndex
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, ConvertTensor target, GoodScalar r)
@@ -262,10 +264,9 @@ maxPool2dUnpadded ksize stride arr =
       shK1 = [1, 1, ksize, ksize]
   in rbuild shOut $ \case
     [iImg, iChan, iBh, iBw] ->
-      let arrt = slicez shK1 arr [ iImg, iChan
+      rmaximum $ slicez shK1 arr [ iImg, iChan
                                  , fromIntegral stride * iBh
                                  , fromIntegral stride * iBw ]
-      in rmaximum arrt
     _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
 
 xfromIndex0 :: forall r target.
