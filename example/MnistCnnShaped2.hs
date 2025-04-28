@@ -139,7 +139,7 @@ convMnistTestS
   -> MnistDataBatchS batch_size r
   -> ADCnnMnistParametersShaped target h w kh kw c_out n_hidden r
   -> r
-convMnistTestS _ _ _ batch_size@SNat _ _ _
+convMnistTestS _ _ _ _ batch_size@SNat _ _
   | sNatValue batch_size == 0 = 0
 convMnistTestS kh@SNat kw@SNat
                c_out@SNat n_hidden@SNat batch_size@SNat

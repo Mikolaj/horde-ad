@@ -148,22 +148,21 @@ tensorADValMnistTestsCNNSA = testGroup "CNNS ADVal MNIST tests"
   , mnistTestCaseCNNSA "CNNSA artificial 5 4 3 2 1"
                        1 4 (SNat @3) (SNat @2) 1 1 1 1
                        (1 :: Double)
--- TODO: NaNs
---  , mnistTestCaseCNNSA "CNNSA 1 epoch, 0 batch"
---                       1 0 (SNat @4) (SNat @4) 64 16 5 50
---                       (1.0 :: Float)
+  , mnistTestCaseCNNSA "CNNSA 1 epoch, 0 batch"
+                       1 0 (SNat @4) (SNat @4) 64 16 5 50
+                       (1.0 :: Float)
   ]
 
 -- POPL differentiation, with Ast term defined and vectorized only once,
 -- but differentiated anew in each gradient descent iteration.
-_mnistTestCaseCNNSI
+mnistTestCaseCNNSI
   :: forall kh kw r.
      ( 1 <= kh, 1 <= kw
      , Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat kh -> SNat kw -> Int -> Int -> Int -> Int -> r
   -> TestTree
-_mnistTestCaseCNNSI prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
+mnistTestCaseCNNSI prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
                    miniBatchSizeInt totalBatchSize expected =
   withSNat c_outInt $ \(_c_outSNat :: SNat c_out) ->
   withSNat n_hiddenInt $ \(_n_hiddenSNat :: SNat n_hidden) ->
@@ -265,26 +264,24 @@ _mnistTestCaseCNNSI prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenIn
 
 tensorADValMnistTestsCNNSI :: TestTree
 tensorADValMnistTestsCNNSI = testGroup "CNNS Intermediate MNIST tests"
-  [
--- TODO: OOMS
---    mnistTestCaseCNNSI "CNNSI 1 epoch, 1 batch"
---                       1 1 (SNat @2) (SNat @2) 4 4 1 1
---                       (1 :: Double)
---  ,  mnistTestCaseCNNSI "CNNSI artificial 1 2 3 4 5"
---                       1 1 (SNat @2) (SNat @3) 4 5 1 1
---                       (1 :: Float)
---  , mnistTestCaseCNNSI "CNNSI artificial 5 4 3 2 1"
---                       1 4 (SNat @3) (SNat @2) 1 1 1 1
---                       (1 :: Double)
---  , mnistTestCaseCNNSI "CNNSI 1 epoch, 0 batch"
---                       1 0 (SNat @4) (SNat @4) 64 16 5 50
---                       (1.0 :: Float)
+  [ {-mnistTestCaseCNNSI "CNNSI 1 epoch, 1 batch"
+                       1 1 (SNat @2) (SNat @2) 4 4 1 1
+                       (1 :: Double)
+  ,  mnistTestCaseCNNSI "CNNSI artificial 1 2 3 4 5"
+                       1 1 (SNat @2) (SNat @3) 4 5 1 1
+                       (1 :: Float)
+  , mnistTestCaseCNNSI "CNNSI artificial 5 4 3 2 1"
+                       1 4 (SNat @3) (SNat @2) 1 1 1 1
+                       (1 :: Double)
+  ,-} mnistTestCaseCNNSI "CNNSI 1 epoch, 0 batch"
+                       1 0 (SNat @4) (SNat @4) 64 16 5 50
+                       (1.0 :: Float)
   ]
 
 -- JAX differentiation, Ast term built and differentiated only once
 -- and the result interpreted with different inputs in each gradient
 -- descent iteration.
-_mnistTestCaseCNNSO
+mnistTestCaseCNNSO
   :: forall kh kw r.
      ( 1 <= kh, 1 <= kw
      , Differentiable r, GoodScalar r
@@ -292,7 +289,7 @@ _mnistTestCaseCNNSO
   => String
   -> Int -> Int -> SNat kh -> SNat kw -> Int -> Int -> Int -> Int -> r
   -> TestTree
-_mnistTestCaseCNNSO prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
+mnistTestCaseCNNSO prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
                    miniBatchSizeInt totalBatchSize expected =
   withSNat c_outInt $ \(_c_outSNat :: SNat c_out) ->
   withSNat n_hiddenInt $ \(_n_hiddenSNat :: SNat n_hidden) ->
@@ -308,7 +305,8 @@ _mnistTestCaseCNNSO prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenIn
                         , show (sNatValue kh), show (sNatValue kw)
                         , show c_outInt, show n_hiddenInt
                         , show miniBatchSizeInt
-                        , show $ widthSTK $ knownSTK @(XParams kh kw c_out n_hidden r)
+                        , show $ widthSTK
+                          $ knownSTK @(XParams kh kw c_out n_hidden r)
                         , show (tsize knownSTK targetInit) ]
       ftest :: KnownNat batch_size
             => MnistDataBatchS batch_size r
@@ -344,8 +342,10 @@ _mnistTestCaseCNNSO prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenIn
            artRaw = gradArtifact f (fromTarget targetInit, dataInit)
            art = simplifyArtifactGradient artRaw
            go :: [MnistDataBatchS miniBatchSize r]
-              -> (Concrete (XParams kh kw c_out n_hidden r), StateAdam (XParams kh kw c_out n_hidden r))
-              -> (Concrete (XParams kh kw c_out n_hidden r), StateAdam (XParams kh kw c_out n_hidden r))
+              -> ( Concrete (XParams kh kw c_out n_hidden r)
+                 , StateAdam (XParams kh kw c_out n_hidden r) )
+              -> ( Concrete (XParams kh kw c_out n_hidden r)
+                 , StateAdam (XParams kh kw c_out n_hidden r) )
            go [] (parameters, stateAdam) = (parameters, stateAdam)
            go ((glyph, label) : rest) (!parameters, !stateAdam) =
              let parametersAndInput =
@@ -357,9 +357,11 @@ _mnistTestCaseCNNSO prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenIn
                            @(XParams kh kw c_out n_hidden r)
                            defaultArgsAdam stateAdam knownSTK parameters
                            gradient)
-           runBatch :: (Concrete (XParams kh kw c_out n_hidden r), StateAdam (XParams kh kw c_out n_hidden r))
+           runBatch :: ( Concrete (XParams kh kw c_out n_hidden r)
+                       , StateAdam (XParams kh kw c_out n_hidden r) )
                     -> (Int, [MnistDataS r])
-                    -> IO (Concrete (XParams kh kw c_out n_hidden r), StateAdam (XParams kh kw c_out n_hidden r))
+                    -> IO ( Concrete (XParams kh kw c_out n_hidden r)
+                          , StateAdam (XParams kh kw c_out n_hidden r) )
            runBatch (!parameters, !stateAdam) (k, chunk) = do
              let chunkS = map mkMnistDataBatchS
                           $ filter (\ch -> length ch == miniBatchSizeInt)
@@ -401,18 +403,16 @@ _mnistTestCaseCNNSO prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenIn
 
 tensorADValMnistTestsCNNSO :: TestTree
 tensorADValMnistTestsCNNSO = testGroup "CNNS Once MNIST tests"
-  [
--- TODO: OOMS
---    mnistTestCaseCNNSO "CNNSO 1 epoch, 1 batch"
---                       1 1 (SNat @2) (SNat @2) 4 4 1 1
---                       (1 :: Double)
---  , mnistTestCaseCNNSO "CNNSO artificial 1 2 3 4 5"
---                       1 1 (SNat @2) (SNat @3) 4 5 1 1
---                       (1 :: Float)
---  , mnistTestCaseCNNSO "CNNSO artificial 5 4 3 2 1"
---                       1 4 (SNat @3) (SNat @2) 1 1 1 1
---                       (1 :: Double)
---    , mnistTestCaseCNNSO "CNNSO 1 epoch, 0 batch"
---                       1 0 (SNat @4) (SNat @4) 64 16 5 50
---                       (1.0 :: Float)
+  [ {-mnistTestCaseCNNSO "CNNSO 1 epoch, 1 batch"
+                       1 1 (SNat @2) (SNat @2) 4 4 1 1
+                       (1 :: Double)
+  , mnistTestCaseCNNSO "CNNSO artificial 1 2 3 4 5"
+                       1 1 (SNat @2) (SNat @3) 4 5 1 1
+                       (1 :: Float)
+  , mnistTestCaseCNNSO "CNNSO artificial 5 4 3 2 1"
+                       1 4 (SNat @3) (SNat @2) 1 1 1 1
+                       (1 :: Double)
+  ,-} mnistTestCaseCNNSO "CNNSO 1 epoch, 0 batch"
+                       1 0 (SNat @4) (SNat @4) 64 16 5 50
+                       (1.0 :: Float)
   ]
