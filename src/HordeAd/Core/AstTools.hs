@@ -12,15 +12,18 @@ module HordeAd.Core.AstTools
   , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstSFromK, cAstSFromR, cAstSFromX
+  , setTotalSharing
   ) where
 
 import Prelude hiding (foldl')
 
 import Control.Exception.Assert.Sugar
 import Data.Int (Int64)
+import Data.IORef
 import Data.Proxy (Proxy)
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Shape
@@ -277,13 +280,29 @@ varNameInIxS var = varInIxS (varNameToAstVarId var)
 
 -- * Determining if a term requires sharing
 
+-- Turns off all but the most trivial cases of astIsSmall.
+-- For tests only. Affects all simplification and inlining taking place
+-- in parallel in the program at the time it's changed.
+unsafeTotalSharingRef :: IORef Bool
+{-# NOINLINE unsafeTotalSharingRef #-}
+unsafeTotalSharingRef = unsafePerformIO $ newIORef False
+
+setTotalSharing :: Bool -> IO ()
+setTotalSharing b = atomicWriteIORef unsafeTotalSharingRef b
+
 -- | A term requires sharing if it's too large as a term and so duplicating
 -- it could affect the performance of simplification
 -- or if it's too expensive when interpreted and so duplicating it
 -- would increase the work done at runtime.
 astIsSmall :: Bool -> AstTensor ms s y -> Bool
-astIsSmall True t = astIsSmallN 50 t > 0
-astIsSmall False t = astIsSmallN 20 t > 0
+astIsSmall _ AstVar{} = True
+astIsSmall _ AstConcreteK{} = True
+astIsSmall _ (AstConcreteS a) | sNatValue (Nested.srank a) == 0 = True
+astIsSmall lax t = unsafePerformIO $ do
+  unsafeTotalSharing <- readIORef unsafeTotalSharingRef
+  return $! if | unsafeTotalSharing -> False
+               | lax -> astIsSmallN 50 t > 0
+               | otherwise -> astIsSmallN 20 t > 0
 
 -- The cases with n <= 20 are usually good redex candidates,
 -- so we expose them, but only if they are not burried too deeply.
@@ -308,7 +327,7 @@ astIsSmallN n t0 = case t0 of
       -- executed as a metadata change, which is however not free
   AstVar{} -> n
   AstCond b u v -> astIsSmallN (astIsSmallN (astBoolIsSmallN (n - 1) b) u) v
-  AstConcreteK _ -> n  -- small term with zero interpretation cost;
+  AstConcreteK _ -> n
   AstConcreteS _ -> n  -- small term with zero interpretation cost;
                        -- the physical arrays is shared on GHC heap
 

@@ -13,7 +13,7 @@ import Prelude
 import Data.Int (Int64)
 import Data.IORef
 import Foreign.C (CInt)
-import System.IO.Unsafe
+import System.IO.Unsafe (unsafePerformIO)
 import Test.Tasty.HUnit
 import Test.Tasty.Options
 
