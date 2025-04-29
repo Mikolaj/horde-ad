@@ -1946,9 +1946,9 @@ recycled r =
 
 testRecycled1 :: Assertion
 testRecycled1 =
-  assertEqualUpToEpsilonShort 1e-6
+  assertEqualUpToEpsilon 1e-6
     (rscalar 348356.9278600814)
-    (rev' @Double @5 recycled (rscalar 0.0000001))
+    (grad (kfromR @_ @Double . rsum0 . recycled) (rscalar 0.0000001))
 
 concatBuild :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 2 r)
 concatBuild r =
@@ -2390,18 +2390,20 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   , testCase "blowupLet tbuildi" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [333.2983351701977,-222.19889011346513])
-        (grad (kfromR @_ @Double . rsum0 . (\intputs -> rbuild1 1000 (\i -> fblowupLet i 3500 intputs)))
+        (grad (kfromR @_ @Double . rsum0
+               . (\intputs -> rbuild1 1000 (\i -> fblowupLet i 3500 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupLet tbuildc" $ do
       assertEqualUpToEpsilon 1e-7
         (ringestData [2] [333.326333406717,-222.21755560448116])
-        (cgrad (kfromR @_ @Double . rsum0 . (\intputs -> rbuild1 1000 (\i -> fblowupLet i 700 intputs)))
+        (cgrad (kfromR @_ @Double . rsum0
+                . (\intputs -> rbuild1 1000 (\i -> fblowupLet i 700 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupLet prim tbuild" $ do
-      assertEqualUpToEpsilonShort 1e-7
+      assertEqualUpToEpsilon 1e-7
         (ringestData [2] [33.33263334067178,-22.221755560447928])
-        (rev' @Double @1
-              (\intputs -> rbuild1 100 (\i -> fblowupLet i 700 intputs))
+        (grad (kfromR @_ @Double . rsum0
+               . (\intputs -> rbuild1 100 (\i -> fblowupLet i 700 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupMult 3" $ do
       assertEqualUpToEpsilon' 1e-5
@@ -2418,10 +2420,10 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
         (rev' @Double @0 (fblowupMultLet 0 50)
                                    (ringestData [2] [2, 3]))
   , testCase "blowupMultLet tbuild1" $ do
-      assertEqualUpToEpsilonShort 1e-10
+      assertEqualUpToEpsilon 1e-10
         (ringestData [2] [14.9999773958889,39.9999398380561])
-        (rev' @Double @1
-              (\intputs -> rbuild1 100 (\i -> fblowupMultLet i 50 intputs))
+        (grad (kfromR @_ @Double . rsum0
+               . (\intputs -> rbuild1 100 (\i -> fblowupMultLet i 50 intputs)))
               (ringestData [2] [0.2, 0.3]))
   ]
 
