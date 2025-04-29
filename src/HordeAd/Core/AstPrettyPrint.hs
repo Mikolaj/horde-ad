@@ -56,17 +56,18 @@ printAstVarId prefix cfg var =
     Just name | name /= "" -> name
     _ -> prefix ++ show n
 
-printAstVar :: PrintConfig -> AstVarName s y -> ShowS
-printAstVar cfg var =
-  let prefix = case rankSTK (ftkToSTK $ varNameToFTK var) of
-        -1 -> "h"
-        0 -> "x"
-        1 -> "v"
-        2 -> "m"
-        3 -> "t"
-        4 -> "u"
-        _ -> "w"
-  in printAstVarId prefix cfg (varNameToAstVarId var)
+printAstVar :: forall s y. AstSpan s
+            => PrintConfig -> AstVarName s y -> ShowS
+printAstVar cfg var = case isTensorInt (Proxy @s) (varNameToFTK var) of
+  Just Refl -> printAstIntVar cfg var
+  _ -> let prefix = case rankSTK (ftkToSTK $ varNameToFTK var) of
+             0 -> "x"
+             1 -> "v"
+             2 -> "m"
+             3 -> "t"
+             4 -> "u"
+             _ -> "w"
+       in printAstVarId prefix cfg (varNameToAstVarId var)
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
 printAstIntVar cfg var = printAstVarId "i" cfg (varNameToAstVarId var)
@@ -214,8 +215,6 @@ printAst cfg d = \case
                          -- this is a lambda, but not nested, so always printed
                      . showString " "
                      . printAst cfg 11 ll
-  AstVar var | Just Refl <- isTensorInt (Proxy @s) (varNameToFTK var) ->
-    printAstIntVar cfg var
   AstVar var -> printAstVar cfg var
   AstCond b a1 a2 ->
     showParen (d > 10)
@@ -484,7 +483,7 @@ showCollectionWith start sep end showx (x:xs) s = start ++ showx x (showl xs)
   showl []     = end ++ s
   showl (y:ys) = sep ++ showx y (showl ys)
 
-printAstHFun :: AstSpan s2
+printAstHFun :: (AstSpan s, AstSpan s2)
              => PrintConfig -> Int -> AstHFun s s2 x y -> ShowS
 printAstHFun cfg d = \case
   AstLambda var l ->
@@ -502,7 +501,7 @@ printAstHFun cfg d = \case
            . showString " -> "
            . printAst cfg 0 l
 
-printAstHFunOneUnignore :: AstSpan s2
+printAstHFunOneUnignore :: (AstSpan s, AstSpan s2)
                         => PrintConfig -> Int -> AstHFun s s2 x y -> ShowS
 printAstHFunOneUnignore cfg d = \case
   AstLambda var l ->

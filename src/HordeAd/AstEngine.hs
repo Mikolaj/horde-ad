@@ -69,12 +69,13 @@ simplifyInlineContract =
 
 -- * Pretty-printing terms in a few useful configurations
 
-printAstVarRename :: IntMap String -> AstVarName s y -> String
+printAstVarRename :: AstSpan s
+                  => IntMap String -> AstVarName s y -> String
 printAstVarRename renames var =
   printAstVar (defaulPrintConfig {varRenames = renames}) var ""
 
 printAstSimpleRename :: AstSpan s
-                 => IntMap String -> AstTensor ms s y -> String
+                     => IntMap String -> AstTensor ms s y -> String
 printAstSimpleRename renames t =
   printAst
     (defaulPrintConfig {loseRoudtrip = False, varRenames = renames}) 0 t ""
@@ -84,7 +85,8 @@ printAstPrettyRename :: AstSpan s
 printAstPrettyRename renames t =
   printAst (defaulPrintConfig {varRenames = renames}) 0 t ""
 
-printAstVarName :: AstVarName s y -> String
+printAstVarName :: AstSpan s
+                => AstVarName s y -> String
 printAstVarName var =
   printAstVar defaulPrintConfig var ""
 
