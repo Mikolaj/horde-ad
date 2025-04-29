@@ -1,4 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Tests of the gather and scatter operations and of operations that expand
 -- to gather and of fusion of all of them.
 module TestGatherSimplified (testTrees) where
@@ -7,10 +9,11 @@ import Prelude
 
 import Data.Int (Int64)
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat)
+import GHC.TypeLits (Div, KnownNat, type (<=))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
+import Data.Array.Mixed.Shape
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Shape
 
@@ -19,6 +22,7 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.CarriersAst
+import HordeAd.Core.Ops
 
 import CrossTesting
 
@@ -112,6 +116,7 @@ testTrees =
   , testCase "sminimizedCNNOPP6b" testCNNOPP6b
   , testCase "sminimizedCNNOPP7" testCNNOPP7
   , testCase "sminimizedCNNOPP7b" testCNNOPP7b
+  , testCase "minimizedCNNOPP4bU" testCNNOPP4bU
   ]
 
 
@@ -1549,3 +1554,48 @@ conv2dUnpadded3y arrA =
       let arrAt = slicez3 shB arrA [iImg, iImg, iImg, iBh]
       in rindex0 arrAt [iBh, iBw, iImg, iBh]
     _ -> error "conv2dUnpadded: impossible pattern needlessly required"
+
+-- This test uses a disastrous version of smaximum, but shows how
+-- smaxIndex gets non-trivially vectorized, preserving sharing, too.
+testCNNOPP4bU :: Assertion
+testCNNOPP4bU = do
+  resetVarCounter
+  let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpaddedS4 @4 @2) (FTKS (SNat @31 :$$ SNat @31 :$$ SNat @31 :$$ SNat @31 :$$ ZSS) (FTKScalar @Double))
+  printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\u1 -> let w57 = stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather u1 (\\[i49, i50] -> [i49 + i50]))) (\\[i51, i52] -> [i51 + i52]))) (\\[i53, i54] -> [2 * i53 + i54]))) (\\[i55, i56] -> [2 * i55 + i56])) ; u58 = smaxIndex (sreshape @[31,31,15,15,16] w57) in sgather (stranspose @[4,3,2,1,0] (stranspose @[4,3,2,1,0] w57 !$ [0]) !$ [0]) (\\[i59, i60, i61, i62] -> [i59, i60, i61, i62, remH (quotH (kfromS (u58 !$ [i59, i60, i61, i62])) 4) 4, remH (kfromS (u58 !$ [i59, i60, i61, i62])) 4])"
+  printArtifactPrimalPretty artifactRev
+    @?= "\\u1 -> let w57 = stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather u1 (\\[i49, i50] -> [i49 + i50]))) (\\[i51, i52] -> [i51 + i52]))) (\\[i53, i54] -> [2 * i53 + i54]))) (\\[i55, i56] -> [2 * i55 + i56])) ; u58 = smaxIndex (sreshape @[31,31,15,15,16] w57) in sgather (stranspose @[4,5,3,2,1,0] w57 !$ [0, 0]) (\\[i59, i60, i61, i62] -> [i62, i61, i60, i59, remH (quotH (kfromS (u58 !$ [i59, i60, i61, i62])) 4) 4, remH (kfromS (u58 !$ [i59, i60, i61, i62])) 4])"
+  printArtifactPretty artifactRev
+    @?= "\\dret u1 -> let w57 = stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather u1 (\\[i49, i50] -> [i49 + i50]))) (\\[i51, i52] -> [i51 + i52]))) (\\[i53, i54] -> [2 * i53 + i54]))) (\\[i55, i56] -> [2 * i55 + i56])) ; u58 = smaxIndex (sreshape @[31,31,15,15,16] w57) in sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[3,7,0,1,2,4,5,6] (stranspose @[5,4,3,2,0,1] (soneHot (sscatter dret (\\[i64, i65, i66, i67] -> [i67, i66, i65, i64, remH (quotH (kfromS (u58 !$ [i64, i65, i66, i67])) 4) 4, remH (kfromS (u58 !$ [i64, i65, i66, i67])) 4])) [0, 0]))) (\\[i68, i69] -> [2 * i68 + i69]))) (\\[i70, i71] -> [2 * i70 + i71]))) (\\[i72, i73] -> [i72 + i73]))) (\\[i74, i75] -> [i74 + i75])"
+  printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\dret u1 -> let u58 = smaxIndex (sreshape @[31,31,15,15,16] (stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather u1 (\\[i49, i50] -> [i49 + i50]))) (\\[i51, i52] -> [i51 + i52]))) (\\[i53, i54] -> [2 * i53 + i54]))) (\\[i55, i56] -> [2 * i55 + i56])))) in sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[2,7,5,4,3,0,1,6] (sreplicate @1 (sreplicate @1 (sscatter dret (\\[i64, i65, i66, i67] -> [i67, i66, i65, i64, remH (quotH (kfromS (u58 !$ [i64, i65, i66, i67])) 4) 4, remH (kfromS (u58 !$ [i64, i65, i66, i67])) 4]))))) (\\[i68, i69] -> [2 * i68 + i69]))) (\\[i70, i71] -> [2 * i70 + i71]))) (\\[i72, i73] -> [i72 + i73]))) (\\[i74, i75] -> [i74 + i75])"
+
+smaximum4 :: forall r sh target. (ADReady target, GoodScalar r, KnownShS sh)
+          => target (TKS sh r) -> target (TKS '[] r)
+smaximum4 t0 =
+  tlet t0 $ \t ->
+  ttletPrimal (tprimalPart $ kfromS $ smaxIndex (sflatten t)) $ \maxIndex ->
+    sindex0 t
+    $ fromLinearIdxS (tprimalPart @target . kconcrete . fromIntegral)
+                     (sshape t)
+                     maxIndex
+
+maxPool2dUnpaddedS4
+  :: forall ksize stride batch_size channels h w target r shOut shK1.
+     ( KnownNat ksize, KnownNat stride, KnownNat batch_size, KnownNat channels
+     , KnownNat h, KnownNat w
+     , 1 <= stride  -- wrongly reported as redundant due to plugins
+     , ADReady target, GoodScalar r
+     , shOut ~ '[batch_size, channels, h `Div` stride, w `Div` stride]
+     , shK1 ~ '[1, 1, ksize, ksize]
+     )
+  => target (TKS '[batch_size, channels, h, w] r)
+  -> target (TKS shOut r)
+maxPool2dUnpaddedS4 arr =
+  let stride = valueOf @stride :: Int
+  in sbuild @(Rank shOut) $ \case
+    [iImg, iChan, iBh, iBw] ->
+      smaximum4 $ slicezS @shK1 arr [ iImg, iChan
+                                    , fromIntegral stride * iBh
+                                    , fromIntegral stride * iBw ]
+    _ -> error "maxPool2dUnpaddedS4: impossible pattern needlessly required"
