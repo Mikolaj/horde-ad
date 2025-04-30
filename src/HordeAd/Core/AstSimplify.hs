@@ -1493,7 +1493,7 @@ shareIx ix f = unsafePerformIO $ do
              -> IO ( Maybe (IntVarName, AstInt AstMethodLet)
                    , AstInt AstMethodLet )
       shareI (i, _) | astIsSmall True i = return (Nothing, i)
-      shareI (i, bound) = funToAstIntVarIO (Just (0, fromIntegral bound))
+      shareI (i, width) = funToAstIntVarIO (Just (0, fromIntegral width - 1))
                           $ \ (!varFresh, !astVarFresh) ->
                               (Just (varFresh, i), astVarFresh)
   (bindings, ix2) <- mapAndUnzipM shareI
