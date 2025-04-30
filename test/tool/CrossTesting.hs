@@ -10,6 +10,7 @@ import Prelude
 
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
+import System.IO.Unsafe (unsafePerformIO)
 import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested.Internal.Shape
@@ -27,6 +28,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
@@ -62,12 +64,39 @@ rev' :: forall r m n v a w.
         , a ~ Concrete (ADTensorKind (TKR n r)) )
      => (forall f. ADReady f => f (TKR n r) -> f (TKR m r))
      -> Concrete (TKR n r)
-     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-        , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
-        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
-        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-        , Concrete (TKR n r), w, w, w )
-rev' f !vals =
+     -> ( ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
+          , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
+          , v, v, v, v, v, v, v, v, v, v, v, v, v, v
+          , a, a, a, a, a, a, a, a, a, a, a, a, a, a
+          , Concrete (TKR n r), w, w, w )
+        , ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
+          , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
+          , v, v, v, v, v, v, v, v, v, v, v, v, v, v
+          , a, a, a, a, a, a, a, a, a, a, a, a, a, a
+          , Concrete (TKR n r), w, w, w ) )
+{-# NOINLINE rev' #-}
+rev' f vals = unsafePerformIO $ do
+  setTotalSharing False
+  !resNormalSharing <- rev1 f vals
+  setTotalSharing True
+  !resTotalSharing <- rev1 f vals
+  setTotalSharing False
+  return (resNormalSharing, resTotalSharing)
+
+rev1 :: forall r m n v a w.
+        ( KnownNat m, KnownNat n, GoodScalar r
+        , v ~ Concrete (TKR m r)
+        , w ~ Concrete (ADTensorKind (TKR m r))
+        , a ~ Concrete (ADTensorKind (TKR n r)) )
+     => (forall f. ADReady f => f (TKR n r) -> f (TKR m r))
+     -> Concrete (TKR n r)
+     -> IO ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
+           , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
+           , v, v, v, v, v, v, v, v, v, v, v, v, v, v
+           , a, a, a, a, a, a, a, a, a, a, a, a, a, a
+           , Concrete (TKR n r), w, w, w )
+{-# NOINLINE rev1 #-}
+rev1 f !vals = do
   let !value0 = f vals
       ftk = tftk knownSTK vals
       g :: ADVal Concrete (TKR n r)
@@ -208,24 +237,50 @@ rev' f !vals =
       !derivative = jvp f vals vals
       !derivativeRfwd1 = rfwd1ds @Concrete @r @n @m @r f vals
                          $ toADTensorKindShared ftk vals
-  in ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
-     , value4, value5
-     , gradient1, gradientRrev1, gradient2, gradient3
-     , gradient2UnSimp, gradientRrev2UnSimp
-     , gradient3UnSimp, gradientRrev3UnSimp
-     , gradient4, gradientRrev4, gradient5, gradientRrev5
-     , astVectSimp, astSimp
-     , value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
-     , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
-     , value4Ast, value4AstS, value5Ast, value5AstS
-     , gradient9, gradient2Ast, gradient2AstS, gradient2AstST
-     , gradient3Ast, gradient3AstS
-     , gradient2AstUnSimp, gradient2AstSUnSimp
-     , gradient3AstUnSimp, gradient3AstSUnSimp
-     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
-     , vals, cderivative, derivative, derivativeRfwd1 )
+  return
+    ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
+    , value4, value5
+    , gradient1, gradientRrev1, gradient2, gradient3
+    , gradient2UnSimp, gradientRrev2UnSimp
+    , gradient3UnSimp, gradientRrev3UnSimp
+    , gradient4, gradientRrev4, gradient5, gradientRrev5
+    , astVectSimp, astSimp
+    , value9, value2Ast, value2AstS, value2AstST, value3Ast, value3AstS
+    , value2AstUnSimp, value2AstSUnSimp, value3AstUnSimp, value3AstSUnSimp
+    , value4Ast, value4AstS, value5Ast, value5AstS
+    , gradient9, gradient2Ast, gradient2AstS, gradient2AstST
+    , gradient3Ast, gradient3AstS
+    , gradient2AstUnSimp, gradient2AstSUnSimp
+    , gradient3AstUnSimp, gradient3AstSUnSimp
+    , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
+    , vals, cderivative, derivative, derivativeRfwd1 )
 
 assertEqualUpToEpsilon'
+    :: ( KnownNat n, KnownNat m
+       , v ~ Concrete (TKR m r)
+       , w ~ Concrete (ADTensorKind (TKR m r))
+       , a ~ Concrete (ADTensorKind (TKR n r))
+       , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
+       , AssertEqualUpToEpsilon (ADTensorScalar r)
+       , GoodScalar r, GoodScalar (ADTensorScalar r), HasCallStack)
+    => Rational  -- ^ error margin (i.e., the epsilon)
+    -> Concrete (TKR n r)  -- ^ expected reverse derivative value
+    -> ( ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
+         , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
+         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
+         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
+         , Concrete (TKR n r), w, w, w )
+       ,  ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
+         , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
+         , v, v, v, v, v, v, v, v, v, v, v, v, v, v
+         , a, a, a, a, a, a, a, a, a, a, a, a, a, a
+         , Concrete (TKR n r), w, w, w ) )
+    -> Assertion
+assertEqualUpToEpsilon' errMargin expected' (tup1, tup2) = do
+  assertEqualUpToEpsilon1 errMargin expected' tup1
+  assertEqualUpToEpsilon1 errMargin expected' tup2
+
+assertEqualUpToEpsilon1
     :: ( KnownNat n, KnownNat m
        , v ~ Concrete (TKR m r)
        , w ~ Concrete (ADTensorKind (TKR m r))
@@ -242,7 +297,7 @@ assertEqualUpToEpsilon'
        , Concrete (TKR n r), w, w, w )
          -- ^ actual values
     -> Assertion
-assertEqualUpToEpsilon'
+assertEqualUpToEpsilon1
     errMargin expected'
     ( value0, value1, value2, value3, value2UnSimp, value3UnSimp
     , value4, value5
