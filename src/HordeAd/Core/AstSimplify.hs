@@ -209,8 +209,10 @@ astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
         asts i = fromLinearIdxS fromInt shIn i
     in gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
        gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
-       astLetFunB iUnshared $ \i ->
-         astGatherKnobsS @sh2 @'[] @sh knobs ZSS v (vars, asts i)
+-- This can't be done, because i depends on vars:
+--     astLetFunB iUnshared $ \i ->
+       let i = iUnshared  -- sharing broken
+       in astGatherKnobsS @sh2 @'[] @sh knobs ZSS v (vars, asts i)
 
 
 -- * The simplifying combinators, one for almost each AST constructor
