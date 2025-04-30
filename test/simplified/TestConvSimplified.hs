@@ -19,6 +19,9 @@ import Data.Array.Nested.Internal.Shape
 import HordeAd
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (resetVarCounter)
+import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstTools
+import HordeAd.Core.Ops
 import HordeAd.Core.OpsAst
 
 import CrossTesting
@@ -150,6 +153,7 @@ testTrees =
   , testCase "minimizedCNNOPP0bU" testCNNOPP0bU
   , testCase "minimizedCNNOPP1bU" testCNNOPP1bU
   , testCase "minimizedCNNOPP4bU" testCNNOPP4bU
+  , testCase "minimizedCNNOPP4bT" testCNNOPP4bT
   , testCase "minimizedCNNOPP5aU" testCNNOPP5aU
   , testCase "minimizedCNNOPP5bU" testCNNOPP5bU
   , testCase "minimizedCNNOPP5cU" testCNNOPP5cU
@@ -1834,18 +1838,55 @@ testCNNOPP1bU = do
 testCNNOPP4bU :: Assertion
 testCNNOPP4bU = do
   resetVarCounter
-  let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded 4 2) (FTKR [31, 31, 31, 31] (FTKScalar @Double))
+  let !artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded 4 2) (FTKR [7, 7, 7, 7] (FTKScalar @Double))
+      !artSimp = simplifyArtifact artifactRev
+  let ftk1 = FTKR (7 :$: 7 :$: 7 :$: 7 :$: ZSR) (FTKScalar @Double)
+      ftkDt = FTKR (7 :$: 7 :$: 3 :$: 3 :$: ZSR) (FTKScalar @Double)
+      env = extendEnv (artVarDtRev artSimp)
+                      (tconcrete ftkDt (treplTarget 7 ftkDt))
+            $ extendEnv (artVarDomainRev artSimp)
+                        (tconcrete ftk1 (treplTarget 42 ftk1)) emptyEnv
+  interpretAstPrimal @Concrete env (artPrimalRev artifactRev)
+    @?= interpretAstPrimal @Concrete env (artPrimalRev artSimp)
+  interpretAstPrimal @Concrete env (artDerivativeRev artifactRev)
+    @?= interpretAstPrimal @Concrete env (artDerivativeRev artSimp)
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u1 -> rfromS (let w42 = sreshape @[31,31,15,15,16] (stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i34, i35] -> [i34 + i35]))) (\\[i36, i37] -> [i36 + i37]))) (\\[i38, i39] -> [2 * i38 + i39]))) (\\[i40, i41] -> [2 * i40 + i41]))) in sgather w42 (\\[i43, i44, i45, i46] -> [i43, i44, i45, i46, kfromS (smaxIndex (w42 !$ [i43, i44, i45, i46]))]))"
+    @?= "\\u1 -> rfromS (let w42 = sreshape @[7,7,3,3,16] (stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i34, i35] -> [i34 + i35]))) (\\[i36, i37] -> [i36 + i37]))) (\\[i38, i39] -> [2 * i38 + i39]))) (\\[i40, i41] -> [2 * i40 + i41]))) in sgather w42 (\\[i43, i44, i45, i46] -> [i43, i44, i45, i46, kfromS (smaxIndex (w42 !$ [i43, i44, i45, i46]))]))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> let w42 = sreshape @[31,31,15,15,16] (stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i34, i35] -> [i34 + i35]))) (\\[i36, i37] -> [i36 + i37]))) (\\[i38, i39] -> [2 * i38 + i39]))) (\\[i40, i41] -> [2 * i40 + i41]))) in rfromS (sgather w42 (\\[i43, i44, i45, i46] -> [i43, i44, i45, i46, kfromS (smaxIndex (w42 !$ [i43, i44, i45, i46]))]))"
+    @?= "\\u1 -> let w42 = sreshape @[7,7,3,3,16] (stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i34, i35] -> [i34 + i35]))) (\\[i36, i37] -> [i36 + i37]))) (\\[i38, i39] -> [2 * i38 + i39]))) (\\[i40, i41] -> [2 * i40 + i41]))) in rfromS (sgather w42 (\\[i43, i44, i45, i46] -> [i43, i44, i45, i46, kfromS (smaxIndex (w42 !$ [i43, i44, i45, i46]))]))"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> let w42 = sreshape @[31,31,15,15,16] (stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i34, i35] -> [i34 + i35]))) (\\[i36, i37] -> [i36 + i37]))) (\\[i38, i39] -> [2 * i38 + i39]))) (\\[i40, i41] -> [2 * i40 + i41]))) in rfromS (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[3,7,0,1,2,4,5,6] (sreshape @[31,31,15,15,1,1,4,4] (sscatter (sfromR dret) (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kfromS (smaxIndex (w42 !$ [i48, i49, i50, i51]))])))) (\\[i52, i53] -> [2 * i52 + i53]))) (\\[i54, i55] -> [2 * i54 + i55]))) (\\[i56, i57] -> [i56 + i57]))) (\\[i58, i59] -> [i58 + i59]))"
+    @?= "\\dret u1 -> let w42 = sreshape @[7,7,3,3,16] (stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i34, i35] -> [i34 + i35]))) (\\[i36, i37] -> [i36 + i37]))) (\\[i38, i39] -> [2 * i38 + i39]))) (\\[i40, i41] -> [2 * i40 + i41]))) in rfromS (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[3,7,0,1,2,4,5,6] (sreshape @[7,7,3,3,1,1,4,4] (sscatter (sfromR dret) (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kfromS (smaxIndex (w42 !$ [i48, i49, i50, i51]))])))) (\\[i52, i53] -> [2 * i52 + i53]))) (\\[i54, i55] -> [2 * i54 + i55]))) (\\[i56, i57] -> [i56 + i57]))) (\\[i58, i59] -> [i58 + i59]))"
   -- The remH comes from the indexing of reshape rule and it looks terrible,
   -- but w42 looks even worse, depending on available primitives,
   -- so the rule is probably fine.
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> rfromS (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[3,7,0,1,2,4,5,6] (sreshape @[31,31,15,15,1,1,4,4] (sscatter (sfromR dret) (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kfromS (smaxIndex (sgather (sfromR u1) (\\[i69] -> [remH (quotH ((((111600 * i48 + 3600 * i49) + 240 * i50) + 16 * i51) + i69) 111600) 31, remH (quotH ((((111600 * i48 + 3600 * i49) + 240 * i50) + 16 * i51) + i69) 3600) 31, 2 * remH (quotH ((((111600 * i48 + 3600 * i49) + 240 * i50) + 16 * i51) + i69) 240) 15 + remH (quotH ((((111600 * i48 + 3600 * i49) + 240 * i50) + 16 * i51) + i69) 4) 4, 2 * remH (quotH ((((111600 * i48 + 3600 * i49) + 240 * i50) + 16 * i51) + i69) 16) 15 + remH ((((111600 * i48 + 3600 * i49) + 240 * i50) + 16 * i51) + i69) 4])))])))) (\\[i52, i53] -> [2 * i52 + i53]))) (\\[i54, i55] -> [2 * i54 + i55]))) (\\[i56, i57] -> [i56 + i57]))) (\\[i58, i59] -> [i58 + i59]))"
+    @?= "\\dret u1 -> rfromS (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[3,7,0,1,2,4,5,6] (sreshape @[7,7,3,3,1,1,4,4] (sscatter (sfromR dret) (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kfromS (smaxIndex (sgather (sfromR u1) (\\[i74] -> [remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i74) 1008) 7, remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i74) 144) 7, 2 * remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i74) 48) 3 + remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i74) 4) 4, 2 * remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i74) 16) 3 + remH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i74) 4])))])))) (\\[i52, i53] -> [2 * i52 + i53]))) (\\[i54, i55] -> [2 * i54 + i55]))) (\\[i56, i57] -> [i56 + i57]))) (\\[i58, i59] -> [i58 + i59]))"
+
+testCNNOPP4bT :: Assertion
+testCNNOPP4bT = do
+  resetVarCounter
+  setTotalSharing True
+  let !artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded 4 2) (FTKR [7, 7, 7, 7] (FTKScalar @Double))
+      !artSimp = simplifyArtifact artifactRev
+  setTotalSharing False
+  let ftk1 = FTKR (7 :$: 7 :$: 7 :$: 7 :$: ZSR) (FTKScalar @Double)
+      ftkDt = FTKR (7 :$: 7 :$: 3 :$: 3 :$: ZSR) (FTKScalar @Double)
+      env = extendEnv (artVarDtRev artSimp)
+                      (tconcrete ftkDt (treplTarget 7 ftkDt))
+            $ extendEnv (artVarDomainRev artSimp)
+                        (tconcrete ftk1 (treplTarget 42 ftk1)) emptyEnv
+  interpretAstPrimal @Concrete env (artPrimalRev artifactRev)
+    @?= interpretAstPrimal @Concrete env (artPrimalRev artSimp)
+  interpretAstPrimal @Concrete env (artDerivativeRev artifactRev)
+    @?= interpretAstPrimal @Concrete env (artDerivativeRev artSimp)
+  printArtifactPrimalPretty artSimp
+    @?= "\\u1 -> rfromS (let w42 = sreshape @[7,7,3,3,16] (stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i34, i35] -> [i34 + i35]))) (\\[i36, i37] -> [i36 + i37]))) (\\[i38, i39] -> [2 * i38 + i39]))) (\\[i40, i41] -> [2 * i40 + i41]))) in sgather w42 (\\[i43, i44, i45, i46] -> [i43, i44, i45, i46, kfromS (smaxIndex (w42 !$ [i43, i44, i45, i46]))]))"
+  printArtifactPrimalPretty artifactRev
+    @?= "\\u1 -> let w42 = sreshape @[7,7,3,3,16] (stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i34, i35] -> [i34 + i35]))) (\\[i36, i37] -> [i36 + i37]))) (\\[i38, i39] -> [2 * i38 + i39]))) (\\[i40, i41] -> [2 * i40 + i41]))) in rfromS (sgather w42 (\\[i43, i44, i45, i46] -> [i43, i44, i45, i46, kfromS (smaxIndex (w42 !$ [i43, i44, i45, i46]))]))"
+  printArtifactPretty artifactRev
+    @?= "\\dret u1 -> let w42 = sreshape @[7,7,3,3,16] (stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i34, i35] -> [i34 + i35]))) (\\[i36, i37] -> [i36 + i37]))) (\\[i38, i39] -> [2 * i38 + i39]))) (\\[i40, i41] -> [2 * i40 + i41]))) in rfromS (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[3,7,0,1,2,4,5,6] (sreshape @[7,7,3,3,1,1,4,4] (sscatter (sfromR dret) (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kfromS (smaxIndex (w42 !$ [i48, i49, i50, i51]))])))) (\\[i52, i53] -> [2 * i52 + i53]))) (\\[i54, i55] -> [2 * i54 + i55]))) (\\[i56, i57] -> [i56 + i57]))) (\\[i58, i59] -> [i58 + i59]))"
+  printArtifactPretty artSimp
+    @?= "\\dret u1 -> rfromS (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[3,7,0,1,2,4,5,6] (sreshape @[7,7,3,3,1,1,4,4] (sscatter (sfromR dret) (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kfromS (smaxIndex (sgather (sfromR u1) (\\[i64] -> [remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i64) 1008) 7, remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i64) 144) 7, 2 * remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i64) 48) 3 + remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i64) 4) 4, 2 * remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i64) 16) 3 + remH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i64) 4])))])))) (\\[i52, i53] -> [2 * i52 + i53]))) (\\[i54, i55] -> [2 * i54 + i55]))) (\\[i56, i57] -> [i56 + i57]))) (\\[i58, i59] -> [i58 + i59]))"
 
 testCNNOPP5aU :: Assertion
 testCNNOPP5aU = do
