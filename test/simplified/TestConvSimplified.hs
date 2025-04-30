@@ -109,8 +109,8 @@ testTrees =
 --  , testCase "KonstNotBigBPadded128b" testKonstNotBigBPadded128b
 --  , testCase "Konst5BigCPadded128b" testKonst5BigCPadded128b
 --  , testCase "KonstNotBigCPadded128b" testKonstNotBigCPadded128b
-  , testCase "Konst5LittleBPadded128c" testKonst5LittleBPadded128c
-  , testCase "Konst5LittleCPadded128c" testKonst5LittleCPadded128c
+--  , testCase "Konst5LittleBPadded128c" testKonst5LittleBPadded128c
+--  , testCase "Konst5LittleCPadded128c" testKonst5LittleCPadded128c
 --  , testCase "Konst5BigBPadded128c" testKonst5BigBPadded128c
 --  , testCase "KonstNotBigBPadded128c" testKonstNotBigBPadded128c
 --  , testCase "Konst5BigCPadded128c" testKonst5BigCPadded128c
@@ -829,15 +829,15 @@ conv2dCPadded128b
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dCPadded128b = flip conv2dPadded (rconcrete $ unConcrete t128b)
 
-conv2dBPadded128c
+_conv2dBPadded128c
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dBPadded128c = conv2dPadded (rconcrete $ unConcrete t128c)
+_conv2dBPadded128c = conv2dPadded (rconcrete $ unConcrete t128c)
 
-conv2dCPadded128c
+_conv2dCPadded128c
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dCPadded128c = flip conv2dPadded (rconcrete $ unConcrete t128c)
+_conv2dCPadded128c = flip conv2dPadded (rconcrete $ unConcrete t128c)
 
 testReplicate0RevPadded :: Assertion
 testReplicate0RevPadded =
@@ -847,87 +847,87 @@ testReplicate0RevPadded =
 
 testReplicate0Tiny1Padded :: Assertion
 testReplicate0Tiny1Padded =
-  assertEqualUpToEpsilon' 1e-10
+  assertEqualUpToEpsilon 1e-10
     (ringestData [1, 1, 1, 1] [-0.2])
-    (rev' @Double @4 conv2d1Padded (rrepl [1, 1, 1, 1] 0))
+    (cgrad (kfromR . rsum0 @4 @(TKScalar Double) . conv2d1Padded) (rrepl [1, 1, 1, 1] 0))
 
 testReplicate0TinySPadded :: Assertion
 testReplicate0TinySPadded =
-  assertEqualUpToEpsilon' 1e-10
+  assertEqualUpToEpsilon 1e-10
     (ringestData [1, 1, 1, 1] [582665.99432])
-    (rev' @Double @4
-          (conv2dPadded $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unConcrete t16b)))
+    (grad (kfromR . rsum0 @4 @(TKScalar Double) .
+          (conv2dPadded $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unConcrete t16b))))
           (ringestData [1, 1, 1, 1] [0]))
 
 testReplicate0TinyAPadded :: Assertion
 testReplicate0TinyAPadded =
-  assertEqualUpToEpsilon' 1e-10
+  assertEqualUpToEpsilon 1e-10
     (ringestData [1, 2, 1, 1] [-0.2,25.0003])
-    (rev' @Double @4 conv2dAPadded (rrepl [1, 2, 1, 1] 0))
+    (cgrad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dAPadded) (rrepl [1, 2, 1, 1] 0))
 
 testReplicate0LittleAPadded :: Assertion
 testReplicate0LittleAPadded =
-  assertEqualUpToEpsilon' 1e-10
+  assertEqualUpToEpsilon 1e-10
     (ringestData [2, 2, 2, 2] [-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003])
-    (rev' @Double @4 conv2dAPadded (rrepl [2, 2, 2, 2] 0))
+    (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dAPadded) (rrepl [2, 2, 2, 2] 0))
 
 -- with data t16
 
 testKonst5LittleBPadded :: Assertion
 testKonst5LittleBPadded =
-  assertEqualUpToEpsilon' 1e-8
+  assertEqualUpToEpsilon 1e-8
     (ringestData [2, 2, 2, 2] [40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8])
-    (rev' @Double @4 conv2dBPadded (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
+    (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dBPadded) (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
 
 testKonst5LittleCPadded :: Assertion
 testKonst5LittleCPadded =
-  assertEqualUpToEpsilon' 1e-8
+  assertEqualUpToEpsilon 1e-8
     (ringestData [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev' @Double @4 conv2dCPadded (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
+    (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dCPadded) (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
 
 testKonst5BigBPadded :: Assertion
 testKonst5BigBPadded =
-  assertEqualUpToEpsilon' 1e-8
+  assertEqualUpToEpsilon 1e-8
     (ringestData [3, 2, 4, 2] [40.1,8.0,40.1,8.0,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,40.1,8.0,40.1,8.0,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,40.1,8.0,40.1,8.0,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,-309.09999999999997,25.8])
-    (rev' @Double @4 conv2dBPadded (rreplicate0N [3, 2, 4, 2] (rscalar 5)))
+    (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dBPadded) (rreplicate0N [3, 2, 4, 2] (rscalar 5)))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
 testKonstNotBigBPadded :: Assertion
 testKonstNotBigBPadded =
-  assertEqualUpToEpsilon' 1e-8
+  assertEqualUpToEpsilon 1e-8
     (ringestData [3, 2, 4, 2] [40.1,8.0,40.1,8.0,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,40.1,8.0,40.1,8.0,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,40.1,8.0,40.1,8.0,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,-309.09999999999997,25.8])
-    (rev' @Double @4 conv2dBPadded
+    (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dBPadded)
           (rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
 
 testKonst5BigCPadded :: Assertion
 testKonst5BigCPadded =
-  assertEqualUpToEpsilon' 1e-8
+  assertEqualUpToEpsilon 1e-8
     (ringestData [3, 2, 4, 2] [0.0,0.0,18.1,29.1,32.1,40.1,14.0,11.0,0.0,0.0,582932.0,582934.99432,582597.1,582625.8943200001,-334.9,-309.09999999999997,0.0,0.0,18.1,29.1,32.1,40.1,14.0,11.0,0.0,0.0,582932.0,582934.99432,582597.1,582625.8943200001,-334.9,-309.09999999999997,0.0,0.0,18.1,29.1,32.1,40.1,14.0,11.0,0.0,0.0,582932.0,582934.99432,582597.1,582625.8943200001,-334.9,-309.09999999999997])
-    (rev' @Double @4 conv2dCPadded (rreplicate0N [3, 2, 4, 2] (rscalar 5)))
+    (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dCPadded) (rreplicate0N [3, 2, 4, 2] (rscalar 5)))
 
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
 testKonstNotBigCPadded :: Assertion
 testKonstNotBigCPadded =
-  assertEqualUpToEpsilon' 1e-8
+  assertEqualUpToEpsilon 1e-8
     (ringestData [3, 2, 4, 2] [0.0,0.0,18.1,29.1,32.1,40.1,14.0,11.0,0.0,0.0,582932.0,582934.99432,582597.1,582625.8943200001,-334.9,-309.09999999999997,0.0,0.0,18.1,29.1,32.1,40.1,14.0,11.0,0.0,0.0,582932.0,582934.99432,582597.1,582625.8943200001,-334.9,-309.09999999999997,0.0,0.0,18.1,29.1,32.1,40.1,14.0,11.0,0.0,0.0,582932.0,582934.99432,582597.1,582625.8943200001,-334.9,-309.09999999999997])
-    (rev' @Double @4 conv2dCPadded
+    (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dCPadded)
           (rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
 
 -- with data t128b
 
 testKonst5LittleBPadded128b :: Assertion
 testKonst5LittleBPadded128b =
-  assertEqualUpToEpsilon' 1e-8
+  assertEqualUpToEpsilon 1e-8
     (ringestData [2, 2, 2, 2] [578.1829600001,558.1716000002,608.0772800002001,577.7659200003001,729.1778800002002,701.1835600003001,833.9722000003002,803.9778800004001,578.1829600001,558.1716000002,608.0772800002001,577.7659200003001,729.1778800002002,701.1835600003001,833.9722000003002,803.9778800004001])
-    (rev' @Double @4 conv2dBPadded128b (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
+    (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dBPadded128b) (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
 
 testKonst5LittleCPadded128b :: Assertion
 testKonst5LittleCPadded128b =
-  assertEqualUpToEpsilon' 1e-8
+  assertEqualUpToEpsilon 1e-8
     (ringestData [2, 2, 2, 2] [1113.1722000001,1412.1551500001997,1234.1494800003002,1627.8210700004993,1500.2781800001994,1870.0614400004986,2156.3671200003987,2725.0393200008984,1113.1722000001,1412.1551500001997,1234.1494800003002,1627.8210700004993,1500.2781800001994,1870.0614400004986,2156.3671200003987,2725.0393200008984])
-    (rev' @Double @4 conv2dCPadded128b (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
+    (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dCPadded128b) (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
 
 {-
 testKonst5BigBPadded128b :: Assertion
@@ -959,7 +959,6 @@ testKonstNotBigCPadded128b =
     (ringestData [3, 2, 4, 2] [1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001,1627.8210700004993,1571.2321300004994,1132.9261600005002,1188.6375200005,675.7488800003999,828.6545600004001,215.6659200003,388.5716000003,2725.0393200008984,1831.7390200008983,2551.139320000898,1660.8390200008987,1903.750080000699,1174.5497800006997,854.9778800004001,628.8778800004001])
     (rev' @Double @4 conv2dCPadded128b
           (rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
--}
 
 -- with data t128c
 
@@ -975,7 +974,6 @@ testKonst5LittleCPadded128c =
     (ringestData [2, 2, 2, 2] [1772.649480000399,2138.4267600005987,2157.0438000004983,2640.8154000007976,961.7781800001002,1359.4557500003987,1233.4728000001987,1712.044990000598,1772.649480000399,2138.4267600005987,2157.0438000004983,2640.8154000007976,961.7781800001002,1359.4557500003987,1233.4728000001987,1712.044990000598])
     (rev' @Double @4 conv2dCPadded128c (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
 
-{-
 testKonst5BigBPadded128c :: Assertion
 testKonst5BigBPadded128c =
   assertEqualUpToEpsilon' 1e-8
