@@ -151,6 +151,8 @@ interpretAst !env = \case
     in case DMap.Unsafe.lookupUnsafe var2 env of
       Just t ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
+        -- We can't assert anything about bounds, because values can be
+        -- symbolic and so not directly comparable to bounds.
         assert (tftk (ftkToSTK $ varNameToFTK var) t == varNameToFTK var
                 `blame` ( tftk (ftkToSTK $ varNameToFTK var) t
                         , varNameToFTK var, var, t ))

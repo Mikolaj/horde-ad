@@ -749,6 +749,8 @@ astCond b (Ast.AstFromS stkzv v) (Ast.AstFromS _ w) =
     Nothing -> error "astCond: shapes don't match"
 astCond b v w = Ast.AstCond b v w
 
+-- Invariant: if the variable has bounds, the expression can only have
+-- values within the bounds (regardless of what the `bounds` call would say).
 astLet :: forall y z s s2. (AstSpan s, AstSpan s2)
        => AstVarName s y -> AstTensor AstMethodLet s y
        -> AstTensor AstMethodLet s2 z
@@ -1310,20 +1312,29 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 ->
       astCond b (astIndex shn v ix2) (astIndex shn w ix2)
+{- This is wrong: in a counterfactual case, astLet assigns OOB i to var2,
+   violating the invariant about variables bounds:
   Ast.AstBuild1 (SNat @k) STKS{} (var2, v) ->
     let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
     in astLetFunB i1 $ \i ->
     astCond (0 <=. i &&* i <=. valueOf @k - 1)
             (astIndex shn (astLet var2 i v) rest1)
-            defArr
+            defArr -}
+  Ast.AstBuild1 (SNat @k) STKS{} (var2, v) ->
+    let ftk = FTKS shn x
+        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+    in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
+      AstBoolConst b ->
+        if b then astIndex shn (astLet var2 i1 v) rest1 else defArr
+      _ -> Ast.AstIndexS shn v0 ix
   Ast.AstBuild1 (SNat @k) STKScalar (var2, v) | ZIS <- rest1 ->
     let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
-    in astLetFunB i1 $ \i ->
-    astCond (0 <=. i &&* i <=. valueOf @k - 1)
-            (astSFromK $ astLet var2 i v)
-            defArr
+    in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
+      AstBoolConst b ->
+        if b then astSFromK $ astLet var2 i1 v else defArr
+      _ -> Ast.AstIndexS shn v0 ix
 
   Ast.AstLet var u v -> astLet var u (astIndex shn v ix)
 
@@ -1386,15 +1397,16 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     astIndex @(shp' ++ shm) @shn shn v (ix2 `ixsAppend` ix)
   Ast.AstGatherS @_ @shn' @shp' shn'
                  v ((::$) @m71 @shm71 (Const var2) vars, ix2) ->
-    astLetFunB i1 $ \i ->
     gcastWith (unsafeCoerceRefl :: shm71 ++ shn' :~: shm1 ++ shn) $
     let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
-        b = 0 <=. i &&* i <=. valueOf @m71 - 1
         w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
         w = astGather @shm71 @shn' @shp' shn' v (vars, ix2)
-        u = astLet var2 i $ astIndex @shm1 @shn shn w rest1
-    in astCond b u defArr
+        u = astLet var2 i1 $ astIndex @shm1 @shn shn w rest1
+          -- this let makes it impossible to use astCond when i1 is OOB
+    in case 0 <=. i1 &&* i1 <=. valueOf @m71 - 1 of
+      AstBoolConst b -> if b then u else defArr
+      _ -> Ast.AstIndexS shn v0 ix
   Ast.AstMinIndexS @n1 @shz v -> case ftkAst v of
     FTKS nsh _ -> case shsLast nsh of
      nl@(SNat @nl) ->
@@ -1499,15 +1511,16 @@ shareIx :: AstSpan s
         -> AstTensor AstMethodLet s y
 {-# NOINLINE shareIx #-}
 shareIx ix f = unsafePerformIO $ do
-  let shareI :: (AstInt AstMethodLet, Int)
+  let shareI :: AstInt AstMethodLet
              -> IO ( Maybe (IntVarName, AstInt AstMethodLet)
                    , AstInt AstMethodLet )
-      shareI (i, _) | astIsSmall True i = return (Nothing, i)
-      shareI (i, width) = funToAstIntVarIO (Just (0, fromIntegral width - 1))
-                          $ \ (!varFresh, !astVarFresh) ->
-                              (Just (varFresh, i), astVarFresh)
-  (bindings, ix2) <- mapAndUnzipM shareI
-                     $ zip (Foldable.toList ix) (shsToList $ ixsToShS ix)
+      shareI i | astIsSmall True i = return (Nothing, i)
+      shareI i =
+        -- i can be OOB, so we can't use shape to determine its bounds
+        let bds = bounds i
+        in funToAstIntVarIO (Just bds) $ \ (!varFresh, !astVarFresh) ->
+                                           (Just (varFresh, i), astVarFresh)
+  (bindings, ix2) <- mapAndUnzipM shareI (Foldable.toList ix)
   return $! foldr (uncurry astLet)
                   (withKnownShS (ixsToShS ix) $ f $ fromList ix2)
                   (catMaybes bindings)
@@ -2280,11 +2293,19 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
       let substLet :: AstIxS AstMethodLet shm7 -> AstVarListS shm7
                    -> AstInt AstMethodLet
                    -> AstInt AstMethodLet
-          substLet (IxS ix) vars i =
-            foldr (uncurry astLetInt) i (listsToList $ zipSizedS vars ix)
+          substLet (IxS ix) vars t0 =
+            foldr (uncurry astLetInt) t0 (listsToList $ zipSizedS vars ix)
+          inBounds :: AstIxS AstMethodLet shm7 -> AstVarListS shm7 -> Bool
+          inBounds (IxS ix) vars =
+            let inb (v, i) =
+                  let (lbi, ubi) = bounds i
+                  in case varNameToBounds v of
+                    Nothing -> True
+                    Just (lbv, ubv) -> lbv <= lbi && ubi <= ubv
+            in all inb (listsToList $ zipSizedS vars ix)
           IxS list4 = ix4
           composedGather ::  -- rank4 <= rank2
-                            AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
+            Maybe (AstTensor AstMethodLet s (TKS2 (shm ++ shn) r))
           composedGather =
             -- we have: shm2 ++ shn2 == shp ++ shn
             -- so from ranks:
@@ -2300,9 +2321,11 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
                 vars22 = listsDropLen list4 vars2
                 ix22 = fmap (substLet ix4 vars2p) ix2
                 list422 = vars4 `listsAppend` vars22
-            in astGather shn2 v2 (list422, ix22)
+            in if inBounds ix4 vars2p
+               then Just $ astGather shn2 v2 (list422, ix22)
+               else Nothing
           assimilatedGather ::  -- rank2 <= rank4
-                               AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
+            Maybe (AstTensor AstMethodLet s (TKS2 (shm ++ shn) r))
           assimilatedGather =
             -- we have: shm2 ++ shn2 == shp ++ shn
             -- so from ranks:
@@ -2318,8 +2341,11 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
                 ix44 = IxS $ listsDropLen vars2 list4
                 ix22 = fmap (substLet ix42 vars2) ix2
                 ix2244 = ix22 `ixsAppend` ix44
-            in astGather shn v2 (vars4, ix2244)
-      in case cmpNat (Proxy @rank4) (Proxy @rank2) of
+            in if inBounds ix42 vars2
+               then Just $ astGather shn v2 (vars4, ix2244)
+               else Nothing
+      in fromMaybe (Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4))
+         $ case cmpNat (Proxy @rank4) (Proxy @rank2) of
         LTI -> composedGather
         EQI -> assimilatedGather
         GTI -> gcastWith (flipCompare @rank4 @rank2) assimilatedGather
@@ -3330,6 +3356,8 @@ substituteAstBool i var v1 =
 
 -- * Substitution workers
 
+-- Invariant: if the variable has bounds, the expression can only have
+-- values within the bounds (regardless of what the `bounds` call would say).
 substitute1Ast :: forall s s2 y z. (AstSpan s, AstSpan s2)
                => AstTensor AstMethodLet s2 z -> AstVarName s2 z
                -> AstTensor AstMethodLet s y
@@ -3383,6 +3411,8 @@ substitute1Ast i var = subst where
       (Nothing, Nothing) -> Nothing
       (mt, mll) -> Just $ astApply (fromMaybe t mt) (fromMaybe ll mll)
   Ast.AstVar var2 ->
+    -- We can't assert anything here, because only all runtime values need
+    -- to be in bounds and bounds approximations don't have to agree.
     if varNameToAstVarId var == varNameToAstVarId var2
     then case sameAstSpan @s3 @s2 of
       Just Refl -> case testEquality var var2 of
@@ -3395,6 +3425,8 @@ substitute1Ast i var = subst where
                 (lb3, ub3) = fromMaybe (-1000000000, 1000000000)
                              $ varNameToBounds var3
                 bs = (max (max lb lb2) lb3, min (min ub ub2) ub3)
+                  -- We know all bounds approximations have to be correct
+                  -- so we can intersect them.
             in Just $ Ast.AstVar $ mkAstVarName (varNameToFTK var3)
                                                 (Just bs)
                                                 (varNameToAstVarId var3)
