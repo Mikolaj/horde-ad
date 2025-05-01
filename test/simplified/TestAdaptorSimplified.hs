@@ -1750,9 +1750,9 @@ nestedSumBuild v0 = tlet v0 $ \v ->
 
 testNestedSumBuild :: Assertion
 testNestedSumBuild =
-  assertEqualUpToEpsilon 1e-8
+  assertEqualUpToEpsilon' 1e-8
     (ringestData [5] [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612])
-    (grad (kfromR . rsum0 @1 @(TKScalar Double) . nestedSumBuild) (ringestData [5] [1.1, 2.2, 3.3, 4, -5.22]))
+    (rev' @Double @1 nestedSumBuild (ringestData [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 nestedBuildIndex :: forall target r. (ADReady target, GoodScalar r)
                  => target (TKR 1 r) -> target (TKR 1 r)

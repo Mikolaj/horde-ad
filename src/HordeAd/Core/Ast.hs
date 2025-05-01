@@ -157,6 +157,7 @@ data AstArtifactRev x z = AstArtifactRev
   , artDerivativeRev :: AstTensor AstMethodLet PrimalSpan (ADTensorKind x)
   , artPrimalRev     :: AstTensor AstMethodLet PrimalSpan z
   }
+ deriving Show
 
 -- | The forward derivative artifact.
 type role AstArtifactFwd nominal nominal
@@ -166,6 +167,7 @@ data AstArtifactFwd x z = AstArtifactFwd
   , artDerivativeFwd :: AstTensor AstMethodLet PrimalSpan (ADTensorKind z)
   , artPrimalFwd     :: AstTensor AstMethodLet PrimalSpan z
   }
+ deriving Show
 
 -- | This is the (arbitrarily) chosen representation of terms denoting
 -- integers in the indexes of tensor operations.
