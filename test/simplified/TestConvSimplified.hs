@@ -149,14 +149,15 @@ testTrees =
   , testCase "minimizedPaddedCNNOPPLet" testPaddedCNNOPPLet
   , testCase "minimizedPaddedCNNOPPLet2" testPaddedCNNOPPLet2
   , testCase "minimizedPaddedCNNOPP2" testPaddedCNNOPP2
-  , testCase "minimizedCNNOPP0cU" testCNNOPP0cU
-  , testCase "minimizedCNNOPP0bU" testCNNOPP0bU
-  , testCase "minimizedCNNOPP1bU" testCNNOPP1bU
-  , testCase "minimizedCNNOPP4bU" testCNNOPP4bU
-  , testCase "minimizedCNNOPP4bT" testCNNOPP4bT
-  , testCase "minimizedCNNOPP5aU" testCNNOPP5aU
-  , testCase "minimizedCNNOPP5bU" testCNNOPP5bU
-  , testCase "minimizedCNNOPP5cU" testCNNOPP5cU
+  , testCase "minimizedCNNOPP0cW" testCNNOPP0cW
+  , testCase "minimizedCNNOPP0bW" testCNNOPP0bW
+  , testCase "minimizedCNNOPP1bW" testCNNOPP1bW
+  , testCase "minimizedCNNOPP4bW" testCNNOPP4bW
+  , testCase "minimizedCNNOPP4bD" testCNNOPP4bD
+  , testCase "minimizedCNNOPP5aW" testCNNOPP5aW
+  , testCase "minimizedCNNOPP5bW" testCNNOPP5bW
+  , testCase "minimizedCNNOPP5cW" testCNNOPP5cW
+  , testCase "minimizedCNNOPP5dW" testCNNOPP5dW
   ]
 
 -- The examples reproduced and transformed in this file are borrowed
@@ -1785,8 +1786,8 @@ conv2dPadded2 arrK arrA =
 
 -- * Non-laborious CNN PP tests
 
-testCNNOPP0cU :: Assertion
-testCNNOPP0cU = do
+testCNNOPP0cW :: Assertion
+testCNNOPP0cW = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent conv2dC (FTKR [2, 2, 2, 2] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -1798,8 +1799,8 @@ testCNNOPP0cU = do
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret u1 -> rfromS (sscatter (ssum @2 (ssum @2 (ssdot1In (stranspose @[2,3,0,4,5,6,7,1] (sreplicate @2 (stranspose @[2,3,0,4,5,6,1] (sgather (stranspose @[5,2,0,3,4,1] (sgather (stranspose @[3,0,1,2] (sgather (sconcrete (sfromListLinear [2,2,2,2] [5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0])) (\\[i26, i27] -> [i26 + i27]))) (\\[i28, i29] -> [i28 + i29]))) (\\[i30, i31] -> [i30 + i31]))))) (stranspose @[2,3,1,4,5,6,7,0] (sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))))))) (\\[i37, i38] -> [i37 + i38]))"
 
-testCNNOPP0bU :: Assertion
-testCNNOPP0bU = do
+testCNNOPP0bW :: Assertion
+testCNNOPP0bW = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent conv2dB (FTKR [2, 2, 2, 2] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -1811,8 +1812,8 @@ testCNNOPP0bU = do
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret u1 -> rfromS (sscatter (stranspose @[1,2,3,0] (sscatter (stranspose @[2,5,1,3,4,0] (sscatter (ssdot1In (stranspose @[3,7,0,2,4,5,6,1] (sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (sgather (sconcrete (sfromListLinear [2,2,2,2] [5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0])) (\\[i32, i33] -> [i32 + i33])))))))) (stranspose @[3,7,0,2,4,5,6,1] (sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))))) (\\[i37, i38] -> [i37 + i38]))) (\\[i39, i40] -> [i39 + i40]))) (\\[i41, i42] -> [i41 + i42]))"
 
-testCNNOPP1bU :: Assertion
-testCNNOPP1bU = do
+testCNNOPP1bW :: Assertion
+testCNNOPP1bW = do
   resetVarCounter
   let f :: AstTensor AstMethodLet FullSpan
                      (TKProduct (TKR 4 Double) (TKR 4 Double))
@@ -1833,8 +1834,8 @@ testCNNOPP1bU = do
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret u1 -> tfromS (STKProduct (STKR (SNat @4) STKScalar) (STKR (SNat @4) STKScalar)) (let w37 = sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (sscatter (ssum @2 (ssum @2 (ssdot1In (stranspose @[2,3,0,4,5,6,7,1] (sreplicate @2 (stranspose @[2,3,0,4,5,6,1] (sgather (stranspose @[5,2,0,3,4,1] (sgather (stranspose @[3,0,1,2] (sgather (sfromR (tproject2 u1)) (\\[i26, i27] -> [i26 + i27]))) (\\[i28, i29] -> [i28 + i29]))) (\\[i30, i31] -> [i30 + i31]))))) (stranspose @[2,3,1,4,5,6,7,0] w37)))) (\\[i38, i39] -> [i38 + i39])) (sscatter (stranspose @[1,2,3,0] (sscatter (stranspose @[2,5,1,3,4,0] (sscatter (ssdot1In (stranspose @[3,7,0,2,4,5,6,1] (sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (sgather (sfromR (tproject1 u1)) (\\[i32, i33] -> [i32 + i33])))))))) (stranspose @[3,7,0,2,4,5,6,1] w37)) (\\[i40, i41] -> [i40 + i41]))) (\\[i42, i43] -> [i42 + i43]))) (\\[i44, i45] -> [i44 + i45])))"
 
-testCNNOPP4bU :: Assertion
-testCNNOPP4bU = do
+testCNNOPP4bW :: Assertion
+testCNNOPP4bW = do
   resetVarCounter
   let !artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded 4 2) (FTKR [7, 7, 7, 7] (FTKScalar @Double))
       !artSimp = simplifyArtifact artifactRev
@@ -1860,8 +1861,8 @@ testCNNOPP4bU = do
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret u1 -> rfromS (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[3,7,0,1,2,4,5,6] (sreshape @[7,7,3,3,1,1,4,4] (sscatter (sfromR dret) (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kfromS (smaxIndex (sgather (sfromR u1) (\\[i74] -> [remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i74) 1008) 7, remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i74) 144) 7, 2 * remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i74) 48) 3 + remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i74) 4) 4, 2 * remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i74) 16) 3 + remH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i74) 4])))])))) (\\[i52, i53] -> [2 * i52 + i53]))) (\\[i54, i55] -> [2 * i54 + i55]))) (\\[i56, i57] -> [i56 + i57]))) (\\[i58, i59] -> [i58 + i59]))"
 
-testCNNOPP4bT :: Assertion
-testCNNOPP4bT = do
+testCNNOPP4bD :: Assertion
+testCNNOPP4bD = do
   resetVarCounter
   setTotalSharing True
   let !artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded 4 2) (FTKR [7, 7, 7, 7] (FTKScalar @Double))
@@ -1886,8 +1887,8 @@ testCNNOPP4bT = do
   printArtifactPretty artSimp
     @?= "\\dret u1 -> rfromS (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[3,7,0,1,2,4,5,6] (sreshape @[7,7,3,3,1,1,4,4] (sscatter (sfromR dret) (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kfromS (smaxIndex (sgather (stranspose @[5,4,3,2,1,0] (stranspose @[5,4,3,2,1,0] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i34, i35] -> [i34 + i35]))) (\\[i36, i37] -> [i36 + i37]))) (\\[i38, i39] -> [2 * i38 + i39]))) (\\[i40, i41] -> [2 * i40 + i41])) !$ [0]) !$ [0]) (\\[i64] -> [remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i64) 16) 3, remH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i64) 4, remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i64) 1008) 7, remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i64) 144) 7, remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i64) 48) 3, remH (quotH ((((1008 * i48 + 144 * i49) + 48 * i50) + 16 * i51) + i64) 4) 4])))])))) (\\[i52, i53] -> [2 * i52 + i53]))) (\\[i54, i55] -> [2 * i54 + i55]))) (\\[i56, i57] -> [i56 + i57]))) (\\[i58, i59] -> [i58 + i59]))"
 
-testCNNOPP5aU :: Assertion
-testCNNOPP5aU = do
+testCNNOPP5aW :: Assertion
+testCNNOPP5aW = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded 4 2 . conv2dC) (FTKR [2, 2, 2, 2] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -1899,8 +1900,21 @@ testCNNOPP5aU = do
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret u1 -> rfromS (let w66 = str (sreplicate @2 (stranspose @[2,3,0,4,5,6,1] (sgather (stranspose @[5,2,0,3,4,1] (sgather (stranspose @[3,0,1,2] (sgather (sconcrete (sfromListLinear [2,2,2,2] [5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0])) (\\[i58, i59] -> [i58 + i59]))) (\\[i60, i61] -> [i60 + i61]))) (\\[i62, i63] -> [i62 + i63])))) in sscatter (ssum @2 (ssum @2 (ssdot1In (stranspose @[2,3,1,4,5,6,7,0] w66) (stranspose @[2,3,1,4,5,6,7,0] (sreshape @[2,2,2,2,1,2,2,2] (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[4,8,1,2,3,5,6,7,0] (sreplicate @8 (sreshape @[2,2,1,1,1,1,4,4] (sscatter (sfromR dret) (\\[i82, i83, i84, i85] -> [i82, i83, i84, i85, kfromS (smaxIndex (ssum @8 (str (sgather (sreshape @[2,2,2,2,8] (w66 * sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (sgather (sfromR u1) (\\[i64, i65] -> [i64 + i65])))))))) (\\[i117] -> [remH (quotH ((((32 * i82 + 16 * i83) + 16 * i84) + 16 * i85) + i117) 32) 2, remH (quotH ((((32 * i82 + 16 * i83) + 16 * i84) + 16 * i85) + i117) 16) 2, remH (quotH ((((32 * i82 + 16 * i83) + 16 * i84) + 16 * i85) + i117) 4) 4, remH ((((32 * i82 + 16 * i83) + 16 * i84) + 16 * i85) + i117) 4])))))]))))) (\\[i86, i87] -> [2 * i86 + i87]))) (\\[i88, i89] -> [2 * i88 + i89]))) (\\[i90, i91] -> [i90 + i91]))) (\\[i92, i93] -> [i92 + i93]))))))) (\\[i94, i95] -> [i94 + i95]))"
 
-testCNNOPP5bU :: Assertion
-testCNNOPP5bU = do
+testCNNOPP5bW :: Assertion
+testCNNOPP5bW = do
+  resetVarCounter
+  let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded 4 2 . relu) (FTKR [2, 2, 2, 2] (FTKScalar @Double))
+  printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\u1 -> rfromS (let w77 = sreshape @[2,2,1,1,16] (stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i57, i58, i59, i60, i61, i62] -> [ifH (sscalar -0.0 <=. negate (sfromR u1 !$ [i58 + i60, i59 + i61, i57, i62])) 0 1])) (\\[i63, i64] -> [2 * i63 + i64]))) (\\[i65, i66] -> [2 * i65 + i66])) * stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i67, i68] -> [i67 + i68]))) (\\[i69, i70] -> [i69 + i70]))) (\\[i71, i72] -> [2 * i71 + i72]))) (\\[i73, i74] -> [2 * i73 + i74]))) in sgather w77 (\\[i78, i79, i80, i81] -> [i78, i79, i80, i81, kfromS (smaxIndex (w77 !$ [i78, i79, i80, i81]))]))"
+  printArtifactPrimalPretty artifactRev
+    @?= "\\u1 -> let w75 = stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i57, i58, i59, i60, i61, i62] -> [ifH (sscalar -0.0 <=. negate (sfromR u1 !$ [i58 + i60, i59 + i61, i57, i62])) 0 1])) (\\[i63, i64] -> [2 * i63 + i64]))) (\\[i65, i66] -> [2 * i65 + i66])) ; w76 = stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i67, i68] -> [i67 + i68]))) (\\[i69, i70] -> [i69 + i70]))) (\\[i71, i72] -> [2 * i71 + i72]))) (\\[i73, i74] -> [2 * i73 + i74])) ; w77 = sreshape @[2,2,1,1,16] (w75 * w76) in rfromS (sgather w77 (\\[i78, i79, i80, i81] -> [i78, i79, i80, i81, kfromS (smaxIndex (w77 !$ [i78, i79, i80, i81]))]))"
+  printArtifactPretty artifactRev
+    @?= "\\dret u1 -> let w75 = stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i57, i58, i59, i60, i61, i62] -> [ifH (sscalar -0.0 <=. negate (sfromR u1 !$ [i58 + i60, i59 + i61, i57, i62])) 0 1])) (\\[i63, i64] -> [2 * i63 + i64]))) (\\[i65, i66] -> [2 * i65 + i66])) ; w76 = stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i67, i68] -> [i67 + i68]))) (\\[i69, i70] -> [i69 + i70]))) (\\[i71, i72] -> [2 * i71 + i72]))) (\\[i73, i74] -> [2 * i73 + i74])) ; w77 = sreshape @[2,2,1,1,16] (w75 * w76) in rfromS (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[3,7,0,1,2,4,5,6] (w75 * sreshape @[2,2,1,1,1,1,4,4] (sscatter (sfromR dret) (\\[i83, i84, i85, i86] -> [i83, i84, i85, i86, kfromS (smaxIndex (w77 !$ [i83, i84, i85, i86]))])))) (\\[i87, i88] -> [2 * i87 + i88]))) (\\[i89, i90] -> [2 * i89 + i90]))) (\\[i91, i92] -> [i91 + i92]))) (\\[i93, i94] -> [i93 + i94]))"
+  printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\dret u1 -> rfromS (let w75 = stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i57, i58, i59, i60, i61, i62] -> [ifH (sscalar -0.0 <=. negate (sfromR u1 !$ [i58 + i60, i59 + i61, i57, i62])) 0 1])) (\\[i63, i64] -> [2 * i63 + i64]))) (\\[i65, i66] -> [2 * i65 + i66])) in sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[3,6,1,2,4,5,0] (sscatter (stranspose @[3,7,0,1,2,4,5,6] w75 * stranspose @[3,7,0,1,2,4,5,6] (sreshape @[2,2,1,1,1,1,4,4] (sscatter (sfromR dret) (\\[i83, i84, i85, i86] -> [i83, i84, i85, i86, kfromS (smaxIndex (sgather (stranspose @[2,1,0] (stranspose @[2,1,0] (stranspose @[2,1,0] (stranspose @[2,1,0] w75 !$ [0]) !$ [0]) !$ [0]) !$ [0] * stranspose @[2,1,0] (stranspose @[2,1,0] (stranspose @[2,1,0] (stranspose @[4,3,2,0,5,6,7,1] (sgather (stranspose @[6,2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sgather (sfromR u1) (\\[i67, i68] -> [i67 + i68]))) (\\[i69, i70] -> [i69 + i70]))) (\\[i71, i72] -> [2 * i71 + i72]))) (\\[i73, i74] -> [2 * i73 + i74])) !$ [0]) !$ [0]) !$ [0]) !$ [0]) (\\[i104] -> [remH (quotH ((((32 * i83 + 16 * i84) + 16 * i85) + 16 * i86) + i104) 32) 2, remH (quotH ((((32 * i83 + 16 * i84) + 16 * i85) + 16 * i86) + i104) 16) 2, remH (quotH ((((32 * i83 + 16 * i84) + 16 * i85) + 16 * i86) + i104) 4) 4, remH ((((32 * i83 + 16 * i84) + 16 * i85) + 16 * i86) + i104) 4])))])))) (\\[i87, i88] -> [2 * i87 + i88]))) (\\[i89, i90] -> [2 * i89 + i90]))) (\\[i91, i92] -> [i91 + i92]))) (\\[i93, i94] -> [i93 + i94]))"
+
+testCNNOPP5cW :: Assertion
+testCNNOPP5cW = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent (relu . conv2dC) (FTKR [2, 2, 2, 2] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
@@ -1912,8 +1926,8 @@ testCNNOPP5bU = do
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret u1 -> rfromS (let w42 = str (sreplicate @2 (stranspose @[2,3,0,4,5,6,1] (sgather (stranspose @[5,2,0,3,4,1] (sgather (stranspose @[3,0,1,2] (sgather (sconcrete (sfromListLinear [2,2,2,2] [5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0])) (\\[i34, i35] -> [i34 + i35]))) (\\[i36, i37] -> [i36 + i37]))) (\\[i38, i39] -> [i38 + i39])))) in sscatter (ssum @2 (ssum @2 (ssdot1In (stranspose @[2,3,1,4,5,6,7,0] w42) (stranspose @[2,3,1,4,5,6,7,0] (sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i45, i46, i47, i48] -> [ifH (sscalar -0.0 <=. negate (ssum0 (sgather (stranspose @[4,3,2,1,0] w42 !$ [0] * stranspose @[4,3,2,1,0] (sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (sgather (sfromR u1) (\\[i40, i41] -> [i40 + i41]))))))) !$ [0]) (\\[i62] -> [remH (quotH ((((64 * i45 + 32 * i46) + 16 * i47) + 8 * i48) + i62) 8) 2, remH (quotH ((((64 * i45 + 32 * i46) + 16 * i47) + 8 * i48) + i62) 16) 2, remH (quotH ((((64 * i45 + 32 * i46) + 16 * i47) + 8 * i48) + i62) 32) 2, remH (quotH ((((64 * i45 + 32 * i46) + 16 * i47) + 8 * i48) + i62) 64) 2, remH (quotH ((((64 * i45 + 32 * i46) + 16 * i47) + 8 * i48) + i62) 4) 2, remH (quotH ((((64 * i45 + 32 * i46) + 16 * i47) + 8 * i48) + i62) 2) 2, remH ((((64 * i45 + 32 * i46) + 16 * i47) + 8 * i48) + i62) 2])))) 0 1]) * sfromR dret)))))))) (\\[i51, i52] -> [i51 + i52]))"
 
-testCNNOPP5cU :: Assertion
-testCNNOPP5cU = do
+testCNNOPP5dW :: Assertion
+testCNNOPP5dW = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded 4 2 . relu . conv2dC) (FTKR [2, 2, 2, 2] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
