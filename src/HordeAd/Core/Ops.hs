@@ -307,19 +307,25 @@ class LetTensor (target :: Target) where
 class ShareTensor (target :: Target) where
   tshare :: target y -> target y
   tunpair :: target (TKProduct x z) -> (target x, target z)
-  -- This would suffers from lack of sharing with LetTensor, because
+  -- This would suffer from lack of sharing with LetTensor, because
   -- ttlet doesn't work over a list. With sharing it's fine.
   tunravelToListShare :: forall y k. (BaseTensor target, ConvertTensor target)
                       => SNat k -> SingletonTK y
                       -> target (BuildTensorKind k y)
                       -> [target y]
   tunravelToListShare snat@SNat stk u = case stk of
-    STKScalar -> map kfromS $ tsunravelToList u
-    STKR SNat x | Dict <- lemKnownSTK x -> trunravelToList u
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tsunravelToList u
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txunravelToList u
+    STKScalar -> let !uShared = tshare u
+                 in map kfromS $ tsunravelToList uShared
+    STKR SNat x | Dict <- lemKnownSTK x -> let !uShared = tshare u
+                                           in trunravelToList uShared
+    STKS sh x | Dict <- lemKnownSTK x -> let !uShared = tshare u
+                                         in withKnownShS sh
+                                            $ tsunravelToList uShared
+    STKX sh x | Dict <- lemKnownSTK x -> let !uShared = tshare u
+                                         in withKnownShX sh
+                                            $ txunravelToList uShared
     STKProduct stk1 stk2 ->
-      let (u1, u2) = tunpair u
+      let (!u1, !u2) = tunpair u
       in zipWith tpair (tunravelToListShare snat stk1 u1)
                        (tunravelToListShare snat stk2 u2)
 

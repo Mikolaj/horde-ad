@@ -774,6 +774,7 @@ instance Boolean (AstBool ms) where
   b &&* c = AstBoolAnd b c
   b ||* c = notB (notB b &&* notB c)
 
+-- TODO: share u and v, since they are duplicated here
 -- TODO: refactor with something like liftRFromS2
 instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKR n r) where
   v ==. u = v <=. u &&* u <=. v

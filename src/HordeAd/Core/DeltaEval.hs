@@ -426,8 +426,7 @@ evalRevFTK !s !c d0 = case d0 of
       let zero = treplTarget 0 $ adFTK ftk1
       in evalRevFTK s (tpair zero c) d
   DeltaFromVector snat stk ld | Refl <- lemBuildOfAD snat stk ->
-    let cShared = tshare c
-        cxs = tunravelToListShare snat (adSTK stk) cShared
+    let cxs = tunravelToListShare snat (adSTK stk) c
     in foldl' (\ !s2 (cx, d2) -> evalRevFTK s2 cx d2) s
        $ zip cxs (V.toList ld)
   DeltaSum snat stk d | Refl <- lemBuildOfAD snat stk ->

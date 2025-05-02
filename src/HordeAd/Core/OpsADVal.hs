@@ -153,9 +153,11 @@ instance ( ADReadyNoLet target, ShareTensor target
   trgather sh (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
     in dD (trgather sh u g) (DeltaGatherR SNat SNat SNat sh u' g)
-      -- note how f is not interpreted as a function on dual numbers
+      -- Note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
-      -- of f have to be computed and stored in contangent maps later on
+      -- of f have to be computed and stored in contangent maps later on.
+      -- Note also how g is duplicated and this leads to loss of sharing
+      -- of indexes in AST instances.
   trconcrete a =
     let v = trconcrete a
     in fromPrimalFTK (FTKR (Nested.rshape a) FTKScalar) v
@@ -353,7 +355,7 @@ instance ( ADReadyNoLet target, ShareTensor target
    , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk) =
     let !(D acc0 acc0') = acc0D in
     let !(D esNotShared es') = esD in
-    let es = tshare esNotShared
+    let !es = tshare esNotShared
         codomainShs = FTKProduct accftk bftk
         g :: forall f. ADReady f
           => f (TKProduct accy ey)
@@ -415,7 +417,7 @@ instance ( ADReadyNoLet target, ShareTensor target
    , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk) =
     let !(D acc0 acc0') = acc0D in
     let !(D esNotShared es') = esD in
-    let es = tshare esNotShared
+    let !es = tshare esNotShared
         codomainShs = FTKProduct accftk bftk
         g :: forall f. ADReady f
           => f (TKProduct accy ey)

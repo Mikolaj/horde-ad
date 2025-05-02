@@ -212,7 +212,7 @@ instance (BaseTensor target, ConvertTensor target, GoodScalar r)
                then trconcrete Nested.remptyArray
                else trfromVector $ V.fromList $ map rfromK l
   fromTarget = map kfromR . trunravelToList
-                              -- inefficient, but we probabl can't do better
+                              -- inefficient, but we probably can't do better
 
 instance (BaseTensor target, ConvertTensor target, GoodScalar r)
          => AdaptableTarget target
