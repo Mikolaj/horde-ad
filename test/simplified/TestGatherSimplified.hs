@@ -1323,9 +1323,9 @@ testCNNOPP3b = do
   printArtifactPrimalPretty artifactRev
     @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (str (sappend (stranspose @[1,2,0] (sappend (sreplicate @1 (sreplicate @1 (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 1] + sfromR u1 !$ [0, 1, 1, 1])))) (sreplicate @1 (sreplicate @1 (sreplicate @1 (sscalar 0.0)))))) (sreplicate @1 (sreplicate @1 (sreplicate @2 (sscalar 0.0)))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> let t129 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) ; t130 = str (sslice (SNat @0) (SNat @1) t129) ; t131 = stranspose @[2,0,1] (sslice (SNat @0) (SNat @1) t130) ; x132 = ssum @1 (ssum @1 (ssum @1 (sslice (SNat @0) (SNat @1) t131))) in rfromS (soneHot x132 [0, 0, 0, 1] + soneHot x132 [0, 1, 1, 1])"
+    @?= "\\dret u1 -> let t129 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in rfromS (soneHot (ssum @1 (ssum @1 (ssum @1 (sslice (SNat @0) (SNat @1) (stranspose @[2,0,1] (sslice (SNat @0) (SNat @1) (str (sslice (SNat @0) (SNat @1) t129)))))))) [0, 0, 0, 1] + soneHot (ssum @1 (ssum @1 (ssum @1 (sslice (SNat @0) (SNat @1) (stranspose @[2,0,1] (sslice (SNat @0) (SNat @1) (str (sslice (SNat @0) (SNat @1) t129)))))))) [0, 1, 1, 1])"
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> rfromS (let x132 = ssum0 (str (sfromR dret !$ [0, 0]) !$ [0]) in soneHot x132 [0, 0, 0, 1] + soneHot x132 [0, 1, 1, 1])"
+    @?= "\\dret u1 -> rfromS (let t129 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in soneHot (t129 !$ [0, 0, 0]) [0, 0, 0, 1] + soneHot (t129 !$ [0, 0, 0]) [0, 1, 1, 1])"
 
 maxPool2dUnpadded3
   :: (ADReady target, GoodScalar r)
@@ -1489,7 +1489,7 @@ testCNNOPP6b = do
   printArtifactPrimalPretty artifactRev
     @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (str (sappend (stranspose @[1,2,0] (sappend (sreplicate @1 (sreplicate @1 (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 0])))) (sreplicate @1 (sreplicate @1 (sreplicate @1 (sscalar 0.0)))))) (sreplicate @1 (sreplicate @1 (sreplicate @2 (sscalar 0.0)))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> let t56 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) ; t57 = str (sslice (SNat @0) (SNat @1) t56) ; t58 = stranspose @[2,0,1] (sslice (SNat @0) (SNat @1) t57) in rfromS (soneHot (ssum @1 (ssum @1 (ssum @1 (sslice (SNat @0) (SNat @1) t58)))) [0, 0, 0, 0])"
+    @?= "\\dret u1 -> let t56 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in rfromS (soneHot (ssum @1 (ssum @1 (ssum @1 (sslice (SNat @0) (SNat @1) (stranspose @[2,0,1] (sslice (SNat @0) (SNat @1) (str (sslice (SNat @0) (SNat @1) t56)))))))) [0, 0, 0, 0])"
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret u1 -> rfromS (soneHot (ssum0 (str (sfromR dret !$ [0, 0]) !$ [0])) [0, 0, 0, 0])"
 

@@ -296,6 +296,7 @@ setTotalSharing b = atomicWriteIORef unsafeTotalSharingRef b
 -- would increase the work done at runtime.
 astIsSmall :: Bool -> AstTensor ms s y -> Bool
 astIsSmall _ AstVar{} = True
+astIsSmall _ AstShare{} = True
 astIsSmall _ AstConcreteK{} = True
 astIsSmall _ (AstConcreteS a) | sNatValue (Nested.srank a) == 0 = True
 astIsSmall lax t = unsafePerformIO $ do
@@ -330,7 +331,7 @@ astIsSmallN n t0 = case t0 of
   AstConcreteK _ -> n
   AstConcreteS _ -> n  -- small term with zero interpretation cost;
                        -- the physical arrays is shared on GHC heap
-
+  AstShare{} -> n
   AstPrimalPart v -> astIsSmallN (n - 1) v
   AstDualPart v -> astIsSmallN (n - 1) v
   AstFromPrimal v -> astIsSmallN (n - 1) v
