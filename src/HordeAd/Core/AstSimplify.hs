@@ -851,16 +851,6 @@ astLet var (Ast.AstFromS stkz a) v =
   in astLet var2 a (substituteAst ast var v)
 astLet var u v = Ast.AstLet var u v
 
--- | A special variant to bind integer expressions inside indexes.
--- It check if the bound variables appears in the body at all.
--- Normally, that's asymptotically worse than doing this
--- in a global inlining pass, but we assume indexes expressions
--- are short and we need them simple ASAP.
-astLetInt :: IntVarName -> AstInt AstMethodLet -> AstInt AstMethodLet
-          -> AstInt AstMethodLet
-astLetInt var u v | var `varNameInAst` v = astLet var u v
-astLetInt _ _ v = v
-
 astPrimalPart :: AstTensor AstMethodLet FullSpan y
               -> AstTensor AstMethodLet PrimalSpan y
 astPrimalPart t = case t of
@@ -1616,168 +1606,204 @@ astGatherKnobsS knobs shn v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))
                     knobs (kLast :$$ shn) v0 (varInit, ixInit)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstCond
-           (Ast.AstBoolAnd a@(AstLeqInt AstConcreteK{} AstIntVar{}) b)
-           v w :.$ prest) =
+  ( vars@((::$) @m _ _)
+  , Ast.AstCond
+           (Ast.AstBoolAnd a@(AstLeqInt (AstConcreteK j) AstIntVar{}) b)
+           v w :.$ prest )
+    | j <= 0 || j >= valueOf @m || ixIsSmall prest =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstLet varN uN
+  ( vars@((::$) @m _ _)
+  , Ast.AstLet varN uN
            (Ast.AstCond
-              (Ast.AstBoolAnd a@(AstLeqInt AstConcreteK{} AstIntVar{}) b)
-              v w) :.$ prest) =
+              (Ast.AstBoolAnd a@(AstLeqInt (AstConcreteK j) AstIntVar{}) b)
+              v w) :.$ prest )
+    | j <= 0 || j >= valueOf @m || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstCond
-           (Ast.AstBoolAnd a@(AstLeqInt AstConcreteK{}
+  ( vars@((::$) @m _ _)
+  , Ast.AstCond
+           (Ast.AstBoolAnd a@(AstLeqInt (AstConcreteK j)
                                         (Ast.AstN1K NegateOp AstIntVar{})) b)
-           v w :.$ prest) =
+           v w :.$ prest )
+    | - j + 1 <= 0 || - j + 1 >= valueOf @m || ixIsSmall prest =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstLet varN uN
+  ( vars@((::$) @m _ _)
+  , Ast.AstLet varN uN
            (Ast.AstCond
-              (Ast.AstBoolAnd a@(AstLeqInt AstConcreteK{}
+              (Ast.AstBoolAnd a@(AstLeqInt (AstConcreteK j)
                                            (Ast.AstN1K NegateOp AstIntVar{})) b)
-              v w) :.$ prest) =
+              v w) :.$ prest )
+    | - j + 1 <= 0 || - j + 1 >= valueOf @m
+      || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstCond
+  ( vars@((::$) @m _ _)
+  , Ast.AstCond
            (Ast.AstBoolAnd
-              a@(Ast.AstBoolNot (AstLeqInt AstConcreteK{} AstIntVar{})) b)
-           v w :.$ prest) =
+              a@(Ast.AstBoolNot (AstLeqInt (AstConcreteK j) AstIntVar{})) b)
+           v w :.$ prest )
+    | j <= 0 || j >= valueOf @m || ixIsSmall prest =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstLet varN uN
+  ( vars@((::$) @m _ _)
+  , Ast.AstLet varN uN
            (Ast.AstCond
               (Ast.AstBoolAnd
-                 a@(Ast.AstBoolNot (AstLeqInt AstConcreteK{} AstIntVar{})) b)
-              v w) :.$ prest) =
+                 a@(Ast.AstBoolNot (AstLeqInt (AstConcreteK j) AstIntVar{})) b)
+              v w) :.$ prest )
+    | j <= 0 || j >= valueOf @m || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstCond
+  ( vars@((::$) @m _ _)
+  , Ast.AstCond
            (Ast.AstBoolAnd
-              a@(Ast.AstBoolNot (AstLeqInt AstConcreteK{}
+              a@(Ast.AstBoolNot (AstLeqInt (AstConcreteK j)
                                            (Ast.AstN1K NegateOp
                                                        AstIntVar{}))) b)
-           v w :.$ prest) =
+           v w :.$ prest )
+    | - j + 1 <= 0 || - j + 1 >= valueOf @m || ixIsSmall prest =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstLet varN uN
+  ( vars@((::$) @m _ _)
+  , Ast.AstLet varN uN
            (Ast.AstCond
               (Ast.AstBoolAnd
-                 a@(Ast.AstBoolNot (AstLeqInt AstConcreteK{}
+                 a@(Ast.AstBoolNot (AstLeqInt (AstConcreteK j)
                                               (Ast.AstN1K NegateOp
                                                           AstIntVar{}))) b)
-              v w) :.$ prest) =
+              v w) :.$ prest )
+    | - j + 1 <= 0 || - j + 1 >= valueOf @m
+      || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstCond
-           (Ast.AstBoolAnd
-              a@(Ast.AstBoolNot
-                   (Ast.AstBoolAnd (AstLeqInt AstConcreteK{} AstIntVar{}) _)) b)
-           v w :.$ prest) =
+  ( vars@((::$) @m _ _)
+  , Ast.AstCond
+      (Ast.AstBoolAnd
+         a@(Ast.AstBoolNot
+              (Ast.AstBoolAnd (AstLeqInt (AstConcreteK j) AstIntVar{}) _)) b)
+      v w :.$ prest )
+    | j <= 0 || j >= valueOf @m || ixIsSmall prest =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstLet varN uN
+  ( vars@((::$) @m _ _)
+  , Ast.AstLet varN uN
            (Ast.AstCond
               (Ast.AstBoolAnd
                  a@(Ast.AstBoolNot
-                      (Ast.AstBoolAnd (AstLeqInt AstConcreteK{}
+                      (Ast.AstBoolAnd (AstLeqInt (AstConcreteK j)
                                                  AstIntVar{}) _)) b)
-              v w) :.$ prest) =
+              v w) :.$ prest )
+    | j <= 0 || j >= valueOf @m || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstCond
+  ( vars@((::$) @m _ _)
+  , Ast.AstCond
            (Ast.AstBoolAnd
               a@(Ast.AstBoolNot
-                   (Ast.AstBoolAnd (AstLeqInt AstConcreteK{}
+                   (Ast.AstBoolAnd (AstLeqInt (AstConcreteK j)
                                               (Ast.AstN1K NegateOp
                                                           AstIntVar{})) _)) b)
-           v w :.$ prest) =
+           v w :.$ prest )
+    | - j + 1 <= 0 || - j + 1 >= valueOf @m || ixIsSmall prest =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstLet varN uN
+  ( vars@((::$) @m _ _)
+  , Ast.AstLet varN uN
            (Ast.AstCond
               (Ast.AstBoolAnd
                  a@(Ast.AstBoolNot
                       (Ast.AstBoolAnd
-                         (AstLeqInt AstConcreteK{}
+                         (AstLeqInt (AstConcreteK j)
                                     (Ast.AstN1K NegateOp
                                                 AstIntVar{})) _)) b)
-              v w) :.$ prest) =
+              v w) :.$ prest )
+    | - j + 1 <= 0 || - j + 1 >= valueOf @m
+      || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstCond
+  ( vars@((::$) @m _ _)
+  , Ast.AstCond
            (Ast.AstBoolAnd
               a@(Ast.AstBoolNot
                    (Ast.AstBoolAnd
                       (Ast.AstBoolNot
-                         (AstLeqInt AstConcreteK{} AstIntVar{})) _)) b)
-           v w :.$ prest) =
+                         (AstLeqInt (AstConcreteK j) AstIntVar{})) _)) b)
+           v w :.$ prest )
+    | j <= 0 || j >= valueOf @m || ixIsSmall prest =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstLet varN uN
+  ( vars@((::$) @m _ _)
+  , Ast.AstLet varN uN
            (Ast.AstCond
               (Ast.AstBoolAnd
                  a@(Ast.AstBoolNot
                       (Ast.AstBoolAnd
-                         (Ast.AstBoolNot (AstLeqInt AstConcreteK{}
+                         (Ast.AstBoolNot (AstLeqInt (AstConcreteK j)
                                                     AstIntVar{})) _)) b)
-              v w) :.$ prest) =
+              v w) :.$ prest )
+    | j <= 0 || j >= valueOf @m || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstCond
+  ( vars@((::$) @m _ _)
+  , Ast.AstCond
            (Ast.AstBoolAnd
               a@(Ast.AstBoolNot
                    (Ast.AstBoolAnd
                       (Ast.AstBoolNot
-                         (AstLeqInt AstConcreteK{}
+                         (AstLeqInt (AstConcreteK j)
                                    (Ast.AstN1K NegateOp AstIntVar{}))) _)) b)
-           v w :.$ prest) =
+           v w :.$ prest )
+    | - j + 1 <= 0 || - j + 1 >= valueOf @m || ixIsSmall prest =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
-  (vars, Ast.AstLet varN uN
+  ( vars@((::$) @m _ _)
+  , Ast.AstLet varN uN
            (Ast.AstCond
               (Ast.AstBoolAnd
                  a@(Ast.AstBoolNot
                       (Ast.AstBoolAnd
                          (Ast.AstBoolNot
-                            (AstLeqInt AstConcreteK{}
+                            (AstLeqInt (AstConcreteK j)
                                        (Ast.AstN1K NegateOp
                                                    AstIntVar{}))) _)) b)
-              v w) :.$ prest) =
+              v w) :.$ prest )
+    | - j + 1 <= 0 || - j + 1 >= valueOf @m
+      || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 -- Rules with AstConcreteK on the right hand side of AstPlusK are
@@ -1826,7 +1852,8 @@ astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
   , Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2
     :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp =
+  | varNameToAstVarId varm == varNameToAstVarId varp
+  , j <= 0 || j >= valueOf @m || ixIsSmall prest =
     if | j <= 0 ->
          astGatherKnobsS knobs shn v0 (vars, i1 :.$ prest)
        | j >= valueOf @m ->
@@ -1835,9 +1862,6 @@ astGatherKnobsS knobs shn v0
          withSNat (fromIntegral j) $ \(SNat @j) ->
          gcastWith (unsafeCoerceRefl :: (j <=? m) :~: True) $
          astLetFun v0 $ \v ->
-         -- Unavoidably, prest gets duplicated here. Tough luck.
-         -- TODO: so maybe only permit when astIsSmall prest
-         -- after we refine astIsSmall and have enough tests to judge
          let varm2 = mkAstVarName (varNameToFTK varm)
                                   (Just (0, j - 1))
                                   (varNameToAstVarId varm)
@@ -1858,7 +1882,8 @@ astGatherKnobsS knobs shn v0
   , Ast.AstCond (AstLeqInt (AstConcreteK j)
                            (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2
     :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp =
+  | varNameToAstVarId varm == varNameToAstVarId varp
+  , - j + 1 <= 0 || - j + 1 >= valueOf @m || ixIsSmall prest =
     if | - j + 1 <= 0 ->
          astGatherKnobsS knobs shn v0 (vars, i2 :.$ prest)
        | - j + 1 >= valueOf @m ->
@@ -1887,7 +1912,8 @@ astGatherKnobsS knobs shn v0
   , Ast.AstLet varN uN
       (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2)
       :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp =
+  | varNameToAstVarId varm == varNameToAstVarId varp
+  , j <= 0 || j >= valueOf @m || ixIsSmall prest && astIsSmall True uN =
     if | j <= 0 ->
          astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i1 :.$ prest)
        | j >= valueOf @m ->
@@ -1896,8 +1922,6 @@ astGatherKnobsS knobs shn v0
          withSNat (fromIntegral j) $ \(SNat @j) ->
          gcastWith (unsafeCoerceRefl :: (j <=? m) :~: True) $
          astLetFun v0 $ \v ->
-         -- Both uN and prest gets duplicated here. Tough luck.
-         -- TODO: so maybe remove this subcase?
          let varm2 = mkAstVarName (varNameToFTK varm)
                                   (Just (0, j - 1))
                                   (varNameToAstVarId varm)
@@ -1919,7 +1943,9 @@ astGatherKnobsS knobs shn v0
       (Ast.AstCond (AstLeqInt (AstConcreteK j)
                               (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2)
     :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp =
+  | varNameToAstVarId varm == varNameToAstVarId varp
+  , - j + 1 <= 0 || - j + 1 >= valueOf @m
+    || ixIsSmall prest && astIsSmall True uN =
     if | - j + 1 <= 0 ->
          astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i2 :.$ prest)
        | - j + 1 >= valueOf @m ->
@@ -1991,17 +2017,17 @@ astGatherKnobsS knobs shn v7@(Ast.AstFromVector _ (STKS _ x2) l)
             | var == var4 -> Just (n *)
           -- TODO: add more or define evaluation
           _ -> Nothing
-  , Just h <- g =
-    let subst i = substituteAstIxS (AstConcreteK i) var4
-        f i =
-          let j = fromIntegral $ h i
+  , Just h <- g
+  , ixIsSmall rest4 =
+    let f i =
+          let subRest4 = substituteAstIxS (AstConcreteK i) var4 rest4
+              j = fromIntegral $ h i
           in if j >= V.length l
              then let FTKS _ x = ftkAst v7
                       ftk = FTKS (listsToShS vrest4 `shsAppend` shn) x
                   in fromPrimal $ astConcrete ftk (tdefTarget ftk)
              else astGatherKnobsS @shm4 @shn @shp1' knobs shn
-                                  (l V.! j) (vrest4, subst i rest4)
-               -- TODO: rest4 duplicated
+                                  (l V.! j) (vrest4, subRest4)
     in astFromVector (SNat @m1')
                      (STKS (listsToShS vrest4 `shsAppend` shn) x2)
        $ V.fromList $ map f [0 .. valueOf @m1' - 1]
@@ -2013,51 +2039,63 @@ astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
       (astIndexKnobsS knobs (ixsToShS rest1 `shsAppend` shn) v0 (i1 :.$ ZIS))
       (vars0, rest1)
 astGatherKnobsS knobs shn v0
-  (vars, ix@(i1 :.$ _))
+  (vars@((::$) @m _ _), ix@(i1 :.$ prest))
   | let intInteresting = \case
           AstPlusK (AstConcreteK _) i2
             | fst (bounds i2) >= 0 -> True
           Ast.AstLet _ _ (AstPlusK (AstConcreteK _) i2)
             | fst (bounds i2) >= 0 -> True
-          Ast.AstCond (AstLeqInt AstConcreteK{} (AstIntVar var)) _ _
-            | any ((== varNameToAstVarId var) . varNameToAstVarId)
+          Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _
+            | j <= 0 || j >= valueOf @m || ixIsSmall prest
+            , any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
-          Ast.AstCond (AstLeqInt AstConcreteK{}
+          Ast.AstCond (AstLeqInt (AstConcreteK j)
                                  (Ast.AstN1K NegateOp (AstIntVar var))) _ _
-            | any ((== varNameToAstVarId var) . varNameToAstVarId)
+            | - j + 1 <= 0 || - j + 1 >= valueOf @m || ixIsSmall prest
+            , any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
-          Ast.AstLet _ _
-            (Ast.AstCond (AstLeqInt AstConcreteK{} (AstIntVar var)) _ _)
-            | any ((== varNameToAstVarId var) . varNameToAstVarId)
+          Ast.AstLet _ uN
+            (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _)
+            | j <= 0 || j >= valueOf @m
+              || ixIsSmall prest && astIsSmall True uN
+            , any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
-          Ast.AstLet _ _
-            (Ast.AstCond (AstLeqInt AstConcreteK{}
+          Ast.AstLet _ uN
+            (Ast.AstCond (AstLeqInt (AstConcreteK j)
                                     (Ast.AstN1K NegateOp (AstIntVar var))) _ _)
-            | any ((== varNameToAstVarId var) . varNameToAstVarId)
+            | - j + 1 <= 0 || - j + 1 >= valueOf @m
+              || ixIsSmall prest && astIsSmall True uN
+            , any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
           Ast.AstCond
             (Ast.AstBoolAnd
-               (AstLeqInt AstConcreteK{} (AstIntVar var)) _) _ _
-            | any ((== varNameToAstVarId var) . varNameToAstVarId)
+               (AstLeqInt (AstConcreteK j) (AstIntVar var)) _) _ _
+            | j <= 0 || j >= valueOf @m || ixIsSmall prest
+            , any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
           Ast.AstCond
             (Ast.AstBoolAnd
-               (AstLeqInt AstConcreteK{}
+               (AstLeqInt (AstConcreteK j)
                           (Ast.AstN1K NegateOp (AstIntVar var))) _) _ _
-            | any ((== varNameToAstVarId var) . varNameToAstVarId)
+            | - j + 1 <= 0 || - j + 1 >= valueOf @m || ixIsSmall prest
+            , any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
-          Ast.AstLet _ _
+          Ast.AstLet _ uN
             (Ast.AstCond
                (Ast.AstBoolAnd
-                  (AstLeqInt AstConcreteK{} (AstIntVar var)) _) _ _)
-            | any ((== varNameToAstVarId var) . varNameToAstVarId)
+                  (AstLeqInt (AstConcreteK j) (AstIntVar var)) _) _ _)
+            | j <= 0 || j >= valueOf @m
+              || ixIsSmall prest && astIsSmall True uN
+            , any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
-          Ast.AstLet _ _
+          Ast.AstLet _ uN
             (Ast.AstCond
                (Ast.AstBoolAnd
-                  (AstLeqInt AstConcreteK{}
+                  (AstLeqInt (AstConcreteK j)
                              (Ast.AstN1K NegateOp (AstIntVar var))) _) _ _)
-            | any ((== varNameToAstVarId var) . varNameToAstVarId)
+            | - j + 1 <= 0 || - j + 1 >= valueOf @m
+              || ixIsSmall prest && astIsSmall True uN
+            , any ((== varNameToAstVarId var) . varNameToAstVarId)
                   (listsToList vars) -> True
           AstIntVar var
             | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
@@ -2085,47 +2123,60 @@ astGatherKnobsS knobs shn v0
         -- this call is guaranteed to simplify as above, so the tranpose
         -- won't reduce it back to the original and cause a loop
 astGatherKnobsS knobs shn v0
-  (vars, ix@(i1 :.$ prest))
+  (vars@((::$) @m _ _), ix@(i1 :.$ prest))
   | let varInteresting = \case
-          Ast.AstCond (AstLeqInt AstConcreteK{} (AstIntVar var)) _ _ ->
-            Just var
-          Ast.AstCond (AstLeqInt AstConcreteK{}
-                                 (Ast.AstN1K NegateOp (AstIntVar var))) _ _ ->
-            Just var
-          Ast.AstLet _ _
-            (Ast.AstCond (AstLeqInt AstConcreteK{} (AstIntVar var)) _ _) ->
-            Just var
-          Ast.AstLet _ _
-            (Ast.AstCond (AstLeqInt AstConcreteK{}
+          Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _
+            | j <= 0 || j >= valueOf @m || ixIsSmall prest ->
+              Just var
+          Ast.AstCond (AstLeqInt (AstConcreteK j)
+                                 (Ast.AstN1K NegateOp (AstIntVar var))) _ _
+            | - j + 1 <= 0 || - j + 1 >= valueOf @m || ixIsSmall prest ->
+              Just var
+          Ast.AstLet _ uN
+            (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _)
+            | j <= 0 || j >= valueOf @m
+              || ixIsSmall prest && astIsSmall True uN ->
+              Just var
+          Ast.AstLet _ uN
+            (Ast.AstCond (AstLeqInt (AstConcreteK j)
                                     (Ast.AstN1K NegateOp
-                                                (AstIntVar var))) _ _) ->
-            Just var
+                                                (AstIntVar var))) _ _)
+            | - j + 1 <= 0 || - j + 1 >= valueOf @m
+              || ixIsSmall prest && astIsSmall True uN ->
+              Just var
           Ast.AstCond
             (Ast.AstBoolAnd
-               (AstLeqInt AstConcreteK{} (AstIntVar var)) _) _ _ ->
-            Just var
+               (AstLeqInt (AstConcreteK j) (AstIntVar var)) _) _ _
+            | j <= 0 || j >= valueOf @m || ixIsSmall prest ->
+              Just var
           Ast.AstCond
             (Ast.AstBoolAnd
-               (AstLeqInt AstConcreteK{}
-                          (Ast.AstN1K NegateOp (AstIntVar var))) _) _ _ ->
-            Just var
-          Ast.AstLet _ _
+               (AstLeqInt (AstConcreteK j)
+                          (Ast.AstN1K NegateOp (AstIntVar var))) _) _ _
+            | - j + 1 <= 0 || - j + 1 >= valueOf @m || ixIsSmall prest ->
+              Just var
+          Ast.AstLet _ uN
             (Ast.AstCond
                (Ast.AstBoolAnd
-                  (AstLeqInt AstConcreteK{} (AstIntVar var)) _) _ _) ->
-            Just var
-          Ast.AstLet _ _
+                  (AstLeqInt (AstConcreteK j) (AstIntVar var)) _) _ _)
+            | j <= 0 || j >= valueOf @m
+              || ixIsSmall prest && astIsSmall True uN ->
+              Just var
+          Ast.AstLet _ uN
             (Ast.AstCond
                (Ast.AstBoolAnd
-                  (AstLeqInt AstConcreteK{}
-                             (Ast.AstN1K NegateOp (AstIntVar var))) _) _ _) ->
-            Just var
+                  (AstLeqInt (AstConcreteK j)
+                             (Ast.AstN1K NegateOp (AstIntVar var))) _) _ _)
+            | - j + 1 <= 0 || - j + 1 >= valueOf @m
+              || ixIsSmall prest && astIsSmall True uN ->
+              Just var
           AstIntVar var
             | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
             , not (var `varNameInIxS` prest) -> Just var
           i4  -- has to be last, because ix can't be reordered
             | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
             , Ast.AstFromVector{} <- v0
+            , ixIsSmall prest
             , mvar <- case i4 of
                 AstIntVar var -> Just var
                 AstTimesK AstConcreteK{} (AstIntVar var) -> Just var
@@ -2235,10 +2286,10 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
         _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstApply{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstVar{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-    Ast.AstCond b v w ->
+    Ast.AstCond b v w | ixIsSmall ix4 ->
       astCond b (astGather @shm @shn @shp shn v (vars4, ix4))
                 (astGather @shm @shn @shp shn w (vars4, ix4))
-        -- TODO: ix4 duplicated
+    Ast.AstCond{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstBuild1{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     AstConcreteS{} ->
       Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
@@ -2282,19 +2333,12 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
     Ast.AstGatherS @shm2 @shn2 @shp2 shn2 v2 (vars2, ix2)
                    | SNat @rank4 <- ixsRank ix4
                    , SNat @rank2 <- listsRank vars2 ->
-      -- Term ix4 is duplicated without sharing and we can't help it,
-      -- because it needs to be in scope of vars4, so we can't use tlet.
-      -- (So maybe only apply this rule when ix4 isSmall?)
-      --
-      -- Independently, we need to insert lets to each index element,
-      -- bloating the term. TODO: would going via a rank 1 vector,
-      -- as in tletIx help or would we need to switch indexes to vector
-      -- altogether (terrible for user comfort, especially wrt typing).
-      let substLet :: AstIxS AstMethodLet shm7 -> AstVarListS shm7
-                   -> AstInt AstMethodLet
-                   -> AstInt AstMethodLet
-          substLet (IxS ix) vars t0 =
-            foldr (uncurry astLetInt) t0 (listsToList $ zipSizedS vars ix)
+      let subst :: AstIxS AstMethodLet shm7 -> AstVarListS shm7
+                -> AstInt AstMethodLet
+                -> AstInt AstMethodLet
+          subst (IxS ix) vars t0 =
+            foldr (\ (v, i) -> substituteAst i v)
+                  t0 (listsToList $ zipSizedS vars ix)
           inBounds :: AstIxS AstMethodLet shm7 -> AstVarListS shm7 -> Bool
           inBounds (IxS ix) vars =
             let inb (v, i) =
@@ -2319,9 +2363,9 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
                           :~: shm ++ shn) $
             let vars2p = listsTakeLen list4 vars2
                 vars22 = listsDropLen list4 vars2
-                ix22 = fmap (substLet ix4 vars2p) ix2
+                ix22 = fmap (subst ix4 vars2p) ix2
                 list422 = vars4 `listsAppend` vars22
-            in if inBounds ix4 vars2p
+            in if ixIsSmall ix4 && inBounds ix4 vars2p
                then Just $ astGather shn2 v2 (list422, ix22)
                else Nothing
           assimilatedGather ::  -- rank2 <= rank4
@@ -2339,9 +2383,9 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
                           :~: shp2 ++ shn2) $
             let ix42 = IxS $ listsTakeLen vars2 list4
                 ix44 = IxS $ listsDropLen vars2 list4
-                ix22 = fmap (substLet ix42 vars2) ix2
+                ix22 = fmap (subst ix42 vars2) ix2
                 ix2244 = ix22 `ixsAppend` ix44
-            in if inBounds ix42 vars2
+            in if ixIsSmall ix42 && inBounds ix42 vars2
                then Just $ astGather shn v2 (vars4, ix2244)
                else Nothing
       in fromMaybe (Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4))

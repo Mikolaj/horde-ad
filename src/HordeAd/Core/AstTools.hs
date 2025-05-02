@@ -7,7 +7,7 @@ module HordeAd.Core.AstTools
     -- * Variable occurrence detection
   , varInAst, varInAstBool, varInIxS, varNameInAst, varNameInIxS
     -- * Determining if a term is too small to require sharing
-  , astIsSmall
+  , astIsSmall, ixIsSmall
     -- * Odds and ends
   , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
@@ -378,6 +378,8 @@ astBoolIsSmallN n t0 = case t0 of
   AstLeqK u v -> astIsSmallN (astIsSmallN (n - 1) u) v
   AstLeqS u v -> astIsSmallN (astIsSmallN (n - 1) u) v
 
+ixIsSmall :: AstIxS ms sh -> Bool
+ixIsSmall = all (astIsSmall True)
 
 -- * Odds and ends
 
