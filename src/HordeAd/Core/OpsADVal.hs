@@ -145,7 +145,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   trreplicate k (D u u') = withSNat k $ \snat ->
     dD (trreplicate k u) (DeltaReplicate snat knownSTK u')
   trindex (D u u') i =
-    let ix = tprimalPart <$> i
+    let !ix = tshare . tprimalPart <$> i
     in dD (trindex u ix) (DeltaIndexR SNat u' ix)
   trscatter sh (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
@@ -210,7 +210,7 @@ instance ( ADReadyNoLet target, ShareTensor target
            * tstranspose (Permutation.makePerm @'[1, 0])
                          (tsreplicate SNat knownShS m2))
   tsindex (D u u') i =
-    let ix = tprimalPart <$> i
+    let !ix = tshare . tprimalPart <$> i
     in dD (tsindex u ix) (DeltaIndexS knownShS u' ix)
   tsscatter @shm @shn @shp (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
@@ -281,7 +281,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   txreplicate snat sh (D u u') =
     dD (txreplicate snat sh u) (DeltaReplicate snat (STKX sh knownSTK) u')
   txindex (D u u') i =
-    let ix = tprimalPart <$> i
+    let !ix = tshare . tprimalPart <$> i
     in dD (txindex u ix) (DeltaIndexX knownShX u' ix)
   txscatter @shm @shn @shp sh (D u u') f =
     let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)

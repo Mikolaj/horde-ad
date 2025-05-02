@@ -448,7 +448,7 @@ testPiecewiseLinearPP = do
       fT x = ifH (x >. rscalar 0) (rscalar 2 * x) (rscalar 5 * x)
       (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKR ZSR FTKScalar)
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret x1 -> rfromS (let v3 = soneHot (sfromR dret) [ifH (sscalar -0.0 <=. negate (sfromR x1)) 0 1] in sscalar 2.0 * v3 !$ [1] + sscalar 5.0 * v3 !$ [0])"
+    @?= "\\dret x1 -> rfromS (let v4 = soneHot (sfromR dret) [ifH (sscalar -0.0 <=. negate (sfromR x1)) 0 1] in sscalar 2.0 * v4 !$ [1] + sscalar 5.0 * v4 !$ [0])"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromS (ifH (sscalar -0.0 <=. negate (sfromR x1)) (sscalar 5.0 * sfromR x1) (sscalar 2.0 * sfromR x1))"
 
