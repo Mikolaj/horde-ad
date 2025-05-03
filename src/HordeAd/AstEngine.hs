@@ -2,7 +2,7 @@
 module HordeAd.AstEngine
   ( -- * The joint inlining and simplification term transformations
     simplifyArtifact, simplifyArtifactGradient, simplifyArtifactDerivative
-  , simplifyInline, simplifyInlineContract
+  , simplifyInline, simplifyInlineContract, simplifyInlineContractNoExpand
     -- * Pretty-printing terms in a few useful configurations
   , printAstVarName
   , printAstSimple, printAstPretty, printAstPrettyButNested
@@ -65,6 +65,15 @@ simplifyInlineContract
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContract =
   contractAst . simplifyInline
+
+simplifyInlineContractNoExpand
+  :: forall z s. AstSpan s
+  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
+simplifyInlineContractNoExpand =
+  contractAst
+  . simplifyAst . snd . inlineAst EM.empty
+  . simplifyAst . snd . inlineAst EM.empty
+  . simplifyAst
 
 
 -- * Pretty-printing terms in a few useful configurations
