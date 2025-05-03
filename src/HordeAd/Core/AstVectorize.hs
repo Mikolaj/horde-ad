@@ -527,7 +527,7 @@ traceNestingLevel :: IORef Int
 traceNestingLevel = unsafePerformIO $ newIORef 0
 
 traceWidth :: Int
-traceWidth = 80
+traceWidth = 90
 
 padString :: Int -> String -> String
 padString width full = let cropped = take width full
@@ -549,19 +549,22 @@ mkTraceRule :: forall y z s. AstSpan s
             -> AstTensor AstMethodLet s y
             -> AstTensor AstMethodLet s y
 {-# NOINLINE mkTraceRule #-}
-mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
+mkTraceRule !prefix !from !caseAnalysed !nwords ~to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = traceWidth
       constructorName =
-        unwords $ take nwords $ words $ take 20
-        $ printAstSimple caseAnalysed
+        unwords $ take nwords $ words $ take 21
+        $ case caseAnalysed of
+          Ast.AstVar{} -> "variable"
+          Ast.AstIndexS{} -> "sindex"
+          _ -> printAstSimple caseAnalysed
       ruleName = prefix ++ "." ++ constructorName
-      ruleNamePadded = take 20 $ ruleName ++ repeat ' '
+      ruleNamePadded = take 21 $ ruleName ++ repeat ' '
   when enabled $ do
     nestingLevel <- readIORef traceNestingLevel
     modifyIORef' traceNestingLevel succ
-    let paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
     -- Force in the correct order:
+    let !paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
     let !stringFrom = printAstSimple from
     let !stringTo = printAstSimple to
     hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded

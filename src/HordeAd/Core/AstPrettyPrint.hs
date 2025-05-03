@@ -228,9 +228,9 @@ printAst cfg d = \case
    if loseRoudtrip cfg
    then
     showParen (d > 10)
-    $ showString "tbuild1 "
+    $ showString "tbuild1 ("
       . shows k
-      . showString " "
+      . showString ") "
       . (showParen True
          $ showString "\\"
            . printAstIntVar cfg var
@@ -238,9 +238,9 @@ printAst cfg d = \case
            . printAst cfg 0 v)
    else
     showParen (d > 10)
-    $ showString "tbuild1 "
+    $ showString "tbuild1 ("
       . shows k
-      . showString " "
+      . showString ") "
       . showParen True (shows stk)
       . showString " "
       . (showParen True
