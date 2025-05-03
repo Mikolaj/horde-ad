@@ -53,9 +53,9 @@ simplifyInline
   :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInline =
-  simplifyAst . snd . inlineAst EM.empty
-  . simplifyAst . expandAst
-  . snd . inlineAst EM.empty . simplifyAst
+  simplifyAst . expandAst . snd . inlineAst EM.empty
+  . simplifyAst . expandAst . snd . inlineAst EM.empty
+  . simplifyAst
 
 -- | A mixture of simplification, inlining and recognition of additional
 -- backend-specific primitives, to be used just before a term
@@ -64,14 +64,15 @@ simplifyInlineContract
   :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContract =
-  contractAst . simplifyInline
+  contractAst . expandAst . snd . inlineAst EM.empty
+  . simplifyAst . expandAst . snd . inlineAst EM.empty
+  . simplifyAst
 
 simplifyInlineContractNoExpand
   :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContractNoExpand =
-  contractAst
-  . simplifyAst . snd . inlineAst EM.empty
+  contractAst . simplifyAst . snd . inlineAst EM.empty
   . simplifyAst . snd . inlineAst EM.empty
   . simplifyAst
 
