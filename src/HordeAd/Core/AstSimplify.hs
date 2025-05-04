@@ -758,6 +758,30 @@ astLet :: forall y z s s2. (AstSpan s, AstSpan s2)
 astLet _var _u v@Ast.AstConcreteK{} = v
 astLet _var _u v@Ast.AstConcreteS{} = v
 astLet _var _u v@Ast.AstIotaS{} = v
+astLet var u v@(Ast.AstVar var2) =
+  if varNameToAstVarId var2 == varNameToAstVarId var
+  then case sameAstSpan @s @s2 of
+    Just Refl -> case testEquality var var2 of
+      Just Refl -> u
+      _ -> error "astLet: wrong variable types at AstVar"
+    _ -> error "astLet: wrong span at AstVar"
+  else v
+astLet var u v@(Ast.AstPrimalPart (Ast.AstVar var2)) =  -- a common noop
+  if varNameToAstVarId var2 == varNameToAstVarId var
+  then case sameAstSpan @s @FullSpan of
+    Just Refl -> case testEquality var var2 of
+      Just Refl -> astPrimalPart u
+      _ -> error "astLet: wrong variable types at AstPrimalPart"
+    _ -> error "astLet: wrong span at AstPrimalPart"
+  else v
+astLet var u v@(Ast.AstDualPart (Ast.AstVar var2)) =  -- a noop
+  if varNameToAstVarId var2 == varNameToAstVarId var
+  then case sameAstSpan @s @FullSpan of
+    Just Refl -> case testEquality var var2 of
+      Just Refl -> astDualPart u
+      _ -> error "astLet: wrong variable types at AstDualPart"
+    _ -> error "astLet: wrong span at AstDualPart"
+  else v
 astLet var u v | astIsSmall True u =
   substituteAst u var v
 astLet var (Ast.AstPair u1 u2) v =
@@ -814,41 +838,29 @@ astLet var (Ast.AstFromDual
   $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
       substituteAst (Ast.AstFromDual (Ast.AstFromVector snat stk
                                       $ fromList [ast1, ast2])) var v
-astLet var u v@(Ast.AstVar var2) =
-  if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @s2 of
-    Just Refl -> case testEquality var var2 of
-      Just Refl -> u
-      _ -> error "astLet: wrong variable types at AstVar"
-    _ -> error "astLet: wrong span at AstVar"
-  else v
-astLet var u v@(Ast.AstPrimalPart (Ast.AstVar var2)) =  -- a common noop
-  if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @FullSpan of
-    Just Refl -> case testEquality var var2 of
-      Just Refl -> astPrimalPart u
-      _ -> error "astLet: wrong variable types at AstPrimalPart"
-    _ -> error "astLet: wrong span at AstPrimalPart"
-  else v
-astLet var u v@(Ast.AstDualPart (Ast.AstVar var2)) =  -- a noop
-  if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @FullSpan of
-    Just Refl -> case testEquality var var2 of
-      Just Refl -> astDualPart u
-      _ -> error "astLet: wrong variable types at AstDualPart"
-    _ -> error "astLet: wrong span at AstDualPart"
-  else v
+astLet var (Ast.AstReplicate snat stk a) v =
+  let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
+      ast = Ast.AstReplicate snat stk $ Ast.AstVar var2
+  in astLet var2 a (substituteAst ast var v)
+astLet var (Ast.AstFromPrimal (Ast.AstReplicate snat stk a)) v =
+  let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
+      ast = Ast.AstFromPrimal (Ast.AstReplicate snat stk $ Ast.AstVar var2)
+  in astLet var2 a (substituteAst ast var v)
+astLet var (Ast.AstFromDual (Ast.AstReplicate snat stk a)) v =
+  let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
+      ast = Ast.AstFromDual (Ast.AstReplicate snat stk $ Ast.AstVar var2)
+  in astLet var2 a (substituteAst ast var v)
+astLet var u@(Ast.AstFromS STKScalar _) v = Ast.AstLet var u v
+astLet var (Ast.AstFromS stkz a) v =
+  let var2 =
+        mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
+      ast = Ast.AstFromS stkz $ Ast.AstVar var2
+  in astLet var2 a (substituteAst ast var v)
 astLet var u (Ast.AstFromPrimal v0) = Ast.AstFromPrimal $ astLet var u v0
 astLet var u (Ast.AstFromDual v0) = Ast.AstFromDual $ astLet var u v0
 astLet var u v@(Ast.AstFromS STKScalar _) = Ast.AstLet var u v
 astLet var u (Ast.AstFromS stkz v) =
   astFromS stkz $ astLet var u v
-astLet var u@(Ast.AstFromS STKScalar _) v = Ast.AstLet var u v
-astLet var (Ast.AstFromS stkz a) v =
-  let var2 =
-        mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
-      ast = astFromS stkz $ Ast.AstVar var2
-  in astLet var2 a (substituteAst ast var v)
 astLet var u v = Ast.AstLet var u v
 
 astPrimalPart :: AstTensor AstMethodLet FullSpan y
