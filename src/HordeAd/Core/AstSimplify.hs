@@ -2450,12 +2450,10 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
       let rankPerm = Permutation.permRank perm
       in case gcompare (ixsRank ix4) rankPerm of
         GLT ->  -- TODO: this does not provide any proof, so use cmpNat :(
-          Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-          {- TODO: disabled until we can reliably fuse back to transpose
-          if knobExpand knobs
+          if knobPhase knobs == PhaseExpansion
           then astGather @shm @shn @shp
                          shn (astTransposeAsGatherS knobs perm v) (vars4, ix4)
-          else Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4) -}
+          else Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
         _ ->
           gcastWith (lemRankMapJust $ shsTakeLen perm sh) $
           gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
