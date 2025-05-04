@@ -144,6 +144,7 @@ library horde-ad-simplified
                       HordeAd.Core.CarriersADVal
                       HordeAd.Core.CarriersAst
                       HordeAd.Core.CarriersConcrete
+                      HordeAd.Core.CompileFuthark
                       HordeAd.Core.ConvertTensor
                       HordeAd.Core.Delta
                       HordeAd.Core.DeltaEval
@@ -170,6 +171,7 @@ library horde-ad-simplified
         assert-failure
       , base >= 4.20 && < 99
       , Boolean
+      , bytestring
       , containers
       , deepseq
       , data-default
@@ -183,6 +185,7 @@ library horde-ad-simplified
       , ox-arrays
       , random >= 1.3.0
       , some
+      , transformers
       , unboxed-ref
       , vector >= 0.13.2.0
 
