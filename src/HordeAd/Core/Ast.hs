@@ -72,19 +72,19 @@ class Typeable s => AstSpan (s :: AstSpanType) where
 
 -- These are weak instance and we can't move them to AstSimplify,
 -- because it's too late and also astPrimalPart only works on AstMethodLet.
-instance {-# OVERLAPPABLE #-} AstSpan PrimalSpan where
+instance AstSpan PrimalSpan where
   fromPrimal = id
   fromDual t = AstPrimalPart $ AstFromDual t  -- this is primal zero
   primalPart t = t
   dualPart t = AstDualPart $ AstFromPrimal t  -- this is dual zero
 
-instance {-# OVERLAPPABLE #-} AstSpan DualSpan where
+instance AstSpan DualSpan where
   fromPrimal t = AstDualPart $ AstFromPrimal t  -- this is dual zero
   fromDual = id
   primalPart t = AstPrimalPart $ AstFromDual t  -- this is primal zero
   dualPart t = t
 
-instance {-# OVERLAPPABLE #-} AstSpan FullSpan where
+instance AstSpan FullSpan where
   fromPrimal = AstFromPrimal
   fromDual = AstFromDual
   primalPart (AstFromPrimal t) = t
