@@ -149,6 +149,7 @@ library horde-ad-simplified
                       HordeAd.Core.CarriersADVal
                       HordeAd.Core.CarriersAst
                       HordeAd.Core.CarriersConcrete
+                      HordeAd.Core.CompileFuthark
                       HordeAd.Core.ConvertTensor
                       HordeAd.Core.Delta
                       HordeAd.Core.DeltaEval
@@ -176,6 +177,7 @@ library horde-ad-simplified
       , base >= 4.20.1 && < 4.21
           -- GHC 9.10.2 only; GHC 9.12 fails currently: https://gitlab.haskell.org/ghc/ghc/-/issues/25964
       , Boolean < 0.3
+      , bytestring >= 0.12 && < 0.13
       , containers >= 0.6 && < 0.9
       , deepseq < 1.7
       , data-default < 0.9
@@ -189,6 +191,7 @@ library horde-ad-simplified
       , ox-arrays < 0.2
       , random >= 1.3.0 && < 1.4
       , some >= 1 && < 2
+      , transformers >= 0.6 && < 0.7
       , unboxed-ref < 0.5
       , vector >= 0.13.2.0 && < 0.14
 
