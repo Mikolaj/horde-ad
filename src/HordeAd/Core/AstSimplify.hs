@@ -850,6 +850,18 @@ astLet var (Ast.AstFromDual (Ast.AstReplicate snat stk a)) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
       ast = Ast.AstFromDual (Ast.AstReplicate snat stk $ Ast.AstVar var2)
   in astLet var2 a (substituteAst ast var v)
+astLet var (Ast.AstTransposeS perm a) v =
+  let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
+      ast = Ast.AstTransposeS perm $ Ast.AstVar var2
+  in astLet var2 a (substituteAst ast var v)
+astLet var (Ast.AstFromPrimal (Ast.AstTransposeS perm a)) v =
+  let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
+      ast = Ast.AstFromPrimal (Ast.AstTransposeS perm $ Ast.AstVar var2)
+  in astLet var2 a (substituteAst ast var v)
+astLet var (Ast.AstFromDual (Ast.AstTransposeS perm a)) v =
+  let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
+      ast = Ast.AstFromDual (Ast.AstTransposeS perm $ Ast.AstVar var2)
+  in astLet var2 a (substituteAst ast var v)
 astLet var u@(Ast.AstFromS STKScalar _) v = Ast.AstLet var u v
 astLet var (Ast.AstFromS stkz a) v =
   let var2 =
