@@ -1457,7 +1457,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     in case ulen <=. i of
       AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
       bExpr ->
-        -- This results in a larger and more complex term, so we do it late.
+        -- This results in a larger term, so we consider this late.
         if knobPhase knobs == PhaseExpansion
         then astCond bExpr (astIndex shn v ix2) (astIndex shn u ix1)
         else Ast.AstIndexS shn v0 ix
@@ -1481,9 +1481,11 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
       in gcastWith (unsafeCoerceRefl
                     :: sh2 :~: Permutation.PermutePrefix permR shm ++ shn) $
          astIndex @(Permutation.PermutePrefix permR shm) shn v ix2
-  Ast.AstTransposeS @perm perm v | knobPhase knobs == PhaseExpansion ->
-    astIndex shn (astTransposeAsGatherS @perm (deVect knobs) perm v) ix
+  Ast.AstTransposeS @perm perm v
+    | knobPhase knobs `elem` [PhaseVectorization, PhaseExpansion] ->
+      astIndex shn (astTransposeAsGatherS @perm (deVect knobs) perm v) ix
   Ast.AstTransposeS{} -> Ast.AstIndexS shn v0 ix
+  -- This results in a larger term, so we consider this late.
   Ast.AstReshapeS sh v | knobPhase knobs == PhaseExpansion
                          || shsLength sh <= 1 ->
     astIndex shn (astReshapeAsGatherS (deVect knobs) sh v) ix
@@ -1984,7 +1986,8 @@ astGatherKnobsS knobs shn v0
 astGatherKnobsS knobs shn v0
   ( (::$) @m @shmTail (Const varm) mrest
   , (:.$) @p @shpTail (AstIntVar varp) prest )
-  | knobPhase knobs /= PhaseExpansion  -- prevent a loop
+  | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
+      -- prevent a loop
   , varm == varp
   , not (varm `varNameInIxS` prest)
   , FTKS _ x <- ftkAst v0 =
@@ -2022,7 +2025,7 @@ astGatherKnobsS knobs shn v0
 astGatherKnobsS knobs shn v7@(Ast.AstFromVector _ (STKS _ x2) l)
                 ( ((::$) @m1' @shm4 (Const var4) vrest4)
                 , ((:.$) @_ @shp1' i4 rest4) )
-  | knobPhase knobs /= PhaseExpansion
+  | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
   , let g = case i4 of
           AstIntVar var | var == var4 -> Just id
           AstTimesK (AstConcreteK n) (AstIntVar var)
@@ -2044,7 +2047,8 @@ astGatherKnobsS knobs shn v7@(Ast.AstFromVector _ (STKS _ x2) l)
                      (STKS (listsToShS vrest4 `shsAppend` shn) x2)
        $ V.fromList $ map f [0 .. valueOf @m1' - 1]
 astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
-  | knobPhase knobs /= PhaseExpansion  -- prevent a loop
+  | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
+      -- prevent a loop
   , not (any (`varNameInAst` i1) $ listsToList vars0) =
     astGatherKnobsS @shm @shn
       knobs shn
@@ -2450,7 +2454,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
       let rankPerm = Permutation.permRank perm
       in case gcompare (ixsRank ix4) rankPerm of
         GLT ->  -- TODO: this does not provide any proof, so use cmpNat :(
-          if knobPhase knobs == PhaseExpansion
+          if knobPhase knobs `elem` [PhaseVectorization, PhaseExpansion]
           then astGather @shm @shn @shp
                          shn (astTransposeAsGatherS knobs perm v) (vars4, ix4)
           else Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
