@@ -137,11 +137,11 @@ mnistTestCaseCNNRA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
 
 tensorADValMnistTestsCNNRA :: TestTree
 tensorADValMnistTestsCNNRA = testGroup "CNNR ADVal MNIST tests"
-  [ mnistTestCaseCNNRA "CNNRA 1 epoch, 1 batch" 1 1 2 2 4 4 1 1
+  [ mnistTestCaseCNNRA "CNNRA 1 epoch, 1 batch" 1 1 4 4 8 16 1 1
                        (1 :: Double)
-  , mnistTestCaseCNNRA "CNNRA artificial 1 2 3 4 5" 1 1 2 3 4 5 1 1
+  , mnistTestCaseCNNRA "CNNRA artificial 1 2 3 4 5" 1 1 2 3 4 5 1 10
                        (1 :: Float)
-  , mnistTestCaseCNNRA "CNNRA artificial 5 4 3 2 1" 1 4 3 2 1 1 1 1
+  , mnistTestCaseCNNRA "CNNRA artificial 5 4 3 2 1" 5 4 3 2 1 1 1 1
                        (1 :: Double)
   , mnistTestCaseCNNRA "CNNRA 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
                        (1.0 :: Float)
@@ -260,11 +260,11 @@ mnistTestCaseCNNRI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
 
 tensorADValMnistTestsCNNRI :: TestTree
 tensorADValMnistTestsCNNRI = testGroup "CNNR Intermediate MNIST tests"
-  [ mnistTestCaseCNNRI "CNNRI 1 epoch, 1 batch" 1 1 2 2 4 4 1 1
+  [ mnistTestCaseCNNRI "CNNRI 1 epoch, 1 batch" 1 1 4 4 8 16 1 1
                        (1 :: Double)
-  , mnistTestCaseCNNRI "CNNRI artificial 1 2 3 4 5" 1 1 2 3 4 5 1 1
+  , mnistTestCaseCNNRI "CNNRI artificial 1 2 3 4 5" 1 1 2 3 4 5 1 10
                        (1 :: Float)
-  , mnistTestCaseCNNRI "CNNRI artificial 5 4 3 2 1" 1 4 3 2 1 1 1 1
+  , mnistTestCaseCNNRI "CNNRI artificial 5 4 3 2 1" 5 4 3 2 1 1 1 1
                        (1 :: Double)
   , mnistTestCaseCNNRI "CNNRI 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
                        (1.0 :: Float)
@@ -391,11 +391,11 @@ mnistTestCaseCNNRO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
 
 tensorADValMnistTestsCNNRO :: TestTree
 tensorADValMnistTestsCNNRO = testGroup "CNNR Once MNIST tests"
-  [ mnistTestCaseCNNRO "CNNRO 1 epoch, 1 batch" 1 1 2 2 4 4 1 1
+  [ mnistTestCaseCNNRO "CNNRO 1 epoch, 1 batch" 1 1 4 4 8 16 1 1
                        (1 :: Double)
-  , mnistTestCaseCNNRO "CNNRO artificial 1 2 3 4 5" 1 1 2 3 4 5 1 1
+  , mnistTestCaseCNNRO "CNNRO artificial 1 2 3 4 5" 1 1 2 3 4 5 1 10
                        (1 :: Float)
-  , mnistTestCaseCNNRO "CNNRO artificial 5 4 3 2 1" 1 4 3 2 1 1 1 1
+  , mnistTestCaseCNNRO "CNNRO artificial 5 4 3 2 1" 5 4 3 2 1 1 1 1
                        (1 :: Double)
   , mnistTestCaseCNNRO "CNNRO 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
                        (1.0 :: Float)

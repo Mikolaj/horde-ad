@@ -56,7 +56,7 @@ mnistTestCaseRNNRA
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseRNNRA prefix epochs maxBatches width miniBatchSize totalBatchSize
-                  expected =
+                   expected =
   withSNat width $ \(SNat @width) ->
   let targetInit =
         forgetShape $ fst
@@ -149,8 +149,8 @@ mnistTestCaseRNNRA prefix epochs maxBatches width miniBatchSize totalBatchSize
 
 tensorADValMnistTestsRNNRA :: TestTree
 tensorADValMnistTestsRNNRA = testGroup "RNNR ADVal MNIST tests"
-  [ mnistTestCaseRNNRA "RNNRA 1 epoch, 1 batch" 1 1 128 5 50
-                       (0.86 :: Double)
+  [ mnistTestCaseRNNRA "RNNRA 1 epoch, 1 batch" 1 1 128 5 5000
+                       (0.8846 :: Double)
   , mnistTestCaseRNNRA "RNNRA artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNRA "RNNRA artificial 5 4 3 2 1" 5 4 3 2 49
@@ -276,8 +276,8 @@ mnistTestCaseRNNRI prefix epochs maxBatches width miniBatchSize totalBatchSize
 
 tensorADValMnistTestsRNNRI :: TestTree
 tensorADValMnistTestsRNNRI = testGroup "RNNR Intermediate MNIST tests"
-  [ mnistTestCaseRNNRI "RNNRI 1 epoch, 1 batch" 1 1 128 5 50
-                       (0.88 :: Double)
+  [ mnistTestCaseRNNRI "RNNRI 1 epoch, 1 batch" 1 1 128 5 5000
+                       (0.8988 :: Double)
   , mnistTestCaseRNNRI "RNNRI artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNRI "RNNRI artificial 5 4 3 2 1" 5 4 3 2 49
@@ -409,7 +409,7 @@ mnistTestCaseRNNRO prefix epochs maxBatches width miniBatchSize totalBatchSize
 
 tensorADValMnistTestsRNNRO :: TestTree
 tensorADValMnistTestsRNNRO = testGroup "RNNR Once MNIST tests"
-  [ mnistTestCaseRNNRO "RNNRO 1 epoch, 1 batch" 1 1 128 5 500
+  [ mnistTestCaseRNNRO "RNNRO 1 epoch, 1 batch" 1 1 128 5 5000
                        (0.898 :: Double)
   , mnistTestCaseRNNRO "RNNRO artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)

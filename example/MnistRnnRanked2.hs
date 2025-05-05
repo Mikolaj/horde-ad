@@ -119,7 +119,7 @@ rnnMnistZeroR batch_size xs
 --    | SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
 --      Ast.AstReplicate snat2 (STKS (snat1 :$$ sh2) x)
 --                       (Ast.AstReplicate snat1 (STKS sh2 x) u)
--- which permits creating a transpose our of nested replicates
+-- which permits creating a transpose out of nested replicates
 -- and so proves more matmuls can be recognized than we do currently.
 -- Sadly, this is very messy, we need to check if there are >=2 or >=3 nested
 -- replicates, depending on which permutation we require, etc.

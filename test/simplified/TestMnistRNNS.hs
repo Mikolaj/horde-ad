@@ -75,9 +75,9 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
             => MnistDataBatchS batch_size2 r -> Concrete (XParams width r)
             -> r
       ftest _ _ | Just Refl <- sameNat (Proxy @0) (Proxy @batch_size2) = 0
-      ftest mnist testParams =
+      ftest mnistData testParams =
         MnistRnnShaped2.rnnMnistTestS
-          width (SNat @batch_size2) mnist (fromTarget @Concrete testParams)
+          width (SNat @batch_size2) mnistData (fromTarget @Concrete testParams)
   in testCase name $ do
     hPutStrLn stderr $
       printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -150,8 +150,8 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
 
 tensorADValMnistTestsRNNSA :: TestTree
 tensorADValMnistTestsRNNSA = testGroup "RNNS ADVal MNIST tests"
-  [ mnistTestCaseRNNSA "RNNSA 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 50
-                       (0.86 :: Double)
+  [ mnistTestCaseRNNSA "RNNSA 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 5000
+                       (0.8846 :: Double)
   , mnistTestCaseRNNSA "RNNSA artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNSA "RNNSA artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
@@ -183,9 +183,9 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
             => MnistDataBatchS batch_size2 r -> Concrete (XParams width r)
             -> r
       ftest _ _ | Just Refl <- sameNat (Proxy @0) (Proxy @batch_size2) = 0
-      ftest mnist testParams =
+      ftest mnistData testParams =
         MnistRnnShaped2.rnnMnistTestS
-          width (SNat @batch_size2) mnist (fromTarget @Concrete testParams)
+          width (SNat @batch_size2) mnistData (fromTarget @Concrete testParams)
   in testCase name $ do
     hPutStrLn stderr $
       printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -265,8 +265,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
 
 tensorADValMnistTestsRNNSI :: TestTree
 tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
-  [ mnistTestCaseRNNSI "RNNSI 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 50
-                       (0.88 :: Double)
+  [ mnistTestCaseRNNSI "RNNSI 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 5000
+                       (0.8988 :: Double)
   , mnistTestCaseRNNSI "RNNSI artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNSI "RNNSI artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
@@ -300,9 +300,9 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
             => MnistDataBatchS batch_size2 r -> Concrete (XParams width r)
             -> r
       ftest _ _ | Just Refl <- sameNat (Proxy @0) (Proxy @batch_size2) = 0
-      ftest mnist testParams =
+      ftest mnistData testParams =
         MnistRnnShaped2.rnnMnistTestS
-          width (SNat @batch_size2) mnist (fromTarget @Concrete testParams)
+          width (SNat @batch_size2) mnistData (fromTarget @Concrete testParams)
   in testCase name $ do
     hPutStrLn stderr $
       printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -400,7 +400,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
 
 tensorADValMnistTestsRNNSO :: TestTree
 tensorADValMnistTestsRNNSO = testGroup "RNNS Once MNIST tests"
-  [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 50
+  [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 5000
                        (0.84 :: Double)
   , mnistTestCaseRNNSO "RNNSO artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
                        (0.8933333 :: Float)

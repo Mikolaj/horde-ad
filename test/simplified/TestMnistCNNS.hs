@@ -140,13 +140,13 @@ mnistTestCaseCNNSA prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
 tensorADValMnistTestsCNNSA :: TestTree
 tensorADValMnistTestsCNNSA = testGroup "CNNS ADVal MNIST tests"
   [ mnistTestCaseCNNSA "CNNSA 1 epoch, 1 batch"
-                       1 1 (SNat @2) (SNat @2) 4 4 1 1
+                       1 1 (SNat @4) (SNat @4) 8 16 1 1
                        (1 :: Double)
   , mnistTestCaseCNNSA "CNNSA artificial 1 2 3 4 5"
-                       1 1 (SNat @2) (SNat @3) 4 5 1 1
+                       1 1 (SNat @2) (SNat @3) 4 5 1 10
                        (1 :: Float)
   , mnistTestCaseCNNSA "CNNSA artificial 5 4 3 2 1"
-                       1 4 (SNat @3) (SNat @2) 1 1 1 1
+                       5 4 (SNat @3) (SNat @2) 1 1 1 1
                        (1 :: Double)
   , mnistTestCaseCNNSA "CNNSA 1 epoch, 0 batch"
                        1 0 (SNat @4) (SNat @4) 64 16 5 50
@@ -265,13 +265,13 @@ mnistTestCaseCNNSI prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
 tensorADValMnistTestsCNNSI :: TestTree
 tensorADValMnistTestsCNNSI = testGroup "CNNS Intermediate MNIST tests"
   [ mnistTestCaseCNNSI "CNNSI 1 epoch, 1 batch"
-                       1 1 (SNat @2) (SNat @2) 4 4 1 1
+                       1 1 (SNat @4) (SNat @4) 8 16 1 1
                        (1 :: Double)
   , mnistTestCaseCNNSI "CNNSI artificial 1 2 3 4 5"
-                       1 1 (SNat @2) (SNat @3) 4 5 1 1
+                       1 1 (SNat @2) (SNat @3) 4 5 1 10
                        (1 :: Float)
   , mnistTestCaseCNNSI "CNNSI artificial 5 4 3 2 1"
-                       1 4 (SNat @3) (SNat @2) 1 1 1 1
+                       5 4 (SNat @3) (SNat @2) 1 1 1 1
                        (1 :: Double)
   , mnistTestCaseCNNSI "CNNSI 1 epoch, 0 batch"
                        1 0 (SNat @4) (SNat @4) 64 16 5 50
@@ -404,13 +404,13 @@ mnistTestCaseCNNSO prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
 tensorADValMnistTestsCNNSO :: TestTree
 tensorADValMnistTestsCNNSO = testGroup "CNNS Once MNIST tests"
   [ mnistTestCaseCNNSO "CNNSO 1 epoch, 1 batch"
-                       1 1 (SNat @2) (SNat @2) 4 4 1 1
+                       1 1 (SNat @4) (SNat @4) 8 16 1 1
                        (1 :: Double)
   , mnistTestCaseCNNSO "CNNSO artificial 1 2 3 4 5"
-                       1 1 (SNat @2) (SNat @3) 4 5 1 1
+                       1 1 (SNat @2) (SNat @3) 4 5 1 10
                        (1 :: Float)
   , mnistTestCaseCNNSO "CNNSO artificial 5 4 3 2 1"
-                       1 4 (SNat @3) (SNat @2) 1 1 1 1
+                       5 4 (SNat @3) (SNat @2) 1 1 1 1
                        (1 :: Double)
   , mnistTestCaseCNNSO "CNNSO 1 epoch, 0 batch"
                        1 0 (SNat @4) (SNat @4) 64 16 5 50
