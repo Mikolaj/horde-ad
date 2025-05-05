@@ -1229,8 +1229,8 @@ testReluSimpPP = do
   resetVarCounter
   let !t1 = barRelu10xSlower @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t1) @?= 33545
-  length (show (simplifyInlineContract @(TKR 10 Float) t1)) @?= 27129
+  length (show t1) @?= 27737
+  length (show (simplifyInlineContract @(TKR 10 Float) t1)) @?= 21945
   resetVarCounter
   let !t2 = barRelu @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) Nothing . intToAstVarId $ 100000000)
@@ -1245,7 +1245,7 @@ testCNNOPP2 = do
   printAstPretty (simplifyInlineContract t)
     @?= "rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printAstPretty t
-    @?= "rfromS (sreplicate @2 (sreplicate @2 (let u36 = let u41 = sgather (sgather (sreplicate @1 (let w32 = sgather (stranspose @[3,2,0,1] (sgather (sconcrete (sfromListLinear [2,3,2] [1.0,1.0,0.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,0.0])) (\\[i26, i15] -> [i26 + i15]))) (\\[i22, i16] -> [i22 + i16]) in stranspose @[1,2,3,0] (sappend (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))) (sappend (sreplicate @1 (stranspose @[1,2,3,0] (stranspose @[2,3,0,4,1] w32 !$ [1]))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))))) (\\[i20] -> [i20, i20, i20, 0])) (\\[i48, i39, i35, i8] -> [2 * i39 + i8, i39, 2 * i48 + i35]) in str (sappend (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))) (sreplicate @1 (str u41 !$ [1]))) in stranspose @[2,3,0,1] u36 !$ [0, 0])))"
+    @?= "rfromS (sreplicate @2 (sreplicate @2 (let u36 = let u41 = sgather (sgather (sreplicate @1 (let w32 = sgather (stranspose @[3,2,0,1] (sgather (sconcrete (sfromListLinear [2,3,2] [1.0,1.0,0.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,0.0])) (\\[i26, i15] -> [i26 + i15]))) (\\[i22, i16] -> [i22 + i16]) in stranspose @[1,2,3,0] (sappend (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))) (sappend (sreplicate @1 (stranspose @[2,0,4,1,3] w32 !$ [1])) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))))) (\\[i20] -> [i20, i20, i20, 0])) (\\[i44, i39, i35, i8] -> [2 * i39 + i8, i39, 2 * i44 + i35]) in str (sappend (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))) (sreplicate @1 (str u41 !$ [1]))) in stranspose @[2,3,0,1] u36 !$ [0, 0])))"
 
 testCNNOPP2b :: Assertion
 testCNNOPP2b = do
@@ -1324,9 +1324,9 @@ testCNNOPP3b = do
   printArtifactPrimalPretty artifactRev
     @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 1] + sfromR u1 !$ [0, 1, 1, 1])) (sreplicate @1 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sscalar 0.0))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> let t81 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in rfromS (soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t81)))))) [0, 0, 0, 1] + soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t81)))))) [0, 1, 1, 1])"
+    @?= "\\dret u1 -> let t80 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in rfromS (soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t80)))))) [0, 0, 0, 1] + soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t80)))))) [0, 1, 1, 1])"
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> rfromS (let t81 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in soneHot (t81 !$ [0, 0, 0]) [0, 0, 0, 1] + soneHot (t81 !$ [0, 0, 0]) [0, 1, 1, 1])"
+    @?= "\\dret u1 -> rfromS (let t80 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in soneHot (t80 !$ [0, 0, 0]) [0, 0, 0, 1] + soneHot (t80 !$ [0, 0, 0]) [0, 1, 1, 1])"
 
 maxPool2dUnpadded3
   :: (ADReady target, GoodScalar r)
@@ -1388,7 +1388,7 @@ testCNNOPP4 = do
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printAstPretty afcnn2T
-    @?= "rfromS (let w19 = sgather (sfromVector (fromList [stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,0,3,1,4,5,2] (sgather (stranspose @[3,0,2,1] (sgather (stranspose @[0,2,1] (sgather (sreplicate @2 (sreplicate @3 (sreplicate @3 (sreplicate @3 (sscalar 7.0))))) (\\[i51, i5] -> [i51 + i5]))) (\\[i50, i6] -> [i50, 2 + (negate i50 + i6)]))) (\\[i56, i32, i7] -> [i56 * i32 + i7]))) (\\[i22, i8] -> [2 * i22 + i8])), sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))))))])) (\\[i54, i47, i30, i21, i15, i12, i10, i9] -> [ifH (0 <=. negate i47 + negate i15 &&* (1 <=. i47 + negate i12 &&* (notB (notB (0 <=. negate i54 * i30 + negate i10) &&* notB (1 <=. i54 * i30 + i10 &&* (-1) <=. negate i54 * i30 + negate i10)) &&* notB (notB (0 <=. (-2) * i21 + negate i9) &&* notB (1 <=. 2 * i21 + i9 &&* (-1) <=. (-2) * i21 + negate i9))))) 0 1, i54, i47, i30, i21, i15, i12, i10, i9]) in stranspose @[2,3,1,0] (sgather (stranspose @[2,3,4,5,6,7,0,1] w19) (\\[i44, i45] -> [i45, i44, 0, 0, 0, 0])))"
+    @?= "rfromS (let w19 = sgather (sfromVector (fromList [stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,0,3,1,4,5,2] (sgather (stranspose @[3,0,2,1] (sgather (stranspose @[0,2,1] (sgather (sreplicate @2 (sreplicate @3 (sreplicate @3 (sreplicate @3 (sscalar 7.0))))) (\\[i32, i5] -> [i32 + i5]))) (\\[i31, i6] -> [i31, 2 + (negate i31 + i6)]))) (\\[i36, i26, i7] -> [i36 * i26 + i7]))) (\\[i22, i8] -> [2 * i22 + i8])), sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))))))])) (\\[i34, i28, i24, i21, i15, i12, i10, i9] -> [ifH (0 <=. negate i28 + negate i15 &&* (1 <=. i28 + negate i12 &&* (notB (notB (0 <=. negate i34 * i24 + negate i10) &&* notB (1 <=. i34 * i24 + i10 &&* (-1) <=. negate i34 * i24 + negate i10)) &&* notB (notB (0 <=. (-2) * i21 + negate i9) &&* notB (1 <=. 2 * i21 + i9 &&* (-1) <=. (-2) * i21 + negate i9))))) 0 1, i34, i28, i24, i21, i15, i12, i10, i9]) in stranspose @[4,5,6,7,0,1,2,3] w19 !$ [0, 0, 0, 0])"
 
 -- In this test primal is trivial but gradient is not, so we know how much
 -- scatters should be able to simplify in the future.
@@ -1399,7 +1399,7 @@ testCNNOPP4b = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\u1 -> rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> rfromS (stranspose @[2,3,1,0] (sappend (sreplicate @1 (stranspose @[1,2,0] (sappend (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
+    @?= "\\u1 -> rfromS (stranspose @[1,2,3,0] (sappend (sreplicate @1 (str (sappend (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
   printArtifactPretty artifactRev
     @?= "\\dret u1 -> rfromS (sconcrete (sreplicate [3,3,3,3] 0.0))"
   printArtifactPretty (simplifyArtifact artifactRev)
@@ -1494,7 +1494,7 @@ testCNNOPP6b = do
     @?= "\\dret u1 -> let t33 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in rfromS (soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t33)))))) [0, 0, 0, 0])"
 
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> rfromS (soneHot (ssum0 (str (sfromR dret !$ [0, 0]) !$ [0])) [0, 0, 0, 0])"
+    @?= "\\dret u1 -> rfromS (soneHot (ssum0 (stranspose @[0,1,3,2] (sfromR dret) !$ [0, 0, 0])) [0, 0, 0, 0])"
 
 conv2dUnpadded3z
   :: (ADReady target, GoodScalar r)

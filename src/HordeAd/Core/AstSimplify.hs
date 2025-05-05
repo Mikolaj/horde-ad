@@ -2803,6 +2803,22 @@ astTransposeS perm t = case perm of
 --  Ast.AstFromIntegralS v -> astFromIntegralS $ astTransposeS perm v
 --  Ast.AstCastS v -> astCastS $ astTransposeS perm v
 
+  Ast.AstIndexS @shm shn v ix | SNat @n <- ixsRank ix ->
+    Permutation.permFromList
+      (Permutation.permToList'
+       $ iterate (unsafeCoerce Permutation.permShift1) perm
+         !! (valueOf @n))  -- this has a fake type, but that's fine
+      $ \ (permn :: Perm permn) ->
+        fromMaybe (error "astTransposeS: impossible non-permutation")
+        $ Permutation.permCheckPermutation permn
+        $ gcastWith (unsafeCoerceRefl
+                     :: Permutation.PermutePrefix permn (shm ++ sh)
+                        :~: shm ++ Permutation.PermutePrefix perm sh)
+-- should suffice, but it doesn't
+--      $ gcastWith (unsafeCoerceRefl :: Rank permn :~: n + Rank perm)
+        $ gcastWith (unsafeCoerceRefl
+                     :: (Rank permn <=? Rank (shm ++ sh)) :~: True)
+        $ astIndexS (shsPermutePrefix perm shn) (astTransposeS permn v) ix
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix)
     -- TODO: should the below be backpermute or permute?
     | gcompare (Permutation.permRank perm) (ixsRank ix) /= GGT ->
