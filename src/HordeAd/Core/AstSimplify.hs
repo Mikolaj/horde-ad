@@ -459,7 +459,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
       accFromSTK = ftkToSTK accftkFrom
       ftkf2 = FTKProduct accftkFrom eftk
       varf2 = mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
-      astf2 = Ast.AstVar varf2
+      astf2 = astVar varf2
       vf2 =
         let subbed =
               substituteAst
@@ -473,7 +473,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
                 (adFTK $ FTKProduct accftkFrom eftk)
                 (FTKProduct accftkFrom eftk)
       vard2 = mkAstVarName ftkd2 (varNameToBounds vard) (varNameToAstVarId vard)
-      astd2 = Ast.AstVar vard2
+      astd2 = astVar vard2
       vd2 =
         let subbed =
               substituteAst
@@ -492,7 +492,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
                 (adFTK $ FTKProduct accftkFrom bftk)
                 (FTKProduct accftkFrom eftk)
       varr2 = mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
-      astr2 = Ast.AstVar varr2
+      astr2 = astVar varr2
       vr2 =
         let subbed =
               substituteAst
@@ -529,7 +529,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
           ftkf2 = FTKProduct accftk eftkFrom
           varf2 =
             mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
-          astf2 = Ast.AstVar varf2
+          astf2 = astVar varf2
           vf2 =
             let subbed =
                   substituteAst
@@ -543,7 +543,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
                     (FTKProduct accftk eftkFrom)
           vard2 =
             mkAstVarName ftkd2 (varNameToBounds vard) (varNameToAstVarId vard)
-          astd2 = Ast.AstVar vard2
+          astd2 = astVar vard2
           vd2 =
             let subbed =
                   substituteAst
@@ -561,7 +561,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
                     (FTKProduct accftk eftkFrom)
           varr2 =
             mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
-          astr2 = Ast.AstVar varr2
+          astr2 = astVar varr2
           vr2 =
             let subbed =
                   substituteAst
@@ -606,7 +606,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
       accFromSTK = ftkToSTK accftkFrom
       ftkf2 = FTKProduct accftkFrom eftk
       varf2 = mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
-      astf2 = Ast.AstVar varf2
+      astf2 = astVar varf2
       vf2 =
         let subbed =
               substituteAst
@@ -620,7 +620,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                 (adFTK $ FTKProduct accftkFrom eftk)
                 (FTKProduct accftkFrom eftk)
       vard2 = mkAstVarName ftkd2 (varNameToBounds vard) (varNameToAstVarId vard)
-      astd2 = Ast.AstVar vard2
+      astd2 = astVar vard2
       vd2 =
         let subbed =
               substituteAst
@@ -639,7 +639,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                 (adFTK $ FTKProduct accftkFrom bftk)
                 (FTKProduct accftkFrom eftk)
       varr2 = mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
-      astr2 = Ast.AstVar varr2
+      astr2 = astVar varr2
       vr2 =
         let subbed =
               substituteAst
@@ -676,7 +676,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
           ftkf2 = FTKProduct accftk eftkFrom
           varf2 =
             mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
-          astf2 = Ast.AstVar varf2
+          astf2 = astVar varf2
           vf2 =
             let subbed =
                   substituteAst
@@ -690,7 +690,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                     (FTKProduct accftk eftkFrom)
           vard2 =
             mkAstVarName ftkd2 (varNameToBounds vard) (varNameToAstVarId vard)
-          astd2 = Ast.AstVar vard2
+          astd2 = astVar vard2
           vd2 =
             let subbed =
                   substituteAst
@@ -708,7 +708,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                     (FTKProduct accftk eftkFrom)
           varr2 =
             mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
-          astr2 = Ast.AstVar varr2
+          astr2 = astVar varr2
           vr2 =
             let subbed =
                   substituteAst
@@ -840,33 +840,33 @@ astLet var (Ast.AstFromDual
                                       $ fromList [ast1, ast2])) var v
 astLet var (Ast.AstReplicate snat stk a) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = Ast.AstReplicate snat stk $ Ast.AstVar var2
+      ast = Ast.AstReplicate snat stk $ astVar var2
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstFromPrimal (Ast.AstReplicate snat stk a)) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = Ast.AstFromPrimal (Ast.AstReplicate snat stk $ Ast.AstVar var2)
+      ast = Ast.AstFromPrimal (Ast.AstReplicate snat stk $ astVar var2)
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstFromDual (Ast.AstReplicate snat stk a)) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = Ast.AstFromDual (Ast.AstReplicate snat stk $ Ast.AstVar var2)
+      ast = Ast.AstFromDual (Ast.AstReplicate snat stk $ astVar var2)
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstTransposeS perm a) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = Ast.AstTransposeS perm $ Ast.AstVar var2
+      ast = Ast.AstTransposeS perm $ astVar var2
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstFromPrimal (Ast.AstTransposeS perm a)) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = Ast.AstFromPrimal (Ast.AstTransposeS perm $ Ast.AstVar var2)
+      ast = Ast.AstFromPrimal (Ast.AstTransposeS perm $ astVar var2)
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstFromDual (Ast.AstTransposeS perm a)) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = Ast.AstFromDual (Ast.AstTransposeS perm $ Ast.AstVar var2)
+      ast = Ast.AstFromDual (Ast.AstTransposeS perm $ astVar var2)
   in astLet var2 a (substituteAst ast var v)
 astLet var u@(Ast.AstFromS STKScalar _) v = Ast.AstLet var u v
 astLet var (Ast.AstFromS stkz a) v =
   let var2 =
         mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
-      ast = Ast.AstFromS stkz $ Ast.AstVar var2
+      ast = Ast.AstFromS stkz $ astVar var2
   in astLet var2 a (substituteAst ast var v)
 astLet var u (Ast.AstFromPrimal v0) = Ast.AstFromPrimal $ astLet var u v0
 astLet var u (Ast.AstFromDual v0) = Ast.AstFromDual $ astLet var u v0
@@ -1896,12 +1896,12 @@ astGatherKnobsS knobs shn v0
                                   (varNameToAstVarId varm)
          in astGatherKnobsS knobs shn v
               ( (::$) @j (Const varm2) mrest
-              , substituteAstIxS (AstIntVar varm2)
+              , substituteAstIxS (astVar varm2)
                                  varm (i2 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs shn v
               ( (::$) @(m - j) (Const varm3) mrest
-              , substituteAstIxS (AstConcreteK j + AstIntVar varm3)
+              , substituteAstIxS (AstConcreteK j + astVar varm3)
                                  varm (i1 :.$ prest) )
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
@@ -1926,12 +1926,14 @@ astGatherKnobsS knobs shn v0
                                   (varNameToAstVarId varm)
          in astGatherKnobsS knobs shn v
               ( (::$) @mj (Const varm2) mrest
-              , substituteAstIxS (AstIntVar varm2)
+              , substituteAstIxS (astVar varm2)
+-- TODO: when I use AstIntVar here, which is wrong, I get phantom errors;
+-- make sure this vanished after the fixes in HEAD
                                  varm (i1 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs shn v
               ( (::$) @(m - mj) (Const varm3) mrest
-              , substituteAstIxS (AstConcreteK (- j + 1) + AstIntVar varm3)
+              , substituteAstIxS (AstConcreteK (- j + 1) + astVar varm3)
                                  varm (i2 :.$ prest))
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
@@ -1956,12 +1958,12 @@ astGatherKnobsS knobs shn v0
                                   (varNameToAstVarId varm)
          in astGatherKnobsS knobs shn v
               ( (::$) @j (Const varm2) mrest
-              , substituteAstIxS (AstIntVar varm2) varm
+              , substituteAstIxS (astVar varm2) varm
                                  (Ast.AstLet varN uN i2 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs shn v
               ( (::$) @(m - j) (Const varm3) mrest
-              , substituteAstIxS (AstConcreteK j + AstIntVar varm3)
+              , substituteAstIxS (AstConcreteK j + astVar varm3)
                                  varm (Ast.AstLet varN uN i1 :.$ prest) )
 astGatherKnobsS knobs shn v0
   ( vars@((::$) @m (Const varm) mrest)
@@ -1988,12 +1990,12 @@ astGatherKnobsS knobs shn v0
                                   (varNameToAstVarId varm)
          in astGatherKnobsS knobs shn v
               ( (::$) @mj (Const varm2) mrest
-              , substituteAstIxS (AstIntVar varm2)
+              , substituteAstIxS (astVar varm2)
                                  varm (Ast.AstLet varN uN i1 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs shn v
               ( (::$) @(m - mj) (Const varm3) mrest
-              , substituteAstIxS (AstConcreteK (- j + 1) + AstIntVar varm3)
+              , substituteAstIxS (AstConcreteK (- j + 1) + astVar varm3)
                                  varm (Ast.AstLet varN uN i2 :.$ prest))
 astGatherKnobsS knobs shn v0
   ( (::$) @m @shmTail (Const varm) mrest
@@ -2600,7 +2602,7 @@ astSliceS SNat SNat SNat (Ast.AstGatherS shn v (Const var ::$ vars, ix)) =
   let varn = mkAstVarName (varNameToFTK var)
                           (Just (0, valueOf @n - 1))
                           (varNameToAstVarId var)
-      ivar = valueOf @i + AstIntVar varn
+      ivar = valueOf @i + astVar varn
       ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
   in astGatherS shn v (Const varn ::$ vars, ix2)
 astSliceS i n@(SNat @n0) _k (Ast.AstAppendS v1 v2)
@@ -2666,7 +2668,7 @@ astReverseS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astReverseS v
 astReverseS (Ast.AstFromDual v) = Ast.AstFromDual $ astReverseS v
 astReverseS (Ast.AstGatherS @shm @shn @shp
                             shn v ((::$) @k (Const var) vars, ix)) =
-  let ivar = valueOf @k - AstIntVar var
+  let ivar = valueOf @k - astVar var
       ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
   in astGatherS @shm @shn @shp shn v (Const var ::$ vars, ix2)
 astReverseS (Ast.AstReverseS v) = v
@@ -3497,9 +3499,9 @@ substitute1Ast i var = subst where
                 bs = (max (max lb lb2) lb3, min (min ub ub2) ub3)
                   -- We know all bounds approximations have to be correct
                   -- so we can intersect them.
-            in Just $ Ast.AstVar $ mkAstVarName (varNameToFTK var3)
-                                                (Just bs)
-                                                (varNameToAstVarId var3)
+            in Just $ astVar $ mkAstVarName (varNameToFTK var3)
+                                            (Just bs)
+                                            (varNameToAstVarId var3)
           _ -> Just i
         _ -> error $ "substitute1Ast: kind of the variable "
                      ++ show var2 ++ ": " ++ show (varNameToFTK var)

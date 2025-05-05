@@ -505,10 +505,10 @@ substProjRep snat@SNat var var1 v =
   let ftk3 = buildFTK snat $ varNameToFTK var1
       var3 :: AstVarName s2 (BuildTensorKind k y2)
       var3 = mkAstVarName ftk3 (varNameToBounds var1) (varNameToAstVarId var1)
-      astVar3 = Ast.AstVar var3
+      astVar3 = astVar var3
       v2 = substituteAst
              (astIndexBuild snat (ftkToSTK $ varNameToFTK var1)
-                            astVar3 (Ast.AstIntVar var))
+                            astVar3 (astVar var))
              var1 v
         -- The subsitutions of projections don't break sharing,
         -- because they don't duplicate variables and the added var

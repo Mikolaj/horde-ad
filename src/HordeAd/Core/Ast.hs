@@ -26,6 +26,7 @@ module HordeAd.Core.Ast
   , AstVarId, intToAstVarId
   , AstInt, IntVarName, pattern AstIntVar
   , AstVarName, mkAstVarName, varNameToAstVarId, varNameToFTK, varNameToBounds
+  , astVar
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIxS, AstVarListS, pattern AstLeqInt
     -- * AST
@@ -149,6 +150,14 @@ varNameToBounds (AstVarName _ minb maxb _) =
   then Nothing
   else Just (minb, maxb)
 
+astVar :: AstSpan s
+       => AstVarName s y -> AstTensor ms s y
+astVar (AstVarName (FTKScalar @r) lb ub _)
+  | lb == ub
+  , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+    fromPrimal $ AstConcreteK lb
+astVar varName = AstVar varName
+
 -- | The reverse derivative artifact.
 type role AstArtifactRev nominal nominal
 data AstArtifactRev x z = AstArtifactRev
@@ -177,7 +186,7 @@ type AstInt ms = AstTensor ms PrimalSpan (TKScalar Int64)
 type IntVarName = AstVarName PrimalSpan (TKScalar Int64)
 
 pattern AstIntVar :: IntVarName -> AstInt ms
-pattern AstIntVar var = AstVar var
+pattern AstIntVar var <- AstVar var
 
 -- Data invariant: the var names have bounds of the form (0, k - 1),
 -- where the corresponding dimension in sh is k. This is never checked.

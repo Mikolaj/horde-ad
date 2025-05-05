@@ -74,12 +74,7 @@ expandAst t = case t of
                     (expandAst acc0)
                     (expandAst es)
   Ast.AstApply v ll -> astApply (expandAstHFun v) (expandAst ll)
-  Ast.AstVar var -> case varNameToBounds var of
-    Just (lb, ub) | FTKScalar @r <- varNameToFTK var
-                  , Just Refl <- testEquality (typeRep @r) (typeRep @Int64)
-                  , lb == ub ->
-      fromPrimal $ Ast.AstConcreteK lb
-    _ -> t
+  Ast.AstVar var -> astVar var
   Ast.AstCond b a2 a3 ->
     astCond (expandAstBool b) (expandAst a2) (expandAst a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -251,12 +246,7 @@ simplifyAst t = case t of
                     (simplifyAst acc0)
                     (simplifyAst es)
   Ast.AstApply v ll -> astApply (simplifyAstHFun v) (simplifyAst ll)
-  Ast.AstVar var -> case varNameToBounds var of
-    Just (lb, ub) | FTKScalar @r <- varNameToFTK var
-                  , Just Refl <- testEquality (typeRep @r) (typeRep @Int64)
-                  , lb == ub ->
-      fromPrimal $ Ast.AstConcreteK lb
-    _ -> t
+  Ast.AstVar var -> astVar var
   Ast.AstCond b a2 a3 ->
     astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -484,12 +474,7 @@ contractAst t0 = case t0 of
                     (contractAst acc0)
                     (contractAst es)
   Ast.AstApply v ll -> astApply (contractAstHFun v) (contractAst ll)
-  Ast.AstVar var -> case varNameToBounds var of
-    Just (lb, ub) | FTKScalar @r <- varNameToFTK var
-                  , Just Refl <- testEquality (typeRep @r) (typeRep @Int64)
-                  , lb == ub ->
-      fromPrimal $ Ast.AstConcreteK lb
-    _ -> t0
+  Ast.AstVar var -> astVar var
   Ast.AstCond b a2 a3 ->
     astCond (contractAstBool b) (contractAst a2) (contractAst a3)
   -- These are only needed for tests that don't vectorize Ast.
