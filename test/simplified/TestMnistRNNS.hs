@@ -63,7 +63,7 @@ mnistTestCaseRNNSA
 mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                    totalBatchSize expected =
   let targetInit =
-        fst $ randomValue @(Concrete (XParams width r)) 0.4 (mkStdGen 44)
+        fst $ randomValue @(Concrete (XParams width r)) 0.23 (mkStdGen 44)
       miniBatchSize = sNatValue batch_size
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -86,7 +86,8 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                  <$> loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map mkMnistDataS . take (totalBatchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    withSNat (totalBatchSize * maxBatches) $ \(SNat @lenTestData) -> do
+    withSNat ((totalBatchSize * maxBatches) `min` 10000)
+     $ \(SNat @lenTestData) -> do
        let testDataS = mkMnistDataBatchS @lenTestData testData
            f :: MnistDataBatchS batch_size r
              -> ADVal Concrete (XParams width r)
@@ -150,13 +151,13 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
 
 tensorADValMnistTestsRNNSA :: TestTree
 tensorADValMnistTestsRNNSA = testGroup "RNNS ADVal MNIST tests"
-  [ mnistTestCaseRNNSA "RNNSA 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 5000
-                       (0.8846 :: Double)
+  [ mnistTestCaseRNNSA "RNNSA 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @150) 5000
+                       (0.6026 :: Double)
   , mnistTestCaseRNNSA "RNNSA artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNSA "RNNSA artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
-                       (0.8928571428571429 :: Double)
-  , mnistTestCaseRNNSA "RNNSA 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
+                       (0.8622448979591837 :: Double)
+  , mnistTestCaseRNNSA "RNNSA 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @150) 50
                        (1.0 :: Float)
   ]
 
@@ -171,7 +172,7 @@ mnistTestCaseRNNSI
 mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    totalBatchSize expected =
   let targetInit =
-        fst $ randomValue @(Concrete (XParams width r)) 0.4 (mkStdGen 44)
+        fst $ randomValue @(Concrete (XParams width r)) 0.23 (mkStdGen 44)
       miniBatchSize = sNatValue batch_size
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -194,7 +195,8 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                  <$> loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map mkMnistDataS . take (totalBatchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    withSNat (totalBatchSize * maxBatches) $ \(SNat @lenTestData) -> do
+    withSNat ((totalBatchSize * maxBatches) `min` 10000)
+     $ \(SNat @lenTestData) -> do
        let testDataS = mkMnistDataBatchS @lenTestData testData
            ftk = tftk @Concrete (knownSTK @(XParams width r)) targetInit
        (_, _, var, varAst) <- funToAstRevIO ftk
@@ -266,13 +268,13 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
 
 tensorADValMnistTestsRNNSI :: TestTree
 tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
-  [ mnistTestCaseRNNSI "RNNSI 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 5000
-                       (0.8988 :: Double)
+  [ mnistTestCaseRNNSI "RNNSI 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @150) 5000
+                       (0.6026 :: Double)
   , mnistTestCaseRNNSI "RNNSI artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNSI "RNNSI artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
-                       (0.8928571428571429 :: Double)
-  , mnistTestCaseRNNSI "RNNSI 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
+                       (0.8622448979591837 :: Double)
+  , mnistTestCaseRNNSI "RNNSI 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @150) 50
                        (1.0 :: Float)
   ]
 
@@ -289,7 +291,7 @@ mnistTestCaseRNNSO
 mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                    totalBatchSize expected =
   let targetInit =
-        fst $ randomValue @(Concrete (XParams width r)) 0.4 (mkStdGen 44)
+        fst $ randomValue @(Concrete (XParams width r)) 0.23 (mkStdGen 44)
       miniBatchSize = sNatValue batch_size
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -312,7 +314,8 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                  <$> loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map mkMnistDataS . take (totalBatchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    withSNat (totalBatchSize * maxBatches) $ \(SNat @lenTestData) -> do
+    withSNat ((totalBatchSize * maxBatches) `min` 10000)
+     $ \(SNat @lenTestData) -> do
        let testDataS = mkMnistDataBatchS @lenTestData testData
            ftk = tftk @Concrete (knownSTK @(XParams width r)) targetInit
            ftkData = FTKProduct (FTKS (batch_size
@@ -401,12 +404,12 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
 
 tensorADValMnistTestsRNNSO :: TestTree
 tensorADValMnistTestsRNNSO = testGroup "RNNS Once MNIST tests"
-  [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @5) 5000
-                       (0.84 :: Double)
+  [ mnistTestCaseRNNSO "RNNSO 1 epoch, 1 batch" 1 1 (SNat @128) (SNat @150) 5000
+                       (0.6026 :: Double)
   , mnistTestCaseRNNSO "RNNSO artificial 1 2 3 4 5" 2 3 (SNat @4) (SNat @5) 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNSO "RNNSO artificial 5 4 3 2 1" 5 4 (SNat @3) (SNat @2) 49
                        (0.9336734693877551 :: Double)
-  , mnistTestCaseRNNSO "RNNSO 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @5) 50
+  , mnistTestCaseRNNSO "RNNSO 1 epoch, 0 batch" 1 0 (SNat @128) (SNat @150) 50
                        (1.0 :: Float)
   ]

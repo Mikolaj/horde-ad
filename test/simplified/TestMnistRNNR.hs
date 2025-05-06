@@ -62,7 +62,7 @@ mnistTestCaseRNNRA prefix epochs maxBatches width miniBatchSize totalBatchSize
         forgetShape $ fst
         $ randomValue @(Concrete (X (ADRnnMnistParametersShaped
                                        Concrete width r)))
-                      0.4 (mkStdGen 44)
+                      0.23 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
@@ -107,7 +107,8 @@ mnistTestCaseRNNRA prefix epochs maxBatches width miniBatchSize totalBatchSize
                  trainScore =
                    ftest (length chunk) (mkMnistDataBatchR chunk) parameters2
                  testScore =
-                   ftest (totalBatchSize * maxBatches) testDataR parameters2
+                   ftest ((totalBatchSize * maxBatches) `min` 10000)
+                         testDataR parameters2
                  lenChunk = length chunk
              unless (width < 10) $ do
                hPutStrLn stderr $
@@ -139,7 +140,8 @@ mnistTestCaseRNNRA prefix epochs maxBatches width miniBatchSize totalBatchSize
                       targetInit
        res <- runEpoch 1 (targetInit, initialStateAdam ftk)
        let testErrorFinal =
-             1 - ftest (totalBatchSize * maxBatches) testDataR res
+             1 - ftest ((totalBatchSize * maxBatches) `min` 10000)
+                       testDataR res
        testErrorFinal @?~ expected
 
 {-# SPECIALIZE mnistTestCaseRNNRA
@@ -149,13 +151,13 @@ mnistTestCaseRNNRA prefix epochs maxBatches width miniBatchSize totalBatchSize
 
 tensorADValMnistTestsRNNRA :: TestTree
 tensorADValMnistTestsRNNRA = testGroup "RNNR ADVal MNIST tests"
-  [ mnistTestCaseRNNRA "RNNRA 1 epoch, 1 batch" 1 1 128 5 5000
-                       (0.8846 :: Double)
+  [ mnistTestCaseRNNRA "RNNRA 1 epoch, 1 batch" 1 1 128 150 5000
+                       (0.6026 :: Double)
   , mnistTestCaseRNNRA "RNNRA artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNRA "RNNRA artificial 5 4 3 2 1" 5 4 3 2 49
-                       (0.8928571428571429 :: Double)
-  , mnistTestCaseRNNRA "RNNRA 1 epoch, 0 batch" 1 0 128 5 50
+                       (0.8622448979591837 :: Double)
+  , mnistTestCaseRNNRA "RNNRA 1 epoch, 0 batch" 1 0 128 150 50
                        (1.0 :: Float)
   ]
 
@@ -174,7 +176,7 @@ mnistTestCaseRNNRI prefix epochs maxBatches width miniBatchSize totalBatchSize
         forgetShape $ fst
         $ randomValue @(Concrete (X (ADRnnMnistParametersShaped
                                        Concrete width r)))
-                      0.4 (mkStdGen 44)
+                      0.23 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
@@ -238,7 +240,8 @@ mnistTestCaseRNNRI prefix epochs maxBatches width miniBatchSize totalBatchSize
                  trainScore =
                    ftest (length chunk) (mkMnistDataBatchR chunk) parameters2
                  testScore =
-                   ftest (totalBatchSize * maxBatches) testDataR parameters2
+                   ftest ((totalBatchSize * maxBatches) `min` 10000)
+                         testDataR parameters2
                  lenChunk = length chunk
              unless (width < 10) $ do
                hPutStrLn stderr $
@@ -267,7 +270,8 @@ mnistTestCaseRNNRI prefix epochs maxBatches width miniBatchSize totalBatchSize
              runEpoch (succ n) res
        res <- runEpoch 1 (targetInit, initialStateAdam ftk)
        let testErrorFinal =
-             1 - ftest (totalBatchSize * maxBatches) testDataR res
+             1 - ftest ((totalBatchSize * maxBatches) `min` 10000)
+                       testDataR res
        testErrorFinal @?~ expected
 
 {-# SPECIALIZE mnistTestCaseRNNRI
@@ -277,13 +281,13 @@ mnistTestCaseRNNRI prefix epochs maxBatches width miniBatchSize totalBatchSize
 
 tensorADValMnistTestsRNNRI :: TestTree
 tensorADValMnistTestsRNNRI = testGroup "RNNR Intermediate MNIST tests"
-  [ mnistTestCaseRNNRI "RNNRI 1 epoch, 1 batch" 1 1 128 5 5000
-                       (0.8988 :: Double)
+  [ mnistTestCaseRNNRI "RNNRI 1 epoch, 1 batch" 1 1 128 150 5000
+                       (0.6026 :: Double)
   , mnistTestCaseRNNRI "RNNRI artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNRI "RNNRI artificial 5 4 3 2 1" 5 4 3 2 49
-                       (0.8928571428571429 :: Double)
-  , mnistTestCaseRNNRI "RNNRI 1 epoch, 0 batch" 1 0 128 5 50
+                       (0.8622448979591837 :: Double)
+  , mnistTestCaseRNNRI "RNNRI 1 epoch, 0 batch" 1 0 128 150 50
                        (1.0 :: Float)
   ]
 
@@ -304,7 +308,7 @@ mnistTestCaseRNNRO prefix epochs maxBatches width miniBatchSize totalBatchSize
         forgetShape $ fst
         $ randomValue @(Concrete (X (ADRnnMnistParametersShaped
                                        Concrete width r)))
-                      0.4 (mkStdGen 44)
+                      0.23 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show miniBatchSize
@@ -368,7 +372,8 @@ mnistTestCaseRNNRO prefix epochs maxBatches width miniBatchSize totalBatchSize
                  trainScore =
                    ftest (length chunk) (mkMnistDataBatchR chunk) parameters2
                  testScore =
-                   ftest (totalBatchSize * maxBatches) testDataR parameters2
+                   ftest ((totalBatchSize * maxBatches) `min` 10000)
+                         testDataR parameters2
                  lenChunk = length chunk
              unless (width < 10) $ do
                hPutStrLn stderr $
@@ -400,7 +405,8 @@ mnistTestCaseRNNRO prefix epochs maxBatches width miniBatchSize totalBatchSize
                       targetInit
        res <- runEpoch 1 (targetInit, initialStateAdam ftk)
        let testErrorFinal =
-             1 - ftest (totalBatchSize * maxBatches) testDataR res
+             1 - ftest ((totalBatchSize * maxBatches) `min` 10000)
+                       testDataR res
        assertEqualUpToEpsilon 1e-1 expected testErrorFinal
 
 {-# SPECIALIZE mnistTestCaseRNNRO
@@ -410,12 +416,12 @@ mnistTestCaseRNNRO prefix epochs maxBatches width miniBatchSize totalBatchSize
 
 tensorADValMnistTestsRNNRO :: TestTree
 tensorADValMnistTestsRNNRO = testGroup "RNNR Once MNIST tests"
-  [ mnistTestCaseRNNRO "RNNRO 1 epoch, 1 batch" 1 1 128 5 5000
-                       (0.898 :: Double)
+  [ mnistTestCaseRNNRO "RNNRO 1 epoch, 1 batch" 1 1 128 150 5000
+                       (0.6026 :: Double)
   , mnistTestCaseRNNRO "RNNRO artificial 1 2 3 4 5" 2 3 4 5 50
                        (0.8933333 :: Float)
   , mnistTestCaseRNNRO "RNNRO artificial 5 4 3 2 1" 5 4 3 2 49
                        (0.8928571428571429 :: Double)
-  , mnistTestCaseRNNRO "RNNRO 1 epoch, 0 batch" 1 0 128 5 50
+  , mnistTestCaseRNNRO "RNNRO 1 epoch, 0 batch" 1 0 128 150 50
                        (1.0 :: Float)
   ]

@@ -143,7 +143,7 @@ tensorADValMnistTestsCNNRA = testGroup "CNNR ADVal MNIST tests"
                        (1 :: Float)
   , mnistTestCaseCNNRA "CNNRA artificial 5 4 3 2 1" 5 4 3 2 1 1 1 1
                        (1 :: Double)
-  , mnistTestCaseCNNRA "CNNRA 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
+  , mnistTestCaseCNNRA "CNNRA 1 epoch, 0 batch" 1 0 4 4 16 64 16 50
                        (1.0 :: Float)
   ]
 
@@ -267,7 +267,7 @@ tensorADValMnistTestsCNNRI = testGroup "CNNR Intermediate MNIST tests"
                        (1 :: Float)
   , mnistTestCaseCNNRI "CNNRI artificial 5 4 3 2 1" 5 4 3 2 1 1 1 1
                        (1 :: Double)
-  , mnistTestCaseCNNRI "CNNRI 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
+  , mnistTestCaseCNNRI "CNNRI 1 epoch, 0 batch" 1 0 4 4 16 64 16 50
                        (1.0 :: Float)
   ]
 
@@ -398,6 +398,6 @@ tensorADValMnistTestsCNNRO = testGroup "CNNR Once MNIST tests"
                        (1 :: Float)
   , mnistTestCaseCNNRO "CNNRO artificial 5 4 3 2 1" 5 4 3 2 1 1 1 1
                        (1 :: Double)
-  , mnistTestCaseCNNRO "CNNRO 1 epoch, 0 batch" 1 0 4 4 64 16 5 50
+  , mnistTestCaseCNNRO "CNNRO 1 epoch, 0 batch" 1 0 4 4 16 64 16 50
                        (1.0 :: Float)
   ]

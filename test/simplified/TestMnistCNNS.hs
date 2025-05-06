@@ -149,7 +149,7 @@ tensorADValMnistTestsCNNSA = testGroup "CNNS ADVal MNIST tests"
                        5 4 (SNat @3) (SNat @2) 1 1 1 1
                        (1 :: Double)
   , mnistTestCaseCNNSA "CNNSA 1 epoch, 0 batch"
-                       1 0 (SNat @4) (SNat @4) 64 16 5 50
+                       1 0 (SNat @4) (SNat @4) 16 64 16 50
                        (1.0 :: Float)
   ]
 
@@ -275,7 +275,7 @@ tensorADValMnistTestsCNNSI = testGroup "CNNS Intermediate MNIST tests"
                        5 4 (SNat @3) (SNat @2) 1 1 1 1
                        (1 :: Double)
   , mnistTestCaseCNNSI "CNNSI 1 epoch, 0 batch"
-                       1 0 (SNat @4) (SNat @4) 64 16 5 50
+                       1 0 (SNat @4) (SNat @4) 16 64 16 50
                        (1.0 :: Float)
   ]
 
@@ -414,6 +414,6 @@ tensorADValMnistTestsCNNSO = testGroup "CNNS Once MNIST tests"
                        5 4 (SNat @3) (SNat @2) 1 1 1 1
                        (1 :: Double)
   , mnistTestCaseCNNSO "CNNSO 1 epoch, 0 batch"
-                       1 0 (SNat @4) (SNat @4) 64 16 5 50
+                       1 0 (SNat @4) (SNat @4) 16 64 16 50
                        (1.0 :: Float)
   ]
