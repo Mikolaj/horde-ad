@@ -126,6 +126,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: source
+      - name: checkout ox-arrays and dependent-enummap
+        run: |
+          git clone https://git.tomsmeding.com/ox-arrays $GITHUB_WORKSPACE/source/ox-arrays
+          git clone https://git.tomsmeding.com/dependent-enummap $GITHUB_WORKSPACE/source/dependent-enummap
       - name: initial cabal.project for sdist
         run: |
           touch cabal.project
@@ -146,7 +150,11 @@ jobs:
           rm -f cabal.project cabal.project.local
           touch cabal.project
           touch cabal.project.local
-          echo "packages: ${PKGDIR_horde_ad}" >> cabal.project
+          PKGDIR_ox_arrays="$(find "$GITHUB_WORKSPACE/source" -maxdepth 1 -type d -regex '.*/ox-arrays')"
+          PKGDIR_dependent_enummap="$(find "$GITHUB_WORKSPACE/source" -maxdepth 1 -type d -regex '.*/dependent-enummap')"
+          echo "PKGDIR_ox_arrays=${PKGDIR_ox_arrays}" >> "$GITHUB_ENV"
+          echo "PKGDIR_dependent_enummap=${PKGDIR_dependent_enummap}" >> "$GITHUB_ENV"
+          echo "packages: ${PKGDIR_horde_ad} ${PKGDIR_ox_arrays} ${PKGDIR_dependent_enummap}" >> cabal.project
           echo "package horde-ad" >> cabal.project
           echo "    ghc-options: -Werror=missing-methods" >> cabal.project
           cat >> cabal.project <<EOF
