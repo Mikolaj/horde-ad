@@ -57,7 +57,7 @@ bug-reports:        https://github.com/Mikolaj/horde-ad/issues
 
 source-repository head
   type:               git
-  location:           git://github.com/Mikolaj/horde-ad.git
+  location:           https://github.com/Mikolaj/horde-ad.git
 
 flag with_expensive_assertions
   description:        turn on expensive assertions of well-tested code
