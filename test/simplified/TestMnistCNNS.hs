@@ -208,10 +208,11 @@ mnistTestCaseCNNSI prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
                            :$$ sizeMnistLabel
                            :$$ ZSS) FTKScalar) id
        let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
-           ast = MnistCnnShaped2.convMnistLossFusedS
-                   kh kw (SNat @c_out) (SNat @n_hidden)
-                   miniBatchSize (astGlyph, astLabel)
-                   (fromTarget varAst2)
+           ast = simplifyInline
+                 $ MnistCnnShaped2.convMnistLossFusedS
+                     kh kw (SNat @c_out) (SNat @n_hidden)
+                     miniBatchSize (astGlyph, astLabel)
+                     (fromTarget varAst2)
            f :: MnistDataBatchS miniBatchSize r
              -> ADVal Concrete (XParams kh kw c_out n_hidden r)
              -> ADVal Concrete (TKScalar r)
