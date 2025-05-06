@@ -8,9 +8,9 @@
 #
 # For more information, see https://github.com/haskell-CI/haskell-ci
 #
-# version: 0.19.20241219
+# version: 0.19.20250411
 #
-# REGENDATA ("0.19.20241219",["github","horde-ad.cabal"])
+# REGENDATA ("0.19.20250411",["github","horde-ad.cabal"])
 #
 name: Haskell-CI
 on:
@@ -19,7 +19,7 @@ on:
 jobs:
   linux:
     name: Haskell-CI - Linux - ${{ matrix.compiler }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     timeout-minutes:
       60
     container:
@@ -28,14 +28,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - compiler: ghc-9.12.1
+          - compiler: ghc-9.10.2
             compilerKind: ghc
-            compilerVersion: 9.12.1
-            setup-method: ghcup
-            allow-failure: false
-          - compiler: ghc-9.10.1
-            compilerKind: ghc
-            compilerVersion: 9.10.1
+            compilerVersion: 9.10.2
             setup-method: ghcup
             allow-failure: false
       fail-fast: false
@@ -43,17 +38,16 @@ jobs:
       - name: apt-get install
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends gnupg ca-certificates dirmngr curl git software-properties-common libtinfo5 libgsl0-dev liblapack-dev libatlas-base-dev
+          apt-get install -y --no-install-recommends gnupg ca-certificates dirmngr curl git software-properties-common libtinfo5
       - name: Install GHCup
         run: |
           mkdir -p "$HOME/.ghcup/bin"
-          curl -sL https://downloads.haskell.org/ghcup/0.1.30.0/x86_64-linux-ghcup-0.1.30.0 > "$HOME/.ghcup/bin/ghcup"
+          curl -sL https://downloads.haskell.org/ghcup/0.1.50.1/x86_64-linux-ghcup-0.1.50.1 > "$HOME/.ghcup/bin/ghcup"
           chmod a+x "$HOME/.ghcup/bin/ghcup"
-      - name: Install cabal-install (prerelease)
+      - name: Install cabal-install
         run: |
-          "$HOME/.ghcup/bin/ghcup" config add-release-channel https://raw.githubusercontent.com/haskell/ghcup-metadata/master/ghcup-prereleases-0.0.8.yaml;
-          "$HOME/.ghcup/bin/ghcup" install cabal 3.15.0.0.2024.10.3 || (cat "$HOME"/.ghcup/logs/*.* && false)
-          echo "CABAL=$HOME/.ghcup/bin/cabal-3.15.0.0.2024.10.3 -vnormal+nowrap" >> "$GITHUB_ENV"
+          "$HOME/.ghcup/bin/ghcup" install cabal 3.14.2.0 || (cat "$HOME"/.ghcup/logs/*.* && false)
+          echo "CABAL=$HOME/.ghcup/bin/cabal-3.14.2.0 -vnormal+nowrap" >> "$GITHUB_ENV"
       - name: Install GHC (GHCup)
         if: matrix.setup-method == 'ghcup'
         run: |
@@ -78,7 +72,7 @@ jobs:
           echo "HCNUMVER=$HCNUMVER" >> "$GITHUB_ENV"
           echo "ARG_TESTS=--enable-tests" >> "$GITHUB_ENV"
           echo "ARG_BENCH=--enable-benchmarks" >> "$GITHUB_ENV"
-          if [ $((HCNUMVER >= 91200)) -ne 0 ] ; then echo "HEADHACKAGE=true" >> "$GITHUB_ENV" ; else echo "HEADHACKAGE=false" >> "$GITHUB_ENV" ; fi
+          echo "HEADHACKAGE=false" >> "$GITHUB_ENV"
           echo "ARG_COMPILER=--$HCKIND --with-compiler=$HC" >> "$GITHUB_ENV"
         env:
           HCKIND: ${{ matrix.compilerKind }}
@@ -106,18 +100,6 @@ jobs:
           repository hackage.haskell.org
             url: http://hackage.haskell.org/
           EOF
-          if $HEADHACKAGE; then
-          cat >> $CABAL_CONFIG <<EOF
-          repository head.hackage.ghc.haskell.org
-             url: https://ghc.gitlab.haskell.org/head.hackage/
-             secure: True
-             root-keys: 7541f32a4ccca4f97aea3b22f5e593ba2c0267546016b992dfadcd2fe944e55d
-                        26021a13b401500c8eb2761ca95c61f2d625bfef951b939a8124ed12ecf07329
-                        f76d08be13e9a61a377a85e2fb63f4c5435d40f8feb3e12eb05905edb8cdea89
-             key-threshold: 3
-          active-repositories: hackage.haskell.org, head.hackage.ghc.haskell.org:override
-          EOF
-          fi
           cat >> $CABAL_CONFIG <<EOF
           program-default-options
             ghc-options: $GHCJOBS +RTS -M3G -RTS
@@ -144,10 +126,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: source
-      - name: checkout ox-arrays and dependent-enummap
-        run: |
-          git clone --branch=singletons https://git.tomsmeding.com/ox-arrays $GITHUB_WORKSPACE/source/ox-arrays
-          git clone https://git.tomsmeding.com/dependent-enummap $GITHUB_WORKSPACE/source/dependent-enummap
       - name: initial cabal.project for sdist
         run: |
           touch cabal.project
@@ -164,22 +142,15 @@ jobs:
       - name: generate cabal.project
         run: |
           PKGDIR_horde_ad="$(find "$GITHUB_WORKSPACE/unpacked" -maxdepth 1 -type d -regex '.*/horde-ad-[0-9.]*')"
-          PKGDIR_ox_arrays="$(find "$GITHUB_WORKSPACE/source" -maxdepth 1 -type d -regex '.*/ox-arrays')"
-          PKGDIR_dependent_enummap="$(find "$GITHUB_WORKSPACE/source" -maxdepth 1 -type d -regex '.*/dependent-enummap')"
           echo "PKGDIR_horde_ad=${PKGDIR_horde_ad}" >> "$GITHUB_ENV"
-          echo "PKGDIR_ox_arrays=${PKGDIR_ox_arrays}" >> "$GITHUB_ENV"
-          echo "PKGDIR_dependent_enummap=${PKGDIR_dependent_enummap}" >> "$GITHUB_ENV"
           rm -f cabal.project cabal.project.local
           touch cabal.project
           touch cabal.project.local
-          echo "packages: ${PKGDIR_horde_ad} ${PKGDIR_ox_arrays} ${PKGDIR_dependent_enummap}" >> cabal.project
+          echo "packages: ${PKGDIR_horde_ad}" >> cabal.project
           echo "package horde-ad" >> cabal.project
           echo "    ghc-options: -Werror=missing-methods" >> cabal.project
           cat >> cabal.project <<EOF
           EOF
-          if $HEADHACKAGE; then
-          echo "allow-newer: $($HCPKG list --simple-output | sed -E 's/([a-zA-Z-]+)-[0-9.]+/*:\1,/g')" >> cabal.project
-          fi
           $HCPKG list --simple-output --names-only | perl -ne 'for (split /\s+/) { print "constraints: any.$_ installed\n" unless /^(horde-ad)$/; }' >> cabal.project.local
           cat cabal.project
           cat cabal.project.local
