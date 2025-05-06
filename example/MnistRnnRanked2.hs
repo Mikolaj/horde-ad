@@ -68,7 +68,7 @@ rnnMnistLayerR
   -> target (TKR 2 r)  -- ^ output state, @[out_width, batch_size]@
 rnnMnistLayerR s x (wX, wS, b) = case rshape s of
   _out_width :$: batch_size :$: ZSR ->
-    let y = wX `rmatmul2m` x + wS `rmatmul2m` s
+    let y = wX `rmatmul2` x + wS `rmatmul2` s
             + rtr (rreplicate batch_size b)
     in tanh y
 
@@ -107,32 +107,7 @@ rnnMnistZeroR batch_size xs
     let sh = 2 * out_width :$: batch_size :$: ZSR
         (out, _s) = zeroStateR sh (unrollLastR rnnMnistTwoR) xs
                                   ((wX, wS, b), (wX2, wS2, b2))
-    in w3 `rmatmul2m` out + rtr (rreplicate batch_size b3)
-
--- TODO: This manual vectorization performs differently than the automatic
--- vectorization, even though it should perform the same. Also,
--- fewer tsmatmul2 get recognized and pretty-printed in tests,
--- even though the recognizing should be exhaustive as is. Investigate.
---
--- The answer is the reverse of this rule (and similar)
---   transpose perm (Ast.AstReplicate snat1@SNat _ (Ast.AstReplicate snat2 (STKS sh2 x) u))
---    | SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
---      Ast.AstReplicate snat2 (STKS (snat1 :$$ sh2) x)
---                       (Ast.AstReplicate snat1 (STKS sh2 x) u)
--- which permits creating a transpose out of nested replicates
--- and so proves more matmuls can be recognized than we do currently.
--- Sadly, this is very messy, we need to check if there are >=2 or >=3 nested
--- replicates, depending on which permutation we require, etc.
--- OTOH, recognizing matmuls for nested replicates is probably not important.
---
--- | A version of matrix multiplication with manually performed
--- vectorization, for benchmarking purposes.
-rmatmul2m :: (BaseTensor target, GoodScalar r)
-          => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
-rmatmul2m m1 m2 = case rshape m2 of
-  _ :$: width2 :$: ZSR ->
-    rsum (rtranspose [2,1,0] (rreplicate width2 m1)
-          * rtranspose [1,0] (rreplicate (rwidth m1) m2))
+    in w3 `rmatmul2` out + rtr (rreplicate batch_size b3)
 
 -- | The neural network composed with the SoftMax-CrossEntropy loss function.
 rnnMnistLossFusedR
