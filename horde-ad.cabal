@@ -471,8 +471,8 @@ test-suite parallelTest
       , base
       , tasty >= 1.0
 
--- These tests don't require any dataset, so can be enabled in the Hackage
--- package.
+-- These tests don't require any dataset and are short, so can be enabled
+-- in the Hackage package.
 test-suite minimalTest
     import:           options, exe-options-test
 
