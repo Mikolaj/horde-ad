@@ -145,6 +145,7 @@ library horde-ad-simplified
                       HordeAd.Core.CarriersAst
                       HordeAd.Core.CarriersConcrete
                       HordeAd.Core.CompileFuthark
+                      HordeAd.Core.CompileFuthark.Exec
                       HordeAd.Core.ConvertTensor
                       HordeAd.Core.Delta
                       HordeAd.Core.DeltaEval
@@ -177,16 +178,19 @@ library horde-ad-simplified
       , data-default
       , dependent-enummap
       , dependent-sum
+      , directory
       , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , ilist
       , orthotope
       , ox-arrays
+      , process
       , random >= 1.3.0
       , some
       , transformers
       , unboxed-ref
+      , unix
       , vector >= 0.13.2.0
 
     if os(linux)

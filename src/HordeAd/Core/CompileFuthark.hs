@@ -7,7 +7,6 @@ import Prelude
 
 import Control.Monad.Trans.State.Strict
 import Data.ByteString (ByteString)
-import Data.ByteString qualified as BS
 import Data.ByteString.Builder qualified as BSB
 import Data.ByteString.Char8 qualified as BS8
 import Data.ByteString.Lazy qualified as Lazy
@@ -16,21 +15,26 @@ import Data.ByteString.Short qualified as BSS
 import Data.Char (ord, chr)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.EnumMap.Strict (DEnumMap)
+import Data.Dependent.Sum
 import Data.Foldable (toList)
 import Data.List (intersperse)
 import Data.Int
+import Data.Some
 import Data.Type.Equality
 import Data.Typeable
 import Data.Word
 import Data.Vector.Strict qualified as V
 
-import Data.Array.Mixed.Types (fromSNat')
+import Data.Array.Mixed.Lemmas (lemRankReplicate)
 import Data.Array.Mixed.Shape
+import Data.Array.Mixed.Types (fromSNat', type (++), Replicate)
 import qualified Data.Array.Nested as N
 import Data.Array.Nested.Internal.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools (ftkAst)
+import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.CompileFuthark.Exec
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
@@ -71,21 +75,49 @@ import HordeAd.Core.Types
 -- their result could not be referenced anyway in a primal computation, we add
 -- the note "Note: no duals".
 
--- :m *HordeAd Prelude HordeAd.Core.CompileFuthark HordeAd.Core.CarriersAst
--- :seti -XOverloadedLists -fprint-explicit-foralls
--- compileExpr $ unAstNoSimplify $ tlet @_ @_ @(AstNoSimplify PrimalSpan) (tpair (kconcrete (7::Double)) (sfromList @10 @'[] (fmap sscalar [1..10 :: Double]))) $ \x -> tproject1 x
+-- C FFI API
+-- =========
+--
+-- Binding various functions with runtime-dependent signatures via the FFI is
+-- complicated, so instead of binding the Futhark-generated C API directly, we
+-- generate some glue C code with an exceedingly simple function signature:
+-- void f(void*). All data exchange happens through a single memory buffer
+-- allocated and freed on the Haskell side.
+--
+-- Contents of that buffer is first all input arguments (written from the
+-- Haskell side and read by C), followed by space for the output (written from
+-- C and read by Haskell). Because Futhark does not define a binary format for
+-- tuples, we must unzip everything to individual scalar arrays. We don't want
+-- to do said unzipping in C, so we do it in Haskell.
+--
+-- The input type
+--   TKProduct (TKS [2, 3] (TKProduct (TKScalar @Double)
+--                                    (TKS [5] (TKScalar @Int))))
+--             (TKS [4] (TKScalar @Float))
+-- turns into 3 Futhark-land inputs:
+-- - [2][3]f64
+-- - [2][3][5]i64
+-- - [4]f32
+-- and similarly for the output. Hence, an actual input/output in the C
+-- interface is either a scalar or a multi-dimensional array of scalars; a
+-- scalar is represented as-is, and an array of scalars is represented as a
+-- pointer to a memory buffer (pre-)allocated by Haskell.
+
+{-
+:m *HordeAd Prelude HordeAd.Core.CompileFuthark HordeAd.Core.CarriersAst Data.Some Data.Array.Nested.Internal.Shape
+:seti -XOverloadedLists -fprint-explicit-foralls
+compileExpr [] $ unAstNoSimplify $ tlet @_ @_ @(AstNoSimplify PrimalSpan) (tpair (kconcrete (7::Double)) (sfromList @10 @'[] (fmap sscalar [1..10 :: Double]))) $ \x -> tproject1 x
+-}
 
 
 type Name = ShortByteString
-
-bss8 :: String -> ShortByteString
-bss8 = BSS.pack . map (fromIntegral . ord)
 
 -- | Futhark expression.
 data FEx
   = FELit ShortByteString
   | FETuple [FEx]
   | FEList (V.Vector FEx)
+  | FEProj FEx ShortByteString  -- field name projection
   | FEApp Name [FEx]
   | FEBinop FEx Name FEx
   | FELam Name FEx
@@ -93,21 +125,177 @@ data FEx
   | FEIf FEx FEx FEx
   deriving (Show)
 
+-- | A context: a bunch of let bindings.
+newtype FCtx = FCtx [(Name, FEx)]
+  deriving (Show)
+
+instance Semigroup FCtx where FCtx a <> FCtx b = FCtx (a ++ b)
+instance Monoid FCtx where mempty = FCtx []
+
+letCtx :: FCtx -> FEx -> FEx
+letCtx (FCtx l) e = foldr (uncurry FELet) e l
+
 pattern FELitS :: String -> FEx
 pattern FELitS s <- FELit (map (chr . fromIntegral) . BSS.unpack -> s)
   where FELitS s = FELit (bss8 s)
 
-compileExpr :: AstTensor AstMethodLet PrimalSpan t -> Lazy.ByteString
-compileExpr = prettyExpr . runIdGen . compE (Env DMap.empty DMap.empty)
+compileExpr :: [Some (AstVarName PrimalSpan)] -> AstTensor AstMethodLet PrimalSpan t -> IO ()
+compileExpr inputVars ast = do
+  let arguments = [var :=> splitType (varNameToFTK var) | Some var <- inputVars]
+      outSplit = splitType (ftkAst ast)
+  kernel <- buildKernel (compileExprToFuthark arguments outSplit ast) "" "horde_ad_kernel_top"
+  return ()
 
-prettyExpr :: FEx -> Lazy.ByteString
-prettyExpr = BSB.toLazyByteString . go 0
+compileExprToFuthark
+  :: [DSum (AstVarName PrimalSpan) SplitTypeRes]
+  -> SplitTypeRes t
+  -> AstTensor AstMethodLet PrimalSpan t
+  -> Lazy.ByteString
+compileExprToFuthark arguments (SplitTypeRes outParts _ _ outFutSplit _) term =
+  let outerArgs = [(futTypeName partTy, bss8 ("arg" ++ show i ++ "_" ++ show j))
+                  | (_ :=> SplitTypeRes parts _ _ _ _, i) <- zip arguments [1::Int ..]
+                  , (Some partTy, j) <- zip parts [1::Int ..]]
+      innerEnv = DMap.fromList
+                   [var :=> SomeName (bss8 ("arg" ++ show i))
+                   | (var :=> _, i) <- zip arguments [1::Int ..]]
+      outFutTy = case outParts of
+                   [Some t] -> futTypeName t
+                   _ -> BSB.char8 '(' <>
+                        mconcat (intersperse (BSB.char8 ',') [futTypeName t | Some t <- outParts]) <>
+                        BSB.char8 ')'
+  in BSB.toLazyByteString $
+       BSB.byteString futLibrary <>
+       bsb8 "entry main" <>
+       mconcat [bsb8 " (" <> BSB.shortByteString name <> bsb8 ": " <> ty <> bsb8 ")"
+               | (ty, name) <- outerArgs] <>
+       bsb8 " : " <> outFutTy <> " =\n  " <>
+       (prettyExpr $ runIdGen $ do
+          argRecons <- sequence
+              [do e <- futrecon [FELit (bss8 ("arg" ++ show i ++ "_" ++ show j))
+                                | (_, j) <- zip parts [1::Int ..]]
+                  pure (bss8 ("arg" ++ show i), e)
+              | (_var :=> SplitTypeRes parts _ _ _ futrecon, i) <- zip arguments [1::Int ..]]
+          body <- compE (Env innerEnv DMap.empty) term
+          (outCtx, out) <- outFutSplit body
+          pure (letCtx (FCtx argRecons) $
+                letCtx outCtx $
+                  case out of [e] -> e
+                              _ -> FETuple out))
+
+-- | Typed concrete value
+type role TypedCon nominal
+data TypedCon t = TypedCon (FullShapeTK t) (RepConcrete t)
+
+-- | The types and shapes (!) in the argument to the reconstruction function
+-- must be equal to those obtained from the decomposition.
+-- Types are lost here, sorry.
+type role SplitTypeRes nominal
+data SplitTypeRes t = SplitTypeRes
+  [Some FullShapeTK]  -- ^ The types of the generated components
+  (RepConcrete t -> [Some TypedCon])  -- ^ Split up an input value into components
+  ([Some TypedCon] -> RepConcrete t)  -- ^ Reconstruct an output from components
+  (FEx -> IdGen (FCtx, [FEx]))  -- ^ Split up an output into components in Futhark
+  ([FEx] -> IdGen FEx)  -- ^ Compute a reconstructed input from components in Futhark
+
+splitType :: FullShapeTK t -> SplitTypeRes t
+splitType = \typ ->
+  case go typ ZSX of
+    (SplitTypeRes parts f1 f2 f3 f4, Dict) ->
+      -- We don't need to post-process the Futhark-side expressions, because
+      -- the Futhark representation of a zero-dimensional array is identical to
+      -- its contained value.
+      SplitTypeRes parts (f1 . N.mscalar) (N.munScalar . f2) f3 f4
+  where
+    go :: FullShapeTK t
+       -> IShX upsh
+       -> (SplitTypeRes (TKX2 upsh t), Dict N.Elt (RepConcrete t))
+    go ty@FTKScalar upsh =
+      (SplitTypeRes
+        [Some (FTKX upsh ty)]
+        (\x -> [Some (TypedCon (FTKX upsh ty) x)])
+        (\l -> case l of [Some (TypedCon ty2 x)]
+                           | Just Refl <- sameFTK (FTKX upsh ty) ty2 -> x
+                         _ -> error "invalid splitType response")
+        -- array of scalars decomposes into... an array of scalars
+        (\e -> pure (FCtx [], [e]))
+        (\l -> case l of [e] -> pure e
+                         _ -> error "invalid splitType Futhark response")
+      ,Dict)
+    go (FTKX sh ty) upsh
+      | let upsh' = shxConcat upsh sh
+      , (SplitTypeRes parts split recon futsplit futrecon, Dict) <- go ty upsh' =
+          (SplitTypeRes
+            parts
+            (\arr -> split (N.munNest arr))
+            (\l -> N.mnest (ssxFromShape upsh) (recon l))
+            -- nesting/unnesting is the identity on Futhark arrays, so nothing to be adapted here
+            futsplit
+            futrecon
+          ,Dict)
+    go (FTKR @n sh ty) upsh
+      | Refl <- lemRankReplicate (shrRank sh)
+      , let upsh' = shxConcat upsh (shCvtRX sh)
+      , (SplitTypeRes parts split recon futsplit futrecon, Dict) <- go ty upsh' =
+          (SplitTypeRes
+            parts
+            (\arr -> split (N.munNest (N.castCastable (N.CastXX (N.CastRX N.CastId)) arr)))
+            (\l -> N.castCastable (N.CastXX (N.CastXR N.CastId))
+                       (N.mnest @_ @(Replicate n Nothing) (ssxFromShape upsh) (recon l)))
+            futsplit
+            futrecon
+          ,Dict)
+    go (FTKS sh ty) upsh
+      | let upsh' = shxConcat upsh (shCvtSX sh)
+      , (SplitTypeRes parts split recon futsplit futrecon, Dict) <- go ty upsh' =
+          (SplitTypeRes
+            parts
+            (\arr -> split (N.munNest (N.castCastable (N.CastXX (N.CastSX N.CastId)) arr)))
+            (\l -> N.castCastable (N.CastXX (N.CastXS N.CastId))
+                       (N.mnest (ssxFromShape upsh) (recon l)))
+            futsplit
+            futrecon
+          ,Dict)
+    go (FTKProduct ty1 ty2) upsh
+      | (SplitTypeRes parts1 split1 recon1 futsplit1 futrecon1, Dict) <- go ty1 upsh
+      , (SplitTypeRes parts2 split2 recon2 futsplit2 futrecon2, Dict) <- go ty2 upsh =
+          (SplitTypeRes
+            (parts1 ++ parts2)
+            (\arr ->
+              let (arr1, arr2) = N.munzip arr
+              in split1 arr1 ++ split2 arr2)
+            (\l -> let (l1, l2) = splitAt (length parts1) l
+                   in N.mzip (recon1 l1) (recon2 l2))
+            (\e -> do
+                (name1, nameL, nameR) <- fresh
+                eL <- repMap1 (fromSNat' (shxRank upsh)) (\e' -> pure (FEProj e' "0")) (FELit name1)
+                eR <- repMap1 (fromSNat' (shxRank upsh)) (\e' -> pure (FEProj e' "1")) (FELit name1)
+                (ctx1, es1) <- futsplit1 (FELit nameL)
+                (ctx2, es2) <- futsplit2 (FELit nameR)
+                pure (FCtx [(name1, e)
+                           ,(nameL, eL)
+                           ,(nameR, eR)]
+                      <> ctx1 <> ctx2
+                     ,es1 ++ es2))
+            (\es -> do
+                let (es1, es2) = splitAt (length parts1) es
+                eL <- futrecon1 es1
+                eR <- futrecon2 es2
+                repMap2 (fromSNat' (shxRank upsh)) (\e1 e2 -> pure (FETuple [e1, e2])) eL eR)
+          ,Dict)
+
+    shxConcat :: IShX sh1 -> IShX sh2 -> IShX (sh1 ++ sh2)
+    shxConcat ZSX sh2 = sh2
+    shxConcat (n :$% sh1) sh2 = n :$% shxConcat sh1 sh2
+
+prettyExpr :: FEx -> BSB.Builder
+prettyExpr = go 0
   where
     go :: Int -> FEx -> BSB.Builder
     go d = \case
       FELit l -> BSB.shortByteString l
       FETuple es -> BSB.char8 '(' <> mconcat (intersperse (BSB.char8 ',') (map (go 0) es)) <> BSB.char8 ')'
       FEList v -> BSB.char8 '[' <> mconcat (intersperse (BSB.char8 ',') (map (go 0) (toList v))) <> BSB.char8 ']'
+      FEProj e n -> go 11 e <> BSB.char8 '.' <> BSB.shortByteString n
       FEApp n es -> bParen (d > 10) $
         BSB.shortByteString n <> mconcat [BSB.char8 ' ' <> go 11 e | e <- es]
       FEBinop e1 n e2 ->
@@ -115,19 +303,29 @@ prettyExpr = BSB.toLazyByteString . go 0
         bParen (d > 9) $
           go 10 e1 <> BSB.char8 ' ' <> BSB.shortByteString n <> BSB.char8 ' ' <> go 10 e2
       FELam n e -> bParen (d > 0) $
-        BSB.char8 '\\' <> BSB.shortByteString n <> BSB.shortByteString (bss8 " -> ") <> go 0 e
+        BSB.char8 '\\' <> BSB.shortByteString n <> bsb8 " -> " <> go 0 e
       FELet n e1 e2 -> bParen (d > 0) $
-        BSB.shortByteString (bss8 "let ") <> BSB.shortByteString n <>
-        BSB.shortByteString (bss8 " = ") <> go 0 e1 <>
-        BSB.shortByteString (bss8 " in ") <> go 0 e2
+        bsb8 "let " <> BSB.shortByteString n <>
+        bsb8 " = " <> go 0 e1 <>
+        bsb8 " in " <> go 0 e2
       FEIf e1 e2 e3 -> bParen (d > 0) $
-        BSB.shortByteString (bss8 "if ") <> go 0 e1 <>
-        BSB.shortByteString (bss8 "then ") <> go 0 e2 <>
-        BSB.shortByteString (bss8 "else ") <> go 0 e3
+        bsb8 "if " <> go 0 e1 <>
+        bsb8 "then " <> go 0 e2 <>
+        bsb8 "else " <> go 0 e3
 
     bParen :: Bool -> BSB.Builder -> BSB.Builder
     bParen False b = b
     bParen True b = BSB.char8 '(' <> b <> BSB.char8 ')'
+
+futTypeName :: FullShapeTK t -> BSB.Builder
+futTypeName ty@FTKScalar = bsb8 (scalTyToMod (toScalTy ty))
+futTypeName (FTKS sh t) = bsb8 (concat ['[' : show n ++ "]" | n <- shsToList sh]) <> futTypeName t
+futTypeName (FTKR sh t) = bsb8 (concat ['[' : show n ++ "]" | n <- toList    sh]) <> futTypeName t
+futTypeName (FTKX sh t) = bsb8 (concat ['[' : show n ++ "]" | n <- shxToList sh]) <> futTypeName t
+futTypeName (FTKProduct t1 t2) = BSB.char8 '(' <> futTypeName t1 <> BSB.char8 ',' <> futTypeName t2 <> BSB.char8 ')'
+
+bsb8 :: String -> BSB.Builder
+bsb8 = BSB.shortByteString . bss8
 
 class PrimalIsh (s :: AstSpanType) where
   whichSpanType :: Either (s :~: PrimalSpan) (s :~: FullSpan)
@@ -144,7 +342,7 @@ checkPrimalIsh _
   | otherwise = error "checkPrimalIsh: span not Primal/Full/Dual"
 
 type role SomeName nominal
-newtype SomeName (n :: TK) = SomeName Name
+newtype SomeName (t :: TK) = SomeName Name
   deriving (Show)
 
 data Env = Env
@@ -165,8 +363,8 @@ envLookup var env = case whichSpanType @s of
 compE :: PrimalIsh s => Env -> AstTensor AstMethodLet s y -> IdGen FEx
 compE env topexpr = case topexpr of
   AstPair a b -> FETuple <$:> [compE env a, compE env b]
-  AstProject1 a -> FEApp "fst" <$:> [compE env a]
-  AstProject2 a -> FEApp "snd" <$:> [compE env a]
+  AstProject1 a -> FEProj <$> compE env a <*> pure "0"
+  AstProject2 a -> FEProj <$> compE env a <*> pure "1"
   AstFromVector _ t v -> unzipBTK t =<< FEList <$:> fmap (compE env) v
   AstSum _ _ a ->
     mapOverTuple (ftkPT (ftkAst topexpr))  -- topexpr has precisely the tuple type we need, without BTK
@@ -208,22 +406,35 @@ compE env topexpr = case topexpr of
   AstR1K op a -> compOpCode1 (ftkAst a) op <$> compE env a
   AstR2K op a b -> compOpCode2 (ftkAst a) op <$> compE env a <*> compE env b
   AstI2K op a b -> compOpCodeIntegral2 (ftkAst a) op <$> compE env a <*> compE env b
-  AstConcreteK x -> pure $ FELitS (show x)
+  AstConcreteK x -> pure $ FELitS (show x ++ scalTyToMod (toScalTy (ftkAst topexpr)))
   AstFloorK a -> FEApp "floor" <$:> [compE env a]
   AstFromIntegralK a -> FEApp (convertFun (toScalTy (ftkAst a)) (toScalTy (ftkAst topexpr))) <$:> [compE env a]
   AstCastK a -> FEApp (convertFun (toScalTy (ftkAst a)) (toScalTy (ftkAst topexpr))) <$:> [compE env a]
 
-  AstPlusS a b -> repMap2' (ftkAst a) (\_ x y -> pure (FEBinop x "+" y)) (compE env a) (compE env b)
-  AstTimesS a b -> repMap2' (ftkAst a) (\_ x y -> pure (FEBinop x "*" y)) (compE env a) (compE env b)
-  AstN1S op a -> repMap1' (ftkAst a) (\t x -> pure (compOpCodeNum1 t op x)) (compE env a)
-  AstR1S op a -> repMap1' (ftkAst a) (\t x -> pure (compOpCode1 t op x)) (compE env a)
-  AstR2S op a b -> repMap2' (ftkAst a) (\t x y -> pure (compOpCode2 t op x y)) (compE env a) (compE env b)
-  AstI2S op a b -> repMap2' (ftkAst a) (\t x y -> pure (compOpCodeIntegral2 t op x y)) (compE env a) (compE env b)
+  AstPlusS a b -> repMap2T' (ftkAst a) (\_ x y -> pure (FEBinop x "+" y)) (compE env a) (compE env b)
+  AstTimesS a b -> repMap2T' (ftkAst a) (\_ x y -> pure (FEBinop x "*" y)) (compE env a) (compE env b)
+  AstN1S op a -> repMap1T' (ftkAst a) (\t x -> pure (compOpCodeNum1 t op x)) (compE env a)
+  AstR1S op a -> repMap1T' (ftkAst a) (\t x -> pure (compOpCode1 t op x)) (compE env a)
+  AstR2S op a b -> repMap2T' (ftkAst a) (\t x y -> pure (compOpCode2 t op x y)) (compE env a) (compE env b)
+  AstI2S op a b -> repMap2T' (ftkAst a) (\t x y -> pure (compOpCodeIntegral2 t op x y)) (compE env a) (compE env b)
   AstConcreteS arr -> pure $ compConcrete arr
+
+  -- TODO: AstIndexS etc.
+
+  AstFromS targetty a -> case (ftkAst a, targetty) of
+    (FTKS ZSS FTKScalar, STKScalar) -> compE env a
+    (FTKS sh t, STKR n t')
+      | Just Refl <- sameSTK (ftkToSTK t) t'
+      , Just Refl <- testEquality (shsRank sh) n -> compE env a
+    (FTKS sh t, STKX sh' t')
+      | Just Refl <- sameSTK (ftkToSTK t) t'
+      , Just Refl <- testEquality (ssxFromShape (shCvtSX sh)) sh' -> compE env a
+    (FTKProduct _ _, STKProduct _ _) -> error "CompileFuthark: TODO FromS product"
+    _ -> error "CompileFuthark: nonsensical AstFromS"
 
   AstMapAccumRDer{} -> error "CompileFuthark: unimplemented AstMapAccumRDer"
   AstMapAccumLDer{} -> error "CompileFuthark: unimplemented AstMapAccumLDer"
-  _ -> error "CompileFuthark: unimplemented"
+  _ -> error $ "CompileFuthark: unimplemented: " ++ concat (take 1 (words (show topexpr)))
 
 compBE :: Env -> AstBool AstMethodLet -> IdGen FEx
 compBE env = \case
@@ -311,9 +522,9 @@ makeZeros (FTKProduct t1 t2) = FETuple <$:> [makeZeros t1, makeZeros t2]
 addEltwise :: FullShapeTK y -> FEx -> FEx -> IdGen FEx
 addEltwise topty e1 e2 = case topty of
   FTKScalar -> pure $ FEBinop e1 "+" e2
-  FTKR{} -> repMap2 topty addEltwise e1 e2
-  FTKS{} -> repMap2 topty addEltwise e1 e2
-  FTKX{} -> repMap2 topty addEltwise e1 e2
+  FTKR{} -> repMap2T topty addEltwise e1 e2
+  FTKS{} -> repMap2T topty addEltwise e1 e2
+  FTKX{} -> repMap2T topty addEltwise e1 e2
   FTKProduct t1 t2 ->
     FEApp "bimap2" <$:> [toLambda2 (addEltwise t1), toLambda2 (addEltwise t2)
                         ,pure e1, pure e2]
@@ -336,31 +547,35 @@ instance IsArrayType (TKX2 sh y) where
   arrayTypeElt (FTKX _ t) = t
 
 -- | The argument to the callback is NOT necessarily duplicable.
-repMap1 :: IsArrayType t => FullShapeTK t -> (FullShapeTK (ArrayTypeElt t) -> FEx -> IdGen FEx) -> FEx -> IdGen FEx
-repMap1 ty f e = case arrayShapeRank ty of
-  0 -> f (arrayTypeElt ty) e
-  rank ->
-    FEApp "map" <$:>
-      [iterateN (rank - 1) (\e' -> FEApp "map" [e']) <$> toLambda1 (f (arrayTypeElt ty))
-      ,pure e]
+repMap1 :: Int -> (FEx -> IdGen FEx) -> FEx -> IdGen FEx
+repMap1 0 f e = f e
+repMap1 rank f e =
+  FEApp "map" <$:>
+    [iterateN (rank - 1) (\e' -> FEApp "map" [e']) <$> toLambda1 f
+    ,pure e]
 
 -- | The argument to the callback is NOT necessarily duplicable.
-repMap2 :: IsArrayType t => FullShapeTK t -> (FullShapeTK (ArrayTypeElt t) -> FEx -> FEx -> IdGen FEx) -> FEx -> FEx -> IdGen FEx
-repMap2 ty f e1 e2 = case arrayShapeRank ty of
-  0 -> f (arrayTypeElt ty) e1 e2
-  rank ->
-    FEApp "map2" <$:>
-      [iterateN (rank - 1) (\e' -> FEApp "map" [e']) <$> toLambda2 (f (arrayTypeElt ty))
-      ,pure e1, pure e2]
+repMap2 :: Int -> (FEx -> FEx -> IdGen FEx) -> FEx -> FEx -> IdGen FEx
+repMap2 0 f e1 e2 = f e1 e2
+repMap2 rank f e1 e2 =
+  FEApp "map2" <$:>
+    [iterateN (rank - 1) (\e' -> FEApp "map" [e']) <$> toLambda2 f
+    ,pure e1, pure e2]
 
-repMap1' :: IsArrayType t => FullShapeTK t -> (FullShapeTK (ArrayTypeElt t) -> FEx -> IdGen FEx) -> IdGen FEx -> IdGen FEx
-repMap1' ty f e = e >>= repMap1 ty f
+repMap1T :: IsArrayType t => FullShapeTK t -> (FullShapeTK (ArrayTypeElt t) -> FEx -> IdGen FEx) -> FEx -> IdGen FEx
+repMap1T ty f = repMap1 (arrayShapeRank ty) (f (arrayTypeElt ty))
 
-repMap2' :: IsArrayType t => FullShapeTK t -> (FullShapeTK (ArrayTypeElt t) -> FEx -> FEx -> IdGen FEx) -> IdGen FEx -> IdGen FEx -> IdGen FEx
-repMap2' ty f e1 e2 = do
+repMap2T :: IsArrayType t => FullShapeTK t -> (FullShapeTK (ArrayTypeElt t) -> FEx -> FEx -> IdGen FEx) -> FEx -> FEx -> IdGen FEx
+repMap2T ty f = repMap2 (arrayShapeRank ty) (f (arrayTypeElt ty))
+
+repMap1T' :: IsArrayType t => FullShapeTK t -> (FullShapeTK (ArrayTypeElt t) -> FEx -> IdGen FEx) -> IdGen FEx -> IdGen FEx
+repMap1T' ty f e = e >>= repMap1T ty f
+
+repMap2T' :: IsArrayType t => FullShapeTK t -> (FullShapeTK (ArrayTypeElt t) -> FEx -> FEx -> IdGen FEx) -> IdGen FEx -> IdGen FEx -> IdGen FEx
+repMap2T' ty f e1 e2 = do
   x <- e1
   y <- e2
-  repMap2 ty f x y
+  repMap2T ty f x y
 
 -- | Map a function over each tuple component, given an expression of that
 -- tuple type. One can consider this function to have multiple distinct types,
@@ -478,7 +693,7 @@ toScalTy p
   | Just Refl <- eqT @t @Double = SF64
   | Just Refl <- eqT @t @Bool = SBool
   | otherwise = error $ "CompileFuthark: encountered type " ++ show (typeRep p) ++
-                        " not supported by Futhark"
+                          " not supported by Futhark"
 
 scalTyToMod :: ScalTy t -> String
 scalTyToMod = \case
@@ -495,6 +710,39 @@ scalTyToMod = \case
   SF64 -> "f64"
   SBool -> "bool"
 
+futLibrary :: ByteString
+futLibrary = BS8.pack $
+  "def first 'a 'b 'c (f: a -> b) (x: (a, c)): (b, c) = (f x.0, x.1)\n\
+  \def second 'a 'b 'c (f: b -> c) (x: (a, b)): (a, c) = (x.0, f x.1)\n\
+  \def bimap 'a 'b 'c 'd (f: a -> c) (g: b -> d) (x: (a, b)): (c, d) = (f x.0, g x.1)\n"
+
+-- | Checks that the FTKs are actually equal, including shapes.
+sameFTK :: FullShapeTK a -> FullShapeTK b -> Maybe (a :~: b)
+sameFTK (FTKScalar @r1) (FTKScalar @r2)
+  | Just Refl <- eqT @r1 @r2
+  = Just Refl
+sameFTK FTKScalar _ = Nothing
+sameFTK (FTKS sh1 t1) (FTKS sh2 t2)
+  | Just Refl <- shsEqual sh1 sh2
+  , Just Refl <- sameFTK t1 t2
+  = Just Refl
+sameFTK FTKS{} _ = Nothing
+sameFTK (FTKR sh1 t1) (FTKR sh2 t2)
+  | Just Refl <- shrEqual sh1 sh2
+  , Just Refl <- sameFTK t1 t2
+  = Just Refl
+sameFTK FTKR{} _ = Nothing
+sameFTK (FTKX sh1 t1) (FTKX sh2 t2)
+  | Just Refl <- shxEqual sh1 sh2
+  , Just Refl <- sameFTK t1 t2
+  = Just Refl
+sameFTK FTKX{} _ = Nothing
+sameFTK (FTKProduct a1 b1) (FTKProduct a2 b2)
+  | Just Refl <- sameFTK a1 a2
+  , Just Refl <- sameFTK b1 b2
+  = Just Refl
+sameFTK FTKProduct{} _ = Nothing
+
 (<$:>) :: (Applicative f, Traversable t) => (t a -> b) -> t (f a) -> f b
 f <$:> l = f <$> sequenceA l
 
@@ -508,6 +756,11 @@ instance Fresh ShortByteString where
   fresh = IdGen $ state (\i -> (bss8 ('x' : show i), i + 1))
 instance (Fresh a, Fresh b) => Fresh (a, b) where
   fresh = (,) <$> fresh <*> fresh
+instance (Fresh a, Fresh b, Fresh c) => Fresh (a, b, c) where
+  fresh = (,,) <$> fresh <*> fresh <*> fresh
 
 runIdGen :: IdGen a -> a
 runIdGen (IdGen m) = evalState m 1
+
+bss8 :: String -> ShortByteString
+bss8 = BSS.pack . map (fromIntegral . ord)
