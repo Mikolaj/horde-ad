@@ -14,7 +14,7 @@ module HordeAd.Core.AstInterpret
 import Prelude
 
 import Data.Coerce (coerce)
-import Data.Dependent.EnumMap.Strict.Unsafe qualified as DMap.Unsafe
+import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -145,10 +145,7 @@ interpretAst !env = \case
   AstVar var ->
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env
-    -- The safe version of this lookup is expensive in benchmarks with
-    -- many variables (e.g., prod). The old assertion test below checks
-    -- the same thing this lookup doesn't and more (and is expensive, too).
-    in case DMap.Unsafe.lookupUnsafe var2 env of
+    in case DMap.lookup var2 env of
       Just t ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
         -- We can't assert anything about bounds, because values can be
