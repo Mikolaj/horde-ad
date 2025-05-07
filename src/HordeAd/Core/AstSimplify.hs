@@ -1126,13 +1126,13 @@ astFloorS :: forall r1 r2 sh.
           => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
           -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
 astFloorS t = case t of
-  _ | Just u <- unRepl t
-    , FTKS sh@(_ :$$ _) _ <- ftkAst t
-    , Refl <- lemAppNil @sh -> astReplicateNS sh (astFloorS u)
-  Ast.AstReplicate snat (STKS sh STKScalar) a ->
-    astReplicate snat (STKS sh STKScalar) (astFloorS a)
-  Ast.AstBuild1 snat (STKS sh STKScalar) (var, v) ->
-    Ast.AstBuild1 snat (STKS sh STKScalar) (var, astFloorS v)
+  _ | FTKS (snat :$$ sh2) _ <- ftkAst t
+    , Just u <- unRepl1 t ->
+      astReplicate snat (STKS sh2 STKScalar) (astFloorS u)
+  Ast.AstReplicate snat (STKS sh2 STKScalar) a ->
+    astReplicate snat (STKS sh2 STKScalar) (astFloorS a)
+  Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v) ->
+    Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, astFloorS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astFloorK v)
   Ast.AstLet var u v -> astLet var u (astFloorS v)
@@ -1155,18 +1155,18 @@ astFromIntegralS :: forall r1 r2 sh. (GoodScalar r1, GoodScalar r2, Integral r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
 astFromIntegralS t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
-  _ | Just u <- unRepl t
-    , FTKS sh@(_ :$$ _) _ <- ftkAst t
-    , Refl <- lemAppNil @sh -> astReplicateNS sh (astFromIntegralS u)
+  _ | FTKS (snat :$$ sh2) _ <- ftkAst t
+    , Just u <- unRepl1 t ->
+      astReplicate snat (STKS sh2 STKScalar) (astFromIntegralS u)
 --  Ast.AstFromVector snat (STKS sh STKScalar) l ->
 --   astFromVector snat (STKS sh STKScalar) (V.map astFromIntegralS l)
 --  Ast.AstFromVector snat STKScalar l ->
 --   astFromVector snat STKScalar (V.map astFromIntegralK l)
-  Ast.AstReplicate snat (STKS sh STKScalar) a ->
-    astReplicate snat (STKS sh STKScalar) (astFromIntegralS a)
+  Ast.AstReplicate snat (STKS sh2 STKScalar) a ->
+    astReplicate snat (STKS sh2 STKScalar) (astFromIntegralS a)
 --  Ast.AstCond b v w -> astCond b (astFromIntegralS v) (astFromIntegralS w)
-  Ast.AstBuild1 snat (STKS sh STKScalar) (var, v) ->
-    Ast.AstBuild1 snat (STKS sh STKScalar) (var, astFromIntegralS v)
+  Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v) ->
+    Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, astFromIntegralS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astFromIntegralK v)
   Ast.AstLet var u v -> astLet var u (astFromIntegralS v)
@@ -1194,9 +1194,9 @@ astCastS :: forall r1 r2 s sh.
          -> AstTensor AstMethodLet s (TKS sh r2)
 astCastS t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
-  _ | Just u <- unRepl t
-    , FTKS sh@(_ :$$ _) _ <- ftkAst t
-    , Refl <- lemAppNil @sh -> astReplicateNS sh (astCastS u)
+  _ | FTKS (snat :$$ sh2) _ <- ftkAst t
+    , Just u <- unRepl1 t ->
+      astReplicate snat (STKS sh2 STKScalar) (astCastS u)
 --  Ast.AstFromVector snat (STKS sh STKScalar) l ->
 --   astFromVector snat (STKS sh STKScalar) (V.map astCastS l)
 --  Ast.AstFromVector snat STKScalar l ->
@@ -1205,11 +1205,11 @@ astCastS t = case t of
      and also impacts performance negatively (a is larger than sum a):
   Ast.AstSum snat (STKS sh STKScalar) a ->
     astSum snat (STKS sh STKScalar) (astCastS a) -}
-  Ast.AstReplicate snat (STKS sh STKScalar) a ->
-    astReplicate snat (STKS sh STKScalar) (astCastS a)
+  Ast.AstReplicate snat (STKS sh2 STKScalar) a ->
+    astReplicate snat (STKS sh2 STKScalar) (astCastS a)
 --  Ast.AstCond b v w -> astCond b (astCastS v) (astCastS w)
-  Ast.AstBuild1 snat (STKS sh STKScalar) (var, v) ->
-    Ast.AstBuild1 snat (STKS sh STKScalar) (var, astCastS v)
+  Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v) ->
+    Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, astCastS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astCastK v)
   Ast.AstLet var u v -> astLet var u (astCastS v)
@@ -1383,15 +1383,12 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let u = withKnownShS (ixsToShS rest1 `shsAppend` shn) $
             tsindex (Concrete a) (Concrete i :.$ ZIS)
     in astIndex shn (astConcreteS u) rest1
-  AstConcreteS a -> case unRepl v0 of
-    Just{} ->
-      let u = withKnownShS (ixsToShS rest1 `shsAppend` shn) $
-              tsindex (Concrete a) (Concrete 0 :.$ ZIS)
-          ftk = FTKS shn x
+  AstConcreteS{} -> case unRepl1 v0 of
+    Just u ->
+      let ftk = FTKS shn x
           defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
       in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
-        AstBoolConst b ->
-          if b then astIndex shn (astConcreteS u) rest1 else defArr
+        AstBoolConst b -> if b then astIndex shn u rest1 else defArr
         _ -> Ast.AstIndexS shn v0 ix
     _ -> Ast.AstIndexS shn v0 ix
   Ast.AstFloorS v -> astFloorS $ astIndex shn v ix
@@ -2335,16 +2332,14 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
                 (astGather @shm @shn @shp shn w (vars4, ix4))
     Ast.AstCond{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstBuild1{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-    AstConcreteS a -> case unRepl v4 of
-      Just{} ->
-        let u = withKnownShS (ixsToShS rest4 `shsAppend` shn) $
-                tsindex (Concrete a) (Concrete 0 :.$ ZIS)
-            ftk = FTKS (listsToShS vars4 `shsAppend` shn) x
+    AstConcreteS{} -> case unRepl1 v4 of
+      Just u ->
+        let ftk = FTKS (listsToShS vars4 `shsAppend` shn) x
             defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
         in case 0 <=. i4 &&* i4 <=. valueOf @in1 - 1 of
           AstBoolConst b ->
             if b
-            then astGather @shm @shn @shp1' shn (astConcreteS u) (vars4, rest4)
+            then astGather @shm @shn @shp1' shn u (vars4, rest4)
             else defArr
           _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
       _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
@@ -2757,6 +2752,8 @@ astTransposeS perm t = case perm of
                        (astTransposeS perm2 u)
   Ast.AstReplicate snat@(SNat @n) (STKS @sh3 sh3 _) _
     | Just u2 <- unRepl t
+        -- TODO: here we really need unReplN and then we can remove
+        -- all the cases below and some above
     , Refl <- lemAppNil @(Permutation.PermutePrefix perm (n : sh3)) ->
       astReplicateNS (shsPermutePrefix perm (snat :$$ sh3)) u2
   Ast.AstReplicate snat1@SNat _  -- nesting 4 is probably already an overkill
@@ -3434,6 +3431,14 @@ unRepl (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
 unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
 unRepl (AstConcreteS a) = AstConcreteS . Nested.sscalar <$> sunReplicate a
 unRepl _ = Nothing
+
+unRepl1 :: AstSpan s
+        => AstTensor AstMethodLet s (TKS2 (n ': sh) x)
+        -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
+unRepl1 (Ast.AstReplicate _ STKS{} u) = Just u
+unRepl1 (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
+unRepl1 (AstConcreteS a) = AstConcreteS <$> sunReplicate1 a
+unRepl1 _ = Nothing
 
 
 -- * Substitution wrappers
