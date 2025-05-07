@@ -289,7 +289,7 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKScalar r)) where
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
   quotH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotH n k)
-  quotH (AstConcreteK 0) _ = AstConcreteK 0
+  quotH (AstConcreteK 0) _ = 0
   quotH u (AstConcreteK 1) = u
   quotH (AstI2K RemOp _ (AstConcreteK k)) (AstConcreteK k')
     | k' >= k && k >= 0 = 0
@@ -303,8 +303,8 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
 
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
   remH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (remH n k)
-  remH (AstConcreteK 0) _ = AstConcreteK 0
-  remH _ (AstConcreteK 1) = AstConcreteK 0
+  remH (AstConcreteK 0) _ = 0
+  remH _ (AstConcreteK 1) = 0
   remH (AstI2K RemOp u (AstConcreteK k)) (AstConcreteK k')
     | k' >= k && k >= 0 = AstI2K RemOp u (AstConcreteK k)
   remH (AstI2K RemOp u (AstConcreteK k)) (AstConcreteK k')
@@ -452,8 +452,8 @@ instance (GoodScalar r, AstSpan s)
   AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
   AstFromDual u + AstFromDual v = AstFromDual $ u + v
   AstSFromK u + AstSFromK v = AstSFromK $ u + v
---  AstConcreteS 0 + u = u
---  u + AstConcreteS 0 = u
+  AstConcreteS z + u | Just 0 <- sunReplicate z = u
+  u + AstConcreteS z | Just 0 <- sunReplicate z = u
   AstConcreteS n + AstConcreteS k = AstConcreteS (n + k)
   AstConcreteS n + AstPlusS (AstConcreteS k) u =
     AstPlusS (AstConcreteS (n + k)) u
@@ -479,6 +479,10 @@ instance (GoodScalar r, AstSpan s)
   AstReplicate snat stk@STKS{} u * AstReplicate _ STKS{} v =
     AstReplicate snat stk $ u * v
   AstFromPrimal u * AstFromPrimal v = AstFromPrimal $ u * v
+  AstConcreteS z * _ | Just 0 <- sunReplicate z = AstConcreteS z
+  _ * AstConcreteS z | Just 0 <- sunReplicate z = AstConcreteS z
+  AstConcreteS s * u | Just 1 <- sunReplicate s = u
+  u * AstConcreteS s | Just 1 <- sunReplicate s = u
   AstSFromK u * AstSFromK v = AstSFromK $ u * v
   AstConcreteS n * AstConcreteS k = AstConcreteS (n * k)
   AstConcreteS n * AstTimesS (AstConcreteS k) u =
@@ -546,13 +550,18 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
   quotH (AstSFromK n) (AstSFromK k) = AstSFromK (quotH n k)
   quotH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (quotH n k)
+  quotH (AstConcreteS z) _ | Just 0 <- sunReplicate z = AstConcreteS z
+  quotH u (AstConcreteS s) | Just 1 <- sunReplicate s = u
   quotH (AstI2S QuotOp u v) w = quotH u (v * w)
   quotH u v = AstI2S QuotOp u v
+
   remH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
     AstReplicate snat stk $ remH u v
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
   remH (AstSFromK n) (AstSFromK k) = AstSFromK (remH n k)
   remH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (remH n k)
+  remH (AstConcreteS z) _ | Just 0 <- sunReplicate z = AstConcreteS z
+--  remH _ (AstConcreteS s) | Just 1 <- sunReplicate s = AstConcreteS 0
   remH u v = AstI2S RemOp u v
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
