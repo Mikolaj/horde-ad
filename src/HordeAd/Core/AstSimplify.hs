@@ -1121,14 +1121,16 @@ astConcreteS :: GoodScalar r
              -> AstTensor AstMethodLet PrimalSpan (TKS sh r)
 astConcreteS = AstConcreteS . unConcrete
 
-astFloorS :: (GoodScalar r1, RealFrac r1, Integral r2, GoodScalar r2)
+astFloorS :: forall r1 r2 sh.
+             (GoodScalar r1, RealFrac r1, Integral r2, GoodScalar r2)
           => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
           -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
 astFloorS t = case t of
+  _ | Just u <- unRepl t
+    , FTKS sh@(_ :$$ _) _ <- ftkAst t
+    , Refl <- lemAppNil @sh -> astReplicateNS sh (astFloorS u)
   Ast.AstReplicate snat (STKS sh STKScalar) a ->
     astReplicate snat (STKS sh STKScalar) (astFloorS a)
-  Ast.AstReplicate snat STKScalar a ->
-    astReplicate snat STKScalar (astFloorK a)
   Ast.AstBuild1 snat (STKS sh STKScalar) (var, v) ->
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astFloorS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
@@ -1153,14 +1155,15 @@ astFromIntegralS :: forall r1 r2 sh. (GoodScalar r1, GoodScalar r2, Integral r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
 astFromIntegralS t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
+  _ | Just u <- unRepl t
+    , FTKS sh@(_ :$$ _) _ <- ftkAst t
+    , Refl <- lemAppNil @sh -> astReplicateNS sh (astFromIntegralS u)
 --  Ast.AstFromVector snat (STKS sh STKScalar) l ->
 --   astFromVector snat (STKS sh STKScalar) (V.map astFromIntegralS l)
 --  Ast.AstFromVector snat STKScalar l ->
 --   astFromVector snat STKScalar (V.map astFromIntegralK l)
   Ast.AstReplicate snat (STKS sh STKScalar) a ->
     astReplicate snat (STKS sh STKScalar) (astFromIntegralS a)
-  Ast.AstReplicate snat STKScalar a ->
-    astReplicate snat STKScalar (astFromIntegralK a)
 --  Ast.AstCond b v w -> astCond b (astFromIntegralS v) (astFromIntegralS w)
   Ast.AstBuild1 snat (STKS sh STKScalar) (var, v) ->
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astFromIntegralS v)
@@ -1191,6 +1194,9 @@ astCastS :: forall r1 r2 s sh.
          -> AstTensor AstMethodLet s (TKS sh r2)
 astCastS t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
+  _ | Just u <- unRepl t
+    , FTKS sh@(_ :$$ _) _ <- ftkAst t
+    , Refl <- lemAppNil @sh -> astReplicateNS sh (astCastS u)
 --  Ast.AstFromVector snat (STKS sh STKScalar) l ->
 --   astFromVector snat (STKS sh STKScalar) (V.map astCastS l)
 --  Ast.AstFromVector snat STKScalar l ->
@@ -1201,8 +1207,6 @@ astCastS t = case t of
     astSum snat (STKS sh STKScalar) (astCastS a) -}
   Ast.AstReplicate snat (STKS sh STKScalar) a ->
     astReplicate snat (STKS sh STKScalar) (astCastS a)
-  Ast.AstReplicate snat STKScalar a ->
-    astReplicate snat STKScalar (astCastK a)
 --  Ast.AstCond b v w -> astCond b (astCastS v) (astCastS w)
   Ast.AstBuild1 snat (STKS sh STKScalar) (var, v) ->
     Ast.AstBuild1 snat (STKS sh STKScalar) (var, astCastS v)
@@ -2893,13 +2897,9 @@ astReshapeS :: forall sh sh2 x s. (Product sh ~ Product sh2, AstSpan s)
             => ShS sh2 -> AstTensor AstMethodLet s (TKS2 sh x)
             -> AstTensor AstMethodLet s (TKS2 sh2 x)
 astReshapeS sh2 t = case t of
+  _ | Just u <- unRepl t
+    , Refl <- lemAppNil @sh2 -> astReplicateNS sh2 u
   Ast.AstReplicate (SNat' @1) STKS{} x -> astReshapeS sh2 x
-  Ast.AstReplicate (SNat' @1) STKScalar x -> astReshapeS sh2 (astSFromK x)
-  Ast.AstReplicate _ STKS{} _ | Just u2 <- unRepl t
-                              , Refl <- lemAppNil @sh2 ->
-    astReplicateNS sh2 u2
-  Ast.AstReplicate _ STKScalar u | Refl <- lemAppNil @sh2 ->
-    astReplicateNS sh2 (astSFromK u)
   Ast.AstReplicate k (STKS @sh1 _ x) u | (:$$) @_ @rest2 k2 rest2 <- sh2
                                        , Just Refl <- testEquality k k2 ->
     gcastWith (unsafeCoerceRefl :: Product rest2 :~: Product sh1) $
@@ -3411,6 +3411,7 @@ unRepl :: AstSpan s
 unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
 unRepl (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
 unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
+unRepl (AstConcreteS a) = AstConcreteS . Nested.sscalar <$> sunReplicate a
 unRepl _ = Nothing
 
 
