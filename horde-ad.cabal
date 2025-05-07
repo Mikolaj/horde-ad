@@ -50,13 +50,14 @@ build-type:         Simple
 extra-doc-files:    README.md,
                     CHANGELOG.md
 
-tested-with:        GHC ==9.10.1 || ==9.12.1
+tested-with:        GHC ==9.10.2
+--                               || ==9.12.3
 
 bug-reports:        https://github.com/Mikolaj/horde-ad/issues
 
 source-repository head
   type:               git
-  location:           git://github.com/Mikolaj/horde-ad.git
+  location:           https://github.com/Mikolaj/horde-ad.git
 
 flag with_expensive_assertions
   description:        turn on expensive assertions of well-tested code
@@ -470,8 +471,8 @@ test-suite parallelTest
       , base
       , tasty >= 1.0
 
--- These tests don't require any dataset, so can be enabled in the Hackage
--- package.
+-- These tests don't require any dataset and are short, so can be enabled
+-- in the Hackage package.
 test-suite minimalTest
     import:           options, exe-options-test
 
