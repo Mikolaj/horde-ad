@@ -36,7 +36,7 @@ module HordeAd.Core.Types
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
   , ixsToShS, {-ixxToSSX,-} listsToShS, listrToNonEmpty
   , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
-  , eqPerm, permUnShift1, sunReplicate, sunReplicate1
+  , eqPerm, permUnShift1, sunReplicate, sunReplicate1, sunReplicateN
     -- * Ops only needed as a workaround for other ops not provided.
   , ssxTakeIx
   ) where
@@ -884,9 +884,14 @@ sunReplicate _ = Nothing
 
 sunReplicate1 :: Nested.Elt a
               => Nested.Shaped (n ': sh) a -> Maybe (Nested.Shaped sh a)
-sunReplicate1 a@(Nested.Shaped arr)
-  | all (all (== 0) . take 1) (Nested.Internal.marrayStrides arr)
-  , sh@(SNat :$$ _) <- Nested.sshape a
-  , shsSize sh /= 0 =
-    Just $ Nested.sindexPartial a (0 :.$ ZIS)
-sunReplicate1 _ = Nothing
+sunReplicate1 a | (snat :$$ _) <- Nested.sshape a =
+  sunReplicateN (snat :$$ ZSS) a
+
+sunReplicateN :: Nested.Elt a
+              => ShS shm -> Nested.Shaped (shm ++ shn) a
+              -> Maybe (Nested.Shaped shn a)
+sunReplicateN shm a@(Nested.Shaped arr)
+  | all (all (== 0) . take (shsLength shm)) (Nested.Internal.marrayStrides arr)
+  , shsSize shm /= 0 =
+    Just $ Nested.sindexPartial a $ ixsZero shm
+sunReplicateN _ _ = Nothing

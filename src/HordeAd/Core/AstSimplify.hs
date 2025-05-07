@@ -2705,11 +2705,16 @@ astTransposeS
      (Permutation.IsPermutation perm, Rank perm <= Rank sh, AstSpan s)
   => Permutation.Perm perm -> AstTensor AstMethodLet s (TKS2 sh r)
   -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
-astTransposeS perm t = case perm of
+astTransposeS perm t =
+  gcastWith (unsafeCoerceRefl
+             :: TakeLen perm sh ++ DropLen perm sh :~: sh) $ case perm of
  PNil -> t
  PCons (SNat' @0) PNil ->
    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix '[0] sh :~: sh) $
    t
+ _ | FTKS sh _ <- ftkAst t
+   , Just u2 <- unReplN @_ @_ @(DropLen perm sh) (shsTakeLen perm sh) t ->
+   astReplicateNS (shsPermute perm (shsTakeLen perm sh)) u2
  _ -> case t of
   Ast.AstFromVector snat@(SNat @n) (STKS @sh2 sh2 x) l
     | SNat' @0 `PCons` _ <- perm -> case permUnShift1 perm of
@@ -2750,47 +2755,6 @@ astTransposeS perm t = case perm of
                         :~: n : Permutation.PermutePrefix perm2 sh2)
         $ astReplicate snat (STKS (shsPermutePrefix perm2 sh2) x)
                        (astTransposeS perm2 u)
-  Ast.AstReplicate snat@(SNat @n) (STKS @sh3 sh3 _) _
-    | Just u2 <- unRepl t
-        -- TODO: here we really need unReplN and then we can remove
-        -- all the cases below and some above
-    , Refl <- lemAppNil @(Permutation.PermutePrefix perm (n : sh3)) ->
-      astReplicateNS (shsPermutePrefix perm (snat :$$ sh3)) u2
-  Ast.AstReplicate snat1@SNat _  -- nesting 4 is probably already an overkill
-    (Ast.AstReplicate snat2@SNat _
-      (Ast.AstReplicate snat3@SNat _
-        (Ast.AstReplicate snat4@SNat STKS{} u)))
-    | _ `PCons` _ `PCons` _ `PCons` _ `PCons` PNil <- perm ->
-      astReplicateNS
-        (shsPermutePrefix perm (snat1 :$$ snat2 :$$ snat3 :$$ snat4 :$$ ZSS)) u
-  Ast.AstReplicate snat1@SNat _
-    (Ast.AstReplicate snat2@SNat _
-      (Ast.AstReplicate snat3@SNat _
-        (Ast.AstReplicate snat4@SNat STKScalar u)))
-    | _ `PCons` _ `PCons` _ `PCons` _ `PCons` PNil <- perm ->
-      astReplicateNS
-        (shsPermutePrefix perm (snat1 :$$ snat2 :$$ snat3 :$$ snat4 :$$ ZSS))
-        (astSFromK u)
-  Ast.AstReplicate snat1@SNat _
-    (Ast.AstReplicate snat2@SNat _
-      (Ast.AstReplicate snat3@SNat STKS{} u))
-    | _ `PCons` _ `PCons` _ `PCons` PNil <- perm ->
-      astReplicateNS
-        (shsPermutePrefix perm (snat1 :$$ snat2 :$$ snat3 :$$ ZSS)) u
-  Ast.AstReplicate snat1@SNat _
-    (Ast.AstReplicate snat2@SNat _
-      (Ast.AstReplicate snat3@SNat STKScalar u))
-    | _ `PCons` _ `PCons` _ `PCons` PNil <- perm ->
-      astReplicateNS
-        (shsPermutePrefix perm (snat1 :$$ snat2 :$$ snat3 :$$ ZSS))
-        (astSFromK u)
-  Ast.AstReplicate snat1@SNat _ (Ast.AstReplicate snat2@SNat STKS{} u)
-    | _ `PCons` _ `PCons` PNil <- perm ->
-      astReplicateNS (shsPermutePrefix perm (snat1 :$$ snat2 :$$ ZSS)) u
-  Ast.AstReplicate snat1@SNat _ (Ast.AstReplicate snat2@SNat STKScalar u)
-    | _ `PCons` _ `PCons` PNil <- perm ->
-      astReplicateNS (shsPermutePrefix perm (snat1 :$$ snat2 :$$ ZSS))
-                     (astSFromK u)
   -- This increases term size and work, so limited to size 2.
   Ast.AstReplicate snat1@SNat _
                    (Ast.AstFromVector snat2@(SNat' @2) stk2@STKScalar l)
@@ -3439,6 +3403,15 @@ unRepl1 (Ast.AstReplicate _ STKS{} u) = Just u
 unRepl1 (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
 unRepl1 (AstConcreteS a) = AstConcreteS <$> sunReplicate1 a
 unRepl1 _ = Nothing
+
+unReplN :: AstSpan s
+        => ShS shm -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
+        -> Maybe (AstTensor AstMethodLet s (TKS2 shn x))
+unReplN ZSS a = Just a
+unReplN (_ :$$ ZSS) (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
+unReplN (_ :$$ sh) (Ast.AstReplicate _ STKS{} u) = unReplN sh u
+unReplN shm (AstConcreteS a) = AstConcreteS <$> sunReplicateN shm a
+unReplN _ _ = Nothing
 
 
 -- * Substitution wrappers
