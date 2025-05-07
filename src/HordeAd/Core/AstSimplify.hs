@@ -1313,16 +1313,16 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
          $ astIndex @shm @(n1 : shn) (snat :$$ shn)
                     (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
                     ix
-  Ast.AstReplicate (SNat @k) STKS{} v ->
+  Ast.AstReplicate _ STKS{} v ->
     let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
-    in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
+    in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
       AstBoolConst b -> if b then astIndex shn v rest1 else defArr
       _ -> Ast.AstIndexS shn v0 ix
-  Ast.AstReplicate (SNat @k) STKScalar v | ZIS <- rest1 ->
+  Ast.AstReplicate _ STKScalar v | ZIS <- rest1 ->
     let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
-    in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
+    in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
       AstBoolConst b -> if b then astSFromK v else defArr
       _ -> Ast.AstIndexS shn v0 ix
   Ast.AstApply{} -> Ast.AstIndexS shn v0 ix
@@ -1383,7 +1383,17 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let u = withKnownShS (ixsToShS rest1 `shsAppend` shn) $
             tsindex (Concrete a) (Concrete i :.$ ZIS)
     in astIndex shn (astConcreteS u) rest1
-  AstConcreteS{} -> Ast.AstIndexS shn v0 ix
+  AstConcreteS a -> case unRepl v0 of
+    Just{} ->
+      let u = withKnownShS (ixsToShS rest1 `shsAppend` shn) $
+              tsindex (Concrete a) (Concrete 0 :.$ ZIS)
+          ftk = FTKS shn x
+          defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+      in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
+        AstBoolConst b ->
+          if b then astIndex shn (astConcreteS u) rest1 else defArr
+        _ -> Ast.AstIndexS shn v0 ix
+    _ -> Ast.AstIndexS shn v0 ix
   Ast.AstFloorS v -> astFloorS $ astIndex shn v ix
   Ast.AstFromIntegralS v -> astFromIntegralS $ astIndex shn v ix
   Ast.AstCastS t -> astCastS $ astIndex shn t ix
@@ -2237,7 +2247,7 @@ astGatherKnobsS knobs shn v0
     $ astGatherKnobsS knobs shn v0 (listsPermutePrefix invperm vars, ix)
         -- this call is guaranteed to simplify as above, so the tranpose
         -- won't reduce it back to the original and cause a loop
-astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
+astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
   | FTKS _ x <- ftkAst v4 = case v4 of
     Ast.AstProject1{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstProject2{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
@@ -2301,12 +2311,12 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
                 if not (knobExpand knobs)
                 then astTransposeS perm4S innerGather
                 else astTransposeAsGatherS knobs perm4S innerGather -}
-    Ast.AstReplicate (SNat @k) STKS{} v ->
+    Ast.AstReplicate _ STKS{} v ->
       let ftk = FTKS (listsToShS vars4 `shsAppend` shn) x
           defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
       -- This boolean term may have free variables that act as universally
       -- quantified.
-      in case 0 <=. i4 &&* i4 <=. valueOf @k - 1 of
+      in case 0 <=. i4 &&* i4 <=. valueOf @in1 - 1 of
         AstBoolConst b ->
           if b then astGather @shm @shn @shp1' shn v (vars4, rest4) else defArr
         _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
@@ -2325,9 +2335,20 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @_ @shp1' i4 rest4))
                 (astGather @shm @shn @shp shn w (vars4, ix4))
     Ast.AstCond{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstBuild1{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-    AstConcreteS{} ->
-      Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-        -- free variables possible in the index, so can't compute the array
+    AstConcreteS a -> case unRepl v4 of
+      Just{} ->
+        let u = withKnownShS (ixsToShS rest4 `shsAppend` shn) $
+                tsindex (Concrete a) (Concrete 0 :.$ ZIS)
+            ftk = FTKS (listsToShS vars4 `shsAppend` shn) x
+            defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        in case 0 <=. i4 &&* i4 <=. valueOf @in1 - 1 of
+          AstBoolConst b ->
+            if b
+            then astGather @shm @shn @shp1' shn (astConcreteS u) (vars4, rest4)
+            else defArr
+          _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+      _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+             -- free variables possible in the index, so can't compute the array
 
     Ast.AstLet var u v ->
       astLet var u (astGather @shm @shn @shp shn v (vars4, ix4))
