@@ -367,6 +367,13 @@ astSum snat@SNat stk t0 = case t0 of
       STKS _ STKScalar -> foldr1 (+) l
       STKX _ STKScalar -> foldr1 (+) l
       _ -> Ast.AstSum snat stk t0
+  -- See the analogous astSliceS rule.
+  Ast.AstTransposeS (SNat' @1 `PCons` SNat' @0 `PCons` PNil) t
+    | FTKS (_ :$$ _ :$$ _) _ <- ftkAst t
+    , STKS (snat1 :$$ sh3) x <- stk
+    , Just u <- unRepl1 t ->
+      astReplicate snat1 (STKS sh3 x)
+      $ astSum snat (STKS sh3 x) u
   Ast.AstReplicate _ STKScalar v | STKScalar <- stk ->
     v * fromPrimal (AstConcreteK $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ _ v | STKR _ (STKScalar @r) <- stk ->
@@ -430,6 +437,10 @@ astReplicate snat stk = \case
   Ast.AstFromS stkz v ->
     astFromS (buildSTK snat stkz) $ astReplicate snat (ftkToSTK (ftkAst v)) v
   v -> Ast.AstReplicate snat stk v
+  -- TODO: maybe add a rule and then generalize:
+  -- replicate n1 (str (replicate n2 u))
+  -- ~> transpose [0, 2, 1] (replicate n1 (replicate n2 u))
+  -- but the reverse rule is already in astTransposeS
 
 -- TODO: also push up AstFromPrimal, etc.
 astMapAccumRDer
@@ -2653,6 +2664,15 @@ astSliceS i n@SNat k (Ast.AstTransposeS
                         (Ast.AstFromVector (SNat' @2) (STKS (_ :$$ sh) x) l)) =
     Ast.AstTransposeS perm
     $ astFromVector (SNat @2) (STKS (n :$$ sh) x) (V.map (astSliceS i n k) l)
+-- TODO: generalize (maybe the above, too) using unReplN, but it's hard.
+-- TODO: does it really work only for replicate-like things in-between?
+astSliceS i n@SNat k
+          (Ast.AstTransposeS perm@(SNat' @1 `PCons` SNat' @0 `PCons` PNil) t)
+  | STKS (snat :$$ _ :$$ sh3) x <- ftkToSTK $ ftkAst t
+  , Just u <- unRepl1 t =
+    astTransposeS perm
+    $ astReplicate snat (STKS (n :$$ sh3) x)
+    $ astSliceS i n k u
 astSliceS i n k v1 = case v1 of
   Ast.AstCond b a2 a3 ->
     astCond b (astSliceS i n k a2) (astSliceS i n k a3)
@@ -2691,6 +2711,12 @@ astReverseS (Ast.AstGatherS @shm @shn @shp
       ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
   in astGatherS @shm @shn @shp shn v (Const var ::$ vars, ix2)
 astReverseS (Ast.AstReverseS v) = v
+astReverseS (Ast.AstTransposeS perm@(SNat' @1 `PCons` SNat' @0 `PCons` PNil) t)
+  | STKS (snat :$$ sh2@(_ :$$ _)) x <- ftkToSTK $ ftkAst t
+  , Just u <- unRepl1 t =
+    astTransposeS perm
+    $ astReplicate snat (STKS sh2 x)
+    $ astReverseS u
 astReverseS (AstConcreteS v) = astConcreteS (tsreverse $ Concrete v)
 astReverseS v = Ast.AstReverseS v
 
