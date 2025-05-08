@@ -1255,8 +1255,8 @@ astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
       -- don't undo vectorization tweaks
     astLetFun v0 $ \v ->
     shareIx rest0 $ \rest ->
-      astCond b (astIndexKnobsS (deVect knobs) shn v (i1 :.$ rest))
-                (astIndexKnobsS (deVect knobs) shn v (i2 :.$ rest))
+      astCond b (astIndexKnobsS knobs shn v (i1 :.$ rest))
+                (astIndexKnobsS knobs shn v (i2 :.$ rest))
 astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
  let FTKS _ x = ftkAst v0
      astIndex
@@ -1321,7 +1321,8 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstVar{} -> Ast.AstIndexS shn v0 ix
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 ->
-      astCond b (astIndex shn v ix2) (astIndex shn w ix2)
+      astCond b (astIndexKnobsS knobs shn v ix2)
+                (astIndexKnobsS knobs shn w ix2)
 {- This is wrong: in a counterfactual case, astLet assigns OOB i to var2,
    violating the invariant about variables bounds:
   Ast.AstBuild1 (SNat @k) STKS{} (var2, v) ->
@@ -1346,31 +1347,31 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
         if b then astSFromK $ astLet var2 i1 v else defArr
       _ -> Ast.AstIndexS shn v0 ix
 
-  Ast.AstLet var u v -> astLet var u (astIndex shn v ix)
+  Ast.AstLet var u v -> astLet var u (astIndexKnobsS knobs shn v ix)
 
   Ast.AstPrimalPart{} -> Ast.AstIndexS shn v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndexS shn v0 ix
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astIndex shn v ix
-  Ast.AstFromDual v -> Ast.AstFromDual $ astIndex shn v ix
+  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astIndexKnobsS knobs shn v ix
+  Ast.AstFromDual v -> Ast.AstFromDual $ astIndexKnobsS knobs shn v ix
 
   AstPlusS u v ->
     shareIx ix $ \ !ix2 ->
-    astIndex shn u ix2 + astIndex shn v ix2
+    astIndexKnobsS knobs shn u ix2 + astIndexKnobsS knobs shn v ix2
   AstTimesS u v ->
     shareIx ix $ \ !ix2 ->
-    astIndex shn u ix2 * astIndex shn v ix2
-  Ast.AstN1S NegateOp u -> negate (astIndex shn u ix)
-  Ast.AstN1S AbsOp u -> abs (astIndex shn u ix)
-  Ast.AstN1S SignumOp u -> signum (astIndex shn u ix)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astIndex shn u ix)
+    astIndexKnobsS knobs shn u ix2 * astIndexKnobsS knobs shn v ix2
+  Ast.AstN1S NegateOp u -> negate (astIndexKnobsS knobs shn u ix)
+  Ast.AstN1S AbsOp u -> abs (astIndexKnobsS knobs shn u ix)
+  Ast.AstN1S SignumOp u -> signum (astIndexKnobsS knobs shn u ix)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astIndexKnobsS knobs shn u ix)
   Ast.AstR2S opCode u v ->
     shareIx ix
-    $ \ !ix2 -> Ast.AstR2S opCode (astIndex shn u ix2)
-                                  (astIndex shn v ix2)
+    $ \ !ix2 -> Ast.AstR2S opCode (astIndexKnobsS knobs shn u ix2)
+                                  (astIndexKnobsS knobs shn v ix2)
   Ast.AstI2S opCode u v ->
     shareIx ix
-    $ \ !ix2 -> Ast.AstI2S opCode (astIndex shn u ix2)
-                                  (astIndex shn v ix2)
+    $ \ !ix2 -> Ast.AstI2S opCode (astIndexKnobsS knobs shn u ix2)
+                                  (astIndexKnobsS knobs shn v ix2)
   AstConcreteS a | AstConcreteK i <- i1 ->
     let u = withKnownShS (ixsToShS rest1 `shsAppend` shn) $
             tsindex (Concrete a) (Concrete i :.$ ZIS)
@@ -1383,13 +1384,13 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
         AstBoolConst b -> if b then astIndex shn u rest1 else defArr
         _ -> Ast.AstIndexS shn v0 ix
     _ -> Ast.AstIndexS shn v0 ix
-  Ast.AstFloorS v -> astFloorS $ astIndex shn v ix
-  Ast.AstFromIntegralS v -> astFromIntegralS $ astIndex shn v ix
-  Ast.AstCastS t -> astCastS $ astIndex shn t ix
+  Ast.AstFloorS v -> astFloorS $ astIndexKnobsS knobs shn v ix
+  Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexKnobsS knobs shn v ix
+  Ast.AstCastS t -> astCastS $ astIndexKnobsS knobs shn t ix
 
   Ast.AstIndexS _ v (ix2 :: AstIxS AstMethodLet sh4)
     | Refl <- lemAppAssoc (Proxy @sh4) (Proxy @shm) (Proxy @shn) ->
-      astIndex shn v (ix2 `ixsAppend` ix)
+      astIndexKnobsS knobs shn v (ix2 `ixsAppend` ix)
   Ast.AstScatterS @shm7 @shn7 @shp7 shn7 v (vars, AstIntVar var5 :.$ ix2)
     | AstIntVar var6 <- i1, var6 == var5 ->
         astIndex shn (astScatterS @shm7 @shn7 @(Tail shp7)
@@ -1438,7 +1439,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                     :: shm ++ (shn ++ '[nl]) :~: n1 ': shz) $
          Ast.AstMinIndexS @(Head (shn ++ '[nl]))
                           @(Tail (shn ++ '[nl]))
-         $ astIndex @shm @(shn ++ '[nl]) shnl v ix
+         $ astIndexKnobsS @shm @(shn ++ '[nl]) knobs shnl v ix
   Ast.AstMaxIndexS @n1 @shz v -> case ftkAst v of
     FTKS nsh _ -> case shsLast nsh of
      nl@(SNat @nl) ->
@@ -1453,7 +1454,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                     :: shm ++ (shn ++ '[nl]) :~: n1 ': shz) $
          Ast.AstMaxIndexS @(Head (shn ++ '[nl]))
                           @(Tail (shn ++ '[nl]))
-         $ astIndex @shm @(shn ++ '[nl]) shnl v ix
+         $ astIndexKnobsS @shm @(shn ++ '[nl]) knobs shnl v ix
   Ast.AstIotaS (SNat @k) -> case testEquality shn ZSS of
     Just Refl ->
       let ftk = FTKS ZSS x
@@ -1510,7 +1511,8 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstUnNestS _ -> Ast.AstIndexS shn v0 ix
 
   Ast.AstFromS stkz v -> case sameSTK (ftkToSTK (ftkAst v)) stkz of
-    Just Refl -> astIndex shn v ix -- rare, usually simplifies away earlier
+    Just Refl -> astIndexKnobsS knobs shn v ix
+      -- rare, usually simplifies away earlier
     Nothing -> error "astIndexKnobsS: wrong tensor kinds in AstFromS"
   -- These conversions need to stay down, so this is NF, see vectorization.
   Ast.AstSFromR{} -> Ast.AstIndexS shn v0 ix
