@@ -3395,6 +3395,13 @@ unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
 unRepl (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
 unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
 unRepl (AstConcreteS a) = AstConcreteS . Nested.sscalar <$> sunReplicate a
+unRepl (Ast.AstCond b v1 v2) = do
+  u1 <- unRepl v1
+  u2 <- unRepl v2
+  return $! astCond b u1 u2
+unRepl (Ast.AstLet var u t) = Ast.AstLet var u <$> unRepl t
+unRepl (Ast.AstPrimalPart t) = astPrimalPart <$> unRepl t
+unRepl (Ast.AstDualPart t) = astDualPart <$> unRepl t
 unRepl _ = Nothing
 
 unRepl1 :: AstSpan s
@@ -3403,6 +3410,13 @@ unRepl1 :: AstSpan s
 unRepl1 (Ast.AstReplicate _ STKS{} u) = Just u
 unRepl1 (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
 unRepl1 (AstConcreteS a) = AstConcreteS <$> sunReplicate1 a
+unRepl1 (Ast.AstCond b v1 v2) = do
+  u1 <- unRepl1 v1
+  u2 <- unRepl1 v2
+  return $! astCond b u1 u2
+unRepl1 (Ast.AstLet var u t) = Ast.AstLet var u <$> unRepl1 t
+unRepl1 (Ast.AstPrimalPart t) = astPrimalPart <$> unRepl1 t
+unRepl1 (Ast.AstDualPart t) = astDualPart <$> unRepl1 t
 unRepl1 _ = Nothing
 
 unReplN :: AstSpan s
@@ -3412,6 +3426,13 @@ unReplN ZSS a = Just a
 unReplN (_ :$$ ZSS) (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
 unReplN (_ :$$ sh) (Ast.AstReplicate _ STKS{} u) = unReplN sh u
 unReplN shm (AstConcreteS a) = AstConcreteS <$> sunReplicateN shm a
+unReplN shm (Ast.AstCond b v1 v2) = do
+  u1 <- unReplN shm v1
+  u2 <- unReplN shm v2
+  return $! astCond b u1 u2
+unReplN shm (Ast.AstLet var u t) = Ast.AstLet var u <$> unReplN shm t
+unReplN shm (Ast.AstPrimalPart t) = astPrimalPart <$> unReplN shm t
+unReplN shm (Ast.AstDualPart t) = astDualPart <$> unReplN shm t
 unReplN _ _ = Nothing
 
 
