@@ -2742,8 +2742,9 @@ astTransposeS perm t =
       fromMaybe (error "astTransposeS: impossible non-permutation")
       $ Permutation.permCheckPermutation zsuccP
       $ astSum snat (STKS (shsPermutePrefix perm sh) x) $ astTransposeS zsuccP v
-  Ast.AstReplicate snat@(SNat @n) (STKS @sh2 sh2 x) u
-    | SNat' @0 `PCons` _ <- perm -> case permUnShift1 perm of
+  _ | SNat' @0 `PCons` _ <- perm
+    , STKS ((:$$) @n @sh2 snat sh2) x <- ftkToSTK $ ftkAst t
+    , Just u <- unRepl1 t -> case permUnShift1 perm of
       (perm2 :: Permutation.Perm perm2) ->
         fromMaybe (error "astTransposeS: impossible non-permutation")
         $ Permutation.permCheckPermutation perm2
@@ -2879,13 +2880,15 @@ astReshapeS :: forall sh sh2 x s. (Product sh ~ Product sh2, AstSpan s)
             => ShS sh2 -> AstTensor AstMethodLet s (TKS2 sh x)
             -> AstTensor AstMethodLet s (TKS2 sh2 x)
 astReshapeS sh2 t = case t of
+  Ast.AstReplicate (SNat' @1) STKS{} x -> astReshapeS sh2 x
   _ | Just u <- unRepl t
     , Refl <- lemAppNil @sh2 -> astReplicateNS sh2 u
-  Ast.AstReplicate (SNat' @1) STKS{} x -> astReshapeS sh2 x
-  Ast.AstReplicate k (STKS @sh1 _ x) u | (:$$) @_ @rest2 k2 rest2 <- sh2
-                                       , Just Refl <- testEquality k k2 ->
-    gcastWith (unsafeCoerceRefl :: Product rest2 :~: Product sh1) $
-    astReplicate k (STKS rest2 x) $ astReshapeS rest2 u
+  _ | STKS ((:$$) @_ @sh1 k _) x <- ftkToSTK $ ftkAst t
+    , Just u <- unRepl1 t
+    , (:$$) @_ @rest2 k2 rest2 <- sh2
+    , Just Refl <- testEquality k k2 ->
+      gcastWith (unsafeCoerceRefl :: Product rest2 :~: Product sh1) $
+      astReplicate k (STKS rest2 x) $ astReshapeS rest2 u
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 sh2 v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS sh2 v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReshapeS sh2 v
