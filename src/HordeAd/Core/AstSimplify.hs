@@ -387,8 +387,10 @@ astSum snat@SNat stk t0 = case t0 of
           v * astFromS
                 stk (fromPrimal $ AstConcreteS @r
                      $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
-  -- Ast.AstLet var u v -> astLet var u (astSum snat v)
-    -- this is problematic, because it keeps huge tensors alive for longer
+  -- This keeps tensors alive for longer, but it enables new simplifications,
+  -- while hiding a sum inside let not often prevents other simplifications,
+  -- because there are few redexes with sum but not at the top.
+  Ast.AstLet var u v -> astLet var u (astSum snat stk v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSum snat stk v
   Ast.AstFromDual v -> Ast.AstFromDual $ astSum snat stk v
   Ast.AstScatterS @shm @shn @shp shn v (vars, (:.$) @k2 i1 rest)
@@ -408,7 +410,18 @@ astReplicate :: forall y k s. AstSpan s
              => SNat k -> SingletonTK y
              -> AstTensor AstMethodLet s y
              -> AstTensor AstMethodLet s (BuildTensorKind k y)
-astReplicate snat@SNat stk = \case
+astReplicate snat stk = \case
+  Ast.AstPair t1 t2 | STKProduct stk1 stk2 <- stk ->
+    astPair (astReplicate snat stk1 t1) (astReplicate snat stk2 t2)
+  -- This doesn't prevent indexing of replicate, because indexing goes inside
+  -- the conditional, but it prevents the sum(replicate(cond)) simplification,
+  -- because sum can't go inside, becuase it's costly and cond is eager.
+  -- Ast.AstCond b v1 v2 ->
+  --  astCond b (astReplicate snat stk v1) (astReplicate snat stk v2)
+  -- TODO: This is a fine rule, but it would require adding a let(replicate)
+  -- case to all the rules that act on replicates. Maybe worth doing?
+  -- Or wait for equality saturation?
+  -- Ast.AstLet var t v -> astLet var t (astReplicate snat stk v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat stk v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReplicate snat stk v
   AstConcreteK t -> astConcreteS $ treplicate snat stk $ Concrete t
@@ -1055,6 +1068,9 @@ astFloorK :: (GoodScalar r1, RealFrac r1, GoodScalar r2, Integral r2)
           => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
           -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
 astFloorK t = case t of
+  Ast.AstLet var u v -> astLet var u (astFloorK v)
+  -- This increases work and term size, because conditional is eager.
+  -- Ast.AstCond b a2 a3 -> Ast.AstCond b (astFloorK a2) (astFloorK a3)
   -- These values are small, so we can simplify them ASAP.
   AstConcreteK k -> astConcreteK (tkfloor $ Concrete k)
   Ast.AstFloorK v -> astFloorK v
@@ -1070,8 +1086,7 @@ astFromIntegralK :: forall r1 r2. (GoodScalar r1, GoodScalar r2, Integral r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
 astFromIntegralK t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
---  Ast.AstCond b a2 a3 ->
---    Ast.AstCond b (astFromIntegralK a2) (astFromIntegralK a3)
+  Ast.AstLet var u v -> astLet var u (astFromIntegralK v)
   AstConcreteK k -> astConcreteK (tkfromIntegral $ Concrete k)
   Ast.AstN1K NegateOp u -> negate (astFromIntegralK u)
   Ast.AstN1K AbsOp u -> abs (astFromIntegralK u)
@@ -1085,7 +1100,7 @@ astCastK :: forall r1 r2 s.
          -> AstTensor AstMethodLet s (TKScalar r2)
 astCastK t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
---  Ast.AstCond b a2 a3 -> astCond b (astCastK a2) (astCastK a3)
+  Ast.AstLet var u v -> astLet var u (astCastK v)
   AstConcreteK k -> astConcreteK (tkcast $ Concrete k)
   -- TODO: which should go deeper, casts or fromPrimal? Or maybe alternate
   -- in different phases to make sure both can cancel out?
@@ -1114,8 +1129,6 @@ astFloorS t = case t of
   _ | FTKS (snat :$$ sh2) _ <- ftkAst t
     , Just u <- unRepl1 t ->
       astReplicate snat (STKS sh2 STKScalar) (astFloorS u)
-  Ast.AstReplicate snat (STKS sh2 STKScalar) a ->
-    astReplicate snat (STKS sh2 STKScalar) (astFloorS a)
   Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v) ->
     Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, astFloorS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
@@ -1147,9 +1160,6 @@ astFromIntegralS t = case t of
 --   astFromVector snat (STKS sh STKScalar) (V.map astFromIntegralS l)
 --  Ast.AstFromVector snat STKScalar l ->
 --   astFromVector snat STKScalar (V.map astFromIntegralK l)
-  Ast.AstReplicate snat (STKS sh2 STKScalar) a ->
-    astReplicate snat (STKS sh2 STKScalar) (astFromIntegralS a)
---  Ast.AstCond b v w -> astCond b (astFromIntegralS v) (astFromIntegralS w)
   Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v) ->
     Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, astFromIntegralS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
@@ -1190,9 +1200,6 @@ astCastS t = case t of
      and also impacts performance negatively (a is larger than sum a):
   Ast.AstSum snat (STKS sh STKScalar) a ->
     astSum snat (STKS sh STKScalar) (astCastS a) -}
-  Ast.AstReplicate snat (STKS sh2 STKScalar) a ->
-    astReplicate snat (STKS sh2 STKScalar) (astCastS a)
---  Ast.AstCond b v w -> astCond b (astCastS v) (astCastS w)
   Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v) ->
     Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, astCastS v)
   Ast.AstBuild1 snat STKScalar (var, v) ->
@@ -1562,6 +1569,8 @@ astScatterS shn v (Const var ::$ (vars :: AstVarListS sh3), ix)
         (astSum SNat (STKS (listsToShS vars `shsAppend` shn) (ftkToSTK x)) v)
         (vars, ix)
 -- TODO? astScatterS v (ZR, ix) = update (rzero sh 0) ix v
+astScatterS shn (Ast.AstLet var u v) (vars, ix) =
+      astLet var u (astScatterS @shm @shn @shp shn v (vars, ix))
 astScatterS shn (Ast.AstFromPrimal v) (vars, ix) =
   Ast.AstFromPrimal $ astScatterS @shm @shn @shp shn v (vars, ix)
 astScatterS shn (Ast.AstFromDual v) (vars, ix) =
@@ -2669,6 +2678,8 @@ astReverseS :: forall n sh s r. AstSpan s
 astReverseS (Ast.AstFromVector snat stk l) =
   astFromVector snat stk $ V.reverse l
 astReverseS (Ast.AstReplicate snat stk v) = astReplicate snat stk v
+astReverseS (Ast.AstCond b a2 a3) = astCond b (astReverseS a2) (astReverseS a3)
+astReverseS (Ast.AstLet var u v) = astLet var u (astReverseS v)
 astReverseS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astReverseS v
 astReverseS (Ast.AstFromDual v) = Ast.AstFromDual $ astReverseS v
 astReverseS (Ast.AstGatherS @shm @shn @shp
@@ -2996,6 +3007,7 @@ astSFromK :: forall r s. (GoodScalar r, AstSpan s)
               -> AstTensor AstMethodLet s (TKS '[] r)
 astSFromK t = case t of
   Ast.AstCond b a2 a3 -> astCond b (astSFromK a2) (astSFromK a3)
+  Ast.AstLet var u v -> astLet var u (astSFromK v)
   AstConcreteK k -> AstConcreteS $ Nested.sscalar k
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSFromK v
   Ast.AstFromDual v -> Ast.AstFromDual $ astSFromK v
@@ -3081,6 +3093,7 @@ astSum0S t = case t of
   Ast.AstReplicate snat STKScalar u ->
     astSFromK u * (fromPrimal $ AstConcreteS
                    $ Nested.sscalar $ fromInteger $ fromSNat snat)
+  Ast.AstLet var u v -> astLet var u (astSum0S v)
   AstTimesS t1 t2 -> astDot0S t1 t2
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
