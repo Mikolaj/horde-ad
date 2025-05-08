@@ -415,12 +415,13 @@ astReplicate snat stk = \case
     astPair (astReplicate snat stk1 t1) (astReplicate snat stk2 t2)
   -- This doesn't prevent indexing of replicate, because indexing goes inside
   -- the conditional, but it prevents the sum(replicate(cond)) simplification,
-  -- because sum can't go inside, becuase it's costly and cond is eager.
+  -- because sum can't go inside, because it's costly and cond is eager.
   -- Ast.AstCond b v1 v2 ->
   --  astCond b (astReplicate snat stk v1) (astReplicate snat stk v2)
-  -- TODO: This is a fine rule, but it would require adding a let(replicate)
-  -- case to all the rules that act on replicates. Maybe worth doing?
-  -- Or wait for equality saturation?
+  -- TODO: This rules is, in principle, very good, because it permits many other
+  -- rules to fire. However, one of these other rules is indexing of transpose
+  -- that in some cases complicates terms and causes OOM in CNNI tests.
+  -- We need to restrict the indexing rule more effectively first.
   -- Ast.AstLet var t v -> astLet var t (astReplicate snat stk v)
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat stk v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReplicate snat stk v
@@ -3121,15 +3122,14 @@ astDot0S :: (GoodScalar r, AstSpan s)
          -> AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS '[] r)
 astDot0S t1 t2 = case (t1, t2) of
-  (Ast.AstReplicate snat STKS{} u1, Ast.AstReplicate _ STKS{} u2) ->
-    astDot0S u1 u2 * (fromPrimal $ AstConcreteS
-                      $ Nested.sscalar $ fromInteger $ fromSNat snat)
-  (Ast.AstReplicate snat STKScalar u1, Ast.AstReplicate _ STKScalar u2) ->
-    astSFromK (u1 * u2) * (fromPrimal $ AstConcreteS
-                           $ Nested.sscalar $ fromInteger $ fromSNat snat)
   (AstConcreteS v1, AstConcreteS v2) ->
     withKnownShS (Nested.sshape v1) $
     astConcreteS $ tsdot0 (Concrete v1) (Concrete v2)
+  _ | FTKS (snat :$$ _) _ <- ftkAst t1
+    , Just u1 <- unRepl1 t1
+    , Just u2 <- unRepl1 t2 ->
+      astDot0S u1 u2 * (fromPrimal $ AstConcreteS
+                        $ Nested.sscalar $ fromInteger $ fromSNat snat)
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
     Ast.AstFromPrimal $ astDot0S u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
