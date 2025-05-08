@@ -1229,12 +1229,12 @@ testReluSimpPP = do
   resetVarCounter
   let !t1 = barRelu10xSlower @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t1) @?= 27737
+  length (show t1) @?= 22217
   length (show (simplifyInlineContract @(TKR 10 Float) t1)) @?= 21945
   resetVarCounter
   let !t2 = barRelu @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t2) @?= 20230
+  length (show t2) @?= 11800
   length (show (simplifyInlineContract @(TKR 10 Float) t2)) @?= 11528
 
 testCNNOPP2 :: Assertion
@@ -1245,7 +1245,7 @@ testCNNOPP2 = do
   printAstPretty (simplifyInlineContract t)
     @?= "rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printAstPretty t
-    @?= "rfromS (sreplicate @2 (sreplicate @2 (let u36 = let u41 = sgather (sgather (sreplicate @1 (let w32 = sgather (stranspose @[3,2,0,1] (sgather (sconcrete (sfromListLinear [2,3,2] [1.0,1.0,0.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,0.0])) (\\[i26, i15] -> [i26 + i15]))) (\\[i22, i16] -> [i22 + i16]) in stranspose @[1,2,3,0] (sappend (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))) (sappend (sreplicate @1 (stranspose @[2,0,4,1,3] w32 !$ [1])) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))))) (\\[i20] -> [i20, i20, i20, 0])) (\\[i44, i39, i35, i8] -> [2 * i39 + i8, i39, 2 * i44 + i35]) in str (sappend (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))) (sreplicate @1 (str u41 !$ [1]))) in stranspose @[2,3,0,1] u36 !$ [0, 0])))"
+    @?= "rfromS (sreplicate @2 (sreplicate @2 (let u36 = let u41 = sgather (sgather (sreplicate @1 (let w32 = sgather (stranspose @[3,2,0,1] (sgather (sconcrete (sfromListLinear [2,3,2] [1.0,1.0,0.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,0.0])) (\\[i26, i15] -> [i26 + i15]))) (\\[i22, i16] -> [i22 + i16]) in stranspose @[1,2,3,0] (sappend (sconcrete (sreplicate [1,2,2,2,2] 0.0)) (sappend (sreplicate @1 (stranspose @[2,0,4,1,3] w32 !$ [1])) (sconcrete (sreplicate [1,2,2,2,2] 0.0)))))) (\\[i20] -> [i20, i20, i20, 0])) (\\[i44, i39, i35, i8] -> [2 * i39 + i8, i39, 2 * i44 + i35]) in str (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sreplicate @1 (str u41 !$ [1]))) in stranspose @[2,3,0,1] u36 !$ [0, 0])))"
 
 testCNNOPP2b :: Assertion
 testCNNOPP2b = do
@@ -1254,7 +1254,7 @@ testCNNOPP2b = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\u1 -> rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> rfromS (sreplicate @2 (sreplicate @2 (stranspose @[2,3,1,0] (sappend (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))) (sreplicate @1 (sconcrete (sreplicate [2,2,2] 0.0)))) !$ [0, 0])))"
+    @?= "\\u1 -> rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printArtifactPretty artifactRev
     @?= "\\dret u1 -> rfromS (sconcrete (sreplicate [1,1,2,2] 0.0))"
   printArtifactPretty (simplifyArtifact artifactRev)
@@ -1322,7 +1322,7 @@ testCNNOPP3b = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 1] + sfromR u1 !$ [0, 1, 1, 1])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0)))) (sconcrete (sreplicate [1,2,2] 0.0)))))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 1] + sfromR u1 !$ [0, 1, 1, 1])) (sreplicate @1 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sscalar 0.0))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
+    @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 1] + sfromR u1 !$ [0, 1, 1, 1])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0)))) (sconcrete (sreplicate [1,2,2] 0.0)))))"
   printArtifactPretty artifactRev
     @?= "\\dret u1 -> let t80 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in rfromS (soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t80)))))) [0, 0, 0, 1] + soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t80)))))) [0, 1, 1, 1])"
   printArtifactPretty (simplifyArtifact artifactRev)
@@ -1388,7 +1388,7 @@ testCNNOPP4 = do
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printAstPretty afcnn2T
-    @?= "rfromS (let w19 = sgather (sfromVector (fromList [stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,0,3,1,4,5,2] (sgather (stranspose @[3,0,2,1] (sgather (stranspose @[0,2,1] (sgather (sreplicate @2 (sreplicate @3 (sreplicate @3 (sreplicate @3 (sscalar 7.0))))) (\\[i32, i5] -> [i32 + i5]))) (\\[i31, i6] -> [i31, 2 + (negate i31 + i6)]))) (\\[i36, i26, i7] -> [i36 * i26 + i7]))) (\\[i22, i8] -> [2 * i22 + i8])), sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))))))])) (\\[i34, i28, i24, i21, i15, i12, i10, i9] -> [ifH (0 <=. negate i28 + negate i15 &&* (1 <=. i28 + negate i12 &&* (notB (notB (0 <=. negate i34 * i24 + negate i10) &&* notB (1 <=. i34 * i24 + i10 &&* (-1) <=. negate i34 * i24 + negate i10)) &&* notB (notB (0 <=. (-2) * i21 + negate i9) &&* notB (1 <=. 2 * i21 + i9 &&* (-1) <=. (-2) * i21 + negate i9))))) 0 1, i34, i28, i24, i21, i15, i12, i10, i9]) in stranspose @[4,5,6,7,0,1,2,3] w19 !$ [0, 0, 0, 0])"
+    @?= "rfromS (let w19 = sgather (sfromVector (fromList [stranspose @[2,3,4,0,5,6,7,1] (sgather (stranspose @[6,0,3,1,4,5,2] (sgather (stranspose @[3,0,2,1] (sgather (stranspose @[0,2,1] (sgather (sconcrete (sreplicate [2,3,3,3] 7.0)) (\\[i32, i5] -> [i32 + i5]))) (\\[i31, i6] -> [i31, 2 + (negate i31 + i6)]))) (\\[i36, i26, i7] -> [i36 * i26 + i7]))) (\\[i22, i8] -> [2 * i22 + i8])), sconcrete (sreplicate [2,2,2,2,2,2,2,2] 0.0)])) (\\[i34, i28, i24, i21, i15, i12, i10, i9] -> [ifH (0 <=. negate i28 + negate i15 &&* (1 <=. i28 + negate i12 &&* (notB (notB (0 <=. negate i34 * i24 + negate i10) &&* notB (1 <=. i34 * i24 + i10 &&* (-1) <=. negate i34 * i24 + negate i10)) &&* notB (notB (0 <=. (-2) * i21 + negate i9) &&* notB (1 <=. 2 * i21 + i9 &&* (-1) <=. (-2) * i21 + negate i9))))) 0 1, i34, i28, i24, i21, i15, i12, i10, i9]) in stranspose @[4,5,6,7,0,1,2,3] w19 !$ [0, 0, 0, 0])"
 
 -- In this test primal is trivial but gradient is not, so we know how much
 -- scatters should be able to simplify in the future.
@@ -1399,7 +1399,7 @@ testCNNOPP4b = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\u1 -> rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> rfromS (stranspose @[1,2,3,0] (sappend (sreplicate @1 (str (sappend (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0))))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
+    @?= "\\u1 -> rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printArtifactPretty artifactRev
     @?= "\\dret u1 -> rfromS (sconcrete (sreplicate [3,3,3,3] 0.0))"
   printArtifactPretty (simplifyArtifact artifactRev)
@@ -1420,7 +1420,7 @@ testCNNOPP5 = do
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (sconcrete (sfromListLinear [1,1,2,2] [7.0,0.0,0.0,0.0]))"
   printAstPretty afcnn2T
-    @?= "rfromS (sreplicate @1 (sreplicate @1 (str (sappend (sreplicate @1 (sappend (sreplicate @1 (sscalar 7.0)) (sreplicate @1 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sscalar 0.0)))))))"
+    @?= "rfromS (sconcrete (sfromListLinear [1,1,2,2] [7.0,0.0,0.0,0.0]))"
 
 -- In this test primal is trivial but gradient is not, so we know how much
 -- scatters should be able to simplify in the future.
@@ -1431,7 +1431,7 @@ testCNNOPP5b = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\u1 -> rfromS (sreplicate @1 (sreplicate @1 (str (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 0])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0))))))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> rfromS (sreplicate @1 (sreplicate @1 (str (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 0])) (sreplicate @1 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sscalar 0.0)))))))"
+    @?= "\\u1 -> rfromS (sreplicate @1 (sreplicate @1 (str (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 0])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0))))))"
   printArtifactPretty artifactRev
     @?= "\\dret u1 -> rfromS (soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (str (ssum @1 (ssum @1 (sfromR dret)))))))) [0, 0, 0, 0])"
   printArtifactPretty (simplifyArtifact artifactRev)
@@ -1479,7 +1479,7 @@ testCNNOPP6 = do
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (sconcrete (sfromListLinear [2,2,2,2] [7.0,0.0,7.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printAstPretty afcnn2T
-    @?= "rfromS (stranspose @[1,2,0] (sreplicate @2 (let t30 = sgather (stranspose @[2,1,0] (sgather (str (sgather (sreplicate @2 (str (sreplicate @2 (let m13 = sgather (str (sgather (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 7.0))))) (\\[i1] -> [2 * i1, 2 * i1, 2 * i1]))) (\\[i4] -> [2 * i4]) in sappend (sreplicate @1 (sappend (sreplicate @1 (m13 !$ [0, 0])) (sreplicate @1 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sscalar 0.0))))))) (\\[i14] -> [2 * i14, 0]))) (\\[i15] -> [2 * i15]))) (\\[i17] -> [2 * i17]) in sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (t30 !$ [0, 0, 0])) (sreplicate @1 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sscalar 0.0))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
+    @?= "rfromS (stranspose @[1,2,0] (sreplicate @2 (let t30 = sgather (stranspose @[2,1,0] (sgather (str (sgather (sreplicate @2 (str (sreplicate @2 (let m13 = sgather (str (sgather (sconcrete (sreplicate [2,2,2,2] 7.0)) (\\[i1] -> [2 * i1, 2 * i1, 2 * i1]))) (\\[i4] -> [2 * i4]) in sappend (sreplicate @1 (sappend (sreplicate @1 (m13 !$ [0, 0])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0)))))) (\\[i14] -> [2 * i14, 0]))) (\\[i15] -> [2 * i15]))) (\\[i17] -> [2 * i17]) in sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (t30 !$ [0, 0, 0])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0)))) (sconcrete (sreplicate [1,2,2] 0.0)))))"
 
 
 testCNNOPP6b :: Assertion
@@ -1489,7 +1489,7 @@ testCNNOPP6b = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 0])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0)))) (sconcrete (sreplicate [1,2,2] 0.0)))))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 0])) (sreplicate @1 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sscalar 0.0))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
+    @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 0])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0)))) (sconcrete (sreplicate [1,2,2] 0.0)))))"
   printArtifactPretty artifactRev
     @?= "\\dret u1 -> let t33 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in rfromS (soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t33)))))) [0, 0, 0, 0])"
 
@@ -1522,7 +1522,7 @@ testCNNOPP7 = do
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (sconcrete (sfromListLinear [2,2,2,2] [7.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printAstPretty afcnn2T
-    @?= "rfromS (let u27 = sgather (stranspose @[3,2,0,1] (sgather (stranspose @[1,2,0] (sgather (sreplicate @2 (stranspose @[1,2,0] (sreplicate @2 (let m13 = sgather (str (sgather (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 7.0))))) (\\[i1] -> [2 * i1, 2 * i1, 2 * i1]))) (\\[i3] -> [2 * i3]) in sappend (sreplicate @1 (sappend (sreplicate @1 (m13 !$ [0, 0])) (sreplicate @1 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sscalar 0.0))))))) (\\[i14] -> [2 * i14]))) (\\[i31, i16] -> [2 * i16, 2 * i31]))) (\\[i17] -> [2 * i17]) in stranspose @[1,2,0] (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (u27 !$ [0, 0, 0, 0])) (sreplicate @1 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sscalar 0.0))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
+    @?= "rfromS (let u27 = sgather (stranspose @[3,2,0,1] (sgather (stranspose @[1,2,0] (sgather (sreplicate @2 (stranspose @[1,2,0] (sreplicate @2 (let m13 = sgather (str (sgather (sconcrete (sreplicate [2,2,2,2] 7.0)) (\\[i1] -> [2 * i1, 2 * i1, 2 * i1]))) (\\[i3] -> [2 * i3]) in sappend (sreplicate @1 (sappend (sreplicate @1 (m13 !$ [0, 0])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0)))))) (\\[i14] -> [2 * i14]))) (\\[i31, i16] -> [2 * i16, 2 * i31]))) (\\[i17] -> [2 * i17]) in stranspose @[1,2,0] (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (u27 !$ [0, 0, 0, 0])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0)))) (sconcrete (sreplicate [1,2,2] 0.0)))) (sconcrete (sreplicate [1,2,2,2] 0.0))))"
 
 testCNNOPP7b :: Assertion
 testCNNOPP7b = do
@@ -1531,7 +1531,7 @@ testCNNOPP7b = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 0])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0)))) (sconcrete (sreplicate [1,2,2] 0.0)))) (sconcrete (sreplicate [1,2,2,2] 0.0))))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 0])) (sreplicate @1 (sscalar 0.0)))) (sreplicate @1 (sreplicate @2 (sscalar 0.0))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))) (sreplicate @1 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sscalar 0.0)))))))"
+    @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 0])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0)))) (sconcrete (sreplicate [1,2,2] 0.0)))) (sconcrete (sreplicate [1,2,2,2] 0.0))))"
   printArtifactPretty artifactRev
     @?= "\\dret u1 -> rfromS (soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (stranspose @[2,0,1] (sfromR dret)))))))))) [0, 0, 0, 0])"
   printArtifactPretty (simplifyArtifact artifactRev)

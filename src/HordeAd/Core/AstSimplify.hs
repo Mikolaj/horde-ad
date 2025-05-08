@@ -411,23 +411,8 @@ astReplicate :: forall y k s. AstSpan s
 astReplicate snat@SNat stk = \case
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat stk v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReplicate snat stk v
-  {- This is a bad idea, because transpose should be pushed down, not pulled up.
-  Ast.AstTransposeS @perm @sh1 perm v -> case stk of
-    STKS @sh _ _ ->
-      let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)
-          zsuccPerm = Permutation.permShift1 perm
-      in
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix (0 : Permutation.MapSucc perm)
-                                                (k : sh1) :~: k : sh) $
-        gcastWith (unsafeCoerceRefl
-                   :: Rank (0 : Permutation.MapSucc perm) :~: 1 + Rank perm) $
-        fromMaybe (error "astReplicate: impossible non-permutation")
-        $ Permutation.permCheckPermutation zsuccPerm
-        $ astTransposeS zsuccPerm $ astReplicate snat (ftkToSTK (ftkAst v)) v -}
-  -- This is a bad idea, because reshape should be pushed down, not pulled up.
-  -- Ast.AstReshape sh v ->
-  --  AstReshape (k :$: sh) $ astReplicate k v
+  AstConcreteK t -> astConcreteS $ treplicate snat stk $ Concrete t
+  AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
   Ast.AstFromS stkz v ->
     astFromS (buildSTK snat stkz) $ astReplicate snat (ftkToSTK (ftkAst v)) v
   v -> Ast.AstReplicate snat stk v

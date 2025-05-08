@@ -455,10 +455,7 @@ contractAst t0 = case t0 of
     astLet var (contractAst v)
                (contractAst (Ast.AstSum snat stk (Ast.AstSum snat2 stk2 t2)))
   Ast.AstSum snat stk v -> astSum snat stk (contractAst v)
-  Ast.AstReplicate snat stk v -> case contractAst v of
-    AstConcreteK t -> astConcreteS $ treplicate snat stk $ Concrete t
-    AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
-    v2 -> astReplicate snat stk v2
+  Ast.AstReplicate snat stk v -> astReplicate snat stk (contractAst v)
   Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
     astMapAccumRDer k bftk eftk
                     (contractAstHFun f)

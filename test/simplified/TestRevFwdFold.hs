@@ -496,7 +496,7 @@ testSin0FoldB1PP = do
                            (rscalar 5) (rreplicate 1 x0)
               in f) (rscalar 1.1)
   printAstPretty a1
-    @?= "rsum (tproject2 (tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sconcrete (sfromListLinear [1] [Z0])) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sscalar 5.0) (sreplicate @1 (sscalar 1.1))))) (sreplicate @1 (sscalar 1.1))))))"
+    @?= "rsum (tproject2 (tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sconcrete (sfromListLinear [1] [Z0])) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sscalar 5.0) (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1]))))))"
 
 testSin0FoldB2 :: Assertion
 testSin0FoldB2 = do
@@ -788,7 +788,7 @@ testSin0Fold182SrevPP = do
                         (sreplicate @1 a0)
             in rfromS . f . sfromR) (rscalar 1.1)
   printAstPretty a1
-    @?= "rfromS (let v6 = tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate @5 (sscalar 1.0)) (tpair (sconcrete (sfromListLinear [1] [Z0])) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sreplicate @5 (sscalar 1.1)) (sreplicate @1 (sscalar 1.1))))) (sreplicate @1 (sscalar 1.1)))) in ssum @5 (tproject1 v6) + tproject2 v6 !$ [0])"
+    @?= "rfromS (let v6 = tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.0)) (tpair (sconcrete (sfromListLinear [1] [Z0])) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.1)) (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1])))) in ssum @5 (tproject1 v6) + tproject2 v6 !$ [0])"
 
 testSin0Fold18Sgrad :: Assertion
 testSin0Fold18Sgrad = do
@@ -1218,11 +1218,11 @@ unitriangular1 k sh =
 testUnitriangular1PP :: Assertion
 testUnitriangular1PP = do
   resetVarCounter
-  let sh = 200 :$: 300 :$: 600 :$: ZSR
-      k = 1000000
+  let sh = 2 :$: 3 :$: 6 :$: ZSR
+      k = 10
       a1 = unitriangular1 @3 @Double @(AstTensor AstMethodLet PrimalSpan) k sh
   printAstPretty (simplifyInline a1)
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 0.0))), sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 1.0)))])) (\\[i3, i2] -> [ifH (0 <=. i2 + negate i3) 0 1]))"
+    @?= "rfromS (sgather (sconcrete (sfromListLinear [2,2,3,6] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])) (\\[i3, i2] -> [ifH (0 <=. i2 + negate i3) 0 1]))"
 
 unitriangular2 :: (KnownNat k, GoodScalar rk, ADReady target)
                => Int -> IShR k -> target (TKR (2 + k) rk)
@@ -1235,11 +1235,11 @@ unitriangular2 k sh =
 testUnitriangular2PP :: Assertion
 testUnitriangular2PP = do
   resetVarCounter
-  let sh = 200 :$: 300 :$: 600 :$: ZSR
-      k = 1000000
+  let sh = 2 :$: 3 :$: 6 :$: ZSR
+      k = 10
       a1 = unitriangular2 @3 @Double @(AstTensor AstMethodLet PrimalSpan) k sh
   printAstPretty (simplifyInline a1)
-    @?= "rfromS (sgather (sfromVector (fromList [sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 0.0))), sreplicate @200 (sreplicate @300 (sreplicate @600 (sscalar 1.0)))])) (\\[i1, i2] -> [ifH (0 <=. i1 + negate i2) 1 0]))"
+    @?= "rfromS (sgather (sconcrete (sfromListLinear [2,2,3,6] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])) (\\[i1, i2] -> [ifH (0 <=. i1 + negate i2) 1 0]))"
 
 testSin0rmapAccumRD0S :: Assertion
 testSin0rmapAccumRD0S = do
@@ -2266,7 +2266,7 @@ testSin0FoldNestedS1PP = do
       g = kgrad (kfromS . f) (FTKS ZSS FTKScalar)
   printAstPretty
     (g @(AstTensor AstMethodLet PrimalSpan) (sscalar 1.1))
-    @?= "let v6 = tmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sconcrete (sreplicate [11] Z0)) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate @11 (sscalar 1.1))))) (sreplicate @11 (sscalar 1.1)))) in ssum @11 (tproject2 v6) + tproject1 v6"
+    @?= "let v6 = tmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sconcrete (sreplicate [11] Z0)) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sconcrete (sreplicate [11] 1.1))))) (sconcrete (sreplicate [11] 1.1)))) in ssum @11 (tproject2 v6) + tproject1 v6"
 
 testSin0FoldNestedR1PP :: Assertion
 testSin0FoldNestedR1PP = do
@@ -2280,7 +2280,7 @@ testSin0FoldNestedR1PP = do
       g = kgrad (kfromR . f) (FTKR ZSR FTKScalar)
   printAstPretty
     (g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (let v6 = tmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sconcrete (sreplicate [11] Z0)) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sreplicate @11 (sscalar 1.1))))) (sreplicate @11 (sscalar 1.1)))) in ssum @11 (sfromR (tproject2 v6)) + tproject1 v6)"
+    @?= "rfromS (let v6 = tmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sconcrete (sreplicate [11] Z0)) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sconcrete (sreplicate [11] 1.1))))) (sconcrete (sreplicate [11] 1.1)))) in ssum @11 (sfromR (tproject2 v6)) + tproject1 v6)"
 
 testSin0FoldNestedR0LengthPPs :: Assertion
 testSin0FoldNestedR0LengthPPs = do
