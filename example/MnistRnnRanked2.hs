@@ -72,6 +72,7 @@ rnnMnistLayerR s x (wX, wS, b) = case rshape s of
             + rtr (rreplicate batch_size b)
     in tanh y
 
+-- TODO: represent state as a pair to avoid appending; tlet now supports this.
 -- | Composition of two recurrent layers.
 rnnMnistTwoR
   :: (ADReady target, GoodScalar r, Differentiable r)

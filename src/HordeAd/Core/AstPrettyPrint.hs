@@ -458,7 +458,7 @@ printAst cfg d = \case
   AstDot0S u v ->
     printPrefixOp printAst cfg d "sdot0" [u, v]
   AstDot1InS _ _ u v ->
-    printPrefixOp printAst cfg d "ssdot1In" [u, v]
+    printPrefixOp printAst cfg d "sdot1In" [u, v]
   AstMatmul2S SNat SNat SNat u v ->
     showParen (d > 10)
     $ showString "smatmul2 "

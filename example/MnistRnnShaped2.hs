@@ -67,6 +67,7 @@ rnnMnistLayerS SNat SNat SNat
             + str (sreplicate {-@batch_size-} b)
     in tanh y
 
+-- TODO: represent state as a pair to avoid appending; tlet now supports this.
 -- | Composition of two recurrent layers.
 rnnMnistTwoS
   :: (ADReady target, GoodScalar r, Differentiable r)
