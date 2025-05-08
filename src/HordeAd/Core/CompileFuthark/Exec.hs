@@ -42,7 +42,7 @@ buildKernel futsource csource funname = do
   when debugSources $ do
     hPutStrLn stderr $ "[horde-ad] Compiling Futhark source:"
     hPutStr stderr $ lineNumbers $ Lazy8.unpack futsource
-    hPutStrLn stderr $ "[horde-ad] Compiling C entry source:"
+    hPutStrLn stderr $ "[horde-ad] Compiling C wrapper source:"
     hPutStr stderr $ lineNumbers $ Lazy8.unpack csource
 
   let run progname args = do
@@ -62,8 +62,8 @@ buildKernel futsource csource funname = do
     Lazy.writeFile (path ++ "/prog.fut") futsource
     run "futhark" ["c", "--library", "prog.fut"]
 
-    Lazy.writeFile (path ++ "/entry.c") csource
-    run "cc" ["-O3", "-march=native", "-std=c99", "-shared", "-fPIC", "prog.c", "entry.c", "-o", "out.so"]
+    Lazy.writeFile (path ++ "/wrapper.c") csource
+    run "cc" ["-O3", "-march=native", "-std=c99", "-shared", "-fPIC", "prog.c", "wrapper.c", "-o", "out.so"]
 
     dl <- dlopen (path ++ "/out.so") [RTLD_LAZY, RTLD_LOCAL]
     when debugLibLoad $ do

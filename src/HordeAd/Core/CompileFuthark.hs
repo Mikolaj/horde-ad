@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ViewPatterns #-}
-module HordeAd.Core.CompileFuthark (compileExpr) where
+module HordeAd.Core.CompileFuthark (compileExpr, HList(..)) where
 
 import Prelude
 
@@ -17,7 +17,8 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.Sum
 import Data.Foldable (toList)
-import Data.List (intersperse)
+import Data.Kind (Type)
+import Data.List (intersperse, scanl')
 import Data.Int
 import Data.Some
 import Data.Type.Equality
@@ -102,11 +103,19 @@ import HordeAd.Core.Types
 -- interface is either a scalar or a multi-dimensional array of scalars; a
 -- scalar is represented as-is, and an array of scalars is represented as a
 -- pointer to a memory buffer (pre-)allocated by Haskell.
+--
+-- In the memory buffer, all values are properly aligned by the usual C rules.
+-- Use `computeStructOffsets` for this.
 
 {-
-:m *HordeAd Prelude HordeAd.Core.CompileFuthark HordeAd.Core.CarriersAst Data.Some Data.Array.Nested.Internal.Shape
+:m *HordeAd Prelude HordeAd.Core.CompileFuthark HordeAd.Core.CarriersAst Data.Some Data.Array.Nested.Internal.Shape Data.Int
 :seti -XOverloadedLists -fprint-explicit-foralls
+
+-- let x = (7, [1..10]) in fst x
 compileExpr [] $ unAstNoSimplify $ tlet @_ @_ @(AstNoSimplify PrimalSpan) (tpair (kconcrete (7::Double)) (sfromList @10 @'[] (fmap sscalar [1..10 :: Double]))) $ \x -> tproject1 x
+
+-- var : ([5]f64, f32) |- let x = (7, [1..10]) in (fst x + kfromS (ssum (fst var)), 42)
+let var = mkAstVarName (FTKProduct (FTKS (SNat @5 :$$ ZSS) (FTKScalar @Double)) (FTKScalar @Float)) Nothing (toEnum (-1)) in compileExpr (var `HCons` HNil) $ unAstNoSimplify $ tlet @_ @_ @(AstNoSimplify PrimalSpan) (tpair (kconcrete (7::Double)) (sfromList @10 @'[] (fmap sscalar [1..10 :: Double]))) $ \x -> tpair (tproject1 x + kfromS (ssum (tproject1 (AstNoSimplify (AstVar var))))) (kconcrete (42 :: Int64))
 -}
 
 
@@ -139,12 +148,28 @@ pattern FELitS :: String -> FEx
 pattern FELitS s <- FELit (map (chr . fromIntegral) . BSS.unpack -> s)
   where FELitS s = FELit (bss8 s)
 
-compileExpr :: [Some (AstVarName PrimalSpan)] -> AstTensor AstMethodLet PrimalSpan t -> IO ()
+type role HList representational nominal
+type HList :: forall {k}. (k -> Type) -> [k] -> Type
+data HList f list where
+  HNil :: HList f '[]
+  HCons :: f a -> HList f list -> HList f (a : list)
+infixr `HCons`
+
+hlistToList :: HList f list -> [Some f]
+hlistToList HNil = []
+hlistToList (x `HCons` xs) = Some x : hlistToList xs
+
+compileExpr :: HList (AstVarName PrimalSpan) args -> AstTensor AstMethodLet PrimalSpan t
+            -> IO (HList Concrete args -> RepConcrete t)
 compileExpr inputVars ast = do
-  let arguments = [var :=> splitType (varNameToFTK var) | Some var <- inputVars]
+  let arguments = [var :=> splitType (varNameToFTK var) | Some var <- hlistToList inputVars]
       outSplit = splitType (ftkAst ast)
-  kernel <- buildKernel (compileExprToFuthark arguments outSplit ast) "" "horde_ad_kernel_top"
-  return ()
+      futintys = [ty | _ :=> SplitTypeRes parts _ _ _ _ <- arguments, ty <- parts]
+      futouttys = let SplitTypeRes parts _ _ _ _ = outSplit in parts
+  kernel <- buildKernel (compileExprToFuthark arguments outSplit ast)
+                        (generateCWrapper futintys futouttys)
+                        "horde_ad_kernel_top"
+  return (\_ -> error "TODO!")
 
 compileExprToFuthark
   :: [DSum (AstVarName PrimalSpan) SplitTypeRes]
@@ -182,16 +207,94 @@ compileExprToFuthark arguments (SplitTypeRes outParts _ _ outFutSplit _) term =
                   case out of [e] -> e
                               _ -> FETuple out))
 
+generateCWrapper :: [Some ArgType] -> [Some ArgType] -> Lazy.ByteString
+generateCWrapper arguments outputs =
+  let alloffsets = computeStructOffsets [metrics t | Some t <- arguments ++ outputs]
+      (argoffsets, outoffsets) = splitAt (length arguments) alloffsets
+
+      futArrName :: ArgType t -> BSB.Builder
+      futArrName (ATArray sh@(_ :$% _) t) =
+        bsb8 (scalTyToMod t) <> "_" <> bsb8 (show (fromSNat' (shxRank sh))) <> "d"
+      futArrName (ATArray ZSX _) = error "futArrName called with scalar type"
+
+      cTypeName :: ScalTy t -> BSB.Builder
+      cTypeName = \case
+        SI8 -> "int8_t" ; SI16 -> "int16_t" ; SI32 -> "int32_t" ; SI64 -> "int64_t"
+        SU8 -> "uint8_t" ; SU16 -> "uint16_t" ; SU32 -> "uint32_t" ; SU64 -> "uint64_t"
+        SF32 -> "float" ; SF64 -> "double" ; SBool -> "bool"
+
+  in BSB.toLazyByteString $
+  -- TODO: allocate and supply a futhark cache file? Keyed by hash of futhark source, maybe?
+  "#include \"prog.h\"\n\n\
+  \void horde_ad_kernel_top(char *data) {\n\
+  \  struct futhark_context_config *cfg = futhark_context_config_new();\n\
+  \  struct futhark_context *ctx = futhark_context_new(cfg);\n"
+  -- copy input arrays
+  <> mconcat ["  struct futhark_" <> futArrName ty <> " *inarr" <> bsb8 (show i) <>
+                " = futhark_new_" <> futArrName ty <>
+                "(ctx, (" <> cTypeName t <> "*)(data + " <> bsb8 (show off) <> ")" <>
+                mconcat [", " <> bsb8 (show n) | n <- shxToList sh] <> ");\n"
+             | (Some ty@(ATArray sh@(_ :$% _) t), off, i) <- zip3 arguments argoffsets [1::Int ..]]
+  -- declare output arrays
+  <> mconcat ["  struct futhark_" <> futArrName ty <> " *outarr" <> bsb8 (show i) <> ";"
+             | (Some ty@(ATArray (_ :$% _) _), i) <- zip outputs [1::Int ..]]
+  <>
+  "  futhark_entry_main(ctx\n"
+  -- output destinations
+  <> mconcat [case ty of
+                ATArray ZSX t -> "    , (" <> cTypeName t <> "*)(data + " <> bsb8 (show off) <> ")\n"
+                ATArray _ _ -> "    , &outarr" <> bsb8 (show i) <> "\n"
+             | (Some ty, off, i) <- zip3 outputs outoffsets [1::Int ..]]
+  -- inputs
+  <> mconcat [case ty of
+                ATArray ZSX t -> "    , *(const " <> cTypeName t <> "*)(data + " <> bsb8 (show off) <> ")\n"
+                ATArray _ _ -> "    , inarr" <> bsb8 (show i) <> "\n"
+             | (Some ty, off, i) <- zip3 arguments argoffsets [1::Int ..]]
+  <>
+  "  );\n\
+  \  futhark_context_free(ctx);\n\
+  \  futhark_context_config_free(cfg);\n\
+  \}\n"
+
+-- | Returns (sizeof, alignment)
+metrics :: ArgType t -> (Int, Int)
+metrics (ATArray ZSX ty) = case ty of
+  SI8 -> (1, 1)
+  SI16 -> (2, 2)
+  SI32 -> (4, 4)
+  SI64 -> (8, 8)
+  SU8 -> (1, 1)
+  SU16 -> (2, 2)
+  SU32 -> (4, 4)
+  SU64 -> (8, 8)
+  SF32 -> (4, 4)
+  SF64 -> (8, 8)
+  SBool -> (4, 4)  -- some C compilers like luxurious bathing space for their bools
+metrics ATArray{} = (8, 8)  -- assuming 64-bit pointers
+
+-- | Takes list of (sizeof, alignment)
+computeStructOffsets :: [(Int, Int)] -> [Int]
+computeStructOffsets = go 0
+  where
+    go _   [] = []
+    go off ((sz, al) : pairs) = let off' = roundUpToMultiple off al
+                                in off' : go (off' + sz) pairs
+    roundUpToMultiple x n = (x + n - 1) `quot` n * n
+
+type role ArgType nominal
+data ArgType t where
+  ATArray :: IShX sh -> ScalTy t -> ArgType (TKX sh t)
+
 -- | Typed concrete value
 type role TypedCon nominal
-data TypedCon t = TypedCon (FullShapeTK t) (RepConcrete t)
+data TypedCon t = TypedCon (ArgType t) (RepConcrete t)
 
 -- | The types and shapes (!) in the argument to the reconstruction function
 -- must be equal to those obtained from the decomposition.
 -- Types are lost here, sorry.
 type role SplitTypeRes nominal
 data SplitTypeRes t = SplitTypeRes
-  [Some FullShapeTK]  -- ^ The types of the generated components
+  [Some ArgType]  -- ^ The types of the generated components
   (RepConcrete t -> [Some TypedCon])  -- ^ Split up an input value into components
   ([Some TypedCon] -> RepConcrete t)  -- ^ Reconstruct an output from components
   (FEx -> IdGen (FCtx, [FEx]))  -- ^ Split up an output into components in Futhark
@@ -210,11 +313,15 @@ splitType = \typ ->
        -> IShX upsh
        -> (SplitTypeRes (TKX2 upsh t), Dict N.Elt (RepConcrete t))
     go ty@FTKScalar upsh =
+      let sty = toScalTy ty
+          argty = ATArray upsh sty
+      in
       (SplitTypeRes
-        [Some (FTKX upsh ty)]
-        (\x -> [Some (TypedCon (FTKX upsh ty) x)])
-        (\l -> case l of [Some (TypedCon ty2 x)]
-                           | Just Refl <- sameFTK (FTKX upsh ty) ty2 -> x
+        [Some argty]
+        (\x -> [Some (TypedCon argty x)])
+        (\l -> case l of [Some (TypedCon (ATArray sh2 ty2) x)]
+                           | Just Refl <- shxEqual upsh sh2
+                           , Just Refl <- testEquality sty ty2 -> x
                          _ -> error "invalid splitType response")
         -- array of scalars decomposes into... an array of scalars
         (\e -> pure (FCtx [], [e]))
@@ -317,12 +424,9 @@ prettyExpr = go 0
     bParen False b = b
     bParen True b = BSB.char8 '(' <> b <> BSB.char8 ')'
 
-futTypeName :: FullShapeTK t -> BSB.Builder
-futTypeName ty@FTKScalar = bsb8 (scalTyToMod (toScalTy ty))
-futTypeName (FTKS sh t) = bsb8 (concat ['[' : show n ++ "]" | n <- shsToList sh]) <> futTypeName t
-futTypeName (FTKR sh t) = bsb8 (concat ['[' : show n ++ "]" | n <- toList    sh]) <> futTypeName t
-futTypeName (FTKX sh t) = bsb8 (concat ['[' : show n ++ "]" | n <- shxToList sh]) <> futTypeName t
-futTypeName (FTKProduct t1 t2) = BSB.char8 '(' <> futTypeName t1 <> BSB.char8 ',' <> futTypeName t2 <> BSB.char8 ')'
+futTypeName :: ArgType t -> BSB.Builder
+futTypeName (ATArray sh t) =
+  bsb8 (concat ['[' : show n ++ "]" | n <- shxToList sh]) <> bsb8 (scalTyToMod t)
 
 bsb8 :: String -> BSB.Builder
 bsb8 = BSB.shortByteString . bss8
@@ -677,6 +781,19 @@ data ScalTy t where
   SF32 :: ScalTy Float
   SF64 :: ScalTy Double
   SBool :: ScalTy Bool
+
+instance TestEquality ScalTy where
+  testEquality SI8   SI8   = Just Refl ; testEquality SI8   _ = Nothing
+  testEquality SI16  SI16  = Just Refl ; testEquality SI16  _ = Nothing
+  testEquality SI32  SI32  = Just Refl ; testEquality SI32  _ = Nothing
+  testEquality SI64  SI64  = Just Refl ; testEquality SI64  _ = Nothing
+  testEquality SU8   SU8   = Just Refl ; testEquality SU8   _ = Nothing
+  testEquality SU16  SU16  = Just Refl ; testEquality SU16  _ = Nothing
+  testEquality SU32  SU32  = Just Refl ; testEquality SU32  _ = Nothing
+  testEquality SU64  SU64  = Just Refl ; testEquality SU64  _ = Nothing
+  testEquality SF32  SF32  = Just Refl ; testEquality SF32  _ = Nothing
+  testEquality SF64  SF64  = Just Refl ; testEquality SF64  _ = Nothing
+  testEquality SBool SBool = Just Refl ; testEquality SBool _ = Nothing
 
 toScalTy :: forall t f. Typeable t => f (TKScalar t) -> ScalTy t
 toScalTy p
