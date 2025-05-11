@@ -1,6 +1,9 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | Tests of "MnistCnnRanked2" concolutional neural network
 -- using a few different optimization pipelines.
+--
+-- With the current CPU backend it's slow enough that it's hard to see
+-- if it trains.
 module TestMnistCNNR
   ( testTrees
   ) where

@@ -2,6 +2,9 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Tests of "MnistCnnShaped2" concolutional neural network
 -- using a few different optimization pipelines.
+--
+-- With the current CPU backend it's slow enough that it's hard to see
+-- if it trains.
 module TestMnistCNNS
   ( testTrees
   ) where

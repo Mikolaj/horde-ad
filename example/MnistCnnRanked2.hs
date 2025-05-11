@@ -2,6 +2,9 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Ranked tensor-based implementation of Convolutional Neural Network
 -- for classification of MNIST digits. Sports 2 hidden layers.
+--
+-- With the current CPU backend it's slow enough that it's hard to see
+-- if it trains.
 module MnistCnnRanked2 where
 
 import Prelude
