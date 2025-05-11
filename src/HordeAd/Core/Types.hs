@@ -33,10 +33,9 @@ module HordeAd.Core.Types
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
   , withCastRS, withCastXS, shCastSR, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
-  , ixsToShS, {-ixxToSSX,-} listsToShS, listrToNonEmpty
+  , ixsToShS, ixxToSSX, listsToShS, listrToNonEmpty
   , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
   , eqPerm, permUnShift1, sunReplicateScal, sunReplicate1, sunReplicateN
-    -- * Ops only needed as a workaround for other ops not provided.
   , ssxTakeIx
   ) where
 
@@ -511,18 +510,236 @@ zeroOfX fromInt ((:$%) _ sh) = fromInt 0 :.% zeroOfX fromInt sh
 
 -- * Shopping list for ox-arrays
 
--- All of this should have better names and types, just as in ox-arrays,
--- and be consistently added for all 9 kinds of shape things.
+-- All of the below should have better names and types, just as in ox-arrays,
+-- and be consistently added for all 10 kinds of shape things.
 
--- - Permutation.permInverse for ShS instead of only for StaticShX (the proof
---   does not convert (easily)). Though, frankly, the proof is often useless,
+-- I could switch to ixxFromLinear and ixxToLinear if they also had shaped
+-- and ranked versions and if they worked for any @IxS sh j@,
+-- not only for @IxS sh Int@.
+
+-- * Zips
+
+zipSized :: ListR n i -> ListR n j -> ListR n (i, j)
+zipSized ZR ZR = ZR
+zipSized (i ::: irest) (j ::: jrest) = (i, j) ::: zipSized irest jrest
+zipSized _ _ = error "zipSized: impossible pattern needlessly required"
+
+zipWith_Sized :: (i -> j -> k) -> ListR n i -> ListR n j
+              -> ListR n k
+zipWith_Sized _ ZR ZR = ZR
+zipWith_Sized f (i ::: irest) (j ::: jrest) =
+  f i j ::: zipWith_Sized f irest jrest
+zipWith_Sized _ _ _ =
+  error "zipWith_Sized: impossible pattern needlessly required"
+
+zipIndex :: IxR n i -> IxR n j -> IxR n (i, j)
+zipIndex (IxR l1) (IxR l2) = IxR $ zipSized l1 l2
+
+zipWith_Index :: (i -> j -> k) -> IxR n i -> IxR n j -> IxR n k
+zipWith_Index f (IxR l1) (IxR l2) = IxR $ zipWith_Sized f l1 l2
+
+zipSizedS :: ListS sh (Const i) -> ListS sh (Const j) -> ListS sh (Const (i, j))
+zipSizedS ZS ZS = ZS
+zipSizedS (Const i ::$ irest) (Const j ::$ jrest) =
+  Const (i, j) ::$ zipSizedS irest jrest
+
+zipWith_SizedS :: (i -> j -> k)
+              -> ListS sh (Const i) -> ListS sh (Const j)
+              -> ListS sh (Const k)
+zipWith_SizedS _ ZS ZS = ZS
+zipWith_SizedS f (Const i ::$ irest) (Const j ::$ jrest) =
+  Const (f i j) ::$ zipWith_SizedS f irest jrest
+
+zipIndexS :: IxS sh i -> IxS sh j -> IxS sh (i, j)
+zipIndexS (IxS l1) (IxS l2) = IxS $ zipSizedS l1 l2
+
+zipWith_IndexS :: (i -> j -> k) -> IxS sh i -> IxS sh j -> IxS sh k
+zipWith_IndexS f (IxS l1) (IxS l2) = IxS $ zipWith_SizedS f l1 l2
+
+-- ** Casts
+
+withCastRS :: forall n r.
+              IShR n
+           -> (forall sh. n ~ Rank sh => ShS sh -> r)
+           -> r
+withCastRS ZSR f = f ZSS
+withCastRS (n :$: rest') f = withSNat n $ \snat ->
+  withCastRS rest' (\rest -> f (snat :$$ rest))
+
+withCastXS :: forall sh' r.
+              IShX sh'
+           -> (forall sh. Rank sh' ~ Rank sh => ShS sh -> r)
+           -> r
+withCastXS ZSX f = f ZSS
+withCastXS (Nested.SKnown snat@SNat :$% rest') f =
+  withCastXS rest' (\rest -> f (snat :$$ rest))
+withCastXS (Nested.SUnknown k :$% rest') f = withSNat k $ \snat ->
+  withCastXS rest' (\rest -> f (snat :$$ rest))
+
+shCastSR :: ShS sh -> IShR (Rank sh)
+shCastSR ZSS = ZSR
+shCastSR (snat2 :$$ rest) =
+  sNatValue snat2 :$: shCastSR rest
+
+-- The constraint is erroneously reported as redundant.
+shCastSX :: Rank sh ~ Rank sh' => StaticShX sh' -> ShS sh -> IShX sh'
+shCastSX ZKX ZSS = ZSX
+shCastSX ((:!%) @_ @restx (Nested.SKnown snat1) restx)
+         ((:$$) @_ @rest snat2 rest) =
+  gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
+  if sNatValue snat1 == sNatValue snat2
+  then Nested.SKnown snat1 :$% shCastSX restx rest
+  else error $ "shCastSX: shapes don't match: " ++ show (snat1, snat2)
+shCastSX ((:!%) @_ @restx (Nested.SUnknown ()) restx)
+         ((:$$) @_ @rest snat2 rest) =
+  gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
+  Nested.SUnknown (sNatValue snat2) :$% shCastSX restx rest
+
+-- ** Conversions and related
+
+-- TODO; make more typed, ensure ranks match, use singletons instead of constraints,
+-- give better names and do the same for ListS, etc.
+ixrToIxs :: (KnownShS sh, KnownNat (Rank sh))
+         => IxR (Rank sh) i -> IxS sh i
+ixrToIxs = fromList . toList
+ixsToIxr :: (KnownShS sh, KnownNat (Rank sh))
+         => IxS sh i -> IxR (Rank sh) i
+ixsToIxr = fromList . toList
+ixxToIxs :: (KnownShS sh, KnownShX sh')
+         => IxX sh' i -> IxS sh i
+ixxToIxs = fromList . toList
+ixsToIxx :: (KnownShS sh, KnownShX sh')
+         => IxS sh i -> IxX sh' i
+ixsToIxx = fromList . toList
+
+-- TODO: this can be retired when we have a conversion from IxS to ShS
+sixKnown :: IxS sh i -> Dict KnownShS sh
+sixKnown ZIS = Dict
+sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
+
+-- TODO: ixrToShR :: IxR sh i -> ShR sh i
+
+ixsToShS :: IxS sh i -> ShS sh
+ixsToShS ix | Dict <- sixKnown ix = knownShS
+
+ixxToSSX :: IxX sh i -> StaticShX sh
+ixxToSSX (IxX _list) = error "TODO"
+
+-- TODO: this can be retired when we have a conversion from ListS to ShS;
+slistKnown :: ListS sh i -> Dict KnownShS sh
+slistKnown ZS = Dict
+slistKnown (_ ::$ sh) | Dict <- slistKnown sh = Dict
+
+listsToShS :: ListS sh i -> ShS sh
+listsToShS l | Dict <- slistKnown l = knownShS
+
+listrToNonEmpty :: ListR (n + 1) i -> NonEmpty i
+listrToNonEmpty l = listrHead l :| Foldable.toList (listrTail l)
+
+-- ** Permutation-related operations
+
+-- - Permutation.permInverse for ShS would be helpful in addition to
+--   for StaticShX (the proof does not convert (easily)).
+--   Though, frankly, the proof is often useless,
 --   due to how bad GHC is at reasoning (no (++) congruence, no (:~:)
 --   transitivity, etc., see astGatherCase.AstTransposeS
 --   and astTransposeAsGatherS), so it's easier to postulate the thing
 --   GHC needs in one or two clauses than to write a dozen bread crumbs
 --   to lead GHC to grudgingly use the proof.
 
--- - The Proxies in listsIndex are unused.
+permRInverse :: PermR -> PermR
+permRInverse perm = map snd $ sort $ zip perm [0 .. length perm - 1]
+
+-- TODO: port to shaped permutations and then remove the Hack suffix
+normalizePermutationHack :: Permutation.PermR -> Permutation.PermR
+normalizePermutationHack perm =
+  map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
+
+-- TODO: can this be defined for Permutation.Perm using @Mod@?
+-- A representation of a cycle backpermutation that moves elements
+-- to indexes one less (the the left, to the back).
+backpermCycle :: Int -> Permutation.PermR
+backpermCycle 0 = []
+backpermCycle 1 = []
+backpermCycle n = [k `mod` n | k <- [1 .. n]]
+
+-- TODO: can this be defined for Permutation.Perm using @Mod@?
+-- A representation of a cycle permutation that is reverse to @backpermCycle@.
+permCycle :: Int -> Permutation.PermR
+permCycle 0 = []
+permCycle 1 = []
+permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
+
+eqPerm :: Permutation.Perm perm1 -> Permutation.Perm perm2
+       -> Maybe (perm1 :~: perm2)
+eqPerm perm1 perm2 =
+  if Permutation.permToList' perm1 == Permutation.permToList' perm2
+  then Just unsafeCoerceRefl
+  else Nothing
+
+type family UnMapSucc is where
+  UnMapSucc '[] = '[]
+  UnMapSucc (i : is) = i - 1 : UnMapSucc is
+
+-- The inverse of permShift1. Morally:
+-- permUnShift1 :: Permutation.Perm (0 : Permutation.MapSucc l)
+--              -> Permutation.Perm l
+permUnShift1 :: Permutation.Perm (0 : l)
+             -> Permutation.Perm (UnMapSucc l)
+permUnShift1 (Permutation.PCons _ permRest) =
+  Permutation.permFromList
+    (permUnMapSucc (Permutation.permToList' permRest)) unsafeCoerce
+ where
+  permUnMapSucc :: [Int] -> [Int]
+  permUnMapSucc [] = []
+  permUnMapSucc (i : ns) = i - 1 : permUnMapSucc ns
+
+-- TODO:
+_withPermShift1 :: forall is r. -- Permutation.IsPermutation is
+                  Permutation.Perm is
+               -> (Permutation.IsPermutation (0 : Permutation.MapSucc is) =>
+                   Permutation.Perm (0 : Permutation.MapSucc is) -> r)
+               -> r
+_withPermShift1 _perm _f = undefined  -- f (Permutation.permShift1 perm)
+
+withKnownPerm :: forall perm r. Permutation.Perm perm -> (Permutation.KnownPerm perm => r) -> r
+withKnownPerm = withDict @(Permutation.KnownPerm perm)
+
+ssxPermutePrefix :: Permutation.Perm is -> StaticShX sh
+                 -> StaticShX (Permutation.PermutePrefix is sh)
+ssxPermutePrefix = undefined
+
+shxPermutePrefix :: Permutation.Perm is -> ShX sh i
+                 -> ShX (Permutation.PermutePrefix is sh) i
+shxPermutePrefix = undefined
+
+-- ** Misc
+
+sunReplicateScal :: Nested.Elt a
+                 => Nested.Shaped sh a -> Maybe a
+sunReplicateScal (Nested.Shaped arr)
+  | all (all (== 0) . take (shxLength (Nested.mshape arr)))
+        (Nested.Internal.marrayStrides arr)
+  , shxSize (Nested.mshape arr) /= 0 =
+    Just $ Nested.mindex arr $ ixxZero' $ Nested.mshape arr
+sunReplicateScal _ = Nothing
+
+sunReplicate1 :: Nested.Elt a
+              => Nested.Shaped (n ': sh) a -> Maybe (Nested.Shaped sh a)
+sunReplicate1 a | (snat :$$ _) <- Nested.sshape a =
+  sunReplicateN (snat :$$ ZSS) a
+
+sunReplicateN :: Nested.Elt a
+              => ShS shm -> Nested.Shaped (shm ++ shn) a
+              -> Maybe (Nested.Shaped shn a)
+sunReplicateN shm a@(Nested.Shaped arr)
+  | all (all (== 0) . take (shsLength shm)) (Nested.Internal.marrayStrides arr)
+  , shsSize shm /= 0 =
+    Just $ Nested.sindexPartial a $ ixsZero shm
+sunReplicateN _ _ = Nothing
+
+
+-- ** Takes and drops; this is postponed until we decide how to handle this; in particular, IIRC, unary nats for ranks is a pre-requisite for the most promising approach. There may be an ox-arrays branch for that. However, this requires lots of effort, so it's probably future work.
 
 type family Take (n :: Nat) (xs :: [k]) :: [k] where
   Take 0 xs = '[]
@@ -651,217 +868,6 @@ listsDropLen (_ ::$ _) ZS = error "listsDropLen: list too short"
 
 shsDropLen :: Permutation.Perm is -> ShS sh -> ShS (DropLen is sh)
 shsDropLen = coerce (listsDropLenPerm @SNat)
-
-zipSized :: ListR n i -> ListR n j -> ListR n (i, j)
-zipSized ZR ZR = ZR
-zipSized (i ::: irest) (j ::: jrest) = (i, j) ::: zipSized irest jrest
-zipSized _ _ = error "zipSized: impossible pattern needlessly required"
-
-zipWith_Sized :: (i -> j -> k) -> ListR n i -> ListR n j
-              -> ListR n k
-zipWith_Sized _ ZR ZR = ZR
-zipWith_Sized f (i ::: irest) (j ::: jrest) =
-  f i j ::: zipWith_Sized f irest jrest
-zipWith_Sized _ _ _ =
-  error "zipWith_Sized: impossible pattern needlessly required"
-
-zipIndex :: IxR n i -> IxR n j -> IxR n (i, j)
-zipIndex (IxR l1) (IxR l2) = IxR $ zipSized l1 l2
-
-zipWith_Index :: (i -> j -> k) -> IxR n i -> IxR n j -> IxR n k
-zipWith_Index f (IxR l1) (IxR l2) = IxR $ zipWith_Sized f l1 l2
-
-zipSizedS :: ListS sh (Const i) -> ListS sh (Const j) -> ListS sh (Const (i, j))
-zipSizedS ZS ZS = ZS
-zipSizedS (Const i ::$ irest) (Const j ::$ jrest) =
-  Const (i, j) ::$ zipSizedS irest jrest
-
-zipWith_SizedS :: (i -> j -> k)
-              -> ListS sh (Const i) -> ListS sh (Const j)
-              -> ListS sh (Const k)
-zipWith_SizedS _ ZS ZS = ZS
-zipWith_SizedS f (Const i ::$ irest) (Const j ::$ jrest) =
-  Const (f i j) ::$ zipWith_SizedS f irest jrest
-
-zipIndexS :: IxS sh i -> IxS sh j -> IxS sh (i, j)
-zipIndexS (IxS l1) (IxS l2) = IxS $ zipSizedS l1 l2
-
-zipWith_IndexS :: (i -> j -> k) -> IxS sh i -> IxS sh j -> IxS sh k
-zipWith_IndexS f (IxS l1) (IxS l2) = IxS $ zipWith_SizedS f l1 l2
-
--- Also permInverse for S would be very handy (see how unreadable
--- is permInverse applied to S terms in AstSimplify).
-permRInverse :: PermR -> PermR
-permRInverse perm = map snd $ sort $ zip perm [0 .. length perm - 1]
-
-withCastRS :: forall n r.
-              IShR n
-           -> (forall sh. n ~ Rank sh => ShS sh -> r)
-           -> r
-withCastRS ZSR f = f ZSS
-withCastRS (n :$: rest') f = withSNat n $ \snat ->
-  withCastRS rest' (\rest -> f (snat :$$ rest))
-
-withCastXS :: forall sh' r.
-              IShX sh'
-           -> (forall sh. Rank sh' ~ Rank sh => ShS sh -> r)
-           -> r
-withCastXS ZSX f = f ZSS
-withCastXS (Nested.SKnown snat@SNat :$% rest') f =
-  withCastXS rest' (\rest -> f (snat :$$ rest))
-withCastXS (Nested.SUnknown k :$% rest') f = withSNat k $ \snat ->
-  withCastXS rest' (\rest -> f (snat :$$ rest))
-
-shCastSR :: ShS sh -> IShR (Rank sh)
-shCastSR ZSS = ZSR
-shCastSR (snat2 :$$ rest) =
-  sNatValue snat2 :$: shCastSR rest
-
--- The constraint is erroneously reported as redundant.
-shCastSX :: Rank sh ~ Rank sh' => StaticShX sh' -> ShS sh -> IShX sh'
-shCastSX ZKX ZSS = ZSX
-shCastSX ((:!%) @_ @restx (Nested.SKnown snat1) restx)
-         ((:$$) @_ @rest snat2 rest) =
-  gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
-  if sNatValue snat1 == sNatValue snat2
-  then Nested.SKnown snat1 :$% shCastSX restx rest
-  else error $ "shCastSX: shapes don't match: " ++ show (snat1, snat2)
-shCastSX ((:!%) @_ @restx (Nested.SUnknown ()) restx)
-         ((:$$) @_ @rest snat2 rest) =
-  gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
-  Nested.SUnknown (sNatValue snat2) :$% shCastSX restx rest
-
--- TODO; make more typed, ensure ranks match, use singletons instead of constraints,
--- give better names and do the same for ListS, etc.
-ixrToIxs :: (KnownShS sh, KnownNat (Rank sh))
-         => IxR (Rank sh) i -> IxS sh i
-ixrToIxs = fromList . toList
-ixsToIxr :: (KnownShS sh, KnownNat (Rank sh))
-         => IxS sh i -> IxR (Rank sh) i
-ixsToIxr = fromList . toList
-ixxToIxs :: (KnownShS sh, KnownShX sh')
-         => IxX sh' i -> IxS sh i
-ixxToIxs = fromList . toList
-ixsToIxx :: (KnownShS sh, KnownShX sh')
-         => IxS sh i -> IxX sh' i
-ixsToIxx = fromList . toList
-
--- TODO: this can be retired when we have a conversion from IxS to ShS
-sixKnown :: IxS sh i -> Dict KnownShS sh
-sixKnown ZIS = Dict
-sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
-
--- TODO: ixrToShR :: IxR sh i -> ShR sh i
-
-ixsToShS :: IxS sh i -> ShS sh
-ixsToShS ix | Dict <- sixKnown ix = knownShS
-
-_ixxToSSX :: IxX sh i -> StaticShX sh
-_ixxToSSX (IxX _list) = error "TODO"
-
--- TODO: this can be retired when we have a conversion from ListS to ShS;
-slistKnown :: ListS sh i -> Dict KnownShS sh
-slistKnown ZS = Dict
-slistKnown (_ ::$ sh) | Dict <- slistKnown sh = Dict
-
-listsToShS :: ListS sh i -> ShS sh
-listsToShS l | Dict <- slistKnown l = knownShS
-
-listrToNonEmpty :: ListR (n + 1) i -> NonEmpty i
-listrToNonEmpty l = listrHead l :| Foldable.toList (listrTail l)
-
-withKnownPerm :: forall perm r. Permutation.Perm perm -> (Permutation.KnownPerm perm => r) -> r
-withKnownPerm = withDict @(Permutation.KnownPerm perm)
-
-ssxPermutePrefix :: Permutation.Perm is -> StaticShX sh
-                 -> StaticShX (Permutation.PermutePrefix is sh)
-ssxPermutePrefix = undefined
-
-shxPermutePrefix :: Permutation.Perm is -> ShX sh i
-                 -> ShX (Permutation.PermutePrefix is sh) i
-shxPermutePrefix = undefined
-
-
--- * Permutation-related operations
-
--- TODO: port to shaped permutations and then remove the Hack suffix
-normalizePermutationHack :: Permutation.PermR -> Permutation.PermR
-normalizePermutationHack perm =
-  map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
-
--- TODO: can this be defined for Permutation.Perm using @Mod@?
--- A representation of a cycle backpermutation that moves elements
--- to indexes one less (the the left, to the back).
-backpermCycle :: Int -> Permutation.PermR
-backpermCycle 0 = []
-backpermCycle 1 = []
-backpermCycle n = [k `mod` n | k <- [1 .. n]]
-
--- TODO: can this be defined for Permutation.Perm using @Mod@?
--- A representation of a cycle permutation that is reverse to @backpermCycle@.
-permCycle :: Int -> Permutation.PermR
-permCycle 0 = []
-permCycle 1 = []
-permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
-
-eqPerm :: Permutation.Perm perm1 -> Permutation.Perm perm2
-       -> Maybe (perm1 :~: perm2)
-eqPerm perm1 perm2 =
-  if Permutation.permToList' perm1 == Permutation.permToList' perm2
-  then Just unsafeCoerceRefl
-  else Nothing
-
-type family UnMapSucc is where
-  UnMapSucc '[] = '[]
-  UnMapSucc (i : is) = i - 1 : UnMapSucc is
-
--- The inverse of permShift1. Morally:
--- permUnShift1 :: Permutation.Perm (0 : Permutation.MapSucc l)
---              -> Permutation.Perm l
-permUnShift1 :: Permutation.Perm (0 : l)
-             -> Permutation.Perm (UnMapSucc l)
-permUnShift1 (Permutation.PCons _ permRest) =
-  Permutation.permFromList
-    (permUnMapSucc (Permutation.permToList' permRest)) unsafeCoerce
- where
-  permUnMapSucc :: [Int] -> [Int]
-  permUnMapSucc [] = []
-  permUnMapSucc (i : ns) = i - 1 : permUnMapSucc ns
-
--- TODO:
-_withPermShift1 :: forall is r. -- Permutation.IsPermutation is
-                  Permutation.Perm is
-               -> (Permutation.IsPermutation (0 : Permutation.MapSucc is) =>
-                   Permutation.Perm (0 : Permutation.MapSucc is) -> r)
-               -> r
-_withPermShift1 _perm _f = undefined  -- f (Permutation.permShift1 perm)
-
-
--- * Misc
-
-sunReplicateScal :: Nested.Elt a
-                 => Nested.Shaped sh a -> Maybe a
-sunReplicateScal (Nested.Shaped arr)
-  | all (all (== 0) . take (shxLength (Nested.mshape arr)))
-        (Nested.Internal.marrayStrides arr)
-  , shxSize (Nested.mshape arr) /= 0 =
-    Just $ Nested.mindex arr $ ixxZero' $ Nested.mshape arr
-sunReplicateScal _ = Nothing
-
-sunReplicate1 :: Nested.Elt a
-              => Nested.Shaped (n ': sh) a -> Maybe (Nested.Shaped sh a)
-sunReplicate1 a | (snat :$$ _) <- Nested.sshape a =
-  sunReplicateN (snat :$$ ZSS) a
-
-sunReplicateN :: Nested.Elt a
-              => ShS shm -> Nested.Shaped (shm ++ shn) a
-              -> Maybe (Nested.Shaped shn a)
-sunReplicateN shm a@(Nested.Shaped arr)
-  | all (all (== 0) . take (shsLength shm)) (Nested.Internal.marrayStrides arr)
-  , shsSize shm /= 0 =
-    Just $ Nested.sindexPartial a $ ixsZero shm
-sunReplicateN _ _ = Nothing
-
 
 -- This is only needed as a workaround for other ops not provided.
 
