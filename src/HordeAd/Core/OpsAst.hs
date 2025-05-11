@@ -188,8 +188,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Ranked ops
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
-  rlength t = case ftkAst t of
-    FTKR sh _ -> shrLength sh
   trsum v = withSNat (rwidth v) $ \snat -> astSum snat knownSTK v
   trreplicate k = withSNat k $ \snat -> astReplicate snat knownSTK
   trindex @m @n a ix = case ftkAst a of
@@ -363,8 +361,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Shaped ops
   sshape t = case ftkAst t of
     FTKS sh _ -> sh
-  slength t = case ftkAst t of
-    FTKS sh _ -> shsLength sh
   tssum = astSum SNat knownSTK
   tsindex = astIndexS knownShS
   tsscatter @shm @shn @shp t f =
@@ -389,8 +385,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Mixed ops
   xshape t = case ftkAst t of
     FTKX sh _ -> sh
-  xlength t = case ftkAst t of
-    FTKX sh _ -> shxLength sh
   txsum = astSum SNat knownSTK
   txreplicate snat sh = astReplicate snat (STKX sh knownSTK)
   txindex @sh1 @sh2 a ix = case ftkAst a of
@@ -676,8 +670,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- Ranked ops
   rshape t = case ftkAst $ unAstRaw t of
     FTKR sh _ -> sh
-  rlength t = case ftkAst $ unAstRaw t of
-    FTKR sh _ -> shrLength sh
   trsum v = withSNat (rwidth v) $ \snat ->
              AstRaw . AstSum snat knownSTK . unAstRaw $ v
   trreplicate k = withSNat k $ \snat ->
@@ -860,8 +852,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- Shaped ops
   sshape t = case ftkAst $ unAstRaw t of
     FTKS sh _ -> sh
-  slength t = case ftkAst $ unAstRaw t of
-    FTKS sh _ -> shsLength sh
   tssum = AstRaw . AstSum SNat knownSTK . unAstRaw
   tsindex v ix = AstRaw $ AstIndexS knownShS (unAstRaw v) (unAstRaw <$> ix)
   tsscatter @shm @shn @shp t f =
@@ -891,8 +881,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   -- Mixed ops
   xshape t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sh
-  xlength t = case ftkAst $ unAstRaw t of
-    FTKX sh _ -> shxLength sh
   txsum = AstRaw . AstSum SNat knownSTK . unAstRaw
   txreplicate snat sh = AstRaw . AstReplicate snat (STKX sh knownSTK) . unAstRaw
   txindex @sh1 @sh2 (AstRaw a) ix = case ftkAst a of
@@ -1283,7 +1271,6 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
   -- Ranked ops
   rshape = rshape . unAstNoVectorize
-  rlength = rlength . unAstNoVectorize
   trsum = AstNoVectorize . trsum . unAstNoVectorize
   trreplicate k = AstNoVectorize . trreplicate k . unAstNoVectorize
   trindex v ix =
@@ -1315,7 +1302,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Shaped ops
   sshape = sshape . unAstNoVectorize
-  slength = slength . unAstNoVectorize
   tssum = AstNoVectorize . tssum . unAstNoVectorize
   tsindex v ix =
     AstNoVectorize $ tsindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
@@ -1343,7 +1329,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Mixed ops
   xshape = xshape . unAstNoVectorize
-  xlength = xlength . unAstNoVectorize
   txsum = AstNoVectorize . txsum . unAstNoVectorize
   txreplicate snat sh = AstNoVectorize . txreplicate snat sh . unAstNoVectorize
   txindex v ix =
@@ -1534,7 +1519,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   -- All the following implementations piggy-back on AstRaw implementations.
   -- Ranked ops
   rshape = rshape . wunAstNoSimplify
-  rlength = rlength . wunAstNoSimplify
   trsum = wAstNoSimplify . trsum . wunAstNoSimplify
   trreplicate k = wAstNoSimplify . trreplicate k . wunAstNoSimplify
   trindex v ix =
@@ -1561,7 +1545,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Shaped ops
   sshape = sshape . wunAstNoSimplify
-  slength = slength . wunAstNoSimplify
   tssum = wAstNoSimplify . tssum . wunAstNoSimplify
   tsindex v ix =
     wAstNoSimplify $ tsindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
@@ -1585,7 +1568,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Mixed ops
   xshape = xshape . wunAstNoSimplify
-  xlength = xlength . wunAstNoSimplify
   txsum = wAstNoSimplify . txsum . wunAstNoSimplify
   txreplicate snat sh = wAstNoSimplify . txreplicate snat sh . wunAstNoSimplify
   txindex v ix =

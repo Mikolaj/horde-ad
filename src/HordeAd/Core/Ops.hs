@@ -358,6 +358,7 @@ class ( Num (IntOf target)
          => target (TKR2 n x) -> IShR n
   rlength :: forall n x. KnownSTK x
           => target (TKR2 n x) -> Int
+  rlength = shrLength . rshape
   rsize :: forall n x. KnownSTK x
         => target (TKR2 n x) -> Int
   rsize = shrSize . rshape
@@ -370,6 +371,7 @@ class ( Num (IntOf target)
          => target (TKS2 sh x) -> ShS sh
   slength :: forall sh x. KnownSTK x
           => target (TKS2 sh x) -> Int
+  slength = shsLength . sshape
   ssize :: forall sh x. KnownSTK x
         => target (TKS2 sh x) -> Int
   ssize = shsSize . sshape
@@ -382,6 +384,7 @@ class ( Num (IntOf target)
          => target (TKX2 sh x) -> IShX sh
   xlength :: forall sh x. KnownSTK x
           => target (TKX2 sh x) -> Int
+  xlength = shxLength . xshape
   xsize :: forall sh x. KnownSTK x
         => target (TKX2 sh x) -> Int
   xsize = shxSize . xshape

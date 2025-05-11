@@ -69,8 +69,6 @@ instance ShareTensor Concrete where
 instance BaseTensor Concrete where
   -- Ranked ops
   rshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.rshape . unConcrete
-  rlength @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    sNatValue . Nested.rrank . unConcrete
   trfromVector @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.rfromListOuter . NonEmpty.fromList . V.toList
     . fmapUnConcrete
@@ -148,8 +146,6 @@ instance BaseTensor Concrete where
 
   -- Shaped ops
   sshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.sshape . unConcrete
-  slength @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    sNatValue . Nested.srank . unConcrete
   tsfromVector @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.sfromListOuter SNat . NonEmpty.fromList . V.toList
     . fmapUnConcrete
@@ -307,8 +303,6 @@ instance BaseTensor Concrete where
 
   -- Mixed ops
   xshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.mshape . unConcrete
-  xlength @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    sNatValue . Nested.mrank . unConcrete
   txfromVector @n @sh @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
     . Nested.mfromListOuter . NonEmpty.fromList . V.toList
