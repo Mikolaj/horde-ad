@@ -388,7 +388,7 @@ build1VIndexS k@SNat shn (var, v0, ix) | STKS _ x <- ftkToSTK (ftkAst v0) =
              ruleD = astGatherS
                        shn1 (build1VOccurrenceUnknown k (var, v1))
                        (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
-             len = sNatValue $ ixsRank ix1
+             len = ixsLength ix1
          in if varNameInAst var v1
             then case v1 of  -- try to avoid ruleD if not a normal form
               Ast.AstFromVector{} | len == 1 -> ruleD

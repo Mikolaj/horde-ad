@@ -7,7 +7,7 @@ module HordeAd.Core.TensorKind
     SingletonTK(..), KnownSTK(..)
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , stkUnit, buildSTK, razeSTK, adSTK
-  , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, rankSTK, widthSTK
+  , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
     -- * Full shape tensor kind quasi-singletons
   , FullShapeTK(..)
   , matchingFTK, ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK, differentiableFTK
@@ -161,12 +161,12 @@ lemBuildOfAD snat@SNat = \case
   STKProduct stk1 stk2 | Refl <- lemBuildOfAD snat stk1
                        , Refl <- lemBuildOfAD snat stk2 -> Refl
 
-rankSTK :: SingletonTK x -> Int
-rankSTK STKScalar = 0
-rankSTK (STKR snat _) = fromInteger $ fromSNat snat
-rankSTK (STKS sh _) = fromInteger $ fromSNat $ shsRank sh
-rankSTK (STKX sh _) = fromInteger $ fromSNat $ ssxRank sh
-rankSTK (STKProduct sy sz) = rankSTK sy `max` rankSTK sz
+lengthSTK :: SingletonTK x -> Int
+lengthSTK STKScalar = 0
+lengthSTK (STKR snat _) = fromInteger $ fromSNat snat
+lengthSTK (STKS sh _) = shsLength sh
+lengthSTK (STKX sh _) = ssxLength sh
+lengthSTK (STKProduct sy sz) = lengthSTK sy `max` lengthSTK sz
 
 widthSTK :: SingletonTK y -> Int
 widthSTK stk = case stk of

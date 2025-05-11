@@ -189,7 +189,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
   rlength t = case ftkAst t of
-    FTKR sh _ -> sNatValue $ shrRank sh
+    FTKR sh _ -> shrLength sh
   trsum v = withSNat (rwidth v) $ \snat -> astSum snat knownSTK v
   trreplicate k = withSNat k $ \snat -> astReplicate snat knownSTK
   trindex @m @n a ix = case ftkAst a of
@@ -364,7 +364,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sshape t = case ftkAst t of
     FTKS sh _ -> sh
   slength t = case ftkAst t of
-    FTKS sh _ -> sNatValue $ shsRank sh
+    FTKS sh _ -> shsLength sh
   tssum = astSum SNat knownSTK
   tsindex = astIndexS knownShS
   tsscatter @shm @shn @shp t f =
@@ -390,7 +390,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xshape t = case ftkAst t of
     FTKX sh _ -> sh
   xlength t = case ftkAst t of
-    FTKX sh _ -> sNatValue $ shxRank sh
+    FTKX sh _ -> shxLength sh
   txsum = astSum SNat knownSTK
   txreplicate snat sh = astReplicate snat (STKX sh knownSTK)
   txindex @sh1 @sh2 a ix = case ftkAst a of
@@ -677,7 +677,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   rshape t = case ftkAst $ unAstRaw t of
     FTKR sh _ -> sh
   rlength t = case ftkAst $ unAstRaw t of
-    FTKR sh _ -> sNatValue $ shrRank sh
+    FTKR sh _ -> shrLength sh
   trsum v = withSNat (rwidth v) $ \snat ->
              AstRaw . AstSum snat knownSTK . unAstRaw $ v
   trreplicate k = withSNat k $ \snat ->
@@ -861,7 +861,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sshape t = case ftkAst $ unAstRaw t of
     FTKS sh _ -> sh
   slength t = case ftkAst $ unAstRaw t of
-    FTKS sh _ -> sNatValue $ shsRank sh
+    FTKS sh _ -> shsLength sh
   tssum = AstRaw . AstSum SNat knownSTK . unAstRaw
   tsindex v ix = AstRaw $ AstIndexS knownShS (unAstRaw v) (unAstRaw <$> ix)
   tsscatter @shm @shn @shp t f =
@@ -892,7 +892,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   xshape t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sh
   xlength t = case ftkAst $ unAstRaw t of
-    FTKX sh _ -> sNatValue $ shxRank sh
+    FTKX sh _ -> shxLength sh
   txsum = AstRaw . AstSum SNat knownSTK . unAstRaw
   txreplicate snat sh = AstRaw . AstReplicate snat (STKX sh knownSTK) . unAstRaw
   txindex @sh1 @sh2 (AstRaw a) ix = case ftkAst a of

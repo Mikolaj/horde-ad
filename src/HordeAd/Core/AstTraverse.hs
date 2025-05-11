@@ -423,7 +423,7 @@ contractAst t0 = case t0 of
                        (astTransposeS perm10 t2)
       _ -> Nothing
   Ast.AstSum n@(SNat @n) (STKS @sh sh _) (AstTimesS t2 u) ->
-    let cpermR = backpermCycle $ 1 + sNatValue (shsRank sh)
+    let cpermR = backpermCycle $ 1 + shsLength sh
     in Permutation.permFromList cpermR $ \(cperm :: Permutation.Perm cperm) ->
          gcastWith (unsafeCoerceRefl :: Rank cperm :~: Rank (n : sh)) $
          gcastWith (unsafeCoerceRefl

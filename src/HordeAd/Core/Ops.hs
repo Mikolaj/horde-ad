@@ -554,7 +554,7 @@ class ( Num (IntOf target)
            -> target (TKS (sh ++ '[n]) r)
            -> target (TKS sh r)
   tsdot1In @sh (SNat @n) t u =
-    let cpermR = permCycle $ 1 + sNatValue (shsRank (knownShS @sh))
+    let cpermR = permCycle $ 1 + shsLength (knownShS @sh)
     in Permutation.permFromList cpermR $ \(cperm :: Permutation.Perm cperm) ->
          gcastWith (unsafeCoerceRefl :: Rank cperm :~: Rank (sh ++ '[n])) $
          gcastWith (unsafeCoerceRefl
