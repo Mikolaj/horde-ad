@@ -3422,7 +3422,7 @@ unRepl :: AstSpan s
 unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
 unRepl (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
 unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
-unRepl (AstConcreteS a) = AstConcreteS . Nested.sscalar <$> sunReplicate a
+unRepl (AstConcreteS a) = AstConcreteS . Nested.sscalar <$> sunReplicateScal a
 unRepl (Ast.AstCond b v1 v2) = do
   u1 <- unRepl v1
   u2 <- unRepl v2

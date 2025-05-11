@@ -35,7 +35,7 @@ module HordeAd.Core.Types
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
   , ixsToShS, {-ixxToSSX,-} listsToShS, listrToNonEmpty
   , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
-  , eqPerm, permUnShift1, sunReplicate, sunReplicate1, sunReplicateN
+  , eqPerm, permUnShift1, sunReplicateScal, sunReplicate1, sunReplicateN
     -- * Ops only needed as a workaround for other ops not provided.
   , ssxTakeIx
   ) where
@@ -860,14 +860,14 @@ permUnShift1 (Permutation.PCons _ permRest) =
   permUnMapSucc [] = []
   permUnMapSucc (i : ns) = i - 1 : permUnMapSucc ns
 
-sunReplicate :: Nested.Elt a
-             => Nested.Shaped sh a -> Maybe a
-sunReplicate (Nested.Shaped arr)
+sunReplicateScal :: Nested.Elt a
+                 => Nested.Shaped sh a -> Maybe a
+sunReplicateScal (Nested.Shaped arr)
   | all (all (== 0) . take (shxLength (Nested.mshape arr)))
         (Nested.Internal.marrayStrides arr)
   , shxSize (Nested.mshape arr) /= 0 =
     Just $ Nested.mindex arr $ ixxZero' $ Nested.mshape arr
-sunReplicate _ = Nothing
+sunReplicateScal _ = Nothing
 
 sunReplicate1 :: Nested.Elt a
               => Nested.Shaped (n ': sh) a -> Maybe (Nested.Shaped sh a)
