@@ -23,7 +23,6 @@ module HordeAd.Core.Types
   , toLinearIdxX, fromLinearIdxX
     -- * Feature requests for ox-arrays
   , Head, Take, Drop
-  , ixsRank, ssxRank, ixxRank
   , takeSized, dropSized, splitAt_Sized, takeIndex, dropIndex, splitAt_Index
   , takeShape, dropShape, splitAt_Shape
   , splitAt_SizedS, dropIxS, takeShS, dropShS
@@ -536,18 +535,6 @@ type family Take (n :: Nat) (xs :: [k]) :: [k] where
 type family Drop (n :: Nat) (xs :: [k]) :: [k] where
   Drop 0 xs = xs
   Drop n (x ': xs) = Drop (n - 1) xs
-
--- BTW, shall we keep *Rank and *Product for each of the 6 list types
--- and remove *Length and *Size? If not remove, define it for all shape types?
--- Related: I think rsize, ssize and msize can be safely removed.
-ixsRank :: IxS sh i -> SNat (Rank sh)
-ixsRank (IxS l) = listsRank l
-
-ssxRank :: StaticShX sh -> SNat (Rank sh)
-ssxRank (StaticShX l) = listxRank l
-
-ixxRank :: IxX sh f -> SNat (Rank sh)
-ixxRank (IxX list) = listxRank list
 
 takeSized :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Take len sh))
           => ListS sh (Const i) -> ListS (Take len sh) (Const i)
