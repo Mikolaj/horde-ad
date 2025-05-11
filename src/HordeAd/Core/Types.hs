@@ -788,10 +788,6 @@ listsToShS l | Dict <- slistKnown l = knownShS
 listrToNonEmpty :: ListR (n + 1) i -> NonEmpty i
 listrToNonEmpty l = listrHead l :| Foldable.toList (listrTail l)
 
-instance NFData i => NFData (ListR n i) where
-  rnf ZR = ()
-  rnf (x ::: l) = rnf x `seq` rnf l
-
 withKnownPerm :: forall perm r. Permutation.Perm perm -> (Permutation.KnownPerm perm => r) -> r
 withKnownPerm = withDict @(Permutation.KnownPerm perm)
 
