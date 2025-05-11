@@ -22,7 +22,7 @@ module HordeAd.Core.Types
   , toLinearIdx, fromLinearIdx, toLinearIdxS, fromLinearIdxS
   , toLinearIdxX, fromLinearIdxX
     -- * Feature requests for ox-arrays
-  , Head, Take, Drop
+  , Take, Drop
   , takeSized, dropSized, splitAt_Sized, takeIndex, dropIndex, splitAt_Index
   , takeShape, dropShape, splitAt_Shape
   , splitAt_SizedS, dropIxS, takeShS, dropShS
@@ -30,7 +30,7 @@ module HordeAd.Core.Types
   , listsTakeLen, listsDropLen, shsDropLen
   , zipSized, zipWith_Sized, zipIndex, zipWith_Index
   , zipSizedS, zipWith_SizedS, zipIndexS, zipWith_IndexS
-  , permRInverse, ixxHead, ssxPermutePrefix, shxPermutePrefix
+  , permRInverse, ssxPermutePrefix, shxPermutePrefix
   , withCastRS, withCastXS, shCastSR, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
   , ixsToShS, {-ixxToSSX,-} listsToShS, listrToNonEmpty
@@ -524,10 +524,6 @@ zeroOfX fromInt ((:$%) _ sh) = fromInt 0 :.% zeroOfX fromInt sh
 
 -- - The Proxies in listsIndex are unused.
 
-type Head :: [k] -> k
-type family Head l where
-  Head (x : _) = x
-
 type family Take (n :: Nat) (xs :: [k]) :: [k] where
   Take 0 xs = '[]
   Take n (x ': xs) = x ': Take (n - 1) xs
@@ -698,20 +694,6 @@ zipWith_IndexS f (IxS l1) (IxS l2) = IxS $ zipWith_SizedS f l1 l2
 permRInverse :: PermR -> PermR
 permRInverse perm = map snd $ sort $ zip perm [0 .. length perm - 1]
 
-listxHead :: ListX (mn ': sh) f -> f mn
-listxHead (i ::% _) = i
-
-ixxHead :: IxX (n : sh) i -> i
-ixxHead (IxX list) = getConst (listxHead list)
-
-ssxPermutePrefix :: Permutation.Perm is -> StaticShX sh
-                 -> StaticShX (Permutation.PermutePrefix is sh)
-ssxPermutePrefix = undefined
-
-shxPermutePrefix :: Permutation.Perm is -> ShX sh i
-                 -> ShX (Permutation.PermutePrefix is sh) i
-shxPermutePrefix = undefined
-
 withCastRS :: forall n r.
               IShR n
            -> (forall sh. n ~ Rank sh => ShS sh -> r)
@@ -791,23 +773,13 @@ listrToNonEmpty l = listrHead l :| Foldable.toList (listrTail l)
 withKnownPerm :: forall perm r. Permutation.Perm perm -> (Permutation.KnownPerm perm => r) -> r
 withKnownPerm = withDict @(Permutation.KnownPerm perm)
 
--- TODO:
-_withPermShift1 :: forall is r. -- Permutation.IsPermutation is
-                  Permutation.Perm is
-               -> (Permutation.IsPermutation (0 : Permutation.MapSucc is) =>
-                   Permutation.Perm (0 : Permutation.MapSucc is) -> r)
-               -> r
-_withPermShift1 _perm _f = undefined  -- f (Permutation.permShift1 perm)
+ssxPermutePrefix :: Permutation.Perm is -> StaticShX sh
+                 -> StaticShX (Permutation.PermutePrefix is sh)
+ssxPermutePrefix = undefined
 
-
--- This is only needed as a workaround for other ops not provided.
-
-listxTake :: forall f g sh sh'. ListX (sh ++ sh') f -> ListX sh g -> ListX sh f
-listxTake _ ZX = ZX
-listxTake (i ::% long') ((::%) @_ @_ @sh2 _ short) = i ::% listxTake @f @g @sh2 @sh' long' short
-
-ssxTakeIx :: forall sh sh' i. StaticShX (sh ++ sh') -> IxX sh i -> StaticShX sh
-ssxTakeIx = coerce (listxTake @(Nested.SMayNat () SNat) @(Const i) @_ @sh')
+shxPermutePrefix :: Permutation.Perm is -> ShX sh i
+                 -> ShX (Permutation.PermutePrefix is sh) i
+shxPermutePrefix = undefined
 
 
 -- * Permutation-related operations
@@ -856,6 +828,17 @@ permUnShift1 (Permutation.PCons _ permRest) =
   permUnMapSucc [] = []
   permUnMapSucc (i : ns) = i - 1 : permUnMapSucc ns
 
+-- TODO:
+_withPermShift1 :: forall is r. -- Permutation.IsPermutation is
+                  Permutation.Perm is
+               -> (Permutation.IsPermutation (0 : Permutation.MapSucc is) =>
+                   Permutation.Perm (0 : Permutation.MapSucc is) -> r)
+               -> r
+_withPermShift1 _perm _f = undefined  -- f (Permutation.permShift1 perm)
+
+
+-- * Misc
+
 sunReplicateScal :: Nested.Elt a
                  => Nested.Shaped sh a -> Maybe a
 sunReplicateScal (Nested.Shaped arr)
@@ -878,3 +861,13 @@ sunReplicateN shm a@(Nested.Shaped arr)
   , shsSize shm /= 0 =
     Just $ Nested.sindexPartial a $ ixsZero shm
 sunReplicateN _ _ = Nothing
+
+
+-- This is only needed as a workaround for other ops not provided.
+
+listxTake :: forall f g sh sh'. ListX (sh ++ sh') f -> ListX sh g -> ListX sh f
+listxTake _ ZX = ZX
+listxTake (i ::% long') ((::%) @_ @_ @sh2 _ short) = i ::% listxTake @f @g @sh2 @sh' long' short
+
+ssxTakeIx :: forall sh sh' i. StaticShX (sh ++ sh') -> IxX sh i -> StaticShX sh
+ssxTakeIx = coerce (listxTake @(Nested.SMayNat () SNat) @(Const i) @_ @sh')

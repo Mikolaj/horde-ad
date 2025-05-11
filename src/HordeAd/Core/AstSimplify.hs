@@ -78,7 +78,7 @@ import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation (DropLen, Perm (..), TakeLen, permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
-import Data.Array.Mixed.Types (Init, Last, Tail, snatPlus, unsafeCoerceRefl)
+import Data.Array.Mixed.Types (Head, Init, Last, Tail, snatPlus, unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Lemmas
