@@ -2396,7 +2396,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
                 -> AstInt AstMethodLet
           subst (IxS ix) vars t0 =
             foldr (\ (v, i) -> substituteAst i v)
-                  t0 (listsToList $ zipSizedS vars ix)
+                  t0 (listsToList $ listsZip vars ix)
           inBounds :: AstIxS AstMethodLet shm7 -> AstVarListS shm7 -> Bool
           inBounds (IxS ix) vars =
             let inb (v, i) =
@@ -2404,7 +2404,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
                   in case varNameToBounds v of
                     Nothing -> True
                     Just (lbv, ubv) -> lbv <= lbi && ubi <= ubv
-            in all inb (listsToList $ zipSizedS vars ix)
+            in all inb (listsToList $ listsZip vars ix)
           IxS list4 = ix4
           composedGather ::  -- rank4 <= rank2
             Maybe (AstTensor AstMethodLet s (TKS2 (shm ++ shn) r))
@@ -3739,7 +3739,7 @@ substitute1AstIxS
 substitute1AstIxS i var ix =
   let mix = fmap (substitute1Ast i var) ix
   in if any isJust mix
-     then Just $ zipWith_IndexS fromMaybe ix mix
+     then Just $ ixsZipWith fromMaybe ix mix
      else Nothing
 
 substitute1AstHFun

@@ -28,8 +28,6 @@ module HordeAd.Core.Types
   , splitAt_SizedS, dropIxS, takeShS, dropShS
   , takeShX, dropShX, takeIxX, dropIxX
   , listsTakeLen, listsDropLen, shsDropLen
-  , zipSized, zipWith_Sized, zipIndex, zipWith_Index
-  , zipSizedS, zipWith_SizedS, zipIndexS, zipWith_IndexS
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
   , withCastRS, withCastXS, shCastSR, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
@@ -516,45 +514,6 @@ zeroOfX fromInt ((:$%) _ sh) = fromInt 0 :.% zeroOfX fromInt sh
 -- I could switch to ixxFromLinear and ixxToLinear if they also had shaped
 -- and ranked versions and if they worked for any @IxS sh j@,
 -- not only for @IxS sh Int@.
-
--- * Zips
-
-zipSized :: ListR n i -> ListR n j -> ListR n (i, j)
-zipSized ZR ZR = ZR
-zipSized (i ::: irest) (j ::: jrest) = (i, j) ::: zipSized irest jrest
-zipSized _ _ = error "zipSized: impossible pattern needlessly required"
-
-zipWith_Sized :: (i -> j -> k) -> ListR n i -> ListR n j
-              -> ListR n k
-zipWith_Sized _ ZR ZR = ZR
-zipWith_Sized f (i ::: irest) (j ::: jrest) =
-  f i j ::: zipWith_Sized f irest jrest
-zipWith_Sized _ _ _ =
-  error "zipWith_Sized: impossible pattern needlessly required"
-
-zipIndex :: IxR n i -> IxR n j -> IxR n (i, j)
-zipIndex (IxR l1) (IxR l2) = IxR $ zipSized l1 l2
-
-zipWith_Index :: (i -> j -> k) -> IxR n i -> IxR n j -> IxR n k
-zipWith_Index f (IxR l1) (IxR l2) = IxR $ zipWith_Sized f l1 l2
-
-zipSizedS :: ListS sh (Const i) -> ListS sh (Const j) -> ListS sh (Const (i, j))
-zipSizedS ZS ZS = ZS
-zipSizedS (Const i ::$ irest) (Const j ::$ jrest) =
-  Const (i, j) ::$ zipSizedS irest jrest
-
-zipWith_SizedS :: (i -> j -> k)
-              -> ListS sh (Const i) -> ListS sh (Const j)
-              -> ListS sh (Const k)
-zipWith_SizedS _ ZS ZS = ZS
-zipWith_SizedS f (Const i ::$ irest) (Const j ::$ jrest) =
-  Const (f i j) ::$ zipWith_SizedS f irest jrest
-
-zipIndexS :: IxS sh i -> IxS sh j -> IxS sh (i, j)
-zipIndexS (IxS l1) (IxS l2) = IxS $ zipSizedS l1 l2
-
-zipWith_IndexS :: (i -> j -> k) -> IxS sh i -> IxS sh j -> IxS sh k
-zipWith_IndexS f (IxS l1) (IxS l2) = IxS $ zipWith_SizedS f l1 l2
 
 -- ** Casts
 

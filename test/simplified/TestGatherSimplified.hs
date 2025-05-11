@@ -1284,7 +1284,7 @@ slicez2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
   => target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez2 d ixBase =
-  rbuild [1, 1, 2, 2] $ \ixResult -> indexz02 d (zipWith_Index (+) ixBase ixResult)
+  rbuild [1, 1, 2, 2] $ \ixResult -> indexz02 d (ixrZipWith (+) ixBase ixResult)
 
 indexz02
   :: forall target r n.
@@ -1353,7 +1353,7 @@ slicez3
   :: (ADReady target, GoodScalar r, KnownNat n)
   => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez3 shOut d ixBase =
-  rbuild shOut $ \_ -> indexz03 d (zipWith_Index (+) ixBase ixBase)
+  rbuild shOut $ \_ -> indexz03 d (ixrZipWith (+) ixBase ixBase)
 
 indexz03
   :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
@@ -1462,7 +1462,7 @@ slicez4
   :: (ADReady target, GoodScalar r, KnownNat n)
   => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez4 shOut d ixBase =
-  rbuild shOut $ \ixResult -> indexz03 d (zipWith_Index (+) ixBase ixResult)
+  rbuild shOut $ \ixResult -> indexz03 d (ixrZipWith (+) ixBase ixResult)
 
 testCNNOPP6 :: Assertion
 testCNNOPP6 = do

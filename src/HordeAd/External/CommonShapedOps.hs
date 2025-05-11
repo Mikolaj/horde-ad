@@ -202,8 +202,8 @@ slicezS d ixBase =
   gcastWith (unsafeCoerceRefl :: Drop (Rank sh) shOut :~: '[]) $
   sbuild @(Rank shOut)
   $ \ixResult ->
-      sindex0 d (ixrToIxs $ zipWith_Index (+) (ixsToIxr ixBase) (ixsToIxr ixResult))
-      -- TODO: use zipWith_IndexS once defined
+      sindex0 d (ixrToIxs $ ixrZipWith (+) (ixsToIxr ixBase) (ixsToIxr ixResult))
+      -- TODO: use ixrZipWithS once defined
 
 maxPool2dUnpaddedS
   :: forall ksize stride batch_size channels h w target r shOut shK1.

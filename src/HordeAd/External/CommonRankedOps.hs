@@ -245,7 +245,7 @@ slicez
   :: (ADReady target, GoodScalar r, KnownNat n)
   => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez shOut d ixBase =
-  rbuild shOut $ \ixResult -> rindex0 d (zipWith_Index (+) ixBase ixResult)
+  rbuild shOut $ \ixResult -> rindex0 d (ixrZipWith (+) ixBase ixResult)
 
 maxPool2dUnpadded
   :: (ADReady target, GoodScalar r)
