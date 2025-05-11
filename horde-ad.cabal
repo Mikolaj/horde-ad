@@ -70,8 +70,8 @@ flag release
   manual:             True
 
 flag test_seq
-  description:        run the test suite in sequential mode
-  default:            True
+  description:        run all of the test suite in sequential mode
+  default:            False
   manual:             True
 
 common options
@@ -115,6 +115,11 @@ common exe-options
   ghc-options:        -rtsopts
   -- Make GC more predictable in benchmarks.
   ghc-options:        "-with-rtsopts=-H1.5g -A0.75g -I0"
+
+common exe-options-for-tests-that-reset-counters
+  ghc-options:        -rtsopts -threaded
+  ghc-options:        "-with-rtsopts=-H1.5g -A0.75g -I0"
+    -- unconditionally seqential, because counter reset is not thread-safe
 
 common exe-options-test
   ghc-options:        -rtsopts -threaded
@@ -407,7 +412,7 @@ library testCommonLibrary
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
 test-suite fullTest
-    import:           options, exe-options-test
+    import:           options, exe-options-for-tests-that-reset-counters
 
     if flag(release)
       buildable: False
@@ -428,7 +433,7 @@ test-suite fullTest
       , tasty >= 1.0
 
 test-suite CAFlessTest
-    import:           options, exe-options-test
+    import:           options, exe-options-for-tests-that-reset-counters
 
     if flag(release)
       buildable: False
@@ -449,9 +454,7 @@ test-suite CAFlessTest
       , tasty >= 1.0
 
 test-suite parallelTest
-    import:           options
-    ghc-options:      -rtsopts -threaded
-    ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0 -N"
+    import:           options, exe-options-test
 
     if flag(release)
       buildable: False
@@ -474,7 +477,7 @@ test-suite parallelTest
 -- These tests don't require any dataset and are short, so can be enabled
 -- in the Hackage package.
 test-suite minimalTest
-    import:           options, exe-options-test
+    import:           options, exe-options-for-tests-that-reset-counters
 
     type:             exitcode-stdio-1.0
 
