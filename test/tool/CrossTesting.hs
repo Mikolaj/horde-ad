@@ -43,16 +43,16 @@ import HordeAd.OpsTensor
 import EqEpsilon
 
 crevMaybeBoth
-  :: forall r y f advals.
+  :: forall r m f advals.
      ( f ~ Concrete, X advals ~ X (DValue advals), KnownSTK (X advals)
      , AdaptableTarget (ADVal Concrete) advals
-     , AdaptableTarget (ADVal Concrete) (ADVal f (TKR y r))
+     , AdaptableTarget (ADVal Concrete) (ADVal f (TKR m r))
      , AdaptableTarget Concrete (DValue advals) )
-  => (advals -> ADVal f (TKR y r)) -> DValue advals
-  -> (f (ADTensorKind (X advals)), f (TKR y r))
+  => (advals -> ADVal f (TKR m r)) -> DValue advals
+  -> (f (ADTensorKind (X advals)), f (TKR m r))
 {-# INLINE crevMaybeBoth #-}
 crevMaybeBoth f vals =
-  let g :: ADVal Concrete (X advals) -> ADVal Concrete (TKR y r)
+  let g :: ADVal Concrete (X advals) -> ADVal Concrete (TKR m r)
       g = toTarget . f . fromTarget
       valsH = toTarget vals
   in crevOnParams Nothing g (tftk knownSTK valsH) valsH
@@ -68,12 +68,15 @@ rev' :: forall r m n v a w.
           , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
           , v, v, v, v, v, v, v, v, v, v, v, v, v, v
           , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-          , Concrete (TKR n r), w, w, w )
+          , Concrete (TKR n r), w, w, w
+          , a, a, a, a, a )
         , ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
           , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
           , v, v, v, v, v, v, v, v, v, v, v, v, v, v
           , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-          , Concrete (TKR n r), w, w, w ) )
+          , Concrete (TKR n r), w, w, w
+          , a, a, a, a, a )
+          )
 {-# NOINLINE rev' #-}
 rev' f vals = unsafePerformIO $ do
   setTotalSharing False
@@ -94,16 +97,20 @@ rev1 :: forall r m n v a w.
            , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
            , v, v, v, v, v, v, v, v, v, v, v, v, v, v
            , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-           , Concrete (TKR n r), w, w, w )
+           , Concrete (TKR n r), w, w, w
+           , a, a, a, a, a )
 {-# NOINLINE rev1 #-}
 rev1 f !vals = do
   let !value0 = f vals
       ftk = tftk knownSTK vals
+      ftkz = adFTK ftk
       g :: ADVal Concrete (TKR n r)
         -> ADVal Concrete (TKR m r)
       g inputs = f $ fromTarget inputs
       !(!gradient1, !value1) = crevMaybeBoth g vals
       gradientRrev1 = rrev1 @Concrete @r @n @m f vals
+      secondRrev1 = rrevFTK @Concrete @(TKR n r) @(ADTensorKind (TKR n r))
+                            ftkz (rrev1 @_ @r @n @m f) vals
       g9 :: ADVal (AstRaw PrimalSpan) (TKR n r)
          -> ADVal (AstRaw PrimalSpan) (TKR m r)
       g9 inputs = f @(ADVal (AstRaw PrimalSpan))
@@ -148,12 +155,20 @@ rev1 f !vals = do
       gradientRrev2UnSimp =
         rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify id) vals
+      secondRrev2UnSimp =
+        rrevFTK @Concrete @(TKR n r) @(ADTensorKind (TKR n r))
+                ftkz (rrev1 @_ @r @n @m @r
+                            (hGeneral unAstNoSimplify AstNoSimplify id)) vals
       !(!gradient3UnSimp, !value3UnSimp) =
         crevMaybeBoth (h (simplifyInline . unAstNoSimplify) AstNoSimplify simplifyInlineContract)
                       vals
       gradientRrev3UnSimp =
         rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoSimplify AstNoSimplify simplifyInlineContract) vals
+      secondRrev3UnSimp =
+        rrevFTK @Concrete @(TKR n r) @(ADTensorKind (TKR n r))
+                ftkz (rrev1 @_ @r @n @m @r
+                            (hGeneral unAstNoSimplify AstNoSimplify simplifyInlineContract)) vals
       !(!gradient4, !value4) =
         crevMaybeBoth (h unAstNoVectorize AstNoVectorize id)
                       vals
@@ -162,12 +177,20 @@ rev1 f !vals = do
       gradientRrev4 =
         rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoVectorize AstNoVectorize id) vals
+      secondRrev4 =
+        rrevFTK @Concrete @(TKR n r) @(ADTensorKind (TKR n r))
+                ftkz (rrev1 @_ @r @n @m @r
+                            (hGeneral unAstNoVectorize AstNoVectorize id)) vals
       !(!gradient5, !value5) =
         crevMaybeBoth (h unAstNoVectorize AstNoVectorize simplifyInlineContract)
                       vals
       gradientRrev5 =
         rrev1 @Concrete @r @n @m @r
               (hGeneral unAstNoVectorize AstNoVectorize simplifyInlineContract) vals
+      secondRrev5 =
+        rrevFTK @Concrete @(TKR n r) @(ADTensorKind (TKR n r))
+                ftkz (rrev1 @_ @r @n @m @r
+                            (hGeneral unAstNoVectorize AstNoVectorize simplifyInlineContract)) vals
       astVectSimp = simplifyInlineContract $ snd $ funToAst (FTKR (rshape vals) FTKScalar) Nothing f
       astSimp =
         simplifyInlineContract $ simplifyInlineContract $ snd  -- builds simplify with difficulty
@@ -256,7 +279,10 @@ rev1 f !vals = do
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , gradient4Ast, gradient4AstS, gradient5Ast, gradient5AstS
-    , vals, cderivative, derivative, derivativeRfwd1 )
+    , vals, cderivative, derivative, derivativeRfwd1
+    , secondRrev1, secondRrev2UnSimp, secondRrev3UnSimp
+    , secondRrev4, secondRrev5
+    )
 
 assertEqualUpToEpsilon'
     :: ( KnownNat n, KnownNat m
@@ -272,12 +298,14 @@ assertEqualUpToEpsilon'
          , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
          , v, v, v, v, v, v, v, v, v, v, v, v, v, v
          , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-         , Concrete (TKR n r), w, w, w )
-       ,  ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
+         , Concrete (TKR n r), w, w, w
+         , a, a, a, a, a )
+       , ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
          , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
          , v, v, v, v, v, v, v, v, v, v, v, v, v, v
          , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-         , Concrete (TKR n r), w, w, w ) )
+         , Concrete (TKR n r), w, w, w
+         , a, a, a, a, a ) )
     -> Assertion
 assertEqualUpToEpsilon' errMargin expected' (tup1, tup2) = do
   assertEqualUpToEpsilon1 errMargin expected' tup1
@@ -297,7 +325,8 @@ assertEqualUpToEpsilon1
        , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
-       , Concrete (TKR n r), w, w, w )
+       , Concrete (TKR n r), w, w, w
+       , a, a, a, a, a )
          -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon1
@@ -317,7 +346,9 @@ assertEqualUpToEpsilon1
     , gradient2AstUnSimp, gradient2AstSUnSimp
     , gradient3AstUnSimp, gradient3AstSUnSimp
     , gradient4Ast, gradient4AstS, gradient5Ast, _gradient5AstS
-    , vals, cderivative, derivative, derivativeRfwd1 ) = do
+    , vals, cderivative, derivative, derivativeRfwd1
+    , secondRrev1, secondRrev2UnSimp, secondRrev3UnSimp
+    , secondRrev4, secondRrev5 ) = do
   let ftk = tftk knownSTK vals
       expected = toADTensorKindShared ftk expected'
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
@@ -335,16 +366,24 @@ assertEqualUpToEpsilon1
   assertEqualUpToEpsilonWithMark "Grad V UnS" errMargin expected gradient2UnSimp
   assertEqualUpToEpsilonWithMark "Grad V UnS rrev2"
                                  errMargin expected gradientRrev2UnSimp
+  assertEqualUpToEpsilonWithMark "Second V UnS rrev2"
+                                 (max 1e-5 errMargin) secondRrev1 secondRrev2UnSimp
   assertEqualUpToEpsilonWithMark "Grad V+S UnS"
                                  errMargin expected gradient3UnSimp
   assertEqualUpToEpsilonWithMark "Grad V+S UnS rrev"
                                  errMargin expected gradientRrev3UnSimp
+  assertEqualUpToEpsilonWithMark "Second V+S UnS rrev"
+                                 (max 1e-5 errMargin) secondRrev1 secondRrev3UnSimp
   assertEqualUpToEpsilonWithMark "Grad NotVect" errMargin expected gradient4
   assertEqualUpToEpsilonWithMark "Grad NotVect rrev"
                                  errMargin expected gradientRrev4
+  assertEqualUpToEpsilonWithMark "Second NotVect rrev"
+                                 (max 1e-5 errMargin) secondRrev1 secondRrev4
   assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
   assertEqualUpToEpsilonWithMark "Grad Simplified rrev2"
                                  errMargin expected gradientRrev5
+  assertEqualUpToEpsilonWithMark "Second Simplified rrev2"
+                                 (max 1e-5 errMargin) secondRrev1 secondRrev5
   assertEqualUpToEpsilonWithMark "Val Ast Vectorized" errMargin value0 value2Ast
   assertEqualUpToEpsilonWithMark "Val Ast V S" errMargin value0 value2AstS
   assertEqualUpToEpsilonWithMark "Val Ast V ST" errMargin value0 value2AstST
@@ -435,6 +474,11 @@ rrev1 :: forall g r n m r3.
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR n r))
 rrev1 f u = kgrad (kfromR . rsum0 . f) (tftk knownSTK u) u
+
+rrevFTK :: forall g x z. (ADReady g, KnownSTK x)
+        => FullShapeTK z -> (forall f. ADReady f => f x -> f z) -> g x
+        -> g (ADTensorKind x)
+rrevFTK ftk f u = kgrad (tsum0Target ftk . f) (tftk knownSTK u) u
 
 rfwd1ds :: forall g r n m r3.
            (ADReady g, GoodScalar r, KnownNat n)
