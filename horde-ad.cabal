@@ -192,11 +192,6 @@ library horde-ad-simplified
       , unboxed-ref < 0.5
       , vector >= 0.13.2.0 && < 0.14
 
-    if os(linux)
-        -- cargo-culting this one:
-        if arch(x86_64)
-            cc-options: -fPIC
-
 library exampleLibrary
     import:           options
 
