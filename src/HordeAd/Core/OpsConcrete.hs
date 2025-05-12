@@ -508,7 +508,7 @@ instance BaseTensor Concrete where
   tdefTarget = defTarget
   taddTarget = addTarget
   tmultTarget = multTarget
-  tdotTarget = dotTarget
+  tdot0Target = dot0Target
 
 instance ConvertTensor Concrete where
   rzip (Concrete (a, b)) = Concrete $ Nested.rzip a b

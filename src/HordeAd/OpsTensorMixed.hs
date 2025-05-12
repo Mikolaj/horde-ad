@@ -33,7 +33,7 @@ module HordeAd.OpsTensorMixed
   , xprimalPart, xdualPart, xfromPrimal, xfromDual, xScale
   , kprimalPart, kdualPart, kfromPrimal, kfromDual, kScale
     -- * Array operations that utilize unwinding of nested arrays
-  , treplTarget, tdefTarget, taddTarget, tmultTarget, tdotTarget
+  , treplTarget, tdefTarget, taddTarget, tmultTarget, tdot0Target
     -- * Minimal re-exports to make this module a higher level replacement for the mixed part of "HordeAd.Core.Ops"
   , ADReady
   , LetTensor, BaseTensor

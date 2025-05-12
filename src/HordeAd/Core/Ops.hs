@@ -1103,8 +1103,8 @@ class ( Num (IntOf target)
   -- tensors with non-differentiable elements.
   --
   -- Requires duplicable arguments or a ShareTensor instance.
-  tdotTarget :: FullShapeTK y -> target y -> target y
-             -> target (TKScalar Double)
+  tdot0Target :: FullShapeTK y -> target y -> target y
+              -> target (TKScalar Double)
 
   -- TODO: express without ConvertTensor or move there
   xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)

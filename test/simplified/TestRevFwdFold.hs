@@ -2018,7 +2018,7 @@ testSin0rmapAccumRD01SN7 = do
                                     (sreplicate0N $ sscalar 0))
                              (tpair (sreplicate0N $ sscalar 0)
                                     (sreplicate0N $ sscalar 0)))
-            in tdotTarget (FTKProduct (FTKS ZSS FTKScalar)
+            in tdot0Target (FTKProduct (FTKS ZSS FTKScalar)
                              (FTKProduct (FTKS (SNat @1 :$$ SNat @3 :$$ ZSS) FTKScalar)
                                          (FTKS (SNat @1 :$$ SNat @3 :$$ ZSS) FTKScalar))) (treplTarget 1 (FTKProduct (FTKS ZSS FTKScalar)
                              (FTKProduct (FTKS (SNat @1 :$$ SNat @3 :$$ ZSS) FTKScalar)

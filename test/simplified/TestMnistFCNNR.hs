@@ -760,11 +760,11 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
             (abs (value1 - value2) < 1e-10)
         , counterexample
             ("Gradient and derivative agrees: "
-             ++ show ( dt, derivative2, tdotTarget ftk gradient1 ds
-                     , tdotTarget FTKScalar (kconcrete dt) derivative2
-                       - tdotTarget ftk gradient1 ds ))
-            (abs (tdotTarget FTKScalar (kconcrete dt) derivative2
-                  - tdotTarget ftk gradient1 ds) < 1e-10)
+             ++ show ( dt, derivative2, tdot0Target ftk gradient1 ds
+                     , tdot0Target FTKScalar (kconcrete dt) derivative2
+                       - tdot0Target ftk gradient1 ds ))
+            (abs (tdot0Target FTKScalar (kconcrete dt) derivative2
+                  - tdot0Target ftk gradient1 ds) < 1e-10)
 --        , counterexample  -- this is implied by the other clauses
 --            "Gradient is a linear function"
 --            (gradient1 === tmultTarget stk targetDt gradient0)

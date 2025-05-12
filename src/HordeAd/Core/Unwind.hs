@@ -4,7 +4,7 @@
 -- that work for any tensor kind, including nested (product) arrays
 -- and an assortment of such operations.
 module HordeAd.Core.Unwind
-  ( addTarget, multTarget, dotTarget, replTarget, defTarget, concreteTarget
+  ( addTarget, multTarget, dot0Target, replTarget, defTarget, concreteTarget
   , toADTensorKindShared, fromADTensorKindShared
   ) where
 
@@ -84,10 +84,10 @@ multRepW a b = case (a, b) of
   (WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
     WTKProduct (multRepW ta1 tb1) (multRepW ta2 tb2)
 
-dotRepW :: forall y target. (BaseTensor target, ConvertTensor target)
-        => FullShapeTKW y -> RepW target y -> RepW target y
-        -> target (TKScalar Double)
-dotRepW ftk a b = case (ftk, a, b) of
+dot0RepW :: forall y target. (BaseTensor target, ConvertTensor target)
+         => FullShapeTKW y -> RepW target y -> RepW target y
+         -> target (TKScalar Double)
+dot0RepW ftk a b = case (ftk, a, b) of
   (_, WTKScalar @r ta, WTKScalar tb) ->
     ifDifferentiable @r (kcast $ ta * tb) 0
   (WFTKR sh, WTKR @r ta, WTKR tb) | SNat <- shrRank sh ->
@@ -99,7 +99,7 @@ dotRepW ftk a b = case (ftk, a, b) of
     withKnownShX (ssxFromShape sh) $
     ifDifferentiable @r (kcast $ kfromX $ xdot0 ta tb) 0
   (WFTKProduct ftk1 ftk2, WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
-    dotRepW ftk1 ta1 tb1 + dotRepW ftk2 ta2 tb2
+    dot0RepW ftk1 ta1 tb1 + dot0RepW ftk2 ta2 tb2
 
 replRepW :: forall y target. BaseTensor target
          => (forall r. GoodScalar r => r)
@@ -437,13 +437,13 @@ multTarget stk a b =
 
 -- | Dot product each component and then sum it all.
 -- Requires duplicable arguments or a `ShareTensor` instance.
-dotTarget :: (BaseTensor target, ConvertTensor target)
-          => FullShapeTK y -> target y -> target y
-          -> target (TKScalar Double)
-dotTarget ftk a b =
+dot0Target :: (BaseTensor target, ConvertTensor target)
+           => FullShapeTK y -> target y -> target y
+           -> target (TKScalar Double)
+dot0Target ftk a b =
   let a2 = unWindTarget (ftkToSTK ftk) a
       b2 = unWindTarget (ftkToSTK ftk) b
-  in dotRepW (unWindFTK ftk) a2 b2
+  in dot0RepW (unWindFTK ftk) a2 b2
 
 -- | Replicate a scalar along the given full shape singleton.
 replTarget :: forall y target. (BaseTensor target, ConvertTensor target)
