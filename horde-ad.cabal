@@ -173,7 +173,8 @@ library horde-ad-simplified
 
     build-depends:
         assert-failure
-      , base >= 4.20 && < 99
+      , base >= 4.20.1 && < 4.21
+          -- GHC 9.10.2 only; GHC 9.12 fails currently: https://gitlab.haskell.org/ghc/ghc/-/issues/25964
       , Boolean
       , containers
       , deepseq
