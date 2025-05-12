@@ -80,7 +80,7 @@ build1Vectorize snat@SNat stk (!var, !v0) = unsafePerformIO $ do
 -- * Vectorization
 
 -- | The application @build1VOccurrenceUnknown k (var, v)@ vectorizes
--- the term @AstBuild1 k (var, v)@, where it's unknown whether
+-- term @AstBuild1 k (var, v)@, where it's unknown whether
 -- @var@ occurs in @v@.
 build1VOccurrenceUnknown
   :: forall y k s. AstSpan s
@@ -112,12 +112,9 @@ build1VOccurrenceUnknownRefresh snat@SNat (!var, !v0) =
                 -- cheap subst, because only a renaming
     in build1VOccurrenceUnknown snat (varFresh, v2)
 
--- | The application @build1V k (var, v)@ vectorizes
--- the term @AstBuild1 k (var, v)@, where it's known that
--- @var@ occurs in @v@.
---
--- We can't simplify the argument term here, because it may eliminate
--- the index variable. We simplify only in 'build1VOccurrenceUnknown'.
+-- | The application @build1V k (var, v)@ vectorizes term
+-- @AstBuild1 k (var, v)@, where it's known that- @var@ occurs in @v@,
+-- see above for what it means precisely.
 build1V
   :: forall y k s. AstSpan s
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
@@ -407,7 +404,8 @@ build1VIndexS k@SNat shn (var, v0, ix) | STKS _ x <- ftkToSTK (ftkAst v0) =
               _ -> build1VOccurrenceUnknown k (var, v)  -- not a normal form
             else build1VOccurrenceUnknown k (var, v)  -- shortcut
        v -> traceRule $
-         build1VOccurrenceUnknown k (var, v)  -- peel off yet another constructor
+         build1VOccurrenceUnknown k (var, v)
+           -- peel off yet another constructor
      else traceRule $
             astGatherS shn v0 (Const var ::$ ZS, ix)
 
