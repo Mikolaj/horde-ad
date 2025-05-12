@@ -50,6 +50,7 @@ import Control.Exception.Assert.Sugar
 import Control.Monad (mapAndUnzipM, mplus)
 import Data.Foldable qualified as Foldable
 import Data.Functor.Const
+import Data.Functor.Product qualified as Fun
 import Data.GADT.Compare
 import Data.Int (Int64)
 import Data.List (findIndex)
@@ -78,7 +79,8 @@ import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation (DropLen, Perm (..), TakeLen, permInverse)
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Shape
-import Data.Array.Mixed.Types (Head, Init, Last, Tail, snatPlus, unsafeCoerceRefl)
+import Data.Array.Mixed.Types
+  (Head, Init, Last, Tail, snatPlus, unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Internal.Lemmas
@@ -2396,7 +2398,8 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
                 -> AstInt AstMethodLet
           subst (IxS ix) vars t0 =
             foldr (\ (v, i) -> substituteAst i v)
-                  t0 (listsToList $ listsZip vars ix)
+                  t0 (listsFold (\(Fun.Pair (Const v) (Const i)) -> [(v, i)])
+                      $ listsZip vars ix)
           inBounds :: AstIxS AstMethodLet shm7 -> AstVarListS shm7 -> Bool
           inBounds (IxS ix) vars =
             let inb (v, i) =
@@ -2404,7 +2407,8 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
                   in case varNameToBounds v of
                     Nothing -> True
                     Just (lbv, ubv) -> lbv <= lbi && ubi <= ubv
-            in all inb (listsToList $ listsZip vars ix)
+            in all inb (listsFold (\(Fun.Pair (Const v) (Const i)) -> [(v, i)])
+                        $ listsZip vars ix)
           IxS list4 = ix4
           composedGather ::  -- rank4 <= rank2
             Maybe (AstTensor AstMethodLet s (TKS2 (shm ++ shn) r))
