@@ -63,7 +63,8 @@ buildKernel futsource csource funname = do
     run "futhark" ["c", "--library", "prog.fut"]
 
     Lazy.writeFile (path ++ "/wrapper.c") csource
-    run "cc" ["-O3", "-march=native", "-std=c99", "-shared", "-fPIC", "prog.c", "wrapper.c", "-o", "out.so"]
+    run "cc" ["-Wall", "-Wextra", "-Wno-unused-parameter"
+             ,"-O3", "-march=native", "-std=c99", "-shared", "-fPIC", "prog.c", "wrapper.c", "-o", "out.so"]
 
     dl <- dlopen (path ++ "/out.so") [RTLD_LAZY, RTLD_LOCAL]
     when debugLibLoad $ do

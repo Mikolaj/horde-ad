@@ -18,7 +18,7 @@ import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.Sum
 import Data.Foldable (toList)
 import Data.Kind (Type)
-import Data.List (intersperse, scanl')
+import Data.List (intersperse)
 import Data.Int
 import Data.Some
 import Data.Type.Equality
@@ -232,7 +232,7 @@ generateCWrapper arguments outputs =
   -- copy input arrays
   <> mconcat ["  struct futhark_" <> futArrName ty <> " *inarr" <> bsb8 (show i) <>
                 " = futhark_new_" <> futArrName ty <>
-                "(ctx, (" <> cTypeName t <> "*)(data + " <> bsb8 (show off) <> ")" <>
+                "(ctx, (const " <> cTypeName t <> "*)(data + " <> bsb8 (show off) <> ")" <>
                 mconcat [", " <> bsb8 (show n) | n <- shxToList sh] <> ");\n"
              | (Some ty@(ATArray sh@(_ :$% _) t), off, i) <- zip3 arguments argoffsets [1::Int ..]]
   -- declare output arrays
