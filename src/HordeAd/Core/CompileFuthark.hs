@@ -223,6 +223,12 @@ generateCWrapper arguments outputs =
         SU8 -> "uint8_t" ; SU16 -> "uint16_t" ; SU32 -> "uint32_t" ; SU64 -> "uint64_t"
         SF32 -> "float" ; SF64 -> "double" ; SBool -> "bool"
 
+      haveinarrs  = any (\case Some (ATArray (_ :$% _) _) -> True ; _ -> False) arguments
+      haveoutarrs = any (\case Some (ATArray (_ :$% _) _) -> True ; _ -> False) outputs
+
+      sync True = "  futhark_context_sync(ctx);\n"
+      sync False = mempty
+
   in BSB.toLazyByteString $
   -- TODO: allocate and supply a futhark cache file? Keyed by hash of futhark source, maybe?
   "#include \"prog.h\"\n\n\
@@ -238,21 +244,37 @@ generateCWrapper arguments outputs =
   -- declare output arrays
   <> mconcat ["  struct futhark_" <> futArrName ty <> " *outarr" <> bsb8 (show i) <> ";"
              | (Some ty@(ATArray (_ :$% _) _), i) <- zip outputs [1::Int ..]]
+  <> sync (haveinarrs || haveoutarrs)
   <>
+  -- kernel call:
   "  futhark_entry_main(ctx\n"
-  -- output destinations
+  -- * output destinations
   <> mconcat [case ty of
-                ATArray ZSX t -> "    , (" <> cTypeName t <> "*)(data + " <> bsb8 (show off) <> ")\n"
-                ATArray _ _ -> "    , &outarr" <> bsb8 (show i) <> "\n"
+                ATArray ZSX t -> "    , (" <> cTypeName t <> "*)(data + " <> bsb8 (show off) <> ")  // out " <> bsb8 (show i) <> ": " <> futTypeName ty <> "\n"
+                ATArray _ _ -> "    , &outarr" <> bsb8 (show i) <> "  // out " <> bsb8 (show i) <> ": " <> futTypeName ty <> "\n"
              | (Some ty, off, i) <- zip3 outputs outoffsets [1::Int ..]]
-  -- inputs
+  -- * inputs
   <> mconcat [case ty of
-                ATArray ZSX t -> "    , *(const " <> cTypeName t <> "*)(data + " <> bsb8 (show off) <> ")\n"
-                ATArray _ _ -> "    , inarr" <> bsb8 (show i) <> "\n"
+                ATArray ZSX t -> "    , *(const " <> cTypeName t <> "*)(data + " <> bsb8 (show off) <> ")  // in " <> bsb8 (show i) <> ": " <> futTypeName ty <> "\n"
+                ATArray _ _ -> "    , inarr" <> bsb8 (show i) <> "  // in " <> bsb8 (show i) <> ": " <> futTypeName ty <> "\n"
              | (Some ty, off, i) <- zip3 arguments argoffsets [1::Int ..]]
   <>
-  "  );\n\
-  \  futhark_context_free(ctx);\n\
+  "  );\n"
+  <> sync True
+  -- release input arrays
+  <> mconcat ["  futhark_free_" <> futArrName ty <> "(ctx, inarr" <> bsb8 (show i) <> ");\n"
+             | (Some ty@(ATArray (_ :$% _) _), i) <- zip arguments [1::Int ..]]
+  -- copy output arrays
+  <> mconcat ["  futhark_values_" <> futArrName ty <> "(ctx, outarr" <> bsb8 (show i) <>
+                ", (" <> cTypeName t <> "*)(data + " <> bsb8 (show off) <> ");\n"
+             | (Some ty@(ATArray (_ :$% _) t), off, i) <- zip3 outputs outoffsets [1::Int ..]]
+  <> sync (haveinarrs || haveoutarrs)
+  -- release output arrays
+  <> mconcat ["  futhark_free_" <> futArrName ty <> "(ctx, outarr" <> bsb8 (show i) <> ");\n"
+             | (Some ty@(ATArray (_ :$% _) _), i) <- zip outputs [1::Int ..]]
+  <> sync haveoutarrs
+  <>
+  "  futhark_context_free(ctx);\n\
   \  futhark_context_config_free(cfg);\n\
   \}\n"
 
@@ -284,6 +306,7 @@ computeStructOffsets = go 0
 type role ArgType nominal
 data ArgType t where
   ATArray :: IShX sh -> ScalTy t -> ArgType (TKX sh t)
+deriving instance Show (ArgType t)
 
 -- | Typed concrete value
 type role TypedCon nominal
@@ -781,6 +804,7 @@ data ScalTy t where
   SF32 :: ScalTy Float
   SF64 :: ScalTy Double
   SBool :: ScalTy Bool
+deriving instance Show (ScalTy t)
 
 instance TestEquality ScalTy where
   testEquality SI8   SI8   = Just Refl ; testEquality SI8   _ = Nothing
