@@ -40,7 +40,7 @@ author:             Mikolaj Konarski and others
 -- An email address to which users can send suggestions, bug reports, and patches.
 maintainer:         mikolaj@well-typed.com
 
-category:           Machine Learning, Automatic Differentiation
+category:           Machine Learning, Tensors
 
 -- A copyright notice.
 -- copyright:
@@ -172,25 +172,25 @@ library horde-ad-simplified
     hs-source-dirs:   src
 
     build-depends:
-        assert-failure
+        assert-failure < 0.1.4
       , base >= 4.20.1 && < 4.21
           -- GHC 9.10.2 only; GHC 9.12 fails currently: https://gitlab.haskell.org/ghc/ghc/-/issues/25964
-      , Boolean
-      , containers
-      , deepseq
-      , data-default
-      , dependent-enummap
-      , dependent-sum
-      , enummapset
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-      , ilist
-      , orthotope
-      , ox-arrays
-      , random >= 1.3.0
-      , some
-      , unboxed-ref
-      , vector >= 0.13.2.0
+      , Boolean < 0.3
+      , containers >= 0.6 && < 0.9
+      , deepseq < 1.7
+      , data-default < 0.9
+      , dependent-enummap < 0.2
+      , dependent-sum >= 0.7 && < 0.8
+      , enummapset < 0.8
+      , ghc-typelits-knownnat < 1
+      , ghc-typelits-natnormalise < 1
+      , ilist < 0.5
+      , orthotope < 0.2
+      , ox-arrays < 0.2
+      , random >= 1.3.0 && < 1.4
+      , some >= 1 && < 2
+      , unboxed-ref < 0.5
+      , vector >= 0.13.2.0 && < 0.14
 
     if os(linux)
         -- cargo-culting this one:
@@ -214,14 +214,14 @@ library exampleLibrary
       , horde-ad:horde-ad-simplified
 
       , base
-      , bytestring
+      , bytestring < 0.13
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
-      , mnist-idx
+      , mnist-idx < 0.2
       , ox-arrays
       , random
       , vector
-      , zlib
+      , zlib < 0.8
 
 library benchCommonLibrary
     import:           options
@@ -241,10 +241,10 @@ library benchCommonLibrary
       , horde-ad:horde-ad-simplified
 
       , base
-      , criterion
-      , deepseq
-      , data-default
-      , inspection-testing
+      , criterion < 1.7
+      , deepseq < 1.7
+      , data-default < 0.9
+      , inspection-testing < 0.7
       , ox-arrays
       , random
 
@@ -373,8 +373,8 @@ library testToolLibrary
 
       , base
       , ox-arrays
-      , tasty >= 1.0
-      , tasty-hunit
+      , tasty >= 1.0 && < 1.6
+      , tasty-hunit < 0.11
       , vector
 
 library testCommonLibrary
@@ -406,9 +406,9 @@ library testCommonLibrary
       , ghc-typelits-natnormalise
       , ox-arrays
       , random
-      , tasty >= 1.0
-      , tasty-hunit
-      , tasty-quickcheck
+      , tasty >= 1.0 && < 1.6
+      , tasty-hunit < 0.11
+      , tasty-quickcheck < 0.12
 
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
