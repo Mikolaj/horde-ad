@@ -4,7 +4,8 @@
 -- that work for any tensor kind, including nested (product) arrays
 -- and an assortment of such operations.
 module HordeAd.Core.Unwind
-  ( addTarget, multTarget, dot0Target, replTarget, defTarget, concreteTarget
+  ( addTarget, multTarget, sum0Target, dot0Target
+  , replTarget, defTarget, concreteTarget
   , toADTensorKindShared, fromADTensorKindShared
   ) where
 
@@ -83,6 +84,23 @@ multRepW a b = case (a, b) of
   (WTKX ta, WTKX tb) -> WTKX $ ta * tb
   (WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
     WTKProduct (multRepW ta1 tb1) (multRepW ta2 tb2)
+
+sum0RepW :: forall y target. (BaseTensor target, ConvertTensor target)
+         => FullShapeTKW y -> RepW target y
+         -> target (TKScalar Double)
+sum0RepW ftk a = case (ftk, a) of
+  (_, WTKScalar @r ta) ->
+    ifDifferentiable @r (kcast ta) 0
+  (WFTKR sh, WTKR @r ta) | SNat <- shrRank sh ->
+    ifDifferentiable @r (kcast $ kfromR $ rsum0 ta) 0
+  (WFTKS sh, WTKS @r ta) ->
+    withKnownShS sh $
+    ifDifferentiable @r (kcast $ kfromS $ ssum0 ta) 0
+  (WFTKX sh, WTKX @r ta) ->
+    withKnownShX (ssxFromShape sh) $
+    ifDifferentiable @r (kcast $ kfromX $ xsum0 ta) 0
+  (WFTKProduct ftk1 ftk2, WTKProduct ta1 ta2) ->
+    sum0RepW ftk1 ta1 + sum0RepW ftk2 ta2
 
 dot0RepW :: forall y target. (BaseTensor target, ConvertTensor target)
          => FullShapeTKW y -> RepW target y -> RepW target y
@@ -434,6 +452,15 @@ multTarget stk a b =
   let a2 = unWindTarget stk a
       b2 = unWindTarget stk b
   in windTarget stk $ multRepW a2 b2
+
+-- | Sum all dimensions of each component and then sum it all.
+-- Requires duplicable arguments or a `ShareTensor` instance.
+sum0Target :: (BaseTensor target, ConvertTensor target)
+           => FullShapeTK y -> target y
+           -> target (TKScalar Double)
+sum0Target ftk a =
+  let a2 = unWindTarget (ftkToSTK ftk) a
+  in sum0RepW (unWindFTK ftk) a2
 
 -- | Dot product each component and then sum it all.
 -- Requires duplicable arguments or a `ShareTensor` instance.

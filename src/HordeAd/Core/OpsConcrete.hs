@@ -508,6 +508,7 @@ instance BaseTensor Concrete where
   tdefTarget = defTarget
   taddTarget = addTarget
   tmultTarget = multTarget
+  tsum0Target = sum0Target
   tdot0Target = dot0Target
 
 instance ConvertTensor Concrete where

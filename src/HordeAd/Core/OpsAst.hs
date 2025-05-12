@@ -649,6 +649,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tdefTarget = defTarget
   taddTarget = addTarget
   tmultTarget = multTarget
+  tsum0Target = sum0Target
   tdot0Target = dot0Target
 
 
@@ -1087,6 +1088,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tdefTarget = defTarget
   taddTarget = addTarget
   tmultTarget = multTarget
+  tsum0Target = sum0Target
   tdot0Target = dot0Target
 
 instance AstSpan s => ConvertTensor (AstRaw s) where
@@ -1407,6 +1409,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                                                        (unAstNoVectorize b)
   tmultTarget stk a b = AstNoVectorize $ tmultTarget stk (unAstNoVectorize a)
                                                          (unAstNoVectorize b)
+  tsum0Target stk a = AstNoVectorize $ tsum0Target stk (unAstNoVectorize a)
   tdot0Target stk a b = AstNoVectorize $ tdot0Target stk (unAstNoVectorize a)
                                                          (unAstNoVectorize b)
 
@@ -1659,6 +1662,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                                                        (wunAstNoSimplify b)
   tmultTarget stk a b = wAstNoSimplify $ tmultTarget stk (wunAstNoSimplify a)
                                                          (wunAstNoSimplify b)
+  tsum0Target stk a = wAstNoSimplify $ tsum0Target stk (wunAstNoSimplify a)
   tdot0Target stk a b = wAstNoSimplify $ tdot0Target stk (wunAstNoSimplify a)
                                                          (wunAstNoSimplify b)
 

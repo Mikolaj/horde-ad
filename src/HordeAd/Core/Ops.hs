@@ -1099,6 +1099,12 @@ class ( Num (IntOf target)
   --
   -- Requires duplicable arguments or a ShareTensor instance.
   tmultTarget :: SingletonTK y -> target y -> target y -> target y
+  -- | Sum all dimensions of each component and then sum it all. Ignore all
+  -- tensors with non-differentiable elements.
+  --
+  -- Requires duplicable arguments or a ShareTensor instance.
+  tsum0Target :: FullShapeTK y -> target y
+              -> target (TKScalar Double)
   -- | Dot product each component and then sum it all. Ignore all
   -- tensors with non-differentiable elements.
   --
