@@ -83,24 +83,16 @@ common options
   other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists,
                       DeriveAnyClass, UndecidableInstances, AllowAmbiguousTypes,
                       QuantifiedConstraints
-  ghc-options:        -Wall -Wcompat -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
-  ghc-options:        -Wno-unticked-promoted-constructors -fprint-explicit-kinds
-  if impl(ghc >= 9.2)
-    ghc-options: -Wredundant-bang-patterns -Woperator-whitespace
-  if impl(ghc >= 9.4)
-    ghc-options: -fworker-wrapper-cbv
-      -- this is supposedly risky, but prevents STG from creating thunks, #23848
-                 -Wredundant-strictness-flags
-  if impl(ghc >= 9.8)
-      ghc-options: -Wterm-variable-capture -Wmissing-poly-kind-signatures -Wmissing-role-annotations
-
+  ghc-options:        -Wall -Wcompat -Wimplicit-prelude -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages -Wredundant-bang-patterns -Woperator-whitespace -Wredundant-strictness-flags -Wterm-variable-capture -Wmissed-specialisations
+  ghc-options:        -Wmissing-poly-kind-signatures -Wmissing-role-annotations -Wno-unticked-promoted-constructors
+  ghc-options:        -fprint-explicit-kinds
+  -- This is supposedly risky, but prevents STG from creating thunks, #23848:
+  ghc-options:        -fworker-wrapper-cbv
   -- Disabling this breaks performance:
   ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200
   -- Disabling hurts performance to some extent:
-  ghc-options: -fdicts-cheap -flate-dmd-anal
+  ghc-options:        -fdicts-cheap -flate-dmd-anal
   -- ghc-options: -O2 -flate-specialise
-
-  ghc-options:        -Wmissed-specialisations
 
   if flag(with_expensive_assertions)
     cpp-options:      -DWITH_EXPENSIVE_ASSERTIONS
