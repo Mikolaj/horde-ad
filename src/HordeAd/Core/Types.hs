@@ -16,6 +16,8 @@ module HordeAd.Core.Types
     -- * Type families that tensors belong to
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf, BoolOf
   , IxROf, IxSOf, IxXOf
+    -- * The Z0 Num unit type and its instances
+  , Z0(..)
     -- * Misc
   , Dict(..), IntegralH(..), RealFloatH(..), Boolean (..), EqH(..), OrdH(..)
   , backpermutePrefixList
@@ -35,7 +37,6 @@ module HordeAd.Core.Types
   , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
   , eqPerm, permUnShift1, sunReplicateScal, sunReplicate1, sunReplicateN
   , ssxTakeIx
-  , Z0(..)
   ) where
 
 import Prelude
@@ -266,6 +267,54 @@ type IxSOf (f :: Target) (sh :: [Nat]) = IxS sh (IntOf f)
 -- | Mixed index, that is, a sized list of individual indices
 -- into tensors with mixed ranked-shaped typing.
 type IxXOf (f :: Target) (sh :: [Maybe Nat]) = IxX sh (IntOf f)
+
+
+-- * The Z0 Num unit type and its instances
+
+data Z0 = Z0
+ deriving (Eq, Ord, Show)
+
+instance NFData Z0 where
+  rnf Z0 = ()
+
+instance Storable Z0 where
+  sizeOf _ = 0
+  alignment _ = 1
+  peek _ = return Z0
+  poke _ _ = return ()
+
+instance Num Z0 where
+  Z0 + Z0 = Z0
+  Z0 * Z0 = Z0
+  negate Z0 = Z0
+  abs Z0 = Z0
+  signum Z0 = Z0
+  fromInteger _ = Z0
+
+instance Default Z0 where
+  def = Z0
+
+instance Nested.PrimElt Z0
+newtype instance Nested.Internal.Mixed sh Z0 = M_NilZ0 (Nested.Internal.Mixed sh (Nested.Internal.Primitive Z0)) deriving (Eq, Generic)  -- no content, orthotope optimises this (via Vector)
+deriving instance Ord (Nested.Mixed sh Z0)
+newtype instance Nested.Internal.MixedVecs s sh Z0 = MV_NilZ0 (V.MVector s Z0)  -- no content, MVector optimises this
+deriving via Nested.Primitive Z0 instance Nested.Elt Z0
+deriving via Nested.Primitive Z0 instance Nested.KnownElt Z0
+
+instance NumElt Z0 where
+  numEltAdd _ arr1 _arr2 = arr1
+  numEltSub _ arr1 _arr2 = arr1
+  numEltMul _ arr1 _arr2 = arr1
+  numEltNeg _ arr = arr
+  numEltAbs _ arr = arr
+  numEltSignum _ arr = arr
+  numEltSum1Inner _ arr = fromO (RS.index (toO arr) 0)
+  numEltProduct1Inner _ arr = fromO (RS.index (toO arr) 0)
+  numEltSumFull _ _arr = Z0
+  numEltProductFull _ _arr = Z0
+  numEltMinIndex snat _arr = replicate (sNatValue snat) 0
+  numEltMaxIndex snat _arr = replicate (sNatValue snat) 0
+  numEltDotprodInner _ arr1 _arr2 = fromO (RS.index (toO arr1) 0)
 
 
 -- * Misc
@@ -627,53 +676,6 @@ ssxPermutePrefix = undefined
 shxPermutePrefix :: Permutation.Perm is -> ShX sh i
                  -> ShX (Permutation.PermutePrefix is sh) i
 shxPermutePrefix = undefined
-
--- ** The Z0 Num unit type and its instances
-
-data Z0 = Z0
- deriving (Eq, Ord, Show)
-
-instance NFData Z0 where
-  rnf Z0 = ()
-
-instance Storable Z0 where
-  sizeOf _ = 0
-  alignment _ = 1
-  peek _ = return Z0
-  poke _ _ = return ()
-
-instance Num Z0 where
-  Z0 + Z0 = Z0
-  Z0 * Z0 = Z0
-  negate Z0 = Z0
-  abs Z0 = Z0
-  signum Z0 = Z0
-  fromInteger _ = Z0
-
-instance Default Z0 where
-  def = Z0
-
-instance Nested.PrimElt Z0
-newtype instance Nested.Internal.Mixed sh Z0 = M_NilZ0 (Nested.Internal.Mixed sh (Nested.Internal.Primitive Z0)) deriving (Eq, Generic)  -- no content, orthotope optimises this (via Vector)
-deriving instance Ord (Nested.Mixed sh Z0)
-newtype instance Nested.Internal.MixedVecs s sh Z0 = MV_NilZ0 (V.MVector s Z0)  -- no content, MVector optimises this
-deriving via Nested.Primitive Z0 instance Nested.Elt Z0
-deriving via Nested.Primitive Z0 instance Nested.KnownElt Z0
-
-instance NumElt Z0 where
-  numEltAdd _ arr1 _arr2 = arr1
-  numEltSub _ arr1 _arr2 = arr1
-  numEltMul _ arr1 _arr2 = arr1
-  numEltNeg _ arr = arr
-  numEltAbs _ arr = arr
-  numEltSignum _ arr = arr
-  numEltSum1Inner _ arr = fromO (RS.index (toO arr) 0)
-  numEltProduct1Inner _ arr = fromO (RS.index (toO arr) 0)
-  numEltSumFull _ _arr = Z0
-  numEltProductFull _ _arr = Z0
-  numEltMinIndex snat _arr = replicate (sNatValue snat) 0
-  numEltMaxIndex snat _arr = replicate (sNatValue snat) 0
-  numEltDotprodInner _ arr1 _arr2 = fromO (RS.index (toO arr1) 0)
 
 -- ** Misc
 
