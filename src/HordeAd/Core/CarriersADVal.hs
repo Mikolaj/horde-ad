@@ -22,8 +22,8 @@ import Prelude
 import Data.Int (Int64)
 import Data.Type.Equality ((:~:) (Refl))
 
-import Data.Array.Mixed.Shape
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta

@@ -74,15 +74,16 @@ import System.Random
 import Type.Reflection (Typeable)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Mixed.Internal.Arith (NumElt (..), fromO, toO)
 import Data.Array.Mixed.Permutation (DropLen, PermR, TakeLen)
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (Dict (..), Tail, fromSNat', unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Mixed qualified as Nested.Internal
+import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped.Shape
+import Data.Array.Strided.Orthotope (NumElt (..), fromO, toO)
 
 -- * Definitions to help express and manipulate type-level natural numbers
 

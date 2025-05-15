@@ -19,7 +19,7 @@ import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (IsList (..))
 
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast (AstBool, AstTensor)
 import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))

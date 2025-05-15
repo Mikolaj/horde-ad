@@ -16,14 +16,14 @@ import Prelude hiding (foldl')
 import Control.DeepSeq (NFData (..))
 import Data.Vector.Storable qualified as VS
 
-import Data.Array.Mixed.Internal.Arith qualified as Nested.Internal.Arith
+import Data.Array.Strided.Orthotope qualified as Nested.Internal.Arith
   (liftVEltwise1)
-import Data.Array.Mixed.Shape
+import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal
-import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
-import Data.Array.Nested.Internal.Shape
-import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
+import Data.Array.Nested.Mixed qualified as Nested.Internal
+import Data.Array.Nested.Ranked qualified as Nested.Internal
+import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Shaped qualified as Nested.Internal
 
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types

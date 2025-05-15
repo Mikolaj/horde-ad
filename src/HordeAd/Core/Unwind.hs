@@ -16,11 +16,12 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import GHC.TypeLits (type (+))
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor

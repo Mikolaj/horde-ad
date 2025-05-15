@@ -20,7 +20,7 @@ import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv

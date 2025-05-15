@@ -44,11 +44,12 @@ import Type.Reflection (typeRep)
 
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor

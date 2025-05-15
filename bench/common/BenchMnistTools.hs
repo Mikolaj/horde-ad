@@ -22,7 +22,7 @@ import HordeAd.Core.OpsConcrete ()
 import HordeAd.External.OptimizerTools
 
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import MnistData
 import MnistFcnnRanked1 qualified

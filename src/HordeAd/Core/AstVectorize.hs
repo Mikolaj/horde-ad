@@ -23,10 +23,11 @@ import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Unsafe (unsafePerformIO)
 
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (Tail, unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.AstEngine
 import HordeAd.Core.Ast (AstTensor)

@@ -26,10 +26,10 @@ import Data.Vector.Generic qualified as V
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Shape
+import Data.Array.Nested.Mixed.Shape
 import Data.Array.Mixed.Types (snatPlus)
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind

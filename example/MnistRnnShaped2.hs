@@ -15,7 +15,7 @@ import GHC.TypeLits (KnownNat, Nat, fromSNat, type (*))
 
 import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd
 import MnistData

@@ -28,18 +28,19 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+))
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Internal.Arith qualified as Mixed.Internal.Arith
-  (liftVEltwise1)
 import Data.Array.Mixed.Lemmas
 import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Shape
 import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Mixed qualified as Nested.Internal
-import Data.Array.Nested.Internal.Ranked qualified as Nested.Internal
-import Data.Array.Nested.Internal.Shape
-import Data.Array.Nested.Internal.Shaped qualified as Nested.Internal
+import Data.Array.Nested.Mixed qualified as Nested.Internal
+import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Ranked qualified as Nested.Internal
+import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped qualified as Nested.Internal
+import Data.Array.Nested.Shaped.Shape
+import Data.Array.Strided.Orthotope qualified as Mixed.Internal.Arith
+  (liftVEltwise1)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
@@ -562,7 +563,7 @@ instance ConvertTensor Concrete where
   sfromR @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . flip Nested.rcastToShaped knownShS . unConcrete
   sfromX @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    Concrete . flip Nested.mcastToShaped knownShS . unConcrete
+    Concrete . Nested.mcastToShaped knownShS . unConcrete
   xfromK = Concrete . Nested.mscalar . unConcrete
   xfromR @sh @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.rcastToMixed (knownShX @sh) . unConcrete

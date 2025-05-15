@@ -18,7 +18,7 @@ import Foreign.C (CInt)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools

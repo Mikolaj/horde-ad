@@ -15,7 +15,7 @@ import Data.Foldable qualified as Foldable
 import Data.Kind (Type)
 import Text.Show (showListWith)
 
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Ops

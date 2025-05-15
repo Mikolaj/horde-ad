@@ -20,7 +20,7 @@ import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import GHC.Exts (IsList (..))
 import System.IO.Unsafe (unsafePerformIO)
 
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind

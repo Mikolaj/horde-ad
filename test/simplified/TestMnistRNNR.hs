@@ -23,7 +23,8 @@ import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 import Text.Printf
 
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd
 import HordeAd.Core.Adaptor

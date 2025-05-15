@@ -13,7 +13,8 @@ import GHC.TypeLits (KnownNat)
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Tasty.HUnit hiding (assert)
 
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.ADEngine
   ( IncomingCotangentHandling (..)

@@ -17,7 +17,7 @@ import Data.Vector.Generic qualified as V
 
 import Data.Array.Mixed.Permutation (Perm (..), permToList)
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Internal.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools
