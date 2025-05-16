@@ -33,14 +33,13 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Mixed qualified as Nested.Internal
+import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
-import Data.Array.Nested.Ranked qualified as Nested.Internal
+import Data.Array.Nested.Ranked qualified as Ranked
 import Data.Array.Nested.Ranked.Shape
-import Data.Array.Nested.Shaped qualified as Nested.Internal
+import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Strided.Orthotope qualified as Mixed.Internal.Arith
-  (liftVEltwise1)
+import Data.Array.Strided.Orthotope (liftVEltwise1)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
@@ -728,10 +727,7 @@ liftVR
   :: (Nested.PrimElt r1, Nested.PrimElt r2)
   => (VS.Vector r1 -> VS.Vector r2)
   -> Nested.Ranked n r1 -> Nested.Ranked n r2
-liftVR f =
-  Nested.Internal.liftRanked1
-    (Nested.Internal.mliftNumElt1
-       (`Mixed.Internal.Arith.liftVEltwise1` f))
+liftVR f = Ranked.liftRanked1 (Mixed.mliftNumElt1 (`liftVEltwise1` f))
 {-# SPECIALIZE liftVR :: (VS.Vector Double -> VS.Vector Double) -> Nested.Ranked n Double -> Nested.Ranked n Double #-}
 {-# SPECIALIZE liftVR :: (VS.Vector Float -> VS.Vector Float) -> Nested.Ranked n Float -> Nested.Ranked n Float #-}
 {-# SPECIALIZE liftVR :: (VS.Vector Double -> VS.Vector Float) -> Nested.Ranked n Double -> Nested.Ranked n Float #-}
@@ -876,18 +872,17 @@ tmap0NR
   :: (Nested.PrimElt r1, Nested.PrimElt r)
   => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r) -> Nested.Ranked n r1
   -> Nested.Ranked n r
-tmap0NR f =
-  Nested.Internal.liftRanked1
-    (Nested.Internal.mliftPrim (Nested.runScalar . f . Nested.rscalar ))
-      -- too slow: tbuildNR (Nested.rshape v) (\ix -> f $ v `tindexNR` ix)
+tmap0NR f = Ranked.liftRanked1
+              (Mixed.mliftPrim (Nested.runScalar . f . Nested.rscalar ))
+  -- too slow: tbuildNR (Nested.rshape v) (\ix -> f $ v `tindexNR` ix)
 
 tzipWith0NR
   :: (Nested.PrimElt r, Nested.PrimElt r1, Nested.PrimElt r2)
   => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r2 -> Nested.Ranked 0 r)
   -> Nested.Ranked n r1 -> Nested.Ranked n r2 -> Nested.Ranked n r
 tzipWith0NR f =
-  Nested.Internal.liftRanked2
-    (Nested.Internal.mliftPrim2
+  Ranked.liftRanked2
+    (Mixed.mliftPrim2
        (\x y -> Nested.runScalar $ f (Nested.rscalar x) (Nested.rscalar y)))
 
 -- The semantics of the operation permits index out of bounds
@@ -998,10 +993,7 @@ liftVS
   :: (Nested.PrimElt r1, Nested.PrimElt r)
   => (VS.Vector r1 -> VS.Vector r)
   -> Nested.Shaped sh r1 -> Nested.Shaped sh r
-liftVS f =
-  Nested.Internal.liftShaped1
-    (Nested.Internal.mliftNumElt1
-       (`Mixed.Internal.Arith.liftVEltwise1` f))
+liftVS f = Shaped.liftShaped1 (Mixed.mliftNumElt1 (`liftVEltwise1` f))
 {-# SPECIALIZE liftVS :: (VS.Vector Double -> VS.Vector Double) -> Nested.Shaped sh Double -> Nested.Shaped sh Double #-}
 {-# SPECIALIZE liftVS :: (VS.Vector Float -> VS.Vector Float) -> Nested.Shaped sh Float -> Nested.Shaped sh Float #-}
 {-# SPECIALIZE liftVS :: (VS.Vector Double -> VS.Vector Float) -> Nested.Shaped sh Double -> Nested.Shaped sh Float #-}
@@ -1108,8 +1100,8 @@ tmap0NS
   => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r) -> Nested.Shaped sh r1
   -> Nested.Shaped sh r
 tmap0NS f =
-  Nested.Internal.liftShaped1
-    (Nested.Internal.mliftPrim (Nested.sunScalar . f . Nested.sscalar))
+  Shaped.liftShaped1
+    (Mixed.mliftPrim (Nested.sunScalar . f . Nested.sscalar))
       -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
 
 tzipWith0NS
@@ -1117,8 +1109,8 @@ tzipWith0NS
   => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r2 -> Nested.Shaped '[] r)
   -> Nested.Shaped sh r1 -> Nested.Shaped sh r2 -> Nested.Shaped sh r
 tzipWith0NS f =
-  Nested.Internal.liftShaped2
-    (Nested.Internal.mliftPrim2
+  Shaped.liftShaped2
+    (Mixed.mliftPrim2
        (\x y -> Nested.sunScalar $ f (Nested.sscalar x) (Nested.sscalar y)))
 
 tgatherZ1S
@@ -1210,9 +1202,7 @@ liftVX
   :: (Nested.PrimElt r1, Nested.PrimElt r)
   => (VS.Vector r1 -> VS.Vector r)
   -> Nested.Mixed sh r1 -> Nested.Mixed sh r
-liftVX f =
-  Nested.Internal.mliftNumElt1
-    (`Mixed.Internal.Arith.liftVEltwise1` f)
+liftVX f = Mixed.mliftNumElt1 (`liftVEltwise1` f)
 {-# SPECIALIZE liftVX :: (VS.Vector Double -> VS.Vector Double) -> Nested.Mixed sh Double -> Nested.Mixed sh Double #-}
 {-# SPECIALIZE liftVX :: (VS.Vector Float -> VS.Vector Float) -> Nested.Mixed sh Float -> Nested.Mixed sh Float #-}
 {-# SPECIALIZE liftVX :: (VS.Vector Double -> VS.Vector Float) -> Nested.Mixed sh Double -> Nested.Mixed sh Float #-}

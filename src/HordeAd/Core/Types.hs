@@ -79,7 +79,7 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Types (Dict (..), Tail, fromSNat', unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Mixed qualified as Nested.Internal
+import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
@@ -296,9 +296,9 @@ instance Default Z0 where
   def = Z0
 
 instance Nested.PrimElt Z0
-newtype instance Nested.Internal.Mixed sh Z0 = M_NilZ0 (Nested.Internal.Mixed sh (Nested.Internal.Primitive Z0)) deriving (Eq, Generic)  -- no content, orthotope optimises this (via Vector)
+newtype instance Mixed.Mixed sh Z0 = M_NilZ0 (Mixed.Mixed sh (Mixed.Primitive Z0)) deriving (Eq, Generic)  -- no content, orthotope optimises this (via Vector)
 deriving instance Ord (Nested.Mixed sh Z0)
-newtype instance Nested.Internal.MixedVecs s sh Z0 = MV_NilZ0 (V.MVector s Z0)  -- no content, MVector optimises this
+newtype instance Mixed.MixedVecs s sh Z0 = MV_NilZ0 (V.MVector s Z0)  -- no content, MVector optimises this
 deriving via Nested.Primitive Z0 instance Nested.Elt Z0
 deriving via Nested.Primitive Z0 instance Nested.KnownElt Z0
 
@@ -684,7 +684,7 @@ sunReplicateScal :: Nested.Elt a
                  => Nested.Shaped sh a -> Maybe a
 sunReplicateScal (Nested.Shaped arr)
   | all (all (== 0) . take (shxLength (Nested.mshape arr)))
-        (Nested.Internal.marrayStrides arr)
+        (Mixed.marrayStrides arr)
   , shxSize (Nested.mshape arr) /= 0 =
     Just $ Nested.mindex arr $ ixxZero' $ Nested.mshape arr
 sunReplicateScal _ = Nothing
@@ -698,7 +698,7 @@ sunReplicateN :: Nested.Elt a
               => ShS shm -> Nested.Shaped (shm ++ shn) a
               -> Maybe (Nested.Shaped shn a)
 sunReplicateN shm a@(Nested.Shaped arr)
-  | all (all (== 0) . take (shsLength shm)) (Nested.Internal.marrayStrides arr)
+  | all (all (== 0) . take (shsLength shm)) (Mixed.marrayStrides arr)
   , shsSize shm /= 0 =
     Just $ Nested.sindexPartial a $ ixsZero shm
 sunReplicateN _ _ = Nothing

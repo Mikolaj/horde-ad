@@ -16,14 +16,13 @@ import Prelude hiding (foldl')
 import Control.DeepSeq (NFData (..))
 import Data.Vector.Storable qualified as VS
 
-import Data.Array.Strided.Orthotope qualified as Nested.Internal.Arith
-  (liftVEltwise1)
-import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Mixed qualified as Nested.Internal
-import Data.Array.Nested.Ranked qualified as Nested.Internal
+import Data.Array.Nested.Mixed qualified as Mixed
+import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Ranked qualified as Ranked
+import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Shaped qualified as Nested.Internal
+import Data.Array.Strided.Orthotope (liftVEltwise1)
 
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -35,13 +34,13 @@ instance (Nested.IntElt r, Nested.PrimElt r, Eq r, Num r)
   -- These can't be partial, because our conditionals are not lazy
   -- and so the counterfactual branches, with zeros, may get executed
   -- even though they are subsequently ignored.
-  quotH a b = Nested.rquotArray a (Nested.Internal.liftRanked1 mmakeNonZero b)
-  remH a b = Nested.rremArray a (Nested.Internal.liftRanked1 mmakeNonZero b)
+  quotH a b = Nested.rquotArray a (Ranked.liftRanked1 mmakeNonZero b)
+  remH a b = Nested.rremArray a (Ranked.liftRanked1 mmakeNonZero b)
 
 instance (Nested.IntElt r, Nested.PrimElt r, Eq r, Num r)
          => IntegralH (Nested.Shaped sh r) where
-  quotH a b = Nested.squotArray a (Nested.Internal.liftShaped1 mmakeNonZero b)
-  remH a b = Nested.sremArray a (Nested.Internal.liftShaped1 mmakeNonZero b)
+  quotH a b = Nested.squotArray a (Shaped.liftShaped1 mmakeNonZero b)
+  remH a b = Nested.sremArray a (Shaped.liftShaped1 mmakeNonZero b)
 
 instance (Nested.IntElt r, Nested.PrimElt r, Eq r, Num r)
          => IntegralH (Nested.Mixed sh r) where
@@ -130,9 +129,8 @@ instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
 mmakeNonZero :: (Nested.PrimElt r, Eq r, Num r)
              => Nested.Mixed sh r -> Nested.Mixed sh r
 mmakeNonZero =
-  Nested.Internal.mliftNumElt1
-    (`Nested.Internal.Arith.liftVEltwise1`
-     (VS.map (\x -> if x == 0 then 1 else x)))
+  Mixed.mliftNumElt1
+    (`liftVEltwise1` (VS.map (\x -> if x == 0 then 1 else x)))
 
 
 -- * RepConcrete and its operations
@@ -149,7 +147,7 @@ type family RepConcrete (y :: TK) where
 tftkG :: SingletonTK y -> RepConcrete y -> FullShapeTK y
 tftkG stk t =
   let repackShapeTree :: SingletonTK y
-                      -> Nested.Internal.ShapeTree (RepConcrete y)
+                      -> Mixed.ShapeTree (RepConcrete y)
                       -> FullShapeTK y
       repackShapeTree stk0 tree = case stk0 of
         STKScalar -> FTKScalar
@@ -167,13 +165,13 @@ tftkG stk t =
     STKScalar -> FTKScalar
     STKR _ stk1 | Dict <- eltDictRep stk1 ->
       FTKR (Nested.rshape t) $ repackShapeTree stk1
-      $ snd $ Nested.Internal.mshapeTree t
+      $ snd $ Mixed.mshapeTree t
     STKS sh stk1 | Dict <- eltDictRep stk1 ->
       FTKS sh $ repackShapeTree stk1
-      $ snd $ Nested.Internal.mshapeTree t
+      $ snd $ Mixed.mshapeTree t
     STKX _ stk1 | Dict <- eltDictRep stk1 ->
       FTKX (Nested.mshape t) $ repackShapeTree stk1
-      $ snd $ Nested.Internal.mshapeTree t
+      $ snd $ Mixed.mshapeTree t
     STKProduct stk1 stk2 ->
       FTKProduct (tftkG stk1 (fst t))
                  (tftkG stk2 (snd t))
