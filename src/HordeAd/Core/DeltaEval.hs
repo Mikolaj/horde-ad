@@ -645,7 +645,7 @@ evalRevSame !s !c = \case
       withKnownShS shp $
       evalRevSame s (tsscatter @_ @shm @shn c f) d
   DeltaAppendS d e -> case (ftkDelta d, ftkDelta e) of
-    (FTKS (msnat@SNat :$$ _) x, FTKS (SNat :$$ _) _) ->
+    (FTKS (msnat :$$ _) x, FTKS (_ :$$ _) _) ->
       withKnownSTK (ftkToSTK x) $
       let cShared = tshare c
           s2 = evalRevSame s (tsslice (SNat @0) SNat SNat cShared) d

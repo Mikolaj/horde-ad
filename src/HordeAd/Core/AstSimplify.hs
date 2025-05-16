@@ -2628,7 +2628,7 @@ astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKS{} v) =
 astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKScalar v) =
   astReplicate (SNat @n) stk v
 astSliceS (SNat' @0) SNat (SNat' @0) v = v
-astSliceS SNat (SNat' @1) SNat v | FTKS (SNat :$$ sh) x <- ftkAst v =
+astSliceS SNat (SNat' @1) SNat v | FTKS (_ :$$ sh) x <- ftkAst v =
   astReplicate (SNat @1) (STKS sh (ftkToSTK x))
                (astIndexS sh v (valueOf @i :.$ ZIS))
 astSliceS SNat SNat SNat (Ast.AstGatherS shn v (Const var ::$ vars, ix)) =
@@ -3071,13 +3071,13 @@ astSFromR sh a0 = case a0 of
   Ast.AstProject1{} -> Ast.AstSFromR sh a0  -- TODO: convert arbitrary tensor?
   Ast.AstProject2{} -> Ast.AstSFromR sh a0
   Ast.AstFromVector snat@SNat (STKR _ x) l -> case sh of
-   snat2@SNat :$$ rest | Just Refl <- sameNat snat snat2 ->
+   snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
      astFromVector snat (STKS rest x) (V.map (astSFromR rest) l)
    _ -> error "astSFromR: impossible shape"
   Ast.AstSum snat@SNat (STKR _ x) a ->
     astSum snat (STKS sh x) (astSFromR (snat :$$ sh) a)
   Ast.AstReplicate snat@SNat (STKR _ x) a -> case sh of
-    snat2@SNat :$$ rest | Just Refl <- sameNat snat snat2 ->
+    snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
       astReplicate snat (STKS rest x) (astSFromR rest a)
     _ -> error "astSFromR: impossible shape"
   Ast.AstApply{} -> Ast.AstSFromR sh a0

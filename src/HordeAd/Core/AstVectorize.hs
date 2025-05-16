@@ -488,7 +488,7 @@ astIndexBuild snat@SNat stk u i = case stk of
   STKX _ _ -> case ftkAst u of
    FTKX shBuild' _->
     withCastXS shBuild' $ \shBuild -> case shBuild of
-      SNat :$$ rest ->
+      _ :$$ rest ->
         astFromS stk $ astIndexS rest (astSFromX shBuild u) (i :.$ ZIS)
   STKProduct stk1 stk2 ->
     astLetFun u $ \ !u3 ->

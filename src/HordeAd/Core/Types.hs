@@ -464,9 +464,9 @@ fromLinearIdxS fromInt = \sh lin -> snd (go sh lin)
     -- multi-index within sub-tensor).
     go :: ShS sh1 -> j -> (j, IxS sh1 j)
     go ZSS n = (n, ZIS)
-    go ((:$$) k@SNat sh) _ | sNatValue k == 0 =
+    go ((:$$) k sh) _ | sNatValue k == 0 =
       (fromInt 0, fromInt 0 :.$ zeroOfS fromInt sh)
-    go ((:$$) n@SNat sh) lin =
+    go ((:$$) n sh) lin =
       let (tensLin, idxInTens) = go sh lin
           tensLin' = tensLin `quotH` fromInt (sNatValue n)
           i = tensLin `remH` fromInt (sNatValue n)
@@ -475,7 +475,7 @@ fromLinearIdxS fromInt = \sh lin -> snd (go sh lin)
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOfS :: Num j => (Int -> j) -> ShS sh -> IxS sh j
 zeroOfS _ ZSS = ZIS
-zeroOfS fromInt ((:$$) SNat sh) = fromInt 0 :.$ zeroOfS fromInt sh
+zeroOfS fromInt ((:$$) _ sh) = fromInt 0 :.$ zeroOfS fromInt sh
 
 toLinearIdxX :: forall sh1 sh2 j. Num j
              => (Int -> j) -> IShX (sh1 ++ sh2) -> IxX sh1 j -> j
@@ -777,7 +777,7 @@ takeShS sh0 = fromList2 $ take (valueOf @len) $ toList sh0
     where  -- TODO: induction over (unary) SNat?
       go :: forall sh'. ShS sh' -> [Int] -> ListS (Take len sh') SNat
       go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZS
-      go (sn@SNat :$$ sh) (i : is)
+      go (sn :$$ sh) (i : is)
         | i == fromSNat' sn = unsafeCoerce $ sn ::$ go sh is
         | otherwise = error $ "takeShS: Value does not match typing (type says "
                                 ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
@@ -794,7 +794,7 @@ dropShS sh0 = fromList2 $ drop (valueOf @len) $ toList sh0
     where  -- TODO: induction over (unary) SNat?
       go :: forall sh'. ShS sh' -> [Int] -> ListS (Drop len sh') SNat
       go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZS
-      go (sn@SNat :$$ sh) (i : is)
+      go (sn :$$ sh) (i : is)
         | i == -1 = unsafeCoerce $ go sh is
         | i == fromSNat' sn = unsafeCoerce $ sn ::$ go sh is
         | otherwise = error $ "dropShS: Value does not match typing (type says "
