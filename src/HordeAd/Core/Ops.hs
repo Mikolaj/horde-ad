@@ -126,10 +126,10 @@ xbuild @m @sh @x @target sh0 f0 =
       buildSh sh1 sh1m f = case (sh1, sh1m) of
         (ZSX, _) -> f ZIX
         (k :$% sh2, _ :$% sh2m) ->
-          withKnownShX (ssxFromShape sh2m) $
+          withKnownShX (ssxFromShX sh2m) $
           let g i = buildSh sh2 sh2m (f . (i :.%))
           in withSNat (fromSMayNat' k) $ \(SNat @n) ->
-               xmcast (ssxFromShape sh1m) $ txbuild1 @_ @n g
+               xmcast (ssxFromShX sh1m) $ txbuild1 @_ @n g
   in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
      $ buildSh (shxTakeSSX (Proxy @(Drop m sh)) sh0
                            (knownShX @(Take m sh))) sh0 f0
@@ -617,10 +617,10 @@ class ( Num (IntOf target)
               -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
               -> target (TKX '[mm] r)
   txmatvecmul mm mn m v =
-    withKnownShX (ssxFromShape $ mm :$% ZSX) $
-    withKnownShX (ssxFromShape $ mn :$% ZSX) $
+    withKnownShX (ssxFromShX $ mm :$% ZSX) $
+    withKnownShX (ssxFromShX $ mn :$% ZSX) $
     withSNat (fromSMayNat' mm) $ \(SNat @k) ->
-      xmcast (ssxFromShape $ mm :$% ZSX)
+      xmcast (ssxFromShX $ mm :$% ZSX)
       $ txbuild1 @_ @k (\i -> txdot0 v (m `txindex` (i :.% ZIX)))
   txmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p, GoodScalar r
                , ConvertTensor target )

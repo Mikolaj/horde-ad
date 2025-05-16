@@ -260,15 +260,15 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- These two are manually vectorized to avoid delta blowup when run
   -- via primitive pipelines.
   txmatvecmul mm mn m v =
-    withKnownShX (ssxFromShape $ mn :$% ZSX) $
-    withKnownShX (ssxFromShape $ mm :$% mn :$% ZSX) $
+    withKnownShX (ssxFromShX $ mn :$% ZSX) $
+    withKnownShX (ssxFromShX $ mm :$% mn :$% ZSX) $
     withSNat (fromSMayNat' mm) $ \(SNat @m) ->
     withSNat (fromSMayNat' mn) $ \(SNat @n) ->
-      xmcast (ssxFromShape (mm :$% ZSX))
+      xmcast (ssxFromShX (mm :$% ZSX))
       $ txsum (xtr (txreplicate (SNat @m) knownShX
-                      (xmcast (ssxFromShape (Nested.SKnown (SNat @n)
+                      (xmcast (ssxFromShX (Nested.SKnown (SNat @n)
                                              :$% ZSX)) v)
-                    * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
+                    * xmcast (ssxFromShX (Nested.SKnown (SNat @m)
                                             :$% Nested.SKnown (SNat @n)
                                             :$% ZSX)) m))
   txmatmul2 m1 m2 =

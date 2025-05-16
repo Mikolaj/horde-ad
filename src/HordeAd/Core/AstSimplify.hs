@@ -146,7 +146,7 @@ astTransposeAsGatherS knobs perm v =
     gcastWith (lemRankMapJust $ shsTakeLen perm shn) $
     gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
     permInverse perm $ \(invperm :: Nested.Perm invperm) proof ->
-      case proof (ssxFromShape $ shCvtSX $ shsTakeLen perm shn) of
+      case proof (ssxFromShX $ shxFromShS $ shsTakeLen perm shn) of
         Refl ->
           gcastWith (unsafeCoerceRefl
                      :: DropLen invperm
@@ -2510,7 +2510,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
           gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
           permInverse perm
           $ \(invperm :: Nested.Perm invperm) proof ->
-            case proof (ssxFromShape $ shCvtSX $ shsTakeLen perm sh) of
+            case proof (ssxFromShX $ shxFromShS $ shsTakeLen perm sh) of
               Refl ->
                 -- from PermutePrefix and ranks:
                 gcastWith
@@ -3233,7 +3233,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
         astLetFun a $ \a3 ->
           let (a31, a32) = tunpairConv a3
           in astFromS @(TKS2 sh (TKProduct y z))
-                      (STKX (ssxFromShape sh')
+                      (STKX (ssxFromShX sh')
                             (STKProduct (ftkToSTK y) (ftkToSTK z)))
              $ Ast.AstZipS $ astPair (astSFromX @sh @sh' sh a31)
                                      (astSFromX @sh @sh' sh a32)
@@ -3243,9 +3243,9 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
         astLetFun (Ast.AstUnzipS $ astSFromX @sh @sh' sh a) $ \b3 ->
           let (b31, b32) = tunpairConv b3
           in astPair (astFromS @(TKS2 sh y)
-                               (STKX (ssxFromShape sh') (ftkToSTK y)) b31)
+                               (STKX (ssxFromShX sh') (ftkToSTK y)) b31)
                      (astFromS @(TKS2 sh z)
-                               (STKX (ssxFromShape sh') (ftkToSTK z)) b32)
+                               (STKX (ssxFromShX sh') (ftkToSTK z)) b32)
 
   tfromS = astFromS
   rfromX a = case ftkAst a of
@@ -3314,7 +3314,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
         withCastXS sh1' $ \(sh1 :: ShS sh1) ->
         withCastRS sh2' $ \(_ :: ShS sh2) ->
           astFromS @(TKS2 (sh1 ++ sh2) x)
-                   (STKX (ssxFromShape sh1' `ssxAppend` ssxReplicate (SNat @m))
+                   (STKX (ssxFromShX sh1' `ssxAppend` ssxReplicate (SNat @m))
                          (ftkToSTK x))
           $ astUnNestS @sh1 @sh2
           $ astSFromX @sh1 sh1
@@ -3327,8 +3327,8 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
       FTKS _ x ->
         withCastXS sh1' $ \(sh1 :: ShS sh1) ->
           astFromS @(TKS2 (sh1 ++ sh2) x)
-                   (STKX (ssxFromShape sh1'
-                          `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2)))
+                   (STKX (ssxFromShX sh1'
+                          `ssxAppend` ssxFromShX (shxFromShS (knownShS @sh2)))
                          (ftkToSTK x))
           $ astUnNestS @sh1 @sh2
           $ astSFromX @sh1 sh1 a
@@ -3338,7 +3338,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
         withCastXS sh1' $ \(sh1 :: ShS sh1) ->
         withCastXS sh2' $ \(_ :: ShS sh2) ->
           astFromS @(TKS2 (sh1 ++ sh2) x)
-                   (STKX (ssxFromShape sh1' `ssxAppend` ssxFromShape sh2')
+                   (STKX (ssxFromShX sh1' `ssxAppend` ssxFromShX sh2')
                          (ftkToSTK x))
           $ astUnNestS @sh1 @sh2
           $ astSFromX @sh1 sh1

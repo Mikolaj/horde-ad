@@ -125,8 +125,8 @@ class ConvertTensor (target :: Target) where
   snestR sh1 =
     gcastWith (lemRankMapJust sh1) $
     withKnownShS sh1 $
-    withKnownShX (ssxFromShape (shCvtSX sh1)) $
-    sfromX . xnestR (ssxFromShape (shCvtSX sh1))
+    withKnownShX (ssxFromShX (shxFromShS sh1)) $
+    sfromX . xnestR (ssxFromShX (shxFromShS sh1))
   snest :: forall sh1 sh2 x.
            (KnownShS sh2, KnownSTK x)
         => ShS sh1 -> target (TKS2 (sh1 ++ sh2) x)
@@ -136,11 +136,11 @@ class ConvertTensor (target :: Target) where
     gcastWith (unsafeCoerceRefl :: Rank (MapJust sh1 ++ MapJust sh2)
                                    :~: Rank (sh1 ++ sh2)) $
     withKnownShS sh1 $
-    withKnownShX (ssxFromShape (shCvtSX sh1)) $
+    withKnownShX (ssxFromShX (shxFromShS sh1)) $
     withKnownShS (sh1 `shsAppend` knownShS @sh2) $
-    withKnownShX (ssxFromShape (shCvtSX sh1)
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
-    sfromX . xnestS (ssxFromShape (shCvtSX sh1)) . xfromS
+    withKnownShX (ssxFromShX (shxFromShS sh1)
+                  `ssxAppend` ssxFromShX (shxFromShS (knownShS @sh2))) $
+    sfromX . xnestS (ssxFromShX (shxFromShS sh1)) . xfromS
   snestX :: forall sh1 sh2 x.
             (KnownShX sh2, KnownSTK x)
          => ShS sh1 -> target (TKX2 (MapJust sh1 ++ sh2) x)
@@ -148,8 +148,8 @@ class ConvertTensor (target :: Target) where
   snestX sh1 =
     gcastWith (lemRankMapJust sh1) $
     withKnownShS sh1 $
-    withKnownShX (ssxFromShape (shCvtSX sh1)) $
-    sfromX . xnest (ssxFromShape (shCvtSX sh1))
+    withKnownShX (ssxFromShX (shxFromShS sh1)) $
+    sfromX . xnest (ssxFromShX (shxFromShS sh1))
   -- These three are primitives; the others are defined from them.
   xnestR :: forall sh1 m x.
             (KnownNat m, KnownSTK x)
@@ -193,7 +193,7 @@ class ConvertTensor (target :: Target) where
            -> target (TKX2 (MapJust sh1 ++ Replicate m Nothing) x)
   sunNestR @sh1 =
     gcastWith (lemRankMapJust (knownShS @sh1)) $
-    withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))) $
+    withKnownShX (ssxFromShX (shxFromShS (knownShS @sh1))) $
     xunNestR . xfromS @_ @_ @(MapJust sh1)
   sunNest :: (KnownShS sh1, KnownShS sh2, KnownSTK x)
           => target (TKS2 sh1 (TKS2 sh2 x)) -> target (TKS2 (sh1 ++ sh2) x)
@@ -202,17 +202,17 @@ class ConvertTensor (target :: Target) where
     gcastWith (unsafeCoerceRefl
                :: Rank (MapJust sh1 ++ MapJust sh2) :~: Rank (sh1 ++ sh2)) $
     withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-    withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))) $
-    withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))
-                  `ssxAppend` ssxFromShape (shCvtSX (knownShS @sh2))) $
+    withKnownShX (ssxFromShX (shxFromShS (knownShS @sh1))) $
+    withKnownShX (ssxFromShX (shxFromShS (knownShS @sh1))
+                  `ssxAppend` ssxFromShX (shxFromShS (knownShS @sh2))) $
     sfromX . xunNestS . xfromS @_ @_ @(MapJust sh1)
   sunNestX :: (KnownShS sh1, KnownShX sh2, KnownSTK x)
            => target (TKS2 sh1 (TKX2 sh2 x))
            -> target (TKX2 (MapJust sh1 ++ sh2) x)
   sunNestX @sh1 @sh2 =
     gcastWith (lemRankMapJust (knownShS @sh1)) $
-    withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))) $
-    withKnownShX (ssxFromShape (shCvtSX (knownShS @sh1))
+    withKnownShX (ssxFromShX (shxFromShS (knownShS @sh1))) $
+    withKnownShX (ssxFromShX (shxFromShS (knownShS @sh1))
                   `ssxAppend` knownShX @sh2) $
     xunNest . xfromS @_ @_ @(MapJust sh1)
   -- These three are primitives; the others are defined from them.

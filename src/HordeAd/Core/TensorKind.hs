@@ -214,7 +214,7 @@ matchingFTK ftk1 ftk2 = case (ftk1, ftk2) of
       Just Refl
   (FTKX sh1 x1, FTKX sh2 x2)
     | Just Refl <- matchingFTK x1 x2
-    , Just Refl <- testEquality (ssxFromShape sh1) (ssxFromShape sh2) ->  -- !!!
+    , Just Refl <- testEquality (ssxFromShX sh1) (ssxFromShX sh2) ->  -- !!!
       Just Refl
   (FTKProduct x1 y1, FTKProduct x2 y2)
     | Just Refl <- matchingFTK x1 x2, Just Refl <- matchingFTK y1 y2 ->
@@ -228,7 +228,7 @@ ftkToSTK = \case
   FTKScalar -> STKScalar
   FTKR sh x -> STKR (shrRank sh) (ftkToSTK x)
   FTKS sh x -> STKS sh (ftkToSTK x)
-  FTKX sh x -> STKX (ssxFromShape sh) (ftkToSTK x)
+  FTKX sh x -> STKX (ssxFromShX sh) (ftkToSTK x)
   FTKProduct ftk1 ftk2 -> STKProduct (ftkToSTK ftk1) (ftkToSTK ftk2)
 
 ftkUnit :: FullShapeTK TKUnit

@@ -330,15 +330,15 @@ instance BaseTensor Concrete where
   txdot1In @_ (SNat @n) u v =
     Concrete $ Nested.mdot1Inner (Proxy @(Just n)) (unConcrete u) (unConcrete v)
   txmatvecmul mm mn m v =
-    withKnownShX (ssxFromShape $ mn :$% ZSX) $
-    withKnownShX (ssxFromShape $ mm :$% mn :$% ZSX) $
+    withKnownShX (ssxFromShX $ mn :$% ZSX) $
+    withKnownShX (ssxFromShX $ mm :$% mn :$% ZSX) $
     withSNat (fromSMayNat' mm) $ \(SNat @m) ->
     withSNat (fromSMayNat' mn) $ \(SNat @n) ->
-      xmcast (ssxFromShape (mm :$% ZSX))
+      xmcast (ssxFromShX (mm :$% ZSX))
       $ txsum (xtr (txreplicate (SNat @m) knownShX
-                      (xmcast (ssxFromShape (Nested.SKnown (SNat @n)
+                      (xmcast (ssxFromShX (Nested.SKnown (SNat @n)
                                              :$% ZSX)) v)
-                    * xmcast (ssxFromShape (Nested.SKnown (SNat @m)
+                    * xmcast (ssxFromShX (Nested.SKnown (SNat @m)
                                             :$% Nested.SKnown (SNat @n)
                                             :$% ZSX)) m))
   {-# INLINE txmatvecmul #-}
@@ -409,7 +409,7 @@ instance BaseTensor Concrete where
                 | i <- [0 .. fromIntegral s - 1] ]
         in Concrete $ Nested.mfromVector sh $ V.concat l
       _ ->
-        withKnownShX (ssxFromShape sh) $
+        withKnownShX (ssxFromShX sh) $
         xbuild @(Rank shm) sh (\ix -> t `txindex` f ix)
   txgather1 = tgatherZ1X
   txconcrete = Concrete
@@ -1178,7 +1178,7 @@ tminIndexX v | sh1@(_ :$% sh) <- Nested.mshape v =
       gcastWith (unsafeCoerceRefl
                  :: Init (mn ': sh) :~: Init (mn ': sh) ++ '[]) $
       Nested.mrerank @'[Just m] @'[] @(Init (mn ': sh))
-                     (ssxFromShape $ shxInit sh1) ZSX (f @(Just m)) v
+                     (ssxFromShX $ shxInit sh1) ZSX (f @(Just m)) v
 
 tmaxIndexX
   :: forall mn sh r r2.
@@ -1196,7 +1196,7 @@ tmaxIndexX v | sh1@(_ :$% sh) <- Nested.mshape v =
       gcastWith (unsafeCoerceRefl
                  :: Init (mn ': sh) :~: Init (mn ': sh) ++ '[]) $
       Nested.mrerank @'[Just m] @'[] @(Init (mn ': sh))
-                     (ssxFromShape $ shxInit sh1) ZSX (f @(Just m)) v
+                     (ssxFromShX $ shxInit sh1) ZSX (f @(Just m)) v
 
 liftVX
   :: (Nested.PrimElt r1, Nested.PrimElt r)
@@ -1248,7 +1248,7 @@ tscatterZ1X
 tscatterZ1X sh t f =
   case tftk knownSTK t of
     FTKX _ x ->
-      withKnownShX (ssxFromShape sh) $
+      withKnownShX (ssxFromShX sh) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
       gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
       let zero = treplTarget 0 (FTKX sh x)

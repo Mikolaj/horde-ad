@@ -635,10 +635,10 @@ xappend0 a b = case xshape a of
   mmsnat :$% sh ->
     withSNat (fromSMayNat' mmsnat) $ \msnat ->
     withSNat (shxLength $ xshape b) $ \nsnat ->
-    let sh0 = Nested.SUnknown () :!% ssxFromShape sh
-        sha = Nested.SKnown msnat :!% ssxFromShape sh
-        shb = Nested.SKnown nsnat :!% ssxFromShape sh
-    in withKnownShX (ssxFromShape sh) $
+    let sh0 = Nested.SUnknown () :!% ssxFromShX sh
+        sha = Nested.SKnown msnat :!% ssxFromShX sh
+        shb = Nested.SKnown nsnat :!% ssxFromShX sh
+    in withKnownShX (ssxFromShX sh) $
        xmcast sh0 $ xappend (xmcast sha a) (xmcast shb b)
 xconcat :: forall sh x target.
            (KnownSTK x, BaseTensor target, ConvertTensor target)

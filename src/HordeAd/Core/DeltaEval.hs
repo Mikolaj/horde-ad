@@ -687,18 +687,18 @@ evalRevSame !s !c = \case
   DeltaSum0X d -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShape sh) $
+      withKnownShX (ssxFromShX sh) $
       evalRevSame s (txreplicate0N sh c) d
   DeltaDot0X v d -> case ftkDelta d of
     FTKX sh FTKScalar ->
-      withKnownShX (ssxFromShape sh) $
+      withKnownShX (ssxFromShX sh) $
       evalRevSame s (v * txreplicate0N (xshape v) c) d
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x | SNat @len <- ixxRank ix ->
       withKnownSTK (ftkToSTK x) $
       withKnownShX shn $
-      withKnownShX (ssxFromShape sh) $
-      withKnownShX (ssxTakeIx @shm @shn (ssxFromShape sh) ix) $
+      withKnownShX (ssxFromShX sh) $
+      withKnownShX (ssxTakeIx @shm @shn (ssxFromShX sh) ix) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
       evalRevSame s (txoneHot (takeShX @len sh) c ix) d
 --TODO      evalRevSame s (xoneHot (shxTakeSSX (Proxy @shn) sh
@@ -772,7 +772,7 @@ evalRevSame !s !c = \case
     FTKX sh2 x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShS sh $
-      withKnownShX (ssxFromShape sh2) $
+      withKnownShX (ssxFromShX sh2) $
       evalRevSame s (xfromS c) d
 
   DeltaXNestR sh1 SNat d -> case ftkDelta d of
@@ -795,17 +795,17 @@ evalRevSame !s !c = \case
   DeltaXUnNestR d -> case ftkDelta d of
     FTKX sh1 (FTKR sh2 x) | SNat <- shrRank sh2 ->
       withKnownSTK (ftkToSTK x) $
-      evalRevSame s (xnestR (ssxFromShape sh1) c) d
+      evalRevSame s (xnestR (ssxFromShX sh1) c) d
   DeltaXUnNestS d -> case ftkDelta d of
     FTKX sh1 (FTKS sh2 x) ->
       withKnownSTK (ftkToSTK x) $
       withKnownShS sh2 $
-      evalRevSame s (xnestS (ssxFromShape sh1) c) d
+      evalRevSame s (xnestS (ssxFromShX sh1) c) d
   DeltaXUnNest d -> case ftkDelta d of
     FTKX sh1 (FTKX sh2 x) ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShape sh2) $
-      evalRevSame s (xnest (ssxFromShape sh1) c) d
+      withKnownShX (ssxFromShX sh2) $
+      evalRevSame s (xnest (ssxFromShX sh1) c) d
 
   d -> evalRevFTK s c d
     -- the remaining constructors are already handled in evalRevFTK
@@ -1113,19 +1113,19 @@ evalFwdSame params s = \case
   DeltaSum0X d -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShape sh) $
+      withKnownShX (ssxFromShX sh) $
       second txsum0 $ evalFwdSame params s d
   DeltaDot0X _ DeltaZero{} -> (s, txconcrete $ Nested.mscalar 0)
   DeltaDot0X v d -> case ftkDelta d of
     FTKX sh FTKScalar ->
-      withKnownShX (ssxFromShape sh) $
+      withKnownShX (ssxFromShX sh) $
       second (txdot0 v) $ evalFwdSame params s d
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShX shn $
 -- TODO      withKnownShX (ixxToSSX ix) $
-      withKnownShX (ssxTakeIx @shm @shn (ssxFromShape sh) ix) $
+      withKnownShX (ssxTakeIx @shm @shn (ssxFromShX sh) ix) $
       second (`txindex` ix) $ evalFwdSame params s d
   DeltaScatterX @shm @shn shm shn shp sh d f -> case ftkDelta d of
     FTKX _ x ->
@@ -1206,19 +1206,19 @@ evalFwdSame params s = \case
   DeltaXUnNestR d -> case ftkDelta d of
     FTKX sh1 (FTKR sh2 x) | SNat <- shrRank sh2 ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShape sh1) $
+      withKnownShX (ssxFromShX sh1) $
       second xunNestR $ evalFwdSame params s d
   DeltaXUnNestS d -> case ftkDelta d of
     FTKX sh1 (FTKS sh2 x) ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShape sh1) $
+      withKnownShX (ssxFromShX sh1) $
       withKnownShS sh2 $
       second xunNestS $ evalFwdSame params s d
   DeltaXUnNest d -> case ftkDelta d of
     FTKX sh1 (FTKX sh2 x) ->
       withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShape sh1) $
-      withKnownShX (ssxFromShape sh2) $
+      withKnownShX (ssxFromShX sh1) $
+      withKnownShX (ssxFromShX sh2) $
       second xunNest $ evalFwdSame params s d
 
   d -> evalFwd params s d

@@ -484,7 +484,7 @@ ftkDelta = \case
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x | SNat @len <- ixxRank ix ->
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
-      withKnownShX (ssxFromShape sh) $
+      withKnownShX (ssxFromShX sh) $
       withKnownShX shn $
       FTKX (dropShX @len sh) x  -- TODO: (shxDropSSX sh (ixxToSSX ix)) x
   DeltaScatterX _ _ _ sh d _ -> case ftkDelta d of
@@ -538,7 +538,7 @@ ftkDelta = \case
 
   DeltaXNestR sh1 (SNat @m) d -> case ftkDelta d of
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @(Replicate m Nothing)) sh sh1)
-                      (FTKR (shCvtXR' (shxDropSSX sh sh1)) x)
+                      (FTKR (shrFromShX2 (shxDropSSX sh sh1)) x)
   DeltaXNestS @_ @sh2 sh1 sh2 d -> case ftkDelta d of
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @(MapJust sh2)) sh sh1)
                                   (FTKS sh2 x)
@@ -546,8 +546,8 @@ ftkDelta = \case
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @sh2) sh sh1)
                       (FTKX (shxDropSSX sh sh1) x)
   DeltaXUnNestR d -> case ftkDelta d of
-    FTKX sh1 (FTKR sh2 x) -> FTKX (sh1 `shxAppend` shCvtRX sh2) x
+    FTKX sh1 (FTKR sh2 x) -> FTKX (sh1 `shxAppend` shxFromShR sh2) x
   DeltaXUnNestS d -> case ftkDelta d of
-    FTKX sh1 (FTKS sh2 x) -> FTKX (sh1 `shxAppend` shCvtSX sh2) x
+    FTKX sh1 (FTKS sh2 x) -> FTKX (sh1 `shxAppend` shxFromShS sh2) x
   DeltaXUnNest d -> case ftkDelta d of
     FTKX sh1 (FTKX sh2 x) -> FTKX (sh1 `shxAppend` sh2) x
