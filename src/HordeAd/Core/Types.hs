@@ -33,7 +33,7 @@ module HordeAd.Core.Types
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
   , withCastRS, withCastXS, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
-  , ixsToShS, ixxToSSX, listsToShS, listrToNonEmpty
+  , ixsToShS, ixxToSSX, listsToShS
   , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
   , eqPerm, permUnShift1, sunReplicateScal, sunReplicate1, sunReplicateN
   , ssxTakeIx
@@ -46,12 +46,10 @@ import Data.Array.Internal.RankedS qualified as RS
 import Data.Boolean (Boolean (..))
 import Data.Coerce (coerce)
 import Data.Default
-import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List (dropWhileEnd, sort)
-import Data.List.NonEmpty (NonEmpty (..))
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Storable qualified as V
@@ -557,8 +555,11 @@ shCastSX ((:!%) @_ @restx (Nested.SUnknown ()) restx)
 
 -- ** Conversions and related
 
--- TODO; make more typed, ensure ranks match, use singletons instead of constraints,
--- give better names and do the same for ListS, etc.
+-- TODO; make more typed, ensure ranks match, use singletons instead
+-- of constraints, give better names and do the same for ListS, etc.
+-- Also, I'm fine composing two conversions instead of having a ready
+-- operation for each pair of the 10 shape variants.
+-- E.g., maybe everything should go through shaped shapes.
 ixrToIxs :: (KnownShS sh, KnownNat (Rank sh))
          => IxR (Rank sh) i -> IxS sh i
 ixrToIxs = fromList . toList
@@ -572,29 +573,18 @@ ixsToIxx :: (KnownShS sh, KnownShX sh')
          => IxS sh i -> IxX sh' i
 ixsToIxx = fromList . toList
 
--- TODO: this can be retired when we have a conversion from IxS to ShS
-sixKnown :: IxS sh i -> Dict KnownShS sh
-sixKnown ZIS = Dict
-sixKnown (_ :.$ sh) | Dict <- sixKnown sh = Dict
-
 -- TODO: ixrToShR :: IxR sh i -> ShR sh i
 
 ixsToShS :: IxS sh i -> ShS sh
-ixsToShS ix | Dict <- sixKnown ix = knownShS
+ixsToShS ZIS = ZSS
+ixsToShS (_ :.$ sh) = SNat :$$ ixsToShS sh
 
 ixxToSSX :: IxX sh i -> StaticShX sh
 ixxToSSX (IxX _list) = error "TODO"
 
--- TODO: this can be retired when we have a conversion from ListS to ShS;
-slistKnown :: ListS sh i -> Dict KnownShS sh
-slistKnown ZS = Dict
-slistKnown (_ ::$ sh) | Dict <- slistKnown sh = Dict
-
 listsToShS :: ListS sh i -> ShS sh
-listsToShS l | Dict <- slistKnown l = knownShS
-
-listrToNonEmpty :: ListR (n + 1) i -> NonEmpty i
-listrToNonEmpty l = listrHead l :| Foldable.toList (listrTail l)
+listsToShS ZS = ZSS
+listsToShS (_ ::$ sh) = SNat :$$ listsToShS sh
 
 -- ** Permutation-related operations
 
