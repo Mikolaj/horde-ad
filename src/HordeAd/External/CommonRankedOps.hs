@@ -13,7 +13,7 @@ import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat)
 
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Ranked.Shape
 

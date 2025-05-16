@@ -26,7 +26,7 @@ import Data.Vector.Generic qualified as V
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Types (snatPlus)
+import Data.Array.Nested.Types (snatPlus)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
 import Data.Array.Nested.Mixed.Shape

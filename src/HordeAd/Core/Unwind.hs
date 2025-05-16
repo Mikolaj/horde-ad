@@ -16,7 +16,7 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import GHC.TypeLits (type (+))
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape

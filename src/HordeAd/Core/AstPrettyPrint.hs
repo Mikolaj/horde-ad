@@ -15,7 +15,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 
-import Data.Array.Mixed.Permutation (Perm (..), permToList)
+import Data.Array.Nested.Permutation (Perm (..), permToList)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Shaped.Shape
 

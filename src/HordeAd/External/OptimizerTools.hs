@@ -11,7 +11,7 @@ import Prelude
 
 import Data.Type.Equality (gcastWith, (:~:))
 
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.CarriersConcrete

@@ -22,8 +22,8 @@ import GHC.TypeLits (type (+), type (<=?))
 import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Unsafe (unsafePerformIO)
 
-import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Types (Tail, unsafeCoerceRefl)
+import Data.Array.Nested.Permutation qualified as Permutation
+import Data.Array.Nested.Types (Tail, unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape

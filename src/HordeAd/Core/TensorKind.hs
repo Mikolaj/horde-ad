@@ -21,7 +21,7 @@ import GHC.Exts (withDict)
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat)
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape

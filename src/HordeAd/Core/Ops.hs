@@ -42,9 +42,9 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+), type (<=), type (<=?))
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Lemmas
-import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Types (Init, unsafeCoerceRefl)
+import Data.Array.Nested.Lemmas
+import Data.Array.Nested.Permutation qualified as Permutation
+import Data.Array.Nested.Types (Init, unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape

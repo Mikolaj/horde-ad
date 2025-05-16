@@ -16,7 +16,7 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
 
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape

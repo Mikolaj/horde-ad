@@ -26,9 +26,9 @@ import Text.Show (showListWith)
 import Text.Show.Functions ()
 import Type.Reflection (typeRep)
 
-import Data.Array.Mixed.Permutation (permInverse)
-import Data.Array.Mixed.Permutation qualified as Permutation
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
+import Data.Array.Nested.Permutation (permInverse)
+import Data.Array.Nested.Permutation qualified as Permutation
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape
