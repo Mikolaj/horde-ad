@@ -10,10 +10,10 @@ import Prelude
 import Data.Type.Equality (gcastWith, (:~:))
 import GHC.TypeLits (KnownNat, Nat, type (+))
 
-import Data.Array.Nested.Mixed.Shape
 import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested.Internal.Lemmas
+import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.TensorKind
@@ -83,6 +83,8 @@ class ConvertTensor (target :: Target) where
             target (TKX2 sh (TKProduct y z))
          -> target (TKProduct (TKX2 sh y) (TKX2 sh z))
 
+  -- | Warning: AST implementations of all nesting/unnesting operations
+  -- are currently unsound and can crash. TODO.
   rnest :: forall n m x.
            (KnownNat m, KnownSTK x)
         => SNat n -> target (TKR2 (n + m) x)

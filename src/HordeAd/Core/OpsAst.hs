@@ -1153,6 +1153,8 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
   sfromX = AstRaw . cAstSFromX knownShS . unAstRaw
   xfromS @_ @sh' @x = AstRaw . AstFromS (knownSTK @(TKX2 sh' x)) . unAstRaw
 
+  -- TODO: these unsafeCoerces are unsound, because internal representations
+  -- of different mixed shapes differ (SKnown vs SUnknown).
   xnestR @sh1' @m @x sh1' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh1sh2' x | SNat <- ssxRank sh1' ->
       withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
