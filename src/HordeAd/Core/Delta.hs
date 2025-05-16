@@ -56,6 +56,7 @@ import Data.Array.Mixed.Permutation qualified as Permutation
 import Data.Array.Mixed.Types (snatPlus, unsafeCoerceRefl)
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Convert
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
@@ -517,7 +518,7 @@ ftkDelta = \case
           (FTKS sh x, STKR nx zx) ->
             case ( sameSTK (ftkToSTK x) zx
                  , testEquality (shsRank sh) nx ) of
-              (Just Refl, Just Refl) -> FTKR (shCastSR sh) x
+              (Just Refl, Just Refl) -> FTKR (shrFromShS sh) x
               _ -> error $ "ftkDelta: wrong tensor kinds for DeltaFromS: "
                            ++ show (ftkToSTK x) ++ " vs " ++ show zx ++ " and "
                            ++ show sh ++ " vs " ++ show nx

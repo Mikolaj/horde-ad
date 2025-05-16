@@ -26,9 +26,10 @@ import Data.Vector.Generic qualified as V
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested.Mixed.Shape
 import Data.Array.Mixed.Types (snatPlus)
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Convert
+import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
@@ -137,7 +138,7 @@ ftkAst t = case t of
           (FTKS sh x, STKR nx zx) ->
             case ( sameSTK (ftkToSTK x) zx
                  , testEquality (shsRank sh) nx ) of
-              (Just Refl, Just Refl) -> FTKR (shCastSR sh) x
+              (Just Refl, Just Refl) -> FTKR (shrFromShS sh) x
               _ -> error $ "ftkAst: wrong tensor kinds for AstFromS: "
                            ++ show (ftkToSTK x) ++ " vs " ++ show zx ++ " and "
                            ++ show sh ++ " vs " ++ show nx

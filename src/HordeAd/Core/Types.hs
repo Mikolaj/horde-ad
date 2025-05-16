@@ -31,7 +31,7 @@ module HordeAd.Core.Types
   , takeShX, dropShX, takeIxX, dropIxX
   , listsTakeLen, listsDropLen, shsDropLen
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
-  , withCastRS, withCastXS, shCastSR, shCastSX
+  , withCastRS, withCastXS, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
   , ixsToShS, ixxToSSX, listsToShS, listrToNonEmpty
   , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
@@ -540,11 +540,6 @@ withCastXS (Nested.SKnown snat@SNat :$% rest') f =
   withCastXS rest' (\rest -> f (snat :$$ rest))
 withCastXS (Nested.SUnknown k :$% rest') f = withSNat k $ \snat ->
   withCastXS rest' (\rest -> f (snat :$$ rest))
-
-shCastSR :: ShS sh -> IShR (Rank sh)
-shCastSR ZSS = ZSR
-shCastSR (snat2 :$$ rest) =
-  sNatValue snat2 :$: shCastSR rest
 
 -- The constraint is erroneously reported as redundant.
 shCastSX :: Rank sh ~ Rank sh' => StaticShX sh' -> ShS sh -> IShX sh'
