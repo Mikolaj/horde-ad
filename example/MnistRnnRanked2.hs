@@ -13,7 +13,6 @@ import GHC.TypeLits (KnownNat, Nat, type (+))
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Ranked.Shape
-import Data.Array.Nested.Shaped.Shape
 
 import HordeAd
 import MnistData

@@ -10,12 +10,10 @@ module MnistCnnShaped2 where
 
 import Prelude
 
-import Data.Type.Equality (gcastWith, (:~:))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
 import GHC.TypeLits (fromSNat, type (*), type (+), type (<=), type Div)
 
-import Data.Array.Mixed.Types (unsafeCoerceRefl)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Shaped.Shape
 

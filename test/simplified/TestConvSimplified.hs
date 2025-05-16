@@ -15,7 +15,6 @@ import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Ranked.Shape
-import Data.Array.Nested.Shaped.Shape
 
 import HordeAd
 import HordeAd.Core.AstEnv

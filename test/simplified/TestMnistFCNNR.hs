@@ -19,7 +19,6 @@ import Test.Tasty.QuickCheck hiding (label, shuffle)
 import Text.Printf
 
 import Data.Array.Nested.Ranked.Shape
-import Data.Array.Nested.Shaped.Shape
 
 import HordeAd
 import HordeAd.Core.Adaptor
