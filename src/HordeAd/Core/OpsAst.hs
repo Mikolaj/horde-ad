@@ -23,13 +23,14 @@ import GHC.TypeLits (OrderingI (..), cmpNat, type (+), type (-), type (<=?))
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested.Permutation qualified as Permutation
-import Data.Array.Nested.Types (Init, snatPlus, unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Convert
 import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (Init, snatPlus, unsafeCoerceRefl)
 
 import HordeAd.AstEngine
 import HordeAd.Core.Ast

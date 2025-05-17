@@ -10,11 +10,12 @@ import Prelude
 import Data.Type.Equality (gcastWith, (:~:))
 import GHC.TypeLits (KnownNat, Nat, type (+))
 
-import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested (MapJust, Replicate, type (++))
+import Data.Array.Nested.Convert
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
