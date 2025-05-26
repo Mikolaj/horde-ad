@@ -74,13 +74,13 @@ import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits
   (KnownNat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
 
-import Data.Array.Nested.Permutation qualified as Permutation
-import Data.Array.Nested.Types (Init, unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (Init, unsafeCoerceRefl)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
@@ -352,7 +352,7 @@ xreplicate0N :: (KnownShX sh, KnownSTK x, BaseTensor target)
 xreplicate0N = txreplicate0N
 
 -- | First index is for outermost dimension; empty index means identity,
--- if index is out of bounds, the result is defined and is @def@.
+-- if index is out of bounds, the result is defined and is @def@, which is @0@.
 -- The same holds for all operations with indexes.
 rindex, (!) :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
             => target (TKR2 (m + n) x) -> IxROf target m -> target (TKR2 n x)
@@ -391,7 +391,7 @@ rgather = trgather
 -- | Build a tensor by collecting tensors of rank @n@ obtained by indexing
 -- in the second argument at the given indexes of length @p@.
 -- The semantics of the operation permits index out of bounds
--- and the result of such indexing is def.
+-- and the result of such indexing is @def@, which is @0@.
 rgather1 :: (KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
          => Int -> target (TKR2 (p + n) x)
          -> (IntOf target -> IxROf target p)

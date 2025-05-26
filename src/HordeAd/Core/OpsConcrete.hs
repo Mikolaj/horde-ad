@@ -28,17 +28,17 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+))
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested.Lemmas
-import Data.Array.Nested.Permutation qualified as Permutation
-import Data.Array.Nested.Types (Init, unsafeCoerceRefl)
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked qualified as Ranked
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (Init, unsafeCoerceRefl)
 import Data.Array.Strided.Orthotope (liftVEltwise1)
 
 import HordeAd.Core.CarriersConcrete
@@ -82,7 +82,7 @@ instance BaseTensor Concrete where
     FTKR _ x ->
       let l = trunravelToList t
           sh = shrTail $ rshape t
-      in foldr (taddTarget knownSTK) (treplTarget 0 (FTKR sh x)) l
+      in foldr (taddTarget knownSTK) (tdefTarget (FTKR sh x)) l
         -- Concrete has a ShareTensor instance, so taddTarget arguments
         -- don't need to be duplicable
   trsum0 @_ @r t = case knownSTK @r of
@@ -159,7 +159,7 @@ instance BaseTensor Concrete where
     FTKS _ x ->
       let l = tsunravelToList t
           sh = shsTail $ sshape t
-      in foldr (taddTarget knownSTK) (treplTarget 0 (FTKS sh x)) l
+      in foldr (taddTarget knownSTK) (tdefTarget (FTKS sh x)) l
   tssum0 @sh @r t | SNat <- shsProduct (knownShS @sh) = case knownSTK @r of
     STKScalar ->  -- optimized
       Concrete . Nested.sscalar . Nested.ssumAllPrim . unConcrete $ t
@@ -197,7 +197,7 @@ instance BaseTensor Concrete where
                                           :~: shp) $
            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn)
                                           :~: shn) $
-           let zero = treplTarget 0 (FTKS shpshn x)
+           let zero = tdefTarget (FTKS shpshn x)
                shm = knownShS @shm
                s = shsSize shm
                g ix =
@@ -220,7 +220,7 @@ instance BaseTensor Concrete where
                                        :~: shp) $
            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn)
                                        :~: shn) $
-           let zero = treplTarget 0 (FTKS shpshn x)
+           let zero = tdefTarget (FTKS shpshn x)
                shm = knownShS @shm
                s = shsSize shm
                g ix =
@@ -239,8 +239,8 @@ instance BaseTensor Concrete where
               $ M.assocs ivs
   tsscatter1 = tscatterZ1S
   -- The semantics of the operation permits index out of bounds
-  -- and the result of such indexing is def.
-  -- TODO: or should it be 0? Also, are bounds checked in the optimized case?
+  -- and the result of such indexing is def, which is 0.
+  -- TODO: are bounds checked in the optimized case?
   -- The same question also elsewhere.
   tsgather @shm @shn @_ @r t f =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
@@ -317,7 +317,7 @@ instance BaseTensor Concrete where
     FTKX _ x ->
       let l = txunravelToList t
           sh = shxTail $ xshape t
-      in foldr (taddTarget knownSTK) (treplTarget 0 (FTKX sh x)) l
+      in foldr (taddTarget knownSTK) (tdefTarget (FTKX sh x)) l
   txsum0 @_ @r t =
    case knownSTK @r of
     STKScalar ->  -- optimized
@@ -361,7 +361,7 @@ instance BaseTensor Concrete where
     gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
     case tftk knownSTK t of
       FTKX _ x@FTKScalar ->  -- optimized
-        let zero = treplTarget 0 (FTKX sh x)
+        let zero = tdefTarget (FTKX sh x)
             shm = shxTakeSSX (Proxy @shn) (xshape t) (knownShX @shm)
             shDropP = shxDropSSX (xshape t) (knownShX @shm)
             s = shxSize shm
@@ -379,7 +379,7 @@ instance BaseTensor Concrete where
            $ map (second $ Concrete . Nested.mfromVector shDropP)
            $ M.assocs ivs
       FTKX _ x | Dict <- eltDictRep (ftkToSTK x) ->
-        let zero = treplTarget 0 (FTKX sh x)
+        let zero = tdefTarget (FTKX sh x)
             shm = shxTakeSSX (Proxy @shn) (xshape t) (knownShX @shm)
             s = shxSize shm
             g ix =
@@ -470,7 +470,7 @@ instance BaseTensor Concrete where
   tprimalPart = id
   tdualPart stk t = DummyDualTarget (tftk stk t)
   tfromPrimal _ t = t
-  tfromDual (DummyDualTarget ftk) = treplTarget 0 ftk
+  tfromDual (DummyDualTarget ftk) = tdefTarget ftk
   tScale _ _ t = t
   -- The code for tvjp and tjvp in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
@@ -628,7 +628,7 @@ oRtmapAccumR
   -> Concrete (BuildTensorKind k ey)
   -> Concrete (TKProduct accy (BuildTensorKind k by))
 oRtmapAccumR k bftk eftk f acc0 es = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (treplTarget 0 bftk))
+  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (tdefTarget bftk))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
@@ -646,7 +646,7 @@ oRtmapAccumL
   -> Concrete (BuildTensorKind k ey)
   -> Concrete (TKProduct accy (BuildTensorKind k by))
 oRtmapAccumL k bftk eftk f acc0 es = case sNatValue k of
-  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (treplTarget 0 bftk))
+  0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (tdefTarget bftk))
   _ ->
     let g a b = let res = f a b
                 in (tproject1 res, tproject2 res)
@@ -804,7 +804,7 @@ tscatterZR :: forall m p n r.
 tscatterZR sh t f
  | Dict <- eltDictRep (knownSTK @r) = case tftk knownSTK t of
   FTKR _ x@FTKScalar ->  -- optimized
-    let zero = treplTarget 0 (FTKR sh x)
+    let zero = tdefTarget (FTKR sh x)
         (shm, shDropP) = splitAt_Shape @m $ rshape t
         s = shrSize shm
         g ix =
@@ -819,7 +819,7 @@ tscatterZR sh t f
        $ map (second $ Concrete . Nested.rfromVector shDropP)
        $ M.assocs ivs
   FTKR _ x | Dict <- showDictRep (ftkToSTK x) ->
-    let zero = treplTarget 0 (FTKR sh x)
+    let zero = tdefTarget (FTKR sh x)
         (shm, _) = splitAt_Shape @m $ rshape t
         s = shrSize shm
         g ix =
@@ -843,7 +843,7 @@ tscatterZ1R :: (KnownSTK r, KnownNat p, KnownNat n)
             -> Concrete (TKR2 (p + n) r)
 tscatterZ1R sh t f = case tftk knownSTK t of
   FTKR _ x ->
-    let zero = treplTarget 0 (FTKR sh x)
+    let zero = tdefTarget (FTKR sh x)
         lt = trunravelToList t
         g i ti = let ix2 = f $ Concrete $ fromIntegral i
                  in if ixInBounds (fmapUnConcrete $ toList ix2) (toList sh)
@@ -886,7 +886,7 @@ tzipWith0NR f =
        (\x y -> Nested.runScalar $ f (Nested.rscalar x) (Nested.rscalar y)))
 
 -- The semantics of the operation permits index out of bounds
--- and the result of such indexing is def.
+-- and the result of such indexing is def, which is 0.
 tgatherZR :: forall m p n r.
              (KnownNat m, KnownNat p, KnownNat n, KnownSTK r)
           => IShR (m + n) -> Concrete (TKR2 (p + n) r)
@@ -1066,7 +1066,7 @@ tscatterZ1S t f = case tftk knownSTK t of
     gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
     let shpshn = knownShS @shp `shsAppend` knownShS @shn
-        zero = treplTarget 0 (FTKS shpshn x)
+        zero = tdefTarget (FTKS shpshn x)
         lt = tsunravelToList t
         g i ti = let ix2 = f $ Concrete $ fromIntegral i
                  in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
@@ -1251,7 +1251,7 @@ tscatterZ1X sh t f =
       withKnownShX (ssxFromShX sh) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
       gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-      let zero = treplTarget 0 (FTKX sh x)
+      let zero = tdefTarget (FTKX sh x)
           lt = txunravelToList t
           g i ti = let ix2 = f $ Concrete $ fromIntegral i
                    in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)

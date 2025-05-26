@@ -481,7 +481,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tprimalPart (D u _) = u
   tdualPart _stk (D _ u') = u'
   tfromPrimal stk t = fromPrimalFTK (tftk stk t) t
-  tfromDual t = dDnotShared (treplTarget 0 (ftkDelta t)) t
+  tfromDual t = dDnotShared (tdefTarget (ftkDelta t)) t
   tScale _stk = dScale
   tgrad @x xftk h =
     let rf :: forall f. ADReady f
