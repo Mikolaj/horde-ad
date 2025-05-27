@@ -72,10 +72,10 @@ forwardPassByInterpretation
   -> AstTensor AstMethodLet FullSpan x
   -> ADVal (AstRaw PrimalSpan) z
 {-# INLINE forwardPassByInterpretation #-}
-forwardPassByInterpretation g envInit astVarPrimal var astVar =
+forwardPassByInterpretation g envInit astVarPrimal var astVar0 =
   let deltaInputs = generateDeltaInputs $ varNameToFTK var
       varInputs = dDnotShared (AstRaw astVarPrimal) deltaInputs
-      ast = g astVar
+      ast = g astVar0
       env = extendEnv var varInputs envInit
   in interpretAstFull env ast
 
@@ -96,10 +96,10 @@ revArtifactFromForwardPass cotangentHandling
   -- IO and bangs and the compound function to fix the numbering of variables
   -- for pretty-printing and prevent sharing the impure values
   -- in tests that reset the impure counters.
-  (!varPrimal, astVarPrimal, var, astVar) <- funToAstRevIO xftk
+  (!varPrimal, astVarPrimal, var, astVar0) <- funToAstRevIO xftk
   -- Evaluate completely after terms constructed, to free memory
   -- before gradientFromDelta allocates new memory and new FFI is started.
-  let !(D primalBody delta) = forwardPass astVarPrimal var astVar
+  let !(D primalBody delta) = forwardPass astVarPrimal var astVar0
   let zftk = ftkAst $ unAstRaw primalBody
       (!varDt, astDt) = funToAst (adFTK zftk) Nothing id
   let oneAtF = treplTarget 1 $ adFTK zftk
@@ -135,9 +135,9 @@ fwdArtifactFromForwardPass
 -- and protect the unsafePerformIO.
 {-# NOINLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass xftk = unsafePerformIO $ do
-  (!varPrimalD, astVarD, varPrimal, astVarPrimal, var, astVar)
+  (!varPrimalD, astVarD, varPrimal, astVarPrimal, var, astVar0)
     <- funToAstFwdIO xftk
-  let !(D primalBody delta) = forwardPass astVarPrimal var astVar
+  let !(D primalBody delta) = forwardPass astVarPrimal var astVar0
   let !derivative = derivativeFromDelta @x delta (adFTK xftk) (AstRaw astVarD)
       !unDerivative = unshareAstTensor $ unAstRaw derivative
       !unPrimal = unshareAstTensor $ unAstRaw primalBody

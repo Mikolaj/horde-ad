@@ -350,12 +350,12 @@ unshareAst memo = \case
     Ast.AstFromS @y2 stkz v ->
       let var = mkAstVarName
                   (ftkAst v) (varNameToBounds varRaw) (varNameToAstVarId varRaw)
-          astVar = Ast.AstFromS @y2 stkz $ Ast.AstVar var
+          astVar0 = Ast.AstFromS @y2 stkz $ Ast.AstVar var
       in if var `DMap.member` memo
-         then (memo, astVar)
+         then (memo, astVar0)
          else let (memo1, !a2) = unshareAst memo v
                     -- DMap is strict, but let's be paranoid
-              in (DMap.insert var a2 memo1, astVar)
+              in (DMap.insert var a2 memo1, astVar0)
     -- The PrimalSpan check ensures there's no need to match for
     -- Ast.AstFromPrimal (Ast.AstFromS).
     _ -> case varNameToFTK varRaw of
@@ -363,28 +363,28 @@ unshareAst memo = \case
         withCastRS sh' $ \(sh :: ShS sh) ->
           let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
                                  (varNameToAstVarId varRaw)
-              astVar = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk) $ Ast.AstVar var
+              astVar0 = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk) $ Ast.AstVar var
           in if var `DMap.member` memo
-             then (memo, astVar)
+             then (memo, astVar0)
              else let (memo1, !a2) = unshareAst memo (Ast.AstSFromR @sh sh a)
-                  in (DMap.insert var a2 memo1, astVar)
+                  in (DMap.insert var a2 memo1, astVar0)
       ftk@(FTKX @_ @x sh' x) ->
         withCastXS sh' $ \(sh :: ShS sh) ->
           let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
                                  (varNameToAstVarId varRaw)
-              astVar = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk) $ Ast.AstVar var
+              astVar0 = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk) $ Ast.AstVar var
           in if var `DMap.member` memo
-             then (memo, astVar)
+             then (memo, astVar0)
              else let (memo1, !a2) = unshareAst memo (Ast.AstSFromX @sh sh a)
-                  in (DMap.insert var a2 memo1, astVar)
+                  in (DMap.insert var a2 memo1, astVar0)
       -- it maybe not be worth it to recursively convert product
       -- so let's not do that until profiling shows we need it
       _ -> let var = varRaw
-               astVar = Ast.AstVar var
+               astVar0 = Ast.AstVar var
            in if var `DMap.member` memo
-              then (memo, astVar)
+              then (memo, astVar0)
               else let (memo1, !a2) = unshareAst memo a
-                   in (DMap.insert var a2 memo1, astVar)
+                   in (DMap.insert var a2 memo1, astVar0)
   Ast.AstShare{} -> error "unshareAst: AstShare not in PrimalSpan"
   Ast.AstToShare v -> (memo, v)  -- nothing to unshare in this subtree
 
