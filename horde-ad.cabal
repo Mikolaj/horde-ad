@@ -50,8 +50,7 @@ build-type:         Simple
 extra-doc-files:    README.md,
                     CHANGELOG.md
 
-tested-with:        GHC ==9.10.2
---                               || ==9.12.3
+tested-with:        GHC ==9.10.2 || ==9.12.3
 
 bug-reports:        https://github.com/Mikolaj/horde-ad/issues
 
@@ -166,7 +165,7 @@ library horde-ad-simplified
     build-depends:
         assert-failure < 0.1.4
       , base >= 4.20.1 && < 4.21
-          -- GHC 9.10.2 only; GHC 9.12 fails currently: https://gitlab.haskell.org/ghc/ghc/-/issues/25964
+          -- backport of https://gitlab.haskell.org/ghc/ghc/-/merge_requests/13498 is required for GHC 9.12; TODO: adjust base bounds once 9.12.3 is out
       , Boolean < 0.3
       , containers >= 0.6 && < 0.9
       , deepseq < 1.7
