@@ -14,7 +14,7 @@ package statistics
 source-repository-package
     type: git
     location: https://github.com/sheaf/ghc-tcplugins-extra
-    tag: 8de05916f8b905f6d2c99ddf10dbfa1add1a416f
+    tag: e24e0ceb191b4fc620f8befbd5f52ec895091b3c
 
 source-repository-package
     type: git
