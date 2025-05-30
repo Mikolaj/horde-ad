@@ -434,6 +434,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   AstSFromX :: forall sh sh' x ms s. Rank sh ~ Rank sh'
             => ShS sh -> AstTensor ms s (TKX2 sh' x)
             -> AstTensor ms s (TKS2 sh x)
+  AstCastCastable :: TKCastable a b
+                  -> SingletonTK a -> AstTensor ms s a -> SingletonTK b
+                  -> AstTensor ms s b
 
   -- Backend-specific primitives
   AstSum0S :: AstTensor ms s (TKS2 sh x)

@@ -4,7 +4,7 @@
 -- and lemmas associated with the singletons.
 module HordeAd.Core.TensorKind
   ( -- * Tensor kind singletons
-    SingletonTK(..), KnownSTK(..)
+    SingletonTK(..), KnownSTK(..), TKCastable(..)
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
@@ -14,17 +14,19 @@ module HordeAd.Core.TensorKind
   , DummyDualTarget(..)
   ) where
 
-import Prelude
+import Prelude hiding ((.))
 
+import Control.Category
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import GHC.Exts (withDict)
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat)
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested.Types (unsafeCoerceRefl)
+import Data.Array.Nested (MapJust, Replicate)
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.Types
 
@@ -178,6 +180,36 @@ widthSTK stk = case stk of
   STKS{} -> 1
   STKX{} -> 1
   STKProduct stk1 stk2 -> widthSTK stk1 + widthSTK stk2
+
+type role TKCastable nominal nominal
+data TKCastable (a :: TK) (b :: TK) where
+  CastId  :: TKCastable a a
+  CastCmp :: TKCastable b c -> TKCastable a b -> TKCastable a c
+
+  CastRX  :: TKCastable a b -> TKCastable (TKR2 n a)
+                                          (TKX2 (Replicate n Nothing) b)
+  CastSX  :: TKCastable a b -> TKCastable (TKS2 sh a) (TKX2 (MapJust sh) b)
+
+  CastXR  :: SingletonTK b -> TKCastable a b -> TKCastable (TKX2 sh a)
+                                                           (TKR2 (Rank sh) b)
+  CastXS  :: TKCastable a b -> TKCastable (TKX2 (MapJust sh) a) (TKS2 sh b)
+  CastXS' :: Rank sh ~ Rank sh'
+          => SingletonTK (TKS2 sh' b)
+          -> TKCastable a b -> TKCastable (TKX2 sh a) (TKS2 sh' b)
+
+  CastRR  :: TKCastable a b -> TKCastable (TKR2 n a) (TKR2 n b)
+  CastSS  :: TKCastable a b -> TKCastable (TKS2 sh a) (TKS2 sh b)
+  CastXX  :: TKCastable a b -> TKCastable (TKX2 sh a) (TKX2 sh b)
+
+  CastXX' :: Rank sh ~ Rank sh'
+          => SingletonTK (TKX2 sh' b)
+          -> TKCastable a b -> TKCastable (TKX2 sh a) (TKX2 sh' b)
+
+deriving instance Show (TKCastable a b)
+
+instance Category TKCastable where
+  id = CastId
+  (.) = CastCmp
 
 
 -- * Full shape tensor kind quasi-singletons

@@ -568,6 +568,9 @@ instance ConvertTensor Concrete where
     Concrete . Nested.rcastToMixed (knownShX @sh) . unConcrete
   xfromS @_ @sh' @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.scastToMixed (knownShX @sh') . unConcrete
+  tcastCastable c astk a bstk | Dict <- eltDictRep astk
+                              , Dict <- eltDictRep bstk =
+    Concrete $ Nested.castCastable (interpretTKCastable c) (unConcrete a)
 
   xnestR @sh1 @m @x sh | Dict <- eltDictRep (knownSTK @x)
                        , Refl <- lemRankReplicate (SNat @m) =
@@ -604,6 +607,25 @@ instance ConvertTensor Concrete where
 
   tpairConv = tpair
   tunpairConv = tunpair
+
+interpretTKCastable :: TKCastable a b
+                    -> Nested.Castable (RepConcrete a) (RepConcrete b)
+interpretTKCastable c0 = case c0 of
+  CastId -> Nested.CastId
+  CastCmp c1 c2 -> Nested.CastCmp (interpretTKCastable c1)
+                                  (interpretTKCastable c2)
+  CastRX c -> Nested.CastRX (interpretTKCastable c)
+  CastSX c -> Nested.CastSX (interpretTKCastable c)
+  CastXR stk c | Dict <- eltDictRep stk ->
+    Nested.CastXR (interpretTKCastable c)
+  CastXS c -> Nested.CastXS (interpretTKCastable c)
+  CastXS' (STKS sh' stk) c | Dict <- eltDictRep stk ->
+    Nested.CastXS' sh' (interpretTKCastable c)
+  CastRR c -> Nested.CastRR (interpretTKCastable c)
+  CastSS c -> Nested.CastSS (interpretTKCastable c)
+  CastXX c -> Nested.CastXX (interpretTKCastable c)
+  CastXX' (STKX ssx stk) c | Dict <- eltDictRep stk ->
+    Nested.CastXX' ssx (interpretTKCastable c)
 
 
 -- * MapAccum internal definitions
