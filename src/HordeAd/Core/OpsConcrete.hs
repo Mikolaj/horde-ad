@@ -568,8 +568,8 @@ instance ConvertTensor Concrete where
     Concrete . Nested.rcastToMixed (knownShX @sh) . unConcrete
   xfromS @_ @sh' @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.scastToMixed (knownShX @sh') . unConcrete
-  tcastCastable c astk a bstk | Dict <- eltDictRep astk
-                              , Dict <- eltDictRep bstk =
+  tcastCastable c astk bftk a | Dict <- eltDictRep astk
+                              , Dict <- eltDictRep (ftkToSTK bftk) =
     Concrete $ Nested.castCastable (interpretTKCastable c) (unConcrete a)
 
   xnestR @sh1 @m @x sh | Dict <- eltDictRep (knownSTK @x)

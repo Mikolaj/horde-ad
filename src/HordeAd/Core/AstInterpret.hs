@@ -365,8 +365,8 @@ interpretAst !env = \case
       withKnownShS sh $
       withKnownSTK x $
       sfromX $ interpretAst env v
-  AstCastCastable c astk a bstk ->
-    tcastCastable c astk (interpretAst env a) bstk
+  AstCastCastable c astk bftk a ->
+    tcastCastable c astk bftk (interpretAst env a)
 
   AstSum0S v -> case ftkToSTK (ftkAst v) of
     STKS sh x ->

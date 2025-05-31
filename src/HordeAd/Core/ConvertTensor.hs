@@ -64,7 +64,7 @@ class ConvertTensor (target :: Target) where
   xfromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownSTK x)
          => target (TKS2 sh x) -> target (TKX2 sh' x)
   xfromS = tfromS knownSTK
-  tcastCastable :: TKCastable a b -> SingletonTK a -> target a -> SingletonTK b
+  tcastCastable :: TKCastable a b -> SingletonTK a -> FullShapeTK b -> target a
                 -> target b
 
   rzip :: forall y z n.

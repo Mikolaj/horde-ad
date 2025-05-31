@@ -15,12 +15,12 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
 
-import Data.Array.Nested.Permutation qualified as Permutation
-import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
@@ -560,6 +560,9 @@ instance ( ADReadyNoLet target, ShareTensor target
   sfromK (D t d) = dDnotShared (sfromK t) (DeltaSFromK d)
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR knownShS u')
   sfromX (D u u') = dDnotShared (sfromX u) (dSFromX knownShS u')
+  tcastCastable c astk bftk (D u u') =
+    dDnotShared (tcastCastable c astk bftk u)
+                (undefined) --DeltaCastCastable c astk bftk u')
 
   xnestR sh1 (D u u') = dD (xnestR sh1 u) (DeltaXNestR sh1 SNat u')
   xnestS sh1 (D u u') = dD (xnestS sh1 u) (DeltaXNestS sh1 knownShS u')

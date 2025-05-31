@@ -1153,6 +1153,8 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
   sfromR = AstRaw . cAstSFromR knownShS . unAstRaw
   sfromX = AstRaw . cAstSFromX knownShS . unAstRaw
   xfromS @_ @sh' @x = AstRaw . AstFromS (knownSTK @(TKX2 sh' x)) . unAstRaw
+  tcastCastable c astk bftk =
+    AstRaw . AstCastCastable c astk bftk . unAstRaw
 
   -- TODO: these unsafeCoerces are unsound, because internal representations
   -- of different mixed shapes differ (SKnown vs SUnknown).
@@ -1432,6 +1434,8 @@ instance AstSpan s => ConvertTensor (AstNoVectorize s) where
   sfromK = AstNoVectorize . sfromK . unAstNoVectorize
   sfromR = AstNoVectorize . sfromR . unAstNoVectorize
   sfromX = AstNoVectorize . sfromX . unAstNoVectorize
+  tcastCastable c astk bftk =
+    AstNoVectorize . AstCastCastable c astk bftk . unAstNoVectorize
 
   xnestR sh = AstNoVectorize . xnestR sh . unAstNoVectorize
   xnestS sh = AstNoVectorize . xnestS sh . unAstNoVectorize
@@ -1685,6 +1689,8 @@ instance AstSpan s => ConvertTensor (AstNoSimplify s) where
   sfromK = wAstNoSimplify . sfromK . wunAstNoSimplify
   sfromR = wAstNoSimplify . sfromR . wunAstNoSimplify
   sfromX = wAstNoSimplify . sfromX . wunAstNoSimplify
+  tcastCastable c astk bftk =
+    wAstNoSimplify . tcastCastable c astk bftk . wunAstNoSimplify
 
   xnestR sh = wAstNoSimplify . xnestR sh . wunAstNoSimplify
   xnestS sh = wAstNoSimplify . xnestS sh . wunAstNoSimplify

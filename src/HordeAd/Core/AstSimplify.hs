@@ -969,6 +969,7 @@ astPrimalPart t = case t of
   Ast.AstSFromK{} -> Ast.AstPrimalPart t
   Ast.AstSFromR{} -> Ast.AstPrimalPart t
   Ast.AstSFromX{} -> Ast.AstPrimalPart t
+  Ast.AstCastCastable{} -> Ast.AstPrimalPart t
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstSum0S{} -> Ast.AstPrimalPart t
@@ -1065,6 +1066,7 @@ astDualPart t = case t of
   Ast.AstSFromK{} -> Ast.AstDualPart t
   Ast.AstSFromR{} -> Ast.AstDualPart t
   Ast.AstSFromX{} -> Ast.AstDualPart t
+  Ast.AstCastCastable{} -> Ast.AstDualPart t
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstSum0S{} -> Ast.AstDualPart t
@@ -1532,6 +1534,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   -- These conversions need to stay down, so this is NF, see vectorization.
   Ast.AstSFromR{} -> Ast.AstIndexS shn v0 ix
   Ast.AstSFromX{} -> Ast.AstIndexS shn v0 ix
+  Ast.AstCastCastable{} -> Ast.AstIndexS shn v0 ix
 
   -- These should not appear here unless via wacky tests.
   Ast.AstDot1InS{} -> Ast.AstIndexS shn v0 ix
@@ -2577,6 +2580,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
     -- These conversions need to stay down.
     Ast.AstSFromR{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstSFromX{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+    Ast.AstCastCastable{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
 
     -- These should not appear here unless via wacky tests.
     Ast.AstDot1InS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
@@ -3103,6 +3107,7 @@ astSFromR sh a0 = case a0 of
       _ -> error $ "astSFromR: different tensor kinds in AstSFromR(AstFromS): "
                    ++ show (ftkAst v) ++ " vs "
                    ++ show (FTKS sh x)
+  Ast.AstCastCastable{} -> Ast.AstSFromR sh a0
 
 -- TODO
 astSFromX :: forall sh sh' s r. Rank sh ~ Rank sh'
@@ -3262,6 +3267,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   sfromK = astSFromK
   sfromR = astSFromR knownShS
   sfromX = astSFromX knownShS
+  tcastCastable = Ast.AstCastCastable
 
   -- TODO: these unsafeCoerces are unsound, because internal representations
   -- of different mixed shapes differ (SKnown vs SUnknown).
@@ -3718,6 +3724,8 @@ substitute1Ast i var = subst where
   Ast.AstSFromK u -> astSFromK <$> subst u
   Ast.AstSFromR sh v -> astSFromR sh <$> subst v
   Ast.AstSFromX sh v -> astSFromX sh <$> subst v
+  Ast.AstCastCastable c astk bftk v ->
+    Ast.AstCastCastable c astk bftk <$> subst v
 
   Ast.AstSum0S v -> astSum0S <$> subst v
   Ast.AstDot0S u v ->

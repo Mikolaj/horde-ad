@@ -4,7 +4,7 @@
 -- and lemmas associated with the singletons.
 module HordeAd.Core.TensorKind
   ( -- * Tensor kind singletons
-    SingletonTK(..), KnownSTK(..), TKCastable(..)
+    SingletonTK(..), KnownSTK(..), TKCastable(..), castSTK
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
@@ -27,6 +27,7 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
+import Data.Array.Nested.Convert (shxFromShS)
 
 import HordeAd.Core.Types
 
@@ -186,8 +187,8 @@ data TKCastable (a :: TK) (b :: TK) where
   CastId  :: TKCastable a a
   CastCmp :: TKCastable b c -> TKCastable a b -> TKCastable a c
 
-  CastRX  :: TKCastable a b -> TKCastable (TKR2 n a)
-                                          (TKX2 (Replicate n Nothing) b)
+  CastRX  :: TKCastable a b
+          -> TKCastable (TKR2 n a) (TKX2 (Replicate n Nothing) b)
   CastSX  :: TKCastable a b -> TKCastable (TKS2 sh a) (TKX2 (MapJust sh) b)
 
   CastXR  :: SingletonTK b -> TKCastable a b -> TKCastable (TKX2 sh a)
@@ -210,6 +211,20 @@ deriving instance Show (TKCastable a b)
 instance Category TKCastable where
   id = CastId
   (.) = CastCmp
+
+castSTK :: TKCastable a b -> SingletonTK a -> SingletonTK b
+castSTK = \cases
+  CastId astk -> astk
+  (CastCmp c1 c2) astk -> castSTK c1 (castSTK c2 astk)
+  (CastRX c) (STKR n a) -> STKX (ssxReplicate n) (castSTK c a)
+  (CastSX c) (STKS sh a) -> STKX (ssxFromShX $ shxFromShS sh) (castSTK c a)
+  (CastXR _stk c) (STKX ssx a) -> STKR (ssxRank ssx) (castSTK c a)
+  (CastXS c) (STKX ssx a) -> STKS (shsFromStaticShX ssx) (castSTK c a)
+  (CastXS' (STKS sh _x) c) (STKX _ssx2 a) -> STKS sh (castSTK c a)
+  (CastRR c) (STKR n a) -> STKR n (castSTK c a)
+  (CastSS c) (STKS sh a) -> STKS sh (castSTK c a)
+  (CastXX c) (STKX ssx a) -> STKX ssx (castSTK c a)
+  (CastXX' (STKX ssx _x) c) (STKX _ssx2 a) -> STKX ssx (castSTK c a)
 
 
 -- * Full shape tensor kind quasi-singletons

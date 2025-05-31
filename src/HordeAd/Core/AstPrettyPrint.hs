@@ -15,8 +15,8 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 
-import Data.Array.Nested.Permutation (Perm (..), permToList)
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Permutation (Perm (..), permToList)
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
@@ -452,6 +452,8 @@ printAst cfg d = \case
   AstSFromK t -> printPrefixOp printAst cfg d "sfromK" [t]
   AstSFromR _ v -> printPrefixOp printAst cfg d "sfromR" [v]
   AstSFromX _ v -> printPrefixOp printAst cfg d "sfromX" [v]
+  AstCastCastable c _astk _bftk v ->
+    printPrefixOp printAst cfg d ("tcastCastable " ++ show c) [v]
 
   AstSum0S v ->
     printPrefixOp printAst cfg d "ssum0" [v]

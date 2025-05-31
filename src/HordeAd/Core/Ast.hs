@@ -435,7 +435,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
             => ShS sh -> AstTensor ms s (TKX2 sh' x)
             -> AstTensor ms s (TKS2 sh x)
   AstCastCastable :: TKCastable a b
-                  -> SingletonTK a -> AstTensor ms s a -> SingletonTK b
+                  -> SingletonTK a -> FullShapeTK b -> AstTensor ms s a
                   -> AstTensor ms s b
 
   -- Backend-specific primitives

@@ -22,12 +22,13 @@ import GHC.TypeLits (type (+), type (<=?))
 import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Unsafe (unsafePerformIO)
 
-import Data.Array.Nested.Permutation qualified as Permutation
-import Data.Array.Nested.Types (Tail, unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (Tail, unsafeCoerceRefl)
 
 import HordeAd.AstEngine
 import HordeAd.Core.Ast (AstTensor)
@@ -325,11 +326,36 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
       astSFromR (snat :$$ sh) $ build1V snat (var, v)
     Ast.AstSFromX sh v -> traceRule $
       astSFromX (snat :$$ sh) $ build1V snat (var, v)
+    Ast.AstCastCastable c astk bftk v -> traceRule $
+      Ast.AstCastCastable (vectorizeTKCastable snat astk c) (buildSTK snat astk) (buildFTK snat bftk)
+      $ build1V snat (var, v)
 
     Ast.AstSum0S{} -> error "build1V: term not accessible from user API"
     Ast.AstDot0S{} -> error "build1V: term not accessible from user API"
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatmul2S{} -> error "build1V: term not accessible from user API"
+
+vectorizeTKCastable :: SNat k -> SingletonTK a
+                    -> TKCastable a b
+                    -> TKCastable (BuildTensorKind k a) (BuildTensorKind k b)
+vectorizeTKCastable k astk c0 = case c0 of
+  CastId -> CastId
+  CastCmp c1 c2 ->
+    CastCmp (vectorizeTKCastable k (castSTK c2 astk) c1)
+            (vectorizeTKCastable k astk c2)
+  CastRX @_ @_ @n c | STKX @sh ssx xstk <- castSTK c0 astk
+                    , Refl <- lemRankReplicate (Proxy @(1 + n)) ->
+    -- TODO: why not deduced?
+    gcastWith (unsafeCoerceRefl :: Rank sh :~: n) $
+    CastCmp (CastXX' (STKX (SKnown k :!% ssx) xstk) CastId) (CastRX c)
+  CastSX c -> CastSX c
+  CastXR stk c -> CastXR stk c
+  CastXS c -> CastXS c
+  CastXS' stk c -> CastXS' (buildSTK k stk) c
+  CastRR c -> CastRR c
+  CastSS c -> CastSS c
+  CastXX c -> CastXX c
+  CastXX' stk c -> CastXX' (buildSTK k stk) c
 
 -- This refreshes an index variable in a list of index expressions.
 intBindingRefreshS

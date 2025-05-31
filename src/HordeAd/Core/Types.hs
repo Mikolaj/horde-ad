@@ -30,6 +30,7 @@ module HordeAd.Core.Types
   , splitAt_SizedS, dropIxS, takeShS, dropShS
   , takeShX, dropShX, takeIxX, dropIxX
   , listsTakeLen, listsDropLen, shsDropLen
+  , shsFromStaticShX
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
   , withCastRS, withCastXS, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
@@ -51,7 +52,7 @@ import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List (dropWhileEnd, sort)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Equality (castWith, gcastWith, (:~:) (Refl))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
@@ -72,7 +73,7 @@ import System.Random
 import Type.Reflection (Typeable)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (type (++))
+import Data.Array.Nested (MapJust, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
@@ -80,7 +81,8 @@ import Data.Array.Nested.Permutation (DropLen, PermR, TakeLen)
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (Dict (..), Tail, fromSNat', unsafeCoerceRefl)
+import Data.Array.Nested.Types
+  (Dict (..), Tail, fromSNat', subst1, unsafeCoerceRefl)
 import Data.Array.Strided.Orthotope (NumElt (..), fromO, toO)
 
 -- * Definitions to help express and manipulate type-level natural numbers
@@ -818,6 +820,19 @@ listsDropLen (_ ::$ _) ZS = error "listsDropLen: list too short"
 
 shsDropLen :: Permutation.Perm is -> ShS sh -> ShS (DropLen is sh)
 shsDropLen = coerce (listsDropLenPerm @SNat)
+
+shsFromStaticShX :: forall sh. StaticShX (MapJust sh) -> ShS sh
+shsFromStaticShX ZKX = castWith (subst1 (unsafeCoerceRefl :: '[] :~: sh)) ZSS
+shsFromStaticShX (SKnown n@SNat :!% (idx :: StaticShX mjshT)) =
+  castWith (subst1 (lem Refl)) $
+    n :$$ shsFromStaticShX @(Tail sh) (castWith (subst1 (unsafeCoerceRefl :: mjshT :~: MapJust (Tail sh)))
+                                   idx)
+  where
+    lem :: forall sh1 sh' n.
+           Just n : sh1 :~: MapJust sh'
+        -> n : Tail sh' :~: sh'
+    lem Refl = unsafeCoerceRefl
+shsFromStaticShX (SUnknown _ :!% _) = error "impossible"
 
 -- This is only needed as a workaround for other ops not provided.
 

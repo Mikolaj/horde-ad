@@ -26,11 +26,11 @@ import Data.Vector.Generic qualified as V
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested.Types (snatPlus)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (snatPlus)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.TensorKind
@@ -157,6 +157,7 @@ ftkAst t = case t of
     FTKR _ x -> FTKS sh x
   AstSFromX sh v -> case ftkAst v of
     FTKX _ x -> FTKS sh x
+  AstCastCastable _c _astk bftk _ -> bftk
 
   AstSum0S v ->  case ftkAst v of
     FTKS _ x -> FTKS ZSS x
@@ -251,6 +252,7 @@ varInAst var = \case
   AstSFromK t -> varInAst var t
   AstSFromR _ v -> varInAst var v
   AstSFromX _ v -> varInAst var v
+  AstCastCastable _ _ _ v -> varInAst var v
 
   AstSum0S v -> varInAst var v
   AstDot0S u v -> varInAst var u || varInAst var v
@@ -368,6 +370,7 @@ astIsSmallN n t0 = case t0 of
   AstSFromK v -> astIsSmallN (n - 1) v
   AstSFromR _ v -> astIsSmallN (n - 1) v
   AstSFromX _ v -> astIsSmallN (n - 1) v
+  AstCastCastable _ _ _ v -> astIsSmallN (n - 1) v
 
   _ -> 0
 
