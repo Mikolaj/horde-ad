@@ -52,14 +52,14 @@ import GHC.TypeLits (type (+), type (<=))
 import Text.Show.Functions ()
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested.Permutation qualified as Permutation
-import Data.Array.Nested.Types (snatPlus, unsafeCoerceRefl)
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
 import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (snatPlus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
@@ -360,6 +360,9 @@ data Delta :: Target -> Target where
   DeltaSFromX :: forall sh sh' r target. Rank sh ~ Rank sh'
               => ShS sh -> Delta target (TKX2 sh' r)
               -> Delta target (TKS2 sh r)
+  DeltaCastCastable :: TKCastable a b
+                    -> SingletonTK a -> FullShapeTK b -> Delta target a
+                    -> Delta target b
 
   DeltaXNestR :: StaticShX sh1 -> SNat m
               -> Delta target (TKX2 (sh1 ++ Replicate m Nothing) x)
@@ -536,6 +539,7 @@ ftkDelta = \case
     FTKR _ x -> FTKS sh x
   DeltaSFromX sh d -> case ftkDelta d of
     FTKX _ x -> FTKS sh x
+  DeltaCastCastable _ _ bftk _ -> bftk
 
   DeltaXNestR sh1 (SNat @m) d -> case ftkDelta d of
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @(Replicate m Nothing)) sh sh1)

@@ -28,6 +28,7 @@ import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (permInverse)
 import Data.Array.Nested.Permutation qualified as Permutation
@@ -774,6 +775,12 @@ evalRevSame !s !c = \case
       withKnownShS sh $
       withKnownShX (ssxFromShX sh2) $
       evalRevSame s (xfromS c) d
+  DeltaCastCastable @a c1 astk bftk d -> case ftkDelta d of
+    aftk ->
+      -- This is implied by the form of c1.
+      gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
+      evalRevSame
+        s (tcastCastable (transposeTKCastable astk c1) (ftkToSTK bftk) aftk c) d
 
   DeltaXNestR sh1 SNat d -> case ftkDelta d of
     FTKX _ x ->
@@ -809,6 +816,29 @@ evalRevSame !s !c = \case
 
   d -> evalRevFTK s c d
     -- the remaining constructors are already handled in evalRevFTK
+
+transposeTKCastable :: SingletonTK a -> TKCastable a b -> TKCastable b a
+transposeTKCastable astk c0 = case c0 of
+  CastId -> CastId
+  CastCmp c1 c2 ->
+    CastCmp (transposeTKCastable astk c2)
+            (transposeTKCastable (castSTK c2 astk) c1)
+  CastRX c | STKR @n _ x <- astk
+           , Refl <- lemRankReplicate (Proxy @n) ->
+    CastXR x (transposeTKCastable x c)
+  CastSX c | STKS _ x <- astk -> CastXS (transposeTKCastable x c)
+  CastXR _stk c | STKX @sh ssx x <- astk
+                , Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
+    CastCmp (CastXX' (STKX ssx x) CastId) (CastRX (transposeTKCastable x c))
+  CastXS c | STKX _ x <- astk -> CastSX (transposeTKCastable x c)
+  CastXS' (STKS sh _) c | STKX ssx x <- astk
+                        , Refl <- lemRankMapJust sh ->
+    CastCmp (CastXX' (STKX ssx x) CastId) (CastSX (transposeTKCastable x c))
+  CastRR c | STKR _ x <- astk -> CastRR (transposeTKCastable x c)
+  CastSS c | STKS _ x <- astk -> CastSS (transposeTKCastable x c)
+  CastXX c | STKX _ x <- astk -> CastXX (transposeTKCastable x c)
+  CastXX' _stk c | STKX _ x <- astk ->
+    CastXX' astk (transposeTKCastable x c)
 
 evalRevFromnMap :: forall target. (ADReadyNoLet target, ShareTensor target)
                 => EvalState target -> EvalState target
@@ -1188,6 +1218,10 @@ evalFwdSame params s = \case
       withKnownSTK (ftkToSTK x) $
       withKnownShS sh $
       second sfromX $ evalFwdSame params s d
+  DeltaCastCastable @a c1 astk bftk d ->
+    -- This is implied by the form of c1.
+    gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
+    second (tcastCastable c1 astk bftk) $ evalFwdSame params s d
 
   DeltaXNestR sh1 SNat d -> case ftkDelta d of
     FTKX _ x ->
