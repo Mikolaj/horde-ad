@@ -86,8 +86,6 @@ class ConvertTensor (target :: Target) where
             target (TKX2 sh (TKProduct y z))
          -> target (TKProduct (TKX2 sh y) (TKX2 sh z))
 
-  -- | Warning: AST implementations of all nesting/unnesting operations
-  -- are currently unsound and can crash. TODO.
   rnest :: forall n m x.
            (KnownNat m, KnownSTK x)
         => SNat n -> target (TKR2 (n + m) x)
