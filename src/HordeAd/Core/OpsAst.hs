@@ -1218,7 +1218,8 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
                        :~: sh1sh2) $
          gcastWith (unsafeCoerceRefl :: Rank (Take (Rank sh1') sh1sh2)
                                         :~: Rank sh1') $
-         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1') sh1sh2) :~: m) $
+         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1') sh1sh2)
+                                        :~: Rank (Drop (Rank sh1') sh1sh2')) $
          (AstCastCastable
             (CastCmp
                (CastXX' (STKX sh1' (STKX sh2' (ftkToSTK x))) CastId)
