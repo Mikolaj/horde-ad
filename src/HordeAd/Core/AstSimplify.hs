@@ -3272,7 +3272,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   -- TODO: these unsafeCoerces are unsound, because internal representations
   -- of different mixed shapes differ (SKnown vs SUnknown).
   xnestR @sh1' @m @x sh1' a = case ftkAst a of
-    FTKX sh1sh2' x | SNat <- ssxRank sh1' ->
+    FTKX sh1sh2' _x | SNat <- ssxRank sh1' ->
       withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
         withKnownShS sh1sh2 $
         gcastWith (unsafeCoerceRefl
@@ -3280,11 +3280,10 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                       :~: sh1sh2) $
         (unsafeCoerce
            :: AstTensor AstMethodLet s
-                (TKX2 sh1' (TKS2 (Drop (Rank sh1') sh1sh2) x))
-           -> AstTensor AstMethodLet s (TKX2 sh1' (TKR2 m x)))
-        $ astFromS @(TKS2 (Take (Rank sh1') sh1sh2)
-                          (TKS2 (Drop (Rank sh1') sh1sh2) x))
-                   (STKX sh1' (STKS (dropShS @(Rank sh1') sh1sh2) (ftkToSTK x)))
+                (TKS2 (Take (Rank sh1') sh1sh2)
+                      (TKS2 (Drop (Rank sh1') sh1sh2) x))
+           -> AstTensor AstMethodLet s
+                (TKX2 sh1' (TKR2 m x)))
         $ astNestS (takeShS @(Rank sh1') sh1sh2) (dropShS @(Rank sh1') sh1sh2)
         $ astSFromX @sh1sh2 sh1sh2 a
   xnestS @sh1' @sh2 @x sh1' a = case ftkAst a of
@@ -3299,7 +3298,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
         $ astNestS @_ @sh2 (takeShS @(Rank sh1') sh1sh2) knownShS
         $ astSFromX @sh1sh2 sh1sh2 a
   xnest @sh1' @sh2' @x sh1' a = case ftkAst a of
-    FTKX sh1sh2' x | SNat <- ssxRank sh1' ->
+    FTKX sh1sh2' _x | SNat <- ssxRank sh1' ->
       withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
         withKnownShS sh1sh2 $
         gcastWith (unsafeCoerceRefl
@@ -3307,11 +3306,10 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                       :~: sh1sh2) $
         (unsafeCoerce
            :: AstTensor AstMethodLet s
-                (TKX2 sh1' (TKS2 (Drop (Rank sh1') sh1sh2) x))
-           -> AstTensor AstMethodLet s (TKX2 sh1' (TKX2 sh2' x)))
-        $ astFromS @(TKS2 (Take (Rank sh1') sh1sh2)
-                          (TKS2 (Drop (Rank sh1') sh1sh2) x))
-                   (STKX sh1' (STKS (dropShS @(Rank sh1') sh1sh2) (ftkToSTK x)))
+                (TKS2 (Take (Rank sh1') sh1sh2)
+                      (TKS2 (Drop (Rank sh1') sh1sh2) x))
+           -> AstTensor AstMethodLet s
+                (TKX2 sh1' (TKX2 sh2' x)))
         $ astNestS (takeShS @(Rank sh1') sh1sh2) (dropShS @(Rank sh1') sh1sh2)
         $ astSFromX @sh1sh2 sh1sh2 a
   xunNestR @sh1' @m @x a = case ftkAst a of
