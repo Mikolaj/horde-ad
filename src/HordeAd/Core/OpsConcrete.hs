@@ -577,14 +577,14 @@ instance ConvertTensor Concrete where
     Concrete
     . Nested.castCastable
         @(Nested.Mixed sh1 (Nested.Mixed (Replicate m Nothing) (RepConcrete x)))
-        (Nested.CastXX (Nested.CastXR Nested.CastId))
+        (Nested.CastXX Nested.CastXR)
     . Nested.mnest sh
     . unConcrete
   xnestS @sh1 @sh2 @x sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete
     . Nested.castCastable
         @(Nested.Mixed sh1 (Nested.Mixed (MapJust sh2) (RepConcrete x)))
-        (Nested.CastXX (Nested.CastXS Nested.CastId))
+        (Nested.CastXX Nested.CastXS)
     . Nested.mnest sh
     . unConcrete
   xnest @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
@@ -594,14 +594,14 @@ instance ConvertTensor Concrete where
     . Nested.munNest
     . Nested.castCastable
         @(Nested.Mixed sh1 (Nested.Ranked m (RepConcrete x)))
-        (Nested.CastXX (Nested.CastRX Nested.CastId))
+        (Nested.CastXX Nested.CastRX)
     . unConcrete
   xunNestS @sh1 @sh2 @x | Dict <- eltDictRep (knownSTK @x) =
     Concrete
     . Nested.munNest
     . Nested.castCastable
         @(Nested.Mixed sh1 (Nested.Shaped sh2 (RepConcrete x)))
-        (Nested.CastXX (Nested.CastSX Nested.CastId))
+        (Nested.CastXX Nested.CastSX)
     . unConcrete
   xunNest = Concrete . Nested.munNest . unConcrete
 
@@ -614,18 +614,19 @@ interpretTKCastable c0 = case c0 of
   CastId -> Nested.CastId
   CastCmp c1 c2 -> Nested.CastCmp (interpretTKCastable c1)
                                   (interpretTKCastable c2)
-  CastRX c -> Nested.CastRX (interpretTKCastable c)
-  CastSX c -> Nested.CastSX (interpretTKCastable c)
-  CastXR stk c | Dict <- eltDictRep stk ->
-    Nested.CastXR (interpretTKCastable c)
-  CastXS c -> Nested.CastXS (interpretTKCastable c)
-  CastXS' (STKS sh' stk) c | Dict <- eltDictRep stk ->
-    Nested.CastXS' sh' (interpretTKCastable c)
+  CastRX -> Nested.CastRX
+  CastSX -> Nested.CastSX
+  CastXR stk | Dict <- eltDictRep stk -> Nested.CastXR
+  CastXS -> Nested.CastXS
+  CastXS' (STKS sh' stk) | Dict <- eltDictRep stk -> Nested.CastXS' sh'
+  CastXX' (STKX ssx stk) | Dict <- eltDictRep stk -> Nested.CastXX' ssx
   CastRR c -> Nested.CastRR (interpretTKCastable c)
   CastSS c -> Nested.CastSS (interpretTKCastable c)
   CastXX c -> Nested.CastXX (interpretTKCastable c)
-  CastXX' (STKX ssx stk) c | Dict <- eltDictRep stk ->
-    Nested.CastXX' ssx (interpretTKCastable c)
+  CastT2 c1 c2 ->
+    Nested.CastT2 (interpretTKCastable c1) (interpretTKCastable c2)
+  Cast0X stk | Dict <- eltDictRep stk -> Nested.Cast0X
+  CastX0 -> Nested.CastX0
 
 
 -- * MapAccum internal definitions

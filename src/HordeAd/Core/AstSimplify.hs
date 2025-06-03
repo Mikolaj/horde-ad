@@ -3289,8 +3289,9 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
          gcastWith (unsafeCoerceRefl :: Take (Rank sh1') sh1sh2' :~: sh1') $
          (Ast.AstCastCastable
             (CastCmp
-               (CastXX' (STKX sh1' (STKR (SNat @m) (ftkToSTK x))) CastId)
-               (CastSX (CastCmp (CastXR (ftkToSTK x) CastId) (CastSX CastId))))
+               (CastXX' (STKX sh1' (STKR (SNat @m) (ftkToSTK x))))
+               (CastCmp CastSX
+                        (CastSS (CastCmp (CastXR (ftkToSTK x)) CastSX))))
             (STKS sh1 (STKS (dropShS @(Rank sh1') sh1sh2) (ftkToSTK x)))
             (FTKX (takeShX @(Rank sh1') sh1sh2')
                   (FTKR (shrFromShS (dropShS @(Rank sh1') sh1sh2)) x))
@@ -3336,9 +3337,10 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                                         :~: Rank (Drop (Rank sh1') sh1sh2')) $
          (Ast.AstCastCastable
             (CastCmp
-               (CastXX' (STKX sh1' (STKX sh2' (ftkToSTK x))) CastId)
-               (CastSX (CastCmp (CastXX' (STKX sh2' (ftkToSTK x)) CastId)
-                                (CastSX CastId))))
+               (CastXX' (STKX sh1' (STKX sh2' (ftkToSTK x))))
+               (CastCmp CastSX
+                        (CastSS (CastCmp (CastXX' (STKX sh2' (ftkToSTK x)))
+                                         CastSX))))
             (STKS sh1 (STKS (dropShS @(Rank sh1') sh1sh2) (ftkToSTK x)))
             (FTKX (takeShX @(Rank sh1') sh1sh2')
                   (FTKX (dropShX @(Rank sh1') sh1sh2') x))
@@ -3362,8 +3364,8 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
           $ astUnNestS @sh1 @sh2
           $ astSFromX @sh1 sh1
           $ (Ast.AstCastCastable
-               (CastXX (CastCmp (CastXS' (STKS sh2 (ftkToSTK x)) CastId)
-                                (CastRX CastId)))
+               (CastXX (CastCmp (CastXS' (STKS sh2 (ftkToSTK x)))
+                                CastRX))
                (STKX (ssxFromShX sh1') (STKR (shsRank sh2) (ftkToSTK x)))
                (FTKX sh1' (FTKS sh2 x))
              :: AstTensor AstMethodLet s (TKX2 sh1' (TKR2 m x))
@@ -3391,7 +3393,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
           $ astUnNestS @sh1 @sh2
           $ astSFromX @sh1 sh1
           $ (Ast.AstCastCastable
-               (CastXX (CastXS' (STKS sh2 (ftkToSTK x)) CastId))
+               (CastXX (CastXS' (STKS sh2 (ftkToSTK x))))
                (STKX (ssxFromShX sh1') (STKX (ssxFromShX sh2') (ftkToSTK x)))
                (FTKX sh1' (FTKS sh2 x))
              :: AstTensor AstMethodLet s (TKX2 sh1' (TKX2 sh2' x))

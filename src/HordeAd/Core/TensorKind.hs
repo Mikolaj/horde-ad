@@ -187,24 +187,29 @@ data TKCastable (a :: TK) (b :: TK) where
   CastId  :: TKCastable a a
   CastCmp :: TKCastable b c -> TKCastable a b -> TKCastable a c
 
-  CastRX  :: TKCastable a b
-          -> TKCastable (TKR2 n a) (TKX2 (Replicate n Nothing) b)
-  CastSX  :: TKCastable a b -> TKCastable (TKS2 sh a) (TKX2 (MapJust sh) b)
+  CastRX  :: TKCastable (TKR2 n a) (TKX2 (Replicate n Nothing) a)
+  CastSX  :: TKCastable (TKS2 sh a) (TKX2 (MapJust sh) a)
 
-  CastXR  :: SingletonTK b -> TKCastable a b -> TKCastable (TKX2 sh a)
-                                                           (TKR2 (Rank sh) b)
-  CastXS  :: TKCastable a b -> TKCastable (TKX2 (MapJust sh) a) (TKS2 sh b)
+  CastXR  :: SingletonTK a -> TKCastable (TKX2 sh a) (TKR2 (Rank sh) a)
+  CastXS  :: TKCastable (TKX2 (MapJust sh) a) (TKS2 sh a)
   CastXS' :: Rank sh ~ Rank sh'
-          => SingletonTK (TKS2 sh' b)
-          -> TKCastable a b -> TKCastable (TKX2 sh a) (TKS2 sh' b)
+          => SingletonTK (TKS2 sh' a)
+          -> TKCastable (TKX2 sh a) (TKS2 sh' a)
+
+  CastXX' :: Rank sh ~ Rank sh'
+          => SingletonTK (TKX2 sh' a)
+          -> TKCastable (TKX2 sh a) (TKX2 sh' a)
 
   CastRR  :: TKCastable a b -> TKCastable (TKR2 n a) (TKR2 n b)
   CastSS  :: TKCastable a b -> TKCastable (TKS2 sh a) (TKS2 sh b)
   CastXX  :: TKCastable a b -> TKCastable (TKX2 sh a) (TKX2 sh b)
+  CastT2  :: TKCastable a a'
+          -> TKCastable b b'
+          -> TKCastable (TKProduct a b) (TKProduct a' b')
 
-  CastXX' :: Rank sh ~ Rank sh'
-          => SingletonTK (TKX2 sh' b)
-          -> TKCastable a b -> TKCastable (TKX2 sh a) (TKX2 sh' b)
+  Cast0X  :: SingletonTK (TKScalar a)
+          -> TKCastable (TKScalar a) (TKX2 '[] (TKScalar a))
+  CastX0  :: TKCastable (TKX2 '[] (TKScalar a)) (TKScalar a)
 
 deriving instance Show (TKCastable a b)
 
@@ -216,15 +221,19 @@ castSTK :: TKCastable a b -> SingletonTK a -> SingletonTK b
 castSTK = \cases
   CastId astk -> astk
   (CastCmp c1 c2) astk -> castSTK c1 (castSTK c2 astk)
-  (CastRX c) (STKR n a) -> STKX (ssxReplicate n) (castSTK c a)
-  (CastSX c) (STKS sh a) -> STKX (ssxFromShX $ shxFromShS sh) (castSTK c a)
-  (CastXR _stk c) (STKX ssx a) -> STKR (ssxRank ssx) (castSTK c a)
-  (CastXS c) (STKX ssx a) -> STKS (shsFromStaticShX ssx) (castSTK c a)
-  (CastXS' (STKS sh _x) c) (STKX _ssx2 a) -> STKS sh (castSTK c a)
+  CastRX (STKR n a) -> STKX (ssxReplicate n) a
+  CastSX (STKS sh a) -> STKX (ssxFromShX $ shxFromShS sh) a
+  (CastXR _stk) (STKX ssx a) -> STKR (ssxRank ssx) a
+  CastXS (STKX ssx a) -> STKS (shsFromStaticShX ssx) a
+  (CastXS' (STKS sh _x)) (STKX _ssx2 a) -> STKS sh a
+  (CastXX' (STKX ssx _x)) (STKX _ssx2 a) -> STKX ssx a
   (CastRR c) (STKR n a) -> STKR n (castSTK c a)
   (CastSS c) (STKS sh a) -> STKS sh (castSTK c a)
   (CastXX c) (STKX ssx a) -> STKX ssx (castSTK c a)
-  (CastXX' (STKX ssx _x) c) (STKX _ssx2 a) -> STKX ssx (castSTK c a)
+  (CastT2 c1 c2) (STKProduct stk1 stk2) ->
+    STKProduct (castSTK c1 stk1) (castSTK c2 stk2)
+  (Cast0X _stk) stk -> STKX ZKX stk
+  CastX0 (STKX ZKX stk) -> stk
 
 
 -- * Full shape tensor kind quasi-singletons

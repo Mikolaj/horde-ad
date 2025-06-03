@@ -340,22 +340,24 @@ vectorizeTKCastable :: SNat k -> SingletonTK a
                     -> TKCastable (BuildTensorKind k a) (BuildTensorKind k b)
 vectorizeTKCastable k astk c0 = case c0 of
   CastId -> CastId
-  CastCmp c1 c2 ->
-    CastCmp (vectorizeTKCastable k (castSTK c2 astk) c1)
-            (vectorizeTKCastable k astk c2)
-  CastRX @_ @_ @n c | STKX @sh ssx xstk <- castSTK c0 astk
-                    , Refl <- lemRankReplicate (Proxy @(1 + n)) ->
-    -- TODO: why not deduced?
-    gcastWith (unsafeCoerceRefl :: Rank sh :~: n) $
-    CastCmp (CastXX' (STKX (SKnown k :!% ssx) xstk) CastId) (CastRX c)
-  CastSX c -> CastSX c
-  CastXR stk c -> CastXR stk c
-  CastXS c -> CastXS c
-  CastXS' stk c -> CastXS' (buildSTK k stk) c
+  CastCmp c1 c2 -> CastCmp (vectorizeTKCastable k (castSTK c2 astk) c1)
+                           (vectorizeTKCastable k astk c2)
+  CastRX | STKR @n n xstk <- astk
+         , Refl <- lemRankReplicate (Proxy @n)
+         , Refl <- lemRankReplicate (Proxy @(1 + n)) ->
+    CastCmp (CastXX' (STKX (SKnown k :!% ssxReplicate n) xstk)) CastRX
+  CastSX -> CastSX
+  CastXR stk -> CastXR stk
+  CastXS -> CastXS
+  CastXS' stk -> CastXS' (buildSTK k stk)
+  CastXX' stk -> CastXX' (buildSTK k stk)
   CastRR c -> CastRR c
   CastSS c -> CastSS c
   CastXX c -> CastXX c
-  CastXX' stk c -> CastXX' (buildSTK k stk) c
+  CastT2 c1 c2 | STKProduct stk1 stk2 <- astk ->
+    CastT2 (vectorizeTKCastable k stk1 c1) (vectorizeTKCastable k stk2 c2)
+  Cast0X _stk -> CastSX
+  CastX0 -> CastXS
 
 -- This refreshes an index variable in a list of index expressions.
 intBindingRefreshS

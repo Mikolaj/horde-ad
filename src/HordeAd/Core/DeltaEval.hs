@@ -820,25 +820,25 @@ evalRevSame !s !c = \case
 transposeTKCastable :: SingletonTK a -> TKCastable a b -> TKCastable b a
 transposeTKCastable astk c0 = case c0 of
   CastId -> CastId
-  CastCmp c1 c2 ->
-    CastCmp (transposeTKCastable astk c2)
-            (transposeTKCastable (castSTK c2 astk) c1)
-  CastRX c | STKR @n _ x <- astk
-           , Refl <- lemRankReplicate (Proxy @n) ->
-    CastXR x (transposeTKCastable x c)
-  CastSX c | STKS _ x <- astk -> CastXS (transposeTKCastable x c)
-  CastXR _stk c | STKX @sh ssx x <- astk
-                , Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
-    CastCmp (CastXX' (STKX ssx x) CastId) (CastRX (transposeTKCastable x c))
-  CastXS c | STKX _ x <- astk -> CastSX (transposeTKCastable x c)
-  CastXS' (STKS sh _) c | STKX ssx x <- astk
-                        , Refl <- lemRankMapJust sh ->
-    CastCmp (CastXX' (STKX ssx x) CastId) (CastSX (transposeTKCastable x c))
+  CastCmp c1 c2 -> CastCmp (transposeTKCastable astk c2)
+                           (transposeTKCastable (castSTK c2 astk) c1)
+  CastRX | STKR @n _ x <- astk
+         , Refl <- lemRankReplicate (Proxy @n) ->
+    CastXR x
+  CastSX -> CastXS
+  CastXR @_ @sh _stk | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
+    CastCmp (CastXX' astk) CastRX
+  CastXS -> CastSX
+  CastXS' (STKS sh _) | Refl <- lemRankMapJust sh ->
+    CastCmp (CastXX' astk) CastSX
+  CastXX' _stk -> CastXX' astk
   CastRR c | STKR _ x <- astk -> CastRR (transposeTKCastable x c)
   CastSS c | STKS _ x <- astk -> CastSS (transposeTKCastable x c)
   CastXX c | STKX _ x <- astk -> CastXX (transposeTKCastable x c)
-  CastXX' _stk c | STKX _ x <- astk ->
-    CastXX' astk (transposeTKCastable x c)
+  CastT2 c1 c2 | STKProduct x1 x2 <- astk ->
+    CastT2 (transposeTKCastable x1 c1) (transposeTKCastable x2 c2)
+  Cast0X _stk -> CastX0
+  CastX0 | STKX ZKX x <- astk -> Cast0X x
 
 evalRevFromnMap :: forall target. (ADReadyNoLet target, ShareTensor target)
                 => EvalState target -> EvalState target
