@@ -28,7 +28,7 @@ module HordeAd.Core.Types
   , takeSized, dropSized, splitAt_Sized, takeIndex, dropIndex, splitAt_Index
   , takeShape, dropShape, splitAt_Shape
   , splitAt_SizedS, dropIxS, takeShS, dropShS
-  , takeShX, dropShX, ssxDropStaticShX, takeIxX, dropIxX
+  , takeShX, dropShX, takeIxX, dropIxX
   , listsTakeLen, listsDropLen, shsDropLen
   , shsFromStaticShX
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
@@ -797,10 +797,6 @@ takeShX sh0 = fromList $ take (valueOf @len) $ toList sh0
 dropShX :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
         => IShX sh -> IShX (Drop len sh)
 dropShX sh0 = fromList $ drop (valueOf @len) $ toList sh0
-
-ssxDropStaticShX :: forall sh sh'.
-                    StaticShX (sh ++ sh') -> StaticShX sh -> StaticShX sh'
-ssxDropStaticShX = coerce (listxDrop @(SMayNat () SNat) @(SMayNat () SNat))
 
 takeIxX :: forall len sh i. (KnownNat len, KnownShX sh, KnownShX (Take len sh))
         => IxX sh i -> IxX (Take len sh) i

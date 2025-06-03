@@ -239,7 +239,7 @@ castSTK = \cases
   (Cast0X _stk) stk -> STKX ZKX stk
   CastX0 (STKX ZKX stk) -> stk
   (CastNest (STKX sh x)) (STKX shsh' _x) ->
-    STKX sh (STKX (ssxDropStaticShX shsh' sh) x)
+    STKX sh (STKX (ssxDropSSX shsh' sh) x)
   CastUnnest (STKX sh (STKX sh' x)) -> STKX (sh `ssxAppend` sh') x
 
 
