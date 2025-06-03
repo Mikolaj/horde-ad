@@ -1,11 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE UndecidableInstances #-}
 module HordeAd.Core.CompileFuthark (compileExpr, HList(..)) where
 
 import Prelude
 
+import Control.Monad (forM_, forM)
 import Control.Monad.Trans.State.Strict
+import Data.Bifunctor (first)
 import Data.ByteString (ByteString)
 import Data.ByteString.Builder qualified as BSB
 import Data.ByteString.Char8 qualified as BS8
@@ -17,14 +20,20 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.Sum
 import Data.Foldable (toList)
+import Data.Functor.Product as Fun
 import Data.Kind (Type)
 import Data.List (intersperse)
 import Data.Int
+import Data.Maybe (catMaybes)
 import Data.Some
 import Data.Type.Equality
 import Data.Typeable
 import Data.Word
+import Data.Vector.Storable qualified as VS
 import Data.Vector.Strict qualified as V
+import Foreign.ForeignPtr (touchForeignPtr)
+import Foreign.Marshal.Alloc
+import Foreign.Storable
 
 import Data.Array.Mixed.Lemmas (lemRankReplicate)
 import Data.Array.Mixed.Shape
@@ -155,21 +164,65 @@ data HList f list where
   HCons :: f a -> HList f list -> HList f (a : list)
 infixr `HCons`
 
-hlistToList :: HList f list -> [Some f]
-hlistToList HNil = []
-hlistToList (x `HCons` xs) = Some x : hlistToList xs
+hlistToList :: (forall a. f a -> t) -> HList f list -> [t]
+hlistToList _ HNil = []
+hlistToList f (x `HCons` xs) = f x : hlistToList f xs
+
+hlistMap :: (forall a. f a -> g a) -> HList f list -> HList g list
+hlistMap _ HNil = HNil
+hlistMap f (x `HCons` xs) = f x `HCons` hlistMap f xs
+
+hlistZipWith :: (forall a. f1 a -> f2 a -> f3 a) -> HList f1 list -> HList f2 list -> HList f3 list
+hlistZipWith _ HNil HNil = HNil
+hlistZipWith f (x `HCons` xs) (y `HCons` ys) = f x y `HCons` hlistZipWith f xs ys
 
 compileExpr :: HList (AstVarName PrimalSpan) args -> AstTensor AstMethodLet PrimalSpan t
-            -> IO (HList Concrete args -> RepConcrete t)
+            -> IO (HList Concrete args -> IO (RepConcrete t))
 compileExpr inputVars ast = do
-  let arguments = [var :=> splitType (varNameToFTK var) | Some var <- hlistToList inputVars]
+  let arguments' = hlistMap (\var -> Pair var (splitType (varNameToFTK var))) inputVars
+      arguments = hlistToList (\(Pair v str) -> v :=> str) arguments'
       outSplit = splitType (ftkAst ast)
       futintys = [ty | _ :=> SplitTypeRes parts _ _ _ _ <- arguments, ty <- parts]
       futouttys = let SplitTypeRes parts _ _ _ _ = outSplit in parts
+
+  let (alloffsets, databufsize) = computeStructOffsets [metrics t | Some t <- futintys ++ futouttys]
+      (argoffsets, outoffsets) = splitAt (length arguments) alloffsets
+      fullargoffsets = coalesce [Some str | _ :=> str <- arguments] argoffsets
+
   kernel <- buildKernel (compileExprToFuthark arguments outSplit ast)
-                        (generateCWrapper futintys futouttys)
+                        (generateCWrapper futintys argoffsets futouttys outoffsets)
                         "horde_ad_kernel_top"
-  return (\_ -> error "TODO!")
+  return $ \argvals ->
+    allocaBytes databufsize $ \ptr -> do
+      -- collect input vectors for keep-alive later
+      let inputs = hlistToList (\(Pair (Pair _ str) val) -> Some (Pair str val)) (hlistZipWith Pair arguments' argvals)
+      inputvecs <- forM (zip inputs fullargoffsets) $ \(Some (Pair (SplitTypeRes _ split _ _ _) (Concrete fullval)), offs) ->
+        forM @_ @_ @_ @(Maybe (Some VS.Vector)) (zip (split fullval) offs) $ \(Some (TypedCon (ATArray sh eltty) val), off) -> do
+          Dict <- return $ scalTyDict eltty
+          case sh of
+            _ :$% _ -> do
+              VS.unsafeWith (N.mtoVector val) $ \valptr ->
+                pokeByteOff ptr off valptr
+              return (Just (Some (N.mtoVector val)))
+            ZSX -> do
+              pokeByteOff ptr off (N.munScalar val)
+              return Nothing
+
+      -- TODO: allocate space for outputs
+      -- TODO: call kernel
+
+      -- make sure the input vectors stay alive until here
+      forM_ (catMaybes (concat inputvecs)) $ \(Some vec) -> do
+        touchForeignPtr (let (p, _, _) = VS.unsafeToForeignPtr vec in p)
+
+      -- TODO: read outputs
+      _
+
+coalesce :: [Some SplitTypeRes] -> [a] -> [[a]]
+coalesce (Some (SplitTypeRes parts _ _ _ _) : strs) l =
+  let (pre, post) = splitAt (length parts) l
+  in pre : coalesce strs post
+coalesce [] _ = []
 
 compileExprToFuthark
   :: [DSum (AstVarName PrimalSpan) SplitTypeRes]
@@ -207,12 +260,9 @@ compileExprToFuthark arguments (SplitTypeRes outParts _ _ outFutSplit _) term =
                   case out of [e] -> e
                               _ -> FETuple out))
 
-generateCWrapper :: [Some ArgType] -> [Some ArgType] -> Lazy.ByteString
-generateCWrapper arguments outputs =
-  let alloffsets = computeStructOffsets [metrics t | Some t <- arguments ++ outputs]
-      (argoffsets, outoffsets) = splitAt (length arguments) alloffsets
-
-      futArrName :: ArgType t -> BSB.Builder
+generateCWrapper :: [Some ArgType] -> [Int] -> [Some ArgType] -> [Int] -> Lazy.ByteString
+generateCWrapper arguments argoffsets outputs outoffsets =
+  let futArrName :: ArgType t -> BSB.Builder
       futArrName (ATArray sh@(_ :$% _) t) =
         bsb8 (scalTyToMod t) <> "_" <> bsb8 (show (fromSNat' (shxRank sh))) <> "d"
       futArrName (ATArray ZSX _) = error "futArrName called with scalar type"
@@ -295,12 +345,12 @@ metrics (ATArray ZSX ty) = case ty of
 metrics ATArray{} = (8, 8)  -- assuming 64-bit pointers
 
 -- | Takes list of (sizeof, alignment)
-computeStructOffsets :: [(Int, Int)] -> [Int]
+computeStructOffsets :: [(Int, Int)] -> ([Int], Int)
 computeStructOffsets = go 0
   where
-    go _   [] = []
+    go off [] = ([], off)
     go off ((sz, al) : pairs) = let off' = roundUpToMultiple off al
-                                in off' : go (off' + sz) pairs
+                                in first (off' :) (go (off' + sz) pairs)
     roundUpToMultiple x n = (x + n - 1) `quot` n * n
 
 type role ArgType nominal
@@ -850,6 +900,25 @@ scalTyToMod = \case
   SF32 -> "f32"
   SF64 -> "f64"
   SBool -> "bool"
+
+class (Storable t, N.PrimElt t) => ScalTyDict t
+instance (Storable t, N.PrimElt t) => ScalTyDict t
+
+scalTyDict :: ScalTy t -> Dict ScalTyDict t
+scalTyDict = \case
+  -- SI8 -> Dict
+  -- SI16 -> Dict
+  SI32 -> Dict
+  SI64 -> Dict
+  -- SU8 -> Dict
+  -- SU16 -> Dict
+  -- SU32 -> Dict
+  -- SU64 -> Dict
+  -- SF16 -> Dict
+  SF32 -> Dict
+  SF64 -> Dict
+  SBool -> Dict
+  ty -> error $ "CompileToFuthark: type unsupported in ox-arrays: " ++ show ty
 
 futLibrary :: ByteString
 futLibrary = BS8.pack $
