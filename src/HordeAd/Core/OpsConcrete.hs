@@ -627,6 +627,8 @@ interpretTKCastable c0 = case c0 of
     Nested.CastT2 (interpretTKCastable c1) (interpretTKCastable c2)
   Cast0X stk | Dict <- eltDictRep stk -> Nested.Cast0X
   CastX0 -> Nested.CastX0
+  CastNest (STKX sh x) | Dict <- eltDictRep x -> Nested.CastNest sh
+  CastUnnest -> Nested.CastUnnest
 
 
 -- * MapAccum internal definitions

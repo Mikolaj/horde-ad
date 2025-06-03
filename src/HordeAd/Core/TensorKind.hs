@@ -22,7 +22,7 @@ import GHC.Exts (withDict)
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat)
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested (MapJust, Replicate)
+import Data.Array.Nested (type (++), MapJust, Replicate)
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
@@ -211,6 +211,10 @@ data TKCastable (a :: TK) (b :: TK) where
           -> TKCastable (TKScalar a) (TKX2 '[] (TKScalar a))
   CastX0  :: TKCastable (TKX2 '[] (TKScalar a)) (TKScalar a)
 
+  CastNest :: SingletonTK (TKX2 sh a)
+           -> TKCastable (TKX2 (sh ++ sh') a) (TKX2 sh (TKX2 sh' a))
+  CastUnnest :: TKCastable (TKX2 sh (TKX2 sh' a)) (TKX2 (sh ++ sh') a)
+
 deriving instance Show (TKCastable a b)
 
 instance Category TKCastable where
@@ -234,6 +238,9 @@ castSTK = \cases
     STKProduct (castSTK c1 stk1) (castSTK c2 stk2)
   (Cast0X _stk) stk -> STKX ZKX stk
   CastX0 (STKX ZKX stk) -> stk
+  (CastNest (STKX sh x)) (STKX shsh' _x) ->
+    STKX sh (STKX (ssxDropStaticShX shsh' sh) x)
+  CastUnnest (STKX sh (STKX sh' x)) -> STKX (sh `ssxAppend` sh') x
 
 
 -- * Full shape tensor kind quasi-singletons

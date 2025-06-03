@@ -358,6 +358,8 @@ vectorizeTKCastable k astk c0 = case c0 of
     CastT2 (vectorizeTKCastable k stk1 c1) (vectorizeTKCastable k stk2 c2)
   Cast0X _stk -> CastSX
   CastX0 -> CastXS
+  CastNest (STKX sh x) -> CastNest (STKX (SKnown k :!% sh) x)
+  CastUnnest -> CastUnnest
 
 -- This refreshes an index variable in a list of index expressions.
 intBindingRefreshS
