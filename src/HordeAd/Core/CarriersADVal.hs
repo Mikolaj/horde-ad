@@ -262,6 +262,8 @@ instance (GoodScalar r, ShareTensor f, ADReadyNoLet f)
                   in dD (abs v) (dScale (signum v) v')
   signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
   fromInteger i = dDnotShared (fromInteger i) (DeltaZero FTKScalar)
+  -- The constraints in the pragmas below are needed only to avoid
+  -- module import cycles.
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Double)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Float)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Int64)) #-}
@@ -282,6 +284,8 @@ instance {-# OVERLAPPABLE #-}
                   in dD (abs v) (dScale (signum v) v')
   signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
   fromInteger = error "fromInteger not defined for tensors"
+  -- The constraints in the pragmas below are needed only to avoid
+  -- module import cycles.
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Double)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Float)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Int64)) #-}
@@ -301,6 +305,8 @@ instance (IntegralH (f z), ShareTensor f, ADReadyNoLet f)
          => IntegralH (ADVal f z) where
   quotH (D u _) (D v v') = dDnotShared (quotH u v) (DeltaZero $ ftkDelta v')
   remH (D u _) (D v v') = dDnotShared (remH u v) (DeltaZero $ ftkDelta v')
+  -- The constraints in the pragmas below are needed only to avoid
+  -- module import cycles.
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKR n Int64)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKS sh Int64)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKX sh Int64)) #-}
