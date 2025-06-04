@@ -214,6 +214,13 @@ data TKCastable (a :: TK) (b :: TK) where
            -> TKCastable (TKX2 (sh ++ sh') a) (TKX2 sh (TKX2 sh' a))
   CastUnnest :: TKCastable (TKX2 sh (TKX2 sh' a)) (TKX2 (sh ++ sh') a)
 
+  CastZip   :: SingletonTK a -> SingletonTK b
+            -> TKCastable (TKProduct (TKX2 sh a) (TKX2 sh b))
+                          (TKX2 sh (TKProduct a b))
+  CastUnzip :: SingletonTK a -> SingletonTK b
+            -> TKCastable (TKX2 sh (TKProduct a b))
+                          (TKProduct (TKX2 sh a) (TKX2 sh b))
+
 deriving instance Show (TKCastable a b)
 
 instance Category TKCastable where
@@ -240,7 +247,10 @@ castSTK = \cases
   (CastNest (STKX sh x)) (STKX shsh' _x) ->
     STKX sh (STKX (ssxDropSSX shsh' sh) x)
   CastUnnest (STKX sh (STKX sh' x)) -> STKX (sh `ssxAppend` sh') x
-
+  (CastZip _ _) (STKProduct (STKX sh a1) (STKX _sh a2)) ->
+    STKX sh (STKProduct a1 a2)
+  (CastUnzip _ _) (STKX sh (STKProduct a1 a2)) ->
+    STKProduct (STKX sh a1) (STKX sh a2)
 
 -- * Full shape tensor kind quasi-singletons
 

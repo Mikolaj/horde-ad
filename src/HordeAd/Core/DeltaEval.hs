@@ -853,6 +853,8 @@ transposeTKCastable astk c0 = case c0 of
   CastX0 | STKX ZKX x <- astk -> Cast0X x
   CastNest _stk -> CastUnnest
   CastUnnest | (STKX sh (STKX _ x)) <- astk -> CastNest (STKX sh x)
+  CastZip stk1 stk2 -> CastUnzip stk1 stk2
+  CastUnzip stk1 stk2 -> CastZip stk1 stk2
 
 evalRevFromnMap :: forall target. (ADReadyNoLet target, ShareTensor target)
                 => EvalState target -> EvalState target

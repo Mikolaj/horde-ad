@@ -356,7 +356,7 @@ vectorizeTKCastable k astk c0 = case c0 of
   CastXX c -> CastXX c
   CastT2 c1 c2 | STKProduct stk1 stk2 <- astk ->
     CastT2 (vectorizeTKCastable k stk1 c1) (vectorizeTKCastable k stk2 c2)
-  Cast0X _stk -> case astk of
+  Cast0X _astk -> case astk of
     STKScalar -> CastSX
     STKR @n n x | Refl <- lemRankReplicate (Proxy @n)
                 , Refl <- lemRankReplicate (Proxy @(1 + n)) ->
@@ -370,7 +370,10 @@ vectorizeTKCastable k astk c0 = case c0 of
               (CastCmp (CastNest (STKX (SKnown k :!% ZKX) x))
                        CastSX)
     STKX _ssx x -> CastNest (STKX (SKnown k :!% ZKX) x)
-    STKProduct _stk1 _stk2 -> undefined  -- TODO: CastT2 (Cast0X stk1) (Cast0X stk2)
+    STKProduct astk1 astk2 ->
+      vectorizeTKCastable
+        k astk (CastCmp (CastZip astk1 astk2)
+                        (CastT2 (Cast0X astk1) (Cast0X astk2)))
   CastX0 -> case astk of
     STKX ZKX STKScalar -> CastXS
     STKX ZKX (STKR @n _n x) | Refl <- lemRankReplicate (Proxy @n) ->
@@ -380,9 +383,14 @@ vectorizeTKCastable k astk c0 = case c0 of
       CastCmp CastXS
               (CastCmp CastUnnest (CastXX CastSX))
     STKX ZKX STKX{} -> CastUnnest
-    STKProduct _stk1 _stk2 -> undefined  -- TODO: CastT2 CastX0 CastX0
+    STKX ZKX (STKProduct astk1 astk2) ->
+      vectorizeTKCastable
+        k astk (CastCmp (CastT2 CastX0 CastX0)
+                        (CastUnzip astk1 astk2))
   CastNest (STKX sh x) -> CastNest (STKX (SKnown k :!% sh) x)
   CastUnnest -> CastUnnest
+  CastZip astk1 astk2 -> CastZip astk1 astk2
+  CastUnzip astk1 astk2 -> CastUnzip astk1 astk2
 
 -- This refreshes an index variable in a list of index expressions.
 intBindingRefreshS
