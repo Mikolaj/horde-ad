@@ -67,20 +67,20 @@ class ConvertTensor (target :: Target) where
   tcastCastable :: TKCastable a b -> SingletonTK a -> FullShapeTK b -> target a
                 -> target b
 
-  rzip :: forall y z n.
-          target (TKProduct (TKR2 n y) (TKR2 n z))
+  rzip :: forall y z n. (KnownSTK y, KnownSTK z)
+       => target (TKProduct (TKR2 n y) (TKR2 n z))
        -> target (TKR2 n (TKProduct y z))
   runzip :: forall y z n.
             target (TKR2 n (TKProduct y z))
          -> target (TKProduct (TKR2 n y) (TKR2 n z))
-  szip :: forall y z sh.
-          target (TKProduct (TKS2 sh y) (TKS2 sh z))
+  szip :: forall y z sh. (KnownSTK y, KnownSTK z)
+       => target (TKProduct (TKS2 sh y) (TKS2 sh z))
        -> target (TKS2 sh (TKProduct y z))
   sunzip :: forall y z sh.
             target (TKS2 sh (TKProduct y z))
          -> target (TKProduct (TKS2 sh y) (TKS2 sh z))
-  xzip :: forall y z sh.
-          target (TKProduct (TKX2 sh y) (TKX2 sh z))
+  xzip :: forall y z sh. (KnownSTK y, KnownSTK z)
+       => target (TKProduct (TKX2 sh y) (TKX2 sh z))
        -> target (TKX2 sh (TKProduct y z))
   xunzip :: forall y z sh.
             target (TKX2 sh (TKProduct y z))

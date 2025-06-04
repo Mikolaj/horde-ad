@@ -402,7 +402,8 @@ windTarget stk t = case (stk, t) of
     withKnownShX sh2 $
     rnestX n
     $ windTarget (STKX (ssxReplicate n `ssxAppend` sh2) stk2) t
-  (STKR n@SNat (STKProduct stk1 stk2), _) ->
+  (STKR n@SNat (STKProduct stk1 stk2), _) | Dict <- lemKnownSTK stk1
+                                          , Dict <- lemKnownSTK stk2 ->
     rzip $ windTarget (STKProduct (STKR n stk1) (STKR n stk2)) t
   (STKS _ STKScalar, WTKS v) -> v
   (STKS sh1 (STKR m@SNat stk2), _) | Dict <- lemKnownSTK stk2 ->
@@ -416,7 +417,8 @@ windTarget stk t = case (stk, t) of
     withKnownShX sh2 $
     snestX sh1 $ windTarget (STKX (ssxFromShX (shxFromShS sh1)
                                    `ssxAppend` sh2) stk2) t
-  (STKS sh1 (STKProduct stk1 stk2), _) ->
+  (STKS sh1 (STKProduct stk1 stk2), _) | Dict <- lemKnownSTK stk1
+                                       , Dict <- lemKnownSTK stk2 ->
     szip $ windTarget (STKProduct (STKS sh1 stk1) (STKS sh1 stk2)) t
   (STKX _ STKScalar, WTKX v) -> v
   (STKX sh1 (STKR m@SNat stk2), _) | Dict <- lemKnownSTK stk2 ->
@@ -429,7 +431,8 @@ windTarget stk t = case (stk, t) of
   (STKX sh1 (STKX sh2 stk2), _) | Dict <- lemKnownSTK stk2 ->
     withKnownShX sh2 $
     xnest sh1 $ windTarget (STKX (ssxAppend sh1 sh2) stk2) t
-  (STKX sh1 (STKProduct stk1 stk2), _) ->
+  (STKX sh1 (STKProduct stk1 stk2), _) | Dict <- lemKnownSTK stk1
+                                       , Dict <- lemKnownSTK stk2 ->
     xzip $ windTarget (STKProduct (STKX sh1 stk1) (STKX sh1 stk2)) t
   (STKProduct stk1 stk2, WTKProduct t1 t2) ->
     tpairConv (windTarget stk1 t1) (windTarget stk2 t2)

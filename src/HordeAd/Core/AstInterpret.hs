@@ -337,7 +337,11 @@ interpretAst !env = \case
     STKS _ x ->
       withKnownSTK x $
       tsreshape sh2 (interpretAst env v)
-  AstZipS v -> szip $ interpretAst env v
+  AstZipS v -> case ftkToSTK (ftkAst v) of
+    STKProduct (STKS _ y) (STKS _ z) ->
+      withKnownSTK y $
+      withKnownSTK z $
+      szip $ interpretAst env v
   AstUnzipS v -> sunzip $ interpretAst env v
   AstNestS sh1 sh2 v -> case ftkToSTK (ftkAst v) of
     STKS _ x ->

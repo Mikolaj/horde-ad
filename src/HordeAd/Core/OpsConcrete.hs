@@ -512,13 +512,19 @@ instance BaseTensor Concrete where
   tdot0Target = dot0Target
 
 instance ConvertTensor Concrete where
-  rzip (Concrete (a, b)) = Concrete $ Nested.rzip a b
+  rzip @y @z (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
+                               , Dict <- eltDictRep (knownSTK @z) =
+    Concrete $ Nested.rzip a b
   runzip a = let (!a1, !a2) = Nested.runzip $ unConcrete a
              in Concrete (a1, a2)
-  szip (Concrete (a, b)) = Concrete $ Nested.szip a b
+  szip @y @z  (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
+                                , Dict <- eltDictRep (knownSTK @z) =
+    Concrete $ Nested.szip a b
   sunzip a = let (!a1, !a2) = Nested.sunzip $ unConcrete a
              in Concrete (a1, a2)
-  xzip (Concrete (a, b)) = Concrete $ Nested.mzip a b
+  xzip @y @z  (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
+                                , Dict <- eltDictRep (knownSTK @z) =
+    Concrete $ Nested.mzip a b
   xunzip a = let (!a1, !a2) = Nested.munzip $ unConcrete a
              in Concrete (a1, a2)
 

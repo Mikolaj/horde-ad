@@ -61,18 +61,18 @@ valsInitVTOPP :: (Num r, Enum r, Nested.PrimElt r)
               => MnistFcnnRanked1.ADFcnnMnist1Parameters Concrete 3 4 r
 valsInitVTOPP =
   ( ( fromList (replicate 3 (Concrete
-                             $ Nested.sfromList1Prim
+                             $ Nested.sfromListPrim
                                  (SNat @SizeMnistGlyph)
                                  [1 .. fromIntegral sizeMnistGlyphInt]))
-    , Concrete $ Nested.sfromList1Prim (SNat @3) [1, 2, 3] )
-  , ( fromList (replicate 4 (Concrete $ Nested.sfromList1Prim
+    , Concrete $ Nested.sfromListPrim (SNat @3) [1, 2, 3] )
+  , ( fromList (replicate 4 (Concrete $ Nested.sfromListPrim
                                           (SNat @3) [1, 2, 3]))
-    , Concrete $ Nested.sfromList1Prim (SNat @4) [1, 2, 3, 4] )
+    , Concrete $ Nested.sfromListPrim (SNat @4) [1, 2, 3, 4] )
   , ( fromList (replicate sizeMnistLabelInt
-                          (Concrete $ Nested.sfromList1Prim
+                          (Concrete $ Nested.sfromListPrim
                                         (SNat @4) [1, 2, 3, 4]))
-    , Concrete $ Nested.sfromList1Prim (SNat @SizeMnistLabel)
-                                       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] ) )
+    , Concrete $ Nested.sfromListPrim (SNat @SizeMnistLabel)
+                                      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] ) )
 
 testVTOPP :: Assertion
 testVTOPP = do

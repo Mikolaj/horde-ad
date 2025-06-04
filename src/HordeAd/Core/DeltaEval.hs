@@ -612,7 +612,11 @@ evalRevSame !s !c = \case
       withKnownSTK (ftkToSTK x) $
       evalRevSame s (trreshape sh c) d
   DeltaZipR d -> evalRevSame s (runzip c) d
-  DeltaUnzipR d -> evalRevSame s (rzip c) d
+  DeltaUnzipR d -> case ftkDelta d of
+    FTKR _ (FTKProduct y z) ->
+      withKnownSTK (ftkToSTK y) $
+      withKnownSTK (ftkToSTK z) $
+      evalRevSame s (rzip c) d
 
   DeltaCastS d -> case ftkDelta d of
     y ->
@@ -679,7 +683,11 @@ evalRevSame !s !c = \case
       withKnownSTK (ftkToSTK x) $
       evalRevSame s (tsreshape sh c) d
   DeltaZipS d -> evalRevSame s (sunzip c) d
-  DeltaUnzipS d -> evalRevSame s (szip c) d
+  DeltaUnzipS d -> case ftkDelta d of
+    FTKS _ (FTKProduct y z) ->
+      withKnownSTK (ftkToSTK y) $
+      withKnownSTK (ftkToSTK z) $
+      evalRevSame s (szip c) d
 
   DeltaCastX d -> case ftkDelta d of
     y ->
@@ -753,7 +761,11 @@ evalRevSame !s !c = \case
       withKnownSTK (ftkToSTK x) $
       evalRevSame s (txreshape sh c) d
   DeltaZipX d -> evalRevSame s (xunzip c) d
-  DeltaUnzipX d -> evalRevSame s (xzip c) d
+  DeltaUnzipX d -> case ftkDelta d of
+    FTKX _ (FTKProduct y z) ->
+      withKnownSTK (ftkToSTK y) $
+      withKnownSTK (ftkToSTK z) $
+      evalRevSame s (xzip c) d
 
   DeltaSFromK d -> evalRevSame s (kfromS c) d
   DeltaSFromR sh (DeltaFromS (STKR _ x) d) -> case ftkDelta d of
@@ -1070,7 +1082,10 @@ evalFwdSame params s = \case
     FTKR _sh x ->
       withKnownSTK (ftkToSTK x) $
       second (trreshape sh2) $ evalFwdSame params s d
-  DeltaZipR d -> second rzip $ evalFwdSame params s d
+  DeltaZipR d -> case ftkDelta d of
+    FTKProduct (FTKR _ y) (FTKR _ z) ->
+      withKnownSTK (ftkToSTK y) $
+      withKnownSTK (ftkToSTK z) $ second rzip $ evalFwdSame params s d
   DeltaUnzipR d -> second runzip $ evalFwdSame params s d
 
   d0@(DeltaCastS d) -> case ftkDelta d of
@@ -1133,7 +1148,11 @@ evalFwdSame params s = \case
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
       second (tsreshape sh2) $ evalFwdSame params s d
-  DeltaZipS d -> second szip $ evalFwdSame params s d
+  DeltaZipS d -> case ftkDelta d of
+    FTKProduct (FTKS _ y) (FTKS _ z) ->
+      withKnownSTK (ftkToSTK y) $
+      withKnownSTK (ftkToSTK z) $
+      second szip $ evalFwdSame params s d
   DeltaUnzipS d -> second sunzip $ evalFwdSame params s d
 
   d0@(DeltaCastX d) -> case ftkDelta d of
@@ -1197,7 +1216,11 @@ evalFwdSame params s = \case
     FTKX _ x ->
       withKnownSTK (ftkToSTK x) $
       second (txreshape sh2) $ evalFwdSame params s d
-  DeltaZipX d -> second xzip $ evalFwdSame params s d
+  DeltaZipX d -> case ftkDelta d of
+    FTKProduct (FTKX _ y) (FTKX _ z) ->
+      withKnownSTK (ftkToSTK y) $
+      withKnownSTK (ftkToSTK z) $
+      second xzip $ evalFwdSame params s d
   DeltaUnzipX d -> second xunzip $ evalFwdSame params s d
 
   DeltaSFromK d -> let (s2, t) = evalFwdSame params s d
