@@ -207,9 +207,8 @@ data TKCastable (a :: TK) (b :: TK) where
           -> TKCastable b b'
           -> TKCastable (TKProduct a b) (TKProduct a' b')
 
-  Cast0X  :: SingletonTK (TKScalar a)
-          -> TKCastable (TKScalar a) (TKX2 '[] (TKScalar a))
-  CastX0  :: TKCastable (TKX2 '[] (TKScalar a)) (TKScalar a)
+  Cast0X  :: SingletonTK a -> TKCastable a (TKX2 '[] a)
+  CastX0  :: TKCastable (TKX2 '[] a) a
 
   CastNest :: SingletonTK (TKX2 sh a)
            -> TKCastable (TKX2 (sh ++ sh') a) (TKX2 sh (TKX2 sh' a))

@@ -356,8 +356,31 @@ vectorizeTKCastable k astk c0 = case c0 of
   CastXX c -> CastXX c
   CastT2 c1 c2 | STKProduct stk1 stk2 <- astk ->
     CastT2 (vectorizeTKCastable k stk1 c1) (vectorizeTKCastable k stk2 c2)
-  Cast0X _stk -> CastSX
-  CastX0 -> CastXS
+  Cast0X _stk -> case astk of
+    STKScalar -> CastSX
+    STKR @n n x | Refl <- lemRankReplicate (Proxy @n)
+                , Refl <- lemRankReplicate (Proxy @(1 + n)) ->
+      CastCmp (CastXX (CastXR x))
+              (CastCmp (CastNest (STKX (SKnown k :!% ZKX) x))
+                       (CastCmp
+                          (CastXX' (STKX (SKnown k :!% ssxReplicate n) x))
+                          CastRX))
+    STKS _sh x ->
+      CastCmp (CastXX CastXS)
+              (CastCmp (CastNest (STKX (SKnown k :!% ZKX) x))
+                       CastSX)
+    STKX _ssx x -> CastNest (STKX (SKnown k :!% ZKX) x)
+    STKProduct _stk1 _stk2 -> undefined  -- TODO: CastT2 (Cast0X stk1) (Cast0X stk2)
+  CastX0 -> case astk of
+    STKX ZKX STKScalar -> CastXS
+    STKX ZKX (STKR @n _n x) | Refl <- lemRankReplicate (Proxy @n) ->
+      CastCmp (CastXR x)
+              (CastCmp CastUnnest (CastXX CastRX))
+    STKX ZKX STKS{} ->
+      CastCmp CastXS
+              (CastCmp CastUnnest (CastXX CastSX))
+    STKX ZKX STKX{} -> CastUnnest
+    STKProduct _stk1 _stk2 -> undefined  -- TODO: CastT2 CastX0 CastX0
   CastNest (STKX sh x) -> CastNest (STKX (SKnown k :!% sh) x)
   CastUnnest -> CastUnnest
 
