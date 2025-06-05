@@ -9,7 +9,7 @@ module HordeAd.Core.Types
     SNat, pattern SNat, pattern SNat'
   , withSNat, sNatValue, proxyFromSNat, valueOf
     -- * Kinds of the parameterized types that determine the structure of a tensor
-  , Target, TK (..), TKR, TKS, TKX, TKUnit
+  , Target, TK (..), TKR, TKS, TKX, TKUnit, RepConcrete
     -- * Some fundamental constraints and types related to tensors
   , GoodScalar, Differentiable, IfDifferentiable(..)
   , BuildTensorKind, RazeTensorKind, ADTensorKind, ADTensorScalar
@@ -138,6 +138,16 @@ type TKS sh r = TKS2 sh (TKScalar r)
 type TKX sh r = TKX2 sh (TKScalar r)
 
 type TKUnit = TKScalar Z1
+
+-- | The semantics of tensor kinds in concrete arrays. There may be other
+-- concrete instances in the future, but this one is simple and obvious enough
+-- to serve as a model for all others and so to be defined together with 'TK'.
+type family RepConcrete (y :: TK) where
+  RepConcrete (TKScalar r) = r
+  RepConcrete (TKR2 n x) = Nested.Ranked n (RepConcrete x)
+  RepConcrete (TKS2 sh x) = Nested.Shaped sh (RepConcrete x)
+  RepConcrete (TKX2 sh x) = Nested.Mixed sh (RepConcrete x)
+  RepConcrete (TKProduct x z) = (RepConcrete x, RepConcrete z)
 
 
 -- * Some fundamental constraints and types

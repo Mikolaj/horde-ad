@@ -135,14 +135,6 @@ mmakeNonZero =
 
 -- * RepConcrete and its operations
 
--- | The type family that represents tensor kinds in concrete arrays.
-type family RepConcrete (y :: TK) where
-  RepConcrete (TKScalar r) = r
-  RepConcrete (TKR2 n x) = Nested.Ranked n (RepConcrete x)
-  RepConcrete (TKS2 sh x) = Nested.Shaped sh (RepConcrete x)
-  RepConcrete (TKX2 sh x) = Nested.Mixed sh (RepConcrete x)
-  RepConcrete (TKProduct x z) = (RepConcrete x, RepConcrete z)
-
 -- | Computing full shape tensor kinds for concrete arrays.
 tftkG :: SingletonTK y -> RepConcrete y -> FullShapeTK y
 tftkG stk t =
