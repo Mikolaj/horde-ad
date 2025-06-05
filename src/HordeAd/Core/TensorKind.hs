@@ -22,12 +22,12 @@ import GHC.Exts (withDict)
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat)
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested (type (++), MapJust, Replicate)
+import Data.Array.Nested (MapJust, Replicate, type (++))
+import Data.Array.Nested.Convert (Castable (..), shxFromShS)
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
-import Data.Array.Nested.Convert (shxFromShS)
 
 import HordeAd.Core.Types
 
@@ -182,75 +182,13 @@ widthSTK stk = case stk of
   STKX{} -> 1
   STKProduct stk1 stk2 -> widthSTK stk1 + widthSTK stk2
 
-type role TKCastable nominal nominal
-data TKCastable (a :: TK) (b :: TK) where
-  CastId  :: TKCastable a a
-  CastCmp :: TKCastable b c -> TKCastable a b -> TKCastable a c
-
-  CastRX  :: TKCastable (TKR2 n a) (TKX2 (Replicate n Nothing) a)
-  CastSX  :: TKCastable (TKS2 sh a) (TKX2 (MapJust sh) a)
-
-  CastXR  :: SingletonTK a -> TKCastable (TKX2 sh a) (TKR2 (Rank sh) a)
-  CastXS  :: TKCastable (TKX2 (MapJust sh) a) (TKS2 sh a)
-  CastXS' :: Rank sh ~ Rank sh'
-          => SingletonTK (TKS2 sh' a)
-          -> TKCastable (TKX2 sh a) (TKS2 sh' a)
-
-  CastXX' :: Rank sh ~ Rank sh'
-          => SingletonTK (TKX2 sh' a)
-          -> TKCastable (TKX2 sh a) (TKX2 sh' a)
-
-  CastRR  :: TKCastable a b -> TKCastable (TKR2 n a) (TKR2 n b)
-  CastSS  :: TKCastable a b -> TKCastable (TKS2 sh a) (TKS2 sh b)
-  CastXX  :: TKCastable a b -> TKCastable (TKX2 sh a) (TKX2 sh b)
-  CastT2  :: TKCastable a a'
-          -> TKCastable b b'
-          -> TKCastable (TKProduct a b) (TKProduct a' b')
-
-  Cast0X  :: SingletonTK a -> TKCastable a (TKX2 '[] a)
-  CastX0  :: TKCastable (TKX2 '[] a) a
-
-  CastNest :: SingletonTK (TKX2 sh a)
-           -> TKCastable (TKX2 (sh ++ sh') a) (TKX2 sh (TKX2 sh' a))
-  CastUnnest :: TKCastable (TKX2 sh (TKX2 sh' a)) (TKX2 (sh ++ sh') a)
-
-  CastZip   :: SingletonTK a -> SingletonTK b
-            -> TKCastable (TKProduct (TKX2 sh a) (TKX2 sh b))
-                          (TKX2 sh (TKProduct a b))
-  CastUnzip :: SingletonTK a -> SingletonTK b
-            -> TKCastable (TKX2 sh (TKProduct a b))
-                          (TKProduct (TKX2 sh a) (TKX2 sh b))
-
-deriving instance Show (TKCastable a b)
+newtype TKCastable (a :: TK) (b :: TK) =
+  TKCastable (Castable (RepConcrete a) (RepConcrete b))
+ deriving Show
 
 instance Category TKCastable where
-  id = CastId
-  (.) = CastCmp
-
-castSTK :: TKCastable a b -> SingletonTK a -> SingletonTK b
-castSTK = \cases
-  CastId astk -> astk
-  (CastCmp c1 c2) astk -> castSTK c1 (castSTK c2 astk)
-  CastRX (STKR n a) -> STKX (ssxReplicate n) a
-  CastSX (STKS sh a) -> STKX (ssxFromShX $ shxFromShS sh) a
-  (CastXR _stk) (STKX ssx a) -> STKR (ssxRank ssx) a
-  CastXS (STKX ssx a) -> STKS (shsFromStaticShX ssx) a
-  (CastXS' (STKS sh _x)) (STKX _ssx2 a) -> STKS sh a
-  (CastXX' (STKX ssx _x)) (STKX _ssx2 a) -> STKX ssx a
-  (CastRR c) (STKR n a) -> STKR n (castSTK c a)
-  (CastSS c) (STKS sh a) -> STKS sh (castSTK c a)
-  (CastXX c) (STKX ssx a) -> STKX ssx (castSTK c a)
-  (CastT2 c1 c2) (STKProduct stk1 stk2) ->
-    STKProduct (castSTK c1 stk1) (castSTK c2 stk2)
-  (Cast0X _stk) stk -> STKX ZKX stk
-  CastX0 (STKX ZKX stk) -> stk
-  (CastNest (STKX sh x)) (STKX shsh' _x) ->
-    STKX sh (STKX (ssxDropSSX shsh' sh) x)
-  CastUnnest (STKX sh (STKX sh' x)) -> STKX (sh `ssxAppend` sh') x
-  (CastZip _ _) (STKProduct (STKX sh a1) (STKX _sh a2)) ->
-    STKX sh (STKProduct a1 a2)
-  (CastUnzip _ _) (STKX sh (STKProduct a1 a2)) ->
-    STKProduct (STKX sh a1) (STKX sh a2)
+  id = TKCastable CastId
+  TKCastable c1 . TKCastable c2 = TKCastable (CastCmp c1 c2)
 
 -- * Full shape tensor kind quasi-singletons
 

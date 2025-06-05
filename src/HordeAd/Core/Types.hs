@@ -1,5 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, DerivingVia, ImpredicativeTypes,
-             UndecidableInstances, ViewPatterns #-}
+             UndecidableInstances, UndecidableSuperClasses, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
