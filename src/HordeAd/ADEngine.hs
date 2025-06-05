@@ -133,7 +133,7 @@ gradInterpretArtifact
 gradInterpretArtifact AstArtifactRev{..} parameters =
   let xftk = varNameToFTK artVarDomainRev
       azftk = varNameToFTK artVarDtRev
-                -- STKScalar @(ADTensorScalar r) or STKScalar @Z0
+                -- STKScalar @(ADTensorScalar r) or STKScalar @Z1
       oneAtF = treplTarget 1 azftk
       env = extendEnv artVarDtRev oneAtF
             $ extendEnv artVarDomainRev parameters emptyEnv

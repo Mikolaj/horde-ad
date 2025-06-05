@@ -139,7 +139,7 @@ adSTK = \case
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0)
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1)
            STKScalar
   STKR sh x -> STKR sh $ adSTK x
   STKS sh x -> STKS sh $ adSTK x
@@ -174,7 +174,7 @@ lengthSTK (STKProduct sy sz) = lengthSTK sy `max` lengthSTK sz
 
 widthSTK :: SingletonTK y -> Int
 widthSTK stk = case stk of
-  STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
+  STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z1) of
     Just Refl -> 0
     _ -> 1
   STKR{} -> 1
@@ -334,8 +334,8 @@ adFTK = \case
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
-           FTKScalar @Z0
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) $
+           FTKScalar @Z1
   FTKR sh x -> FTKR sh $ adFTK x
   FTKS sh x -> FTKS sh $ adFTK x
   FTKX sh x -> FTKX sh $ adFTK x

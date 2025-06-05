@@ -662,7 +662,7 @@ attemptMatmul2 t3 u3 = Just $
         _ -> case testEquality (typeRep @r) (typeRep @CInt) of
           Just Refl ->
             astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-          _ -> case testEquality (typeRep @r) (typeRep @Z0) of
+          _ -> case testEquality (typeRep @r) (typeRep @Z1) of
             Just Refl ->
               astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
             _ -> error "attemptMatmul2: unexpected scalar"

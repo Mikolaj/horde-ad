@@ -241,7 +241,7 @@ stkOfListR stk SNat =
 instance (BaseTensor target, KnownNat n, AdaptableTarget target a)
          => AdaptableTarget target (ListR n a) where
   type X (ListR n a) = Tups n (X a)
-  toTarget ZR = tkconcrete Z0
+  toTarget ZR = tkconcrete Z1
   toTarget ((:::) @n1 a rest) =
     gcastWith (unsafeCoerceRefl
                :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $

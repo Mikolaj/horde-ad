@@ -176,26 +176,26 @@ toADTensorKindW t = \case
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
-           WTKScalar $ kconcrete Z0
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) $
+           WTKScalar $ kconcrete Z1
   WFTKR @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
-           WTKR $ rrepl @_ @_ @target sh Z0
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) $
+           WTKR $ rrepl @_ @_ @target sh Z1
   WFTKS @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
-           WTKS $ sconcrete $ Nested.sreplicateScal sh Z0
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) $
+           WTKS $ sconcrete $ Nested.sreplicateScal sh Z1
   WFTKX @r sh -> case testEquality (typeRep @r) (typeRep @Double) of
     Just Refl -> t
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
       Just Refl -> t
-      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z0) $
-           WTKX $ xrepl @_ @_ @target sh Z0
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) $
+           WTKX $ xrepl @_ @_ @target sh Z1
   WFTKProduct ftk1 ftk2 -> case t of
     WTKProduct t1 t2 ->
       WTKProduct (toADTensorKindW t1 ftk1) (toADTensorKindW t2 ftk2)

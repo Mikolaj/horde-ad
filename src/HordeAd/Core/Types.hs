@@ -16,8 +16,8 @@ module HordeAd.Core.Types
     -- * Type families that tensors belong to
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf, BoolOf
   , IxROf, IxSOf, IxXOf
-    -- * The Z0 Num unit type and its instances
-  , Z0(..)
+    -- * The Z1 Num unit type and its instances
+  , Z1(..)
     -- * Misc
   , Dict(..), IntegralH(..), RealFloatH(..), Boolean (..), EqH(..), OrdH(..)
   , backpermutePrefixList
@@ -137,7 +137,7 @@ type TKR n r = TKR2 n (TKScalar r)
 type TKS sh r = TKS2 sh (TKScalar r)
 type TKX sh r = TKX2 sh (TKScalar r)
 
-type TKUnit = TKScalar Z0
+type TKUnit = TKScalar Z1
 
 
 -- * Some fundamental constraints and types
@@ -212,7 +212,7 @@ type family ADTensorKind tk where
 type family ADTensorScalar r where
   ADTensorScalar Double = Double
   ADTensorScalar Float = Float
-  ADTensorScalar t = Z0
+  ADTensorScalar t = Z1
 
 
 -- * Type families that tensors belong to
@@ -270,38 +270,38 @@ type IxSOf (f :: Target) (sh :: [Nat]) = IxS sh (IntOf f)
 type IxXOf (f :: Target) (sh :: [Maybe Nat]) = IxX sh (IntOf f)
 
 
--- * The Z0 Num unit type and its instances
+-- * The Z1 Num unit type and its instances
 
-data Z0 = Z0
+data Z1 = Z1
  deriving (Eq, Ord, Show)
 
-instance NFData Z0 where
-  rnf Z0 = ()
+instance NFData Z1 where
+  rnf Z1 = ()
 
-instance Storable Z0 where
+instance Storable Z1 where
   sizeOf _ = 0
   alignment _ = 1
-  peek _ = return Z0
+  peek _ = return Z1
   poke _ _ = return ()
 
-instance Num Z0 where
-  Z0 + Z0 = Z0
-  Z0 * Z0 = Z0
-  negate Z0 = Z0
-  abs Z0 = Z0
-  signum Z0 = Z0
-  fromInteger _ = Z0
+instance Num Z1 where
+  Z1 + Z1 = Z1
+  Z1 * Z1 = Z1
+  negate Z1 = Z1
+  abs Z1 = Z1
+  signum Z1 = Z1
+  fromInteger _ = Z1
 
-instance Default Z0 where
-  def = Z0
+instance Default Z1 where
+  def = Z1
 
-instance Nested.PrimElt Z0
-newtype instance Mixed.Mixed sh Z0 = M_NilZ0 (Mixed.Mixed sh (Mixed.Primitive Z0)) deriving (Eq, Ord, Generic)  -- no content, orthotope optimises this (via Vector)
-newtype instance Mixed.MixedVecs s sh Z0 = MV_NilZ0 (V.MVector s Z0)  -- no content, MVector optimises this
-deriving via Nested.Primitive Z0 instance Nested.Elt Z0
-deriving via Nested.Primitive Z0 instance Nested.KnownElt Z0
+instance Nested.PrimElt Z1
+newtype instance Mixed.Mixed sh Z1 = M_NilZ1 (Mixed.Mixed sh (Mixed.Primitive Z1)) deriving (Eq, Ord, Generic)  -- no content, orthotope optimises this (via Vector)
+newtype instance Mixed.MixedVecs s sh Z1 = MV_NilZ1 (V.MVector s Z1)  -- no content, MVector optimises this
+deriving via Nested.Primitive Z1 instance Nested.Elt Z1
+deriving via Nested.Primitive Z1 instance Nested.KnownElt Z1
 
-instance NumElt Z0 where
+instance NumElt Z1 where
   numEltAdd _ arr1 _arr2 = arr1
   numEltSub _ arr1 _arr2 = arr1
   numEltMul _ arr1 _arr2 = arr1
@@ -310,8 +310,8 @@ instance NumElt Z0 where
   numEltSignum _ arr = arr
   numEltSum1Inner _ arr = fromO (RS.index (toO arr) 0)
   numEltProduct1Inner _ arr = fromO (RS.index (toO arr) 0)
-  numEltSumFull _ _arr = Z0
-  numEltProductFull _ _arr = Z0
+  numEltSumFull _ _arr = Z1
+  numEltProductFull _ _arr = Z1
   numEltMinIndex snat _arr = replicate (sNatValue snat) 0
   numEltMaxIndex snat _arr = replicate (sNatValue snat) 0
   numEltDotprodInner _ arr1 _arr2 = fromO (RS.index (toO arr1) 0)

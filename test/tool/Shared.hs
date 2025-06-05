@@ -48,7 +48,7 @@ instance HasShape Int64 where
 instance HasShape CInt where
   shapeL _ = []
 
-instance HasShape Z0 where
+instance HasShape Z1 where
   shapeL _ = [0]
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => HasShape (t a) where
@@ -82,7 +82,7 @@ instance Linearizable Int64 Int64 where
 instance Linearizable CInt CInt where
   linearize x = [x]
 
-instance Linearizable Z0 Z0 where
+instance Linearizable Z1 Z1 where
   linearize _ = []
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => Linearizable (t a) a where

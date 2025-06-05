@@ -268,11 +268,11 @@ class LetTensor (target :: Target) where
     $ tmapAccumL (Proxy @target)
        k
        (tftk nstk acc0)
-       (FTKScalar @Z0)
+       (FTKScalar @Z1)
        (razeFTK k mstk (tftk (buildSTK k mstk) es))
        (let g :: forall f. ADReady f
               => f yn -> f ym -> f (TKProduct yn TKUnit)
-            g !acc !e = tpair (f acc e) (tkconcrete Z0)
+            g !acc !e = tpair (f acc e) (tkconcrete Z1)
         in g)
        acc0
        es
@@ -396,7 +396,7 @@ class ( Num (IntOf target)
 
   tsize :: SingletonTK y -> target y -> Int
   tsize stk a = case stk of
-    STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z0) of
+    STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z1) of
       Just Refl -> 0
       _ -> 1
     STKR _ x | Dict <- lemKnownSTK x -> rsize a

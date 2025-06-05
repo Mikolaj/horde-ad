@@ -520,7 +520,7 @@ evalRevFTK !s !c d0 = case d0 of
          Just Refl -> evalRevSame s c d0
          _ -> s  -- the constructors remaining here have y that is
                  -- a non-TKProduct so if y is equal to ADTensorKind y,
-                 -- the latter has the Z0 scalar type and so no influence
+                 -- the latter has the Z1 scalar type and so no influence
                  -- on the derivative.
 
 -- | A helper function to `evalRev`. It assumes the scalar underlying

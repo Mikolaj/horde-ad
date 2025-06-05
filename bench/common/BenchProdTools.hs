@@ -117,7 +117,7 @@ multScalarMapAccum snat@SNat  =
   . tmapAccumL (Proxy @target)
      snat
      (FTKScalar @r)
-     (FTKScalar @Z0)
+     (FTKScalar @Z1)
      (FTKScalar @r)
      (let g :: forall f. ADReady f
             => f (TKScalar r) -> f (TKScalar r)
