@@ -4,7 +4,7 @@
 -- and lemmas associated with the singletons.
 module HordeAd.Core.TensorKind
   ( -- * Tensor kind singletons
-    SingletonTK(..), KnownSTK(..), TKCastable(..), castSTK
+    SingletonTK(..), KnownSTK(..), castSTK, transposeCastable
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
@@ -22,7 +22,7 @@ import GHC.Exts (withDict)
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat)
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested (MapJust, Replicate, type (++))
+import Data.Array.Nested (Elt, MapJust, Replicate, type (++))
 import Data.Array.Nested.Convert (Castable (..), shxFromShS)
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
@@ -182,6 +182,8 @@ widthSTK stk = case stk of
   STKX{} -> 1
   STKProduct stk1 stk2 -> widthSTK stk1 + widthSTK stk2
 
+-- * Castable machinery
+
 newtype TKCastable (a :: TK) (b :: TK) =
   TKCastable (Castable (RepConcrete a) (RepConcrete b))
  deriving Show
@@ -189,6 +191,33 @@ newtype TKCastable (a :: TK) (b :: TK) =
 instance Category TKCastable where
   id = TKCastable CastId
   TKCastable c1 . TKCastable c2 = TKCastable (CastCmp c1 c2)
+
+transposeCastable :: Elt a
+                  => Castable a b -> Castable b a
+transposeCastable c0 = case c0 of
+  CastId -> CastId
+  CastCmp c1 c2 -> CastCmp (transposeCastable c2)
+                           (transposeCastable c1)
+  CastRX @n | Refl <- lemRankReplicate (Proxy @n) ->
+    CastXR
+  CastSX -> CastXS
+  CastXR @_ @sh | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
+    CastCmp (CastXX' astk) CastRX
+  CastXS -> CastSX
+  CastXS' sh | Refl <- lemRankMapJust sh ->
+    CastCmp (CastXX' astk) CastSX
+  CastXX' ssx -> CastXX' ???
+  CastRR c -> CastRR (transposeCastable c)
+  CastSS c -> CastSS (transposeCastable c)
+  CastXX c -> CastXX (transposeCastable c)
+  CastT2 c1 c2 -> CastT2 (transposeCastable c1) (transposeCastable c2)
+  Cast0X -> CastX0
+  CastX0 -> Cast0X x
+  CastNest _ -> CastUnnest
+  CastUnnest -> CastNest ???
+  CastZip -> CastUnzip
+  CastUnzip -> CastZip
+
 
 -- * Full shape tensor kind quasi-singletons
 
