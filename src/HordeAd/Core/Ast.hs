@@ -410,10 +410,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   AstReshapeS :: Product sh ~ Product sh2
               => ShS sh2
               -> AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh2 x)
-  AstZipS :: AstTensor ms s (TKProduct (TKS2 sh y) (TKS2 sh z))
-          -> AstTensor ms s (TKS2 sh (TKProduct y z))
-  AstUnzipS :: AstTensor ms s (TKS2 sh (TKProduct y z))
-            -> AstTensor ms s (TKProduct (TKS2 sh y) (TKS2 sh z))
   AstNestS :: forall sh1 sh2 x ms s.
               ShS sh1 -> ShS sh2
            -> AstTensor ms s (TKS2 (sh1 ++ sh2) x)

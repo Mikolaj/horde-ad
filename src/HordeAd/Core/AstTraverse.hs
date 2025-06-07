@@ -182,8 +182,6 @@ expandAst t = case t of
                           sh v2
         -- this is expensive but the only way to guarantee full simplification
     -} astReshapeS sh (expandAst v)
-  Ast.AstZipS v -> Ast.AstZipS (expandAst v)
-  Ast.AstUnzipS v -> Ast.AstUnzipS (expandAst v)
   Ast.AstNestS sh1 sh2 v ->
     astNestS sh1 sh2 $ expandAst v
   Ast.AstUnNestS v -> astUnNestS $ expandAst v
@@ -307,8 +305,6 @@ simplifyAst t = case t of
   Ast.AstReverseS v -> astReverseS (simplifyAst v)
   Ast.AstTransposeS perm v -> astTransposeS perm $ simplifyAst v  -- TODO:(normalizePermutation perm)
   Ast.AstReshapeS sh v -> astReshapeS sh $ simplifyAst v
-  Ast.AstZipS v -> Ast.AstZipS (simplifyAst v)
-  Ast.AstUnzipS v -> Ast.AstUnzipS (simplifyAst v)
   Ast.AstNestS sh1 sh2 v ->
     astNestS sh1 sh2 $ simplifyAst v
   Ast.AstUnNestS v -> astUnNestS $ simplifyAst v
@@ -622,8 +618,6 @@ contractAst t0 = case t0 of
   Ast.AstReshapeS sh2 t -> case contractAst t of
     AstConcreteS v -> astConcreteS (tsreshape sh2 $ Concrete v)
     t2 -> astReshapeS sh2 t2
-  Ast.AstZipS v -> Ast.AstZipS (contractAst v)
-  Ast.AstUnzipS v -> Ast.AstUnzipS (contractAst v)
   Ast.AstNestS sh1 sh2 v ->
     astNestS sh1 sh2 $ contractAst v
   Ast.AstUnNestS v -> astUnNestS $ contractAst v

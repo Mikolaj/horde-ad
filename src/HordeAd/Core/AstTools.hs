@@ -118,10 +118,6 @@ ftkAst t = case t of
     FTKS sh x -> FTKS (shsPermutePrefix perm sh) x
   AstReshapeS sh2 v -> case ftkAst v of
     FTKS _ x -> FTKS sh2 x
-  AstZipS v -> case ftkAst v of
-    FTKProduct (FTKS sh y) (FTKS _ z) -> FTKS sh (FTKProduct y z)
-  AstUnzipS v -> case ftkAst v of
-    FTKS sh (FTKProduct y z) -> FTKProduct (FTKS sh y) (FTKS sh z)
   AstNestS sh1 sh2 v -> case ftkAst v of
     FTKS _ x -> FTKS sh1 (FTKS sh2 x)
   AstUnNestS v -> case ftkAst v of
@@ -243,8 +239,6 @@ varInAst var = \case
   AstReverseS v -> varInAst var v
   AstTransposeS _perm v -> varInAst var v
   AstReshapeS _ v -> varInAst var v
-  AstZipS v -> varInAst var v
-  AstUnzipS v -> varInAst var v
   AstNestS _ _ v -> varInAst var v
   AstUnNestS v -> varInAst var v
 
@@ -357,10 +351,6 @@ astIsSmallN n t0 = case t0 of
     astIsSmallN (n - 1) v  -- executed as a cheap metadata change
   AstTransposeS _perm v ->
     if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change
-  AstZipS v ->
-    astIsSmallN (n - 1) v  -- executed as a cheap metadata change
-  AstUnzipS v ->
-    astIsSmallN (n - 1) v  -- executed as a cheap metadata change
   AstNestS _ _ v ->
     if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change
   AstUnNestS v ->

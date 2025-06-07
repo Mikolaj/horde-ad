@@ -957,8 +957,6 @@ astPrimalPart t = case t of
   Ast.AstReverseS v -> astReverseS (astPrimalPart v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astPrimalPart v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astPrimalPart v)
-  Ast.AstZipS v -> Ast.AstZipS (astPrimalPart v)
-  Ast.AstUnzipS v -> Ast.AstUnzipS (astPrimalPart v)
   Ast.AstNestS sh1 sh2 v ->
     astNestS sh1 sh2 $ astPrimalPart v
   Ast.AstUnNestS v -> astUnNestS $ astPrimalPart v
@@ -1054,8 +1052,6 @@ astDualPart t = case t of
   Ast.AstReverseS v -> astReverseS (astDualPart v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astDualPart v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astDualPart v)
-  Ast.AstZipS v -> Ast.AstZipS (astDualPart v)
-  Ast.AstUnzipS v -> Ast.AstUnzipS (astDualPart v)
   Ast.AstNestS sh1 sh2 v ->
     astNestS sh1 sh2 $ astDualPart v
   Ast.AstUnNestS v -> astUnNestS $ astDualPart v
@@ -1522,7 +1518,6 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                          || shsLength sh <= 1 ->
     astIndex shn (astReshapeAsGatherS (deVect knobs) sh v) ix
   Ast.AstReshapeS{} -> Ast.AstIndexS shn v0 ix
-  Ast.AstZipS _ -> Ast.AstIndexS shn v0 ix
   Ast.AstNestS{} -> Ast.AstIndexS shn v0 ix
   Ast.AstUnNestS _ -> Ast.AstIndexS shn v0 ix
 
@@ -2568,7 +2563,6 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
       then astGather @shm @shn @shp shn
                      (astReshapeAsGatherS knobs sh v) (vars4, ix4)
       else Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-    Ast.AstZipS _v -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstNestS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstUnNestS _v -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
 
@@ -3764,8 +3758,6 @@ substitute1Ast i var = subst where
   Ast.AstReverseS v -> astReverseS <$> subst v
   Ast.AstTransposeS perm v -> astTransposeS perm <$> subst v
   Ast.AstReshapeS sh v -> astReshapeS sh <$> subst v
-  Ast.AstZipS v -> Ast.AstZipS <$> subst v
-  Ast.AstUnzipS v -> Ast.AstUnzipS <$> subst v
   Ast.AstNestS sh1 sh2 v ->
     astNestS sh1 sh2 <$> subst v
   Ast.AstUnNestS v -> astUnNestS <$> subst v
