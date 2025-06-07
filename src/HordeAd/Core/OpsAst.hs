@@ -1095,45 +1095,54 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tdot0Target = dot0Target
 
 instance AstSpan s => ConvertTensor (AstRaw s) where
-  rzip @y @z (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKProduct (FTKR sh' y) (FTKR _ z) ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
-        let (a31, a32) = tunpair $ AstRaw a
-        in AstFromS @(TKS2 sh (TKProduct y z))
-                      (STKR (shrRank sh')
-                            (STKProduct (ftkToSTK y) (ftkToSTK z)))
-           $ AstZipS $ AstPair (AstSFromR @sh sh $ unAstRaw a31)
-                               (AstSFromR @sh sh $ unAstRaw a32)
-  runzip @y @z (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR sh' (FTKProduct y z) ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
-        let b3 = AstUnzipS $ AstSFromR @sh sh a
-            (b31, b32) = tunpair $ AstRaw b3
-        in AstPair (AstFromS @(TKS2 sh y) (STKR (shrRank sh') (ftkToSTK y))
-                    $ unAstRaw b31)
-                   (AstFromS @(TKS2 sh z) (STKR (shrRank sh') (ftkToSTK z))
-                    $ unAstRaw b32)
-  szip = AstRaw . AstZipS . unAstRaw
-  sunzip = AstRaw . AstUnzipS . unAstRaw
-  xzip @y @z @sh' (AstRaw a) = case ftkAst a of
-    FTKProduct (FTKX sh' y) (FTKX _ z) ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        AstRaw
-        $ let (a31, a32) = tunpair $ AstRaw a
-          in AstFromS @(TKS2 sh (TKProduct y z))
-                      (ftkToSTK $ FTKX sh' (FTKProduct y z))
-             $ AstZipS $ AstPair (AstSFromX @sh @sh' sh $ unAstRaw a31)
-                                 (AstSFromX @sh @sh' sh $ unAstRaw a32)
-  xunzip @y @z @sh' (AstRaw a) = case ftkAst a of
-    FTKX sh' (FTKProduct y z) ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        AstRaw
-        $ let b3 = AstRaw $ AstUnzipS $ AstSFromX @sh @sh' sh a
-              (b31, b32) = tunpair b3
-          in AstPair (AstFromS @(TKS2 sh y) (ftkToSTK $ FTKX sh' y)
-                      $ unAstRaw b31)
-                     (AstFromS @(TKS2 sh z) (ftkToSTK $ FTKX sh' z)
-                      $ unAstRaw b32)
+  rzip @_ @_ @n (AstRaw a)
+   | Refl <- lemRankReplicate (Proxy @n) = AstRaw $ case ftkAst a of
+    FTKProduct (FTKR sh y) (FTKR _sh z) ->
+      let c = CastCmp
+                (CastXR (ftkToSTK (FTKProduct y z)))
+                (CastCmp
+                   (CastZip (ftkToSTK y) (ftkToSTK z))
+                   (CastT2 CastRX CastRX))
+          ftk2 = FTKR sh (FTKProduct y z)
+      in AstCastCastable c ftk2 a
+  runzip @_ @_ @n (AstRaw a)
+   | Refl <- lemRankReplicate (Proxy @n) = AstRaw $ case ftkAst a of
+    FTKR sh (FTKProduct y z) ->
+      let c = CastCmp
+                (CastT2 (CastXR (ftkToSTK y)) (CastXR (ftkToSTK z)))
+                (CastCmp
+                   (CastUnzip (ftkToSTK y) (ftkToSTK z))
+                   CastRX)
+          ftk2 = FTKProduct (FTKR sh y) (FTKR sh z)
+      in AstCastCastable c ftk2 a
+  szip (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKProduct (FTKS sh y) (FTKS _sh z) ->
+      let c = CastCmp
+                CastXS
+                (CastCmp
+                   (CastZip (ftkToSTK y) (ftkToSTK z))
+                   (CastT2 CastSX CastSX))
+          ftk2 = FTKS sh (FTKProduct y z)
+      in AstCastCastable c ftk2 a
+  sunzip (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKS sh (FTKProduct y z) ->
+      let c = CastCmp
+                (CastT2 CastXS CastXS)
+                (CastCmp
+                   (CastUnzip (ftkToSTK y) (ftkToSTK z))
+                   CastSX)
+          ftk2 = FTKProduct (FTKS sh y) (FTKS sh z)
+      in AstCastCastable c ftk2 a
+  xzip (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKProduct (FTKX sh y) (FTKX _sh z) ->
+      let c = CastZip (ftkToSTK y) (ftkToSTK z)
+          ftk2 = FTKX sh (FTKProduct y z)
+      in AstCastCastable c ftk2 a
+  xunzip (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh (FTKProduct y z) ->
+      let c = CastUnzip (ftkToSTK y) (ftkToSTK z)
+          ftk2 = FTKProduct (FTKX sh y) (FTKX sh z)
+      in AstCastCastable c ftk2 a
 
   tfromS zstk (AstRaw a) = AstRaw $ AstFromS zstk a
   rfromX a = case ftkAst $ unAstRaw a of

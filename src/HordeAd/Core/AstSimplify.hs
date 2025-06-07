@@ -83,7 +83,6 @@ import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, Perm (..), TakeLen, permInverse)
 import Data.Array.Nested.Permutation qualified as Permutation
-import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types
   (Head, Init, Last, Tail, snatPlus, unsafeCoerceRefl)
@@ -3211,46 +3210,54 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
 -- * ConvertTensor instances needed for unwinding in astConcrete
 
 instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
-  rzip @y @z a = case ftkAst a of
-    FTKProduct (FTKR sh' y) (FTKR _ z) ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
-        astLetFun a $ \a3 ->
-          let (a31, a32) = tunpairConv a3
-          in astFromS @(TKS2 sh (TKProduct y z))
-                      (STKR (shrRank sh')
-                            (STKProduct (ftkToSTK y) (ftkToSTK z)))
-             $ Ast.AstZipS $ astPair (astSFromR @sh sh a31)
-                                     (astSFromR @sh sh a32)
-  runzip @y @z a = case ftkAst a of
-    FTKR sh' (FTKProduct y z) ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
-        astLetFun (Ast.AstUnzipS $ astSFromR @sh sh a) $ \b3 ->
-          let (b31, b32) = tunpairConv b3
-          in astPair (astFromS @(TKS2 sh y)
-                               (STKR (shrRank sh') (ftkToSTK y)) b31)
-                     (astFromS @(TKS2 sh z)
-                               (STKR (shrRank sh') (ftkToSTK z)) b32)
-  szip = Ast.AstZipS
-  sunzip = Ast.AstUnzipS
-  xzip @y @z @sh' a = case ftkAst a of
-    FTKProduct (FTKX sh' y) (FTKX _ z) ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        astLetFun a $ \a3 ->
-          let (a31, a32) = tunpairConv a3
-          in astFromS @(TKS2 sh (TKProduct y z))
-                      (STKX (ssxFromShX sh')
-                            (STKProduct (ftkToSTK y) (ftkToSTK z)))
-             $ Ast.AstZipS $ astPair (astSFromX @sh @sh' sh a31)
-                                     (astSFromX @sh @sh' sh a32)
-  xunzip @y @z @sh' a = case ftkAst a of
-    FTKX sh' (FTKProduct y z) ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        astLetFun (Ast.AstUnzipS $ astSFromX @sh @sh' sh a) $ \b3 ->
-          let (b31, b32) = tunpairConv b3
-          in astPair (astFromS @(TKS2 sh y)
-                               (STKX (ssxFromShX sh') (ftkToSTK y)) b31)
-                     (astFromS @(TKS2 sh z)
-                               (STKX (ssxFromShX sh') (ftkToSTK z)) b32)
+  rzip @_ @_ @n a
+   | Refl <- lemRankReplicate (Proxy @n) = case ftkAst a of
+    FTKProduct (FTKR sh y) (FTKR _sh z) ->
+      let c = CastCmp
+                (CastXR (ftkToSTK (FTKProduct y z)))
+                (CastCmp
+                   (CastZip (ftkToSTK y) (ftkToSTK z))
+                   (CastT2 CastRX CastRX))
+          ftk2 = FTKR sh (FTKProduct y z)
+      in Ast.AstCastCastable c ftk2 a
+  runzip @_ @_ @n a
+   | Refl <- lemRankReplicate (Proxy @n) = case ftkAst a of
+    FTKR sh (FTKProduct y z) ->
+      let c = CastCmp
+                (CastT2 (CastXR (ftkToSTK y)) (CastXR (ftkToSTK z)))
+                (CastCmp
+                   (CastUnzip (ftkToSTK y) (ftkToSTK z))
+                   CastRX)
+          ftk2 = FTKProduct (FTKR sh y) (FTKR sh z)
+      in Ast.AstCastCastable c ftk2 a
+  szip a = case ftkAst a of
+    FTKProduct (FTKS sh y) (FTKS _sh z) ->
+      let c = CastCmp
+                CastXS
+                (CastCmp
+                   (CastZip (ftkToSTK y) (ftkToSTK z))
+                   (CastT2 CastSX CastSX))
+          ftk2 = FTKS sh (FTKProduct y z)
+      in Ast.AstCastCastable c ftk2 a
+  sunzip a = case ftkAst a of
+    FTKS sh (FTKProduct y z) ->
+      let c = CastCmp
+                (CastT2 CastXS CastXS)
+                (CastCmp
+                   (CastUnzip (ftkToSTK y) (ftkToSTK z))
+                   CastSX)
+          ftk2 = FTKProduct (FTKS sh y) (FTKS sh z)
+      in Ast.AstCastCastable c ftk2 a
+  xzip a = case ftkAst a of
+    FTKProduct (FTKX sh y) (FTKX _sh z) ->
+      let c = CastZip (ftkToSTK y) (ftkToSTK z)
+          ftk2 = FTKX sh (FTKProduct y z)
+      in Ast.AstCastCastable c ftk2 a
+  xunzip a = case ftkAst a of
+    FTKX sh (FTKProduct y z) ->
+      let c = CastUnzip (ftkToSTK y) (ftkToSTK z)
+          ftk2 = FTKProduct (FTKX sh y) (FTKX sh z)
+      in Ast.AstCastCastable c ftk2 a
 
   tfromS = astFromS
   rfromX a = case ftkAst a of

@@ -67,6 +67,8 @@ class ConvertTensor (target :: Target) where
   tcastCastable :: TKCastable a b -> SingletonTK a -> FullShapeTK b -> target a
                 -> target b
 
+  -- These six could be defined in terms of tcastCastable, but they'd need
+  -- additional singleton arguments or constraints.
   rzip :: forall y z n. (KnownSTK y, KnownSTK z)
        => target (TKProduct (TKR2 n y) (TKR2 n z))
        -> target (TKR2 n (TKProduct y z))
