@@ -3267,7 +3267,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   sfromK = astSFromK
   sfromR = astSFromR knownShS
   sfromX = astSFromX knownShS
-  tcastCastable = Ast.AstCastCastable
+  tcastCastable c _astk bftk v = Ast.AstCastCastable c bftk v
 
   xnestR @sh1' @m @x sh1' a = case ftkAst a of
     FTKX @sh1sh2' sh1sh2' x | SNat <- ssxRank sh1' ->
@@ -3292,7 +3292,6 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                (CastXX' (STKX sh1' (STKR (SNat @m) (ftkToSTK x))))
                (CastCmp CastSX
                         (CastSS (CastCmp (CastXR (ftkToSTK x)) CastSX))))
-            (STKS sh1 (STKS (dropShS @(Rank sh1') sh1sh2) (ftkToSTK x)))
             (FTKX (takeShX @(Rank sh1') sh1sh2')
                   (FTKR (shrFromShS (dropShS @(Rank sh1') sh1sh2)) x))
             :: AstTensor AstMethodLet s
@@ -3341,7 +3340,6 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                (CastCmp CastSX
                         (CastSS (CastCmp (CastXX' (STKX sh2' (ftkToSTK x)))
                                          CastSX))))
-            (STKS sh1 (STKS (dropShS @(Rank sh1') sh1sh2) (ftkToSTK x)))
             (FTKX (takeShX @(Rank sh1') sh1sh2')
                   (FTKX (dropShX @(Rank sh1') sh1sh2') x))
             :: AstTensor AstMethodLet s
@@ -3366,7 +3364,6 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
           $ (Ast.AstCastCastable
                (CastXX (CastCmp (CastXS' (STKS sh2 (ftkToSTK x)))
                                 CastRX))
-               (STKX (ssxFromShX sh1') (STKR (shsRank sh2) (ftkToSTK x)))
                (FTKX sh1' (FTKS sh2 x))
              :: AstTensor AstMethodLet s (TKX2 sh1' (TKR2 m x))
              -> AstTensor AstMethodLet s (TKX2 sh1' (TKS2 sh2 x)))
@@ -3394,7 +3391,6 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
           $ astSFromX @sh1 sh1
           $ (Ast.AstCastCastable
                (CastXX (CastXS' (STKS sh2 (ftkToSTK x))))
-               (STKX (ssxFromShX sh1') (STKX (ssxFromShX sh2') (ftkToSTK x)))
                (FTKX sh1' (FTKS sh2 x))
              :: AstTensor AstMethodLet s (TKX2 sh1' (TKX2 sh2' x))
              -> AstTensor AstMethodLet s (TKX2 sh1' (TKS2 sh2 x)))
@@ -3771,8 +3767,8 @@ substitute1Ast i var = subst where
   Ast.AstSFromK u -> astSFromK <$> subst u
   Ast.AstSFromR sh v -> astSFromR sh <$> subst v
   Ast.AstSFromX sh v -> astSFromX sh <$> subst v
-  Ast.AstCastCastable c astk bftk v ->
-    Ast.AstCastCastable c astk bftk <$> subst v
+  Ast.AstCastCastable c bftk v ->
+    Ast.AstCastCastable c bftk <$> subst v
 
   Ast.AstSum0S v -> astSum0S <$> subst v
   Ast.AstDot0S u v ->

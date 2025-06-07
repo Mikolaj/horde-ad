@@ -326,8 +326,9 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
       astSFromR (snat :$$ sh) $ build1V snat (var, v)
     Ast.AstSFromX sh v -> traceRule $
       astSFromX (snat :$$ sh) $ build1V snat (var, v)
-    Ast.AstCastCastable c astk bftk v -> traceRule $
-      Ast.AstCastCastable (vectorizeTKCastable snat astk c) (buildSTK snat astk) (buildFTK snat bftk)
+    Ast.AstCastCastable c bftk v -> traceRule $
+      Ast.AstCastCastable (vectorizeTKCastable snat (ftkToSTK (ftkAst v)) c)
+                          (buildFTK snat bftk)
       $ build1V snat (var, v)
 
     Ast.AstSum0S{} -> error "build1V: term not accessible from user API"

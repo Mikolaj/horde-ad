@@ -1154,8 +1154,8 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
   sfromR = AstRaw . cAstSFromR knownShS . unAstRaw
   sfromX = AstRaw . cAstSFromX knownShS . unAstRaw
   xfromS @_ @sh' @x = AstRaw . AstFromS (knownSTK @(TKX2 sh' x)) . unAstRaw
-  tcastCastable c astk bftk =
-    AstRaw . AstCastCastable c astk bftk . unAstRaw
+  tcastCastable c _astk bftk =
+    AstRaw . AstCastCastable c bftk . unAstRaw
 
   xnestR @sh1' @m @x sh1' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh1sh2' sh1sh2' x | SNat <- ssxRank sh1' ->
@@ -1179,7 +1179,6 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
                (CastXX' (STKX sh1' (STKR (SNat @m) (ftkToSTK x))))
                (CastCmp CastSX
                         (CastSS (CastCmp (CastXR (ftkToSTK x)) CastSX))))
-            (STKS sh1 (STKS (dropShS @(Rank sh1') sh1sh2) (ftkToSTK x)))
             (FTKX (takeShX @(Rank sh1') sh1sh2')
                   (FTKR (shrFromShS (dropShS @(Rank sh1') sh1sh2)) x))
             :: AstTensor AstMethodShare s
@@ -1227,7 +1226,6 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
                (CastCmp CastSX
                         (CastSS (CastCmp (CastXX' (STKX sh2' (ftkToSTK x)))
                                          CastSX))))
-            (STKS sh1 (STKS (dropShS @(Rank sh1') sh1sh2) (ftkToSTK x)))
             (FTKX (takeShX @(Rank sh1') sh1sh2')
                   (FTKX (dropShX @(Rank sh1') sh1sh2') x))
             :: AstTensor AstMethodShare s
@@ -1252,7 +1250,6 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
           $ (AstCastCastable
                (CastXX (CastCmp (CastXS' (STKS sh2 (ftkToSTK x)))
                                 CastRX))
-               (STKX (ssxFromShX sh1') (STKR (shsRank sh2) (ftkToSTK x)))
                (FTKX sh1' (FTKS sh2 x))
              :: AstTensor AstMethodShare s (TKX2 sh1' (TKR2 m x))
              -> AstTensor AstMethodShare s (TKX2 sh1' (TKS2 sh2 x)))
@@ -1280,7 +1277,6 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
           $ AstSFromX @sh1 sh1
           $ (AstCastCastable
                (CastXX (CastXS' (STKS sh2 (ftkToSTK x))))
-               (STKX (ssxFromShX sh1') (STKX (ssxFromShX sh2') (ftkToSTK x)))
                (FTKX sh1' (FTKS sh2 x))
              :: AstTensor AstMethodShare s (TKX2 sh1' (TKX2 sh2' x))
              -> AstTensor AstMethodShare s (TKX2 sh1' (TKS2 sh2 x)))
@@ -1480,8 +1476,8 @@ instance AstSpan s => ConvertTensor (AstNoVectorize s) where
   sfromK = AstNoVectorize . sfromK . unAstNoVectorize
   sfromR = AstNoVectorize . sfromR . unAstNoVectorize
   sfromX = AstNoVectorize . sfromX . unAstNoVectorize
-  tcastCastable c astk bftk =
-    AstNoVectorize . AstCastCastable c astk bftk . unAstNoVectorize
+  tcastCastable c _astk bftk =
+    AstNoVectorize . AstCastCastable c bftk . unAstNoVectorize
 
   xnestR sh = AstNoVectorize . xnestR sh . unAstNoVectorize
   xnestS sh = AstNoVectorize . xnestS sh . unAstNoVectorize
