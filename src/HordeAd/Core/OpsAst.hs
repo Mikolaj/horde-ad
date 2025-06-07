@@ -23,9 +23,9 @@ import GHC.TypeLits (OrderingI (..), cmpNat, type (+), type (-), type (<=?))
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (type (++))
+import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert (shrFromShS, shxFromShS)
+import Data.Array.Nested.Convert (shxFromShR, shxFromShS)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
@@ -1167,130 +1167,51 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
           ftk2 = FTKProduct (FTKX sh y) (FTKX sh z)
       in AstCastCastable c ftk2 a
 
-  xnestR @sh1' @m @x sh1' (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX @sh1sh2' sh1sh2' x | SNat <- ssxRank sh1' ->
-      withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
-      withKnownShS sh1sh2 $
-      case lemRankMapJust (takeShS @(Rank sh1') sh1sh2) of {Refl ->
-      case lemRankMapJust (dropShS @(Rank sh1') sh1sh2) of {Refl ->
-      -- TODO: this two should be deduced.
-      gcastWith (unsafeCoerceRefl :: Take (Rank sh1') sh1sh2' :~: sh1') $
-      withKnownShX sh1' $
-      withKnownShX (ssxFromShX sh1sh2') $
-      let sh1 = takeShS @(Rank sh1') sh1sh2
-      in gcastWith (unsafeCoerceRefl
-                    :: Take (Rank sh1') sh1sh2 ++ Drop (Rank sh1') sh1sh2
-                       :~: sh1sh2) $
-         gcastWith (unsafeCoerceRefl :: Rank (Take (Rank sh1') sh1sh2)
-                                        :~: Rank sh1') $
-         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1') sh1sh2) :~: m) $
-         (AstCastCastable
-            (CastCmp
-               (CastXX' (STKX sh1' (STKR (SNat @m) (ftkToSTK x))))
-               (CastCmp CastSX
-                        (CastSS (CastCmp (CastXR (ftkToSTK x)) CastSX))))
-            (FTKX (takeShX @(Rank sh1') sh1sh2')
-                  (FTKR (shrFromShS (dropShS @(Rank sh1') sh1sh2)) x))
-            :: AstTensor AstMethodShare s
-                 (TKS2 (Take (Rank sh1') sh1sh2)
-                       (TKS2 (Drop (Rank sh1') sh1sh2) x))
-            -> AstTensor AstMethodShare s
-                 (TKX2 sh1' (TKR2 m x)))
-         $ AstNestS sh1 (dropShS @(Rank sh1') sh1sh2)
-         $ AstSFromX @sh1sh2 sh1sh2 a
-      }}
-  xnestS @sh1' @sh2 @x sh1' (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh1sh2' x | SNat <- ssxRank sh1' ->
-      withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
-        withKnownShS sh1sh2 $
-        gcastWith (unsafeCoerceRefl
-                   :: Take (Rank sh1') sh1sh2 ++ sh2 :~: sh1sh2) $
-        AstFromS @(TKS2 (Take (Rank sh1') sh1sh2) (TKS2 sh2 x))
-                 (STKX sh1' (STKS knownShS (ftkToSTK x)))
-        $ AstNestS @_ @sh2 (takeShS @(Rank sh1') sh1sh2) knownShS
-        $ AstSFromX @sh1sh2 sh1sh2 a
-  xnest @sh1' @sh2' @x sh1' (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX @sh1sh2' sh1sh2' x | SNat <- ssxRank sh1' ->
-      withCastXS sh1sh2' $ \(sh1sh2 :: ShS sh1sh2) ->
-      withKnownShS sh1sh2 $
-      case lemRankMapJust (takeShS @(Rank sh1') sh1sh2) of {Refl ->
-      case lemRankMapJust (dropShS @(Rank sh1') sh1sh2) of {Refl ->
-      -- TODO: these two should be deduced.
-      gcastWith (unsafeCoerceRefl :: Take (Rank sh1') sh1sh2' :~: sh1') $
-      gcastWith (unsafeCoerceRefl :: Drop (Rank sh1') sh1sh2' :~: sh2') $
-      withKnownShX sh1' $
-      withKnownShX (ssxFromShX sh1sh2') $
-      let sh1 = takeShS @(Rank sh1') sh1sh2
-          sh2' :: StaticShX sh2'
-          sh2' = ssxFromShX $ dropShX @(Rank sh1') sh1sh2'
-      in gcastWith (unsafeCoerceRefl
-                    :: Take (Rank sh1') sh1sh2 ++ Drop (Rank sh1') sh1sh2
-                       :~: sh1sh2) $
-         gcastWith (unsafeCoerceRefl :: Rank (Take (Rank sh1') sh1sh2)
-                                        :~: Rank sh1') $
-         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1') sh1sh2)
-                                        :~: Rank (Drop (Rank sh1') sh1sh2')) $
-         (AstCastCastable
-            (CastCmp
-               (CastXX' (STKX sh1' (STKX sh2' (ftkToSTK x))))
-               (CastCmp CastSX
-                        (CastSS (CastCmp (CastXX' (STKX sh2' (ftkToSTK x)))
-                                         CastSX))))
-            (FTKX (takeShX @(Rank sh1') sh1sh2')
-                  (FTKX (dropShX @(Rank sh1') sh1sh2') x))
-            :: AstTensor AstMethodShare s
-                 (TKS2 (Take (Rank sh1') sh1sh2)
-                       (TKS2 (Drop (Rank sh1') sh1sh2) x))
-            -> AstTensor AstMethodShare s
-                 (TKX2 sh1' (TKX2 sh2' x)))
-         $ AstNestS sh1 (dropShS @(Rank sh1') sh1sh2)
-         $ AstSFromX @sh1sh2 sh1sh2 a
-      }}
-  xunNestR @sh1' @m @x (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh1' y -> case y of
-      FTKR sh2' x ->
-        withCastXS sh1' $ \(sh1 :: ShS sh1) ->
-        withCastRS sh2' $ \(sh2 :: ShS sh2) ->
-        case lemRankReplicate (Proxy @m) of {Refl ->
-          AstFromS @(TKS2 (sh1 ++ sh2) x)
-                   (STKX (ssxFromShX sh1' `ssxAppend` ssxReplicate (SNat @m))
-                         (ftkToSTK x))
-          $ AstUnNestS @sh1 @sh2
-          $ AstSFromX @sh1 sh1
-          $ (AstCastCastable
-               (CastXX (CastCmp (CastXS' (STKS sh2 (ftkToSTK x)))
-                                CastRX))
-               (FTKX sh1' (FTKS sh2 x))
-             :: AstTensor AstMethodShare s (TKX2 sh1' (TKR2 m x))
-             -> AstTensor AstMethodShare s (TKX2 sh1' (TKS2 sh2 x)))
-            a
-        }
-  xunNestS @_ @sh2 @x (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh1' y -> case y of
-      FTKS _ x ->
-        withCastXS sh1' $ \(sh1 :: ShS sh1) ->
-          AstFromS @(TKS2 (sh1 ++ sh2) x)
-                   (STKX (ssxFromShX sh1'
-                          `ssxAppend` ssxFromShX (shxFromShS (knownShS @sh2)))
-                         (ftkToSTK x))
-          $ AstUnNestS @sh1 @sh2
-          $ AstSFromX @sh1 sh1 a
-  xunNest @sh1' @sh2' @x (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh1' y -> case y of
-      FTKX sh2' x ->
-        withCastXS sh1' $ \(sh1 :: ShS sh1) ->
-        withCastXS sh2' $ \(sh2 :: ShS sh2) ->
-          AstFromS @(TKS2 (sh1 ++ sh2) x)
-                   (STKX (ssxFromShX sh1' `ssxAppend` (knownShX @sh2'))
-                         (ftkToSTK x))
-          $ AstUnNestS @sh1 @sh2
-          $ AstSFromX @sh1 sh1
-          $ (AstCastCastable
-               (CastXX (CastXS' (STKS sh2 (ftkToSTK x))))
-               (FTKX sh1' (FTKS sh2 x))
-             :: AstTensor AstMethodShare s (TKX2 sh1' (TKX2 sh2' x))
-             -> AstTensor AstMethodShare s (TKX2 sh1' (TKS2 sh2 x)))
-            a
+  xnestR @sh1 @m @x sh1 (AstRaw a)
+   | Refl <- lemRankReplicate (Proxy @m) = AstRaw $ case ftkAst a of
+    FTKX sh1sh2 x ->
+      let c :: TKCastable (TKX2 (sh1 ++ Replicate m Nothing) x)
+                          (TKX2 sh1 (TKR2 m x))
+          c = CastCmp
+                (CastXX (CastXR (knownSTK @x)))
+                (CastNest @_ @_ @(Replicate m Nothing)
+                          (STKX sh1 (knownSTK @x)))
+          ftk2 = FTKX (shxTakeSSX (Proxy @(Replicate m Nothing)) sh1sh2 sh1)
+                      (FTKR (shrFromShX (shxDropSSX sh1sh2 sh1)) x)
+      in AstCastCastable c ftk2 a
+  xnestS @_ @sh2 @x sh1 (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh1sh2 x ->
+      let c = CastCmp
+                (CastXX CastXS)
+                (CastNest (STKX sh1 (knownSTK @x)))
+          ftk2 = FTKX (shxTakeSSX (Proxy @(MapJust sh2)) sh1sh2 sh1)
+                      (FTKS (knownShS @sh2) x)
+      in AstCastCastable c ftk2 a
+  xnest @_ @sh2 @x sh1 (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh1sh2 x ->
+      let c = CastNest (STKX sh1 (knownSTK @x))
+          ftk2 = FTKX (shxTakeSSX (Proxy @sh2) sh1sh2 sh1)
+                      (FTKX (shxDropSSX sh1sh2 sh1) x)
+      in AstCastCastable c ftk2 a
+  xunNestR (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh1 (FTKR sh2 x) ->
+      let c = CastCmp
+                CastUnnest
+                (CastXX CastRX)
+          ftk2 = FTKX (sh1 `shxAppend` shxFromShR sh2) x
+      in AstCastCastable c ftk2 a
+  xunNestS (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh1 (FTKS sh2 x) ->
+      let c = CastCmp
+                CastUnnest
+                (CastXX CastSX)
+          ftk2 = FTKX (sh1 `shxAppend` shxFromShS sh2) x
+      in AstCastCastable c ftk2 a
+  xunNest (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh1 (FTKX sh2 x) ->
+      let c = CastUnnest
+          ftk2 = FTKX (sh1 `shxAppend` sh2) x
+      in AstCastCastable c ftk2 a
 
   tpairConv = tpair
   tunpairConv = tunpair
