@@ -34,7 +34,7 @@ module HordeAd.Core.Types
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
   , withCastRS, withCastXS, shCastSX
   , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
-  , ixsToShS, ixxToSSX, listsToShS
+  , ixsToShS, ixxToSSX, listsToShS, shrFromShX
   , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
   , eqPerm, permUnShift1, sunReplicateScal, sunReplicate1, sunReplicateN
   , ssxTakeIx
@@ -73,7 +73,7 @@ import System.Random
 import Type.Reflection (Typeable)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (MapJust, type (++))
+import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
@@ -586,6 +586,14 @@ ixxToSSX (IxX _list) = error "TODO"
 listsToShS :: ListS sh i -> ShS sh
 listsToShS ZS = ZSS
 listsToShS (_ ::$ sh) = SNat :$$ listsToShS sh
+
+-- shrFromShX :: ShX (Replicate n Nothing) i -> ShR n i
+shrFromShX :: forall n. KnownNat n
+           => ShX (Replicate n Nothing) Int -> ShR n Int
+-- shrFromShX ZSX = ZSR
+-- shrFromShX (SUnknown k :$% (idx :: ShX m i)) = (k :$: shrFromShX idx)
+shrFromShX x = withKnownShX (ssxReplicate (SNat @n))
+               $ fromList $ toList x
 
 -- ** Permutation-related operations
 

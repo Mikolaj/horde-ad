@@ -777,38 +777,6 @@ evalRevSame !s !c = \case
       evalRevSame
         s (tcastCastable (transposeTKCastable (ftkToSTK aftk) c1) (ftkToSTK bftk) aftk c) d
 
-  DeltaXNestR sh1 SNat d -> case ftkDelta d of
-    FTKX _ x ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShX sh1 $
-      evalRevSame s (xunNestR c) d
-  DeltaXNestS sh1 sh2 d -> case ftkDelta d of
-    FTKX _ x ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShX sh1 $
-      withKnownShS sh2 $
-      evalRevSame s (xunNestS c) d
-  DeltaXNest sh1 sh2 d -> case ftkDelta d of
-    FTKX _ x ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShX sh1 $
-      withKnownShX sh2 $
-      evalRevSame s (xunNest c) d
-  DeltaXUnNestR d -> case ftkDelta d of
-    FTKX sh1 (FTKR sh2 x) | SNat <- shrRank sh2 ->
-      withKnownSTK (ftkToSTK x) $
-      evalRevSame s (xnestR (ssxFromShX sh1) c) d
-  DeltaXUnNestS d -> case ftkDelta d of
-    FTKX sh1 (FTKS sh2 x) ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShS sh2 $
-      evalRevSame s (xnestS (ssxFromShX sh1) c) d
-  DeltaXUnNest d -> case ftkDelta d of
-    FTKX sh1 (FTKX sh2 x) ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShX sh2) $
-      evalRevSame s (xnest (ssxFromShX sh1) c) d
-
   d -> evalRevFTK s c d
     -- the remaining constructors are already handled in evalRevFTK
 
@@ -1217,37 +1185,5 @@ evalFwdSame params s = \case
     gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
     second (tcastCastable c1 (ftkToSTK (ftkDelta d)) bftk)
            (evalFwdSame params s d)
-
-  DeltaXNestR sh1 SNat d -> case ftkDelta d of
-    FTKX _ x ->
-      withKnownSTK (ftkToSTK x) $
-      second (xnestR sh1) $ evalFwdSame params s d
-  DeltaXNestS sh1 sh2 d -> case ftkDelta d of
-    FTKX _ x ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShS sh2 $
-      second (xnestS sh1) $ evalFwdSame params s d
-  DeltaXNest sh1 sh2 d -> case ftkDelta d of
-    FTKX _ x ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShX sh2 $
-      second (xnest sh1) $ evalFwdSame params s d
-  DeltaXUnNestR d -> case ftkDelta d of
-    FTKX sh1 (FTKR sh2 x) | SNat <- shrRank sh2 ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShX sh1) $
-      second xunNestR $ evalFwdSame params s d
-  DeltaXUnNestS d -> case ftkDelta d of
-    FTKX sh1 (FTKS sh2 x) ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShX sh1) $
-      withKnownShS sh2 $
-      second xunNestS $ evalFwdSame params s d
-  DeltaXUnNest d -> case ftkDelta d of
-    FTKX sh1 (FTKX sh2 x) ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShX (ssxFromShX sh1) $
-      withKnownShX (ssxFromShX sh2) $
-      second xunNest $ evalFwdSame params s d
 
   d -> evalFwd params s d

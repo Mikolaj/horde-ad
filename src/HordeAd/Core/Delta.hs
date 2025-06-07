@@ -42,7 +42,6 @@ import Prelude
 import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Kind (Type)
-import Data.Proxy (Proxy (Proxy))
 import Data.Some
 import Data.Type.Equality
   (TestEquality (..), gcastWith, testEquality, (:~:) (Refl))
@@ -52,7 +51,7 @@ import GHC.TypeLits (type (+), type (<=))
 import Text.Show.Functions ()
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested (MapJust, Replicate, type (++))
+import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
 import Data.Array.Nested.Mixed.Shape
@@ -352,22 +351,6 @@ data Delta :: Target -> Target where
                     -> FullShapeTK b -> Delta target a
                     -> Delta target b
 
-  DeltaXNestR :: StaticShX sh1 -> SNat m
-              -> Delta target (TKX2 (sh1 ++ Replicate m Nothing) x)
-              -> Delta target (TKX2 sh1 (TKR2 m x))
-  DeltaXNestS :: StaticShX sh1 -> ShS sh2
-              -> Delta target (TKX2 (sh1 ++ MapJust sh2) x)
-              -> Delta target (TKX2 sh1 (TKS2 sh2 x))
-  DeltaXNest :: StaticShX sh1 -> StaticShX sh2
-             -> Delta target (TKX2 (sh1 ++ sh2) x)
-             -> Delta target (TKX2 sh1 (TKX2 sh2 x))
-  DeltaXUnNestR :: Delta target (TKX2 sh1 (TKR2 m x))
-                -> Delta target (TKX2 (sh1 ++ Replicate m Nothing) x)
-  DeltaXUnNestS :: Delta target (TKX2 sh1 (TKS2 sh2 x))
-                -> Delta target (TKX2 (sh1 ++ MapJust sh2) x)
-  DeltaXUnNest :: Delta target (TKX2 sh1 (TKX2 sh2 x))
-               -> Delta target (TKX2 (sh1 ++ sh2) x)
-
 deriving instance Show (IntOf target) => Show (Delta target y)
 
 -- | A newtype defined only to cut the knot of 'Show' instances in 'DeltaScale'
@@ -516,19 +499,3 @@ ftkDelta = \case
   DeltaSFromX sh d -> case ftkDelta d of
     FTKX _ x -> FTKS sh x
   DeltaCastCastable _ bftk _ -> bftk
-
-  DeltaXNestR sh1 (SNat @m) d -> case ftkDelta d of
-    FTKX sh x -> FTKX (shxTakeSSX (Proxy @(Replicate m Nothing)) sh sh1)
-                      (FTKR (shrFromShX2 (shxDropSSX sh sh1)) x)
-  DeltaXNestS @_ @sh2 sh1 sh2 d -> case ftkDelta d of
-    FTKX sh x -> FTKX (shxTakeSSX (Proxy @(MapJust sh2)) sh sh1)
-                                  (FTKS sh2 x)
-  DeltaXNest @_ @sh2 sh1 _sh2 d -> case ftkDelta d of
-    FTKX sh x -> FTKX (shxTakeSSX (Proxy @sh2) sh sh1)
-                      (FTKX (shxDropSSX sh sh1) x)
-  DeltaXUnNestR d -> case ftkDelta d of
-    FTKX sh1 (FTKR sh2 x) -> FTKX (sh1 `shxAppend` shxFromShR sh2) x
-  DeltaXUnNestS d -> case ftkDelta d of
-    FTKX sh1 (FTKS sh2 x) -> FTKX (sh1 `shxAppend` shxFromShS sh2) x
-  DeltaXUnNest d -> case ftkDelta d of
-    FTKX sh1 (FTKX sh2 x) -> FTKX (sh1 `shxAppend` sh2) x

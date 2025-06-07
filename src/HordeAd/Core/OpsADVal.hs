@@ -15,7 +15,9 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
 
+import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Convert (shxFromShR, shxFromShS)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
@@ -613,12 +615,57 @@ instance ( ADReadyNoLet target, ShareTensor target
       in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
             (DeltaCastCastable c ftk2 u')
 
-  xnestR sh1 (D u u') = dD (xnestR sh1 u) (DeltaXNestR sh1 SNat u')
-  xnestS sh1 (D u u') = dD (xnestS sh1 u) (DeltaXNestS sh1 knownShS u')
-  xnest sh1 (D u u') = dD (xnest sh1 u) (DeltaXNest sh1 knownShX u')
-  xunNestR (D u u') = dD (xunNestR u) (DeltaXUnNestR u')
-  xunNestS (D u u') = dD (xunNestS u) (DeltaXUnNestS u')
-  xunNest (D u u') = dD (xunNest u) (DeltaXUnNest u')
+  xnestR @sh1 @m @x sh1 (D u u')
+   | Refl <- lemRankReplicate (Proxy @m) = case ftkDelta u' of
+    ftk@(FTKX sh1sh2 x) ->
+      let c :: TKCastable (TKX2 (sh1 ++ Replicate m Nothing) x)
+                          (TKX2 sh1 (TKR2 m x))
+          c = CastCmp
+                (CastXX (CastXR (knownSTK @x)))
+                (CastNest @_ @_ @(Replicate m Nothing)
+                          (STKX sh1 (knownSTK @x)))
+          ftk2 = FTKX (shxTakeSSX (Proxy @(Replicate m Nothing)) sh1sh2 sh1)
+                      (FTKR (shrFromShX (shxDropSSX sh1sh2 sh1)) x)
+      in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
+            (DeltaCastCastable c ftk2 u')
+  xnestS @_ @sh2 @x sh1 (D u u') = case ftkDelta u' of
+    ftk@(FTKX sh1sh2 x) ->
+      let c = CastCmp
+                (CastXX CastXS)
+                (CastNest (STKX sh1 (knownSTK @x)))
+          ftk2 = FTKX (shxTakeSSX (Proxy @(MapJust sh2)) sh1sh2 sh1)
+                      (FTKS (knownShS @sh2) x)
+      in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
+            (DeltaCastCastable c ftk2 u')
+  xnest @_ @sh2 @x sh1 (D u u') = case ftkDelta u' of
+    ftk@(FTKX sh1sh2 x) ->
+      let c = CastNest (STKX sh1 (knownSTK @x))
+          ftk2 = FTKX (shxTakeSSX (Proxy @sh2) sh1sh2 sh1)
+                      (FTKX (shxDropSSX sh1sh2 sh1) x)
+      in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
+            (DeltaCastCastable c ftk2 u')
+  xunNestR (D u u') = case ftkDelta u' of
+    ftk@(FTKX sh1 (FTKR sh2 x)) ->
+      let c = CastCmp
+                CastUnnest
+                (CastXX CastRX)
+          ftk2 = FTKX (sh1 `shxAppend` shxFromShR sh2) x
+      in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
+            (DeltaCastCastable c ftk2 u')
+  xunNestS (D u u') = case ftkDelta u' of
+    ftk@(FTKX sh1 (FTKS sh2 x)) ->
+      let c = CastCmp
+                CastUnnest
+                (CastXX CastSX)
+          ftk2 = FTKX (sh1 `shxAppend` shxFromShS sh2) x
+      in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
+            (DeltaCastCastable c ftk2 u')
+  xunNest (D u u') = case ftkDelta u' of
+    ftk@(FTKX sh1 (FTKX sh2 x)) ->
+      let c = CastUnnest
+          ftk2 = FTKX (sh1 `shxAppend` sh2) x
+      in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
+            (DeltaCastCastable c ftk2 u')
 
   tpairConv = tpair
   tunpairConv = tunpair
