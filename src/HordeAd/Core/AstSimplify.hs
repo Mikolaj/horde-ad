@@ -33,7 +33,6 @@ module HordeAd.Core.AstSimplify
 
   , astIndexS, astIndexKnobsS, astScatterS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
-  , astNestS, astUnNestS
 
   , astFromS, astSFromK, astSFromR, astSFromX
   , astSum0S, astDot0S, astDot1InS, astMatmul2S
@@ -957,9 +956,6 @@ astPrimalPart t = case t of
   Ast.AstReverseS v -> astReverseS (astPrimalPart v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astPrimalPart v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astPrimalPart v)
-  Ast.AstNestS sh1 sh2 v ->
-    astNestS sh1 sh2 $ astPrimalPart v
-  Ast.AstUnNestS v -> astUnNestS $ astPrimalPart v
 
   -- All conversions need to stay down here to cancel out.
   Ast.AstFromS{} -> Ast.AstPrimalPart t
@@ -1052,9 +1048,6 @@ astDualPart t = case t of
   Ast.AstReverseS v -> astReverseS (astDualPart v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astDualPart v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astDualPart v)
-  Ast.AstNestS sh1 sh2 v ->
-    astNestS sh1 sh2 $ astDualPart v
-  Ast.AstUnNestS v -> astUnNestS $ astDualPart v
 
   -- All conversions need to stay down here to cancel out.
   Ast.AstFromS{} -> Ast.AstDualPart t
@@ -1518,8 +1511,6 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                          || shsLength sh <= 1 ->
     astIndex shn (astReshapeAsGatherS (deVect knobs) sh v) ix
   Ast.AstReshapeS{} -> Ast.AstIndexS shn v0 ix
-  Ast.AstNestS{} -> Ast.AstIndexS shn v0 ix
-  Ast.AstUnNestS _ -> Ast.AstIndexS shn v0 ix
 
   Ast.AstFromS stkz v -> case sameSTK (ftkToSTK (ftkAst v)) stkz of
     Just Refl -> astIndexKnobsS knobs shn v ix
@@ -2563,8 +2554,6 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
       then astGather @shm @shn @shp shn
                      (astReshapeAsGatherS knobs sh v) (vars4, ix4)
       else Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-    Ast.AstNestS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-    Ast.AstUnNestS _v -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
 
     Ast.AstFromS stkz v -> case sameSTK (ftkToSTK (ftkAst v)) stkz of
       Just Refl -> astGather @shm @shn @shp shn v (vars4, ix4)
@@ -2928,41 +2917,6 @@ astReshapeS sh2 t = case t of
   _ | FTKS sh _ <- ftkAst t -> case testEquality sh sh2 of
     Just Refl -> t
     _ -> Ast.AstReshapeS sh2 t
-
--- Beware that increasing the number of calls to this constructor
--- sometimes increases runtime, because not enough copies cancel out.
--- Hence the commented out rules below.
-astNestS
-  :: forall sh1 sh2 x ms s. AstSpan s
-  => ShS sh1 -> ShS sh2
-  -> AstTensor ms s (TKS2 (sh1 ++ sh2) x)
-  -> AstTensor ms s (TKS2 sh1 (TKS2 sh2 x))
-astNestS sh1 sh2 t = case t of
---  Ast.AstCond b v1 v2 ->
---    Ast.AstCond b (astNestS sh1 sh2 v1) (astNestS sh1 sh2 v2)  -- TODO: ??
-  Ast.AstLet var u2 d2 ->
-    astLet var u2 (astNestS sh1 sh2 d2)
-  Ast.AstFromPrimal u ->
-    Ast.AstFromPrimal $ astNestS sh1 sh2 u
-  Ast.AstFromDual u ->
-    Ast.AstFromDual $ astNestS sh1 sh2 u
-  _ -> Ast.AstNestS sh1 sh2 t
-
-astUnNestS
-  :: forall sh1 sh2 x ms s. AstSpan s
-  => AstTensor ms s (TKS2 sh1 (TKS2 sh2 x))
-  -> AstTensor ms s (TKS2 (sh1 ++ sh2) x)
-astUnNestS t = case t of
---  Ast.AstCond b v1 v2 ->
---    Ast.AstCond b (astUnNestS v1) (astUnNestS v2)  -- TODO: ??
-  Ast.AstLet var u2 d2 ->
-    astLet var u2 (astUnNestS d2)
-  Ast.AstFromPrimal u ->
-    Ast.AstFromPrimal $ astUnNestS u
-  Ast.AstFromDual u ->
-    Ast.AstFromDual $ astUnNestS u
---  Ast.AstNestS u -> u
-  _ -> Ast.AstUnNestS t
 
 astFromS :: forall y z s. AstSpan s
          => SingletonTK z -> AstTensor AstMethodLet s y
@@ -3678,9 +3632,6 @@ substitute1Ast i var = subst where
   Ast.AstReverseS v -> astReverseS <$> subst v
   Ast.AstTransposeS perm v -> astTransposeS perm <$> subst v
   Ast.AstReshapeS sh v -> astReshapeS sh <$> subst v
-  Ast.AstNestS sh1 sh2 v ->
-    astNestS sh1 sh2 <$> subst v
-  Ast.AstUnNestS v -> astUnNestS <$> subst v
 
   Ast.AstFromS stkz v -> astFromS stkz <$> subst v
   Ast.AstSFromK u -> astSFromK <$> subst u

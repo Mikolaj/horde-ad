@@ -200,8 +200,6 @@ inlineAst memo v0 = case v0 of
   Ast.AstReverseS v -> second Ast.AstReverseS (inlineAst memo v)
   Ast.AstTransposeS perm v -> second (Ast.AstTransposeS perm) $ inlineAst memo v
   Ast.AstReshapeS sh v -> second (Ast.AstReshapeS sh) (inlineAst memo v)
-  Ast.AstNestS sh1 sh2 v -> second (Ast.AstNestS sh1 sh2) $ inlineAst memo v
-  Ast.AstUnNestS v -> second Ast.AstUnNestS $ inlineAst memo v
 
   Ast.AstFromS stkz v -> second (Ast.AstFromS stkz) $ inlineAst memo v
   Ast.AstSFromK t -> second Ast.AstSFromK (inlineAst memo t)
@@ -485,8 +483,6 @@ unshareAst memo = \case
   Ast.AstSFromX sh v -> second (Ast.AstSFromX sh) $ unshareAst memo v
   Ast.AstCastCastable c bftk v ->
     second (Ast.AstCastCastable c bftk) $ unshareAst memo v
-  Ast.AstNestS sh1 sh2 v -> second (Ast.AstNestS sh1 sh2) $ unshareAst memo v
-  Ast.AstUnNestS v -> second Ast.AstUnNestS $ unshareAst memo v
 
   Ast.AstSum0S v -> second Ast.AstSum0S (unshareAst memo v)
   Ast.AstDot0S u v ->

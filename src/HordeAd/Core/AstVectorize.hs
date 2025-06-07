@@ -309,10 +309,6 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
            $ astTransposeS zsuccPerm $ build1V snat (var, v)
     Ast.AstReshapeS sh v -> traceRule $
       astReshapeS (snat :$$ sh) $ build1V snat (var, v)
-    Ast.AstNestS sh1 sh2 v -> traceRule $
-      astNestS (snat :$$ sh1) sh2 $ build1V snat (var, v)
-    Ast.AstUnNestS v -> traceRule $
-      astUnNestS $ build1V snat (var, v)
 
     Ast.AstFromS stkz v -> traceRule $
       astFromS (buildSTK snat stkz) $ build1V snat (var, v)

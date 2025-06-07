@@ -337,17 +337,6 @@ interpretAst !env = \case
     STKS _ x ->
       withKnownSTK x $
       tsreshape sh2 (interpretAst env v)
-  AstNestS sh1 sh2 v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS sh2 $
-      withKnownSTK x $
-      snest sh1 $ interpretAst env v
-  AstUnNestS v -> case ftkToSTK (ftkAst v) of
-    STKS sh1 (STKS sh2 x) ->
-      withKnownShS sh1 $
-      withKnownShS sh2 $
-      withKnownSTK x $
-      sunNest $ interpretAst env v
 
   AstFromS stkz v ->
     withKnownSTK (ftkToSTK (ftkAst v)) $

@@ -437,9 +437,6 @@ printAst cfg d = \case
           ("ttranspose (makePerm @" ++ show (permToList perm) ++ ")") [v]
   AstReshapeS sh2 v ->
     printPrefixOp printAst cfg d ("sreshape @" ++ show (shsToList sh2)) [v]
-  AstNestS sh1 _ v ->
-    printPrefixOp printAst cfg d ("snestS " ++ show sh1) [v]
-  AstUnNestS v -> printPrefixOp printAst cfg d "sunNestS" [v]
 
   AstFromS stkz v ->
     case stkz of
