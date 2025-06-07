@@ -3204,6 +3204,24 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
 -- * ConvertTensor instances needed for unwinding in astConcrete
 
 instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
+  tcastCastable c _astk bftk v = Ast.AstCastCastable c bftk v
+
+  tfromS = astFromS
+  rfromX a = case ftkAst a of
+    FTKX sh' _ ->
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        rfromS $ sfromX @_ @sh a
+  xfromR a = case ftkAst a of
+    FTKR shr _ ->
+      withCastRS shr $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        xfromS @_ @sh $ sfromR a
+
+  sfromK = astSFromK
+  sfromR = astSFromR knownShS
+  sfromX = astSFromX knownShS
+
   rzip @_ @_ @n a
    | Refl <- lemRankReplicate (Proxy @n) = case ftkAst a of
     FTKProduct (FTKR sh y) (FTKR _sh z) ->
@@ -3252,23 +3270,6 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
       let c = CastUnzip (ftkToSTK y) (ftkToSTK z)
           ftk2 = FTKProduct (FTKX sh y) (FTKX sh z)
       in Ast.AstCastCastable c ftk2 a
-
-  tfromS = astFromS
-  rfromX a = case ftkAst a of
-    FTKX sh' _ ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        rfromS $ sfromX @_ @sh a
-  xfromR a = case ftkAst a of
-    FTKR shr _ ->
-      withCastRS shr $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        xfromS @_ @sh $ sfromR a
-
-  sfromK = astSFromK
-  sfromR = astSFromR knownShS
-  sfromX = astSFromX knownShS
-  tcastCastable c _astk bftk v = Ast.AstCastCastable c bftk v
 
   xnestR @sh1' @m @x sh1' a = case ftkAst a of
     FTKX @sh1sh2' sh1sh2' x | SNat <- ssxRank sh1' ->

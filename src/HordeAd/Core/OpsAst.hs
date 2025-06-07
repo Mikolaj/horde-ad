@@ -1095,6 +1095,29 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tdot0Target = dot0Target
 
 instance AstSpan s => ConvertTensor (AstRaw s) where
+  tcastCastable c _astk bftk =
+    AstRaw . AstCastCastable c bftk . unAstRaw
+
+  tfromS zstk (AstRaw a) = AstRaw $ AstFromS zstk a
+  rfromX a = case ftkAst $ unAstRaw a of
+    FTKX sh' _ ->
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        rfromS $ sfromX @_ @sh a
+  xfromR a = case ftkAst $ unAstRaw a of
+    FTKR shr _ ->
+      withCastRS shr $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        xfromS @_ @sh $ sfromR a
+
+  kfromS = AstRaw . AstFromS knownSTK . unAstRaw
+  rfromS @sh @x | SNat <- shsRank (knownShS @sh) =
+    AstRaw . AstFromS (knownSTK @(TKR2 (Rank sh) x)) . unAstRaw
+  sfromK = AstRaw . cAstSFromK . unAstRaw
+  sfromR = AstRaw . cAstSFromR knownShS . unAstRaw
+  sfromX = AstRaw . cAstSFromX knownShS . unAstRaw
+  xfromS @_ @sh' @x = AstRaw . AstFromS (knownSTK @(TKX2 sh' x)) . unAstRaw
+
   rzip @_ @_ @n (AstRaw a)
    | Refl <- lemRankReplicate (Proxy @n) = AstRaw $ case ftkAst a of
     FTKProduct (FTKR sh y) (FTKR _sh z) ->
@@ -1143,28 +1166,6 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
       let c = CastUnzip (ftkToSTK y) (ftkToSTK z)
           ftk2 = FTKProduct (FTKX sh y) (FTKX sh z)
       in AstCastCastable c ftk2 a
-
-  tfromS zstk (AstRaw a) = AstRaw $ AstFromS zstk a
-  rfromX a = case ftkAst $ unAstRaw a of
-    FTKX sh' _ ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        rfromS $ sfromX @_ @sh a
-  xfromR a = case ftkAst $ unAstRaw a of
-    FTKR shr _ ->
-      withCastRS shr $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        xfromS @_ @sh $ sfromR a
-
-  kfromS = AstRaw . AstFromS knownSTK . unAstRaw
-  rfromS @sh @x | SNat <- shsRank (knownShS @sh) =
-    AstRaw . AstFromS (knownSTK @(TKR2 (Rank sh) x)) . unAstRaw
-  sfromK = AstRaw . cAstSFromK . unAstRaw
-  sfromR = AstRaw . cAstSFromR knownShS . unAstRaw
-  sfromX = AstRaw . cAstSFromX knownShS . unAstRaw
-  xfromS @_ @sh' @x = AstRaw . AstFromS (knownSTK @(TKX2 sh' x)) . unAstRaw
-  tcastCastable c _astk bftk =
-    AstRaw . AstCastCastable c bftk . unAstRaw
 
   xnestR @sh1' @m @x sh1' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh1sh2' sh1sh2' x | SNat <- ssxRank sh1' ->
@@ -1471,12 +1472,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                                                          (unAstNoVectorize b)
 
 instance AstSpan s => ConvertTensor (AstNoVectorize s) where
-  rzip = AstNoVectorize . rzip . unAstNoVectorize
-  runzip = AstNoVectorize . runzip . unAstNoVectorize
-  szip = AstNoVectorize . szip . unAstNoVectorize
-  sunzip = AstNoVectorize . sunzip . unAstNoVectorize
-  xzip = AstNoVectorize . xzip . unAstNoVectorize
-  xunzip = AstNoVectorize . xunzip . unAstNoVectorize
+  tcastCastable c _astk bftk =
+    AstNoVectorize . AstCastCastable c bftk . unAstNoVectorize
 
   tfromS zstk = AstNoVectorize . tfromS zstk . unAstNoVectorize
   rfromX = AstNoVectorize . rfromX . unAstNoVectorize
@@ -1485,8 +1482,13 @@ instance AstSpan s => ConvertTensor (AstNoVectorize s) where
   sfromK = AstNoVectorize . sfromK . unAstNoVectorize
   sfromR = AstNoVectorize . sfromR . unAstNoVectorize
   sfromX = AstNoVectorize . sfromX . unAstNoVectorize
-  tcastCastable c _astk bftk =
-    AstNoVectorize . AstCastCastable c bftk . unAstNoVectorize
+
+  rzip = AstNoVectorize . rzip . unAstNoVectorize
+  runzip = AstNoVectorize . runzip . unAstNoVectorize
+  szip = AstNoVectorize . szip . unAstNoVectorize
+  sunzip = AstNoVectorize . sunzip . unAstNoVectorize
+  xzip = AstNoVectorize . xzip . unAstNoVectorize
+  xunzip = AstNoVectorize . xunzip . unAstNoVectorize
 
   xnestR sh = AstNoVectorize . xnestR sh . unAstNoVectorize
   xnestS sh = AstNoVectorize . xnestS sh . unAstNoVectorize
@@ -1726,12 +1728,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                                                          (wunAstNoSimplify b)
 
 instance AstSpan s => ConvertTensor (AstNoSimplify s) where
-  rzip = wAstNoSimplify . rzip . wunAstNoSimplify
-  runzip = wAstNoSimplify . runzip . wunAstNoSimplify
-  szip = wAstNoSimplify . szip . wunAstNoSimplify
-  sunzip = wAstNoSimplify . sunzip . wunAstNoSimplify
-  xzip = wAstNoSimplify . xzip . wunAstNoSimplify
-  xunzip = wAstNoSimplify . xunzip . wunAstNoSimplify
+  tcastCastable c astk bftk =
+    wAstNoSimplify . tcastCastable c astk bftk . wunAstNoSimplify
 
   tfromS zstk = AstNoSimplify . AstFromS zstk . unAstNoSimplify
   rfromX = wAstNoSimplify . rfromX . wunAstNoSimplify
@@ -1740,8 +1738,13 @@ instance AstSpan s => ConvertTensor (AstNoSimplify s) where
   sfromK = wAstNoSimplify . sfromK . wunAstNoSimplify
   sfromR = wAstNoSimplify . sfromR . wunAstNoSimplify
   sfromX = wAstNoSimplify . sfromX . wunAstNoSimplify
-  tcastCastable c astk bftk =
-    wAstNoSimplify . tcastCastable c astk bftk . wunAstNoSimplify
+
+  rzip = wAstNoSimplify . rzip . wunAstNoSimplify
+  runzip = wAstNoSimplify . runzip . wunAstNoSimplify
+  szip = wAstNoSimplify . szip . wunAstNoSimplify
+  sunzip = wAstNoSimplify . sunzip . wunAstNoSimplify
+  xzip = wAstNoSimplify . xzip . wunAstNoSimplify
+  xunzip = wAstNoSimplify . xunzip . wunAstNoSimplify
 
   xnestR sh = wAstNoSimplify . xnestR sh . wunAstNoSimplify
   xnestS sh = wAstNoSimplify . xnestS sh . wunAstNoSimplify

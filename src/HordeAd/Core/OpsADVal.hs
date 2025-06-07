@@ -535,6 +535,29 @@ instance ( ADReadyNoLet target, ShareTensor target
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )
          => ConvertTensor (ADVal target) where
+  tcastCastable c astk bftk (D u u') =
+    dDnotShared (tcastCastable c astk bftk u)
+                (DeltaCastCastable c bftk u')
+
+  -- This avoid product eta-expansions for AST instance primal,
+  -- though the contangent expands anyway.
+  tfromS zstk (D u u') =
+    dDnotShared (tfromS zstk u) (dFromS zstk u')
+  rfromX a@(D _ u') = case ftkDelta u' of
+    FTKX sh' _ ->
+      withCastXS sh' $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        rfromS $ sfromX @_ @sh a
+  xfromR a@(D _ u') = case ftkDelta u' of
+    FTKR shr _ ->
+      withCastRS shr $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        xfromS @_ @sh $ sfromR a
+
+  sfromK (D t d) = dDnotShared (sfromK t) (DeltaSFromK d)
+  sfromR (D u u') = dDnotShared (sfromR u) (dSFromR knownShS u')
+  sfromX (D u u') = dDnotShared (sfromX u) (dSFromX knownShS u')
+
   rzip @_ @_ @n (D u u')
    | Refl <- lemRankReplicate (Proxy @n) = case ftkDelta u' of
     ftk@(FTKProduct (FTKR sh y) (FTKR _sh z)) ->
@@ -589,28 +612,6 @@ instance ( ADReadyNoLet target, ShareTensor target
           ftk2 = FTKProduct (FTKX sh y) (FTKX sh z)
       in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
             (DeltaCastCastable c ftk2 u')
-
-  -- This avoid product eta-expansions for AST instance primal,
-  -- though the contangent expands anyway.
-  tfromS zstk (D u u') =
-    dDnotShared (tfromS zstk u) (dFromS zstk u')
-  rfromX a@(D _ u') = case ftkDelta u' of
-    FTKX sh' _ ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        rfromS $ sfromX @_ @sh a
-  xfromR a@(D _ u') = case ftkDelta u' of
-    FTKR shr _ ->
-      withCastRS shr $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        xfromS @_ @sh $ sfromR a
-
-  sfromK (D t d) = dDnotShared (sfromK t) (DeltaSFromK d)
-  sfromR (D u u') = dDnotShared (sfromR u) (dSFromR knownShS u')
-  sfromX (D u u') = dDnotShared (sfromX u) (dSFromX knownShS u')
-  tcastCastable c astk bftk (D u u') =
-    dDnotShared (tcastCastable c astk bftk u)
-                (DeltaCastCastable c bftk u')
 
   xnestR sh1 (D u u') = dD (xnestR sh1 u) (DeltaXNestR sh1 SNat u')
   xnestS sh1 (D u u') = dD (xnestS sh1 u) (DeltaXNestS sh1 knownShS u')

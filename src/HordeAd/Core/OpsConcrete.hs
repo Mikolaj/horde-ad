@@ -512,21 +512,9 @@ instance BaseTensor Concrete where
   tdot0Target = dot0Target
 
 instance ConvertTensor Concrete where
-  rzip @y @z (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
-                               , Dict <- eltDictRep (knownSTK @z) =
-    Concrete $ Nested.rzip a b
-  runzip a = let (!a1, !a2) = Nested.runzip $ unConcrete a
-             in Concrete (a1, a2)
-  szip @y @z  (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
-                                , Dict <- eltDictRep (knownSTK @z) =
-    Concrete $ Nested.szip a b
-  sunzip a = let (!a1, !a2) = Nested.sunzip $ unConcrete a
-             in Concrete (a1, a2)
-  xzip @y @z  (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
-                                , Dict <- eltDictRep (knownSTK @z) =
-    Concrete $ Nested.mzip a b
-  xunzip a = let (!a1, !a2) = Nested.munzip $ unConcrete a
-             in Concrete (a1, a2)
+  tcastCastable c astk bftk a | Dict <- eltDictRep astk
+                              , Dict <- eltDictRep (ftkToSTK bftk) =
+    Concrete $ Nested.castCastable (interpretTKCastable c) (unConcrete a)
 
   tfromS @y zstk v = case (knownSTK @y, zstk) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
@@ -574,9 +562,22 @@ instance ConvertTensor Concrete where
     Concrete . Nested.rcastToMixed (knownShX @sh) . unConcrete
   xfromS @_ @sh' @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.scastToMixed (knownShX @sh') . unConcrete
-  tcastCastable c astk bftk a | Dict <- eltDictRep astk
-                              , Dict <- eltDictRep (ftkToSTK bftk) =
-    Concrete $ Nested.castCastable (interpretTKCastable c) (unConcrete a)
+
+  rzip @y @z (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
+                               , Dict <- eltDictRep (knownSTK @z) =
+    Concrete $ Nested.rzip a b
+  runzip a = let (!a1, !a2) = Nested.runzip $ unConcrete a
+             in Concrete (a1, a2)
+  szip @y @z  (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
+                                , Dict <- eltDictRep (knownSTK @z) =
+    Concrete $ Nested.szip a b
+  sunzip a = let (!a1, !a2) = Nested.sunzip $ unConcrete a
+             in Concrete (a1, a2)
+  xzip @y @z  (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
+                                , Dict <- eltDictRep (knownSTK @z) =
+    Concrete $ Nested.mzip a b
+  xunzip a = let (!a1, !a2) = Nested.munzip $ unConcrete a
+             in Concrete (a1, a2)
 
   xnestR @sh1 @m @x sh | Dict <- eltDictRep (knownSTK @x)
                        , Refl <- lemRankReplicate (SNat @m) =

@@ -21,6 +21,9 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 class ConvertTensor (target :: Target) where
+  tcastCastable :: TKCastable a b -> SingletonTK a -> FullShapeTK b -> target a
+                -> target b
+
   -- | The conversion of a tensor or a nested pair of tensors,
   -- where the type of the result is determined by the singleton
   -- given in the first argument.
@@ -64,8 +67,6 @@ class ConvertTensor (target :: Target) where
   xfromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownSTK x)
          => target (TKS2 sh x) -> target (TKX2 sh' x)
   xfromS = tfromS knownSTK
-  tcastCastable :: TKCastable a b -> SingletonTK a -> FullShapeTK b -> target a
-                -> target b
 
   -- These six could be defined in terms of tcastCastable, but they'd need
   -- additional singleton arguments or constraints.
