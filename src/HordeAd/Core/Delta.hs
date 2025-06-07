@@ -361,7 +361,7 @@ data Delta :: Target -> Target where
               => ShS sh -> Delta target (TKX2 sh' r)
               -> Delta target (TKS2 sh r)
   DeltaCastCastable :: TKCastable a b
-                    -> SingletonTK a -> FullShapeTK b -> Delta target a
+                    -> FullShapeTK b -> Delta target a
                     -> Delta target b
 
   DeltaXNestR :: StaticShX sh1 -> SNat m
@@ -539,7 +539,7 @@ ftkDelta = \case
     FTKR _ x -> FTKS sh x
   DeltaSFromX sh d -> case ftkDelta d of
     FTKX _ x -> FTKS sh x
-  DeltaCastCastable _ _ bftk _ -> bftk
+  DeltaCastCastable _ bftk _ -> bftk
 
   DeltaXNestR sh1 (SNat @m) d -> case ftkDelta d of
     FTKX sh x -> FTKX (shxTakeSSX (Proxy @(Replicate m Nothing)) sh sh1)

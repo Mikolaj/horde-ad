@@ -787,12 +787,13 @@ evalRevSame !s !c = \case
       withKnownShS sh $
       withKnownShX (ssxFromShX sh2) $
       evalRevSame s (xfromS c) d
-  DeltaCastCastable @a c1 astk bftk d -> case ftkDelta d of
+  DeltaCastCastable @a c1 bftk d -> case ftkDelta d of
     aftk ->
-      -- This is implied by the form of c1.
+      -- This follows from the same property for @b@ and from @c1@
+      -- not changing the underlying scalar types.
       gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
       evalRevSame
-        s (tcastCastable (transposeTKCastable astk c1) (ftkToSTK bftk) aftk c) d
+        s (tcastCastable (transposeTKCastable (ftkToSTK aftk) c1) (ftkToSTK bftk) aftk c) d
 
   DeltaXNestR sh1 SNat d -> case ftkDelta d of
     FTKX _ x ->
@@ -1245,10 +1246,12 @@ evalFwdSame params s = \case
       withKnownSTK (ftkToSTK x) $
       withKnownShS sh $
       second sfromX $ evalFwdSame params s d
-  DeltaCastCastable @a c1 astk bftk d ->
-    -- This is implied by the form of c1.
+  DeltaCastCastable @a c1 bftk d ->
+    -- This follows from the same property for @b@ and from @c1@
+    -- not changing the underlying scalar types.
     gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
-    second (tcastCastable c1 astk bftk) $ evalFwdSame params s d
+    second (tcastCastable c1 (ftkToSTK (ftkDelta d)) bftk)
+           (evalFwdSame params s d)
 
   DeltaXNestR sh1 SNat d -> case ftkDelta d of
     FTKX _ x ->

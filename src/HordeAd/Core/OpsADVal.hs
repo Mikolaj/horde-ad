@@ -562,7 +562,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   sfromX (D u u') = dDnotShared (sfromX u) (dSFromX knownShS u')
   tcastCastable c astk bftk (D u u') =
     dDnotShared (tcastCastable c astk bftk u)
-                (DeltaCastCastable c astk bftk u')
+                (DeltaCastCastable c bftk u')
 
   xnestR sh1 (D u u') = dD (xnestR sh1 u) (DeltaXNestR sh1 SNat u')
   xnestS sh1 (D u u') = dD (xnestS sh1 u) (DeltaXNestS sh1 knownShS u')
