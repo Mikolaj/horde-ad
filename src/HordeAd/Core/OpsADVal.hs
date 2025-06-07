@@ -16,6 +16,7 @@ import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
 
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
@@ -534,12 +535,60 @@ instance ( ADReadyNoLet target, ShareTensor target
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target) )
          => ConvertTensor (ADVal target) where
-  rzip (D u u') = dD (rzip u) (DeltaZipR u')
-  runzip (D u u') = dD (runzip u) (DeltaUnzipR u')
-  szip (D u u') = dD (szip u) (DeltaZipS u')
-  sunzip (D u u') = dD (sunzip u) (DeltaUnzipS u')
-  xzip (D u u') = dD (xzip u) (DeltaZipX u')
-  xunzip (D u u') = dD (xunzip u) (DeltaUnzipX u')
+  rzip @_ @_ @n (D u u')
+   | Refl <- lemRankReplicate (Proxy @n) = case ftkDelta u' of
+    ftk@(FTKProduct (FTKR sh y) (FTKR _sh z)) ->
+      let c = CastCmp
+                (CastXR (ftkToSTK (FTKProduct y z)))
+                (CastCmp
+                   (CastZip (ftkToSTK y) (ftkToSTK z))
+                   (CastT2 CastRX CastRX))
+          ftk2 = FTKR sh (FTKProduct y z)
+      in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
+            (DeltaCastCastable c ftk2 u')
+  runzip @_ @_ @n (D u u')
+   | Refl <- lemRankReplicate (Proxy @n) = case ftkDelta u' of
+    ftk@(FTKR sh (FTKProduct y z)) ->
+      let c = CastCmp
+                (CastT2 (CastXR (ftkToSTK y)) (CastXR (ftkToSTK z)))
+                (CastCmp
+                   (CastUnzip (ftkToSTK y) (ftkToSTK z))
+                   CastRX)
+          ftk2 = FTKProduct (FTKR sh y) (FTKR sh z)
+      in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
+            (DeltaCastCastable c ftk2 u')
+  szip (D u u') = case ftkDelta u' of
+    ftk@(FTKProduct (FTKS sh y) (FTKS _sh z)) ->
+      let c = CastCmp
+                CastXS
+                (CastCmp
+                   (CastZip (ftkToSTK y) (ftkToSTK z))
+                   (CastT2 CastSX CastSX))
+          ftk2 = FTKS sh (FTKProduct y z)
+      in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
+            (DeltaCastCastable c ftk2 u')
+  sunzip (D u u') = case ftkDelta u' of
+    ftk@(FTKS sh (FTKProduct y z)) ->
+      let c = CastCmp
+                (CastT2 CastXS CastXS)
+                (CastCmp
+                   (CastUnzip (ftkToSTK y) (ftkToSTK z))
+                   CastSX)
+          ftk2 = FTKProduct (FTKS sh y) (FTKS sh z)
+      in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
+            (DeltaCastCastable c ftk2 u')
+  xzip (D u u') = case ftkDelta u' of
+    ftk@(FTKProduct (FTKX sh y) (FTKX _sh z)) ->
+      let c = CastZip (ftkToSTK y) (ftkToSTK z)
+          ftk2 = FTKX sh (FTKProduct y z)
+      in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
+            (DeltaCastCastable c ftk2 u')
+  xunzip (D u u') = case ftkDelta u' of
+    ftk@(FTKX sh (FTKProduct y z)) ->
+      let c = CastUnzip (ftkToSTK y) (ftkToSTK z)
+          ftk2 = FTKProduct (FTKX sh y) (FTKX sh z)
+      in dD (tcastCastable c (ftkToSTK ftk) ftk2 u)
+            (DeltaCastCastable c ftk2 u')
 
   -- This avoid product eta-expansions for AST instance primal,
   -- though the contangent expands anyway.
@@ -550,8 +599,7 @@ instance ( ADReadyNoLet target, ShareTensor target
       withCastXS sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         rfromS $ sfromX @_ @sh a
-  xfromR a@(D _ u') =
-   case ftkDelta u' of
+  xfromR a@(D _ u') = case ftkDelta u' of
     FTKR shr _ ->
       withCastRS shr $ \(sh :: ShS sh) ->
         withKnownShS sh $

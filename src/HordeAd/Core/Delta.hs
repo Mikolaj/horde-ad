@@ -261,10 +261,6 @@ data Delta :: Target -> Target where
                   -> Delta target (TKR2 n r)
   DeltaReshapeR :: IShR m -> Delta target (TKR2 n r)
                 -> Delta target (TKR2 m r)
-  DeltaZipR :: Delta target (TKProduct (TKR2 n y) (TKR2 n z))
-            -> Delta target (TKR2 n (TKProduct y z))
-  DeltaUnzipR :: Delta target (TKR2 n (TKProduct y z))
-              -> Delta target (TKProduct (TKR2 n y) (TKR2 n z))
 
   -- Shaped tensor operations
   DeltaCastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2)
@@ -305,10 +301,6 @@ data Delta :: Target -> Target where
                 => ShS sh2
                 -> Delta target (TKS2 sh r)
                 -> Delta target (TKS2 sh2 r)
-  DeltaZipS :: Delta target (TKProduct (TKS2 sh y) (TKS2 sh z))
-            -> Delta target (TKS2 sh (TKProduct y z))
-  DeltaUnzipS :: Delta target (TKS2 sh (TKProduct y z))
-              -> Delta target (TKProduct (TKS2 sh y) (TKS2 sh z))
 
   -- Mixed tensor operations
   DeltaCastX :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2)
@@ -344,10 +336,6 @@ data Delta :: Target -> Target where
                   -> Delta target (TKX2 (Permutation.PermutePrefix perm sh) r)
   DeltaReshapeX :: IShX sh2 -> Delta target (TKX2 sh r)
                 -> Delta target (TKX2 sh2 r)
-  DeltaZipX :: Delta target (TKProduct (TKX2 sh y) (TKX2 sh z))
-            -> Delta target (TKX2 sh (TKProduct y z))
-  DeltaUnzipX :: Delta target (TKX2 sh (TKProduct y z))
-              -> Delta target (TKProduct (TKX2 sh y) (TKX2 sh z))
 
   -- Conversions
   DeltaFromS :: forall y z target.
@@ -450,10 +438,6 @@ ftkDelta = \case
     FTKR sh x -> FTKR (shrPermutePrefix perm sh) x
   DeltaReshapeR sh d -> case ftkDelta d of
     FTKR _ x -> FTKR sh x
-  DeltaZipR d -> case ftkDelta d of
-    FTKProduct (FTKR sh y) (FTKR _ z) -> FTKR sh (FTKProduct y z)
-  DeltaUnzipR d -> case ftkDelta d of
-    FTKR sh (FTKProduct y z) -> FTKProduct (FTKR sh y) (FTKR sh z)
 
   DeltaCastS d -> case ftkDelta d of
     FTKS sh FTKScalar -> FTKS sh FTKScalar
@@ -475,10 +459,6 @@ ftkDelta = \case
     FTKS sh x -> FTKS (shsPermutePrefix perm sh) x
   DeltaReshapeS sh2 d -> case ftkDelta d of
     FTKS _ x -> FTKS sh2 x
-  DeltaZipS d -> case ftkDelta d of
-    FTKProduct (FTKS sh y) (FTKS _ z) -> FTKS sh (FTKProduct y z)
-  DeltaUnzipS d -> case ftkDelta d of
-    FTKS sh (FTKProduct y z) -> FTKProduct (FTKS sh y) (FTKS sh z)
 
   DeltaCastX d -> case ftkDelta d of
     FTKX sh FTKScalar -> FTKX sh FTKScalar
@@ -505,10 +485,6 @@ ftkDelta = \case
     FTKX sh x -> FTKX (shxPermutePrefix perm sh) x
   DeltaReshapeX sh2 d -> case ftkDelta d of
     FTKX _ x -> FTKX sh2 x
-  DeltaZipX d -> case ftkDelta d of
-    FTKProduct (FTKX sh y) (FTKX _ z) -> FTKX sh (FTKProduct y z)
-  DeltaUnzipX d -> case ftkDelta d of
-    FTKX sh (FTKProduct y z) -> FTKProduct (FTKX sh y) (FTKX sh z)
 
   DeltaFromS stk0 d ->
     let fromS :: FullShapeTK y2 -> SingletonTK z2 -> FullShapeTK z2
