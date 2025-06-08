@@ -34,7 +34,7 @@ module HordeAd.Core.AstSimplify
   , astIndexS, astIndexKnobsS, astScatterS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
 
-  , astFromS, astSFromK, astSFromR, astSFromX
+  , astCastCastable, astFromS, astSFromK, astSFromR, astSFromX
   , astSum0S, astDot0S, astDot1InS, astMatmul2S
 
     -- * Helper combinators
@@ -2918,6 +2918,10 @@ astReshapeS sh2 t = case t of
     Just Refl -> t
     _ -> Ast.AstReshapeS sh2 t
 
+astCastCastable :: TKCastable a b -> FullShapeTK b -> AstTensor ms s a
+                -> AstTensor ms s b
+astCastCastable = Ast.AstCastCastable
+
 astFromS :: forall y z s. AstSpan s
          => SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
@@ -3158,7 +3162,7 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
 -- * ConvertTensor instances needed for unwinding in astConcrete
 
 instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
-  tcastCastable c _astk bftk v = Ast.AstCastCastable c bftk v
+  tcastCastable c _astk bftk v = astCastCastable c bftk v
 
   tfromS = astFromS
   rfromX a = case ftkAst a of
@@ -3185,7 +3189,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                    (CastZip (ftkToSTK y) (ftkToSTK z))
                    (CastT2 CastRX CastRX))
           ftk2 = FTKR sh (FTKProduct y z)
-      in Ast.AstCastCastable c ftk2 a
+      in astCastCastable c ftk2 a
   runzip @_ @_ @n a
    | Refl <- lemRankReplicate (Proxy @n) = case ftkAst a of
     FTKR sh (FTKProduct y z) ->
@@ -3195,7 +3199,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                    (CastUnzip (ftkToSTK y) (ftkToSTK z))
                    CastRX)
           ftk2 = FTKProduct (FTKR sh y) (FTKR sh z)
-      in Ast.AstCastCastable c ftk2 a
+      in astCastCastable c ftk2 a
   szip a = case ftkAst a of
     FTKProduct (FTKS sh y) (FTKS _sh z) ->
       let c = CastCmp
@@ -3204,7 +3208,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                    (CastZip (ftkToSTK y) (ftkToSTK z))
                    (CastT2 CastSX CastSX))
           ftk2 = FTKS sh (FTKProduct y z)
-      in Ast.AstCastCastable c ftk2 a
+      in astCastCastable c ftk2 a
   sunzip a = case ftkAst a of
     FTKS sh (FTKProduct y z) ->
       let c = CastCmp
@@ -3213,17 +3217,17 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                    (CastUnzip (ftkToSTK y) (ftkToSTK z))
                    CastSX)
           ftk2 = FTKProduct (FTKS sh y) (FTKS sh z)
-      in Ast.AstCastCastable c ftk2 a
+      in astCastCastable c ftk2 a
   xzip a = case ftkAst a of
     FTKProduct (FTKX sh y) (FTKX _sh z) ->
       let c = CastZip (ftkToSTK y) (ftkToSTK z)
           ftk2 = FTKX sh (FTKProduct y z)
-      in Ast.AstCastCastable c ftk2 a
+      in astCastCastable c ftk2 a
   xunzip a = case ftkAst a of
     FTKX sh (FTKProduct y z) ->
       let c = CastUnzip (ftkToSTK y) (ftkToSTK z)
           ftk2 = FTKProduct (FTKX sh y) (FTKX sh z)
-      in Ast.AstCastCastable c ftk2 a
+      in astCastCastable c ftk2 a
 
   xnestR @sh1 @m @x sh1 a
    | Refl <- lemRankReplicate (Proxy @m) = case ftkAst a of
@@ -3236,7 +3240,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                           (STKX sh1 (knownSTK @x)))
           ftk2 = FTKX (shxTakeSSX (Proxy @(Replicate m Nothing)) sh1sh2 sh1)
                       (FTKR (shrFromShX (shxDropSSX sh1sh2 sh1)) x)
-      in Ast.AstCastCastable c ftk2 a
+      in astCastCastable c ftk2 a
   xnestS @_ @sh2 @x sh1 a = case ftkAst a of
     FTKX sh1sh2 x ->
       let c = CastCmp
@@ -3244,32 +3248,32 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
                 (CastNest (STKX sh1 (knownSTK @x)))
           ftk2 = FTKX (shxTakeSSX (Proxy @(MapJust sh2)) sh1sh2 sh1)
                       (FTKS (knownShS @sh2) x)
-      in Ast.AstCastCastable c ftk2 a
+      in astCastCastable c ftk2 a
   xnest @_ @sh2 @x sh1 a = case ftkAst a of
     FTKX sh1sh2 x ->
       let c = CastNest (STKX sh1 (knownSTK @x))
           ftk2 = FTKX (shxTakeSSX (Proxy @sh2) sh1sh2 sh1)
                       (FTKX (shxDropSSX sh1sh2 sh1) x)
-      in Ast.AstCastCastable c ftk2 a
+      in astCastCastable c ftk2 a
   xunNestR a = case ftkAst a of
     FTKX sh1 (FTKR sh2 x) ->
       let c = CastCmp
                 CastUnnest
                 (CastXX CastRX)
           ftk2 = FTKX (sh1 `shxAppend` shxFromShR sh2) x
-      in Ast.AstCastCastable c ftk2 a
+      in astCastCastable c ftk2 a
   xunNestS a = case ftkAst a of
     FTKX sh1 (FTKS sh2 x) ->
       let c = CastCmp
                 CastUnnest
                 (CastXX CastSX)
           ftk2 = FTKX (sh1 `shxAppend` shxFromShS sh2) x
-      in Ast.AstCastCastable c ftk2 a
+      in astCastCastable c ftk2 a
   xunNest a = case ftkAst a of
     FTKX sh1 (FTKX sh2 x) ->
       let c = CastUnnest
           ftk2 = FTKX (sh1 `shxAppend` sh2) x
-      in Ast.AstCastCastable c ftk2 a
+      in astCastCastable c ftk2 a
 
   tpairConv = astPair
   tunpairConv t = (astProject1 t, astProject2 t)
@@ -3638,7 +3642,7 @@ substitute1Ast i var = subst where
   Ast.AstSFromR sh v -> astSFromR sh <$> subst v
   Ast.AstSFromX sh v -> astSFromX sh <$> subst v
   Ast.AstCastCastable c bftk v ->
-    Ast.AstCastCastable c bftk <$> subst v
+    astCastCastable c bftk <$> subst v
 
   Ast.AstSum0S v -> astSum0S <$> subst v
   Ast.AstDot0S u v ->

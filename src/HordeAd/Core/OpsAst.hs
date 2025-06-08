@@ -1394,7 +1394,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
 instance AstSpan s => ConvertTensor (AstNoVectorize s) where
   tcastCastable c _astk bftk =
-    AstNoVectorize . AstCastCastable c bftk . unAstNoVectorize
+    AstNoVectorize . astCastCastable c bftk . unAstNoVectorize
 
   tfromS zstk = AstNoVectorize . tfromS zstk . unAstNoVectorize
   rfromX = AstNoVectorize . rfromX . unAstNoVectorize

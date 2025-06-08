@@ -188,7 +188,7 @@ expandAst t = case t of
   Ast.AstSFromR sh v -> astSFromR sh $ expandAst v
   Ast.AstSFromX sh v -> astSFromX sh $ expandAst v
   Ast.AstCastCastable c bftk v ->
-    Ast.AstCastCastable c bftk $ expandAst v
+    astCastCastable c bftk $ expandAst v
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstSum0S{} -> t
@@ -308,7 +308,7 @@ simplifyAst t = case t of
   Ast.AstSFromR sh v -> astSFromR sh $ simplifyAst v
   Ast.AstSFromX sh v -> astSFromX sh $ simplifyAst v
   Ast.AstCastCastable c bftk v ->
-    Ast.AstCastCastable c bftk $ simplifyAst v
+    astCastCastable c bftk $ simplifyAst v
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstSum0S{} -> t
@@ -618,7 +618,7 @@ contractAst t0 = case t0 of
   Ast.AstSFromR sh v -> astSFromR sh $ contractAst v
   Ast.AstSFromX sh v -> astSFromX sh $ contractAst v
   Ast.AstCastCastable c bftk v ->
-    Ast.AstCastCastable c bftk $ contractAst v
+    astCastCastable c bftk $ contractAst v
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstSum0S{} -> t0
