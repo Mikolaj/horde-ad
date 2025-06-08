@@ -15,8 +15,8 @@ module HordeAd.Core.AstFreshId
 
 import Prelude
 
+import Control.Concurrent.Counter (Counter, add, new, set)
 import Data.Int (Int64)
-import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import GHC.Exts (IsList (..))
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -30,25 +30,25 @@ import HordeAd.Core.Types
 -- (only ever incremented by one).
 unsafeAstVarCounter :: Counter
 {-# NOINLINE unsafeAstVarCounter #-}
-unsafeAstVarCounter = unsafePerformIO (newCounter 100000001)
+unsafeAstVarCounter = unsafePerformIO (new 100000001)
 
 -- | Only for tests, e.g., to ensure `show` applied to terms has stable length.
 -- Tests that use this tool need to be run sequentially
 -- to avoid variable confusion.
 resetVarCounter :: IO ()
-resetVarCounter = writeIORefU unsafeAstVarCounter 100000001
+resetVarCounter = set unsafeAstVarCounter 100000001
 
 unsafeGetFreshAstVarId :: IO AstVarId
 {-# INLINE unsafeGetFreshAstVarId #-}
 unsafeGetFreshAstVarId =
-  intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
+  intToAstVarId <$> add unsafeAstVarCounter 1
 
 unsafeGetFreshAstVarName :: FullShapeTK y -> Maybe (Int64, Int64)
                          -> IO (AstVarName s y)
 {-# INLINE unsafeGetFreshAstVarName #-}
 unsafeGetFreshAstVarName ftk bounds =
   mkAstVarName ftk bounds
-  . intToAstVarId <$> atomicAddCounter_ unsafeAstVarCounter 1
+  . intToAstVarId <$> add unsafeAstVarCounter 1
 
 funToAstIO2 :: forall y z s s2 ms. AstSpan s
             => FullShapeTK y -> Maybe (Int64, Int64)

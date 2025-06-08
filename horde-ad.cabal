@@ -180,7 +180,7 @@ library horde-ad-simplified
       , ox-arrays < 0.2
       , random >= 1.3.0 && < 1.4
       , some >= 1 && < 2
-      , unboxed-ref < 0.5
+      , atomic-counter < 0.2
       , vector >= 0.13.2.0 && < 0.14
 
 library exampleLibrary

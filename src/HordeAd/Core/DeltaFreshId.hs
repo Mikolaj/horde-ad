@@ -15,14 +15,20 @@ module HordeAd.Core.DeltaFreshId
 
 import Prelude
 
-import Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter, writeIORefU)
+import Control.Concurrent.Counter (Counter, add, new, set)
 import System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Delta
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
-unsafeGlobalCounter = unsafePerformIO (newCounter 100000001)
+unsafeGlobalCounter = unsafePerformIO (new 100000001)
+
+-- | Do not use; this is exposed only for special low level tests.
+-- e.g., to ensure @show@ applied to terms has a stable length.
+-- Tests using this need to be run with -ftest_seq to avoid variable confusion.
+resetIdCounter :: IO ()
+resetIdCounter = set unsafeGlobalCounter 100000001
 
 -- This is the only operation directly touching the single impure counter
 -- that holds fresh and continuously incremented integer identifiers,
@@ -34,13 +40,7 @@ unsafeGlobalCounter = unsafePerformIO (newCounter 100000001)
 -- and causing performance anomalies in benchmarks.
 unsafeGetFreshId :: IO Int
 {-# INLINE unsafeGetFreshId #-}
-unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
-
--- | Do not use; this is exposed only for special low level tests.
--- e.g., to ensure @show@ applied to terms has a stable length.
--- Tests using this need to be run with -ftest_seq to avoid variable confusion.
-resetIdCounter :: IO ()
-resetIdCounter = writeIORefU unsafeGlobalCounter 100000001
+unsafeGetFreshId = add unsafeGlobalCounter 1
 
 -- Tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
