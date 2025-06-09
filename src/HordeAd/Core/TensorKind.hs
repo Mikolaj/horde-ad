@@ -4,7 +4,7 @@
 -- and lemmas associated with the singletons.
 module HordeAd.Core.TensorKind
   ( -- * Tensor kind singletons
-    SingletonTK(..), KnownSTK(..), TKCastable(..), castSTK
+    SingletonTK(..), KnownSTK(..), TKConversion(..), castSTK
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
@@ -182,74 +182,74 @@ widthSTK stk = case stk of
   STKX{} -> 1
   STKProduct stk1 stk2 -> widthSTK stk1 + widthSTK stk2
 
-type role TKCastable nominal nominal
-data TKCastable (a :: TK) (b :: TK) where
-  CastId  :: TKCastable a a
-  CastCmp :: TKCastable b c -> TKCastable a b -> TKCastable a c
+type role TKConversion nominal nominal
+data TKConversion (a :: TK) (b :: TK) where
+  ConvId  :: TKConversion a a
+  ConvCmp :: TKConversion b c -> TKConversion a b -> TKConversion a c
 
-  CastRX  :: TKCastable (TKR2 n a) (TKX2 (Replicate n Nothing) a)
-  CastSX  :: TKCastable (TKS2 sh a) (TKX2 (MapJust sh) a)
+  ConvRX  :: TKConversion (TKR2 n a) (TKX2 (Replicate n Nothing) a)
+  ConvSX  :: TKConversion (TKS2 sh a) (TKX2 (MapJust sh) a)
 
-  CastXR  :: SingletonTK a -> TKCastable (TKX2 sh a) (TKR2 (Rank sh) a)
-  CastXS  :: TKCastable (TKX2 (MapJust sh) a) (TKS2 sh a)
-  CastXS' :: Rank sh ~ Rank sh'
+  ConvXR  :: SingletonTK a -> TKConversion (TKX2 sh a) (TKR2 (Rank sh) a)
+  ConvXS  :: TKConversion (TKX2 (MapJust sh) a) (TKS2 sh a)
+  ConvXS' :: Rank sh ~ Rank sh'
           => SingletonTK (TKS2 sh' a)
-          -> TKCastable (TKX2 sh a) (TKS2 sh' a)
+          -> TKConversion (TKX2 sh a) (TKS2 sh' a)
 
-  CastXX' :: Rank sh ~ Rank sh'
+  ConvXX' :: Rank sh ~ Rank sh'
           => SingletonTK (TKX2 sh' a)
-          -> TKCastable (TKX2 sh a) (TKX2 sh' a)
+          -> TKConversion (TKX2 sh a) (TKX2 sh' a)
 
-  CastRR  :: TKCastable a b -> TKCastable (TKR2 n a) (TKR2 n b)
-  CastSS  :: TKCastable a b -> TKCastable (TKS2 sh a) (TKS2 sh b)
-  CastXX  :: TKCastable a b -> TKCastable (TKX2 sh a) (TKX2 sh b)
-  CastT2  :: TKCastable a a'
-          -> TKCastable b b'
-          -> TKCastable (TKProduct a b) (TKProduct a' b')
+  ConvRR  :: TKConversion a b -> TKConversion (TKR2 n a) (TKR2 n b)
+  ConvSS  :: TKConversion a b -> TKConversion (TKS2 sh a) (TKS2 sh b)
+  ConvXX  :: TKConversion a b -> TKConversion (TKX2 sh a) (TKX2 sh b)
+  ConvT2  :: TKConversion a a'
+          -> TKConversion b b'
+          -> TKConversion (TKProduct a b) (TKProduct a' b')
 
-  Cast0X  :: SingletonTK a -> TKCastable a (TKX2 '[] a)
-  CastX0  :: TKCastable (TKX2 '[] a) a
+  Conv0X  :: SingletonTK a -> TKConversion a (TKX2 '[] a)
+  ConvX0  :: TKConversion (TKX2 '[] a) a
 
-  CastNest :: SingletonTK (TKX2 sh a)
-           -> TKCastable (TKX2 (sh ++ sh') a) (TKX2 sh (TKX2 sh' a))
-  CastUnnest :: TKCastable (TKX2 sh (TKX2 sh' a)) (TKX2 (sh ++ sh') a)
+  ConvNest :: SingletonTK (TKX2 sh a)
+           -> TKConversion (TKX2 (sh ++ sh') a) (TKX2 sh (TKX2 sh' a))
+  ConvUnnest :: TKConversion (TKX2 sh (TKX2 sh' a)) (TKX2 (sh ++ sh') a)
 
-  CastZip   :: SingletonTK a -> SingletonTK b
-            -> TKCastable (TKProduct (TKX2 sh a) (TKX2 sh b))
+  ConvZip   :: SingletonTK a -> SingletonTK b
+            -> TKConversion (TKProduct (TKX2 sh a) (TKX2 sh b))
                           (TKX2 sh (TKProduct a b))
-  CastUnzip :: SingletonTK a -> SingletonTK b
-            -> TKCastable (TKX2 sh (TKProduct a b))
+  ConvUnzip :: SingletonTK a -> SingletonTK b
+            -> TKConversion (TKX2 sh (TKProduct a b))
                           (TKProduct (TKX2 sh a) (TKX2 sh b))
 
-deriving instance Show (TKCastable a b)
+deriving instance Show (TKConversion a b)
 
-instance Category TKCastable where
-  id = CastId
-  (.) = CastCmp
+instance Category TKConversion where
+  id = ConvId
+  (.) = ConvCmp
 
-castSTK :: TKCastable a b -> SingletonTK a -> SingletonTK b
+castSTK :: TKConversion a b -> SingletonTK a -> SingletonTK b
 castSTK = \cases
-  CastId astk -> astk
-  (CastCmp c1 c2) astk -> castSTK c1 (castSTK c2 astk)
-  CastRX (STKR n a) -> STKX (ssxReplicate n) a
-  CastSX (STKS sh a) -> STKX (ssxFromShX $ shxFromShS sh) a
-  (CastXR _stk) (STKX ssx a) -> STKR (ssxRank ssx) a
-  CastXS (STKX ssx a) -> STKS (shsFromStaticShX ssx) a
-  (CastXS' (STKS sh _x)) (STKX _ssx2 a) -> STKS sh a
-  (CastXX' (STKX ssx _x)) (STKX _ssx2 a) -> STKX ssx a
-  (CastRR c) (STKR n a) -> STKR n (castSTK c a)
-  (CastSS c) (STKS sh a) -> STKS sh (castSTK c a)
-  (CastXX c) (STKX ssx a) -> STKX ssx (castSTK c a)
-  (CastT2 c1 c2) (STKProduct stk1 stk2) ->
+  ConvId astk -> astk
+  (ConvCmp c1 c2) astk -> castSTK c1 (castSTK c2 astk)
+  ConvRX (STKR n a) -> STKX (ssxReplicate n) a
+  ConvSX (STKS sh a) -> STKX (ssxFromShX $ shxFromShS sh) a
+  (ConvXR _stk) (STKX ssx a) -> STKR (ssxRank ssx) a
+  ConvXS (STKX ssx a) -> STKS (shsFromStaticShX ssx) a
+  (ConvXS' (STKS sh _x)) (STKX _ssx2 a) -> STKS sh a
+  (ConvXX' (STKX ssx _x)) (STKX _ssx2 a) -> STKX ssx a
+  (ConvRR c) (STKR n a) -> STKR n (castSTK c a)
+  (ConvSS c) (STKS sh a) -> STKS sh (castSTK c a)
+  (ConvXX c) (STKX ssx a) -> STKX ssx (castSTK c a)
+  (ConvT2 c1 c2) (STKProduct stk1 stk2) ->
     STKProduct (castSTK c1 stk1) (castSTK c2 stk2)
-  (Cast0X _stk) stk -> STKX ZKX stk
-  CastX0 (STKX ZKX stk) -> stk
-  (CastNest (STKX sh x)) (STKX shsh' _x) ->
+  (Conv0X _stk) stk -> STKX ZKX stk
+  ConvX0 (STKX ZKX stk) -> stk
+  (ConvNest (STKX sh x)) (STKX shsh' _x) ->
     STKX sh (STKX (ssxDropSSX shsh' sh) x)
-  CastUnnest (STKX sh (STKX sh' x)) -> STKX (sh `ssxAppend` sh') x
-  (CastZip _ _) (STKProduct (STKX sh a1) (STKX _sh a2)) ->
+  ConvUnnest (STKX sh (STKX sh' x)) -> STKX (sh `ssxAppend` sh') x
+  (ConvZip _ _) (STKProduct (STKX sh a1) (STKX _sh a2)) ->
     STKX sh (STKProduct a1 a2)
-  (CastUnzip _ _) (STKX sh (STKProduct a1 a2)) ->
+  (ConvUnzip _ _) (STKX sh (STKProduct a1 a2)) ->
     STKProduct (STKX sh a1) (STKX sh a2)
 
 -- * Full shape tensor kind quasi-singletons

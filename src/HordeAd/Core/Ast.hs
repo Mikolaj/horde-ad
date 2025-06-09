@@ -423,7 +423,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   AstSFromX :: forall sh sh' x ms s. Rank sh ~ Rank sh'
             => ShS sh -> AstTensor ms s (TKX2 sh' x)
             -> AstTensor ms s (TKS2 sh x)
-  AstCastCastable :: TKCastable a b -> FullShapeTK b -> AstTensor ms s a
+  AstConvert :: TKConversion a b -> FullShapeTK b -> AstTensor ms s a
                   -> AstTensor ms s b
 
   -- Backend-specific primitives

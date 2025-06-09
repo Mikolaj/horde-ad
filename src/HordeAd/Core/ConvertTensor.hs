@@ -21,7 +21,7 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 class ConvertTensor (target :: Target) where
-  tcastCastable :: TKCastable a b -> SingletonTK a -> FullShapeTK b -> target a
+  tconvert :: TKConversion a b -> SingletonTK a -> FullShapeTK b -> target a
                 -> target b
 
   -- | The conversion of a tensor or a nested pair of tensors,
@@ -68,7 +68,7 @@ class ConvertTensor (target :: Target) where
          => target (TKS2 sh x) -> target (TKX2 sh' x)
   xfromS = tfromS knownSTK
 
-  -- All operations below could be defined in terms of tcastCastable,
+  -- All operations below could be defined in terms of tconvert,
   -- but they'd need additional singleton arguments or constraints.
   rzip :: forall y z n. (KnownSTK y, KnownSTK z)
        => target (TKProduct (TKR2 n y) (TKR2 n z))

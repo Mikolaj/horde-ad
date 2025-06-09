@@ -769,43 +769,43 @@ evalRevSame !s !c = \case
       withKnownShS sh $
       withKnownShX (ssxFromShX sh2) $
       evalRevSame s (xfromS c) d
-  DeltaCastCastable @a c1 bftk d -> case ftkDelta d of
+  DeltaConvert @a c1 bftk d -> case ftkDelta d of
     aftk ->
       -- This follows from the same property for @b@ and from @c1@
       -- not changing the underlying scalar types.
       gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
       evalRevSame
-        s (tcastCastable (transposeTKCastable (ftkToSTK aftk) c1) (ftkToSTK bftk) aftk c) d
+        s (tconvert (transposeTKConversion (ftkToSTK aftk) c1) (ftkToSTK bftk) aftk c) d
 
   d -> evalRevFTK s c d
     -- the remaining constructors are already handled in evalRevFTK
 
-transposeTKCastable :: SingletonTK a -> TKCastable a b -> TKCastable b a
-transposeTKCastable astk c0 = case c0 of
-  CastId -> CastId
-  CastCmp c1 c2 -> CastCmp (transposeTKCastable astk c2)
-                           (transposeTKCastable (castSTK c2 astk) c1)
-  CastRX | STKR @n _ x <- astk
+transposeTKConversion :: SingletonTK a -> TKConversion a b -> TKConversion b a
+transposeTKConversion astk c0 = case c0 of
+  ConvId -> ConvId
+  ConvCmp c1 c2 -> ConvCmp (transposeTKConversion astk c2)
+                           (transposeTKConversion (castSTK c2 astk) c1)
+  ConvRX | STKR @n _ x <- astk
          , Refl <- lemRankReplicate (Proxy @n) ->
-    CastXR x
-  CastSX -> CastXS
-  CastXR @_ @sh _stk | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
-    CastCmp (CastXX' astk) CastRX
-  CastXS -> CastSX
-  CastXS' (STKS sh _) | Refl <- lemRankMapJust sh ->
-    CastCmp (CastXX' astk) CastSX
-  CastXX' _stk -> CastXX' astk
-  CastRR c | STKR _ x <- astk -> CastRR (transposeTKCastable x c)
-  CastSS c | STKS _ x <- astk -> CastSS (transposeTKCastable x c)
-  CastXX c | STKX _ x <- astk -> CastXX (transposeTKCastable x c)
-  CastT2 c1 c2 | STKProduct x1 x2 <- astk ->
-    CastT2 (transposeTKCastable x1 c1) (transposeTKCastable x2 c2)
-  Cast0X _stk -> CastX0
-  CastX0 | STKX ZKX x <- astk -> Cast0X x
-  CastNest _stk -> CastUnnest
-  CastUnnest | (STKX sh (STKX _ x)) <- astk -> CastNest (STKX sh x)
-  CastZip stk1 stk2 -> CastUnzip stk1 stk2
-  CastUnzip stk1 stk2 -> CastZip stk1 stk2
+    ConvXR x
+  ConvSX -> ConvXS
+  ConvXR @_ @sh _stk | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
+    ConvCmp (ConvXX' astk) ConvRX
+  ConvXS -> ConvSX
+  ConvXS' (STKS sh _) | Refl <- lemRankMapJust sh ->
+    ConvCmp (ConvXX' astk) ConvSX
+  ConvXX' _stk -> ConvXX' astk
+  ConvRR c | STKR _ x <- astk -> ConvRR (transposeTKConversion x c)
+  ConvSS c | STKS _ x <- astk -> ConvSS (transposeTKConversion x c)
+  ConvXX c | STKX _ x <- astk -> ConvXX (transposeTKConversion x c)
+  ConvT2 c1 c2 | STKProduct x1 x2 <- astk ->
+    ConvT2 (transposeTKConversion x1 c1) (transposeTKConversion x2 c2)
+  Conv0X _stk -> ConvX0
+  ConvX0 | STKX ZKX x <- astk -> Conv0X x
+  ConvNest _stk -> ConvUnnest
+  ConvUnnest | (STKX sh (STKX _ x)) <- astk -> ConvNest (STKX sh x)
+  ConvZip stk1 stk2 -> ConvUnzip stk1 stk2
+  ConvUnzip stk1 stk2 -> ConvZip stk1 stk2
 
 evalRevFromnMap :: forall target. (ADReadyNoLet target, ShareTensor target)
                 => EvalState target -> EvalState target
@@ -1179,11 +1179,11 @@ evalFwdSame params s = \case
       withKnownSTK (ftkToSTK x) $
       withKnownShS sh $
       second sfromX $ evalFwdSame params s d
-  DeltaCastCastable @a c1 bftk d ->
+  DeltaConvert @a c1 bftk d ->
     -- This follows from the same property for @b@ and from @c1@
     -- not changing the underlying scalar types.
     gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
-    second (tcastCastable c1 (ftkToSTK (ftkDelta d)) bftk)
+    second (tconvert c1 (ftkToSTK (ftkDelta d)) bftk)
            (evalFwdSame params s d)
 
   d -> evalFwd params s d

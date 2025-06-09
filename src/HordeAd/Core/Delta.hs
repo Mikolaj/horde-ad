@@ -347,7 +347,7 @@ data Delta :: Target -> Target where
   DeltaSFromX :: forall sh sh' r target. Rank sh ~ Rank sh'
               => ShS sh -> Delta target (TKX2 sh' r)
               -> Delta target (TKS2 sh r)
-  DeltaCastCastable :: TKCastable a b
+  DeltaConvert :: TKConversion a b
                     -> FullShapeTK b -> Delta target a
                     -> Delta target b
 
@@ -498,4 +498,4 @@ ftkDelta = \case
     FTKR _ x -> FTKS sh x
   DeltaSFromX sh d -> case ftkDelta d of
     FTKX _ x -> FTKS sh x
-  DeltaCastCastable _ bftk _ -> bftk
+  DeltaConvert _ bftk _ -> bftk

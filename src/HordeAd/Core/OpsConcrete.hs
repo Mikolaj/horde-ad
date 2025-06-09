@@ -512,9 +512,9 @@ instance BaseTensor Concrete where
   tdot0Target = dot0Target
 
 instance ConvertTensor Concrete where
-  tcastCastable c astk bftk a | Dict <- eltDictRep astk
+  tconvert c astk bftk a | Dict <- eltDictRep astk
                               , Dict <- eltDictRep (ftkToSTK bftk) =
-    Concrete $ Nested.castCastable (interpretTKCastable c) (unConcrete a)
+    Concrete $ Nested.convert (interpretTKConversion c) (unConcrete a)
 
   tfromS @y zstk v = case (knownSTK @y, zstk) of
     (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
@@ -582,16 +582,16 @@ instance ConvertTensor Concrete where
   xnestR @sh1 @m @x sh | Dict <- eltDictRep (knownSTK @x)
                        , Refl <- lemRankReplicate (SNat @m) =
     Concrete
-    . Nested.castCastable
+    . Nested.convert
         @(Nested.Mixed sh1 (Nested.Mixed (Replicate m Nothing) (RepConcrete x)))
-        (Nested.CastXX Nested.CastXR)
+        (Nested.ConvXX Nested.ConvXR)
     . Nested.mnest sh
     . unConcrete
   xnestS @sh1 @sh2 @x sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete
-    . Nested.castCastable
+    . Nested.convert
         @(Nested.Mixed sh1 (Nested.Mixed (MapJust sh2) (RepConcrete x)))
-        (Nested.CastXX Nested.CastXS)
+        (Nested.ConvXX Nested.ConvXS)
     . Nested.mnest sh
     . unConcrete
   xnest @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
@@ -599,47 +599,47 @@ instance ConvertTensor Concrete where
   xunNestR @sh1 @m @x | Dict <- eltDictRep (knownSTK @x) =
     Concrete
     . Nested.munNest
-    . Nested.castCastable
+    . Nested.convert
         @(Nested.Mixed sh1 (Nested.Ranked m (RepConcrete x)))
-        (Nested.CastXX Nested.CastRX)
+        (Nested.ConvXX Nested.ConvRX)
     . unConcrete
   xunNestS @sh1 @sh2 @x | Dict <- eltDictRep (knownSTK @x) =
     Concrete
     . Nested.munNest
-    . Nested.castCastable
+    . Nested.convert
         @(Nested.Mixed sh1 (Nested.Shaped sh2 (RepConcrete x)))
-        (Nested.CastXX Nested.CastSX)
+        (Nested.ConvXX Nested.ConvSX)
     . unConcrete
   xunNest = Concrete . Nested.munNest . unConcrete
 
   tpairConv = tpair
   tunpairConv = tunpair
 
-interpretTKCastable :: TKCastable a b
-                    -> Nested.Castable (RepConcrete a) (RepConcrete b)
-interpretTKCastable c0 = case c0 of
-  CastId -> Nested.CastId
-  CastCmp c1 c2 -> Nested.CastCmp (interpretTKCastable c1)
-                                  (interpretTKCastable c2)
-  CastRX -> Nested.CastRX
-  CastSX -> Nested.CastSX
-  CastXR stk | Dict <- eltDictRep stk -> Nested.CastXR
-  CastXS -> Nested.CastXS
-  CastXS' (STKS sh' stk) | Dict <- eltDictRep stk -> Nested.CastXS' sh'
-  CastXX' (STKX ssx stk) | Dict <- eltDictRep stk -> Nested.CastXX' ssx
-  CastRR c -> Nested.CastRR (interpretTKCastable c)
-  CastSS c -> Nested.CastSS (interpretTKCastable c)
-  CastXX c -> Nested.CastXX (interpretTKCastable c)
-  CastT2 c1 c2 ->
-    Nested.CastT2 (interpretTKCastable c1) (interpretTKCastable c2)
-  Cast0X stk | Dict <- eltDictRep stk -> Nested.Cast0X
-  CastX0 -> Nested.CastX0
-  CastNest (STKX sh x) | Dict <- eltDictRep x -> Nested.CastNest sh
-  CastUnnest -> Nested.CastUnnest
-  CastZip stk1 stk2 | Dict <- eltDictRep stk1
-                    , Dict <- eltDictRep stk2 -> Nested.CastZip
-  CastUnzip stk1 stk2 | Dict <- eltDictRep stk1
-                      , Dict <- eltDictRep stk2 -> Nested.CastUnzip
+interpretTKConversion :: TKConversion a b
+                    -> Nested.Conversion (RepConcrete a) (RepConcrete b)
+interpretTKConversion c0 = case c0 of
+  ConvId -> Nested.ConvId
+  ConvCmp c1 c2 -> Nested.ConvCmp (interpretTKConversion c1)
+                                  (interpretTKConversion c2)
+  ConvRX -> Nested.ConvRX
+  ConvSX -> Nested.ConvSX
+  ConvXR stk | Dict <- eltDictRep stk -> Nested.ConvXR
+  ConvXS -> Nested.ConvXS
+  ConvXS' (STKS sh' stk) | Dict <- eltDictRep stk -> Nested.ConvXS' sh'
+  ConvXX' (STKX ssx stk) | Dict <- eltDictRep stk -> Nested.ConvXX' ssx
+  ConvRR c -> Nested.ConvRR (interpretTKConversion c)
+  ConvSS c -> Nested.ConvSS (interpretTKConversion c)
+  ConvXX c -> Nested.ConvXX (interpretTKConversion c)
+  ConvT2 c1 c2 ->
+    Nested.ConvT2 (interpretTKConversion c1) (interpretTKConversion c2)
+  Conv0X stk | Dict <- eltDictRep stk -> Nested.Conv0X
+  ConvX0 -> Nested.ConvX0
+  ConvNest (STKX sh x) | Dict <- eltDictRep x -> Nested.ConvNest sh
+  ConvUnnest -> Nested.ConvUnnest
+  ConvZip stk1 stk2 | Dict <- eltDictRep stk1
+                    , Dict <- eltDictRep stk2 -> Nested.ConvZip
+  ConvUnzip stk1 stk2 | Dict <- eltDictRep stk1
+                      , Dict <- eltDictRep stk2 -> Nested.ConvUnzip
 
 
 -- * MapAccum internal definitions
