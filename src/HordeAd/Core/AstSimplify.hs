@@ -3090,8 +3090,10 @@ astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstProject1{} -> Ast.AstConvert c zftk a0  -- TODO
   Ast.AstProject2{} -> Ast.AstConvert c zftk a0  -- TODO
   -- TODO: here and elsewhere, make sure the generated c2 is unique/correct
-  Ast.AstFromVector snat@SNat (STKX _ xstk) l -> case sh of
-    snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
+  Ast.AstFromVector snat@SNat (STKX @shx2 _ xstk) l -> case sh of
+    (:$$) @_ @rest snat2 rest | Just Refl <- sameNat snat snat2 ->
+      -- This is needed only for GHC 9.10.
+      gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank shx2) $
       let c2 = ConvXS' (STKS rest xstk)
       in astFromVector snat (STKS rest xstk)
                        (V.map (astConvert c2 (FTKS rest x)) l)
@@ -3100,8 +3102,10 @@ astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
       let c2 = ConvXS' (STKS (snat :$$ sh) xstk)
           !a2 = astConvert c2 (FTKS (snat :$$ sh) x) a
       in astSum snat (STKS sh xstk) a2
-  Ast.AstReplicate snat@SNat (STKX _ xstk) a -> case sh of
-    snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
+  Ast.AstReplicate snat@SNat (STKX @shx2 _ xstk) a -> case sh of
+    (:$$) @_ @rest snat2 rest | Just Refl <- sameNat snat snat2 ->
+      -- This is needed only for GHC 9.10.
+      gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank shx2) $
       let c2 = ConvXS' (STKS rest xstk)
           !a2 = astConvert c2 (FTKS rest x) a
       in astReplicate snat (STKS rest xstk) a2
@@ -3110,8 +3114,10 @@ astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstVar{} -> Ast.AstConvert c zftk a0
   Ast.AstCond b v w -> astCond b (astConvertSFromX c zftk v)
                                  (astConvertSFromX c zftk w)
-  Ast.AstBuild1 snat@SNat (STKX _ xstk) (var, a) -> case sh of
-    snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
+  Ast.AstBuild1 snat@SNat (STKX @shx2 _ xstk) (var, a) -> case sh of
+    (:$$) @_ @rest snat2 rest | Just Refl <- sameNat snat snat2 ->
+      -- This is needed only for GHC 9.10.
+      gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank shx2) $
       let c2 = ConvXS' (STKS rest xstk)
           !a2 = astConvert c2 (FTKS rest x) a
       in Ast.AstBuild1 snat (STKS rest xstk) (var, a2)
