@@ -424,7 +424,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
             => ShS sh -> AstTensor ms s (TKX2 sh' x)
             -> AstTensor ms s (TKS2 sh x)
   AstConvert :: TKConversion a b -> FullShapeTK b -> AstTensor ms s a
-                  -> AstTensor ms s b
+             -> AstTensor ms s b
 
   -- Backend-specific primitives
   AstSum0S :: AstTensor ms s (TKS2 sh x)

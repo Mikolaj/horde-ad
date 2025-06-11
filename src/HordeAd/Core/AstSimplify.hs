@@ -82,6 +82,7 @@ import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, Perm (..), TakeLen, permInverse)
 import Data.Array.Nested.Permutation qualified as Permutation
+import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types
   (Head, Init, Last, Tail, snatPlus, unsafeCoerceRefl)
@@ -443,7 +444,7 @@ astReplicate snat stk = \case
   -- ~> transpose [0, 2, 1] (replicate n1 (replicate n2 u))
   -- but the reverse rule is already in astTransposeS
 
--- TODO: also push up AstFromPrimal, etc.
+-- TODO: also pull up AstFromPrimal, etc.
 astMapAccumRDer
   :: forall accy by ey k s. AstSpan s
   => SNat k
@@ -2918,32 +2919,228 @@ astReshapeS sh2 t = case t of
     Just Refl -> t
     _ -> Ast.AstReshapeS sh2 t
 
-astConvert :: TKConversion a b -> FullShapeTK b -> AstTensor ms s a
-                -> AstTensor ms s b
-astConvert = Ast.AstConvert
+astConvert
+  :: AstSpan s
+  => TKConversion y z -> FullShapeTK z -> AstTensor AstMethodLet s y
+  -> AstTensor AstMethodLet s z
+astConvert c zftk a = case (ftkAst a, zftk) of
+  (yftk, _) | Just Refl <- sameSTK (ftkToSTK yftk) (ftkToSTK zftk) -> a
+  (FTKScalar @ry, FTKS ZSS (FTKScalar @rz))
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      astConvertSFromK c zftk a
+  (FTKR shr xy, FTKS sh xz)
+    | Just Refl <- sameSTK (ftkToSTK xy) (ftkToSTK xz)
+    , Just Refl <- testEquality (shrRank shr) (shsRank sh) ->
+      astConvertSFromR c zftk a
+  (FTKX shx xy, FTKS sh xz)
+    | Just Refl <- sameSTK (ftkToSTK xy) (ftkToSTK xz)
+    , Just Refl <- testEquality (shxRank shx) (shsRank sh) ->
+      astConvertSFromX c zftk a
+  (FTKS{}, _) -> astConvertFromS c zftk a
+  (FTKProduct{}, _) -> astConvertFromS c zftk a  -- for simplicity
+  _ -> Ast.AstConvert c zftk a
+
+-- We are pulling conversions from shaped tensors up, generally.
+-- z is shaped or a product (presumably with some shaped components,
+-- but it's not checked; the other components are supposed to be
+-- converted identically, which is not checked in c, either).
+astConvertFromS
+  :: AstSpan s
+  => TKConversion y z -> FullShapeTK z -> AstTensor AstMethodLet s y
+  -> AstTensor AstMethodLet s z
+astConvertFromS c zftk a = case (zftk, a) of
+  (_, Ast.AstConvert c2 _ a2) -> astConvert (ConvCmp c c2) zftk a2
+  (FTKScalar @r1, AstConcreteS @r2 v)
+    | ZSS <- Nested.sshape v
+    , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      AstConcreteK (Nested.sunScalar v)
+  (_, Ast.AstFromPrimal v) ->
+    Ast.AstFromPrimal $ astConvertFromS c zftk v
+      -- a rare case where we don't pull up but push down so that conversions
+      -- don't end up interspersed with AstFromPrimal and similar
+  (_, Ast.AstFromDual v) ->
+    Ast.AstFromDual $ astConvertFromS c zftk v
+  (FTKScalar, Ast.AstCond b v1 v2) ->
+    astCond b (astConvertFromS c FTKScalar v1)
+              (astConvertFromS c FTKScalar v2)
+      -- for scalars, we don't pull up but push down
+  (FTKScalar, Ast.AstLet var u v) ->
+    astLet var u (astConvertFromS c FTKScalar v)
+  (FTKScalar, AstPlusS u v) ->
+    astConvertFromS c FTKScalar u + astConvertFromS c FTKScalar v
+  (FTKScalar, AstTimesS u v) ->
+    astConvertFromS c FTKScalar u * astConvertFromS c FTKScalar v
+  (FTKScalar, Ast.AstN1S NegateOp u) ->
+    negate (astConvertFromS c FTKScalar u)
+  (FTKScalar, Ast.AstN1S AbsOp u) ->
+    abs (astConvertFromS c FTKScalar u)
+  (FTKScalar, Ast.AstN1S SignumOp u) ->
+    signum (astConvertFromS c FTKScalar u)
+  (FTKScalar @r1, Ast.AstI2S @r2 QuotOp u v)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      astConvertFromS c FTKScalar u
+      `quotH` astConvertFromS c FTKScalar v
+  (FTKScalar @r1, Ast.AstI2S @r2 RemOp u v)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      astConvertFromS c FTKScalar u
+      `remH` astConvertFromS c FTKScalar v
+  _ -> Ast.AstConvert c zftk a  -- by default we pull up
+
+-- We are pushing conversions to shaped tensors down, into concrete values
+-- and towards variables, so that the conversions often cancel out.
+astConvertSFromK :: forall r s. AstSpan s
+                 => TKConversion (TKScalar r) (TKS '[] r)
+                 -> FullShapeTK (TKS '[] r)
+                 -> AstTensor AstMethodLet s (TKScalar r)
+                 -> AstTensor AstMethodLet s (TKS '[] r)
+astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
+  Ast.AstConvert c2 _ a2 -> astConvert (ConvCmp c c2) zftk a2
+  Ast.AstSum snat@SNat STKScalar a -> astSum snat (STKS ZSS STKScalar) a
+  AstConcreteK k -> AstConcreteS $ Nested.sscalar k
+  Ast.AstFloorK{} -> Ast.AstConvert c zftk a0
+  Ast.AstFromIntegralK{} -> Ast.AstConvert c zftk a0
+  Ast.AstCastK{} -> Ast.AstConvert c zftk a0
+  AstPlusK u v ->
+    astConvertSFromK c zftk u + astConvertSFromK c zftk v
+  AstTimesK u v ->
+    astConvertSFromK c zftk u * astConvertSFromK c zftk v
+  Ast.AstN1K NegateOp u ->
+    negate (astConvertSFromK c zftk u)
+  Ast.AstN1K AbsOp u ->
+    abs (astConvertSFromK c zftk u)
+  Ast.AstN1K SignumOp u ->
+    signum (astConvertSFromK c zftk u)
+  Ast.AstR1K opCode u -> Ast.AstR1S opCode (astConvertSFromK c zftk u)
+  Ast.AstR2K opCode u v ->
+    Ast.AstR2S opCode (astConvertSFromK c zftk u)
+                      (astConvertSFromK c zftk v)
+  Ast.AstI2K QuotOp u v ->
+    astConvertSFromK c zftk u `quotH` astConvertSFromK c zftk v
+  Ast.AstI2K RemOp u v ->
+    astConvertSFromK c zftk u `remH` astConvertSFromK c zftk v
+  Ast.AstProject1{} -> Ast.AstConvert c zftk a0  -- TODO
+  Ast.AstProject2{} -> Ast.AstConvert c zftk a0  -- TODO
+  Ast.AstApply{} -> Ast.AstConvert c zftk a0
+  Ast.AstVar{} -> Ast.AstConvert c zftk a0
+  Ast.AstCond b v w -> astCond b (astConvertSFromK c zftk v)
+                                 (astConvertSFromK c zftk w)
+  Ast.AstLet var u v -> astLet var u (astConvertSFromK c zftk v)
+  Ast.AstPrimalPart a -> astPrimalPart $ astConvertSFromK c zftk a
+  Ast.AstDualPart a -> astDualPart $ astConvertSFromK c zftk a
+  Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astConvertSFromK c zftk a
+  Ast.AstFromDual a -> Ast.AstFromDual $ astConvertSFromK c zftk a
+  Ast.AstFromS{} -> error "TODO: remove me"
+
+astConvertSFromR :: forall sh x s. AstSpan s
+                 => TKConversion (TKR2 (Rank sh) x) (TKS2 sh x)
+                 -> FullShapeTK (TKS2 sh x)
+                 -> AstTensor AstMethodLet s (TKR2 (Rank sh) x)
+                 -> AstTensor AstMethodLet s (TKS2 sh x)
+astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
+  Ast.AstConvert c2 _ a2 -> astConvert (ConvCmp c c2) zftk a2
+  Ast.AstProject1{} -> Ast.AstConvert c zftk a0  -- TODO
+  Ast.AstProject2{} -> Ast.AstConvert c zftk a0  -- TODO
+  -- TODO: here and elsewhere, make sure the generated c2 is unique/correct
+  Ast.AstFromVector snat@SNat (STKR @n _ xstk) l -> case sh of
+    snat2 :$$ rest | Just Refl <- sameNat snat snat2
+                   , Refl <- lemRankReplicate (Proxy @n) ->
+      let c2 = ConvCmp (ConvXS' (STKS rest xstk)) ConvRX
+      in astFromVector snat (STKS rest xstk)
+                       (V.map (astConvert c2 (FTKS rest x)) l)
+    _ -> error "astConvertSFromR: impossible shape"
+  Ast.AstSum snat@SNat (STKR @n _ xstk) a
+    | Refl <- lemRankReplicate (Proxy @(1 + n)) ->
+      let c2 = ConvCmp (ConvXS' (STKS (snat :$$ sh) xstk)) ConvRX
+          !a2 = astConvert c2 (FTKS (snat :$$ sh) x) a
+      in astSum snat (STKS sh xstk) a2
+  Ast.AstReplicate snat@SNat (STKR @n _ xstk) a -> case sh of
+    snat2 :$$ rest | Just Refl <- sameNat snat snat2
+                   , Refl <- lemRankReplicate (Proxy @n) ->
+      let c2 = ConvCmp (ConvXS' (STKS rest xstk)) ConvRX
+          !a2 = astConvert c2 (FTKS rest x) a
+      in astReplicate snat (STKS rest xstk) a2
+    _ -> error "astConvertSFromR: impossible shape"
+  Ast.AstApply{} -> Ast.AstConvert c zftk a0
+  Ast.AstVar{} -> Ast.AstConvert c zftk a0
+  Ast.AstCond b v w -> astCond b (astConvertSFromR c zftk v)
+                                 (astConvertSFromR c zftk w)
+  Ast.AstBuild1 snat@SNat (STKR @n _ xstk) (var, a) -> case sh of
+    snat2 :$$ rest | Just Refl <- sameNat snat snat2
+                   , Refl <- lemRankReplicate (Proxy @n) ->
+      let c2 = ConvCmp (ConvXS' (STKS rest xstk)) ConvRX
+          !a2 = astConvert c2 (FTKS rest x) a
+      in Ast.AstBuild1 snat (STKS rest xstk) (var, a2)
+    _ -> error "astConvertSFromR: impossible shape"
+  Ast.AstLet var u v -> astLet var u (astConvertSFromR c zftk v)
+  Ast.AstPrimalPart a -> astPrimalPart $ astConvertSFromR c zftk a
+  Ast.AstDualPart a -> astDualPart $ astConvertSFromR c zftk a
+  Ast.AstFromPrimal a ->
+    Ast.AstFromPrimal $ astConvertSFromR c zftk a
+  Ast.AstFromDual a ->
+    Ast.AstFromDual $ astConvertSFromR c zftk a
+  Ast.AstFromS{} -> error "TODO: remove me"
+
+astConvertSFromX :: forall sh shx x s. (AstSpan s, Rank shx ~ Rank sh)
+              => TKConversion (TKX2 shx x) (TKS2 sh x)
+              -> FullShapeTK (TKS2 sh x)
+              -> AstTensor AstMethodLet s (TKX2 shx x)
+              -> AstTensor AstMethodLet s (TKS2 sh x)
+astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
+  Ast.AstConvert c2 _ a2 -> astConvert (ConvCmp c c2) zftk a2
+  Ast.AstProject1{} -> Ast.AstConvert c zftk a0  -- TODO
+  Ast.AstProject2{} -> Ast.AstConvert c zftk a0  -- TODO
+  -- TODO: here and elsewhere, make sure the generated c2 is unique/correct
+  Ast.AstFromVector snat@SNat (STKX _ xstk) l -> case sh of
+    snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
+      let c2 = ConvXS' (STKS rest xstk)
+      in astFromVector snat (STKS rest xstk)
+                       (V.map (astConvert c2 (FTKS rest x)) l)
+    _ -> error "astConvertSFromX: impossible shape"
+  Ast.AstSum snat@SNat (STKX _ xstk) a ->
+      let c2 = ConvXS' (STKS (snat :$$ sh) xstk)
+          !a2 = astConvert c2 (FTKS (snat :$$ sh) x) a
+      in astSum snat (STKS sh xstk) a2
+  Ast.AstReplicate snat@SNat (STKX _ xstk) a -> case sh of
+    snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
+      let c2 = ConvXS' (STKS rest xstk)
+          !a2 = astConvert c2 (FTKS rest x) a
+      in astReplicate snat (STKS rest xstk) a2
+    _ -> error "astConvertSFromX: impossible shape"
+  Ast.AstApply{} -> Ast.AstConvert c zftk a0
+  Ast.AstVar{} -> Ast.AstConvert c zftk a0
+  Ast.AstCond b v w -> astCond b (astConvertSFromX c zftk v)
+                                 (astConvertSFromX c zftk w)
+  Ast.AstBuild1 snat@SNat (STKX _ xstk) (var, a) -> case sh of
+    snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
+      let c2 = ConvXS' (STKS rest xstk)
+          !a2 = astConvert c2 (FTKS rest x) a
+      in Ast.AstBuild1 snat (STKS rest xstk) (var, a2)
+    _ -> error "astConvertSFromX: impossible shape"
+  Ast.AstLet var u v -> astLet var u (astConvertSFromX c zftk v)
+  Ast.AstPrimalPart a -> astPrimalPart $ astConvertSFromX c zftk a
+  Ast.AstDualPart a -> astDualPart $ astConvertSFromX c zftk a
+  Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astConvertSFromX c zftk a
+  Ast.AstFromDual a -> Ast.AstFromDual $ astConvertSFromX c zftk a
+  Ast.AstFromS{} -> error "TODO: remove me"
 
 astFromS :: forall y z s. AstSpan s
          => SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
 astFromS stkz v | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
+astFromS stkz (Ast.AstFromPrimal v) =
+  Ast.AstFromPrimal $ astFromS stkz v
+    -- a rare case where we don't pull up but down so that conversions
+    -- don't end up interspersed with AstFromPrimal and similar
+astFromS stkz (Ast.AstFromDual v) =
+  Ast.AstFromDual $ astFromS stkz v
 astFromS STKScalar (Ast.AstCond b v1 v2) =
   astCond b (astFromS STKScalar v1) (astFromS STKScalar v2)
-    -- for scalars, we don't push up but down
+    -- for scalars, we don't pull up but down
 astFromS STKScalar (Ast.AstLet var u v) = astLet var u (astFromS STKScalar v)
 astFromS (STKScalar @r1) (AstConcreteS @r2 v)
   | ZSS <- Nested.sshape v
   , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) =
     AstConcreteK (Nested.sunScalar v)
-astFromS STKScalar (Ast.AstPrimalPart v) =
-  astPrimalPart $ astFromS STKScalar v
-astFromS STKScalar (Ast.AstDualPart v) =
-  astDualPart $ astFromS STKScalar v
-astFromS stkz (Ast.AstFromPrimal v) =
-  Ast.AstFromPrimal $ astFromS stkz v
-    -- a rare case where we don't push up but down so that conversions
-    -- don't end up interspersed with AstFromPrimal and similar
-astFromS stkz (Ast.AstFromDual v) =
-  Ast.AstFromDual $ astFromS stkz v
 astFromS STKScalar (AstPlusS u v) = astFromS STKScalar u + astFromS STKScalar v
 astFromS STKScalar (AstTimesS u v) = astFromS STKScalar u * astFromS STKScalar v
 astFromS STKScalar (Ast.AstN1S NegateOp u) = negate (astFromS STKScalar u)
@@ -2992,8 +3189,8 @@ astSFrom stkz v = case (stkz, ftkToSTK (ftkAst v)) of
   (_, stky) -> error $ "astSFrom: wrong tensor kinds: " ++ show (stky, stkz, v)
 
 astSFromK :: forall r s. (GoodScalar r, AstSpan s)
-              => AstTensor AstMethodLet s (TKScalar r)
-              -> AstTensor AstMethodLet s (TKS '[] r)
+          => AstTensor AstMethodLet s (TKScalar r)
+          -> AstTensor AstMethodLet s (TKS '[] r)
 astSFromK t = case t of
   Ast.AstCond b a2 a3 -> astCond b (astSFromK a2) (astSFromK a3)
   Ast.AstLet var u v -> astLet var u (astSFromK v)
@@ -3018,7 +3215,7 @@ astSFromK t = case t of
 -- We are pushing conversions to shaped tensors down, into concrete values
 -- and towards variables, which we convert from shaped to ranked and mixed
 -- so that the conversions cancel out. Consequently, the conversions away
--- from shaped are pushed up.
+-- from shaped are pulled up.
 astSFromR :: forall sh s r. AstSpan s
           => ShS sh -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
           -> AstTensor AstMethodLet s (TKS2 sh r)
