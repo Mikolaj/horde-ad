@@ -232,6 +232,12 @@ astPair (Ast.AstFromS stkz1 v1) v2 =
   astFromS (STKProduct stkz1 (ftkToSTK (ftkAst v2))) $ astPair v1 v2
 astPair v1 (Ast.AstFromS stkz2 v2) =
   astFromS (STKProduct (ftkToSTK (ftkAst v1)) stkz2) $ astPair v1 v2
+astPair (Ast.AstConvert c1 zftk1 v1) (Ast.AstConvert c2 zftk2 v2) =
+  astConvert (ConvT2 c1 c2) (FTKProduct zftk1 zftk2) $ astPair v1 v2
+astPair (Ast.AstConvert c1 zftk1 v1) v2 =
+  astConvert (ConvT2 c1 ConvId) (FTKProduct zftk1 (ftkAst v2)) $ astPair v1 v2
+astPair v1 (Ast.AstConvert c2 zftk2 v2) =
+  astConvert (ConvT2 ConvId c2) (FTKProduct (ftkAst v1) zftk2) $ astPair v1 v2
 astPair v1 v2 = Ast.AstPair v1 v2
 
 astProject1
@@ -245,6 +251,10 @@ astProject1 u = case u of
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject1 u1
   Ast.AstFromS (STKProduct stk1 _) u1 | FTKProduct{} <- ftkAst u1 ->
     astFromS stk1 $ astProject1 u1
+  -- TODO: generalize this somehow to arbitrary Conversions of the right type.
+  -- At worst, just generate the canonical (?) c1 for the types at hand.
+  Ast.AstConvert (ConvT2 c1 _c2) (FTKProduct ftk1 _) u1 ->
+    astConvert c1 ftk1 $ astProject1 u1
   _ -> Ast.AstProject1 u
 
 astProject2
@@ -258,6 +268,8 @@ astProject2 u = case u of
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject2 u1
   Ast.AstFromS (STKProduct _ stk2) u1 | FTKProduct{} <- ftkAst u1 ->
     astFromS stk2 $ astProject2 u1
+  Ast.AstConvert (ConvT2 _c1 c2) (FTKProduct _ ftk2) u2 ->
+    astConvert c2 ftk2 $ astProject2 u2
   _ -> Ast.AstProject2 u
 
 astFromVector :: forall y k s. AstSpan s
@@ -329,6 +341,29 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
          Just l2 ->
            Just $ astFromS (buildSTK snat stkz)
                 $ astFromVector snat (ftkToSTK (ftkAst v)) l2
+         Nothing -> Nothing
+     Just{} -> Nothing
+     Nothing -> error "astFromVector: empty vector")
+  `mplus`
+  (let unFrom :: FullShapeTK x
+              -> AstTensor AstMethodLet s y
+              -> Maybe (AstTensor AstMethodLet s x)
+       unFrom xftk (Ast.AstConvert _ _ t) =
+         case matchingFTK (ftkAst t) xftk of
+           Just Refl -> Just t
+           Nothing -> error "astFromVector: impossible shape"
+       unFrom _ _ = Nothing
+   in case V.uncons l of
+     Just (Ast.AstConvert c zftk t, _) ->
+       let xftk = ftkAst t
+       in case V.mapM (unFrom xftk) l of
+         Just l2 ->
+           -- Here we heavily depend on c being semantically determined
+           -- by the domain and codomain. We choose one such c,
+           -- not necessarily the most efficient of them all.
+           Just $ astConvert (buildTKConversion snat (ftkToSTK xftk) c)
+                             (buildFTK snat zftk)
+                $ astFromVector snat (ftkToSTK xftk) l2
          Nothing -> Nothing
      Just{} -> Nothing
      Nothing -> error "astFromVector: empty vector")
@@ -413,13 +448,34 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstFromS _ v -> case ftkToSTK (ftkAst v) of
     STKS (snat2 :$$ rest) x -> astFromS stk $ astSum snat2 (STKS rest x) v
     _ -> Ast.AstSum snat stk t0  -- products probably not worth the effort
+  Ast.AstConvert _c zftk t -> case ftkAst t of
+    FTKS ((:$$) @_ @rest snat2 rest) x -> case zftk of
+      FTKR (_ :$: rrest) _ | STKR @n _ sx <- stk
+                           , Just Refl <- sameSTK sx (ftkToSTK x)
+                           , Refl <- lemRankMapJust rest ->
+        -- The proof of this equality is in c, which we don't want to inspect.
+        gcastWith (unsafeCoerceRefl :: Rank rest :~: n) $
+        astConvert (ConvCmp (ConvXR sx) ConvSX)
+                   (FTKR rrest x)
+                   (astSum snat2 (STKS rest sx) t)
+      FTKX (_ :$% xrest) _ | STKX @xrest _ sx <- stk
+                           , Just Refl <- sameSTK sx (ftkToSTK x)
+                           , Refl <- lemRankMapJust rest ->
+        -- The proof of this equality is in c, which we don't want to inspect.
+        gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank xrest) $
+        astConvert (ConvCmp (ConvXX' stk) ConvSX)
+                   (FTKX xrest x)
+                   (astSum snat2 (STKS rest sx) t)
+      _ -> Ast.AstSum snat stk t0
+        -- FTKScalar is impossible and products probably not worth the effort
+    _ -> Ast.AstSum snat stk t0  -- products probably not worth the effort
   _ -> Ast.AstSum snat stk t0
 
 astReplicate :: forall y k s. AstSpan s
              => SNat k -> SingletonTK y
              -> AstTensor AstMethodLet s y
              -> AstTensor AstMethodLet s (BuildTensorKind k y)
-astReplicate snat stk = \case
+astReplicate snat stk t0 = case t0 of
   Ast.AstPair t1 t2 | STKProduct stk1 stk2 <- stk ->
     astPair (astReplicate snat stk1 t1) (astReplicate snat stk2 t2)
   -- This doesn't prevent indexing of replicate, because indexing goes inside
@@ -438,7 +494,30 @@ astReplicate snat stk = \case
   AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
   Ast.AstFromS stkz v ->
     astFromS (buildSTK snat stkz) $ astReplicate snat (ftkToSTK (ftkAst v)) v
-  v -> Ast.AstReplicate snat stk v
+  Ast.AstConvert _c zftk t -> case ftkAst t of
+    FTKS @sh sh x -> case stk of
+      STKScalar | Just Refl <- sameSTK stk (ftkToSTK x)
+                , ZSS <- sh ->
+        astReplicate snat (STKS ZSS STKScalar) t
+      STKR @n _ sx | Just Refl <- sameSTK sx (ftkToSTK x)
+                   , Refl <- lemRankMapJust sh ->
+        -- The proof of this equality is in c, which we don't want to inspect.
+        gcastWith (unsafeCoerceRefl :: Rank sh :~: n) $
+        astConvert (ConvCmp (ConvXR sx) ConvSX)
+                   (buildFTK snat zftk)
+                   (astReplicate snat (STKS sh sx) t)
+      STKX @xsh sxsh sx | Just Refl <- sameSTK sx (ftkToSTK x)
+                        , Refl <- lemRankMapJust sh ->
+        -- The proof of this equality is in c, which we don't want to inspect.
+        gcastWith (unsafeCoerceRefl :: Rank sh :~: Rank xsh) $
+        astConvert (ConvCmp (ConvXX' (STKX (SKnown snat :!% sxsh) sx)) ConvSX)
+                   (buildFTK snat zftk)
+                   (astReplicate snat (STKS sh sx) t)
+      _ -> Ast.AstReplicate snat stk t0
+             -- products probably not worth the effort
+    _ -> Ast.AstReplicate snat stk t0
+           -- products probably not worth the effort
+  _ -> Ast.AstReplicate snat stk t0
   -- TODO: maybe add a rule and then generalize:
   -- replicate n1 (str (replicate n2 u))
   -- ~> transpose [0, 2, 1] (replicate n1 (replicate n2 u))

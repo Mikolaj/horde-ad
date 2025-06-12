@@ -4,7 +4,8 @@
 -- and lemmas associated with the singletons.
 module HordeAd.Core.TensorKind
   ( -- * Tensor kind singletons
-    SingletonTK(..), KnownSTK(..), TKConversion(..), castSTK
+    SingletonTK(..), KnownSTK(..)
+  , TKConversion(..), castSTK, buildTKConversion
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
@@ -19,8 +20,9 @@ import Prelude hiding ((.))
 import Control.Category
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import GHC.Exts (withDict)
-import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat)
+import GHC.TypeLits (type (+), KnownNat, OrderingI (..), cmpNat, fromSNat)
 import Type.Reflection (typeRep)
+import Data.Proxy (Proxy (Proxy))
 
 import Data.Array.Nested (type (++), MapJust, Replicate)
 import Data.Array.Nested.Mixed.Shape
@@ -28,6 +30,7 @@ import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested.Convert (shxFromShS)
+import Data.Array.Nested.Lemmas
 
 import HordeAd.Core.Types
 
@@ -251,6 +254,64 @@ castSTK = \cases
     STKX sh (STKProduct a1 a2)
   (ConvUnzip _ _) (STKX sh (STKProduct a1 a2)) ->
     STKProduct (STKX sh a1) (STKX sh a2)
+
+buildTKConversion :: SNat k -> SingletonTK a
+                  -> TKConversion a b
+                  -> TKConversion (BuildTensorKind k a) (BuildTensorKind k b)
+buildTKConversion k astk c0 = case c0 of
+  ConvId -> ConvId
+  ConvCmp c1 c2 -> ConvCmp (buildTKConversion k (castSTK c2 astk) c1)
+                           (buildTKConversion k astk c2)
+  ConvRX | STKR @n n xstk <- astk
+         , Refl <- lemRankReplicate (Proxy @n)
+         , Refl <- lemRankReplicate (Proxy @(1 + n)) ->
+    ConvCmp (ConvXX' (STKX (SKnown k :!% ssxReplicate n) xstk)) ConvRX
+  ConvSX -> ConvSX
+  ConvXR stk -> ConvXR stk
+  ConvXS -> ConvXS
+  ConvXS' stk -> ConvXS' (buildSTK k stk)
+  ConvXX' stk -> ConvXX' (buildSTK k stk)
+  ConvRR c -> ConvRR c
+  ConvSS c -> ConvSS c
+  ConvXX c -> ConvXX c
+  ConvT2 c1 c2 | STKProduct stk1 stk2 <- astk ->
+    ConvT2 (buildTKConversion k stk1 c1) (buildTKConversion k stk2 c2)
+  Conv0X _astk -> case astk of
+    STKScalar -> ConvSX
+    STKR @n n x | Refl <- lemRankReplicate (Proxy @n)
+                , Refl <- lemRankReplicate (Proxy @(1 + n)) ->
+      ConvCmp (ConvXX (ConvXR x))
+              (ConvCmp (ConvNest (STKX (SKnown k :!% ZKX) x))
+                       (ConvCmp
+                          (ConvXX' (STKX (SKnown k :!% ssxReplicate n) x))
+                          ConvRX))
+    STKS _sh x ->
+      ConvCmp (ConvXX ConvXS)
+              (ConvCmp (ConvNest (STKX (SKnown k :!% ZKX) x))
+                       ConvSX)
+    STKX _ssx x -> ConvNest (STKX (SKnown k :!% ZKX) x)
+    STKProduct astk1 astk2 ->
+      buildTKConversion
+        k astk (ConvCmp (ConvZip astk1 astk2)
+                        (ConvT2 (Conv0X astk1) (Conv0X astk2)))
+  ConvX0 -> case astk of
+    STKX ZKX STKScalar -> ConvXS
+    STKX ZKX (STKR @n _n x) | Refl <- lemRankReplicate (Proxy @n) ->
+      ConvCmp (ConvXR x)
+              (ConvCmp ConvUnnest (ConvXX ConvRX))
+    STKX ZKX STKS{} ->
+      ConvCmp ConvXS
+              (ConvCmp ConvUnnest (ConvXX ConvSX))
+    STKX ZKX STKX{} -> ConvUnnest
+    STKX ZKX (STKProduct astk1 astk2) ->
+      buildTKConversion
+        k astk (ConvCmp (ConvT2 ConvX0 ConvX0)
+                        (ConvUnzip astk1 astk2))
+  ConvNest (STKX sh x) -> ConvNest (STKX (SKnown k :!% sh) x)
+  ConvUnnest -> ConvUnnest
+  ConvZip astk1 astk2 -> ConvZip astk1 astk2
+  ConvUnzip astk1 astk2 -> ConvUnzip astk1 astk2
+
 
 -- * Full shape tensor kind quasi-singletons
 
