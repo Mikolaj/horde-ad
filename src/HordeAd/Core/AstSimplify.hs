@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE AllowAmbiguousTypes, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -1149,6 +1149,7 @@ astFloorS t = case t of
   Ast.AstTransposeS perm v -> astTransposeS perm (astFloorS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astFloorS v)
   Ast.AstSFromK v -> astSFromK (astFloorK v)
+  AstSFromK' a -> astSFromK' (astFloorK a)
   Ast.AstFloorS v -> astFloorS v
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstCastS v -> astFloorS v
@@ -1187,6 +1188,7 @@ astFromIntegralS t = case t of
   Ast.AstTransposeS perm v -> astTransposeS perm (astFromIntegralS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astFromIntegralS v)
   Ast.AstSFromK v -> astSFromK (astFromIntegralK v)
+  AstSFromK' a -> astSFromK' (astFromIntegralK a)
   _ -> Ast.AstFromIntegralS t
 
 astCastS :: forall r1 r2 s sh.
@@ -1231,6 +1233,7 @@ astCastS t = case t of
   Ast.AstTransposeS perm v -> astTransposeS perm (astCastS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astCastS v)
   Ast.AstSFromK v -> astSFromK (astCastK v)
+  AstSFromK' a -> astSFromK' (astCastK a)
   _ -> Ast.AstCastS t
 
 astIndexS
@@ -3218,6 +3221,26 @@ astSFromK t = case t of
       _ -> error "astSFromK: unexpected tensor kinds"
   _ -> Ast.AstSFromK t
 
+pattern AstSFromK' :: () => sh ~ '[]
+                   => AstTensor AstMethodLet s (TKScalar r)
+                   -> AstTensor AstMethodLet s (TKS sh r)
+pattern AstSFromK' a <-
+  Ast.AstConvert _c (FTKS ZSS FTKScalar) (checkPatternAstSFromK' -> Just a)
+
+checkPatternAstSFromK' :: forall r s y. GoodScalar r
+                       => AstTensor AstMethodLet s y
+                       -> Maybe (AstTensor AstMethodLet s (TKScalar r))
+checkPatternAstSFromK' a
+  | FTKScalar @ry <- ftkAst a
+  , Just Refl <- testEquality (typeRep @r) (typeRep @ry) = Just a
+checkPatternAstSFromK' _ = Nothing
+
+astSFromK' :: forall r s. (GoodScalar r, AstSpan s)
+           => AstTensor AstMethodLet s (TKScalar r)
+           -> AstTensor AstMethodLet s (TKS '[] r)
+astSFromK' a = let c2 = ConvCmp ConvXS (Conv0X STKScalar)
+               in astConvertSFromK c2 (FTKS ZSS FTKScalar) a
+
 -- We are pushing conversions to shaped tensors down, into concrete values
 -- and towards variables, which we convert from shaped to ranked and mixed
 -- so that the conversions cancel out. Consequently, the conversions away
@@ -3844,8 +3867,7 @@ substitute1Ast i var = subst where
   Ast.AstSFromK u -> astSFromK <$> subst u
   Ast.AstSFromR sh v -> astSFromR sh <$> subst v
   Ast.AstSFromX sh v -> astSFromX sh <$> subst v
-  Ast.AstConvert c bftk v ->
-    astConvert c bftk <$> subst v
+  Ast.AstConvert c bftk v -> astConvert c bftk <$> subst v
 
   Ast.AstSum0S v -> astSum0S <$> subst v
   Ast.AstDot0S u v ->
