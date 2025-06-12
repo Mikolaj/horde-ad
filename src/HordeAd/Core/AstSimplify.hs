@@ -494,29 +494,11 @@ astReplicate snat stk t0 = case t0 of
   AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
   Ast.AstFromS stkz v ->
     astFromS (buildSTK snat stkz) $ astReplicate snat (ftkToSTK (ftkAst v)) v
-  Ast.AstConvert _c zftk t -> case ftkAst t of
-    FTKS @sh sh x -> case stk of
-      STKScalar | Just Refl <- sameSTK stk (ftkToSTK x)
-                , ZSS <- sh ->
-        astReplicate snat (STKS ZSS STKScalar) t
-      STKR @n _ sx | Just Refl <- sameSTK sx (ftkToSTK x)
-                   , Refl <- lemRankMapJust sh ->
-        -- The proof of this equality is in c, which we don't want to inspect.
-        gcastWith (unsafeCoerceRefl :: Rank sh :~: n) $
-        astConvert (ConvCmp (ConvXR sx) ConvSX)
-                   (buildFTK snat zftk)
-                   (astReplicate snat (STKS sh sx) t)
-      STKX @xsh sxsh sx | Just Refl <- sameSTK sx (ftkToSTK x)
-                        , Refl <- lemRankMapJust sh ->
-        -- The proof of this equality is in c, which we don't want to inspect.
-        gcastWith (unsafeCoerceRefl :: Rank sh :~: Rank xsh) $
-        astConvert (ConvCmp (ConvXX' (STKX (SKnown snat :!% sxsh) sx)) ConvSX)
-                   (buildFTK snat zftk)
-                   (astReplicate snat (STKS sh sx) t)
-      _ -> Ast.AstReplicate snat stk t0
-             -- products probably not worth the effort
-    _ -> Ast.AstReplicate snat stk t0
-           -- products probably not worth the effort
+  Ast.AstConvert c zftk t ->
+    let xftk = ftkAst t
+    in astConvert (buildTKConversion snat (ftkToSTK xftk) c)
+                  (buildFTK snat zftk)
+                  (astReplicate snat (ftkToSTK xftk) t)
   _ -> Ast.AstReplicate snat stk t0
   -- TODO: maybe add a rule and then generalize:
   -- replicate n1 (str (replicate n2 u))
