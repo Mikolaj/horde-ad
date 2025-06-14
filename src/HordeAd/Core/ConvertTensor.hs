@@ -22,7 +22,7 @@ import HordeAd.Core.Types
 
 class ConvertTensor (target :: Target) where
   tconvert :: TKConversion a b -> SingletonTK a -> FullShapeTK b -> target a
-                -> target b
+           -> target b
 
   -- | The conversion of a tensor or a nested pair of tensors,
   -- where the type of the result is determined by the singleton

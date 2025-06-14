@@ -34,7 +34,7 @@ module HordeAd.Core.AstSimplify
   , astIndexS, astIndexKnobsS, astScatterS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
 
-  , astConvert, astFromS, astSFromK, astSFromR, astSFromX
+  , astConvert, astFromS, astSFromK', astSFromR, astSFromX
   , astSum0S, astDot0S, astDot1InS, astMatmul2S
 
     -- * Helper combinators
@@ -3369,7 +3369,10 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstDualPart a -> astDualPart $ astConvertSFromK c zftk a
   Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astConvertSFromK c zftk a
   Ast.AstFromDual a -> Ast.AstFromDual $ astConvertSFromK c zftk a
-  Ast.AstFromS{} -> error "TODO: remove me"
+  Ast.AstFromS _ v ->
+    case matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) of
+      Just Refl -> v
+      _ -> error "astConvertSFromK: unexpected tensor kinds"
 
 astConvertSFromR :: forall sh x s. AstSpan s
                  => TKConversion (TKR2 (Rank sh) x) (TKS2 sh x)

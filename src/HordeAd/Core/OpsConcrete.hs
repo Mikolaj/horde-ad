@@ -513,7 +513,7 @@ instance BaseTensor Concrete where
 
 instance ConvertTensor Concrete where
   tconvert c astk bftk a | Dict <- eltDictRep astk
-                              , Dict <- eltDictRep (ftkToSTK bftk) =
+                         , Dict <- eltDictRep (ftkToSTK bftk) =
     Concrete $ Nested.convert (interpretTKConversion c) (unConcrete a)
 
   tfromS @y zstk v = case (knownSTK @y, zstk) of

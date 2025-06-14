@@ -447,8 +447,12 @@ printAst cfg d = \case
   AstSFromK t -> printPrefixOp printAst cfg d "sfromK" [t]
   AstSFromR _ v -> printPrefixOp printAst cfg d "sfromR" [v]
   AstSFromX _ v -> printPrefixOp printAst cfg d "sfromX" [v]
-  AstConvert c _bftk v ->
-    printPrefixOp printAst cfg d ("tconvert " ++ show c) [v]
+  AstConvert c bftk t -> case (ftkToSTK (ftkAst t), bftk) of
+    (STKScalar, FTKS{}) -> printPrefixOp printAst cfg d "sfromK" [t]
+    (ystk, _) -> let s = "tconvert (" ++ show c
+                       ++ ") (" ++ show ystk
+                       ++ ") (" ++ show bftk ++ ")"
+                 in printPrefixOp printAst cfg d s [t]
 
   AstSum0S v ->
     printPrefixOp printAst cfg d "ssum0" [v]
