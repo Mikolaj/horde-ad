@@ -232,12 +232,15 @@ astPair (Ast.AstFromS stkz1 v1) v2 =
   astFromS (STKProduct stkz1 (ftkToSTK (ftkAst v2))) $ astPair v1 v2
 astPair v1 (Ast.AstFromS stkz2 v2) =
   astFromS (STKProduct (ftkToSTK (ftkAst v1)) stkz2) $ astPair v1 v2
-astPair (Ast.AstConvert c1 zftk1 v1) (Ast.AstConvert c2 zftk2 v2) =
-  astConvert (ConvT2 c1 c2) (FTKProduct zftk1 zftk2) $ astPair v1 v2
-astPair (Ast.AstConvert c1 zftk1 v1) v2 =
-  astConvert (ConvT2 c1 ConvId) (FTKProduct zftk1 (ftkAst v2)) $ astPair v1 v2
-astPair v1 (Ast.AstConvert c2 zftk2 v2) =
-  astConvert (ConvT2 ConvId c2) (FTKProduct (ftkAst v1) zftk2) $ astPair v1 v2
+astPair (Ast.AstConvert c1 zftk1 v1) (Ast.AstConvert c2 zftk2 v2)
+  | checkAstFromS v1 && checkAstFromS v2 =
+    astConvert (ConvT2 c1 c2) (FTKProduct zftk1 zftk2) $ astPair v1 v2
+astPair (Ast.AstConvert c1 zftk1 v1) v2
+  | checkAstFromS v2 =
+    astConvert (ConvT2 c1 ConvId) (FTKProduct zftk1 (ftkAst v2)) $ astPair v1 v2
+astPair v1 (Ast.AstConvert c2 zftk2 v2)
+  | checkAstFromS v2 =
+    astConvert (ConvT2 ConvId c2) (FTKProduct (ftkAst v1) zftk2) $ astPair v1 v2
 astPair v1 v2 = Ast.AstPair v1 v2
 
 astProject1
@@ -253,7 +256,7 @@ astProject1 u = case u of
     astFromS stk1 $ astProject1 u1
   -- TODO: generalize this somehow to arbitrary Conversions of the right type.
   -- At worst, just generate the canonical (?) c1 for the types at hand.
-  Ast.AstConvert (ConvT2 c1 _c2) (FTKProduct ftk1 _) u1 ->
+  Ast.AstConvert (ConvT2 c1 _c2) (FTKProduct ftk1 _) u1 | checkAstFromS u1 ->
     astConvert c1 ftk1 $ astProject1 u1
   _ -> Ast.AstProject1 u
 
@@ -268,7 +271,7 @@ astProject2 u = case u of
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject2 u1
   Ast.AstFromS (STKProduct _ stk2) u1 | FTKProduct{} <- ftkAst u1 ->
     astFromS stk2 $ astProject2 u1
-  Ast.AstConvert (ConvT2 _c1 c2) (FTKProduct _ ftk2) u2 ->
+  Ast.AstConvert (ConvT2 _c1 c2) (FTKProduct _ ftk2) u2 | checkAstFromS u2 ->
     astConvert c2 ftk2 $ astProject2 u2
   _ -> Ast.AstProject2 u
 
@@ -348,7 +351,7 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   (let unFrom :: FullShapeTK x
               -> AstTensor AstMethodLet s y
               -> Maybe (AstTensor AstMethodLet s x)
-       unFrom xftk (Ast.AstConvert _ _ t) =
+       unFrom xftk (AstFromS' _ t) =
          case matchingFTK (ftkAst t) xftk of
            Just Refl -> Just t
            Nothing -> error "astFromVector: impossible shape"
@@ -448,7 +451,7 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstFromS _ v -> case ftkToSTK (ftkAst v) of
     STKS (snat2 :$$ rest) x -> astFromS stk $ astSum snat2 (STKS rest x) v
     _ -> Ast.AstSum snat stk t0  -- products probably not worth the effort
-  Ast.AstConvert _c zftk t -> case ftkAst t of
+  Ast.AstConvert _c zftk t | checkAstFromS t -> case ftkAst t of
     FTKS ((:$$) @_ @rest snat2 rest) x -> case zftk of
       FTKR (_ :$: rrest) _ | STKR @n _ sx <- stk
                            , Just Refl <- sameSTK sx (ftkToSTK x)
@@ -494,7 +497,7 @@ astReplicate snat stk t0 = case t0 of
   AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
   Ast.AstFromS stkz v ->
     astFromS (buildSTK snat stkz) $ astReplicate snat (ftkToSTK (ftkAst v)) v
-  Ast.AstConvert c zftk t ->
+  Ast.AstConvert c zftk t | checkAstFromS t ->
     let xftk = ftkAst t
     in astConvert (buildTKConversion snat (ftkToSTK xftk) c)
                   (buildFTK snat zftk)
@@ -3193,6 +3196,71 @@ astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstFromDual a -> Ast.AstFromDual $ astConvertSFromX c zftk a
   Ast.AstFromS{} -> error "TODO: remove me"
 
+pattern AstFromS' :: FullShapeTK z -> AstTensor AstMethodLet s y
+                  -> AstTensor AstMethodLet s z
+pattern AstFromS' zftk a <-
+  Ast.AstConvert _c zftk (checkPatternAstFromS -> Just a)
+
+checkPatternAstFromS :: AstTensor AstMethodLet s y
+                     -> Maybe (AstTensor AstMethodLet s y)
+checkPatternAstFromS t = if checkAstFromS t then Just t else Nothing
+
+checkAstFromS :: AstTensor AstMethodLet s y -> Bool
+checkAstFromS t = checkFtkAstFromS (ftkAst t)
+
+checkFtkAstFromS :: FullShapeTK y -> Bool
+checkFtkAstFromS FTKS{} = True
+checkFtkAstFromS (FTKProduct ftk1 ftk2) =
+  checkFtkAstFromS ftk1 && checkFtkAstFromS ftk2
+checkFtkAstFromS _ = False
+
+astFromS' :: AstSpan s
+          => FullShapeTK z -> AstTensor AstMethodLet s y
+          -> AstTensor AstMethodLet s z
+astFromS' zftk t =
+  let yftk = ftkAst t
+      fromS :: FullShapeTK y0 -> FullShapeTK z0 -> TKConversion y0 z0
+      fromS yftk0 zftk0 = case (yftk0, zftk0) of
+        (FTKS ZSS (FTKScalar @ry), FTKScalar @rz)
+          | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+            ConvCmp ConvX0 ConvSX
+        (FTKS sh x, FTKR rsh rx)
+          | Just Refl <- matchingFTK x rx
+          , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
+          , Refl <- lemRankMapJust sh ->
+            ConvCmp (ConvXR (ftkToSTK x)) ConvSX
+        (FTKS{}, FTKS{})
+          | Just Refl <- matchingFTK yftk0 zftk0 -> ConvId
+        (FTKS sh x, FTKX xsh xx)
+          | Just Refl <- matchingFTK x xx
+          , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
+          , Refl <- lemRankMapJust sh ->
+            ConvCmp (ConvXX' (ftkToSTK zftk0)) ConvSX
+        (FTKProduct yftk1 yftk2, FTKProduct zftk1 zftk2) ->
+          ConvT2 (fromS yftk1 zftk1) (fromS yftk2 zftk2)
+        _ -> error "astFromS': unexpected types"  -- TODO: try nevertheless
+  in astConvertFromS (fromS yftk zftk) zftk t
+
+pattern AstSFromK' :: () => sh ~ '[]
+                   => AstTensor AstMethodLet s (TKScalar r)
+                   -> AstTensor AstMethodLet s (TKS sh r)
+pattern AstSFromK' a <-
+  Ast.AstConvert _c (FTKS ZSS FTKScalar) (checkPatternAstSFromK' -> Just a)
+
+checkPatternAstSFromK' :: forall r s y. GoodScalar r
+                       => AstTensor AstMethodLet s y
+                       -> Maybe (AstTensor AstMethodLet s (TKScalar r))
+checkPatternAstSFromK' a
+  | FTKScalar @ry <- ftkAst a
+  , Just Refl <- testEquality (typeRep @r) (typeRep @ry) = Just a
+checkPatternAstSFromK' _ = Nothing
+
+astSFromK' :: forall r s. (GoodScalar r, AstSpan s)
+           => AstTensor AstMethodLet s (TKScalar r)
+           -> AstTensor AstMethodLet s (TKS '[] r)
+astSFromK' a = let c2 = ConvCmp ConvXS (Conv0X STKScalar)
+               in astConvertSFromK c2 (FTKS ZSS FTKScalar) a
+
 astFromS :: forall y z s. AstSpan s
          => SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
@@ -3281,26 +3349,6 @@ astSFromK t = case t of
       Just Refl -> v
       _ -> error "astSFromK: unexpected tensor kinds"
   _ -> Ast.AstSFromK t
-
-pattern AstSFromK' :: () => sh ~ '[]
-                   => AstTensor AstMethodLet s (TKScalar r)
-                   -> AstTensor AstMethodLet s (TKS sh r)
-pattern AstSFromK' a <-
-  Ast.AstConvert _c (FTKS ZSS FTKScalar) (checkPatternAstSFromK' -> Just a)
-
-checkPatternAstSFromK' :: forall r s y. GoodScalar r
-                       => AstTensor AstMethodLet s y
-                       -> Maybe (AstTensor AstMethodLet s (TKScalar r))
-checkPatternAstSFromK' a
-  | FTKScalar @ry <- ftkAst a
-  , Just Refl <- testEquality (typeRep @r) (typeRep @ry) = Just a
-checkPatternAstSFromK' _ = Nothing
-
-astSFromK' :: forall r s. (GoodScalar r, AstSpan s)
-           => AstTensor AstMethodLet s (TKScalar r)
-           -> AstTensor AstMethodLet s (TKS '[] r)
-astSFromK' a = let c2 = ConvCmp ConvXS (Conv0X STKScalar)
-               in astConvertSFromK c2 (FTKS ZSS FTKScalar) a
 
 -- We are pushing conversions to shaped tensors down, into concrete values
 -- and towards variables, which we convert from shaped to ranked and mixed

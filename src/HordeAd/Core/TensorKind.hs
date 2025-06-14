@@ -219,10 +219,10 @@ data TKConversion (a :: TK) (b :: TK) where
 
   ConvZip   :: SingletonTK a -> SingletonTK b
             -> TKConversion (TKProduct (TKX2 sh a) (TKX2 sh b))
-                          (TKX2 sh (TKProduct a b))
+                            (TKX2 sh (TKProduct a b))
   ConvUnzip :: SingletonTK a -> SingletonTK b
             -> TKConversion (TKX2 sh (TKProduct a b))
-                          (TKProduct (TKX2 sh a) (TKX2 sh b))
+                            (TKProduct (TKX2 sh a) (TKX2 sh b))
 
 deriving instance Show (TKConversion a b)
 
