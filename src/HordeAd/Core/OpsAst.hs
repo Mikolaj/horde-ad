@@ -400,7 +400,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         withKnownShS (takeShS @(Rank sh1) sh) $
         astFromS @(TKS2 (Drop (Rank sh1) sh) x) (knownSTK @(TKX2 sh2 x))
         $ astIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
-                    (dropShS @(Rank sh1) sh) (astSFromX @sh @sh1sh2 sh a)
+                    (dropShS @(Rank sh1) sh) (astSFromX' @sh @sh1sh2 sh a)
                     (ixxToIxs ix)
   txscatter @shm @_ @shp shpshn0 t f = case ftkAst t of
     FTKX shmshn0 x | SNat <- ssxRank (knownShX @shm)
@@ -425,7 +425,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             $ astScatterS @(Take (Rank shm) shmshn)
                           @(Drop (Rank shm) shmshn)
                           @(Take (Rank shp) shpshn)
-                          knownShS (astSFromX shmshn t)
+                          knownShS (astSFromX' shmshn t)
             $ funToAstIxS knownShS (ixxToIxs . f . ixsToIxx)
                 -- this introduces new variable names
           _ -> error $ "xscatter: shapes don't match: "
@@ -454,7 +454,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             $ astGatherS @(Take (Rank shm) shmshn)
                          @(Drop (Rank shm) shmshn)
                          @(Take (Rank shp) shpshn)
-                         knownShS (astSFromX shpshn t)
+                         knownShS (astSFromX' shpshn t)
             $ funToAstIxS knownShS (ixxToIxs . f . ixsToIxx)
                 -- this introduces new variable names
           _ -> error $ "xgather: shapes don't match: "
@@ -465,18 +465,18 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKX (ssxFromShX sh') knownSTK)
-        . fromPrimal . astFloorS . primalPart . astSFromX @sh @sh' sh $ a
+        . fromPrimal . astFloorS . primalPart . astSFromX' @sh @sh' sh $ a
   txfromIntegral @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKX (ssxFromShX sh') knownSTK)
         . fromPrimal . astFromIntegralS
-        . primalPart . astSFromX @sh @sh' sh $ a
+        . primalPart . astSFromX' @sh @sh' sh $ a
   txcast @_ @r2 a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKX (ssxFromShX sh') STKScalar)
-        . astCastS . astSFromX sh $ a
+        . astCastS . astSFromX' sh $ a
   txminIndex @_ @_ @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
@@ -485,7 +485,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astFromS @(TKS (Init sh) r2)
                    (STKX (ssxFromShX $ shxInit sh') STKScalar)
           . fromPrimal . AstMinIndexS @n @rest
-          . primalPart . astSFromX @sh @sh' sh $ a
+          . primalPart . astSFromX' @sh @sh' sh $ a
   txmaxIndex @_ @_ @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) -> case sh of
@@ -494,7 +494,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astFromS @(TKS (Init sh) r2)
                    (STKX (ssxFromShX $ shxInit sh') STKScalar)
           . fromPrimal . AstMaxIndexS @n @rest
-          . primalPart . astSFromX @sh @sh' sh $ a
+          . primalPart . astSFromX' @sh @sh' sh $ a
   txiota @n @r = astFromS (knownSTK @(TKX '[Just n] r))
                  $ fromPrimal $ AstIotaS @n @r SNat
   txappend u v = case ftkAst u of
@@ -508,8 +508,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 astFromS (STKX (Nested.SKnown (snatPlus m n)
                                 :!% ssxFromShX shu')
                                (ftkToSTK x))
-                $ astAppendS (astSFromX (m :$$ shu) u)
-                             (astSFromX (n :$$ shv) v)
+                $ astAppendS (astSFromX' (m :$$ shu) u)
+                             (astSFromX' (n :$$ shv) v)
               _ -> error $ "xappend: shapes don't match: "
                            ++ show (shu', shv')
   txslice i n@SNat k a = case ftkAst a of
@@ -519,7 +519,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           Just Refl ->
             astFromS (STKX (Nested.SKnown n :!% ssxFromShX sh2')
                            (ftkToSTK x))
-            . astSliceS i n k . astSFromX sh $ a
+            . astSliceS i n k . astSFromX' sh $ a
           _ -> error $ "xslice: argument tensor too narrow: "
                        ++ show ( sNatValue i, sNatValue n, sNatValue k
                                , sNatValue msnat )
@@ -527,13 +527,13 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKX sh' x ->
       withCastXS sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
         astFromS (ftkToSTK $ FTKX sh' x)
-        . astReverseS . astSFromX @sh sh $ a
+        . astReverseS . astSFromX' @sh sh $ a
   txtranspose perm a = case ftkAst a of
     FTKX sh' x ->
       let sh2' = shxPermutePrefix perm sh'
       in withCastXS sh' $ \sh ->
            astFromS (ftkToSTK $ FTKX sh2' x)
-           . astTransposeS perm . astSFromX sh $ a
+           . astTransposeS perm . astSFromX' sh $ a
   txreshape sh2' a = case ftkAst a of
     FTKX sh' x ->
       withCastXS sh' $ \sh ->
@@ -541,7 +541,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         case testEquality (shsProduct sh) (shsProduct sh2) of
           Just Refl ->
             astFromS (ftkToSTK $ FTKX sh2' x)
-            . astReshapeS sh2 . astSFromX sh $ a
+            . astReshapeS sh2 . astSFromX' sh $ a
           _ -> error $ "xreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )

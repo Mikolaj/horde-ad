@@ -34,7 +34,7 @@ module HordeAd.Core.AstSimplify
   , astIndexS, astIndexKnobsS, astScatterS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
 
-  , astConvert, astFromS, astSFromK', astSFromR, astSFromX
+  , astConvert, astFromS, astSFromK', astSFromR, astSFromX'
   , astSum0S, astDot0S, astDot1InS, astMatmul2S
 
     -- * Helper combinators
@@ -3648,18 +3648,6 @@ astSFromR sh a0 = case a0 of
                    ++ show (ftkAst v) ++ " vs "
                    ++ show (FTKS sh x)
   Ast.AstConvert{} -> Ast.AstSFromR sh a0
-
--- TODO
-astSFromX :: forall sh sh' s r. Rank sh ~ Rank sh'
-          => ShS sh -> AstTensor AstMethodLet s (TKX2 sh' r)
-          -> AstTensor AstMethodLet s (TKS2 sh r)
-astSFromX sh (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astSFromX sh v
-astSFromX sh (Ast.AstFromDual v) = Ast.AstFromDual $ astSFromX sh v
-astSFromX sh w@(Ast.AstFromS _ v) | FTKX _ x <- ftkAst w =
-  case matchingFTK (FTKS sh x) (ftkAst v) of
-    Just Refl -> v
-    _ -> error "astSFromX: different shapes in AstSFromX(AstFromS)"
-astSFromX sh v = Ast.AstSFromX sh v
 
 astSum0S :: AstSpan s
          => AstTensor AstMethodLet s (TKS2 sh x)
