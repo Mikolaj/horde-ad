@@ -817,8 +817,8 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKR n r) where
           withCastRS shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                AstLeqS (AstSFromR shu $ primalPart v)
-                        (AstSFromR shv $ primalPart u)
+                AstLeqS (cAstSFromR shu $ primalPart v)
+                        (cAstSFromR shv $ primalPart u)
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 

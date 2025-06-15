@@ -362,7 +362,7 @@ unshareAst memo = \case
               astVar0 = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk) $ Ast.AstVar var
           in if var `DMap.member` memo
              then (memo, astVar0)
-             else let (memo1, !a2) = unshareAst memo (Ast.AstSFromR @sh sh a)
+             else let (memo1, !a2) = unshareAst memo (cAstSFromR @sh sh a)
                   in (DMap.insert var a2 memo1, astVar0)
       ftk@(FTKX @_ @x sh' x) ->
         withCastXS sh' $ \(sh :: ShS sh) ->
