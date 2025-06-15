@@ -1477,7 +1477,7 @@ astFloorS t = case t of
   Ast.AstReverseS v -> astReverseS (astFloorS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astFloorS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astFloorS v)
-  Ast.AstSFromK v -> astSFromK (astFloorK v)
+  Ast.AstSFromK v -> astSFromK' (astFloorK v)
   AstSFromK' a -> astSFromK' (astFloorK a)
   Ast.AstFloorS v -> astFloorS v
   Ast.AstFromIntegralS v -> astFromIntegralS v
@@ -1516,7 +1516,7 @@ astFromIntegralS t = case t of
   Ast.AstReverseS v -> astReverseS (astFromIntegralS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astFromIntegralS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astFromIntegralS v)
-  Ast.AstSFromK v -> astSFromK (astFromIntegralK v)
+  Ast.AstSFromK v -> astSFromK' (astFromIntegralK v)
   AstSFromK' a -> astSFromK' (astFromIntegralK a)
   _ -> Ast.AstFromIntegralS t
 
@@ -1561,7 +1561,7 @@ astCastS t = case t of
   Ast.AstReverseS v -> astReverseS (astCastS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astCastS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astCastS v)
-  Ast.AstSFromK v -> astSFromK (astCastK v)
+  Ast.AstSFromK v -> astSFromK' (astCastK v)
   AstSFromK' a -> astSFromK' (astCastK a)
   _ -> Ast.AstCastS t
 
@@ -1620,7 +1620,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     in astIndex shn (l V.! i) rest1
   Ast.AstFromVector _ STKScalar l | AstConcreteK it <- i1, ZIS <- rest1 ->
     let i = fromIntegral it
-    in astSFromK (l V.! i)
+    in astSFromK' (l V.! i)
   Ast.AstFromVector{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS shn v0 ix
   Ast.AstFromVector snat STKS{} l ->
@@ -1653,7 +1653,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
     in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
-      AstBoolConst b -> if b then astSFromK v else defArr
+      AstBoolConst b -> if b then astSFromK' v else defArr
       _ -> Ast.AstIndexS shn v0 ix
   Ast.AstApply{} -> Ast.AstIndexS shn v0 ix
   Ast.AstVar{} -> Ast.AstIndexS shn v0 ix
@@ -1682,7 +1682,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
     in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
       AstBoolConst b ->
-        if b then astSFromK $ astLet var2 i1 v else defArr
+        if b then astSFromK' $ astLet var2 i1 v else defArr
       _ -> Ast.AstIndexS shn v0 ix
 
   Ast.AstLet var u v -> astLet var u (astIndexKnobsS knobs shn v ix)
@@ -1799,7 +1799,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
           defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
       in astLetFunB i1 $ \i ->
         astCond (0 <=. i &&* i <=. valueOf @k - 1)
-                (astFromIntegralS $ astSFromK i)
+                (astFromIntegralS $ astSFromK' i)
                 defArr
     _ -> error "astIndexKnobsS: shape not []"
   Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
@@ -2659,7 +2659,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
       in case 0 <=. i4 &&* i4 <=. valueOf @k - 1 of
         AstBoolConst b ->
           if b then astGather @shm @shn @shp1'
-                              shn (astSFromK v) (vars4, rest4) else defArr
+                              shn (astSFromK' v) (vars4, rest4) else defArr
         _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstApply{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstVar{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
@@ -3586,7 +3586,7 @@ astSFrom stkz v = case (stkz, ftkToSTK (ftkAst v)) of
   (_, stky) | Just Refl <- sameSTK stky stkz -> v
   (STKS ZSS (STKScalar @rz), STKScalar @ry) ->
     case testEquality (typeRep @ry) (typeRep @rz) of
-      Just Refl -> astSFromK v
+      Just Refl -> astSFromK' v
       Nothing -> error "astSFrom: tensor kinds don't match"
   (STKS shz zx, STKR yn yx) ->
     case (sameSTK yx zx, testEquality (shsRank shz) yn) of
@@ -3602,30 +3602,6 @@ astSFrom stkz v = case (stkz, ftkToSTK (ftkAst v)) of
       astPair (astSFrom stkz1 (astProject1 u3))
               (astSFrom stkz2 (astProject2 u3))
   (_, stky) -> error $ "astSFrom: wrong tensor kinds: " ++ show (stky, stkz, v)
-
-astSFromK :: forall r s. (GoodScalar r, AstSpan s)
-          => AstTensor AstMethodLet s (TKScalar r)
-          -> AstTensor AstMethodLet s (TKS '[] r)
-astSFromK t = case t of
-  Ast.AstCond b a2 a3 -> astCond b (astSFromK a2) (astSFromK a3)
-  Ast.AstLet var u v -> astLet var u (astSFromK v)
-  AstConcreteK k -> AstConcreteS $ Nested.sscalar k
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSFromK v
-  Ast.AstFromDual v -> Ast.AstFromDual $ astSFromK v
-  AstPlusK u v -> astSFromK u + astSFromK v
-  AstTimesK u v -> astSFromK u * astSFromK v
-  Ast.AstN1K NegateOp u -> negate (astSFromK u)
-  Ast.AstN1K AbsOp u -> abs (astSFromK u)
-  Ast.AstN1K SignumOp u -> signum (astSFromK u)
--- TODO:  Ast.AstR1K opCode u -> Ast.AstR1S opCode (astSFromK u)
--- TODO:  Ast.AstR2K opCode u v -> Ast.AstR2S opCode (astSFromK u) (astSFromK v)
-  Ast.AstI2K QuotOp u v -> astSFromK u `quotH` astSFromK v
-  Ast.AstI2K RemOp u v -> astSFromK u `remH` astSFromK v
-  Ast.AstFromS _ v ->
-    case matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) of
-      Just Refl -> v
-      _ -> error "astSFromK: unexpected tensor kinds"
-  _ -> Ast.AstSFromK t
 
 -- We are pushing conversions to shaped tensors down, into concrete values
 -- and towards variables, which we convert from shaped to ranked and mixed
@@ -3693,8 +3669,8 @@ astSum0S t = case t of
     astSum0S u * (fromPrimal $ AstConcreteS
                   $ Nested.sscalar $ fromInteger $ fromSNat snat)
   Ast.AstReplicate snat STKScalar u ->
-    astSFromK u * (fromPrimal $ AstConcreteS
-                   $ Nested.sscalar $ fromInteger $ fromSNat snat)
+    astSFromK' u * (fromPrimal $ AstConcreteS
+                    $ Nested.sscalar $ fromInteger $ fromSNat snat)
   Ast.AstLet var u v -> astLet var u (astSum0S v)
   AstTimesS t1 t2 -> astDot0S t1 t2
   AstConcreteS v ->
@@ -3788,7 +3764,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
         withKnownShS sh $
         xfromS @_ @sh $ sfromR a
 
-  sfromK = astSFromK
+  sfromK = astSFromK'
   sfromR = astSFromR knownShS
   sfromX = astSFromX knownShS
 
@@ -3972,7 +3948,7 @@ unRepl :: AstSpan s
        => AstTensor AstMethodLet s (TKS2 sh x)
        -> Maybe (AstTensor AstMethodLet s (TKS2 '[] x))
 unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
-unRepl (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
+unRepl (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK' u
 unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
 unRepl (AstConcreteS a) = AstConcreteS . Nested.sscalar <$> sunReplicateScal a
 unRepl (Ast.AstCond b v1 v2) = do
@@ -3988,7 +3964,7 @@ unRepl1 :: AstSpan s
         => AstTensor AstMethodLet s (TKS2 (n ': sh) x)
         -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
 unRepl1 (Ast.AstReplicate _ STKS{} u) = Just u
-unRepl1 (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
+unRepl1 (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK' u
 unRepl1 (AstConcreteS a) = AstConcreteS <$> sunReplicate1 a
 unRepl1 (Ast.AstCond b v1 v2) = do
   u1 <- unRepl1 v1
@@ -4003,7 +3979,7 @@ unReplN :: AstSpan s
         => ShS shm -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
         -> Maybe (AstTensor AstMethodLet s (TKS2 shn x))
 unReplN ZSS a = Just a
-unReplN (_ :$$ ZSS) (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK u
+unReplN (_ :$$ ZSS) (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK' u
 unReplN (_ :$$ sh) (Ast.AstReplicate _ STKS{} u) = unReplN sh u
 unReplN shm (AstConcreteS a) = AstConcreteS <$> sunReplicateN shm a
 unReplN shm (Ast.AstCond b v1 v2) = do
@@ -4255,7 +4231,7 @@ substitute1Ast i var = subst where
   Ast.AstReshapeS sh v -> astReshapeS sh <$> subst v
 
   Ast.AstFromS stkz v -> astFromS stkz <$> subst v
-  Ast.AstSFromK u -> astSFromK <$> subst u
+  Ast.AstSFromK u -> astSFromK' <$> subst u
   Ast.AstSFromR sh v -> astSFromR sh <$> subst v
   Ast.AstSFromX sh v -> astSFromX sh <$> subst v
   Ast.AstConvert c bftk v -> astConvert c bftk <$> subst v
