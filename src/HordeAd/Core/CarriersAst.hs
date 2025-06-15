@@ -830,8 +830,8 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
           withCastXS shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                AstLeqS (AstSFromX shu $ primalPart v)
-                        (AstSFromX shv $ primalPart u)
+                AstLeqS (cAstSFromX shu $ primalPart v)
+                        (cAstSFromX shv $ primalPart u)
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -909,7 +909,7 @@ instance (AstSpan s, GoodScalar r)
     AstBoolConst True
   AstSFromR _ (AstVar u) <=. AstSFromR _ (AstVar v) | u == v =
     AstBoolConst True
-  AstSFromX _ (AstVar u) <=. AstSFromX _ (AstVar v)
+  AstConvert _ _ (AstVar u) <=. AstConvert _ _ (AstVar v)
     | varNameToAstVarId u == varNameToAstVarId v =
       AstBoolConst True
   v <=. u = AstLeqS (primalPart v) (primalPart u)

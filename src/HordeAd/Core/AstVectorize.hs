@@ -313,8 +313,6 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
       astFromS (buildSTK snat stkz) $ build1V snat (var, v)
     Ast.AstSFromR sh v -> traceRule $
       astSFromR (snat :$$ sh) $ build1V snat (var, v)
-    Ast.AstSFromX sh v -> traceRule $
-      astSFromX' (snat :$$ sh) $ build1V snat (var, v)
     Ast.AstConvert c bftk v -> traceRule $
       astConvert (buildTKConversion snat (ftkToSTK (ftkAst v)) c)
                  (buildFTK snat bftk)
@@ -395,7 +393,7 @@ build1VIndexS k@SNat shn (var, v0, ix) | STKS _ x <- ftkToSTK (ftkAst v0) =
               -- Rarely these don't simplify enough; left as an escape hatch:
               -- (TODO: simplify better)
               Ast.AstSFromR{} -> ruleD
-              Ast.AstSFromX{} -> ruleD
+              Ast.AstConvert{} -> ruleD
               _ -> build1VOccurrenceUnknown k (var, v)  -- not a normal form
             else build1VOccurrenceUnknown k (var, v)  -- shortcut
        v -> traceRule $

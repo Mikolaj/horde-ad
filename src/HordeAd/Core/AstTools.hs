@@ -146,8 +146,6 @@ ftkAst t = case t of
     in fromS (ftkAst v) stkz
   AstSFromR sh v -> case ftkAst v of
     FTKR _ x -> FTKS sh x
-  AstSFromX sh v -> case ftkAst v of
-    FTKX _ x -> FTKS sh x
   AstConvert _c bftk _ -> bftk
 
   AstSum0S v ->  case ftkAst v of
@@ -237,7 +235,6 @@ varInAst var = \case
 
   AstFromS _ v -> varInAst var v
   AstSFromR _ v -> varInAst var v
-  AstSFromX _ v -> varInAst var v
   AstConvert _ _ v -> varInAst var v
 
   AstSum0S v -> varInAst var v
@@ -346,7 +343,6 @@ astIsSmallN n t0 = case t0 of
 
   AstFromS _ v -> astIsSmallN (n - 1) v
   AstSFromR _ v -> astIsSmallN (n - 1) v
-  AstSFromX _ v -> astIsSmallN (n - 1) v
   AstConvert _ _ v -> astIsSmallN (n - 1) v
 
   _ -> 0

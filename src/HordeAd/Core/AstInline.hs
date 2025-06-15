@@ -203,7 +203,6 @@ inlineAst memo v0 = case v0 of
 
   Ast.AstFromS stkz v -> second (Ast.AstFromS stkz) $ inlineAst memo v
   Ast.AstSFromR sh v -> second (Ast.AstSFromR sh) $ inlineAst memo v
-  Ast.AstSFromX sh v -> second (Ast.AstSFromX sh) $ inlineAst memo v
   Ast.AstConvert c bftk v ->
     second (Ast.AstConvert c bftk) $ inlineAst memo v
 
@@ -372,7 +371,7 @@ unshareAst memo = \case
               astVar0 = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk) $ Ast.AstVar var
           in if var `DMap.member` memo
              then (memo, astVar0)
-             else let (memo1, !a2) = unshareAst memo (Ast.AstSFromX @sh sh a)
+             else let (memo1, !a2) = unshareAst memo (cAstSFromX @sh sh a)
                   in (DMap.insert var a2 memo1, astVar0)
       -- it maybe not be worth it to recursively convert product
       -- so let's not do that until profiling shows we need it
@@ -478,7 +477,6 @@ unshareAst memo = \case
 
   Ast.AstFromS stkz v -> second (Ast.AstFromS stkz) $ unshareAst memo v
   Ast.AstSFromR sh v -> second (Ast.AstSFromR sh) $ unshareAst memo v
-  Ast.AstSFromX sh v -> second (Ast.AstSFromX sh) $ unshareAst memo v
   Ast.AstConvert c bftk v ->
     second (Ast.AstConvert c bftk) $ unshareAst memo v
 

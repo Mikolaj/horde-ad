@@ -154,7 +154,6 @@ expandAst t = case t of
     Ast.AstScatterS _ _ (_, ix)
      | gcompare (Permutation.permRank perm) (ixsRank ix) == GGT -> t  -- nf
     Ast.AstSFromR{} -> t  -- normal form
-    Ast.AstSFromX{} -> t  -- normal form
     v2 ->  -- not nf, let's express all as a gather
       astTransposeAsGatherS (defaultKnobs {knobExpand = True})
                             perm v2  -- TODO: (normalizePermutation perm)
@@ -176,7 +175,6 @@ expandAst t = case t of
     Ast.AstR2S{} -> t  -- normal form
     Ast.AstScatterS{} -> t  -- normal form
     Ast.AstSFromR{} -> t  -- normal form
-    Ast.AstSFromX{} -> t  -- normal form
     v2 ->  -- not nf, let's express all as a gather
       astReshapeAsGatherS (defaultKnobs {knobExpand = True})
                           sh v2
@@ -185,7 +183,6 @@ expandAst t = case t of
 
   Ast.AstFromS stkz v -> astFromS stkz $ expandAst v
   Ast.AstSFromR sh v -> astSFromR sh $ expandAst v
-  Ast.AstSFromX sh v -> astSFromX' sh $ expandAst v
   Ast.AstConvert c bftk v ->
     astConvert c bftk $ expandAst v
 
@@ -304,7 +301,6 @@ simplifyAst t = case t of
 
   Ast.AstFromS stkz v -> astFromS stkz $ simplifyAst v
   Ast.AstSFromR sh v -> astSFromR sh $ simplifyAst v
-  Ast.AstSFromX sh v -> astSFromX' sh $ simplifyAst v
   Ast.AstConvert c bftk v ->
     astConvert c bftk $ simplifyAst v
 
@@ -613,7 +609,6 @@ contractAst t0 = case t0 of
 
   Ast.AstFromS stkz v -> astFromS stkz $ contractAst v
   Ast.AstSFromR sh v -> astSFromR sh $ contractAst v
-  Ast.AstSFromX sh v -> astSFromX' sh $ contractAst v
   Ast.AstConvert c bftk v ->
     astConvert c bftk $ contractAst v
 
