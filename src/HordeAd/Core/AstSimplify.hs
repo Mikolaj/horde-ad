@@ -3588,8 +3588,11 @@ astFromS (STKScalar @r1) (Ast.AstI2S @r2 RemOp u v)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) =
     astFromS STKScalar u `remH` astFromS STKScalar v
 astFromS stkz (Ast.AstFromS _ v) = astFromS stkz v
+astFromS stkz (AstFromS' _ v) = astFromS stkz v
 astFromS stkz (Ast.AstSFromR _ v)
-         | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
+  | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
+astFromS stkz (Ast.AstConvert _c FTKS{} v)
+  | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
 astFromS stkz v = Ast.AstFromS stkz v
 
 -- Compare with tfromS.
@@ -3606,7 +3609,7 @@ astSFrom stkz v = case (stkz, ftkToSTK (ftkAst v)) of
       Nothing -> error "astSFrom: tensor kinds don't match"
   (STKS shz zx, STKR yn yx) ->
     case (sameSTK yx zx, testEquality (shsRank shz) yn) of
-      (Just Refl, Just Refl) -> astSFromR shz v
+      (Just Refl, Just Refl) -> astSFromR' shz v
       _ -> error "astSFrom: tensor kinds don't match"
   (STKS shz zx, STKX shy yx) ->
     case (sameSTK yx zx, testEquality (shsRank shz) (ssxRank shy)) of
@@ -3618,51 +3621,6 @@ astSFrom stkz v = case (stkz, ftkToSTK (ftkAst v)) of
       astPair (astSFrom stkz1 (astProject1 u3))
               (astSFrom stkz2 (astProject2 u3))
   (_, stky) -> error $ "astSFrom: wrong tensor kinds: " ++ show (stky, stkz, v)
-
--- We are pushing conversions to shaped tensors down, into concrete values
--- and towards variables, which we convert from shaped to ranked and mixed
--- so that the conversions cancel out. Consequently, the conversions away
--- from shaped are pulled up.
-astSFromR :: forall sh s r. AstSpan s
-          => ShS sh -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
-          -> AstTensor AstMethodLet s (TKS2 sh r)
-astSFromR sh a0 = case a0 of
-  Ast.AstProject1{} -> Ast.AstSFromR sh a0  -- TODO: convert arbitrary tensor?
-  Ast.AstProject2{} -> Ast.AstSFromR sh a0
-  Ast.AstFromVector snat@SNat (STKR _ x) l -> case sh of
-   snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
-     astFromVector snat (STKS rest x) (V.map (astSFromR rest) l)
-   _ -> error "astSFromR: impossible shape"
-  Ast.AstSum snat@SNat (STKR _ x) a ->
-    astSum snat (STKS sh x) (astSFromR (snat :$$ sh) a)
-  Ast.AstReplicate snat@SNat (STKR _ x) a -> case sh of
-    snat2 :$$ rest | Just Refl <- sameNat snat snat2 ->
-      astReplicate snat (STKS rest x) (astSFromR rest a)
-    _ -> error "astSFromR: impossible shape"
-  Ast.AstApply{} -> Ast.AstSFromR sh a0
-  Ast.AstVar{} -> Ast.AstSFromR sh a0
-  Ast.AstCond b v w -> astCond b (astSFromR sh v) (astSFromR sh w)
-  Ast.AstBuild1 snat@(SNat @k) _ (var, v) -> case ftkAst v of
-    FTKR sh' x ->
-      withCastRS sh' $ \(sh2 :: ShS sh2) ->
-        gcastWith (unsafeCoerceRefl :: k ': sh2 :~: sh) $
-        let !v2 = astSFromR sh2 v
-        in Ast.AstBuild1 snat (STKS sh2 (ftkToSTK x)) (var, v2)
-
-  Ast.AstLet var u v -> astLet var u (astSFromR sh v)
-
-  Ast.AstPrimalPart a -> astPrimalPart $ astSFromR sh a
-  Ast.AstDualPart a -> astDualPart $ astSFromR sh a
-  Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astSFromR sh a
-  Ast.AstFromDual a -> Ast.AstFromDual $ astSFromR sh a
-
-  Ast.AstFromS _ v | FTKR _ x <- ftkAst a0 ->
-    case matchingFTK (FTKS sh x) (ftkAst v) of
-      Just Refl -> v
-      _ -> error $ "astSFromR: different tensor kinds in AstSFromR(AstFromS): "
-                   ++ show (ftkAst v) ++ " vs "
-                   ++ show (FTKS sh x)
-  Ast.AstConvert{} -> Ast.AstSFromR sh a0
 
 astSum0S :: AstSpan s
          => AstTensor AstMethodLet s (TKS2 sh x)
@@ -3769,7 +3727,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
         xfromS @_ @sh $ sfromR a
 
   sfromK = astSFromK'
-  sfromR = astSFromR knownShS
+  sfromR = astSFromR' knownShS
   sfromX = astSFromX' knownShS
 
   rzip @_ @_ @n a
@@ -3926,7 +3884,7 @@ astLetFunBounds mbs a f = case a of
         let (var, ast) =
               funToAst2 (FTKS sh x) mbs
                         (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
-        in astLet var (astSFromR sh a) ast
+        in astLet var (astSFromR' sh a) ast
              -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
@@ -4235,7 +4193,7 @@ substitute1Ast i var = subst where
   Ast.AstReshapeS sh v -> astReshapeS sh <$> subst v
 
   Ast.AstFromS stkz v -> astFromS stkz <$> subst v
-  Ast.AstSFromR sh v -> astSFromR sh <$> subst v
+  Ast.AstSFromR sh v -> astSFromR' sh <$> subst v
   Ast.AstConvert c bftk v -> astConvert c bftk <$> subst v
 
   Ast.AstSum0S v -> astSum0S <$> subst v

@@ -539,7 +539,7 @@ testOverleafPP = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\v1 -> rfromS (ssum0 (sgather (sfromR v1) (\\[i3] -> [remH i3 28])))"
   show deltas
-    @?= "DeltaFromS (STKR (SNat @0) STKScalar) (DeltaShare 100000002 (DeltaSum (SNat @50) (STKS [] STKScalar) (DeltaShare 100000001 (DeltaGatherS [50] [] [28] (DeltaSFromR [28] (DeltaInput (InputId 0))) <function>))))"
+    @?= "DeltaFromS (STKR (SNat @0) STKScalar) (DeltaShare 100000002 (DeltaSum (SNat @50) (STKS [] STKScalar) (DeltaShare 100000001 (DeltaGatherS [50] [] [28] (DeltaConvert (ConvCmp (ConvXS' (STKS [28] STKScalar)) ConvRX) (FTKS [28] FTKScalar) (DeltaInput (InputId 0))) <function>))))"
 
 foo :: RealFloat a => (a, a, a) -> a
 foo (x, y, z) =
@@ -1385,7 +1385,7 @@ testReluMaxPP = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (sgather (sfromVector (fromList [sconcrete (sreplicate [3,4] 0.0), sfromR m1])) (\\[i6, i7] -> [ifH (sscalar -0.0 <=. negate (sfromR m1 !$ [i6, i7])) 0 1, i6, i7]))"
   show deltas
-    @?= "DeltaFromS (STKR (SNat @2) STKScalar) (DeltaShare 100000004 (DeltaGatherS [3,4] [] [2,3,4] (DeltaShare 100000001 (DeltaFromVector (SNat @2) (STKS [3,4] STKScalar) [DeltaZero (FTKS [3,4] FTKScalar),DeltaSFromR [3,4] (DeltaInput (InputId 0))])) <function>))"
+    @?= "DeltaFromS (STKR (SNat @2) STKScalar) (DeltaShare 100000004 (DeltaGatherS [3,4] [] [2,3,4] (DeltaShare 100000001 (DeltaFromVector (SNat @2) (STKS [3,4] STKScalar) [DeltaZero (FTKS [3,4] FTKScalar),DeltaConvert (ConvCmp (ConvXS' (STKS [3,4] STKScalar)) ConvRX) (FTKS [3,4] FTKScalar) (DeltaInput (InputId 0))])) <function>))"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do
@@ -1470,7 +1470,7 @@ testMatmul2PP = do
   printArtifactPrimalPretty artifactRev
     @?= "\\m1 -> rfromS (ssum @3 (stranspose @[2,1,0] (sreplicate @4 (sfromR (tproject1 m1))) * str (sreplicate @2 (sfromR (tproject2 m1)))))"
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret m1 -> tfromS (STKProduct (STKR (SNat @2) STKScalar) (STKR (SNat @2) STKScalar)) (tpair (smatmul2 (sfromR dret) (str (sfromR (tproject2 m1)))) (smatmul2 (str (sfromR (tproject1 m1))) (sfromR dret)))"
+    @?= "\\dret m1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (STKX [(),()] STKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (STKX [(),()] STKScalar)) ConvSX))) (STKProduct (STKS [2,3] STKScalar) (STKS [3,4] STKScalar)) (FTKProduct (FTKR [2,3] FTKScalar) (FTKR [3,4] FTKScalar)) (tpair (smatmul2 (sfromR dret) (str (sfromR (tproject2 m1)))) (smatmul2 (str (sfromR (tproject1 m1))) (sfromR dret)))"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\m1 -> rfromS (smatmul2 (sfromR (tproject1 m1)) (sfromR (tproject2 m1)))"
 
