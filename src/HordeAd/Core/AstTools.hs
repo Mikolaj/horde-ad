@@ -20,7 +20,7 @@ import Prelude hiding (foldl')
 import Control.Exception.Assert.Sugar
 import Data.Int (Int64)
 import Data.IORef
-import Data.Proxy (Proxy)
+import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import System.IO.Unsafe (unsafePerformIO)
@@ -28,6 +28,7 @@ import Type.Reflection (typeRep)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (shrFromShS)
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (snatPlus)
@@ -144,8 +145,6 @@ ftkAst t = case t of
           _ -> error $ "ftkAst: wrong tensor kinds for AstFromS: "
                        ++ show (ftk, stk)
     in fromS (ftkAst v) stkz
-  AstSFromR sh v -> case ftkAst v of
-    FTKR _ x -> FTKS sh x
   AstConvert _c bftk _ -> bftk
 
   AstSum0S v ->  case ftkAst v of
@@ -234,7 +233,6 @@ varInAst var = \case
   AstReshapeS _ v -> varInAst var v
 
   AstFromS _ v -> varInAst var v
-  AstSFromR _ v -> varInAst var v
   AstConvert _ _ v -> varInAst var v
 
   AstSum0S v -> varInAst var v
@@ -342,7 +340,6 @@ astIsSmallN n t0 = case t0 of
     if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change
 
   AstFromS _ v -> astIsSmallN (n - 1) v
-  AstSFromR _ v -> astIsSmallN (n - 1) v
   AstConvert _ _ v -> astIsSmallN (n - 1) v
 
   _ -> 0
@@ -400,11 +397,11 @@ liftRFromS1 :: forall n x ms s.
             -> AstTensor ms s (TKR2 n x)
             -> AstTensor ms s (TKR2 n x)
 -- The cheapest possible optimization to prevent trivial term buildup.
-liftRFromS1 f (AstFromS stkz@(STKR snat x) u) = case ftkAst u of
+liftRFromS1 f (AstFromS stkz@(STKR _ x) u) = case ftkAst u of
   FTKS _ xu ->
     case sameSTK x (ftkToSTK xu) of
       Just Refl -> case f u of
-        AstSFromR sh a | Just Refl <- testEquality (shsRank sh) snat -> a
+        AstConvert _ _ a | Just Refl <- sameSTK stkz (ftkToSTK (ftkAst a)) -> a
         a -> AstFromS stkz a
       _ -> error $ "liftRFromS1: tensor kinds don't agree: "
                    ++ show x ++ " " ++ show xu
@@ -426,14 +423,14 @@ liftRFromS2 :: forall n x ms s.
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKR2 n x) -> AstTensor ms s (TKR2 n x)
             -> AstTensor ms s (TKR2 n x)
-liftRFromS2 f (AstFromS stkz@(STKR snat x) u) (AstFromS _ v) =
+liftRFromS2 f (AstFromS stkz@(STKR _ x) u) (AstFromS _ v) =
   case (ftkAst u, ftkAst v) of
     (ftku@(FTKS shu xu), ftkv@(FTKS shv xv)) ->
       case ( sameSTK (ftkToSTK xu) x
            , sameSTK (ftkToSTK xv) x
            , testEquality shu shv ) of
       (Just Refl, Just Refl, Just Refl) -> case f u v of
-        AstSFromR sh a | Just Refl <- testEquality (shsRank sh) snat -> a
+        AstConvert _ _ a | Just Refl <- sameSTK stkz (ftkToSTK (ftkAst a)) -> a
         a -> AstFromS stkz a
       _ -> error $ "liftRFromS2: tensor kinds don't agree: "
                    ++ show ftku ++ " " ++ show ftkv ++ " "
@@ -516,7 +513,11 @@ cAstSFromR sh (AstFromPrimal w@(AstFromS _ v)) | FTKR _ x <- ftkAst w =
   case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> AstFromPrimal v
     _ -> error "cAstSFromR: different shapes in AstSFromR(AstFromS)"
-cAstSFromR sh v = AstSFromR sh v
+cAstSFromR sh v = case ftkAst v of
+  FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
+    let ftk = FTKS sh x
+        c2 = ConvCmp (ConvXS' (ftkToSTK ftk)) ConvRX
+    in AstConvert c2 ftk v
 
 cAstSFromX :: forall sh sh' x ms s. Rank sh ~ Rank sh'
            => ShS sh -> AstTensor ms s (TKX2 sh' x)

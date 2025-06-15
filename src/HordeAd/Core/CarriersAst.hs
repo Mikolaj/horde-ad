@@ -907,8 +907,6 @@ instance (AstSpan s, GoodScalar r)
     AstConcreteS (negate v) <=. negate u
   AstVar u <=. AstVar v | u == v =
     AstBoolConst True
-  AstSFromR _ (AstVar u) <=. AstSFromR _ (AstVar v) | u == v =
-    AstBoolConst True
   AstConvert _ _ (AstVar u) <=. AstConvert _ _ (AstVar v)
     | varNameToAstVarId u == varNameToAstVarId v =
       AstBoolConst True

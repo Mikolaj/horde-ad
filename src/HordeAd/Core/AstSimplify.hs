@@ -1291,7 +1291,6 @@ astPrimalPart t = case t of
 
   -- All conversions need to stay down here to cancel out.
   Ast.AstFromS{} -> Ast.AstPrimalPart t
-  Ast.AstSFromR{} -> Ast.AstPrimalPart t
   Ast.AstConvert{} -> Ast.AstPrimalPart t
 
   -- These should not appear in this context unless via wacky tests.
@@ -1381,7 +1380,6 @@ astDualPart t = case t of
 
   -- All conversions need to stay down here to cancel out.
   Ast.AstFromS{} -> Ast.AstDualPart t
-  Ast.AstSFromR{} -> Ast.AstDualPart t
   Ast.AstConvert{} -> Ast.AstDualPart t
 
   -- These should not appear in this context unless via wacky tests.
@@ -1849,7 +1847,6 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
       -- rare, usually simplifies away earlier
     Nothing -> error "astIndexKnobsS: wrong tensor kinds in AstFromS"
   -- These conversions need to stay down, so this is NF, see vectorization.
-  Ast.AstSFromR{} -> Ast.AstIndexS shn v0 ix
   Ast.AstConvert{} -> Ast.AstIndexS shn v0 ix
 
   -- These should not appear here unless via wacky tests.
@@ -2895,7 +2892,6 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
         -- rare, usually simplifies away earlier
       Nothing -> error "astGatherCase: wrong tensor kinds in AstFromS"
     -- These conversions need to stay down.
-    Ast.AstSFromR{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstConvert{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
 
     -- These should not appear here unless via wacky tests.
@@ -3589,8 +3585,6 @@ astFromS (STKScalar @r1) (Ast.AstI2S @r2 RemOp u v)
     astFromS STKScalar u `remH` astFromS STKScalar v
 astFromS stkz (Ast.AstFromS _ v) = astFromS stkz v
 astFromS stkz (AstFromS' _ v) = astFromS stkz v
-astFromS stkz (Ast.AstSFromR _ v)
-  | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
 astFromS stkz (Ast.AstConvert _c FTKS{} v)
   | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
 astFromS stkz v = Ast.AstFromS stkz v
@@ -4193,7 +4187,6 @@ substitute1Ast i var = subst where
   Ast.AstReshapeS sh v -> astReshapeS sh <$> subst v
 
   Ast.AstFromS stkz v -> astFromS stkz <$> subst v
-  Ast.AstSFromR sh v -> astSFromR' sh <$> subst v
   Ast.AstConvert c bftk v -> astConvert c bftk <$> subst v
 
   Ast.AstSum0S v -> astSum0S <$> subst v

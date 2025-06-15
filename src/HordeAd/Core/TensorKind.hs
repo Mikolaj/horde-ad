@@ -18,19 +18,19 @@ module HordeAd.Core.TensorKind
 import Prelude hiding ((.))
 
 import Control.Category
+import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import GHC.Exts (withDict)
-import GHC.TypeLits (type (+), KnownNat, OrderingI (..), cmpNat, fromSNat)
+import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat, type (+))
 import Type.Reflection (typeRep)
-import Data.Proxy (Proxy (Proxy))
 
-import Data.Array.Nested (type (++), MapJust, Replicate)
+import Data.Array.Nested (MapJust, Replicate, type (++))
+import Data.Array.Nested.Convert (shxFromShS)
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
-import Data.Array.Nested.Convert (shxFromShS)
-import Data.Array.Nested.Lemmas
 
 import HordeAd.Core.Types
 

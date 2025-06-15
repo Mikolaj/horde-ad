@@ -415,9 +415,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   AstFromS :: forall y z ms s.
               SingletonTK z
            -> AstTensor ms s y -> AstTensor ms s z
-  AstSFromR :: forall sh x ms s.
-               ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
-            -> AstTensor ms s (TKS2 sh x)
   AstConvert :: TKConversion a b -> FullShapeTK b -> AstTensor ms s a
              -> AstTensor ms s b
 

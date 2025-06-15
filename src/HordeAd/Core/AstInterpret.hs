@@ -341,11 +341,6 @@ interpretAst !env = \case
   AstFromS stkz v ->
     withKnownSTK (ftkToSTK (ftkAst v)) $
     tfromS stkz (interpretAst env v)
-  AstSFromR sh v -> case ftkToSTK (ftkAst v) of
-    STKR _ x ->
-      withKnownShS sh $
-      withKnownSTK x $
-      sfromR $ interpretAst env v
   AstConvert c bftk a ->
     tconvert c (ftkToSTK (ftkAst a)) bftk (interpretAst env a)
 
