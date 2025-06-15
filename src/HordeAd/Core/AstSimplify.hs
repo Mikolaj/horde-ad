@@ -3419,10 +3419,10 @@ astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstFromS{} -> error "TODO: remove me"
 
 astConvertSFromX :: forall sh shx x s. (AstSpan s, Rank shx ~ Rank sh)
-              => TKConversion (TKX2 shx x) (TKS2 sh x)
-              -> FullShapeTK (TKS2 sh x)
-              -> AstTensor AstMethodLet s (TKX2 shx x)
-              -> AstTensor AstMethodLet s (TKS2 sh x)
+                 => TKConversion (TKX2 shx x) (TKS2 sh x)
+                 -> FullShapeTK (TKS2 sh x)
+                 -> AstTensor AstMethodLet s (TKX2 shx x)
+                 -> AstTensor AstMethodLet s (TKS2 sh x)
 astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstConvert c2 _ a2 -> astConvert (ConvCmp c c2) zftk a2
   Ast.AstProject1{} -> Ast.AstConvert c zftk a0  -- TODO
@@ -3533,6 +3533,14 @@ astSFromK' :: forall r s. (GoodScalar r, AstSpan s)
 astSFromK' a = let c2 = ConvCmp ConvXS (Conv0X STKScalar)
                in astConvertSFromK c2 (FTKS ZSS FTKScalar) a
 
+astSFromX' :: forall sh sh' s x. (AstSpan s, Rank sh ~ Rank sh')
+           => ShS sh -> AstTensor AstMethodLet s (TKX2 sh' x)
+           -> AstTensor AstMethodLet s (TKS2 sh x)
+astSFromX' sh t = case ftkAst t of
+  FTKX _ x ->
+    let ftk = FTKS sh x
+    in astConvertSFromX (ConvXS' (ftkToSTK ftk)) ftk t
+
 astFromS :: forall y z s. AstSpan s
          => SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
@@ -3587,7 +3595,7 @@ astSFrom stkz v = case (stkz, ftkToSTK (ftkAst v)) of
       _ -> error "astSFrom: tensor kinds don't match"
   (STKS shz zx, STKX shy yx) ->
     case (sameSTK yx zx, testEquality (shsRank shz) (ssxRank shy)) of
-      (Just Refl, Just Refl) -> astSFromX shz v
+      (Just Refl, Just Refl) -> astSFromX' shz v
       _ -> error "astSFrom: tensor kinds don't match"
   (STKProduct stkz1 stkz2, STKProduct{})->
     -- TODO: this is bad, we are introducing let with a non-shaped variable
@@ -3759,7 +3767,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
 
   sfromK = astSFromK'
   sfromR = astSFromR knownShS
-  sfromX = astSFromX knownShS
+  sfromX = astSFromX' knownShS
 
   rzip @_ @_ @n a
    | Refl <- lemRankReplicate (Proxy @n) = case ftkAst a of
@@ -3922,7 +3930,7 @@ astLetFunBounds mbs a f = case a of
         let (var, ast) =
               funToAst2 (FTKS sh x) mbs
                         (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
-        in astLet var (astSFromX sh a) ast
+        in astLet var (astSFromX' sh a) ast
     -- calling recursively for product may be not worth it
     ftk -> let (var, ast) = funToAst2 ftk mbs f
            in astLet var a ast
@@ -4225,7 +4233,7 @@ substitute1Ast i var = subst where
 
   Ast.AstFromS stkz v -> astFromS stkz <$> subst v
   Ast.AstSFromR sh v -> astSFromR sh <$> subst v
-  Ast.AstSFromX sh v -> astSFromX sh <$> subst v
+  Ast.AstSFromX sh v -> astSFromX' sh <$> subst v
   Ast.AstConvert c bftk v -> astConvert c bftk <$> subst v
 
   Ast.AstSum0S v -> astSum0S <$> subst v
