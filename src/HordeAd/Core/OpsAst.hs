@@ -203,7 +203,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         withKnownShS (takeShS @m sh) $
         astFromS @(TKS2 (Drop m sh) x) (knownSTK @(TKR2 n x))
         $ astIndexS @(Take m sh) @(Drop m sh)
-                    (dropShS @m sh) (astSFromR @sh sh a) (ixrToIxs ix)
+                    (dropShS @m sh) (astSFromR' @sh sh a) (ixrToIxs ix)
   trscatter @m @_ @p shpshn0 t f = case ftkAst t of
     FTKR @_ @x shmshn0 x ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -223,7 +223,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           Just Refl ->
             astFromS @(TKS2 shpshn x) (STKR (shrRank shpshn0) (ftkToSTK x))
             $ astScatterS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
-                          knownShS (astSFromR shmshn t)
+                          knownShS (astSFromR' shmshn t)
             $ funToAstIxS knownShS (ixrToIxs . f . ixsToIxr)
                 -- this introduces new variable names
           _ -> error $ "rscatter: shapes don't match: "
@@ -247,7 +247,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           Just Refl ->
             astFromS (STKR (shrRank shmshn0) (ftkToSTK x))
             $ astGatherS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
-                         knownShS (astSFromR shpshn t)
+                         knownShS (astSFromR' shpshn t)
             $ funToAstIxS knownShS (ixrToIxs . f . ixsToIxr)
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
@@ -257,17 +257,17 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKR (shrRank sh') knownSTK)
-        . fromPrimal . astFloorS . primalPart . astSFromR @sh sh $ a
+        . fromPrimal . astFloorS . primalPart . astSFromR' @sh sh $ a
   trfromIntegral @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKR (shrRank sh') knownSTK)
-        . fromPrimal . astFromIntegralS . primalPart . astSFromR @sh sh $ a
+        . fromPrimal . astFromIntegralS . primalPart . astSFromR' @sh sh $ a
   trcast @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         astFromS @(TKS sh r2) (STKR (shsRank sh) STKScalar)
-        . astCastS . astSFromR sh $ a
+        . astCastS . astSFromR' sh $ a
   trminIndex @_ @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withCastRS sh' $ \(sh :: ShS sh) -> case sh of
@@ -276,7 +276,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           -- gcastWith (unsafeCoerceRefl :: Rank sh :~: 1 + Rank (Init sh)) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           astFromS @(TKS (Init sh) r2) (STKR (shsRank rest) STKScalar)
-          . fromPrimal . AstMinIndexS . primalPart . astSFromR @sh sh $ a
+          . fromPrimal . AstMinIndexS . primalPart . astSFromR' @sh sh $ a
         ZSS -> error "rminIndex: impossible empty shape"
   trmaxIndex @_ @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
@@ -284,7 +284,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         (:$$) @_ @rest _ rest ->
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           astFromS @(TKS (Init sh) r2) (STKR (shsRank rest) STKScalar)
-          . fromPrimal . AstMaxIndexS . primalPart . astSFromR @sh sh $ a
+          . fromPrimal . AstMaxIndexS . primalPart . astSFromR' @sh sh $ a
         ZSS -> error "rmaxIndex: impossible empty shape"
   triota @r n =
     withSNat n $ \(SNat @n) ->
@@ -299,7 +299,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 case testEquality restu restv of
                   Just Refl ->
                     astFromS (STKR (shrRank shu') (ftkToSTK x))
-                    $ astAppendS (astSFromR shu u) (astSFromR shv v)
+                    $ astAppendS (astSFromR' shu u) (astSFromR' shv v)
                   _ -> error $ "rappend: shapes don't match: "
                                ++ show (restu, restv)
               ZSS -> error "rappend: impossible shape"
@@ -315,18 +315,18 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
               EQI ->
                 astFromS (STKR (shrRank sh') (ftkToSTK x))
                 . astSliceS isnat nsnat (SNat @(m - (i + n)))
-                . astSFromR sh $ a
+                . astSFromR' sh $ a
               LTI ->
                 astFromS (STKR (shrRank sh') (ftkToSTK x))
                 . astSliceS isnat nsnat (SNat @(m - (i + n)))
-                . astSFromR sh $ a
+                . astSFromR' sh $ a
         ZSS -> error "xslice: impossible shape"
   trreverse a = case ftkAst a of
     FTKR sh' x ->
       withCastRS sh' $ \sh -> case sh of
         _ :$$ _ ->
           astFromS (STKR (shrRank sh') (ftkToSTK x))
-          . astReverseS . astSFromR sh $ a
+          . astReverseS . astSFromR' sh $ a
         ZSS -> error "xreverse: impossible shape"
   trtranspose @n @r permr a = case ftkAst a of
     FTKR sh' x ->
@@ -340,7 +340,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 fromMaybe (error "rtranspose: impossible non-permutation")
                 $ Permutation.permCheckPermutation perm
                 $ astFromS (STKR (shsRank sh) (ftkToSTK x))
-                  . astTransposeS perm . astSFromR sh $ a
+                  . astTransposeS perm . astSFromR' sh $ a
           in case (Permutation.permRank perm, shsRank sh) of
             (psnat@SNat, shsnat@SNat) ->
               case cmpNat psnat shsnat of
@@ -354,7 +354,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
       withCastRS sh2' $ \sh2 ->
         case testEquality (shsProduct sh) (shsProduct sh2) of
           Just Refl -> astFromS (STKR (shrRank sh2') (ftkToSTK x))
-                       . astReshapeS sh2 . astSFromR sh $ a
+                       . astReshapeS sh2 . astSFromR' sh $ a
           _ -> error $ "rreshape: tensor size mismatch: "
                        ++ show ( sNatValue (shsProduct sh)
                                , sNatValue (shsProduct sh2) )

@@ -312,7 +312,7 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
     Ast.AstFromS stkz v -> traceRule $
       astFromS (buildSTK snat stkz) $ build1V snat (var, v)
     Ast.AstSFromR sh v -> traceRule $
-      astSFromR (snat :$$ sh) $ build1V snat (var, v)
+      astSFromR' (snat :$$ sh) $ build1V snat (var, v)
     Ast.AstConvert c bftk v -> traceRule $
       astConvert (buildTKConversion snat (ftkToSTK (ftkAst v)) c)
                  (buildFTK snat bftk)
@@ -428,7 +428,7 @@ astTr a = case Permutation.makePerm @'[1, 0] of
       withCastRS sh' $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank sh) :~: True) $
         astFromS (STKR (SNat @(2 + n)) (ftkToSTK x))
-        . astTransposeS perm . astSFromR sh $ a
+        . astTransposeS perm . astSFromR' sh $ a
 
 astTrS :: forall n m sh s r. AstSpan s
        => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r)
@@ -475,7 +475,7 @@ astIndexBuild snat@SNat stk u i = case stk of
     FTKR shmshn _ ->
       withCastRS shmshn $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: k ': Tail sh :~: sh) $
-        astFromS stk $ astIndexS (shsTail sh) (astSFromR sh u) (i :.$ ZIS)
+        astFromS stk $ astIndexS (shsTail sh) (astSFromR' sh u) (i :.$ ZIS)
   STKS sh _ -> astIndexS sh u (i :.$ ZIS)
   STKX _ _ -> case ftkAst u of
    FTKX shBuild' _->

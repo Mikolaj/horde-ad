@@ -34,7 +34,7 @@ module HordeAd.Core.AstSimplify
   , astIndexS, astIndexKnobsS, astScatterS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
 
-  , astConvert, astFromS, astSFromK', astSFromR, astSFromX'
+  , astConvert, astFromS, astSFromK', astSFromR', astSFromX'
   , astSum0S, astDot0S, astDot1InS, astMatmul2S
 
     -- * Helper combinators
@@ -3414,7 +3414,12 @@ astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
     Ast.AstFromPrimal $ astConvertSFromR c zftk a
   Ast.AstFromDual a ->
     Ast.AstFromDual $ astConvertSFromR c zftk a
-  Ast.AstFromS{} -> error "TODO: remove me"
+  Ast.AstFromS (STKR _ x2) v | Just Refl <- sameSTK (ftkToSTK x) x2 ->
+    case matchingFTK (FTKS sh x) (ftkAst v) of
+      Just Refl -> v
+      _ -> error $ "astConvertSFromR: unexpected tensor kinds"
+                   ++ show (ftkAst v) ++ " vs "
+                   ++ show (FTKS sh x)
 
 astConvertSFromX :: forall sh shx x s. (AstSpan s, Rank shx ~ Rank sh)
                  => TKConversion (TKX2 shx x) (TKS2 sh x)
@@ -3497,6 +3502,7 @@ astFromS' zftk t =
   let yftk = ftkAst t
       fromS :: FullShapeTK y0 -> FullShapeTK z0 -> TKConversion y0 z0
       fromS yftk0 zftk0 = case (yftk0, zftk0) of
+        _ | Just Refl <- matchingFTK yftk0 zftk0 -> ConvId
         (FTKS ZSS (FTKScalar @ry), FTKScalar @rz)
           | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
             ConvCmp ConvX0 ConvSX
@@ -3505,8 +3511,6 @@ astFromS' zftk t =
           , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
           , Refl <- lemRankMapJust sh ->
             ConvCmp (ConvXR (ftkToSTK x)) ConvSX
-        (FTKS{}, FTKS{})
-          | Just Refl <- matchingFTK yftk0 zftk0 -> ConvId
         (FTKS sh x, FTKX xsh xx)
           | Just Refl <- matchingFTK x xx
           , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
@@ -3514,7 +3518,8 @@ astFromS' zftk t =
             ConvCmp (ConvXX' (ftkToSTK zftk0)) ConvSX
         (FTKProduct yftk1 yftk2, FTKProduct zftk1 zftk2) ->
           ConvT2 (fromS yftk1 zftk1) (fromS yftk2 zftk2)
-        _ -> error "astFromS': unexpected types"  -- TODO: try nevertheless
+        _ -> error $ "astFromS': unexpected types "  -- TODO: try nevertheless
+                     ++ "(" ++ show yftk0 ++ ", " ++ show zftk0 ++ ")"
   in astConvertFromS (fromS yftk zftk) zftk t
 
 pattern AstSFromK' :: () => sh ~ '[]
@@ -3536,6 +3541,14 @@ astSFromK' :: forall r s. (GoodScalar r, AstSpan s)
            -> AstTensor AstMethodLet s (TKS '[] r)
 astSFromK' a = let c2 = ConvCmp ConvXS (Conv0X STKScalar)
                in astConvertSFromK c2 (FTKS ZSS FTKScalar) a
+
+astSFromR' :: forall sh s r. AstSpan s
+           => ShS sh -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
+           -> AstTensor AstMethodLet s (TKS2 sh r)
+astSFromR' sh t = case ftkAst t of
+  FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh))->
+    let ftk = FTKS sh x
+    in astConvertSFromR (ConvCmp (ConvXS' (ftkToSTK ftk)) ConvRX) ftk t
 
 astSFromX' :: forall sh sh' s x. (AstSpan s, Rank sh ~ Rank sh')
            => ShS sh -> AstTensor AstMethodLet s (TKX2 sh' x)
