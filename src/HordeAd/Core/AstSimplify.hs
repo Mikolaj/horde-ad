@@ -1289,7 +1289,6 @@ astPrimalPart t = case t of
 
   -- All conversions need to stay down here to cancel out.
   Ast.AstFromS{} -> Ast.AstPrimalPart t
-  Ast.AstSFromK{} -> Ast.AstPrimalPart t
   Ast.AstSFromR{} -> Ast.AstPrimalPart t
   Ast.AstSFromX{} -> Ast.AstPrimalPart t
   Ast.AstConvert{} -> Ast.AstPrimalPart t
@@ -1381,7 +1380,6 @@ astDualPart t = case t of
 
   -- All conversions need to stay down here to cancel out.
   Ast.AstFromS{} -> Ast.AstDualPart t
-  Ast.AstSFromK{} -> Ast.AstDualPart t
   Ast.AstSFromR{} -> Ast.AstDualPart t
   Ast.AstSFromX{} -> Ast.AstDualPart t
   Ast.AstConvert{} -> Ast.AstDualPart t
@@ -1477,7 +1475,6 @@ astFloorS t = case t of
   Ast.AstReverseS v -> astReverseS (astFloorS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astFloorS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astFloorS v)
-  Ast.AstSFromK v -> astSFromK' (astFloorK v)
   AstSFromK' a -> astSFromK' (astFloorK a)
   Ast.AstFloorS v -> astFloorS v
   Ast.AstFromIntegralS v -> astFromIntegralS v
@@ -1516,7 +1513,6 @@ astFromIntegralS t = case t of
   Ast.AstReverseS v -> astReverseS (astFromIntegralS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astFromIntegralS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astFromIntegralS v)
-  Ast.AstSFromK v -> astSFromK' (astFromIntegralK v)
   AstSFromK' a -> astSFromK' (astFromIntegralK a)
   _ -> Ast.AstFromIntegralS t
 
@@ -1561,7 +1557,6 @@ astCastS t = case t of
   Ast.AstReverseS v -> astReverseS (astCastS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astCastS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astCastS v)
-  Ast.AstSFromK v -> astSFromK' (astCastK v)
   AstSFromK' a -> astSFromK' (astCastK a)
   _ -> Ast.AstCastS t
 
@@ -3567,8 +3562,6 @@ astFromS (STKScalar @r1) (Ast.AstI2S @r2 QuotOp u v)
 astFromS (STKScalar @r1) (Ast.AstI2S @r2 RemOp u v)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) =
     astFromS STKScalar u `remH` astFromS STKScalar v
-astFromS stkz (Ast.AstSFromK v)
-         | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
 astFromS stkz (Ast.AstFromS _ v) = astFromS stkz v
 astFromS stkz (Ast.AstSFromR _ v)
          | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
@@ -4231,7 +4224,6 @@ substitute1Ast i var = subst where
   Ast.AstReshapeS sh v -> astReshapeS sh <$> subst v
 
   Ast.AstFromS stkz v -> astFromS stkz <$> subst v
-  Ast.AstSFromK u -> astSFromK' <$> subst u
   Ast.AstSFromR sh v -> astSFromR sh <$> subst v
   Ast.AstSFromX sh v -> astSFromX sh <$> subst v
   Ast.AstConvert c bftk v -> astConvert c bftk <$> subst v

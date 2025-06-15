@@ -444,7 +444,6 @@ printAst cfg d = \case
       STKR{} -> printPrefixOp printAst cfg d "rfromS" [v]
       STKX{} -> printPrefixOp printAst cfg d "xfromS" [v]
       _ -> printPrefixOp printAst cfg d ("tfromS (" ++ show stkz ++ ")") [v]
-  AstSFromK t -> printPrefixOp printAst cfg d "sfromK" [t]
   AstSFromR _ v -> printPrefixOp printAst cfg d "sfromR" [v]
   AstSFromX _ v -> printPrefixOp printAst cfg d "sfromX" [v]
   AstConvert c bftk t -> case (ftkToSTK (ftkAst t), bftk) of

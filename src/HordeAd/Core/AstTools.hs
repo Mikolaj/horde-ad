@@ -27,7 +27,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert
+import Data.Array.Nested.Convert (shrFromShS)
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (snatPlus)
@@ -144,7 +144,6 @@ ftkAst t = case t of
           _ -> error $ "ftkAst: wrong tensor kinds for AstFromS: "
                        ++ show (ftk, stk)
     in fromS (ftkAst v) stkz
-  AstSFromK{} -> FTKS ZSS FTKScalar
   AstSFromR sh v -> case ftkAst v of
     FTKR _ x -> FTKS sh x
   AstSFromX sh v -> case ftkAst v of
@@ -237,7 +236,6 @@ varInAst var = \case
   AstReshapeS _ v -> varInAst var v
 
   AstFromS _ v -> varInAst var v
-  AstSFromK t -> varInAst var t
   AstSFromR _ v -> varInAst var v
   AstSFromX _ v -> varInAst var v
   AstConvert _ _ v -> varInAst var v
@@ -347,7 +345,6 @@ astIsSmallN n t0 = case t0 of
     if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change
 
   AstFromS _ v -> astIsSmallN (n - 1) v
-  AstSFromK v -> astIsSmallN (n - 1) v
   AstSFromR _ v -> astIsSmallN (n - 1) v
   AstSFromX _ v -> astIsSmallN (n - 1) v
   AstConvert _ _ v -> astIsSmallN (n - 1) v
@@ -509,7 +506,8 @@ cAstSFromK (AstFromPrimal (AstFromS _ v)) =
   case matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) of
     Just Refl -> AstFromPrimal v
     _ -> error "cAstSFromK: different shapes in AstSFromK(AstFromS)"
-cAstSFromK v = AstSFromK v
+cAstSFromK v = let c2 = ConvCmp ConvXS (Conv0X STKScalar)
+               in AstConvert c2 (FTKS ZSS FTKScalar) v
 
 cAstSFromR :: forall sh x ms s.
               ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)

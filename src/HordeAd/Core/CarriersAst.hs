@@ -451,7 +451,10 @@ instance (GoodScalar r, AstSpan s)
     AstReplicate snat stk $ u + v
   AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
   AstFromDual u + AstFromDual v = AstFromDual $ u + v
-  AstSFromK u + AstSFromK v = AstSFromK $ u + v
+  AstConvert c ftk@(FTKS ZSS x) u + AstConvert _ _ v
+    | Just Refl <- matchingFTK x (ftkAst u)
+    , Just Refl <- matchingFTK x (ftkAst v) =
+      AstConvert c ftk $ u + v
   AstConcreteS z + u | Just 0 <- sunReplicateScal z = u
   u + AstConcreteS z | Just 0 <- sunReplicateScal z = u
   AstConcreteS n + AstConcreteS k = AstConcreteS (n + k)
@@ -483,7 +486,10 @@ instance (GoodScalar r, AstSpan s)
   _ * AstConcreteS z | Just 0 <- sunReplicateScal z = AstConcreteS z
   AstConcreteS s * u | Just 1 <- sunReplicateScal s = u
   u * AstConcreteS s | Just 1 <- sunReplicateScal s = u
-  AstSFromK u * AstSFromK v = AstSFromK $ u * v
+  AstConvert c ftk@(FTKS ZSS x) u * AstConvert _ _ v
+    | Just Refl <- matchingFTK x (ftkAst u)
+    , Just Refl <- matchingFTK x (ftkAst v) =
+      AstConvert c ftk $ u * v
   AstConcreteS n * AstConcreteS k = AstConcreteS (n * k)
   AstConcreteS n * AstTimesS (AstConcreteS k) u =
     AstTimesS (AstConcreteS (n * k)) u
@@ -523,14 +529,18 @@ instance (GoodScalar r, AstSpan s)
   negate (AstConcreteS n) = AstConcreteS (negate n)
   negate (AstGatherS @shm @shn @shp shn v (vars, ix)) =
     AstGatherS @shm @shn @shp shn (negate v) (vars, ix)
-  negate (AstSFromK n) = AstSFromK (negate n)
+  negate (AstConvert c ftk@(FTKS ZSS x) n)
+    | Just Refl <- matchingFTK x (ftkAst n) =
+      AstConvert c ftk (negate n)
   negate u = AstN1S NegateOp u
   abs (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (abs u)
   abs (AstFromPrimal n) = AstFromPrimal (abs n)
   abs (AstFromDual n) = AstFromDual (abs n)
   abs (AstN1S AbsOp u) = AstN1S AbsOp u
   abs (AstConcreteS u) = AstConcreteS (abs u)
-  abs (AstSFromK n) = AstSFromK (abs n)
+  abs (AstConvert c ftk@(FTKS ZSS x) n)
+    | Just Refl <- matchingFTK x (ftkAst n) =
+      AstConvert c ftk (abs n)
   abs (AstN1S NegateOp u) = abs u
   abs u = AstN1S AbsOp u
   signum (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (signum u)
@@ -538,7 +548,9 @@ instance (GoodScalar r, AstSpan s)
   signum (AstFromDual n) = AstFromDual (signum n)
   signum (AstN1S SignumOp u) = AstN1S SignumOp u
   signum (AstConcreteS u) = AstConcreteS (signum u)
-  signum (AstSFromK n) = AstSFromK (signum n)
+  signum (AstConvert c ftk@(FTKS ZSS x) n)
+    | Just Refl <- matchingFTK x (ftkAst n) =
+      AstConvert c ftk (signum n)
   signum u = AstN1S SignumOp u
   fromInteger i = error $ "fromInteger not defined for shaped tensors: "
                           ++ show i
@@ -548,7 +560,10 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   quotH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
     AstReplicate snat stk $ quotH u v
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
-  quotH (AstSFromK n) (AstSFromK k) = AstSFromK (quotH n k)
+  quotH (AstConvert c ftk@(FTKS ZSS x) n) (AstConvert _ _ k)
+    | Just Refl <- matchingFTK x (ftkAst n)
+    , Just Refl <- matchingFTK x (ftkAst k) =
+      AstConvert c ftk (quotH n k)
   quotH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (quotH n k)
   quotH (AstConcreteS z) _ | Just 0 <- sunReplicateScal z = AstConcreteS z
   quotH u (AstConcreteS s) | Just 1 <- sunReplicateScal s = u
@@ -558,7 +573,10 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   remH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
     AstReplicate snat stk $ remH u v
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
-  remH (AstSFromK n) (AstSFromK k) = AstSFromK (remH n k)
+  remH (AstConvert c ftk@(FTKS ZSS x) n) (AstConvert _ _ k)
+    | Just Refl <- matchingFTK x (ftkAst n)
+    , Just Refl <- matchingFTK x (ftkAst k) =
+      AstConvert c ftk (remH n k)
   remH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (remH n k)
   remH (AstConcreteS z) _ | Just 0 <- sunReplicateScal z = AstConcreteS z
 --  remH _ (AstConcreteS s) | Just 1 <- sunReplicateScal s = AstConcreteS 0
@@ -872,9 +890,13 @@ instance (AstSpan s, GoodScalar r)
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
   AstFromDual u <=. AstFromDual v = u <=. v  -- TODO: correct?
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
-  AstSFromK u <=. AstSFromK v = u <=. v
-  AstConcreteS u <=. AstSFromK v =
-    AstConcreteK (unConcrete $ kfromS $ Concrete u) <=. v
+  AstConvert _ (FTKS ZSS x) u <=. AstConvert _ _ v
+    | Just Refl <- matchingFTK x (ftkAst u)
+    , Just Refl <- matchingFTK x (ftkAst v) = u <=. v
+  AstConcreteS u <=. AstConvert _ (FTKS ZSS (FTKScalar @rz)) v
+    | FTKScalar @ry <- ftkAst v
+    , Just Refl <- testEquality (typeRep @ry) (typeRep @rz) =
+      AstConcreteK (unConcrete $ kfromS $ Concrete u) <=. v
   AstConcreteS u <=. AstConcreteS v =
     AstBoolConst $ Concrete @(TKS sh r) u <=. Concrete v
   u <=. AstPlusS (AstConcreteS v) w =

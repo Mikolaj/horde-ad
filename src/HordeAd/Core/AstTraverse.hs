@@ -184,7 +184,6 @@ expandAst t = case t of
     -} astReshapeS sh (expandAst v)
 
   Ast.AstFromS stkz v -> astFromS stkz $ expandAst v
-  Ast.AstSFromK u -> astSFromK' $ expandAst u
   Ast.AstSFromR sh v -> astSFromR sh $ expandAst v
   Ast.AstSFromX sh v -> astSFromX sh $ expandAst v
   Ast.AstConvert c bftk v ->
@@ -304,7 +303,6 @@ simplifyAst t = case t of
   Ast.AstReshapeS sh v -> astReshapeS sh $ simplifyAst v
 
   Ast.AstFromS stkz v -> astFromS stkz $ simplifyAst v
-  Ast.AstSFromK u -> astSFromK' $ simplifyAst u
   Ast.AstSFromR sh v -> astSFromR sh $ simplifyAst v
   Ast.AstSFromX sh v -> astSFromX sh $ simplifyAst v
   Ast.AstConvert c bftk v ->
@@ -614,7 +612,6 @@ contractAst t0 = case t0 of
     t2 -> astReshapeS sh2 t2
 
   Ast.AstFromS stkz v -> astFromS stkz $ contractAst v
-  Ast.AstSFromK u -> astSFromK' $ contractAst u
   Ast.AstSFromR sh v -> astSFromR sh $ contractAst v
   Ast.AstSFromX sh v -> astSFromX sh $ contractAst v
   Ast.AstConvert c bftk v ->

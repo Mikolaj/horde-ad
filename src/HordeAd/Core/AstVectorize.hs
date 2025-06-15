@@ -311,8 +311,6 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
 
     Ast.AstFromS stkz v -> traceRule $
       astFromS (buildSTK snat stkz) $ build1V snat (var, v)
-    Ast.AstSFromK t -> traceRule $
-      build1V snat (var, t)
     Ast.AstSFromR sh v -> traceRule $
       astSFromR (snat :$$ sh) $ build1V snat (var, v)
     Ast.AstSFromX sh v -> traceRule $

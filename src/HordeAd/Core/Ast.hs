@@ -415,8 +415,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   AstFromS :: forall y z ms s.
               SingletonTK z
            -> AstTensor ms s y -> AstTensor ms s z
-  AstSFromK :: GoodScalar r
-            => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
   AstSFromR :: forall sh x ms s.
                ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
             -> AstTensor ms s (TKS2 sh x)
