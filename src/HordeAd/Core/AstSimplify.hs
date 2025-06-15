@@ -233,13 +233,13 @@ astPair (Ast.AstFromS stkz1 v1) v2 =
 astPair v1 (Ast.AstFromS stkz2 v2) =
   astFromS (STKProduct (ftkToSTK (ftkAst v1)) stkz2) $ astPair v1 v2
 astPair (Ast.AstConvert c1 zftk1 v1) (Ast.AstConvert c2 zftk2 v2)
-  | checkAstFromS v1 && checkAstFromS v2 =
+  | checkAstFromS zftk1 v1 && checkAstFromS zftk2 v2 =
     astConvert (ConvT2 c1 c2) (FTKProduct zftk1 zftk2) $ astPair v1 v2
 astPair (Ast.AstConvert c1 zftk1 v1) v2
-  | checkAstFromS v2 =
+  | checkAstFromS zftk1 v1 =
     astConvert (ConvT2 c1 ConvId) (FTKProduct zftk1 (ftkAst v2)) $ astPair v1 v2
 astPair v1 (Ast.AstConvert c2 zftk2 v2)
-  | checkAstFromS v2 =
+  | checkAstFromS zftk2 v2 =
     astConvert (ConvT2 ConvId c2) (FTKProduct (ftkAst v1) zftk2) $ astPair v1 v2
 astPair v1 v2 = Ast.AstPair v1 v2
 
@@ -256,8 +256,9 @@ astProject1 u = case u of
     astFromS stk1 $ astProject1 u1
   -- TODO: generalize this somehow to arbitrary Conversions of the right type.
   -- At worst, just generate the canonical (?) c1 for the types at hand.
-  Ast.AstConvert (ConvT2 c1 _c2) (FTKProduct ftk1 _) u1 | checkAstFromS u1 ->
-    astConvert c1 ftk1 $ astProject1 u1
+  Ast.AstConvert (ConvT2 c1 _c2) ftk@(FTKProduct ftk1 _) v
+    | checkAstFromS ftk v ->
+      astConvert c1 ftk1 $ astProject1 v
   _ -> Ast.AstProject1 u
 
 astProject2
@@ -271,8 +272,9 @@ astProject2 u = case u of
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject2 u1
   Ast.AstFromS (STKProduct _ stk2) u1 | FTKProduct{} <- ftkAst u1 ->
     astFromS stk2 $ astProject2 u1
-  Ast.AstConvert (ConvT2 _c1 c2) (FTKProduct _ ftk2) u2 | checkAstFromS u2 ->
-    astConvert c2 ftk2 $ astProject2 u2
+  Ast.AstConvert (ConvT2 _c1 c2) ftk@(FTKProduct _ ftk2) v
+    | checkAstFromS ftk v ->
+      astConvert c2 ftk2 $ astProject2 v
   _ -> Ast.AstProject2 u
 
 astFromVector :: forall y k s. AstSpan s
@@ -451,7 +453,7 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstFromS _ v -> case ftkToSTK (ftkAst v) of
     STKS (snat2 :$$ rest) x -> astFromS stk $ astSum snat2 (STKS rest x) v
     _ -> Ast.AstSum snat stk t0  -- products probably not worth the effort
-  Ast.AstConvert _c zftk t | checkAstFromS t -> case ftkAst t of
+  Ast.AstConvert _c zftk t | checkAstFromS zftk t -> case ftkAst t of
     FTKS ((:$$) @_ @rest snat2 rest) x -> case zftk of
       FTKR (_ :$: rrest) _ | STKR @n _ sx <- stk
                            , Just Refl <- sameSTK sx (ftkToSTK x)
@@ -497,7 +499,7 @@ astReplicate snat stk t0 = case t0 of
   AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
   Ast.AstFromS stkz v ->
     astFromS (buildSTK snat stkz) $ astReplicate snat (ftkToSTK (ftkAst v)) v
-  Ast.AstConvert c zftk t | checkAstFromS t ->
+  Ast.AstConvert c zftk t | checkAstFromS zftk t ->
     let xftk = ftkAst t
     in astConvert (buildTKConversion snat (ftkToSTK xftk) c)
                   (buildFTK snat zftk)
@@ -1201,7 +1203,7 @@ astLet var (Ast.AstFromS stkz a) v =
         mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
       ast = Ast.AstFromS stkz $ astVar var2
   in astLet var2 a (substituteAst ast var v)
-astLet var (Ast.AstConvert c ftkz a) v | checkAstFromS v =
+astLet var (Ast.AstConvert c ftkz a) v | checkAstFromS ftkz a =
   let var2 =
         mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
       ast = astConvert c ftkz $ astVar var2
@@ -1212,7 +1214,7 @@ astLet var u v@(Ast.AstFromS STKScalar _) = Ast.AstLet var u v
 astLet var u v@(AstFromS' FTKScalar _) = Ast.AstLet var u v
 astLet var u (Ast.AstFromS stkz v) =
   astFromS stkz $ astLet var u v
-astLet var u (Ast.AstConvert c ftkz v) | checkAstFromS v =
+astLet var u (Ast.AstConvert c ftkz v) | checkAstFromS ftkz v =
   astConvert c ftkz $ astLet var u v
 astLet var u v = Ast.AstLet var u v
 
@@ -3472,20 +3474,21 @@ pattern AstFromS' :: forall {z1} {s1}. forall y z s. (z ~ z1, s ~ s1)
                   => FullShapeTK z -> AstTensor AstMethodLet s y
                   -> AstTensor AstMethodLet s1 z1
 pattern AstFromS' zftk a <-
-  Ast.AstConvert _c zftk (checkPatternAstFromS -> Just a)
+  Ast.AstConvert _c zftk (checkPatternAstFromS zftk -> Just a)
 
-checkPatternAstFromS :: AstTensor AstMethodLet s y
+checkPatternAstFromS :: FullShapeTK z -> AstTensor AstMethodLet s y
                      -> Maybe (AstTensor AstMethodLet s y)
-checkPatternAstFromS t = if checkAstFromS t then Just t else Nothing
+checkPatternAstFromS zftk t = if checkAstFromS zftk t then Just t else Nothing
 
-checkAstFromS :: AstTensor AstMethodLet s y -> Bool
-checkAstFromS t = checkFtkAstFromS (ftkAst t)
+checkAstFromS :: FullShapeTK z -> AstTensor AstMethodLet s y -> Bool
+checkAstFromS zftk t = checkFtkAstFromS (ftkAst t) zftk
 
-checkFtkAstFromS :: FullShapeTK y -> Bool
-checkFtkAstFromS FTKS{} = True
-checkFtkAstFromS (FTKProduct ftk1 ftk2) =
-  checkFtkAstFromS ftk1 && checkFtkAstFromS ftk2
-checkFtkAstFromS _ = False
+checkFtkAstFromS :: FullShapeTK y -> FullShapeTK z -> Bool
+checkFtkAstFromS FTKS{} _ = True
+checkFtkAstFromS (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) =
+  checkFtkAstFromS yftk1 zftk1 && checkFtkAstFromS yftk2 zftk2
+checkFtkAstFromS yftk zftk | Just Refl <- matchingFTK yftk zftk = True
+checkFtkAstFromS _ _ = False
 
 astFromS' :: forall y z s. AstSpan s
           => FullShapeTK z -> AstTensor AstMethodLet s y
