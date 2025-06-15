@@ -460,7 +460,7 @@ liftXFromS1 f (AstFromS stkz@(STKX _ x) u) = case ftkAst u of
   FTKS _ xu ->
     case sameSTK x (ftkToSTK xu) of
       Just Refl -> case f u of
-        AstSFromX _ a | Just Refl <- sameSTK stkz (ftkToSTK (ftkAst a)) -> a
+        AstConvert _ _ a | Just Refl <- sameSTK stkz (ftkToSTK (ftkAst a)) -> a
         a -> AstFromS stkz a
       _ -> error $ "liftXFromS1: tensor kinds don't agree: "
                    ++ show x ++ " " ++ show xu
@@ -484,7 +484,7 @@ liftXFromS2 f (AstFromS stkz@(STKX _ x) u) (AstFromS _ v) =
            , sameSTK (ftkToSTK xv) x
            , testEquality shu shv ) of
         (Just Refl, Just Refl, Just Refl) -> case f u v of
-          AstSFromX _ a | Just Refl <- sameSTK stkz (ftkToSTK (ftkAst a)) -> a
+          AstConvert _ _ a | Just Refl <- sameSTK stkz (ftkToSTK (ftkAst a)) -> a
           a -> AstFromS stkz a
         _ -> error $ "liftXFromS2: tensor kinds don't agree: "
                      ++ show ftku ++ " " ++ show ftkv ++ " "
@@ -533,4 +533,7 @@ cAstSFromX sh (AstFromPrimal w@(AstFromS _ v)) | FTKX _ x <- ftkAst w =
   case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> AstFromPrimal v
     _ -> error "cAstSFromX: different shapes in AstSFromX(AstFromS)"
-cAstSFromX sh v = AstSFromX sh v
+cAstSFromX sh v = case ftkAst v of
+  FTKX _ x -> let ftk = FTKS sh x
+                  c2 = ConvXS' (ftkToSTK ftk)
+              in AstConvert c2 ftk v
