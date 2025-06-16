@@ -3471,26 +3471,6 @@ astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
                    ++ show (ftkAst v) ++ " vs "
                    ++ show (FTKS sh x)
 
-pattern AstFromS' :: forall {z1} {s1}. forall y z s. (z ~ z1, s ~ s1)
-                  => FullShapeTK z -> AstTensor AstMethodLet s y
-                  -> AstTensor AstMethodLet s1 z1
-pattern AstFromS' zftk a <-
-  Ast.AstConvert _c zftk (checkPatternAstFromS zftk -> Just a)
-
-checkPatternAstFromS :: FullShapeTK z -> AstTensor AstMethodLet s y
-                     -> Maybe (AstTensor AstMethodLet s y)
-checkPatternAstFromS zftk t = if checkAstFromS zftk t then Just t else Nothing
-
-checkAstFromS :: FullShapeTK z -> AstTensor AstMethodLet s y -> Bool
-checkAstFromS zftk t = checkFtkAstFromS (ftkAst t) zftk
-
-checkFtkAstFromS :: FullShapeTK y -> FullShapeTK z -> Bool
-checkFtkAstFromS FTKS{} _ = True
-checkFtkAstFromS (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) =
-  checkFtkAstFromS yftk1 zftk1 && checkFtkAstFromS yftk2 zftk2
-checkFtkAstFromS yftk zftk | Just Refl <- matchingFTK yftk zftk = True
-checkFtkAstFromS _ _ = False
-
 astFromS' :: forall y z s. AstSpan s
           => FullShapeTK z -> AstTensor AstMethodLet s y
           -> AstTensor AstMethodLet s z

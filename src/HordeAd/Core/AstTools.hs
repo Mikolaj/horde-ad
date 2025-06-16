@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | An assortment of operations working on AST of the code to be differentiated
 -- or the code resulting from differentiation.
@@ -12,6 +13,7 @@ module HordeAd.Core.AstTools
   , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstSFromK, cAstSFromR, cAstSFromX
+  , pattern AstFromS', checkAstFromS
   , setTotalSharing
   ) where
 
@@ -406,6 +408,15 @@ liftRFromS1 f (AstFromS stkz@(STKR _ x) u) = case ftkAst u of
       _ -> error $ "liftRFromS1: tensor kinds don't agree: "
                    ++ show x ++ " " ++ show xu
   _ -> error "liftRFromS1: unexpected tensor kind"
+liftRFromS1 f (AstFromS' ftkz@(FTKR _ x) u) = case ftkAst u of
+  FTKS _ xu ->
+    case matchingFTK x xu of
+      Just Refl -> case f u of
+        AstConvert _ _ a | Just Refl <- matchingFTK ftkz (ftkAst a) -> a
+        a -> AstFromS (ftkToSTK ftkz) a
+      _ -> error $ "liftRFromS1: tensor kinds don't agree: "
+                   ++ show x ++ " " ++ show xu
+  _ -> error "liftRFromS1: unexpected tensor kind"
 -- The pessimistic case, no optimization at all.
 liftRFromS1 f a = case ftkAst a of
   ftk@(FTKR sh' _) ->
@@ -436,6 +447,19 @@ liftRFromS2 f (AstFromS stkz@(STKR _ x) u) (AstFromS _ v) =
                    ++ show ftku ++ " " ++ show ftkv ++ " "
                    ++ show stkz
     _ -> error "liftRFromS2: unexpected tensor kinds"
+liftRFromS2 f (AstFromS' ftkz@(FTKR _ x) u) (AstFromS' _ v) =
+  case (ftkAst u, ftkAst v) of
+    (ftku@(FTKS shu xu), ftkv@(FTKS shv xv)) ->
+      case ( matchingFTK xu x
+           , matchingFTK xv x
+           , testEquality shu shv ) of
+      (Just Refl, Just Refl, Just Refl) -> case f u v of
+        AstConvert _ _ a | Just Refl <- matchingFTK ftkz (ftkAst a) -> a
+        a -> AstFromS (ftkToSTK ftkz) a
+      _ -> error $ "liftRFromS2: tensor kinds don't agree: "
+                   ++ show ftku ++ " " ++ show ftkv ++ " "
+                   ++ show ftkz
+    _ -> error "liftRFromS2: unexpected tensor kinds"
 liftRFromS2 f a b  = case ftkAst a of
   ftk@(FTKR sh' _) ->
     withCastRS sh' $ \(sh :: ShS sh) ->
@@ -455,6 +479,15 @@ liftXFromS1 f (AstFromS stkz@(STKX _ x) u) = case ftkAst u of
       Just Refl -> case f u of
         AstConvert _ _ a | Just Refl <- sameSTK stkz (ftkToSTK (ftkAst a)) -> a
         a -> AstFromS stkz a
+      _ -> error $ "liftXFromS1: tensor kinds don't agree: "
+                   ++ show x ++ " " ++ show xu
+  _ -> error "liftXFromS1: unexpected tensor kind"
+liftXFromS1 f (AstFromS' ftkz@(FTKX _ x) u) = case ftkAst u of
+  FTKS _ xu ->
+    case matchingFTK x xu of
+      Just Refl -> case f u of
+        AstConvert _ _ a | Just Refl <- matchingFTK ftkz (ftkAst a) -> a
+        a -> AstFromS (ftkToSTK ftkz) a
       _ -> error $ "liftXFromS1: tensor kinds don't agree: "
                    ++ show x ++ " " ++ show xu
   _ -> error "liftXFromS1: unexpected tensor kind"
@@ -483,6 +516,19 @@ liftXFromS2 f (AstFromS stkz@(STKX _ x) u) (AstFromS _ v) =
                      ++ show ftku ++ " " ++ show ftkv ++ " "
                      ++ show (STKS shu x)
     _ -> error "liftXFromS2: unexpected tensor kinds"
+liftXFromS2 f (AstFromS' ftkz@(FTKX _ x) u) (AstFromS' _ v) =
+  case (ftkAst u, ftkAst v) of
+    (ftku@(FTKS shu xu), ftkv@(FTKS shv xv)) ->
+      case ( matchingFTK xu x
+           , matchingFTK xv x
+           , testEquality shu shv ) of
+        (Just Refl, Just Refl, Just Refl) -> case f u v of
+          AstConvert _ _ a | Just Refl <- matchingFTK ftkz (ftkAst a) -> a
+          a -> AstFromS (ftkToSTK ftkz) a
+        _ -> error $ "liftXFromS2: tensor kinds don't agree: "
+                     ++ show ftku ++ " " ++ show ftkv ++ " "
+                     ++ show (FTKS shu x)
+    _ -> error "liftXFromS2: unexpected tensor kinds"
 liftXFromS2 f a b = case ftkAst a of
   ftk@(FTKX sh' _) ->
     withCastXS sh' $ \(sh :: ShS sh) ->
@@ -499,6 +545,14 @@ cAstSFromK (AstFromPrimal (AstFromS _ v)) =
   case matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) of
     Just Refl -> AstFromPrimal v
     _ -> error "cAstSFromK: different shapes in AstSFromK(AstFromS)"
+cAstSFromK (AstFromS' _ v) =
+  case matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) of
+    Just Refl -> v
+    _ -> error "cAstSFromK: different shapes in AstSFromK(AstFromS)"
+cAstSFromK (AstFromPrimal (AstFromS' _ v)) =
+  case matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) of
+    Just Refl -> AstFromPrimal v
+    _ -> error "cAstSFromK: different shapes in AstSFromK(AstFromS)"
 cAstSFromK v = let c2 = ConvCmp ConvXS (Conv0X STKScalar)
                in AstConvert c2 (FTKS ZSS FTKScalar) v
 
@@ -510,6 +564,14 @@ cAstSFromR sh w@(AstFromS _ v) | FTKR _ x <- ftkAst w =
     Just Refl -> v
     _ -> error "cAstSFromR: different shapes in AstSFromR(AstFromS)"
 cAstSFromR sh (AstFromPrimal w@(AstFromS _ v)) | FTKR _ x <- ftkAst w =
+  case matchingFTK (FTKS sh x) (ftkAst v) of
+    Just Refl -> AstFromPrimal v
+    _ -> error "cAstSFromR: different shapes in AstSFromR(AstFromS)"
+cAstSFromR sh w@(AstFromS' _ v) | FTKR _ x <- ftkAst w =
+  case matchingFTK (FTKS sh x) (ftkAst v) of
+    Just Refl -> v
+    _ -> error "cAstSFromR: different shapes in AstSFromR(AstFromS)"
+cAstSFromR sh (AstFromPrimal w@(AstFromS' _ v)) | FTKR _ x <- ftkAst w =
   case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> AstFromPrimal v
     _ -> error "cAstSFromR: different shapes in AstSFromR(AstFromS)"
@@ -530,7 +592,36 @@ cAstSFromX sh (AstFromPrimal w@(AstFromS _ v)) | FTKX _ x <- ftkAst w =
   case matchingFTK (FTKS sh x) (ftkAst v) of
     Just Refl -> AstFromPrimal v
     _ -> error "cAstSFromX: different shapes in AstSFromX(AstFromS)"
+cAstSFromX sh w@(AstFromS' _ v) | FTKX _ x <- ftkAst w =
+  case matchingFTK (FTKS sh x) (ftkAst v) of
+    Just Refl -> v
+    _ -> error "cAstSFromX: different shapes in AstSFromX(AstFromS)"
+cAstSFromX sh (AstFromPrimal w@(AstFromS' _ v)) | FTKX _ x <- ftkAst w =
+  case matchingFTK (FTKS sh x) (ftkAst v) of
+    Just Refl -> AstFromPrimal v
+    _ -> error "cAstSFromX: different shapes in AstSFromX(AstFromS)"
 cAstSFromX sh v = case ftkAst v of
   FTKX _ x -> let ftk = FTKS sh x
                   c2 = ConvXS' (ftkToSTK ftk)
               in AstConvert c2 ftk v
+
+pattern AstFromS' :: forall {z1} {ms1} {s1}.
+                     forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)
+                  => FullShapeTK z -> AstTensor ms s y
+                  -> AstTensor ms1 s1 z1
+pattern AstFromS' zftk a <-
+  AstConvert _c zftk (checkPatternAstFromS zftk -> Just a)
+
+checkPatternAstFromS :: FullShapeTK z -> AstTensor ms s y
+                     -> Maybe (AstTensor ms s y)
+checkPatternAstFromS zftk t = if checkAstFromS zftk t then Just t else Nothing
+
+checkFtkAstFromS :: FullShapeTK y -> FullShapeTK z -> Bool
+checkFtkAstFromS FTKS{} _ = True
+checkFtkAstFromS (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) =
+  checkFtkAstFromS yftk1 zftk1 && checkFtkAstFromS yftk2 zftk2
+checkFtkAstFromS yftk zftk | Just Refl <- matchingFTK yftk zftk = True
+checkFtkAstFromS _ _ = False
+
+checkAstFromS :: FullShapeTK z -> AstTensor ms s y -> Bool
+checkAstFromS zftk t = checkFtkAstFromS (ftkAst t) zftk
