@@ -451,10 +451,8 @@ printAst cfg d = \case
     (STKS{}, FTKScalar) -> printPrefixOp printAst cfg d "kfromS" [t]
     (STKS{}, FTKR{}) -> printPrefixOp printAst cfg d "rfromS" [t]
     (STKS{}, FTKX{}) -> printPrefixOp printAst cfg d "xfromS" [t]
-    (ystk, zftk) -> let s = "tconvert (" ++ show c
-                          ++ ") (" ++ show ystk
-                          ++ ") (" ++ show zftk ++ ")"
-                    in printPrefixOp printAst cfg d s [t]
+    (ystk, _) -> let s = "tconvert (" ++ show c ++ ") (" ++ show ystk ++ ")"
+                 in printPrefixOp printAst cfg d s [t]
 
   AstSum0S v ->
     printPrefixOp printAst cfg d "ssum0" [v]

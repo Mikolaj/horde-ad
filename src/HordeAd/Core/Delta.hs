@@ -347,9 +347,7 @@ data Delta :: Target -> Target where
   DeltaSFromX :: forall sh sh' r target. Rank sh ~ Rank sh'
               => ShS sh -> Delta target (TKX2 sh' r)
               -> Delta target (TKS2 sh r)
-  DeltaConvert :: TKConversion a b
-                    -> FullShapeTK b -> Delta target a
-                    -> Delta target b
+  DeltaConvert :: TKConversion a b -> Delta target a -> Delta target b
 
 deriving instance Show (IntOf target) => Show (Delta target y)
 
@@ -498,4 +496,4 @@ ftkDelta = \case
     FTKR _ x -> FTKS sh x
   DeltaSFromX sh d -> case ftkDelta d of
     FTKX _ x -> FTKS sh x
-  DeltaConvert _ bftk _ -> bftk
+  DeltaConvert c d -> castFTK c $ ftkDelta d

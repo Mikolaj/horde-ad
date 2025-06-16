@@ -3684,7 +3684,7 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
 -- * ConvertTensor instances needed for unwinding in astConcrete
 
 instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
-  tconvert c _astk _bftk v = astConvert c v
+  tconvert c _astk v = astConvert c v
 
   tfromS = astFromS
   rfromX a = case ftkAst a of

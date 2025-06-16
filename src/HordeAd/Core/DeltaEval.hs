@@ -769,13 +769,14 @@ evalRevSame !s !c = \case
       withKnownShS sh $
       withKnownShX (ssxFromShX sh2) $
       evalRevSame s (xfromS c) d
-  DeltaConvert @a c1 bftk d -> case ftkDelta d of
+  DeltaConvert @a c1 d -> case ftkDelta d of
     aftk ->
       -- This follows from the same property for @b@ and from @c1@
       -- not changing the underlying scalar types.
       gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
       evalRevSame
-        s (tconvert (transposeTKConversion aftk c1) (ftkToSTK bftk) aftk c) d
+        s (tconvert (transposeTKConversion aftk c1)
+                    (castSTK c1 $ ftkToSTK $ ftkDelta d) c) d
 
   d -> evalRevFTK s c d
     -- the remaining constructors are already handled in evalRevFTK
@@ -1180,11 +1181,11 @@ evalFwdSame params s = \case
       withKnownSTK (ftkToSTK x) $
       withKnownShS sh $
       second sfromX $ evalFwdSame params s d
-  DeltaConvert @a c1 bftk d ->
+  DeltaConvert @a c1 d ->
     -- This follows from the same property for @b@ and from @c1@
     -- not changing the underlying scalar types.
     gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
-    second (tconvert c1 (ftkToSTK (ftkDelta d)) bftk)
+    second (tconvert c1 (ftkToSTK (ftkDelta d)))
            (evalFwdSame params s d)
 
   d -> evalFwd params s d

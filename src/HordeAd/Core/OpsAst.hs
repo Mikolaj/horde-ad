@@ -1094,8 +1094,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tdot0Target = dot0Target
 
 instance AstSpan s => ConvertTensor (AstRaw s) where
-  tconvert c _astk _bftk =
-    AstRaw . AstConvert c . unAstRaw
+  tconvert c _astk = AstRaw . AstConvert c . unAstRaw
 
   tfromS zstk (AstRaw a) = AstRaw $ AstFromS zstk a
   rfromX a = case ftkAst $ unAstRaw a of
@@ -1377,8 +1376,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                                                          (unAstNoVectorize b)
 
 instance AstSpan s => ConvertTensor (AstNoVectorize s) where
-  tconvert c _astk _bftk =
-    AstNoVectorize . astConvert c . unAstNoVectorize
+  tconvert c _astk = AstNoVectorize . astConvert c . unAstNoVectorize
 
   tfromS zstk = AstNoVectorize . tfromS zstk . unAstNoVectorize
   rfromX = AstNoVectorize . rfromX . unAstNoVectorize
@@ -1633,8 +1631,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                                                          (wunAstNoSimplify b)
 
 instance AstSpan s => ConvertTensor (AstNoSimplify s) where
-  tconvert c astk bftk =
-    wAstNoSimplify . tconvert c astk bftk . wunAstNoSimplify
+  tconvert c astk = wAstNoSimplify . tconvert c astk . wunAstNoSimplify
 
   tfromS zstk = AstNoSimplify . AstFromS zstk . unAstNoSimplify
   rfromX = wAstNoSimplify . rfromX . wunAstNoSimplify
