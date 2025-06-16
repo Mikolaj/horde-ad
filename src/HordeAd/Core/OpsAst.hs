@@ -1108,12 +1108,9 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
         withKnownShS sh $
         xfromS @_ @sh $ sfromR a
 
-  kfromS = AstRaw . AstFromS knownSTK . unAstRaw
-  rfromS @sh @x | SNat <- shsRank (knownShS @sh) =
-    AstRaw . AstFromS (knownSTK @(TKR2 (Rank sh) x)) . unAstRaw
   sfromR = AstRaw . cAstSFromR knownShS . unAstRaw
   sfromX = AstRaw . cAstSFromX knownShS . unAstRaw
-  xfromS @_ @sh' @x = AstRaw . AstFromS (knownSTK @(TKX2 sh' x)) . unAstRaw
+  xfromS @_ @sh' = AstRaw . cAstXFromS (knownShX @sh') . unAstRaw
 
   rzip @_ @_ @n (AstRaw a)
    | Refl <- lemRankReplicate (Proxy @n) = AstRaw $ case ftkAst a of
@@ -1383,6 +1380,7 @@ instance AstSpan s => ConvertTensor (AstNoVectorize s) where
 
   sfromR = AstNoVectorize . sfromR . unAstNoVectorize
   sfromX = AstNoVectorize . sfromX . unAstNoVectorize
+  xfromS = AstNoVectorize . xfromS . unAstNoVectorize
 
   rzip = AstNoVectorize . rzip . unAstNoVectorize
   runzip = AstNoVectorize . runzip . unAstNoVectorize
@@ -1637,6 +1635,7 @@ instance AstSpan s => ConvertTensor (AstNoSimplify s) where
 
   sfromR = wAstNoSimplify . sfromR . wunAstNoSimplify
   sfromX = wAstNoSimplify . sfromX . wunAstNoSimplify
+  xfromS = wAstNoSimplify . xfromS . wunAstNoSimplify
 
   rzip = wAstNoSimplify . rzip . wunAstNoSimplify
   runzip = wAstNoSimplify . runzip . wunAstNoSimplify

@@ -12,7 +12,7 @@ module HordeAd.Core.CarriersADVal
     ADVal, pattern D, dD, dDnotShared
     -- * Auxiliary definitions
   , unDeltaPair, unDeltaPairUnshared, dScale, dAdd
-  , dFromS, dSFromR, dSFromX
+  , dFromS, dSFromR, dSFromX, dXFromS
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
   , generateDeltaInputs
   ) where
@@ -154,6 +154,20 @@ dSFromX sh w@(DeltaConvert _c d)
 dSFromX sh d | FTKX _ x <- ftkDelta d =
   let c2 = ConvXS' (FTKS sh x)
   in DeltaConvert c2 d
+
+dXFromS :: forall sh sh' x target. Rank sh ~ Rank sh'
+        => StaticShX sh' -> Delta target (TKS2 sh x)
+        -> Delta target (TKX2 sh' x)
+dXFromS ssx w@(DeltaConvert _c d)
+  | FTKS sh x <- ftkDelta w
+  , let shx = shCastSX ssx sh
+  , Just Refl <- matchingFTK (ftkDelta d) (FTKX shx x) = d
+dXFromS ssx d
+  | FTKS sh x <- ftkDelta d
+  , let shx = shCastSX ssx sh
+  , Refl <- lemRankMapJust sh =
+    let c2 = ConvCmp (ConvXX' (FTKX shx x)) ConvSX
+    in DeltaConvert c2 d
 
 -- This hack is needed to recover shape from tensors,
 -- in particular in case of numeric literals and also for forward derivative.

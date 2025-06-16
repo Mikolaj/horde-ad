@@ -557,6 +557,7 @@ instance ( ADReadyNoLet target, ShareTensor target
 
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR knownShS u')
   sfromX (D u u') = dDnotShared (sfromX u) (dSFromX knownShS u')
+  xfromS (D u u') = dDnotShared (xfromS u) (dXFromS knownShX u')
 
   rzip @_ @_ @n (D u u')
    | Refl <- lemRankReplicate (Proxy @n) = case ftkDelta u' of

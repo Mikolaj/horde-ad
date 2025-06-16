@@ -12,7 +12,7 @@ module HordeAd.Core.AstTools
     -- * Odds and ends
   , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
-  , cAstSFromR, cAstSFromX
+  , cAstSFromR, cAstSFromX, cAstXFromS
   , pattern AstFromS', checkAstFromS
   , setTotalSharing
   ) where
@@ -577,6 +577,25 @@ cAstSFromX sh (AstFromPrimal w@(AstFromS' _ v))
 cAstSFromX sh v = case ftkAst v of
   FTKX _ x -> let c2 = ConvXS' (FTKS sh x)
               in AstConvert c2 v
+
+cAstXFromS :: forall sh sh' x ms s. Rank sh ~ Rank sh'
+           => StaticShX sh' -> AstTensor ms s (TKS2 sh x)
+           -> AstTensor ms s (TKX2 sh' x)
+cAstXFromS ssx w@(AstConvert _ v)
+  | FTKS sh x <- ftkAst w
+  , let shx = shCastSX ssx sh
+  , Just Refl <- matchingFTK (FTKX shx x) (ftkAst v) = v
+cAstXFromS ssx (AstFromPrimal w@(AstConvert _ v))
+  | FTKS sh x <- ftkAst w
+  , let shx = shCastSX ssx sh
+  , Just Refl <- matchingFTK (FTKX shx x) (ftkAst v) =
+    AstFromPrimal v
+cAstXFromS ssx v
+  | FTKS sh x <- ftkAst v
+  , let shx = shCastSX ssx sh
+  , Refl <- lemRankMapJust sh =
+    let c2 = ConvCmp (ConvXX' (FTKX shx x)) ConvSX
+    in AstConvert c2 v
 
 pattern AstFromS' :: forall {z1} {ms1} {s1}.
                      forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)

@@ -34,7 +34,7 @@ module HordeAd.Core.AstSimplify
   , astIndexS, astIndexKnobsS, astScatterS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
 
-  , astConvert, astFromS, astSFromK', astSFromR', astSFromX'
+  , astConvert, astFromS, astXFromS', astSFromK', astSFromR', astSFromX'
   , astSum0S, astDot0S, astDot1InS, astMatmul2S
 
     -- * Helper combinators
@@ -3494,6 +3494,14 @@ astFromS' zftk t =
                      ++ "(" ++ show yftk0 ++ ", " ++ show zftk0 ++ ")"
   in astConvertFromS (fromS yftk zftk) zftk t
 
+astXFromS' :: forall sh shx x s. (AstSpan s, Rank sh ~ Rank shx)
+           => StaticShX shx -> AstTensor AstMethodLet s (TKS2 sh x)
+           -> AstTensor AstMethodLet s (TKX2 shx x)
+astXFromS' ssx t | FTKS sh x <- ftkAst t
+                 , Refl <- lemRankMapJust sh =
+  let shx = shCastSX ssx sh
+  in astConvertFromS (ConvCmp (ConvXX' (FTKX shx x)) ConvSX) (FTKX shx x) t
+
 pattern AstSFromK' :: () => sh ~ '[]
                    => AstTensor AstMethodLet s (TKScalar r)
                    -> AstTensor AstMethodLet s (TKS sh r)
@@ -3700,6 +3708,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
 
   sfromR = astSFromR' knownShS
   sfromX = astSFromX' knownShS
+  xfromS = astXFromS' knownShX
 
   rzip @_ @_ @n a
    | Refl <- lemRankReplicate (Proxy @n) = case ftkAst a of

@@ -7,7 +7,7 @@ module HordeAd.Core.ConvertTensor
 
 import Prelude
 
-import Data.Type.Equality (gcastWith, (:~:))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import GHC.TypeLits (KnownNat, Nat, type (+))
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
@@ -44,16 +44,19 @@ class ConvertTensor (target :: Target) where
   kfromR = kfromS . sfromR
   -- | The conversion from an empty shape shaped tensor to a scalar.
   kfromS :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
-  kfromS = tfromS knownSTK
+  kfromS = let c = ConvCmp ConvX0 ConvSX
+           in tconvert c (STKS ZSS STKScalar)
   kfromX :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
   kfromX = kfromS . sfromX
   rfromK :: GoodScalar r => target (TKScalar r) -> target (TKR 0 r)
   rfromK = rfromS . sfromK
   -- | The conversion from a shaped tensor to the corresponding ranked tensor
   -- of the same rank.
-  rfromS :: (KnownShS sh, KnownSTK x)
+  rfromS :: forall sh x. (KnownShS sh, KnownSTK x)
          => target (TKS2 sh x) -> target (TKR2 (Rank sh) x)
-  rfromS @sh @x = tfromS (STKR (shsRank (knownShS @sh)) (knownSTK @x))
+  rfromS | Refl <- lemRankMapJust (knownShS @sh) =
+    let c = ConvCmp (ConvXR knownSTK) ConvSX
+    in tconvert c (STKS knownShS knownSTK)
   rfromX :: forall sh x. KnownSTK x
          => target (TKX2 sh x) -> target (TKR2 (Rank sh) x)
   sfromK :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
@@ -71,7 +74,6 @@ class ConvertTensor (target :: Target) where
          => target (TKR2 (Rank sh') x) -> target (TKX2 sh' x)
   xfromS :: (KnownShS sh, KnownShX sh', Rank sh ~ Rank sh', KnownSTK x)
          => target (TKS2 sh x) -> target (TKX2 sh' x)
-  xfromS = tfromS knownSTK
 
   rzip :: forall y z n. (KnownSTK y, KnownSTK z)
        => target (TKProduct (TKR2 n y) (TKR2 n z))
