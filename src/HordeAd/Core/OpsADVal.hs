@@ -555,7 +555,6 @@ instance ( ADReadyNoLet target, ShareTensor target
         withKnownShS sh $
         xfromS @_ @sh $ sfromR a
 
-  sfromK (D t d) = dDnotShared (sfromK t) (DeltaSFromK d)
   sfromR (D u u') = dDnotShared (sfromR u) (dSFromR knownShS u')
   sfromX (D u u') = dDnotShared (sfromX u) (dSFromX knownShS u')
 

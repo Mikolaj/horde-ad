@@ -12,7 +12,7 @@ module HordeAd.Core.AstTools
     -- * Odds and ends
   , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
-  , cAstSFromK, cAstSFromR, cAstSFromX
+  , cAstSFromR, cAstSFromX
   , pattern AstFromS', checkAstFromS
   , setTotalSharing
   ) where
@@ -534,21 +534,6 @@ liftXFromS2 f a b = case ftkAst a of
     withCastXS sh' $ \(sh :: ShS sh) ->
       AstFromS @(TKS2 sh x) (ftkToSTK ftk)
       $ f (cAstSFromX @sh @sh' sh a) (cAstSFromX @sh @sh' sh b)
-
-cAstSFromK :: forall r ms s. GoodScalar r
-           => AstTensor ms s (TKScalar r) -> AstTensor ms s (TKS '[] r)
-cAstSFromK (AstFromS _ v)
-  | Just Refl <- matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) = v
-cAstSFromK (AstFromPrimal (AstFromS _ v))
-  | Just Refl <- matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) =
-    AstFromPrimal v
-cAstSFromK (AstFromS' _ v)
-  | Just Refl <- matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) = v
-cAstSFromK (AstFromPrimal (AstFromS' _ v))
-  | Just Refl <- matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) =
-    AstFromPrimal v
-cAstSFromK v = let c2 = ConvCmp ConvXS (Conv0X STKScalar)
-               in AstConvert c2 v
 
 cAstSFromR :: forall sh x ms s.
               ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)

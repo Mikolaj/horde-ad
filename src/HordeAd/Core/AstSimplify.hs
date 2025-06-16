@@ -3698,7 +3698,6 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
         withKnownShS sh $
         xfromS @_ @sh $ sfromR a
 
-  sfromK = astSFromK'
   sfromR = astSFromR' knownShS
   sfromX = astSFromX' knownShS
 

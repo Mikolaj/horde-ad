@@ -11,7 +11,7 @@ import Data.Type.Equality (gcastWith, (:~:))
 import GHC.TypeLits (KnownNat, Nat, type (+))
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
-import Data.Array.Nested.Convert
+import Data.Array.Nested.Convert (shxFromShS)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
@@ -35,6 +35,10 @@ class ConvertTensor (target :: Target) where
   tfromS :: KnownSTK y
          => SingletonTK z -> target y -> target z
 
+  -- All operations below could be defined in terms of tconvert,
+  -- but they'd need additional singleton arguments or constraints
+  -- or we'd need to depend on BaseTensor to use rshape, etc.
+
   -- | The conversion from a rank 0 ranked tensor to a scalar.
   kfromR :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
   kfromR = kfromS . sfromR
@@ -53,6 +57,8 @@ class ConvertTensor (target :: Target) where
   rfromX :: forall sh x. KnownSTK x
          => target (TKX2 sh x) -> target (TKR2 (Rank sh) x)
   sfromK :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
+  sfromK = let c = ConvCmp ConvXS (Conv0X STKScalar)
+           in tconvert c STKScalar
   -- | The conversion from a ranked tensor to the corresponding shaped tensor
   -- of the same rank.
   sfromR :: (KnownShS sh, KnownSTK x)
@@ -67,8 +73,6 @@ class ConvertTensor (target :: Target) where
          => target (TKS2 sh x) -> target (TKX2 sh' x)
   xfromS = tfromS knownSTK
 
-  -- All operations below could be defined in terms of tconvert,
-  -- but they'd need additional singleton arguments or constraints.
   rzip :: forall y z n. (KnownSTK y, KnownSTK z)
        => target (TKProduct (TKR2 n y) (TKR2 n z))
        -> target (TKR2 n (TKProduct y z))

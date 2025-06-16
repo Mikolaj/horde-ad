@@ -1111,7 +1111,6 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
   kfromS = AstRaw . AstFromS knownSTK . unAstRaw
   rfromS @sh @x | SNat <- shsRank (knownShS @sh) =
     AstRaw . AstFromS (knownSTK @(TKR2 (Rank sh) x)) . unAstRaw
-  sfromK = AstRaw . cAstSFromK . unAstRaw
   sfromR = AstRaw . cAstSFromR knownShS . unAstRaw
   sfromX = AstRaw . cAstSFromX knownShS . unAstRaw
   xfromS @_ @sh' @x = AstRaw . AstFromS (knownSTK @(TKX2 sh' x)) . unAstRaw
@@ -1382,7 +1381,6 @@ instance AstSpan s => ConvertTensor (AstNoVectorize s) where
   rfromX = AstNoVectorize . rfromX . unAstNoVectorize
   xfromR = AstNoVectorize . xfromR . unAstNoVectorize
 
-  sfromK = AstNoVectorize . sfromK . unAstNoVectorize
   sfromR = AstNoVectorize . sfromR . unAstNoVectorize
   sfromX = AstNoVectorize . sfromX . unAstNoVectorize
 
@@ -1637,7 +1635,6 @@ instance AstSpan s => ConvertTensor (AstNoSimplify s) where
   rfromX = wAstNoSimplify . rfromX . wunAstNoSimplify
   xfromR = wAstNoSimplify . xfromR . wunAstNoSimplify
 
-  sfromK = wAstNoSimplify . sfromK . wunAstNoSimplify
   sfromR = wAstNoSimplify . sfromR . wunAstNoSimplify
   sfromX = wAstNoSimplify . sfromX . wunAstNoSimplify
 
