@@ -478,11 +478,7 @@ evalRevFTK !s !c d0 = case d0 of
         s2 = evalRevFTK s dacc acc0'
     in evalRevFTK s2 des es'
 
-  DeltaFromS stk (DeltaSFromR _ d)
-    | y2 <- ftkDelta d
-    , Just Refl <- sameSTK (adSTK stk) (adSTK $ ftkToSTK y2) ->
-      evalRev y2 s c d
-  DeltaFromS stk (DeltaSFromX _ d)
+  DeltaFromS stk (DeltaConvert _c d)
     | y2 <- ftkDelta d
     , Just Refl <- sameSTK (adSTK stk) (adSTK $ ftkToSTK y2) ->
       evalRev y2 s c d
@@ -749,26 +745,6 @@ evalRevSame !s !c = \case
       withKnownSTK (ftkToSTK x) $
       evalRevSame s (txreshape sh c) d
 
-  DeltaSFromK d -> evalRevSame s (kfromS c) d
-  DeltaSFromR sh (DeltaFromS (STKR _ x) d) -> case ftkDelta d of
-    y2 -> case sameSTK (ftkToSTK y2) (STKS sh x) of
-      Just Refl -> evalRevSame s c d
-      _ -> error "evalRevSame: different shapes in DeltaSFromR(DeltaFromS)"
-  DeltaSFromR sh d -> case ftkDelta d of
-    FTKR _ x ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShS sh $
-      evalRevSame s (rfromS c) d
-  DeltaSFromX sh (DeltaFromS (STKX _ x) d) -> case ftkDelta d of
-    y2 -> case sameSTK (ftkToSTK y2) (STKS sh x) of
-      Just Refl -> evalRevSame s c d
-      _ -> error "evalRevSame: different shapes in DeltaSFromX(DeltaFromS)"
-  DeltaSFromX sh d -> case ftkDelta d of
-    FTKX sh2 x ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShS sh $
-      withKnownShX (ssxFromShX sh2) $
-      evalRevSame s (xfromS c) d
   DeltaConvert @a c1 d -> case ftkDelta d of
     aftk ->
       -- This follows from the same property for @b@ and from @c1@
@@ -945,11 +921,7 @@ evalFwd params s d0 = case d0 of
                        cacc0
                        (tpair ces (tpair q es)))
 
-  DeltaFromS stk (DeltaSFromR _ d)
-    | y2 <- ftkDelta d
-    , Just Refl <- sameSTK (adSTK stk) (adSTK $ ftkToSTK y2) ->
-      evalFwd params s d
-  DeltaFromS stk (DeltaSFromX _ d)
+  DeltaFromS stk (DeltaConvert _c d)
     | y2 <- ftkDelta d
     , Just Refl <- sameSTK (adSTK stk) (adSTK $ ftkToSTK y2) ->
       evalFwd params s d
@@ -1161,26 +1133,6 @@ evalFwdSame params s = \case
       withKnownSTK (ftkToSTK x) $
       second (txreshape sh2) $ evalFwdSame params s d
 
-  DeltaSFromK d -> let (s2, t) = evalFwdSame params s d
-                   in (s2, sfromK t)
-  DeltaSFromR sh (DeltaFromS (STKR _ x) d) -> case ftkDelta d of
-    y2 -> case sameSTK (ftkToSTK y2) (STKS sh x) of
-      Just Refl -> evalFwdSame params s d
-      _ -> error "evalFwdSame: different shapes in DeltaSFromR(DeltaFromS)"
-  DeltaSFromR sh d -> case ftkDelta d of
-    FTKR _ x ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShS sh $
-      second sfromR $ evalFwdSame params s d
-  DeltaSFromX sh (DeltaFromS (STKX _ x) d) -> case ftkDelta d of
-    y2 -> case sameSTK (ftkToSTK y2) (STKS sh x) of
-      Just Refl -> evalFwdSame params s d
-      _ -> error "evalFwdSame: different shapes in DeltaSFromX(DeltaFromS)"
-  DeltaSFromX sh d -> case ftkDelta d of
-    FTKX _ x ->
-      withKnownSTK (ftkToSTK x) $
-      withKnownShS sh $
-      second sfromX $ evalFwdSame params s d
   DeltaConvert @a c1 d ->
     -- This follows from the same property for @b@ and from @c1@
     -- not changing the underlying scalar types.

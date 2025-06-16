@@ -339,14 +339,6 @@ data Delta :: Target -> Target where
   -- Conversions
   DeltaFromS :: forall y z target.
                 SingletonTK z -> Delta target y -> Delta target z
-  DeltaSFromK :: GoodScalar r
-              => Delta target (TKScalar r) -> Delta target (TKS '[] r)
-  DeltaSFromR :: forall sh r target.
-                 ShS sh -> Delta target (TKR2 (Rank sh) r)
-              -> Delta target (TKS2 sh r)
-  DeltaSFromX :: forall sh sh' r target. Rank sh ~ Rank sh'
-              => ShS sh -> Delta target (TKX2 sh' r)
-              -> Delta target (TKS2 sh r)
   DeltaConvert :: TKConversion a b -> Delta target a -> Delta target b
 
 deriving instance Show (IntOf target) => Show (Delta target y)
@@ -491,9 +483,4 @@ ftkDelta = \case
             FTKProduct (fromS ftk1 stk1) (fromS ftk2 stk2)
           _ -> error "ftkDelta: wrong tensor kinds for DeltaFromS"
     in fromS (ftkDelta d) stk0
-  DeltaSFromK{} -> FTKS ZSS FTKScalar
-  DeltaSFromR sh d -> case ftkDelta d of
-    FTKR _ x -> FTKS sh x
-  DeltaSFromX sh d -> case ftkDelta d of
-    FTKX _ x -> FTKS sh x
   DeltaConvert c d -> castFTK c $ ftkDelta d

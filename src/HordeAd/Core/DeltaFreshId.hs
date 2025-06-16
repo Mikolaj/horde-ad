@@ -65,7 +65,4 @@ shareDelta d = unsafePerformIO $ do
     DeltaProject1 DeltaShare{} -> d
     DeltaProject2 DeltaShare{} -> d
     DeltaZero{} -> d
-    DeltaSFromK{} -> d  -- only metadata changes
-    DeltaSFromR{} -> d
-    DeltaSFromX{} -> d
     _ -> DeltaShare (mkNodeId (ftkDelta d) n) d

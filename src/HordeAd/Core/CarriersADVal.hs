@@ -20,11 +20,13 @@ module HordeAd.Core.CarriersADVal
 import Prelude
 
 import Data.Int (Int64)
+import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
 
+import Data.Array.Nested.Lemmas
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
 import HordeAd.Core.DeltaFreshId
@@ -128,29 +130,30 @@ dAdd v w = DeltaAdd v w
 -- Prevents building huge Delta terms, not only evaluating them.
 dFromS :: forall y z target.
           SingletonTK z -> Delta target y -> Delta target z
-dFromS stk (DeltaSFromR _sh d)
-  | Just Refl <- sameSTK stk (ftkToSTK $ ftkDelta d) = d
-dFromS stk (DeltaSFromX _sh d)
+dFromS stk (DeltaConvert _c d)
   | Just Refl <- sameSTK stk (ftkToSTK $ ftkDelta d) = d
 dFromS stk d = DeltaFromS stk d
 
 dSFromR :: forall sh x target.
            ShS sh -> Delta target (TKR2 (Rank sh) x)
         -> Delta target (TKS2 sh x)
-dSFromR sh (DeltaFromS (STKR _ x) d) =
-  case sameSTK (ftkToSTK $ ftkDelta d) (STKS sh x) of
-    Just Refl -> d
-    _ -> error "sfromR: different shapes in DeltaSFromR(DeltaFromS)"
-dSFromR sh d = DeltaSFromR sh d
+dSFromR sh w@(DeltaConvert _c d)
+  | FTKR _ x <- ftkDelta w
+  , Just Refl <- matchingFTK (ftkDelta d) (FTKS sh x) = d
+dSFromR sh d | FTKR _ x <- ftkDelta d
+             , Refl <- lemRankReplicate (Proxy @(Rank sh)) =
+  let c2 = ConvCmp (ConvXS' (FTKS sh x)) ConvRX
+  in DeltaConvert c2 d
 
 dSFromX :: forall sh sh' x target. Rank sh ~ Rank sh'
         => ShS sh -> Delta target (TKX2 sh' x)
         -> Delta target (TKS2 sh x)
-dSFromX sh (DeltaFromS (STKX _ x) d) =
-  case sameSTK (ftkToSTK $ ftkDelta d) (STKS sh x) of
-    Just Refl -> d
-    _ -> error "sfromR: different shapes in DeltaSFromX(DeltaFromS)"
-dSFromX sh d = DeltaSFromX sh d
+dSFromX sh w@(DeltaConvert _c d)
+  | FTKX _ x <- ftkDelta w
+  , Just Refl <- matchingFTK (ftkDelta d) (FTKS sh x) = d
+dSFromX sh d | FTKX _ x <- ftkDelta d =
+  let c2 = ConvXS' (FTKS sh x)
+  in DeltaConvert c2 d
 
 -- This hack is needed to recover shape from tensors,
 -- in particular in case of numeric literals and also for forward derivative.

@@ -554,8 +554,7 @@ cAstSFromR sh (AstFromPrimal w@(AstFromS' _ v))
     AstFromPrimal v
 cAstSFromR sh v = case ftkAst v of
   FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
-    let ftk = FTKS sh x
-        c2 = ConvCmp (ConvXS' ftk) ConvRX
+    let c2 = ConvCmp (ConvXS' (FTKS sh x)) ConvRX
     in AstConvert c2 v
 
 cAstSFromX :: forall sh sh' x ms s. Rank sh ~ Rank sh'
@@ -576,8 +575,7 @@ cAstSFromX sh (AstFromPrimal w@(AstFromS' _ v))
   , Just Refl <- matchingFTK (FTKS sh x) (ftkAst v) =
     AstFromPrimal v
 cAstSFromX sh v = case ftkAst v of
-  FTKX _ x -> let ftk = FTKS sh x
-                  c2 = ConvXS' ftk
+  FTKX _ x -> let c2 = ConvXS' (FTKS sh x)
               in AstConvert c2 v
 
 pattern AstFromS' :: forall {z1} {ms1} {s1}.
