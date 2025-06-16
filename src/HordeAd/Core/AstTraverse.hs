@@ -180,7 +180,7 @@ expandAst t = case t of
     -} astReshapeS sh (expandAst v)
 
   Ast.AstFromS stkz v -> astFromS stkz $ expandAst v
-  Ast.AstConvert c bftk v -> astConvert c bftk $ expandAst v
+  Ast.AstConvert c v -> astConvert c $ expandAst v
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstSum0S{} -> t
@@ -296,7 +296,7 @@ simplifyAst t = case t of
   Ast.AstReshapeS sh v -> astReshapeS sh $ simplifyAst v
 
   Ast.AstFromS stkz v -> astFromS stkz $ simplifyAst v
-  Ast.AstConvert c bftk v -> astConvert c bftk $ simplifyAst v
+  Ast.AstConvert c v -> astConvert c $ simplifyAst v
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstSum0S{} -> t
@@ -602,7 +602,7 @@ contractAst t0 = case t0 of
     t2 -> astReshapeS sh2 t2
 
   Ast.AstFromS stkz v -> astFromS stkz $ contractAst v
-  Ast.AstConvert c bftk v -> astConvert c bftk $ contractAst v
+  Ast.AstConvert c v -> astConvert c $ contractAst v
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstSum0S{} -> t0

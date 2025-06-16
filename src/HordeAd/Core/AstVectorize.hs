@@ -311,9 +311,8 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
 
     Ast.AstFromS stkz v -> traceRule $
       astFromS (buildSTK snat stkz) $ build1V snat (var, v)
-    Ast.AstConvert c bftk v -> traceRule $
+    Ast.AstConvert c v -> traceRule $
       astConvert (buildTKConversion snat (ftkAst v) c)
-                 (buildFTK snat bftk)
       $ build1V snat (var, v)
 
     Ast.AstSum0S{} -> error "build1V: term not accessible from user API"

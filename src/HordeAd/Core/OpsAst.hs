@@ -23,9 +23,8 @@ import GHC.TypeLits (OrderingI (..), cmpNat, type (+), type (-), type (<=?))
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (MapJust, Replicate, type (++))
+import Data.Array.Nested (Replicate, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert (shrFromShX2, shxFromShR, shxFromShS)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
@@ -1095,8 +1094,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tdot0Target = dot0Target
 
 instance AstSpan s => ConvertTensor (AstRaw s) where
-  tconvert c _astk bftk =
-    AstRaw . AstConvert c bftk . unAstRaw
+  tconvert c _astk _bftk =
+    AstRaw . AstConvert c . unAstRaw
 
   tfromS zstk (AstRaw a) = AstRaw $ AstFromS zstk a
   rfromX a = case ftkAst $ unAstRaw a of
@@ -1120,98 +1119,83 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
 
   rzip @_ @_ @n (AstRaw a)
    | Refl <- lemRankReplicate (Proxy @n) = AstRaw $ case ftkAst a of
-    FTKProduct (FTKR sh y) (FTKR _sh z) ->
+    FTKProduct (FTKR _sh y) (FTKR _ z) ->
       let c = ConvCmp
                 (ConvXR (ftkToSTK (FTKProduct y z)))
                 (ConvCmp
                    (ConvZip (ftkToSTK y) (ftkToSTK z))
                    (ConvT2 ConvRX ConvRX))
-          ftk2 = FTKR sh (FTKProduct y z)
-      in AstConvert c ftk2 a
+      in AstConvert c a
   runzip @_ @_ @n (AstRaw a)
    | Refl <- lemRankReplicate (Proxy @n) = AstRaw $ case ftkAst a of
-    FTKR sh (FTKProduct y z) ->
+    FTKR _sh (FTKProduct y z) ->
       let c = ConvCmp
                 (ConvT2 (ConvXR (ftkToSTK y)) (ConvXR (ftkToSTK z)))
                 (ConvCmp
                    (ConvUnzip (ftkToSTK y) (ftkToSTK z))
                    ConvRX)
-          ftk2 = FTKProduct (FTKR sh y) (FTKR sh z)
-      in AstConvert c ftk2 a
+      in AstConvert c a
   szip (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKProduct (FTKS sh y) (FTKS _sh z) ->
+    FTKProduct (FTKS _sh y) (FTKS _ z) ->
       let c = ConvCmp
                 ConvXS
                 (ConvCmp
                    (ConvZip (ftkToSTK y) (ftkToSTK z))
                    (ConvT2 ConvSX ConvSX))
-          ftk2 = FTKS sh (FTKProduct y z)
-      in AstConvert c ftk2 a
+      in AstConvert c a
   sunzip (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKS sh (FTKProduct y z) ->
+    FTKS _sh (FTKProduct y z) ->
       let c = ConvCmp
                 (ConvT2 ConvXS ConvXS)
                 (ConvCmp
                    (ConvUnzip (ftkToSTK y) (ftkToSTK z))
                    ConvSX)
-          ftk2 = FTKProduct (FTKS sh y) (FTKS sh z)
-      in AstConvert c ftk2 a
+      in AstConvert c a
   xzip (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKProduct (FTKX sh y) (FTKX _sh z) ->
+    FTKProduct (FTKX _sh y) (FTKX _ z) ->
       let c = ConvZip (ftkToSTK y) (ftkToSTK z)
-          ftk2 = FTKX sh (FTKProduct y z)
-      in AstConvert c ftk2 a
+      in AstConvert c a
   xunzip (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh (FTKProduct y z) ->
+    FTKX _sh (FTKProduct y z) ->
       let c = ConvUnzip (ftkToSTK y) (ftkToSTK z)
-          ftk2 = FTKProduct (FTKX sh y) (FTKX sh z)
-      in AstConvert c ftk2 a
+      in AstConvert c a
 
   xnestR @sh1 @m @x sh1 (AstRaw a)
    | Refl <- lemRankReplicate (Proxy @m) = AstRaw $ case ftkAst a of
-    FTKX sh1sh2 x ->
+    FTKX _sh1sh2 _x ->
       let c :: TKConversion (TKX2 (sh1 ++ Replicate m Nothing) x)
                           (TKX2 sh1 (TKR2 m x))
           c = ConvCmp
                 (ConvXX (ConvXR (knownSTK @x)))
                 (ConvNest @_ @_ @(Replicate m Nothing)
                           (STKX sh1 (knownSTK @x)))
-          ftk2 = FTKX (shxTakeSSX (Proxy @(Replicate m Nothing)) sh1sh2 sh1)
-                      (FTKR (shrFromShX2 (shxDropSSX sh1sh2 sh1)) x)
-      in AstConvert c ftk2 a
-  xnestS @_ @sh2 @x sh1 (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh1sh2 x ->
+      in AstConvert c a
+  xnestS @_ @_ @x sh1 (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX _sh1sh2 _x ->
       let c = ConvCmp
                 (ConvXX ConvXS)
                 (ConvNest (STKX sh1 (knownSTK @x)))
-          ftk2 = FTKX (shxTakeSSX (Proxy @(MapJust sh2)) sh1sh2 sh1)
-                      (FTKS (knownShS @sh2) x)
-      in AstConvert c ftk2 a
-  xnest @_ @sh2 @x sh1 (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh1sh2 x ->
+      in AstConvert c a
+  xnest @_ @_ @x sh1 (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX _sh1sh2 _x ->
       let c = ConvNest (STKX sh1 (knownSTK @x))
-          ftk2 = FTKX (shxTakeSSX (Proxy @sh2) sh1sh2 sh1)
-                      (FTKX (shxDropSSX sh1sh2 sh1) x)
-      in AstConvert c ftk2 a
+      in AstConvert c a
   xunNestR (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh1 (FTKR sh2 x) ->
+    FTKX _sh1 (FTKR _sh2 _x) ->
       let c = ConvCmp
                 ConvUnnest
                 (ConvXX ConvRX)
-          ftk2 = FTKX (sh1 `shxAppend` shxFromShR sh2) x
-      in AstConvert c ftk2 a
+      in AstConvert c a
   xunNestS (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh1 (FTKS sh2 x) ->
+    FTKX _sh1 (FTKS _sh2 _x) ->
       let c = ConvCmp
                 ConvUnnest
                 (ConvXX ConvSX)
-          ftk2 = FTKX (sh1 `shxAppend` shxFromShS sh2) x
-      in AstConvert c ftk2 a
+      in AstConvert c a
   xunNest (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh1 (FTKX sh2 x) ->
+    FTKX _sh1 (FTKX _sh2 _x) ->
       let c = ConvUnnest
-          ftk2 = FTKX (sh1 `shxAppend` sh2) x
-      in AstConvert c ftk2 a
+      in AstConvert c a
 
   tpairConv = tpair
   tunpairConv = tunpair
@@ -1393,8 +1377,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                                                          (unAstNoVectorize b)
 
 instance AstSpan s => ConvertTensor (AstNoVectorize s) where
-  tconvert c _astk bftk =
-    AstNoVectorize . astConvert c bftk . unAstNoVectorize
+  tconvert c _astk _bftk =
+    AstNoVectorize . astConvert c . unAstNoVectorize
 
   tfromS zstk = AstNoVectorize . tfromS zstk . unAstNoVectorize
   rfromX = AstNoVectorize . rfromX . unAstNoVectorize

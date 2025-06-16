@@ -415,8 +415,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   AstFromS :: forall y z ms s.
               SingletonTK z
            -> AstTensor ms s y -> AstTensor ms s z
-  AstConvert :: TKConversion a b -> FullShapeTK b -> AstTensor ms s a
-             -> AstTensor ms s b
+  AstConvert :: TKConversion a b -> AstTensor ms s a -> AstTensor ms s b
 
   -- Backend-specific primitives
   AstSum0S :: AstTensor ms s (TKS2 sh x)

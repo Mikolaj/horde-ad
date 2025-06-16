@@ -444,17 +444,17 @@ printAst cfg d = \case
       STKR{} -> printPrefixOp printAst cfg d "rfromS" [v]
       STKX{} -> printPrefixOp printAst cfg d "xfromS" [v]
       _ -> printPrefixOp printAst cfg d ("tfromS (" ++ show stkz ++ ")") [v]
-  AstConvert c bftk t -> case (ftkToSTK (ftkAst t), bftk) of
+  AstConvert c t -> case (ftkToSTK (ftkAst t), castFTK c (ftkAst t)) of
     (STKScalar, FTKS{}) -> printPrefixOp printAst cfg d "sfromK" [t]
     (STKR{}, FTKS{}) -> printPrefixOp printAst cfg d "sfromR" [t]
     (STKX{}, FTKS{}) -> printPrefixOp printAst cfg d "sfromX" [t]
     (STKS{}, FTKScalar) -> printPrefixOp printAst cfg d "kfromS" [t]
     (STKS{}, FTKR{}) -> printPrefixOp printAst cfg d "rfromS" [t]
     (STKS{}, FTKX{}) -> printPrefixOp printAst cfg d "xfromS" [t]
-    (ystk, _) -> let s = "tconvert (" ++ show c
-                       ++ ") (" ++ show ystk
-                       ++ ") (" ++ show bftk ++ ")"
-                 in printPrefixOp printAst cfg d s [t]
+    (ystk, zftk) -> let s = "tconvert (" ++ show c
+                          ++ ") (" ++ show ystk
+                          ++ ") (" ++ show zftk ++ ")"
+                    in printPrefixOp printAst cfg d s [t]
 
   AstSum0S v ->
     printPrefixOp printAst cfg d "ssum0" [v]

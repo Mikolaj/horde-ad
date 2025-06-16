@@ -202,7 +202,7 @@ inlineAst memo v0 = case v0 of
   Ast.AstReshapeS sh v -> second (Ast.AstReshapeS sh) (inlineAst memo v)
 
   Ast.AstFromS stkz v -> second (Ast.AstFromS stkz) $ inlineAst memo v
-  Ast.AstConvert c bftk v -> second (Ast.AstConvert c bftk) $ inlineAst memo v
+  Ast.AstConvert c v -> second (Ast.AstConvert c) $ inlineAst memo v
 
   Ast.AstSum0S v -> second Ast.AstSum0S (inlineAst memo v)
   Ast.AstDot0S u v ->
@@ -474,7 +474,7 @@ unshareAst memo = \case
   Ast.AstReshapeS sh v -> second (Ast.AstReshapeS sh) (unshareAst memo v)
 
   Ast.AstFromS stkz v -> second (Ast.AstFromS stkz) $ unshareAst memo v
-  Ast.AstConvert c bftk v -> second (Ast.AstConvert c bftk) $ unshareAst memo v
+  Ast.AstConvert c v -> second (Ast.AstConvert c) $ unshareAst memo v
 
   Ast.AstSum0S v -> second Ast.AstSum0S (unshareAst memo v)
   Ast.AstDot0S u v ->
