@@ -5,7 +5,7 @@
 module HordeAd.Core.TensorKind
   ( -- * Tensor kind singletons
     SingletonTK(..), KnownSTK(..)
-  , TKConversion(..), castSTK, buildTKConversion
+  , TKConversion(..), castSTK, castFTK, buildTKConversion
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
@@ -25,7 +25,7 @@ import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat, type (+))
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
-import Data.Array.Nested.Convert (shxFromShS)
+import Data.Array.Nested.Convert (shrFromShX, shsFromShX, shxFromShS, shxFromShR)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
@@ -196,11 +196,11 @@ data TKConversion (a :: TK) (b :: TK) where
   ConvXR  :: SingletonTK a -> TKConversion (TKX2 sh a) (TKR2 (Rank sh) a)
   ConvXS  :: TKConversion (TKX2 (MapJust sh) a) (TKS2 sh a)
   ConvXS' :: Rank sh ~ Rank sh'
-          => SingletonTK (TKS2 sh' a)
+          => FullShapeTK (TKS2 sh' a)
           -> TKConversion (TKX2 sh a) (TKS2 sh' a)
 
   ConvXX' :: Rank sh ~ Rank sh'
-          => SingletonTK (TKX2 sh' a)
+          => FullShapeTK (TKX2 sh' a)
           -> TKConversion (TKX2 sh a) (TKX2 sh' a)
 
   ConvRR  :: TKConversion a b -> TKConversion (TKR2 n a) (TKR2 n b)
@@ -238,8 +238,8 @@ castSTK = \cases
   ConvSX (STKS sh a) -> STKX (ssxFromShX $ shxFromShS sh) a
   (ConvXR _stk) (STKX ssx a) -> STKR (ssxRank ssx) a
   ConvXS (STKX ssx a) -> STKS (shsFromStaticShX ssx) a
-  (ConvXS' (STKS sh _x)) (STKX _ssx2 a) -> STKS sh a
-  (ConvXX' (STKX ssx _x)) (STKX _ssx2 a) -> STKX ssx a
+  (ConvXS' (FTKS sh _x)) (STKX _ssx2 a) -> STKS sh a
+  (ConvXX' (FTKX shx _x)) (STKX _ssx2 a) -> STKX (ssxFromShX shx) a
   (ConvRR c) (STKR n a) -> STKR n (castSTK c a)
   (ConvSS c) (STKS sh a) -> STKS sh (castSTK c a)
   (ConvXX c) (STKX ssx a) -> STKX ssx (castSTK c a)
@@ -247,66 +247,92 @@ castSTK = \cases
     STKProduct (castSTK c1 stk1) (castSTK c2 stk2)
   (Conv0X _stk) stk -> STKX ZKX stk
   ConvX0 (STKX ZKX stk) -> stk
-  (ConvNest (STKX sh x)) (STKX shsh' _x) ->
-    STKX sh (STKX (ssxDropSSX shsh' sh) x)
+  (ConvNest (STKX ssx x)) (STKX shsh' _x) ->
+    STKX ssx (STKX (ssxDropSSX shsh' ssx) x)
   ConvUnnest (STKX sh (STKX sh' x)) -> STKX (sh `ssxAppend` sh') x
   (ConvZip _ _) (STKProduct (STKX sh a1) (STKX _sh a2)) ->
     STKX sh (STKProduct a1 a2)
   (ConvUnzip _ _) (STKX sh (STKProduct a1 a2)) ->
     STKProduct (STKX sh a1) (STKX sh a2)
 
-buildTKConversion :: SNat k -> SingletonTK a
+castFTK :: TKConversion a b -> FullShapeTK a -> FullShapeTK b
+castFTK = \cases
+  ConvId aftk -> aftk
+  (ConvCmp c1 c2) aftk -> castFTK c1 (castFTK c2 aftk)
+  ConvRX (FTKR shr a) -> FTKX (shxFromShR shr) a
+  ConvSX (FTKS sh a) -> FTKX (shxFromShS sh) a
+  (ConvXR _stk) (FTKX shx a) -> FTKR (shrFromShX shx) a
+  ConvXS (FTKX shx a) -> FTKS (shsFromShX shx) a
+  (ConvXS' ftk) _ -> ftk
+  (ConvXX' ftk) _ -> ftk
+  (ConvRR c) (FTKR shr a) -> FTKR shr (castFTK c a)
+  (ConvSS c) (FTKS sh a) -> FTKS sh (castFTK c a)
+  (ConvXX c) (FTKX shx a) -> FTKX shx (castFTK c a)
+  (ConvT2 c1 c2) (FTKProduct ftk1 ftk2) ->
+    FTKProduct (castFTK c1 ftk1) (castFTK c2 ftk2)
+  (Conv0X _stk) ftk -> FTKX ZSX ftk
+  ConvX0 (FTKX ZSX ftk) -> ftk
+  (ConvNest @_ @_ @sh' (STKX ssx _x)) (FTKX shsh' x) ->
+    FTKX (shxTakeSSX (Proxy @sh') shsh' ssx) (FTKX (shxDropSSX shsh' ssx) x)
+  ConvUnnest (FTKX sh (FTKX sh' x)) -> FTKX (sh `shxAppend` sh') x
+  (ConvZip _ _) (FTKProduct (FTKX sh a1) (FTKX _sh a2)) ->
+    FTKX sh (FTKProduct a1 a2)
+  (ConvUnzip _ _) (FTKX sh (FTKProduct a1 a2)) ->
+    FTKProduct (FTKX sh a1) (FTKX sh a2)
+
+buildTKConversion :: SNat k -> FullShapeTK a
                   -> TKConversion a b
                   -> TKConversion (BuildTensorKind k a) (BuildTensorKind k b)
-buildTKConversion k astk c0 = case c0 of
+buildTKConversion k aftk c0 = case c0 of
   ConvId -> ConvId
-  ConvCmp c1 c2 -> ConvCmp (buildTKConversion k (castSTK c2 astk) c1)
-                           (buildTKConversion k astk c2)
-  ConvRX | STKR @n n xstk <- astk
+  ConvCmp c1 c2 -> ConvCmp (buildTKConversion k (castFTK c2 aftk) c1)
+                           (buildTKConversion k aftk c2)
+  ConvRX | FTKR @n shr xstk <- aftk
          , Refl <- lemRankReplicate (Proxy @n)
          , Refl <- lemRankReplicate (Proxy @(1 + n)) ->
-    ConvCmp (ConvXX' (STKX (SKnown k :!% ssxReplicate n) xstk)) ConvRX
+    ConvCmp (ConvXX' (FTKX (SKnown k :$% shxFromShR shr) xstk)) ConvRX
   ConvSX -> ConvSX
   ConvXR stk -> ConvXR stk
   ConvXS -> ConvXS
-  ConvXS' stk -> ConvXS' (buildSTK k stk)
-  ConvXX' stk -> ConvXX' (buildSTK k stk)
+  ConvXS' ftk -> ConvXS' (buildFTK k ftk)
+  ConvXX' ftk -> ConvXX' (buildFTK k ftk)
   ConvRR c -> ConvRR c
   ConvSS c -> ConvSS c
   ConvXX c -> ConvXX c
-  ConvT2 c1 c2 | STKProduct stk1 stk2 <- astk ->
-    ConvT2 (buildTKConversion k stk1 c1) (buildTKConversion k stk2 c2)
-  Conv0X _astk -> case astk of
-    STKScalar -> ConvSX
-    STKR @n n x | Refl <- lemRankReplicate (Proxy @n)
-                , Refl <- lemRankReplicate (Proxy @(1 + n)) ->
-      ConvCmp (ConvXX (ConvXR x))
-              (ConvCmp (ConvNest (STKX (SKnown k :!% ZKX) x))
+  ConvT2 c1 c2 | FTKProduct ftk1 ftk2 <- aftk ->
+    ConvT2 (buildTKConversion k ftk1 c1) (buildTKConversion k ftk2 c2)
+  Conv0X _astk -> case aftk of
+    FTKScalar -> ConvSX
+    FTKR @n shr x | Refl <- lemRankReplicate (Proxy @n)
+                  , Refl <- lemRankReplicate (Proxy @(1 + n)) ->
+      ConvCmp (ConvXX (ConvXR (ftkToSTK x)))
+              (ConvCmp (ConvNest (STKX (SKnown k :!% ZKX) (ftkToSTK x)))
                        (ConvCmp
-                          (ConvXX' (STKX (SKnown k :!% ssxReplicate n) x))
+                          (ConvXX' (FTKX (SKnown k :$% shxFromShR shr) x))
                           ConvRX))
-    STKS _sh x ->
+    FTKS _sh x ->
       ConvCmp (ConvXX ConvXS)
-              (ConvCmp (ConvNest (STKX (SKnown k :!% ZKX) x))
+              (ConvCmp (ConvNest (STKX (SKnown k :!% ZKX) (ftkToSTK x)))
                        ConvSX)
-    STKX _ssx x -> ConvNest (STKX (SKnown k :!% ZKX) x)
-    STKProduct astk1 astk2 ->
+    FTKX _ssx x -> ConvNest (STKX (SKnown k :!% ZKX) (ftkToSTK x))
+    FTKProduct aftk1 aftk2 ->
       buildTKConversion
-        k astk (ConvCmp (ConvZip astk1 astk2)
-                        (ConvT2 (Conv0X astk1) (Conv0X astk2)))
-  ConvX0 -> case astk of
-    STKX ZKX STKScalar -> ConvXS
-    STKX ZKX (STKR @n _n x) | Refl <- lemRankReplicate (Proxy @n) ->
-      ConvCmp (ConvXR x)
+        k aftk (ConvCmp (ConvZip (ftkToSTK aftk1) (ftkToSTK aftk2))
+                        (ConvT2 (Conv0X (ftkToSTK aftk1))
+                                (Conv0X (ftkToSTK aftk2))))
+  ConvX0 -> case aftk of
+    FTKX ZSX FTKScalar -> ConvXS
+    FTKX ZSX (FTKR @n _n x) | Refl <- lemRankReplicate (Proxy @n) ->
+      ConvCmp (ConvXR (ftkToSTK x))
               (ConvCmp ConvUnnest (ConvXX ConvRX))
-    STKX ZKX STKS{} ->
+    FTKX ZSX FTKS{} ->
       ConvCmp ConvXS
               (ConvCmp ConvUnnest (ConvXX ConvSX))
-    STKX ZKX STKX{} -> ConvUnnest
-    STKX ZKX (STKProduct astk1 astk2) ->
+    FTKX ZSX FTKX{} -> ConvUnnest
+    FTKX ZSX (FTKProduct aftk1 aftk2) ->
       buildTKConversion
-        k astk (ConvCmp (ConvT2 ConvX0 ConvX0)
-                        (ConvUnzip astk1 astk2))
+        k aftk (ConvCmp (ConvT2 ConvX0 ConvX0)
+                        (ConvUnzip (ftkToSTK aftk1) (ftkToSTK aftk2)))
   ConvNest (STKX sh x) -> ConvNest (STKX (SKnown k :!% sh) x)
   ConvUnnest -> ConvUnnest
   ConvZip astk1 astk2 -> ConvZip astk1 astk2

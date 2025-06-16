@@ -775,35 +775,36 @@ evalRevSame !s !c = \case
       -- not changing the underlying scalar types.
       gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
       evalRevSame
-        s (tconvert (transposeTKConversion (ftkToSTK aftk) c1) (ftkToSTK bftk) aftk c) d
+        s (tconvert (transposeTKConversion aftk c1) (ftkToSTK bftk) aftk c) d
 
   d -> evalRevFTK s c d
     -- the remaining constructors are already handled in evalRevFTK
 
-transposeTKConversion :: SingletonTK a -> TKConversion a b -> TKConversion b a
-transposeTKConversion astk c0 = case c0 of
+transposeTKConversion :: FullShapeTK a -> TKConversion a b -> TKConversion b a
+transposeTKConversion aftk c0 = case c0 of
   ConvId -> ConvId
-  ConvCmp c1 c2 -> ConvCmp (transposeTKConversion astk c2)
-                           (transposeTKConversion (castSTK c2 astk) c1)
-  ConvRX | STKR @n _ x <- astk
+  ConvCmp c1 c2 -> ConvCmp (transposeTKConversion aftk c2)
+                           (transposeTKConversion (castFTK c2 aftk) c1)
+  ConvRX | FTKR @n _ x <- aftk
          , Refl <- lemRankReplicate (Proxy @n) ->
-    ConvXR x
+    ConvXR (ftkToSTK x)
   ConvSX -> ConvXS
   ConvXR @_ @sh _stk | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
-    ConvCmp (ConvXX' astk) ConvRX
+    ConvCmp (ConvXX' aftk) ConvRX
   ConvXS -> ConvSX
-  ConvXS' (STKS sh _) | Refl <- lemRankMapJust sh ->
-    ConvCmp (ConvXX' astk) ConvSX
-  ConvXX' _stk -> ConvXX' astk
-  ConvRR c | STKR _ x <- astk -> ConvRR (transposeTKConversion x c)
-  ConvSS c | STKS _ x <- astk -> ConvSS (transposeTKConversion x c)
-  ConvXX c | STKX _ x <- astk -> ConvXX (transposeTKConversion x c)
-  ConvT2 c1 c2 | STKProduct x1 x2 <- astk ->
+  ConvXS' (FTKS sh _) | Refl <- lemRankMapJust sh ->
+    ConvCmp (ConvXX' aftk) ConvSX
+  ConvXX' _ftk -> ConvXX' aftk
+  ConvRR c | FTKR _ x <- aftk -> ConvRR (transposeTKConversion x c)
+  ConvSS c | FTKS _ x <- aftk -> ConvSS (transposeTKConversion x c)
+  ConvXX c | FTKX _ x <- aftk -> ConvXX (transposeTKConversion x c)
+  ConvT2 c1 c2 | FTKProduct x1 x2 <- aftk ->
     ConvT2 (transposeTKConversion x1 c1) (transposeTKConversion x2 c2)
   Conv0X _stk -> ConvX0
-  ConvX0 | STKX ZKX x <- astk -> Conv0X x
+  ConvX0 | FTKX ZSX x <- aftk -> Conv0X (ftkToSTK x)
   ConvNest _stk -> ConvUnnest
-  ConvUnnest | (STKX sh (STKX _ x)) <- astk -> ConvNest (STKX sh x)
+  ConvUnnest | (FTKX shx (FTKX _ x)) <- aftk ->
+    ConvNest (STKX (ssxFromShX shx) (ftkToSTK x))
   ConvZip stk1 stk2 -> ConvUnzip stk1 stk2
   ConvUnzip stk1 stk2 -> ConvZip stk1 stk2
 

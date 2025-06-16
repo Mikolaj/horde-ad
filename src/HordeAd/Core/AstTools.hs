@@ -578,7 +578,7 @@ cAstSFromR sh (AstFromPrimal w@(AstFromS' _ v)) | FTKR _ x <- ftkAst w =
 cAstSFromR sh v = case ftkAst v of
   FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
     let ftk = FTKS sh x
-        c2 = ConvCmp (ConvXS' (ftkToSTK ftk)) ConvRX
+        c2 = ConvCmp (ConvXS' ftk) ConvRX
     in AstConvert c2 ftk v
 
 cAstSFromX :: forall sh sh' x ms s. Rank sh ~ Rank sh'
@@ -602,7 +602,7 @@ cAstSFromX sh (AstFromPrimal w@(AstFromS' _ v)) | FTKX _ x <- ftkAst w =
     _ -> error "cAstSFromX: different shapes in AstSFromX(AstFromS)"
 cAstSFromX sh v = case ftkAst v of
   FTKX _ x -> let ftk = FTKS sh x
-                  c2 = ConvXS' (ftkToSTK ftk)
+                  c2 = ConvXS' ftk
               in AstConvert c2 ftk v
 
 pattern AstFromS' :: forall {z1} {ms1} {s1}.

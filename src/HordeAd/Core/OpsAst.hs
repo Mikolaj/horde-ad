@@ -25,7 +25,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert (shxFromShR, shxFromShS)
+import Data.Array.Nested.Convert (shrFromShX2, shxFromShR, shxFromShS)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
@@ -1177,7 +1177,7 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
                 (ConvNest @_ @_ @(Replicate m Nothing)
                           (STKX sh1 (knownSTK @x)))
           ftk2 = FTKX (shxTakeSSX (Proxy @(Replicate m Nothing)) sh1sh2 sh1)
-                      (FTKR (shrFromShX (shxDropSSX sh1sh2 sh1)) x)
+                      (FTKR (shrFromShX2 (shxDropSSX sh1sh2 sh1)) x)
       in AstConvert c ftk2 a
   xnestS @_ @sh2 @x sh1 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh1sh2 x ->

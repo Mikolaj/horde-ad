@@ -625,8 +625,10 @@ interpretTKConversion c0 = case c0 of
   ConvSX -> Nested.ConvSX
   ConvXR stk | Dict <- eltDictRep stk -> Nested.ConvXR
   ConvXS -> Nested.ConvXS
-  ConvXS' (STKS sh' stk) | Dict <- eltDictRep stk -> Nested.ConvXS' sh'
-  ConvXX' (STKX ssx stk) | Dict <- eltDictRep stk -> Nested.ConvXX' ssx
+  ConvXS' (FTKS sh' ftk) | Dict <- eltDictRep (ftkToSTK ftk) ->
+    Nested.ConvXS' sh'
+  ConvXX' (FTKX shx ftk) | Dict <- eltDictRep (ftkToSTK ftk) ->
+    Nested.ConvXX' (ssxFromShX shx)
   ConvRR c -> Nested.ConvRR (interpretTKConversion c)
   ConvSS c -> Nested.ConvSS (interpretTKConversion c)
   ConvXX c -> Nested.ConvXX (interpretTKConversion c)

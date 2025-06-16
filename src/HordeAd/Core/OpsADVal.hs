@@ -17,7 +17,7 @@ import GHC.TypeLits (sameNat)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert (shxFromShR, shxFromShS)
+import Data.Array.Nested.Convert (shrFromShX2, shxFromShR, shxFromShS)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
@@ -625,7 +625,7 @@ instance ( ADReadyNoLet target, ShareTensor target
                 (ConvNest @_ @_ @(Replicate m Nothing)
                           (STKX sh1 (knownSTK @x)))
           ftk2 = FTKX (shxTakeSSX (Proxy @(Replicate m Nothing)) sh1sh2 sh1)
-                      (FTKR (shrFromShX (shxDropSSX sh1sh2 sh1)) x)
+                      (FTKR (shrFromShX2 (shxDropSSX sh1sh2 sh1)) x)
       in dD (tconvert c (ftkToSTK ftk) ftk2 u)
             (DeltaConvert c ftk2 u')
   xnestS @_ @sh2 @x sh1 (D u u') = case ftkDelta u' of
