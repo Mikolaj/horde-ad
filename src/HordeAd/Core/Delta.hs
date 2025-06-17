@@ -43,17 +43,14 @@ import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Kind (Type)
 import Data.Some
-import Data.Type.Equality
-  (TestEquality (..), gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality (TestEquality (..), gcastWith, testEquality, (:~:))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (type (+), type (<=))
 import Text.Show.Functions ()
-import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
@@ -337,8 +334,6 @@ data Delta :: Target -> Target where
                 -> Delta target (TKX2 sh2 r)
 
   -- Conversions
-  DeltaFromS :: forall y z target.
-                SingletonTK z -> Delta target y -> Delta target z
   DeltaConvert :: TKConversion a b -> Delta target a -> Delta target b
 
 deriving instance Show (IntOf target) => Show (Delta target y)
@@ -459,28 +454,4 @@ ftkDelta = \case
   DeltaReshapeX sh2 d -> case ftkDelta d of
     FTKX _ x -> FTKX sh2 x
 
-  DeltaFromS stk0 d ->
-    let fromS :: FullShapeTK y2 -> SingletonTK z2 -> FullShapeTK z2
-        fromS ftk stk = case (ftk, stk) of
-          _ | Just Refl <- sameSTK (ftkToSTK ftk) stk -> ftk
-          (FTKS ZSS (FTKScalar @r1), STKScalar @r2) ->
-            case testEquality (typeRep @r1) (typeRep @r2) of
-              Just Refl -> FTKScalar
-              Nothing -> error "ftkDelta: wrong tensor kinds for DeltaFromS"
-          (FTKS sh x, STKR nx zx) ->
-            case ( sameSTK (ftkToSTK x) zx
-                 , testEquality (shsRank sh) nx ) of
-              (Just Refl, Just Refl) -> FTKR (shrFromShS sh) x
-              _ -> error $ "ftkDelta: wrong tensor kinds for DeltaFromS: "
-                           ++ show (ftkToSTK x) ++ " vs " ++ show zx ++ " and "
-                           ++ show sh ++ " vs " ++ show nx
-          (FTKS sh x, STKX shx zx) ->
-            case ( sameSTK (ftkToSTK x) zx
-                 , testEquality (shsRank sh) (ssxRank shx) ) of
-              (Just Refl, Just Refl) -> FTKX (shCastSX shx sh) x
-              _ -> error "ftkDelta: wrong tensor kinds for DeltaFromS"
-          (FTKProduct ftk1 ftk2, STKProduct stk1 stk2) ->
-            FTKProduct (fromS ftk1 stk1) (fromS ftk2 stk2)
-          _ -> error "ftkDelta: wrong tensor kinds for DeltaFromS"
-    in fromS (ftkDelta d) stk0
   DeltaConvert c d -> castFTK c $ ftkDelta d

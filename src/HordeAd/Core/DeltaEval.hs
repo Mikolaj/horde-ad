@@ -36,7 +36,6 @@ import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
 
-import HordeAd.Core.CarriersADVal (unDeltaPairUnshared)
 import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Delta
 import HordeAd.Core.Ops
@@ -478,39 +477,6 @@ evalRevFTK !s !c d0 = case d0 of
         s2 = evalRevFTK s dacc acc0'
     in evalRevFTK s2 des es'
 
-  DeltaFromS stk (DeltaConvert _c d)
-    | y2 <- ftkDelta d
-    , Just Refl <- sameSTK (adSTK stk) (adSTK $ ftkToSTK y2) ->
-      evalRev y2 s c d
-  DeltaFromS stk d
-    | y2 <- ftkDelta d -> case (ftkToSTK y2, stk) of
-    (stky, stkz) | Just Refl <- sameSTK stky stkz -> evalRev y2 s c d
-    (STKS ZSS yx@(STKScalar @ry), STKScalar @rz) ->
-      case testEquality (typeRep @ry) (typeRep @rz) of
-        Just Refl -> case sameSTK yx (adSTK yx) of
-          Just Refl -> evalRev y2 s (sfromK c) d
-          _ -> s
-        Nothing -> error "evalRev: tensor kinds don't match"
-    (STKS shy yx, STKR nx zx) | Dict <- lemKnownSTKOfAD yx ->
-      case (sameSTK yx zx, testEquality (shsRank shy) nx) of
-        (Just Refl, Just Refl) ->
-          withKnownShS shy $
-          evalRev y2 s (sfromR c) d
-        _ -> error "evalRev: tensor kinds don't match"
-    (STKS shy yx, STKX shx zx) | Dict <- lemKnownSTKOfAD yx ->
-      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
-        (Just Refl, Just Refl) ->
-          withKnownShS shy $
-          evalRev y2 s (sfromX c) d
-        _ -> error "evalRev: tensor kinds don't match"
-    (STKProduct{}, STKProduct stkz1 stkz2) ->
-        let (c1, c2) = tunpair c
-            (d1, d2) = unDeltaPairUnshared d
-        in evalRevFTK (evalRevFTK s c1 (DeltaFromS stkz1 d1))
-                      c2 (DeltaFromS stkz2 d2)
-             -- TODO: make this compositional and evaluate d only once
-    _ -> error "evalRev: wrong tensor kinds"
-
   _ -> let y = ftkDelta d0
        in case matchingFTK y (adFTK y) of
          Just Refl -> evalRevSame s c d0
@@ -920,14 +886,6 @@ evalFwd params s d0 = case d0 of
                                            (tproject2 de_acc_e1)))
                        cacc0
                        (tpair ces (tpair q es)))
-
-  DeltaFromS stk (DeltaConvert _c d)
-    | y2 <- ftkDelta d
-    , Just Refl <- sameSTK (adSTK stk) (adSTK $ ftkToSTK y2) ->
-      evalFwd params s d
-  DeltaFromS stk d ->
-    withKnownSTK (adSTK $ ftkToSTK $ ftkDelta d) $
-    second (undefined{-tfromS-} (adSTK stk)) $ evalFwd params s d
 
   _ -> let y = ftkDelta d0
            ay = adFTK y

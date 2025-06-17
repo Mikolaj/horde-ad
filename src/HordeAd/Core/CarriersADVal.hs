@@ -12,7 +12,7 @@ module HordeAd.Core.CarriersADVal
     ADVal, pattern D, dD, dDnotShared
     -- * Auxiliary definitions
   , unDeltaPair, unDeltaPairUnshared, dScale, dAdd
-  , dFromS, dSFromR, dSFromX, dXFromS
+  , dSFromR, dSFromX, dXFromS
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
   , generateDeltaInputs
   ) where
@@ -128,12 +128,6 @@ dAdd v DeltaZero{} = v
 dAdd v w = DeltaAdd v w
 
 -- Prevents building huge Delta terms, not only evaluating them.
-dFromS :: forall y z target.
-          SingletonTK z -> Delta target y -> Delta target z
-dFromS stk (DeltaConvert _c d)
-  | Just Refl <- sameSTK stk (ftkToSTK $ ftkDelta d) = d
-dFromS stk d = DeltaFromS stk d
-
 dSFromR :: forall sh x target.
            ShS sh -> Delta target (TKR2 (Rank sh) x)
         -> Delta target (TKS2 sh x)
