@@ -13,7 +13,7 @@ module HordeAd.Core.AstTools
   , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstSFromR, cAstSFromX, cAstXFromS
-  , pattern AstFromS', checkAstFromS
+  , pattern AstFromS', checkAstFromS, cAstFromS
   , setTotalSharing
   ) where
 
@@ -32,6 +32,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (shrFromShS)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (snatPlus)
 
@@ -621,3 +622,30 @@ checkFtkAstFromS _ _ = False
 
 checkAstFromS :: TKConversion a b -> AstTensor ms s a -> Bool
 checkAstFromS c t = checkFtkAstFromS (ftkAst t) (castFTK c (ftkAst t))
+
+cAstFromS :: forall y z ms s.
+             FullShapeTK z -> AstTensor ms s y
+          -> AstTensor ms s z
+cAstFromS zftk t =
+  let yftk = ftkAst t
+      fromS :: FullShapeTK y0 -> FullShapeTK z0 -> TKConversion y0 z0
+      fromS yftk0 zftk0 = case (yftk0, zftk0) of
+        _ | Just Refl <- matchingFTK yftk0 zftk0 -> ConvId
+        (FTKS ZSS (FTKScalar @ry), FTKScalar @rz)
+          | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+            ConvCmp ConvX0 ConvSX
+        (FTKS sh x, FTKR rsh rx)
+          | Just Refl <- matchingFTK x rx
+          , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
+          , Refl <- lemRankMapJust sh ->
+            ConvCmp (ConvXR (ftkToSTK x)) ConvSX
+        (FTKS sh x, FTKX xsh xx)
+          | Just Refl <- matchingFTK x xx
+          , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
+          , Refl <- lemRankMapJust sh ->
+            ConvCmp (ConvXX' zftk0) ConvSX
+        (FTKProduct yftk1 yftk2, FTKProduct zftk1 zftk2) ->
+          ConvT2 (fromS yftk1 zftk1) (fromS yftk2 zftk2)
+        _ -> error $ "cAstFromS': unexpected types "  -- TODO: try nevertheless
+                     ++ "(" ++ show yftk0 ++ ", " ++ show zftk0 ++ ")"
+  in AstConvert (fromS yftk zftk) t

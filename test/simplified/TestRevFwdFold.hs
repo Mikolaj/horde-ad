@@ -256,7 +256,7 @@ testFooRrevPP1 = do
   resetVarCounter
   let (a1, _, _) = fooRgrad @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstPretty a1
-    @?= "let x14 = let x9 = sin (sscalar 2.2) ; x10 = sscalar 1.1 * x9 ; x11 = recip (sscalar 10.889999999999999 + x10 * x10) ; x12 = kfromS (sin (sscalar 2.2)) in tfromS (STKProduct (STKProduct (STKR (SNat @0) STKScalar) (STKR (SNat @0) STKScalar)) (STKR (SNat @0) STKScalar)) (let x13 = sscalar (-3.3) * x11 in tpair (tpair (x9 * x13 + sscalar 3.3 * sfromK x12) (sscalar 1.1 * (cos (sscalar 2.2) * x13) + sscalar 3.63 * cos (sscalar 2.2))) (x10 * x11 + sscalar 1.1 * sfromK x12)) in tproject1 (tproject1 x14)"
+    @?= "rfromS (let x14 = let x9 = sin (sscalar 2.2) ; x10 = sscalar 1.1 * x9 ; x11 = recip (sscalar 10.889999999999999 + x10 * x10) ; x12 = sin (sscalar 2.2) ; x13 = sscalar (-3.3) * x11 in tpair (tpair (x9 * x13 + sscalar 3.3 * x12) (sscalar 1.1 * (cos (sscalar 2.2) * x13) + sscalar 3.63 * cos (sscalar 2.2))) (x10 * x11 + sscalar 1.1 * x12) in tproject1 (tproject1 x14))"
 
 testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
@@ -2311,7 +2311,7 @@ testSin0FoldNestedR1LengthPPs = do
     (printAstSimple
       (simplifyInlineContract
        $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 38944
+    @?= 38991
 
 testSin0FoldNestedR2LengthPPs :: Assertion
 testSin0FoldNestedR2LengthPPs = do
@@ -2329,7 +2329,7 @@ testSin0FoldNestedR2LengthPPs = do
     (printAstSimple
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 503954
+    @?= 504543
 
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
@@ -2349,7 +2349,7 @@ testSin0FoldNestedR3LengthPPs = do
     (printAstSimple
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 7456649
+    @?= 7466214
 
 -- Takes 70s, probably due to something (simplification?) forcing all derivs.
 _testSin0FoldNestedR4LengthPPs :: Assertion
@@ -2416,7 +2416,7 @@ testSin0FoldNestedR2LengthPPsDummy7 = do
     (printAstSimple
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 166564
+    @?= 167153
 
 testSin0FoldNestedR2Dummy7 :: Assertion
 testSin0FoldNestedR2Dummy7 = do

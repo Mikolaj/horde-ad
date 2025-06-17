@@ -350,6 +350,15 @@ unshareAst memo = \case
          else let (memo1, !a2) = unshareAst memo v
                     -- DMap is strict, but let's be paranoid
               in (DMap.insert var a2 memo1, astVar0)
+    AstFromS' @y2 ftkz v ->
+      let var = mkAstVarName
+                  (ftkAst v) (varNameToBounds varRaw) (varNameToAstVarId varRaw)
+          astVar0 = cAstFromS @y2 ftkz $ Ast.AstVar var
+      in if var `DMap.member` memo
+         then (memo, astVar0)
+         else let (memo1, !a2) = unshareAst memo v
+                    -- DMap is strict, but let's be paranoid
+              in (DMap.insert var a2 memo1, astVar0)
     -- The PrimalSpan check ensures there's no need to match for
     -- Ast.AstFromPrimal (Ast.AstFromS).
     _ -> case varNameToFTK varRaw of
@@ -357,7 +366,7 @@ unshareAst memo = \case
         withCastRS sh' $ \(sh :: ShS sh) ->
           let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
                                  (varNameToAstVarId varRaw)
-              astVar0 = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk) $ Ast.AstVar var
+              astVar0 = cAstFromS @(TKS2 sh x) ftk $ Ast.AstVar var
           in if var `DMap.member` memo
              then (memo, astVar0)
              else let (memo1, !a2) = unshareAst memo (cAstSFromR @sh sh a)
@@ -366,7 +375,7 @@ unshareAst memo = \case
         withCastXS sh' $ \(sh :: ShS sh) ->
           let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
                                  (varNameToAstVarId varRaw)
-              astVar0 = Ast.AstFromS @(TKS2 sh x) (ftkToSTK ftk) $ Ast.AstVar var
+              astVar0 = cAstFromS @(TKS2 sh x) ftk $ Ast.AstVar var
           in if var `DMap.member` memo
              then (memo, astVar0)
              else let (memo1, !a2) = unshareAst memo (cAstSFromX @sh sh a)
