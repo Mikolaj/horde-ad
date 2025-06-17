@@ -95,52 +95,52 @@ instance (GoodScalar r, AstSpan s)
   -- We could keep variables at the top, but they'd compete with AstConcreteK.
   AstN1K NegateOp (AstVar var) + AstVar var'
     | var == var' = 0
-  AstN1K NegateOp (AstFromS STKScalar (AstVar var))
-    + AstFromS STKScalar (AstVar var')
+  AstN1K NegateOp (AstFromS' FTKScalar (AstVar var))
+    + AstFromS' FTKScalar (AstVar var')
     | varNameToAstVarId var == varNameToAstVarId var' = 0
   AstN1K NegateOp (AstVar var) + AstPlusK (AstVar var') u
     | var == var' = u
-  AstN1K NegateOp (AstFromS STKScalar (AstVar var))
-    + AstPlusK (AstFromS STKScalar (AstVar var')) u
+  AstN1K NegateOp (AstFromS' FTKScalar (AstVar var))
+    + AstPlusK (AstFromS' FTKScalar (AstVar var')) u
     | varNameToAstVarId var == varNameToAstVarId var' = u
   AstVar var' + AstN1K NegateOp (AstVar var)
     | var == var' = 0
-  AstFromS STKScalar (AstVar var')
-    + AstN1K NegateOp (AstFromS STKScalar (AstVar var))
+  AstFromS' FTKScalar (AstVar var')
+    + AstN1K NegateOp (AstFromS' FTKScalar (AstVar var))
     | varNameToAstVarId var == varNameToAstVarId var' = 0
   AstVar var' + AstPlusK (AstN1K NegateOp (AstVar var)) u
     | var == var' = u
-  AstFromS STKScalar (AstVar var')
-    + AstPlusK (AstN1K NegateOp (AstFromS STKScalar (AstVar var))) u
+  AstFromS' FTKScalar (AstVar var')
+    + AstPlusK (AstN1K NegateOp (AstFromS' FTKScalar (AstVar var))) u
     | varNameToAstVarId var == varNameToAstVarId var' = u
 
   AstI2K RemOp (AstN1K NegateOp (AstVar var)) (AstConcreteK n)
    + AstI2K RemOp (AstVar var') (AstConcreteK n')
      | var == var' && n == n' = 0
-  AstI2K RemOp (AstN1K NegateOp (AstFromS STKScalar (AstVar var)))
+  AstI2K RemOp (AstN1K NegateOp (AstFromS' FTKScalar (AstVar var)))
                (AstConcreteK n)
-   + AstI2K RemOp (AstFromS STKScalar (AstVar var')) (AstConcreteK n')
+   + AstI2K RemOp (AstFromS' FTKScalar (AstVar var')) (AstConcreteK n')
      | varNameToAstVarId var == varNameToAstVarId var' && n == n' = 0
   AstI2K RemOp (AstN1K NegateOp (AstVar var)) (AstConcreteK n)
    + AstPlusK (AstI2K RemOp (AstVar var') (AstConcreteK n')) u
      | var == var' && n == n' = u
-  AstI2K RemOp (AstN1K NegateOp (AstFromS STKScalar (AstVar var)))
+  AstI2K RemOp (AstN1K NegateOp (AstFromS' FTKScalar (AstVar var)))
                (AstConcreteK n)
-   + AstPlusK (AstI2K RemOp (AstFromS STKScalar (AstVar var'))
+   + AstPlusK (AstI2K RemOp (AstFromS' FTKScalar (AstVar var'))
                             (AstConcreteK n')) u
      | varNameToAstVarId var == varNameToAstVarId var' && n == n' = u
   AstI2K RemOp (AstVar var') (AstConcreteK n')
    + AstI2K RemOp (AstN1K NegateOp (AstVar var)) (AstConcreteK n)
      | var == var' && n == n' = 0
-  AstI2K RemOp (AstFromS STKScalar (AstVar var')) (AstConcreteK n')
-   + AstI2K RemOp (AstN1K NegateOp (AstFromS STKScalar (AstVar var)))
+  AstI2K RemOp (AstFromS' FTKScalar (AstVar var')) (AstConcreteK n')
+   + AstI2K RemOp (AstN1K NegateOp (AstFromS' FTKScalar (AstVar var)))
                                    (AstConcreteK n)
      | varNameToAstVarId var == varNameToAstVarId var' && n == n' = 0
   AstI2K RemOp (AstVar var') (AstConcreteK n')
    + AstPlusK (AstI2K RemOp (AstN1K NegateOp (AstVar var)) (AstConcreteK n)) u
      | var == var' && n == n' = u
-  AstI2K RemOp (AstFromS STKScalar (AstVar var')) (AstConcreteK n')
-   + AstPlusK (AstI2K RemOp (AstN1K NegateOp (AstFromS STKScalar (AstVar var)))
+  AstI2K RemOp (AstFromS' FTKScalar (AstVar var')) (AstConcreteK n')
+   + AstPlusK (AstI2K RemOp (AstN1K NegateOp (AstFromS' FTKScalar (AstVar var)))
                             (AstConcreteK n)) u
      | varNameToAstVarId var == varNameToAstVarId var' && n == n' = u
 
@@ -227,7 +227,7 @@ instance (GoodScalar r, AstSpan s)
     -- v is likely positive and let's keep it so
   negate (AstI2K RemOp u v) = AstI2K RemOp (negate u) v
     -- v is likely positive and let's keep it so
--- TODO: negate (AstFromS stk u) = AstFromS stk (negate u)
+-- TODO: negate (AstFromS' ftk u) = AstFromS' ftk (negate u)
   negate (AstConcreteK n) = AstConcreteK (negate n)
   negate u = AstN1K NegateOp u
   abs (AstFromPrimal n) = AstFromPrimal (abs n)
@@ -860,12 +860,12 @@ instance (AstSpan s, GoodScalar r)
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
   AstFromDual u <=. AstFromDual v = u <=. v  -- TODO: correct?
-  AstFromS STKScalar u <=. AstFromS STKScalar v
+  AstFromS' FTKScalar u <=. AstFromS' FTKScalar v
     | FTKS ZSS (FTKScalar @ru) <- ftkAst u
     , FTKS ZSS (FTKScalar @rv) <- ftkAst v
     , Just Refl <- testEquality (typeRep @ru) (typeRep @rv)
     = u <=. v
-  AstConcreteK u <=. AstFromS STKScalar v
+  AstConcreteK u <=. AstFromS' FTKScalar v
     | FTKS ZSS (FTKScalar @rv) <- ftkAst v
     , Just Refl <- testEquality (typeRep @rv) (typeRep @r)
     = AstConcreteS (unConcrete $ sfromK $ Concrete u) <=. v

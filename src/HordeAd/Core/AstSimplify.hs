@@ -34,7 +34,7 @@ module HordeAd.Core.AstSimplify
   , astIndexS, astIndexKnobsS, astScatterS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
 
-  , astConvert, astFromS, astXFromS', astSFromK', astSFromR', astSFromX'
+  , astConvert, astFromS', astXFromS', astSFromK', astSFromR', astSFromX'
   , astSum0S, astDot0S, astDot1InS, astMatmul2S
 
     -- * Helper combinators
@@ -226,12 +226,6 @@ astPair (Ast.AstFromPrimal v1) (Ast.AstFromPrimal v2) =
   Ast.AstFromPrimal $ astPair v1 v2
 astPair (Ast.AstFromDual v1) (Ast.AstFromDual v2) =
   Ast.AstFromDual $ astPair v1 v2
-astPair (Ast.AstFromS stkz1 v1) (Ast.AstFromS stkz2 v2) =
-  astFromS (STKProduct stkz1 stkz2) $ astPair v1 v2
-astPair (Ast.AstFromS stkz1 v1) v2 =
-  astFromS (STKProduct stkz1 (ftkToSTK (ftkAst v2))) $ astPair v1 v2
-astPair v1 (Ast.AstFromS stkz2 v2) =
-  astFromS (STKProduct (ftkToSTK (ftkAst v1)) stkz2) $ astPair v1 v2
 astPair (Ast.AstConvert c1 v1) (Ast.AstConvert c2 v2)
   | checkAstFromS c1 v1 && checkAstFromS c2 v2 =
     astConvert (ConvT2 c1 c2) $ astPair v1 v2
@@ -252,8 +246,6 @@ astProject1 u = case u of
   Ast.AstLet var t v -> astLet var t (astProject1 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject1 u1
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject1 u1
-  Ast.AstFromS (STKProduct stk1 _) u1 | FTKProduct{} <- ftkAst u1 ->
-    astFromS stk1 $ astProject1 u1
   -- TODO: generalize this somehow to arbitrary Conversions of the right type.
   -- At worst, just generate the canonical (?) c1 for the types at hand.
   Ast.AstConvert c@(ConvT2 c1 _c2) v
@@ -270,8 +262,6 @@ astProject2 u = case u of
   Ast.AstLet var t v -> astLet var t (astProject2 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject2 u1
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject2 u1
-  Ast.AstFromS (STKProduct _ stk2) u1 | FTKProduct{} <- ftkAst u1 ->
-    astFromS stk2 $ astProject2 u1
   Ast.AstConvert c@(ConvT2 _c1 c2) v
     | checkAstFromS c v ->
       astConvert c2 $ astProject2 v
@@ -335,24 +325,6 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   (let unFrom :: FullShapeTK x
               -> AstTensor AstMethodLet s y
               -> Maybe (AstTensor AstMethodLet s x)
-       unFrom ftkx (Ast.AstFromS _ t) =
-         case matchingFTK (ftkAst t) ftkx of
-           Just Refl -> Just t
-           Nothing -> error "astFromVector: impossible shape"
-       unFrom _ _ = Nothing
-   in case V.uncons l of
-     Just (Ast.AstFromS stkz v, _) ->
-       case V.mapM (unFrom (ftkAst v)) l of
-         Just l2 ->
-           Just $ astFromS (buildSTK snat stkz)
-                $ astFromVector snat (ftkToSTK (ftkAst v)) l2
-         Nothing -> Nothing
-     Just{} -> Nothing
-     Nothing -> error "astFromVector: empty vector")
-  `mplus`
-  (let unFrom :: FullShapeTK x
-              -> AstTensor AstMethodLet s y
-              -> Maybe (AstTensor AstMethodLet s x)
        unFrom xftk (AstFromS' _ t) =
          case matchingFTK (ftkAst t) xftk of
            Just Refl -> Just t
@@ -396,7 +368,7 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstReverseS v -> astSum snat stk v
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKScalar <- stk ->
-      astFromS STKScalar $ astIndexS ZSS t0 (0 :.$ ZIS)
+      astFromS' FTKScalar $ astIndexS ZSS t0 (0 :.$ ZIS)
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKS sh _  <- stk ->  -- other cases too rare
       astIndexS sh t0 (0 :.$ ZIS)  -- astReshape slows down the CNNO test
@@ -419,21 +391,23 @@ astSum snat@SNat stk t0 = case t0 of
     v * fromPrimal (AstConcreteK $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ _ v | STKR _ (STKScalar @r) <- stk ->
     case ftkAst v of
-      FTKR sh' FTKScalar ->
+      ftk@(FTKR sh' FTKScalar) ->
         withCastRS sh' $ \(sh :: ShS sh) ->
-          v * astFromS
-                stk (fromPrimal $ AstConcreteS @r
+          v * astFromS'
+                ftk (fromPrimal $ AstConcreteS @r
                      $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ _ v | STKX _ (STKScalar @r) <- stk ->
     case ftkAst v of
-      FTKX sh' FTKScalar ->
+      ftk@(FTKX sh' FTKScalar) ->
         withCastXS sh' $ \(sh :: ShS sh) ->
-          v * astFromS
-                stk (fromPrimal $ AstConcreteS @r
+          v * astFromS'
+                ftk (fromPrimal $ AstConcreteS @r
                      $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ STKS{} v | STKS sh (STKScalar @r) <- stk ->
-          v * astFromS
-                stk (fromPrimal $ AstConcreteS @r
+    case ftkAst v of
+      ftk ->
+          v * astFromS'
+                ftk (fromPrimal $ AstConcreteS @r
                      $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
   -- This keeps tensors alive for longer, but it enables new simplifications,
   -- while hiding a sum inside let not often prevents other simplifications,
@@ -449,9 +423,6 @@ astSum snat@SNat stk t0 = case t0 of
         AstBoolConst True ->
           astScatterS @shm @shn @(Tail shp) shn v (vars, rest)
         _ -> Ast.AstSum snat stk t0
-  Ast.AstFromS _ v -> case ftkToSTK (ftkAst v) of
-    STKS (snat2 :$$ rest) x -> astFromS stk $ astSum snat2 (STKS rest x) v
-    _ -> Ast.AstSum snat stk t0  -- products probably not worth the effort
   Ast.AstConvert c t | checkAstFromS c t -> case ftkAst t of
     FTKS ((:$$) @_ @rest snat2 rest) x -> case castFTK c (ftkAst t) of
       FTKR (_ :$: _) _ | STKR @n _ sx <- stk
@@ -494,8 +465,6 @@ astReplicate snat stk t0 = case t0 of
   Ast.AstFromDual v -> Ast.AstFromDual $ astReplicate snat stk v
   AstConcreteK t -> astConcreteS $ treplicate snat stk $ Concrete t
   AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
-  Ast.AstFromS stkz v ->
-    astFromS (buildSTK snat stkz) $ astReplicate snat (ftkToSTK (ftkAst v)) v
   Ast.AstConvert c t | checkAstFromS c t ->
     let xftk = ftkAst t
     in astConvert (buildTKConversion snat xftk c)
@@ -525,132 +494,6 @@ astMapAccumRDer
   -> AstTensor AstMethodLet s accy
   -> AstTensor AstMethodLet s (BuildTensorKind k ey)
   -> AstTensor AstMethodLet s (TKProduct accy (BuildTensorKind k by))
-astMapAccumRDer k bftk eftk (AstLambda varf vf)
-                            (AstLambda vard vd)
-                            (AstLambda varr vr)
-                (Ast.AstFromS @accyFrom accstk acc0From) es =
-  let accftkFrom = ftkAst acc0From
-      accFromSTK = ftkToSTK accftkFrom
-      ftkf2 = FTKProduct accftkFrom eftk
-      varf2 = mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
-      astf2 = astVar varf2
-      vf2 =
-        let subbed =
-              substituteAst
-                (astPair (astFromS @accyFrom accstk (astProject1 astf2))
-                         (astProject2 astf2))
-                varf vf
-        in astSFrom @(TKProduct accy by)
-                    (STKProduct accFromSTK (ftkToSTK bftk))
-                    subbed
-      ftkd2 = FTKProduct
-                (adFTK $ FTKProduct accftkFrom eftk)
-                (FTKProduct accftkFrom eftk)
-      vard2 = mkAstVarName ftkd2 (varNameToBounds vard) (varNameToAstVarId vard)
-      astd2 = astVar vard2
-      vd2 =
-        let subbed =
-              substituteAst
-                (astPair (astPair (astFromS @(ADTensorKind accyFrom)
-                                     (adSTK accstk)
-                                     (astProject1 (astProject1 astd2)))
-                                  (astProject2 (astProject1 astd2)))
-                         (astPair (astFromS @accyFrom accstk
-                                     (astProject1 (astProject2 astd2)))
-                                  (astProject2 (astProject2 astd2))))
-                vard vd
-        in astSFrom @(ADTensorKind (TKProduct accy by))
-                    (adSTK $ STKProduct accFromSTK (ftkToSTK bftk))
-                    subbed
-      ftkr2 = FTKProduct
-                (adFTK $ FTKProduct accftkFrom bftk)
-                (FTKProduct accftkFrom eftk)
-      varr2 = mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
-      astr2 = astVar varr2
-      vr2 =
-        let subbed =
-              substituteAst
-                (astPair (astPair (astFromS @(ADTensorKind accyFrom)
-                                     (adSTK accstk)
-                                     (astProject1 (astProject1 astr2)))
-                                  (astProject2 (astProject1 astr2)))
-                         (astPair (astFromS @accyFrom accstk
-                                     (astProject1 (astProject2 astr2)))
-                                  (astProject2 (astProject2 astr2))))
-                varr vr
-        in astSFrom @(ADTensorKind (TKProduct accy ey))
-                    (adSTK $ STKProduct accFromSTK (ftkToSTK eftk))
-                    subbed
-  in astFromS @(TKProduct accyFrom (BuildTensorKind k by))
-              (STKProduct accstk (buildSTK k (ftkToSTK bftk)))
-     $ astMapAccumRDer k bftk eftk (AstLambda varf2 vf2)
-                                   (AstLambda vard2 vd2)
-                                   (AstLambda varr2 vr2)
-                                   acc0From es
-astMapAccumRDer k bftk eftk (AstLambda varf vf)
-                            (AstLambda vard vd)
-                            (AstLambda varr vr)
-                acc0 (Ast.AstFromS @esShsFrom _esShsSTK esFrom) =
-  let accftk = ftkAst acc0
-      accstk = ftkToSTK accftk
-      esShsFrom = ftkAst esFrom
-      esShsFromSTK = ftkToSTK esShsFrom
-  in case razeSTK esShsFromSTK of
-    (eftkFromSTK :: SingletonTK eyFrom) ->
-      gcastWith (unsafeCoerceRefl
-                 :: BuildTensorKind k eyFrom :~: esShsFrom) $
-      let eftkFrom = razeFTK k eftkFromSTK esShsFrom
-          ftkf2 = FTKProduct accftk eftkFrom
-          varf2 =
-            mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
-          astf2 = astVar varf2
-          vf2 =
-            let subbed =
-                  substituteAst
-                    (astPair (astProject1 astf2)
-                             (astFromS @eyFrom
-                                (ftkToSTK eftk) (astProject2 astf2)))
-                    varf vf
-            in subbed
-          ftkd2 = FTKProduct
-                    (adFTK $ FTKProduct accftk eftkFrom)
-                    (FTKProduct accftk eftkFrom)
-          vard2 =
-            mkAstVarName ftkd2 (varNameToBounds vard) (varNameToAstVarId vard)
-          astd2 = astVar vard2
-          vd2 =
-            let subbed =
-                  substituteAst
-                    (astPair (astPair (astProject1 (astProject1 astd2))
-                                      (astFromS @(ADTensorKind eyFrom)
-                                         (adSTK (ftkToSTK eftk))
-                                         (astProject2 (astProject1 astd2))))
-                             (astPair (astProject1 (astProject2 astd2))
-                                      (astFromS @eyFrom (ftkToSTK eftk)
-                                         (astProject2 (astProject2 astd2)))))
-                    vard vd
-            in subbed
-          ftkr2 = FTKProduct
-                    (adFTK $ FTKProduct accftk bftk)
-                    (FTKProduct accftk eftkFrom)
-          varr2 =
-            mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
-          astr2 = astVar varr2
-          vr2 =
-            let subbed =
-                  substituteAst
-                    (astPair (astProject1 astr2)
-                             (astPair (astProject1 (astProject2 astr2))
-                                      (astFromS @eyFrom (ftkToSTK eftk)
-                                         (astProject2 (astProject2 astr2)))))
-                    varr vr
-            in astSFrom @(ADTensorKind (TKProduct accy ey))
-                        (adSTK $ STKProduct accstk eftkFromSTK)
-                        subbed
-      in astMapAccumRDer k bftk eftkFrom (AstLambda varf2 vf2)
-                                         (AstLambda vard2 vd2)
-                                         (AstLambda varr2 vr2)
-                                         acc0 esFrom
 astMapAccumRDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
@@ -800,132 +643,6 @@ astMapAccumLDer
 astMapAccumLDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
-                (Ast.AstFromS @accyFrom accstk acc0From) es =
-  let accftkFrom = ftkAst acc0From
-      accFromSTK = ftkToSTK accftkFrom
-      ftkf2 = FTKProduct accftkFrom eftk
-      varf2 = mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
-      astf2 = astVar varf2
-      vf2 =
-        let subbed =
-              substituteAst
-                (astPair (astFromS @accyFrom accstk (astProject1 astf2))
-                         (astProject2 astf2))
-                varf vf
-        in astSFrom @(TKProduct accy by)
-                    (STKProduct accFromSTK (ftkToSTK bftk))
-                    subbed
-      ftkd2 = FTKProduct
-                (adFTK $ FTKProduct accftkFrom eftk)
-                (FTKProduct accftkFrom eftk)
-      vard2 = mkAstVarName ftkd2 (varNameToBounds vard) (varNameToAstVarId vard)
-      astd2 = astVar vard2
-      vd2 =
-        let subbed =
-              substituteAst
-                (astPair (astPair (astFromS @(ADTensorKind accyFrom)
-                                     (adSTK accstk)
-                                     (astProject1 (astProject1 astd2)))
-                                  (astProject2 (astProject1 astd2)))
-                         (astPair (astFromS @accyFrom accstk
-                                     (astProject1 (astProject2 astd2)))
-                                  (astProject2 (astProject2 astd2))))
-                vard vd
-        in astSFrom @(ADTensorKind (TKProduct accy by))
-                    (adSTK $ STKProduct accFromSTK (ftkToSTK bftk))
-                    subbed
-      ftkr2 = FTKProduct
-                (adFTK $ FTKProduct accftkFrom bftk)
-                (FTKProduct accftkFrom eftk)
-      varr2 = mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
-      astr2 = astVar varr2
-      vr2 =
-        let subbed =
-              substituteAst
-                (astPair (astPair (astFromS @(ADTensorKind accyFrom)
-                                     (adSTK accstk)
-                                     (astProject1 (astProject1 astr2)))
-                                  (astProject2 (astProject1 astr2)))
-                         (astPair (astFromS @accyFrom accstk
-                                     (astProject1 (astProject2 astr2)))
-                                  (astProject2 (astProject2 astr2))))
-                varr vr
-        in astSFrom @(ADTensorKind (TKProduct accy ey))
-                    (adSTK $ STKProduct accFromSTK (ftkToSTK eftk))
-                    subbed
-  in astFromS @(TKProduct accyFrom (BuildTensorKind k by))
-              (STKProduct accstk (buildSTK k (ftkToSTK bftk)))
-     $ astMapAccumLDer k bftk eftk (AstLambda varf2 vf2)
-                                   (AstLambda vard2 vd2)
-                                   (AstLambda varr2 vr2)
-                                   acc0From es
-astMapAccumLDer k bftk eftk (AstLambda varf vf)
-                            (AstLambda vard vd)
-                            (AstLambda varr vr)
-                acc0 (Ast.AstFromS @esShsFrom _esShsSTK esFrom) =
-  let accftk = ftkAst acc0
-      accstk = ftkToSTK accftk
-      esShsFrom = ftkAst esFrom
-      esShsFromSTK = ftkToSTK esShsFrom
-  in case razeSTK esShsFromSTK of
-    (eftkFromSTK :: SingletonTK eyFrom) ->
-      gcastWith (unsafeCoerceRefl
-                 :: BuildTensorKind k eyFrom :~: esShsFrom) $
-      let eftkFrom = razeFTK k eftkFromSTK esShsFrom
-          ftkf2 = FTKProduct accftk eftkFrom
-          varf2 =
-            mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
-          astf2 = astVar varf2
-          vf2 =
-            let subbed =
-                  substituteAst
-                    (astPair (astProject1 astf2)
-                             (astFromS @eyFrom
-                                (ftkToSTK eftk) (astProject2 astf2)))
-                    varf vf
-            in subbed
-          ftkd2 = FTKProduct
-                    (adFTK $ FTKProduct accftk eftkFrom)
-                    (FTKProduct accftk eftkFrom)
-          vard2 =
-            mkAstVarName ftkd2 (varNameToBounds vard) (varNameToAstVarId vard)
-          astd2 = astVar vard2
-          vd2 =
-            let subbed =
-                  substituteAst
-                    (astPair (astPair (astProject1 (astProject1 astd2))
-                                      (astFromS @(ADTensorKind eyFrom)
-                                         (adSTK (ftkToSTK eftk))
-                                         (astProject2 (astProject1 astd2))))
-                             (astPair (astProject1 (astProject2 astd2))
-                                      (astFromS @eyFrom (ftkToSTK eftk)
-                                         (astProject2 (astProject2 astd2)))))
-                    vard vd
-            in subbed
-          ftkr2 = FTKProduct
-                    (adFTK $ FTKProduct accftk bftk)
-                    (FTKProduct accftk eftkFrom)
-          varr2 =
-            mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
-          astr2 = astVar varr2
-          vr2 =
-            let subbed =
-                  substituteAst
-                    (astPair (astProject1 astr2)
-                             (astPair (astProject1 (astProject2 astr2))
-                                      (astFromS @eyFrom (ftkToSTK eftk)
-                                         (astProject2 (astProject2 astr2)))))
-                    varr vr
-            in astSFrom @(ADTensorKind (TKProduct accy ey))
-                        (adSTK $ STKProduct accstk eftkFromSTK)
-                        subbed
-      in astMapAccumLDer k bftk eftkFrom (AstLambda varf2 vf2)
-                                         (AstLambda vard2 vd2)
-                                         (AstLambda varr2 vr2)
-                                         acc0 esFrom
-astMapAccumLDer k bftk eftk (AstLambda varf vf)
-                            (AstLambda vard vd)
-                            (AstLambda varr vr)
                 (AstFromS' @accyFrom accftk acc0From) es =
   let accftkFrom = ftkAst acc0From
       accFromSTK = ftkToSTK accftkFrom
@@ -1066,12 +783,7 @@ astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
   Ast.AstFromPrimal $ astCond b v w
 astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
   Ast.AstFromDual $ astCond b v w
-astCond b v@(Ast.AstFromS STKScalar _) w = Ast.AstCond b v w
 astCond b v@(AstFromS' FTKScalar _) w = Ast.AstCond b v w
-astCond b (Ast.AstFromS stkzv v) (Ast.AstFromS _ w) =
-  case matchingFTK (ftkAst v) (ftkAst w) of
-    Just Refl -> astFromS stkzv $ astCond b v w
-    Nothing -> error "astCond: shapes don't match"
 -- We rely here on c and the other conversion being semantically equal.
 astCond b (Ast.AstConvert c v) (AstFromS' _ w) =
   case matchingFTK (ftkAst v) (ftkAst w) of
@@ -1192,13 +904,7 @@ astLet var (Ast.AstFromDual (Ast.AstTransposeS perm a)) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
       ast = Ast.AstFromDual (Ast.AstTransposeS perm $ astVar var2)
   in astLet var2 a (substituteAst ast var v)
-astLet var u@(Ast.AstFromS STKScalar _) v = Ast.AstLet var u v
 astLet var u@(AstFromS' FTKScalar _) v = Ast.AstLet var u v
-astLet var (Ast.AstFromS stkz a) v =
-  let var2 =
-        mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
-      ast = Ast.AstFromS stkz $ astVar var2
-  in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstConvert c a) v | checkAstFromS c a =
   let var2 =
         mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
@@ -1206,10 +912,7 @@ astLet var (Ast.AstConvert c a) v | checkAstFromS c a =
   in astLet var2 a (substituteAst ast var v)
 astLet var u (Ast.AstFromPrimal v0) = Ast.AstFromPrimal $ astLet var u v0
 astLet var u (Ast.AstFromDual v0) = Ast.AstFromDual $ astLet var u v0
-astLet var u v@(Ast.AstFromS STKScalar _) = Ast.AstLet var u v
 astLet var u v@(AstFromS' FTKScalar _) = Ast.AstLet var u v
-astLet var u (Ast.AstFromS stkz v) =
-  astFromS stkz $ astLet var u v
 astLet var u (Ast.AstConvert c v) | checkAstFromS c v =
   astConvert c $ astLet var u v
 astLet var u v = Ast.AstLet var u v
@@ -1286,7 +989,6 @@ astPrimalPart t = case t of
   Ast.AstReshapeS sh v -> astReshapeS sh (astPrimalPart v)
 
   -- All conversions need to stay down here to cancel out.
-  Ast.AstFromS{} -> Ast.AstPrimalPart t
   Ast.AstConvert{} -> Ast.AstPrimalPart t
 
   -- These should not appear in this context unless via wacky tests.
@@ -1375,7 +1077,6 @@ astDualPart t = case t of
   Ast.AstReshapeS sh v -> astReshapeS sh (astDualPart v)
 
   -- All conversions need to stay down here to cancel out.
-  Ast.AstFromS{} -> Ast.AstDualPart t
   Ast.AstConvert{} -> Ast.AstDualPart t
 
   -- These should not appear in this context unless via wacky tests.
@@ -1834,10 +1535,6 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     astIndex shn (astReshapeAsGatherS (deVect knobs) sh v) ix
   Ast.AstReshapeS{} -> Ast.AstIndexS shn v0 ix
 
-  Ast.AstFromS stkz v -> case sameSTK (ftkToSTK (ftkAst v)) stkz of
-    Just Refl -> astIndexKnobsS knobs shn v ix
-      -- rare, usually simplifies away earlier
-    Nothing -> error "astIndexKnobsS: wrong tensor kinds in AstFromS"
   AstFromS' ftkz v -> case matchingFTK (ftkAst v) ftkz of
     Just Refl -> astIndexKnobsS knobs shn v ix
       -- rare, usually simplifies away earlier
@@ -2879,10 +2576,6 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
                      (astReshapeAsGatherS knobs sh v) (vars4, ix4)
       else Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
 
-    Ast.AstFromS stkz v -> case sameSTK (ftkToSTK (ftkAst v)) stkz of
-      Just Refl -> astGather @shm @shn @shp shn v (vars4, ix4)
-        -- rare, usually simplifies away earlier
-      Nothing -> error "astGatherCase: wrong tensor kinds in AstFromS"
     AstFromS' ftkz v -> case matchingFTK (ftkAst v) ftkz of
       Just Refl -> astGather @shm @shn @shp shn v (vars4, ix4)
         -- rare, usually simplifies away earlier
@@ -3354,10 +3047,6 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstDualPart a -> astDualPart $ astConvertSFromK c zftk a
   Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astConvertSFromK c zftk a
   Ast.AstFromDual a -> Ast.AstFromDual $ astConvertSFromK c zftk a
-  Ast.AstFromS _ v ->
-    case matchingFTK (ftkAst v) (FTKS ZSS (FTKScalar @r)) of
-      Just Refl -> v
-      _ -> error "astConvertSFromK: unexpected tensor kinds"
 
 astConvertSFromR :: forall sh x s. AstSpan s
                  => TKConversion (TKR2 (Rank sh) x) (TKS2 sh x)
@@ -3406,12 +3095,6 @@ astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
     Ast.AstFromPrimal $ astConvertSFromR c zftk a
   Ast.AstFromDual a ->
     Ast.AstFromDual $ astConvertSFromR c zftk a
-  Ast.AstFromS (STKR _ x2) v | Just Refl <- sameSTK (ftkToSTK x) x2 ->
-    case matchingFTK (FTKS sh x) (ftkAst v) of
-      Just Refl -> v
-      _ -> error $ "astConvertSFromR: unexpected tensor kinds"
-                   ++ show (ftkAst v) ++ " vs "
-                   ++ show (FTKS sh x)
 
 astConvertSFromX :: forall sh shx x s. (AstSpan s, Rank shx ~ Rank sh)
                  => TKConversion (TKX2 shx x) (TKS2 sh x)
@@ -3460,12 +3143,6 @@ astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstDualPart a -> astDualPart $ astConvertSFromX c zftk a
   Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astConvertSFromX c zftk a
   Ast.AstFromDual a -> Ast.AstFromDual $ astConvertSFromX c zftk a
-  Ast.AstFromS (STKX _ x2) v | Just Refl <- sameSTK (ftkToSTK x) x2 ->
-    case matchingFTK (FTKS sh x) (ftkAst v) of
-      Just Refl -> v
-      _ -> error $ "astConvertSFromX: unexpected tensor kinds"
-                   ++ show (ftkAst v) ++ " vs "
-                   ++ show (FTKS sh x)
 
 astFromS' :: forall y z s. AstSpan s
           => FullShapeTK z -> AstTensor AstMethodLet s y
@@ -3540,47 +3217,11 @@ astSFromX' sh t = case ftkAst t of
     let ftk = FTKS sh x
     in astConvertSFromX (ConvXS' ftk) ftk t
 
-astFromS :: forall y z s. AstSpan s
-         => SingletonTK z -> AstTensor AstMethodLet s y
-         -> AstTensor AstMethodLet s z
-astFromS stkz v | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
-astFromS stkz (Ast.AstFromPrimal v) =
-  Ast.AstFromPrimal $ astFromS stkz v
-    -- a rare case where we don't pull up but down so that conversions
-    -- don't end up interspersed with AstFromPrimal and similar
-astFromS stkz (Ast.AstFromDual v) =
-  Ast.AstFromDual $ astFromS stkz v
-astFromS STKScalar (Ast.AstCond b v1 v2) =
-  astCond b (astFromS STKScalar v1) (astFromS STKScalar v2)
-    -- for scalars, we don't pull up but down
-astFromS STKScalar (Ast.AstLet var u v) = astLet var u (astFromS STKScalar v)
-astFromS (STKScalar @r1) (AstConcreteS @r2 v)
-  | ZSS <- Nested.sshape v
-  , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) =
-    AstConcreteK (Nested.sunScalar v)
-astFromS STKScalar (AstPlusS u v) = astFromS STKScalar u + astFromS STKScalar v
-astFromS STKScalar (AstTimesS u v) = astFromS STKScalar u * astFromS STKScalar v
-astFromS STKScalar (Ast.AstN1S NegateOp u) = negate (astFromS STKScalar u)
-astFromS STKScalar (Ast.AstN1S AbsOp u) = abs (astFromS STKScalar u)
-astFromS STKScalar (Ast.AstN1S SignumOp u) = signum (astFromS STKScalar u)
-astFromS (STKScalar @r1) (Ast.AstI2S @r2 QuotOp u v)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) =
-    astFromS STKScalar u `quotH` astFromS STKScalar v
-astFromS (STKScalar @r1) (Ast.AstI2S @r2 RemOp u v)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) =
-    astFromS STKScalar u `remH` astFromS STKScalar v
-astFromS stkz (Ast.AstFromS _ v) = astFromS stkz v
-astFromS stkz (AstFromS' _ v) = astFromS stkz v
-astFromS stkz (Ast.AstConvert _c v)
-  | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
-astFromS stkz v = Ast.AstFromS stkz v
-
--- Compare with tfromS.
 astSFrom :: forall y z s. AstSpan s
          => SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
-astSFrom stkz (Ast.AstFromS _ v)  -- shortcut
-         | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
+--astSFrom stkz (Ast.AstFromS _ v)  -- shortcut
+--         | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
 astSFrom stkz v = case (stkz, ftkToSTK (ftkAst v)) of
   (_, stky) | Just Refl <- sameSTK stky stkz -> v
   (STKS ZSS (STKScalar @rz), STKScalar @ry) ->
@@ -3694,7 +3335,6 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
 instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   tconvert c _astk v = astConvert c v
 
-  tfromS = astFromS
   rfromX a = case ftkAst a of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->
@@ -3804,15 +3444,15 @@ astConcrete ftk v = case ftk of
   FTKR sh' FTKScalar ->
     withCastRS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      astFromS (ftkToSTK ftk) $ astConcreteS (sfromR @_ @sh v)
+      astFromS' ftk $ astConcreteS (sfromR @_ @sh v)
   FTKS _ FTKScalar -> astConcreteS v
   FTKX sh' FTKScalar ->
     withCastXS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      astFromS (ftkToSTK ftk) $ astConcreteS (sfromX @_ @sh v)
+      astFromS' ftk $ astConcreteS (sfromX @_ @sh v)
   FTKProduct ftk1 ftk2 ->
     astPair (astConcrete ftk1 (tproject1 v)) (astConcrete ftk2 (tproject2 v))
-  _ -> concreteTarget astConcreteK astConcreteS astFromS (ftkToSTK ftk) v
+  _ -> concreteTarget astConcreteK astConcreteS astFromS' (ftkToSTK ftk) v
 
 astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
           => AstTensor AstMethodLet s y
@@ -3833,13 +3473,8 @@ astLetFunBounds :: forall y z s s2. (AstSpan s, AstSpan s2)
                 -> AstTensor AstMethodLet s2 z
 astLetFunBounds _ a f | astIsSmall True a = f a
 astLetFunBounds mbs a f = case a of
-  Ast.AstFromS STKScalar _ -> let (var, ast) = funToAst2 (ftkAst a) mbs f
-                              in astLet var a ast
   AstFromS' FTKScalar _ -> let (var, ast) = funToAst2 (ftkAst a) mbs f
                            in astLet var a ast
-  Ast.AstFromS @y2 stkz v ->
-    let (var, ast) = funToAst2 (ftkAst v) mbs (f . astFromS @y2 stkz)
-    in astLet var v ast
   AstFromS' @y2 ftkz v ->
     let (var, ast) = funToAst2 (ftkAst v) mbs (f . astFromS' @y2 ftkz)
     in astLet var v ast
@@ -3848,14 +3483,14 @@ astLetFunBounds mbs a f = case a of
       withCastRS sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
               funToAst2 (FTKS sh x) mbs
-                        (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
+                        (f . astFromS' @(TKS2 sh x) ftk)
         in astLet var (astSFromR' sh a) ast
              -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
               funToAst2 (FTKS sh x) mbs
-                        (f . astFromS @(TKS2 sh x) (ftkToSTK ftk))
+                        (f . astFromS' @(TKS2 sh x) ftk)
         in astLet var (astSFromX' sh a) ast
     -- calling recursively for product may be not worth it
     ftk -> let (var, ast) = funToAst2 ftk mbs f
@@ -4157,7 +3792,6 @@ substitute1Ast i var = subst where
   Ast.AstTransposeS perm v -> astTransposeS perm <$> subst v
   Ast.AstReshapeS sh v -> astReshapeS sh <$> subst v
 
-  Ast.AstFromS stkz v -> astFromS stkz <$> subst v
   Ast.AstConvert c v -> astConvert c <$> subst v
 
   Ast.AstSum0S v -> astSum0S <$> subst v

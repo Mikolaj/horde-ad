@@ -927,7 +927,7 @@ evalFwd params s d0 = case d0 of
       evalFwd params s d
   DeltaFromS stk d ->
     withKnownSTK (adSTK $ ftkToSTK $ ftkDelta d) $
-    second (tfromS (adSTK stk)) $ evalFwd params s d
+    second (undefined{-tfromS-} (adSTK stk)) $ evalFwd params s d
 
   _ -> let y = ftkDelta d0
            ay = adFTK y

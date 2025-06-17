@@ -146,7 +146,7 @@ concreteRepW
   :: forall y target. (ConvertTensor Concrete, ConvertTensor target)
   => (forall r. GoodScalar r => Concrete (TKScalar r) -> target (TKScalar r))
   -> (forall r sh. GoodScalar r => Concrete (TKS sh r) -> target (TKS sh r))
-  -> (forall x z. SingletonTK z -> target x -> target z)
+  -> (forall x z. FullShapeTK z -> target x -> target z)
   -> RepW Concrete y -> RepW target y
 {-# INLINE concreteRepW #-}
 concreteRepW concreteK concreteS fromS w = case w of
@@ -155,14 +155,14 @@ concreteRepW concreteK concreteS fromS w = case w of
     let sh' = Nested.rshape $ unConcrete v
     in withCastRS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      fromS (STKR (shrRank sh') STKScalar)
+      fromS (FTKR sh' FTKScalar)
       $ concreteS (sfromR @_ @sh v)
   WTKS v -> WTKS $ concreteS v
   WTKX v -> WTKX $
     let sh' = Nested.mshape $ unConcrete v
     in withCastXS sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      fromS (STKX (ssxFromShX sh') STKScalar)
+      fromS (FTKX sh' FTKScalar)
       $ concreteS (sfromX @_ @sh v)
   WTKProduct v1 v2 ->
     WTKProduct (concreteRepW concreteK concreteS fromS v1)
@@ -494,7 +494,7 @@ concreteTarget
   :: forall y target. (ConvertTensor Concrete, ConvertTensor target)
   => (forall r. GoodScalar r => Concrete (TKScalar r) -> target (TKScalar r))
   -> (forall r sh. GoodScalar r => Concrete (TKS sh r) -> target (TKS sh r))
-  -> (forall x z. SingletonTK z -> target x -> target z)
+  -> (forall x z. FullShapeTK z -> target x -> target z)
   -> SingletonTK y -> Concrete y
   -> target y
 concreteTarget concreteK concreteS fromS stk v =

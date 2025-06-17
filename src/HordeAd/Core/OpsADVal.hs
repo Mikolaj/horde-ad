@@ -540,10 +540,6 @@ instance ( ADReadyNoLet target, ShareTensor target
     dDnotShared (tconvert c astk u)
                 (DeltaConvert c u')
 
-  -- This avoid product eta-expansions for AST instance primal,
-  -- though the contangent expands anyway.
-  tfromS zstk (D u u') =
-    dDnotShared (tfromS zstk u) (dFromS zstk u')
   rfromX a@(D _ u') = case ftkDelta u' of
     FTKX sh' _ ->
       withCastXS sh' $ \(sh :: ShS sh) ->

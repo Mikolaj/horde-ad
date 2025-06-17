@@ -438,12 +438,6 @@ printAst cfg d = \case
   AstReshapeS sh2 v ->
     printPrefixOp printAst cfg d ("sreshape @" ++ show (shsToList sh2)) [v]
 
-  AstFromS stkz v ->
-    case stkz of
-      STKScalar -> printPrefixOp printAst cfg d "kfromS" [v]
-      STKR{} -> printPrefixOp printAst cfg d "rfromS" [v]
-      STKX{} -> printPrefixOp printAst cfg d "xfromS" [v]
-      _ -> printPrefixOp printAst cfg d ("tfromS (" ++ show stkz ++ ")") [v]
   AstConvert c t -> case (ftkToSTK (ftkAst t), castFTK c (ftkAst t)) of
     (STKScalar, FTKS{}) -> printPrefixOp printAst cfg d "sfromK" [t]
     (STKR{}, FTKS{}) -> printPrefixOp printAst cfg d "sfromR" [t]

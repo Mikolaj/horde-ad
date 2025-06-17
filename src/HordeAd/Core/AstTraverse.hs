@@ -179,7 +179,6 @@ expandAst t = case t of
         -- this is expensive but the only way to guarantee full simplification
     -} astReshapeS sh (expandAst v)
 
-  Ast.AstFromS stkz v -> astFromS stkz $ expandAst v
   Ast.AstConvert c v -> astConvert c $ expandAst v
 
   -- These should not appear in this context unless via wacky tests.
@@ -295,7 +294,6 @@ simplifyAst t = case t of
   Ast.AstTransposeS perm v -> astTransposeS perm $ simplifyAst v  -- TODO:(normalizePermutation perm)
   Ast.AstReshapeS sh v -> astReshapeS sh $ simplifyAst v
 
-  Ast.AstFromS stkz v -> astFromS stkz $ simplifyAst v
   Ast.AstConvert c v -> astConvert c $ simplifyAst v
 
   -- These should not appear in this context unless via wacky tests.
@@ -340,7 +338,7 @@ contractAst t0 = case t0 of
   Ast.AstProject2 v -> astProject2 (contractAst v)
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map contractAst l)
   Ast.AstSum _ (STKS ZSS _) t2 -> astSum0S (contractAst t2)
-  Ast.AstSum _ STKScalar t2 -> astFromS STKScalar $ astSum0S (contractAst t2)
+  Ast.AstSum _ STKScalar t2 -> astFromS' FTKScalar $ astSum0S (contractAst t2)
   Ast.AstSum
     snat@(SNat @m2)
     stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar)
@@ -601,7 +599,6 @@ contractAst t0 = case t0 of
     AstConcreteS v -> astConcreteS (tsreshape sh2 $ Concrete v)
     t2 -> astReshapeS sh2 t2
 
-  Ast.AstFromS stkz v -> astFromS stkz $ contractAst v
   Ast.AstConvert c v -> astConvert c $ contractAst v
 
   -- These should not appear in this context unless via wacky tests.

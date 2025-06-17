@@ -120,8 +120,8 @@ build1V
   :: forall y k s. AstSpan s
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
-build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
-  let bv = Ast.AstBuild1 snat stk0 (var, v0)
+build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
+  let bv = Ast.AstBuild1 snat (ftkToSTK ftk0) (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
     Ast.AstPair t1 t2 -> traceRule $
@@ -188,7 +188,7 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
       else error "build1V: AstVar can't contain other free variables"
     Ast.AstCond b u v -> traceRule $
       let uv = astFromVector (SNat @2) (ftkToSTK (ftkAst u)) (V.fromList [u, v])
-          t = astIndexBuild (SNat @2) stk0 uv (astCond b 0 1)
+          t = astIndexBuild (SNat @2) ftk0 uv (astCond b 0 1)
       in build1VOccurrenceUnknown snat (var, t)
     Ast.AstBuild1 snat2 _ (var2, v2) -> traceRule $
       assert (var2 /= var) $
@@ -292,8 +292,8 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
       astTrS $ astSliceS i n k $ astTrS $ build1V snat (var, v)
     Ast.AstReverseS v -> traceRule $
       astTrS $ astReverseS $ astTrS $ build1V snat (var, v)
-    Ast.AstTransposeS @perm @sh1 perm v -> traceRule $ case stk0 of
-      STKS @sh _ _ ->
+    Ast.AstTransposeS @perm @sh1 perm v -> traceRule $ case ftk0 of
+      FTKS @sh _ _ ->
         let zsuccPerm :: Permutation.Perm (0 : Permutation.MapSucc perm)
             zsuccPerm = Permutation.permShift1 perm
         in gcastWith (unsafeCoerceRefl
@@ -309,8 +309,6 @@ build1V snat@SNat (!var, !v0) | stk0 <- ftkToSTK (ftkAst v0) =
     Ast.AstReshapeS sh v -> traceRule $
       astReshapeS (snat :$$ sh) $ build1V snat (var, v)
 
-    Ast.AstFromS stkz v -> traceRule $
-      astFromS (buildSTK snat stkz) $ build1V snat (var, v)
     Ast.AstConvert c v -> traceRule $
       astConvert (buildTKConversion snat (ftkAst v) c)
       $ build1V snat (var, v)
@@ -420,11 +418,12 @@ astTr :: forall n s r. AstSpan s
       -> AstTensor AstMethodLet s (TKR2 (2 + n) r)
 astTr a = case Permutation.makePerm @'[1, 0] of
   (perm :: Permutation.Perm perm) -> case ftkAst a of
-    FTKR sh' x | SNat <- shrRank sh' ->
+    FTKR sh'@(k :$: m :$: shr) x | SNat <- shrRank sh' ->
       withCastRS sh' $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank sh) :~: True) $
-        astFromS (STKR (SNat @(2 + n)) (ftkToSTK x))
+        astFromS' (FTKR (m :$: k :$: shr) x)
         . astTransposeS perm . astSFromR' sh $ a
+    _ -> error "astTr: impossible shape"
 
 astTrS :: forall n m sh s r. AstSpan s
        => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r)
@@ -441,7 +440,7 @@ astTrX a = case Permutation.makePerm @'[1, 0] of
     FTKX sh'@(mn :$% mm :$% shx) x ->
       withCastXS sh' $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank sh) :~: True) $
-        astFromS (ftkToSTK $ FTKX (mm :$% mn :$% shx) x)
+        astFromS' (FTKX (mm :$% mn :$% shx) x)
         . astTransposeS perm . astSFromX' sh $ a
 
 astTrBuild
@@ -461,27 +460,27 @@ astTrBuild SNat SNat stk t = case stk of
                  (astTrBuild (SNat @k1) (SNat @k2) stk2 u2)
 
 astIndexBuild :: forall y k s. AstSpan s
-              => SNat k -> SingletonTK y
+              => SNat k -> FullShapeTK y
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
               -> AstInt AstMethodLet
               -> AstTensor AstMethodLet s y
-astIndexBuild snat@SNat stk u i = case stk of
-  STKScalar -> astFromS stk $ astIndexS ZSS u (i :.$ ZIS)
-  STKR{} -> case ftkAst u of
+astIndexBuild snat@SNat ftk u i = case ftk of
+  FTKScalar -> astFromS' ftk $ astIndexS ZSS u (i :.$ ZIS)
+  FTKR{} -> case ftkAst u of
     FTKR shmshn _ ->
       withCastRS shmshn $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: k ': Tail sh :~: sh) $
-        astFromS stk $ astIndexS (shsTail sh) (astSFromR' sh u) (i :.$ ZIS)
-  STKS sh _ -> astIndexS sh u (i :.$ ZIS)
-  STKX _ _ -> case ftkAst u of
+        astFromS' ftk $ astIndexS (shsTail sh) (astSFromR' sh u) (i :.$ ZIS)
+  FTKS sh _ -> astIndexS sh u (i :.$ ZIS)
+  FTKX _ _ -> case ftkAst u of
    FTKX shBuild' _->
     withCastXS shBuild' $ \shBuild -> case shBuild of
       _ :$$ rest ->
-        astFromS stk $ astIndexS rest (astSFromX' shBuild u) (i :.$ ZIS)
-  STKProduct stk1 stk2 ->
+        astFromS' ftk $ astIndexS rest (astSFromX' shBuild u) (i :.$ ZIS)
+  FTKProduct ftk1 ftk2 ->
     astLetFun u $ \ !u3 ->
-      astPair (astIndexBuild snat stk1 (astProject1 u3) i)
-              (astIndexBuild snat stk2 (astProject2 u3) i)
+      astPair (astIndexBuild snat ftk1 (astProject1 u3) i)
+              (astIndexBuild snat ftk2 (astProject2 u3) i)
 
 substProjRep
   :: forall k s s2 y2 y. (AstSpan s, AstSpan s2)
@@ -494,7 +493,7 @@ substProjRep snat@SNat var var1 v =
       var3 = mkAstVarName ftk3 (varNameToBounds var1) (varNameToAstVarId var1)
       astVar3 = astVar var3
       v2 = substituteAst
-             (astIndexBuild snat (ftkToSTK $ varNameToFTK var1)
+             (astIndexBuild snat (varNameToFTK var1)
                             astVar3 (astVar var))
              var1 v
         -- The subsitutions of projections don't break sharing,

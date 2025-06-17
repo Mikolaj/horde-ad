@@ -201,7 +201,6 @@ inlineAst memo v0 = case v0 of
   Ast.AstTransposeS perm v -> second (Ast.AstTransposeS perm) $ inlineAst memo v
   Ast.AstReshapeS sh v -> second (Ast.AstReshapeS sh) (inlineAst memo v)
 
-  Ast.AstFromS stkz v -> second (Ast.AstFromS stkz) $ inlineAst memo v
   Ast.AstConvert c v -> second (Ast.AstConvert c) $ inlineAst memo v
 
   Ast.AstSum0S v -> second Ast.AstSum0S (inlineAst memo v)
@@ -341,15 +340,6 @@ unshareAst memo = \case
 
   -- We assume v is the same if var is the same.
   Ast.AstShare varRaw a | Just Refl <- sameAstSpan @s @PrimalSpan -> case a of
-    Ast.AstFromS @y2 stkz v ->
-      let var = mkAstVarName
-                  (ftkAst v) (varNameToBounds varRaw) (varNameToAstVarId varRaw)
-          astVar0 = Ast.AstFromS @y2 stkz $ Ast.AstVar var
-      in if var `DMap.member` memo
-         then (memo, astVar0)
-         else let (memo1, !a2) = unshareAst memo v
-                    -- DMap is strict, but let's be paranoid
-              in (DMap.insert var a2 memo1, astVar0)
     AstFromS' @y2 ftkz v ->
       let var = mkAstVarName
                   (ftkAst v) (varNameToBounds varRaw) (varNameToAstVarId varRaw)
@@ -482,7 +472,6 @@ unshareAst memo = \case
     second (Ast.AstTransposeS perm) $ unshareAst memo v
   Ast.AstReshapeS sh v -> second (Ast.AstReshapeS sh) (unshareAst memo v)
 
-  Ast.AstFromS stkz v -> second (Ast.AstFromS stkz) $ unshareAst memo v
   Ast.AstConvert c v -> second (Ast.AstConvert c) $ unshareAst memo v
 
   Ast.AstSum0S v -> second Ast.AstSum0S (unshareAst memo v)

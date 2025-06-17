@@ -338,9 +338,6 @@ interpretAst !env = \case
       withKnownSTK x $
       tsreshape sh2 (interpretAst env v)
 
-  AstFromS stkz v ->
-    withKnownSTK (ftkToSTK (ftkAst v)) $
-    tfromS stkz (interpretAst env v)
   AstConvert c a ->
     tconvert c (ftkToSTK (ftkAst a)) (interpretAst env a)
 

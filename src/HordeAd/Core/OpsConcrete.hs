@@ -26,7 +26,6 @@ import Data.Vector.Storable qualified as VS
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat, type (+))
-import Type.Reflection (typeRep)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
@@ -515,32 +514,6 @@ instance ConvertTensor Concrete where
   tconvert c astk a | Dict <- eltDictRep astk
                     , Dict <- eltDictRep (castSTK c astk) =
     Concrete $ Nested.convert (interpretTKConversion c) (unConcrete a)
-
-  tfromS @y zstk v = case (knownSTK @y, zstk) of
-    (stky, stkz) | Just Refl <- sameSTK stky stkz -> v
-    (STKS ZSS (STKScalar @ry), STKScalar @rz) ->
-      case testEquality (typeRep @ry) (typeRep @rz) of
-        Just Refl -> kfromS v
-        Nothing -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKR nx zx) | Dict <- lemKnownSTK yx ->
-      case (sameSTK yx zx, testEquality (shsRank shy) nx) of
-        (Just Refl, Just Refl) ->
-          withKnownShS shy $
-          rfromS v
-        _ -> error "tfromS: tensor kinds don't match"
-    (STKS shy yx, STKX shx zx) | Dict <- lemKnownSTK yx ->
-      case (sameSTK yx zx, testEquality (shsRank shy) (ssxRank shx)) of
-        (Just Refl, Just Refl) ->
-          withKnownShS shy $
-          withKnownShX shx $
-          xfromS v
-        _ -> error "tfromS: tensor kinds don't match"
-    (STKProduct ystk1 ystk2, STKProduct zstk1 zstk2) ->
-        let (u1, u2) = tunpair v
-        in withKnownSTK ystk1 $
-           withKnownSTK ystk2 $
-           tpair (tfromS zstk1 u1) (tfromS zstk2 u2)
-    _ -> error "tfromS: wrong tensor kinds"
 
   kfromR = Concrete . Nested.runScalar . unConcrete
   kfromS = Concrete . Nested.sunScalar . unConcrete

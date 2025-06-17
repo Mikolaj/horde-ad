@@ -23,18 +23,6 @@ import HordeAd.Core.Types
 class ConvertTensor (target :: Target) where
   tconvert :: TKConversion a b -> SingletonTK a -> target a -> target b
 
-  -- | The conversion of a tensor or a nested pair of tensors,
-  -- where the type of the result is determined by the singleton
-  -- given in the first argument.
-  --
-  -- The semantics for products is element-wise and for others it's either
-  -- identity or the domain is shaped and @tfromS@ type-casts to the codomain
-  -- by hiding some (or none) type information (so the codomain has to be
-  -- a "subtype" of the domain).
-  -- A corollary is that @tfromS@ behaves uniformly vs 'BuildTensorKind'.
-  tfromS :: KnownSTK y
-         => SingletonTK z -> target y -> target z
-
   -- All operations below could be defined in terms of tconvert,
   -- but they'd need additional singleton arguments or constraints
   -- or we'd need to depend on BaseTensor to use rshape, etc.
