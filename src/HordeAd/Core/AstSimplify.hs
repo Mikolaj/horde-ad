@@ -3220,8 +3220,8 @@ astSFromX' sh t = case ftkAst t of
 astSFrom :: forall y z s. AstSpan s
          => SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
---astSFrom stkz (Ast.AstFromS _ v)  -- shortcut
---         | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
+astSFrom stkz (AstFromS' _ v)  -- shortcut
+  | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
 astSFrom stkz v = case (stkz, ftkToSTK (ftkAst v)) of
   (_, stky) | Just Refl <- sameSTK stky stkz -> v
   (STKS ZSS (STKScalar @rz), STKScalar @ry) ->
@@ -3473,8 +3473,9 @@ astLetFunBounds :: forall y z s s2. (AstSpan s, AstSpan s2)
                 -> AstTensor AstMethodLet s2 z
 astLetFunBounds _ a f | astIsSmall True a = f a
 astLetFunBounds mbs a f = case a of
-  AstFromS' FTKScalar _ -> let (var, ast) = funToAst2 (ftkAst a) mbs f
-                           in astLet var a ast
+  AstFromS' FTKScalar _ ->
+    let (var, ast) = funToAst2 (ftkAst a) mbs f
+    in astLet var a ast
   AstFromS' @y2 ftkz v ->
     let (var, ast) = funToAst2 (ftkAst v) mbs (f . astFromS' @y2 ftkz)
     in astLet var v ast

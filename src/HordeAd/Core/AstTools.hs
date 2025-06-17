@@ -467,10 +467,10 @@ liftXFromS2 f a b = case ftkAst a of
 cAstSFromR :: forall sh x ms s.
               ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
            -> AstTensor ms s (TKS2 sh x)
-cAstSFromR sh w@(AstFromS' _ v)
+cAstSFromR sh w@(AstConvert _ v)
   | FTKR _ x <- ftkAst w
   , Just Refl <- matchingFTK (FTKS sh x) (ftkAst v) = v
-cAstSFromR sh (AstFromPrimal w@(AstFromS' _ v))
+cAstSFromR sh (AstFromPrimal w@(AstConvert _ v))
   | FTKR _ x <- ftkAst w
   , Just Refl <- matchingFTK (FTKS sh x) (ftkAst v) =
     AstFromPrimal v
@@ -482,10 +482,10 @@ cAstSFromR sh v = case ftkAst v of
 cAstSFromX :: forall sh sh' x ms s. Rank sh ~ Rank sh'
            => ShS sh -> AstTensor ms s (TKX2 sh' x)
            -> AstTensor ms s (TKS2 sh x)
-cAstSFromX sh w@(AstFromS' _ v)
+cAstSFromX sh w@(AstConvert _ v)
   | FTKX _ x <- ftkAst w
   , Just Refl <- matchingFTK (FTKS sh x) (ftkAst v) = v
-cAstSFromX sh (AstFromPrimal w@(AstFromS' _ v))
+cAstSFromX sh (AstFromPrimal w@(AstConvert _ v))
   | FTKX _ x <- ftkAst w
   , Just Refl <- matchingFTK (FTKS sh x) (ftkAst v) =
     AstFromPrimal v
