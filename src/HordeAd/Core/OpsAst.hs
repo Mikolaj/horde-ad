@@ -1156,41 +1156,32 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
       in AstConvert c a
 
   xnestR @sh1 @m @x sh1 (AstRaw a)
-   | Refl <- lemRankReplicate (Proxy @m) = AstRaw $ case ftkAst a of
-    FTKX _sh1sh2 _x ->
+    | Refl <- lemRankReplicate (Proxy @m) = AstRaw $
       let c :: TKConversion (TKX2 (sh1 ++ Replicate m Nothing) x)
-                          (TKX2 sh1 (TKR2 m x))
+                            (TKX2 sh1 (TKR2 m x))
           c = ConvCmp
                 (ConvXX (ConvXR (knownSTK @x)))
                 (ConvNest @_ @_ @(Replicate m Nothing)
                           (STKX sh1 (knownSTK @x)))
       in AstConvert c a
-  xnestS @_ @_ @x sh1 (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX _sh1sh2 _x ->
-      let c = ConvCmp
-                (ConvXX ConvXS)
-                (ConvNest (STKX sh1 (knownSTK @x)))
-      in AstConvert c a
-  xnest @_ @_ @x sh1 (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX _sh1sh2 _x ->
-      let c = ConvNest (STKX sh1 (knownSTK @x))
-      in AstConvert c a
-  xunNestR (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX _sh1 (FTKR _sh2 _x) ->
-      let c = ConvCmp
-                ConvUnnest
-                (ConvXX ConvRX)
-      in AstConvert c a
-  xunNestS (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX _sh1 (FTKS _sh2 _x) ->
-      let c = ConvCmp
-                ConvUnnest
-                (ConvXX ConvSX)
-      in AstConvert c a
-  xunNest (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX _sh1 (FTKX _sh2 _x) ->
-      let c = ConvUnnest
-      in AstConvert c a
+  xnestS @_ @_ @x sh1 (AstRaw a) = AstRaw $
+    let c = ConvCmp (ConvXX ConvXS)
+                    (ConvNest (STKX sh1 (knownSTK @x)))
+    in AstConvert c a
+  xnest @_ @_ @x sh1 (AstRaw a) = AstRaw $
+    let c = ConvNest (STKX sh1 (knownSTK @x))
+    in AstConvert c a
+  xunNestR (AstRaw a) = AstRaw $
+    let c = ConvCmp ConvUnnest
+                    (ConvXX ConvRX)
+    in AstConvert c a
+  xunNestS (AstRaw a) = AstRaw $
+    let c = ConvCmp ConvUnnest
+                    (ConvXX ConvSX)
+    in AstConvert c a
+  xunNest (AstRaw a) = AstRaw $
+    let c = ConvUnnest
+    in AstConvert c a
 
   tpairConv = tpair
   tunpairConv = tunpair

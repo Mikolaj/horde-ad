@@ -605,47 +605,38 @@ instance ( ADReadyNoLet target, ShareTensor target
             (DeltaConvert c u')
 
   xnestR @sh1 @m @x sh1 (D u u')
-   | Refl <- lemRankReplicate (Proxy @m) = case ftkDelta u' of
-    ftk@(FTKX _sh1sh2 _x) ->
+    | Refl <- lemRankReplicate (Proxy @m) =
       let c :: TKConversion (TKX2 (sh1 ++ Replicate m Nothing) x)
-                          (TKX2 sh1 (TKR2 m x))
+                            (TKX2 sh1 (TKR2 m x))
           c = ConvCmp
                 (ConvXX (ConvXR (knownSTK @x)))
                 (ConvNest @_ @_ @(Replicate m Nothing)
                           (STKX sh1 (knownSTK @x)))
-      in dD (tconvert c (ftkToSTK ftk) u)
+      in dD (tconvert c (ftkToSTK $ ftkDelta u') u)
             (DeltaConvert c u')
-  xnestS @_ @_ @x sh1 (D u u') = case ftkDelta u' of
-    ftk@(FTKX _sh1sh2 _x) ->
-      let c = ConvCmp
-                (ConvXX ConvXS)
-                (ConvNest (STKX sh1 (knownSTK @x)))
-      in dD (tconvert c (ftkToSTK ftk) u)
-            (DeltaConvert c u')
-  xnest @_ @_ @x sh1 (D u u') = case ftkDelta u' of
-    ftk@(FTKX _sh1sh2 _x) ->
-      let c = ConvNest (STKX sh1 (knownSTK @x))
-      in dD (tconvert c (ftkToSTK ftk) u)
-            (DeltaConvert c u')
-  xunNestR (D u u') = case ftkDelta u' of
-    ftk@(FTKX _sh1 (FTKR _sh2 _x)) ->
-      let c = ConvCmp
-                ConvUnnest
-                (ConvXX ConvRX)
-      in dD (tconvert c (ftkToSTK ftk) u)
-            (DeltaConvert c u')
-  xunNestS (D u u') = case ftkDelta u' of
-    ftk@(FTKX _sh1 (FTKS _sh2 _x)) ->
-      let c = ConvCmp
-                ConvUnnest
-                (ConvXX ConvSX)
-      in dD (tconvert c (ftkToSTK ftk) u)
-            (DeltaConvert c u')
-  xunNest (D u u') = case ftkDelta u' of
-    ftk@(FTKX _sh1 (FTKX _sh2 _x)) ->
-      let c = ConvUnnest
-      in dD (tconvert c (ftkToSTK ftk) u)
-            (DeltaConvert c u')
+  xnestS @_ @_ @x sh1 (D u u') =
+    let c = ConvCmp (ConvXX ConvXS)
+                    (ConvNest (STKX sh1 (knownSTK @x)))
+    in dD (tconvert c (ftkToSTK $ ftkDelta u') u)
+          (DeltaConvert c u')
+  xnest @_ @_ @x sh1 (D u u') =
+    let c = ConvNest (STKX sh1 (knownSTK @x))
+    in dD (tconvert c (ftkToSTK $ ftkDelta u') u)
+          (DeltaConvert c u')
+  xunNestR (D u u') =
+    let c = ConvCmp ConvUnnest
+                    (ConvXX ConvRX)
+    in dD (tconvert c (ftkToSTK $ ftkDelta u') u)
+          (DeltaConvert c u')
+  xunNestS (D u u') =
+    let c = ConvCmp ConvUnnest
+                   (ConvXX ConvSX)
+    in dD (tconvert c (ftkToSTK $ ftkDelta u') u)
+          (DeltaConvert c u')
+  xunNest (D u u') =
+    let c = ConvUnnest
+    in dD (tconvert c (ftkToSTK $ ftkDelta u') u)
+          (DeltaConvert c u')
 
   tpairConv = tpair
   tunpairConv = tunpair

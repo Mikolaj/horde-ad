@@ -3384,41 +3384,32 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
       in astConvert c a
 
   xnestR @sh1 @m @x sh1 a
-   | Refl <- lemRankReplicate (Proxy @m) = case ftkAst a of
-    FTKX _sh1sh2 _x ->
+    | Refl <- lemRankReplicate (Proxy @m) =
       let c :: TKConversion (TKX2 (sh1 ++ Replicate m Nothing) x)
-                          (TKX2 sh1 (TKR2 m x))
+                            (TKX2 sh1 (TKR2 m x))
           c = ConvCmp
                 (ConvXX (ConvXR (knownSTK @x)))
                 (ConvNest @_ @_ @(Replicate m Nothing)
                           (STKX sh1 (knownSTK @x)))
       in astConvert c a
-  xnestS @_ @_ @x sh1 a = case ftkAst a of
-    FTKX _sh1sh2 _x ->
-      let c = ConvCmp
-                (ConvXX ConvXS)
-                (ConvNest (STKX sh1 (knownSTK @x)))
-      in astConvert c a
-  xnest @_ @_ @x sh1 a = case ftkAst a of
-    FTKX _sh1sh2 _x ->
-      let c = ConvNest (STKX sh1 (knownSTK @x))
-      in astConvert c a
-  xunNestR a = case ftkAst a of
-    FTKX _sh1 (FTKR _sh2 _x) ->
-      let c = ConvCmp
-                ConvUnnest
-                (ConvXX ConvRX)
-      in astConvert c a
-  xunNestS a = case ftkAst a of
-    FTKX _sh1 (FTKS _sh2 _x) ->
-      let c = ConvCmp
-                ConvUnnest
-                (ConvXX ConvSX)
-      in astConvert c a
-  xunNest a = case ftkAst a of
-    FTKX _sh1 (FTKX _sh2 _x) ->
-      let c = ConvUnnest
-      in astConvert c a
+  xnestS @_ @_ @x sh1 a =
+    let c = ConvCmp (ConvXX ConvXS)
+                    (ConvNest (STKX sh1 (knownSTK @x)))
+    in astConvert c a
+  xnest @_ @_ @x sh1 a =
+    let c = ConvNest (STKX sh1 (knownSTK @x))
+    in astConvert c a
+  xunNestR a =
+    let c = ConvCmp ConvUnnest
+                    (ConvXX ConvRX)
+    in astConvert c a
+  xunNestS a =
+    let c = ConvCmp ConvUnnest
+                    (ConvXX ConvSX)
+    in astConvert c a
+  xunNest a =
+    let c = ConvUnnest
+    in astConvert c a
 
   tpairConv = astPair
   tunpairConv t = (astProject1 t, astProject2 t)
