@@ -579,6 +579,7 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   remH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
     AstReplicate snat stk $ remH u v
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
+  -- TODO: define a pattern synonym that captures the below. Also elsewhere.
   remH (AstConvert c n) (AstConvert _ k)
     | FTKS ZSS x <- convertFTK c (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst n)
