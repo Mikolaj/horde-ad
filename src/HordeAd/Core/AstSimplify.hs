@@ -34,7 +34,9 @@ module HordeAd.Core.AstSimplify
   , astIndexS, astIndexKnobsS, astScatterS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
 
-  , astConvert, astFromS', astXFromS', astSFromK', astSFromR', astSFromX'
+  , astConvert
+  , astFromS', astKFromS', astRFromS', astXFromS'
+  , astSFromK', astSFromR', astSFromX'
   , astSum0S, astDot0S, astDot1InS, astMatmul2S
 
     -- * Helper combinators
@@ -77,7 +79,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (Replicate, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert (shxFromShS)
+import Data.Array.Nested.Convert (shrFromShS, shxFromShS)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, Perm (..), TakeLen, permInverse)
@@ -368,7 +370,7 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstReverseS v -> astSum snat stk v
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKScalar <- stk ->
-      astFromS' FTKScalar $ astIndexS ZSS t0 (0 :.$ ZIS)
+      astKFromS' $ astIndexS ZSS t0 (0 :.$ ZIS)
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKS sh _  <- stk ->  -- other cases too rare
       astIndexS sh t0 (0 :.$ ZIS)  -- astReshape slows down the CNNO test
@@ -3175,13 +3177,31 @@ astFromS' zftk t =
                      ++ "(" ++ show yftk0 ++ ", " ++ show zftk0 ++ ")"
   in astConvertFromS (fromS yftk zftk) zftk t
 
+astKFromS' :: forall r s. (AstSpan s, GoodScalar r)
+           => AstTensor AstMethodLet s (TKS2 '[] (TKScalar r))
+           -> AstTensor AstMethodLet s (TKScalar r)
+astKFromS' t =
+  let ftk = FTKScalar
+  in astConvertFromS (ConvCmp ConvX0 ConvSX) ftk t
+
+-- Or should we take SNat (Rank sh) to help proving n ~ Rank sh?
+astRFromS' :: forall sh x s. AstSpan s
+           => AstTensor AstMethodLet s (TKS2 sh x)
+           -> AstTensor AstMethodLet s (TKR2 (Rank sh) x)
+astRFromS' t | FTKS sh x <- ftkAst t
+             , Refl <- lemRankMapJust sh =
+  let shr = shrFromShS sh
+      ftk = FTKR shr x
+  in astConvertFromS (ConvCmp (ConvXR (ftkToSTK x)) ConvSX) ftk t
+
 astXFromS' :: forall sh shx x s. (AstSpan s, Rank sh ~ Rank shx)
            => StaticShX shx -> AstTensor AstMethodLet s (TKS2 sh x)
            -> AstTensor AstMethodLet s (TKX2 shx x)
 astXFromS' ssx t | FTKS sh x <- ftkAst t
                  , Refl <- lemRankMapJust sh =
   let shx = shCastSX ssx sh
-  in astConvertFromS (ConvCmp (ConvXX' (FTKX shx x)) ConvSX) (FTKX shx x) t
+      ftk = FTKX shx x
+  in astConvertFromS (ConvCmp (ConvXX' ftk) ConvSX) ftk t
 
 pattern AstSFromK' :: () => sh ~ '[]
                    => AstTensor AstMethodLet s (TKScalar r)

@@ -472,7 +472,7 @@ astIndexBuild snat@SNat ftk u i = case ftk of
         gcastWith (unsafeCoerceRefl :: k ': Tail sh :~: sh) $
         astFromS' ftk $ astIndexS (shsTail sh) (astSFromR' sh u) (i :.$ ZIS)
   FTKS sh _ -> astIndexS sh u (i :.$ ZIS)
-  FTKX _ _ -> case ftkAst u of
+  FTKX{} -> case ftkAst u of
    FTKX shBuild' _->
     withCastXS shBuild' $ \shBuild -> case shBuild of
       _ :$$ rest ->

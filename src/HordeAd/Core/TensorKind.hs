@@ -185,6 +185,14 @@ widthSTK stk = case stk of
   STKX{} -> 1
   STKProduct stk1 stk2 -> widthSTK stk1 + widthSTK stk2
 
+-- This is copied, with modifications, from ox-arrays.
+-- This is a recipe for converting arrays, not always followed,
+-- and a proof a conversion is possible, with some proof obligations
+-- delayed to runtime (in ConvXS' and ConvXX', where not only the ranks
+-- of the shapes need to agree, but also the dimensions of the input
+-- array and of the output shape, which is not all captured in the type).
+-- As in ox-arrays, conversions only change the meta-data, not the underlying
+-- vector representation of the array.
 type role TKConversion nominal nominal
 data TKConversion (a :: TK) (b :: TK) where
   ConvId  :: TKConversion a a
