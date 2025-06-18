@@ -426,23 +426,11 @@ astSum snat@SNat stk t0 = case t0 of
           astScatterS @shm @shn @(Tail shp) shn v (vars, rest)
         _ -> Ast.AstSum snat stk t0
   Ast.AstConvert c t | checkAstFromS c t -> case ftkAst t of
-    FTKS ((:$$) @_ @rest snat2 rest) x -> case convertFTK c (ftkAst t) of
-      FTKR (_ :$: _) _ | STKR @n _ sx <- stk
-                       , Just Refl <- sameSTK sx (ftkToSTK x)
-                       , Refl <- lemRankMapJust rest ->
-        -- The proof of this equality is in c, which we don't want to inspect.
-        gcastWith (unsafeCoerceRefl :: Rank rest :~: n) $
-        astConvert (ConvCmp (ConvXR sx) ConvSX)
-                   (astSum snat2 (STKS rest sx) t)
-      FTKX (_ :$% xrest) _ | STKX @xrest _ sx <- stk
-                           , Just Refl <- sameSTK sx (ftkToSTK x)
-                           , Refl <- lemRankMapJust rest ->
-        -- The proof of this equality is in c, which we don't want to inspect.
-        gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank xrest) $
-        astConvert (ConvCmp (ConvXX' (FTKX xrest x)) ConvSX)
-                   (astSum snat2 (STKS rest sx) t)
-      _ -> Ast.AstSum snat stk t0
-        -- FTKScalar is impossible and products probably not worth the effort
+    FTKS (snat2 :$$ rest) x ->
+      -- Here we'd need to change the types inside c, so instead we construct
+      -- a new conversion based on the domain and codomain.
+      astFromS' (razeFTK snat stk (ftkAst t0))
+      $ astSum snat2 (STKS rest (ftkToSTK x)) t
     _ -> Ast.AstSum snat stk t0  -- products probably not worth the effort
   _ -> Ast.AstSum snat stk t0
 
