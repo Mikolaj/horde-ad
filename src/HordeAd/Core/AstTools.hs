@@ -13,7 +13,7 @@ module HordeAd.Core.AstTools
   , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstSFromR, cAstSFromX, cAstXFromS
-  , pattern AstFromS', checkAstFromS, cAstFromS
+  , pattern AstFromS', checkAstFromS, cAstFromS, convFromS
   , setTotalSharing
   ) where
 
@@ -540,26 +540,25 @@ checkAstFromS c t = checkFtkAstFromS (ftkAst t) (convertFTK c (ftkAst t))
 cAstFromS :: forall y z ms s.
              FullShapeTK z -> AstTensor ms s y
           -> AstTensor ms s z
-cAstFromS zftk t =
-  let yftk = ftkAst t
-      fromS :: FullShapeTK y0 -> FullShapeTK z0 -> TKConversion y0 z0
-      fromS yftk0 zftk0 = case (yftk0, zftk0) of
-        _ | Just Refl <- matchingFTK yftk0 zftk0 -> ConvId
-        (FTKS ZSS (FTKScalar @ry), FTKScalar @rz)
-          | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
-            ConvCmp ConvX0 ConvSX
-        (FTKS sh x, FTKR rsh rx)
-          | Just Refl <- matchingFTK x rx
-          , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
-          , Refl <- lemRankMapJust sh ->
-            ConvCmp (ConvXR (ftkToSTK x)) ConvSX
-        (FTKS sh x, FTKX xsh xx)
-          | Just Refl <- matchingFTK x xx
-          , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
-          , Refl <- lemRankMapJust sh ->
-            ConvCmp (ConvXX' zftk0) ConvSX
-        (FTKProduct yftk1 yftk2, FTKProduct zftk1 zftk2) ->
-          ConvT2 (fromS yftk1 zftk1) (fromS yftk2 zftk2)
-        _ -> error $ "cAstFromS': unexpected types "  -- TODO: try nevertheless
-                     ++ "(" ++ show yftk0 ++ ", " ++ show zftk0 ++ ")"
-  in AstConvert (fromS yftk zftk) t
+cAstFromS zftk t = AstConvert (convFromS (ftkAst t) zftk) t
+
+convFromS :: FullShapeTK y0 -> FullShapeTK z0 -> TKConversion y0 z0
+convFromS yftk0 zftk0 = case (yftk0, zftk0) of
+  _ | Just Refl <- matchingFTK yftk0 zftk0 -> ConvId
+  (FTKS ZSS (FTKScalar @ry), FTKScalar @rz)
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      ConvCmp ConvX0 ConvSX
+  (FTKS sh x, FTKR rsh rx)
+    | Just Refl <- matchingFTK x rx
+    , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
+    , Refl <- lemRankMapJust sh ->
+      ConvCmp (ConvXR (ftkToSTK x)) ConvSX
+  (FTKS sh x, FTKX xsh xx)
+    | Just Refl <- matchingFTK x xx
+    , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
+    , Refl <- lemRankMapJust sh ->
+      ConvCmp (ConvXX' zftk0) ConvSX
+  (FTKProduct yftk1 yftk2, FTKProduct zftk1 zftk2) ->
+    ConvT2 (convFromS yftk1 zftk1) (convFromS yftk2 zftk2)
+  _ -> error $ "convFromS': unexpected types "  -- TODO: try nevertheless
+               ++ "(" ++ show yftk0 ++ ", " ++ show zftk0 ++ ")"

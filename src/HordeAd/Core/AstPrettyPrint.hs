@@ -438,6 +438,8 @@ printAst cfg d = \case
   AstReshapeS sh2 v ->
     printPrefixOp printAst cfg d ("sreshape @" ++ show (shsToList sh2)) [v]
 
+  -- TODO: pretty-print correctly szip, sunzip, snestS, sunNestS
+  -- or at least make sure they get printed as tconvert, not as the others
   AstConvert c t -> case (ftkToSTK (ftkAst t), convertFTK c (ftkAst t)) of
     (STKScalar, FTKS{}) -> printPrefixOp printAst cfg d "sfromK" [t]
     (STKR{}, FTKS{}) -> printPrefixOp printAst cfg d "sfromR" [t]

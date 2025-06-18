@@ -3153,29 +3153,7 @@ astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
 astFromS' :: forall y z s. AstSpan s
           => FullShapeTK z -> AstTensor AstMethodLet s y
           -> AstTensor AstMethodLet s z
-astFromS' zftk t =
-  let yftk = ftkAst t
-      fromS :: FullShapeTK y0 -> FullShapeTK z0 -> TKConversion y0 z0
-      fromS yftk0 zftk0 = case (yftk0, zftk0) of
-        _ | Just Refl <- matchingFTK yftk0 zftk0 -> ConvId
-        (FTKS ZSS (FTKScalar @ry), FTKScalar @rz)
-          | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
-            ConvCmp ConvX0 ConvSX
-        (FTKS sh x, FTKR rsh rx)
-          | Just Refl <- matchingFTK x rx
-          , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
-          , Refl <- lemRankMapJust sh ->
-            ConvCmp (ConvXR (ftkToSTK x)) ConvSX
-        (FTKS sh x, FTKX xsh xx)
-          | Just Refl <- matchingFTK x xx
-          , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
-          , Refl <- lemRankMapJust sh ->
-            ConvCmp (ConvXX' zftk0) ConvSX
-        (FTKProduct yftk1 yftk2, FTKProduct zftk1 zftk2) ->
-          ConvT2 (fromS yftk1 zftk1) (fromS yftk2 zftk2)
-        _ -> error $ "astFromS': unexpected types "  -- TODO: try nevertheless
-                     ++ "(" ++ show yftk0 ++ ", " ++ show zftk0 ++ ")"
-  in astConvertFromS (fromS yftk zftk) zftk t
+astFromS' zftk t = astConvertFromS (convFromS (ftkAst t) zftk) zftk t
 
 astKFromS' :: forall r s. (AstSpan s, GoodScalar r)
            => AstTensor AstMethodLet s (TKS2 '[] (TKScalar r))
