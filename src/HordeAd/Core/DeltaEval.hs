@@ -718,7 +718,7 @@ evalRevSame !s !c = \case
       gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
       evalRevSame
         s (tconvert (transposeTKConversion aftk c1)
-                    (castSTK c1 $ ftkToSTK $ ftkDelta d) c) d
+                    (convertSTK c1 $ ftkToSTK $ ftkDelta d) c) d
 
   d -> evalRevFTK s c d
     -- the remaining constructors are already handled in evalRevFTK
@@ -727,7 +727,7 @@ transposeTKConversion :: FullShapeTK a -> TKConversion a b -> TKConversion b a
 transposeTKConversion aftk c0 = case c0 of
   ConvId -> ConvId
   ConvCmp c1 c2 -> ConvCmp (transposeTKConversion aftk c2)
-                           (transposeTKConversion (castFTK c2 aftk) c1)
+                           (transposeTKConversion (convertFTK c2 aftk) c1)
   ConvRX | FTKR @n _ x <- aftk
          , Refl <- lemRankReplicate (Proxy @n) ->
     ConvXR (ftkToSTK x)

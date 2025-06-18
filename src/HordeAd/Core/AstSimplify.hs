@@ -424,7 +424,7 @@ astSum snat@SNat stk t0 = case t0 of
           astScatterS @shm @shn @(Tail shp) shn v (vars, rest)
         _ -> Ast.AstSum snat stk t0
   Ast.AstConvert c t | checkAstFromS c t -> case ftkAst t of
-    FTKS ((:$$) @_ @rest snat2 rest) x -> case castFTK c (ftkAst t) of
+    FTKS ((:$$) @_ @rest snat2 rest) x -> case convertFTK c (ftkAst t) of
       FTKR (_ :$: _) _ | STKR @n _ sx <- stk
                        , Just Refl <- sameSTK sx (ftkToSTK x)
                        , Refl <- lemRankMapJust rest ->
@@ -2941,7 +2941,7 @@ astConvert
   :: AstSpan s
   => TKConversion y z -> AstTensor AstMethodLet s y
   -> AstTensor AstMethodLet s z
-astConvert c a = case (ftkAst a, castFTK c (ftkAst a)) of
+astConvert c a = case (ftkAst a, convertFTK c (ftkAst a)) of
   (yftk, zftk) | Just Refl <- sameSTK (ftkToSTK yftk) (ftkToSTK zftk) -> a
   (FTKScalar @ry, zftk@(FTKS ZSS (FTKScalar @rz)))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
@@ -3191,7 +3191,7 @@ checkPatternAstSFromK' :: TKConversion y (TKS2 sh (TKScalar r))
                                 , AstTensor AstMethodLet s (TKScalar r) )
 checkPatternAstSFromK' c t
   | FTKScalar @ry <- ftkAst t
-  , FTKS ZSS (FTKScalar @r) <- castFTK c (ftkAst t)
+  , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
   , Just Refl <- testEquality (typeRep @ry) (typeRep @r) = Just (Refl, t)
 checkPatternAstSFromK' _ _ = Nothing
 

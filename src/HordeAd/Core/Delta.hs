@@ -454,4 +454,4 @@ ftkDelta = \case
   DeltaReshapeX sh2 d -> case ftkDelta d of
     FTKX _ x -> FTKX sh2 x
 
-  DeltaConvert c d -> castFTK c $ ftkDelta d
+  DeltaConvert c d -> convertFTK c $ ftkDelta d

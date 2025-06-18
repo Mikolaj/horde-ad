@@ -122,7 +122,7 @@ ftkAst t = case t of
   AstReshapeS sh2 v -> case ftkAst v of
     FTKS _ x -> FTKS sh2 x
 
-  AstConvert c u -> castFTK c $ ftkAst u
+  AstConvert c u -> convertFTK c $ ftkAst u
 
   AstSum0S v ->  case ftkAst v of
     FTKS _ x -> FTKS ZSS x
@@ -522,7 +522,7 @@ pattern AstFromS' zftk a <-
 checkPatternAstFromS :: TKConversion y z -> AstTensor ms s y
                      -> Maybe (FullShapeTK z, AstTensor ms s y)
 checkPatternAstFromS c t =
-  let zftk = castFTK c (ftkAst t)
+  let zftk = convertFTK c (ftkAst t)
   in if checkFtkAstFromS (ftkAst t) zftk then Just (zftk, t) else Nothing
 
 -- TODO: this is to lax, since it accepts nests/unnests
@@ -535,7 +535,7 @@ checkFtkAstFromS (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) =
 checkFtkAstFromS _ _ = False
 
 checkAstFromS :: TKConversion a b -> AstTensor ms s a -> Bool
-checkAstFromS c t = checkFtkAstFromS (ftkAst t) (castFTK c (ftkAst t))
+checkAstFromS c t = checkFtkAstFromS (ftkAst t) (convertFTK c (ftkAst t))
 
 cAstFromS :: forall y z ms s.
              FullShapeTK z -> AstTensor ms s y

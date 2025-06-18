@@ -452,7 +452,7 @@ instance (GoodScalar r, AstSpan s)
   AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
   AstFromDual u + AstFromDual v = AstFromDual $ u + v
   AstConvert c u + AstConvert _ v
-    | FTKS ZSS x <- castFTK c (ftkAst u)
+    | FTKS ZSS x <- convertFTK c (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst v) =
       AstConvert c $ u + v
@@ -488,7 +488,7 @@ instance (GoodScalar r, AstSpan s)
   AstConcreteS s * u | Just 1 <- sunReplicateScal s = u
   u * AstConcreteS s | Just 1 <- sunReplicateScal s = u
   AstConvert c u * AstConvert _ v
-    | FTKS ZSS x <- castFTK c (ftkAst u)
+    | FTKS ZSS x <- convertFTK c (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst v) =
       AstConvert c $ u * v
@@ -532,7 +532,7 @@ instance (GoodScalar r, AstSpan s)
   negate (AstGatherS @shm @shn @shp shn v (vars, ix)) =
     AstGatherS @shm @shn @shp shn (negate v) (vars, ix)
   negate (AstConvert c n)
-    | FTKS ZSS x <- castFTK c (ftkAst n)
+    | FTKS ZSS x <- convertFTK c (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst n) =
       AstConvert c (negate n)
   negate u = AstN1S NegateOp u
@@ -542,7 +542,7 @@ instance (GoodScalar r, AstSpan s)
   abs (AstN1S AbsOp u) = AstN1S AbsOp u
   abs (AstConcreteS u) = AstConcreteS (abs u)
   abs (AstConvert c n)
-    | FTKS ZSS x <- castFTK c (ftkAst n)
+    | FTKS ZSS x <- convertFTK c (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst n) =
       AstConvert c (abs n)
   abs (AstN1S NegateOp u) = abs u
@@ -553,7 +553,7 @@ instance (GoodScalar r, AstSpan s)
   signum (AstN1S SignumOp u) = AstN1S SignumOp u
   signum (AstConcreteS u) = AstConcreteS (signum u)
   signum (AstConvert c n)
-    | FTKS ZSS x <- castFTK c (ftkAst n)
+    | FTKS ZSS x <- convertFTK c (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst n) =
       AstConvert c (signum n)
   signum u = AstN1S SignumOp u
@@ -566,7 +566,7 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
     AstReplicate snat stk $ quotH u v
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
   quotH (AstConvert c n) (AstConvert _ k)
-    | FTKS ZSS x <- castFTK c (ftkAst n)
+    | FTKS ZSS x <- convertFTK c (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst k) =
       AstConvert c (quotH n k)
@@ -580,7 +580,7 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
     AstReplicate snat stk $ remH u v
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
   remH (AstConvert c n) (AstConvert _ k)
-    | FTKS ZSS x <- castFTK c (ftkAst n)
+    | FTKS ZSS x <- convertFTK c (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst k) =
       AstConvert c (remH n k)
@@ -898,11 +898,11 @@ instance (AstSpan s, GoodScalar r)
   AstFromDual u <=. AstFromDual v = u <=. v  -- TODO: correct?
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
   AstConvert c u <=. AstConvert _ v
-    | FTKS ZSS x <- castFTK c (ftkAst u)
+    | FTKS ZSS x <- convertFTK c (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst v) = u <=. v
   AstConcreteS u <=. AstConvert c v
-    | FTKS ZSS (FTKScalar @rz) <- castFTK c (ftkAst v)
+    | FTKS ZSS (FTKScalar @rz) <- convertFTK c (ftkAst v)
     , FTKScalar @ry <- ftkAst v
     , Just Refl <- testEquality (typeRep @ry) (typeRep @rz) =
       AstConcreteK (unConcrete $ kfromS $ Concrete u) <=. v
