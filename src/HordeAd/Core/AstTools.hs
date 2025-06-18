@@ -375,9 +375,7 @@ liftRFromS1 :: forall n x ms s.
 liftRFromS1 f (AstFromS' ftkz@(FTKR _ x) u) = case ftkAst u of
   FTKS _ xu ->
     case matchingFTK x xu of
-      Just Refl -> case f u of
-        AstConvert _ a | Just Refl <- matchingFTK ftkz (ftkAst a) -> a
-        a -> cAstFromS ftkz a
+      Just Refl -> cAstFromS ftkz (f u)
       _ -> error $ "liftRFromS1: tensor kinds don't agree: "
                    ++ show x ++ " " ++ show xu
   _ -> error "liftRFromS1: unexpected tensor kind"
@@ -404,9 +402,7 @@ liftRFromS2 f (AstFromS' ftkz@(FTKR _ x) u) (AstFromS' _ v) =
       case ( matchingFTK xu x
            , matchingFTK xv x
            , testEquality shu shv ) of
-      (Just Refl, Just Refl, Just Refl) -> case f u v of
-        AstConvert _ a | Just Refl <- matchingFTK ftkz (ftkAst a) -> a
-        a -> cAstFromS ftkz a
+      (Just Refl, Just Refl, Just Refl) -> cAstFromS ftkz (f u v)
       _ -> error $ "liftRFromS2: tensor kinds don't agree: "
                    ++ show ftku ++ " " ++ show ftkv ++ " "
                    ++ show ftkz
@@ -427,9 +423,7 @@ liftXFromS1 :: forall sh' x ms s.
 liftXFromS1 f (AstFromS' ftkz@(FTKX _ x) u) = case ftkAst u of
   FTKS _ xu ->
     case matchingFTK x xu of
-      Just Refl -> case f u of
-        AstConvert _ a | Just Refl <- matchingFTK ftkz (ftkAst a) -> a
-        a -> cAstFromS ftkz a
+      Just Refl -> cAstFromS ftkz (f u)
       _ -> error $ "liftXFromS1: tensor kinds don't agree: "
                    ++ show x ++ " " ++ show xu
   _ -> error "liftXFromS1: unexpected tensor kind"
@@ -451,9 +445,7 @@ liftXFromS2 f (AstFromS' ftkz@(FTKX _ x) u) (AstFromS' _ v) =
       case ( matchingFTK xu x
            , matchingFTK xv x
            , testEquality shu shv ) of
-        (Just Refl, Just Refl, Just Refl) -> case f u v of
-          AstConvert _ a | Just Refl <- matchingFTK ftkz (ftkAst a) -> a
-          a -> cAstFromS ftkz a
+        (Just Refl, Just Refl, Just Refl) -> cAstFromS ftkz (f u v)
         _ -> error $ "liftXFromS2: tensor kinds don't agree: "
                      ++ show ftku ++ " " ++ show ftkv ++ " "
                      ++ show (FTKS shu x)
@@ -540,6 +532,10 @@ checkAstFromS c t = checkFtkAstFromS (ftkAst t) (convertFTK c (ftkAst t))
 cAstFromS :: forall y z ms s.
              FullShapeTK z -> AstTensor ms s y
           -> AstTensor ms s z
+cAstFromS zftk (AstConvert _ t)
+  | Just Refl <- matchingFTK zftk (ftkAst t) = t
+cAstFromS zftk (AstFromPrimal (AstConvert _ t))
+  | Just Refl <- matchingFTK zftk (ftkAst t) = AstFromPrimal t
 cAstFromS zftk t = AstConvert (convFromS (ftkAst t) zftk) t
 
 convFromS :: FullShapeTK y0 -> FullShapeTK z0 -> TKConversion y0 z0
