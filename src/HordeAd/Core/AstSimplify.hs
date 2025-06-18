@@ -2942,16 +2942,20 @@ astConvert
   => TKConversion y z -> AstTensor AstMethodLet s y
   -> AstTensor AstMethodLet s z
 astConvert c a = case (ftkAst a, convertFTK c (ftkAst a)) of
-  (yftk, zftk) | Just Refl <- sameSTK (ftkToSTK yftk) (ftkToSTK zftk) -> a
+  (yftk, zftk) | Just Refl <- matchingFTK yftk zftk -> a
+    -- this covers the ConvId case and more, so not simplifying c at worst
+    -- causes c to take more memory but doesn't inhibit rewriting
+    -- TODO: we don't want to add lets to simplify conversion
+    -- ConvT2 ConvId c2, but we could rewrite this when a is a AstPair
   (FTKScalar @ry, zftk@(FTKS ZSS (FTKScalar @rz)))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       astConvertSFromK c zftk a
   (FTKR shr xy, zftk@(FTKS sh xz))
-    | Just Refl <- sameSTK (ftkToSTK xy) (ftkToSTK xz)
+    | Just Refl <- matchingFTK xy xz
     , Just Refl <- testEquality (shrRank shr) (shsRank sh) ->
       astConvertSFromR c zftk a
   (FTKX shx xy, zftk@(FTKS sh xz))
-    | Just Refl <- sameSTK (ftkToSTK xy) (ftkToSTK xz)
+    | Just Refl <- matchingFTK xy xz
     , Just Refl <- testEquality (shxRank shx) (shsRank sh) ->
       astConvertSFromX c zftk a
   (FTKS{}, zftk) -> astConvertFromS c zftk a

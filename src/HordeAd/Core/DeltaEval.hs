@@ -917,10 +917,9 @@ evalFwdSame params s = \case
       _ -> (s, tdefTarget $ adFTK $ ftkDelta d0)
 
   d0@(DeltaCastR d) -> case ftkDelta d of
-    y ->
-      case sameSTK (ftkToSTK y) (adSTK (ftkToSTK y)) of
-        Just Refl -> second trcast $ evalFwdSame params s d
-        _ -> (s, tdefTarget $ adFTK $ ftkDelta d0)
+    y -> case matchingFTK y (adFTK y) of
+      Just Refl -> second trcast $ evalFwdSame params s d
+      _ -> (s, tdefTarget $ adFTK $ ftkDelta d0)
   DeltaSum0R (DeltaZero (FTKR _ x)) -> (s, tdefTarget (FTKR ZSR x))
   DeltaSum0R d -> case ftkDelta d of
     FTKR sh x | SNat <- shrRank sh ->
@@ -969,10 +968,9 @@ evalFwdSame params s = \case
       second (trreshape sh2) $ evalFwdSame params s d
 
   d0@(DeltaCastS d) -> case ftkDelta d of
-    y ->
-      case sameSTK (ftkToSTK y) (adSTK (ftkToSTK y)) of
-        Just Refl -> second tscast $ evalFwdSame params s d
-        _ -> (s, tdefTarget $ adFTK $ ftkDelta d0)
+    y -> case matchingFTK y (adFTK y) of
+      Just Refl -> second tscast $ evalFwdSame params s d
+      _ -> (s, tdefTarget $ adFTK $ ftkDelta d0)
   DeltaSum0S (DeltaZero (FTKS _ x)) -> (s, tdefTarget (FTKS ZSS x))
   DeltaSum0S d -> case ftkDelta d of
     FTKS sh x ->
@@ -1030,10 +1028,9 @@ evalFwdSame params s = \case
       second (tsreshape sh2) $ evalFwdSame params s d
 
   d0@(DeltaCastX d) -> case ftkDelta d of
-    y ->
-      case sameSTK (ftkToSTK y) (adSTK (ftkToSTK y)) of
-        Just Refl -> second txcast $ evalFwdSame params s d
-        _ -> (s, tdefTarget $ adFTK $ ftkDelta d0)
+    y -> case matchingFTK y (adFTK y) of
+      Just Refl -> second txcast $ evalFwdSame params s d
+      _ -> (s, tdefTarget $ adFTK $ ftkDelta d0)
   DeltaSum0X (DeltaZero (FTKX _ x)) -> (s, tdefTarget (FTKX ZSX x))
   DeltaSum0X d -> case ftkDelta d of
     FTKX sh x ->
