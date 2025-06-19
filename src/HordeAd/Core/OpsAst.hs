@@ -200,26 +200,26 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Drop m sh) :~: n) $
         gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
-        withKnownShS (takeShS @m sh) $
-        astFromS' @(TKS2 (Drop m sh) x) (FTKR (dropShape @m shmshn) x)
+        withKnownShS (shsTake @m sh) $
+        astFromS' @(TKS2 (Drop m sh) x) (FTKR (shrDrop @m shmshn) x)
         $ astIndexS @(Take m sh) @(Drop m sh)
-                    (dropShS @m sh) (astSFromR' @sh sh a) (ixsFromIxR ix)
+                    (shsDrop @m sh) (astSFromR' @sh sh a) (ixsFromIxR ix)
   trscatter @m @_ @p shpshn0 t f = case ftkAst t of
     FTKR @_ @x shmshn0 x ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
-        withKnownShS (takeShS @m shmshn) $
-        withKnownShS (dropShS @m shmshn) $
-        withKnownShS (takeShS @p shpshn) $
+        withKnownShS (shsTake @m shmshn) $
+        withKnownShS (shsDrop @m shmshn) $
+        withKnownShS (shsTake @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         gcastWith (unsafeCoerceRefl
                    :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take p shpshn ++ Drop p shpshn :~: shpshn) $
-        case testEquality (dropShS @p shpshn) (dropShS @m shmshn) of
+        case testEquality (shsDrop @p shpshn) (shsDrop @m shmshn) of
           Just Refl ->
             astFromS' @(TKS2 shpshn x) (FTKR shpshn0 x)
             $ astScatterS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
@@ -227,23 +227,23 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             $ funToAstIxS knownShS (ixsFromIxR . f . ixrFromIxS)
                 -- this introduces new variable names
           _ -> error $ "rscatter: shapes don't match: "
-                       ++ show (dropShS @p shpshn, dropShS @m shmshn)
+                       ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
   trgather @m @_ @p shmshn0 t f = case ftkAst t of
     FTKR shpshn0 x ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
-        withKnownShS (takeShS @m shmshn) $
-        withKnownShS (dropShS @m shmshn) $
-        withKnownShS (takeShS @p shpshn) $
+        withKnownShS (shsTake @m shmshn) $
+        withKnownShS (shsDrop @m shmshn) $
+        withKnownShS (shsTake @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         gcastWith (unsafeCoerceRefl
                    :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take p shpshn ++ Drop p shpshn :~: shpshn) $
-        case testEquality (dropShS @p shpshn) (dropShS @m shmshn) of
+        case testEquality (shsDrop @p shpshn) (shsDrop @m shmshn) of
           Just Refl ->
             astFromS' (FTKR shmshn0 x)
             $ astGatherS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
@@ -251,7 +251,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             $ funToAstIxS knownShS (ixsFromIxR . f . ixrFromIxS)
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
-                       ++ show (dropShS @p shpshn, dropShS @m shmshn)
+                       ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
   trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (Concrete a)
   trfloor @_ @r2 a = case ftkAst a of
     FTKR sh' FTKScalar ->
@@ -400,11 +400,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
         gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) sh1sh2 :~: sh2) $
-        withKnownShS (takeShS @(Rank sh1) sh) $
+        withKnownShS (shsTake @(Rank sh1) sh) $
         astFromS' @(TKS2 (Drop (Rank sh1) sh) x)
-                  (FTKX (dropShX @(Rank sh1) sh1sh2) x)
+                  (FTKX (shxDrop @(Rank sh1) sh1sh2) x)
         $ astIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
-                    (dropShS @(Rank sh1) sh) (astSFromX' @sh @sh1sh2 sh a)
+                    (shsDrop @(Rank sh1) sh) (astSFromX' @sh @sh1sh2 sh a)
                     (ixsFromIxX' ix)
   txscatter @shm @_ @shp shpshn0 t f = case ftkAst t of
     FTKX shmshn0 x | SNat <- ssxRank (knownShX @shm)
@@ -413,17 +413,17 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
       withCastXS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
-        withKnownShS (takeShS @(Rank shm) shmshn) $
-        withKnownShS (dropShS @(Rank shm) shmshn) $
-        withKnownShS (takeShS @(Rank shp) shpshn) $
+        withKnownShS (shsTake @(Rank shm) shmshn) $
+        withKnownShS (shsDrop @(Rank shm) shmshn) $
+        withKnownShS (shsTake @(Rank shp) shpshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
                       :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shp) shpshn ++ Drop (Rank shp) shpshn
                       :~: shpshn) $
-        case testEquality (dropShS @(Rank shp) shpshn)
-                          (dropShS @(Rank shm) shmshn) of
+        case testEquality (shsDrop @(Rank shp) shpshn)
+                          (shsDrop @(Rank shm) shmshn) of
           Just Refl ->
             astFromS' (FTKX shpshn0 x)
             $ astScatterS @(Take (Rank shm) shmshn)
@@ -433,8 +433,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             $ funToAstIxS knownShS (ixsFromIxX' . f . ixxFromIxS')
                 -- this introduces new variable names
           _ -> error $ "xscatter: shapes don't match: "
-                       ++ show ( dropShS @(Rank shp) shpshn
-                               , dropShS @(Rank shm) shmshn )
+                       ++ show ( shsDrop @(Rank shp) shpshn
+                               , shsDrop @(Rank shm) shmshn )
   txgather @shm @_ @shp shmshn0 t f = case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
@@ -442,17 +442,17 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
       withCastXS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
-        withKnownShS (takeShS @(Rank shm) shmshn) $
-        withKnownShS (dropShS @(Rank shm) shmshn) $
-        withKnownShS (takeShS @(Rank shp) shpshn) $
+        withKnownShS (shsTake @(Rank shm) shmshn) $
+        withKnownShS (shsDrop @(Rank shm) shmshn) $
+        withKnownShS (shsTake @(Rank shp) shpshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
                       :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shp) shpshn ++ Drop (Rank shp) shpshn
                       :~: shpshn) $
-        case testEquality (dropShS @(Rank shp) shpshn)
-                          (dropShS @(Rank shm) shmshn) of
+        case testEquality (shsDrop @(Rank shp) shpshn)
+                          (shsDrop @(Rank shm) shmshn) of
           Just Refl ->
             astFromS' (FTKX shmshn0 x)
             $ astGatherS @(Take (Rank shm) shmshn)
@@ -462,8 +462,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             $ funToAstIxS knownShS (ixsFromIxX' . f . ixxFromIxS')
                 -- this introduces new variable names
           _ -> error $ "xgather: shapes don't match: "
-                       ++ show ( dropShS @(Rank shp) shpshn
-                               , dropShS @(Rank shm) shmshn )
+                       ++ show ( shsDrop @(Rank shp) shpshn
+                               , shsDrop @(Rank shm) shmshn )
   txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (Concrete a)
   txfloor @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' FTKScalar ->
@@ -686,10 +686,10 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Drop m sh) :~: n) $
         gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
-        withKnownShS (takeShS @m sh) $
-        cAstFromS @(TKS2 (Drop m sh) x) (FTKR (dropShape @m shmshn) x)
+        withKnownShS (shsTake @m sh) $
+        cAstFromS @(TKS2 (Drop m sh) x) (FTKR (shrDrop @m shmshn) x)
         $ AstIndexS @(Take m sh) @(Drop m sh)
-                    (dropShS @m sh) (cAstSFromR @sh sh a)
+                    (shsDrop @m sh) (cAstSFromR @sh sh a)
                     (ixsFromIxR (unAstRaw <$> ix))
   trscatter @m @_ @p shpshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKR @_ @x shmshn0 x ->
@@ -697,16 +697,16 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
-        withKnownShS (takeShS @m shmshn) $
-        withKnownShS (dropShS @m shmshn) $
-        withKnownShS (takeShS @p shpshn) $
+        withKnownShS (shsTake @m shmshn) $
+        withKnownShS (shsDrop @m shmshn) $
+        withKnownShS (shsTake @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         gcastWith (unsafeCoerceRefl
                    :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take p shpshn ++ Drop p shpshn :~: shpshn) $
-        case testEquality (dropShS @p shpshn) (dropShS @m shmshn) of
+        case testEquality (shsDrop @p shpshn) (shsDrop @m shmshn) of
           Just Refl ->
             cAstFromS @(TKS2 shpshn x) (FTKR shpshn0 x)
             $ AstScatterS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
@@ -715,23 +715,23 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                            . fmap AstRaw)
                 -- this introduces new variable names
           _ -> error $ "rscatter: shapes don't match: "
-                       ++ show (dropShS @p shpshn, dropShS @m shmshn)
+                       ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
   trgather @m @_ @p shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKR shpshn0 x ->
       withCastRS shmshn0 $ \(shmshn :: ShS shmshn) ->
       withCastRS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
-        withKnownShS (takeShS @m shmshn) $
-        withKnownShS (dropShS @m shmshn) $
-        withKnownShS (takeShS @p shpshn) $
+        withKnownShS (shsTake @m shmshn) $
+        withKnownShS (shsDrop @m shmshn) $
+        withKnownShS (shsTake @p shpshn) $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         gcastWith (unsafeCoerceRefl
                    :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take p shpshn ++ Drop p shpshn :~: shpshn) $
-        case testEquality (dropShS @p shpshn) (dropShS @m shmshn) of
+        case testEquality (shsDrop @p shpshn) (shsDrop @m shmshn) of
           Just Refl ->
             cAstFromS (FTKR shmshn0 x)
             $ AstGatherS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
@@ -740,7 +740,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                            . fmap AstRaw)
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
-                       ++ show (dropShS @p shpshn, dropShS @m shmshn)
+                       ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
   trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (Concrete a)
   trfloor @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' FTKScalar ->
@@ -898,11 +898,11 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
         gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) sh1sh2 :~: sh2) $
-        withKnownShS (takeShS @(Rank sh1) sh) $
+        withKnownShS (shsTake @(Rank sh1) sh) $
         AstRaw $ cAstFromS @(TKS2 (Drop (Rank sh1) sh) x)
-                           (FTKX (dropShX @(Rank sh1) sh1sh2) x)
+                           (FTKX (shxDrop @(Rank sh1) sh1sh2) x)
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
-                    (dropShS @(Rank sh1) sh) (cAstSFromX @sh @sh1sh2 sh a)
+                    (shsDrop @(Rank sh1) sh) (cAstSFromX @sh @sh1sh2 sh a)
                     (ixsFromIxX' (unAstRaw <$> ix))
   txscatter @shm @_ @shp shpshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKX shmshn0 x | SNat <- ssxRank (knownShX @shm)
@@ -911,17 +911,17 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastXS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
-        withKnownShS (takeShS @(Rank shm) shmshn) $
-        withKnownShS (dropShS @(Rank shm) shmshn) $
-        withKnownShS (takeShS @(Rank shp) shpshn) $
+        withKnownShS (shsTake @(Rank shm) shmshn) $
+        withKnownShS (shsDrop @(Rank shm) shmshn) $
+        withKnownShS (shsTake @(Rank shp) shpshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
                       :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shp) shpshn ++ Drop (Rank shp) shpshn
                       :~: shpshn) $
-        case testEquality (dropShS @(Rank shp) shpshn)
-                          (dropShS @(Rank shm) shmshn) of
+        case testEquality (shsDrop @(Rank shp) shpshn)
+                          (shsDrop @(Rank shm) shmshn) of
           Just Refl ->
             cAstFromS (FTKX shpshn0 x)
             $ AstScatterS @(Take (Rank shm) shmshn)
@@ -932,8 +932,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                            . fmap AstRaw)
                 -- this introduces new variable names
           _ -> error $ "xscatter: shapes don't match: "
-                       ++ show ( dropShS @(Rank shp) shpshn
-                               , dropShS @(Rank shm) shmshn )
+                       ++ show ( shsDrop @(Rank shp) shpshn
+                               , shsDrop @(Rank shm) shmshn )
   txgather @shm @_ @shp shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
@@ -941,17 +941,17 @@ instance AstSpan s => BaseTensor (AstRaw s) where
       withCastXS shpshn0 $ \(shpshn :: ShS shpshn) ->
         withKnownShS shmshn $
         withKnownShS shpshn $
-        withKnownShS (takeShS @(Rank shm) shmshn) $
-        withKnownShS (dropShS @(Rank shm) shmshn) $
-        withKnownShS (takeShS @(Rank shp) shpshn) $
+        withKnownShS (shsTake @(Rank shm) shmshn) $
+        withKnownShS (shsDrop @(Rank shm) shmshn) $
+        withKnownShS (shsTake @(Rank shp) shpshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
                       :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shp) shpshn ++ Drop (Rank shp) shpshn
                       :~: shpshn) $
-        case testEquality (dropShS @(Rank shp) shpshn)
-                          (dropShS @(Rank shm) shmshn) of
+        case testEquality (shsDrop @(Rank shp) shpshn)
+                          (shsDrop @(Rank shm) shmshn) of
           Just Refl ->
             cAstFromS (FTKX shmshn0 x)
             $ AstGatherS @(Take (Rank shm) shmshn)
@@ -961,8 +961,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                            . fmap AstRaw)
                 -- this introduces new variable names
           _ -> error $ "xgather: shapes don't match: "
-                       ++ show ( dropShS @(Rank shp) shpshn
-                               , dropShS @(Rank shm) shmshn )
+                       ++ show ( shsDrop @(Rank shp) shpshn
+                               , shsDrop @(Rank shm) shmshn )
   txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (Concrete a)
   txfloor @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' FTKScalar ->

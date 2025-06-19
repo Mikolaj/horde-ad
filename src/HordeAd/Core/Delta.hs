@@ -389,7 +389,7 @@ ftkDelta = \case
     FTKR _ x -> FTKR ZSR x
   DeltaDot0R{} -> FTKR ZSR FTKScalar
   DeltaIndexR SNat d ix | SNat <- ixrRank ix -> case ftkDelta d of
-    FTKR sh x -> FTKR (dropShape sh) x
+    FTKR sh x -> FTKR (shrDrop sh) x
   DeltaScatterR _ _ _ sh d _ -> case ftkDelta d of
     FTKR _ x -> FTKR sh x
   DeltaGatherR _ _ _ sh d _ -> case ftkDelta d of
@@ -438,7 +438,7 @@ ftkDelta = \case
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
       withKnownShX (ssxFromShX sh) $
       withKnownShX shn $
-      FTKX (dropShX @len sh) x  -- TODO: (shxDropSSX sh (ssxFromIxX ix)) x
+      FTKX (shxDrop @len sh) x  -- TODO: (shxDropSSX sh (ssxFromIxX ix)) x
   DeltaScatterX _ _ _ sh d _ -> case ftkDelta d of
     FTKX _ x -> FTKX sh x
   DeltaGatherX _ _ _ sh d _ -> case ftkDelta d of

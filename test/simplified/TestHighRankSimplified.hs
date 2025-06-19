@@ -401,7 +401,7 @@ nestedBuildMap r =
       variableLengthBuild iy = rbuild1 7 (\ix ->
         rindex v' (ix + iy :.: ZIR))
       doublyBuild =
-        rbuild1 3 (rreplicate0N (takeShape @n @(6 - n)
+        rbuild1 3 (rreplicate0N (shrTake @n @(6 - n)
                              $ 2 :$: 4 :$: 2 :$: 1 :$: 3 :$: 2 :$: ZSR)
                    . rminimum . variableLengthBuild)
   in rmap0N (\x -> x * rsum0

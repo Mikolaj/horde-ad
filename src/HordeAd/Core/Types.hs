@@ -25,10 +25,10 @@ module HordeAd.Core.Types
   , toLinearIdxX, fromLinearIdxX
     -- * Feature requests for ox-arrays
   , Take, Drop
-  , takeSized, dropSized, splitAt_Sized, takeIndex, dropIndex, splitAt_Index
-  , takeShape, dropShape, splitAt_Shape
-  , splitAt_SizedS, dropIxS, takeShS, dropShS
-  , takeShX, dropShX, takeIxX, dropIxX
+  , listsTake, listsDrop, listsSplitAt, ixrTake, ixrDrop, ixrSplitAt
+  , shrTake, shrDrop, shrSplitAt
+  , listrSplitAt, ixsDrop, shsTake, shsDrop
+  , shxTake, shxDrop, ixxTake, ixxDrop'
   , listsTakeLen, listsDropLen, shsDropLen
   , shsFromStaticShX
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
@@ -371,6 +371,9 @@ class Boolean (BoolOf f) => OrdH (f :: Target) y where
 backpermutePrefixList :: PermR -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 
+-- I can't switch to ixxFromLinear and ixxToLinear from ox-arrays
+-- even just because IntegralH is not available in ox-arrays.
+--
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing
 -- at a scalar. It may point at the start of a larger tensor instead.
@@ -512,14 +515,11 @@ zeroOfX fromInt ((:$%) _ sh) = fromInt 0 :.% zeroOfX fromInt sh
 
 -- * Shopping list for ox-arrays
 
--- All of the below should have better names and types, just as in ox-arrays,
--- and be consistently added for all 10 kinds of shape things.
+-- All of the below should have better types and/or implementations,
+-- just as in ox-arrays, and should have variants for all 10 kinds
+-- of shape things.
 
--- I could switch to ixxFromLinear and ixxToLinear if they also had shaped
--- and ranked versions and if they worked for any @IxS sh j@,
--- not only for @IxS sh Int@.
-
--- ** Casts
+-- ** Conversions and related
 
 withCastRS :: forall n r.
               IShR n
@@ -553,8 +553,6 @@ shCastSX ((:!%) @_ @restx (Nested.SUnknown ()) restx)
   gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
   Nested.SUnknown (sNatValue snat2) :$% shCastSX restx rest
 
--- ** Conversions and related
-
 -- TODO; make more typed, ensure ranks match, use singletons instead
 -- of constraints, give better names and do the same for ListS, etc.
 -- Also, I'm fine composing two conversions instead of having a ready
@@ -580,6 +578,19 @@ ssxFromIxX (IxX _list) = error "TODO"
 shsFromListS :: ListS sh i -> ShS sh
 shsFromListS ZS = ZSS
 shsFromListS (_ ::$ sh) = SNat :$$ shsFromListS sh
+
+shsFromStaticShX :: forall sh. StaticShX (MapJust sh) -> ShS sh
+shsFromStaticShX ZKX = castWith (subst1 (unsafeCoerceRefl :: '[] :~: sh)) ZSS
+shsFromStaticShX (SKnown n@SNat :!% (idx :: StaticShX mjshT)) =
+  castWith (subst1 (lem Refl)) $
+    n :$$ shsFromStaticShX @(Tail sh) (castWith (subst1 (unsafeCoerceRefl :: mjshT :~: MapJust (Tail sh)))
+                                   idx)
+  where
+    lem :: forall sh1 sh' n.
+           Just n : sh1 :~: MapJust sh'
+        -> n : Tail sh' :~: sh'
+    lem Refl = unsafeCoerceRefl
+shsFromStaticShX (SUnknown _ :!% _) = error "impossible"
 
 -- ** Permutation-related operations
 
@@ -661,64 +672,64 @@ type family Drop (n :: Nat) (xs :: [k]) :: [k] where
   Drop 0 xs = xs
   Drop n (x ': xs) = Drop (n - 1) xs
 
-takeSized :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Take len sh))
+listsTake :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Take len sh))
           => ListS sh (Const i) -> ListS (Take len sh) (Const i)
-takeSized ix = fromList $ take (valueOf @len) $ toList ix
+listsTake ix = fromList $ take (valueOf @len) $ toList ix
 
-dropSized :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
+listsDrop :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
           => ListS sh (Const i) -> ListS (Drop len sh) (Const i)
-dropSized ix = fromList $ drop (valueOf @len) $ toList ix
+listsDrop ix = fromList $ drop (valueOf @len) $ toList ix
 
-splitAt_Sized
+listsSplitAt
   :: (KnownShS sh, KnownNat len, KnownShS (Drop len sh), KnownShS (Take len sh))
   => ListS sh (Const i)
   -> (ListS (Take len sh) (Const i), ListS (Drop len sh) (Const i))
-splitAt_Sized ix = (takeSized ix, dropSized ix)
+listsSplitAt ix = (listsTake ix, listsDrop ix)
 
-takeIndex :: forall m n i. (KnownNat m, KnownNat n)
+ixrTake :: forall m n i. (KnownNat m, KnownNat n)
           => IxR (m + n) i -> IxR m i
-takeIndex (IxR ix) = IxR $ takeSizedS ix
+ixrTake (IxR ix) = IxR $ listrTake ix
 
-dropIndex :: forall m n i. (KnownNat m, KnownNat n)
+ixrDrop :: forall m n i. (KnownNat m, KnownNat n)
           => IxR (m + n) i -> IxR n i
-dropIndex (IxR ix) = IxR $ dropSizedS ix
+ixrDrop (IxR ix) = IxR $ listrDrop ix
 
-splitAt_Index :: (KnownNat m, KnownNat n)
+ixrSplitAt :: (KnownNat m, KnownNat n)
               => IxR (m + n) i -> (IxR m i, IxR n i)
-splitAt_Index ix = (takeIndex ix, dropIndex ix)
+ixrSplitAt ix = (ixrTake ix, ixrDrop ix)
 
-takeShape :: forall m n i. (KnownNat n, KnownNat m)
+shrTake :: forall m n i. (KnownNat n, KnownNat m)
           => ShR (m + n) i -> ShR m i
-takeShape (ShR ix) = ShR $ takeSizedS ix
+shrTake (ShR ix) = ShR $ listrTake ix
 
-dropShape :: forall m n i. (KnownNat m, KnownNat n)
+shrDrop :: forall m n i. (KnownNat m, KnownNat n)
           => ShR (m + n) i -> ShR n i
-dropShape (ShR ix) = ShR $ dropSizedS ix
+shrDrop (ShR ix) = ShR $ listrDrop ix
 
-splitAt_Shape :: (KnownNat m, KnownNat n)
+shrSplitAt :: (KnownNat m, KnownNat n)
               => ShR (m + n) i -> (ShR m i, ShR n i)
-splitAt_Shape ix = (takeShape ix, dropShape ix)
+shrSplitAt ix = (shrTake ix, shrDrop ix)
 
-takeSizedS :: forall len n i. (KnownNat n, KnownNat len)
+listrTake :: forall len n i. (KnownNat n, KnownNat len)
            => ListR (len + n) i -> ListR len i
-takeSizedS ix = fromList $ take (valueOf @len) $ toList ix
+listrTake ix = fromList $ take (valueOf @len) $ toList ix
 
-dropSizedS :: forall len n i. (KnownNat len, KnownNat n)
+listrDrop :: forall len n i. (KnownNat len, KnownNat n)
            => ListR (len + n) i -> ListR n i
-dropSizedS ix = fromList $ drop (valueOf @len) $ toList ix
+listrDrop ix = fromList $ drop (valueOf @len) $ toList ix
 
-splitAt_SizedS :: (KnownNat m, KnownNat n)
+listrSplitAt :: (KnownNat m, KnownNat n)
                => ListR (m + n) i -> (ListR m i, ListR n i)
-splitAt_SizedS ix = (takeSizedS ix, dropSizedS ix)
+listrSplitAt ix = (listrTake ix, listrDrop ix)
 
-dropIxS :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
+ixsDrop :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
         => IxS sh i -> IxS (Drop len sh) i
-dropIxS (IxS ix) = IxS $ dropSized ix
+ixsDrop (IxS ix) = IxS $ listsDrop ix
 
 -- TODO
-takeShS :: forall len sh. (KnownNat len, KnownShS sh)
+shsTake :: forall len sh. (KnownNat len, KnownShS sh)
         => ShS sh -> ShS (Take len sh)
-takeShS sh0 = fromList2 $ take (valueOf @len) $ toList sh0
+shsTake sh0 = fromList2 $ take (valueOf @len) $ toList sh0
  where
   fromList2 topl = ShS (go (knownShS @sh) topl)
     where  -- TODO: induction over (unary) SNat?
@@ -726,16 +737,16 @@ takeShS sh0 = fromList2 $ take (valueOf @len) $ toList sh0
       go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZS
       go (sn :$$ sh) (i : is)
         | i == fromSNat' sn = unsafeCoerce $ sn ::$ go sh is
-        | otherwise = error $ "takeShS: Value does not match typing (type says "
+        | otherwise = error $ "shsTake: Value does not match typing (type says "
                                 ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
-      go _ _ = error $ "takeShS: Mismatched list length (type says "
+      go _ _ = error $ "shsTake: Mismatched list length (type says "
                          ++ show (shsLength (knownShS @sh)) ++ ", list has length "
                          ++ show (length topl) ++ ")"
 
 -- TODO
-dropShS :: forall len sh. (KnownNat len, KnownShS sh)
+shsDrop :: forall len sh. (KnownNat len, KnownShS sh)
         => ShS sh -> ShS (Drop len sh)
-dropShS sh0 = fromList2 $ drop (valueOf @len) $ toList sh0
+shsDrop sh0 = fromList2 $ drop (valueOf @len) $ toList sh0
  where
   fromList2 topl = ShS (go (knownShS @sh) $ replicate (valueOf @len) (-1) ++ topl)
     where  -- TODO: induction over (unary) SNat?
@@ -744,27 +755,27 @@ dropShS sh0 = fromList2 $ drop (valueOf @len) $ toList sh0
       go (sn :$$ sh) (i : is)
         | i == -1 = unsafeCoerce $ go sh is
         | i == fromSNat' sn = unsafeCoerce $ sn ::$ go sh is
-        | otherwise = error $ "dropShS: Value does not match typing (type says "
+        | otherwise = error $ "shsDrop: Value does not match typing (type says "
                                 ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
-      go _ _ = error $ "dropShS: Mismatched list length (type says "
+      go _ _ = error $ "shsDrop: Mismatched list length (type says "
                          ++ show (shsLength (knownShS @sh)) ++ ", list has length "
                          ++ show (length topl) ++ ")"
 
-takeShX :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Take len sh))
+shxTake :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Take len sh))
         => IShX sh -> IShX (Take len sh)
-takeShX sh0 = fromList $ take (valueOf @len) $ toList sh0
+shxTake sh0 = fromList $ take (valueOf @len) $ toList sh0
 
-dropShX :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
+shxDrop :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
         => IShX sh -> IShX (Drop len sh)
-dropShX sh0 = fromList $ drop (valueOf @len) $ toList sh0
+shxDrop sh0 = fromList $ drop (valueOf @len) $ toList sh0
 
-takeIxX :: forall len sh i. (KnownNat len, KnownShX sh, KnownShX (Take len sh))
+ixxTake :: forall len sh i. (KnownNat len, KnownShX sh, KnownShX (Take len sh))
         => IxX sh i -> IxX (Take len sh) i
-takeIxX sh0 = fromList $ take (valueOf @len) $ toList sh0
+ixxTake sh0 = fromList $ take (valueOf @len) $ toList sh0
 
-dropIxX :: forall len sh i. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
+ixxDrop' :: forall len sh i. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
         => IxX sh i -> IxX (Drop len sh) i
-dropIxX sh0 = fromList $ drop (valueOf @len) $ toList sh0
+ixxDrop' sh0 = fromList $ drop (valueOf @len) $ toList sh0
 
 listsTakeLen :: forall f g sh1 sh2.
                 ListS sh1 f -> ListS sh2 g -> ListS (TakeLen sh1 sh2) g
@@ -780,19 +791,6 @@ listsDropLen (_ ::$ _) ZS = error "listsDropLen: list too short"
 
 shsDropLen :: Permutation.Perm is -> ShS sh -> ShS (DropLen is sh)
 shsDropLen = coerce (listsDropLenPerm @SNat)
-
-shsFromStaticShX :: forall sh. StaticShX (MapJust sh) -> ShS sh
-shsFromStaticShX ZKX = castWith (subst1 (unsafeCoerceRefl :: '[] :~: sh)) ZSS
-shsFromStaticShX (SKnown n@SNat :!% (idx :: StaticShX mjshT)) =
-  castWith (subst1 (lem Refl)) $
-    n :$$ shsFromStaticShX @(Tail sh) (castWith (subst1 (unsafeCoerceRefl :: mjshT :~: MapJust (Tail sh)))
-                                   idx)
-  where
-    lem :: forall sh1 sh' n.
-           Just n : sh1 :~: MapJust sh'
-        -> n : Tail sh' :~: sh'
-    lem Refl = unsafeCoerceRefl
-shsFromStaticShX (SUnknown _ :!% _) = error "impossible"
 
 -- This is only needed as a workaround for other ops not provided.
 

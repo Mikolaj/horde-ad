@@ -94,7 +94,7 @@ rbuild @m @n @x @target sh0 f0 =
       buildSh (k :$: sh) f | SNat <- shrRank sh =
         let g i = buildSh sh (\ix -> f (i :.: ix))
         in trbuild1 k g
-  in buildSh (takeShape @m @n sh0) f0
+  in buildSh (shrTake @m @n sh0) f0
 sbuild :: (KnownShS (Take m sh), KnownShS sh, KnownSTK x, BaseTensor target)
        => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) x))
             -- ^ the function to build with
@@ -659,7 +659,7 @@ class ( Num (IntOf target)
         let f ix2 = tcond knownSTK
                           (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                            $ zip (toList ix) (toList ix2))
-                          (trindex0 v (dropIndex ix2))
+                          (trindex0 v (ixrDrop ix2))
                           (tdefTarget (FTKR ZSR ftk2))
         in rbuild (shrAppend sh (rshape v)) f
            -- TODO: if this is used often, maybe express this as the gather that
@@ -682,7 +682,7 @@ class ( Num (IntOf target)
             -> (IntOf target -> IxROf target p)
             -> target (TKR2 (1 + n) x)
   trgather1 k v f = trgather @target @1
-                             (k :$: dropShape (rshape v)) v
+                             (k :$: shrDrop (rshape v)) v
                              (\(i :.: ZIR) -> f i)
 
   tsindex :: (KnownShS shm, KnownShS shn, KnownSTK x)
@@ -717,7 +717,7 @@ class ( Num (IntOf target)
         let f ix2 = tcond knownSTK
                           (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                            $ zip (Foldable.toList ix) (Foldable.toList ix2))
-                          (tsindex0 v (dropIxS @(Rank sh1) ix2))
+                          (tsindex0 v (ixsDrop @(Rank sh1) ix2))
                           (tdefTarget (FTKS ZSS ftk2))
         in sbuild @(Rank (sh1 ++ sh2)) f
   tsscatter
@@ -775,7 +775,7 @@ class ( Num (IntOf target)
         let f ix2 = tcond knownSTK
                           (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                            $ zip (Foldable.toList ix) (Foldable.toList ix2))
-                          (txindex0 v (dropIxX @(Rank sh1) ix2))
+                          (txindex0 v (ixxDrop' @(Rank sh1) ix2))
                           (tdefTarget (FTKX ZSX ftk2))
         in xbuild @(Rank (sh1 ++ sh2)) (shxAppend sh1 (xshape v)) f
   txscatter :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)

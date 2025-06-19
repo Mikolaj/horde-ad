@@ -778,7 +778,7 @@ tindexZR v ixConcrete | Dict <- showDictRep (knownSTK @r)
     FTKR sh x ->
      if ixInBounds (Foldable.toList ix) (Foldable.toList sh)
      then Concrete $ tindexNR (unConcrete v) ix
-     else tdefTarget (FTKR (dropShape @m sh) x)
+     else tdefTarget (FTKR (shrDrop @m sh) x)
 
 tindex0R
   :: forall r m. (KnownSTK r, KnownNat m)
@@ -816,7 +816,7 @@ tscatterZR sh t f
  | Dict <- eltDictRep (knownSTK @r) = case tftk knownSTK t of
   FTKR _ x@FTKScalar ->  -- optimized
     let zero = tdefTarget (FTKR sh x)
-        (shm, shDropP) = splitAt_Shape @m $ rshape t
+        (shm, shDropP) = shrSplitAt @m $ rshape t
         s = shrSize shm
         g ix =
           let ix2 = f $ fmapConcrete ix
@@ -831,7 +831,7 @@ tscatterZR sh t f
        $ M.assocs ivs
   FTKR _ x | Dict <- showDictRep (ftkToSTK x) ->
     let zero = tdefTarget (FTKR sh x)
-        (shm, _) = splitAt_Shape @m $ rshape t
+        (shm, _) = shrSplitAt @m $ rshape t
         s = shrSize shm
         g ix =
           let ix2 = f $ fmapConcrete ix
@@ -905,7 +905,7 @@ tgatherZR :: forall m p n r.
           -> Concrete (TKR2 (m + n) r)
 tgatherZR sh t f = case knownSTK @r of
   STKScalar ->  -- optimized
-    let shm = takeShape @m sh
+    let shm = shrTake @m sh
         s = shrSize shm
         l = [ rtoVector
               $ t `trindex` f (fmapConcrete $ fromLinearIdx fromIntegral shm i)

@@ -536,7 +536,7 @@ evalRevSame !s !c = \case
   DeltaIndexR SNat d ix -> case ftkDelta d of
     FTKR sh x | SNat <- ixrRank ix ->
       withKnownSTK (ftkToSTK x) $
-      evalRevSame s (troneHot (takeShape sh) c ix) d  -- TODO: ixrToShR ix
+      evalRevSame s (troneHot (shrTake sh) c ix) d  -- TODO: ixrToShR ix
   DeltaScatterR SNat SNat SNat _sh d f -> case ftkDelta d of
     FTKR sh x ->
       withKnownSTK (ftkToSTK x) $
@@ -659,7 +659,7 @@ evalRevSame !s !c = \case
       withKnownShX (ssxFromShX sh) $
       withKnownShX (ssxTakeIx @shm @shn (ssxFromShX sh) ix) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
-      evalRevSame s (txoneHot (takeShX @len sh) c ix) d
+      evalRevSame s (txoneHot (shxTake @len sh) c ix) d
 --TODO      evalRevSame s (xoneHot (shxTakeSSX (Proxy @shn) sh
 --                                         (ssxFromIxX ix)) c ix) d
   DeltaScatterX @shm @shn shm shn shp _sh d f -> case ftkDelta d of
