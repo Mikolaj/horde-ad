@@ -3283,7 +3283,7 @@ astDot0S t1 t2 = case (t1, t2) of
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
     Ast.AstFromDual $ astDot0S u1 u2
   (Ast.AstTransposeS @_ @sh1 perm1 u1, Ast.AstTransposeS @_ @sh2 perm2 u2)
-    | Just Refl <- eqPerm perm1 perm2 ->
+    | Just Refl <- testEquality perm1 perm2 ->
       gcastWith (unsafeCoerceRefl :: sh1 :~: sh2) $
       astDot0S u1 u2
   (Ast.AstReverseS u1, Ast.AstReverseS u2) -> astDot0S u1 u2

@@ -35,7 +35,7 @@ module HordeAd.Core.Types
   , withCastRS, withCastXS, shCastSX
   , ixsFromIxR, ixxFromIxS', ixsFromIxX', shsFromIxS, ssxFromIxX, shsFromListS
   , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
-  , eqPerm, permUnShift1, sunReplicateScal, sunReplicate1, sunReplicateN
+  , permUnShift1, sunReplicateScal, sunReplicate1, sunReplicateN
   , ssxTakeIx
   ) where
 
@@ -51,7 +51,7 @@ import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List (dropWhileEnd, sort)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (castWith, gcastWith, (:~:) (Refl))
+import Data.Type.Equality (TestEquality (..), castWith, gcastWith, (:~:) (Refl))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
@@ -615,12 +615,11 @@ permCycle 0 = []
 permCycle 1 = []
 permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
 
-eqPerm :: Permutation.Perm perm1 -> Permutation.Perm perm2
-       -> Maybe (perm1 :~: perm2)
-eqPerm perm1 perm2 =
-  if Permutation.permToList' perm1 == Permutation.permToList' perm2
-  then Just unsafeCoerceRefl
-  else Nothing
+instance TestEquality Permutation.Perm where
+  testEquality perm1 perm2 =
+    if Permutation.permToList' perm1 == Permutation.permToList' perm2
+    then Just unsafeCoerceRefl
+    else Nothing
 
 type family UnMapSucc is where
   UnMapSucc '[] = '[]
