@@ -3210,6 +3210,8 @@ astSFromX' sh t = case ftkAst t of
 astSFrom :: forall y z s. AstSpan s
          => SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
+astSFrom stkz v
+  | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
 astSFrom stkz (Ast.AstConvert _ v)  -- shortcut
   | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
 astSFrom stkz v = case (stkz, ftkToSTK (ftkAst v)) of

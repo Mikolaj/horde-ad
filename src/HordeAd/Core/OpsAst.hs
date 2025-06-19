@@ -1096,7 +1096,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tdot0Target = dot0Target
 
 instance AstSpan s => ConvertTensor (AstRaw s) where
-  tconvert c _astk = AstRaw . AstConvert c . unAstRaw
+  tconvert c _astk = AstRaw . cAstConvert c . unAstRaw
 
   rfromX a = case ftkAst $ unAstRaw a of
     FTKX sh' _ ->
@@ -1121,7 +1121,7 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
                 (ConvCmp
                    (ConvZip (ftkToSTK y) (ftkToSTK z))
                    (ConvT2 ConvRX ConvRX))
-      in AstConvert c a
+      in cAstConvert c a
   runzip @_ @_ @n (AstRaw a)
    | Refl <- lemRankReplicate (Proxy @n) = AstRaw $ case ftkAst a of
     FTKR _sh (FTKProduct y z) ->
@@ -1130,7 +1130,7 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
                 (ConvCmp
                    (ConvUnzip (ftkToSTK y) (ftkToSTK z))
                    ConvRX)
-      in AstConvert c a
+      in cAstConvert c a
   szip (AstRaw a) = AstRaw $ case ftkAst a of
     FTKProduct (FTKS _sh y) (FTKS _ z) ->
       let c = ConvCmp
@@ -1138,7 +1138,7 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
                 (ConvCmp
                    (ConvZip (ftkToSTK y) (ftkToSTK z))
                    (ConvT2 ConvSX ConvSX))
-      in AstConvert c a
+      in cAstConvert c a
   sunzip (AstRaw a) = AstRaw $ case ftkAst a of
     FTKS _sh (FTKProduct y z) ->
       let c = ConvCmp
@@ -1146,15 +1146,15 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
                 (ConvCmp
                    (ConvUnzip (ftkToSTK y) (ftkToSTK z))
                    ConvSX)
-      in AstConvert c a
+      in cAstConvert c a
   xzip (AstRaw a) = AstRaw $ case ftkAst a of
     FTKProduct (FTKX _sh y) (FTKX _ z) ->
       let c = ConvZip (ftkToSTK y) (ftkToSTK z)
-      in AstConvert c a
+      in cAstConvert c a
   xunzip (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX _sh (FTKProduct y z) ->
       let c = ConvUnzip (ftkToSTK y) (ftkToSTK z)
-      in AstConvert c a
+      in cAstConvert c a
 
   xnestR @sh1 @m @x sh1 (AstRaw a)
     | Refl <- lemRankReplicate (Proxy @m) = AstRaw $
@@ -1164,25 +1164,25 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
                 (ConvXX (ConvXR (knownSTK @x)))
                 (ConvNest @_ @_ @(Replicate m Nothing)
                           (STKX sh1 (knownSTK @x)))
-      in AstConvert c a
+      in cAstConvert c a
   xnestS @_ @_ @x sh1 (AstRaw a) = AstRaw $
     let c = ConvCmp (ConvXX ConvXS)
                     (ConvNest (STKX sh1 (knownSTK @x)))
-    in AstConvert c a
+    in cAstConvert c a
   xnest @_ @_ @x sh1 (AstRaw a) = AstRaw $
     let c = ConvNest (STKX sh1 (knownSTK @x))
-    in AstConvert c a
+    in cAstConvert c a
   xunNestR (AstRaw a) = AstRaw $
     let c = ConvCmp ConvUnnest
                     (ConvXX ConvRX)
-    in AstConvert c a
+    in cAstConvert c a
   xunNestS (AstRaw a) = AstRaw $
     let c = ConvCmp ConvUnnest
                     (ConvXX ConvSX)
-    in AstConvert c a
+    in cAstConvert c a
   xunNest (AstRaw a) = AstRaw $
     let c = ConvUnnest
-    in AstConvert c a
+    in cAstConvert c a
 
   tpairConv = tpair
   tunpairConv = tunpair

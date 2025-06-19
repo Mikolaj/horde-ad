@@ -12,7 +12,7 @@ module HordeAd.Core.AstTools
     -- * Odds and ends
   , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
-  , cAstSFromR, cAstSFromX, cAstXFromS
+  , cAstConvert, cAstSFromR, cAstSFromX, cAstXFromS
   , pattern AstFromS', checkAstFromS, cAstFromS, convFromS
   , setTotalSharing
   ) where
@@ -456,53 +456,38 @@ liftXFromS2 f a b = case ftkAst a of
       cAstFromS @(TKS2 sh x) ftk
       $ f (cAstSFromX @sh @sh' sh a) (cAstSFromX @sh @sh' sh b)
 
+cAstConvert :: TKConversion x z -> AstTensor ms s x -> AstTensor ms s z
+cAstConvert c t
+  | Just Refl <- matchingFTK (ftkAst t) (convertFTK c (ftkAst t)) = t
+cAstConvert c1 (AstConvert c2 t2) = cAstConvert (ConvCmp c1 c2) t2
+cAstConvert c1 (AstFromPrimal (AstConvert c2 t2)) =
+  AstFromPrimal (cAstConvert (ConvCmp c1 c2) t2)
+cAstConvert c t = AstConvert c t
+
 cAstSFromR :: forall sh x ms s.
               ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
            -> AstTensor ms s (TKS2 sh x)
-cAstSFromR sh w@(AstConvert _ v)
-  | FTKR _ x <- ftkAst w
-  , Just Refl <- matchingFTK (FTKS sh x) (ftkAst v) = v
-cAstSFromR sh (AstFromPrimal w@(AstConvert _ v))
-  | FTKR _ x <- ftkAst w
-  , Just Refl <- matchingFTK (FTKS sh x) (ftkAst v) =
-    AstFromPrimal v
 cAstSFromR sh v = case ftkAst v of
   FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
     let c2 = ConvCmp (ConvXS' (FTKS sh x)) ConvRX
-    in AstConvert c2 v
+    in cAstConvert c2 v
 
 cAstSFromX :: forall sh sh' x ms s. Rank sh ~ Rank sh'
            => ShS sh -> AstTensor ms s (TKX2 sh' x)
            -> AstTensor ms s (TKS2 sh x)
-cAstSFromX sh w@(AstConvert _ v)
-  | FTKX _ x <- ftkAst w
-  , Just Refl <- matchingFTK (FTKS sh x) (ftkAst v) = v
-cAstSFromX sh (AstFromPrimal w@(AstConvert _ v))
-  | FTKX _ x <- ftkAst w
-  , Just Refl <- matchingFTK (FTKS sh x) (ftkAst v) =
-    AstFromPrimal v
 cAstSFromX sh v = case ftkAst v of
   FTKX _ x -> let c2 = ConvXS' (FTKS sh x)
-              in AstConvert c2 v
+              in cAstConvert c2 v
 
 cAstXFromS :: forall sh sh' x ms s. Rank sh ~ Rank sh'
            => StaticShX sh' -> AstTensor ms s (TKS2 sh x)
            -> AstTensor ms s (TKX2 sh' x)
-cAstXFromS ssx w@(AstConvert _ v)
-  | FTKS sh x <- ftkAst w
-  , let shx = shCastSX ssx sh
-  , Just Refl <- matchingFTK (FTKX shx x) (ftkAst v) = v
-cAstXFromS ssx (AstFromPrimal w@(AstConvert _ v))
-  | FTKS sh x <- ftkAst w
-  , let shx = shCastSX ssx sh
-  , Just Refl <- matchingFTK (FTKX shx x) (ftkAst v) =
-    AstFromPrimal v
 cAstXFromS ssx v
   | FTKS sh x <- ftkAst v
   , let shx = shCastSX ssx sh
   , Refl <- lemRankMapJust sh =
     let c2 = ConvCmp (ConvXX' (FTKX shx x)) ConvSX
-    in AstConvert c2 v
+    in cAstConvert c2 v
 
 pattern AstFromS' :: forall {z1} {ms1} {s1}.
                      forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)
@@ -532,11 +517,7 @@ checkAstFromS c t = checkFtkAstFromS (ftkAst t) (convertFTK c (ftkAst t))
 cAstFromS :: forall y z ms s.
              FullShapeTK z -> AstTensor ms s y
           -> AstTensor ms s z
-cAstFromS zftk (AstConvert _ t)
-  | Just Refl <- matchingFTK zftk (ftkAst t) = t
-cAstFromS zftk (AstFromPrimal (AstConvert _ t))
-  | Just Refl <- matchingFTK zftk (ftkAst t) = AstFromPrimal t
-cAstFromS zftk t = AstConvert (convFromS (ftkAst t) zftk) t
+cAstFromS zftk t = cAstConvert (convFromS (ftkAst t) zftk) t
 
 convFromS :: FullShapeTK y0 -> FullShapeTK z0 -> TKConversion y0 z0
 convFromS yftk0 zftk0 = case (yftk0, zftk0) of
