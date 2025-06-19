@@ -384,7 +384,7 @@ backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 --
 -- Warning: @fromInteger@ of type @j@ cannot be used.
 toLinearIdxR :: forall m n j. Num j
-            => (Int -> j) -> ShR (m + n) Int -> IxR m j -> j
+             => (Int -> j) -> ShR (m + n) Int -> IxR m j -> j
 toLinearIdxR fromInt = \sh idx -> go sh idx (fromInt 0)
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
@@ -405,7 +405,7 @@ toLinearIdxR fromInt = \sh idx -> go sh idx (fromInt 0)
 --
 -- Warning: @fromInteger@ of type @j@ cannot be used.
 fromLinearIdxR :: forall n j. IntegralH j
-              => (Int -> j) -> ShR n Int -> j -> IxR n j
+               => (Int -> j) -> ShR n Int -> j -> IxR n j
 fromLinearIdxR fromInt = \sh lin -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
@@ -562,7 +562,7 @@ ixsFromIxR :: (KnownShS sh, KnownNat (Rank sh))
            => IxR (Rank sh) i -> IxS sh i
 ixsFromIxR = fromList . toList
 ixxFromIxS' :: (KnownShS sh, KnownShX sh')
-          => IxS sh i -> IxX sh' i
+            => IxS sh i -> IxX sh' i
 ixxFromIxS' = fromList . toList
 ixsFromIxX' :: (KnownShS sh, KnownShX sh')
             => IxX sh' i -> IxS sh i
@@ -651,7 +651,8 @@ _withPermShift1 :: forall is r. -- Permutation.IsPermutation is
                -> r
 _withPermShift1 _perm _f = undefined  -- f (Permutation.permShift1 perm)
 
-withKnownPerm :: forall perm r. Permutation.Perm perm -> (Permutation.KnownPerm perm => r) -> r
+withKnownPerm :: forall perm r.
+                 Permutation.Perm perm -> (Permutation.KnownPerm perm => r) -> r
 withKnownPerm = withDict @(Permutation.KnownPerm perm)
 
 ssxPermutePrefix :: Permutation.Perm is -> StaticShX sh
@@ -672,11 +673,13 @@ type family Drop (n :: Nat) (xs :: [k]) :: [k] where
   Drop 0 xs = xs
   Drop n (x ': xs) = Drop (n - 1) xs
 
-listsTake :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Take len sh))
+listsTake :: forall len sh i.
+             (KnownShS sh, KnownNat len, KnownShS (Take len sh))
           => ListS sh (Const i) -> ListS (Take len sh) (Const i)
 listsTake ix = fromList $ take (valueOf @len) $ toList ix
 
-listsDrop :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
+listsDrop :: forall len sh i.
+             (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
           => ListS sh (Const i) -> ListS (Drop len sh) (Const i)
 listsDrop ix = fromList $ drop (valueOf @len) $ toList ix
 
@@ -687,19 +690,19 @@ listsSplitAt
 listsSplitAt ix = (listsTake ix, listsDrop ix)
 
 ixrTake :: forall m n i. (KnownNat m, KnownNat n)
-          => IxR (m + n) i -> IxR m i
+        => IxR (m + n) i -> IxR m i
 ixrTake (IxR ix) = IxR $ listrTake ix
 
 ixrDrop :: forall m n i. (KnownNat m, KnownNat n)
-          => IxR (m + n) i -> IxR n i
+        => IxR (m + n) i -> IxR n i
 ixrDrop (IxR ix) = IxR $ listrDrop ix
 
 ixrSplitAt :: (KnownNat m, KnownNat n)
-              => IxR (m + n) i -> (IxR m i, IxR n i)
+           => IxR (m + n) i -> (IxR m i, IxR n i)
 ixrSplitAt ix = (ixrTake ix, ixrDrop ix)
 
 shrTake :: forall m n i. (KnownNat n, KnownNat m)
-          => ShR (m + n) i -> ShR m i
+        => ShR (m + n) i -> ShR m i
 shrTake (ShR ix) = ShR $ listrTake ix
 
 shrDrop :: forall m n i. (KnownNat m, KnownNat n)
@@ -707,19 +710,19 @@ shrDrop :: forall m n i. (KnownNat m, KnownNat n)
 shrDrop (ShR ix) = ShR $ listrDrop ix
 
 shrSplitAt :: (KnownNat m, KnownNat n)
-              => ShR (m + n) i -> (ShR m i, ShR n i)
+           => ShR (m + n) i -> (ShR m i, ShR n i)
 shrSplitAt ix = (shrTake ix, shrDrop ix)
 
 listrTake :: forall len n i. (KnownNat n, KnownNat len)
-           => ListR (len + n) i -> ListR len i
+          => ListR (len + n) i -> ListR len i
 listrTake ix = fromList $ take (valueOf @len) $ toList ix
 
 listrDrop :: forall len n i. (KnownNat len, KnownNat n)
-           => ListR (len + n) i -> ListR n i
+          => ListR (len + n) i -> ListR n i
 listrDrop ix = fromList $ drop (valueOf @len) $ toList ix
 
 listrSplitAt :: (KnownNat m, KnownNat n)
-               => ListR (m + n) i -> (ListR m i, ListR n i)
+             => ListR (m + n) i -> (ListR m i, ListR n i)
 listrSplitAt ix = (listrTake ix, listrDrop ix)
 
 ixsDrop :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
@@ -774,7 +777,7 @@ ixxTake :: forall len sh i. (KnownNat len, KnownShX sh, KnownShX (Take len sh))
 ixxTake sh0 = fromList $ take (valueOf @len) $ toList sh0
 
 ixxDrop' :: forall len sh i. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
-        => IxX sh i -> IxX (Drop len sh) i
+         => IxX sh i -> IxX (Drop len sh) i
 ixxDrop' sh0 = fromList $ drop (valueOf @len) $ toList sh0
 
 listsTakeLen :: forall f g sh1 sh2.
@@ -796,7 +799,8 @@ shsDropLen = coerce (listsDropLenPerm @SNat)
 
 listxTake :: forall f g sh sh'. ListX (sh ++ sh') f -> ListX sh g -> ListX sh f
 listxTake _ ZX = ZX
-listxTake (i ::% long') ((::%) @_ @_ @sh2 _ short) = i ::% listxTake @f @g @sh2 @sh' long' short
+listxTake (i ::% long') ((::%) @_ @_ @sh2 _ short) =
+  i ::% listxTake @f @g @sh2 @sh' long' short
 
 ssxTakeIx :: forall sh sh' i. StaticShX (sh ++ sh') -> IxX sh i -> StaticShX sh
 ssxTakeIx = coerce (listxTake @(Nested.SMayNat () SNat) @(Const i) @_ @sh')
