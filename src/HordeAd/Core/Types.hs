@@ -21,7 +21,7 @@ module HordeAd.Core.Types
     -- * Misc
   , Dict(..), IntegralH(..), RealFloatH(..), Boolean (..), EqH(..), OrdH(..)
   , backpermutePrefixList
-  , toLinearIdx, fromLinearIdx, toLinearIdxS, fromLinearIdxS
+  , toLinearIdxR, fromLinearIdxR, toLinearIdxS, fromLinearIdxS
   , toLinearIdxX, fromLinearIdxX
     -- * Feature requests for ox-arrays
   , Take, Drop
@@ -383,9 +383,9 @@ backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 -- Note that the resulting 0 may be a complex term.
 --
 -- Warning: @fromInteger@ of type @j@ cannot be used.
-toLinearIdx :: forall m n j. Num j
+toLinearIdxR :: forall m n j. Num j
             => (Int -> j) -> ShR (m + n) Int -> IxR m j -> j
-toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
+toLinearIdxR fromInt = \sh idx -> go sh idx (fromInt 0)
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
@@ -404,16 +404,16 @@ toLinearIdx fromInt = \sh idx -> go sh idx (fromInt 0)
 -- of the empty buffer anyway.
 --
 -- Warning: @fromInteger@ of type @j@ cannot be used.
-fromLinearIdx :: forall n j. IntegralH j
+fromLinearIdxR :: forall n j. IntegralH j
               => (Int -> j) -> ShR n Int -> j -> IxR n j
-fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
+fromLinearIdxR fromInt = \sh lin -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
     go :: ShR n1 Int -> j -> (j, IxR n1 j)
     go ZSR n = (n, ZIR)
     go (k :$: sh) _ | signum k == 0 =
-      (fromInt 0, fromInt 0 :.: zeroOf fromInt sh)
+      (fromInt 0, fromInt 0 :.: zeroOfR fromInt sh)
     go (n :$: sh) lin =
       let (tensLin, idxInTens) = go sh lin
           tensLin' = tensLin `quotH` fromInt n
@@ -421,9 +421,9 @@ fromLinearIdx fromInt = \sh lin -> snd (go sh lin)
       in (tensLin', i :.: idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
-zeroOf :: Num j => (Int -> j) -> ShR n i -> IxR n j
-zeroOf _ ZSR = ZIR
-zeroOf fromInt (_ :$: sh) = fromInt 0 :.: zeroOf fromInt sh
+zeroOfR :: Num j => (Int -> j) -> ShR n i -> IxR n j
+zeroOfR _ ZSR = ZIR
+zeroOfR fromInt (_ :$: sh) = fromInt 0 :.: zeroOfR fromInt sh
 
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing

@@ -694,13 +694,13 @@ updateNR arr upd = case knownSTK @x of
         f !t (ix, u) =
           let v = rtoVector u
               i = fromIntegral $ unConcrete
-                  $ toLinearIdx @n @m fromIntegral sh ix
+                  $ toLinearIdxR @n @m fromIntegral sh ix
           in V.concat [V.take i t, v, V.drop (i + V.length v) t]
     in Concrete $ Nested.rfromVector sh (foldl' f values upd)
   _ ->
     let arrNested = rnest (SNat @n) arr
         shNested = rshape arrNested
-        f i v = case lookup (fromLinearIdx
+        f i v = case lookup (fromLinearIdxR
                                @n (Concrete . fromIntegral)
                                shNested ((Concrete . fromIntegral) i)) upd of
           Just u -> rnest (SNat @0) u
@@ -824,7 +824,7 @@ tscatterZR sh t f
              then M.insertWith (V.zipWith (+)) ix2
                                (Nested.rtoVector $ unConcrete t `tindexNR` ix)
              else id
-        ivs = foldr g M.empty [ fromLinearIdx fromIntegral shm i
+        ivs = foldr g M.empty [ fromLinearIdxR fromIntegral shm i
                               | i <- [0 .. fromIntegral s - 1] ]
     in updateNR zero
        $ map (second $ Concrete . Nested.rfromVector shDropP)
@@ -839,7 +839,7 @@ tscatterZR sh t f
              then M.insertWith (taddTarget knownSTK) ix2
                                (Concrete $ unConcrete t `tindexNR` ix)
              else id
-        ivs = foldr g M.empty [ fromLinearIdx fromIntegral shm i
+        ivs = foldr g M.empty [ fromLinearIdxR fromIntegral shm i
                               | i <- [0 .. fromIntegral s - 1] ]
     in updateNR zero
        $ M.assocs ivs
@@ -908,7 +908,7 @@ tgatherZR sh t f = case knownSTK @r of
     let shm = shrTake @m sh
         s = shrSize shm
         l = [ rtoVector
-              $ t `trindex` f (fmapConcrete $ fromLinearIdx fromIntegral shm i)
+              $ t `trindex` f (fmapConcrete $ fromLinearIdxR fromIntegral shm i)
             | i <- [0 .. fromIntegral s - 1] ]
     in Concrete $ Nested.rfromVector sh $ V.concat l
   _ -> rbuild sh (\ix -> t `trindex` f ix)
