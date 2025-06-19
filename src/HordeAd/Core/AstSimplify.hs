@@ -97,7 +97,7 @@ import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
-import HordeAd.Core.CarriersAst ()
+import HordeAd.Core.CarriersAst (sunReplicate1, sunReplicateN, sunReplicateScal)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops

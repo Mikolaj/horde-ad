@@ -35,7 +35,7 @@ module HordeAd.Core.Types
   , withCastRS, withCastXS, shCastSX
   , ixsFromIxR, ixxFromIxS', ixsFromIxX', shsFromIxS, ssxFromIxX, shsFromListS
   , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
-  , permUnShift1, sunReplicateScal, sunReplicate1, sunReplicateN
+  , permUnShift1
   , ssxTakeIx
   ) where
 
@@ -650,32 +650,6 @@ ssxPermutePrefix = undefined
 shxPermutePrefix :: Permutation.Perm is -> ShX sh i
                  -> ShX (Permutation.PermutePrefix is sh) i
 shxPermutePrefix = undefined
-
--- ** Misc
-
-sunReplicateScal :: Nested.Elt a
-                 => Nested.Shaped sh a -> Maybe a
-sunReplicateScal (Nested.Shaped arr)
-  | all (all (== 0) . take (shxLength (Nested.mshape arr)))
-        (Mixed.marrayStrides arr)
-  , shxSize (Nested.mshape arr) /= 0 =
-    Just $ Nested.mindex arr $ ixxZero' $ Nested.mshape arr
-sunReplicateScal _ = Nothing
-
-sunReplicate1 :: Nested.Elt a
-              => Nested.Shaped (n ': sh) a -> Maybe (Nested.Shaped sh a)
-sunReplicate1 a | (snat :$$ _) <- Nested.sshape a =
-  sunReplicateN (snat :$$ ZSS) a
-
-sunReplicateN :: Nested.Elt a
-              => ShS shm -> Nested.Shaped (shm ++ shn) a
-              -> Maybe (Nested.Shaped shn a)
-sunReplicateN shm a@(Nested.Shaped arr)
-  | all (all (== 0) . take (shsLength shm)) (Mixed.marrayStrides arr)
-  , shsSize shm /= 0 =
-    Just $ Nested.sindexPartial a $ ixsZero shm
-sunReplicateN _ _ = Nothing
-
 
 -- ** Takes and drops; this is postponed until we decide how to handle this; in particular, IIRC, unary nats for ranks is a pre-requisite for the most promising approach. There may be an ox-arrays branch for that. However, this requires lots of effort, so it's probably future work.
 

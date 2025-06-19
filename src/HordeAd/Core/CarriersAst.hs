@@ -8,6 +8,7 @@
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
+  , sunReplicateScal, sunReplicate1, sunReplicateN
   ) where
 
 import Prelude hiding (foldl')
@@ -17,7 +18,10 @@ import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Foreign.C (CInt)
 import Type.Reflection (typeRep)
 
+import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Mixed qualified as Mixed
+import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
@@ -1020,3 +1024,29 @@ deriving instance Floating (AstTensor AstMethodLet s y)
                   => Floating (AstNoSimplify s y)
 deriving instance (RealFloatH (AstTensor AstMethodLet s y))
                   => RealFloatH (AstNoSimplify s y)
+
+
+-- * Misc
+
+sunReplicateScal :: Nested.Elt a
+                 => Nested.Shaped sh a -> Maybe a
+sunReplicateScal (Nested.Shaped arr)
+  | all (all (== 0) . take (shxLength (Nested.mshape arr)))
+        (Mixed.marrayStrides arr)
+  , shxSize (Nested.mshape arr) /= 0 =
+    Just $ Nested.mindex arr $ ixxZero' $ Nested.mshape arr
+sunReplicateScal _ = Nothing
+
+sunReplicate1 :: Nested.Elt a
+              => Nested.Shaped (n ': sh) a -> Maybe (Nested.Shaped sh a)
+sunReplicate1 a | (snat :$$ _) <- Nested.sshape a =
+  sunReplicateN (snat :$$ ZSS) a
+
+sunReplicateN :: Nested.Elt a
+              => ShS shm -> Nested.Shaped (shm ++ shn) a
+              -> Maybe (Nested.Shaped shn a)
+sunReplicateN shm a@(Nested.Shaped arr)
+  | all (all (== 0) . take (shsLength shm)) (Mixed.marrayStrides arr)
+  , shsSize shm /= 0 =
+    Just $ Nested.sindexPartial a $ ixsZero shm
+sunReplicateN _ _ = Nothing
