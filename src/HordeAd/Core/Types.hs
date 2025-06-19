@@ -51,7 +51,7 @@ import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.List (dropWhileEnd, sort)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (TestEquality (..), castWith, gcastWith, (:~:) (Refl))
+import Data.Type.Equality (castWith, gcastWith, (:~:) (Refl))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
@@ -614,12 +614,6 @@ permCycle :: Int -> Permutation.PermR
 permCycle 0 = []
 permCycle 1 = []
 permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
-
-instance TestEquality Permutation.Perm where
-  testEquality perm1 perm2 =
-    if Permutation.permToList' perm1 == Permutation.permToList' perm2
-    then Just unsafeCoerceRefl
-    else Nothing
 
 type family UnMapSucc is where
   UnMapSucc '[] = '[]
