@@ -438,7 +438,7 @@ ftkDelta = \case
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
       withKnownShX (ssxFromShX sh) $
       withKnownShX shn $
-      FTKX (dropShX @len sh) x  -- TODO: (shxDropSSX sh (ixxToSSX ix)) x
+      FTKX (dropShX @len sh) x  -- TODO: (shxDropSSX sh (ssxFromIxX ix)) x
   DeltaScatterX _ _ _ sh d _ -> case ftkDelta d of
     FTKX _ x -> FTKX sh x
   DeltaGatherX _ _ _ sh d _ -> case ftkDelta d of

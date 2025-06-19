@@ -16,11 +16,12 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
 
-import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Convert (ixrFromIxS)
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
@@ -203,7 +204,7 @@ slicezS d ixBase =
   gcastWith (unsafeCoerceRefl :: Drop (Rank sh) shOut :~: '[]) $
   sbuild @(Rank shOut)
   $ \ixResult ->
-      sindex0 d (ixrToIxs $ ixrZipWith (+) (ixsToIxr ixBase) (ixsToIxr ixResult))
+      sindex0 d (ixsFromIxR $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
       -- TODO: use ixrZipWithS once defined
 
 maxPool2dUnpaddedS

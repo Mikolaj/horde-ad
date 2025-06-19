@@ -589,7 +589,7 @@ evalRevSame !s !c = \case
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShS shn $
-      withKnownShS (ixsToShS ix) $
+      withKnownShS (shsFromIxS ix) $
       evalRevSame s (tsoneHot c ix) d
   DeltaScatterS @shm @shn shm shn shp d f -> case ftkDelta d of
     FTKS _ x ->
@@ -661,7 +661,7 @@ evalRevSame !s !c = \case
       gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
       evalRevSame s (txoneHot (takeShX @len sh) c ix) d
 --TODO      evalRevSame s (xoneHot (shxTakeSSX (Proxy @shn) sh
---                                         (ixxToSSX ix)) c ix) d
+--                                         (ssxFromIxX ix)) c ix) d
   DeltaScatterX @shm @shn shm shn shp _sh d f -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
@@ -986,7 +986,7 @@ evalFwdSame params s = \case
     FTKS _ x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShS shn $
-      withKnownShS (ixsToShS ix) $
+      withKnownShS (shsFromIxS ix) $
       second (`tsindex` ix) $ evalFwdSame params s d
   DeltaScatterS @shm @shn shm shn shp d f -> case ftkDelta d of
     FTKS _ x ->
@@ -1046,7 +1046,7 @@ evalFwdSame params s = \case
     FTKX sh x ->
       withKnownSTK (ftkToSTK x) $
       withKnownShX shn $
--- TODO      withKnownShX (ixxToSSX ix) $
+-- TODO      withKnownShX (ssxFromIxX ix) $
       withKnownShX (ssxTakeIx @shm @shn (ssxFromShX sh) ix) $
       second (`txindex` ix) $ evalFwdSame params s d
   DeltaScatterX @shm @shn shm shn shp sh d f -> case ftkDelta d of

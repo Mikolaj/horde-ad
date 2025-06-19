@@ -267,7 +267,7 @@ interpretAst !env = \case
 
   AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
-      withKnownShS (ixsToShS ix) $
+      withKnownShS (shsFromIxS ix) $
       withKnownShS sh2 $
       withKnownSTK x $
       let v2 = interpretAst env v
@@ -277,15 +277,15 @@ interpretAst !env = \case
   AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
-      withKnownShS (ixsToShS ix) $
+      withKnownShS (shsFromIxS ix) $
       withKnownSTK x $
       tsoneHot (interpretAst env v) (interpretAstPrimal env <$> ix) -}
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
-      withKnownShS (listsToShS vars) $
+      withKnownShS (shsFromListS vars) $
       withKnownShS shn $
-      withKnownShS (ixsToShS ix) $
+      withKnownShS (shsFromIxS ix) $
       withKnownSTK x $
       let t1 = interpretAst env v
           f2 :: IxSOf target shm -> IxSOf target shp
@@ -294,15 +294,15 @@ interpretAst !env = \case
   AstGatherS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
-      withKnownShS (ixsToShS ix) $
+      withKnownShS (shsFromIxS ix) $
       withKnownSTK x $
       tsindex (interpretAst env v) (interpretAstPrimal env <$> ix)
   AstGatherS @shm @shn @shp
              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
-      withKnownShS (listsToShS vars) $
+      withKnownShS (shsFromListS vars) $
       withKnownShS shn $
-      withKnownShS (ixsToShS ix) $
+      withKnownShS (shsFromIxS ix) $
       withKnownSTK x $
       let t1 = interpretAst env v
           f2 :: IxSOf target shm -> IxSOf target shp

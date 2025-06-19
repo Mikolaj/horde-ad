@@ -173,21 +173,21 @@ inlineAst memo v0 = case v0 of
   Ast.AstIndexS @sh1 shn v ix ->
     let (memo1, v2) = inlineAst memo v
         (memo2, ix2) = mapAccumR inlineAst memo1 (Foldable.toList ix)
-    in withKnownShS (ixsToShS ix)
+    in withKnownShS (shsFromIxS ix)
        (memo2, Ast.AstIndexS @sh1 shn v2 (fromList ix2))
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
-        count = shsSize (ixsToShS ix) * shsSize shn
+        count = shsSize (shsFromIxS ix) * shsSize shn
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-        !ix3 = withKnownShS (ixsToShS ix) $ fromList ix2
+        !ix3 = withKnownShS (shsFromIxS ix) $ fromList ix2
     in (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
-        count = shsSize (listsToShS vars) * shsSize shn
+        count = shsSize (shsFromListS vars) * shsSize shn
         memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
-        !ix3 = withKnownShS (ixsToShS ix) $ fromList ix2
+        !ix3 = withKnownShS (shsFromIxS ix) $ fromList ix2
     in (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
@@ -443,21 +443,21 @@ unshareAst memo = \case
   Ast.AstIndexS @sh1 shn v ix ->
     let (memo1, v2) = unshareAst memo v
         (memo2, ix2) = mapAccumR unshareAst memo1 (Foldable.toList ix)
-    in withKnownShS (ixsToShS ix)
+    in withKnownShS (shsFromIxS ix)
        (memo2, Ast.AstIndexS @sh1 shn v2 (fromList ix2))
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (unshareAstScoped $ listsToList vars)
                     memo (Foldable.toList ix)
         (memo2, v2) = unshareAst memo1 v
-        !ix3 = withKnownShS (ixsToShS ix) $ fromList ix2
+        !ix3 = withKnownShS (shsFromIxS ix) $ fromList ix2
     in (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (unshareAstScoped $ listsToList vars)
                     memo (Foldable.toList ix)
         (memo2, v2) = unshareAst memo1 v
-        !ix3 = withKnownShS (ixsToShS ix) $ fromList ix2
+        !ix3 = withKnownShS (shsFromIxS ix) $ fromList ix2
     in (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ unshareAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ unshareAst memo a

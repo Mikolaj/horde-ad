@@ -33,8 +33,7 @@ module HordeAd.Core.Types
   , shsFromStaticShX
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
   , withCastRS, withCastXS, shCastSX
-  , ixrToIxs, ixsToIxr, ixxToIxs, ixsToIxx
-  , ixsToShS, ixxToSSX, listsToShS
+  , ixsFromIxR, ixxFromIxS', ixsFromIxX', shsFromIxS, ssxFromIxX, shsFromListS
   , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
   , eqPerm, permUnShift1, sunReplicateScal, sunReplicate1, sunReplicateN
   , ssxTakeIx
@@ -561,31 +560,26 @@ shCastSX ((:!%) @_ @restx (Nested.SUnknown ()) restx)
 -- Also, I'm fine composing two conversions instead of having a ready
 -- operation for each pair of the 10 shape variants.
 -- E.g., maybe everything should go through shaped shapes.
-ixrToIxs :: (KnownShS sh, KnownNat (Rank sh))
-         => IxR (Rank sh) i -> IxS sh i
-ixrToIxs = fromList . toList
-ixsToIxr :: (KnownShS sh, KnownNat (Rank sh))
-         => IxS sh i -> IxR (Rank sh) i
-ixsToIxr = fromList . toList
-ixxToIxs :: (KnownShS sh, KnownShX sh')
-         => IxX sh' i -> IxS sh i
-ixxToIxs = fromList . toList
-ixsToIxx :: (KnownShS sh, KnownShX sh')
-         => IxS sh i -> IxX sh' i
-ixsToIxx = fromList . toList
+ixsFromIxR :: (KnownShS sh, KnownNat (Rank sh))
+           => IxR (Rank sh) i -> IxS sh i
+ixsFromIxR = fromList . toList
+ixxFromIxS' :: (KnownShS sh, KnownShX sh')
+          => IxS sh i -> IxX sh' i
+ixxFromIxS' = fromList . toList
+ixsFromIxX' :: (KnownShS sh, KnownShX sh')
+            => IxX sh' i -> IxS sh i
+ixsFromIxX' = fromList . toList
 
--- TODO: ixrToShR :: IxR sh i -> ShR sh i
+shsFromIxS :: IxS sh i -> ShS sh
+shsFromIxS ZIS = ZSS
+shsFromIxS (_ :.$ sh) = SNat :$$ shsFromIxS sh
 
-ixsToShS :: IxS sh i -> ShS sh
-ixsToShS ZIS = ZSS
-ixsToShS (_ :.$ sh) = SNat :$$ ixsToShS sh
+ssxFromIxX :: IxX sh i -> StaticShX sh
+ssxFromIxX (IxX _list) = error "TODO"
 
-ixxToSSX :: IxX sh i -> StaticShX sh
-ixxToSSX (IxX _list) = error "TODO"
-
-listsToShS :: ListS sh i -> ShS sh
-listsToShS ZS = ZSS
-listsToShS (_ ::$ sh) = SNat :$$ listsToShS sh
+shsFromListS :: ListS sh i -> ShS sh
+shsFromListS ZS = ZSS
+shsFromListS (_ ::$ sh) = SNat :$$ shsFromListS sh
 
 -- ** Permutation-related operations
 
