@@ -3016,6 +3016,14 @@ astConvertSFromK :: forall r s. AstSpan s
                  -> AstTensor AstMethodLet s (TKS '[] r)
 astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstConvert c2 a2 -> astConvert (ConvCmp c c2) a2
+  {- TODO: this is the right thing to do, but it results in unreadable
+     terms with big tconvert wrappers over product type variables
+  Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
+    astProject1 $ astSFrom (ftkToSTK $ FTKProduct zftk ftk2) t
+  Ast.AstProject2 t | FTKProduct ftk1 _ <- ftkAst t ->
+    astProject2 $ astSFrom (ftkToSTK $ FTKProduct ftk1 zftk) t -}
+  Ast.AstProject1{} -> Ast.AstConvert c a0
+  Ast.AstProject2{} -> Ast.AstConvert c a0
   Ast.AstSum snat@SNat STKScalar a -> astSum snat (STKS ZSS STKScalar) a
   AstConcreteK k -> AstConcreteS $ Nested.sscalar k
   Ast.AstFloorK{} -> Ast.AstConvert c a0
@@ -3039,8 +3047,6 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
     astConvertSFromK c zftk u `quotH` astConvertSFromK c zftk v
   Ast.AstI2K RemOp u v ->
     astConvertSFromK c zftk u `remH` astConvertSFromK c zftk v
-  Ast.AstProject1{} -> Ast.AstConvert c a0  -- TODO
-  Ast.AstProject2{} -> Ast.AstConvert c a0  -- TODO
   Ast.AstApply{} -> Ast.AstConvert c a0
   Ast.AstVar{} -> Ast.AstConvert c a0
   Ast.AstCond b v w -> astCond b (astConvertSFromK c zftk v)
@@ -3058,11 +3064,13 @@ astConvertSFromR :: forall sh x s. AstSpan s
                  -> AstTensor AstMethodLet s (TKS2 sh x)
 astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstConvert c2 a2 -> astConvert (ConvCmp c c2) a2
+  {- TODO: this is the right thing to do, but it results in unreadable
+  Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
+    astProject1 $ astSFrom (ftkToSTK $ FTKProduct zftk ftk2) t
+  Ast.AstProject2 t | FTKProduct ftk1 _ <- ftkAst t ->
+    astProject2 $ astSFrom (ftkToSTK $ FTKProduct ftk1 zftk) t -}
   Ast.AstProject1{} -> Ast.AstConvert c a0
-    -- TODO: we may need to join all of stConvertSFrom*
-    -- into astConvertSFrom and generalize also to products to rewrite
-    -- this one; we actually have astSFrom, so maybe it's enough.
-  Ast.AstProject2{} -> Ast.AstConvert c a0  -- TODO
+  Ast.AstProject2{} -> Ast.AstConvert c a0
   -- TODO: here and elsewhere, make sure the generated c2 is unique/correct
   Ast.AstFromVector snat@SNat (STKR @n _ xstk) l -> case sh of
     snat2 :$$ rest | Just Refl <- sameNat snat snat2
@@ -3109,9 +3117,13 @@ astConvertSFromX :: forall sh shx x s. (AstSpan s, Rank shx ~ Rank sh)
                  -> AstTensor AstMethodLet s (TKS2 sh x)
 astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstConvert c2 a2 -> astConvert (ConvCmp c c2) a2
-  Ast.AstProject1{} -> Ast.AstConvert c a0  -- TODO
-  Ast.AstProject2{} -> Ast.AstConvert c a0  -- TODO
-  -- TODO: here and elsewhere, make sure the generated c2 is unique/correct
+  {- TODO: this is the right thing to do, but it results in unreadable
+  Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
+    astProject1 $ astSFrom (ftkToSTK $ FTKProduct zftk ftk2) t
+  Ast.AstProject2 t | FTKProduct ftk1 _ <- ftkAst t ->
+    astProject2 $ astSFrom (ftkToSTK $ FTKProduct ftk1 zftk) t -}
+  Ast.AstProject1{} -> Ast.AstConvert c a0
+  Ast.AstProject2{} -> Ast.AstConvert c a0
   Ast.AstFromVector snat@SNat (STKX @shx2 _ xstk) l -> case sh of
     (:$$) @_ @rest snat2 rest | Just Refl <- sameNat snat snat2 ->
       -- This is needed only for GHC 9.10.
