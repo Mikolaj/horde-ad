@@ -225,14 +225,14 @@ crevSR
   -> ListR n (Concrete (TKS '[] Double))
 crevSR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  cgrad (kfromS . multSL)
+  cgrad (kfromS . multSR)
 
 revSR
   :: SNat n -> ListR n (Concrete (TKS '[] Double))
   -> ListR n (Concrete (TKS '[] Double))
 revSR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  grad (kfromS . multSL)
+  grad (kfromS . multSR)
 
 multSNotShared :: (BaseTensor target, GoodScalar r)
                => ListR n (ADVal target (TKS '[] r))
