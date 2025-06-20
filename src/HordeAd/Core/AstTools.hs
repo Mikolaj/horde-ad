@@ -22,6 +22,7 @@ import Prelude hiding (foldl')
 import Control.Exception.Assert.Sugar
 import Data.Int (Int64)
 import Data.IORef
+import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -372,13 +373,10 @@ liftRFromS1 :: forall n x ms s.
             -> AstTensor ms s (TKR2 n x)
             -> AstTensor ms s (TKR2 n x)
 -- The cheapest possible optimization to prevent trivial term buildup.
-liftRFromS1 f (AstFromS' ftkz@(FTKR _ x) u) = case ftkAst u of
-  FTKS _ xu ->
-    case matchingFTK x xu of
-      Just Refl -> cAstFromS ftkz (f u)
-      _ -> error $ "liftRFromS1: tensor kinds don't agree: "
-                   ++ show x ++ " " ++ show xu
-  _ -> error "liftRFromS1: unexpected tensor kind"
+liftRFromS1 f (AstConvert c u) | zftk@(FTKS _ xu) <- ftkAst u
+                               , FTKR _ x <- convertFTK c zftk
+                               , Just Refl <- matchingFTK xu x =
+  cAstConvert c (f u)
 -- The pessimistic case, no optimization at all.
 liftRFromS1 f a = case ftkAst a of
   ftk@(FTKR sh' _) ->
@@ -396,17 +394,13 @@ liftRFromS2 :: forall n x ms s.
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKR2 n x) -> AstTensor ms s (TKR2 n x)
             -> AstTensor ms s (TKR2 n x)
-liftRFromS2 f (AstFromS' ftkz@(FTKR _ x) u) (AstFromS' _ v) =
-  case (ftkAst u, ftkAst v) of
-    (ftku@(FTKS shu xu), ftkv@(FTKS shv xv)) ->
-      case ( matchingFTK xu x
-           , matchingFTK xv x
-           , testEquality shu shv ) of
-      (Just Refl, Just Refl, Just Refl) -> cAstFromS ftkz (f u v)
-      _ -> error $ "liftRFromS2: tensor kinds don't agree: "
-                   ++ show ftku ++ " " ++ show ftkv ++ " "
-                   ++ show ftkz
-    _ -> error "liftRFromS2: unexpected tensor kinds"
+liftRFromS2 f (AstConvert c u) (AstConvert _ v)
+  | uftk@(FTKS _ xu) <- ftkAst u
+  , vftk@FTKS{} <- ftkAst v
+  , FTKR _ x <- convertFTK c uftk
+  , Just Refl <- matchingFTK uftk vftk
+  , Just Refl <- matchingFTK xu x =
+    cAstConvert c (f u v)
 liftRFromS2 f a b  = case ftkAst a of
   ftk@(FTKR sh' _) ->
     withCastRS sh' $ \(sh :: ShS sh) ->
@@ -420,13 +414,10 @@ liftXFromS1 :: forall sh' x ms s.
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKX2 sh' x)
             -> AstTensor ms s (TKX2 sh' x)
-liftXFromS1 f (AstFromS' ftkz@(FTKX _ x) u) = case ftkAst u of
-  FTKS _ xu ->
-    case matchingFTK x xu of
-      Just Refl -> cAstFromS ftkz (f u)
-      _ -> error $ "liftXFromS1: tensor kinds don't agree: "
-                   ++ show x ++ " " ++ show xu
-  _ -> error "liftXFromS1: unexpected tensor kind"
+liftXFromS1 f (AstConvert c u) | zftk@(FTKS _ xu) <- ftkAst u
+                               , FTKX _ x <- convertFTK c zftk
+                               , Just Refl <- matchingFTK xu x =
+  cAstConvert c (f u)
 liftXFromS1 f a = case ftkAst a of
   ftk@(FTKX sh' _) ->
     withCastXS sh' $ \(sh :: ShS sh) ->
@@ -439,17 +430,13 @@ liftXFromS2 :: forall sh' x ms s.
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKX2 sh' x) -> AstTensor ms s (TKX2 sh' x)
             -> AstTensor ms s (TKX2 sh' x)
-liftXFromS2 f (AstFromS' ftkz@(FTKX _ x) u) (AstFromS' _ v) =
-  case (ftkAst u, ftkAst v) of
-    (ftku@(FTKS shu xu), ftkv@(FTKS shv xv)) ->
-      case ( matchingFTK xu x
-           , matchingFTK xv x
-           , testEquality shu shv ) of
-        (Just Refl, Just Refl, Just Refl) -> cAstFromS ftkz (f u v)
-        _ -> error $ "liftXFromS2: tensor kinds don't agree: "
-                     ++ show ftku ++ " " ++ show ftkv ++ " "
-                     ++ show (FTKS shu x)
-    _ -> error "liftXFromS2: unexpected tensor kinds"
+liftXFromS2 f (AstConvert c u) (AstConvert _ v)
+  | uftk@(FTKS _ xu) <- ftkAst u
+  , vftk@FTKS{} <- ftkAst v
+  , FTKX _ x <- convertFTK c uftk
+  , Just Refl <- matchingFTK uftk vftk
+  , Just Refl <- matchingFTK xu x =
+    cAstConvert c (f u v)
 liftXFromS2 f a b = case ftkAst a of
   ftk@(FTKX sh' _) ->
     withCastXS sh' $ \(sh :: ShS sh) ->
@@ -512,7 +499,7 @@ checkFtkAstFromS (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) =
 checkFtkAstFromS _ _ = False
 
 checkAstFromS :: TKConversion a b -> AstTensor ms s a -> Bool
-checkAstFromS c t = checkFtkAstFromS (ftkAst t) (convertFTK c (ftkAst t))
+checkAstFromS c t = isJust $ checkPatternAstFromS c t
 
 cAstFromS :: forall y z ms s.
              FullShapeTK z -> AstTensor ms s y
