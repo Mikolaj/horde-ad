@@ -248,11 +248,14 @@ astProject1 u = case u of
   Ast.AstLet var t v -> astLet var t (astProject1 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject1 u1
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject1 u1
+  Ast.AstConvert c t | FTKProduct yftk _ <- ftkAst t
+                     , FTKProduct zftk _ <- convertFTK c (ftkAst t)
+                     , Just Refl <- matchingFTK yftk zftk -> astProject1 t
   -- TODO: generalize this somehow to arbitrary Conversions of the right type.
   -- At worst, just generate the canonical (?) c1 for the types at hand.
-  Ast.AstConvert c@(ConvT2 c1 _c2) v
-    | checkAstFromS c v ->
-      astConvert c1 $ astProject1 v
+  Ast.AstConvert c@(ConvT2 c1 _c2) t
+    | checkAstFromS c t ->
+      astConvert c1 $ astProject1 t
   _ -> Ast.AstProject1 u
 
 astProject2
@@ -264,9 +267,12 @@ astProject2 u = case u of
   Ast.AstLet var t v -> astLet var t (astProject2 v)
   Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject2 u1
   Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject2 u1
-  Ast.AstConvert c@(ConvT2 _c1 c2) v
-    | checkAstFromS c v ->
-      astConvert c2 $ astProject2 v
+  Ast.AstConvert c t | FTKProduct _ yftk <- ftkAst t
+                     , FTKProduct _ zftk <- convertFTK c (ftkAst t)
+                     , Just Refl <- matchingFTK yftk zftk -> astProject2 t
+  Ast.AstConvert c@(ConvT2 _c1 c2) t
+    | checkAstFromS c t ->
+      astConvert c2 $ astProject2 t
   _ -> Ast.AstProject2 u
 
 astFromVector :: forall y k s. AstSpan s
@@ -2949,7 +2955,11 @@ astConvert c a = case (ftkAst a, convertFTK c (ftkAst a)) of
     , Just Refl <- testEquality (shxRank shx) (shsRank sh) ->
       astConvertSFromX c zftk a
   (FTKS{}, zftk) -> astConvertFromS c zftk a
-  (FTKProduct{}, zftk) -> astConvertFromS c zftk a  -- for simplicity
+  (FTKProduct{}, zftk) | checkAstFromS c a -> astConvertFromS c zftk a
+  (FTKProduct{}, zftk) -> case (a, zftk) of
+    (Ast.AstPair a1 a2, FTKProduct zftk1 zftk2) ->
+      astPair (astSFrom (ftkToSTK zftk1) a1) (astSFrom (ftkToSTK zftk2) a2)
+    _ -> astSFrom (ftkToSTK zftk) a
   _ -> Ast.AstConvert c a
 
 -- We are pulling conversions from shaped tensors up, generally.
