@@ -2938,11 +2938,11 @@ astConvert
   => TKConversion y z -> AstTensor AstMethodLet s y
   -> AstTensor AstMethodLet s z
 astConvert c a = case (ftkAst a, convertFTK c (ftkAst a)) of
+  (_, zftk) | Ast.AstConvert _ t <- a  -- shortcut
+            , Just Refl <- matchingFTK (ftkAst t) zftk -> t
   (yftk, zftk) | Just Refl <- matchingFTK yftk zftk -> a
     -- this covers the ConvId case and more, so not simplifying c at worst
     -- causes c to take more memory but doesn't inhibit rewriting
-    -- TODO: we don't want to add lets to simplify conversion
-    -- ConvT2 ConvId c2, but we could rewrite this when a is a AstPair
   (FTKScalar @ry, zftk@(FTKS ZSS (FTKScalar @rz)))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       astConvertSFromK c zftk a
@@ -2955,11 +2955,10 @@ astConvert c a = case (ftkAst a, convertFTK c (ftkAst a)) of
     , Just Refl <- testEquality (shxRank shx) (shsRank sh) ->
       astConvertSFromX c zftk a
   (FTKS{}, zftk) -> astConvertFromS c zftk a
-  (FTKProduct{}, zftk) | checkAstFromS c a -> astConvertFromS c zftk a
-  (FTKProduct{}, zftk) -> case (a, zftk) of
-    (Ast.AstPair a1 a2, FTKProduct zftk1 zftk2) ->
-      astPair (astSFrom (ftkToSTK zftk1) a1) (astSFrom (ftkToSTK zftk2) a2)
-    _ -> astSFrom (ftkToSTK zftk) a
+  (yftk@FTKProduct{}, zftk) | checkFtkAstFromS yftk zftk ->
+    astConvertFromS c zftk a
+  (yftk@FTKProduct{}, zftk) | checkFtkAstSFrom yftk zftk ->
+    astConvertSFrom c zftk a
   _ -> Ast.AstConvert c a
 
 -- We are pulling conversions from shaped tensors up, generally.
@@ -3208,7 +3207,7 @@ astSFromR' :: forall sh s r. AstSpan s
            => ShS sh -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
            -> AstTensor AstMethodLet s (TKS2 sh r)
 astSFromR' sh t = case ftkAst t of
-  FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh))->
+  FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
     let ftk = FTKS sh x
     in astConvertSFromR (ConvCmp (ConvXS' ftk) ConvRX) ftk t
 
@@ -3220,33 +3219,44 @@ astSFromX' sh t = case ftkAst t of
     let ftk = FTKS sh x
     in astConvertSFromX (ConvXS' ftk) ftk t
 
+-- We are pushing conversions to shaped tensors down, into concrete values
+-- and towards variables, so that the conversions often cancel out.
+astConvertSFrom :: forall y z s. AstSpan s
+                => TKConversion y z -> FullShapeTK z
+                -> AstTensor AstMethodLet s y
+                -> AstTensor AstMethodLet s z
+astConvertSFrom _ zftk t
+  | Just Refl <- matchingFTK (ftkAst t) zftk = t
+astConvertSFrom _ zftk (Ast.AstConvert _ t)  -- shortcut
+  | Just Refl <- matchingFTK (ftkAst t) zftk = t
+astConvertSFrom c zftk t = case (zftk, ftkAst t) of
+  (_, yftk) | Just Refl <- matchingFTK yftk zftk -> t
+  (FTKS ZSS (FTKScalar @rz), FTKScalar @ry) ->
+    case testEquality (typeRep @ry) (typeRep @rz) of
+      Just Refl -> astConvertSFromK c zftk t
+      Nothing -> error "astConvertSFrom: tensor kinds don't match"
+  (FTKS shz zx, FTKR shr yx)->
+    case (matchingFTK yx zx, testEquality (shsRank shz) (shrRank shr)) of
+      (Just Refl, Just Refl) -> astConvertSFromR c zftk t
+      _ -> error "astConvertSFrom: tensor kinds don't match"
+  (FTKS shz zx, FTKX shy yx) ->
+    case (matchingFTK yx zx, testEquality (shsRank shz) (shxRank shy)) of
+      (Just Refl, Just Refl) -> astConvertSFromX c zftk t
+      _ -> error "astConvertSFrom: tensor kinds don't match"
+  (FTKProduct zftk1 zftk2, FTKProduct yftk1 yftk2) -> case t of
+    Ast.AstPair a1 a2 ->
+      -- Here we can't always use the c the user presumably wrote,
+      -- so we always create a canonical one.
+      astPair (astConvertSFrom (convSFrom yftk1 (ftkToSTK zftk1)) zftk1 a1)
+              (astConvertSFrom (convSFrom yftk2 (ftkToSTK zftk2)) zftk2 a2)
+    _ -> Ast.AstConvert c t  -- don't introduce let just to push a conversion
+  (_, yftk) ->
+    error $ "astConvertSFrom: wrong tensor kinds: " ++ show (yftk, zftk, t)
+
 astSFrom :: forall y z s. AstSpan s
          => SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
-astSFrom stkz v
-  | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
-astSFrom stkz (Ast.AstConvert _ v)  -- shortcut
-  | Just Refl <- sameSTK (ftkToSTK (ftkAst v)) stkz = v
-astSFrom stkz v = case (stkz, ftkToSTK (ftkAst v)) of
-  (_, stky) | Just Refl <- sameSTK stky stkz -> v
-  (STKS ZSS (STKScalar @rz), STKScalar @ry) ->
-    case testEquality (typeRep @ry) (typeRep @rz) of
-      Just Refl -> astSFromK' v
-      Nothing -> error "astSFrom: tensor kinds don't match"
-  (STKS shz zx, STKR yn yx) ->
-    case (sameSTK yx zx, testEquality (shsRank shz) yn) of
-      (Just Refl, Just Refl) -> astSFromR' shz v
-      _ -> error "astSFrom: tensor kinds don't match"
-  (STKS shz zx, STKX shy yx) ->
-    case (sameSTK yx zx, testEquality (shsRank shz) (ssxRank shy)) of
-      (Just Refl, Just Refl) -> astSFromX' shz v
-      _ -> error "astSFrom: tensor kinds don't match"
-  (STKProduct stkz1 stkz2, STKProduct{})->
-    -- TODO: this is bad, we are introducing let with a non-shaped variable
-    astLetFun v $ \ !u3 ->
-      astPair (astSFrom stkz1 (astProject1 u3))
-              (astSFrom stkz2 (astProject2 u3))
-  (_, stky) -> error $ "astSFrom: wrong tensor kinds: " ++ show (stky, stkz, v)
+astSFrom zstk t = astConvert (convSFrom (ftkAst t) zstk) t
 
 astSum0S :: AstSpan s
          => AstTensor AstMethodLet s (TKS2 sh x)

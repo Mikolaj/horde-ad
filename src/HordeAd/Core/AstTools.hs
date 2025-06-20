@@ -13,7 +13,9 @@ module HordeAd.Core.AstTools
   , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstConvert, cAstSFromR, cAstSFromX, cAstXFromS
-  , pattern AstFromS', checkAstFromS, cAstFromS, convFromS
+  , pattern AstFromS', checkFtkAstFromS, checkAstFromS, checkFtkAstSFrom
+  , cAstFromS
+  , convFromS, convSFrom
   , setTotalSharing
   ) where
 
@@ -472,6 +474,14 @@ checkFtkAstFromS _ _ = False
 checkAstFromS :: TKConversion a b -> AstTensor ms s a -> Bool
 checkAstFromS c t = isJust $ checkPatternAstFromS c t
 
+checkFtkAstSFrom :: FullShapeTK y -> FullShapeTK z -> Bool
+checkFtkAstSFrom yftk zftk | Just Refl <- matchingFTK yftk zftk = True
+checkFtkAstSFrom FTKS{} FTKS{} = False
+checkFtkAstSFrom _ FTKS{} = True
+checkFtkAstSFrom (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) =
+  checkFtkAstSFrom yftk1 zftk1 && checkFtkAstSFrom yftk2 zftk2
+checkFtkAstSFrom _ _ = False
+
 cAstFromS :: forall y z ms s.
              FullShapeTK z -> AstTensor ms s y
           -> AstTensor ms s z
@@ -497,3 +507,24 @@ convFromS yftk0 zftk0 = case (yftk0, zftk0) of
     ConvT2 (convFromS yftk1 zftk1) (convFromS yftk2 zftk2)
   _ -> error $ "convFromS': unexpected types "  -- TODO: try nevertheless
                ++ "(" ++ show yftk0 ++ ", " ++ show zftk0 ++ ")"
+
+convSFrom :: FullShapeTK y0 -> SingletonTK z0 -> TKConversion y0 z0
+convSFrom yftk0 zstk0 = case (zstk0, yftk0) of
+  _ | Just Refl <- sameSTK (ftkToSTK yftk0) zstk0 -> ConvId
+  (STKS ZSS (STKScalar @ry), FTKScalar @rz)
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      ConvCmp ConvXS (Conv0X STKScalar)
+  (STKS @sh sh x, FTKR rsh rx)
+    | Just Refl <- sameSTK x (ftkToSTK rx)
+    , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
+    , Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
+      ConvCmp (ConvXS' (FTKS sh rx)) ConvRX
+  (STKS sh x, FTKX xsh xx)
+    | Just Refl <- sameSTK x (ftkToSTK xx)
+    , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
+    , Refl <- lemRankMapJust sh ->
+      ConvXS' (FTKS sh xx)
+  (STKProduct zstk1 zstk2, FTKProduct yftk1 yftk2) ->
+    ConvT2 (convSFrom yftk1 zstk1) (convSFrom yftk2 zstk2)
+  _ -> error $ "convSFrom': unexpected types "  -- TODO: try nevertheless
+               ++ "(" ++ show yftk0 ++ ", " ++ show zstk0 ++ ")"
