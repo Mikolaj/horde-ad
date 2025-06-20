@@ -372,41 +372,23 @@ liftRFromS1 :: forall n x ms s.
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKR2 n x)
             -> AstTensor ms s (TKR2 n x)
--- The cheapest possible optimization to prevent trivial term buildup.
-liftRFromS1 f (AstConvert c u) | zftk@(FTKS _ xu) <- ftkAst u
-                               , FTKR _ x <- convertFTK c zftk
-                               , Just Refl <- matchingFTK xu x =
-  cAstConvert c (f u)
--- The pessimistic case, no optimization at all.
 liftRFromS1 f a = case ftkAst a of
   ftk@(FTKR sh' _) ->
     withCastRS sh' $ \(sh :: ShS sh) ->
       cAstFromS @(TKS2 sh x) ftk
       $ f (cAstSFromR @sh sh a)
 
--- We refrain from checking for AstFromPrimal (AstFromS), because that would
--- add three more cases for little gain (arithmetic expressions are unlikely
--- to have AstFromPrimal and especially a build-up of interspersed
--- conversions and AstFromPrimal).
 liftRFromS2 :: forall n x ms s.
                (forall sh.
                    AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKR2 n x) -> AstTensor ms s (TKR2 n x)
             -> AstTensor ms s (TKR2 n x)
-liftRFromS2 f (AstConvert c u) (AstConvert _ v)
-  | uftk@(FTKS _ xu) <- ftkAst u
-  , vftk@FTKS{} <- ftkAst v
-  , FTKR _ x <- convertFTK c uftk
-  , Just Refl <- matchingFTK uftk vftk
-  , Just Refl <- matchingFTK xu x =
-    cAstConvert c (f u v)
 liftRFromS2 f a b  = case ftkAst a of
   ftk@(FTKR sh' _) ->
     withCastRS sh' $ \(sh :: ShS sh) ->
       cAstFromS @(TKS2 sh x) ftk
       $ f (cAstSFromR @sh sh a) (cAstSFromR @sh sh b)
-        -- both are not AstFromS, but one may be
 
 liftXFromS1 :: forall sh' x ms s.
                (forall sh.
@@ -414,10 +396,6 @@ liftXFromS1 :: forall sh' x ms s.
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKX2 sh' x)
             -> AstTensor ms s (TKX2 sh' x)
-liftXFromS1 f (AstConvert c u) | zftk@(FTKS _ xu) <- ftkAst u
-                               , FTKX _ x <- convertFTK c zftk
-                               , Just Refl <- matchingFTK xu x =
-  cAstConvert c (f u)
 liftXFromS1 f a = case ftkAst a of
   ftk@(FTKX sh' _) ->
     withCastXS sh' $ \(sh :: ShS sh) ->
@@ -430,13 +408,6 @@ liftXFromS2 :: forall sh' x ms s.
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKX2 sh' x) -> AstTensor ms s (TKX2 sh' x)
             -> AstTensor ms s (TKX2 sh' x)
-liftXFromS2 f (AstConvert c u) (AstConvert _ v)
-  | uftk@(FTKS _ xu) <- ftkAst u
-  , vftk@FTKS{} <- ftkAst v
-  , FTKX _ x <- convertFTK c uftk
-  , Just Refl <- matchingFTK uftk vftk
-  , Just Refl <- matchingFTK xu x =
-    cAstConvert c (f u v)
 liftXFromS2 f a b = case ftkAst a of
   ftk@(FTKX sh' _) ->
     withCastXS sh' $ \(sh :: ShS sh) ->

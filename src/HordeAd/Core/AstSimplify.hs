@@ -3049,7 +3049,10 @@ astConvertSFromR :: forall sh x s. AstSpan s
                  -> AstTensor AstMethodLet s (TKS2 sh x)
 astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstConvert c2 a2 -> astConvert (ConvCmp c c2) a2
-  Ast.AstProject1{} -> Ast.AstConvert c a0  -- TODO
+  Ast.AstProject1{} -> Ast.AstConvert c a0
+    -- TODO: we may need to join all of stConvertSFrom*
+    -- into astConvertSFrom and generalize also to products to rewrite
+    -- this one; we actually have astSFrom, so maybe it's enough.
   Ast.AstProject2{} -> Ast.AstConvert c a0  -- TODO
   -- TODO: here and elsewhere, make sure the generated c2 is unique/correct
   Ast.AstFromVector snat@SNat (STKR @n _ xstk) l -> case sh of
