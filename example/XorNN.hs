@@ -1,4 +1,3 @@
-{-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 -- | TODO: outdated, uses the old API
 module TestDescentSimple (testTrees) where
 

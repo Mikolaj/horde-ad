@@ -81,7 +81,8 @@ common options
                       TypeData, TypeAbstractions
   other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists,
                       DeriveAnyClass, UndecidableInstances, AllowAmbiguousTypes,
-                      QuantifiedConstraints
+                      QuantifiedConstraints, TemplateHaskell, DerivingVia,
+                      ImpredicativeTypes
   ghc-options:        -Wall -Wcompat -Wimplicit-prelude -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages -Wredundant-bang-patterns -Woperator-whitespace -Wredundant-strictness-flags -Wterm-variable-capture -Wmissed-specialisations
   ghc-options:        -Wmissing-poly-kind-signatures -Wmissing-role-annotations -Wno-unticked-promoted-constructors
   ghc-options:        -fprint-explicit-kinds
