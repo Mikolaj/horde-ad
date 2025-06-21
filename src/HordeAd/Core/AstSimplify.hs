@@ -505,7 +505,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
                 (astPair (astFromS' @accyFrom accftk (astProject1 astf2))
                          (astProject2 astf2))
                 varf vf
-        in astSFrom @(TKProduct accy by)
+        in astSFrom' @(TKProduct accy by)
                     (STKProduct accFromSTK (ftkToSTK bftk))
                     subbed
       ftkd2 = FTKProduct
@@ -524,7 +524,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
                                      (astProject1 (astProject2 astd2)))
                                   (astProject2 (astProject2 astd2))))
                 vard vd
-        in astSFrom @(ADTensorKind (TKProduct accy by))
+        in astSFrom' @(ADTensorKind (TKProduct accy by))
                     (adSTK $ STKProduct accFromSTK (ftkToSTK bftk))
                     subbed
       ftkr2 = FTKProduct
@@ -543,7 +543,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
                                      (astProject1 (astProject2 astr2)))
                                   (astProject2 (astProject2 astr2))))
                 varr vr
-        in astSFrom @(ADTensorKind (TKProduct accy ey))
+        in astSFrom' @(ADTensorKind (TKProduct accy ey))
                     (adSTK $ STKProduct accFromSTK (ftkToSTK eftk))
                     subbed
   in astFromS' @(TKProduct accyFrom (BuildTensorKind k by))
@@ -608,7 +608,7 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
                                       (astFromS' @eyFrom eftk
                                          (astProject2 (astProject2 astr2)))))
                     varr vr
-            in astSFrom @(ADTensorKind (TKProduct accy ey))
+            in astSFrom' @(ADTensorKind (TKProduct accy ey))
                         (adSTK $ STKProduct accstk eftkFromSTK)
                         subbed
       in astMapAccumRDer k bftk eftkFrom (AstLambda varf2 vf2)
@@ -651,7 +651,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                 (astPair (astFromS' @accyFrom accftk (astProject1 astf2))
                          (astProject2 astf2))
                 varf vf
-        in astSFrom @(TKProduct accy by)
+        in astSFrom' @(TKProduct accy by)
                     (STKProduct accFromSTK (ftkToSTK bftk))
                     subbed
       ftkd2 = FTKProduct
@@ -670,7 +670,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                                      (astProject1 (astProject2 astd2)))
                                   (astProject2 (astProject2 astd2))))
                 vard vd
-        in astSFrom @(ADTensorKind (TKProduct accy by))
+        in astSFrom' @(ADTensorKind (TKProduct accy by))
                     (adSTK $ STKProduct accFromSTK (ftkToSTK bftk))
                     subbed
       ftkr2 = FTKProduct
@@ -689,7 +689,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                                      (astProject1 (astProject2 astr2)))
                                   (astProject2 (astProject2 astr2))))
                 varr vr
-        in astSFrom @(ADTensorKind (TKProduct accy ey))
+        in astSFrom' @(ADTensorKind (TKProduct accy ey))
                     (adSTK $ STKProduct accFromSTK (ftkToSTK eftk))
                     subbed
   in astFromS' @(TKProduct accyFrom (BuildTensorKind k by))
@@ -754,7 +754,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                                       (astFromS' @eyFrom eftk
                                          (astProject2 (astProject2 astr2)))))
                     varr vr
-            in astSFrom @(ADTensorKind (TKProduct accy ey))
+            in astSFrom' @(ADTensorKind (TKProduct accy ey))
                         (adSTK $ STKProduct accstk eftkFromSTK)
                         subbed
       in astMapAccumLDer k bftk eftkFrom (AstLambda varf2 vf2)
@@ -3019,9 +3019,9 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   {- TODO: this is the right thing to do, but it results in unreadable
      terms with big tconvert wrappers over product type variables
   Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
-    astProject1 $ astSFrom (ftkToSTK $ FTKProduct zftk ftk2) t
+    astProject1 $ astSFrom' (ftkToSTK $ FTKProduct zftk ftk2) t
   Ast.AstProject2 t | FTKProduct ftk1 _ <- ftkAst t ->
-    astProject2 $ astSFrom (ftkToSTK $ FTKProduct ftk1 zftk) t -}
+    astProject2 $ astSFrom' (ftkToSTK $ FTKProduct ftk1 zftk) t -}
   Ast.AstProject1{} -> Ast.AstConvert c a0
   Ast.AstProject2{} -> Ast.AstConvert c a0
   Ast.AstSum snat@SNat STKScalar a -> astSum snat (STKS ZSS STKScalar) a
@@ -3067,9 +3067,9 @@ astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
   {- TODO: this is the right thing to do, but it results in unreadable
      terms with big tconvert wrappers over product type variables
   Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
-    astProject1 $ astSFrom (ftkToSTK $ FTKProduct zftk ftk2) t
+    astProject1 $ astSFrom' (ftkToSTK $ FTKProduct zftk ftk2) t
   Ast.AstProject2 t | FTKProduct ftk1 _ <- ftkAst t ->
-    astProject2 $ astSFrom (ftkToSTK $ FTKProduct ftk1 zftk) t -}
+    astProject2 $ astSFrom' (ftkToSTK $ FTKProduct ftk1 zftk) t -}
   Ast.AstProject1{} -> Ast.AstConvert c a0
   Ast.AstProject2{} -> Ast.AstConvert c a0
   -- TODO: here and elsewhere, make sure the generated c2 is unique/correct
@@ -3121,9 +3121,9 @@ astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
   {- TODO: this is the right thing to do, but it results in unreadable
      terms with big tconvert wrappers over product type variables
   Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
-    astProject1 $ astSFrom (ftkToSTK $ FTKProduct zftk ftk2) t
+    astProject1 $ astSFrom' (ftkToSTK $ FTKProduct zftk ftk2) t
   Ast.AstProject2 t | FTKProduct ftk1 _ <- ftkAst t ->
-    astProject2 $ astSFrom (ftkToSTK $ FTKProduct ftk1 zftk) t -}
+    astProject2 $ astSFrom' (ftkToSTK $ FTKProduct ftk1 zftk) t -}
   Ast.AstProject1{} -> Ast.AstConvert c a0
   Ast.AstProject2{} -> Ast.AstConvert c a0
   Ast.AstFromVector snat@SNat (STKX @shx2 _ xstk) l -> case sh of
@@ -3267,10 +3267,10 @@ astConvertSFrom c zftk t = case (zftk, ftkAst t) of
   (_, yftk) ->
     error $ "astConvertSFrom: wrong tensor kinds: " ++ show (yftk, zftk, t)
 
-astSFrom :: forall y z s. AstSpan s
+astSFrom' :: forall y z s. AstSpan s
          => SingletonTK z -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s z
-astSFrom zstk t = astConvert (convSFrom (ftkAst t) zstk) t
+astSFrom' zstk t = astConvert (convSFrom (ftkAst t) zstk) t
 
 astSum0S :: AstSpan s
          => AstTensor AstMethodLet s (TKS2 sh x)
