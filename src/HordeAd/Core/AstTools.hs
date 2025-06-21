@@ -13,9 +13,8 @@ module HordeAd.Core.AstTools
   , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstConvert, cAstSFromR, cAstSFromX, cAstXFromS
-  , pattern AstFromS', checkFtkAstFromS, checkAstFromS, checkFtkAstSFrom
-  , cAstFromS
-  , convFromS, convSFrom
+  , pattern AstFromS', checkAstFromS, checkFtkAstFromS, checkFtkAstSFrom
+  , cAstFromS, cAstSFrom, convFromS, convSFrom
   , setTotalSharing
   ) where
 
@@ -462,6 +461,9 @@ checkPatternAstFromS c t =
   let zftk = convertFTK c (ftkAst t)
   in if checkFtkAstFromS (ftkAst t) zftk then Just (zftk, t) else Nothing
 
+checkAstFromS :: TKConversion a b -> AstTensor ms s a -> Bool
+checkAstFromS c t = isJust $ checkPatternAstFromS c t
+
 -- TODO: this is to lax, since it accepts nests/unnests
 checkFtkAstFromS :: FullShapeTK y -> FullShapeTK z -> Bool
 checkFtkAstFromS yftk zftk | Just Refl <- matchingFTK yftk zftk = True
@@ -470,9 +472,6 @@ checkFtkAstFromS FTKS{} _ = True
 checkFtkAstFromS (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) =
   checkFtkAstFromS yftk1 zftk1 && checkFtkAstFromS yftk2 zftk2
 checkFtkAstFromS _ _ = False
-
-checkAstFromS :: TKConversion a b -> AstTensor ms s a -> Bool
-checkAstFromS c t = isJust $ checkPatternAstFromS c t
 
 checkFtkAstSFrom :: FullShapeTK y -> FullShapeTK z -> Bool
 checkFtkAstSFrom yftk zftk | Just Refl <- matchingFTK yftk zftk = True
@@ -486,6 +485,11 @@ cAstFromS :: forall y z ms s.
              FullShapeTK z -> AstTensor ms s y
           -> AstTensor ms s z
 cAstFromS zftk t = cAstConvert (convFromS (ftkAst t) zftk) t
+
+cAstSFrom :: forall y z ms s.
+             FullShapeTK z -> AstTensor ms s y
+          -> AstTensor ms s z
+cAstSFrom zftk t = cAstConvert (convSFrom (ftkAst t) (ftkToSTK zftk)) t
 
 convFromS :: FullShapeTK y0 -> FullShapeTK z0 -> TKConversion y0 z0
 convFromS yftk0 zftk0 = case (yftk0, zftk0) of

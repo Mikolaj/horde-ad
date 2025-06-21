@@ -3065,6 +3065,7 @@ astConvertSFromR :: forall sh x s. AstSpan s
 astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstConvert c2 a2 -> astConvert (ConvCmp c c2) a2
   {- TODO: this is the right thing to do, but it results in unreadable
+     terms with big tconvert wrappers over product type variables
   Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
     astProject1 $ astSFrom (ftkToSTK $ FTKProduct zftk ftk2) t
   Ast.AstProject2 t | FTKProduct ftk1 _ <- ftkAst t ->
@@ -3118,6 +3119,7 @@ astConvertSFromX :: forall sh shx x s. (AstSpan s, Rank shx ~ Rank sh)
 astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstConvert c2 a2 -> astConvert (ConvCmp c c2) a2
   {- TODO: this is the right thing to do, but it results in unreadable
+     terms with big tconvert wrappers over product type variables
   Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
     astProject1 $ astSFrom (ftkToSTK $ FTKProduct zftk ftk2) t
   Ast.AstProject2 t | FTKProduct ftk1 _ <- ftkAst t ->
