@@ -3164,75 +3164,6 @@ astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astConvertSFromX c zftk a
   Ast.AstFromDual a -> Ast.AstFromDual $ astConvertSFromX c zftk a
 
-astFromS' :: forall y z s. AstSpan s
-          => FullShapeTK z -> AstTensor AstMethodLet s y
-          -> AstTensor AstMethodLet s z
-astFromS' zftk t = astConvertFromS (convFromS (ftkAst t) zftk) zftk t
-
-astKFromS' :: forall r s. (AstSpan s, GoodScalar r)
-           => AstTensor AstMethodLet s (TKS2 '[] (TKScalar r))
-           -> AstTensor AstMethodLet s (TKScalar r)
-astKFromS' t =
-  let ftk = FTKScalar
-  in astConvertFromS (ConvCmp ConvX0 ConvSX) ftk t
-
--- Or should we take SNat (Rank sh) to help proving n ~ Rank sh?
-astRFromS' :: forall sh x s. AstSpan s
-           => AstTensor AstMethodLet s (TKS2 sh x)
-           -> AstTensor AstMethodLet s (TKR2 (Rank sh) x)
-astRFromS' t | FTKS sh x <- ftkAst t
-             , Refl <- lemRankMapJust sh =
-  let shr = shrFromShS sh
-      ftk = FTKR shr x
-  in astConvertFromS (ConvCmp (ConvXR (ftkToSTK x)) ConvSX) ftk t
-
-astXFromS' :: forall sh shx x s. (AstSpan s, Rank sh ~ Rank shx)
-           => StaticShX shx -> AstTensor AstMethodLet s (TKS2 sh x)
-           -> AstTensor AstMethodLet s (TKX2 shx x)
-astXFromS' ssx t | FTKS sh x <- ftkAst t
-                 , Refl <- lemRankMapJust sh =
-  let shx = shCastSX ssx sh
-      ftk = FTKX shx x
-  in astConvertFromS (ConvCmp (ConvXX' ftk) ConvSX) ftk t
-
-pattern AstSFromK' :: () => sh ~ '[]
-                   => AstTensor AstMethodLet s (TKScalar r)
-                   -> AstTensor AstMethodLet s (TKS sh r)
-pattern AstSFromK' t <-
-  Ast.AstConvert c (checkPatternAstSFromK' c -> Just (Refl, t))
-
-checkPatternAstSFromK' :: TKConversion y (TKS2 sh (TKScalar r))
-                       -> AstTensor AstMethodLet s y
-                       -> Maybe ( sh :~: '[]
-                                , AstTensor AstMethodLet s (TKScalar r) )
-checkPatternAstSFromK' c t
-  | FTKScalar @ry <- ftkAst t
-  , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
-  , Just Refl <- testEquality (typeRep @ry) (typeRep @r) = Just (Refl, t)
-checkPatternAstSFromK' _ _ = Nothing
-
-astSFromK' :: forall r s. (GoodScalar r, AstSpan s)
-           => AstTensor AstMethodLet s (TKScalar r)
-           -> AstTensor AstMethodLet s (TKS '[] r)
-astSFromK' a = let c2 = ConvCmp ConvXS (Conv0X STKScalar)
-               in astConvertSFromK c2 (FTKS ZSS FTKScalar) a
-
-astSFromR' :: forall sh s r. AstSpan s
-           => ShS sh -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
-           -> AstTensor AstMethodLet s (TKS2 sh r)
-astSFromR' sh t = case ftkAst t of
-  FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
-    let ftk = FTKS sh x
-    in astConvertSFromR (ConvCmp (ConvXS' ftk) ConvRX) ftk t
-
-astSFromX' :: forall sh sh' s x. (AstSpan s, Rank sh ~ Rank sh')
-           => ShS sh -> AstTensor AstMethodLet s (TKX2 sh' x)
-           -> AstTensor AstMethodLet s (TKS2 sh x)
-astSFromX' sh t = case ftkAst t of
-  FTKX _ x ->
-    let ftk = FTKS sh x
-    in astConvertSFromX (ConvXS' ftk) ftk t
-
 -- We are pushing conversions to shaped tensors down, into concrete values
 -- and towards variables, so that the conversions often cancel out.
 astConvertSFrom :: forall y z s. AstSpan s
@@ -3267,10 +3198,78 @@ astConvertSFrom c zftk t = case (zftk, ftkAst t) of
   (_, yftk) ->
     error $ "astConvertSFrom: wrong tensor kinds: " ++ show (yftk, zftk, t)
 
+pattern AstSFromK' :: () => sh ~ '[]
+                   => AstTensor AstMethodLet s (TKScalar r)
+                   -> AstTensor AstMethodLet s (TKS sh r)
+pattern AstSFromK' t <-
+  Ast.AstConvert c (checkPatternAstSFromK' c -> Just (Refl, t))
+
+checkPatternAstSFromK' :: TKConversion y (TKS2 sh (TKScalar r))
+                       -> AstTensor AstMethodLet s y
+                       -> Maybe ( sh :~: '[]
+                                , AstTensor AstMethodLet s (TKScalar r) )
+checkPatternAstSFromK' c t
+  | FTKScalar @ry <- ftkAst t
+  , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
+  , Just Refl <- testEquality (typeRep @ry) (typeRep @r) = Just (Refl, t)
+checkPatternAstSFromK' _ _ = Nothing
+
+-- The smart constructor with the prime suffix create canonical conversions
+-- instead of taking a conversion as an argument.
+astFromS' :: forall y z s. AstSpan s
+          => FullShapeTK z -> AstTensor AstMethodLet s y
+          -> AstTensor AstMethodLet s z
+astFromS' zftk t = astConvertFromS (convFromS (ftkAst t) zftk) zftk t
+
 astSFrom' :: forall y z s. AstSpan s
-         => SingletonTK z -> AstTensor AstMethodLet s y
-         -> AstTensor AstMethodLet s z
+          => SingletonTK z -> AstTensor AstMethodLet s y
+          -> AstTensor AstMethodLet s z
 astSFrom' zstk t = astConvert (convSFrom (ftkAst t) zstk) t
+
+astKFromS' :: forall r s. (AstSpan s, GoodScalar r)
+           => AstTensor AstMethodLet s (TKS2 '[] (TKScalar r))
+           -> AstTensor AstMethodLet s (TKScalar r)
+astKFromS' t = astConvertFromS (ConvCmp ConvX0 ConvSX) FTKScalar t
+
+-- Or should we take SNat (Rank sh) to help proving n ~ Rank sh?
+astRFromS' :: forall sh x s. AstSpan s
+           => AstTensor AstMethodLet s (TKS2 sh x)
+           -> AstTensor AstMethodLet s (TKR2 (Rank sh) x)
+astRFromS' t | FTKS sh x <- ftkAst t
+             , Refl <- lemRankMapJust sh =
+  let zftk = FTKR (shrFromShS sh) x
+  in astConvertFromS (ConvCmp (ConvXR (ftkToSTK x)) ConvSX) zftk t
+
+astXFromS' :: forall sh shx x s. (AstSpan s, Rank sh ~ Rank shx)
+           => StaticShX shx -> AstTensor AstMethodLet s (TKS2 sh x)
+           -> AstTensor AstMethodLet s (TKX2 shx x)
+astXFromS' ssx t | FTKS sh x <- ftkAst t
+                 , Refl <- lemRankMapJust sh =
+  let zftk = FTKX (shCastSX ssx sh) x
+  in astConvertFromS (ConvCmp (ConvXX' zftk) ConvSX) zftk t
+
+astSFromK' :: forall r s. (GoodScalar r, AstSpan s)
+           => AstTensor AstMethodLet s (TKScalar r)
+           -> AstTensor AstMethodLet s (TKS '[] r)
+astSFromK' a =
+  let c2 = ConvCmp ConvXS (Conv0X STKScalar)
+  in astConvertSFromK c2 (FTKS ZSS FTKScalar) a
+
+astSFromR' :: forall sh s r. AstSpan s
+           => ShS sh -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
+           -> AstTensor AstMethodLet s (TKS2 sh r)
+astSFromR' sh t = case ftkAst t of
+  FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
+    let zftk = FTKS sh x
+    in astConvertSFromR (ConvCmp (ConvXS' zftk) ConvRX) zftk t
+
+astSFromX' :: forall sh sh' s x. (AstSpan s, Rank sh ~ Rank sh')
+           => ShS sh -> AstTensor AstMethodLet s (TKX2 sh' x)
+           -> AstTensor AstMethodLet s (TKS2 sh x)
+astSFromX' sh t = case ftkAst t of
+  FTKX _ x ->
+    let zftk = FTKS sh x
+    in astConvertSFromX (ConvXS' zftk) zftk t
 
 astSum0S :: AstSpan s
          => AstTensor AstMethodLet s (TKS2 sh x)
