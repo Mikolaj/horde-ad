@@ -327,10 +327,11 @@ benchmark shortMnistForCI
 benchmark realisticMnistBench
     import:           options, exe-options
 
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
+-- Disabled so that `cabal bench` terminates in finite time.
+--    if flag(release)
+    buildable: False
+--    else
+--      buildable: True
 
     type:             exitcode-stdio-1.0
 
