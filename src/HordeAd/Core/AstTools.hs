@@ -297,16 +297,6 @@ astIsSmallN n t0 = case t0 of
   AstFromPrimal v -> astIsSmallN (n - 1) v
   AstFromDual v -> astIsSmallN (n - 1) v
 
-  AstPlusK u v -> if n <= 20 then 0 else astIsSmallN (astIsSmallN (n - 1) u) v
-  AstTimesK u v -> if n <= 20 then 0 else astIsSmallN (astIsSmallN (n - 1) u) v
-  AstN1K _ u -> if n <= 20 then 0 else astIsSmallN (n - 1) u
-  AstR1K _ u -> if n <= 20 then 0 else astIsSmallN (n - 1) u
-  AstR2K _ u v -> if n <= 20 then 0 else astIsSmallN (astIsSmallN (n - 1) u) v
-  AstI2K _ u v -> if n <= 20 then 0 else astIsSmallN (astIsSmallN (n - 1) u) v
-  AstFloorK u -> if n <= 20 then 0 else astIsSmallN (n - 1) u
-  AstFromIntegralK v -> if n <= 20 then 0 else astIsSmallN (n - 1) v
-  AstCastK v -> if n <= 20 then 0 else astIsSmallN (n - 1) v
-
   AstIotaS{} -> n
   AstSliceS _ _ _ v ->
     if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change
