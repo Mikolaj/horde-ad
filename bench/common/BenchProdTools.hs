@@ -83,15 +83,12 @@ benchProd ~(snat, list, l, lt, t) = case snat of
 -- TODO: OOMs, see https://github.com/Mikolaj/horde-ad/issues/117
 --  , bench "grad scalar L" $ nf (revScalarL snat) l
     , bench "cgrad scalar R" $ nf (crevScalarR snat) l
--- TODO: OOMs, see https://github.com/Mikolaj/horde-ad/issues/117
---  , bench "grad scalar R" $ nf (revScalarR snat) l
+    , bench "grad scalar R" $ nf (revScalarR snat) l
     , bench "cgrad scalar NotShared" $ nf (crevScalarNotShared snat) l
-    , bench "cgrad s L" $ nf (crevSL snat) lt
--- TODO: OOMs, see https://github.com/Mikolaj/horde-ad/issues/117
---  , bench "grad s L" $ nf (revSL snat) lt
-    , bench "cgrad s R" $ nf (crevSR snat) lt
--- TODO: OOMs, see https://github.com/Mikolaj/horde-ad/issues/117
---  , bench "grad s R" $ nf (revSR snat) lt
+    , bench "cgrad s l" $ nf (crevSL snat) lt
+    , bench "grad s l" $ nf (revSL snat) lt
+    , bench "cgrad s r" $ nf (crevSR snat) lt
+    , bench "grad s r" $ nf (revSR snat) lt
     , bench "cgrad s NotShared" $ nf (crevSNotShared snat) lt
     ]
 
