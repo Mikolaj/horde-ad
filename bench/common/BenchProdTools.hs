@@ -79,11 +79,10 @@ benchProd ~(snat, list, l, lt, t) = case snat of
     , bench "grad scalar MapAccum" $ nf (revScalarMapAccum snat) t
     , bench "cgrad scalar list" $ nf crevScalarList list
     , bench "grad scalar list" $ nf revScalarList list
-    , bench "cgrad scalar L" $ nf (crevScalarL snat) l
--- TODO: OOMs, see https://github.com/Mikolaj/horde-ad/issues/117
---  , bench "grad scalar L" $ nf (revScalarL snat) l
-    , bench "cgrad scalar R" $ nf (crevScalarR snat) l
-    , bench "grad scalar R" $ nf (revScalarR snat) l
+    , bench "cgrad scalar l" $ nf (crevScalarL snat) l
+    , bench "grad scalar l" $ nf (revScalarL snat) l
+    , bench "cgrad scalar r" $ nf (crevScalarR snat) l
+    , bench "grad scalar r" $ nf (revScalarR snat) l
     , bench "cgrad scalar NotShared" $ nf (crevScalarNotShared snat) l
     , bench "cgrad s l" $ nf (crevSL snat) lt
     , bench "grad s l" $ nf (revSL snat) lt
