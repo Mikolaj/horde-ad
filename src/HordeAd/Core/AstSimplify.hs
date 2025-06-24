@@ -2938,11 +2938,10 @@ astConvert
   => TKConversion y z -> AstTensor AstMethodLet s y
   -> AstTensor AstMethodLet s z
 astConvert c a = case (ftkAst a, convertFTK c (ftkAst a)) of
-  (_, zftk) | Ast.AstConvert _ t <- a  -- shortcut
-            , Just Refl <- matchingFTK (ftkAst t) zftk -> t
   (yftk, zftk) | Just Refl <- matchingFTK yftk zftk -> a
     -- this covers the ConvId case and more, so not simplifying c at worst
     -- causes c to take more memory but doesn't inhibit rewriting
+  _ | Ast.AstConvert c2 t2 <- a -> astConvert (ConvCmp c c2) t2
   (FTKScalar @ry, zftk@(FTKS ZSS (FTKScalar @rz)))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       astConvertSFromK c zftk a
@@ -3170,12 +3169,9 @@ astConvertSFrom :: forall y z s. AstSpan s
                 => TKConversion y z -> FullShapeTK z
                 -> AstTensor AstMethodLet s y
                 -> AstTensor AstMethodLet s z
-astConvertSFrom _ zftk t
-  | Just Refl <- matchingFTK (ftkAst t) zftk = t
-astConvertSFrom _ zftk (Ast.AstConvert _ t)  -- shortcut
-  | Just Refl <- matchingFTK (ftkAst t) zftk = t
 astConvertSFrom c zftk t = case (zftk, ftkAst t) of
   (_, yftk) | Just Refl <- matchingFTK yftk zftk -> t
+  _ | Ast.AstConvert c2 t2 <- t -> astConvert (ConvCmp c c2) t2
   (FTKS ZSS (FTKScalar @rz), FTKScalar @ry) ->
     case testEquality (typeRep @ry) (typeRep @rz) of
       Just Refl -> astConvertSFromK c zftk t
