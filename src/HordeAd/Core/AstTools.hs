@@ -278,10 +278,8 @@ astIsSmallN :: Int -> AstTensor ms s y -> Int
 astIsSmallN n _ | n <= 0 = 0
 astIsSmallN n t0 = case t0 of
   AstPair t1 t2 -> astIsSmallN (astIsSmallN (n - 1) t1) t2
-  -- Projections are so cheap that the environment machinery is expensive
-  -- in comparison, so no limit to the length of projections chains.
-  AstProject1 t -> astIsSmallN n t
-  AstProject2 t -> astIsSmallN n t
+  AstProject1 t -> astIsSmallN (n - 1) t
+  AstProject2 t -> astIsSmallN (n - 1) t
   AstFromVector (SNat' @1) _ v -> astIsSmallN (n - 1) $ v V.! 0
   AstSum (SNat' @1) _ v -> astIsSmallN (n - 1) v
   AstReplicate _ _ v ->
