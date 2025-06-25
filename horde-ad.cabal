@@ -213,11 +213,6 @@ library exampleLibrary
 library benchCommonLibrary
     import:           options
 
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
     exposed-modules:  BenchMnistTools
                       BenchProdTools
 
@@ -238,11 +233,6 @@ library benchCommonLibrary
 benchmark longProdBench
     import:           options, exe-options
 
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
     type:             exitcode-stdio-1.0
 
     hs-source-dirs:   bench
@@ -259,11 +249,6 @@ benchmark longProdBench
 
 benchmark shortProdForCI
     import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
 
     type:             exitcode-stdio-1.0
 
