@@ -30,6 +30,10 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
+#ifdef WITH_EXPENSIVE_ASSERTIONS
+import Control.Exception.Assert.Sugar
+#endif
+
 interpretAstFull
   :: forall target y. ADReady target
   => AstEnv target -> AstTensor AstMethodLet FullSpan y
@@ -148,6 +152,7 @@ interpretAst !env = \case
     in case DMap.lookup var2 env of
       Just t ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
+        withKnownSTK (ftkToSTK $ varNameToFTK var) $
         -- We can't assert anything about bounds, because values can be
         -- symbolic and so not directly comparable to bounds.
         assert (tftk (ftkToSTK $ varNameToFTK var) t == varNameToFTK var
