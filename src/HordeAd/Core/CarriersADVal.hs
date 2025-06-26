@@ -309,8 +309,9 @@ instance {-# OVERLAPPABLE #-}
 
 instance (Real (f z), ShareTensor f, ADReadyNoLet f)
          => Real (ADVal f z) where
-  toRational = undefined
-    -- very low priority, since these are all extremely not continuous
+  toRational (D v _) = toRational v
+    -- this is most probably not what the user expects, but the type
+    -- of the result (Rational) doesn't permit any better solution
 
 instance (IntegralH (f z), ShareTensor f, ADReadyNoLet f)
          => IntegralH (ADVal f z) where
@@ -398,7 +399,7 @@ instance (Floating (f z), ShareTensor f, ADReadyNoLet f)
 
 instance (RealFrac (f z), ShareTensor f, ADReadyNoLet f)
          => RealFrac (ADVal f z) where
-  properFraction = undefined
+  properFraction = error "properFraction not defined for tensors"
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
