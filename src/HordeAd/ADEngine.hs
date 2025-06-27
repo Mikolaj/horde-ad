@@ -65,13 +65,14 @@ import HordeAd.Core.Unwind
 -- For simplicity of the type signature, the resulting value is converted from
 -- the type of concrete contangents to the type of concrete input parameters.
 grad
-  :: forall astvals r.
-     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
-     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget Concrete (Value astvals) )
-  => (astvals -> AstTensor AstMethodLet FullSpan (TKScalar r))
-  -> Value astvals
-  -> Value astvals  -- morally Value (ADTensorKind astvals)
+  :: forall src r tgt.
+     ( X src ~ X (Value src), KnownSTK (X src)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , AdaptableTarget Concrete (Value src)
+     , tgt ~ AstTensor AstMethodLet FullSpan (TKScalar r) )
+  => (src -> tgt)  -- ^ the objective function
+  -> Value src
+  -> Value src  -- morally Value (ADTensorKind src)
 {-# INLINE grad #-}
 grad f vals = revMaybe f vals Nothing
 
@@ -86,14 +87,15 @@ grad f vals = revMaybe f vals Nothing
 -- For simplicity of the type signature, the resulting value is converted from
 -- the type of concrete contangents to the type of concrete input parameters.
 vjp
-  :: forall astvals z.
-     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
-     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget Concrete (Value astvals) )
-  => (astvals -> AstTensor AstMethodLet FullSpan z)
-  -> Value astvals
-  -> Concrete (ADTensorKind z)
-  -> Value astvals  -- morally Value (ADTensorKind astvals)
+  :: forall src ztgt tgt.
+     ( X src ~ X (Value src), KnownSTK (X src)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , AdaptableTarget Concrete (Value src)
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> Value src
+  -> Concrete (ADTensorKind ztgt)
+  -> Value src  -- morally Value (ADTensorKind src)
 {-# INLINE vjp #-}
 vjp f vals dt = revMaybe f vals (Just dt)
 
@@ -102,16 +104,18 @@ vjp f vals dt = revMaybe f vals (Just dt)
 -- The function is represented as an "artifact", which is the gradient
 -- AST term together with the variable corresponding to the input.
 gradArtifact
-  :: forall astvals r.
-     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
-     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget Concrete (Value astvals) )
-  => (astvals -> AstTensor AstMethodLet FullSpan (TKScalar r))
-  -> Value astvals
-  -> AstArtifactRev (X astvals) (TKScalar r)
+  :: forall src r tgt.
+     ( X src ~ X (Value src), KnownSTK (X src)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , AdaptableTarget Concrete (Value src)
+     , tgt ~ AstTensor AstMethodLet FullSpan (TKScalar r) )
+  => (src -> tgt)  -- ^ the objective function
+  -> Value src
+  -> AstArtifactRev (X src) (TKScalar r)
+       -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE gradArtifact #-}
 gradArtifact f vals0 =
-  let xftk = tftkG (knownSTK @(X astvals)) $ unConcrete $ toTarget vals0
+  let xftk = tftkG (knownSTK @(X src)) $ unConcrete $ toTarget vals0
   in revArtifactAdapt IgnoreIncomingCotangent f xftk
 
 -- | Compute the reverse derivative not for a specific input, but as symbolic
@@ -119,16 +123,18 @@ gradArtifact f vals0 =
 -- The function is represented as an "artifact", which is the gradient
 -- AST term together with variables corresponding to the input and cotangent.
 vjpArtifact
-  :: forall astvals z.
-     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
-     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget Concrete (Value astvals) )
-  => (astvals -> AstTensor AstMethodLet FullSpan z)
-  -> Value astvals
-  -> AstArtifactRev (X astvals) z
+  :: forall src ztgt tgt.
+     ( X src ~ X (Value src), KnownSTK (X src)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , AdaptableTarget Concrete (Value src)
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> Value src
+  -> AstArtifactRev (X src) ztgt
+       -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE vjpArtifact #-}
 vjpArtifact f vals0 =
-  let xftk = tftkG (knownSTK @(X astvals)) $ unConcrete $ toTarget vals0
+  let xftk = tftkG (knownSTK @(X src)) $ unConcrete $ toTarget vals0
   in revArtifactAdapt UseIncomingCotangent f xftk
 
 -- | Interpret the "artifact" as a function from a concrete tensor
@@ -138,6 +144,7 @@ gradInterpretArtifact
   :: forall x r avals.
      (X avals ~ ADTensorKind x, AdaptableTarget Concrete avals)
   => AstArtifactRev x (TKScalar r)
+       -- ^ the artifact containing the symbolic code of the derivative
   -> Concrete x
   -> avals
 {-# INLINE gradInterpretArtifact #-}
@@ -159,6 +166,7 @@ vjpInterpretArtifact
   :: forall x z avals.
      (X avals ~ ADTensorKind x, AdaptableTarget Concrete avals)
   => AstArtifactRev x z
+       -- ^ the artifact containing the symbolic code of the derivative
   -> Concrete x
   -> Concrete (ADTensorKind z)
   -> avals
@@ -178,18 +186,19 @@ vjpInterpretArtifact AstArtifactRev{..} parameters dt =
 -- * Symbolic reverse derivative adaptors' internal machinery
 
 revMaybe
-  :: forall astvals z.
-     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
-     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget Concrete (Value astvals) )
-  => (astvals -> AstTensor AstMethodLet FullSpan z)
-  -> Value astvals
-  -> Maybe (Concrete (ADTensorKind z))
-  -> Value astvals  -- morally Value (ADTensorKind astvals)
+  :: forall src ztgt tgt.
+     ( X src ~ X (Value src), KnownSTK (X src)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , AdaptableTarget Concrete (Value src)
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> Value src
+  -> Maybe (Concrete (ADTensorKind ztgt))
+  -> Value src  -- morally Value (ADTensorKind src)
 {-# INLINE revMaybe #-}
 revMaybe f vals0 mdt =
   let valsTarget = toTarget vals0
-      xftk = tftkG (knownSTK @(X astvals)) $ unConcrete valsTarget
+      xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
       cotangentHandling =
         maybe IgnoreIncomingCotangent (const UseIncomingCotangent) mdt
       artifactRaw = revArtifactAdapt cotangentHandling f xftk
@@ -198,15 +207,17 @@ revMaybe f vals0 mdt =
      $ fst $ revInterpretArtifact artifact valsTarget mdt
 
 revArtifactAdapt
-  :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+  :: forall src ztgt tgt.
+     ( AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
   => IncomingCotangentHandling
-  -> (astvals -> AstTensor AstMethodLet FullSpan z)
-  -> FullShapeTK (X astvals)
-  -> AstArtifactRev (X astvals) z
+  -> (src -> tgt)  -- ^ the objective function
+  -> FullShapeTK (X src)
+  -> AstArtifactRev (X src) ztgt
+       -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE revArtifactAdapt #-}
 revArtifactAdapt cotangentHandling f xftk =
-  let g :: AstTensor AstMethodLet FullSpan (X astvals)
-        -> AstTensor AstMethodLet FullSpan z
+  let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
       g !arg = simplifyInline $ ttlet arg $ f . fromTarget
                                   -- fromTarget requires duplicable
   in revProduceArtifact cotangentHandling g emptyEnv xftk
@@ -214,6 +225,7 @@ revArtifactAdapt cotangentHandling f xftk =
 revInterpretArtifact
   :: forall x z.
      AstArtifactRev x z
+       -- ^ the artifact containing the symbolic code of the derivative
   -> Concrete x
   -> Maybe (Concrete (ADTensorKind z))
   -> (Concrete (ADTensorKind x), Concrete z)
@@ -237,15 +249,17 @@ revInterpretArtifact AstArtifactRev{..} parameters mdt =
 -- * Symbolic reverse derivative adaptors' testing-only internal machinery
 
 revArtifactDelta
-  :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
+  :: forall src ztgt tgt.
+     ( AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
   => IncomingCotangentHandling
-  -> (astvals -> AstTensor AstMethodLet FullSpan z)
-  -> FullShapeTK (X astvals)
-  -> (AstArtifactRev (X astvals) z, Delta (AstRaw PrimalSpan) z)
+  -> (src -> tgt)  -- ^ the objective function
+  -> FullShapeTK (X src)
+  -> (AstArtifactRev (X src) ztgt, Delta (AstRaw PrimalSpan) ztgt)
+       -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE revArtifactDelta #-}
 revArtifactDelta cotangentHandling f xftk =
-  let g :: AstTensor AstMethodLet FullSpan (X astvals)
-        -> AstTensor AstMethodLet FullSpan z
+  let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
       g !arg = ttlet arg $ f . fromTarget
   in revArtifactFromForwardPass cotangentHandling
                                 (forwardPassByInterpretation g emptyEnv) xftk
@@ -256,6 +270,7 @@ revProduceArtifactWithoutInterpretation
   -> (ADVal (AstRaw PrimalSpan) x -> ADVal (AstRaw PrimalSpan) z)
   -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
+       -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation cotangentHandling f xftk =
   -- No simplification performed to let individual tests decide.
@@ -285,18 +300,19 @@ forwardPassByApplication g astVarPrimal var _astVar =
 -- of the function to be differentiated. The generality sometimes makes it
 -- necessary to suppy type hints when applying this operation.
 jvp
-  :: forall astvals z.
-     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
-     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget Concrete (Value astvals) )
-  => (astvals -> AstTensor AstMethodLet FullSpan z)
-  -> Value astvals
-  -> Value astvals  -- morally (ADTensorKind astvals)
-  -> Concrete (ADTensorKind z)
+  :: forall src ztgt tgt.
+     ( X src ~ X (Value src), KnownSTK (X src)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , AdaptableTarget Concrete (Value src)
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> Value src
+  -> Value src  -- morally (ADTensorKind src)
+  -> Concrete (ADTensorKind ztgt)
 {-# INLINE jvp #-}
 jvp f vals0 ds =
   let valsTarget = toTarget vals0
-      xftk = tftkG (knownSTK @(X astvals)) $ unConcrete valsTarget
+      xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
       artifactRaw = fwdArtifactAdapt f xftk
       artifact = simplifyArtifactDerivative artifactRaw
   in fst $ fwdInterpretArtifact artifact valsTarget
@@ -308,16 +324,18 @@ jvp f vals0 ds =
 -- The function is represented as an "artifact", which is the derivative
 -- AST term together with variables corresponding to the input and perturbation.
 jvpArtifact
-  :: forall astvals z.
-     ( X astvals ~ X (Value astvals), KnownSTK (X astvals)
-     , AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-     , AdaptableTarget Concrete (Value astvals) )
-  => (astvals -> AstTensor AstMethodLet FullSpan z)
-  -> Value astvals
-  -> AstArtifactFwd (X astvals) z
+  :: forall src ztgt tgt.
+     ( X src ~ X (Value src), KnownSTK (X src)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , AdaptableTarget Concrete (Value src)
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> Value src
+  -> AstArtifactFwd (X src) ztgt
+       -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE jvpArtifact #-}
 jvpArtifact f vals0 =
-  let xftk = tftkG (knownSTK @(X astvals)) $ unConcrete $ toTarget vals0
+  let xftk = tftkG (knownSTK @(X src)) $ unConcrete $ toTarget vals0
   in fwdArtifactAdapt f xftk
 
 -- | Interpret the "artifact" as a function from concrete tensors
@@ -325,6 +343,7 @@ jvpArtifact f vals0 =
 jvpInterpretArtifact
   :: forall x z.
      AstArtifactFwd x z
+       -- ^ the artifact containing the symbolic code of the derivative
   -> Concrete x
   -> Concrete (ADTensorKind x)
   -> Concrete (ADTensorKind z)
@@ -336,14 +355,16 @@ jvpInterpretArtifact art parameters = fst . fwdInterpretArtifact art parameters
 -- * Symbolic forward derivative adaptors' internal machinery
 
 fwdArtifactAdapt
-  :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-  => (astvals -> AstTensor AstMethodLet FullSpan z)
-  -> FullShapeTK (X astvals)
-  -> AstArtifactFwd (X astvals) z
+  :: forall src ztgt tgt.
+     ( AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> FullShapeTK (X src)
+  -> AstArtifactFwd (X src) ztgt
+       -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE fwdArtifactAdapt #-}
 fwdArtifactAdapt f xftk =
-  let g :: AstTensor AstMethodLet FullSpan (X astvals)
-        -> AstTensor AstMethodLet FullSpan z
+  let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
       g !arg = simplifyInline $ ttlet arg $ f . fromTarget
                                   -- fromTarget requires duplicable
   in fwdProduceArtifact g emptyEnv xftk
@@ -351,6 +372,7 @@ fwdArtifactAdapt f xftk =
 fwdInterpretArtifact
   :: forall x z.
      AstArtifactFwd x z
+       -- ^ the artifact containing the symbolic code of the derivative
   -> Concrete x
   -> Concrete (ADTensorKind x)
   -> (Concrete (ADTensorKind z), Concrete z)
@@ -372,14 +394,16 @@ fwdInterpretArtifact AstArtifactFwd{..} parameters ds =
 -- * Symbolic forward derivative adaptors' testing-only internal machinery
 
 fwdArtifactDelta
-  :: forall astvals z. AdaptableTarget (AstTensor AstMethodLet FullSpan) astvals
-  => (astvals -> AstTensor AstMethodLet FullSpan z)
-  -> FullShapeTK (X astvals)
-  -> (AstArtifactFwd (X astvals) z, Delta (AstRaw PrimalSpan) z)
+  :: forall src ztgt tgt.
+     ( AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> FullShapeTK (X src)
+  -> (AstArtifactFwd (X src) ztgt, Delta (AstRaw PrimalSpan) ztgt)
+       -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE fwdArtifactDelta #-}
 fwdArtifactDelta f xftk =
-  let g :: AstTensor AstMethodLet FullSpan (X astvals)
-        -> AstTensor AstMethodLet FullSpan z
+  let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
       g !arg = ttlet arg $ f . fromTarget
   in fwdArtifactFromForwardPass (forwardPassByInterpretation g emptyEnv) xftk
 
@@ -389,17 +413,19 @@ fwdArtifactDelta f xftk =
 -- We are inlining these functions because they take function arguments
 -- and are not too large. However, because they are called in many places,
 -- we break the inline chain not far from the top, to avoid exe blowup.
+--
 -- | This simplified version of the concrete (non-symbolic)
 -- reverse derivative operation sets the incoming cotangent @dt@ to be 1
 -- and assumes the codomain of the function to be differentiated is a scalar.
 cgrad
-  :: forall advals r.
-     ( X advals ~ X (DValue advals), KnownSTK (X advals)
-     , AdaptableTarget (ADVal Concrete) advals
-     , AdaptableTarget Concrete (DValue advals) )
-  => (advals -> ADVal Concrete (TKScalar r))
-  -> DValue advals
-  -> DValue advals  -- morally DValue (ADTensorKind advals)
+  :: forall src r tgt.
+     ( X src ~ X (DValue src), KnownSTK (X src)
+     , AdaptableTarget (ADVal Concrete) src
+     , AdaptableTarget Concrete (DValue src)
+     , tgt ~ ADVal Concrete (TKScalar r) )
+  => (src -> tgt)  -- ^ the objective function
+  -> DValue src
+  -> DValue src  -- morally DValue (ADTensorKind src)
 {-# INLINE cgrad #-}
 cgrad f vals = crevMaybe f vals Nothing
 
@@ -407,14 +433,15 @@ cgrad f vals = crevMaybe f vals Nothing
 -- reverse derivative operation additionally takes the sensitivity parameter
 -- (the incoming cotangent).
 cvjp
-  :: forall advals z.
-     ( X advals ~ X (DValue advals), KnownSTK (X advals)
-     , AdaptableTarget (ADVal Concrete) advals
-     , AdaptableTarget Concrete (DValue advals) )
-  => (advals -> ADVal Concrete z)
-  -> DValue advals
-  -> Concrete (ADTensorKind z)
-  -> DValue advals  -- morally DValue (ADTensorKind advals)
+  :: forall src ztgt tgt.
+     ( X src ~ X (DValue src), KnownSTK (X src)
+     , AdaptableTarget (ADVal Concrete) src
+     , AdaptableTarget Concrete (DValue src)
+     , tgt ~ ADVal Concrete ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> DValue src
+  -> Concrete (ADTensorKind ztgt)
+  -> DValue src  -- morally DValue (ADTensorKind src)
 {-# INLINE cvjp #-}
 cvjp f vals dt = crevMaybe f vals (Just dt)
 
@@ -422,20 +449,21 @@ cvjp f vals dt = crevMaybe f vals (Just dt)
 -- * Non-symbolic reverse derivative adaptors' internal machinery
 
 crevMaybe
-  :: forall advals z.
-     ( X advals ~ X (DValue advals), KnownSTK (X advals)
-     , AdaptableTarget (ADVal Concrete) advals
-     , AdaptableTarget Concrete (DValue advals) )
-  => (advals -> ADVal Concrete z)
-  -> DValue advals
-  -> Maybe (Concrete (ADTensorKind z))
-  -> DValue advals  -- morally DValue (ADTensorKind advals)
+  :: forall src ztgt tgt.
+     ( X src ~ X (DValue src), KnownSTK (X src)
+     , AdaptableTarget (ADVal Concrete) src
+     , AdaptableTarget Concrete (DValue src)
+     , tgt ~ ADVal Concrete ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> DValue src
+  -> Maybe (Concrete (ADTensorKind ztgt))
+  -> DValue src  -- morally DValue (ADTensorKind src)
 {-# INLINE crevMaybe #-}
 crevMaybe f vals0 mdt =
   let valsTarget = toTarget vals0
-      g :: ADVal Concrete (X advals) -> ADVal Concrete z
+      g :: ADVal Concrete (X src) -> tgt
       g = f . fromTarget
-      xftk = tftkG (knownSTK @(X advals)) $ unConcrete valsTarget
+      xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
      $ fst $ crevOnParams mdt g xftk valsTarget
 
@@ -445,14 +473,15 @@ crevMaybe f vals0 mdt =
 -- | Concrete (non-symbolic) forward derivative operation. It always takes
 -- the perturbation parameter, by convention.
 cjvp
-  :: forall advals z.
-     ( X advals ~ X (DValue advals), KnownSTK (X advals)
-     , AdaptableTarget (ADVal Concrete) advals
-     , AdaptableTarget Concrete (DValue advals) )
-  => (advals -> ADVal Concrete z)
-  -> DValue advals
-  -> DValue advals  -- morally (ADTensorKind advals)
-  -> Concrete (ADTensorKind z)
+  :: forall src ztgt tgt.
+     ( X src ~ X (DValue src), KnownSTK (X src)
+     , AdaptableTarget (ADVal Concrete) src
+     , AdaptableTarget Concrete (DValue src)
+     , tgt ~ ADVal Concrete ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> DValue src
+  -> DValue src  -- morally (ADTensorKind src)
+  -> Concrete (ADTensorKind ztgt)
 {-# INLINE cjvp #-}
 cjvp f vals ds = fst $ cfwdBoth f vals ds
 
@@ -460,19 +489,20 @@ cjvp f vals ds = fst $ cfwdBoth f vals ds
 -- * Non-symbolic forward derivative adaptors' internal machinery
 
 cfwdBoth
-  :: forall advals z.
-     ( X advals ~ X (DValue advals), KnownSTK (X advals)
-     , AdaptableTarget (ADVal Concrete) advals
-     , AdaptableTarget Concrete (DValue advals) )
-  => (advals -> ADVal Concrete z)
-  -> DValue advals
-  -> DValue advals  -- morally (ADTensorKind advals)
-  -> (Concrete (ADTensorKind z), Concrete z)
+  :: forall src ztgt tgt.
+     ( X src ~ X (DValue src), KnownSTK (X src)
+     , AdaptableTarget (ADVal Concrete) src
+     , AdaptableTarget Concrete (DValue src)
+     , tgt ~ ADVal Concrete ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> DValue src
+  -> DValue src  -- morally (ADTensorKind src)
+  -> (Concrete (ADTensorKind ztgt), Concrete ztgt)
 {-# INLINE cfwdBoth #-}
 cfwdBoth f vals0 ds =
   let valsTarget = toTarget vals0
-      xftk = tftkG (knownSTK @(X advals)) $ unConcrete valsTarget
-      g :: ADVal Concrete (X advals) -> ADVal Concrete z
+      xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
+      g :: ADVal Concrete (X src) -> tgt
       g = f . fromTarget
       dsTarget = toTarget ds
   in if tftkG (ftkToSTK xftk) (unConcrete dsTarget) == xftk

@@ -44,16 +44,18 @@ import HordeAd.OpsTensor
 import EqEpsilon
 
 crevMaybeBoth
-  :: forall r m f advals.
-     ( f ~ Concrete, X advals ~ X (DValue advals), KnownSTK (X advals)
-     , AdaptableTarget (ADVal Concrete) advals
-     , AdaptableTarget (ADVal Concrete) (ADVal f (TKR m r))
-     , AdaptableTarget Concrete (DValue advals) )
-  => (advals -> ADVal f (TKR m r)) -> DValue advals
-  -> (f (ADTensorKind (X advals)), f (TKR m r))
+  :: forall r m f src tgt.
+     ( f ~ Concrete, X src ~ X (DValue src), KnownSTK (X src)
+     , AdaptableTarget (ADVal Concrete) src
+     , AdaptableTarget (ADVal Concrete) tgt
+     , AdaptableTarget Concrete (DValue src)
+     , tgt ~ ADVal f (TKR m r) )
+  => (src -> tgt)
+  -> DValue src
+  -> (f (ADTensorKind (X src)), f (TKR m r))
 {-# INLINE crevMaybeBoth #-}
 crevMaybeBoth f vals =
-  let g :: ADVal Concrete (X advals) -> ADVal Concrete (TKR m r)
+  let g :: ADVal Concrete (X src) -> ADVal Concrete (TKR m r)
       g = toTarget . f . fromTarget
       valsH = toTarget vals
   in crevOnParams Nothing g (tftk knownSTK valsH) valsH
