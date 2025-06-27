@@ -336,7 +336,7 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
-  pi = error "pi not defined for ranked tensors"
+  pi = error "pi is not defined for tensors"
   exp (AstFromPrimal u) = AstFromPrimal $ exp u
   exp (AstConcreteK u) = AstConcreteK $ exp u
   exp u = AstR1K ExpOp u
@@ -406,7 +406,7 @@ instance (GoodScalar r, AstSpan s)
   negate = liftRFromS1 negate
   abs = liftRFromS1 abs
   signum = liftRFromS1 signum
-  fromInteger i = error $ "fromInteger not defined for ranked tensors: "
+  fromInteger i = error $ "fromInteger is not defined for ranked tensors: "
                           ++ show i
 
 instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
@@ -418,12 +418,12 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKR n r)) where
   (/) = liftRFromS2 (/)
   recip = liftRFromS1 recip
-  fromRational r = error $ "fromRational not defined for ranked tensors: "
+  fromRational r = error $ "fromRational is not defined for ranked tensors: "
                            ++ show r
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKR n r)) where
-  pi = error "pi not defined for ranked tensors"
+  pi = error "pi is not defined for tensors"
   exp = liftRFromS1 exp
   log = liftRFromS1 log
   sqrt = liftRFromS1 sqrt
@@ -561,7 +561,7 @@ instance (GoodScalar r, AstSpan s)
     , Just Refl <- matchingFTK x (ftkAst n) =
       AstConvert c (signum n)
   signum u = AstN1S SignumOp u
-  fromInteger i = error $ "fromInteger not defined for shaped tensors: "
+  fromInteger i = error $ "fromInteger is not defined for shaped tensors: "
                           ++ show i
 
 instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
@@ -602,12 +602,12 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   recip (AstFromPrimal u) = AstFromPrimal (recip u)
   recip (AstConcreteS u) = AstConcreteS (recip u)
   recip u = AstR1S RecipOp u
-  fromRational r = error $ "fromRational not defined for shaped tensors: "
+  fromRational r = error $ "fromRational is not defined for shaped tensors: "
                            ++ show r
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
-  pi = error "pi not defined for shaped tensors"
+  pi = error "pi is not defined for tensors"
   exp (AstFromPrimal u) = AstFromPrimal $ exp u
   exp (AstConcreteS u) = AstConcreteS $ exp u
   exp u = AstR1S ExpOp u
@@ -677,7 +677,7 @@ instance (GoodScalar r, AstSpan s)
   negate = liftXFromS1 negate
   abs = liftXFromS1 abs
   signum = liftXFromS1 signum
-  fromInteger i = error $ "fromInteger not defined for mixed tensors: "
+  fromInteger i = error $ "fromInteger is not defined for mixed tensors: "
                           ++ show i
 
 instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
@@ -689,12 +689,12 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKX sh r)) where
   (/) = liftXFromS2 (/)
   recip = liftXFromS1 recip
-  fromRational r = error $ "fromRational not defined for mixed tensors: "
+  fromRational r = error $ "fromRational is not defined for mixed tensors: "
                            ++ show r
 
 instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKX sh r)) where
-  pi = error "pi not defined for mixed tensors"
+  pi = error "pi is not defined for tensors"
   exp = liftXFromS1 exp
   log = liftXFromS1 log
   sqrt = liftXFromS1 sqrt

@@ -294,7 +294,7 @@ instance {-# OVERLAPPABLE #-}
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
   signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
-  fromInteger = error "fromInteger not defined for tensors"
+  fromInteger = error "fromInteger is not defined for tensors in general"
   -- The constraints in the pragmas below are needed only to avoid
   -- module import cycles.
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Double)) #-}
@@ -348,11 +348,11 @@ instance {-# OVERLAPPABLE #-}
     let !v = tshare ve
         minusRecipSq = - recip (v * v)
     in dD (recip v) (dScale minusRecipSq v')
-  fromRational = error "fromRational not defined for tensors"
+  fromRational = error "fromRational is not defined for tensors in general"
 
 instance (Floating (f z), ShareTensor f, ADReadyNoLet f)
          => Floating (ADVal f z) where
-  pi = error "pi not defined for tensors"
+  pi = error "pi is not defined for tensors"
   exp (D ue u') = let !expU = tshare (exp ue)
                   in dD expU (dScale expU u')
   log (D ue u') = let !u = tshare ue
@@ -399,7 +399,7 @@ instance (Floating (f z), ShareTensor f, ADReadyNoLet f)
 
 instance (RealFrac (f z), ShareTensor f, ADReadyNoLet f)
          => RealFrac (ADVal f z) where
-  properFraction = error "properFraction not defined for tensors"
+  properFraction = error "properFraction is not defined for tensors"
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
@@ -422,7 +422,7 @@ instance (RealFloat (f z), ShareTensor f, ADReadyNoLet f)
   floatDigits (D u _) = floatDigits u
   floatRange (D u _) = floatRange u
   decodeFloat (D u _) = decodeFloat u
-  encodeFloat _i _j = error "encodeFloat not defined for tensors"
+  encodeFloat _i _j = error "encodeFloat is not defined for tensors"
   isNaN (D u _) = isNaN u
   isInfinite (D u _) = isInfinite u
   isDenormalized (D u _) = isDenormalized u
