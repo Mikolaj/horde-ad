@@ -2,6 +2,17 @@
 -- | The implementation of reverse derivative and forward derivative
 -- calculation for an objective function on values of complicated types,
 -- e.g., nested tuples of tensors.
+--
+-- The objective function can be defined as a sufficiently polymorphic
+-- Haskell function that uses numeric classes as well as the multi-dimensional
+-- tensor operation listed in "HordeAd.OpsTensor". To obtain symbolic
+-- derivatives (derivative code that can be executed many times without
+-- performing AD again), the user needs an objective function polymorphic
+-- enough so that it can be instantiated to the 'HordeAd.Core.Ast.AstTensor'
+-- type. For non-symbolic derivatives, the ability to instantiate to the
+-- `HordeAd.Core.CarriersADVal.ADVal` type of dual numbers is enough.
+-- See the classes these types are instances of to gauge the breadth
+-- of the offered respective APIs.
 module HordeAd.ADEngine
   ( -- * Symbolic reverse derivative adaptors
     grad, vjp

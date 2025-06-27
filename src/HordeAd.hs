@@ -1,7 +1,15 @@
--- | An API of the horde-ad library that should be sufficient for general use.
+-- | A subset of the API of the horde-ad library that should be
+-- sufficient for general use.
 -- To (ab)use implementation details or to access ready tools for specific
 -- applications, such as neural networks operating on MNIST data,
--- extra imports may be needed that are not covered here.
+-- you may need some extra imports not covered here.
+--
+-- If you are interested mainly in using multi-dimensional arrays,
+-- start with "HordeAd.OpsTensor" (or use directly
+-- https://hackage.haskell.org/package/ox-arrays
+-- that doesn't have the capability nor the overhead of term rewriting
+-- over the symbolic represenation of array operations).
+-- For Automatic Differentiation, start with "HordeAd.ADEngine".
 module HordeAd
   ( -- * The main array API
     module HordeAd.OpsTensor

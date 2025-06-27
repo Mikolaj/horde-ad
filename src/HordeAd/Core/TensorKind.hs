@@ -185,7 +185,8 @@ widthSTK stk = case stk of
   STKX{} -> 1
   STKProduct stk1 stk2 -> widthSTK stk1 + widthSTK stk2
 
--- This is copied, with modifications, from ox-arrays.
+-- | This is copied, with modifications, from ox-arrays.
+--
 -- This is a recipe for converting arrays, not always followed,
 -- and a proof a conversion is possible, with some proof obligations
 -- delayed to runtime (in ConvXS' and ConvXX', where not only the ranks

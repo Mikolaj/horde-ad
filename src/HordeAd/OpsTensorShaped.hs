@@ -1,11 +1,19 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | The shaped tensor operations intended for the library user.
+-- | The shaped tensor operations intended for the casual library user.
 -- All these operations together with operations of the remaining two tensor
--- variants are gathered in "HordeAd.OpsTensor". The less user-friendly
+-- variants are gathered in "HordeAd.OpsTensor".
+--
+-- The less user-friendly
 -- prototypes of most of these operation can be found in "HordeAd.Core.Ops"
--- where some additional rarely used operations reside as well.
+-- where some additional rarely used operations reside.
+-- All these operations, together with instances of numerical classes
+-- such as @Num@, @Fractional@, @IntegralH@, @RealFloatH@, @EqH@ and others
+-- (see class instances of type 'HordeAd.Core.Ast.AstTensor' for the full list),
+-- are a major part of the high-level API of the horde-ad library,
+-- which is relatively orthogonal to the other major part,
+-- the differentiation interface exposed in "HordeAd.ADEngine".
 module HordeAd.OpsTensorShaped
   ( -- * Shape manipulation
     sshape, slength, ssize, swidth

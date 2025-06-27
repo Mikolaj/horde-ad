@@ -21,11 +21,13 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 class ConvertTensor (target :: Target) where
-  tconvert :: TKConversion a b -> SingletonTK a -> target a -> target b
-
-  -- All operations below could be defined in terms of tconvert,
+  -- | The universal conversion function that can emulate all conversion
+  -- methods below, but requires an explicit recipe in the first argument.
+  --
+  -- All conversion operations below could be defined in terms of @tconvert@,
   -- but they'd need additional singleton arguments or constraints
-  -- or we'd need to depend on BaseTensor to use rshape, etc.
+  -- or we'd need to depend on 'BaseTensor' to use 'rshape', etc.
+  tconvert :: TKConversion a b -> SingletonTK a -> target a -> target b
 
   -- | The conversion from a rank 0 ranked tensor to a scalar.
   kfromR :: GoodScalar r => target (TKR 0 r) -> target (TKScalar r)
