@@ -49,27 +49,27 @@ instance (Nested.IntElt r, Nested.PrimElt r, Eq r, Num r)
 
 instance GoodScalar r
          => Real (Nested.Ranked n r) where
-  toRational = error "horde-ad: operation not defined for tensor"
+  toRational = error "toRational is not defined for tensors"
 
 instance GoodScalar r
          => Real (Nested.Shaped sh r) where
-  toRational = error "horde-ad: operation not defined for tensor"
+  toRational = error "toRational is not defined for tensors"
 
 instance GoodScalar r
          => Real (Nested.Mixed sh r) where
-  toRational = error "horde-ad: operation not defined for tensor"
+  toRational = error "toRational is not defined for tensors"
 
 instance (GoodScalar r, Nested.FloatElt r)
          => RealFrac (Nested.Ranked n r) where
-  properFraction = error "horde-ad: operation not defined for tensor"
+  properFraction = error "properFraction is not defined for tensors"
 
 instance (GoodScalar r, RealFrac r, Nested.FloatElt r)
          => RealFrac (Nested.Shaped sh r) where
-  properFraction = error "horde-ad: operation not defined for tensor"
+  properFraction = error "properFraction is not defined for tensors"
 
 instance (GoodScalar r, Nested.FloatElt r)
          => RealFrac (Nested.Mixed sh r) where
-  properFraction = error "horde-ad: operation not defined for tensor"
+  properFraction = error "properFraction is not defined for tensors"
 
 instance (Nested.PrimElt r, Nested.FloatElt r)
          => RealFloatH (Nested.Ranked n r) where
@@ -86,44 +86,44 @@ instance (Nested.PrimElt r, Nested.FloatElt r)
 instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
          => RealFloat (Nested.Ranked n r) where
   atan2 = Nested.ratan2Array
-  floatRadix = error "horde-ad: operation not defined for tensor"
-  floatDigits = error "horde-ad: operation not defined for tensor"
-  floatRange = error "horde-ad: operation not defined for tensor"
-  decodeFloat = error "horde-ad: operation not defined for tensor"
-  encodeFloat = error "horde-ad: operation not defined for tensor"
-  isNaN = error "horde-ad: operation not defined for tensor"
-  isInfinite = error "horde-ad: operation not defined for tensor"
-  isDenormalized = error "horde-ad: operation not defined for tensor"
-  isNegativeZero = error "horde-ad: operation not defined for tensor"
-  isIEEE = error "horde-ad: operation not defined for tensor"
+  floatRadix = error "operation not defined for tensors"
+  floatDigits = error "operation not defined for tensors"
+  floatRange = error "operation not defined for tensors"
+  decodeFloat = error "operation not defined for tensors"
+  encodeFloat = error "operation not defined for tensors"
+  isNaN = error "operation not defined for tensors"
+  isInfinite = error "operation not defined for tensors"
+  isDenormalized = error "operation not defined for tensors"
+  isNegativeZero = error "operation not defined for tensors"
+  isIEEE = error "operation not defined for tensors"
 
 instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
          => RealFloat (Nested.Shaped sh r) where
   atan2 = Nested.satan2Array
-  floatRadix = error "horde-ad: operation not defined for tensor"
-  floatDigits = error "horde-ad: operation not defined for tensor"
-  floatRange = error "horde-ad: operation not defined for tensor"
-  decodeFloat = error "horde-ad: operation not defined for tensor"
-  encodeFloat = error "horde-ad: operation not defined for tensor"
-  isNaN = error "horde-ad: operation not defined for tensor"
-  isInfinite = error "horde-ad: operation not defined for tensor"
-  isDenormalized = error "horde-ad: operation not defined for tensor"
-  isNegativeZero = error "horde-ad: operation not defined for tensor"
-  isIEEE = error "horde-ad: operation not defined for tensor"
+  floatRadix = error "operation not defined for tensors"
+  floatDigits = error "operation not defined for tensors"
+  floatRange = error "operation not defined for tensors"
+  decodeFloat = error "operation not defined for tensors"
+  encodeFloat = error "operation not defined for tensors"
+  isNaN = error "operation not defined for tensors"
+  isInfinite = error "operation not defined for tensors"
+  isDenormalized = error "operation not defined for tensors"
+  isNegativeZero = error "operation not defined for tensors"
+  isIEEE = error "operation not defined for tensors"
 
 instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
          => RealFloat (Nested.Mixed sh r) where
   atan2 = Nested.matan2Array
-  floatRadix = error "horde-ad: operation not defined for tensor"
-  floatDigits = error "horde-ad: operation not defined for tensor"
-  floatRange = error "horde-ad: operation not defined for tensor"
-  decodeFloat = error "horde-ad: operation not defined for tensor"
-  encodeFloat = error "horde-ad: operation not defined for tensor"
-  isNaN = error "horde-ad: operation not defined for tensor"
-  isInfinite = error "horde-ad: operation not defined for tensor"
-  isDenormalized = error "horde-ad: operation not defined for tensor"
-  isNegativeZero = error "horde-ad: operation not defined for tensor"
-  isIEEE = error "horde-ad: operation not defined for tensor"
+  floatRadix = error "operation not defined for tensors"
+  floatDigits = error "operation not defined for tensors"
+  floatRange = error "operation not defined for tensors"
+  decodeFloat = error "operation not defined for tensors"
+  encodeFloat = error "operation not defined for tensors"
+  isNaN = error "operation not defined for tensors"
+  isInfinite = error "operation not defined for tensors"
+  isDenormalized = error "operation not defined for tensors"
+  isNegativeZero = error "operation not defined for tensors"
+  isIEEE = error "operation not defined for tensors"
 
 -- TODO: make more efficient somehow?
 mmakeNonZero :: (Nested.PrimElt r, Eq r, Num r)

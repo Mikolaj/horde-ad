@@ -473,7 +473,7 @@ conv2dUnpaddedL arrK arrA =
       let arrAt = slicezL shK1 arrA [iImg, 0, iBh, iBw]
           arrKt = slicezL shK1 arrK [iCout, 0, 0, 0]
       in rdot0 arrAt arrKt
-    _ -> error "conv2dUnpadded: impossible pattern needlessly required"
+    _ -> error "conv2dUnpaddedL: impossible pattern needlessly required"
 
 -- | Slice a section out of a tensor,
 --   given a base offset and shape of the section.
@@ -1294,7 +1294,7 @@ maxPool2dUnpadded2 a =
     [_, _, iBh, iBw] ->
       let arrt = slicez2 (conv2dUnpadded2 a) [iBw, 1, 2 * iBh, 2 * iBw]
       in rmaximum2 arrt
-    _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
+    _ -> error "maxPool2dUnpadded2: impossible pattern needlessly required"
 
 conv2dUnpadded2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
@@ -1304,7 +1304,7 @@ conv2dUnpadded2 a =
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez2 a [iImg, 0, iBh, iBw]
       in rindex0 arrAt [0, iBw, iBw, 0]
-    _ -> error "conv2dUnpadded: impossible pattern needlessly required"
+    _ -> error "conv2dUnpadded2: impossible pattern needlessly required"
 
 slicez2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
@@ -1362,7 +1362,7 @@ maxPool2dUnpadded3 arr =
     [aa, bb, iBh, iBw] ->
       let arrt = slicez3 [2, 2, 2, 2] arr [iBh `quotH` 4, aa, bb, iBw]
       in rmaximum3 arrt
-    _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
+    _ -> error "maxPool2dUnpadded3: impossible pattern needlessly required"
 
 maxPool2dUnpadded33
   :: (ADReady target, GoodScalar r)
@@ -1372,7 +1372,7 @@ maxPool2dUnpadded33 arr =
     [aa, bb, iBh, iBw] ->
       let arrt = slicez33 [2, 2, 2, 2] arr [iBh `remH` 4, aa, bb, iBw]
       in rmaximum3 arrt
-    _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
+    _ -> error "maxPool2dUnpadded33: impossible pattern needlessly required"
 
 conv2dUnpadded3
   :: (ADReady target, GoodScalar r)
@@ -1383,7 +1383,7 @@ conv2dUnpadded3 arrA =
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez33 shB arrA [iImg `remH` 4, iImg, iImg, 1]
       in rindex0 arrAt [iBh, iBw, iImg, iBh]
-    _ -> error "conv2dUnpadded: impossible pattern needlessly required"
+    _ -> error "conv2dUnpadded3: impossible pattern needlessly required"
 
 slicez3
   :: (ADReady target, GoodScalar r, KnownNat n)
@@ -1477,7 +1477,7 @@ maxPool2dUnpadded4 arr =
     [aa, bb, iBh, iBw] ->
       let arrt = slicez4 [2, 2, 2, 2] arr [bb + 1, 3 - bb, aa * iBh, 2 * iBw]
       in rmaximum3 arrt
-    _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
+    _ -> error "maxPool2dUnpadded4: impossible pattern needlessly required"
 
 conv2dUnpadded4
   :: (ADReady target, GoodScalar r)
@@ -1488,7 +1488,7 @@ conv2dUnpadded4 arrA =
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez4 shB arrA [iImg, 0, iBh, iBw]
       in rindex0 arrAt [0, 0, 0, 0]
-    _ -> error "conv2dUnpadded: impossible pattern needlessly required"
+    _ -> error "conv2dUnpadded4: impossible pattern needlessly required"
 
 slicez4
   :: (ADReady target, GoodScalar r, KnownNat n)
@@ -1538,7 +1538,7 @@ conv2dUnpadded3z arrA =
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez3 shB arrA [iImg, iImg, iImg, iBw]
       in rindex0 arrAt [iBh, iBw, iImg, iBh]
-    _ -> error "conv2dUnpadded: impossible pattern needlessly required"
+    _ -> error "conv2dUnpadded3z: impossible pattern needlessly required"
 
 testCNNOPP7 :: Assertion
 testCNNOPP7 = do
@@ -1578,7 +1578,7 @@ maxPool2dUnpadded3y arr =
     [aa, bb, iBh, iBw] ->
       let arrt = slicez3 [2, 2, 2, 2] arr [iBh, aa, bb, iBw]
       in rmaximum3 arrt
-    _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
+    _ -> error "maxPool2dUnpadded3y: impossible pattern needlessly required"
 
 conv2dUnpadded3y
   :: (ADReady target, GoodScalar r)
@@ -1589,7 +1589,7 @@ conv2dUnpadded3y arrA =
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez3 shB arrA [iImg, iImg, iImg, iBh]
       in rindex0 arrAt [iBh, iBw, iImg, iBh]
-    _ -> error "conv2dUnpadded: impossible pattern needlessly required"
+    _ -> error "conv2dUnpadded3y: impossible pattern needlessly required"
 
 -- TODO: OOMs
 _testPaddedCNNOPP0c :: Assertion

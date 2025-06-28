@@ -2302,7 +2302,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
          gcastWith (unsafeCoerceRefl
                     :: Permutation.PermutePrefix perm3P (n1 : (shp ++ shn))
                        :~: shp ++ (n1 : shn)) $
-         fromMaybe (error "astGatherCase: impossible non-permutation")
+         fromMaybe (error "astGatherKnobsS: impossible non-permutation")
          $ Permutation.permCheckPermutation perm3S
          $ Permutation.permFromList perm4
          $ \(perm4S :: Permutation.Perm perm4P) ->
@@ -2312,7 +2312,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
          gcastWith (unsafeCoerceRefl
                     :: Permutation.PermutePrefix perm4P (shm ++ (n1 : shn))
                        :~: n1 : (shm ++ shn)) $
-         fromMaybe (error "astGatherCase: impossible non-permutation")
+         fromMaybe (error "astGatherKnobsS: impossible non-permutation")
          $ Permutation.permCheckPermutation perm4S
          $ let innerGather =
                  astGather @shm @(n1 : shn) @shp
@@ -2575,7 +2575,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
     AstFromS' ftkz v -> case matchingFTK (ftkAst v) ftkz of
       Just Refl -> astGather @shm @shn @shp shn v (vars4, ix4)
         -- rare, usually simplifies away earlier
-      Nothing -> error "astGatherCase: wrong tensor kinds in AstFromS"
+      Nothing -> error "astGatherKnobsS: wrong tensor kinds in AstFromS"
     -- These conversions need to stay down.
     Ast.AstConvert{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
 

@@ -445,7 +445,7 @@ toLinearIdxS fromInt = \sh idx -> go sh idx (fromInt 0)
     go sh ZIS tensidx = fromInt (shsSize sh) * tensidx
     go ((:$$) n sh) (i :.$ idx) tensidx =
       go sh idx (fromInt (sNatValue n) * tensidx + i)
-    go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
+    go _ _ _ = error "toLinearIdxS: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
 -- multidimensional index. Here we require an index pointing at a scalar.
@@ -489,7 +489,7 @@ toLinearIdxX fromInt = \sh idx -> go sh idx (fromInt 0)
     go sh ZIX tensidx = fromInt (shxSize sh) * tensidx
     go ((:$%) n sh) (i :.% idx) tensidx =
       go sh idx (fromInt (fromSMayNat' n) * tensidx + i)
-    go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
+    go _ _ _ = error "toLinearIdxX: impossible pattern needlessly required"
 
 fromLinearIdxX :: forall sh j. IntegralH j
                => (Int -> j) -> IShX sh -> j -> IxX sh j

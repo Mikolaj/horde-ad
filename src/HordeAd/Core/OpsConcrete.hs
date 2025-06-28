@@ -1095,7 +1095,7 @@ tfromVector0NS l = case NonEmpty.nonEmpty $ V.toList l of
   Nothing -> case testEquality (shsProduct (knownShS @sh)) (SNat @0) of
     Just Refl -> Nested.sreshape (knownShS @sh)
                  $ Nested.semptyArray (knownShS @sh)
-    Nothing -> error "tfromListLinearS: empty list, but not shape"
+    Nothing -> error "tfromVector0N: empty list, but not shape"
   Just nl -> Nested.sfromListLinear knownShS $ NonEmpty.map Nested.sunScalar nl
 
 tbuild1S
@@ -1278,7 +1278,7 @@ tfromVector0NX
 tfromVector0NX sh l = case NonEmpty.nonEmpty $ V.toList l of
   Nothing -> if shxSize sh == 0
              then Nested.mreshape sh $ Nested.memptyArray sh
-             else error "tfromListLinearS: empty list, but not shape"
+             else error "tfromVector0N: empty list, but not shape"
   Just nl -> Nested.mfromListLinear sh $ NonEmpty.map Nested.munScalar nl
 
 tbuild1X

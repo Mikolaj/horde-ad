@@ -249,11 +249,11 @@ type instance ShareOf (ADVal f) = ADVal f
 -- they can be compared with an instant Bool result, so let's fail early
 -- also here.
 instance Eq (ADVal f z) where
-  (==) = error "horde-ad: please use EqH instead"
-  (/=) = error "horde-ad: please use EqH instead"
+  (==) = error "Eq is not defined for ADVal; please use EqH instead"
+  (/=) = error "Eq is not defined for ADVal; please use EqH instead"
 
 instance Ord (ADVal f z) where
-  (<=) = error "horde-ad: please use OrdH instead"
+  (<=) = error "Ord is not defined for ADVal; please use OrdH instead"
 
 -- This is copied from below to permit fromInteger for TKScalar.
 -- This OVERLAPPABLE seems to work 100% reliably for indexes

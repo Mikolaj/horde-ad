@@ -55,11 +55,11 @@ type instance BoolOf (AstTensor ms s) = AstBool ms
 
 -- These are, unfortunately, required by some numeric instances.
 instance Eq (AstTensor ms s y) where
-  (==) = error "AST requires that EqH be used instead"
-  (/=) = error "AST requires that EqH be used instead"
+  (==) = error "Eq is not defined for AST; please use EqH instead"
+  (/=) = error "Eq is not defined for AST; please use EqH instead"
 
 instance Ord (AstTensor ms s y) where
-  (<=) = error "AST requires that OrdH be used instead"
+  (<=) = error "Ord is not defined for AST; please use OrdH instead"
 
 -- TODO: perhaps aim for a polynomial normal form? but that requires global
 -- inspection of the whole expression
