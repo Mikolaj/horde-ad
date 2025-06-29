@@ -33,7 +33,7 @@ module HordeAd.Core.Types
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
   , shCastSX
   , shsFromIxS, shsFromListS
-  , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
+  , normalizePermutationHack, backpermCycle, permCycle
   , permUnShift1
   , ssxTakeIx
   ) where
@@ -54,7 +54,7 @@ import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
-import GHC.Exts (IsList (..), withDict)
+import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
 import GHC.TypeLits
   ( KnownNat
@@ -80,8 +80,7 @@ import Data.Array.Nested.Permutation (DropLen, PermR, TakeLen)
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types
-  (Dict (..), Tail, fromSNat', unsafeCoerceRefl)
+import Data.Array.Nested.Types (Dict (..), Tail, fromSNat', unsafeCoerceRefl)
 import Data.Array.Strided.Orthotope (NumElt (..), fromO, toO)
 
 -- * Definitions to help express and manipulate type-level natural numbers
@@ -583,10 +582,6 @@ _withPermShift1 :: forall is r. -- Permutation.IsPermutation is
                    Permutation.Perm (0 : Permutation.MapSucc is) -> r)
                -> r
 _withPermShift1 _perm _f = undefined  -- f (Permutation.permShift1 perm)
-
-withKnownPerm :: forall perm r.
-                 Permutation.Perm perm -> (Permutation.KnownPerm perm => r) -> r
-withKnownPerm = withDict @(Permutation.KnownPerm perm)
 
 ssxPermutePrefix :: Permutation.Perm is -> StaticShX sh
                  -> StaticShX (Permutation.PermutePrefix is sh)
