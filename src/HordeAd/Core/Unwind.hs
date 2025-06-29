@@ -153,14 +153,14 @@ concreteRepW concreteK concreteS fromS w = case w of
   WTKScalar v -> WTKScalar $ concreteK v
   WTKR v -> WTKR $
     let sh' = Nested.rshape $ unConcrete v
-    in withCastRS sh' $ \(sh :: ShS sh) ->
+    in withShsFromShR sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
       fromS (FTKR sh' FTKScalar)
       $ concreteS (sfromR @_ @sh v)
   WTKS v -> WTKS $ concreteS v
   WTKX v -> WTKX $
     let sh' = Nested.mshape $ unConcrete v
-    in withCastXS sh' $ \(sh :: ShS sh) ->
+    in withShsFromShX sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
       fromS (FTKX sh' FTKScalar)
       $ concreteS (sfromX @_ @sh v)

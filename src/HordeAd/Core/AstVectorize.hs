@@ -23,6 +23,7 @@ import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Unsafe (unsafePerformIO)
 
 import Data.Array.Nested (type (++))
+import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
@@ -419,7 +420,7 @@ astTr :: forall n s r. AstSpan s
 astTr a = case Permutation.makePerm @'[1, 0] of
   (perm :: Permutation.Perm perm) -> case ftkAst a of
     FTKR sh'@(k :$: m :$: shr) x | SNat <- shrRank sh' ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
+      withShsFromShR sh' $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank sh) :~: True) $
         astFromS' (FTKR (m :$: k :$: shr) x)
         . astTransposeS perm . astSFromR' sh $ a
@@ -438,7 +439,7 @@ astTrX :: forall n m shx s r. AstSpan s
 astTrX a = case Permutation.makePerm @'[1, 0] of
   (perm :: Permutation.Perm perm) -> case ftkAst a of
     FTKX sh'@(mn :$% mm :$% shx) x ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank sh) :~: True) $
         astFromS' (FTKX (mm :$% mn :$% shx) x)
         . astTransposeS perm . astSFromX' sh $ a
@@ -468,13 +469,13 @@ astIndexBuild snat@SNat ftk u i = case ftk of
   FTKScalar -> astFromS' ftk $ astIndexS ZSS u (i :.$ ZIS)
   FTKR{} -> case ftkAst u of
     FTKR shmshn _ ->
-      withCastRS shmshn $ \(sh :: ShS sh) ->
+      withShsFromShR shmshn $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: k ': Tail sh :~: sh) $
         astFromS' ftk $ astIndexS (shsTail sh) (astSFromR' sh u) (i :.$ ZIS)
   FTKS sh _ -> astIndexS sh u (i :.$ ZIS)
   FTKX{} -> case ftkAst u of
    FTKX shBuild' _->
-    withCastXS shBuild' $ \shBuild -> case shBuild of
+    withShsFromShX shBuild' $ \shBuild -> case shBuild of
       _ :$$ rest ->
         astFromS' ftk $ astIndexS rest (astSFromX' shBuild u) (i :.$ ZIS)
   FTKProduct ftk1 ftk2 ->

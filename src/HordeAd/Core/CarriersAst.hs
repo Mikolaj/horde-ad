@@ -20,6 +20,7 @@ import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
@@ -825,8 +826,8 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKR n r) where
   v <=. u = case ftkAst v of
     FTKR shv' _ -> case ftkAst u of
       FTKR shu' _ ->
-        withCastRS shv' $ \shv ->
-          withCastRS shu' $ \shu ->
+        withShsFromShR shv' $ \shv ->
+          withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
                 AstLeqS (cAstSFromR shu $ primalPart v)
@@ -838,8 +839,8 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
   v <=. u = case ftkAst v of
     FTKX shv' _ -> case ftkAst u of
       FTKX shu' _ ->
-        withCastXS shv' $ \shv ->
-          withCastXS shu' $ \shu ->
+        withShsFromShX shv' $ \shv ->
+          withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
                 AstLeqS (cAstSFromX shu $ primalPart v)

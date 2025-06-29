@@ -17,6 +17,7 @@ import GHC.TypeLits (sameNat)
 
 import Data.Array.Nested (Replicate, type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
@@ -542,12 +543,12 @@ instance ( ADReadyNoLet target, ShareTensor target
 
   rfromX a@(D _ u') = case ftkDelta u' of
     FTKX sh' _ ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         rfromS $ sfromX @_ @sh a
   xfromR a@(D _ u') = case ftkDelta u' of
     FTKR shr _ ->
-      withCastRS shr $ \(sh :: ShS sh) ->
+      withShsFromShR shr $ \(sh :: ShS sh) ->
         withKnownShS sh $
         xfromS @_ @sh $ sfromR a
 

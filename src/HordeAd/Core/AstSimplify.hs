@@ -79,7 +79,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (Replicate, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert (shrFromShS, shxFromShS)
+import Data.Array.Nested.Convert (shrFromShS, shxFromShS, withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, Perm (..), TakeLen, permInverse)
@@ -400,14 +400,14 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstReplicate _ _ v | STKR _ (STKScalar @r) <- stk ->
     case ftkAst v of
       ftk@(FTKR sh' FTKScalar) ->
-        withCastRS sh' $ \(sh :: ShS sh) ->
+        withShsFromShR sh' $ \(sh :: ShS sh) ->
           v * astFromS'
                 ftk (fromPrimal $ AstConcreteS @r
                      $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ _ v | STKX _ (STKScalar @r) <- stk ->
     case ftkAst v of
       ftk@(FTKX sh' FTKScalar) ->
-        withCastXS sh' $ \(sh :: ShS sh) ->
+        withShsFromShX sh' $ \(sh :: ShS sh) ->
           v * astFromS'
                 ftk (fromPrimal $ AstConcreteS @r
                      $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
@@ -3361,12 +3361,12 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
 
   rfromX a = case ftkAst a of
     FTKX sh' _ ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
         withKnownShS sh $
         rfromS $ sfromX @_ @sh a
   xfromR a = case ftkAst a of
     FTKR shr _ ->
-      withCastRS shr $ \(sh :: ShS sh) ->
+      withShsFromShR shr $ \(sh :: ShS sh) ->
         withKnownShS sh $
         xfromS @_ @sh $ sfromR a
 
@@ -3457,12 +3457,12 @@ astConcrete :: FullShapeTK y -> Concrete y
 astConcrete ftk v = case ftk of
   FTKScalar -> astConcreteK v
   FTKR sh' FTKScalar ->
-    withCastRS sh' $ \(sh :: ShS sh) ->
+    withShsFromShR sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
       astFromS' ftk $ astConcreteS (sfromR @_ @sh v)
   FTKS _ FTKScalar -> astConcreteS v
   FTKX sh' FTKScalar ->
-    withCastXS sh' $ \(sh :: ShS sh) ->
+    withShsFromShX sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
       astFromS' ftk $ astConcreteS (sfromX @_ @sh v)
   FTKProduct ftk1 ftk2 ->
@@ -3496,14 +3496,14 @@ astLetFunBounds mbs a f = case a of
     in astLet var v ast
   _ -> case ftkAst a of
     ftk@(FTKR @_ @x sh' x) ->
-      withCastRS sh' $ \(sh :: ShS sh) ->
+      withShsFromShR sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
               funToAst2 (FTKS sh x) mbs
                         (f . astFromS' @(TKS2 sh x) ftk)
         in astLet var (astSFromR' sh a) ast
              -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
               funToAst2 (FTKS sh x) mbs
                         (f . astFromS' @(TKS2 sh x) ftk)

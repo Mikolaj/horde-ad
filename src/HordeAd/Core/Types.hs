@@ -31,7 +31,7 @@ module HordeAd.Core.Types
   , shxTake, shxDrop, ixxTake, ixxDrop'
   , listsTakeLen, listsDropLen, shsDropLen
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
-  , withCastRS, withCastXS, shCastSX
+  , shCastSX
   , shsFromIxS, shsFromListS
   , withKnownPerm, normalizePermutationHack, backpermCycle, permCycle
   , permUnShift1
@@ -73,6 +73,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Convert (shxFromShS)
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, PermR, TakeLen)
@@ -520,37 +521,9 @@ zeroOfX fromInt ((:$%) _ sh) = fromInt 0 :.% zeroOfX fromInt sh
 
 -- ** Conversions and related
 
-withCastRS :: forall n r.
-              IShR n
-           -> (forall sh. n ~ Rank sh => ShS sh -> r)
-           -> r
-withCastRS ZSR f = f ZSS
-withCastRS (n :$: rest') f = withSNat n $ \snat ->
-  withCastRS rest' (\rest -> f (snat :$$ rest))
-
-withCastXS :: forall sh' r.
-              IShX sh'
-           -> (forall sh. Rank sh' ~ Rank sh => ShS sh -> r)
-           -> r
-withCastXS ZSX f = f ZSS
-withCastXS (Nested.SKnown snat@SNat :$% rest') f =
-  withCastXS rest' (\rest -> f (snat :$$ rest))
-withCastXS (Nested.SUnknown k :$% rest') f = withSNat k $ \snat ->
-  withCastXS rest' (\rest -> f (snat :$$ rest))
-
 -- The constraint is erroneously reported as redundant.
 shCastSX :: Rank sh ~ Rank sh' => StaticShX sh' -> ShS sh -> IShX sh'
-shCastSX ZKX ZSS = ZSX
-shCastSX ((:!%) @_ @restx (Nested.SKnown snat1) restx)
-         ((:$$) @_ @rest snat2 rest) =
-  gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
-  if sNatValue snat1 == sNatValue snat2
-  then Nested.SKnown snat1 :$% shCastSX restx rest
-  else error $ "shCastSX: shapes don't match: " ++ show (snat1, snat2)
-shCastSX ((:!%) @_ @restx (Nested.SUnknown ()) restx)
-         ((:$$) @_ @rest snat2 rest) =
-  gcastWith (unsafeCoerceRefl :: Rank restx :~: Rank rest) $  -- why!
-  Nested.SUnknown (sNatValue snat2) :$% shCastSX restx rest
+shCastSX ssx sh = shxCast' ssx (shxFromShS sh)
 
 -- ** Permutation-related operations
 

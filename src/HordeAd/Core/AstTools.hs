@@ -31,6 +31,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
@@ -363,7 +364,7 @@ liftRFromS1 :: forall n x ms s.
             -> AstTensor ms s (TKR2 n x)
 liftRFromS1 f a = case ftkAst a of
   ftk@(FTKR sh' _) ->
-    withCastRS sh' $ \(sh :: ShS sh) ->
+    withShsFromShR sh' $ \(sh :: ShS sh) ->
       cAstFromS @(TKS2 sh x) ftk
       $ f (cAstSFromR @sh sh a)
 
@@ -375,7 +376,7 @@ liftRFromS2 :: forall n x ms s.
             -> AstTensor ms s (TKR2 n x)
 liftRFromS2 f a b  = case ftkAst a of
   ftk@(FTKR sh' _) ->
-    withCastRS sh' $ \(sh :: ShS sh) ->
+    withShsFromShR sh' $ \(sh :: ShS sh) ->
       cAstFromS @(TKS2 sh x) ftk
       $ f (cAstSFromR @sh sh a) (cAstSFromR @sh sh b)
 
@@ -387,7 +388,7 @@ liftXFromS1 :: forall sh' x ms s.
             -> AstTensor ms s (TKX2 sh' x)
 liftXFromS1 f a = case ftkAst a of
   ftk@(FTKX sh' _) ->
-    withCastXS sh' $ \(sh :: ShS sh) ->
+    withShsFromShX sh' $ \(sh :: ShS sh) ->
       cAstFromS @(TKS2 sh x) ftk
       $ f (cAstSFromX @sh @sh' sh a)
 
@@ -399,7 +400,7 @@ liftXFromS2 :: forall sh' x ms s.
             -> AstTensor ms s (TKX2 sh' x)
 liftXFromS2 f a b = case ftkAst a of
   ftk@(FTKX sh' _) ->
-    withCastXS sh' $ \(sh :: ShS sh) ->
+    withShsFromShX sh' $ \(sh :: ShS sh) ->
       cAstFromS @(TKS2 sh x) ftk
       $ f (cAstSFromX @sh @sh' sh a) (cAstSFromX @sh @sh' sh b)
 

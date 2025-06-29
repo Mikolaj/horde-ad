@@ -19,6 +19,7 @@ import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (IsList (..))
 
+import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast (AstBool, AstTensor)
@@ -353,7 +354,7 @@ unshareAst memo = \case
     -- Ast.AstFromPrimal (Ast.AstFromS).
     _ -> case varNameToFTK varRaw of
       ftk@(FTKR @_ @x sh' x) ->
-        withCastRS sh' $ \(sh :: ShS sh) ->
+        withShsFromShR sh' $ \(sh :: ShS sh) ->
           let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
                                  (varNameToAstVarId varRaw)
               astVar0 = cAstFromS @(TKS2 sh x) ftk $ Ast.AstVar var
@@ -362,7 +363,7 @@ unshareAst memo = \case
              else let (memo1, !a2) = unshareAst memo (cAstSFromR @sh sh a)
                   in (DMap.insert var a2 memo1, astVar0)
       ftk@(FTKX @_ @x sh' x) ->
-        withCastXS sh' $ \(sh :: ShS sh) ->
+        withShsFromShX sh' $ \(sh :: ShS sh) ->
           let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
                                  (varNameToAstVarId varRaw)
               astVar0 = cAstFromS @(TKS2 sh x) ftk $ Ast.AstVar var

@@ -42,6 +42,7 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+), type (<=), type (<=?))
 import Type.Reflection (typeRep)
 
+import Data.Array.Nested.Convert (withShsFromShX)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Types (Init, unsafeCoerceRefl)
@@ -1117,7 +1118,7 @@ class ( Num (IntOf target)
          => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
   xmcast sh2 a = case tftk knownSTK a of
     FTKX sh' _ ->
-      withCastXS sh' $ \(sh :: ShS sh) ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
         withKnownShX sh2 $
         withKnownShS sh $
         xfromS $ sfromX @_ @sh a
