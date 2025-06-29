@@ -361,8 +361,8 @@ instance BaseTensor Concrete where
     case tftk knownSTK t of
       FTKX _ x@FTKScalar ->  -- optimized
         let zero = tdefTarget (FTKX sh x)
-            shm = shxTakeSSX (Proxy @shn) (xshape t) (knownShX @shm)
-            shDropP = shxDropSSX (xshape t) (knownShX @shm)
+            shm = shxTakeSSX (Proxy @shn) (knownShX @shm) (xshape t)
+            shDropP = shxDropSSX (knownShX @shm) (xshape t)
             s = shxSize shm
             g ix =
               let ix2 = f $ fmapConcrete ix
@@ -379,7 +379,7 @@ instance BaseTensor Concrete where
            $ M.assocs ivs
       FTKX _ x | Dict <- eltDictRep (ftkToSTK x) ->
         let zero = tdefTarget (FTKX sh x)
-            shm = shxTakeSSX (Proxy @shn) (xshape t) (knownShX @shm)
+            shm = shxTakeSSX (Proxy @shn) (knownShX @shm) (xshape t)
             s = shxSize shm
             g ix =
               let ix2 = f $ fmapConcrete ix
@@ -399,7 +399,7 @@ instance BaseTensor Concrete where
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
     case knownSTK @r of
       STKScalar ->  -- optimized
-        let shm = shxTakeSSX (Proxy @shn) sh (knownShX @shm)
+        let shm = shxTakeSSX (Proxy @shn) (knownShX @shm) sh
             s = shxSize shm
             l = [ xtoVector
                   $ txindex @_ @_ @shn
@@ -1235,7 +1235,7 @@ tindexZX v ixConcrete | Dict <- eltDictRep (knownSTK @r) =
        FTKX sh x ->
          if ixInBounds (Foldable.toList ix) (shxToList sh)
          then Concrete $ tindexNX (unConcrete v) ix
-         else tdefTarget (FTKX (shxDropSSX sh (knownShX @sh1)) x)
+         else tdefTarget (FTKX (shxDropSSX (knownShX @sh1) sh) x)
 
 tindex0X
   :: forall r sh. (KnownSTK r, KnownShX sh)

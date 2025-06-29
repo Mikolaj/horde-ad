@@ -131,8 +131,7 @@ xbuild @m @sh @x @target sh0 f0 =
           in withSNat (fromSMayNat' k) $ \(SNat @n) ->
                xmcast (ssxFromShX sh1m) $ txbuild1 @_ @n g
   in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
-     $ buildSh (shxTakeSSX (Proxy @(Drop m sh)) sh0
-                           (knownShX @(Take m sh))) sh0 f0
+     $ buildSh (shxTakeSSX (Proxy @(Drop m sh)) (knownShX @(Take m sh)) sh0) sh0 f0
 
 -- | A strict right mapAccum.
 tmapAccumR
@@ -800,7 +799,7 @@ class ( Num (IntOf target)
             -> target (TKX2 (Just n2 ': shn) x)
   txgather1 @n2 @_ @shp k v f =
     txgather @target @'[Just n2]
-             (Nested.SKnown k :$% shxDropSSX (xshape v) (knownShX @shp)) v
+             (Nested.SKnown k :$% shxDropSSX (knownShX @shp) (xshape v)) v
              (\(i :.% ZIX) -> f i)
 
   trfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)

@@ -25,7 +25,7 @@ import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat, type (+))
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
-import Data.Array.Nested.Convert (shrFromShX, shsFromShX, shxFromShS, shxFromShR)
+import Data.Array.Nested.Convert (shrFromShX, shsFromShX, shxFromShS, shxFromShR, shsFromSSX)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
@@ -246,7 +246,7 @@ convertSTK = \cases
   ConvRX (STKR n a) -> STKX (ssxReplicate n) a
   ConvSX (STKS sh a) -> STKX (ssxFromShX $ shxFromShS sh) a
   (ConvXR _stk) (STKX ssx a) -> STKR (ssxRank ssx) a
-  ConvXS (STKX ssx a) -> STKS (shsFromStaticShX ssx) a
+  ConvXS (STKX ssx a) -> STKS (shsFromSSX ssx) a
   (ConvXS' (FTKS sh _x)) (STKX _ssx2 a) -> STKS sh a
   (ConvXX' (FTKX shx _x)) (STKX _ssx2 a) -> STKX (ssxFromShX shx) a
   (ConvRR c) (STKR n a) -> STKR n (convertSTK c a)
@@ -257,7 +257,7 @@ convertSTK = \cases
   (Conv0X _stk) stk -> STKX ZKX stk
   ConvX0 (STKX ZKX stk) -> stk
   (ConvNest (STKX ssx x)) (STKX shsh' _x) ->
-    STKX ssx (STKX (ssxDropSSX shsh' ssx) x)
+    STKX ssx (STKX (ssxDropSSX ssx shsh') x)
   ConvUnnest (STKX sh (STKX sh' x)) -> STKX (sh `ssxAppend` sh') x
   (ConvZip _ _) (STKProduct (STKX sh a1) (STKX _sh a2)) ->
     STKX sh (STKProduct a1 a2)
@@ -282,7 +282,7 @@ convertFTK = \cases
   (Conv0X _stk) ftk -> FTKX ZSX ftk
   ConvX0 (FTKX ZSX ftk) -> ftk
   (ConvNest @_ @_ @sh' (STKX ssx _x)) (FTKX shsh' x) ->
-    FTKX (shxTakeSSX (Proxy @sh') shsh' ssx) (FTKX (shxDropSSX shsh' ssx) x)
+    FTKX (shxTakeSSX (Proxy @sh') ssx shsh') (FTKX (shxDropSSX ssx shsh') x)
   ConvUnnest (FTKX sh (FTKX sh' x)) -> FTKX (sh `shxAppend` sh') x
   (ConvZip _ _) (FTKProduct (FTKX sh a1) (FTKX _sh a2)) ->
     FTKX sh (FTKProduct a1 a2)
