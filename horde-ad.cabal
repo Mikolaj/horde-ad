@@ -65,7 +65,7 @@ flag with_expensive_assertions
 
 flag release
   description:        remember to set before tagging for a release (to expose internal functions and types, disable tests that depend on not packaged data, etc.)
-  default:            False
+  default:            True
   manual:             True
 
 flag test_seq
