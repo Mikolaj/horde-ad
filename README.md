@@ -197,8 +197,8 @@ in file `MnistCnnShaped2.hs` and the directory contains several other sample neu
 Compilation from source
 -----------------------
 
-Our library is inspired by and crucially depends in its performance on ox-arrays
-(TODO: Hackage link)
+Our library is inspired by and crucially depends in its performance
+on [ox-arrays](https://hackage.haskell.org/package/ox-arrays)
 and [orthotope](https://hackage.haskell.org/package/orthotope),
 which don't require any special installation.
 Some of the other
