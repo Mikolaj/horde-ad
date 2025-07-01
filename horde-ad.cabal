@@ -122,7 +122,7 @@ common exe-options-test
     -- Beware, -with-rtsopts is not cumulative!
     ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0 -N"
 
-library horde-ad-simplified
+library
     import:           options
 
     exposed-modules:  HordeAd
@@ -199,7 +199,7 @@ library exampleLibrary
     hs-source-dirs:   example
 
     build-depends:
-      , horde-ad:horde-ad-simplified
+      , horde-ad:horde-ad
 
       , base
       , bytestring < 0.13
@@ -221,7 +221,7 @@ library benchCommonLibrary
 
     build-depends:
       , horde-ad:exampleLibrary
-      , horde-ad:horde-ad-simplified
+      , horde-ad:horde-ad
 
       , base
       , criterion < 1.7
@@ -343,7 +343,7 @@ library testToolLibrary
     hs-source-dirs:   test/tool
 
     build-depends:
-      , horde-ad:horde-ad-simplified
+      , horde-ad:horde-ad
 
       , base
       , ox-arrays
@@ -370,7 +370,7 @@ library testCommonLibrary
 
     -- Other library packages from which modules are imported.
     build-depends:
-      , horde-ad:horde-ad-simplified
+      , horde-ad:horde-ad
       , horde-ad:exampleLibrary
       , horde-ad:testToolLibrary
 
