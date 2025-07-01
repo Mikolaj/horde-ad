@@ -26,7 +26,7 @@ version:            0.1.0.0
 synopsis:           Higher Order Reverse Derivatives Efficiently - Automatic Differentiation
 
 -- A longer description of the package.
-description:        An Automatic Differentiation library based on the paper "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation" by Faustyna Krawiec, Neel Krishnaswami, Simon Peyton Jones, Tom Ellis, Andrew Fitzgibbon and Richard Eisenberg.
+description:        An Automatic Differentiation library based on the paper "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation" by Faustyna Krawiec, Neel Krishnaswami, Simon Peyton Jones, Tom Ellis, Andrew Fitzgibbon and Richard Eisenberg. Compared to the paper, the library additionally efficiently supports array operations and generation of symbolic derivative programs, though the efficiency is confined to a narrowly typed class of source programs with limited higher-orderness.
 
 -- The license under which the package is released.
 license:            BSD-3-Clause
