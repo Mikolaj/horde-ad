@@ -11,7 +11,7 @@ module HordeAd.Core.Types
     -- * Kinds of the parameterized types that determine the structure of a tensor
   , Target, TK (..), TKR, TKS, TKX, TKUnit
     -- * Some fundamental constraints and types related to tensors
-  , GoodScalar, Differentiable, IfDifferentiable(..)
+  , GoodScalar, GoodScalarConstraint, Differentiable, IfDifferentiable(..)
   , BuildTensorKind, RazeTensorKind, ADTensorKind, ADTensorScalar
     -- * Type families that tensors belong to
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf, BoolOf
@@ -24,7 +24,7 @@ module HordeAd.Core.Types
   , toLinearIdxR, fromLinearIdxR, toLinearIdxS, fromLinearIdxS
   , toLinearIdxX, fromLinearIdxX
     -- * Feature requests for ox-arrays
-  , Take, Drop
+  , Take, Drop, UnMapSucc
   , listsTake, listsDrop, listsSplitAt, ixrTake, ixrDrop, ixrSplitAt
   , shrTake, shrDrop, shrSplitAt
   , listrSplitAt, ixsDrop, shsTake, shsDrop
@@ -225,7 +225,8 @@ type IntOf (f :: Target) = PrimalOf f (TKScalar Int64)
 -- | The type family is defined in order to give a special instance
 -- for AST that preserves sharing and, even more importantly, keeps
 -- the computation of dervative functions lazy. See the definition
--- of 'AstLambda' and the code that processes it, maintaining laziness.
+-- of 'HordeAd.Core.Ast.AstLambda' and the code that processes it,
+-- maintaining laziness.
 --
 -- The type family can't easily be made injective, because the @ADVal f@
 -- instance is independent of @f@.

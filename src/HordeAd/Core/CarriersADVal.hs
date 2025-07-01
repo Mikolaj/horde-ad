@@ -54,7 +54,7 @@ pattern D t u <- ADVal t u  -- enforces only pattern matching
 deriving instance (Show (f z), Show (Delta f z))
                   => Show (ADVal f z)
 
--- | Smart constructor for 'D' of 'ADVal' that additionally records delta
+-- | Smart constructor for t'ADVal' that additionally records delta
 -- expression sharing information (regardless if the primal part
 -- of the dual number is an AST term or not).
 -- The bare constructor should not (and cannot) be used for constructing
@@ -63,7 +63,7 @@ dD :: forall f z.
       f z -> Delta f z -> ADVal f z
 dD !a !dual = dDnotShared a (shareDelta dual)
 
--- | This is a not so smart constructor for 'D' of 'ADVal' that does not record
+-- | This is a not so smart constructor for t'ADVal' that does not record
 -- sharing information. If used in contexts where duplication occurs,
 -- it may cause exponential blowup when a delta expression is evaluated
 -- in backpropagation phase. In contexts without duplication, it saves

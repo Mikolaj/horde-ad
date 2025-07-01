@@ -45,13 +45,13 @@ module HordeAd.OpsTensor
   , rappend, rconcat, rslice, runcons, rreverse
   , sappend, sslice, suncons, sreverse
   , xappend, xappend0, xconcat, xslice, xuncons, xreverse
-    -- * Array operations derived from `build`
+    -- * Array operations derived from @build@
   , rbuild, rbuild1, rmap, rmap1, rmap0N, rzipWith, rzipWith1, rzipWith0N
   , rzipWith3, rzipWith31, rzipWith30N, rzipWith4, rzipWith41, rzipWith40N
   , sbuild, sbuild1, smap, smap1, smap0N, szipWith, szipWith1, szipWith0N
   , szipWith3, szipWith31, szipWith30N, szipWith4, szipWith41, szipWith40N
   , xbuild, xbuild1
-    -- * Array operations derived from `mapAccum`
+    -- * Array operations derived from @mapAccum@
   , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
     -- * Array operations producing derivatives
   , kgrad, rvjp, rjvp, svjp, sjvp

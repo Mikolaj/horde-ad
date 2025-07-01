@@ -4,6 +4,8 @@ module HordeAd.Core.AstInline
     inlineAst
     -- * Translation of global sharing to local lets
   , unshareAstTensor
+    -- * Helper classes and types
+  , AstMemo
   ) where
 
 import Prelude
@@ -34,7 +36,7 @@ import HordeAd.Core.Types
 
 type AstMemo = EM.EnumMap AstVarId Int
 
--- | This inlines 'AstLet', traversing the term bottom-up.
+-- | This inlines 'HordeAd.Core.Ast.AstLet', traversing the term bottom-up.
 inlineAst
   :: forall s y. AstSpan s
   => AstMemo -> AstTensor AstMethodLet s y
@@ -265,7 +267,8 @@ bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
             -> AstTensor AstMethodLet s y
   bindToLet !u (var :=> w) = Ast.AstLet var w u
 
--- | This replaces 'AstShare' with 'AstLet', traversing the term bottom-up.
+-- | This replaces 'HordeAd.Core.Ast.AstShare' with 'HordeAd.Core.Ast.AstLet',
+-- traversing the term bottom-up.
 unshareAstTensor :: AstTensor AstMethodShare PrimalSpan y
                  -> AstTensor AstMethodLet PrimalSpan y
 unshareAstTensor tShare =

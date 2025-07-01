@@ -82,7 +82,7 @@ instance DMap.Enum1 (NodeId target) where
 instance TestEquality (NodeId target) where
   testEquality (NodeId ftk1 _) (NodeId ftk2 _) = matchingFTK ftk1 ftk2
 
--- | Wrap non-negative (only!) integers in the `NodeId` newtype.
+-- | Wrap non-negative (only!) integers in the t'NodeId' newtype.
 mkNodeId :: FullShapeTK y -> Int -> NodeId f y
 mkNodeId ftk i = assert (i >= 0) $ NodeId ftk i
 
@@ -110,7 +110,7 @@ instance DMap.Enum1 (InputId target) where
 instance TestEquality (InputId target) where
   testEquality (InputId ftk1 _) (InputId ftk2 _) = matchingFTK ftk1 ftk2
 
--- | Wrap non-negative (only!) integers in the `InputId` newtype.
+-- | Wrap non-negative (only!) integers in the t'InputId' newtype.
 mkInputId :: FullShapeTK y -> Int -> InputId f y
 mkInputId ftk i = assert (i >= 0) $ InputId ftk i
 
@@ -122,7 +122,7 @@ inputIdToFTK (InputId ftk _) = ftk
 
 -- | The grammar of delta expressions.
 --
--- The `NodeId` identifier that appears in a @DeltaShare n d@ expression
+-- The t`NodeId` identifier that appears in a @DeltaShare n d@ expression
 -- is the unique identity stamp of subterm @d@, that is, there is
 -- no different term @e@ such that @DeltaShare n e@ appears in any delta
 -- expression term in memory during the same run of an executable.
@@ -143,7 +143,7 @@ inputIdToFTK (InputId ftk _) = ftk
 -- (or, more precisely, with respect to the single node in the term DAG,
 -- in which subterms with the same node identifier are collapsed).
 -- Only the @DeltaInput@ nodes have a separate data storage.
--- The `InputId` identifiers in the @DeltaInput@ term constructors
+-- The t`InputId` identifiers in the @DeltaInput@ term constructors
 -- are indexes into a contiguous vector of cotangents of @DeltaInput@
 -- subterms of the whole term. The value at that index is the partial
 -- derivative of the objective function (represented by the whole term,

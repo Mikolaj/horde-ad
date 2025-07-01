@@ -1,6 +1,6 @@
 {-# LANGUAGE ViewPatterns #-}
 -- | AST of corresponding to the horde-ad operations specified
--- in the 'BaseTensor' class and others.
+-- in the 'HordeAd.Core.Ops.BaseTensor' class and others.
 -- The AST is essential for efficient handling of second order operations
 -- such as build and map via BOT (bulk-operation transformation),
 -- and fold and mapAccum via symbolic nested derivatives.
@@ -441,7 +441,8 @@ data AstHFun s s2 x z where
             -> AstHFun s s2 x z
     -- ^ The function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects
-    -- the quantification in 'rrev' and prevents cotangent confusion.
+    -- the quantification in 'HordeAd.Core.Ops.rrev'
+    -- and prevents cotangent confusion.
     --
     -- The constructor is non-strict in order not to pre-compute
     -- higher derivatives (e.g., inside folds) that are never going to be used.

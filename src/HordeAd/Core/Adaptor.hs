@@ -12,6 +12,8 @@ module HordeAd.Core.Adaptor
   ( AdaptableTarget(..), TermValue(..), DualNumberValue(..)
   , ForgetShape(..), RandomValue(..)
   , stkOfListR
+    -- * Helper classes and types
+  , Tups, NoShapeTensorKind
   ) where
 
 import Prelude
@@ -24,11 +26,11 @@ import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, type (-), type (<=?))
 import System.Random
 
-import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersADVal

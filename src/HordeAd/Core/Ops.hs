@@ -21,11 +21,15 @@ module HordeAd.Core.Ops
   ( -- * The tensor classes and support datatypes
     LetTensor(..), ShareTensor(..), BaseTensor(..), HFun(..)
     -- * The giga-constraint
-  , ADReady, ADReadyNoLet, AllTargetShow, CommonTargetEqOrd
+  , ADReady, ADReadyNoLet, ADReadyEqs, ADReadyClasses, ADReadyEqsClasses
+  , AllTargetShow, CommonTargetEqOrd
     -- * Helper functions
   , rtr, rflatten, str, sflatten, xtr, xflatten
   , tmapAccumR, tmapAccumL
   , rbuild, sbuild, xbuild
+    -- * Helper classes and types
+  , IntegralHAndIntElt, RealFloatAndFloatElt
+  , TensorSupportsX, TensorSupportsS, TensorSupportsR, TensorSupports
   ) where
 
 import Prelude
@@ -42,15 +46,15 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+), type (<=), type (<=?))
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested.Convert (withShsFromShX)
-import Data.Array.Nested.Lemmas
-import Data.Array.Nested.Permutation qualified as Permutation
-import Data.Array.Nested.Types (Init, unsafeCoerceRefl)
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Convert (withShsFromShX)
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (Init, unsafeCoerceRefl)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
@@ -952,7 +956,7 @@ class ( Num (IntOf target)
   -- ensure that the computation of a derivative is not repeated
   -- and that its result is shared. However, most of the time
   -- the computation is unnneeded, so the AST instance uses a non-strict
-  -- constructor 'AstLambda' for it's instance of 'HFunOf'.
+  -- constructor 'HordeAd.Core.Ast.AstLambda' for it's instance of 'HFunOf'.
   --
   -- If the same argument functions are passed to many mapAccum calls, as in
   -- > let f = ... in ... (tmapAccumR ... f ...) ... (tmapAccumL ... f ...)

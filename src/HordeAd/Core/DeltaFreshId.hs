@@ -46,7 +46,7 @@ unsafeGetFreshId = add unsafeGlobalCounter 1
 -- perhaps due to counter gaps that it may introduce.
 --
 -- | The impurity exported from this module by @shareDelta@,
--- stemming from the use of 'unsafeGetFreshId' under @unsafePerformIO@,
+-- stemming from the use of @unsafeGetFreshId@ under @unsafePerformIO@,
 -- is thread-safe, admits parallel tests
 -- and does not require @-fno-full-laziness@ nor @-fno-cse@.
 --

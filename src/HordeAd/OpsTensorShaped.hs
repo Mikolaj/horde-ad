@@ -31,10 +31,10 @@ module HordeAd.OpsTensorShaped
   , sfloor, sfromIntegral, scast, sminIndex, smaxIndex, siota
   , kfloor, kfromIntegral, kcast
   , sappend, sslice, suncons, sreverse
-    -- * Array operations derived from `build`
+    -- * Array operations derived from @build@
   , sbuild, sbuild1, smap, smap1, smap0N, szipWith, szipWith1, szipWith0N
   , szipWith3, szipWith31, szipWith30N, szipWith4, szipWith41, szipWith40N
-    -- * Array operations derived from `mapAccum`
+    -- * Array operations derived from @mapAccum@
   , sfold, sscan, tmapAccumR, tmapAccumL
     -- * Array operations producing derivatives
   , kgrad, svjp, sjvp

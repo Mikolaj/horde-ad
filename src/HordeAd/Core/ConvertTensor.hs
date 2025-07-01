@@ -26,7 +26,8 @@ class ConvertTensor (target :: Target) where
   --
   -- All conversion operations below could be defined in terms of @tconvert@,
   -- but they'd need additional singleton arguments or constraints
-  -- or we'd need to depend on 'BaseTensor' to use 'rshape', etc.
+  -- or we'd need to depend on 'HordeAd.Core.Ops.BaseTensor'
+  -- to use 'HordeAd.Core.Ops.rshape', etc.
   tconvert :: TKConversion a b -> SingletonTK a -> target a -> target b
 
   -- | The conversion from a rank 0 ranked tensor to a scalar.

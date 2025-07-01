@@ -31,10 +31,10 @@ module HordeAd.OpsTensorRanked
   , rfloor, rfromIntegral, rcast, rminIndex, rmaxIndex, riota
   , kfloor, kfromIntegral, kcast
   , rappend, rconcat, rslice, runcons, rreverse
-    -- * Array operations derived from `build`
+    -- * Array operations derived from @build@
   , rbuild, rbuild1, rmap, rmap1, rmap0N, rzipWith, rzipWith1, rzipWith0N
   , rzipWith3, rzipWith31, rzipWith30N, rzipWith4, rzipWith41, rzipWith40N
-    -- * Array operations derived from `mapAccum`
+    -- * Array operations derived from @mapAccum@
   , rfold, rscan, tmapAccumR, tmapAccumL
     -- * Array operations producing derivatives
   , kgrad, rvjp, rjvp
