@@ -231,11 +231,16 @@ the tests to be out of order. To keep your screen tidy, simply redirect
 
     cabal test parallelTest --enable-optimization 2>/dev/null
 
-The remainder of the test suite is set up to run sequentially to simplify
-automatic checking of results that may vary slightly depending on
-execution order
+The remainder of the test suite is set up to run sequentially, in part
+to simplify automatic checking of results that may vary slightly
+depending on execution order
 
     cabal test CAFlessTest --enable-optimization
+
+The tests in this suite also don't contribute big Haskell CAFs,
+which makes them more reliable micro-benchmarks. Ordinary
+benchmarks that use package criterion are even more trustworthy,
+but they don't have a comparable coverage at this time.
 
 
 Coding style
@@ -254,7 +259,7 @@ functions and types from the most important modules.
 Apart of that, only particularly significant functions and types
 are distinguished by having a haddock. If minor ones have comments,
 they should not be haddocks and they are permitted to describe
-implementation details and be out of date. Prefer assertions instead
+implementation details and be out of date. Prefer assertions in place
 of comments, unless too verbose.
 
 
