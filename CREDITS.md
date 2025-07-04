@@ -10,9 +10,11 @@ Faustyna Krawiec, Neel Krishnaswami, Tom Ellis, Andrew Fitzgibbon, Richard Eisen
 
 Oleg Grenrus, whose https://hackage.haskell.org/package/overloaded contains inspiring examples related to AD
 
-Edward Kmett, author of the archetype Haskell https://github.com/ekmett/ad library
+Edward Kmett, author of the archetype Haskell https://hackage.haskell.org/package/ad library
 
-Justin Le, author of the https://github.com/mstksg/backprop library and the amazing articles at https://blog.jle.im
+Justin Le, author of the https://hackage.haskell.org/package/backprop library and the amazing articles at https://blog.jle.im
+
+Lennart Augustsson, author of the incredibly clever shapely typed Haskell tensor library https://hackage.haskell.org/package/orthotope
 
 Tom Smeding, who influenced the major implementation decisions of horde-ad and solved the hardest technical problems
 
