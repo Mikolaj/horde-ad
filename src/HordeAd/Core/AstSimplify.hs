@@ -79,7 +79,8 @@ import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (Replicate, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert (shrFromShS, shxFromShS, withShsFromShR, withShsFromShX)
+import Data.Array.Nested.Convert
+  (shrFromShS, shxFromShS, withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, Perm (..), TakeLen, permInverse)
@@ -1546,6 +1547,8 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
 -- so it's probably more efficient. Use this instead of tletIx
 -- or design something even better.
+--
+-- See https://github.com/Mikolaj/horde-ad/issues/119.
 shareIx :: AstSpan s
         => AstIxS AstMethodLet shm
         -> (AstIxS AstMethodLet shm -> AstTensor AstMethodLet s y)
