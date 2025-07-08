@@ -442,7 +442,7 @@ data AstHFun s s2 x z where
     -- ^ The function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects
     -- the quantification in 'HordeAd.Core.Ops.rrev'
-    -- and prevents cotangent confusion.
+    -- and prevents "perturbation confusion".
     --
     -- The constructor is non-strict in order not to pre-compute
     -- higher derivatives (e.g., inside folds) that are never going to be used.

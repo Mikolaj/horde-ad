@@ -61,8 +61,8 @@ import HordeAd.Core.Unwind
 --
 -- We don't enforce (e.g., by quantifcation) that the objective function
 -- is closed, because we evaluate the result of the differentiation
--- down to concrete arrays and so there's no risk of confusion of cotangents
--- from different levels of differentiation if it's done multiple times.
+-- down to concrete arrays and so there's no risk of "perturbation confusion"
+-- between different levels of differentiation if it's done multiple times.
 -- For simplicity of the type signature, the resulting value is converted from
 -- the type of concrete contangents to the type of concrete input parameters.
 grad
