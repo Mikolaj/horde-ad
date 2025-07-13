@@ -817,13 +817,32 @@ instance Boolean (AstBool ms) where
   b &&* c = AstBoolAnd b c
   b ||* c = notB (notB b &&* notB c)
 
--- TODO: share u and v, since they are duplicated here
 -- TODO: refactor with something like liftRFromS2
 instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKR n r) where
-  v ==. u = v <=. u &&* u <=. v
+  v ==. u = case ftkAst v of
+    FTKR shv' _ -> case ftkAst u of
+      FTKR shu' _ ->
+        withShsFromShR shv' $ \shv ->
+          withShsFromShR shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                cAstSFromR shu (primalPart v)
+                ==. cAstSFromR shv (primalPart u)
+              _ -> error $ "(==.): shapes don't match: "
+                           ++ show (shu, shv)
 
 instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKX sh r) where
-  v ==. u = v <=. u &&* u <=. v
+  v ==. u = case ftkAst v of
+    FTKX shv' _ -> case ftkAst u of
+      FTKX shu' _ ->
+        withShsFromShX shv' $ \shv ->
+          withShsFromShX shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                cAstSFromX shu (primalPart v)
+                ==. cAstSFromX shv (primalPart u)
+              _ -> error $ "(==.): shapes don't match: "
+                           ++ show (shu, shv)
 
 instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKR n r) where
   v <=. u = case ftkAst v of
@@ -833,8 +852,8 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKR n r) where
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                AstLeqS (cAstSFromR shu $ primalPart v)
-                        (cAstSFromR shv $ primalPart u)
+                cAstSFromR shu (primalPart v)
+                <=. cAstSFromR shv (primalPart u)
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -846,11 +865,12 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                AstLeqS (cAstSFromX shu $ primalPart v)
-                        (cAstSFromX shv $ primalPart u)
+                cAstSFromX shu (primalPart v)
+                <=. cAstSFromX shv (primalPart u)
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
+-- TODO: share u and v, since they are duplicated here
 instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKScalar r) where
   v ==. u = v <=. u &&* u <=. v
