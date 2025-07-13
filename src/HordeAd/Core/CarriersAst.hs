@@ -8,7 +8,7 @@
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
-  , sunReplicateScal, sunReplicate1, sunReplicateN
+  , astLetFunNoSimplify, sunReplicateScal, sunReplicate1, sunReplicateN
   ) where
 
 import Prelude hiding (foldl')
@@ -26,6 +26,7 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
@@ -1028,6 +1029,39 @@ deriving instance (RealFloatH (AstTensor AstMethodLet s y))
 
 
 -- * Misc
+
+astLetFunNoSimplify
+  :: forall y z s s2. AstSpan s
+  => AstTensor AstMethodLet s y
+  -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
+  -> AstTensor AstMethodLet s2 z
+astLetFunNoSimplify a f | astIsSmall True a = f a
+                            -- too important an optimization to skip
+astLetFunNoSimplify a f = case a of
+  AstFromS' @y2 ftkz v ->
+    let (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
+    in AstLet var v ast
+  AstFromPrimal (AstFromS' @y2 ftkz vRaw) ->
+    let v = AstFromPrimal vRaw
+        (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
+    in AstLet var v ast
+  _ -> case ftkAst a of
+    ftk@(FTKR @_ @x2 sh' x) ->
+      withShsFromShR sh' $ \(sh :: ShS sh) ->
+        let (var, ast) =
+              funToAst2 (FTKS sh x) Nothing
+                        (f . cAstFromS @(TKS2 sh x2) ftk)
+        in AstLet var (cAstSFromR @sh sh a) ast
+             -- safe, because subsitution ruled out above
+    ftk@(FTKX @_ @x sh' x) ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
+        let (var, ast) =
+              funToAst2 (FTKS sh x) Nothing
+                        (f . cAstFromS @(TKS2 sh x) ftk)
+        in AstLet var (cAstSFromX @sh sh a) ast
+    -- processing product recursively may be not worth it
+    ftk -> let (var, ast) = funToAst2 ftk Nothing f
+           in AstLet var a ast
 
 sunReplicateScal :: Nested.Elt a
                  => Nested.Shaped sh a -> Maybe a
