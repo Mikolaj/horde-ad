@@ -88,6 +88,13 @@ instance (GoodScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
   AstFromDual u + AstFromDual v = AstFromDual $ u + v
+  -- TODO: define a pattern synonym that captures the below. Also elsewhere.
+  AstConvert c u + AstConvert _ v
+    | FTKS ZSS x <- ftkAst u
+    , FTKS ZSS y <- ftkAst v
+    , Just Refl <- matchingFTK x (convertFTK c (ftkAst u))
+    , Just Refl <- matchingFTK x y =
+      AstConvert c $ u + v
   AstConcreteK 0 + u = u
   u + AstConcreteK 0 = u
   AstConcreteK n + AstConcreteK k = AstConcreteK (n + k)
@@ -166,6 +173,12 @@ instance (GoodScalar r, AstSpan s)
   _ * AstConcreteK 0 = 0
   AstConcreteK 1 * u = u
   u * AstConcreteK 1 = u
+  AstConvert c u * AstConvert _ v
+    | FTKS ZSS x <- ftkAst u
+    , FTKS ZSS y <- ftkAst v
+    , Just Refl <- matchingFTK x (convertFTK c (ftkAst u))
+    , Just Refl <- matchingFTK x y =
+      AstConvert c $ u * v
   AstConcreteK n * AstConcreteK k = AstConcreteK (n * k)
   AstConcreteK n * AstTimesK (AstConcreteK k) u = AstConcreteK (n * k) * u
   AstTimesK (AstConcreteK n) u * AstConcreteK k = AstConcreteK (n * k) * u
@@ -233,19 +246,30 @@ instance (GoodScalar r, AstSpan s)
     -- v is likely positive and let's keep it so
   negate (AstI2K RemOp u v) = AstI2K RemOp (negate u) v
     -- v is likely positive and let's keep it so
--- TODO: negate (AstFromS' ftk u) = AstFromS ftk (negate u)
   negate (AstConcreteK n) = AstConcreteK (negate n)
+  negate (AstConvert c u)
+    | FTKS ZSS x <- ftkAst u
+    , Just Refl <- matchingFTK x (convertFTK c (ftkAst u)) =
+      AstConvert c (negate u)
   negate u = AstN1K NegateOp u
   abs (AstFromPrimal n) = AstFromPrimal (abs n)
   abs (AstFromDual n) = AstFromDual (abs n)
   abs (AstConcreteK n) = AstConcreteK (abs n)
   abs (AstN1K AbsOp u) = AstN1K AbsOp u
   abs (AstN1K NegateOp u) = abs u
+  abs (AstConvert c u)
+    | FTKS ZSS x <- ftkAst u
+    , Just Refl <- matchingFTK x (convertFTK c (ftkAst u)) =
+      AstConvert c (abs u)
   abs u = AstN1K AbsOp u
   signum (AstFromPrimal n) = AstFromPrimal (signum n)
   signum (AstFromDual n) = AstFromDual (signum n)
   signum (AstConcreteK n) = AstConcreteK (signum n)
   signum (AstN1K SignumOp u) = AstN1K SignumOp u
+  signum (AstConvert c u)
+    | FTKS ZSS x <- ftkAst u
+    , Just Refl <- matchingFTK x (convertFTK c (ftkAst u)) =
+      AstConvert c (signum u)
   signum u = AstN1K SignumOp u
   fromInteger i = fromPrimal $ AstConcreteK (fromInteger i)
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int64)) #-}
@@ -294,6 +318,12 @@ eqK _ _ = False
 instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKScalar r)) where
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
+  quotH (AstConvert c n) (AstConvert _ k)
+    | FTKS ZSS x <- ftkAst n
+    , FTKS ZSS y <- ftkAst k
+    , Just Refl <- matchingFTK x (convertFTK c (ftkAst n))
+    , Just Refl <- matchingFTK x y =
+      AstConvert c (quotH n k)
   quotH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotH n k)
   quotH (AstConcreteK 0) _ = 0
   quotH u (AstConcreteK 1) = u
@@ -308,6 +338,12 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
     in if u1 == u2 then fromPrimal $ AstConcreteK u1 else t
 
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
+  remH (AstConvert c n) (AstConvert _ k)
+    | FTKS ZSS x <- ftkAst n
+    , FTKS ZSS y <- ftkAst k
+    , Just Refl <- matchingFTK x (convertFTK c (ftkAst n))
+    , Just Refl <- matchingFTK x y =
+      AstConvert c (remH n k)
   remH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (remH n k)
   remH (AstConcreteK 0) _ = 0
   remH _ (AstConcreteK 1) = 0
@@ -586,7 +622,6 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   remH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
     AstReplicate snat stk $ remH u v
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
-  -- TODO: define a pattern synonym that captures the below. Also elsewhere.
   remH (AstConvert c n) (AstConvert _ k)
     | FTKS ZSS x <- convertFTK c (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst n)
