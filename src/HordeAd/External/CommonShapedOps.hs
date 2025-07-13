@@ -205,7 +205,8 @@ slicezS d ixBase =
   sbuild @(Rank shOut)
   $ \ixResult ->
       sindex0 d (ixsFromIxR' knownShS $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
-      -- TODO: use ixrZipWithS once defined
+      -- TODO: this doesn't work, because ixsZipWith has too strict a type:
+      -- sbuild @(Rank shOut) $ \ixResult -> sindex0 d (ixsZipWith (+) ixBase ixResult)
 
 maxPool2dUnpaddedS
   :: forall ksize stride batch_size channels h w target r shOut shK1.
