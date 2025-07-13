@@ -874,6 +874,10 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
 instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKScalar r) where
   v ==. u = v <=. u &&* u <=. v
+  {- TODO: for this to work, booleans have to be first-class:
+  vUnshared ==. uUnshared = astLetFunNoSimplify vUnshared $ \v ->
+                            astLetFunNoSimplify uUnshared $ \u ->
+    v <=. u &&* u <=. v -}
 
 instance (AstSpan s, GoodScalar r)
          => EqH (AstTensor ms s) (TKS sh r) where
