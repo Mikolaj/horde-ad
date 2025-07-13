@@ -453,7 +453,7 @@ checkPatternAstFromS c t =
 checkAstFromS :: TKConversion a b -> AstTensor ms s a -> Bool
 checkAstFromS c t = isJust $ checkPatternAstFromS c t
 
--- TODO: this is to lax, since it accepts nests/unnests
+-- TODO: this is too lax, since it accepts nests/unnests
 checkFtkAstFromS :: FullShapeTK y -> FullShapeTK z -> Bool
 checkFtkAstFromS yftk zftk | Just Refl <- matchingFTK yftk zftk = True
 checkFtkAstFromS FTKS{} FTKS{} = False

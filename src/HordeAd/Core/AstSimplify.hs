@@ -9,10 +9,10 @@
 -- term-simplifying combinators corresponding to the Ast constructors.
 -- The combinators simplify only on the basis of inspecting the roots of their
 -- argument term trees. If the arguments get modified,
--- the modified forms are again inspected and potentialy simplified again.
+-- the modified forms are again inspected and potentially simplified again.
 --
 -- The limited simplification via combinators is enough to uncover redexes
--- for the vectorization rules to fire and to undo some of the complication
+-- for the factorization rules to fire and to undo some of the complication
 -- introduced by vectorization. The intention is to leave intact as much
 -- as possible of the original terms provided by the user while making
 -- sure subterms introduced by vectorization are maximally simplified.
@@ -2062,7 +2062,8 @@ astGatherKnobsS knobs shn v0
        $ let v2 = astTransposeS permIx
                   $ astSliceS (SNat @0) (SNat @m2) (SNat @(p - m2)) v0
              u = astGatherKnobsS knobs (SNat @m2 :$$ shn) v2 (mrest, prest)
-             ftk = FTKS (SNat @(m - m2) :$$ shsFromListS mrest `shsAppend` shn) x
+             ftk =
+               FTKS (SNat @(m - m2) :$$ shsFromListS mrest `shsAppend` shn) x
          in astTransposeS permVars u
             `astAppendS`
             fromPrimal (astConcrete ftk (tdefTarget ftk))

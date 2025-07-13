@@ -803,15 +803,17 @@ instance Boolean (AstBool ms) where
   b &&* AstBoolAnd
           c@(AstBoolNot
                (AstBoolAnd
-                  (AstBoolNot (AstLeqK AstConcreteK{}
-                                       AstVar{})) _)) d = AstBoolAnd c (b &&* d)
+                  (AstBoolNot
+                     (AstLeqK AstConcreteK{}
+                              AstVar{})) _)) d = AstBoolAnd c (b &&* d)
   b &&* AstBoolAnd
           c@(AstBoolNot
                (AstBoolAnd
                   (AstBoolNot
                      (AstLeqK AstConcreteK{}
-                              (AstN1K NegateOp
-                                      AstVar{}))) _)) d = AstBoolAnd c (b &&* d)
+                              (AstN1K
+                                 NegateOp
+                                 AstVar{}))) _)) d = AstBoolAnd c (b &&* d)
   b &&* c = AstBoolAnd b c
   b ||* c = notB (notB b &&* notB c)
 
