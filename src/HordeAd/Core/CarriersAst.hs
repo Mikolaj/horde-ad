@@ -161,7 +161,7 @@ instance (GoodScalar r, AstSpan s)
   u + v = AstPlusK u v
 
   AstFromPrimal u * AstFromPrimal v = AstFromPrimal $ u * v
-    -- TODO: this is not mathematically correct for AstFromDual, right?
+  AstFromDual{} * AstFromDual{} = 0
   AstConcreteK 0 * _ = 0
   _ * AstConcreteK 0 = 0
   AstConcreteK 1 * u = u
@@ -489,6 +489,7 @@ instance (GoodScalar r, AstSpan s)
   AstReplicate snat stk@STKS{} u * AstReplicate _ STKS{} v =
     AstReplicate snat stk $ u * v
   AstFromPrimal u * AstFromPrimal v = AstFromPrimal $ u * v
+--  AstFromDual{} * AstFromDual{} = 0
   AstConcreteS z * _ | Just 0 <- sunReplicateScal z = AstConcreteS z
   _ * AstConcreteS z | Just 0 <- sunReplicateScal z = AstConcreteS z
   AstConcreteS s * u | Just 1 <- sunReplicateScal s = u
@@ -892,7 +893,7 @@ instance (AstSpan s, GoodScalar r)
           , u2 <= v1 || u1 > v2 = AstBoolConst (u2 <= v1)
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
-  AstFromDual u <=. AstFromDual v = u <=. v  -- TODO: correct?
+  AstFromDual{} <=. AstFromDual{} = AstBoolConst True
   AstConvert _ u <=. AstConvert _ v
     | FTKS ZSS (FTKScalar @ru) <- ftkAst u
     , FTKS ZSS (FTKScalar @rv) <- ftkAst v
@@ -928,7 +929,7 @@ instance (AstSpan s, GoodScalar r)
 instance (AstSpan s, GoodScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
-  AstFromDual u <=. AstFromDual v = u <=. v  -- TODO: correct?
+  AstFromDual{} <=. AstFromDual{} = AstBoolConst True
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
   AstConvert c u <=. AstConvert _ v
     | FTKS ZSS x <- convertFTK c (ftkAst u)
