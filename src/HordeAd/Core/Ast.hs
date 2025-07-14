@@ -432,7 +432,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
               -> AstTensor ms s (TKS '[m, p] r)
 
 deriving instance Show (AstTensor ms s y)
-  -- for this to work, AstConcreteS can't take a Concrete
+  -- for this to work, AstConcreteS can't take a Concrete;
+  -- an alternative might be @Has Show (AstTensor ms s)@, but then we'd need
+  -- to write @has@ before we apply @show@ and we'd weaken @AllTargetShow@
 
 type role AstHFun nominal nominal nominal nominal
 data AstHFun s s2 x z where

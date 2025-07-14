@@ -344,6 +344,8 @@ deriving instance Show (IntOf target) => Show (Delta target y)
 -- in delta expressions a lot and so the primal
 -- subterm would bloat the pretty-printed output (though OTOH the primal
 -- terms are often important).
+--
+-- Possibly, @Has Show (Delta target)@ is a better solution.
 type NestedTarget :: Target -> Target
 type role NestedTarget nominal nominal
 newtype NestedTarget target y = NestedTarget (target y)
