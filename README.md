@@ -10,7 +10,7 @@ Mature Haskell libraries with similar capabilities, but varying efficiency, are 
 <!--
 The benchmarks at SOMEWHERE show that this library has performance highly competitive with (i.e. faster than) those and PyTorch on CPU.
 -->
-It is hoped that the (well-typed) separation of AD logic and tensor manipulation backend will enable similar speedups on numerical accelerators, when their support is implemented. Contributions to this and other tasks are very welcome.
+It is hoped that the (well-typed) separation of AD logic and tensor manipulation backend will enable similar speedups on numerical accelerators, when their support is implemented. Contributions to this and other tasks are very welcome. The newcomer-friendly tickets are listed at https://github.com/Mikolaj/horde-ad/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22. Please don't hesitate to ask questions on github, on Matrix, via email.
 
 
 ## Computing the derivative of a simple function
