@@ -14,9 +14,9 @@ import Control.Exception.Assert.Sugar
 import Data.Coerce (Coercible, coerce)
 import Data.Foldable qualified as Foldable
 import Data.Function ((&))
+import Data.Functor.WithIndex (imap)
 import Data.Int (Int64)
 import Data.List (foldl', mapAccumL, mapAccumR)
-import Data.List.Index (imap)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Map.Strict qualified as M
 import Data.Proxy (Proxy (Proxy))
