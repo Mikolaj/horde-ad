@@ -561,12 +561,12 @@ testGradFooDouble =
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
     (gradFooDouble (1.1, 2.2, 3.3))
 
-type Matrix2x2 :: Target -> Type -> Type
-type Matrix2x2 f r = f (TKS '[2, 2] r)
-type ThreeMatrices r = (Matrix2x2 Concrete r, Matrix2x2 Concrete r, Matrix2x2 Concrete r)
+type Matrix2x2 :: Type -> Type
+type Matrix2x2 r = Concrete (TKS '[2, 2] r)
+type ThreeMatrices r = (Matrix2x2 r, Matrix2x2 r, Matrix2x2 r)
 threeSimpleMatrices :: ThreeMatrices Double
 threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)
-fooMatrixValue :: Matrix2x2 Concrete Double
+fooMatrixValue :: Matrix2x2 Double
 fooMatrixValue = foo threeSimpleMatrices
 gradSumFooMatrix :: ThreeMatrices Double -> ThreeMatrices Double
 gradSumFooMatrix = cgrad (kfromS . ssum0 . foo)
@@ -625,8 +625,12 @@ testGradFooLetMatrixSimpRPP = do
     in printArtifactPretty (simplifyArtifact $ revArtifactAdapt UseIncomingCotangent fooLet (FTKProduct (FTKProduct ftk ftk) ftk)))
        @?= "\\dret m1 -> tconvert (ConvT2 (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2] FTKScalar)) ConvSX))) (ConvCmp (ConvXR STKScalar) ConvSX)) (STKProduct (STKProduct (STKS [2,2] STKScalar) (STKS [2,2] STKScalar)) (STKS [2,2] STKScalar)) (let m3 = sin (sfromR (tproject2 (tproject1 m1))) ; m4 = sfromR (tproject1 (tproject1 m1)) * m3 ; m5 = recip (sfromR (tproject2 m1) * sfromR (tproject2 m1) + m4 * m4) ; m7 = (negate (sfromR (tproject2 m1)) * m5) * sfromR dret + sfromR (tproject2 m1) * sfromR dret in tpair (tpair (m3 * m7) (cos (sfromR (tproject2 (tproject1 m1))) * (sfromR (tproject1 (tproject1 m1)) * m7))) ((m4 * m5) * sfromR dret + m4 * sfromR dret))"
 
-sumFooMatrix :: (ADReady f, RealFloat (Matrix2x2 f r), GoodScalar r)
-             => (Matrix2x2 f r, Matrix2x2 f r, Matrix2x2 f r) -> f (TKScalar r)
+type Matrix2x2f :: Target -> Type -> Type
+type Matrix2x2f f r = f (TKS '[2, 2] r)
+
+sumFooMatrix :: (ADReady f, RealFloat (Matrix2x2f f r), GoodScalar r)
+             => (Matrix2x2f f r, Matrix2x2f f r, Matrix2x2f f r)
+             -> f (TKScalar r)
 sumFooMatrix = kfromS . ssum0 . foo
 
 testfooSumMatrix :: Assertion

@@ -3,12 +3,15 @@
 [![Hackage](https://img.shields.io/hackage/v/horde-ad.svg)](https://hackage.haskell.org/package/horde-ad)
 
 Welcome to the Automatic Differentiation library originally inspired by the paper [_"Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation"_](https://dl.acm.org/doi/10.1145/3498710). Compared to the paper and to classic taping AD Haskell packages, the library additionally efficiently supports array operations and generation of symbolic derivative programs, though the efficiency is confined to a narrowly typed class of source programs with limited higher-orderness. A detailed account of the extension is in the paper [_"Dual-Numbers Reverse AD for Functional Array Languages"_](http://arxiv.org/abs/2507.12640) by Tom Smeding, Mikolaj Konarski, Simon Peyton Jones and Andrew Fitzgibbon.
+<!--
+More specifically, in primitive pipelines (that match the Provable paper) the objective functions have types with ADVal in them which, e.g., permit dynamic control flow via inspecting the primal components of ADVal and permit higher order functions by just applying them (they are not symbolic for ADVal), but prevent vectorization, simplification and computing a derivative only once and evaluating on many inputs.
+-->
 
 This is an early prototype, both in terms of the engine performance, the API and the preliminary tools and examples built with it. At this development stage, it's not coded defensively but exactly the opposite: it will fail on cases not found in current tests so that new code and tests have to be added and old code optimized for the new specimens reported in the wild. The user should also be ready to add missing primitives and any obvious tools that should be predefined but aren't, such as weight normalization (https://github.com/Mikolaj/horde-ad/issues/42). It's already possible to differentiate basic neural network architectures, such as fully connected, recurrent, convolutional and residual. The library should also be suitable for defining exotic machine learning architectures and non-machine learning systems, given that no notion of a neural network nor of a computation graph are hardwired into the formalism, but instead they are compositionally and type-safely built up from general automatic differentiation building blocks.
 
 Mature Haskell libraries with similar capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. See also https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md. Benchmarks suggest that horde-ad has competitive performance on CPU.
 <!--
-The benchmarks at SOMEWHERE show that this library has performance highly competitive with (i.e. faster than) those and PyTorch on CPU.
+The benchmarks at _ (TBD after GHC 9.14 is out) show that this library has performance highly competitive with (i.e. faster than) those and PyTorch on CPU.
 -->
 It is hoped that the (well-typed) separation of AD logic and tensor manipulation backend will enable similar speedups on numerical accelerators, when their support is implemented. Contributions to this and other tasks are very welcome. The newcomer-friendly tickets are listed at https://github.com/Mikolaj/horde-ad/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22. Please don't hesitate to ask questions on github, on Matrix, via email.
 
@@ -36,13 +39,13 @@ which can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
 (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 ```
 
-We can instantiate `foo` to matrices; the operations within (`sin`, `+`, `*`, etc.) applying elementwise:
+We can instantiate `foo` to matrices (represented in the `Concrete` datatype of unboxed multi-dimensional arrays); the operations within (`sin`, `+`, `*`, etc.) applying elementwise:
 ```hs
-type Matrix2x2 f r = f (TKS '[2, 2] r)  -- TKS means shapely-typed tensor kind
-type ThreeMatrices r = (Matrix2x2 Concrete r, Matrix2x2 Concrete r, Matrix2x2 Concrete r)
+type Matrix2x2 r = Concrete (TKS '[2, 2] r)  -- TKS means shapely-typed tensor kind
+type ThreeMatrices r = (Matrix2x2 r, Matrix2x2 r, Matrix2x2 r)
 threeSimpleMatrices :: ThreeMatrices Double
 threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)  -- srepl replicates its argument to fill the whole matrix
-fooMatrixValue :: Matrix2x2 Concrete Double
+fooMatrixValue :: Matrix2x2 Double
 fooMatrixValue = foo threeSimpleMatrices
 >>> fooMatrixValue
 sfromListLinear [2,2] [4.242393641025528,4.242393641025528,4.242393641025528,4.242393641025528])
@@ -65,7 +68,7 @@ This works as well as before:
 
 We noted above that `w` appears twice in `foo`.  A property of tracing-based AD systems is that such re-use may not be captured, with explosive results.
 In `cgrad`, such sharing is preserved, so `w` is processed only once during gradient computation and this property is guaranteed for the `cgrad` tool universally, without any action required from the user.
-`horde-ad` also allows computing _symbolic_ derivative programs: using this API, a program is differentiated only once, after which it can be run on many different input values.
+`horde-ad` also allows computing _symbolic_ derivative programs: with this API, a program is differentiated only once, after which it can be run on many different input values.
 In this case, however, sharing is _not_ automatically preserved, so shared variables have to be explicitly marked using `tlet`, as shown below in `fooLet`.
 This also makes the type of the function more specific: it now does not work on an arbitrary `Num` any more, but instead on an arbitrary `horde-ad` tensor that implements the standard arithmetic operations, some of which (e.g., `atan2H`) are implemented in custom numeric classes.
 ```hs
