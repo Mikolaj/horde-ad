@@ -27,17 +27,17 @@ import HordeAd.Core.Ops
 bgroup100, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 bgroup100 = envProd 100 $ \args -> bgroup "100" $ benchProd args
 
-bgroup1000 = envProd 1000 $ \args -> bgroup "1000" $ benchProd args
+bgroup1000 = envProd 1000 $ \args -> bgroup "1000" $ benchProdShort args
 
-bgroup1e4 = envProd 1e4 $ \args -> bgroup "1e4" $ benchProd args
+bgroup1e4 = envProd 1e4 $ \args -> bgroup "1e4" $ benchProdShort args
 
-bgroup1e5 = envProd 1e5 $ \args -> bgroup "1e5" $ benchProd args
+bgroup1e5 = envProd 1e5 $ \args -> bgroup "1e5" $ benchProdShort args
 
-bgroup1e6 = envProd 1e6 $ \args -> bgroup "1e6" $ benchProd args
+bgroup1e6 = envProd 1e6 $ \args -> bgroup "1e6" $ benchProdShort args
 
-bgroup1e7 = envProd 1e7 $ \args -> bgroup "1e7" $ benchProd args
+bgroup1e7 = envProd 1e7 $ \args -> bgroup "1e7" $ benchProdShort args
 
-bgroup5e7 = envProd 5e7 $ \args -> bgroup "5e7" $ benchProd args
+bgroup5e7 = envProd 5e7 $ \args -> bgroup "5e7" $ benchProdShort args
   -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
 
 envProd :: r ~ Double
@@ -64,13 +64,14 @@ envProd rat f allxs =
          , sfromList . fromList $ lt) )
         (f @k)
 
-benchProd :: r ~ Double
-          => ( SNat n
-             , [Concrete (TKScalar r)]
-             , ListR n (Concrete (TKScalar r))
-             , ListR n (Concrete (TKS '[] r))
-             , Concrete (TKS '[n] r) )
-          -> [Benchmark]
+benchProd
+  :: r ~ Double
+  => ( SNat n
+     , [Concrete (TKScalar r)]
+     , ListR n (Concrete (TKScalar r))
+     , ListR n (Concrete (TKS '[] r))
+     , Concrete (TKS '[n] r) )
+  -> [Benchmark]
 benchProd ~(snat, list, l, lt, t) = case snat of
   SNat ->
     [ bench "cgrad s MapAccum" $ nf (crevSMapAccum snat) t
@@ -89,6 +90,34 @@ benchProd ~(snat, list, l, lt, t) = case snat of
     , bench "cgrad s R" $ nf (crevSR snat) lt
     , bench "grad s R" $ nf (revSR snat) lt
     , bench "cgrad s NotShared" $ nf (crevSNotShared snat) lt
+    ]
+
+benchProdShort
+  :: r ~ Double
+  => ( SNat n
+     , [Concrete (TKScalar r)]
+     , ListR n (Concrete (TKScalar r))
+     , ListR n (Concrete (TKS '[] r))
+     , Concrete (TKS '[n] r) )
+  -> [Benchmark]
+benchProdShort ~(snat, list, l, lt, t) = case snat of
+  SNat ->
+--    [ bench "cgrad s MapAccum" $ nf (crevSMapAccum snat) t
+--    , bench "grad s MapAccum" $ nf (revSMapAccum snat) t
+    [ bench "cgrad scalar MapAccum" $ nf (crevScalarMapAccum snat) t
+    , bench "grad scalar MapAccum" $ nf (revScalarMapAccum snat) t
+--    , bench "cgrad scalar list" $ nf crevScalarList list
+--    , bench "grad scalar list" $ nf revScalarList list
+    , bench "cgrad scalar L" $ nf (crevScalarL snat) l
+--    , bench "grad scalar L" $ nf (revScalarL snat) l
+    , bench "cgrad scalar R" $ nf (crevScalarR snat) l
+--    , bench "grad scalar R" $ nf (revScalarR snat) l
+    , bench "cgrad scalar NotShared" $ nf (crevScalarNotShared snat) l
+--    , bench "cgrad s L" $ nf (crevSL snat) lt
+--    , bench "grad s L" $ nf (revSL snat) lt
+--    , bench "cgrad s R" $ nf (crevSR snat) lt
+--    , bench "grad s R" $ nf (revSR snat) lt
+--    , bench "cgrad s NotShared" $ nf (crevSNotShared snat) lt
     ]
 
 -- Another variant, with foldl1' and indexing, would be a disaster.
