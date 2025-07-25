@@ -299,7 +299,7 @@ mnistBGroup2VTA chunkLength =
   \ xs ->
   bgroup ("2-hidden-layer rank 2 VTA MNIST nn with samples: "
           ++ show chunkLength)
-       [ mnistTestBench2VTA "30|10 "30 10 0.02 chunkLength xs
+       [ mnistTestBench2VTA "30|10 " 30 10 0.02 chunkLength xs
        , mnistTrainBench2VTA "30|10 " 30 10 0.02 chunkLength xs
        , mnistTestBench2VTA "300|100 " 300 100 0.02 chunkLength xs
        , mnistTrainBench2VTA "300|100 " 300 100 0.02 chunkLength xs
@@ -336,7 +336,7 @@ mnistBGroup2VTC chunkLength =
        ]
 
 -- The same as above, but only runtime.
-mnistTrainBench2VTO
+mnistTrainBench2VTOO
   :: forall r. r ~ Double
   => String
   -> Double -> Int -> [MnistDataLinearR r]
@@ -348,7 +348,7 @@ mnistTrainBench2VTO
                        (TKR2 1 (TKScalar Double))))
          (TKScalar r) )
   -> Benchmark
-mnistTrainBench2VTO prefix gamma batchSize xs (targetInit, art) = do
+mnistTrainBench2VTOO prefix gamma batchSize xs (targetInit, art) = do
     let go :: [MnistDataLinearR r] -> Concrete (XParams2 r Float)
            -> Concrete (XParams2 r Float)
         go [] parameters = parameters
@@ -367,6 +367,21 @@ mnistTrainBench2VTO prefix gamma batchSize xs (targetInit, art) = do
                , "=" ++ show (tsize knownSTK targetInit) ]
     bench name $ nf gradf chunk
 
+-- The same as above, but both compilation time and only runtime.
+mnistTrainBench2VTO
+  :: forall r. r ~ Double
+  => String
+  -> Int -> Int -> Double -> Int -> [MnistDataLinearR r]
+  -> Benchmark
+mnistTrainBench2VTO prefix widthHidden widthHidden2
+                    gamma batchSize xs =
+  let (!targetInit, !artRaw) =
+        MnistFcnnRanked2.mnistTrainBench2VTOGradient
+          @Double (Proxy @Float) IgnoreIncomingCotangent
+          1 (mkStdGen 44) widthHidden widthHidden2
+      !art = simplifyArtifactGradient artRaw
+  in mnistTrainBench2VTOO prefix gamma batchSize xs (targetInit, art)
+
 mnistBGroup2VTO :: Int -> Benchmark
 mnistBGroup2VTO chunkLength =
   let (!targetInit, !artRaw) =
@@ -381,7 +396,7 @@ mnistBGroup2VTO chunkLength =
   \ xs ->
    bgroup ("2-hidden-layer rank 2 VTO runtime MNIST nn with samples: "
            ++ show chunkLength)
-     [ mnistTrainBench2VTO "1500|500 " 0.02 chunkLength xs (targetInit, art)
+     [ mnistTrainBench2VTOO "1500|500 " 0.02 chunkLength xs (targetInit, art)
      ]
 
 -- The same as above, but without simplifying the gradient.
@@ -429,7 +444,7 @@ mnistBGroup2VTOZ chunkLength =
   \ xs ->
    bgroup ("2-hidden-layer rank 2 VTOZ runtime MNIST nn with samples: "
            ++ show chunkLength)
-     [ mnistTrainBench2VTO "1500|500 " 0.02 chunkLength xs (targetInit, art)
+     [ mnistTrainBench2VTOO "1500|500 " 0.02 chunkLength xs (targetInit, art)
      ]
 
 -- The same as above, but without any simplification, even the smart
@@ -478,7 +493,7 @@ mnistBGroup2VTOX chunkLength =
   \ xs ->
    bgroup ("2-hidden-layer rank 2 VTOX runtime MNIST nn with samples: "
            ++ show chunkLength)
-     [ mnistTrainBench2VTO "1500|500 " 0.02 chunkLength xs (targetInit, art)
+     [ mnistTrainBench2VTOO "1500|500 " 0.02 chunkLength xs (targetInit, art)
      ]
 
 {- TODO: re-enable once -fpolymorphic-specialisation works
