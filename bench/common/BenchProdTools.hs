@@ -31,13 +31,13 @@ bgroup1000 = envProd 1000 $ \args -> bgroup "1000" $ benchProdShort args
 
 bgroup1e4 = envProd 1e4 $ \args -> bgroup "1e4" $ benchProdShort args
 
-bgroup1e5 = envProd 1e5 $ \args -> bgroup "1e5" $ benchProdShort args
+bgroup1e5 = envProd 1e5 $ \args -> bgroup "1e5" $ benchProdShortest args
 
-bgroup1e6 = envProd 1e6 $ \args -> bgroup "1e6" $ benchProdShort args
+bgroup1e6 = envProd 1e6 $ \args -> bgroup "1e6" $ benchProdShortest args
 
-bgroup1e7 = envProd 1e7 $ \args -> bgroup "1e7" $ benchProdShort args
+bgroup1e7 = envProd 1e7 $ \args -> bgroup "1e7" $ benchProdShortest args
 
-bgroup5e7 = envProd 5e7 $ \args -> bgroup "5e7" $ benchProdShort args
+bgroup5e7 = envProd 5e7 $ \args -> bgroup "5e7" $ benchProdShortest args
   -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
 
 envProd :: r ~ Double
@@ -76,15 +76,15 @@ benchProd ~(snat, list, l, lt, t) = case snat of
   SNat ->
     [ bench "cgrad s MapAccum" $ nf (crevSMapAccum snat) t
     , bench "grad s MapAccum" $ nf (revSMapAccum snat) t
-    , bench "cgrad scalar MapAccum" $ nf (crevScalarMapAccum snat) t
-    , bench "grad scalar MapAccum" $ nf (revScalarMapAccum snat) t
-    , bench "cgrad scalar list" $ nf crevScalarList list
-    , bench "grad scalar list" $ nf revScalarList list
-    , bench "cgrad scalar L" $ nf (crevScalarL snat) l
-    , bench "grad scalar L" $ nf (revScalarL snat) l
-    , bench "cgrad scalar R" $ nf (crevScalarR snat) l
-    , bench "grad scalar R" $ nf (revScalarR snat) l
-    , bench "cgrad scalar NotShared" $ nf (crevScalarNotShared snat) l
+    , bench "cgrad k MapAccum" $ nf (crevScalarMapAccum snat) t
+    , bench "grad k MapAccum" $ nf (revScalarMapAccum snat) t
+    , bench "cgrad k list" $ nf crevScalarList list
+    , bench "grad k list" $ nf revScalarList list
+    , bench "cgrad k L" $ nf (crevScalarL snat) l
+    , bench "grad k L" $ nf (revScalarL snat) l
+    , bench "cgrad k R" $ nf (crevScalarR snat) l
+    , bench "grad k R" $ nf (revScalarR snat) l
+    , bench "cgrad k NotShared" $ nf (crevScalarNotShared snat) l
     , bench "cgrad s L" $ nf (crevSL snat) lt
     , bench "grad s L" $ nf (revSL snat) lt
     , bench "cgrad s R" $ nf (crevSR snat) lt
@@ -104,15 +104,43 @@ benchProdShort ~(snat, list, l, lt, t) = case snat of
   SNat ->
 --    [ bench "cgrad s MapAccum" $ nf (crevSMapAccum snat) t
 --    , bench "grad s MapAccum" $ nf (revSMapAccum snat) t
-    [ bench "cgrad scalar MapAccum" $ nf (crevScalarMapAccum snat) t
-    , bench "grad scalar MapAccum" $ nf (revScalarMapAccum snat) t
---    , bench "cgrad scalar list" $ nf crevScalarList list
---    , bench "grad scalar list" $ nf revScalarList list
-    , bench "cgrad scalar L" $ nf (crevScalarL snat) l
---    , bench "grad scalar L" $ nf (revScalarL snat) l
-    , bench "cgrad scalar R" $ nf (crevScalarR snat) l
---    , bench "grad scalar R" $ nf (revScalarR snat) l
-    , bench "cgrad scalar NotShared" $ nf (crevScalarNotShared snat) l
+    [ bench "cgrad k MapAccum" $ nf (crevScalarMapAccum snat) t
+    , bench "grad k MapAccum" $ nf (revScalarMapAccum snat) t
+--    , bench "cgrad k list" $ nf crevScalarList list
+--    , bench "grad k list" $ nf revScalarList list
+    , bench "cgrad k L" $ nf (crevScalarL snat) l
+    , bench "grad k L" $ nf (revScalarL snat) l
+--    , bench "cgrad k R" $ nf (crevScalarR snat) l
+--    , bench "grad k R" $ nf (revScalarR snat) l
+    , bench "cgrad k NotShared" $ nf (crevScalarNotShared snat) l
+--    , bench "cgrad s L" $ nf (crevSL snat) lt
+--    , bench "grad s L" $ nf (revSL snat) lt
+--    , bench "cgrad s R" $ nf (crevSR snat) lt
+--    , bench "grad s R" $ nf (revSR snat) lt
+--    , bench "cgrad s NotShared" $ nf (crevSNotShared snat) lt
+    ]
+
+benchProdShortest
+  :: r ~ Double
+  => ( SNat n
+     , [Concrete (TKScalar r)]
+     , ListR n (Concrete (TKScalar r))
+     , ListR n (Concrete (TKS '[] r))
+     , Concrete (TKS '[n] r) )
+  -> [Benchmark]
+benchProdShortest ~(snat, list, l, lt, t) = case snat of
+  SNat ->
+--    [ bench "cgrad s MapAccum" $ nf (crevSMapAccum snat) t
+--    , bench "grad s MapAccum" $ nf (revSMapAccum snat) t
+    [ bench "cgrad k MapAccum" $ nf (crevScalarMapAccum snat) t
+    , bench "grad k MapAccum" $ nf (revScalarMapAccum snat) t
+--    , bench "cgrad k list" $ nf crevScalarList list
+--    , bench "grad k list" $ nf revScalarList list
+    , bench "cgrad k L" $ nf (crevScalarL snat) l
+--    , bench "grad k L" $ nf (revScalarL snat) l
+--    , bench "cgrad k R" $ nf (crevScalarR snat) l
+--    , bench "grad k R" $ nf (revScalarR snat) l
+    , bench "cgrad k NotShared" $ nf (crevScalarNotShared snat) l
 --    , bench "cgrad s L" $ nf (crevSL snat) lt
 --    , bench "grad s L" $ nf (revSL snat) lt
 --    , bench "cgrad s R" $ nf (crevSR snat) lt
