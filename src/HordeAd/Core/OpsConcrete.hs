@@ -180,7 +180,7 @@ instance BaseTensor Concrete where
   tsindex0 = tindex0S
   -- Performance depends a lot on the number and size of tensors.
   -- If tensors are not tiny, memory taken by underlying vectors matters most
-  -- and this implementation is probbaly optimal in this respect
+  -- and this implementation is probaly optimal in this respect
   -- (the only new vectors are created by V.concat, but this is done on demand).
   -- TODO: optimize updateNS and make it consume and forget arguments
   -- one by one to make the above true
@@ -800,7 +800,7 @@ tindex0R (RS.A (RG.A _ OI.T{..})) ix =
 
 -- Performance depends a lot on the number and size of tensors.
 -- If tensors are not tiny, memory taken by underlying vectors matters most
--- and this implementation is probbaly optimal in this respect
+-- and this implementation is probably optimal in this respect
 -- (the only new vectors are created by V.concat, but this is done on demand).
 -- TODO: optimize updateNR and make it consume and forget arguments
 -- one by one to make the above true
