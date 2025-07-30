@@ -204,7 +204,8 @@ slicezS d ixBase =
   gcastWith (unsafeCoerceRefl :: Drop (Rank sh) shOut :~: '[]) $
   sbuild @(Rank shOut)
   $ \ixResult ->
-      sindex0 d (ixsFromIxR' knownShS $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
+      sindex0 d (ixsFromIxR' knownShS
+                 $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
       -- TODO: this doesn't work, because ixsZipWith has too strict a type:
       -- sbuild @(Rank shOut) $ \ixResult -> sindex0 d (ixsZipWith (+) ixBase ixResult)
 
