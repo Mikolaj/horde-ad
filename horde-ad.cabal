@@ -359,6 +359,7 @@ library testCommonLibrary
     visibility:       public
 
     exposed-modules:  TestAdaptorSimplified
+                      TestConvQuickCheck
                       TestConvSimplified
                       TestGatherSimplified
                       TestHighRankSimplified

@@ -9,6 +9,7 @@ import Test.Tasty.Options
 import Test.Tasty.Runners
 
 import EqEpsilon
+import TestConvQuickCheck qualified
 import TestMnistCNNR qualified
 import TestMnistCNNS qualified
 import TestMnistFCNNR qualified
@@ -34,5 +35,6 @@ tests =
          ++ TestMnistCNNS.testTrees
          ++ TestMnistFCNNR.testTrees
          ++ TestMnistRNNR.testTrees
-         ++ TestMnistRNNS.testTrees)
+         ++ TestMnistRNNS.testTrees
+         ++ TestConvQuickCheck.testTrees)
     ]

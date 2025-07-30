@@ -10,6 +10,7 @@ import Test.Tasty.Runners
 
 import EqEpsilon
 import TestAdaptorSimplified qualified
+import TestConvQuickCheck qualified
 import TestConvSimplified qualified
 import TestGatherSimplified qualified
 import TestHighRankSimplified qualified
@@ -37,6 +38,7 @@ tests =
   testGroup "Full set of tests for simplified horde-ad"
     [ testGroup "Short_tests"
         (TestAdaptorSimplified.testTrees
+         ++ TestConvQuickCheck.testTrees
          ++ TestConvSimplified.testTrees
          ++ TestGatherSimplified.testTrees
          ++ TestHighRankSimplified.testTrees
