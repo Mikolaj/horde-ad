@@ -4,41 +4,18 @@ module TestConvQuickCheck (testTrees) where
 
 import Prelude
 
-import Control.Arrow ((***))
-import Control.Monad (foldM, unless)
-import Data.Bifunctor (first)
-import Data.List.NonEmpty qualified as NonEmpty
-import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
-import Data.Type.Ord (Compare)
-import GHC.Exts (IsList (..))
-import GHC.TypeLits
-  (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
-import System.IO (hPutStrLn, stderr)
+import GHC.TypeLits (KnownNat)
 import System.Random
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 import Test.Tasty.QuickCheck hiding (label, shuffle)
-import Text.Printf
 
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert (ixrFromIxS, ixsFromIxR')
 import Data.Array.Nested.Mixed.Shape
-import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd
 import HordeAd.Core.Adaptor
-import HordeAd.Core.AstEnv
-import HordeAd.Core.AstFreshId
-import HordeAd.Core.AstInterpret
-import HordeAd.Core.ConvertTensor
-import HordeAd.Core.Ops
-import HordeAd.Core.Ops (tconcrete)
-import HordeAd.Core.TensorKind
-import HordeAd.Core.Types
-import HordeAd.OpsTensor
 
 import EqEpsilon
 
