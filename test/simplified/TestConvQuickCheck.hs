@@ -46,8 +46,8 @@ testTrees :: [TestTree]
 testTrees =
   [ testCase "conv2d_dInp" test_conv2d_dInp
   , testCase "conv2d_dKrn" test_conv2d_dKrn
---  , testProperty "conv2d_quickcheck Double" (quickcheck_conv2d @Double)
---  , testProperty "conv2d_quickcheck Float" (quickcheck_conv2d @Float)
+  , testProperty "conv2d_quickcheck Double" (quickcheck_conv2d @Double)
+  , testProperty "conv2d_quickcheck Float" (quickcheck_conv2d @Float)
   ]
 
 -- | Derivative of full convolution with respect to the input image,
@@ -152,7 +152,7 @@ test_conv2d_dKrn =
 static_conv2d
   :: forall r nImgs nCinp nCout nAh nAw nKh nKw
             shK shA shB.
-     ( GoodScalar r, ADTensorScalar r ~ r, Nested.FloatElt r
+     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
@@ -179,31 +179,35 @@ static_conv2d SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       dKrn = conv2d_dKrn (sconcrete arrA) (sconcrete arrB) -- handwritten
       vjpKrn = cvjp (`conv2dUnpaddedS` (sconcrete arrA))
                     (sconcrete arrK) (sconcrete arrB)
-  in abs (ssum0 (vjpInp - dInp)) <= 1e-7
-     && abs (ssum0 (vjpKrn - dKrn)) <= 1e-7
+  in abs (kfromS (ssum0 (vjpInp - dInp))) <= 1e-7
+     && abs (kfromS (ssum0 (vjpKrn - dKrn))) <= 1e-7
 
-{-
 quickcheck_conv2d
-  :: forall r.
-     ( GoodScalar r, ADTensorScalar r ~ r, Nested.FloatElt r
-     , Arbitrary r )
+  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2d =
-  forAll (choose (0, 10)) $ \nImgs' ->
-  forAll (choose (0, 10)) $ \nCinp' ->
-  forAll (choose (0, 10)) $ \nCout' ->
-  forAll (choose (0, 10)) $ \nAh' ->
-  forAll (choose (0, 10)) $ \nAw' ->
-  forAll (choose (0, 10)) $ \nKh' ->
-  forAll (choose (0, 10)) $ \nKw' ->
+  forAll (choose (0, 2)) $ \nImgs' ->
+  forAll (choose (0, 2)) $ \nCinp' ->
+  forAll (choose (0, 2)) $ \nCout' ->
+  forAll (choose (0, 2)) $ \nAh' ->
+  forAll (choose (0, 2)) $ \nAw' ->
+  forAll (choose (0, 2)) $ \nKh' ->
+  forAll (choose (0, 2)) $ \nKw' ->
     -- The glue below is needed to bridge the dependently-typed
     -- vs normal world.
-    withSNat nImgs' $ \nImgs ->
-    withSNat nCinp' $ \nCinp ->
-    withSNat nCout' $ \nCout ->
-    withSNat nAh' $ \nAh ->
-    withSNat nAw' $ \nAw ->
-    withSNat nKh' $ \nKh ->
-    withSNat nKw' $ \nKw ->
-      property $ static_conv2d @r nImgs nCinp nCout nAh nAw nKh nKw
--}
+    withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
+    withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
+    withSNat nCout' $ \(nCout :: SNat nCout) ->
+    withSNat nAh' $ \(nAh :: SNat nAh) ->
+    withSNat nAw' $ \(nAw :: SNat nAw) ->
+    withSNat nKh' $ \(nKh :: SNat nKh) ->
+    withSNat nKw' $ \(nKw :: SNat nKw) ->
+      property $ \seed0 ->
+        let arrK :: Concrete (TKS '[nCout, nCinp, nKh, nKw] r)
+            (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
+            arrA :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
+            (arrA, seed3) = randomValue 0.5 seed2
+            arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
+            (arrB, _) = randomValue 0.5 seed3
+        in static_conv2d nImgs nCinp nCout nAh nAw nKh nKw
+                         (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
