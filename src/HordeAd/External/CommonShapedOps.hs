@@ -14,7 +14,15 @@ import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
-  (Div, KnownNat, SomeNat (..), sameNat, someNatVal, type (-), type (<=))
+  ( Div
+  , KnownNat
+  , SomeNat (..)
+  , sameNat
+  , someNatVal
+  , type (+)
+  , type (-)
+  , type (<=)
+  )
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (ixrFromIxS, ixsFromIxR')
@@ -186,6 +194,31 @@ conv2dUnpaddedS arrK arrA =
           arrKt = slicezS arrK [iCout, 0, 0, 0]
       in sdot0 arrAt arrKt
     _ -> error "conv2dUnpaddedS: impossible pattern needlessly required"
+
+-- | Full convolution with just enough padding to ensure all output points
+--   are affected by the same number of input points,
+--   where the output size shrinks depending on the input size and kernel size.
+--   Also no input points are ever ignored, though some are read less often.
+conv2dShrinkingS
+  :: forall nCoutK nCinpK nKh nKw nImgs nCinpA nAh_nKh nAw_nKw
+            target r shB shK1.
+     ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh, KnownNat nKw
+     , KnownNat nImgs, KnownNat nAh_nKh, KnownNat nAw_nKw
+     , ADReady target, GoodScalar r
+     , nCinpA ~ nCinpK
+     , shB ~ '[nImgs, nCoutK, nAh_nKh, nAw_nKw]
+     , shK1 ~ '[1, nCinpA, nKh, nKw]
+     )
+  => target (TKS '[nCoutK, nCinpK, nKh, nKw] r)
+  -> target (TKS '[nImgs, nCinpA, nAh_nKh + nKh, nAw_nKw + nKw] r)
+  -> target (TKS shB r)
+conv2dShrinkingS arrK arrA =
+  sbuild @(Rank shB) $ \case
+    [iImg, iCout, iBh, iBw] ->
+      let arrAt = slicezS @shK1 arrA [iImg, 0, iBh, iBw]
+          arrKt = slicezS arrK [iCout, 0, 0, 0]
+      in sdot0 arrAt arrKt
+    _ -> error "conv2dShrinkingS: impossible pattern needlessly required"
 
 -- | Slice a section out of a tensor,
 --   given a base offset and shape of the section.
