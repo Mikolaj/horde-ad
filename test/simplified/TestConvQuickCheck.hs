@@ -62,7 +62,7 @@ conv2d_dInp
      , shK  ~ '[nCout, nCinp, nKh, nKw]
      , shA  ~ '[nImgs, nCinp, nAh, nAw]
      , shB  ~ '[nImgs, nCout, nAh, nAw]
-     , shB1 ~ '[1,     1,     nAh, nAw]
+     , shB1 ~ '[1,     1,     nKh, nKw]
      , sh1  ~ '[nCout] )
   => target (TKS shK r)
   -> target (TKS shB r)
