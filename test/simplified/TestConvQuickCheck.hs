@@ -68,6 +68,41 @@ conv2d_dInp arrK arrB =
       in ssum arr1
     _ -> error "conv2d_dInp: impossible pattern needlessly required"
 
+-- | Another variant taken from the Futhark code.
+-- Does not match the cvjp, either, according to QuickCheck tests.
+_conv2d_dInp_fut
+  :: forall shK shA shB sh1 nImgs nCinp nCout nAh nAw nKh nKw
+            target r.
+     ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
+     , KnownNat nAh, KnownNat nAw
+     , KnownNat nKh, KnownNat nKw
+     , ADReady target, GoodScalar r
+     , shK  ~ '[nCout, nCinp, nKh, nKw]
+     , shA  ~ '[nImgs, nCinp, nAh, nAw]
+     , shB  ~ '[nImgs, nCout, nAh, nAw]
+     , sh1  ~ '[nCout, nAh, nAw] )
+  => target (TKS shK r)
+  -> target (TKS shB r)
+  -> target (TKS shA r)
+_conv2d_dInp_fut arrK arrB =
+  let nKh = valueOf @nKh
+      nKw = valueOf @nKw
+      padh = nKh `quotH` 2
+      padw = nKw `quotH` 2
+  in sbuild @(Rank shA) $ \case
+    [iImg, iCinp, iAh, iAw] ->
+      let arr1 :: target (TKS sh1 r)
+          arr1 = sbuild @(Rank sh1) $ \case
+            [iCout, iBh, iBw] ->
+              let iKh = iAh - iBh + padh
+                  iKw = iAw - iBw + padw
+                  xOut = sindex0 arrB [iImg, iCout, iBh, iBw]
+                  xKrn = sindex0 arrK [iCout, iCinp, iKh, iKw]
+              in xOut * xKrn
+            _ -> error "conv2d_dInp: impossible pattern needlessly required"
+      in ssum0 arr1
+    _ -> error "conv2d_dInp: impossible pattern needlessly required"
+
 -- | Derivative of full convolution with respect to the kernels,
 -- where the output size is the same as the input size.
 conv2d_dKrn
