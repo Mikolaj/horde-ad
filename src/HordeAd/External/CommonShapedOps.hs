@@ -220,6 +220,31 @@ conv2dShrinkingS arrK arrA =
       in sdot0 arrAt arrKt
     _ -> error "conv2dShrinkingS: impossible pattern needlessly required"
 
+-- | Full convolution with enough padding to apply kernels at all
+-- posiitons that give non-zero results. This corresponds to
+-- https://hackage.haskell.org/package/hmatrix-0.20.2/docs/Numeric-LinearAlgebra.html#v:conv2
+-- though it doesn't do kernel flipping.
+conv2dPaddedS
+  :: forall nCoutK nCinpK nKh nKw nImgs nCinpA nAh nAw
+            target r shB shK1.
+     ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh, KnownNat nKw
+     , KnownNat nImgs, KnownNat nAh, KnownNat nAw
+     , ADReady target, GoodScalar r, 1 <= nKh, 1 <= nKw
+     , nCinpA ~ nCinpK
+     , shB ~ '[nImgs, nCoutK, nAh + nKh - 1, nAw + nKw - 1]
+     , shK1 ~ '[1, nCinpA, nKh, nKw]
+     )
+  => target (TKS '[nCoutK, nCinpK, nKh, nKw] r)
+  -> target (TKS '[nImgs, nCinpA, nAh, nAw] r)
+  -> target (TKS shB r)
+conv2dPaddedS arrK arrA =
+  sbuild @(Rank shB) $ \case
+    [iImg, iCout, iBh, iBw] ->
+      let arrAt = slicezS @shK1 arrA [iImg, 0, iBh, iBw]
+          arrKt = slicezS arrK [iCout, 0, 0, 0]
+      in sdot0 arrAt arrKt
+    _ -> error "conv2dPaddedS: impossible pattern needlessly required"
+
 -- | Slice a section out of a tensor,
 --   given a base offset and shape of the section.
 --
