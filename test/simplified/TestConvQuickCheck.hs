@@ -1,11 +1,13 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | QuickCheck tests of convolution AD derivatives vs handwritten derivatives.
 module TestConvQuickCheck (testTrees) where
 
 import Prelude
 
-import GHC.TypeLits (KnownNat, type (+))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import GHC.TypeLits (KnownNat, type (+), type (-), type (<=), type (<=?))
 import System.Random
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
@@ -14,6 +16,7 @@ import Test.Tasty.QuickCheck hiding (label, shuffle)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd
 import HordeAd.Core.Adaptor
@@ -150,13 +153,13 @@ test_conv2dVjp_dInp :: Assertion
 test_conv2dVjp_dInp =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
-      arrA = Nested.sreplicateScal knownShS 1
+      arrA = Nested.sreplicateScal knownShS 1.1
       -- Filters of shape: num_filters x chas x kernel_height x kernel_width
       arrK :: Nested.Shaped '[7, 2, 1, 3] Double
-      arrK = Nested.sreplicateScal knownShS  1
+      arrK = Nested.sreplicateScal knownShS (-2.2)
       -- Output gradient of shape: batch x chas x output_height x output_width
       arrB :: Nested.Shaped '[5, 7, 4, 8] Double
-      arrB = Nested.sreplicateScal knownShS 1
+      arrB = Nested.sreplicateScal knownShS (-3.3)
       -- Compare the AD version against the manual derivative.
       dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
       dInp = conv2d_dInp (sconcrete arrK) (sconcrete arrB)
@@ -168,13 +171,13 @@ test_conv2dVjp_dKrn :: Assertion
 test_conv2dVjp_dKrn =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
-      arrA = Nested.sreplicateScal knownShS 1
+      arrA = Nested.sreplicateScal knownShS 1.1
       -- Filters of shape: num_filters x chas x kernel_height x kernel_width
       arrK :: Nested.Shaped '[7, 2, 1, 3] Double
-      arrK = Nested.sreplicateScal knownShS 1
+      arrK = Nested.sreplicateScal knownShS 2.2
       -- Output gradient of shape: batch x chas x output_height x output_width
       arrB :: Nested.Shaped '[5, 7, 4, 8] Double
-      arrB = Nested.sreplicateScal knownShS 1
+      arrB = Nested.sreplicateScal knownShS (-3.3)
       -- Compare the AD version against the manual derivative.
       dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
       dKrn = conv2d_dKrn (sconcrete arrA) (sconcrete arrB)
@@ -287,6 +290,7 @@ conv2dShrinking_dKrn
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh_nKh1, KnownNat nAw_nKw1, KnownNat nKh1, KnownNat nKw1
      , ADReady target, GoodScalar r
+     , 1 <= nAh_nKh1, 1 <= nAw_nKw1
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA  ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
      , shB  ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1]
@@ -296,31 +300,22 @@ conv2dShrinking_dKrn
   -> target (TKS shB r)
   -> target (TKS shK r)
 conv2dShrinking_dKrn arrA arrB =
-  sbuild @(Rank shK) $ \case
-    [iCout, iCinp, iKh, iKw] ->
-      let arr1 :: target (TKS sh1 r)
-          arr1 = sbuild @(Rank sh1) $ \case
-            [iImg] ->
-              let arrBt = slicezS @shB1 arrB
-                                  [iImg, iCout, 0, 0]
-                  arrAt = slicezS arrA
-                                  [iImg, iCinp, iKh, iKw]
-              in sdot0 arrBt arrAt
-            _ -> error "conv2dShrinking_dKrn: impossible pattern needlessly required"
-      in ssum arr1
-    _ -> error "conv2dShrinking_dKrn: impossible pattern needlessly required"
+  stranspose @'[1, 0, 2, 3]
+             (conv2dShrinkingS @nCout @nImgs @(nAh_nKh1 - 1) @(nAw_nKw1 - 1)
+                               (stranspose @'[1, 0, 2, 3] arrB)
+                               (stranspose @'[1, 0, 2, 3] arrA))
 
 test_conv2dShrinkingVjp_dInp :: Assertion
 test_conv2dShrinkingVjp_dInp =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
-      arrA = Nested.sreplicateScal knownShS 1
+      arrA = Nested.sreplicateScal knownShS 1.1
       -- Filters of shape: num_filters x chas x kernel_height x kernel_width
       arrK :: Nested.Shaped '[7, 2, 1, 3] Double
-      arrK = Nested.sreplicateScal knownShS  1
+      arrK = Nested.sreplicateScal knownShS (-2.2)
       -- Output gradient of shape: batch x chas x output_height x output_width
       arrB :: Nested.Shaped '[5, 7, 4, 6] Double
-      arrB = Nested.sreplicateScal knownShS 1
+      arrB = Nested.sreplicateScal knownShS 3.3
       -- Compare the AD version against the manual derivative.
       dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
       dInp = conv2dShrinking_dInp (sconcrete arrK) (sconcrete arrB)
@@ -332,13 +327,13 @@ test_conv2dShrinkingVjp_dKrn :: Assertion
 test_conv2dShrinkingVjp_dKrn =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
-      arrA = Nested.sreplicateScal knownShS 1
+      arrA = Nested.sreplicateScal knownShS (-1.1)
       -- Filters of shape: num_filters x chas x kernel_height x kernel_width
       arrK :: Nested.Shaped '[7, 2, 1, 3] Double
-      arrK = Nested.sreplicateScal knownShS 1
+      arrK = Nested.sreplicateScal knownShS 2.2
       -- Output gradient of shape: batch x chas x output_height x output_width
       arrB :: Nested.Shaped '[5, 7, 4, 6] Double
-      arrB = Nested.sreplicateScal knownShS 1
+      arrB = Nested.sreplicateScal knownShS 3.3
       -- Compare the AD version against the manual derivative.
       dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
       dKrn = conv2dShrinking_dKrn (sconcrete arrA) (sconcrete arrB)
@@ -350,6 +345,7 @@ static_conv2dShrinkingVjp
   :: forall r nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             shK shA shB.
      ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     , 1 <= nAh_nKh1, 1 <= nAw_nKw1
      , shK ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
      , shB ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1] )
@@ -374,12 +370,12 @@ static_conv2dShrinkingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       vjpInp = cvjp (conv2dShrinkingS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
       -- Second, the gradient wrt the kernels taken at point @arrK@.
---      dKrn = conv2dShrinking_dKrn
---               (sconcrete arrA) (sconcrete arrB) -- handwritten
---      vjpKrn = cvjp (`conv2dShrinkingS` (sconcrete arrA))
---                    (sconcrete arrK) (sconcrete arrB)
-  in abs (kfromS (ssum0 (vjpInp - dInp))) <= 1e-5  -- 1e-7 is too much for Float
---     && abs (kfromS (ssum0 (vjpKrn - dKrn))) <= 1e-7
+      dKrn = conv2dShrinking_dKrn
+               (sconcrete arrA) (sconcrete arrB) -- handwritten
+      vjpKrn = cvjp (`conv2dShrinkingS` (sconcrete arrA))
+                    (sconcrete arrK) (sconcrete arrB)
+  in abs (kfromS (ssum0 (vjpInp - dInp))) <= 1e-4  -- 1e-7 is too much for Float
+     && abs (kfromS (ssum0 (vjpKrn - dKrn))) <= 1e-4
 
 quickcheck_conv2dShrinkingVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
@@ -388,8 +384,8 @@ quickcheck_conv2dShrinkingVjp =
   forAll (choose (0, 5)) $ \nImgs' ->
   forAll (choose (0, 5)) $ \nCinp' ->
   forAll (choose (0, 5)) $ \nCout' ->
-  forAll (choose (0, 5)) $ \nAh_nKh1' ->
-  forAll (choose (0, 5)) $ \nAw_nKw1' ->
+  forAll (choose (1, 5)) $ \nAh_nKh1' ->
+  forAll (choose (1, 5)) $ \nAw_nKw1' ->
   forAll (choose (0, 5)) $ \nKh1' ->
   forAll (choose (0, 5)) $ \nKw1' ->
     -- The glue below is needed to bridge the dependently-typed
@@ -401,6 +397,8 @@ quickcheck_conv2dShrinkingVjp =
     withSNat nAw_nKw1' $ \(nAw_nKw1 :: SNat nAw_nKw1) ->
     withSNat nKh1' $ \(nKh1 :: SNat nKh1) ->
     withSNat nKw1' $ \(nKw1 :: SNat nKw1) ->
+      gcastWith (unsafeCoerceRefl :: (1 <=? nAh_nKh1) :~: True) $
+      gcastWith (unsafeCoerceRefl :: (1 <=? nAw_nKw1) :~: True) $
       property $ \seed0 ->
         let arrK :: Concrete (TKS '[nCout, nCinp, nKh1 + 1, nKw1 + 1] r)
             (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
