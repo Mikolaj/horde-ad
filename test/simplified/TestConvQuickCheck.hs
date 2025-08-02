@@ -278,7 +278,7 @@ conv2dShrinking_dInp
   -> target (TKS shA r)
 conv2dShrinking_dInp arrK arrB =
   -- The following differst from
-  -- conv2dPaddedS (stranspose @'[1, 0, 2, 3] arrK) arrB
+  -- conv2dPaddedS (stranspose @'[1, 0] arrK) arrB
   -- only by the @- nKh1@ and @- nKw1@ offsets.
   -- Both fail, though.
   let nKh1 = valueOf @nKh1
@@ -289,7 +289,7 @@ conv2dShrinking_dInp arrK arrB =
                           [iImg, 0, iAh - nKh1, iAw - nKw1]
           arrKt = slicezS @shB1 arrK
                           [0, iCinp, 0, 0]
-      in sdot0 arrBt (stranspose @'[1, 0, 2, 3] arrKt)
+      in sdot0 arrBt (stranspose @'[1, 0] arrKt)
     _ -> error "conv2dShrinking_dInp: impossible pattern needlessly required"
 
 -- | Derivative of full shrinking convolution with respect to the kernels,
@@ -310,10 +310,10 @@ conv2dShrinking_dKrn
   -> target (TKS shB r)
   -> target (TKS shK r)
 conv2dShrinking_dKrn arrA arrB =
-  stranspose @'[1, 0, 2, 3]
+  stranspose @'[1, 0]
              (conv2dShrinkingS @nCout @nImgs @(nAh_nKh1 - 1) @(nAw_nKw1 - 1)
-                               (stranspose @'[1, 0, 2, 3] arrB)
-                               (stranspose @'[1, 0, 2, 3] arrA))
+                               (stranspose @'[1, 0] arrB)
+                               (stranspose @'[1, 0] arrA))
 
 test_conv2dShrinkingVjp_dInp :: Assertion
 test_conv2dShrinkingVjp_dInp =
