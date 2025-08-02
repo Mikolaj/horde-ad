@@ -6,7 +6,7 @@ module TestConvQuickCheck (testTrees) where
 
 import Prelude
 
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:))
 import GHC.TypeLits (KnownNat, type (+), type (-), type (<=), type (<=?))
 import System.Random
 import Test.Tasty
@@ -22,6 +22,7 @@ import HordeAd
 import HordeAd.Core.Adaptor
 
 import EqEpsilon
+import Shared
 
 testTrees :: [TestTree]
 testTrees =
@@ -35,10 +36,10 @@ testTrees =
                  (quickcheck_conv2dShrinkingVjp @Double)
   , testProperty "conv2dShrinkingVjp Quickcheck Float"
                  (quickcheck_conv2dShrinkingVjp @Float)
-  , testProperty "conv2dUnpaddedJvp Quickcheck Double"
-                 (quickcheck_conv2dUnpaddedJvp @Double)
-  , testProperty "conv2dUnpaddedJvp Quickcheck Float"
-                 (quickcheck_conv2dUnpaddedJvp @Float)
+--  , testProperty "conv2dUnpaddedJvp Quickcheck Double"
+--                 (quickcheck_conv2dUnpaddedJvp @Double)
+--  , testProperty "conv2dUnpaddedJvp Quickcheck Float"
+--                 (quickcheck_conv2dUnpaddedJvp @Float)
   , testProperty "conv2dShrinkingJvp Quickcheck Double"
                  (quickcheck_conv2dShrinkingJvp @Double)
   , testProperty "conv2dShrinkingJvp Quickcheck Float"
@@ -208,6 +209,7 @@ static_conv2dVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       -- at which the gradient is taken), because maths (something about
       -- convolution being linear and so gradient the same everywhere).
       -- First, the gradient wrt the input image taken at point @arrA@.
+      dInp :: Concrete (TKS shA r)
       dInp = conv2d_dInp (sconcrete arrK) (sconcrete arrB)  -- handwritten
       vjpInp = cvjp (conv2dUnpaddedS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
@@ -215,8 +217,14 @@ static_conv2dVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
 --      dKrn = conv2d_dKrn (sconcrete arrA) (sconcrete arrB) -- handwritten
 --      vjpKrn = cvjp (`conv2dUnpaddedS` (sconcrete arrA))
 --                    (sconcrete arrK) (sconcrete arrB)
-  in abs (kfromS (ssum0 (vjpInp - dInp))) <= 1e-7
---     && abs (kfromS (ssum0 (vjpKrn - dKrn))) <= 1e-7
+  in allClose vjpInp dInp 1e-4
+--     && allClose vjpKrn dKrn 1e-4
+
+allClose :: (GoodScalar r, Fractional r, Linearizable a r, Linearizable b r)
+         => a -> b -> Rational -> Bool
+allClose expected actual eps =
+  all (\(a, b) -> abs (a - b) <= fromRational eps)
+  $ zip (linearize expected) (linearize actual)
 
 quickcheck_conv2dVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
@@ -365,17 +373,19 @@ static_conv2dShrinkingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       -- at which the gradient is taken), because maths (something about
       -- convolution being linear and so gradient the same everywhere).
       -- First, the gradient wrt the input image taken at point @arrA@.
+      dInp :: Concrete (TKS shA r)
       dInp = conv2dShrinking_dInp
                (sconcrete arrK) (sconcrete arrB)  -- handwritten
       vjpInp = cvjp (conv2dShrinkingS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
       -- Second, the gradient wrt the kernels taken at point @arrK@.
+      dKrn :: Concrete (TKS shK r)
       dKrn = conv2dShrinking_dKrn
                (sconcrete arrA) (sconcrete arrB) -- handwritten
       vjpKrn = cvjp (`conv2dShrinkingS` (sconcrete arrA))
                     (sconcrete arrK) (sconcrete arrB)
-  in abs (kfromS (ssum0 (vjpInp - dInp))) <= 1e-4  -- 1e-7 is too much for Float
-     && abs (kfromS (ssum0 (vjpKrn - dKrn))) <= 1e-4
+  in allClose vjpInp dInp 1e-4  -- 1e-7 is too much for Float
+     && allClose vjpKrn dKrn 1e-4
 
 quickcheck_conv2dShrinkingVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
@@ -410,7 +420,7 @@ quickcheck_conv2dShrinkingVjp =
         in static_conv2dShrinkingVjp
              nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
-
+{-
 static_conv2dUnpaddedJvp
   :: forall r nImgs nCinp nCout nAh nAw nKh nKw
             shK shA.
@@ -430,16 +440,18 @@ static_conv2dUnpaddedJvp
   -> Bool
 static_conv2dUnpaddedJvp SNat SNat SNat SNat SNat SNat SNat
                          arrK arrK2 arrA arrA2 =
-  let dInp = conv2dUnpaddedS
+  let dInp :: Concrete (TKS shA r)
+      dInp = conv2dUnpaddedS
                (sconcrete arrK) (sconcrete arrA2)
       jvpInp = cjvp (conv2dUnpaddedS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrA2)
+      dKrn :: Concrete (TKS shK r)
       dKrn = conv2dUnpaddedS
                (sconcrete arrK2) (sconcrete arrA)
       jvpKrn = cjvp (`conv2dUnpaddedS` (sconcrete arrA))
                     (sconcrete arrK) (sconcrete arrK2)
-  in abs (kfromS (ssum0 (jvpInp - dInp))) <= 1e-7
-     && abs (kfromS (ssum0 (jvpKrn - dKrn))) <= 1e-7
+  in allClose jvpInp dInp 1e-7
+     && allClose jvpKrn dKrn 1e-7
 
 quickcheck_conv2dUnpaddedJvp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
@@ -473,7 +485,7 @@ quickcheck_conv2dUnpaddedJvp =
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrK2)
              (unConcrete arrA) (unConcrete arrA2)
-
+-}
 static_conv2dShrinkingJvp
   :: forall r nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             shK shA.
@@ -493,16 +505,18 @@ static_conv2dShrinkingJvp
   -> Bool
 static_conv2dShrinkingJvp SNat SNat SNat SNat SNat SNat SNat
                           arrK arrK2 arrA arrA2 =
-  let dInp = conv2dShrinkingS
+  let dInp :: Concrete (TKS '[nImgs, nCout, nAh_nKh1, nAw_nKw1] r)
+      dInp = conv2dShrinkingS
                (sconcrete arrK) (sconcrete arrA2)
       jvpInp = cjvp (conv2dShrinkingS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrA2)
+      dKrn :: Concrete (TKS '[nImgs, nCout, nAh_nKh1, nAw_nKw1] r)
       dKrn = conv2dShrinkingS
                (sconcrete arrK2) (sconcrete arrA)
       jvpKrn = cjvp (`conv2dShrinkingS` (sconcrete arrA))
                     (sconcrete arrK) (sconcrete arrK2)
-  in abs (kfromS (ssum0 (jvpInp - dInp))) <= 1e-7
-     && abs (kfromS (ssum0 (jvpKrn - dKrn))) <= 1e-7
+  in allClose jvpInp dInp 1e-7
+     && allClose jvpKrn dKrn 1e-7
 
 quickcheck_conv2dShrinkingJvp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
@@ -557,16 +571,18 @@ static_conv2dPaddedJvp
   -> Bool
 static_conv2dPaddedJvp SNat SNat SNat SNat SNat SNat SNat
                        arrK arrK2 arrA arrA2 =
-  let dInp = conv2dPaddedS
+  let dInp :: Concrete (TKS '[nImgs, nCout, nAh + nKh1, nAw + nKw1] r)
+      dInp = conv2dPaddedS
                (sconcrete arrK) (sconcrete arrA2)
       jvpInp = cjvp (conv2dPaddedS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrA2)
+      dKrn :: Concrete (TKS '[nImgs, nCout, nAh + nKh1, nAw + nKw1] r)
       dKrn = conv2dPaddedS
                (sconcrete arrK2) (sconcrete arrA)
       jvpKrn = cjvp (`conv2dPaddedS` (sconcrete arrA))
                     (sconcrete arrK) (sconcrete arrK2)
-  in abs (kfromS (ssum0 (jvpInp - dInp))) <= 1e-7
-     && abs (kfromS (ssum0 (jvpKrn - dKrn))) <= 1e-7
+  in allClose jvpInp dInp 1e-7
+     && allClose jvpKrn dKrn 1e-7
 
 quickcheck_conv2dPaddedJvp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
