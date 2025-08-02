@@ -228,16 +228,16 @@ conv2dShrinkingS arrK arrA =
 -- https://hackage.haskell.org/package/hmatrix-0.20.2/docs/Numeric-LinearAlgebra.html#v:conv2
 -- though it doesn't do the kernel flipping.
 conv2dPaddedS
-  :: forall nCoutK nCinpK nKh nKw nImgs nCinpA nAh nAw
+  :: forall nCoutK nCinpK nKh1 nKw1 nImgs nCinpA nAh nAw
             target r shB shK1.
-     ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh, KnownNat nKw
+     ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh1, KnownNat nKw1
      , KnownNat nImgs, KnownNat nAh, KnownNat nAw
-     , ADReady target, GoodScalar r, 1 <= nKh, 1 <= nKw
+     , ADReady target, GoodScalar r
      , nCinpA ~ nCinpK
-     , shB ~ '[nImgs, nCoutK, nAh + nKh - 1, nAw + nKw - 1]
-     , shK1 ~ '[1, nCinpA, nKh, nKw]
+     , shB ~ '[nImgs, nCoutK, nAh + nKh1, nAw + nKw1]
+     , shK1 ~ '[1, nCinpA, nKh1 + 1, nKw1 + 1]
      )
-  => target (TKS '[nCoutK, nCinpK, nKh, nKw] r)
+  => target (TKS '[nCoutK, nCinpK, nKh1 + 1, nKw1 + 1] r)
   -> target (TKS '[nImgs, nCinpA, nAh, nAw] r)
   -> target (TKS shB r)
 conv2dPaddedS arrK arrA =
