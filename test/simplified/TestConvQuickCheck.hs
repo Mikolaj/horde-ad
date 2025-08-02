@@ -249,7 +249,7 @@ quickcheck_conv2dVjp =
 -- | Derivative of full shrinking convolution with respect to the input image,
 -- where the output size is the same as the input size.
 conv2dShrinking_dInp
-  :: forall shK shA shB shB1 sh1 nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
+  :: forall shK shA shB shB1 shB2 nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh_nKh1, KnownNat nAw_nKw1
@@ -258,26 +258,25 @@ conv2dShrinking_dInp
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA  ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
      , shB  ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1]
-     , shB1 ~ '[1,     1,     nKh1 + 1, nKw1 + 1]
-     , sh1  ~ '[nCout] )
+     , shB1 ~ '[nCout, 1,     nKh1 + 1, nKw1 + 1]
+     , shB2 ~ '[1,     nCout, nKh1 + 1, nKw1 + 1] )
   => target (TKS shK r)
   -> target (TKS shB r)
   -> target (TKS shA r)
 conv2dShrinking_dInp arrK arrB =
+  -- The following differst from
+  -- conv2dPaddedS (stranspose @'[1, 0, 2, 3] arrK) arrB
+  -- only by the @- nKh1@ and @- nKw1@ offsets.
+  -- TODO: can this be made to agree somehow?
   let nKh1 = valueOf @nKh1
       nKw1 = valueOf @nKw1
   in sbuild @(Rank shA) $ \case
     [iImg, iCinp, iAh, iAw] ->
-      let arr1 :: target (TKS sh1 r)
-          arr1 = sbuild @(Rank sh1) $ \case
-            [iCout] ->
-              let arrBt = slicezS @shB1 arrB
-                                  [iImg, iCout, iAh - nKh1, iAw - nKw1]
-                  arrKt = slicezS arrK
-                                  [iCout, iCinp, 0, 0]
-              in sdot0 arrBt arrKt
-            _ -> error "conv2dShrinking_dInp: impossible pattern needlessly required"
-      in ssum arr1
+      let arrBt = slicezS @shB2 arrB
+                          [iImg, 0, iAh - nKh1, iAw - nKw1]
+          arrKt = slicezS @shB1 arrK
+                          [0, iCinp, 0, 0]
+      in sdot0 arrBt (stranspose @'[1, 0, 2, 3] arrKt)
     _ -> error "conv2dShrinking_dInp: impossible pattern needlessly required"
 
 -- | Derivative of full shrinking convolution with respect to the kernels,
