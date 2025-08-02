@@ -22,16 +22,16 @@ import EqEpsilon
 
 testTrees :: [TestTree]
 testTrees =
-  [ testCase "conv2d_dInp" test_conv2d_dInp
-  , testCase "conv2d_dKrn" test_conv2d_dKrn
-  , testProperty "conv2d_quickcheck Double" (quickcheck_conv2d @Double)
-  , testProperty "conv2d_quickcheck Float" (quickcheck_conv2d @Float)
-  , testCase "conv2dShrinking_dInp" test_conv2dShrinking_dInp
-  , testCase "conv2dShrinking_dKrn" test_conv2dShrinking_dKrn
-  , testProperty "conv2dShrinking_quickcheck Double"
-                 (quickcheck_conv2dShrinking @Double)
-  , testProperty "conv2dShrinking_quickcheck Float"
-                 (quickcheck_conv2dShrinking @Float)
+  [ testCase "conv2dVjp dInp" test_conv2dVjp_dInp
+  , testCase "conv2dVjp dKrn" test_conv2dVjp_dKrn
+  , testProperty "conv2dVjp Quickcheck Double" (quickcheck_conv2dVjp @Double)
+  , testProperty "conv2dVjp Quickcheck Float" (quickcheck_conv2dVjp @Float)
+  , testCase "conv2dShrinkingVjp dInp" test_conv2dShrinkingVjp_dInp
+  , testCase "conv2dShrinkingVjp dKrn" test_conv2dShrinkingVjp_dKrn
+  , testProperty "conv2dShrinkingVjp Quickcheck Double"
+                 (quickcheck_conv2dShrinkingVjp @Double)
+  , testProperty "conv2dShrinkingVjp Quickcheck Float"
+                 (quickcheck_conv2dShrinkingVjp @Float)
   ]
 
 -- | Derivative of full convolution with respect to the input image,
@@ -132,8 +132,8 @@ conv2d_dKrn arrA arrB =
       in ssum arr1
     _ -> error "conv2d_dKrn: impossible pattern needlessly required"
 
-test_conv2d_dInp :: Assertion
-test_conv2d_dInp =
+test_conv2dVjp_dInp :: Assertion
+test_conv2dVjp_dInp =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
       arrA = Nested.sreplicateScal knownShS 1
@@ -150,8 +150,8 @@ test_conv2d_dInp =
                     (sconcrete arrA) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dInp vjpInp
 
-test_conv2d_dKrn :: Assertion
-test_conv2d_dKrn =
+test_conv2dVjp_dKrn :: Assertion
+test_conv2dVjp_dKrn =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
       arrA = Nested.sreplicateScal knownShS 1
@@ -168,7 +168,7 @@ test_conv2d_dKrn =
                     (sconcrete arrK) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dKrn vjpKrn
 
-static_conv2d
+static_conv2dVjp
   :: forall r nImgs nCinp nCout nAh nAw nKh nKw
             shK shA shB.
      ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
@@ -185,7 +185,7 @@ static_conv2d
        -- ^ Output gradient of shape:
        --     batch x chas x output_height x output_width
   -> Bool
-static_conv2d SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
+static_conv2dVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
       -- Note that manual versions don't take one of the arguments (the point
       -- at which the gradient is taken), because maths (something about
@@ -201,10 +201,10 @@ static_conv2d SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   in abs (kfromS (ssum0 (vjpInp - dInp))) <= 1e-7
      && abs (kfromS (ssum0 (vjpKrn - dKrn))) <= 1e-7
 
-quickcheck_conv2d
+quickcheck_conv2dVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
-quickcheck_conv2d =
+quickcheck_conv2dVjp =
   forAll (choose (0, 2)) $ \nImgs' ->
   forAll (choose (0, 2)) $ \nCinp' ->
   forAll (choose (0, 2)) $ \nCout' ->
@@ -228,8 +228,9 @@ quickcheck_conv2d =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2d nImgs nCinp nCout nAh nAw nKh nKw
-                         (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
+        in static_conv2dVjp
+             nImgs nCinp nCout nAh nAw nKh nKw
+             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
 
 -- | Derivative of full shrinking convolution with respect to the input image,
 -- where the output size is the same as the input size.
@@ -294,8 +295,8 @@ conv2dShrinking_dKrn arrA arrB =
       in ssum arr1
     _ -> error "conv2d_dKrn: impossible pattern needlessly required"
 
-test_conv2dShrinking_dInp :: Assertion
-test_conv2dShrinking_dInp =
+test_conv2dShrinkingVjp_dInp :: Assertion
+test_conv2dShrinkingVjp_dInp =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
       arrA = Nested.sreplicateScal knownShS 1
@@ -312,8 +313,8 @@ test_conv2dShrinking_dInp =
                     (sconcrete arrA) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dInp vjpInp
 
-test_conv2dShrinking_dKrn :: Assertion
-test_conv2dShrinking_dKrn =
+test_conv2dShrinkingVjp_dKrn :: Assertion
+test_conv2dShrinkingVjp_dKrn =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
       arrA = Nested.sreplicateScal knownShS 1
@@ -330,7 +331,7 @@ test_conv2dShrinking_dKrn =
                     (sconcrete arrK) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dKrn vjpKrn
 
-static_conv2dShrinking
+static_conv2dShrinkingVjp
   :: forall r nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             shK shA shB.
      ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
@@ -347,7 +348,7 @@ static_conv2dShrinking
        -- ^ Output gradient of shape:
        --     batch x chas x output_height x output_width
   -> Bool
-static_conv2dShrinking SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
+static_conv2dShrinkingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
       -- Note that manual versions don't take one of the arguments (the point
       -- at which the gradient is taken), because maths (something about
@@ -365,10 +366,10 @@ static_conv2dShrinking SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   in abs (kfromS (ssum0 (vjpInp - dInp))) <= 1e-7
      && abs (kfromS (ssum0 (vjpKrn - dKrn))) <= 1e-7
 
-quickcheck_conv2dShrinking
+quickcheck_conv2dShrinkingVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
-quickcheck_conv2dShrinking =
+quickcheck_conv2dShrinkingVjp =
   forAll (choose (0, 2)) $ \nImgs' ->
   forAll (choose (0, 2)) $ \nCinp' ->
   forAll (choose (0, 2)) $ \nCout' ->
@@ -393,6 +394,6 @@ quickcheck_conv2dShrinking =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh_nKh1, nAw_nKw1] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dShrinking
+        in static_conv2dShrinkingVjp
              nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
