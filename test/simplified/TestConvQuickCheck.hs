@@ -192,7 +192,7 @@ allClose expected actual eps =
   all (\(a, b) -> abs (a - b) <= fromRational eps)
   $ zip (linearize expected) (linearize actual)
 
-{-
+{- fails:
 static_conv2dVjp
   :: forall r nImgs nCinp nCout nAh nAw nKh nKw
             shK shA shB.
@@ -221,12 +221,12 @@ static_conv2dVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       vjpInp = cvjp (conv2dUnpaddedS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
       -- Second, the gradient wrt the kernels taken at point @arrK@.
---      dKrn :: Concrete (TKS shK r)
---      dKrn = conv2d_dKrn (sconcrete arrA) (sconcrete arrB) -- handwritten
---      vjpKrn = cvjp (`conv2dUnpaddedS` (sconcrete arrA))
---                    (sconcrete arrK) (sconcrete arrB)
+      dKrn :: Concrete (TKS shK r)
+      dKrn = conv2d_dKrn (sconcrete arrA) (sconcrete arrB) -- handwritten
+      vjpKrn = cvjp (`conv2dUnpaddedS` (sconcrete arrA))
+                    (sconcrete arrK) (sconcrete arrB)
   in allClose vjpInp dInp 1e-4
---     && allClose vjpKrn dKrn 1e-4
+     && allClose vjpKrn dKrn 1e-4
 
 quickcheck_conv2dVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
@@ -257,12 +257,12 @@ quickcheck_conv2dVjp =
             (arrB, _) = randomValue 0.5 seed3
         in static_conv2dVjp
              nImgs nCinp nCout nAh nAw nKh nKw
-             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
--}
+             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB) -}
+
 -- | Derivative of full shrinking convolution with respect to the input image,
 -- where the output size is the same as the input size.
 conv2dShrinking_dInp
-  :: forall shK shA shB shB1 shB2 nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
+  :: forall shK shA shB shB1 nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh_nKh1, KnownNat nAw_nKw1
@@ -271,25 +271,30 @@ conv2dShrinking_dInp
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA  ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
      , shB  ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1]
-     , shB1 ~ '[nCout, 1,     nKh1 + 1, nKw1 + 1]
-     , shB2 ~ '[1,     nCout, nKh1 + 1, nKw1 + 1] )
+     , shB1 ~ '[1,     nCout, nKh1 + 1, nKw1 + 1] )
   => target (TKS shK r)
   -> target (TKS shB r)
   -> target (TKS shA r)
 conv2dShrinking_dInp arrK arrB =
-  -- The following differst from
-  -- conv2dPaddedS (stranspose @'[1, 0] arrK) arrB
+  -- The following differs from
+  -- > conv2dPaddedS (stranspose @'[1, 0] arrK) arrB
   -- only by the @- nKh1@ and @- nKw1@ offsets.
-  -- Both fail, though.
-  let nKh1 = valueOf @nKh1
+  -- TODO: can this be made to agree somehow?
+  let arrKFlipped =
+        stranspose @'[1, 2, 0]
+        $ sreverse
+        $ stranspose @'[3, 1, 2, 0]
+        $ sreverse
+        $ stranspose @'[3, 0, 1, 2] arrK
+      nKh1 = valueOf @nKh1
       nKw1 = valueOf @nKw1
   in sbuild @(Rank shA) $ \case
     [iImg, iCinp, iAh, iAw] ->
-      let arrBt = slicezS @shB2 arrB
+      let arrBt = slicezS @shB1 arrB
                           [iImg, 0, iAh - nKh1, iAw - nKw1]
-          arrKt = slicezS @shB1 arrK
-                          [0, iCinp, 0, 0]
-      in sdot0 arrBt (stranspose @'[1, 0] arrKt)
+          arrKt = slicezS (stranspose @'[1, 0] arrKFlipped)
+                          [iCinp, 0, 0, 0]
+      in sdot0 arrBt arrKt
     _ -> error "conv2dShrinking_dInp: impossible pattern needlessly required"
 
 -- | Derivative of full shrinking convolution with respect to the kernels,
@@ -386,8 +391,8 @@ static_conv2dShrinkingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
                (sconcrete arrA) (sconcrete arrB) -- handwritten
       vjpKrn = cvjp (`conv2dShrinkingS` (sconcrete arrA))
                     (sconcrete arrK) (sconcrete arrB)
-  in {-allClose vjpInp dInp 1e-4  -- 1e-7 is too much for Float
-     && -} allClose vjpKrn dKrn 1e-5
+  in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
+     && allClose vjpKrn dKrn 1e-5
 
 quickcheck_conv2dShrinkingVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
@@ -422,7 +427,8 @@ quickcheck_conv2dShrinkingVjp =
         in static_conv2dShrinkingVjp
              nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
-{-
+
+{- fails, strangely:
 static_conv2dUnpaddedJvp
   :: forall r nImgs nCinp nCout nAh nAw nKh nKw
             shK shA.
@@ -486,8 +492,8 @@ quickcheck_conv2dUnpaddedJvp =
         in static_conv2dUnpaddedJvp
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrK2)
-             (unConcrete arrA) (unConcrete arrA2)
--}
+             (unConcrete arrA) (unConcrete arrA2) -}
+
 static_conv2dShrinkingJvp
   :: forall r nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             shK shA.
