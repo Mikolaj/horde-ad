@@ -234,30 +234,30 @@ quickcheck_conv2d =
 -- | Derivative of full shrinking convolution with respect to the input image,
 -- where the output size is the same as the input size.
 conv2dShrinking_dInp
-  :: forall shK shA shB shB1 sh1 nImgs nCinp nCout nAh_nKh nAw_nKw nKh nKw
+  :: forall shK shA shB shB1 sh1 nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
-     , KnownNat nAh_nKh, KnownNat nAw_nKw
-     , KnownNat nKh, KnownNat nKw
+     , KnownNat nAh_nKh1, KnownNat nAw_nKw1
+     , KnownNat nKh1, KnownNat nKw1
      , ADReady target, GoodScalar r
-     , shK  ~ '[nCout, nCinp, nKh, nKw]
-     , shA  ~ '[nImgs, nCinp, nAh_nKh + nKh, nAw_nKw + nKw]
-     , shB  ~ '[nImgs, nCout, nAh_nKh, nAw_nKw]
-     , shB1 ~ '[1,     1,     nKh, nKw]
+     , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
+     , shA  ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
+     , shB  ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1]
+     , shB1 ~ '[1,     1,     nKh1 + 1, nKw1 + 1]
      , sh1  ~ '[nCout] )
   => target (TKS shK r)
   -> target (TKS shB r)
   -> target (TKS shA r)
 conv2dShrinking_dInp arrK arrB =
-  let nKh = valueOf @nKh
-      nKw = valueOf @nKw
+  let nKh1 = valueOf @nKh1
+      nKw1 = valueOf @nKw1
   in sbuild @(Rank shA) $ \case
     [iImg, iCinp, iAh, iAw] ->
       let arr1 :: target (TKS sh1 r)
           arr1 = sbuild @(Rank sh1) $ \case
             [iCout] ->
               let arrBt = slicezS @shB1 arrB
-                                  [iImg,  iCout, iAh - nKh + 1, iAw - nKw + 1]
+                                  [iImg,  iCout, iAh - nKh1, iAw - nKw1]
                   arrKt = slicezS @shB1 arrK
                                   [iCout, iCinp, 0, 0]
               in sdot0 arrBt arrKt
@@ -268,15 +268,15 @@ conv2dShrinking_dInp arrK arrB =
 -- | Derivative of full shrinking convolution with respect to the kernels,
 -- where the output size is the same as the input size.
 conv2dShrinking_dKrn
-  :: forall shK shA shB shB1 sh1 nImgs nCinp nCout nAh_nKh nAw_nKw nKh nKw
+  :: forall shK shA shB shB1 sh1 nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
-     , KnownNat nAh_nKh, KnownNat nAw_nKw, KnownNat nKh, KnownNat nKw
+     , KnownNat nAh_nKh1, KnownNat nAw_nKw1, KnownNat nKh1, KnownNat nKw1
      , ADReady target, GoodScalar r
-     , shK  ~ '[nCout, nCinp, nKh, nKw]
-     , shA  ~ '[nImgs, nCinp, nAh_nKh + nKh, nAw_nKw + nKw]
-     , shB  ~ '[nImgs, nCout, nAh_nKh, nAw_nKw]
-     , shB1 ~ '[1,     1,     nAh_nKh, nAw_nKw]
+     , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
+     , shA  ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
+     , shB  ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1]
+     , shB1 ~ '[1,     1,     nAh_nKh1, nAw_nKw1]
      , sh1  ~ '[nCout] )
   => target (TKS shA r)
   -> target (TKS shB r)
@@ -303,7 +303,7 @@ test_conv2dShrinking_dInp =
       arrK :: Nested.Shaped '[7, 2, 1, 3] Double
       arrK = Nested.sreplicateScal knownShS  1
       -- Output gradient of shape: batch x chas x output_height x output_width
-      arrB :: Nested.Shaped '[5, 7, 3, 5] Double
+      arrB :: Nested.Shaped '[5, 7, 4, 6] Double
       arrB = Nested.sreplicateScal knownShS 1
       -- Compare the AD version against the manual derivative.
       dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
@@ -321,7 +321,7 @@ test_conv2dShrinking_dKrn =
       arrK :: Nested.Shaped '[7, 2, 1, 3] Double
       arrK = Nested.sreplicateScal knownShS 1
       -- Output gradient of shape: batch x chas x output_height x output_width
-      arrB :: Nested.Shaped '[5, 7, 3, 5] Double
+      arrB :: Nested.Shaped '[5, 7, 4, 6] Double
       arrB = Nested.sreplicateScal knownShS 1
       -- Compare the AD version against the manual derivative.
       dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
@@ -331,14 +331,14 @@ test_conv2dShrinking_dKrn =
   in assertEqualUpToEpsilon 1e-7 dKrn vjpKrn
 
 static_conv2dShrinking
-  :: forall r nImgs nCinp nCout nAh_nKh nAw_nKw nKh nKw
+  :: forall r nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             shK shA shB.
      ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
-     , shK ~ '[nCout, nCinp, nKh, nKw]
-     , shA ~ '[nImgs, nCinp, nAh_nKh + nKh, nAw_nKw + nKw]
-     , shB ~ '[nImgs, nCout, nAh_nKh, nAw_nKw] )
+     , shK ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
+     , shA ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
+     , shB ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1] )
   => SNat nImgs -> SNat nCinp -> SNat nCout
-  -> SNat nAh_nKh -> SNat nAw_nKw -> SNat nKh -> SNat nKw
+  -> SNat nAh_nKh1 -> SNat nAw_nKw1 -> SNat nKh1 -> SNat nKw1
   -> Nested.Shaped shK r
        -- ^ Filters of shape: num_filters x chas x kernel_height x kernel_width
   -> Nested.Shaped shA r
@@ -372,27 +372,27 @@ quickcheck_conv2dShrinking =
   forAll (choose (0, 2)) $ \nImgs' ->
   forAll (choose (0, 2)) $ \nCinp' ->
   forAll (choose (0, 2)) $ \nCout' ->
-  forAll (choose (0, 2)) $ \nAh_nKh' ->
-  forAll (choose (0, 2)) $ \nAw_nKw' ->
-  forAll (choose (0, 2)) $ \nKh' ->
-  forAll (choose (0, 2)) $ \nKw' ->
+  forAll (choose (1, 2)) $ \nAh_nKh1' ->
+  forAll (choose (1, 2)) $ \nAw_nKw1' ->
+  forAll (choose (0, 2)) $ \nKh1' ->
+  forAll (choose (0, 2)) $ \nKw1' ->
     -- The glue below is needed to bridge the dependently-typed
     -- vs normal world.
     withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
     withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
     withSNat nCout' $ \(nCout :: SNat nCout) ->
-    withSNat nAh_nKh' $ \(nAh_nKh :: SNat nAh_nKh) ->
-    withSNat nAw_nKw' $ \(nAw_nKw :: SNat nAw_nKw) ->
-    withSNat nKh' $ \(nKh :: SNat nKh) ->
-    withSNat nKw' $ \(nKw :: SNat nKw) ->
+    withSNat nAh_nKh1' $ \(nAh_nKh1 :: SNat nAh_nKh1) ->
+    withSNat nAw_nKw1' $ \(nAw_nKw1 :: SNat nAw_nKw1) ->
+    withSNat nKh1' $ \(nKh1 :: SNat nKh1) ->
+    withSNat nKw1' $ \(nKw1 :: SNat nKw1) ->
       property $ \seed0 ->
-        let arrK :: Concrete (TKS '[nCout, nCinp, nKh, nKw] r)
+        let arrK :: Concrete (TKS '[nCout, nCinp, nKh1 + 1, nKw1 + 1] r)
             (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
             arrA :: Concrete (TKS '[ nImgs, nCinp
-                                   , nAh_nKh + nKh, nAw_nKw + nKw ] r)
+                                   , nAh_nKh1 + nKh1, nAw_nKw1 + nKw1 ] r)
             (arrA, seed3) = randomValue 0.5 seed2
-            arrB :: Concrete (TKS '[nImgs, nCout, nAh_nKh, nAw_nKw] r)
+            arrB :: Concrete (TKS '[nImgs, nCout, nAh_nKh1, nAw_nKw1] r)
             (arrB, _) = randomValue 0.5 seed3
         in static_conv2dShrinking
-             nImgs nCinp nCout nAh_nKh nAw_nKw nKh nKw
+             nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)

@@ -13,9 +13,9 @@ import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat)
 
-import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
@@ -174,7 +174,7 @@ softMax1 d =
   in tlet expU0 $ \expU -> rreplicate0N (rshape d) (recip $ rsum0 expU) * expU
 
 -- | Unpadded full convolution,
---   where the output size is the same as the input size.
+-- where the output size is the same as the input size.
 --
 -- BTW, the indexing lower bounds in the code are spurious,
 -- so they get simplified away in the resulting AST program.
@@ -195,7 +195,7 @@ conv2dUnpadded arrK arrA =
     _ -> error "conv2dUnpadded: impossible pattern needlessly required"
 
 -- | Full convolution with custom padding,
---   where the output size depends on the input size, kernel size and padding.
+-- where the output size depends on the input size, kernel size and padding.
 conv2dCustomPadded
   :: (ADReady target, GoodScalar r)
   => (Int, Int) -> target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
@@ -217,9 +217,12 @@ conv2dCustomPadded (nPh, nPw) arrK arrA =
     _ -> error "conv2dCustomPadded: impossible pattern needlessly required"
 
 -- | Full convolution with just enough padding to ensure all output points
---   are affected by the same number of input points,
---   where the output size shrinks depending on the input size and kernel size.
---   Also no input points are ever ignored, though some are read less often.
+-- are affected by the same number of input points,
+-- where the output size shrinks depending on the input size and kernel size.
+-- Also no input points are ever ignored, though some are read less often.
+--
+-- This corresponds to
+-- https://hackage.haskell.org/package/hmatrix-0.20.2/docs/Numeric-LinearAlgebra.html#v:corr2
 conv2dShrinking
   :: (ADReady target, GoodScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
@@ -227,7 +230,7 @@ conv2dShrinking arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
       [nCoutK, nCinpK, nKh, nKw] = rshape arrK
       nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
-      shB = [nImgs, nCoutK, nAh - nKh, nAw - nKw]
+      shB = [nImgs, nCoutK, nAh - nKh + 1, nAw - nKw + 1]
       shK1 = [1, nCinp, nKh, nKw]
   in rbuild shB $ \case
     [iImg, iCout, iBh, iBw] ->

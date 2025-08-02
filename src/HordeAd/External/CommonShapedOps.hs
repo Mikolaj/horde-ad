@@ -173,7 +173,7 @@ softMax1S d =
   in tlet expU0 $ \expU -> sreplicate0N (recip $ ssum0 expU) * expU
 
 -- | Unpadded full convolution,
---   where the output size is the same as the input size.
+-- where the output size is the same as the input size.
 conv2dUnpaddedS
   :: forall nCoutK nCinpK nKh nKw nImgs nCinpA nAh nAw
             target r shB shK1.
@@ -196,21 +196,24 @@ conv2dUnpaddedS arrK arrA =
     _ -> error "conv2dUnpaddedS: impossible pattern needlessly required"
 
 -- | Full convolution with just enough padding to ensure all output points
---   are affected by the same number of input points,
---   where the output size shrinks depending on the input size and kernel size.
---   Also no input points are ever ignored, though some are read less often.
+-- are affected by the same number of input points,
+-- where the output size shrinks depending on the input size and kernel size.
+-- Also no input points are ever ignored, though some are read less often.
+--
+-- This corresponds to
+-- https://hackage.haskell.org/package/hmatrix-0.20.2/docs/Numeric-LinearAlgebra.html#v:corr2
 conv2dShrinkingS
-  :: forall nCoutK nCinpK nKh nKw nImgs nCinpA nAh_nKh nAw_nKw
+  :: forall nCoutK nCinpK nKh1 nKw1 nImgs nCinpA nAh_nKh1 nAw_nKw1
             target r shB shK1.
-     ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh, KnownNat nKw
-     , KnownNat nImgs, KnownNat nAh_nKh, KnownNat nAw_nKw
+     ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh1, KnownNat nKw1
+     , KnownNat nImgs, KnownNat nAh_nKh1, KnownNat nAw_nKw1
      , ADReady target, GoodScalar r
      , nCinpA ~ nCinpK
-     , shB ~ '[nImgs, nCoutK, nAh_nKh, nAw_nKw]
-     , shK1 ~ '[1, nCinpA, nKh, nKw]
+     , shB ~ '[nImgs, nCoutK, nAh_nKh1, nAw_nKw1]
+     , shK1 ~ '[1, nCinpA, nKh1 + 1, nKw1 + 1]
      )
-  => target (TKS '[nCoutK, nCinpK, nKh, nKw] r)
-  -> target (TKS '[nImgs, nCinpA, nAh_nKh + nKh, nAw_nKw + nKw] r)
+  => target (TKS '[nCoutK, nCinpK, nKh1 + 1, nKw1 + 1] r)
+  -> target (TKS '[nImgs, nCinpA, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1] r)
   -> target (TKS shB r)
 conv2dShrinkingS arrK arrA =
   sbuild @(Rank shB) $ \case
@@ -223,7 +226,7 @@ conv2dShrinkingS arrK arrA =
 -- | Full convolution with enough padding to apply kernels at all
 -- posiitons that give non-zero results. This corresponds to
 -- https://hackage.haskell.org/package/hmatrix-0.20.2/docs/Numeric-LinearAlgebra.html#v:conv2
--- though it doesn't do kernel flipping.
+-- though it doesn't do the kernel flipping.
 conv2dPaddedS
   :: forall nCoutK nCinpK nKh nKw nImgs nCinpA nAh nAw
             target r shB shK1.
