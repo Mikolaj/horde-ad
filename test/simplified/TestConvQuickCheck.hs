@@ -42,10 +42,10 @@ testTrees =
                  (quickcheck_conv2dPaddedVjp @Double)
   , testProperty "conv2dPaddedVjp Quickcheck Float"
                  (quickcheck_conv2dPaddedVjp @Float)
---  , testProperty "conv2dUnpaddedJvp Quickcheck Double"
---                 (quickcheck_conv2dUnpaddedJvp @Double)
---  , testProperty "conv2dUnpaddedJvp Quickcheck Float"
---                 (quickcheck_conv2dUnpaddedJvp @Float)
+  , testProperty "conv2dUnpaddedJvp Quickcheck Double"
+                 (quickcheck_conv2dUnpaddedJvp @Double)
+  , testProperty "conv2dUnpaddedJvp Quickcheck Float"
+                 (quickcheck_conv2dUnpaddedJvp @Float)
   , testProperty "conv2dShrinkingJvp Quickcheck Double"
                  (quickcheck_conv2dShrinkingJvp @Double)
   , testProperty "conv2dShrinkingJvp Quickcheck Float"
@@ -575,7 +575,6 @@ quickcheck_conv2dPaddedVjp =
                    (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
     in b
 
-{- fails, strangely:
 static_conv2dUnpaddedJvp
   :: forall r nImgs nCinp nCout nAh nAw nKh nKw
             shK shA.
@@ -595,12 +594,12 @@ static_conv2dUnpaddedJvp
   -> Bool
 static_conv2dUnpaddedJvp SNat SNat SNat SNat SNat SNat SNat
                          arrK arrK2 arrA arrA2 =
-  let dInp :: Concrete (TKS shA r)
+  let dInp :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
       dInp = conv2dUnpaddedS
                (sconcrete arrK) (sconcrete arrA2)
       jvpInp = cjvp (conv2dUnpaddedS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrA2)
-      dKrn :: Concrete (TKS shK r)
+      dKrn :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
       dKrn = conv2dUnpaddedS
                (sconcrete arrK2) (sconcrete arrA)
       jvpKrn = cjvp (`conv2dUnpaddedS` (sconcrete arrA))
@@ -639,7 +638,7 @@ quickcheck_conv2dUnpaddedJvp =
         in static_conv2dUnpaddedJvp
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrK2)
-             (unConcrete arrA) (unConcrete arrA2) -}
+             (unConcrete arrA) (unConcrete arrA2)
 
 static_conv2dShrinkingJvp
   :: forall r nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
