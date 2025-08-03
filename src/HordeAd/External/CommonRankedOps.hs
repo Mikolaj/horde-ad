@@ -194,28 +194,6 @@ conv2dUnpadded arrK arrA =
       in rdot0 arrAt arrKt
     _ -> error "conv2dUnpadded: impossible pattern needlessly required"
 
--- | Full convolution with custom padding,
--- where the output size depends on the input size, kernel size and padding.
-conv2dCustomPadded
-  :: (ADReady target, GoodScalar r)
-  => (Int, Int) -> target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
-conv2dCustomPadded (nPh, nPw) arrK arrA =
-  let [nImgs, nCinpA, nAh, nAw] = rshape arrA
-      [nCoutK, nCinpK, nKh, nKw] = rshape arrK
-      nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
-      nBh = nAh + 2 * nPh - nKh + 1
-      nBw = nAw + 2 * nPw - nKw + 1
-      shB = [nImgs, nCoutK, nBh, nBw]
-      shK1 = [1, nCinp, nKh, nKw]
-  in rbuild shB $ \case
-    [iImg, iCout, iBh, iBw] ->
-      let iFh = iBh - fromIntegral nPh
-          iFw = iBw - fromIntegral nPw
-          arrAt = slicez shK1 arrA [iImg, 0, iFh, iFw]
-          arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
-      in rdot0 arrAt arrKt
-    _ -> error "conv2dCustomPadded: impossible pattern needlessly required"
-
 -- | Full convolution with just enough padding to ensure all output points
 -- are affected by the same number of input points,
 -- where the output size shrinks depending on the input size and kernel size.
@@ -238,6 +216,48 @@ conv2dShrinking arrK arrA =
           arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
       in rdot0 arrAt arrKt
     _ -> error "conv2dShrinking: impossible pattern needlessly required"
+
+-- | Full convolution with enough padding to apply kernels at all
+-- positions that give non-zero results. This corresponds to
+-- https://hackage.haskell.org/package/hmatrix-0.20.2/docs/Numeric-LinearAlgebra.html#v:conv2
+-- though it doesn't do the kernel flipping.
+conv2dPadded
+  :: (ADReady target, GoodScalar r)
+  => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
+conv2dPadded arrK arrA =
+  let [nImgs, nCinpA, nAh, nAw] = rshape arrA
+      [nCoutK, nCinpK, nKh, nKw] = rshape arrK
+      nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
+      shB = [nImgs, nCoutK, nAh + nKh - 1, nAw + nKw - 1]
+      shK1 = [1, nCinp, nKh, nKw]
+  in rbuild shB $ \case
+    [iImg, iCout, iBh, iBw] ->
+      let arrAt = slicez shK1 arrA [iImg, 0, iBh, iBw]
+          arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
+      in rdot0 arrAt arrKt
+    _ -> error "conv2dPadded: impossible pattern needlessly required"
+
+-- | Full convolution with custom padding,
+-- where the output size depends on the input size, kernel size and padding.
+conv2dCustomPadded
+  :: (ADReady target, GoodScalar r)
+  => (Int, Int) -> target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
+conv2dCustomPadded (nPh, nPw) arrK arrA =
+  let [nImgs, nCinpA, nAh, nAw] = rshape arrA
+      [nCoutK, nCinpK, nKh, nKw] = rshape arrK
+      nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
+      nBh = nAh + 2 * nPh - nKh + 1
+      nBw = nAw + 2 * nPw - nKw + 1
+      shB = [nImgs, nCoutK, nBh, nBw]
+      shK1 = [1, nCinp, nKh, nKw]
+  in rbuild shB $ \case
+    [iImg, iCout, iBh, iBw] ->
+      let iFh = iBh - fromIntegral nPh
+          iFw = iBw - fromIntegral nPw
+          arrAt = slicez shK1 arrA [iImg, 0, iFh, iFw]
+          arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
+      in rdot0 arrAt arrKt
+    _ -> error "conv2dCustomPadded: impossible pattern needlessly required"
 
 -- | Slice a section out of a tensor,
 --   given a base offset and shape of the section.

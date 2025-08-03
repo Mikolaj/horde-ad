@@ -224,7 +224,7 @@ conv2dShrinkingS arrK arrA =
     _ -> error "conv2dShrinkingS: impossible pattern needlessly required"
 
 -- | Full convolution with enough padding to apply kernels at all
--- posiitons that give non-zero results. This corresponds to
+-- positons that give non-zero results. This corresponds to
 -- https://hackage.haskell.org/package/hmatrix-0.20.2/docs/Numeric-LinearAlgebra.html#v:conv2
 -- though it doesn't do the kernel flipping.
 conv2dPaddedS

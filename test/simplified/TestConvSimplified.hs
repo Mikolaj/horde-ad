@@ -773,10 +773,10 @@ testKonstNotBigCLaborious128cb =
 --   The same result could be accomplished by tweaking indexes slightly
 --   in conv2dUnpadded, but here additionally all bounds checks in the code
 --   are spurious and will be simplified away in the resulting AST program.
-conv2dPadded
+conv2dPaddedB
   :: forall target r. (ADReady target, GoodScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
-conv2dPadded arrK arrA =
+conv2dPaddedB arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
       [nCoutK, nCinpK, nKh, nKw] = rshape arrK
       shAPadded = [nImgs, nCinpA, nAh + nKh, nAw + nKw]
@@ -799,48 +799,48 @@ conv2dPadded arrK arrA =
       let arrAt = slicezL shK1 arrAPadded [iImg, 0, iBh, iBw]
           arrKt = slicezL shK1 arrK [iCout, 0, 0, 0]
       in rdot0 arrAt arrKt
-    _ -> error "conv2dPadded: impossible pattern needlessly required"
+    _ -> error "conv2dPaddedB: impossible pattern needlessly required"
 
 conv2d1Padded
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2d1Padded = conv2dPadded $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
+conv2d1Padded = conv2dPaddedB $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dAPadded
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dAPadded =
-  conv2dPadded $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
+  conv2dPaddedB $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dBPadded
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dBPadded = conv2dPadded (rconcrete $ unConcrete t16b)
+conv2dBPadded = conv2dPaddedB (rconcrete $ unConcrete t16b)
 
 conv2dCPadded
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dCPadded = flip conv2dPadded (rconcrete $ unConcrete t16b)
+conv2dCPadded = flip conv2dPaddedB (rconcrete $ unConcrete t16b)
 
 conv2dBPadded128b
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dBPadded128b = conv2dPadded (rconcrete $ unConcrete t128b)
+conv2dBPadded128b = conv2dPaddedB (rconcrete $ unConcrete t128b)
 
 conv2dCPadded128b
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dCPadded128b = flip conv2dPadded (rconcrete $ unConcrete t128b)
+conv2dCPadded128b = flip conv2dPaddedB (rconcrete $ unConcrete t128b)
 
 _conv2dBPadded128c
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-_conv2dBPadded128c = conv2dPadded (rconcrete $ unConcrete t128c)
+_conv2dBPadded128c = conv2dPaddedB (rconcrete $ unConcrete t128c)
 
 _conv2dCPadded128c
   :: (ADReady target, GoodScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-_conv2dCPadded128c = flip conv2dPadded (rconcrete $ unConcrete t128c)
+_conv2dCPadded128c = flip conv2dPaddedB (rconcrete $ unConcrete t128c)
 
 -- TODO: OOMs
 _testReplicate0RevPadded :: Assertion
@@ -860,7 +860,7 @@ testReplicate0TinySPadded =
   assertEqualUpToEpsilon 1e-10
     (ringestData [1, 1, 1, 1] [582665.99432])
     (grad (kfromR . rsum0 @4 @(TKScalar Double) .
-          (conv2dPadded $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unConcrete t16b))))
+          (conv2dPaddedB $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unConcrete t16b))))
           (ringestData [1, 1, 1, 1] [0]))
 
 testReplicate0TinyAPadded :: Assertion
@@ -1627,7 +1627,7 @@ _testPaddedCNNOPP1e = do
                      (TKProduct (TKR 4 Double) (TKR 4 Double))
         -> AstTensor AstMethodLet FullSpan
                      (TKR 4 Double)
-      f v = conv2dPadded (tproject1 v) (tproject2 v)
+      f v = conv2dPaddedB (tproject1 v) (tproject2 v)
       ftk = FTKProduct (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
                        (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
       (artifactRev, _) =
