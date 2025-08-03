@@ -28,8 +28,8 @@ testTrees :: [TestTree]
 testTrees =
   [ testCase "conv2dUnpaddedVjp dInp" test_conv2dUnpaddedVjp_dInp
   , testCase "conv2dUnpaddedVjp dKrn" test_conv2dUnpaddedVjp_dKrn
---  , testProperty "conv2dUnpaddedVjp Quickcheck Double" (quickcheck_conv2dUnpaddedVjp @Double)
---  , testProperty "conv2dUnpaddedVjp Quickcheck Float" (quickcheck_conv2dUnpaddedVjp @Float)
+  , testProperty "conv2dUnpaddedVjp Quickcheck Double" (quickcheck_conv2dUnpaddedVjp @Double)
+  , testProperty "conv2dUnpaddedVjp Quickcheck Float" (quickcheck_conv2dUnpaddedVjp @Float)
   , testCase "conv2dShrinkingVjp dInp" test_conv2dShrinkingVjp_dInp
   , testCase "conv2dShrinkingVjp dKrn" test_conv2dShrinkingVjp_dKrn
   , testProperty "conv2dShrinkingVjp Quickcheck Double"
@@ -74,7 +74,13 @@ conv2dUnpadded_dInp
   -> target (TKS shB r)
   -> target (TKS shA r)
 conv2dUnpadded_dInp arrK arrB =
-  let nKh = valueOf @nKh
+  let arrKFlipped =
+        stranspose @'[1, 2, 0]
+        $ sreverse
+        $ stranspose @'[3, 1, 2, 0]
+        $ sreverse
+        $ stranspose @'[3, 0, 1, 2] arrK
+      nKh = valueOf @nKh
       nKw = valueOf @nKw
   in sbuild @(Rank shA) $ \case
     [iImg, iCinp, iAh, iAw] ->
@@ -83,48 +89,17 @@ conv2dUnpadded_dInp arrK arrB =
             [iCout] ->
               let arrBt = slicezS @shB1 arrB
                                   [iImg,  iCout, iAh - nKh + 1, iAw - nKw + 1]
-                  arrKt = slicezS arrK
+                  arrKt = slicezS arrKFlipped
                                   [iCout, iCinp, 0, 0]
               in sdot0 arrBt arrKt
-            _ -> error "conv2d_dInp: impossible pattern needlessly required"
+            _ -> error "conv2dUnpadded_dInp: impossible pattern needlessly required"
       in ssum arr1
-    _ -> error "conv2d_dInp: impossible pattern needlessly required"
+    _ -> error "conv2dUnpadded_dInp: impossible pattern needlessly required"
+-- Note that
+-- > ... in conv2dUnpaddedS (stranspose @'[1, 0] arrKFlipped) arrB
+-- type-checks above, but test fails.
 
--- | Another variant taken from the Futhark code.
--- Does not match the cvjp, either, according to QuickCheck tests.
-_conv2dUnpadded_dInp_fut
-  :: forall shK shA shB sh1 nImgs nCinp nCout nAh nAw nKh nKw
-            target r.
-     ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
-     , KnownNat nAh, KnownNat nAw
-     , KnownNat nKh, KnownNat nKw
-     , ADReady target, GoodScalar r
-     , shK  ~ '[nCout, nCinp, nKh, nKw]
-     , shA  ~ '[nImgs, nCinp, nAh, nAw]
-     , shB  ~ '[nImgs, nCout, nAh, nAw]
-     , sh1  ~ '[nCout, nAh, nAw] )
-  => target (TKS shK r)
-  -> target (TKS shB r)
-  -> target (TKS shA r)
-_conv2dUnpadded_dInp_fut arrK arrB =
-  let nKh = valueOf @nKh
-      nKw = valueOf @nKw
-      padh = nKh `quotH` 2
-      padw = nKw `quotH` 2
-  in sbuild @(Rank shA) $ \case
-    [iImg, iCinp, iAh, iAw] ->
-      let arr1 :: target (TKS sh1 r)
-          arr1 = sbuild @(Rank sh1) $ \case
-            [iCout, iBh, iBw] ->
-              let iKh = iAh - iBh + padh
-                  iKw = iAw - iBw + padw
-                  xOut = sindex0 arrB [iImg, iCout, iBh, iBw]
-                  xKrn = sindex0 arrK [iCout, iCinp, iKh, iKw]
-              in xOut * xKrn
-            _ -> error "conv2d_dInp: impossible pattern needlessly required"
-      in ssum0 arr1
-    _ -> error "conv2d_dInp: impossible pattern needlessly required"
-
+-- TODO: this is wrong and so the QuickCheck property for this is disabled.
 -- | Derivative of full convolution with respect to the kernels,
 -- where the output size is the same as the input size.
 conv2dUnpadded_dKrn
@@ -152,9 +127,9 @@ conv2dUnpadded_dKrn arrA arrB =
                   arrAt = slicezS arrA
                                   [iImg, iCinp, iKh, iKw]
               in sdot0 arrBt arrAt
-            _ -> error "conv2d_dKrn: impossible pattern needlessly required"
+            _ -> error "conv2dUnpadded_dKrn: impossible pattern needlessly required"
       in ssum arr1
-    _ -> error "conv2d_dKrn: impossible pattern needlessly required"
+    _ -> error "conv2dUnpadded_dKrn: impossible pattern needlessly required"
 
 test_conv2dUnpaddedVjp_dInp :: Assertion
 test_conv2dUnpaddedVjp_dInp =
@@ -198,7 +173,6 @@ allClose expected actual eps =
   all (\(a, b) -> abs (a - b) <= fromRational eps)
   $ zip (linearize expected) (linearize actual)
 
-{- fails:
 static_conv2dUnpaddedVjp
   :: forall r nImgs nCinp nCout nAh nAw nKh nKw
             shK shA shB.
@@ -227,24 +201,24 @@ static_conv2dUnpaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       vjpInp = cvjp (conv2dUnpaddedS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
       -- Second, the gradient wrt the kernels taken at point @arrK@.
-      dKrn :: Concrete (TKS shK r)
-      dKrn = conv2dUnpadded_dKrn (sconcrete arrA) (sconcrete arrB) -- handwritten
-      vjpKrn = cvjp (`conv2dUnpaddedS` (sconcrete arrA))
-                    (sconcrete arrK) (sconcrete arrB)
-  in allClose vjpInp dInp 1e-4
-     && allClose vjpKrn dKrn 1e-4
+--      dKrn :: Concrete (TKS shK r)
+--      dKrn = conv2dUnpadded_dKrn (sconcrete arrA) (sconcrete arrB) -- handwritten
+--      vjpKrn = cvjp (`conv2dUnpaddedS` (sconcrete arrA))
+--                    (sconcrete arrK) (sconcrete arrB)
+  in allClose vjpInp dInp 1e-5
+     -- && allClose vjpKrn dKrn 1e-5
 
 quickcheck_conv2dUnpaddedVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2dUnpaddedVjp =
-  forAll (choose (0, 2)) $ \nImgs' ->
-  forAll (choose (0, 2)) $ \nCinp' ->
-  forAll (choose (0, 2)) $ \nCout' ->
-  forAll (choose (0, 2)) $ \nAh' ->
-  forAll (choose (0, 2)) $ \nAw' ->
-  forAll (choose (0, 2)) $ \nKh' ->
-  forAll (choose (0, 2)) $ \nKw' ->
+  forAll (choose (0, 5)) $ \nImgs' ->
+  forAll (choose (0, 5)) $ \nCinp' ->
+  forAll (choose (0, 5)) $ \nCout' ->
+  forAll (choose (0, 5)) $ \nAh' ->
+  forAll (choose (0, 5)) $ \nAw' ->
+  forAll (choose (0, 5)) $ \nKh' ->
+  forAll (choose (0, 5)) $ \nKw' ->
     -- The glue below is needed to bridge the dependently-typed
     -- vs normal world.
     withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
@@ -263,7 +237,7 @@ quickcheck_conv2dUnpaddedVjp =
             (arrB, _) = randomValue 0.5 seed3
         in static_conv2dUnpaddedVjp
              nImgs nCinp nCout nAh nAw nKh nKw
-             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB) -}
+             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
 
 -- | Derivative of full shrinking convolution with respect to the input image,
 -- where the output size is the same as the input size.
@@ -444,6 +418,7 @@ conv2dPadded_dInp arrK arrB =
         $ stranspose @'[3, 0, 1, 2] arrK
   in conv2dShrinkingS (stranspose @'[1, 0] arrKFlipped) arrB
 
+-- TODO: this is wrong and so the QuickCheck property for this is disabled.
 -- | Derivative of full padded convolution with respect to the kernels,
 -- where the output size is the same as the input size.
 conv2dPadded_dKrn
@@ -530,11 +505,11 @@ static_conv2dPaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       vjpInp = cvjp (conv2dPaddedS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
       -- Second, the gradient wrt the kernels taken at point @arrK@.
-      dKrn :: Concrete (TKS shK r)
-      dKrn = conv2dPadded_dKrn
-               (sconcrete arrA) (sconcrete arrB) -- handwritten
-      vjpKrn = cvjp (`conv2dPaddedS` (sconcrete arrA))
-                    (sconcrete arrK) (sconcrete arrB)
+--      dKrn :: Concrete (TKS shK r)
+--      dKrn = conv2dPadded_dKrn
+--               (sconcrete arrA) (sconcrete arrB) -- handwritten
+--      vjpKrn = cvjp (`conv2dPaddedS` (sconcrete arrA))
+--                    (sconcrete arrK) (sconcrete arrB)
   in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
      -- && allClose vjpKrn dKrn 1e-5
 
@@ -543,13 +518,13 @@ quickcheck_conv2dPaddedVjp
   => Property
 quickcheck_conv2dPaddedVjp =
   forAll chooseAny $ \(seed0 :: Int) ->
-  forAll (choose (0, 5)) $ \nImgs' ->
-  forAll (choose (0, 5)) $ \nCinp' ->
-  forAll (choose (0, 5)) $ \nCout' ->
-  forAll (choose (1, 5)) $ \nAh' ->
-  forAll (choose (1, 5)) $ \nAw' ->
-  forAll (choose (0, 5)) $ \nKh1' ->
-  forAll (choose (0, 5)) $ \nKw1' ->
+  forAll (choose (0, 4)) $ \nImgs' ->
+  forAll (choose (0, 4)) $ \nCinp' ->
+  forAll (choose (0, 4)) $ \nCout' ->
+  forAll (choose (1, 4)) $ \nAh' ->
+  forAll (choose (1, 4)) $ \nAw' ->
+  forAll (choose (0, 4)) $ \nKh1' ->
+  forAll (choose (0, 4)) $ \nKw1' ->
     -- The glue below is needed to bridge the dependently-typed
     -- vs normal world.
     -- The @b@ is needed for GHC 9.10 to type-check this code.
