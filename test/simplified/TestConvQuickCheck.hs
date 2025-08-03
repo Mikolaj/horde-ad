@@ -26,10 +26,10 @@ import Shared
 
 testTrees :: [TestTree]
 testTrees =
-  [ testCase "conv2dVjp dInp" test_conv2dVjp_dInp
-  , testCase "conv2dVjp dKrn" test_conv2dVjp_dKrn
---  , testProperty "conv2dVjp Quickcheck Double" (quickcheck_conv2dVjp @Double)
---  , testProperty "conv2dVjp Quickcheck Float" (quickcheck_conv2dVjp @Float)
+  [ testCase "conv2dUnpaddedVjp dInp" test_conv2dUnpaddedVjp_dInp
+  , testCase "conv2dUnpaddedVjp dKrn" test_conv2dUnpaddedVjp_dKrn
+--  , testProperty "conv2dUnpaddedVjp Quickcheck Double" (quickcheck_conv2dUnpaddedVjp @Double)
+--  , testProperty "conv2dUnpaddedVjp Quickcheck Float" (quickcheck_conv2dUnpaddedVjp @Float)
   , testCase "conv2dShrinkingVjp dInp" test_conv2dShrinkingVjp_dInp
   , testCase "conv2dShrinkingVjp dKrn" test_conv2dShrinkingVjp_dKrn
   , testProperty "conv2dShrinkingVjp Quickcheck Double"
@@ -58,7 +58,7 @@ testTrees =
 
 -- | Derivative of full convolution with respect to the input image,
 -- where the output size is the same as the input size.
-conv2d_dInp
+conv2dUnpadded_dInp
   :: forall shK shA shB shB1 sh1 nImgs nCinp nCout nAh nAw nKh nKw
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
@@ -73,7 +73,7 @@ conv2d_dInp
   => target (TKS shK r)
   -> target (TKS shB r)
   -> target (TKS shA r)
-conv2d_dInp arrK arrB =
+conv2dUnpadded_dInp arrK arrB =
   let nKh = valueOf @nKh
       nKw = valueOf @nKw
   in sbuild @(Rank shA) $ \case
@@ -92,7 +92,7 @@ conv2d_dInp arrK arrB =
 
 -- | Another variant taken from the Futhark code.
 -- Does not match the cvjp, either, according to QuickCheck tests.
-_conv2d_dInp_fut
+_conv2dUnpadded_dInp_fut
   :: forall shK shA shB sh1 nImgs nCinp nCout nAh nAw nKh nKw
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
@@ -106,7 +106,7 @@ _conv2d_dInp_fut
   => target (TKS shK r)
   -> target (TKS shB r)
   -> target (TKS shA r)
-_conv2d_dInp_fut arrK arrB =
+_conv2dUnpadded_dInp_fut arrK arrB =
   let nKh = valueOf @nKh
       nKw = valueOf @nKw
       padh = nKh `quotH` 2
@@ -127,7 +127,7 @@ _conv2d_dInp_fut arrK arrB =
 
 -- | Derivative of full convolution with respect to the kernels,
 -- where the output size is the same as the input size.
-conv2d_dKrn
+conv2dUnpadded_dKrn
   :: forall shK shA shB shB1 sh1 nImgs nCinp nCout nAh nAw nKh nKw
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
@@ -141,7 +141,7 @@ conv2d_dKrn
   => target (TKS shA r)
   -> target (TKS shB r)
   -> target (TKS shK r)
-conv2d_dKrn arrA arrB =
+conv2dUnpadded_dKrn arrA arrB =
   sbuild @(Rank shK) $ \case
     [iCout, iCinp, iKh, iKw] ->
       let arr1 :: target (TKS sh1 r)
@@ -156,8 +156,8 @@ conv2d_dKrn arrA arrB =
       in ssum arr1
     _ -> error "conv2d_dKrn: impossible pattern needlessly required"
 
-test_conv2dVjp_dInp :: Assertion
-test_conv2dVjp_dInp =
+test_conv2dUnpaddedVjp_dInp :: Assertion
+test_conv2dUnpaddedVjp_dInp =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
       arrA = Nested.sreplicateScal knownShS 1.1
@@ -169,13 +169,13 @@ test_conv2dVjp_dInp =
       arrB = Nested.sreplicateScal knownShS (-3.3)
       -- Compare the AD version against the manual derivative.
       dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
-      dInp = conv2d_dInp (sconcrete arrK) (sconcrete arrB)
+      dInp = conv2dUnpadded_dInp (sconcrete arrK) (sconcrete arrB)
       vjpInp = cvjp (conv2dUnpaddedS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dInp vjpInp
 
-test_conv2dVjp_dKrn :: Assertion
-test_conv2dVjp_dKrn =
+test_conv2dUnpaddedVjp_dKrn :: Assertion
+test_conv2dUnpaddedVjp_dKrn =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
       arrA = Nested.sreplicateScal knownShS 1.1
@@ -187,7 +187,7 @@ test_conv2dVjp_dKrn =
       arrB = Nested.sreplicateScal knownShS (-3.3)
       -- Compare the AD version against the manual derivative.
       dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
-      dKrn = conv2d_dKrn (sconcrete arrA) (sconcrete arrB)
+      dKrn = conv2dUnpadded_dKrn (sconcrete arrA) (sconcrete arrB)
       vjpKrn = cvjp (`conv2dUnpaddedS` (sconcrete arrA))
                     (sconcrete arrK) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dKrn vjpKrn
@@ -199,7 +199,7 @@ allClose expected actual eps =
   $ zip (linearize expected) (linearize actual)
 
 {- fails:
-static_conv2dVjp
+static_conv2dUnpaddedVjp
   :: forall r nImgs nCinp nCout nAh nAw nKh nKw
             shK shA shB.
      ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
@@ -216,28 +216,28 @@ static_conv2dVjp
        -- ^ Output gradient of shape:
        --     batch x chas x output_height x output_width
   -> Bool
-static_conv2dVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
+static_conv2dUnpaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
       -- Note that manual versions don't take one of the arguments (the point
       -- at which the gradient is taken), because maths (something about
       -- convolution being linear and so gradient the same everywhere).
       -- First, the gradient wrt the input image taken at point @arrA@.
       dInp :: Concrete (TKS shA r)
-      dInp = conv2d_dInp (sconcrete arrK) (sconcrete arrB)  -- handwritten
+      dInp = conv2dUnpadded_dInp (sconcrete arrK) (sconcrete arrB)  -- handwritten
       vjpInp = cvjp (conv2dUnpaddedS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
       -- Second, the gradient wrt the kernels taken at point @arrK@.
       dKrn :: Concrete (TKS shK r)
-      dKrn = conv2d_dKrn (sconcrete arrA) (sconcrete arrB) -- handwritten
+      dKrn = conv2dUnpadded_dKrn (sconcrete arrA) (sconcrete arrB) -- handwritten
       vjpKrn = cvjp (`conv2dUnpaddedS` (sconcrete arrA))
                     (sconcrete arrK) (sconcrete arrB)
   in allClose vjpInp dInp 1e-4
      && allClose vjpKrn dKrn 1e-4
 
-quickcheck_conv2dVjp
+quickcheck_conv2dUnpaddedVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
-quickcheck_conv2dVjp =
+quickcheck_conv2dUnpaddedVjp =
   forAll (choose (0, 2)) $ \nImgs' ->
   forAll (choose (0, 2)) $ \nCinp' ->
   forAll (choose (0, 2)) $ \nCout' ->
@@ -261,7 +261,7 @@ quickcheck_conv2dVjp =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dVjp
+        in static_conv2dUnpaddedVjp
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB) -}
 
