@@ -36,6 +36,12 @@ testTrees =
                  (quickcheck_conv2dShrinkingVjp @Double)
   , testProperty "conv2dShrinkingVjp Quickcheck Float"
                  (quickcheck_conv2dShrinkingVjp @Float)
+--  , testCase "conv2dPaddedVjp dInp" test_conv2dPaddedVjp_dInp
+--  , testCase "conv2dPaddedVjp dKrn" test_conv2dPaddedVjp_dKrn
+--  , testProperty "conv2dPaddedVjp Quickcheck Double"
+--                 (quickcheck_conv2dPaddedVjp @Double)
+--  , testProperty "conv2dPaddedVjp Quickcheck Float"
+--                 (quickcheck_conv2dPaddedVjp @Float)
 --  , testProperty "conv2dUnpaddedJvp Quickcheck Double"
 --                 (quickcheck_conv2dUnpaddedJvp @Double)
 --  , testProperty "conv2dUnpaddedJvp Quickcheck Float"
@@ -265,8 +271,7 @@ conv2dShrinking_dInp
   :: forall shK shA shB shB1 nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
-     , KnownNat nAh_nKh1, KnownNat nAw_nKw1
-     , KnownNat nKh1, KnownNat nKw1
+     , KnownNat nAh_nKh1, KnownNat nAw_nKw1, KnownNat nKh1, KnownNat nKw1
      , ADReady target, GoodScalar r
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA  ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
@@ -300,7 +305,7 @@ conv2dShrinking_dInp arrK arrB =
 -- | Derivative of full shrinking convolution with respect to the kernels,
 -- where the output size is the same as the input size.
 conv2dShrinking_dKrn
-  :: forall shK shA shB shB1 sh1 nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
+  :: forall shK shA shB nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh_nKh1, KnownNat nAw_nKw1, KnownNat nKh1, KnownNat nKw1
@@ -308,9 +313,7 @@ conv2dShrinking_dKrn
      , 1 <= nAh_nKh1, 1 <= nAw_nKw1
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA  ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
-     , shB  ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1]
-     , shB1 ~ '[1,     1,     nAh_nKh1, nAw_nKw1]
-     , sh1  ~ '[nCout] )
+     , shB  ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1] )
   => target (TKS shA r)
   -> target (TKS shB r)
   -> target (TKS shK r)
@@ -431,6 +434,184 @@ quickcheck_conv2dShrinkingVjp =
                    nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
                    (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
     in b
+
+{- fails
+-- | Derivative of full padded convolution with respect to the input image,
+-- where the output size is the same as the input size.
+conv2dPadded_dInp
+  :: forall shK shA shB shB1 nImgs nCinp nCout nAh nAw nKh1 nKw1
+            target r.
+     ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
+     , KnownNat nAh, KnownNat nAw, KnownNat nKh1, KnownNat nKw1
+     , ADReady target, GoodScalar r
+     , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
+     , shA  ~ '[nImgs, nCinp, nAh, nAw]
+     , shB  ~ '[nImgs, nCout, nAh + nKh1, nAw + nKw1]
+     , shB1 ~ '[1,     nCout, nKh1 + 1, nKw1 + 1] )
+  => target (TKS shK r)
+  -> target (TKS shB r)
+  -> target (TKS shA r)
+conv2dPadded_dInp arrK arrB =
+  -- The following differs from
+  -- > conv2dPaddedS (stranspose @'[1, 0] arrK) arrB
+  -- only by the @- nKh1@ and @- nKw1@ offsets.
+  -- TODO: can this be made to agree somehow?
+  let arrKFlipped =
+        stranspose @'[1, 2, 0]
+        $ sreverse
+        $ stranspose @'[3, 1, 2, 0]
+        $ sreverse
+        $ stranspose @'[3, 0, 1, 2] arrK
+      nKh1 = valueOf @nKh1
+      nKw1 = valueOf @nKw1
+  in sbuild @(Rank shA) $ \case
+    [iImg, iCinp, iAh, iAw] ->
+      let arrBt = slicezS @shB1 arrB
+                          [iImg, 0, iAh - nKh1, iAw - nKw1]
+          arrKt = slicezS (stranspose @'[1, 0] arrKFlipped)
+                          [iCinp, 0, 0, 0]
+      in sdot0 arrBt arrKt
+    _ -> error "conv2dPadded_dInp: impossible pattern needlessly required"
+
+-- | Derivative of full padded convolution with respect to the kernels,
+-- where the output size is the same as the input size.
+conv2dPadded_dKrn
+  :: forall shK shA shB shB1 nImgs nCinp nCout nAh nAw nKh1 nKw1
+            target r.
+     ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
+     , KnownNat nAh, KnownNat nAw, KnownNat nKh1, KnownNat nKw1
+     , ADReady target, GoodScalar r
+     , 1 <= nAh, 1 <= nAw
+     , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
+     , shA  ~ '[nImgs, nCinp, nAh, nAw]
+     , shB  ~ '[nImgs, nCout, nAh + nKh1, nAw + nKw1]
+     , shB1 ~ '[1, nImgs, nAh, nAw] )
+  => target (TKS shA r)
+  -> target (TKS shB r)
+  -> target (TKS shK r)
+conv2dPadded_dKrn arrA arrB =
+  let nAh = valueOf @nAh
+      nAw = valueOf @nAw
+  in sbuild @(Rank shK) $ \case
+    [iCout, iCinp, iKh, iKw] ->
+      let arrBt = slicezS @shB1 arrB
+                          [0, iCout, nAh - iKh, nAw - iKw]
+          arrAt = slicezS (stranspose @'[1, 0] arrA)
+                          [iCinp, 0, 0, 0]
+      in sdot0 arrBt arrAt
+    _ -> error "conv2dPadded_dKrn: impossible pattern needlessly required"
+
+test_conv2dPaddedVjp_dInp :: Assertion
+test_conv2dPaddedVjp_dInp =
+  let -- Input of shape: batch x chas x height x width
+      arrA :: Nested.Shaped '[5, 2, 4, 8] Double
+      arrA = Nested.sreplicateScal knownShS 1.1
+      -- Filters of shape: num_filters x chas x kernel_height x kernel_width
+      arrK :: Nested.Shaped '[7, 2, 1, 3] Double
+      arrK = Nested.sreplicateScal knownShS (-2.2)
+      -- Output gradient of shape: batch x chas x output_height x output_width
+      arrB :: Nested.Shaped '[5, 7, 4, 10] Double
+      arrB = Nested.sreplicateScal knownShS 3.3
+      -- Compare the AD version against the manual derivative.
+      dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
+      dInp = conv2dPadded_dInp (sconcrete arrK) (sconcrete arrB)
+      vjpInp = cvjp (conv2dPaddedS (sconcrete arrK))
+                    (sconcrete arrA) (sconcrete arrB)
+  in assertEqualUpToEpsilon 1e-7 dInp vjpInp
+
+test_conv2dPaddedVjp_dKrn :: Assertion
+test_conv2dPaddedVjp_dKrn =
+  let -- Input of shape: batch x chas x height x width
+      arrA :: Nested.Shaped '[5, 2, 4, 8] Double
+      arrA = Nested.sreplicateScal knownShS (-1.1)
+      -- Filters of shape: num_filters x chas x kernel_height x kernel_width
+      arrK :: Nested.Shaped '[7, 2, 1, 3] Double
+      arrK = Nested.sreplicateScal knownShS 2.2
+      -- Output gradient of shape: batch x chas x output_height x output_width
+      arrB :: Nested.Shaped '[5, 7, 4, 10] Double
+      arrB = Nested.sreplicateScal knownShS 3.3
+      -- Compare the AD version against the manual derivative.
+      dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
+      dKrn = conv2dPadded_dKrn (sconcrete arrA) (sconcrete arrB)
+      vjpKrn = cvjp (`conv2dPaddedS` (sconcrete arrA))
+                    (sconcrete arrK) (sconcrete arrB)
+  in assertEqualUpToEpsilon 1e-7 dKrn vjpKrn
+
+static_conv2dPaddedVjp
+  :: forall r nImgs nCinp nCout nAh nAw nKh1 nKw1
+            shK shA shB.
+     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     , 1 <= nAh, 1 <= nAw
+     , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
+     , shA  ~ '[nImgs, nCinp, nAh, nAw]
+     , shB  ~ '[nImgs, nCout, nAh + nKh1, nAw + nKw1] )
+  => SNat nImgs -> SNat nCinp -> SNat nCout
+  -> SNat nAh -> SNat nAw -> SNat nKh1 -> SNat nKw1
+  -> Nested.Shaped shK r
+       -- ^ Filters of shape: num_filters x chas x kernel_height x kernel_width
+  -> Nested.Shaped shA r
+       -- ^ Input of shape: batch x chas x height x width
+  -> Nested.Shaped shB r
+       -- ^ Output gradient of shape:
+       --     batch x chas x output_height x output_width
+  -> Bool
+static_conv2dPaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
+  let -- Compare the AD version against the manual derivative.
+      -- Note that manual versions don't take one of the arguments (the point
+      -- at which the gradient is taken), because maths (something about
+      -- convolution being linear and so gradient the same everywhere).
+      -- First, the gradient wrt the input image taken at point @arrA@.
+      dInp :: Concrete (TKS shA r)
+      dInp = conv2dPadded_dInp
+               (sconcrete arrK) (sconcrete arrB)  -- handwritten
+      vjpInp = cvjp (conv2dPaddedS (sconcrete arrK))
+                    (sconcrete arrA) (sconcrete arrB)
+      -- Second, the gradient wrt the kernels taken at point @arrK@.
+      dKrn :: Concrete (TKS shK r)
+      dKrn = conv2dPadded_dKrn
+               (sconcrete arrA) (sconcrete arrB) -- handwritten
+      vjpKrn = cvjp (`conv2dPaddedS` (sconcrete arrA))
+                    (sconcrete arrK) (sconcrete arrB)
+  in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
+     && allClose vjpKrn dKrn 1e-5
+
+quickcheck_conv2dPaddedVjp
+  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  => Property
+quickcheck_conv2dPaddedVjp =
+  forAll chooseAny $ \(seed0 :: Int) ->
+  forAll (choose (0, 5)) $ \nImgs' ->
+  forAll (choose (0, 5)) $ \nCinp' ->
+  forAll (choose (0, 5)) $ \nCout' ->
+  forAll (choose (1, 5)) $ \nAh' ->
+  forAll (choose (1, 5)) $ \nAw' ->
+  forAll (choose (0, 5)) $ \nKh1' ->
+  forAll (choose (0, 5)) $ \nKw1' ->
+    -- The glue below is needed to bridge the dependently-typed
+    -- vs normal world.
+    -- The @b@ is needed for GHC 9.10 to type-check this code.
+    let b :: Bool
+        b =
+          withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
+          withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
+          withSNat nCout' $ \(nCout :: SNat nCout) ->
+          withSNat nAh' $ \(nAh :: SNat nAh) ->
+          withSNat nAw' $ \(nAw :: SNat nAw) ->
+          withSNat nKh1' $ \(nKh1 :: SNat nKh1) ->
+          withSNat nKw1' $ \(nKw1 :: SNat nKw1) ->
+            gcastWith (unsafeCoerceRefl :: (1 <=? nAh) :~: True) $
+            gcastWith (unsafeCoerceRefl :: (1 <=? nAw) :~: True) $
+              let arrK :: Concrete (TKS '[nCout, nCinp, nKh1 + 1, nKw1 + 1] r)
+                  (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
+                  arrA :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
+                  (arrA, seed3) = randomValue 0.5 seed2
+                  arrB :: Concrete (TKS '[nImgs, nCout, nAh + nKh1, nAw + nKw1] r)
+                  (arrB, _) = randomValue 0.5 seed3
+              in static_conv2dPaddedVjp
+                   nImgs nCinp nCout nAh nAw nKh1 nKw1
+                   (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
+    in b
+-}
 
 {- fails, strangely:
 static_conv2dUnpaddedJvp
