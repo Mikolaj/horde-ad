@@ -398,6 +398,7 @@ quickcheck_conv2dShrinkingVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2dShrinkingVjp =
+  forAll chooseAny $ \(seed0 :: Int) ->
   forAll (choose (0, 5)) $ \nImgs' ->
   forAll (choose (0, 5)) $ \nCinp' ->
   forAll (choose (0, 5)) $ \nCout' ->
@@ -407,26 +408,29 @@ quickcheck_conv2dShrinkingVjp =
   forAll (choose (0, 5)) $ \nKw1' ->
     -- The glue below is needed to bridge the dependently-typed
     -- vs normal world.
-    withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
-    withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
-    withSNat nCout' $ \(nCout :: SNat nCout) ->
-    withSNat nAh_nKh1' $ \(nAh_nKh1 :: SNat nAh_nKh1) ->
-    withSNat nAw_nKw1' $ \(nAw_nKw1 :: SNat nAw_nKw1) ->
-    withSNat nKh1' $ \(nKh1 :: SNat nKh1) ->
-    withSNat nKw1' $ \(nKw1 :: SNat nKw1) ->
-      gcastWith (unsafeCoerceRefl :: (1 <=? nAh_nKh1) :~: True) $
-      gcastWith (unsafeCoerceRefl :: (1 <=? nAw_nKw1) :~: True) $
-      property $ \seed0 ->
-        let arrK :: Concrete (TKS '[nCout, nCinp, nKh1 + 1, nKw1 + 1] r)
-            (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
-            arrA :: Concrete (TKS '[ nImgs, nCinp
-                                   , nAh_nKh1 + nKh1, nAw_nKw1 + nKw1 ] r)
-            (arrA, seed3) = randomValue 0.5 seed2
-            arrB :: Concrete (TKS '[nImgs, nCout, nAh_nKh1, nAw_nKw1] r)
-            (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dShrinkingVjp
-             nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
-             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
+    -- The @b@ is needed for GHC 9.10 to type-check this code.
+    let b :: Bool
+        b =
+          withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
+          withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
+          withSNat nCout' $ \(nCout :: SNat nCout) ->
+          withSNat nAh_nKh1' $ \(nAh_nKh1 :: SNat nAh_nKh1) ->
+          withSNat nAw_nKw1' $ \(nAw_nKw1 :: SNat nAw_nKw1) ->
+          withSNat nKh1' $ \(nKh1 :: SNat nKh1) ->
+          withSNat nKw1' $ \(nKw1 :: SNat nKw1) ->
+            gcastWith (unsafeCoerceRefl :: (1 <=? nAh_nKh1) :~: True) $
+            gcastWith (unsafeCoerceRefl :: (1 <=? nAw_nKw1) :~: True) $
+              let arrK :: Concrete (TKS '[nCout, nCinp, nKh1 + 1, nKw1 + 1] r)
+                  (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
+                  arrA :: Concrete (TKS '[ nImgs, nCinp
+                                         , nAh_nKh1 + nKh1, nAw_nKw1 + nKw1 ] r)
+                  (arrA, seed3) = randomValue 0.5 seed2
+                  arrB :: Concrete (TKS '[nImgs, nCout, nAh_nKh1, nAw_nKw1] r)
+                  (arrB, _) = randomValue 0.5 seed3
+              in static_conv2dShrinkingVjp
+                   nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
+                   (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
+    in b
 
 {- fails, strangely:
 static_conv2dUnpaddedJvp
