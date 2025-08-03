@@ -38,7 +38,6 @@ tests =
   testGroup "Full set of tests for simplified horde-ad"
     [ testGroup "Short_tests"
         (TestAdaptorSimplified.testTrees
-         ++ TestConvQuickCheck.testTrees
          ++ TestConvSimplified.testTrees
          ++ TestGatherSimplified.testTrees
          ++ TestHighRankSimplified.testTrees
@@ -49,5 +48,6 @@ tests =
          ++ TestMnistCNNS.testTrees
          ++ TestMnistFCNNR.testTrees
          ++ TestMnistRNNR.testTrees
-         ++ TestMnistRNNS.testTrees)
+         ++ TestMnistRNNS.testTrees
+         ++ TestConvQuickCheck.testTrees)
     ]

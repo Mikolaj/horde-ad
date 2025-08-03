@@ -33,7 +33,6 @@ tests =
   testGroup "Tests for simplified horde-ad that don't create big CAFs"
     [ testGroup "Short_tests"
         (TestAdaptorSimplified.testTrees
-         ++ TestConvQuickCheck.testTrees
          ++ TestConvSimplified.testTrees
          ++ TestGatherSimplified.testTrees
          ++ TestHighRankSimplified.testTrees
