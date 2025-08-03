@@ -281,10 +281,6 @@ conv2dShrinking_dInp
   -> target (TKS shB r)
   -> target (TKS shA r)
 conv2dShrinking_dInp arrK arrB =
-  -- The following differs from
-  -- > conv2dPaddedS (stranspose @'[1, 0] arrK) arrB
-  -- only by the @- nKh1@ and @- nKw1@ offsets.
-  -- TODO: can this be made to agree somehow?
   let arrKFlipped =
         stranspose @'[1, 2, 0]
         $ sreverse
@@ -293,14 +289,7 @@ conv2dShrinking_dInp arrK arrB =
         $ stranspose @'[3, 0, 1, 2] arrK
       nKh1 = valueOf @nKh1
       nKw1 = valueOf @nKw1
-  in sbuild @(Rank shA) $ \case
-    [iImg, iCinp, iAh, iAw] ->
-      let arrBt = slicezS @shB1 arrB
-                          [iImg, 0, iAh - nKh1, iAw - nKw1]
-          arrKt = slicezS (stranspose @'[1, 0] arrKFlipped)
-                          [iCinp, 0, 0, 0]
-      in sdot0 arrBt arrKt
-    _ -> error "conv2dShrinking_dInp: impossible pattern needlessly required"
+  in conv2dPaddedS (stranspose @'[1, 0] arrKFlipped) arrB
 
 -- | Derivative of full shrinking convolution with respect to the kernels,
 -- where the output size is the same as the input size.

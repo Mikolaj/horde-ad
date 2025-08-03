@@ -243,7 +243,9 @@ conv2dPaddedS
 conv2dPaddedS arrK arrA =
   sbuild @(Rank shB) $ \case
     [iImg, iCout, iBh, iBw] ->
-      let arrAt = slicezS @shK1 arrA [iImg, 0, iBh, iBw]
+      let nKh1 = valueOf @nKh1
+          nKw1 = valueOf @nKw1
+          arrAt = slicezS @shK1 arrA [iImg, 0, iBh - nKh1, iBw - nKw1]
           arrKt = slicezS arrK [iCout, 0, 0, 0]
       in sdot0 arrAt arrKt
     _ -> error "conv2dPaddedS: impossible pattern needlessly required"

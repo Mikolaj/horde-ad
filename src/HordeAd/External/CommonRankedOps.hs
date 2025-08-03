@@ -232,7 +232,9 @@ conv2dPadded arrK arrA =
       shK1 = [1, nCinp, nKh, nKw]
   in rbuild shB $ \case
     [iImg, iCout, iBh, iBw] ->
-      let arrAt = slicez shK1 arrA [iImg, 0, iBh, iBw]
+      let arrAt = slicez shK1 arrA [ iImg, 0
+                                   , iBh - fromIntegral nKh + 1
+                                   , iBw - fromIntegral nKw + 1 ]
           arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
       in rdot0 arrAt arrKt
     _ -> error "conv2dPadded: impossible pattern needlessly required"
