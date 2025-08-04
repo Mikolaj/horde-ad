@@ -1815,7 +1815,7 @@ testCNNOPP0cW = do
       varName = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
       var = AstVar varName
       ftk2 = FTKR (5 :$: 5 :$: 5 :$: 5 :$: ZSR) (FTKScalar @Double)
-      f = simplifyInline . flip conv2dUnpadded var
+      f = flip conv2dUnpadded var
       env =
         extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftk)) emptyEnv
       (artifactRev, _) =
@@ -1838,7 +1838,7 @@ testCNNOPP0bW = do
       varName = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
       var = AstVar varName
       ftk2 = FTKR (7 :$: 5 :$: 7 :$: 7 :$: ZSR) (FTKScalar @Double)
-      f = simplifyInline . conv2dUnpadded var
+      f = conv2dUnpadded var
       env =
         extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftk)) emptyEnv
       (artifactRev, _) =
@@ -1860,7 +1860,7 @@ testCNNOPP1bW = do
                      (TKProduct (TKR 4 Double) (TKR 4 Double))
         -> AstTensor AstMethodLet FullSpan
                      (TKR 4 Double)
-      f v = simplifyInline $ conv2dUnpadded (tproject1 v) (tproject2 v)
+      f v = conv2dUnpadded (tproject1 v) (tproject2 v)
       ftk = FTKProduct (FTKR (7 :$: 7 :$: 7 :$: 7 :$: ZSR) FTKScalar)
                        (FTKR (7 :$: 7 :$: 7 :$: 7 :$: ZSR) FTKScalar)
       (artifactRev, _) =
