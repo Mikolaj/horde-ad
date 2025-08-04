@@ -193,16 +193,22 @@ static_conv2dUnpaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       dInp :: Concrete (TKS shA r)
       dInp = conv2dUnpadded_dInp (sconcrete arrK) (sconcrete arrB)
         -- handwritten
-      vjpInp = cvjp (conv2dUnpaddedS (sconcrete arrK))
-                    (sconcrete arrA) (sconcrete arrB)
+      vjpInp = vjp (conv2dUnpaddedS (sconcrete arrK))
+                   (sconcrete arrA) (sconcrete arrB)
+      cvjpInp = cvjp (conv2dUnpaddedS (sconcrete arrK))
+                     (sconcrete arrA) (sconcrete arrB)
       -- Second, the gradient wrt the kernels taken at point @arrK@.
       dKrn :: Concrete (TKS shK r)
       dKrn = conv2dUnpadded_dKrn (sconcrete arrA) (sconcrete arrB)
         -- handwritten
-      vjpKrn = cvjp (`conv2dUnpaddedS` (sconcrete arrA))
-                    (sconcrete arrK) (sconcrete arrB)
-  in allClose vjpInp dInp 1e-5
+      vjpKrn = vjp (`conv2dUnpaddedS` (sconcrete arrA))
+                   (sconcrete arrK) (sconcrete arrB)
+      cvjpKrn = cvjp (`conv2dUnpaddedS` (sconcrete arrA))
+                     (sconcrete arrK) (sconcrete arrB)
+  in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
+     && allClose cvjpInp dInp 1e-5
      && allClose vjpKrn dKrn 1e-5
+     && allClose cvjpKrn dKrn 1e-5
 
 quickcheck_conv2dUnpaddedVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
@@ -337,16 +343,22 @@ static_conv2dShrinkingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       dInp :: Concrete (TKS shA r)
       dInp = conv2dShrinking_dInp
                (sconcrete arrK) (sconcrete arrB)  -- handwritten
-      vjpInp = cvjp (conv2dShrinkingS (sconcrete arrK))
-                    (sconcrete arrA) (sconcrete arrB)
+      vjpInp = vjp (conv2dShrinkingS (sconcrete arrK))
+                   (sconcrete arrA) (sconcrete arrB)
+      cvjpInp = cvjp (conv2dShrinkingS (sconcrete arrK))
+                     (sconcrete arrA) (sconcrete arrB)
       -- Second, the gradient wrt the kernels taken at point @arrK@.
       dKrn :: Concrete (TKS shK r)
       dKrn = conv2dShrinking_dKrn
                (sconcrete arrA) (sconcrete arrB) -- handwritten
-      vjpKrn = cvjp (`conv2dShrinkingS` (sconcrete arrA))
-                    (sconcrete arrK) (sconcrete arrB)
+      vjpKrn = vjp (`conv2dShrinkingS` (sconcrete arrA))
+                   (sconcrete arrK) (sconcrete arrB)
+      cvjpKrn = cvjp (`conv2dShrinkingS` (sconcrete arrA))
+                     (sconcrete arrK) (sconcrete arrB)
   in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
+     && allClose cvjpInp dInp 1e-5
      && allClose vjpKrn dKrn 1e-5
+     && allClose cvjpKrn dKrn 1e-5
 
 quickcheck_conv2dShrinkingVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
@@ -488,16 +500,22 @@ static_conv2dPaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       dInp :: Concrete (TKS shA r)
       dInp = conv2dPadded_dInp
                (sconcrete arrK) (sconcrete arrB)  -- handwritten
-      vjpInp = cvjp (conv2dPaddedS (sconcrete arrK))
-                    (sconcrete arrA) (sconcrete arrB)
+      vjpInp = vjp (conv2dPaddedS (sconcrete arrK))
+                   (sconcrete arrA) (sconcrete arrB)
+      cvjpInp = cvjp (conv2dPaddedS (sconcrete arrK))
+                     (sconcrete arrA) (sconcrete arrB)
       -- Second, the gradient wrt the kernels taken at point @arrK@.
       dKrn :: Concrete (TKS shK r)
       dKrn = conv2dPadded_dKrn
                (sconcrete arrA) (sconcrete arrB) -- handwritten
-      vjpKrn = cvjp (`conv2dPaddedS` (sconcrete arrA))
-                    (sconcrete arrK) (sconcrete arrB)
-  in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
-     && allClose vjpKrn dKrn 1e-5
+      vjpKrn = vjp (`conv2dPaddedS` (sconcrete arrA))
+                   (sconcrete arrK) (sconcrete arrB)
+      cvjpKrn = cvjp (`conv2dPaddedS` (sconcrete arrA))
+                     (sconcrete arrK) (sconcrete arrB)
+  in {- OOMs: allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
+     && -} allClose cvjpInp dInp 1e-5
+     -- OOMs: && allClose vjpKrn dKrn 1e-5
+     && allClose cvjpKrn dKrn 1e-5
 
 quickcheck_conv2dPaddedVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
@@ -559,15 +577,21 @@ static_conv2dUnpaddedJvp SNat SNat SNat SNat SNat SNat SNat
   let dInp :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
       dInp = conv2dUnpaddedS
                (sconcrete arrK) (sconcrete arrA2)
-      jvpInp = cjvp (conv2dUnpaddedS (sconcrete arrK))
-                    (sconcrete arrA) (sconcrete arrA2)
+      jvpInp = jvp (conv2dUnpaddedS (sconcrete arrK))
+                   (sconcrete arrA) (sconcrete arrA2)
+      cjvpInp = cjvp (conv2dUnpaddedS (sconcrete arrK))
+                     (sconcrete arrA) (sconcrete arrA2)
       dKrn :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
       dKrn = conv2dUnpaddedS
                (sconcrete arrK2) (sconcrete arrA)
-      jvpKrn = cjvp (`conv2dUnpaddedS` (sconcrete arrA))
-                    (sconcrete arrK) (sconcrete arrK2)
+      jvpKrn = jvp (`conv2dUnpaddedS` (sconcrete arrA))
+                   (sconcrete arrK) (sconcrete arrK2)
+      cjvpKrn = cjvp (`conv2dUnpaddedS` (sconcrete arrA))
+                     (sconcrete arrK) (sconcrete arrK2)
   in allClose jvpInp dInp 1e-7
+     && allClose cjvpInp dInp 1e-7
      && allClose jvpKrn dKrn 1e-7
+     && allClose cjvpKrn dKrn 1e-7
 
 quickcheck_conv2dUnpaddedJvp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
@@ -624,15 +648,21 @@ static_conv2dShrinkingJvp SNat SNat SNat SNat SNat SNat SNat
   let dInp :: Concrete (TKS '[nImgs, nCout, nAh_nKh1, nAw_nKw1] r)
       dInp = conv2dShrinkingS
                (sconcrete arrK) (sconcrete arrA2)
-      jvpInp = cjvp (conv2dShrinkingS (sconcrete arrK))
-                    (sconcrete arrA) (sconcrete arrA2)
+      jvpInp = jvp (conv2dShrinkingS (sconcrete arrK))
+                   (sconcrete arrA) (sconcrete arrA2)
+      cjvpInp = cjvp (conv2dShrinkingS (sconcrete arrK))
+                     (sconcrete arrA) (sconcrete arrA2)
       dKrn :: Concrete (TKS '[nImgs, nCout, nAh_nKh1, nAw_nKw1] r)
       dKrn = conv2dShrinkingS
                (sconcrete arrK2) (sconcrete arrA)
-      jvpKrn = cjvp (`conv2dShrinkingS` (sconcrete arrA))
-                    (sconcrete arrK) (sconcrete arrK2)
+      jvpKrn = jvp (`conv2dShrinkingS` (sconcrete arrA))
+                   (sconcrete arrK) (sconcrete arrK2)
+      cjvpKrn = cjvp (`conv2dShrinkingS` (sconcrete arrA))
+                     (sconcrete arrK) (sconcrete arrK2)
   in allClose jvpInp dInp 1e-7
+     && allClose cjvpInp dInp 1e-7
      && allClose jvpKrn dKrn 1e-7
+     && allClose cjvpKrn dKrn 1e-7
 
 quickcheck_conv2dShrinkingJvp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
@@ -688,17 +718,21 @@ static_conv2dPaddedJvp
 static_conv2dPaddedJvp SNat SNat SNat SNat SNat SNat SNat
                        arrK arrK2 arrA arrA2 =
   let dInp :: Concrete (TKS '[nImgs, nCout, nAh + nKh1, nAw + nKw1] r)
-      dInp = conv2dPaddedS
-               (sconcrete arrK) (sconcrete arrA2)
-      jvpInp = cjvp (conv2dPaddedS (sconcrete arrK))
-                    (sconcrete arrA) (sconcrete arrA2)
+      dInp = conv2dPaddedS (sconcrete arrK) (sconcrete arrA2)
+      jvpInp = jvp (conv2dPaddedS (sconcrete arrK))
+                   (sconcrete arrA) (sconcrete arrA2)
+      cjvpInp = cjvp (conv2dPaddedS (sconcrete arrK))
+                     (sconcrete arrA) (sconcrete arrA2)
       dKrn :: Concrete (TKS '[nImgs, nCout, nAh + nKh1, nAw + nKw1] r)
-      dKrn = conv2dPaddedS
-               (sconcrete arrK2) (sconcrete arrA)
-      jvpKrn = cjvp (`conv2dPaddedS` (sconcrete arrA))
-                    (sconcrete arrK) (sconcrete arrK2)
-  in allClose jvpInp dInp 1e-7
-     && allClose jvpKrn dKrn 1e-7
+      dKrn = conv2dPaddedS (sconcrete arrK2) (sconcrete arrA)
+      jvpKrn = jvp (`conv2dPaddedS` (sconcrete arrA))
+                   (sconcrete arrK) (sconcrete arrK2)
+      cjvpKrn = cjvp (`conv2dPaddedS` (sconcrete arrA))
+                     (sconcrete arrK) (sconcrete arrK2)
+  in {- OOMs: allClose jvpInp dInp 1e-7
+     && -} allClose cjvpInp dInp 1e-7
+     -- && allClose jvpKrn dKrn 1e-7
+     && allClose cjvpKrn dKrn 1e-7
 
 quickcheck_conv2dPaddedJvp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
