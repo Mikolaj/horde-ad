@@ -70,6 +70,7 @@ flip42 arr =
 
 -- | Derivative of full convolution with respect to the input image,
 -- where the output size is the same as the input size.
+-- Example code that horde-ad generates is in testCNNOPP0bW.
 conv2dUnpadded_dInp
   :: forall shK shA shB shB1 nImgs nCinp nCout nAh nAw nKh nKw
             target r.
@@ -102,6 +103,7 @@ conv2dUnpadded_dInp arrK arrB =
 
 -- | Derivative of full convolution with respect to the kernels,
 -- where the output size is the same as the input size.
+-- Example code that horde-ad generates is in testCNNOPP0cW.
 conv2dUnpadded_dKrn
   :: forall shK shA shB shB1 nImgs nCinp nCout nAh nAw nKh nKw
             target r.
@@ -243,6 +245,7 @@ quickcheck_conv2dUnpaddedVjp =
 
 -- | Derivative of full shrinking convolution with respect to the input image,
 -- where the output size is the same as the input size.
+-- Example code that horde-ad generates is in testShrinkingCNNOPP0bW.
 conv2dShrinking_dInp
   :: forall shK shA shB nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             target r.
@@ -261,6 +264,7 @@ conv2dShrinking_dInp arrK arrB =
 
 -- | Derivative of full shrinking convolution with respect to the kernels,
 -- where the output size is the same as the input size.
+-- Example code that horde-ad generates is in testShrinkingCNNOPP0cW.
 conv2dShrinking_dKrn
   :: forall shK shA shB nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
             target r.
