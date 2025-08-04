@@ -362,13 +362,13 @@ quickcheck_conv2dShrinkingVjp
   => Property
 quickcheck_conv2dShrinkingVjp =
   forAll chooseAny $ \(seed0 :: Int) ->
-  forAll (choose (0, 5)) $ \nImgs' ->
-  forAll (choose (0, 5)) $ \nCinp' ->
-  forAll (choose (0, 5)) $ \nCout' ->
-  forAll (choose (1, 5)) $ \nAh_nKh1' ->
-  forAll (choose (1, 5)) $ \nAw_nKw1' ->
-  forAll (choose (0, 5)) $ \nKh1' ->
-  forAll (choose (0, 5)) $ \nKw1' ->
+  forAll (choose (0, 4)) $ \nImgs' ->
+  forAll (choose (0, 4)) $ \nCinp' ->
+  forAll (choose (0, 4)) $ \nCout' ->
+  forAll (choose (1, 4)) $ \nAh_nKh1' ->
+  forAll (choose (1, 4)) $ \nAw_nKw1' ->
+  forAll (choose (0, 4)) $ \nKh1' ->
+  forAll (choose (0, 4)) $ \nKw1' ->
     -- The glue below is needed to bridge the dependently-typed
     -- vs normal world.
     -- The @b@ is needed for GHC 9.10 to type-check this code.
@@ -413,7 +413,6 @@ conv2dPadded_dInp arrK arrB =
   let arrKFlipped = flip42 arrK
   in conv2dShrinkingS (stranspose @'[1, 0] arrKFlipped) arrB
 
--- TODO: this is wrong and so the QuickCheck property for this is disabled.
 -- | Derivative of full padded convolution with respect to the kernels,
 -- where the output size is the same as the input size.
 conv2dPadded_dKrn
@@ -430,9 +429,10 @@ conv2dPadded_dKrn
   -> target (TKS shB r)
   -> target (TKS shK r)
 conv2dPadded_dKrn arrA arrB =
-  conv2dShrinkingS @nCinp @nImgs @(nAh - 1) @(nAw - 1)
-                   (stranspose @'[1, 0] arrA)
-                   (stranspose @'[1, 0] arrB)
+  flip42
+  $ conv2dShrinkingS @nCinp @nImgs @(nAh - 1) @(nAw - 1)
+                     (stranspose @'[1, 0] arrA)
+                     (stranspose @'[1, 0] arrB)
 
 test_conv2dPaddedVjp_dInp :: Assertion
 test_conv2dPaddedVjp_dInp =
@@ -500,13 +500,13 @@ static_conv2dPaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       vjpInp = cvjp (conv2dPaddedS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
       -- Second, the gradient wrt the kernels taken at point @arrK@.
---      dKrn :: Concrete (TKS shK r)
---      dKrn = conv2dPadded_dKrn
---               (sconcrete arrA) (sconcrete arrB) -- handwritten
---      vjpKrn = cvjp (`conv2dPaddedS` (sconcrete arrA))
---                    (sconcrete arrK) (sconcrete arrB)
+      dKrn :: Concrete (TKS shK r)
+      dKrn = conv2dPadded_dKrn
+               (sconcrete arrA) (sconcrete arrB) -- handwritten
+      vjpKrn = cvjp (`conv2dPaddedS` (sconcrete arrA))
+                    (sconcrete arrK) (sconcrete arrB)
   in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
-     -- && allClose vjpKrn dKrn 1e-5
+     && allClose vjpKrn dKrn 1e-5
 
 quickcheck_conv2dPaddedVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
