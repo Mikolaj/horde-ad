@@ -1509,7 +1509,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
           ix2 = i1 - ulen :.$ rest1
       in case ulen <=. i1 of
         AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
-        bExpr -> Ast.AstIndexS shn v0 ix
+        _ -> Ast.AstIndexS shn v0 ix
   Ast.AstSliceS i@(SNat @i) (SNat @n) k@SNat v ->
     astLetFunB i1 $ \iShared ->
     let ftk = FTKS shn x

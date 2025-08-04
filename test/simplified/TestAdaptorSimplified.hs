@@ -191,8 +191,8 @@ testTrees =
   , testCase "2concatBuild5" testConcatBuild5
   , testCase "2concatBuild6" testConcatBuild6
   , testCase "2concatBuild7" testConcatBuild7
---  , testCase "2concatBuild8" testConcatBuild8
---  , testCase "2concatBuild9" testConcatBuild9
+  , testCase "2concatBuild8" testConcatBuild8
+  , testCase "2concatBuild9" testConcatBuild9
   , testCase "2concatBuild10" testConcatBuild10
   , testCase "2concatBuild11" testConcatBuild11
   , testCase "2concatBuild12" testConcatBuild12
@@ -2049,21 +2049,21 @@ testConcatBuild7 =
 -- These tests show that term rewriting changes the value
 -- of out-of-bounds indexing, e.g., of gather(replicate)
 -- that reduces to a non-gather. Vectorization is not needed for that.
-_concatBuild8 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 1 r)
-_concatBuild8 r =
+concatBuild8 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 1 r)
+concatBuild8 r =
   tlet (rgather1 5 (rreplicate 1 r)
                    (\i -> (1 `quotH` (5 - i)) :.: ZIR)) $ \a ->
     (rappend a (rgather1 5 (rreplicate 1 r)
                            (\i -> (1 `quotH` (5 - i)) :.: ZIR)))
 
-_testConcatBuild8 :: Assertion
-_testConcatBuild8 =
+testConcatBuild8 :: Assertion
+testConcatBuild8 =
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 10)
-    (rev' @Double @1 _concatBuild8 (rscalar 3.4))
+    (rscalar 8)
+    (rev' @Double @1 concatBuild8 (rscalar 3.4))
 
-_concatBuild9 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 2 r)
-_concatBuild9 r =
+concatBuild9 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 2 r)
+concatBuild9 r =
   rbuild1 7 (\j ->
     rappend (rappend
              (tlet (rgather1 5 (rreplicate 1 r)
@@ -2073,11 +2073,11 @@ _concatBuild9 r =
                      (rreplicate 1 (rfromIndex0 j)))
             (rbuild1 13 (const r)))
 
-_testConcatBuild9 :: Assertion
-_testConcatBuild9 =
+testConcatBuild9 :: Assertion
+testConcatBuild9 =
   assertEqualUpToEpsilon' 1e-10
-    (rscalar 161)
-    (rev' @Double @2 _concatBuild9 (rscalar 3.4))
+    (rscalar 122)
+    (rev' @Double @2 concatBuild9 (rscalar 3.4))
 
 concatBuild10 :: (ADReady target, GoodScalar r)
               => target (TKR 0 r) -> target (TKR 2 r)

@@ -328,12 +328,12 @@ class Num a => IntegralH a where
   quotH, remH :: a -> a -> a
 
 instance IntegralH Int64 where
-  quotH = quot
-  remH = rem
+  quotH a b = if b == 0 then a else quot a b
+  remH a b = if b == 0 then a else rem a b
 
 instance IntegralH CInt where
-  quotH = quot
-  remH = rem
+  quotH a b = if b == 0 then a else quot a b
+  remH a b = if b == 0 then a else rem a b
 
 -- | The standard 'RealFloat' brings in a lot of operations we are not
 -- interested in and 'RealFrac' and 'Real' that we can't faithfully implement
@@ -349,8 +349,8 @@ instance RealFloatH Double where
 
 {- TODO: these would be better, but everything then overlaps with everything:
 instance {-# OVERLAPPABLE #-} Integral r => IntegralH r where
-  quotH = quot
-  remH = rem
+  quotH a b = if b == 0 then a else quot a b
+  remH a b = if b == 0 then a else rem a b
 
 instance {-# OVERLAPPABLE #-} (Floating r, RealFloat r) => RealFloatH r where
   atan2H = atan2
