@@ -56,6 +56,16 @@ testTrees =
                  (quickcheck_conv2dPaddedJvp @Float)
   ]
 
+flip42 :: (ADReady target, GoodScalar r)
+       => target (TKS '[nCout, nCinp, nKh, nKw] r)
+       -> target (TKS '[nCout, nCinp, nKh, nKw] r)
+flip42 arr =
+  stranspose @'[1, 2, 0]
+  $ sreverse
+  $ stranspose @'[3, 1, 2, 0]
+  $ sreverse
+  $ stranspose @'[3, 0, 1, 2] arr
+
 -- | Derivative of full convolution with respect to the input image,
 -- where the output size is the same as the input size.
 conv2dUnpadded_dInp
@@ -74,12 +84,7 @@ conv2dUnpadded_dInp
   -> target (TKS shB r)
   -> target (TKS shA r)
 conv2dUnpadded_dInp arrK arrB =
-  let arrKFlipped =
-        stranspose @'[1, 2, 0]
-        $ sreverse
-        $ stranspose @'[3, 1, 2, 0]
-        $ sreverse
-        $ stranspose @'[3, 0, 1, 2] arrK
+  let arrKFlipped = flip42 arrK
       nKh = valueOf @nKh
       nKw = valueOf @nKw
   in sbuild @(Rank shA) $ \case
@@ -254,12 +259,7 @@ conv2dShrinking_dInp
   -> target (TKS shB r)
   -> target (TKS shA r)
 conv2dShrinking_dInp arrK arrB =
-  let arrKFlipped =
-        stranspose @'[1, 2, 0]
-        $ sreverse
-        $ stranspose @'[3, 1, 2, 0]
-        $ sreverse
-        $ stranspose @'[3, 0, 1, 2] arrK
+  let arrKFlipped = flip42 arrK
   in conv2dPaddedS (stranspose @'[1, 0] arrKFlipped) arrB
 
 -- | Derivative of full shrinking convolution with respect to the kernels,
@@ -410,12 +410,7 @@ conv2dPadded_dInp
   -> target (TKS shB r)
   -> target (TKS shA r)
 conv2dPadded_dInp arrK arrB =
-  let arrKFlipped =
-        stranspose @'[1, 2, 0]
-        $ sreverse
-        $ stranspose @'[3, 1, 2, 0]
-        $ sreverse
-        $ stranspose @'[3, 0, 1, 2] arrK
+  let arrKFlipped = flip42 arrK
   in conv2dShrinkingS (stranspose @'[1, 0] arrKFlipped) arrB
 
 -- TODO: this is wrong and so the QuickCheck property for this is disabled.

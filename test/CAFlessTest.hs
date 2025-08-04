@@ -10,7 +10,6 @@ import Test.Tasty.Runners
 
 import EqEpsilon
 import TestAdaptorSimplified qualified
-import TestConvQuickCheck qualified
 import TestConvSimplified qualified
 import TestGatherSimplified qualified
 import TestHighRankSimplified qualified
