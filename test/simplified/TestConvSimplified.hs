@@ -150,6 +150,9 @@ testTrees =
   , testCase "minimizedShrinkingCNNOPP0cW" testShrinkingCNNOPP0cW
   , testCase "minimizedShrinkingCNNOPP0bW" testShrinkingCNNOPP0bW
   , testCase "minimizedShrinkingCNNOPP1bW" testShrinkingCNNOPP1bW
+  , testCase "minimizedPaddedCNNOPP0cW" testPaddedCNNOPP0cW
+  , testCase "minimizedPaddedCNNOPP0bW" testPaddedCNNOPP0bW
+  , testCase "minimizedPaddedCNNOPP1bW" testPaddedCNNOPP1bW
   , testCase "minimizedPaddedCNNOPPLet" testPaddedCNNOPPLet
   , testCase "minimizedPaddedCNNOPPLet2" testPaddedCNNOPPLet2
 --  , testCase "minimizedPaddedCNNOPP2" testPaddedCNNOPP2
@@ -1525,9 +1528,7 @@ testCNNOPP6b = do
   printArtifactPrimalPretty artifactRev
     @?= "\\u1 -> rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 0])) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0)))) (sconcrete (sreplicate [1,2,2] 0.0)))))"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> let t34 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in rfromS (soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t34)))))) [0, 0, 0, 0])"
-
-
+    @?= "\\dret u1 -> let t33 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in rfromS (soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t33)))))) [0, 0, 0, 0])"
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret u1 -> rfromS (soneHot (ssum0 (stranspose @[0,1,3,2] (sfromR dret) !$ [0, 0, 0])) [0, 0, 0, 0])"
 
@@ -1710,6 +1711,75 @@ testShrinkingCNNOPP1bW = do
     @?= "\\dret u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR (tproject2 u1))) (\\[i22, i23] -> [i22 + i23]))) (\\[i24, i25] -> [i24 + i25])))) ; w28 = sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (rfromS (ssum @5 (str (ssum @5 (str (ssum @6 (w26 * w28))))))) (rfromS (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[2,5,0,1,3,4] (ssum @2 (str (sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR (tproject1 u1)))))) * w28)))) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32]))))"
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [6,2,6,6] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [6,2,6,6] STKScalar)) (let w28 = sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @5 (ssum @5 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR (tproject2 u1))) (\\[i81, i83] -> [i81 + i83]))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] w28)))) (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR (tproject1 u1)))))))) (stranspose @[3,6,0,2,4,5,1] w28)) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32]))))"
+
+-- Convolution differentiated wrt the kernel.
+testPaddedCNNOPP0cW :: Assertion
+testPaddedCNNOPP0cW = do
+  resetVarCounter
+  let ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
+      varName = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
+      var = AstVar varName
+      ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
+      f = flip conv2dPadded var
+      env =
+        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkD)) emptyEnv
+      (artifactRev, _) =
+        revArtifactFromForwardPass
+          UseIncomingCotangent (forwardPassByInterpretation f env) ftkK
+  "\\u0 -> " ++ printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\u0 -> \\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u0))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u1)))))))))"
+  "\\u0 -> " ++ printArtifactPrimalPretty artifactRev
+    @?= "\\u0 -> \\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u0))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (w26 * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u1)))))))))"
+  "\\u0 -> " ++ printArtifactPretty artifactRev
+    @?= "\\u0 -> \\dret u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u0))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) ; w28 = sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in rfromS (ssum @7 (str (ssum @7 (str (ssum @6 (w26 * w28))))))"
+  "\\u0 -> " ++ printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\u0 -> \\dret u1 -> rfromS (ssum @7 (ssum @7 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u0))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] (sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))))))))"
+
+-- Convolution differentiated wrt the data.
+testPaddedCNNOPP0bW :: Assertion
+testPaddedCNNOPP0bW = do
+  resetVarCounter
+  let ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
+      varName = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
+      var = AstVar varName
+      ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
+      f = conv2dPadded var
+      env =
+        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkK)) emptyEnv
+      (artifactRev, _) =
+        revArtifactFromForwardPass
+          UseIncomingCotangent (forwardPassByInterpretation f env) ftkD
+  "\\u0 -> " ++ printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\u0 -> \\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u1))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u0)))))))))"
+  "\\u0 -> " ++ printArtifactPrimalPretty artifactRev
+    @?= "\\u0 -> \\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u1))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (w26 * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u0)))))))))"
+  "\\u0 -> " ++ printArtifactPretty artifactRev
+    @?= "\\u0 -> \\dret u1 -> let w28 = sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) ; w31 = sscatter (stranspose @[2,5,0,1,3,4] (ssum @2 (str (sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u0))))) * w28)))) (\\[i29, i30] -> [i29 + i30]) ; u34 = sscatter (stranspose @[2,4,1,3,0] (sslice (SNat @1) (SNat @6) w31)) (\\[i32, i33] -> [i32 + i33]) in rfromS (stranspose @[1,2,0] (sslice (SNat @1) (SNat @6) u34))"
+  "\\u0 -> " ++ printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\u0 -> \\dret u1 -> rfromS (stranspose @[1,2,0] (sslice (SNat @1) (SNat @6) (sscatter (stranspose @[2,4,1,3,0] (sslice (SNat @1) (SNat @6) (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u0))))))) (stranspose @[3,6,0,2,4,5,1] (sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))))) (\\[i29, i30] -> [i29 + i30])))) (\\[i32, i33] -> [i32 + i33]))))"
+
+-- Convolution differentiated wrt both arguments.
+testPaddedCNNOPP1bW :: Assertion
+testPaddedCNNOPP1bW = do
+  resetVarCounter
+  let f :: AstTensor AstMethodLet FullSpan
+                     (TKProduct (TKR 4 Double) (TKR 4 Double))
+        -> AstTensor AstMethodLet FullSpan
+                     (TKR 4 Double)
+      f v = conv2dPadded (tproject1 v) (tproject2 v)
+      ftk = FTKProduct (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
+                       (FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) FTKScalar)
+      (artifactRev, _) =
+        revArtifactFromForwardPass
+          UseIncomingCotangent (forwardPassByInterpretation f emptyEnv) ftk
+  printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR (tproject2 u1)))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR (tproject1 u1))))))))))"
+  printArtifactPrimalPretty artifactRev
+    @?= "\\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR (tproject2 u1)))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (w26 * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR (tproject1 u1))))))))))"
+  printArtifactPretty artifactRev
+    @?= "\\dret u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR (tproject2 u1)))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) ; w28 = sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) ; w31 = sscatter (stranspose @[2,5,0,1,3,4] (ssum @2 (str (sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR (tproject1 u1)))))) * w28)))) (\\[i29, i30] -> [i29 + i30]) ; u34 = sscatter (stranspose @[2,4,1,3,0] (sslice (SNat @1) (SNat @6) w31)) (\\[i32, i33] -> [i32 + i33]) in tpair (rfromS (ssum @7 (str (ssum @7 (str (ssum @6 (w26 * w28))))))) (rfromS (stranspose @[1,2,0] (sslice (SNat @1) (SNat @6) u34)))"
+  printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [6,2,6,6] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [6,2,6,6] STKScalar)) (let w28 = sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @7 (ssum @7 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR (tproject2 u1)))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] w28)))) (stranspose @[1,2,0] (sslice (SNat @1) (SNat @6) (sscatter (stranspose @[2,4,1,3,0] (sslice (SNat @1) (SNat @6) (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR (tproject1 u1)))))))) (stranspose @[3,6,0,2,4,5,1] w28)) (\\[i29, i30] -> [i29 + i30])))) (\\[i32, i33] -> [i32 + i33])))))"
 
 testPaddedCNNOPPLet :: Assertion
 testPaddedCNNOPPLet = do

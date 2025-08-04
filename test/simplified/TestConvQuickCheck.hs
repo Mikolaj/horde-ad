@@ -404,6 +404,7 @@ quickcheck_conv2dShrinkingVjp =
 
 -- | Derivative of full padded convolution with respect to the input image,
 -- where the output size is the same as the input size.
+-- Example code that horde-ad generates is in testPaddedCNNOPP0bW.
 conv2dPadded_dInp
   :: forall shK shA shB nImgs nCinp nCout nAh nAw nKh1 nKw1
             target r.
@@ -422,6 +423,7 @@ conv2dPadded_dInp arrK arrB =
 
 -- | Derivative of full padded convolution with respect to the kernels,
 -- where the output size is the same as the input size.
+-- Example code that horde-ad generates is in testPaddedCNNOPP0cW.
 conv2dPadded_dKrn
   :: forall shK shA shB nImgs nCinp nCout nAh nAw nKh1 nKw1
             target r.
