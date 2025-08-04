@@ -94,19 +94,19 @@ testTrees =
 --  , testCase "KonstNotBigBLaborious128cb" testKonstNotBigBLaborious128cb
 --  , testCase "Konst5BigCLaborious128cb" testKonst5BigCLaborious128cb
 --  , testCase "KonstNotBigCLaborious128cb" testKonstNotBigCLaborious128cb
---  , testCase "Replicate0RevPadded" testReplicate0RevPadded
+  , testCase "Replicate0RevPadded" testReplicate0RevPadded
   , testCase "Replicate0Tiny1Padded" testReplicate0Tiny1Padded
   , testCase "Replicate0TinySPadded" testReplicate0TinySPadded
   , testCase "Replicate0TinyAPadded" testReplicate0TinyAPadded
   , testCase "Replicate0LittleAPadded" testReplicate0LittleAPadded
---  , testCase "Konst5LittleBPadded" testKonst5LittleBPadded
---  , testCase "Konst5LittleCPadded" testKonst5LittleCPadded
---  , testCase "Konst5BigBPadded" testKonst5BigBPadded
---  , testCase "KonstNotBigBPadded" testKonstNotBigBPadded
---  , testCase "Konst5BigCPadded" testKonst5BigCPadded
---  , testCase "KonstNotBigCPadded" testKonstNotBigCPadded
---  , testCase "Konst5LittleBPadded128b" testKonst5LittleBPadded128b
---  , testCase "Konst5LittleCPadded128b" testKonst5LittleCPadded128b
+  , testCase "Konst5LittleBPadded" testKonst5LittleBPadded
+  , testCase "Konst5LittleCPadded" testKonst5LittleCPadded
+  , testCase "Konst5BigBPadded" testKonst5BigBPadded
+  , testCase "KonstNotBigBPadded" testKonstNotBigBPadded
+  , testCase "Konst5BigCPadded" testKonst5BigCPadded
+  , testCase "KonstNotBigCPadded" testKonstNotBigCPadded
+  , testCase "Konst5LittleBPadded128b" testKonst5LittleBPadded128b
+  , testCase "Konst5LittleCPadded128b" testKonst5LittleCPadded128b
 --  , testCase "Konst5BigBPadded128b" testKonst5BigBPadded128b
 --  , testCase "KonstNotBigBPadded128b" testKonstNotBigBPadded128b
 --  , testCase "Konst5BigCPadded128b" testKonst5BigCPadded128b
@@ -144,9 +144,9 @@ testTrees =
   , testCase "minimizedCNNOPP6b" testCNNOPP6b
   , testCase "minimizedCNNOPP7" testCNNOPP7
   , testCase "minimizedCNNOPP7b" testCNNOPP7b
---  , testCase "minimizedPaddedCNNOPP0c" testPaddedCNNOPP0c
---  , testCase "minimizedPaddedCNNOPP0b" testPaddedCNNOPP0b
---  , testCase "minimizedPaddedCNNOPP1e" testPaddedCNNOPP1e
+  , testCase "minimizedPaddedCNNOPP0c" testPaddedCNNOPP0c
+  , testCase "minimizedPaddedCNNOPP0b" testPaddedCNNOPP0b
+  , testCase "minimizedPaddedCNNOPP1e" testPaddedCNNOPP1e
   , testCase "minimizedShrinkingCNNOPP0cW" testShrinkingCNNOPP0cW
   , testCase "minimizedShrinkingCNNOPP0bW" testShrinkingCNNOPP0bW
   , testCase "minimizedShrinkingCNNOPP1bW" testShrinkingCNNOPP1bW
@@ -155,7 +155,7 @@ testTrees =
   , testCase "minimizedPaddedCNNOPP1bW" testPaddedCNNOPP1bW
   , testCase "minimizedPaddedCNNOPPLet" testPaddedCNNOPPLet
   , testCase "minimizedPaddedCNNOPPLet2" testPaddedCNNOPPLet2
---  , testCase "minimizedPaddedCNNOPP2" testPaddedCNNOPP2
+  , testCase "minimizedPaddedCNNOPP2" testPaddedCNNOPP2
   , testCase "minimizedCNNOPP0cW" testCNNOPP0cW
   , testCase "minimizedCNNOPP0bW" testCNNOPP0bW
   , testCase "minimizedCNNOPP1bW" testCNNOPP1bW
@@ -847,9 +847,8 @@ _conv2dCPadded128c
   => target (TKR 4 r) -> target (TKR 4 r)
 _conv2dCPadded128c = flip conv2dPaddedB (rconcrete $ unConcrete t128c)
 
--- TODO: OOMs
-_testReplicate0RevPadded :: Assertion
-_testReplicate0RevPadded =
+testReplicate0RevPadded :: Assertion
+testReplicate0RevPadded =
   assertEqualUpToEpsilon 1e-4
     (rconcrete $ Nested.rfromListPrimLinear [2, 2, 2, 2] [40.1,8.0,11.0,-3.0,582625.89432,28.79432,-309.09999999999997,25.8,40.1,8.0,11.0,-3.0,582625.89432,28.79432,-309.09999999999997,25.8])
     (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dBPadded) (rrepl [2, 2, 2, 2] 0))
@@ -882,49 +881,43 @@ testReplicate0LittleAPadded =
 
 -- with data t16
 
--- TODO: OOMs
-_testKonst5LittleBPadded :: Assertion
-_testKonst5LittleBPadded =
+testKonst5LittleBPadded :: Assertion
+testKonst5LittleBPadded =
   assertEqualUpToEpsilon 1e-8
     (ringestData [2, 2, 2, 2] [40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8])
     (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dBPadded) (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
 
--- TODO: OOMs
-_testKonst5LittleCPadded :: Assertion
-_testKonst5LittleCPadded =
+testKonst5LittleCPadded :: Assertion
+testKonst5LittleCPadded =
   assertEqualUpToEpsilon 1e-8
     (ringestData [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
     (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dCPadded) (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
 
--- TODO: OOMs
-_testKonst5BigBPadded :: Assertion
-_testKonst5BigBPadded =
+testKonst5BigBPadded :: Assertion
+testKonst5BigBPadded =
   assertEqualUpToEpsilon 1e-8
     (ringestData [3, 2, 4, 2] [40.1,8.0,40.1,8.0,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,40.1,8.0,40.1,8.0,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,40.1,8.0,40.1,8.0,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,-309.09999999999997,25.8])
     (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dBPadded) (rreplicate0N [3, 2, 4, 2] (rscalar 5)))
 
--- TODO: OOMs
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
-_testKonstNotBigBPadded :: Assertion
-_testKonstNotBigBPadded =
+testKonstNotBigBPadded :: Assertion
+testKonstNotBigBPadded =
   assertEqualUpToEpsilon 1e-8
     (ringestData [3, 2, 4, 2] [40.1,8.0,40.1,8.0,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,40.1,8.0,40.1,8.0,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,40.1,8.0,40.1,8.0,40.1,8.0,11.0,-3.0,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,582625.8943200001,28.794320000000003,-309.09999999999997,25.8])
     (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dBPadded)
           (rfromList0N [3, 2, 4, 2] (map rscalar [37, 36 .. -10])))
 
--- TODO: OOMs
-_testKonst5BigCPadded :: Assertion
-_testKonst5BigCPadded =
+testKonst5BigCPadded :: Assertion
+testKonst5BigCPadded =
   assertEqualUpToEpsilon 1e-8
     (ringestData [3, 2, 4, 2] [0.0,0.0,18.1,29.1,32.1,40.1,14.0,11.0,0.0,0.0,582932.0,582934.99432,582597.1,582625.8943200001,-334.9,-309.09999999999997,0.0,0.0,18.1,29.1,32.1,40.1,14.0,11.0,0.0,0.0,582932.0,582934.99432,582597.1,582625.8943200001,-334.9,-309.09999999999997,0.0,0.0,18.1,29.1,32.1,40.1,14.0,11.0,0.0,0.0,582932.0,582934.99432,582597.1,582625.8943200001,-334.9,-309.09999999999997])
     (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dCPadded) (rreplicate0N [3, 2, 4, 2] (rscalar 5)))
 
--- TODO: OOMs
 -- The gradient is the same as above, because one argument is the same
 -- and convolution is linear.
-_testKonstNotBigCPadded :: Assertion
-_testKonstNotBigCPadded =
+testKonstNotBigCPadded :: Assertion
+testKonstNotBigCPadded =
   assertEqualUpToEpsilon 1e-8
     (ringestData [3, 2, 4, 2] [0.0,0.0,18.1,29.1,32.1,40.1,14.0,11.0,0.0,0.0,582932.0,582934.99432,582597.1,582625.8943200001,-334.9,-309.09999999999997,0.0,0.0,18.1,29.1,32.1,40.1,14.0,11.0,0.0,0.0,582932.0,582934.99432,582597.1,582625.8943200001,-334.9,-309.09999999999997,0.0,0.0,18.1,29.1,32.1,40.1,14.0,11.0,0.0,0.0,582932.0,582934.99432,582597.1,582625.8943200001,-334.9,-309.09999999999997])
     (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dCPadded)
@@ -932,16 +925,14 @@ _testKonstNotBigCPadded =
 
 -- with data t128b
 
--- TODO: OOMs
-_testKonst5LittleBPadded128b :: Assertion
-_testKonst5LittleBPadded128b =
+testKonst5LittleBPadded128b :: Assertion
+testKonst5LittleBPadded128b =
   assertEqualUpToEpsilon 1e-8
     (ringestData [2, 2, 2, 2] [578.1829600001,558.1716000002,608.0772800002001,577.7659200003001,729.1778800002002,701.1835600003001,833.9722000003002,803.9778800004001,578.1829600001,558.1716000002,608.0772800002001,577.7659200003001,729.1778800002002,701.1835600003001,833.9722000003002,803.9778800004001])
     (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dBPadded128b) (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
 
--- TODO: OOMs
-_testKonst5LittleCPadded128b :: Assertion
-_testKonst5LittleCPadded128b =
+testKonst5LittleCPadded128b :: Assertion
+testKonst5LittleCPadded128b =
   assertEqualUpToEpsilon 1e-8
     (ringestData [2, 2, 2, 2] [1113.1722000001,1412.1551500001997,1234.1494800003002,1627.8210700004993,1500.2781800001994,1870.0614400004986,2156.3671200003987,2725.0393200008984,1113.1722000001,1412.1551500001997,1234.1494800003002,1627.8210700004993,1500.2781800001994,1870.0614400004986,2156.3671200003987,2725.0393200008984])
     (grad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dCPadded128b) (rreplicate0N [2, 2, 2, 2] (rscalar 5)))
@@ -1594,37 +1585,34 @@ conv2dUnpadded3y arrA =
       in rindex0 arrAt [iBh, iBw, iImg, iBh]
     _ -> error "conv2dUnpadded3y: impossible pattern needlessly required"
 
--- TODO: OOMs
-_testPaddedCNNOPP0c :: Assertion
-_testPaddedCNNOPP0c = do
+testPaddedCNNOPP0c :: Assertion
+testPaddedCNNOPP0c = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent conv2dCPadded (FTKR [2, 2, 2, 2] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[2,2,2,2,8] (str (sreplicate @2 (stranspose @[1,2,3,0] (sreplicate @1 (stranspose @[5,0,1,4,2,3] (sgather (sconcrete (sfromListLinear [4,4,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,5.0,13.1,-2.0,582934.0,2.0,9.0,0.0,2.99432,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,6.0,8.0,0.1,-335.0,1.0,-4.0,-0.2,26.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])) (\\[i37, i38, i39, i40] -> [i37 + i39, i38 + i40])))))) * sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (str (sreplicate @1 (sfromR u1)))))))))))"
+    @?= "\\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[2,2,2,2,8] (str (sreplicate @2 (stranspose @[1,2,3,0] (sreplicate @1 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,3,0,2,1] (sgather (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (stranspose @[3,2,1,0] (sappend (sconcrete (sreplicate [1,2,2,3] 0.0)) (stranspose @[0,2,3,1] (sgather (sconcrete (sfromListLinear [3,3,2,2,2] [5.0,-2.0,13.1,582934.0,0.0,0.0,0.0,0.0,6.0,0.1,8.0,-335.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,2.0,0.0,9.0,2.99432,0.0,0.0,0.0,0.0,1.0,-0.2,-4.0,26.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])) (\\[i44, i45] -> [i44, i45, ifH (notB (2 <=. i45) &&* notB (2 <=. i44)) 0 1])))))) (\\[i90, i92] -> [i90 + i92]))) (\\[i48, i49] -> [i48 + i49])))))) * sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (str (sreplicate @1 (sfromR u1)))))))))))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> let w41 = str (sreplicate @2 (stranspose @[1,2,3,0] (sreplicate @1 (stranspose @[5,0,1,4,2,3] (sgather (sconcrete (sfromListLinear [4,4,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,5.0,13.1,-2.0,582934.0,2.0,9.0,0.0,2.99432,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,6.0,8.0,0.1,-335.0,1.0,-4.0,-0.2,26.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])) (\\[i37, i38, i39, i40] -> [i37 + i39, i38 + i40])))))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[2,2,2,2,8] (w41 * sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (str (sreplicate @1 (sfromR u1)))))))))))"
+    @?= "\\u1 -> let w50 = str (sreplicate @2 (stranspose @[1,2,3,0] (sreplicate @1 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,3,0,2,1] (sgather (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (stranspose @[3,2,1,0] (sappend (sconcrete (sreplicate [1,2,2,3] 0.0)) (stranspose @[0,2,3,1] (sgather (sconcrete (sfromListLinear [3,3,2,2,2] [5.0,-2.0,13.1,582934.0,0.0,0.0,0.0,0.0,6.0,0.1,8.0,-335.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,2.0,0.0,9.0,2.99432,0.0,0.0,0.0,0.0,1.0,-0.2,-4.0,26.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])) (\\[i44, i45] -> [i44, i45, ifH (notB (2 <=. i45) &&* notB (2 <=. i44)) 0 1])))))) (\\[i46, i47] -> [i46 + i47]))) (\\[i48, i49] -> [i48 + i49])))))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[2,2,2,2,8] (w50 * sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (str (sreplicate @1 (sfromR u1)))))))))))"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> let w41 = str (sreplicate @2 (stranspose @[1,2,3,0] (sreplicate @1 (stranspose @[5,0,1,4,2,3] (sgather (sconcrete (sfromListLinear [4,4,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,5.0,13.1,-2.0,582934.0,2.0,9.0,0.0,2.99432,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,6.0,8.0,0.1,-335.0,1.0,-4.0,-0.2,26.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])) (\\[i37, i38, i39, i40] -> [i37 + i39, i38 + i40])))))) in rfromS (ssum @1 (str (ssum @2 (str (ssum @2 (str (ssum @2 (w41 * sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))))))))))"
+    @?= "\\dret u1 -> let w50 = str (sreplicate @2 (stranspose @[1,2,3,0] (sreplicate @1 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,3,0,2,1] (sgather (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (stranspose @[3,2,1,0] (sappend (sconcrete (sreplicate [1,2,2,3] 0.0)) (stranspose @[0,2,3,1] (sgather (sconcrete (sfromListLinear [3,3,2,2,2] [5.0,-2.0,13.1,582934.0,0.0,0.0,0.0,0.0,6.0,0.1,8.0,-335.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,2.0,0.0,9.0,2.99432,0.0,0.0,0.0,0.0,1.0,-0.2,-4.0,26.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])) (\\[i44, i45] -> [i44, i45, ifH (notB (2 <=. i45) &&* notB (2 <=. i44)) 0 1])))))) (\\[i46, i47] -> [i46 + i47]))) (\\[i48, i49] -> [i48 + i49])))))) in rfromS (ssum @1 (str (ssum @2 (str (ssum @2 (str (ssum @2 (w50 * sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))))))))))"
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> rfromS (ssum @2 (ssum @2 (sdot1In (stranspose @[0,1,2,6,3,4,5] (sgather (sconcrete (sfromListLinear [4,4,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,5.0,-2.0,13.1,582934.0,2.0,0.0,9.0,2.99432,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,6.0,0.1,8.0,-335.0,1.0,-0.2,-4.0,26.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])) (\\[i66, i67, i68, i73, i74] -> [i66 + i73, i67 + i74]))) (stranspose @[4,2,3,1,5,6,7,0] (sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))) !$ [0]))))"
+    @?= "\\dret u1 -> rfromS (ssum @2 (ssum @2 (sdot1In (stranspose @[5,0,1,4,3,2] (sgather (stranspose @[4,0,2,1,3] (sgather (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (stranspose @[3,2,1,0] (sappend (sconcrete (sreplicate [1,2,2,3] 0.0)) (stranspose @[0,2,3,1] (sgather (sconcrete (sfromListLinear [3,3,2,2,2] [5.0,-2.0,13.1,582934.0,0.0,0.0,0.0,0.0,6.0,0.1,8.0,-335.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,2.0,0.0,9.0,2.99432,0.0,0.0,0.0,0.0,1.0,-0.2,-4.0,26.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])) (\\[i44, i45] -> [i44, i45, ifH (notB (2 <=. i45) &&* notB (2 <=. i44)) 0 1])))))) (\\[i115, i117] -> [i117 + i115]))) (\\[i101, i102, i108] -> [i101 + i108]))) (stranspose @[4,2,3,1,5,6,7,0] (sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))) !$ [0]))))"
 
--- TODO: OOMs
-_testPaddedCNNOPP0b :: Assertion
-_testPaddedCNNOPP0b = do
+testPaddedCNNOPP0b :: Assertion
+testPaddedCNNOPP0b = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent conv2dBPadded (FTKR [2, 2, 2, 2] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[2,2,2,2,8] (sconcrete (sfromListLinear [2,2,2,2,1,2,2,2] [5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0]) * str (sreplicate @2 (stranspose @[1,2,3,0] (sreplicate @1 (sgather (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (stranspose @[9,2,5,1,3,4,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0)) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (sslice (SNat @1) (SNat @2) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sslice (SNat @1) (SNat @2) (stranspose @[9,1,2,3,4,5,0,7,8,6] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR u1)) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0)))))))))))))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,2] 0.0)))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0))))))) (\\[i50, i51, i52, i53, i54, i55] -> [i51 + i54, i51, i54, i50, i52, i53, i55, i50, i53, i52 + i55])))))))))"
+    @?= "\\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[2,2,2,2,8] (sconcrete (sfromListLinear [2,2,2,2,1,2,2,2] [5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0]) * str (sreplicate @2 (stranspose @[1,2,3,0] (sreplicate @1 (stranspose @[0,4,1,2,5,3] (sgather (stranspose @[2,3,4,5,6,7,8,0,1] (sgather (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (stranspose @[9,2,5,1,3,4,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0)) (stranspose @[0,2,3,4,5,6,7,8,9,1] (sgather (sslice (SNat @1) (SNat @3) (stranspose @[9,0,10,1,2,3,4,5,6,7,8] (sslice (SNat @1) (SNat @3) (stranspose @[9,1,2,3,4,5,6,7,8,10,0] (sfromVector (fromList [sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (stranspose @[1,2,3,0] (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR u1)) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0)))))))))), sconcrete (sreplicate [2,2,2,2,2,2,2,2,4,4] 0.0)])))))) (\\[i67, i68] -> [i67, i68, ifH (notB (2 <=. i68) &&* notB (2 <=. i67)) 0 1])))))) (\\[i142, i143] -> [i142 + i143, i142, i143]))) (\\[i71, i72, i73, i74] -> [i71, i72, i73, i74, i71, i73, i72 + i74]))))))))))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> let w56 = str (sreplicate @2 (stranspose @[1,2,3,0] (sreplicate @1 (sgather (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (stranspose @[9,2,5,1,3,4,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0)) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (sslice (SNat @1) (SNat @2) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sslice (SNat @1) (SNat @2) (stranspose @[9,1,2,3,4,5,0,7,8,6] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR u1)) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0)))))))))))))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,2] 0.0)))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0))))))) (\\[i50, i51, i52, i53, i54, i55] -> [i51 + i54, i51, i54, i50, i52, i53, i55, i50, i53, i52 + i55]))))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[2,2,2,2,8] (sconcrete (sfromListLinear [2,2,2,2,1,2,2,2] [5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0]) * w56))))"
+    @?= "\\u1 -> let w75 = str (sreplicate @2 (stranspose @[1,2,3,0] (sreplicate @1 (stranspose @[0,4,1,2,5,3] (sgather (stranspose @[2,3,4,5,6,7,8,0,1] (sgather (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (stranspose @[9,2,5,1,3,4,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0)) (stranspose @[0,2,3,4,5,6,7,8,9,1] (sgather (sslice (SNat @1) (SNat @3) (stranspose @[9,0,10,1,2,3,4,5,6,7,8] (sslice (SNat @1) (SNat @3) (stranspose @[9,1,2,3,4,5,6,7,8,10,0] (sfromVector (fromList [sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (stranspose @[1,2,3,0] (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR u1)) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0)))))))))), sconcrete (sreplicate [2,2,2,2,2,2,2,2,4,4] 0.0)])))))) (\\[i67, i68] -> [i67, i68, ifH (notB (2 <=. i68) &&* notB (2 <=. i67)) 0 1])))))) (\\[i69, i70] -> [i69 + i70, i69, i70]))) (\\[i71, i72, i73, i74] -> [i71, i72, i73, i74, i71, i73, i72 + i74])))))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[2,2,2,2,8] (sconcrete (sfromListLinear [2,2,2,2,1,2,2,2] [5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0]) * w75))))"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> let w64 = sscatter (ssum @1 (stranspose @[3,0,1,2] (ssum @2 (str (sconcrete (sfromListLinear [2,2,2,2,1,2,2,2] [5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0]) * sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))))))) (\\[i58, i59, i60, i61, i62, i63] -> [i59 + i62, i59, i62, i58, i60, i61, i63, i58, i61, i60 + i63]) ; u65 = ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (stranspose @[6,1,2,3,4,5,9,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (sappend (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,2] 0.0)) (sappend (sslice (SNat @0) (SNat @2) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sslice (SNat @0) (SNat @2) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sslice (SNat @1) (SNat @3) (stranspose @[9,3,1,4,5,2,6,7,8,0] (sslice (SNat @1) (SNat @3) w64))))))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)))))))))) in rfromS (stranspose @[1,2,0] (sslice (SNat @0) (SNat @2) (sslice (SNat @1) (SNat @3) (stranspose @[3,1,2,0] (sslice (SNat @0) (SNat @2) (sslice (SNat @1) (SNat @3) u65))))))"
+    @?= "\\dret u1 -> let w83 = sscatter (stranspose @[7,8,0,1,2,3,4,5,6] (sscatter (stranspose @[0,2,3,5,1,4] (ssum @1 (stranspose @[3,0,1,2] (ssum @2 (str (sconcrete (sfromListLinear [2,2,2,2,1,2,2,2] [5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,5.0,2.0,6.0,1.0,-2.0,0.0,0.1,-0.2,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0,13.1,9.0,8.0,-4.0,582934.0,2.99432,-335.0,26.0]) * sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))))))))) (\\[i77, i78, i79, i80] -> [i77, i78, i79, i80, i77, i79, i78 + i80]))) (\\[i81, i82] -> [i81 + i82, i81, i82]) ; w86 = stranspose @[10,1,2,3,4,5,6,7,8,0,9] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4,2] 0.0)) (sappend (stranspose @[1,3,4,5,6,7,8,9,10,0,2] (sappend (sconcrete (sreplicate [1,3,2,2,2,2,2,2,2,2,2] 0.0)) (sappend (sscatter (stranspose @[0,9,1,2,3,4,5,6,7,8] (sslice (SNat @1) (SNat @3) (stranspose @[9,3,1,4,5,2,6,7,8,0] (sslice (SNat @1) (SNat @3) w83)))) (\\[i84, i85] -> [i84, i85, ifH (notB (2 <=. i85) &&* notB (2 <=. i84)) 0 1])) (sconcrete (sfromListLinear [0,3,2,2,2,2,2,2,2,2,2] []))))) (sconcrete (sfromListLinear [0,2,2,2,2,2,2,2,2,4,2] [])))) ; u87 = stranspose @[3,0,1,2] (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (w86 !$ [0]))))))) in rfromS (stranspose @[1,2,0] (sslice (SNat @0) (SNat @2) (sslice (SNat @1) (SNat @3) (stranspose @[3,1,2,0] (sslice (SNat @0) (SNat @2) (sslice (SNat @1) (SNat @3) u87))))))"
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> rfromS (stranspose @[1,2,0] (sslice (SNat @1) (SNat @2) (stranspose @[3,1,2,0] (sslice (SNat @1) (SNat @2) (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (stranspose @[6,1,2,3,4,5,9,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (sappend (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,2] 0.0)) (sappend (sslice (SNat @0) (SNat @2) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sslice (SNat @0) (SNat @2) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sslice (SNat @1) (SNat @3) (stranspose @[9,3,1,4,5,2,6,7,8,0] (sslice (SNat @1) (SNat @3) (sscatter (sdot1In (sconcrete (sfromListLinear [2,2,2,2,2,2,2] [5.0,13.1,2.0,9.0,6.0,8.0,1.0,-4.0,-2.0,582934.0,0.0,2.99432,0.1,-335.0,-0.2,26.0,5.0,13.1,2.0,9.0,6.0,8.0,1.0,-4.0,-2.0,582934.0,0.0,2.99432,0.1,-335.0,-0.2,26.0,5.0,13.1,2.0,9.0,6.0,8.0,1.0,-4.0,-2.0,582934.0,0.0,2.99432,0.1,-335.0,-0.2,26.0,5.0,13.1,2.0,9.0,6.0,8.0,1.0,-4.0,-2.0,582934.0,0.0,2.99432,0.1,-335.0,-0.2,26.0,5.0,13.1,2.0,9.0,6.0,8.0,1.0,-4.0,-2.0,582934.0,0.0,2.99432,0.1,-335.0,-0.2,26.0,5.0,13.1,2.0,9.0,6.0,8.0,1.0,-4.0,-2.0,582934.0,0.0,2.99432,0.1,-335.0,-0.2,26.0,5.0,13.1,2.0,9.0,6.0,8.0,1.0,-4.0,-2.0,582934.0,0.0,2.99432,0.1,-335.0,-0.2,26.0,5.0,13.1,2.0,9.0,6.0,8.0,1.0,-4.0,-2.0,582934.0,0.0,2.99432,0.1,-335.0,-0.2,26.0])) (stranspose @[4,0,2,3,5,6,7,1] (sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))) !$ [0])) (\\[i58, i59, i60, i61, i62, i63] -> [i59 + i62, i59, i62, i58, i60, i61, i63, i58, i61, i60 + i63]))))))))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)))))))))))))))"
+    @?= "\\dret u1 -> rfromS (stranspose @[1,2,0] (sslice (SNat @1) (SNat @2) (stranspose @[3,1,2,0] (sslice (SNat @1) (SNat @2) (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (stranspose @[10,1,2,3,4,5,6,9,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4,2] 0.0)) (stranspose @[1,3,4,5,6,7,8,9,10,0,2] (sappend (sconcrete (sreplicate [1,3,2,2,2,2,2,2,2,2,2] 0.0)) (sscatter (sslice (SNat @1) (SNat @3) (stranspose @[9,0,3,1,4,5,2,6,7,8] (sslice (SNat @1) (SNat @3) (sscatter (stranspose @[7,8,0,1,2,3,4,5,6] (sscatter (sdot1In (sconcrete (sfromListLinear [2,2,2,2,2,2,2] [5.0,13.1,6.0,8.0,5.0,13.1,6.0,8.0,2.0,9.0,1.0,-4.0,2.0,9.0,1.0,-4.0,-2.0,582934.0,0.1,-335.0,-2.0,582934.0,0.1,-335.0,0.0,2.99432,-0.2,26.0,0.0,2.99432,-0.2,26.0,5.0,13.1,6.0,8.0,5.0,13.1,6.0,8.0,2.0,9.0,1.0,-4.0,2.0,9.0,1.0,-4.0,-2.0,582934.0,0.1,-335.0,-2.0,582934.0,0.1,-335.0,0.0,2.99432,-0.2,26.0,0.0,2.99432,-0.2,26.0,5.0,13.1,6.0,8.0,5.0,13.1,6.0,8.0,2.0,9.0,1.0,-4.0,2.0,9.0,1.0,-4.0,-2.0,582934.0,0.1,-335.0,-2.0,582934.0,0.1,-335.0,0.0,2.99432,-0.2,26.0,0.0,2.99432,-0.2,26.0,5.0,13.1,6.0,8.0,5.0,13.1,6.0,8.0,2.0,9.0,1.0,-4.0,2.0,9.0,1.0,-4.0,-2.0,582934.0,0.1,-335.0,-2.0,582934.0,0.1,-335.0,0.0,2.99432,-0.2,26.0,0.0,2.99432,-0.2,26.0])) (stranspose @[4,0,3,5,7,2,6,1] (sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))) !$ [0])) (\\[i77, i78, i79, i80] -> [i77, i78, i79, i80, i77, i79, i78 + i80]))) (\\[i81, i82] -> [i81 + i82, i81, i82]))))) (\\[i84, i85] -> [i84, i85, ifH (notB (2 <=. i85) &&* notB (2 <=. i84)) 0 1]))))) !$ [0])))))))))))"
 
--- TODO: OOMs
-_testPaddedCNNOPP1e :: Assertion
-_testPaddedCNNOPP1e = do
+testPaddedCNNOPP1e :: Assertion
+testPaddedCNNOPP1e = do
   resetVarCounter
   let f :: AstTensor AstMethodLet FullSpan
                      (TKProduct (TKR 4 Double) (TKR 4 Double))
@@ -1637,11 +1625,11 @@ _testPaddedCNNOPP1e = do
         revArtifactFromForwardPass
           UseIncomingCotangent (forwardPassByInterpretation f emptyEnv) ftk
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[2,2,2,2,8] (str (sreplicate @2 (sgather (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (stranspose @[9,2,5,1,3,4,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0)) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (sslice (SNat @1) (SNat @2) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sslice (SNat @1) (SNat @2) (stranspose @[9,1,2,3,4,5,0,7,8,6] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR (tproject2 u1))) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0)))))))))))))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,2] 0.0)))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0))))))) (\\[i44, i75, i45, i46, i76, i47] -> [i75 + i76, i75, i76, i44, i45, i46, i47, i44, i46, i45 + i47]))) * sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (sfromR (tproject1 u1))))))))))"
+    @?= "\\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[2,2,2,2,8] (str (sreplicate @2 (stranspose @[0,4,1,2,5,3] (sgather (stranspose @[2,3,4,5,6,7,8,0,1] (sgather (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (stranspose @[9,2,5,1,3,4,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0)) (stranspose @[0,2,3,4,5,6,7,8,9,1] (sgather (sslice (SNat @1) (SNat @3) (stranspose @[9,0,10,1,2,3,4,5,6,7,8] (sslice (SNat @1) (SNat @3) (stranspose @[9,1,2,3,4,5,6,7,8,10,0] (sfromVector (fromList [sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (stranspose @[1,2,3,0] (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR (tproject2 u1))) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0)))))))))), sconcrete (sreplicate [2,2,2,2,2,2,2,2,4,4] 0.0)])))))) (\\[i50, i51] -> [i50, i51, ifH (notB (2 <=. i51) &&* notB (2 <=. i50)) 0 1])))))) (\\[i128, i129] -> [i128 + i129, i128, i129]))) (\\[i54, i55, i56, i57] -> [i54, i55, i56, i57, i54, i56, i55 + i57])))) * sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (sfromR (tproject1 u1))))))))))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> let u41 = sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR (tproject2 u1))) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0))) ; w48 = str (sreplicate @2 (stranspose @[0,4,1,2,5,3] (sgather (stranspose @[2,3,4,5,6,7,8,0,1] (sgather (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (stranspose @[9,2,5,1,3,4,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0)) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (sslice (SNat @1) (SNat @2) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sslice (SNat @1) (SNat @2) (stranspose @[9,1,2,3,4,5,0,7,8,6] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 u41)))))))))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,2] 0.0)))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0))))))) (\\[i42, i43] -> [i42 + i43, i42, i43]))) (\\[i44, i45, i46, i47] -> [i44, i45, i46, i47, i44, i46, i45 + i47])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[2,2,2,2,8] (w48 * sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (sfromR (tproject1 u1))))))))))"
+    @?= "\\u1 -> let u49 = sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR (tproject2 u1))) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0))) ; w58 = str (sreplicate @2 (stranspose @[0,4,1,2,5,3] (sgather (stranspose @[2,3,4,5,6,7,8,0,1] (sgather (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (stranspose @[9,2,5,1,3,4,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0)) (stranspose @[0,2,3,4,5,6,7,8,9,1] (sgather (sslice (SNat @1) (SNat @3) (stranspose @[9,0,10,1,2,3,4,5,6,7,8] (sslice (SNat @1) (SNat @3) (stranspose @[9,1,2,3,4,5,6,7,8,10,0] (sfromVector (fromList [sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (stranspose @[1,2,3,0] u49)))))), sconcrete (sreplicate [2,2,2,2,2,2,2,2,4,4] 0.0)])))))) (\\[i50, i51] -> [i50, i51, ifH (notB (2 <=. i51) &&* notB (2 <=. i50)) 0 1])))))) (\\[i52, i53] -> [i52 + i53, i52, i53]))) (\\[i54, i55, i56, i57] -> [i54, i55, i56, i57, i54, i56, i55 + i57])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[2,2,2,2,8] (w58 * sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (sfromR (tproject1 u1))))))))))"
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [2,2,2,2] STKScalar)) (let w50 = sreshape @[2,2,2,2,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @2 (ssum @2 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (sgather (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (stranspose @[9,2,5,1,3,4,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0)) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (sslice (SNat @1) (SNat @2) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sslice (SNat @1) (SNat @2) (stranspose @[9,1,2,3,4,5,0,7,8,6] (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR (tproject2 u1))) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0)))))))))))))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,2] 0.0)))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0))))))) (\\[i44, i84, i45, i46, i85, i47] -> [i84 + i85, i84, i85, i44, i45, i46, i47, i44, i46, i45 + i47])))) (stranspose @[2,3,1,4,5,6,0] w50)))) (stranspose @[1,2,0] (sslice (SNat @1) (SNat @2) (stranspose @[3,1,2,0] (sslice (SNat @1) (SNat @2) (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (stranspose @[6,1,2,3,4,5,9,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (sappend (stranspose @[9,1,2,3,4,5,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,2] 0.0)) (sappend (sslice (SNat @0) (SNat @2) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sslice (SNat @0) (SNat @2) (stranspose @[9,1,2,3,4,5,6,7,8,0] (sslice (SNat @1) (SNat @3) (stranspose @[9,3,1,4,5,2,6,7,8,0] (sslice (SNat @1) (SNat @3) (sscatter (stranspose @[7,8,0,1,2,3,4,5,6] (sscatter (sdot1In (sreplicate @2 (stranspose @[2,3,5,0,4,1] (sreplicate @2 (str (sreplicate @2 (sfromR (tproject1 u1))))))) (stranspose @[0,3,4,6,2,5,1] w50)) (\\[i51, i52, i53, i54] -> [i51, i52, i53, i54, i51, i53, i52 + i54]))) (\\[i55, i56] -> [i55 + i56, i55, i56]))))))))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0))))))))))))))))"
+    @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [2,2,2,2] STKScalar)) (let w60 = sreshape @[2,2,2,2,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @2 (ssum @2 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[0,4,1,2,5,3] (sgather (stranspose @[2,3,4,5,6,7,8,0,1] (sgather (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (stranspose @[9,2,5,1,3,4,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0)) (stranspose @[0,2,3,4,5,6,7,8,9,1] (sgather (sslice (SNat @1) (SNat @3) (stranspose @[9,0,10,1,2,3,4,5,6,7,8] (sslice (SNat @1) (SNat @3) (stranspose @[9,1,2,3,4,5,6,7,8,10,0] (sfromVector (fromList [sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (stranspose @[1,2,3,0] (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR (tproject2 u1))) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0)))))))))), sconcrete (sreplicate [2,2,2,2,2,2,2,2,4,4] 0.0)])))))) (\\[i50, i51] -> [i50, i51, ifH (notB (2 <=. i51) &&* notB (2 <=. i50)) 0 1])))))) (\\[i168, i169] -> [i168 + i169, i168, i169]))) (\\[i54, i55, i56, i57] -> [i54, i55, i56, i57, i54, i56, i55 + i57]))))) (stranspose @[2,3,1,4,5,6,0] w60)))) (stranspose @[1,2,0] (sslice (SNat @1) (SNat @2) (stranspose @[3,1,2,0] (sslice (SNat @1) (SNat @2) (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (stranspose @[10,1,2,3,4,5,6,9,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4,2] 0.0)) (stranspose @[1,3,4,5,6,7,8,9,10,0,2] (sappend (sconcrete (sreplicate [1,3,2,2,2,2,2,2,2,2,2] 0.0)) (sscatter (sslice (SNat @1) (SNat @3) (stranspose @[9,0,3,1,4,5,2,6,7,8] (sslice (SNat @1) (SNat @3) (sscatter (stranspose @[7,8,0,1,2,3,4,5,6] (sscatter (sdot1In (sreplicate @2 (stranspose @[2,3,5,0,4,1] (sreplicate @2 (str (sreplicate @2 (sfromR (tproject1 u1))))))) (stranspose @[0,3,4,6,2,5,1] w60)) (\\[i61, i62, i63, i64] -> [i61, i62, i63, i64, i61, i63, i62 + i64]))) (\\[i65, i66] -> [i65 + i66, i65, i66]))))) (\\[i68, i69] -> [i68, i69, ifH (notB (2 <=. i69) &&* notB (2 <=. i68)) 0 1]))))) !$ [0]))))))))))))"
 
 -- Convolution differentiated wrt the kernel.
 testShrinkingCNNOPP0cW :: Assertion
@@ -1878,9 +1866,8 @@ conv2dPaddedLet2 arrK arrA =
       in rdot0 arrAt arrKt
     _ -> error "conv2dPaddedLet2: impossible pattern needlessly required"
 
--- TODO: OOMs
-_testPaddedCNNOPP2 :: Assertion
-_testPaddedCNNOPP2 = do
+testPaddedCNNOPP2 :: Assertion
+testPaddedCNNOPP2 = do
   resetVarCounter
   let f :: AstTensor AstMethodLet FullSpan
                      (TKProduct (TKR 4 Double) (TKR 4 Double))
