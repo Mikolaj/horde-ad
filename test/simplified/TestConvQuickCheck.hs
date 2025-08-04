@@ -518,9 +518,9 @@ static_conv2dPaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
                    (sconcrete arrK) (sconcrete arrB)
       cvjpKrn = cvjp (`conv2dPaddedS` (sconcrete arrA))
                      (sconcrete arrK) (sconcrete arrB)
-  in {- OOMs: allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
-     && -} allClose cvjpInp dInp 1e-5
-     -- OOMs: && allClose vjpKrn dKrn 1e-5
+  in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
+     && allClose cvjpInp dInp 1e-5
+     && allClose vjpKrn dKrn 1e-5
      && allClose cvjpKrn dKrn 1e-5
 
 quickcheck_conv2dPaddedVjp
@@ -735,9 +735,9 @@ static_conv2dPaddedJvp SNat SNat SNat SNat SNat SNat SNat
                    (sconcrete arrK) (sconcrete arrK2)
       cjvpKrn = cjvp (`conv2dPaddedS` (sconcrete arrA))
                      (sconcrete arrK) (sconcrete arrK2)
-  in {- OOMs: allClose jvpInp dInp 1e-7
-     && -} allClose cjvpInp dInp 1e-7
-     -- && allClose jvpKrn dKrn 1e-7
+  in allClose jvpInp dInp 1e-7
+     && allClose cjvpInp dInp 1e-7
+     && allClose jvpKrn dKrn 1e-7
      && allClose cjvpKrn dKrn 1e-7
 
 quickcheck_conv2dPaddedJvp

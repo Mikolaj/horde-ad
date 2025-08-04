@@ -1490,18 +1490,26 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                 defArr
     _ -> error "astIndexKnobsS: shape not []"
   Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
-    astLetFunB i1 $ \i ->
-    shareIx rest1 $ \ !rest2 ->
-    let ulen = valueOf @m
-        ix1 = i :.$ rest2
-        ix2 = i - ulen :.$ rest2
-    in case ulen <=. i of
-      AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
-      bExpr ->
-        -- This results in a larger term, so we consider this late.
-        if knobPhase knobs == PhaseExpansion
-        then astCond bExpr (astIndex shn v ix2) (astIndex shn u ix1)
-        else Ast.AstIndexS shn v0 ix
+    if knobPhase knobs == PhaseExpansion then
+      astLetFunB i1 $ \i ->
+      shareIx rest1 $ \ !rest2 ->
+      let ulen = valueOf @m
+          ix1 = i :.$ rest2
+          ix2 = i - ulen :.$ rest2
+      in case ulen <=. i of
+        AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
+        bExpr ->
+          -- This results in a larger term, so we consider this late.
+          astCond bExpr (astIndex shn v ix2) (astIndex shn u ix1)
+    else
+      -- We don't need to share i1 and rest1 here and, in fact, we can't
+      -- because we'd loop via building AstLet around the resulting AstIndexS.
+      let ulen = valueOf @m
+          ix1 = i1 :.$ rest1
+          ix2 = i1 - ulen :.$ rest1
+      in case ulen <=. i1 of
+        AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
+        bExpr -> Ast.AstIndexS shn v0 ix
   Ast.AstSliceS i@(SNat @i) (SNat @n) k@SNat v ->
     astLetFunB i1 $ \iShared ->
     let ftk = FTKS shn x
