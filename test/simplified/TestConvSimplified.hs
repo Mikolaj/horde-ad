@@ -147,18 +147,18 @@ testTrees =
   , testCase "minimizedPaddedCNNOPP0c" testPaddedCNNOPP0c
   , testCase "minimizedPaddedCNNOPP0b" testPaddedCNNOPP0b
   , testCase "minimizedPaddedCNNOPP1e" testPaddedCNNOPP1e
-  , testCase "minimizedShrinkingCNNOPP0cW" testShrinkingCNNOPP0cW
-  , testCase "minimizedShrinkingCNNOPP0bW" testShrinkingCNNOPP0bW
-  , testCase "minimizedShrinkingCNNOPP1bW" testShrinkingCNNOPP1bW
-  , testCase "minimizedPaddedCNNOPP0cW" testPaddedCNNOPP0cW
-  , testCase "minimizedPaddedCNNOPP0bW" testPaddedCNNOPP0bW
-  , testCase "minimizedPaddedCNNOPP1bW" testPaddedCNNOPP1bW
   , testCase "minimizedPaddedCNNOPPLet" testPaddedCNNOPPLet
   , testCase "minimizedPaddedCNNOPPLet2" testPaddedCNNOPPLet2
   , testCase "minimizedPaddedCNNOPP2" testPaddedCNNOPP2
   , testCase "minimizedSameCNNOPP0cW" testSameCNNOPP0cW
   , testCase "minimizedSameCNNOPP0bW" testSameCNNOPP0bW
   , testCase "minimizedSameCNNOPP1bW" testSameCNNOPP1bW
+  , testCase "minimizedShrinkingCNNOPP0cW" testShrinkingCNNOPP0cW
+  , testCase "minimizedShrinkingCNNOPP0bW" testShrinkingCNNOPP0bW
+  , testCase "minimizedShrinkingCNNOPP1bW" testShrinkingCNNOPP1bW
+  , testCase "minimizedPaddedCNNOPP0cW" testPaddedCNNOPP0cW
+  , testCase "minimizedPaddedCNNOPP0bW" testPaddedCNNOPP0bW
+  , testCase "minimizedPaddedCNNOPP1bW" testPaddedCNNOPP1bW
   , testCase "minimizedCNNOPP4bW" testCNNOPP4bW
   , testCase "minimizedCNNOPP4bD" testCNNOPP4bD
   , testCase "minimizedCNNOPP5aW" testCNNOPP5aW
@@ -1631,144 +1631,6 @@ testPaddedCNNOPP1e = do
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [2,2,2,2] STKScalar)) (let w60 = sreshape @[2,2,2,2,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @2 (ssum @2 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[0,4,1,2,5,3] (sgather (stranspose @[2,3,4,5,6,7,8,0,1] (sgather (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4] 0.0)) (stranspose @[9,2,5,1,3,4,6,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,3] 0.0)) (stranspose @[0,2,3,4,5,6,7,8,9,1] (sgather (sslice (SNat @1) (SNat @3) (stranspose @[9,0,10,1,2,3,4,5,6,7,8] (sslice (SNat @1) (SNat @3) (stranspose @[9,1,2,3,4,5,6,7,8,10,0] (sfromVector (fromList [sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (stranspose @[1,2,3,0] (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR (tproject2 u1))) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0)))))))))), sconcrete (sreplicate [2,2,2,2,2,2,2,2,4,4] 0.0)])))))) (\\[i50, i51] -> [i50, i51, ifH (notB (2 <=. i51) &&* notB (2 <=. i50)) 0 1])))))) (\\[i168, i169] -> [i168 + i169, i168, i169]))) (\\[i54, i55, i56, i57] -> [i54, i55, i56, i57, i54, i56, i55 + i57]))))) (stranspose @[2,3,1,4,5,6,0] w60)))) (stranspose @[1,2,0] (sslice (SNat @1) (SNat @2) (stranspose @[3,1,2,0] (sslice (SNat @1) (SNat @2) (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (ssum @2 (stranspose @[10,1,2,3,4,5,6,9,7,8,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2,2,2,2,4,2] 0.0)) (stranspose @[1,3,4,5,6,7,8,9,10,0,2] (sappend (sconcrete (sreplicate [1,3,2,2,2,2,2,2,2,2,2] 0.0)) (sscatter (sslice (SNat @1) (SNat @3) (stranspose @[9,0,3,1,4,5,2,6,7,8] (sslice (SNat @1) (SNat @3) (sscatter (stranspose @[7,8,0,1,2,3,4,5,6] (sscatter (sdot1In (sreplicate @2 (stranspose @[2,3,5,0,4,1] (sreplicate @2 (str (sreplicate @2 (sfromR (tproject1 u1))))))) (stranspose @[0,3,4,6,2,5,1] w60)) (\\[i61, i62, i63, i64] -> [i61, i62, i63, i64, i61, i63, i62 + i64]))) (\\[i65, i66] -> [i65 + i66, i65, i66]))))) (\\[i68, i69] -> [i68, i69, ifH (notB (2 <=. i69) &&* notB (2 <=. i68)) 0 1]))))) !$ [0]))))))))))))"
 
--- Convolution differentiated wrt the kernel.
-testShrinkingCNNOPP0cW :: Assertion
-testShrinkingCNNOPP0cW = do
-  resetVarCounter
-  let ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
-      varName = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
-      var = AstVar varName
-      ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
-      f = flip conv2dShrinking var
-      env =
-        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkD)) emptyEnv
-      (artifactRev, _) =
-        revArtifactFromForwardPass
-          UseIncomingCotangent (forwardPassByInterpretation f env) ftkK
-  "\\u0 -> " ++ printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u0 -> \\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,5,5,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u0)) (\\[i64, i66] -> [i64 + i66]))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR u1)))))))))"
-  "\\u0 -> " ++ printArtifactPrimalPretty artifactRev
-    @?= "\\u0 -> \\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u0)) (\\[i22, i23] -> [i22 + i23]))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,5,5,8] (w26 * sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR u1)))))))))"
-  "\\u0 -> " ++ printArtifactPretty artifactRev
-    @?= "\\u0 -> \\dret u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u0)) (\\[i22, i23] -> [i22 + i23]))) (\\[i24, i25] -> [i24 + i25])))) ; w28 = sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in rfromS (ssum @5 (str (ssum @5 (str (ssum @6 (w26 * w28))))))"
-  "\\u0 -> " ++ printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\u0 -> \\dret u1 -> rfromS (ssum @5 (ssum @5 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u0)) (\\[i81, i83] -> [i81 + i83]))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] (sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))))))))"
-
--- Convolution differentiated wrt the data.
-testShrinkingCNNOPP0bW :: Assertion
-testShrinkingCNNOPP0bW = do
-  resetVarCounter
-  let ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
-      varName = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
-      var = AstVar varName
-      ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
-      f = conv2dShrinking var
-      env =
-        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkK)) emptyEnv
-      (artifactRev, _) =
-        revArtifactFromForwardPass
-          UseIncomingCotangent (forwardPassByInterpretation f env) ftkD
-  "\\u0 -> " ++ printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u0 -> \\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,5,5,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u1)) (\\[i47, i49] -> [i47 + i49]))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR u0)))))))))"
-  "\\u0 -> " ++ printArtifactPrimalPretty artifactRev
-    @?= "\\u0 -> \\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u1)) (\\[i22, i23] -> [i22 + i23]))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,5,5,8] (w26 * sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR u0)))))))))"
-  "\\u0 -> " ++ printArtifactPretty artifactRev
-    @?= "\\u0 -> \\dret u1 -> let w28 = sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in rfromS (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[2,5,0,1,3,4] (ssum @2 (str (sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR u0))))) * w28)))) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32])))"
-  "\\u0 -> " ++ printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\u0 -> \\dret u1 -> rfromS (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR u0))))))) (stranspose @[3,6,0,2,4,5,1] (sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))))) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32])))"
-
--- Convolution differentiated wrt both arguments.
-testShrinkingCNNOPP1bW :: Assertion
-testShrinkingCNNOPP1bW = do
-  resetVarCounter
-  let f :: AstTensor AstMethodLet FullSpan
-                     (TKProduct (TKR 4 Double) (TKR 4 Double))
-        -> AstTensor AstMethodLet FullSpan
-                     (TKR 4 Double)
-      f v = conv2dShrinking (tproject1 v) (tproject2 v)
-      ftk = FTKProduct (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
-                       (FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) FTKScalar)
-      (artifactRev, _) =
-        revArtifactFromForwardPass
-          UseIncomingCotangent (forwardPassByInterpretation f emptyEnv) ftk
-  printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,5,5,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR (tproject2 u1))) (\\[i64, i66] -> [i64 + i66]))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR (tproject1 u1))))))))))"
-  printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR (tproject2 u1))) (\\[i22, i23] -> [i22 + i23]))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,5,5,8] (w26 * sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR (tproject1 u1))))))))))"
-  printArtifactPretty artifactRev
-    @?= "\\dret u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR (tproject2 u1))) (\\[i22, i23] -> [i22 + i23]))) (\\[i24, i25] -> [i24 + i25])))) ; w28 = sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (rfromS (ssum @5 (str (ssum @5 (str (ssum @6 (w26 * w28))))))) (rfromS (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[2,5,0,1,3,4] (ssum @2 (str (sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR (tproject1 u1)))))) * w28)))) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32]))))"
-  printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [6,2,6,6] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [6,2,6,6] STKScalar)) (let w28 = sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @5 (ssum @5 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR (tproject2 u1))) (\\[i81, i83] -> [i81 + i83]))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] w28)))) (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR (tproject1 u1)))))))) (stranspose @[3,6,0,2,4,5,1] w28)) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32]))))"
-
--- Convolution differentiated wrt the kernel.
-testPaddedCNNOPP0cW :: Assertion
-testPaddedCNNOPP0cW = do
-  resetVarCounter
-  let ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
-      varName = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
-      var = AstVar varName
-      ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
-      f = flip conv2dPadded var
-      env =
-        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkD)) emptyEnv
-      (artifactRev, _) =
-        revArtifactFromForwardPass
-          UseIncomingCotangent (forwardPassByInterpretation f env) ftkK
-  "\\u0 -> " ++ printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u0 -> \\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u0))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u1)))))))))"
-  "\\u0 -> " ++ printArtifactPrimalPretty artifactRev
-    @?= "\\u0 -> \\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u0))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (w26 * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u1)))))))))"
-  "\\u0 -> " ++ printArtifactPretty artifactRev
-    @?= "\\u0 -> \\dret u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u0))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) ; w28 = sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in rfromS (ssum @7 (str (ssum @7 (str (ssum @6 (w26 * w28))))))"
-  "\\u0 -> " ++ printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\u0 -> \\dret u1 -> rfromS (ssum @7 (ssum @7 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u0))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] (sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))))))))"
-
--- Convolution differentiated wrt the data.
-testPaddedCNNOPP0bW :: Assertion
-testPaddedCNNOPP0bW = do
-  resetVarCounter
-  let ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
-      varName = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
-      var = AstVar varName
-      ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
-      f = conv2dPadded var
-      env =
-        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkK)) emptyEnv
-      (artifactRev, _) =
-        revArtifactFromForwardPass
-          UseIncomingCotangent (forwardPassByInterpretation f env) ftkD
-  "\\u0 -> " ++ printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u0 -> \\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u1))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u0)))))))))"
-  "\\u0 -> " ++ printArtifactPrimalPretty artifactRev
-    @?= "\\u0 -> \\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u1))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (w26 * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u0)))))))))"
-  "\\u0 -> " ++ printArtifactPretty artifactRev
-    @?= "\\u0 -> \\dret u1 -> let w28 = sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) ; w31 = sscatter (stranspose @[2,5,0,1,3,4] (ssum @2 (str (sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u0))))) * w28)))) (\\[i29, i30] -> [i29 + i30]) ; u34 = sscatter (stranspose @[2,4,1,3,0] (sslice (SNat @1) (SNat @6) w31)) (\\[i32, i33] -> [i32 + i33]) in rfromS (stranspose @[1,2,0] (sslice (SNat @1) (SNat @6) u34))"
-  "\\u0 -> " ++ printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\u0 -> \\dret u1 -> rfromS (stranspose @[1,2,0] (sslice (SNat @1) (SNat @6) (sscatter (stranspose @[2,4,1,3,0] (sslice (SNat @1) (SNat @6) (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u0))))))) (stranspose @[3,6,0,2,4,5,1] (sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))))) (\\[i29, i30] -> [i29 + i30])))) (\\[i32, i33] -> [i32 + i33]))))"
-
--- Convolution differentiated wrt both arguments.
-testPaddedCNNOPP1bW :: Assertion
-testPaddedCNNOPP1bW = do
-  resetVarCounter
-  let f :: AstTensor AstMethodLet FullSpan
-                     (TKProduct (TKR 4 Double) (TKR 4 Double))
-        -> AstTensor AstMethodLet FullSpan
-                     (TKR 4 Double)
-      f v = conv2dPadded (tproject1 v) (tproject2 v)
-      ftk = FTKProduct (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
-                       (FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) FTKScalar)
-      (artifactRev, _) =
-        revArtifactFromForwardPass
-          UseIncomingCotangent (forwardPassByInterpretation f emptyEnv) ftk
-  printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR (tproject2 u1)))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR (tproject1 u1))))))))))"
-  printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR (tproject2 u1)))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (w26 * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR (tproject1 u1))))))))))"
-  printArtifactPretty artifactRev
-    @?= "\\dret u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR (tproject2 u1)))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) ; w28 = sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) ; w31 = sscatter (stranspose @[2,5,0,1,3,4] (ssum @2 (str (sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR (tproject1 u1)))))) * w28)))) (\\[i29, i30] -> [i29 + i30]) ; u34 = sscatter (stranspose @[2,4,1,3,0] (sslice (SNat @1) (SNat @6) w31)) (\\[i32, i33] -> [i32 + i33]) in tpair (rfromS (ssum @7 (str (ssum @7 (str (ssum @6 (w26 * w28))))))) (rfromS (stranspose @[1,2,0] (sslice (SNat @1) (SNat @6) u34)))"
-  printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [6,2,6,6] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [6,2,6,6] STKScalar)) (let w28 = sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @7 (ssum @7 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR (tproject2 u1)))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] w28)))) (stranspose @[1,2,0] (sslice (SNat @1) (SNat @6) (sscatter (stranspose @[2,4,1,3,0] (sslice (SNat @1) (SNat @6) (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR (tproject1 u1)))))))) (stranspose @[3,6,0,2,4,5,1] w28)) (\\[i29, i30] -> [i29 + i30])))) (\\[i32, i33] -> [i32 + i33])))))"
-
 testPaddedCNNOPPLet :: Assertion
 testPaddedCNNOPPLet = do
   resetVarCounter
@@ -1980,6 +1842,144 @@ testSameCNNOPP1bW = do
     @?= "\\dret u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR (tproject2 u1))) (\\[i22, i23] -> [i22 + i23]))) (\\[i24, i25] -> [i24 + i25])))) ; w28 = sreshape @[6,2,6,6,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (rfromS (ssum @6 (str (ssum @6 (str (ssum @6 (w26 * w28))))))) (rfromS (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[2,5,0,1,3,4] (ssum @2 (str (sreplicate @6 (str (sreplicate @6 (str (sreplicate @6 (sfromR (tproject1 u1)))))) * w28)))) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32]))))"
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [6,2,6,6] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [6,2,6,6] STKScalar)) (let w28 = sreshape @[6,2,6,6,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @6 (ssum @6 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR (tproject2 u1))) (\\[i81, i83] -> [i81 + i83]))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] w28)))) (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @6 (str (sreplicate @6 (sfromR (tproject1 u1)))))))) (stranspose @[3,6,0,2,4,5,1] w28)) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32]))))"
+
+-- Convolution differentiated wrt the kernel.
+testShrinkingCNNOPP0cW :: Assertion
+testShrinkingCNNOPP0cW = do
+  resetVarCounter
+  let ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
+      varName = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
+      var = AstVar varName
+      ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
+      f = flip conv2dShrinking var
+      env =
+        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkD)) emptyEnv
+      (artifactRev, _) =
+        revArtifactFromForwardPass
+          UseIncomingCotangent (forwardPassByInterpretation f env) ftkK
+  "\\u0 -> " ++ printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\u0 -> \\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,5,5,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u0)) (\\[i64, i66] -> [i64 + i66]))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR u1)))))))))"
+  "\\u0 -> " ++ printArtifactPrimalPretty artifactRev
+    @?= "\\u0 -> \\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u0)) (\\[i22, i23] -> [i22 + i23]))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,5,5,8] (w26 * sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR u1)))))))))"
+  "\\u0 -> " ++ printArtifactPretty artifactRev
+    @?= "\\u0 -> \\dret u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u0)) (\\[i22, i23] -> [i22 + i23]))) (\\[i24, i25] -> [i24 + i25])))) ; w28 = sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in rfromS (ssum @5 (str (ssum @5 (str (ssum @6 (w26 * w28))))))"
+  "\\u0 -> " ++ printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\u0 -> \\dret u1 -> rfromS (ssum @5 (ssum @5 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u0)) (\\[i81, i83] -> [i81 + i83]))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] (sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))))))))"
+
+-- Convolution differentiated wrt the data.
+testShrinkingCNNOPP0bW :: Assertion
+testShrinkingCNNOPP0bW = do
+  resetVarCounter
+  let ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
+      varName = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
+      var = AstVar varName
+      ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
+      f = conv2dShrinking var
+      env =
+        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkK)) emptyEnv
+      (artifactRev, _) =
+        revArtifactFromForwardPass
+          UseIncomingCotangent (forwardPassByInterpretation f env) ftkD
+  "\\u0 -> " ++ printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\u0 -> \\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,5,5,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u1)) (\\[i47, i49] -> [i47 + i49]))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR u0)))))))))"
+  "\\u0 -> " ++ printArtifactPrimalPretty artifactRev
+    @?= "\\u0 -> \\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u1)) (\\[i22, i23] -> [i22 + i23]))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,5,5,8] (w26 * sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR u0)))))))))"
+  "\\u0 -> " ++ printArtifactPretty artifactRev
+    @?= "\\u0 -> \\dret u1 -> let w28 = sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in rfromS (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[2,5,0,1,3,4] (ssum @2 (str (sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR u0))))) * w28)))) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32])))"
+  "\\u0 -> " ++ printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\u0 -> \\dret u1 -> rfromS (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR u0))))))) (stranspose @[3,6,0,2,4,5,1] (sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))))) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32])))"
+
+-- Convolution differentiated wrt both arguments.
+testShrinkingCNNOPP1bW :: Assertion
+testShrinkingCNNOPP1bW = do
+  resetVarCounter
+  let f :: AstTensor AstMethodLet FullSpan
+                     (TKProduct (TKR 4 Double) (TKR 4 Double))
+        -> AstTensor AstMethodLet FullSpan
+                     (TKR 4 Double)
+      f v = conv2dShrinking (tproject1 v) (tproject2 v)
+      ftk = FTKProduct (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
+                       (FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) FTKScalar)
+      (artifactRev, _) =
+        revArtifactFromForwardPass
+          UseIncomingCotangent (forwardPassByInterpretation f emptyEnv) ftk
+  printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,5,5,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR (tproject2 u1))) (\\[i64, i66] -> [i64 + i66]))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR (tproject1 u1))))))))))"
+  printArtifactPrimalPretty artifactRev
+    @?= "\\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR (tproject2 u1))) (\\[i22, i23] -> [i22 + i23]))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,5,5,8] (w26 * sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR (tproject1 u1))))))))))"
+  printArtifactPretty artifactRev
+    @?= "\\dret u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR (tproject2 u1))) (\\[i22, i23] -> [i22 + i23]))) (\\[i24, i25] -> [i24 + i25])))) ; w28 = sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (rfromS (ssum @5 (str (ssum @5 (str (ssum @6 (w26 * w28))))))) (rfromS (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (stranspose @[2,5,0,1,3,4] (ssum @2 (str (sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR (tproject1 u1)))))) * w28)))) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32]))))"
+  printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [6,2,6,6] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [6,2,6,6] STKScalar)) (let w28 = sreshape @[6,2,5,5,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @5 (ssum @5 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR (tproject2 u1))) (\\[i81, i83] -> [i81 + i83]))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] w28)))) (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @5 (str (sreplicate @5 (sfromR (tproject1 u1)))))))) (stranspose @[3,6,0,2,4,5,1] w28)) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32]))))"
+
+-- Convolution differentiated wrt the kernel.
+testPaddedCNNOPP0cW :: Assertion
+testPaddedCNNOPP0cW = do
+  resetVarCounter
+  let ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
+      varName = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
+      var = AstVar varName
+      ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
+      f = flip conv2dPadded var
+      env =
+        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkD)) emptyEnv
+      (artifactRev, _) =
+        revArtifactFromForwardPass
+          UseIncomingCotangent (forwardPassByInterpretation f env) ftkK
+  "\\u0 -> " ++ printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\u0 -> \\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u0))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u1)))))))))"
+  "\\u0 -> " ++ printArtifactPrimalPretty artifactRev
+    @?= "\\u0 -> \\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u0))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (w26 * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u1)))))))))"
+  "\\u0 -> " ++ printArtifactPretty artifactRev
+    @?= "\\u0 -> \\dret u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u0))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) ; w28 = sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in rfromS (ssum @7 (str (ssum @7 (str (ssum @6 (w26 * w28))))))"
+  "\\u0 -> " ++ printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\u0 -> \\dret u1 -> rfromS (ssum @7 (ssum @7 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u0))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] (sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))))))))"
+
+-- Convolution differentiated wrt the data.
+testPaddedCNNOPP0bW :: Assertion
+testPaddedCNNOPP0bW = do
+  resetVarCounter
+  let ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
+      varName = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
+      var = AstVar varName
+      ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
+      f = conv2dPadded var
+      env =
+        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkK)) emptyEnv
+      (artifactRev, _) =
+        revArtifactFromForwardPass
+          UseIncomingCotangent (forwardPassByInterpretation f env) ftkD
+  "\\u0 -> " ++ printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\u0 -> \\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u1))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u0)))))))))"
+  "\\u0 -> " ++ printArtifactPrimalPretty artifactRev
+    @?= "\\u0 -> \\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR u1))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (w26 * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u0)))))))))"
+  "\\u0 -> " ++ printArtifactPretty artifactRev
+    @?= "\\u0 -> \\dret u1 -> let w28 = sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) ; w31 = sscatter (stranspose @[2,5,0,1,3,4] (ssum @2 (str (sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u0))))) * w28)))) (\\[i29, i30] -> [i29 + i30]) ; u34 = sscatter (stranspose @[2,4,1,3,0] (sslice (SNat @1) (SNat @6) w31)) (\\[i32, i33] -> [i32 + i33]) in rfromS (stranspose @[1,2,0] (sslice (SNat @1) (SNat @6) u34))"
+  "\\u0 -> " ++ printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\u0 -> \\dret u1 -> rfromS (stranspose @[1,2,0] (sslice (SNat @1) (SNat @6) (sscatter (stranspose @[2,4,1,3,0] (sslice (SNat @1) (SNat @6) (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR u0))))))) (stranspose @[3,6,0,2,4,5,1] (sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))))) (\\[i29, i30] -> [i29 + i30])))) (\\[i32, i33] -> [i32 + i33]))))"
+
+-- Convolution differentiated wrt both arguments.
+testPaddedCNNOPP1bW :: Assertion
+testPaddedCNNOPP1bW = do
+  resetVarCounter
+  let f :: AstTensor AstMethodLet FullSpan
+                     (TKProduct (TKR 4 Double) (TKR 4 Double))
+        -> AstTensor AstMethodLet FullSpan
+                     (TKR 4 Double)
+      f v = conv2dPadded (tproject1 v) (tproject2 v)
+      ftk = FTKProduct (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
+                       (FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) FTKScalar)
+      (artifactRev, _) =
+        revArtifactFromForwardPass
+          UseIncomingCotangent (forwardPassByInterpretation f emptyEnv) ftk
+  printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\u1 -> rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR (tproject2 u1)))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR (tproject1 u1))))))))))"
+  printArtifactPrimalPretty artifactRev
+    @?= "\\u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR (tproject2 u1)))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) in rfromS (ssum @8 (stranspose @[4,0,1,2,3] (sreshape @[6,2,7,7,8] (w26 * sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR (tproject1 u1))))))))))"
+  printArtifactPretty artifactRev
+    @?= "\\dret u1 -> let w26 = str (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR (tproject2 u1)))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25])))) ; w28 = sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) ; w31 = sscatter (stranspose @[2,5,0,1,3,4] (ssum @2 (str (sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR (tproject1 u1)))))) * w28)))) (\\[i29, i30] -> [i29 + i30]) ; u34 = sscatter (stranspose @[2,4,1,3,0] (sslice (SNat @1) (SNat @6) w31)) (\\[i32, i33] -> [i32 + i33]) in tpair (rfromS (ssum @7 (str (ssum @7 (str (ssum @6 (w26 * w28))))))) (rfromS (stranspose @[1,2,0] (sslice (SNat @1) (SNat @6) u34)))"
+  printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [6,2,6,6] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [6,2,6,6] STKScalar)) (let w28 = sreshape @[6,2,7,7,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @7 (ssum @7 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (sappend (sconcrete (sreplicate [1,6,7,2,2] 0.0)) (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,6,2,6] 0.0)) (stranspose @[2,0,1] (sfromR (tproject2 u1)))) (\\[i22, i23] -> [i22 + i23])))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] w28)))) (stranspose @[1,2,0] (sslice (SNat @1) (SNat @6) (sscatter (stranspose @[2,4,1,3,0] (sslice (SNat @1) (SNat @6) (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @7 (str (sreplicate @7 (sfromR (tproject1 u1)))))))) (stranspose @[3,6,0,2,4,5,1] w28)) (\\[i29, i30] -> [i29 + i30])))) (\\[i32, i33] -> [i32 + i33])))))"
 
 testCNNOPP4bW :: Assertion
 testCNNOPP4bW = do
