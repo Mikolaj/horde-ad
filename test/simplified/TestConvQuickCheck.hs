@@ -96,7 +96,7 @@ flip42 arr =
 
 -- | Hand-written reverse derivative of full convolution with respect
 -- to the input image.
--- Example code that horde-ad generates for the same is in testCNNOPP0bW.
+-- Example code that horde-ad generates for the same is in testSameCNNOPP0bW.
 conv2dSame_dInp
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB shB1
             target r.
@@ -128,7 +128,7 @@ conv2dSame_dInp arrK arrB =
 
 -- | Hand-written reverse derivative of full convolution with respect
 -- to the kernels.
--- Example code that horde-ad generates for the same is in testCNNOPP0cW.
+-- Example code that horde-ad generates for the same is in testSameCNNOPP0cW.
 conv2dSame_dKrn
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB shB1
             target r.

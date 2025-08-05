@@ -156,9 +156,9 @@ testTrees =
   , testCase "minimizedPaddedCNNOPPLet" testPaddedCNNOPPLet
   , testCase "minimizedPaddedCNNOPPLet2" testPaddedCNNOPPLet2
   , testCase "minimizedPaddedCNNOPP2" testPaddedCNNOPP2
-  , testCase "minimizedCNNOPP0cW" testCNNOPP0cW
-  , testCase "minimizedCNNOPP0bW" testCNNOPP0bW
-  , testCase "minimizedCNNOPP1bW" testCNNOPP1bW
+  , testCase "minimizedSameCNNOPP0cW" testSameCNNOPP0cW
+  , testCase "minimizedSameCNNOPP0bW" testSameCNNOPP0bW
+  , testCase "minimizedSameCNNOPP1bW" testSameCNNOPP1bW
   , testCase "minimizedCNNOPP4bW" testCNNOPP4bW
   , testCase "minimizedCNNOPP4bD" testCNNOPP4bD
   , testCase "minimizedCNNOPP5aW" testCNNOPP5aW
@@ -1913,8 +1913,8 @@ conv2dPadded2 arrK arrA =
 -- * Non-laborious CNN PP tests
 
 -- Convolution differentiated wrt the kernel.
-testCNNOPP0cW :: Assertion
-testCNNOPP0cW = do
+testSameCNNOPP0cW :: Assertion
+testSameCNNOPP0cW = do
   resetVarCounter
   let ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
       varName = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
@@ -1936,8 +1936,8 @@ testCNNOPP0cW = do
     @?= "\\u0 -> \\dret u1 -> rfromS (ssum @6 (ssum @6 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,0,1] (sfromR u0)) (\\[i81, i83] -> [i81 + i83]))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[2,3,1,4,5,6,0] (sreshape @[6,2,6,6,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))))))))"
 
 -- Convolution differentiated wrt the data.
-testCNNOPP0bW :: Assertion
-testCNNOPP0bW = do
+testSameCNNOPP0bW :: Assertion
+testSameCNNOPP0bW = do
   resetVarCounter
   let ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
       varName = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
@@ -1959,8 +1959,8 @@ testCNNOPP0bW = do
     @?= "\\u0 -> \\dret u1 -> rfromS (stranspose @[1,2,0] (sscatter (stranspose @[2,4,1,3,0] (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @6 (str (sreplicate @6 (str (sreplicate @6 (sfromR u0))))))) (stranspose @[3,6,0,2,4,5,1] (sreshape @[6,2,6,6,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret)))))) (\\[i29, i30] -> [i29 + i30]))) (\\[i31, i32] -> [i31 + i32])))"
 
 -- Convolution differentiated wrt both arguments.
-testCNNOPP1bW :: Assertion
-testCNNOPP1bW = do
+testSameCNNOPP1bW :: Assertion
+testSameCNNOPP1bW = do
   resetVarCounter
   let f :: AstTensor AstMethodLet FullSpan
                      (TKProduct (TKR 4 Double) (TKR 4 Double))
