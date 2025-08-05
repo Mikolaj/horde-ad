@@ -26,12 +26,12 @@ import Shared
 
 testTrees :: [TestTree]
 testTrees =
-  [ testCase "conv2dUnpaddedVjp dInp" test_conv2dUnpaddedVjp_dInp
-  , testCase "conv2dUnpaddedVjp dKrn" test_conv2dUnpaddedVjp_dKrn
-  , testProperty "conv2dUnpaddedVjp Quickcheck Double"
-                 (quickcheck_conv2dUnpaddedVjp @Double)
-  , testProperty "conv2dUnpaddedVjp Quickcheck Float"
-                 (quickcheck_conv2dUnpaddedVjp @Float)
+  [ testCase "conv2dSameVjp dInp" test_conv2dSameVjp_dInp
+  , testCase "conv2dSameVjp dKrn" test_conv2dSameVjp_dKrn
+  , testProperty "conv2dSameVjp Quickcheck Double"
+                 (quickcheck_conv2dSameVjp @Double)
+  , testProperty "conv2dSameVjp Quickcheck Float"
+                 (quickcheck_conv2dSameVjp @Float)
   , testCase "conv2dShrinkingVjp dInp" test_conv2dShrinkingVjp_dInp
   , testCase "conv2dShrinkingVjp dKrn" test_conv2dShrinkingVjp_dKrn
   , testProperty "conv2dShrinkingVjp Quickcheck Double"
@@ -44,10 +44,10 @@ testTrees =
                  (quickcheck_conv2dPaddedVjp @Double)
   , testProperty "conv2dPaddedVjp Quickcheck Float"
                  (quickcheck_conv2dPaddedVjp @Float)
-  , testProperty "conv2dUnpaddedJvp Quickcheck Double"
-                 (quickcheck_conv2dUnpaddedJvp @Double)
-  , testProperty "conv2dUnpaddedJvp Quickcheck Float"
-                 (quickcheck_conv2dUnpaddedJvp @Float)
+  , testProperty "conv2dSameJvp Quickcheck Double"
+                 (quickcheck_conv2dSameJvp @Double)
+  , testProperty "conv2dSameJvp Quickcheck Float"
+                 (quickcheck_conv2dSameJvp @Float)
   , testProperty "conv2dShrinkingJvp Quickcheck Double"
                  (quickcheck_conv2dShrinkingJvp @Double)
   , testProperty "conv2dShrinkingJvp Quickcheck Float"
@@ -57,6 +57,12 @@ testTrees =
   , testProperty "conv2dPaddedJvp Quickcheck Float"
                  (quickcheck_conv2dPaddedJvp @Float)
   ]
+
+allClose :: (GoodScalar r, Fractional r, Linearizable a r, Linearizable b r)
+         => a -> b -> Rational -> Bool
+allClose expected actual eps =
+  all (\(a, b) -> abs (a - b) <= fromRational eps)
+  $ zip (linearize expected) (linearize actual)
 
 flip42 :: (ADReady target, GoodScalar r)
        => target (TKS '[nCout, nCinp, nKh, nKw] r)
@@ -68,15 +74,14 @@ flip42 arr =
   $ sreverse
   $ stranspose @'[3, 0, 1, 2] arr
 
--- | Derivative of full convolution with respect to the input image,
--- where the output size is the same as the input size.
--- Example code that horde-ad generates is in testCNNOPP0bW.
-conv2dUnpadded_dInp
-  :: forall shK shA shB shB1 nImgs nCinp nCout nAh nAw nKh nKw
+-- | Hand-written reverse derivative of full convolution with respect
+-- to the input image.
+-- Example code that horde-ad generates for the same is in testCNNOPP0bW.
+conv2dSame_dInp
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB shB1
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
-     , KnownNat nAh, KnownNat nAw
-     , KnownNat nKh, KnownNat nKw
+     , KnownNat nAh, KnownNat nAw, KnownNat nKh, KnownNat nKw
      , ADReady target, GoodScalar r
      , shK  ~ '[nCout, nCinp, nKh, nKw]
      , shA  ~ '[nImgs, nCinp, nAh, nAw]
@@ -85,7 +90,7 @@ conv2dUnpadded_dInp
   => target (TKS shK r)
   -> target (TKS shB r)
   -> target (TKS shA r)
-conv2dUnpadded_dInp arrK arrB =
+conv2dSame_dInp arrK arrB =
   let arrKFlipped = flip42 arrK
       nKh = valueOf @nKh
       nKw = valueOf @nKw
@@ -96,16 +101,16 @@ conv2dUnpadded_dInp arrK arrB =
           arrKt = slicezS (stranspose @'[1, 0] arrKFlipped)
                           [iCinp, 0 , 0, 0]
       in sdot0 arrBt arrKt
-    _ -> error "conv2dUnpadded_dInp: impossible pattern needlessly required"
+    _ -> error "conv2dSame_dInp: impossible pattern needlessly required"
 -- Note that
--- > ... in conv2dUnpaddedS (stranspose @'[1, 0] arrKFlipped) arrB
+-- > ... in conv2dSameS (stranspose @'[1, 0] arrKFlipped) arrB
 -- type-checks above, but test fails due to the lack of @- nKh + 1@.
 
--- | Derivative of full convolution with respect to the kernels,
--- where the output size is the same as the input size.
--- Example code that horde-ad generates is in testCNNOPP0cW.
-conv2dUnpadded_dKrn
-  :: forall shK shA shB shB1 nImgs nCinp nCout nAh nAw nKh nKw
+-- | Hand-written reverse derivative of full convolution with respect
+-- to the kernels.
+-- Example code that horde-ad generates for the same is in testCNNOPP0cW.
+conv2dSame_dKrn
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB shB1
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh, KnownNat nAw, KnownNat nKh, KnownNat nKw
@@ -117,7 +122,7 @@ conv2dUnpadded_dKrn
   => target (TKS shA r)
   -> target (TKS shB r)
   -> target (TKS shK r)
-conv2dUnpadded_dKrn arrA arrB =
+conv2dSame_dKrn arrA arrB =
   sbuild @(Rank shK) $ \case
     [iCout, iCinp, iKh, iKw] ->
       let arrBt = slicezS @shB1 arrB
@@ -125,10 +130,10 @@ conv2dUnpadded_dKrn arrA arrB =
           arrAt = slicezS arrA
                           [0, iCinp, iKh, iKw]
       in sdot0 arrBt arrAt
-    _ -> error "conv2dUnpadded_dKrn: impossible pattern needlessly required"
+    _ -> error "conv2dSame_dKrn: impossible pattern needlessly required"
 
-test_conv2dUnpaddedVjp_dInp :: Assertion
-test_conv2dUnpaddedVjp_dInp =
+test_conv2dSameVjp_dInp :: Assertion
+test_conv2dSameVjp_dInp =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
       arrA = Nested.sreplicateScal knownShS 1.1
@@ -140,13 +145,13 @@ test_conv2dUnpaddedVjp_dInp =
       arrB = Nested.sreplicateScal knownShS (-3.3)
       -- Compare the AD version against the manual derivative.
       dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
-      dInp = conv2dUnpadded_dInp (sconcrete arrK) (sconcrete arrB)
-      vjpInp = cvjp (conv2dUnpaddedS (sconcrete arrK))
+      dInp = conv2dSame_dInp (sconcrete arrK) (sconcrete arrB)
+      vjpInp = cvjp (conv2dSameS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dInp vjpInp
 
-test_conv2dUnpaddedVjp_dKrn :: Assertion
-test_conv2dUnpaddedVjp_dKrn =
+test_conv2dSameVjp_dKrn :: Assertion
+test_conv2dSameVjp_dKrn =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
       arrA = Nested.sreplicateScal knownShS 1.1
@@ -158,20 +163,13 @@ test_conv2dUnpaddedVjp_dKrn =
       arrB = Nested.sreplicateScal knownShS (-3.3)
       -- Compare the AD version against the manual derivative.
       dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
-      dKrn = conv2dUnpadded_dKrn (sconcrete arrA) (sconcrete arrB)
-      vjpKrn = cvjp (`conv2dUnpaddedS` (sconcrete arrA))
+      dKrn = conv2dSame_dKrn (sconcrete arrA) (sconcrete arrB)
+      vjpKrn = cvjp (`conv2dSameS` (sconcrete arrA))
                     (sconcrete arrK) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dKrn vjpKrn
 
-allClose :: (GoodScalar r, Fractional r, Linearizable a r, Linearizable b r)
-         => a -> b -> Rational -> Bool
-allClose expected actual eps =
-  all (\(a, b) -> abs (a - b) <= fromRational eps)
-  $ zip (linearize expected) (linearize actual)
-
-static_conv2dUnpaddedVjp
-  :: forall r nImgs nCinp nCout nAh nAw nKh nKw
-            shK shA shB.
+static_conv2dSameVjp
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
      ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
@@ -186,36 +184,36 @@ static_conv2dUnpaddedVjp
        -- ^ Output gradient of shape:
        --     batch x chas x output_height x output_width
   -> Bool
-static_conv2dUnpaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
+static_conv2dSameVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
       -- Note that manual versions don't take one of the arguments (the point
       -- at which the gradient is taken), because maths (something about
       -- convolution being linear and so gradient the same everywhere).
       -- First, the gradient wrt the input image taken at point @arrA@.
       dInp :: Concrete (TKS shA r)
-      dInp = conv2dUnpadded_dInp (sconcrete arrK) (sconcrete arrB)
-        -- handwritten
-      vjpInp = vjp (conv2dUnpaddedS (sconcrete arrK))
-                   (sconcrete arrA) (sconcrete arrB)
-      cvjpInp = cvjp (conv2dUnpaddedS (sconcrete arrK))
-                     (sconcrete arrA) (sconcrete arrB)
+      dInp = conv2dSame_dInp
+               (sconcrete arrK) (sconcrete arrB)  -- handwritten
+      vjpInp = vjp (conv2dSameS (sconcrete arrK))
+                   (sconcrete arrA) (sconcrete arrB)  -- symbolic
+      cvjpInp = cvjp (conv2dSameS (sconcrete arrK))
+                     (sconcrete arrA) (sconcrete arrB)  -- concrete
       -- Second, the gradient wrt the kernels taken at point @arrK@.
       dKrn :: Concrete (TKS shK r)
-      dKrn = conv2dUnpadded_dKrn (sconcrete arrA) (sconcrete arrB)
-        -- handwritten
-      vjpKrn = vjp (`conv2dUnpaddedS` (sconcrete arrA))
-                   (sconcrete arrK) (sconcrete arrB)
-      cvjpKrn = cvjp (`conv2dUnpaddedS` (sconcrete arrA))
-                     (sconcrete arrK) (sconcrete arrB)
+      dKrn = conv2dSame_dKrn
+               (sconcrete arrA) (sconcrete arrB)  -- handwritten
+      vjpKrn = vjp (`conv2dSameS` (sconcrete arrA))
+                   (sconcrete arrK) (sconcrete arrB)  -- symbolic
+      cvjpKrn = cvjp (`conv2dSameS` (sconcrete arrA))
+                     (sconcrete arrK) (sconcrete arrB)  -- concrete
   in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
      && allClose cvjpInp dInp 1e-5
      && allClose vjpKrn dKrn 1e-5
      && allClose cvjpKrn dKrn 1e-5
 
-quickcheck_conv2dUnpaddedVjp
+quickcheck_conv2dSameVjp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
-quickcheck_conv2dUnpaddedVjp =
+quickcheck_conv2dSameVjp =
   forAll (choose (0, 5)) $ \nImgs' ->
   forAll (choose (0, 5)) $ \nCinp' ->
   forAll (choose (0, 5)) $ \nCout' ->
@@ -239,15 +237,19 @@ quickcheck_conv2dUnpaddedVjp =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dUnpaddedVjp
+        in static_conv2dSameVjp
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
 
--- | Derivative of full shrinking convolution with respect to the input image,
--- where the output size is the same as the input size.
--- Example code that horde-ad generates is in testShrinkingCNNOPP0bW.
+-- | Hand-written reverse derivative of full shrinking convolution with respect
+-- to the input image.
+-- The @nKh1@ type variable reads \"nKh - 1\", while @nAh_nKh1@
+-- reads \" nAh - nKh1\". We don't use explicit subtraction, because
+-- it requires extra constraints to ensure type leven nats are not negative.
+-- Example code that horde-ad generates for the same is
+-- in testShrinkingCNNOPP0bW.
 conv2dShrinking_dInp
-  :: forall shK shA shB nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
+  :: forall nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1 shK shA shB
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh_nKh1, KnownNat nAw_nKw1, KnownNat nKh1, KnownNat nKw1
@@ -262,11 +264,15 @@ conv2dShrinking_dInp arrK arrB =
   let arrKFlipped = flip42 arrK
   in conv2dPaddedS (stranspose @'[1, 0] arrKFlipped) arrB
 
--- | Derivative of full shrinking convolution with respect to the kernels,
--- where the output size is the same as the input size.
--- Example code that horde-ad generates is in testShrinkingCNNOPP0cW.
+-- | Hand-written reverse derivative of full shrinking convolution with respect
+-- to the kernels.
+-- The @nKh1@ type variable reads \"nKh - 1\", while @nAh_nKh1@
+-- reads \" nAh - nKh1\". We don't use explicit subtraction, because
+-- it requires extra constraints to ensure type leven nats are not negative.
+-- Example code that horde-ad generates for the same is
+-- in testShrinkingCNNOPP0cW.
 conv2dShrinking_dKrn
-  :: forall shK shA shB nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
+  :: forall nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1 shK shA shB
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh_nKh1, KnownNat nAw_nKw1, KnownNat nKh1, KnownNat nKw1
@@ -280,7 +286,7 @@ conv2dShrinking_dKrn
   -> target (TKS shK r)
 conv2dShrinking_dKrn arrA arrB =
   stranspose @'[1, 0]
-             (conv2dShrinkingS @nCout @nImgs @(nAh_nKh1 - 1) @(nAw_nKw1 - 1)
+             (conv2dShrinkingS @_ @_ @_ @_ @_ @_ @(nAh_nKh1 - 1) @(nAw_nKw1 - 1)
                                (stranspose @'[1, 0] arrB)
                                (stranspose @'[1, 0] arrA))
 
@@ -321,8 +327,7 @@ test_conv2dShrinkingVjp_dKrn =
   in assertEqualUpToEpsilon 1e-7 dKrn vjpKrn
 
 static_conv2dShrinkingVjp
-  :: forall r nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
-            shK shA shB.
+  :: forall nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1 shK shA shB r.
      ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
      , 1 <= nAh_nKh1, 1 <= nAw_nKw1
      , shK ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
@@ -348,17 +353,17 @@ static_conv2dShrinkingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       dInp = conv2dShrinking_dInp
                (sconcrete arrK) (sconcrete arrB)  -- handwritten
       vjpInp = vjp (conv2dShrinkingS (sconcrete arrK))
-                   (sconcrete arrA) (sconcrete arrB)
+                   (sconcrete arrA) (sconcrete arrB)  -- symbolic
       cvjpInp = cvjp (conv2dShrinkingS (sconcrete arrK))
-                     (sconcrete arrA) (sconcrete arrB)
+                     (sconcrete arrA) (sconcrete arrB)  -- concrete
       -- Second, the gradient wrt the kernels taken at point @arrK@.
       dKrn :: Concrete (TKS shK r)
       dKrn = conv2dShrinking_dKrn
                (sconcrete arrA) (sconcrete arrB) -- handwritten
       vjpKrn = vjp (`conv2dShrinkingS` (sconcrete arrA))
-                   (sconcrete arrK) (sconcrete arrB)
+                   (sconcrete arrK) (sconcrete arrB)  -- symbolic
       cvjpKrn = cvjp (`conv2dShrinkingS` (sconcrete arrA))
-                     (sconcrete arrK) (sconcrete arrB)
+                     (sconcrete arrK) (sconcrete arrB)  -- concrete
   in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
      && allClose cvjpInp dInp 1e-5
      && allClose vjpKrn dKrn 1e-5
@@ -402,11 +407,15 @@ quickcheck_conv2dShrinkingVjp =
                    (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
     in b
 
--- | Derivative of full padded convolution with respect to the input image,
--- where the output size is the same as the input size.
--- Example code that horde-ad generates is in testPaddedCNNOPP0bW.
+-- | Hand-written reverse derivative of full padded convolution with respect
+-- to the input image.
+-- The @nKh1@ type variable reads \"nKh - 1\".
+-- We don't use explicit subtraction, because
+-- it requires extra constraints to ensure type leven nats are not negative.
+-- Example code that horde-ad generates for the same is
+-- in testPaddedCNNOPP0bW.
 conv2dPadded_dInp
-  :: forall shK shA shB nImgs nCinp nCout nAh nAw nKh1 nKw1
+  :: forall nImgs nCinp nCout nAh nAw nKh1 nKw1 shK shA shB
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh, KnownNat nAw, KnownNat nKh1, KnownNat nKw1
@@ -421,11 +430,15 @@ conv2dPadded_dInp arrK arrB =
   let arrKFlipped = flip42 arrK
   in conv2dShrinkingS (stranspose @'[1, 0] arrKFlipped) arrB
 
--- | Derivative of full padded convolution with respect to the kernels,
--- where the output size is the same as the input size.
--- Example code that horde-ad generates is in testPaddedCNNOPP0cW.
+-- | Hand-written reverse derivative of full padded convolution with respect
+-- to kernels.
+-- The @nKh1@ type variable reads \"nKh - 1\".
+-- We don't use explicit subtraction, because
+-- it requires extra constraints to ensure type leven nats are not negative.
+-- Example code that horde-ad generates for the same is
+-- in testPaddedCNNOPP0cW.
 conv2dPadded_dKrn
-  :: forall shK shA shB nImgs nCinp nCout nAh nAw nKh1 nKw1
+  :: forall nImgs nCinp nCout nAh nAw nKh1 nKw1 shK shA shB
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh, KnownNat nAw, KnownNat nKh1, KnownNat nKw1
@@ -439,7 +452,7 @@ conv2dPadded_dKrn
   -> target (TKS shK r)
 conv2dPadded_dKrn arrA arrB =
   flip42
-  $ conv2dShrinkingS @nCinp @nImgs @(nAh - 1) @(nAw - 1)
+  $ conv2dShrinkingS @_ @_ @_ @_ @_ @_ @(nAh - 1) @(nAw - 1)
                      (stranspose @'[1, 0] arrA)
                      (stranspose @'[1, 0] arrB)
 
@@ -480,8 +493,7 @@ test_conv2dPaddedVjp_dKrn =
   in assertEqualUpToEpsilon 1e-7 dKrn vjpKrn
 
 static_conv2dPaddedVjp
-  :: forall r nImgs nCinp nCout nAh nAw nKh1 nKw1
-            shK shA shB.
+  :: forall nImgs nCinp nCout nAh nAw nKh1 nKw1 shK shA shB r.
      ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
      , 1 <= nAh, 1 <= nAw
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
@@ -507,17 +519,17 @@ static_conv2dPaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       dInp = conv2dPadded_dInp
                (sconcrete arrK) (sconcrete arrB)  -- handwritten
       vjpInp = vjp (conv2dPaddedS (sconcrete arrK))
-                   (sconcrete arrA) (sconcrete arrB)
+                   (sconcrete arrA) (sconcrete arrB)  -- symbolic
       cvjpInp = cvjp (conv2dPaddedS (sconcrete arrK))
-                     (sconcrete arrA) (sconcrete arrB)
+                     (sconcrete arrA) (sconcrete arrB)  -- concrete
       -- Second, the gradient wrt the kernels taken at point @arrK@.
       dKrn :: Concrete (TKS shK r)
       dKrn = conv2dPadded_dKrn
                (sconcrete arrA) (sconcrete arrB) -- handwritten
       vjpKrn = vjp (`conv2dPaddedS` (sconcrete arrA))
-                   (sconcrete arrK) (sconcrete arrB)
+                   (sconcrete arrK) (sconcrete arrB)  -- symbolic
       cvjpKrn = cvjp (`conv2dPaddedS` (sconcrete arrA))
-                     (sconcrete arrK) (sconcrete arrB)
+                     (sconcrete arrK) (sconcrete arrB)  -- concrete
   in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
      && allClose cvjpInp dInp 1e-5
      && allClose vjpKrn dKrn 1e-5
@@ -561,48 +573,41 @@ quickcheck_conv2dPaddedVjp =
                    (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
     in b
 
-static_conv2dUnpaddedJvp
-  :: forall r nImgs nCinp nCout nAh nAw nKh nKw
-            shK shA.
+-- Forward derivative.
+static_conv2dSameJvp
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
      ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
-     , shA ~ '[nImgs, nCinp, nAh, nAw] )
+     , shA ~ '[nImgs, nCinp, nAh, nAw]
+     , shB  ~ '[nImgs, nCout, nAh, nAw] )
   => SNat nImgs -> SNat nCinp -> SNat nCout
   -> SNat nAh -> SNat nAw -> SNat nKh -> SNat nKw
-  -> Nested.Shaped shK r
-       -- ^ Filters of shape: num_filters x chas x kernel_height x kernel_width
-  -> Nested.Shaped shK r
-       -- ^ Filters of shape: num_filters x chas x kernel_height x kernel_width
-  -> Nested.Shaped shA r
-       -- ^ Input of shape: batch x chas x height x width
-  -> Nested.Shaped shA r
-       -- ^ Input of shape: batch x chas x height x width
+  -> Nested.Shaped shK r -> Nested.Shaped shK r
+  -> Nested.Shaped shA r -> Nested.Shaped shA r
   -> Bool
-static_conv2dUnpaddedJvp SNat SNat SNat SNat SNat SNat SNat
-                         arrK arrK2 arrA arrA2 =
-  let dInp :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
-      dInp = conv2dUnpaddedS
-               (sconcrete arrK) (sconcrete arrA2)
-      jvpInp = jvp (conv2dUnpaddedS (sconcrete arrK))
+static_conv2dSameJvp SNat SNat SNat SNat SNat SNat SNat
+                     arrK arrK2 arrA arrA2 =
+  let dInp :: Concrete (TKS shB r)
+      dInp = conv2dSameS (sconcrete arrK) (sconcrete arrA2)
+      jvpInp = jvp (conv2dSameS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrA2)
-      cjvpInp = cjvp (conv2dUnpaddedS (sconcrete arrK))
+      cjvpInp = cjvp (conv2dSameS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrA2)
-      dKrn :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
-      dKrn = conv2dUnpaddedS
-               (sconcrete arrK2) (sconcrete arrA)
-      jvpKrn = jvp (`conv2dUnpaddedS` (sconcrete arrA))
+      dKrn :: Concrete (TKS shB r)
+      dKrn = conv2dSameS (sconcrete arrK2) (sconcrete arrA)
+      jvpKrn = jvp (`conv2dSameS` (sconcrete arrA))
                    (sconcrete arrK) (sconcrete arrK2)
-      cjvpKrn = cjvp (`conv2dUnpaddedS` (sconcrete arrA))
+      cjvpKrn = cjvp (`conv2dSameS` (sconcrete arrA))
                      (sconcrete arrK) (sconcrete arrK2)
   in allClose jvpInp dInp 1e-7
      && allClose cjvpInp dInp 1e-7
      && allClose jvpKrn dKrn 1e-7
      && allClose cjvpKrn dKrn 1e-7
 
-quickcheck_conv2dUnpaddedJvp
+quickcheck_conv2dSameJvp
   :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
-quickcheck_conv2dUnpaddedJvp =
+quickcheck_conv2dSameJvp =
   forAll (choose (0, 5)) $ \nImgs' ->
   forAll (choose (0, 5)) $ \nCinp' ->
   forAll (choose (0, 5)) $ \nCout' ->
@@ -623,44 +628,36 @@ quickcheck_conv2dUnpaddedJvp =
         let arrK, arrK2 :: Concrete (TKS '[nCout, nCinp, nKh, nKw] r)
             (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
             (arrK2, seed3) = randomValue 0.5 seed2
-            arrA, arrA2
-              :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
+            arrA, arrA2 :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
             (arrA, seed4) = randomValue 0.5 seed3
             (arrA2, _) = randomValue 0.5 seed4
-        in static_conv2dUnpaddedJvp
+        in static_conv2dSameJvp
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrK2)
              (unConcrete arrA) (unConcrete arrA2)
 
+-- Forward derivative.
 static_conv2dShrinkingJvp
-  :: forall r nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
-            shK shA.
+  :: forall nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1 shK shA shB r.
      ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
-     , shA ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1] )
+     , shA ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
+     , shB  ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1])
   => SNat nImgs -> SNat nCinp -> SNat nCout
   -> SNat nAh_nKh1 -> SNat nAw_nKw1 -> SNat nKh1 -> SNat nKw1
-  -> Nested.Shaped shK r
-       -- ^ Filters of shape: num_filters x chas x kernel_height x kernel_width
-  -> Nested.Shaped shK r
-       -- ^ Filters of shape: num_filters x chas x kernel_height x kernel_width
-  -> Nested.Shaped shA r
-       -- ^ Input of shape: batch x chas x height x width
-  -> Nested.Shaped shA r
-       -- ^ Input of shape: batch x chas x height x width
+  -> Nested.Shaped shK r -> Nested.Shaped shK r
+  -> Nested.Shaped shA r -> Nested.Shaped shA r
   -> Bool
 static_conv2dShrinkingJvp SNat SNat SNat SNat SNat SNat SNat
                           arrK arrK2 arrA arrA2 =
-  let dInp :: Concrete (TKS '[nImgs, nCout, nAh_nKh1, nAw_nKw1] r)
-      dInp = conv2dShrinkingS
-               (sconcrete arrK) (sconcrete arrA2)
+  let dInp :: Concrete (TKS shB r)
+      dInp = conv2dShrinkingS (sconcrete arrK) (sconcrete arrA2)
       jvpInp = jvp (conv2dShrinkingS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrA2)
       cjvpInp = cjvp (conv2dShrinkingS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrA2)
-      dKrn :: Concrete (TKS '[nImgs, nCout, nAh_nKh1, nAw_nKw1] r)
-      dKrn = conv2dShrinkingS
-               (sconcrete arrK2) (sconcrete arrA)
+      dKrn :: Concrete (TKS shB r)
+      dKrn = conv2dShrinkingS (sconcrete arrK2) (sconcrete arrA)
       jvpKrn = jvp (`conv2dShrinkingS` (sconcrete arrA))
                    (sconcrete arrK) (sconcrete arrK2)
       cjvpKrn = cjvp (`conv2dShrinkingS` (sconcrete arrA))
@@ -695,8 +692,8 @@ quickcheck_conv2dShrinkingJvp =
             (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
             (arrK2, seed3) = randomValue 0.5 seed2
             arrA, arrA2
-              :: Concrete (TKS '[ nImgs, nCinp
-                                , nAh_nKh1 + nKh1, nAw_nKw1 + nKw1 ] r)
+              :: Concrete
+                   (TKS '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1] r)
             (arrA, seed4) = randomValue 0.5 seed3
             (arrA2, _) = randomValue 0.5 seed4
         in static_conv2dShrinkingJvp
@@ -704,32 +701,27 @@ quickcheck_conv2dShrinkingJvp =
              (unConcrete arrK) (unConcrete arrK2)
              (unConcrete arrA) (unConcrete arrA2)
 
+-- Forward derivative.
 static_conv2dPaddedJvp
-  :: forall r nImgs nCinp nCout nAh nAw nKh1 nKw1
-            shK shA.
+  :: forall nImgs nCinp nCout nAh nAw nKh1 nKw1 shK shA shB r.
      ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
-     , shA ~ '[nImgs, nCinp, nAh, nAw] )
+     , shA ~ '[nImgs, nCinp, nAh, nAw]
+     , shB  ~ '[nImgs, nCout, nAh + nKh1, nAw + nKw1] )
   => SNat nImgs -> SNat nCinp -> SNat nCout
   -> SNat nAh -> SNat nAw -> SNat nKh1 -> SNat nKw1
-  -> Nested.Shaped shK r
-       -- ^ Filters of shape: num_filters x chas x kernel_height x kernel_width
-  -> Nested.Shaped shK r
-       -- ^ Filters of shape: num_filters x chas x kernel_height x kernel_width
-  -> Nested.Shaped shA r
-       -- ^ Input of shape: batch x chas x height x width
-  -> Nested.Shaped shA r
-       -- ^ Input of shape: batch x chas x height x width
+  -> Nested.Shaped shK r -> Nested.Shaped shK r
+  -> Nested.Shaped shA r -> Nested.Shaped shA r
   -> Bool
 static_conv2dPaddedJvp SNat SNat SNat SNat SNat SNat SNat
                        arrK arrK2 arrA arrA2 =
-  let dInp :: Concrete (TKS '[nImgs, nCout, nAh + nKh1, nAw + nKw1] r)
+  let dInp :: Concrete (TKS shB r)
       dInp = conv2dPaddedS (sconcrete arrK) (sconcrete arrA2)
       jvpInp = jvp (conv2dPaddedS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrA2)
       cjvpInp = cjvp (conv2dPaddedS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrA2)
-      dKrn :: Concrete (TKS '[nImgs, nCout, nAh + nKh1, nAw + nKw1] r)
+      dKrn :: Concrete (TKS shB r)
       dKrn = conv2dPaddedS (sconcrete arrK2) (sconcrete arrA)
       jvpKrn = jvp (`conv2dPaddedS` (sconcrete arrA))
                    (sconcrete arrK) (sconcrete arrK2)
@@ -764,8 +756,7 @@ quickcheck_conv2dPaddedJvp =
         let arrK, arrK2 :: Concrete (TKS '[nCout, nCinp, nKh1 + 1, nKw1 + 1] r)
             (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
             (arrK2, seed3) = randomValue 0.5 seed2
-            arrA, arrA2
-              :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
+            arrA, arrA2 :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
             (arrA, seed4) = randomValue 0.5 seed3
             (arrA2, _) = randomValue 0.5 seed4
         in static_conv2dPaddedJvp

@@ -58,7 +58,7 @@ convMnistLayerR
   -> target (TKR 4 r)  -- ^ @[batch_size, c_out, h \`Div\` 2, w \`Div\` 2]@
 convMnistLayerR ker input bias =
   let (batch_size :$: _ :$: h :$: w :$: ZSR) = rshape input
-      yConv = conv2dUnpadded ker input
+      yConv = conv2dSame ker input
       biasStretched = rtranspose [0, 3, 1, 2]
                       $ rreplicate batch_size $ rreplicate h $ rreplicate w bias
       yRelu = relu $ yConv + biasStretched

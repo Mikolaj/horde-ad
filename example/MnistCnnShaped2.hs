@@ -54,7 +54,7 @@ convMnistLayerS
   -> target (TKS '[batch_size, c_out, h `Div` 2, w `Div` 2] r)
 convMnistLayerS SNat SNat SNat SNat SNat SNat SNat
                 ker input bias =
-  let yConv = conv2dUnpaddedS ker input
+  let yConv = conv2dSameS ker input
       biasStretched = stranspose @'[0, 3, 1, 2]
                       $ sreplicate {-@batch_size-}
                       $ sreplicate {-@h-}

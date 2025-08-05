@@ -173,28 +173,28 @@ softMax1 d =
   let expU0 = exp d
   in tlet expU0 $ \expU -> rreplicate0N (rshape d) (recip $ rsum0 expU) * expU
 
--- | Unpadded full convolution,
--- where the output size is the same as the input size.
+-- | Unpadded full convolution, where the output image size is the same
+-- as the input size.
 --
 -- BTW, the indexing lower bounds in the code are spurious,
 -- so they get simplified away in the resulting AST program.
-conv2dUnpadded
+conv2dSame
   :: (ADReady target, GoodScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
-conv2dUnpadded arrK arrA =
+conv2dSame arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
-      [nCoutK, nCinpK, nKh, nKw] = rshape arrK
+      [nCout, nCinpK, nKh, nKw] = rshape arrK
       nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
-      shB = [nImgs, nCoutK, nAh, nAw]
+      shB = [nImgs, nCout, nAh, nAw]
       shK1 = [1, nCinp, nKh, nKw]
   in rbuild shB $ \case
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicez shK1 arrA [iImg, 0, iBh, iBw]
           arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
       in rdot0 arrAt arrKt
-    _ -> error "conv2dUnpadded: impossible pattern needlessly required"
+    _ -> error "conv2dSame: impossible pattern needlessly required"
 
--- | Full convolution with just enough padding to ensure all output points
+-- | Full convolution with only enough padding to ensure all output points
 -- are affected by the same number of input points,
 -- where the output size shrinks depending on the input size and kernel size.
 -- Also no input points are ever ignored, though some are read less often.
@@ -206,9 +206,9 @@ conv2dShrinking
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dShrinking arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
-      [nCoutK, nCinpK, nKh, nKw] = rshape arrK
+      [nCout, nCinpK, nKh, nKw] = rshape arrK
       nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
-      shB = [nImgs, nCoutK, nAh - nKh + 1, nAw - nKw + 1]
+      shB = [nImgs, nCout, nAh - nKh + 1, nAw - nKw + 1]
       shK1 = [1, nCinp, nKh, nKw]
   in rbuild shB $ \case
     [iImg, iCout, iBh, iBw] ->
@@ -226,9 +226,9 @@ conv2dPadded
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dPadded arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
-      [nCoutK, nCinpK, nKh, nKw] = rshape arrK
+      [nCout, nCinpK, nKh, nKw] = rshape arrK
       nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
-      shB = [nImgs, nCoutK, nAh + nKh - 1, nAw + nKw - 1]
+      shB = [nImgs, nCout, nAh + nKh - 1, nAw + nKw - 1]
       shK1 = [1, nCinp, nKh, nKw]
   in rbuild shB $ \case
     [iImg, iCout, iBh, iBw] ->
@@ -239,18 +239,18 @@ conv2dPadded arrK arrA =
       in rdot0 arrAt arrKt
     _ -> error "conv2dPadded: impossible pattern needlessly required"
 
--- | Full convolution with custom padding,
--- where the output size depends on the input size, kernel size and padding.
+-- | Full convolution with custom padding, where the output image size
+-- depends on the input size, kernel size and padding.
 conv2dCustomPadded
   :: (ADReady target, GoodScalar r)
   => (Int, Int) -> target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dCustomPadded (nPh, nPw) arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
-      [nCoutK, nCinpK, nKh, nKw] = rshape arrK
+      [nCout, nCinpK, nKh, nKw] = rshape arrK
       nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
       nBh = nAh + 2 * nPh - nKh + 1
       nBw = nAw + 2 * nPw - nKw + 1
-      shB = [nImgs, nCoutK, nBh, nBw]
+      shB = [nImgs, nCout, nBh, nBw]
       shK1 = [1, nCinp, nKh, nKw]
   in rbuild shB $ \case
     [iImg, iCout, iBh, iBw] ->

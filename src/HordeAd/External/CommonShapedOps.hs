@@ -172,30 +172,32 @@ softMax1S d =
   let expU0 = exp d
   in tlet expU0 $ \expU -> sreplicate0N (recip $ ssum0 expU) * expU
 
--- | Unpadded full convolution,
--- where the output size is the same as the input size.
-conv2dUnpaddedS
-  :: forall nCoutK nCinpK nKh nKw nImgs nCinpA nAh nAw
-            target r shB shK1.
-     ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh, KnownNat nKw
-     , KnownNat nImgs, KnownNat nAh, KnownNat nAw
+-- | Full convolution, where the output image size is the same
+-- as the input size.
+conv2dSameS
+  :: forall nImgs nCinp nCinpA nCout nAh nAw nKh nKw shK shA shB shK1
+            target r.
+     ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
+     , KnownNat nAh, KnownNat nAw, KnownNat nKh, KnownNat nKw
      , ADReady target, GoodScalar r
-     , nCinpA ~ nCinpK
-     , shB ~ '[nImgs, nCoutK, nAh, nAw]
+     , nCinpA ~ nCinp
+     , shK  ~ '[nCout, nCinp, nKh, nKw]
+     , shA  ~ '[nImgs, nCinp, nAh, nAw]
+     , shB  ~ '[nImgs, nCout, nAh, nAw]
      , shK1 ~ '[1, nCinpA, nKh, nKw]
      )
-  => target (TKS '[nCoutK, nCinpK, nKh, nKw] r)
-  -> target (TKS '[nImgs, nCinpA, nAh, nAw] r)
-  -> target (TKS shB r)
-conv2dUnpaddedS arrK arrA =
+  => target (TKS shK r) -> target (TKS shA r) -> target (TKS shB r)
+conv2dSameS arrK arrA =
   sbuild @(Rank shB) $ \case
     [iImg, iCout, iBh, iBw] ->
-      let arrAt = slicezS @shK1 arrA [iImg, 0, iBh, iBw]
-          arrKt = slicezS arrK [iCout, 0, 0, 0]
+      let arrAt = slicezS @shK1 arrA
+                          [iImg, 0, iBh, iBw]
+          arrKt = slicezS arrK
+                          [iCout, 0, 0, 0]
       in sdot0 arrAt arrKt
-    _ -> error "conv2dUnpaddedS: impossible pattern needlessly required"
+    _ -> error "conv2dSameS: impossible pattern needlessly required"
 
--- | Full convolution with just enough padding to ensure all output points
+-- | Full convolution with only enough padding to ensure all output points
 -- are affected by the same number of input points,
 -- where the output size shrinks depending on the input size and kernel size.
 -- Also no input points are ever ignored, though some are read less often.
@@ -203,23 +205,26 @@ conv2dUnpaddedS arrK arrA =
 -- This corresponds to
 -- https://hackage.haskell.org/package/hmatrix-0.20.2/docs/Numeric-LinearAlgebra.html#v:corr2
 conv2dShrinkingS
-  :: forall nCoutK nCinpK nKh1 nKw1 nImgs nCinpA nAh_nKh1 nAw_nKw1
-            target r shB shK1.
-     ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh1, KnownNat nKw1
-     , KnownNat nImgs, KnownNat nAh_nKh1, KnownNat nAw_nKw1
+  :: forall nImgs nCinp nCinpA nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1
+            shK shA shB shK1
+            target r.
+     ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
+     , KnownNat nAh_nKh1, KnownNat nAw_nKw1, KnownNat nKh1, KnownNat nKw1
      , ADReady target, GoodScalar r
-     , nCinpA ~ nCinpK
-     , shB ~ '[nImgs, nCoutK, nAh_nKh1, nAw_nKw1]
+     , nCinpA ~ nCinp
+     , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
+     , shA  ~ '[nImgs, nCinpA, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
+     , shB  ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1]
      , shK1 ~ '[1, nCinpA, nKh1 + 1, nKw1 + 1]
      )
-  => target (TKS '[nCoutK, nCinpK, nKh1 + 1, nKw1 + 1] r)
-  -> target (TKS '[nImgs, nCinpA, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1] r)
-  -> target (TKS shB r)
+  => target (TKS shK r) -> target (TKS shA r) -> target (TKS shB r)
 conv2dShrinkingS arrK arrA =
   sbuild @(Rank shB) $ \case
     [iImg, iCout, iBh, iBw] ->
-      let arrAt = slicezS @shK1 arrA [iImg, 0, iBh, iBw]
-          arrKt = slicezS arrK [iCout, 0, 0, 0]
+      let arrAt = slicezS @shK1 arrA
+                          [iImg, 0, iBh, iBw]
+          arrKt = slicezS arrK
+                          [iCout, 0, 0, 0]
       in sdot0 arrAt arrKt
     _ -> error "conv2dShrinkingS: impossible pattern needlessly required"
 
@@ -228,25 +233,28 @@ conv2dShrinkingS arrK arrA =
 -- https://hackage.haskell.org/package/hmatrix-0.20.2/docs/Numeric-LinearAlgebra.html#v:conv2
 -- though it doesn't do the kernel flipping.
 conv2dPaddedS
-  :: forall nCoutK nCinpK nKh1 nKw1 nImgs nCinpA nAh nAw
-            target r shB shK1.
-     ( KnownNat nCoutK, KnownNat nCinpK, KnownNat nKh1, KnownNat nKw1
-     , KnownNat nImgs, KnownNat nAh, KnownNat nAw
+  :: forall nImgs nCinp nCinpA nCout nAh nAw nKh1 nKw1
+            shK shA shB shK1
+            target r.
+     ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
+     , KnownNat nAh, KnownNat nAw, KnownNat nKh1, KnownNat nKw1
      , ADReady target, GoodScalar r
-     , nCinpA ~ nCinpK
-     , shB ~ '[nImgs, nCoutK, nAh + nKh1, nAw + nKw1]
+     , nCinpA ~ nCinp
+     , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
+     , shA  ~ '[nImgs, nCinpA, nAh, nAw]
+     , shB  ~ '[nImgs, nCout, nAh + nKh1, nAw + nKw1]
      , shK1 ~ '[1, nCinpA, nKh1 + 1, nKw1 + 1]
      )
-  => target (TKS '[nCoutK, nCinpK, nKh1 + 1, nKw1 + 1] r)
-  -> target (TKS '[nImgs, nCinpA, nAh, nAw] r)
-  -> target (TKS shB r)
+  => target (TKS shK r) -> target (TKS shA r) -> target (TKS shB r)
 conv2dPaddedS arrK arrA =
   sbuild @(Rank shB) $ \case
     [iImg, iCout, iBh, iBw] ->
       let nKh1 = valueOf @nKh1
           nKw1 = valueOf @nKw1
-          arrAt = slicezS @shK1 arrA [iImg, 0, iBh - nKh1, iBw - nKw1]
-          arrKt = slicezS arrK [iCout, 0, 0, 0]
+          arrAt = slicezS @shK1 arrA
+                          [iImg, 0, iBh - nKh1, iBw - nKw1]
+          arrKt = slicezS arrK
+                          [iCout, 0, 0, 0]
       in sdot0 arrAt arrKt
     _ -> error "conv2dPaddedS: impossible pattern needlessly required"
 
