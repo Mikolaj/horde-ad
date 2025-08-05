@@ -15,6 +15,7 @@ import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd
 import HordeAd.Core.AstEnv
@@ -25,6 +26,8 @@ import HordeAd.Core.CarriersAst
 import HordeAd.Core.Delta
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsAst
+
+import TestConvQuickCheck (conv2dSame_dKrn)
 
 import CrossTesting
 import EqEpsilon
@@ -150,6 +153,7 @@ testTrees =
   , testCase "minimizedPaddedCNNOPPLet" testPaddedCNNOPPLet
   , testCase "minimizedPaddedCNNOPPLet2" testPaddedCNNOPPLet2
   , testCase "minimizedPaddedCNNOPP2" testPaddedCNNOPP2
+  , testCase "minimizedSameCNNOPPKrnHandwritten" testSameCNNOPPKrnHandwritten
   , testCase "minimizedSameCNNOPP0cW" testSameCNNOPP0cW
   , testCase "minimizedSameCNNOPP0bW" testSameCNNOPP0bW
   , testCase "minimizedSameCNNOPP1bW" testSameCNNOPP1bW
@@ -1773,6 +1777,23 @@ conv2dPadded2 arrK arrA =
 
 
 -- * Non-laborious CNN PP tests
+
+-- Hand-written reverse derivative of full convolution with respect
+-- to the kernels.
+testSameCNNOPPKrnHandwritten :: Assertion
+testSameCNNOPPKrnHandwritten = do
+  resetVarCounter
+  let ftk = FTKS (knownShS @'[3, 3, 6, 6]) (FTKScalar @Double)
+      varNameA = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
+      varA = AstVar varNameA
+      varNameB = mkAstVarName ftk Nothing . intToAstVarId $ 100000099
+      varB = AstVar varNameB
+      t :: AstTensor AstMethodLet FullSpan (TKS [3, 3, 3, 3] Double)
+      t = conv2dSame_dKrn varA varB
+  "\\u0 -> \\u99 -> " ++ printAstPretty t
+    @?= "\\u0 -> \\u99 -> ssum @108 (stranspose @[4,0,1,2,3] (sreshape @[3,3,3,3,108] (str (sreplicate @3 (str (sreplicate @3 (str (sreplicate @3 (stranspose @[1,2,0] (sreplicate @1 (str u99)))))))) * sreplicate @3 (stranspose @[1,2,3,4,0] (sreplicate @1 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,1,0] u0) (\\[i18, i11] -> [i18 + i11]))) (\\[i16, i12] -> [i16 + i12]))))))))"
+  "\\u0 -> \\u99 -> " ++ printAstPretty (simplifyInline t)
+    @?= "\\u0 -> \\u99 -> ssum @108 (stranspose @[4,0,1,2,3] (sreshape @[3,3,3,3,108] (str (sreplicate @3 (str (sreplicate @3 (str (sreplicate @3 (stranspose @[1,2,0] (sreplicate @1 (str u99)))))))) * sreplicate @3 (stranspose @[1,2,3,4,0] (sreplicate @1 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (stranspose @[2,1,0] u0) (\\[i35, i37] -> [i35 + i37]))) (\\[i16, i12] -> [i16 + i12]))))))))"
 
 -- Convolution differentiated wrt the kernel.
 testSameCNNOPP0cW :: Assertion

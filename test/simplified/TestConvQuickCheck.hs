@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | QuickCheck tests of convolution AD derivatives vs handwritten derivatives.
-module TestConvQuickCheck (testTrees) where
+module TestConvQuickCheck (testTrees, conv2dSame_dKrn) where
 
 import Prelude
 
@@ -128,6 +128,7 @@ conv2dSame_dInp arrK arrB =
 
 -- | Hand-written reverse derivative of full convolution with respect
 -- to the kernels.
+-- This code vectorized is pretty-printed in test testSameCNNOPPKrnHandwritten.
 -- Example code that horde-ad generates for the same is in testSameCNNOPP0cW.
 conv2dSame_dKrn
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB shB1
