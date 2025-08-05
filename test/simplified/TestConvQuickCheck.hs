@@ -812,8 +812,8 @@ quickcheck_conv2dSameVjpKrnHandwritten =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
-  forAll (choose (3, 3)) $ \nAh' ->
-  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (6, 6)) $ \nAh' ->
+  forAll (choose (6, 6)) $ \nAw' ->
   forAll (choose (3, 3)) $ \nKh' ->
   forAll (choose (3, 3)) $ \nKw' ->
     withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
@@ -860,8 +860,8 @@ quickcheck_conv2dSameVjpKrnHandwrittenVectorized =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
-  forAll (choose (3, 3)) $ \nAh' ->
-  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (6, 6)) $ \nAh' ->
+  forAll (choose (6, 6)) $ \nAw' ->
   forAll (choose (3, 3)) $ \nKh' ->
   forAll (choose (3, 3)) $ \nKw' ->
     withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
@@ -908,8 +908,8 @@ quickcheck_conv2dSameVjpKrnSymbolic =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
-  forAll (choose (3, 3)) $ \nAh' ->
-  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (6, 6)) $ \nAh' ->
+  forAll (choose (6, 6)) $ \nAw' ->
   forAll (choose (3, 3)) $ \nKh' ->
   forAll (choose (3, 3)) $ \nKw' ->
     withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
@@ -956,8 +956,8 @@ quickcheck_conv2dSameVjpKrnConcrete =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
-  forAll (choose (3, 3)) $ \nAh' ->
-  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (6, 6)) $ \nAh' ->
+  forAll (choose (6, 6)) $ \nAw' ->
   forAll (choose (3, 3)) $ \nKh' ->
   forAll (choose (3, 3)) $ \nKw' ->
     withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
@@ -1003,8 +1003,8 @@ quickcheck_conv2dSameVjpInpHandwritten =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
-  forAll (choose (3, 3)) $ \nAh' ->
-  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (6, 6)) $ \nAh' ->
+  forAll (choose (6, 6)) $ \nAw' ->
   forAll (choose (3, 3)) $ \nKh' ->
   forAll (choose (3, 3)) $ \nKw' ->
     withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
@@ -1051,8 +1051,8 @@ quickcheck_conv2dSameVjpInpHandwrittenVectorized =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
-  forAll (choose (3, 3)) $ \nAh' ->
-  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (6, 6)) $ \nAh' ->
+  forAll (choose (6, 6)) $ \nAw' ->
   forAll (choose (3, 3)) $ \nKh' ->
   forAll (choose (3, 3)) $ \nKw' ->
     withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
@@ -1099,8 +1099,8 @@ quickcheck_conv2dSameVjpInpSymbolic =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
-  forAll (choose (3, 3)) $ \nAh' ->
-  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (6, 6)) $ \nAh' ->
+  forAll (choose (6, 6)) $ \nAw' ->
   forAll (choose (3, 3)) $ \nKh' ->
   forAll (choose (3, 3)) $ \nKw' ->
     withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
@@ -1147,8 +1147,8 @@ quickcheck_conv2dSameVjpInpConcrete =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
-  forAll (choose (3, 3)) $ \nAh' ->
-  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (6, 6)) $ \nAh' ->
+  forAll (choose (6, 6)) $ \nAw' ->
   forAll (choose (3, 3)) $ \nKh' ->
   forAll (choose (3, 3)) $ \nKw' ->
     withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
