@@ -58,6 +58,8 @@ testTrees =
                  (quickcheck_conv2dPaddedJvp @Double)
   , testProperty "conv2dPaddedJvp Quickcheck Float"
                  (quickcheck_conv2dPaddedJvp @Float)
+  , testProperty "conv2dSameVjp Bench dKrn Handwritten warmup"
+                 (quickcheck_conv2dSameVjpKrnHandwritten @Double)
   , testProperty "conv2dSameVjp Bench dKrn Handwritten"
                  (quickcheck_conv2dSameVjpKrnHandwritten @Double)
   , testProperty "conv2dSameVjp Bench dKrn HandwrittenVectorized"
