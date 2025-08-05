@@ -20,6 +20,8 @@ import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd
 import HordeAd.Core.Adaptor
+import HordeAd.Core.AstEnv
+import HordeAd.Core.AstInterpret
 
 import EqEpsilon
 import Shared
@@ -56,6 +58,22 @@ testTrees =
                  (quickcheck_conv2dPaddedJvp @Double)
   , testProperty "conv2dPaddedJvp Quickcheck Float"
                  (quickcheck_conv2dPaddedJvp @Float)
+  , testProperty "conv2dSameVjp Bench dKrn Handwritten"
+                 (quickcheck_conv2dSameVjpKrnHandwritten @Double)
+  , testProperty "conv2dSameVjp Bench dKrn HandwrittenVectorized"
+                 (quickcheck_conv2dSameVjpKrnHandwrittenVectorized @Double)
+  , testProperty "conv2dSameVjp Bench dKrn Symbolic"
+                 (quickcheck_conv2dSameVjpKrnSymbolic @Double)
+  , testProperty "conv2dSameVjp Bench dKrn Concrete"
+                 (quickcheck_conv2dSameVjpKrnConcrete @Double)
+  , testProperty "conv2dSameVjp Bench dInp Handwritten"
+                 (quickcheck_conv2dSameVjpInpHandwritten @Double)
+  , testProperty "conv2dSameVjp Bench dInp HandwrittenVectorized"
+                 (quickcheck_conv2dSameVjpInpHandwrittenVectorized @Double)
+  , testProperty "conv2dSameVjp Bench dInp Symbolic"
+                 (quickcheck_conv2dSameVjpInpSymbolic @Double)
+  , testProperty "conv2dSameVjp Bench dInp Concrete"
+                 (quickcheck_conv2dSameVjpInpConcrete @Double)
   ]
 
 allClose :: (GoodScalar r, Fractional r, Linearizable a r, Linearizable b r)
@@ -763,3 +781,388 @@ quickcheck_conv2dPaddedJvp =
              nImgs nCinp nCout nAh nAw nKh1 nKw1
              (unConcrete arrK) (unConcrete arrK2)
              (unConcrete arrA) (unConcrete arrA2)
+
+
+-- * Tests as poor man's benchmarks of handwritten vs generated gradients
+
+static_conv2dSameVjpKrnHandwritten
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
+     ( GoodScalar r, Fractional r
+     , shK ~ '[nCout, nCinp, nKh, nKw]
+     , shA ~ '[nImgs, nCinp, nAh, nAw]
+     , shB ~ '[nImgs, nCout, nAh, nAw] )
+  => SNat nImgs -> SNat nCinp -> SNat nCout
+  -> SNat nAh -> SNat nAw -> SNat nKh -> SNat nKw
+  -> Nested.Shaped shK r
+  -> Nested.Shaped shA r
+  -> Nested.Shaped shB r
+  -> Bool
+static_conv2dSameVjpKrnHandwritten SNat SNat SNat SNat SNat SNat SNat
+                                   !_arrK arrA arrB =
+  let dKrn :: Concrete (TKS shK r)
+      dKrn = conv2dSame_dKrn (sconcrete arrA) (sconcrete arrB)
+  in allClose dKrn dKrn 1e-5
+
+quickcheck_conv2dSameVjpKrnHandwritten
+  :: forall r. (GoodScalar r, Fractional r)
+  => Property
+quickcheck_conv2dSameVjpKrnHandwritten =
+  forAll (choose (3, 3)) $ \nImgs' ->
+  forAll (choose (3, 3)) $ \nCinp' ->
+  forAll (choose (3, 3)) $ \nCout' ->
+  forAll (choose (3, 3)) $ \nAh' ->
+  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (3, 3)) $ \nKh' ->
+  forAll (choose (3, 3)) $ \nKw' ->
+    withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
+    withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
+    withSNat nCout' $ \(nCout :: SNat nCout) ->
+    withSNat nAh' $ \(nAh :: SNat nAh) ->
+    withSNat nAw' $ \(nAw :: SNat nAw) ->
+    withSNat nKh' $ \(nKh :: SNat nKh) ->
+    withSNat nKw' $ \(nKw :: SNat nKw) ->
+      property $ \seed0 ->
+        let arrK :: Concrete (TKS '[nCout, nCinp, nKh, nKw] r)
+            (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
+            arrA :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
+            (arrA, seed3) = randomValue 0.5 seed2
+            arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
+            (arrB, _) = randomValue 0.5 seed3
+        in static_conv2dSameVjpKrnHandwritten
+             nImgs nCinp nCout nAh nAw nKh nKw
+             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
+
+static_conv2dSameVjpKrnHandwrittenVectorized
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
+     ( GoodScalar r, Fractional r
+     , shK ~ '[nCout, nCinp, nKh, nKw]
+     , shA ~ '[nImgs, nCinp, nAh, nAw]
+     , shB ~ '[nImgs, nCout, nAh, nAw] )
+  => SNat nImgs -> SNat nCinp -> SNat nCout
+  -> SNat nAh -> SNat nAw -> SNat nKh -> SNat nKw
+  -> Nested.Shaped shK r
+  -> Nested.Shaped shA r
+  -> Nested.Shaped shB r
+  -> Bool
+static_conv2dSameVjpKrnHandwrittenVectorized SNat SNat SNat SNat SNat SNat SNat
+                                             !_arrK arrA arrB =
+  let dKrn :: Concrete (TKS shK r)
+      dKrn = interpretAstFull emptyEnv
+             $ conv2dSame_dKrn (sconcrete arrA) (sconcrete arrB)
+  in allClose dKrn dKrn 1e-5
+
+quickcheck_conv2dSameVjpKrnHandwrittenVectorized
+  :: forall r. (GoodScalar r, Fractional r)
+  => Property
+quickcheck_conv2dSameVjpKrnHandwrittenVectorized =
+  forAll (choose (3, 3)) $ \nImgs' ->
+  forAll (choose (3, 3)) $ \nCinp' ->
+  forAll (choose (3, 3)) $ \nCout' ->
+  forAll (choose (3, 3)) $ \nAh' ->
+  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (3, 3)) $ \nKh' ->
+  forAll (choose (3, 3)) $ \nKw' ->
+    withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
+    withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
+    withSNat nCout' $ \(nCout :: SNat nCout) ->
+    withSNat nAh' $ \(nAh :: SNat nAh) ->
+    withSNat nAw' $ \(nAw :: SNat nAw) ->
+    withSNat nKh' $ \(nKh :: SNat nKh) ->
+    withSNat nKw' $ \(nKw :: SNat nKw) ->
+      property $ \seed0 ->
+        let arrK :: Concrete (TKS '[nCout, nCinp, nKh, nKw] r)
+            (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
+            arrA :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
+            (arrA, seed3) = randomValue 0.5 seed2
+            arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
+            (arrB, _) = randomValue 0.5 seed3
+        in static_conv2dSameVjpKrnHandwrittenVectorized
+             nImgs nCinp nCout nAh nAw nKh nKw
+             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
+
+static_conv2dSameVjpKrnSymbolic
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
+     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     , shK ~ '[nCout, nCinp, nKh, nKw]
+     , shA ~ '[nImgs, nCinp, nAh, nAw]
+     , shB ~ '[nImgs, nCout, nAh, nAw] )
+  => SNat nImgs -> SNat nCinp -> SNat nCout
+  -> SNat nAh -> SNat nAw -> SNat nKh -> SNat nKw
+  -> Nested.Shaped shK r
+  -> Nested.Shaped shA r
+  -> Nested.Shaped shB r
+  -> Bool
+static_conv2dSameVjpKrnSymbolic SNat SNat SNat SNat SNat SNat SNat
+                                arrK arrA arrB =
+  let vjpKrn :: Concrete (TKS shK r)
+      vjpKrn = vjp (`conv2dSameS` (sconcrete arrA))
+                   (sconcrete arrK) (sconcrete arrB)
+  in allClose vjpKrn vjpKrn 1e-5
+
+quickcheck_conv2dSameVjpKrnSymbolic
+  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  => Property
+quickcheck_conv2dSameVjpKrnSymbolic =
+  forAll (choose (3, 3)) $ \nImgs' ->
+  forAll (choose (3, 3)) $ \nCinp' ->
+  forAll (choose (3, 3)) $ \nCout' ->
+  forAll (choose (3, 3)) $ \nAh' ->
+  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (3, 3)) $ \nKh' ->
+  forAll (choose (3, 3)) $ \nKw' ->
+    withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
+    withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
+    withSNat nCout' $ \(nCout :: SNat nCout) ->
+    withSNat nAh' $ \(nAh :: SNat nAh) ->
+    withSNat nAw' $ \(nAw :: SNat nAw) ->
+    withSNat nKh' $ \(nKh :: SNat nKh) ->
+    withSNat nKw' $ \(nKw :: SNat nKw) ->
+      property $ \seed0 ->
+        let arrK :: Concrete (TKS '[nCout, nCinp, nKh, nKw] r)
+            (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
+            arrA :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
+            (arrA, seed3) = randomValue 0.5 seed2
+            arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
+            (arrB, _) = randomValue 0.5 seed3
+        in static_conv2dSameVjpKrnSymbolic
+             nImgs nCinp nCout nAh nAw nKh nKw
+             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
+
+static_conv2dSameVjpKrnConcrete
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
+     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     , shK ~ '[nCout, nCinp, nKh, nKw]
+     , shA ~ '[nImgs, nCinp, nAh, nAw]
+     , shB ~ '[nImgs, nCout, nAh, nAw] )
+  => SNat nImgs -> SNat nCinp -> SNat nCout
+  -> SNat nAh -> SNat nAw -> SNat nKh -> SNat nKw
+  -> Nested.Shaped shK r
+  -> Nested.Shaped shA r
+  -> Nested.Shaped shB r
+  -> Bool
+static_conv2dSameVjpKrnConcrete SNat SNat SNat SNat SNat SNat SNat
+                                arrK arrA arrB =
+  let cvjpKrn :: Concrete (TKS shK r)
+      cvjpKrn = cvjp (`conv2dSameS` (sconcrete arrA))
+                     (sconcrete arrK) (sconcrete arrB)
+  in allClose cvjpKrn cvjpKrn 1e-5
+
+quickcheck_conv2dSameVjpKrnConcrete
+  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  => Property
+quickcheck_conv2dSameVjpKrnConcrete =
+  forAll (choose (3, 3)) $ \nImgs' ->
+  forAll (choose (3, 3)) $ \nCinp' ->
+  forAll (choose (3, 3)) $ \nCout' ->
+  forAll (choose (3, 3)) $ \nAh' ->
+  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (3, 3)) $ \nKh' ->
+  forAll (choose (3, 3)) $ \nKw' ->
+    withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
+    withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
+    withSNat nCout' $ \(nCout :: SNat nCout) ->
+    withSNat nAh' $ \(nAh :: SNat nAh) ->
+    withSNat nAw' $ \(nAw :: SNat nAw) ->
+    withSNat nKh' $ \(nKh :: SNat nKh) ->
+    withSNat nKw' $ \(nKw :: SNat nKw) ->
+      property $ \seed0 ->
+        let arrK :: Concrete (TKS '[nCout, nCinp, nKh, nKw] r)
+            (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
+            arrA :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
+            (arrA, seed3) = randomValue 0.5 seed2
+            arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
+            (arrB, _) = randomValue 0.5 seed3
+        in static_conv2dSameVjpKrnConcrete
+             nImgs nCinp nCout nAh nAw nKh nKw
+             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
+
+static_conv2dSameVjpInpHandwritten
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
+     ( GoodScalar r, Fractional r
+     , shK ~ '[nCout, nCinp, nKh, nKw]
+     , shA ~ '[nImgs, nCinp, nAh, nAw]
+     , shB ~ '[nImgs, nCout, nAh, nAw] )
+  => SNat nImgs -> SNat nCinp -> SNat nCout
+  -> SNat nAh -> SNat nAw -> SNat nKh -> SNat nKw
+  -> Nested.Shaped shK r
+  -> Nested.Shaped shA r
+  -> Nested.Shaped shB r
+  -> Bool
+static_conv2dSameVjpInpHandwritten SNat SNat SNat SNat SNat SNat SNat
+                                   arrK !_arrA arrB =
+  let dInp :: Concrete (TKS shA r)
+      dInp = conv2dSame_dInp (sconcrete arrK) (sconcrete arrB)
+  in allClose dInp dInp 1e-5
+
+quickcheck_conv2dSameVjpInpHandwritten
+  :: forall r. (GoodScalar r, Fractional r)
+  => Property
+quickcheck_conv2dSameVjpInpHandwritten =
+  forAll (choose (3, 3)) $ \nImgs' ->
+  forAll (choose (3, 3)) $ \nCinp' ->
+  forAll (choose (3, 3)) $ \nCout' ->
+  forAll (choose (3, 3)) $ \nAh' ->
+  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (3, 3)) $ \nKh' ->
+  forAll (choose (3, 3)) $ \nKw' ->
+    withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
+    withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
+    withSNat nCout' $ \(nCout :: SNat nCout) ->
+    withSNat nAh' $ \(nAh :: SNat nAh) ->
+    withSNat nAw' $ \(nAw :: SNat nAw) ->
+    withSNat nKh' $ \(nKh :: SNat nKh) ->
+    withSNat nKw' $ \(nKw :: SNat nKw) ->
+      property $ \seed0 ->
+        let arrK :: Concrete (TKS '[nCout, nCinp, nKh, nKw] r)
+            (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
+            arrA :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
+            (arrA, seed3) = randomValue 0.5 seed2
+            arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
+            (arrB, _) = randomValue 0.5 seed3
+        in static_conv2dSameVjpInpHandwritten
+             nImgs nCinp nCout nAh nAw nKh nKw
+             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
+
+static_conv2dSameVjpInpHandwrittenVectorized
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
+     ( GoodScalar r, Fractional r
+     , shK ~ '[nCout, nCinp, nKh, nKw]
+     , shA ~ '[nImgs, nCinp, nAh, nAw]
+     , shB ~ '[nImgs, nCout, nAh, nAw] )
+  => SNat nImgs -> SNat nCinp -> SNat nCout
+  -> SNat nAh -> SNat nAw -> SNat nKh -> SNat nKw
+  -> Nested.Shaped shK r
+  -> Nested.Shaped shA r
+  -> Nested.Shaped shB r
+  -> Bool
+static_conv2dSameVjpInpHandwrittenVectorized SNat SNat SNat SNat SNat SNat SNat
+                                             arrK !_arrA arrB =
+  let dInp :: Concrete (TKS shA r)
+      dInp = interpretAstFull emptyEnv
+             $ conv2dSame_dInp (sconcrete arrK) (sconcrete arrB)
+  in allClose dInp dInp 1e-5
+
+quickcheck_conv2dSameVjpInpHandwrittenVectorized
+  :: forall r. (GoodScalar r, Fractional r)
+  => Property
+quickcheck_conv2dSameVjpInpHandwrittenVectorized =
+  forAll (choose (3, 3)) $ \nImgs' ->
+  forAll (choose (3, 3)) $ \nCinp' ->
+  forAll (choose (3, 3)) $ \nCout' ->
+  forAll (choose (3, 3)) $ \nAh' ->
+  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (3, 3)) $ \nKh' ->
+  forAll (choose (3, 3)) $ \nKw' ->
+    withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
+    withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
+    withSNat nCout' $ \(nCout :: SNat nCout) ->
+    withSNat nAh' $ \(nAh :: SNat nAh) ->
+    withSNat nAw' $ \(nAw :: SNat nAw) ->
+    withSNat nKh' $ \(nKh :: SNat nKh) ->
+    withSNat nKw' $ \(nKw :: SNat nKw) ->
+      property $ \seed0 ->
+        let arrK :: Concrete (TKS '[nCout, nCinp, nKh, nKw] r)
+            (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
+            arrA :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
+            (arrA, seed3) = randomValue 0.5 seed2
+            arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
+            (arrB, _) = randomValue 0.5 seed3
+        in static_conv2dSameVjpInpHandwrittenVectorized
+             nImgs nCinp nCout nAh nAw nKh nKw
+             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
+
+static_conv2dSameVjpInpSymbolic
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
+     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     , shK ~ '[nCout, nCinp, nKh, nKw]
+     , shA ~ '[nImgs, nCinp, nAh, nAw]
+     , shB ~ '[nImgs, nCout, nAh, nAw] )
+  => SNat nImgs -> SNat nCinp -> SNat nCout
+  -> SNat nAh -> SNat nAw -> SNat nKh -> SNat nKw
+  -> Nested.Shaped shK r
+  -> Nested.Shaped shA r
+  -> Nested.Shaped shB r
+  -> Bool
+static_conv2dSameVjpInpSymbolic SNat SNat SNat SNat SNat SNat SNat
+                                arrK arrA arrB =
+  let vjpInp :: Concrete (TKS shA r)
+      vjpInp = vjp (conv2dSameS (sconcrete arrK))
+                   (sconcrete arrA) (sconcrete arrB)
+  in allClose vjpInp vjpInp 1e-5
+
+quickcheck_conv2dSameVjpInpSymbolic
+  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  => Property
+quickcheck_conv2dSameVjpInpSymbolic =
+  forAll (choose (3, 3)) $ \nImgs' ->
+  forAll (choose (3, 3)) $ \nCinp' ->
+  forAll (choose (3, 3)) $ \nCout' ->
+  forAll (choose (3, 3)) $ \nAh' ->
+  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (3, 3)) $ \nKh' ->
+  forAll (choose (3, 3)) $ \nKw' ->
+    withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
+    withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
+    withSNat nCout' $ \(nCout :: SNat nCout) ->
+    withSNat nAh' $ \(nAh :: SNat nAh) ->
+    withSNat nAw' $ \(nAw :: SNat nAw) ->
+    withSNat nKh' $ \(nKh :: SNat nKh) ->
+    withSNat nKw' $ \(nKw :: SNat nKw) ->
+      property $ \seed0 ->
+        let arrK :: Concrete (TKS '[nCout, nCinp, nKh, nKw] r)
+            (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
+            arrA :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
+            (arrA, seed3) = randomValue 0.5 seed2
+            arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
+            (arrB, _) = randomValue 0.5 seed3
+        in static_conv2dSameVjpInpSymbolic
+             nImgs nCinp nCout nAh nAw nKh nKw
+             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
+
+static_conv2dSameVjpInpConcrete
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
+     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     , shK ~ '[nCout, nCinp, nKh, nKw]
+     , shA ~ '[nImgs, nCinp, nAh, nAw]
+     , shB ~ '[nImgs, nCout, nAh, nAw] )
+  => SNat nImgs -> SNat nCinp -> SNat nCout
+  -> SNat nAh -> SNat nAw -> SNat nKh -> SNat nKw
+  -> Nested.Shaped shK r
+  -> Nested.Shaped shA r
+  -> Nested.Shaped shB r
+  -> Bool
+static_conv2dSameVjpInpConcrete SNat SNat SNat SNat SNat SNat SNat
+                                arrK arrA arrB =
+  let cvjpInp :: Concrete (TKS shA r)
+      cvjpInp = cvjp (conv2dSameS (sconcrete arrK))
+                     (sconcrete arrA) (sconcrete arrB)
+  in allClose cvjpInp cvjpInp 1e-5
+
+quickcheck_conv2dSameVjpInpConcrete
+  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  => Property
+quickcheck_conv2dSameVjpInpConcrete =
+  forAll (choose (3, 3)) $ \nImgs' ->
+  forAll (choose (3, 3)) $ \nCinp' ->
+  forAll (choose (3, 3)) $ \nCout' ->
+  forAll (choose (3, 3)) $ \nAh' ->
+  forAll (choose (3, 3)) $ \nAw' ->
+  forAll (choose (3, 3)) $ \nKh' ->
+  forAll (choose (3, 3)) $ \nKw' ->
+    withSNat nImgs' $ \(nImgs :: SNat nImgs) ->
+    withSNat nCinp' $ \(nCinp :: SNat nCinp) ->
+    withSNat nCout' $ \(nCout :: SNat nCout) ->
+    withSNat nAh' $ \(nAh :: SNat nAh) ->
+    withSNat nAw' $ \(nAw :: SNat nAw) ->
+    withSNat nKh' $ \(nKh :: SNat nKh) ->
+    withSNat nKw' $ \(nKw :: SNat nKw) ->
+      property $ \seed0 ->
+        let arrK :: Concrete (TKS '[nCout, nCinp, nKh, nKw] r)
+            (arrK, seed2) = randomValue 0.5 (mkStdGen seed0)
+            arrA :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
+            (arrA, seed3) = randomValue 0.5 seed2
+            arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
+            (arrB, _) = randomValue 0.5 seed3
+        in static_conv2dSameVjpInpConcrete
+             nImgs nCinp nCout nAh nAw nKh nKw
+             (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
