@@ -141,8 +141,9 @@ type TKUnit = TKScalar Z1
 -- * Some fundamental constraints and types
 
 type GoodScalarConstraint r =
-  ( Show r, Ord r, Num r, Typeable r, IfDifferentiable r, Default r
-  , NFData r, Nested.PrimElt r, Nested.KnownElt r, Nested.NumElt r
+  ( Show r, Ord r, Num r, Typeable r, Typeable (ADTensorScalar r)
+  , IfDifferentiable r, Default r, NFData r, Nested.PrimElt r
+  , Nested.KnownElt r, Nested.NumElt r
   , forall sh. Show (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r)
   , forall sh. NFData (Nested.Mixed sh r))
 
