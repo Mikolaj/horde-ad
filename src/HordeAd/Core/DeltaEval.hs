@@ -932,7 +932,7 @@ evalFwdSame params s = \case
   DeltaDot0R _ DeltaZero{} -> (s, trconcrete $ Nested.rscalar 0)
   DeltaDot0R v d -> case ftkDelta d of
     FTKR sh (FTKScalar @r) | SNat <- shrRank sh
-                           , Dict0 <- lemTKAllNumAD  (STKScalar @r) ->
+                           , Dict0 <- lemTKScalarAllNumAD (Proxy @r) ->
       second (trdot0 v) $ evalFwdSame params s d
   DeltaIndexR SNat d ix -> case ftkDelta d of
     FTKR _ x | SNat <- ixrRank ix ->
@@ -983,7 +983,7 @@ evalFwdSame params s = \case
       second tssum0 $ evalFwdSame params s d
   DeltaDot0S _ DeltaZero{} -> (s, tsconcrete $ Nested.sscalar 0)
   DeltaDot0S v d -> case ftkDelta d of
-    FTKS sh (FTKScalar @r) | Dict0 <- lemTKAllNumAD (STKScalar @r) ->
+    FTKS sh (FTKScalar @r) | Dict0 <- lemTKScalarAllNumAD (Proxy @r) ->
       withKnownShS sh $
       second (tsdot0 v) $ evalFwdSame params s d
   DeltaIndexS shn d ix -> case ftkDelta d of
@@ -1043,7 +1043,7 @@ evalFwdSame params s = \case
       second txsum0 $ evalFwdSame params s d
   DeltaDot0X _ DeltaZero{} -> (s, txconcrete $ Nested.mscalar 0)
   DeltaDot0X v d -> case ftkDelta d of
-    FTKX sh (FTKScalar @r) | Dict0 <- lemTKAllNumAD (STKScalar @r) ->
+    FTKX sh (FTKScalar @r) | Dict0 <- lemTKScalarAllNumAD (Proxy @r) ->
       withKnownShX (ssxFromShX sh) $
       second (txdot0 v) $ evalFwdSame params s d
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of

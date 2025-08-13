@@ -9,7 +9,8 @@ module HordeAd.Core.TensorKind
   , TKConversion(..), lemTKAllNumConvert, lemTKAllNumBuild, lemTKAllNumRaze
   , convertSTK, convertFTK, buildTKConversion
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
-  , Dict0(..), lemTKAllNumAD, stkUnit, buildSTK, razeSTK, adSTK
+  , Dict0(..), lemTKAllNumAD, lemTKScalarAllNumAD
+  , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
     -- * Full shape tensor kind quasi-singletons
   , FullShapeTK(..)
@@ -27,6 +28,7 @@ import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat, type (+))
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
+import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
   (shrFromShX, shsFromSSX, shsFromShX, shxFromShR, shxFromShS)
 import Data.Array.Nested.Lemmas
@@ -121,17 +123,25 @@ data Dict0 c where
 
 lemTKAllNumAD :: SingletonTK y -> Dict0 (TKAllNum (ADTensorKind y))
 lemTKAllNumAD = \case
-  STKScalar @r -> case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> Dict0
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> Dict0
-      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) $
-           Dict0
+  STKScalar @r | Dict0 <- lemTKScalarAllNumAD (Proxy @r) -> Dict0
   STKR _ x | Dict0 <- lemTKAllNumAD x -> Dict0
   STKS _ x | Dict0 <- lemTKAllNumAD x -> Dict0
   STKX _ x | Dict0 <- lemTKAllNumAD x -> Dict0
   STKProduct stk1 stk2 | Dict0 <- lemTKAllNumAD stk1
                        , Dict0 <- lemTKAllNumAD stk2 -> Dict0
+
+lemTKScalarAllNumAD :: forall r. GoodScalar r
+                    => Proxy r
+                    -> Dict0 ( TKAllNum (TKScalar (ADTensorScalar r))
+                             , Num (ADTensorScalar r)
+                             , Nested.NumElt (ADTensorScalar r) )
+lemTKScalarAllNumAD Proxy =
+  case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> Dict0
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> Dict0
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) $
+           Dict0
 
 lemTKAllNumBuild :: TKAllNum y
                  => SNat k -> SingletonTK y
