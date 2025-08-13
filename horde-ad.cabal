@@ -153,6 +153,7 @@ library
                       HordeAd.Core.TensorKind
                       HordeAd.Core.Types
                       HordeAd.Core.Unwind
+                      HordeAd.Core.UnwindNum
                       HordeAd.External.CommonRankedOps
                       HordeAd.External.CommonShapedOps
                       HordeAd.External.Optimizer

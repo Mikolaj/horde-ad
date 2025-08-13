@@ -61,6 +61,7 @@ import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
+import HordeAd.Core.UnwindNum
 
 -- * Symbolic reverse and forward derivative computation
 

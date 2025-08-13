@@ -4,29 +4,24 @@
 -- that work for any tensor kind, including nested (product) arrays
 -- and an assortment of such operations.
 --
--- Large portions of this module are copied to HordeAd.Core.Unwind
--- in order to have more accurate typing and pattern exhaustiveness checks.
-module HordeAd.Core.Unwind
-  ( replTarget, defTarget, concreteTarget
-  , toADTensorKindShared, fromADTensorKindShared
+-- Large portions of this module are a copy of HordeAd.Core.Unwind
+-- with the addition of the @Num@ constraint on the underlying scalars.
+module HordeAd.Core.UnwindNum
+  ( addTarget, multTarget, sum0Target, dot0Target
   ) where
 
 import Prelude
 
-import Data.Default
-import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:))
 import GHC.TypeLits (type (+))
-import Type.Reflection (typeRep)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
 
-import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
@@ -69,100 +64,61 @@ data FullShapeTKW y where
   WFTKProduct :: FullShapeTKW y -> FullShapeTKW z
               -> FullShapeTKW (TKProduct y z)
 
-replRepW :: forall y target. BaseTensor target
-         => (forall r. GoodScalar r => r)
-         -> FullShapeTKW y -> RepW target y
-replRepW r = \case
-  WFTKScalar -> WTKScalar $ kconcrete r
-  WFTKR sh -> WTKR $ rrepl sh r
-  WFTKS sh -> WTKS $ sconcrete $ Nested.sreplicateScal sh r
-  WFTKX sh -> WTKX $ xrepl sh r
-  WFTKProduct ftk1 ftk2 ->
-    WTKProduct (replRepW r ftk1) (replRepW r ftk2)
+addRepW :: forall y target. (TKAllNum y, BaseTensor target)
+        => RepW target y -> RepW target y -> RepW target y
+addRepW a b = case (a, b) of
+  (WTKScalar ta, WTKScalar tb) -> WTKScalar $ ta + tb
+  (WTKR ta, WTKR tb) -> WTKR $ ta + tb
+  (WTKS ta, WTKS tb) -> WTKS $ ta + tb
+  (WTKX ta, WTKX tb) -> WTKX $ ta + tb
+  (WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
+    WTKProduct (addRepW ta1 tb1) (addRepW ta2 tb2)
 
-defRepW :: forall y target. BaseTensor target
-        => FullShapeTKW y -> RepW target y
-defRepW = \case
-  WFTKScalar -> WTKScalar $ kconcrete def
-  WFTKR sh -> WTKR $ rrepl sh def
-  WFTKS sh -> WTKS $ sconcrete $ Nested.sreplicateScal sh def
-  WFTKX sh -> WTKX $ xrepl sh def
-  WFTKProduct ftk1 ftk2 ->
-    WTKProduct (defRepW ftk1) (defRepW ftk2)
+multRepW :: forall y target. (TKAllNum y, BaseTensor target)
+         => RepW target y -> RepW target y -> RepW target y
+multRepW a b = case (a, b) of
+  (WTKScalar ta, WTKScalar tb) -> WTKScalar $ ta * tb
+  (WTKR ta, WTKR tb) -> WTKR $ ta * tb
+  (WTKS ta, WTKS tb) -> WTKS $ ta * tb
+  (WTKX ta, WTKX tb) -> WTKX $ ta * tb
+  (WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
+    WTKProduct (multRepW ta1 tb1) (multRepW ta2 tb2)
 
-concreteRepW
-  :: forall y target. (ConvertTensor Concrete, ConvertTensor target)
-  => (forall r. GoodScalar r => Concrete (TKScalar r) -> target (TKScalar r))
-  -> (forall r sh. GoodScalar r => Concrete (TKS sh r) -> target (TKS sh r))
-  -> (forall x z. FullShapeTK z -> target x -> target z)
-  -> RepW Concrete y -> RepW target y
-{-# INLINE concreteRepW #-}
-concreteRepW concreteK concreteS fromS w = case w of
-  WTKScalar v -> WTKScalar $ concreteK v
-  WTKR v -> WTKR $
-    let sh' = Nested.rshape $ unConcrete v
-    in withShsFromShR sh' $ \(sh :: ShS sh) ->
-      withKnownShS sh $
-      fromS (FTKR sh' FTKScalar)
-      $ concreteS (sfromR @_ @sh v)
-  WTKS v -> WTKS $ concreteS v
-  WTKX v -> WTKX $
-    let sh' = Nested.mshape $ unConcrete v
-    in withShsFromShX sh' $ \(sh :: ShS sh) ->
-      withKnownShS sh $
-      fromS (FTKX sh' FTKScalar)
-      $ concreteS (sfromX @_ @sh v)
-  WTKProduct v1 v2 ->
-    WTKProduct (concreteRepW concreteK concreteS fromS v1)
-               (concreteRepW concreteK concreteS fromS v2)
+sum0RepW :: forall y target.
+            (TKAllNum y, BaseTensor target, ConvertTensor target)
+         => FullShapeTKW y -> RepW target y
+         -> target (TKScalar Double)
+sum0RepW ftk a = case (ftk, a) of
+  (_, WTKScalar @r ta) ->
+    ifDifferentiable @r (kcast ta) 0
+  (WFTKR sh, WTKR @r ta) | SNat <- shrRank sh ->
+    ifDifferentiable @r (kcast $ kfromR $ rsum0 ta) 0
+  (WFTKS sh, WTKS @r ta) ->
+    withKnownShS sh $
+    ifDifferentiable @r (kcast $ kfromS $ ssum0 ta) 0
+  (WFTKX sh, WTKX @r ta) ->
+    withKnownShX (ssxFromShX sh) $
+    ifDifferentiable @r (kcast $ kfromX $ xsum0 ta) 0
+  (WFTKProduct ftk1 ftk2, WTKProduct ta1 ta2) ->
+    sum0RepW ftk1 ta1 + sum0RepW ftk2 ta2
 
-toADTensorKindW
-  :: forall y target. BaseTensor target
-  => RepW target y -> FullShapeTKW y -> RepW target (ADTensorKind y)
-toADTensorKindW t = \case
-  WFTKScalar @r -> case testEquality (typeRep @(ADTensorScalar r))
-                                     (typeRep @Z1) of
-    Just Refl -> WTKScalar $ kconcrete Z1
-    _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
-  WFTKR @r sh -> case testEquality (typeRep @(ADTensorScalar r))
-                                   (typeRep @Z1) of
-    Just Refl -> WTKR $ rrepl @_ @_ @target sh Z1
-    _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
-  WFTKS @r sh -> case testEquality (typeRep @(ADTensorScalar r))
-                                   (typeRep @Z1) of
-    Just Refl -> WTKS $ sconcrete $ Nested.sreplicateScal sh Z1
-    _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
-  WFTKX @r sh -> case testEquality (typeRep @(ADTensorScalar r))
-                                   (typeRep @Z1) of
-    Just Refl -> WTKX $ xrepl @_ @_ @target sh Z1
-    _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
-  WFTKProduct ftk1 ftk2 -> case t of
-    WTKProduct t1 t2 ->
-      WTKProduct (toADTensorKindW t1 ftk1) (toADTensorKindW t2 ftk2)
-
-fromADTensorKindW
-  :: forall y target. BaseTensor target
-  => SingletonTK y -> RepW target (ADTensorKind y) -> RepW target y
-fromADTensorKindW stk t = case (stk, t) of
-  (STKScalar @r1, WTKScalar @r2 _) ->
-    case testEquality (typeRep @r1) (typeRep @r2) of
-      Just Refl -> t
-      _ -> replRepW def WFTKScalar
-  (STKR _ (STKScalar @r1), WTKR @r2 v) ->
-    case testEquality (typeRep @r1) (typeRep @r2) of
-      Just Refl -> t
-      _ -> replRepW def (WFTKR (rshape v))
-  (STKS sh (STKScalar @r1), WTKS @r2 _) ->
-    case testEquality (typeRep @r1) (typeRep @r2) of
-      Just Refl -> t
-      _ -> replRepW def (WFTKS sh)
-  (STKX _ (STKScalar @r1), WTKX @r2 v) ->
-    case testEquality (typeRep @r1) (typeRep @r2) of
-      Just Refl -> t
-      _ -> replRepW def (WFTKX (xshape v))
-  (STKProduct stk1 stk2, WTKProduct t1 t2) ->
-    WTKProduct (fromADTensorKindW stk1 t1) (fromADTensorKindW stk2 t2)
-  _ -> error "fromADTensorKindW: impossible SingletonTK"
+dot0RepW :: forall y target.
+            (TKAllNum y, BaseTensor target, ConvertTensor target)
+         => FullShapeTKW y -> RepW target y -> RepW target y
+         -> target (TKScalar Double)
+dot0RepW ftk a b = case (ftk, a, b) of
+  (_, WTKScalar @r ta, WTKScalar tb) ->
+    ifDifferentiable @r (kcast $ ta * tb) 0
+  (WFTKR sh, WTKR @r ta, WTKR tb) | SNat <- shrRank sh ->
+    ifDifferentiable @r (kcast $ kfromR $ rdot0 ta tb) 0
+  (WFTKS sh, WTKS @r ta, WTKS tb) ->
+    withKnownShS sh $
+    ifDifferentiable @r (kcast $ kfromS $ sdot0 ta tb) 0
+  (WFTKX sh, WTKX @r ta, WTKX tb) ->
+    withKnownShX (ssxFromShX sh) $
+    ifDifferentiable @r (kcast $ kfromX $ xdot0 ta tb) 0
+  (WFTKProduct ftk1 ftk2, WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
+    dot0RepW ftk1 ta1 tb1 + dot0RepW ftk2 ta2 tb2
 
 type family UnWind y where
   UnWind (TKScalar r) =
@@ -199,40 +155,6 @@ type family UnWind y where
     TKProduct (UnWind (TKX2 sh1 y)) (UnWind (TKX2 sh1 z))
   UnWind (TKProduct y z) =
     TKProduct (UnWind y) (UnWind z)
-
-unWindSTK :: SingletonTK y -> SingletonTK (UnWind y)
-unWindSTK = \case
-  stk@STKScalar -> stk
-  stk@(STKR _ STKScalar) -> stk
-  STKR (SNat @n) (STKR (SNat @m) stk2) ->
-    unWindSTK $ STKR (SNat @(n + m)) stk2
-  STKR n (STKS sh2 stk2) ->
-    unWindSTK
-    $ STKX (ssxReplicate n `ssxAppend` ssxFromShX (shxFromShS sh2)) stk2
-  STKR n (STKX sh2 stk2) ->
-    unWindSTK $ STKX (ssxReplicate n `ssxAppend` sh2) stk2
-  STKR n@SNat (STKProduct y z) ->
-    unWindSTK $ STKProduct (STKR n y) (STKR n z)
-  stk@(STKS _ STKScalar) -> stk
-  STKS sh1 (STKR m stk2) ->
-    unWindSTK
-    $ STKX (ssxFromShX (shxFromShS sh1) `ssxAppend` ssxReplicate m) stk2
-  STKS sh1 (STKS sh2 stk2) ->
-    unWindSTK $ STKS (sh1 `shsAppend` sh2) stk2
-  STKS sh1 (STKX sh2 stk2) ->
-    unWindSTK $ STKX (ssxFromShX (shxFromShS sh1) `ssxAppend` sh2) stk2
-  STKS sh1 (STKProduct y z)->
-    unWindSTK $ STKProduct (STKS sh1 y) (STKS sh1 z)
-  stk@(STKX _ STKScalar) -> stk
-  STKX sh1 (STKR m stk2) ->
-    unWindSTK $ STKX (sh1 `ssxAppend` ssxReplicate m) stk2
-  STKX sh1 (STKS sh2 stk2) ->
-    unWindSTK $ STKX (sh1 `ssxAppend` ssxFromShX (shxFromShS sh2)) stk2
-  STKX sh1 (STKX sh2 stk2) ->
-    unWindSTK $ STKX (sh1 `ssxAppend` sh2) stk2
-  STKX sh1 (STKProduct y z) ->
-    unWindSTK $ STKProduct (STKX sh1 y) (STKX sh1 z)
-  STKProduct y z -> STKProduct (unWindSTK y) (unWindSTK z)
 
 unWindFTK :: FullShapeTK y -> FullShapeTKW (UnWind y)
 unWindFTK = \case
@@ -380,55 +302,47 @@ windTarget stk t = case (stk, t) of
 
 -- * Operations defined using unwinding
 
--- | Replicate a scalar along the given full shape singleton.
-replTarget :: forall y target. (BaseTensor target, ConvertTensor target)
-           => (forall r. GoodScalar r => r)
-           -> FullShapeTK y -> target y
-replTarget r ftk =
-  windTarget (ftkToSTK ftk) $ replRepW r (unWindFTK ftk)
+-- | Add two (nested pairs of) tensors. Requires duplicable arguments
+-- or a `ShareTensor` instance.
+addTarget :: forall y target.
+             (TKAllNum y, BaseTensor target, ConvertTensor target)
+          => SingletonTK y -> target y -> target y -> target y
+addTarget stk a b =
+  let a2 = unWindTarget stk a
+      b2 = unWindTarget stk b
+  in gcastWith (unsafeCoerceRefl :: TKAllNum (UnWind y) :~: TKAllNum y)
+     $ windTarget stk $ addRepW a2 b2
 
--- | Replicate the default value along the given full shape singleton.
-defTarget :: forall y target. (BaseTensor target, ConvertTensor target)
-          => FullShapeTK y -> target y
-defTarget ftk =
-  windTarget (ftkToSTK ftk) $ defRepW (unWindFTK ftk)
+-- | Multiply two (nested pairs of) tensors. Requires duplicable arguments
+-- or a `ShareTensor` instance.
+multTarget :: forall y target.
+              (TKAllNum y, BaseTensor target, ConvertTensor target)
+           => SingletonTK y -> target y -> target y -> target y
+multTarget stk a b =
+  let a2 = unWindTarget stk a
+      b2 = unWindTarget stk b
+  in gcastWith (unsafeCoerceRefl :: TKAllNum (UnWind y) :~: TKAllNum y)
+     $ windTarget stk $ multRepW a2 b2
 
-concreteTarget
-  :: forall y target. (ConvertTensor Concrete, ConvertTensor target)
-  => (forall r. GoodScalar r => Concrete (TKScalar r) -> target (TKScalar r))
-  -> (forall r sh. GoodScalar r => Concrete (TKS sh r) -> target (TKS sh r))
-  -> (forall x z. FullShapeTK z -> target x -> target z)
-  -> SingletonTK y -> Concrete y
-  -> target y
-concreteTarget concreteK concreteS fromS stk v =
-  windTarget stk
-  $ concreteRepW concreteK concreteS fromS
-  $ unWindTarget stk v
+-- | Sum all dimensions of each component and then sum it all.
+-- Requires duplicable arguments or a `ShareTensor` instance.
+sum0Target :: forall y target.
+              (TKAllNum y, BaseTensor target, ConvertTensor target)
+           => FullShapeTK y -> target y
+           -> target (TKScalar Double)
+sum0Target ftk a =
+  let a2 = unWindTarget (ftkToSTK ftk) a
+  in gcastWith (unsafeCoerceRefl :: TKAllNum (UnWind y) :~: TKAllNum y)
+     $ sum0RepW (unWindFTK ftk) a2
 
-lemUnWindOfAD :: SingletonTK y
-              -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)
-lemUnWindOfAD _ = unsafeCoerceRefl
-
--- | Convert a tensor into a tensor with only trivial non-differentiable
--- scalars. The `ShareTensor` constraint is needed, despite what GHC says,
--- in order not to require duplicable arguments.
-toADTensorKindShared
-  :: (BaseTensor target, ConvertTensor target, ShareTensor target)
-  => FullShapeTK y -> target y
-  -> target (ADTensorKind y)
-toADTensorKindShared ftk a | Refl <- lemUnWindOfAD (ftkToSTK ftk) =
-  windTarget (adSTK $ ftkToSTK ftk)
-  $ toADTensorKindW (unWindTarget (ftkToSTK ftk) a) (unWindFTK ftk)
-
--- | Convert a tensor with only trivial non-differentiable scalars
--- into a tensor with the non-differentiable scalars given by the singleton
--- and with zero values at the non-differentiable types. The `ShareTensor`
--- constraint is needed, despite what GHC says, in order not to require
--- duplicable arguments.
-fromADTensorKindShared
-  :: (BaseTensor target, ConvertTensor target, ShareTensor target)
-  => SingletonTK y -> target (ADTensorKind y)
-  -> target y
-fromADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =
-  windTarget stk
-  $ fromADTensorKindW (unWindSTK stk) $ unWindTarget (adSTK stk) a
+-- | Dot product each component and then sum it all.
+-- Requires duplicable arguments or a `ShareTensor` instance.
+dot0Target :: forall y target.
+              (TKAllNum y, BaseTensor target, ConvertTensor target)
+           => FullShapeTK y -> target y -> target y
+           -> target (TKScalar Double)
+dot0Target ftk a b =
+  let a2 = unWindTarget (ftkToSTK ftk) a
+      b2 = unWindTarget (ftkToSTK ftk) b
+  in gcastWith (unsafeCoerceRefl :: TKAllNum (UnWind y) :~: TKAllNum y)
+     $ dot0RepW (unWindFTK ftk) a2 b2

@@ -33,7 +33,7 @@ import HordeAd.Core.DeltaEval
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Core.Unwind
+import HordeAd.Core.UnwindNum
 
 -- * Non-symbolic (or at least non-sharing) reverse and forward derivative computation
 
