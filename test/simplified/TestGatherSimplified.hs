@@ -544,7 +544,7 @@ testGatherSimp23 = do
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
-gatherTranspose33 :: forall target r. (ADReady target, GoodScalar r, RealFloat r)
+gatherTranspose33 :: forall target r. (ADReady target, NumScalar r, RealFloat r)
                   => target (TKR 10 r) -> target (TKR 2 r)
 gatherTranspose33 t =
   rmatmul2 (rreshape [6, 8] (rconcrete $ unConcrete t48))
@@ -914,7 +914,7 @@ testGatherSimpCond5 = do
 
 -- * Scatters instead of gathers
 
-scatterNested1 :: forall target r. (ADReady target, GoodScalar r)
+scatterNested1 :: forall target r. (ADReady target, NumScalar r)
                => target (TKR 2 r) -> target (TKR 1 r)
 scatterNested1 t =
   rscatter @2
@@ -941,7 +941,7 @@ testScatterNestedBuild1 =
              ifH (i >. 2) (scatterNested1 t) (t ! [i])))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
-scatter1 :: forall target r. (ADReady target, GoodScalar r)
+scatter1 :: forall target r. (ADReady target, NumScalar r)
          => target (TKR 2 r) -> target (TKR 1 r)
 scatter1 t =
   rscatter @2
@@ -1007,7 +1007,7 @@ testScatterSimp1 = do
                      (simplifyInlineContract @(TKR 1 Float) t2n)
     @?= interpretAstPrimal @Concrete env t2n
 
-scatterNested2 :: forall target r. (ADReady target, GoodScalar r)
+scatterNested2 :: forall target r. (ADReady target, NumScalar r)
               => target (TKR 2 r) -> target (TKR 2 r)
 scatterNested2 t =
   rscatter @4
@@ -1035,7 +1035,7 @@ testScatterNestedBuild2 =
              scatterNested2 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
-scatter2 :: forall target r. (ADReady target, GoodScalar r)
+scatter2 :: forall target r. (ADReady target, NumScalar r)
         => target (TKR 2 r) -> target (TKR 2 r)
 scatter2 t =
   rscatter @2
@@ -1101,7 +1101,7 @@ testScatterSimp2 = do
                      (simplifyInlineContract @(TKR 2 Float) t2n)
     @?= interpretAstPrimal @Concrete env t2n
 
-scatterNested12 :: forall target r. (ADReady target, GoodScalar r)
+scatterNested12 :: forall target r. (ADReady target, NumScalar r)
                => target (TKR 2 r) -> target (TKR 2 r)
 scatterNested12 t =
   rscatter @2
@@ -1130,7 +1130,7 @@ testScatterNestedBuild12 =
                           (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
-scatter12 :: forall target r. (ADReady target, GoodScalar r)
+scatter12 :: forall target r. (ADReady target, NumScalar r)
          => target (TKR 2 r) -> target (TKR 2 r)
 scatter12 t =
   rscatter @2

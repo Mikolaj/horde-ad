@@ -353,7 +353,7 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
      Just{} -> Nothing
      Nothing -> error "astFromVector: empty vector")
 
-astSum :: forall y k s. AstSpan s
+astSum :: forall y k s. (AstSpan s, TKAllNum y)
        => SNat k -> SingletonTK y
        -> AstTensor AstMethodLet s (BuildTensorKind k y)
        -> AstTensor AstMethodLet s y
@@ -433,11 +433,14 @@ astSum snat@SNat stk t0 = case t0 of
           astScatterS @shm @shn @(Tail shp) shn v (vars, rest)
         _ -> Ast.AstSum snat stk t0
   Ast.AstConvert c t | checkAstFromS c t -> case ftkAst t of
-    FTKS (snat2 :$$ rest) x ->
-      -- Here we'd need to change the types inside c, so instead we construct
-      -- a new conversion based on the domain and codomain.
-      astFromS' (razeFTK snat stk (ftkAst t0))
-      $ astSum snat2 (STKS rest (ftkToSTK x)) t
+    FTKS (snat2 :$$ rest) x
+      | Dict0 <- lemTKAllNumBuild snat stk
+      , Dict0 <- lemTKAllNumConvert c
+      , Dict0 <- lemTKAllNumRaze snat2 (STKS rest (ftkToSTK x)) ->
+        -- Here we'd need to change the types inside c, so instead we construct
+        -- a new conversion based on the domain and codomain.
+        astFromS' (razeFTK snat stk (ftkAst t0))
+        $ astSum snat2 (STKS rest (ftkToSTK x)) t
     _ -> Ast.AstSum snat stk t0  -- products probably not worth the effort
   _ -> Ast.AstSum snat stk t0
 
@@ -1089,7 +1092,7 @@ astConcreteK :: GoodScalar r
              -> AstTensor AstMethodLet PrimalSpan (TKScalar r)
 astConcreteK = AstConcreteK . unConcrete
 
-astFloorK :: (GoodScalar r1, RealFrac r1, GoodScalar r2, Integral r2)
+astFloorK :: (GoodScalar r1, RealFrac r1, NumScalar r2, Integral r2)
           => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
           -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
 astFloorK t = case t of
@@ -1106,7 +1109,7 @@ astFloorK t = case t of
 -- Beware that increasing the number of calls to this constructor
 -- sometimes increases runtime, because not enough copies cancel out.
 -- Hence the commented out rules below.
-astFromIntegralK :: forall r1 r2. (GoodScalar r1, GoodScalar r2, Integral r1)
+astFromIntegralK :: forall r1 r2. (GoodScalar r1, Integral r1, NumScalar r2)
                  => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
 astFromIntegralK t = case t of
@@ -1120,7 +1123,7 @@ astFromIntegralK t = case t of
   _ -> Ast.AstFromIntegralK t
 
 astCastK :: forall r1 r2 s.
-            (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2, AstSpan s)
+            (NumScalar r1, RealFrac r1, RealFrac r2, NumScalar r2, AstSpan s)
          => AstTensor AstMethodLet s (TKScalar r1)
          -> AstTensor AstMethodLet s (TKScalar r2)
 astCastK t = case t of
@@ -1147,7 +1150,7 @@ astConcreteS :: GoodScalar r
 astConcreteS = AstConcreteS . unConcrete
 
 astFloorS :: forall r1 r2 sh.
-             (GoodScalar r1, RealFrac r1, Integral r2, GoodScalar r2)
+             (GoodScalar r1, RealFrac r1, Integral r2, NumScalar r2)
           => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
           -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
 astFloorS t = case t of
@@ -1173,7 +1176,7 @@ astFloorS t = case t of
   Ast.AstCastS v -> astFloorS v
   _ -> Ast.AstFloorS t
 
-astFromIntegralS :: forall r1 r2 sh. (GoodScalar r1, GoodScalar r2, Integral r1)
+astFromIntegralS :: forall r1 r2 sh. (GoodScalar r1, NumScalar r2, Integral r1)
                  => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
                  -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
 astFromIntegralS t = case t of
@@ -1209,7 +1212,7 @@ astFromIntegralS t = case t of
   _ -> Ast.AstFromIntegralS t
 
 astCastS :: forall r1 r2 s sh.
-            (GoodScalar r1, GoodScalar r2, RealFrac r1, RealFrac r2, AstSpan s)
+            (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2, AstSpan s)
          => AstTensor AstMethodLet s (TKS sh r1)
          -> AstTensor AstMethodLet s (TKS sh r2)
 astCastS t = case t of
@@ -1578,7 +1581,7 @@ shareIx ix f = unsafePerformIO $ do
                   (catMaybes bindings)
 
 -- TODO: fuse scatters, scatter and sum, and perhaps more (fromList?)
-astScatterS :: forall shm shn shp r s. AstSpan s
+astScatterS :: forall shm shn shp r s. (AstSpan s, TKAllNum r)
             => ShS shn
             -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
             -> (AstVarListS shm, AstIxS AstMethodLet shp)
@@ -3279,7 +3282,7 @@ astSFromX' sh t = case ftkAst t of
     let zftk = FTKS sh x
     in astConvertSFromX (ConvXS' zftk) zftk t
 
-astSum0S :: AstSpan s
+astSum0S :: (AstSpan s, TKAllNum x)
          => AstTensor AstMethodLet s (TKS2 sh x)
          -> AstTensor AstMethodLet s (TKS2 '[] x)
 astSum0S t = case t of
@@ -3311,7 +3314,7 @@ astSum0S t = case t of
                             (astReplicate m knownSTK m2))
   _ -> Ast.AstSum0S t
 
-astDot0S :: (GoodScalar r, AstSpan s)
+astDot0S :: (NumScalar r, AstSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS '[] r)
@@ -3336,7 +3339,7 @@ astDot0S t1 t2 = case (t1, t2) of
   (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot0S u1 u2
   _ -> Ast.AstDot0S t1 t2
 
-astDot1InS :: forall sh n r s. GoodScalar r
+astDot1InS :: forall sh n r s. NumScalar r
            => ShS sh -> SNat n
            -> AstTensor AstMethodLet s (TKS (sh ++ '[n]) r)
            -> AstTensor AstMethodLet s (TKS (sh ++ '[n]) r)
@@ -3351,7 +3354,7 @@ astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
     Ast.AstFromDual $ astDot1InS sh n u1 u2
   _ -> Ast.AstDot1InS sh n t1 t2
 
-astMatmul2S :: GoodScalar r
+astMatmul2S :: NumScalar r
             => SNat m -> SNat n -> SNat p
             -> AstTensor AstMethodLet s (TKS '[m, n] r)
             -> AstTensor AstMethodLet s (TKS '[n, p] r)

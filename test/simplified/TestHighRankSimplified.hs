@@ -138,7 +138,7 @@ testFooD =
                , rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rscalar (0.7 :: Double))
                , t128 ]))
 
-fooBuild0 :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
+fooBuild0 :: forall target r n. (ADReady target, NumScalar r, KnownNat n)
           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild0 v =
   let r = rsum v
@@ -151,7 +151,7 @@ testFooBuild0 =
     (rev' @Double @5 fooBuild0 t16)
 
 fooBuildOut
-  :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
+  :: forall target r n. (ADReady target, NumScalar r, KnownNat n)
   => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuildOut v =
   rbuild1 2 $ \ix -> ifH (ix ==. 0)
@@ -166,7 +166,7 @@ testFooBuildOut =
 
 fooBuild2
   :: forall target r n.
-     (ADReady target, GoodScalar r, KnownNat n, Floating (target (TKR n r)), RealFloat r)
+     (ADReady target, NumScalar r, KnownNat n, Floating (target (TKR n r)), RealFloat r)
   => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild2 v =
   rbuild1 2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
@@ -186,7 +186,7 @@ fooBuild2 v =
 
 fooBuild2L
   :: forall k target r n.
-     (ADReady target, GoodScalar r, KnownNat n, Floating (target (TKR n r)), RealFloat r)
+     (ADReady target, NumScalar r, KnownNat n, Floating (target (TKR n r)), RealFloat r)
   => ListR k (target (TKR (1 + n) r)) -> target (TKR (1 + n) r)
 fooBuild2L = foldr1 (+) . fmap fooBuild2
 
@@ -219,7 +219,7 @@ testFooBuild25 =
 
 fooBuild2S
   :: forall k sh target r.
-     (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh)
+     (ADReady target, NumScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh)
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuild2S v = rfromS $
   sbuild1 @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
@@ -250,7 +250,7 @@ testFooBuild25S =
 
 fooBuildNest2S
   :: forall k sh target r.
-     (ADReady target, GoodScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh)
+     (ADReady target, NumScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh)
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuildNest2S v = rfromS $
   sbuild1 @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
@@ -293,7 +293,7 @@ testFooBuild3 =
     (rev' @Double @5 fooBuild3 t16)
 
 fooBuild5 :: forall target r n.
-             ( ADReady target, GoodScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
+             ( ADReady target, NumScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild5 v =
   let r = rsum v
@@ -325,7 +325,7 @@ testFooBuild5 =
     (rev' @Double @7 fooBuild5 t48)
 
 fooBuild1 :: forall target r n.
-             ( ADReady target, GoodScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
+             ( ADReady target, NumScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild1 v =
   let r = rsum v
@@ -343,7 +343,7 @@ testFooBuild1 =
     (ringestData [2,2,1,2,2] [394056.00100873224,2652.651012139068,-190115.65273218407,9038.358355005721,1481231.4430045108,8665.8566966351,-686561.2828884773,975098.0370838332,405610.50900167174,247.29268093759174,-190893.00285812665,9131.411216464405,1388249.3520251075,8636.104329095837,-692176.9903632513,1027508.6863491047])
     (rev' @Double @5 fooBuild1 t16)
 
-fooMap1 :: (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
+fooMap1 :: (ADReady target, NumScalar r, KnownNat n, Differentiable r)
         => IShR (1 + n) -> target (TKR 0 r) -> target (TKR (1 + n) r)
 fooMap1 sh r =
   let v = fooBuild1 $ rreplicate0N sh (r * r)
@@ -363,7 +363,7 @@ testFooMap1 =
     (grad (kfromR @_ @Double . rsum0 @7 . fooMap1 [4, 3, 2, 3, 4, 5, 3]) (rscalar 0.1))
 
 fooNoGo :: forall target r n.
-           ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )
+           ( ADReady target, NumScalar r, KnownNat n, Differentiable r )
         => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooNoGo v =
   let r = rsum v
@@ -392,7 +392,7 @@ testFooNoGo10 =
    (grad (kfromR @_ @Double . rsum0 @8 . rmap0N (* rscalar 0.000000001) . fooNoGo) (rmap0N (* rscalar 0.01) $ rreplicate 5 t48))
 
 nestedBuildMap :: forall target n r.
-                  (ADReady target, GoodScalar r, n <= 6, KnownNat n, Differentiable r)
+                  (ADReady target, NumScalar r, n <= 6, KnownNat n, Differentiable r)
                => target (TKR 0 r) -> target (TKR (1 + n) r)
 nestedBuildMap r =
   let w x = rreplicate0N [4] x :: target (TKR 1 r)
@@ -442,7 +442,7 @@ testNestedBuildMap7 =
 -- to nestedBuildMap doesn't help.
 nestedSumBuild
   :: forall target n r.
-     (ADReady target, GoodScalar r, n <= 4, KnownNat n, Differentiable r)
+     (ADReady target, NumScalar r, n <= 4, KnownNat n, Differentiable r)
   => target (TKR n r) -> target (TKR (2 + n) r)
 nestedSumBuild v =
   rbuild1 13 $ \ix1 -> rbuild1 4 $ \ix2 ->
@@ -467,7 +467,7 @@ testNestedSumBuild5 =
     (rev' @Double @5 nestedSumBuild (rsum (rsum t16)))
 -}
 
-nestedSumBuildB :: forall target n r. (ADReady target, GoodScalar r, KnownNat n)
+nestedSumBuildB :: forall target n r. (ADReady target, NumScalar r, KnownNat n)
                 => target (TKR (1 + n) r) -> target (TKR 3 r)
 nestedSumBuildB v =
   rbuild @2 [13, 4, 2] $ \case
@@ -540,7 +540,7 @@ testBarReluADVal3 =
     (rev' @Double @7 barRelu
          (rmap0N (* rscalar 0.001) t48))
 
-braidedBuilds :: forall target n r. (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
+braidedBuilds :: forall target n r. (ADReady target, NumScalar r, KnownNat n, Differentiable r)
               => target (TKR (1 + n) r) -> target (TKR 2 r)
 braidedBuilds r =
   rbuild1 3 (\ix1 ->
@@ -559,7 +559,7 @@ testBraidedBuilds1 =
     (ringestData [2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0,4.0])
     (rev' @Double @2 braidedBuilds t16)
 
-recycled :: (ADReady target, GoodScalar r, KnownNat n)
+recycled :: (ADReady target, NumScalar r, KnownNat n)
          => target (TKR n r) -> target (TKR 7 r)
 recycled r =
   rbuild1 2 $ \_ -> rbuild1 4 $ \_ -> rbuild1 2 $ \_ -> rbuild1 3 $ \_ ->
@@ -580,7 +580,7 @@ testRecycled1 =
 -}
 
 concatBuild :: forall target r n.
-               (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
+               (ADReady target, NumScalar r, KnownNat n, Differentiable r)
             => target (TKR (1 + n) r) -> target (TKR (3 + n) r)
 concatBuild r =
   rbuild1 7 (\i ->
@@ -610,7 +610,7 @@ testConcatBuild1 =
     (grad (kfromR . rsum0 @9 @(TKScalar Double) . concatBuild . rmap0N (* rscalar 1e-7)) t48)
 
 concatBuildm :: forall target r n.
-                (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
+                (ADReady target, NumScalar r, KnownNat n, Differentiable r)
              => target (TKR (1 + n) r) -> target (TKR (2 + n) r)
 concatBuildm r =
   rbuild1 7 (\i ->
@@ -630,7 +630,7 @@ testConcatBuild1m =
     (ringestData [3,1,2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @8 (concatBuildm . rmap0N (* rscalar 1e-7)) t48)
 
-concatBuild2 :: (ADReady target, GoodScalar r, KnownNat n)
+concatBuild2 :: (ADReady target, NumScalar r, KnownNat n)
              => target (TKR (1 + n) r) -> target (TKR (3 + n) r)
 concatBuild2 r =
   rbuild1 5 (\i ->
@@ -648,7 +648,7 @@ testConcatBuild22 =
     (ringestData [3,1,2,2,1,2,2] [16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0,16.0])
     (rev' @Double @9 concatBuild2 t48)
 
-concatBuild3 :: (ADReady target, GoodScalar r)
+concatBuild3 :: (ADReady target, NumScalar r)
              => target (TKR 1 r) -> target (TKR 2 r)
 concatBuild3 _r =
   rbuild1 5 (\i ->
@@ -680,7 +680,7 @@ testLogistic52 =
 
 logisticOld :: forall target r n.
             ( BaseTensor target, LetTensor target
-            , BaseTensor (PrimalOf target), KnownNat n, GoodScalar r
+            , BaseTensor (PrimalOf target), KnownNat n, NumScalar r
             , Floating (PrimalOf target (TKR n r)) )
          => target (TKR n r) -> target (TKR n r)
 logisticOld d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart

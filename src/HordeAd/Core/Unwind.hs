@@ -67,7 +67,7 @@ data FullShapeTKW y where
   WFTKProduct :: FullShapeTKW y -> FullShapeTKW z
               -> FullShapeTKW (TKProduct y z)
 
-addRepW :: forall y target. BaseTensor target
+addRepW :: forall y target. (TKAllNum y, BaseTensor target)
         => RepW target y -> RepW target y -> RepW target y
 addRepW a b = case (a, b) of
   (WTKScalar ta, WTKScalar tb) -> WTKScalar $ ta + tb
@@ -77,7 +77,7 @@ addRepW a b = case (a, b) of
   (WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
     WTKProduct (addRepW ta1 tb1) (addRepW ta2 tb2)
 
-multRepW :: forall y target. BaseTensor target
+multRepW :: forall y target. (TKAllNum y, BaseTensor target)
          => RepW target y -> RepW target y -> RepW target y
 multRepW a b = case (a, b) of
   (WTKScalar ta, WTKScalar tb) -> WTKScalar $ ta * tb
@@ -87,7 +87,8 @@ multRepW a b = case (a, b) of
   (WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
     WTKProduct (multRepW ta1 tb1) (multRepW ta2 tb2)
 
-sum0RepW :: forall y target. (BaseTensor target, ConvertTensor target)
+sum0RepW :: forall y target.
+            (TKAllNum y, BaseTensor target, ConvertTensor target)
          => FullShapeTKW y -> RepW target y
          -> target (TKScalar Double)
 sum0RepW ftk a = case (ftk, a) of
@@ -104,7 +105,8 @@ sum0RepW ftk a = case (ftk, a) of
   (WFTKProduct ftk1 ftk2, WTKProduct ta1 ta2) ->
     sum0RepW ftk1 ta1 + sum0RepW ftk2 ta2
 
-dot0RepW :: forall y target. (BaseTensor target, ConvertTensor target)
+dot0RepW :: forall y target.
+            (TKAllNum y, BaseTensor target, ConvertTensor target)
          => FullShapeTKW y -> RepW target y -> RepW target y
          -> target (TKScalar Double)
 dot0RepW ftk a b = case (ftk, a, b) of
@@ -434,40 +436,48 @@ windTarget stk t = case (stk, t) of
 
 -- | Add two (nested pairs of) tensors. Requires duplicable arguments
 -- or a `ShareTensor` instance.
-addTarget :: (BaseTensor target, ConvertTensor target)
+addTarget :: forall y target.
+             (TKAllNum y, BaseTensor target, ConvertTensor target)
           => SingletonTK y -> target y -> target y -> target y
 addTarget stk a b =
   let a2 = unWindTarget stk a
       b2 = unWindTarget stk b
-  in windTarget stk $ addRepW a2 b2
+  in gcastWith (unsafeCoerceRefl :: TKAllNum (UnWind y) :~: TKAllNum y)
+     $ windTarget stk $ addRepW a2 b2
 
 -- | Multiply two (nested pairs of) tensors. Requires duplicable arguments
 -- or a `ShareTensor` instance.
-multTarget :: (BaseTensor target, ConvertTensor target)
+multTarget :: forall y target.
+              (TKAllNum y, BaseTensor target, ConvertTensor target)
            => SingletonTK y -> target y -> target y -> target y
 multTarget stk a b =
   let a2 = unWindTarget stk a
       b2 = unWindTarget stk b
-  in windTarget stk $ multRepW a2 b2
+  in gcastWith (unsafeCoerceRefl :: TKAllNum (UnWind y) :~: TKAllNum y)
+     $ windTarget stk $ multRepW a2 b2
 
 -- | Sum all dimensions of each component and then sum it all.
 -- Requires duplicable arguments or a `ShareTensor` instance.
-sum0Target :: (BaseTensor target, ConvertTensor target)
+sum0Target :: forall y target.
+              (TKAllNum y, BaseTensor target, ConvertTensor target)
            => FullShapeTK y -> target y
            -> target (TKScalar Double)
 sum0Target ftk a =
   let a2 = unWindTarget (ftkToSTK ftk) a
-  in sum0RepW (unWindFTK ftk) a2
+  in gcastWith (unsafeCoerceRefl :: TKAllNum (UnWind y) :~: TKAllNum y)
+     $ sum0RepW (unWindFTK ftk) a2
 
 -- | Dot product each component and then sum it all.
 -- Requires duplicable arguments or a `ShareTensor` instance.
-dot0Target :: (BaseTensor target, ConvertTensor target)
+dot0Target :: forall y target.
+              (TKAllNum y, BaseTensor target, ConvertTensor target)
            => FullShapeTK y -> target y -> target y
            -> target (TKScalar Double)
 dot0Target ftk a b =
   let a2 = unWindTarget (ftkToSTK ftk) a
       b2 = unWindTarget (ftkToSTK ftk) b
-  in dot0RepW (unWindFTK ftk) a2 b2
+  in gcastWith (unsafeCoerceRefl :: TKAllNum (UnWind y) :~: TKAllNum y)
+     $ dot0RepW (unWindFTK ftk) a2 b2
 
 -- | Replicate a scalar along the given full shape singleton.
 replTarget :: forall y target. (BaseTensor target, ConvertTensor target)

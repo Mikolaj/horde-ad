@@ -51,7 +51,7 @@ type XParams kh kw c_out n_hidden r =
 mnistTestCaseCNNSA
   :: forall kh kw r.
      ( 1 <= kh, 1 <= kw
-     , Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r )
+     , Differentiable r, NumScalar r, PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat kh -> SNat kw -> Int -> Int -> Int -> Int -> r
   -> TestTree
@@ -161,7 +161,7 @@ tensorADValMnistTestsCNNSA = testGroup "CNNS ADVal MNIST tests"
 mnistTestCaseCNNSI
   :: forall kh kw r.
      ( 1 <= kh, 1 <= kw
-     , Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r )
+     , Differentiable r, NumScalar r, PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat kh -> SNat kw -> Int -> Int -> Int -> Int -> r
   -> TestTree
@@ -288,7 +288,7 @@ tensorADValMnistTestsCNNSI = testGroup "CNNS Intermediate MNIST tests"
 mnistTestCaseCNNSO
   :: forall kh kw r.
      ( 1 <= kh, 1 <= kw
-     , Differentiable r, GoodScalar r
+     , Differentiable r, NumScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> SNat kh -> SNat kw -> Int -> Int -> Int -> Int -> r

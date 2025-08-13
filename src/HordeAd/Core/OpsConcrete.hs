@@ -808,7 +808,7 @@ tindex0R (RS.A (RG.A _ OI.T{..})) ix =
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
 tscatterZR :: forall m p n r.
-              (KnownNat p, KnownNat m, KnownNat n, KnownSTK r)
+              (TKAllNum r, KnownNat p, KnownNat m, KnownNat n, KnownSTK r)
            => IShR (p + n) -> Concrete (TKR2 (m + n) r)
            -> (IxROf Concrete m -> IxROf Concrete p)
            -> Concrete (TKR2 (p + n) r)
@@ -848,7 +848,7 @@ tscatterZR sh t f
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling Nested.rfromVector
 -- or optimize tscatterNR and instantiate it instead
-tscatterZ1R :: (KnownSTK r, KnownNat p, KnownNat n)
+tscatterZ1R :: (TKAllNum r, KnownSTK r, KnownNat p, KnownNat n)
             => IShR (p + n) -> Concrete (TKR2 (1 + n) r)
             -> (IntOf Concrete -> IxROf Concrete p)
             -> Concrete (TKR2 (p + n) r)
@@ -1068,7 +1068,7 @@ tindex0S (SS.A (SG.A OI.T{..})) ix =
 -- or optimize tscatterNS and instantiate it instead
 tscatterZ1S
   :: forall r n2 shn shp.
-     (KnownSTK r, KnownNat n2, KnownShS shn, KnownShS shp)
+     (TKAllNum r, KnownSTK r, KnownNat n2, KnownShS shn, KnownShS shp)
   => Concrete (TKS2 (n2 ': shn) r)
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS2 (shp ++ shn) r)
@@ -1252,7 +1252,7 @@ tindex0X v ixConcrete | Dict <- eltDictRep (knownSTK @r) =
 
 tscatterZ1X
   :: forall r n2 shn shp.
-     (KnownSTK r, KnownNat n2, KnownShX shn, KnownShX shp)
+     (TKAllNum r, KnownSTK r, KnownNat n2, KnownShX shn, KnownShX shp)
   => IShX (shp ++ shn) -> Concrete (TKX2 (Just n2 ': shn) r)
   -> (IntOf Concrete -> IxXOf Concrete shp)
   -> Concrete (TKX2 (shp ++ shn) r)

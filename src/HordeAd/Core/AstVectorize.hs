@@ -132,15 +132,16 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       astProject1 (build1V snat (var, t))
     Ast.AstProject2 t -> traceRule $
       astProject2 (build1V snat (var, t))
-    Ast.AstFromVector snat1@(SNat @k1) stk l -> traceRule $
-      astTrBuild (SNat @k1) (SNat @k) stk
+    Ast.AstFromVector snat1 stk l -> traceRule $
+      astTrBuild snat1 snat stk
       $ astFromVector snat1 (buildSTK snat stk) (V.map (\v ->
           build1VOccurrenceUnknown snat (var, v)) l)
-    Ast.AstSum (SNat @k1) stk v -> traceRule $
-      astSum (SNat @k1) (buildSTK snat stk)
-      $ astTrBuild (SNat @k) (SNat @k1) stk $ build1V snat (var, v)
-    Ast.AstReplicate snat2@(SNat @k2) stk v -> traceRule $
-      astTrBuild (SNat @k2) SNat stk
+    Ast.AstSum k1 stk v
+      | Dict0 <- lemTKAllNumBuild snat stk -> traceRule $
+        astSum k1 (buildSTK snat stk)
+        $ astTrBuild snat k1 stk $ build1V snat (var, v)
+    Ast.AstReplicate snat2 stk v -> traceRule $
+      astTrBuild snat2 snat stk
       $ astReplicate snat2 (buildSTK snat stk) $ build1V snat (var, v)
     Ast.AstMapAccumRDer k5@(SNat @k5) bftk eftk f df rf acc0 es
      | Refl <- lemBuildOfAD snat (ftkToSTK (ftkAst acc0))
@@ -184,7 +185,7 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
     Ast.AstVar var2 -> traceRule $
       if varNameToAstVarId var2 == varNameToAstVarId var
       then case isTensorInt (Proxy @s) (varNameToFTK var2) of
-        Just Refl -> fromPrimal @s $ Ast.AstIotaS (SNat @k)
+        Just Refl -> fromPrimal @s $ Ast.AstIotaS snat
         _ -> error "build1V: build variable is not an index variable"
       else error "build1V: AstVar can't contain other free variables"
     Ast.AstCond b u v -> traceRule $

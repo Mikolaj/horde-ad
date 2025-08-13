@@ -61,7 +61,7 @@ unrollLastR f s0 xs w =
 
 -- | A single recurrent layer with @tanh@ activation function.
 rnnMnistLayerR
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 2 r)  -- ^ in state, @[out_width, batch_size]@
   -> target (TKR 2 r)  -- ^ input, @[in_width, batch_size]@
   -> LayerWeigthsRNN target r  -- ^ parameters
@@ -75,7 +75,7 @@ rnnMnistLayerR s x (wX, wS, b) = case rshape s of
 -- TODO: represent state as a pair to avoid appending; tlet now supports this.
 -- | Composition of two recurrent layers.
 rnnMnistTwoR
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 2 r)  -- initial state, @[2 * out_width, batch_size]@
   -> PrimalOf target (TKR 2 r)  -- @[sizeMnistHeight, batch_size]@
   -> ( LayerWeigthsRNN target r  -- sizeMnistHeight out_width
@@ -96,7 +96,7 @@ rnnMnistTwoR s' x ((wX, wS, b), (wX2, wS2, b2)) = case rshape s' of
 -- | The two-layer recurrent nn with its state initialized to zero
 -- and the result composed with a fully connected layer.
 rnnMnistZeroR
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => Int  -- ^ batch_size
   -> PrimalOf target (TKR 3 r)
        -- ^ input data @[sizeMnistWidth, sizeMnistHeight, batch_size]@
@@ -112,7 +112,7 @@ rnnMnistZeroR batch_size xs
 
 -- | The neural network composed with the SoftMax-CrossEntropy loss function.
 rnnMnistLossFusedR
-  :: (ADReady target, ADReady (PrimalOf target), GoodScalar r, Differentiable r)
+  :: (ADReady target, ADReady (PrimalOf target), NumScalar r, Differentiable r)
   => Int
   -> (PrimalOf target (TKR 3 r), PrimalOf target (TKR 2 r))  -- batch_size
   -> ADRnnMnistParameters target r  -- SizeMnistHeight out_width
@@ -128,7 +128,7 @@ rnnMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 -- and the trained parameters.
 rnnMnistTestR
   :: forall target r.
-     (target ~ Concrete, GoodScalar r, Differentiable r)
+     (target ~ Concrete, NumScalar r, Differentiable r)
   => Int
   -> MnistDataBatchR r  -- batch_size
   -> ADRnnMnistParameters target r

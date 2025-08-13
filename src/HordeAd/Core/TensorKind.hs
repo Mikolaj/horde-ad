@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Two kinds of singletons for tensor kindss and constraints
@@ -5,9 +6,10 @@
 module HordeAd.Core.TensorKind
   ( -- * Tensor kind singletons
     SingletonTK(..), KnownSTK(..)
-  , TKConversion(..), convertSTK, convertFTK, buildTKConversion
+  , TKConversion(..), lemTKAllNumConvert, lemTKAllNumBuild, lemTKAllNumRaze
+  , convertSTK, convertFTK, buildTKConversion
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
-  , stkUnit, buildSTK, razeSTK, adSTK
+  , Dict0(..), lemTKAllNumAD, stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
     -- * Full shape tensor kind quasi-singletons
   , FullShapeTK(..)
@@ -25,7 +27,8 @@ import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat, type (+))
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
-import Data.Array.Nested.Convert (shrFromShX, shsFromShX, shxFromShS, shxFromShR, shsFromSSX)
+import Data.Array.Nested.Convert
+  (shrFromShX, shsFromSSX, shsFromShX, shxFromShR, shxFromShS)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
@@ -109,6 +112,48 @@ sameSTK stk1 stk2 = case (stk1, stk2) of
     | Just Refl <- sameSTK x1 x2, Just Refl <- sameSTK y1 y2 ->
       Just Refl
   _ -> Nothing
+
+-- | Evidence for the constraint @c@. Works for type families,
+-- such as @TKAllNum@.
+type role Dict0 representational
+data Dict0 c where
+  Dict0 :: c => Dict0 c
+
+lemTKAllNumAD :: SingletonTK y -> Dict0 (TKAllNum (ADTensorKind y))
+lemTKAllNumAD = \case
+  STKScalar @r -> case testEquality (typeRep @r) (typeRep @Double) of
+    Just Refl -> Dict0
+    _ -> case testEquality (typeRep @r) (typeRep @Float) of
+      Just Refl -> Dict0
+      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) $
+           Dict0
+  STKR _ x | Dict0 <- lemTKAllNumAD x -> Dict0
+  STKS _ x | Dict0 <- lemTKAllNumAD x -> Dict0
+  STKX _ x | Dict0 <- lemTKAllNumAD x -> Dict0
+  STKProduct stk1 stk2 | Dict0 <- lemTKAllNumAD stk1
+                       , Dict0 <- lemTKAllNumAD stk2 -> Dict0
+
+lemTKAllNumBuild :: TKAllNum y
+                 => SNat k -> SingletonTK y
+                 -> Dict0 (TKAllNum (BuildTensorKind k y))
+lemTKAllNumBuild k = \case
+  STKScalar -> Dict0
+  STKR{} -> Dict0
+  STKS{} -> Dict0
+  STKX{} -> Dict0
+  STKProduct stk1 stk2 | Dict0 <- lemTKAllNumBuild k stk1
+                       , Dict0 <- lemTKAllNumBuild k stk2 -> Dict0
+
+lemTKAllNumRaze :: TKAllNum (BuildTensorKind k y)
+                => SNat k -> SingletonTK y
+                -> Dict0 (TKAllNum y)
+lemTKAllNumRaze k = \case
+  STKScalar -> Dict0
+  STKR{} -> Dict0
+  STKS{} -> Dict0
+  STKX{} -> Dict0
+  STKProduct stk1 stk2 | Dict0 <- lemTKAllNumRaze k stk1
+                       , Dict0 <- lemTKAllNumRaze k stk2 -> Dict0
 
 stkUnit :: SingletonTK TKUnit
 stkUnit = STKScalar
@@ -238,6 +283,30 @@ deriving instance Show (TKConversion a b)
 instance Category TKConversion where
   id = ConvId
   (.) = ConvCmp
+
+lemTKAllNumConvert :: TKAllNum b
+                   => TKConversion a b -> Dict0 (TKAllNum a)
+lemTKAllNumConvert = \case
+  ConvId -> Dict0
+  ConvCmp c1 c2 | Dict0 <- lemTKAllNumConvert c1 ->
+    lemTKAllNumConvert c2
+  ConvRX -> Dict0
+  ConvSX -> Dict0
+  ConvXR{}  -> Dict0
+  ConvXS -> Dict0
+  ConvXS'{} -> Dict0
+  ConvXX'{} -> Dict0
+  ConvRR c | Dict0 <- lemTKAllNumConvert c -> Dict0
+  ConvSS c | Dict0 <- lemTKAllNumConvert c -> Dict0
+  ConvXX c | Dict0 <- lemTKAllNumConvert c -> Dict0
+  ConvT2 c1 c2 | Dict0 <- lemTKAllNumConvert c1
+               , Dict0 <- lemTKAllNumConvert c2 -> Dict0
+  Conv0X{} -> Dict0
+  ConvX0 -> Dict0
+  ConvNest{} -> Dict0
+  ConvUnnest -> Dict0
+  ConvZip{} -> Dict0
+  ConvUnzip{} -> Dict0
 
 convertSTK :: TKConversion a b -> SingletonTK a -> SingletonTK b
 convertSTK = \cases

@@ -45,7 +45,7 @@ convMnistLayerS
   :: forall kh kw h w c_in c_out batch_size target r.
      ( 1 <= kh
      , 1 <= kw  -- wrongly reported as redundant due to plugins
-     , ADReady target, GoodScalar r, Differentiable r )
+     , ADReady target, NumScalar r, Differentiable r )
   => SNat kh -> SNat kw -> SNat h -> SNat w
   -> SNat c_in -> SNat c_out -> SNat batch_size
   -> target (TKS '[c_out, c_in, kh + 1, kw + 1] r)
@@ -68,7 +68,7 @@ convMnistTwoS
        -- @h@ and @w@ are fixed with MNIST data, but not with test data
      ( 1 <= kh  -- kernel height is large enough
      , 1 <= kw  -- kernel width is large enough
-     , ADReady target, GoodScalar r, Differentiable r )
+     , ADReady target, NumScalar r, Differentiable r )
   => SNat kh -> SNat kw -> SNat h -> SNat w
   -> SNat c_out -> SNat n_hidden -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
@@ -105,7 +105,7 @@ convMnistLossFusedS
      , 1 <= kh
      , 1 <= kw
      , ADReady target, ADReady (PrimalOf target)
-     , GoodScalar r, Differentiable r )
+     , NumScalar r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat c_out
   -> SNat n_hidden -> SNat batch_size
@@ -133,7 +133,7 @@ convMnistTestS
      , 1 <= kh
      , 1 <= kw
      , target ~ Concrete
-     , GoodScalar r, Differentiable r )
+     , NumScalar r, Differentiable r )
   => SNat kh -> SNat kw
   -> SNat c_out
   -> SNat n_hidden -> SNat batch_size

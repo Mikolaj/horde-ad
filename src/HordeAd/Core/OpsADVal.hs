@@ -353,7 +353,8 @@ instance ( ADReadyNoLet target, ShareTensor target
   tsreshape sh (D u u') = dD (tsreshape sh u) (DeltaReshapeS sh u')
   tmapAccumRDer @accy @by @ey _ !k accftk bftk eftk f df rf acc0D esD
    | Dict <- lemKnownSTKOfBuild k (ftkToSTK accftk)
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk) =
+   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk)
+   , Dict0 <- lemTKAllNumAD (ftkToSTK accftk) =
     let !(D acc0 acc0') = acc0D in
     let !(D esNotShared es') = esD in
     let !es = tshare esNotShared
@@ -415,7 +416,8 @@ instance ( ADReadyNoLet target, ShareTensor target
     in dD (tpair accFin bs) dual
   tmapAccumLDer @accy @by @ey _ !k accftk bftk eftk f df rf acc0D esD
    | Dict <- lemKnownSTKOfBuild k (ftkToSTK accftk)
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk) =
+   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk)
+   , Dict0 <- lemTKAllNumAD (ftkToSTK accftk) =
     let !(D acc0 acc0') = acc0D in
     let !(D esNotShared es') = esD in
     let !es = tshare esNotShared

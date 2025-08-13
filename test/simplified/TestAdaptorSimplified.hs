@@ -473,7 +473,7 @@ testPiecewiseLinear2PP = do
   printArtifactPrimalPretty artifactRev
     @?= "\\x1 -> let x2 = ifH (sscalar -0.0 <=. negate (sfromR x1)) (sscalar 5.0) (sscalar 2.0) in rfromS (x2 * sfromR x1)"
 
-overleaf :: forall r target. (BaseTensor target, GoodScalar r)
+overleaf :: forall r target. (BaseTensor target, NumScalar r)
          => target (TKR 1 r) -> target (TKR 0 r)
 overleaf v = let wrap i = i `remH` fromIntegral (rwidth v)
              in rsum (rbuild @1 [50] (\[i] -> rindex v [wrap i]))
@@ -628,7 +628,7 @@ testGradFooLetMatrixSimpRPP = do
 type Matrix2x2f :: Target -> Type -> Type
 type Matrix2x2f f r = f (TKS '[2, 2] r)
 
-sumFooMatrix :: (ADReady f, RealFloat (Matrix2x2f f r), GoodScalar r)
+sumFooMatrix :: (ADReady f, RealFloat (Matrix2x2f f r), NumScalar r)
              => (Matrix2x2f f r, Matrix2x2f f r, Matrix2x2f f r)
              -> f (TKScalar r)
 sumFooMatrix = kfromS . ssum0 . foo
@@ -644,7 +644,7 @@ foo2 (x, y, z) =
   let w = x * sin y
   in atan2H z w + z * w
 
-gradFooMatrix2 :: (Differentiable r, GoodScalar r)
+gradFooMatrix2 :: (Differentiable r, NumScalar r)
                => (Concrete (TKR 2 r), Concrete (TKR 2 r), Concrete (TKR 2 r))
                -> (Concrete (TKR 2 r), Concrete (TKR 2 r), Concrete (TKR 2 r))
 gradFooMatrix2 = grad (kfromR . rsum0 . foo2)
@@ -759,7 +759,7 @@ testTrustVstackConcatIota10 = do
   vstackABC @Concrete @Double (riota 10, riota 10, riota 10)
   @?= rfromListLinear [10] [1.0,3.0,6.0,9.0,12.0,15.0,18.0,21.0,24.0,17.0]
 
-replIota :: (ADReady target, GoodScalar r)
+replIota :: (ADReady target, NumScalar r)
          => Int -> (target (TKR 1 r), target (TKR 1 r), target (TKR 1 r))
 replIota n =
   ( rconcrete (unConcrete $ rrepl [n] 1 * riota n)
@@ -848,7 +848,7 @@ testVstackBuildAstPP = do
               sfromR (tproject2 v1) !$ [8]))))
 -}
 
-replIota2 :: (ADReady target, GoodScalar r)
+replIota2 :: (ADReady target, NumScalar r)
           => Int -> (target (TKR 1 r), target (TKR 1 r), target (TKR 1 r))
 replIota2 n =
   (rrepl [n] 1 * riota n, rrepl [n] 2 * riota n, rrepl [n] 3 * riota n)
@@ -1482,7 +1482,7 @@ testMatmul2PP = do
 testMatmul2FromMatvecmulPP :: Assertion
 testMatmul2FromMatvecmulPP = do
   resetVarCounter
-  let rmatmul2F :: (BaseTensor target, GoodScalar r)
+  let rmatmul2F :: (BaseTensor target, NumScalar r)
                 => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
       rmatmul2F m1 m2 =
         rbuild1 (rwidth m1) (\i -> rmatvecmul (rtr m2) (m1 ! [i]))
@@ -1498,7 +1498,7 @@ testMatmul2FromMatvecmulPP = do
 testMatmul2PaperPP :: Assertion
 testMatmul2PaperPP = do
   resetVarCounter
-  let rmatmul2P :: (BaseTensor target, GoodScalar r)
+  let rmatmul2P :: (BaseTensor target, NumScalar r)
                 => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
       rmatmul2P a b =
         let k :$: m :$: _ = rshape a
@@ -1651,7 +1651,7 @@ testFooD =
     (fromList [rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627])
     (cgrad (kfromR . fooD) (fromList [rscalar 1.1, rscalar 2.2, rscalar 3.3]))
 
-fooBuild1 :: (ADReady target, GoodScalar r, Differentiable r)
+fooBuild1 :: (ADReady target, NumScalar r, Differentiable r)
           => target (TKR 1 r) -> target (TKR 1 r)
 fooBuild1 v =
   let r = rsum0 v
@@ -1689,7 +1689,7 @@ testFooBuild =
     (ringestData [4] [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
     (rev' @Double @1 fooBuild1 (ringestData [4] [1.1, 2.2, 3.3, 4]))
 
-fooNoGo :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
+fooNoGo :: forall target r. (ADReady target, NumScalar r, Differentiable r)
         => target (TKR 1 r) -> target (TKR 1 r)
 fooNoGo v =
   let r = rsum0 v
@@ -1710,7 +1710,7 @@ testFooNoGo0 =
          (ringestData [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
 nestedBuildMap :: forall target r.
-                  (ADReady target, GoodScalar r, Differentiable r)
+                  (ADReady target, NumScalar r, Differentiable r)
                => target (TKR 0 r) -> target (TKR 1 r)
 nestedBuildMap r =
   let w = rreplicate0N [4]
@@ -1735,7 +1735,7 @@ testNestedBuildMap1 =
     (rscalar 107.25984443006627)
     (rev' @Double @1 nestedBuildMap (rscalar 1.1))
 
-nestedSumBuild :: (ADReady target, GoodScalar r, Differentiable r)
+nestedSumBuild :: (ADReady target, NumScalar r, Differentiable r)
                => target (TKR 1 r) -> target (TKR 1 r)
 nestedSumBuild v0 = tlet v0 $ \v ->
  tlet (rsum (rbuild1 9 rfromIndex0)) (\tbtf ->
@@ -1878,7 +1878,7 @@ testBarReluMax3FwdR =
          (ringestData [2, 1, 2] [1.1, 2, 3, 4.2])
          (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
-f1 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 0 r)
+f1 :: (ADReady target, NumScalar r) => target (TKR 0 r) -> target (TKR 0 r)
 f1 = \arg -> rsum0 (rbuild1 10 (\i -> arg * rfromIndex0 i))
 
 testF1 :: Assertion
@@ -1893,7 +1893,7 @@ testF11 =
     (rscalar 45.0)
     (rev' @Double @0 f1 (rscalar 1.1))
 
-f2 :: forall target r. (ADReady target, GoodScalar r)
+f2 :: forall target r. (ADReady target, NumScalar r)
    => target (TKR 0 r) -> target (TKR 0 r)
 f2 = \arg ->
   let fun1 i = arg * rfromIndex0 i
@@ -1931,7 +1931,7 @@ testF2Fwd =
          f2 (rscalar 1.1) (rscalar 0.1))
 
 braidedBuilds :: forall target r.
-                 (ADReady target, GoodScalar r, Differentiable r)
+                 (ADReady target, NumScalar r, Differentiable r)
               => target (TKR 0 r) -> target (TKR 2 r)
 braidedBuilds r =
   rbuild1 3 (\ix1 ->
@@ -1944,7 +1944,7 @@ testBraidedBuilds1 =
     (rscalar 4.0)
     (rev' @Double @2 braidedBuilds (rscalar 3.4))
 
-recycled :: (ADReady target, GoodScalar r, Differentiable r)
+recycled :: (ADReady target, NumScalar r, Differentiable r)
          => target (TKR 0 r) -> target (TKR 5 r)
 recycled r =
   tlet (nestedSumBuild (rreplicate0N [7] r)) $ \nsb ->
@@ -1956,7 +1956,7 @@ testRecycled1 =
     (rscalar 348356.9278600814)
     (grad (kfromR @_ @Double . rsum0 . recycled) (rscalar 0.0000001))
 
-concatBuild :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 2 r)
+concatBuild :: (ADReady target, NumScalar r) => target (TKR 0 r) -> target (TKR 2 r)
 concatBuild r =
   rbuild1 7 (\i ->
     rappend (rappend (rbuild1 5 (const r))
@@ -2016,7 +2016,7 @@ testConcatBuild5 =
     (rscalar 10)
     (rev' @Double @1 concatBuild5 (rscalar 3.4))
 
-concatBuild6 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 2 r)
+concatBuild6 :: (ADReady target, NumScalar r) => target (TKR 0 r) -> target (TKR 2 r)
 concatBuild6 r =
   rbuild1 7 (\j ->
     rappend (rappend
@@ -2062,7 +2062,7 @@ testConcatBuild8 =
     (rscalar 8)
     (rev' @Double @1 concatBuild8 (rscalar 3.4))
 
-concatBuild9 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 2 r)
+concatBuild9 :: (ADReady target, NumScalar r) => target (TKR 0 r) -> target (TKR 2 r)
 concatBuild9 r =
   rbuild1 7 (\j ->
     rappend (rappend
@@ -2079,7 +2079,7 @@ testConcatBuild9 =
     (rscalar 122)
     (rev' @Double @2 concatBuild9 (rscalar 3.4))
 
-concatBuild10 :: (ADReady target, GoodScalar r)
+concatBuild10 :: (ADReady target, NumScalar r)
               => target (TKR 0 r) -> target (TKR 2 r)
 concatBuild10 r =
   rbuild1 7 (\j ->
@@ -2119,9 +2119,9 @@ testConcatBuild12 =
     (rscalar 0)
     (rev' @Double @0 concatBuild12 (rscalar 3.4))
 
--- TODO: copy-paste a variant of emptyArgs with r not GoodScalar
+-- TODO: copy-paste a variant of emptyArgs with r not NumScalar
 -- or maybe generalize emptyArgs and then in half of the tests do TKScalar
-emptyArgs :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
+emptyArgs :: forall target r. (ADReady target, NumScalar r, Differentiable r)
           => target (TKR 1 r) -> target (TKR 1 r)
 emptyArgs t =
   emptyTensor
@@ -2269,7 +2269,7 @@ testFilterPositiveFail =
           (ringestData [5] [0.24, 52, -0.5, 0.33, 0.1]))
 
 -- Catastrophic loss of sharing prevented.
-fblowup :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
+fblowup :: forall target r. (ADReady target, NumScalar r, Differentiable r)
         => Int -> target (TKR 1 r) -> target (TKR 0 r)
 fblowup k inputs =
   let blowup :: Int -> target (TKR 0 r) -> target (TKR 0 r)
@@ -2282,7 +2282,7 @@ fblowup k inputs =
       y0 = (inputs ! [0]) / (inputs ! [1])
   in blowup k y0
 
-fblowupLet :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
+fblowupLet :: forall target r. (ADReady target, NumScalar r, Differentiable r)
            => IntOf target -> Int -> target (TKR 1 r) -> target (TKR 0 r)
 fblowupLet i k inputs =
   let blowup :: Int -> target (TKR 0 r) -> target (TKR 0 r)
@@ -2296,7 +2296,7 @@ fblowupLet i k inputs =
   in blowup k y0
 
 -- Catastrophic loss of sharing prevented also with non-trivial multiplication.
-fblowupMult :: forall target r. (ADReady target, GoodScalar r, Differentiable r)
+fblowupMult :: forall target r. (ADReady target, NumScalar r, Differentiable r)
             => Int -> target (TKR 1 r) -> target (TKR 0 r)
 fblowupMult k inputs =
   let blowup :: Int -> target (TKR 0 r) -> target (TKR 0 r)
@@ -2310,7 +2310,7 @@ fblowupMult k inputs =
   in blowup k y0
 
 fblowupMultLet :: forall target r.
-                  (ADReady target, GoodScalar r, Differentiable r)
+                  (ADReady target, NumScalar r, Differentiable r)
                => IntOf target -> Int -> target (TKR 1 r) -> target (TKR 0 r)
 fblowupMultLet i k inputs =
   let blowup :: Int -> target (TKR 0 r) -> target (TKR 0 r)
@@ -2433,7 +2433,7 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
               (ringestData [2] [0.2, 0.3]))
   ]
 
-concatBuild33 :: (ADReady target, GoodScalar r)
+concatBuild33 :: (ADReady target, NumScalar r)
              => target (TKR 1 r) -> target (TKR 2 r)
 concatBuild33 _r =
   rbuild1 5 (\i ->

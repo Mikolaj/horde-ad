@@ -49,8 +49,8 @@ type XParams2 r q = X (MnistFcnnRanked2.ADFcnnMnist2Parameters Concrete r q)
 -- The output layer uses a different activation function.
 -- The widths of the two hidden layers are @widthHidden@ and @widthHidden2@,
 -- respectively.
-afcnnMnist2 :: ( ADReady target, GoodScalar r, Differentiable r
-               , GoodScalar q, Differentiable q )
+afcnnMnist2 :: ( ADReady target, NumScalar r, Differentiable r
+               , NumScalar q, Differentiable q )
             => (target (TKR 1 r) -> target (TKR 1 r))
             -> (target (TKR 1 r) -> target (TKR 1 r))
             -> target (TKR 1 r)
@@ -68,8 +68,8 @@ afcnnMnist2 factivationHidden factivationOutput
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 afcnnMnistLoss2
-  :: ( ADReady target, GoodScalar r, Differentiable r
-     , GoodScalar q, Differentiable q )
+  :: ( ADReady target, NumScalar r, Differentiable r
+     , NumScalar q, Differentiable q )
   => (target (TKR 1 r), target (TKR 1 r)) -> ADFcnnMnist2Parameters target r q
   -> target (TKScalar r)
 afcnnMnistLoss2 (datum, target) adparams =
@@ -83,8 +83,8 @@ afcnnMnistLoss2 (datum, target) adparams =
 -- and the trained parameters.
 afcnnMnistTest2
   :: forall target r q.
-     ( target ~ Concrete, GoodScalar r, Differentiable r
-     , GoodScalar q, Differentiable q )
+     ( target ~ Concrete, NumScalar r, Differentiable r
+     , NumScalar q, Differentiable q )
   => [MnistDataLinearR r]
   -> ADFcnnMnist2Parameters target r q
   -> r
@@ -106,8 +106,8 @@ afcnnMnistTest2 dataList testParams =
 -- between tests and benchmarks and to separate compile-time and run-time
 -- for benchmarking (this part is considered compile-time).
 mnistTrainBench2VTOGradient
-  :: forall r q. ( GoodScalar r, Differentiable r
-                 , GoodScalar q, Differentiable q )
+  :: forall r q. ( NumScalar r, Differentiable r
+                 , NumScalar q, Differentiable q )
   => Proxy q -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int
   -> ( Concrete (XParams2 r q)
      , AstArtifactRev
@@ -144,8 +144,8 @@ mnistTrainBench2VTOGradient Proxy cotangentHandling range seed widthHidden width
 -- | A version of 'mnistTrainBench2VTOGradient' without any simplification,
 -- even the AST smart constructors. Intended for benchmarking.
 mnistTrainBench2VTOGradientX
-  :: forall r q. ( GoodScalar r, Differentiable r
-                 , GoodScalar q, Differentiable q )
+  :: forall r q. ( NumScalar r, Differentiable r
+                 , NumScalar q, Differentiable q )
   => Proxy q -> IncomingCotangentHandling -> Double -> StdGen -> Int -> Int
   -> ( Concrete (XParams2 r q)
      , AstArtifactRev

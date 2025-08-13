@@ -266,23 +266,23 @@ maxH :: (KnownSTK y, OrdH target y, BaseTensor target)
      => target y -> target y -> target y
 maxH u v = ifH (u >=. v) u v
 
-rsum :: (KnownNat n, KnownSTK x, BaseTensor target)
+rsum :: (KnownNat n, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKR2 (1 + n) x) -> target (TKR2 n x)
 rsum = trsum
-rsum0 :: (KnownNat n, KnownSTK x, BaseTensor target)
+rsum0 :: (KnownNat n, TKAllNum x, KnownSTK x, BaseTensor target)
       => target (TKR2 n x) -> target (TKR2 0 x)
 rsum0 = trsum0
-rdot0 :: ( KnownNat n, GoodScalar r, BaseTensor target)
+rdot0 :: (KnownNat n, NumScalar r, BaseTensor target)
       => target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
 rdot0 = trdot0
-rdot1In :: (KnownNat n, GoodScalar r, BaseTensor target)
+rdot1In :: (KnownNat n, NumScalar r, BaseTensor target)
         => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
         -> target (TKR n r)
 rdot1In = trdot1In
-rmatvecmul :: (GoodScalar r, BaseTensor target)
+rmatvecmul :: (NumScalar r, BaseTensor target)
            => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
 rmatvecmul = trmatvecmul
-rmatmul2 :: (GoodScalar r, BaseTensor target)
+rmatmul2 :: (NumScalar r, BaseTensor target)
          => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 rmatmul2 = trmatmul2
 -- | Copy the given tensor along the new, outermost dimension.
@@ -293,25 +293,25 @@ rreplicate0N :: (KnownNat n, KnownSTK x, BaseTensor target)
              => IShR n -> target (TKR2 0 x) -> target (TKR2 n x)
 rreplicate0N = trreplicate0N
 
-ssum :: (KnownNat n, KnownShS sh, KnownSTK x, BaseTensor target)
+ssum :: (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
 ssum = tssum
-ssum0 :: (KnownShS sh, KnownSTK x, BaseTensor target)
+ssum0 :: (KnownShS sh, TKAllNum x, KnownSTK x, BaseTensor target)
       => target (TKS2 sh x) -> target (TKS2 '[] x)
 ssum0 = tssum0
-sdot0 :: (KnownShS sh, GoodScalar r, BaseTensor target)
+sdot0 :: (KnownShS sh, NumScalar r, BaseTensor target)
       => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
 sdot0 = tsdot0
-sdot1In :: (KnownShS sh, KnownNat n, GoodScalar r, BaseTensor target)
+sdot1In :: (KnownShS sh, KnownNat n, NumScalar r, BaseTensor target)
         => target (TKS (sh ++ '[n]) r) -> target (TKS (sh ++ '[n]) r)
         -> target (TKS sh r)
 sdot1In @sh @n = tsdot1In @_ @sh (SNat @n)
-smatvecmul :: (KnownNat m, KnownNat n, GoodScalar r, BaseTensor target)
+smatvecmul :: (KnownNat m, KnownNat n, NumScalar r, BaseTensor target)
            => target (TKS '[m, n] r) -> target (TKS '[n] r)
            -> target (TKS '[m] r)
 smatvecmul = tsmatvecmul
 smatmul2 :: ( KnownNat m, KnownNat n, KnownNat p
-            , GoodScalar r, BaseTensor target )
+            , NumScalar r, BaseTensor target )
          => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
          -> target (TKS '[m, p] r)
 smatmul2 = tsmatmul2
@@ -322,29 +322,30 @@ sreplicate0N :: (KnownShS sh, KnownSTK x, BaseTensor target)
              => target (TKS2 '[] x) -> target (TKS2 sh x)
 sreplicate0N = tsreplicate0N knownShS
 
-xsum :: (KnownNat n, KnownShX sh, KnownSTK x, BaseTensor target)
+xsum :: (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKX2 (Just n ': sh) x) -> target (TKX2 sh x)
 xsum = txsum
-xsum0 :: (KnownShX sh, KnownSTK x, BaseTensor target, ConvertTensor target)
+xsum0 :: ( KnownShX sh, TKAllNum x, KnownSTK x, BaseTensor target
+         , ConvertTensor target )
       => target (TKX2 sh x) -> target (TKX2 '[] x)
 xsum0 = txsum0
-xdot0 :: ( KnownShX sh, GoodScalar r
+xdot0 :: ( KnownShX sh, NumScalar r
          , BaseTensor target, ConvertTensor target )
       => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
 xdot0 = txdot0
-xdot1In :: (KnownShX sh, KnownNat n, GoodScalar r, BaseTensor target)
+xdot1In :: (KnownShX sh, KnownNat n, NumScalar r, BaseTensor target)
         => target (TKX (sh ++ '[Just n]) r)
         -> target (TKX (sh ++ '[Just n]) r)
         -> target (TKX sh r)
 xdot1In @sh @n = txdot1In @_ @sh (SNat @n)
 xmatvecmul :: forall mm mn r target.
-              (GoodScalar r, BaseTensor target, ConvertTensor target)
+              (NumScalar r, BaseTensor target, ConvertTensor target)
            => Nested.SMayNat Int SNat mm -> Nested.SMayNat Int SNat mn
            -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
            -> target (TKX '[mm] r)
 xmatvecmul = txmatvecmul
 xmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p
-            , GoodScalar r, BaseTensor target, ConvertTensor target )
+            , NumScalar r, BaseTensor target, ConvertTensor target )
          => target (TKX '[Just m, Just n] r)
          -> target (TKX '[Just n, Just p] r)
          -> target (TKX '[Just m, Just p] r)
@@ -367,13 +368,14 @@ infixl 9 !
 rindex0 :: (KnownNat m, KnownSTK x, BaseTensor target)
         => target (TKR2 m x) -> IxROf target m -> target (TKR2 0 x)
 rindex0 = trindex0
-roneHot :: ( KnownNat m, KnownNat n, KnownSTK x
+roneHot :: ( KnownNat m, KnownNat n, TKAllNum x, KnownSTK x
            , BoolOf (PrimalOf target) ~ BoolOf target
            , EqH (PrimalOf target) (TKScalar Int64), BaseTensor target)
         => IShR m -> target (TKR2 n x) -> IxROf target m
         -> target (TKR2 (m + n) x)
 roneHot = troneHot
-rscatter :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
+rscatter :: ( KnownNat m, KnownNat n, KnownNat p, TKAllNum x, KnownSTK x
+            , BaseTensor target )
          => IShR (p + n) -> target (TKR2 (m + n) x)
          -> (IxROf target m -> IxROf target p)
          -> target (TKR2 (p + n) x)
@@ -383,7 +385,8 @@ rscatter = trscatter
 -- at indexes of length @p@.
 -- The semantics of the operation permits index out of bounds
 -- and then no tensor is added at such an index.
-rscatter1 :: (KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
+rscatter1 :: ( KnownNat n, KnownNat p, TKAllNum x, KnownSTK x
+             , BaseTensor target )
           => IShR (p + n) -> target (TKR2 (1 + n) x)
           -> (IntOf target -> IxROf target p)
           -> target (TKR2 (p + n) x)
@@ -413,20 +416,22 @@ sindex0 :: (KnownShS sh1, KnownSTK x, BaseTensor target)
         => target (TKS2 sh1 x) -> IxSOf target sh1
         -> target (TKS2 '[] x)
 sindex0 = tsindex0
-soneHot :: ( KnownShS sh1, KnownShS sh2, KnownSTK x
+soneHot :: ( KnownShS sh1, KnownShS sh2, TKAllNum x, KnownSTK x
            , BoolOf (PrimalOf target) ~ BoolOf target
            , EqH (PrimalOf target) (TKScalar Int64), BaseTensor target )
         => target (TKS2 sh2 x) -> IxSOf target sh1
         -> target (TKS2 (sh1 ++ sh2) x)
 soneHot = tsoneHot
 sscatter
-  :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x, BaseTensor target)
+  :: ( KnownShS shm, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x
+     , BaseTensor target )
   => target (TKS2 (shm ++ shn) x)
   -> (IxSOf target shm -> IxSOf target shp)
   -> target (TKS2 (shp ++ shn) x)
 sscatter @shm @shn @shp = tsscatter @_ @shm @shn @shp
 sscatter1
-  :: (KnownNat n2, KnownShS shn, KnownShS shp, KnownSTK x, BaseTensor target)
+  :: ( KnownNat n2, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x
+     , BaseTensor target )
   => target (TKS2 (n2 ': shn) x)
   -> (IntOf target -> IxSOf target shp)
   -> target (TKS2 (shp ++ shn) x)
@@ -452,20 +457,20 @@ xindex0 :: (KnownShX sh1, KnownSTK x, BaseTensor target)
         => target (TKX2 sh1 x) -> IxXOf target sh1
         -> target (TKX2 '[] x)
 xindex0 = txindex0
-xoneHot :: ( KnownShX sh1, KnownShX sh2, KnownSTK x
+xoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
            , BoolOf (PrimalOf target) ~ BoolOf target
            , EqH (PrimalOf target) (TKScalar Int64)
            , BaseTensor target, ConvertTensor target )
         => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
         -> target (TKX2 (sh1 ++ sh2) x)
 xoneHot = txoneHot
-xscatter :: ( KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x
+xscatter :: ( KnownShX shm, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x
             , BaseTensor target )
          => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) x)
          -> (IxXOf target shm -> IxXOf target shp)
          -> target (TKX2 (shp ++ shn) x)
 xscatter @shm @shn @shp = txscatter @_ @shm @shn @shp
-xscatter1 :: ( KnownNat n2, KnownShX shn, KnownShX shp, KnownSTK x
+xscatter1 :: ( KnownNat n2, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x
              , BaseTensor target )
           => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) x)
           -> (IntOf target -> IxXOf target shp)
@@ -511,14 +516,14 @@ xreshape :: forall sh sh2 x target. (KnownSTK x, BaseTensor target)
          => IShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
 xreshape = txreshape
 
-rfloor :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
+rfloor :: ( GoodScalar r, RealFrac r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKR n r) -> target (TKR n r2)
 rfloor = trfloor
-rfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, BaseTensor target)
+rfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
               => target (TKR n r1) -> target (TKR n r2)
 rfromIntegral = trfromIntegral
-rcast :: ( RealFrac r1, GoodScalar r1, RealFrac r2, GoodScalar r2
+rcast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
          , BaseTensor target )
       => target (TKR n r1) -> target (TKR n r2)
 rcast = trcast
@@ -527,18 +532,18 @@ rminIndex, rmaxIndex  -- partial
   => target (TKR (1 + n) r) -> target (TKR n r2)
 rminIndex = trminIndex
 rmaxIndex = trmaxIndex
-riota :: (GoodScalar r, BaseTensor target)
+riota :: (NumScalar r, BaseTensor target)
       => Int -> target (TKR 1 r)  -- from 0 to n - 1
 riota = triota
 
-sfloor :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
+sfloor :: ( GoodScalar r, RealFrac r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKS sh r) -> target (TKS sh r2)
 sfloor = tsfloor
-sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, BaseTensor target)
+sfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
               => target (TKS sh r1) -> target (TKS sh r2)
 sfromIntegral = tsfromIntegral
-scast :: ( RealFrac r1, GoodScalar r1, RealFrac r2, GoodScalar r2
+scast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
          , BaseTensor target )
       => target (TKS sh r1) -> target (TKS sh r2)
 scast = tscast
@@ -547,18 +552,18 @@ sminIndex, smaxIndex  -- partial
   => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
 sminIndex = tsminIndex
 smaxIndex = tsmaxIndex
-siota :: (KnownNat n, GoodScalar r, BaseTensor target)
+siota :: (KnownNat n, NumScalar r, BaseTensor target)
       => target (TKS '[n] r)  -- from 0 to n - 1
 siota = tsiota
 
-xfloor :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
+xfloor :: ( GoodScalar r, RealFrac r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKX sh r) -> target (TKX sh r2)
 xfloor = txfloor
-xfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, BaseTensor target)
+xfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
               => target (TKX sh r1) -> target (TKX sh r2)
 xfromIntegral = txfromIntegral
-xcast :: ( RealFrac r1, GoodScalar r1, RealFrac r2, GoodScalar r2
+xcast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
          , BaseTensor target )
       => target (TKX sh r1) -> target (TKX sh r2)
 xcast = txcast
@@ -567,18 +572,18 @@ xminIndex, xmaxIndex  -- partial
   => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
 xminIndex = txminIndex
 xmaxIndex = txmaxIndex
-xiota :: (KnownNat n, GoodScalar r, BaseTensor target)
+xiota :: (KnownNat n, NumScalar r, BaseTensor target)
       => target (TKX '[Just n] r)  -- from 0 to n - 1
 xiota = txiota
 
-kfloor :: ( GoodScalar r, RealFrac r, GoodScalar r2, Integral r2
+kfloor :: ( GoodScalar r, RealFrac r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKScalar r) -> target (TKScalar r2)
 kfloor = tkfloor
-kfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, BaseTensor target)
+kfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
               => target (TKScalar r1) -> target (TKScalar r2)
 kfromIntegral = tkfromIntegral
-kcast :: ( RealFrac r1, GoodScalar r1, RealFrac r2, GoodScalar r2
+kcast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
          , BaseTensor target )
       => target (TKScalar r1) -> target (TKScalar r2)
 kcast = tkcast

@@ -51,7 +51,7 @@ type ADCnnMnistParameters (target :: Target) r =
 
 -- | A single convolutional layer with @relu@ and @maxPool@.
 convMnistLayerR
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r)  -- ^ @[c_out, c_in, kh + 1, kw + 1]@
   -> target (TKR 4 r)  -- ^ @[batch_size, c_in, h, w]@
   -> target (TKR 1 r)  -- ^ @[c_out]@
@@ -66,7 +66,7 @@ convMnistLayerR ker input bias =
 
 -- | Composition of two convolutional layers.
 convMnistTwoR
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => Int -> Int -> Int
   -> PrimalOf target (TKR 4 r)
        -- ^ input images @[batch_size, 1, SizeMnistHeight, SizeMnistWidth]@
@@ -94,7 +94,7 @@ convMnistTwoR sizeMnistHeightI sizeMnistWidthI batch_size input
 
 -- | The neural network composed with the SoftMax-CrossEntropy loss function.
 convMnistLossFusedR
-  :: (ADReady target, ADReady (PrimalOf target), GoodScalar r, Differentiable r)
+  :: (ADReady target, ADReady (PrimalOf target), NumScalar r, Differentiable r)
   => Int  -- ^ batch_size
   -> ( PrimalOf target (TKR 3 r)
          -- ^ @[batch_size, SizeMnistHeight, SizeMnistWidth]@
@@ -118,7 +118,7 @@ convMnistLossFusedR batch_size (glyphR, labelR) adparameters =
 -- and the trained parameters.
 convMnistTestR
   :: forall target r.
-     (target ~ Concrete, GoodScalar r, Differentiable r)
+     (target ~ Concrete, NumScalar r, Differentiable r)
   => Int
   -> MnistDataBatchR r
   -> ADCnnMnistParameters Concrete r

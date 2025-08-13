@@ -222,11 +222,11 @@ data Delta :: Target -> Target where
            => Delta target y -> Delta target y -> Delta target y
 
   -- Scalar arithmetic
-  DeltaCastK :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2)
+  DeltaCastK :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
              => Delta target (TKScalar r1) -> Delta target (TKScalar r2)
 
   -- Ranked tensor operations
-  DeltaCastR :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2)
+  DeltaCastR :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
              => Delta target (TKR n r1) -> Delta target (TKR n r2)
   DeltaSum0R :: Delta target (TKR2 n r) -> Delta target (TKR2 0 r)
   DeltaDot0R :: (GoodScalar r, Show (target (TKR n r)))
@@ -259,7 +259,7 @@ data Delta :: Target -> Target where
                 -> Delta target (TKR2 m r)
 
   -- Shaped tensor operations
-  DeltaCastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2)
+  DeltaCastS :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
              => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
   DeltaSum0S :: Delta target (TKS2 sh r) -> Delta target (TKS2 '[] r)
   DeltaDot0S :: (GoodScalar r, Show (target (TKS sh r)))
@@ -299,7 +299,7 @@ data Delta :: Target -> Target where
                 -> Delta target (TKS2 sh2 r)
 
   -- Mixed tensor operations
-  DeltaCastX :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2)
+  DeltaCastX :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
              => Delta target (TKX sh r1) -> Delta target (TKX sh r2)
   DeltaSum0X :: Delta target (TKX2 sh r) -> Delta target (TKX2 '[] r)
   DeltaDot0X :: (GoodScalar r, Show (target (TKX sh r)))

@@ -61,7 +61,7 @@ crevMaybeBoth f vals =
   in crevOnParams Nothing g (tftk knownSTK valsH) valsH
 
 rev' :: forall r m n v a w.
-        ( KnownNat m, KnownNat n, GoodScalar r
+        ( KnownNat m, KnownNat n, NumScalar r, NumScalar (ADTensorScalar r)
         , v ~ Concrete (TKR m r)
         , w ~ Concrete (ADTensorKind (TKR m r))
         , a ~ Concrete (ADTensorKind (TKR n r)) )
@@ -90,7 +90,7 @@ rev' f vals = unsafePerformIO $ do
   return (resNormalSharing, resTotalSharing)
 
 rev1 :: forall r m n v a w.
-        ( KnownNat m, KnownNat n, GoodScalar r
+        ( KnownNat m, KnownNat n, NumScalar r, NumScalar (ADTensorScalar r)
         , v ~ Concrete (TKR m r)
         , w ~ Concrete (ADTensorKind (TKR m r))
         , a ~ Concrete (ADTensorKind (TKR n r)) )
@@ -294,7 +294,7 @@ assertEqualUpToEpsilon'
        , a ~ Concrete (ADTensorKind (TKR n r))
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon (ADTensorScalar r)
-       , GoodScalar r, GoodScalar (ADTensorScalar r), HasCallStack)
+       , GoodScalar r, NumScalar (ADTensorScalar r), HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> Concrete (TKR n r)  -- ^ expected reverse derivative value
     -> ( ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
@@ -321,7 +321,7 @@ assertEqualUpToEpsilon1
        , a ~ Concrete (ADTensorKind (TKR n r))
        , AssertEqualUpToEpsilon a, AssertEqualUpToEpsilon v
        , AssertEqualUpToEpsilon (ADTensorScalar r)
-       , GoodScalar r, GoodScalar (ADTensorScalar r), HasCallStack)
+       , GoodScalar r, NumScalar (ADTensorScalar r), HasCallStack)
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> Concrete (TKR n r)  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
@@ -473,12 +473,12 @@ t128c :: (GoodScalar r, Fractional r) => Concrete (TKR 4 r)
 t128c = rreshape (2 :$: 2 :$: 8 :$: 4 :$: ZSR) t128
 
 rrev1 :: forall g r n m r3.
-         (ADReady g, GoodScalar r, KnownNat n, GoodScalar r3, KnownNat m)
+         (ADReady g, GoodScalar r, KnownNat n, NumScalar r3, KnownNat m)
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR n r))
 rrev1 f u = kgrad (kfromR . rsum0 . f) (tftk knownSTK u) u
 
-rrevFTK :: forall g x z. (ADReady g, KnownSTK x)
+rrevFTK :: forall g x z. (ADReady g, KnownSTK x, TKAllNum z)
         => FullShapeTK z -> (forall f. ADReady f => f x -> f z) -> g x
         -> g (ADTensorKind x)
 rrevFTK ftk f u = kgrad (tsum0Target ftk . f) (tftk knownSTK u) u
@@ -497,7 +497,7 @@ rfwd1 :: forall g r n m r3.
 rfwd1 f u = rfwd1ds f u (rrepl (rshape u) 1)
 
 srev1 :: forall g r sh sh2 r3.
-         (ADReady g, GoodScalar r, KnownShS sh, GoodScalar r3, KnownShS sh2)
+         (ADReady g, GoodScalar r, KnownShS sh, NumScalar r3, KnownShS sh2)
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh r))
 srev1 f u = kgrad (kfromS. ssum0 . f) (tftk knownSTK u) u

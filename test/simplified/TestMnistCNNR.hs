@@ -46,7 +46,7 @@ type XParams r = X (MnistCnnRanked2.ADCnnMnistParameters Concrete r)
 -- which side-steps vectorization.
 mnistTestCaseCNNRA
   :: forall r.
-     (Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
+     (Differentiable r, NumScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
@@ -154,7 +154,7 @@ tensorADValMnistTestsCNNRA = testGroup "CNNR ADVal MNIST tests"
 -- but differentiated anew in each gradient descent iteration.
 mnistTestCaseCNNRI
   :: forall r.
-     (Differentiable r, GoodScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
+     (Differentiable r, NumScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
@@ -279,7 +279,7 @@ tensorADValMnistTestsCNNRI = testGroup "CNNR Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseCNNRO
   :: forall r.
-     ( Differentiable r, GoodScalar r
+     ( Differentiable r, NumScalar r
      , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
   => String
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r

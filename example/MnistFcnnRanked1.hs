@@ -33,7 +33,7 @@ type ADFcnnMnist1Parameters
 -- as lists of vectors.
 listMatmul1
   :: forall target r w1 w2.
-     (ADReady target, GoodScalar r, KnownNat w1)
+     (ADReady target, NumScalar r, KnownNat w1)
   => target (TKS '[w1] r) -> ListR w2 (target (TKS '[w1] r))
   -> target (TKS '[w2] r)
 {-# INLINE listMatmul1 #-}  -- this doesn't want to specialize
@@ -48,7 +48,7 @@ listMatmul1 x0 weights = tlet x0 $ \x ->
 -- The widths of the two hidden layers are @widthHidden@ and @widthHidden2@,
 -- respectively.
 afcnnMnist1 :: forall target r widthHidden widthHidden2.
-               (ADReady target, GoodScalar r, Differentiable r)
+               (ADReady target, NumScalar r, Differentiable r)
             => (forall n. KnownNat n
                 => target (TKS '[n] r) -> target (TKS '[n] r))
             -> (target (TKS '[SizeMnistLabel] r)
@@ -71,7 +71,7 @@ afcnnMnist1 factivationHidden factivationOutput SNat SNat
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 afcnnMnistLoss1
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => SNat widthHidden -> SNat widthHidden2
   -> (target (TKR 1 r), target (TKR 1 r))
   -> ADFcnnMnist1Parameters target widthHidden widthHidden2 r
@@ -80,17 +80,19 @@ afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) adparams =
   let result = afcnnMnist1 logisticS softMax1S
                            widthHidden widthHidden2 (sfromR datum) adparams
   in lossCrossEntropyV target result
--- {-# SPECIALIZE afcnnMnistLoss1 :: (GoodScalar r, Differentiable r) => SNat widthHidden -> SNat widthHidden2 -> (AstTensor AstMethodLet FullSpan (TKR 1 r), AstTensor AstMethodLet FullSpan (TKR 1 r)) -> ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 r -> AstTensor AstMethodLet FullSpan (TKScalar r) #-}
-{-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (AstTensor AstMethodLet FullSpan (TKR 1 Double), AstTensor AstMethodLet FullSpan (TKR 1 Double)) -> ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 Double -> AstTensor AstMethodLet FullSpan (TKScalar Double) #-}
-{-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (AstTensor AstMethodLet FullSpan (TKR 1 Float), AstTensor AstMethodLet FullSpan (TKR 1 Float)) -> ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 Float -> AstTensor AstMethodLet FullSpan (TKScalar Float) #-}
-{-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (ADVal Concrete (TKR 1 Double), ADVal Concrete (TKR 1 Double)) -> ADFcnnMnist1Parameters (ADVal Concrete) widthHidden widthHidden2 Double -> ADVal Concrete (TKScalar Double) #-}
-{-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (ADVal Concrete (TKR 1 Float), ADVal Concrete (TKR 1 Float)) -> ADFcnnMnist1Parameters (ADVal Concrete) widthHidden widthHidden2 Float -> ADVal Concrete (TKScalar Float) #-}
+-- {-# SPECIALIZE afcnnMnistLoss1 :: (NumScalar r, Differentiable r) => SNat widthHidden -> SNat widthHidden2 -> (AstTensor AstMethodLet FullSpan (TKR 1 r), AstTensor AstMethodLet FullSpan (TKR 1 r)) -> ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 r -> AstTensor AstMethodLet FullSpan (TKScalar r) #-}
+
+-- TODO: RULE left-hand side too complicated to desugar:
+-- {-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (AstTensor AstMethodLet FullSpan (TKR 1 Double), AstTensor AstMethodLet FullSpan (TKR 1 Double)) -> ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 Double -> AstTensor AstMethodLet FullSpan (TKScalar Double) #-}
+-- {-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (AstTensor AstMethodLet FullSpan (TKR 1 Float), AstTensor AstMethodLet FullSpan (TKR 1 Float)) -> ADFcnnMnist1Parameters (AstTensor AstMethodLet FullSpan) widthHidden widthHidden2 Float -> AstTensor AstMethodLet FullSpan (TKScalar Float) #-}
+-- {-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (ADVal Concrete (TKR 1 Double), ADVal Concrete (TKR 1 Double)) -> ADFcnnMnist1Parameters (ADVal Concrete) widthHidden widthHidden2 Double -> ADVal Concrete (TKScalar Double) #-}
+-- {-# SPECIALIZE afcnnMnistLoss1 :: SNat widthHidden -> SNat widthHidden2 -> (ADVal Concrete (TKR 1 Float), ADVal Concrete (TKR 1 Float)) -> ADFcnnMnist1Parameters (ADVal Concrete) widthHidden widthHidden2 Float -> ADVal Concrete (TKScalar Float) #-}
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 afcnnMnistTest1
   :: forall target widthHidden widthHidden2 r.
-     (target ~ Concrete, GoodScalar r, Differentiable r)
+     (target ~ Concrete, NumScalar r, Differentiable r)
   => SNat widthHidden -> SNat widthHidden2
   -> [MnistDataLinearR r]
   -> ADFcnnMnist1Parameters target widthHidden widthHidden2 r

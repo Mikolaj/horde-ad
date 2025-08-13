@@ -178,17 +178,17 @@ testTrees =
 -- * A non-laborious version (depends on indexing OOB giving 0 consistently)
 
 conv2d1
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2d1 = conv2dSame $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dA
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dA = conv2dSame $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dB
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dB = conv2dSame (rconcrete $ unConcrete t16b)
 
@@ -225,27 +225,27 @@ testKonstG0LittleA =
     (rev' @Double @4 conv2dA (rrepl [2, 2, 2, 2] 0))
 
 conv2dC
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dC = flip conv2dSame (rconcrete $ unConcrete t16b)
 
 conv2dB128b
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dB128b = conv2dSame (rconcrete $ unConcrete t128b)
 
 conv2dC128b
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dC128b = flip conv2dSame (rconcrete $ unConcrete t128b)
 
 conv2dB128c
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dB128c = conv2dSame (rconcrete $ unConcrete t128c)
 
 conv2dC128c
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dC128c = flip conv2dSame (rconcrete $ unConcrete t128c)
 
@@ -469,7 +469,7 @@ testKonstNotBigC128cb =
 -- BTW, the indexing lower bounds in the code are spurious,
 -- so they get simplified away in the resulting AST program.
 conv2dSameL
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dSameL arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
@@ -521,43 +521,43 @@ within0 sh ix =
      $ zipWith within (toList ix) (map fromIntegral $ toList sh)
 
 conv2d1Laborious
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2d1Laborious = conv2dSameL $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dALaborious
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dALaborious =
   conv2dSameL $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dBLaborious
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dBLaborious = conv2dSameL (rconcrete $ unConcrete t16b)
 
 conv2dCLaborious
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dCLaborious = flip conv2dSameL (rconcrete $ unConcrete t16b)
 
 conv2dBLaborious128b
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dBLaborious128b = conv2dSameL (rconcrete $ unConcrete t128b)
 
 conv2dCLaborious128b
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dCLaborious128b = flip conv2dSameL (rconcrete $ unConcrete t128b)
 
 conv2dBLaborious128c
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dBLaborious128c = conv2dSameL (rconcrete $ unConcrete t128c)
 
 conv2dCLaborious128c
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dCLaborious128c = flip conv2dSameL (rconcrete $ unConcrete t128c)
 
@@ -783,7 +783,7 @@ testKonstNotBigCLaborious128cb =
 --   in conv2dSame, but here additionally all bounds checks in the code
 --   are spurious and will be simplified away in the resulting AST program.
 conv2dPaddedB
-  :: forall target r. (ADReady target, GoodScalar r)
+  :: forall target r. (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dPaddedB arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
@@ -811,43 +811,43 @@ conv2dPaddedB arrK arrA =
     _ -> error "conv2dPaddedB: impossible pattern needlessly required"
 
 conv2d1Padded
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2d1Padded = conv2dPaddedB $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dAPadded
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dAPadded =
   conv2dPaddedB $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dBPadded
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dBPadded = conv2dPaddedB (rconcrete $ unConcrete t16b)
 
 conv2dCPadded
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dCPadded = flip conv2dPaddedB (rconcrete $ unConcrete t16b)
 
 conv2dBPadded128b
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dBPadded128b = conv2dPaddedB (rconcrete $ unConcrete t128b)
 
 conv2dCPadded128b
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dCPadded128b = flip conv2dPaddedB (rconcrete $ unConcrete t128b)
 
 _conv2dBPadded128c
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 _conv2dBPadded128c = conv2dPaddedB (rconcrete $ unConcrete t128c)
 
 _conv2dCPadded128c
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 _conv2dCPadded128c = flip conv2dPaddedB (rconcrete $ unConcrete t128c)
 
@@ -1080,7 +1080,7 @@ testKonstNotBigCPadded128cb =
 --    Section III b).
 --
 costVolume
-  :: forall r target. (ADReady target, GoodScalar r)
+  :: forall r target. (ADReady target, NumScalar r)
   => Int -> Int -> target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 costVolume iStart nCount arrL arrR =
   let [nImgs, nChas, nRows, nCols] = rshape arrL
@@ -1656,7 +1656,7 @@ testPaddedCNNOPPLet = do
     @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [2,2,2,2] STKScalar)) (let w45 = sreshape @[2,2,2,2,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @2 (ssum @2 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[2,3,0,4,5,1] (sgather (stranspose @[4,2,0,3,1] (sgather (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,3] 0.0)) (stranspose @[0,2,3,1] (sgather (sslice (SNat @1) (SNat @3) (stranspose @[3,0,4,1,2] (sslice (SNat @1) (SNat @3) (stranspose @[3,1,2,4,0] (sfromVector (fromList [stranspose @[1,2,3,0] (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR (tproject2 u1))) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0)))), sconcrete (sreplicate [2,2,4,4] 0.0)])))))) (\\[i36, i37] -> [i36, i37, ifH (notB (2 <=. i37) &&* notB (2 <=. i36)) 0 1])))))) (\\[i100, i102] -> [i100 + i102]))) (\\[i41, i42] -> [i41 + i42]))))) (stranspose @[2,3,1,4,5,6,0] w45)))) (stranspose @[3,1,2,0] (sslice (SNat @1) (SNat @2) (stranspose @[3,2,1,4,0] (sslice (SNat @1) (SNat @2) (stranspose @[3,2,1,0] (sappend (sconcrete (sreplicate [1,2,2,4,2] 0.0)) (stranspose @[1,3,4,0,2] (sappend (sconcrete (sreplicate [1,3,2,2,2] 0.0)) (sscatter (sslice (SNat @1) (SNat @3) (stranspose @[3,0,1,2] (sslice (SNat @1) (SNat @3) (sscatter (stranspose @[2,4,1,3,0] (sscatter (sdot1In (stranspose @[3,6,0,2,4,5,1] (sreplicate @2 (str (sreplicate @2 (str (sreplicate @2 (sfromR (tproject1 u1)))))))) (stranspose @[3,6,0,2,4,5,1] w45)) (\\[i46, i47] -> [i46 + i47]))) (\\[i48, i49] -> [i48 + i49]))))) (\\[i51, i52] -> [i51, i52, ifH (notB (2 <=. i52) &&* notB (2 <=. i51)) 0 1]))))))))) !$ [0]))"
 
 conv2dPaddedLet
-  :: forall target r. (ADReady target, GoodScalar r)
+  :: forall target r. (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dPaddedLet arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
@@ -1704,7 +1704,7 @@ testPaddedCNNOPPLet2 = do
     @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [2,2,2,2] STKScalar)) (let w66 = sreshape @[2,2,2,2,1,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @2 (ssum @2 (sdot1In (stranspose @[5,0,1,4,3,2] (sgather (stranspose @[2,4,0,3,1] (sgather (str (sreplicate @2 (sappend (sconcrete (sreplicate [1,2,4,2] 0.0)) (stranspose @[3,2,0,1] (sappend (sconcrete (sreplicate [1,2,2,3] 0.0)) (stranspose @[0,2,3,1] (sgather (sslice (SNat @1) (SNat @3) (stranspose @[3,0,4,1,2] (sslice (SNat @1) (SNat @3) (stranspose @[3,1,2,4,0] (sfromVector (fromList [stranspose @[1,2,3,0] (sappend (sconcrete (sreplicate [1,2,2,4] 0.0)) (sappend (stranspose @[3,1,2,0] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR (tproject2 u1))) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,2,2,4] 0.0)))), sconcrete (sreplicate [2,2,4,4] 0.0)])))))) (\\[i53, i54] -> [i53, i54, ifH (notB (2 <=. i54) &&* notB (2 <=. i53)) 0 1])))))))) (\\[i253, i255] -> [i255 + i253]))) (\\[i222, i223, i229] -> [i222, i222 + i229]))) (stranspose @[4,2,3,1,5,6,7,0] w66 !$ [0])))) (stranspose @[3,1,2,0] (sslice (SNat @1) (SNat @2) (stranspose @[3,2,1,4,0] (sslice (SNat @1) (SNat @2) (stranspose @[3,2,1,0] (sappend (sconcrete (sreplicate [1,2,2,4,2] 0.0)) (stranspose @[1,3,4,0,2] (sappend (sconcrete (sreplicate [1,3,2,2,2] 0.0)) (sscatter (sslice (SNat @1) (SNat @3) (stranspose @[3,0,1,2] (sslice (SNat @1) (SNat @3) (ssum @2 (stranspose @[2,1,3,0] (sscatter (ssum @2 (stranspose @[2,3,4,5,0,1] (sscatter (stranspose @[2,0,1] (sscatter (stranspose @[3,5,2,0,4,1] (sscatter (sdot1In (sreplicate @2 (stranspose @[2,0,1,4,3] (sreplicate @2 (sreplicate @2 (stranspose @[3,2,1,0] (sfromR (tproject1 u1))))))) (stranspose @[4,3,7,0,2,5,6,1] w66 !$ [0])) (\\[i67, i68] -> [i67, i67 + i68]))) (\\[i69, i70] -> [i69, i69 + i70]))) (\\[i71] -> [i71, i71])))) (\\[i72, i73, i74] -> [i74, i72]))))))) (\\[i76, i77] -> [i76, i77, ifH (notB (2 <=. i77) &&* notB (2 <=. i76)) 0 1]))))))))) !$ [0]))"
 
 conv2dPaddedLet2
-  :: forall target r. (ADReady target, GoodScalar r)
+  :: forall target r. (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dPaddedLet2 arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
@@ -1753,7 +1753,7 @@ testPaddedCNNOPP2 = do
     @?= "\\dret u1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX)) (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [2,2,2,2] FTKScalar)) ConvSX))) (STKProduct (STKS [2,2,2,2] STKScalar) (STKS [2,2,2,2] STKScalar)) (let w31 = sreshape @[2,2,2,2,2,2,2] (stranspose @[1,2,3,4,0] (sreplicate @8 (sfromR dret))) in tpair (ssum @2 (ssum @2 (sdot1In (stranspose @[2,3,0,4,5,6,1] (sreplicate @2 (stranspose @[5,0,1,4,2,3] (sgather (sappend (sconcrete (sreplicate [1,4,2,2] 0.0)) (sappend (stranspose @[3,0,2,1] (sappend (sconcrete (sreplicate [1,2,2,2] 0.0)) (sappend (stranspose @[2,0,1] (sfromR (tproject2 u1))) (sconcrete (sreplicate [1,2,2,2] 0.0))))) (sconcrete (sreplicate [1,4,2,2] 0.0)))) (\\[i24, i25, i27, i28] -> [i25 + i28, i24 + i27]))))) (stranspose @[2,3,1,4,5,6,0] w31)))) (stranspose @[1,2,0] (sslice (SNat @1) (SNat @2) (stranspose @[3,1,2,0] (sslice (SNat @1) (SNat @2) (sscatter (sdot1In (sreplicate @2 (sreplicate @2 (sreplicate @2 (stranspose @[1,2,3,0] (sfromR (tproject1 u1)))))) (stranspose @[0,2,3,4,5,6,1] w31)) (\\[i32, i33, i34, i35, i36, i37] -> [i34 + i37, i32, i35, i33 + i36])))))))"
 
 conv2dPadded2
-  :: forall target r. (ADReady target, GoodScalar r)
+  :: forall target r. (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dPadded2 arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA

@@ -49,12 +49,12 @@ smaximum t | SNat <- shsProduct (knownShS @sh) =
   tlet (sflatten t) $ \tf ->
     sindex0 tf (tprimalPart (kfromS (smaxIndex tf)) :.$ ZIS)
 
-sfromIndex0 :: forall r target. (ADReady target, GoodScalar r)
+sfromIndex0 :: forall r target. (ADReady target, NumScalar r)
             => IntOf target -> target (TKS '[] r)
 sfromIndex0 = sfromR . rfromIntegral . rfromPrimal . rfromK
 
 sfromIndex1 :: forall r sh target.
-               (ADReady target, GoodScalar r, KnownShS sh)
+               (ADReady target, NumScalar r, KnownShS sh)
             => IxSOf target sh -> target (TKS '[Rank sh] r)
 sfromIndex1 | SNat <- shsRank (knownShS @sh) =
   case sameNat (Proxy @(Rank sh)) (Proxy @0) of
@@ -101,7 +101,7 @@ logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
 -- so useful as a test.
 squareS :: forall target r sh.
            ( KnownShS sh, BaseTensor target, LetTensor target
-           , Num (PrimalOf target (TKS sh r)), GoodScalar r )
+           , Num (PrimalOf target (TKS sh r)), NumScalar r )
         => target (TKS sh r) -> target (TKS sh r)
 squareS d = let u = sprimalPart d
                 u' = sdualPart d
@@ -110,11 +110,11 @@ squareS d = let u = sprimalPart d
 squaredDifferenceS
   :: forall target sh r.
      ( KnownShS sh, BaseTensor target, LetTensor target
-     , Num (PrimalOf target (TKS sh r)), GoodScalar r )
+     , Num (PrimalOf target (TKS sh r)), NumScalar r )
   => PrimalOf target (TKS sh r) -> target (TKS sh r) -> target (TKS sh r)
 squaredDifferenceS targ res = squareS $ res - sfromPrimal targ
 
-lossCrossEntropyVS :: ( KnownShS sh, GoodScalar r, Differentiable r
+lossCrossEntropyVS :: ( KnownShS sh, NumScalar r, Differentiable r
                       , BaseTensor target, ConvertTensor target )
                    => target (TKS sh r)
                    -> target (TKS sh r)
@@ -126,7 +126,7 @@ lossCrossEntropyVS targ res = kfromS $ negate $ log res `sdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyS
   :: forall target sh r.
-     ( ADReady target, ADReady (PrimalOf target), GoodScalar r, KnownShS sh
+     ( ADReady target, ADReady (PrimalOf target), NumScalar r, KnownShS sh
      , Differentiable r )
   => PrimalOf target (TKS sh r) -> target (TKS sh r) -> target (TKScalar r)
 lossSoftMaxCrossEntropyS expected d' = tlet d' $ \d ->
@@ -166,7 +166,7 @@ maxPool1S v =
 
 softMax1S :: forall target sh r.
              ( KnownShS sh, BaseTensor target, LetTensor target
-             , GoodScalar r, Differentiable r )
+             , NumScalar r, Differentiable r )
           => target (TKS sh r) -> target (TKS sh r)
 softMax1S d =
   let expU0 = exp d
@@ -179,7 +179,7 @@ conv2dSameS
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh, KnownNat nAw, KnownNat nKh, KnownNat nKw
-     , ADReady target, GoodScalar r
+     , ADReady target, NumScalar r
      , nCinpA ~ nCinp
      , shK  ~ '[nCout, nCinp, nKh, nKw]
      , shA  ~ '[nImgs, nCinp, nAh, nAw]
@@ -210,7 +210,7 @@ conv2dShrinkingS
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh_nKh1, KnownNat nAw_nKw1, KnownNat nKh1, KnownNat nKw1
-     , ADReady target, GoodScalar r
+     , ADReady target, NumScalar r
      , nCinpA ~ nCinp
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA  ~ '[nImgs, nCinpA, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
@@ -238,7 +238,7 @@ conv2dPaddedS
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh, KnownNat nAw, KnownNat nKh1, KnownNat nKw1
-     , ADReady target, GoodScalar r
+     , ADReady target, NumScalar r
      , nCinpA ~ nCinp
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA  ~ '[nImgs, nCinpA, nAh, nAw]

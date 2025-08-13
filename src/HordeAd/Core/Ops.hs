@@ -247,7 +247,7 @@ class LetTensor (target :: Target) where
       ttlet a $ \ !aShared -> ttlet b $ \ !bShared ->
         tpair (tappend msnat nsnat stk1 (tproject1 aShared) (tproject1 bShared))
               (tappend msnat nsnat stk2 (tproject2 aShared) (tproject2 bShared))
-  tD :: BaseTensor target
+  tD :: (TKAllNum y, BaseTensor target)
      => SingletonTK y -> PrimalOf target y -> DualOf target y
      -> target y
   tD stk p d =
@@ -516,27 +516,27 @@ class ( Num (IntOf target)
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain
   -- by 1 dimension.
-  trsum :: (KnownNat n, KnownSTK x)
+  trsum :: (KnownNat n, TKAllNum x, KnownSTK x)
         => target (TKR2 (1 + n) x) -> target (TKR2 n x)
   -- This op (and it's Delta constructor) is worthwhile, because flattening
   -- is O(n) sometimes, unlike transpose, etc.
-  trsum0 :: (KnownNat n, KnownSTK x)
+  trsum0 :: (KnownNat n, TKAllNum x, KnownSTK x)
          => target (TKR2 n x) -> target (TKR2 0 x)
   trsum0 = trsum . rflatten
-  trdot0 :: (KnownNat n, GoodScalar r)
+  trdot0 :: (KnownNat n, NumScalar r)
          => target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
   trdot0 t u = trsum (rflatten (t * u))
-  trdot1In :: (KnownNat n, GoodScalar r)
+  trdot1In :: (KnownNat n, NumScalar r)
            => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
            -> target (TKR n r)
   trdot1In @n t u = trsum $ trtranspose (permCycle $ 1 + valueOf @n) (t * u)
-  trmatvecmul :: GoodScalar r
+  trmatvecmul :: NumScalar r
               => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
 -- How to generalize (#69)? The few straightforward generalizations
 -- differ in types but all are far from matmul2.
 -- rmatvecmul m v = rflatten $ rmap1 (rreplicate 1 . rdot0 v) m
   trmatvecmul m v = trbuild1 (rwidth m) (\i -> trdot0 v (m `trindex` [i]))
-  trmatmul2 :: GoodScalar r
+  trmatmul2 :: NumScalar r
             => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 -- How to generalize to tmatmul (#69)?
 -- Just rmatmul2 the two outermost dimensions?
@@ -549,15 +549,15 @@ class ( Num (IntOf target)
                 => IShR n -> target (TKR2 0 x) -> target (TKR2 n x)
   trreplicate0N sh = trreshape sh . trreplicate (shrSize sh)
 
-  tssum :: (KnownNat n, KnownShS sh, KnownSTK x)
+  tssum :: (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x)
         => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
-  tssum0 :: (KnownShS sh, KnownSTK x)
+  tssum0 :: (KnownShS sh, TKAllNum x, KnownSTK x)
          => target (TKS2 sh x) -> target (TKS2 '[] x)
   tssum0 @sh | SNat <- shsProduct (knownShS @sh) = tssum . sflatten
-  tsdot0 :: (KnownShS sh, GoodScalar r)
+  tsdot0 :: (KnownShS sh, NumScalar r)
          => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
   tsdot0 @sh t u | SNat <- shsProduct (knownShS @sh) = tssum (sflatten (t * u))
-  tsdot1In :: (KnownShS sh, GoodScalar r)
+  tsdot1In :: (KnownShS sh, NumScalar r)
            => SNat n -> target (TKS (sh ++ '[n]) r)
            -> target (TKS (sh ++ '[n]) r)
            -> target (TKS sh r)
@@ -571,11 +571,11 @@ class ( Num (IntOf target)
          fromMaybe (error "tsdot1In: impossible non-permutation")
          $ Permutation.permCheckPermutation cperm
          $ tssum $ tstranspose cperm (t * u)
-  tsmatvecmul :: (KnownNat m, KnownNat n, GoodScalar r)
+  tsmatvecmul :: (KnownNat m, KnownNat n, NumScalar r)
               => target (TKS '[m, n] r) -> target (TKS '[n] r)
               -> target (TKS '[m] r)
   tsmatvecmul @m m v = tsbuild1 @_ @m (\i -> tsdot0 v (m `tsindex` (i :.$ ZIS)))
-  tsmatmul2 :: (KnownNat m, KnownNat n, KnownNat p, GoodScalar r)
+  tsmatmul2 :: (KnownNat m, KnownNat n, KnownNat p, NumScalar r)
             => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
             -> target (TKS '[m, p] r)
   tsmatmul2 @m m1 m2 =
@@ -592,17 +592,17 @@ class ( Num (IntOf target)
   -- due to DeltaSum and AstSum being typed with BuildTensorKind:
   -- xsum :: (KnownShX sh, KnownShX (mn ': sh), KnownSTK x)
   --     => target (TKX2 (mn ': sh) x) -> target (TKX2 sh x)
-  txsum :: (KnownNat n, KnownShX sh, KnownSTK x)
+  txsum :: (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x)
         => target (TKX2 (Just n ': sh) x) -> target (TKX2 sh x)
-  txsum0 :: (KnownShX sh, KnownSTK x, ConvertTensor target)
+  txsum0 :: (KnownShX sh, TKAllNum x, KnownSTK x, ConvertTensor target)
          => target (TKX2 sh x) -> target (TKX2 '[] x)
   txsum0 t = withSNat (shxSize $ xshape t) $ \snat ->
     txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
-  txdot0 :: (KnownShX sh, GoodScalar r, ConvertTensor target)
+  txdot0 :: (KnownShX sh, NumScalar r, ConvertTensor target)
          => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
   txdot0 t u = withSNat (shxSize $ xshape t) $ \snat ->
     txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten (t * u))
-  txdot1In :: (KnownShX sh, GoodScalar r)
+  txdot1In :: (KnownShX sh, NumScalar r)
            => SNat n -> target (TKX (sh ++ '[Just n]) r)
            -> target (TKX (sh ++ '[Just n]) r)
            -> target (TKX sh r)
@@ -616,7 +616,8 @@ class ( Num (IntOf target)
          fromMaybe (error "txdot1In: impossible non-permutation")
          $ Permutation.permCheckPermutation cperm
          $ txsum $ txtranspose cperm (t * u)
-  txmatvecmul :: forall mm mn r. (GoodScalar r, ConvertTensor target)
+  txmatvecmul :: forall mm mn r.
+                 (NumScalar r, ConvertTensor target)
               => Nested.SMayNat Int SNat mm -> Nested.SMayNat Int SNat mn
               -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
               -> target (TKX '[mm] r)
@@ -626,8 +627,8 @@ class ( Num (IntOf target)
     withSNat (fromSMayNat' mm) $ \(SNat @k) ->
       xmcast (ssxFromShX $ mm :$% ZSX)
       $ txbuild1 @_ @k (\i -> txdot0 v (m `txindex` (i :.% ZIX)))
-  txmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p, GoodScalar r
-               , ConvertTensor target )
+  txmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p
+               , NumScalar r, ConvertTensor target )
             => target (TKX '[Just m, Just n] r)
             -> target (TKX '[Just n, Just p] r)
             -> target (TKX '[Just m, Just p] r)
@@ -648,7 +649,7 @@ class ( Num (IntOf target)
   trindex0 :: (KnownNat m, KnownSTK x)
            => target (TKR2 m x) -> IxROf target m -> target (TKR2 0 x)
   trindex0 = trindex
-  troneHot :: ( KnownNat m, KnownNat n, KnownSTK x
+  troneHot :: ( KnownNat m, KnownNat n, TKAllNum x, KnownSTK x
               , BoolOf (PrimalOf target) ~ BoolOf target
               , EqH (PrimalOf target) (TKScalar Int64))
            => IShR m -> target (TKR2 n x) -> IxROf target m
@@ -668,11 +669,11 @@ class ( Num (IntOf target)
         in rbuild (shrAppend sh (rshape v)) f
            -- TODO: if this is used often, maybe express this as the gather that
            -- would come out of vectorization, making sure it simplifies well
-  trscatter :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
+  trscatter :: (KnownNat m, KnownNat n, KnownNat p, TKAllNum x, KnownSTK x)
             => IShR (p + n) -> target (TKR2 (m + n) x)
             -> (IxROf target m -> IxROf target p)
             -> target (TKR2 (p + n) x)
-  trscatter1 :: (KnownNat n, KnownNat p, KnownSTK x)
+  trscatter1 :: (KnownNat n, KnownNat p, TKAllNum x, KnownSTK x)
              => IShR (p + n) -> target (TKR2 (1 + n) x)
              -> (IntOf target -> IxROf target p)
              -> target (TKR2 (p + n) x)
@@ -696,7 +697,7 @@ class ( Num (IntOf target)
            => target (TKS2 sh1 x) -> IxSOf target sh1
            -> target (TKS2 '[] x)
   tsindex0 @sh1 | Refl <- lemAppNil @sh1 = tsindex
-  tsoneHot :: ( KnownShS sh1, KnownShS sh2, KnownSTK x
+  tsoneHot :: ( KnownShS sh1, KnownShS sh2, TKAllNum x, KnownSTK x
               , BoolOf (PrimalOf target) ~ BoolOf target
               , EqH (PrimalOf target) (TKScalar Int64) )
            => target (TKS2 sh2 x) -> IxSOf target sh1
@@ -725,12 +726,12 @@ class ( Num (IntOf target)
                           (tdefTarget (FTKS ZSS ftk2))
         in sbuild @(Rank (sh1 ++ sh2)) f
   tsscatter
-     :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x)
+     :: (KnownShS shm, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x)
      => target (TKS2 (shm ++ shn) x)
      -> (IxSOf target shm -> IxSOf target shp)
      -> target (TKS2 (shp ++ shn) x)
   tsscatter1
-     :: (KnownNat n2, KnownShS shn, KnownShS shp, KnownSTK x)
+     :: (KnownNat n2, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x)
      => target (TKS2 (n2 ': shn) x)
      -> (IntOf target -> IxSOf target shp)
      -> target (TKS2 (shp ++ shn) x)
@@ -754,7 +755,7 @@ class ( Num (IntOf target)
            => target (TKX2 sh1 x) -> IxXOf target sh1
            -> target (TKX2 '[] x)
   txindex0 @sh1 | Refl <- lemAppNil @sh1 = txindex
-  txoneHot :: ( KnownShX sh1, KnownShX sh2, KnownSTK x
+  txoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
               , BoolOf (PrimalOf target) ~ BoolOf target
               , EqH (PrimalOf target) (TKScalar Int64), ConvertTensor target )
            => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
@@ -782,12 +783,14 @@ class ( Num (IntOf target)
                           (txindex0 v (ixxDrop' @(Rank sh1) ix2))
                           (tdefTarget (FTKX ZSX ftk2))
         in xbuild @(Rank (sh1 ++ sh2)) (shxAppend sh1 (xshape v)) f
-  txscatter :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
+  txscatter :: ( KnownShX shm, KnownShX shn, KnownShX shp
+               , TKAllNum x, KnownSTK x )
             => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) x)
             -> (IxXOf target shm -> IxXOf target shp)
             -> target (TKX2 (shp ++ shn) x)
   -- TODO: generalize this to non-Just types.
-  txscatter1 :: (KnownNat n2, KnownShX shn, KnownShX shp, KnownSTK x)
+  txscatter1 :: ( KnownNat n2, KnownShX shn, KnownShX shp
+                , TKAllNum x, KnownSTK x )
              => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) x)
              -> (IntOf target -> IxXOf target shp)
              -> target (TKX2 (shp ++ shn) x)
@@ -807,46 +810,46 @@ class ( Num (IntOf target)
              (Nested.SKnown k :$% shxDropSSX (knownShX @shp) (xshape v)) v
              (\(i :.% ZIX) -> f i)
 
-  trfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
+  trfloor :: (GoodScalar r, RealFrac r, NumScalar r2, Integral r2)
           => target (TKR n r) -> target (TKR n r2)
-  trfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
+  trfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2)
                  => target (TKR n r1) -> target (TKR n r2)
-  trcast :: (RealFrac r1, GoodScalar r1, RealFrac r2, GoodScalar r2)
+  trcast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
          => target (TKR n r1) -> target (TKR n r2)
   trminIndex, trmaxIndex  -- partial
     :: forall n r r2. (GoodScalar r, GoodScalar r2)
     => target (TKR (1 + n) r) -> target (TKR n r2)
-  triota :: GoodScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
+  triota :: NumScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
 
-  tsfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
+  tsfloor :: (GoodScalar r, RealFrac r, NumScalar r2, Integral r2)
           => target (TKS sh r) -> target (TKS sh r2)
-  tsfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
+  tsfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2)
                  => target (TKS sh r1) -> target (TKS sh r2)
-  tscast :: (RealFrac r1, GoodScalar r1, RealFrac r2, GoodScalar r2)
+  tscast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
          => target (TKS sh r1) -> target (TKS sh r2)
   tsminIndex, tsmaxIndex  -- partial
     :: forall n sh r r2. (GoodScalar r, GoodScalar r2)
     => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
-  tsiota :: (KnownNat n, GoodScalar r)
+  tsiota :: (KnownNat n, NumScalar r)
          => target (TKS '[n] r)  -- from 0 to n - 1
 
-  txfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
+  txfloor :: (GoodScalar r, RealFrac r, NumScalar r2, Integral r2)
           => target (TKX sh r) -> target (TKX sh r2)
-  txfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
+  txfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2)
                  => target (TKX sh r1) -> target (TKX sh r2)
-  txcast :: (RealFrac r1, GoodScalar r1, RealFrac r2, GoodScalar r2)
+  txcast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
          => target (TKX sh r1) -> target (TKX sh r2)
   txminIndex, txmaxIndex  -- partial
     :: forall mn sh r r2. (GoodScalar r, GoodScalar r2)
     => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
-  txiota :: (KnownNat n, GoodScalar r)
+  txiota :: (KnownNat n, NumScalar r)
          => target (TKX '[Just n] r)  -- from 0 to n - 1
 
-  tkfloor :: (GoodScalar r, RealFrac r, GoodScalar r2, Integral r2)
+  tkfloor :: (GoodScalar r, RealFrac r, NumScalar r2, Integral r2)
           => target (TKScalar r) -> target (TKScalar r2)
-  tkfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2)
+  tkfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2)
                  => target (TKScalar r1) -> target (TKScalar r2)
-  tkcast :: (RealFrac r1, GoodScalar r1, RealFrac r2, GoodScalar r2)
+  tkcast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
          => target (TKScalar r1) -> target (TKScalar r2)
 
   trappend :: forall n x. KnownSTK x
@@ -1039,11 +1042,11 @@ class ( Num (IntOf target)
 
   -- General operations that use ShareTensor if available, LetTensor otherwise
   tsum
-    :: forall z k. ConvertTensor target
+    :: forall z k. (ConvertTensor target, TKAllNum z)
     => SNat k -> SingletonTK z -> target (BuildTensorKind k z)
     -> target z
   default tsum
-    :: forall z k. (ShareTensor target, ConvertTensor target)
+    :: forall z k. (ShareTensor target, ConvertTensor target, TKAllNum z)
     => SNat k -> SingletonTK z -> target (BuildTensorKind k z)
     -> target z
   tsum snat@SNat stk u = case stk of
@@ -1098,23 +1101,27 @@ class ( Num (IntOf target)
   -- | Add pointwise all corresponding tensors within nested product, if any.
   --
   -- Requires duplicable arguments or a ShareTensor instance.
-  taddTarget :: SingletonTK y -> target y -> target y -> target y
+  taddTarget :: TKAllNum y
+             => SingletonTK y -> target y -> target y -> target y
   -- | Multiply pointwise all corresponding tensors within nested products,
   -- if any.
   --
   -- Requires duplicable arguments or a ShareTensor instance.
-  tmultTarget :: SingletonTK y -> target y -> target y -> target y
+  tmultTarget :: TKAllNum y
+              => SingletonTK y -> target y -> target y -> target y
   -- | Sum all dimensions of each component and then sum it all. Ignore all
   -- tensors with non-differentiable elements.
   --
   -- Requires duplicable arguments or a ShareTensor instance.
-  tsum0Target :: FullShapeTK y -> target y
+  tsum0Target :: TKAllNum y
+              => FullShapeTK y -> target y
               -> target (TKScalar Double)
   -- | Dot product each component and then sum it all. Ignore all
   -- tensors with non-differentiable elements.
   --
   -- Requires duplicable arguments or a ShareTensor instance.
-  tdot0Target :: FullShapeTK y -> target y -> target y
+  tdot0Target :: TKAllNum y
+              => FullShapeTK y -> target y -> target y
               -> target (TKScalar Double)
 
   -- TODO: express without ConvertTensor or move there

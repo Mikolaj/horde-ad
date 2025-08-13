@@ -102,7 +102,7 @@ conv2dSame_dInp
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh, KnownNat nAw, KnownNat nKh, KnownNat nKw
-     , ADReady target, GoodScalar r
+     , ADReady target, NumScalar r
      , shK  ~ '[nCout, nCinp, nKh, nKw]
      , shA  ~ '[nImgs, nCinp, nAh, nAw]
      , shB  ~ '[nImgs, nCout, nAh, nAw]
@@ -135,7 +135,7 @@ conv2dSame_dKrn
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh, KnownNat nAw, KnownNat nKh, KnownNat nKw
-     , ADReady target, GoodScalar r
+     , ADReady target, NumScalar r
      , shK  ~ '[nCout, nCinp, nKh, nKw]
      , shA  ~ '[nImgs, nCinp, nAh, nAw]
      , shB  ~ '[nImgs, nCout, nAh, nAw]
@@ -191,7 +191,7 @@ test_conv2dSameVjp_dKrn =
 
 static_conv2dSameVjp
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
-     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     ( NumScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
@@ -232,7 +232,7 @@ static_conv2dSameVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
      && allClose cvjpKrn dKrn 1e-5
 
 quickcheck_conv2dSameVjp
-  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  :: forall r. (NumScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2dSameVjp =
   forAll (choose (0, 5)) $ \nImgs' ->
@@ -274,7 +274,7 @@ conv2dShrinking_dInp
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh_nKh1, KnownNat nAw_nKw1, KnownNat nKh1, KnownNat nKw1
-     , ADReady target, GoodScalar r
+     , ADReady target, NumScalar r
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA  ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
      , shB  ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1] )
@@ -297,7 +297,7 @@ conv2dShrinking_dKrn
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh_nKh1, KnownNat nAw_nKw1, KnownNat nKh1, KnownNat nKw1
-     , ADReady target, GoodScalar r
+     , ADReady target, NumScalar r
      , 1 <= nAh_nKh1, 1 <= nAw_nKw1
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA  ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
@@ -349,7 +349,7 @@ test_conv2dShrinkingVjp_dKrn =
 
 static_conv2dShrinkingVjp
   :: forall nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1 shK shA shB r.
-     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     ( NumScalar r, ADTensorScalar r ~ r, Fractional r
      , 1 <= nAh_nKh1, 1 <= nAw_nKw1
      , shK ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
@@ -391,7 +391,7 @@ static_conv2dShrinkingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
      && allClose cvjpKrn dKrn 1e-5
 
 quickcheck_conv2dShrinkingVjp
-  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  :: forall r. (NumScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2dShrinkingVjp =
   forAll chooseAny $ \(seed0 :: Int) ->
@@ -440,7 +440,7 @@ conv2dPadded_dInp
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh, KnownNat nAw, KnownNat nKh1, KnownNat nKw1
-     , ADReady target, GoodScalar r
+     , ADReady target, NumScalar r
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA  ~ '[nImgs, nCinp, nAh, nAw]
      , shB  ~ '[nImgs, nCout, nAh + nKh1, nAw + nKw1] )
@@ -463,7 +463,7 @@ conv2dPadded_dKrn
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
      , KnownNat nAh, KnownNat nAw, KnownNat nKh1, KnownNat nKw1
-     , ADReady target, GoodScalar r
+     , ADReady target, NumScalar r
      , 1 <= nAh, 1 <= nAw
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA  ~ '[nImgs, nCinp, nAh, nAw]
@@ -515,7 +515,7 @@ test_conv2dPaddedVjp_dKrn =
 
 static_conv2dPaddedVjp
   :: forall nImgs nCinp nCout nAh nAw nKh1 nKw1 shK shA shB r.
-     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     ( NumScalar r, ADTensorScalar r ~ r, Fractional r
      , 1 <= nAh, 1 <= nAw
      , shK  ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA  ~ '[nImgs, nCinp, nAh, nAw]
@@ -557,7 +557,7 @@ static_conv2dPaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
      && allClose cvjpKrn dKrn 1e-5
 
 quickcheck_conv2dPaddedVjp
-  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  :: forall r. (NumScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2dPaddedVjp =
   forAll chooseAny $ \(seed0 :: Int) ->
@@ -597,7 +597,7 @@ quickcheck_conv2dPaddedVjp =
 -- Forward derivative.
 static_conv2dSameJvp
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
-     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     ( NumScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB  ~ '[nImgs, nCout, nAh, nAw] )
@@ -626,7 +626,7 @@ static_conv2dSameJvp SNat SNat SNat SNat SNat SNat SNat
      && allClose cjvpKrn dKrn 1e-7
 
 quickcheck_conv2dSameJvp
-  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  :: forall r. (NumScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2dSameJvp =
   forAll (choose (0, 5)) $ \nImgs' ->
@@ -660,7 +660,7 @@ quickcheck_conv2dSameJvp =
 -- Forward derivative.
 static_conv2dShrinkingJvp
   :: forall nImgs nCinp nCout nAh_nKh1 nAw_nKw1 nKh1 nKw1 shK shA shB r.
-     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     ( NumScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA ~ '[nImgs, nCinp, nAh_nKh1 + nKh1, nAw_nKw1 + nKw1]
      , shB  ~ '[nImgs, nCout, nAh_nKh1, nAw_nKw1])
@@ -689,7 +689,7 @@ static_conv2dShrinkingJvp SNat SNat SNat SNat SNat SNat SNat
      && allClose cjvpKrn dKrn 1e-7
 
 quickcheck_conv2dShrinkingJvp
-  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  :: forall r. (NumScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2dShrinkingJvp =
   forAll (choose (0, 5)) $ \nImgs' ->
@@ -725,7 +725,7 @@ quickcheck_conv2dShrinkingJvp =
 -- Forward derivative.
 static_conv2dPaddedJvp
   :: forall nImgs nCinp nCout nAh nAw nKh1 nKw1 shK shA shB r.
-     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     ( NumScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh1 + 1, nKw1 + 1]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB  ~ '[nImgs, nCout, nAh + nKh1, nAw + nKw1] )
@@ -754,7 +754,7 @@ static_conv2dPaddedJvp SNat SNat SNat SNat SNat SNat SNat
      && allClose cjvpKrn dKrn 1e-7
 
 quickcheck_conv2dPaddedJvp
-  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  :: forall r. (NumScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2dPaddedJvp =
   forAll (choose (0, 5)) $ \nImgs' ->
@@ -790,7 +790,7 @@ quickcheck_conv2dPaddedJvp =
 
 static_conv2dSameVjpKrnHandwritten
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
-     ( GoodScalar r, Fractional r
+     ( NumScalar r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
@@ -807,7 +807,7 @@ static_conv2dSameVjpKrnHandwritten SNat SNat SNat SNat SNat SNat SNat
   in allClose dKrn dKrn 1e-5
 
 quickcheck_conv2dSameVjpKrnHandwritten
-  :: forall r. (GoodScalar r, Fractional r)
+  :: forall r. (NumScalar r, Fractional r)
   => Property
 quickcheck_conv2dSameVjpKrnHandwritten =
   forAll (choose (3, 3)) $ \nImgs' ->
@@ -837,7 +837,7 @@ quickcheck_conv2dSameVjpKrnHandwritten =
 
 static_conv2dSameVjpKrnHandwrittenVectorized
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
-     ( GoodScalar r, Fractional r
+     ( NumScalar r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
@@ -855,7 +855,7 @@ static_conv2dSameVjpKrnHandwrittenVectorized SNat SNat SNat SNat SNat SNat SNat
   in allClose dKrn dKrn 1e-5
 
 quickcheck_conv2dSameVjpKrnHandwrittenVectorized
-  :: forall r. (GoodScalar r, Fractional r)
+  :: forall r. (NumScalar r, Fractional r)
   => Property
 quickcheck_conv2dSameVjpKrnHandwrittenVectorized =
   forAll (choose (3, 3)) $ \nImgs' ->
@@ -885,7 +885,7 @@ quickcheck_conv2dSameVjpKrnHandwrittenVectorized =
 
 static_conv2dSameVjpKrnSymbolic
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
-     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     ( NumScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
@@ -903,7 +903,7 @@ static_conv2dSameVjpKrnSymbolic SNat SNat SNat SNat SNat SNat SNat
   in allClose vjpKrn vjpKrn 1e-5
 
 quickcheck_conv2dSameVjpKrnSymbolic
-  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  :: forall r. (NumScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2dSameVjpKrnSymbolic =
   forAll (choose (3, 3)) $ \nImgs' ->
@@ -933,7 +933,7 @@ quickcheck_conv2dSameVjpKrnSymbolic =
 
 static_conv2dSameVjpKrnConcrete
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
-     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     ( NumScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
@@ -951,7 +951,7 @@ static_conv2dSameVjpKrnConcrete SNat SNat SNat SNat SNat SNat SNat
   in allClose cvjpKrn cvjpKrn 1e-5
 
 quickcheck_conv2dSameVjpKrnConcrete
-  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  :: forall r. (NumScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2dSameVjpKrnConcrete =
   forAll (choose (3, 3)) $ \nImgs' ->
@@ -981,7 +981,7 @@ quickcheck_conv2dSameVjpKrnConcrete =
 
 static_conv2dSameVjpInpHandwritten
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
-     ( GoodScalar r, Fractional r
+     ( NumScalar r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
@@ -998,7 +998,7 @@ static_conv2dSameVjpInpHandwritten SNat SNat SNat SNat SNat SNat SNat
   in allClose dInp dInp 1e-5
 
 quickcheck_conv2dSameVjpInpHandwritten
-  :: forall r. (GoodScalar r, Fractional r)
+  :: forall r. (NumScalar r, Fractional r)
   => Property
 quickcheck_conv2dSameVjpInpHandwritten =
   forAll (choose (3, 3)) $ \nImgs' ->
@@ -1028,7 +1028,7 @@ quickcheck_conv2dSameVjpInpHandwritten =
 
 static_conv2dSameVjpInpHandwrittenVectorized
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
-     ( GoodScalar r, Fractional r
+     ( NumScalar r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
@@ -1046,7 +1046,7 @@ static_conv2dSameVjpInpHandwrittenVectorized SNat SNat SNat SNat SNat SNat SNat
   in allClose dInp dInp 1e-5
 
 quickcheck_conv2dSameVjpInpHandwrittenVectorized
-  :: forall r. (GoodScalar r, Fractional r)
+  :: forall r. (NumScalar r, Fractional r)
   => Property
 quickcheck_conv2dSameVjpInpHandwrittenVectorized =
   forAll (choose (3, 3)) $ \nImgs' ->
@@ -1076,7 +1076,7 @@ quickcheck_conv2dSameVjpInpHandwrittenVectorized =
 
 static_conv2dSameVjpInpSymbolic
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
-     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     ( NumScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
@@ -1094,7 +1094,7 @@ static_conv2dSameVjpInpSymbolic SNat SNat SNat SNat SNat SNat SNat
   in allClose vjpInp vjpInp 1e-5
 
 quickcheck_conv2dSameVjpInpSymbolic
-  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  :: forall r. (NumScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2dSameVjpInpSymbolic =
   forAll (choose (3, 3)) $ \nImgs' ->
@@ -1124,7 +1124,7 @@ quickcheck_conv2dSameVjpInpSymbolic =
 
 static_conv2dSameVjpInpConcrete
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
-     ( GoodScalar r, ADTensorScalar r ~ r, Fractional r
+     ( NumScalar r, ADTensorScalar r ~ r, Fractional r
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
@@ -1142,7 +1142,7 @@ static_conv2dSameVjpInpConcrete SNat SNat SNat SNat SNat SNat SNat
   in allClose cvjpInp cvjpInp 1e-5
 
 quickcheck_conv2dSameVjpInpConcrete
-  :: forall r. (GoodScalar r, ADTensorScalar r ~ r, Fractional r)
+  :: forall r. (NumScalar r, ADTensorScalar r ~ r, Fractional r)
   => Property
 quickcheck_conv2dSameVjpInpConcrete =
   forAll (choose (3, 3)) $ \nImgs' ->

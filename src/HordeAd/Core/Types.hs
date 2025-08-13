@@ -1,5 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, DerivingVia, ImpredicativeTypes,
-             UndecidableInstances, ViewPatterns #-}
+             UndecidableInstances, UndecidableSuperClasses, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -9,9 +9,10 @@ module HordeAd.Core.Types
     SNat, pattern SNat, pattern SNat'
   , withSNat, sNatValue, proxyFromSNat, valueOf
     -- * Kinds of the parameterized types that determine the structure of a tensor
-  , Target, TK (..), TKR, TKS, TKX, TKUnit
+  , Target, TK (..), TKR, TKS, TKX, TKUnit, TKAllNum
     -- * Some fundamental constraints and types related to tensors
-  , GoodScalar, GoodScalarConstraint, Differentiable, IfDifferentiable(..)
+  , GoodScalar, NumScalar, GoodScalarConstraint
+  , Differentiable, IfDifferentiable(..)
   , BuildTensorKind, RazeTensorKind, ADTensorKind, ADTensorScalar
     -- * Type families that tensors belong to
   , IntOf, HFunOf, PrimalOf, DualOf, ShareOf, BoolOf
@@ -47,7 +48,7 @@ import Data.Coerce (coerce)
 import Data.Default
 import Data.Functor.Const
 import Data.Int (Int64)
-import Data.Kind (Type)
+import Data.Kind (Constraint, Type)
 import Data.List (dropWhileEnd, sort)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -57,9 +58,11 @@ import Foreign.Storable (Storable (..))
 import GHC.Exts (IsList (..))
 import GHC.Generics (Generic)
 import GHC.TypeLits
-  ( KnownNat
+  ( ErrorMessage (..)
+  , KnownNat
   , Nat
   , SNat
+  , TypeError
   , fromSNat
   , pattern SNat
   , sameNat
@@ -137,6 +140,19 @@ type TKX sh r = TKX2 sh (TKScalar r)
 
 type TKUnit = TKScalar Z1
 
+type family TKAllNum (y :: TK) :: Constraint where
+  TKAllNum (TKScalar Int64) = ()
+  TKAllNum (TKScalar CInt) = ()
+  TKAllNum (TKScalar Double) = ()
+  TKAllNum (TKScalar Float) = ()
+  TKAllNum (TKScalar Z1) = ()
+  TKAllNum (TKR2 _ y) = TKAllNum y
+  TKAllNum (TKS2 _ y) = TKAllNum y
+  TKAllNum (TKX2 _ y) = TKAllNum y
+  TKAllNum (TKProduct x y) = (TKAllNum x, TKAllNum y)
+  TKAllNum a =
+    TypeError (Text "TKAllNum: No Num instance for type " :<>: ShowType a)
+
 
 -- * Some fundamental constraints and types
 
@@ -156,6 +172,9 @@ type GoodScalarConstraint r =
 -- is a well-behaved cell content of tensors supported by horde-ad.
 class GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
+
+class (GoodScalarConstraint r, TKAllNum (TKScalar r)) => NumScalar r
+instance (GoodScalarConstraint r, TKAllNum (TKScalar r)) => NumScalar r
 
 -- | The constraint for scalars that can be non-trivially differentiated,
 -- e.g., floating numbers, but not integers.

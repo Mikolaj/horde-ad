@@ -226,8 +226,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
                    SNat k -> SingletonTK y
                 -> Data.Vector.Vector (AstTensor ms s y)
                 -> AstTensor ms s (BuildTensorKind k y)
-  AstSum :: forall y k ms s.
-            SNat k -> SingletonTK y
+  AstSum :: forall y k ms s. TKAllNum y
+         => SNat k -> SingletonTK y
          -> AstTensor ms s (BuildTensorKind k y)
          -> AstTensor ms s y
   AstReplicate :: forall y k ms s.
@@ -326,13 +326,13 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
          -> AstTensor ms s (TKScalar r)
   AstConcreteK :: GoodScalar r
                => r -> AstTensor ms PrimalSpan (TKScalar r)
-  AstFloorK :: (GoodScalar r1, RealFrac r1, GoodScalar r2, Integral r2)
+  AstFloorK :: (GoodScalar r1, RealFrac r1, NumScalar r2, Integral r2)
             => AstTensor ms PrimalSpan (TKScalar r1)
             -> AstTensor ms PrimalSpan (TKScalar r2)
-  AstFromIntegralK :: (GoodScalar r1, Integral r1, GoodScalar r2)
+  AstFromIntegralK :: (GoodScalar r1, Integral r1, NumScalar r2)
                    => AstTensor ms PrimalSpan (TKScalar r1)
                    -> AstTensor ms PrimalSpan (TKScalar r2)
-  AstCastK :: (GoodScalar r1, RealFrac r1, RealFrac r2, GoodScalar r2)
+  AstCastK :: (NumScalar r1, RealFrac r1, RealFrac r2, NumScalar r2)
            => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
 
   -- Shaped arithmetic
@@ -360,13 +360,13 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
          -> AstTensor ms s (TKS sh r)
   AstConcreteS :: GoodScalar r
                => Nested.Shaped sh r -> AstTensor ms PrimalSpan (TKS sh r)
-  AstFloorS :: (GoodScalar r1, RealFrac r1, Integral r2, GoodScalar r2)
+  AstFloorS :: (GoodScalar r1, RealFrac r1, Integral r2, NumScalar r2)
             => AstTensor ms PrimalSpan (TKS sh r1)
             -> AstTensor ms PrimalSpan (TKS sh r2)
-  AstFromIntegralS :: (GoodScalar r1, Integral r1, GoodScalar r2)
+  AstFromIntegralS :: (GoodScalar r1, Integral r1, NumScalar r2)
                    => AstTensor ms PrimalSpan (TKS sh r1)
                    -> AstTensor ms PrimalSpan (TKS sh r2)
-  AstCastS :: (GoodScalar r1, RealFrac r1, GoodScalar r2, RealFrac r2)
+  AstCastS :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
            => AstTensor ms s (TKS sh r1)
            -> AstTensor ms s (TKS sh r2)
 
@@ -376,8 +376,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
             -> AstTensor ms s (TKS2 (shm ++ shn) x) -> AstIxS ms shm
             -> AstTensor ms s (TKS2 shn x)
     -- out of bounds indexing is permitted and the results is def (==0)
-  AstScatterS :: forall shm shn shp x s ms.
-                 ShS shn -> AstTensor ms s (TKS2 (shm ++ shn) x)
+  AstScatterS :: forall shm shn shp x s ms. TKAllNum x
+              => ShS shn -> AstTensor ms s (TKS2 (shm ++ shn) x)
               -> (AstVarListS shm, AstIxS ms shp)
               -> AstTensor ms s (TKS2 (shp ++ shn) x)
     -- out of bounds indexing is permitted and the results is def (==0)
@@ -392,7 +392,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   AstMaxIndexS :: forall n sh r r2 ms. (GoodScalar r, GoodScalar r2)
                => AstTensor ms PrimalSpan (TKS (n ': sh) r)
                -> AstTensor ms PrimalSpan (TKS (Init (n ': sh)) r2)
-  AstIotaS :: forall n r ms. GoodScalar r
+  AstIotaS :: forall n r ms. NumScalar r
            => SNat n -> AstTensor ms PrimalSpan (TKS '[n] r)
   AstAppendS :: forall m n sh x ms s.
                 AstTensor ms s (TKS2 (m ': sh) x)
@@ -415,17 +415,18 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   AstConvert :: TKConversion a b -> AstTensor ms s a -> AstTensor ms s b
 
   -- Backend-specific primitives
-  AstSum0S :: AstTensor ms s (TKS2 sh x)
+  AstSum0S :: TKAllNum x
+           => AstTensor ms s (TKS2 sh x)
            -> AstTensor ms s (TKS2 '[] x)
-  AstDot0S :: GoodScalar r
+  AstDot0S :: NumScalar r
            => AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
            -> AstTensor ms s (TKS '[] r)
-  AstDot1InS :: forall sh n r ms s. GoodScalar r
+  AstDot1InS :: forall sh n r ms s. NumScalar r
              => ShS sh -> SNat n
              -> AstTensor ms s (TKS (sh ++ '[n]) r)
              -> AstTensor ms s (TKS (sh ++ '[n]) r)
              -> AstTensor ms s (TKS sh r)
-  AstMatmul2S :: GoodScalar r
+  AstMatmul2S :: NumScalar r
               => SNat m -> SNat n -> SNat p
               -> AstTensor ms s (TKS '[m, n] r)
               -> AstTensor ms s (TKS '[n, p] r)

@@ -13,8 +13,8 @@ import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
 import GHC.TypeLits (KnownNat, Nat, fromSNat, type (*))
 
-import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd
@@ -53,7 +53,7 @@ unrollLastS f s0 xs w =
 
 -- | A single recurrent layer with @tanh@ activation function.
 rnnMnistLayerS
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => SNat in_width -> SNat out_width -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
        -- value parameters (@SNat@ below) denoting basic dimensions
@@ -70,7 +70,7 @@ rnnMnistLayerS SNat SNat SNat
 -- TODO: represent state as a pair to avoid appending; tlet now supports this.
 -- | Composition of two recurrent layers.
 rnnMnistTwoS
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => SNat out_width -> SNat batch_size -> SNat sizeMnistH
   -> target (TKS '[2 * out_width, batch_size] r)  -- initial state
   -> PrimalOf target (TKS '[sizeMnistH, batch_size] r)
@@ -99,7 +99,7 @@ rnnMnistTwoS out_width@SNat
 -- | The two-layer recurrent nn with its state initialized to zero
 -- and the result composed with a fully connected layer.
 rnnMnistZeroS
-  :: (ADReady target, GoodScalar r, Differentiable r)
+  :: (ADReady target, NumScalar r, Differentiable r)
   => SNat out_width
   -> SNat batch_size
   -> SNat sizeMnistH -> SNat sizeMnistW
@@ -119,7 +119,7 @@ rnnMnistZeroS out_width@SNat
 rnnMnistLossFusedS
   :: forall target h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth, Differentiable r
-     , ADReady target, ADReady (PrimalOf target), GoodScalar r)
+     , ADReady target, ADReady (PrimalOf target), NumScalar r)
   => SNat out_width
   -> SNat batch_size
   -> ( PrimalOf target (TKS '[batch_size, h, w] r)
@@ -143,7 +143,7 @@ rnnMnistLossFusedS out_width@SNat
 rnnMnistTestS
   :: forall target h w out_width batch_size r.
      ( h ~ SizeMnistHeight, w ~ SizeMnistWidth
-     , target ~ Concrete, Differentiable r, GoodScalar r )
+     , target ~ Concrete, Differentiable r, NumScalar r )
   => SNat out_width
   -> SNat batch_size
   -> MnistDataBatchS batch_size r

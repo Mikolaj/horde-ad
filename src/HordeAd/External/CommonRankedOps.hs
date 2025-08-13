@@ -44,14 +44,14 @@ rmaximum t =
     rindex0 tf (tprimalPart (kfromR (rmaxIndex tf)) :.: ZIR)
 
 rfromIndex0 :: forall r target.
-               (BaseTensor target, ConvertTensor target, GoodScalar r)
+               (BaseTensor target, ConvertTensor target, NumScalar r)
             => IntOf target -> target (TKR 0 r)
 rfromIndex0 = rfromIntegral . rfromK . tfromPrimal STKScalar
 
 rfromIndex1 :: forall n r target.
                ( KnownNat n , BaseTensor target
                , BaseTensor (PrimalOf target), ConvertTensor (PrimalOf target)
-               , GoodScalar r )
+               , NumScalar r )
             => IxROf target n -> target (TKR 1 r)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
@@ -110,7 +110,7 @@ logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
 -- so useful as a test.
 square :: forall target r n.
           ( BaseTensor target, LetTensor target
-          , KnownNat n, Num (PrimalOf target (TKR n r)), GoodScalar r )
+          , KnownNat n, Num (PrimalOf target (TKR n r)), NumScalar r )
        => target (TKR n r) -> target (TKR n r)
 square d = let u = rprimalPart @target d
                u' = rdualPart @target d
@@ -119,13 +119,13 @@ square d = let u = rprimalPart @target d
 squaredDifference
   :: forall target n r.
      ( BaseTensor target, LetTensor target
-     , KnownNat n, Num (PrimalOf target (TKR n r)), GoodScalar r )
+     , KnownNat n, Num (PrimalOf target (TKR n r)), NumScalar r )
   => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKR n r)
 squaredDifference targ res = square @target $ res - rfromPrimal @target targ
 
 lossCrossEntropyV
   :: ( BaseTensor target, ConvertTensor target
-     , KnownNat n, GoodScalar r, Differentiable r )
+     , KnownNat n, NumScalar r, Differentiable r )
   => target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
 lossCrossEntropyV targ res = kfromR $ negate $ log res `rdot0` targ
 
@@ -137,7 +137,7 @@ lossSoftMaxCrossEntropyR
      ( BaseTensor target, ConvertTensor target, LetTensor target
      , BaseTensor (PrimalOf target), ConvertTensor (PrimalOf target)
      , LetTensor (PrimalOf target)
-     , KnownNat n, GoodScalar r, Differentiable r )
+     , KnownNat n, NumScalar r, Differentiable r )
   => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
 lossSoftMaxCrossEntropyR expected d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
@@ -160,14 +160,14 @@ lossSoftMaxCrossEntropyR expected d' = tlet d' $ \d ->
 
 -- | No padding; remaining areas ignored.
 maxPool1 :: ( BaseTensor target, ConvertTensor target, LetTensor target
-            , GoodScalar r )
+            , NumScalar r )
          => Int -> Int -> target (TKR 1 r) -> target (TKR 1 r)
 maxPool1 ksize stride v =
   let slices = [rslice i ksize v | i <- [0, stride .. rwidth v - ksize]]
   in rfromList $ NonEmpty.fromList $ map rmaximum slices
 
 softMax1 :: ( BaseTensor target, LetTensor target
-            , KnownNat n, GoodScalar r, Differentiable r )
+            , KnownNat n, NumScalar r, Differentiable r )
          => target (TKR n r) -> target (TKR n r)
 softMax1 d =
   let expU0 = exp d
@@ -179,7 +179,7 @@ softMax1 d =
 -- BTW, the indexing lower bounds in the code are spurious,
 -- so they get simplified away in the resulting AST program.
 conv2dSame
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dSame arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
@@ -202,7 +202,7 @@ conv2dSame arrK arrA =
 -- This corresponds to
 -- https://hackage.haskell.org/package/hmatrix-0.20.2/docs/Numeric-LinearAlgebra.html#v:corr2
 conv2dShrinking
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dShrinking arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
@@ -222,7 +222,7 @@ conv2dShrinking arrK arrA =
 -- https://hackage.haskell.org/package/hmatrix-0.20.2/docs/Numeric-LinearAlgebra.html#v:conv2
 -- though it doesn't do the kernel flipping.
 conv2dPadded
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dPadded arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
@@ -242,7 +242,7 @@ conv2dPadded arrK arrA =
 -- | Full convolution with custom padding, where the output image size
 -- depends on the input size, kernel size and padding.
 conv2dCustomPadded
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => (Int, Int) -> target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
 conv2dCustomPadded (nPh, nPw) arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
@@ -287,6 +287,6 @@ maxPool2dUnpadded ksize stride arr =
     _ -> error "maxPool2dUnpadded: impossible pattern needlessly required"
 
 xfromIndex0 :: forall r target.
-               (BaseTensor target, ConvertTensor target, GoodScalar r)
+               (BaseTensor target, ConvertTensor target, NumScalar r)
             => IntOf target -> target (TKX '[] r)
 xfromIndex0 = xfromIntegral . xfromK . tfromPrimal STKScalar
