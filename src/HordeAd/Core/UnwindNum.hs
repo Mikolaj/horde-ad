@@ -34,16 +34,16 @@ import HordeAd.OpsTensor
 -- corresponds to the portion of ox-arrays that has Num defined.
 type role RepW nominal nominal
 data RepW target y where
-  WTKScalar :: GoodScalar r
+  WTKScalar :: NumScalar r
             => target (TKScalar r)
             -> RepW target (TKScalar r)
-  WTKR :: GoodScalar r
+  WTKR :: NumScalar r
        => target (TKR n r)
        -> RepW target (TKR n r)
-  WTKS :: GoodScalar r
+  WTKS :: NumScalar r
        => target (TKS sh r)
        -> RepW target (TKS sh r)
-  WTKX :: GoodScalar r
+  WTKX :: NumScalar r
        => target (TKX sh r)
        -> RepW target (TKX sh r)
   WTKProduct :: RepW target x -> RepW target z
@@ -53,13 +53,13 @@ data RepW target y where
 -- singletons.
 type role FullShapeTKW nominal
 data FullShapeTKW y where
-  WFTKScalar :: GoodScalar r
+  WFTKScalar :: NumScalar r
              => FullShapeTKW (TKScalar r)
-  WFTKR :: GoodScalar r
+  WFTKR :: NumScalar r
         => IShR n -> FullShapeTKW (TKR n r)
-  WFTKS :: GoodScalar r
+  WFTKS :: NumScalar r
         => ShS sh -> FullShapeTKW (TKS sh r)
-  WFTKX :: GoodScalar r
+  WFTKX :: NumScalar r
         => IShX sh -> FullShapeTKW (TKX sh r)
   WFTKProduct :: FullShapeTKW y -> FullShapeTKW z
               -> FullShapeTKW (TKProduct y z)
@@ -156,7 +156,8 @@ type family UnWind y where
   UnWind (TKProduct y z) =
     TKProduct (UnWind y) (UnWind z)
 
-unWindFTK :: FullShapeTK y -> FullShapeTKW (UnWind y)
+unWindFTK :: TKAllNum y
+          => FullShapeTK y -> FullShapeTKW (UnWind y)
 unWindFTK = \case
   FTKScalar -> WFTKScalar
   FTKR sh FTKScalar -> WFTKR sh
@@ -197,7 +198,7 @@ unWindFTK = \case
 -- a tower of projections for product, but if it's balanced,
 -- that's of logarithmic length, so maybe even better than sharing
 -- excessively, which is hard for technical typing reasons.
-unWindTarget :: ConvertTensor target
+unWindTarget :: (TKAllNum y, ConvertTensor target)
              => SingletonTK y -> target y -> RepW target (UnWind y)
 unWindTarget stk t = case stk of
   STKScalar -> WTKScalar t
