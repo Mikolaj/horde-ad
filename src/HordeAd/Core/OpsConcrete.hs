@@ -77,8 +77,8 @@ instance BaseTensor Concrete where
   trunravelToList @_ @r | Dict <- eltDictRep (knownSTK @r) =
     fmapConcrete . Nested.rtoListOuter . unConcrete
   trsum t = case tftk knownSTK t of
-    FTKR _ FTKScalar ->  -- optimized
-      Concrete . Nested.rsumOuter1 . unConcrete $ t
+    FTKR _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+      Concrete . Nested.rsumOuter1 . unConcrete $ t  -- optimized
     FTKR _ x ->
       let l = trunravelToList t
           sh = shrTail $ rshape t
@@ -86,7 +86,7 @@ instance BaseTensor Concrete where
         -- Concrete has a ShareTensor instance, so taddTarget arguments
         -- don't need to be duplicable
   trsum0 @_ @r t = case knownSTK @r of
-    STKScalar ->  -- optimized
+    STKScalar @r2 | Dict0 <- numFromTKAllNum (Proxy @r2) ->  -- optimized
       Concrete . Nested.rscalar . Nested.rsumAllPrim . unConcrete $ t
     _ -> trsum . rflatten $ t
   {-# INLINE trdot0 #-}
@@ -154,14 +154,14 @@ instance BaseTensor Concrete where
   tsunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     fmapConcrete . Nested.stoListOuter . unConcrete
   tssum t = case tftk knownSTK t of
-    FTKS _ FTKScalar ->  -- optimized
-      Concrete . Nested.ssumOuter1 . unConcrete $ t
+    FTKS _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+      Concrete . Nested.ssumOuter1 . unConcrete $ t  -- optimized
     FTKS _ x ->
       let l = tsunravelToList t
           sh = shsTail $ sshape t
       in foldr (taddTarget knownSTK) (tdefTarget (FTKS sh x)) l
   tssum0 @sh @r t | SNat <- shsProduct (knownShS @sh) = case knownSTK @r of
-    STKScalar ->  -- optimized
+    STKScalar @r2 | Dict0 <- numFromTKAllNum (Proxy @r2) ->  -- optimized
       Concrete . Nested.sscalar . Nested.ssumAllPrim . unConcrete $ t
     _ -> tssum . sflatten $ t
   {-# INLINE tsdot0 #-}  -- this doesn't want to specialize
@@ -197,7 +197,7 @@ instance BaseTensor Concrete where
                                           :~: shp) $
            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn)
                                           :~: shn) $
-           let zero = tdefTarget (FTKS shpshn x)
+           let zero = tdefTarget @Concrete (FTKS shpshn x)
                shm = knownShS @shm
                s = shsSize shm
                g ix =
@@ -220,7 +220,7 @@ instance BaseTensor Concrete where
                                        :~: shp) $
            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn)
                                        :~: shn) $
-           let zero = tdefTarget (FTKS shpshn x)
+           let zero = tdefTarget @Concrete (FTKS shpshn x)
                shm = knownShS @shm
                s = shsSize shm
                g ix =
@@ -312,18 +312,18 @@ instance BaseTensor Concrete where
   txunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     fmapConcrete . Nested.mtoListOuter . unConcrete
   txsum t = case tftk knownSTK t of
-    FTKX _ FTKScalar ->  -- optimized
-      Concrete . Nested.msumOuter1 . unConcrete $ t
+    FTKX _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+      Concrete . Nested.msumOuter1 . unConcrete $ t  -- optimized
     FTKX _ x ->
       let l = txunravelToList t
           sh = shxTail $ xshape t
       in foldr (taddTarget knownSTK) (tdefTarget (FTKX sh x)) l
   txsum0 @_ @r t =
-   case knownSTK @r of
-    STKScalar ->  -- optimized
-      Concrete . Nested.mscalar . Nested.msumAllPrim . unConcrete $ t
-    _ -> withSNat (shxSize $ xshape t) $ \snat ->
-      txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
+    case knownSTK @r of
+      STKScalar @r2 | Dict0 <- numFromTKAllNum (Proxy @r2) ->  -- optimized
+        Concrete . Nested.mscalar . Nested.msumAllPrim . unConcrete $ t
+      _ -> withSNat (shxSize $ xshape t) $ \snat ->
+        txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
   {-# INLINE txdot0 #-}
   txdot0 u v =
     Concrete $ Nested.mscalar $ Nested.mdot (unConcrete u) (unConcrete v)

@@ -384,10 +384,13 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstFromVector @y2 _ _ l ->
     gcastWith (unsafeCoerceRefl :: y2 :~: y) $
     case stk of
-      STKScalar -> foldr1 (+) l
-      STKR _ STKScalar -> foldr1 (+) l
-      STKS _ STKScalar -> foldr1 (+) l
-      STKX _ STKScalar -> foldr1 (+) l
+      STKScalar @r | Dict0 <- numFromTKAllNum (Proxy @r) -> foldr1 (+) l
+      STKR _ (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+        foldr1 (+) l
+      STKS _ (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+        foldr1 (+) l
+      STKX _ (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+        foldr1 (+) l
       _ -> Ast.AstSum snat stk t0
   -- See the analogous astSliceS rule.
   Ast.AstTransposeS (SNat' @1 `PCons` SNat' @0 `PCons` PNil) t
@@ -396,23 +399,27 @@ astSum snat@SNat stk t0 = case t0 of
     , Just u <- unRepl1 t ->
       astReplicate snat1 (STKS sh3 x)
       $ astSum snat (STKS sh3 x) u
-  Ast.AstReplicate _ STKScalar v | STKScalar <- stk ->
-    v * fromPrimal (AstConcreteK $ fromInteger $ fromSNat snat)
-  Ast.AstReplicate _ _ v | STKR _ (STKScalar @r) <- stk ->
+  Ast.AstReplicate _ STKScalar v | STKScalar @r <- stk
+                                 , Dict0 <- numFromTKAllNum (Proxy @r) ->
+   v * fromPrimal (AstConcreteK $ fromInteger $ fromSNat snat)
+  Ast.AstReplicate _ _ v | STKR _ (STKScalar @r) <- stk
+                         , Dict0 <- numFromTKAllNum (Proxy @r) ->
     case ftkAst v of
       ftk@(FTKR sh' FTKScalar) ->
         withShsFromShR sh' $ \(sh :: ShS sh) ->
           v * astFromS'
                 ftk (fromPrimal $ AstConcreteS @r
                      $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
-  Ast.AstReplicate _ _ v | STKX _ (STKScalar @r) <- stk ->
+  Ast.AstReplicate _ _ v | STKX _ (STKScalar @r) <- stk
+                         , Dict0 <- numFromTKAllNum (Proxy @r) ->
     case ftkAst v of
       ftk@(FTKX sh' FTKScalar) ->
         withShsFromShX sh' $ \(sh :: ShS sh) ->
           v * astFromS'
                 ftk (fromPrimal $ AstConcreteS @r
                      $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
-  Ast.AstReplicate _ STKS{} v | STKS sh (STKScalar @r) <- stk ->
+  Ast.AstReplicate _ STKS{} v | STKS sh (STKScalar @r) <- stk
+                              , Dict0 <- numFromTKAllNum (Proxy @r) ->
     case ftkAst v of
       ftk ->
           v * astFromS'
@@ -3001,16 +3008,26 @@ astConvertFromS c zftk a = case (zftk, a) of
       -- for scalars, we don't pull up but push down
   (FTKScalar, Ast.AstLet var u v) ->
     astLet var u (astConvertFromS c FTKScalar v)
-  (FTKScalar, AstPlusS u v) ->
+  (FTKScalar @r, AstPlusS u v)
+    | Dict0 <- lemTKAllNumConvertForward c
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
     astConvertFromS c FTKScalar u + astConvertFromS c FTKScalar v
-  (FTKScalar, AstTimesS u v) ->
+  (FTKScalar @r, AstTimesS u v)
+    | Dict0 <- lemTKAllNumConvertForward c
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
     astConvertFromS c FTKScalar u * astConvertFromS c FTKScalar v
-  (FTKScalar, Ast.AstN1S NegateOp u) ->
+  (FTKScalar @r, Ast.AstN1S NegateOp u)
+    | Dict0 <- lemTKAllNumConvertForward c
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
     negate (astConvertFromS c FTKScalar u)
-  (FTKScalar, Ast.AstN1S AbsOp u) ->
+  (FTKScalar @r, Ast.AstN1S AbsOp u)
+    | Dict0 <- lemTKAllNumConvertForward c
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
     abs (astConvertFromS c FTKScalar u)
-  (FTKScalar, Ast.AstN1S SignumOp u) ->
-    signum (astConvertFromS c FTKScalar u)
+  (FTKScalar @r, Ast.AstN1S SignumOp u)
+    | Dict0 <- lemTKAllNumConvertForward c
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
+      signum (astConvertFromS c FTKScalar u)
   (FTKScalar @r1, Ast.AstI2S @r2 QuotOp u v)
     | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
       astConvertFromS c FTKScalar u
@@ -3287,12 +3304,14 @@ astSum0S :: (AstSpan s, TKAllNum x)
          -> AstTensor AstMethodLet s (TKS2 '[] x)
 astSum0S t = case t of
   Ast.AstSum SNat _ u -> astSum0S u
-  Ast.AstReplicate snat (STKS _ STKScalar) u ->
-    astSum0S u * (fromPrimal $ AstConcreteS
-                  $ Nested.sscalar $ fromInteger $ fromSNat snat)
-  Ast.AstReplicate snat STKScalar u ->
-    astSFromK' u * (fromPrimal $ AstConcreteS
+  Ast.AstReplicate snat (STKS _ (STKScalar @r)) u
+    | Dict0 <- numFromTKAllNum (Proxy @r) ->
+      astSum0S u * (fromPrimal $ AstConcreteS
                     $ Nested.sscalar $ fromInteger $ fromSNat snat)
+  Ast.AstReplicate snat (STKScalar @r) u
+    | Dict0 <- numFromTKAllNum (Proxy @r) ->
+      astSFromK' u * (fromPrimal $ AstConcreteS
+                      $ Nested.sscalar $ fromInteger $ fromSNat snat)
   Ast.AstLet var u v -> astLet var u (astSum0S v)
   AstTimesS t1 t2 -> astDot0S t1 t2
   AstConcreteS v ->

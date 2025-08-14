@@ -37,13 +37,13 @@ import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.OpsTensor
 
-sminimum :: forall r sh target. (ADReady target, GoodScalar r, KnownShS sh)
+sminimum :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
 sminimum t | SNat <- shsProduct (knownShS @sh) =
   tlet (sflatten t) $ \tf ->
     sindex0 tf (tprimalPart (kfromS (sminIndex tf)) :.$ ZIS)
 
-smaximum :: forall r sh target. (ADReady target, GoodScalar r, KnownShS sh)
+smaximum :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
 smaximum t | SNat <- shsProduct (knownShS @sh) =
   tlet (sflatten t) $ \tf ->
@@ -64,7 +64,7 @@ sfromIndex1 | SNat <- shsRank (knownShS @sh) =
 
 {-
 sletIx :: forall r sh n target.
-          (ADReady target, GoodScalar r, KnownShS sh, KnownNat n)
+          (ADReady target, NumScalar r, KnownShS sh, KnownNat n)
        => IxROf target n -> (IxROf target n -> target (TKS sh r))
        -> target (TKS sh r)
 sletIx ix0 f = tlet (sfromR @target @Int64 @'[n]
@@ -74,7 +74,7 @@ sletIx ix0 f = tlet (sfromR @target @Int64 @'[n]
 
 reluS, reluLeakyS
   :: forall target sh r.
-     (KnownShS sh, ADReady target, GoodScalar r, Differentiable r)
+     (KnownShS sh, ADReady target, NumScalar r, Differentiable r)
   => target (TKS sh r) -> target (TKS sh r)
 reluS v0 = tlet v0 $ \v ->
   let oneIfGtZero =
@@ -88,7 +88,7 @@ reluLeakyS v0 = tlet v0 $ \v ->
 
 logisticS :: forall target r sh.
              ( BaseTensor target, LetTensor target, BaseTensor (PrimalOf target)
-             , KnownShS sh, GoodScalar r, Differentiable r )
+             , KnownShS sh, NumScalar r, Differentiable r )
           => target (TKS sh r) -> target (TKS sh r)
 logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
   let one = srepl 1
@@ -150,7 +150,7 @@ lossSoftMaxCrossEntropyS expected d' = tlet d' $ \d ->
 
 -- | No padding; remaining areas ignored.
 maxPool1S :: forall ksize stride m target r.
-             ( ADReady target, GoodScalar r
+             ( ADReady target, NumScalar r
              , KnownNat ksize, KnownNat stride, KnownNat m )
           => target (TKS '[m] r) -> target (TKS '[m] r)
 maxPool1S v =
@@ -267,7 +267,7 @@ slicezS
   :: forall shOut sh target r.
      ( KnownShS sh, KnownShS shOut, KnownShS (Take (Rank sh) shOut)
      , KnownNat (Rank sh)
-     , Rank shOut ~ Rank sh, ADReady target, GoodScalar r )
+     , Rank shOut ~ Rank sh, ADReady target, NumScalar r )
   => target (TKS sh r) -> IxSOf target sh -> target (TKS shOut r)
 slicezS d ixBase =
   gcastWith (unsafeCoerceRefl
@@ -285,7 +285,7 @@ maxPool2dUnpaddedS
      ( KnownNat ksize, KnownNat stride, KnownNat batch_size, KnownNat channels
      , KnownNat h, KnownNat w
      , 1 <= stride  -- wrongly reported as redundant due to plugins
-     , ADReady target, GoodScalar r
+     , ADReady target, NumScalar r
      , shOut ~ '[batch_size, channels, h `Div` stride, w `Div` stride]
      , shK1 ~ '[1, 1, ksize, ksize]
      )

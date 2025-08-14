@@ -1207,13 +1207,13 @@ bar (x, y) =
   in atan2H x w + y * w
 
 barRelu
-  :: ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )
+  :: ( ADReady target, NumScalar r, KnownNat n, Differentiable r )
   => target (TKR n r) -> target (TKR n r)
 barRelu x = let t = rreplicate0N (rshape x) (rscalar 0.001) * x
             in relu $ bar (t, relu t)
 
 barRelu10xSlower
-  :: ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )
+  :: ( ADReady target, NumScalar r, KnownNat n, Differentiable r )
   => target (TKR n r) -> target (TKR n r)
 barRelu10xSlower x = let t = rmap0N (* rscalar 0.001) x
                      in relu $ bar (t, relu t)
@@ -1340,7 +1340,7 @@ maxPool2dUnpadded3 arr =
     _ -> error "maxPool2dUnpadded3: impossible pattern needlessly required"
 
 conv2dSame3
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dSame3 arrA =
   let shB = [2, 2, 2, 2]
@@ -1582,7 +1582,7 @@ testCNNOPP4bU = do
 -- TODO: different test result with GHC 9.10:   printArtifactPretty (simplifyArtifact artifactRev)
 --    @?= "\\dret u1 -> let u53 = smaxIndex (sreshape @[31,31,15,15,16] (stranspose @[2,3,4,0,5,1] (sgather (stranspose @[4,2,3,0,1] (sgather (stranspose @[2,0,1] u1) (\\[i82, i83] -> [2 * i82 + i83]))) (\\[i50, i51] -> [2 * i50 + i51])))) in stranspose @[1,2,0] (sscatter (stranspose @[3,4,1,2,0] (sscatter (sscatter dret (\\[i59, i60, i61, i62] -> [i62, remH (kfromS (u53 !$ [i59, i60, i61, i62])) 4, i59, i60, i61, remH (quotH (kfromS (u53 !$ [i59, i60, i61, i62])) 4) 4])) (\\[i63, i64] -> [2 * i63 + i64]))) (\\[i65, i66] -> [2 * i65 + i66]))"
 
-smaximum4 :: forall r sh target. (ADReady target, GoodScalar r, KnownShS sh)
+smaximum4 :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
           => target (TKS sh r) -> target (TKS '[] r)
 smaximum4 t0 =
   tlet t0 $ \t ->
@@ -1597,7 +1597,7 @@ maxPool2dUnpaddedS4
      ( KnownNat ksize, KnownNat stride, KnownNat batch_size, KnownNat channels
      , KnownNat h, KnownNat w
      , 1 <= stride  -- wrongly reported as redundant due to plugins
-     , ADReady target, GoodScalar r
+     , ADReady target, NumScalar r
      , shOut ~ '[batch_size, channels, h `Div` stride, w `Div` stride]
      , shK1 ~ '[1, 1, ksize, ksize]
      )

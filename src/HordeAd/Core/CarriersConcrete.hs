@@ -47,27 +47,27 @@ instance (Nested.IntElt r, Nested.PrimElt r, Eq r, Num r)
   quotH a b = Nested.mquotArray a (mmakeNonZero b)
   remH a b = Nested.mremArray a (mmakeNonZero b)
 
-instance GoodScalar r
+instance NumScalar r
          => Real (Nested.Ranked n r) where
   toRational = error "toRational is not defined for tensors"
 
-instance GoodScalar r
+instance NumScalar r
          => Real (Nested.Shaped sh r) where
   toRational = error "toRational is not defined for tensors"
 
-instance GoodScalar r
+instance NumScalar r
          => Real (Nested.Mixed sh r) where
   toRational = error "toRational is not defined for tensors"
 
-instance (GoodScalar r, Nested.FloatElt r)
+instance (NumScalar r, Nested.FloatElt r)
          => RealFrac (Nested.Ranked n r) where
   properFraction = error "properFraction is not defined for tensors"
 
-instance (GoodScalar r, RealFrac r, Nested.FloatElt r)
+instance (NumScalar r, RealFrac r, Nested.FloatElt r)
          => RealFrac (Nested.Shaped sh r) where
   properFraction = error "properFraction is not defined for tensors"
 
-instance (GoodScalar r, Nested.FloatElt r)
+instance (NumScalar r, Nested.FloatElt r)
          => RealFrac (Nested.Mixed sh r) where
   properFraction = error "properFraction is not defined for tensors"
 
@@ -83,7 +83,7 @@ instance (Nested.PrimElt r, Nested.FloatElt r)
          => RealFloatH (Nested.Mixed sh r) where
   atan2H = Nested.matan2Array
 
-instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
+instance (NumScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
          => RealFloat (Nested.Ranked n r) where
   atan2 = Nested.ratan2Array
   floatRadix = error "operation not defined for tensors"
@@ -97,7 +97,7 @@ instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
   isNegativeZero = error "operation not defined for tensors"
   isIEEE = error "operation not defined for tensors"
 
-instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
+instance (NumScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
          => RealFloat (Nested.Shaped sh r) where
   atan2 = Nested.satan2Array
   floatRadix = error "operation not defined for tensors"
@@ -111,7 +111,7 @@ instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
   isNegativeZero = error "operation not defined for tensors"
   isIEEE = error "operation not defined for tensors"
 
-instance (GoodScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
+instance (NumScalar r, Nested.PrimElt r, RealFloat r, Nested.FloatElt r)
          => RealFloat (Nested.Mixed sh r) where
   atan2 = Nested.matan2Array
   floatRadix = error "operation not defined for tensors"

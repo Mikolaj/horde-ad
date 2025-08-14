@@ -727,7 +727,7 @@ testFooBoth = do
 -- vstack( a[0] + b[1]
 --       , a[1:N-1] + b[2:N] + c[:N-2]
 --       , a[N-1] + c[N-2] )
-vstackABC :: (ADReady target, GoodScalar r)
+vstackABC :: (ADReady target, NumScalar r)
           => (target (TKR 1 r), target (TKR 1 r), target (TKR 1 r))
           -> target (TKR 1 r)
 vstackABC (a, b, c) =
@@ -737,7 +737,7 @@ vstackABC (a, b, c) =
              , rreplicate 1 (a ! [fromIntegral n - 1]
                              + c ! [fromIntegral n - 2]) ]
 
-vstackBuild :: (ADReady target, GoodScalar r)
+vstackBuild :: (ADReady target, NumScalar r)
             => (target (TKR 1 r), target (TKR 1 r), target (TKR 1 r))
             -> target (TKR 1 r)
 vstackBuild (a, b, c) =
@@ -948,7 +948,7 @@ testFooLetPP = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromS (let x4 = sfromR (tproject1 (tproject1 x1)) * sin (sfromR (tproject2 (tproject1 x1))) in atan2H (sfromR (tproject2 x1)) x4 + sfromR (tproject2 x1) * x4)"
 
-shapedListProd :: forall k target r. (BaseTensor target, GoodScalar r)
+shapedListProd :: forall k target r. (BaseTensor target, NumScalar r)
                => ListR k (target (TKS '[] r)) -> target (TKS '[] r)
 shapedListProd = foldr1 (*)
 
@@ -967,7 +967,7 @@ testListProdPP = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\x1 -> tproject1 x1 * (tproject1 (tproject2 x1) * (tproject1 (tproject2 (tproject2 x1)) * tproject1 (tproject2 (tproject2 (tproject2 x1)))))"
 
-rankedListProdr :: forall k target r. (BaseTensor target, GoodScalar r)
+rankedListProdr :: forall k target r. (BaseTensor target, NumScalar r)
                 => ListR k (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListProdr = foldr1 (*)
 
@@ -1010,7 +1010,7 @@ testListProdr = do
     [rscalar 24, rscalar 12, rscalar 8, rscalar 6]
     (grad (kfromR @_ @Double . rankedListProdr @4) [rscalar 1, rscalar 2, rscalar 3, rscalar 4])
 
-rankedListSumr :: (BaseTensor target, GoodScalar r)
+rankedListSumr :: (BaseTensor target, NumScalar r)
                => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSumr = foldr1 (+)
 
@@ -1028,7 +1028,7 @@ testListSumrPP = do
     @?= "DeltaConvert (ConvCmp (ConvXR STKScalar) ConvSX) (DeltaShare 100000003 (DeltaAdd (DeltaConvert (ConvCmp (ConvXS' (FTKS [] FTKScalar)) ConvRX) (DeltaInput (InputId 0))) (DeltaShare 100000002 (DeltaAdd (DeltaConvert (ConvCmp (ConvXS' (FTKS [] FTKScalar)) ConvRX) (DeltaInput (InputId 1))) (DeltaShare 100000001 (DeltaAdd (DeltaConvert (ConvCmp (ConvXS' (FTKS [] FTKScalar)) ConvRX) (DeltaInput (InputId 2))) (DeltaConvert (ConvCmp (ConvXS' (FTKS [] FTKScalar)) ConvRX) (DeltaInput (InputId 3)))))))))"
 
 -- Note that the function is not associative, so foldr vs foldl matters.
-rankedListSum2r :: (BaseTensor target, GoodScalar r)
+rankedListSum2r :: (BaseTensor target, NumScalar r)
                 => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum2r = foldr1 (\x y -> x + rscalar 2 * y)
 
@@ -1043,7 +1043,7 @@ testListSum2rPP = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromS (sfromR (tproject1 x1) + (sscalar 2.0 * sfromR (tproject1 (tproject2 x1)) + (sscalar 4.0 * sfromR (tproject1 (tproject2 (tproject2 x1))) + sscalar 8.0 * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
-rankedListSum22r :: (BaseTensor target, GoodScalar r)
+rankedListSum22r :: (BaseTensor target, NumScalar r)
                  => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum22r = foldr1 (\x y -> rscalar 2 * x + rscalar 2 * y)
 
@@ -1060,7 +1060,7 @@ testListSum22rPP = do
 
 -- Note how this tlet did not change anything, in particular the sharing.
 rankedListSumk22r :: ( BaseTensor target, LetTensor target
-                     , GoodScalar r )
+                     , NumScalar r )
                  =>  ListR k (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSumk22r = foldr1 (\x y -> tlet (rscalar 2) (\k -> k * x + k * y))
 
@@ -1075,7 +1075,7 @@ testListSumk22rPP = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromS (sscalar 2.0 * sfromR (tproject1 x1) + (sscalar 4.0 * sfromR (tproject1 (tproject2 x1)) + (sscalar 8.0 * sfromR (tproject1 (tproject2 (tproject2 x1))) + sscalar 8.0 * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
-rankedListSum2xpyr :: (BaseTensor target, GoodScalar r)
+rankedListSum2xpyr :: (BaseTensor target, NumScalar r)
                    =>  ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum2xpyr = foldr1 (\x y -> rscalar 2 * (x + y))
 
@@ -1090,7 +1090,7 @@ testListSum2xpyrPP = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromS (sscalar 2.0 * sfromR (tproject1 x1) + (sscalar 4.0 * sfromR (tproject1 (tproject2 x1)) + (sscalar 8.0 * sfromR (tproject1 (tproject2 (tproject2 x1))) + sscalar 8.0 * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
-rankedListSum2xyr :: (BaseTensor target, GoodScalar r)
+rankedListSum2xyr :: (BaseTensor target, NumScalar r)
                   => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum2xyr = foldr1 (\x y -> rscalar 2 * (x * y))
 
@@ -1105,7 +1105,7 @@ testListSum2xyrPP = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromS (sscalar 8.0 * (sfromR (tproject1 x1) * (sfromR (tproject1 (tproject2 x1)) * (sfromR (tproject1 (tproject2 (tproject2 x1))) * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1))))))))"
 
-ranked2xy :: (BaseTensor target, GoodScalar r)
+ranked2xy :: (BaseTensor target, NumScalar r)
           => (target (TKR 0 r), target (TKR 0 r)) -> target (TKR 0 r)
 ranked2xy = \(x, y) -> rscalar 2 * x * y
 
@@ -1122,7 +1122,7 @@ test2xyPP = do
     @?= "\\x1 -> rfromS (sscalar 2.0 * (sfromR (tproject1 x1) * sfromR (tproject2 x1)))"
 
 -- Note that the function is not associative, so foldr vs foldl matters.
-rankedListSum23r :: forall k target r. (BaseTensor target, GoodScalar r)
+rankedListSum23r :: forall k target r. (BaseTensor target, NumScalar r)
                  => ListR k (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum23r = foldr1 (\x y -> rscalar 2 * x + rscalar 3 * y)
 
@@ -1137,7 +1137,7 @@ testListSum23rPP = do
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromS (sscalar 2.0 * sfromR (tproject1 x1) + (sscalar 6.0 * sfromR (tproject1 (tproject2 x1)) + (sscalar 18.0 * sfromR (tproject1 (tproject2 (tproject2 x1))) + sscalar 27.0 * sfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
-ranked23 :: (BaseTensor target, GoodScalar r)
+ranked23 :: (BaseTensor target, NumScalar r)
          => (target (TKR 0 r), target (TKR 0 r)) -> target (TKR 0 r)
 ranked23 = \(x, y) -> rscalar 2 * x + rscalar 3 * y
 
@@ -1155,7 +1155,7 @@ test23PP = do
 
 reluPrimal
   :: forall target n r.
-     (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
+     (ADReady target, NumScalar r, KnownNat n, Differentiable r)
   => target (TKR n r) -> target (TKR n r)
 reluPrimal v =
   let oneIfGtZero = rmap0N (\x -> ifH (x <=. rscalar 0) (rscalar 0.0) (rscalar 1.0))
@@ -1163,7 +1163,7 @@ reluPrimal v =
   in scale2 oneIfGtZero v
 
 scale2 :: forall target r n.
-          (ADReady target, GoodScalar r, KnownNat n)
+          (ADReady target, NumScalar r, KnownNat n)
        => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKR n r)
 scale2 a d = rfromPrimal @target a * d
 
@@ -1364,7 +1364,7 @@ testReluSimpler7s = do
     , srepl 57.1 )
     (grad (kfromS . ssum0 . reluT2) (sconcrete $ Nested.sfromListPrimLinear @_ @'[3, 4] knownShS [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
 
-reluMax :: forall target n r. (ADReady target, GoodScalar r, KnownNat n)
+reluMax :: forall target n r. (ADReady target, NumScalar r, KnownNat n)
         => target (TKR n r) -> target (TKR n r)
 reluMax = rmap0N (maxH (rscalar 0))
 
@@ -1772,7 +1772,7 @@ testNestedBuildIndex =
     (rev' @Double @1 nestedBuildIndex (ringestData [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 barRelu
-  :: ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )
+  :: ( ADReady target, NumScalar r, KnownNat n, Differentiable r )
   => target (TKR n r) -> target (TKR n r)
 barRelu x = relu $ bar (x, relu x)
 
@@ -1796,12 +1796,12 @@ testBarRelu3 =
     (rev' @Double @3 barRelu (ringestData [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 barReluMax0
-  :: ( ADReady target, GoodScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
+  :: ( ADReady target, NumScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
   => target (TKR n r) -> target (TKR n r)
 barReluMax0 x = reluMax $ bar (x, x)
 
 barReluMax
-  :: ( ADReady target, GoodScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
+  :: ( ADReady target, NumScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
   => target (TKR n r) -> target (TKR n r)
 barReluMax x = reluMax $ bar (x, reluMax x)
 
@@ -1839,12 +1839,12 @@ testBarReluMax3CFwd =
                      (rconcrete $ Nested.rfromListPrimLinear (fromList [2, 1, 2]) [1.1, 2, 3, 4.2])
                      (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
-reluMaxS :: forall target sh r. (ADReady target, GoodScalar r, KnownShS sh)
+reluMaxS :: forall target sh r. (ADReady target, NumScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS sh r)
 reluMaxS = smap0N (maxH (srepl 0))
 
 barReluMaxS
-  :: ( ADReady target, GoodScalar r, KnownShS sh
+  :: ( ADReady target, NumScalar r, KnownShS sh
      , RealFloatH (target (TKS sh r)) )
   => target (TKS sh r) -> target (TKS sh r)
 barReluMaxS x = reluMaxS $ barF (x, reluMaxS x)

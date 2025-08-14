@@ -159,7 +159,7 @@ type family TKAllNum (y :: TK) :: Constraint where
 type GoodScalarConstraint r =
   ( Show r, Ord r, Num r, Typeable r, Typeable (ADTensorScalar r)
   , IfDifferentiable r, Default r, NFData r, Nested.PrimElt r
-  , Nested.KnownElt r, Nested.NumElt r
+  , Nested.KnownElt r
   , forall sh. Show (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r)
   , forall sh. NFData (Nested.Mixed sh r))
 
@@ -173,8 +173,10 @@ type GoodScalarConstraint r =
 class GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
 
-class (GoodScalarConstraint r, TKAllNum (TKScalar r)) => NumScalar r
-instance (GoodScalarConstraint r, TKAllNum (TKScalar r)) => NumScalar r
+class (GoodScalarConstraint r, Nested.NumElt r, TKAllNum (TKScalar r))
+      => NumScalar r
+instance (GoodScalarConstraint r, Nested.NumElt r, TKAllNum (TKScalar r))
+         => NumScalar r
 
 -- | The constraint for scalars that can be non-trivially differentiated,
 -- e.g., floating numbers, but not integers.

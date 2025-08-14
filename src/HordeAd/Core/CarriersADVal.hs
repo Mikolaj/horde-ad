@@ -258,7 +258,7 @@ instance Ord (ADVal f z) where
 -- This is copied from below to permit fromInteger for TKScalar.
 -- This OVERLAPPABLE seems to work 100% reliably for indexes
 -- and not at all for a variant of rfromListLinear that takes scalars.
-instance (GoodScalar r, ShareTensor f, ADReadyNoLet f)
+instance (NumScalar r, ShareTensor f, ADReadyNoLet f)
          => Num (ADVal f (TKScalar r)) where
   D u u' + D v v' = dD (u + v) (dAdd u' v')
   D u u' - D v v' =
@@ -275,9 +275,11 @@ instance (GoodScalar r, ShareTensor f, ADReadyNoLet f)
   fromInteger i = dDnotShared (fromInteger i) (DeltaZero FTKScalar)
   -- The constraints in the pragmas below are needed only to avoid
   -- module import cycles.
+{- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Double)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Float)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Int64)) #-}
+-}
 
 instance {-# OVERLAPPABLE #-}
          (Num (f z), ShareTensor f, ADReadyNoLet f)
@@ -297,6 +299,7 @@ instance {-# OVERLAPPABLE #-}
   fromInteger = error "fromInteger is not defined for tensors in general"
   -- The constraints in the pragmas below are needed only to avoid
   -- module import cycles.
+{- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Double)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Float)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Int64)) #-}
@@ -306,6 +309,7 @@ instance {-# OVERLAPPABLE #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKX sh Double)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKX sh Float)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKX sh Int64)) #-}
+-}
 
 instance (Real (f z), ShareTensor f, ADReadyNoLet f)
          => Real (ADVal f z) where
@@ -324,7 +328,7 @@ instance (IntegralH (f z), ShareTensor f, ADReadyNoLet f)
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKX sh Int64)) #-}
 
 -- This is copied from below to permit fromRational for TKScalar.
-instance ( GoodScalar r, Fractional (f (TKScalar r)), ShareTensor f
+instance ( NumScalar r, Fractional (f (TKScalar r)), ShareTensor f
          , ADReadyNoLet f )
          => Fractional (ADVal f (TKScalar r)) where
   D ue u' / D ve v' =

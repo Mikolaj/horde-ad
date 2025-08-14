@@ -503,7 +503,7 @@ testNestedBuildIndex =
     (rev' @Double @3 nestedBuildIndex t16)
 
 barRelu
-  :: ( ADReady target, GoodScalar r, KnownNat n, Differentiable r )
+  :: ( ADReady target, NumScalar r, KnownNat n, Differentiable r )
   => target (TKR n r) -> target (TKR n r)
 barRelu x = let t = rreplicate0N (rshape x) (rscalar 0.001) * x
             in relu $ bar (t, relu t)
@@ -711,7 +711,7 @@ testLogistic52Old =
 
 logisticA :: forall target r n.
             ( BaseTensor target, LetTensor target
-            , BaseTensor (PrimalOf target), KnownNat n, GoodScalar r
+            , BaseTensor (PrimalOf target), KnownNat n, NumScalar r
             , Floating (PrimalOf target (TKR n r)) )
          => target (TKR n r) -> target (TKR n r)
 logisticA d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
@@ -731,7 +731,7 @@ testLogisticA0 =
 
 logisticB :: forall target r n.
             ( BaseTensor target, LetTensor target
-            , BaseTensor (PrimalOf target), KnownNat n, GoodScalar r
+            , BaseTensor (PrimalOf target), KnownNat n, NumScalar r
             , Floating (PrimalOf target (TKR n r)) )
          => target (TKR n r) -> target (TKR n r)
 logisticB d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart

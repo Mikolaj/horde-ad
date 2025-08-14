@@ -302,25 +302,25 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
                  AstTensor ms DualSpan y -> AstTensor ms FullSpan y
 
   -- Scalar arithmetic (to avoid the slowness of indexes as 1-element tensors)
-  AstPlusK :: GoodScalar r
+  AstPlusK :: NumScalar r
            => AstTensor ms s (TKScalar r)
            -> AstTensor ms s (TKScalar r)
            -> AstTensor ms s (TKScalar r)
-  AstTimesK :: GoodScalar r
+  AstTimesK :: NumScalar r
             => AstTensor ms s (TKScalar r)
             -> AstTensor ms s (TKScalar r)
             -> AstTensor ms s (TKScalar r)
-  AstN1K :: GoodScalar r
+  AstN1K :: NumScalar r
          => OpCodeNum1 -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
-  AstR1K :: (RealFloatH r, Nested.FloatElt r, GoodScalar r)
+  AstR1K :: (RealFloatH r, Nested.FloatElt r, NumScalar r)
          => OpCode1 -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
-  AstR2K :: (RealFloatH r, Nested.FloatElt r, GoodScalar r)
+  AstR2K :: (RealFloatH r, Nested.FloatElt r, NumScalar r)
          => OpCode2 -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
-  AstI2K :: (IntegralH r, Nested.IntElt r, GoodScalar r)
+  AstI2K :: (IntegralH r, Nested.IntElt r, NumScalar r)
          => OpCodeIntegral2 -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
@@ -336,25 +336,25 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
            => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
 
   -- Shaped arithmetic
-  AstPlusS :: GoodScalar r
+  AstPlusS :: NumScalar r
            => AstTensor ms s (TKS sh r)
            -> AstTensor ms s (TKS sh r)
            -> AstTensor ms s (TKS sh r)
-  AstTimesS :: GoodScalar r
+  AstTimesS :: NumScalar r
             => AstTensor ms s (TKS sh r)
             -> AstTensor ms s (TKS sh r)
             -> AstTensor ms s (TKS sh r)
-  AstN1S :: GoodScalar r
+  AstN1S :: NumScalar r
          => OpCodeNum1 -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
-  AstR1S :: (RealFloatH r, Nested.FloatElt r, GoodScalar r)
+  AstR1S :: (RealFloatH r, Nested.FloatElt r, NumScalar r)
          => OpCode1 -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
-  AstR2S :: (RealFloatH r, Nested.FloatElt r, GoodScalar r)
+  AstR2S :: (RealFloatH r, Nested.FloatElt r, NumScalar r)
          => OpCode2 -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
-  AstI2S :: (IntegralH r, Nested.IntElt r, GoodScalar r)
+  AstI2S :: (IntegralH r, Nested.IntElt r, NumScalar r)
          => OpCodeIntegral2 -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
@@ -386,10 +386,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
              -> (AstVarListS shm, AstIxS ms shp)
              -> AstTensor ms s (TKS2 (shm ++ shn) x)
     -- out of bounds indexing is permitted and the results is def (==0)
-  AstMinIndexS :: forall n sh r r2 ms. (GoodScalar r, GoodScalar r2)
+  AstMinIndexS :: forall n sh r r2 ms. (NumScalar r, GoodScalar r2)
                => AstTensor ms PrimalSpan (TKS (n ': sh) r)
                -> AstTensor ms PrimalSpan (TKS (Init (n ': sh)) r2)
-  AstMaxIndexS :: forall n sh r r2 ms. (GoodScalar r, GoodScalar r2)
+  AstMaxIndexS :: forall n sh r r2 ms. (NumScalar r, GoodScalar r2)
                => AstTensor ms PrimalSpan (TKS (n ': sh) r)
                -> AstTensor ms PrimalSpan (TKS (Init (n ': sh)) r2)
   AstIotaS :: forall n r ms. NumScalar r
@@ -467,11 +467,11 @@ data AstBool ms where
   AstBoolNot :: AstBool ms -> AstBool ms
   AstBoolAnd :: AstBool ms -> AstBool ms -> AstBool ms
   -- There are existential variables here.
-  AstLeqK :: forall r ms. GoodScalar r
+  AstLeqK :: forall r ms. NumScalar r
           => AstTensor ms PrimalSpan (TKScalar r)
           -> AstTensor ms PrimalSpan (TKScalar r)
           -> AstBool ms
-  AstLeqS :: forall sh r ms. GoodScalar r
+  AstLeqS :: forall sh r ms. NumScalar r
           => AstTensor ms PrimalSpan (TKS sh r)
           -> AstTensor ms PrimalSpan (TKS sh r)
           -> AstBool ms

@@ -6,7 +6,8 @@
 module HordeAd.Core.TensorKind
   ( -- * Tensor kind singletons
     SingletonTK(..), KnownSTK(..)
-  , TKConversion(..), lemTKAllNumConvert, lemTKAllNumBuild, lemTKAllNumRaze
+  , TKConversion(..), lemTKAllNumConvert, lemTKAllNumConvertForward
+  , lemTKAllNumBuild, lemTKAllNumRaze
   , numFromTKAllNum, convertSTK, convertFTK, buildTKConversion
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , Dict0(..), lemTKAllNumAD, lemTKScalarAllNumAD
@@ -330,6 +331,30 @@ lemTKAllNumConvert = \case
   ConvXX c | Dict0 <- lemTKAllNumConvert c -> Dict0
   ConvT2 c1 c2 | Dict0 <- lemTKAllNumConvert c1
                , Dict0 <- lemTKAllNumConvert c2 -> Dict0
+  Conv0X{} -> Dict0
+  ConvX0 -> Dict0
+  ConvNest{} -> Dict0
+  ConvUnnest -> Dict0
+  ConvZip{} -> Dict0
+  ConvUnzip{} -> Dict0
+
+lemTKAllNumConvertForward :: TKAllNum a
+                          => TKConversion a b -> Dict0 (TKAllNum b)
+lemTKAllNumConvertForward = \case
+  ConvId -> Dict0
+  ConvCmp c1 c2 | Dict0 <- lemTKAllNumConvertForward c2 ->
+    lemTKAllNumConvertForward c1
+  ConvRX -> Dict0
+  ConvSX -> Dict0
+  ConvXR{}  -> Dict0
+  ConvXS -> Dict0
+  ConvXS'{} -> Dict0
+  ConvXX'{} -> Dict0
+  ConvRR c | Dict0 <- lemTKAllNumConvertForward c -> Dict0
+  ConvSS c | Dict0 <- lemTKAllNumConvertForward c -> Dict0
+  ConvXX c | Dict0 <- lemTKAllNumConvertForward c -> Dict0
+  ConvT2 c1 c2 | Dict0 <- lemTKAllNumConvertForward c1
+               , Dict0 <- lemTKAllNumConvertForward c2 -> Dict0
   Conv0X{} -> Dict0
   ConvX0 -> Dict0
   ConvNest{} -> Dict0

@@ -196,25 +196,25 @@ tmapAccumL proxy !k !accftk !bftk !eftk f acc0 es =
 type TensorSupports :: (Type -> Constraint) -> (Type -> Constraint)
                     -> Target -> Constraint
 type TensorSupports c1 c2 f =
-  forall r. GoodScalar r
+  forall r. NumScalar r
             => c1 r => c2 (f (TKScalar r))
 
 type TensorSupportsR :: (Type -> Constraint) -> (Type -> Constraint)
                      -> Target -> Constraint
 type TensorSupportsR c1 c2 f =
-  forall r n. GoodScalar r
+  forall r n. NumScalar r
               => c1 r => c2 (f (TKR n r))
 
 type TensorSupportsS :: (Type -> Constraint) -> (Type -> Constraint)
                      -> Target -> Constraint
 type TensorSupportsS c1 c2 f =
-  forall r sh. GoodScalar r
+  forall r sh. NumScalar r
                => c1 r => c2 (f (TKS sh r))
 
 type TensorSupportsX :: (Type -> Constraint) -> (Type -> Constraint)
                      -> Target -> Constraint
 type TensorSupportsX c1 c2 f =
-  forall r sh. GoodScalar r
+  forall r sh. NumScalar r
                => c1 r => c2 (f (TKX sh r))
 
 class (RealFloatH r, Nested.FloatElt r)
@@ -817,7 +817,7 @@ class ( Num (IntOf target)
   trcast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
          => target (TKR n r1) -> target (TKR n r2)
   trminIndex, trmaxIndex  -- partial
-    :: forall n r r2. (GoodScalar r, GoodScalar r2)
+    :: forall n r r2. (NumScalar r, GoodScalar r2)
     => target (TKR (1 + n) r) -> target (TKR n r2)
   triota :: NumScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
 
@@ -828,7 +828,7 @@ class ( Num (IntOf target)
   tscast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
          => target (TKS sh r1) -> target (TKS sh r2)
   tsminIndex, tsmaxIndex  -- partial
-    :: forall n sh r r2. (GoodScalar r, GoodScalar r2)
+    :: forall n sh r r2. (NumScalar r, GoodScalar r2)
     => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
   tsiota :: (KnownNat n, NumScalar r)
          => target (TKS '[n] r)  -- from 0 to n - 1
@@ -840,7 +840,7 @@ class ( Num (IntOf target)
   txcast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
          => target (TKX sh r1) -> target (TKX sh r2)
   txminIndex, txmaxIndex  -- partial
-    :: forall mn sh r r2. (GoodScalar r, GoodScalar r2)
+    :: forall mn sh r r2. (NumScalar r, GoodScalar r2)
     => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
   txiota :: (KnownNat n, NumScalar r)
          => target (TKX '[Just n] r)  -- from 0 to n - 1
@@ -1192,22 +1192,22 @@ instance
       => AllTargetShow target where
 
 type CommonTargetEqOrd :: Target -> Constraint
-class ( forall r. GoodScalar r => EqH target (TKScalar r)
-      , forall r. GoodScalar r => OrdH target (TKScalar r)
-      , forall r n. GoodScalar r => EqH target (TKR n r)
-      , forall r n. GoodScalar r => OrdH target (TKR n r)
-      , forall r sh. GoodScalar r => EqH target (TKS sh r)
-      , forall r sh. GoodScalar r => OrdH target (TKS sh r)
-      , forall r sh. GoodScalar r => EqH target (TKX sh r)
-      , forall r sh. GoodScalar r => OrdH target (TKX sh r) )
+class ( forall r. NumScalar r => EqH target (TKScalar r)
+      , forall r. NumScalar r => OrdH target (TKScalar r)
+      , forall r n. NumScalar r => EqH target (TKR n r)
+      , forall r n. NumScalar r => OrdH target (TKR n r)
+      , forall r sh. NumScalar r => EqH target (TKS sh r)
+      , forall r sh. NumScalar r => OrdH target (TKS sh r)
+      , forall r sh. NumScalar r => EqH target (TKX sh r)
+      , forall r sh. NumScalar r => OrdH target (TKX sh r) )
       => CommonTargetEqOrd target where
 instance
-      ( forall r. GoodScalar r => EqH target (TKScalar r)
-      , forall r. GoodScalar r => OrdH target (TKScalar r)
-      , forall r n. GoodScalar r => EqH target (TKR n r)
-      , forall r n. GoodScalar r => OrdH target (TKR n r)
-      , forall r sh. GoodScalar r => EqH target (TKS sh r)
-      , forall r sh. GoodScalar r => OrdH target (TKS sh r)
-      , forall r sh. GoodScalar r => EqH target (TKX sh r)
-      , forall r sh. GoodScalar r => OrdH target (TKX sh r) )
+      ( forall r. NumScalar r => EqH target (TKScalar r)
+      , forall r. NumScalar r => OrdH target (TKScalar r)
+      , forall r n. NumScalar r => EqH target (TKR n r)
+      , forall r n. NumScalar r => OrdH target (TKR n r)
+      , forall r sh. NumScalar r => EqH target (TKS sh r)
+      , forall r sh. NumScalar r => OrdH target (TKS sh r)
+      , forall r sh. NumScalar r => EqH target (TKX sh r)
+      , forall r sh. NumScalar r => OrdH target (TKX sh r) )
       => CommonTargetEqOrd target where

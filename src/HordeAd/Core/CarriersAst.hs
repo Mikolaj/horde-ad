@@ -14,6 +14,7 @@ module HordeAd.Core.CarriersAst
 import Prelude hiding (foldl')
 
 import Data.Int (Int64)
+import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Foreign.C (CInt)
 import Type.Reflection (typeRep)
@@ -84,7 +85,7 @@ instance Ord (AstTensor ms s y) where
 --
 -- The normal form has AstConcreteK, if any, as the first argument
 -- of the constructor. No flattening is performed beyond that.
-instance (GoodScalar r, AstSpan s)
+instance (NumScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
   AstFromDual u + AstFromDual v = AstFromDual $ u + v
@@ -272,6 +273,7 @@ instance (GoodScalar r, AstSpan s)
       AstConvert c (signum u)
   signum u = AstN1K SignumOp u
   fromInteger i = fromPrimal $ AstConcreteK (fromInteger i)
+{- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int64)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int64)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar CInt)) #-}
@@ -280,6 +282,7 @@ instance (GoodScalar r, AstSpan s)
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Double)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Float)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Float)) #-}
+-}
 
 -- An approximation. False doesn't imply terms have different semantics,
 -- but True implies they have equal semantics.
@@ -315,7 +318,7 @@ eqK _ _ = False
 
 -- Div and mod operations are very costly (simplifying them requires
 -- constructing conditionals, etc), so they are not included in IntegralH.
-instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
+instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKScalar r)) where
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
   quotH (AstConvert c n) (AstConvert _ k)
@@ -362,7 +365,7 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar CInt)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar CInt)) #-}
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
   AstFromPrimal u / AstFromPrimal v = AstFromPrimal $ u / v
   AstConcreteK u / AstConcreteK v = AstConcreteK $ u / v
@@ -372,7 +375,7 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   recip u = AstR1K RecipOp u
   fromRational r = fromPrimal $ AstConcreteK (fromRational r)
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
   pi = error "pi is not defined for tensors"
   exp (AstFromPrimal u) = AstFromPrimal $ exp u
@@ -427,7 +430,7 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   atanh (AstConcreteK u) = AstConcreteK $ atanh u
   atanh u = AstR1K AtanhOp u
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKScalar r)) where
   atan2H (AstFromPrimal u) (AstFromPrimal v) = AstFromPrimal $ atan2H u v
   atan2H (AstConcreteK u) (AstConcreteK v) = AstConcreteK $ atan2H u v
@@ -436,7 +439,7 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 
 -- * Unlawful numeric instances for ranked AST; lawful modulo evaluation
 
-instance (GoodScalar r, AstSpan s)
+instance (NumScalar r, AstSpan s)
          => Num (AstTensor ms s (TKR n r)) where
   (+) = liftRFromS2 (+)
   (-) = liftRFromS2 (-)
@@ -447,19 +450,19 @@ instance (GoodScalar r, AstSpan s)
   fromInteger i = error $ "fromInteger is not defined for ranked tensors: "
                           ++ show i
 
-instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
+instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKR n r)) where
   quotH = liftRFromS2 quotH
   remH = liftRFromS2 remH
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKR n r)) where
   (/) = liftRFromS2 (/)
   recip = liftRFromS1 recip
   fromRational r = error $ "fromRational is not defined for ranked tensors: "
                            ++ show r
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKR n r)) where
   pi = error "pi is not defined for tensors"
   exp = liftRFromS1 exp
@@ -480,14 +483,14 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   acosh = liftRFromS1 acosh
   atanh = liftRFromS1 atanh
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKR n r)) where
   atan2H = liftRFromS2 atan2H
 
 
 -- * Unlawful numeric instances for shaped AST; lawful modulo evaluation
 
-instance (GoodScalar r, AstSpan s)
+instance (NumScalar r, AstSpan s)
          => Num (AstTensor ms s (TKS sh r)) where
   AstReplicate snat stk@STKS{} u + AstReplicate _ STKS{} v =
     AstReplicate snat stk $ u + v
@@ -603,7 +606,7 @@ instance (GoodScalar r, AstSpan s)
   fromInteger i = error $ "fromInteger is not defined for shaped tensors: "
                           ++ show i
 
-instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
+instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKS sh r)) where
   quotH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
     AstReplicate snat stk $ quotH u v
@@ -632,7 +635,7 @@ instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
 --  remH _ (AstConcreteS s) | Just 1 <- sunReplicateScal s = AstConcreteS 0
   remH u v = AstI2S RemOp u v
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKS sh r)) where
   AstFromPrimal u / AstFromPrimal v = AstFromPrimal $ u / v
   AstConcreteS u / AstConcreteS v = AstConcreteS $ u / v
@@ -643,7 +646,7 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   fromRational r = error $ "fromRational is not defined for shaped tensors: "
                            ++ show r
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
   pi = error "pi is not defined for tensors"
   exp (AstFromPrimal u) = AstFromPrimal $ exp u
@@ -698,7 +701,7 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   atanh (AstConcreteS u) = AstConcreteS $ atanh u
   atanh u = AstR1S AtanhOp u
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKS sh r)) where
   atan2H (AstFromPrimal u) (AstFromPrimal v) = AstFromPrimal $ atan2H u v
   atan2H (AstConcreteS u) (AstConcreteS v) = AstConcreteS $ atan2H u v
@@ -707,7 +710,7 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 
 -- * Unlawful numeric instances for mixed AST; lawful modulo evaluation
 
-instance (GoodScalar r, AstSpan s)
+instance (NumScalar r, AstSpan s)
          => Num (AstTensor ms s (TKX sh r)) where
   (+) = liftXFromS2 (+)
   (-) = liftXFromS2 (-)
@@ -718,19 +721,19 @@ instance (GoodScalar r, AstSpan s)
   fromInteger i = error $ "fromInteger is not defined for mixed tensors: "
                           ++ show i
 
-instance (GoodScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
+instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKX sh r)) where
   quotH = liftXFromS2 quotH
   remH = liftXFromS2 remH
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKX sh r)) where
   (/) = liftXFromS2 (/)
   recip = liftXFromS1 recip
   fromRational r = error $ "fromRational is not defined for mixed tensors: "
                            ++ show r
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKX sh r)) where
   pi = error "pi is not defined for tensors"
   exp = liftXFromS1 exp
@@ -751,7 +754,7 @@ instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   acosh = liftXFromS1 acosh
   atanh = liftXFromS1 atanh
 
-instance (GoodScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKX sh r)) where
   atan2H = liftXFromS2 atan2H
 
@@ -854,7 +857,7 @@ instance Boolean (AstBool ms) where
   b ||* c = notB (notB b &&* notB c)
 
 -- TODO: refactor with something like liftRFromS2
-instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKR n r) where
+instance (AstSpan s, NumScalar r) => EqH (AstTensor ms s) (TKR n r) where
   v ==. u = case ftkAst v of
     FTKR shv' _ -> case ftkAst u of
       FTKR shu' _ ->
@@ -867,7 +870,7 @@ instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKR n r) where
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKX sh r) where
+instance (AstSpan s, NumScalar r) => EqH (AstTensor ms s) (TKX sh r) where
   v ==. u = case ftkAst v of
     FTKX shv' _ -> case ftkAst u of
       FTKX shu' _ ->
@@ -880,7 +883,7 @@ instance (AstSpan s, GoodScalar r) => EqH (AstTensor ms s) (TKX sh r) where
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKR n r) where
+instance (AstSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKR n r) where
   v <=. u = case ftkAst v of
     FTKR shv' _ -> case ftkAst u of
       FTKR shu' _ ->
@@ -893,7 +896,7 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKR n r) where
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
+instance (AstSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
   v <=. u = case ftkAst v of
     FTKX shv' _ -> case ftkAst u of
       FTKX shu' _ ->
@@ -907,7 +910,7 @@ instance (AstSpan s, GoodScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
                            ++ show (shu, shv)
 
 -- TODO: share u and v, since they are duplicated here
-instance (AstSpan s, GoodScalar r)
+instance (AstSpan s, NumScalar r)
          => EqH (AstTensor ms s) (TKScalar r) where
   v ==. u = v <=. u &&* u <=. v
   {- TODO: for this to work, booleans have to be first-class:
@@ -915,13 +918,13 @@ instance (AstSpan s, GoodScalar r)
                             astLetFunNoSimplify uUnshared $ \u ->
     v <=. u &&* u <=. v -}
 
-instance (AstSpan s, GoodScalar r)
+instance (AstSpan s, NumScalar r)
          => EqH (AstTensor ms s) (TKS sh r) where
   v ==. u = v <=. u &&* u <=. v
 
 -- These are common in indexing, so worth optimizing early via AstConcrete.
 -- We keep AstConcrete on the left, as with AstPlusK and others.
-instance (AstSpan s, GoodScalar r)
+instance (AstSpan s, NumScalar r)
          => OrdH (AstTensor ms s) (TKScalar r) where
   u <=. v | let (u1, u2) = bounds u
                 (v1, v2) = bounds v
@@ -929,10 +932,12 @@ instance (AstSpan s, GoodScalar r)
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
   AstFromDual{} <=. AstFromDual{} = AstBoolConst True
-  AstConvert _ u <=. AstConvert _ v
+  AstConvert c u <=. AstConvert _ v
     | FTKS ZSS (FTKScalar @ru) <- ftkAst u
     , FTKS ZSS (FTKScalar @rv) <- ftkAst v
     , Just Refl <- testEquality (typeRep @ru) (typeRep @rv)
+    , Dict0 <- lemTKAllNumConvert c
+    , Dict0 <- numFromTKAllNum (Proxy @ru)
     = u <=. v
   AstConcreteK u <=. AstConvert _ v
     | FTKS ZSS (FTKScalar @rv) <- ftkAst v
@@ -961,7 +966,7 @@ instance (AstSpan s, GoodScalar r)
   v <=. u =
     AstConcreteK 0 <=. primalPart u - primalPart v
 
-instance (AstSpan s, GoodScalar r)
+instance (AstSpan s, NumScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
   AstFromDual{} <=. AstFromDual{} = AstBoolConst True

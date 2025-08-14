@@ -225,7 +225,7 @@ foo (x, y, z) =
   in atan2H z w + z * w
 
 fooRgrad :: forall g a.
-           (ADReady g, GoodScalar a, Differentiable a, ADTensorScalar a ~ a)
+           (ADReady g, NumScalar a, Differentiable a, ADTensorScalar a ~ a)
         => (a, a, a) -> (g (TKR 0 a), g (TKR 0 a), g (TKR 0 a))
 fooRgrad (x, y, z) =
   let f :: forall f. ADReady f => f (TKProduct (TKProduct (TKR 0 a) (TKR 0 a)) (TKR 0 a)) -> f (TKR 0 a)

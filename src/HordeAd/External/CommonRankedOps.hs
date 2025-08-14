@@ -29,7 +29,7 @@ assumeEquality = gcastWith (unsafeCoerceRefl :: a :~: b)
 
 rminimum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
-            , GoodScalar r )
+            , NumScalar r )
          => target (TKR n r) -> target (TKR 0 r)
 rminimum t =
   tlet (rflatten t) $ \tf ->
@@ -37,7 +37,7 @@ rminimum t =
 
 rmaximum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
-            , GoodScalar r )
+            , NumScalar r )
          => target (TKR n r) -> target (TKR 0 r)
 rmaximum t =
   tlet (rflatten t) $ \tf ->
@@ -73,7 +73,7 @@ rint64ToIndex1 :: forall n target.
                => target (TKR Int64 1) -> IxROf target n
 rint64ToIndex1 v = listToIndex $ runravelToList $ rprimalPart v
 
-tletIx :: ( KnownNat n, KnownNat m, GoodScalar r
+tletIx :: ( KnownNat n, KnownNat m, NumScalar r
           , BaseTensor target, BaseTensor (PrimalOf target)
           , LetTensor target )
        => IxROf target n -> (IxROf target n -> target (TKR m r))
@@ -83,7 +83,7 @@ tletIx ix0 f = tlet (rint64FromIndex1 ix0) $ \ixT -> f $ rint64ToIndex1 ixT
 
 relu, reluLeaky
   :: forall target n r.
-     (ADReady target, GoodScalar r, KnownNat n, Differentiable r)
+     (ADReady target, NumScalar r, KnownNat n, Differentiable r)
   => target (TKR n r) -> target (TKR n r)
 relu v0 = tlet v0 $ \v ->
   let oneIfGtZero =
@@ -97,7 +97,7 @@ reluLeaky v0 = tlet v0 $ \v ->
 
 logistic :: forall target r n.
             ( BaseTensor target, LetTensor target, BaseTensor (PrimalOf target)
-            , KnownNat n, GoodScalar r, Differentiable r )
+            , KnownNat n, NumScalar r, Differentiable r )
          => target (TKR n r) -> target (TKR n r)
 logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let one = rrepl (rshape d) 1
@@ -267,13 +267,13 @@ conv2dCustomPadded (nPh, nPw) arrK arrA =
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
 slicez
-  :: (ADReady target, GoodScalar r, KnownNat n)
+  :: (ADReady target, NumScalar r, KnownNat n)
   => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez shOut d ixBase =
   rbuild shOut $ \ixResult -> rindex0 d (ixrZipWith (+) ixBase ixResult)
 
 maxPool2dUnpadded
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => Int -> Int -> target (TKR 4 r) -> target (TKR 4 r)
 maxPool2dUnpadded ksize stride arr =
   let [batch_size, channels, h, w] = rshape arr

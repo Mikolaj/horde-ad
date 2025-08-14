@@ -229,7 +229,7 @@ data Delta :: Target -> Target where
   DeltaCastR :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
              => Delta target (TKR n r1) -> Delta target (TKR n r2)
   DeltaSum0R :: Delta target (TKR2 n r) -> Delta target (TKR2 0 r)
-  DeltaDot0R :: (GoodScalar r, Show (target (TKR n r)))
+  DeltaDot0R :: (NumScalar r, Show (target (TKR n r)))
              => target (TKR n r) -> Delta target (TKR n r)
              -> Delta target (TKR 0 r)
   DeltaIndexR :: forall m n r target.
@@ -262,7 +262,7 @@ data Delta :: Target -> Target where
   DeltaCastS :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
              => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
   DeltaSum0S :: Delta target (TKS2 sh r) -> Delta target (TKS2 '[] r)
-  DeltaDot0S :: (GoodScalar r, Show (target (TKS sh r)))
+  DeltaDot0S :: (NumScalar r, Show (target (TKS sh r)))
              => target (TKS sh r) -> Delta target (TKS sh r)
              -> Delta target (TKS '[] r)
   DeltaIndexS :: forall shm shn r target.
@@ -302,7 +302,7 @@ data Delta :: Target -> Target where
   DeltaCastX :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
              => Delta target (TKX sh r1) -> Delta target (TKX sh r2)
   DeltaSum0X :: Delta target (TKX2 sh r) -> Delta target (TKX2 '[] r)
-  DeltaDot0X :: (GoodScalar r, Show (target (TKX sh r)))
+  DeltaDot0X :: (NumScalar r, Show (target (TKX sh r)))
              => target (TKX sh r) -> Delta target (TKX sh r)
              -> Delta target (TKX '[] r)
   DeltaIndexX :: forall shm shn r target.
