@@ -152,7 +152,7 @@ benchProdShortest ~(snat, list, l, lt, t) = case snat of
 -- We can define sproduct if this benchmark ends up used anywhere,
 -- because the current codomain of gradientFromDelta rules out
 -- low-level hacky pipeline tricks that could avoid indexing.
-multSMapAccum :: (BaseTensor target, LetTensor target, GoodScalar r)
+multSMapAccum :: (BaseTensor target, LetTensor target, NumScalar r)
               => SNat n -> target (TKS '[n] r) -> target (TKS '[] r)
 multSMapAccum SNat = sfold (*) (sscalar 1)
 {-# SPECIALIZE multSMapAccum :: SNat n -> ADVal Concrete (TKS '[n] Double) -> ADVal Concrete (TKS '[] Double) #-}
@@ -167,7 +167,7 @@ revSMapAccum
 revSMapAccum snat@SNat = grad (kfromS . multSMapAccum snat)
 
 multScalarMapAccum :: forall target n r.
-                      (BaseTensor target, GoodScalar r)
+                      (BaseTensor target, NumScalar r)
                    => SNat n -> target (TKS '[n] r) -> target (TKScalar r)
 multScalarMapAccum snat@SNat  =
   tproject1
@@ -193,7 +193,7 @@ revScalarMapAccum
   :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
 revScalarMapAccum snat@SNat = grad (multScalarMapAccum snat)
 
-multScalarList :: (BaseTensor target, GoodScalar r)
+multScalarList :: (BaseTensor target, NumScalar r)
                => [target (TKScalar r)] -> target (TKScalar r)
 multScalarList = foldl1' (*)
 
@@ -207,7 +207,7 @@ revScalarList
 revScalarList =
   grad multScalarList
 
-multScalarL :: (BaseTensor target, GoodScalar r)
+multScalarL :: (BaseTensor target, NumScalar r)
             => ListR n (target (TKScalar r)) -> target (TKScalar r)
 multScalarL = foldl1' (*) . Foldable.toList
 
@@ -225,7 +225,7 @@ revScalarL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   grad multScalarL
 
-multScalarR :: (BaseTensor target, GoodScalar r)
+multScalarR :: (BaseTensor target, NumScalar r)
             => ListR n (target (TKScalar r)) -> target (TKScalar r)
 multScalarR = foldr1 (*)
 
@@ -243,7 +243,7 @@ revScalarR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   grad multScalarR
 
-multScalarNotShared :: (BaseTensor target, GoodScalar r)
+multScalarNotShared :: (BaseTensor target, NumScalar r)
                     => ListR n (ADVal target (TKScalar r))
                     -> ADVal target (TKScalar r)
 multScalarNotShared = foldr1 multNotShared
@@ -255,7 +255,7 @@ crevScalarNotShared snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
   cgrad multScalarNotShared
 
-multSL :: (BaseTensor target, GoodScalar r)
+multSL :: (BaseTensor target, NumScalar r)
        => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
 multSL = foldl1' (*) . Foldable.toList
 
@@ -273,7 +273,7 @@ revSL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   grad (kfromS . multSL)
 
-multSR :: (BaseTensor target, GoodScalar r)
+multSR :: (BaseTensor target, NumScalar r)
        => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
 multSR = foldr1 (*)
 
@@ -291,7 +291,7 @@ revSR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
   grad (kfromS . multSR)
 
-multSNotShared :: (BaseTensor target, GoodScalar r)
+multSNotShared :: (BaseTensor target, NumScalar r)
                => ListR n (ADVal target (TKS '[] r))
                -> ADVal target (TKS '[] r)
 multSNotShared = foldr1 multNotShared
@@ -312,14 +312,14 @@ crevSNotShared snat@SNat =
 -- This is expected to fail with -O0 and to pass with -O1
 -- and -fpolymorphic-specialisation.
 -- This prevents running benchmarks without optimization, which is a good thing.
-inspect $ hasNoTypeClassesExcept 'crevScalarL [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
-inspect $ hasNoTypeClassesExcept 'revScalarL [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt,      ''AstSpan, ''RealFloatH, ''Nested.FloatElt, ''Fractional, ''Floating, ''IntegralH, ''RealFrac, ''Real, ''Nested.Storable, ''Integral]
-inspect $ hasNoTypeClassesExcept 'crevScalarNotShared [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
-inspect $ hasNoTypeClassesExcept 'crevSL [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''Nested.Storable,    ''ShareTensor]
-inspect $ hasNoTypeClassesExcept 'revSL [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt,      ''AstSpan, ''RealFloatH, ''Nested.FloatElt, ''Fractional, ''Floating, ''IntegralH, ''RealFrac, ''Real, ''Nested.Storable, ''Integral]
-inspect $ hasNoTypeClassesExcept 'crevSMapAccum [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
-inspect $ hasNoTypeClassesExcept 'revSMapAccum [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor,      ''AstSpan, ''RealFloatH, ''Nested.FloatElt, ''Fractional, ''Floating, ''IntegralH, ''RealFrac, ''Real, ''Nested.Storable, ''Integral]
-inspect $ hasNoTypeClassesExcept 'crevScalarMapAccum [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
-inspect $ hasNoTypeClassesExcept 'revScalarMapAccum [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''GoodScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor,      ''AstSpan, ''RealFloatH, ''Nested.FloatElt, ''Fractional, ''Floating, ''IntegralH, ''RealFrac, ''Real, ''Nested.Storable, ''Integral]
+inspect $ hasNoTypeClassesExcept 'crevScalarL [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''NumScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
+inspect $ hasNoTypeClassesExcept 'revScalarL [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''NumScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt,      ''AstSpan, ''RealFloatH, ''Nested.FloatElt, ''Fractional, ''Floating, ''IntegralH, ''RealFrac, ''Real, ''Nested.Storable, ''Integral]
+inspect $ hasNoTypeClassesExcept 'crevScalarNotShared [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''NumScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt]
+inspect $ hasNoTypeClassesExcept 'crevSL [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''NumScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''Nested.Storable,    ''ShareTensor]
+inspect $ hasNoTypeClassesExcept 'revSL [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''NumScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt,      ''AstSpan, ''RealFloatH, ''Nested.FloatElt, ''Fractional, ''Floating, ''IntegralH, ''RealFrac, ''Real, ''Nested.Storable, ''Integral]
+inspect $ hasNoTypeClassesExcept 'crevSMapAccum [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''NumScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
+inspect $ hasNoTypeClassesExcept 'revSMapAccum [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''NumScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor,      ''AstSpan, ''RealFloatH, ''Nested.FloatElt, ''Fractional, ''Floating, ''IntegralH, ''RealFrac, ''Real, ''Nested.Storable, ''Integral]
+inspect $ hasNoTypeClassesExcept 'crevScalarMapAccum [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''NumScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor]
+inspect $ hasNoTypeClassesExcept 'revScalarMapAccum [''(~), ''KnownNat, ''WithDict, ''KnownShS, ''AdaptableTarget, ''RandomValue, ''KnownSTK, ''NumScalar, ''Num, ''Show, ''Ord, ''Eq, ''Nested.PrimElt, ''Nested.KnownElt, ''Nested.NumElt, ''Typeable, ''IfDifferentiable, ''NFData, ''Default.Default, ''Nested.Elt, ''LetTensor, ''BaseTensor, ''ConvertTensor, ''Boolean, ''CommonTargetEqOrd, ''AllTargetShow, ''ShareTensor,      ''AstSpan, ''RealFloatH, ''Nested.FloatElt, ''Fractional, ''Floating, ''IntegralH, ''RealFrac, ''Real, ''Nested.Storable, ''Integral]
 -- inspect $ coreOf 'revScalarL
 -}
