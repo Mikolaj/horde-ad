@@ -1330,7 +1330,7 @@ testCNNOPP3b = do
     @?= "\\dret u1 -> rfromS (let t158 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) ; m163 = ssum @2 (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,1,0] (sscatter (stranspose @[1,3,0,2] (soneHot (soneHot (t158 !$ [0, 0, 0]) [0, 0, 0] + (soneHot (t158 !$ [0, 0, 1]) [1, 0, 1] + soneHot (t158 !$ [0, 1]) [1, 1])) [0]) !$ [0]) (\\[i160] -> [2 * i160]))) (\\[i161] -> [2 * i161]))) (\\[i162] -> [2 * i162])) ; t175 = soneHot m163 [0] in sappend (stranspose @[1,3,2,0] (sappend (sconcrete (sreplicate [1,2,3,3] 0.0)) (stranspose @[3,0,1,2] (sscatter (stranspose @[2,3,1,0] (soneHot (soneHot (t175 !$ [0, 0, 0]) [0, 0] + soneHot (t175 !$ [1, 0, 0]) [0, 1]) [0, 0]) !$ [0] + stranspose @[2,3,1,0] (soneHot (soneHot (t175 !$ [0, 1, 0]) [0, 0] + soneHot (t175 !$ [1, 1, 0]) [1, 1]) [0, 1]) !$ [0]) (\\[i178, i179] -> [i178, i179 + i178, i179]))))) (sconcrete (sreplicate [1,3,3,3] 0.0)) + sscatter (stranspose @[2,3,0,1] (sappend (stranspose @[3,0,1,2] (sscatter (stranspose @[2,5,1,3,4,0] (sappend (sconcrete (sreplicate [1,2,2,2,2,2] 0.0)) (ssum @2 (stranspose @[3,7,1,4,5,6,0,2] (soneHot (sscatter (stranspose @[3,1,0,4,2] (soneHot (sscatter (stranspose @[0,2,1] (sscatter m163 (\\[i164] -> [i164, i164])) !$ [0]) (\\[i165] -> [i165, i165])) [1, 0]) !$ [0]) (\\[i167, i168, i169] -> [i168, ifH (0 <=. negate i167) (ifH (notB (0 <=. negate i169 + negate i168) &&* notB (1 <=. i169 + i168 &&* (-1) <=. negate i169 + negate i168)) 1 0) (ifH (1 <=. i167 &&* 0 <=. negate i167) (ifH (notB (0 <=. negate i169 + negate i168) &&* notB (1 <=. i169 + i168 &&* (-1) <=. negate i169 + negate i168)) 1 0) 1), i167, i169, i167])) [1, 0]) !$ [0])))) (\\[i171, i172] -> [i171 + i172]))) (sconcrete (sreplicate [1,3,2,2,3] 0.0)))) (\\[i173, i174] -> [i173 + i174]))"
 
 maxPool2dUnpadded3
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r)
 maxPool2dUnpadded3 arr =
   rbuild [2, 2, 2, 2] $ \case
@@ -1351,13 +1351,13 @@ conv2dSame3 arrA =
     _ -> error "conv2dSame3: impossible pattern needlessly required"
 
 slicez3
-  :: (ADReady target, GoodScalar r, KnownNat n)
+  :: (ADReady target, NumScalar r, KnownNat n)
   => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez3 shOut d ixBase =
   rbuild shOut $ \_ -> indexz03 d (ixrZipWith (+) ixBase ixBase)
 
 indexz03
-  :: forall target r n. (ADReady target, GoodScalar r, KnownNat n)
+  :: forall target r n. (ADReady target, NumScalar r, KnownNat n)
   => target (TKR n r) -> IxROf target n -> target (TKR 0 r)
 indexz03 d ix = ifH (within3 @target (rshape @target d) ix) (d ! ix) (rscalar 0)
 
@@ -1444,7 +1444,7 @@ testCNNOPP5b = do
     @?= "\\dret u1 -> rfromS (soneHot (sfromR dret !$ [0, 0, 0, 0]) [0, 0, 0, 0])"
 
 maxPool2dUnpadded4
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r)
 maxPool2dUnpadded4 arr =
   rbuild [2, 2, 2, 2] $ \case
@@ -1454,7 +1454,7 @@ maxPool2dUnpadded4 arr =
     _ -> error "maxPool2dUnpadded4: impossible pattern needlessly required"
 
 conv2dSame4
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dSame4 arrA =
   let shB = [1, 1, 2, 2]
@@ -1465,7 +1465,7 @@ conv2dSame4 arrA =
     _ -> error "conv2dSame4: impossible pattern needlessly required"
 
 slicez4
-  :: (ADReady target, GoodScalar r, KnownNat n)
+  :: (ADReady target, NumScalar r, KnownNat n)
   => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez4 shOut d ixBase =
   rbuild shOut $ \ixResult -> indexz03 d (ixrZipWith (+) ixBase ixResult)
@@ -1504,7 +1504,7 @@ testCNNOPP6b = do
       -- TODO: was once "\\dret u1 -> rfromS (soneHot (ssum0 (stranspose @[0,1,3,2] (sfromR dret) !$ [0, 0, 0])) [0, 0, 0, 0])"
 
 conv2dSame3z
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dSame3z arrA =
   let shB = [2, 2, 2, 2]
@@ -1547,7 +1547,7 @@ testCNNOPP7b = do
       -- TODO: was once "\\dret u1 -> rfromS (soneHot (sfromR dret !$ [0, 0, 0, 0]) [0, 0, 0, 0])"
 
 maxPool2dUnpadded3y
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r)
 maxPool2dUnpadded3y arr =
   rbuild [2, 2, 2, 2] $ \case
@@ -1557,7 +1557,7 @@ maxPool2dUnpadded3y arr =
     _ -> error "maxPool2dUnpadded3y: impossible pattern needlessly required"
 
 conv2dSame3y
-  :: (ADReady target, GoodScalar r)
+  :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dSame3y arrA =
   let shB = [2, 2, 2, 2]

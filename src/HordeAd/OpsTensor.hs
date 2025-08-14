@@ -528,7 +528,7 @@ rcast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
       => target (TKR n r1) -> target (TKR n r2)
 rcast = trcast
 rminIndex, rmaxIndex  -- partial
-  :: forall n r r2 target. (NumScalar r, GoodScalar r2, BaseTensor target)
+  :: forall n r r2 target. (NumScalar r, NumScalar r2, BaseTensor target)
   => target (TKR (1 + n) r) -> target (TKR n r2)
 rminIndex = trminIndex
 rmaxIndex = trmaxIndex
@@ -548,7 +548,7 @@ scast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
       => target (TKS sh r1) -> target (TKS sh r2)
 scast = tscast
 sminIndex, smaxIndex  -- partial
-  :: forall n sh r r2 target. (NumScalar r, GoodScalar r2, BaseTensor target)
+  :: forall n sh r r2 target. (NumScalar r, NumScalar r2, BaseTensor target)
   => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
 sminIndex = tsminIndex
 smaxIndex = tsmaxIndex
@@ -568,7 +568,7 @@ xcast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
       => target (TKX sh r1) -> target (TKX sh r2)
 xcast = txcast
 xminIndex, xmaxIndex  -- partial
-  :: forall mn sh r r2 target. (NumScalar r, GoodScalar r2, BaseTensor target)
+  :: forall mn sh r r2 target. (NumScalar r, NumScalar r2, BaseTensor target)
   => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
 xminIndex = txminIndex
 xmaxIndex = txmaxIndex
@@ -1024,7 +1024,7 @@ xscan @k = tscan (SNat @k) knownSTK knownSTK
 -- The function argument needs to be quantified,
 -- because otherwise in the ADVal instance one could put an illegal
 -- @DeltaInput@ there, confusing different levels of contangents.
-kgrad :: forall x r target. BaseTensor target
+kgrad :: forall x r target. (GoodScalar r, BaseTensor target)
       => (forall f. ADReady f => f x -> f (TKScalar r))  -- ^ x |-> TKScalar r
       -> FullShapeTK x  -- ^ shape of x and dx
       -> target x  -- ^ input x

@@ -27,7 +27,7 @@ module HordeAd.ADEngine
   , cjvp
     -- * Internal machinery for symbolic adaptors
   , IncomingCotangentHandling(..)
-  , revArtifactAdapt, revArtifactDelta
+  , revArtifactAdapt, revArtifactAdaptDt, revArtifactDelta
   , revProduceArtifactWithoutInterpretation, revInterpretArtifact
   , fwdArtifactAdapt, fwdArtifactDelta, fwdInterpretArtifact
     -- * Internal machinery for non-symbolic adaptors
@@ -35,6 +35,8 @@ module HordeAd.ADEngine
   ) where
 
 import Prelude
+
+import Data.Proxy (Proxy (Proxy))
 
 import HordeAd.AstEngine
 import HordeAd.Core.Adaptor
@@ -67,7 +69,7 @@ import HordeAd.Core.Unwind
 -- the type of concrete contangents to the type of concrete input parameters.
 grad
   :: forall src r tgt.
-     ( X src ~ X (Value src), KnownSTK (X src)
+     ( GoodScalar r, X src ~ X (Value src), KnownSTK (X src)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
      , AdaptableTarget Concrete (Value src)
      , tgt ~ AstTensor AstMethodLet FullSpan (TKScalar r) )
@@ -75,7 +77,8 @@ grad
   -> Value src
   -> Value src  -- morally Value (ADTensorKind src)
 {-# INLINE grad #-}
-grad f vals = revMaybe f vals Nothing
+grad f vals | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
+  revMaybe f vals Nothing
 
 -- | This version of the symbolic reverse derivative operation
 -- explicitly takes the sensitivity parameter (the incoming cotangent).
@@ -98,7 +101,7 @@ vjp
   -> Concrete (ADTensorKind ztgt)
   -> Value src  -- morally Value (ADTensorKind src)
 {-# INLINE vjp #-}
-vjp f vals dt = revMaybe f vals (Just dt)
+vjp = revMaybeDt
 
 -- | Compute the reverse derivative not for a specific input, but as symbolic
 -- function from inputs to the gradient value.
@@ -106,7 +109,7 @@ vjp f vals dt = revMaybe f vals (Just dt)
 -- AST term together with the variable corresponding to the input.
 gradArtifact
   :: forall src r tgt.
-     ( X src ~ X (Value src), KnownSTK (X src)
+     ( GoodScalar r, X src ~ X (Value src), KnownSTK (X src)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
      , AdaptableTarget Concrete (Value src)
      , tgt ~ AstTensor AstMethodLet FullSpan (TKScalar r) )
@@ -115,9 +118,10 @@ gradArtifact
   -> AstArtifactRev (X src) (TKScalar r)
        -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE gradArtifact #-}
-gradArtifact f vals0 =
-  let xftk = tftkG (knownSTK @(X src)) $ unConcrete $ toTarget vals0
-  in revArtifactAdapt IgnoreIncomingCotangent f xftk
+gradArtifact f vals0
+  | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
+    let xftk = tftkG (knownSTK @(X src)) $ unConcrete $ toTarget vals0
+    in revArtifactAdapt IgnoreIncomingCotangent f xftk
 
 -- | Compute the reverse derivative not for a specific input, but as symbolic
 -- function from inputs and incoming cotangents to the gradient value.
@@ -136,29 +140,30 @@ vjpArtifact
 {-# INLINE vjpArtifact #-}
 vjpArtifact f vals0 =
   let xftk = tftkG (knownSTK @(X src)) $ unConcrete $ toTarget vals0
-  in revArtifactAdapt UseIncomingCotangent f xftk
+  in revArtifactAdaptDt f xftk
 
 -- | Interpret the "artifact" as a function from a concrete tensor
 -- to a concrete tensor (possibly adapted, e.g., from horde-ad nested pairs
 -- to Haskell n-tuples).
 gradInterpretArtifact
   :: forall x r avals.
-     (X avals ~ ADTensorKind x, AdaptableTarget Concrete avals)
+     (GoodScalar r, X avals ~ ADTensorKind x, AdaptableTarget Concrete avals)
   => AstArtifactRev x (TKScalar r)
        -- ^ the artifact containing the symbolic code of the derivative
   -> Concrete x
   -> avals
 {-# INLINE gradInterpretArtifact #-}
-gradInterpretArtifact AstArtifactRev{..} parameters =
-  let xftk = varNameToFTK artVarDomainRev
-      azftk = varNameToFTK artVarDtRev
-                -- STKScalar @(ADTensorScalar r) or STKScalar @Z1
-      oneAtF = treplTarget 1 azftk
-      env = extendEnv artVarDtRev oneAtF
-            $ extendEnv artVarDomainRev parameters emptyEnv
-  in if tftkG (ftkToSTK xftk) (unConcrete parameters) == xftk
-     then fromTarget $ interpretAstPrimal env artDerivativeRev
-     else error "gradInterpretArtifact: reverse derivative parameters must have the same shape as the domain of the objective function"
+gradInterpretArtifact AstArtifactRev{..} parameters
+  | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
+    let xftk = varNameToFTK artVarDomainRev
+        azftk = varNameToFTK artVarDtRev
+                  -- STKScalar @(ADTensorScalar r) or STKScalar @Z1
+        oneAtF = treplTarget 1 azftk
+        env = extendEnv artVarDtRev oneAtF
+              $ extendEnv artVarDomainRev parameters emptyEnv
+    in if tftkG (ftkToSTK xftk) (unConcrete parameters) == xftk
+       then fromTarget $ interpretAstPrimal env artDerivativeRev
+       else error "gradInterpretArtifact: reverse derivative parameters must have the same shape as the domain of the objective function"
 
 -- | Interpret the "artifact" as a function from concrete tensors
 -- to a concrete tensor (possibly adapted, e.g., from horde-ad nested pairs
@@ -188,7 +193,8 @@ vjpInterpretArtifact AstArtifactRev{..} parameters dt =
 
 revMaybe
   :: forall src ztgt tgt.
-     ( X src ~ X (Value src), KnownSTK (X src)
+     ( TKAllNum (ADTensorKind ztgt)
+     , X src ~ X (Value src), KnownSTK (X src)
      , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
      , AdaptableTarget Concrete (Value src)
      , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
@@ -209,7 +215,8 @@ revMaybe f vals0 mdt =
 
 revArtifactAdapt
   :: forall src ztgt tgt.
-     ( AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     ( TKAllNum (ADTensorKind ztgt)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
      , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
   => IncomingCotangentHandling
   -> (src -> tgt)  -- ^ the objective function
@@ -224,8 +231,8 @@ revArtifactAdapt cotangentHandling f xftk =
   in revProduceArtifact cotangentHandling g emptyEnv xftk
 
 revInterpretArtifact
-  :: forall x z.
-     AstArtifactRev x z
+  :: forall x z. TKAllNum (ADTensorKind z)
+  => AstArtifactRev x z
        -- ^ the artifact containing the symbolic code of the derivative
   -> Concrete x
   -> Maybe (Concrete (ADTensorKind z))
@@ -246,12 +253,68 @@ revInterpretArtifact AstArtifactRev{..} parameters mdt =
       primal = interpretAstPrimal env artPrimalRev
   in (gradient, primal)
 
+-- These three functions are as above, but the dt must be provided and so,
+-- due to technical reasons, the type is less constrained.
+revMaybeDt
+  :: forall src ztgt tgt.
+     ( X src ~ X (Value src), KnownSTK (X src)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , AdaptableTarget Concrete (Value src)
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> Value src
+  -> Concrete (ADTensorKind ztgt)
+  -> Value src  -- morally Value (ADTensorKind src)
+{-# INLINE revMaybeDt #-}
+revMaybeDt f vals0 dt =
+  let valsTarget = toTarget vals0
+      xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
+      artifactRaw = revArtifactAdaptDt f xftk
+      artifact = simplifyArtifactGradient artifactRaw
+  in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
+     $ fst $ revInterpretArtifactDt artifact valsTarget dt
+
+revArtifactAdaptDt
+  :: forall src ztgt tgt.
+     ( AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> FullShapeTK (X src)
+  -> AstArtifactRev (X src) ztgt
+       -- ^ the artifact containing the symbolic code of the derivative
+{-# INLINE revArtifactAdaptDt #-}
+revArtifactAdaptDt f xftk =
+  let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
+      g !arg = simplifyInline $ ttlet arg $ f . fromTarget
+                                  -- fromTarget requires duplicable
+  in revProduceArtifactDt g emptyEnv xftk
+
+revInterpretArtifactDt
+  :: forall x z.
+     AstArtifactRev x z
+       -- ^ the artifact containing the symbolic code of the derivative
+  -> Concrete x
+  -> Concrete (ADTensorKind z)
+  -> (Concrete (ADTensorKind x), Concrete z)
+{-# INLINE revInterpretArtifactDt #-}
+revInterpretArtifactDt AstArtifactRev{..} parameters dt =
+  let azftk = varNameToFTK artVarDtRev
+      env = extendEnv artVarDomainRev parameters emptyEnv
+      envDt =
+        if tftkG (ftkToSTK azftk) (unConcrete dt) == azftk
+        then extendEnv artVarDtRev dt env
+        else error "revInterpretArtifactDt: reverse derivative incoming cotangent must have the same shape as the codomain of the objective function"
+      gradient = interpretAstPrimal envDt artDerivativeRev
+      primal = interpretAstPrimal env artPrimalRev
+  in (gradient, primal)
+
 
 -- * Symbolic reverse derivative adaptors' testing-only internal machinery
 
 revArtifactDelta
   :: forall src ztgt tgt.
-     ( AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     ( TKAllNum (ADTensorKind ztgt)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
      , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
   => IncomingCotangentHandling
   -> (src -> tgt)  -- ^ the objective function
@@ -266,8 +329,8 @@ revArtifactDelta cotangentHandling f xftk =
                                 (forwardPassByInterpretation g emptyEnv) xftk
 
 revProduceArtifactWithoutInterpretation
-  :: forall x z.
-     IncomingCotangentHandling
+  :: forall x z. TKAllNum (ADTensorKind z)
+  => IncomingCotangentHandling
   -> (ADVal (AstRaw PrimalSpan) x -> ADVal (AstRaw PrimalSpan) z)
   -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
@@ -420,7 +483,7 @@ fwdArtifactDelta f xftk =
 -- and assumes the codomain of the function to be differentiated is a scalar.
 cgrad
   :: forall src r tgt.
-     ( X src ~ X (DValue src), KnownSTK (X src)
+     ( GoodScalar r, X src ~ X (DValue src), KnownSTK (X src)
      , AdaptableTarget (ADVal Concrete) src
      , AdaptableTarget Concrete (DValue src)
      , tgt ~ ADVal Concrete (TKScalar r) )
@@ -428,7 +491,8 @@ cgrad
   -> DValue src
   -> DValue src  -- morally DValue (ADTensorKind src)
 {-# INLINE cgrad #-}
-cgrad f vals = crevMaybe f vals Nothing
+cgrad f vals | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
+  crevMaybe f vals Nothing
 
 -- | This more general version of the concrete (non-symbolic)
 -- reverse derivative operation additionally takes the sensitivity parameter
@@ -444,14 +508,15 @@ cvjp
   -> Concrete (ADTensorKind ztgt)
   -> DValue src  -- morally DValue (ADTensorKind src)
 {-# INLINE cvjp #-}
-cvjp f vals dt = crevMaybe f vals (Just dt)
+cvjp = crevMaybeDt
 
 
 -- * Non-symbolic reverse derivative adaptors' internal machinery
 
 crevMaybe
   :: forall src ztgt tgt.
-     ( X src ~ X (DValue src), KnownSTK (X src)
+     ( TKAllNum (ADTensorKind ztgt)
+     , X src ~ X (DValue src), KnownSTK (X src)
      , AdaptableTarget (ADVal Concrete) src
      , AdaptableTarget Concrete (DValue src)
      , tgt ~ ADVal Concrete ztgt )
@@ -467,6 +532,27 @@ crevMaybe f vals0 mdt =
       xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
   in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
      $ fst $ crevOnParams mdt g xftk valsTarget
+
+-- This function is as above, but the dt must be provided and so,
+-- due to technical reasons, the type is less constrained.
+crevMaybeDt
+  :: forall src ztgt tgt.
+     ( X src ~ X (DValue src), KnownSTK (X src)
+     , AdaptableTarget (ADVal Concrete) src
+     , AdaptableTarget Concrete (DValue src)
+     , tgt ~ ADVal Concrete ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> DValue src
+  -> Concrete (ADTensorKind ztgt)
+  -> DValue src  -- morally DValue (ADTensorKind src)
+{-# INLINE crevMaybeDt #-}
+crevMaybeDt f vals0 dt =
+  let valsTarget = toTarget vals0
+      g :: ADVal Concrete (X src) -> tgt
+      g = f . fromTarget
+      xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
+  in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
+     $ fst $ crevOnParamsDt dt g xftk valsTarget
 
 
 -- * Non-symbolic forward derivative adaptors

@@ -36,7 +36,7 @@ type LayerWeigthsRNNShaped target in_width out_width r =
   , target (TKS '[out_width] r) )           -- bias
 
 zeroStateS
-  :: (BaseTensor target, KnownShS sh, GoodScalar r)
+  :: (BaseTensor target, KnownShS sh, NumScalar r)
   => (target (TKS sh r)  -- state
       -> a)
   -> a

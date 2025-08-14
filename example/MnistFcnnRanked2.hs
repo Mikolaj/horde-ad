@@ -116,7 +116,7 @@ mnistTrainBench2VTOGradient
             (TKProduct (TKR2 1 (TKScalar r))
                        (TKR2 1 (TKScalar r))))
          (TKScalar r) )
-mnistTrainBench2VTOGradient Proxy cotangentHandling range seed widthHidden widthHidden2 =
+mnistTrainBench2VTOGradient Proxy cotangentHandling range seed widthHidden widthHidden2 | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   withSNat widthHidden $ \(SNat @widthHidden) ->
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   -- Initial parameter generation is counted as part of compilation time.
@@ -154,7 +154,7 @@ mnistTrainBench2VTOGradientX
             (TKProduct (TKR2 1 (TKScalar r))
                        (TKR2 1 (TKScalar r))))
          (TKScalar r) )
-mnistTrainBench2VTOGradientX Proxy cotangentHandling range seed widthHidden widthHidden2 =
+mnistTrainBench2VTOGradientX Proxy cotangentHandling range seed widthHidden widthHidden2 | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   withSNat widthHidden $ \(SNat @widthHidden) ->
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   -- Initial parameter generation is counted as part of compilation time.

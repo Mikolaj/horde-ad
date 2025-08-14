@@ -463,9 +463,11 @@ printAst cfg d = \case
       . showString " "
       . printAst cfg 11 v
 
-showNumber :: (Ord a, Num a, Show a) => a -> ShowS
+showNumber :: Show a => a -> ShowS
 {-# INLINE showNumber #-}
-showNumber a = showParen (a < 0) $ shows a
+showNumber a = case show a of
+  s@('-' : _) -> showParen True (showString s)
+  s -> showString s
 
 -- Differs from standard only in the space after comma.
 showListWith :: (a -> ShowS) -> [a] -> ShowS

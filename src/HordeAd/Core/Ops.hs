@@ -817,7 +817,7 @@ class ( Num (IntOf target)
   trcast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
          => target (TKR n r1) -> target (TKR n r2)
   trminIndex, trmaxIndex  -- partial
-    :: forall n r r2. (NumScalar r, GoodScalar r2)
+    :: forall n r r2. (NumScalar r, NumScalar r2)
     => target (TKR (1 + n) r) -> target (TKR n r2)
   triota :: NumScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
 
@@ -828,7 +828,7 @@ class ( Num (IntOf target)
   tscast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
          => target (TKS sh r1) -> target (TKS sh r2)
   tsminIndex, tsmaxIndex  -- partial
-    :: forall n sh r r2. (NumScalar r, GoodScalar r2)
+    :: forall n sh r r2. (NumScalar r, NumScalar r2)
     => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
   tsiota :: (KnownNat n, NumScalar r)
          => target (TKS '[n] r)  -- from 0 to n - 1
@@ -840,7 +840,7 @@ class ( Num (IntOf target)
   txcast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
          => target (TKX sh r1) -> target (TKX sh r2)
   txminIndex, txmaxIndex  -- partial
-    :: forall mn sh r r2. (NumScalar r, GoodScalar r2)
+    :: forall mn sh r r2. (NumScalar r, NumScalar r2)
     => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
   txiota :: (KnownNat n, NumScalar r)
          => target (TKX '[Just n] r)  -- from 0 to n - 1
@@ -1016,7 +1016,8 @@ class ( Num (IntOf target)
   -- The followign methods (and tlambda) are exactly what is needed as arguments
   -- of tmapAccumRDer.
   tgrad
-    :: FullShapeTK x  -- ^ shape of x and dx
+    :: forall x r. GoodScalar r
+    => FullShapeTK x  -- ^ shape of x and dx
     -> HFun x (TKScalar r)  -- ^ x |-> TKScalar r
     -> HFunOf target x (ADTensorKind x)  -- ^ x |-> dx
   tvjp
@@ -1095,7 +1096,8 @@ class ( Num (IntOf target)
 
   -- Unwinding methods, needed mostly to split off the Unwind module.
   -- | Construct tensors with the given constant in each cell.
-  treplTarget :: (forall r. GoodScalar r => r) -> FullShapeTK y -> target y
+  treplTarget :: TKAllNum y
+              => (forall r. NumScalar r => r) -> FullShapeTK y -> target y
   -- | Construct tensors with @def@ in each cell.
   tdefTarget :: FullShapeTK y -> target y
   -- | Add pointwise all corresponding tensors within nested product, if any.

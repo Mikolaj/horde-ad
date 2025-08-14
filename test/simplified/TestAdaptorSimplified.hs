@@ -1969,7 +1969,7 @@ testConcatBuild1 =
     (rscalar 126.0)
     (rev' @Double @2 concatBuild (rscalar 3.4))
 
-concatBuild2 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 1 r)
+concatBuild2 :: (ADReady target, NumScalar r) => target (TKR 0 r) -> target (TKR 1 r)
 concatBuild2 r =
   tlet (rfromList [r, rscalar 1, rscalar 2, rscalar 3, rscalar 4]) $ \a ->
     rbuild1 10 (\i -> ifH (i <. 5) (rindex a [i]) (rindex a [i - 5]))
@@ -1980,7 +1980,7 @@ testConcatBuild2 =
     (rscalar 2.0)
     (rev' @Double @1 concatBuild2 (rscalar 3.4))
 
-concatBuild3 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TKR 1 r)
+concatBuild3 :: (ADReady target, NumScalar r) => target (TKR 0 r) -> target (TKR 1 r)
 concatBuild3 r =
   tlet (rfromList [r, rscalar 1, rscalar 2, rscalar 3, rscalar 4]) $ \a ->
     rbuild1 10 (\i -> ifH (i <. 5) (rindex a [i]) (rindex a [i - 5 + (1 `quotH` maxH 1 (i - 5))]))

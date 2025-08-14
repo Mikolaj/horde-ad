@@ -8,6 +8,7 @@ module CrossTesting
 
 import Prelude
 
+import Data.Proxy (Proxy (Proxy))
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
 import System.IO.Unsafe (unsafePerformIO)
@@ -45,7 +46,7 @@ import EqEpsilon
 
 crevMaybeBoth
   :: forall r m f src tgt.
-     ( f ~ Concrete, X src ~ X (DValue src), KnownSTK (X src)
+     ( GoodScalar r, f ~ Concrete, X src ~ X (DValue src), KnownSTK (X src)
      , AdaptableTarget (ADVal Concrete) src
      , AdaptableTarget (ADVal Concrete) tgt
      , AdaptableTarget Concrete (DValue src)
@@ -54,7 +55,7 @@ crevMaybeBoth
   -> DValue src
   -> (f (ADTensorKind (X src)), f (TKR m r))
 {-# INLINE crevMaybeBoth #-}
-crevMaybeBoth f vals =
+crevMaybeBoth f vals | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   let g :: ADVal Concrete (X src) -> ADVal Concrete (TKR m r)
       g = toTarget . f . fromTarget
       valsH = toTarget vals
@@ -491,7 +492,7 @@ rfwd1ds :: forall g r n m r3.
 rfwd1ds f u = rjvp f (tftk knownSTK u) u
 
 rfwd1 :: forall g r n m r3.
-         (ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r), KnownNat n)
+         (ADReady g, GoodScalar r, NumScalar (ADTensorScalar r), KnownNat n)
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR m r3))
 rfwd1 f u = rfwd1ds f u (rrepl (rshape u) 1)
@@ -503,7 +504,7 @@ srev1 :: forall g r sh sh2 r3.
 srev1 f u = kgrad (kfromS. ssum0 . f) (tftk knownSTK u) u
 
 sfwd1 :: forall g r sh sh2 r3.
-         (ADReady g, GoodScalar r, GoodScalar (ADTensorScalar r), KnownShS sh)
+         (ADReady g, GoodScalar r, NumScalar (ADTensorScalar r), KnownShS sh)
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh2 r3))
 sfwd1 f u = sjvp f (tftk knownSTK u) u (srepl @_ @(ADTensorScalar r) 1)

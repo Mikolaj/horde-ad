@@ -4,7 +4,7 @@
 -- are generic over whether the dual numbers are built from concrete arrays
 -- of floats or from AST terms or anything else (e.g., nested 'ADVal').
 module HordeAd.Core.OpsADVal
-  ( crevOnADInputs, crevOnParams, cfwdOnParams
+  ( crevOnADInputs, crevOnParams, crevOnParamsDt, cfwdOnParams
   ) where
 
 import Prelude hiding (foldl')
@@ -40,7 +40,8 @@ import HordeAd.Core.UnwindNum
 -- The user-written function f can do anything, so the inputs
 -- argument has to be duplicable.
 crevOnADInputs
-  :: forall x z target. (ADReadyNoLet target, ShareTensor target)
+  :: forall x z target.
+     (TKAllNum (ADTensorKind z), ADReadyNoLet target, ShareTensor target)
   => Maybe (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
   -> FullShapeTK x -> ADVal target x
@@ -57,7 +58,8 @@ crevOnADInputs mdt f xftk inputs =
   in (gradient, v)
 
 crevOnParams
-  :: forall x z target. (ADReadyNoLet target, ShareTensor target)
+  :: forall x z target.
+     (TKAllNum (ADTensorKind z), ADReadyNoLet target, ShareTensor target)
   => Maybe (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
   -> FullShapeTK x -> target x
@@ -67,6 +69,38 @@ crevOnParams edt f xftk parameters =
   let deltaInputs = generateDeltaInputs xftk
       inputs = dDnotShared parameters deltaInputs
   in crevOnADInputs edt f xftk inputs
+
+-- These two functions are as above, but the dt must be provided and so,
+-- due to technical reasons, the type is less constrained.
+-- The user-written function f can do anything, so the inputs
+-- argument has to be duplicable.
+crevOnADInputsDt
+  :: forall x z target. (ADReadyNoLet target, ShareTensor target)
+  => target (ADTensorKind z)
+  -> (ADVal target x -> ADVal target z)
+  -> FullShapeTK x -> ADVal target x
+  -> (target (ADTensorKind x), target z)
+-- Break the inline chain to prevent false positives in inspection testing.
+-- {-# INLINE crevOnADInputsDt #-}
+crevOnADInputsDt dt f xftk inputs =
+  let -- Evaluate completely after terms constructed, to free memory
+      -- before evaluation allocates new memory and new FFI is started.
+      !(D v delta) = f inputs in
+  let zftk = ftkDelta delta
+      !gradient = gradientFromDelta xftk zftk dt delta
+  in (gradient, v)
+
+crevOnParamsDt
+  :: forall x z target. (ADReadyNoLet target, ShareTensor target)
+  => target (ADTensorKind z)
+  -> (ADVal target x -> ADVal target z)
+  -> FullShapeTK x -> target x
+  -> (target (ADTensorKind x), target z)
+{-# INLINE crevOnParamsDt #-}
+crevOnParamsDt dt f xftk parameters =
+  let deltaInputs = generateDeltaInputs xftk
+      inputs = dDnotShared parameters deltaInputs
+  in crevOnADInputsDt dt f xftk inputs
 
 cfwdOnADInputs
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
@@ -488,7 +522,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tfromPrimal stk t = fromPrimalFTK (tftk stk t) t
   tfromDual t = dDnotShared (tdefTarget (ftkDelta t)) t
   tScale _stk = dScale
-  tgrad @x xftk h =
+  tgrad @x @r xftk h | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     let rf :: forall f. ADReady f
            => f x
            -> f (ADTensorKind x)
@@ -506,8 +540,8 @@ instance ( ADReadyNoLet target, ShareTensor target
            -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new db and a.
         rf !db_a = ttlet db_a $ \ !db_aShared ->
-          tunshare $ fst $ crevOnParams
-                             (Just $ toShare $ tproject1 db_aShared)
+          tunshare $ fst $ crevOnParamsDt
+                             (toShare $ tproject1 db_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
                              xftk
                              (toShare $ tproject2 db_aShared)

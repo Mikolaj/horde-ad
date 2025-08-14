@@ -8,7 +8,7 @@
 module HordeAd.Core.OpsAst
   ( IncomingCotangentHandling(..)
   , forwardPassByInterpretation
-  , revArtifactFromForwardPass, revProduceArtifact
+  , revArtifactFromForwardPass, revProduceArtifact, revProduceArtifactDt
   , fwdArtifactFromForwardPass, fwdProduceArtifact
   ) where
 
@@ -90,8 +90,8 @@ forwardPassByInterpretation g envInit astVarPrimal var astVar0 =
   in interpretAstFull env ast
 
 revArtifactFromForwardPass
-  :: forall x z.
-     IncomingCotangentHandling
+  :: forall x z. TKAllNum (ADTensorKind z)
+  => IncomingCotangentHandling
   -> (AstTensor AstMethodShare PrimalSpan x
       -> AstVarName FullSpan x
       -> AstTensor AstMethodLet FullSpan x
@@ -122,8 +122,8 @@ revArtifactFromForwardPass cotangentHandling
   return (AstArtifactRev varDt varPrimal unGradient unPrimal, delta)
 
 revProduceArtifact
-  :: forall x z.
-     IncomingCotangentHandling
+  :: forall x z. TKAllNum (ADTensorKind z)
+  => IncomingCotangentHandling
   -> (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
@@ -132,6 +132,45 @@ revProduceArtifact
 revProduceArtifact cotangentHandling g envInit xftk =
   fst $ inline revArtifactFromForwardPass
           cotangentHandling (forwardPassByInterpretation g envInit) xftk
+
+-- These two functions are as above, but the dt must be provided and so,
+-- due to technical reasons, the type is less constrained.
+revArtifactFromForwardPassDt
+  :: forall x z.
+     (AstTensor AstMethodShare PrimalSpan x
+      -> AstVarName FullSpan x
+      -> AstTensor AstMethodLet FullSpan x
+      -> ADVal (AstRaw PrimalSpan) z)
+  -> FullShapeTK x
+  -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
+-- Break the inline chain to prevent false positives in inspection testing
+-- and protect the unsafePerformIO.
+{-# NOINLINE revArtifactFromForwardPassDt #-}
+revArtifactFromForwardPassDt forwardPass xftk = unsafePerformIO $ do
+  -- IO and bangs and the compound function to fix the numbering of variables
+  -- for pretty-printing and prevent sharing the impure values
+  -- in tests that reset the impure counters.
+  (!varPrimal, astVarPrimal, var, astVar0) <- funToAstRevIO xftk
+  -- Evaluate completely after terms constructed, to free memory
+  -- before gradientFromDelta allocates new memory and new FFI is started.
+  let !(D primalBody delta) = forwardPass astVarPrimal var astVar0
+  let zftk = ftkAst $ unAstRaw primalBody
+      (!varDt, !dt) = funToAst (adFTK zftk) Nothing id
+  let !gradient = gradientFromDelta xftk zftk (AstRaw dt) delta
+      !unGradient = unshareAstTensor $ unAstRaw gradient
+      !unPrimal = unshareAstTensor $ unAstRaw primalBody
+  return (AstArtifactRev varDt varPrimal unGradient unPrimal, delta)
+
+revProduceArtifactDt
+  :: forall x z.
+     (AstTensor AstMethodLet FullSpan x
+      -> AstTensor AstMethodLet FullSpan z)
+  -> AstEnv (ADVal (AstRaw PrimalSpan))
+  -> FullShapeTK x
+  -> AstArtifactRev x z
+revProduceArtifactDt g envInit xftk =
+  fst $ inline revArtifactFromForwardPassDt
+          (forwardPassByInterpretation g envInit) xftk
 
 fwdArtifactFromForwardPass
   :: forall x z.
@@ -589,7 +628,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tdualPart _ = dualPart
   tfromPrimal _ = fromPrimal
   tfromDual = fromDual
-  tgrad xftk f =
+  tgrad @_ @r xftk f | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     -- We don't have an AST constructor to hold it, so we compute outright.
     --
     -- This computes the (AST of) derivative of f once and interprets it again
@@ -611,8 +650,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let AstArtifactRev{..} =
-          revProduceArtifact
-            UseIncomingCotangent (simplifyInline . unHFun f) emptyEnv ftkx
+          revProduceArtifactDt
+            (simplifyInline . unHFun f) emptyEnv ftkx
         ftkz = varNameToFTK artVarDtRev
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 Nothing $ \ !astP ->

@@ -17,6 +17,7 @@ module TestMnistRNNR
 import Prelude
 
 import Control.Monad (foldM, unless)
+import Data.Proxy (Proxy (Proxy))
 import System.IO (hPutStrLn, stderr)
 import System.Random
 import Test.Tasty
@@ -56,7 +57,8 @@ mnistTestCaseRNNRA
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseRNNRA prefix epochs maxBatches width miniBatchSize totalBatchSize
-                   expected =
+                   expected
+                   | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   withSNat width $ \(SNat @width) ->
   let targetInit =
         forgetShape $ fst
@@ -170,7 +172,8 @@ mnistTestCaseRNNRI
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseRNNRI prefix epochs maxBatches width miniBatchSize totalBatchSize
-                   expected =
+                   expected
+                   | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   withSNat width $ \(SNat @width) ->
   let targetInit =
         forgetShape $ fst

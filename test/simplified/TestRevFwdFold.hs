@@ -1209,7 +1209,7 @@ testUnitriangular0PP = do
   printAstPretty (simplifyInlineContract a1)
     @?= "rfromS (sgather (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3, i2] -> [ifH (0 <=. i2 + negate i3) 0 1]))"
 
-unitriangular1 :: (KnownNat k, GoodScalar rk, ADReady target)
+unitriangular1 :: (KnownNat k, NumScalar rk, ADReady target)
                => Int -> IShR k -> target (TKR (2 + k) rk)
 unitriangular1 k sh =
   rbuild1 k $ \i ->
@@ -1225,7 +1225,7 @@ testUnitriangular1PP = do
   printAstPretty (simplifyInline a1)
     @?= "rfromS (sgather (sconcrete (sfromListLinear [2,2,3,6] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])) (\\[i3, i2] -> [ifH (0 <=. i2 + negate i3) 0 1]))"
 
-unitriangular2 :: (KnownNat k, GoodScalar rk, ADReady target)
+unitriangular2 :: (KnownNat k, NumScalar rk, ADReady target)
                => Int -> IShR k -> target (TKR (2 + k) rk)
 unitriangular2 k sh =
   rgather @_ @_ @1 (k :$: k :$: sh)

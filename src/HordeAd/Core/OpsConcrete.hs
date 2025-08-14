@@ -192,7 +192,8 @@ instance BaseTensor Concrete where
     let shpshn = knownShS @shp `shsAppend` knownShS @shn
     in withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
        case tftk knownSTK t of
-         FTKS _ x@FTKScalar ->  -- optimized
+         FTKS _ x@(FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+           -- Optimized.
            gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn)
                                           :~: shp) $
            gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn)
@@ -200,6 +201,9 @@ instance BaseTensor Concrete where
            let zero = tdefTarget @Concrete (FTKS shpshn x)
                shm = knownShS @shm
                s = shsSize shm
+               g :: IxS shm Int64
+                 -> M.Map (IxSOf Concrete shp) (VS.Vector r)
+                 -> M.Map (IxSOf Concrete shp) (VS.Vector r)
                g ix =
                  let ix2 = f $ fmapConcrete ix
                  in if ixInBounds (fmapUnConcrete $ toList ix2)
@@ -360,11 +364,15 @@ instance BaseTensor Concrete where
     gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
     case tftk knownSTK t of
-      FTKX _ x@FTKScalar ->  -- optimized
+      FTKX _ x@(FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+        -- Optimized.
         let zero = tdefTarget (FTKX sh x)
             shm = shxTakeSSX (Proxy @shn) (knownShX @shm) (xshape t)
             shDropP = shxDropSSX (knownShX @shm) (xshape t)
             s = shxSize shm
+            g :: IxX shm Int64
+              -> M.Map (IxXOf Concrete shp) (VS.Vector r)
+              -> M.Map (IxXOf Concrete shp) (VS.Vector r)
             g ix =
               let ix2 = f $ fmapConcrete ix
               in if ixInBounds (fmapUnConcrete $ toList ix2) (shxToList sh)
@@ -474,17 +482,17 @@ instance BaseTensor Concrete where
   tScale _ _ t = t
   -- The code for tvjp and tjvp in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
-  tgrad @x xftk h =
+  tgrad @x @r xftk h | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     let rf :: RepConcrete x -> RepConcrete (ADTensorKind x)
         rf !a = unConcrete $ fst $ crevOnParams Nothing (unHFun h)
-                                                 xftk (Concrete a)
+                                                xftk (Concrete a)
     in rf
   tvjp @x @z xftk h =
     let rf :: RepConcrete (TKProduct (ADTensorKind z) x)
            -> RepConcrete (ADTensorKind x)
         rf !db_a = unConcrete $ fst
-                   $ crevOnParams (Just $ Concrete $ fst db_a) (unHFun h)
-                                   xftk (Concrete $ snd db_a)
+                   $ crevOnParamsDt (Concrete $ fst db_a) (unHFun h)
+                                    xftk (Concrete $ snd db_a)
     in rf
   tjvp @x @z xftk h =
     let df :: RepConcrete (TKProduct (ADTensorKind x) x)
@@ -808,17 +816,21 @@ tindex0R (RS.A (RG.A _ OI.T{..})) ix =
 --
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensors is added at such an index.
-tscatterZR :: forall m p n r.
-              (TKAllNum r, KnownNat p, KnownNat m, KnownNat n, KnownSTK r)
-           => IShR (p + n) -> Concrete (TKR2 (m + n) r)
+tscatterZR :: forall m p n x.
+              (TKAllNum x, KnownNat p, KnownNat m, KnownNat n, KnownSTK x)
+           => IShR (p + n) -> Concrete (TKR2 (m + n) x)
            -> (IxROf Concrete m -> IxROf Concrete p)
-           -> Concrete (TKR2 (p + n) r)
+           -> Concrete (TKR2 (p + n) x)
 tscatterZR sh t f
- | Dict <- eltDictRep (knownSTK @r) = case tftk knownSTK t of
-  FTKR _ x@FTKScalar ->  -- optimized
+ | Dict <- eltDictRep (knownSTK @x) = case tftk knownSTK t of
+  FTKR _ x@(FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+    -- Optimized.
     let zero = tdefTarget (FTKR sh x)
         (shm, shDropP) = shrSplitAt @m $ rshape t
         s = shrSize shm
+        g :: IxR m Int64
+          -> M.Map (IxROf Concrete p) (VS.Vector r)
+          -> M.Map (IxROf Concrete p) (VS.Vector r)
         g ix =
           let ix2 = f $ fmapConcrete ix
           in if ixInBounds (fmapUnConcrete $ toList ix2) (toList sh)
@@ -963,7 +975,7 @@ updateNS arr upd = case knownSTK @r of
       in sunNest @_ @(Take n sh) $ tsfromVector0N $ V.fromList
          $ imap f $ tsunravelToList $ sflatten arrNested
 
-tfromIntegralS :: (GoodScalar r1, Integral r1, GoodScalar r2)
+tfromIntegralS :: (GoodScalar r1, Integral r1, NumScalar r2)
                => Nested.Shaped sh r1 -> Nested.Shaped sh r2
 tfromIntegralS = liftVS (V.map fromIntegral)
 

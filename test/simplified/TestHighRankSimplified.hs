@@ -279,7 +279,7 @@ testFooBuildNest25S =
     (rev' @Double @5 (fooBuildNest2S @2 @[2, 1, 2, 2] . sfromR) t16)
 
 fooBuild3 :: forall target r n.
-             ( ADReady target, GoodScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
+             ( ADReady target, NumScalar r, KnownNat n, RealFloatH (target (TKR n r)) )
           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild3 v =
   rbuild1 22 $ \ix ->

@@ -165,7 +165,7 @@ dXFromS ssx d
 
 -- This hack is needed to recover shape from tensors,
 -- in particular in case of numeric literals and also for forward derivative.
-intOfShape :: forall z f. ADReadyNoLet f
+intOfShape :: forall z f. (TKAllNum z, ADReadyNoLet f)
            => Delta f z -> Int -> f z
 intOfShape tsh c = treplTarget (fromIntegral c) (ftkDelta tsh)
 
@@ -282,7 +282,7 @@ instance (NumScalar r, ShareTensor f, ADReadyNoLet f)
 -}
 
 instance {-# OVERLAPPABLE #-}
-         (Num (f z), ShareTensor f, ADReadyNoLet f)
+         (TKAllNum z, Num (f z), ShareTensor f, ADReadyNoLet f)
          => Num (ADVal f z) where
   D u u' + D v v' = dD (u + v) (dAdd u' v')
   D u u' - D v v' =
@@ -311,13 +311,13 @@ instance {-# OVERLAPPABLE #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKX sh Int64)) #-}
 -}
 
-instance (Real (f z), ShareTensor f, ADReadyNoLet f)
+instance (TKAllNum z, Real (f z), ShareTensor f, ADReadyNoLet f)
          => Real (ADVal f z) where
   toRational (D v _) = toRational v
     -- this is most probably not what the user expects, but the type
     -- of the result (Rational) doesn't permit any better solution
 
-instance (IntegralH (f z), ShareTensor f, ADReadyNoLet f)
+instance (TKAllNum z, IntegralH (f z), ShareTensor f, ADReadyNoLet f)
          => IntegralH (ADVal f z) where
   quotH (D u _) (D v v') = dDnotShared (quotH u v) (DeltaZero $ ftkDelta v')
   remH (D u _) (D v v') = dDnotShared (remH u v) (DeltaZero $ ftkDelta v')
@@ -328,8 +328,8 @@ instance (IntegralH (f z), ShareTensor f, ADReadyNoLet f)
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKX sh Int64)) #-}
 
 -- This is copied from below to permit fromRational for TKScalar.
-instance ( NumScalar r, Fractional (f (TKScalar r)), ShareTensor f
-         , ADReadyNoLet f )
+instance ( TKAllNum (TKScalar r), NumScalar r, Fractional (f (TKScalar r))
+         , ShareTensor f, ADReadyNoLet f )
          => Fractional (ADVal f (TKScalar r)) where
   D ue u' / D ve v' =
     let !u = tshare ue in
@@ -342,7 +342,7 @@ instance ( NumScalar r, Fractional (f (TKScalar r)), ShareTensor f
   fromRational r = dDnotShared (fromRational r) (DeltaZero FTKScalar)
 
 instance {-# OVERLAPPABLE #-}
-         (Fractional (f z), ShareTensor f, ADReadyNoLet f)
+         (TKAllNum z, Fractional (f z), ShareTensor f, ADReadyNoLet f)
          => Fractional (ADVal f z) where
   D ue u' / D ve v' =
     let !u = tshare ue in
@@ -354,7 +354,7 @@ instance {-# OVERLAPPABLE #-}
     in dD (recip v) (dScale minusRecipSq v')
   fromRational = error "fromRational is not defined for tensors in general"
 
-instance (Floating (f z), ShareTensor f, ADReadyNoLet f)
+instance (TKAllNum z, Floating (f z), ShareTensor f, ADReadyNoLet f)
          => Floating (ADVal f z) where
   pi = error "pi is not defined for tensors"
   exp (D ue u') = let !expU = tshare (exp ue)
@@ -401,13 +401,13 @@ instance (Floating (f z), ShareTensor f, ADReadyNoLet f)
                     in dD (atanh u)
                           (dScale (recip (intOfShape u' 1 - u * u)) u')
 
-instance (RealFrac (f z), ShareTensor f, ADReadyNoLet f)
+instance (TKAllNum z, RealFrac (f z), ShareTensor f, ADReadyNoLet f)
          => RealFrac (ADVal f z) where
   properFraction = error "properFraction is not defined for tensors"
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (Fractional (f z), RealFloatH (f z), ShareTensor f, ADReadyNoLet f)
+instance (TKAllNum z, Fractional (f z), RealFloatH (f z), ShareTensor f, ADReadyNoLet f)
          => RealFloatH (ADVal f z) where
   atan2H (D ue u') (D ve v') =
     let !u = tshare ue in
@@ -415,7 +415,7 @@ instance (Fractional (f z), RealFloatH (f z), ShareTensor f, ADReadyNoLet f)
     let !t = tshare (recip (u * u + v * v))
     in dD (atan2H u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
 
-instance (RealFloat (f z), ShareTensor f, ADReadyNoLet f)
+instance (TKAllNum z, RealFloat (f z), ShareTensor f, ADReadyNoLet f)
          => RealFloat (ADVal f z) where
   atan2 (D ue u') (D ve v') =
     let !u = tshare ue in

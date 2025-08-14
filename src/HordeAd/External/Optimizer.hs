@@ -13,11 +13,12 @@ import HordeAd.Core.Delta
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
+import HordeAd.Core.Types
 import HordeAd.External.OptimizerTools
 
 -- | Stochastic Gradient Descent.
-sgdSTK :: forall a x z.
-          SingletonTK x
+sgdSTK :: forall a x z. TKAllNum (ADTensorKind z)
+       => SingletonTK x
        -> Double  -- ^ gamma (learning_rate?)
        -> (a -> ADVal Concrete x -> ADVal Concrete z)
        -> [a]  -- ^ training data
@@ -38,7 +39,7 @@ sgdSTK stk gamma f trainingData parameters0 = go trainingData parameters0 where
        then (parametersNew, valueNew)
        else go rest parametersNew
 
-sgd :: forall a x z. KnownSTK x
+sgd :: forall a x z. (TKAllNum (ADTensorKind z), KnownSTK x)
     => Double  -- ^ gamma (learning_rate?)
     -> (a -> ADVal Concrete x -> ADVal Concrete z)
     -> [a]  -- ^ training data
@@ -51,7 +52,7 @@ sgd = sgdSTK knownSTK
 -- and specialize.
 -- | An implementation of the Adam gradient descent.
 sgdAdam
-  :: forall a x z . KnownSTK x
+  :: forall a x z . (TKAllNum (ADTensorKind z), KnownSTK x)
   => (a -> ADVal Concrete x -> ADVal Concrete z)
   -> [a]
   -> Concrete x
@@ -61,7 +62,7 @@ sgdAdam
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs
-  :: forall a x z. KnownSTK x
+  :: forall a x z. (TKAllNum (ADTensorKind z), KnownSTK x)
   => ArgsAdam
   -> (a -> ADVal Concrete x -> ADVal Concrete z)
   -> [a]

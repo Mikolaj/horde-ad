@@ -326,7 +326,7 @@ ixIsSmall = all (astIsSmall True)
 
 -- An approximation: lower and upper bound.
 -- TODO: extend, e.g., to general quot and rem.
-bounds :: GoodScalar r => AstTensor ms s (TKScalar r) -> (r, r)
+bounds :: NumScalar r => AstTensor ms s (TKScalar r) -> (r, r)
 bounds (AstConcreteK u) = (u, u)
 bounds (AstVar var) = case varNameToBounds var of
   Nothing -> (-1000000000, 1000000000)

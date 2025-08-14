@@ -12,6 +12,7 @@ module TestMnistCNNS
 import Prelude
 
 import Control.Monad (foldM, unless)
+import Data.Proxy (Proxy (Proxy))
 import GHC.TypeLits (KnownNat, type (<=))
 import System.IO (hPutStrLn, stderr)
 import System.Random
@@ -56,7 +57,8 @@ mnistTestCaseCNNSA
   -> Int -> Int -> SNat kh -> SNat kw -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseCNNSA prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
-                   miniBatchSizeInt totalBatchSize expected =
+                   miniBatchSizeInt totalBatchSize expected
+                   | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   withSNat c_outInt $ \(_c_outSNat :: SNat c_out) ->
   withSNat n_hiddenInt $ \(_n_hiddenSNat :: SNat n_hidden) ->
   withSNat miniBatchSizeInt $ \(miniBatchSize :: SNat miniBatchSize) ->
@@ -166,7 +168,8 @@ mnistTestCaseCNNSI
   -> Int -> Int -> SNat kh -> SNat kw -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseCNNSI prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
-                   miniBatchSizeInt totalBatchSize expected =
+                   miniBatchSizeInt totalBatchSize expected
+                   | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   withSNat c_outInt $ \(_c_outSNat :: SNat c_out) ->
   withSNat n_hiddenInt $ \(_n_hiddenSNat :: SNat n_hidden) ->
   withSNat miniBatchSizeInt $ \(miniBatchSize :: SNat miniBatchSize) ->

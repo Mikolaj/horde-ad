@@ -11,6 +11,7 @@ module TestMnistCNNR
 import Prelude
 
 import Control.Monad (foldM, unless)
+import Data.Proxy (Proxy (Proxy))
 import System.IO (hPutStrLn, stderr)
 import System.Random
 import Test.Tasty
@@ -51,7 +52,8 @@ mnistTestCaseCNNRA
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseCNNRA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
-                   miniBatchSize totalBatchSize expected =
+                   miniBatchSize totalBatchSize expected
+                   | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   withSNat khInt $ \(_khSNat :: SNat kh) ->
   withSNat kwInt $ \(_kwSNat :: SNat kw) ->
   withSNat c_outInt $ \(_c_outSNat :: SNat c_out) ->
@@ -159,7 +161,8 @@ mnistTestCaseCNNRI
   -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree
 mnistTestCaseCNNRI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
-                   miniBatchSize totalBatchSize expected =
+                   miniBatchSize totalBatchSize expected
+                   | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   withSNat khInt $ \(_khSNat :: SNat kh) ->
   withSNat kwInt $ \(_kwSNat :: SNat kw) ->
   withSNat c_outInt $ \(_c_outSNat :: SNat c_out) ->

@@ -61,7 +61,8 @@ mnistTestCaseRNNSA
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
 mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
-                   totalBatchSize expected =
+                   totalBatchSize expected
+                   | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   let targetInit =
         fst $ randomValue @(Concrete (XParams width r)) 0.23 (mkStdGen 44)
       miniBatchSize = sNatValue batch_size
@@ -170,7 +171,8 @@ mnistTestCaseRNNSI
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree
 mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
-                   totalBatchSize expected =
+                   totalBatchSize expected
+                   | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   let targetInit =
         fst $ randomValue @(Concrete (XParams width r)) 0.23 (mkStdGen 44)
       miniBatchSize = sNatValue batch_size

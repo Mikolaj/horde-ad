@@ -7,8 +7,7 @@
 -- Large portions of this module are copied to HordeAd.Core.Unwind
 -- in order to have more accurate typing and pattern exhaustiveness checks.
 module HordeAd.Core.Unwind
-  ( replTarget, defTarget, concreteTarget
-  , toADTensorKindShared, fromADTensorKindShared
+  ( defTarget, concreteTarget, toADTensorKindShared, fromADTensorKindShared
   ) where
 
 import Prelude
@@ -68,17 +67,6 @@ data FullShapeTKW y where
         => IShX sh -> FullShapeTKW (TKX sh r)
   WFTKProduct :: FullShapeTKW y -> FullShapeTKW z
               -> FullShapeTKW (TKProduct y z)
-
-replRepW :: forall y target. BaseTensor target
-         => (forall r. GoodScalar r => r)
-         -> FullShapeTKW y -> RepW target y
-replRepW r = \case
-  WFTKScalar -> WTKScalar $ kconcrete r
-  WFTKR sh -> WTKR $ rrepl sh r
-  WFTKS sh -> WTKS $ sconcrete $ Nested.sreplicateScal sh r
-  WFTKX sh -> WTKX $ xrepl sh r
-  WFTKProduct ftk1 ftk2 ->
-    WTKProduct (replRepW r ftk1) (replRepW r ftk2)
 
 defRepW :: forall y target. BaseTensor target
         => FullShapeTKW y -> RepW target y
@@ -147,19 +135,19 @@ fromADTensorKindW stk t = case (stk, t) of
   (STKScalar @r1, WTKScalar @r2 _) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> replRepW def WFTKScalar
+      _ -> defRepW WFTKScalar
   (STKR _ (STKScalar @r1), WTKR @r2 v) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> replRepW def (WFTKR (rshape v))
+      _ -> defRepW (WFTKR (rshape v))
   (STKS sh (STKScalar @r1), WTKS @r2 _) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> replRepW def (WFTKS sh)
+      _ -> defRepW (WFTKS sh)
   (STKX _ (STKScalar @r1), WTKX @r2 v) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> replRepW def (WFTKX (xshape v))
+      _ -> defRepW (WFTKX (xshape v))
   (STKProduct stk1 stk2, WTKProduct t1 t2) ->
     WTKProduct (fromADTensorKindW stk1 t1) (fromADTensorKindW stk2 t2)
   _ -> error "fromADTensorKindW: impossible SingletonTK"
@@ -379,13 +367,6 @@ windTarget stk t = case (stk, t) of
 
 
 -- * Operations defined using unwinding
-
--- | Replicate a scalar along the given full shape singleton.
-replTarget :: forall y target. (BaseTensor target, ConvertTensor target)
-           => (forall r. GoodScalar r => r)
-           -> FullShapeTK y -> target y
-replTarget r ftk =
-  windTarget (ftkToSTK ftk) $ replRepW r (unWindFTK ftk)
 
 -- | Replicate the default value along the given full shape singleton.
 defTarget :: forall y target. (BaseTensor target, ConvertTensor target)

@@ -86,7 +86,8 @@ mnistTestCase1VTA
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
-                  gamma batchSize expected =
+                  gamma batchSize expected
+                  | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   withSNat widthHiddenInt $ \(widthHiddenSNat :: SNat widthHidden) ->
   withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
   withKnownSTK
@@ -187,7 +188,8 @@ mnistTestCase1VTI
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
-                  gamma batchSize expected =
+                  gamma batchSize expected
+                  | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   withSNat widthHiddenInt $ \(widthHiddenSNat :: SNat widthHidden) ->
   withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
   withKnownSTK
@@ -420,7 +422,8 @@ mnistTestCase2VTA
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
-                  gamma batchSize expected =
+                  gamma batchSize expected
+                  | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   withSNat widthHidden $ \(SNat @widthHidden) ->
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   let targetInit =
@@ -511,7 +514,8 @@ mnistTestCase2VTI
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
 mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
-                  gamma batchSize expected =
+                  gamma batchSize expected
+                  | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   withSNat widthHidden $ \(SNat @widthHidden) ->
   withSNat widthHidden2 $ \(SNat @widthHidden2) ->
   let targetInit =
@@ -741,7 +745,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
 --        goodDt = ifDifferentiable @r (realToFrac dt) 0
 --        targetDt :: Concrete (XParams2 Double Double)
 --        targetDt = replTarget goodDt ftk
-        goodPerturbation :: forall r. GoodScalar r => r
+        goodPerturbation :: forall r. NumScalar r => r
         goodPerturbation = ifDifferentiable @r (realToFrac perturbation) 0
         targetPerturbed :: Concrete (XParams2 Double Double)
         targetPerturbed = treplTarget goodPerturbation ftk
