@@ -12,6 +12,7 @@ module HordeAd.Core.UnwindNum
 
 import Prelude
 
+import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:))
 import GHC.TypeLits (type (+))
 
@@ -159,8 +160,8 @@ type family UnWind y where
 unWindFTK :: TKAllNum y
           => FullShapeTK y -> FullShapeTKW (UnWind y)
 unWindFTK = \case
-  FTKScalar -> WFTKScalar
-  FTKR sh FTKScalar -> WFTKR sh
+  FTKScalar @r | Dict0 <- numFromTKAllNum (Proxy @r) -> WFTKScalar
+  FTKR sh (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) -> WFTKR sh
   FTKR sh1 (FTKR sh2 ftk2) ->
     unWindFTK $ FTKR (sh1 `shrAppend` sh2) ftk2
   FTKR sh1 (FTKS sh2 ftk2) ->
@@ -170,7 +171,7 @@ unWindFTK = \case
     unWindFTK $ FTKX (shxFromShR sh1 `shxAppend` sh2) ftk2
   FTKR sh1 (FTKProduct y z) ->
     unWindFTK $ FTKProduct (FTKR sh1 y) (FTKR sh1 z)
-  FTKS sh FTKScalar -> WFTKS sh
+  FTKS sh (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) -> WFTKS sh
   FTKS sh1 (FTKR sh2 ftk2) ->
     unWindFTK
     $ FTKX (shxFromShS sh1 `shxAppend` shxFromShR sh2) ftk2
@@ -180,7 +181,7 @@ unWindFTK = \case
     unWindFTK $ FTKX (shxFromShS sh1 `shxAppend` sh2) ftk2
   FTKS sh1 (FTKProduct y z) ->
     unWindFTK $ FTKProduct (FTKS sh1 y) (FTKS sh1 z)
-  FTKX sh FTKScalar -> WFTKX sh
+  FTKX sh (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) -> WFTKX sh
   FTKX sh1 (FTKR sh2 ftk2) ->
     unWindFTK $ FTKX (sh1 `shxAppend` shxFromShR sh2) ftk2
   FTKX sh1 (FTKS sh2 ftk2) ->
@@ -201,8 +202,10 @@ unWindFTK = \case
 unWindTarget :: (TKAllNum y, ConvertTensor target)
              => SingletonTK y -> target y -> RepW target (UnWind y)
 unWindTarget stk t = case stk of
-  STKScalar -> WTKScalar t
-  STKR SNat STKScalar -> WTKR t
+  STKScalar @r | Dict0 <- numFromTKAllNum (Proxy @r) ->
+    WTKScalar t
+  STKR SNat (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+    WTKR t
   STKR (SNat @n) (STKR (SNat @m) stk2) | Dict <- lemKnownSTK stk2 ->
     unWindTarget (STKR (SNat @(n + m)) stk2) (runNest t)
   STKR n@SNat (STKS sh2 stk2) | Dict <- lemKnownSTK stk2 ->
@@ -216,7 +219,8 @@ unWindTarget stk t = case stk of
                  (runNestX t)
   STKR n@SNat (STKProduct stk1 stk2) ->
     unWindTarget (STKProduct (STKR n stk1) (STKR n stk2)) (runzip t)
-  STKS sh1 STKScalar -> withKnownShS sh1 $ WTKS t
+  STKS sh1 (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+    withKnownShS sh1 $ WTKS t
   STKS sh1 (STKR m@(SNat @m) stk2) | Dict <- lemKnownSTK stk2 ->
     withKnownShS sh1 $
     unWindTarget (STKX (ssxFromShX (shxFromShS sh1)
@@ -230,7 +234,8 @@ unWindTarget stk t = case stk of
                  (sunNestX t)
   STKS sh1 (STKProduct stk1 stk2)->
     unWindTarget (STKProduct (STKS sh1 stk1) (STKS sh1 stk2)) (sunzip t)
-  STKX sh1 STKScalar -> withKnownShX sh1 $ WTKX t
+  STKX sh1 (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+    withKnownShX sh1 $ WTKX t
   STKX sh1 (STKR m@(SNat @m) stk2) | Dict <- lemKnownSTK stk2 ->
     withKnownShX sh1 $
     unWindTarget (STKX (sh1 `ssxAppend` ssxReplicate m) stk2)

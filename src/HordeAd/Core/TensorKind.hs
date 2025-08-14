@@ -7,7 +7,7 @@ module HordeAd.Core.TensorKind
   ( -- * Tensor kind singletons
     SingletonTK(..), KnownSTK(..)
   , TKConversion(..), lemTKAllNumConvert, lemTKAllNumBuild, lemTKAllNumRaze
-  , convertSTK, convertFTK, buildTKConversion
+  , numFromTKAllNum, convertSTK, convertFTK, buildTKConversion
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , Dict0(..), lemTKAllNumAD, lemTKScalarAllNumAD
   , stkUnit, buildSTK, razeSTK, adSTK
@@ -21,8 +21,10 @@ module HordeAd.Core.TensorKind
 import Prelude hiding ((.))
 
 import Control.Category
+import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Foreign.C (CInt)
 import GHC.Exts (withDict)
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat, type (+))
 import Type.Reflection (typeRep)
@@ -164,6 +166,23 @@ lemTKAllNumRaze k = \case
   STKX{} -> Dict0
   STKProduct stk1 stk2 | Dict0 <- lemTKAllNumRaze k stk1
                        , Dict0 <- lemTKAllNumRaze k stk2 -> Dict0
+
+-- Despite what GHC says, TKAllNum (TKScalar r) is not redundant,
+-- because it ensure the error case can't appear.
+numFromTKAllNum :: forall r. (GoodScalar r, TKAllNum (TKScalar r))
+                => Proxy r -> Dict0 (Num r, Nested.NumElt r)
+numFromTKAllNum Proxy =
+  case testEquality (typeRep @r) (typeRep @Int64) of
+    Just Refl -> Dict0
+    _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+      Just Refl -> Dict0
+      _ -> case testEquality (typeRep @r) (typeRep @Double) of
+        Just Refl -> Dict0
+        _ -> case testEquality (typeRep @r) (typeRep @Float) of
+          Just Refl -> Dict0
+          _ -> case testEquality (typeRep @r) (typeRep @Z1) of
+            Just Refl -> Dict0
+            _ -> error "numFromTKAllNum: impossible type"
 
 stkUnit :: SingletonTK TKUnit
 stkUnit = STKScalar
