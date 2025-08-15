@@ -516,7 +516,7 @@ within0
   => IShR n -> IxROf target n -> BoolOf target
 within0 sh ix =
   let within :: IntOf target -> IntOf target -> BoolOf target
-      within i dim = 0 <=. i &&* dim >. i
+      within i dim = kfromPrimal $ 0 <=. i &&* dim >. i
   in foldr (&&*) true
      $ zipWith within (toList ix) (map fromIntegral $ toList sh)
 
@@ -791,7 +791,7 @@ conv2dPaddedB arrK arrA =
       shAPadded = [nImgs, nCinpA, nAh + nKh, nAw + nKw]
       arrAPadded = rbuild @4 @0 @(TKScalar r) @target shAPadded $ \case
         [iImg, iCinp, iPh, iPw] ->
-          ifH (iPh <. fromIntegral (nKh `div` 2)
+          ifH (kfromPrimal $ iPh <. fromIntegral (nKh `div` 2)
                ||* iPw <. fromIntegral (nKw `div` 2)
                ||* iPh >=. fromIntegral (nAh + nKh `div` 2)
                ||* iPw >=. fromIntegral (nAw + nKw `div` 2))
@@ -1316,7 +1316,7 @@ indexz02
   :: forall target r n.
      (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
   => target (TKR n r) -> IxROf target n -> target (TKR 0 r)
-indexz02 d ix = ifH (1 >. (toList ix !! 0)) (d ! ix) (rscalar 0)
+indexz02 d ix = ifH (kfromPrimal $ 1 >. (toList ix !! 0)) (d ! ix) (rscalar 0)
 
 rmaximum2 :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
          => target (TKR 4 r) -> target (TKR 0 r)
@@ -1664,7 +1664,7 @@ conv2dPaddedLet arrK arrA =
       shAPadded = [nImgs, nCinpA, nAh + nKh, nAw + nKw]
       arrAPadded = rbuild @4 @0 @(TKScalar r) @target shAPadded $ \case
         [iImg, iCinp, iPh, iPw] ->
-          ifH (iPh <. fromIntegral (nKh `div` 2)
+          ifH (kfromPrimal $ iPh <. fromIntegral (nKh `div` 2)
                ||* iPw <. fromIntegral (nKw `div` 2)
                ||* iPh >=. fromIntegral (nAh + nKh `div` 2)
                ||* iPw >=. fromIntegral (nAw + nKw `div` 2))
@@ -1712,7 +1712,8 @@ conv2dPaddedLet2 arrK arrA =
       shAPadded = [nImgs, nCinpA, nAh + nKh, nAw + nKw]
       arrAPadded = rbuild @4 @0 @(TKScalar r) @target shAPadded $ \case
         [iImg, iCinp, iPh, iPw] ->
-          ifH (iPh <. fromIntegral (nKh `div` 2)
+          ifH (kfromPrimal $
+               iPh <. fromIntegral (nKh `div` 2)
                ||* iPw <. fromIntegral (nKw `div` 2)
                ||* iPh >=. fromIntegral (nAh + nKh `div` 2)
                ||* iPw >=. fromIntegral (nAw + nKw `div` 2))

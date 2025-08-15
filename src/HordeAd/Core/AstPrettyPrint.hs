@@ -219,7 +219,7 @@ printAst cfg d = \case
   AstCond b a1 a2 ->
     showParen (d > 10)
     $ showString "ifH "
-      . printAstBool cfg 11 b
+      . printAst cfg 11 b
       . showString " "
       . printAst cfg 11 a1
       . showString " "
@@ -463,6 +463,11 @@ printAst cfg d = \case
       . showString " "
       . printAst cfg 11 v
 
+  AstBoolNot u -> printPrefixOp printAst cfg d "notB" [u]
+  AstBoolAnd u v -> printBinaryOp printAst cfg d u (3, "&&*") v
+  AstLeqK u v -> printBinaryOp printAst cfg d u (4, "<=.") v
+  AstLeqS u v -> printBinaryOp printAst cfg d u (4, "<=.") v
+
 showNumber :: Show a => a -> ShowS
 {-# INLINE showNumber #-}
 showNumber a = case show a of
@@ -515,14 +520,6 @@ printAstHFunOneUnignore cfg d = \case
            . printAstVar cfg var
            . showString " -> "
            . printAst cfg 0 l
-
-printAstBool :: PrintConfig -> Int -> AstBool ms -> ShowS
-printAstBool cfg d = \case
-  AstBoolConst b -> showString $ if b then "true" else "false"
-  AstBoolNot u -> printPrefixOp printAstBool cfg d "notB" [u]
-  AstBoolAnd u v -> printBinaryOp printAstBool cfg d u (3, "&&*") v
-  AstLeqK u v -> printBinaryOp printAst cfg d u (4, "<=.") v
-  AstLeqS u v -> printBinaryOp printAst cfg d u (4, "<=.") v
 
 printAstN1R :: (PrintConfig -> Int -> a -> ShowS)
            -> PrintConfig -> Int -> OpCodeNum1 -> a -> ShowS

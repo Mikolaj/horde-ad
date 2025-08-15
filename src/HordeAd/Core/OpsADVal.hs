@@ -516,7 +516,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   -- Bangs are for the proper order of sharing stamps.
   tcond !stk !b !u !v =
     let uv = tfromVector (SNat @2) stk (V.fromList [u, v])
-    in tindexBuild (SNat @2) stk uv (tcond knownSTK b 0 1)
+    in tindexBuild (SNat @2) stk uv (tcond knownSTK (tprimalPart b) 0 1)
   tprimalPart (D u _) = u
   tdualPart _stk (D _ u') = u'
   tfromPrimal stk t = fromPrimalFTK (tftk stk t) t

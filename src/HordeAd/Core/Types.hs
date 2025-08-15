@@ -244,6 +244,11 @@ type family ADTensorScalar r where
 -- | The (arbitrariliy chosen) type of scalars to be used for indexing.
 type IntOf (f :: Target) = PrimalOf f (TKScalar Int64)
 
+-- A narrower type would be `PrimalOf f (TKScalar Bool)`, but it causes
+-- a lot of verbosity elsewhere, in particular in the
+-- @instance Boolean (AstTensor ms s (TKScalar Bool))@ definition.
+type BoolOf (f :: Target) = f (TKScalar Bool)
+
 -- | The type family is defined in order to give a special instance
 -- for AST that preserves sharing and, even more importantly, keeps
 -- the computation of dervative functions lazy. See the definition
@@ -260,8 +265,6 @@ type family PrimalOf (f :: Target) :: Target
 type family DualOf (f :: Target) :: Target
 
 type family ShareOf (f :: Target) :: Target
-
-type family BoolOf (t :: Target) :: Type
 
 -- | Ranked index, that is, a sized list of individual indices into
 -- ranked tensors.

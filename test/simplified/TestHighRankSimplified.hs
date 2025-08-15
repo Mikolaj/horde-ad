@@ -154,7 +154,7 @@ fooBuildOut
   :: forall target r n. (ADReady target, NumScalar r, KnownNat n)
   => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuildOut v =
-  rbuild1 2 $ \ix -> ifH (ix ==. 0)
+  rbuild1 2 $ \ix -> ifH (kfromPrimal $ ix ==. 0)
                          (rindex v [ix + 1])  -- index out of bounds; guarded
                          (rsum v)
 
@@ -171,7 +171,7 @@ fooBuild2
 fooBuild2 v =
   rbuild1 2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
                           ix = sfromR $ rfromK ix' in
-    ifH (ix - (sprimalPart . sfloor . sfromR) (rsum0  @5 @(TKScalar r)
+    ifH (kfromPrimal $ ix - (sprimalPart . sfloor . sfromR) (rsum0  @5 @(TKScalar r)
                       $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - sscalar 10001 >=. sscalar 0
          &&* ix - (sprimalPart . sfloor . sfromR) (rsum0 @5 @(TKScalar r) @target
                           $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - sscalar 10001 <=. sscalar 1)
@@ -224,7 +224,7 @@ fooBuild2S
 fooBuild2S v = rfromS $
   sbuild1 @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
                            ix = sfromR $ rfromK ix' in
-    ifH (ix - (sprimalPart . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
+    ifH (kfromPrimal $ ix - (sprimalPart . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
              $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
          &&* ix - (sprimalPart . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
              $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
@@ -255,7 +255,7 @@ fooBuildNest2S
 fooBuildNest2S v = rfromS $
   sbuild1 @2 $ \ix' -> let ix :: PrimalOf target (TKS '[] Int64)
                            ix = sfromR $ rfromK ix' in
-    ifH (ix - (sunNest @_ @'[] @'[] . sprimalPart . snest knownShS . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
+    ifH (kfromPrimal $ ix - (sunNest @_ @'[] @'[] . sprimalPart . snest knownShS . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
              $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
          &&* ix - (sprimalPart . sfloor) (ssum0 @[5,12,11,9,4] @(TKScalar r)
              $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
@@ -373,7 +373,7 @@ fooNoGo v =
        bar ( rreplicate0N shTail (rscalar 3.14)
            , bar ( rrepl shTail 3.14
                  , rindex v [ix]) )
-       + ifH (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail (rscalar 0) &&* 6 >. abs ix)
+       + ifH (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail (rscalar 0) &&* kfromPrimal (6 >. abs ix))
                r (rreplicate0N shTail (rscalar 5) * r))
      / rslice 1 3 (rmap0N (\x -> ifH (x >. r0) r0 x) v)
      * rbuild1 3 (const $ rrepl shTail 1)
@@ -446,7 +446,7 @@ nestedSumBuild
   => target (TKR n r) -> target (TKR (2 + n) r)
 nestedSumBuild v =
   rbuild1 13 $ \ix1 -> rbuild1 4 $ \ix2 ->
-    ifH (ix2 >. ix1)
+    ifH (kfromPrimal $ ix2 >. ix1)
         (rmap0N ((* rscalar (-0.00000003)) . sqrt . abs)
          $ nestedBuildMap (rsum0 v)
            `rindex` (ix2 `remH` 3 :.: minH 1 ix1 :.: minH ix1 3 :.: ZIR))
@@ -590,7 +590,7 @@ concatBuild r =
                 rmap0N (* (rfromIndex0
                   (kfromR (rprimalPart @target (rscalar 125)) * (j `remH` (abs (signum i + abs i) + 1))
                    + maxH j (i `quotH` (j + 1)) * (kfromR . rprimalPart . rfloor) (rsum0 r)
-                   - ifH (r <=. r &&* i <. j)
+                   - ifH (kprimalPart (r <=. r) &&* i <. j)
                          (kfromR $ rprimalPart $ rminIndex (rflatten r))
                          ((kfromR . rprimalPart . rfloor) $ rsum0 $ r ! ((i * j) `remH` 7 :.: ZIR))))) r)
             , rbuild1 13 (\_k ->

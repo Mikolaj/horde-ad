@@ -148,7 +148,7 @@ testGatherNestedBuild1 =
                  [3.0,1.0,1.0,1.0,1.0,3.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rbuild1 5 (\i ->
-             ifH (i >. 2) (gatherNested1 t) (t ! [i])))
+             ifH (kfromPrimal $ i >. 2) (gatherNested1 t) (t ! [i])))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 gather1 :: forall target r. (ADReady target, GoodScalar r)
@@ -174,7 +174,7 @@ testGatherBuild1 =
                  [3.0,1.0,1.0,1.0,1.0,3.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rbuild1 5 (\i ->
-             ifH (i >. 2) (gather1 t) (t ! [i])))
+             ifH (kfromPrimal $ i >. 2) (gather1 t) (t ! [i])))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherSimpPP1 :: Assertion
@@ -350,7 +350,7 @@ testGatherNestedBuild12 =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rindex (rbuild1 5 (\i ->
-             ifH (i >. 2) (gatherNested12 t)
+             ifH (kfromPrimal $ i >. 2) (gatherNested12 t)
                           (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
@@ -376,7 +376,7 @@ testGatherBuild12 =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rindex (rbuild1 5 (\i ->
-             ifH (i >. 2) (gather12 t)
+             ifH (kfromPrimal $ i >. 2) (gather12 t)
                           (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
@@ -938,7 +938,7 @@ testScatterNestedBuild1 =
                  [3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
     (rev' @Double @2
           (\t -> rbuild1 5 (\i ->
-             ifH (i >. 2) (scatterNested1 t) (t ! [i])))
+             ifH (kfromPrimal $ i >. 2) (scatterNested1 t) (t ! [i])))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 scatter1 :: forall target r. (ADReady target, NumScalar r)
@@ -963,7 +963,7 @@ testScatterBuild1 =
                  [3.0,3.0,3.0,3.0,3.0,3.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
     (rev' @Double @2
           (\t -> rbuild1 5 (\i ->
-             ifH (i >. 2) (scatter1 t) (t ! [i])))
+             ifH (kfromPrimal $ i >. 2) (scatter1 t) (t ! [i])))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterSimpPP1 :: Assertion
@@ -1126,8 +1126,9 @@ testScatterNestedBuild12 =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rindex (rbuild1 5 (\i ->
-             ifH (i >. 2) (scatterNested12 t)
-                          (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
+             ifH (kfromPrimal $ i >. 2)
+                 (scatterNested12 t)
+                 (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 scatter12 :: forall target r. (ADReady target, NumScalar r)
@@ -1152,8 +1153,9 @@ testScatterBuild12 =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rindex (rbuild1 5 (\i ->
-             ifH (i >. 2) (scatter12 t)
-                          (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
+             ifH (kfromPrimal $ i >. 2)
+                 (scatter12 t)
+                 (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))) [1])
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterSimpPP12 :: Assertion
@@ -1291,7 +1293,7 @@ indexz02
   :: forall target r n.
      (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
   => target (TKR n r) -> IxROf target n -> target (TKR 0 r)
-indexz02 d ix = ifH (1 ==. (toList ix !! 0)) (d ! ix) (rscalar 0)
+indexz02 d ix = ifH (kfromPrimal $ 1 ==. (toList ix !! 0)) (d ! ix) (rscalar 0)
 
 rmaximum2 :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
          => target (TKR 4 r) -> target (TKR 0 r)
@@ -1366,7 +1368,7 @@ within3
   => IShR n -> IxROf target n -> BoolOf target
 within3 sh ix =
   let within :: IntOf target -> IntOf target -> BoolOf target
-      within i dim = 0 ==. i ||* dim - 2 ==. i
+      within i dim = kfromPrimal $ 0 ==. i ||* dim - 2 ==. i
   in foldr (&&*) true
      $ zipWith within (toList ix) (map fromIntegral $ toList sh)
 

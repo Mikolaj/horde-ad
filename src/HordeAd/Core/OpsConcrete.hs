@@ -474,7 +474,7 @@ instance BaseTensor Concrete where
                                 Concrete $ f (a, b)) acc0 es
   tApply f x = Concrete $ f $ unConcrete x
   tlambda _ f x = unConcrete $ unHFun f $ Concrete x
-  tcond _ b u v = if b then u else v
+  tcond _ b u v = if unConcrete b then u else v
   tprimalPart = id
   tdualPart stk t = DummyDualTarget (tftk stk t)
   tfromPrimal _ t = t

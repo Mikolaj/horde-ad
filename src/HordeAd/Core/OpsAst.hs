@@ -1131,7 +1131,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstMapAccumLDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
   tApply t ll = AstRaw $ AstApply t (unAstRaw ll)
   tlambda = tlambda @(AstTensor AstMethodLet s)
-  tcond _ !b !u !v = AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
+  tcond _ !b !u !v = AstRaw $ AstCond (unAstRaw b) (unAstRaw u) (unAstRaw v)
   tprimalPart t = AstRaw $ primalPart $ unAstRaw t
   tdualPart _ t = dualPart $ unAstRaw t
   tfromPrimal _ t = AstRaw $ fromPrimal $ unAstRaw t
@@ -1393,7 +1393,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tApply t ll = AstNoVectorize $ tApply t (unAstNoVectorize ll)
   tlambda = tlambda @(AstTensor AstMethodLet s)
   tcond !stk !b !u !v =
-    AstNoVectorize $ tcond stk b (unAstNoVectorize u) (unAstNoVectorize v)
+    AstNoVectorize $ tcond stk (unAstNoVectorize b)
+                               (unAstNoVectorize u) (unAstNoVectorize v)
   tprimalPart t = AstNoVectorize $ tprimalPart $ unAstNoVectorize t
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
   tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
@@ -1491,7 +1492,8 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                          (unAstNoSimplify . f . AstNoSimplify)
   -- These three have tricky types, so we repaat the AstRaw definitions:
   tcond _ !b !u !v =
-    AstNoSimplify $ AstCond b (unAstNoSimplify u) (unAstNoSimplify v)
+    AstNoSimplify $ AstCond (unAstNoSimplify b)
+                            (unAstNoSimplify u) (unAstNoSimplify v)
   tdualPart _ t = dualPart $ unAstNoSimplify t
   tfromDual t = AstNoSimplify $ fromDual t
 

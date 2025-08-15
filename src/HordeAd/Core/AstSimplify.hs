@@ -42,7 +42,7 @@ module HordeAd.Core.AstSimplify
     -- * Helper combinators
   , astLetFun
     -- * Substitution operations
-  , substituteAst, substituteAstIxS, substituteAstBool
+  , substituteAst, substituteAstIxS
   ) where
 
 import Prelude
@@ -91,10 +91,9 @@ import Data.Array.Nested.Types
   (Head, Init, Last, Tail, snatPlus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
-  ( AstBool (AstBoolConst)
-  , AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
+  ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
   )
-import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
+import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
@@ -436,7 +435,7 @@ astSum snat@SNat stk t0 = case t0 of
       -- This boolean term may have free variables that act as universally
       -- quantified.
       case 0 <=. i1 &&* i1 <=. valueOf @k2 - 1 of
-        AstBoolConst True ->
+        AstConcreteK True ->
           astScatterS @shm @shn @(Tail shp) shn v (vars, rest)
         _ -> Ast.AstSum snat stk t0
   Ast.AstConvert c t | checkAstFromS c t -> case ftkAst t of
@@ -781,15 +780,15 @@ astApply :: forall x z s1 s. (AstSpan s1, AstSpan s)
 astApply (AstLambda !var !v) u = astLet var u v
 
 astCond :: AstSpan s
-        => AstBool AstMethodLet
+        => AstTensor AstMethodLet s (TKScalar Bool)
         -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s y
-astCond (AstBoolConst b) v w = if b then v else w
+astCond (AstConcreteK b) v w = if b then v else w
 astCond (Ast.AstBoolNot b) v w = astCond b w v
 astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
-  Ast.AstFromPrimal $ astCond b v w
+  Ast.AstFromPrimal $ astCond (primalPart b) v w
 astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
-  Ast.AstFromDual $ astCond b v w
+  Ast.AstFromDual $ astCond (dualPart b) v w
 astCond b v@(AstFromS' FTKScalar _) w = Ast.AstCond b v w
 -- We rely here on c and the other conversion being semantically equal.
 astCond b (Ast.AstConvert c v) (AstFromS' _ w) =
@@ -948,7 +947,8 @@ astPrimalPart t = case t of
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astPrimalPart v)) ll
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
-  Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
+  Ast.AstCond b a2 a3 ->
+    astCond (astPrimalPart b) (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = astPrimalPart v
     in Ast.AstBuild1 k stk (var, v2)
@@ -1004,6 +1004,11 @@ astPrimalPart t = case t of
   Ast.AstDot1InS{} -> Ast.AstPrimalPart t
   Ast.AstMatmul2S{} -> Ast.AstPrimalPart t
 
+  Ast.AstBoolNot b -> Ast.AstBoolNot $ astPrimalPart b
+  Ast.AstBoolAnd b c -> Ast.AstBoolAnd (astPrimalPart b) (astPrimalPart c)
+  Ast.AstLeqK u v -> Ast.AstLeqK u v
+  Ast.AstLeqS u v -> Ast.AstLeqS u v
+
 -- Note how this can't be pushed down into, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
 astDualPart :: AstTensor AstMethodLet FullSpan y
@@ -1028,7 +1033,8 @@ astDualPart t = case t of
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astDualPart v)) ll
   Ast.AstVar{} -> Ast.AstDualPart t
-  Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
+  Ast.AstCond b a2 a3 ->
+    astCond (astDualPart b) (astDualPart a2) (astDualPart a3)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = astDualPart v
     in Ast.AstBuild1 k stk (var, v2)
@@ -1290,8 +1296,9 @@ astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
       -- don't undo vectorization tweaks
     astLetFun v0 $ \v ->
     shareIx rest0 $ \rest ->
-      astCond b (astIndexKnobsS knobs shn v (i1 :.$ rest))
-                (astIndexKnobsS knobs shn v (i2 :.$ rest))
+      astCond (fromPrimal b)
+              (astIndexKnobsS knobs shn v (i1 :.$ rest))
+              (astIndexKnobsS knobs shn v (i2 :.$ rest))
 astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
  let FTKS _ x = ftkAst v0
      astIndex
@@ -1344,13 +1351,13 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
     in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
-      AstBoolConst b -> if b then astIndex shn v rest1 else defArr
+      AstConcreteK b -> if b then astIndex shn v rest1 else defArr
       _ -> Ast.AstIndexS shn v0 ix
   Ast.AstReplicate _ STKScalar v | ZIS <- rest1 ->
     let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
     in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
-      AstBoolConst b -> if b then astSFromK' v else defArr
+      AstConcreteK b -> if b then astSFromK' v else defArr
       _ -> Ast.AstIndexS shn v0 ix
   Ast.AstApply{} -> Ast.AstIndexS shn v0 ix
   Ast.AstVar{} -> Ast.AstIndexS shn v0 ix
@@ -1371,14 +1378,14 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
     in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
-      AstBoolConst b ->
+      AstConcreteK b ->
         if b then astIndex shn (astLet var2 i1 v) rest1 else defArr
       _ -> Ast.AstIndexS shn v0 ix
   Ast.AstBuild1 (SNat @k) STKScalar (var2, v) | ZIS <- rest1 ->
     let ftk = FTKS shn x
         defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
     in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
-      AstBoolConst b ->
+      AstConcreteK b ->
         if b then astSFromK' $ astLet var2 i1 v else defArr
       _ -> Ast.AstIndexS shn v0 ix
 
@@ -1416,7 +1423,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
       let ftk = FTKS shn x
           defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
       in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
-        AstBoolConst b -> if b then astIndex shn u rest1 else defArr
+        AstConcreteK b -> if b then astIndex shn u rest1 else defArr
         _ -> Ast.AstIndexS shn v0 ix
     _ -> Ast.AstIndexS shn v0 ix
   Ast.AstFloorS v -> astFloorS $ astIndexKnobsS knobs shn v ix
@@ -1458,7 +1465,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
         u = astLet var2 i1 $ astIndex @shm1 @shn shn w rest1
           -- this let makes it impossible to use astCond when i1 is OOB
     in case 0 <=. i1 &&* i1 <=. valueOf @m71 - 1 of
-      AstBoolConst b -> if b then u else defArr
+      AstConcreteK b -> if b then u else defArr
       _ -> Ast.AstIndexS shn v0 ix
   Ast.AstMinIndexS @n1 @shz v -> case ftkAst v of
     FTKS nsh _ -> case shsLast nsh of
@@ -1507,10 +1514,10 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
           ix1 = i :.$ rest2
           ix2 = i - ulen :.$ rest2
       in case ulen <=. i of
-        AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
+        AstConcreteK b -> if b then astIndex shn v ix2 else astIndex shn u ix1
         bExpr ->
           -- This results in a larger term, so we consider this late.
-          astCond bExpr (astIndex shn v ix2) (astIndex shn u ix1)
+          astCond (fromPrimal bExpr) (astIndex shn v ix2) (astIndex shn u ix1)
     else
       -- We don't need to share i1 and rest1 here and, in fact, we can't
       -- because we'd loop via building AstLet around the resulting AstIndexS.
@@ -1518,7 +1525,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
           ix1 = i1 :.$ rest1
           ix2 = i1 - ulen :.$ rest1
       in case ulen <=. i1 of
-        AstBoolConst b -> if b then astIndex shn v ix2 else astIndex shn u ix1
+        AstConcreteK b -> if b then astIndex shn v ix2 else astIndex shn u ix1
         _ -> Ast.AstIndexS shn v0 ix
   Ast.AstSliceS i@(SNat @i) (SNat @n) k@SNat v ->
     astLetFunB i1 $ \iShared ->
@@ -1527,7 +1534,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
         b = (if sNatValue i == 0 then true else 0 <=. iShared )
             &&* (if sNatValue k == 0 then true else iShared <=. valueOf @n - 1)
         ii = valueOf @i + iShared
-    in astCond b (astIndex shn v (ii :.$ rest1)) defArr
+    in astCond (fromPrimal b) (astIndex shn v (ii :.$ rest1)) defArr
   Ast.AstReverseS v ->
     let iRev = valueOf @in1 - 1 - i1
     in astIndex shn v (iRev :.$ rest1)
@@ -2352,14 +2359,14 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
       -- This boolean term may have free variables that act as universally
       -- quantified.
       in case 0 <=. i4 &&* i4 <=. valueOf @in1 - 1 of
-        AstBoolConst b ->
+        AstConcreteK b ->
           if b then astGather @shm @shn @shp1' shn v (vars4, rest4) else defArr
         _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstReplicate (SNat @k) STKScalar v | ZIS <- rest4 ->
       let ftk = FTKS (shsFromListS vars4 `shsAppend` shn) x
           defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
       in case 0 <=. i4 &&* i4 <=. valueOf @k - 1 of
-        AstBoolConst b ->
+        AstConcreteK b ->
           if b then astGather @shm @shn @shp1'
                               shn (astSFromK' v) (vars4, rest4) else defArr
         _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
@@ -2375,7 +2382,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
         let ftk = FTKS (shsFromListS vars4 `shsAppend` shn) x
             defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
         in case 0 <=. i4 &&* i4 <=. valueOf @in1 - 1 of
-          AstBoolConst b ->
+          AstConcreteK b ->
             if b
             then astGather @shm @shn @shp1' shn u (vars4, rest4)
             else defArr
@@ -3087,6 +3094,10 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstDualPart a -> astDualPart $ astConvertSFromK c zftk a
   Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astConvertSFromK c zftk a
   Ast.AstFromDual a -> Ast.AstFromDual $ astConvertSFromK c zftk a
+  Ast.AstBoolNot{} -> Ast.AstConvert c a0
+  Ast.AstBoolAnd{} -> Ast.AstConvert c a0
+  Ast.AstLeqK{} -> Ast.AstConvert c a0
+  Ast.AstLeqS{} -> Ast.AstConvert c a0
 
 astConvertSFromR :: forall sh x s. AstSpan s
                  => TKConversion (TKR2 (Rank sh) x) (TKS2 sh x)
@@ -3624,13 +3635,6 @@ substituteAstIxS
 substituteAstIxS i var ix =
   fromMaybe ix $ substitute1AstIxS i var ix
 
-substituteAstBool
-  :: AstSpan s
-  => AstTensor AstMethodLet s y -> AstVarName s y -> AstBool AstMethodLet
-  -> AstBool AstMethodLet
-substituteAstBool i var v1 =
-  fromMaybe v1 $ substitute1AstBool i var v1
-
 
 -- * Substitution workers
 
@@ -3716,7 +3720,7 @@ substitute1Ast i var = subst where
       _ -> error "substitute1Ast: span"
     else Nothing
   Ast.AstCond b v w ->
-    case ( substitute1AstBool i var b
+    case ( substitute1Ast i var b
          , subst v
          , subst w ) of
       (Nothing, Nothing, Nothing) -> Nothing
@@ -3863,6 +3867,25 @@ substitute1Ast i var = subst where
     in if isJust mu || isJust mv
        then Just $ astMatmul2S m n p (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
+  Ast.AstBoolNot arg -> notB <$> subst arg
+  Ast.AstBoolAnd arg1 arg2 ->
+    let mb1 = subst arg1
+        mb2 = subst arg2
+    in if isJust mb1 || isJust mb2
+       then Just $ fromMaybe arg1 mb1 &&* fromMaybe arg2 mb2
+       else Nothing
+  Ast.AstLeqK arg1 arg2 ->
+    let mr1 = substitute1Ast i var arg1
+        mr2 = substitute1Ast i var arg2
+    in if isJust mr1 || isJust mr2
+       then Just $ fromPrimal $ fromMaybe arg1 mr1 <=. fromMaybe arg2 mr2
+       else Nothing
+  Ast.AstLeqS arg1 arg2 ->
+    let mr1 = substitute1Ast i var arg1
+        mr2 = substitute1Ast i var arg2
+    in if isJust mr1 || isJust mr2
+       then Just $ fromPrimal $ fromMaybe arg1 mr1 <=. fromMaybe arg2 mr2
+       else Nothing
 
 substitute1AstIxS
   :: AstSpan s2
@@ -3880,32 +3903,3 @@ substitute1AstHFun
   -> Maybe (AstHFun s s2 x y)
 substitute1AstHFun _i _var AstLambda{} =
   Nothing  -- no outside free variables
-
-substitute1AstBool :: AstSpan s2
-                   => AstTensor AstMethodLet s2 y -> AstVarName s2 y
-                   -> AstBool AstMethodLet
-                   -> Maybe (AstBool AstMethodLet)
-substitute1AstBool i var = subst where
- subst :: AstBool AstMethodLet
-       -> Maybe (AstBool AstMethodLet)
- subst = \case
-  Ast.AstBoolConst{} -> Nothing
-  Ast.AstBoolNot arg -> notB <$> subst arg
-  Ast.AstBoolAnd arg1 arg2 ->
-    let mb1 = subst arg1
-        mb2 = subst arg2
-    in if isJust mb1 || isJust mb2
-       then Just $ fromMaybe arg1 mb1 &&* fromMaybe arg2 mb2
-       else Nothing
-  Ast.AstLeqK arg1 arg2 ->
-    let mr1 = substitute1Ast i var arg1
-        mr2 = substitute1Ast i var arg2
-    in if isJust mr1 || isJust mr2
-       then Just $ fromMaybe arg1 mr1 <=. fromMaybe arg2 mr2
-       else Nothing
-  Ast.AstLeqS arg1 arg2 ->
-    let mr1 = substitute1Ast i var arg1
-        mr2 = substitute1Ast i var arg2
-    in if isJust mr1 || isJust mr2
-       then Just $ fromMaybe arg1 mr1 <=. fromMaybe arg2 mr2
-       else Nothing

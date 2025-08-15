@@ -30,9 +30,8 @@ module HordeAd.Core.Ast
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIxS, AstVarListS, pattern AstLeqInt
     -- * AST
-  , AstMethodOfSharing(..), AstTensor(..)
-  , AstHFun(..)
-  , AstBool(..), OpCodeNum1(..), OpCode1(..), OpCode2(..), OpCodeIntegral2(..)
+  , AstMethodOfSharing(..), AstTensor(..), AstHFun(..)
+  , OpCodeNum1(..), OpCode1(..), OpCode2(..), OpCodeIntegral2(..)
   ) where
 
 import Prelude hiding (foldl')
@@ -196,11 +195,13 @@ type AstVarListS sh = ListS sh (Const IntVarName)
 -- of indexing (or gather) than the indexes.
 type AstIxS ms sh = IxS sh (AstInt ms)
 
-pattern AstLeqInt :: AstInt ms -> AstInt ms -> AstBool ms
+pattern AstLeqInt :: AstInt ms -> AstInt ms
+                  -> AstTensor ms s (TKScalar Bool)
 pattern AstLeqInt t u <- (matchAstLeqInt -> Just (t, u))
   where AstLeqInt t u = AstLeqK t u
 
-matchAstLeqInt :: AstBool ms -> Maybe (AstInt ms, AstInt ms)
+matchAstLeqInt :: AstTensor ms s (TKScalar Bool)
+               -> Maybe (AstInt ms, AstInt ms)
 matchAstLeqInt (AstLeqK @r t u)
   | Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
       Just (t, u)
@@ -274,7 +275,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
            => AstHFun s1 s x z -> AstTensor ms s1 x -> AstTensor ms s z
   AstVar :: AstVarName s y -> AstTensor ms s y
   AstCond :: forall y ms s.
-             AstBool ms -> AstTensor ms s y -> AstTensor ms s y
+             AstTensor ms s (TKScalar Bool)
+          -> AstTensor ms s y -> AstTensor ms s y
           -> AstTensor ms s y
   AstBuild1 :: forall y k ms s.
                SNat k -> SingletonTK y
@@ -432,6 +434,22 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
               -> AstTensor ms s (TKS '[n, p] r)
               -> AstTensor ms s (TKS '[m, p] r)
 
+  -- Booleans
+  AstBoolNot :: AstTensor ms s (TKScalar Bool)
+             -> AstTensor ms s (TKScalar Bool)
+  AstBoolAnd :: AstTensor ms s (TKScalar Bool)
+             -> AstTensor ms s (TKScalar Bool)
+             -> AstTensor ms s (TKScalar Bool)
+  -- There are existential variables here.
+  AstLeqK :: forall r ms s. NumScalar r
+          => AstTensor ms PrimalSpan (TKScalar r)
+          -> AstTensor ms PrimalSpan (TKScalar r)
+          -> AstTensor ms s (TKScalar Bool)
+  AstLeqS :: forall sh r ms s. NumScalar r
+          => AstTensor ms PrimalSpan (TKS sh r)
+          -> AstTensor ms PrimalSpan (TKS sh r)
+          -> AstTensor ms s (TKScalar Bool)
+
 deriving instance Show (AstTensor ms s y)
   -- for this to work, AstConcreteS can't take a Concrete;
   -- an alternative might be @Has Show (AstTensor ms s)@, but then we'd need
@@ -460,22 +478,6 @@ data AstHFun s s2 x z where
     -- the laziness is defeated.
 
 deriving instance Show (AstHFun s s2 x z)
-
-type role AstBool nominal
-data AstBool ms where
-  AstBoolConst :: Bool -> AstBool ms
-  AstBoolNot :: AstBool ms -> AstBool ms
-  AstBoolAnd :: AstBool ms -> AstBool ms -> AstBool ms
-  -- There are existential variables here.
-  AstLeqK :: forall r ms. NumScalar r
-          => AstTensor ms PrimalSpan (TKScalar r)
-          -> AstTensor ms PrimalSpan (TKScalar r)
-          -> AstBool ms
-  AstLeqS :: forall sh r ms. NumScalar r
-          => AstTensor ms PrimalSpan (TKS sh r)
-          -> AstTensor ms PrimalSpan (TKS sh r)
-          -> AstBool ms
-deriving instance Show (AstBool ms)
 
 data OpCodeNum1 =
     NegateOp | AbsOp | SignumOp

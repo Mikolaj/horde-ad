@@ -743,9 +743,9 @@ vstackBuild :: (ADReady target, NumScalar r)
 vstackBuild (a, b, c) =
   let n = rwidth a
   in rbuild1 n (\i ->
-       ifH (i ==. 0)
+       ifH (kfromPrimal $ i ==. 0)
            (a ! [0] + b ! [1])
-           (ifH (i ==. fromIntegral n - 1)
+           (ifH (kfromPrimal $ i ==. fromIntegral n - 1)
                 (a ! [fromIntegral n - 1] + c ! [fromIntegral n - 2])
                 (a ! [i] + b ! [i + 1] + c ! [i - 1])))
 
@@ -1697,7 +1697,7 @@ fooNoGo v =
                             ix = sfromR $ rfromK ix' in
        bar (rscalar 3.14, bar (rscalar 3.14, rindex v [kfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minH` sscalar 2 `maxH` sscalar 0]))
        + ifH ((&&*) (rindex @1 v [ix' * 2] <=. rscalar 0)
-                    (sscalar 6 >. abs ix))
+                    (kfromPrimal $ sscalar 6 >. abs ix))
                r (rscalar 5 * r))
      / rslice 1 3 (rmap0N (\x -> ifH (x >. r) r x) v)
      * rbuild1 3 (const (rscalar 1))
@@ -1972,7 +1972,7 @@ testConcatBuild1 =
 concatBuild2 :: (ADReady target, NumScalar r) => target (TKR 0 r) -> target (TKR 1 r)
 concatBuild2 r =
   tlet (rfromList [r, rscalar 1, rscalar 2, rscalar 3, rscalar 4]) $ \a ->
-    rbuild1 10 (\i -> ifH (i <. 5) (rindex a [i]) (rindex a [i - 5]))
+    rbuild1 10 (\i -> ifH (kfromPrimal $ i <. 5) (rindex a [i]) (rindex a [i - 5]))
 
 testConcatBuild2 :: Assertion
 testConcatBuild2 =
@@ -1983,7 +1983,7 @@ testConcatBuild2 =
 concatBuild3 :: (ADReady target, NumScalar r) => target (TKR 0 r) -> target (TKR 1 r)
 concatBuild3 r =
   tlet (rfromList [r, rscalar 1, rscalar 2, rscalar 3, rscalar 4]) $ \a ->
-    rbuild1 10 (\i -> ifH (i <. 5) (rindex a [i]) (rindex a [i - 5 + (1 `quotH` maxH 1 (i - 5))]))
+    rbuild1 10 (\i -> ifH (kfromPrimal $ i <. 5) (rindex a [i]) (rindex a [i - 5 + (1 `quotH` maxH 1 (i - 5))]))
 
 testConcatBuild3 :: Assertion
 testConcatBuild3 =

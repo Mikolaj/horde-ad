@@ -1214,7 +1214,7 @@ unitriangular1 :: (KnownNat k, NumScalar rk, ADReady target)
 unitriangular1 k sh =
   rbuild1 k $ \i ->
     rbuild1 k $ \j ->
-      ifH (i <=. j) (rreplicate0N sh (rscalar 0)) (rreplicate0N sh (rscalar 1))
+      ifH (kfromPrimal $ i <=. j) (rreplicate0N sh (rscalar 0)) (rreplicate0N sh (rscalar 1))
 
 testUnitriangular1PP :: Assertion
 testUnitriangular1PP = do

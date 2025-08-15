@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- | Dual numbers type and operations on it.
 -- These definitions, mostly class instances, are needed to make dual numbers
 -- a valid carrier for a tensor class algebra (instance) defined
@@ -205,31 +206,44 @@ generateDeltaInputs =
 
 -- * Assorted instances
 
-type instance BoolOf (ADVal f) = BoolOf f
+instance Boolean (BoolOf f) => Boolean (ADVal f (TKScalar Bool)) where
+  true = dDnotShared true (DeltaZero FTKScalar)
+  false = dDnotShared false (DeltaZero FTKScalar)
+  notB (D u _) = dDnotShared (notB u) (DeltaZero FTKScalar)
+  (D b _) &&* (D c _) = dDnotShared (b &&* c) (DeltaZero FTKScalar)
+  (D b _) ||* (D c _) = dDnotShared (b ||* c) (DeltaZero FTKScalar)
 
-instance EqH f (TKScalar r) => EqH (ADVal f) (TKScalar r) where
-  D u _ ==. D v _ = u ==. v
+instance (Boolean (BoolOf f), EqH f (TKScalar r))
+         => EqH (ADVal f) (TKScalar r) where
+  D u _ ==. D v _ = dDnotShared (u ==. v) (DeltaZero FTKScalar)
 
-instance OrdH f (TKScalar r) => OrdH (ADVal f) (TKScalar r) where
-  D u _ <=. D v _ = u <=. v
+instance (Boolean (BoolOf f), OrdH f (TKScalar r))
+         => OrdH (ADVal f) (TKScalar r) where
+  D u _ <=. D v _ = dDnotShared (u <=. v) (DeltaZero FTKScalar)
 
-instance EqH f (TKR n r) => EqH (ADVal f) (TKR n r) where
-  D u _ ==. D v _ = u ==. v
+instance (Boolean (BoolOf f), EqH f (TKR n r))
+         => EqH (ADVal f) (TKR n r) where
+  D u _ ==. D v _ = dDnotShared (u ==. v) (DeltaZero FTKScalar)
 
-instance OrdH f (TKR n r) => OrdH (ADVal f) (TKR n r) where
-  D u _ <=. D v _ = u <=. v
+instance (Boolean (BoolOf f), OrdH f (TKR n r))
+         => OrdH (ADVal f) (TKR n r) where
+  D u _ <=. D v _ = dDnotShared (u <=. v) (DeltaZero FTKScalar)
 
-instance EqH f (TKS sh r) => EqH (ADVal f) (TKS sh r) where
-  D u _ ==. D v _ = u ==. v
+instance (Boolean (BoolOf f), EqH f (TKS sh r))
+         => EqH (ADVal f) (TKS sh r) where
+  D u _ ==. D v _ = dDnotShared (u ==. v) (DeltaZero FTKScalar)
 
-instance OrdH f (TKS sh r) => OrdH (ADVal f) (TKS sh r) where
-  D u _ <=. D v _ = u <=. v
+instance (Boolean (BoolOf f), OrdH f (TKS sh r))
+         => OrdH (ADVal f) (TKS sh r) where
+  D u _ <=. D v _ = dDnotShared (u <=. v) (DeltaZero FTKScalar)
 
-instance EqH f (TKX sh r) => EqH (ADVal f) (TKX sh r) where
-  D u _ ==. D v _ = u ==. v
+instance (Boolean (BoolOf f), EqH f (TKX sh r))
+         => EqH (ADVal f) (TKX sh r) where
+  D u _ ==. D v _ = dDnotShared (u ==. v) (DeltaZero FTKScalar)
 
-instance OrdH f (TKX sh r) => OrdH (ADVal f) (TKX sh r) where
-  D u _ <=. D v _ = u <=. v
+instance (Boolean (BoolOf f), OrdH f (TKX sh r))
+         => OrdH (ADVal f) (TKX sh r) where
+  D u _ <=. D v _ = dDnotShared (u <=. v) (DeltaZero FTKScalar)
 
 type instance HFunOf (ADVal f) x y = HFun x y
 

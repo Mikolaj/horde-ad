@@ -51,8 +51,6 @@ type instance ShareOf (AstTensor ms s) = AstRaw s
 -- of the instances, especially after applied to arguments that are terms.
 type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun s s x z
 
-type instance BoolOf (AstTensor ms s) = AstBool ms
-
 
 -- * Unlawful numeric instances for AST scalars; they are lawful modulo evaluation
 
@@ -762,16 +760,16 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 -- * Unlawful instances of AST for bool; they are lawful modulo evaluation
 
 -- Simple variable comparisons, if any, come first.
-instance Boolean (AstBool ms) where
-  true = AstBoolConst True
-  false = AstBoolConst False
-  notB (AstBoolConst b) = AstBoolConst $ not b
+instance AstSpan s => Boolean (AstTensor ms s (TKScalar Bool)) where
+  true = fromPrimal $ AstConcreteK True
+  false = fromPrimal $ AstConcreteK False
+  notB (AstConcreteK b) = AstConcreteK $ not b
   notB (AstBoolNot b) = b
   notB b = AstBoolNot b
-  AstBoolConst True &&* b = b
-  AstBoolConst False &&* _b = AstBoolConst False
-  b &&* AstBoolConst True = b
-  _b &&* AstBoolConst False = AstBoolConst False
+  AstConcreteK True &&* b = b
+  AstConcreteK False &&* _b = AstConcreteK False
+  b &&* AstConcreteK True = b
+  _b &&* AstConcreteK False = AstConcreteK False
   AstBoolAnd b c &&* d = b &&* (c &&* d)
   b@(AstLeqK AstConcreteK{} AstVar{}) &&* c = AstBoolAnd b c
   b@(AstLeqK AstConcreteK{} (AstN1K NegateOp
@@ -865,8 +863,9 @@ instance (AstSpan s, NumScalar r) => EqH (AstTensor ms s) (TKR n r) where
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                cAstSFromR shu (primalPart v)
-                ==. cAstSFromR shv (primalPart u)
+                fromPrimal
+                $ cAstSFromR shu (primalPart v)
+                  ==. cAstSFromR shv (primalPart u)
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -878,8 +877,9 @@ instance (AstSpan s, NumScalar r) => EqH (AstTensor ms s) (TKX sh r) where
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                cAstSFromX shu (primalPart v)
-                ==. cAstSFromX shv (primalPart u)
+                fromPrimal
+                $ cAstSFromX shu (primalPart v)
+                  ==. cAstSFromX shv (primalPart u)
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -891,8 +891,9 @@ instance (AstSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKR n r) where
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                cAstSFromR shu (primalPart v)
-                <=. cAstSFromR shv (primalPart u)
+                fromPrimal
+                $ cAstSFromR shu (primalPart v)
+                  <=. cAstSFromR shv (primalPart u)
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -904,8 +905,9 @@ instance (AstSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                cAstSFromX shu (primalPart v)
-                <=. cAstSFromX shv (primalPart u)
+                fromPrimal
+                $ cAstSFromX shu (primalPart v)
+                  <=. cAstSFromX shv (primalPart u)
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -928,10 +930,10 @@ instance (AstSpan s, NumScalar r)
          => OrdH (AstTensor ms s) (TKScalar r) where
   u <=. v | let (u1, u2) = bounds u
                 (v1, v2) = bounds v
-          , u2 <= v1 || u1 > v2 = AstBoolConst (u2 <= v1)
-  AstFromPrimal u <=. AstFromPrimal v = u <=. v
-  AstPrimalPart u <=. AstPrimalPart v = u <=. v
-  AstFromDual{} <=. AstFromDual{} = AstBoolConst True
+          , u2 <= v1 || u1 > v2 = fromPrimal $ AstConcreteK (u2 <= v1)
+  AstFromPrimal u <=. AstFromPrimal v = AstFromPrimal $ u <=. v
+  AstPrimalPart u <=. AstPrimalPart v = AstPrimalPart $ u <=. v
+  AstFromDual{} <=. AstFromDual{} = true
   AstConvert c u <=. AstConvert _ v
     | FTKS ZSS (FTKScalar @ru) <- ftkAst u
     , FTKS ZSS (FTKScalar @rv) <- ftkAst v
@@ -964,13 +966,13 @@ instance (AstSpan s, NumScalar r)
   v@AstConcreteK{} <=. u =
     AstLeqK (primalPart v) (primalPart u)
   v <=. u =
-    AstConcreteK 0 <=. primalPart u - primalPart v
+    fromPrimal $ AstConcreteK 0 <=. primalPart u - primalPart v
 
 instance (AstSpan s, NumScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
-  AstFromPrimal u <=. AstFromPrimal v = u <=. v
-  AstFromDual{} <=. AstFromDual{} = AstBoolConst True
-  AstPrimalPart u <=. AstPrimalPart v = u <=. v
+  AstFromPrimal u <=. AstFromPrimal v = AstFromPrimal $ u <=. v
+  AstFromDual{} <=. AstFromDual{} = true
+  AstPrimalPart u <=. AstPrimalPart v = AstPrimalPart $ u <=. v
   AstConvert c u <=. AstConvert _ v
     | FTKS ZSS x <- convertFTK c (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst u)
@@ -981,7 +983,7 @@ instance (AstSpan s, NumScalar r)
     , Just Refl <- testEquality (typeRep @ry) (typeRep @rz) =
       AstConcreteK (unConcrete $ kfromS $ Concrete u) <=. v
   AstConcreteS u <=. AstConcreteS v =
-    AstBoolConst $ Concrete @(TKS sh r) u <=. Concrete v
+    AstConcreteK $ unConcrete $ Concrete @(TKS sh r) u <=. Concrete v
   u <=. AstPlusS (AstConcreteS v) w =
     u - AstConcreteS v <=. w
   AstPlusS (AstConcreteS u) w <=. v =
@@ -989,10 +991,10 @@ instance (AstSpan s, NumScalar r)
   u <=. AstConcreteS v =
     AstConcreteS (negate v) <=. negate u
   AstVar u <=. AstVar v | u == v =
-    AstBoolConst True
+    true
   AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
     | varNameToAstVarId u == varNameToAstVarId v =
-      AstBoolConst True
+      true
   v <=. u = AstLeqS (primalPart v) (primalPart u)
 
 
@@ -1028,27 +1030,33 @@ type instance PrimalOf (AstRaw s) = AstRaw PrimalSpan
 type instance DualOf (AstRaw s) = AstTensor AstMethodShare DualSpan
 type instance ShareOf (AstRaw s) = AstRaw s
 type instance HFunOf (AstRaw s) x y = AstHFun s s x y
-type instance BoolOf (AstRaw s) = AstBool AstMethodShare
 
 type instance PrimalOf (AstNoVectorize s) = AstNoVectorize PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstTensor AstMethodLet DualSpan
 type instance ShareOf (AstNoVectorize s) = AstRaw s
 type instance HFunOf (AstNoVectorize s) x z = AstHFun s s x z
-type instance BoolOf (AstNoVectorize s) = AstBool AstMethodLet
 
 type instance PrimalOf (AstNoSimplify s) = AstNoSimplify PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstTensor AstMethodLet DualSpan
 type instance ShareOf (AstNoSimplify s) = AstRaw s
 type instance HFunOf (AstNoSimplify s) x z = AstHFun s s x z
-type instance BoolOf (AstNoSimplify s) = AstBool AstMethodLet
 
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify other instances
 
-instance EqH (AstTensor AstMethodShare s) y => EqH (AstRaw s) y where
-  AstRaw v ==. AstRaw u = v ==. u
-instance OrdH (AstTensor AstMethodShare s) y => OrdH (AstRaw s) y where
-  AstRaw v <=. AstRaw u = v <=. u
+instance AstSpan s => Boolean (AstRaw s (TKScalar Bool)) where
+  true = AstRaw true
+  false = AstRaw false
+  notB b = AstRaw (notB $ unAstRaw b)
+  b &&* c = AstRaw (unAstRaw b &&* unAstRaw c)
+  b ||* c = AstRaw (unAstRaw b ||* unAstRaw c)
+
+instance (AstSpan s, EqH (AstTensor AstMethodShare s) y)
+         => EqH (AstRaw s) y where
+  AstRaw v ==. AstRaw u = AstRaw $ v ==. u
+instance (AstSpan s, OrdH (AstTensor AstMethodShare s) y)
+         => OrdH (AstRaw s) y where
+  AstRaw v <=. AstRaw u = AstRaw $ v <=. u
 
 deriving instance Eq (AstRaw s y)
 deriving instance Ord (AstRaw s y)
@@ -1062,10 +1070,20 @@ deriving instance Floating (AstTensor AstMethodShare s y)
 deriving instance RealFloatH (AstTensor AstMethodShare s y)
                   => RealFloatH (AstRaw s y)
 
-instance EqH (AstTensor AstMethodLet s) y => EqH (AstNoVectorize s) y where
-  AstNoVectorize v ==. AstNoVectorize u = v ==. u
-instance OrdH (AstTensor AstMethodLet s) y => OrdH (AstNoVectorize s) y where
-  AstNoVectorize v <=. AstNoVectorize u = v <=. u
+instance AstSpan s => Boolean (AstNoVectorize s (TKScalar Bool)) where
+  true = AstNoVectorize true
+  false = AstNoVectorize false
+  notB b = AstNoVectorize (notB $ unAstNoVectorize b)
+  b &&* c = AstNoVectorize (unAstNoVectorize b &&* unAstNoVectorize c)
+  b ||* c = AstNoVectorize (unAstNoVectorize b ||* unAstNoVectorize c)
+
+instance (AstSpan s, EqH (AstTensor AstMethodLet s) y)
+         => EqH (AstNoVectorize s) y where
+  AstNoVectorize v ==. AstNoVectorize u = AstNoVectorize $ v ==. u
+instance (AstSpan s, OrdH (AstTensor AstMethodLet s) y)
+         => OrdH (AstNoVectorize s) y where
+  AstNoVectorize v <=. AstNoVectorize u = AstNoVectorize $ v <=. u
+
 deriving instance Eq (AstNoVectorize s y)
 deriving instance Ord (AstNoVectorize s y)
 deriving instance Num (AstTensor AstMethodLet s y) => Num (AstNoVectorize s y)
@@ -1078,10 +1096,20 @@ deriving instance Floating (AstTensor AstMethodLet s y)
 deriving instance (RealFloatH (AstTensor AstMethodLet s y))
                   => RealFloatH (AstNoVectorize s y)
 
-instance EqH (AstTensor AstMethodLet s) y => EqH (AstNoSimplify s) y where
-  AstNoSimplify v ==. AstNoSimplify u = v ==. u
-instance OrdH (AstTensor AstMethodLet s) y => OrdH (AstNoSimplify s) y where
-  AstNoSimplify v <=. AstNoSimplify u = v <=. u
+instance AstSpan s => Boolean (AstNoSimplify s (TKScalar Bool)) where
+  true = AstNoSimplify true
+  false = AstNoSimplify false
+  notB b = AstNoSimplify (notB $ unAstNoSimplify b)
+  b &&* c = AstNoSimplify (unAstNoSimplify b &&* unAstNoSimplify c)
+  b ||* c = AstNoSimplify (unAstNoSimplify b ||* unAstNoSimplify c)
+
+instance (AstSpan s, EqH (AstTensor AstMethodLet s) y)
+         => EqH (AstNoSimplify s) y where
+  AstNoSimplify v ==. AstNoSimplify u = AstNoSimplify $ v ==. u
+instance (AstSpan s, OrdH (AstTensor AstMethodLet s) y)
+         => OrdH (AstNoSimplify s) y where
+  AstNoSimplify v <=. AstNoSimplify u = AstNoSimplify $ v <=. u
+
 deriving instance Eq (AstNoSimplify s y)
 deriving instance Ord (AstNoSimplify s y)
 deriving instance Num (AstTensor AstMethodLet s y) => Num (AstNoSimplify s y)

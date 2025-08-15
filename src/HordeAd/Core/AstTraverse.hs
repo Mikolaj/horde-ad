@@ -27,10 +27,9 @@ import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
-  ( AstBool (AstBoolConst)
-  , AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
+  ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
   )
-import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
+import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
@@ -75,8 +74,7 @@ expandAst t = case t of
                     (expandAst es)
   Ast.AstApply v ll -> astApply (expandAstHFun v) (expandAst ll)
   Ast.AstVar var -> astVar var
-  Ast.AstCond b a2 a3 ->
-    astCond (expandAstBool b) (expandAst a2) (expandAst a3)
+  Ast.AstCond b a2 a3 -> astCond (expandAst b) (expandAst a2) (expandAst a3)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = expandAst v
     in Ast.AstBuild1 k stk (var, v2)
@@ -187,17 +185,14 @@ expandAst t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatmul2S{} -> t
 
+  Ast.AstBoolNot arg -> notB $ expandAst arg
+  Ast.AstBoolAnd arg1 arg2 -> expandAst arg1 &&* expandAst arg2
+  Ast.AstLeqK arg1 arg2 -> fromPrimal $ expandAst arg1 <=. expandAst arg2
+  Ast.AstLeqS arg1 arg2 -> fromPrimal $ expandAst arg1 <=. expandAst arg2
+
 expandAstHFun :: AstSpan s2
               => AstHFun s s2 x y -> AstHFun s s2 x y
 expandAstHFun (AstLambda var l) = AstLambda var (expandAst l)
-
-expandAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
-expandAstBool t = case t of
-  AstBoolConst{} -> t
-  Ast.AstBoolNot arg -> notB $ expandAstBool arg
-  Ast.AstBoolAnd arg1 arg2 -> expandAstBool arg1 &&* expandAstBool arg2
-  Ast.AstLeqK arg1 arg2 -> expandAst arg1 <=. expandAst arg2
-  Ast.AstLeqS arg1 arg2 -> expandAst arg1 <=. expandAst arg2
 
 
 -- * The simplifying bottom-up pass
@@ -236,7 +231,7 @@ simplifyAst t = case t of
   Ast.AstApply v ll -> astApply (simplifyAstHFun v) (simplifyAst ll)
   Ast.AstVar var -> astVar var
   Ast.AstCond b a2 a3 ->
-    astCond (simplifyAstBool b) (simplifyAst a2) (simplifyAst a3)
+    astCond (simplifyAst b) (simplifyAst a2) (simplifyAst a3)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = simplifyAst v
     in Ast.AstBuild1 k stk (var, v2)
@@ -302,17 +297,14 @@ simplifyAst t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatmul2S{} -> t
 
+  Ast.AstBoolNot arg -> notB $ simplifyAst arg
+  Ast.AstBoolAnd arg1 arg2 -> simplifyAst arg1 &&* simplifyAst arg2
+  Ast.AstLeqK arg1 arg2 -> fromPrimal $ simplifyAst arg1 <=. simplifyAst arg2
+  Ast.AstLeqS arg1 arg2 -> fromPrimal $ simplifyAst arg1 <=. simplifyAst arg2
+
 simplifyAstHFun :: AstSpan s2
                 => AstHFun s s2 x y -> AstHFun s s2 x y
 simplifyAstHFun (AstLambda var l) = AstLambda var (simplifyAst l)
-
-simplifyAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
-simplifyAstBool t = case t of
-  AstBoolConst{} -> t
-  Ast.AstBoolNot arg -> notB $ simplifyAstBool arg
-  Ast.AstBoolAnd arg1 arg2 -> simplifyAstBool arg1 &&* simplifyAstBool arg2
-  Ast.AstLeqK arg1 arg2 -> simplifyAst arg1 <=. simplifyAst arg2
-  Ast.AstLeqS arg1 arg2 -> simplifyAst arg1 <=. simplifyAst arg2
 
 
 -- * The contraction (e.g., from gather expressions) bottom-up pass
@@ -453,7 +445,7 @@ contractAst t0 = case t0 of
   Ast.AstApply v ll -> astApply (contractAstHFun v) (contractAst ll)
   Ast.AstVar var -> astVar var
   Ast.AstCond b a2 a3 ->
-    astCond (contractAstBool b) (contractAst a2) (contractAst a3)
+    astCond (contractAst b) (contractAst a2) (contractAst a3)
   -- These are only needed for tests that don't vectorize Ast.
   Ast.AstBuild1 snat (STKS ZSS _)  -- generalize
                 (var, Ast.AstSum
@@ -571,9 +563,9 @@ contractAst t0 = case t0 of
     astScatterS @shm @shn @shp shn (contractAst v) (vars, contractAstIxS ix)
   -- This rule is reverted in vectorization, so contraction phase may be fine.
   Ast.AstGatherS shn v (vars, Ast.AstCond b i1 i2 :.$ prest)
-    | not $ any ((`varInAstBool` b) . varNameToAstVarId) (listsToList vars) ->
+    | not $ any ((`varInAst` b) . varNameToAstVarId) (listsToList vars) ->
       contractAst
-      $ Ast.AstCond b
+      $ Ast.AstCond (fromPrimal b)
                     (Ast.AstGatherS shn v (vars, i1 :.$ prest))
                     (Ast.AstGatherS shn v (vars, i2 :.$ prest))
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
@@ -607,6 +599,11 @@ contractAst t0 = case t0 of
   Ast.AstDot1InS{} -> t0
   Ast.AstMatmul2S{} -> t0
 
+  Ast.AstBoolNot arg -> notB $ contractAst arg
+  Ast.AstBoolAnd arg1 arg2 -> contractAst arg1 &&* contractAst arg2
+  Ast.AstLeqK arg1 arg2 -> fromPrimal $ contractAst arg1 <=. contractAst arg2
+  Ast.AstLeqS arg1 arg2 -> fromPrimal $ contractAst arg1 <=. contractAst arg2
+
 attemptMatmul2
   :: forall m n p r s.
      (KnownNat m, KnownNat n, KnownNat p, GoodScalar r, AstSpan s)
@@ -636,11 +633,3 @@ attemptMatmul2 t3 u3 = Just $
 contractAstHFun :: AstSpan s2
                 => AstHFun s s2 x y -> AstHFun s s2 x y
 contractAstHFun (AstLambda var l) = AstLambda var (contractAst l)
-
-contractAstBool :: AstBool AstMethodLet -> AstBool AstMethodLet
-contractAstBool t = case t of
-  AstBoolConst{} -> t
-  Ast.AstBoolNot arg -> notB $ contractAstBool arg
-  Ast.AstBoolAnd arg1 arg2 -> contractAstBool arg1 &&* contractAstBool arg2
-  Ast.AstLeqK arg1 arg2 -> contractAst arg1 <=. contractAst arg2
-  Ast.AstLeqS arg1 arg2 -> contractAst arg1 <=. contractAst arg2

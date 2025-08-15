@@ -7,8 +7,6 @@
 -- the instance is a term algebra as well.
 module HordeAd.Core.AstInterpret
   ( interpretAstFull, interpretAstPrimal, interpretAstDual, interpretAst
-    -- * Exported only to specialize elsewhere
-  , interpretAstBool
   ) where
 
 import Prelude
@@ -70,11 +68,12 @@ interpretAstPrimal !env v1 = case v1 of
         es2 = interpretAstPrimal env es
     in tmapAccumLDer (Proxy @(PrimalOf target))
                      k (ftkAst acc0) bftk eftk f df rf acc02 es2
+  {- TODO: this is no longer needed, right?
   -- This prevents multiple ifH expansions in ADVal.
   AstCond b a1 a2 ->
     let c = interpretAstBool env b
     in tcond (ftkToSTK $ ftkAst a1) c
-             (interpretAstPrimal env a1) (interpretAstPrimal env a2)
+             (interpretAstPrimal env a1) (interpretAstPrimal env a2) -}
   _ -> tprimalPart (interpretAst env v1)
 
 interpretAstDual
@@ -163,7 +162,7 @@ interpretAst !env = \case
       _ -> error $ "interpretAst: unknown AstVar " ++ show var
                    -- ++ " in environment " ++ showsPrecAstEnv 0 env ""
   AstCond b a1 a2 ->
-    let c = interpretAstBool env b
+    let c = interpretAst env b
     in tcond (ftkToSTK (ftkAst a1)) c
              (interpretAst env a1) (interpretAst env a2)
   AstBuild1 snat stk (var, v) ->
@@ -361,6 +360,20 @@ interpretAst !env = \case
   AstMatmul2S SNat SNat SNat u v ->
     tsmatmul2 (interpretAst env u) (interpretAst env v)
 
+  AstBoolNot arg -> notB $ interpretAst env arg
+  AstBoolAnd arg1 arg2 ->
+    let b1 = interpretAst env arg1
+        b2 = interpretAst env arg2
+    in b1 &&* b2
+  AstLeqK arg1 arg2 ->
+    let r1 = interpretAst env arg1
+        r2 = interpretAst env arg2
+    in r1 <=. r2
+  AstLeqS arg1 arg2 ->
+    let r1 = interpretAst env arg1
+        r2 = interpretAst env arg2
+    in r1 <=. r2
+
 interpretAstHFun
   :: forall target x y s s2. (AstSpan s2, BaseTensor target)
   => AstEnv target -> AstHFun s s2 x y
@@ -386,25 +399,6 @@ interpretAstHFunPrimal _env (AstLambda var l) =
       -- is not needed (and would not be possible, because we lack
       -- FullShapeTK y). From the other end, due to (PrimalOf target),
       -- there won't be any dual part coming from an argument.
-
-interpretAstBool :: ADReady target
-                 => AstEnv target -> AstBool AstMethodLet
-                 -> BoolOf target
-interpretAstBool !env = \case
-  AstBoolConst a -> if a then true else false
-  AstBoolNot arg -> notB $ interpretAstBool env arg
-  AstBoolAnd arg1 arg2 ->
-    let b1 = interpretAstBool env arg1
-        b2 = interpretAstBool env arg2
-    in b1 &&* b2
-  AstLeqK arg1 arg2 ->
-    let r1 = interpretAstPrimal env arg1
-        r2 = interpretAstPrimal env arg2
-    in r1 <=. r2
-  AstLeqS arg1 arg2 ->
-    let r1 = interpretAstPrimal env arg1
-        r2 = interpretAstPrimal env arg2
-    in r1 <=. r2
 
 
 -- * Interpretation of arithmetic, boolean and relation operations

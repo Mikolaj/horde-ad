@@ -32,7 +32,7 @@ import Data.Array.Nested.Types (Tail, unsafeCoerceRefl)
 
 import HordeAd.AstEngine
 import HordeAd.Core.Ast (AstTensor)
-import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
+import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
@@ -190,7 +190,7 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       else error "build1V: AstVar can't contain other free variables"
     Ast.AstCond b u v -> traceRule $
       let uv = astFromVector (SNat @2) (ftkToSTK (ftkAst u)) (V.fromList [u, v])
-          t = astIndexBuild (SNat @2) ftk0 uv (astCond b 0 1)
+          t = astIndexBuild (SNat @2) ftk0 uv (astCond (primalPart b) 0 1)
       in build1VOccurrenceUnknown snat (var, t)
     Ast.AstBuild1 snat2 _ (var2, v2) -> traceRule $
       assert (var2 /= var) $
@@ -319,6 +319,11 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
     Ast.AstDot0S{} -> error "build1V: term not accessible from user API"
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatmul2S{} -> error "build1V: term not accessible from user API"
+
+    Ast.AstBoolNot b -> error "TODO"
+    Ast.AstBoolAnd b c -> error "TODO"
+    Ast.AstLeqK u v -> error "TODO"
+    Ast.AstLeqS u v -> error "TODO"
 
 -- This refreshes an index variable in a list of index expressions.
 intBindingRefreshS

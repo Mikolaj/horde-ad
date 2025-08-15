@@ -21,7 +21,7 @@ module HordeAd.Core.Ops
   ( -- * The tensor classes and support datatypes
     LetTensor(..), ShareTensor(..), BaseTensor(..), HFun(..)
     -- * The giga-constraint
-  , ADReady, ADReadyNoLet, ADReadyEqs, ADReadyClasses, ADReadyEqsClasses
+  , ADReady, ADReadyNoLet, ADReadyClasses, ADReadyPrimalClasses
   , AllTargetShow, CommonTargetEqOrd
     -- * Helper functions
   , rtr, rflatten, str, sflatten, xtr, xflatten
@@ -650,19 +650,22 @@ class ( Num (IntOf target)
            => target (TKR2 m x) -> IxROf target m -> target (TKR2 0 x)
   trindex0 = trindex
   troneHot :: ( KnownNat m, KnownNat n, TKAllNum x, KnownSTK x
-              , BoolOf (PrimalOf target) ~ BoolOf target
-              , EqH (PrimalOf target) (TKScalar Int64))
+              , EqH target (TKScalar Int64))
            => IShR m -> target (TKR2 n x) -> IxROf target m
            -> target (TKR2 (m + n) x)
   {-# INLINE troneHot #-}
-  troneHot @_ @_ @x sh v ix = case knownSTK @x of
+  troneHot @m @n @x sh v ix = case knownSTK @x of
     STKScalar ->
       trscatter @_ @0 (shrAppend sh (rshape v)) v (const ix)
     _ -> case tftk knownSTK v of
       FTKR _ ftk2 ->
         -- TODO: def at out of bounds
-        let f ix2 = tcond knownSTK
-                          (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+        let f :: IxR (m + n) (IntOf target) -> target (TKR2 0 x)
+            f ix2 = tcond knownSTK
+                          (foldl' (\ !acc (!i, !i2) ->
+                             acc &&* tfromPrimal @target STKScalar i
+                                     ==. tfromPrimal @target STKScalar i2)
+                                  true
                            $ zip (toList ix) (toList ix2))
                           (trindex0 v (ixrDrop ix2))
                           (tdefTarget (FTKR ZSR ftk2))
@@ -698,8 +701,7 @@ class ( Num (IntOf target)
            -> target (TKS2 '[] x)
   tsindex0 @sh1 | Refl <- lemAppNil @sh1 = tsindex
   tsoneHot :: ( KnownShS sh1, KnownShS sh2, TKAllNum x, KnownSTK x
-              , BoolOf (PrimalOf target) ~ BoolOf target
-              , EqH (PrimalOf target) (TKScalar Int64) )
+              , EqH target (TKScalar Int64) )
            => target (TKS2 sh2 x) -> IxSOf target sh1
            -> target (TKS2 (sh1 ++ sh2) x)
   {-# INLINE tsoneHot #-}  -- this doesn't want to specialize
@@ -719,8 +721,12 @@ class ( Num (IntOf target)
         gcastWith (unsafeCoerceRefl
                    :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
         withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-        let f ix2 = tcond knownSTK
-                          (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+        let f :: IxS (sh1 ++ sh2) (IntOf target) -> target (TKS2 '[] x)
+            f ix2 = tcond knownSTK
+                          (foldl' (\ !acc (!i, !i2) ->
+                             acc &&* tfromPrimal @target STKScalar i
+                                     ==. tfromPrimal @target STKScalar i2)
+                                  true
                            $ zip (Foldable.toList ix) (Foldable.toList ix2))
                           (tsindex0 v (ixsDrop @(Rank sh1) ix2))
                           (tdefTarget (FTKS ZSS ftk2))
@@ -756,8 +762,7 @@ class ( Num (IntOf target)
            -> target (TKX2 '[] x)
   txindex0 @sh1 | Refl <- lemAppNil @sh1 = txindex
   txoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
-              , BoolOf (PrimalOf target) ~ BoolOf target
-              , EqH (PrimalOf target) (TKScalar Int64), ConvertTensor target )
+              , EqH target (TKScalar Int64), ConvertTensor target )
            => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
            -> target (TKX2 (sh1 ++ sh2) x)
   {-# INLINE txoneHot #-}
@@ -777,8 +782,12 @@ class ( Num (IntOf target)
         gcastWith (unsafeCoerceRefl
                    :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
         withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-        let f ix2 = tcond knownSTK
-                          (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+        let f :: IxX (sh1 ++ sh2) (IntOf target) -> target (TKX2 '[] x)
+            f ix2 = tcond knownSTK
+                          (foldl' (\ !acc (!i, !i2) ->
+                             acc &&* tfromPrimal @target STKScalar i
+                                     ==. tfromPrimal @target STKScalar i2)
+                                  true
                            $ zip (Foldable.toList ix) (Foldable.toList ix2))
                           (txindex0 v (ixxDrop' @(Rank sh1) ix2))
                           (tdefTarget (FTKX ZSX ftk2))
@@ -1158,21 +1167,16 @@ type ADReady target =
   )
 
 type ADReadyNoLet target =
-  ( ADReadyEqsClasses target
-  , ADReadyEqsClasses (ShareOf target)
+  ( ADReadyPrimalClasses target
+  , ADReadyPrimalClasses (ShareOf target)
   , ShareTensor (ShareOf target)
   , ShareTensor (PrimalOf (ShareOf target))
   , ShareOf (ShareOf target) ~ ShareOf target
   )
 
-type ADReadyEqsClasses target =
-  ( ADReadyEqs target
-  , ADReadyClasses target
+type ADReadyPrimalClasses target =
+  ( ADReadyClasses target
   , ADReadyClasses (PrimalOf target)
-  )
-
-type ADReadyEqs target =
-  ( BoolOf (PrimalOf target) ~ BoolOf target
   )
 
 type ADReadyClasses target =
