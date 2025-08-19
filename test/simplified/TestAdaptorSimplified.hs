@@ -473,7 +473,7 @@ testPiecewiseLinear2PP = do
   printArtifactPrimalPretty artifactRev
     @?= "\\x1 -> let x2 = ifH (sscalar (-0.0) <=. negate (sfromR x1)) (sscalar 5.0) (sscalar 2.0) in rfromS (x2 * sfromR x1)"
 
-overleaf :: forall r target. (BaseTensor target, NumScalar r)
+overleaf :: forall r target. (ADReady target, NumScalar r)
          => target (TKR 1 r) -> target (TKR 0 r)
 overleaf v = let wrap i = i `remH` fromIntegral (rwidth v)
              in rsum (rbuild @1 [50] (\[i] -> rindex v [wrap i]))

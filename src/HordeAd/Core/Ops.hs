@@ -337,7 +337,12 @@ class ShareTensor (target :: Target) where
 -- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
 class ( Num (IntOf target)
-      , IntegralH (IntOf target)
+          -- This is not redundant, because it constrains @PrimaOf f@,
+          -- not @f@, as below, and so the user doesn't need
+          -- to require @ADReady@ instead of @BaseTensor@ as often.
+          -- Also, it leads to a choice of the more specific
+          -- @Num (ADVal f (TKScalar r))@ instance (in GHC 9.12 at least),
+          -- making some more cases of @fromInteger@ usage accepted.
       , TensorSupports Num Num target
       , TensorSupports RealFloatAndFloatElt Floating target
       , TensorSupports RealFloatAndFloatElt RealFloatH target
