@@ -233,6 +233,8 @@ instance OrdH f (TKX sh r) => OrdH (ADVal f) (TKX sh r) where
 
 type instance HFunOf (ADVal f) x y = HFun x y
 
+type instance PlainOf (ADVal f) = PlainOf f
+
 type instance PrimalOf (ADVal f) = f
 
 type instance DualOf (ADVal f) = Delta f

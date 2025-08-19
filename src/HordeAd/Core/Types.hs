@@ -15,7 +15,7 @@ module HordeAd.Core.Types
   , Differentiable, IfDifferentiable(..)
   , BuildTensorKind, RazeTensorKind, ADTensorKind, ADTensorScalar
     -- * Type families that tensors belong to
-  , IntOf, HFunOf, PrimalOf, DualOf, ShareOf, BoolOf
+  , IntOf, HFunOf, PlainOf, PrimalOf, DualOf, ShareOf, BoolOf
   , IxROf, IxSOf, IxXOf
     -- * The Z1 Num unit type and its instances
   , Z1(..)
@@ -254,6 +254,8 @@ type IntOf (f :: Target) = PrimalOf f (TKScalar Int64)
 -- instance is independent of @f@.
 type family HFunOf (f :: Target)
                    (x :: TK) (z :: TK) :: Type
+
+type family PlainOf (f :: Target) :: Target
 
 type family PrimalOf (f :: Target) :: Target
 

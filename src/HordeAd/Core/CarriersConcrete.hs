@@ -230,6 +230,8 @@ type instance BoolOf Concrete = Bool
 
 type instance HFunOf Concrete x z = RepConcrete x -> RepConcrete z
 
+type instance PlainOf Concrete = Concrete
+
 type instance PrimalOf Concrete = Concrete
 
 type instance DualOf Concrete = DummyDualTarget
