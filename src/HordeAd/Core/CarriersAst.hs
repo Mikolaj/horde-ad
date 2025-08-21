@@ -37,6 +37,19 @@ import HordeAd.Core.Types
 
 -- * Type family instances for AstTensor
 
+-- This can't be defined only for FullSpan, because the BaseTensor instance
+-- for PrimalSpan needs it and we need the instance to satisfy ADReady.
+-- Consequently, we have PrimalOf (PrimalOf fAST) = PrimalOf fAST,
+-- which does not hold in general (and would be disastrous for fADVal).
+-- This means AST can't be used to represent nested instances of ADVal,
+-- which is fine and we represent them as ADVal itself instead.
+-- So the only things AST can represent (can be interpreted into) are AST,
+-- Concrete and ADVal(Concrete), which is just enough. Already ADVal(AST)
+-- is too much, but fortunately it's not needed.
+-- TODO: Unfortunately validating this by adding constraint
+-- PrimalOf (PrimalOf target) ~ PrimalOf target
+-- to interpretAst doesn't work for technical and maybe also
+-- fundamental reasons.
 type instance PrimalOf (AstTensor ms s) = AstTensor ms PrimalSpan
 type instance DualOf (AstTensor ms s) = AstTensor ms DualSpan
 type instance ShareOf (AstTensor ms s) = AstRaw s
