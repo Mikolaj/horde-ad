@@ -197,10 +197,10 @@ interpretAst !env = \case
       in ttlet t (\w -> interpretAst (env2 w) v)
 
   AstPrimalPart a ->
-    tfromPrimal (ftkToSTK (ftkAst a)) (tprimalPart $ interpretAstFull env a)
+    tfromPrimal (ftkToSTK (ftkAst a)) (tprimalPart $ interpretAst env a)
   AstDualPart a ->
     tfromDual (tdualPart (ftkToSTK (ftkAst a)) $ interpretAstFull env a)
-  AstFromPrimal a ->
+  AstFromPrimal a | Just Refl <- sameAstSpan @s @FullSpan ->
     -- By the invariant, interpretation of @a@ has zero dual part,
     -- so we don't have to do the following to remove the dual part,
     -- but we still do, because there's almost no rewriting of delta
@@ -209,6 +209,7 @@ interpretAst !env = \case
     -- on AstConstant are rewritten eagerly to AstConstant, so for AstFromDual
     -- we really don't need to do anything.
     tfromPrimal (ftkToSTK (ftkAst a)) (interpretAstPrimal env a)
+  AstFromPrimal a -> interpretAst env a
   AstFromDual a -> interpretAst env a
     -- By the invariant, interpretation of @a@ has zero primal part,
     -- so we don't have to do the following to remove the primal part:

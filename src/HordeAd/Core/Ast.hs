@@ -21,7 +21,7 @@
 -- (A copy of the text above is in "HordeAd.Core.Ops".)
 module HordeAd.Core.Ast
   ( -- * The AstSpan tags and class
-    AstSpanType(..), AstSpan(..), sameAstSpan
+    AstSpanType(..), PrimalSpan, AstSpan(..), sameAstSpan
     -- * Variables and related types
   , AstVarId, intToAstVarId
   , AstInt, IntVarName, pattern AstIntVar
@@ -44,6 +44,7 @@ import Data.Kind (Type)
 import Data.Some
 import Data.Type.Equality (TestEquality (..), (:~:) (Refl))
 import Data.Vector.Strict qualified as Data.Vector
+import GHC.Exts (withDict)
 import GHC.TypeLits (type (+), type (<=))
 import Type.Reflection (Typeable, typeRep)
 
@@ -60,41 +61,93 @@ import HordeAd.Core.Types
 -- * The AstSpan tags and class
 
 -- | A kind (a type intended to be promoted) marking whether an AST term
--- is supposed to denote the primal part of a dual number, the dual part
--- or the whole dual number. It's mainly used to index the terms
--- of the AstTensor type  and related GADTs.
-type data AstSpanType = PrimalSpan | DualSpan | FullSpan
+-- is supposed to denote the (n-th iteration of taking the) primal part
+-- of a dual number, the dual part or the whole dual number.
+-- It's mainly used to index the terms of the AstTensor type
+-- and related GADTs.
+type data AstSpanType = PrimalStepSpan AstSpanType | DualSpan | FullSpan
+type PrimalSpan = PrimalStepSpan FullSpan
 
-class Typeable s => AstSpan (s :: AstSpanType) where
+-- | A singleton type for `AstSpanType`.
+type role SAstSpanType nominal
+data SAstSpanType s where
+  SPrimalStepSpan :: AstSpan s0
+                  => SAstSpanType s0 -> SAstSpanType (PrimalStepSpan s0)
+  SDualSpan :: SAstSpanType DualSpan
+  SFullSpan :: SAstSpanType FullSpan
+
+class KnownSpan (s :: AstSpanType) where
+  knownSpan :: SAstSpanType s
+
+-- These are weak instances rewriting-wise and we can't move them
+-- to AstSimplify to improve this, because it's too late
+-- and also astPrimalPart only works on AstMethodLet.
+instance (KnownSpan s, AstSpan s) => KnownSpan (PrimalStepSpan s) where
+  knownSpan = SPrimalStepSpan (knownSpan @s)
+
+instance KnownSpan DualSpan where
+  knownSpan = SDualSpan
+
+instance KnownSpan FullSpan where
+  knownSpan = SFullSpan
+
+withKnownSpan :: forall s r. SAstSpanType s -> (KnownSpan s => r) -> r
+withKnownSpan = withDict @(KnownSpan s)
+
+class (KnownSpan s, Typeable s) => AstSpan (s :: AstSpanType) where
   fromPrimal :: AstTensor ms PrimalSpan y -> AstTensor ms s y
   fromDual :: AstTensor ms DualSpan y -> AstTensor ms s y
   primalPart :: AstTensor ms s y -> AstTensor ms PrimalSpan y
   dualPart :: AstTensor ms s y -> AstTensor ms DualSpan y
 
--- These are weak instance and we can't move them to AstSimplify,
--- because it's too late and also astPrimalPart only works on AstMethodLet.
-instance AstSpan PrimalSpan where
-  fromPrimal = id
-  fromDual t = AstPrimalPart $ AstFromDual t  -- this is primal zero
-  primalPart t = t
-  dualPart t = AstDualPart $ AstFromPrimal t  -- this is dual zero
+-- These are weak instances rewriting-wise and we can't move them
+-- to AstSimplify to improve this, because it's too late
+-- and also astPrimalPart only works on AstMethodLet.
+instance AstSpan s => AstSpan (PrimalStepSpan s) where
+  fromPrimal = cAstPrimalPart . fromFull (knownSpan @s) . AstFromPrimal
+  fromDual t = cAstPrimalPart . fromFull (knownSpan @s) . AstFromDual $ t
+                 -- this is primal zero
+  primalPart = cAstPrimalPart . toFull (knownSpan @s) . AstFromPrimal
+  dualPart t = cAstDualPart . toFull (knownSpan @s) . AstFromPrimal $ t
+                 -- this is dual zero
 
 instance AstSpan DualSpan where
   fromPrimal t = AstDualPart $ AstFromPrimal t  -- this is dual zero
   fromDual = id
   primalPart t = AstPrimalPart $ AstFromDual t  -- this is primal zero
-  dualPart t = t
+  dualPart = id
 
 instance AstSpan FullSpan where
   fromPrimal = AstFromPrimal
   fromDual = AstFromDual
-  primalPart (AstFromPrimal t) = t
-  primalPart t = AstPrimalPart t
-  dualPart (AstFromDual t) = t
-  dualPart t = AstDualPart t
+  primalPart = cAstPrimalPart
+  dualPart = cAstDualPart
+
+fromFull :: SAstSpanType s -> AstTensor ms FullSpan y -> AstTensor ms s y
+fromFull = \case
+  SPrimalStepSpan sspan ->
+    withKnownSpan sspan $ cAstPrimalPart . fromFull sspan
+  SDualSpan -> cAstDualPart
+  SFullSpan -> id
+
+toFull :: SAstSpanType s -> AstTensor ms s y -> AstTensor ms FullSpan y
+toFull = \case
+  SPrimalStepSpan sspan -> toFull sspan . AstFromPrimal
+  SDualSpan -> AstFromDual
+  SFullSpan -> id
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = testEquality (typeRep @s1) (typeRep @s2)
+
+cAstPrimalPart :: forall y s ms. AstSpan s
+               => AstTensor ms s y -> AstTensor ms (PrimalStepSpan s) y
+cAstPrimalPart (AstFromPrimal t) = t
+cAstPrimalPart t = AstPrimalPart t
+
+cAstDualPart :: forall y ms.
+                AstTensor ms FullSpan y -> AstTensor ms DualSpan y
+cAstDualPart (AstFromDual t) = t
+cAstDualPart t = AstDualPart t
 
 
 -- * Variables and related types
@@ -292,12 +345,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
              -> AstTensor AstMethodShare s y
 
   -- Explicit dual numbers handling, eliminated in interpretation to ADVal
-  AstPrimalPart :: forall y ms.
-                   AstTensor ms FullSpan y -> AstTensor ms PrimalSpan y
+  AstPrimalPart :: forall y s ms. AstSpan s
+                => AstTensor ms s y -> AstTensor ms (PrimalStepSpan s) y
   AstDualPart :: forall y ms.
                  AstTensor ms FullSpan y -> AstTensor ms DualSpan y
-  AstFromPrimal :: forall y ms.
-                   AstTensor ms PrimalSpan y -> AstTensor ms FullSpan y
+  AstFromPrimal :: forall y s ms.
+                   AstTensor ms (PrimalStepSpan s) y -> AstTensor ms s y
   AstFromDual :: forall y ms.
                  AstTensor ms DualSpan y -> AstTensor ms FullSpan y
 
