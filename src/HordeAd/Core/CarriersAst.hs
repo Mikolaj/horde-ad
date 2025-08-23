@@ -38,19 +38,9 @@ import HordeAd.Core.Types
 -- * Type family instances for AstTensor
 
 -- This can't be defined only for FullSpan, because the BaseTensor instance
--- for PrimalSpan needs it and we need the instance to satisfy ADReady.
--- Consequently, we have PrimalOf (PrimalOf fAST) = PrimalOf fAST,
--- which does not hold in general (and would be disastrous for fADVal).
--- This means AST can't be used to represent nested instances of ADVal,
--- which is fine and we represent them as ADVal itself instead.
--- So the only things AST can represent (can be interpreted into) are AST,
--- Concrete and ADVal(Concrete), which is just enough. Already ADVal(AST)
--- is too much, but fortunately it's not needed.
--- TODO: Unfortunately validating this by adding constraint
--- PrimalOf (PrimalOf target) ~ PrimalOf target
--- to interpretAst doesn't work for technical and maybe also
--- fundamental reasons.
-type instance PrimalOf (AstTensor ms s) = AstTensor ms PrimalSpan
+-- for @AstTensor ms PrimalSpan@ needs it and we need the instance
+-- to satisfy ADReady constraints for AST.
+type instance PrimalOf (AstTensor ms s) = AstTensor ms (PrimalStepSpan s)
 type instance DualOf (AstTensor ms s) = AstTensor ms DualSpan
 type instance ShareOf (AstTensor ms s) = AstRaw s
 
@@ -1035,19 +1025,19 @@ newtype AstNoSimplify s y =
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify type family instances
 
-type instance PrimalOf (AstRaw s) = AstRaw PrimalSpan
+type instance PrimalOf (AstRaw s) = AstRaw (PrimalStepSpan s)
 type instance DualOf (AstRaw s) = AstTensor AstMethodShare DualSpan
 type instance ShareOf (AstRaw s) = AstRaw s
 type instance HFunOf (AstRaw s) x y = AstHFun s s x y
 type instance BoolOf (AstRaw s) = AstBool AstMethodShare
 
-type instance PrimalOf (AstNoVectorize s) = AstNoVectorize PrimalSpan
+type instance PrimalOf (AstNoVectorize s) = AstNoVectorize (PrimalStepSpan s)
 type instance DualOf (AstNoVectorize s) = AstTensor AstMethodLet DualSpan
 type instance ShareOf (AstNoVectorize s) = AstRaw s
 type instance HFunOf (AstNoVectorize s) x z = AstHFun s s x z
 type instance BoolOf (AstNoVectorize s) = AstBool AstMethodLet
 
-type instance PrimalOf (AstNoSimplify s) = AstNoSimplify PrimalSpan
+type instance PrimalOf (AstNoSimplify s) = AstNoSimplify (PrimalStepSpan s)
 type instance DualOf (AstNoSimplify s) = AstTensor AstMethodLet DualSpan
 type instance ShareOf (AstNoSimplify s) = AstRaw s
 type instance HFunOf (AstNoSimplify s) x z = AstHFun s s x z
