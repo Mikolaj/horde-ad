@@ -1252,8 +1252,8 @@ astCastS t = case t of
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astCastK v)
   Ast.AstLet var u v -> astLet var u (astCastS v)
-  Ast.AstPrimalPart a -> Ast.AstPrimalPart $ astCastS a
-  Ast.AstDualPart a -> Ast.AstDualPart $ astCastS a
+  Ast.AstPrimalPart a -> astPrimalPart $ astCastS a
+  Ast.AstDualPart a -> astDualPart $ astCastS a
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astCastS v
   Ast.AstFromDual v -> Ast.AstFromDual $ astCastS v
   Ast.AstN1S NegateOp u -> negate (astCastS u)

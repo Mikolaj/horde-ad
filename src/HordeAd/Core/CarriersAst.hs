@@ -974,10 +974,8 @@ instance (AstSpan s, NumScalar r)
     | v < 0
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
       AstConcreteK u <=. AstTimesK (AstConcreteK $ negate v) (AstN1K NegateOp w)
-  v@AstConcreteK{} <=. u =
-    AstLeqK (primalPart v) (primalPart u)
-  v <=. u =
-    AstConcreteK 0 <=. primalPart u - primalPart v
+  v@AstConcreteK{} <=. u = AstLeqK v u
+  v <=. u = AstConcreteK 0 <=. primalPart u - primalPart v
 
 instance (AstSpan s, NumScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
