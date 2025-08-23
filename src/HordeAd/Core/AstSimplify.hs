@@ -817,7 +817,7 @@ astLet var u v@(Ast.AstVar var2) =
   else v
 astLet var u v@(Ast.AstPrimalPart (Ast.AstVar var2)) =  -- a common noop
   if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @FullSpan of
+  then case sameAstSpan @s2 @(PrimalStepSpan s) of
     Just Refl -> case testEquality var var2 of
       Just Refl -> astPrimalPart u
       _ -> error "astLet: wrong variable types at AstPrimalPart"
@@ -924,8 +924,9 @@ astLet var u (Ast.AstConvert c v) | checkAstFromS c v =
   astConvert c $ astLet var u v
 astLet var u v = Ast.AstLet var u v
 
-astPrimalPart :: AstTensor AstMethodLet FullSpan y
-              -> AstTensor AstMethodLet PrimalSpan y
+astPrimalPart :: AstSpan s
+              => AstTensor AstMethodLet s y
+              -> AstTensor AstMethodLet (PrimalStepSpan s) y
 astPrimalPart t = case t of
   Ast.AstPair t1 t2 -> astPair (astPrimalPart t1) (astPrimalPart t2)
   Ast.AstProject1 v -> astProject1 (astPrimalPart v)
@@ -955,6 +956,8 @@ astPrimalPart t = case t of
 
   Ast.AstLet var u v -> astLet var u (astPrimalPart v)
 
+  Ast.AstPrimalPart{} -> Ast.AstPrimalPart t
+  Ast.AstDualPart{} -> Ast.AstPrimalPart t
   Ast.AstFromPrimal v -> v
   Ast.AstFromDual v ->
     let ftk = ftkAst v
@@ -969,6 +972,9 @@ astPrimalPart t = case t of
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astPrimalPart u) (astPrimalPart v)
   Ast.AstI2K QuotOp u v -> quotH (astPrimalPart u) (astPrimalPart v)
   Ast.AstI2K RemOp u v -> remH (astPrimalPart u) (astPrimalPart v)
+  AstConcreteK{} -> Ast.AstPrimalPart t
+  Ast.AstFloorK{} -> Ast.AstPrimalPart t
+  Ast.AstFromIntegralK{} -> Ast.AstPrimalPart t
   Ast.AstCastK v -> astCastK $ astPrimalPart v
 
   AstPlusS u v -> astPrimalPart u + astPrimalPart v
@@ -981,6 +987,9 @@ astPrimalPart t = case t of
                                              (astPrimalPart v)
   Ast.AstI2S QuotOp u v -> quotH (astPrimalPart u) (astPrimalPart v)
   Ast.AstI2S RemOp u v -> remH (astPrimalPart u) (astPrimalPart v)
+  AstConcreteS{} -> Ast.AstPrimalPart t
+  Ast.AstFloorS{} -> Ast.AstPrimalPart t
+  Ast.AstFromIntegralS{} -> Ast.AstPrimalPart t
   Ast.AstCastS v -> astCastS $ astPrimalPart v
 
   Ast.AstIndexS shn v ix ->
@@ -989,6 +998,9 @@ astPrimalPart t = case t of
     astScatterS @shm @shn @shp shn (astPrimalPart v) (vars, ix)
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     astGatherS @shm @shn @shp shn (astPrimalPart v) (vars, ix)
+  Ast.AstMinIndexS{} -> Ast.AstPrimalPart t
+  Ast.AstMaxIndexS{} -> Ast.AstPrimalPart t
+  Ast.AstIotaS{} -> Ast.AstPrimalPart t
   Ast.AstAppendS x y -> astAppendS (astPrimalPart x) (astPrimalPart y)
   Ast.AstSliceS i n k v -> astSliceS i n k (astPrimalPart v)
   Ast.AstReverseS v -> astReverseS (astPrimalPart v)
