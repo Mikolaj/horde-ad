@@ -76,8 +76,10 @@ ftkAst t = case t of
 
   AstPrimalPart a -> ftkAst a
   AstDualPart a -> ftkAst a
+  AstPlainPart a -> ftkAst a
   AstFromPrimal a -> ftkAst a
   AstFromDual a -> ftkAst a
+  AstFromPlain a -> ftkAst a
 
   AstPlusK{} -> FTKScalar
   AstTimesK{} -> FTKScalar
@@ -175,8 +177,10 @@ varInAst var = \case
 
   AstPrimalPart a -> varInAst var a
   AstDualPart a -> varInAst var a
+  AstPlainPart a -> varInAst var a
   AstFromPrimal v -> varInAst var v
   AstFromDual v -> varInAst var v
+  AstFromPlain v -> varInAst var v
 
   AstPlusK t u -> varInAst var t || varInAst var u
   AstTimesK t u -> varInAst var t || varInAst var u
@@ -295,8 +299,10 @@ astIsSmallN n t0 = case t0 of
   AstShare{} -> n
   AstPrimalPart v -> astIsSmallN (n - 1) v
   AstDualPart v -> astIsSmallN (n - 1) v
+  AstPlainPart v -> astIsSmallN (n - 1) v
   AstFromPrimal v -> astIsSmallN (n - 1) v
   AstFromDual v -> astIsSmallN (n - 1) v
+  AstFromPlain v -> astIsSmallN (n - 1) v
 
   AstIotaS{} -> n
   AstSliceS _ _ _ v ->
@@ -333,6 +339,8 @@ bounds (AstVar var) = case varNameToBounds var of
   Just (u1, u2) -> (fromIntegral u1, fromIntegral u2)
 bounds (AstFromPrimal u) = bounds u
 bounds (AstPrimalPart u) = bounds u
+bounds (AstFromPlain u) = bounds u
+bounds (AstPlainPart u) = bounds u
 bounds (AstCond _b u v) = let (u1, u2) = bounds u
                               (v1, v2) = bounds v
                           in (min u1 v1, max u2 v2)
@@ -410,6 +418,8 @@ cAstConvert c t
 cAstConvert c1 (AstConvert c2 t2) = cAstConvert (ConvCmp c1 c2) t2
 cAstConvert c1 (AstFromPrimal (AstConvert c2 t2)) =
   AstFromPrimal (cAstConvert (ConvCmp c1 c2) t2)
+cAstConvert c1 (AstFromPlain (AstConvert c2 t2)) =
+  AstFromPlain (cAstConvert (ConvCmp c1 c2) t2)
 cAstConvert c t = AstConvert c t
 
 cAstSFromR :: forall sh x ms s.

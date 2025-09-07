@@ -298,6 +298,14 @@ printAst cfg d = \case
       _      -> printPrefixOp printAst cfg d "tdualPart" [a]
     else printPrefixOp printAst cfg d
                        ("tdualPart (" ++ show (ftkToSTK (ftkAst a)) ++ ")") [a]
+  AstPlainPart a ->
+    if loseRoudtrip cfg
+    then case ftkAst a of
+      FTKR{} -> printPrefixOp printAst cfg d "rplainPart" [a]
+      FTKS{} -> printPrefixOp printAst cfg d "splainPart" [a]
+      FTKX{} -> printPrefixOp printAst cfg d "xplainPart" [a]
+      _      -> printPrefixOp printAst cfg d "tplainPart" [a]
+    else printPrefixOp printAst cfg d "tplainPart" [a]
   AstFromPrimal a ->
     if loseRoudtrip cfg
     then printAst cfg d a
@@ -308,6 +316,12 @@ printAst cfg d = \case
     if loseRoudtrip cfg
     then printAst cfg d a
     else printPrefixOp printAst cfg d "tfromDual" [a]
+  AstFromPlain a ->
+    if loseRoudtrip cfg
+    then printAst cfg d a
+    else printPrefixOp
+           printAst cfg d
+           ("tfromPlain (" ++ show (ftkToSTK (ftkAst a)) ++ ")") [a]
 
   AstPlusK u v -> printBinaryOp printAst cfg d u (6, "+") v
   AstTimesK u v -> printBinaryOp printAst cfg d u (7, "*") v

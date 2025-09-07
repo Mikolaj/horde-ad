@@ -116,8 +116,10 @@ inlineAst memo v0 = case v0 of
 
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ inlineAst memo a
+  Ast.AstPlainPart a -> second Ast.AstPlainPart $ inlineAst memo a
   Ast.AstFromPrimal a -> second Ast.AstFromPrimal $ inlineAst memo a
   Ast.AstFromDual a -> second Ast.AstFromDual $ inlineAst memo a
+  Ast.AstFromPlain a -> second Ast.AstFromPlain $ inlineAst memo a
 
   Ast.AstPlusK u v ->
     let (memo2, u2) = inlineAst memo u
@@ -387,8 +389,10 @@ unshareAst memo = \case
 
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ unshareAst memo a
   Ast.AstDualPart a -> second Ast.AstDualPart $ unshareAst memo a
+  Ast.AstPlainPart a -> second Ast.AstPlainPart $ unshareAst memo a
   Ast.AstFromPrimal a -> second Ast.AstFromPrimal $ unshareAst memo a
   Ast.AstFromDual a -> second Ast.AstFromDual $ unshareAst memo a
+  Ast.AstFromPlain a -> second Ast.AstFromPlain $ unshareAst memo a
 
   Ast.AstPlusK u v ->
     let (memo2, u2) = unshareAst memo u
