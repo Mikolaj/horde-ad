@@ -59,7 +59,8 @@ module HordeAd.OpsTensor
   , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
   , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
   , xprimalPart, xdualPart, xfromPrimal, xfromDual, xScale
-  , kprimalPart, kdualPart, kfromPrimal, kfromDual, kScale
+  , kprimalPart, kdualPart, kplainPart, kfromPrimal, kfromDual, kfromPlain
+  , kScale
     -- * Array operations that utilize unwinding of nested arrays
   , treplTarget, tdefTarget, taddTarget, tmultTarget, tsum0Target, tdot0Target
     -- * Minimal re-exports to make this module a higher level replacement for "HordeAd.Core.Ops"
@@ -1125,12 +1126,18 @@ kprimalPart = tprimalPart
 kdualPart :: (BaseTensor target, GoodScalar r)
           => target (TKScalar r) -> DualOf target (TKScalar r)
 kdualPart = tdualPart knownSTK
+kplainPart :: BaseTensor target
+           => target (TKScalar r) -> PlainOf target (TKScalar r)
+kplainPart = tplainPart
 kfromPrimal :: (BaseTensor target, GoodScalar r)
             => PrimalOf target (TKScalar r) -> target (TKScalar r)
 kfromPrimal = tfromPrimal knownSTK
 kfromDual :: BaseTensor target
           => DualOf target (TKScalar r) -> target (TKScalar r)
 kfromDual = tfromDual
+kfromPlain :: (BaseTensor target, GoodScalar r)
+            => PlainOf target (TKScalar r) -> target (TKScalar r)
+kfromPlain = tfromPlain knownSTK
 kScale :: ( BaseTensor target, GoodScalar r
           , Num (target (TKScalar r)), Num (PrimalOf target (TKScalar r)) )
        => PrimalOf target (TKScalar r) -> DualOf target (TKScalar r)

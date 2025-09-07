@@ -477,8 +477,10 @@ instance BaseTensor Concrete where
   tcond _ b u v = if b then u else v
   tprimalPart = id
   tdualPart stk t = DummyDualTarget (tftk stk t)
+  tplainPart = id
   tfromPrimal _ t = t
   tfromDual (DummyDualTarget ftk) = tdefTarget ftk
+  tfromPlain _ t = t
   tScale _ _ t = t
   -- The code for tvjp and tjvp in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.

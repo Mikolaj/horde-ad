@@ -626,8 +626,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tcond _ !b !u !v = astCond b u v
   tprimalPart = primalPart
   tdualPart _ = dualPart
+  tplainPart = plainPart
   tfromPrimal _ = fromPrimal
   tfromDual = fromDual
+  tfromPlain _ = fromPlain
   tgrad @_ @r xftk f | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     -- We don't have an AST constructor to hold it, so we compute outright.
     --
@@ -1134,8 +1136,10 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tcond _ !b !u !v = AstRaw $ AstCond b (unAstRaw u) (unAstRaw v)
   tprimalPart t = AstRaw $ primalPart $ unAstRaw t
   tdualPart _ t = dualPart $ unAstRaw t
+  tplainPart t = AstRaw $ plainPart $ unAstRaw t
   tfromPrimal _ t = AstRaw $ fromPrimal $ unAstRaw t
   tfromDual t = AstRaw $ fromDual t
+  tfromPlain _ t = AstRaw $ fromPlain $ unAstRaw t
   -- These three methods are called at this type in delta evaluation via
   -- tmapAccumR and tmapAccumL, so they have to work. We could refrain from
   -- simplifying the resulting terms, but it's not clear that's more consistent.
@@ -1396,8 +1400,10 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ tcond stk b (unAstNoVectorize u) (unAstNoVectorize v)
   tprimalPart t = AstNoVectorize $ tprimalPart $ unAstNoVectorize t
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
+  tplainPart t = AstNoVectorize $ tplainPart $ unAstNoVectorize t
   tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
   tfromDual t = AstNoVectorize $ tfromDual t
+  tfromPlain stk t = AstNoVectorize $ tfromPlain stk $ unAstNoVectorize t
   tgrad = tgrad @(AstTensor AstMethodLet s)
   tvjp = tvjp @(AstTensor AstMethodLet s)
   tjvp = tjvp @(AstTensor AstMethodLet s)
@@ -1597,7 +1603,9 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tApply t ll = wAstNoSimplify $ tApply t (wunAstNoSimplify ll)
   tlambda = tlambda @(AstRaw s)
   tprimalPart t = wAstNoSimplify $ tprimalPart $ wunAstNoSimplify t
+  tplainPart t = wAstNoSimplify $ tplainPart $ wunAstNoSimplify t
   tfromPrimal stk t = wAstNoSimplify $ tfromPrimal stk $ wunAstNoSimplify t
+  tfromPlain stk t = wAstNoSimplify $ tfromPlain stk $ wunAstNoSimplify t
   tgrad = tgrad @(AstRaw s)
   tvjp = tvjp @(AstRaw s)
   tjvp = tjvp @(AstRaw s)
