@@ -37,6 +37,18 @@ import HordeAd.Core.Types
 
 -- * Type family instances for AstTensor
 
+-- This can't be just HFun, because they need to be vectorized
+-- and vectorization applies such functions to the variable from build1
+-- and the variable has to be eliminated via vectorization to preserve
+-- the closed form of the function. Just applying a Haskell closure
+-- to the build1 variable and then duplicating the result of the function
+-- would not eliminate the variable and also would likely results
+-- in more costly computations. Also, that would prevent simplification
+-- of the instances, especially after applied to arguments that are terms.
+type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun s s x z
+
+type instance BoolOf (AstTensor ms s) = AstBool ms
+
 -- This can't be defined only for FullSpan, because the BaseTensor instance
 -- for PrimalSpan needs it and we need the instance to satisfy ADReady.
 -- Consequently, we have PrimalOf (PrimalOf fAST) = PrimalOf fAST,
@@ -52,19 +64,8 @@ import HordeAd.Core.Types
 -- fundamental reasons.
 type instance PrimalOf (AstTensor ms s) = AstTensor ms PrimalSpan
 type instance DualOf (AstTensor ms s) = AstTensor ms DualSpan
+type instance PlainOf (AstTensor ms s) = AstTensor ms PlainSpan
 type instance ShareOf (AstTensor ms s) = AstRaw s
-
--- This can't be just HFun, because they need to be vectorized
--- and vectorization applies such functions to the variable from build1
--- and the variable has to be eliminated via vectorization to preserve
--- the closed form of the function. Just applying a Haskell closure
--- to the build1 variable and then duplicating the result of the function
--- would not eliminate the variable and also would likely results
--- in more costly computations. Also, that would prevent simplification
--- of the instances, especially after applied to arguments that are terms.
-type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun s s x z
-
-type instance BoolOf (AstTensor ms s) = AstBool ms
 
 
 -- * Unlawful numeric instances for AST scalars; they are lawful modulo evaluation
@@ -1077,18 +1078,21 @@ newtype AstNoSimplify s y =
 
 type instance PrimalOf (AstRaw s) = AstRaw PrimalSpan
 type instance DualOf (AstRaw s) = AstTensor AstMethodShare DualSpan
+type instance PlainOf (AstRaw s) = AstRaw PlainSpan
 type instance ShareOf (AstRaw s) = AstRaw s
 type instance HFunOf (AstRaw s) x y = AstHFun s s x y
 type instance BoolOf (AstRaw s) = AstBool AstMethodShare
 
 type instance PrimalOf (AstNoVectorize s) = AstNoVectorize PrimalSpan
 type instance DualOf (AstNoVectorize s) = AstTensor AstMethodLet DualSpan
+type instance PlainOf (AstNoVectorize s) = AstNoVectorize PlainSpan
 type instance ShareOf (AstNoVectorize s) = AstRaw s
 type instance HFunOf (AstNoVectorize s) x z = AstHFun s s x z
 type instance BoolOf (AstNoVectorize s) = AstBool AstMethodLet
 
 type instance PrimalOf (AstNoSimplify s) = AstNoSimplify PrimalSpan
 type instance DualOf (AstNoSimplify s) = AstTensor AstMethodLet DualSpan
+type instance PlainOf (AstNoSimplify s) = AstNoSimplify PlainSpan
 type instance ShareOf (AstNoSimplify s) = AstRaw s
 type instance HFunOf (AstNoSimplify s) x z = AstHFun s s x z
 type instance BoolOf (AstNoSimplify s) = AstBool AstMethodLet

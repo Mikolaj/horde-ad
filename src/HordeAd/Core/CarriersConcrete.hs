@@ -229,11 +229,9 @@ instance KnownSTK y => NFData (Concrete y) where
 type instance BoolOf Concrete = Bool
 
 type instance HFunOf Concrete x z = RepConcrete x -> RepConcrete z
-
 type instance PrimalOf Concrete = Concrete
-
 type instance DualOf Concrete = DummyDualTarget
-
+type instance PlainOf Concrete = Concrete
 type instance ShareOf Concrete = Concrete
 
 instance GoodScalar r => EqH Concrete (TKScalar r) where
