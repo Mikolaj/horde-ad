@@ -1038,8 +1038,10 @@ class ( Num (IntOf target)
 
   tprimalPart :: target y -> PrimalOf target y
   tdualPart :: SingletonTK y -> target y -> DualOf target y
+  tplainPart :: target y -> PlainOf target y
   tfromPrimal :: SingletonTK y -> PrimalOf target y -> target y
   tfromDual :: DualOf target y -> target y
+  tfromPlain :: SingletonTK y -> PlainOf target y -> target y
   tScale :: (Num (target y), Num (PrimalOf target y))
          => SingletonTK y -> PrimalOf target y -> DualOf target y
          -> DualOf target y
@@ -1174,6 +1176,7 @@ type ADReadyEqsClasses target =
   ( ADReadyEqs target
   , ADReadyClasses target
   , ADReadyClasses (PrimalOf target)
+  , ADReadyClasses (PlainOf target)
   )
 
 type ADReadyEqs target =

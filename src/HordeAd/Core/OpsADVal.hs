@@ -518,8 +518,10 @@ instance ( ADReadyNoLet target, ShareTensor target
     in tindexBuild (SNat @2) stk uv (tcond knownSTK b 0 1)
   tprimalPart (D u _) = u
   tdualPart _stk (D _ u') = u'
+  tplainPart (D u _) = tplainPart u
   tfromPrimal stk t = fromPrimalFTK (tftk stk t) t
   tfromDual t = dDnotShared (tdefTarget (ftkDelta t)) t
+  tfromPlain stk t = fromPrimalFTK (tftk stk t) (tfromPlain stk t)
   tScale _stk = dScale
   tgrad @x @r xftk h | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     let rf :: forall f. ADReady f
