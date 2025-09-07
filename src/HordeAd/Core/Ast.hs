@@ -98,8 +98,10 @@ instance KnownSpan PlainSpan where
 class (KnownSpan s, Typeable s) => AstSpan (s :: AstSpanType) where
   fromPrimal :: AstTensor ms PrimalSpan y -> AstTensor ms s y
   fromDual :: AstTensor ms DualSpan y -> AstTensor ms s y
+  fromPlain :: AstTensor ms PlainSpan y -> AstTensor ms s y
   primalPart :: AstTensor ms s y -> AstTensor ms PrimalSpan y
   dualPart :: AstTensor ms s y -> AstTensor ms DualSpan y
+  plainPart :: AstTensor ms s y -> AstTensor ms PlainSpan y
 
 -- These are weak instances rewriting-wise and we can't move them
 -- to AstSimplify to improve this, because it's too late
@@ -107,26 +109,34 @@ class (KnownSpan s, Typeable s) => AstSpan (s :: AstSpanType) where
 instance AstSpan s => AstSpan (PrimalStepSpan s) where
   fromPrimal = primalSpanToStep (knownSpan @s)
   fromDual t = dualSpanToStep (knownSpan @s) t  -- this is primal zero
+  fromPlain t = plainSpanToStep (knownSpan @s) t
   primalPart = stepToPrimalSpan (knownSpan @s)
   dualPart t = stepToDualSpan (knownSpan @s) t  -- this is dual zero
+  plainPart t = stepToPlainSpan (knownSpan @s) t
 
 instance AstSpan DualSpan where
   fromPrimal t = AstDualPart $ AstFromPrimal t  -- this is dual zero
   fromDual = id
+  fromPlain t = AstDualPart $ AstFromPlain t  -- this is dual zero
   primalPart t = AstPrimalPart $ AstFromDual t  -- this is primal zero
   dualPart = id
+  plainPart t = AstPlainPart $ AstFromDual t  -- this is primal zero
 
 instance AstSpan FullSpan where
   fromPrimal = AstFromPrimal
   fromDual = AstFromDual
+  fromPlain = AstFromPlain
   primalPart = cAstPrimalPart
   dualPart = cAstDualPart
+  plainPart = cAstPlainPart
 
 instance AstSpan PlainSpan where
   fromPrimal = AstPlainPart . AstFromPrimal
   fromDual t = AstPlainPart $ AstFromDual t  -- this is plain zero
+  fromPlain = id
   primalPart = AstPrimalPart . AstFromPlain
   dualPart t = AstDualPart $ AstFromPlain t  -- this is dual zero
+  plainPart = id
 
 primalSpanToStep :: SAstSpanType s
                  -> AstTensor ms PrimalSpan y
@@ -146,6 +156,15 @@ dualSpanToStep = \case
   SFullSpan -> AstPrimalPart . AstFromDual
   SPlainSpan -> AstPrimalPart . AstPlainPart . AstFromDual
 
+plainSpanToStep :: SAstSpanType s
+                -> AstTensor ms PlainSpan y
+                -> AstTensor ms (PrimalStepSpan s) y
+plainSpanToStep = \case
+  SPrimalStepSpan sspan -> AstPrimalPart . plainSpanToStep sspan
+  SDualSpan -> AstPrimalPart . AstDualPart . AstFromPlain
+  SFullSpan -> AstPrimalPart . AstFromPlain
+  SPlainSpan -> AstPrimalPart
+
 stepToPrimalSpan :: SAstSpanType s
                  -> AstTensor ms (PrimalStepSpan s) y
                  -> AstTensor ms PrimalSpan y
@@ -164,6 +183,15 @@ stepToDualSpan = \case
   SFullSpan -> AstDualPart . AstFromPrimal
   SPlainSpan -> AstDualPart . AstFromPlain . AstFromPrimal
 
+stepToPlainSpan :: SAstSpanType s
+                -> AstTensor ms (PrimalStepSpan s) y
+                -> AstTensor ms PlainSpan y
+stepToPlainSpan = \case
+  SPrimalStepSpan sspan -> stepToPlainSpan sspan . AstFromPrimal
+  SDualSpan -> AstPlainPart . AstFromDual . AstFromPrimal
+  SFullSpan -> AstPlainPart . AstFromPrimal
+  SPlainSpan -> AstFromPrimal
+
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = testEquality (typeRep @s1) (typeRep @s2)
 
@@ -176,6 +204,11 @@ cAstDualPart :: forall y ms.
                 AstTensor ms FullSpan y -> AstTensor ms DualSpan y
 cAstDualPart (AstFromDual t) = t
 cAstDualPart t = AstDualPart t
+
+cAstPlainPart :: forall y ms.
+                 AstTensor ms FullSpan y -> AstTensor ms PlainSpan y
+cAstPlainPart (AstFromPlain t) = t
+cAstPlainPart t = AstPlainPart t
 
 
 -- * Variables and related types
