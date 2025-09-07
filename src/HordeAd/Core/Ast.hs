@@ -64,7 +64,8 @@ import HordeAd.Core.Types
 -- of a dual number, the dual part or the whole dual number.
 -- It's mainly used to index the terms of the AstTensor type
 -- and related GADTs.
-type data AstSpanType = PrimalStepSpan AstSpanType | DualSpan | FullSpan
+type data AstSpanType =
+  PrimalStepSpan AstSpanType | DualSpan | FullSpan | PlainSpan
 type PrimalSpan = PrimalStepSpan FullSpan
 
 -- | A singleton type for `AstSpanType`.
@@ -74,6 +75,7 @@ data SAstSpanType s where
                   => SAstSpanType s0 -> SAstSpanType (PrimalStepSpan s0)
   SDualSpan :: SAstSpanType DualSpan
   SFullSpan :: SAstSpanType FullSpan
+  SPlainSpan :: SAstSpanType PlainSpan
 
 class KnownSpan (s :: AstSpanType) where
   knownSpan :: SAstSpanType s
@@ -90,6 +92,9 @@ instance KnownSpan DualSpan where
 instance KnownSpan FullSpan where
   knownSpan = SFullSpan
 
+instance KnownSpan PlainSpan where
+  knownSpan = SPlainSpan
+
 class (KnownSpan s, Typeable s) => AstSpan (s :: AstSpanType) where
   fromPrimal :: AstTensor ms PrimalSpan y -> AstTensor ms s y
   fromDual :: AstTensor ms DualSpan y -> AstTensor ms s y
@@ -101,11 +106,9 @@ class (KnownSpan s, Typeable s) => AstSpan (s :: AstSpanType) where
 -- and also astPrimalPart only works on AstMethodLet.
 instance AstSpan s => AstSpan (PrimalStepSpan s) where
   fromPrimal = primalSpanToStep (knownSpan @s)
-  fromDual t = dualSpanToStep (knownSpan @s) t
-                 -- this is primal zero
+  fromDual t = dualSpanToStep (knownSpan @s) t  -- this is primal zero
   primalPart = stepToPrimalSpan (knownSpan @s)
-  dualPart t = stepToDualSpan (knownSpan @s) t
-                 -- this is dual zero
+  dualPart t = stepToDualSpan (knownSpan @s) t  -- this is dual zero
 
 instance AstSpan DualSpan where
   fromPrimal t = AstDualPart $ AstFromPrimal t  -- this is dual zero
@@ -119,6 +122,12 @@ instance AstSpan FullSpan where
   primalPart = cAstPrimalPart
   dualPart = cAstDualPart
 
+instance AstSpan PlainSpan where
+  fromPrimal = AstPlainPart . AstFromPrimal
+  fromDual t = AstPlainPart $ AstFromDual t  -- this is plain zero
+  primalPart = AstPrimalPart . AstFromPlain
+  dualPart t = AstDualPart $ AstFromPlain t  -- this is dual zero
+
 primalSpanToStep :: SAstSpanType s
                  -> AstTensor ms PrimalSpan y
                  -> AstTensor ms (PrimalStepSpan s) y
@@ -126,6 +135,7 @@ primalSpanToStep = \case
   SPrimalStepSpan sspan -> AstPrimalPart . primalSpanToStep sspan
   SDualSpan -> AstPrimalPart . AstDualPart . AstFromPrimal
   SFullSpan -> id
+  SPlainSpan -> AstPrimalPart . AstPlainPart . AstFromPrimal
 
 dualSpanToStep :: SAstSpanType s
                -> AstTensor ms DualSpan y
@@ -134,6 +144,7 @@ dualSpanToStep = \case
   SPrimalStepSpan sspan -> AstPrimalPart . dualSpanToStep sspan
   SDualSpan -> AstPrimalPart
   SFullSpan -> AstPrimalPart . AstFromDual
+  SPlainSpan -> AstPrimalPart . AstPlainPart . AstFromDual
 
 stepToPrimalSpan :: SAstSpanType s
                  -> AstTensor ms (PrimalStepSpan s) y
@@ -142,6 +153,7 @@ stepToPrimalSpan = \case
   SPrimalStepSpan sspan -> stepToPrimalSpan sspan . AstFromPrimal
   SDualSpan -> AstPrimalPart . AstFromDual . AstFromPrimal
   SFullSpan -> id
+  SPlainSpan -> AstPrimalPart . AstFromPlain . AstFromPrimal
 
 stepToDualSpan :: SAstSpanType s
                -> AstTensor ms (PrimalStepSpan s) y
@@ -150,6 +162,7 @@ stepToDualSpan = \case
   SPrimalStepSpan sspan -> stepToDualSpan sspan . AstFromPrimal
   SDualSpan -> AstFromPrimal
   SFullSpan -> AstDualPart . AstFromPrimal
+  SPlainSpan -> AstDualPart . AstFromPlain . AstFromPrimal
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = testEquality (typeRep @s1) (typeRep @s2)
@@ -364,10 +377,14 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
                 => AstTensor ms s y -> AstTensor ms (PrimalStepSpan s) y
   AstDualPart :: forall y ms.
                  AstTensor ms FullSpan y -> AstTensor ms DualSpan y
+  AstPlainPart :: forall y ms.
+                  AstTensor ms FullSpan y -> AstTensor ms PlainSpan y
   AstFromPrimal :: forall y s ms.
                    AstTensor ms (PrimalStepSpan s) y -> AstTensor ms s y
   AstFromDual :: forall y ms.
                  AstTensor ms DualSpan y -> AstTensor ms FullSpan y
+  AstFromPlain :: forall y ms.
+                  AstTensor ms PlainSpan y -> AstTensor ms FullSpan y
 
   -- Scalar arithmetic (to avoid the slowness of indexes as 1-element tensors)
   AstPlusK :: NumScalar r
