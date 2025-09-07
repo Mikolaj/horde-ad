@@ -232,11 +232,9 @@ instance OrdH f (TKX sh r) => OrdH (ADVal f) (TKX sh r) where
   D u _ <=. D v _ = u <=. v
 
 type instance HFunOf (ADVal f) x y = HFun x y
-
 type instance PrimalOf (ADVal f) = f
-
 type instance DualOf (ADVal f) = Delta f
-
+type instance PlainOf (ADVal f) = PlainOf f
 type instance ShareOf (ADVal f) = ADVal f
   -- Maybe this should be ADVal (ShareOf f), but we'd need tests
   -- that use this, probably tests with ADVal (AST) nested in ADVal
