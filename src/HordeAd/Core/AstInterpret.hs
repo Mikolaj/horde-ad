@@ -200,6 +200,8 @@ interpretAst !env = \case
     tfromPrimal (ftkToSTK (ftkAst a)) (tprimalPart $ interpretAst env a)
   AstDualPart a ->
     tfromDual (tdualPart (ftkToSTK (ftkAst a)) $ interpretAstFull env a)
+  AstPlainPart a ->
+    tfromPlain (ftkToSTK (ftkAst a)) (tplainPart $ interpretAst env a)
   AstFromPrimal a | Just Refl <- sameAstSpan @s @FullSpan ->
     -- By the invariant, interpretation of @a@ has zero dual part,
     -- so we don't have to do the following to remove the dual part,
@@ -214,6 +216,9 @@ interpretAst !env = \case
     -- By the invariant, interpretation of @a@ has zero primal part,
     -- so we don't have to do the following to remove the primal part:
     --   tfromDual (interpretAstDual env a)
+  AstFromPlain a ->
+    tfromPlain (ftkToSTK (ftkAst a)) (tplainPart $ interpretAst env a)
+      -- TODO: (interpretAstPlain env a) ?
 
   AstPlusK u v -> interpretAst env u + interpretAst env v
   AstTimesK u v -> interpretAst env u * interpretAst env v
