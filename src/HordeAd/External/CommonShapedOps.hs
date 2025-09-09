@@ -41,17 +41,17 @@ sminimum :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
 sminimum t | SNat <- shsProduct (knownShS @sh) =
   tlet (sflatten t) $ \tf ->
-    sindex0 tf (tprimalPart (kfromS (sminIndex tf)) :.$ ZIS)
+    sindex0 tf (tplainPart (kfromS (sminIndex tf)) :.$ ZIS)
 
 smaximum :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
 smaximum t | SNat <- shsProduct (knownShS @sh) =
   tlet (sflatten t) $ \tf ->
-    sindex0 tf (tprimalPart (kfromS (smaxIndex tf)) :.$ ZIS)
+    sindex0 tf (tplainPart (kfromS (smaxIndex tf)) :.$ ZIS)
 
 sfromIndex0 :: forall r target. (ADReady target, NumScalar r)
             => IntOf target -> target (TKS '[] r)
-sfromIndex0 = sfromR . rfromIntegral . rfromPrimal . rfromK
+sfromIndex0 = sfromR . rfromIntegral . tfromPlain knownSTK . rfromK
 
 sfromIndex1 :: forall r sh target.
                (ADReady target, NumScalar r, KnownShS sh)
@@ -59,7 +59,7 @@ sfromIndex1 :: forall r sh target.
 sfromIndex1 | SNat <- shsRank (knownShS @sh) =
   case sameNat (Proxy @(Rank sh)) (Proxy @0) of
     Just Refl -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
-    _ -> sfromR . rfromIntegral . rfromPrimal . rfromList
+    _ -> sfromR . rfromIntegral . tfromPlain knownSTK . rfromList
          . NonEmpty.fromList . map rfromK . toList
 
 {-

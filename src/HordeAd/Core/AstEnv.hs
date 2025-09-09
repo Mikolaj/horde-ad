@@ -58,7 +58,7 @@ extendEnv var !t !env =
 extendEnvI :: BaseTensor target
            => IntVarName -> IntOf target -> AstEnv target
            -> AstEnv target
-extendEnvI var !i !env = extendEnv var (tfromPrimal STKScalar i) env
+extendEnvI var !i !env = extendEnv var (tfromPlain STKScalar i) env
 
 extendEnvVarsS :: forall target sh. BaseTensor target
                => AstVarListS sh -> IxSOf target sh -> AstEnv target

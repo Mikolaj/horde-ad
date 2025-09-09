@@ -269,7 +269,7 @@ astVar :: AstSpan s
 astVar (AstVarName (FTKScalar @r) lb ub _)
   | lb == ub
   , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
-    fromPrimal $ AstConcreteK lb
+    fromPlain $ AstConcreteK lb
 astVar varName = AstVar varName
 
 -- | The reverse derivative artifact.
@@ -294,10 +294,10 @@ data AstArtifactFwd x z = AstArtifactFwd
 
 -- | This is the (arbitrarily) chosen representation of terms denoting
 -- integers in the indexes of tensor operations.
-type AstInt ms = AstTensor ms PrimalSpan (TKScalar Int64)
+type AstInt ms = AstTensor ms PlainSpan (TKScalar Int64)
 -- ~ IntOf (AstTensor ms FullSpan)
 
-type IntVarName = AstVarName PrimalSpan (TKScalar Int64)
+type IntVarName = AstVarName PlainSpan (TKScalar Int64)
 
 pattern AstIntVar :: IntVarName -> AstInt ms
 pattern AstIntVar var <- AstVar var
@@ -443,7 +443,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
          -> AstTensor ms s (TKScalar r)
          -> AstTensor ms s (TKScalar r)
   AstConcreteK :: GoodScalar r
-               => r -> AstTensor ms PrimalSpan (TKScalar r)
+               => r -> AstTensor ms PlainSpan (TKScalar r)
   AstFloorK :: (GoodScalar r1, RealFrac r1, NumScalar r2, Integral r2)
             => AstTensor ms PrimalSpan (TKScalar r1)
             -> AstTensor ms PrimalSpan (TKScalar r2)
@@ -586,8 +586,8 @@ data AstBool ms where
   AstBoolAnd :: AstBool ms -> AstBool ms -> AstBool ms
   -- There are existential variables here.
   AstLeqK :: forall r ms. NumScalar r
-          => AstTensor ms PrimalSpan (TKScalar r)
-          -> AstTensor ms PrimalSpan (TKScalar r)
+          => AstTensor ms PlainSpan (TKScalar r)
+          -> AstTensor ms PlainSpan (TKScalar r)
           -> AstBool ms
   AstLeqS :: forall sh r ms. NumScalar r
           => AstTensor ms PrimalSpan (TKS sh r)

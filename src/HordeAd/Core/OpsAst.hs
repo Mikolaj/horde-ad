@@ -601,7 +601,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astBuild1Vectorize (SNat @k) (STKX (knownShX @sh) (knownSTK @x))
 
   -- Scalar ops
-  tkconcrete = fromPrimal . AstConcreteK
+  tkconcrete = fromPlain . AstConcreteK
   tkfloor = fromPrimal . astFloorK . primalPart
   tkfromIntegral = fromPrimal . astFromIntegralK . primalPart
   tkcast = astCastK
@@ -1112,7 +1112,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                   $ unAstRaw . f . AstRaw
 
   -- Scalar ops
-  tkconcrete = AstRaw . fromPrimal . AstConcreteK
+  tkconcrete = AstRaw . fromPlain . AstConcreteK
   tkfloor = AstRaw . fromPrimal . AstFloorK . primalPart . unAstRaw
   tkfromIntegral = AstRaw . fromPrimal . AstFromIntegralK
                    . primalPart . unAstRaw
@@ -1253,7 +1253,8 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
 astConcreteRaw :: FullShapeTK y -> Concrete y
                -> AstRaw PrimalSpan y
 astConcreteRaw ftk v = case ftk of
-  FTKScalar -> AstRaw $ AstConcreteK $ unConcrete v
+  FTKScalar ->
+    AstRaw $ primalPart @FullSpan . fromPlain . AstConcreteK $ unConcrete v
   FTKR sh' FTKScalar -> AstRaw $
     withShsFromShR sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $

@@ -1694,9 +1694,9 @@ fooNoGo :: forall target r. (ADReady target, NumScalar r, Differentiable r)
         => target (TKR 1 r) -> target (TKR 1 r)
 fooNoGo v =
   let r = rsum0 v
-  in rbuild1 3 (\ix' -> let ix :: PrimalOf target (TKS '[] Int64)
+  in rbuild1 3 (\ix' -> let ix :: PlainOf target (TKS '[] Int64)
                             ix = sfromR $ rfromK ix' in
-       bar (rscalar 3.14, bar (rscalar 3.14, rindex v [kfromS $ (ix + (sprimalPart . sfloor . sfromR) r) `minH` sscalar 2 `maxH` sscalar 0]))
+       bar (rscalar 3.14, bar (rscalar 3.14, rindex v [kfromS $ (ix + (tplainPart . sfloor . sfromR) r) `minH` sscalar 2 `maxH` sscalar 0]))
        + ifH ((&&*) (rindex @1 v [ix' * 2] <=. rscalar 0)
                     (sscalar 6 >. abs ix))
                r (rscalar 5 * r))

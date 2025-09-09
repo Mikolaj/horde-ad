@@ -77,6 +77,19 @@ interpretAstPrimal !env v1 = case v1 of
              (interpretAstPrimal env a1) (interpretAstPrimal env a2)
   _ -> tprimalPart (interpretAst env v1)
 
+-- TODO: extend
+interpretAstPlain
+  :: forall target y. ADReady target
+  => AstEnv target -> AstTensor AstMethodLet PlainSpan y
+  -> PlainOf target y
+interpretAstPlain !env v1 = case v1 of
+  -- This prevents multiple ifH expansions in ADVal.
+  AstCond b a1 a2 ->
+    let c = interpretAstBool env b
+    in tcond (ftkToSTK $ ftkAst a1) c
+             (interpretAstPlain env a1) (interpretAstPlain env a2)
+  _ -> tplainPart (interpretAst env v1)
+
 interpretAstDual
   :: forall target y. ADReady target
   => AstEnv target -> AstTensor AstMethodLet DualSpan y
@@ -217,8 +230,7 @@ interpretAst !env = \case
     -- so we don't have to do the following to remove the primal part:
     --   tfromDual (interpretAstDual env a)
   AstFromPlain a ->
-    tfromPlain (ftkToSTK (ftkAst a)) (tplainPart $ interpretAst env a)
-      -- TODO: (interpretAstPlain env a) ?
+    tfromPlain (ftkToSTK (ftkAst a)) (interpretAstPlain env a)
 
   AstPlusK u v -> interpretAst env u + interpretAst env v
   AstTimesK u v -> interpretAst env u * interpretAst env v
@@ -282,7 +294,7 @@ interpretAst !env = \case
       withKnownShS sh2 $
       withKnownSTK x $
       let v2 = interpretAst env v
-          ix3 = interpretAstPrimal env <$> ix
+          ix3 = interpretAstPlain env <$> ix
       in tsindex @target @sh1 v2 ix3
   {- TODO: this breaks specialization:
   AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
@@ -300,14 +312,14 @@ interpretAst !env = \case
       withKnownSTK x $
       let t1 = interpretAst env v
           f2 :: IxSOf target shm -> IxSOf target shp
-          f2 !ix2 = interpretAstPrimal (extendEnvVarsS vars ix2 env) <$> ix
+          f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
       in tsscatter @_ @shm @shn @shp t1 f2
   AstGatherS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
       withKnownShS (shsFromIxS ix) $
       withKnownSTK x $
-      tsindex (interpretAst env v) (interpretAstPrimal env <$> ix)
+      tsindex (interpretAst env v) (interpretAstPlain env <$> ix)
   AstGatherS @shm @shn @shp
              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -317,7 +329,7 @@ interpretAst !env = \case
       withKnownSTK x $
       let t1 = interpretAst env v
           f2 :: IxSOf target shm -> IxSOf target shp
-          f2 !ix2 = interpretAstPrimal (extendEnvVarsS vars ix2 env) <$> ix
+          f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
       in tsgather @_ @shm @shn @shp t1 f2
   AstMinIndexS v ->
     -- By the invariant v has zero dual part, so the following suffices:
@@ -404,8 +416,8 @@ interpretAstBool !env = \case
         b2 = interpretAstBool env arg2
     in b1 &&* b2
   AstLeqK arg1 arg2 ->
-    let r1 = interpretAstPrimal env arg1
-        r2 = interpretAstPrimal env arg2
+    let r1 = interpretAstPlain env arg1
+        r2 = interpretAstPlain env arg2
     in r1 <=. r2
   AstLeqS arg1 arg2 ->
     let r1 = interpretAstPrimal env arg1

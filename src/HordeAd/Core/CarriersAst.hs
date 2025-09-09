@@ -291,7 +291,7 @@ instance (NumScalar r, AstSpan s)
     , Just Refl <- matchingFTK x (convertFTK c (ftkAst u)) =
       AstConvert c (signum u)
   signum u = AstN1K SignumOp u
-  fromInteger i = fromPrimal $ AstConcreteK (fromInteger i)
+  fromInteger i = fromPlain $ AstConcreteK (fromInteger i)
 {- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int64)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int64)) #-}
@@ -360,7 +360,7 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   quotH u v =
     let t = AstI2K QuotOp u v
         (u1, u2) = bounds t
-    in if u1 == u2 then fromPrimal $ AstConcreteK u1 else t
+    in if u1 == u2 then fromPlain $ AstConcreteK u1 else t
 
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
   remH (AstFromPlain n) (AstFromPlain k) = AstFromPlain (remH n k)
@@ -382,7 +382,7 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   remH u v =
     let t = AstI2K RemOp u v
         (u1, u2) = bounds t
-    in if u1 == u2 then fromPrimal $ AstConcreteK u1 else t
+    in if u1 == u2 then fromPlain $ AstConcreteK u1 else t
   {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int64)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int64)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar CInt)) #-}
@@ -398,7 +398,7 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   recip (AstFromPlain u) = AstFromPlain (recip u)
   recip (AstConcreteK u) = AstConcreteK (recip u)
   recip u = AstR1K RecipOp u
-  fromRational r = fromPrimal $ AstConcreteK (fromRational r)
+  fromRational r = fromPlain $ AstConcreteK (fromRational r)
 
 instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
@@ -994,7 +994,8 @@ instance (AstSpan s, NumScalar r)
   AstConcreteK u <=. AstConvert _ v
     | FTKS ZSS (FTKScalar @rv) <- ftkAst v
     , Just Refl <- testEquality (typeRep @rv) (typeRep @r)
-    = AstConcreteS (unConcrete $ sfromK $ Concrete u) <=. v
+    = AstConcreteS (unConcrete $ sfromK $ Concrete u)
+      <=. primalPart @s (fromPlain v)
   u <=. AstPlusK (AstConcreteK v) w =
     u - AstConcreteK v <=. w
   AstPlusK (AstConcreteK u) w <=. v =
@@ -1014,7 +1015,7 @@ instance (AstSpan s, NumScalar r)
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
       AstConcreteK u <=. AstTimesK (AstConcreteK $ negate v) (AstN1K NegateOp w)
   v@AstConcreteK{} <=. u = AstLeqK v u
-  v <=. u = AstConcreteK 0 <=. primalPart u - primalPart v
+  v <=. u = AstConcreteK 0 <=. plainPart u - plainPart v
 
 instance (AstSpan s, NumScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
@@ -1031,7 +1032,8 @@ instance (AstSpan s, NumScalar r)
     | FTKS ZSS (FTKScalar @rz) <- convertFTK c (ftkAst v)
     , FTKScalar @ry <- ftkAst v
     , Just Refl <- testEquality (typeRep @ry) (typeRep @rz) =
-      AstConcreteK (unConcrete $ kfromS $ Concrete u) <=. v
+      AstConcreteK (unConcrete $ kfromS $ Concrete u)
+        <=. plainPart @s (fromPrimal v)
   AstConcreteS u <=. AstConcreteS v =
     AstBoolConst $ Concrete @(TKS sh r) u <=. Concrete v
   u <=. AstPlusS (AstConcreteS v) w =

@@ -1606,9 +1606,9 @@ smaximum4 t0 =
   tlet t0 $ \t ->
   ttletPrimal (tprimalPart $ kfromS $ smaxIndex (sflatten t)) $ \maxIndex ->
     sindex0 t
-    $ fromLinearIdxS (tprimalPart @target . kconcrete . fromIntegral)
+    $ fromLinearIdxS (kplainPart @target . kconcrete . fromIntegral)
                      (sshape t)
-                     maxIndex
+                     (kplainPart $ kfromPrimal @target maxIndex)
 
 maxPool2dUnpaddedS4
   :: forall ksize stride batch_size channels h w target r shOut shK1.
