@@ -33,7 +33,7 @@ rminimum :: forall target n r.
          => target (TKR n r) -> target (TKR 0 r)
 rminimum t =
   tlet (rflatten t) $ \tf ->
-    rindex0 tf (tprimalPart (kfromR (rminIndex tf)) :.: ZIR)
+    rindex0 tf (tplainPart (kfromR (rminIndex tf)) :.: ZIR)
 
 rmaximum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
@@ -41,21 +41,21 @@ rmaximum :: forall target n r.
          => target (TKR n r) -> target (TKR 0 r)
 rmaximum t =
   tlet (rflatten t) $ \tf ->
-    rindex0 tf (tprimalPart (kfromR (rmaxIndex tf)) :.: ZIR)
+    rindex0 tf (tplainPart (kfromR (rmaxIndex tf)) :.: ZIR)
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, ConvertTensor target, NumScalar r)
             => IntOf target -> target (TKR 0 r)
-rfromIndex0 = rfromIntegral . rfromK . tfromPrimal STKScalar
+rfromIndex0 = rfromIntegral . rfromK . tfromPlain STKScalar
 
 rfromIndex1 :: forall n r target.
                ( KnownNat n , BaseTensor target
-               , BaseTensor (PrimalOf target), ConvertTensor (PrimalOf target)
+               , BaseTensor (PlainOf target), ConvertTensor (PlainOf target)
                , NumScalar r )
             => IxROf target n -> target (TKR 1 r)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
-  _ -> rfromIntegral . rfromPrimal . rfromList . NonEmpty.fromList
+  _ -> rfromIntegral . tfromPlain knownSTK . rfromList . NonEmpty.fromList
        . map rfromK . toList
 
 {-
@@ -289,4 +289,4 @@ maxPool2dUnpadded ksize stride arr =
 xfromIndex0 :: forall r target.
                (BaseTensor target, ConvertTensor target, NumScalar r)
             => IntOf target -> target (TKX '[] r)
-xfromIndex0 = xfromIntegral . xfromK . tfromPrimal STKScalar
+xfromIndex0 = xfromIntegral . xfromK . tfromPlain STKScalar

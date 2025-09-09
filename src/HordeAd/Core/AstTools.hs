@@ -140,7 +140,7 @@ isTensorInt :: forall s y ms. AstSpan s
             -> Maybe (AstTensor ms s y :~: AstInt ms)
 isTensorInt _ ftk = case ftk of
   FTKScalar @r -> case ( testEquality (typeRep @r) (typeRep @Int64)
-                       , sameAstSpan @s @PrimalSpan ) of
+                       , sameAstSpan @s @PlainSpan ) of
                     (Just Refl, Just Refl) -> Just Refl
                     _ -> Nothing
   _ -> Nothing

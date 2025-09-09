@@ -159,7 +159,7 @@ instance (ADReadyNoLet target, ShareTensor target)
 -- needed for the interpretation of Ast in ADVal.
 -- The ADVal Concrete instantiation is used in other pipelines and tests.
 instance ( ADReadyNoLet target, ShareTensor target
-         , ShareTensor (PrimalOf target) )
+         , ShareTensor (PrimalOf target), ShareTensor (PlainOf target) )
          => BaseTensor (ADVal target) where
   -- Ranked ops
   rshape (D u _) = rshape u
@@ -181,13 +181,13 @@ instance ( ADReadyNoLet target, ShareTensor target
   trreplicate k (D u u') = withSNat k $ \snat ->
     dD (trreplicate k u) (DeltaReplicate snat knownSTK u')
   trindex (D u u') i =
-    let !ix = tshare . tprimalPart <$> i
+    let !ix = tshare . tplainPart <$> i
     in dD (trindex u ix) (DeltaIndexR SNat u' ix)
   trscatter sh (D u u') f =
-    let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
+    let g x = tplainPart <$> f (tfromPlain STKScalar <$> x)
     in dD (trscatter sh u g) (DeltaScatterR SNat SNat SNat sh u' g)
   trgather sh (D u u') f =
-    let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
+    let g x = tplainPart <$> f (tfromPlain STKScalar <$> x)
     in dD (trgather sh u g) (DeltaGatherR SNat SNat SNat sh u' g)
       -- Note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
@@ -245,14 +245,14 @@ instance ( ADReadyNoLet target, ShareTensor target
            * tstranspose (Permutation.makePerm @'[1, 0])
                          (tsreplicate SNat knownShS m2))
   tsindex (D u u') i =
-    let !ix = tshare . tprimalPart <$> i
+    let !ix = tshare . tplainPart <$> i
     in dD (tsindex u ix) (DeltaIndexS knownShS u' ix)
   tsscatter @shm @shn @shp (D u u') f =
-    let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
+    let g x = tplainPart <$> f (tfromPlain STKScalar <$> x)
     in dD (tsscatter @_ @shm @shn @shp u g)
           (DeltaScatterS @shm @shn @shp knownShS knownShS knownShS u' g)
   tsgather @shm @shn @shp (D u u') f =
-    let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
+    let g x = tplainPart <$> f (tfromPlain STKScalar <$> x)
     in dD (tsgather @_ @shm @shn @shp u g)
           (DeltaGatherS @shm @shn @shp knownShS knownShS knownShS u' g)
   tsconcrete a =
@@ -315,14 +315,14 @@ instance ( ADReadyNoLet target, ShareTensor target
   txreplicate snat sh (D u u') =
     dD (txreplicate snat sh u) (DeltaReplicate snat (STKX sh knownSTK) u')
   txindex (D u u') i =
-    let !ix = tshare . tprimalPart <$> i
+    let !ix = tshare . tplainPart <$> i
     in dD (txindex u ix) (DeltaIndexX knownShX u' ix)
   txscatter @shm @shn @shp sh (D u u') f =
-    let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
+    let g x = tplainPart <$> f (tfromPlain STKScalar <$> x)
     in dD (txscatter @_ @shm @shn @shp sh u g)
           (DeltaScatterX @shm @shn @shp knownShX knownShX knownShX sh u' g)
   txgather @shm @shn @shp sh (D u u') f =
-    let g x = tprimalPart <$> f (tfromPrimal STKScalar <$> x)
+    let g x = tplainPart <$> f (tfromPlain STKScalar <$> x)
     in dD (txgather @_ @shm @shn @shp sh u g)
           (DeltaGatherX @shm @shn @shp knownShX knownShX knownShX sh u' g)
   txconcrete a =
@@ -572,7 +572,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tdot0Target = dot0Target
 
 instance ( ADReadyNoLet target, ShareTensor target
-         , ShareTensor (PrimalOf target) )
+         , ShareTensor (PrimalOf target), ShareTensor (PlainOf target) )
          => ConvertTensor (ADVal target) where
   tconvert c astk (D u u') =
     dDnotShared (tconvert c astk u)

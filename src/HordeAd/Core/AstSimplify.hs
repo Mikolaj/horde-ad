@@ -290,9 +290,10 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   -- of concrete arrays, but allocating an extra array of the same size
   -- as the fromVector is not a big deal and early rules are better
   -- then the same rules in contraction phase.
-  (case (sameAstSpan @s @PrimalSpan, stk) of
+{- TODO: how many such cases are needed? worth it?
+  (case (sameAstSpan @s @PlainSpan, stk) of
      (Just Refl, STKScalar) ->
-       let unConc :: AstTensor AstMethodLet PrimalSpan y
+       let unConc :: AstTensor AstMethodLet PlainSpan y
                   -> Maybe (Concrete y)
            unConc (AstConcreteK a) = Just $ Concrete a
            unConc _ = Nothing
@@ -300,6 +301,9 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
          Just l4 | V.null l4 -> error "astFromVector: empty vector"
          Just l4 -> Just $ astConcreteS (tfromVector snat stk l4)
          Nothing -> Nothing
+     _ -> Nothing)
+  `mplus` -}
+  (case (sameAstSpan @s @PrimalSpan, stk) of
      (Just Refl, STKS _ STKScalar) ->
        let unConc :: AstTensor AstMethodLet PrimalSpan y
                   -> Maybe (Concrete y)
@@ -380,15 +384,16 @@ astSum snat@SNat stk t0 = case t0 of
   AstConcreteS @_ @sh2 t -> case stk of
     STKS @sh _ STKScalar ->
       gcastWith (unsafeCoerceRefl :: k ': sh :~: sh2) $
-      astConcreteS (tsum snat stk $ Concrete t)
+      astConcreteS $ tsum snat stk $ Concrete t
     STKScalar ->
       gcastWith (unsafeCoerceRefl :: '[k] :~: sh2) $
-      astConcreteK (tsum snat stk $ Concrete t)
+      primalPart @FullSpan . fromPlain
+      . astConcreteK $ tsum snat stk $ Concrete t
   Ast.AstIotaS @_ @r (SNat @n) ->
     let i :: r
         i = fromInteger $ valueOf @n * (valueOf @n - 1) `div` 2
     in case stk of
-      STKScalar -> AstConcreteK i
+      STKScalar -> primalPart @FullSpan . fromPlain . AstConcreteK $ i
       STKS ZSS STKScalar -> AstConcreteS $ Nested.sscalar i
   Ast.AstReverseS v -> astSum snat stk v
   _ | Just Refl <- testEquality snat (SNat @1)
@@ -417,7 +422,7 @@ astSum snat@SNat stk t0 = case t0 of
       $ astSum snat (STKS sh3 x) u
   Ast.AstReplicate _ STKScalar v | STKScalar @r <- stk
                                  , Dict0 <- numFromTKAllNum (Proxy @r) ->
-   v * fromPrimal (AstConcreteK $ fromInteger $ fromSNat snat)
+    v * fromPlain (AstConcreteK $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ _ v | STKR _ (STKScalar @r) <- stk
                          , Dict0 <- numFromTKAllNum (Proxy @r) ->
     case ftkAst v of
@@ -488,7 +493,8 @@ astReplicate snat stk t0 = case t0 of
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat stk v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReplicate snat stk v
   Ast.AstFromPlain v -> Ast.AstFromPlain $ astReplicate snat stk v
-  AstConcreteK t -> astConcreteS $ treplicate snat stk $ Concrete t
+  AstConcreteK t -> plainPart @FullSpan . fromPrimal . astConcreteS
+                    $ treplicate snat stk $ Concrete t
   AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
   Ast.AstConvert c t | checkAstFromS c t ->
     let xftk = ftkAst t
@@ -1252,7 +1258,7 @@ astPlainPart t = case t of
 
 astConcreteK :: GoodScalar r
              => Concrete (TKScalar r)
-             -> AstTensor AstMethodLet PrimalSpan (TKScalar r)
+             -> AstTensor AstMethodLet PlainSpan (TKScalar r)
 astConcreteK = AstConcreteK . unConcrete
 
 astFloorK :: (GoodScalar r1, RealFrac r1, NumScalar r2, Integral r2)
@@ -1263,7 +1269,6 @@ astFloorK t = case t of
   -- This increases work and term size, because conditional is eager.
   -- Ast.AstCond b a2 a3 -> Ast.AstCond b (astFloorK a2) (astFloorK a3)
   -- These values are small, so we can simplify them ASAP.
-  AstConcreteK k -> astConcreteK (tkfloor $ Concrete k)
   Ast.AstFloorK v -> astFloorK v
   Ast.AstFromIntegralK v -> astFromIntegralK v
   Ast.AstCastK v -> astFloorK v
@@ -1278,7 +1283,6 @@ astFromIntegralK :: forall r1 r2. (GoodScalar r1, Integral r1, NumScalar r2)
 astFromIntegralK t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
   Ast.AstLet var u v -> astLet var u (astFromIntegralK v)
-  AstConcreteK k -> astConcreteK (tkfromIntegral $ Concrete k)
   Ast.AstN1K NegateOp u -> negate (astFromIntegralK u)
   Ast.AstN1K AbsOp u -> abs (astFromIntegralK u)
   Ast.AstN1K SignumOp u -> signum (astFromIntegralK u)
@@ -1657,7 +1661,8 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
           defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
       in astLetFunB i1 $ \i ->
         astCond (0 <=. i &&* i <=. valueOf @k - 1)
-                (astFromIntegralS $ astSFromK' i)
+                (astFromIntegralS $ primalPart @FullSpan $ fromPlain
+                 $ astSFromK' i)
                 defArr
     _ -> error "astIndexKnobsS: shape not []"
   Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
@@ -3167,7 +3172,7 @@ astConvertFromS c zftk a = case (zftk, a) of
   (FTKScalar @r1, AstConcreteS @r2 v)
     | ZSS <- Nested.sshape v
     , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
-      AstConcreteK (Nested.sunScalar v)
+      primalPart @FullSpan $ fromPlain $ AstConcreteK (Nested.sunScalar v)
   (_, Ast.AstFromPrimal v) ->
     Ast.AstFromPrimal $ astConvertFromS c zftk v
       -- a rare case where we don't pull up but push down so that conversions
@@ -3230,7 +3235,8 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstProject1{} -> Ast.AstConvert c a0
   Ast.AstProject2{} -> Ast.AstConvert c a0
   Ast.AstSum snat@SNat STKScalar a -> astSum snat (STKS ZSS STKScalar) a
-  AstConcreteK k -> AstConcreteS $ Nested.sscalar k
+  AstConcreteK k ->
+    plainPart @FullSpan $ fromPrimal $ AstConcreteS $ Nested.sscalar k
   Ast.AstFloorK{} -> Ast.AstConvert c a0
   Ast.AstFromIntegralK{} -> Ast.AstConvert c a0
   Ast.AstCastK{} -> Ast.AstConvert c a0
@@ -3677,7 +3683,7 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
 astConcrete :: FullShapeTK y -> Concrete y
             -> AstTensor AstMethodLet PrimalSpan y
 astConcrete ftk v = case ftk of
-  FTKScalar -> astConcreteK v
+  FTKScalar -> primalPart @FullSpan . fromPlain . astConcreteK $ v
   FTKR sh' FTKScalar ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
@@ -3689,7 +3695,8 @@ astConcrete ftk v = case ftk of
       astFromS' ftk $ astConcreteS (sfromX @_ @sh v)
   FTKProduct ftk1 ftk2 ->
     astPair (astConcrete ftk1 (tproject1 v)) (astConcrete ftk2 (tproject2 v))
-  _ -> concreteTarget astConcreteK astConcreteS astFromS' (ftkToSTK ftk) v
+  _ -> concreteTarget (primalPart @FullSpan . fromPlain . astConcreteK)
+                      astConcreteS astFromS' (ftkToSTK ftk) v
 
 astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
           => AstTensor AstMethodLet s y
