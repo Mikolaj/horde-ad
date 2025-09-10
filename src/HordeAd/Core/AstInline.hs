@@ -254,18 +254,21 @@ inlineAstBool memo v0 = case v0 of
 
 -- * Translation of global sharing to normal lets
 
-type AstBindings = DEnumMap (AstVarName PrimalSpan)
-                            (AstTensor AstMethodLet PrimalSpan)
+type AstBindings =
+  ( DEnumMap (AstVarName PrimalSpan) (AstTensor AstMethodLet PrimalSpan)
+  , DEnumMap (AstVarName PlainSpan) (AstTensor AstMethodLet PlainSpan) )
 
 bindsToLet :: forall s y.
               AstTensor AstMethodLet s y -> AstBindings
            -> AstTensor AstMethodLet s y
 {-# INLINE bindsToLet #-}  -- help list fusion
-bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
+bindsToLet u0 (bsPr, bsPl) =
+  let u1 = foldl' bindToLet u0 (DMap.toDescList bsPr)
+  in foldl' bindToLet u1 (DMap.toDescList bsPl)
  where
-  bindToLet :: AstTensor AstMethodLet s y
-            -> DSum (AstVarName PrimalSpan)
-                    (AstTensor AstMethodLet PrimalSpan)
+  bindToLet :: AstSpan s2
+            => AstTensor AstMethodLet s y
+            -> DSum (AstVarName s2) (AstTensor AstMethodLet s2)
             -> AstTensor AstMethodLet s y
   bindToLet !u (var :=> w) = Ast.AstLet var w u
 
@@ -274,7 +277,7 @@ bindsToLet u0 bs = foldl' bindToLet u0 (DMap.toDescList bs)
 unshareAstTensor :: AstTensor AstMethodShare PrimalSpan y
                  -> AstTensor AstMethodLet PrimalSpan y
 unshareAstTensor tShare =
-  let (memoOut, tLet) = unshareAst DMap.empty tShare
+  let (memoOut, tLet) = unshareAst (DMap.empty, DMap.empty) tShare
   in bindsToLet tLet memoOut
 
 -- This works only because the other code never inserts the same rshare
@@ -284,23 +287,35 @@ unshareAstScoped
   :: forall z s. AstSpan s
   => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s z
   -> (AstBindings, AstTensor AstMethodLet s z)
-unshareAstScoped vars0 memo0 v0 =
-  let (memo1, v1) = unshareAst memo0 v0
-      memoDiff = DMap.difference memo1 memo0
-      varsOccur :: [AstVarId] -> AstTensor AstMethodLet PrimalSpan y -> Bool
+unshareAstScoped vars0 memo0@(bsPr0, bsPl0) v0 =
+  let ((bsPr1, bsPl1), v1) = unshareAst memo0 v0
+      memoDiffPr = DMap.difference bsPr1 bsPr0
+      memoDiffPl = DMap.difference bsPl1 bsPl0
+      memoDiff = (memoDiffPr, memoDiffPl)
+      varsOccur :: [AstVarId] -> AstTensor AstMethodLet s2 y -> Bool
       varsOccur vs d = any (`varInAst` d) vs
       closeOccurs :: [AstVarId] -> AstBindings -> (AstBindings, AstBindings)
-      closeOccurs vars memo =
-        let (memoLocal, memoGlobal) = DMap.partition (varsOccur vars) memo
-        in if DMap.null memoLocal
+      closeOccurs vars (bsPr, bsPl) =
+        let (bsPrLocal, bsPrGlobal) = DMap.partition (varsOccur vars) bsPr
+            (bsPlLocal, bsPlGlobal) = DMap.partition (varsOccur vars) bsPl
+            memoLocal = (bsPrLocal, bsPlLocal)
+            memoGlobal = (bsPrGlobal, bsPlGlobal)
+        in if DMap.null bsPrLocal && DMap.null bsPlLocal
            then (memoLocal, memoGlobal)
            else let vars2 = map (\(Some var) -> varNameToAstVarId var)
-                                (DMap.keys memoLocal)
-                    (memoLocal2, memoGlobal2) = closeOccurs vars2 memoGlobal
-                in (DMap.union memoLocal memoLocal2, memoGlobal2)
-      (memoLocal1, memoGlobal1) =
+                                (DMap.keys bsPrLocal)
+                            ++ map (\(Some var) -> varNameToAstVarId var)
+                                   (DMap.keys bsPlLocal)
+                    ((bsPrLocal2, bsPlLocal2), memoGlobal2) =
+                      closeOccurs vars2 memoGlobal
+                in ( ( DMap.union bsPrLocal bsPrLocal2
+                     , DMap.union bsPlLocal bsPlLocal2 )
+                   , memoGlobal2 )
+      (memoLocal1, (bsPrGlobal1, bsPlGlobal1)) =
         closeOccurs (map varNameToAstVarId vars0) memoDiff
-  in (DMap.union memo0 memoGlobal1, bindsToLet v1 memoLocal1)
+  in ( ( DMap.union bsPr0 bsPrGlobal1
+       , DMap.union bsPl0 bsPlGlobal1 )
+     , bindsToLet v1 memoLocal1 )
 
 -- So far, there are no lets in the resulting term,
 -- but we mark it as potentially containing lets, because in the future
@@ -350,11 +365,11 @@ unshareAst memo = \case
       let var = mkAstVarName
                   (ftkAst v) (varNameToBounds varRaw) (varNameToAstVarId varRaw)
           astVar0 = cAstFromS @y2 ftkz $ Ast.AstVar var
-      in if var `DMap.member` memo
+      in if var `DMap.member` fst memo
          then (memo, astVar0)
          else let (memo1, !a2) = unshareAst memo v
                     -- DMap is strict, but let's be paranoid
-              in (DMap.insert var a2 memo1, astVar0)
+              in ((DMap.insert var a2 $ fst memo1, snd memo1), astVar0)
     -- The PrimalSpan check ensures there's no need to match for
     -- Ast.AstFromPrimal (Ast.AstFromS).
     _ -> case varNameToFTK varRaw of
@@ -363,28 +378,68 @@ unshareAst memo = \case
           let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
                                  (varNameToAstVarId varRaw)
               astVar0 = cAstFromS @(TKS2 sh x) ftk $ Ast.AstVar var
-          in if var `DMap.member` memo
+          in if var `DMap.member` fst memo
              then (memo, astVar0)
              else let (memo1, !a2) = unshareAst memo (cAstSFromR @sh sh a)
-                  in (DMap.insert var a2 memo1, astVar0)
+                  in ((DMap.insert var a2 $ fst memo1, snd memo1), astVar0)
       ftk@(FTKX @_ @x sh' x) ->
         withShsFromShX sh' $ \(sh :: ShS sh) ->
           let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
                                  (varNameToAstVarId varRaw)
               astVar0 = cAstFromS @(TKS2 sh x) ftk $ Ast.AstVar var
-          in if var `DMap.member` memo
+          in if var `DMap.member` fst memo
              then (memo, astVar0)
              else let (memo1, !a2) = unshareAst memo (cAstSFromX @sh sh a)
-                  in (DMap.insert var a2 memo1, astVar0)
+                  in ((DMap.insert var a2 $ fst memo1, snd memo1), astVar0)
       -- it maybe not be worth it to recursively convert product
       -- so let's not do that until profiling shows we need it
       _ -> let var = varRaw
                astVar0 = Ast.AstVar var
-           in if var `DMap.member` memo
+           in if var `DMap.member` fst memo
               then (memo, astVar0)
               else let (memo1, !a2) = unshareAst memo a
-                   in (DMap.insert var a2 memo1, astVar0)
-  Ast.AstShare{} -> error "unshareAst: AstShare not in PrimalSpan"
+                   in ((DMap.insert var a2 $ fst memo1, snd memo1), astVar0)
+  Ast.AstShare varRaw a | Just Refl <- sameAstSpan @s @PlainSpan -> case a of
+    AstFromS' @y2 ftkz v ->
+      let var = mkAstVarName
+                  (ftkAst v) (varNameToBounds varRaw) (varNameToAstVarId varRaw)
+          astVar0 = cAstFromS @y2 ftkz $ Ast.AstVar var
+      in if var `DMap.member` snd memo
+         then (memo, astVar0)
+         else let (memo1, !a2) = unshareAst memo v
+                    -- DMap is strict, but let's be paranoid
+              in ((fst memo1, DMap.insert var a2 $ snd memo1), astVar0)
+    -- The PlainSpan check ensures there's no need to match for
+    -- Ast.AstFromPlain (Ast.AstFromS).
+    _ -> case varNameToFTK varRaw of
+      ftk@(FTKR @_ @x sh' x) ->
+        withShsFromShR sh' $ \(sh :: ShS sh) ->
+          let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
+                                 (varNameToAstVarId varRaw)
+              astVar0 = cAstFromS @(TKS2 sh x) ftk $ Ast.AstVar var
+          in if var `DMap.member` snd memo
+             then (memo, astVar0)
+             else let (memo1, !a2) = unshareAst memo (cAstSFromR @sh sh a)
+                  in ((fst memo1, DMap.insert var a2 $ snd memo1), astVar0)
+      ftk@(FTKX @_ @x sh' x) ->
+        withShsFromShX sh' $ \(sh :: ShS sh) ->
+          let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
+                                 (varNameToAstVarId varRaw)
+              astVar0 = cAstFromS @(TKS2 sh x) ftk $ Ast.AstVar var
+          in if var `DMap.member` snd memo
+             then (memo, astVar0)
+             else let (memo1, !a2) = unshareAst memo (cAstSFromX @sh sh a)
+                  in ((fst memo1, DMap.insert var a2 $ snd memo1), astVar0)
+      -- it maybe not be worth it to recursively convert product
+      -- so let's not do that until profiling shows we need it
+      _ -> let var = varRaw
+               astVar0 = Ast.AstVar var
+           in if var `DMap.member` snd memo
+              then (memo, astVar0)
+              else let (memo1, !a2) = unshareAst memo a
+                   in ((fst memo1, DMap.insert var a2 $ snd memo1), astVar0)
+  Ast.AstShare{} ->
+    error "unshareAst: AstShare not in PrimalSpan nor PlainSpan"
   Ast.AstToShare v -> (memo, v)  -- nothing to unshare in this subtree
 
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ unshareAst memo a
