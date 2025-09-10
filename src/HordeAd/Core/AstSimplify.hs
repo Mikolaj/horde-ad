@@ -1020,12 +1020,12 @@ astPrimalPart t = case t of
 
   Ast.AstPrimalPart{} -> Ast.AstPrimalPart t
   Ast.AstDualPart{} -> Ast.AstPrimalPart t
-  Ast.AstPlainPart{} -> Ast.AstPrimalPart t  -- TODO
+  Ast.AstPlainPart{} -> Ast.AstPrimalPart t  -- impossible, but fine
   Ast.AstFromPrimal v -> v
   Ast.AstFromDual v ->
     let ftk = ftkAst v
     in astConcrete ftk (tdefTarget ftk)
-  Ast.AstFromPlain{} -> Ast.AstPrimalPart t  -- TODO
+  Ast.AstFromPlain{} -> Ast.AstPrimalPart t
 
   AstPlusK u v -> astPrimalPart u + astPrimalPart v
   AstTimesK u v -> astPrimalPart u * astPrimalPart v
@@ -1117,7 +1117,7 @@ astDualPart t = case t of
        $ astConcrete ftk (tdefTarget ftk)
            -- let's hope this is smaller than v
   Ast.AstFromDual v -> v
-  Ast.AstFromPlain v ->
+  Ast.AstFromPlain v ->  -- TODO: are deltas zeroed enough here?
     let ftk = ftkAst v
     in Ast.AstDualPart $ Ast.AstFromPrimal
        $ astConcrete ftk (tdefTarget ftk)
@@ -1206,10 +1206,11 @@ astPlainPart t = case t of
 
   Ast.AstLet var u v -> astLet var u (astPlainPart v)
 
-  Ast.AstFromPrimal{} -> Ast.AstPlainPart t  -- TODO
+  Ast.AstFromPrimal (Ast.AstPrimalPart v) -> astPlainPart v
+  Ast.AstFromPrimal{} -> Ast.AstPlainPart t
   Ast.AstFromDual v ->
     let ftk = ftkAst v
-    in Ast.AstPlainPart $ Ast.AstFromPrimal $ astConcrete ftk (tdefTarget ftk)
+    in astPlainPart $ Ast.AstFromPrimal $ astConcrete ftk (tdefTarget ftk)
   Ast.AstFromPlain v -> v
 
   AstPlusK u v -> astPlainPart u + astPlainPart v
