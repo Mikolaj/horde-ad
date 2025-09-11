@@ -16,7 +16,7 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.EnumMap.Strict qualified as EM
 import Data.Foldable qualified as Foldable
-import Data.List (mapAccumR)
+import Data.List (mapAccumR, sortOn)
 import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (IsList (..))
@@ -258,19 +258,28 @@ type AstBindings =
   ( DEnumMap (AstVarName PrimalSpan) (AstTensor AstMethodLet PrimalSpan)
   , DEnumMap (AstVarName PlainSpan) (AstTensor AstMethodLet PlainSpan) )
 
+data DSumSpan =
+    DSumPrimalSpan
+      (DSum (AstVarName PrimalSpan) (AstTensor AstMethodLet PrimalSpan))
+  | DSumPlainSpan
+      (DSum (AstVarName PlainSpan) (AstTensor AstMethodLet PlainSpan))
+
 bindsToLet :: forall s y.
               AstTensor AstMethodLet s y -> AstBindings
            -> AstTensor AstMethodLet s y
 {-# INLINE bindsToLet #-}  -- help list fusion
-bindsToLet u0 (bsPr, bsPl) =
-  let u1 = foldl' bindToLet u0 (DMap.toDescList bsPr)
-  in foldl' bindToLet u1 (DMap.toDescList bsPl)
+bindsToLet u0 (bsPr, bsPl) = foldl' bindToLet u0 l
  where
-  bindToLet :: AstSpan s2
-            => AstTensor AstMethodLet s y
-            -> DSum (AstVarName s2) (AstTensor AstMethodLet s2)
+  varFromDSum (DSumPrimalSpan (var :=> _)) = varNameToAstVarId var
+  varFromDSum (DSumPlainSpan (var :=> _)) = varNameToAstVarId var
+  l :: [DSumSpan]
+  l = reverse $ sortOn varFromDSum $ map DSumPrimalSpan (DMap.toList bsPr)
+                                     ++ map DSumPlainSpan (DMap.toList bsPl)
+  bindToLet :: AstTensor AstMethodLet s y
+            -> DSumSpan
             -> AstTensor AstMethodLet s y
-  bindToLet !u (var :=> w) = Ast.AstLet var w u
+  bindToLet !u (DSumPrimalSpan (var :=> w)) = Ast.AstLet var w u
+  bindToLet u (DSumPlainSpan (var :=> w)) = Ast.AstLet var w u
 
 -- | This replaces 'HordeAd.Core.Ast.AstShare' with 'HordeAd.Core.Ast.AstLet',
 -- traversing the term bottom-up.
@@ -287,11 +296,10 @@ unshareAstScoped
   :: forall z s. AstSpan s
   => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s z
   -> (AstBindings, AstTensor AstMethodLet s z)
-unshareAstScoped vars0 memo0@(bsPr0, bsPl0) v0 =
-  let ((bsPr1, bsPl1), v1) = unshareAst memo0 v0
+unshareAstScoped vars0 (bsPr0, bsPl0) v0 =
+  let ((bsPr1, bsPl1), v1) = unshareAst (bsPr0, bsPl0) v0
       memoDiffPr = DMap.difference bsPr1 bsPr0
       memoDiffPl = DMap.difference bsPl1 bsPl0
-      memoDiff = (memoDiffPr, memoDiffPl)
       varsOccur :: [AstVarId] -> AstTensor AstMethodLet s2 y -> Bool
       varsOccur vs d = any (`varInAst` d) vs
       closeOccurs :: [AstVarId] -> AstBindings -> (AstBindings, AstBindings)
@@ -312,7 +320,7 @@ unshareAstScoped vars0 memo0@(bsPr0, bsPl0) v0 =
                      , DMap.union bsPlLocal bsPlLocal2 )
                    , memoGlobal2 )
       (memoLocal1, (bsPrGlobal1, bsPlGlobal1)) =
-        closeOccurs (map varNameToAstVarId vars0) memoDiff
+        closeOccurs (map varNameToAstVarId vars0) (memoDiffPr, memoDiffPl)
   in ( ( DMap.union bsPr0 bsPrGlobal1
        , DMap.union bsPl0 bsPlGlobal1 )
      , bindsToLet v1 memoLocal1 )
