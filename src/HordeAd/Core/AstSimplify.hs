@@ -857,9 +857,9 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar var2)) =  -- a noop
       _ -> error "astLet: wrong variable types at AstDualPart"
     _ -> error "astLet: wrong span at AstDualPart"
   else v
-astLet var u v@(Ast.AstPlainPart (Ast.AstVar var2)) =  -- a noop
+astLet var u v@(Ast.AstPlainPart @_ @s1 (Ast.AstVar var2)) =  -- a noop
   if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @FullSpan of
+  then case sameAstSpan @s @s1 of
     Just Refl -> case testEquality var var2 of
       Just Refl -> astPlainPart u
       _ -> error "astLet: wrong variable types at AstPlainPart"
@@ -1175,7 +1175,8 @@ astDualPart t = case t of
 
   _ -> Ast.AstDualPart t
 
-astPlainPart :: AstTensor AstMethodLet FullSpan y
+astPlainPart :: AstSpan s
+             => AstTensor AstMethodLet s y
              -> AstTensor AstMethodLet PlainSpan y
 astPlainPart t = case t of
   Ast.AstPair t1 t2 -> astPair (astPlainPart t1) (astPlainPart t2)
@@ -1206,11 +1207,13 @@ astPlainPart t = case t of
 
   Ast.AstLet var u v -> astLet var u (astPlainPart v)
 
-  Ast.AstFromPrimal (Ast.AstPrimalPart v) -> astPlainPart v
-  Ast.AstFromPrimal{} -> Ast.AstPlainPart t
+  Ast.AstPrimalPart v -> astPlainPart v
+  Ast.AstDualPart{} -> Ast.AstPlainPart t
+  Ast.AstPlainPart{} -> t
+  Ast.AstFromPrimal v -> astPlainPart v
   Ast.AstFromDual v ->
     let ftk = ftkAst v
-    in astPlainPart $ Ast.AstFromPrimal $ astConcrete ftk (tdefTarget ftk)
+    in astPlainPart $ astConcrete ftk (tdefTarget ftk)
   Ast.AstFromPlain v -> v
 
   AstPlusK u v -> astPlainPart u + astPlainPart v
@@ -1222,6 +1225,9 @@ astPlainPart t = case t of
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astPlainPart u) (astPlainPart v)
   Ast.AstI2K QuotOp u v -> quotH (astPlainPart u) (astPlainPart v)
   Ast.AstI2K RemOp u v -> remH (astPlainPart u) (astPlainPart v)
+  AstConcreteK{} -> t
+  Ast.AstFloorK{} -> Ast.AstPlainPart t
+  Ast.AstFromIntegralK{} -> Ast.AstPlainPart t
   Ast.AstCastK v -> astCastK $ astPlainPart v
 
   AstPlusS u v -> astPlainPart u + astPlainPart v
@@ -1234,6 +1240,9 @@ astPlainPart t = case t of
                                              (astPlainPart v)
   Ast.AstI2S QuotOp u v -> quotH (astPlainPart u) (astPlainPart v)
   Ast.AstI2S RemOp u v -> remH (astPlainPart u) (astPlainPart v)
+  AstConcreteS{} -> Ast.AstPlainPart t
+  Ast.AstFloorS{} -> Ast.AstPlainPart t
+  Ast.AstFromIntegralS{} -> Ast.AstPlainPart t
   Ast.AstCastS v -> astCastS $ astPlainPart v
 
   Ast.AstIndexS shn v ix ->
@@ -1242,6 +1251,9 @@ astPlainPart t = case t of
     astScatterS @shm @shn @shp shn (astPlainPart v) (vars, ix)
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     astGatherS @shm @shn @shp shn (astPlainPart v) (vars, ix)
+  Ast.AstMinIndexS{} -> Ast.AstPlainPart t
+  Ast.AstMaxIndexS{} -> Ast.AstPlainPart t
+  Ast.AstIotaS{} -> Ast.AstPlainPart t
   Ast.AstAppendS x y -> astAppendS (astPlainPart x) (astPlainPart y)
   Ast.AstSliceS i n k v -> astSliceS i n k (astPlainPart v)
   Ast.AstReverseS v -> astReverseS (astPlainPart v)

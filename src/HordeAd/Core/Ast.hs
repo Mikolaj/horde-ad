@@ -131,7 +131,7 @@ instance AstSpan FullSpan where
   plainPart = cAstPlainPart
 
 instance AstSpan PlainSpan where
-  fromPrimal = cAstPlainPart . AstFromPrimal
+  fromPrimal = cAstPlainPart
   fromDual t = AstPlainPart $ AstFromDual t  -- this is plain zero
   fromPlain = id
   primalPart = AstPrimalPart . AstFromPlain
@@ -145,7 +145,7 @@ primalSpanToStep = \case
   SPrimalStepSpan sspan -> AstPrimalPart . primalSpanToStep sspan
   SDualSpan -> AstPrimalPart . AstDualPart . AstFromPrimal
   SFullSpan -> id
-  SPlainSpan -> AstPrimalPart . cAstPlainPart . AstFromPrimal
+  SPlainSpan -> AstPrimalPart . cAstPlainPart
 
 dualSpanToStep :: SAstSpanType s
                -> AstTensor ms DualSpan y
@@ -189,7 +189,7 @@ stepToPlainSpan :: SAstSpanType s
 stepToPlainSpan = \case
   SPrimalStepSpan sspan -> stepToPlainSpan sspan . AstFromPrimal
   SDualSpan -> AstPlainPart . AstFromDual . AstFromPrimal
-  SFullSpan -> cAstPlainPart . AstFromPrimal
+  SFullSpan -> cAstPlainPart
   SPlainSpan -> AstFromPrimal
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
@@ -205,10 +205,12 @@ cAstDualPart :: forall y ms.
 cAstDualPart (AstFromDual t) = t
 cAstDualPart t = AstDualPart t
 
-cAstPlainPart :: forall y ms.
-                 AstTensor ms FullSpan y -> AstTensor ms PlainSpan y
-cAstPlainPart (AstFromPrimal (AstPrimalPart v)) = cAstPlainPart v
-cAstPlainPart (AstFromPlain t) = t
+cAstPlainPart :: forall y s ms. AstSpan s
+              => AstTensor ms s y -> AstTensor ms PlainSpan y
+cAstPlainPart (AstPrimalPart v) = cAstPlainPart v
+cAstPlainPart t@AstPlainPart{} = t
+cAstPlainPart (AstFromPrimal v) = cAstPlainPart v
+cAstPlainPart (AstFromPlain v) = v
 cAstPlainPart t = AstPlainPart t
 
 
@@ -411,8 +413,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
                 => AstTensor ms s y -> AstTensor ms (PrimalStepSpan s) y
   AstDualPart :: forall y ms.
                  AstTensor ms FullSpan y -> AstTensor ms DualSpan y
-  AstPlainPart :: forall y ms.
-                  AstTensor ms FullSpan y -> AstTensor ms PlainSpan y
+  AstPlainPart :: forall y s ms. AstSpan s
+               => AstTensor ms s y -> AstTensor ms PlainSpan y
   AstFromPrimal :: forall y s ms.
                    AstTensor ms (PrimalStepSpan s) y -> AstTensor ms s y
   AstFromDual :: forall y ms.
