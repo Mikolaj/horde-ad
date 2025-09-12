@@ -314,7 +314,9 @@ eqK (AstLet @_ @_ @s1 var1 u1 v1) (AstLet @_ @_ @s2 var2 u2 v2)
     var1 == var2 && eqK u1 u2 && eqK v1 v2
 eqK (AstPrimalPart u1) (AstPrimalPart u2) = eqK u1 u2
 eqK (AstDualPart u1) (AstDualPart u2) = eqK u1 u2
-eqK (AstPlainPart u1) (AstPlainPart u2) = eqK u1 u2
+eqK (AstPlainPart @_ @s1 u1) (AstPlainPart @_ @s2 u2)
+  | Just Refl <- sameAstSpan @s1 @s2 =
+    eqK u1 u2
 eqK (AstFromPrimal u1) (AstFromPrimal u2) = eqK u1 u2
 eqK (AstFromDual u1) (AstFromDual u2) = eqK u1 u2
 eqK (AstFromPlain u1) (AstFromPlain u2) = eqK u1 u2
@@ -983,7 +985,9 @@ instance (AstSpan s, NumScalar r)
   AstFromPlain u <=. AstFromPlain v = u <=. v
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
   AstFromDual{} <=. AstFromDual{} = AstBoolConst True
-  AstPlainPart u <=. AstPlainPart v = u <=. v
+  AstPlainPart @_ @s1 u <=. AstPlainPart @_ @s2 v
+    | Just Refl <- sameAstSpan @s1 @s2 =
+      u <=. v
   AstConvert c u <=. AstConvert _ v
     | FTKS ZSS (FTKScalar @ru) <- ftkAst u
     , FTKS ZSS (FTKScalar @rv) <- ftkAst v
@@ -1023,7 +1027,9 @@ instance (AstSpan s, NumScalar r)
   AstFromPlain u <=. AstFromPlain v = u <=. v
   AstFromDual{} <=. AstFromDual{} = AstBoolConst True
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
-  AstPlainPart u <=. AstPlainPart v = u <=. v
+  AstPlainPart @_ @s1 u <=. AstPlainPart @_ @s2 v
+    | Just Refl <- sameAstSpan @s1 @s2 =
+      u <=. v
   AstConvert c u <=. AstConvert _ v
     | FTKS ZSS x <- convertFTK c (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst u)
