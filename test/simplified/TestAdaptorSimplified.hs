@@ -12,7 +12,7 @@ import           Data.Bifunctor.Flip
 import qualified Data.EnumMap.Strict as EM
 import           Data.Int (Int64)
 import           Data.List (foldl1')
-import qualified Data.Strict.IntMap as IM
+import qualified Data.IntMap as IM
 import           Foreign.C (CInt)
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)

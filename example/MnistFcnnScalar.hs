@@ -13,7 +13,7 @@ module MnistFcnnScalar where
 import Prelude
 
 import           Control.Exception (assert)
-import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)

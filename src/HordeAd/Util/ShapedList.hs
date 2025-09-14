@@ -26,7 +26,7 @@ import Prelude
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as OS
 import           Data.Proxy (Proxy)
-import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (IsList (..))

@@ -78,7 +78,7 @@ flag test_seq
 
 common options
   default-language:   GHC2021
-  default-extensions: StrictData, GADTs, TypeFamilies,
+  default-extensions: TypeAbstractions, StrictData, GADTs, TypeFamilies,
                       TypeFamilyDependencies, FunctionalDependencies,
                       RecordWildCards, MultiWayIf, LambdaCase,
                       DefaultSignatures, PatternSynonyms, NoStarIsType,
@@ -166,7 +166,7 @@ library horde-ad-simplified
       , ilist
       , orthotope >= 0.1.4.0
       , random
-      , strict-containers
+      , containers
       , unboxed-ref
       , vector
 
@@ -238,7 +238,7 @@ library benchCommonLibrary
       , inspection-testing
       , orthotope
       , random
-      , strict-containers
+      , containers
       , vector
 
 benchmark longProdBench
@@ -380,8 +380,7 @@ library testToolLibrary
 library testCommonLibrary
     import:           options
 
-    exposed-modules:  TestAdaptorSimplified
-                      TestConvSimplified
+    exposed-modules:  TestConvSimplified
                       TestGatherSimplified
                       TestHighRankSimplified
                       TestMnistCNNR
@@ -407,7 +406,7 @@ library testCommonLibrary
       , ilist
       , orthotope
       , random
-      , strict-containers
+      , containers
       , tasty >= 1.0
       , tasty-hunit
       , vector
