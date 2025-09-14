@@ -51,7 +51,7 @@ import           Data.Int (Int64)
 import           Data.List (dropWhileEnd)
 import           Data.Maybe (catMaybes, fromMaybe, isJust)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import           Data.Type.Ord (Compare)
 import qualified Data.Vector.Generic as V

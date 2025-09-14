@@ -9,7 +9,7 @@ module TestGradientSimple
 import Prelude
 
 import           Control.Arrow (first)
-import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA

@@ -43,7 +43,7 @@ import           Data.Kind (Type)
 import           Data.List (foldl')
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Vector as Data.Vector
 import           Data.Type.Equality (testEquality, (:~:) (Refl))
 import           GHC.TypeLits (KnownNat, sameNat, type (+), type (<=))
 import           System.IO.Unsafe (unsafePerformIO)

@@ -15,7 +15,7 @@ import qualified Data.Array.Shape as OS
 import           Data.Int (Int64)
 import           Data.IORef
 import           Data.Proxy (Proxy)
-import qualified Data.Strict.IntMap as IM
+import qualified Data.IntMap as IM
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal, type (+))

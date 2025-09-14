@@ -26,7 +26,7 @@ import           Data.Boolean (Boolean (..))
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), natVal, someNatVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)

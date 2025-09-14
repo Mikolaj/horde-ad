@@ -63,7 +63,7 @@ source-repository head
 
 common options
   default-language:   GHC2021
-  default-extensions: StrictData, GADTs, TypeFamilies,
+  default-extensions: TypeAbstractions, StrictData, GADTs, TypeFamilies,
                       TypeFamilyDependencies, FunctionalDependencies,
                       RecordWildCards, MultiWayIf, LambdaCase,
                       DefaultSignatures, PatternSynonyms, NoStarIsType,
@@ -136,7 +136,7 @@ library horde-ad-simplified
       , ilist
       , orthotope >= 0.1.4.0
       , random
-      , strict-containers
+      , containers
       , unboxed-ref
       , vector
 

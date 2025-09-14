@@ -33,8 +33,8 @@ import           Data.Functor (void)
 import           Data.Int (Int64)
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Map as M
-import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Map as M
+import qualified Data.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable.Mutable as VM
