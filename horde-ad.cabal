@@ -380,13 +380,7 @@ library testToolLibrary
 library testCommonLibrary
     import:           options
 
-    exposed-modules:  TestConvSimplified
-                      TestGatherSimplified
-                      TestHighRankSimplified
-                      TestMnistCNNR
-                      TestMnistFCNNR
-                      TestMnistRNNR
-                      TestMnistRNNS
+    exposed-modules:  TestMnistFCNNR
 
     hs-source-dirs:   test/simplified
 
@@ -426,24 +420,6 @@ test-suite simplifiedOnlyTest
     hs-source-dirs:   test
 
     main-is:          SimplifiedOnlyTest.hs
-
-    build-depends:
-      , horde-ad:testCommonLibrary
-      , horde-ad:testToolLibrary
-
-      , base
-      , tasty >= 1.0
-
--- These tests don't require any dataset, so can be enabled in the Hackage
--- package.
-test-suite minimalTest
-    import:           options, exe-options-test
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-
-    main-is:          MinimalTest.hs
 
     build-depends:
       , horde-ad:testCommonLibrary

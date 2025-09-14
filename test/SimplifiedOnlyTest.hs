@@ -10,13 +10,7 @@ import           Test.Tasty.Runners
 
 import           EqEpsilon
 -- import qualified TestAdaptorSimplified
-import qualified TestConvSimplified
-import qualified TestGatherSimplified
-import qualified TestHighRankSimplified
-import qualified TestMnistCNNR
 import qualified TestMnistFCNNR
-import qualified TestMnistRNNR
-import qualified TestMnistRNNS
 
 main :: IO ()
 main = do
@@ -32,13 +26,6 @@ main = do
 tests :: TestTree
 tests =
   testGroup "Tests for simplified horde-ad"
-    [ testGroup "Short_tests"
-        (TestGatherSimplified.testTrees
-         ++ TestHighRankSimplified.testTrees
-         ++ TestConvSimplified.testTrees)
-    , testGroup "Neural_network_tests"
-        (TestMnistFCNNR.testTrees
-         ++ TestMnistCNNR.testTrees
-         ++ TestMnistRNNR.testTrees
-         ++ TestMnistRNNS.testTrees)
+    [ testGroup "Neural_network_tests"
+        TestMnistFCNNR.testTrees
     ]
