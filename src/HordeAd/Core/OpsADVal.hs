@@ -133,8 +133,7 @@ cfwdOnParams xftk parameters f ds =
 fromPrimalFTK :: FullShapeTK z -> f z -> ADVal f z
 fromPrimalFTK ftk a = dDnotShared a (DeltaZero ftk)
 
-instance ( ADReadyNoLet target, ShareTensor target
-         , ShareTensor (PrimalOf target) )
+instance (ADReadyNoLet target, ShareTensor target)
          => LetTensor (ADVal target) where
   ttlet (D u u') f =
     let !var2 = tshare u

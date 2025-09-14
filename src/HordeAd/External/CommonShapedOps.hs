@@ -266,7 +266,6 @@ conv2dPaddedS arrK arrA =
 slicezS
   :: forall shOut sh target r.
      ( KnownShS sh, KnownShS shOut, KnownShS (Take (Rank sh) shOut)
-     , KnownNat (Rank sh)
      , Rank shOut ~ Rank sh, ADReady target, NumScalar r )
   => target (TKS sh r) -> IxSOf target sh -> target (TKS shOut r)
 slicezS d ixBase =
