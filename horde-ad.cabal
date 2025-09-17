@@ -160,8 +160,8 @@ library horde-ad-simplified
       , Boolean
       , deepseq
       , enummapset
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
+      , ghc-typelits-knownnat >= 0.8.0
+      , ghc-typelits-natnormalise >= 0.8.0
       , hmatrix
       , ilist
       , orthotope >= 0.1.4.0
