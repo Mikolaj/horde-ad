@@ -394,7 +394,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
     let !(!l3, u) = recordSharingPrimal ue $ l1 `mergeADShare` l2 in
     let !(!l4, v) = recordSharingPrimal ve l3
     in dD l4 (sdot0 u v) (dAdd (Dot0S v u') (Dot0S u v'))
-  sscatter (D l u u') f = dD l (sscatter u f) (ScatterS u' f)
+  sscatter @_ @_ @p (D l u u') f = dD l (sscatter @_ @_ @_ @p u f) (ScatterS @_ @_ @_ @_ @p u' f)
 
   sfromList = fromListS
   sfromVector lu =
@@ -422,7 +422,7 @@ instance ( Dual shaped ~ DeltaS ranked shaped
   sbuild1 f = fromListS $ map (f . ShapedList.shapedNat)
                               [0 .. valueOf @n - 1]
                    -- element-wise (POPL) version
-  sgather (D l u u') f = dD l (sgather u f) (GatherS u' f)
+  sgather @_ @_ @p (D l u u') f = dD l (sgather @_ @_ @_ @p u f) (GatherS @_ @_ @_ @_ @p u' f)
   scast (D l u u') = dD l (scast u) (CastS u')
   sfromIntegral (D l u _) =
     let v = sfromIntegral u
