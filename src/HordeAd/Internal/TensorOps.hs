@@ -32,10 +32,10 @@ import           Data.Bifunctor.Flip
 import           Data.Functor (void)
 import           Data.Int (Int64)
 import           Data.List (foldl')
-import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Map as M
-import qualified Data.Vector as Data.Vector
+import           Data.Proxy (Proxy (Proxy))
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
+import qualified Data.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable.Mutable as VM
 import           GHC.TypeLits
@@ -734,7 +734,7 @@ tscatterZS t f =
       ivs = foldr g M.empty [ ShapedList.fromLinearIdx sh2
                               $ ShapedList.shapedNat $ fromIntegral i
                             | i <- [0 .. OS.sizeT @sh2 - 1] ]
-  in updateNS 0 $ map (second $ OS.fromVector . sum) $ M.assocs ivs
+  in updateNS @p 0 $ map (second $ OS.fromVector . sum) $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
@@ -751,7 +751,7 @@ tscatterZ1S t f =
                    let ix2 = f $ ShapedList.shapedNat $ fromIntegral i
                    in if ixInBounds (ShapedList.sizedListToList ix2)
                                     (OS.shapeT @sh)
-                      then updateNS 0 [(ix2, ti)]
+                      then updateNS @p 0 [(ix2, ti)]
                       else 0)
         $ OSB.toVector $ OS.unravel t
 

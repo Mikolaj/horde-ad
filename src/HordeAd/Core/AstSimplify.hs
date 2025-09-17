@@ -51,9 +51,9 @@ import           Data.Int (Int64)
 import           Data.List (dropWhileEnd)
 import           Data.Maybe (catMaybes, fromMaybe, isJust)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import           Data.Type.Ord (Compare)
+import qualified Data.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
   ( KnownNat
@@ -458,7 +458,7 @@ astGatherStepS
   => AstShaped s r sh
   -> (AstVarListS sh2, AstIndexS (OS.Take p sh))
   -> AstShaped s r (sh2 OS.++ OS.Drop p sh)
-astGatherStepS v (vars, ix) = Ast.AstGatherS v (vars, ix)  -- TODO
+astGatherStepS @_ @p v (vars, ix) = Ast.AstGatherS @_ @p v (vars, ix)  -- TODO
 
 -- Assumption: vars0 don't not occur in v0. The assumption only holds
 -- when newly generated variables are fresh, which is the case as long
@@ -771,7 +771,7 @@ astGatherS
   => AstShaped s r sh
   -> (AstVarListS sh2, AstIndexS (OS.Take p sh))
   -> AstShaped s r (sh2 OS.++ OS.Drop p sh)
-astGatherS = Ast.AstGatherS  -- TODO
+astGatherS @_ @p = Ast.AstGatherS @_ @p  -- TODO
 
 {-
 -- TODO: To apply this to astGatherR. we'd need to take the last variable
@@ -1053,11 +1053,11 @@ astScatterS v (ZSH, ZSH) =
 --   astScatterS (astSumS v) (vars, ix)
   -- TODO: ^^^
 -- astScatterS v (Z, ix) = update (tzero sh 0) ix v
-astScatterS (Ast.AstConstantS v) (vars, ix) =
-  Ast.AstConstantS $ astScatterS v (vars, ix)
-astScatterS (Ast.AstLetADShareS l v) (vars, ix) =
-  Ast.AstLetADShareS l $ astScatterS v (vars, ix)
-astScatterS v (vars, ix) = Ast.AstScatterS v (vars, ix)
+astScatterS @_ @p (Ast.AstConstantS v) (vars, ix) =
+  Ast.AstConstantS $ astScatterS @_ @p v (vars, ix)
+astScatterS  @_ @p(Ast.AstLetADShareS l v) (vars, ix) =
+  Ast.AstLetADShareS l $ astScatterS @_ @p v (vars, ix)
+astScatterS @_ @p v (vars, ix) = Ast.AstScatterS @_ @p v (vars, ix)
 
 astFromList :: forall s r n. (KnownNat n, GoodScalar r, AstSpan s)
             => [AstRanked s r n] -> AstRanked s r (1 + n)
@@ -1297,12 +1297,12 @@ astReverseS (Ast.AstFromListS l) = Ast.AstFromListS $ reverse l
 astReverseS (Ast.AstFromVectorS l) = Ast.AstFromVectorS $ V.reverse l
 astReverseS (Ast.AstReplicateS v) = Ast.AstReplicateS v
 astReverseS (Ast.AstReverseS v) = v
-astReverseS (Ast.AstGatherS v ((:$:) @k var vars, ix)) =
+astReverseS (Ast.AstGatherS @_ @p v ((:$:) @k var vars, ix)) =
   let ivar = valueOf @k - AstIntVar var
       ix2 = substituteAstIndexS  -- cheap subst, because ivar is tiny
               (SubstitutionPayloadRanked @PrimalSpan @Int64 ivar)
               var ix
-  in astGatherS v (var :$: vars, ix2)
+  in astGatherS @_ @p v (var :$: vars, ix2)
 astReverseS v = Ast.AstReverseS v
 
 -- Beware, this does not do full simplification, which often requires
@@ -1526,7 +1526,7 @@ astPrimalPartS t = case t of
   AstSumOfListS args -> astSumOfListS (map astPrimalPartS args)
   Ast.AstIndexS v ix -> Ast.AstIndexS (astPrimalPartS v) ix
   Ast.AstSumS v -> astSumS (astPrimalPartS v)
-  Ast.AstScatterS v (var, ix) -> astScatterS (astPrimalPartS v) (var, ix)
+  Ast.AstScatterS @_ @p v (var, ix) -> astScatterS @_ @p (astPrimalPartS v) (var, ix)
   Ast.AstFromListS l -> astFromListS (map astPrimalPartS l)
   Ast.AstFromVectorS l -> astFromVectorS (V.map astPrimalPartS l)
   Ast.AstReplicateS v -> astReplicateS (astPrimalPartS v)
@@ -1536,7 +1536,7 @@ astPrimalPartS t = case t of
   Ast.AstTransposeS @perm v -> astTransposeS @perm (astPrimalPartS v)
   Ast.AstReshapeS v -> astReshapeS (astPrimalPartS v)
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astPrimalPartS v)
-  Ast.AstGatherS v (vars, ix) -> astGatherS (astPrimalPartS v) (vars, ix)
+  Ast.AstGatherS @_ @p v (vars, ix) -> astGatherS @_ @p (astPrimalPartS v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astPrimalPartS v
   Ast.AstRToS v -> astRToS $ astPrimalPart v
   Ast.AstConstantS v -> v
@@ -1590,7 +1590,7 @@ astDualPartS t = case t of
   AstSumOfListS args -> astSumOfListS (map astDualPartS args)
   Ast.AstIndexS v ix -> Ast.AstIndexS (astDualPartS v) ix
   Ast.AstSumS v -> astSumS (astDualPartS v)
-  Ast.AstScatterS v (var, ix) -> astScatterS (astDualPartS v) (var, ix)
+  Ast.AstScatterS @_ @p v (var, ix) -> astScatterS @_ @p (astDualPartS v) (var, ix)
   Ast.AstFromListS l -> astFromListS (map astDualPartS l)
   Ast.AstFromVectorS l -> astFromVectorS (V.map astDualPartS l)
   Ast.AstReplicateS v -> astReplicateS (astDualPartS v)
@@ -1600,7 +1600,7 @@ astDualPartS t = case t of
   Ast.AstTransposeS @perm v -> astTransposeS @perm (astDualPartS v)
   Ast.AstReshapeS v -> astReshapeS (astDualPartS v)
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, astDualPartS v)
-  Ast.AstGatherS v (vars, ix) -> astGatherS (astDualPartS v) (vars, ix)
+  Ast.AstGatherS @_ @p v (vars, ix) -> astGatherS @_ @p (astDualPartS v) (vars, ix)
   Ast.AstCastS v -> astCastS $ astDualPartS v
   Ast.AstRToS v -> astRToS $ astDualPart v
   Ast.AstConstantS{}  -> Ast.AstDualPartS t  -- this equals nil (not primal 0)
@@ -2025,8 +2025,8 @@ simplifyAstS t = case t of
   Ast.AstIndexS v ix ->
     Ast.AstIndexS (simplifyAstS v) (fmap simplifyAst ix)  -- TODO
   Ast.AstSumS v -> astSumS (simplifyAstS v)
-  Ast.AstScatterS v (var, ix) ->
-    astScatterS (simplifyAstS v) (var, fmap simplifyAst ix)
+  Ast.AstScatterS @_ @p v (var, ix) ->
+    astScatterS @_ @p (simplifyAstS v) (var, fmap simplifyAst ix)
   Ast.AstFromListS l -> astFromListS (map simplifyAstS l)
   Ast.AstFromVectorS l -> astFromVectorS (V.map simplifyAstS l)
   Ast.AstReplicateS v -> astReplicateS (simplifyAstS v)
@@ -2036,8 +2036,8 @@ simplifyAstS t = case t of
   Ast.AstTransposeS @perm v -> astTransposeS @perm $ simplifyAstS v
   Ast.AstReshapeS v -> astReshapeS $ simplifyAstS v
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, simplifyAstS v)
-  Ast.AstGatherS v (vars, ix) ->
-    astGatherS (simplifyAstS v) (vars, fmap simplifyAst ix)
+  Ast.AstGatherS @_ @p v (vars, ix) ->
+    astGatherS  @_ @p(simplifyAstS v) (vars, fmap simplifyAst ix)
   Ast.AstCastS v -> astCastS $ simplifyAstS v
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAstS v
   AstConstS{} -> t
@@ -2373,10 +2373,10 @@ substitute1AstS i var = \case
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astIndexStepS (fromMaybe v mv) (fromMaybe ix mix)
   Ast.AstSumS v -> astSumS <$> substitute1AstS i var v
-  Ast.AstScatterS v (vars, ix) ->
+  Ast.AstScatterS @_ @p v (vars, ix) ->
     case (substitute1AstS i var v, substitute1AstIndexS i var ix) of
       (Nothing, Nothing) -> Nothing
-      (mv, mix) -> Just $ astScatterS (fromMaybe v mv)
+      (mv, mix) -> Just $ astScatterS @_ @p (fromMaybe v mv)
                                       (vars, fromMaybe ix mix)
   Ast.AstFromListS args ->
     let margs = map (substitute1AstS i var) args
@@ -2399,10 +2399,10 @@ substitute1AstS i var = \case
   Ast.AstReshapeS v -> astReshapeS <$> substitute1AstS i var v
   Ast.AstBuild1S (var2, v) ->
     Ast.AstBuild1S . (var2,) <$> substitute1AstS i var v
-  Ast.AstGatherS v (vars, ix) ->
+  Ast.AstGatherS @_ @p v (vars, ix) ->
     case (substitute1AstS i var v, substitute1AstIndexS i var ix) of
       (Nothing, Nothing) -> Nothing
-      (mv, mix) -> Just $ astGatherS (fromMaybe v mv)
+      (mv, mix) -> Just $ astGatherS @_ @p (fromMaybe v mv)
                                      (vars, fromMaybe ix mix)
   Ast.AstCastS v -> astCastS <$> substitute1AstS i var v
   Ast.AstFromIntegralS a -> astFromIntegralS <$> substitute1AstS i var a
