@@ -26,8 +26,8 @@ import Prelude
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape as OS
 import           Data.Proxy (Proxy)
-import qualified Data.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, (:~:) (Refl))
+import qualified Data.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, SomeNat (..), someNatVal)
@@ -114,10 +114,11 @@ dropSized :: forall len sh i. (KnownNat len, OS.Shape (OS.Drop len sh))
 dropSized ix = listToSized $ drop (valueOf @len) $ sizedListToList ix
 
 splitAt_Sized
-  :: (KnownNat len, OS.Shape (OS.Drop len sh), OS.Shape (OS.Take len sh))
+  :: forall len sh i.
+     (KnownNat len, OS.Shape (OS.Drop len sh), OS.Shape (OS.Take len sh))
   => ShapedList sh i
   -> (ShapedList (OS.Take len sh) i, ShapedList (OS.Drop len sh) i)
-splitAt_Sized ix = (takeSized ix, dropSized ix)
+splitAt_Sized ix = (takeSized @len ix, dropSized @len ix)
 
 unsnocSized1 :: ShapedList (n ': sh) i -> (ShapedList sh i, i)
 unsnocSized1 (i :$: ix) = case ix of

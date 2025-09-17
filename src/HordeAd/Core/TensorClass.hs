@@ -30,8 +30,8 @@ import           Data.Bifunctor.Flip
 import           Data.Int (Int64)
 import           Data.Kind (Constraint, Type)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Vector as Data.Vector
 import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import qualified Data.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
   (KnownNat, OrderingI (..), cmpNat, type (+), type (-), type (<=))
@@ -360,7 +360,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
     => shaped r (n2 ': OS.Drop p sh)
     -> (IntSh shaped n2 -> IndexSh shaped (OS.Take p sh))
     -> shaped r sh
-  sscatter1 v f = sscatter @shaped @r @'[n2] v (ShapedList.unconsContShaped f)
+  sscatter1 @_ @_ @p v f = sscatter @shaped @r @'[n2] @p v (ShapedList.unconsContShaped f)
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
@@ -447,7 +447,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
        -> shaped r sh -> shaped r2 sh
   smap f v = gcastWith (unsafeCoerce Refl
                         :: sh :~: OS.Take m sh OS.++ OS.Drop m sh)
-             $ sbuild (\ix -> f (v !$ ix))
+             $ sbuild @_ @_ @m (\ix -> f (v !$ ix))
   smap1 :: forall r r2 sh n.
            (GoodScalar r, GoodScalar r2, KnownNat n, OS.Shape sh)
         => (shaped r sh -> shaped r2 sh)
@@ -470,7 +470,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
            -> shaped r sh -> shaped r2 sh -> shaped r3 sh
   szipWith f u v = gcastWith (unsafeCoerce Refl
                               :: sh :~: OS.Take m sh OS.++ OS.Drop m sh)
-                   $ sbuild (\ix -> f (u !$ ix) (v !$ ix))
+                   $ sbuild @_ @_ @m (\ix -> f (u !$ ix) (v !$ ix))
   szipWith1 :: forall r r2 r3 sh n.
                ( GoodScalar r, GoodScalar r2, GoodScalar r3
                , KnownNat n, OS.Shape sh )
@@ -501,7 +501,7 @@ class ( Integral (IntOf shaped), CShaped shaped Num
     => shaped r sh
     -> (IntSh shaped n2 -> IndexSh shaped (OS.Take p sh))
     -> shaped r (n2 ': OS.Drop p sh)
-  sgather1 v f = sgather @shaped @r @'[n2] v (ShapedList.unconsContShaped f)
+  sgather1 @_ @_ @p v f = sgather @shaped @r @'[n2] @p v (ShapedList.unconsContShaped f)
   scast :: (RealFrac r1, RealFrac r2, GoodScalar r1, GoodScalar r2, OS.Shape sh)
         => shaped r1 sh -> shaped r2 sh
   sfromIntegral :: (GoodScalar r1, Integral r1, GoodScalar r2, OS.Shape sh)
@@ -796,9 +796,9 @@ instance ShapedTensor (Flip OS.Array) where
   sdot0 u v = Flip $ tscalarS $ tdot0S (runFlip u) (runFlip v)
   smatvecmul m v = Flip $ tmatvecmulS (runFlip m) (runFlip v)
   smatmul2 m1 m2 = Flip $ tmatmul2S (runFlip m1) (runFlip m2)
-  sscatter t f = Flip $ tscatterZS (runFlip t)
+  sscatter @_ @_ @p t f = Flip $ tscatterZS @_ @_ @p (runFlip t)
                                    (fromIndexOfS . f . toIndexOfS)
-  sscatter1 t f = Flip $ tscatterZ1S (runFlip t)
+  sscatter1 @_ @_ @p t f = Flip $ tscatterZ1S @_ @_ @p (runFlip t)
                                      (fromIndexOfS . f . shapedNat . Flip
                                       . tscalarR . unShapedNat)
   sfromList = Flip . tfromListS . map runFlip
@@ -817,9 +817,9 @@ instance ShapedTensor (Flip OS.Array) where
   smap0N f t = Flip $ tmap0NS (runFlip . f . Flip) (runFlip t)
   szipWith0N f t u = Flip $ tzipWith0NS (\v w -> runFlip $ f (Flip v) (Flip w))
                                         (runFlip t) (runFlip u)
-  sgather t f = Flip $ tgatherZS (runFlip t)
+  sgather @_ @_ @p t f = Flip $ tgatherZS @_ @p (runFlip t)
                                  (fromIndexOfS . f . toIndexOfS)
-  sgather1 t f = Flip $ tgatherZ1S (runFlip t)
+  sgather1 @_ @_ @p t f = Flip $ tgatherZ1S @_ @p (runFlip t)
                                    (fromIndexOfS . f . shapedNat . Flip
                                     . tscalarR . unShapedNat)
   scast = Flip . tcastS . runFlip
