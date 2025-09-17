@@ -10,7 +10,7 @@ optimization: False
 source-repository-package
     type: git
     location: https://github.com/clash-lang/ghc-typelits-natnormalise
-    tag: 7e5ef227a74b3f5ef04805550e4fe1a8c80030ba
+    tag: 34150731bf3363c7d8ed841b34f5ac443fb68e47
 
 
 package horde-ad
