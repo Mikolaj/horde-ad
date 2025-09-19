@@ -1312,8 +1312,8 @@ astCastK t = case t of
   AstConcreteK k -> astConcreteK (tkcast $ Concrete k)
   -- TODO: which should go deeper, casts or fromPrimal? Or maybe alternate
   -- in different phases to make sure both can cancel out?
-  -- Rethink. For now, astFromPrimalis not called, to avoid loops.
-  -- The same with many others
+  -- Rethink. For now, astFromPrimal is not called, to avoid loops.
+  -- The same with many others.
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astCastK v
   Ast.AstFromDual v -> Ast.AstFromDual $ astCastK v
   Ast.AstFromPlain v -> Ast.AstFromPlain $ astCastK v
@@ -1414,9 +1414,10 @@ astCastS t = case t of
   Ast.AstBuild1 snat STKScalar (var, v) ->
     Ast.AstBuild1 snat STKScalar (var, astCastK v)
   Ast.AstLet var u v -> astLet var u (astCastS v)
-  Ast.AstPrimalPart a -> astPrimalPart $ astCastS a
-  Ast.AstDualPart a -> astDualPart $ astCastS a
-  Ast.AstPlainPart a -> astPlainPart $ astCastS a
+  -- These (rarely) loop if ast* is used instead of Ast.Ast*.
+  Ast.AstPrimalPart a -> Ast.AstPrimalPart $ astCastS a
+  Ast.AstDualPart a -> Ast.AstDualPart $ astCastS a
+  Ast.AstPlainPart a -> Ast.AstPlainPart $ astCastS a
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astCastS v
   Ast.AstFromDual v -> Ast.AstFromDual $ astCastS v
   Ast.AstFromPlain v -> Ast.AstFromPlain $ astCastS v
