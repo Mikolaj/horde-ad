@@ -998,8 +998,7 @@ instance (AstSpan s, NumScalar r)
   AstConcreteK u <=. AstConvert _ v
     | FTKS ZSS (FTKScalar @rv) <- ftkAst v
     , Just Refl <- testEquality (typeRep @rv) (typeRep @r)
-    = AstConcreteS (unConcrete $ sfromK $ Concrete u)
-      <=. primalPart @s (fromPlain v)
+    = AstConcreteS (unConcrete $ sfromK $ Concrete u) <=. v
   u <=. AstPlusK (AstConcreteK v) w =
     u - AstConcreteK v <=. w
   AstPlusK (AstConcreteK u) w <=. v =
@@ -1038,8 +1037,7 @@ instance (AstSpan s, NumScalar r)
     | FTKS ZSS (FTKScalar @rz) <- convertFTK c (ftkAst v)
     , FTKScalar @ry <- ftkAst v
     , Just Refl <- testEquality (typeRep @ry) (typeRep @rz) =
-      AstConcreteK (unConcrete $ kfromS $ Concrete u)
-        <=. plainPart @s (fromPrimal v)
+      AstConcreteK (unConcrete $ kfromS $ Concrete u) <=. v
   AstConcreteS u <=. AstConcreteS v =
     AstBoolConst $ Concrete @(TKS sh r) u <=. Concrete v
   u <=. AstPlusS (AstConcreteS v) w =

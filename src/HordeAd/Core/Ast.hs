@@ -480,7 +480,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
          -> AstTensor ms s (TKS sh r)
          -> AstTensor ms s (TKS sh r)
   AstConcreteS :: GoodScalar r
-               => Nested.Shaped sh r -> AstTensor ms PrimalSpan (TKS sh r)
+               => Nested.Shaped sh r -> AstTensor ms PlainSpan (TKS sh r)
   AstFloorS :: (GoodScalar r1, RealFrac r1, Integral r2, NumScalar r2)
             => AstTensor ms PrimalSpan (TKS sh r1)
             -> AstTensor ms PrimalSpan (TKS sh r2)

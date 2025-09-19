@@ -422,7 +422,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tsgather @shm @shn @shp t f =
     astGatherS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
-  tsconcrete = fromPrimal . AstConcreteS
+  tsconcrete = fromPlain . AstConcreteS
   tsfloor = fromPrimal . astFloorS . primalPart
   tsfromIntegral = fromPrimal . astFromIntegralS . primalPart
   tscast = astCastS
@@ -608,7 +608,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst
-  tconcrete ftk a = fromPrimal $ astConcrete ftk a
+  tconcrete ftk a = fromPlain $ astConcrete ftk a
   tpair = astPair
   tproject1 = astProject1
   tproject2 = astProject2
@@ -923,7 +923,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstGatherS @shm @shn @shp knownShS (unAstRaw t)
            $ funToAstIxS knownShS (fmap unAstRaw . f . fmap AstRaw)
                -- this introduces new variable names
-  tsconcrete = AstRaw . fromPrimal . AstConcreteS
+  tsconcrete = AstRaw . fromPlain . AstConcreteS
   tsfloor = AstRaw . fromPrimal . AstFloorS . primalPart . unAstRaw
   tsfromIntegral =
     AstRaw . fromPrimal . AstFromIntegralS . primalPart . unAstRaw
@@ -1120,7 +1120,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst . unAstRaw
-  tconcrete ftk a = AstRaw $ fromPrimal $ unAstRaw $ astConcreteRaw ftk a
+  tconcrete ftk a = AstRaw $ fromPlain $ unAstRaw $ astConcreteRaw ftk a
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
@@ -1250,20 +1250,18 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
   tunpairConv = tunpair
 
 -- All but the last case are shortcuts for common forms.
-astConcreteRaw :: FullShapeTK y -> Concrete y
-               -> AstRaw PrimalSpan y
+astConcreteRaw :: FullShapeTK y -> Concrete y -> AstRaw PlainSpan y
 astConcreteRaw ftk v = case ftk of
-  FTKScalar ->
-    AstRaw $ primalPart @FullSpan . fromPlain . AstConcreteK $ unConcrete v
+  FTKScalar -> AstRaw $ AstConcreteK $ unConcrete v
   FTKR sh' FTKScalar -> AstRaw $
     withShsFromShR sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      cAstFromS ftk $ AstConcreteS (unConcrete $ sfromR @_ @sh v)
+      cAstFromS ftk $ AstConcreteS $ unConcrete $ sfromR @_ @sh v
   FTKS _ FTKScalar -> AstRaw $ AstConcreteS $ unConcrete v
   FTKX sh' FTKScalar -> AstRaw $
     withShsFromShX sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      cAstFromS ftk $ AstConcreteS (unConcrete $ sfromX @_ @sh v)
+      cAstFromS ftk $ AstConcreteS $ unConcrete $ sfromX @_ @sh v
   FTKProduct ftk1 ftk2 -> AstRaw $
     AstPair (unAstRaw $ astConcreteRaw ftk1 (tproject1 v))
             (unAstRaw $ astConcreteRaw ftk2 (tproject2 v))

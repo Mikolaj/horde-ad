@@ -290,7 +290,6 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   -- of concrete arrays, but allocating an extra array of the same size
   -- as the fromVector is not a big deal and early rules are better
   -- then the same rules in contraction phase.
-{- TODO: how many such cases are needed? worth it?
   (case (sameAstSpan @s @PlainSpan, stk) of
      (Just Refl, STKScalar) ->
        let unConc :: AstTensor AstMethodLet PlainSpan y
@@ -302,10 +301,10 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
          Just l4 -> Just $ astConcreteS (tfromVector snat stk l4)
          Nothing -> Nothing
      _ -> Nothing)
-  `mplus` -}
-  (case (sameAstSpan @s @PrimalSpan, stk) of
+  `mplus`
+  (case (sameAstSpan @s @PlainSpan, stk) of
      (Just Refl, STKS _ STKScalar) ->
-       let unConc :: AstTensor AstMethodLet PrimalSpan y
+       let unConc :: AstTensor AstMethodLet PlainSpan y
                   -> Maybe (Concrete y)
            unConc (AstConcreteS a) = Just $ Concrete a
            unConc _ = Nothing
@@ -380,21 +379,21 @@ astSum :: forall y k s. (AstSpan s, TKAllNum y)
 astSum snat@SNat stk t0 = case t0 of
   _ | Just Refl <- testEquality snat (SNat @0) ->
     let ftk = razeFTK snat stk (ftkAst t0)
-    in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+    in fromPlain $ astConcrete ftk (tdefTarget ftk)
   AstConcreteS @_ @sh2 t -> case stk of
     STKS @sh _ STKScalar ->
       gcastWith (unsafeCoerceRefl :: k ': sh :~: sh2) $
       astConcreteS $ tsum snat stk $ Concrete t
     STKScalar ->
       gcastWith (unsafeCoerceRefl :: '[k] :~: sh2) $
-      primalPart @FullSpan . fromPlain
-      . astConcreteK $ tsum snat stk $ Concrete t
+      astConcreteK $ tsum snat stk $ Concrete t
   Ast.AstIotaS @_ @r (SNat @n) ->
     let i :: r
         i = fromInteger $ valueOf @n * (valueOf @n - 1) `div` 2
     in case stk of
       STKScalar -> primalPart @FullSpan . fromPlain . AstConcreteK $ i
-      STKS ZSS STKScalar -> AstConcreteS $ Nested.sscalar i
+      STKS ZSS STKScalar ->
+        primalPart @FullSpan . fromPlain . AstConcreteS $ Nested.sscalar i
   Ast.AstReverseS v -> astSum snat stk v
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKScalar <- stk ->
@@ -429,7 +428,7 @@ astSum snat@SNat stk t0 = case t0 of
       ftk@(FTKR sh' FTKScalar) ->
         withShsFromShR sh' $ \(sh :: ShS sh) ->
           v * astFromS'
-                ftk (fromPrimal $ AstConcreteS @r
+                ftk (fromPlain $ AstConcreteS @r
                      $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ _ v | STKX _ (STKScalar @r) <- stk
                          , Dict0 <- numFromTKAllNum (Proxy @r) ->
@@ -437,14 +436,14 @@ astSum snat@SNat stk t0 = case t0 of
       ftk@(FTKX sh' FTKScalar) ->
         withShsFromShX sh' $ \(sh :: ShS sh) ->
           v * astFromS'
-                ftk (fromPrimal $ AstConcreteS @r
+                ftk (fromPlain $ AstConcreteS @r
                      $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ STKS{} v | STKS sh (STKScalar @r) <- stk
                               , Dict0 <- numFromTKAllNum (Proxy @r) ->
     case ftkAst v of
       ftk ->
           v * astFromS'
-                ftk (fromPrimal $ AstConcreteS @r
+                ftk (fromPlain $ AstConcreteS @r
                      $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
   -- This keeps tensors alive for longer, but it enables new simplifications,
   -- while hiding a sum inside let not often prevents other simplifications,
@@ -493,8 +492,7 @@ astReplicate snat stk t0 = case t0 of
   Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat stk v
   Ast.AstFromDual v -> Ast.AstFromDual $ astReplicate snat stk v
   Ast.AstFromPlain v -> Ast.AstFromPlain $ astReplicate snat stk v
-  AstConcreteK t -> plainPart @FullSpan . fromPrimal . astConcreteS
-                    $ treplicate snat stk $ Concrete t
+  AstConcreteK t -> astConcreteS $ treplicate snat stk $ Concrete t
   AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
   Ast.AstConvert c t | checkAstFromS c t ->
     let xftk = ftkAst t
@@ -1024,7 +1022,7 @@ astPrimalPart t = case t of
   Ast.AstFromPrimal v -> v
   Ast.AstFromDual v ->
     let ftk = ftkAst v
-    in astConcrete ftk (tdefTarget ftk)
+    in fromPlain $ astConcrete ftk (tdefTarget ftk)
   Ast.AstFromPlain{} -> Ast.AstPrimalPart t
 
   AstPlusK u v -> astPrimalPart u + astPrimalPart v
@@ -1113,13 +1111,13 @@ astDualPart t = case t of
 
   Ast.AstFromPrimal v ->
     let ftk = ftkAst v
-    in Ast.AstDualPart $ Ast.AstFromPrimal
+    in Ast.AstDualPart $ Ast.AstFromPlain
        $ astConcrete ftk (tdefTarget ftk)
            -- let's hope this is smaller than v
   Ast.AstFromDual v -> v
   Ast.AstFromPlain v ->  -- TODO: are deltas zeroed enough here?
     let ftk = ftkAst v
-    in Ast.AstDualPart $ Ast.AstFromPrimal
+    in Ast.AstDualPart $ Ast.AstFromPlain
        $ astConcrete ftk (tdefTarget ftk)
            -- let's hope this is smaller than v
 
@@ -1213,7 +1211,7 @@ astPlainPart t = case t of
   Ast.AstFromPrimal v -> astPlainPart v
   Ast.AstFromDual v ->
     let ftk = ftkAst v
-    in astPlainPart $ astConcrete ftk (tdefTarget ftk)
+    in astConcrete ftk (tdefTarget ftk)
   Ast.AstFromPlain v -> v
 
   AstPlusK u v -> astPlainPart u + astPlainPart v
@@ -1327,7 +1325,7 @@ astCastK t = case t of
 
 astConcreteS :: GoodScalar r
              => Concrete (TKS sh r)
-             -> AstTensor AstMethodLet PrimalSpan (TKS sh r)
+             -> AstTensor AstMethodLet PlainSpan (TKS sh r)
 astConcreteS = AstConcreteS . unConcrete
 
 astFloorS :: forall r1 r2 sh.
@@ -1461,7 +1459,7 @@ astIndexKnobsS _ shn v0 (i1 :.$ _)
   , FTKS (snat :$$ _) x <- ftkAst v0
   , ub < 0 || lb >= fromInteger (fromSNat snat) =
     let ftk = FTKS shn x
-    in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+    in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
   | knobPhase knobs `notElem` [PhaseUnspecified, PhaseVectorization] =
       -- don't undo vectorization tweaks
@@ -1519,13 +1517,13 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                     ix
   Ast.AstReplicate _ STKS{} v ->
     let ftk = FTKS shn x
-        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
     in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
       AstBoolConst b -> if b then astIndex shn v rest1 else defArr
       _ -> Ast.AstIndexS shn v0 ix
   Ast.AstReplicate _ STKScalar v | ZIS <- rest1 ->
     let ftk = FTKS shn x
-        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
     in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
       AstBoolConst b -> if b then astSFromK' v else defArr
       _ -> Ast.AstIndexS shn v0 ix
@@ -1539,21 +1537,21 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
    violating the invariant about variables bounds:
   Ast.AstBuild1 (SNat @k) STKS{} (var2, v) ->
     let ftk = FTKS shn x
-        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
     in astLetFunB i1 $ \i ->
     astCond (0 <=. i &&* i <=. valueOf @k - 1)
             (astIndex shn (astLet var2 i v) rest1)
             defArr -}
   Ast.AstBuild1 (SNat @k) STKS{} (var2, v) ->
     let ftk = FTKS shn x
-        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
     in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
       AstBoolConst b ->
         if b then astIndex shn (astLet var2 i1 v) rest1 else defArr
       _ -> Ast.AstIndexS shn v0 ix
   Ast.AstBuild1 (SNat @k) STKScalar (var2, v) | ZIS <- rest1 ->
     let ftk = FTKS shn x
-        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
     in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
       AstBoolConst b ->
         if b then astSFromK' $ astLet var2 i1 v else defArr
@@ -1593,7 +1591,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   AstConcreteS{} -> case unRepl1 v0 of
     Just u ->
       let ftk = FTKS shn x
-          defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+          defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
       in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
         AstBoolConst b -> if b then astIndex shn u rest1 else defArr
         _ -> Ast.AstIndexS shn v0 ix
@@ -1616,7 +1614,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
         then astIndex shn (astScatterS @shm7 @shn7 @(Tail shp7)
                                        shn7 v (vars, ix2)) rest1
         else let ftk = FTKS shn x
-             in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+             in fromPlain $ astConcrete ftk (tdefTarget ftk)
   -- AstScatter sh v (vars2, ZIR) ->
   --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZIR)
   Ast.AstScatterS{} ->  -- normal form
@@ -1631,7 +1629,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                  v ((::$) @m71 @shm71 (Const var2) vars, ix2) ->
     gcastWith (unsafeCoerceRefl :: shm71 ++ shn' :~: shm1 ++ shn) $
     let ftk = FTKS shn x
-        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
         w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
         w = astGather @shm71 @shn' @shp' shn' v (vars, ix2)
         u = astLet var2 i1 $ astIndex @shm1 @shn shn w rest1
@@ -1672,7 +1670,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstIotaS (SNat @k) -> case testEquality shn ZSS of
     Just Refl ->
       let ftk = FTKS ZSS x
-          defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+          defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
       in astLetFunB i1 $ \i ->
         astCond (0 <=. i &&* i <=. valueOf @k - 1)
                 (astFromIntegralS $ primalPart @FullSpan $ fromPlain
@@ -1703,7 +1701,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstSliceS i@(SNat @i) (SNat @n) k@SNat v ->
     astLetFunB i1 $ \iShared ->
     let ftk = FTKS shn x
-        defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
         b = (if sNatValue i == 0 then true else 0 <=. iShared )
             &&* (if sNatValue k == 0 then true else iShared <=. valueOf @n - 1)
         ii = valueOf @i + iShared
@@ -1779,7 +1777,7 @@ astScatterS shn v0 (_vars, ix@((:.$) @k i1 _))
         FTKS _ x = ftkAst v0
   , ub < 0 || lb >= valueOf @k =
     let ftk = FTKS (shsFromIxS ix `shsAppend` shn) x
-    in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+    in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astScatterS shn v (vars, (:.$) @k (AstConcreteK _) rest)
   | Just Refl <- sameNat (SNat @k) (SNat @1)
   , FTKS _ x <- ftkAst v =
@@ -1837,7 +1835,7 @@ astGatherKnobsS _ shn v0 (vars, i1 :.$ _)
   , FTKS (snat :$$ _) x <- ftkAst v0
   , ub < 0 || lb >= fromInteger (fromSNat snat) =
     let ftk = FTKS (shsFromListS vars `shsAppend` shn) x
-    in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+    in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0)
   | not (getConst var1 `varNameInIxS` ix0) =
     let k :$$ sh' = shsFromListS vars0
@@ -2079,7 +2077,7 @@ astGatherKnobsS knobs shn v0
     else
       withSNat (- fromIntegral i64) $ \(SNat @i) ->
         let ftk = FTKS (SNat @i :$$ shsFromIxS prest `shsAppend` shn) x
-            v2 = fromPrimal (astConcrete ftk (tdefTarget ftk))
+            v2 = fromPlain (astConcrete ftk (tdefTarget ftk))
                  `astAppendS`
                  v0
         in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
@@ -2099,7 +2097,7 @@ astGatherKnobsS knobs shn v0
     else
       withSNat (- fromIntegral i64) $ \(SNat @i) ->
         let ftk = FTKS (SNat @i :$$ shsFromIxS prest `shsAppend` shn) x
-            v2 = fromPrimal (astConcrete ftk (tdefTarget ftk))
+            v2 = fromPlain (astConcrete ftk (tdefTarget ftk))
                  `astAppendS`
                  v0
         in astGatherKnobsS knobs shn v2 (vars, Ast.AstLet varN uN i1 :.$ prest)
@@ -2266,7 +2264,7 @@ astGatherKnobsS knobs shn v0
                FTKS (SNat @(m - m2) :$$ shsFromListS mrest `shsAppend` shn) x
          in astTransposeS permVars u
             `astAppendS`
-            fromPrimal (astConcrete ftk (tdefTarget ftk))
+            fromPlain (astConcrete ftk (tdefTarget ftk))
 astGatherKnobsS knobs shn v7@(Ast.AstFromVector _ (STKS _ x2) l)
                 ( ((::$) @m1' @shm4 (Const var4) vrest4)
                 , ((:.$) @_ @shp1' i4 rest4) )
@@ -2285,7 +2283,7 @@ astGatherKnobsS knobs shn v7@(Ast.AstFromVector _ (STKS _ x2) l)
           in if j >= V.length l
              then let FTKS _ x = ftkAst v7
                       ftk = FTKS (shsFromListS vrest4 `shsAppend` shn) x
-                  in fromPrimal $ astConcrete ftk (tdefTarget ftk)
+                  in fromPlain $ astConcrete ftk (tdefTarget ftk)
              else astGatherKnobsS @shm4 @shn @shp1' knobs shn
                                   (l V.! j) (vrest4, subRest4)
     in astFromVector (SNat @m1')
@@ -2530,7 +2528,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
                 else astTransposeAsGatherS knobs perm4S innerGather -}
     Ast.AstReplicate _ STKS{} v ->
       let ftk = FTKS (shsFromListS vars4 `shsAppend` shn) x
-          defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+          defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
       -- This boolean term may have free variables that act as universally
       -- quantified.
       in case 0 <=. i4 &&* i4 <=. valueOf @in1 - 1 of
@@ -2539,7 +2537,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
         _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstReplicate (SNat @k) STKScalar v | ZIS <- rest4 ->
       let ftk = FTKS (shsFromListS vars4 `shsAppend` shn) x
-          defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+          defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
       in case 0 <=. i4 &&* i4 <=. valueOf @k - 1 of
         AstBoolConst b ->
           if b then astGather @shm @shn @shp1'
@@ -2555,7 +2553,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
     AstConcreteS{} -> case unRepl1 v4 of
       Just u ->
         let ftk = FTKS (shsFromListS vars4 `shsAppend` shn) x
-            defArr = fromPrimal $ astConcrete ftk (tdefTarget ftk)
+            defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
         in case 0 <=. i4 &&* i4 <=. valueOf @in1 - 1 of
           AstBoolConst b ->
             if b
@@ -3186,7 +3184,7 @@ astConvertFromS c zftk a = case (zftk, a) of
   (FTKScalar @r1, AstConcreteS @r2 v)
     | ZSS <- Nested.sshape v
     , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
-      primalPart @FullSpan $ fromPlain $ AstConcreteK (Nested.sunScalar v)
+      AstConcreteK (Nested.sunScalar v)
   (_, Ast.AstFromPrimal v) ->
     Ast.AstFromPrimal $ astConvertFromS c zftk v
       -- a rare case where we don't pull up but push down so that conversions
@@ -3249,8 +3247,7 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstProject1{} -> Ast.AstConvert c a0
   Ast.AstProject2{} -> Ast.AstConvert c a0
   Ast.AstSum snat@SNat STKScalar a -> astSum snat (STKS ZSS STKScalar) a
-  AstConcreteK k ->
-    plainPart @FullSpan $ fromPrimal $ AstConcreteS $ Nested.sscalar k
+  AstConcreteK k -> AstConcreteS $ Nested.sscalar k
   Ast.AstFloorK{} -> Ast.AstConvert c a0
   Ast.AstFromIntegralK{} -> Ast.AstConvert c a0
   Ast.AstCastK{} -> Ast.AstConvert c a0
@@ -3507,11 +3504,11 @@ astSum0S t = case t of
   Ast.AstSum SNat _ u -> astSum0S u
   Ast.AstReplicate snat (STKS _ (STKScalar @r)) u
     | Dict0 <- numFromTKAllNum (Proxy @r) ->
-      astSum0S u * (fromPrimal $ AstConcreteS
+      astSum0S u * (fromPlain $ AstConcreteS
                     $ Nested.sscalar $ fromInteger $ fromSNat snat)
   Ast.AstReplicate snat (STKScalar @r) u
     | Dict0 <- numFromTKAllNum (Proxy @r) ->
-      astSFromK' u * (fromPrimal $ AstConcreteS
+      astSFromK' u * (fromPlain $ AstConcreteS
                       $ Nested.sscalar $ fromInteger $ fromSNat snat)
   Ast.AstLet var u v -> astLet var u (astSum0S v)
   AstTimesS t1 t2 -> astDot0S t1 t2
@@ -3546,7 +3543,7 @@ astDot0S t1 t2 = case (t1, t2) of
   _ | FTKS (snat :$$ _) _ <- ftkAst t1
     , Just u1 <- unRepl1 t1
     , Just u2 <- unRepl1 t2 ->
-      astDot0S u1 u2 * (fromPrimal $ AstConcreteS
+      astDot0S u1 u2 * (fromPlain $ AstConcreteS
                         $ Nested.sscalar $ fromInteger $ fromSNat snat)
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
     Ast.AstFromPrimal $ astDot0S u1 u2
@@ -3694,10 +3691,9 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
 -- * Helper combinators
 
 -- All but the last case are shortcuts for common forms.
-astConcrete :: FullShapeTK y -> Concrete y
-            -> AstTensor AstMethodLet PrimalSpan y
+astConcrete :: FullShapeTK y -> Concrete y -> AstTensor AstMethodLet PlainSpan y
 astConcrete ftk v = case ftk of
-  FTKScalar -> primalPart @FullSpan . fromPlain . astConcreteK $ v
+  FTKScalar -> astConcreteK $ v
   FTKR sh' FTKScalar ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
@@ -3709,8 +3705,7 @@ astConcrete ftk v = case ftk of
       astFromS' ftk $ astConcreteS (sfromX @_ @sh v)
   FTKProduct ftk1 ftk2 ->
     astPair (astConcrete ftk1 (tproject1 v)) (astConcrete ftk2 (tproject2 v))
-  _ -> concreteTarget (primalPart @FullSpan . fromPlain . astConcreteK)
-                      astConcreteS astFromS' (ftkToSTK ftk) v
+  _ -> concreteTarget astConcreteK astConcreteS astFromS' (ftkToSTK ftk) v
 
 astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
           => AstTensor AstMethodLet s y

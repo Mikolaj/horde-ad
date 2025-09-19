@@ -561,10 +561,12 @@ contractAst t0 = case t0 of
   Ast.AstI2S RemOp u v -> remH (contractAst u) (contractAst v)
   AstConcreteS a -> AstConcreteS a
   Ast.AstFloorS t -> case contractAst t of
-    AstConcreteS a -> astConcreteS (tsfloor $ Concrete a)
+    Ast.AstPrimalPart (Ast.AstFromPlain (AstConcreteS a)) ->
+      fromPlain $ astConcreteS $ tsfloor $ Concrete a
     t2 -> astFloorS t2
   Ast.AstFromIntegralS t -> case contractAst t of
-    AstConcreteS a -> astConcreteS (tsfromIntegral $ Concrete a)
+    Ast.AstPrimalPart (Ast.AstFromPlain (AstConcreteS a)) ->
+      fromPlain $ astConcreteS $ tsfromIntegral $ Concrete a
     t2 -> astFromIntegralS t2
   Ast.AstCastS t -> case contractAst t of
     AstConcreteS a -> astConcreteS (tscast $ Concrete a)
@@ -596,7 +598,8 @@ contractAst t0 = case t0 of
               (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromK i)) -}
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (contractAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (contractAst a)
-  Ast.AstIotaS (SNat @n) -> astConcreteS $ tsiota @_ @n
+  Ast.AstIotaS (SNat @n) ->
+    primalPart @FullSpan . fromPlain . astConcreteS $ tsiota @_ @n
   Ast.AstAppendS x y -> astAppendS (contractAst x) (contractAst y)
   Ast.AstSliceS i n k t -> astSliceS i n k (contractAst t)
   Ast.AstReverseS t -> astReverseS (contractAst t)
