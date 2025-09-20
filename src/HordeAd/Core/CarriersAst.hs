@@ -917,8 +917,8 @@ instance (AstSpan s, NumScalar r) => EqH (AstTensor ms s) (TKR n r) where
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                cAstSFromR shu (primalPart v)
-                ==. cAstSFromR shv (primalPart u)
+                cAstSFromR shu (plainPart v)
+                ==. cAstSFromR shv (plainPart u)
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -930,8 +930,8 @@ instance (AstSpan s, NumScalar r) => EqH (AstTensor ms s) (TKX sh r) where
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                cAstSFromX shu (primalPart v)
-                ==. cAstSFromX shv (primalPart u)
+                cAstSFromX shu (plainPart v)
+                ==. cAstSFromX shv (plainPart u)
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -943,8 +943,8 @@ instance (AstSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKR n r) where
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                cAstSFromR shu (primalPart v)
-                <=. cAstSFromR shv (primalPart u)
+                cAstSFromR shu (plainPart v)
+                <=. cAstSFromR shv (plainPart u)
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -956,8 +956,8 @@ instance (AstSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                cAstSFromX shu (primalPart v)
-                <=. cAstSFromX shv (primalPart u)
+                cAstSFromX shu (plainPart v)
+                <=. cAstSFromX shv (plainPart u)
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -1051,7 +1051,7 @@ instance (AstSpan s, NumScalar r)
   AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
     | varNameToAstVarId u == varNameToAstVarId v =
       AstBoolConst True
-  v <=. u = AstLeqS (primalPart v) (primalPart u)
+  v <=. u = AstLeqS (plainPart v) (plainPart u)
 
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify definitions
