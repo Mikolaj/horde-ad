@@ -101,6 +101,10 @@ instance Ord (AstTensor ms s y) where
 -- of the constructor. No flattening is performed beyond that.
 instance (NumScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
+  AstPrimalPart u + AstPrimalPart v = AstPrimalPart $ u + v
+  AstDualPart u + AstDualPart v = AstDualPart $ u + v
+  AstPlainPart @_ @s1 u + AstPlainPart @_ @s2 v
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ u + v
   AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
   AstFromDual u + AstFromDual v = AstFromDual $ u + v
   AstFromPlain u + AstFromPlain v = AstFromPlain $ u + v
@@ -183,6 +187,9 @@ instance (NumScalar r, AstSpan s)
     | eqK t1 t2 = AstConcreteK (n1 + n2) * t1
   u + v = AstPlusK u v
 
+  AstPrimalPart u * AstPrimalPart v = AstPrimalPart $ u * v
+  AstPlainPart @_ @s1 u * AstPlainPart @_ @s2 v
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ u * v
   AstFromPrimal u * AstFromPrimal v = AstFromPrimal $ u * v
   AstFromDual{} * AstFromDual{} = 0
   AstFromPlain u * AstFromPlain v = AstFromPlain $ u * v
@@ -253,6 +260,9 @@ instance (NumScalar r, AstSpan s)
 
   negate (AstCond b n k) = AstCond b (negate n) (negate k)
   negate (AstLet var n k) = AstLet var n (negate k)
+  negate (AstPrimalPart n) = AstPrimalPart (negate n)
+  negate (AstDualPart n) = AstDualPart (negate n)
+  negate (AstPlainPart n) = AstPlainPart (negate n)
   negate (AstFromPrimal n) = AstFromPrimal (negate n)
   negate (AstFromDual n) = AstFromDual (negate n)
   negate (AstFromPlain n) = AstFromPlain (negate n)
@@ -270,6 +280,9 @@ instance (NumScalar r, AstSpan s)
     , Just Refl <- matchingFTK x (convertFTK c (ftkAst u)) =
       AstConvert c (negate u)
   negate u = AstN1K NegateOp u
+  abs (AstPrimalPart n) = AstPrimalPart (abs n)
+  abs (AstDualPart n) = AstDualPart (abs n)
+  abs (AstPlainPart n) = AstPlainPart (abs n)
   abs (AstFromPrimal n) = AstFromPrimal (abs n)
   abs (AstFromDual n) = AstFromDual (abs n)
   abs (AstFromPlain n) = AstFromPlain (abs n)
@@ -281,6 +294,9 @@ instance (NumScalar r, AstSpan s)
     , Just Refl <- matchingFTK x (convertFTK c (ftkAst u)) =
       AstConvert c (abs u)
   abs u = AstN1K AbsOp u
+  signum (AstPrimalPart n) = AstPrimalPart (signum n)
+  signum (AstDualPart n) = AstDualPart (signum n)
+  signum (AstPlainPart n) = AstPlainPart (signum n)
   signum (AstFromPrimal n) = AstFromPrimal (signum n)
   signum (AstFromDual n) = AstFromDual (signum n)
   signum (AstFromPlain n) = AstFromPlain (signum n)
@@ -343,6 +359,9 @@ eqK _ _ = False
 -- constructing conditionals, etc), so they are not included in IntegralH.
 instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKScalar r)) where
+  quotH (AstPrimalPart n) (AstPrimalPart k) = AstPrimalPart (quotH n k)
+  quotH (AstPlainPart @_ @s1 n) (AstPlainPart @_ @s2 k)
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart (quotH n k)
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
   quotH (AstFromPlain n) (AstFromPlain k) = AstFromPlain (quotH n k)
   quotH (AstConvert c n) (AstConvert _ k)
@@ -364,6 +383,9 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
         (u1, u2) = bounds t
     in if u1 == u2 then fromPlain $ AstConcreteK u1 else t
 
+  remH (AstPrimalPart n) (AstPrimalPart k) = AstPrimalPart (remH n k)
+  remH (AstPlainPart @_ @s1 n) (AstPlainPart @_ @s2 k)
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart (remH n k)
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
   remH (AstFromPlain n) (AstFromPlain k) = AstFromPlain (remH n k)
   remH (AstConvert c n) (AstConvert _ k)
@@ -392,10 +414,15 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
 
 instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
+  AstPrimalPart u / AstPrimalPart v = AstPrimalPart $ u / v
+  AstPlainPart @_ @s1 u / AstPlainPart @_ @s2 v
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ u / v
   AstFromPrimal u / AstFromPrimal v = AstFromPrimal $ u / v
   AstFromPlain u / AstFromPlain v = AstFromPlain $ u / v
   AstConcreteK u / AstConcreteK v = AstConcreteK $ u / v
   u / v = AstR2K DivideOp u v
+  recip (AstPrimalPart u) = AstPrimalPart (recip u)
+  recip (AstPlainPart u) = AstPlainPart (recip u)
   recip (AstFromPrimal u) = AstFromPrimal (recip u)
   recip (AstFromPlain u) = AstFromPlain (recip u)
   recip (AstConcreteK u) = AstConcreteK (recip u)
@@ -405,70 +432,106 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
   pi = error "pi is not defined for tensors"
+  exp (AstPrimalPart u) = AstPrimalPart $ exp u
+  exp (AstPlainPart u) = AstPlainPart $ exp u
   exp (AstFromPrimal u) = AstFromPrimal $ exp u
   exp (AstFromPlain u) = AstFromPlain $ exp u
   exp (AstConcreteK u) = AstConcreteK $ exp u
   exp u = AstR1K ExpOp u
+  log (AstPrimalPart u) = AstPrimalPart $ log u
+  log (AstPlainPart u) = AstPlainPart $ log u
   log (AstFromPrimal u) = AstFromPrimal $ log u
   log (AstFromPlain u) = AstFromPlain $ log u
   log (AstConcreteK u) = AstConcreteK $ log u
   log u = AstR1K LogOp u
+  sqrt (AstPrimalPart u) = AstPrimalPart $ sqrt u
+  sqrt (AstPlainPart u) = AstPlainPart $ sqrt u
   sqrt (AstFromPrimal u) = AstFromPrimal $ sqrt u
   sqrt (AstFromPlain u) = AstFromPlain $ sqrt u
   sqrt (AstConcreteK u) = AstConcreteK $ sqrt u
   sqrt u = AstR1K SqrtOp u
+  (AstPrimalPart u) ** (AstPrimalPart v) = AstPrimalPart $ u ** v
+  (AstPlainPart @_ @s1 u) ** (AstPlainPart @_ @s2 v)
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ u ** v
   (AstFromPrimal u) ** (AstFromPrimal v) = AstFromPrimal $ u ** v
   (AstFromPlain u) ** (AstFromPlain v) = AstFromPlain $ u ** v
   (AstConcreteK u) ** (AstConcreteK v) = AstConcreteK $ u ** v
   u ** v = AstR2K PowerOp u v
+  logBase (AstPrimalPart u) (AstPrimalPart v) = AstPrimalPart $ logBase u v
+  logBase (AstPlainPart @_ @s1 u) (AstPlainPart @_ @s2 v)
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ logBase u v
   logBase (AstFromPrimal u) (AstFromPrimal v) = AstFromPrimal $ logBase u v
   logBase (AstFromPlain u) (AstFromPlain v) = AstFromPlain $ logBase u v
   logBase (AstConcreteK u) (AstConcreteK v) = AstConcreteK $ logBase u v
   logBase u v = AstR2K LogBaseOp u v
+  sin (AstPrimalPart u) = AstPrimalPart $ sin u
+  sin (AstPlainPart u) = AstPlainPart $ sin u
   sin (AstFromPrimal u) = AstFromPrimal $ sin u
   sin (AstFromPlain u) = AstFromPlain $ sin u
   sin (AstConcreteK u) = AstConcreteK $ sin u
   sin u = AstR1K SinOp u
+  cos (AstPrimalPart u) = AstPrimalPart $ cos u
+  cos (AstPlainPart u) = AstPlainPart $ cos u
   cos (AstFromPrimal u) = AstFromPrimal $ cos u
   cos (AstFromPlain u) = AstFromPlain $ cos u
   cos (AstConcreteK u) = AstConcreteK $ cos u
   cos u = AstR1K CosOp u
+  tan (AstPrimalPart u) = AstPrimalPart $ tan u
+  tan (AstPlainPart u) = AstPlainPart $ tan u
   tan (AstFromPrimal u) = AstFromPrimal $ tan u
   tan (AstFromPlain u) = AstFromPlain $ tan u
   tan (AstConcreteK u) = AstConcreteK $ tan u
   tan u = AstR1K TanOp u
+  asin (AstPrimalPart u) = AstPrimalPart $ asin u
+  asin (AstPlainPart u) = AstPlainPart $ asin u
   asin (AstFromPrimal u) = AstFromPrimal $ asin u
   asin (AstFromPlain u) = AstFromPlain $ asin u
   asin (AstConcreteK u) = AstConcreteK $ asin u
   asin u = AstR1K AsinOp u
+  acos (AstPrimalPart u) = AstPrimalPart $ acos u
+  acos (AstPlainPart u) = AstPlainPart $ acos u
   acos (AstFromPrimal u) = AstFromPrimal $ acos u
   acos (AstFromPlain u) = AstFromPlain $ acos u
   acos (AstConcreteK u) = AstConcreteK $ acos u
   acos u = AstR1K AcosOp u
+  atan (AstPrimalPart u) = AstPrimalPart $ atan u
+  atan (AstPlainPart u) = AstPlainPart $ atan u
   atan (AstFromPrimal u) = AstFromPrimal $ atan u
   atan (AstFromPlain u) = AstFromPlain $ atan u
   atan (AstConcreteK u) = AstConcreteK $ atan u
   atan u = AstR1K AtanOp u
+  sinh (AstPrimalPart u) = AstPrimalPart $ sinh u
+  sinh (AstPlainPart u) = AstPlainPart $ sinh u
   sinh (AstFromPrimal u) = AstFromPrimal $ sinh u
   sinh (AstFromPlain u) = AstFromPlain $ sinh u
   sinh (AstConcreteK u) = AstConcreteK $ sinh u
   sinh u = AstR1K SinhOp u
+  cosh (AstPrimalPart u) = AstPrimalPart $ cosh u
+  cosh (AstPlainPart u) = AstPlainPart $ cosh u
   cosh (AstFromPrimal u) = AstFromPrimal $ cosh u
   cosh (AstFromPlain u) = AstFromPlain $ cosh u
   cosh (AstConcreteK u) = AstConcreteK $ cosh u
   cosh u = AstR1K CoshOp u
+  tanh (AstPrimalPart u) = AstPrimalPart $ tanh u
+  tanh (AstPlainPart u) = AstPlainPart $ tanh u
   tanh (AstFromPrimal u) = AstFromPrimal $ tanh u
   tanh (AstFromPlain u) = AstFromPlain $ tanh u
   tanh (AstConcreteK u) = AstConcreteK $ tanh u
   tanh u = AstR1K TanhOp u
+  asinh (AstPrimalPart u) = AstPrimalPart $ asinh u
+  asinh (AstPlainPart u) = AstPlainPart $ asinh u
   asinh (AstFromPrimal u) = AstFromPrimal $ asinh u
   asinh (AstFromPlain u) = AstFromPlain $ asinh u
   asinh (AstConcreteK u) = AstConcreteK $ asinh u
   asinh u = AstR1K AsinhOp u
+  acosh (AstPrimalPart u) = AstPrimalPart $ acosh u
+  acosh (AstPlainPart u) = AstPlainPart $ acosh u
   acosh (AstFromPrimal u) = AstFromPrimal $ acosh u
   acosh (AstFromPlain u) = AstFromPlain $ acosh u
   acosh (AstConcreteK u) = AstConcreteK $ acosh u
   acosh u = AstR1K AcoshOp u
+  atanh (AstPrimalPart u) = AstPrimalPart $ atanh u
+  atanh (AstPlainPart u) = AstPlainPart $ atanh u
   atanh (AstFromPrimal u) = AstFromPrimal $ atanh u
   atanh (AstFromPlain u) = AstFromPlain $ atanh u
   atanh (AstConcreteK u) = AstConcreteK $ atanh u
@@ -476,6 +539,9 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 
 instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKScalar r)) where
+  atan2H (AstPrimalPart u) (AstPrimalPart v) = AstPrimalPart $ atan2H u v
+  atan2H (AstPlainPart @_ @s1 u) (AstPlainPart @_ @s2 v)
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ atan2H u v
   atan2H (AstFromPrimal u) (AstFromPrimal v) = AstFromPrimal $ atan2H u v
   atan2H (AstFromPlain u) (AstFromPlain v) = AstFromPlain $ atan2H u v
   atan2H (AstConcreteK u) (AstConcreteK v) = AstConcreteK $ atan2H u v
@@ -539,6 +605,10 @@ instance (NumScalar r, AstSpan s)
          => Num (AstTensor ms s (TKS sh r)) where
   AstReplicate snat stk@STKS{} u + AstReplicate _ STKS{} v =
     AstReplicate snat stk $ u + v
+  AstPrimalPart u + AstPrimalPart v = AstPrimalPart $ u + v
+  AstDualPart u + AstDualPart v = AstDualPart $ u + v
+  AstPlainPart @_ @s1  u + AstPlainPart @_ @s2 v
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ u + v
   AstFromPrimal u + AstFromPrimal v = AstFromPrimal $ u + v
   AstFromDual u + AstFromDual v = AstFromDual $ u + v
   AstFromPlain u + AstFromPlain v = AstFromPlain $ u + v
@@ -573,6 +643,9 @@ instance (NumScalar r, AstSpan s)
 
   AstReplicate snat stk@STKS{} u * AstReplicate _ STKS{} v =
     AstReplicate snat stk $ u * v
+  AstPrimalPart u * AstPrimalPart v = AstPrimalPart $ u * v
+  AstPlainPart @_ @s1  u * AstPlainPart @_ @s2 v
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ u * v
   AstFromPrimal u * AstFromPrimal v = AstFromPrimal $ u * v
 --  AstFromDual{} * AstFromDual{} = 0
   AstFromPlain u * AstFromPlain v = AstFromPlain $ u * v
@@ -611,6 +684,9 @@ instance (NumScalar r, AstSpan s)
   negate (AstCond b n k) = AstCond b (negate n) (negate k)
 -- TODO: negate (AstBuild1 k stk (var, v)) = AstBuild1 k stk (var, negate v)
   negate (AstLet var n k) = AstLet var n (negate k)
+  negate (AstPrimalPart n) = AstPrimalPart (negate n)
+  negate (AstDualPart n) = AstDualPart (negate n)
+  negate (AstPlainPart n) = AstPlainPart (negate n)
   negate (AstFromPrimal n) = AstFromPrimal (negate n)
   negate (AstFromDual n) = AstFromDual (negate n)
   negate (AstFromPlain n) = AstFromPlain (negate n)
@@ -631,6 +707,9 @@ instance (NumScalar r, AstSpan s)
       AstConvert c (negate n)
   negate u = AstN1S NegateOp u
   abs (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (abs u)
+  abs (AstPrimalPart n) = AstPrimalPart (abs n)
+  abs (AstDualPart n) = AstDualPart (abs n)
+  abs (AstPlainPart n) = AstPlainPart (abs n)
   abs (AstFromPrimal n) = AstFromPrimal (abs n)
   abs (AstFromDual n) = AstFromDual (abs n)
   abs (AstFromPlain n) = AstFromPlain (abs n)
@@ -643,6 +722,9 @@ instance (NumScalar r, AstSpan s)
   abs (AstN1S NegateOp u) = abs u
   abs u = AstN1S AbsOp u
   signum (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (signum u)
+  signum (AstPrimalPart n) = AstPrimalPart (signum n)
+  signum (AstDualPart n) = AstDualPart (signum n)
+  signum (AstPlainPart n) = AstPlainPart (signum n)
   signum (AstFromPrimal n) = AstFromPrimal (signum n)
   signum (AstFromDual n) = AstFromDual (signum n)
   signum (AstFromPlain n) = AstFromPlain (signum n)
@@ -660,6 +742,9 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
          => IntegralH (AstTensor ms s (TKS sh r)) where
   quotH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
     AstReplicate snat stk $ quotH u v
+  quotH (AstPrimalPart n) (AstPrimalPart k) = AstPrimalPart (quotH n k)
+  quotH (AstPlainPart @_ @s1 n) (AstPlainPart @_ @s2 k)
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart (quotH n k)
   quotH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (quotH n k)
   quotH (AstFromPlain n) (AstFromPlain k) = AstFromPlain (quotH n k)
   quotH (AstConvert c n) (AstConvert _ k)
@@ -675,6 +760,9 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
 
   remH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
     AstReplicate snat stk $ remH u v
+  remH (AstPrimalPart n) (AstPrimalPart k) = AstPrimalPart (remH n k)
+  remH (AstPlainPart @_ @s1 n) (AstPlainPart @_ @s2 k)
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart (remH n k)
   remH (AstFromPrimal n) (AstFromPrimal k) = AstFromPrimal (remH n k)
   remH (AstFromPlain n) (AstFromPlain k) = AstFromPlain (remH n k)
   remH (AstConvert c n) (AstConvert _ k)
@@ -689,9 +777,14 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
 
 instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKS sh r)) where
+  AstPrimalPart u / AstPrimalPart v = AstPrimalPart $ u / v
+  AstPlainPart @_ @s1 u / AstPlainPart @_ @s2 v
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ u / v
   AstFromPrimal u / AstFromPrimal v = AstFromPrimal $ u / v
   AstConcreteS u / AstConcreteS v = AstConcreteS $ u / v
   u / v = AstR2S DivideOp u v
+  recip (AstPrimalPart u) = AstPrimalPart (recip u)
+  recip (AstPlainPart u) = AstPlainPart (recip u)
   recip (AstFromPrimal u) = AstFromPrimal (recip u)
   recip (AstConcreteS u) = AstConcreteS (recip u)
   recip u = AstR1S RecipOp u
@@ -701,61 +794,118 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
 instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
   pi = error "pi is not defined for tensors"
+  exp (AstPrimalPart u) = AstPrimalPart $ exp u
+  exp (AstPlainPart u) = AstPlainPart $ exp u
   exp (AstFromPrimal u) = AstFromPrimal $ exp u
+  exp (AstFromPlain u) = AstFromPlain $ exp u
   exp (AstConcreteS u) = AstConcreteS $ exp u
   exp u = AstR1S ExpOp u
+  log (AstPrimalPart u) = AstPrimalPart $ log u
+  log (AstPlainPart u) = AstPlainPart $ log u
   log (AstFromPrimal u) = AstFromPrimal $ log u
+  log (AstFromPlain u) = AstFromPlain $ log u
   log (AstConcreteS u) = AstConcreteS $ log u
   log u = AstR1S LogOp u
+  sqrt (AstPrimalPart u) = AstPrimalPart $ sqrt u
+  sqrt (AstPlainPart u) = AstPlainPart $ sqrt u
   sqrt (AstFromPrimal u) = AstFromPrimal $ sqrt u
+  sqrt (AstFromPlain u) = AstFromPlain $ sqrt u
   sqrt (AstConcreteS u) = AstConcreteS $ sqrt u
   sqrt u = AstR1S SqrtOp u
+  (AstPrimalPart u) ** (AstPrimalPart v) = AstPrimalPart $ u ** v
+  (AstPlainPart @_ @s1 u) ** (AstPlainPart @_ @s2 v)
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ u ** v
   (AstFromPrimal u) ** (AstFromPrimal v) = AstFromPrimal $ u ** v
+  (AstFromPlain u) ** (AstFromPlain v) = AstFromPlain $ u ** v
   (AstConcreteS u) ** (AstConcreteS v) = AstConcreteS $ u ** v
   u ** v = AstR2S PowerOp u v
+  logBase (AstPrimalPart u) (AstPrimalPart v) = AstPrimalPart $ logBase u v
+  logBase (AstPlainPart @_ @s1 u) (AstPlainPart @_ @s2 v)
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ logBase u v
   logBase (AstFromPrimal u) (AstFromPrimal v) = AstFromPrimal $ logBase u v
+  logBase (AstFromPlain u) (AstFromPlain v) = AstFromPlain $ logBase u v
   logBase (AstConcreteS u) (AstConcreteS v) = AstConcreteS $ logBase u v
   logBase u v = AstR2S LogBaseOp u v
+  sin (AstPrimalPart u) = AstPrimalPart $ sin u
+  sin (AstPlainPart u) = AstPlainPart $ sin u
   sin (AstFromPrimal u) = AstFromPrimal $ sin u
+  sin (AstFromPlain u) = AstFromPlain $ sin u
   sin (AstConcreteS u) = AstConcreteS $ sin u
   sin u = AstR1S SinOp u
+  cos (AstPrimalPart u) = AstPrimalPart $ cos u
+  cos (AstPlainPart u) = AstPlainPart $ cos u
   cos (AstFromPrimal u) = AstFromPrimal $ cos u
+  cos (AstFromPlain u) = AstFromPlain $ cos u
   cos (AstConcreteS u) = AstConcreteS $ cos u
   cos u = AstR1S CosOp u
+  tan (AstPrimalPart u) = AstPrimalPart $ tan u
+  tan (AstPlainPart u) = AstPlainPart $ tan u
   tan (AstFromPrimal u) = AstFromPrimal $ tan u
+  tan (AstFromPlain u) = AstFromPlain $ tan u
   tan (AstConcreteS u) = AstConcreteS $ tan u
   tan u = AstR1S TanOp u
+  asin (AstPrimalPart u) = AstPrimalPart $ asin u
+  asin (AstPlainPart u) = AstPlainPart $ asin u
   asin (AstFromPrimal u) = AstFromPrimal $ asin u
+  asin (AstFromPlain u) = AstFromPlain $ asin u
   asin (AstConcreteS u) = AstConcreteS $ asin u
   asin u = AstR1S AsinOp u
+  acos (AstPrimalPart u) = AstPrimalPart $ acos u
+  acos (AstPlainPart u) = AstPlainPart $ acos u
   acos (AstFromPrimal u) = AstFromPrimal $ acos u
+  acos (AstFromPlain u) = AstFromPlain $ acos u
   acos (AstConcreteS u) = AstConcreteS $ acos u
   acos u = AstR1S AcosOp u
+  atan (AstPrimalPart u) = AstPrimalPart $ atan u
+  atan (AstPlainPart u) = AstPlainPart $ atan u
   atan (AstFromPrimal u) = AstFromPrimal $ atan u
+  atan (AstFromPlain u) = AstFromPlain $ atan u
   atan (AstConcreteS u) = AstConcreteS $ atan u
   atan u = AstR1S AtanOp u
+  sinh (AstPrimalPart u) = AstPrimalPart $ sinh u
+  sinh (AstPlainPart u) = AstPlainPart $ sinh u
   sinh (AstFromPrimal u) = AstFromPrimal $ sinh u
+  sinh (AstFromPlain u) = AstFromPlain $ sinh u
   sinh (AstConcreteS u) = AstConcreteS $ sinh u
   sinh u = AstR1S SinhOp u
+  cosh (AstPrimalPart u) = AstPrimalPart $ cosh u
+  cosh (AstPlainPart u) = AstPlainPart $ cosh u
   cosh (AstFromPrimal u) = AstFromPrimal $ cosh u
+  cosh (AstFromPlain u) = AstFromPlain $ cosh u
   cosh (AstConcreteS u) = AstConcreteS $ cosh u
   cosh u = AstR1S CoshOp u
+  tanh (AstPrimalPart u) = AstPrimalPart $ tanh u
+  tanh (AstPlainPart u) = AstPlainPart $ tanh u
   tanh (AstFromPrimal u) = AstFromPrimal $ tanh u
+  tanh (AstFromPlain u) = AstFromPlain $ tanh u
   tanh (AstConcreteS u) = AstConcreteS $ tanh u
   tanh u = AstR1S TanhOp u
+  asinh (AstPrimalPart u) = AstPrimalPart $ asinh u
+  asinh (AstPlainPart u) = AstPlainPart $ asinh u
   asinh (AstFromPrimal u) = AstFromPrimal $ asinh u
+  asinh (AstFromPlain u) = AstFromPlain $ asinh u
   asinh (AstConcreteS u) = AstConcreteS $ asinh u
   asinh u = AstR1S AsinhOp u
+  acosh (AstPrimalPart u) = AstPrimalPart $ acosh u
+  acosh (AstPlainPart u) = AstPlainPart $ acosh u
   acosh (AstFromPrimal u) = AstFromPrimal $ acosh u
+  acosh (AstFromPlain u) = AstFromPlain $ acosh u
   acosh (AstConcreteS u) = AstConcreteS $ acosh u
   acosh u = AstR1S AcoshOp u
+  atanh (AstPrimalPart u) = AstPrimalPart $ atanh u
+  atanh (AstPlainPart u) = AstPlainPart $ atanh u
   atanh (AstFromPrimal u) = AstFromPrimal $ atanh u
+  atanh (AstFromPlain u) = AstFromPlain $ atanh u
   atanh (AstConcreteS u) = AstConcreteS $ atanh u
   atanh u = AstR1S AtanhOp u
 
 instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKS sh r)) where
+  atan2H (AstPrimalPart u) (AstPrimalPart v) = AstPrimalPart $ atan2H u v
+  atan2H (AstPlainPart @_ @s1 u) (AstPlainPart @_ @s2 v)
+    | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ atan2H u v
   atan2H (AstFromPrimal u) (AstFromPrimal v) = AstFromPrimal $ atan2H u v
+  atan2H (AstFromPlain u) (AstFromPlain v) = AstFromPlain $ atan2H u v
   atan2H (AstConcreteS u) (AstConcreteS v) = AstConcreteS $ atan2H u v
   atan2H u v = AstR2S Atan2Op u v
 
@@ -981,13 +1131,13 @@ instance (AstSpan s, NumScalar r)
   u <=. v | let (u1, u2) = bounds u
                 (v1, v2) = bounds v
           , u2 <= v1 || u1 > v2 = AstBoolConst (u2 <= v1)
-  AstFromPrimal u <=. AstFromPrimal v = u <=. v
-  AstFromPlain u <=. AstFromPlain v = u <=. v
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
-  AstFromDual{} <=. AstFromDual{} = AstBoolConst True
   AstPlainPart @_ @s1 u <=. AstPlainPart @_ @s2 v
     | Just Refl <- sameAstSpan @s1 @s2 =
       u <=. v
+  AstFromPrimal u <=. AstFromPrimal v = u <=. v
+  AstFromDual{} <=. AstFromDual{} = AstBoolConst True
+  AstFromPlain u <=. AstFromPlain v = u <=. v
   AstConvert c u <=. AstConvert _ v
     | FTKS ZSS (FTKScalar @ru) <- ftkAst u
     , FTKS ZSS (FTKScalar @rv) <- ftkAst v
@@ -1022,13 +1172,13 @@ instance (AstSpan s, NumScalar r)
 
 instance (AstSpan s, NumScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
-  AstFromPrimal u <=. AstFromPrimal v = u <=. v
-  AstFromPlain u <=. AstFromPlain v = u <=. v
-  AstFromDual{} <=. AstFromDual{} = AstBoolConst True
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
   AstPlainPart @_ @s1 u <=. AstPlainPart @_ @s2 v
     | Just Refl <- sameAstSpan @s1 @s2 =
       u <=. v
+  AstFromPrimal u <=. AstFromPrimal v = u <=. v
+  AstFromDual{} <=. AstFromDual{} = AstBoolConst True
+  AstFromPlain u <=. AstFromPlain v = u <=. v
   AstConvert c u <=. AstConvert _ v
     | FTKS ZSS x <- convertFTK c (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst u)
@@ -1168,6 +1318,10 @@ astLetFunNoSimplify a f | astIsSmall True a = f a
 astLetFunNoSimplify a f = case a of
   AstFromS' @y2 ftkz v ->
     let (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
+    in AstLet var v ast
+  AstPrimalPart (AstFromPlain (AstFromS' @y2 ftkz vRaw)) ->
+    let v = AstPrimalPart (AstFromPlain vRaw)
+        (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
     in AstLet var v ast
   AstFromPrimal (AstFromS' @y2 ftkz vRaw) ->
     let v = AstFromPrimal vRaw
