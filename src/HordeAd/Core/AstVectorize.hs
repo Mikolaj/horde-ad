@@ -211,11 +211,11 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
     Ast.AstPlainPart v -> traceRule $
       astPlainPart $ build1V snat (var, v)
     Ast.AstFromPrimal v -> traceRule $
-      Ast.AstFromPrimal $ build1V snat (var, v)
+      fromPrimal $ build1V snat (var, v)
     Ast.AstFromDual v -> traceRule $
-      Ast.AstFromDual $ build1V snat (var, v)
+      fromDual $ build1V snat (var, v)
     Ast.AstFromPlain v -> traceRule $
-      Ast.AstFromPlain $ build1V snat (var, v)
+      fromPlain $ build1V snat (var, v)
 
     Ast.AstPlusK u v -> traceRule $
       build1VOccurrenceUnknown snat (var, u)

@@ -227,13 +227,13 @@ astPair :: AstSpan s
         -> AstTensor AstMethodLet s (TKProduct x y)
 astPair (Ast.AstPrimalPart (Ast.AstFromPlain v1))
         (Ast.AstPrimalPart (Ast.AstFromPlain v2)) =
-  Ast.AstPrimalPart $ Ast.AstFromPlain $ astPair v1 v2
+  Ast.AstPrimalPart $ fromPlain $ astPair v1 v2
 astPair (Ast.AstFromPrimal v1) (Ast.AstFromPrimal v2) =
-  Ast.AstFromPrimal $ astPair v1 v2
+  fromPrimal $ astPair v1 v2
 astPair (Ast.AstFromDual v1) (Ast.AstFromDual v2) =
-  Ast.AstFromDual $ astPair v1 v2
+  fromDual $ astPair v1 v2
 astPair (Ast.AstFromPlain v1) (Ast.AstFromPlain v2) =
-  Ast.AstFromPlain $ astPair v1 v2
+  fromPlain $ astPair v1 v2
 astPair (Ast.AstConvert c1 v1) (Ast.AstConvert c2 v2)
   | checkAstFromS c1 v1 && checkAstFromS c2 v2 =
     astConvert (ConvT2 c1 c2) $ astPair v1 v2
@@ -253,10 +253,10 @@ astProject1 u = case u of
   Ast.AstCond b v1 v2 -> astCond b (astProject1 v1) (astProject1 v2)
   Ast.AstLet var t v -> astLet var t (astProject1 v)
   Ast.AstPrimalPart (Ast.AstFromPlain v) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astProject1 v
-  Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject1 u1
-  Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject1 u1
-  Ast.AstFromPlain u1 -> Ast.AstFromPlain $ astProject1 u1
+    Ast.AstPrimalPart $ fromPlain $ astProject1 v
+  Ast.AstFromPrimal u1 -> fromPrimal $ astProject1 u1
+  Ast.AstFromDual u1 -> fromDual $ astProject1 u1
+  Ast.AstFromPlain u1 -> fromPlain $ astProject1 u1
   Ast.AstConvert c t | FTKProduct yftk _ <- ftkAst t
                      , FTKProduct zftk _ <- convertFTK c (ftkAst t)
                      , Just Refl <- matchingFTK yftk zftk -> astProject1 t
@@ -275,10 +275,10 @@ astProject2 u = case u of
   Ast.AstCond b v1 v2 -> astCond b (astProject2 v1) (astProject2 v2)
   Ast.AstLet var t v -> astLet var t (astProject2 v)
   Ast.AstPrimalPart (Ast.AstFromPlain v) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astProject2 v
-  Ast.AstFromPrimal u1 -> Ast.AstFromPrimal $ astProject2 u1
-  Ast.AstFromDual u1 -> Ast.AstFromDual $ astProject2 u1
-  Ast.AstFromPlain u1 -> Ast.AstFromPlain $ astProject2 u1
+    Ast.AstPrimalPart $ fromPlain $ astProject2 v
+  Ast.AstFromPrimal u1 -> fromPrimal $ astProject2 u1
+  Ast.AstFromDual u1 -> fromDual $ astProject2 u1
+  Ast.AstFromPlain u1 -> fromPlain $ astProject2 u1
   Ast.AstConvert c t | FTKProduct _ yftk <- ftkAst t
                      , FTKProduct _ zftk <- convertFTK c (ftkAst t)
                      , Just Refl <- matchingFTK yftk zftk -> astProject2 t
@@ -329,7 +329,7 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
            unFromPlain _ = Nothing
        in case V.mapM unFromPlain l of
          Just l2 | V.null l2 -> error "astFromVector: empty vector"
-         Just l2 -> Just $ Ast.AstPrimalPart $ Ast.AstFromPlain
+         Just l2 -> Just $ Ast.AstPrimalPart $ fromPlain
                          $ astFromVector snat stk l2
          Nothing -> Nothing
      _ -> Nothing)
@@ -342,7 +342,7 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
            unFromPrimal _ = Nothing
        in case V.mapM unFromPrimal l of
          Just l2 | V.null l2 -> error "astFromVector: empty vector"
-         Just l2 -> Just $ Ast.AstFromPrimal $ astFromVector snat stk l2
+         Just l2 -> Just $ fromPrimal $ astFromVector snat stk l2
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
@@ -354,7 +354,7 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
            unFromDual _ = Nothing
        in case V.mapM unFromDual l of
          Just l2 | V.null l2 -> error "astFromVector: empty vector"
-         Just l2 -> Just $ Ast.AstFromDual $ astFromVector snat stk l2
+         Just l2 -> Just $ fromDual $ astFromVector snat stk l2
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
@@ -366,7 +366,7 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
            unFromPlain _ = Nothing
        in case V.mapM unFromPlain l of
          Just l2 | V.null l2 -> error "astFromVector: empty vector"
-         Just l2 -> Just $ Ast.AstFromPlain $ astFromVector snat stk l2
+         Just l2 -> Just $ fromPlain $ astFromVector snat stk l2
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
@@ -469,10 +469,10 @@ astSum snat@SNat stk t0 = case t0 of
   -- because there are few redexes with sum but not at the top.
   Ast.AstLet var u v -> astLet var u (astSum snat stk v)
   Ast.AstPrimalPart (Ast.AstFromPlain v) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astSum snat stk v
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSum snat stk v
-  Ast.AstFromDual v -> Ast.AstFromDual $ astSum snat stk v
-  Ast.AstFromPlain v -> Ast.AstFromPlain $ astSum snat stk v
+    Ast.AstPrimalPart $ fromPlain $ astSum snat stk v
+  Ast.AstFromPrimal v -> fromPrimal $ astSum snat stk v
+  Ast.AstFromDual v -> fromDual $ astSum snat stk v
+  Ast.AstFromPlain v -> fromPlain $ astSum snat stk v
   Ast.AstScatterS @shm @shn @shp shn v (vars, (:.$) @k2 i1 rest)
     | STKS{} <- stk ->
       -- This boolean term may have free variables that act as universally
@@ -511,10 +511,10 @@ astReplicate snat stk t0 = case t0 of
   -- We need to restrict the indexing rule more effectively first.
   -- Ast.AstLet var t v -> astLet var t (astReplicate snat stk v)
   Ast.AstPrimalPart (Ast.AstFromPlain v) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astReplicate snat stk v
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReplicate snat stk v
-  Ast.AstFromDual v -> Ast.AstFromDual $ astReplicate snat stk v
-  Ast.AstFromPlain v -> Ast.AstFromPlain $ astReplicate snat stk v
+    Ast.AstPrimalPart $ fromPlain $ astReplicate snat stk v
+  Ast.AstFromPrimal v -> fromPrimal $ astReplicate snat stk v
+  Ast.AstFromDual v -> fromDual $ astReplicate snat stk v
+  Ast.AstFromPlain v -> fromPlain $ astReplicate snat stk v
   AstConcreteK t -> astConcreteS $ treplicate snat stk $ Concrete t
   AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
   Ast.AstConvert c t | checkAstFromS c t ->
@@ -833,13 +833,13 @@ astCond (AstBoolConst b) v w = if b then v else w
 astCond (Ast.AstBoolNot b) v w = astCond b w v
 astCond b (Ast.AstPrimalPart (Ast.AstFromPlain v))
           (Ast.AstPrimalPart (Ast.AstFromPlain w)) =
-  Ast.AstPrimalPart $ Ast.AstFromPlain $ astCond b v w
+  Ast.AstPrimalPart $ fromPlain $ astCond b v w
 astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
-  Ast.AstFromPrimal $ astCond b v w
+  fromPrimal $ astCond b v w
 astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
-  Ast.AstFromDual $ astCond b v w
+  fromDual $ astCond b v w
 astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
-  Ast.AstFromPlain $ astCond b v w
+  fromPlain $ astCond b v w
 astCond b v@(AstFromS' FTKScalar _) w = Ast.AstCond b v w
 -- We rely here on c and the other conversion being semantically equal.
 astCond b (Ast.AstConvert c v) (AstFromS' _ w) =
@@ -896,13 +896,13 @@ astLet var (Ast.AstPair u1 u2) v =
     substituteAst (Ast.AstPair ast1 ast2) var v
 astLet var (Ast.AstFromPrimal (Ast.AstPair u1 u2)) v =
   astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-    substituteAst (Ast.AstFromPrimal (Ast.AstPair ast1 ast2)) var v
+    substituteAst (fromPrimal (Ast.AstPair ast1 ast2)) var v
 astLet var (Ast.AstFromDual (Ast.AstPair u1 u2)) v =
   astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-    substituteAst (Ast.AstFromDual (Ast.AstPair ast1 ast2)) var v
+    substituteAst (fromDual (Ast.AstPair ast1 ast2)) var v
 astLet var (Ast.AstFromPlain (Ast.AstPair u1 u2)) v =
   astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-    substituteAst (Ast.AstFromPlain (Ast.AstPair ast1 ast2)) var v
+    substituteAst (fromPlain (Ast.AstPair ast1 ast2)) var v
 astLet var (Ast.AstLet varN uN (Ast.AstPair u1 u2)) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
@@ -910,15 +910,15 @@ astLet var (Ast.AstLet varN uN (Ast.AstPair u1 u2)) v =
 astLet var (Ast.AstFromPrimal (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (Ast.AstFromPrimal (Ast.AstPair ast1 ast2)) var v
+      substituteAst (fromPrimal (Ast.AstPair ast1 ast2)) var v
 astLet var (Ast.AstFromDual (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (Ast.AstFromDual (Ast.AstPair ast1 ast2)) var v
+      substituteAst (fromDual (Ast.AstPair ast1 ast2)) var v
 astLet var (Ast.AstFromPlain (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (Ast.AstFromPlain (Ast.AstPair ast1 ast2)) var v
+      substituteAst (fromPlain (Ast.AstPair ast1 ast2)) var v
 -- This is a common case, e.g., from representing conditionals.
 astLet var (Ast.AstFromVector snat stk u) v | V.length u == 2 =
   astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
@@ -926,17 +926,17 @@ astLet var (Ast.AstFromVector snat stk u) v | V.length u == 2 =
 astLet var (Ast.AstFromPrimal
               (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
   astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-    substituteAst (Ast.AstFromPrimal (Ast.AstFromVector snat stk
+    substituteAst (fromPrimal (Ast.AstFromVector snat stk
                                       $ fromList [ast1, ast2])) var v
 astLet var (Ast.AstFromDual
               (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
   astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-    substituteAst (Ast.AstFromDual (Ast.AstFromVector snat stk
+    substituteAst (fromDual (Ast.AstFromVector snat stk
                                     $ fromList [ast1, ast2])) var v
 astLet var (Ast.AstFromPlain
               (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
   astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-    substituteAst (Ast.AstFromPlain (Ast.AstFromVector snat stk
+    substituteAst (fromPlain (Ast.AstFromVector snat stk
                                     $ fromList [ast1, ast2])) var v
 astLet var (Ast.AstLet varN uN
               (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
@@ -948,21 +948,21 @@ astLet var (Ast.AstFromPrimal
                  (Ast.AstFromVector snat stk u))) v | V.length u == 2 =
   astLet varN uN
   $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-      substituteAst (Ast.AstFromPrimal (Ast.AstFromVector snat stk
+      substituteAst (fromPrimal (Ast.AstFromVector snat stk
                                         $ fromList [ast1, ast2])) var v
 astLet var (Ast.AstFromDual
               (Ast.AstLet varN uN
                  (Ast.AstFromVector snat stk u))) v | V.length u == 2 =
   astLet varN uN
   $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-      substituteAst (Ast.AstFromDual (Ast.AstFromVector snat stk
+      substituteAst (fromDual (Ast.AstFromVector snat stk
                                       $ fromList [ast1, ast2])) var v
 astLet var (Ast.AstFromPlain
               (Ast.AstLet varN uN
                  (Ast.AstFromVector snat stk u))) v | V.length u == 2 =
   astLet varN uN
   $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-      substituteAst (Ast.AstFromPlain (Ast.AstFromVector snat stk
+      substituteAst (fromPlain (Ast.AstFromVector snat stk
                                       $ fromList [ast1, ast2])) var v
 astLet var (Ast.AstReplicate snat stk a) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
@@ -970,15 +970,15 @@ astLet var (Ast.AstReplicate snat stk a) v =
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstFromPrimal (Ast.AstReplicate snat stk a)) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = Ast.AstFromPrimal (Ast.AstReplicate snat stk $ astVar var2)
+      ast = fromPrimal (Ast.AstReplicate snat stk $ astVar var2)
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstFromDual (Ast.AstReplicate snat stk a)) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = Ast.AstFromDual (Ast.AstReplicate snat stk $ astVar var2)
+      ast = fromDual (Ast.AstReplicate snat stk $ astVar var2)
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstFromPlain (Ast.AstReplicate snat stk a)) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = Ast.AstFromPlain (Ast.AstReplicate snat stk $ astVar var2)
+      ast = fromPlain (Ast.AstReplicate snat stk $ astVar var2)
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstTransposeS perm a) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
@@ -986,15 +986,15 @@ astLet var (Ast.AstTransposeS perm a) v =
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstFromPrimal (Ast.AstTransposeS perm a)) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = Ast.AstFromPrimal (Ast.AstTransposeS perm $ astVar var2)
+      ast = fromPrimal (Ast.AstTransposeS perm $ astVar var2)
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstFromDual (Ast.AstTransposeS perm a)) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = Ast.AstFromDual (Ast.AstTransposeS perm $ astVar var2)
+      ast = fromDual (Ast.AstTransposeS perm $ astVar var2)
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstFromPlain (Ast.AstTransposeS perm a)) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = Ast.AstFromPlain (Ast.AstTransposeS perm $ astVar var2)
+      ast = fromPlain (Ast.AstTransposeS perm $ astVar var2)
   in astLet var2 a (substituteAst ast var v)
 astLet var u@(AstFromS' FTKScalar _) v = Ast.AstLet var u v
 astLet var (Ast.AstConvert c a) v | checkAstFromS c a =
@@ -1003,11 +1003,11 @@ astLet var (Ast.AstConvert c a) v | checkAstFromS c a =
       ast = astConvert c $ astVar var2
   in astLet var2 a (substituteAst ast var v)
 astLet var u (Ast.AstPrimalPart (Ast.AstFromPlain v)) =
-  Ast.AstPrimalPart $ Ast.AstFromPlain $ astLet var u v
+  Ast.AstPrimalPart $ fromPlain $ astLet var u v
 -- TODO: do these make some of the above spurious? or is order important?
-astLet var u (Ast.AstFromPrimal v0) = Ast.AstFromPrimal $ astLet var u v0
-astLet var u (Ast.AstFromDual v0) = Ast.AstFromDual $ astLet var u v0
-astLet var u (Ast.AstFromPlain v0) = Ast.AstFromPlain $ astLet var u v0
+astLet var u (Ast.AstFromPrimal v0) = fromPrimal $ astLet var u v0
+astLet var u (Ast.AstFromDual v0) = fromDual $ astLet var u v0
+astLet var u (Ast.AstFromPlain v0) = fromPlain $ astLet var u v0
 astLet var u v@(AstFromS' FTKScalar _) = Ast.AstLet var u v
 astLet var u (Ast.AstConvert c v) | checkAstFromS c v =
   astConvert c $ astLet var u v
@@ -1140,13 +1140,13 @@ astDualPart t = case t of
 
   Ast.AstFromPrimal v ->
     let ftk = ftkAst v
-    in Ast.AstDualPart $ Ast.AstFromPlain
+    in Ast.AstDualPart $ fromPlain
        $ astConcrete ftk (tdefTarget ftk)
            -- let's hope this is smaller than v
   Ast.AstFromDual v -> v
   Ast.AstFromPlain v ->  -- TODO: are deltas zeroed enough here?
     let ftk = ftkAst v
-    in Ast.AstDualPart $ Ast.AstFromPlain
+    in Ast.AstDualPart $ fromPlain
        $ astConcrete ftk (tdefTarget ftk)
            -- let's hope this is smaller than v
 
@@ -1342,10 +1342,10 @@ astCastK t = case t of
   -- Rethink. For now, astFromPrimal is not called, to avoid loops.
   -- The same with many others.
   Ast.AstPrimalPart (Ast.AstFromPlain v) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astCastK v
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astCastK v
-  Ast.AstFromDual v -> Ast.AstFromDual $ astCastK v
-  Ast.AstFromPlain v -> Ast.AstFromPlain $ astCastK v
+    Ast.AstPrimalPart $ fromPlain $ astCastK v
+  Ast.AstFromPrimal v -> fromPrimal $ astCastK v
+  Ast.AstFromDual v -> fromDual $ astCastK v
+  Ast.AstFromPlain v -> fromPlain $ astCastK v
   Ast.AstN1K NegateOp u -> negate (astCastK u)
   Ast.AstN1K AbsOp u -> abs (astCastK u)
   Ast.AstN1K SignumOp u -> signum (astCastK u)
@@ -1447,9 +1447,9 @@ astCastS t = case t of
   Ast.AstPrimalPart a -> Ast.AstPrimalPart $ astCastS a
   Ast.AstDualPart a -> Ast.AstDualPart $ astCastS a
   Ast.AstPlainPart a -> Ast.AstPlainPart $ astCastS a
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astCastS v
-  Ast.AstFromDual v -> Ast.AstFromDual $ astCastS v
-  Ast.AstFromPlain v -> Ast.AstFromPlain $ astCastS v
+  Ast.AstFromPrimal v -> fromPrimal $ astCastS v
+  Ast.AstFromDual v -> fromDual $ astCastS v
+  Ast.AstFromPlain v -> fromPlain $ astCastS v
   Ast.AstN1S NegateOp u -> negate (astCastS u)
   Ast.AstN1S AbsOp u -> abs (astCastS u)
   Ast.AstN1S SignumOp u -> signum (astCastS u)
@@ -1591,13 +1591,13 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   Ast.AstLet var u v -> astLet var u (astIndexKnobsS knobs shn v ix)
 
   Ast.AstPrimalPart (Ast.AstFromPlain v) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astIndexKnobsS knobs shn v ix
+    Ast.AstPrimalPart $ fromPlain $ astIndexKnobsS knobs shn v ix
   Ast.AstPrimalPart{} -> Ast.AstIndexS shn v0 ix  -- must be a NF
   Ast.AstDualPart{} -> Ast.AstIndexS shn v0 ix
   Ast.AstPlainPart{} -> Ast.AstIndexS shn v0 ix
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astIndexKnobsS knobs shn v ix
-  Ast.AstFromDual v -> Ast.AstFromDual $ astIndexKnobsS knobs shn v ix
-  Ast.AstFromPlain v -> Ast.AstFromPlain $ astIndexKnobsS knobs shn v ix
+  Ast.AstFromPrimal v -> fromPrimal $ astIndexKnobsS knobs shn v ix
+  Ast.AstFromDual v -> fromDual $ astIndexKnobsS knobs shn v ix
+  Ast.AstFromPlain v -> fromPlain $ astIndexKnobsS knobs shn v ix
 
   AstPlusS u v ->
     shareIx ix $ \ !ix2 ->
@@ -1825,14 +1825,14 @@ astScatterS shn v (Const var ::$ (vars :: AstVarListS sh3), ix)
 astScatterS shn (Ast.AstLet var u v) (vars, ix) =
       astLet var u (astScatterS @shm @shn @shp shn v (vars, ix))
 astScatterS shn (Ast.AstPrimalPart (Ast.AstFromPlain v)) (vars, ix) =
-  Ast.AstPrimalPart $ Ast.AstFromPlain
+  Ast.AstPrimalPart $ fromPlain
   $ astScatterS @shm @shn @shp shn v (vars, ix)
 astScatterS shn (Ast.AstFromPrimal v) (vars, ix) =
-  Ast.AstFromPrimal $ astScatterS @shm @shn @shp shn v (vars, ix)
+  fromPrimal $ astScatterS @shm @shn @shp shn v (vars, ix)
 astScatterS shn (Ast.AstFromDual v) (vars, ix) =
-  Ast.AstFromDual $ astScatterS @shm @shn @shp shn v (vars, ix)
+  fromDual $ astScatterS @shm @shn @shp shn v (vars, ix)
 astScatterS shn (Ast.AstFromPlain v) (vars, ix) =
-  Ast.AstFromPlain $ astScatterS @shm @shn @shp shn v (vars, ix)
+  fromPlain $ astScatterS @shm @shn @shp shn v (vars, ix)
 astScatterS shn v (vars, ix) = Ast.AstScatterS @shm @shn @shp shn v (vars, ix)
 
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
@@ -2602,17 +2602,17 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
       astLet var u (astGather @shm @shn @shp shn v (vars4, ix4))
 
     Ast.AstPrimalPart (Ast.AstFromPlain v) ->
-      Ast.AstPrimalPart $ Ast.AstFromPlain
+      Ast.AstPrimalPart $ fromPlain
       $ astGather @shm @shn @shp shn v (vars4, ix4)
     Ast.AstPrimalPart{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstDualPart{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstPlainPart{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstFromPrimal v ->
-      Ast.AstFromPrimal $ astGather @shm @shn @shp shn v (vars4, ix4)
+      fromPrimal $ astGather @shm @shn @shp shn v (vars4, ix4)
     Ast.AstFromDual v ->
-      Ast.AstFromDual $ astGather @shm @shn @shp shn v (vars4, ix4)
+      fromDual $ astGather @shm @shn @shp shn v (vars4, ix4)
     Ast.AstFromPlain v ->
-      Ast.AstFromPlain $ astGather @shm @shn @shp shn v (vars4, ix4)
+      fromPlain $ astGather @shm @shn @shp shn v (vars4, ix4)
 
     -- Going inside a binary ops usually makes a term more expensive
     -- to interpret and inverting that requires comparing two arguments,
@@ -2850,13 +2850,13 @@ astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKScalar l1)
   astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2
 astAppendS (Ast.AstPrimalPart (Ast.AstFromPlain u))
            (Ast.AstPrimalPart (Ast.AstFromPlain v)) =
-  Ast.AstPrimalPart $ Ast.AstFromPlain $ astAppendS u v
+  Ast.AstPrimalPart $ fromPlain $ astAppendS u v
 astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
-  Ast.AstFromPrimal $ astAppendS u v
+  fromPrimal $ astAppendS u v
 astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
-  Ast.AstFromDual $ astAppendS u v
+  fromDual $ astAppendS u v
 astAppendS (Ast.AstFromPlain u) (Ast.AstFromPlain v) =
-  Ast.AstFromPlain $ astAppendS u v
+  fromPlain $ astAppendS u v
 astAppendS (AstConcreteS u) (AstConcreteS v) =
   astConcreteS (tsappend (Concrete u) (Concrete v))
 astAppendS (AstConcreteS u) (Ast.AstAppendS (AstConcreteS v) w) =
@@ -2932,10 +2932,10 @@ astSliceS i n k v1 = case v1 of
     astCond b (astSliceS i n k a2) (astSliceS i n k a3)
   Ast.AstLet var u v -> astLet var u (astSliceS i n k v)
   Ast.AstPrimalPart (Ast.AstFromPlain v) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astSliceS i n k v
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astSliceS i n k v
-  Ast.AstFromDual v -> Ast.AstFromDual $ astSliceS i n k v
-  Ast.AstFromPlain v -> Ast.AstFromPlain $ astSliceS i n k v
+    Ast.AstPrimalPart $ fromPlain $ astSliceS i n k v
+  Ast.AstFromPrimal v -> fromPrimal $ astSliceS i n k v
+  Ast.AstFromDual v -> fromDual $ astSliceS i n k v
+  Ast.AstFromPlain v -> fromPlain $ astSliceS i n k v
   AstPlusS u v -> astSliceS i n k u + astSliceS i n k v
   AstTimesS u v -> astSliceS i n k u * astSliceS i n k v
   Ast.AstN1S NegateOp u -> negate (astSliceS i n k u)
@@ -2961,10 +2961,10 @@ astReverseS (Ast.AstReplicate snat stk v) = astReplicate snat stk v
 astReverseS (Ast.AstCond b a2 a3) = astCond b (astReverseS a2) (astReverseS a3)
 astReverseS (Ast.AstLet var u v) = astLet var u (astReverseS v)
 astReverseS (Ast.AstPrimalPart (Ast.AstFromPlain v)) =
-  Ast.AstPrimalPart $ Ast.AstFromPlain $ astReverseS v
-astReverseS (Ast.AstFromPrimal v) = Ast.AstFromPrimal $ astReverseS v
-astReverseS (Ast.AstFromDual v) = Ast.AstFromDual $ astReverseS v
-astReverseS (Ast.AstFromPlain v) = Ast.AstFromPlain $ astReverseS v
+  Ast.AstPrimalPart $ fromPlain $ astReverseS v
+astReverseS (Ast.AstFromPrimal v) = fromPrimal $ astReverseS v
+astReverseS (Ast.AstFromDual v) = fromDual $ astReverseS v
+astReverseS (Ast.AstFromPlain v) = fromPlain $ astReverseS v
 astReverseS (Ast.AstGatherS @shm @shn @shp
                             shn v ((::$) @k (Const var) vars, ix)) =
   let ivar = valueOf @k - astVar var
@@ -3058,10 +3058,10 @@ astTransposeS perm t =
   Ast.AstLet var u v -> astLet var u (astTransposeS perm v)
 
   Ast.AstPrimalPart (Ast.AstFromPlain v) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astTransposeS perm v
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astTransposeS perm v
-  Ast.AstFromDual v -> Ast.AstFromDual $ astTransposeS perm v
-  Ast.AstFromPlain v -> Ast.AstFromPlain $ astTransposeS perm v
+    Ast.AstPrimalPart $ fromPlain $ astTransposeS perm v
+  Ast.AstFromPrimal v -> fromPrimal $ astTransposeS perm v
+  Ast.AstFromDual v -> fromDual $ astTransposeS perm v
+  Ast.AstFromPlain v -> fromPlain $ astTransposeS perm v
 
   AstPlusS u v -> astTransposeS perm u + astTransposeS perm v
   AstTimesS u v -> astTransposeS perm u * astTransposeS perm v
@@ -3179,10 +3179,10 @@ astReshapeS sh2 t = case t of
       astReplicate k (STKS rest2 x) $ astReshapeS rest2 u
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 sh2 v)
   Ast.AstPrimalPart (Ast.AstFromPlain v) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astReshapeS sh2 v
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal $ astReshapeS sh2 v
-  Ast.AstFromDual v -> Ast.AstFromDual $ astReshapeS sh2 v
-  Ast.AstFromPlain v -> Ast.AstFromPlain $ astReshapeS sh2 v
+    Ast.AstPrimalPart $ fromPlain $ astReshapeS sh2 v
+  Ast.AstFromPrimal v -> fromPrimal $ astReshapeS sh2 v
+  Ast.AstFromDual v -> fromDual $ astReshapeS sh2 v
+  Ast.AstFromPlain v -> fromPlain $ astReshapeS sh2 v
   -- Reshaping can be costly, so we don't touch AstTimesS, etc.
   Ast.AstN1S NegateOp u -> negate (astReshapeS @_ @sh2 sh2 u)
   Ast.AstN1S AbsOp u -> abs (astReshapeS @_ @sh2 sh2 u)
@@ -3243,11 +3243,11 @@ astConvertFromS c zftk a = case (zftk, a) of
   (_, Ast.AstPlainPart v) ->
     astPlainPart $ astConvertFromS c zftk v
   (_, Ast.AstFromPrimal v) ->
-    Ast.AstFromPrimal $ astConvertFromS c zftk v
+    fromPrimal $ astConvertFromS c zftk v
   (_, Ast.AstFromDual v) ->
-    Ast.AstFromDual $ astConvertFromS c zftk v
+    fromDual $ astConvertFromS c zftk v
   (_, Ast.AstFromPlain v) ->
-    Ast.AstFromPlain $ astConvertFromS c zftk v
+    fromPlain $ astConvertFromS c zftk v
   (FTKScalar, Ast.AstCond b v1 v2) ->
     astCond b (astConvertFromS c FTKScalar v1)
               (astConvertFromS c FTKScalar v2)
@@ -3332,9 +3332,9 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstPrimalPart a -> astPrimalPart $ astConvertSFromK c zftk a
   Ast.AstDualPart a -> astDualPart $ astConvertSFromK c zftk a
   Ast.AstPlainPart a -> astPlainPart $ astConvertSFromK c zftk a
-  Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astConvertSFromK c zftk a
-  Ast.AstFromDual a -> Ast.AstFromDual $ astConvertSFromK c zftk a
-  Ast.AstFromPlain a -> Ast.AstFromPlain $ astConvertSFromK c zftk a
+  Ast.AstFromPrimal a -> fromPrimal $ astConvertSFromK c zftk a
+  Ast.AstFromDual a -> fromDual $ astConvertSFromK c zftk a
+  Ast.AstFromPlain a -> fromPlain $ astConvertSFromK c zftk a
 
 astConvertSFromR :: forall sh x s. AstSpan s
                  => TKConversion (TKR2 (Rank sh) x) (TKS2 sh x)
@@ -3386,9 +3386,9 @@ astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstPrimalPart a -> astPrimalPart $ astConvertSFromR c zftk a
   Ast.AstDualPart a -> astDualPart $ astConvertSFromR c zftk a
   Ast.AstPlainPart a -> astPlainPart $ astConvertSFromR c zftk a
-  Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astConvertSFromR c zftk a
-  Ast.AstFromDual a -> Ast.AstFromDual $ astConvertSFromR c zftk a
-  Ast.AstFromPlain a -> Ast.AstFromPlain $ astConvertSFromR c zftk a
+  Ast.AstFromPrimal a -> fromPrimal $ astConvertSFromR c zftk a
+  Ast.AstFromDual a -> fromDual $ astConvertSFromR c zftk a
+  Ast.AstFromPlain a -> fromPlain $ astConvertSFromR c zftk a
 
 astConvertSFromX :: forall sh shx x s. (AstSpan s, Rank shx ~ Rank sh)
                  => TKConversion (TKX2 shx x) (TKS2 sh x)
@@ -3441,9 +3441,9 @@ astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstPrimalPart a -> astPrimalPart $ astConvertSFromX c zftk a
   Ast.AstDualPart a -> astDualPart $ astConvertSFromX c zftk a
   Ast.AstPlainPart a -> astPlainPart $ astConvertSFromX c zftk a
-  Ast.AstFromPrimal a -> Ast.AstFromPrimal $ astConvertSFromX c zftk a
-  Ast.AstFromDual a -> Ast.AstFromDual $ astConvertSFromX c zftk a
-  Ast.AstFromPlain a -> Ast.AstFromPlain $ astConvertSFromX c zftk a
+  Ast.AstFromPrimal a -> fromPrimal $ astConvertSFromX c zftk a
+  Ast.AstFromDual a -> fromDual $ astConvertSFromX c zftk a
+  Ast.AstFromPlain a -> fromPlain $ astConvertSFromX c zftk a
 
 -- We are pushing conversions to shaped tensors down, into concrete values
 -- and towards variables, so that the conversions often cancel out.
@@ -3568,10 +3568,10 @@ astSum0S t = case t of
     withKnownShS (Nested.sshape v) $
     astConcreteS $ tssum0 (Concrete v)
   Ast.AstPrimalPart (Ast.AstFromPlain v) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astSum0S v
-  Ast.AstFromPrimal u -> Ast.AstFromPrimal $ astSum0S u
-  Ast.AstFromDual u -> Ast.AstFromDual $ astSum0S u
-  Ast.AstFromPlain u -> Ast.AstFromPlain $ astSum0S u
+    Ast.AstPrimalPart $ fromPlain $ astSum0S v
+  Ast.AstFromPrimal u -> fromPrimal $ astSum0S u
+  Ast.AstFromDual u -> fromDual $ astSum0S u
+  Ast.AstFromPlain u -> fromPlain $ astSum0S u
   Ast.AstReverseS u -> astSum0S u
   Ast.AstTransposeS _ u -> astSum0S u
   Ast.AstReshapeS _ u -> astSum0S u
@@ -3601,13 +3601,13 @@ astDot0S t1 t2 = case (t1, t2) of
                         $ Nested.sscalar $ fromInteger $ fromSNat snat)
   ( Ast.AstPrimalPart (Ast.AstFromPlain u1)
    ,Ast.AstPrimalPart (Ast.AstFromPlain u2) ) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astDot0S u1 u2
+    Ast.AstPrimalPart $ fromPlain $ astDot0S u1 u2
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
-    Ast.AstFromPrimal $ astDot0S u1 u2
+    fromPrimal $ astDot0S u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
-    Ast.AstFromDual $ astDot0S u1 u2
+    fromDual $ astDot0S u1 u2
   (Ast.AstFromPlain u1, Ast.AstFromPlain u2) ->
-    Ast.AstFromPlain $ astDot0S u1 u2
+    fromPlain $ astDot0S u1 u2
   (Ast.AstTransposeS @_ @sh1 perm1 u1, Ast.AstTransposeS @_ @sh2 perm2 u2)
     | Just Refl <- testEquality perm1 perm2 ->
       gcastWith (unsafeCoerceRefl :: sh1 :~: sh2) $
@@ -3616,7 +3616,7 @@ astDot0S t1 t2 = case (t1, t2) of
   (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot0S u1 u2
   _ -> Ast.AstDot0S t1 t2
 
-astDot1InS :: forall sh n r s. NumScalar r
+astDot1InS :: forall sh n r s. (NumScalar r, AstSpan s)
            => ShS sh -> SNat n
            -> AstTensor AstMethodLet s (TKS (sh ++ '[n]) r)
            -> AstTensor AstMethodLet s (TKS (sh ++ '[n]) r)
@@ -3627,16 +3627,16 @@ astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
     astConcreteS $ tsdot1In @_ @sh (SNat @n) (Concrete v1) (Concrete v2)
   ( Ast.AstPrimalPart (Ast.AstFromPlain u1)
    ,Ast.AstPrimalPart (Ast.AstFromPlain u2) ) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astDot1InS sh n u1 u2
+    Ast.AstPrimalPart $ fromPlain $ astDot1InS sh n u1 u2
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
-    Ast.AstFromPrimal $ astDot1InS sh n u1 u2
+    fromPrimal $ astDot1InS sh n u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
-    Ast.AstFromDual $ astDot1InS sh n u1 u2
+    fromDual $ astDot1InS sh n u1 u2
   (Ast.AstFromPlain u1, Ast.AstFromPlain u2) ->
-    Ast.AstFromPlain $ astDot1InS sh n u1 u2
+    fromPlain $ astDot1InS sh n u1 u2
   _ -> Ast.AstDot1InS sh n t1 t2
 
-astMatmul2S :: NumScalar r
+astMatmul2S :: (NumScalar r, AstSpan s)
             => SNat m -> SNat n -> SNat p
             -> AstTensor AstMethodLet s (TKS '[m, n] r)
             -> AstTensor AstMethodLet s (TKS '[n, p] r)
@@ -3646,13 +3646,13 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
     astConcreteS $ tsmatmul2 (Concrete v1) (Concrete v2)
   ( Ast.AstPrimalPart (Ast.AstFromPlain u1)
    ,Ast.AstPrimalPart (Ast.AstFromPlain u2) ) ->
-    Ast.AstPrimalPart $ Ast.AstFromPlain $ astMatmul2S m n p u1 u2
+    Ast.AstPrimalPart $ fromPlain $ astMatmul2S m n p u1 u2
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
-    Ast.AstFromPrimal $ astMatmul2S m n p u1 u2
+    fromPrimal $ astMatmul2S m n p u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
-    Ast.AstFromDual $ astMatmul2S m n p u1 u2
+    fromDual $ astMatmul2S m n p u1 u2
   (Ast.AstFromPlain u1, Ast.AstFromPlain u2) ->
-    Ast.AstFromPlain $ astMatmul2S m n p u1 u2
+    fromPlain $ astMatmul2S m n p u1 u2
   _ -> Ast.AstMatmul2S m n p t1 t2
 
 
@@ -3838,9 +3838,9 @@ unRepl (Ast.AstLet var u t) = Ast.AstLet var u <$> unRepl t
 unRepl (Ast.AstPrimalPart t) = astPrimalPart <$> unRepl t
 unRepl (Ast.AstDualPart t) = astDualPart <$> unRepl t
 unRepl (Ast.AstPlainPart t) = astPlainPart <$> unRepl t
-unRepl (Ast.AstFromPrimal t) = Ast.AstFromPrimal <$> unRepl t
-unRepl (Ast.AstFromDual t) = Ast.AstFromDual <$> unRepl t
-unRepl (Ast.AstFromPlain t) = Ast.AstFromPlain <$> unRepl t
+unRepl (Ast.AstFromPrimal t) = fromPrimal <$> unRepl t
+unRepl (Ast.AstFromDual t) = fromDual <$> unRepl t
+unRepl (Ast.AstFromPlain t) = fromPlain <$> unRepl t
 unRepl _ = Nothing
 
 unRepl1 :: AstSpan s
@@ -3857,9 +3857,9 @@ unRepl1 (Ast.AstLet var u t) = Ast.AstLet var u <$> unRepl1 t
 unRepl1 (Ast.AstPrimalPart t) = astPrimalPart <$> unRepl1 t
 unRepl1 (Ast.AstDualPart t) = astDualPart <$> unRepl1 t
 unRepl1 (Ast.AstPlainPart t) = astPlainPart <$> unRepl1 t
-unRepl1 (Ast.AstFromPrimal t) = Ast.AstFromPrimal <$> unRepl1 t
-unRepl1 (Ast.AstFromDual t) = Ast.AstFromDual <$> unRepl1 t
-unRepl1 (Ast.AstFromPlain t) = Ast.AstFromPlain <$> unRepl1 t
+unRepl1 (Ast.AstFromPrimal t) = fromPrimal <$> unRepl1 t
+unRepl1 (Ast.AstFromDual t) = fromDual <$> unRepl1 t
+unRepl1 (Ast.AstFromPlain t) = fromPlain <$> unRepl1 t
 unRepl1 _ = Nothing
 
 unReplN :: AstSpan s
@@ -3877,9 +3877,9 @@ unReplN shm (Ast.AstLet var u t) = Ast.AstLet var u <$> unReplN shm t
 unReplN shm (Ast.AstPrimalPart t) = astPrimalPart <$> unReplN shm t
 unReplN shm (Ast.AstDualPart t) = astDualPart <$> unReplN shm t
 unReplN shm (Ast.AstPlainPart t) = astPlainPart <$> unReplN shm t
-unReplN shm (Ast.AstFromPrimal t) = Ast.AstFromPrimal <$> unReplN shm t
-unReplN shm (Ast.AstFromDual t) = Ast.AstFromDual <$> unReplN shm t
-unReplN shm (Ast.AstFromPlain t) = Ast.AstFromPlain <$> unReplN shm t
+unReplN shm (Ast.AstFromPrimal t) = fromPrimal <$> unReplN shm t
+unReplN shm (Ast.AstFromDual t) = fromDual <$> unReplN shm t
+unReplN shm (Ast.AstFromPlain t) = fromPlain <$> unReplN shm t
 unReplN _ _ = Nothing
 
 
@@ -4013,9 +4013,9 @@ substitute1Ast i var = subst where
   Ast.AstPrimalPart a -> astPrimalPart <$> subst a
   Ast.AstDualPart a -> astDualPart <$> subst a
   Ast.AstPlainPart a -> astPlainPart <$> subst a
-  Ast.AstFromPrimal a -> Ast.AstFromPrimal <$> subst a
-  Ast.AstFromDual a -> Ast.AstFromDual <$> subst a
-  Ast.AstFromPlain a -> Ast.AstFromPlain <$> subst a
+  Ast.AstFromPrimal a -> fromPrimal <$> subst a
+  Ast.AstFromDual a -> fromDual <$> subst a
+  Ast.AstFromPlain a -> fromPlain <$> subst a
 
   AstPlusK u v ->
     let mu = subst u

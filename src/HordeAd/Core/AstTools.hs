@@ -364,8 +364,8 @@ bounds (AstI2K RemOp u (AstConcreteK v)) | v > 0 =
         | otherwise -> (- v + 1, v - 1)
 bounds _ = (-1000000000, 1000000000)
 
-liftRFromS1 :: forall n x ms s.
-               (forall sh.
+liftRFromS1 :: forall n x ms s. AstSpan s
+            => (forall sh.
                    AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKR2 n x)
@@ -376,8 +376,8 @@ liftRFromS1 f a = case ftkAst a of
       cAstFromS @(TKS2 sh x) ftk
       $ f (cAstSFromR @sh sh a)
 
-liftRFromS2 :: forall n x ms s.
-               (forall sh.
+liftRFromS2 :: forall n x ms s. AstSpan s
+            => (forall sh.
                    AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKR2 n x) -> AstTensor ms s (TKR2 n x)
@@ -388,8 +388,8 @@ liftRFromS2 f a b  = case ftkAst a of
       cAstFromS @(TKS2 sh x) ftk
       $ f (cAstSFromR @sh sh a) (cAstSFromR @sh sh b)
 
-liftXFromS1 :: forall sh' x ms s.
-               (forall sh.
+liftXFromS1 :: forall sh' x ms s. AstSpan s
+            => (forall sh.
                    AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKX2 sh' x)
@@ -400,8 +400,8 @@ liftXFromS1 f a = case ftkAst a of
       cAstFromS @(TKS2 sh x) ftk
       $ f (cAstSFromX @sh @sh' sh a)
 
-liftXFromS2 :: forall sh' x ms s.
-               (forall sh.
+liftXFromS2 :: forall sh' x ms s. AstSpan s
+            => (forall sh.
                    AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh x)
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKX2 sh' x) -> AstTensor ms s (TKX2 sh' x)
@@ -412,32 +412,33 @@ liftXFromS2 f a b = case ftkAst a of
       cAstFromS @(TKS2 sh x) ftk
       $ f (cAstSFromX @sh @sh' sh a) (cAstSFromX @sh @sh' sh b)
 
-cAstConvert :: TKConversion x z -> AstTensor ms s x -> AstTensor ms s z
+cAstConvert :: AstSpan s
+            => TKConversion x z -> AstTensor ms s x -> AstTensor ms s z
 cAstConvert c t
   | Just Refl <- matchingFTK (ftkAst t) (convertFTK c (ftkAst t)) = t
 cAstConvert c1 (AstConvert c2 t2) = cAstConvert (ConvCmp c1 c2) t2
 cAstConvert c1 (AstPrimalPart (AstFromPlain v)) =
-  AstPrimalPart $ AstFromPlain $ cAstConvert c1 v
-cAstConvert c1 (AstFromPrimal v) = AstFromPrimal $ cAstConvert c1 v
-cAstConvert c1 (AstFromPlain v) = AstFromPlain $ cAstConvert c1 v
+  AstPrimalPart $ fromPlain $ cAstConvert c1 v
+cAstConvert c1 (AstFromPrimal v) = fromPrimal $ cAstConvert c1 v
+cAstConvert c1 (AstFromPlain v) = fromPlain $ cAstConvert c1 v
 cAstConvert c t = AstConvert c t
 
-cAstSFromR :: forall sh x ms s.
-              ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
+cAstSFromR :: forall sh x ms s. AstSpan s
+           => ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
            -> AstTensor ms s (TKS2 sh x)
 cAstSFromR sh v = case ftkAst v of
   FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
     let c2 = ConvCmp (ConvXS' (FTKS sh x)) ConvRX
     in cAstConvert c2 v
 
-cAstSFromX :: forall sh sh' x ms s. Rank sh ~ Rank sh'
+cAstSFromX :: forall sh sh' x ms s. (AstSpan s, Rank sh ~ Rank sh')
            => ShS sh -> AstTensor ms s (TKX2 sh' x)
            -> AstTensor ms s (TKS2 sh x)
 cAstSFromX sh v = case ftkAst v of
   FTKX _ x -> let c2 = ConvXS' (FTKS sh x)
               in cAstConvert c2 v
 
-cAstXFromS :: forall sh sh' x ms s. Rank sh ~ Rank sh'
+cAstXFromS :: forall sh sh' x ms s. (AstSpan s, Rank sh ~ Rank sh')
            => StaticShX sh' -> AstTensor ms s (TKS2 sh x)
            -> AstTensor ms s (TKX2 sh' x)
 cAstXFromS ssx v
@@ -480,13 +481,13 @@ checkFtkAstSFrom (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) =
   checkFtkAstSFrom yftk1 zftk1 && checkFtkAstSFrom yftk2 zftk2
 checkFtkAstSFrom _ _ = False
 
-cAstFromS :: forall y z ms s.
-             FullShapeTK z -> AstTensor ms s y
+cAstFromS :: forall y z ms s. AstSpan s
+          => FullShapeTK z -> AstTensor ms s y
           -> AstTensor ms s z
 cAstFromS zftk t = cAstConvert (convFromS (ftkAst t) zftk) t
 
-cAstSFrom :: forall y z ms s.
-             FullShapeTK z -> AstTensor ms s y
+cAstSFrom :: forall y z ms s. AstSpan s
+          => FullShapeTK z -> AstTensor ms s y
           -> AstTensor ms s z
 cAstSFrom zftk t = cAstConvert (convSFrom (ftkAst t) (ftkToSTK zftk)) t
 

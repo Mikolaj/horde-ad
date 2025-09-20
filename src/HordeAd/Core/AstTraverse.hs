@@ -86,9 +86,9 @@ expandAst t = case t of
   Ast.AstPrimalPart v -> astPrimalPart (expandAst v)
   Ast.AstDualPart v -> astDualPart (expandAst v)
   Ast.AstPlainPart v -> astPlainPart (expandAst v)
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal (expandAst v)
-  Ast.AstFromDual v -> Ast.AstFromDual (expandAst v)
-  Ast.AstFromPlain v -> Ast.AstFromPlain (expandAst v)
+  Ast.AstFromPrimal v -> fromPrimal (expandAst v)
+  Ast.AstFromDual v -> fromDual (expandAst v)
+  Ast.AstFromPlain v -> fromPlain (expandAst v)
 
   AstPlusK u v -> expandAst u + expandAst v
   AstTimesK u v -> expandAst u * expandAst v
@@ -248,9 +248,9 @@ simplifyAst t = case t of
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
   Ast.AstDualPart v -> astDualPart (simplifyAst v)
   Ast.AstPlainPart v -> astPlainPart (simplifyAst v)
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal (simplifyAst v)
-  Ast.AstFromDual v -> Ast.AstFromDual (simplifyAst v)
-  Ast.AstFromPlain v -> Ast.AstFromPlain (simplifyAst v)
+  Ast.AstFromPrimal v -> fromPrimal (simplifyAst v)
+  Ast.AstFromDual v -> fromDual (simplifyAst v)
+  Ast.AstFromPlain v -> fromPlain (simplifyAst v)
 
   AstPlusK u v -> simplifyAst u + simplifyAst v
   AstTimesK u v -> simplifyAst u * simplifyAst v
@@ -496,9 +496,9 @@ contractAst t0 = case t0 of
   Ast.AstPrimalPart v -> astPrimalPart (contractAst v)
   Ast.AstDualPart v -> astDualPart (contractAst v)
   Ast.AstPlainPart v -> astPlainPart (contractAst v)
-  Ast.AstFromPrimal v -> Ast.AstFromPrimal (contractAst v)
-  Ast.AstFromDual v -> Ast.AstFromDual (contractAst v)
-  Ast.AstFromPlain v -> Ast.AstFromPlain (contractAst v)
+  Ast.AstFromPrimal v -> fromPrimal (contractAst v)
+  Ast.AstFromDual v -> fromDual (contractAst v)
+  Ast.AstFromPlain v -> fromPlain (contractAst v)
 
   AstPlusK u v -> contractAst u + contractAst v
   AstTimesK u v -> contractAst u * contractAst v
