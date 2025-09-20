@@ -87,8 +87,9 @@ instance Ord (AstTensor ms s y) where
 -- or astReshapeAsGather and can be a deciding factor in whether
 -- the other tensor terms can be simplified in turn.
 --
--- The normal form has AstConcreteK, if any, as the first argument
--- of the constructor. No flattening is performed beyond that.
+-- The normal form has AstConcreteK or AstFromPlain (AstConcreteK),
+-- if any, as the first argument of the constructor.
+-- No flattening is performed beyond that.
 instance (NumScalar r, AstSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   AstPrimalPart u + AstPrimalPart v = AstPrimalPart $ u + v
@@ -107,11 +108,20 @@ instance (NumScalar r, AstSpan s)
       AstConvert c $ u + v
   AstConcreteK 0 + u = u
   u + AstConcreteK 0 = u
+  AstFromPlain (AstConcreteK 0) + u = u
+  u + AstFromPlain (AstConcreteK 0) = u
   AstConcreteK n + AstConcreteK k = AstConcreteK (n + k)
   AstConcreteK n + AstPlusK (AstConcreteK k) u = AstConcreteK (n + k) + u
   AstPlusK (AstConcreteK n) u + AstConcreteK k = AstConcreteK (n + k) + u
   AstPlusK (AstConcreteK n) u + AstPlusK (AstConcreteK k) v =
     AstConcreteK (n + k) + AstPlusK u v  -- u and v can cancel, but unlikely
+  AstFromPlain (AstConcreteK n) + AstPlusK (AstFromPlain (AstConcreteK k)) u =
+    AstFromPlain (AstConcreteK (n + k)) + u
+  AstPlusK (AstFromPlain (AstConcreteK n)) u + AstFromPlain (AstConcreteK k) =
+    AstFromPlain (AstConcreteK (n + k)) + u
+  AstPlusK (AstFromPlain (AstConcreteK n)) u
+    + AstPlusK (AstFromPlain (AstConcreteK k)) v =
+      AstFromPlain (AstConcreteK (n + k)) + AstPlusK u v
 
   -- Unfortunately, these only fire if the required subterms are at the top
   -- of the reduced term, which happens rarely except in small terms.
@@ -170,11 +180,23 @@ instance (NumScalar r, AstSpan s)
   AstPlusK u@AstConcreteK{} v + w = AstPlusK u (AstPlusK v w)  -- as above
   u + v@AstConcreteK{} = AstPlusK v u
   u + AstPlusK v@AstConcreteK{} w = AstPlusK v (AstPlusK u w)  -- as above
+  AstPlusK u@(AstFromPlain (AstConcreteK{})) v + w =
+    AstPlusK u (AstPlusK v w)  -- as above
+  u + v@(AstFromPlain (AstConcreteK{})) = AstPlusK v u
+  u + AstPlusK v@(AstFromPlain (AstConcreteK{})) w =
+    AstPlusK v (AstPlusK u w)  -- as above
   t1 + t2 | eqK t1 t2 = 2 * t1
   t1 + AstTimesK (AstConcreteK n) t2 | eqK t1 t2 = AstConcreteK (n + 1) * t1
   AstTimesK (AstConcreteK n) t2 + t1 | eqK t1 t2 = AstConcreteK (n + 1) * t1
   AstTimesK (AstConcreteK n1) t1 + AstTimesK (AstConcreteK n2) t2
     | eqK t1 t2 = AstConcreteK (n1 + n2) * t1
+  t1 + AstTimesK (AstFromPlain (AstConcreteK n)) t2 | eqK t1 t2 =
+    AstFromPlain (AstConcreteK (n + 1)) * t1
+  AstTimesK (AstFromPlain (AstConcreteK n)) t2 + t1 | eqK t1 t2 =
+    AstFromPlain (AstConcreteK (n + 1)) * t1
+  AstTimesK (AstFromPlain (AstConcreteK n1)) t1
+    + AstTimesK (AstFromPlain (AstConcreteK n2)) t2 | eqK t1 t2 =
+      AstFromPlain (AstConcreteK (n1 + n2)) * t1
   u + v = AstPlusK u v
 
   AstPrimalPart u * AstPrimalPart v = AstPrimalPart $ u * v
@@ -187,6 +209,10 @@ instance (NumScalar r, AstSpan s)
   _ * AstConcreteK 0 = 0
   AstConcreteK 1 * u = u
   u * AstConcreteK 1 = u
+  AstFromPlain (AstConcreteK 0) * _ = 0
+  _ * AstFromPlain (AstConcreteK 0) = 0
+  AstFromPlain (AstConcreteK 1) * u = u
+  u * AstFromPlain (AstConcreteK 1) = u
   AstConvert c u * AstConvert _ v
     | FTKS ZSS x <- ftkAst u
     , FTKS ZSS y <- ftkAst v
@@ -198,12 +224,25 @@ instance (NumScalar r, AstSpan s)
   AstTimesK (AstConcreteK n) u * AstConcreteK k = AstConcreteK (n * k) * u
   AstTimesK (AstConcreteK n) u * AstTimesK (AstConcreteK k) v =
     AstConcreteK (n * k) * AstTimesK u v  -- u and v can cancel, but unlikely
+  AstFromPlain (AstConcreteK n) * AstTimesK (AstFromPlain (AstConcreteK k)) u =
+    AstFromPlain (AstConcreteK (n * k)) * u
+  AstTimesK (AstFromPlain (AstConcreteK n)) u * AstFromPlain (AstConcreteK k) =
+    AstFromPlain (AstConcreteK (n * k)) * u
+  AstTimesK (AstFromPlain (AstConcreteK n)) u
+    * AstTimesK (AstFromPlain (AstConcreteK k)) v =
+      AstFromPlain (AstConcreteK (n * k)) * AstTimesK u v
 
   u@AstConcreteK{} * AstPlusK v w = AstPlusK (u * v) (u * w)
   AstTimesK u@AstConcreteK{} x * AstPlusK v w =
     AstTimesK x (AstPlusK (u * v) (u * w))
   AstPlusK v w * u@AstConcreteK{} = AstPlusK (v * u) (w * u)
   AstPlusK v w * AstTimesK u@AstConcreteK{} x =
+    AstTimesK (AstPlusK (v * u) (w * u)) x
+  u@(AstFromPlain (AstConcreteK{})) * AstPlusK v w = AstPlusK (u * v) (u * w)
+  AstTimesK u@(AstFromPlain (AstConcreteK{})) x * AstPlusK v w =
+    AstTimesK x (AstPlusK (u * v) (u * w))
+  AstPlusK v w * u@(AstFromPlain (AstConcreteK{})) = AstPlusK (v * u) (w * u)
+  AstPlusK v w * AstTimesK u@(AstFromPlain (AstConcreteK{})) x =
     AstTimesK (AstPlusK (v * u) (w * u)) x
 
   AstN1K NegateOp u * AstN1K NegateOp v = AstTimesK u v
@@ -246,6 +285,11 @@ instance (NumScalar r, AstSpan s)
   AstTimesK u@AstConcreteK{} v * w = AstTimesK u (AstTimesK v w)  -- as above
   u * v@AstConcreteK{} = AstTimesK v u
   u * AstTimesK v@AstConcreteK{} w = AstTimesK v (AstTimesK u w)  -- as above
+  AstTimesK u@(AstFromPlain (AstConcreteK{})) v * w =
+    AstTimesK u (AstTimesK v w)  -- as above
+  u * v@(AstFromPlain (AstConcreteK{})) = AstTimesK v u
+  u * AstTimesK v@(AstFromPlain (AstConcreteK{})) w =
+    AstTimesK v (AstTimesK u w)  -- as above
   u * v = AstTimesK u v
 
   negate (AstCond b n k) = AstCond b (negate n) (negate k)
@@ -362,6 +406,8 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
       AstConvert c (quotH n k)
   quotH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotH n k)
   quotH (AstConcreteK 0) _ = 0
+  quotH u (AstFromPlain (AstConcreteK 1)) = u
+  quotH (AstFromPlain (AstConcreteK 0)) _ = 0
   quotH u (AstConcreteK 1) = u
   quotH (AstI2K RemOp _ (AstConcreteK k)) (AstConcreteK k')
     | k' >= k && k >= 0 = 0
@@ -387,6 +433,8 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   remH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (remH n k)
   remH (AstConcreteK 0) _ = 0
   remH _ (AstConcreteK 1) = 0
+  remH (AstFromPlain (AstConcreteK 0)) _ = 0
+  remH _ (AstFromPlain (AstConcreteK 1)) = 0
   remH (AstI2K RemOp u (AstConcreteK k)) (AstConcreteK k')
     | k' >= k && k >= 0 = AstI2K RemOp u (AstConcreteK k)
   remH (AstI2K RemOp u (AstConcreteK k)) (AstConcreteK k')
@@ -609,6 +657,8 @@ instance (NumScalar r, AstSpan s)
       AstConvert c $ u + v
   AstConcreteS z + u | Just 0 <- sunReplicateScal z = u
   u + AstConcreteS z | Just 0 <- sunReplicateScal z = u
+  AstFromPlain (AstConcreteS z) + u | Just 0 <- sunReplicateScal z = u
+  u + AstFromPlain (AstConcreteS z) | Just 0 <- sunReplicateScal z = u
   AstConcreteS n + AstConcreteS k = AstConcreteS (n + k)
   AstConcreteS n + AstPlusS (AstConcreteS k) u =
     AstPlusS (AstConcreteS (n + k)) u
@@ -616,6 +666,13 @@ instance (NumScalar r, AstSpan s)
     AstPlusS (AstConcreteS (n + k)) u
   AstPlusS (AstConcreteS n) u + AstPlusS (AstConcreteS k) v =
     AstPlusS (AstConcreteS (n + k)) (AstPlusS u v)
+  AstFromPlain (AstConcreteS n) + AstPlusS (AstFromPlain (AstConcreteS k)) u =
+    AstPlusS (AstFromPlain (AstConcreteS (n + k))) u
+  AstPlusS (AstFromPlain (AstConcreteS n)) u + AstFromPlain (AstConcreteS k) =
+    AstPlusS (AstFromPlain (AstConcreteS (n + k))) u
+  AstPlusS (AstFromPlain (AstConcreteS n)) u
+    + AstPlusS (AstFromPlain (AstConcreteS k)) v =
+      AstPlusS (AstFromPlain (AstConcreteS (n + k))) (AstPlusS u v)
 
 --  AstN1S NegateOp (AstVar var) + AstVar var'
 --    | var == var' = 0
@@ -629,6 +686,9 @@ instance (NumScalar r, AstSpan s)
   AstPlusS u@AstConcreteS{} v + w = AstPlusS u (AstPlusS v w)
   u + v@AstConcreteS{} = AstPlusS v u
   u + AstPlusS v@AstConcreteS{} w = AstPlusS v (AstPlusS u w)
+  AstPlusS u@(AstFromPlain (AstConcreteS{})) v + w = AstPlusS u (AstPlusS v w)
+  u + v@(AstFromPlain (AstConcreteS{})) = AstPlusS v u
+  u + AstPlusS v@(AstFromPlain (AstConcreteS{})) w = AstPlusS v (AstPlusS u w)
   u + v = AstPlusS u v
 
   AstReplicate snat stk@STKS{} u * AstReplicate _ STKS{} v =
@@ -643,6 +703,12 @@ instance (NumScalar r, AstSpan s)
   _ * AstConcreteS z | Just 0 <- sunReplicateScal z = AstConcreteS z
   AstConcreteS s * u | Just 1 <- sunReplicateScal s = u
   u * AstConcreteS s | Just 1 <- sunReplicateScal s = u
+  AstFromPlain (AstConcreteS z) * _ | Just 0 <- sunReplicateScal z =
+    AstFromPlain $ AstConcreteS z
+  _ * AstFromPlain (AstConcreteS z) | Just 0 <- sunReplicateScal z =
+    AstFromPlain $ AstConcreteS z
+  AstFromPlain (AstConcreteS s) * u | Just 1 <- sunReplicateScal s = u
+  u * AstFromPlain (AstConcreteS s) | Just 1 <- sunReplicateScal s = u
   AstConvert c u * AstConvert _ v
     | FTKS ZSS x <- convertFTK c (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst u)
@@ -655,6 +721,12 @@ instance (NumScalar r, AstSpan s)
     AstTimesS (AstConcreteS (n * k)) u
   AstTimesS (AstConcreteS n) u * AstTimesS (AstConcreteS k) v =
     AstTimesS (AstConcreteS (n * k)) (AstTimesS u v)
+  AstFromPlain (AstConcreteS n) * AstTimesS (AstFromPlain (AstConcreteS k)) u =
+    AstTimesS (AstFromPlain (AstConcreteS (n * k))) u
+  AstTimesS (AstFromPlain (AstConcreteS n)) u * AstFromPlain (AstConcreteS k) =
+    AstTimesS (AstFromPlain (AstConcreteS (n * k))) u
+  AstTimesS (AstFromPlain (AstConcreteS n)) u * AstTimesS (AstFromPlain (AstConcreteS k)) v =
+    AstTimesS (AstFromPlain (AstConcreteS (n * k))) (AstTimesS u v)
 
   u@AstConcreteS{} * AstPlusS v w = AstPlusS (u * v) (u * w)
   AstTimesS u@AstConcreteS{} x * AstPlusS v w =
@@ -662,12 +734,23 @@ instance (NumScalar r, AstSpan s)
   AstPlusS v w * u@AstConcreteS{} = AstPlusS (v * u) (w * u)
   AstPlusS v w * AstTimesS u@AstConcreteS{} x =
     AstTimesS (AstPlusS (v * u) (w * u)) x
+  u@(AstFromPlain (AstConcreteS{})) * AstPlusS v w = AstPlusS (u * v) (u * w)
+  AstTimesS u@(AstFromPlain (AstConcreteS{})) x * AstPlusS v w =
+    AstTimesS x (AstPlusS (u * v) (u * w))
+  AstPlusS v w * u@(AstFromPlain (AstConcreteS{})) = AstPlusS (v * u) (w * u)
+  AstPlusS v w * AstTimesS u@(AstFromPlain (AstConcreteS{})) x =
+    AstTimesS (AstPlusS (v * u) (w * u)) x
 
   AstN1S NegateOp u * AstN1S NegateOp v = AstTimesS u v
 
   AstTimesS u@AstConcreteS{} v * w = AstTimesS u (AstTimesS v w)
   u * v@AstConcreteS{} = AstTimesS v u
   u * AstTimesS v@AstConcreteS{} w = AstTimesS v (AstTimesS u w)
+  AstTimesS u@(AstFromPlain (AstConcreteS{})) v * w =
+    AstTimesS u (AstTimesS v w)
+  u * v@(AstFromPlain (AstConcreteS{})) = AstTimesS v u
+  u * AstTimesS v@(AstFromPlain (AstConcreteS{})) w =
+    AstTimesS v (AstTimesS u w)
   u * v = AstTimesS u v
 
   negate (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (negate u)
@@ -745,6 +828,9 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   quotH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (quotH n k)
   quotH (AstConcreteS z) _ | Just 0 <- sunReplicateScal z = AstConcreteS z
   quotH u (AstConcreteS s) | Just 1 <- sunReplicateScal s = u
+  quotH (AstFromPlain (AstConcreteS z)) _ | Just 0 <- sunReplicateScal z =
+    AstFromPlain $ AstConcreteS z
+  quotH u (AstFromPlain (AstConcreteS s)) | Just 1 <- sunReplicateScal s = u
   quotH (AstI2S QuotOp u v) w = quotH u (v * w)
   quotH u v = AstI2S QuotOp u v
 
@@ -762,6 +848,8 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
       AstConvert c (remH n k)
   remH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (remH n k)
   remH (AstConcreteS z) _ | Just 0 <- sunReplicateScal z = AstConcreteS z
+  remH (AstFromPlain (AstConcreteS z)) _ | Just 0 <- sunReplicateScal z =
+    AstFromPlain $ AstConcreteS z
 --  remH _ (AstConcreteS s) | Just 1 <- sunReplicateScal s = AstConcreteS 0
   remH u v = AstI2S RemOp u v
 
@@ -1158,6 +1246,24 @@ instance (AstSpan s, NumScalar r)
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
       AstConcreteK u <=. AstTimesK (AstConcreteK $ negate v) (AstN1K NegateOp w)
   v@AstConcreteK{} <=. u = AstLeqK v u
+  u <=. AstPlusK (AstFromPlain (AstConcreteK v)) w =
+    u - AstFromPlain (AstConcreteK v) <=. w
+  AstPlusK (AstFromPlain (AstConcreteK u)) w <=. v =
+    AstFromPlain (AstConcreteK u) <=. v - w
+  u <=. AstFromPlain (AstConcreteK v) =
+    AstFromPlain (AstConcreteK (negate v)) <=. negate u
+  AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK v)) w
+    | v > 0 && u >= 0
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+      AstFromPlain (AstConcreteK ((u + v - 1) `quotH` v)) <=. w -- 10 == 5 * 2, 11 > 5 * 2
+  AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK v)) w
+    | v > 0 && u < 0
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+      AstFromPlain (AstConcreteK (u `quotH` v)) <=. w  -- -10 == 5 * -2, -9 > 5 * -2
+  AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK v)) w
+    | v < 0
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+      AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK $ negate v)) (AstN1K NegateOp w)
   v <=. u = AstConcreteK 0 <=. plainPart u - plainPart v
 
 instance (AstSpan s, NumScalar r)
@@ -1186,6 +1292,12 @@ instance (AstSpan s, NumScalar r)
     AstConcreteS u <=. v - w
   u <=. AstConcreteS v =
     AstConcreteS (negate v) <=. negate u
+  u <=. AstPlusS (AstFromPlain (AstConcreteS v)) w =
+    u - AstFromPlain (AstConcreteS v) <=. w
+  AstPlusS (AstFromPlain (AstConcreteS u)) w <=. v =
+    AstFromPlain (AstConcreteS u) <=. v - w
+  u <=. AstFromPlain (AstConcreteS v) =
+    AstFromPlain (AstConcreteS (negate v)) <=. negate u
   AstVar u <=. AstVar v | u == v =
     AstBoolConst True
   AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
