@@ -597,7 +597,7 @@ instance (NumScalar r, AstSpan s)
     AstReplicate snat stk $ u + v
   AstPrimalPart u + AstPrimalPart v = AstPrimalPart $ u + v
   AstDualPart u + AstDualPart v = AstDualPart $ u + v
-  AstPlainPart @_ @s1  u + AstPlainPart @_ @s2 v
+  AstPlainPart @_ @s1 u + AstPlainPart @_ @s2 v
     | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ u + v
   AstFromPrimal u + AstFromPrimal v = fromPrimal $ u + v
   AstFromDual u + AstFromDual v = fromDual $ u + v
@@ -634,7 +634,7 @@ instance (NumScalar r, AstSpan s)
   AstReplicate snat stk@STKS{} u * AstReplicate _ STKS{} v =
     AstReplicate snat stk $ u * v
   AstPrimalPart u * AstPrimalPart v = AstPrimalPart $ u * v
-  AstPlainPart @_ @s1  u * AstPlainPart @_ @s2 v
+  AstPlainPart @_ @s1 u * AstPlainPart @_ @s2 v
     | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ u * v
   AstFromPrimal u * AstFromPrimal v = fromPrimal $ u * v
 --  AstFromDual{} * AstFromDual{} = 0
@@ -1308,10 +1308,6 @@ astLetFunNoSimplify a f | astIsSmall True a = f a
 astLetFunNoSimplify a f = case a of
   AstFromS' @y2 ftkz v ->
     let (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
-    in AstLet var v ast
-  AstPrimalPart (AstFromPlain (AstFromS' @y2 ftkz vRaw)) ->
-    let v = AstPrimalPart (fromPlain vRaw)
-        (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
     in AstLet var v ast
   AstFromPrimal (AstFromS' @y2 ftkz vRaw) ->
     let v = fromPrimal vRaw
