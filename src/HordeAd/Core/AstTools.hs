@@ -337,10 +337,10 @@ bounds (AstConcreteK u) = (u, u)
 bounds (AstVar var) = case varNameToBounds var of
   Nothing -> (-1000000000, 1000000000)
   Just (u1, u2) -> (fromIntegral u1, fromIntegral u2)
-bounds (AstFromPrimal u) = bounds u
 bounds (AstPrimalPart u) = bounds u
-bounds (AstFromPlain u) = bounds u
 bounds (AstPlainPart u) = bounds u
+bounds (AstFromPrimal u) = bounds u
+bounds (AstFromPlain u) = bounds u
 bounds (AstCond _b u v) = let (u1, u2) = bounds u
                               (v1, v2) = bounds v
                           in (min u1 v1, max u2 v2)
@@ -416,10 +416,10 @@ cAstConvert :: TKConversion x z -> AstTensor ms s x -> AstTensor ms s z
 cAstConvert c t
   | Just Refl <- matchingFTK (ftkAst t) (convertFTK c (ftkAst t)) = t
 cAstConvert c1 (AstConvert c2 t2) = cAstConvert (ConvCmp c1 c2) t2
-cAstConvert c1 (AstFromPrimal (AstConvert c2 t2)) =
-  AstFromPrimal (cAstConvert (ConvCmp c1 c2) t2)
-cAstConvert c1 (AstFromPlain (AstConvert c2 t2)) =
-  AstFromPlain (cAstConvert (ConvCmp c1 c2) t2)
+cAstConvert c1 (AstPrimalPart (AstFromPlain v)) =
+  AstPrimalPart $ AstFromPlain $ cAstConvert c1 v
+cAstConvert c1 (AstFromPrimal v) = AstFromPrimal $ cAstConvert c1 v
+cAstConvert c1 (AstFromPlain v) = AstFromPlain $ cAstConvert c1 v
 cAstConvert c t = AstConvert c t
 
 cAstSFromR :: forall sh x ms s.

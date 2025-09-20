@@ -123,7 +123,8 @@ instance AstSpan DualSpan where
   plainPart t = AstPlainPart $ AstFromDual t  -- this is primal zero
 
 instance AstSpan FullSpan where
-  fromPrimal = AstFromPrimal
+  fromPrimal (AstPrimalPart (AstFromPlain t)) = AstFromPlain t
+  fromPrimal t = AstFromPrimal t
   fromDual = AstFromDual
   fromPlain = AstFromPlain
   primalPart = cAstPrimalPart

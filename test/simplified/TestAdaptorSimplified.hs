@@ -449,9 +449,9 @@ testPiecewiseLinearPP = do
       fT x = ifH (x >. rscalar 0) (rscalar 2 * x) (rscalar 5 * x)
       (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKR ZSR FTKScalar)
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret x1 -> rfromS (let v4 = soneHot (sfromR dret) [ifH (sscalar (-0.0) <=. negate (sfromR x1)) 0 1] in sscalar 2.0 * v4 !$ [1] + sscalar 5.0 * v4 !$ [0])"
+    @?= "\\dret x1 -> rfromS (let v4 = soneHot (sfromR dret) [ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) 0 1] in sprimalPart (sscalar 2.0) * v4 !$ [1] + sprimalPart (sscalar 5.0) * v4 !$ [0])"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\x1 -> rfromS (ifH (sscalar (-0.0) <=. negate (sfromR x1)) (sscalar 5.0 * sfromR x1) (sscalar 2.0 * sfromR x1))"
+    @?= "\\x1 -> rfromS (ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) (sprimalPart (sscalar 5.0) * sfromR x1) (sprimalPart (sscalar 2.0) * sfromR x1))"
 
 testPiecewiseLinear2 :: Assertion
 testPiecewiseLinear2 =
@@ -468,10 +468,10 @@ testPiecewiseLinear2PP = do
          -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT x = ifH (x >. rscalar 0) (rscalar 2) (rscalar 5) * x
       (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKR ZSR FTKScalar)
-  printArtifactPretty artifactRev
-    @?= "\\dret x1 -> let x2 = ifH (sscalar (-0.0) <=. negate (sfromR x1)) (sscalar 5.0) (sscalar 2.0) in rfromS (x2 * sfromR dret)"
-  printArtifactPrimalPretty artifactRev
-    @?= "\\x1 -> let x2 = ifH (sscalar (-0.0) <=. negate (sfromR x1)) (sscalar 5.0) (sscalar 2.0) in rfromS (x2 * sfromR x1)"
+  printArtifactPretty (simplifyArtifact artifactRev)
+    @?= "\\dret x1 -> rfromS (sprimalPart (ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) (sscalar 5.0) (sscalar 2.0)) * sfromR dret)"
+  printArtifactPrimalPretty (simplifyArtifact artifactRev)
+    @?= "\\x1 -> rfromS (sprimalPart (ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) (sscalar 5.0) (sscalar 2.0)) * sfromR x1)"
 
 overleaf :: forall r target. (ADReady target, NumScalar r)
          => target (TKR 1 r) -> target (TKR 0 r)
