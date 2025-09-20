@@ -391,9 +391,8 @@ astSum snat@SNat stk t0 = case t0 of
     let i :: r
         i = fromInteger $ valueOf @n * (valueOf @n - 1) `div` 2
     in case stk of
-      STKScalar -> primalPart @FullSpan . fromPlain . AstConcreteK $ i
-      STKS ZSS STKScalar ->
-        primalPart @FullSpan . fromPlain . AstConcreteS $ Nested.sscalar i
+      STKScalar -> AstConcreteK $ i
+      STKS ZSS STKScalar -> AstConcreteS $ Nested.sscalar i
   Ast.AstReverseS v -> astSum snat stk v
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKScalar <- stk ->
@@ -1273,8 +1272,8 @@ astConcreteK :: GoodScalar r
 astConcreteK = AstConcreteK . unConcrete
 
 astFloorK :: (GoodScalar r1, RealFrac r1, NumScalar r2, Integral r2)
-          => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
-          -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
+          => AstTensor AstMethodLet PlainSpan (TKScalar r1)
+          -> AstTensor AstMethodLet PlainSpan (TKScalar r2)
 astFloorK t = case t of
   Ast.AstLet var u v -> astLet var u (astFloorK v)
   -- This increases work and term size, because conditional is eager.
@@ -1289,8 +1288,8 @@ astFloorK t = case t of
 -- sometimes increases runtime, because not enough copies cancel out.
 -- Hence the commented out rules below.
 astFromIntegralK :: forall r1 r2. (GoodScalar r1, Integral r1, NumScalar r2)
-                 => AstTensor AstMethodLet PrimalSpan (TKScalar r1)
-                 -> AstTensor AstMethodLet PrimalSpan (TKScalar r2)
+                 => AstTensor AstMethodLet PlainSpan (TKScalar r1)
+                 -> AstTensor AstMethodLet PlainSpan (TKScalar r2)
 astFromIntegralK t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
   Ast.AstLet var u v -> astLet var u (astFromIntegralK v)
@@ -1330,8 +1329,8 @@ astConcreteS = AstConcreteS . unConcrete
 
 astFloorS :: forall r1 r2 sh.
              (GoodScalar r1, RealFrac r1, Integral r2, NumScalar r2)
-          => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
-          -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
+          => AstTensor AstMethodLet PlainSpan (TKS sh r1)
+          -> AstTensor AstMethodLet PlainSpan (TKS sh r2)
 astFloorS t = case t of
   _ | FTKS (snat :$$ sh2) _ <- ftkAst t
     , Just u <- unRepl1 t ->
@@ -1356,8 +1355,8 @@ astFloorS t = case t of
   _ -> Ast.AstFloorS t
 
 astFromIntegralS :: forall r1 r2 sh. (GoodScalar r1, NumScalar r2, Integral r1)
-                 => AstTensor AstMethodLet PrimalSpan (TKS sh r1)
-                 -> AstTensor AstMethodLet PrimalSpan (TKS sh r2)
+                 => AstTensor AstMethodLet PlainSpan (TKS sh r1)
+                 -> AstTensor AstMethodLet PlainSpan (TKS sh r2)
 astFromIntegralS t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
   _ | FTKS (snat :$$ sh2) _ <- ftkAst t
@@ -1673,8 +1672,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
           defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
       in astLetFunB i1 $ \i ->
         astCond (0 <=. i &&* i <=. valueOf @k - 1)
-                (astFromIntegralS $ primalPart @FullSpan $ fromPlain
-                 $ astSFromK' i)
+                (astFromIntegralS $ astSFromK' i)
                 defArr
     _ -> error "astIndexKnobsS: shape not []"
   Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->

@@ -420,8 +420,8 @@ interpretAstBool !env = \case
         r2 = interpretAstPlain env arg2
     in r1 <=. r2
   AstLeqS arg1 arg2 ->
-    let r1 = interpretAstPrimal env arg1
-        r2 = interpretAstPrimal env arg2
+    let r1 = interpretAstPlain env arg1
+        r2 = interpretAstPlain env arg2
     in r1 <=. r2
 
 

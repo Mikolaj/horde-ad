@@ -448,11 +448,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   AstConcreteK :: GoodScalar r
                => r -> AstTensor ms PlainSpan (TKScalar r)
   AstFloorK :: (GoodScalar r1, RealFrac r1, NumScalar r2, Integral r2)
-            => AstTensor ms PrimalSpan (TKScalar r1)
-            -> AstTensor ms PrimalSpan (TKScalar r2)
+            => AstTensor ms PlainSpan (TKScalar r1)
+            -> AstTensor ms PlainSpan (TKScalar r2)
   AstFromIntegralK :: (GoodScalar r1, Integral r1, NumScalar r2)
-                   => AstTensor ms PrimalSpan (TKScalar r1)
-                   -> AstTensor ms PrimalSpan (TKScalar r2)
+                   => AstTensor ms PlainSpan (TKScalar r1)
+                   -> AstTensor ms PlainSpan (TKScalar r2)
   AstCastK :: (NumScalar r1, RealFrac r1, RealFrac r2, NumScalar r2)
            => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
 
@@ -482,11 +482,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   AstConcreteS :: GoodScalar r
                => Nested.Shaped sh r -> AstTensor ms PlainSpan (TKS sh r)
   AstFloorS :: (GoodScalar r1, RealFrac r1, Integral r2, NumScalar r2)
-            => AstTensor ms PrimalSpan (TKS sh r1)
-            -> AstTensor ms PrimalSpan (TKS sh r2)
+            => AstTensor ms PlainSpan (TKS sh r1)
+            -> AstTensor ms PlainSpan (TKS sh r2)
   AstFromIntegralS :: (GoodScalar r1, Integral r1, NumScalar r2)
-                   => AstTensor ms PrimalSpan (TKS sh r1)
-                   -> AstTensor ms PrimalSpan (TKS sh r2)
+                   => AstTensor ms PlainSpan (TKS sh r1)
+                   -> AstTensor ms PlainSpan (TKS sh r2)
   AstCastS :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
            => AstTensor ms s (TKS sh r1)
            -> AstTensor ms s (TKS sh r2)
@@ -508,13 +508,13 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
              -> AstTensor ms s (TKS2 (shm ++ shn) x)
     -- out of bounds indexing is permitted and the results is def (==0)
   AstMinIndexS :: forall n sh r r2 ms. (NumScalar r, NumScalar r2)
-               => AstTensor ms PrimalSpan (TKS (n ': sh) r)
-               -> AstTensor ms PrimalSpan (TKS (Init (n ': sh)) r2)
+               => AstTensor ms PlainSpan (TKS (n ': sh) r)
+               -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) r2)
   AstMaxIndexS :: forall n sh r r2 ms. (NumScalar r, NumScalar r2)
-               => AstTensor ms PrimalSpan (TKS (n ': sh) r)
-               -> AstTensor ms PrimalSpan (TKS (Init (n ': sh)) r2)
+               => AstTensor ms PlainSpan (TKS (n ': sh) r)
+               -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) r2)
   AstIotaS :: forall n r ms. NumScalar r
-           => SNat n -> AstTensor ms PrimalSpan (TKS '[n] r)
+           => SNat n -> AstTensor ms PlainSpan (TKS '[n] r)
   AstAppendS :: forall m n sh x ms s.
                 AstTensor ms s (TKS2 (m ': sh) x)
              -> AstTensor ms s (TKS2 (n ': sh) x)
@@ -593,8 +593,8 @@ data AstBool ms where
           -> AstTensor ms PlainSpan (TKScalar r)
           -> AstBool ms
   AstLeqS :: forall sh r ms. NumScalar r
-          => AstTensor ms PrimalSpan (TKS sh r)
-          -> AstTensor ms PrimalSpan (TKS sh r)
+          => AstTensor ms PlainSpan (TKS sh r)
+          -> AstTensor ms PlainSpan (TKS sh r)
           -> AstBool ms
 deriving instance Show (AstBool ms)
 
