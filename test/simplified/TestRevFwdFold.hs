@@ -18,7 +18,9 @@ import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd
+import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (resetVarCounter)
+import HordeAd.Core.AstInterpret
 import HordeAd.Core.Ops (tbuild1, treplicate)
 import HordeAd.Core.OpsConcrete ()
 
@@ -401,6 +403,8 @@ testSin0RfwdPP4P :: Assertion
 testSin0RfwdPP4P = do
   let a1 :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double)
       a1 = (rfwd1 sin . rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
+  interpretAstPrimal @Concrete emptyEnv a1
+    @?= rscalar 0.8988770945225438
   printAstPretty (simplifyInline a1)
     @?= "rfromS (cos (cos (sscalar 1.1)))"
 
@@ -408,6 +412,8 @@ testSin0RfwdPP4Dual :: Assertion
 testSin0RfwdPP4Dual = do
   let a1 :: AstTensor AstMethodLet DualSpan (TKR 0 Double)
       a1 = (rfwd1 sin . rfwd1 @(AstTensor AstMethodLet DualSpan) @Double @0 @0 sin) (rscalar 1.1)
+  interpretAst @Concrete emptyEnv a1
+    @?= rscalar 0.0
   printAstPretty (simplifyInlineContract a1)
     @?= "rfromS (sdualPart (sscalar 0.0) * cos (sdualPart (sscalar 0.0) * cos (sdualPart (sscalar 0.0))))"
 
