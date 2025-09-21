@@ -257,6 +257,7 @@ simplifyAst t = case t of
   Ast.AstN1K NegateOp u -> negate (simplifyAst u)
   Ast.AstN1K AbsOp u -> abs (simplifyAst u)
   Ast.AstN1K SignumOp u -> signum (simplifyAst u)
+  -- TODO: copy here the code from contractAst
   Ast.AstR1K opCode u -> Ast.AstR1K opCode (simplifyAst u)
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2K QuotOp u v -> quotH (simplifyAst u) (simplifyAst v)
@@ -271,6 +272,7 @@ simplifyAst t = case t of
   Ast.AstN1S NegateOp u -> negate (simplifyAst u)
   Ast.AstN1S AbsOp u -> abs (simplifyAst u)
   Ast.AstN1S SignumOp u -> signum (simplifyAst u)
+  -- TODO: copy here the code from contractAst
   Ast.AstR1S opCode u -> Ast.AstR1S opCode (simplifyAst u)
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2S QuotOp u v -> quotH (simplifyAst u) (simplifyAst v)

@@ -859,11 +859,13 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   AstPlainPart @_ @s1 u / AstPlainPart @_ @s2 v
     | Just Refl <- sameAstSpan @s1 @s2 = AstPlainPart $ u / v
   AstFromPrimal u / AstFromPrimal v = fromPrimal $ u / v
+  AstFromPlain u / AstFromPlain v = fromPlain $ u / v
   AstConcreteS u / AstConcreteS v = AstConcreteS $ u / v
   u / v = AstR2S DivideOp u v
   recip (AstPrimalPart u) = AstPrimalPart (recip u)
   recip (AstPlainPart u) = AstPlainPart (recip u)
   recip (AstFromPrimal u) = fromPrimal (recip u)
+  recip (AstFromPlain u) = fromPlain (recip u)
   recip (AstConcreteS u) = AstConcreteS (recip u)
   recip u = AstR1S RecipOp u
   fromRational r = error $ "fromRational is not defined for shaped tensors: "

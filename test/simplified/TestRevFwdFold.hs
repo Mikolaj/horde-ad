@@ -260,11 +260,12 @@ testFooRrevPP1 = do
   printAstPretty a1
     @?= "rfromS (let x15 = let x10 = sin (sscalar 2.2) ; x11 = sscalar 1.1 * x10 ; x12 = recip (sscalar 10.889999999999999 + x11 * x11) ; x13 = sin (sscalar 2.2) ; x14 = sscalar (-3.3) * x12 in tpair (tpair (x10 * x14 + sscalar 3.3 * x13) (sscalar 1.1 * (cos (sscalar 2.2) * x14) + sscalar 3.63 * cos (sscalar 2.2))) (x11 * x12 + sscalar 1.1 * x13) in tproject1 (tproject1 x15))"
 
+-- This gets properly simpified when we complete "TODO: copy here the code from contractAst".
 testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
   let (a1, _, _) = fooRgrad @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple (simplifyInlineContract a1)
-    @?= "rfromS (sscalar 2.668038132604647 + sscalar (-2.668038132604647) * recip (sscalar 11.680936386336942))"
+    @?= "rfromS (tfromPlain (STKS [] STKScalar) (sscalar 2.668038132604647) + tfromPlain (STKS [] STKScalar) (sscalar (-2.668038132604647)) * recip (tfromPlain (STKS [] STKScalar) (sscalar 11.680936386336942)))"
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
