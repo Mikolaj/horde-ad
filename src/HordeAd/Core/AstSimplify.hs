@@ -314,17 +314,14 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
-  (case sameAstSpan @s @FullSpan of
-     Just Refl ->
-       let unFromPrimal :: AstTensor AstMethodLet FullSpan y
-                        -> Maybe (AstTensor AstMethodLet PrimalSpan y)
-           unFromPrimal (Ast.AstFromPrimal t) = Just t
-           unFromPrimal _ = Nothing
-       in case V.mapM unFromPrimal l of
-         Just l2 | V.null l2 -> error "astFromVector: empty vector"
-         Just l2 -> Just $ fromPrimal $ astFromVector snat stk l2
-         Nothing -> Nothing
-     _ -> Nothing)
+  (let unFromPrimal :: AstTensor AstMethodLet s2 y
+                    -> Maybe (AstTensor AstMethodLet (PrimalStepSpan s2) y)
+       unFromPrimal (Ast.AstFromPrimal t) = Just t
+       unFromPrimal _ = Nothing
+   in case V.mapM unFromPrimal l of
+     Just l2 | V.null l2 -> error "astFromVector: empty vector"
+     Just l2 -> Just $ fromPrimal $ astFromVector snat stk l2
+     Nothing -> Nothing)
   `mplus`
   (case sameAstSpan @s @FullSpan of
      Just Refl ->
@@ -338,17 +335,14 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
-  (case sameAstSpan @s @FullSpan of
-     Just Refl ->
-       let unFromPlain :: AstTensor AstMethodLet FullSpan y
-                       -> Maybe (AstTensor AstMethodLet PlainSpan y)
-           unFromPlain (Ast.AstFromPlain t) = Just t
-           unFromPlain _ = Nothing
-       in case V.mapM unFromPlain l of
-         Just l2 | V.null l2 -> error "astFromVector: empty vector"
-         Just l2 -> Just $ fromPlain $ astFromVector snat stk l2
-         Nothing -> Nothing
-     _ -> Nothing)
+  (let unFromPlain :: AstTensor AstMethodLet s2 y
+                   -> Maybe (AstTensor AstMethodLet PlainSpan y)
+       unFromPlain (Ast.AstFromPlain t) = Just t
+       unFromPlain _ = Nothing
+   in case V.mapM unFromPlain l of
+     Just l2 | V.null l2 -> error "astFromVector: empty vector"
+     Just l2 -> Just $ fromPlain $ astFromVector snat stk l2
+     Nothing -> Nothing)
   `mplus`
   (let unFrom :: FullShapeTK x
               -> AstTensor AstMethodLet s y
