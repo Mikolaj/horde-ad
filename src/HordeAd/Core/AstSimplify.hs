@@ -497,7 +497,8 @@ astReplicate snat stk t0 = case t0 of
   -- ~> transpose [0, 2, 1] (replicate n1 (replicate n2 u))
   -- but the reverse rule is already in astTransposeS
 
--- TODO: also pull up AstFromPrimal, etc.
+-- TODO: also pull up AstFromPrimal and especially AstFromPlain that blocks
+-- pulling up AstFromS' in many cases.
 astMapAccumRDer
   :: forall accy by ey k s. AstSpan s
   => SNat k
