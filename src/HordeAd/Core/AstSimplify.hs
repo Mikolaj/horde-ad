@@ -3730,6 +3730,20 @@ astLetFunBounds mbs a f = case a of
   AstFromS' @y2 ftkz v ->
     let (var, ast) = funToAst2 (ftkAst v) mbs (f . astFromS' @y2 ftkz)
     in astLet var v ast
+  Ast.AstFromPrimal (AstFromS' FTKScalar _) ->
+    let (var, ast) = funToAst2 (ftkAst a) mbs f
+    in astLet var a ast
+  Ast.AstFromPrimal (AstFromS' @y2 ftkz vRaw) ->
+    let v = fromPrimal vRaw
+        (var, ast) = funToAst2 (ftkAst v) mbs (f . astFromS' @y2 ftkz)
+    in astLet var v ast
+  Ast.AstFromPlain (AstFromS' FTKScalar _) ->
+    let (var, ast) = funToAst2 (ftkAst a) mbs f
+    in astLet var a ast
+  Ast.AstFromPlain (AstFromS' @y2 ftkz vRaw) ->
+    let v = fromPlain vRaw
+        (var, ast) = funToAst2 (ftkAst v) mbs (f . astFromS' @y2 ftkz)
+    in astLet var v ast
   _ -> case ftkAst a of
     ftk@(FTKR @_ @x sh' x) ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->

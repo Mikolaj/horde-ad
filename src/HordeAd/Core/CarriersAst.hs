@@ -1420,13 +1420,22 @@ astLetFunNoSimplify
 astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
 astLetFunNoSimplify a f = case a of
+  AstFromS' FTKScalar _ ->
+    let (var, ast) = funToAst2 (ftkAst a) Nothing f
+    in AstLet var a ast
   AstFromS' @y2 ftkz v ->
     let (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
     in AstLet var v ast
+  AstFromPrimal (AstFromS' FTKScalar _) ->
+    let (var, ast) = funToAst2 (ftkAst a) Nothing f
+    in AstLet var a ast
   AstFromPrimal (AstFromS' @y2 ftkz vRaw) ->
     let v = fromPrimal vRaw
         (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
     in AstLet var v ast
+  AstFromPlain (AstFromS' FTKScalar _) ->
+    let (var, ast) = funToAst2 (ftkAst a) Nothing f
+    in AstLet var a ast
   AstFromPlain (AstFromS' @y2 ftkz vRaw) ->
     let v = fromPlain vRaw
         (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
