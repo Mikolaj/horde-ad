@@ -112,7 +112,7 @@ instance AstSpan s => AstSpan (PrimalStepSpan s) where
   plainPart = cAstPlainPart
   fromPrimal = cAstFromPrimal
   fromDual t = dualSpanToStep (knownSpan @s) t  -- this is primal zero
-  fromPlain = cAstFromPlain
+  fromPlain = AstFromPlain
 
 instance AstSpan DualSpan where
   primalPart = cAstPrimalPart
@@ -120,7 +120,7 @@ instance AstSpan DualSpan where
   plainPart = cAstPlainPart
   fromPrimal = cAstFromPrimal
   fromDual = id
-  fromPlain = cAstFromPlain
+  fromPlain = AstFromPlain
 
 instance AstSpan FullSpan where
   primalPart = cAstPrimalPart
@@ -128,11 +128,11 @@ instance AstSpan FullSpan where
   plainPart = cAstPlainPart
   fromPrimal = cAstFromPrimal
   fromDual = AstFromDual
-  fromPlain = cAstFromPlain
+  fromPlain = AstFromPlain
 
 instance AstSpan PlainSpan where
   primalPart = cAstPrimalPart
-  dualPart t = AstDualPart $ cAstFromPlain t  -- this is dual zero
+  dualPart t = AstDualPart $ AstFromPlain t  -- this is dual zero
   plainPart = id
   fromPrimal = cAstPlainPart
   fromDual t = AstPlainPart $ AstFromDual t  -- this is plain zero
@@ -154,7 +154,7 @@ stepToDualSpan = \case
   SPrimalStepSpan sspan -> stepToDualSpan sspan . cAstFromPrimal
   SDualSpan -> cAstFromPrimal
   SFullSpan -> AstDualPart . cAstFromPrimal
-  SPlainSpan -> AstDualPart . cAstFromPlain . cAstFromPrimal
+  SPlainSpan -> AstDualPart . AstFromPlain . cAstFromPrimal
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = testEquality (typeRep @s1) (typeRep @s2)
@@ -172,20 +172,20 @@ cAstDualPart t = AstDualPart t
 
 cAstPlainPart :: forall y s ms. AstSpan s
               => AstTensor ms s y -> AstTensor ms PlainSpan y
-cAstPlainPart (AstPrimalPart v) = cAstPlainPart v
-cAstPlainPart (AstPlainPart t) = AstPlainPart t
-cAstPlainPart (AstFromPrimal v) = cAstPlainPart v
 cAstPlainPart (AstFromPlain v) = v
+cAstPlainPart (AstPrimalPart v) = cAstPlainPart v
+cAstPlainPart (AstFromPrimal v) = cAstPlainPart v
+cAstPlainPart t | Just Refl <- sameAstSpan @s @PlainSpan = t
 cAstPlainPart t = AstPlainPart t
 
-cAstFromPrimal :: forall y s ms.
-                  AstTensor ms (PrimalStepSpan s) y -> AstTensor ms s y
-cAstFromPrimal (AstFromPlain t) = AstFromPlain t
+cAstFromPrimal :: forall y s ms. AstSpan s
+               => AstTensor ms (PrimalStepSpan s) y -> AstTensor ms s y
+cAstFromPrimal (AstFromPlain t) = cAstFromPlain t
 cAstFromPrimal t = AstFromPrimal t
 
-cAstFromPlain :: forall y s ms.
-                 AstTensor ms PlainSpan y -> AstTensor ms s y
-cAstFromPlain (AstFromPlain t) = AstFromPlain t
+cAstFromPlain :: forall y s ms. AstSpan s
+              => AstTensor ms PlainSpan y -> AstTensor ms s y
+cAstFromPlain t | Just Refl <- sameAstSpan @s @PlainSpan = t
 cAstFromPlain t = AstFromPlain t
 
 

@@ -1173,10 +1173,11 @@ astDualPart t = case t of
 
   _ -> Ast.AstDualPart t
 
-astPlainPart :: AstSpan s
+astPlainPart :: forall y s. AstSpan s
              => AstTensor AstMethodLet s y
              -> AstTensor AstMethodLet PlainSpan y
 astPlainPart t = case t of
+  _ | Just Refl <- sameAstSpan @s @PlainSpan -> t
   Ast.AstPair t1 t2 -> astPair (astPlainPart t1) (astPlainPart t2)
   Ast.AstProject1 v -> astProject1 (astPlainPart v)
   Ast.AstProject2 v -> astProject2 (astPlainPart v)
@@ -1207,7 +1208,7 @@ astPlainPart t = case t of
 
   Ast.AstPrimalPart v -> astPlainPart v
   Ast.AstDualPart{} -> Ast.AstPlainPart t
-  Ast.AstPlainPart{} -> t
+  Ast.AstPlainPart{} -> t  -- subsumed by the first case
   Ast.AstFromPrimal v -> astPlainPart v
   Ast.AstFromDual v ->
     let ftk = ftkAst v
