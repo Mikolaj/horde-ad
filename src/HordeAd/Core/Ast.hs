@@ -108,19 +108,32 @@ class (KnownSpan s, Typeable s) => AstSpan (s :: AstSpanType) where
 -- and also astPrimalPart only works on AstMethodLet.
 instance AstSpan s => AstSpan (PrimalStepSpan s) where
   primalPart = cAstPrimalPart
-  dualPart t = stepToDualSpan (knownSpan @s) t  -- this is dual zero
+  dualPart t =
+    cAstDualPart $ stepToFullSpan (knownSpan @s) t  -- this is dual zero
   plainPart = cAstPlainPart
   fromPrimal = cAstFromPrimal
-  fromDual t = dualSpanToStep (knownSpan @s) t  -- this is primal zero
+  fromDual t =
+    fullSpanToStep (knownSpan @s) $ AstFromDual t  -- this is primal zero
   fromPlain = AstFromPlain
 
+{- TODO: document why this is wrong. Could types prevent this?
 instance AstSpan DualSpan where
   primalPart = cAstPrimalPart
   dualPart = id
   plainPart = cAstPlainPart
   fromPrimal = cAstFromPrimal
   fromDual = id
-  fromPlain = AstFromPlain
+  fromPlain = AstFromPlain -}
+
+instance AstSpan DualSpan where
+  primalPart t =
+    fullSpanToStep knownSpan $ AstFromDual t  -- this is primal zero
+  dualPart = id
+  plainPart t = AstPlainPart $ AstFromDual t  -- this is plain zero
+  fromPrimal t =
+    cAstDualPart $ stepToFullSpan knownSpan t  -- this is dual zero
+  fromDual = id
+  fromPlain t = AstDualPart $ AstFromPlain t  -- this is dual zero
 
 instance AstSpan FullSpan where
   primalPart = cAstPrimalPart
@@ -138,23 +151,23 @@ instance AstSpan PlainSpan where
   fromDual t = AstPlainPart $ AstFromDual t  -- this is plain zero
   fromPlain = id
 
-dualSpanToStep :: SAstSpanType s
-               -> AstTensor ms DualSpan y
+fullSpanToStep :: SAstSpanType s
+               -> AstTensor ms FullSpan y
                -> AstTensor ms (PrimalStepSpan s) y
-dualSpanToStep = \case
-  SPrimalStepSpan sspan -> AstPrimalPart . dualSpanToStep sspan
-  SDualSpan -> AstPrimalPart
-  SFullSpan -> AstPrimalPart . AstFromDual
-  SPlainSpan -> AstPrimalPart . AstPlainPart . AstFromDual
+fullSpanToStep = \case
+  SPrimalStepSpan sspan -> cAstPrimalPart . fullSpanToStep sspan
+  SDualSpan -> cAstPrimalPart . cAstDualPart
+  SFullSpan -> cAstPrimalPart
+  SPlainSpan -> cAstPrimalPart . cAstPlainPart
 
-stepToDualSpan :: SAstSpanType s
+stepToFullSpan :: SAstSpanType s
                -> AstTensor ms (PrimalStepSpan s) y
-               -> AstTensor ms DualSpan y
-stepToDualSpan = \case
-  SPrimalStepSpan sspan -> stepToDualSpan sspan . cAstFromPrimal
-  SDualSpan -> cAstFromPrimal
-  SFullSpan -> AstDualPart . cAstFromPrimal
-  SPlainSpan -> AstDualPart . AstFromPlain . cAstFromPrimal
+               -> AstTensor ms FullSpan y
+stepToFullSpan = \case
+  SPrimalStepSpan sspan -> stepToFullSpan sspan . cAstFromPrimal
+  SDualSpan -> AstFromDual . cAstFromPrimal
+  SFullSpan -> cAstFromPrimal
+  SPlainSpan -> AstFromPlain . cAstFromPrimal
 
 sameAstSpan :: forall s1 s2. (AstSpan s1, AstSpan s2) => Maybe (s1 :~: s2)
 sameAstSpan = testEquality (typeRep @s1) (typeRep @s2)
