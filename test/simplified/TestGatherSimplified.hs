@@ -496,15 +496,15 @@ testGatherSimpPP23 = do
               gatherReshape22 @(AstTensor AstMethodLet PrimalSpan)
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [6, 2] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t1) @?= 450
-  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 456
+  length (show t1) @?= 465
+  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 471
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               rreshape @2 @2 [2, 6]
                 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [6, 2] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t2) @?= 450
-  length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 456
+  length (show t2) @?= 465
+  length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 471
 
 testGatherSimp23 :: Assertion
 testGatherSimp23 = do
@@ -668,16 +668,16 @@ testGatherSimpPP33 = do
   resetVarCounter
   let !t1 = gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t1) @?= 1117
-  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 847
+  length (show t1) @?= 1132
+  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 4802
   printAstSimple (simplifyInlineContract @(TKR 2 Float) t1)
     @?= "rfromS (smatmul2 (sconcrete (sfromListLinear [6,8] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.89432,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.89432,5.0,2.0,6.0,1.0,-2.0,0.92,0.1,-0.2,13.1,9.0,8.0,-4.0,34.0,2.99432,-33.0,26.0,2.0,2.0,2.0,2.0,-0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003])) (str (sreshape @[16,8] (ttranspose (makePerm @[0,2,1]) (sreshape @[2,2,8,4] (ttranspose (makePerm @[3,7,0,1,2,4,6,5]) (sfromR w0)))))))"
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconcrete $ unConcrete t48))
                             (rreshape @10 [8, 16] t))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t2) @?= 796
-  length (show (simplifyInlineContract @(TKR 2 Float) @PrimalSpan t2)) @?= 526
+  length (show t2) @?= 811
+  length (show (simplifyInlineContract @(TKR 2 Float) @PrimalSpan t2)) @?= 4595
 
 testGatherSimpPP34 :: Assertion
 testGatherSimpPP34 = do
@@ -685,16 +685,16 @@ testGatherSimpPP34 = do
   let !t1 = (\t -> rbuild1 4 (\i ->
              gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t1) @?= 2504
-  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 19838
+  length (show t1) @?= 2534
+  length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 19868
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ unConcrete t48))
                                (rreshape @10 [8, 16] t'))
                 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t2) @?= 2145
-  length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 19479
+  length (show t2) @?= 2175
+  length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 19509
 
 {- TODO: re-enable the tests once we drop GHC 9.10
    (they don't type-check with 9.10)
@@ -1248,13 +1248,13 @@ testReluSimpPP = do
   resetVarCounter
   let !t1 = barRelu10xSlower @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t1) @?= 22675
-  length (show (simplifyInlineContract @(TKR 10 Float) t1)) @?= 22675
+  length (show t1) @?= 23589
+  length (show (simplifyInlineContract @(TKR 10 Float) t1)) @?= 23589
   resetVarCounter
   let !t2 = barRelu @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) Nothing . intToAstVarId $ 100000000)
-  length (show t2) @?= 12258
-  length (show (simplifyInlineContract @(TKR 10 Float) t2)) @?= 12258
+  length (show t2) @?= 12708
+  length (show (simplifyInlineContract @(TKR 10 Float) t2)) @?= 12708
 
 testCNNOPP2 :: Assertion
 testCNNOPP2 = do
@@ -1516,7 +1516,6 @@ testCNNOPP6b = do
     @?= "\\u1 -> let t58 = str (sfromVector (fromList [stranspose @[1,2,0] (sgather (stranspose @[2,1,0] (sgather (stranspose @[2,0,1] (sgather (stranspose @[1,2,0] (sreplicate @2 (sreplicate @2 (sappend (sreplicate @1 (sfromR u1 !$ [0, 0, 0, 0])) (sconcrete (sfromListLinear [1] [0.0])))))) (\\[i55] -> [2 * i55]))) (\\[i56] -> [2 * i56]))) (\\[i57] -> [2 * i57])), sconcrete (sreplicate [2,2,2] 0.0)])) !$ [0] in rfromS (stranspose @[1,2,0] (sreplicate @2 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (t58 !$ [0, 0, 0])) (sreplicate @1 (t58 !$ [1, 0, 1])))) (sreplicate @1 (t58 !$ [1, 1])))) (sconcrete (sreplicate [1,2,2] 0.0)))))"
   printArtifactPretty artifactRev
     @?= "\\dret u1 -> let t60 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) ; u61 = str (soneHot (soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t60)))))) [0, 0, 0] + (soneHot (ssum @1 (sslice (SNat @1) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t60)))))) [1, 0, 1] + soneHot (ssum @1 (sslice (SNat @1) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t60)))) [1, 1])) [0]) ; v65 = ssum @2 (ssum @2 (stranspose @[2,0,1] (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,1,0] (sscatter (stranspose @[2,0,1] (u61 !$ [0])) (\\[i62] -> [2 * i62]))) (\\[i63] -> [2 * i63]))) (\\[i64] -> [2 * i64])))) in rfromS (soneHot (ssum @1 (sslice (SNat @0) (SNat @1) v65)) [0, 0, 0, 0])"
-
   printArtifactPretty (simplifyArtifact artifactRev)
     @?= "\\dret u1 -> rfromS (let t60 = ssum @2 (stranspose @[2,0,1] (sfromR dret)) in soneHot (ssum0 (stranspose @[1,2,0] (sscatter (stranspose @[1,2,0] (sscatter (stranspose @[2,1,0] (sscatter (stranspose @[1,3,0,2] (soneHot (soneHot (t60 !$ [0, 0, 0]) [0, 0, 0] + (soneHot (t60 !$ [0, 0, 1]) [1, 0, 1] + soneHot (t60 !$ [0, 1]) [1, 1])) [0]) !$ [0]) (\\[i62] -> [2 * i62]))) (\\[i63] -> [2 * i63]))) (\\[i64] -> [2 * i64])) !$ [0])) [0, 0, 0, 0])"
       -- TODO: was once "\\dret u1 -> rfromS (soneHot (ssum0 (stranspose @[0,1,3,2] (sfromR dret) !$ [0, 0, 0])) [0, 0, 0, 0])"
@@ -1592,11 +1591,11 @@ testCNNOPP4bU = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpaddedS4 @4 @2) (FTKS (SNat @31 :$$ SNat @31 :$$ SNat @31 :$$ SNat @31 :$$ ZSS) (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
-    @?= "\\u1 -> let w52 = sgather (stranspose @[4,2,3,0,1] (sgather (stranspose @[2,0,1] u1) (\\[i99, i100] -> [2 * i99 + i100]))) (\\[i50, i51] -> [2 * i50 + i51]) ; u53 = smaxIndex (sreshape @[31,31,15,15,16] (stranspose @[2,3,4,0,5,1] w52)) in sgather w52 (\\[i54, i55, i56, i57] -> [i57, remH (kfromS (u53 !$ [i54, i55, i56, i57])) 4, i54, i55, i56, remH (quotH (kfromS (u53 !$ [i54, i55, i56, i57])) 4) 4])"
+    @?= "\\u1 -> let w52 = sgather (stranspose @[4,2,3,0,1] (sgather (stranspose @[2,0,1] u1) (\\[i99, i100] -> [2 * i99 + i100]))) (\\[i50, i51] -> [2 * i50 + i51]) ; u53 = smaxIndex (sreshape @[31,31,15,15,16] (stranspose @[2,3,4,0,5,1] (splainPart w52))) in sgather w52 (\\[i54, i55, i56, i57] -> [i57, remH (tplainPart (kfromS (u53 !$ [i54, i55, i56, i57]))) 4, i54, i55, i56, remH (quotH (tplainPart (kfromS (u53 !$ [i54, i55, i56, i57]))) 4) 4])"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> let w52 = sgather (stranspose @[4,2,3,0,1] (sgather (stranspose @[2,0,1] u1) (\\[i48, i49] -> [2 * i48 + i49]))) (\\[i50, i51] -> [2 * i50 + i51]) ; u53 = smaxIndex (sreshape @[31,31,15,15,16] (stranspose @[2,3,4,0,5,1] w52)) in sgather w52 (\\[i54, i55, i56, i57] -> [i57, remH (kfromS (u53 !$ [i54, i55, i56, i57])) 4, i54, i55, i56, remH (quotH (kfromS (u53 !$ [i54, i55, i56, i57])) 4) 4])"
+    @?= "\\u1 -> let w52 = sgather (stranspose @[4,2,3,0,1] (sgather (stranspose @[2,0,1] u1) (\\[i48, i49] -> [2 * i48 + i49]))) (\\[i50, i51] -> [2 * i50 + i51]) ; u53 = smaxIndex (splainPart (sreshape @[31,31,15,15,16] (stranspose @[2,3,4,0,5,1] (splainPart w52)))) in sgather w52 (\\[i54, i55, i56, i57] -> [i57, remH (tplainPart (kfromS (u53 !$ [i54, i55, i56, i57]))) 4, i54, i55, i56, remH (quotH (tplainPart (kfromS (u53 !$ [i54, i55, i56, i57]))) 4) 4])"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> let w52 = sgather (stranspose @[4,2,3,0,1] (sgather (stranspose @[2,0,1] u1) (\\[i48, i49] -> [2 * i48 + i49]))) (\\[i50, i51] -> [2 * i50 + i51]) ; u53 = smaxIndex (sreshape @[31,31,15,15,16] (stranspose @[2,3,4,0,5,1] w52)) in stranspose @[1,2,0] (sscatter (stranspose @[3,4,1,2,0] (sscatter (sscatter dret (\\[i59, i60, i61, i62] -> [i62, remH (kfromS (u53 !$ [i59, i60, i61, i62])) 4, i59, i60, i61, remH (quotH (kfromS (u53 !$ [i59, i60, i61, i62])) 4) 4])) (\\[i63, i64] -> [2 * i63 + i64]))) (\\[i65, i66] -> [2 * i65 + i66]))"
+    @?= "\\dret u1 -> let w52 = sgather (stranspose @[4,2,3,0,1] (sgather (stranspose @[2,0,1] u1) (\\[i48, i49] -> [2 * i48 + i49]))) (\\[i50, i51] -> [2 * i50 + i51]) ; u53 = smaxIndex (splainPart (sreshape @[31,31,15,15,16] (stranspose @[2,3,4,0,5,1] (splainPart w52)))) in stranspose @[1,2,0] (sscatter (stranspose @[3,4,1,2,0] (sscatter (sscatter dret (\\[i59, i60, i61, i62] -> [i62, remH (tplainPart (kfromS (u53 !$ [i59, i60, i61, i62]))) 4, i59, i60, i61, remH (quotH (tplainPart (kfromS (u53 !$ [i59, i60, i61, i62]))) 4) 4])) (\\[i63, i64] -> [2 * i63 + i64]))) (\\[i65, i66] -> [2 * i65 + i66]))"
 -- TODO: different test result with GHC 9.10:   printArtifactPretty (simplifyArtifact artifactRev)
 --    @?= "\\dret u1 -> let u53 = smaxIndex (sreshape @[31,31,15,15,16] (stranspose @[2,3,4,0,5,1] (sgather (stranspose @[4,2,3,0,1] (sgather (stranspose @[2,0,1] u1) (\\[i82, i83] -> [2 * i82 + i83]))) (\\[i50, i51] -> [2 * i50 + i51])))) in stranspose @[1,2,0] (sscatter (stranspose @[3,4,1,2,0] (sscatter (sscatter dret (\\[i59, i60, i61, i62] -> [i62, remH (kfromS (u53 !$ [i59, i60, i61, i62])) 4, i59, i60, i61, remH (quotH (kfromS (u53 !$ [i59, i60, i61, i62])) 4) 4])) (\\[i63, i64] -> [2 * i63 + i64]))) (\\[i65, i66] -> [2 * i65 + i66]))"
 
