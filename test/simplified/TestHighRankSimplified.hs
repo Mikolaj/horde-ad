@@ -18,6 +18,7 @@ import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd
+import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.Ops (tD, tfromPrimal)
 
 import CrossTesting
@@ -68,6 +69,7 @@ testTrees =
   , testCase "3concatBuild1" testConcatBuild1
   , testCase "3concatBuild0m" testConcatBuild0m
   , testCase "3concatBuild1m" testConcatBuild1m
+  , testCase "3concatBuild1mPP" testConcatBuild1mPP
   , testCase "3concatBuild2" testConcatBuild2
   , testCase "3concatBuild22" testConcatBuild22
   , testCase "3concatBuild3" testConcatBuild3
@@ -629,6 +631,17 @@ testConcatBuild1m =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [3,1,2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @8 (concatBuildm . rmap0N (* rscalar 1e-7)) t48)
+
+testConcatBuild1mPP :: Assertion
+testConcatBuild1mPP = do
+  resetVarCounter
+  let t = concatBuildm @(AstTensor AstMethodLet FullSpan) @Double @6
+          . rmap0N (* rscalar 1e-7)
+  let (artifactRev, _) =
+        revArtifactDelta UseIncomingCotangent t
+                         (FTKR @7 [3,1,2,2,1,2,2] FTKScalar)
+  printArtifactSimple (simplifyArtifact artifactRev)
+    @?= "\\dret w1 -> rfromS (ttranspose (makePerm @[2,0,3,4,1]) (sreplicate @1 (sreplicate @1 (sconcrete (sreplicate [3,2,2,2,2] 1.0e-7) * sdot1In (sreplicate @3 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sreplicate @2 (sfromIntegral (sfloor (ssum @16 (str (sreshape @[7,16] (sappend (str (sreplicate @1 (ttranspose (makePerm @[1,2,3,0]) (sreplicate @1 (sconcrete (sreplicate [3,2,2,2,2] 1.0e-7) * ttranspose (makePerm @[1,4,0,2,3]) (sfromR w1) !$ [0, 0]))))) (sconcrete (sreplicate [4,1,2,2,1,2,2] 0.0))))))))))))) (ttranspose (makePerm @[2,5,1,3,4,6,7,0]) (sfromR dret) !$ [0, 0])))))"
 
 concatBuild2 :: (ADReady target, NumScalar r, KnownNat n)
              => target (TKR (1 + n) r) -> target (TKR (3 + n) r)
