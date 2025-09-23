@@ -725,8 +725,9 @@ instance (NumScalar r, AstSpan s)
     AstTimesS (AstFromPlain (AstConcreteS (n * k))) u
   AstTimesS (AstFromPlain (AstConcreteS n)) u * AstFromPlain (AstConcreteS k) =
     AstTimesS (AstFromPlain (AstConcreteS (n * k))) u
-  AstTimesS (AstFromPlain (AstConcreteS n)) u * AstTimesS (AstFromPlain (AstConcreteS k)) v =
-    AstTimesS (AstFromPlain (AstConcreteS (n * k))) (AstTimesS u v)
+  AstTimesS (AstFromPlain (AstConcreteS n)) u
+    * AstTimesS (AstFromPlain (AstConcreteS k)) v =
+      AstTimesS (AstFromPlain (AstConcreteS (n * k))) (AstTimesS u v)
 
   u@AstConcreteS{} * AstPlusS v w = AstPlusS (u * v) (u * w)
   AstTimesS u@AstConcreteS{} x * AstPlusS v w =
@@ -1257,15 +1258,18 @@ instance (AstSpan s, NumScalar r)
   AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK v)) w
     | v > 0 && u >= 0
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
-      AstFromPlain (AstConcreteK ((u + v - 1) `quotH` v)) <=. w -- 10 == 5 * 2, 11 > 5 * 2
+      AstFromPlain (AstConcreteK ((u + v - 1) `quotH` v)) <=. w
+        -- 10 == 5 * 2, 11 > 5 * 2
   AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK v)) w
     | v > 0 && u < 0
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
-      AstFromPlain (AstConcreteK (u `quotH` v)) <=. w  -- -10 == 5 * -2, -9 > 5 * -2
+      AstFromPlain (AstConcreteK (u `quotH` v)) <=. w
+        -- -10 == 5 * -2, -9 > 5 * -2
   AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK v)) w
     | v < 0
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
-      AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK $ negate v)) (AstN1K NegateOp w)
+      AstFromPlain (AstConcreteK u)
+      <=. AstTimesK (AstFromPlain (AstConcreteK $ negate v)) (AstN1K NegateOp w)
   v <=. u = AstConcreteK 0 <=. plainPart u - plainPart v
 
 instance (AstSpan s, NumScalar r)
