@@ -2379,9 +2379,9 @@ fblowupLetPP16 = do
   let fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 1 6
   let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fblowupLetT (FTKR [2] FTKScalar)
   printArtifactPrimalSimple (simplifyArtifact artifactRev)
-    @?= "\\v1 -> rfromS (tlet (sfromR v1 !$ [0] / sfromR v1 !$ [1]) (\\x10 -> tlet (sscalar (-0.499999985) + (sscalar 0.499999985 * x10 + sscalar 0.499999985 * x10)) (\\x12 -> tlet (sscalar (-0.499999985) + (sscalar 0.499999985 * x12 + sscalar 0.499999985 * x12)) (\\x14 -> tlet (sscalar (-0.499999985) + (sscalar 0.499999985 * x14 + sscalar 0.499999985 * x14)) (\\x16 -> tlet (sscalar (-0.499999985) + (sscalar 0.499999985 * x16 + sscalar 0.499999985 * x16)) (\\x18 -> tlet (sscalar (-0.499999985) + (sscalar 0.499999985 * x18 + sscalar 0.499999985 * x18)) (\\x20 -> sscalar (-1.499999985) + (sscalar 0.499999985 * x20 + sscalar 0.499999985 * x20))))))))"
+    @?= "\\v1 -> rfromS (tlet (sfromR v1 !$ [0] / sfromR v1 !$ [1]) (\\x10 -> tlet (tfromPlain (STKS [] STKScalar) (sscalar (-0.499999985)) + (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x10 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x10)) (\\x12 -> tlet (tfromPlain (STKS [] STKScalar) (sscalar (-0.499999985)) + (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x12 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x12)) (\\x14 -> tlet (tfromPlain (STKS [] STKScalar) (sscalar (-0.499999985)) + (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x14 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x14)) (\\x16 -> tlet (tfromPlain (STKS [] STKScalar) (sscalar (-0.499999985)) + (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x16 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x16)) (\\x18 -> tlet (tfromPlain (STKS [] STKScalar) (sscalar (-0.499999985)) + (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x18 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x18)) (\\x20 -> tfromPlain (STKS [] STKScalar) (sscalar (-1.499999985)) + (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x20 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x20))))))))"
   printArtifactSimple (simplifyArtifact artifactRev)
-    @?= "\\dret v1 -> rfromS (tlet (sfromR v1 !$ [1]) (\\x9 -> tlet (sscalar 0.499999985 * sfromR dret) (\\x23 -> tlet (sscalar 0.499999985 * x23 + sscalar 0.499999985 * x23) (\\x24 -> tlet (sscalar 0.499999985 * x24 + sscalar 0.499999985 * x24) (\\x25 -> tlet (sscalar 0.499999985 * x25 + sscalar 0.499999985 * x25) (\\x26 -> tlet (sscalar 0.499999985 * x26 + sscalar 0.499999985 * x26) (\\x27 -> tlet (sscalar 0.499999985 * x27 + sscalar 0.499999985 * x27) (\\x28 -> tlet (x28 + x28) (\\x29 -> soneHot (recip x9 * x29) [0] + soneHot ((negate (sfromR v1 !$ [0]) / (x9 * x9)) * x29) [1])))))))))"
+    @?= "\\dret v1 -> rfromS (tlet (sfromR v1 !$ [1]) (\\x9 -> tlet (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * sfromR dret + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * sfromR dret) (\\x23 -> tlet (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x23 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x23) (\\x24 -> tlet (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x24 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x24) (\\x25 -> tlet (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x25 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x25) (\\x26 -> tlet (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x26 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x26) (\\x27 -> tlet (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x27 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * x27) (\\x28 -> soneHot (recip x9 * x28) [0] + soneHot ((negate (sfromR v1 !$ [0]) / (x9 * x9)) * x28) [1]))))))))"
 
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
@@ -2390,10 +2390,15 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
       assertEqualUpToEpsilon' 1e-5
         (ringestData [2] [0.3333332333333467,-0.22222215555556446])
         (rev' @Double @0 (fblowup 7) (ringestData [2] [2, 3]))
-  , testCase "blowupLet prim 2000" $ do
-      assertEqualUpToEpsilon' 1e-10
+  , testCase "blowupLet 2000" $ do
+      assertEqualUpToEpsilon 1e-10
         (ringestData [2] [0.3333133339329949,-0.22220888928866325])
-        (rev' @Double @0 (fblowupLet 1 2000) (ringestData [2] [2, 3]))
+        (grad (kfromR @_ @Double . rsum0 . (\intputs -> fblowupLet 1 2000 intputs))
+              (ringestData [2] [2, 3]))
+  , testCase "blowupLet prim 200" $ do
+      assertEqualUpToEpsilon' 1e-10
+        (ringestData [2] [0.33333133333930065,-0.2222208888928671])
+        (rev' @Double @0 (fblowupLet 1 200) (ringestData [2] [2, 3]))
   , testCase "blowupLet 7000" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [0.3332633406816766,-0.22217556045445108])
