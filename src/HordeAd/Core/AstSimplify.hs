@@ -374,6 +374,22 @@ astSum snat@SNat stk t0 = case t0 of
   _ | Just Refl <- testEquality snat (SNat @0) ->
     let ftk = razeFTK snat stk (ftkAst t0)
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
+  _ | STKS sh (STKScalar @r) <- stk
+    , Just u <- unRepl1 t0
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
+      u * (fromPlain $ AstConcreteS @r
+           $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
+  -- This exchanges one multiplication at rank n+1 for two multiplications
+  -- at rank n, which should be faster. We choose t1, since it's likely to be
+  -- concrete and so it's easier to see if it's replicated and also t2 is
+  -- likely to be AstTimes, to be processed recusively. This rule may distrupt
+  -- recognizing matmul, sdot1In, etc., but it sometimes leads to a smaller
+  -- and better sdot1In.
+  AstTimesS t1 t2
+    | STKS _sh (STKScalar @r) <- stk
+    , Just u <- unRepl1 t1
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
+      u * astSum snat stk t2
   AstConcreteS @_ @sh2 t -> case stk of
     STKS @sh _ STKScalar ->
       gcastWith (unsafeCoerceRefl :: k ': sh :~: sh2) $
