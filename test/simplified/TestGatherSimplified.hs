@@ -669,15 +669,15 @@ testGatherSimpPP33 = do
   let !t1 = gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) Nothing . intToAstVarId $ 100000000)
   length (show t1) @?= 1132
-  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 4802
+  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 862
   printAstSimple (simplifyInlineContract @(TKR 2 Float) t1)
-    @?= "rfromS (smatmul2 (sconcrete (sfromListLinear [6,8] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.89432,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.89432,5.0,2.0,6.0,1.0,-2.0,0.92,0.1,-0.2,13.1,9.0,8.0,-4.0,34.0,2.99432,-33.0,26.0,2.0,2.0,2.0,2.0,-0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003])) (str (sreshape @[16,8] (ttranspose (makePerm @[0,2,1]) (sreshape @[2,2,8,4] (ttranspose (makePerm @[3,7,0,1,2,4,6,5]) (sfromR w0)))))))"
+    @?= "rfromS (smatmul2 (tfromPlain (STKS [6,8] STKScalar) (sconcrete (sfromListLinear [6,8] [18.1,29.1,32.1,40.1,52.0,53.99432,97.1,58.89432,18.1,29.1,32.1,40.1,58.0,54.99432,97.1,52.89432,5.0,2.0,6.0,1.0,-2.0,0.92,0.1,-0.2,13.1,9.0,8.0,-4.0,34.0,2.99432,-33.0,26.0,2.0,2.0,2.0,2.0,-0.2,-0.2,-0.2,-0.2,25.0003,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003]))) (str (sreshape @[16,8] (ttranspose (makePerm @[0,2,1]) (sreshape @[2,2,8,4] (ttranspose (makePerm @[3,7,0,1,2,4,6,5]) (sfromR w0)))))))"
   resetVarCounter
   let !t2 = (\t -> rmatmul2 (rreshape [6, 8] (rconcrete $ unConcrete t48))
                             (rreshape @10 [8, 16] t))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) Nothing . intToAstVarId $ 100000000)
   length (show t2) @?= 811
-  length (show (simplifyInlineContract @(TKR 2 Float) @PrimalSpan t2)) @?= 4595
+  length (show (simplifyInlineContract @(TKR 2 Float) @PrimalSpan t2)) @?= 541
 
 testGatherSimpPP34 :: Assertion
 testGatherSimpPP34 = do
