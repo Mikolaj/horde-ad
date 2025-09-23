@@ -415,6 +415,10 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstReplicate _ STKScalar v | STKScalar @r <- stk
                                  , Dict0 <- numFromTKAllNum (Proxy @r) ->
     v * fromPlain (AstConcreteK $ fromInteger $ fromSNat snat)
+  Ast.AstReplicate _ STKS{} v | STKS sh (STKScalar @r) <- stk
+                              , Dict0 <- numFromTKAllNum (Proxy @r) ->
+    v * (fromPlain $ AstConcreteS @r
+         $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ _ v | STKR _ (STKScalar @r) <- stk
                          , Dict0 <- numFromTKAllNum (Proxy @r) ->
     case ftkAst v of
@@ -428,13 +432,6 @@ astSum snat@SNat stk t0 = case t0 of
     case ftkAst v of
       ftk@(FTKX sh' FTKScalar) ->
         withShsFromShX sh' $ \(sh :: ShS sh) ->
-          v * astFromS'
-                ftk (fromPlain $ AstConcreteS @r
-                     $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
-  Ast.AstReplicate _ STKS{} v | STKS sh (STKScalar @r) <- stk
-                              , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    case ftkAst v of
-      ftk ->
           v * astFromS'
                 ftk (fromPlain $ AstConcreteS @r
                      $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
