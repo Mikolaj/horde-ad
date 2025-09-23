@@ -306,12 +306,12 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKR sh' FTKScalar ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->
         astFromS' @(TKS sh r2) (FTKR sh' FTKScalar)
-        . fromPlain . astFloorS . plainPart . astSFromR' @sh sh $ a
+        . fromPlain . astFloorS . astPlainPart . astSFromR' @sh sh $ a
   trfromIntegral @_ @r2 a = case ftkAst a of
     FTKR sh' FTKScalar ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->
         astFromS' @(TKS sh r2) (FTKR sh' FTKScalar)
-        . fromPlain . astFromIntegralS . plainPart . astSFromR' @sh sh $ a
+        . fromPlain . astFromIntegralS . astPlainPart . astSFromR' @sh sh $ a
   trcast @_ @r2 a = case ftkAst a of
     FTKR sh' FTKScalar ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->
@@ -325,7 +325,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           -- gcastWith (unsafeCoerceRefl :: Rank sh :~: 1 + Rank (Init sh)) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           astFromS' @(TKS (Init sh) r2) (FTKR (shrInit sh') FTKScalar)
-          . fromPlain . AstMinIndexS . plainPart . astSFromR' @sh sh $ a
+          . fromPlain . AstMinIndexS . astPlainPart . astSFromR' @sh sh $ a
         ZSS -> error "rminIndex: impossible empty shape"
   trmaxIndex @_ @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
@@ -333,7 +333,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         (:$$) @_ @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           astFromS' @(TKS (Init sh) r2) (FTKR (shrInit sh') FTKScalar)
-          . fromPlain . AstMaxIndexS . plainPart . astSFromR' @sh sh $ a
+          . fromPlain . AstMaxIndexS . astPlainPart . astSFromR' @sh sh $ a
         ZSS -> error "rmaxIndex: impossible empty shape"
   triota @r n =
     withSNat n $ \(SNat @n) ->
@@ -423,11 +423,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astGatherS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
   tsconcrete = fromPlain . AstConcreteS
-  tsfloor = fromPlain . astFloorS . plainPart
-  tsfromIntegral = fromPlain . astFromIntegralS . plainPart
+  tsfloor = fromPlain . astFloorS . astPlainPart
+  tsfromIntegral = fromPlain . astFromIntegralS . astPlainPart
   tscast = astCastS
-  tsminIndex = fromPlain . AstMinIndexS . plainPart
-  tsmaxIndex = fromPlain . AstMaxIndexS . plainPart
+  tsminIndex = fromPlain . AstMinIndexS . astPlainPart
+  tsmaxIndex = fromPlain . AstMaxIndexS . astPlainPart
   tsiota = fromPlain $ AstIotaS SNat
   tsappend = astAppendS
   tsslice = astSliceS
@@ -520,13 +520,13 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKX sh' FTKScalar ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
         astFromS' @(TKS sh r2) (FTKX sh' FTKScalar)
-        . fromPlain . astFloorS . plainPart . astSFromX' @sh @sh' sh $ a
+        . fromPlain . astFloorS . astPlainPart . astSFromX' @sh @sh' sh $ a
   txfromIntegral @_ @r2 @sh' a = case ftkAst a of
     FTKX sh' FTKScalar ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
         astFromS' @(TKS sh r2) (FTKX sh' FTKScalar)
         . fromPlain . astFromIntegralS
-        . plainPart . astSFromX' @sh @sh' sh $ a
+        . astPlainPart . astSFromX' @sh @sh' sh $ a
   txcast @_ @r2 a = case ftkAst a of
     FTKX sh' FTKScalar ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
@@ -540,7 +540,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astFromS' @(TKS (Init sh) r2)
                     (FTKX (shxInit sh') FTKScalar)
           . fromPlain . AstMinIndexS @n @rest
-          . plainPart . astSFromX' @sh @sh' sh $ a
+          . astPlainPart . astSFromX' @sh @sh' sh $ a
   txmaxIndex @_ @_ @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
@@ -549,7 +549,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astFromS' @(TKS (Init sh) r2)
                    (FTKX (shxInit sh') FTKScalar)
           . fromPlain . AstMaxIndexS @n @rest
-          . plainPart . astSFromX' @sh @sh' sh $ a
+          . astPlainPart . astSFromX' @sh @sh' sh $ a
   txiota @n @r = astFromS' (FTKX (SKnown (SNat @n) :$% ZSX) FTKScalar)
                  $ fromPlain $ AstIotaS @n @r SNat
   txappend u v = case ftkAst u of
@@ -602,8 +602,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
 
   -- Scalar ops
   tkconcrete = fromPlain . AstConcreteK
-  tkfloor = fromPlain . astFloorK . plainPart
-  tkfromIntegral = fromPlain . astFromIntegralK . plainPart
+  tkfloor = fromPlain . astFloorK . astPlainPart
+  tkfromIntegral = fromPlain . astFromIntegralK . astPlainPart
   tkcast = astCastK
 
   -- General operations that don't require LetTensor nor ShareTensor
@@ -624,9 +624,9 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     let (var, ast) = funToAst ftk Nothing $ unHFun f
     in AstLambda var ast
   tcond _ !b !u !v = astCond b u v
-  tprimalPart = primalPart
+  tprimalPart = astPrimalPart
   tdualPart _ = dualPart
-  tplainPart = plainPart
+  tplainPart = astPlainPart
   tfromPrimal _ = fromPrimal
   tfromDual = fromDual
   tfromPlain _ = fromPlain
