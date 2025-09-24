@@ -6,7 +6,7 @@ module HordeAd.Core.AstTools
   ( -- * Full tensor kind derivation
     ftkAst, isTensorInt
     -- * Variable occurrence detection
-  , varInAst, varInAstBool, varInIxS, varNameInAst, varNameInIxS
+  , varInAst, varInIxS, varNameInAst, varNameInIxS
     -- * Determining if a term is too small to require sharing
   , astIsSmall, ixIsSmall
     -- * Odds and ends
@@ -135,6 +135,11 @@ ftkAst t = case t of
   AstDot1InS sh _ _u _v -> FTKS sh FTKScalar
   AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar
 
+  AstBoolNot{} -> FTKScalar
+  AstBoolAnd{} -> FTKScalar
+  AstLeqK{} -> FTKScalar
+  AstLeqS{} -> FTKScalar
+
 isTensorInt :: forall s y ms. AstSpan s
             => Proxy s -> FullShapeTK y
             -> Maybe (AstTensor ms s y :~: AstInt ms)
@@ -166,7 +171,7 @@ varInAst var = \case
     varInAst var acc0 || varInAst var es
   AstApply t ll -> varInAstHFun var t || varInAst var ll
   AstVar var2 -> var == varNameToAstVarId var2
-  AstCond b v w -> varInAstBool var b || varInAst var v || varInAst var w
+  AstCond b v w -> varInAst var b || varInAst var v || varInAst var w
   AstBuild1 _ _ (var2, v) ->
     assert (varNameToAstVarId var2 /= var) $
     varInAst var v
@@ -223,20 +228,17 @@ varInAst var = \case
   AstDot1InS _ _ u v -> varInAst var u || varInAst var v
   AstMatmul2S _ _ _ u v -> varInAst var u || varInAst var v
 
+  AstBoolNot b -> varInAst var b
+  AstBoolAnd arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstLeqK arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstLeqS arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+
 varInIxS :: AstVarId -> AstIxS ms sh -> Bool
 varInIxS var = any (varInAst var)
 
 varInAstHFun :: AstVarId -> AstHFun s s2 x y -> Bool
 varInAstHFun _var AstLambda{} =
   False  -- we take advantage of the term being closed
-
-varInAstBool :: AstVarId -> AstBool ms -> Bool
-varInAstBool var = \case
-  AstBoolConst{} -> False
-  AstBoolNot b -> varInAstBool var b
-  AstBoolAnd arg1 arg2 -> varInAstBool var arg1 || varInAstBool var arg2
-  AstLeqK arg1 arg2 -> varInAst var arg1 || varInAst var arg2
-  AstLeqS arg1 arg2 -> varInAst var arg1 || varInAst var arg2
 
 varNameInAst :: AstVarName f y -> AstTensor ms s2 y2 -> Bool
 varNameInAst var = varInAst (varNameToAstVarId var)
@@ -292,7 +294,7 @@ astIsSmallN n t0 = case t0 of
     astIsSmallN (n - 1) v  -- a really good redex and often in series
       -- executed as a metadata change, which is however not free
   AstVar{} -> n
-  AstCond b u v -> astIsSmallN (astIsSmallN (astBoolIsSmallN (n - 1) b) u) v
+  AstCond b u v -> astIsSmallN (astIsSmallN (astIsSmallN (n - 1) b) u) v
   AstConcreteK _ -> n
   AstConcreteS _ -> n  -- small term with zero interpretation cost;
                        -- the physical arrays is shared on GHC heap
@@ -314,16 +316,12 @@ astIsSmallN n t0 = case t0 of
 
   AstConvert _ v -> astIsSmallN (n - 1) v
 
-  _ -> 0
-
-astBoolIsSmallN :: Int -> AstBool ms -> Int
-astBoolIsSmallN n _ | n <= 0 = 0
-astBoolIsSmallN n t0 = case t0 of
-  AstBoolConst{} -> n
-  AstBoolNot v -> astBoolIsSmallN (n - 1) v
-  AstBoolAnd u v -> astBoolIsSmallN (astBoolIsSmallN (n - 1) u) v
+  AstBoolNot v -> astIsSmallN (n - 1) v
+  AstBoolAnd u v -> astIsSmallN (astIsSmallN (n - 1) u) v
   AstLeqK u v -> astIsSmallN (astIsSmallN (n - 1) u) v
   AstLeqS u v -> astIsSmallN (astIsSmallN (n - 1) u) v
+
+  _ -> 0
 
 ixIsSmall :: AstIxS ms sh -> Bool
 ixIsSmall = all (astIsSmall True)

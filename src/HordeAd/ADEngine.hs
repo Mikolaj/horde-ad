@@ -674,16 +674,3 @@ cfwdBoth f vals0 ds =
   :: AstEnv Concrete
   -> AstTensor AstMethodLet PrimalSpan y
   -> Concrete y #-}
-
-{-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal Concrete)
-  -> AstBool AstMethodLet
-  -> Bool #-}
-{-# SPECIALIZE interpretAstBool
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstBool AstMethodLet
-  -> AstBool AstMethodShare #-}
-{-# SPECIALIZE interpretAstBool
-  :: AstEnv Concrete
-  -> AstBool AstMethodLet
-  -> Bool #-}

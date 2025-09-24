@@ -226,8 +226,6 @@ instance KnownSTK y => Show (Concrete y) where
 instance KnownSTK y => NFData (Concrete y) where
   rnf (Concrete t) | Dict <- nfdataDictRep (knownSTK @y) = rnf t
 
-type instance BoolOf Concrete = Bool
-
 type instance HFunOf Concrete x z = RepConcrete x -> RepConcrete z
 type instance PrimalOf Concrete = Concrete
 type instance DualOf Concrete = DummyDualTarget
@@ -235,29 +233,24 @@ type instance PlainOf Concrete = Concrete
 type instance ShareOf Concrete = Concrete
 
 instance GoodScalar r => EqH Concrete (TKScalar r) where
-  Concrete u ==. Concrete v = u == v
-
+  Concrete u ==. Concrete v = Concrete $ u == v
 instance GoodScalar r => OrdH Concrete (TKScalar r) where
-  Concrete u <=. Concrete v = u <= v
-
+  Concrete u <=. Concrete v = Concrete $ u <= v
 instance GoodScalar r => EqH Concrete (TKR n r) where
-  Concrete u ==. Concrete v = u == v
-
+  Concrete u ==. Concrete v = Concrete $ u == v
 instance GoodScalar r => OrdH Concrete (TKR n r) where
-  Concrete u <=. Concrete v = u <= v
-
+  Concrete u <=. Concrete v = Concrete $ u <= v
 instance GoodScalar r => EqH Concrete (TKS sh r) where
-  Concrete u ==. Concrete v = u == v
-
+  Concrete u ==. Concrete v = Concrete $ u == v
 instance GoodScalar r => OrdH Concrete (TKS sh r) where
-  Concrete u <=. Concrete v = u <= v
-
+  Concrete u <=. Concrete v = Concrete $ u <= v
 instance GoodScalar r => EqH Concrete (TKX sh r) where
-  Concrete u ==. Concrete v = u == v
-
+  Concrete u ==. Concrete v = Concrete $ u == v
 instance GoodScalar r => OrdH Concrete (TKX sh r) where
-  Concrete u <=. Concrete v = u <= v
+  Concrete u <=. Concrete v = Concrete $ u <= v
 
+deriving instance Boolean (RepConcrete (TKScalar Bool))
+                  => Boolean (Concrete (TKScalar Bool))
 deriving instance Eq (RepConcrete y) => Eq (Concrete y)
 deriving instance Ord (RepConcrete y) => Ord (Concrete y)
 deriving instance Num (RepConcrete y) => Num (Concrete y)

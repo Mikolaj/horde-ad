@@ -24,8 +24,8 @@ import GHC.Exts (IsList (..))
 import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Shaped.Shape
 
-import HordeAd.Core.Ast (AstBool, AstTensor)
-import HordeAd.Core.Ast hiding (AstBool (..), AstTensor (..))
+import HordeAd.Core.Ast (AstTensor)
+import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstSimplify (substituteAst)
 import HordeAd.Core.AstTools
@@ -83,7 +83,7 @@ inlineAst memo v0 = case v0 of
     -- in conditionals are problematic and special enough
     -- that we can let it be until problems are encountered in the wild.
     -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
-    let (memo1, b1) = inlineAstBool memo b
+    let (memo1, b1) = inlineAst memo b
         (memoA2, t2) = inlineAst EM.empty a2
         (memoA3, t3) = inlineAst EM.empty a3
         memo4 = EM.unionWith max memoA2 memoA3
@@ -222,25 +222,12 @@ inlineAst memo v0 = case v0 of
         (memo3, v3) = inlineAst memo2 v
     in (memo3, Ast.AstMatmul2S m n p u2 v3)
 
-inlineAstHFun
-  :: AstSpan s2
-  => AstMemo -> AstHFun s s2 x y -> (AstMemo, AstHFun s s2 x y)
-inlineAstHFun memo v0 = case v0 of
-  Ast.AstLambda var l ->
-    -- No other free variables in l, so no outside lets can reach there,
-    -- so we don't need to pass the information from v upwards.
-    (memo, Ast.AstLambda var (snd $ inlineAst EM.empty l))
-
-inlineAstBool :: AstMemo -> AstBool AstMethodLet
-              -> (AstMemo, AstBool AstMethodLet)
-inlineAstBool memo v0 = case v0 of
-  Ast.AstBoolConst{} -> (memo, v0)
   Ast.AstBoolNot arg ->
-    let (memo2, arg2) = inlineAstBool memo arg
+    let (memo2, arg2) = inlineAst memo arg
     in (memo2, Ast.AstBoolNot arg2)
   Ast.AstBoolAnd arg1 arg2 ->
-    let (memo1, b1) = inlineAstBool memo arg1
-        (memo2, b2) = inlineAstBool memo1 arg2
+    let (memo1, b1) = inlineAst memo arg1
+        (memo2, b2) = inlineAst memo1 arg2
     in (memo2, Ast.AstBoolAnd b1 b2)
   Ast.AstLeqK arg1 arg2 ->
     let (memo1, r1) = inlineAst memo arg1
@@ -250,6 +237,15 @@ inlineAstBool memo v0 = case v0 of
     let (memo1, r1) = inlineAst memo arg1
         (memo2, r2) = inlineAst memo1 arg2
     in (memo2, Ast.AstLeqS r1 r2)
+
+inlineAstHFun
+  :: AstSpan s2
+  => AstMemo -> AstHFun s s2 x y -> (AstMemo, AstHFun s s2 x y)
+inlineAstHFun memo v0 = case v0 of
+  Ast.AstLambda var l ->
+    -- No other free variables in l, so no outside lets can reach there,
+    -- so we don't need to pass the information from v upwards.
+    (memo, Ast.AstLambda var (snd $ inlineAst EM.empty l))
 
 
 -- * Translation of global sharing to normal lets
@@ -362,7 +358,7 @@ unshareAst memo = \case
     in (memo2, Ast.AstApply t2 ll2)
   Ast.AstVar v -> (memo, Ast.AstVar v)
   Ast.AstCond b a2 a3 ->
-    let (memo1, b1) = unshareAstBool memo b
+    let (memo1, b1) = unshareAst memo b
         (memo2, t2) = unshareAst memo1 a2
         (memo3, t3) = unshareAst memo2 a3
     in (memo3, Ast.AstCond b1 t2 t3)
@@ -562,25 +558,12 @@ unshareAst memo = \case
         (memo3, v3) = unshareAst memo2 v
     in (memo3, Ast.AstMatmul2S m n p u2 v3)
 
-unshareAstHFun
-  :: AstBindings -> AstHFun s s2 x y -> (AstBindings, AstHFun s s2 x y)
-unshareAstHFun memo v0 = case v0 of
-  Ast.AstLambda{} ->
-    -- No other free variables in l, so no outside lets can reach there,
-    -- so we don't need to pass the information from v upwards
-    -- nor remove the Share constructors.
-    (memo, v0)
-
-unshareAstBool :: AstBindings -> AstBool AstMethodShare
-               -> (AstBindings, AstBool AstMethodLet)
-unshareAstBool memo = \case
-  Ast.AstBoolConst t -> (memo, Ast.AstBoolConst t)
   Ast.AstBoolNot arg ->
-    let (memo2, arg2) = unshareAstBool memo arg
+    let (memo2, arg2) = unshareAst memo arg
     in (memo2, Ast.AstBoolNot arg2)
   Ast.AstBoolAnd arg1 arg2 ->
-    let (memo1, b1) = unshareAstBool memo arg1
-        (memo2, b2) = unshareAstBool memo1 arg2
+    let (memo1, b1) = unshareAst memo arg1
+        (memo2, b2) = unshareAst memo1 arg2
     in (memo2, Ast.AstBoolAnd b1 b2)
   Ast.AstLeqK arg1 arg2 ->
     let (memo1, r1) = unshareAst memo arg1
@@ -590,3 +573,12 @@ unshareAstBool memo = \case
     let (memo1, r1) = unshareAst memo arg1
         (memo2, r2) = unshareAst memo1 arg2
     in (memo2, Ast.AstLeqS r1 r2)
+
+unshareAstHFun
+  :: AstBindings -> AstHFun s s2 x y -> (AstBindings, AstHFun s s2 x y)
+unshareAstHFun memo v0 = case v0 of
+  Ast.AstLambda{} ->
+    -- No other free variables in l, so no outside lets can reach there,
+    -- so we don't need to pass the information from v upwards
+    -- nor remove the Share constructors.
+    (memo, v0)

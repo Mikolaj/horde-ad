@@ -450,7 +450,7 @@ testPiecewiseLinearPP = do
       fT x = ifH (x >. rscalar 0) (rscalar 2 * x) (rscalar 5 * x)
       (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKR ZSR FTKScalar)
   printArtifactPretty (simplifyArtifact artifactRev)
-    @?= "\\dret x1 -> rfromS (let v4 = soneHot (sfromR dret) [ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) 0 1] in sscalar 2.0 * v4 !$ [1] + sscalar 5.0 * v4 !$ [0])"
+    @?= "\\dret x1 -> rfromS (let v4 = soneHot (sfromR dret) [ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) 0 1] in sscalar 5.0 * v4 !$ [0] + sscalar 2.0 * v4 !$ [1])"
   printArtifactPrimalPretty (simplifyArtifact artifactRev)
     @?= "\\x1 -> rfromS (ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) (sscalar 5.0 * sfromR x1) (sscalar 2.0 * sfromR x1))"
 
@@ -470,9 +470,9 @@ testPiecewiseLinear2PP = do
       fT x = ifH (x >. rscalar 0) (rscalar 2) (rscalar 5) * x
       (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKR ZSR FTKScalar)
   printArtifactPretty artifactRev
-    @?= "\\dret x1 -> let x2 = ifH (sscalar (-0.0) <=. negate (sfromR (rplainPart x1))) (sscalar 5.0) (sscalar 2.0) in rfromS (x2 * sfromR dret)"
+    @?= "\\dret x1 -> let x2 = ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) (sscalar 5.0) (sscalar 2.0) in rfromS (x2 * sfromR dret)"
   printArtifactPrimalPretty artifactRev
-    @?= "\\x1 -> let x2 = ifH (sscalar (-0.0) <=. negate (sfromR (rplainPart x1))) (sscalar 5.0) (sscalar 2.0) in rfromS (x2 * sfromR x1)"
+    @?= "\\x1 -> let x2 = ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) (sscalar 5.0) (sscalar 2.0) in rfromS (x2 * sfromR x1)"
 
 overleaf :: forall r target. (ADReady target, NumScalar r)
          => target (TKR 1 r) -> target (TKR 0 r)
@@ -1195,7 +1195,7 @@ testReluPP2 = do
       (var3, ast3) = funToAst (FTKR [5] FTKScalar) Nothing (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
-    @?= "\\v1 -> rfromS (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * (tfromPlain (STKS [5] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i2] -> [ifH (sscalar (-0.0) <=. negate (sfromR (tplainPart (rfromS (tfromPlain (STKS [] STKScalar) (sscalar 7.0) * tprimalPart (sfromR v1) !$ [i2]))))) 0 1])) * sfromR v1))"
+    @?= "\\v1 -> rfromS (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * (tfromPlain (STKS [5] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i2] -> [ifH (sscalar (-0.0) <=. tplainPart (tfromPlain (STKS [] STKScalar) (sscalar (-7.0)) * tprimalPart (sfromR v1) !$ [i2])) 0 1])) * sfromR v1))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifact artifactRev)
@@ -1236,7 +1236,7 @@ testReluSimplerPP2 = do
       (var3, ast3) = funToAst (FTKR [5] FTKScalar) Nothing (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
-    @?= "\\v1 -> rfromS (tlet (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * sfromR v1) (\\v2 -> tfromPlain (STKS [5] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifH (sscalar (-0.0) <=. negate (sfromR (tplainPart (rfromS (v2 !$ [i3]))))) 0 1])) * v2))"
+    @?= "\\v1 -> rfromS (tlet (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * sfromR v1) (\\v2 -> tfromPlain (STKS [5] STKScalar) (sgather [] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3] -> [ifH (sscalar (-0.0) <=. tplainPart (negate (v2 !$ [i3]))) 0 1])) * v2))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifact artifactRev)

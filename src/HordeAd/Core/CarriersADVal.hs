@@ -205,8 +205,6 @@ generateDeltaInputs =
 
 -- * Assorted instances
 
-type instance BoolOf (ADVal f) = BoolOf f
-
 instance EqH f (TKScalar r) => EqH (ADVal f) (TKScalar r) where
   D u _ ==. D v _ = u ==. v
 

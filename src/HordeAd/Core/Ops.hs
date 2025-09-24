@@ -655,7 +655,7 @@ class ( Num (IntOf target)
            => target (TKR2 m x) -> IxROf target m -> target (TKR2 0 x)
   trindex0 = trindex
   troneHot :: ( KnownNat m, KnownNat n, TKAllNum x, KnownSTK x
-              , BoolOf (PlainOf target) ~ BoolOf target
+              , PlainOf (PlainOf target) ~ PlainOf target
               , EqH (PlainOf target) (TKScalar Int64))
            => IShR m -> target (TKR2 n x) -> IxROf target m
            -> target (TKR2 (m + n) x)
@@ -703,7 +703,7 @@ class ( Num (IntOf target)
            -> target (TKS2 '[] x)
   tsindex0 @sh1 | Refl <- lemAppNil @sh1 = tsindex
   tsoneHot :: ( KnownShS sh1, KnownShS sh2, TKAllNum x, KnownSTK x
-              , BoolOf (PlainOf target) ~ BoolOf target
+              , PlainOf (PlainOf target) ~ PlainOf target
               , EqH (PlainOf target) (TKScalar Int64) )
            => target (TKS2 sh2 x) -> IxSOf target sh1
            -> target (TKS2 (sh1 ++ sh2) x)
@@ -761,7 +761,7 @@ class ( Num (IntOf target)
            -> target (TKX2 '[] x)
   txindex0 @sh1 | Refl <- lemAppNil @sh1 = txindex
   txoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
-              , BoolOf (PlainOf target) ~ BoolOf target
+              , PlainOf (PlainOf target) ~ PlainOf target
               , EqH (PlainOf target) (TKScalar Int64), ConvertTensor target )
            => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
            -> target (TKX2 (sh1 ++ sh2) x)
@@ -1181,9 +1181,7 @@ type ADReadyEqsClasses target =
   )
 
 type ADReadyEqs target =
-  ( BoolOf (PrimalOf target) ~ BoolOf target
-  , BoolOf (PlainOf target) ~ BoolOf target
-  , PlainOf (PlainOf target) ~ PlainOf target
+  ( PlainOf (PlainOf target) ~ PlainOf target
   )
 
 type ADReadyClasses target =
