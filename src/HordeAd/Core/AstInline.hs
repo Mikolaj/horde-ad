@@ -289,6 +289,28 @@ unshareAstTensor tShare =
   let (memoOut, tLet) = unshareAst (DMap.empty, DMap.empty) tShare
   in bindsToLet tLet memoOut
 
+-- Splitting the variable list to make it more typed complicates
+-- and slows down the code, so let's keep it just [AstVarId].
+closeOccurs :: [AstVarId] -> AstBindings -> (AstBindings, AstBindings)
+closeOccurs vars (bsPr, bsPl) =
+  let varsOccur :: AstTensor AstMethodLet s2 y -> Bool
+      varsOccur t = any (`varInAst` t) vars
+      (bsPrLocal, bsPrGlobal) = DMap.partition varsOccur bsPr
+      (bsPlLocal, bsPlGlobal) = DMap.partition varsOccur bsPl
+      memoLocal = (bsPrLocal, bsPlLocal)
+      memoGlobal = (bsPrGlobal, bsPlGlobal)
+  in if DMap.null bsPrLocal && DMap.null bsPlLocal
+     then (memoLocal, memoGlobal)
+     else let vars2 = map (\(Some var) -> varNameToAstVarId var)
+                          (DMap.keys bsPrLocal)
+                      ++ map (\(Some var) -> varNameToAstVarId var)
+                             (DMap.keys bsPlLocal)
+              ((bsPrLocal2, bsPlLocal2), memoGlobal2) =
+                closeOccurs vars2 memoGlobal
+          in ( ( DMap.union bsPrLocal bsPrLocal2
+               , DMap.union bsPlLocal bsPlLocal2 )
+             , memoGlobal2 )
+
 -- This works only because the other code never inserts the same rshare
 -- into more than one index element, with the share containing
 -- the gather/scatter/build variables corresponding to the index.
@@ -300,25 +322,6 @@ unshareAstScoped vars0 (bsPr0, bsPl0) v0 =
   let ((bsPr1, bsPl1), v1) = unshareAst (bsPr0, bsPl0) v0
       memoDiffPr = DMap.difference bsPr1 bsPr0
       memoDiffPl = DMap.difference bsPl1 bsPl0
-      varsOccur :: [AstVarId] -> AstTensor AstMethodLet s2 y -> Bool
-      varsOccur vs d = any (`varInAst` d) vs
-      closeOccurs :: [AstVarId] -> AstBindings -> (AstBindings, AstBindings)
-      closeOccurs vars (bsPr, bsPl) =
-        let (bsPrLocal, bsPrGlobal) = DMap.partition (varsOccur vars) bsPr
-            (bsPlLocal, bsPlGlobal) = DMap.partition (varsOccur vars) bsPl
-            memoLocal = (bsPrLocal, bsPlLocal)
-            memoGlobal = (bsPrGlobal, bsPlGlobal)
-        in if DMap.null bsPrLocal && DMap.null bsPlLocal
-           then (memoLocal, memoGlobal)
-           else let vars2 = map (\(Some var) -> varNameToAstVarId var)
-                                (DMap.keys bsPrLocal)
-                            ++ map (\(Some var) -> varNameToAstVarId var)
-                                   (DMap.keys bsPlLocal)
-                    ((bsPrLocal2, bsPlLocal2), memoGlobal2) =
-                      closeOccurs vars2 memoGlobal
-                in ( ( DMap.union bsPrLocal bsPrLocal2
-                     , DMap.union bsPlLocal bsPlLocal2 )
-                   , memoGlobal2 )
       (memoLocal1, (bsPrGlobal1, bsPlGlobal1)) =
         closeOccurs (map varNameToAstVarId vars0) (memoDiffPr, memoDiffPl)
   in ( ( DMap.union bsPr0 bsPrGlobal1
