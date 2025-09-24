@@ -83,6 +83,23 @@ interpretAstPlain
   => AstEnv target -> AstTensor AstMethodLet PlainSpan y
   -> PlainOf target y
 interpretAstPlain !env v1 = case v1 of
+  -- This prevents computing the complex dual parts for mapAccum in ADVal.
+  AstMapAccumRDer k bftk eftk f0 df0 rf0 acc0 es ->
+    let f = interpretAstHFunPlain env f0
+        df = interpretAstHFunPlain env df0
+        rf = interpretAstHFunPlain env rf0
+        acc02 = interpretAstPlain env acc0
+        es2 = interpretAstPlain env es
+    in tmapAccumRDer (Proxy @(PlainOf target))
+                     k (ftkAst acc0) bftk eftk f df rf acc02 es2
+  AstMapAccumLDer k bftk eftk f0 df0 rf0 acc0 es ->
+    let f = interpretAstHFunPlain env f0
+        df = interpretAstHFunPlain env df0
+        rf = interpretAstHFunPlain env rf0
+        acc02 = interpretAstPlain env acc0
+        es2 = interpretAstPlain env es
+    in tmapAccumLDer (Proxy @(PlainOf target))
+                     k (ftkAst acc0) bftk eftk f df rf acc02 es2
   -- This prevents multiple ifH expansions in ADVal.
   AstCond b a1 a2 ->
     let c = interpretAstBool env b
@@ -404,6 +421,15 @@ interpretAstHFunPrimal _env (AstLambda var l) =
       -- is not needed (and would not be possible, because we lack
       -- FullShapeTK y). From the other end, due to (PrimalOf target),
       -- there won't be any dual part coming from an argument.
+
+interpretAstHFunPlain
+  :: forall target x y. ADReady target
+  => AstEnv target -> AstHFun PlainSpan PlainSpan x y
+  -> HFunOf (PlainOf target) x y
+{-# INLINE interpretAstHFunPlain #-}
+interpretAstHFunPlain _env (AstLambda var l) =
+  tlambda @(PlainOf target) (varNameToFTK var)
+  $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
 
 interpretAstBool :: ADReady target
                  => AstEnv target -> AstBool AstMethodLet
