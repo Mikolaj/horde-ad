@@ -77,25 +77,11 @@ data SAstSpanType s where
   SFullSpan :: SAstSpanType FullSpan
   SPlainSpan :: SAstSpanType PlainSpan
 
-class KnownSpan (s :: AstSpanType) where
-  knownSpan :: SAstSpanType s
-
 -- These are weak instances rewriting-wise and we can't move them
 -- to AstSimplify to improve this, because it's too late
 -- and also astPrimalPart only works on AstMethodLet.
-instance (KnownSpan s, AstSpan s) => KnownSpan (PrimalStepSpan s) where
-  knownSpan = SPrimalStepSpan (knownSpan @s)
-
-instance KnownSpan DualSpan where
-  knownSpan = SDualSpan
-
-instance KnownSpan FullSpan where
-  knownSpan = SFullSpan
-
-instance KnownSpan PlainSpan where
-  knownSpan = SPlainSpan
-
-class (KnownSpan s, Typeable s) => AstSpan (s :: AstSpanType) where
+class Typeable s => AstSpan (s :: AstSpanType) where
+  knownSpan :: SAstSpanType s
   primalPart :: AstTensor ms s y -> AstTensor ms (PrimalStepSpan s) y
   dualPart :: AstTensor ms s y -> AstTensor ms DualSpan y
   plainPart :: AstTensor ms s y -> AstTensor ms PlainSpan y
@@ -107,6 +93,7 @@ class (KnownSpan s, Typeable s) => AstSpan (s :: AstSpanType) where
 -- to AstSimplify to improve this, because it's too late
 -- and also astPrimalPart only works on AstMethodLet.
 instance AstSpan s => AstSpan (PrimalStepSpan s) where
+  knownSpan = SPrimalStepSpan (knownSpan @s)
   primalPart = cAstPrimalPart
   dualPart t =
     cAstDualPart $ stepToFullSpan (knownSpan @s) t  -- this is dual zero
@@ -119,13 +106,12 @@ instance AstSpan s => AstSpan (PrimalStepSpan s) where
 {- TODO: document why this is wrong. Could types prevent this?
 instance AstSpan DualSpan where
   primalPart = cAstPrimalPart
-  dualPart = id
   plainPart = cAstPlainPart
   fromPrimal = cAstFromPrimal
-  fromDual = id
   fromPlain = AstFromPlain -}
 
 instance AstSpan DualSpan where
+  knownSpan = SDualSpan
   primalPart t =
     fullSpanToStep knownSpan $ AstFromDual t  -- this is primal zero
   dualPart = id
@@ -136,6 +122,7 @@ instance AstSpan DualSpan where
   fromPlain t = AstDualPart $ AstFromPlain t  -- this is dual zero
 
 instance AstSpan FullSpan where
+  knownSpan = SFullSpan
   primalPart = cAstPrimalPart
   dualPart = cAstDualPart
   plainPart = cAstPlainPart
@@ -144,6 +131,7 @@ instance AstSpan FullSpan where
   fromPlain = AstFromPlain
 
 instance AstSpan PlainSpan where
+  knownSpan = SPlainSpan
   primalPart = cAstPrimalPart
   dualPart t = AstDualPart $ AstFromPlain t  -- this is dual zero
   plainPart = id
