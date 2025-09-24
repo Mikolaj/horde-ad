@@ -715,11 +715,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
 instance AstSpan s => ShareTensor (AstRaw s) where
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
-  tshare t =
-    let u = unAstRaw t
-    in if astIsSmall True u
-       then t
-       else AstRaw $ fun1ToAst (ftkAst u) $ \ !var -> AstShare var u
+  tshare t = AstRaw $ astShareNoSimplify $ unAstRaw t
   tunpair (AstRaw (AstPair t1 t2)) = (AstRaw t1, AstRaw t2)
   tunpair t = let tShared = tshare t
               in (tproject1 tShared, tproject2 tShared)

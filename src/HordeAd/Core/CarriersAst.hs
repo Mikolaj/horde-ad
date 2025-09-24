@@ -8,7 +8,8 @@
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
-  , astLetFunNoSimplify, sunReplicateScal, sunReplicate1, sunReplicateN
+  , astShareNoSimplify, astLetFunNoSimplify
+  , sunReplicateScal, sunReplicate1, sunReplicateN
   ) where
 
 import Prelude hiding (foldl')
@@ -230,6 +231,7 @@ instance (NumScalar r, AstSpan s)
     * AstTimesK (AstFromPlain (AstConcreteK k)) v =
       AstFromPlain (AstConcreteK (n * k)) * AstTimesK u v
 
+  -- Term u is concrete, so doesn't have to be shared despite the duplication.
   u@AstConcreteK{} * AstPlusK v w = AstPlusK (u * v) (u * w)
   AstTimesK u@AstConcreteK{} x * AstPlusK v w =
     AstTimesK x (AstPlusK (u * v) (u * w))
@@ -1138,7 +1140,8 @@ instance Boolean (AstBool ms) where
   b ||* c = notB (notB b &&* notB c)
 
 -- TODO: refactor with something like liftRFromS2
-instance (AstSpan s, NumScalar r) => EqH (AstTensor ms s) (TKR n r) where
+instance (AstSpan s, NumScalar r)
+         => EqH (AstTensor AstMethodLet s) (TKR n r) where
   v ==. u = case ftkAst v of
     FTKR shv' _ -> case ftkAst u of
       FTKR shu' _ ->
@@ -1149,7 +1152,32 @@ instance (AstSpan s, NumScalar r) => EqH (AstTensor ms s) (TKR n r) where
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, NumScalar r) => EqH (AstTensor ms s) (TKX sh r) where
+instance (AstSpan s, NumScalar r)
+         => EqH (AstTensor AstMethodShare s) (TKR n r) where
+  v ==. u = case ftkAst v of
+    FTKR shv' _ -> case ftkAst u of
+      FTKR shu' _ ->
+        withShsFromShR shv' $ \shv ->
+          withShsFromShR shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl -> cAstSFromR shu v ==. cAstSFromR shv u
+              _ -> error $ "(==.): shapes don't match: "
+                           ++ show (shu, shv)
+
+instance (AstSpan s, NumScalar r)
+         => EqH (AstTensor AstMethodLet s) (TKX sh r) where
+  v ==. u = case ftkAst v of
+    FTKX shv' _ -> case ftkAst u of
+      FTKX shu' _ ->
+        withShsFromShX shv' $ \shv ->
+          withShsFromShX shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl -> cAstSFromX shu v ==. cAstSFromX shv u
+              _ -> error $ "(==.): shapes don't match: "
+                           ++ show (shu, shv)
+
+instance (AstSpan s, NumScalar r)
+         => EqH (AstTensor AstMethodShare s) (TKX sh r) where
   v ==. u = case ftkAst v of
     FTKX shv' _ -> case ftkAst u of
       FTKX shu' _ ->
@@ -1182,18 +1210,32 @@ instance (AstSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
--- TODO: share u and v, since they are duplicated here
+-- Since u and v are duplicated here, they need to be shared.
 instance (AstSpan s, NumScalar r)
-         => EqH (AstTensor ms s) (TKScalar r) where
-  v ==. u = v <=. u &&* u <=. v
-  {- TODO: for this to work, booleans have to be first-class:
+         => EqH (AstTensor AstMethodLet s) (TKScalar r) where
   vUnshared ==. uUnshared = astLetFunNoSimplify vUnshared $ \v ->
                             astLetFunNoSimplify uUnshared $ \u ->
-    v <=. u &&* u <=. v -}
+    v <=. u &&* u <=. v
 
 instance (AstSpan s, NumScalar r)
-         => EqH (AstTensor ms s) (TKS sh r) where
-  v ==. u = v <=. u &&* u <=. v
+         => EqH (AstTensor AstMethodShare s) (TKScalar r) where
+  vUnshared ==. uUnshared =
+    let v = astShareNoSimplify vUnshared
+        u = astShareNoSimplify uUnshared
+    in v <=. u &&* u <=. v
+
+instance (AstSpan s, NumScalar r)
+         => EqH (AstTensor AstMethodLet s) (TKS sh r) where
+  vUnshared ==. uUnshared = astLetFunNoSimplify vUnshared $ \v ->
+                            astLetFunNoSimplify uUnshared $ \u ->
+    v <=. u &&* u <=. v
+
+instance (AstSpan s, NumScalar r)
+         => EqH (AstTensor AstMethodShare s) (TKS sh r) where
+  vUnshared ==. uUnshared =
+    let v = astShareNoSimplify vUnshared
+        u = astShareNoSimplify uUnshared
+    in v <=. u &&* u <=. v
 
 -- These are common in indexing, so worth optimizing early via AstConcrete.
 -- We keep AstConcrete on the left, as with AstPlusK and others.
@@ -1431,6 +1473,13 @@ deriving instance (RealFloatH (AstTensor AstMethodLet s y))
 
 
 -- * Misc
+
+astShareNoSimplify :: AstTensor AstMethodShare s y
+                   -> AstTensor AstMethodShare s y
+astShareNoSimplify t =
+  if astIsSmall True t
+  then t
+  else fun1ToAst (ftkAst t) $ \ !var -> AstShare var t
 
 astLetFunNoSimplify
   :: forall y z s s2. AstSpan s
