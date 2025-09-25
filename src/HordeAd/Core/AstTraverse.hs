@@ -188,9 +188,13 @@ expandAst t = case t of
   Ast.AstMatmul2S{} -> t
 
   Ast.AstBoolNot arg -> notB $ expandAst arg
+  Ast.AstBoolNotA arg -> Ast.AstBoolNotA $ expandAst arg
   Ast.AstBoolAnd arg1 arg2 -> expandAst arg1 &&* expandAst arg2
+  Ast.AstBoolAndA arg1 arg2 -> expandAst arg1 `Ast.AstBoolAndA` expandAst arg2
   Ast.AstLeqK arg1 arg2 -> fromPlain $ expandAst arg1 <=. expandAst arg2
   Ast.AstLeqS arg1 arg2 -> fromPlain $ expandAst arg1 <=. expandAst arg2
+  Ast.AstLeqA shb sh arg1 arg2 ->
+    fromPlain $ Ast.AstLeqA shb sh (expandAst arg1) (expandAst arg2)
 
 expandAstHFun :: AstSpan s2
               => AstHFun s s2 x y -> AstHFun s s2 x y
@@ -304,9 +308,14 @@ simplifyAst t = case t of
   Ast.AstMatmul2S{} -> t
 
   Ast.AstBoolNot arg -> notB $ simplifyAst arg
+  Ast.AstBoolNotA arg -> Ast.AstBoolNotA $ simplifyAst arg
   Ast.AstBoolAnd arg1 arg2 -> simplifyAst arg1 &&* simplifyAst arg2
+  Ast.AstBoolAndA arg1 arg2 ->
+    simplifyAst arg1 `Ast.AstBoolAndA` simplifyAst arg2
   Ast.AstLeqK arg1 arg2 -> fromPlain $ simplifyAst arg1 <=. simplifyAst arg2
   Ast.AstLeqS arg1 arg2 -> fromPlain $ simplifyAst arg1 <=. simplifyAst arg2
+  Ast.AstLeqA shb sh arg1 arg2 ->
+    fromPlain $ Ast.AstLeqA shb sh (simplifyAst arg1) (simplifyAst arg2)
 
 simplifyAstHFun :: AstSpan s2
                 => AstHFun s s2 x y -> AstHFun s s2 x y
@@ -737,9 +746,14 @@ contractAst t0 = case t0 of
   Ast.AstMatmul2S{} -> t0
 
   Ast.AstBoolNot arg -> notB $ contractAst arg
+  Ast.AstBoolNotA arg -> Ast.AstBoolNotA $ contractAst arg
   Ast.AstBoolAnd arg1 arg2 -> contractAst arg1 &&* contractAst arg2
+  Ast.AstBoolAndA arg1 arg2 ->
+    contractAst arg1 `Ast.AstBoolAndA` contractAst arg2
   Ast.AstLeqK arg1 arg2 -> fromPlain $ contractAst arg1 <=. contractAst arg2
   Ast.AstLeqS arg1 arg2 -> fromPlain $ contractAst arg1 <=. contractAst arg2
+  Ast.AstLeqA shb sh arg1 arg2 ->
+    fromPlain $ Ast.AstLeqA shb sh (contractAst arg1) (contractAst arg2)
 
 attemptMatmul2
   :: forall m n p r s.

@@ -136,9 +136,12 @@ ftkAst t = case t of
   AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar
 
   AstBoolNot{} -> FTKScalar
+  AstBoolNotA a -> ftkAst a
   AstBoolAnd{} -> FTKScalar
+  AstBoolAndA a _ -> ftkAst a
   AstLeqK{} -> FTKScalar
   AstLeqS{} -> FTKScalar
+  AstLeqA shb _ _ _ -> FTKS shb FTKScalar
 
 isTensorInt :: forall s y ms. AstSpan s
             => Proxy s -> FullShapeTK y
@@ -229,9 +232,12 @@ varInAst var = \case
   AstMatmul2S _ _ _ u v -> varInAst var u || varInAst var v
 
   AstBoolNot b -> varInAst var b
+  AstBoolNotA b -> varInAst var b
   AstBoolAnd arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstBoolAndA arg1 arg2 -> varInAst var arg1 || varInAst var arg2
   AstLeqK arg1 arg2 -> varInAst var arg1 || varInAst var arg2
   AstLeqS arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstLeqA _ _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
 
 varInIxS :: AstVarId -> AstIxS ms sh -> Bool
 varInIxS var = any (varInAst var)

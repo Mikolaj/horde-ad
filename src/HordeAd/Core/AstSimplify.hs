@@ -1085,9 +1085,12 @@ astPrimalPart t = case t of
   Ast.AstMatmul2S{} -> Ast.AstPrimalPart t
 
   Ast.AstBoolNot{} -> Ast.AstPrimalPart t
+  Ast.AstBoolNotA{} -> Ast.AstPrimalPart t
   Ast.AstBoolAnd{} -> Ast.AstPrimalPart t
+  Ast.AstBoolAndA{} -> Ast.AstPrimalPart t
   Ast.AstLeqK{} -> Ast.AstPrimalPart t
   Ast.AstLeqS{} -> Ast.AstPrimalPart t
+  Ast.AstLeqA{} -> Ast.AstPrimalPart t
 
 -- Note how this can't be pushed down into, say, multiplication, because it
 -- multiplies the dual part by the primal part. Addition is fine, though.
@@ -1279,9 +1282,12 @@ astPlainPart t = case t of
   Ast.AstMatmul2S{} -> Ast.AstPlainPart t
 
   Ast.AstBoolNot{} -> t
+  Ast.AstBoolNotA{} -> t
   Ast.AstBoolAnd{} -> t
+  Ast.AstBoolAndA{} -> t
   Ast.AstLeqK{} -> t
   Ast.AstLeqS{} -> t
+  Ast.AstLeqA{} -> t
 
 astConcreteK :: GoodScalar r
              => Concrete (TKScalar r)
@@ -1753,6 +1759,10 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
   -- These should not appear here unless via wacky tests.
   Ast.AstDot1InS{} -> Ast.AstIndexS shn v0 ix
   Ast.AstMatmul2S{} -> Ast.AstIndexS shn v0 ix
+
+  Ast.AstBoolNotA{} -> Ast.AstIndexS shn v0 ix
+  Ast.AstBoolAndA{} -> Ast.AstIndexS shn v0 ix
+  Ast.AstLeqA{} -> Ast.AstIndexS shn v0 ix
 
 -- TODO: compared to tletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
@@ -2802,6 +2812,10 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
     -- These should not appear here unless via wacky tests.
     Ast.AstDot1InS{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstMatmul2S{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+
+    Ast.AstBoolNotA{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+    Ast.AstBoolAndA {} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+    Ast.AstLeqA {} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
  where
   astGather
     :: forall shm' shn' shp' s' r'. AstSpan s'
@@ -4110,11 +4124,18 @@ substitute1Ast i var = subst where
        then Just $ astMatmul2S m n p (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstBoolNot arg -> notB <$> subst arg
+  Ast.AstBoolNotA arg -> Ast.AstBoolNotA <$> subst arg
   Ast.AstBoolAnd arg1 arg2 ->
     let mb1 = subst arg1
         mb2 = subst arg2
     in if isJust mb1 || isJust mb2
        then Just $ fromMaybe arg1 mb1 &&* fromMaybe arg2 mb2
+       else Nothing
+  Ast.AstBoolAndA arg1 arg2 ->
+    let mb1 = subst arg1
+        mb2 = subst arg2
+    in if isJust mb1 || isJust mb2
+       then Just $ fromMaybe arg1 mb1 `Ast.AstBoolAndA` fromMaybe arg2 mb2
        else Nothing
   Ast.AstLeqK arg1 arg2 ->
     let mr1 = substitute1Ast i var arg1
@@ -4127,6 +4148,12 @@ substitute1Ast i var = subst where
         mr2 = substitute1Ast i var arg2
     in if isJust mr1 || isJust mr2
        then Just $ fromMaybe arg1 mr1 <=. fromMaybe arg2 mr2
+       else Nothing
+  Ast.AstLeqA shb sh arg1 arg2 ->
+    let mr1 = substitute1Ast i var arg1
+        mr2 = substitute1Ast i var arg2
+    in if isJust mr1 || isJust mr2
+       then Just $ Ast.AstLeqA shb sh (fromMaybe arg1 mr1) (fromMaybe arg2 mr2)
        else Nothing
 
 substitute1AstIxS

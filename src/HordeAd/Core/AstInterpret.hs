@@ -1,4 +1,6 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE AllowAmbiguousTypes, CPP #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Interpretation of AST terms in an arbitrary tensor operations
 -- class instance. With the exception of the the interpretation
 -- of the sharing mechanisms and any other performance tweaks,
@@ -18,6 +20,7 @@ import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
 
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
@@ -397,10 +400,20 @@ interpretAst !env = \case
 
   AstBoolNot arg ->
     tfromPlain STKScalar $ notB $ interpretAstPlain env arg
+  AstBoolNotA arg | STKS sh _ <- ftkToSTK $ ftkAst arg ->
+    withKnownShS sh $
+    tfromPlain (ftkToSTK $ ftkAst arg)
+    $ tsmap0N (sfromK . notB . kfromS) $ interpretAstPlain env arg
   AstBoolAnd arg1 arg2 ->
     let b1 = interpretAstPlain env arg1
         b2 = interpretAstPlain env arg2
     in tfromPlain STKScalar $ b1 &&* b2
+  AstBoolAndA arg1 arg2 | STKS sh _ <- ftkToSTK $ ftkAst arg1 ->
+    withKnownShS sh $
+    let b1 = interpretAstPlain env arg1
+        b2 = interpretAstPlain env arg2
+    in tfromPlain (ftkToSTK $ ftkAst arg1)
+       $ tszipWith0N (\c1 c2 -> sfromK $ kfromS c1 &&* kfromS c2) b1 b2
   AstLeqK arg1 arg2 ->
     let r1 = interpretAstPlain env arg1
         r2 = interpretAstPlain env arg2
@@ -409,6 +422,20 @@ interpretAst !env = \case
     let r1 = interpretAstPlain env arg1
         r2 = interpretAstPlain env arg2
     in tfromPlain STKScalar $ r1 <=. r2
+  AstLeqA @shb @sh shb sh arg1 arg2 | Refl <- lemAppNil @shb ->
+    withKnownShS shb $
+    withKnownShS sh $
+    let r1 = interpretAstPlain env arg1
+        r2 = interpretAstPlain env arg2
+    in tfromPlain (STKS shb STKScalar)
+       $ sunNest
+       $ tszipWith0N
+           (\a1 a2 ->
+             let c = ConvCmp ConvXS
+                             (ConvCmp (Conv0X (STKS ZSS STKScalar))
+                                      (ConvCmp ConvXS (Conv0X STKScalar)))
+             in tconvert c STKScalar $ sunNest a1 <=. sunNest a2)
+           (snest @_ @_ @sh shb r1) (snest shb r2)
 
 interpretAstHFun
   :: forall target x y s s2. (AstSpan s2, BaseTensor target)

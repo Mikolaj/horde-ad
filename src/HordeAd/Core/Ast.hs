@@ -533,7 +533,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
 
   -- Booleans
   AstBoolNot :: AstBool ms -> AstBool ms
+  AstBoolNotA :: AstTensor ms PlainSpan (TKS sh Bool)
+              -> AstTensor ms PlainSpan (TKS sh Bool)
   AstBoolAnd :: AstBool ms -> AstBool ms -> AstBool ms
+  AstBoolAndA :: AstTensor ms PlainSpan (TKS sh Bool)
+              -> AstTensor ms PlainSpan (TKS sh Bool)
+              -> AstTensor ms PlainSpan (TKS sh Bool)
   -- There are existential variables here.
   AstLeqK :: forall r ms. NumScalar r
           => AstTensor ms PlainSpan (TKScalar r)
@@ -543,6 +548,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
           => AstTensor ms PlainSpan (TKS sh r)
           -> AstTensor ms PlainSpan (TKS sh r)
           -> AstBool ms
+  AstLeqA :: forall shb sh r ms. NumScalar r
+          => ShS shb -> ShS sh
+          -> AstTensor ms PlainSpan (TKS (shb ++ sh) r)
+          -> AstTensor ms PlainSpan (TKS (shb ++ sh) r)
+          -> AstTensor ms PlainSpan (TKS shb Bool)
 
 deriving instance Show (AstTensor ms s y)
   -- for this to work, AstConcreteS can't take a Concrete;

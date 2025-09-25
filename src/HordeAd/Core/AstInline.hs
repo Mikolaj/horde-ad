@@ -225,10 +225,17 @@ inlineAst memo v0 = case v0 of
   Ast.AstBoolNot arg ->
     let (memo2, arg2) = inlineAst memo arg
     in (memo2, Ast.AstBoolNot arg2)
+  Ast.AstBoolNotA arg ->
+    let (memo2, arg2) = inlineAst memo arg
+    in (memo2, Ast.AstBoolNotA arg2)
   Ast.AstBoolAnd arg1 arg2 ->
     let (memo1, b1) = inlineAst memo arg1
         (memo2, b2) = inlineAst memo1 arg2
     in (memo2, Ast.AstBoolAnd b1 b2)
+  Ast.AstBoolAndA arg1 arg2 ->
+    let (memo1, b1) = inlineAst memo arg1
+        (memo2, b2) = inlineAst memo1 arg2
+    in (memo2, Ast.AstBoolAndA b1 b2)
   Ast.AstLeqK arg1 arg2 ->
     let (memo1, r1) = inlineAst memo arg1
         (memo2, r2) = inlineAst memo1 arg2
@@ -237,6 +244,10 @@ inlineAst memo v0 = case v0 of
     let (memo1, r1) = inlineAst memo arg1
         (memo2, r2) = inlineAst memo1 arg2
     in (memo2, Ast.AstLeqS r1 r2)
+  Ast.AstLeqA shb sh arg1 arg2 ->
+    let (memo1, r1) = inlineAst memo arg1
+        (memo2, r2) = inlineAst memo1 arg2
+    in (memo2, Ast.AstLeqA shb sh r1 r2)
 
 inlineAstHFun
   :: AstSpan s2
@@ -561,10 +572,17 @@ unshareAst memo = \case
   Ast.AstBoolNot arg ->
     let (memo2, arg2) = unshareAst memo arg
     in (memo2, Ast.AstBoolNot arg2)
+  Ast.AstBoolNotA arg ->
+    let (memo2, arg2) = unshareAst memo arg
+    in (memo2, Ast.AstBoolNotA arg2)
   Ast.AstBoolAnd arg1 arg2 ->
     let (memo1, b1) = unshareAst memo arg1
         (memo2, b2) = unshareAst memo1 arg2
     in (memo2, Ast.AstBoolAnd b1 b2)
+  Ast.AstBoolAndA arg1 arg2 ->
+    let (memo1, b1) = unshareAst memo arg1
+        (memo2, b2) = unshareAst memo1 arg2
+    in (memo2, Ast.AstBoolAndA b1 b2)
   Ast.AstLeqK arg1 arg2 ->
     let (memo1, r1) = unshareAst memo arg1
         (memo2, r2) = unshareAst memo1 arg2
@@ -573,6 +591,10 @@ unshareAst memo = \case
     let (memo1, r1) = unshareAst memo arg1
         (memo2, r2) = unshareAst memo1 arg2
     in (memo2, Ast.AstLeqS r1 r2)
+  Ast.AstLeqA shb sh arg1 arg2 ->
+    let (memo1, r1) = unshareAst memo arg1
+        (memo2, r2) = unshareAst memo1 arg2
+    in (memo2, Ast.AstLeqA shb sh r1 r2)
 
 unshareAstHFun
   :: AstBindings -> AstHFun s s2 x y -> (AstBindings, AstHFun s s2 x y)
