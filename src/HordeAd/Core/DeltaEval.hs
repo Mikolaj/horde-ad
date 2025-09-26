@@ -282,7 +282,7 @@ evalRevRRuntimeSpecialized
 evalRevRRuntimeSpecialized !s !c =
   -- We dispatch on all expected underyling scalar types, which is
   -- necessary to run the correct specialization when unpacking
-  -- an existential type. All IfDifferentiable instances should
+  -- an existential type. All ifDifferentiable cases should
   -- be included in the list of expected underlying scalar types.
   -- If the scalar type is not on the list, performance suffers greatly.
   case testEquality (typeRep @r) (typeRep @Double) of

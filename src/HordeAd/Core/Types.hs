@@ -12,7 +12,7 @@ module HordeAd.Core.Types
   , Target, TK (..), TKR, TKS, TKX, TKUnit, TKAllNum
     -- * Some fundamental constraints and types related to tensors
   , GoodScalar, NumScalar, GoodScalarConstraint
-  , Differentiable, IfDifferentiable(..)
+  , Differentiable, ifDifferentiable
   , BuildTensorKind, RazeTensorKind, ADTensorKind, ADTensorScalar
     -- * Type families that tensors belong to
   , IntOf, HFunOf, PrimalOf, DualOf, PlainOf, ShareOf, BoolOf
@@ -51,7 +51,7 @@ import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
 import Data.List (dropWhileEnd, sort)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
@@ -71,7 +71,7 @@ import GHC.TypeLits
   , withSomeSNat
   )
 import System.Random
-import Type.Reflection (Typeable)
+import Type.Reflection (Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (type (++))
@@ -157,7 +157,7 @@ type family TKAllNum (y :: TK) :: Constraint where
 -- * Some fundamental constraints and types
 
 type GoodScalarConstraint r =
-  ( Show r, Ord r, Typeable r, Typeable (ADTensorScalar r), IfDifferentiable r
+  ( Show r, Ord r, Typeable r, Typeable (ADTensorScalar r)
   , Default r, NFData r, Nested.PrimElt r, Nested.KnownElt r
   , forall sh. Show (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r)
   , forall sh. NFData (Nested.Mixed sh r))
@@ -188,17 +188,18 @@ type Differentiable r =
 -- (and buggy omissions) when new scalar types are added, but it has
 -- the advantage of giving more control and visiblity. Sadly the list
 -- is repeated in several other places.
-class IfDifferentiable r where
-  ifDifferentiable :: (Differentiable r => a) -> a -> a
-
-instance {-# OVERLAPPABLE #-} IfDifferentiable r where
-  ifDifferentiable _ a = a
-
--- The white-listed differentiable types.
-instance IfDifferentiable Double where
-  ifDifferentiable ra _ = ra
-instance IfDifferentiable Float where
-  ifDifferentiable ra _ = ra
+--
+-- BTW, a lot of occurrences of the non-differentiable case appears
+-- when the parameters of the objective functions contain a ListR,
+-- in which nil is represented as Z1, which is not differentiable.
+-- In other cases it should be rare.
+ifDifferentiable :: forall r a. Typeable r
+                 => (Differentiable r => a) -> a -> a
+ifDifferentiable ra _
+  | Just Refl <- testEquality (typeRep @r) (typeRep @Double) = ra
+ifDifferentiable ra _
+  | Just Refl <- testEquality (typeRep @r) (typeRep @Float) = ra
+ifDifferentiable _ a = a
 
 type family BuildTensorKind k tk where
   BuildTensorKind k (TKScalar r) = TKS '[k] r
