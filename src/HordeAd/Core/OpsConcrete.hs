@@ -54,6 +54,7 @@ import HordeAd.Core.UnwindNum
 instance LetTensor Concrete where
   ttlet = (&)
   ttletPrimal = (&)
+  ttletPlain = (&)
   toShare = id
   tunshare = id
   tD _stk t DummyDualTarget{} = t

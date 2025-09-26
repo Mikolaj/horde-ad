@@ -102,6 +102,7 @@ testTrees =
   , testCase "scatter12" testScatter12
   , testCase "scatterBuild12" testScatterBuild12
   , testCase "scatterBuild12b" testScatterBuild12b
+  , testCase "scatterBuild12c" testScatterBuild12c
   , testCase "scatterSimpPP12" testScatterSimpPP12
   , testCase "scatterSimp12" testScatterSimp12
 
@@ -1187,6 +1188,20 @@ testScatterBuild12b =
                    (scatter12 t)
                    (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))
                         ) [1])
+          (rreplicate 7 $ ringestData [2] [0, 1]))
+
+testScatterBuild12c :: Assertion
+testScatterBuild12c =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [7,2]
+                 [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @Double @2
+          (\t -> rindex (rbuild1 5 (\i ->
+             ttletPlain (i >. 2) $ \b ->
+               ifH (b &&* b)
+                   (scatter12 t)
+                   (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))
+                       ) [1])
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterSimpPP12 :: Assertion

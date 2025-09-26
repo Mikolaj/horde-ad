@@ -231,6 +231,8 @@ class LetTensor (target :: Target) where
   ttlet :: target x -> (target x -> target z) -> target z
   ttletPrimal :: PrimalOf target x -> (PrimalOf target x -> target z)
               -> target z
+  ttletPlain :: PlainOf target x -> (PlainOf target x -> target z)
+             -> target z
   toShare :: target y -> ShareOf target y
   tunshare :: ShareOf target y -> target y
   tunshare = error "tunshare: this instance should never be used"

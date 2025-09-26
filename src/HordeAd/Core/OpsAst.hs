@@ -224,6 +224,7 @@ astBuild1Vectorize k@(SNat @k) stk f =
 instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
   ttlet = astLetFun
   ttletPrimal = astLetFun
+  ttletPlain = astLetFun
   toShare t = AstRaw $ AstToShare t
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
@@ -1275,6 +1276,9 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
   ttletPrimal u f = AstNoVectorize
                     $ ttletPrimal (unAstNoVectorize u)
                                   (unAstNoVectorize . f . AstNoVectorize)
+  ttletPlain u f = AstNoVectorize
+                   $ ttletPlain (unAstNoVectorize u)
+                                (unAstNoVectorize . f . AstNoVectorize)
   toShare t = toShare $ unAstNoVectorize t
 
 instance AstSpan s => BaseTensor (AstNoVectorize s) where
@@ -1461,6 +1465,9 @@ instance AstSpan s => LetTensor (AstNoSimplify s) where
   ttletPrimal u f = AstNoSimplify
                     $ astLetFunNoSimplify (unAstNoSimplify u)
                                           (unAstNoSimplify . f . AstNoSimplify)
+  ttletPlain u f = AstNoSimplify
+                   $ astLetFunNoSimplify (unAstNoSimplify u)
+                                         (unAstNoSimplify . f . AstNoSimplify)
   toShare t = AstRaw $ AstToShare $ unAstNoSimplify t
 
 wAstNoSimplify :: AstRaw s y -> AstNoSimplify s y
