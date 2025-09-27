@@ -811,7 +811,7 @@ smap :: ( KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh
      -> target (TKS2 sh x2)
 smap @m @sh f v = gcastWith (unsafeCoerceRefl
                              :: sh :~: Take m sh ++ Drop m sh)
-                  $ sbuild (\ix -> f (v !$ ix))
+                  $ sbuild @m (\ix -> f (v !$ ix))
 smap1 :: (KnownNat n, KnownShS sh, KnownSTK x, KnownSTK x2, BaseTensor target)
       => (target (TKS2 sh x) -> target (TKS2 sh x2))
            -- ^ the function to map with
@@ -833,7 +833,7 @@ szipWith :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2), KnownShS (Take m sh)
          -> target (TKS2 sh1 x1)  -- ^ the first tensor to zip over
          -> target (TKS2 sh2 x2)  -- ^ the second tensor to zip over
          -> target (TKS2 sh x)
-szipWith f u v = sbuild (\ix -> f (u !$ ix) (v !$ ix))
+szipWith @m f u v = sbuild @m (\ix -> f (u !$ ix) (v !$ ix))
 szipWith1 :: ( KnownNat n, KnownShS sh1, KnownShS sh2, KnownShS sh
              , KnownSTK x, KnownSTK x1, KnownSTK x2, BaseTensor target )
           => (target (TKS2 sh1 x1) -> target (TKS2 sh2 x2)
@@ -864,7 +864,7 @@ szipWith3 :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
           -> target (TKS2 sh2 x2)  -- ^ the second tensor to zip over
           -> target (TKS2 sh3 x3)  -- ^ the third tensor to zip over
           -> target (TKS2 sh x)
-szipWith3 f u v w = sbuild (\ix -> f (u !$ ix) (v !$ ix) (w !$ ix))
+szipWith3 @m f u v w = sbuild @m (\ix -> f (u !$ ix) (v !$ ix) (w !$ ix))
 szipWith31 :: ( KnownNat n
               , KnownShS sh1, KnownShS sh2, KnownShS sh3, KnownShS sh
               , KnownSTK x, KnownSTK x1, KnownSTK x2, KnownSTK x3
@@ -910,8 +910,8 @@ szipWith4 :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
           -> target (TKS2 sh3 x3)  -- ^ the third tensor to zip over
           -> target (TKS2 sh4 x4)  -- ^ the fourth tensor to zip over
           -> target (TKS2 sh x)
-szipWith4 f u v w x =
-  sbuild (\ix -> f (u !$ ix) (v !$ ix) (w !$ ix) (x !$ ix))
+szipWith4 @m f u v w x =
+  sbuild @m (\ix -> f (u !$ ix) (v !$ ix) (w !$ ix) (x !$ ix))
 szipWith41 :: ( KnownNat n
               , KnownShS sh1, KnownShS sh2, KnownShS sh3, KnownShS sh4
               , KnownShS sh

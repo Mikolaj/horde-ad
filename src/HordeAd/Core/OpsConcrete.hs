@@ -217,7 +217,7 @@ instance BaseTensor Concrete where
                                        $ fromIntegral i
                                      | i <- [0 .. s - 1] ]
            in withKnownShS shpshn $
-              updateNS @(Rank shp) zero
+              updateNS (Proxy @(Rank shp)) zero
               $ map (second $ Concrete . Nested.sfromVector (knownShS @shn))
               $ M.assocs ivs
          FTKS _ x | Dict <- eltDictRep (ftkToSTK x) ->
@@ -240,7 +240,7 @@ instance BaseTensor Concrete where
                                        $ fromIntegral i
                                      | i <- [0 .. s - 1] ]
            in withKnownShS shpshn $
-              updateNS @(Rank shp) zero
+              updateNS (Proxy @(Rank shp)) zero
               $ M.assocs ivs
   tsscatter1 = tscatterZ1S
   -- The semantics of the operation permits index out of bounds
@@ -384,7 +384,7 @@ instance BaseTensor Concrete where
             ivs = foldr g M.empty [ fromLinearIdxX fromIntegral shm
                                     $ fromIntegral i
                                   | i <- [0 .. s - 1] ]
-        in updateNX @(Rank shp) zero
+        in updateNX (Proxy @(Rank shp)) zero
            $ map (second $ Concrete . Nested.mfromVector shDropP)
            $ M.assocs ivs
       FTKX _ x | Dict <- eltDictRep (ftkToSTK x) ->
@@ -401,7 +401,7 @@ instance BaseTensor Concrete where
             ivs = foldr g M.empty [ fromLinearIdxX fromIntegral shm
                                     $ fromIntegral i
                                   | i <- [0 .. s - 1] ]
-        in updateNX @(Rank shp) zero
+        in updateNX (Proxy @(Rank shp)) zero
            $ M.assocs ivs
   txscatter1 = tscatterZ1X
   txgather @shm @shn @_ @r sh t f =
@@ -946,13 +946,13 @@ tgatherZ1R k t f = case knownSTK @r of
 -- TODO: try to weave a similar magic as in tindex0R
 -- TODO: for the non-singleton case see
 -- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
-updateNS :: forall n sh r.
+updateNS :: forall n sh r proxy.
             ( KnownSTK r, KnownShS sh, KnownShS (Drop n sh)
             , KnownShS (Take n sh) )
-         => Concrete (TKS2 sh r)
+         => proxy n -> Concrete (TKS2 sh r)
          -> [(IxSOf Concrete (Take n sh), Concrete (TKS2 (Drop n sh) r))]
          -> Concrete (TKS2 sh r)
-updateNS arr upd = case knownSTK @r of
+updateNS _ arr upd = case knownSTK @r of
   STKScalar ->
     let values = stoVector arr
         sh = knownShS @sh
@@ -1099,7 +1099,7 @@ tscatterZ1S t f = case tftk knownSTK t of
                  in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                   (shsToList shpshn)
                     then withKnownShS shpshn $
-                         updateNS @(Rank shp) zero [(ix2, ti)]
+                         updateNS (Proxy @(Rank shp)) zero [(ix2, ti)]
                     else zero
         lu = imap g lt
     in foldr (taddTarget (STKS shpshn (knownSTK @r))) zero lu
@@ -1156,12 +1156,12 @@ tgatherZ1S t f =
 
 -- * Mixed internal definitions
 
-updateNX :: forall n sh r.
+updateNX :: forall n sh r proxy.
             (KnownSTK r, KnownShX (Drop n sh), KnownShX (Take n sh))
-         => Concrete (TKX2 sh r)
+         => proxy n -> Concrete (TKX2 sh r)
          -> [(IxXOf Concrete (Take n sh), Concrete (TKX2 (Drop n sh) r))]
          -> Concrete (TKX2 sh r)
-updateNX arr upd = case knownSTK @r of
+updateNX _ arr upd = case knownSTK @r of
   STKScalar ->
     let values = xtoVector arr
         sh = xshape arr
@@ -1283,7 +1283,7 @@ tscatterZ1X sh t f =
           g i ti = let ix2 = f $ Concrete $ fromIntegral i
                    in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                     (shxToList sh)
-                      then updateNX @(Rank shp) zero [(ix2, ti)]
+                      then updateNX (Proxy @(Rank shp)) zero [(ix2, ti)]
                       else zero
           lu = imap g lt
       in foldr (taddTarget knownSTK) zero lu
