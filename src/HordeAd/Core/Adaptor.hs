@@ -260,7 +260,7 @@ instance (BaseTensor target, KnownNat n, AdaptableTarget target a)
                  :: X (ListR n a) :~: TKProduct (X a) (X (ListR (n - 1) a))) $
       let (a1, rest1) = (tproject1 tups, tproject2 tups)
           a = fromTarget a1
-          rest = fromTarget rest1
+          rest = fromTarget @_ @(ListR (n - 1) a) rest1
       in (a ::: rest)
   {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (AstTensor AstMethodLet FullSpan) a) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (ListR n a) #-}
   {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (ADVal Concrete) a) => AdaptableTarget (ADVal Concrete) (ListR n a) #-}
