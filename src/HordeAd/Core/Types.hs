@@ -638,10 +638,11 @@ listsDrop :: forall len sh i.
 listsDrop ix = fromList $ drop (valueOf @len) $ toList ix
 
 listsSplitAt
-  :: (KnownShS sh, KnownNat len, KnownShS (Drop len sh), KnownShS (Take len sh))
+  :: forall sh len i.
+     (KnownShS sh, KnownNat len, KnownShS (Drop len sh), KnownShS (Take len sh))
   => ListS sh (Const i)
   -> (ListS (Take len sh) (Const i), ListS (Drop len sh) (Const i))
-listsSplitAt ix = (listsTake ix, listsDrop ix)
+listsSplitAt ix = (listsTake @len ix, listsDrop @len ix)
 
 ixrTake :: forall m n i. (KnownNat m, KnownNat n)
         => IxR (m + n) i -> IxR m i
@@ -681,7 +682,7 @@ listrSplitAt ix = (listrTake ix, listrDrop ix)
 
 ixsDrop :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
         => IxS sh i -> IxS (Drop len sh) i
-ixsDrop (IxS ix) = IxS $ listsDrop ix
+ixsDrop (IxS ix) = IxS $ listsDrop @len ix
 
 -- TODO
 shsTake :: forall len sh. (KnownNat len, KnownShS sh)
