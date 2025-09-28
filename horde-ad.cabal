@@ -170,8 +170,7 @@ library
 
     build-depends:
         assert-failure < 0.1.4
-      , base >= 4.20.1 && < 4.21
-          -- backport of https://gitlab.haskell.org/ghc/ghc/-/merge_requests/13498 is required for GHC 9.12; TODO: adjust base bounds once 9.12.3 is out
+      , base >= 4.20.1 && < 4.22
       , Boolean < 0.3
       , containers >= 0.6 && < 0.9
       , deepseq < 1.7
