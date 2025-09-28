@@ -179,8 +179,8 @@ library
       , dependent-enummap < 0.2
       , dependent-sum >= 0.7 && < 0.8
       , enummapset < 0.8
-      , ghc-typelits-knownnat < 1
-      , ghc-typelits-natnormalise < 1
+      , ghc-typelits-knownnat < 0.8
+      , ghc-typelits-natnormalise < 0.8
       , indexed-traversable < 0.2
       , orthotope < 0.2
       , ox-arrays < 0.2
