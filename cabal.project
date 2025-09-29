@@ -5,3 +5,14 @@ package statistics
   ghc-options: -fsimpl-tick-factor=10000
 
 
+
+source-repository-package
+    type: git
+    location: https://github.com/clash-lang/ghc-typelits-natnormalise
+    tag: c994419b8ad3f6c3c8bb21150ae4e11c5183957a
+
+
+source-repository-package
+    type: git
+    location: https://git.tomsmeding.com/ox-arrays
+    tag: 24d93b59d75c1ea11f4443965d681236c459b439

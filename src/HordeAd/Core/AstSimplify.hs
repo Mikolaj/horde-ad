@@ -3027,8 +3027,8 @@ astTransposeS perm t =
   -- This increases term size and work, so limited to size 2.
   Ast.AstReplicate snat1@SNat _
                    (Ast.AstFromVector snat2@(SNat' @2) stk2@STKScalar l)
-    | SNat' @2 <- Permutation.permRank perm  -- TODO: workaround for probably a plugin or GHC bug
-    , SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
+    | {- SNat' @2 <- Permutation.permRank perm  -- TODO: workaround for probably a plugin or GHC bug
+    , -} SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
       astFromVector snat2 (STKS (snat1 :$$ ZSS) stk2)
                     (V.map (astReplicate snat1 stk2) l)
   -- TODO: generalize
