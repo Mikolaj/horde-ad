@@ -87,6 +87,10 @@ xflatten :: forall sh x target. (KnownSTK x, BaseTensor target)
          => target (TKX2 sh x) -> target (TKX2 '[Nothing] x)
 xflatten u = txreshape (Nested.SUnknown (xsize u) :$% ZSX) u
 
+-- | Building a tensor (also known as @generate@ and @tabulate@).
+-- The resulting tensor should have no zero dimensions.
+-- See https://futhark-lang.org/blog/2025-09-26-the-biggest-semantic-mess.html
+-- for why trying to handle zero dimensions complicates the system greatly.
 rbuild :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
        => IShR (m + n)  -- ^ the shape of the resulting tensor
        -> (IxROf target m -> target (TKR2 n x))

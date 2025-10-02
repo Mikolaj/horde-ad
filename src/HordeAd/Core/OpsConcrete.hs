@@ -893,6 +893,8 @@ tfromVector0NR sh l = case NonEmpty.nonEmpty $ V.toList l of
   Nothing -> Nested.rreshape sh Nested.remptyArray
   Just nl -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar nl
 
+-- See https://futhark-lang.org/blog/2025-09-26-the-biggest-semantic-mess.html
+-- for why we don't try to solve the shape ambiguity in the zero dimension case.
 tbuild1R
   :: forall r n. (Nested.KnownElt r, KnownNat n)
   => Int -> (Int64 -> Nested.Ranked n r) -> Nested.Ranked (1 + n) r
