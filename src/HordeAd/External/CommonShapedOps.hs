@@ -9,20 +9,11 @@ module HordeAd.External.CommonShapedOps
 import Prelude
 
 import Data.List.NonEmpty qualified as NonEmpty
-import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:))
 import Data.Type.Ord (Compare)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
-  ( Div
-  , KnownNat
-  , SomeNat (..)
-  , sameNat
-  , someNatVal
-  , type (+)
-  , type (-)
-  , type (<=)
-  )
+  (Div, KnownNat, SomeNat (..), someNatVal, type (+), type (-), type (<=))
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (ixrFromIxS, ixsFromIxR')
@@ -56,11 +47,11 @@ sfromIndex0 = sfromR . rfromIntegral . tfromPlain knownSTK . rfromK
 sfromIndex1 :: forall r sh target.
                (ADReady target, NumScalar r, KnownShS sh)
             => IxSOf target sh -> target (TKS '[Rank sh] r)
-sfromIndex1 | SNat <- shsRank (knownShS @sh) =
-  case sameNat (Proxy @(Rank sh)) (Proxy @0) of
-    Just Refl -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
-    _ -> sfromR . rfromIntegral . tfromPlain knownSTK . rfromList
-         . NonEmpty.fromList . map rfromK . toList
+sfromIndex1 =
+  case shsRank (knownShS @sh) of
+    SNat' @0 -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
+    SNat -> sfromR . rfromIntegral . tfromPlain knownSTK . rfromList
+            . NonEmpty.fromList . map rfromK . toList
 
 {-
 sletIx :: forall r sh n target.

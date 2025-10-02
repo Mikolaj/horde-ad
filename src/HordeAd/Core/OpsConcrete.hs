@@ -70,9 +70,10 @@ instance ShareTensor Concrete where
 instance BaseTensor Concrete where
   -- Ranked ops
   rshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.rshape . unConcrete
-  trfromVector @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    Concrete . Nested.rfromListOuter . NonEmpty.fromList . V.toList
-    . fmapUnConcrete
+  trfromVector @_ @r v | Dict <- eltDictRep (knownSTK @r) =
+    case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
+      Just l -> Concrete $ Nested.rfromListOuter l
+      Nothing -> error "rfromVector: empty vector"
   trfromVector0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     Concrete . tfromVector0NR sh . fmapUnConcrete
   trunravelToList @_ @r | Dict <- eltDictRep (knownSTK @r) =
@@ -117,8 +118,9 @@ instance BaseTensor Concrete where
   trcast = Concrete . liftVR (V.map realToFrac) . unConcrete
   trminIndex = Concrete . tminIndexR . unConcrete
   trmaxIndex = Concrete . tmaxIndexR . unConcrete
-  triota n = Concrete $ Nested.rfromList1 $ NonEmpty.map fromInteger
-             $ NonEmpty.fromList [0 .. fromIntegral n - 1]
+  triota n = case NonEmpty.nonEmpty [0 .. fromIntegral n - 1] of
+    Nothing -> error "riota: n < 1"
+    Just l -> Concrete $ Nested.rfromList1 $ NonEmpty.map fromInteger l
   trappend @_ @r u v | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ Nested.rappend (unConcrete u) (unConcrete v)
   trslice @_ @r i n | Dict <- eltDictRep (knownSTK @r) =
@@ -147,9 +149,10 @@ instance BaseTensor Concrete where
 
   -- Shaped ops
   sshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.sshape . unConcrete
-  tsfromVector @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    Concrete . Nested.sfromListOuter SNat . NonEmpty.fromList . V.toList
-    . fmapUnConcrete
+  tsfromVector @_ @_ @r v | Dict <- eltDictRep (knownSTK @r) =
+    case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
+      Just l -> Concrete $ Nested.sfromListOuter SNat l
+      Nothing -> error "sfromVector: empty vector"
   tsfromVector0N @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . tfromVector0NS . fmapUnConcrete
   tsunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
@@ -276,7 +279,7 @@ instance BaseTensor Concrete where
   tsiota @n = case NonEmpty.nonEmpty [0 .. valueOf @n - 1] of
     Nothing -> case sameNat (Proxy @n) (Proxy @0) of
       Just Refl -> Concrete $ Nested.semptyArray ZSS
-      Nothing -> error "siota: wrong rank"
+      Nothing -> error "siota: n < 1"
     Just l -> Concrete $ Nested.sfromList1 SNat $ NonEmpty.map fromInteger l
   tsappend @_ @_ @_ @r u v | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ Nested.sappend (unConcrete u) (unConcrete v)
@@ -308,10 +311,12 @@ instance BaseTensor Concrete where
 
   -- Mixed ops
   xshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.mshape . unConcrete
-  txfromVector @n @sh @r | Dict <- eltDictRep (knownSTK @r) =
-    Concrete . Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
-    . Nested.mfromListOuter . NonEmpty.fromList . V.toList
-    . fmapUnConcrete
+  txfromVector @n @sh @r v | Dict <- eltDictRep (knownSTK @r) =
+    case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
+      Just l -> Concrete
+                $ Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
+                $ Nested.mfromListOuter  l
+      Nothing -> error "xfromVector: empty vector"
   txfromVector0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     Concrete . tfromVector0NX sh . fmapUnConcrete
   txunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
@@ -428,10 +433,12 @@ instance BaseTensor Concrete where
   txcast = Concrete . liftVX (V.map realToFrac) . unConcrete
   txminIndex = Concrete . tminIndexX . unConcrete
   txmaxIndex = Concrete . tmaxIndexX . unConcrete
-  txiota @n = let n = valueOf @n
-                  t = Nested.mfromList1 $ NonEmpty.map fromInteger
-                      $ NonEmpty.fromList [0 .. n - 1]
-              in Concrete $ Nested.mcast (Nested.SKnown (SNat @n) :!% ZKX) t
+  txiota @n = case NonEmpty.nonEmpty [0 .. valueOf @n - 1] of
+    Nothing -> error "xiota: n < 1"
+    Just l -> Concrete
+              $ Nested.mcast (Nested.SKnown (SNat @n) :!% ZKX)
+              $ Nested.mfromList1
+              $ NonEmpty.map fromInteger l
   txappend @_ @_ @_ @r u v | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ Nested.mappend (unConcrete u) (unConcrete v)
   txslice @_ @_ @_ @_ @r i n _ | Dict <- eltDictRep (knownSTK @r) =
