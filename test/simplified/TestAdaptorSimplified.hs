@@ -2144,12 +2144,6 @@ emptyArgs t =
                                      emptyTensor) []) (42 :.: ZIR)
   - rreshape @1 [0] emptyTensor
   - rsum (rreshape @1 [0, 0] emptyTensor)
--- TODO:
---  - rgather1 0 emptyTensor (:.: ZIR)
---  - rsum (rgather1 0 emptyTensor (const ZIR))
---  - rsum (rgather @target @(TKScalar r) @2 (0 :$: 0 :$: ZSR) emptyTensor (const (0 :.: ZIR)))
---  - rsum (rgather @target @(TKScalar r) @2 @0 @1 [0, 0] emptyTensor (const [0]))
---  * rflatten (rtr (rgather1 0 t (const ZIR)))
   + rbuild1 0 (\i -> t ! (i :.: ZIR))
   + rbuild1 0 (\i -> t ! [fromIntegral (rlength t) `quotH` i] / rfromIndex0 i)
   + rbuild @1 (0 :$: ZSR) (const $ rscalar 73)
@@ -2223,9 +2217,14 @@ emptyArgs t =
                                                 :$% SKnown (SNat @0)
                                                 :$% ZSX)
                       (const (xreplicate (xfromR emptyTensor)))))
-  -- - rsum (rbuild @2 (0 :$: 0 :$: ZSR) (const 73))
-  -- - rsum (rbuild @1 (0 :$: 0 :$: ZSR) (const emptyTensor))
-       -- these two fail and rightly so; TODO: make them fail earlier
+--  - rgather1 0 emptyTensor (:.: ZIR)
+--  - rsum (rgather1 0 emptyTensor (const ZIR))
+--  - rsum (rgather @target @(TKScalar r) @2 (0 :$: 0 :$: ZSR) emptyTensor (const (0 :.: ZIR)))
+--  - rsum (rgather @target @(TKScalar r) @2 @0 @1 [0, 0] emptyTensor (const [0]))
+--  * rflatten (rtr (rgather1 0 t (const ZIR)))
+--  - rsum (rbuild @2 (0 :$: 0 :$: ZSR) (const 73))
+--  - rsum (rbuild @1 (0 :$: 0 :$: ZSR) (const emptyTensor))
+       -- these fail and rightly so; TODO: make them fail earlier
  where
   emptyTensor :: target (TKR 1 r)
   emptyTensor = rconcrete $ Nested.rfromListPrimLinear (fromList [0]) []
