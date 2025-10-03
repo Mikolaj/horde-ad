@@ -220,14 +220,14 @@ instance ( ADReadyNoLet target, ShareTensor target
   trtranspose perm (D u u') = dD (trtranspose perm u) (DeltaTransposeR perm u')
   trreshape sh (D u u') = dD (trreshape sh u) (DeltaReshapeR sh u')
   trbuild1 @n @x k f =
-    let l = [0 .. fromIntegral k - 1]
-    in if null l
-       then case sameNat (Proxy @n) (Proxy @0) of
-         Just Refl | Dict <- eltDictRep (knownSTK @x) ->
-           let arr = Nested.remptyArray
-           in tconcrete (tftkG knownSTK arr) (Concrete arr)
-         Nothing -> error "rbuild1: shape ambiguity"
-       else trfromVector $ V.fromList $ map (f . fromInteger) l
+    if k == 0
+    then case sameNat (Proxy @n) (Proxy @0) of
+      Just Refl | Dict <- eltDictRep (knownSTK @x) ->
+        let arr = Nested.remptyArray
+        in tconcrete (tftkG knownSTK arr) (Concrete arr)
+      Nothing -> error "rbuild1: shape ambiguity"
+    else let l = [0 .. fromIntegral k - 1]
+         in trfromVector $ V.fromList $ map (f . fromInteger) l
               -- hope this fuses
 
   -- Shaped ops
@@ -279,12 +279,12 @@ instance ( ADReadyNoLet target, ShareTensor target
   tsslice i n k (D u u') = dD (tsslice i n k u) (DeltaSliceS i n k u')
   tsreverse (D u u') = dD (tsreverse u) (DeltaReverseS u')
   tsbuild1 @k @sh @r f | Dict <- eltDictRep (knownSTK @r) =
-    let l = [0 .. valueOf @k - 1]
-    in if null l
-       then let arr = Nested.semptyArray @(RepConcrete r) (knownShS @sh)
-            in gcastWith (unsafeCoerceRefl :: k :~: 0) $
-               tconcrete (tftkG knownSTK arr) (Concrete arr)
-       else tsfromVector $ V.fromList $ map (f . fromInteger) l
+    if valueOf @k == 0
+    then let arr = Nested.semptyArray @(RepConcrete r) (knownShS @sh)
+         in gcastWith (unsafeCoerceRefl :: k :~: 0) $
+            tconcrete (tftkG knownSTK arr) (Concrete arr)
+    else let l = [0 .. valueOf @k - 1]
+         in tsfromVector $ V.fromList $ map (f . fromInteger) l
               -- hope this fuses
 
   -- Mixed ops
@@ -352,15 +352,15 @@ instance ( ADReadyNoLet target, ShareTensor target
     dD (txtranspose perm u) (DeltaTransposeX @_ @_ @_ @target perm u')
   txreshape sh (D u u') = dD (txreshape sh u) (DeltaReshapeX sh u')
   txbuild1 @k @sh @r f =
-    let l = [0 .. valueOf @k - 1]
-    in if null l
-       then case testEquality (knownShX @sh) ZKX of
-         Just Refl | Dict <- eltDictRep (knownSTK @r) ->
-           let arr = Nested.memptyArray @(RepConcrete r) ZSX
-           in gcastWith (unsafeCoerceRefl :: k :~: 0) $
-              tconcrete (tftkG knownSTK arr) (Concrete arr)
-         Nothing -> error "xbuild1: shape ambiguity"
-       else txfromVector $ V.fromList $ map (f . fromInteger) l
+    if valueOf @k == 0
+    then case testEquality (knownShX @sh) ZKX of
+       Just Refl | Dict <- eltDictRep (knownSTK @r) ->
+         let arr = Nested.memptyArray @(RepConcrete r) ZSX
+         in gcastWith (unsafeCoerceRefl :: k :~: 0) $
+            tconcrete (tftkG knownSTK arr) (Concrete arr)
+       Nothing -> error "xbuild1: shape ambiguity"
+    else let l = [0 .. valueOf @k - 1]
+         in txfromVector $ V.fromList $ map (f . fromInteger) l
               -- hope this fuses
 
   -- Scalar ops
