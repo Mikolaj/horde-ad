@@ -203,9 +203,9 @@ ifDifferentiable _ a = a
 
 type family BuildTensorKind k tk where
   BuildTensorKind k (TKScalar r) = TKS '[k] r
-  BuildTensorKind k (TKR2 n r) = TKR2 (1 + n) r
-  BuildTensorKind k (TKS2 sh r) = TKS2 (k : sh) r
-  BuildTensorKind k (TKX2 sh r) = TKX2 (Just k : sh) r
+  BuildTensorKind k (TKR2 n x) = TKR2 (1 + n) x
+  BuildTensorKind k (TKS2 sh x) = TKS2 (k : sh) x
+  BuildTensorKind k (TKX2 sh x) = TKX2 (Just k : sh) x
   BuildTensorKind k (TKProduct y z) =
     TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
 
@@ -216,17 +216,17 @@ type family BuildTensorKind k tk where
 -- change the tensor kind variant, which is important, e.g.,
 -- when rewriting AstFromS t and trying to use AstFromS of the razed t.
 type family RazeTensorKind tk where
-  RazeTensorKind (TKR2 n r) = TKR2 (n - 1) r
-  RazeTensorKind (TKS2 sh r) = TKS2 (Tail sh) r
-  RazeTensorKind (TKX2 sh r) = TKX2 (Tail sh) r
+  RazeTensorKind (TKR2 n x) = TKR2 (n - 1) x
+  RazeTensorKind (TKS2 sh x) = TKS2 (Tail sh) x
+  RazeTensorKind (TKX2 sh x) = TKX2 (Tail sh) x
   RazeTensorKind (TKProduct y z) =
     TKProduct (RazeTensorKind y) (RazeTensorKind z)
 
 type family ADTensorKind tk where
   ADTensorKind (TKScalar r) = TKScalar (ADTensorScalar r)
-  ADTensorKind (TKR2 n r) = TKR2 n (ADTensorKind r)
-  ADTensorKind (TKS2 sh r) = TKS2 sh (ADTensorKind r)
-  ADTensorKind (TKX2 sh r) = TKX2 sh (ADTensorKind r)
+  ADTensorKind (TKR2 n x) = TKR2 n (ADTensorKind x)
+  ADTensorKind (TKS2 sh x) = TKS2 sh (ADTensorKind x)
+  ADTensorKind (TKX2 sh x) = TKX2 sh (ADTensorKind x)
   ADTensorKind (TKProduct y z) =
     TKProduct (ADTensorKind y) (ADTensorKind z)
 

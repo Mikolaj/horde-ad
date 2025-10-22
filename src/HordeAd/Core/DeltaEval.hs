@@ -481,10 +481,11 @@ evalRevFTK !s !c d0 = case d0 of
   _ -> let y = ftkDelta d0
        in case matchingFTK y (adFTK y) of
          Just Refl -> evalRevSame s c d0
-         _ -> s  -- the constructors remaining here have y that is
-                 -- a non-TKProduct so if y is equal to ADTensorKind y,
-                 -- the latter has the Z1 scalar type and so no influence
-                 -- on the derivative.
+         _ -> s
+           -- the constructors remaining here have y that is not of
+           -- a TKProduct type, so if y is not equal to ADTensorKind y,
+           -- the latter is of the Z1 type and so it has no influence
+           -- on the derivative.
 
 -- | A helper function to `evalRev`. It assumes the scalar underlying
 -- the tensor kind of its arguments is differentiable.
@@ -492,6 +493,10 @@ evalRevFTK !s !c d0 = case d0 of
 -- All constructors that can only have types with non-TKProduct kinds
 -- (and the DeltaInput constructor and the vector space constructors)
 -- can be handled here, where the extra equality constraint makes it easier.
+--
+-- TODO: now TKProduct can be nested in most of the constructors below,
+-- so this the comment above is not true, so most constructors can't be
+-- handled in `evalRevSame` any more.
 evalRevSame
   :: forall y target.
      (ADReadyNoLet target, ShareTensor target, y ~ ADTensorKind y)
