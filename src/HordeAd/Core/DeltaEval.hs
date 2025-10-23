@@ -514,9 +514,16 @@ evalRevSame !s !c = \case
     -- iMap keys. That's why global sharing is used.
 
   -- By placing these here, we force their derivatives to be zeroed
-  -- whenever they are called on non-base types, which they should not ever be.
-  -- This is ensured by the types of the three constructors, assuming that
-  -- no Num instances are defined for the non-base type tensors.
+  -- whenever they are called on TKProduct types (top-level or nested),
+  -- which they should not ever be.
+  -- This is ensured by the types of the three constructors and the fact
+  -- that only Num for base types is required (via TensorSupports)
+  -- in the BaseTensor class, so user code written assuming only the BaseTensor
+  -- constraint can't use Num for TKProduct types. If the user explicitly
+  -- assumes more, the AD computations will be incorrect for integers
+  -- and booleans contained in the arrays, so the user has to take this
+  -- into account (and, e.g., use only floats). Full generality would be
+  -- costly and verbose to implement.
   DeltaZero{} -> s
   DeltaScale (NestedTarget k) d -> evalRevSame s (k * c) d
   DeltaAdd d e ->
