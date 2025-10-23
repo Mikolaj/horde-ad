@@ -19,7 +19,6 @@ module HordeAd.Core.CarriersADVal
 
 import Prelude
 
-import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 
@@ -27,7 +26,6 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
 
 import Data.Array.Nested.Lemmas
-import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
 import HordeAd.Core.DeltaFreshId
 import HordeAd.Core.Ops
@@ -251,9 +249,8 @@ instance Eq (ADVal f z) where
 instance Ord (ADVal f z) where
   (<=) = error "Ord is not defined for ADVal; please use OrdH instead"
 
--- This is copied from below to permit fromInteger for TKScalar.
--- This OVERLAPPABLE seems to work 100% reliably for indexes
--- and not at all for a variant of rfromListLinear that takes scalars.
+-- This is copied below to permit fromInteger for TKScalar and to forbig
+-- TKProduct (also nested) in order to simplify the reverse pass.
 instance (NumScalar r, ShareTensor f, ADReadyNoLet f)
          => Num (ADVal f (TKScalar r)) where
   D u u' + D v v' = dD (u + v) (dAdd u' v')
@@ -277,9 +274,8 @@ instance (NumScalar r, ShareTensor f, ADReadyNoLet f)
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Int64)) #-}
 -}
 
-instance {-# OVERLAPPABLE #-}
-         (TKAllNum z, Num (f z), ShareTensor f, ADReadyNoLet f)
-         => Num (ADVal f z) where
+instance (TKAllNum (TKR n x), Num (f (TKR n x)), ShareTensor f, ADReadyNoLet f)
+         => Num (ADVal f (TKR n x)) where
   D u u' + D v v' = dD (u + v) (dAdd u' v')
   D u u' - D v v' =
     dD (u - v) (dAdd u' (dScale (intOfShape v' (-1)) v'))
@@ -293,8 +289,41 @@ instance {-# OVERLAPPABLE #-}
                   in dD (abs v) (dScale (signum v) v')
   signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
   fromInteger = error "fromInteger is not defined for tensors in general"
-  -- The constraints in the pragmas below are needed only to avoid
-  -- module import cycles.
+
+instance ( TKAllNum (TKS sh x), Num (f (TKS sh x)), ShareTensor f
+         , ADReadyNoLet f )
+         => Num (ADVal f (TKS sh x)) where
+  D u u' + D v v' = dD (u + v) (dAdd u' v')
+  D u u' - D v v' =
+    dD (u - v) (dAdd u' (dScale (intOfShape v' (-1)) v'))
+  D ue u' * D ve v' =
+    let !u = tshare ue in
+    let !v = tshare ve
+    in dD (u * v) (dAdd (dScale v u') (dScale u v'))
+  negate (D v v') = dD (negate v) (dScale (intOfShape v' (-1)) v')
+  abs (D ve v') = let !v = tshare ve
+                  in dD (abs v) (dScale (signum v) v')
+  signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
+  fromInteger = error "fromInteger is not defined for tensors in general"
+
+instance ( TKAllNum (TKX sh x), Num (f (TKX sh x)), ShareTensor f
+         , ADReadyNoLet f )
+         => Num (ADVal f (TKX sh x)) where
+  D u u' + D v v' = dD (u + v) (dAdd u' v')
+  D u u' - D v v' =
+    dD (u - v) (dAdd u' (dScale (intOfShape v' (-1)) v'))
+  D ue u' * D ve v' =
+    let !u = tshare ue in
+    let !v = tshare ve
+    in dD (u * v) (dAdd (dScale v u') (dScale u v'))
+  negate (D v v') = dD (negate v) (dScale (intOfShape v' (-1)) v')
+  abs (D ve v') = let !v = tshare ve
+                  in dD (abs v) (dScale (signum v) v')
+  signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
+  fromInteger = error "fromInteger is not defined for tensors in general"
+
+-- The constraints in the pragmas below are needed only to avoid
+-- module import cycles.
 {- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Double)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Float)) #-}
@@ -307,21 +336,23 @@ instance {-# OVERLAPPABLE #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKX sh Int64)) #-}
 -}
 
-instance (TKAllNum z, Real (f z), ShareTensor f, ADReadyNoLet f)
+instance (TKAllNum z, Num (ADVal f z), Real (f z), ADReadyNoLet f)
          => Real (ADVal f z) where
   toRational (D v _) = toRational v
     -- this is most probably not what the user expects, but the type
     -- of the result (Rational) doesn't permit any better solution
 
-instance (TKAllNum z, IntegralH (f z), ShareTensor f, ADReadyNoLet f)
+instance (TKAllNum z, Num (ADVal f z), IntegralH (f z), ADReadyNoLet f)
          => IntegralH (ADVal f z) where
   quotH (D u _) (D v v') = dDnotShared (quotH u v) (DeltaZero $ ftkDelta v')
   remH (D u _) (D v v') = dDnotShared (remH u v) (DeltaZero $ ftkDelta v')
   -- The constraints in the pragmas below are needed only to avoid
   -- module import cycles.
+{- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKR n Int64)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKS sh Int64)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKX sh Int64)) #-}
+-}
 
 -- This is copied from below to permit fromRational for TKScalar.
 instance ( TKAllNum (TKScalar r), NumScalar r, Fractional (f (TKScalar r))
@@ -338,7 +369,8 @@ instance ( TKAllNum (TKScalar r), NumScalar r, Fractional (f (TKScalar r))
   fromRational r = dDnotShared (fromRational r) (DeltaZero FTKScalar)
 
 instance {-# OVERLAPPABLE #-}
-         (TKAllNum z, Fractional (f z), ShareTensor f, ADReadyNoLet f)
+         ( TKAllNum z, Num (ADVal f z), Fractional (f z), ShareTensor f
+         , ADReadyNoLet f )
          => Fractional (ADVal f z) where
   D ue u' / D ve v' =
     let !u = tshare ue in
@@ -350,7 +382,8 @@ instance {-# OVERLAPPABLE #-}
     in dD (recip v) (dScale minusRecipSq v')
   fromRational = error "fromRational is not defined for tensors in general"
 
-instance (TKAllNum z, Floating (f z), ShareTensor f, ADReadyNoLet f)
+instance ( TKAllNum z, Num (ADVal f z), Floating (f z), ShareTensor f
+         , ADReadyNoLet f )
          => Floating (ADVal f z) where
   pi = error "pi is not defined for tensors"
   exp (D ue u') = let !expU = tshare (exp ue)
@@ -397,13 +430,15 @@ instance (TKAllNum z, Floating (f z), ShareTensor f, ADReadyNoLet f)
                     in dD (atanh u)
                           (dScale (recip (intOfShape u' 1 - u * u)) u')
 
-instance (TKAllNum z, RealFrac (f z), ShareTensor f, ADReadyNoLet f)
+instance ( TKAllNum z, Num (ADVal f z), RealFrac (f z), ShareTensor f
+         , ADReadyNoLet f )
          => RealFrac (ADVal f z) where
   properFraction = error "properFraction is not defined for tensors"
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (TKAllNum z, Fractional (f z), RealFloatH (f z), ShareTensor f, ADReadyNoLet f)
+instance ( TKAllNum z, Num (ADVal f z), Fractional (f z), RealFloatH (f z)
+         , ShareTensor f, ADReadyNoLet f )
          => RealFloatH (ADVal f z) where
   atan2H (D ue u') (D ve v') =
     let !u = tshare ue in
@@ -411,7 +446,8 @@ instance (TKAllNum z, Fractional (f z), RealFloatH (f z), ShareTensor f, ADReady
     let !t = tshare (recip (u * u + v * v))
     in dD (atan2H u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
 
-instance (TKAllNum z, RealFloat (f z), ShareTensor f, ADReadyNoLet f)
+instance ( TKAllNum z, Num (ADVal f z), RealFloat (f z), ShareTensor f
+         , ADReadyNoLet f )
          => RealFloat (ADVal f z) where
   atan2 (D ue u') (D ve v') =
     let !u = tshare ue in

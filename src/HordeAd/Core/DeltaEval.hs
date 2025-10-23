@@ -682,15 +682,9 @@ evalRevSame !s !c = \case
 
   -- By placing these here, we force their derivatives to be zeroed
   -- whenever they are called on TKProduct types (top-level or nested),
-  -- which they should not ever be.
-  -- This is ensured by the types of the three constructors and the fact
-  -- that only Num for base types is required (via TensorSupports)
-  -- in the BaseTensor class, so user code written assuming only the BaseTensor
-  -- constraint can't use Num for TKProduct types. If the user explicitly
-  -- assumes more, the AD computations will be incorrect for integers
-  -- and booleans contained in the arrays, so the user has to take this
-  -- into account (and, e.g., use only floats). Full generality would be
-  -- costly and verbose to implement.
+  -- which they should not ever be (this is ensured by the types
+  -- of the three constructors and the fact that Num is defined only
+  -- for base types).
   DeltaZero{} -> s
   DeltaScale (NestedTarget k) d -> evalRevSame s (k * c) d
   DeltaAdd d e ->
