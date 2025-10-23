@@ -1400,10 +1400,10 @@ instance Boolean (AstRaw PlainSpan (TKScalar Bool)) where
   b &&* c = AstRaw (unAstRaw b &&* unAstRaw c)
   b ||* c = AstRaw (unAstRaw b ||* unAstRaw c)
 
-instance (AstSpan s, EqH (AstTensor AstMethodShare s) y)
+instance (EqH (AstTensor AstMethodShare s) y)
          => EqH (AstRaw s) y where
   AstRaw v ==. AstRaw u = AstRaw $ v ==. u
-instance (AstSpan s, OrdH (AstTensor AstMethodShare s) y)
+instance (OrdH (AstTensor AstMethodShare s) y)
          => OrdH (AstRaw s) y where
   AstRaw v <=. AstRaw u = AstRaw $ v <=. u
 
@@ -1426,10 +1426,10 @@ instance Boolean (AstNoVectorize PlainSpan (TKScalar Bool)) where
   b &&* c = AstNoVectorize (unAstNoVectorize b &&* unAstNoVectorize c)
   b ||* c = AstNoVectorize (unAstNoVectorize b ||* unAstNoVectorize c)
 
-instance (AstSpan s, EqH (AstTensor AstMethodLet s) y)
+instance (EqH (AstTensor AstMethodLet s) y)
          => EqH (AstNoVectorize s) y where
   AstNoVectorize v ==. AstNoVectorize u = AstNoVectorize $ v ==. u
-instance (AstSpan s, OrdH (AstTensor AstMethodLet s) y)
+instance (OrdH (AstTensor AstMethodLet s) y)
          => OrdH (AstNoVectorize s) y where
   AstNoVectorize v <=. AstNoVectorize u = AstNoVectorize $ v <=. u
 
@@ -1452,10 +1452,10 @@ instance Boolean (AstNoSimplify PlainSpan (TKScalar Bool)) where
   b &&* c = AstNoSimplify (unAstNoSimplify b &&* unAstNoSimplify c)
   b ||* c = AstNoSimplify (unAstNoSimplify b ||* unAstNoSimplify c)
 
-instance (AstSpan s, EqH (AstTensor AstMethodLet s) y)
+instance (EqH (AstTensor AstMethodLet s) y)
          => EqH (AstNoSimplify s) y where
   AstNoSimplify v ==. AstNoSimplify u = AstNoSimplify $ v ==. u
-instance (AstSpan s, OrdH (AstTensor AstMethodLet s) y)
+instance (OrdH (AstTensor AstMethodLet s) y)
          => OrdH (AstNoSimplify s) y where
   AstNoSimplify v <=. AstNoSimplify u = AstNoSimplify $ v <=. u
 

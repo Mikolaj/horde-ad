@@ -279,7 +279,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tsslice i n k (D u u') = dD (tsslice i n k u) (DeltaSliceS i n k u')
   tsreverse (D u u') = dD (tsreverse u) (DeltaReverseS u')
   tsbuild1 @k @sh @r f | Dict <- eltDictRep (knownSTK @r) =
-    if valueOf @k == 0
+    if valueOf @k == (0 :: Int)
     then let arr = Nested.semptyArray @(RepConcrete r) (knownShS @sh)
          in gcastWith (unsafeCoerceRefl :: k :~: 0) $
             tconcrete (tftkG knownSTK arr) (Concrete arr)
@@ -352,7 +352,7 @@ instance ( ADReadyNoLet target, ShareTensor target
     dD (txtranspose perm u) (DeltaTransposeX @_ @_ @_ @target perm u')
   txreshape sh (D u u') = dD (txreshape sh u) (DeltaReshapeX sh u')
   txbuild1 @k @sh @r f =
-    if valueOf @k == 0
+    if valueOf @k == (0 :: Int)
     then case testEquality (knownShX @sh) ZKX of
        Just Refl | Dict <- eltDictRep (knownSTK @r) ->
          let arr = Nested.memptyArray @(RepConcrete r) ZSX
