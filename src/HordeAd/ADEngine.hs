@@ -20,18 +20,16 @@ module HordeAd.ADEngine
   , gradArtifact, vjpArtifact
   , gradInterpretArtifact, vjpInterpretArtifact
     -- * Symbolic forward derivative adaptors
-  , jvp, jvpArtifact, jvpInterpretArtifact
+  , jvp, jvp2, jvpArtifact, jvpInterpretArtifact
     -- * Non-symbolic reverse derivative adaptors
   , cgrad, cvjp
     -- * Non-symbolic forward derivative adaptors
-  , cjvp
+  , cjvp, cjvp2
     -- * Internal machinery for symbolic adaptors
   , IncomingCotangentHandling(..)
   , revArtifactAdapt, revArtifactAdaptDt, revArtifactDelta
   , revProduceArtifactWithoutInterpretation, revInterpretArtifact
   , fwdArtifactAdapt, fwdArtifactDelta, fwdInterpretArtifact
-    -- * Internal machinery for non-symbolic adaptors
-  , cfwdBoth
   ) where
 
 import Prelude
@@ -374,13 +372,29 @@ jvp
   -> Value src  -- morally (ADTensorKind src)
   -> Concrete (ADTensorKind ztgt)
 {-# INLINE jvp #-}
-jvp f vals0 ds =
+jvp f vals0 ds = fst $ jvp2 f vals0 ds
+
+-- | The @jvp2@ operation works just as 'jvp', but additionally produces
+-- the primal result of the objective function at the direction parameter
+-- (without taking the perturbation into account) at no extra cost.
+jvp2
+  :: forall src ztgt tgt.
+     ( X src ~ X (Value src), KnownSTK (X src)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , AdaptableTarget Concrete (Value src)
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> Value src
+  -> Value src  -- morally (ADTensorKind src)
+  -> (Concrete (ADTensorKind ztgt), Concrete ztgt)
+{-# INLINE jvp2 #-}
+jvp2 f vals0 ds =
   let valsTarget = toTarget vals0
       xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
       artifactRaw = fwdArtifactAdapt f xftk
       artifact = simplifyArtifactDerivative artifactRaw
-  in fst $ fwdInterpretArtifact artifact valsTarget
-         $ toADTensorKindShared xftk (toTarget ds)
+  in fwdInterpretArtifact artifact valsTarget
+     $ toADTensorKindShared xftk (toTarget ds)
        -- the shapes of vals0 vs ds are checked in fwdInterpretArtifact
 
 -- | Compute the forward derivative not for a specific input, but as symbolic
@@ -570,12 +584,12 @@ cjvp
   -> DValue src  -- morally (ADTensorKind src)
   -> Concrete (ADTensorKind ztgt)
 {-# INLINE cjvp #-}
-cjvp f vals ds = fst $ cfwdBoth f vals ds
+cjvp f vals ds = fst $ cjvp2 f vals ds
 
-
--- * Non-symbolic forward derivative adaptors' internal machinery
-
-cfwdBoth
+-- | The @cjvp2@ operation works just as 'cjvp', but additionally produces
+-- the primal result of the objective function at the direction parameter
+-- (without taking the perturbation into account) at no extra cost.
+cjvp2
   :: forall src ztgt tgt.
      ( X src ~ X (DValue src), KnownSTK (X src)
      , AdaptableTarget (ADVal Concrete) src
@@ -585,8 +599,8 @@ cfwdBoth
   -> DValue src
   -> DValue src  -- morally (ADTensorKind src)
   -> (Concrete (ADTensorKind ztgt), Concrete ztgt)
-{-# INLINE cfwdBoth #-}
-cfwdBoth f vals0 ds =
+{-# INLINE cjvp2 #-}
+cjvp2 f vals0 ds =
   let valsTarget = toTarget vals0
       xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
       g :: ADVal Concrete (X src) -> tgt
@@ -595,7 +609,7 @@ cfwdBoth f vals0 ds =
   in if tftkG (ftkToSTK xftk) (unConcrete dsTarget) == xftk
      then cfwdOnParams xftk valsTarget g
           $ toADTensorKindShared xftk dsTarget
-     else error "cfwdBoth: forward derivative input must have the same shape as the perturbation argument"
+     else error "cjvp2: forward derivative input must have the same shape as the perturbation argument"
 
 
 
