@@ -16,13 +16,13 @@
 -- of the offered respective APIs.
 module HordeAd.ADEngine
   ( -- * Symbolic reverse derivative adaptors
-    grad, vjp
+    grad, grad2, vjp, vjp2
   , gradArtifact, vjpArtifact
   , gradInterpretArtifact, vjpInterpretArtifact
     -- * Symbolic forward derivative adaptors
   , jvp, jvp2, jvpArtifact, jvpInterpretArtifact
     -- * Non-symbolic reverse derivative adaptors
-  , cgrad, cvjp
+  , cgrad, cgrad2, cvjp, cvjp2
     -- * Non-symbolic forward derivative adaptors
   , cjvp, cjvp2
     -- * Internal machinery for symbolic adaptors
@@ -75,7 +75,22 @@ grad
   -> Value src
   -> Value src  -- morally Value (ADTensorKind src)
 {-# INLINE grad #-}
-grad f vals | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
+grad f vals = fst $ grad2 f vals
+
+-- | The @grad2@ operation works just as 'grad', but additionally produces
+-- the primal result of the objective function at minimal extra cost.
+grad2
+  :: forall src r tgt.
+     ( GoodScalar r, X src ~ X (Value src), KnownSTK (X src)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , AdaptableTarget Concrete (Value src)
+     , tgt ~ AstTensor AstMethodLet FullSpan (TKScalar r) )
+  => (src -> tgt)  -- ^ the objective function
+  -> Value src
+  -> ( Value src  -- morally Value (ADTensorKind src)
+     , Concrete (TKScalar r) )
+{-# INLINE grad2 #-}
+grad2 f vals | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   revMaybe f vals Nothing
 
 -- | This version of the symbolic reverse derivative operation
@@ -99,7 +114,23 @@ vjp
   -> Concrete (ADTensorKind ztgt)
   -> Value src  -- morally Value (ADTensorKind src)
 {-# INLINE vjp #-}
-vjp = revMaybeDt
+vjp f vals0 dt = fst $ vjp2 f vals0 dt
+
+-- | The @vjp2@ operation works just as 'vjp', but additionally produces
+-- the primal result of the objective function at minimal extra cost.
+vjp2
+  :: forall src ztgt tgt.
+     ( X src ~ X (Value src), KnownSTK (X src)
+     , AdaptableTarget (AstTensor AstMethodLet FullSpan) src
+     , AdaptableTarget Concrete (Value src)
+     , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> Value src
+  -> Concrete (ADTensorKind ztgt)
+  -> ( Value src  -- morally Value (ADTensorKind src)
+     , Concrete ztgt )
+{-# INLINE vjp2 #-}
+vjp2 = revMaybeDt
 
 -- | Compute the reverse derivative not for a specific input, but as symbolic
 -- function from inputs to the gradient value.
@@ -199,7 +230,8 @@ revMaybe
   => (src -> tgt)  -- ^ the objective function
   -> Value src
   -> Maybe (Concrete (ADTensorKind ztgt))
-  -> Value src  -- morally Value (ADTensorKind src)
+  -> ( Value src  -- morally Value (ADTensorKind src)
+     , Concrete ztgt )
 {-# INLINE revMaybe #-}
 revMaybe f vals0 mdt =
   let valsTarget = toTarget vals0
@@ -208,8 +240,8 @@ revMaybe f vals0 mdt =
         maybe IgnoreIncomingCotangent (const UseIncomingCotangent) mdt
       artifactRaw = revArtifactAdapt cotangentHandling f xftk
       artifact = simplifyArtifactGradient artifactRaw
-  in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
-     $ fst $ revInterpretArtifact artifact valsTarget mdt
+      (res, primal) = revInterpretArtifact artifact valsTarget mdt
+  in (fromTarget $ fromADTensorKindShared (ftkToSTK xftk) res, primal)
 
 revArtifactAdapt
   :: forall src ztgt tgt.
@@ -262,15 +294,16 @@ revMaybeDt
   => (src -> tgt)  -- ^ the objective function
   -> Value src
   -> Concrete (ADTensorKind ztgt)
-  -> Value src  -- morally Value (ADTensorKind src)
+  -> ( Value src  -- morally Value (ADTensorKind src)
+     , Concrete ztgt )
 {-# INLINE revMaybeDt #-}
 revMaybeDt f vals0 dt =
   let valsTarget = toTarget vals0
       xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
       artifactRaw = revArtifactAdaptDt f xftk
       artifact = simplifyArtifactGradient artifactRaw
-  in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
-     $ fst $ revInterpretArtifactDt artifact valsTarget dt
+      (res, primal) = revInterpretArtifactDt artifact valsTarget dt
+  in (fromTarget $ fromADTensorKindShared (ftkToSTK xftk) res, primal)
 
 revArtifactAdaptDt
   :: forall src ztgt tgt.
@@ -376,7 +409,7 @@ jvp f vals0 ds = fst $ jvp2 f vals0 ds
 
 -- | The @jvp2@ operation works just as 'jvp', but additionally produces
 -- the primal result of the objective function at the direction parameter
--- (without taking the perturbation into account) at no extra cost.
+-- (without taking the perturbation into account) at minimal extra cost.
 jvp2
   :: forall src ztgt tgt.
      ( X src ~ X (Value src), KnownSTK (X src)
@@ -505,7 +538,20 @@ cgrad
   -> DValue src
   -> DValue src  -- morally DValue (ADTensorKind src)
 {-# INLINE cgrad #-}
-cgrad f vals | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
+cgrad f vals = fst $ cgrad2 f vals
+
+cgrad2
+  :: forall src r tgt.
+     ( GoodScalar r, X src ~ X (DValue src), KnownSTK (X src)
+     , AdaptableTarget (ADVal Concrete) src
+     , AdaptableTarget Concrete (DValue src)
+     , tgt ~ ADVal Concrete (TKScalar r) )
+  => (src -> tgt)  -- ^ the objective function
+  -> DValue src
+  -> ( DValue src  -- morally DValue (ADTensorKind src)
+     , Concrete (TKScalar r) )
+{-# INLINE cgrad2 #-}
+cgrad2 f vals | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   crevMaybe f vals Nothing
 
 -- | This more general version of the concrete (non-symbolic)
@@ -522,7 +568,21 @@ cvjp
   -> Concrete (ADTensorKind ztgt)
   -> DValue src  -- morally DValue (ADTensorKind src)
 {-# INLINE cvjp #-}
-cvjp = crevMaybeDt
+cvjp f vals0 dt = fst $ cvjp2 f vals0 dt
+
+cvjp2
+  :: forall src ztgt tgt.
+     ( X src ~ X (DValue src), KnownSTK (X src)
+     , AdaptableTarget (ADVal Concrete) src
+     , AdaptableTarget Concrete (DValue src)
+     , tgt ~ ADVal Concrete ztgt )
+  => (src -> tgt)  -- ^ the objective function
+  -> DValue src
+  -> Concrete (ADTensorKind ztgt)
+  -> ( DValue src  -- morally DValue (ADTensorKind src)
+     , Concrete ztgt )
+{-# INLINE cvjp2 #-}
+cvjp2 = crevMaybeDt
 
 
 -- * Non-symbolic reverse derivative adaptors' internal machinery
@@ -537,15 +597,16 @@ crevMaybe
   => (src -> tgt)  -- ^ the objective function
   -> DValue src
   -> Maybe (Concrete (ADTensorKind ztgt))
-  -> DValue src  -- morally DValue (ADTensorKind src)
+  -> ( DValue src  -- morally SValue (ADTensorKind src)
+     , Concrete ztgt )
 {-# INLINE crevMaybe #-}
 crevMaybe f vals0 mdt =
   let valsTarget = toTarget vals0
       g :: ADVal Concrete (X src) -> tgt
       g = f . fromTarget
       xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
-  in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
-     $ fst $ crevOnParams mdt g xftk valsTarget
+      (res, primal) = crevOnParams mdt g xftk valsTarget
+  in (fromTarget $ fromADTensorKindShared (ftkToSTK xftk) res, primal)
 
 -- This function is as above, but the dt must be provided and so,
 -- due to technical reasons, the type is less constrained.
@@ -558,15 +619,16 @@ crevMaybeDt
   => (src -> tgt)  -- ^ the objective function
   -> DValue src
   -> Concrete (ADTensorKind ztgt)
-  -> DValue src  -- morally DValue (ADTensorKind src)
+  -> ( DValue src  -- morally SValue (ADTensorKind src)
+     , Concrete ztgt )
 {-# INLINE crevMaybeDt #-}
 crevMaybeDt f vals0 dt =
   let valsTarget = toTarget vals0
       g :: ADVal Concrete (X src) -> tgt
       g = f . fromTarget
       xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
-  in fromTarget $ fromADTensorKindShared (ftkToSTK xftk)
-     $ fst $ crevOnParamsDt dt g xftk valsTarget
+      (res, primal) = crevOnParamsDt dt g xftk valsTarget
+  in (fromTarget $ fromADTensorKindShared (ftkToSTK xftk) res, primal)
 
 
 -- * Non-symbolic forward derivative adaptors
