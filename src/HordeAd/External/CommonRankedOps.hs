@@ -108,20 +108,21 @@ logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
 -- Optimized and more clearly written @u ** 2@. It's not clear if this is
 -- currently faster than @u ** 2@ and in which pipelines, but it's different,
 -- so useful as a test.
-square :: forall target r n.
-          ( BaseTensor target, LetTensor target
-          , KnownNat n, Num (PrimalOf target (TKR n r)), NumScalar r )
-       => target (TKR n r) -> target (TKR n r)
-square d = let u = rprimalPart @target d
-               u' = rdualPart @target d
-           in tD knownSTK (u * u) (rScale @target (2 * u) u')
+squareR :: forall target r n.
+           ( BaseTensor target, LetTensor target
+           , KnownNat n, Num (PrimalOf target (TKR n r)), NumScalar r )
+        => target (TKR n r) -> target (TKR n r)
+squareR d' = tlet d' $ \d ->
+  let u = rprimalPart @target d
+      u' = rdualPart @target d
+  in tD knownSTK (u * u) (rScale @target (2 * u) u')
 
 squaredDifference
   :: forall target n r.
      ( BaseTensor target, LetTensor target
      , KnownNat n, Num (PrimalOf target (TKR n r)), NumScalar r )
   => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKR n r)
-squaredDifference targ res = square @target $ res - rfromPrimal @target targ
+squaredDifference targ res = squareR @target $ res - rfromPrimal @target targ
 
 lossCrossEntropyV
   :: ( BaseTensor target, ConvertTensor target

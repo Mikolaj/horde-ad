@@ -94,9 +94,10 @@ squareS :: forall target r sh.
            ( KnownShS sh, BaseTensor target, LetTensor target
            , Num (PrimalOf target (TKS sh r)), NumScalar r )
         => target (TKS sh r) -> target (TKS sh r)
-squareS d = let u = sprimalPart d
-                u' = sdualPart d
-            in tD knownSTK (u * u) (sScale @target (2 * u) u')
+squareS d' = tlet d' $ \d ->
+  let u = sprimalPart d
+      u' = sdualPart d
+  in tD knownSTK (u * u) (sScale @target (2 * u) u')
 
 squaredDifferenceS
   :: forall target sh r.
