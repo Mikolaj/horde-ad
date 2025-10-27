@@ -33,7 +33,7 @@ sgdSTK stk gamma f trainingData parameters0 = go trainingData parameters0 where
   go (a : rest) !parameters =
     let inputs :: ADVal Concrete x
         inputs = dDnotShared parameters deltaInputs
-        (gradients, valueNew) = crevOnADInputs Nothing (f a) zftk inputs
+        (valueNew, gradients) = crevOnADInputs Nothing (f a) zftk inputs
         parametersNew = updateWithGradient gamma stk parameters gradients
     in if null rest
        then (parametersNew, valueNew)
@@ -81,7 +81,7 @@ sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go (a : rest) !parameters !stateAdam =
     let inputs :: ADVal Concrete x
         inputs = dDnotShared parameters deltaInputs
-        gradients = fst $ crevOnADInputs Nothing (f a) zftk inputs
+        gradients = snd $ crevOnADInputs Nothing (f a) zftk inputs
         (parametersNew, stateAdamNew) =
           updateWithGradientAdam
             argsAdam stateAdam knownSTK parameters gradients

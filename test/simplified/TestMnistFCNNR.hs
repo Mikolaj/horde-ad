@@ -9,7 +9,7 @@ import Prelude
 
 import Control.Arrow ((***))
 import Control.Monad (foldM, unless)
-import Data.Bifunctor (first)
+import Data.Bifunctor (first, second)
 import Data.Proxy (Proxy (Proxy))
 import System.IO (hPutStrLn, stderr)
 import System.Random
@@ -355,7 +355,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =
                 tpair parameters (tpair (rconcrete glyph) (rconcrete label))
-              gradient = tproject1 $ fst
+              gradient = tproject1 $ snd
                          $ revInterpretArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma knownSTK parameters gradient)
     let runBatch :: Concrete (XParams widthHidden widthHidden2 r)
@@ -645,7 +645,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =
                 tpair parameters (tpair (rconcrete glyph) (rconcrete label))
-              gradient = tproject1 $ fst
+              gradient = tproject1 $ snd
                          $ revInterpretArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma knownSTK parameters gradient)
     let runBatch :: Concrete (XParams2 r Float) -> (Int, [MnistDataLinearR r])
@@ -731,9 +731,9 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
         stk = knownSTK @(XParams2 Double Double)
         ftk = tftk @Concrete stk targetInit
         parametersAndInput = tpair targetInit (tpair glyph label)
-        (_gradient0, value0) = first tproject1 $
+        (value0, _gradient0) = second tproject1 $
           revInterpretArtifact art parametersAndInput Nothing
-        (gradient1, value1) = first tproject1 $
+        (value1, gradient1) = second tproject1 $
           revInterpretArtifact art parametersAndInput (Just $ kconcrete dt)
         f :: ADVal Concrete (XParams2 Double Double)
           -> ADVal Concrete (TKScalar Double)

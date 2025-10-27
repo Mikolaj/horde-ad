@@ -45,7 +45,7 @@ crevOnADInputs
   => Maybe (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
   -> FullShapeTK x -> ADVal target x
-  -> (target (ADTensorKind x), target z)
+  -> (target z, target (ADTensorKind x))
 -- Break the inline chain to prevent false positives in inspection testing.
 -- {-# INLINE crevOnADInputs #-}
 crevOnADInputs mdt f xftk inputs =
@@ -55,7 +55,7 @@ crevOnADInputs mdt f xftk inputs =
   let zftk = ftkDelta delta
       dt = fromMaybe (treplTarget 1 $ adFTK zftk) mdt
       !gradient = gradientFromDelta xftk zftk dt delta
-  in (gradient, v)
+  in (v, gradient)
 
 crevOnParams
   :: forall x z target.
@@ -63,7 +63,7 @@ crevOnParams
   => Maybe (target (ADTensorKind z))
   -> (ADVal target x -> ADVal target z)
   -> FullShapeTK x -> target x
-  -> (target (ADTensorKind x), target z)
+  -> (target z, target (ADTensorKind x))
 {-# INLINE crevOnParams #-}
 crevOnParams edt f xftk parameters =
   let deltaInputs = generateDeltaInputs xftk
@@ -79,7 +79,7 @@ crevOnADInputsDt
   => target (ADTensorKind z)
   -> (ADVal target x -> ADVal target z)
   -> FullShapeTK x -> ADVal target x
-  -> (target (ADTensorKind x), target z)
+  -> (target z, target (ADTensorKind x))
 -- Break the inline chain to prevent false positives in inspection testing.
 -- {-# INLINE crevOnADInputsDt #-}
 crevOnADInputsDt dt f xftk inputs =
@@ -88,14 +88,14 @@ crevOnADInputsDt dt f xftk inputs =
       !(D v delta) = f inputs in
   let zftk = ftkDelta delta
       !gradient = gradientFromDelta xftk zftk dt delta
-  in (gradient, v)
+  in (v, gradient)
 
 crevOnParamsDt
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => target (ADTensorKind z)
   -> (ADVal target x -> ADVal target z)
   -> FullShapeTK x -> target x
-  -> (target (ADTensorKind x), target z)
+  -> (target z, target (ADTensorKind x))
 {-# INLINE crevOnParamsDt #-}
 crevOnParamsDt dt f xftk parameters =
   let deltaInputs = generateDeltaInputs xftk
@@ -107,20 +107,20 @@ cfwdOnADInputs
   => FullShapeTK x -> ADVal target x
   -> (ADVal target x -> ADVal target z)
   -> target (ADTensorKind x)
-  -> (target (ADTensorKind z), target z)
+  -> (target z, target (ADTensorKind z))
 -- Break the inline chain to prevent false positives in inspection testing.
 -- {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs xftk inputs f ds =
   let !(D v delta) = f inputs in
   let !derivative = derivativeFromDelta @x delta (adFTK xftk) ds
-  in (derivative, v)
+  in (v, derivative)
 
 cfwdOnParams
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
   => FullShapeTK x -> target x
   -> (ADVal target x -> ADVal target z)
   -> target (ADTensorKind x)
-  -> (target (ADTensorKind z), target z)
+  -> (target z, target (ADTensorKind z))
 {-# INLINE cfwdOnParams #-}
 cfwdOnParams xftk parameters f ds =
   let deltaInputs = generateDeltaInputs xftk
@@ -532,7 +532,7 @@ instance ( ADReadyNoLet target, ShareTensor target
            -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new a.
         rf !a = ttlet a $ \ !aShared ->
-          tunshare $ fst $ crevOnParams
+          tunshare $ snd $ crevOnParams
                              Nothing
                              (unHFun h @(ADVal (ShareOf f)))
                              xftk
@@ -544,7 +544,7 @@ instance ( ADReadyNoLet target, ShareTensor target
            -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new db and a.
         rf !db_a = ttlet db_a $ \ !db_aShared ->
-          tunshare $ fst $ crevOnParamsDt
+          tunshare $ snd $ crevOnParamsDt
                              (toShare $ tproject1 db_aShared)
                              (unHFun h @(ADVal (ShareOf f)))
                              xftk
@@ -556,7 +556,7 @@ instance ( ADReadyNoLet target, ShareTensor target
            -> f (ADTensorKind z)
         -- This computes the derivative of g again for each new da and a.
         df !da_a = ttlet da_a $ \ !da_aShared ->
-          tunshare $ fst $ cfwdOnParams
+          tunshare $ snd $ cfwdOnParams
                              xftk
                              (toShare $ tproject2 da_aShared)
                              (unHFun h @(ADVal (ShareOf f)))

@@ -187,7 +187,7 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =
                 tpair parameters (tpair (rconcrete glyph) (rconcrete label))
-              gradient = tproject1 $ fst
+              gradient = tproject1 $ snd
                          $ revInterpretArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma knownSTK parameters gradient)
         chunk = take batchSize xs
@@ -355,7 +355,7 @@ mnistTrainBench2VTOO prefix gamma batchSize xs (targetInit, art) = do
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =
                 tpair parameters (tpair (rconcrete glyph) (rconcrete label))
-              gradient = tproject1 $ fst
+              gradient = tproject1 $ snd
                          $ revInterpretArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma knownSTK parameters gradient)
         chunk = take batchSize xs
@@ -419,7 +419,7 @@ mnistTrainBench2VTOZ prefix gamma batchSize xs (targetInit, art) = do
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =
                 tpair parameters (tpair (rconcrete glyph) (rconcrete label))
-              gradient = tproject1 $ fst
+              gradient = tproject1 $ snd
                          $ revInterpretArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma knownSTK parameters gradient)
         chunk = take batchSize xs
@@ -468,7 +468,7 @@ mnistTrainBench2VTOX prefix gamma batchSize xs (targetInit, art) = do
         go ((glyph, label) : rest) !parameters =
           let parametersAndInput =
                 tpair parameters (tpair (rconcrete glyph) (rconcrete label))
-              gradient = tproject1 $ fst
+              gradient = tproject1 $ snd
                          $ revInterpretArtifact art parametersAndInput Nothing
           in go rest (updateWithGradient gamma knownSTK parameters gradient)
         chunk = take batchSize xs

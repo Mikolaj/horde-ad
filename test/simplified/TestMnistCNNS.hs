@@ -358,7 +358,7 @@ mnistTestCaseCNNSO prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
              let parametersAndInput =
                    tpair parameters (tpair (sconcrete glyph) (sconcrete label))
                  gradient =
-                   tproject1 $ fst
+                   tproject1 $ snd
                    $ revInterpretArtifact art parametersAndInput Nothing
              in go rest (updateWithGradientAdam
                            @(XParams kh kw c_out n_hidden r)

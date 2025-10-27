@@ -494,20 +494,20 @@ instance BaseTensor Concrete where
   -- ADVal ranked instance, because the type family instance is the same.
   tgrad @x @r xftk h | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     let rf :: RepConcrete x -> RepConcrete (ADTensorKind x)
-        rf !a = unConcrete $ fst $ crevOnParams Nothing (unHFun h)
+        rf !a = unConcrete $ snd $ crevOnParams Nothing (unHFun h)
                                                 xftk (Concrete a)
     in rf
   tvjp @x @z xftk h =
     let rf :: RepConcrete (TKProduct (ADTensorKind z) x)
            -> RepConcrete (ADTensorKind x)
-        rf !db_a = unConcrete $ fst
+        rf !db_a = unConcrete $ snd
                    $ crevOnParamsDt (Concrete $ fst db_a) (unHFun h)
                                     xftk (Concrete $ snd db_a)
     in rf
   tjvp @x @z xftk h =
     let df :: RepConcrete (TKProduct (ADTensorKind x) x)
            -> RepConcrete (ADTensorKind z)
-        df !da_a = unConcrete $ fst
+        df !da_a = unConcrete $ snd
                    $ cfwdOnParams xftk (Concrete $ snd da_a)
                                    (unHFun h) (Concrete $ fst da_a)
     in df

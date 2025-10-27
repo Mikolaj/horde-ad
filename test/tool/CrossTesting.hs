@@ -53,7 +53,7 @@ crevMaybeBoth
      , tgt ~ ADVal f (TKR m r) )
   => (src -> tgt)
   -> DValue src
-  -> (f (ADTensorKind (X src)), f (TKR m r))
+  -> (f (TKR m r), f (ADTensorKind (X src)))
 {-# INLINE crevMaybeBoth #-}
 crevMaybeBoth f vals | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   let g :: ADVal Concrete (X src) -> ADVal Concrete (TKR m r)
@@ -111,7 +111,7 @@ rev1 f !vals = do
       g :: ADVal Concrete (TKR n r)
         -> ADVal Concrete (TKR m r)
       g inputs = f $ fromTarget inputs
-      !(!gradient1, !value1) = crevMaybeBoth g vals
+      !(!value1, !gradient1) = crevMaybeBoth g vals
       gradientRrev1 = rrev1 @Concrete @r @n @m f vals
       secondRrev1 = rrevFTK @Concrete @(TKR n r) @(ADTensorKind (TKR n r))
                             ftkz (rrev1 @_ @r @n @m f) vals
@@ -124,10 +124,10 @@ rev1 f !vals = do
       artifactsGradAst9 =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent g9 ftk
-      !(!gradient9, !value9) = revInterpretArtifact7 artifactsGradAst9
+      !(!value9, !gradient9) = revInterpretArtifact7 artifactsGradAst9
       revInterpretArtifact7
         :: AstArtifactRev (TKR n r) (TKR m r)
-        -> (Concrete (ADTensorKind (TKR n r)), Concrete (TKR m r))
+        -> (Concrete (TKR m r), Concrete (ADTensorKind (TKR n r)))
       revInterpretArtifact7 a1 = revInterpretArtifact a1 vals Nothing
       hGeneral
         :: (ADReady fgen, ADReady f1)
@@ -150,11 +150,11 @@ rev1 f !vals = do
       h fx1 fx2 gx inputs =
         hGeneral @(ADVal Concrete) fx1 fx2 gx
                  (fromTarget inputs)
-      !(!gradient2, !value2) =
+      !(!value2, !gradient2) =
         crevMaybeBoth (h id id id) vals
-      !(!gradient3, !value3) =
+      !(!value3, !gradient3) =
         crevMaybeBoth (h id id simplifyInlineContract) vals
-      !(!gradient2UnSimp, !value2UnSimp) =
+      !(!value2UnSimp, !gradient2UnSimp) =
         crevMaybeBoth (h unAstNoSimplify AstNoSimplify id) vals
       gradientRrev2UnSimp =
         rrev1 @Concrete @r @n @m @r
@@ -163,7 +163,7 @@ rev1 f !vals = do
         rrevFTK @Concrete @(TKR n r) @(ADTensorKind (TKR n r))
                 ftkz (rrev1 @_ @r @n @m @r
                             (hGeneral unAstNoSimplify AstNoSimplify id)) vals
-      !(!gradient3UnSimp, !value3UnSimp) =
+      !(!value3UnSimp, !gradient3UnSimp) =
         crevMaybeBoth (h (simplifyInline . unAstNoSimplify) AstNoSimplify simplifyInlineContract)
                       vals
       gradientRrev3UnSimp =
@@ -173,7 +173,7 @@ rev1 f !vals = do
         rrevFTK @Concrete @(TKR n r) @(ADTensorKind (TKR n r))
                 ftkz (rrev1 @_ @r @n @m @r
                             (hGeneral unAstNoSimplify AstNoSimplify simplifyInlineContract)) vals
-      !(!gradient4, !value4) =
+      !(!value4, !gradient4) =
         crevMaybeBoth (h unAstNoVectorize AstNoVectorize id)
                       vals
           -- use the AstNoVectorize instance that does no vectorization
@@ -185,7 +185,7 @@ rev1 f !vals = do
         rrevFTK @Concrete @(TKR n r) @(ADTensorKind (TKR n r))
                 ftkz (rrev1 @_ @r @n @m @r
                             (hGeneral unAstNoVectorize AstNoVectorize id)) vals
-      !(!gradient5, !value5) =
+      !(!value5, !gradient5) =
         crevMaybeBoth (h unAstNoVectorize AstNoVectorize simplifyInlineContract)
                       vals
       gradientRrev5 =
@@ -214,54 +214,54 @@ rev1 f !vals = do
       artifactsGradAst =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst id id id) ftk
-      !(!gradient2Ast, !value2Ast) =
+      !(!value2Ast, !gradient2Ast) =
         revInterpretArtifact7 artifactsGradAst
-      !(!gradient2AstS, !value2AstS) =
+      !(!value2AstS, !gradient2AstS) =
         revInterpretArtifact7 (simplifyArtifact artifactsGradAst)
       artifactsGradAstT =
         fst $ revProduceArtifactWithoutInterpretation
                 UseIncomingCotangent (hAst simplifyInline id id) ftk
-      !(!gradient2AstST, !value2AstST) =
+      !(!value2AstST, !gradient2AstST) =
         revInterpretArtifact7 (simplifyArtifact artifactsGradAstT)
       artifactsSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst id id simplifyInlineContract) ftk
-      !(!gradient3Ast, !value3Ast) =
+      !(!value3Ast, !gradient3Ast) =
         revInterpretArtifact7 artifactsSimpleAst
-      !(!gradient3AstS, !value3AstS) =
+      !(!value3AstS, !gradient3AstS) =
         revInterpretArtifact7 (simplifyArtifact artifactsSimpleAst)
       artifactsGradAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst unAstNoSimplify AstNoSimplify id) ftk
-      !(!gradient2AstUnSimp, !value2AstUnSimp) =
+      !(!value2AstUnSimp, !gradient2AstUnSimp) =
         revInterpretArtifact7 artifactsGradAstUnSimp
-      !(!gradient2AstSUnSimp, !value2AstSUnSimp) =
+      !(!value2AstSUnSimp, !gradient2AstSUnSimp) =
         revInterpretArtifact7 (simplifyArtifact artifactsGradAstUnSimp)
       artifactsSimpleAstUnSimp =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst unAstNoSimplify AstNoSimplify simplifyInlineContract)
                 ftk
-      !(!gradient3AstUnSimp, !value3AstUnSimp) =
+      !(!value3AstUnSimp, !gradient3AstUnSimp) =
         revInterpretArtifact7 artifactsSimpleAstUnSimp
-      !(!gradient3AstSUnSimp, !value3AstSUnSimp) =
+      !(!value3AstSUnSimp, !gradient3AstSUnSimp) =
         revInterpretArtifact7 (simplifyArtifact artifactsSimpleAstUnSimp)
       artifactsPrimalAst =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst unAstNoVectorize AstNoVectorize id) ftk
-      !(!gradient4Ast, !value4Ast) =
+      !(!value4Ast, !gradient4Ast) =
         revInterpretArtifact7 artifactsPrimalAst
-      !(!gradient4AstS, !value4AstS) =
+      !(!value4AstS, !gradient4AstS) =
         revInterpretArtifact7 (simplifyArtifact artifactsPrimalAst)
       artifactsPSimpleAst =
         fst $ revProduceArtifactWithoutInterpretation
                 IgnoreIncomingCotangent (hAst unAstNoVectorize AstNoVectorize simplifyInlineContract)
                 ftk
-      !(!gradient5Ast, !value5Ast) =
+      !(!value5Ast, !gradient5Ast) =
         revInterpretArtifact7 artifactsPSimpleAst
       -- Due to no vectorization this may result in huge terms,
       -- which then take forever to inline into (substitution into huge term)
       -- and to simplify, so we ignore this test for now.
-      (gradient5AstS, value5AstS) =
+      (value5AstS, gradient5AstS) =
         revInterpretArtifact7 (simplifyArtifact artifactsPSimpleAst)
       !cderivative = cjvp f vals vals
       !derivative = jvp f vals vals
