@@ -740,7 +740,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
         f adinputs =
           MnistFcnnRanked2.afcnnMnistLoss2
             (rfromPrimal glyph, rfromPrimal label) (fromTarget adinputs)
-        (derivative2, value2) = cjvp2 f targetInit ds
+        (value2, derivative2) = cjvp2 f targetInit ds
 --        goodDt :: forall r. GoodScalar r => r
 --        goodDt = ifDifferentiable @r (realToFrac dt) 0
 --        targetDt :: Concrete (XParams2 Double Double)
@@ -751,7 +751,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
         targetPerturbed = treplTarget goodPerturbation ftk
         targetInitPerturbed :: Concrete (XParams2 Double Double)
         targetInitPerturbed = taddTarget stk targetInit targetPerturbed
-        (derivative3, value3) = cjvp2 f targetInit targetPerturbed
+        (value3, derivative3) = cjvp2 f targetInit targetPerturbed
         value4 :: Concrete (TKScalar Double)
         value4 = MnistFcnnRanked2.afcnnMnistLoss2
                    (rfromPrimal glyph, rfromPrimal label)
