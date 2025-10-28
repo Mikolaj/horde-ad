@@ -160,7 +160,8 @@ multSMapAccum SNat = sfold (*) (sscalar 1)
 
 crevSMapAccum
   :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
-crevSMapAccum snat@SNat = cgrad (kfromS . multSMapAccum snat)
+crevSMapAccum snat@SNat =
+  cgrad  @_ @_ @_ @Concrete(kfromS . multSMapAccum snat)
 
 revSMapAccum
   :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
@@ -187,7 +188,8 @@ multScalarMapAccum snat@SNat  =
 
 crevScalarMapAccum
   :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
-crevScalarMapAccum snat@SNat = cgrad (multScalarMapAccum snat)
+crevScalarMapAccum snat@SNat =
+  cgrad @_ @_ @_ @Concrete (multScalarMapAccum snat)
 
 revScalarMapAccum
   :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
@@ -200,7 +202,7 @@ multScalarList = foldl1' (*)
 crevScalarList
   :: [Concrete (TKScalar Double)] -> [Concrete (TKScalar Double)]
 crevScalarList =
-  cgrad multScalarList
+  cgrad @_ @_ @_ @Concrete multScalarList
 
 revScalarList
   :: [Concrete (TKScalar Double)] -> [Concrete (TKScalar Double)]
@@ -216,7 +218,7 @@ crevScalarL
   -> ListR n (Concrete (TKScalar Double))
 crevScalarL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
-  cgrad multScalarL
+  cgrad @_ @_ @_ @Concrete multScalarL
 
 revScalarL
   :: SNat n -> ListR n (Concrete (TKScalar Double))
@@ -234,7 +236,7 @@ crevScalarR
   -> ListR n (Concrete (TKScalar Double))
 crevScalarR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
-  cgrad multScalarR
+  cgrad @_ @_ @_ @Concrete multScalarR
 
 revScalarR
   :: SNat n -> ListR n (Concrete (TKScalar Double))
@@ -253,7 +255,7 @@ crevScalarNotShared
   -> ListR n (Concrete (TKScalar Double))
 crevScalarNotShared snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
-  cgrad multScalarNotShared
+  cgrad @_ @_ @_ @Concrete multScalarNotShared
 
 multSL :: (BaseTensor target, NumScalar r)
        => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
@@ -264,7 +266,7 @@ crevSL
   -> ListR n (Concrete (TKS '[] Double))
 crevSL snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  cgrad (kfromS . multSL)
+  cgrad @_ @_ @_ @Concrete (kfromS . multSL)
 
 revSL
   :: SNat n -> ListR n (Concrete (TKS '[] Double))
@@ -282,7 +284,7 @@ crevSR
   -> ListR n (Concrete (TKS '[] Double))
 crevSR snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  cgrad (kfromS . multSR)
+  cgrad @_ @_ @_ @Concrete (kfromS . multSR)
 
 revSR
   :: SNat n -> ListR n (Concrete (TKS '[] Double))
@@ -301,7 +303,7 @@ crevSNotShared
   -> ListR n (Concrete (TKS '[] Double))
 crevSNotShared snat@SNat =
   withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
-  cgrad (kfromS . multSNotShared)
+  cgrad @_ @_ @_ @Concrete (kfromS . multSNotShared)
 
 {- TODO: re-enable once -fpolymorphic-specialisation works
 

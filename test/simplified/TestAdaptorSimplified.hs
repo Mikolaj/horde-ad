@@ -250,7 +250,8 @@ testZero2S :: Assertion
 testZero2S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[] knownShS [1])
-    (cgrad (kfromS @_ @Double .
+    (cgrad @_ @_ @_ @Concrete
+           (kfromS @_ @Double .
            let f :: a -> a
                f = id
            in f) (srepl 42))
@@ -259,7 +260,7 @@ testCFwdZero2S :: Assertion
 testCFwdZero2S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @_ @'[] knownShS [41])
-    (cjvp @_ @(TKS '[] Double)
+    (cjvp @_ @(TKS '[] Double) @_ @Concrete
           (let f :: a -> a
                f = id
            in f) (srepl 42) (srepl 41))
@@ -489,7 +490,8 @@ testOverleafInt64n :: Assertion
 testOverleafInt64n =
   assertEqualUpToEpsilon 1e-10
     (ringestData [28] (map round [0 :: Double,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]))
-    (cgrad (kfromR @_ @Int64 . overleaf) (ringestData [28] [0 .. 27]))
+    (cgrad @_ @_ @_ @Concrete
+           (kfromR @_ @Int64 . overleaf) (ringestData [28] [0 .. 27]))
 
 testOverleafCIntn :: Assertion
 testOverleafCIntn =
@@ -551,10 +553,11 @@ testFoo :: Assertion
 testFoo = do
   assertEqualUpToEpsilon 1e-10
     (rscalar 2.4396285219055063, rscalar (-1.953374825727421), rscalar 0.9654825811012627)
-    (cgrad (kfromR @_ @Double . foo) (rscalar 1.1, rscalar 2.2, rscalar 3.3))
+    (cgrad @_ @_ @_ @Concrete
+           (kfromR @_ @Double . foo) (rscalar 1.1, rscalar 2.2, rscalar 3.3))
 
 gradFooDouble :: (Double, Double, Double) -> (Double, Double, Double)
-gradFooDouble = fromDValue . cgrad foo . fromValue
+gradFooDouble = fromDValue . cgrad @_ @_ @_ @Concrete foo . fromValue
 
 testGradFooDouble :: Assertion
 testGradFooDouble =
@@ -570,7 +573,7 @@ threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)
 fooMatrixValue :: Matrix2x2 Double
 fooMatrixValue = foo threeSimpleMatrices
 gradSumFooMatrix :: ThreeMatrices Double -> ThreeMatrices Double
-gradSumFooMatrix = cgrad (kfromS . ssum0 . foo)
+gradSumFooMatrix = cgrad @_ @_ @_ @Concrete (kfromS . ssum0 . foo)
 
 testFooMatrix :: Assertion
 testFooMatrix =
@@ -682,7 +685,7 @@ testGradFooScalar =
 
 gradCFooScalar :: forall r. r ~ Float
                => (r, r, r) -> (r, r, r)
-gradCFooScalar = fromDValue . cgrad foo2 . fromValue
+gradCFooScalar = fromDValue . cgrad @_ @_ @_ @Concrete foo2 . fromValue
 
 testGradCFooScalar :: Assertion
 testGradCFooScalar =
@@ -1674,7 +1677,7 @@ testFooBuildCFwd :: Assertion
 testFooBuildCFwd =
   assertEqualUpToEpsilon 1e-5
     (rconcrete $ Nested.rfromListPrimLinear [3] [-296584.8166864211,-290062.472288043,-265770.1775742018])
-    (cjvp @_ @(TKR 1 Double)
+    (cjvp @_ @(TKR 1 Double) @_ @Concrete
           fooBuild1 (ringestData [4] [1.1, 2.2, 3.3, 4]) (rreplicate0N [4] (rscalar 42)))
 
 testFooBuildFwd :: Assertion
@@ -1835,7 +1838,7 @@ testBarReluMax3CFwd :: Assertion
 testBarReluMax3CFwd =
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [2, 1, 2] [0.45309153191767404,0.9060427799711201,-2.8186426018387007,40.02498898648793])
-    (cjvp @_ @(TKR 3 Double)
+    (cjvp @_ @(TKR 3 Double) @_ @Concrete
           barReluMax
                      (rconcrete $ Nested.rfromListPrimLinear (fromList [2, 1, 2]) [1.1, 2, 3, 4.2])
                      (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
@@ -1921,7 +1924,7 @@ testF2CFwd :: Assertion
 testF2CFwd =
   assertEqualUpToEpsilon 1e-10
     (rscalar 47)
-    (cjvp @_ @(TKR 0 Double)
+    (cjvp @_ @(TKR 0 Double) @_ @Concrete
           f2 (rscalar 1.1) (rscalar 0.1))
 
 testF2Fwd :: Assertion
@@ -2421,7 +2424,8 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   , testCase "blowupLet tbuildc" $ do
       assertEqualUpToEpsilon 1e-7
         (ringestData [2] [333.326333406717,-222.21755560448116])
-        (cgrad (kfromR @_ @Double . rsum0
+        (cgrad @_ @_ @_ @Concrete
+               (kfromR @_ @Double . rsum0
                 . (\intputs -> rbuild1 1000 (\i -> fblowupLet i 700 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupLet prim tbuild" $ do

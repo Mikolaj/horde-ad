@@ -167,7 +167,8 @@ test_conv2dSameVjp_dInp =
       -- Compare the AD version against the manual derivative.
       dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
       dInp = conv2dSame_dInp (sconcrete arrK) (sconcrete arrB)
-      vjpInp = cvjp (conv2dSameS (sconcrete arrK))
+      vjpInp = cvjp @_ @_ @_ @Concrete
+                    (conv2dSameS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dInp vjpInp
 
@@ -185,7 +186,8 @@ test_conv2dSameVjp_dKrn =
       -- Compare the AD version against the manual derivative.
       dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
       dKrn = conv2dSame_dKrn (sconcrete arrA) (sconcrete arrB)
-      vjpKrn = cvjp (`conv2dSameS` (sconcrete arrA))
+      vjpKrn = cvjp @_ @_ @_ @Concrete
+                    (`conv2dSameS` (sconcrete arrA))
                     (sconcrete arrK) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dKrn vjpKrn
 
@@ -216,7 +218,8 @@ static_conv2dSameVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
                (sconcrete arrK) (sconcrete arrB)  -- handwritten
       vjpInp = vjp (conv2dSameS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrB)  -- symbolic
-      cvjpInp = cvjp (conv2dSameS (sconcrete arrK))
+      cvjpInp = cvjp @_ @_ @_ @Concrete
+                     (conv2dSameS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrB)  -- concrete
       -- Second, the gradient wrt the kernels taken at point @arrK@.
       dKrn :: Concrete (TKS shK r)
@@ -224,7 +227,8 @@ static_conv2dSameVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
                (sconcrete arrA) (sconcrete arrB)  -- handwritten
       vjpKrn = vjp (`conv2dSameS` (sconcrete arrA))
                    (sconcrete arrK) (sconcrete arrB)  -- symbolic
-      cvjpKrn = cvjp (`conv2dSameS` (sconcrete arrA))
+      cvjpKrn = cvjp @_ @_ @_ @Concrete
+                     (`conv2dSameS` (sconcrete arrA))
                      (sconcrete arrK) (sconcrete arrB)  -- concrete
   in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
      && allClose cvjpInp dInp 1e-5
@@ -325,7 +329,8 @@ test_conv2dShrinkingVjp_dInp =
       -- Compare the AD version against the manual derivative.
       dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
       dInp = conv2dShrinking_dInp (sconcrete arrK) (sconcrete arrB)
-      vjpInp = cvjp (conv2dShrinkingS (sconcrete arrK))
+      vjpInp = cvjp @_ @_ @_ @Concrete
+                    (conv2dShrinkingS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dInp vjpInp
 
@@ -343,7 +348,8 @@ test_conv2dShrinkingVjp_dKrn =
       -- Compare the AD version against the manual derivative.
       dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
       dKrn = conv2dShrinking_dKrn (sconcrete arrA) (sconcrete arrB)
-      vjpKrn = cvjp (`conv2dShrinkingS` (sconcrete arrA))
+      vjpKrn = cvjp @_ @_ @_ @Concrete
+                    (`conv2dShrinkingS` (sconcrete arrA))
                     (sconcrete arrK) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dKrn vjpKrn
 
@@ -375,7 +381,8 @@ static_conv2dShrinkingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
                (sconcrete arrK) (sconcrete arrB)  -- handwritten
       vjpInp = vjp (conv2dShrinkingS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrB)  -- symbolic
-      cvjpInp = cvjp (conv2dShrinkingS (sconcrete arrK))
+      cvjpInp = cvjp @_ @_ @_ @Concrete
+                     (conv2dShrinkingS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrB)  -- concrete
       -- Second, the gradient wrt the kernels taken at point @arrK@.
       dKrn :: Concrete (TKS shK r)
@@ -383,7 +390,8 @@ static_conv2dShrinkingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
                (sconcrete arrA) (sconcrete arrB) -- handwritten
       vjpKrn = vjp (`conv2dShrinkingS` (sconcrete arrA))
                    (sconcrete arrK) (sconcrete arrB)  -- symbolic
-      cvjpKrn = cvjp (`conv2dShrinkingS` (sconcrete arrA))
+      cvjpKrn = cvjp @_ @_ @_ @Concrete
+                     (`conv2dShrinkingS` (sconcrete arrA))
                      (sconcrete arrK) (sconcrete arrB)  -- concrete
   in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
      && allClose cvjpInp dInp 1e-5
@@ -491,7 +499,8 @@ test_conv2dPaddedVjp_dInp =
       -- Compare the AD version against the manual derivative.
       dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
       dInp = conv2dPadded_dInp (sconcrete arrK) (sconcrete arrB)
-      vjpInp = cvjp (conv2dPaddedS (sconcrete arrK))
+      vjpInp = cvjp @_ @_ @_ @Concrete
+                    (conv2dPaddedS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dInp vjpInp
 
@@ -509,7 +518,8 @@ test_conv2dPaddedVjp_dKrn =
       -- Compare the AD version against the manual derivative.
       dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
       dKrn = conv2dPadded_dKrn (sconcrete arrA) (sconcrete arrB)
-      vjpKrn = cvjp (`conv2dPaddedS` (sconcrete arrA))
+      vjpKrn = cvjp @_ @_ @_ @Concrete
+                    (`conv2dPaddedS` (sconcrete arrA))
                     (sconcrete arrK) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dKrn vjpKrn
 
@@ -541,7 +551,8 @@ static_conv2dPaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
                (sconcrete arrK) (sconcrete arrB)  -- handwritten
       vjpInp = vjp (conv2dPaddedS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrB)  -- symbolic
-      cvjpInp = cvjp (conv2dPaddedS (sconcrete arrK))
+      cvjpInp = cvjp @_ @_ @_ @Concrete
+                     (conv2dPaddedS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrB)  -- concrete
       -- Second, the gradient wrt the kernels taken at point @arrK@.
       dKrn :: Concrete (TKS shK r)
@@ -549,7 +560,8 @@ static_conv2dPaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
                (sconcrete arrA) (sconcrete arrB) -- handwritten
       vjpKrn = vjp (`conv2dPaddedS` (sconcrete arrA))
                    (sconcrete arrK) (sconcrete arrB)  -- symbolic
-      cvjpKrn = cvjp (`conv2dPaddedS` (sconcrete arrA))
+      cvjpKrn = cvjp @_ @_ @_ @Concrete
+                     (`conv2dPaddedS` (sconcrete arrA))
                      (sconcrete arrK) (sconcrete arrB)  -- concrete
   in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
      && allClose cvjpInp dInp 1e-5
@@ -612,13 +624,15 @@ static_conv2dSameJvp SNat SNat SNat SNat SNat SNat SNat
       dInp = conv2dSameS (sconcrete arrK) (sconcrete arrA2)
       jvpInp = jvp (conv2dSameS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrA2)
-      cjvpInp = cjvp (conv2dSameS (sconcrete arrK))
+      cjvpInp = cjvp @_ @_ @_ @Concrete
+                     (conv2dSameS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrA2)
       dKrn :: Concrete (TKS shB r)
       dKrn = conv2dSameS (sconcrete arrK2) (sconcrete arrA)
       jvpKrn = jvp (`conv2dSameS` (sconcrete arrA))
                    (sconcrete arrK) (sconcrete arrK2)
-      cjvpKrn = cjvp (`conv2dSameS` (sconcrete arrA))
+      cjvpKrn = cjvp @_ @_ @_ @Concrete
+                     (`conv2dSameS` (sconcrete arrA))
                      (sconcrete arrK) (sconcrete arrK2)
   in allClose jvpInp dInp 1e-7
      && allClose cjvpInp dInp 1e-7
@@ -675,13 +689,15 @@ static_conv2dShrinkingJvp SNat SNat SNat SNat SNat SNat SNat
       dInp = conv2dShrinkingS (sconcrete arrK) (sconcrete arrA2)
       jvpInp = jvp (conv2dShrinkingS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrA2)
-      cjvpInp = cjvp (conv2dShrinkingS (sconcrete arrK))
+      cjvpInp = cjvp @_ @_ @_ @Concrete
+                     (conv2dShrinkingS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrA2)
       dKrn :: Concrete (TKS shB r)
       dKrn = conv2dShrinkingS (sconcrete arrK2) (sconcrete arrA)
       jvpKrn = jvp (`conv2dShrinkingS` (sconcrete arrA))
                    (sconcrete arrK) (sconcrete arrK2)
-      cjvpKrn = cjvp (`conv2dShrinkingS` (sconcrete arrA))
+      cjvpKrn = cjvp @_ @_ @_ @Concrete
+                     (`conv2dShrinkingS` (sconcrete arrA))
                      (sconcrete arrK) (sconcrete arrK2)
   in allClose jvpInp dInp 1e-7
      && allClose cjvpInp dInp 1e-7
@@ -740,13 +756,15 @@ static_conv2dPaddedJvp SNat SNat SNat SNat SNat SNat SNat
       dInp = conv2dPaddedS (sconcrete arrK) (sconcrete arrA2)
       jvpInp = jvp (conv2dPaddedS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrA2)
-      cjvpInp = cjvp (conv2dPaddedS (sconcrete arrK))
+      cjvpInp = cjvp @_ @_ @_ @Concrete
+                     (conv2dPaddedS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrA2)
       dKrn :: Concrete (TKS shB r)
       dKrn = conv2dPaddedS (sconcrete arrK2) (sconcrete arrA)
       jvpKrn = jvp (`conv2dPaddedS` (sconcrete arrA))
                    (sconcrete arrK) (sconcrete arrK2)
-      cjvpKrn = cjvp (`conv2dPaddedS` (sconcrete arrA))
+      cjvpKrn = cjvp @_ @_ @_ @Concrete
+                     (`conv2dPaddedS` (sconcrete arrA))
                      (sconcrete arrK) (sconcrete arrK2)
   in allClose jvpInp dInp 1e-7
      && allClose cjvpInp dInp 1e-7
@@ -946,7 +964,8 @@ static_conv2dSameVjpKrnConcrete
 static_conv2dSameVjpKrnConcrete SNat SNat SNat SNat SNat SNat SNat
                                 arrK arrA arrB =
   let cvjpKrn :: Concrete (TKS shK r)
-      cvjpKrn = cvjp (`conv2dSameS` (sconcrete arrA))
+      cvjpKrn = cvjp @_ @_ @_ @Concrete
+                     (`conv2dSameS` (sconcrete arrA))
                      (sconcrete arrK) (sconcrete arrB)
   in allClose cvjpKrn cvjpKrn 1e-5
 
@@ -1137,7 +1156,8 @@ static_conv2dSameVjpInpConcrete
 static_conv2dSameVjpInpConcrete SNat SNat SNat SNat SNat SNat SNat
                                 arrK arrA arrB =
   let cvjpInp :: Concrete (TKS shA r)
-      cvjpInp = cvjp (conv2dSameS (sconcrete arrK))
+      cvjpInp = cvjp @_ @_ @_ @Concrete
+                     (conv2dSameS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrB)
   in allClose cvjpInp cvjpInp 1e-5
 

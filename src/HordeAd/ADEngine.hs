@@ -521,6 +521,13 @@ fwdArtifactDelta f xftk =
 
 -- * Non-symbolic reverse derivative adaptors
 
+-- These adaptor are generalized to any suitable target, because
+-- it's useful when defining complex nested derivatives.
+-- However, it incurs many extra type applications, which is why
+-- we refrain from such a generalization for the symbolic adaptors above,
+-- which are less likely to be used in nested derivatives
+-- and more likely to be used a lot in simple use cases..
+
 -- We are inlining these functions because they take function arguments
 -- and are not too large. However, because they are called in many places,
 -- we break the inline chain not far from the top, to avoid exe blowup.
@@ -529,11 +536,12 @@ fwdArtifactDelta f xftk =
 -- reverse derivative operation sets the incoming cotangent @dt@ to be 1
 -- and assumes the codomain of the function to be differentiated is a scalar.
 cgrad
-  :: forall src r tgt.
+  :: forall src r tgt target.
      ( GoodScalar r, X src ~ X (DValue src), KnownSTK (X src)
-     , AdaptableTarget (ADVal Concrete) src
-     , AdaptableTarget Concrete (DValue src)
-     , tgt ~ ADVal Concrete (TKScalar r) )
+     , AdaptableTarget (ADVal target) src
+     , AdaptableTarget target (DValue src)
+     , tgt ~ ADVal target (TKScalar r)
+     , ADReadyNoLet target, ShareTensor target )
   => (src -> tgt)  -- ^ the objective function
   -> DValue src
   -> DValue src  -- morally DValue (ADTensorKind src)
@@ -541,14 +549,15 @@ cgrad
 cgrad f vals = snd $ cgrad2 f vals
 
 cgrad2
-  :: forall src r tgt.
+  :: forall src r tgt target.
      ( GoodScalar r, X src ~ X (DValue src), KnownSTK (X src)
-     , AdaptableTarget (ADVal Concrete) src
-     , AdaptableTarget Concrete (DValue src)
-     , tgt ~ ADVal Concrete (TKScalar r) )
+     , AdaptableTarget (ADVal target) src
+     , AdaptableTarget target (DValue src)
+     , tgt ~ ADVal target (TKScalar r)
+     , ADReadyNoLet target, ShareTensor target )
   => (src -> tgt)  -- ^ the objective function
   -> DValue src
-  -> ( Concrete (TKScalar r)
+  -> ( target (TKScalar r)
      , DValue src )  -- morally DValue (ADTensorKind src)
 {-# INLINE cgrad2 #-}
 cgrad2 f vals | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
@@ -558,28 +567,30 @@ cgrad2 f vals | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
 -- reverse derivative operation additionally takes the sensitivity parameter
 -- (the incoming cotangent).
 cvjp
-  :: forall src ztgt tgt.
+  :: forall src ztgt tgt target.
      ( X src ~ X (DValue src), KnownSTK (X src)
-     , AdaptableTarget (ADVal Concrete) src
-     , AdaptableTarget Concrete (DValue src)
-     , tgt ~ ADVal Concrete ztgt )
+     , AdaptableTarget (ADVal target) src
+     , AdaptableTarget target (DValue src)
+     , tgt ~ ADVal target ztgt
+     , ADReadyNoLet target, ShareTensor target )
   => (src -> tgt)  -- ^ the objective function
   -> DValue src
-  -> Concrete (ADTensorKind ztgt)
+  -> target (ADTensorKind ztgt)
   -> DValue src  -- morally DValue (ADTensorKind src)
 {-# INLINE cvjp #-}
 cvjp f vals0 dt = snd $ cvjp2 f vals0 dt
 
 cvjp2
-  :: forall src ztgt tgt.
+  :: forall src ztgt tgt target.
      ( X src ~ X (DValue src), KnownSTK (X src)
-     , AdaptableTarget (ADVal Concrete) src
-     , AdaptableTarget Concrete (DValue src)
-     , tgt ~ ADVal Concrete ztgt )
+     , AdaptableTarget (ADVal target) src
+     , AdaptableTarget target (DValue src)
+     , tgt ~ ADVal target ztgt
+     , ADReadyNoLet target, ShareTensor target )
   => (src -> tgt)  -- ^ the objective function
   -> DValue src
-  -> Concrete (ADTensorKind ztgt)
-  -> ( Concrete ztgt
+  -> target (ADTensorKind ztgt)
+  -> ( target ztgt
      , DValue src )  -- morally DValue (ADTensorKind src)
 {-# INLINE cvjp2 #-}
 cvjp2 = crevMaybeDt
@@ -588,45 +599,47 @@ cvjp2 = crevMaybeDt
 -- * Non-symbolic reverse derivative adaptors' internal machinery
 
 crevMaybe
-  :: forall src ztgt tgt.
+  :: forall src ztgt tgt target.
      ( TKAllNum (ADTensorKind ztgt)
      , X src ~ X (DValue src), KnownSTK (X src)
-     , AdaptableTarget (ADVal Concrete) src
-     , AdaptableTarget Concrete (DValue src)
-     , tgt ~ ADVal Concrete ztgt )
+     , AdaptableTarget (ADVal target) src
+     , AdaptableTarget target (DValue src)
+     , tgt ~ ADVal target ztgt
+     , ADReadyNoLet target, ShareTensor target )
   => (src -> tgt)  -- ^ the objective function
   -> DValue src
-  -> Maybe (Concrete (ADTensorKind ztgt))
-  -> ( Concrete ztgt
+  -> Maybe (target (ADTensorKind ztgt))
+  -> ( target ztgt
      , DValue src )  -- morally SValue (ADTensorKind src)
 {-# INLINE crevMaybe #-}
 crevMaybe f vals0 mdt =
   let valsTarget = toTarget vals0
-      g :: ADVal Concrete (X src) -> tgt
+      g :: ADVal target (X src) -> tgt
       g = f . fromTarget
-      xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
+      xftk = tftk (knownSTK @(X src)) valsTarget
       (primal, res) = crevOnParams mdt g xftk valsTarget
   in (primal, fromTarget $ fromADTensorKindShared (ftkToSTK xftk) res)
 
 -- This function is as above, but the dt must be provided and so,
 -- due to technical reasons, the type is less constrained.
 crevMaybeDt
-  :: forall src ztgt tgt.
+  :: forall src ztgt tgt target.
      ( X src ~ X (DValue src), KnownSTK (X src)
-     , AdaptableTarget (ADVal Concrete) src
-     , AdaptableTarget Concrete (DValue src)
-     , tgt ~ ADVal Concrete ztgt )
+     , AdaptableTarget (ADVal target) src
+     , AdaptableTarget target (DValue src)
+     , tgt ~ ADVal target ztgt
+     , ADReadyNoLet target, ShareTensor target )
   => (src -> tgt)  -- ^ the objective function
   -> DValue src
-  -> Concrete (ADTensorKind ztgt)
-  -> ( Concrete ztgt
+  -> target (ADTensorKind ztgt)
+  -> ( target ztgt
      , DValue src )  -- morally SValue (ADTensorKind src)
 {-# INLINE crevMaybeDt #-}
 crevMaybeDt f vals0 dt =
   let valsTarget = toTarget vals0
-      g :: ADVal Concrete (X src) -> tgt
+      g :: ADVal target (X src) -> tgt
       g = f . fromTarget
-      xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
+      xftk = tftk (knownSTK @(X src)) valsTarget
       (primal, res) = crevOnParamsDt dt g xftk valsTarget
   in (primal, fromTarget $ fromADTensorKindShared (ftkToSTK xftk) res)
 
@@ -636,15 +649,16 @@ crevMaybeDt f vals0 dt =
 -- | Concrete (non-symbolic) forward derivative operation. It always takes
 -- the perturbation parameter, by convention.
 cjvp
-  :: forall src ztgt tgt.
+  :: forall src ztgt tgt target.
      ( X src ~ X (DValue src), KnownSTK (X src)
-     , AdaptableTarget (ADVal Concrete) src
-     , AdaptableTarget Concrete (DValue src)
-     , tgt ~ ADVal Concrete ztgt )
+     , AdaptableTarget (ADVal target) src
+     , AdaptableTarget target (DValue src)
+     , tgt ~ ADVal target ztgt
+     , ADReadyNoLet target, ShareTensor target )
   => (src -> tgt)  -- ^ the objective function
   -> DValue src
   -> DValue src  -- morally (ADTensorKind src)
-  -> Concrete (ADTensorKind ztgt)
+  -> target (ADTensorKind ztgt)
 {-# INLINE cjvp #-}
 cjvp f vals ds = snd $ cjvp2 f vals ds
 
@@ -652,23 +666,24 @@ cjvp f vals ds = snd $ cjvp2 f vals ds
 -- the primal result of the objective function at the direction parameter
 -- (without taking the perturbation into account) at no extra cost.
 cjvp2
-  :: forall src ztgt tgt.
+  :: forall src ztgt tgt target.
      ( X src ~ X (DValue src), KnownSTK (X src)
-     , AdaptableTarget (ADVal Concrete) src
-     , AdaptableTarget Concrete (DValue src)
-     , tgt ~ ADVal Concrete ztgt )
+     , AdaptableTarget (ADVal target) src
+     , AdaptableTarget target (DValue src)
+     , tgt ~ ADVal target ztgt
+     , ADReadyNoLet target, ShareTensor target )
   => (src -> tgt)  -- ^ the objective function
   -> DValue src
   -> DValue src  -- morally (ADTensorKind src)
-  -> (Concrete ztgt, Concrete (ADTensorKind ztgt))
+  -> (target ztgt, target (ADTensorKind ztgt))
 {-# INLINE cjvp2 #-}
 cjvp2 f vals0 ds =
   let valsTarget = toTarget vals0
-      xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
-      g :: ADVal Concrete (X src) -> tgt
+      xftk = tftk (knownSTK @(X src)) valsTarget
+      g :: ADVal target (X src) -> tgt
       g = f . fromTarget
       dsTarget = toTarget ds
-  in if tftkG (ftkToSTK xftk) (unConcrete dsTarget) == xftk
+  in if tftk (ftkToSTK xftk) dsTarget == xftk
      then cfwdOnParams xftk valsTarget g
           $ toADTensorKindShared xftk dsTarget
      else error "cjvp2: forward derivative input must have the same shape as the perturbation argument"

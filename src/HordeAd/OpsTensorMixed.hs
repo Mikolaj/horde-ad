@@ -43,7 +43,7 @@ module HordeAd.OpsTensorMixed
     -- * Array operations that utilize unwinding of nested arrays
   , treplTarget, tdefTarget, taddTarget, tmultTarget, tsum0Target, tdot0Target
     -- * Minimal re-exports to make this module a higher level replacement for the mixed part of "HordeAd.Core.Ops"
-  , ADReady
+  , ADReady, ADReadyNoLet, ShareTensor
   , LetTensor, BaseTensor
   ) where
 

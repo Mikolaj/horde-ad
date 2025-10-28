@@ -44,7 +44,7 @@ module HordeAd.OpsTensorRanked
     -- * Array operations that utilize unwinding of nested arrays
   , treplTarget, tdefTarget, taddTarget, tmultTarget, tsum0Target, tdot0Target
     -- * Minimal re-exports to make this module a higher level replacement for the ranked part of "HordeAd.Core.Ops"
-  , ADReady
+  , ADReady, ADReadyNoLet, ShareTensor
   , LetTensor, BaseTensor
   ) where
 

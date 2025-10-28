@@ -861,7 +861,8 @@ testReplicate0Tiny1Padded :: Assertion
 testReplicate0Tiny1Padded =
   assertEqualUpToEpsilon 1e-10
     (ringestData [1, 1, 1, 1] [-0.2])
-    (cgrad (kfromR . rsum0 @4 @(TKScalar Double) . conv2d1Padded) (rrepl [1, 1, 1, 1] 0))
+    (cgrad @_ @_ @_ @Concrete
+           (kfromR . rsum0 @4 @(TKScalar Double) . conv2d1Padded) (rrepl [1, 1, 1, 1] 0))
 
 testReplicate0TinySPadded :: Assertion
 testReplicate0TinySPadded =
@@ -875,7 +876,8 @@ testReplicate0TinyAPadded :: Assertion
 testReplicate0TinyAPadded =
   assertEqualUpToEpsilon 1e-10
     (ringestData [1, 2, 1, 1] [-0.2,25.0003])
-    (cgrad (kfromR . rsum0 @4 @(TKScalar Double) . conv2dAPadded) (rrepl [1, 2, 1, 1] 0))
+    (cgrad @_ @_ @_ @Concrete
+           (kfromR . rsum0 @4 @(TKScalar Double) . conv2dAPadded) (rrepl [1, 2, 1, 1] 0))
 
 testReplicate0LittleAPadded :: Assertion
 testReplicate0LittleAPadded =
