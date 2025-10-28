@@ -238,18 +238,17 @@ type instance ShareOf (ADVal f) = ADVal f
 
 -- * Numeric instances
 
--- These two instances are required for the numeric tensor instances.
+-- These two instances are required for the numeric tensor instances
+-- and they are also useful for unrolling recursion in non-symbolic pipelines.
 -- They can't be made valid for AST, because they require interpretation before
--- they can be compared with an instant Bool result, so let's fail early
--- also here.
-instance Eq (ADVal f z) where
-  (==) = error "Eq is not defined for ADVal; please use EqH instead"
-  (/=) = error "Eq is not defined for ADVal; please use EqH instead"
+-- they can be compared with an instant Bool result.
+instance Eq (f z) => Eq (ADVal f z) where
+  D a _ == D b _ = a == b
 
-instance Ord (ADVal f z) where
-  (<=) = error "Ord is not defined for ADVal; please use OrdH instead"
+instance Ord (f z) => Ord (ADVal f z) where
+  D a _ <= D b _ = a <= b
 
--- This is copied below to permit fromInteger for TKScalar and to forbig
+-- This is copied below to permit fromInteger for TKScalar and to forbid
 -- TKProduct (also nested) in order to simplify the reverse pass.
 instance (NumScalar r, ShareTensor f, ADReadyNoLet f)
          => Num (ADVal f (TKScalar r)) where
