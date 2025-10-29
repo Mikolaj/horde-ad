@@ -37,6 +37,7 @@ import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
+import HordeAd.Core.OpsADVal ()
 import HordeAd.Core.OpsAst ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -109,11 +110,16 @@ instance KnownSTK y
   type Value (AstTensor AstMethodLet FullSpan y) = Concrete y
   fromValue t = tconcrete (tftkG (knownSTK @y) $ unConcrete t) t
 
-instance (BaseTensor target, BaseTensor (PrimalOf target), KnownSTK y)
-         => DualNumberValue (target y) where
-  type DValue (target y) = Concrete y
-  fromDValue t = tfromPrimal (knownSTK @y)
-                 $ tconcrete (tftkG (knownSTK @y) $ unConcrete t) t
+instance DualNumberValue (Concrete y) where
+  type DValue (Concrete y) = Concrete y
+  fromDValue = id
+
+instance ( ADReadyNoLet target, ShareTensor target
+         , ShareTensor (PrimalOf target), ShareTensor (PlainOf target)
+         , KnownSTK y )
+         => DualNumberValue (ADVal target y) where
+  type DValue (ADVal target y) = target y
+  fromDValue t = tfromPrimal (knownSTK @y) t
 
 instance ForgetShape (target (TKScalar r)) where
   type NoShape (target (TKScalar r)) = target (TKScalar r)
