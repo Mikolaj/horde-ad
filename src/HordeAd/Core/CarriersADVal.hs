@@ -367,10 +367,11 @@ instance ( TKAllNum (TKScalar r), NumScalar r, Fractional (f (TKScalar r))
     in dD (recip v) (dScale minusRecipSq v')
   fromRational r = dDnotShared (fromRational r) (DeltaZero FTKScalar)
 
-instance {-# OVERLAPPABLE #-}
-         ( TKAllNum z, Num (ADVal f z), Fractional (f z), ShareTensor f
-         , ADReadyNoLet f )
-         => Fractional (ADVal f z) where
+-- This is copied three times, because OVERLAPPABLE either doesn't work
+-- across packages or is unreliable.
+instance ( TKAllNum (TKR n x), Num (ADVal f (TKR n x)), Fractional (f (TKR n x))
+         , ShareTensor f, ADReadyNoLet f )
+         => Fractional (ADVal f (TKR n x)) where
   D ue u' / D ve v' =
     let !u = tshare ue in
     let !v = tshare ve
@@ -381,8 +382,34 @@ instance {-# OVERLAPPABLE #-}
     in dD (recip v) (dScale minusRecipSq v')
   fromRational = error "fromRational is not defined for tensors in general"
 
-instance ( TKAllNum z, Num (ADVal f z), Floating (f z), ShareTensor f
-         , ADReadyNoLet f )
+instance ( TKAllNum (TKS sh x), Num (ADVal f (TKS sh x))
+         , Fractional (f (TKS sh x)), ShareTensor f, ADReadyNoLet f )
+         => Fractional (ADVal f (TKS sh x)) where
+  D ue u' / D ve v' =
+    let !u = tshare ue in
+    let !v = tshare ve
+    in dD (u / v) (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
+  recip (D ve v') =
+    let !v = tshare ve
+        minusRecipSq = - recip (v * v)
+    in dD (recip v) (dScale minusRecipSq v')
+  fromRational = error "fromRational is not defined for tensors in general"
+
+instance ( TKAllNum (TKX sh x), Num (ADVal f (TKX sh x))
+         , Fractional (f (TKX sh x)), ShareTensor f, ADReadyNoLet f )
+         => Fractional (ADVal f (TKX sh x)) where
+  D ue u' / D ve v' =
+    let !u = tshare ue in
+    let !v = tshare ve
+    in dD (u / v) (dAdd (dScale (recip v) u') (dScale ((- u) / (v * v)) v'))
+  recip (D ve v') =
+    let !v = tshare ve
+        minusRecipSq = - recip (v * v)
+    in dD (recip v) (dScale minusRecipSq v')
+  fromRational = error "fromRational is not defined for tensors in general"
+
+instance ( TKAllNum z, Num (ADVal f z), Fractional (ADVal f z), Floating (f z)
+         , ShareTensor f, ADReadyNoLet f )
          => Floating (ADVal f z) where
   pi = error "pi is not defined for tensors"
   exp (D ue u') = let !expU = tshare (exp ue)
@@ -429,14 +456,14 @@ instance ( TKAllNum z, Num (ADVal f z), Floating (f z), ShareTensor f
                     in dD (atanh u)
                           (dScale (recip (intOfShape u' 1 - u * u)) u')
 
-instance ( TKAllNum z, Num (ADVal f z), RealFrac (f z), ShareTensor f
-         , ADReadyNoLet f )
+instance ( TKAllNum z, Num (ADVal f z), Fractional (ADVal f z), RealFrac (f z)
+         , ShareTensor f, ADReadyNoLet f )
          => RealFrac (ADVal f z) where
   properFraction = error "properFraction is not defined for tensors"
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance ( TKAllNum z, Num (ADVal f z), Fractional (f z), RealFloatH (f z)
+instance ( TKAllNum z, Num (ADVal f z), Fractional (ADVal f z), RealFloatH (f z)
          , ShareTensor f, ADReadyNoLet f )
          => RealFloatH (ADVal f z) where
   atan2H (D ue u') (D ve v') =
@@ -445,8 +472,8 @@ instance ( TKAllNum z, Num (ADVal f z), Fractional (f z), RealFloatH (f z)
     let !t = tshare (recip (u * u + v * v))
     in dD (atan2H u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
 
-instance ( TKAllNum z, Num (ADVal f z), RealFloat (f z), ShareTensor f
-         , ADReadyNoLet f )
+instance ( TKAllNum z, Num (ADVal f z), Fractional (ADVal f z), RealFloat (f z)
+         , ShareTensor f, ADReadyNoLet f )
          => RealFloat (ADVal f z) where
   atan2 (D ue u') (D ve v') =
     let !u = tshare ue in
