@@ -170,7 +170,7 @@ revSMapAccum snat@SNat = grad (kfromS . multSMapAccum snat)
 multScalarMapAccum :: forall target n r.
                       (BaseTensor target, NumScalar r)
                    => SNat n -> target (TKS '[n] r) -> target (TKScalar r)
-multScalarMapAccum snat@SNat  =
+multScalarMapAccum snat@SNat =
   tproject1
   . tmapAccumL (Proxy @target)
      snat

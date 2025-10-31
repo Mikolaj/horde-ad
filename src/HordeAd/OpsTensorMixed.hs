@@ -34,7 +34,7 @@ module HordeAd.OpsTensorMixed
     -- * Array operations derived from @build@
   , xbuild, xbuild1
     -- * Array operations derived from @mapAccum@
-  , xfold, xscan, tmapAccumR, tmapAccumL
+  , xfold, xscan, tfold, tscan, tmapAccumR, tmapAccumL
     -- * Array operations producing derivatives
   , kgrad
     -- * Operations dealing with dual numbers

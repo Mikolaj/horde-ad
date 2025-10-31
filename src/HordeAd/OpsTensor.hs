@@ -52,7 +52,8 @@ module HordeAd.OpsTensor
   , szipWith3, szipWith31, szipWith30N, szipWith4, szipWith41, szipWith40N
   , xbuild, xbuild1
     -- * Array operations derived from @mapAccum@
-  , rfold, rscan, sfold, sscan, xfold, xscan, tmapAccumR, tmapAccumL
+  , rfold, rscan, sfold, sscan, xfold, xscan
+  , tfold, tscan, tmapAccumR, tmapAccumL
     -- * Array operations producing derivatives
   , kgrad, rvjp, rjvp, svjp, sjvp
     -- * Operations dealing with dual numbers

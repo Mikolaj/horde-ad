@@ -35,7 +35,7 @@ module HordeAd.OpsTensorShaped
   , sbuild, sbuild1, smap, smap1, smap0N, szipWith, szipWith1, szipWith0N
   , szipWith3, szipWith31, szipWith30N, szipWith4, szipWith41, szipWith40N
     -- * Array operations derived from @mapAccum@
-  , sfold, sscan, tmapAccumR, tmapAccumL
+  , sfold, sscan, tfold, tscan, tmapAccumR, tmapAccumL
     -- * Array operations producing derivatives
   , kgrad, svjp, sjvp
     -- * Operations dealing with dual numbers

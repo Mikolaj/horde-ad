@@ -35,7 +35,7 @@ module HordeAd.OpsTensorRanked
   , rbuild, rbuild1, rmap, rmap1, rmap0N, rzipWith, rzipWith1, rzipWith0N
   , rzipWith3, rzipWith31, rzipWith30N, rzipWith4, rzipWith41, rzipWith40N
     -- * Array operations derived from @mapAccum@
-  , rfold, rscan, tmapAccumR, tmapAccumL
+  , rfold, rscan, tfold, tscan, tmapAccumR, tmapAccumL
     -- * Array operations producing derivatives
   , kgrad, rvjp, rjvp
     -- * Operations dealing with dual numbers
