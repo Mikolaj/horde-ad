@@ -167,22 +167,9 @@ revSMapAccum
   :: SNat n -> Concrete (TKS '[n] Double) -> Concrete (TKS '[n] Double)
 revSMapAccum snat@SNat = grad (kfromS . multSMapAccum snat)
 
-multScalarMapAccum :: forall target n r.
-                      (BaseTensor target, NumScalar r)
+multScalarMapAccum :: forall target n r. (ADReady target, NumScalar r)
                    => SNat n -> target (TKS '[n] r) -> target (TKScalar r)
-multScalarMapAccum snat@SNat =
-  tproject1
-  . tmapAccumL (Proxy @target)
-     snat
-     (FTKScalar @r)
-     (FTKScalar @Z1)
-     (FTKScalar @r)
-     (let g :: forall f. ADReady f
-            => f (TKScalar r) -> f (TKScalar r)
-            -> f (TKProduct (TKScalar r) TKUnit)
-          g !acc !e = tpair (acc * e) tunit
-      in g)
-     1
+multScalarMapAccum snat = tfold snat STKScalar STKScalar (*) 1
 {-# SPECIALIZE multScalarMapAccum :: SNat n -> ADVal Concrete (TKS '[n] Double) -> ADVal Concrete (TKScalar Double) #-}
 {-# SPECIALIZE multScalarMapAccum :: SNat n -> AstTensor AstMethodLet FullSpan (TKS '[n] Double) -> AstTensor AstMethodLet FullSpan (TKScalar Double) #-}
 
