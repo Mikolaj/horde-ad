@@ -219,7 +219,7 @@ simplifyAst t = case t of
   Ast.AstProject2 v -> astProject2 (simplifyAst v)
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map simplifyAst l)
   Ast.AstSum snat stk v -> astSum snat stk (simplifyAst v)
-  Ast.AstReplicate snat stk v ->  astReplicate snat stk (simplifyAst v)
+  Ast.AstReplicate snat stk v -> astReplicate snat stk (simplifyAst v)
   Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
     astMapAccumRDer k bftk eftk
                     (simplifyAstHFun f)
@@ -728,7 +728,9 @@ contractAst t0 = case t0 of
               (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromK i)) -}
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (contractAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (contractAst a)
-  Ast.AstIotaS (SNat @n) -> astConcreteS $ tsiota @_ @n
+  Ast.AstIotaS (SNat @n) | valueOf @n < (100 :: Int) ->
+    astConcreteS $ tsiota @_ @n  -- likely not be O(data size)
+  Ast.AstIotaS{} -> t0  -- tough trade-offs here
   Ast.AstAppendS x y -> astAppendS (contractAst x) (contractAst y)
   Ast.AstSliceS i n k t -> astSliceS i n k (contractAst t)
   Ast.AstReverseS t -> astReverseS (contractAst t)

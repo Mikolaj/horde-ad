@@ -481,7 +481,7 @@ astReplicate :: forall y k s. AstSpan s
              => SNat k -> SingletonTK y
              -> AstTensor AstMethodLet s y
              -> AstTensor AstMethodLet s (BuildTensorKind k y)
-astReplicate snat stk t0 = case t0 of
+astReplicate snat@SNat stk t0 = case t0 of
   Ast.AstPair t1 t2 | STKProduct stk1 stk2 <- stk ->
     astPair (astReplicate snat stk1 t1) (astReplicate snat stk2 t2)
   -- This doesn't prevent indexing of replicate, because indexing goes inside
@@ -497,8 +497,12 @@ astReplicate snat stk t0 = case t0 of
   Ast.AstFromPrimal v -> fromPrimal $ astReplicate snat stk v
   Ast.AstFromDual v -> fromDual $ astReplicate snat stk v
   Ast.AstFromPlain v -> fromPlain $ astReplicate snat stk v
-  AstConcreteK t -> astConcreteS $ treplicate snat stk $ Concrete t
-  AstConcreteS t -> astConcreteS $ treplicate snat stk $ Concrete t
+  AstConcreteK t | valueOf @k < (100 :: Int) ->  -- likely not be O(data size)
+    astConcreteS $ treplicate snat stk $ Concrete t
+  AstConcreteS t | valueOf @k < (100 :: Int) ->  -- tough trade-offs here
+    astConcreteS $ treplicate snat stk $ Concrete t
+      -- revisit the trade-offs once we compile instead of interpreting
+      -- and so building big blobby concrete arrays is cheap
   Ast.AstConvert c t | checkAstFromS c t ->
     let xftk = ftkAst t
     in astConvert (buildTKConversion snat xftk c)
