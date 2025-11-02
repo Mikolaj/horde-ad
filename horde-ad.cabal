@@ -123,7 +123,7 @@ common exe-options-test
     ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0"
   else
     -- Beware, -with-rtsopts is not cumulative!
-    ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0 -N"
+    ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0 -N8"
 
 library
     import:           options
