@@ -416,7 +416,7 @@ testSin0RfwdPP4Dual = do
   interpretAst @Concrete emptyEnv a1
     @?= rscalar 0.0
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromS (sdualPart (sscalar 0.0) * cos (sdualPart (sscalar 0.0) * cos (sdualPart (sscalar 0.0))))"
+    @?= "rdualPart (rfromS (sscalar 0.0))"
 
 testSin0Rfwd5 :: Assertion
 testSin0Rfwd5 = do

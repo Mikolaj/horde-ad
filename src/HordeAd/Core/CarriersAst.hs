@@ -9,7 +9,7 @@
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
   , astShareNoSimplify, astLetFunNoSimplify
-  , sunReplicateScal, sunReplicate1, sunReplicateN
+  , sunReplicate1, sunReplicateN, sunReplicateScal
   ) where
 
 import Prelude hiding (foldl')
@@ -655,10 +655,8 @@ instance (NumScalar r, AstSpan s)
     , Just Refl <- matchingFTK x (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst v) =
       AstConvert c $ u + v
-  AstConcreteS z + u | Just 0 <- sunReplicateScal z = u
-  u + AstConcreteS z | Just 0 <- sunReplicateScal z = u
-  AstFromPlain (AstConcreteS z) + u | Just 0 <- sunReplicateScal z = u
-  u + AstFromPlain (AstConcreteS z) | Just 0 <- sunReplicateScal z = u
+  z + u | Just 0 <- unReplC z = u
+  u + z | Just 0 <- unReplC z = u
   AstConcreteS n + AstConcreteS k = AstConcreteS (n + k)
   AstConcreteS n + AstPlusS (AstConcreteS k) u =
     AstPlusS (AstConcreteS (n + k)) u
@@ -699,16 +697,10 @@ instance (NumScalar r, AstSpan s)
   AstFromPrimal u * AstFromPrimal v = fromPrimal $ u * v
 --  AstFromDual{} * AstFromDual{} = 0
   AstFromPlain u * AstFromPlain v = fromPlain $ u * v
-  AstConcreteS z * _ | Just 0 <- sunReplicateScal z = AstConcreteS z
-  _ * AstConcreteS z | Just 0 <- sunReplicateScal z = AstConcreteS z
-  AstConcreteS s * u | Just 1 <- sunReplicateScal s = u
-  u * AstConcreteS s | Just 1 <- sunReplicateScal s = u
-  AstFromPlain (AstConcreteS z) * _ | Just 0 <- sunReplicateScal z =
-    AstFromPlain $ AstConcreteS z
-  _ * AstFromPlain (AstConcreteS z) | Just 0 <- sunReplicateScal z =
-    AstFromPlain $ AstConcreteS z
-  AstFromPlain (AstConcreteS s) * u | Just 1 <- sunReplicateScal s = u
-  u * AstFromPlain (AstConcreteS s) | Just 1 <- sunReplicateScal s = u
+  z * _ | Just 0 <- unReplC z = z
+  _ * z | Just 0 <- unReplC z = z
+  s * u | Just 1 <- unReplC s = u
+  u * s | Just 1 <- unReplC s = u
   AstConvert c u * AstConvert _ v
     | FTKS ZSS x <- convertFTK c (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst u)
@@ -827,11 +819,8 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
     , Just Refl <- matchingFTK x (ftkAst k) =
       AstConvert c (quotH n k)
   quotH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (quotH n k)
-  quotH (AstConcreteS z) _ | Just 0 <- sunReplicateScal z = AstConcreteS z
-  quotH u (AstConcreteS s) | Just 1 <- sunReplicateScal s = u
-  quotH (AstFromPlain (AstConcreteS z)) _ | Just 0 <- sunReplicateScal z =
-    AstFromPlain $ AstConcreteS z
-  quotH u (AstFromPlain (AstConcreteS s)) | Just 1 <- sunReplicateScal s = u
+  quotH z _ | Just 0 <- unReplC z = z
+  quotH u s | Just 1 <- unReplC s = u
   quotH (AstI2S QuotOp u v) w = quotH u (v * w)
   quotH u v = AstI2S QuotOp u v
 
@@ -848,9 +837,7 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
     , Just Refl <- matchingFTK x (ftkAst k) =
       AstConvert c (remH n k)
   remH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (remH n k)
-  remH (AstConcreteS z) _ | Just 0 <- sunReplicateScal z = AstConcreteS z
-  remH (AstFromPlain (AstConcreteS z)) _ | Just 0 <- sunReplicateScal z =
-    AstFromPlain $ AstConcreteS z
+  remH z _ | Just 0 <- unReplC z = z
 --  remH _ (AstConcreteS s) | Just 1 <- sunReplicateScal s = AstConcreteS 0
   remH u v = AstI2S RemOp u v
 
@@ -1549,3 +1536,17 @@ sunReplicateN shm a@(Nested.Shaped arr)
   , shsSize shm /= 0 =
     Just $ Nested.sindexPartial a $ ixsZero shm
 sunReplicateN _ _ = Nothing
+
+unReplC :: AstSpan s
+        => AstTensor ms s (TKS sh r) -> Maybe r
+unReplC (AstReplicate _ _ (AstConcreteS a)) = sunReplicateScal a
+unReplC (AstReplicate _ _ (AstConcreteK a)) = Just a
+unReplC (AstConcreteS a) = sunReplicateScal a
+unReplC (AstLet _ _ t) = unReplC t
+unReplC (AstPrimalPart t) = unReplC t
+unReplC (AstDualPart t) = unReplC t
+unReplC (AstPlainPart t) = unReplC t
+unReplC (AstFromPrimal t) = unReplC t
+unReplC (AstFromDual t) = unReplC t
+unReplC (AstFromPlain t) = unReplC t
+unReplC _ = Nothing
