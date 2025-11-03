@@ -92,6 +92,7 @@ instance NFData (SNat n) where
   rnf _ = ()
 
 withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
+{-# INLINE withSNat #-}
 withSNat i f = withSomeSNat (fromIntegral i) $ \case
   Just snat@SNat -> f snat
   Nothing -> error $ "withSNat: negative argument: " ++ show i
@@ -195,6 +196,7 @@ type Differentiable r =
 -- In other cases it should be rare.
 ifDifferentiable :: forall r a. Typeable r
                  => (Differentiable r => a) -> a -> a
+{-# INLINE ifDifferentiable #-}
 ifDifferentiable ra _
   | Just Refl <- testEquality (typeRep @r) (typeRep @Double) = ra
 ifDifferentiable ra _
@@ -410,6 +412,7 @@ backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 -- Warning: @fromInteger@ of type @j@ cannot be used.
 toLinearIdxR :: forall m n j. Num j
              => (Int -> j) -> ShR (m + n) Int -> IxR m j -> j
+{-# INLINE toLinearIdxR #-}
 toLinearIdxR fromInt = \sh idx -> go sh idx (fromInt 0)
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
@@ -431,6 +434,7 @@ toLinearIdxR fromInt = \sh idx -> go sh idx (fromInt 0)
 -- Warning: @fromInteger@ of type @j@ cannot be used.
 fromLinearIdxR :: forall n j. IntegralH j
                => (Int -> j) -> ShR n Int -> j -> IxR n j
+{-# INLINE fromLinearIdxR #-}
 fromLinearIdxR fromInt = \sh lin -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
@@ -447,6 +451,7 @@ fromLinearIdxR fromInt = \sh lin -> snd (go sh lin)
 
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOfR :: Num j => (Int -> j) -> ShR n i -> IxR n j
+{-# INLINE zeroOfR #-}
 zeroOfR _ ZSR = ZIR
 zeroOfR fromInt (_ :$: sh) = fromInt 0 :.: zeroOfR fromInt sh
 
@@ -461,6 +466,7 @@ zeroOfR fromInt (_ :$: sh) = fromInt 0 :.: zeroOfR fromInt sh
 -- Warning: @fromInteger@ of type @j@ cannot be used.
 toLinearIdxS :: forall sh1 sh2 j. Num j
              => (Int -> j) -> ShS (sh1 ++ sh2) -> IxS sh1 j -> j
+{-# INLINE toLinearIdxS #-}
 toLinearIdxS fromInt = \sh idx -> go sh idx (fromInt 0)
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
@@ -484,6 +490,7 @@ toLinearIdxS fromInt = \sh idx -> go sh idx (fromInt 0)
 -- Warning: @fromInteger@ of type @j@ cannot be used.
 fromLinearIdxS :: forall sh j. IntegralH j
                => (Int -> j) -> ShS sh -> j -> IxS sh j
+{-# INLINE fromLinearIdxS #-}
 fromLinearIdxS fromInt = \sh lin -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
@@ -500,11 +507,13 @@ fromLinearIdxS fromInt = \sh lin -> snd (go sh lin)
 
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOfS :: Num j => (Int -> j) -> ShS sh -> IxS sh j
+{-# INLINE zeroOfS #-}
 zeroOfS _ ZSS = ZIS
 zeroOfS fromInt ((:$$) _ sh) = fromInt 0 :.$ zeroOfS fromInt sh
 
 toLinearIdxX :: forall sh1 sh2 j. Num j
              => (Int -> j) -> IShX (sh1 ++ sh2) -> IxX sh1 j -> j
+{-# INLINE toLinearIdxX #-}
 toLinearIdxX fromInt = \sh idx -> go sh idx (fromInt 0)
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
@@ -518,6 +527,7 @@ toLinearIdxX fromInt = \sh idx -> go sh idx (fromInt 0)
 
 fromLinearIdxX :: forall sh j. IntegralH j
                => (Int -> j) -> IShX sh -> j -> IxX sh j
+{-# INLINE fromLinearIdxX #-}
 fromLinearIdxX fromInt = \sh lin -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
@@ -534,6 +544,7 @@ fromLinearIdxX fromInt = \sh lin -> snd (go sh lin)
 
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOfX :: Num j => (Int -> j) -> IShX sh -> IxX sh j
+{-# INLINE zeroOfX #-}
 zeroOfX _ ZSX = ZIX
 zeroOfX fromInt ((:$%) _ sh) = fromInt 0 :.% zeroOfX fromInt sh
 

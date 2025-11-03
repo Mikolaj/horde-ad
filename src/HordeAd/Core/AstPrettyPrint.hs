@@ -541,14 +541,16 @@ printAstHFunOneUnignore cfg d = \case
            . printAst cfg 0 l
 
 printAstN1R :: (PrintConfig -> Int -> a -> ShowS)
-           -> PrintConfig -> Int -> OpCodeNum1 -> a -> ShowS
+            -> PrintConfig -> Int -> OpCodeNum1 -> a -> ShowS
+{-# INLINE printAstN1R #-}
 printAstN1R pr cfg d opCode u = case opCode of
   NegateOp -> printPrefixOp pr cfg d "negate" [u]
   AbsOp -> printPrefixOp pr cfg d "abs" [u]
   SignumOp -> printPrefixOp pr cfg d "signum" [u]
 
 printAstR1R :: (PrintConfig -> Int -> a -> ShowS)
-           -> PrintConfig -> Int -> OpCode1 -> a -> ShowS
+            -> PrintConfig -> Int -> OpCode1 -> a -> ShowS
+{-# INLINE printAstR1R #-}
 printAstR1R pr cfg d opCode u = case opCode of
   RecipOp -> printPrefixOp pr cfg d "recip" [u]
   ExpOp -> printPrefixOp pr cfg d "exp" [u]
@@ -568,7 +570,8 @@ printAstR1R pr cfg d opCode u = case opCode of
   AtanhOp -> printPrefixOp pr cfg d "atanh" [u]
 
 printAstR2R :: (PrintConfig -> Int -> a -> ShowS)
-           -> PrintConfig -> Int -> OpCode2 -> a -> a -> ShowS
+            -> PrintConfig -> Int -> OpCode2 -> a -> a -> ShowS
+{-# INLINE printAstR2R #-}
 printAstR2R pr cfg d opCode u v = case opCode of
   DivideOp -> printBinaryOp pr cfg d u (7, "/") v
   PowerOp -> printBinaryOp pr cfg d u (8, "**") v
@@ -576,7 +579,8 @@ printAstR2R pr cfg d opCode u v = case opCode of
   Atan2Op -> printPrefixOp pr cfg d "atan2H" [u, v]
 
 printAstI2R :: (PrintConfig -> Int -> a -> ShowS)
-           -> PrintConfig -> Int -> OpCodeIntegral2 -> a -> a -> ShowS
+            -> PrintConfig -> Int -> OpCodeIntegral2 -> a -> a -> ShowS
+{-# INLINE printAstI2R #-}
 printAstI2R pr cfg d opCode u v = case opCode of
   QuotOp -> printPrefixOp pr cfg d "quotH" [u, v]
   RemOp -> printPrefixOp pr cfg d "remH" [u, v]

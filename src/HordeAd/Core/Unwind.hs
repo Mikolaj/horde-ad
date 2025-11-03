@@ -381,6 +381,7 @@ concreteTarget
   -> (forall x z. FullShapeTK z -> target x -> target z)
   -> SingletonTK y -> Concrete y
   -> target y
+{-# INLINE concreteTarget #-}
 concreteTarget concreteK concreteS fromS stk v =
   windTarget stk
   $ concreteRepW concreteK concreteS fromS

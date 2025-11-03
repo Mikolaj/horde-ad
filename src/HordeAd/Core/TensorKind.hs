@@ -534,8 +534,7 @@ buildFTK snat@SNat = \case
   FTKProduct ftk1 ftk2 -> FTKProduct (buildFTK snat ftk1) (buildFTK snat ftk2)
 
 razeFTK :: forall y k.
-           SNat k -> SingletonTK y
-        -> FullShapeTK (BuildTensorKind k y)
+           SNat k -> SingletonTK y -> FullShapeTK (BuildTensorKind k y)
         -> FullShapeTK y
 razeFTK snat@SNat stk ftk = case (stk, ftk) of
   (STKScalar, FTKS (_ :$$ ZSS) FTKScalar) -> FTKScalar

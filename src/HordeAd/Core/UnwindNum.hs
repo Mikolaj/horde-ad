@@ -69,6 +69,7 @@ data FullShapeTKW y where
 replRepW :: forall y target. (TKAllNum y, BaseTensor target)
          => (forall r. NumScalar r => r)
          -> FullShapeTKW y -> RepW target y
+{-# INLINE replRepW #-}
 replRepW r = \case
   WFTKScalar -> WTKScalar $ kconcrete r
   WFTKR sh -> WTKR $ rrepl sh r
@@ -325,6 +326,7 @@ replTarget :: forall y target.
               (TKAllNum y, BaseTensor target, ConvertTensor target)
            => (forall r. NumScalar r => r)
            -> FullShapeTK y -> target y
+{-# INLINE replTarget #-}
 replTarget r ftk =
   gcastWith (unsafeCoerceRefl :: TKAllNum (UnWind y) :~: TKAllNum y)
   $ windTarget (ftkToSTK ftk) $ replRepW r (unWindFTK ftk)

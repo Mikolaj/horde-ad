@@ -497,9 +497,9 @@ astReplicate snat@SNat stk t0 = case t0 of
   Ast.AstFromPrimal v -> fromPrimal $ astReplicate snat stk v
   Ast.AstFromDual v -> fromDual $ astReplicate snat stk v
   Ast.AstFromPlain v -> fromPlain $ astReplicate snat stk v
-  AstConcreteK t | valueOf @k < (100 :: Int) ->  -- likely not be O(data size)
+  AstConcreteK t | sNatValue snat < 100 ->  -- likely not to be O(data size)
     astConcreteS $ treplicate snat stk $ Concrete t
-  AstConcreteS t | valueOf @k < (100 :: Int) ->  -- tough trade-offs here
+  AstConcreteS t | sNatValue snat < 100 ->  -- tough trade-offs here
     astConcreteS $ treplicate snat stk $ Concrete t
       -- revisit the trade-offs once we compile instead of interpreting
       -- and so building big blobby concrete arrays is cheap
@@ -3750,6 +3750,7 @@ astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
           => AstTensor AstMethodLet s y
           -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
           -> AstTensor AstMethodLet s2 z
+{-# INLINE astLetFun #-}
 astLetFun = astLetFunBounds Nothing
 
 astLetFunB :: forall z s s2. (AstSpan s, AstSpan s2)
@@ -3757,8 +3758,11 @@ astLetFunB :: forall z s s2. (AstSpan s, AstSpan s2)
            -> (AstTensor AstMethodLet s (TKScalar Int64)
                -> AstTensor AstMethodLet s2 z)
            -> AstTensor AstMethodLet s2 z
+{-# INLINE astLetFunB #-}
 astLetFunB w = astLetFunBounds (Just $ bounds w) w
 
+-- INLINE here would bloat the binary a lot, probably negating any
+-- gains from directly calling the function. Also, this is not a bottleneck.
 astLetFunBounds :: forall y z s s2. (AstSpan s, AstSpan s2)
                 => Maybe (Int64, Int64) -> AstTensor AstMethodLet s y
                 -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)

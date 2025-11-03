@@ -96,6 +96,7 @@ rbuild :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
        -> (IxROf target m -> target (TKR2 n x))
             -- ^ the function to build with
        -> target (TKR2 (m + n) x)
+{-# INLINE rbuild #-}
 rbuild @m @n @x @target sh0 f0 =
   let buildSh :: IShR m1 -> (IxROf target m1 -> target (TKR2 n x))
               -> target (TKR2 (m1 + n) x)
@@ -108,6 +109,7 @@ sbuild :: (KnownShS (Take m sh), KnownShS sh, KnownSTK x, BaseTensor target)
        => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) x))
             -- ^ the function to build with
        -> target (TKS2 sh x)
+{-# INLINE sbuild #-}
 sbuild @m @sh @x @target =
   let buildSh
         :: forall sh1.
@@ -128,6 +130,7 @@ xbuild :: ( KnownShX (Take m sh), KnownSTK x
        -> (IxXOf target (Take m sh) -> target (TKX2 (Drop m sh) x))
             -- ^ the function to build with
        -> target (TKX2 sh x)
+{-# INLINE xbuild #-}
 xbuild @m @sh @x @target sh0 f0 =
   let buildSh :: IShX sh1 -> IShX (sh1 ++ Drop m sh)
               -> (IxXOf target sh1 -> target (TKX2 (Drop m sh) x))
@@ -688,6 +691,7 @@ class ( Num (IntOf target)
              => IShR (p + n) -> target (TKR2 (1 + n) x)
              -> (IntOf target -> IxROf target p)
              -> target (TKR2 (p + n) x)
+  {-# INLINE trscatter1 #-}
   trscatter1 sh v f = trscatter @target @1 sh v (\(i :.: ZIR) -> f i)
   trgather :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
            => IShR (m + n) -> target (TKR2 (p + n) x)
@@ -697,6 +701,7 @@ class ( Num (IntOf target)
             => Int -> target (TKR2 (p + n) x)
             -> (IntOf target -> IxROf target p)
             -> target (TKR2 (1 + n) x)
+  {-# INLINE trgather1 #-}
   trgather1 k v f = trgather @target @1
                              (k :$: shrDrop (rshape v)) v
                              (\(i :.: ZIR) -> f i)
@@ -746,6 +751,7 @@ class ( Num (IntOf target)
      => target (TKS2 (n2 ': shn) x)
      -> (IntOf target -> IxSOf target shp)
      -> target (TKS2 (shp ++ shn) x)
+  {-# INLINE tsscatter1 #-}
   tsscatter1 @n2 v f = tsscatter @_ @'[n2] v (\(i :.$ _) -> f i)
   tsgather
      :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x)
@@ -757,6 +763,7 @@ class ( Num (IntOf target)
      => target (TKS2 (shp ++ shn) x)
      -> (IntOf target -> IxSOf target shp)
      -> target (TKS2 (n2 ': shn) x)
+  {-# INLINE tsgather1 #-}
   tsgather1 @n2 v f = tsgather @target @'[n2] v (\(i :.$ _) -> f i)
 
   txindex :: (KnownShX sh1, KnownShX sh2, KnownSTK x)
@@ -805,6 +812,7 @@ class ( Num (IntOf target)
              => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) x)
              -> (IntOf target -> IxXOf target shp)
              -> target (TKX2 (shp ++ shn) x)
+  {-# INLINE txscatter1 #-}
   txscatter1 @n2 @_ @shp @x sh v f = txscatter @_ @'[Just n2] @_ @shp @x sh v
                                                (\(i :.% _) -> f i)
   txgather :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
@@ -816,6 +824,7 @@ class ( Num (IntOf target)
             => SNat n2 -> target (TKX2 (shp ++ shn) x)
             -> (IntOf target -> IxXOf target shp)
             -> target (TKX2 (Just n2 ': shn) x)
+  {-# INLINE txgather1 #-}
   txgather1 @n2 @_ @shp k v f =
     txgather @target @'[Just n2]
              (Nested.SKnown k :$% shxDropSSX (knownShX @shp) (xshape v)) v
@@ -912,10 +921,12 @@ class ( Num (IntOf target)
   trmap0N :: (KnownNat n, KnownSTK x, KnownSTK x1)
           => (target (TKR2 0 x1) -> target (TKR2 0 x)) -> target (TKR2 n x1)
           -> target (TKR2 n x)
+  {-# INLINE trmap0N #-}
   trmap0N f v = rbuild (rshape v) (f . trindex0 v)
   trzipWith0N :: (KnownNat n, KnownSTK x, KnownSTK x1, KnownSTK x2)
               => (target (TKR2 0 x1) -> target (TKR2 0 x2) -> target (TKR2 0 x))
               -> target (TKR2 n x1) -> target (TKR2 n x2) -> target (TKR2 n x)
+  {-# INLINE trzipWith0N #-}
   trzipWith0N f u v =
     rbuild (rshape v) (\ix -> f (trindex0 u ix) (trindex0 v ix))
 
@@ -926,6 +937,7 @@ class ( Num (IntOf target)
           => (target (TKS2 '[] x1) -> target (TKS2 '[] x))
           -> target (TKS2 sh x1)
           -> target (TKS2 sh x)
+  {-# INLINE tsmap0N #-}
   tsmap0N @sh f v =
     gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
     $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
@@ -935,6 +947,7 @@ class ( Num (IntOf target)
                   -> target (TKS2 '[] x))
               -> target (TKS2 sh x1) -> target (TKS2 sh x2)
               -> target (TKS2 sh x)
+  {-# INLINE tszipWith0N #-}
   tszipWith0N @sh f u v =
     gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
     $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
@@ -948,6 +961,7 @@ class ( Num (IntOf target)
                -- y comes first, because k easy to set via SNat
           => SNat k -> SingletonTK y -> (IntOf target -> target y)
           -> target (BuildTensorKind k y)
+  {-# INLINE tbuild1 #-}
   tbuild1 snat@SNat stk0 f =
     let replSTK :: SingletonTK z -> (IntOf target -> target z)
                 -> target (BuildTensorKind k z)

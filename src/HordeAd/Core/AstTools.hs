@@ -374,6 +374,7 @@ liftRFromS1 :: forall n x ms s. AstSpan s
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKR2 n x)
             -> AstTensor ms s (TKR2 n x)
+{-# INLINE liftRFromS1 #-}
 liftRFromS1 f a = case ftkAst a of
   ftk@(FTKR sh' _) ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
@@ -386,6 +387,7 @@ liftRFromS2 :: forall n x ms s. AstSpan s
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKR2 n x) -> AstTensor ms s (TKR2 n x)
             -> AstTensor ms s (TKR2 n x)
+{-# INLINE liftRFromS2 #-}
 liftRFromS2 f a b  = case ftkAst a of
   ftk@(FTKR sh' _) ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
@@ -398,6 +400,7 @@ liftXFromS1 :: forall sh' x ms s. AstSpan s
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKX2 sh' x)
             -> AstTensor ms s (TKX2 sh' x)
+{-# INLINE liftXFromS1 #-}
 liftXFromS1 f a = case ftkAst a of
   ftk@(FTKX sh' _) ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
@@ -410,6 +413,7 @@ liftXFromS2 :: forall sh' x ms s. AstSpan s
                 -> AstTensor ms s (TKS2 sh x))
             -> AstTensor ms s (TKX2 sh' x) -> AstTensor ms s (TKX2 sh' x)
             -> AstTensor ms s (TKX2 sh' x)
+{-# INLINE liftXFromS2 #-}
 liftXFromS2 f a b = case ftkAst a of
   ftk@(FTKX sh' _) ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->

@@ -1468,6 +1468,8 @@ astShareNoSimplify t =
   then t
   else fun1ToAst (ftkAst t) $ \ !var -> AstShare var t
 
+-- INLINE here would bloat the binary a lot, probably negating any
+-- gains from directly calling the function. Also, this is not a bottleneck.
 astLetFunNoSimplify
   :: forall y z s s2. AstSpan s
   => AstTensor AstMethodLet s y

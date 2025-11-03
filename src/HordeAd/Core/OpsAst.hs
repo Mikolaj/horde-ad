@@ -129,6 +129,7 @@ revProduceArtifact
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> FullShapeTK x
   -> AstArtifactRev x z
+{-# INLINE revProduceArtifact #-}
 revProduceArtifact cotangentHandling g envInit xftk =
   fst $ inline revArtifactFromForwardPass
           cotangentHandling (forwardPassByInterpretation g envInit) xftk
@@ -168,6 +169,7 @@ revProduceArtifactDt
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> FullShapeTK x
   -> AstArtifactRev x z
+{-# INLINE revProduceArtifactDt #-}
 revProduceArtifactDt g envInit xftk =
   fst $ inline revArtifactFromForwardPassDt
           (forwardPassByInterpretation g envInit) xftk
@@ -218,6 +220,7 @@ astBuild1Vectorize
   => SNat k -> SingletonTK y
   -> (AstInt AstMethodLet -> AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
+{-# INLINE astBuild1Vectorize #-}
 astBuild1Vectorize k@(SNat @k) stk f =
   build1Vectorize k stk $ funToAstI (Just (0, valueOf @k - 1)) f
 

@@ -608,7 +608,7 @@ instance ConvertTensor Concrete where
   tunpairConv = tunpair
 
 interpretTKConversion :: TKConversion a b
-                    -> Nested.Conversion (RepConcrete a) (RepConcrete b)
+                      -> Nested.Conversion (RepConcrete a) (RepConcrete b)
 interpretTKConversion c0 = case c0 of
   ConvId -> Nested.ConvId
   ConvCmp c1 c2 -> Nested.ConvCmp (interpretTKConversion c1)
@@ -657,6 +657,7 @@ oRtmapAccumR
   -> Concrete accy
   -> Concrete (BuildTensorKind k ey)
   -> Concrete (TKProduct accy (BuildTensorKind k by))
+{-# INLINE oRtmapAccumR #-}
 oRtmapAccumR k bftk eftk f acc0 es = case sNatValue k of
   0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (tdefTarget bftk))
   _ ->
@@ -675,6 +676,7 @@ oRtmapAccumL
   -> Concrete accy
   -> Concrete (BuildTensorKind k ey)
   -> Concrete (TKProduct accy (BuildTensorKind k by))
+{-# INLINE oRtmapAccumL #-}
 oRtmapAccumL k bftk eftk f acc0 es = case sNatValue k of
   0 -> tpair acc0 (treplicate k (ftkToSTK bftk) (tdefTarget bftk))
   _ ->
@@ -706,6 +708,7 @@ updateNR :: forall n m x. (KnownNat n, KnownNat m, KnownSTK x)
          => Concrete (TKR2 (n + m) x)
          -> [(IxROf Concrete n, Concrete (TKR2 m x))]
          -> Concrete (TKR2 (n + m) x)
+{-# INLINE updateNR #-}
 updateNR arr upd = case knownSTK @x of
   STKScalar ->  -- optimized
     let values = rtoVector arr
@@ -757,11 +760,8 @@ liftVR
   :: (Nested.PrimElt r1, Nested.PrimElt r2)
   => (VS.Vector r1 -> VS.Vector r2)
   -> Nested.Ranked n r1 -> Nested.Ranked n r2
+{-# INLINE liftVR #-}
 liftVR f = Ranked.liftRanked1 (Mixed.mliftNumElt1 (`liftVEltwise1` f))
-{-# SPECIALIZE liftVR :: (VS.Vector Double -> VS.Vector Double) -> Nested.Ranked n Double -> Nested.Ranked n Double #-}
-{-# SPECIALIZE liftVR :: (VS.Vector Float -> VS.Vector Float) -> Nested.Ranked n Float -> Nested.Ranked n Float #-}
-{-# SPECIALIZE liftVR :: (VS.Vector Double -> VS.Vector Float) -> Nested.Ranked n Double -> Nested.Ranked n Float #-}
-{-# SPECIALIZE liftVR :: (VS.Vector Float -> VS.Vector Double) -> Nested.Ranked n Float -> Nested.Ranked n Double #-}
 
 ixInBounds :: [Int64] -> [Int] -> Bool
 ixInBounds ix sh =
@@ -791,7 +791,7 @@ tindexZR
   :: forall r m n. (KnownSTK r, KnownNat m, KnownNat n)
   => Concrete (TKR2 (m + n) r) -> IxROf Concrete m -> Concrete (TKR2 n r)
 tindexZR v ixConcrete | Dict <- showDictRep (knownSTK @r)
-                  , Dict <- eltDictRep (knownSTK @r) =
+                      , Dict <- eltDictRep (knownSTK @r) =
   let ix = fmapUnConcrete ixConcrete
   in case tftk knownSTK v of
     FTKR sh x ->
@@ -961,6 +961,7 @@ updateNS :: forall n sh r proxy.
          => proxy n -> Concrete (TKS2 sh r)
          -> [(IxSOf Concrete (Take n sh), Concrete (TKS2 (Drop n sh) r))]
          -> Concrete (TKS2 sh r)
+{-# INLINE updateNS #-}
 updateNS _ arr upd = case knownSTK @r of
   STKScalar ->
     let values = stoVector arr
@@ -1029,11 +1030,8 @@ liftVS
   :: (Nested.PrimElt r1, Nested.PrimElt r)
   => (VS.Vector r1 -> VS.Vector r)
   -> Nested.Shaped sh r1 -> Nested.Shaped sh r
+{-# INLINE liftVS #-}
 liftVS f = Shaped.liftShaped1 (Mixed.mliftNumElt1 (`liftVEltwise1` f))
-{-# SPECIALIZE liftVS :: (VS.Vector Double -> VS.Vector Double) -> Nested.Shaped sh Double -> Nested.Shaped sh Double #-}
-{-# SPECIALIZE liftVS :: (VS.Vector Float -> VS.Vector Float) -> Nested.Shaped sh Float -> Nested.Shaped sh Float #-}
-{-# SPECIALIZE liftVS :: (VS.Vector Double -> VS.Vector Float) -> Nested.Shaped sh Double -> Nested.Shaped sh Float #-}
-{-# SPECIALIZE liftVS :: (VS.Vector Float -> VS.Vector Double) -> Nested.Shaped sh Float -> Nested.Shaped sh Double #-}
 
 tindexNS
   :: Nested.Elt r
@@ -1170,6 +1168,7 @@ updateNX :: forall n sh r proxy.
          => proxy n -> Concrete (TKX2 sh r)
          -> [(IxXOf Concrete (Take n sh), Concrete (TKX2 (Drop n sh) r))]
          -> Concrete (TKX2 sh r)
+{-# INLINE updateNX #-}
 updateNX _ arr upd = case knownSTK @r of
   STKScalar ->
     let values = xtoVector arr
@@ -1238,11 +1237,8 @@ liftVX
   :: (Nested.PrimElt r1, Nested.PrimElt r)
   => (VS.Vector r1 -> VS.Vector r)
   -> Nested.Mixed sh r1 -> Nested.Mixed sh r
+{-# INLINE liftVX #-}
 liftVX f = Mixed.mliftNumElt1 (`liftVEltwise1` f)
-{-# SPECIALIZE liftVX :: (VS.Vector Double -> VS.Vector Double) -> Nested.Mixed sh Double -> Nested.Mixed sh Double #-}
-{-# SPECIALIZE liftVX :: (VS.Vector Float -> VS.Vector Float) -> Nested.Mixed sh Float -> Nested.Mixed sh Float #-}
-{-# SPECIALIZE liftVX :: (VS.Vector Double -> VS.Vector Float) -> Nested.Mixed sh Double -> Nested.Mixed sh Float #-}
-{-# SPECIALIZE liftVX :: (VS.Vector Float -> VS.Vector Double) -> Nested.Mixed sh Float -> Nested.Mixed sh Double #-}
 
 tindexNX
   :: Nested.Elt r
