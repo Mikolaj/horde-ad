@@ -1089,7 +1089,7 @@ testSin0Scan1Rev2PPA = do
                  (\x0 -> rscan @_ @_ @_ @(TKScalar Double) (\x a -> sin x - a) x0
                            (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7])))
                  (FTKR ZSR FTKScalar)
-  printArtifactPretty (simplifyArtifact art)
+  printArtifactPretty (simplifyArtifactRev art)
     @?= "\\dret x1 -> rfromS (sfromR dret !$ [0] + sfromR (tproject1 (tmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (rfromS (sscalar 0.0)) (tpair (sslice (SNat @1) (SNat @2) (sfromR dret)) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> x1 (rfromS (sconcrete (sfromListLinear [2] [5.0,7.0])))))) (rfromS (sconcrete (sfromListLinear [2] [5.0,7.0]))))))))"
 
 testSin0Scan1Rev2PPForComparison :: Assertion
@@ -1099,7 +1099,7 @@ testSin0Scan1Rev2PPForComparison = do
                  UseIncomingCotangent
                  (\x0 -> rfromList [sin (sin x0 - rscalar 5) - rscalar 7, sin x0 - rscalar 5, x0])
                  (FTKR ZSR FTKScalar)
-  printArtifactPretty @_ @(TKR 1 Double) (simplifyArtifact art)
+  printArtifactPretty @_ @(TKR 1 Double) (simplifyArtifactRev art)
     @?= "\\dret x1 -> rfromS (cos (sfromR x1) * (cos (sscalar (-5.0) + sin (sfromR x1)) * sfromR dret !$ [0]) + (cos (sfromR x1) * sfromR dret !$ [1] + sfromR dret !$ [2]))"
 
 testSin0Scan1Rev2 :: Assertion

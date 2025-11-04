@@ -256,7 +256,8 @@ data AstArtifactRev x z = AstArtifactRev
   { artVarDtRev      :: AstVarName PrimalSpan (ADTensorKind z)
   , artVarDomainRev  :: AstVarName PrimalSpan x
   , artDerivativeRev :: AstTensor AstMethodLet PrimalSpan (ADTensorKind x)
-  , artPrimalRev     :: AstTensor AstMethodLet PrimalSpan z
+  , artPrimalRev     :: ~(AstTensor AstMethodLet PrimalSpan z)
+      -- rarely used, so not forced
   }
  deriving Show
 
@@ -266,7 +267,8 @@ data AstArtifactFwd x z = AstArtifactFwd
   { artVarDsFwd      :: AstVarName PrimalSpan (ADTensorKind x)
   , artVarDomainFwd  :: AstVarName PrimalSpan x
   , artDerivativeFwd :: AstTensor AstMethodLet PrimalSpan (ADTensorKind z)
-  , artPrimalFwd     :: AstTensor AstMethodLet PrimalSpan z
+  , artPrimalFwd     :: ~(AstTensor AstMethodLet PrimalSpan z)
+      -- rarely used, so not forced
   }
  deriving Show
 

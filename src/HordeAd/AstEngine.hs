@@ -1,7 +1,7 @@
 -- | Predefined common functions for simplification and pretty-printing of AST.
 module HordeAd.AstEngine
   ( -- * The joint inlining and simplification term transformations
-    simplifyArtifact, simplifyArtifactGradient, simplifyArtifactDerivative
+    simplifyArtifactRev, simplifyArtifactFwd
   , simplifyInline, simplifyInlineContract, simplifyInlineContractNoExpand
     -- * Pretty-printing terms in a few useful configurations
   , printAstVarName
@@ -25,26 +25,21 @@ import HordeAd.Core.AstTraverse
 
 -- | Simplify the whole reverse derivative artifact (which includes
 -- also the primal value computed during the differentiation process).
-simplifyArtifact :: forall x z.
-                    AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifact art =
+simplifyArtifactRev :: forall x z.
+                       AstArtifactRev x z -> AstArtifactRev x z
+simplifyArtifactRev art =
   let !der = simplifyInlineContract $ artDerivativeRev art in
   let !prim = simplifyInlineContract $ artPrimalRev art
   in art {artDerivativeRev = der, artPrimalRev = prim}
 
--- | Simplify only the gradient in the reverse derivative artifact.
-simplifyArtifactGradient :: forall x z.
-                            AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifactGradient art =
-  art { artDerivativeRev =
-        simplifyInlineContract $ artDerivativeRev art }
-
--- | Simplify only the derivative in the forward derivative artifact.
-simplifyArtifactDerivative :: forall x z.
-                              AstArtifactFwd x z -> AstArtifactFwd x z
-simplifyArtifactDerivative art =
-  art { artDerivativeFwd =
-        simplifyInlineContract $ artDerivativeFwd art }
+-- | Simplify the whole forward derivative artifact (which includes
+-- also the primal value computed during the differentiation process).
+simplifyArtifactFwd :: forall x z.
+                       AstArtifactFwd x z -> AstArtifactFwd x z
+simplifyArtifactFwd art =
+  let !der = simplifyInlineContract $ artDerivativeFwd art in
+  let !prim = simplifyInlineContract $ artPrimalFwd art
+  in art {artDerivativeFwd = der, artPrimalFwd = prim}
 
 -- | A mixture of simplification and inlining to use when the resultng
 -- term is not yet supposed to be interpreted using a computational backed,

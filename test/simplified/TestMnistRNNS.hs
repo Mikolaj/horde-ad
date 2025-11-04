@@ -339,7 +339,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                width batch_size (sprimalPart glyphS, sprimalPart labelS) pars
            artRaw = revArtifactAdapt IgnoreIncomingCotangent
                                      f (FTKProduct ftk ftkData)
-           art = simplifyArtifactGradient artRaw
+           art = simplifyArtifactRev artRaw
            go :: [MnistDataBatchS batch_size r]
               -> ( Concrete (XParams width r)
                  , StateAdam (XParams width r) )

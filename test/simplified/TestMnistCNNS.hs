@@ -347,7 +347,7 @@ mnistTestCaseCNNSO prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
                kh kw (SNat @c_out) (SNat @n_hidden)
                miniBatchSize (sprimalPart glyphR, sprimalPart labelR) pars
            artRaw = gradArtifact f (fromTarget targetInit, dataInit)
-           art = simplifyArtifactGradient artRaw
+           art = simplifyArtifactRev artRaw
            go :: [MnistDataBatchS miniBatchSize r]
               -> ( Concrete (XParams kh kw c_out n_hidden r)
                  , StateAdam (XParams kh kw c_out n_hidden r) )

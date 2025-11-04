@@ -239,7 +239,7 @@ revMaybe f vals0 mdt =
       cotangentHandling =
         maybe IgnoreIncomingCotangent (const UseIncomingCotangent) mdt
       artifactRaw = revArtifactAdapt cotangentHandling f xftk
-      artifact = simplifyArtifactGradient artifactRaw
+      artifact = simplifyArtifactRev artifactRaw
       (primal, res) = revInterpretArtifact artifact valsTarget mdt
   in (primal, fromTarget $ fromADTensorKindShared (ftkToSTK xftk) res)
 
@@ -301,7 +301,7 @@ revMaybeDt f vals0 dt =
   let valsTarget = toTarget vals0
       xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
       artifactRaw = revArtifactAdaptDt f xftk
-      artifact = simplifyArtifactGradient artifactRaw
+      artifact = simplifyArtifactRev artifactRaw
       (primal, res) = revInterpretArtifactDt artifact valsTarget dt
   in (primal, fromTarget $ fromADTensorKindShared (ftkToSTK xftk) res)
 
@@ -425,7 +425,7 @@ jvp2 f vals0 ds =
   let valsTarget = toTarget vals0
       xftk = tftkG (knownSTK @(X src)) $ unConcrete valsTarget
       artifactRaw = fwdArtifactAdapt f xftk
-      artifact = simplifyArtifactDerivative artifactRaw
+      artifact = simplifyArtifactFwd artifactRaw
   in fwdInterpretArtifact artifact valsTarget
      $ toADTensorKindShared xftk (toTarget ds)
        -- the shapes of vals0 vs ds are checked in fwdInterpretArtifact

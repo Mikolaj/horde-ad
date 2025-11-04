@@ -333,7 +333,7 @@ mnistTestCaseCNNRO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
              MnistCnnRanked2.convMnistLossFusedR
                miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
            artRaw = gradArtifact f (fromTarget targetInit, dataInit)
-           art = simplifyArtifactGradient artRaw
+           art = simplifyArtifactRev artRaw
            go :: [MnistDataBatchR r]
               -> (Concrete (XParams r), StateAdam (XParams r))
               -> (Concrete (XParams r), StateAdam (XParams r))

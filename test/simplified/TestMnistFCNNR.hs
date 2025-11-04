@@ -347,7 +347,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
             widthHiddenSNat widthHidden2SNat
             (glyphR, labelR) pars
         artRaw = gradArtifact f (valsInit, dataInit)
-        art = simplifyArtifactGradient artRaw
+        art = simplifyArtifactRev artRaw
         go :: [MnistDataLinearR r]
            -> Concrete (XParams widthHidden widthHidden2 r)
            -> Concrete (XParams widthHidden widthHidden2 r)
@@ -625,7 +625,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
         MnistFcnnRanked2.mnistTrainBench2VTOGradient
           @r (Proxy @Float) IgnoreIncomingCotangent
           1 (mkStdGen 44) widthHidden widthHidden2
-      !art = simplifyArtifactGradient artRaw
+      !art = simplifyArtifactRev artRaw
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
@@ -727,7 +727,7 @@ tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
           MnistFcnnRanked2.mnistTrainBench2VTOGradient
             @Double (Proxy @Double) UseIncomingCotangent
             range2 seed4 (1 + width1Hidden) (1 + width1Hidden2)
-        art = iterate simplifyArtifactGradient artRaw !! simp
+        art = iterate simplifyArtifactRev artRaw !! simp
         stk = knownSTK @(XParams2 Double Double)
         ftk = tftk @Concrete stk targetInit
         parametersAndInput = tpair targetInit (tpair glyph label)
