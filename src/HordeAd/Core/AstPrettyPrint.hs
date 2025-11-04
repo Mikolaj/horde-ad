@@ -371,11 +371,13 @@ printAst cfg d = \case
       . printAst cfg 11 v
       . showString " "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
-  AstScatterS sh v (vars, ix) ->
+  AstScatterS _sh v (vars, ix) ->
    if loseRoudtrip cfg
    then
     showParen (d > 10)
-    $ showString "sscatter "
+    $ showString "sscatter @"
+      . showListWith shows (shsToList (shsFromListS vars))
+      . showString " "
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -386,7 +388,7 @@ printAst cfg d = \case
            . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
     showParen (d > 10)
-    $ showString ("sscatter " ++ show sh ++ " ")
+    $ showString ("sscatter @" ++ show (shsFromListS vars) ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -403,11 +405,13 @@ printAst cfg d = \case
     $ printAst cfg 10 v
       . showString " !$ "
       . showListWith (printAst cfg 0) (Foldable.toList ix) -}
-  AstGatherS sh v (vars, ix) ->
+  AstGatherS _sh v (vars, ix) ->
    if loseRoudtrip cfg
    then
     showParen (d > 10)
-    $ showString "sgather "
+    $ showString "sgather @"
+      . showListWith shows (shsToList (shsFromListS vars))
+      . showString " "
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -418,7 +422,7 @@ printAst cfg d = \case
            . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
     showParen (d > 10)
-    $ showString ("sgather " ++ show sh ++ " ")
+    $ showString ("sgather @" ++ show (shsFromListS vars) ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -447,12 +451,15 @@ printAst cfg d = \case
   AstTransposeS perm v ->
    if loseRoudtrip cfg
    then printPrefixOp printAst cfg d
-                      ("stranspose @" ++ show (permToList perm)) [v]
+                      ("stranspose @"
+                       ++ showListWith shows (permToList perm) "") [v]
    else printPrefixOp
           printAst cfg d
-          ("ttranspose (makePerm @" ++ show (permToList perm) ++ ")") [v]
+          ("ttranspose (makePerm @"
+                        ++ showListWith shows (permToList perm) "" ++ ")") [v]
   AstReshapeS sh2 v ->
-    printPrefixOp printAst cfg d ("sreshape @" ++ show (shsToList sh2)) [v]
+    printPrefixOp printAst cfg d ("sreshape @"
+                                  ++ showListWith shows (shsToList sh2) "") [v]
 
   -- TODO: pretty-print correctly szip, sunzip, snestS, sunNestS
   -- or at least make sure they get printed as tconvert, not as the others
