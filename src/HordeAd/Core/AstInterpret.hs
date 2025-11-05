@@ -54,6 +54,15 @@ interpretAstPrimal
   => AstEnv target -> AstTensor AstMethodLet PrimalSpan y
   -> PrimalOf target y
 interpretAstPrimal !env v1 = case v1 of
+  AstPair t1 t2 -> tpair (interpretAstPrimal env t1) (interpretAstPrimal env t2)
+  AstProject1 t -> tproject1 (interpretAstPrimal env t)
+  AstProject2 t -> tproject2 (interpretAstPrimal env t)
+  AstFromVector snat stk l ->
+    let l2 = V.map (interpretAstPrimal env) l
+    in tfromVector snat stk l2
+  AstSum snat stk v -> tsum snat stk $ interpretAstPrimal env v
+  AstReplicate snat stk v ->
+    treplicate snat stk (interpretAstPrimal env v)
   -- This prevents computing the complex dual parts for mapAccum in ADVal.
   AstMapAccumRDer k bftk eftk f0 df0 rf0 acc0 es ->
     let f = interpretAstHFunPrimal env f0
@@ -71,20 +80,173 @@ interpretAstPrimal !env v1 = case v1 of
         es2 = interpretAstPrimal env es
     in tmapAccumLDer (Proxy @(PrimalOf target))
                      k (ftkAst acc0) bftk eftk f df rf acc02 es2
-  {- TODO: this is no longer needed, right? And below?
+  AstApply{} -> tprimalPart (interpretAst env v1)  -- TODO
+  AstVar var ->
+    let var2 :: AstVarName FullSpan y
+        var2 = coerce var  -- only FullSpan variables permitted in env
+    in case DMap.lookup var2 env of
+      Just t ->
+#ifdef WITH_EXPENSIVE_ASSERTIONS
+        withKnownSTK (ftkToSTK $ varNameToFTK var) $
+        -- We can't assert anything about bounds, because values can be
+        -- symbolic and so not directly comparable to bounds.
+        assert (tftk (ftkToSTK $ varNameToFTK var) t == varNameToFTK var
+                `blame` ( tftk (ftkToSTK $ varNameToFTK var) t
+                        , varNameToFTK var, var, t ))
+#endif
+        (tprimalPart t)
+      _ -> error $ "interpretAst: unknown AstVar " ++ show var
+                   -- ++ " in environment " ++ showsPrecAstEnv 0 env ""
   -- This prevents multiple ifH expansions in ADVal.
   AstCond b a1 a2 ->
     let c = interpretAstPlain env b
     in tcond (ftkToSTK $ ftkAst a1) c
-             (interpretAstPrimal env a1) (interpretAstPrimal env a2) -}
-  _ -> tprimalPart (interpretAst env v1)
+             (interpretAstPrimal env a1) (interpretAstPrimal env a2)
+  AstBuild1 snat stk (var, v) ->
+    let f i = interpretAstPrimal (extendEnvI var i env) v
+    in tbuild1 snat stk f
 
--- TODO: extend
+  AstLet var u v ->
+    let t = interpretAst env u
+        env2 w = extendEnv var w env
+    in tprimalPart $ ttlet t (\w -> tfromPrimal (ftkToSTK $ ftkAst v)
+                                    $ interpretAstPrimal (env2 w) v)
+         -- TODO
+
+  AstPrimalPart a -> tprimalPart $ interpretAst env a
+  AstFromPrimal{} -> tprimalPart (interpretAst env v1)  -- TODO
+  AstFromPlain a ->
+    tfromPlain (ftkToSTK (ftkAst a)) (interpretAstPlain env a)
+
+  AstPlusK u v -> interpretAstPrimal env u + interpretAstPrimal env v
+  AstTimesK u v -> interpretAstPrimal env u * interpretAstPrimal env v
+  AstN1K opCode u ->
+    let u2 = interpretAstPrimal env u
+    in interpretAstN1 opCode u2
+  AstR1K opCode u ->
+    let u2 = interpretAstPrimal env u
+    in interpretAstR1 opCode u2
+  AstR2K opCode u v ->
+    let u2 = interpretAstPrimal env u
+        v2 = interpretAstPrimal env v
+    in interpretAstR2 opCode u2 v2
+  AstI2K opCode u v ->
+    let u2 = interpretAstPrimal env u
+        v2 = interpretAstPrimal env v
+    in interpretAstI2 opCode u2 v2
+  AstCastK v -> tkcast $ interpretAstPrimal env v
+
+  AstPlusS u v -> interpretAstPrimal env u + interpretAstPrimal env v
+  AstTimesS u v -> interpretAstPrimal env u * interpretAstPrimal env v
+  AstN1S opCode u -> interpretAstN1 opCode (interpretAstPrimal env u)
+  AstR1S opCode u -> interpretAstR1 opCode (interpretAstPrimal env u)
+  AstR2S opCode u v ->
+    interpretAstR2 opCode (interpretAstPrimal env u) (interpretAstPrimal env v)
+  AstI2S opCode u v ->
+    interpretAstI2 opCode (interpretAstPrimal env u) (interpretAstPrimal env v)
+  AstCastS @r1 @r2 v ->
+    -- Specializing for the cases covered by rules in GHC.Internal.Float.
+    case testEquality (typeRep @r1) (typeRep @Double) of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @Float) of
+        Just Refl -> tscast @_ @Double @Float $ interpretAstPrimal env v
+        _ -> tscast @_ @Double $ interpretAstPrimal env v
+      _ -> case testEquality (typeRep @r1) (typeRep @Float) of
+        Just Refl -> case testEquality (typeRep @r2) (typeRep @Double) of
+          Just Refl -> tscast @_ @Float @Double $ interpretAstPrimal env v
+          _ -> tscast @_ @Float $ interpretAstPrimal env v
+        _ -> tscast $ interpretAstPrimal env v
+
+  AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS (shsFromIxS ix) $
+      withKnownShS sh2 $
+      withKnownSTK x $
+      let v2 = interpretAstPrimal env v
+          ix3 = interpretAstPlain env <$> ix
+      in tsindex @_ @sh1 v2 ix3
+  AstScatterS @shm @shn @shp
+              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS (shsFromListS vars) $
+      withKnownShS shn $
+      withKnownShS (shsFromIxS ix) $
+      withKnownSTK x $
+      let t1 = interpretAstPrimal env v
+          f2 :: IxSOf target shm -> IxSOf target shp
+          f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
+      in tsscatter @_ @shm @shn @shp t1 f2
+  AstGatherS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS shn $
+      withKnownShS (shsFromIxS ix) $
+      withKnownSTK x $
+      tsindex (interpretAstPrimal env v) (interpretAstPlain env <$> ix)
+  AstGatherS @shm @shn @shp
+             shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS (shsFromListS vars) $
+      withKnownShS shn $
+      withKnownShS (shsFromIxS ix) $
+      withKnownSTK x $
+      let t1 = interpretAstPrimal env v
+          f2 :: IxSOf target shm -> IxSOf target shp
+          f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
+      in tsgather @_ @shm @shn @shp t1 f2
+  AstAppendS a b -> case ftkToSTK (ftkAst a) of
+    STKS _ x ->
+      withKnownSTK x $
+      let t1 = interpretAstPrimal env a
+          t2 = interpretAstPrimal env b
+      in tsappend t1 t2
+  AstSliceS i n k v -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownSTK x $
+      tsslice i n k $ interpretAstPrimal env v
+  AstReverseS v -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownSTK x $
+      tsreverse (interpretAstPrimal env v)
+  AstTransposeS perm v -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownSTK x $
+      tstranspose perm $ interpretAstPrimal env v
+  AstReshapeS sh2 v -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownSTK x $
+      tsreshape sh2 (interpretAstPrimal env v)
+
+  AstConvert c a ->
+    tconvert c (ftkToSTK (ftkAst a)) (interpretAstPrimal env a)
+
+  AstSum0S v -> case ftkToSTK (ftkAst v) of
+    STKS sh x ->
+      withKnownShS sh $
+      withKnownSTK x $
+      tssum0 (interpretAstPrimal env v)
+  AstDot0S u v -> case ftkAst u of
+    FTKS sh _ ->
+      withKnownShS sh $
+      tsdot0 (interpretAstPrimal env u) (interpretAstPrimal env v)
+  AstDot1InS @sh @n sh SNat u v ->
+    withKnownShS sh $
+    tsdot1In @_ @sh (SNat @n) (interpretAstPrimal env u) (interpretAstPrimal env v)
+  AstMatmul2S SNat SNat SNat u v ->
+    tsmatmul2 (interpretAstPrimal env u) (interpretAstPrimal env v)
+
 interpretAstPlain
   :: forall target y. ADReady target
   => AstEnv target -> AstTensor AstMethodLet PlainSpan y
   -> PlainOf target y
 interpretAstPlain !env v1 = case v1 of
+  AstPair t1 t2 -> tpair (interpretAstPlain env t1) (interpretAstPlain env t2)
+  AstProject1 t -> tproject1 (interpretAstPlain env t)
+  AstProject2 t -> tproject2 (interpretAstPlain env t)
+  AstFromVector snat stk l ->
+    let l2 = V.map (interpretAstPlain env) l
+    in tfromVector snat stk l2
+  AstSum snat stk v -> tsum snat stk $ interpretAstPlain env v
+  AstReplicate snat stk v ->
+    treplicate snat stk (interpretAstPlain env v)
   -- This prevents computing the complex dual parts for mapAccum in ADVal.
   AstMapAccumRDer k bftk eftk f0 df0 rf0 acc0 es ->
     let f = interpretAstHFunPlain env f0
@@ -102,12 +264,208 @@ interpretAstPlain !env v1 = case v1 of
         es2 = interpretAstPlain env es
     in tmapAccumLDer (Proxy @(PlainOf target))
                      k (ftkAst acc0) bftk eftk f df rf acc02 es2
+  AstApply{} -> tplainPart (interpretAst env v1)  -- TODO
+  AstVar var ->
+    let var2 :: AstVarName FullSpan y
+        var2 = coerce var  -- only FullSpan variables permitted in env
+    in case DMap.lookup var2 env of
+      Just t ->
+#ifdef WITH_EXPENSIVE_ASSERTIONS
+        withKnownSTK (ftkToSTK $ varNameToFTK var) $
+        -- We can't assert anything about bounds, because values can be
+        -- symbolic and so not directly comparable to bounds.
+        assert (tftk (ftkToSTK $ varNameToFTK var) t == varNameToFTK var
+                `blame` ( tftk (ftkToSTK $ varNameToFTK var) t
+                        , varNameToFTK var, var, t ))
+#endif
+        (tplainPart t)
+      _ -> error $ "interpretAst: unknown AstVar " ++ show var
+                   -- ++ " in environment " ++ showsPrecAstEnv 0 env ""
   -- This prevents multiple ifH expansions in ADVal.
   AstCond b a1 a2 ->
     let c = interpretAstPlain env b
     in tcond (ftkToSTK $ ftkAst a1) c
              (interpretAstPlain env a1) (interpretAstPlain env a2)
-  _ -> tplainPart (interpretAst env v1)
+  AstBuild1 snat stk (var, v) ->
+    let f i = interpretAstPlain (extendEnvI var i env) v
+    in tbuild1 snat stk f
+
+  AstLet var u v ->
+    let t = interpretAst env u
+        env2 w = extendEnv var w env
+    in tplainPart $ ttlet t (\w -> tfromPlain (ftkToSTK $ ftkAst v)
+                                   $ interpretAstPlain (env2 w) v)
+         -- TODO
+
+  AstPlainPart a -> tplainPart $ interpretAst env a
+  AstFromPrimal{} -> tplainPart (interpretAst env v1)  -- TODO
+  AstFromPlain a -> interpretAstPlain env a
+
+  AstPlusK u v -> interpretAstPlain env u + interpretAstPlain env v
+  AstTimesK u v -> interpretAstPlain env u * interpretAstPlain env v
+  AstN1K opCode u ->
+    let u2 = interpretAstPlain env u
+    in interpretAstN1 opCode u2
+  AstR1K opCode u ->
+    let u2 = interpretAstPlain env u
+    in interpretAstR1 opCode u2
+  AstR2K opCode u v ->
+    let u2 = interpretAstPlain env u
+        v2 = interpretAstPlain env v
+    in interpretAstR2 opCode u2 v2
+  AstI2K opCode u v ->
+    let u2 = interpretAstPlain env u
+        v2 = interpretAstPlain env v
+    in interpretAstI2 opCode u2 v2
+  AstConcreteK k -> tkconcrete k
+  AstFloorK v ->
+    tkfloor $ interpretAstPlain env v
+  AstFromIntegralK v ->
+    tkfromIntegral $ interpretAstPlain env v
+  AstCastK v -> tkcast $ interpretAstPlain env v
+
+  AstPlusS u v -> interpretAstPlain env u + interpretAstPlain env v
+  AstTimesS u v -> interpretAstPlain env u * interpretAstPlain env v
+  AstN1S opCode u -> interpretAstN1 opCode (interpretAstPlain env u)
+  AstR1S opCode u -> interpretAstR1 opCode (interpretAstPlain env u)
+  AstR2S opCode u v ->
+    interpretAstR2 opCode (interpretAstPlain env u) (interpretAstPlain env v)
+  AstI2S opCode u v ->
+    interpretAstI2 opCode (interpretAstPlain env u) (interpretAstPlain env v)
+  AstConcreteS a -> tsconcrete a
+  AstFloorS v ->
+    tsfloor $ interpretAstPlain env v
+  AstFromIntegralS v ->
+    tsfromIntegral $ interpretAstPlain env v
+  AstCastS @r1 @r2 v ->
+    -- Specializing for the cases covered by rules in GHC.Internal.Float.
+    case testEquality (typeRep @r1) (typeRep @Double) of
+      Just Refl -> case testEquality (typeRep @r2) (typeRep @Float) of
+        Just Refl -> tscast @_ @Double @Float $ interpretAstPlain env v
+        _ -> tscast @_ @Double $ interpretAstPlain env v
+      _ -> case testEquality (typeRep @r1) (typeRep @Float) of
+        Just Refl -> case testEquality (typeRep @r2) (typeRep @Double) of
+          Just Refl -> tscast @_ @Float @Double $ interpretAstPlain env v
+          _ -> tscast @_ @Float $ interpretAstPlain env v
+        _ -> tscast $ interpretAstPlain env v
+
+  AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS (shsFromIxS ix) $
+      withKnownShS sh2 $
+      withKnownSTK x $
+      let v2 = interpretAstPlain env v
+          ix3 = interpretAstPlain env <$> ix
+      in tsindex @_ @sh1 v2 ix3
+  AstScatterS @shm @shn @shp
+              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS (shsFromListS vars) $
+      withKnownShS shn $
+      withKnownShS (shsFromIxS ix) $
+      withKnownSTK x $
+      let t1 = interpretAstPlain env v
+          f2 :: IxSOf target shm -> IxSOf target shp
+          f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
+      in tsscatter @_ @shm @shn @shp t1 f2
+  AstGatherS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS shn $
+      withKnownShS (shsFromIxS ix) $
+      withKnownSTK x $
+      tsindex (interpretAstPlain env v) (interpretAstPlain env <$> ix)
+  AstGatherS @shm @shn @shp
+             shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS (shsFromListS vars) $
+      withKnownShS shn $
+      withKnownShS (shsFromIxS ix) $
+      withKnownSTK x $
+      let t1 = interpretAstPlain env v
+          f2 :: IxSOf target shm -> IxSOf target shp
+          f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
+      in tsgather @_ @shm @shn @shp t1 f2
+  AstMinIndexS v ->
+    tsminIndex $ interpretAstPlain env v
+  AstMaxIndexS v ->
+    tsmaxIndex $ interpretAstPlain env v
+  AstIotaS SNat -> tsiota
+  AstAppendS a b -> case ftkToSTK (ftkAst a) of
+    STKS _ x ->
+      withKnownSTK x $
+      let t1 = interpretAstPlain env a
+          t2 = interpretAstPlain env b
+      in tsappend t1 t2
+  AstSliceS i n k v -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownSTK x $
+      tsslice i n k $ interpretAstPlain env v
+  AstReverseS v -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownSTK x $
+      tsreverse (interpretAstPlain env v)
+  AstTransposeS perm v -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownSTK x $
+      tstranspose perm $ interpretAstPlain env v
+  AstReshapeS sh2 v -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownSTK x $
+      tsreshape sh2 (interpretAstPlain env v)
+
+  AstConvert c a ->
+    tconvert c (ftkToSTK (ftkAst a)) (interpretAstPlain env a)
+
+  AstSum0S v -> case ftkToSTK (ftkAst v) of
+    STKS sh x ->
+      withKnownShS sh $
+      withKnownSTK x $
+      tssum0 (interpretAstPlain env v)
+  AstDot0S u v -> case ftkAst u of
+    FTKS sh _ ->
+      withKnownShS sh $
+      tsdot0 (interpretAstPlain env u) (interpretAstPlain env v)
+  AstDot1InS @sh @n sh SNat u v ->
+    withKnownShS sh $
+    tsdot1In @_ @sh (SNat @n) (interpretAstPlain env u) (interpretAstPlain env v)
+  AstMatmul2S SNat SNat SNat u v ->
+    tsmatmul2 (interpretAstPlain env u) (interpretAstPlain env v)
+
+  AstBoolNot arg ->
+    notB $ interpretAstPlain env arg
+  AstBoolNotA arg | STKS sh _ <- ftkToSTK $ ftkAst arg ->
+    withKnownShS sh $
+    tsmap0N (sfromK . notB . kfromS) $ interpretAstPlain env arg
+  AstBoolAnd arg1 arg2 ->
+    let b1 = interpretAstPlain env arg1
+        b2 = interpretAstPlain env arg2
+    in b1 &&* b2
+  AstBoolAndA arg1 arg2 | STKS sh _ <- ftkToSTK $ ftkAst arg1 ->
+    withKnownShS sh $
+    let b1 = interpretAstPlain env arg1
+        b2 = interpretAstPlain env arg2
+    in tszipWith0N (\c1 c2 -> sfromK $ kfromS c1 &&* kfromS c2) b1 b2
+  AstLeqK arg1 arg2 ->
+    let r1 = interpretAstPlain env arg1
+        r2 = interpretAstPlain env arg2
+    in r1 <=. r2
+  AstLeqS arg1 arg2 ->
+    let r1 = interpretAstPlain env arg1
+        r2 = interpretAstPlain env arg2
+    in r1 <=. r2
+  AstLeqA @shb @sh shb sh arg1 arg2 | Refl <- lemAppNil @shb ->
+    withKnownShS shb $
+    withKnownShS sh $
+    let r1 = interpretAstPlain env arg1
+        r2 = interpretAstPlain env arg2
+    in sunNest
+       $ tszipWith0N
+           (\a1 a2 ->
+             let c = ConvCmp ConvXS
+                             (ConvCmp (Conv0X (STKS ZSS STKScalar))
+                                      (ConvCmp ConvXS (Conv0X STKScalar)))
+             in tconvert c STKScalar $ sunNest a1 <=. sunNest a2)
+           (snest @_ @_ @sh shb r1) (snest shb r2)
 
 interpretAstDual
   :: forall target y. ADReady target
@@ -267,11 +625,10 @@ interpretAst !env = \case
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstI2 opCode u2 v2
-  AstConcreteK k ->
-    tkconcrete @target k
-      -- this is equal to the following
-      -- (and similarly for tsconcretet and tsiota below):
-      -- tfromPrimal @target STKScalar $ tkconcrete @(PrimalOf target) k
+  AstConcreteK k -> tkconcrete @target k
+    -- this is equal to the following
+    -- (and similarly for tsconcretet and tsiota below):
+    -- tfromPrimal @target STKScalar $ tkconcrete @(PrimalOf target) k
   AstFloorK v ->
     -- By the invariant v has zero dual part, so the following suffices:
     tkfloor $ interpretAst env v

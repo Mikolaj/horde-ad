@@ -1202,6 +1202,7 @@ type ADReadyEqsClasses target =
 
 type ADReadyEqs target =
   ( PlainOf (PlainOf target) ~ PlainOf target
+  , PlainOf (PrimalOf target) ~ PlainOf target
   )
 
 type ADReadyClasses target =
