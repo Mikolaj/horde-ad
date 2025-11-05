@@ -1484,20 +1484,9 @@ astLetFunNoSimplify a f = case a of
   AstFromS' @y2 ftkz v ->
     let (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
     in AstLet var v ast
-  AstFromPrimal (AstFromS' FTKScalar _) ->
-    let (var, ast) = funToAst2 (ftkAst a) Nothing f
-    in AstLet var a ast
-  AstFromPrimal (AstFromS' @y2 ftkz vRaw) ->
-    let v = fromPrimal vRaw
-        (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
-    in AstLet var v ast
-  AstFromPlain (AstFromS' FTKScalar _) ->
-    let (var, ast) = funToAst2 (ftkAst a) Nothing f
-    in AstLet var a ast
-  AstFromPlain (AstFromS' @y2 ftkz vRaw) ->
-    let v = fromPlain vRaw
-        (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
-    in AstLet var v ast
+  AstFromPrimal v -> astLetFunNoSimplify v (f . fromPrimal)
+  AstFromDual v -> astLetFunNoSimplify v (f . fromDual)
+  AstFromPlain v -> astLetFunNoSimplify v (f . fromPlain)
   _ -> case ftkAst a of
     ftk@(FTKR @_ @x2 sh' x) ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->

@@ -927,110 +927,38 @@ astLet var u v@(Ast.AstPlainPart @_ @s1 (Ast.AstVar var2)) =  -- a noop
   else v
 astLet var u v | astIsSmall True u =
   substituteAst u var v
+astLet var u (Ast.AstFromPrimal v0) = fromPrimal $ astLet var u v0
+astLet var u (Ast.AstFromDual v0) = fromDual $ astLet var u v0
+astLet var u (Ast.AstFromPlain v0) = fromPlain $ astLet var u v0
+astLet var (Ast.AstFromPrimal u) v =
+  astLetFun u $ \ !ast1 -> substituteAst (fromPrimal ast1) var v
+astLet var (Ast.AstFromDual u) v =
+  astLetFun u $ \ !ast1 -> substituteAst (fromDual ast1) var v
+astLet var (Ast.AstFromPlain u) v =
+  astLetFun u $ \ !ast1 -> substituteAst (fromPlain ast1) var v
 astLet var (Ast.AstPair u1 u2) v =
   astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
     substituteAst (Ast.AstPair ast1 ast2) var v
-astLet var (Ast.AstFromPrimal (Ast.AstPair u1 u2)) v =
-  astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-    substituteAst (fromPrimal (Ast.AstPair ast1 ast2)) var v
-astLet var (Ast.AstFromDual (Ast.AstPair u1 u2)) v =
-  astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-    substituteAst (fromDual (Ast.AstPair ast1 ast2)) var v
-astLet var (Ast.AstFromPlain (Ast.AstPair u1 u2)) v =
-  astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-    substituteAst (fromPlain (Ast.AstPair ast1 ast2)) var v
 astLet var (Ast.AstLet varN uN (Ast.AstPair u1 u2)) v =
   astLet varN uN
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
       substituteAst (Ast.AstPair ast1 ast2) var v
-astLet var (Ast.AstFromPrimal (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
-  astLet varN uN
-  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (fromPrimal (Ast.AstPair ast1 ast2)) var v
-astLet var (Ast.AstFromDual (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
-  astLet varN uN
-  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (fromDual (Ast.AstPair ast1 ast2)) var v
-astLet var (Ast.AstFromPlain (Ast.AstLet varN uN (Ast.AstPair u1 u2))) v =
-  astLet varN uN
-  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (fromPlain (Ast.AstPair ast1 ast2)) var v
 -- This is a common case, e.g., from representing conditionals.
 astLet var (Ast.AstFromVector snat stk u) v | V.length u == 2 =
   astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
     substituteAst (Ast.AstFromVector snat stk $ fromList [ast1, ast2]) var v
-astLet var (Ast.AstFromPrimal
-              (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
-  astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-    substituteAst (fromPrimal (Ast.AstFromVector snat stk
-                                      $ fromList [ast1, ast2])) var v
-astLet var (Ast.AstFromDual
-              (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
-  astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-    substituteAst (fromDual (Ast.AstFromVector snat stk
-                                    $ fromList [ast1, ast2])) var v
-astLet var (Ast.AstFromPlain
-              (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
-  astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-    substituteAst (fromPlain (Ast.AstFromVector snat stk
-                                    $ fromList [ast1, ast2])) var v
 astLet var (Ast.AstLet varN uN
               (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
   astLet varN uN
   $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
       substituteAst (Ast.AstFromVector snat stk $ fromList [ast1, ast2]) var v
-astLet var (Ast.AstFromPrimal
-              (Ast.AstLet varN uN
-                 (Ast.AstFromVector snat stk u))) v | V.length u == 2 =
-  astLet varN uN
-  $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-      substituteAst (fromPrimal (Ast.AstFromVector snat stk
-                                        $ fromList [ast1, ast2])) var v
-astLet var (Ast.AstFromDual
-              (Ast.AstLet varN uN
-                 (Ast.AstFromVector snat stk u))) v | V.length u == 2 =
-  astLet varN uN
-  $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-      substituteAst (fromDual (Ast.AstFromVector snat stk
-                                      $ fromList [ast1, ast2])) var v
-astLet var (Ast.AstFromPlain
-              (Ast.AstLet varN uN
-                 (Ast.AstFromVector snat stk u))) v | V.length u == 2 =
-  astLet varN uN
-  $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-      substituteAst (fromPlain (Ast.AstFromVector snat stk
-                                      $ fromList [ast1, ast2])) var v
 astLet var (Ast.AstReplicate snat stk a) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
       ast = Ast.AstReplicate snat stk $ astVar var2
   in astLet var2 a (substituteAst ast var v)
-astLet var (Ast.AstFromPrimal (Ast.AstReplicate snat stk a)) v =
-  let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = fromPrimal (Ast.AstReplicate snat stk $ astVar var2)
-  in astLet var2 a (substituteAst ast var v)
-astLet var (Ast.AstFromDual (Ast.AstReplicate snat stk a)) v =
-  let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = fromDual (Ast.AstReplicate snat stk $ astVar var2)
-  in astLet var2 a (substituteAst ast var v)
-astLet var (Ast.AstFromPlain (Ast.AstReplicate snat stk a)) v =
-  let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = fromPlain (Ast.AstReplicate snat stk $ astVar var2)
-  in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstTransposeS perm a) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
       ast = Ast.AstTransposeS perm $ astVar var2
-  in astLet var2 a (substituteAst ast var v)
-astLet var (Ast.AstFromPrimal (Ast.AstTransposeS perm a)) v =
-  let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = fromPrimal (Ast.AstTransposeS perm $ astVar var2)
-  in astLet var2 a (substituteAst ast var v)
-astLet var (Ast.AstFromDual (Ast.AstTransposeS perm a)) v =
-  let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = fromDual (Ast.AstTransposeS perm $ astVar var2)
-  in astLet var2 a (substituteAst ast var v)
-astLet var (Ast.AstFromPlain (Ast.AstTransposeS perm a)) v =
-  let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
-      ast = fromPlain (Ast.AstTransposeS perm $ astVar var2)
   in astLet var2 a (substituteAst ast var v)
 astLet var u@(AstFromS' FTKScalar _) v = Ast.AstLet var u v
 astLet var (Ast.AstConvert c a) v | checkAstFromS c a =
@@ -1038,10 +966,6 @@ astLet var (Ast.AstConvert c a) v | checkAstFromS c a =
         mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
       ast = astConvert c $ astVar var2
   in astLet var2 a (substituteAst ast var v)
--- TODO: do these make some of the above spurious? or is order important?
-astLet var u (Ast.AstFromPrimal v0) = fromPrimal $ astLet var u v0
-astLet var u (Ast.AstFromDual v0) = fromDual $ astLet var u v0
-astLet var u (Ast.AstFromPlain v0) = fromPlain $ astLet var u v0
 astLet var u v@(AstFromS' FTKScalar _) = Ast.AstLet var u v
 astLet var u (Ast.AstConvert c v) | checkAstFromS c v =
   astConvert c $ astLet var u v
@@ -3931,20 +3855,9 @@ astLetFunBounds mbs a f = case a of
   AstFromS' @y2 ftkz v ->
     let (var, ast) = funToAst2 (ftkAst v) mbs (f . astFromS' @y2 ftkz)
     in astLet var v ast
-  Ast.AstFromPrimal (AstFromS' FTKScalar _) ->
-    let (var, ast) = funToAst2 (ftkAst a) mbs f
-    in astLet var a ast
-  Ast.AstFromPrimal (AstFromS' @y2 ftkz vRaw) ->
-    let v = fromPrimal vRaw
-        (var, ast) = funToAst2 (ftkAst v) mbs (f . astFromS' @y2 ftkz)
-    in astLet var v ast
-  Ast.AstFromPlain (AstFromS' FTKScalar _) ->
-    let (var, ast) = funToAst2 (ftkAst a) mbs f
-    in astLet var a ast
-  Ast.AstFromPlain (AstFromS' @y2 ftkz vRaw) ->
-    let v = fromPlain vRaw
-        (var, ast) = funToAst2 (ftkAst v) mbs (f . astFromS' @y2 ftkz)
-    in astLet var v ast
+  Ast.AstFromPrimal v -> astLetFunBounds mbs v (f . fromPrimal)
+  Ast.AstFromDual v -> astLetFunBounds mbs v (f . fromDual)
+  Ast.AstFromPlain v -> astLetFunBounds mbs v (f . fromPlain)
   _ -> case ftkAst a of
     ftk@(FTKR @_ @x sh' x) ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->
