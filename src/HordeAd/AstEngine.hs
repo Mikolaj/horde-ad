@@ -29,7 +29,7 @@ simplifyArtifactRev :: forall x z.
                        AstArtifactRev x z -> AstArtifactRev x z
 simplifyArtifactRev art =
   let !der = simplifyInlineContract $ artDerivativeRev art in
-  let !prim = simplifyInlineContract $ artPrimalRev art
+  let prim = simplifyInlineContract $ artPrimalRev art
   in art {artDerivativeRev = der, artPrimalRev = prim}
 
 -- | Simplify the whole forward derivative artifact (which includes
@@ -38,7 +38,7 @@ simplifyArtifactFwd :: forall x z.
                        AstArtifactFwd x z -> AstArtifactFwd x z
 simplifyArtifactFwd art =
   let !der = simplifyInlineContract $ artDerivativeFwd art in
-  let !prim = simplifyInlineContract $ artPrimalFwd art
+  let prim = simplifyInlineContract $ artPrimalFwd art
   in art {artDerivativeFwd = der, artPrimalFwd = prim}
 
 -- | A mixture of simplification and inlining to use when the resultng
