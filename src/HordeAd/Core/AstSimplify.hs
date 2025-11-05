@@ -1007,16 +1007,50 @@ astPrimalPart t = case t of
     astSum snat stk (astPrimalPart v)
   Ast.AstReplicate snat stk v ->
     astReplicate snat stk (astPrimalPart v)
-  {- Ast.AstMapAccumRDer k bftk eftk (AstLambda varf vf)
+  Ast.AstMapAccumRDer k bftk eftk (AstLambda varf vf)
                                   (AstLambda vard vd)
                                   (AstLambda varr vr) acc0 es ->
-    astMapAccumRDer k bftk eftk f df rf
-                    (astPrimalPart acc0) (astPrimalPart es)
-  Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
-    astMapAccumLDer k bftk eftk f df rf
-                    (astPrimalPart acc0) (astPrimalPart es) -}
-  Ast.AstMapAccumRDer{} -> Ast.AstPrimalPart t  -- TODO
-  Ast.AstMapAccumLDer{} -> Ast.AstPrimalPart t
+    let varf2 = mkAstVarName (varNameToFTK varf)
+                             (varNameToBounds varf)
+                             (varNameToAstVarId varf)
+        astf2 = fromPrimal $ astVar varf2
+        vf2 = astPrimalPart $ substituteAst astf2 varf vf
+        vard2 = mkAstVarName (varNameToFTK vard)
+                             (varNameToBounds vard)
+                             (varNameToAstVarId vard)
+        astd2 = fromPrimal $ astVar vard2
+        vd2 = astPrimalPart $ substituteAst astd2 vard vd
+        varr2 = mkAstVarName (varNameToFTK varr)
+                             (varNameToBounds varr)
+                             (varNameToAstVarId varr)
+        astr2 = fromPrimal $ astVar varr2
+        vr2 = astPrimalPart $ substituteAst astr2 varr vr
+    in astMapAccumRDer k bftk eftk (AstLambda varf2 vf2)
+                                   (AstLambda vard2 vd2)
+                                   (AstLambda varr2 vr2)
+                       (astPrimalPart acc0) (astPrimalPart es)
+  Ast.AstMapAccumLDer k bftk eftk (AstLambda varf vf)
+                                  (AstLambda vard vd)
+                                  (AstLambda varr vr) acc0 es ->
+    let varf2 = mkAstVarName (varNameToFTK varf)
+                             (varNameToBounds varf)
+                             (varNameToAstVarId varf)
+        astf2 = fromPrimal $ astVar varf2
+        vf2 = astPrimalPart $ substituteAst astf2 varf vf
+        vard2 = mkAstVarName (varNameToFTK vard)
+                             (varNameToBounds vard)
+                             (varNameToAstVarId vard)
+        astd2 = fromPrimal $ astVar vard2
+        vd2 = astPrimalPart $ substituteAst astd2 vard vd
+        varr2 = mkAstVarName (varNameToFTK varr)
+                             (varNameToBounds varr)
+                             (varNameToAstVarId varr)
+        astr2 = fromPrimal $ astVar varr2
+        vr2 = astPrimalPart $ substituteAst astr2 varr vr
+    in astMapAccumLDer k bftk eftk (AstLambda varf2 vf2)
+                                   (AstLambda vard2 vd2)
+                                   (AstLambda varr2 vr2)
+                       (astPrimalPart acc0) (astPrimalPart es)
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astPrimalPart v)) ll
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
@@ -1109,14 +1143,50 @@ astDualPart t = case t of
     astSum snat stk (astDualPart v)
   Ast.AstReplicate snat stk v ->
     astReplicate snat stk (astDualPart v)
-  {- Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
-    astMapAccumRDer k bftk eftk f df rf
-                    (astDualPart acc0) (astDualPart es)
-  Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
-    astMapAccumLDer k bftk eftk f df rf
-                    (astDualPart acc0) (astDualPart es) -}
-  Ast.AstMapAccumRDer{} -> Ast.AstDualPart t  -- TODO
-  Ast.AstMapAccumLDer{} -> Ast.AstDualPart t
+  Ast.AstMapAccumRDer k bftk eftk (AstLambda varf vf)
+                                  (AstLambda vard vd)
+                                  (AstLambda varr vr) acc0 es ->
+    let varf2 = mkAstVarName (varNameToFTK varf)
+                             (varNameToBounds varf)
+                             (varNameToAstVarId varf)
+        astf2 = fromDual $ astVar varf2
+        vf2 = astDualPart $ substituteAst astf2 varf vf
+        vard2 = mkAstVarName (varNameToFTK vard)
+                             (varNameToBounds vard)
+                             (varNameToAstVarId vard)
+        astd2 = fromDual $ astVar vard2
+        vd2 = astDualPart $ substituteAst astd2 vard vd
+        varr2 = mkAstVarName (varNameToFTK varr)
+                             (varNameToBounds varr)
+                             (varNameToAstVarId varr)
+        astr2 = fromDual $ astVar varr2
+        vr2 = astDualPart $ substituteAst astr2 varr vr
+    in astMapAccumRDer k bftk eftk (AstLambda varf2 vf2)
+                                   (AstLambda vard2 vd2)
+                                   (AstLambda varr2 vr2)
+                       (astDualPart acc0) (astDualPart es)
+  Ast.AstMapAccumLDer k bftk eftk (AstLambda varf vf)
+                                  (AstLambda vard vd)
+                                  (AstLambda varr vr) acc0 es ->
+    let varf2 = mkAstVarName (varNameToFTK varf)
+                             (varNameToBounds varf)
+                             (varNameToAstVarId varf)
+        astf2 = fromDual $ astVar varf2
+        vf2 = astDualPart $ substituteAst astf2 varf vf
+        vard2 = mkAstVarName (varNameToFTK vard)
+                             (varNameToBounds vard)
+                             (varNameToAstVarId vard)
+        astd2 = fromDual $ astVar vard2
+        vd2 = astDualPart $ substituteAst astd2 vard vd
+        varr2 = mkAstVarName (varNameToFTK varr)
+                             (varNameToBounds varr)
+                             (varNameToAstVarId varr)
+        astr2 = fromDual $ astVar varr2
+        vr2 = astDualPart $ substituteAst astr2 varr vr
+    in astMapAccumLDer k bftk eftk (AstLambda varf2 vf2)
+                                   (AstLambda vard2 vd2)
+                                   (AstLambda varr2 vr2)
+                       (astDualPart acc0) (astDualPart es)
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astDualPart v)) ll
   Ast.AstVar{} -> Ast.AstDualPart t
@@ -1204,16 +1274,50 @@ astPlainPart t = case t of
     astSum snat stk (astPlainPart v)
   Ast.AstReplicate snat stk v ->
     astReplicate snat stk (astPlainPart v)
-  {- Ast.AstMapAccumRDer k bftk eftk (AstLambda varf vf)
+  Ast.AstMapAccumRDer k bftk eftk (AstLambda varf vf)
                                   (AstLambda vard vd)
                                   (AstLambda varr vr) acc0 es ->
-    astMapAccumRDer k bftk eftk f df rf
-                    (astPlainPart acc0) (astPlainPart es)
-  Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
-    astMapAccumLDer k bftk eftk f df rf
-                    (astPlainPart acc0) (astPlainPart es) -}
-  Ast.AstMapAccumRDer{} -> Ast.AstPlainPart t  -- TODO
-  Ast.AstMapAccumLDer{} -> Ast.AstPlainPart t
+    let varf2 = mkAstVarName (varNameToFTK varf)
+                             (varNameToBounds varf)
+                             (varNameToAstVarId varf)
+        astf2 = fromPlain $ astVar varf2
+        vf2 = astPlainPart $ substituteAst astf2 varf vf
+        vard2 = mkAstVarName (varNameToFTK vard)
+                             (varNameToBounds vard)
+                             (varNameToAstVarId vard)
+        astd2 = fromPlain $ astVar vard2
+        vd2 = astPlainPart $ substituteAst astd2 vard vd
+        varr2 = mkAstVarName (varNameToFTK varr)
+                             (varNameToBounds varr)
+                             (varNameToAstVarId varr)
+        astr2 = fromPlain $ astVar varr2
+        vr2 = astPlainPart $ substituteAst astr2 varr vr
+    in astMapAccumRDer k bftk eftk (AstLambda varf2 vf2)
+                                   (AstLambda vard2 vd2)
+                                   (AstLambda varr2 vr2)
+                       (astPlainPart acc0) (astPlainPart es)
+  Ast.AstMapAccumLDer k bftk eftk (AstLambda varf vf)
+                                  (AstLambda vard vd)
+                                  (AstLambda varr vr) acc0 es ->
+    let varf2 = mkAstVarName (varNameToFTK varf)
+                             (varNameToBounds varf)
+                             (varNameToAstVarId varf)
+        astf2 = fromPlain $ astVar varf2
+        vf2 = astPlainPart $ substituteAst astf2 varf vf
+        vard2 = mkAstVarName (varNameToFTK vard)
+                             (varNameToBounds vard)
+                             (varNameToAstVarId vard)
+        astd2 = fromPlain $ astVar vard2
+        vd2 = astPlainPart $ substituteAst astd2 vard vd
+        varr2 = mkAstVarName (varNameToFTK varr)
+                             (varNameToBounds varr)
+                             (varNameToAstVarId varr)
+        astr2 = fromPlain $ astVar varr2
+        vr2 = astPlainPart $ substituteAst astr2 varr vr
+    in astMapAccumLDer k bftk eftk (AstLambda varf2 vf2)
+                                   (AstLambda vard2 vd2)
+                                   (AstLambda varr2 vr2)
+                       (astPlainPart acc0) (astPlainPart es)
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astPlainPart v)) ll
   Ast.AstVar{} -> Ast.AstPlainPart t  -- the only normal form
