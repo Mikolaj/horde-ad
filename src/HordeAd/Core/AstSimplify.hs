@@ -246,6 +246,58 @@ astProject1
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s x
 astProject1 u = case u of
   Ast.AstPair x _z -> x
+  Ast.AstMapAccumRDer k bftk eftk
+                      (AstLambda varf vf)
+                      (AstLambda vard vd)
+                      (AstLambda varr vr)
+                      acc0 es | Nothing <- matchingFTK bftk ftkUnit ->
+    let varf2 = varf
+        vf2 = astPair (astProject1 vf) (fromPlain $ AstConcreteK Z1)
+        vard2 = vard
+        vd2 = astPair (astProject1 vd) (fromPlain $ AstConcreteK Z1)
+        accftk = ftkAst acc0
+        ftkr2 = FTKProduct
+                  (adFTK $ FTKProduct accftk ftkUnit)
+                  (FTKProduct accftk eftk)
+        varr2 =
+          mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
+        astr2 = astVar varr2
+        zero = fromPlain $ astConcrete (adFTK bftk) (tdefTarget (adFTK bftk))
+        vr2 = substituteAst
+                (astPair (astPair (astProject1 (astProject1 astr2))
+                                  zero)  -- TODO: prove this is correct
+                         (astProject2 astr2))
+                varr vr
+    in Ast.AstProject1
+       $ astMapAccumRDer k ftkUnit eftk (AstLambda varf2 vf2)
+                                        (AstLambda vard2 vd2)
+                                        (AstLambda varr2 vr2) acc0 es
+  Ast.AstMapAccumLDer k bftk eftk
+                      (AstLambda varf vf)
+                      (AstLambda vard vd)
+                      (AstLambda varr vr)
+                      acc0 es | Nothing <- matchingFTK bftk ftkUnit ->
+    let varf2 = varf
+        vf2 = astPair (astProject1 vf) (fromPlain $ AstConcreteK Z1)
+        vard2 = vard
+        vd2 = astPair (astProject1 vd) (fromPlain $ AstConcreteK Z1)
+        accftk = ftkAst acc0
+        ftkr2 = FTKProduct
+                  (adFTK $ FTKProduct accftk ftkUnit)
+                  (FTKProduct accftk eftk)
+        varr2 =
+          mkAstVarName ftkr2 (varNameToBounds varr) (varNameToAstVarId varr)
+        astr2 = astVar varr2
+        zero = fromPlain $ astConcrete (adFTK bftk) (tdefTarget (adFTK bftk))
+        vr2 = substituteAst
+                (astPair (astPair (astProject1 (astProject1 astr2))
+                                  zero)
+                         (astProject2 astr2))
+                varr vr
+    in Ast.AstProject1
+       $ astMapAccumLDer k ftkUnit eftk (AstLambda varf2 vf2)
+                                        (AstLambda vard2 vd2)
+                                        (AstLambda varr2 vr2) acc0 es
   Ast.AstCond b v1 v2 -> astCond b (astProject1 v1) (astProject1 v2)
   Ast.AstLet var t v -> astLet var t (astProject1 v)
   Ast.AstFromPrimal u1 -> fromPrimal $ astProject1 u1
