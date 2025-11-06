@@ -246,6 +246,12 @@ astProject1
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s x
 astProject1 u = case u of
   Ast.AstPair x _z -> x
+  Ast.AstFromVector snat (STKProduct stk1 _) v ->
+    astFromVector snat stk1 (V.map astProject1 v)
+  Ast.AstSum snat (STKProduct stk1 _) x ->
+    astSum snat stk1 (astProject1 x)
+  Ast.AstReplicate snat (STKProduct stk1 _) x ->
+    astReplicate snat stk1 (astProject1 x)
   Ast.AstMapAccumRDer k bftk eftk
                       (AstLambda varf vf)
                       (AstLambda vard vd)
@@ -318,6 +324,12 @@ astProject2
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s z
 astProject2 u = case u of
   Ast.AstPair _x z -> z
+  Ast.AstFromVector snat (STKProduct _ stk2) v ->
+    astFromVector snat stk2 (V.map astProject2 v)
+  Ast.AstSum snat (STKProduct _ stk2) x ->
+    astSum snat stk2 (astProject2 x)
+  Ast.AstReplicate snat (STKProduct _ stk2) x ->
+    astReplicate snat stk2 (astProject2 x)
   Ast.AstCond b v1 v2 -> astCond b (astProject2 v1) (astProject2 v2)
   Ast.AstLet var t v -> astLet var t (astProject2 v)
   Ast.AstFromPrimal u1 -> fromPrimal $ astProject2 u1
