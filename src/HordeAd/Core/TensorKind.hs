@@ -6,7 +6,7 @@
 module HordeAd.Core.TensorKind
   ( -- * Tensor kind singletons
     SingletonTK(..), KnownSTK(..)
-  , TKConversion(..), lemTKAllNumConvert, lemTKAllNumConvertForward
+  , TKConversion(..), convCmp, lemTKAllNumConvert, lemTKAllNumConvertForward
   , lemTKAllNumBuild, lemTKAllNumRaze
   , numFromTKAllNum, convertSTK, convertFTK, buildTKConversion
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
@@ -312,7 +312,22 @@ deriving instance Show (TKConversion a b)
 
 instance Category TKConversion where
   id = ConvId
-  (.) = ConvCmp
+  (.) = convCmp
+
+-- TODO: expand
+convCmp :: TKConversion b c -> TKConversion a b -> TKConversion a c
+convCmp a b = case (a, b) of
+  (_, ConvId) -> a
+  (ConvId, _) -> b
+  (ConvCmp a1 a2, _) -> a1 . (a2 . b)
+--  (ConvRX, ConvXR{}) -> ConvId
+  (ConvSX, ConvXS) -> ConvId
+--  (ConvXR{}, ConvRX) -> ConvId
+--  (ConvXS, ConvSX) -> ConvId
+  (Conv0X{}, ConvX0) -> ConvId
+  (ConvX0, Conv0X{}) -> ConvId
+  (ConvT2 a1 a2, ConvT2 b1 b2) -> ConvT2 (convCmp a1 b1) (convCmp a2 b2)
+  _ -> ConvCmp a b
 
 lemTKAllNumConvert :: TKAllNum b
                    => TKConversion a b -> Dict0 (TKAllNum a)
@@ -417,8 +432,8 @@ buildTKConversion :: SNat k -> FullShapeTK a
                   -> TKConversion (BuildTensorKind k a) (BuildTensorKind k b)
 buildTKConversion k aftk c0 = case c0 of
   ConvId -> ConvId
-  ConvCmp c1 c2 -> ConvCmp (buildTKConversion k (convertFTK c2 aftk) c1)
-                           (buildTKConversion k aftk c2)
+  ConvCmp c1 c2 -> buildTKConversion k (convertFTK c2 aftk) c1
+                   . buildTKConversion k aftk c2
   ConvRX | FTKR @n shr xstk <- aftk
          , Refl <- lemRankReplicate (Proxy @n)
          , Refl <- lemRankReplicate (Proxy @(1 + n)) ->

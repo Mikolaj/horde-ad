@@ -736,8 +736,8 @@ evalRevSame !s !c = \case
 transposeTKConversion :: FullShapeTK a -> TKConversion a b -> TKConversion b a
 transposeTKConversion aftk c0 = case c0 of
   ConvId -> ConvId
-  ConvCmp c1 c2 -> ConvCmp (transposeTKConversion aftk c2)
-                           (transposeTKConversion (convertFTK c2 aftk) c1)
+  ConvCmp c1 c2 -> transposeTKConversion aftk c2
+                   `convCmp` transposeTKConversion (convertFTK c2 aftk) c1
   ConvRX | FTKR @n _ x <- aftk
          , Refl <- lemRankReplicate (Proxy @n) ->
     ConvXR (ftkToSTK x)

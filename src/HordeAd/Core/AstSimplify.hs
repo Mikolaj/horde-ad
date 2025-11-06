@@ -3264,7 +3264,7 @@ astConvert c a = case (ftkAst a, convertFTK c (ftkAst a)) of
   (yftk, zftk) | Just Refl <- matchingFTK yftk zftk -> a
     -- this covers the ConvId case and more, so not simplifying c at worst
     -- causes c to take more memory but doesn't inhibit rewriting
-  _ | Ast.AstConvert c2 t2 <- a -> astConvert (ConvCmp c c2) t2
+  _ | Ast.AstConvert c2 t2 <- a -> astConvert (c `convCmp` c2) t2
   (FTKScalar @ry, zftk@(FTKS ZSS (FTKScalar @rz)))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       astConvertSFromK c zftk a
@@ -3292,7 +3292,7 @@ astConvertFromS
   => TKConversion y z -> FullShapeTK z -> AstTensor AstMethodLet s y
   -> AstTensor AstMethodLet s z
 astConvertFromS c zftk a = case (zftk, a) of
-  (_, Ast.AstConvert c2 a2) -> astConvert (ConvCmp c c2) a2
+  (_, Ast.AstConvert c2 a2) -> astConvert (c `convCmp` c2) a2
   (FTKScalar @r1, AstConcreteS @r2 v)
     | ZSS <- Nested.sshape v
     , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
@@ -3355,7 +3355,7 @@ astConvertSFromK :: forall r s. AstSpan s
                  -> AstTensor AstMethodLet s (TKScalar r)
                  -> AstTensor AstMethodLet s (TKS '[] r)
 astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
-  Ast.AstConvert c2 a2 -> astConvert (ConvCmp c c2) a2
+  Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
   {- TODO: this is the right thing to do, but it results in unreadable
      terms with big tconvert wrappers over product type variables
   Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
@@ -3409,7 +3409,7 @@ astConvertSFromR :: forall sh x s. AstSpan s
                  -> AstTensor AstMethodLet s (TKR2 (Rank sh) x)
                  -> AstTensor AstMethodLet s (TKS2 sh x)
 astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
-  Ast.AstConvert c2 a2 -> astConvert (ConvCmp c c2) a2
+  Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
   {- TODO: this is the right thing to do, but it results in unreadable
      terms with big tconvert wrappers over product type variables
   Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
@@ -3463,7 +3463,7 @@ astConvertSFromX :: forall sh shx x s. (AstSpan s, Rank shx ~ Rank sh)
                  -> AstTensor AstMethodLet s (TKX2 shx x)
                  -> AstTensor AstMethodLet s (TKS2 sh x)
 astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
-  Ast.AstConvert c2 a2 -> astConvert (ConvCmp c c2) a2
+  Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
   {- TODO: this is the right thing to do, but it results in unreadable
      terms with big tconvert wrappers over product type variables
   Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
@@ -3520,7 +3520,7 @@ astConvertSFrom :: forall y z s. AstSpan s
                 -> AstTensor AstMethodLet s z
 astConvertSFrom c zftk t = case (zftk, ftkAst t) of
   (_, yftk) | Just Refl <- matchingFTK yftk zftk -> t
-  _ | Ast.AstConvert c2 t2 <- t -> astConvert (ConvCmp c c2) t2
+  _ | Ast.AstConvert c2 t2 <- t -> astConvert (c `convCmp` c2) t2
   (FTKS ZSS (FTKScalar @rz), FTKScalar @ry) ->
     case testEquality (typeRep @ry) (typeRep @rz) of
       Just Refl -> astConvertSFromK c zftk t

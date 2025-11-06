@@ -424,7 +424,7 @@ cAstConvert :: AstSpan s
             => TKConversion x z -> AstTensor ms s x -> AstTensor ms s z
 cAstConvert c t
   | Just Refl <- matchingFTK (ftkAst t) (convertFTK c (ftkAst t)) = t
-cAstConvert c1 (AstConvert c2 t2) = cAstConvert (ConvCmp c1 c2) t2
+cAstConvert c1 (AstConvert c2 t2) = cAstConvert (c1 `convCmp` c2) t2
 cAstConvert c1 (AstFromPrimal v) = fromPrimal $ cAstConvert c1 v
 cAstConvert c1 (AstFromPlain v) = fromPlain $ cAstConvert c1 v
 cAstConvert c t = AstConvert c t
