@@ -224,6 +224,31 @@ astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
 astPair :: AstSpan s
         => AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s (TKProduct x y)
+astPair (Ast.AstProject1 (Ast.AstVar var))
+        (Ast.AstProject2 (Ast.AstVar var'))
+  | Just Refl <- testEquality var var', var == var' =
+    Ast.AstVar var
+astPair (Ast.AstProject1 (Ast.AstPrimalPart (Ast.AstVar var)))
+        (Ast.AstProject2 (Ast.AstPrimalPart (Ast.AstVar var')))
+  | Just Refl <- testEquality var var', var == var' =
+    Ast.AstPrimalPart (Ast.AstVar var)
+astPair (Ast.AstProject1 (Ast.AstDualPart (Ast.AstVar var)))
+        (Ast.AstProject2 (Ast.AstDualPart (Ast.AstVar var')))
+  | Just Refl <- testEquality var var', var == var' =
+    Ast.AstDualPart (Ast.AstVar var)
+astPair (Ast.AstProject1 (Ast.AstPlainPart (Ast.AstVar @s1 var)))
+        (Ast.AstProject2 (Ast.AstPlainPart (Ast.AstVar @s2 var')))
+  | Just Refl <- sameAstSpan @s1 @s2
+  , Just Refl <- testEquality var var', var == var' =
+    Ast.AstPlainPart (Ast.AstVar var)
+astPair (Ast.AstProject1 (Ast.AstProject1 (Ast.AstVar var)))
+        (Ast.AstProject2 (Ast.AstProject1 (Ast.AstVar var')))
+  | Just Refl <- testEquality var var', var == var' =
+    Ast.AstProject1 (Ast.AstVar var)
+astPair (Ast.AstProject1 (Ast.AstProject2 (Ast.AstVar var)))
+        (Ast.AstProject2 (Ast.AstProject2 (Ast.AstVar var')))
+  | Just Refl <- testEquality var var', var == var' =
+    Ast.AstProject2 (Ast.AstVar var)
 astPair (Ast.AstFromPrimal v1) (Ast.AstFromPrimal v2) =
   fromPrimal $ astPair v1 v2
 astPair (Ast.AstFromDual v1) (Ast.AstFromDual v2) =
