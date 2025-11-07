@@ -23,7 +23,8 @@ module HordeAd.OpsTensorShaped
   , kconcrete
   , sfromList, sfromVector, sfromVector0N, sfromList0N, sunravelToList
     -- * Main array operations
-  , tunit, tlet, ifH, minH, maxH, tpair, tproject1, tproject2
+  , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
+  , tpair, tproject1, tproject2
   , ssum, ssum0, sdot0, sdot1In, smatvecmul, smatmul2, sreplicate, sreplicate0N
   , sindex, (!$), sindex0, soneHot, sscatter, sscatter1, sgather, sgather1
   , str, stranspose, sflatten, sreshape

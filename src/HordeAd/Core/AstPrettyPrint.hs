@@ -268,8 +268,8 @@ printAst cfg d = \case
     else let keyword = case ( sameAstSpan @s1 @PrimalSpan
                             , sameAstSpan @s1 @PlainSpan
                             , sameAstSpan @s @FullSpan ) of
-               (Just Refl, _, Just Refl) -> "ttletPrimal "
-               (_, Just Refl, Just Refl) -> "ttletPlain "
+               (Just Refl, _, Just Refl) -> "tletPrimal "
+               (_, Just Refl, Just Refl) -> "tletPlain "
                _ -> "tlet "
          in showParen (d > 10)
             $ showString keyword

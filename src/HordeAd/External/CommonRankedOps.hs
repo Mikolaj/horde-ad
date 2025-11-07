@@ -102,7 +102,7 @@ logistic :: forall target r n.
 logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   let one = rrepl (rshape d) 1
       y0 = recip (one + exp (- rprimalPart d))
-  in ttletPrimal y0 $ \y ->
+  in tletPrimal y0 $ \y ->
        rfromPrimal y + rfromDual (rScale @target (y * (one - y)) $ rdualPart d)
 
 -- Optimized and more clearly written @u ** 2@. It's not clear if this is
@@ -148,12 +148,12 @@ lossSoftMaxCrossEntropyR expected d' = tlet d' $ \d ->
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
   let u = rprimalPart d
       expU' = exp (u - rreplicate0N (rshape u) (rminimum u))
-  in ttletPrimal expU' $ \expU ->
+  in tletPrimal expU' $ \expU ->
     let softMaxU0 =
           let sumExpU = rsum0 expU
               recipSum = recip sumExpU
           in rreplicate0N (rshape u) recipSum * expU
-    in ttletPrimal softMaxU0 $ \softMaxU -> kfromR $
+    in tletPrimal softMaxU0 $ \softMaxU -> kfromR $
       tD knownSTK
          (negate $ log softMaxU `rdot0` expected)
            -- TODO: avoid: log . exp

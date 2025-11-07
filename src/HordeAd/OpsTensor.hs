@@ -27,7 +27,8 @@ module HordeAd.OpsTensor
   , sfromList, sfromVector, sfromVector0N, sfromList0N, sunravelToList
   , xfromList, xfromVector, xfromVector0N, xfromList0N, xunravelToList
     -- * Main array operations
-  , tunit, tlet, ifH, minH, maxH, tpair, tproject1, tproject2
+  , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
+  , tpair, tproject1, tproject2
   , rsum, rsum0, rdot0, rdot1In, rmatvecmul, rmatmul2, rreplicate, rreplicate0N
   , ssum, ssum0, sdot0, sdot1In, smatvecmul, smatmul2, sreplicate, sreplicate0N
   , xsum, xsum0, xdot0, xdot1In, xmatvecmul, xmatmul2, xreplicate, xreplicate0N
@@ -257,6 +258,12 @@ tunit = kconcrete Z1
 tlet :: forall x z target. LetTensor target
      => target x -> (target x -> target z) -> target z
 tlet = ttlet
+tletPrimal :: forall x z target. LetTensor target
+           => PrimalOf target x -> (PrimalOf target x -> target z) -> target z
+tletPrimal = ttletPrimal
+tletPlain :: forall x z target. LetTensor target
+          => PlainOf target x -> (PlainOf target x -> target z) -> target z
+tletPlain = ttletPlain
 
 -- | The operation is potentially strict in all arguments.
 ifH :: (KnownSTK y, Boolean (BoolOf target), BaseTensor target)

@@ -1197,7 +1197,7 @@ testScatterBuild12c =
                  [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @2
           (\t -> rindex (rbuild1 5 (\i ->
-             ttletPlain (i >. 2) $ \b ->
+             tletPlain (i >. 2) $ \b ->
                ifH (b &&* b)
                    (scatter12 t)
                    (rtranspose [1, 0] $ rreplicate 4 $ t ! [i]))
@@ -1633,7 +1633,7 @@ smaximum4 :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
           => target (TKS sh r) -> target (TKS '[] r)
 smaximum4 t0 =
   tlet t0 $ \t ->
-  ttletPrimal (tprimalPart $ kfromS $ smaxIndex (sflatten t)) $ \maxIndex ->
+  tletPrimal (tprimalPart $ kfromS $ smaxIndex (sflatten t)) $ \maxIndex ->
     sindex0 t
     $ fromLinearIdxS (kplainPart @target . kconcrete . fromIntegral)
                      (sshape t)

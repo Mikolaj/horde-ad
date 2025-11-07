@@ -84,7 +84,7 @@ logisticS :: forall target r sh.
 logisticS d0 = tlet d0 $ \d ->  -- used in rprimalPart and in sdualPart
   let one = srepl 1
       y0 = recip (one + exp (- sprimalPart d))
-  in ttletPrimal y0 $ \y ->
+  in tletPrimal y0 $ \y ->
        sfromPrimal y + sfromDual (sScale @target (y * (one - y)) $ sdualPart d)
 
 -- Optimized and more clearly written @u ** 2@. It's not clear if this is
@@ -134,7 +134,7 @@ lossSoftMaxCrossEntropyS expected d' = tlet d' $ \d ->
           let sumExpU = ssum0 expU
               recipSum = recip sumExpU
           in sreplicate0N recipSum * expU
-  in ttletPrimal softMaxU0 $ \softMaxU -> kfromS $
+  in tletPrimal softMaxU0 $ \softMaxU -> kfromS $
     tD knownSTK
        (negate $ log softMaxU `sdot0` expected)
          -- TODO: avoid: log . exp

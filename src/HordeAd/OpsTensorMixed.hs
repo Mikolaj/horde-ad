@@ -23,7 +23,8 @@ module HordeAd.OpsTensorMixed
   , kconcrete
   , xfromList, xfromVector, xfromVector0N, xfromList0N, xunravelToList
     -- * Main array operations
-  , tunit, tlet, ifH, minH, maxH, tpair, tproject1, tproject2
+  , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
+  , tpair, tproject1, tproject2
   , xsum, xsum0, xdot0, xdot1In, xmatvecmul, xmatmul2, xreplicate, xreplicate0N
   , xindex, xindex0, xoneHot, xscatter, xscatter1, xgather, xgather1
   , xtr, xtranspose, xflatten, xreshape
