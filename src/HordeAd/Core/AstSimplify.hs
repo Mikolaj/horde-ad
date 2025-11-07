@@ -1249,16 +1249,19 @@ astLet var (Ast.AstTransposeS perm a) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
       ast = Ast.AstTransposeS perm $ astVar var2
   in astLet var2 a (substituteAst ast var v)
-astLet var u@(AstFromS' FTKScalar _) v = Ast.AstLet var u v
+astLet var u@(AstFromS' FTKScalar _) v = case v of
+  AstFromS' FTKScalar _ -> Ast.AstLet var u v  -- repeated from below
+  Ast.AstConvert c v2 | checkAstFromS c v2 -> astConvert c $ astLet var u v2
+  _ -> Ast.AstLet var u v
 astLet var (Ast.AstConvert c a) v | checkAstFromS c a =
   let var2 =
         mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
       ast = astConvert c $ astVar var2
   in astLet var2 a (substituteAst ast var v)
-astLet var u v@(AstFromS' FTKScalar _) = Ast.AstLet var u v
-astLet var u (Ast.AstConvert c v) | checkAstFromS c v =
-  astConvert c $ astLet var u v
-astLet var u v = Ast.AstLet var u v
+astLet var u v = case v of
+  AstFromS' FTKScalar _ -> Ast.AstLet var u v
+  Ast.AstConvert c v2 | checkAstFromS c v2 -> astConvert c $ astLet var u v2
+  _ -> Ast.AstLet var u v
 
 astPrimalPart :: AstSpan s
               => AstTensor AstMethodLet s y
@@ -3570,7 +3573,17 @@ astConvert c a = case (ftkAst a, convertFTK c (ftkAst a)) of
     astConvertFromS c zftk a
   (yftk@FTKProduct{}, zftk) | checkFtkAstSFrom yftk zftk ->
     astConvertSFrom c zftk a
-  _ -> Ast.AstConvert c a
+  _ -> case a of  -- normalize somewhat even for, e.g., product to product
+    -- This may enlarge terms and it's not clear if this simplifies away.
+    -- Ast.AstCond b v w -> astCond b (astConvert c v) (astConvert c w)
+    Ast.AstLet var u v -> astLet var u (astConvert c v)
+    Ast.AstPrimalPart v -> astPrimalPart $ astConvert c v
+    Ast.AstDualPart v -> astDualPart $ astConvert c v
+    Ast.AstPlainPart v -> astPlainPart $ astConvert c v
+    Ast.AstFromPrimal v -> fromPrimal $ astConvert c v
+    Ast.AstFromDual v -> fromDual $ astConvert c v
+    Ast.AstFromPlain v -> fromPlain $ astConvert c v
+    _ -> Ast.AstConvert c a
 
 -- We are pulling conversions from shaped tensors up, generally.
 -- z is shaped or a product (presumably with some shaped components,
