@@ -186,14 +186,12 @@ instance ( ADReadyNoLet target, ShareTensor target
   trreplicate k (D u u') = withSNat k $ \snat ->
     dD (trreplicate k u) (DeltaReplicate snat knownSTK u')
   trindex (D u u') i =
-    let !ix = tshare . tplainPart <$> i
+    let !ix = tshare <$> i
     in dD (trindex u ix) (DeltaIndexR SNat u' ix)
   trscatter sh (D u u') f =
-    let g x = tplainPart <$> f (tfromPlain STKScalar <$> x)
-    in dD (trscatter sh u g) (DeltaScatterR SNat SNat SNat sh u' g)
+    dD (trscatter sh u f) (DeltaScatterR SNat SNat SNat sh u' f)
   trgather sh (D u u') f =
-    let g x = tplainPart <$> f (tfromPlain STKScalar <$> x)
-    in dD (trgather sh u g) (DeltaGatherR SNat SNat SNat sh u' g)
+    dD (trgather sh u f) (DeltaGatherR SNat SNat SNat sh u' f)
       -- Note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
       -- of f have to be computed and stored in contangent maps later on.
@@ -250,16 +248,14 @@ instance ( ADReadyNoLet target, ShareTensor target
            * tstranspose (Permutation.makePerm @'[1, 0])
                          (tsreplicate SNat knownShS m2))
   tsindex (D u u') i =
-    let !ix = tshare . tplainPart <$> i
+    let !ix = tshare <$> i
     in dD (tsindex u ix) (DeltaIndexS knownShS u' ix)
   tsscatter @shm @shn @shp (D u u') f =
-    let g x = tplainPart <$> f (tfromPlain STKScalar <$> x)
-    in dD (tsscatter @_ @shm @shn @shp u g)
-          (DeltaScatterS @shm @shn @shp knownShS knownShS knownShS u' g)
+    dD (tsscatter @_ @shm @shn @shp u f)
+       (DeltaScatterS @shm @shn @shp knownShS knownShS knownShS u' f)
   tsgather @shm @shn @shp (D u u') f =
-    let g x = tplainPart <$> f (tfromPlain STKScalar <$> x)
-    in dD (tsgather @_ @shm @shn @shp u g)
-          (DeltaGatherS @shm @shn @shp knownShS knownShS knownShS u' g)
+    dD (tsgather @_ @shm @shn @shp u f)
+       (DeltaGatherS @shm @shn @shp knownShS knownShS knownShS u' f)
   tsconcrete a =
     let v = tsconcrete a
     in fromPrimalFTK (FTKS (Nested.sshape a) FTKScalar) v
@@ -320,16 +316,14 @@ instance ( ADReadyNoLet target, ShareTensor target
   txreplicate snat sh (D u u') =
     dD (txreplicate snat sh u) (DeltaReplicate snat (STKX sh knownSTK) u')
   txindex (D u u') i =
-    let !ix = tshare . tplainPart <$> i
+    let !ix = tshare <$> i
     in dD (txindex u ix) (DeltaIndexX knownShX u' ix)
   txscatter @shm @shn @shp sh (D u u') f =
-    let g x = tplainPart <$> f (tfromPlain STKScalar <$> x)
-    in dD (txscatter @_ @shm @shn @shp sh u g)
-          (DeltaScatterX @shm @shn @shp knownShX knownShX knownShX sh u' g)
+    dD (txscatter @_ @shm @shn @shp sh u f)
+       (DeltaScatterX @shm @shn @shp knownShX knownShX knownShX sh u' f)
   txgather @shm @shn @shp sh (D u u') f =
-    let g x = tplainPart <$> f (tfromPlain STKScalar <$> x)
-    in dD (txgather @_ @shm @shn @shp sh u g)
-          (DeltaGatherX @shm @shn @shp knownShX knownShX knownShX sh u' g)
+    dD (txgather @_ @shm @shn @shp sh u f)
+       (DeltaGatherX @shm @shn @shp knownShX knownShX knownShX sh u' f)
   txconcrete a =
     let v = txconcrete a
     in fromPrimalFTK (FTKX (Nested.mshape a) FTKScalar) v
