@@ -91,7 +91,8 @@ build1VOccurrenceUnknown
 build1VOccurrenceUnknown snat@SNat (!var, !v0)
   | stk0 <- ftkToSTK (ftkAst v0) =
     let traceRule =
-          mkTraceRule "build1VOcc" (Ast.AstBuild1 snat stk0 (var, v0)) v0 1
+          mkTraceRule "build1VOcc" (Ast.AstBuild1 snat stk0 (var, v0))
+                      (buildFTK snat (ftkAst v0)) v0 1
     in if varNameInAst var v0
        then build1V snat (var, v0)
        else traceRule $
@@ -123,7 +124,7 @@ build1V
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
   let bv = Ast.AstBuild1 snat (ftkToSTK ftk0) (var, v0)
-      traceRule = mkTraceRule "build1V" bv v0 1
+      traceRule = mkTraceRule "build1V" bv (buildFTK snat (ftkAst v0)) v0 1
   in case v0 of
     Ast.AstPair t1 t2 -> traceRule $
       astPair (build1VOccurrenceUnknown snat (var, t1))
@@ -388,9 +389,11 @@ build1VIndexS
   -> AstTensor AstMethodLet s (TKS2 (k ': shn) x)
 build1VIndexS k _ (!var, !v0, ZIS) =
   build1VOccurrenceUnknown k (var, v0)
-build1VIndexS k@SNat shn (var, v0, ix) | STKS _ x <- ftkToSTK (ftkAst v0) =
-  let vTrace = Ast.AstBuild1 k (STKS shn x) (var, Ast.AstIndexS shn v0 ix)
-      traceRule = mkTraceRule "build1VIndexS" vTrace v0 1
+build1VIndexS k@SNat shn (var, v0, ix) | FTKS _ x' <- ftkAst v0 =
+  let x = ftkToSTK x'
+      vTrace = Ast.AstBuild1 k (STKS shn x) (var, Ast.AstIndexS shn v0 ix)
+      traceRule = mkTraceRule "build1VIndexS" vTrace
+                              (buildFTK k (FTKS shn x')) v0 1
   in if varNameInAst var v0
      then case astIndexKnobsS (defaultKnobs {knobPhase = PhaseVectorization})
                               shn v0 ix of  -- push deeper
@@ -403,21 +406,28 @@ build1VIndexS k@SNat shn (var, v0, ix) | STKS _ x <- ftkToSTK (ftkAst v0) =
                        shn1 (build1VOccurrenceUnknown k (var, v1))
                        (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = ixsLength ix1
-         in if varNameInAst var v1
-            then case v1 of  -- try to avoid ruleD if not a normal form
-              Ast.AstFromVector{} | len == 1 -> ruleD
-              Ast.AstScatterS{} -> ruleD
-              Ast.AstGatherS{} -> ruleD
-              -- These can only be simplified to the AstFromVector NF above.
-              Ast.AstReplicate{} -> ruleD
-              Ast.AstAppendS{} -> ruleD
-              -- These, in general, simplify to gathers, so as bad as ruleD.
-              Ast.AstTransposeS{} -> ruleD
-              Ast.AstReshapeS{} -> ruleD
-              -- Rarely these don't simplify enough; left as an escape hatch:
-              -- (TODO: simplify better)
-              Ast.AstConvert{} -> ruleD
-              _ -> build1VOccurrenceUnknown k (var, v)  -- not a normal form
+             pickRuleD :: AstTensor AstMethodLet s2 y2 -> Bool
+             pickRuleD = \case  -- try to avoid ruleD if not a normal form
+               Ast.AstFromVector{} -> len == 1
+               Ast.AstScatterS{} -> True
+               Ast.AstGatherS{} -> True
+               Ast.AstMapAccumRDer{} -> True
+               Ast.AstMapAccumLDer{} -> True
+               -- These can only be simplified to the AstFromVector NF above.
+               Ast.AstReplicate{} -> True
+               Ast.AstAppendS{} -> True
+               -- These, in general, simplify to gathers, so as bad as ruleD.
+               Ast.AstTransposeS{} -> True
+               Ast.AstReshapeS{} -> True
+               -- Rarely these don't simplify enough; left as an escape hatch:
+               -- (TODO: simplify better)
+               Ast.AstConvert{} -> True
+               -- Hard to tell just from the prefix:
+               Ast.AstProject1 v2 -> pickRuleD v2
+               Ast.AstProject2 v2 -> pickRuleD v2
+               _ -> False  -- not a normal form
+         in if varNameInAst var v1 && pickRuleD v1
+            then ruleD
             else build1VOccurrenceUnknown k (var, v)  -- shortcut
        v -> traceRule $
          build1VOccurrenceUnknown k (var, v)
@@ -556,15 +566,20 @@ ellipsisString width full = let cropped = take width full
                                then cropped
                                else take (width - 3) cropped ++ "..."
 
+-- We can't force @to@, because we want the debug info displayed before
+-- @to@ is evaluated (or diverges).
+-- TODO: switch away from IORefs to ensure correct blocking and then
+-- really display the first part of the message before @to@ diverges.
 mkTraceRule :: forall y z s. AstSpan s
             => String
             -> AstTensor AstMethodLet s y
+            -> FullShapeTK y
             -> AstTensor AstMethodLet s z
             -> Int
             -> AstTensor AstMethodLet s y
             -> AstTensor AstMethodLet s y
 {-# NOINLINE mkTraceRule #-}
-mkTraceRule !prefix !from !caseAnalysed !nwords ~to = unsafePerformIO $ do
+mkTraceRule prefix from !fromFTK caseAnalysed nwords ~to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = traceWidth
       constructorName =
@@ -586,9 +601,9 @@ mkTraceRule !prefix !from !caseAnalysed !nwords ~to = unsafePerformIO $ do
                             ++ " sends " ++ padString width stringFrom
                             ++ " to " ++ padString width stringTo
     modifyIORef' traceNestingLevel pred
-  let !_A = assert (ftkAst from == ftkAst to
+  let !_A = assert (fromFTK == ftkAst to
                     `blame` "mkTraceRule: term shape changed"
-                    `swith`( ftkAst from, ftkAst to
+                    `swith`( fromFTK, ftkAst to
                            , from, to )) ()
   return $! to
 
