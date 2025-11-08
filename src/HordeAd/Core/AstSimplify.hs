@@ -1164,7 +1164,7 @@ astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
 astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
   fromDual $ astCond b v w
 astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
-  fromPlain $ astCond (plainPart b) v w
+  fromPlain $ astCond b v w
 astCond b v@(AstFromS' FTKScalar _) w = Ast.AstCond b v w
 -- We rely here on c and the other conversion being semantically equal.
 astCond b (Ast.AstConvert c v) (AstFromS' _ w) =
