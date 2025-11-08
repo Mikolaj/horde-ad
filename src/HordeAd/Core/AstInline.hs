@@ -185,16 +185,14 @@ inlineAst memo v0 = case v0 of
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
-        count = shsSize (shsFromIxS ix) * shsSize shn
-        memoI2 = EM.map (count *) memoI0
+        memoI2 = EM.map (shsSize (shsFromIxS ix) *) memoI0
         memo2 = EM.unionWith (+) memo1 memoI2
         !ix3 = withKnownShS (shsFromIxS ix) $ fromList ix2
     in (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
-        count = shsSize (shsFromListS vars) * shsSize shn
-        memoI2 = EM.map (count *) memoI0
+        memoI2 = EM.map (shsSize (shsFromListS vars) *) memoI0
         memo2 = EM.unionWith (+) memo1 memoI2
         !ix3 = withKnownShS (shsFromIxS ix) $ fromList ix2
     in (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, ix3))
