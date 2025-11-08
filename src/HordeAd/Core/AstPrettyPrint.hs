@@ -108,7 +108,13 @@ printAst cfg d = \case
         . (showParen True
            $ showString "fromList "
              . showListWith (printAst cfg 0) (V.toList l))
-    _ ->  -- scalar and product
+    STKScalar ->
+      showParen (d > 10)
+      $ showString "sfromVector "
+        . (showParen True
+           $ showString "fromList "
+             . showListWith (printAst cfg 0) (V.toList l))
+    _ ->  -- product
       showParen (d > 10)
       $ showString "tfromVector "
         . (showParen True
@@ -126,6 +132,8 @@ printAst cfg d = \case
                             ("ssum @" ++ show (sNatValue snat)) [v]
     STKX{} -> printPrefixOp printAst cfg d
                             ("xsum @" ++ show (sNatValue snat)) [v]
+    STKScalar -> printPrefixOp printAst cfg d
+                               ("ssum @" ++ show (sNatValue snat)) [v]
     _ ->  -- scalar and product
       printPrefixOp printAst cfg d
                     ("tsum (" ++ show snat ++ ") (" ++ show stk ++ ")") [v]
@@ -137,7 +145,9 @@ printAst cfg d = \case
                             ("sreplicate @" ++ show (sNatValue snat)) [v]
     STKX{} -> printPrefixOp printAst cfg d
                             ("xreplicate @" ++ show (sNatValue snat)) [v]
-    _ ->  -- scalar and product
+    STKScalar -> printPrefixOp printAst cfg d
+                               ("sreplicate @" ++ show (sNatValue snat)) [v]
+    _ ->  -- product
       printPrefixOp
         printAst cfg d
         ("treplicate (" ++ show snat ++ ") (" ++ show stk ++ ")") [v]
