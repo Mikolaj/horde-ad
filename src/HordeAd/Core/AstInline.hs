@@ -91,8 +91,8 @@ inlineAst memo v0 = case v0 of
     in (memo5, Ast.AstCond b1 t2 t3)
   Ast.AstBuild1 k stk (var, v) ->
     let (memoV0, !v2) = inlineAst EM.empty v
-        memo1 = EM.unionWith
-                  (\c1 c0 -> c1 + sNatValue k * c0) memo memoV0
+        memoV2 = EM.map (sNatValue k *) memoV0
+        memo1 = EM.unionWith (+) memo memoV2
     in (memo1, Ast.AstBuild1 k stk (var, v2))
 
   Ast.AstLet var u v ->
@@ -109,7 +109,9 @@ inlineAst memo v0 = case v0 of
       1 -> (memo2, substituteAst u2 var v2)
       count | astIsSmall (count < 10) u ->
         let (memoU0, u0) = inlineAst EM.empty u
-            memo3 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1NoVar memoU0
+            memoU2 = EM.map (count *) memoU0
+              -- TODO: instead pass count as arg to inlineAst
+            memo3 = EM.unionWith (+) memo1NoVar memoU2
                       -- u is small, so the union is fast
         in (memo3, substituteAst u0 var v2)
       _ -> (memo2, Ast.AstLet var u2 v2)
@@ -184,14 +186,16 @@ inlineAst memo v0 = case v0 of
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
         count = shsSize (shsFromIxS ix) * shsSize shn
-        memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
+        memoI2 = EM.map (count *) memoI0
+        memo2 = EM.unionWith (+) memo1 memoI2
         !ix3 = withKnownShS (shsFromIxS ix) $ fromList ix2
     in (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
         count = shsSize (shsFromListS vars) * shsSize shn
-        memo2 = EM.unionWith (\c1 c0 -> c1 + count * c0) memo1 memoI0
+        memoI2 = EM.map (count *) memoI0
+        memo2 = EM.unionWith (+) memo1 memoI2
         !ix3 = withKnownShS (shsFromIxS ix) $ fromList ix2
     in (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
