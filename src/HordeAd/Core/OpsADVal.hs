@@ -195,7 +195,7 @@ instance ( ADReadyNoLet target, ShareTensor target
       -- Note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
       -- of f have to be computed and stored in contangent maps later on.
-      -- Note also how g is duplicated and this leads to loss of sharing
+      -- Note also how f is duplicated and this leads to loss of sharing
       -- of indexes in AST instances.
   trconcrete a =
     let v = trconcrete a

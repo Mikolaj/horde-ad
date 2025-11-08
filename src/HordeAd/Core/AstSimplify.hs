@@ -331,17 +331,13 @@ astProject1 u = case u of
                                         (AstLambda varr2 vr2) acc0 es
   Ast.AstCond b v1 v2 -> astCond b (astProject1 v1) (astProject1 v2)
   Ast.AstLet var t v -> astLet var t (astProject1 v)
+  Ast.AstPrimalPart v -> astPrimalPart $ astProject1 v
+  Ast.AstDualPart v -> astDualPart $ astProject1 v
+  Ast.AstPlainPart v -> astPlainPart $ astProject1 v
   Ast.AstFromPrimal u1 -> fromPrimal $ astProject1 u1
   Ast.AstFromDual u1 -> fromDual $ astProject1 u1
   Ast.AstFromPlain u1 -> fromPlain $ astProject1 u1
-  Ast.AstConvert c t | FTKProduct yftk _ <- ftkAst t
-                     , FTKProduct zftk _ <- convertFTK c (ftkAst t)
-                     , Just Refl <- matchingFTK yftk zftk -> astProject1 t
-  -- TODO: generalize this somehow to arbitrary Conversions of the right type.
-  -- At worst, just generate the canonical (?) c1 for the types at hand.
-  Ast.AstConvert c@(ConvT2 c1 _c2) t
-    | checkAstFromS c t ->
-      astConvert c1 $ astProject1 t
+  Ast.AstConvert (ConvT2 c1 _c2) t -> astConvert c1 $ astProject1 t
   _ -> Ast.AstProject1 u
 
 astProject2
@@ -357,15 +353,13 @@ astProject2 u = case u of
     astReplicate snat stk2 (astProject2 x)
   Ast.AstCond b v1 v2 -> astCond b (astProject2 v1) (astProject2 v2)
   Ast.AstLet var t v -> astLet var t (astProject2 v)
+  Ast.AstPrimalPart v -> astPrimalPart $ astProject2 v
+  Ast.AstDualPart v -> astDualPart $ astProject2 v
+  Ast.AstPlainPart v -> astPlainPart $ astProject2 v
   Ast.AstFromPrimal u1 -> fromPrimal $ astProject2 u1
   Ast.AstFromDual u1 -> fromDual $ astProject2 u1
   Ast.AstFromPlain u1 -> fromPlain $ astProject2 u1
-  Ast.AstConvert c t | FTKProduct _ yftk <- ftkAst t
-                     , FTKProduct _ zftk <- convertFTK c (ftkAst t)
-                     , Just Refl <- matchingFTK yftk zftk -> astProject2 t
-  Ast.AstConvert c@(ConvT2 _c1 c2) t
-    | checkAstFromS c t ->
-      astConvert c2 $ astProject2 t
+  Ast.AstConvert (ConvT2 _c1 c2) t -> astConvert c2 $ astProject2 t
   _ -> Ast.AstProject2 u
 
 astFromVector :: forall y k s. AstSpan s
@@ -1268,8 +1262,29 @@ astPrimalPart :: AstSpan s
               -> AstTensor AstMethodLet (PrimalStepSpan s) y
 astPrimalPart t = case t of
   Ast.AstPair t1 t2 -> astPair (astPrimalPart t1) (astPrimalPart t2)
-  Ast.AstProject1 v -> astProject1 (astPrimalPart v)
-  Ast.AstProject2 v -> astProject2 (astPrimalPart v)
+  -- We really need equality saturation...
+  Ast.AstProject1 u@Ast.AstMapAccumRDer{} -> astProject1 $ astPrimalPart u
+  Ast.AstProject2 u@Ast.AstMapAccumRDer{} -> astProject2 $ astPrimalPart u
+  Ast.AstProject1 u@(Ast.AstProject1 Ast.AstMapAccumRDer{}) ->
+    astProject1 $ astPrimalPart u
+  Ast.AstProject1 u@(Ast.AstProject2 Ast.AstMapAccumRDer{}) ->
+    astProject1 $ astPrimalPart u
+  Ast.AstProject2 u@(Ast.AstProject2 Ast.AstMapAccumRDer{}) ->
+    astProject2 $ astPrimalPart u
+  Ast.AstProject2 u@(Ast.AstProject1 Ast.AstMapAccumRDer{}) ->
+    astProject2 $ astPrimalPart u
+  Ast.AstProject1 u@Ast.AstMapAccumLDer{} -> astProject1 $ astPrimalPart u
+  Ast.AstProject2 u@Ast.AstMapAccumLDer{} -> astProject2 $ astPrimalPart u
+  Ast.AstProject1 u@(Ast.AstProject1 Ast.AstMapAccumLDer{}) ->
+    astProject1 $ astPrimalPart u
+  Ast.AstProject1 u@(Ast.AstProject2 Ast.AstMapAccumLDer{}) ->
+    astProject1 $ astPrimalPart u
+  Ast.AstProject2 u@(Ast.AstProject2 Ast.AstMapAccumLDer{}) ->
+    astProject2 $ astPrimalPart u
+  Ast.AstProject2 u@(Ast.AstProject1 Ast.AstMapAccumLDer{}) ->
+    astProject2 $ astPrimalPart u
+  Ast.AstProject1{} -> Ast.AstPrimalPart t
+  Ast.AstProject2{} -> Ast.AstPrimalPart t
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map astPrimalPart l)
   Ast.AstSum snat stk v ->
     astSum snat stk (astPrimalPart v)
@@ -1336,7 +1351,7 @@ astPrimalPart t = case t of
   Ast.AstFromDual v ->
     let ftk = ftkAst v
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
-  Ast.AstFromPlain v -> Ast.AstFromPlain v
+  Ast.AstFromPlain v -> fromPlain v
 
   AstPlusK u v -> astPrimalPart u + astPrimalPart v
   AstTimesK u v -> astPrimalPart u * astPrimalPart v
@@ -1404,8 +1419,8 @@ astDualPart :: AstTensor AstMethodLet FullSpan y
             -> AstTensor AstMethodLet DualSpan y
 astDualPart t = case t of
   Ast.AstPair t1 t2 -> astPair (astDualPart t1) (astDualPart t2)
-  Ast.AstProject1 v -> astProject1 (astDualPart v)
-  Ast.AstProject2 v -> astProject2 (astDualPart v)
+  Ast.AstProject1{} -> Ast.AstDualPart t
+  Ast.AstProject2{} -> Ast.AstDualPart t
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map astDualPart l)
   Ast.AstSum snat stk v ->
     astSum snat stk (astDualPart v)
@@ -1535,8 +1550,29 @@ astPlainPart :: forall y s. AstSpan s
 astPlainPart t = case t of
   _ | Just Refl <- sameAstSpan @s @PlainSpan -> t
   Ast.AstPair t1 t2 -> astPair (astPlainPart t1) (astPlainPart t2)
-  Ast.AstProject1 v -> astProject1 (astPlainPart v)
-  Ast.AstProject2 v -> astProject2 (astPlainPart v)
+  -- We really need equality saturation...
+  Ast.AstProject1 u@Ast.AstMapAccumRDer{} -> astProject1 $ astPlainPart u
+  Ast.AstProject2 u@Ast.AstMapAccumRDer{} -> astProject2 $ astPlainPart u
+  Ast.AstProject1 u@(Ast.AstProject1 Ast.AstMapAccumRDer{}) ->
+    astProject1 $ astPlainPart u
+  Ast.AstProject1 u@(Ast.AstProject2 Ast.AstMapAccumRDer{}) ->
+    astProject1 $ astPlainPart u
+  Ast.AstProject2 u@(Ast.AstProject2 Ast.AstMapAccumRDer{}) ->
+    astProject2 $ astPlainPart u
+  Ast.AstProject2 u@(Ast.AstProject1 Ast.AstMapAccumRDer{}) ->
+    astProject2 $ astPlainPart u
+  Ast.AstProject1 u@Ast.AstMapAccumLDer{} -> astProject1 $ astPlainPart u
+  Ast.AstProject2 u@Ast.AstMapAccumLDer{} -> astProject2 $ astPlainPart u
+  Ast.AstProject1 u@(Ast.AstProject1 Ast.AstMapAccumLDer{}) ->
+    astProject1 $ astPlainPart u
+  Ast.AstProject1 u@(Ast.AstProject2 Ast.AstMapAccumLDer{}) ->
+    astProject1 $ astPlainPart u
+  Ast.AstProject2 u@(Ast.AstProject2 Ast.AstMapAccumLDer{}) ->
+    astProject2 $ astPlainPart u
+  Ast.AstProject2 u@(Ast.AstProject1 Ast.AstMapAccumLDer{}) ->
+    astProject2 $ astPlainPart u
+  Ast.AstProject1{} -> Ast.AstPlainPart t
+  Ast.AstProject2{} -> Ast.AstPlainPart t
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map astPlainPart l)
   Ast.AstSum snat stk v ->
     astSum snat stk (astPlainPart v)
@@ -3658,12 +3694,6 @@ astConvertSFromK :: forall r s. AstSpan s
                  -> AstTensor AstMethodLet s (TKS '[] r)
 astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
-  {- TODO: this is the right thing to do, but it results in unreadable
-     terms with big tconvert wrappers over product type variables
-  Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
-    astProject1 $ astSFrom' (ftkToSTK $ FTKProduct zftk ftk2) t
-  Ast.AstProject2 t | FTKProduct ftk1 _ <- ftkAst t ->
-    astProject2 $ astSFrom' (ftkToSTK $ FTKProduct ftk1 zftk) t -}
   Ast.AstProject1{} -> Ast.AstConvert c a0
   Ast.AstProject2{} -> Ast.AstConvert c a0
   Ast.AstSum snat@SNat STKScalar a -> astSum snat (STKS ZSS STKScalar) a
@@ -3712,12 +3742,6 @@ astConvertSFromR :: forall sh x s. AstSpan s
                  -> AstTensor AstMethodLet s (TKS2 sh x)
 astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
-  {- TODO: this is the right thing to do, but it results in unreadable
-     terms with big tconvert wrappers over product type variables
-  Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
-    astProject1 $ astSFrom' (ftkToSTK $ FTKProduct zftk ftk2) t
-  Ast.AstProject2 t | FTKProduct ftk1 _ <- ftkAst t ->
-    astProject2 $ astSFrom' (ftkToSTK $ FTKProduct ftk1 zftk) t -}
   Ast.AstProject1{} -> Ast.AstConvert c a0
   Ast.AstProject2{} -> Ast.AstConvert c a0
   -- TODO: here and elsewhere, make sure the generated c2 is unique/correct
@@ -3766,12 +3790,6 @@ astConvertSFromX :: forall sh shx x s. (AstSpan s, Rank shx ~ Rank sh)
                  -> AstTensor AstMethodLet s (TKS2 sh x)
 astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
-  {- TODO: this is the right thing to do, but it results in unreadable
-     terms with big tconvert wrappers over product type variables
-  Ast.AstProject1 t | FTKProduct _ ftk2 <- ftkAst t ->
-    astProject1 $ astSFrom' (ftkToSTK $ FTKProduct zftk ftk2) t
-  Ast.AstProject2 t | FTKProduct ftk1 _ <- ftkAst t ->
-    astProject2 $ astSFrom' (ftkToSTK $ FTKProduct ftk1 zftk) t -}
   Ast.AstProject1{} -> Ast.AstConvert c a0
   Ast.AstProject2{} -> Ast.AstConvert c a0
   Ast.AstFromVector snat@SNat (STKX @shx2 _ xstk) l -> case sh of
@@ -3841,6 +3859,13 @@ astConvertSFrom c zftk t = case (zftk, ftkAst t) of
       -- so we always create a canonical one.
       astPair (astConvertSFrom (convSFrom yftk1 (ftkToSTK zftk1)) zftk1 a1)
               (astConvertSFrom (convSFrom yftk2 (ftkToSTK zftk2)) zftk2 a2)
+    Ast.AstLet var u v -> astLet var u (astConvertSFrom c zftk v)
+    Ast.AstPrimalPart v -> astPrimalPart $ astConvertSFrom c zftk v
+    Ast.AstDualPart v -> astDualPart $ astConvertSFrom c zftk v
+    Ast.AstPlainPart v -> astPlainPart $ astConvertSFrom c zftk v
+    Ast.AstFromPrimal v -> fromPrimal $ astConvertSFrom c zftk v
+    Ast.AstFromDual v -> fromDual $ astConvertSFrom c zftk v
+    Ast.AstFromPlain v -> fromPlain $ astConvertSFrom c zftk v
     _ -> Ast.AstConvert c t  -- don't introduce let just to push a conversion
   (_, yftk) ->
     error $ "astConvertSFrom: wrong tensor kinds: " ++ show (yftk, zftk, t)
