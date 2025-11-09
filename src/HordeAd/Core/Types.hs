@@ -32,7 +32,7 @@ module HordeAd.Core.Types
   , shxTake, shxDrop, ixxTake, ixxDrop'
   , listsTakeLen, listsDropLen, shsDropLen
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
-  , shCastSX
+  , shCastSX, lemRankMapJust'
   , shsFromIxS, shsFromListS
   , normalizePermutationHack, backpermCycle, permCycle
   , permUnShift1
@@ -74,7 +74,7 @@ import System.Random
 import Type.Reflection (Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (type (++))
+import Data.Array.Nested (MapJust, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (shxFromShS)
 import Data.Array.Nested.Mixed qualified as Mixed
@@ -560,6 +560,11 @@ zeroOfX fromInt ((:$%) _ sh) = fromInt 0 :.% zeroOfX fromInt sh
 -- The constraint is erroneously reported as redundant.
 shCastSX :: Rank sh ~ Rank sh' => StaticShX sh' -> ShS sh -> IShX sh'
 shCastSX ssx sh = shxCast' ssx (shxFromShS sh)
+
+-- Sometimes ShS is not available.
+lemRankMapJust' :: proxy sh -> Rank (MapJust sh) :~: Rank sh
+lemRankMapJust' _ = unsafeCoerceRefl
+
 
 -- ** Permutation-related operations
 
