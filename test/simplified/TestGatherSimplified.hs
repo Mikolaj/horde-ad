@@ -8,12 +8,14 @@ module TestGatherSimplified (testTrees) where
 import Prelude
 
 import Data.Int (Int64)
+import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (Div, KnownNat, type (<=))
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
@@ -1326,7 +1328,7 @@ conv2dSame2 a =
   rbuild [3, 3, 2, 2] $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez2 a [iImg, 0, iBh, iBw]
-      in rindex0 arrAt [0, iBw, iBw, 0]
+      in rindex @_ @0 arrAt [0, iBw, iBw, 0]
     _ -> error "conv2dSame2: impossible pattern needlessly required"
 
 slicez2
@@ -1343,7 +1345,7 @@ indexz02 d ix = ifH (1 ==. (toList ix !! 0)) (d ! ix) (rscalar 0)
 
 rmaximum2 :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
          => target (TKR 4 r) -> target (TKR 0 r)
-rmaximum2 t0 = tlet t0 $ \t -> rindex0 t [0, 0, 0, 0]
+rmaximum2 t0 = tlet t0 $ \t -> rindex t [0, 0, 0, 0]
 
 {- TODO: divergent result; bring back when GHC 9.10 dropped:
 testCNNOPP3 :: Assertion
@@ -1395,7 +1397,7 @@ conv2dSame3 arrA =
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez4 shB arrA [iImg, 0, iBw, 1]
-      in rindex0 arrAt [0, iBw, iImg, iBh] + rindex0 arrAt [iImg, 1, iBw + 1, iBh]
+      in rindex @_ @0 arrAt [0, iBw, iImg, iBh] + rindex arrAt [iImg, 1, iBw + 1, iBh]
     _ -> error "conv2dSame3: impossible pattern needlessly required"
 
 slicez3
@@ -1420,7 +1422,7 @@ within3 sh ix =
 
 rmaximum3 :: (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
          => target (TKR n r) -> target (TKR 0 r)
-rmaximum3 t0 = tlet t0 $ \t -> rindex0 t [0, 0, 0, 0]
+rmaximum3 t0 = tlet t0 $ \t -> rindex t [0, 0, 0, 0]
 
 testCNNOPP4 :: Assertion
 testCNNOPP4 = do
@@ -1509,7 +1511,7 @@ conv2dSame4 arrA =
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez4 shB arrA [iImg, 0, iBh, iBw]
-      in rindex0 arrAt [0, 0, 0, 0]
+      in rindex @_ @0 arrAt [0, 0, 0, 0]
     _ -> error "conv2dSame4: impossible pattern needlessly required"
 
 slicez4
@@ -1558,7 +1560,7 @@ conv2dSame3z arrA =
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez3 shB arrA [iImg, iImg, iImg, iBw]
-      in rindex0 arrAt [iBh, iBw, iImg, iBh]
+      in rindex @_ @0 arrAt [iBh, iBw, iImg, iBh]
     _ -> error "conv2dSame3z: impossible pattern needlessly required"
 
 testCNNOPP7 :: Assertion
@@ -1611,7 +1613,7 @@ conv2dSame3y arrA =
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez3 shB arrA [iImg, iImg, iImg, iBh]
-      in rindex0 arrAt [iBh, iBw, iImg, iBh]
+      in rindex @_ @0 arrAt [iBh, iBw, iImg, iBh]
     _ -> error "conv2dSame3y: impossible pattern needlessly required"
 
 -- This test uses a disastrous version of smaximum, but shows how
@@ -1631,10 +1633,10 @@ testCNNOPP4bU = do
 
 smaximum4 :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
           => target (TKS sh r) -> target (TKS '[] r)
-smaximum4 t0 =
+smaximum4 t0 | Refl <- lemAppNil @sh =
   tlet t0 $ \t ->
   tletPrimal (tprimalPart $ kfromS $ smaxIndex (sflatten t)) $ \maxIndex ->
-    sindex0 t
+    sindex t
     $ fromLinearIdxS (kplainPart @target . kconcrete . fromIntegral)
                      (sshape t)
                      (kplainPart $ kfromPrimal @target maxIndex)

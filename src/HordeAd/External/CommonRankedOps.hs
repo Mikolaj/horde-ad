@@ -33,7 +33,7 @@ rminimum :: forall target n r.
          => target (TKR n r) -> target (TKR 0 r)
 rminimum t =
   tlet (rflatten t) $ \tf ->
-    rindex0 tf (tplainPart (kfromR (rminIndex tf)) :.: ZIR)
+    rindex tf (tplainPart (kfromR (rminIndex tf)) :.: ZIR)
 
 rmaximum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
@@ -41,7 +41,7 @@ rmaximum :: forall target n r.
          => target (TKR n r) -> target (TKR 0 r)
 rmaximum t =
   tlet (rflatten t) $ \tf ->
-    rindex0 tf (tplainPart (kfromR (rmaxIndex tf)) :.: ZIR)
+    rindex tf (tplainPart (kfromR (rmaxIndex tf)) :.: ZIR)
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, ConvertTensor target, NumScalar r)
@@ -271,7 +271,7 @@ slicez
   :: (ADReady target, NumScalar r, KnownNat n)
   => IShR n -> target (TKR n r) -> IxROf target n -> target (TKR n r)
 slicez shOut d ixBase =
-  rbuild shOut $ \ixResult -> rindex0 d (ixrZipWith (+) ixBase ixResult)
+  rbuild shOut $ \ixResult -> rindex @_ @0 d (ixrZipWith (+) ixBase ixResult)
 
 maxPool2dUnpadded
   :: (ADReady target, NumScalar r)

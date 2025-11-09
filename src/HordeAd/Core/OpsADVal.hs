@@ -188,6 +188,10 @@ instance ( ADReadyNoLet target, ShareTensor target
   trindex (D u u') i =
     let !ix = tshare <$> i
     in dD (trindex u ix) (DeltaIndexR SNat u' ix)
+  trindex0 (D u u') i =
+    let !ix = tshare <$> i
+        c = convCmp ConvX0 ConvRX
+    in dD (trindex0 u ix) (DeltaConvert c (DeltaIndexR (SNat @0) u' ix))
   trscatter sh (D u u') f =
     dD (trscatter sh u f) (DeltaScatterR SNat SNat SNat sh u' f)
   trgather sh (D u u') f =
@@ -250,6 +254,10 @@ instance ( ADReadyNoLet target, ShareTensor target
   tsindex (D u u') i =
     let !ix = tshare <$> i
     in dD (tsindex u ix) (DeltaIndexS knownShS u' ix)
+  tsindex0 @sh (D u u') i | Refl <- lemAppNil @sh =
+    let !ix = tshare <$> i
+        c = convCmp ConvX0 ConvSX
+    in dD (tsindex0 u ix) (DeltaConvert c (DeltaIndexS ZSS u' ix))
   tsscatter @shm @shn @shp (D u u') f =
     dD (tsscatter @_ @shm @shn @shp u f)
        (DeltaScatterS @shm @shn @shp knownShS knownShS knownShS u' f)
@@ -318,6 +326,10 @@ instance ( ADReadyNoLet target, ShareTensor target
   txindex (D u u') i =
     let !ix = tshare <$> i
     in dD (txindex u ix) (DeltaIndexX knownShX u' ix)
+  txindex0 @sh (D u u') i | Refl <- lemAppNil @sh =
+    let !ix = tshare <$> i
+        c = ConvX0
+    in dD (txindex0 u ix) (DeltaConvert c (DeltaIndexX ZKX u' ix))
   txscatter @shm @shn @shp sh (D u u') f =
     dD (txscatter @_ @shm @shn @shp sh u f)
        (DeltaScatterX @shm @shn @shp knownShX knownShX knownShX sh u' f)

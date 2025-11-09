@@ -156,6 +156,13 @@ interpretAstPrimal !env v1 = case v1 of
           _ -> tscast @_ @Float $ interpretAstPrimal env v
         _ -> tscast $ interpretAstPrimal env v
 
+  AstFromS' ftk (AstIndexS @sh1 ZSS v ix) | FTKS _ ftk2@FTKScalar <- ftkAst v
+                                          , Just Refl <- matchingFTK ftk ftk2
+                                          , Refl <- lemAppNil @sh1 ->
+    withKnownShS (shsFromIxS ix) $
+    let v2 = interpretAstPrimal env v
+        ix3 = interpretAstPlain env <$> ix
+    in tsindex0 v2 ix3
   AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS (shsFromIxS ix) $
@@ -349,6 +356,13 @@ interpretAstPlain !env v1 = case v1 of
           _ -> tscast @_ @Float $ interpretAstPlain env v
         _ -> tscast $ interpretAstPlain env v
 
+  AstFromS' ftk (AstIndexS @sh1 ZSS v ix) | FTKS _ ftk2@FTKScalar <- ftkAst v
+                                          , Just Refl <- matchingFTK ftk ftk2
+                                          , Refl <- lemAppNil @sh1 ->
+    withKnownShS (shsFromIxS ix) $
+    let v2 = interpretAstPlain env v
+        ix3 = interpretAstPlain env <$> ix
+    in tsindex0 v2 ix3
   AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS (shsFromIxS ix) $
@@ -664,6 +678,13 @@ interpretAst !env = \case
           _ -> tscast @_ @Float $ interpretAst env v
         _ -> tscast $ interpretAst env v
 
+  AstFromS' ftk (AstIndexS @sh1 ZSS v ix) | FTKS _ ftk2@FTKScalar <- ftkAst v
+                                          , Just Refl <- matchingFTK ftk ftk2
+                                          , Refl <- lemAppNil @sh1 ->
+    withKnownShS (shsFromIxS ix) $
+    let v2 = interpretAst env v
+        ix3 = interpretAstPlain env <$> ix
+    in tsindex0 v2 ix3
   AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS (shsFromIxS ix) $

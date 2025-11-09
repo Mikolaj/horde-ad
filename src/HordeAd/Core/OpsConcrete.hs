@@ -12,6 +12,7 @@ import Prelude hiding (foldl')
 import Control.Arrow (second)
 import Control.Exception.Assert.Sugar
 import Data.Coerce (Coercible, coerce)
+import Data.Default
 import Data.Foldable qualified as Foldable
 import Data.Function ((&))
 import Data.Functor.WithIndex (imap)
@@ -800,17 +801,14 @@ tindexZR v ixConcrete | Dict <- showDictRep (knownSTK @r)
      else tdefTarget (FTKR (shrDrop @m sh) x)
 
 tindex0R
-  :: forall r m. (KnownSTK r, KnownNat m)
-  => Concrete (TKR2 m r) -> IxROf Concrete m -> Concrete (TKR2 0 r)
-tindex0R v ixConcrete | Dict <- eltDictRep (knownSTK @r) =
-  let ix = fmapUnConcrete ixConcrete
-  in case tftk knownSTK v of
-    FTKR sh x ->
-      if ixInBounds (toList ix) (toList sh)
-      then let arr = Nested.rscalar
-                     $ Nested.rindex (unConcrete v) (fmap fromIntegral ix)
-           in Concrete arr
-      else tdefTarget (FTKR ZSR x)
+  :: forall r m. (KnownNat m, GoodScalar r)
+  => Concrete (TKR m r) -> IxROf Concrete m -> Concrete (TKScalar r)
+tindex0R v ixConcrete =
+  let uv = unConcrete v
+      ix = fmapUnConcrete ixConcrete
+  in Concrete $ if ixInBounds (toList ix) (toList $ Nested.rshape uv)
+                then Nested.rindex uv (fmap fromIntegral ix)
+                else def
 {- TODO: see above
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
@@ -1065,17 +1063,14 @@ tindexZS v ixConcrete | Dict <- eltDictRep (knownSTK @r) =
          else tdefTarget (FTKS knownShS x)
 
 tindex0S
-  :: forall r sh. (KnownSTK r, KnownShS sh)
-  => Concrete (TKS2 sh r) -> IxSOf Concrete sh -> Concrete (TKS2 '[] r)
-tindex0S v ixConcrete | Dict <- eltDictRep (knownSTK @r) =
-  let ix = fmapUnConcrete ixConcrete
-  in case tftk knownSTK v of
-    FTKS sh x ->
-      if ixInBounds (toList ix) (toList sh)
-      then let arr = Nested.sscalar
-                     $ Nested.sindex (unConcrete v) (fmap fromIntegral ix)
-           in Concrete arr
-      else tdefTarget (FTKS ZSS x)
+  :: forall r sh. (KnownShS sh, GoodScalar r)
+  => Concrete (TKS sh r) -> IxSOf Concrete sh -> Concrete (TKScalar r)
+tindex0S v ixConcrete =
+  let uv = unConcrete v
+      ix = fmapUnConcrete ixConcrete
+  in Concrete $ if ixInBounds (toList ix) (toList $ Nested.sshape uv)
+                then Nested.sindex uv (fmap fromIntegral ix)
+                else def
 {- TODO: benchmark if this is faster enough for its complexity;
          probably not, becasue orthotope's index does no canonicalization either
 tindex0S (SS.A (SG.A OI.T{..})) ix =
@@ -1259,17 +1254,14 @@ tindexZX v ixConcrete | Dict <- eltDictRep (knownSTK @r) =
          else tdefTarget (FTKX (shxDropSSX (knownShX @sh1) sh) x)
 
 tindex0X
-  :: forall r sh. (KnownSTK r, KnownShX sh)
-  => Concrete (TKX2 sh r) -> IxXOf Concrete sh -> Concrete (TKX2 '[] r)
-tindex0X v ixConcrete | Dict <- eltDictRep (knownSTK @r) =
-  let ix = fmapUnConcrete ixConcrete
-  in case tftk knownSTK v of
-    FTKX sh x ->
-      if ixInBounds (toList ix) (toList sh)
-      then let arr = Nested.mscalar
-                     $ Nested.mindex (unConcrete v) (fmap fromIntegral ix)
-           in Concrete arr
-      else tdefTarget (FTKX ZSX x)
+  :: forall r sh. (KnownShX sh, GoodScalar r)
+  => Concrete (TKX sh r) -> IxXOf Concrete sh -> Concrete (TKScalar r)
+tindex0X v ixConcrete =
+  let uv = unConcrete v
+      ix = fmapUnConcrete ixConcrete
+  in Concrete $ if ixInBounds (toList ix) (toList $ Nested.mshape uv)
+                then Nested.mindex uv (fmap fromIntegral ix)
+                else def
 
 tscatterZ1X
   :: forall r n2 shn shp.

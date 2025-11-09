@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, ViewPatterns #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -3869,22 +3869,6 @@ astConvertSFrom c zftk t = case (zftk, ftkAst t) of
     _ -> Ast.AstConvert c t  -- don't introduce let just to push a conversion
   (_, yftk) ->
     error $ "astConvertSFrom: wrong tensor kinds: " ++ show (yftk, zftk, t)
-
-pattern AstSFromK' :: () => sh ~ '[]
-                   => AstTensor AstMethodLet s (TKScalar r)
-                   -> AstTensor AstMethodLet s (TKS sh r)
-pattern AstSFromK' t <-
-  Ast.AstConvert c (checkPatternAstSFromK' c -> Just (Refl, t))
-
-checkPatternAstSFromK' :: TKConversion y (TKS2 sh (TKScalar r))
-                       -> AstTensor AstMethodLet s y
-                       -> Maybe ( sh :~: '[]
-                                , AstTensor AstMethodLet s (TKScalar r) )
-checkPatternAstSFromK' c t
-  | FTKScalar @ry <- ftkAst t
-  , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
-  , Just Refl <- testEquality (typeRep @ry) (typeRep @r) = Just (Refl, t)
-checkPatternAstSFromK' _ _ = Nothing
 
 -- The smart constructor with the prime suffix create canonical conversions
 -- instead of taking a conversion as an argument.

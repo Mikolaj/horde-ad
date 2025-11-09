@@ -13,7 +13,8 @@ module HordeAd.Core.AstTools
   , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstConvert, cAstSFromR, cAstSFromX, cAstXFromS
-  , pattern AstFromS', checkAstFromS, checkFtkAstFromS, checkFtkAstSFrom
+  , pattern AstSFromK', pattern AstFromS'
+  , checkAstFromS, checkFtkAstFromS, checkFtkAstSFrom
   , cAstFromS, cAstSFrom, convFromS, convSFrom
   , setTotalSharing
   ) where
@@ -454,6 +455,22 @@ cAstXFromS ssx v
   , Refl <- lemRankMapJust sh =
     let c2 = convCmp (ConvXX' (FTKX shx x)) ConvSX
     in cAstConvert c2 v
+
+pattern AstSFromK' :: () => sh ~ '[]
+                   => AstTensor AstMethodLet s (TKScalar r)
+                   -> AstTensor AstMethodLet s (TKS sh r)
+pattern AstSFromK' t <-
+  AstConvert c (checkPatternAstSFromK' c -> Just (Refl, t))
+
+checkPatternAstSFromK' :: TKConversion y (TKS2 sh (TKScalar r))
+                       -> AstTensor AstMethodLet s y
+                       -> Maybe ( sh :~: '[]
+                                , AstTensor AstMethodLet s (TKScalar r) )
+checkPatternAstSFromK' c t
+  | FTKScalar @ry <- ftkAst t
+  , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
+  , Just Refl <- testEquality (typeRep @ry) (typeRep @r) = Just (Refl, t)
+checkPatternAstSFromK' _ _ = Nothing
 
 pattern AstFromS' :: forall {z1} {ms1} {s1}.
                      forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)

@@ -660,9 +660,8 @@ class ( Num (IntOf target)
 
   trindex :: (KnownNat m, KnownNat n, KnownSTK x)
           => target (TKR2 (m + n) x) -> IxROf target m -> target (TKR2 n x)
-  trindex0 :: (KnownNat m, KnownSTK x)
-           => target (TKR2 m x) -> IxROf target m -> target (TKR2 0 x)
-  trindex0 = trindex
+  trindex0 :: (KnownNat m, GoodScalar r)
+           => target (TKR m r) -> IxROf target m -> target (TKScalar r)
   troneHot :: ( KnownNat m, KnownNat n, TKAllNum x, KnownSTK x
               , PlainOf (PlainOf target) ~ PlainOf target
               , EqH (PlainOf target) (TKScalar Int64))
@@ -678,7 +677,7 @@ class ( Num (IntOf target)
         let f ix2 = tcond knownSTK
                           (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                            $ zip (toList ix) (toList ix2))
-                          (trindex0 v (ixrDrop ix2))
+                          (trindex v (ixrDrop ix2))
                           (tdefTarget (FTKR ZSR ftk2))
         in rbuild (shrAppend sh (rshape v)) f
            -- TODO: if this is used often, maybe express this as the gather that
@@ -709,10 +708,8 @@ class ( Num (IntOf target)
   tsindex :: (KnownShS shm, KnownShS shn, KnownSTK x)
           => target (TKS2 (shm ++ shn) x) -> IxSOf target shm
           -> target (TKS2 shn x)
-  tsindex0 :: (KnownShS sh1, KnownSTK x)
-           => target (TKS2 sh1 x) -> IxSOf target sh1
-           -> target (TKS2 '[] x)
-  tsindex0 @sh1 | Refl <- lemAppNil @sh1 = tsindex
+  tsindex0 :: (KnownShS sh1, GoodScalar r)
+           => target (TKS sh1 r) -> IxSOf target sh1 -> target (TKScalar r)
   tsoneHot :: ( KnownShS sh1, KnownShS sh2, TKAllNum x, KnownSTK x
               , PlainOf (PlainOf target) ~ PlainOf target
               , EqH (PlainOf target) (TKScalar Int64) )
@@ -720,7 +717,8 @@ class ( Num (IntOf target)
            -> target (TKS2 (sh1 ++ sh2) x)
   {-# INLINE tsoneHot #-}  -- this doesn't want to specialize
   tsoneHot @sh1 @sh2 @x v ix
-   | SNat <- shsRank (knownShS @sh1) = case knownSTK @x of
+   | SNat <- shsRank (knownShS @sh1)
+   , Refl <- lemAppNil @sh2 = case knownSTK @x of
     STKScalar ->
       gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
       gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
@@ -738,7 +736,7 @@ class ( Num (IntOf target)
         let f ix2 = tcond knownSTK
                           (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                            $ zip (Foldable.toList ix) (Foldable.toList ix2))
-                          (tsindex0 v (ixsDrop @(Rank sh1) ix2))
+                          (tsindex v (ixsDrop @(Rank sh1) ix2))
                           (tdefTarget (FTKS ZSS ftk2))
         in sbuild @(Rank (sh1 ++ sh2)) f
   tsscatter
@@ -769,10 +767,8 @@ class ( Num (IntOf target)
   txindex :: (KnownShX sh1, KnownShX sh2, KnownSTK x)
           => target (TKX2 (sh1 ++ sh2) x) -> IxXOf target sh1
           -> target (TKX2 sh2 x)
-  txindex0 :: (KnownShX sh1, KnownSTK x)
-           => target (TKX2 sh1 x) -> IxXOf target sh1
-           -> target (TKX2 '[] x)
-  txindex0 @sh1 | Refl <- lemAppNil @sh1 = txindex
+  txindex0 :: (KnownShX sh1, GoodScalar r)
+           => target (TKX sh1 r) -> IxXOf target sh1 -> target (TKScalar r)
   txoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
               , PlainOf (PlainOf target) ~ PlainOf target
               , EqH (PlainOf target) (TKScalar Int64), ConvertTensor target )
@@ -780,7 +776,8 @@ class ( Num (IntOf target)
            -> target (TKX2 (sh1 ++ sh2) x)
   {-# INLINE txoneHot #-}
   txoneHot @sh1 @sh2 @x sh1 v ix
-   | SNat <- ssxRank (knownShX @sh1) = case knownSTK @x of
+   | SNat <- ssxRank (knownShX @sh1)
+   , Refl <- lemAppNil @sh2 = case knownSTK @x of
     STKScalar ->
       gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
       gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
@@ -798,7 +795,7 @@ class ( Num (IntOf target)
         let f ix2 = tcond knownSTK
                           (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
                            $ zip (Foldable.toList ix) (Foldable.toList ix2))
-                          (txindex0 v (ixxDrop' @(Rank sh1) ix2))
+                          (txindex v (ixxDrop' @(Rank sh1) ix2))
                           (tdefTarget (FTKX ZSX ftk2))
         in xbuild @(Rank (sh1 ++ sh2)) (shxAppend sh1 (xshape v)) f
   txscatter :: ( KnownShX shm, KnownShX shn, KnownShX shp
@@ -922,13 +919,13 @@ class ( Num (IntOf target)
           => (target (TKR2 0 x1) -> target (TKR2 0 x)) -> target (TKR2 n x1)
           -> target (TKR2 n x)
   {-# INLINE trmap0N #-}
-  trmap0N f v = rbuild (rshape v) (f . trindex0 v)
+  trmap0N f v = rbuild (rshape v) (f . trindex v)
   trzipWith0N :: (KnownNat n, KnownSTK x, KnownSTK x1, KnownSTK x2)
               => (target (TKR2 0 x1) -> target (TKR2 0 x2) -> target (TKR2 0 x))
               -> target (TKR2 n x1) -> target (TKR2 n x2) -> target (TKR2 n x)
   {-# INLINE trzipWith0N #-}
   trzipWith0N f u v =
-    rbuild (rshape v) (\ix -> f (trindex0 u ix) (trindex0 v ix))
+    rbuild (rshape v) (\ix -> f (trindex u ix) (trindex v ix))
 
   tsbuild1 :: (KnownNat k, KnownShS sh, KnownSTK x)
            => (IntOf target -> target (TKS2 sh x))
@@ -938,20 +935,20 @@ class ( Num (IntOf target)
           -> target (TKS2 sh x1)
           -> target (TKS2 sh x)
   {-# INLINE tsmap0N #-}
-  tsmap0N @sh f v =
+  tsmap0N @sh f v | Refl <- lemAppNil @sh =
     gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
     $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-    $ sbuild @(Rank sh) (f . tsindex0 v)
+    $ sbuild @(Rank sh) (f . tsindex v)
   tszipWith0N :: (KnownShS sh, KnownSTK x, KnownSTK x1, KnownSTK x2)
               => (target (TKS2 '[] x1) -> target (TKS2 '[] x2)
                   -> target (TKS2 '[] x))
               -> target (TKS2 sh x1) -> target (TKS2 sh x2)
               -> target (TKS2 sh x)
   {-# INLINE tszipWith0N #-}
-  tszipWith0N @sh f u v =
+  tszipWith0N @sh f u v | Refl <- lemAppNil @sh =
     gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
     $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-    $ sbuild @(Rank sh) (\ix -> f (tsindex0 u ix) (tsindex0 v ix))
+    $ sbuild @(Rank sh) (\ix -> f (tsindex u ix) (tsindex v ix))
 
   txbuild1 :: (KnownNat k, KnownShX sh, KnownSTK x)
            => (IntOf target -> target (TKX2 sh x))

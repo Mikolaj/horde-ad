@@ -1090,10 +1090,10 @@ costVolume iStart nCount arrL arrR =
       shO = [nImgs, nCount, nRows, nCols]
   in rbuild shO $ \[iImg, iDisp, iRow, iCol] ->
        let arrVecL = rbuild (nChas :$: ZSR) $ \[iCha] ->
-                       rindex0 arrL [iImg, iCha, iRow, iCol]
+                       rindex @_ @0 arrL [iImg, iCha, iRow, iCol]
            iSrc = iCol - fromIntegral iStart - iDisp
            arrVecR = rbuild [nChas] $ \[iCha] ->
-                       rindex0 arrR [iImg, iCha, iRow, iSrc]
+                       rindex @_ @0 arrR [iImg, iCha, iRow, iSrc]
        in rsum0 $ rzipWith1 (\xL xR -> abs (xL - xR)) arrVecL arrVecR
 
 test_disparityKonst :: Assertion
@@ -1187,8 +1187,8 @@ codeTomsSlice a =
   let (n, m) = case rshape a of
         [n', m'] -> (n', m')
         _ -> error "codeTomsSlice"
-      a1 = rbuild @2 @0 [n,m-1] (\[i',j'] -> rindex0 a [i',j'])
-      a2 = rbuild [n,m-1] (\[i',j'] -> rindex0 a [i',j' + 1])
+      a1 = rbuild @2 @0 [n,m-1] (\[i',j'] -> rindex a [i',j'])
+      a2 = rbuild [n,m-1] (\[i',j'] -> rindex @_ @0 a [i',j' + 1])
   in rsum0 @2 $ rbuild [n,m] $ \[i, _j] ->
        rfromIndex0 i * rsum0 (a1 * a2)
 
@@ -1312,7 +1312,7 @@ conv2dSame2 a =
   rbuild [3, 3, 2, 2] $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez2 a [iImg, 0, iBh, iBw]
-      in rindex0 arrAt [0, iBw, iBw, 0]
+      in rindex @_ @0 arrAt [0, iBw, iBw, 0]
     _ -> error "conv2dSame2: impossible pattern needlessly required"
 
 slicez2
@@ -1329,7 +1329,7 @@ indexz02 d ix = ifH (1 >. (toList ix !! 0)) (d ! ix) (rscalar 0)
 
 rmaximum2 :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
          => target (TKR 4 r) -> target (TKR 0 r)
-rmaximum2 t0 = tlet t0 $ \t -> rindex0 t [0, 0, 0, 0]
+rmaximum2 t0 = tlet t0 $ \t -> rindex t [0, 0, 0, 0]
 
 {- TODO: divergent result; bring back when GHC 9.10 dropped:
 testCNNOPP3 :: Assertion
@@ -1391,7 +1391,7 @@ conv2dSame3 arrA =
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez33 shB arrA [iImg `remH` 4, iImg, iImg, 1]
-      in rindex0 arrAt [iBh, iBw, iImg, iBh]
+      in rindex @_ @0 arrAt [iBh, iBw, iImg, iBh]
     _ -> error "conv2dSame3: impossible pattern needlessly required"
 
 slicez3
@@ -1413,7 +1413,7 @@ indexz03 d ix = ifH (within0 @target (rshape @target d) ix) (d ! ix) (rscalar 0)
 
 rmaximum3 :: (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
          => target (TKR n r) -> target (TKR 0 r)
-rmaximum3 t0 = tlet t0 $ \t -> rindex0 t [0, 0, 0, 0]
+rmaximum3 t0 = tlet t0 $ \t -> rindex t [0, 0, 0, 0]
 
 testCNNOPP4 :: Assertion
 testCNNOPP4 = do
@@ -1496,7 +1496,7 @@ conv2dSame4 arrA =
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez4 shB arrA [iImg, 0, iBh, iBw]
-      in rindex0 arrAt [0, 0, 0, 0]
+      in rindex @_ @0 arrAt [0, 0, 0, 0]
     _ -> error "conv2dSame4: impossible pattern needlessly required"
 
 slicez4
@@ -1544,7 +1544,7 @@ conv2dSame3z arrA =
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez3 shB arrA [iImg, iImg, iImg, iBw]
-      in rindex0 arrAt [iBh, iBw, iImg, iBh]
+      in rindex @_ @0 arrAt [iBh, iBw, iImg, iBh]
     _ -> error "conv2dSame3z: impossible pattern needlessly required"
 
 testCNNOPP7 :: Assertion
@@ -1595,7 +1595,7 @@ conv2dSame3y arrA =
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez3 shB arrA [iImg, iImg, iImg, iBh]
-      in rindex0 arrAt [iBh, iBw, iImg, iBh]
+      in rindex @_ @0 arrAt [iBh, iBw, iImg, iBh]
     _ -> error "conv2dSame3y: impossible pattern needlessly required"
 
 testPaddedCNNOPP0c :: Assertion

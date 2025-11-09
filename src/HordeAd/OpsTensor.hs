@@ -77,7 +77,7 @@ import Data.Int (Int64)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, (:~:))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits
@@ -85,6 +85,7 @@ import GHC.TypeLits
 
 import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
@@ -375,8 +376,8 @@ rindex, (!) :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
 rindex = trindex
 infixl 9 !
 (!) = rindex  -- prefix form better when type applications are necessary
-rindex0 :: (KnownNat m, KnownSTK x, BaseTensor target)
-        => target (TKR2 m x) -> IxROf target m -> target (TKR2 0 x)
+rindex0 :: (KnownNat m, GoodScalar r, BaseTensor target)
+        => target (TKR m r) -> IxROf target m -> target (TKScalar r)
 rindex0 = trindex0
 roneHot :: ( KnownNat m, KnownNat n, TKAllNum x, KnownSTK x
            , PlainOf (PlainOf target) ~ PlainOf target
@@ -422,9 +423,8 @@ sindex, (!$) :: (KnownShS shm, KnownShS shn, KnownSTK x, BaseTensor target)
 sindex = tsindex
 infixl 9 !$
 (!$) = sindex  -- prefix form better when type applications are necessary
-sindex0 :: (KnownShS sh1, KnownSTK x, BaseTensor target)
-        => target (TKS2 sh1 x) -> IxSOf target sh1
-        -> target (TKS2 '[] x)
+sindex0 :: (KnownShS sh1, GoodScalar r, BaseTensor target)
+        => target (TKS sh1 r) -> IxSOf target sh1 -> target (TKScalar r)
 sindex0 = tsindex0
 soneHot :: ( KnownShS sh1, KnownShS sh2, TKAllNum x, KnownSTK x
            , PlainOf (PlainOf target) ~ PlainOf target
@@ -463,9 +463,8 @@ xindex :: (KnownShX sh1, KnownShX sh2, KnownSTK x, BaseTensor target)
        => target (TKX2 (sh1 ++ sh2) x) -> IxXOf target sh1
        -> target (TKX2 sh2 x)
 xindex = txindex
-xindex0 :: (KnownShX sh1, KnownSTK x, BaseTensor target)
-        => target (TKX2 sh1 x) -> IxXOf target sh1
-        -> target (TKX2 '[] x)
+xindex0 :: (KnownShX sh1, GoodScalar r, BaseTensor target)
+        => target (TKX sh1 r) -> IxXOf target sh1 -> target (TKScalar r)
 xindex0 = txindex0
 xoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
            , PlainOf (PlainOf target) ~ PlainOf target
@@ -760,7 +759,7 @@ rzipWith30N :: ( KnownNat n, KnownSTK x
             -> target (TKR2 n x3)  -- ^ the third tensor to zip over
             -> target (TKR2 n x)
 rzipWith30N f u v w =
-  rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix) (rindex0 w ix))
+  rbuild (rshape v) (\ix -> f (rindex u ix) (rindex v ix) (rindex w ix))
 rzipWith4 :: ( KnownNat m
              , KnownNat n1, KnownNat n2, KnownNat n3, KnownNat n4
              , KnownNat n, KnownSTK x
@@ -803,8 +802,8 @@ rzipWith40N :: ( KnownNat n, KnownSTK x
             -> target (TKR2 n x4)  -- ^ the fourth tensor to zip over
             -> target (TKR2 n x)
 rzipWith40N f u v w x =
-  rbuild (rshape v) (\ix -> f (rindex0 u ix) (rindex0 v ix) (rindex0 w ix)
-                              (rindex0 x ix))
+  rbuild (rshape v) (\ix -> f (rindex u ix) (rindex v ix) (rindex w ix)
+                              (rindex x ix))
 
 sbuild1 :: (KnownNat k, KnownShS sh, KnownSTK x, BaseTensor target)
         => (IntOf target -> target (TKS2 sh x))  -- ^ the function to build with
@@ -896,12 +895,10 @@ szipWith30N :: ( KnownShS sh, KnownSTK x, KnownSTK x1, KnownSTK x2, KnownSTK x3
             -> target (TKS2 sh x2)  -- ^ the second tensor to zip over
             -> target (TKS2 sh x3)  -- ^ the third tensor to zip over
             -> target (TKS2 sh x)
-szipWith30N @sh f u v w =
+szipWith30N @sh f u v w | Refl <- lemAppNil @sh =
   gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
   $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-  $ sbuild @(Rank sh) (\ix -> f (sindex0 u ix)
-                                (sindex0 v ix)
-                                (sindex0 w ix))
+  $ sbuild @(Rank sh) (\ix -> f (sindex u ix) (sindex v ix) (sindex w ix))
 szipWith4 :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
              , KnownShS (Drop m sh3), KnownShS (Drop m sh4)
              , KnownShS (Take m sh), KnownShS sh
@@ -948,13 +945,11 @@ szipWith40N :: ( KnownShS sh, KnownSTK x
             -> target (TKS2 sh x3)  -- ^ the third tensor to zip over
             -> target (TKS2 sh x4)  -- ^ the fourth tensor to zip over
             -> target (TKS2 sh x)
-szipWith40N @sh f u v w x =
+szipWith40N @sh f u v w x | Refl <- lemAppNil @sh =
   gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
   $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-  $ sbuild @(Rank sh) (\ix -> f (sindex0 u ix)
-                                (sindex0 v ix)
-                                (sindex0 w ix)
-                                (sindex0 x ix))
+  $ sbuild @(Rank sh) (\ix -> f (sindex u ix) (sindex v ix) (sindex w ix)
+                                (sindex x ix))
 
 xbuild1 :: (KnownNat k, KnownShX sh, KnownSTK x, BaseTensor target)
         => (IntOf target -> target (TKX2 sh x))  -- ^ the function to build with

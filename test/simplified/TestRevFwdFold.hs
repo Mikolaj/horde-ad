@@ -1619,7 +1619,7 @@ testSin0rmapAccumRD01SN5 = do
                                                @2 @'[]
                                                (tproject2 $ tproject1 a))
                                    (tpair (sreplicate @3
-                                             (sindex0 @'[2]
+                                             (sindex @'[2]
                                                        (tproject1 $ tproject2 a) [1]
                                               / sin x / srepl 3))
                                           (sreplicate @3
@@ -1666,7 +1666,7 @@ testSin0rmapAccumRD01SN51 = do
                                                @2 @'[]
                                                (tproject2 $ tproject2 a))
                                             (sreplicate @3
-                                             (sindex0 @'[2]
+                                             (sindex @'[2]
                                                        (tproject1 $ tproject2 a) [1]
                                               / sin x / srepl 3)))
                                          (sbuild1 @4 $ \i ->
@@ -1720,7 +1720,7 @@ testSin0rmapAccumRD01SN531a = do
                                              (ssum @1 (tproject1 a))
                                            - sin x / srepl 3
                                            - sreplicate @3
-                                             (sindex0 @'[3]
+                                             (sindex @'[3]
                                                        (tproject2 a) [1]
                                              - smaxIndex
                                                  @3 @'[]
@@ -1904,7 +1904,7 @@ testSin0rmapAccumRD01SN55 = do
                                g x _a =
                                  tpair (sin x - x)
                                        (tpair (sreplicate @3
-                                             (sindex0 @'[3] x [1]
+                                             (sindex @'[3] x [1]
                                               - smaxIndex
                                                   @3 @'[]
                                                   (x / sin x / srepl 3)))
@@ -1956,7 +1956,7 @@ testSin0rmapAccumRD01SN55acc = do
                                              (ssum @1 (tproject1 a))
                                            - sin x / sreplicate0N (sscalar 3)
                                            - sreplicate @3
-                                             (sindex0 @'[3]
+                                             (sindex @'[3]
                                                        (tproject2 a) [1]
                                              - smaxIndex
                                                  @3 @'[]
@@ -1965,7 +1965,7 @@ testSin0rmapAccumRD01SN55acc = do
                           tunit
                           (tpair (singestData [-0.1, 0.23])
                                  (sfromList0N
-                                    [sindex0 x0 [1], sscalar (-0.01), sscalar (-0.3), ssum x0, sscalar 0.5, sscalar 1.3]))
+                                    [sindex @'[3] @'[] x0 [1], sscalar (-0.01), sscalar (-0.3), ssum x0, sscalar 0.5, sscalar 1.3]))
            in rfromS . f . sfromR) (ringestData [3] [1.1, 2, 3.14]))
 
 testSin0rmapAccumRD01SN58 :: Assertion
@@ -2021,7 +2021,7 @@ testSin0rmapAccumRD01SN7 = do
                                                 (tproject2 $ tproject1 a))
                                     (tpair (sreplicate @3
                                              (sin x / srepl 6
-                                              + sindex0 @'[2]
+                                              + sindex @'[2]
                                                         (tproject1 $ tproject2 a) [1]
                                                 / sin x / srepl 3))
                                        (sreplicate @3

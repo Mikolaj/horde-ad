@@ -9,7 +9,7 @@ module HordeAd.External.CommonShapedOps
 import Prelude
 
 import Data.List.NonEmpty qualified as NonEmpty
-import Data.Type.Equality (gcastWith, (:~:))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits
@@ -17,6 +17,7 @@ import GHC.TypeLits
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (ixrFromIxS, ixsFromIxR')
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
@@ -32,13 +33,13 @@ sminimum :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
 sminimum t | SNat <- shsProduct (knownShS @sh) =
   tlet (sflatten t) $ \tf ->
-    sindex0 tf (tplainPart (kfromS (sminIndex tf)) :.$ ZIS)
+    sindex tf (tplainPart (kfromS (sminIndex tf)) :.$ ZIS)
 
 smaximum :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKS '[] r)
 smaximum t | SNat <- shsProduct (knownShS @sh) =
   tlet (sflatten t) $ \tf ->
-    sindex0 tf (tplainPart (kfromS (smaxIndex tf)) :.$ ZIS)
+    sindex tf (tplainPart (kfromS (smaxIndex tf)) :.$ ZIS)
 
 sfromIndex0 :: forall r target. (ADReady target, NumScalar r)
             => IntOf target -> target (TKS '[] r)
@@ -260,16 +261,17 @@ slicezS
      ( KnownShS sh, KnownShS shOut, KnownShS (Take (Rank sh) shOut)
      , Rank shOut ~ Rank sh, ADReady target, NumScalar r )
   => target (TKS sh r) -> IxSOf target sh -> target (TKS shOut r)
-slicezS d ixBase =
+slicezS d ixBase | Refl <- lemAppNil @sh =
   gcastWith (unsafeCoerceRefl
              :: Rank (Take (Rank shOut) shOut) :~: Rank shOut) $
   gcastWith (unsafeCoerceRefl :: Drop (Rank sh) shOut :~: '[]) $
   sbuild @(Rank shOut)
   $ \ixResult ->
-      sindex0 d (ixsFromIxR' knownShS
-                 $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
+      sindex @sh @'[] d
+             (ixsFromIxR' knownShS
+              $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
       -- TODO: this doesn't work, because ixsZipWith has too strict a type:
-      -- sbuild @(Rank shOut) $ \ixResult -> sindex0 d (ixsZipWith (+) ixBase ixResult)
+      -- sbuild @(Rank shOut) $ \ixResult -> sindex d (ixsZipWith (+) ixBase ixResult)
 
 maxPool2dUnpaddedS
   :: forall ksize stride batch_size channels h w target r shOut shK1.
