@@ -474,12 +474,18 @@ printAst cfg d = \case
   -- TODO: pretty-print correctly szip, sunzip, snestS, sunNestS
   -- or at least make sure they get printed as tconvert, not as the others
   AstConvert c t -> case (ftkToSTK (ftkAst t), convertFTK c (ftkAst t)) of
+    (STKScalar, FTKR{}) -> printPrefixOp printAst cfg d "rfromK" [t]
     (STKScalar, FTKS{}) -> printPrefixOp printAst cfg d "sfromK" [t]
+    (STKScalar, FTKX{}) -> printPrefixOp printAst cfg d "xfromK" [t]
+    (STKR{}, FTKScalar) -> printPrefixOp printAst cfg d "kfromR" [t]
     (STKR{}, FTKS{}) -> printPrefixOp printAst cfg d "sfromR" [t]
-    (STKX{}, FTKS{}) -> printPrefixOp printAst cfg d "sfromX" [t]
+    (STKR{}, FTKX{}) -> printPrefixOp printAst cfg d "xfromR" [t]
     (STKS{}, FTKScalar) -> printPrefixOp printAst cfg d "kfromS" [t]
     (STKS{}, FTKR{}) -> printPrefixOp printAst cfg d "rfromS" [t]
     (STKS{}, FTKX{}) -> printPrefixOp printAst cfg d "xfromS" [t]
+    (STKX{}, FTKScalar) -> printPrefixOp printAst cfg d "kfromX" [t]
+    (STKX{}, FTKR{}) -> printPrefixOp printAst cfg d "rfromX" [t]
+    (STKX{}, FTKS{}) -> printPrefixOp printAst cfg d "sfromX" [t]
     (ystk, _) -> let s = "tconvert (" ++ show c ++ ") (" ++ show ystk ++ ")"
                  in printPrefixOp printAst cfg d s [t]
 
