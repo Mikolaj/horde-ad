@@ -98,13 +98,6 @@ instance (NumScalar r, AstSpan s)
   AstFromPrimal u + AstFromPrimal v = fromPrimal $ u + v
   AstFromDual u + AstFromDual v = fromDual $ u + v
   AstFromPlain u + AstFromPlain v = fromPlain $ u + v
-  -- TODO: define a pattern synonym that captures the below. Also elsewhere.
-  AstConvert c u + AstConvert _ v
-    | FTKS ZSS x <- ftkAst u
-    , FTKS ZSS y <- ftkAst v
-    , Just Refl <- matchingFTK x (convertFTK c (ftkAst u))
-    , Just Refl <- matchingFTK x y =
-      AstConvert c $ u + v
   AstConcreteK 0 + u = u
   u + AstConcreteK 0 = u
   AstFromPlain (AstConcreteK 0) + u = u
@@ -212,12 +205,6 @@ instance (NumScalar r, AstSpan s)
   _ * AstFromPlain (AstConcreteK 0) = 0
   AstFromPlain (AstConcreteK 1) * u = u
   u * AstFromPlain (AstConcreteK 1) = u
-  AstConvert c u * AstConvert _ v
-    | FTKS ZSS x <- ftkAst u
-    , FTKS ZSS y <- ftkAst v
-    , Just Refl <- matchingFTK x (convertFTK c (ftkAst u))
-    , Just Refl <- matchingFTK x y =
-      AstConvert c $ u * v
   AstConcreteK n * AstConcreteK k = AstConcreteK (n * k)
   AstConcreteK n * AstTimesK (AstConcreteK k) u = AstConcreteK (n * k) * u
   AstTimesK (AstConcreteK n) u * AstConcreteK k = AstConcreteK (n * k) * u
@@ -309,10 +296,6 @@ instance (NumScalar r, AstSpan s)
   negate (AstI2K RemOp u v) = AstI2K RemOp (negate u) v
     -- v is likely positive and let's keep it so
   negate (AstConcreteK n) = AstConcreteK (negate n)
-  negate (AstConvert c u)
-    | FTKS ZSS x <- ftkAst u
-    , Just Refl <- matchingFTK x (convertFTK c (ftkAst u)) =
-      AstConvert c (negate u)
   negate u = AstN1K NegateOp u
   abs (AstPrimalPart n) = primalPart (abs n)
   abs (AstDualPart n) = dualPart (abs n)
@@ -323,10 +306,6 @@ instance (NumScalar r, AstSpan s)
   abs (AstConcreteK n) = AstConcreteK (abs n)
   abs (AstN1K AbsOp u) = AstN1K AbsOp u
   abs (AstN1K NegateOp u) = abs u
-  abs (AstConvert c u)
-    | FTKS ZSS x <- ftkAst u
-    , Just Refl <- matchingFTK x (convertFTK c (ftkAst u)) =
-      AstConvert c (abs u)
   abs u = AstN1K AbsOp u
   signum (AstPrimalPart n) = primalPart (signum n)
   signum (AstDualPart n) = dualPart (signum n)
@@ -336,10 +315,6 @@ instance (NumScalar r, AstSpan s)
   signum (AstFromPlain n) = fromPlain (signum n)
   signum (AstConcreteK n) = AstConcreteK (signum n)
   signum (AstN1K SignumOp u) = AstN1K SignumOp u
-  signum (AstConvert c u)
-    | FTKS ZSS x <- ftkAst u
-    , Just Refl <- matchingFTK x (convertFTK c (ftkAst u)) =
-      AstConvert c (signum u)
   signum u = AstN1K SignumOp u
   fromInteger i = fromPlain $ AstConcreteK (fromInteger i)
 {- TODO: RULE left-hand side too complicated to desugar
@@ -398,12 +373,6 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
     | Just Refl <- sameAstSpan @s1 @s2 = plainPart (quotH n k)
   quotH (AstFromPrimal n) (AstFromPrimal k) = fromPrimal (quotH n k)
   quotH (AstFromPlain n) (AstFromPlain k) = fromPlain (quotH n k)
-  quotH (AstConvert c n) (AstConvert _ k)
-    | FTKS ZSS x <- ftkAst n
-    , FTKS ZSS y <- ftkAst k
-    , Just Refl <- matchingFTK x (convertFTK c (ftkAst n))
-    , Just Refl <- matchingFTK x y =
-      AstConvert c (quotH n k)
   quotH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotH n k)
   quotH (AstConcreteK 0) _ = 0
   quotH u (AstFromPlain (AstConcreteK 1)) = u
@@ -424,12 +393,6 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
     | Just Refl <- sameAstSpan @s1 @s2 = plainPart (remH n k)
   remH (AstFromPrimal n) (AstFromPrimal k) = fromPrimal (remH n k)
   remH (AstFromPlain n) (AstFromPlain k) = fromPlain (remH n k)
-  remH (AstConvert c n) (AstConvert _ k)
-    | FTKS ZSS x <- ftkAst n
-    , FTKS ZSS y <- ftkAst k
-    , Just Refl <- matchingFTK x (convertFTK c (ftkAst n))
-    , Just Refl <- matchingFTK x y =
-      AstConvert c (remH n k)
   remH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (remH n k)
   remH (AstConcreteK 0) _ = 0
   remH _ (AstConcreteK 1) = 0

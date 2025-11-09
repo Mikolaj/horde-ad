@@ -3621,7 +3621,7 @@ astConvert c a = case (ftkAst a, convertFTK c (ftkAst a)) of
     Ast.AstFromPlain v -> fromPlain $ astConvert c v
     _ -> Ast.AstConvert c a
 
--- We are pulling conversions from shaped tensors up, generally.
+-- We are pulling conversions from shaped tensors up, except for to scalars.
 -- z is shaped or a product (presumably with some shaped components,
 -- but it's not checked; the other components are supposed to be
 -- converted identically, which is not checked in c, either).
@@ -3658,23 +3658,30 @@ astConvertFromS c zftk a = case (zftk, a) of
   (FTKScalar @r, AstPlusS u v)
     | Dict0 <- lemTKAllNumConvertForward c
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    astConvertFromS c FTKScalar u + astConvertFromS c FTKScalar v
+      astConvertFromS c FTKScalar u + astConvertFromS c FTKScalar v
   (FTKScalar @r, AstTimesS u v)
     | Dict0 <- lemTKAllNumConvertForward c
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    astConvertFromS c FTKScalar u * astConvertFromS c FTKScalar v
+      astConvertFromS c FTKScalar u * astConvertFromS c FTKScalar v
   (FTKScalar @r, Ast.AstN1S NegateOp u)
     | Dict0 <- lemTKAllNumConvertForward c
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    negate (astConvertFromS c FTKScalar u)
+      negate (astConvertFromS c FTKScalar u)
   (FTKScalar @r, Ast.AstN1S AbsOp u)
     | Dict0 <- lemTKAllNumConvertForward c
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    abs (astConvertFromS c FTKScalar u)
+      abs (astConvertFromS c FTKScalar u)
   (FTKScalar @r, Ast.AstN1S SignumOp u)
     | Dict0 <- lemTKAllNumConvertForward c
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
       signum (astConvertFromS c FTKScalar u)
+  (FTKScalar @r1, Ast.AstR1S @r2 opCode u)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      Ast.AstR1K opCode (astConvertFromS c FTKScalar u)
+  (FTKScalar @r1, Ast.AstR2S @r2 opCode u v)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      Ast.AstR2K opCode (astConvertFromS c FTKScalar u)
+                        (astConvertFromS c FTKScalar v)
   (FTKScalar @r1, Ast.AstI2S @r2 QuotOp u v)
     | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
       astConvertFromS c FTKScalar u
