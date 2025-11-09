@@ -370,6 +370,12 @@ printAst cfg d = \case
   AstCastS a ->
     printPrefixOp printAst cfg d "scast" [a]
 
+  AstFromS' ftk (AstIndexS _ v ix) | FTKS _ ftk2@FTKScalar <- ftkAst v
+                                   , Just Refl <- matchingFTK ftk ftk2 ->
+    showParen (d > 9)
+    $ printAst cfg 10 v
+      . showString " `index0` "
+      . showListWith (printAst cfg 0) (Foldable.toList ix)
   AstIndexS _ v ix ->
     showParen (d > 9)
     $ printAst cfg 10 v
