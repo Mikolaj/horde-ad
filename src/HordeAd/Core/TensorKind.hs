@@ -328,7 +328,7 @@ convCmp a b = case (a, b) of
   (ConvXS' @_ @sh' _, ConvSX @sh) ->
     gcastWith (unsafeCoerceRefl :: sh :~: sh') $
     ConvId
-  (ConvXS' (FTKS ZSS _), Conv0X stk) -> ConvCmp ConvXS (Conv0X stk)
+  (ConvXS' (FTKS ZSS _), Conv0X stk) -> ConvXS . Conv0X stk
   (ConvXX' (FTKX ZSX _), Conv0X stk) -> Conv0X stk
   (Conv0X{}, ConvX0) -> ConvId
   (ConvX0, ConvXX' @sh (FTKX ZSX _)) ->
@@ -446,7 +446,7 @@ buildTKConversion k aftk c0 = case c0 of
   ConvRX | FTKR @n shr xstk <- aftk
          , Refl <- lemRankReplicate (Proxy @n)
          , Refl <- lemRankReplicate (Proxy @(1 + n)) ->
-    ConvCmp (ConvXX' (FTKX (SKnown k :$% shxFromShR shr) xstk)) ConvRX
+    convCmp (ConvXX' (FTKX (SKnown k :$% shxFromShR shr) xstk)) ConvRX
   ConvSX -> ConvSX
   ConvXR stk -> ConvXR stk
   ConvXS -> ConvXS
@@ -461,33 +461,33 @@ buildTKConversion k aftk c0 = case c0 of
     FTKScalar -> ConvSX
     FTKR @n shr x | Refl <- lemRankReplicate (Proxy @n)
                   , Refl <- lemRankReplicate (Proxy @(1 + n)) ->
-      ConvCmp (ConvXX (ConvXR (ftkToSTK x)))
-              (ConvCmp (ConvNest (STKX (SKnown k :!% ZKX) (ftkToSTK x)))
-                       (ConvCmp
+      convCmp (ConvXX (ConvXR (ftkToSTK x)))
+              (convCmp (ConvNest (STKX (SKnown k :!% ZKX) (ftkToSTK x)))
+                       (convCmp
                           (ConvXX' (FTKX (SKnown k :$% shxFromShR shr) x))
                           ConvRX))
     FTKS _sh x ->
-      ConvCmp (ConvXX ConvXS)
-              (ConvCmp (ConvNest (STKX (SKnown k :!% ZKX) (ftkToSTK x)))
+      convCmp (ConvXX ConvXS)
+              (convCmp (ConvNest (STKX (SKnown k :!% ZKX) (ftkToSTK x)))
                        ConvSX)
     FTKX _ssx x -> ConvNest (STKX (SKnown k :!% ZKX) (ftkToSTK x))
     FTKProduct aftk1 aftk2 ->
       buildTKConversion
-        k aftk (ConvCmp (ConvZip (ftkToSTK aftk1) (ftkToSTK aftk2))
+        k aftk (convCmp (ConvZip (ftkToSTK aftk1) (ftkToSTK aftk2))
                         (ConvT2 (Conv0X (ftkToSTK aftk1))
                                 (Conv0X (ftkToSTK aftk2))))
   ConvX0 -> case aftk of
     FTKX ZSX FTKScalar -> ConvXS
     FTKX ZSX (FTKR @n _n x) | Refl <- lemRankReplicate (Proxy @n) ->
-      ConvCmp (ConvXR (ftkToSTK x))
-              (ConvCmp ConvUnnest (ConvXX ConvRX))
+      convCmp (ConvXR (ftkToSTK x))
+              (convCmp ConvUnnest (ConvXX ConvRX))
     FTKX ZSX FTKS{} ->
-      ConvCmp ConvXS
-              (ConvCmp ConvUnnest (ConvXX ConvSX))
+      convCmp ConvXS
+              (convCmp ConvUnnest (ConvXX ConvSX))
     FTKX ZSX FTKX{} -> ConvUnnest
     FTKX ZSX (FTKProduct aftk1 aftk2) ->
       buildTKConversion
-        k aftk (ConvCmp (ConvT2 ConvX0 ConvX0)
+        k aftk (convCmp (ConvT2 ConvX0 ConvX0)
                         (ConvUnzip (ftkToSTK aftk1) (ftkToSTK aftk2)))
   ConvNest (STKX sh x) -> ConvNest (STKX (SKnown k :!% sh) x)
   ConvUnnest -> ConvUnnest

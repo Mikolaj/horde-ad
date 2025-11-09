@@ -35,7 +35,7 @@ class ConvertTensor (target :: Target) where
   kfromR = kfromS . sfromR
   -- | The conversion from an empty shape shaped tensor to a scalar.
   kfromS :: GoodScalar r => target (TKS '[] r) -> target (TKScalar r)
-  kfromS = let c = ConvCmp ConvX0 ConvSX
+  kfromS = let c = convCmp ConvX0 ConvSX
            in tconvert c (STKS ZSS STKScalar)
   kfromX :: GoodScalar r => target (TKX '[] r) -> target (TKScalar r)
   kfromX = kfromS . sfromX
@@ -46,12 +46,12 @@ class ConvertTensor (target :: Target) where
   rfromS :: forall sh x. (KnownShS sh, KnownSTK x)
          => target (TKS2 sh x) -> target (TKR2 (Rank sh) x)
   rfromS | Refl <- lemRankMapJust (knownShS @sh) =
-    let c = ConvCmp (ConvXR knownSTK) ConvSX
+    let c = convCmp (ConvXR knownSTK) ConvSX
     in tconvert c (STKS knownShS knownSTK)
   rfromX :: forall sh x. KnownSTK x
          => target (TKX2 sh x) -> target (TKR2 (Rank sh) x)
   sfromK :: GoodScalar r => target (TKScalar r) -> target (TKS '[] r)
-  sfromK = let c = ConvCmp ConvXS (Conv0X STKScalar)
+  sfromK = let c = convCmp ConvXS (Conv0X STKScalar)
            in tconvert c STKScalar
   -- | The conversion from a ranked tensor to the corresponding shaped tensor
   -- of the same rank.

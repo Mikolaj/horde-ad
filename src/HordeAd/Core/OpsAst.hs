@@ -1178,34 +1178,34 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
   rzip @_ @_ @n (AstRaw a)
    | Refl <- lemRankReplicate (Proxy @n) = AstRaw $ case ftkAst a of
     FTKProduct (FTKR _sh y) (FTKR _ z) ->
-      let c = ConvCmp
+      let c = convCmp
                 (ConvXR (ftkToSTK (FTKProduct y z)))
-                (ConvCmp
+                (convCmp
                    (ConvZip (ftkToSTK y) (ftkToSTK z))
                    (ConvT2 ConvRX ConvRX))
       in cAstConvert c a
   runzip @_ @_ @n (AstRaw a)
    | Refl <- lemRankReplicate (Proxy @n) = AstRaw $ case ftkAst a of
     FTKR _sh (FTKProduct y z) ->
-      let c = ConvCmp
+      let c = convCmp
                 (ConvT2 (ConvXR (ftkToSTK y)) (ConvXR (ftkToSTK z)))
-                (ConvCmp
+                (convCmp
                    (ConvUnzip (ftkToSTK y) (ftkToSTK z))
                    ConvRX)
       in cAstConvert c a
   szip (AstRaw a) = AstRaw $ case ftkAst a of
     FTKProduct (FTKS _sh y) (FTKS _ z) ->
-      let c = ConvCmp
+      let c = convCmp
                 ConvXS
-                (ConvCmp
+                (convCmp
                    (ConvZip (ftkToSTK y) (ftkToSTK z))
                    (ConvT2 ConvSX ConvSX))
       in cAstConvert c a
   sunzip (AstRaw a) = AstRaw $ case ftkAst a of
     FTKS _sh (FTKProduct y z) ->
-      let c = ConvCmp
+      let c = convCmp
                 (ConvT2 ConvXS ConvXS)
-                (ConvCmp
+                (convCmp
                    (ConvUnzip (ftkToSTK y) (ftkToSTK z))
                    ConvSX)
       in cAstConvert c a
@@ -1222,24 +1222,24 @@ instance AstSpan s => ConvertTensor (AstRaw s) where
     | Refl <- lemRankReplicate (Proxy @m) = AstRaw $
       let c :: TKConversion (TKX2 (sh1 ++ Replicate m Nothing) x)
                             (TKX2 sh1 (TKR2 m x))
-          c = ConvCmp
+          c = convCmp
                 (ConvXX (ConvXR (knownSTK @x)))
                 (ConvNest @_ @_ @(Replicate m Nothing)
                           (STKX sh1 (knownSTK @x)))
       in cAstConvert c a
   xnestS @_ @_ @x sh1 (AstRaw a) = AstRaw $
-    let c = ConvCmp (ConvXX ConvXS)
+    let c = convCmp (ConvXX ConvXS)
                     (ConvNest (STKX sh1 (knownSTK @x)))
     in cAstConvert c a
   xnest @_ @_ @x sh1 (AstRaw a) = AstRaw $
     let c = ConvNest (STKX sh1 (knownSTK @x))
     in cAstConvert c a
   xunNestR (AstRaw a) = AstRaw $
-    let c = ConvCmp ConvUnnest
+    let c = convCmp ConvUnnest
                     (ConvXX ConvRX)
     in cAstConvert c a
   xunNestS (AstRaw a) = AstRaw $
-    let c = ConvCmp ConvUnnest
+    let c = convCmp ConvUnnest
                     (ConvXX ConvSX)
     in cAstConvert c a
   xunNest (AstRaw a) = AstRaw $

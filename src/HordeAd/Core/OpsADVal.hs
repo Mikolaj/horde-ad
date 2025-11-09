@@ -595,9 +595,9 @@ instance ( ADReadyNoLet target, ShareTensor target
   rzip @_ @_ @n (D u u')
    | Refl <- lemRankReplicate (Proxy @n) = case ftkDelta u' of
     ftk@(FTKProduct (FTKR _sh y) (FTKR _ z)) ->
-      let c = ConvCmp
+      let c = convCmp
                 (ConvXR (ftkToSTK (FTKProduct y z)))
-                (ConvCmp
+                (convCmp
                    (ConvZip (ftkToSTK y) (ftkToSTK z))
                    (ConvT2 ConvRX ConvRX))
       in dD (tconvert c (ftkToSTK ftk) u)
@@ -605,27 +605,27 @@ instance ( ADReadyNoLet target, ShareTensor target
   runzip @_ @_ @n (D u u')
    | Refl <- lemRankReplicate (Proxy @n) = case ftkDelta u' of
     ftk@(FTKR _sh (FTKProduct y z)) ->
-      let c = ConvCmp
+      let c = convCmp
                 (ConvT2 (ConvXR (ftkToSTK y)) (ConvXR (ftkToSTK z)))
-                (ConvCmp
+                (convCmp
                    (ConvUnzip (ftkToSTK y) (ftkToSTK z))
                    ConvRX)
       in dD (tconvert c (ftkToSTK ftk) u)
             (DeltaConvert c u')
   szip (D u u') = case ftkDelta u' of
     ftk@(FTKProduct (FTKS _sh y) (FTKS _ z)) ->
-      let c = ConvCmp
+      let c = convCmp
                 ConvXS
-                (ConvCmp
+                (convCmp
                    (ConvZip (ftkToSTK y) (ftkToSTK z))
                    (ConvT2 ConvSX ConvSX))
       in dD (tconvert c (ftkToSTK ftk) u)
             (DeltaConvert c u')
   sunzip (D u u') = case ftkDelta u' of
     ftk@(FTKS _sh (FTKProduct y z)) ->
-      let c = ConvCmp
+      let c = convCmp
                 (ConvT2 ConvXS ConvXS)
-                (ConvCmp
+                (convCmp
                    (ConvUnzip (ftkToSTK y) (ftkToSTK z))
                    ConvSX)
       in dD (tconvert c (ftkToSTK ftk) u)
@@ -645,14 +645,14 @@ instance ( ADReadyNoLet target, ShareTensor target
     | Refl <- lemRankReplicate (Proxy @m) =
       let c :: TKConversion (TKX2 (sh1 ++ Replicate m Nothing) x)
                             (TKX2 sh1 (TKR2 m x))
-          c = ConvCmp
+          c = convCmp
                 (ConvXX (ConvXR (knownSTK @x)))
                 (ConvNest @_ @_ @(Replicate m Nothing)
                           (STKX sh1 (knownSTK @x)))
       in dD (tconvert c (ftkToSTK $ ftkDelta u') u)
             (DeltaConvert c u')
   xnestS @_ @_ @x sh1 (D u u') =
-    let c = ConvCmp (ConvXX ConvXS)
+    let c = convCmp (ConvXX ConvXS)
                     (ConvNest (STKX sh1 (knownSTK @x)))
     in dD (tconvert c (ftkToSTK $ ftkDelta u') u)
           (DeltaConvert c u')
@@ -661,12 +661,12 @@ instance ( ADReadyNoLet target, ShareTensor target
     in dD (tconvert c (ftkToSTK $ ftkDelta u') u)
           (DeltaConvert c u')
   xunNestR (D u u') =
-    let c = ConvCmp ConvUnnest
+    let c = convCmp ConvUnnest
                     (ConvXX ConvRX)
     in dD (tconvert c (ftkToSTK $ ftkDelta u') u)
           (DeltaConvert c u')
   xunNestS (D u u') =
-    let c = ConvCmp ConvUnnest
+    let c = convCmp ConvUnnest
                    (ConvXX ConvSX)
     in dD (tconvert c (ftkToSTK $ ftkDelta u') u)
           (DeltaConvert c u')

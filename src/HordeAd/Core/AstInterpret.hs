@@ -461,9 +461,9 @@ interpretAstPlain !env v1 = case v1 of
     in sunNest
        $ tszipWith0N
            (\a1 a2 ->
-             let c = ConvCmp ConvXS
-                             (ConvCmp (Conv0X (STKS ZSS STKScalar))
-                                      (ConvCmp ConvXS (Conv0X STKScalar)))
+             let c = convCmp ConvXS
+                             (convCmp (Conv0X (STKS ZSS STKScalar))
+                                      (convCmp ConvXS (Conv0X STKScalar)))
              in tconvert c STKScalar $ sunNest a1 <=. sunNest a2)
            (snest @_ @_ @sh shb r1) (snest shb r2)
 
@@ -788,9 +788,9 @@ interpretAst !env = \case
        $ sunNest
        $ tszipWith0N
            (\a1 a2 ->
-             let c = ConvCmp ConvXS
-                             (ConvCmp (Conv0X (STKS ZSS STKScalar))
-                                      (ConvCmp ConvXS (Conv0X STKScalar)))
+             let c = convCmp ConvXS
+                             (convCmp (Conv0X (STKS ZSS STKScalar))
+                                      (convCmp ConvXS (Conv0X STKScalar)))
              in tconvert c STKScalar $ sunNest a1 <=. sunNest a2)
            (snest @_ @_ @sh shb r1) (snest shb r2)
 

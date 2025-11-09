@@ -435,7 +435,7 @@ cAstSFromR :: forall sh x ms s. AstSpan s
            -> AstTensor ms s (TKS2 sh x)
 cAstSFromR sh v = case ftkAst v of
   FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
-    let c2 = ConvCmp (ConvXS' (FTKS sh x)) ConvRX
+    let c2 = convCmp (ConvXS' (FTKS sh x)) ConvRX
     in cAstConvert c2 v
 
 cAstSFromX :: forall sh sh' x ms s. (AstSpan s, Rank sh ~ Rank sh')
@@ -452,7 +452,7 @@ cAstXFromS ssx v
   | FTKS sh x <- ftkAst v
   , let shx = shCastSX ssx sh
   , Refl <- lemRankMapJust sh =
-    let c2 = ConvCmp (ConvXX' (FTKX shx x)) ConvSX
+    let c2 = convCmp (ConvXX' (FTKX shx x)) ConvSX
     in cAstConvert c2 v
 
 pattern AstFromS' :: forall {z1} {ms1} {s1}.
@@ -503,17 +503,17 @@ convFromS yftk0 zftk0 = case (yftk0, zftk0) of
   _ | Just Refl <- matchingFTK yftk0 zftk0 -> ConvId
   (FTKS ZSS (FTKScalar @ry), FTKScalar @rz)
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
-      ConvCmp ConvX0 ConvSX
+      convCmp ConvX0 ConvSX
   (FTKS sh x, FTKR rsh rx)
     | Just Refl <- matchingFTK x rx
     , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
     , Refl <- lemRankMapJust sh ->
-      ConvCmp (ConvXR (ftkToSTK x)) ConvSX
+      convCmp (ConvXR (ftkToSTK x)) ConvSX
   (FTKS sh x, FTKX xsh xx)
     | Just Refl <- matchingFTK x xx
     , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
     , Refl <- lemRankMapJust sh ->
-      ConvCmp (ConvXX' zftk0) ConvSX
+      convCmp (ConvXX' zftk0) ConvSX
   (FTKProduct yftk1 yftk2, FTKProduct zftk1 zftk2) ->
     ConvT2 (convFromS yftk1 zftk1) (convFromS yftk2 zftk2)
   _ -> error $ "convFromS': unexpected types "  -- TODO: try nevertheless
@@ -524,12 +524,12 @@ convSFrom yftk0 zstk0 = case (zstk0, yftk0) of
   _ | Just Refl <- sameSTK (ftkToSTK yftk0) zstk0 -> ConvId
   (STKS ZSS (STKScalar @ry), FTKScalar @rz)
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
-      ConvCmp ConvXS (Conv0X STKScalar)
+      convCmp ConvXS (Conv0X STKScalar)
   (STKS @sh sh x, FTKR rsh rx)
     | Just Refl <- sameSTK x (ftkToSTK rx)
     , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
     , Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
-      ConvCmp (ConvXS' (FTKS sh rx)) ConvRX
+      convCmp (ConvXS' (FTKS sh rx)) ConvRX
   (STKS sh x, FTKX xsh xx)
     | Just Refl <- sameSTK x (ftkToSTK xx)
     , Just Refl <- testEquality (shsRank sh) (shxRank xsh)

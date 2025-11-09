@@ -3748,19 +3748,19 @@ astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstFromVector snat@SNat (STKR @n _ xstk) l -> case sh of
     snat2 :$$ rest | Just Refl <- sameNat snat snat2
                    , Refl <- lemRankReplicate (Proxy @n) ->
-      let c2 = ConvCmp (ConvXS' (FTKS rest x)) ConvRX
+      let c2 = convCmp (ConvXS' (FTKS rest x)) ConvRX
       in astFromVector snat (STKS rest xstk)
                        (V.map (astConvert c2) l)
     _ -> error "astConvertSFromR: impossible shape"
   Ast.AstSum snat@SNat (STKR @n _ xstk) a
     | Refl <- lemRankReplicate (Proxy @(1 + n)) ->
-      let c2 = ConvCmp (ConvXS' (FTKS (snat :$$ sh) x)) ConvRX
+      let c2 = convCmp (ConvXS' (FTKS (snat :$$ sh) x)) ConvRX
           !a2 = astConvert c2 a
       in astSum snat (STKS sh xstk) a2
   Ast.AstReplicate snat@SNat (STKR @n _ xstk) a -> case sh of
     snat2 :$$ rest | Just Refl <- sameNat snat snat2
                    , Refl <- lemRankReplicate (Proxy @n) ->
-      let c2 = ConvCmp (ConvXS' (FTKS rest x)) ConvRX
+      let c2 = convCmp (ConvXS' (FTKS rest x)) ConvRX
           !a2 = astConvert c2 a
       in astReplicate snat (STKS rest xstk) a2
     _ -> error "astConvertSFromR: impossible shape"
@@ -3771,7 +3771,7 @@ astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstBuild1 snat@SNat (STKR @n _ xstk) (var, a) -> case sh of
     snat2 :$$ rest | Just Refl <- sameNat snat snat2
                    , Refl <- lemRankReplicate (Proxy @n) ->
-      let c2 = ConvCmp (ConvXS' (FTKS rest x)) ConvRX
+      let c2 = convCmp (ConvXS' (FTKS rest x)) ConvRX
           !a2 = astConvert c2 a
       in Ast.AstBuild1 snat (STKS rest xstk) (var, a2)
     _ -> error "astConvertSFromR: impossible shape"
@@ -3901,7 +3901,7 @@ astSFrom' zstk t = astConvert (convSFrom (ftkAst t) zstk) t
 astKFromS' :: forall r s. (AstSpan s, GoodScalar r)
            => AstTensor AstMethodLet s (TKS2 '[] (TKScalar r))
            -> AstTensor AstMethodLet s (TKScalar r)
-astKFromS' t = astConvertFromS (ConvCmp ConvX0 ConvSX) FTKScalar t
+astKFromS' t = astConvertFromS (convCmp ConvX0 ConvSX) FTKScalar t
 
 -- Or should we take SNat (Rank sh) to help proving n ~ Rank sh?
 astRFromS' :: forall sh x s. AstSpan s
@@ -3910,7 +3910,7 @@ astRFromS' :: forall sh x s. AstSpan s
 astRFromS' t | FTKS sh x <- ftkAst t
              , Refl <- lemRankMapJust sh =
   let zftk = FTKR (shrFromShS sh) x
-  in astConvertFromS (ConvCmp (ConvXR (ftkToSTK x)) ConvSX) zftk t
+  in astConvertFromS (convCmp (ConvXR (ftkToSTK x)) ConvSX) zftk t
 
 astXFromS' :: forall sh shx x s. (AstSpan s, Rank sh ~ Rank shx)
            => StaticShX shx -> AstTensor AstMethodLet s (TKS2 sh x)
@@ -3918,13 +3918,13 @@ astXFromS' :: forall sh shx x s. (AstSpan s, Rank sh ~ Rank shx)
 astXFromS' ssx t | FTKS sh x <- ftkAst t
                  , Refl <- lemRankMapJust sh =
   let zftk = FTKX (shCastSX ssx sh) x
-  in astConvertFromS (ConvCmp (ConvXX' zftk) ConvSX) zftk t
+  in astConvertFromS (convCmp (ConvXX' zftk) ConvSX) zftk t
 
 astSFromK' :: forall r s. (GoodScalar r, AstSpan s)
            => AstTensor AstMethodLet s (TKScalar r)
            -> AstTensor AstMethodLet s (TKS '[] r)
 astSFromK' a =
-  let c2 = ConvCmp ConvXS (Conv0X STKScalar)
+  let c2 = convCmp ConvXS (Conv0X STKScalar)
   in astConvertSFromK c2 (FTKS ZSS FTKScalar) a
 
 astSFromR' :: forall sh s r. AstSpan s
@@ -3933,7 +3933,7 @@ astSFromR' :: forall sh s r. AstSpan s
 astSFromR' sh t = case ftkAst t of
   FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
     let zftk = FTKS sh x
-    in astConvertSFromR (ConvCmp (ConvXS' zftk) ConvRX) zftk t
+    in astConvertSFromR (convCmp (ConvXS' zftk) ConvRX) zftk t
 
 astSFromX' :: forall sh sh' s x. (AstSpan s, Rank sh ~ Rank sh')
            => ShS sh -> AstTensor AstMethodLet s (TKX2 sh' x)
@@ -4062,34 +4062,34 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   rzip @_ @_ @n a
    | Refl <- lemRankReplicate (Proxy @n) = case ftkAst a of
     FTKProduct (FTKR _sh y) (FTKR _ z) ->
-      let c = ConvCmp
+      let c = convCmp
                 (ConvXR (ftkToSTK (FTKProduct y z)))
-                (ConvCmp
+                (convCmp
                    (ConvZip (ftkToSTK y) (ftkToSTK z))
                    (ConvT2 ConvRX ConvRX))
       in astConvert c a
   runzip @_ @_ @n a
    | Refl <- lemRankReplicate (Proxy @n) = case ftkAst a of
     FTKR _sh (FTKProduct y z) ->
-      let c = ConvCmp
+      let c = convCmp
                 (ConvT2 (ConvXR (ftkToSTK y)) (ConvXR (ftkToSTK z)))
-                (ConvCmp
+                (convCmp
                    (ConvUnzip (ftkToSTK y) (ftkToSTK z))
                    ConvRX)
       in astConvert c a
   szip a = case ftkAst a of
     FTKProduct (FTKS _sh y) (FTKS _ z) ->
-      let c = ConvCmp
+      let c = convCmp
                 ConvXS
-                (ConvCmp
+                (convCmp
                    (ConvZip (ftkToSTK y) (ftkToSTK z))
                    (ConvT2 ConvSX ConvSX))
       in astConvert c a
   sunzip a = case ftkAst a of
     FTKS _sh (FTKProduct y z) ->
-      let c = ConvCmp
+      let c = convCmp
                 (ConvT2 ConvXS ConvXS)
-                (ConvCmp
+                (convCmp
                    (ConvUnzip (ftkToSTK y) (ftkToSTK z))
                    ConvSX)
       in astConvert c a
@@ -4106,24 +4106,24 @@ instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
     | Refl <- lemRankReplicate (Proxy @m) =
       let c :: TKConversion (TKX2 (sh1 ++ Replicate m Nothing) x)
                             (TKX2 sh1 (TKR2 m x))
-          c = ConvCmp
+          c = convCmp
                 (ConvXX (ConvXR (knownSTK @x)))
                 (ConvNest @_ @_ @(Replicate m Nothing)
                           (STKX sh1 (knownSTK @x)))
       in astConvert c a
   xnestS @_ @_ @x sh1 a =
-    let c = ConvCmp (ConvXX ConvXS)
+    let c = convCmp (ConvXX ConvXS)
                     (ConvNest (STKX sh1 (knownSTK @x)))
     in astConvert c a
   xnest @_ @_ @x sh1 a =
     let c = ConvNest (STKX sh1 (knownSTK @x))
     in astConvert c a
   xunNestR a =
-    let c = ConvCmp ConvUnnest
+    let c = convCmp ConvUnnest
                     (ConvXX ConvRX)
     in astConvert c a
   xunNestS a =
-    let c = ConvCmp ConvUnnest
+    let c = convCmp ConvUnnest
                     (ConvXX ConvSX)
     in astConvert c a
   xunNest a =

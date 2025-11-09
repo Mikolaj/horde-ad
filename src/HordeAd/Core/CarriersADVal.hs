@@ -134,7 +134,7 @@ dSFromR sh w@(DeltaConvert _c d)
   , Just Refl <- matchingFTK (ftkDelta d) (FTKS sh x) = d
 dSFromR sh d | FTKR _ x <- ftkDelta d
              , Refl <- lemRankReplicate (Proxy @(Rank sh)) =
-  let c2 = ConvCmp (ConvXS' (FTKS sh x)) ConvRX
+  let c2 = convCmp (ConvXS' (FTKS sh x)) ConvRX
   in DeltaConvert c2 d
 
 dSFromX :: forall sh sh' x target. Rank sh ~ Rank sh'
@@ -158,7 +158,7 @@ dXFromS ssx d
   | FTKS sh x <- ftkDelta d
   , let shx = shCastSX ssx sh
   , Refl <- lemRankMapJust sh =
-    let c2 = ConvCmp (ConvXX' (FTKX shx x)) ConvSX
+    let c2 = convCmp (ConvXX' (FTKX shx x)) ConvSX
     in DeltaConvert c2 d
 
 -- This hack is needed to recover shape from tensors,

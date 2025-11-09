@@ -743,10 +743,10 @@ transposeTKConversion aftk c0 = case c0 of
     ConvXR (ftkToSTK x)
   ConvSX -> ConvXS
   ConvXR @_ @sh _stk | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
-    ConvCmp (ConvXX' aftk) ConvRX
+    convCmp (ConvXX' aftk) ConvRX
   ConvXS -> ConvSX
   ConvXS' (FTKS sh _) | Refl <- lemRankMapJust sh ->
-    ConvCmp (ConvXX' aftk) ConvSX
+    convCmp (ConvXX' aftk) ConvSX
   ConvXX' _ftk -> ConvXX' aftk
   ConvRR c | FTKR _ x <- aftk -> ConvRR (transposeTKConversion x c)
   ConvSS c | FTKS _ x <- aftk -> ConvSS (transposeTKConversion x c)

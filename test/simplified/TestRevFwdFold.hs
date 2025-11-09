@@ -258,14 +258,14 @@ testFooRrevPP1 = do
   resetVarCounter
   let (a1, _, _) = fooRgrad @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstPretty a1
-    @?= "rfromS (let x15 = let x10 = sin (sscalar 2.2) ; x11 = sscalar 1.1 * x10 ; x12 = recip (sscalar 10.889999999999999 + x11 * x11) ; x13 = sin (sscalar 2.2) ; x14 = sscalar (-3.3) * x12 in tpair (tpair (x10 * x14 + sscalar 3.3 * x13) (sscalar 1.1 * (cos (sscalar 2.2) * x14) + sscalar 3.63 * cos (sscalar 2.2))) (x11 * x12 + sscalar 1.1 * x13) in tproject1 (tproject1 x15))"
+    @?= "let x15 = let x10 = sin 2.2 ; x11 = 1.1 * x10 ; x12 = recip (10.889999999999999 + x11 * x11) ; x13 = sin 2.2 ; x14 = (-3.3) * x12 in tpair (tpair (rfromK (x10 * x14 + 3.3 * x13)) (rfromK (1.1 * (cos 2.2 * x14) + 3.63 * cos 2.2))) (rfromK (x11 * x12 + 1.1 * x13)) in tproject1 (tproject1 x15)"
 
 -- This gets properly simpified when we complete "TODO: copy here the code from contractAst".
 testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
   let (a1, _, _) = fooRgrad @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple (simplifyInlineContract a1)
-    @?= "rfromS (tfromPlain (STKS [] STKScalar) (sscalar 2.668038132604647) + tfromPlain (STKS [] STKScalar) (sscalar (-2.668038132604647)) * recip (tfromPlain (STKS [] STKScalar) (sscalar 11.680936386336942)))"
+    @?= "rfromK (tfromPlain (STKScalar) 2.668038132604647 + tfromPlain (STKScalar) (-2.668038132604647) * recip (tfromPlain (STKScalar) 11.680936386336942))"
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
@@ -289,14 +289,14 @@ testSin0RrevPP1 = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstPretty a1
-    @?= "rfromS (cos (sscalar 1.1))"
+    @?= "rfromK (cos 1.1)"
 
 testSin0RrevPP2 :: Assertion
 testSin0RrevPP2 = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
   printAstSimple a1
-    @?= "rfromS (cos (tfromPlain (STKS [] STKScalar) (sscalar 1.1)))"
+    @?= "rfromK (cos (tfromPlain (STKScalar) 1.1))"
 
 testSin0Rrev3 :: Assertion
 testSin0Rrev3 = do
@@ -315,7 +315,7 @@ testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
   let a1 = (rrev1 sin . rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
   printAstPretty (simplifyInline a1)
-    @?= "rfromS (cos (cos (sscalar 1.1)))"
+    @?= "rfromK (cos (cos 1.1))"
 
 testSin0Rrev5 :: Assertion
 testSin0Rrev5 = do
@@ -328,7 +328,7 @@ testSin0RrevPP5 = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 (rrev1 sin) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromS (sscalar (-0.8912073600614354))"
+    @?= "rfromK (-0.8912073600614354)"
 
 testSin0Rrev3' :: Assertion
 testSin0Rrev3' = do
@@ -1131,7 +1131,7 @@ testSin0Scan1Rev3PPForComparison = do
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rfromList [sin (sin x0 - x0 * rscalar 5) - x0 * rscalar 7, sin x0 - x0 * rscalar 5, x0]) (rscalar 1.1)
   printAstPretty (simplifyInline a1)
-    @?= "rfromS (let x6 = cos (sscalar (-5.5) + sin (sscalar 1.1)) in sscalar (-11.0) + (cos (sscalar 1.1) * x6 + (sscalar (-5.0) * x6 + cos (sscalar 1.1))))"
+    @?= "rfromS (let x6 = cos ((-5.5) + sin 1.1) in sscalar (-11.0) + (cos (sscalar 1.1) * sfromK x6 + (sscalar (-5.0) * sfromK x6 + cos (sscalar 1.1))))"
 
 testSin0ScanFwd3PP :: Assertion
 testSin0ScanFwd3PP = do
@@ -2296,7 +2296,7 @@ testSin0FoldNestedR1PP = do
       g = kgrad (kfromR . f) (FTKR ZSR FTKScalar)
   printAstPretty
     (g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (let v6 = tmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (tconvert (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [] FTKScalar)) (Conv0X STKScalar))) (STKScalar) 1.0) (tpair (sconcrete (sreplicate [11] Z1)) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sconcrete (sreplicate [11] 1.1))))) (rfromS (sconcrete (sreplicate [11] 1.1))))) in ssum @11 (sfromR (tproject2 v6)) + sfromR (tproject1 v6))"
+    @?= "rfromS (let v6 = tmapAccumRDer (SNat @11) <lambda> <lambda> <lambda> (rfromK 1.0) (tpair (sconcrete (sreplicate [11] Z1)) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> (sscalar 1.1) (sconcrete (sreplicate [11] 1.1))))) (rfromS (sconcrete (sreplicate [11] 1.1))))) in ssum @11 (sfromR (tproject2 v6)) + sfromR (tproject1 v6))"
 
 testSin0FoldNestedR0LengthPPs :: Assertion
 testSin0FoldNestedR0LengthPPs = do
@@ -2310,7 +2310,7 @@ testSin0FoldNestedR0LengthPPs = do
     (printAstSimple
       (simplifyInlineContract
        $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 3524
+    @?= 3422
 
 testSin0FoldNestedR1LengthPPs :: Assertion
 testSin0FoldNestedR1LengthPPs = do
@@ -2326,7 +2326,7 @@ testSin0FoldNestedR1LengthPPs = do
     (printAstSimple
       (simplifyInlineContract
        $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 35824
+    @?= 35722
 
 testSin0FoldNestedR2LengthPPs :: Assertion
 testSin0FoldNestedR2LengthPPs = do
@@ -2344,7 +2344,7 @@ testSin0FoldNestedR2LengthPPs = do
     (printAstSimple
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 469491
+    @?= 469389
 
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
@@ -2364,7 +2364,7 @@ testSin0FoldNestedR3LengthPPs = do
     (printAstSimple
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 6991325
+    @?= 6991223
 
 -- Takes 70s, probably due to something (simplification?) forcing all derivs.
 _testSin0FoldNestedR4LengthPPs :: Assertion
@@ -2431,7 +2431,7 @@ testSin0FoldNestedR2LengthPPsDummy7 = do
     (printAstSimple
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 233820
+    @?= 233718
 
 testSin0FoldNestedR2Dummy7 :: Assertion
 testSin0FoldNestedR2Dummy7 = do
@@ -2821,7 +2821,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) (rscalar 1.1)
   length (printAstSimple (simplifyInlineContract a1))
-    @?= 67457
+    @?= 67355
 
 testSin0revhV :: Assertion
 testSin0revhV = do
@@ -2840,7 +2840,7 @@ testSin0revhVPP = do
       f = kgrad @_ @Double @g (kfromR . sin) (FTKR ZSR FTKScalar)
   printAstSimple (f @(AstTensor AstMethodLet PrimalSpan)
                                     (rscalar 1.1))
-    @?= "rfromS (cos (tfromPlain (STKS [] STKScalar) (sscalar 1.1)))"
+    @?= "rfromK (cos (tfromPlain (STKScalar) 1.1))"
 
 testSin0revhV4 :: Assertion
 testSin0revhV4 = do
