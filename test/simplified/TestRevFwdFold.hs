@@ -1044,7 +1044,7 @@ testSin0Scan1RevPP1 = do
                  (\x0 -> rscan (\x _a -> sin x) x0
                            (rrepl @1 @Double [2] 42)) (rscalar 1.1)
   printAstPrettyButNested (simplifyInlineContract a1)
-    @?= "rfromS (sscalar 1.0 + tproject1 (tmapAccumRDer (SNat @2) (\\x6 -> tpair (cos (sfromR (tproject1 (tproject2 (tproject2 x6)))) * (sfromR (tproject1 (tproject2 x6)) + tproject1 x6)) Z1) (\\x13 -> tpair ((sfromR (tproject1 (tproject2 (tproject2 (tproject1 x13)))) * negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x13))))))) * (sfromR (tproject1 (tproject2 (tproject2 x13))) + tproject1 (tproject2 x13)) + (sfromR (tproject1 (tproject2 (tproject1 x13))) + tproject1 (tproject1 x13)) * cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x13)))))) Z1) (\\x22 -> tconvert (ConvT2 (ConvCmp (ConvXS' (FTKS [] FTKScalar)) (ConvCmp ConvRX (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [] FTKScalar)) ConvSX)))) (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [] FTKScalar)) ConvSX)) (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [] FTKScalar)) ConvSX)) ConvId))) (STKProduct (STKS [] STKScalar) (STKProduct (STKS [] STKScalar) (STKProduct (STKS [] STKScalar) (STKS [] STKScalar)))) (let x30 = cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x22))))) * tproject1 (tproject1 x22) in tpair x30 (tpair x30 (tpair (negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x22)))))) * ((sfromR (tproject1 (tproject2 (tproject2 x22))) + tproject1 (tproject2 x22)) * tproject1 (tproject1 x22))) (sscalar 0.0))))) (sscalar 0.0) (tpair (rfromS (sconcrete (sreplicate [2] 1.0))) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) (\\x31 -> tconvert (ConvT2 (ConvCmp (ConvXS' (FTKS [] FTKScalar)) (ConvCmp ConvRX (ConvCmp (ConvXR STKScalar) ConvSX))) (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvCmp (ConvXR STKScalar) ConvSX))) (STKProduct (STKS [] STKScalar) (STKProduct (STKS [] STKScalar) (STKS [] STKScalar))) (let x37 = sin (tproject1 x31) in tpair x37 (tpair (tproject1 x31) x37))) (\\x38 -> tconvert (ConvT2 (ConvCmp (ConvXS' (FTKS [] FTKScalar)) (ConvCmp ConvRX (ConvCmp (ConvXR STKScalar) ConvSX))) (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvCmp (ConvXR STKScalar) ConvSX))) (STKProduct (STKS [] STKScalar) (STKProduct (STKS [] STKScalar) (STKS [] STKScalar))) (let x49 = tproject1 (tproject1 x38) * cos (tproject1 (tproject2 x38)) in tpair x49 (tpair (tproject1 (tproject1 x38)) x49))) (\\x50 -> let x53 = tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [] FTKScalar)) ConvSX)) (ConvCmp (ConvXS' (FTKS [] FTKScalar)) ConvRX)) (STKProduct (STKS [] STKScalar) (STKR (SNat @0) STKScalar)) (tpair (cos (tproject1 (tproject2 x50)) * (sfromR (tproject2 (tproject2 (tproject1 x50))) + tproject1 (tproject1 x50))) (rfromS (sscalar 0.0))) in tpair (sfromR (tproject1 x53) + sfromR (tproject1 (tproject2 (tproject1 x50)))) (tproject2 x53)) (sscalar 1.1) (sconcrete (sreplicate [2] 42.0))))) (sconcrete (sreplicate [2] 42.0))))))"
+    @?= "rfromS (sscalar 1.0 + tproject1 (tmapAccumRDer (SNat @2) (\\x6 -> tpair (cos (sfromR (tproject1 (tproject2 (tproject2 x6)))) * (sfromR (tproject1 (tproject2 x6)) + tproject1 x6)) Z1) (\\x13 -> tpair ((sfromR (tproject1 (tproject2 (tproject2 (tproject1 x13)))) * negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x13))))))) * (sfromR (tproject1 (tproject2 (tproject2 x13))) + tproject1 (tproject2 x13)) + (sfromR (tproject1 (tproject2 (tproject1 x13))) + tproject1 (tproject1 x13)) * cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x13)))))) Z1) (\\x22 -> tconvert (ConvT2 (ConvCmp (ConvXS' (FTKS [] FTKScalar)) (ConvCmp ConvRX (ConvCmp (ConvXR STKScalar) ConvSX))) (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [] FTKScalar)) ConvSX)) ConvId))) (STKProduct (STKS [] STKScalar) (STKProduct (STKS [] STKScalar) (STKProduct (STKS [] STKScalar) (STKS [] STKScalar)))) (let x30 = cos (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x22))))) * tproject1 (tproject1 x22) in tpair x30 (tpair x30 (tpair (negate (sin (sfromR (tproject1 (tproject2 (tproject2 (tproject2 x22)))))) * ((sfromR (tproject1 (tproject2 (tproject2 x22))) + tproject1 (tproject2 x22)) * tproject1 (tproject1 x22))) (sscalar 0.0))))) (sscalar 0.0) (tpair (rfromS (sconcrete (sreplicate [2] 1.0))) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) (\\x31 -> tconvert (ConvT2 (ConvCmp (ConvXS' (FTKS [] FTKScalar)) (ConvCmp ConvRX (ConvCmp (ConvXR STKScalar) ConvSX))) (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvCmp (ConvXR STKScalar) ConvSX))) (STKProduct (STKS [] STKScalar) (STKProduct (STKS [] STKScalar) (STKS [] STKScalar))) (let x37 = sin (tproject1 x31) in tpair x37 (tpair (tproject1 x31) x37))) (\\x38 -> tconvert (ConvT2 (ConvCmp (ConvXS' (FTKS [] FTKScalar)) (ConvCmp ConvRX (ConvCmp (ConvXR STKScalar) ConvSX))) (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvCmp (ConvXR STKScalar) ConvSX))) (STKProduct (STKS [] STKScalar) (STKProduct (STKS [] STKScalar) (STKS [] STKScalar))) (let x49 = tproject1 (tproject1 x38) * cos (tproject1 (tproject2 x38)) in tpair x49 (tpair (tproject1 (tproject1 x38)) x49))) (\\x50 -> let x53 = tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) (ConvCmp (ConvXX' (FTKX [] FTKScalar)) ConvSX)) (ConvCmp (ConvXS' (FTKS [] FTKScalar)) ConvRX)) (STKProduct (STKS [] STKScalar) (STKR (SNat @0) STKScalar)) (tpair (cos (tproject1 (tproject2 x50)) * (sfromR (tproject2 (tproject2 (tproject1 x50))) + tproject1 (tproject1 x50))) (rfromS (sscalar 0.0))) in tpair (sfromR (tproject1 x53) + sfromR (tproject1 (tproject2 (tproject1 x50)))) (tproject2 x53)) (sscalar 1.1) (sconcrete (sreplicate [2] 42.0))))) (sconcrete (sreplicate [2] 42.0))))))"
 
 testSin0Scan1RevPPForComparison :: Assertion
 testSin0Scan1RevPPForComparison = do
@@ -2326,7 +2326,7 @@ testSin0FoldNestedR1LengthPPs = do
     (printAstSimple
       (simplifyInlineContract
        $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 35722
+    @?= 35642
 
 testSin0FoldNestedR2LengthPPs :: Assertion
 testSin0FoldNestedR2LengthPPs = do
@@ -2344,7 +2344,7 @@ testSin0FoldNestedR2LengthPPs = do
     (printAstSimple
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 469389
+    @?= 468349
 
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
@@ -2364,7 +2364,7 @@ testSin0FoldNestedR3LengthPPs = do
     (printAstSimple
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 6991223
+    @?= 6977583
 
 -- Takes 70s, probably due to something (simplification?) forcing all derivs.
 _testSin0FoldNestedR4LengthPPs :: Assertion
@@ -2821,7 +2821,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) (rscalar 1.1)
   length (printAstSimple (simplifyInlineContract a1))
-    @?= 67355
+    @?= 67315
 
 testSin0revhV :: Assertion
 testSin0revhV = do

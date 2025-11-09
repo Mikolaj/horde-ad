@@ -322,13 +322,18 @@ convCmp a b = case (a, b) of
   (ConvCmp a1 a2, _) -> a1 . (a2 . b)
   (ConvSX, ConvXS) -> ConvId
   (ConvXR{}, ConvRX @n) | Refl <- lemRankReplicate (Proxy @n) -> ConvId
+  (ConvXR stk, ConvXX'{}) -> ConvXR stk
   (ConvXS @sh, ConvSX @sh') ->
     gcastWith (unsafeCoerceRefl :: sh :~: sh') $
     ConvId
+  (ConvXS, ConvXX' (FTKX sh x)) | Refl <- lemRankMapJust (shsFromShX sh) ->
+    ConvXS' (FTKS (shsFromShX sh) x)
   (ConvXS' @_ @sh' _, ConvSX @sh) ->
     gcastWith (unsafeCoerceRefl :: sh :~: sh') $
     ConvId
+  (ConvXS' ftk, ConvXX'{}) -> ConvXS' ftk
   (ConvXS' (FTKS ZSS _), Conv0X stk) -> ConvXS . Conv0X stk
+  (ConvXX' ftk, ConvXX'{}) -> ConvXX' ftk
   (ConvXX' (FTKX ZSX _), Conv0X stk) -> Conv0X stk
   (Conv0X{}, ConvX0) -> ConvId
   (ConvX0, ConvXX' @sh (FTKX ZSX _)) ->
