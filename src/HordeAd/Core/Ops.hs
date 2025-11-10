@@ -1176,9 +1176,6 @@ instance Show (HFun x y) where
 type ADReady target =
   ( ADReadyNoLet target
   , LetTensor target
--- The following can't be added, because we have instances like ADVal (AstRaw),
--- so AstRaw would need to have a LetTensor instance:
---  , LetTensor (PrimalOf target)
   )
 
 type ADReadyNoLet target =
@@ -1190,24 +1187,25 @@ type ADReadyNoLet target =
   , ShareOf (ShareOf target) ~ ShareOf target
   )
 
-type ADReadyEqsClasses target =
-  ( ADReadyEqs target
-  , ADReadyClasses target
-  , ADReadyClasses (PrimalOf target)
-  , ADReadyClasses (PlainOf target)
+type ADReadyEqsClasses f =
+  ( ADReadyEqs f
+  , LetTensor (PlainOf f)
+  , ADReadyClasses f
+  , ADReadyClasses (PrimalOf f)
+  , ADReadyClasses (PlainOf f)
   )
 
-type ADReadyEqs target =
-  ( PlainOf (PlainOf target) ~ PlainOf target
-  , PlainOf (PrimalOf target) ~ PlainOf target
+type ADReadyEqs f =
+  ( PlainOf (PlainOf f) ~ PlainOf f
+  , PlainOf (PrimalOf f) ~ PlainOf f
   )
 
-type ADReadyClasses target =
-  ( BaseTensor target
-  , ConvertTensor target
-  , Boolean (BoolOf target)
-  , AllTargetShow target
-  , CommonTargetEqOrd target
+type ADReadyClasses f =
+  ( BaseTensor f
+  , ConvertTensor f
+  , Boolean (BoolOf f)
+  , AllTargetShow f
+  , CommonTargetEqOrd f
   )
 
 -- This is illegal:

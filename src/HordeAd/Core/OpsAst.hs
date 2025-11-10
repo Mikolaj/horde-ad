@@ -719,6 +719,19 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
 
 -- * AstRaw instances
 
+instance AstSpan s => LetTensor (AstRaw s) where
+  ttlet u f =
+    let !var2 = tshare u
+    in f var2
+  ttletPrimal u f =
+    let !var2 = tshare u
+    in f var2
+  ttletPlain u f =
+    let !var2 = tshare u
+    in f var2
+  toShare = id
+  tunshare = id
+
 instance AstSpan s => ShareTensor (AstRaw s) where
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
