@@ -381,7 +381,7 @@ unshareAst memo = \case
 
   -- We assume v is the same if var is the same.
   Ast.AstShare varRaw a | Just Refl <- sameAstSpan @s @PrimalSpan -> case a of
-    AstFromS' @y2 ftkz v ->
+    AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
       let var = mkAstVarName
                   (ftkAst v) (varNameToBounds varRaw) (varNameToAstVarId varRaw)
           astVar0 = cAstFromS @y2 ftkz $ Ast.AstVar var
@@ -420,7 +420,7 @@ unshareAst memo = \case
               else let (memo1, !a2) = unshareAst memo a
                    in ((DMap.insert var a2 $ fst memo1, snd memo1), astVar0)
   Ast.AstShare varRaw a | Just Refl <- sameAstSpan @s @PlainSpan -> case a of
-    AstFromS' @y2 ftkz v ->
+    AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
       let var = mkAstVarName
                   (ftkAst v) (varNameToBounds varRaw) (varNameToAstVarId varRaw)
           astVar0 = cAstFromS @y2 ftkz $ Ast.AstVar var

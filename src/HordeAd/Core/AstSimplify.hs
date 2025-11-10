@@ -619,7 +619,8 @@ astMapAccumRDer
 astMapAccumRDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
-                (AstFromS' @accyFrom accftk acc0From) es =
+                (AstFromS' @accyFrom accftk acc0From) es
+                | case accftk of; FTKScalar -> False; _ -> True =
   let accftkFrom = ftkAst acc0From
       accFromSTK = ftkToSTK accftkFrom
       ftkf2 = FTKProduct accftkFrom eftk
@@ -681,7 +682,8 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
 astMapAccumRDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
-                (Ast.AstFromPlain (AstFromS' @accyFrom accftk acc0From)) es =
+                (Ast.AstFromPlain (AstFromS' @accyFrom accftk acc0From)) es
+                | case accftk of; FTKScalar -> False; _ -> True =
   let accftkFrom = ftkAst acc0From
       accFromSTK = ftkToSTK accftkFrom
       ftkf2 = FTKProduct accftkFrom eftk
@@ -743,7 +745,8 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
 astMapAccumRDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
-                acc0 (AstFromS' @esShsFrom _esShsFTK esFrom) =
+                acc0 (AstFromS' @esShsFrom esShsFTK esFrom)
+                | case esShsFTK of; FTKScalar -> False; _ -> True =
   let accftk = ftkAst acc0
       accstk = ftkToSTK accftk
       esShsFrom = ftkAst esFrom
@@ -807,7 +810,8 @@ astMapAccumRDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
                 acc0
-                (Ast.AstFromPlain (AstFromS' @esShsFrom _esShsFTK esFrom)) =
+                (Ast.AstFromPlain (AstFromS' @esShsFrom esShsFTK esFrom))
+                | case esShsFTK of; FTKScalar -> False; _ -> True =
   let accftk = ftkAst acc0
       accstk = ftkToSTK accftk
       esShsFrom = ftkAst esFrom
@@ -891,7 +895,8 @@ astMapAccumLDer
 astMapAccumLDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
-                (AstFromS' @accyFrom accftk acc0From) es =
+                (AstFromS' @accyFrom accftk acc0From) es
+                | case accftk of; FTKScalar -> False; _ -> True =
   let accftkFrom = ftkAst acc0From
       accFromSTK = ftkToSTK accftkFrom
       ftkf2 = FTKProduct accftkFrom eftk
@@ -953,7 +958,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
 astMapAccumLDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
-                (Ast.AstFromPlain (AstFromS' @accyFrom accftk acc0From)) es =
+                (Ast.AstFromPlain (AstFromS' @accyFrom accftk acc0From)) es
+                | case accftk of; FTKScalar -> False; _ -> True =
   let accftkFrom = ftkAst acc0From
       accFromSTK = ftkToSTK accftkFrom
       ftkf2 = FTKProduct accftkFrom eftk
@@ -1015,7 +1021,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
 astMapAccumLDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
-                acc0 (AstFromS' @esShsFrom _esShsFTK esFrom) =
+                acc0 (AstFromS' @esShsFrom esShsFTK esFrom)
+                | case esShsFTK of; FTKScalar -> False; _ -> True =
   let accftk = ftkAst acc0
       accstk = ftkToSTK accftk
       esShsFrom = ftkAst esFrom
@@ -1079,7 +1086,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
                 acc0
-                (Ast.AstFromPlain (AstFromS' @esShsFrom _esShsFTK esFrom)) =
+                (Ast.AstFromPlain (AstFromS' @esShsFrom esShsFTK esFrom))
+                | case esShsFTK of; FTKScalar -> False; _ -> True =
   let accftk = ftkAst acc0
       accstk = ftkToSTK accftk
       esShsFrom = ftkAst esFrom
@@ -1243,19 +1251,18 @@ astLet var (Ast.AstTransposeS perm a) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
       ast = Ast.AstTransposeS perm $ astVar var2
   in astLet var2 a (substituteAst ast var v)
-astLet var u@(AstFromS' FTKScalar _) v = case v of
-  AstFromS' FTKScalar _ -> Ast.AstLet var u v  -- repeated from below
-  Ast.AstConvert c v2 | checkAstFromS c v2 -> astConvert c $ astLet var u v2
-  _ -> Ast.AstLet var u v
-astLet var (Ast.AstConvert c a) v | checkAstFromS c a =
-  let var2 =
-        mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
-      ast = astConvert c $ astVar var2
-  in astLet var2 a (substituteAst ast var v)
-astLet var u v = case v of
-  AstFromS' FTKScalar _ -> Ast.AstLet var u v
-  Ast.AstConvert c v2 | checkAstFromS c v2 -> astConvert c $ astLet var u v2
-  _ -> Ast.AstLet var u v
+astLet var u@(Ast.AstConvert c a) v
+  | checkAstFromS c a
+  , case u of; AstFromS' FTKScalar _ -> False; _ -> True =
+    let var2 =
+          mkAstVarName (ftkAst a) (varNameToBounds var) (varNameToAstVarId var)
+        ast = astConvert c $ astVar var2
+    in astLet var2 a (substituteAst ast var v)
+astLet var u v@(Ast.AstConvert c a)
+  | checkAstFromS c a
+  , case v of; AstFromS' FTKScalar _ -> False; _ -> True =
+    astConvert c $ astLet var u a
+astLet var u v = Ast.AstLet var u v
 
 astPrimalPart :: AstSpan s
               => AstTensor AstMethodLet s y
