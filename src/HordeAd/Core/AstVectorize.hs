@@ -535,7 +535,7 @@ substProjRep snat@SNat var var1 v =
              (astIndexBuild snat (varNameToFTK var1)
                             astVar3 (astVar var))
              var1 v
-        -- The subsitutions of projections don't break sharing,
+        -- The subsitutions of projections don't break sharing too much,
         -- because they don't duplicate variables and the added var
         -- is eventually being eliminated instead of substituted for.
   in (var3, v2)

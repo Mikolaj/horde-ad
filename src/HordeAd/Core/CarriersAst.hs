@@ -33,6 +33,7 @@ import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Core.Unwind
 
 -- * Type family instances for AstTensor
 
@@ -1159,31 +1160,37 @@ instance (AstSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
                            ++ show (shu, shv)
 
 -- Since u and v are duplicated here, they need to be shared.
+-- We share their difference, which would most likely appear in the
+-- inequalities once they are rewritten, to ensure it's shared and whatever
+-- vectorization substitutes into it is shared as well.
+-- Otherwise, if u and v are variables, the sharing would vanish
+-- before vectoriation complicates the expression a bit, making it
+-- worth sharing.
 instance (AstSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKScalar r) where
-  vUnshared ==. uUnshared = astLetFunNoSimplify vUnshared $ \v ->
-                            astLetFunNoSimplify uUnshared $ \u ->
-    v <=. u &&* u <=. v
+  vUnshared ==. uUnshared = astLetFunNoSimplify (uUnshared - vUnshared) $ \uv ->
+    0 <=. uv &&* uv <=. 0
 
 instance (AstSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKScalar r) where
   vUnshared ==. uUnshared =
-    let v = astShareNoSimplify vUnshared
-        u = astShareNoSimplify uUnshared
-    in v <=. u &&* u <=. v
+    let uv = astShareNoSimplify (uUnshared - vUnshared)
+    in 0 <=. uv &&* uv <=. 0
 
 instance (AstSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKS sh r) where
-  vUnshared ==. uUnshared = astLetFunNoSimplify vUnshared $ \v ->
-                            astLetFunNoSimplify uUnshared $ \u ->
-    v <=. u &&* u <=. v
+  vUnshared ==. uUnshared = astLetFunNoSimplify (uUnshared - vUnshared) $ \uv ->
+    let zero = fromPlain $ AstConcreteS $ unConcrete
+               $ defTarget $ ftkAst vUnshared
+    in zero <=. uv &&* uv <=. zero
 
 instance (AstSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKS sh r) where
   vUnshared ==. uUnshared =
-    let v = astShareNoSimplify vUnshared
-        u = astShareNoSimplify uUnshared
-    in v <=. u &&* u <=. v
+    let uv = astShareNoSimplify (uUnshared - vUnshared)
+        zero = fromPlain $ AstConcreteS $ unConcrete
+               $ defTarget $ ftkAst vUnshared
+    in zero <=. uv &&* uv <=. zero
 
 -- These are common in indexing, so worth optimizing early via AstConcrete.
 -- We keep AstConcrete on the left, as with AstPlusK and others.
