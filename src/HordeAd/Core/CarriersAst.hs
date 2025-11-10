@@ -15,7 +15,6 @@ module HordeAd.Core.CarriersAst
 import Prelude hiding (foldl')
 
 import Data.Int (Int64)
-import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Foreign.C (CInt)
 import Type.Reflection (typeRep)
@@ -31,7 +30,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.ConvertTensor
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -1201,17 +1199,6 @@ instance (AstSpan s, NumScalar r)
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
   AstFromDual{} <=. AstFromDual{} = true
   AstFromPlain u <=. AstFromPlain v = u <=. v
-  AstConvert c u <=. AstConvert _ v
-    | FTKS ZSS (FTKScalar @ru) <- ftkAst u
-    , FTKS ZSS (FTKScalar @rv) <- ftkAst v
-    , Just Refl <- testEquality (typeRep @ru) (typeRep @rv)
-    , Dict0 <- lemTKAllNumConvert c
-    , Dict0 <- numFromTKAllNum (Proxy @ru)
-    = u <=. v
-  AstConcreteK u <=. AstConvert _ v
-    | FTKS ZSS (FTKScalar @rv) <- ftkAst v
-    , Just Refl <- testEquality (typeRep @rv) (typeRep @r)
-    = AstConcreteS (unConcrete $ sfromK $ Concrete u) <=. v
   u <=. AstPlusK (AstConcreteK v) w =
     u - AstConcreteK v <=. w
   AstPlusK (AstConcreteK u) w <=. v =
@@ -1252,6 +1239,9 @@ instance (AstSpan s, NumScalar r)
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
       AstFromPlain (AstConcreteK u)
       <=. AstTimesK (AstFromPlain (AstConcreteK $ negate v)) (AstN1K NegateOp w)
+  AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
+    | varNameToAstVarId u == varNameToAstVarId v =
+      true
   v <=. u = AstConcreteK 0 <=. plainPart u - plainPart v
 
 instance (AstSpan s, NumScalar r)
@@ -1263,15 +1253,19 @@ instance (AstSpan s, NumScalar r)
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
   AstFromDual{} <=. AstFromDual{} = true
   AstFromPlain u <=. AstFromPlain v = u <=. v
-  AstConvert c u <=. AstConvert _ v
-    | FTKS ZSS x <- convertFTK c (ftkAst u)
-    , Just Refl <- matchingFTK x (ftkAst u)
-    , Just Refl <- matchingFTK x (ftkAst v) = u <=. v
-  AstConcreteS u <=. AstConvert c v
-    | FTKS ZSS (FTKScalar @rz) <- convertFTK c (ftkAst v)
-    , FTKScalar @ry <- ftkAst v
-    , Just Refl <- testEquality (typeRep @ry) (typeRep @rz) =
-      AstConcreteK (unConcrete $ kfromS $ Concrete u) <=. v
+  AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
+    | varNameToAstVarId u == varNameToAstVarId v =
+      true
+  u <=. AstConvert _ v
+    | x@FTKScalar <- ftkAst v
+    , FTKS ZSS z <- ftkAst u
+    , Just Refl <- matchingFTK x z =
+      cAstFromS FTKScalar u <=. v
+  AstConvert _ v <=. u
+    | x@FTKScalar <- ftkAst v
+    , FTKS ZSS z <- ftkAst u
+    , Just Refl <- matchingFTK x z =
+      v <=. cAstFromS FTKScalar u
   AstConcreteS u <=. AstConcreteS v =
     AstConcreteK $ unConcrete $ Concrete @(TKS sh r) u <=. Concrete v
   u <=. AstPlusS (AstConcreteS v) w =
@@ -1288,9 +1282,6 @@ instance (AstSpan s, NumScalar r)
     AstFromPlain (AstConcreteS (negate v)) <=. negate u
   AstVar u <=. AstVar v | u == v =
     true
-  AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
-    | varNameToAstVarId u == varNameToAstVarId v =
-      true
   v <=. u = AstLeqS (plainPart v) (plainPart u)
 
 
