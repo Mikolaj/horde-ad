@@ -313,6 +313,11 @@ astIsSmallN n t0 = case t0 of
   AstFromDual v -> astIsSmallN (n - 1) v
   AstFromPlain v -> astIsSmallN (n - 1) v
 
+  -- This often appears from user writing (-1), often reduces away
+  -- and it has only one argument.
+  AstN1K NegateOp v -> astIsSmallN (n - 1) v
+  AstN1S NegateOp v -> astIsSmallN (n - 1) v
+
   AstIotaS{} -> n
   AstSliceS _ _ _ v ->
     if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change

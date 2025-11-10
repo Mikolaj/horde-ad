@@ -2743,7 +2743,9 @@ astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
       (vars0, rest1)
 astGatherKnobsS knobs shn v0
   (vars@((::$) @m _ _), ix@(i1 :.$ prest))
-  | let intInteresting = \case
+  | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
+      -- prevent a loop
+  , let intInteresting = \case
           AstPlusK (AstConcreteK _) i2
             | fst (bounds i2) >= 0 -> True
           Ast.AstLet _ _ (AstPlusK (AstConcreteK _) i2)
@@ -2827,7 +2829,9 @@ astGatherKnobsS knobs shn v0
         -- won't reduce it back to the original and cause a loop
 astGatherKnobsS knobs shn v0
   (vars@((::$) @m _ _), ix@(i1 :.$ prest))
-  | let varInteresting = \case
+  | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
+      -- prevent a loop
+  , let varInteresting = \case
           Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _
             | j <= 0 || j >= valueOf @m || ixIsSmall prest ->
               Just var
@@ -3152,13 +3156,14 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
     Ast.AstReverseS{}-> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
       -- reversing is O(1)
     Ast.AstTransposeS @perm @sh perm v | FTKS sh _ <- ftkAst v ->
+     if knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
+     then Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+     else
       let rankPerm = Permutation.permRank perm
       in case gcompare (ixsRank ix4) rankPerm of
         GLT ->  -- TODO: this does not provide any proof, so use cmpNat :(
-          if knobPhase knobs `elem` [PhaseVectorization, PhaseExpansion]
-          then astGather @shm @shn @shp
-                         shn (astTransposeAsGatherS knobs perm v) (vars4, ix4)
-          else Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+          astGather @shm @shn @shp
+                    shn (astTransposeAsGatherS knobs perm v) (vars4, ix4)
         _ ->
           gcastWith (lemRankMapJust $ shsTakeLen perm sh) $
           gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
