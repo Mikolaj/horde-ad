@@ -2829,9 +2829,7 @@ astGatherKnobsS knobs shn v0
         -- won't reduce it back to the original and cause a loop
 astGatherKnobsS knobs shn v0
   (vars@((::$) @m _ _), ix@(i1 :.$ prest))
-  | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
-      -- prevent a loop
-  , let varInteresting = \case
+  | let varInteresting = \case
           Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _
             | j <= 0 || j >= valueOf @m || ixIsSmall prest ->
               Just var
