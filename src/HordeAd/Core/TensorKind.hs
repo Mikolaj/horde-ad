@@ -297,8 +297,8 @@ data TKConversion (a :: TK) (b :: TK) where
   Conv0X  :: SingletonTK a -> TKConversion a (TKX2 '[] a)
   ConvX0  :: TKConversion (TKX2 '[] a) a
 
-  ConvNest :: SingletonTK (TKX2 sh a)
-           -> TKConversion (TKX2 (sh ++ sh') a) (TKX2 sh (TKX2 sh' a))
+  ConvNest   :: SingletonTK (TKX2 sh a)
+             -> TKConversion (TKX2 (sh ++ sh') a) (TKX2 sh (TKX2 sh' a))
   ConvUnnest :: TKConversion (TKX2 sh (TKX2 sh' a)) (TKX2 (sh ++ sh') a)
 
   ConvZip   :: SingletonTK a -> SingletonTK b
@@ -353,6 +353,12 @@ convCmp a b = case (a, b) of
   (ConvXX' ftk, ConvCmp ConvXX'{} c) -> convCmp (ConvXX' ftk) c
   (ConvXX' (FTKX ZSX _), Conv0X stk) -> Conv0X stk
   (ConvXX' (FTKX ZSX _), ConvCmp (Conv0X stk) c) -> convCmp (Conv0X stk) c
+  (ConvRR a', ConvRR b') -> ConvRR (convCmp a' b')
+  (ConvRR a', ConvCmp (ConvRR b') c) -> convCmp (ConvRR (convCmp a' b')) c
+  (ConvSS a', ConvSS b') -> ConvSS (convCmp a' b')
+  (ConvSS a', ConvCmp (ConvSS b') c) -> convCmp (ConvSS (convCmp a' b')) c
+  (ConvXX a', ConvXX b') -> ConvXX (convCmp a' b')
+  (ConvXX a', ConvCmp (ConvXX b') c) -> convCmp (ConvXX (convCmp a' b')) c
   (Conv0X{}, ConvX0) -> ConvId
   (Conv0X{}, ConvCmp ConvX0 c) -> c
   (ConvX0, ConvXX' @sh (FTKX ZSX _)) ->
@@ -366,6 +372,20 @@ convCmp a b = case (a, b) of
   (ConvT2 a1 a2, ConvT2 b1 b2) -> ConvT2 (convCmp a1 b1) (convCmp a2 b2)
   (ConvT2 a1 a2, ConvCmp (ConvT2 b1 b2) c) ->
     convCmp (ConvT2 (convCmp a1 b1) (convCmp a2 b2)) c
+  (ConvNest @sh @_ @sh' _, ConvUnnest @sh2 @sh2') ->
+    gcastWith (unsafeCoerceRefl :: sh :~: sh2) $
+    gcastWith (unsafeCoerceRefl :: sh' :~: sh2') $
+    ConvId
+  (ConvNest @sh @_ @sh' _, ConvCmp (ConvUnnest @sh2 @sh2') c) ->
+    gcastWith (unsafeCoerceRefl :: sh :~: sh2) $
+    gcastWith (unsafeCoerceRefl :: sh' :~: sh2') $
+    c
+  (ConvUnnest, ConvNest{}) -> ConvId
+  (ConvUnnest, ConvCmp ConvNest{} c) -> c
+  (ConvZip{}, ConvUnzip{}) -> ConvId
+  (ConvZip{}, ConvCmp (ConvUnzip{}) c) -> c
+  (ConvUnzip{}, ConvZip{}) -> ConvId
+  (ConvUnzip{}, ConvCmp (ConvZip{}) c) -> c
   _ -> ConvCmp a b
 
 lemTKAllNumConvert :: TKAllNum b

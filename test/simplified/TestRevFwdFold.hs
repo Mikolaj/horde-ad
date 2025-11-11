@@ -1806,7 +1806,7 @@ testSin0rmapAccumRD01SN531b0PPj = do
   printAstPretty
     (simplifyInlineContract
      $ f @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (let t14 = tmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> (sconcrete (sfromListLinear [2,2] [1.1,2.1,2.1,3.1])) (sconcrete (sfromListLinear [0,2,2] [])) in tproject1 (tconvert (ConvCmp (ConvT2 (ConvCmp ConvXS (ConvCmp ConvUnnest (ConvXX ConvSX))) (ConvCmp ConvXS (ConvCmp ConvUnnest (ConvXX ConvSX)))) (ConvCmp (ConvUnzip (STKS [2] STKScalar) (STKS [0,2] STKScalar)) (ConvCmp (ConvZip (STKS [2] STKScalar) (STKS [0,2] STKScalar)) (ConvT2 ConvSX ConvSX)))) (STKProduct (STKS [2] (STKS [2] STKScalar)) (STKS [2] (STKS [0,2] STKScalar))) (tpair (tconvert (ConvCmp (ConvXS' (FTKS [2] (FTKS [2] FTKScalar))) (ConvCmp (ConvXX ConvXS) (ConvCmp (ConvNest (STKX [2] STKScalar)) (ConvCmp (ConvXX' (FTKX [2,2] FTKScalar)) ConvSX)))) (STKS [2,2] STKScalar) (tproject1 t14)) (tconvert (ConvCmp (ConvXS' (FTKS [2] (FTKS [0,2] FTKScalar))) (ConvCmp (ConvXX ConvXS) (ConvCmp (ConvNest (STKX [2] STKScalar)) (ConvCmp (ConvXX' (FTKX [2,0,2] FTKScalar)) ConvSX)))) (STKS [2,0,2] STKScalar) (str (tproject2 t14))))))"
+    @?= "rfromS (tproject1 (tmapAccumRDer (SNat @0) <lambda> <lambda> <lambda> (sconcrete (sfromListLinear [2,2] [1.1,2.1,2.1,3.1])) (sconcrete (sfromListLinear [0,2,2] []))))"
 
 testSin0rmapAccumRD01SN531bRPPj :: Assertion
 testSin0rmapAccumRD01SN531bRPPj = do
@@ -1831,7 +1831,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
   printAstPretty
     (simplifyInlineContract
      $ f @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (let t14 = tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sfromListLinear [2,2] [1.1,2.1,2.1,3.1])) (sconcrete (sfromListLinear [0,2,2] [])) in tproject1 (tconvert (ConvCmp (ConvT2 (ConvCmp ConvXS (ConvCmp ConvUnnest (ConvXX ConvSX))) (ConvCmp ConvXS (ConvCmp ConvUnnest (ConvXX ConvSX)))) (ConvCmp (ConvUnzip (STKS [2] STKScalar) (STKS [1,2] STKScalar)) (ConvCmp (ConvZip (STKS [2] STKScalar) (STKS [1,2] STKScalar)) (ConvT2 ConvSX ConvSX)))) (STKProduct (STKS [2] (STKS [2] STKScalar)) (STKS [2] (STKS [1,2] STKScalar))) (tpair (tconvert (ConvCmp (ConvXS' (FTKS [2] (FTKS [2] FTKScalar))) (ConvCmp (ConvXX ConvXS) (ConvCmp (ConvNest (STKX [2] STKScalar)) (ConvCmp (ConvXX' (FTKX [2,2] FTKScalar)) ConvSX)))) (STKS [2,2] STKScalar) (tproject1 t14)) (tconvert (ConvCmp (ConvXS' (FTKS [2] (FTKS [1,2] FTKScalar))) (ConvCmp (ConvXX ConvXS) (ConvCmp (ConvNest (STKX [2] STKScalar)) (ConvCmp (ConvXX' (FTKX [2,1,2] FTKScalar)) ConvSX)))) (STKS [2,1,2] STKScalar) (str (tproject2 t14))))))"
+    @?= "rfromS (tproject1 (tmapAccumRDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sfromListLinear [2,2] [1.1,2.1,2.1,3.1])) (sconcrete (sfromListLinear [0,2,2] []))))"
 
 testSin0rmapAccumRD01SN531c :: Assertion
 testSin0rmapAccumRD01SN531c = do
