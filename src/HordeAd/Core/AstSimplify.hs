@@ -2825,7 +2825,7 @@ astGatherKnobsS knobs shn v0
     $ Permutation.permCheckPermutation perm
     $ let v2 = astTransposeS perm v0
       in astGatherKnobsS knobs shn v2 (vars, ixsPermutePrefix perm ix)
-        -- this call is guaranteed to simplify as above, so the tranpose
+        -- this call is guaranteed to simplify as above, so the transpose
         -- won't reduce it back to the original and cause a loop
 astGatherKnobsS knobs shn v0
   (vars@((::$) @m _ _), ix@(i1 :.$ prest))
@@ -2908,7 +2908,7 @@ astGatherKnobsS knobs shn v0
     $ Permutation.permCheckPermutation permWhole
     $ astTransposeS permWhole
     $ astGatherKnobsS knobs shn v0 (listsPermutePrefix invperm vars, ix)
-        -- this call is guaranteed to simplify as above, so the tranpose
+        -- this call is guaranteed to simplify as above, so the transpose
         -- won't reduce it back to the original and cause a loop
 astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
   | FTKS _ x <- ftkAst v4 = case v4 of
@@ -3872,8 +3872,8 @@ astConvertSFrom c zftk t = case (zftk, ftkAst t) of
     case (matchingFTK yx zx, testEquality (shsRank shz) (shxRank shy)) of
       (Just Refl, Just Refl) -> astConvertSFromX c zftk t
       _ -> error "astConvertSFrom: tensor kinds don't match"
-  (FTKProduct zftk1 zftk2, FTKProduct yftk1 yftk2) -> case t of
-    Ast.AstPair a1 a2 ->
+  (_, FTKProduct yftk1 yftk2) -> case t of
+    Ast.AstPair a1 a2 | FTKProduct zftk1 zftk2 <- zftk ->
       -- Here we can't always use the c the user presumably wrote,
       -- so we always create a canonical one.
       astPair (astConvertSFrom (convSFrom yftk1 (ftkToSTK zftk1)) zftk1 a1)

@@ -39,6 +39,7 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Core.Unwind
 
 -- * The top-level wrapper
 
@@ -516,10 +517,13 @@ astIndexBuild snat@SNat ftk u i = case ftk of
     withShsFromShX shBuild' $ \shBuild -> case shBuild of
       _ :$$ rest ->
         astFromS' ftk $ astIndexS rest (astSFromX' shBuild u) (i :.$ ZIS)
-  FTKProduct ftk1 ftk2 ->
+  FTKProduct{} ->
     astLetFun u $ \ !u3 ->
-      astPair (astIndexBuild snat ftk1 (astProject1 u3) i)
-              (astIndexBuild snat ftk2 (astProject2 u3) i)
+      astConvert (convCmp ConvX0 ConvSX)
+      $ astIndexS ZSS (nestTargetK snat (ftkToSTK ftk) u3) (i :.$ ZIS)
+        -- nestTargetK is applicable, because while y can contain
+        -- @TKR@ or @TKX@, it's only in trivial places, e.g., variables,
+        -- because the term is rewritten in such a way
 
 substProjRep
   :: forall k s s2 y2 y. (AstSpan s, AstSpan s2)

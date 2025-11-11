@@ -205,7 +205,7 @@ unWindFTK = \case
     unWindFTK $ FTKProduct (FTKX sh1 y) (FTKX sh1 z)
   FTKProduct y z -> WFTKProduct (unWindFTK y) (unWindFTK z)
 
--- This uses tunpairConv so to preserve sharing, @target@ either has
+-- This uses tunpairConv, so to preserve sharing, @target@ either has
 -- to have a `ShareTensor` instance or the argument has to be duplicable.
 -- Only the argument of the first call, not of recursive calls,
 -- is assumed to be duplicable. In the AST case, this creates

@@ -4,10 +4,12 @@
 -- that work for any tensor kind, including nested (product) arrays
 -- and an assortment of such operations.
 --
--- Large portions of this module are copied to HordeAd.Core.Unwind
+-- Large portions of this module are copied to HordeAd.Core.UnwindNum
 -- in order to have more accurate typing and pattern exhaustiveness checks.
 module HordeAd.Core.Unwind
-  ( defTarget, concreteTarget, toADTensorKindShared, fromADTensorKindShared
+  ( defTarget, concreteTarget
+  , nestTarget, nestTargetK, unNestTarget, unNestTargetK
+  , toADTensorKindShared, fromADTensorKindShared
   ) where
 
 import Prelude
@@ -256,7 +258,7 @@ unWindFTK = \case
     unWindFTK $ FTKProduct (FTKX sh1 y) (FTKX sh1 z)
   FTKProduct y z -> WFTKProduct (unWindFTK y) (unWindFTK z)
 
--- This uses tunpairConv so to preserve sharing, @target@ either has
+-- This uses tunpairConv, so to preserve sharing, @target@ either has
 -- to have a `ShareTensor` instance or the argument has to be duplicable.
 -- Only the argument of the first call, not of recursive calls,
 -- is assumed to be duplicable. In the AST case, this creates
@@ -386,6 +388,48 @@ concreteTarget concreteK concreteS fromS stk v =
   windTarget stk
   $ concreteRepW concreteK concreteS fromS
   $ unWindTarget stk v
+
+-- | Convert a tensor into a trivial array with the tensor as the only element.
+-- The type equality in the constraint doesn't hold, e.g., for @TKScalar@.
+-- The argument has to be duplicable.
+nestTarget :: forall y target.
+              (ConvertTensor target, UnWind (TKS2 '[] y) ~ UnWind y)
+           => SingletonTK y -> target y -> target (TKS2 '[] y)
+nestTarget stk v =
+  windTarget (STKS ZSS stk) $ unWindTarget stk v
+
+-- | Convert similarly as in @nestTarget@.
+-- The argument has to be duplicable and y can't contain @TKR@ nor @TKX@.
+nestTargetK :: forall k y target. ConvertTensor target
+            => SNat k -> SingletonTK y
+            -> target (BuildTensorKind k y)
+            -> target (BuildTensorKind k (TKS2 '[] y))
+nestTargetK k stk v =
+  -- This coercion is correct given the assumptions.
+  gcastWith (unsafeCoerceRefl :: UnWind (BuildTensorKind k (TKS2 '[] y))
+                                 :~: UnWind (BuildTensorKind k y)) $
+  windTarget (buildSTK k (STKS ZSS stk)) $ unWindTarget (buildSTK k stk) v
+
+-- | Convert a tensor from a trivial array with the tensor as the only element.
+-- The type equality in the constraint doesn't hold, e.g., for @TKScalar@.
+-- The argument has to be duplicable.
+unNestTarget :: forall y target.
+                (ConvertTensor target, UnWind (TKS2 '[] y) ~ UnWind y)
+             => SingletonTK y -> target (TKS2 '[] y) -> target y
+unNestTarget stk v =
+  windTarget stk $ unWindTarget (STKS ZSS stk) v
+
+-- | Convert similarly as in @unNestTarget@.
+-- The argument has to be duplicable and y can't contain @TKR@ nor @TKX@.
+unNestTargetK :: forall k y target. ConvertTensor target
+              => SNat k -> SingletonTK y
+              -> target (BuildTensorKind k (TKS2 '[] y))
+              -> target (BuildTensorKind k y)
+unNestTargetK k@SNat stk v =
+  -- This coercion is correct given the assumptions.
+  gcastWith (unsafeCoerceRefl :: UnWind (BuildTensorKind k (TKS2 '[] y))
+                                 :~: UnWind (BuildTensorKind k y)) $
+  windTarget (buildSTK k stk) $ unWindTarget (buildSTK k (STKS ZSS stk)) v
 
 lemUnWindOfAD :: SingletonTK y
               -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)

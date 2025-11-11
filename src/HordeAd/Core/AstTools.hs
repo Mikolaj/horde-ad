@@ -538,6 +538,17 @@ convFromS yftk0 zftk0 = case (yftk0, zftk0) of
       convCmp (ConvXX' zftk0) ConvSX
   (FTKProduct yftk1 yftk2, FTKProduct zftk1 zftk2) ->
     ConvT2 (convFromS yftk1 zftk1) (convFromS yftk2 zftk2)
+  ( FTKS sh (FTKProduct yftk1 yftk2)
+   ,FTKProduct (FTKS sh' yftk1') (FTKS sh'' yftk2') )
+    | Just Refl <- testEquality sh sh'
+    , Just Refl <- testEquality sh sh''
+    , Just Refl <- matchingFTK yftk1 yftk1'
+    , Just Refl <- matchingFTK yftk2 yftk2' ->
+      convCmp
+        (ConvT2 ConvXS ConvXS)
+        (convCmp
+           (ConvUnzip (ftkToSTK yftk1) (ftkToSTK yftk2))
+           ConvSX)
   _ -> error $ "convFromS': unexpected types "  -- TODO: try nevertheless
                ++ "(" ++ show yftk0 ++ ", " ++ show zftk0 ++ ")"
 
@@ -559,5 +570,16 @@ convSFrom yftk0 zstk0 = case (zstk0, yftk0) of
       ConvXS' (FTKS sh xx)
   (STKProduct zstk1 zstk2, FTKProduct yftk1 yftk2) ->
     ConvT2 (convSFrom yftk1 zstk1) (convSFrom yftk2 zstk2)
+  ( STKS sh (STKProduct ystk1 ystk2)
+   ,FTKProduct (FTKS sh' yftk1) (FTKS sh'' yftk2) )
+    | Just Refl <- testEquality sh sh'
+    , Just Refl <- testEquality sh sh''
+    , Just Refl <- sameSTK ystk1 (ftkToSTK yftk1)
+    , Just Refl <- sameSTK ystk2 (ftkToSTK yftk2) ->
+      convCmp
+        ConvXS
+        (convCmp
+           (ConvZip ystk1 ystk2)
+           (ConvT2 ConvSX ConvSX))
   _ -> error $ "convSFrom': unexpected types "  -- TODO: try nevertheless
                ++ "(" ++ show yftk0 ++ ", " ++ show zstk0 ++ ")"
