@@ -318,29 +318,54 @@ instance Category TKConversion where
 convCmp :: TKConversion b c -> TKConversion a b -> TKConversion a c
 convCmp a b = case (a, b) of
   (_, ConvId) -> a
+  (_, ConvCmp ConvId c) -> convCmp a c
   (ConvId, _) -> b
   (ConvCmp a1 a2, _) -> a1 . (a2 . b)
   (ConvSX, ConvXS) -> ConvId
+  (ConvSX, ConvCmp ConvXS c) -> c
   (ConvXR{}, ConvRX @n) | Refl <- lemRankReplicate (Proxy @n) -> ConvId
+  (ConvXR{}, ConvCmp (ConvRX @n) c) | Refl <- lemRankReplicate (Proxy @n) -> c
   (ConvXR stk, ConvXX'{}) -> ConvXR stk
+  (ConvXR stk, ConvCmp ConvXX'{} c) -> convCmp (ConvXR stk) c
   (ConvXS @sh, ConvSX @sh') ->
     gcastWith (unsafeCoerceRefl :: sh :~: sh') $
     ConvId
+  (ConvXS @sh, ConvCmp (ConvSX @sh') c) ->
+    gcastWith (unsafeCoerceRefl :: sh :~: sh') $
+    c
   (ConvXS, ConvXX' (FTKX sh x)) | Refl <- lemRankMapJust (shsFromShX sh) ->
     ConvXS' (FTKS (shsFromShX sh) x)
+  (ConvXS, ConvCmp (ConvXX' (FTKX sh x)) c)
+    | Refl <- lemRankMapJust (shsFromShX sh) ->
+      convCmp (ConvXS' (FTKS (shsFromShX sh) x)) c
   (ConvXS' @_ @sh' _, ConvSX @sh) ->
     gcastWith (unsafeCoerceRefl :: sh :~: sh') $
     ConvId
+  (ConvXS' @_ @sh' _, ConvCmp (ConvSX @sh) c) ->
+    gcastWith (unsafeCoerceRefl :: sh :~: sh') $
+    c
   (ConvXS' ftk, ConvXX'{}) -> ConvXS' ftk
+  (ConvXS' ftk, ConvCmp ConvXX'{} c) -> convCmp (ConvXS' ftk) c
   (ConvXS' (FTKS ZSS _), Conv0X stk) -> ConvXS . Conv0X stk
+  (ConvXS' (FTKS ZSS _), ConvCmp (Conv0X stk) c) ->
+    convCmp (ConvXS . Conv0X stk) c
   (ConvXX' ftk, ConvXX'{}) -> ConvXX' ftk
+  (ConvXX' ftk, ConvCmp ConvXX'{} c) -> convCmp (ConvXX' ftk) c
   (ConvXX' (FTKX ZSX _), Conv0X stk) -> Conv0X stk
+  (ConvXX' (FTKX ZSX _), ConvCmp (Conv0X stk) c) -> convCmp (Conv0X stk) c
   (Conv0X{}, ConvX0) -> ConvId
+  (Conv0X{}, ConvCmp ConvX0 c) -> c
   (ConvX0, ConvXX' @sh (FTKX ZSX _)) ->
     gcastWith (unsafeCoerceRefl :: sh :~: '[]) $
     ConvX0
+  (ConvX0, ConvCmp (ConvXX' @sh (FTKX ZSX _)) c) ->
+    gcastWith (unsafeCoerceRefl :: sh :~: '[]) $
+    convCmp ConvX0 c
   (ConvX0, Conv0X{}) -> ConvId
+  (ConvX0, ConvCmp Conv0X{} c) -> c
   (ConvT2 a1 a2, ConvT2 b1 b2) -> ConvT2 (convCmp a1 b1) (convCmp a2 b2)
+  (ConvT2 a1 a2, ConvCmp (ConvT2 b1 b2) c) ->
+    convCmp (ConvT2 (convCmp a1 b1) (convCmp a2 b2)) c
   _ -> ConvCmp a b
 
 lemTKAllNumConvert :: TKAllNum b
