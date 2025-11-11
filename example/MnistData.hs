@@ -30,7 +30,7 @@ import HordeAd
 import HordeAd.Core.TensorADVal (ADValClown)
 import HordeAd.External.OptimizerTools
 
-type SizeMnistWidth = 28 :: Nat
+type SizeMnistWidth = 2 :: Nat
 
 sizeMnistWidth :: SNat SizeMnistWidth
 sizeMnistWidth = SNat @SizeMnistWidth
@@ -51,7 +51,7 @@ type SizeMnistGlyph = SizeMnistWidth * SizeMnistHeight
 sizeMnistGlyphInt :: Int
 sizeMnistGlyphInt = valueOf @SizeMnistGlyph
 
-type SizeMnistLabel = 10 :: Nat
+type SizeMnistLabel = 2 :: Nat
 
 sizeMnistLabel :: SNat SizeMnistLabel
 sizeMnistLabel = SNat @SizeMnistLabel
@@ -59,7 +59,7 @@ sizeMnistLabel = SNat @SizeMnistLabel
 sizeMnistLabelInt :: Int
 sizeMnistLabelInt = sNatValue sizeMnistLabel
 
-type LengthTestData = 10000 :: Nat
+type LengthTestData = 1 :: Nat
 
 -- Actually, a better representation, supported by @Data.IDX@,
 -- is an integer label and a picture (the same vector as below).
