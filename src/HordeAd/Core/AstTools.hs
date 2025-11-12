@@ -14,7 +14,7 @@ module HordeAd.Core.AstTools
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstConvert, cAstSFromR, cAstSFromX, cAstXFromS
   , pattern AstSFromK', pattern AstFromS'
-  , checkAstFromS, checkFtkAstFromS, checkFtkAstSFrom
+  , checkAstFromS, checkFtkAstFromS, checkAstSFrom, checkFtkAstSFrom
   , cAstFromS, cAstSFrom, convFromS, convSFrom
   , setTotalSharing
   ) where
@@ -500,7 +500,17 @@ checkFtkAstFromS FTKS{} FTKS{} = False
 checkFtkAstFromS FTKS{} _ = True
 checkFtkAstFromS (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) =
   checkFtkAstFromS yftk1 zftk1 && checkFtkAstFromS yftk2 zftk2
+checkFtkAstFromS (FTKProduct yftk1 yftk2) zftk =
+  checkFtkAstFromS yftk1 zftk && checkFtkAstFromS yftk2 zftk
+checkFtkAstFromS yftk (FTKProduct zftk1 zftk2) =
+  checkFtkAstFromS yftk zftk1 && checkFtkAstFromS yftk zftk2
 checkFtkAstFromS _ _ = False
+
+checkAstSFrom :: TKConversion a b -> AstTensor ms s a -> Bool
+checkAstSFrom c t =
+  isJust
+  $ let zftk = convertFTK c (ftkAst t)
+    in if checkFtkAstSFrom (ftkAst t) zftk then Just (zftk, t) else Nothing
 
 checkFtkAstSFrom :: FullShapeTK y -> FullShapeTK z -> Bool
 checkFtkAstSFrom yftk zftk | Just Refl <- matchingFTK yftk zftk = True

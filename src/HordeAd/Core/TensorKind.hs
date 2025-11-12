@@ -357,8 +357,8 @@ convCmp a b = case (a, b) of
   (ConvRR a', ConvCmp (ConvRR b') c) -> convCmp (ConvRR (convCmp a' b')) c
   (ConvSS a', ConvSS b') -> ConvSS (convCmp a' b')
   (ConvSS a', ConvCmp (ConvSS b') c) -> convCmp (ConvSS (convCmp a' b')) c
-  (ConvXX a', ConvXX b') -> ConvXX (convCmp a' b')
-  (ConvXX a', ConvCmp (ConvXX b') c) -> convCmp (ConvXX (convCmp a' b')) c
+  (ConvXX a', ConvXX b') -> convXX (convCmp a' b')
+  (ConvXX a', ConvCmp (ConvXX b') c) -> convCmp (convXX (convCmp a' b')) c
   (Conv0X{}, ConvX0) -> ConvId
   (Conv0X{}, ConvCmp ConvX0 c) -> c
   (ConvX0, ConvXX' @sh (FTKX ZSX _)) ->
@@ -369,9 +369,9 @@ convCmp a b = case (a, b) of
     convCmp ConvX0 c
   (ConvX0, Conv0X{}) -> ConvId
   (ConvX0, ConvCmp Conv0X{} c) -> c
-  (ConvT2 a1 a2, ConvT2 b1 b2) -> ConvT2 (convCmp a1 b1) (convCmp a2 b2)
+  (ConvT2 a1 a2, ConvT2 b1 b2) -> convT2 (convCmp a1 b1) (convCmp a2 b2)
   (ConvT2 a1 a2, ConvCmp (ConvT2 b1 b2) c) ->
-    convCmp (ConvT2 (convCmp a1 b1) (convCmp a2 b2)) c
+    convCmp (convT2 (convCmp a1 b1) (convCmp a2 b2)) c
   (ConvNest @sh @_ @sh' _, ConvUnnest @sh2 @sh2') ->
     gcastWith (unsafeCoerceRefl :: sh :~: sh2) $
     gcastWith (unsafeCoerceRefl :: sh' :~: sh2') $
@@ -380,13 +380,42 @@ convCmp a b = case (a, b) of
     gcastWith (unsafeCoerceRefl :: sh :~: sh2) $
     gcastWith (unsafeCoerceRefl :: sh' :~: sh2') $
     c
+-- not enough type info in the AST:
+-- (ConvNest (STKX sh x), ConvXX d) ->
+--   convCmp (ConvXX (ConvXX d)) (ConvNest (STKX sh (convertSTKBack d x)))
   (ConvUnnest, ConvNest{}) -> ConvId
   (ConvUnnest, ConvCmp ConvNest{} c) -> c
+  (ConvXX d, ConvUnnest) ->
+    convCmp ConvUnnest (convXX (convXX d))
+  (ConvXX d, ConvCmp ConvUnnest c) ->
+    convCmp ConvUnnest (convCmp (convXX (convXX d)) c)
   (ConvZip{}, ConvUnzip{}) -> ConvId
   (ConvZip{}, ConvCmp (ConvUnzip{}) c) -> c
+  (ConvXX' (FTKX sh (FTKProduct c1 c2)), ConvZip stk1 stk2) ->
+    convCmp (ConvZip stk1 stk2)
+            (convT2 (ConvXX' (FTKX sh c1)) (ConvXX' (FTKX sh c2)))
+  (ConvXX' (FTKX sh (FTKProduct c1 c2)), ConvCmp (ConvZip stk1 stk2) c) ->
+    convCmp (ConvZip stk1 stk2)
+            (convCmp (convT2 (ConvXX' (FTKX sh c1)) (ConvXX' (FTKX sh c2))) c)
   (ConvUnzip{}, ConvZip{}) -> ConvId
   (ConvUnzip{}, ConvCmp (ConvZip{}) c) -> c
+  (ConvUnzip stk1 stk2, ConvXX' (FTKX sh (FTKProduct c1 c2))) ->
+    convCmp (convT2 (ConvXX' (FTKX sh c1)) (ConvXX' (FTKX sh c2)))
+            (ConvUnzip stk1 stk2)
+  (ConvUnzip stk1 stk2, ConvCmp (ConvXX' (FTKX sh (FTKProduct c1 c2))) c) ->
+    convCmp (convT2 (ConvXX' (FTKX sh c1)) (ConvXX' (FTKX sh c2)))
+            (convCmp (ConvUnzip stk1 stk2) c)
   _ -> ConvCmp a b
+
+convT2  :: TKConversion a a'
+        -> TKConversion b b'
+        -> TKConversion (TKProduct a b) (TKProduct a' b')
+convT2 ConvId ConvId = ConvId
+convT2 a b = ConvT2 a b
+
+convXX  :: TKConversion a b -> TKConversion (TKX2 sh a) (TKX2 sh b)
+convXX ConvId = ConvId
+convXX a = ConvXX a
 
 lemTKAllNumConvert :: TKAllNum b
                    => TKConversion a b -> Dict0 (TKAllNum a)
