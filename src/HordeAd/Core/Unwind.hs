@@ -22,6 +22,7 @@ import Type.Reflection (typeRep)
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
+  (shxFromShR, shxFromShS, withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
@@ -390,13 +391,9 @@ concreteTarget concreteK concreteS fromS stk v =
   $ unWindTarget stk v
 
 -- | Convert a tensor into a trivial array with the tensor as the only element.
--- The type equality in the constraint doesn't hold, e.g., for @TKScalar@.
--- The argument has to be duplicable.
-nestTarget :: forall y target.
-              (ConvertTensor target, UnWind (TKS2 '[] y) ~ UnWind y)
+nestTarget :: forall y target. ConvertTensor target
            => SingletonTK y -> target y -> target (TKS2 '[] y)
-nestTarget stk v =
-  windTarget (STKS ZSS stk) $ unWindTarget stk v
+nestTarget stk = tconvert (convCmp ConvXS (Conv0X stk)) stk
 
 -- | Convert similarly as in @nestTarget@.
 -- The argument has to be duplicable and y can't contain @TKR@ nor @TKX@.
@@ -411,13 +408,9 @@ nestTargetK k stk v =
   windTarget (buildSTK k (STKS ZSS stk)) $ unWindTarget (buildSTK k stk) v
 
 -- | Convert a tensor from a trivial array with the tensor as the only element.
--- The type equality in the constraint doesn't hold, e.g., for @TKScalar@.
--- The argument has to be duplicable.
-unNestTarget :: forall y target.
-                (ConvertTensor target, UnWind (TKS2 '[] y) ~ UnWind y)
+unNestTarget :: forall y target. ConvertTensor target
              => SingletonTK y -> target (TKS2 '[] y) -> target y
-unNestTarget stk v =
-  windTarget stk $ unWindTarget (STKS ZSS stk) v
+unNestTarget stk = tconvert (convCmp ConvX0 ConvSX) (STKS ZSS stk)
 
 -- | Convert similarly as in @unNestTarget@.
 -- The argument has to be duplicable and y can't contain @TKR@ nor @TKX@.

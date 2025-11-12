@@ -191,8 +191,21 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
         _ -> error "build1V: build variable is not an index variable"
       else error "build1V: AstVar can't contain other free variables"
     Ast.AstCond b u v -> traceRule $
-      let uv = astFromVector (SNat @2) (ftkToSTK (ftkAst u)) (V.fromList [u, v])
-          t = astIndexBuild (SNat @2) ftk0 uv (astCond b 0 1)
+      let stk = ftkToSTK (ftkAst u)
+          -- We handle products specially to avoid duplicating a variable,
+          -- for which we can then substitute indexing, no big deal,
+          -- but each of the indexing can subsequently get turned
+          -- into a gather, which then makes a performance difference.
+          t = case ftk0 of
+            FTKProduct{} ->
+              let uv = astFromVector
+                         (SNat @2) (STKS ZSS stk)
+                         (V.fromList [nestTarget stk u, nestTarget stk v])
+              in unNestTarget stk $ astIndexS ZSS uv (astCond b 0 1 :.$ ZIS)
+            _ ->
+              let uv = astFromVector (SNat @2)stk
+                                     (V.fromList [u, v])
+              in astIndexBuild (SNat @2) ftk0 uv (astCond b 0 1)
       in build1VOccurrenceUnknown snat (var, t)
     Ast.AstBuild1 snat2 _ (var2, v2) -> traceRule $
       assert (var2 /= var) $
@@ -517,13 +530,19 @@ astIndexBuild snat@SNat ftk u i = case ftk of
     withShsFromShX shBuild' $ \shBuild -> case shBuild of
       _ :$$ rest ->
         astFromS' ftk $ astIndexS rest (astSFromX' shBuild u) (i :.$ ZIS)
+  FTKProduct ftk1 ftk2 ->
+    astLetFun u $ \ !u3 ->
+      astPair (astIndexBuild snat ftk1 (astProject1 u3) i)
+              (astIndexBuild snat ftk2 (astProject2 u3) i)
+  {- The following prevents generating duplicated gathers by vectorization
+     but it generates big conversions that are even more costly:
   FTKProduct{} ->
     astLetFun u $ \ !u3 ->
-      astConvert (convCmp ConvX0 ConvSX)
+      unNestTarget (ftkToSTK ftk)
       $ astIndexS ZSS (nestTargetK snat (ftkToSTK ftk) u3) (i :.$ ZIS)
         -- nestTargetK is applicable, because while y can contain
         -- @TKR@ or @TKX@, it's only in trivial places, e.g., variables,
-        -- because the term is rewritten in such a way
+        -- because the term is rewritten in such a way -}
 
 substProjRep
   :: forall k s s2 y2 y. (AstSpan s, AstSpan s2)
@@ -531,16 +550,15 @@ substProjRep
   -> AstVarName s2 y2 -> AstTensor AstMethodLet s y
   -> (AstVarName s2 (BuildTensorKind k y2), AstTensor AstMethodLet s y)
 substProjRep snat@SNat var var1 v =
-  let ftk3 = buildFTK snat $ varNameToFTK var1
+  let ftk1 = varNameToFTK var1
+      ftk3 = buildFTK snat ftk1
       var3 :: AstVarName s2 (BuildTensorKind k y2)
       var3 = mkAstVarName ftk3 (varNameToBounds var1) (varNameToAstVarId var1)
       astVar3 = astVar var3
-      v2 = substituteAst
-             (astIndexBuild snat (varNameToFTK var1)
-                            astVar3 (astVar var))
-             var1 v
-        -- The subsitutions of projections don't break sharing too much,
-        -- because they don't duplicate variables and the added var
+      indexing = astIndexBuild snat ftk1 astVar3 (astVar var)
+      v2 = substituteAst indexing var1 v
+        -- The subsitutions of projections and indexing don't break sharing
+        -- too much, because they don't duplicate variables and the added var
         -- is eventually being eliminated instead of substituted for.
   in (var3, v2)
 
