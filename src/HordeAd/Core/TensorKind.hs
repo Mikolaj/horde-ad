@@ -346,9 +346,9 @@ convCmp a b = case (a, b) of
     c
   (ConvXS' ftk, ConvXX'{}) -> ConvXS' ftk
   (ConvXS' ftk, ConvCmp ConvXX'{} c) -> convCmp (ConvXS' ftk) c
-  (ConvXS' (FTKS ZSS _), Conv0X stk) -> ConvXS . Conv0X stk
+  (ConvXS' (FTKS ZSS _), Conv0X stk) -> convCmp ConvXS (Conv0X stk)
   (ConvXS' (FTKS ZSS _), ConvCmp (Conv0X stk) c) ->
-    convCmp (ConvXS . Conv0X stk) c
+    convCmp (convCmp ConvXS (Conv0X stk)) c
   (ConvXX' ftk, ConvXX'{}) -> ConvXX' ftk
   (ConvXX' ftk, ConvCmp ConvXX'{} c) -> convCmp (ConvXX' ftk) c
   (ConvXX' (FTKX ZSX _), Conv0X stk) -> Conv0X stk
@@ -520,8 +520,8 @@ buildTKConversion :: SNat k -> FullShapeTK a
                   -> TKConversion (BuildTensorKind k a) (BuildTensorKind k b)
 buildTKConversion k aftk c0 = case c0 of
   ConvId -> ConvId
-  ConvCmp c1 c2 -> buildTKConversion k (convertFTK c2 aftk) c1
-                   . buildTKConversion k aftk c2
+  ConvCmp c1 c2 -> convCmp (buildTKConversion k (convertFTK c2 aftk) c1)
+                           (buildTKConversion k aftk c2)
   ConvRX | FTKR @n shr xstk <- aftk
          , Refl <- lemRankReplicate (Proxy @n)
          , Refl <- lemRankReplicate (Proxy @(1 + n)) ->

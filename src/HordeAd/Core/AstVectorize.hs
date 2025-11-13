@@ -191,21 +191,18 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
         _ -> error "build1V: build variable is not an index variable"
       else error "build1V: AstVar can't contain other free variables"
     Ast.AstCond b u v -> traceRule $
-      let stk = ftkToSTK (ftkAst u)
+      let stk0 = ftkToSTK ftk0
+          uv = astFromVector (SNat @2) stk0 (V.fromList [u, v])
           -- We handle products specially to avoid duplicating a variable,
           -- for which we can then substitute indexing, no big deal,
           -- but each of the indexing can subsequently get turned
           -- into a gather, which then makes a performance difference.
           t = case ftk0 of
             FTKProduct{} ->
-              let uv = astFromVector
-                         (SNat @2) (STKS ZSS stk)
-                         (V.fromList [nestTarget stk u, nestTarget stk v])
-              in unNestTarget stk $ astIndexS ZSS uv (astCond b 0 1 :.$ ZIS)
+              let uvN = nestTargetK (SNat @2) ftk0 uv
+              in unNestTarget stk0 $ astIndexS ZSS uvN (astCond b 0 1 :.$ ZIS)
             _ ->
-              let uv = astFromVector (SNat @2)stk
-                                     (V.fromList [u, v])
-              in astIndexBuild (SNat @2) ftk0 uv (astCond b 0 1)
+              astIndexBuild (SNat @2) ftk0 uv (astCond b 0 1)
       in build1VOccurrenceUnknown snat (var, t)
     Ast.AstBuild1 snat2 _ (var2, v2) -> traceRule $
       assert (var2 /= var) $
@@ -535,14 +532,15 @@ astIndexBuild snat@SNat ftk u i = case ftk of
       astPair (astIndexBuild snat ftk1 (astProject1 u3) i)
               (astIndexBuild snat ftk2 (astProject2 u3) i)
   {- The following prevents generating duplicated gathers by vectorization
-     but it generates big conversions that are even more costly:
+     but it generates big conversions that are even more costly,
+     due to transforming HFuns, e.g., the arguments of folds:
   FTKProduct{} ->
-    astLetFun u $ \ !u3 ->
-      unNestTarget (ftkToSTK ftk)
-      $ astIndexS ZSS (nestTargetK snat (ftkToSTK ftk) u3) (i :.$ ZIS)
-        -- nestTargetK is applicable, because while y can contain
-        -- @TKR@ or @TKX@, it's only in trivial places, e.g., variables,
-        -- because the term is rewritten in such a way -}
+    -- This conversion trick, in particular, prevents duplication of a variable
+    -- in AstCond, for which we can then substitute indexing, no big deal,
+    -- but each of the indexing can subsequently get turned into a gather,
+    -- which then makes a performance difference.
+    unNestTarget (ftkToSTK ftk)
+    $ astIndexS ZSS (nestTargetK snat ftk u) (i :.$ ZIS) -}
 
 substProjRep
   :: forall k s s2 y2 y. (AstSpan s, AstSpan s2)
