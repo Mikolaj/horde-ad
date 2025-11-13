@@ -37,9 +37,9 @@ import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
+import HordeAd.Core.ConvertTensor
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Core.Unwind
 
 -- * The top-level wrapper
 

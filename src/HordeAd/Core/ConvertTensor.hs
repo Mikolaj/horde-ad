@@ -3,6 +3,7 @@
 -- the same data but varying amounts of shape information.
 module HordeAd.Core.ConvertTensor
   ( ConvertTensor(..)
+  , nestTarget, nestTargetK, unNestTarget, unNestTargetK
   ) where
 
 import Prelude
@@ -232,3 +233,31 @@ class ConvertTensor (target :: Target) where
   -- | A clone of tunpair, if @ShareTensor@ is available, or an implementation
   -- that duplicates the argument, otherwise.
   tunpairConv :: target (TKProduct x z) -> (target x, target z)
+
+-- | Convert a tensor into a trivial array with the tensor as the only element.
+nestTarget :: forall y target. ConvertTensor target
+           => SingletonTK y -> target y -> target (TKS2 '[] y)
+nestTarget stk = tconvert (convCmp ConvXS (Conv0X stk)) stk
+
+--- | Convert similarly as in @nestTarget@.
+nestTargetK :: forall k y target. ConvertTensor target
+            => SNat k -> FullShapeTK y
+            -> target (BuildTensorKind k y)
+            -> target (BuildTensorKind k (TKS2 '[] y))
+nestTargetK k ftk =
+  tconvert (buildTKConversion k ftk $ convCmp ConvXS (Conv0X (ftkToSTK ftk)))
+           (buildSTK k $ ftkToSTK ftk)
+
+-- | Convert a tensor from a trivial array with the tensor as the only element.
+unNestTarget :: forall y target. ConvertTensor target
+             => SingletonTK y -> target (TKS2 '[] y) -> target y
+unNestTarget stk = tconvert (convCmp ConvX0 ConvSX) (STKS ZSS stk)
+
+-- | Convert similarly as in @unNestTarget@.
+unNestTargetK :: forall k y target. ConvertTensor target
+              => SNat k -> FullShapeTK y
+              -> target (BuildTensorKind k (TKS2 '[] y))
+              -> target (BuildTensorKind k y)
+unNestTargetK k@SNat ftk =
+  tconvert (buildTKConversion k (FTKS ZSS ftk) $ convCmp ConvX0 ConvSX)
+           (STKS (k :$$ ZSS) (ftkToSTK ftk))

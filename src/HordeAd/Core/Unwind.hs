@@ -8,7 +8,6 @@
 -- in order to have more accurate typing and pattern exhaustiveness checks.
 module HordeAd.Core.Unwind
   ( defTarget, concreteTarget
-  , nestTarget, nestTargetK, unNestTarget, unNestTargetK
   , toADTensorKindShared, fromADTensorKindShared
   ) where
 
@@ -389,40 +388,6 @@ concreteTarget concreteK concreteS fromS stk v =
   windTarget stk
   $ concreteRepW concreteK concreteS fromS
   $ unWindTarget stk v
-
--- | Convert a tensor into a trivial array with the tensor as the only element.
-nestTarget :: forall y target. ConvertTensor target
-           => SingletonTK y -> target y -> target (TKS2 '[] y)
-nestTarget stk = tconvert (convCmp ConvXS (Conv0X stk)) stk
-
--- | Convert similarly as in @nestTarget@.
--- The argument has to be duplicable and y can't contain @TKR@ nor @TKX@.
-nestTargetK :: forall k y target. ConvertTensor target
-            => SNat k -> SingletonTK y
-            -> target (BuildTensorKind k y)
-            -> target (BuildTensorKind k (TKS2 '[] y))
-nestTargetK k stk v =
-  -- This coercion is correct given the assumptions.
-  gcastWith (unsafeCoerceRefl :: UnWind (BuildTensorKind k (TKS2 '[] y))
-                                 :~: UnWind (BuildTensorKind k y)) $
-  windTarget (buildSTK k (STKS ZSS stk)) $ unWindTarget (buildSTK k stk) v
-
--- | Convert a tensor from a trivial array with the tensor as the only element.
-unNestTarget :: forall y target. ConvertTensor target
-             => SingletonTK y -> target (TKS2 '[] y) -> target y
-unNestTarget stk = tconvert (convCmp ConvX0 ConvSX) (STKS ZSS stk)
-
--- | Convert similarly as in @unNestTarget@.
--- The argument has to be duplicable and y can't contain @TKR@ nor @TKX@.
-unNestTargetK :: forall k y target. ConvertTensor target
-              => SNat k -> SingletonTK y
-              -> target (BuildTensorKind k (TKS2 '[] y))
-              -> target (BuildTensorKind k y)
-unNestTargetK k@SNat stk v =
-  -- This coercion is correct given the assumptions.
-  gcastWith (unsafeCoerceRefl :: UnWind (BuildTensorKind k (TKS2 '[] y))
-                                 :~: UnWind (BuildTensorKind k y)) $
-  windTarget (buildSTK k stk) $ unWindTarget (buildSTK k (STKS ZSS stk)) v
 
 lemUnWindOfAD :: SingletonTK y
               -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)
