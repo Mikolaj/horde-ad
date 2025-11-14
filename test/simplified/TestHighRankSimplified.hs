@@ -547,9 +547,8 @@ testBarReluADVal3 =
 braidedBuilds :: forall target n r. (ADReady target, NumScalar r, KnownNat n, Differentiable r)
               => target (TKR (1 + n) r) -> target (TKR 2 r)
 braidedBuilds r =
-  rbuild1 3 (\ix1 ->
-    rbuild1 4 (\ix2 -> rindex (rfromList
-      [rfromIndex0 ix2, rscalar 7, rsum0 (rslice 1 1 r), rscalar (-0.2)]) (ix1 :.: ZIR)))
+  rbuild [3, 4] (\ [ix1, ix2] -> rindex (rfromList
+      [rfromIndex0 ix2, rscalar 7, rsum0 (rslice 1 1 r), rscalar (-0.2)]) (ix1 :.: ZIR))
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =
@@ -672,8 +671,8 @@ testConcatBuild22 =
 concatBuild3 :: (ADReady target, NumScalar r)
              => target (TKR 1 r) -> target (TKR 2 r)
 concatBuild3 _r =
-  rbuild1 5 (\i ->
-    rbuild1 2 (\j -> rfromIndex0 (maxH j (i `quotH` (j + 1)))))
+  rbuild [5, 2] (\ [i, j] ->
+    rfromIndex0 (maxH j (i `quotH` (j + 1))))
 
 testConcatBuild3 :: Assertion
 testConcatBuild3 =
