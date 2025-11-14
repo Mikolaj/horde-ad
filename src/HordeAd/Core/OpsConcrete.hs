@@ -138,7 +138,7 @@ instance BaseTensor Concrete where
     (STKScalar, STKScalar) ->
       Concrete $ tmap0NR (unConcrete . f . Concrete) (unConcrete t)
     _ ->  -- this is the default implementation from the class
-      rbuild (rshape t) (f . trindex t)
+      trbuild (rshape t) (f . trindex t)
   trzipWith0N @_ @r1 @r2 @r f t u =
     case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
       (STKScalar, STKScalar, STKScalar) ->
@@ -146,7 +146,7 @@ instance BaseTensor Concrete where
         $ tzipWith0NR (\v w -> unConcrete $ f (Concrete v) (Concrete w))
                       (unConcrete t) (unConcrete u)
       _ ->  -- this is the default implementation from the class
-        rbuild (rshape u) (\ix -> f (trindex t ix) (trindex u ix))
+        trbuild (rshape u) (\ix -> f (trindex t ix) (trindex u ix))
 
   -- Shaped ops
   sshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.sshape . unConcrete
@@ -268,7 +268,7 @@ instance BaseTensor Concrete where
            $ V.concat l
       _ ->
         withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-        sbuild @(Rank shm) (\ix -> t `tsindex` f ix)
+        tsbuild @_ @(Rank shm) (\ix -> t `tsindex` f ix)
   tsgather1 = tgatherZ1S
   tsconcrete = Concrete
   tsfloor = Concrete . liftVS (V.map floor) . unConcrete
@@ -297,7 +297,7 @@ instance BaseTensor Concrete where
       -- this is the default implementation from the class
       gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
       $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-      $ sbuild @(Rank sh) (f . tsindex v)
+      $ tsbuild @_ @(Rank sh) (f . tsindex v)
   tszipWith0N @sh @r1 @r2 @r f t u =
     case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
       (STKScalar, STKScalar, STKScalar) ->
@@ -308,7 +308,7 @@ instance BaseTensor Concrete where
         -- this is the default implementation from the class
         gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
         $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-        $ sbuild @(Rank sh) (\ix -> f (tsindex t ix) (tsindex u ix))
+        $ tsbuild @_ @(Rank sh) (\ix -> f (tsindex t ix) (tsindex u ix))
 
   -- Mixed ops
   xshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.mshape . unConcrete
@@ -425,7 +425,7 @@ instance BaseTensor Concrete where
         in Concrete $ Nested.mfromVector sh $ V.concat l
       _ ->
         withKnownShX (ssxFromShX sh) $
-        xbuild @(Rank shm) sh (\ix -> t `txindex` f ix)
+        txbuild @_ @(Rank shm) sh (\ix -> t `txindex` f ix)
   txgather1 = tgatherZ1X
   txconcrete = Concrete
   txfloor = Concrete . liftVX (V.map floor) . unConcrete
@@ -934,7 +934,7 @@ tgatherZR sh t f = case knownSTK @r of
               $ t `trindex` f (fmapConcrete $ fromLinearIdxR fromIntegral shm i)
             | i <- [0 .. fromIntegral s - 1] ]
     in Concrete $ Nested.rfromVector sh $ V.concat l
-  _ -> rbuild sh (\ix -> t `trindex` f ix)
+  _ -> trbuild sh (\ix -> t `trindex` f ix)
 
 tgatherZ1R :: forall p n r.
               (KnownNat p, KnownNat n, KnownSTK r)

@@ -687,6 +687,16 @@ rbuild1 :: (KnownNat n, KnownSTK x, BaseTensor target)
         -> (IntOf target -> target (TKR2 n x))  -- ^ the function to build with
         -> target (TKR2 (1 + n) x)
 rbuild1 = trbuild1
+-- | Building a tensor (also known as @generate@ and @tabulate@).
+-- The resulting tensor should have no zero dimensions.
+-- See https://futhark-lang.org/blog/2025-09-26-the-biggest-semantic-mess.html
+-- for why trying to handle zero dimensions complicates the system greatly.
+rbuild :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
+       => IShR (m + n)  -- ^ the shape of the resulting tensor
+       -> (IxROf target m -> target (TKR2 n x))
+            -- ^ the function to build with
+       -> target (TKR2 (m + n) x)
+rbuild = trbuild
 rmap :: (KnownNat m, KnownNat n, KnownSTK x, KnownSTK x2, BaseTensor target)
      => (target (TKR2 n x) -> target (TKR2 n x2))  -- ^ the function to map with
      -> target (TKR2 (m + n) x)  -- ^ the tensor to map over
@@ -809,6 +819,11 @@ sbuild1 :: (KnownNat k, KnownShS sh, KnownSTK x, BaseTensor target)
         => (IntOf target -> target (TKS2 sh x))  -- ^ the function to build with
         -> target (TKS2 (k ': sh) x)
 sbuild1 = tsbuild1
+sbuild :: (KnownShS (Take m sh), KnownShS sh, KnownSTK x, BaseTensor target)
+       => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) x))
+            -- ^ the function to build with
+       -> target (TKS2 sh x)
+sbuild @m = tsbuild @_ @m
 smap :: ( KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh
         , KnownSTK x, KnownSTK x2
         , BaseTensor target )
@@ -955,6 +970,13 @@ xbuild1 :: (KnownNat k, KnownShX sh, KnownSTK x, BaseTensor target)
         => (IntOf target -> target (TKX2 sh x))  -- ^ the function to build with
         -> target (TKX2 (Just k ': sh) x)
 xbuild1 = txbuild1
+xbuild :: ( KnownShX (Take m sh), KnownSTK x
+          , BaseTensor target, ConvertTensor target )
+       => IShX sh  -- ^ the shape of the resulting tensor
+       -> (IxXOf target (Take m sh) -> target (TKX2 (Drop m sh) x))
+            -- ^ the function to build with
+       -> target (TKX2 sh x)
+xbuild @m = txbuild @_ @m
 -- xmap and other special cases of build can be defined by the user.
 
 rfold

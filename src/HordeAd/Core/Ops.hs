@@ -26,7 +26,6 @@ module HordeAd.Core.Ops
     -- * Helper functions
   , rtr, rflatten, str, sflatten, xtr, xflatten
   , tmapAccumR, tmapAccumL
-  , rbuild, sbuild, xbuild
     -- * Helper classes and types
   , IntegralHAndIntElt, RealFloatAndFloatElt
   , TensorSupportsX, TensorSupportsS, TensorSupportsR, TensorSupports
@@ -86,64 +85,6 @@ xtr = gcastWith (unsafeCoerceRefl
 xflatten :: forall sh x target. (KnownSTK x, BaseTensor target)
          => target (TKX2 sh x) -> target (TKX2 '[Nothing] x)
 xflatten u = txreshape (Nested.SUnknown (xsize u) :$% ZSX) u
-
--- | Building a tensor (also known as @generate@ and @tabulate@).
--- The resulting tensor should have no zero dimensions.
--- See https://futhark-lang.org/blog/2025-09-26-the-biggest-semantic-mess.html
--- for why trying to handle zero dimensions complicates the system greatly.
-rbuild :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
-       => IShR (m + n)  -- ^ the shape of the resulting tensor
-       -> (IxROf target m -> target (TKR2 n x))
-            -- ^ the function to build with
-       -> target (TKR2 (m + n) x)
-{-# INLINE rbuild #-}
-rbuild @m @n @x @target sh0 f0 =
-  let buildSh :: IShR m1 -> (IxROf target m1 -> target (TKR2 n x))
-              -> target (TKR2 (m1 + n) x)
-      buildSh ZSR f = f ZIR
-      buildSh (k :$: sh) f | SNat <- shrRank sh =
-        let g i = buildSh sh (\ix -> f (i :.: ix))
-        in trbuild1 k g
-  in buildSh (shrTake @m @n sh0) f0
-sbuild :: (KnownShS (Take m sh), KnownShS sh, KnownSTK x, BaseTensor target)
-       => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) x))
-            -- ^ the function to build with
-       -> target (TKS2 sh x)
-{-# INLINE sbuild #-}
-sbuild @m @sh @x @target =
-  let buildSh
-        :: forall sh1.
-           ShS sh1 -> ShS (sh1 ++ Drop m sh)
-        -> (IxSOf target sh1 -> target (TKS2 (Drop m sh) x))
-        -> target (TKS2 (sh1 ++ Drop m sh) x)
-      buildSh sh1 sh1m f = case (sh1, sh1m) of
-        (ZSS, _) -> f ZIS
-        (SNat :$$ sh2, _ :$$ sh2m) ->
-          withKnownShS sh2m $
-          let g i = buildSh sh2 sh2m (f . (i :.$))
-          in tsbuild1 g
-  in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
-     $ buildSh (knownShS @(Take m sh)) (knownShS @sh)
-xbuild :: ( KnownShX (Take m sh), KnownSTK x
-          , BaseTensor target, ConvertTensor target )
-       => IShX sh  -- ^ the shape of the resulting tensor
-       -> (IxXOf target (Take m sh) -> target (TKX2 (Drop m sh) x))
-            -- ^ the function to build with
-       -> target (TKX2 sh x)
-{-# INLINE xbuild #-}
-xbuild @m @sh @x @target sh0 f0 =
-  let buildSh :: IShX sh1 -> IShX (sh1 ++ Drop m sh)
-              -> (IxXOf target sh1 -> target (TKX2 (Drop m sh) x))
-              -> target (TKX2 (sh1 ++ Drop m sh) x)
-      buildSh sh1 sh1m f = case (sh1, sh1m) of
-        (ZSX, _) -> f ZIX
-        (k :$% sh2, _ :$% sh2m) ->
-          withKnownShX (ssxFromShX sh2m) $
-          let g i = buildSh sh2 sh2m (f . (i :.%))
-          in withSNat (fromSMayNat' k) $ \(SNat @n) ->
-               xmcast (ssxFromShX sh1m) $ txbuild1 @_ @n g
-  in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
-     $ buildSh (shxTakeSSX (Proxy @(Drop m sh)) (knownShX @(Take m sh)) sh0) sh0 f0
 
 -- | A strict right mapAccum.
 tmapAccumR
@@ -679,7 +620,7 @@ class ( Num (IntOf target)
                            $ zip (toList ix) (toList ix2))
                           (trindex v (ixrDrop ix2))
                           (tdefTarget (FTKR ZSR ftk2))
-        in rbuild (shrAppend sh (rshape v)) f
+        in trbuild (shrAppend sh (rshape v)) f
            -- TODO: if this is used often, maybe express this as the gather that
            -- would come out of vectorization, making sure it simplifies well
   trscatter :: (KnownNat m, KnownNat n, KnownNat p, TKAllNum x, KnownSTK x)
@@ -738,7 +679,7 @@ class ( Num (IntOf target)
                            $ zip (Foldable.toList ix) (Foldable.toList ix2))
                           (tsindex v (ixsDrop @(Rank sh1) ix2))
                           (tdefTarget (FTKS ZSS ftk2))
-        in sbuild @(Rank (sh1 ++ sh2)) f
+        in tsbuild @_ @(Rank (sh1 ++ sh2)) f
   tsscatter
      :: (KnownShS shm, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x)
      => target (TKS2 (shm ++ shn) x)
@@ -797,7 +738,7 @@ class ( Num (IntOf target)
                            $ zip (Foldable.toList ix) (Foldable.toList ix2))
                           (txindex v (ixxDrop' @(Rank sh1) ix2))
                           (tdefTarget (FTKX ZSX ftk2))
-        in xbuild @(Rank (sh1 ++ sh2)) (shxAppend sh1 (xshape v)) f
+        in txbuild @_ @(Rank (sh1 ++ sh2)) (shxAppend sh1 (xshape v)) f
   txscatter :: ( KnownShX shm, KnownShX shn, KnownShX shp
                , TKAllNum x, KnownSTK x )
             => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) x)
@@ -915,21 +856,52 @@ class ( Num (IntOf target)
   trbuild1 :: (KnownNat n, KnownSTK x)
            => Int -> (IntOf target -> target (TKR2 n x))
            -> target (TKR2 (1 + n) x)
+  trbuild :: (KnownNat m, KnownNat n, KnownSTK x)
+          => IShR (m + n)
+          -> (IxROf target m -> target (TKR2 n x))
+          -> target (TKR2 (m + n) x)
+  {-# INLINE trbuild #-}
+  trbuild @m @n @x sh0 f0 =
+    let buildSh :: IShR m1 -> (IxROf target m1 -> target (TKR2 n x))
+                -> target (TKR2 (m1 + n) x)
+        buildSh ZSR f = f ZIR
+        buildSh (k :$: sh) f | SNat <- shrRank sh =
+          let g i = buildSh sh (\ix -> f (i :.: ix))
+          in trbuild1 k g
+    in buildSh (shrTake @m @n sh0) f0
   trmap0N :: (KnownNat n, KnownSTK x, KnownSTK x1)
           => (target (TKR2 0 x1) -> target (TKR2 0 x)) -> target (TKR2 n x1)
           -> target (TKR2 n x)
   {-# INLINE trmap0N #-}
-  trmap0N f v = rbuild (rshape v) (f . trindex v)
+  trmap0N f v = trbuild (rshape v) (f . trindex v)
   trzipWith0N :: (KnownNat n, KnownSTK x, KnownSTK x1, KnownSTK x2)
               => (target (TKR2 0 x1) -> target (TKR2 0 x2) -> target (TKR2 0 x))
               -> target (TKR2 n x1) -> target (TKR2 n x2) -> target (TKR2 n x)
   {-# INLINE trzipWith0N #-}
   trzipWith0N f u v =
-    rbuild (rshape v) (\ix -> f (trindex u ix) (trindex v ix))
+    trbuild (rshape v) (\ix -> f (trindex u ix) (trindex v ix))
 
   tsbuild1 :: (KnownNat k, KnownShS sh, KnownSTK x)
            => (IntOf target -> target (TKS2 sh x))
            -> target (TKS2 (k ': sh) x)
+  tsbuild :: (KnownShS (Take m sh), KnownShS sh, KnownSTK x)
+          => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) x))
+          -> target (TKS2 sh x)
+  {-# INLINE tsbuild #-}
+  tsbuild @m @sh @x =
+    let buildSh
+          :: forall sh1.
+             ShS sh1 -> ShS (sh1 ++ Drop m sh)
+          -> (IxSOf target sh1 -> target (TKS2 (Drop m sh) x))
+          -> target (TKS2 (sh1 ++ Drop m sh) x)
+        buildSh sh1 sh1m f = case (sh1, sh1m) of
+          (ZSS, _) -> f ZIS
+          (SNat :$$ sh2, _ :$$ sh2m) ->
+            withKnownShS sh2m $
+            let g i = buildSh sh2 sh2m (f . (i :.$))
+            in tsbuild1 g
+    in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
+       $ buildSh (knownShS @(Take m sh)) (knownShS @sh)
   tsmap0N :: (KnownShS sh, KnownSTK x, KnownSTK x1)
           => (target (TKS2 '[] x1) -> target (TKS2 '[] x))
           -> target (TKS2 sh x1)
@@ -938,7 +910,7 @@ class ( Num (IntOf target)
   tsmap0N @sh f v | Refl <- lemAppNil @sh =
     gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
     $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-    $ sbuild @(Rank sh) (f . tsindex v)
+    $ tsbuild @_ @(Rank sh) (f . tsindex v)
   tszipWith0N :: (KnownShS sh, KnownSTK x, KnownSTK x1, KnownSTK x2)
               => (target (TKS2 '[] x1) -> target (TKS2 '[] x2)
                   -> target (TKS2 '[] x))
@@ -948,12 +920,31 @@ class ( Num (IntOf target)
   tszipWith0N @sh f u v | Refl <- lemAppNil @sh =
     gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
     $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-    $ sbuild @(Rank sh) (\ix -> f (tsindex u ix) (tsindex v ix))
+    $ tsbuild @_ @(Rank sh) (\ix -> f (tsindex u ix) (tsindex v ix))
 
   txbuild1 :: (KnownNat k, KnownShX sh, KnownSTK x)
            => (IntOf target -> target (TKX2 sh x))
            -> target (TKX2 (Just k ': sh) x)
 
+  txbuild :: (KnownShX (Take m sh), KnownSTK x, ConvertTensor target)
+          => IShX sh
+          -> (IxXOf target (Take m sh) -> target (TKX2 (Drop m sh) x))
+          -> target (TKX2 sh x)
+  {-# INLINE txbuild #-}
+  txbuild @m @sh @x sh0 f0 =
+    let buildSh :: IShX sh1 -> IShX (sh1 ++ Drop m sh)
+                -> (IxXOf target sh1 -> target (TKX2 (Drop m sh) x))
+                -> target (TKX2 (sh1 ++ Drop m sh) x)
+        buildSh sh1 sh1m f = case (sh1, sh1m) of
+          (ZSX, _) -> f ZIX
+          (k :$% sh2, _ :$% sh2m) ->
+            withKnownShX (ssxFromShX sh2m) $
+            let g i = buildSh sh2 sh2m (f . (i :.%))
+            in withSNat (fromSMayNat' k) $ \(SNat @n) ->
+                 xmcast (ssxFromShX sh1m) $ txbuild1 @_ @n g
+    in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
+       $ buildSh (shxTakeSSX (Proxy @(Drop m sh))
+                 (knownShX @(Take m sh)) sh0) sh0 f0
   tbuild1 :: forall y k. ConvertTensor target
                -- y comes first, because k easy to set via SNat
           => SNat k -> SingletonTK y -> (IntOf target -> target y)
