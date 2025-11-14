@@ -896,11 +896,9 @@ tfromVector0NR sh l = case NonEmpty.nonEmpty $ V.toList l of
 tbuild1R
   :: forall r n. (Nested.KnownElt r, KnownNat n)
   => Int -> (Int64 -> Nested.Ranked n r) -> Nested.Ranked (1 + n) r
-tbuild1R k f = case NonEmpty.nonEmpty [0 .. fromIntegral k - 1] of
-  Nothing -> case sameNat (Proxy @n) (Proxy @0) of
-    Just Refl -> Nested.remptyArray
-    Nothing -> error "rbuild1: shape ambiguity"
-  Just l -> Nested.rfromListOuter $ NonEmpty.map f l  -- hope this fuses
+tbuild1R k f =
+  Nested.runNest
+  $ Nested.rgenerate (k :$: ZSR) $ \(i :.: ZIR) -> f (fromIntegral i)
 
 tmap0NR
   :: (Nested.PrimElt r1, Nested.PrimElt r)
@@ -1119,10 +1117,9 @@ tfromVector0NS l = case NonEmpty.nonEmpty $ V.toList l of
 tbuild1S
   :: forall k sh r. (KnownNat k, KnownShS sh, Nested.KnownElt r)
   => (Int64 -> Nested.Shaped sh r) -> Nested.Shaped (k ': sh) r
-tbuild1S f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
-  Nothing -> gcastWith (unsafeCoerceRefl :: k :~: 0) $
-             Nested.semptyArray knownShS
-  Just l -> Nested.sfromListOuter SNat $ NonEmpty.map f l  -- hope this fuses
+tbuild1S f =
+  Nested.sunNest
+  $ Nested.sgenerate (SNat @k :$$ ZSS) $ \(i :.$ ZIS) -> f (fromIntegral i)
 
 tmap0NS
   :: forall r1 r sh. (Nested.PrimElt r1, Nested.PrimElt r)
@@ -1296,15 +1293,11 @@ tfromVector0NX sh l = case NonEmpty.nonEmpty $ V.toList l of
 
 tbuild1X
   :: forall k sh r. (KnownNat k, KnownShX sh, Nested.KnownElt r)
-  => (Int64 -> Nested.Mixed sh r)
-  -> Nested.Mixed (Just k ': sh) r
-tbuild1X f = case NonEmpty.nonEmpty [0 .. valueOf @k - 1] of
-  Nothing -> case testEquality (knownShX @sh) ZKX of
-    Just Refl -> gcastWith (unsafeCoerceRefl :: k :~: 0) $
-                 Nested.memptyArray ZSX
-    Nothing -> error "xbuild1: shape ambiguity"
-  Just l -> Nested.mcast (Nested.SKnown (SNat @k) :!% knownShX)
-            $ Nested.mfromListOuter $ NonEmpty.map f l  -- hope this fuses
+  => (Int64 -> Nested.Mixed sh r) -> Nested.Mixed (Just k ': sh) r
+tbuild1X f =
+  Nested.munNest
+  $ Nested.mgenerate (Nested.SKnown (SNat @k) :$% ZSX) $ \(i :.% ZIX) ->
+      f (fromIntegral i)
 
 tgatherZ1X
   :: forall r n2 shn shp.
