@@ -819,7 +819,8 @@ sbuild1 :: (KnownNat k, KnownShS sh, KnownSTK x, BaseTensor target)
         => (IntOf target -> target (TKS2 sh x))  -- ^ the function to build with
         -> target (TKS2 (k ': sh) x)
 sbuild1 = tsbuild1
-sbuild :: (KnownShS (Take m sh), KnownShS sh, KnownSTK x, BaseTensor target)
+sbuild :: ( KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh, KnownSTK x
+          , BaseTensor target )
        => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) x))
             -- ^ the function to build with
        -> target (TKS2 sh x)
@@ -846,7 +847,8 @@ smap0N :: (KnownShS sh, KnownSTK x1, KnownSTK x, BaseTensor target)
        -> target (TKS2 sh x1)  -- ^ the tensor to map over
        -> target (TKS2 sh x)
 smap0N = tsmap0N
-szipWith :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2), KnownShS (Take m sh)
+szipWith :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
+            , KnownShS (Take m sh), KnownShS (Drop m sh)
             , KnownSTK x, KnownSTK x1, KnownSTK x2, KnownShS sh
             , sh1 ~ Take m sh ++ Drop m sh1
             , sh2 ~ Take m sh ++ Drop m sh2, BaseTensor target )
@@ -874,7 +876,8 @@ szipWith0N :: ( KnownShS sh, KnownSTK x, KnownSTK x1, KnownSTK x2
            -> target (TKS2 sh x)
 szipWith0N = tszipWith0N
 szipWith3 :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
-             , KnownShS (Drop m sh3), KnownShS (Take m sh), KnownShS sh
+             , KnownShS (Drop m sh3), KnownShS (Take m sh), KnownShS (Drop m sh)
+             , KnownShS sh
              , KnownSTK x, KnownSTK x1, KnownSTK x2, KnownSTK x3
              , sh1 ~ Take m sh ++ Drop m sh1
              , sh2 ~ Take m sh ++ Drop m sh2
@@ -916,7 +919,7 @@ szipWith30N @sh f u v w | Refl <- lemAppNil @sh =
   $ sbuild @(Rank sh) (\ix -> f (sindex u ix) (sindex v ix) (sindex w ix))
 szipWith4 :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
              , KnownShS (Drop m sh3), KnownShS (Drop m sh4)
-             , KnownShS (Take m sh), KnownShS sh
+             , KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh
              , KnownSTK x, KnownSTK x1, KnownSTK x2, KnownSTK x3, KnownSTK x4
              , sh1 ~ Take m sh ++ Drop m sh1
              , sh2 ~ Take m sh ++ Drop m sh2
@@ -970,7 +973,7 @@ xbuild1 :: (KnownNat k, KnownShX sh, KnownSTK x, BaseTensor target)
         => (IntOf target -> target (TKX2 sh x))  -- ^ the function to build with
         -> target (TKX2 (Just k ': sh) x)
 xbuild1 = txbuild1
-xbuild :: ( KnownShX (Take m sh), KnownSTK x
+xbuild :: ( KnownShX (Take m sh), KnownShX (Drop m sh), KnownSTK x
           , BaseTensor target, ConvertTensor target )
        => IShX sh  -- ^ the shape of the resulting tensor
        -> (IxXOf target (Take m sh) -> target (TKX2 (Drop m sh) x))

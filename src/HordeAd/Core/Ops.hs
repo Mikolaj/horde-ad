@@ -884,7 +884,8 @@ class ( Num (IntOf target)
   tsbuild1 :: (KnownNat k, KnownShS sh, KnownSTK x)
            => (IntOf target -> target (TKS2 sh x))
            -> target (TKS2 (k ': sh) x)
-  tsbuild :: (KnownShS (Take m sh), KnownShS sh, KnownSTK x)
+  tsbuild :: ( KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh
+             , KnownSTK x )
           => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) x))
           -> target (TKS2 sh x)
   {-# INLINE tsbuild #-}
@@ -926,7 +927,8 @@ class ( Num (IntOf target)
            => (IntOf target -> target (TKX2 sh x))
            -> target (TKX2 (Just k ': sh) x)
 
-  txbuild :: (KnownShX (Take m sh), KnownSTK x, ConvertTensor target)
+  txbuild :: ( KnownShX (Take m sh), KnownShX (Drop m sh), KnownSTK x
+             , ConvertTensor target )
           => IShX sh
           -> (IxXOf target (Take m sh) -> target (TKX2 (Drop m sh) x))
           -> target (TKX2 sh x)

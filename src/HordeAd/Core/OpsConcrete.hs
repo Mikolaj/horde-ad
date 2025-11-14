@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -134,6 +135,8 @@ instance BaseTensor Concrete where
     Concrete . Nested.rreshape sh . unConcrete
   trbuild1 @_ @r k f | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ tbuild1R k (unConcrete . f . Concrete)
+  trbuild @_ @_ @r k f | Dict <- eltDictRep (knownSTK @r) =
+    Concrete $ tbuildR k (unConcrete . f . (Concrete <$>))
   trmap0N @_ @r @r1 f t = case (knownSTK @r1, knownSTK @r) of
     (STKScalar, STKScalar) ->
       Concrete $ tmap0NR (unConcrete . f . Concrete) (unConcrete t)
@@ -290,6 +293,8 @@ instance BaseTensor Concrete where
     Concrete . Nested.srev1 . unConcrete
   tsbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ tbuild1S (unConcrete . f . Concrete)
+  tsbuild @m @sh @x f | Dict <- eltDictRep (knownSTK @x) =
+    Concrete $ tbuildS @m @sh (unConcrete . f . (Concrete <$>))
   tsmap0N @sh @r @r1 f v = case (knownSTK @r1, knownSTK @r) of
     (STKScalar, STKScalar) ->
       Concrete $ tmap0NS (unConcrete . f . Concrete) (unConcrete v)
@@ -452,6 +457,8 @@ instance BaseTensor Concrete where
     Concrete . Nested.mreshape sh . unConcrete
   txbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ tbuild1X (unConcrete . f . Concrete)
+  txbuild @m @sh @x sh f | Dict <- eltDictRep (knownSTK @x) =
+    Concrete $ tbuildX @m @sh sh (unConcrete . f . (Concrete <$>))
 
   -- Scalar ops
   tkconcrete = Concrete
@@ -891,14 +898,20 @@ tfromVector0NR sh l = case NonEmpty.nonEmpty $ V.toList l of
   Nothing -> Nested.rreshape sh Nested.remptyArray
   Just nl -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar nl
 
--- See https://futhark-lang.org/blog/2025-09-26-the-biggest-semantic-mess.html
--- for why we don't try to solve the shape ambiguity in the zero dimension case.
 tbuild1R
   :: forall r n. (Nested.KnownElt r, KnownNat n)
   => Int -> (Int64 -> Nested.Ranked n r) -> Nested.Ranked (1 + n) r
 tbuild1R k f =
   Nested.runNest
   $ Nested.rgenerate (k :$: ZSR) $ \(i :.: ZIR) -> f (fromIntegral i)
+
+tbuildR
+  :: forall m n x. (KnownNat m, KnownNat n, Nested.KnownElt x)
+  => IShR (m + n) -> (IxR m Int64 -> Nested.Ranked n x)
+  -> Nested.Ranked (m + n) x
+tbuildR sh f =
+  Nested.runNest
+  $ Nested.rgenerate (shrTake @m sh) $ \i -> f (fromIntegral <$> i)
 
 tmap0NR
   :: (Nested.PrimElt r1, Nested.PrimElt r)
@@ -1115,11 +1128,21 @@ tfromVector0NS l = case NonEmpty.nonEmpty $ V.toList l of
   Just nl -> Nested.sfromListLinear knownShS $ NonEmpty.map Nested.sunScalar nl
 
 tbuild1S
-  :: forall k sh r. (KnownNat k, KnownShS sh, Nested.KnownElt r)
-  => (Int64 -> Nested.Shaped sh r) -> Nested.Shaped (k ': sh) r
+  :: forall k sh x. (KnownNat k, KnownShS sh, Nested.KnownElt x)
+  => (Int64 -> Nested.Shaped sh x) -> Nested.Shaped (k ': sh) x
 tbuild1S f =
   Nested.sunNest
   $ Nested.sgenerate (SNat @k :$$ ZSS) $ \(i :.$ ZIS) -> f (fromIntegral i)
+
+tbuildS
+  :: forall m sh x.
+     (KnownShS (Take m sh), KnownShS (Drop m sh), Nested.KnownElt x)
+  => (IxS (Take m sh) Int64 -> Nested.Shaped (Drop m sh) x)
+  -> Nested.Shaped sh x
+tbuildS f =
+  gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
+  Nested.sunNest
+  $ Nested.sgenerate (knownShS @(Take m sh)) $ \i -> f (fromIntegral <$> i)
 
 tmap0NS
   :: forall r1 r sh. (Nested.PrimElt r1, Nested.PrimElt r)
@@ -1298,6 +1321,17 @@ tbuild1X f =
   Nested.munNest
   $ Nested.mgenerate (Nested.SKnown (SNat @k) :$% ZSX) $ \(i :.% ZIX) ->
       f (fromIntegral i)
+tbuildX
+  :: forall m sh x.
+     (KnownShX (Take m sh), KnownShX (Drop m sh), Nested.KnownElt x)
+  => IShX sh -> (IxX (Take m sh) Int64 -> Nested.Mixed (Drop m sh) x)
+  -> Nested.Mixed sh x
+tbuildX sh f =
+  gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
+  Nested.munNest
+  $ Nested.mgenerate
+      (shxTakeSSX (Proxy @(Drop m sh)) (knownShX @(Take m sh)) sh) $ \i ->
+        f (fromIntegral <$> i)
 
 tgatherZ1X
   :: forall r n2 shn shp.
