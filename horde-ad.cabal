@@ -113,7 +113,7 @@ common exe-options
   -- Make GC more predictable in benchmarks.
   ghc-options:        "-with-rtsopts=-H1.5g -A0.75g -I0"
 
-common exe-options-for-tests-that-reset-counters
+common exe-options-for-sequential-tests
   ghc-options:        -rtsopts -threaded
   ghc-options:        "-with-rtsopts=-H1.5g -A0.75g -I0"
     -- unconditionally seqential, because counter reset is not thread-safe
@@ -396,7 +396,7 @@ library testCommonLibrary
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
 test-suite fullTest
-    import:           options, exe-options-for-tests-that-reset-counters
+    import:           options, exe-options-for-sequential-tests
 
     if flag(release)
       buildable: False
@@ -417,7 +417,7 @@ test-suite fullTest
       , tasty >= 1.0
 
 test-suite CAFlessTest
-    import:           options, exe-options-for-tests-that-reset-counters
+    import:           options, exe-options-for-sequential-tests
 
     if flag(release)
       buildable: False
@@ -458,10 +458,31 @@ test-suite parallelTest
       , base
       , tasty >= 1.0
 
+test-suite sequentialMnistTest
+    import:           options, exe-options-for-sequential-tests
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    type:             exitcode-stdio-1.0
+
+    hs-source-dirs:   test
+
+    main-is:          SequentialMnistTest.hs
+
+    build-depends:
+      , horde-ad:testCommonLibrary
+      , horde-ad:testToolLibrary
+
+      , base
+      , tasty >= 1.0
+
 -- These tests don't require any dataset and are short, so can be enabled
 -- in the Hackage package.
 test-suite minimalTest
-    import:           options, exe-options-for-tests-that-reset-counters
+    import:           options, exe-options-for-sequential-tests
 
     type:             exitcode-stdio-1.0
 

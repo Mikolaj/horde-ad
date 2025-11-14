@@ -6,6 +6,8 @@ module TestConvQuickCheck (testTrees, conv2dSame_dKrn) where
 
 import Prelude
 
+import Data.Bifunctor (first, second)
+import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:))
 import GHC.TypeLits (KnownNat, type (+), type (-), type (<=), type (<=?))
 import System.Random
@@ -26,9 +28,14 @@ import HordeAd.Core.AstInterpret
 import EqEpsilon
 import Shared
 
+import MnistData
+import MnistFcnnRanked2 (XParams2)
+import MnistFcnnRanked2 qualified
+
 testTrees :: [TestTree]
 testTrees =
-  [ testCase "conv2dSameVjp dInp" test_conv2dSameVjp_dInp
+  [ tensorADOnceMnistTests2
+  , testCase "conv2dSameVjp dInp" test_conv2dSameVjp_dInp
   , testCase "conv2dSameVjp dKrn" test_conv2dSameVjp_dKrn
   , testProperty "conv2dSameVjp Quickcheck Double"
                  (quickcheck_conv2dSameVjp @Double)
@@ -76,6 +83,95 @@ testTrees =
                  (quickcheck_conv2dSameVjpInpSymbolic @Double)
   , testProperty "conv2dSameVjp Bench dInp Concrete"
                  (quickcheck_conv2dSameVjpInpConcrete @Double)
+  ]
+
+-- This one is not convolution-related, but it's also QuickCheck.
+tensorADOnceMnistTests2 :: TestTree
+tensorADOnceMnistTests2 = testGroup "Ranked2 Once MNIST tests"
+  [ testProperty "VTO2 grad vs fwd" $
+    \seed0 ->
+    forAllShrink (chooseInt (0, 600)) shrinkIntegral $ \width1Hidden ->
+    forAllShrink (chooseInt (0, 200)) shrinkIntegral $ \width1Hidden2 ->
+    forAllShrink (chooseInt (0, 5)) shrinkIntegral $ \simp ->
+    forAll (choose (0.01, 1)) $ \range ->
+    forAll (choose (0.01, 1)) $ \range2 ->
+    forAll (choose (0.5, 1.5)) $ \dt ->
+    forAll (choose (0, 1e-7)) $ \(perturbation :: Double) ->
+    withSNat (1 + width1Hidden) $ \(SNat @widthHidden) ->
+    withSNat (1 + width1Hidden2) $ \(SNat @widthHidden2) ->
+    let (glyph0, seed2) = randomValue @(Concrete (TKS '[SizeMnistGlyph] Double))
+                                      0.5 (mkStdGen seed0)
+        (label0, seed3) = randomValue @(Concrete (TKS '[SizeMnistLabel] Double))
+                                      5 seed2
+        (glyph, label) = ( rmap1 (rscalar 0.5 +) $ forgetShape glyph0
+                         , rmap1 (rscalar 5 + ) $ forgetShape label0 )
+        ds :: Concrete (XParams2 Double Double)
+        (ds, seed4) = first forgetShape $
+          randomValue
+            @(Concrete (X (MnistFcnnRanked2.ADFcnnMnist2ParametersShaped
+                             Concrete widthHidden widthHidden2 Double Double)))
+            range seed3
+        (targetInit, artRaw) =
+          MnistFcnnRanked2.mnistTrainBench2VTOGradient
+            @Double (Proxy @Double) UseIncomingCotangent
+            range2 seed4 (1 + width1Hidden) (1 + width1Hidden2)
+        art = iterate simplifyArtifactRev artRaw !! simp
+        stk = knownSTK @(XParams2 Double Double)
+        ftk = tftk @Concrete stk targetInit
+        parametersAndInput = tpair targetInit (tpair glyph label)
+        (value0, _gradient0) = second tproject1 $
+          revInterpretArtifact art parametersAndInput Nothing
+        (value1, gradient1) = second tproject1 $
+          revInterpretArtifact art parametersAndInput (Just $ kconcrete dt)
+        f :: ADVal Concrete (XParams2 Double Double)
+          -> ADVal Concrete (TKScalar Double)
+        f adinputs =
+          MnistFcnnRanked2.afcnnMnistLoss2
+            (rfromPrimal glyph, rfromPrimal label) (fromTarget adinputs)
+        (value2, derivative2) = cjvp2 f targetInit ds
+--        goodDt :: forall r. GoodScalar r => r
+--        goodDt = ifDifferentiable @r (realToFrac dt) 0
+--        targetDt :: Concrete (XParams2 Double Double)
+--        targetDt = replTarget goodDt ftk
+        goodPerturbation :: forall r. NumScalar r => r
+        goodPerturbation = ifDifferentiable @r (realToFrac perturbation) 0
+        targetPerturbed :: Concrete (XParams2 Double Double)
+        targetPerturbed = treplTarget goodPerturbation ftk
+        targetInitPerturbed :: Concrete (XParams2 Double Double)
+        targetInitPerturbed = taddTarget stk targetInit targetPerturbed
+        (value3, derivative3) = cjvp2 f targetInit targetPerturbed
+        value4 :: Concrete (TKScalar Double)
+        value4 = MnistFcnnRanked2.afcnnMnistLoss2
+                   (rfromPrimal glyph, rfromPrimal label)
+                   (fromTarget targetInitPerturbed)
+    in
+      conjoin
+        [ counterexample
+            ("Objective function value from grad and jvp matches: "
+             ++ show (value1, value2, value1 - value2))
+            (abs (value1 - value2) < 1e-10)
+        , counterexample
+            ("Gradient and derivative agrees: "
+             ++ show ( dt, derivative2, tdot0Target ftk gradient1 ds
+                     , tdot0Target FTKScalar (kconcrete dt) derivative2
+                       - tdot0Target ftk gradient1 ds ))
+            (abs (tdot0Target FTKScalar (kconcrete dt) derivative2
+                  - tdot0Target ftk gradient1 ds) < 1e-10)
+--        , counterexample  -- this is implied by the other clauses
+--            "Gradient is a linear function"
+--            (gradient1 === tmultTarget stk targetDt gradient0)
+        , counterexample
+            "Objective function value unaffected by incoming cotangent"
+            (value0 === value1)
+        , counterexample
+            "Objective function value unaffected by derivative perturbation"
+            (value2 === value3)
+        , counterexample
+            ("Derivative approximates the perturbation of value: "
+             ++ show ( value2, derivative3, value4
+                     , (value3 + derivative3) - value4) )
+            (abs ((value3 + derivative3) - value4) < 1e-6)
+        ]
   ]
 
 allClose :: (GoodScalar r, Fractional r, Linearizable a r, Linearizable b r)
