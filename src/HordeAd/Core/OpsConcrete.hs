@@ -60,7 +60,25 @@ instance LetTensor Concrete where
   toShare = id
   tunshare = id
   tD _stk t DummyDualTarget{} = t
-  tfold k _ stk f x0 as = foldl' f x0 (tunravelToListShare k stk as)
+  {-# INLINE tfold #-}
+  tfold k _ stk f x0 es = foldl' f x0 (tunravelToListShare k stk es)
+   {- This is worse than the above when the vector needs to be allocated,
+      because of complex strides. Apparently this happens often enough.
+   case stk of
+    STKScalar ->
+      let g !yn !ym = f yn (Concrete ym)
+      in VS.foldl' g x0 (stoVector es)
+    STKR (SNat' @0) STKScalar ->
+      let g !yn !ym = f yn (rfromK $ Concrete ym)
+      in VS.foldl' g x0 (rtoVector es)
+    STKS ZSS STKScalar ->
+      let g !yn !ym = f yn (sfromK $ Concrete ym)
+      in VS.foldl' g x0 (stoVector es)
+    STKX ZKX STKScalar ->
+      let g !yn !ym = f yn (xfromK $ Concrete ym)
+      in VS.foldl' g x0 (xtoVector es)
+    _ -> foldl' f x0 (tunravelToListShare k stk es) -}
+  {-# INLINE tscan #-}
   tscan k@(SNat @k) nstk stk f x0 as =
     tfromVector (SNat @(1 + k)) nstk
     $ V.scanl' f x0 (V.fromList $ tunravelToListShare k stk as)

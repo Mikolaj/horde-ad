@@ -280,6 +280,12 @@ class ShareTensor (target :: Target) where
                                          in withKnownShX sh
                                             $ txunravelToList uShared
     STKProduct stk1 stk2 ->
+      -- TODO: prevent the proliferation of sharing, maybe via
+      -- the unnest (unzip) trick, similarly as in vectorization,
+      -- though ox-arrays has two recurseive calls as well
+      -- (but not sharing):
+      -- mtoListOuter (M_Tup2 a b) =
+      --   zipWith M_Tup2 (mtoListOuter a) (mtoListOuter b)
       let (!u1, !u2) = tunpair u
       in zipWith tpair (tunravelToListShare snat stk1 u1)
                        (tunravelToListShare snat stk2 u2)
