@@ -136,11 +136,11 @@ benchProdShortest ~(snat, list, l, lt, t) = case snat of
     , bench "grad k MapAccum" $ nf (revScalarMapAccum snat) t
 --    , bench "cgrad k list" $ nf crevScalarList list
 --    , bench "grad k list" $ nf revScalarList list
-    , bench "cgrad k L" $ nf (crevScalarL snat) l
+--    , bench "cgrad k L" $ nf (crevScalarL snat) l
 --    , bench "grad k L" $ nf (revScalarL snat) l
 --    , bench "cgrad k R" $ nf (crevScalarR snat) l
 --    , bench "grad k R" $ nf (revScalarR snat) l
-    , bench "cgrad k NotShared" $ nf (crevScalarNotShared snat) l
+--    , bench "cgrad k NotShared" $ nf (crevScalarNotShared snat) l
 --    , bench "cgrad s L" $ nf (crevSL snat) lt
 --    , bench "grad s L" $ nf (revSL snat) lt
 --    , bench "cgrad s R" $ nf (crevSR snat) lt
