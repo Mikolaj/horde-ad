@@ -14,7 +14,7 @@ module HordeAd.Core.CarriersAst
 
 import Prelude hiding (foldl')
 
-import Data.Int (Int64)
+import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Foreign.C (CInt)
 import Type.Reflection (typeRep)
@@ -319,6 +319,12 @@ instance (NumScalar r, AstSpan s)
 {- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int64)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int64)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int32)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int32)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int16)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int16)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int8)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int8)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar CInt)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar CInt)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Double)) #-}
@@ -409,6 +415,12 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
     in if u1 == u2 then fromPlain $ AstConcreteK u1 else t
   {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int64)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int64)) #-}
+  {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int32)) #-}
+  {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int32)) #-}
+  {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int16)) #-}
+  {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int16)) #-}
+  {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int8)) #-}
+  {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int8)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar CInt)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar CInt)) #-}
 

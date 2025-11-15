@@ -47,7 +47,7 @@ import Data.Boolean (Boolean (..))
 import Data.Coerce (coerce)
 import Data.Default
 import Data.Functor.Const
-import Data.Int (Int64)
+import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Kind (Constraint, Type)
 import Data.List (dropWhileEnd, sort)
 import Data.Proxy (Proxy (Proxy))
@@ -143,6 +143,9 @@ type TKUnit = TKScalar Z1
 
 type family TKAllNum (y :: TK) :: Constraint where
   TKAllNum (TKScalar Int64) = ()
+  TKAllNum (TKScalar Int32) = ()
+  TKAllNum (TKScalar Int16) = ()
+  TKAllNum (TKScalar Int8) = ()
   TKAllNum (TKScalar CInt) = ()
   TKAllNum (TKScalar Double) = ()
   TKAllNum (TKScalar Float) = ()
@@ -355,6 +358,18 @@ class Num a => IntegralH a where
   quotH, remH :: a -> a -> a
 
 instance IntegralH Int64 where
+  quotH a b = if b == 0 then a else quot a b
+  remH a b = if b == 0 then a else rem a b
+
+instance IntegralH Int32 where
+  quotH a b = if b == 0 then a else quot a b
+  remH a b = if b == 0 then a else rem a b
+
+instance IntegralH Int16 where
+  quotH a b = if b == 0 then a else quot a b
+  remH a b = if b == 0 then a else rem a b
+
+instance IntegralH Int8 where
   quotH a b = if b == 0 then a else quot a b
   remH a b = if b == 0 then a else rem a b
 

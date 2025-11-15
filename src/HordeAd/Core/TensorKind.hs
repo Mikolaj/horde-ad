@@ -22,7 +22,7 @@ module HordeAd.Core.TensorKind
 import Prelude hiding ((.))
 
 import Control.Category
-import Data.Int (Int64)
+import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Foreign.C (CInt)
@@ -175,15 +175,21 @@ numFromTKAllNum :: forall r. (GoodScalar r, TKAllNum (TKScalar r))
 numFromTKAllNum Proxy =
   case testEquality (typeRep @r) (typeRep @Int64) of
     Just Refl -> Dict0
-    _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+    _ -> case testEquality (typeRep @r) (typeRep @Int32) of
       Just Refl -> Dict0
-      _ -> case testEquality (typeRep @r) (typeRep @Double) of
+      _ -> case testEquality (typeRep @r) (typeRep @Int16) of
         Just Refl -> Dict0
-        _ -> case testEquality (typeRep @r) (typeRep @Float) of
+        _ -> case testEquality (typeRep @r) (typeRep @Int8) of
           Just Refl -> Dict0
-          _ -> case testEquality (typeRep @r) (typeRep @Z1) of
+          _ -> case testEquality (typeRep @r) (typeRep @CInt) of
             Just Refl -> Dict0
-            _ -> error "numFromTKAllNum: impossible type"
+            _ -> case testEquality (typeRep @r) (typeRep @Double) of
+              Just Refl -> Dict0
+              _ -> case testEquality (typeRep @r) (typeRep @Float) of
+                Just Refl -> Dict0
+                _ -> case testEquality (typeRep @r) (typeRep @Z1) of
+                  Just Refl -> Dict0
+                  _ -> error "numFromTKAllNum: impossible type"
 
 stkUnit :: SingletonTK TKUnit
 stkUnit = STKScalar

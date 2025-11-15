@@ -11,7 +11,7 @@ module HordeAd.Core.AstTraverse
 
 import Prelude
 
-import Data.Int (Int64)
+import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Maybe (fromMaybe)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -775,13 +775,22 @@ attemptMatmul2 t3 u3 = Just $
       _ -> case testEquality (typeRep @r) (typeRep @Int64) of
         Just Refl ->
           astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-        _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+        _ -> case testEquality (typeRep @r) (typeRep @Int32) of
           Just Refl ->
             astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-          _ -> case testEquality (typeRep @r) (typeRep @Z1) of
+          _ -> case testEquality (typeRep @r) (typeRep @Int16) of
             Just Refl ->
               astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-            _ -> error "attemptMatmul2: unexpected scalar"
+            _ -> case testEquality (typeRep @r) (typeRep @Int8) of
+              Just Refl ->
+                astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+              _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+                Just Refl ->
+                  astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+                _ -> case testEquality (typeRep @r) (typeRep @Z1) of
+                  Just Refl ->
+                    astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+                  _ -> error "attemptMatmul2: unexpected scalar"
 
 contractAstHFun :: AstSpan s2
                 => AstHFun s s2 x y -> AstHFun s s2 x y

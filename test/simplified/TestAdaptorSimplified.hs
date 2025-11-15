@@ -7,7 +7,7 @@ module TestAdaptorSimplified
 
 import Prelude
 
-import Data.Int (Int64)
+import Data.Int (Int16, Int64, Int8)
 import Data.Kind (Type)
 import Data.List.NonEmpty qualified as NonEmpty
 import Foreign.C (CInt)
@@ -68,6 +68,10 @@ testTrees =
   , testCase "2overleafInt64p" testOverleafInt64p
   , testCase "2overleafCIntp" testOverleafCIntp
   , testCase "2overleafCIntToFloatp" testOverleafCIntToFloatp
+  , testCase "2overleafInt16p" testOverleafInt16p
+  , testCase "2overleafInt16ToFloatp" testOverleafInt16ToFloatp
+  , testCase "2overleafInt8p" testOverleafInt8p
+  , testCase "2overleafInt8ToFloatp" testOverleafInt8ToFloatp
   , testCase "2overleafPP" testOverleafPP
   , testCase "2foo" testFoo
   , testCase "2fooGradDouble" testGradFooDouble
@@ -523,6 +527,34 @@ testOverleafCIntToFloatp =
     (ringestData @1 @Float [28] (replicate 28 0.0))
     (let f :: forall f. ADReady f => f (TKR 1 Float) -> f (TKR 0 Float)
          f = rfromIntegral . overleaf @CInt . rfloor
+     in rev' @Float @0 f (ringestData [28] [0 .. 27]))
+
+testOverleafInt16p :: Assertion
+testOverleafInt16p =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData @_ @Int16 [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
+    (rev' @Int16 @0 overleaf (ringestData [28] [0 .. 27]))
+
+testOverleafInt16ToFloatp :: Assertion
+testOverleafInt16ToFloatp =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData @1 @Float [28] (replicate 28 0.0))
+    (let f :: forall f. ADReady f => f (TKR 1 Float) -> f (TKR 0 Float)
+         f = rfromIntegral . overleaf @Int16 . rfloor
+     in rev' @Float @0 f (ringestData [28] [0 .. 27]))
+
+testOverleafInt8p :: Assertion
+testOverleafInt8p =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData @_ @Int8 [28] (map round [2.0 :: Double,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0]))
+    (rev' @Int8 @0 overleaf (ringestData [28] [0 .. 27]))
+
+testOverleafInt8ToFloatp :: Assertion
+testOverleafInt8ToFloatp =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData @1 @Float [28] (replicate 28 0.0))
+    (let f :: forall f. ADReady f => f (TKR 1 Float) -> f (TKR 0 Float)
+         f = rfromIntegral . overleaf @Int8 . rfloor
      in rev' @Float @0 f (ringestData [28] [0 .. 27]))
 
 testOverleafPP :: Assertion

@@ -10,7 +10,7 @@ module EqEpsilon
 
 import Prelude
 
-import Data.Int (Int64)
+import Data.Int (Int16, Int32, Int64, Int8)
 import Data.IORef
 import Foreign.C (CInt)
 import System.IO.Unsafe (unsafePerformIO)
@@ -160,6 +160,15 @@ instance AssertEqualUpToEpsilon Float where
   assertEqualUpToEpsilonWithMsg = assert_close_eps ""
 
 instance AssertEqualUpToEpsilon Int64 where
+  assertEqualUpToEpsilonWithMsg = assert_close_eps ""
+
+instance AssertEqualUpToEpsilon Int32 where
+  assertEqualUpToEpsilonWithMsg = assert_close_eps ""
+
+instance AssertEqualUpToEpsilon Int16 where
+  assertEqualUpToEpsilonWithMsg = assert_close_eps ""
+
+instance AssertEqualUpToEpsilon Int8 where
   assertEqualUpToEpsilonWithMsg = assert_close_eps ""
 
 instance AssertEqualUpToEpsilon CInt where

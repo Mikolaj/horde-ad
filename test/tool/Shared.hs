@@ -8,7 +8,7 @@ import Prelude
 
 import Data.Char qualified
 import Data.Foldable qualified
-import Data.Int (Int64)
+import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Vector.Storable qualified as VS
 import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
@@ -45,6 +45,15 @@ instance HasShape Float where
 instance HasShape Int64 where
   shapeL _ = []
 
+instance HasShape Int32 where
+  shapeL _ = []
+
+instance HasShape Int16 where
+  shapeL _ = []
+
+instance HasShape Int8 where
+  shapeL _ = []
+
 instance HasShape CInt where
   shapeL _ = []
 
@@ -77,6 +86,15 @@ instance Linearizable Float Float where
   linearize x = [x]
 
 instance Linearizable Int64 Int64 where
+  linearize x = [x]
+
+instance Linearizable Int32 Int32 where
+  linearize x = [x]
+
+instance Linearizable Int16 Int16 where
+  linearize x = [x]
+
+instance Linearizable Int8 Int8 where
   linearize x = [x]
 
 instance Linearizable CInt CInt where
