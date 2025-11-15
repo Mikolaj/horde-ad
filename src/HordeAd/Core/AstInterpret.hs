@@ -15,6 +15,7 @@ import Prelude
 
 import Data.Coerce (coerce)
 import Data.Dependent.EnumMap.Strict qualified as DMap
+import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -55,6 +56,19 @@ interpretAstPrimal
   -> PrimalOf target y
 interpretAstPrimal !env v1 = case v1 of
   AstPair t1 t2 -> tpair (interpretAstPrimal env t1) (interpretAstPrimal env t2)
+  -- We do this optimization only for concrete instance(s), because otherwise
+  -- it's poinless and also leads to a recomputation of derivatives (_rf0),
+  AstProject1 (AstMapAccumLDer @accy @by @ey
+                               k _bftk eftk f0 _df0 _rf0 acc0 es)
+              | show (1 :: target (TKScalar Int64)) == "1" ->
+    let acc02 = interpretAst env acc0
+        es2 = interpretAst env es
+        h :: forall f. ADReady f => f accy -> f ey -> f accy
+        h !acc !e =
+          let g = interpretAstHFun @f emptyEnv f0
+          in tproject1 $ tApply @f @_ @(TKProduct accy by) g (tpair acc e)
+    in tprimalPart
+       $ tfold k (ftkToSTK $ ftkAst acc0) (ftkToSTK eftk) h acc02 es2
   AstProject1 t -> tproject1 (interpretAstPrimal env t)
   AstProject2 t -> tproject2 (interpretAstPrimal env t)
   AstFromVector snat stk l ->
@@ -246,6 +260,18 @@ interpretAstPlain
   -> PlainOf target y
 interpretAstPlain !env v1 = case v1 of
   AstPair t1 t2 -> tpair (interpretAstPlain env t1) (interpretAstPlain env t2)
+  -- We do this optimization only for concrete instance(s), because otherwise
+  -- it's poinless and also leads to a recomputation of derivatives (_rf0),
+  AstProject1 (AstMapAccumLDer @accy @by @ey
+                               k _bftk eftk f0 _df0 _rf0 acc0 es)
+              | show (1 :: target (TKScalar Int64)) == "1" ->
+    let acc02 = interpretAstPlain env acc0
+        es2 = interpretAstPlain env es
+        h :: forall f. ADReady f => f accy -> f ey -> f accy
+        h !acc !e =
+          let g = interpretAstHFun @f emptyEnv f0
+          in tproject1 $ tApply @f @_ @(TKProduct accy by) g (tpair acc e)
+    in tfold k (ftkToSTK $ ftkAst acc0) (ftkToSTK eftk) h acc02 es2
   AstProject1 t -> tproject1 (interpretAstPlain env t)
   AstProject2 t -> tproject2 (interpretAstPlain env t)
   AstFromVector snat stk l ->
@@ -524,6 +550,19 @@ interpretAst
   -> target y
 interpretAst !env = \case
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
+  -- TODO: do the same to tscan or a variant of it
+  -- We do this optimization only for concrete instance(s), because otherwise
+  -- it's poinless and also leads to a recomputation of derivatives (_rf0),
+  AstProject1 (AstMapAccumLDer @accy @by @ey
+                               k _bftk eftk f0 _df0 _rf0 acc0 es)
+              | show (1 :: target (TKScalar Int64)) == "1" ->
+    let acc02 = interpretAst env acc0
+        es2 = interpretAst env es
+        h :: forall f. ADReady f => f accy -> f ey -> f accy
+        h !acc !e =
+          let g = interpretAstHFun @f emptyEnv f0
+          in tproject1 $ tApply @f @_ @(TKProduct accy by) g (tpair acc e)
+    in tfold k (ftkToSTK $ ftkAst acc0) (ftkToSTK eftk) h acc02 es2
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
   AstFromVector snat stk l ->
@@ -693,6 +732,9 @@ interpretAst !env = \case
       let v2 = interpretAst env v
           ix3 = interpretAstPlain env <$> ix
       in tsindex @target @sh1 v2 ix3
+  -- TODO: once specialization inspect-testing is back online,
+  -- recover and also handle similarly tsupdate, both implemented
+  -- as a gather and as a scatter
   {- TODO: this breaks specialization:
   AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
