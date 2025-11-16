@@ -983,7 +983,8 @@ xbuild @m = txbuild @_ @m
 -- xmap and other special cases of build can be defined by the user.
 
 rfold
-  :: ( KnownNat n, KnownNat m, KnownSTK xn, KnownSTK xm
+  :: forall n m xn xm target.
+     ( KnownNat n, KnownNat m, KnownSTK xn, KnownSTK xm
      , BaseTensor target, LetTensor target )
   => (forall f. ADReady f => f (TKR2 n xn) -> f (TKR2 m xm) -> f (TKR2 n xn))
        -- ^ the function to fold with
@@ -992,9 +993,11 @@ rfold
   -> target (TKR2 n xn)
 {-# INLINE rfold #-}
 rfold f acc0 es =
-  withSNat (rwidth es) $ \k -> tfold k knownSTK knownSTK f acc0 es
+  withSNat (rwidth es) $ \k ->
+    tfold @_ @(TKR2 n xn) @(TKR2 m xm)  k knownSTK knownSTK f acc0 es
 rscan
-  :: ( KnownNat n, KnownNat m, KnownSTK xn, KnownSTK xm
+  :: forall n m xn xm target.
+     ( KnownNat n, KnownNat m, KnownSTK xn, KnownSTK xm
      , BaseTensor target, LetTensor target )
   => (forall f. ADReady f => f (TKR2 n xn) -> f (TKR2 m xm) -> f (TKR2 n xn))
        -- ^ the function to fold with
@@ -1003,7 +1006,8 @@ rscan
   -> target (TKR2 (1 + n) xn)
 {-# INLINE rscan #-}
 rscan f acc0 es =
-  withSNat (rwidth es) $ \k -> tscan k knownSTK knownSTK f acc0 es
+  withSNat (rwidth es) $ \k ->
+    tscan @_ @(TKR2 n xn) @(TKR2 m xm) k knownSTK knownSTK f acc0 es
 sfold
   :: ( KnownNat k, KnownShS sh, KnownShS shm, KnownSTK xn, KnownSTK xm
      , BaseTensor target, LetTensor target )
@@ -1060,7 +1064,7 @@ kgrad :: forall x r target. (GoodScalar r, BaseTensor target)
       -> target x  -- ^ input x
       -> target (ADTensorKind x)  -- ^ gradient dx
 kgrad f xftk =
-  \ !es -> tApply (tgrad @target xftk (HFun f)) es
+  \ !es -> tApply (tgrad @target @x @r xftk (HFun f)) es
 rvjp :: forall n x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKR2 n r))  -- ^ x |-> z
      -> FullShapeTK x  -- ^ shape of x and dx
@@ -1068,7 +1072,7 @@ rvjp :: forall n x r target. BaseTensor target
      -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent dz
      -> target (ADTensorKind x)  -- ^ gradient dx
 rvjp f xftk =
-  \ !es !dt -> tApply (tvjp @target xftk $ HFun f) (tpair dt es)
+  \ !es !dt -> tApply (tvjp @target @x @(TKR2 n r) xftk $ HFun f) (tpair dt es)
 rjvp :: forall n x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKR2 n r))  -- ^ x |-> z
      -> FullShapeTK x  -- ^ shape of x and dx
@@ -1076,7 +1080,7 @@ rjvp :: forall n x r target. BaseTensor target
      -> target (ADTensorKind x)  -- ^ incoming tangent dx
      -> target (ADTensorKind (TKR2 n r))  -- ^ derivative dz
 rjvp f xftk =
-  \ !es !ds -> tApply (tjvp @target xftk $ HFun f) (tpair ds es)
+  \ !es !ds -> tApply (tjvp @target @x @(TKR2 n r) xftk $ HFun f) (tpair ds es)
 svjp :: forall sh x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKS2 sh r))  -- ^ x |-> z
      -> FullShapeTK x  -- ^ shape of x and dx
@@ -1084,7 +1088,7 @@ svjp :: forall sh x r target. BaseTensor target
      -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent dz
      -> target (ADTensorKind x)  -- ^ gradient dx
 svjp f xftk =
-  \ !es !dt -> tApply (tvjp @target xftk $ HFun f) (tpair dt es)
+  \ !es !dt -> tApply (tvjp @target @x @(TKS2 sh r) xftk $ HFun f) (tpair dt es)
 sjvp :: forall sh x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKS2 sh r))
      -> FullShapeTK x  -- ^ shape of x and dx
@@ -1092,7 +1096,7 @@ sjvp :: forall sh x r target. BaseTensor target
      -> target (ADTensorKind x)  -- ^ incoming tangent dx
      -> target (ADTensorKind (TKS2 sh r))  -- ^ derivative dz
 sjvp f xftk =
-  \ !es !ds -> tApply (tjvp @target xftk $ HFun f) (tpair ds es)
+  \ !es !ds -> tApply (tjvp @target @x @(TKS2 sh r) xftk $ HFun f) (tpair ds es)
 
 -- These take @target@ first, because they change the target.
 rprimalPart :: BaseTensor target

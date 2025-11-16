@@ -443,15 +443,17 @@ instance ( ADReadyNoLet target, ShareTensor target
                   in tpair added (tproject2 daccRes_deRes)
         p = tmapAccumRDer (Proxy @target)
                           k accftk codomainShs eftk
-                          (tlambda @target (FTKProduct accftk eftk)
+                          (tlambda @target @(TKProduct accy ey) @(TKProduct accy (TKProduct accy by))
+                                   (FTKProduct accftk eftk)
                            $ HFun g)
-                          (tlambda @target
-                             (FTKProduct (adFTK (FTKProduct accftk eftk))
-                                         (FTKProduct accftk eftk))
+                          (tlambda @target @(TKProduct (ADTensorKind (TKProduct accy ey)) (TKProduct accy ey)) @(ADTensorKind (TKProduct accy (TKProduct accy by)))
+                                   (FTKProduct (adFTK (FTKProduct accftk eftk))
+                                               (FTKProduct accftk eftk))
                            $ HFun dg)
-                          (tlambda @target
-                             (FTKProduct (adFTK (FTKProduct accftk codomainShs))
-                                         (FTKProduct accftk eftk))
+                          (tlambda @target @(TKProduct (ADTensorKind (TKProduct accy (TKProduct accy by))) (TKProduct accy ey)) @(ADTensorKind (TKProduct accy ey))
+                                   (FTKProduct
+                                      (adFTK (FTKProduct accftk codomainShs))
+                                      (FTKProduct accftk eftk))
                            $ HFun rg)
                           acc0 es
         (accFin, qbs) = tunpair p
@@ -506,15 +508,17 @@ instance ( ADReadyNoLet target, ShareTensor target
                   in tpair added (tproject2 daccRes_deRes)
         p = tmapAccumLDer (Proxy @target)
                           k accftk codomainShs eftk
-                          (tlambda @target (FTKProduct accftk eftk)
+                          (tlambda @target @(TKProduct accy ey) @(TKProduct accy (TKProduct accy by))
+                                   (FTKProduct accftk eftk)
                            $ HFun g)
-                          (tlambda @target
-                             (FTKProduct (adFTK (FTKProduct accftk eftk))
-                                         (FTKProduct accftk eftk))
+                          (tlambda @target @(TKProduct (ADTensorKind (TKProduct accy ey)) (TKProduct accy ey)) @(ADTensorKind (TKProduct accy (TKProduct accy by)))
+                                   (FTKProduct (adFTK (FTKProduct accftk eftk))
+                                               (FTKProduct accftk eftk))
                            $ HFun dg)
-                          (tlambda @target
-                             (FTKProduct (adFTK (FTKProduct accftk codomainShs))
-                                         (FTKProduct accftk eftk))
+                          (tlambda @target @(TKProduct (ADTensorKind (TKProduct accy (TKProduct accy by))) (TKProduct accy ey)) @(ADTensorKind (TKProduct accy ey))
+                                   (FTKProduct
+                                      (adFTK (FTKProduct accftk codomainShs))
+                                      (FTKProduct accftk eftk))
                            $ HFun rg)
                           acc0 es
         (accFin, qbs) = tunpair p

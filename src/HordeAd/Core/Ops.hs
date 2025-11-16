@@ -108,11 +108,13 @@ tmapAccumR proxy !k !accftk !bftk !eftk f acc0 es =
          -> f (TKProduct accy by)
       fl !args = ttlet args $ \ !args1 ->
                    f (tproject1 args1) (tproject2 args1)
-  in tmapAccumRDer proxy k accftk bftk eftk
-                   (tlambda @target xftk (HFun fl))
-                   (tjvp @target xftk $ HFun fl)
-                   (tvjp @target xftk $ HFun fl)
-                   acc0 es
+  in tmapAccumRDer
+       proxy k accftk bftk eftk
+       (tlambda @target @(TKProduct accy ey) @(TKProduct accy by)
+                xftk (HFun fl))
+       (tjvp @target @(TKProduct accy ey) @(TKProduct accy by) xftk $ HFun fl)
+       (tvjp @target @(TKProduct accy ey) @(TKProduct accy by) xftk $ HFun fl)
+       acc0 es
 -- | A strict left mapAccum.
 tmapAccumL
   :: forall accy by ey k target. BaseTensor target
@@ -135,11 +137,13 @@ tmapAccumL proxy !k !accftk !bftk !eftk f acc0 es =
          -> f (TKProduct accy by)
       fl !args = ttlet args $ \ !args1 ->
                    f (tproject1 args1) (tproject2 args1)
-  in tmapAccumLDer proxy k accftk bftk eftk
-                   (tlambda @target xftk (HFun fl))
-                   (tjvp @target xftk $ HFun fl)
-                   (tvjp @target xftk $ HFun fl)
-                   acc0 es
+  in tmapAccumLDer
+       proxy k accftk bftk eftk
+       (tlambda @target @(TKProduct accy ey) @(TKProduct accy by)
+                xftk (HFun fl))
+       (tjvp @target @(TKProduct accy ey) @(TKProduct accy by) xftk $ HFun fl)
+       (tvjp @target @(TKProduct accy ey) @(TKProduct accy by) xftk $ HFun fl)
+       acc0 es
 
 type TensorSupports :: (Type -> Constraint) -> (Type -> Constraint)
                     -> Target -> Constraint
