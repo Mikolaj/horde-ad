@@ -725,16 +725,20 @@ tscatterZS :: forall r sh2 p sh.
            -> OS.Array sh r
 tscatterZS t f =
   let sh2 = ShapedList.shapeSh @sh2
+      g :: ShapedList.ShapedList sh2 Int64
+        -> (M.Map (IndexIntSh (OS.Take p sh)) [Vector r]
+            -> M.Map (IndexIntSh (OS.Take p sh)) [Vector r])
       g ix =
         let ix2 = f ix
         in if ixInBounds (ShapedList.sizedListToList ix2) (OS.shapeT @sh)
            then M.insertWith (++) ix2
                   [OS.toVector $ tindexNS @sh2 @(OS.Drop p sh) t ix]
            else id
+      ivs :: M.Map (IndexIntSh (OS.Take p sh)) [Vector r]  
       ivs = foldr g M.empty [ ShapedList.fromLinearIdx sh2
                               $ ShapedList.shapedNat $ fromIntegral i
                             | i <- [0 .. OS.sizeT @sh2 - 1] ]
-  in updateNS 0 $ map (second $ OS.fromVector . sum) $ M.assocs ivs
+  in updateNS @p 0 $ map (second $ OS.fromVector @(OS.Drop p sh) . sum) $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
@@ -751,7 +755,7 @@ tscatterZ1S t f =
                    let ix2 = f $ ShapedList.shapedNat $ fromIntegral i
                    in if ixInBounds (ShapedList.sizedListToList ix2)
                                     (OS.shapeT @sh)
-                      then updateNS 0 [(ix2, ti)]
+                      then updateNS @p 0 [(ix2, ti)]
                       else 0)
         $ OSB.toVector $ OS.unravel t
 

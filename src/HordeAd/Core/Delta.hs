@@ -951,7 +951,7 @@ buildFinMaps s0 deltaDt =
         Sum0S d -> evalS s (sreplicate0N c) d
         Dot0S v vd -> evalS s (v * sreplicate0N c) vd
           -- too slow: evalS s (smap0N (* (sscalar c)) v) vd
-        ScatterS d f -> evalS s (sgather c f) d
+        ScatterS @_ @_ @_ @b @c d f -> evalS s (sgather @_ @_ @b @c c f) d
 
         FromListS ld ->
           ifoldl' (\ !s2 i d2 ->
@@ -990,7 +990,7 @@ buildFinMaps s0 deltaDt =
           foldl' (\ !s2 i -> evalS s2 (sindex cShared (i :$: ZSH))
                                  (f $ ShapedList.shapedNat i))
                  sShared (fromIntegral <$> [0 .. (valueOf @n :: Int) - 1])
-        GatherS d f -> evalS s (sscatter c f) d
+        GatherS @_ @_ @_ @b @c d f -> evalS s (sscatter @_ @_ @b @c c f) d
         CastS d -> evalSRuntimeSpecialized s (scast c) d
 
         DToS (SToD @sh2 d) ->
@@ -1233,9 +1233,9 @@ buildDerivative dimR deltaDt params = do
         Sum0S d -> ssum0 <$> evalS d
         Dot0S _ ZeroS -> return 0
         Dot0S v d -> sdot0 v <$> evalS d
-        ScatterS d f -> do
+        ScatterS @_ @_ @_ @b @c d f -> do
           t <- evalS d
-          return $! sscatter t f
+          return $! sscatter @_ @_ @b @c t f
 
         FromListS lsd -> do
           l <- mapM evalS lsd
@@ -1255,9 +1255,9 @@ buildDerivative dimR deltaDt params = do
           l <- mapM (evalS . f . ShapedList.shapedNat . fromIntegral)
                     [0 .. (valueOf @n :: Int) - 1]
           return $! sfromList l
-        GatherS d f -> do
+        GatherS @_ @_ @_ @b @c d f -> do
           t <- evalS d
-          return $! sgather t f
+          return $! sgather @_ @_ @b @c t f
         CastS d -> do
           t <- evalS d
           return $! scast t

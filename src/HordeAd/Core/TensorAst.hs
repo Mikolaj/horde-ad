@@ -285,7 +285,7 @@ instance AstSpan s
   siota = fromPrimalS AstIotaS
   sindex = AstIndexS
   ssum = astSumS
-  sscatter t f = astScatterS t (funToAstIndexS f)  -- introduces new vars
+  sscatter @_ @b @c t f = astScatterS @b @c t (funToAstIndexS f)  -- introduces new vars
 
   sfromList = AstFromListS
   sfromVector = AstFromVectorS
@@ -296,7 +296,7 @@ instance AstSpan s
   stranspose (_ :: Proxy perm) = astTransposeS @perm
   sreshape = astReshapeS
   sbuild1 = astBuild1VectorizeS
-  sgather t f = AstGatherS t (funToAstIndexS f)  -- introduces new vars
+  sgather @_ @b @c t f = AstGatherS @b @c t (funToAstIndexS f)  -- introduces new vars
   scast = AstCastS
   sfromIntegral = fromPrimalS . AstFromIntegralS . astSpanPrimalS
 

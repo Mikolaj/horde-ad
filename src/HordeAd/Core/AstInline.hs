@@ -572,8 +572,8 @@ unletAstS env t = case t of
   Ast.AstIndexS v ix ->
     Ast.AstIndexS (unletAstS env v) (fmap (unletAst env) ix)
   Ast.AstSumS v -> Ast.AstSumS (unletAstS env v)
-  Ast.AstScatterS v (var, ix) ->
-    Ast.AstScatterS (unletAstS env v) (var, fmap (unletAst env) ix)
+  Ast.AstScatterS @b @c v (var, ix) ->
+    Ast.AstScatterS @b @c (unletAstS env v) (var, fmap (unletAst env) ix)
   Ast.AstFromListS l -> Ast.AstFromListS (map (unletAstS env) l)
   Ast.AstFromVectorS l -> Ast.AstFromVectorS (V.map (unletAstS env) l)
   Ast.AstReplicateS v -> Ast.AstReplicateS (unletAstS env v)
@@ -583,8 +583,8 @@ unletAstS env t = case t of
   Ast.AstTransposeS @perm v -> Ast.AstTransposeS @perm (unletAstS env v)
   Ast.AstReshapeS v -> Ast.AstReshapeS (unletAstS env v)
   Ast.AstBuild1S (var, v) -> Ast.AstBuild1S (var, unletAstS env v)
-  Ast.AstGatherS v (vars, ix) ->
-    Ast.AstGatherS (unletAstS env v) (vars, fmap (unletAst env) ix)
+  Ast.AstGatherS @b @c v (vars, ix) ->
+    Ast.AstGatherS @b @c (unletAstS env v) (vars, fmap (unletAst env) ix)
   Ast.AstCastS v -> Ast.AstCastS (unletAstS env v)
   Ast.AstFromIntegralS v -> Ast.AstFromIntegralS (unletAstS env v)
   Ast.AstConstS{} -> t

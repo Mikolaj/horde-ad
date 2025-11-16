@@ -760,10 +760,10 @@ interpretAstS !env = \case
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R
     -- is cheaper, too
-  AstScatterS v (vars, ix) ->
+  AstScatterS @b @c v (vars, ix) ->
     let t1 = interpretAstS env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
-    in sscatter t1 f2
+    in sscatter @_ @_ @b @c t1 f2
   AstFromListS l ->
     let l2 = interpretAstS env <$> l
     in sfromList l2
@@ -835,10 +835,10 @@ interpretAstS !env = \case
              (interpretLambdaIndexS
                 interpretAstS env
                 (vars, sfromIntegral $ sfromR i))
-  AstGatherS v (vars, ix) ->
+  AstGatherS @b @c v (vars, ix) ->
     let t1 = interpretAstS env v
         f2 = interpretLambdaIndexToIndexS interpretAstPrimal env (vars, ix)
-    in sgather t1 f2
+    in sgather @_ @_ @b @c t1 f2
     -- the operation accepts out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
     -- TODO: currently we store the function on tape, because it doesn't

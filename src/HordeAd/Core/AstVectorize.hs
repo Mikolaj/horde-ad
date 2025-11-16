@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -541,7 +542,7 @@ build1VS (var, v00) =
     Ast.AstReshapeS @sh2 v -> traceRule $
       gcastWith (unsafeCoerce Refl
                  :: OS.Size (k ': sh) :~: OS.Size (k ': sh2)) $
-      astReshapeS $ build1VS (var, v)
+      astReshapeS @(k ': sh2) $ build1VS (var, v)
     Ast.AstBuild1S{} -> error "build1VS: impossible case of AstBuild1S"
     Ast.AstGatherS @sh2 @p @sh3 v (vars, ix) -> traceRule $
       gcastWith (unsafeCoerce Refl
@@ -632,7 +633,7 @@ build1VIndexS (var, v0, ix@(_ :$: _)) =
        v -> traceRule $
          build1VOccurenceUnknownS (var, v)  -- peel off yet another constructor
      else traceRule $
-            astGatherStepS v0 (var :$: ZSH, ix)
+            astGatherStepS @'[k] @p @sh v0 (var :$: ZSH, ix)
 
 
 -- * Rule tracing machinery
