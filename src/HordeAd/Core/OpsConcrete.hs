@@ -272,21 +272,20 @@ instance BaseTensor Concrete where
   -- and the result of such indexing is def, which is 0.
   -- TODO: are bounds checked in the optimized case?
   -- The same question also elsewhere.
-  tsgather @shm @shn @_ @r t f =
+  tsgather @shm @shn @shp @r t f =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
-    case knownSTK @r of
-      STKScalar ->  -- optimized
+    case (knownShS @shn, knownSTK @r) of
+      (ZSS, STKScalar) | Refl <- lemAppNil @shm
+                       , Refl <- lemAppNil @shp ->  -- an optimized common case
         let shm = knownShS @shm
             s = shsSize shm
-            l = [ stoVector
-                  $ tsindex @_ @_ @shn
-                      t (f (fmapConcrete
-                            $ fromLinearIdxS fromIntegral shm i))
+            l = [ unConcrete $
+                  t `tsindex0`
+                      f (fmapConcrete
+                         $ fromLinearIdxS fromIntegral shm i)
                 | i <- [0 .. fromIntegral s - 1] ]
-        in Concrete
-           $ Nested.sfromVector (knownShS @shm `shsAppend` knownShS @shn)
-           $ V.concat l
+        in Concrete $ Nested.sfromListPrimLinear shm l
       _ ->
         withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
         tsbuild @_ @(Rank shm) (\ix -> t `tsindex` f ix)
@@ -433,19 +432,21 @@ instance BaseTensor Concrete where
         in updateNX (Proxy @(Rank shp)) zero
            $ M.assocs ivs
   txscatter1 = tscatterZ1X
-  txgather @shm @shn @_ @r sh t f =
+  txgather @shm @shn @shp @r sh t f =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
-    case knownSTK @r of
-      STKScalar ->  -- optimized
-        let shm = shxTakeSSX (Proxy @shn) (knownShX @shm) sh
+    case (knownShX @shn, knownSTK @r) of
+      (ZKX, STKScalar) | Refl <- lemAppNil @shm
+                       , Refl <- lemAppNil @shp ->  -- an optimized common case
+        let shm = sh
             s = shxSize shm
-            l = [ xtoVector
-                  $ txindex @_ @_ @shn
-                      t (f (fmapConcrete
-                            $ fromLinearIdxX fromIntegral shm i))
+            l = [ unConcrete $
+                  t `txindex0`
+                      f (fmapConcrete
+                         $ fromLinearIdxX fromIntegral shm i)
                 | i <- [0 .. fromIntegral s - 1] ]
-        in Concrete $ Nested.mfromVector sh $ V.concat l
+        in Concrete
+           $ Nested.mfromListPrimLinear shm l
       _ ->
         withKnownShX (ssxFromShX sh) $
         txbuild @_ @(Rank shm) sh (\ix -> t `txindex` f ix)
@@ -481,7 +482,7 @@ instance BaseTensor Concrete where
   -- Scalar ops
   tkconcrete = Concrete
   tkfloor = Concrete . floor . unConcrete
-  tkfromIntegral = Concrete . fromIntegral . unConcrete
+  tkfromIntegral = fromIntegral . unConcrete
   tkcast = Concrete . realToFrac . unConcrete
 
   -- General operations that don't require LetTensor nor ShareTensor
@@ -748,9 +749,8 @@ updateNR arr upd = case knownSTK @x of
   _ ->
     let arrNested = rnest (SNat @n) arr
         shNested = rshape arrNested
-        f i v = case lookup (fromLinearIdxR
-                               @n (Concrete . fromIntegral)
-                               shNested ((Concrete . fromIntegral) i)) upd of
+        f i v = case lookup (fromLinearIdxR @n fromIntegral
+                               shNested (fromIntegral i)) upd of
           Just u -> rnest (SNat @0) u
           Nothing -> v
     in runNest $ trfromVector0N shNested $ V.fromList
@@ -902,7 +902,7 @@ tscatterZ1R sh t f = case tftk knownSTK t of
   FTKR _ x ->
     let zero = tdefTarget (FTKR sh x)
         lt = trunravelToList t
-        g i ti = let ix2 = f $ Concrete $ fromIntegral i
+        g i ti = let ix2 = f $ fromIntegral i
                  in if ixInBounds (fmapUnConcrete $ toList ix2) (toList sh)
                     then updateNR zero [(ix2, ti)]
                     else zero
@@ -955,14 +955,14 @@ tgatherZR :: forall m p n r.
           => IShR (m + n) -> Concrete (TKR2 (p + n) r)
           -> (IxROf Concrete m -> IxROf Concrete p)
           -> Concrete (TKR2 (m + n) r)
-tgatherZR sh t f = case knownSTK @r of
-  STKScalar ->  -- optimized
-    let shm = shrTake @m sh
+tgatherZR sh t f = case (SNat @n, knownSTK @r) of
+  (SNat' @0, STKScalar) ->  -- an optimized common case
+    let shm = sh
         s = shrSize shm
-        l = [ rtoVector
-              $ t `trindex` f (fmapConcrete $ fromLinearIdxR fromIntegral shm i)
+        l = [ unConcrete $
+              t `trindex0` f (fmapConcrete $ fromLinearIdxR fromIntegral shm i)
             | i <- [0 .. fromIntegral s - 1] ]
-    in Concrete $ Nested.rfromVector sh $ V.concat l
+    in Concrete $ Nested.rfromListPrimLinear shm l
   _ -> trbuild sh (\ix -> t `trindex` f ix)
 
 tgatherZ1R :: forall p n r.
@@ -970,11 +970,20 @@ tgatherZ1R :: forall p n r.
            => Int -> Concrete (TKR2 (p + n) r)
            -> (IntOf Concrete -> IxROf Concrete p)
            -> Concrete (TKR2 (1 + n) r)
-tgatherZ1R k t f = case knownSTK @r of
-  STKScalar ->  -- optimized
-    trfromVector $ V.fromList $ map (\i -> t `trindex` f (Concrete i))
-                                    [0 .. fromIntegral k - 1]
-  _ -> trbuild1 k (\ix -> t `trindex` f ix)
+tgatherZ1R k t f = case (SNat @n, knownSTK @r) of
+  (SNat' @0, STKScalar) ->  -- an optimized common case
+    let l = [ unConcrete $ t `trindex0` (f (Concrete i))
+            | i <- [0 .. fromIntegral (k - 1)] ]
+    in Concrete $ Nested.rfromListPrimLinear (k :$: shrDrop (rshape t)) l
+  _ | Dict <- eltDictRep (knownSTK @r) -> case k of
+    0 -> Concrete
+         $ Nested.rreshape (0 :$: shrDrop (rshape t)) Nested.remptyArray
+    _ ->
+      Concrete $ Nested.rfromListOuter $ NonEmpty.fromList
+      $ map (\i -> unConcrete $ t `trindex` f (Concrete i))
+            [0 .. fromIntegral (k - 1)]
+        -- this must be slightly faster than just
+        -- trbuild1 k (\ix -> t `trindex` f ix)
 
 
 -- * Shaped internal definitions
@@ -1008,8 +1017,8 @@ updateNS _ arr upd = case knownSTK @r of
       let arrNested = snest (knownShS @(Take n sh)) arr
           shNested = sshape arrNested
           f i v = case lookup (fromLinearIdxS
-                                 @(Take n sh) (Concrete . fromIntegral)
-                                 shNested ((Concrete . fromIntegral) i)) upd of
+                                 @(Take n sh) fromIntegral
+                                 shNested (fromIntegral i)) upd of
             Just u -> snest (knownShS @'[]) u
             Nothing -> v
       in sunNest @_ @(Take n sh) $ tsfromVector0N $ V.fromList
@@ -1130,7 +1139,7 @@ tscatterZ1S t f = case tftk knownSTK t of
     let shpshn = knownShS @shp `shsAppend` knownShS @shn
         zero = tdefTarget (FTKS shpshn x)
         lt = tsunravelToList t
-        g i ti = let ix2 = f $ Concrete $ fromIntegral i
+        g i ti = let ix2 = f $ fromIntegral i
                  in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                   (shsToList shpshn)
                     then withKnownShS shpshn $
@@ -1190,12 +1199,19 @@ tgatherZ1S
   => Concrete (TKS2 (shp ++ shn) r)
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS2 (n2 ': shn) r)
-tgatherZ1S t f =
-  case knownSTK @r of
-    STKScalar ->  -- optimized
-      tsfromVector $ V.fromList $ map (\i -> t `tsindex` f (Concrete i))
-                                      [0 .. valueOf @n2 - 1]
-    _ -> tsbuild1 (\ix -> t `tsindex` f ix)
+tgatherZ1S t f = case (knownShS @shn, knownSTK @r) of
+  (ZSS, STKScalar) | Refl <- lemAppNil @shp ->  -- an optimized common case
+    let l = [ unConcrete $ t `tsindex0` (f (Concrete i))
+            | i <- [0 .. valueOf @n2 - 1] ]
+    in Concrete $ Nested.sfromListPrimLinear knownShS l
+  _ | Dict <- eltDictRep (knownSTK @r) -> case SNat @n2 of
+    SNat' @0 -> Concrete $ Nested.semptyArray knownShS
+    _ ->
+      Concrete $ Nested.sfromListOuter SNat $ NonEmpty.fromList
+      $ map (\i -> unConcrete $ t `tsindex` f (Concrete i))
+            [0 .. valueOf @n2 - 1]
+        -- this must be slightly faster than just
+        -- tsbuild1 (\ix -> t `tsindex` f ix)
 
 
 -- * Mixed internal definitions
@@ -1223,9 +1239,8 @@ updateNX _ arr upd = case knownSTK @r of
       gcastWith (unsafeCoerceRefl :: sh :~: Take n sh ++ Drop n sh) $
       let arrNested = xnest (knownShX @(Take n sh)) arr
           shNested = xshape arrNested
-          f i v = case lookup (fromLinearIdxX
-                                 @(Take n sh) (Concrete . fromIntegral)
-                                 shNested ((Concrete . fromIntegral) i)) upd of
+          f i v = case lookup (fromLinearIdxX @(Take n sh) fromIntegral
+                                 shNested (fromIntegral i)) upd of
             Just u -> xnest ZKX u
             Nothing -> v
       in withSNat (shxSize shNested) $ \snat ->
@@ -1323,7 +1338,7 @@ tscatterZ1X sh t f =
       gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
       let zero = tdefTarget (FTKX sh x)
           lt = txunravelToList t
-          g i ti = let ix2 = f $ Concrete $ fromIntegral i
+          g i ti = let ix2 = f $ fromIntegral i
                    in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                     (shxToList sh)
                       then updateNX (Proxy @(Rank shp)) zero [(ix2, ti)]
@@ -1365,12 +1380,24 @@ tgatherZ1X
   => SNat n2 -> Concrete (TKX2 (shp ++ shn) r)
   -> (IntOf Concrete -> IxXOf Concrete shp)
   -> Concrete (TKX2 (Just n2 ': shn) r)
-tgatherZ1X SNat t f =
-  case knownSTK @r of
-    STKScalar ->  -- optimized
-      txfromVector $ V.fromList $ map (\i -> t `txindex` f (Concrete i))
-                                      [0 .. valueOf @n2 - 1]
-    _ -> txbuild1 @_ @n2 (\ix -> t `txindex` f ix)
+tgatherZ1X SNat t f = case (knownShX @shn, knownSTK @r) of
+  (ZKX, STKScalar) | Refl <- lemAppNil @shp ->  -- an optimized common case
+    let l = [ unConcrete $ t `txindex0` (f (Concrete i))
+            | i <- [0 .. valueOf @n2 - 1] ]
+    in Concrete
+       $ Nested.mfromListPrimLinear
+           (SKnown SNat :$% shxDropSSX (knownShX @shp) (xshape t)) l
+  _ | Dict <- eltDictRep (knownSTK @r) -> case SNat @n2 of
+    SNat' @0 -> Concrete
+                $ Nested.memptyArray (shxDropSSX (knownShX @shp) $ xshape t)
+    _ ->
+      Concrete
+      $ Mixed.mcastPartial (SUnknown () :!% ZKX) (SKnown SNat :!% ZKX) Proxy
+      $ Nested.mfromListOuter $ NonEmpty.fromList
+      $ map (\i -> unConcrete $ t `txindex` f (Concrete i))
+            [0 .. valueOf @n2 - 1]
+        -- this must be slightly faster than just
+        -- txbuild1 @_ @n2 (\ix -> t `txindex` f ix)
 
 fmapConcrete :: Coercible (f (RepConcrete y)) (f (Concrete y))
                => f (RepConcrete y) -> f (Concrete y)
