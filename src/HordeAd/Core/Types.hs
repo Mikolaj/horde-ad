@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, DerivingVia, ImpredicativeTypes,
-             UndecidableInstances, UndecidableSuperClasses, ViewPatterns #-}
+             UnboxedTuples, UndecidableInstances, UndecidableSuperClasses,
+             ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -434,7 +435,7 @@ toLinearIdxR fromInt = \sh idx -> go sh idx (fromInt 0)
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
     go :: ShR (m1 + n) Int -> IxR m1 j -> j -> j
-    go sh ZIR tensidx = fromInt (shrSize sh) * tensidx
+    go !sh ZIR !tensidx = fromInt (shrSize sh) * tensidx
     go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromInt n * tensidx + i)
 
 -- | Given a linear index into the buffer, get the corresponding
@@ -450,19 +451,19 @@ toLinearIdxR fromInt = \sh idx -> go sh idx (fromInt 0)
 fromLinearIdxR :: forall n j. IntegralH j
                => (Int -> j) -> ShR n Int -> j -> IxR n j
 {-# INLINE fromLinearIdxR #-}
-fromLinearIdxR fromInt = \sh lin -> snd (go sh lin)
+fromLinearIdxR fromInt = \sh lin -> case go sh lin of (# _, ix #) -> ix
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
-    go :: ShR n1 Int -> j -> (j, IxR n1 j)
-    go ZSR n = (n, ZIR)
-    go (k :$: sh) _ | signum k == 0 =
-      (fromInt 0, fromInt 0 :.: zeroOfR fromInt sh)
+    go :: ShR n1 Int -> j -> (# j, IxR n1 j #)
+    go ZSR !n = (# n, ZIR #)
+    go (k :$: sh) _ | k == 0 =
+      (# fromInt 0, fromInt 0 :.: zeroOfR fromInt sh #)
     go (n :$: sh) lin =
-      let (tensLin, idxInTens) = go sh lin
+      let (# tensLin, idxInTens #) = go sh lin
           tensLin' = tensLin `quotH` fromInt n
           i = tensLin `remH` fromInt n
-      in (tensLin', i :.: idxInTens)
+      in (# tensLin', i :.: idxInTens #)
 
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOfR :: Num j => (Int -> j) -> ShR n i -> IxR n j
@@ -470,6 +471,11 @@ zeroOfR :: Num j => (Int -> j) -> ShR n i -> IxR n j
 zeroOfR _ ZSR = ZIR
 zeroOfR fromInt (_ :$: sh) = fromInt 0 :.: zeroOfR fromInt sh
 
+-- The inlines are not needed due to function arguments, because there
+-- are none for shaped tensors, but due to observed significant speedup
+-- they provide in tests that intensively use these operations.
+-- Maybe specialization doesn't quite work for them? Not verified.
+--
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing
 -- at a scalar. It may point at the start of a larger tensor instead.
@@ -486,7 +492,7 @@ toLinearIdxS = \sh idx -> go sh idx 0
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
     go :: forall sh3. ShS (sh3 ++ sh2) -> IxS sh3 j -> j -> j
-    go sh ZIS tensidx = fromIntegral (shsSize sh) * tensidx
+    go !sh ZIS !tensidx = fromIntegral (shsSize sh) * tensidx
     go ((:$$) n sh) (i :.$ idx) tensidx =
       go sh idx (fromIntegral (sNatValue n) * tensidx + i)
     go _ _ _ = error "toLinearIdxS: impossible pattern needlessly required"
@@ -502,18 +508,18 @@ toLinearIdxS = \sh idx -> go sh idx 0
 fromLinearIdxS :: forall sh j. IntegralH j
                => ShS sh -> j -> IxS sh j
 {-# INLINE fromLinearIdxS #-}
-fromLinearIdxS = \sh lin -> snd (go sh lin)
+fromLinearIdxS = \sh lin -> case go sh lin of (# _, ix #) -> ix
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
-    go :: ShS sh1 -> j -> (j, IxS sh1 j)
-    go ZSS n = (n, ZIS)
-    go ((:$$) k sh) _ | sNatValue k == 0 = (0, 0 :.$ zeroOfS sh)
+    go :: ShS sh1 -> j -> (# j, IxS sh1 j #)
+    go ZSS !n = (# n, ZIS #)
+    go ((:$$) k sh) _ | sNatValue k == 0 = (# 0, 0 :.$ zeroOfS sh #)
     go ((:$$) n sh) lin =
-      let (tensLin, idxInTens) = go sh lin
+      let (# tensLin, idxInTens #) = go sh lin
           tensLin' = tensLin `quotH` fromIntegral (sNatValue n)
           i = tensLin `remH` fromIntegral (sNatValue n)
-      in (tensLin', i :.$ idxInTens)
+      in (# tensLin', i :.$ idxInTens #)
 
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOfS :: Num j => ShS sh -> IxS sh j
@@ -530,7 +536,7 @@ toLinearIdxX fromInt = \sh idx -> go sh idx (fromInt 0)
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
     go :: forall sh3. IShX (sh3 ++ sh2) -> IxX sh3 j -> j -> j
-    go sh ZIX tensidx = fromInt (shxSize sh) * tensidx
+    go !sh ZIX !tensidx = fromInt (shxSize sh) * tensidx
     go ((:$%) n sh) (i :.% idx) tensidx =
       go sh idx (fromInt (fromSMayNat' n) * tensidx + i)
     go _ _ _ = error "toLinearIdxX: impossible pattern needlessly required"
@@ -538,19 +544,19 @@ toLinearIdxX fromInt = \sh idx -> go sh idx (fromInt 0)
 fromLinearIdxX :: forall sh j. IntegralH j
                => (Int -> j) -> IShX sh -> j -> IxX sh j
 {-# INLINE fromLinearIdxX #-}
-fromLinearIdxX fromInt = \sh lin -> snd (go sh lin)
+fromLinearIdxX fromInt = \sh lin -> case go sh lin of (# _, ix #) -> ix
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
-    go :: IShX sh1 -> j -> (j, IxX sh1 j)
-    go ZSX n = (n, ZIX)
+    go :: IShX sh1 -> j -> (# j, IxX sh1 j #)
+    go ZSX !n = (# n, ZIX #)
     go ((:$%) k sh) _ | fromSMayNat' k == 0 =
-      (fromInt 0, fromInt 0 :.% zeroOfX fromInt sh)
+      (# fromInt 0, fromInt 0 :.% zeroOfX fromInt sh #)
     go ((:$%) n sh) lin =
-      let (tensLin, idxInTens) = go sh lin
+      let (# tensLin, idxInTens #) = go sh lin
           tensLin' = tensLin `quotH` fromInt (fromSMayNat' n)
           i = tensLin `remH` fromInt (fromSMayNat' n)
-      in (tensLin', i :.% idxInTens)
+      in (# tensLin', i :.% idxInTens #)
 
 -- | The zero index in this shape (not dependent on the actual integers).
 zeroOfX :: Num j => (Int -> j) -> IShX sh -> IxX sh j
