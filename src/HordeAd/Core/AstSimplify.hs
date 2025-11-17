@@ -205,12 +205,10 @@ astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
                                   , Refl <- lemAppNil @sh
                                   , FTKS shIn _ <- ftkAst v =
   funToVarsIxS shOut $ \ (!vars, !ix) ->
-    let fromInt :: Int -> AstInt AstMethodLet
-        fromInt i = AstConcreteK (fromIntegral i)
-        iUnshared :: AstInt AstMethodLet
-        iUnshared = toLinearIdxS @sh2 @'[] fromInt shOut ix
+    let iUnshared :: AstInt AstMethodLet
+        iUnshared = toLinearIdxS @sh2 @'[] shOut ix
         asts :: AstInt AstMethodLet -> AstIxS AstMethodLet sh
-        asts i = fromLinearIdxS fromInt shIn i
+        asts i = fromLinearIdxS shIn i
     in gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
        gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
 -- This can't be done, because i depends on vars:

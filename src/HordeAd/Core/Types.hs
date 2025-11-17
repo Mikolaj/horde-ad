@@ -477,20 +477,18 @@ zeroOfR fromInt (_ :$: sh) = fromInt 0 :.: zeroOfR fromInt sh
 -- If any of the dimensions is 0 or if rank is 0, the result will be 0,
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
---
--- Warning: @fromInteger@ of type @j@ cannot be used.
 toLinearIdxS :: forall sh1 sh2 j. Num j
-             => (Int -> j) -> ShS (sh1 ++ sh2) -> IxS sh1 j -> j
+             => ShS (sh1 ++ sh2) -> IxS sh1 j -> j
 {-# INLINE toLinearIdxS #-}
-toLinearIdxS fromInt = \sh idx -> go sh idx (fromInt 0)
+toLinearIdxS = \sh idx -> go sh idx 0
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
     go :: forall sh3. ShS (sh3 ++ sh2) -> IxS sh3 j -> j -> j
-    go sh ZIS tensidx = fromInt (shsSize sh) * tensidx
+    go sh ZIS tensidx = fromIntegral (shsSize sh) * tensidx
     go ((:$$) n sh) (i :.$ idx) tensidx =
-      go sh idx (fromInt (sNatValue n) * tensidx + i)
+      go sh idx (fromIntegral (sNatValue n) * tensidx + i)
     go _ _ _ = error "toLinearIdxS: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
@@ -501,30 +499,27 @@ toLinearIdxS fromInt = \sh idx -> go sh idx (fromInt 0)
 -- and a fake index with correct length but lots of zeroes is produced,
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
---
--- Warning: @fromInteger@ of type @j@ cannot be used.
 fromLinearIdxS :: forall sh j. IntegralH j
-               => (Int -> j) -> ShS sh -> j -> IxS sh j
+               => ShS sh -> j -> IxS sh j
 {-# INLINE fromLinearIdxS #-}
-fromLinearIdxS fromInt = \sh lin -> snd (go sh lin)
+fromLinearIdxS = \sh lin -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
     go :: ShS sh1 -> j -> (j, IxS sh1 j)
     go ZSS n = (n, ZIS)
-    go ((:$$) k sh) _ | sNatValue k == 0 =
-      (fromInt 0, fromInt 0 :.$ zeroOfS fromInt sh)
+    go ((:$$) k sh) _ | sNatValue k == 0 = (0, 0 :.$ zeroOfS sh)
     go ((:$$) n sh) lin =
       let (tensLin, idxInTens) = go sh lin
-          tensLin' = tensLin `quotH` fromInt (sNatValue n)
-          i = tensLin `remH` fromInt (sNatValue n)
+          tensLin' = tensLin `quotH` fromIntegral (sNatValue n)
+          i = tensLin `remH` fromIntegral (sNatValue n)
       in (tensLin', i :.$ idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers).
-zeroOfS :: Num j => (Int -> j) -> ShS sh -> IxS sh j
+zeroOfS :: Num j => ShS sh -> IxS sh j
 {-# INLINE zeroOfS #-}
-zeroOfS _ ZSS = ZIS
-zeroOfS fromInt ((:$$) _ sh) = fromInt 0 :.$ zeroOfS fromInt sh
+zeroOfS ZSS = ZIS
+zeroOfS ((:$$) _ sh) = 0 :.$ zeroOfS sh
 
 toLinearIdxX :: forall sh1 sh2 j. Num j
              => (Int -> j) -> IShX (sh1 ++ sh2) -> IxX sh1 j -> j

@@ -238,8 +238,7 @@ instance BaseTensor Concrete where
                            (Nested.stoVector
                             $ tindexNS @_ @shm @shn (unConcrete t) ix)
                     else id
-               ivs = foldr g M.empty [ fromLinearIdxS fromIntegral shm
-                                       $ fromIntegral i
+               ivs = foldr g M.empty [ fromLinearIdxS shm $ fromIntegral i
                                      | i <- [0 .. s - 1] ]
            in withKnownShS shpshn $
               updateNS (Proxy @(Rank shp)) zero
@@ -261,8 +260,7 @@ instance BaseTensor Concrete where
                            (Concrete
                             $ tindexNS @_ @shm @shn (unConcrete t) ix)
                     else id
-               ivs = foldr g M.empty [ fromLinearIdxS fromIntegral shm
-                                       $ fromIntegral i
+               ivs = foldr g M.empty [ fromLinearIdxS shm $ fromIntegral i
                                      | i <- [0 .. s - 1] ]
            in withKnownShS shpshn $
               updateNS (Proxy @(Rank shp)) zero
@@ -281,9 +279,7 @@ instance BaseTensor Concrete where
         let shm = knownShS @shm
             s = shsSize shm
             l = [ unConcrete $
-                  t `tsindex0`
-                      f (fmapConcrete
-                         $ fromLinearIdxS fromIntegral shm i)
+                  t `tsindex0` f (fmapConcrete $ fromLinearIdxS shm i)
                 | i <- [0 .. fromIntegral s - 1] ]
         in Concrete $ Nested.sfromListPrimLinear shm l
       _ ->
@@ -1007,8 +1003,7 @@ updateNS _ arr upd = case knownSTK @r of
               i = gcastWith (unsafeCoerceRefl
                              :: sh :~: Take n sh ++ Drop n sh)
                   $ fromIntegral $ unConcrete
-                  $ toLinearIdxS @(Take n sh) @(Drop n sh)
-                                 fromIntegral sh ix
+                  $ toLinearIdxS @(Take n sh) @(Drop n sh) sh ix
           in V.concat [V.take i t, v, V.drop (i + V.length v) t]
     in Concrete $ Nested.sfromVector knownShS (foldl' f values upd)
   _ -> case shsProduct (knownShS @(Take n sh)) of
@@ -1016,8 +1011,7 @@ updateNS _ arr upd = case knownSTK @r of
       gcastWith (unsafeCoerceRefl :: sh :~: Take n sh ++ Drop n sh) $
       let arrNested = snest (knownShS @(Take n sh)) arr
           shNested = sshape arrNested
-          f i v = case lookup (fromLinearIdxS
-                                 @(Take n sh) fromIntegral
+          f i v = case lookup (fromLinearIdxS @(Take n sh)
                                  shNested (fromIntegral i)) upd of
             Just u -> snest (knownShS @'[]) u
             Nothing -> v

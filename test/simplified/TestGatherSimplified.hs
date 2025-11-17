@@ -1641,8 +1641,7 @@ smaximum4 t0 | Refl <- lemAppNil @sh =
   tlet t0 $ \t ->
   tletPrimal (tprimalPart $ kfromS $ smaxIndex (sflatten t)) $ \maxIndex ->
     sindex t
-    $ fromLinearIdxS (kplainPart @target . kconcrete . fromIntegral)
-                     (sshape t)
+    $ fromLinearIdxS (sshape t)
                      (kplainPart $ kfromPrimal @target maxIndex)
 
 maxPool2dUnpaddedS4
