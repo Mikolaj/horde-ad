@@ -1292,7 +1292,7 @@ testCNNOPP2 :: Assertion
 testCNNOPP2 = do
   resetVarCounter
   let t = maxPool2dUnpadded2
-            (rconcrete $ Nested.rreplicateScal (1 :$: 1 :$: 2 :$: 2 :$: ZSR) 1)
+            (rconcrete $ Nested.rreplicatePrim (1 :$: 1 :$: 2 :$: 2 :$: ZSR) 1)
   printAstPretty (simplifyInlineContract t)
     @?= "rfromS (sreplicate @2 (sreplicate @2 (str (sgather @[2] (stranspose @[2, 3, 0, 1] (sfromVector (fromList [sgather @[2, 2, 2, 2] (sgather @[2] (stranspose @[3, 0, 1, 2] (sreplicate @1 (str (sgather @[3] (stranspose @[1, 0, 2, 4, 3] (sfromVector (fromList [stranspose @[1, 2, 4, 0, 3] (sgather @[2, 2] (stranspose @[3, 2, 0, 1] (sgather @[2, 2] (sconcrete (sfromListLinear [2,3,2] [1.0,1.0,0.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,0.0])) (\\[i64, i65] -> [i64 + i65]))) (\\[i24, i17] -> [i24 + i17])), sconcrete (sreplicate [2,3,2,2,2] 0.0)])) !$ [0]) (\\[i71] -> [ifH (let i18 = (-1) + i71 in 0 <=. i18 &&* 0 <=. negate i18) 0 1, i71]))))) (\\[i22] -> [i22, i22, i22])) (\\[i39, i35, i8, i42] -> [2 * i39 + i8, i39, 2 * i42 + i35]), sconcrete (sreplicate [2,2,2,2] 0.0)])) !$ [0, 0]) (\\[i61] -> [ifH (let i9 = (-1) + i61 in 0 <=. i9 &&* 0 <=. negate i9) 0 1, i61])))))"
     -- TODO: was "rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"

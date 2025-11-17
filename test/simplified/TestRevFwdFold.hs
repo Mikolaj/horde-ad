@@ -1077,7 +1077,7 @@ testSin0Scan1Rev2PP1 = do
   resetVarCounter
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rscan (\x a -> sin x - a) x0
-                           (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
+                           (rconcrete (Nested.rfromListPrimLinear @1 @Double [2] [5, 7]))) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
     @?= "rfromS (sscalar 1.0 + tproject1 (tmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (rfromS (sconcrete (sreplicate [2] 1.0))) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) (sconcrete (sfromListLinear [2] [5.0,7.0]))))) (sconcrete (sfromListLinear [2] [5.0,7.0]))))))"
 
@@ -1087,7 +1087,7 @@ testSin0Scan1Rev2PPA = do
   let art = revArtifactAdapt
                  UseIncomingCotangent
                  (\x0 -> rscan @_ @_ @_ @(TKScalar Double) (\x a -> sin x - a) x0
-                           (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7])))
+                           (rconcrete (Nested.rfromListPrimLinear @1 @Double [2] [5, 7])))
                  (FTKR ZSR FTKScalar)
   printArtifactPretty (simplifyArtifactRev art)
     @?= "\\dret x1 -> rfromS (sfromR dret !$ [0] + tproject1 (tmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (sslice (SNat @1) (SNat @2) (sfromR dret)) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> x1 (sconcrete (sfromListLinear [2] [5.0,7.0]))))) (sconcrete (sfromListLinear [2] [5.0,7.0]))))))"
@@ -1107,7 +1107,7 @@ testSin0Scan1Rev2 = do
   assertEqualUpToEpsilon' 1e-10
     (ringestData [] [1.1961317861865948] :: Concrete (TKR 0 Double))
     (rev' (\x0 -> rscan (\x a -> sin x - a) x0
-                    (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1))
+                    (rconcrete (Nested.rfromListPrimLinear @1 @Double [2] [5, 7]))) (rscalar 1.1))
 
 testSin0Scan1Rev2ForComparison :: Assertion
 testSin0Scan1Rev2ForComparison = do
@@ -1971,7 +1971,7 @@ testSin0rmapAccumRD01SN55acc = do
 testSin0rmapAccumRD01SN58 :: Assertion
 testSin0rmapAccumRD01SN58 = do
   assertEqualUpToEpsilon 1e-10
-    (sconcrete $ Nested.sfromListPrimLinear @_ @'[5] knownShS [0,0,0,0,1.1])
+    (sconcrete $ Nested.sfromListPrimLinear @'[5] knownShS [0,0,0,0,1.1])
     (cjvp @_ @_ @_ @Concrete
           (let f :: forall f. ADReady f
                  => f (TKS '[] Double) -> f (TKS '[5] Double)
@@ -2171,7 +2171,7 @@ testSin0ScanD1Rev2PP = do
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> sin x - a)
                          (FTKR ZSR FTKScalar)
-                         x0 (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
+                         x0 (rconcrete (Nested.rfromListPrimLinear @1 @Double [2] [5, 7]))) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
     @?= "rfromS (sscalar 1.0 + tproject1 (tmapAccumRDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 0.0) (tpair (rfromS (sconcrete (sreplicate [2] 1.0))) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) (sconcrete (sfromListLinear [2] [5.0,7.0]))))) (sconcrete (sfromListLinear [2] [5.0,7.0]))))))"
 
@@ -2182,7 +2182,7 @@ testSin0ScanDFwd2PP = do
       a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rscanZip (\x a -> sin x - a)
                          (FTKR ZSR FTKScalar)
-                         x0 (rconcrete (Nested.rfromListPrimLinear @Double @1 [2] [5, 7]))) (rscalar 1.1)
+                         x0 (rconcrete (Nested.rfromListPrimLinear @1 @Double [2] [5, 7]))) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
     @?= "rfromS (sappend (sconcrete (sfromListLinear [1] [1.0])) (sfromR (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.0) (tpair (sconcrete (sreplicate [2] 0.0)) (tpair (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> (sscalar 1.1) (sconcrete (sfromListLinear [2] [5.0,7.0]))))) (sconcrete (sfromListLinear [2] [5.0,7.0]))))))))"
 

@@ -75,7 +75,7 @@ defRepW :: forall y target. BaseTensor target
 defRepW = \case
   WFTKScalar -> WTKScalar $ kconcrete def
   WFTKR sh -> WTKR $ rrepl sh def
-  WFTKS sh -> WTKS $ sconcrete $ Nested.sreplicateScal sh def
+  WFTKS sh -> WTKS $ sconcrete $ Nested.sreplicatePrim sh def
   WFTKX sh -> WTKX $ xrepl sh def
   WFTKProduct ftk1 ftk2 ->
     WTKProduct (defRepW ftk1) (defRepW ftk2)
@@ -120,7 +120,7 @@ toADTensorKindW t = \case
     _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
   WFTKS @r sh -> case testEquality (typeRep @(ADTensorScalar r))
                                    (typeRep @Z1) of
-    Just Refl -> WTKS $ sconcrete $ Nested.sreplicateScal sh Z1
+    Just Refl -> WTKS $ sconcrete $ Nested.sreplicatePrim sh Z1
     _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
   WFTKX @r sh -> case testEquality (typeRep @(ADTensorScalar r))
                                    (typeRep @Z1) of

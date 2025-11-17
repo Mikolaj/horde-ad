@@ -73,7 +73,7 @@ replRepW :: forall y target. (TKAllNum y, BaseTensor target)
 replRepW r = \case
   WFTKScalar -> WTKScalar $ kconcrete r
   WFTKR sh -> WTKR $ rrepl sh r
-  WFTKS sh -> WTKS $ sconcrete $ Nested.sreplicateScal sh r
+  WFTKS sh -> WTKS $ sconcrete $ Nested.sreplicatePrim sh r
   WFTKX sh -> WTKX $ xrepl sh r
   WFTKProduct ftk1 ftk2 ->
     WTKProduct (replRepW r ftk1) (replRepW r ftk2)

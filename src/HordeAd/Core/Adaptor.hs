@@ -182,7 +182,7 @@ instance forall sh r target. (KnownShS sh, NumScalar r, BaseTensor target)
            arr = createRandomVector (shsSize (knownShS @sh)) g1
        in (arr, g2))
       (srepl def, g)
-   where srepl = tsconcrete . Nested.sreplicateScal knownShS
+   where srepl = tsconcrete . Nested.sreplicatePrim knownShS
   -- {-# SPECIALIZE instance (KnownShS sh, GoodScalar r, Fractional r, Random r) => RandomValue (Concrete (TKS sh r)) #-}
 {- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance KnownShS sh => RandomValue (Concrete (TKS sh Double)) #-}

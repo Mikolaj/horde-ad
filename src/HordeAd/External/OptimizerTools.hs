@@ -34,21 +34,21 @@ updateWithGradient gamma stk p@(Concrete params)
   STKR _ (STKScalar @r) -> Concrete $
     ifDifferentiable @r
       (gcastWith (unsafeCoerceRefl :: y :~: ADTensorKind y) $
-       params - Nested.rreplicateScal (Nested.rshape params)
+       params - Nested.rreplicatePrim (Nested.rshape params)
                                       (realToFrac gamma)
                 * gradient)
       params
   STKS _ (STKScalar @r) -> Concrete $
     ifDifferentiable @r
       (gcastWith (unsafeCoerceRefl :: y :~: ADTensorKind y) $
-       params - Nested.sreplicateScal (Nested.sshape params)
+       params - Nested.sreplicatePrim (Nested.sshape params)
                                       (realToFrac gamma)
                 * gradient)
       params
   STKX _ (STKScalar @r) -> Concrete $
     ifDifferentiable @r
       (gcastWith (unsafeCoerceRefl :: y :~: ADTensorKind y) $
-       params - Nested.mreplicateScal (Nested.mshape params)
+       params - Nested.mreplicatePrim (Nested.mshape params)
                                       (realToFrac gamma)
                 * gradient)
       params
@@ -154,18 +154,18 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} stk0 paramsR gradientR =
               -> (Nested.Ranked n r, Nested.Ranked n r, Nested.Ranked n r)
       updateR mA vA p g =
         let sh = Nested.rshape g
-            mANew = Nested.rreplicateScal sh (realToFrac betaOne) * mA
-                    + Nested.rreplicateScal sh (realToFrac oneMinusBeta1) * g
-            vANew = Nested.rreplicateScal sh (realToFrac betaTwo) * vA
-                    + Nested.rreplicateScal sh (realToFrac oneMinusBeta2)
+            mANew = Nested.rreplicatePrim sh (realToFrac betaOne) * mA
+                    + Nested.rreplicatePrim sh (realToFrac oneMinusBeta1) * g
+            vANew = Nested.rreplicatePrim sh (realToFrac betaTwo) * vA
+                    + Nested.rreplicatePrim sh (realToFrac oneMinusBeta2)
                       * (g * g)
             alphat = alpha * sqrt (1 - betaTwo ^ tAdamNew)
                              / (1 - betaOne ^ tAdamNew)
         in ( mANew
            , vANew
-           , p - (Nested.rreplicateScal sh (realToFrac alphat) * mANew)
+           , p - (Nested.rreplicatePrim sh (realToFrac alphat) * mANew)
                  / (sqrt vANew
-                    + Nested.rreplicateScal sh (realToFrac epsilon)) )
+                    + Nested.rreplicatePrim sh (realToFrac epsilon)) )
       updateProd :: forall y2.
                     SingletonTK y2
                  -> Concrete y2 -> Concrete y2

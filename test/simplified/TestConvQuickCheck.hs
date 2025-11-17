@@ -253,13 +253,13 @@ test_conv2dSameVjp_dInp :: Assertion
 test_conv2dSameVjp_dInp =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
-      arrA = Nested.sreplicateScal knownShS 1.1
+      arrA = Nested.sreplicatePrim knownShS 1.1
       -- Filters of shape: num_filters x chas x kernel_height x kernel_width
       arrK :: Nested.Shaped '[7, 2, 1, 3] Double
-      arrK = Nested.sreplicateScal knownShS (-2.2)
+      arrK = Nested.sreplicatePrim knownShS (-2.2)
       -- Output gradient of shape: batch x chas x output_height x output_width
       arrB :: Nested.Shaped '[5, 7, 4, 8] Double
-      arrB = Nested.sreplicateScal knownShS (-3.3)
+      arrB = Nested.sreplicatePrim knownShS (-3.3)
       -- Compare the AD version against the manual derivative.
       dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
       dInp = conv2dSame_dInp (sconcrete arrK) (sconcrete arrB)
@@ -272,13 +272,13 @@ test_conv2dSameVjp_dKrn :: Assertion
 test_conv2dSameVjp_dKrn =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
-      arrA = Nested.sreplicateScal knownShS 1.1
+      arrA = Nested.sreplicatePrim knownShS 1.1
       -- Filters of shape: num_filters x chas x kernel_height x kernel_width
       arrK :: Nested.Shaped '[7, 2, 1, 3] Double
-      arrK = Nested.sreplicateScal knownShS 2.2
+      arrK = Nested.sreplicatePrim knownShS 2.2
       -- Output gradient of shape: batch x chas x output_height x output_width
       arrB :: Nested.Shaped '[5, 7, 4, 8] Double
-      arrB = Nested.sreplicateScal knownShS (-3.3)
+      arrB = Nested.sreplicatePrim knownShS (-3.3)
       -- Compare the AD version against the manual derivative.
       dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
       dKrn = conv2dSame_dKrn (sconcrete arrA) (sconcrete arrB)
@@ -415,13 +415,13 @@ test_conv2dShrinkingVjp_dInp :: Assertion
 test_conv2dShrinkingVjp_dInp =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
-      arrA = Nested.sreplicateScal knownShS 1.1
+      arrA = Nested.sreplicatePrim knownShS 1.1
       -- Filters of shape: num_filters x chas x kernel_height x kernel_width
       arrK :: Nested.Shaped '[7, 2, 1, 3] Double
-      arrK = Nested.sreplicateScal knownShS (-2.2)
+      arrK = Nested.sreplicatePrim knownShS (-2.2)
       -- Output gradient of shape: batch x chas x output_height x output_width
       arrB :: Nested.Shaped '[5, 7, 4, 6] Double
-      arrB = Nested.sreplicateScal knownShS 3.3
+      arrB = Nested.sreplicatePrim knownShS 3.3
       -- Compare the AD version against the manual derivative.
       dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
       dInp = conv2dShrinking_dInp (sconcrete arrK) (sconcrete arrB)
@@ -434,13 +434,13 @@ test_conv2dShrinkingVjp_dKrn :: Assertion
 test_conv2dShrinkingVjp_dKrn =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
-      arrA = Nested.sreplicateScal knownShS (-1.1)
+      arrA = Nested.sreplicatePrim knownShS (-1.1)
       -- Filters of shape: num_filters x chas x kernel_height x kernel_width
       arrK :: Nested.Shaped '[7, 2, 1, 3] Double
-      arrK = Nested.sreplicateScal knownShS 2.2
+      arrK = Nested.sreplicatePrim knownShS 2.2
       -- Output gradient of shape: batch x chas x output_height x output_width
       arrB :: Nested.Shaped '[5, 7, 4, 6] Double
-      arrB = Nested.sreplicateScal knownShS 3.3
+      arrB = Nested.sreplicatePrim knownShS 3.3
       -- Compare the AD version against the manual derivative.
       dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
       dKrn = conv2dShrinking_dKrn (sconcrete arrA) (sconcrete arrB)
@@ -585,13 +585,13 @@ test_conv2dPaddedVjp_dInp :: Assertion
 test_conv2dPaddedVjp_dInp =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
-      arrA = Nested.sreplicateScal knownShS 1.1
+      arrA = Nested.sreplicatePrim knownShS 1.1
       -- Filters of shape: num_filters x chas x kernel_height x kernel_width
       arrK :: Nested.Shaped '[7, 2, 1, 3] Double
-      arrK = Nested.sreplicateScal knownShS (-2.2)
+      arrK = Nested.sreplicatePrim knownShS (-2.2)
       -- Output gradient of shape: batch x chas x output_height x output_width
       arrB :: Nested.Shaped '[5, 7, 4, 10] Double
-      arrB = Nested.sreplicateScal knownShS 3.3
+      arrB = Nested.sreplicatePrim knownShS 3.3
       -- Compare the AD version against the manual derivative.
       dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
       dInp = conv2dPadded_dInp (sconcrete arrK) (sconcrete arrB)
@@ -604,13 +604,13 @@ test_conv2dPaddedVjp_dKrn :: Assertion
 test_conv2dPaddedVjp_dKrn =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
-      arrA = Nested.sreplicateScal knownShS (-1.1)
+      arrA = Nested.sreplicatePrim knownShS (-1.1)
       -- Filters of shape: num_filters x chas x kernel_height x kernel_width
       arrK :: Nested.Shaped '[7, 2, 1, 3] Double
-      arrK = Nested.sreplicateScal knownShS 2.2
+      arrK = Nested.sreplicatePrim knownShS 2.2
       -- Output gradient of shape: batch x chas x output_height x output_width
       arrB :: Nested.Shaped '[5, 7, 4, 10] Double
-      arrB = Nested.sreplicateScal knownShS 3.3
+      arrB = Nested.sreplicatePrim knownShS 3.3
       -- Compare the AD version against the manual derivative.
       dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
       dKrn = conv2dPadded_dKrn (sconcrete arrA) (sconcrete arrB)

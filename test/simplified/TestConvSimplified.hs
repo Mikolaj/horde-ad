@@ -1276,7 +1276,7 @@ testCNNOPP2 :: Assertion
 testCNNOPP2 = do
   resetVarCounter
   let t = maxPool2dUnpadded2
-            (rconcrete $ Nested.rreplicateScal (1 :$: 1 :$: 2 :$: 2 :$: ZSR) 1)
+            (rconcrete $ Nested.rreplicatePrim (1 :$: 1 :$: 2 :$: 2 :$: ZSR) 1)
   printAstPretty (simplifyInlineContract t)
     @?= "rfromS (sreplicate @2 (sreplicate @2 (stranspose @[2, 3, 1, 0] (sappend (sreplicate @1 (sgather @[2, 2, 2] (stranspose @[2, 0, 1] (sreplicate @1 (stranspose @[1, 2, 0] (sgather @[2, 2] (stranspose @[2, 0, 1] (sgather @[2, 2] (sconcrete (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i68, i69] -> [i69 + i68]))) (\\[i51, i53] -> [i51 + i53])) !$ [0]))) (\\[i44, i35, i8] -> [i8, i8, i8, 2 * i44 + i35]))) (sconcrete (sreplicate [1,2,2,2] 0.0))) !$ [0, 0])))"
   printAstPretty t

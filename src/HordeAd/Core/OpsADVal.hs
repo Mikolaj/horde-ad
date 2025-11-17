@@ -286,7 +286,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tsreverse (D u u') = dD (tsreverse u) (DeltaReverseS u')
   tsbuild1 @k @sh @r f | Dict <- eltDictRep (knownSTK @r) =
     if valueOf @k == (0 :: Int)
-    then let arr = Nested.semptyArray @(RepConcrete r) (knownShS @sh)
+    then let arr = Nested.semptyArray @_ @(RepConcrete r) (knownShS @sh)
          in gcastWith (unsafeCoerceRefl :: k :~: 0) $
             tconcrete (tftkG knownSTK arr) (Concrete arr)
     else let l = [0 .. valueOf @k - 1]
@@ -363,7 +363,7 @@ instance ( ADReadyNoLet target, ShareTensor target
     if valueOf @k == (0 :: Int)
     then case testEquality (knownShX @sh) ZKX of
        Just Refl | Dict <- eltDictRep (knownSTK @r) ->
-         let arr = Nested.memptyArray @(RepConcrete r) ZSX
+         let arr = Nested.memptyArray @_ @(RepConcrete r) ZSX
          in gcastWith (unsafeCoerceRefl :: k :~: 0) $
             tconcrete (tftkG knownSTK arr) (Concrete arr)
        Nothing -> error "xbuild1: shape ambiguity"

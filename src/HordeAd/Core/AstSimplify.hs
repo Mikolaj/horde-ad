@@ -460,7 +460,7 @@ astSum snat@SNat stk t0 = case t0 of
     , Just u <- unRepl1 t0
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
       u * (fromPlain $ AstConcreteS @r
-           $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
+           $ Nested.sreplicatePrim sh $ fromInteger $ fromSNat snat)
   -- This exchanges one multiplication at rank n+1 for two multiplications
   -- at rank n, which should be faster. We choose t1, since it's likely to be
   -- concrete and so it's easier to see if it's replicated and also t2 is
@@ -516,7 +516,7 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstReplicate _ STKS{} v | STKS sh (STKScalar @r) <- stk
                               , Dict0 <- numFromTKAllNum (Proxy @r) ->
     v * (fromPlain $ AstConcreteS @r
-         $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
+         $ Nested.sreplicatePrim sh $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ _ v | STKR _ (STKScalar @r) <- stk
                          , Dict0 <- numFromTKAllNum (Proxy @r) ->
     case ftkAst v of
@@ -524,7 +524,7 @@ astSum snat@SNat stk t0 = case t0 of
         withShsFromShR sh' $ \(sh :: ShS sh) ->
           v * astFromS'
                 ftk (fromPlain $ AstConcreteS @r
-                     $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
+                     $ Nested.sreplicatePrim sh $ fromInteger $ fromSNat snat)
   Ast.AstReplicate _ _ v | STKX _ (STKScalar @r) <- stk
                          , Dict0 <- numFromTKAllNum (Proxy @r) ->
     case ftkAst v of
@@ -532,7 +532,7 @@ astSum snat@SNat stk t0 = case t0 of
         withShsFromShX sh' $ \(sh :: ShS sh) ->
           v * astFromS'
                 ftk (fromPlain $ AstConcreteS @r
-                     $ Nested.sreplicateScal sh $ fromInteger $ fromSNat snat)
+                     $ Nested.sreplicatePrim sh $ fromInteger $ fromSNat snat)
   -- This keeps tensors alive for longer, but it enables new simplifications,
   -- while hiding a sum inside let not often prevents other simplifications,
   -- because there are few redexes with sum but not at the top.

@@ -100,7 +100,7 @@ instance BaseTensor Concrete where
     fmapConcrete . Nested.rtoListOuter . unConcrete
   trsum t = case tftk knownSTK t of
     FTKR _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
-      Concrete . Nested.rsumOuter1 . unConcrete $ t  -- optimized
+      Concrete . Nested.rsumOuter1Prim . unConcrete $ t  -- optimized
     FTKR _ x ->
       let l = trunravelToList t
           sh = shrTail $ rshape t
@@ -181,7 +181,7 @@ instance BaseTensor Concrete where
     fmapConcrete . Nested.stoListOuter . unConcrete
   tssum t = case tftk knownSTK t of
     FTKS _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
-      Concrete . Nested.ssumOuter1 . unConcrete $ t  -- optimized
+      Concrete . Nested.ssumOuter1Prim . unConcrete $ t  -- optimized
     FTKS _ x ->
       let l = tsunravelToList t
           sh = shsTail $ sshape t
@@ -347,7 +347,7 @@ instance BaseTensor Concrete where
     fmapConcrete . Nested.mtoListOuter . unConcrete
   txsum t = case tftk knownSTK t of
     FTKX _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
-      Concrete . Nested.msumOuter1 . unConcrete $ t  -- optimized
+      Concrete . Nested.msumOuter1Prim . unConcrete $ t  -- optimized
     FTKX _ x ->
       let l = txunravelToList t
           sh = shxTail $ xshape t
@@ -466,7 +466,7 @@ instance BaseTensor Concrete where
   txappend @_ @_ @_ @r u v | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ Nested.mappend (unConcrete u) (unConcrete v)
   txslice @_ @_ @_ @_ @r i n _ | Dict <- eltDictRep (knownSTK @r) =
-    Concrete . Nested.mslice i n . unConcrete
+    Concrete . Nested.msliceSN i n . unConcrete
   txreverse @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mrev1 . unConcrete
   txtranspose @_ @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
@@ -763,7 +763,7 @@ tminIndexR
 tminIndexR v | SNat <- Nested.rrank v =
   let f :: Nested.Ranked 1 r -> Nested.Ranked 0 r2
       f = Nested.rscalar . fromIntegral . ixrHead . Nested.rminIndexPrim
-  in Nested.rrerank SNat ZSR f v
+  in Nested.runNest $ Nested.rrerankPrim ZSR f (Nested.rnest SNat v)
 
 tmaxIndexR
   :: forall r r2 n.
@@ -772,7 +772,7 @@ tmaxIndexR
 tmaxIndexR v | SNat <- Nested.rrank v =
   let f :: Nested.Ranked 1 r -> Nested.Ranked 0 r2
       f = Nested.rscalar . fromIntegral . ixrHead . Nested.rmaxIndexPrim
-  in Nested.rrerank SNat ZSR f v
+  in Nested.runNest $ Nested.rrerankPrim ZSR f (Nested.rnest SNat v)
 
 -- We could generalize by unwinding and only then doing the PrimElt things,
 -- but we'd need a type family that says "replace this underlying scalars
@@ -1033,8 +1033,10 @@ tminIndexS v | sh1@(_ :$$ sh) <- Nested.sshape v =
                  :: Init (n ': sh) ++ '[m] :~: n ': sh) $
       gcastWith (unsafeCoerceRefl
                  :: Init (n ': sh) :~: Init (n ': sh) ++ '[]) $
-      Nested.srerank @'[m] @'[] @(Init (n ': sh))
-                     (shsInit sh1) ZSS (f @m) v
+      Nested.sunNest $
+        Nested.srerankPrim @'[m] @'[] @(Init (n ': sh))
+                           ZSS (f @m) $
+          Nested.snest (shsInit sh1) v
 
 tmaxIndexS
   :: forall n sh r r2.
@@ -1050,8 +1052,10 @@ tmaxIndexS v | sh1@(_ :$$ sh) <- Nested.sshape v =
                  :: Init (n ': sh) ++ '[m] :~: n ': sh) $
       gcastWith (unsafeCoerceRefl
                  :: Init (n ': sh) :~: Init (n ': sh) ++ '[]) $
-      Nested.srerank @'[m] @'[] @(Init (n ': sh))
-                     (shsInit sh1) ZSS (f @m) v
+      Nested.sunNest $
+        Nested.srerankPrim @'[m] @'[] @(Init (n ': sh))
+                           ZSS (f @m) $
+          Nested.snest (shsInit sh1) v
 
 liftVS
   :: (Nested.PrimElt r1, Nested.PrimElt r)
@@ -1245,8 +1249,10 @@ tminIndexX v | sh1@(_ :$% sh) <- Nested.mshape v =
                  :: Init (mn ': sh) ++ '[Just m] :~: mn ': sh) $
       gcastWith (unsafeCoerceRefl
                  :: Init (mn ': sh) :~: Init (mn ': sh) ++ '[]) $
-      Nested.mrerank @'[Just m] @'[] @(Init (mn ': sh))
-                     (ssxFromShX $ shxInit sh1) ZSX (f @(Just m)) v
+      Nested.munNest $
+        Nested.mrerankPrim @'[Just m] @'[] @(Init (mn ': sh))
+                           ZSX (f @(Just m)) $
+          Nested.mnest (ssxFromShX $ shxInit sh1) v
 
 tmaxIndexX
   :: forall mn sh r r2.
@@ -1263,8 +1269,10 @@ tmaxIndexX v | sh1@(_ :$% sh) <- Nested.mshape v =
                  :: Init (mn ': sh) ++ '[Just m] :~: mn ': sh) $
       gcastWith (unsafeCoerceRefl
                  :: Init (mn ': sh) :~: Init (mn ': sh) ++ '[]) $
-      Nested.mrerank @'[Just m] @'[] @(Init (mn ': sh))
-                     (ssxFromShX $ shxInit sh1) ZSX (f @(Just m)) v
+      Nested.munNest $
+        Nested.mrerankPrim @'[Just m] @'[] @(Init (mn ': sh))
+                           ZSX (f @(Just m)) $
+          Nested.mnest (ssxFromShX $ shxInit sh1) v
 
 liftVX
   :: (Nested.PrimElt r1, Nested.PrimElt r)
