@@ -16,6 +16,7 @@ import Data.Maybe (fromMaybe)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
+import Foreign.Storable (sizeOf)
 import GHC.TypeLits (KnownNat)
 import Type.Reflection (typeRep)
 
@@ -693,14 +694,17 @@ contractAst t0 = case t0 of
   Ast.AstI2S QuotOp u v -> quotH (contractAst u) (contractAst v)
   Ast.AstI2S RemOp u v -> remH (contractAst u) (contractAst v)
   AstConcreteS a -> AstConcreteS a
-  Ast.AstFloorS t -> case contractAst t of
-    AstConcreteS a -> fromPlain $ astConcreteS $ tsfloor $ Concrete a
+  Ast.AstFloorS @r1 @r2 t -> case contractAst t of
+    AstConcreteS a | sizeOf (undefined :: r1) >= sizeOf (undefined :: r2) ->
+      fromPlain $ astConcreteS $ tsfloor $ Concrete a
     t2 -> astFloorS t2
-  Ast.AstFromIntegralS t -> case contractAst t of
-    AstConcreteS a -> fromPlain $ astConcreteS $ tsfromIntegral $ Concrete a
+  Ast.AstFromIntegralS @r1 @r2 t -> case contractAst t of
+    AstConcreteS a | sizeOf (undefined :: r1) >= sizeOf (undefined :: r2) ->
+      fromPlain $ astConcreteS $ tsfromIntegral $ Concrete a
     t2 -> astFromIntegralS t2
-  Ast.AstCastS t -> case contractAst t of
-    AstConcreteS a -> astConcreteS (tscast $ Concrete a)
+  Ast.AstCastS @r1 @r2 t -> case contractAst t of
+    AstConcreteS a | sizeOf (undefined :: r1) >= sizeOf (undefined :: r2) ->
+      astConcreteS (tscast $ Concrete a)
     t2 -> astCastS t2
 
   Ast.AstIndexS shn v ix ->
