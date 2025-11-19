@@ -68,10 +68,10 @@ inlineAst memo v0 = case v0 of
         (memo4, acc02) = inlineAst memo3 acc0
         (memo5, es2) = inlineAst memo4 es
     in (memo5, Ast.AstMapAccumLDer k bftk eftk f2 df2 rf2 acc02 es2)
-  Ast.AstApply t ll ->
+  Ast.Astapply t ll ->
     let (memo1, t2) = inlineAstHFun memo t
         (memo2, ll2) = inlineAst memo1 ll
-    in (memo2, Ast.AstApply t2 ll2)
+    in (memo2, Ast.Astapply t2 ll2)
   Ast.AstVar var ->
     let f Nothing = Just 1
         f (Just count) = Just $ count + 1
@@ -365,10 +365,10 @@ unshareAst memo = \case
     let (memo1, acc02) = unshareAst memo acc0
         (memo2, es2) = unshareAst memo1 es
     in (memo2, Ast.AstMapAccumLDer k bftk eftk f df rf acc02 es2)
-  Ast.AstApply t ll ->
+  Ast.Astapply t ll ->
     let (memo1, t2) = unshareAstHFun memo t
         (memo2, ll2) = unshareAst memo1 ll
-    in (memo2, Ast.AstApply t2 ll2)
+    in (memo2, Ast.Astapply t2 ll2)
   Ast.AstVar v -> (memo, Ast.AstVar v)
   Ast.AstCond b a2 a3 ->
     let (memo1, b1) = unshareAst memo b

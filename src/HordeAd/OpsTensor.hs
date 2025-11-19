@@ -1061,7 +1061,7 @@ kgrad :: forall x r target. (GoodScalar r, BaseTensor target)
       -> target x  -- ^ input x
       -> target (ADTensorKind x)  -- ^ gradient dx
 kgrad f xftk =
-  \ !es -> tApply (tgrad @target xftk (HFun f)) es
+  \ !es -> tapply (tgrad @target xftk (HFun f)) es
 rvjp :: forall n x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKR2 n r))  -- ^ x |-> z
      -> FullShapeTK x  -- ^ shape of x and dx
@@ -1069,7 +1069,7 @@ rvjp :: forall n x r target. BaseTensor target
      -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent dz
      -> target (ADTensorKind x)  -- ^ gradient dx
 rvjp f xftk =
-  \ !es !dt -> tApply (tvjp @target xftk $ HFun f) (tpair dt es)
+  \ !es !dt -> tapply (tvjp @target xftk $ HFun f) (tpair dt es)
 rjvp :: forall n x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKR2 n r))  -- ^ x |-> z
      -> FullShapeTK x  -- ^ shape of x and dx
@@ -1077,7 +1077,7 @@ rjvp :: forall n x r target. BaseTensor target
      -> target (ADTensorKind x)  -- ^ incoming tangent dx
      -> target (ADTensorKind (TKR2 n r))  -- ^ derivative dz
 rjvp f xftk =
-  \ !es !ds -> tApply (tjvp @target xftk $ HFun f) (tpair ds es)
+  \ !es !ds -> tapply (tjvp @target xftk $ HFun f) (tpair ds es)
 svjp :: forall sh x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKS2 sh r))  -- ^ x |-> z
      -> FullShapeTK x  -- ^ shape of x and dx
@@ -1085,7 +1085,7 @@ svjp :: forall sh x r target. BaseTensor target
      -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent dz
      -> target (ADTensorKind x)  -- ^ gradient dx
 svjp f xftk =
-  \ !es !dt -> tApply (tvjp @target xftk $ HFun f) (tpair dt es)
+  \ !es !dt -> tapply (tvjp @target xftk $ HFun f) (tpair dt es)
 sjvp :: forall sh x r target. BaseTensor target
      => (forall f. ADReady f => f x -> f (TKS2 sh r))
      -> FullShapeTK x  -- ^ shape of x and dx
@@ -1093,7 +1093,7 @@ sjvp :: forall sh x r target. BaseTensor target
      -> target (ADTensorKind x)  -- ^ incoming tangent dx
      -> target (ADTensorKind (TKS2 sh r))  -- ^ derivative dz
 sjvp f xftk =
-  \ !es !ds -> tApply (tjvp @target xftk $ HFun f) (tpair ds es)
+  \ !es !ds -> tapply (tjvp @target xftk $ HFun f) (tpair ds es)
 
 -- These take @target@ first, because they change the target.
 rprimalPart :: BaseTensor target

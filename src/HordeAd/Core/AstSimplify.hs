@@ -20,7 +20,7 @@ module HordeAd.Core.AstSimplify
   ( RewritePhase(..), SimplifyKnobs (..), defaultKnobs
   , -- * The simplifying combinators, one for almost each AST constructor
     astPair, astProject1, astProject2, astFromVector, astSum, astReplicate
-  , astMapAccumRDer, astMapAccumLDer, astApply, astCond
+  , astMapAccumRDer, astMapAccumLDer, astapply, astCond
   , astConcrete, astConcreteK, astConcreteS
 
   , astLet
@@ -1148,10 +1148,10 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
 astMapAccumLDer k bftk eftk f df rf acc0 es =
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es
 
-astApply :: forall x z s1 s. (AstSpan s1, AstSpan s)
+astapply :: forall x z s1 s. (AstSpan s1, AstSpan s)
          => AstHFun s1 s x z -> AstTensor AstMethodLet s1 x
          -> AstTensor AstMethodLet s z
-astApply (AstLambda !var !v) u = astLet var u v
+astapply (AstLambda !var !v) u = astLet var u v
 
 astCond :: AstSpan s
         => AstBool AstMethodLet
@@ -1341,8 +1341,8 @@ astPrimalPart t = case t of
                                    (AstLambda vard2 vd2)
                                    (AstLambda varr2 vr2)
                        (astPrimalPart acc0) (astPrimalPart es)
-  Ast.AstApply (AstLambda !var !v) ll ->
-    astApply (AstLambda var (astPrimalPart v)) ll
+  Ast.Astapply (AstLambda !var !v) ll ->
+    astapply (AstLambda var (astPrimalPart v)) ll
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -1477,8 +1477,8 @@ astDualPart t = case t of
                                    (AstLambda vard2 vd2)
                                    (AstLambda varr2 vr2)
                        (astDualPart acc0) (astDualPart es)
-  Ast.AstApply (AstLambda !var !v) ll ->
-    astApply (AstLambda var (astDualPart v)) ll
+  Ast.Astapply (AstLambda !var !v) ll ->
+    astapply (AstLambda var (astDualPart v)) ll
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -1629,8 +1629,8 @@ astPlainPart t = case t of
                                    (AstLambda vard2 vd2)
                                    (AstLambda varr2 vr2)
                        (astPlainPart acc0) (astPlainPart es)
-  Ast.AstApply (AstLambda !var !v) ll ->
-    astApply (AstLambda var (astPlainPart v)) ll
+  Ast.Astapply (AstLambda !var !v) ll ->
+    astapply (AstLambda var (astPlainPart v)) ll
   Ast.AstVar{} -> Ast.AstPlainPart t  -- the only normal form
   Ast.AstCond b a2 a3 -> astCond b (astPlainPart a2) (astPlainPart a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -1968,7 +1968,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
       AstConcreteK b -> if b then astSFromK' v else defArr
       _ -> Ast.AstIndexS shn v0 ix
-  Ast.AstApply{} -> Ast.AstIndexS shn v0 ix
+  Ast.Astapply{} -> Ast.AstIndexS shn v0 ix
   Ast.AstVar{} -> Ast.AstIndexS shn v0 ix
   Ast.AstCond b v w ->
     shareIx ix $ \ !ix2 ->
@@ -2989,7 +2989,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
           if b then astGather @shm @shn @shp1'
                               shn (astSFromK' v) (vars4, rest4) else defArr
         _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-    Ast.AstApply{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
+    Ast.Astapply{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstVar{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstCond b v w | ixIsSmall ix4 ->
       astCond b (astGather @shm @shn @shp shn v (vars4, ix4))
@@ -3736,7 +3736,7 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
     astConvertSFromK c zftk u `quotH` astConvertSFromK c zftk v
   Ast.AstI2K RemOp u v ->
     astConvertSFromK c zftk u `remH` astConvertSFromK c zftk v
-  Ast.AstApply{} -> Ast.AstConvert c a0
+  Ast.Astapply{} -> Ast.AstConvert c a0
   Ast.AstVar{} -> Ast.AstConvert c a0
   Ast.AstCond b v w -> astCond b (astConvertSFromK c zftk v)
                                  (astConvertSFromK c zftk w)
@@ -3781,7 +3781,7 @@ astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
           !a2 = astConvert c2 a
       in astReplicate snat (STKS rest xstk) a2
     _ -> error "astConvertSFromR: impossible shape"
-  Ast.AstApply{} -> Ast.AstConvert c a0
+  Ast.Astapply{} -> Ast.AstConvert c a0
   Ast.AstVar{} -> Ast.AstConvert c a0
   Ast.AstCond b v w -> astCond b (astConvertSFromR c zftk v)
                                  (astConvertSFromR c zftk w)
@@ -3829,7 +3829,7 @@ astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
           !a2 = astConvert c2 a
       in astReplicate snat (STKS rest xstk) a2
     _ -> error "astConvertSFromX: impossible shape"
-  Ast.AstApply{} -> Ast.AstConvert c a0
+  Ast.Astapply{} -> Ast.AstConvert c a0
   Ast.AstVar{} -> Ast.AstConvert c a0
   Ast.AstCond b v w -> astCond b (astConvertSFromX c zftk v)
                                  (astConvertSFromX c zftk w)
@@ -4346,11 +4346,11 @@ substitute1Ast i var = subst where
                                  (fromMaybe rf mrf)
                                  (fromMaybe acc0 macc0)
                                  (fromMaybe es mes)
-  Ast.AstApply t ll ->
+  Ast.Astapply t ll ->
     case ( substitute1AstHFun i var t
          , subst ll ) of
       (Nothing, Nothing) -> Nothing
-      (mt, mll) -> Just $ astApply (fromMaybe t mt) (fromMaybe ll mll)
+      (mt, mll) -> Just $ astapply (fromMaybe t mt) (fromMaybe ll mll)
   Ast.AstVar var2 ->
     -- We can't assert anything here, because only all runtime values need
     -- to be in bounds and bounds approximations don't have to agree.

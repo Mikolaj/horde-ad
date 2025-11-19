@@ -1031,7 +1031,7 @@ class ( Num (IntOf target)
     -> target accy  -- ^ the initial accumulator
     -> target (BuildTensorKind k ey)  -- ^ the inputs
     -> target (TKProduct accy (BuildTensorKind k by))
-  tApply :: HFunOf target x z -> target x -> target z
+  tapply :: HFunOf target x z -> target x -> target z
   tlambda :: FullShapeTK x -> HFun x z -> HFunOf target x z
 
   -- | Reverse derivative.

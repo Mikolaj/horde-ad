@@ -66,7 +66,7 @@ interpretAstPrimal !env v1 = case v1 of
         h :: forall f. ADReady f => f accy -> f ey -> f accy
         h !acc !e =
           let g = interpretAstHFun @f emptyEnv f0
-          in tproject1 $ tApply @f @_ @(TKProduct accy by) g (tpair acc e)
+          in tproject1 $ tapply @f @_ @(TKProduct accy by) g (tpair acc e)
     in tprimalPart
        $ tfold k (ftkToSTK $ ftkAst acc0) (ftkToSTK eftk) h acc02 es2
   AstProject1 t -> tproject1 (interpretAstPrimal env t)
@@ -94,7 +94,7 @@ interpretAstPrimal !env v1 = case v1 of
         es2 = interpretAstPrimal env es
     in tmapAccumLDer (Proxy @(PrimalOf target))
                      k (ftkAst acc0) bftk eftk f df rf acc02 es2
-  AstApply{} -> tprimalPart (interpretAst env v1)  -- TODO
+  Astapply{} -> tprimalPart (interpretAst env v1)  -- TODO
   AstVar var ->
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env
@@ -270,7 +270,7 @@ interpretAstPlain !env v1 = case v1 of
         h :: forall f. ADReady f => f accy -> f ey -> f accy
         h !acc !e =
           let g = interpretAstHFun @f emptyEnv f0
-          in tproject1 $ tApply @f @_ @(TKProduct accy by) g (tpair acc e)
+          in tproject1 $ tapply @f @_ @(TKProduct accy by) g (tpair acc e)
     in tfold k (ftkToSTK $ ftkAst acc0) (ftkToSTK eftk) h acc02 es2
   AstProject1 t -> tproject1 (interpretAstPlain env t)
   AstProject2 t -> tproject2 (interpretAstPlain env t)
@@ -297,7 +297,7 @@ interpretAstPlain !env v1 = case v1 of
         es2 = interpretAstPlain env es
     in tmapAccumLDer (Proxy @(PlainOf target))
                      k (ftkAst acc0) bftk eftk f df rf acc02 es2
-  AstApply{} -> tplainPart (interpretAst env v1)  -- TODO
+  Astapply{} -> tplainPart (interpretAst env v1)  -- TODO
   AstVar var ->
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env
@@ -561,7 +561,7 @@ interpretAst !env = \case
         h :: forall f. ADReady f => f accy -> f ey -> f accy
         h !acc !e =
           let g = interpretAstHFun @f emptyEnv f0
-          in tproject1 $ tApply @f @_ @(TKProduct accy by) g (tpair acc e)
+          in tproject1 $ tapply @f @_ @(TKProduct accy by) g (tpair acc e)
     in tfold k (ftkToSTK $ ftkAst acc0) (ftkToSTK eftk) h acc02 es2
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
@@ -585,10 +585,10 @@ interpretAst !env = \case
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
     in tmapAccumLDer (Proxy @target) k (ftkAst acc0) bftk eftk f df rf acc02 es2
-  AstApply t ll ->
+  Astapply t ll ->
     let t2 = interpretAstHFun env t
         ll2 = interpretAst env ll
-    in tApply t2 ll2
+    in tapply t2 ll2
   AstVar var ->
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env

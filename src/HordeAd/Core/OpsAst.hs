@@ -626,7 +626,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astMapAccumRDer k bftk eftk f df rf acc0 es
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
     astMapAccumLDer k bftk eftk f df rf acc0 es
-  tApply = astApply
+  tapply = astapply
   tlambda ftk f =
     let (var, ast) = funToAst ftk Nothing $ unHFun f
     in AstLambda var ast
@@ -1150,7 +1150,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstMapAccumRDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
     AstRaw $ AstMapAccumLDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
-  tApply t ll = AstRaw $ AstApply t (unAstRaw ll)
+  tapply t ll = AstRaw $ Astapply t (unAstRaw ll)
   tlambda = tlambda @(AstTensor AstMethodLet s)
   tcond _ !b !u !v = AstRaw $ AstCond (unAstRaw b) (unAstRaw u) (unAstRaw v)
   tprimalPart t = AstRaw $ primalPart $ unAstRaw t
@@ -1418,7 +1418,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tmapAccumLDer _ !k !accftk !bftk !eftk f df rf acc0 es =
     AstNoVectorize $ tmapAccumLDer Proxy k accftk bftk eftk f df rf
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
-  tApply t ll = AstNoVectorize $ tApply t (unAstNoVectorize ll)
+  tapply t ll = AstNoVectorize $ tapply t (unAstNoVectorize ll)
   tlambda = tlambda @(AstTensor AstMethodLet s)
   tcond !stk !b !u !v =
     AstNoVectorize $ tcond stk (unAstNoVectorize b)
@@ -1632,7 +1632,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tmapAccumLDer _ !k !accftk !bftk !eftk f df rf acc0 es =
     wAstNoSimplify $ tmapAccumLDer Proxy k accftk bftk eftk f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)
-  tApply t ll = wAstNoSimplify $ tApply t (wunAstNoSimplify ll)
+  tapply t ll = wAstNoSimplify $ tapply t (wunAstNoSimplify ll)
   tlambda = tlambda @(AstRaw s)
   tprimalPart t = wAstNoSimplify $ tprimalPart $ wunAstNoSimplify t
   tplainPart t = wAstNoSimplify $ tplainPart $ wunAstNoSimplify t

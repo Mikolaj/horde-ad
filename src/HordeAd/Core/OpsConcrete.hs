@@ -583,8 +583,8 @@ instance BaseTensor Concrete where
   tmapAccumLDer _ k _ bftk eftk f _df _rf acc0 es =
     oRtmapAccumL k bftk eftk (\ (Concrete a) (Concrete b) ->
                                 Concrete $ f (a, b)) acc0 es
-  {-# INLINE tApply #-}
-  tApply f x = Concrete $ f $ unConcrete x
+  {-# INLINE tapply #-}
+  tapply f x = Concrete $ f $ unConcrete x
   {-# INLINE tlambda #-}
   tlambda _ f x = unConcrete $ unHFun f $ Concrete x
   {-# INLINE tcond #-}

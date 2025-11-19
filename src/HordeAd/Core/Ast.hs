@@ -367,7 +367,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
     -> AstTensor ms s accy
     -> AstTensor ms s (BuildTensorKind k ey)
     -> AstTensor ms s (TKProduct accy (BuildTensorKind k by))
-  AstApply :: (AstSpan s1, AstSpan s)
+  Astapply :: (AstSpan s1, AstSpan s)
            => AstHFun s1 s x z -> AstTensor ms s1 x -> AstTensor ms s z
   AstVar :: AstVarName s y -> AstTensor ms s y
   AstCond :: forall y ms s.
