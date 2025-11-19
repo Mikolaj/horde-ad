@@ -247,6 +247,7 @@ instance BaseTensor Concrete where
   --
   -- Note how ix being in bounds is checked. The semantics of the operation
   -- permits index out of bounds and then no tensors is added at such an index.
+  {-# INLINE tsscatter #-}  -- this function takes a function as an argument
   tsscatter @shm @shn @shp t f =
     let shpshn = knownShS @shp `shsAppend` knownShS @shn
     in withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
@@ -303,6 +304,7 @@ instance BaseTensor Concrete where
   -- and the result of such indexing is def, which is 0.
   -- TODO: are bounds checked in the optimized case?
   -- The same question also elsewhere.
+  {-# INLINE tsgather #-}  -- this function takes a function as an argument
   tsgather @shm @shn @shp @r t f =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
@@ -374,17 +376,22 @@ instance BaseTensor Concrete where
         $ tsbuild @_ @(Rank sh) (\ix -> f (tsindex t ix) (tsindex u ix))
 
   -- Mixed ops
+  {-# INLINE xshape #-}
   xshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.mshape . unConcrete
+  {-# INLINE txfromVector #-}
   txfromVector @n @sh @r v | Dict <- eltDictRep (knownSTK @r) =
     case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
       Just l -> Concrete
                 $ Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
                 $ Nested.mfromListOuter  l
       Nothing -> error "xfromVector: empty vector"
+  {-# INLINE txfromVector0N #-}
   txfromVector0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     Concrete . tfromVector0NX sh . fmapUnConcrete
+  {-# INLINE txunravelToList #-}
   txunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     fmapConcrete . Nested.mtoListOuter . unConcrete
+  {-# INLINE txsum #-}
   txsum t = case tftk knownSTK t of
     FTKX _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
       Concrete . Nested.msumOuter1Prim . unConcrete $ t  -- optimized
@@ -392,16 +399,20 @@ instance BaseTensor Concrete where
       let l = txunravelToList t
           sh = shxTail $ xshape t
       in foldr (taddTarget knownSTK) (tdefTarget (FTKX sh x)) l
+  {-# INLINE txsum0 #-}
   txsum0 @_ @r t =
     case knownSTK @r of
       STKScalar @r2 | Dict0 <- numFromTKAllNum (Proxy @r2) ->  -- optimized
         Concrete . Nested.mscalar . Nested.msumAllPrim . unConcrete $ t
       _ -> withSNat (shxSize $ xshape t) $ \snat ->
         txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
+  {-# INLINE txdot0 #-}
   txdot0 u v =
     Concrete $ Nested.mscalar $ Nested.mdot (unConcrete u) (unConcrete v)
+  {-# INLINE txdot1In #-}
   txdot1In @_ (SNat @n) u v =
     Concrete $ Nested.mdot1Inner (Proxy @(Just n)) (unConcrete u) (unConcrete v)
+  {-# INLINE txmatvecmul #-}
   txmatvecmul mm mn m v =
     withKnownShX (ssxFromShX $ mn :$% ZSX) $
     withKnownShX (ssxFromShX $ mm :$% mn :$% ZSX) $
@@ -414,19 +425,23 @@ instance BaseTensor Concrete where
                     * xmcast (ssxFromShX (Nested.SKnown (SNat @m)
                                             :$% Nested.SKnown (SNat @n)
                                             :$% ZSX)) m))
+  {-# INLINE txmatmul2 #-}
   txmatmul2 m1 m2 =
     txdot1In SNat
              (txtranspose (Permutation.makePerm @'[1, 0])
                           (txreplicate SNat knownShX m1))
              (txtranspose (Permutation.makePerm @'[0, 2, 1])
                           (txreplicate SNat knownShX m2))
+  {-# INLINE txreplicate #-}
   txreplicate @_ @_ @r snat _sh | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mreplicate (Nested.SKnown snat :$% ZSX) . unConcrete
+  {-# INLINE txreplicate0N #-}
   txreplicate0N @sh @r sh | Refl <- lemAppNil @sh
                           , Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mreplicate sh . unConcrete
   txindex = tindexZX
   txindex0 = tindex0X
+  {-# INLINE txscatter #-}  -- this function takes a function as an argument
   txscatter @shm @shn @shp sh t f =
     withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
     gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
@@ -469,6 +484,7 @@ instance BaseTensor Concrete where
         in updateNX (Proxy @(Rank shp)) zero
            $ M.assocs ivs
   txscatter1 = tscatterZ1X
+  {-# INLINE txgather #-}  -- this function takes a function as an argument
   txgather @shm @shn @shp @r sh t f =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
@@ -487,77 +503,110 @@ instance BaseTensor Concrete where
         txbuild @_ @(Rank shm) sh (\ix -> t `txindex` f ix)
   txgather1 = tgatherZ1X
   txconcrete = Concrete
+  {-# INLINE txfloor #-}
   txfloor = Concrete . liftVX (V.map floor) . unConcrete
+  {-# INLINE txfromIntegral #-}
   txfromIntegral = Concrete . liftVX (V.map fromIntegral) . unConcrete
+  {-# INLINE txcast #-}
   txcast = Concrete . liftVX (V.map realToFrac) . unConcrete
+  {-# INLINE txminIndex #-}
   txminIndex = Concrete . tminIndexX . unConcrete
+  {-# INLINE txmaxIndex #-}
   txmaxIndex = Concrete . tmaxIndexX . unConcrete
+  {-# INLINE txiota #-}
   txiota @n = case NonEmpty.nonEmpty [0 .. valueOf @n - 1] of
     Nothing -> error "xiota: n < 1"
     Just l -> Concrete
               $ Nested.mcast (Nested.SKnown (SNat @n) :!% ZKX)
               $ Nested.mfromList1
               $ NonEmpty.map fromInteger l
+  {-# INLINE txappend #-}
   txappend @_ @_ @_ @r u v | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ Nested.mappend (unConcrete u) (unConcrete v)
+  {-# INLINE txslice #-}
   txslice @_ @_ @_ @_ @r i n _ | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.msliceSN i n . unConcrete
+  {-# INLINE txreverse #-}
   txreverse @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mrev1 . unConcrete
+  {-# INLINE txtranspose #-}
   txtranspose @_ @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mtranspose perm . unConcrete
+  {-# INLINE txreshape #-}
   txreshape @_ @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mreshape sh . unConcrete
+  {-# INLINE txbuild1 #-}
   txbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ tbuild1X (unConcrete . f . Concrete)
+  {-# INLINE txbuild #-}
   txbuild @m @sh @x sh f | Dict <- eltDictRep (knownSTK @x) =
     Concrete $ tbuildX @m @sh sh (unConcrete . f . fmapConcrete)
 
   -- Scalar ops
   tkconcrete = Concrete
+  {-# INLINE tkfloor #-}
   tkfloor = Concrete . floor . unConcrete
+  {-# INLINE tkfromIntegral #-}
   tkfromIntegral = fromIntegral . unConcrete
+  {-# INLINE tkcast #-}
   tkcast = Concrete . realToFrac . unConcrete
 
   -- General operations that don't require LetTensor nor ShareTensor
+  {-# INLINE tftk #-}
   tftk stk (Concrete t) = tftkG stk t
   tconcrete _ = id
+  {-# INLINE tpair #-}
   tpair !u !v = Concrete (unConcrete u, unConcrete v)
+  {-# INLINE tproject1 #-}
   tproject1 = Concrete . fst . unConcrete
+  {-# INLINE tproject2 #-}
   tproject2 = Concrete . snd . unConcrete
+  {-# INLINE tsreplicate #-}
   tsreplicate @_ @_ @x snat@SNat _sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.sreplicate (snat :$$ ZSS) . unConcrete
+  {-# INLINE tsreplicate0N #-}
   tsreplicate0N @sh @r sh | Refl <- lemAppNil @sh
                           , Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.sreplicate sh . unConcrete
+  {-# INLINE tstranspose #-}
   tstranspose @_ @_ @r perm | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.stranspose perm . unConcrete
+  {-# INLINE tsreshape #-}
   tsreshape @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.sreshape sh . unConcrete
   -- The eta-expansion below is needed for typing.
+  {-# INLINE tmapAccumRDer #-}
   tmapAccumRDer _ k _ bftk eftk f _df _rf acc0 es =
     oRtmapAccumR k bftk eftk (\ (Concrete a) (Concrete b) ->
                                 Concrete $ f (a, b)) acc0 es
+  {-# INLINE tmapAccumLDer #-}
   tmapAccumLDer _ k _ bftk eftk f _df _rf acc0 es =
     oRtmapAccumL k bftk eftk (\ (Concrete a) (Concrete b) ->
                                 Concrete $ f (a, b)) acc0 es
+  {-# INLINE tApply #-}
   tApply f x = Concrete $ f $ unConcrete x
+  {-# INLINE tlambda #-}
   tlambda _ f x = unConcrete $ unHFun f $ Concrete x
+  {-# INLINE tcond #-}
   tcond _ b u v = if unConcrete b then u else v
   tprimalPart = id
+  {-# INLINE tdualPart #-}
   tdualPart stk t = DummyDualTarget (tftk stk t)
   tplainPart = id
   tfromPrimal _ t = t
+  {-# INLINE tfromDual #-}
   tfromDual (DummyDualTarget ftk) = tdefTarget ftk
   tfromPlain _ t = t
   tScale _ _ t = t
   -- The code for tvjp and tjvp in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
+  {-# INLINE tgrad #-}
   tgrad @x @r xftk h | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     let rf :: RepConcrete x -> RepConcrete (ADTensorKind x)
         rf !a = unConcrete $ snd $ crevOnParams Nothing (unHFun h)
                                                 xftk (Concrete a)
     in rf
+  {-# INLINE tvjp #-}
   tvjp @x @z xftk h =
     let rf :: RepConcrete (TKProduct (ADTensorKind z) x)
            -> RepConcrete (ADTensorKind x)
@@ -565,6 +614,7 @@ instance BaseTensor Concrete where
                    $ crevOnParamsDt (Concrete $ fst db_a) (unHFun h)
                                     xftk (Concrete $ snd db_a)
     in rf
+  {-# INLINE tjvp #-}
   tjvp @x @z xftk h =
     let df :: RepConcrete (TKProduct (ADTensorKind x) x)
            -> RepConcrete (ADTensorKind z)
@@ -573,6 +623,7 @@ instance BaseTensor Concrete where
                                    (unHFun h) (Concrete $ fst da_a)
     in df
 
+  {-# INLINE tfromVector #-}
   tfromVector snat@SNat stk v = assert (V.length v == sNatValue snat)
                                 $ case stk of
     STKScalar -> tsfromVector $ V.map sfromK v
@@ -591,47 +642,65 @@ instance BaseTensor Concrete where
   tdot0Target = dot0Target
 
 instance ConvertTensor Concrete where
+  {-# INLINE tconvert #-}
   tconvert c astk a | Dict <- eltDictRep astk
                     , Dict <- eltDictRep (convertSTK c astk) =
     Concrete $ Nested.convert (interpretTKConversion c) (unConcrete a)
 
+  {-# INLINE kfromR #-}
   kfromR = Concrete . Nested.runScalar . unConcrete
+  {-# INLINE kfromS #-}
   kfromS = Concrete . Nested.sunScalar . unConcrete
+  {-# INLINE kfromX #-}
   kfromX = Concrete . Nested.munScalar . unConcrete
+  {-# INLINE rfromK #-}
   rfromK = Concrete . Nested.rscalar . unConcrete
+  {-# INLINE rfromS #-}
   rfromS @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.stoRanked . unConcrete
-  {-# SPECIALIZE rfromS :: KnownShS sh => Concrete (TKS sh Double) -> Concrete (TKR (Rank sh) Double) #-}
-  {-# SPECIALIZE rfromS :: KnownShS sh => Concrete (TKS sh Float) -> Concrete (TKR (Rank sh) Float) #-}
+  {-# INLINE rfromX #-}
   rfromX @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mtoRanked . unConcrete
+  {-# INLINE sfromK #-}
   sfromK = Concrete . Nested.sscalar . unConcrete
+  {-# INLINE sfromR #-}
   sfromR @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . flip Nested.rcastToShaped knownShS . unConcrete
+  {-# INLINE sfromX #-}
   sfromX @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.mcastToShaped knownShS . unConcrete
+  {-# INLINE xfromK #-}
   xfromK = Concrete . Nested.mscalar . unConcrete
+  {-# INLINE xfromR #-}
   xfromR @sh @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.rcastToMixed (knownShX @sh) . unConcrete
+  {-# INLINE xfromS #-}
   xfromS @_ @sh' @r | Dict <- eltDictRep (knownSTK @r) =
     Concrete . Nested.scastToMixed (knownShX @sh') . unConcrete
 
+  {-# INLINE rzip #-}
   rzip @y @z (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
                                , Dict <- eltDictRep (knownSTK @z) =
     Concrete $ Nested.rzip a b
+  {-# INLINE runzip #-}
   runzip a = let (!a1, !a2) = Nested.runzip $ unConcrete a
              in Concrete (a1, a2)
-  szip @y @z  (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
-                                , Dict <- eltDictRep (knownSTK @z) =
+  {-# INLINE szip #-}
+  szip @y @z (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
+                               , Dict <- eltDictRep (knownSTK @z) =
     Concrete $ Nested.szip a b
+  {-# INLINE sunzip #-}
   sunzip a = let (!a1, !a2) = Nested.sunzip $ unConcrete a
              in Concrete (a1, a2)
-  xzip @y @z  (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
-                                , Dict <- eltDictRep (knownSTK @z) =
+  {-# INLINE xzip #-}
+  xzip @y @z (Concrete (a, b)) | Dict <- eltDictRep (knownSTK @y)
+                               , Dict <- eltDictRep (knownSTK @z) =
     Concrete $ Nested.mzip a b
+  {-# INLINE xunzip #-}
   xunzip a = let (!a1, !a2) = Nested.munzip $ unConcrete a
              in Concrete (a1, a2)
 
+  {-# INLINE xnestR #-}
   xnestR @sh1 @m @x sh | Dict <- eltDictRep (knownSTK @x)
                        , Refl <- lemRankReplicate (SNat @m) =
     Concrete
@@ -640,6 +709,7 @@ instance ConvertTensor Concrete where
         (Nested.ConvXX Nested.ConvXR)
     . Nested.mnest sh
     . unConcrete
+  {-# INLINE xnestS #-}
   xnestS @sh1 @sh2 @x sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete
     . Nested.convert
@@ -647,8 +717,10 @@ instance ConvertTensor Concrete where
         (Nested.ConvXX Nested.ConvXS)
     . Nested.mnest sh
     . unConcrete
+  {-# INLINE xnest #-}
   xnest @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.mnest sh . unConcrete
+  {-# INLINE xunNestR #-}
   xunNestR @sh1 @m @x | Dict <- eltDictRep (knownSTK @x) =
     Concrete
     . Nested.munNest
@@ -656,6 +728,7 @@ instance ConvertTensor Concrete where
         @(Nested.Mixed sh1 (Nested.Ranked m (RepConcrete x)))
         (Nested.ConvXX Nested.ConvRX)
     . unConcrete
+  {-# INLINE xunNestS #-}
   xunNestS @sh1 @sh2 @x | Dict <- eltDictRep (knownSTK @x) =
     Concrete
     . Nested.munNest
@@ -663,6 +736,7 @@ instance ConvertTensor Concrete where
         @(Nested.Mixed sh1 (Nested.Shaped sh2 (RepConcrete x)))
         (Nested.ConvXX Nested.ConvSX)
     . unConcrete
+  {-# INLINE xunNest #-}
   xunNest = Concrete . Nested.munNest . unConcrete
 
   tpairConv = tpair
@@ -893,6 +967,7 @@ tscatterZR :: forall m p n x.
            => IShR (p + n) -> Concrete (TKR2 (m + n) x)
            -> (IxROf Concrete m -> IxROf Concrete p)
            -> Concrete (TKR2 (p + n) x)
+{-# INLINE tscatterZR #-}   -- this function takes a function as an argument
 tscatterZR sh t f
  | Dict <- eltDictRep (knownSTK @x) = case tftk knownSTK t of
   FTKR _ x@(FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
@@ -937,6 +1012,7 @@ tscatterZ1R :: (TKAllNum r, KnownSTK r, KnownNat p, KnownNat n)
             => IShR (p + n) -> Concrete (TKR2 (1 + n) r)
             -> (IntOf Concrete -> IxROf Concrete p)
             -> Concrete (TKR2 (p + n) r)
+{-# INLINE tscatterZ1R #-}   -- this function takes a function as an argument
 tscatterZ1R sh t f = case tftk knownSTK t of
   FTKR _ x ->
     let zero = tdefTarget (FTKR sh x)
@@ -999,6 +1075,7 @@ tgatherZR :: forall m p n r.
           => IShR (m + n) -> Concrete (TKR2 (p + n) r)
           -> (IxROf Concrete m -> IxROf Concrete p)
           -> Concrete (TKR2 (m + n) r)
+{-# INLINE tgatherZR #-}   -- this function takes a function as an argument
 tgatherZR sh t f = case (SNat @n, knownSTK @r) of
   (SNat' @0, STKScalar) ->  -- an optimized common case
     let shm = sh
@@ -1014,6 +1091,7 @@ tgatherZ1R :: forall p n r.
            => Int -> Concrete (TKR2 (p + n) r)
            -> (IntOf Concrete -> IxROf Concrete p)
            -> Concrete (TKR2 (1 + n) r)
+{-# INLINE tgatherZ1R #-}   -- this function takes a function as an argument
 tgatherZ1R k t f = case (SNat @n, knownSTK @r) of
   (SNat' @0, STKScalar) ->  -- an optimized common case
     let l = [ unConcrete $ t `trindex0` (f (Concrete i))
@@ -1180,6 +1258,7 @@ tscatterZ1S
   => Concrete (TKS2 (n2 ': shn) r)
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS2 (shp ++ shn) r)
+{-# INLINE tscatterZ1S #-}   -- this function takes a function as an argument
 tscatterZ1S t f = case tftk knownSTK t of
   FTKS _ x ->
     gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
@@ -1252,6 +1331,7 @@ tgatherZ1S
   => Concrete (TKS2 (shp ++ shn) r)
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS2 (n2 ': shn) r)
+{-# INLINE tgatherZ1S #-}   -- this function takes a function as an argument
 tgatherZ1S t f = case (knownShS @shn, knownSTK @r) of
   (ZSS, STKScalar) | Refl <- lemAppNil @shp ->  -- an optimized common case
     let l = [ unConcrete $ t `tsindex0` (f (Concrete i))
@@ -1305,6 +1385,7 @@ tminIndexX
   :: forall mn sh r r2.
      (Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2)
   => Nested.Mixed (mn ': sh) r -> Nested.Mixed (Init (mn ': sh)) r2
+{-# INLINE tminIndexX #-}
 tminIndexX v | sh1@(_ :$% sh) <- Nested.mshape v =
   let f :: Nested.Mixed '[mm] r -> Nested.Mixed '[] r2
       f = Nested.mscalar . fromIntegral . ixxHead
@@ -1325,6 +1406,7 @@ tmaxIndexX
   :: forall mn sh r r2.
      (Nested.PrimElt r, Nested.NumElt r, Nested.PrimElt r2, Num r2)
   => Nested.Mixed (mn ': sh) r -> Nested.Mixed (Init (mn ': sh)) r2
+{-# INLINE tmaxIndexX #-}
 tmaxIndexX v | sh1@(_ :$% sh) <- Nested.mshape v =
   let f :: Nested.Mixed '[mm] r -> Nested.Mixed '[] r2
       f = Nested.mscalar . fromIntegral . ixxHead
@@ -1385,6 +1467,7 @@ tscatterZ1X
   => IShX (shp ++ shn) -> Concrete (TKX2 (Just n2 ': shn) r)
   -> (IntOf Concrete -> IxXOf Concrete shp)
   -> Concrete (TKX2 (shp ++ shn) r)
+{-# INLINE tscatterZ1X #-}   -- this function takes a function as an argument
 tscatterZ1X sh t f =
   case tftk knownSTK t of
     FTKX _ x ->
@@ -1404,6 +1487,7 @@ tscatterZ1X sh t f =
 tfromVector0NX
   :: forall r sh. Nested.KnownElt r
   => IShX sh -> Data.Vector.Vector (Nested.Mixed '[] r) -> Nested.Mixed sh r
+{-# INLINE tfromVector0NX #-}
 tfromVector0NX sh l = case NonEmpty.nonEmpty $ V.toList l of
   Nothing -> if shxSize sh == 0
              then Nested.mreshape sh $ Nested.memptyArray sh
@@ -1413,6 +1497,7 @@ tfromVector0NX sh l = case NonEmpty.nonEmpty $ V.toList l of
 tbuild1X
   :: forall k sh r. (KnownNat k, KnownShX sh, Nested.KnownElt r)
   => (Int64 -> Nested.Mixed sh r) -> Nested.Mixed (Just k ': sh) r
+{-# INLINE tbuild1X #-}
 tbuild1X f =
   Nested.munNest
   $ Nested.mgenerate (Nested.SKnown (SNat @k) :$% ZSX) $ \(i :.% ZIX) ->
@@ -1422,6 +1507,7 @@ tbuildX
      (KnownShX (Take m sh), KnownShX (Drop m sh), Nested.KnownElt x)
   => IShX sh -> (IxX (Take m sh) Int64 -> Nested.Mixed (Drop m sh) x)
   -> Nested.Mixed sh x
+{-# INLINE tbuildX #-}
 tbuildX sh f =
   gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
   Nested.munNest
@@ -1435,6 +1521,7 @@ tgatherZ1X
   => SNat n2 -> Concrete (TKX2 (shp ++ shn) r)
   -> (IntOf Concrete -> IxXOf Concrete shp)
   -> Concrete (TKX2 (Just n2 ': shn) r)
+{-# INLINE tgatherZ1X #-}   -- this function takes a function as an argument
 tgatherZ1X SNat t f = case (knownShX @shn, knownSTK @r) of
   (ZKX, STKScalar) | Refl <- lemAppNil @shp ->  -- an optimized common case
     let l = [ unConcrete $ t `txindex0` (f (Concrete i))
