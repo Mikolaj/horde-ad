@@ -257,7 +257,7 @@ class LetTensor (target :: Target) where
               acc0
               es
     in tappend (SNat @1) k nstk
-               (tfromVector (SNat @1) nstk (V.fromList [acc0])) bs
+               (tfromVector (SNat @1) nstk (V.fromListN 1 [acc0])) bs
 
 class ShareTensor (target :: Target) where
   tshare :: target y -> target y
@@ -465,14 +465,16 @@ class ( Num (IntOf target)
         f i = txindex t (fromIntegral i :.% ZIX)
     in map f [0 .. xwidth t - 1]
 
-  tfromVector
-    :: forall y k.
-       SNat k -> SingletonTK y -> Data.Vector.Vector (target y)
-    -> target (BuildTensorKind k y)
-  tfromListR :: SingletonTK y -> ListR k (target y)
+  tfromVector :: forall y k.
+                 SNat k -> SingletonTK y -> Data.Vector.Vector (target y)
+              -> target (BuildTensorKind k y)
+  tfromListR :: forall y k. KnownNat k
+             => SingletonTK y -> ListR k (target y)
              -> target (BuildTensorKind k y)
   tfromListR stk l =
-    tfromVector (listrRank l) stk . V.fromList . Foldable.toList $ l
+    tfromVector (listrRank l) stk  -- not valueOf @k, because k ambiguous
+    . V.fromListN (valueOf @k) . Foldable.toList
+    $ l
 
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain

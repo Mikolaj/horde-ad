@@ -231,7 +231,7 @@ instance ( ADReadyNoLet target, ShareTensor target
         in tconcrete (tftkG knownSTK arr) (Concrete arr)
       Nothing -> error "rbuild1: shape ambiguity"
     else let l = [0 .. fromIntegral k - 1]
-         in trfromVector $ V.fromList $ map (f . fromInteger) l
+         in trfromVector $ V.fromListN k $ map (f . fromInteger) l
               -- hope this fuses
 
   -- Shaped ops
@@ -290,7 +290,7 @@ instance ( ADReadyNoLet target, ShareTensor target
          in gcastWith (unsafeCoerceRefl :: k :~: 0) $
             tconcrete (tftkG knownSTK arr) (Concrete arr)
     else let l = [0 .. valueOf @k - 1]
-         in tsfromVector $ V.fromList $ map (f . fromInteger) l
+         in tsfromVector $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
               -- hope this fuses
 
   -- Mixed ops
@@ -368,7 +368,7 @@ instance ( ADReadyNoLet target, ShareTensor target
             tconcrete (tftkG knownSTK arr) (Concrete arr)
        Nothing -> error "xbuild1: shape ambiguity"
     else let l = [0 .. valueOf @k - 1]
-         in txfromVector $ V.fromList $ map (f . fromInteger) l
+         in txfromVector $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
               -- hope this fuses
 
   -- Scalar ops
@@ -525,7 +525,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tlambda _ = id
   -- Bangs are for the proper order of sharing stamps.
   tcond !stk !b !u !v =
-    let uv = tfromVector (SNat @2) stk (V.fromList [u, v])
+    let uv = tfromVector (SNat @2) stk (V.fromListN 2 [u, v])
     in tindexBuild (SNat @2) stk uv (tcond knownSTK b 0 1)
   tprimalPart (D u _) = u
   tdualPart _stk (D _ u') = u'

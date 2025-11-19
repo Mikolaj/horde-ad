@@ -81,7 +81,7 @@ instance LetTensor Concrete where
   {-# INLINE tscan #-}
   tscan k@(SNat @k) nstk stk f x0 as =
     tfromVector (SNat @(1 + k)) nstk
-    $ V.scanl' f x0 (V.fromList $ tunravelToListShare k stk as)
+    $ V.scanl' f x0 (V.fromListN (sNatValue k) $ tunravelToListShare k stk as)
 
 instance ShareTensor Concrete where
   tshare = id
@@ -777,7 +777,7 @@ ravel :: forall k y.
          SNat k -> SingletonTK y -> [Concrete y]
       -> Concrete (BuildTensorKind k y)
 {-# INLINE ravel #-}
-ravel k stk l = tfromVector k stk (V.fromList l)
+ravel k stk l = tfromVector k stk (V.fromListN (sNatValue k) l)
 
 unravel :: forall k y.
            SNat k -> SingletonTK y -> Concrete (BuildTensorKind k y)
@@ -860,7 +860,7 @@ updateNR arr upd = case knownSTK @x of
         f i v = case lookup (fromLinearIdxR @n shNested (fromIntegral i)) upd of
           Just u -> rnest (SNat @0) u
           Nothing -> v
-    in runNest $ trfromVector0N shNested $ V.fromList
+    in runNest $ trfromVector0N shNested $ V.fromListN (shrSize shNested)
        $ imap f $ trunravelToList $ rflatten arrNested
 
 tminIndexR
@@ -1141,7 +1141,8 @@ updateNS _ arr upd = case knownSTK @r of
                                  shNested (fromIntegral i)) upd of
             Just u -> snest (knownShS @'[]) u
             Nothing -> v
-      in sunNest @_ @(Take n sh) $ tsfromVector0N $ V.fromList
+      in sunNest @_ @(Take n sh) $ tsfromVector0N
+         $ V.fromListN (shsSize shNested)
          $ imap f $ tsunravelToList $ sflatten arrNested
 
 tfromIntegralS :: (GoodScalar r1, Integral r1, NumScalar r2)
@@ -1376,7 +1377,8 @@ updateNX _ arr upd = case knownSTK @r of
             Just u -> xnest ZKX u
             Nothing -> v
       in withSNat (shxSize shNested) $ \snat ->
-           xunNest @_ @(Take n sh) $ txfromVector0N shNested $ V.fromList
+           xunNest @_ @(Take n sh) $ txfromVector0N shNested
+           $ V.fromListN (shxSize shNested)
            $ imap f $ txunravelToList
            $ Concrete $ Nested.mcast (Nested.SKnown snat :!% ZKX)
            $ unConcrete $ xflatten arrNested

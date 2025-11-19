@@ -33,7 +33,7 @@ type ADFcnnMnist1Parameters
 -- as lists of vectors.
 listMatmul1
   :: forall target r w1 w2.
-     (ADReady target, NumScalar r, KnownNat w1)
+     (ADReady target, NumScalar r, KnownNat w1, KnownNat w2)
   => target (TKS '[w1] r) -> ListR w2 (target (TKS '[w1] r))
   -> target (TKS '[w2] r)
 {-# INLINE listMatmul1 #-}  -- this doesn't want to specialize

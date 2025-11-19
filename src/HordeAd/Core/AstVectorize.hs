@@ -192,7 +192,7 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       else error "build1V: AstVar can't contain other free variables"
     Ast.AstCond b u v -> traceRule $
       let stk0 = ftkToSTK ftk0
-          uv = astFromVector (SNat @2) stk0 (V.fromList [u, v])
+          uv = astFromVector (SNat @2) stk0 (V.fromListN 2 [u, v])
           -- We handle products specially to avoid duplicating a variable,
           -- for which we can then substitute indexing, no big deal,
           -- but each of the indexing can subsequently get turned

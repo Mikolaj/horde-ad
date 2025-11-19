@@ -183,7 +183,7 @@ rfromVector0N = trfromVector0N
 rfromList0N :: forall n x target. (KnownSTK x, BaseTensor target)
             => IShR n -> [target (TKR2 0 x)]
             -> target (TKR2 n x)
-rfromList0N sh = trfromVector0N sh . V.fromList
+rfromList0N sh = trfromVector0N sh . V.fromListN (shrSize sh)
 -- | Unravel a tensor into a list of its immediate subtensors.
 --
 -- Warning: during computation, sharing between the elements
@@ -197,9 +197,10 @@ runravelToList = trunravelToList
 -- | Create a tensor from a list treated as the outermost dimension,
 -- going through strict boxed vectors, because laziness is risky with
 -- impurity, e.g., it easily perturbs results of fragile tests.
-sfromList :: (KnownNat n, KnownShS sh, KnownSTK x, BaseTensor target)
+sfromList :: forall n sh x target.
+             (KnownNat n, KnownShS sh, KnownSTK x, BaseTensor target)
           => NonEmpty (target (TKS2 sh x)) -> target (TKS2 (n ': sh) x)
-sfromList = tsfromVector . V.fromList . NonEmpty.toList
+sfromList = tsfromVector . V.fromListN (valueOf @n) . NonEmpty.toList
 -- | Create a tensor from a non-empty strict boxed vector treated
 -- as the outermost dimension.
 sfromVector :: (KnownNat n, KnownShS sh, KnownSTK x, BaseTensor target)
@@ -210,10 +211,10 @@ sfromVector0N :: (KnownShS sh, KnownSTK x, BaseTensor target)
               => Data.Vector.Vector (target (TKS2 '[] x))
               -> target (TKS2 sh x)
 sfromVector0N = tsfromVector0N
-sfromList0N :: (KnownShS sh, KnownSTK x, BaseTensor target)
+sfromList0N :: forall sh x target. (KnownShS sh, KnownSTK x, BaseTensor target)
             => [target (TKS2 '[] x)]
             -> target (TKS2 sh x)
-sfromList0N = tsfromVector0N . V.fromList
+sfromList0N = tsfromVector0N . V.fromListN (shsSize (knownShS @sh))
 -- | Unravel a tensor into a list of its immediate subtensors.
 --
 -- Warning: during computation, sharing between the elements
@@ -242,7 +243,7 @@ xfromVector0N = txfromVector0N
 xfromList0N :: forall sh x target. (KnownSTK x, BaseTensor target)
             => IShX sh -> [target (TKX2 '[] x)]
             -> target (TKX2 sh x)
-xfromList0N sh = txfromVector0N sh . V.fromList
+xfromList0N sh = txfromVector0N sh . V.fromListN (shxSize sh)
 -- | Unravel a tensor into a list of its immediate subtensors.
 --
 -- Warning: during computation, sharing between the elements

@@ -1235,12 +1235,14 @@ astLet var (Ast.AstLet varN uN (Ast.AstPair u1 u2)) v =
 -- This is a common case, e.g., from representing conditionals.
 astLet var (Ast.AstFromVector snat stk u) v | V.length u == 2 =
   astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-    substituteAst (Ast.AstFromVector snat stk $ fromList [ast1, ast2]) var v
+    substituteAst (Ast.AstFromVector snat stk
+                   $ V.fromListN 2 [ast1, ast2]) var v
 astLet var (Ast.AstLet varN uN
               (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
   astLet varN uN
   $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-      substituteAst (Ast.AstFromVector snat stk $ fromList [ast1, ast2]) var v
+      substituteAst (Ast.AstFromVector snat stk
+                     $ V.fromListN 2 [ast1, ast2]) var v
 astLet var (Ast.AstReplicate snat stk a) v =
   let var2 = mkAstVarName (ftkAst a) Nothing (varNameToAstVarId var)
       ast = Ast.AstReplicate snat stk $ astVar var2
@@ -2730,7 +2732,7 @@ astGatherKnobsS knobs shn v7@(Ast.AstFromVector _ (STKS _ x2) l)
                                   (l V.! j) (vrest4, subRest4)
     in astFromVector (SNat @m1')
                      (STKS (shsFromListS vrest4 `shsAppend` shn) x2)
-       $ V.fromList $ map f [0 .. valueOf @m1' - 1]
+       $ V.fromListN (valueOf @m1') $ map f [0 .. valueOf @m1' - 1]
 astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
   | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
       -- prevent a loop

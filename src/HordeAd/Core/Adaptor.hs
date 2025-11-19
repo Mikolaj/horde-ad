@@ -232,8 +232,8 @@ instance (BaseTensor target, ConvertTensor target, GoodScalar r)
   toTarget v = if V.null v
                then trconcrete Nested.remptyArray
                else trfromVector $ V.map rfromK v
-  fromTarget =
-    V.fromList . map kfromR . trunravelToList
+  fromTarget t =
+    V.fromListN (rwidth t) . map kfromR . trunravelToList $ t
                                 -- inefficient, but we probably can't do better
 
 type family Tups n t where
