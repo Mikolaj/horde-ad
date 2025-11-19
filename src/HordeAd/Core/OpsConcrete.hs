@@ -28,7 +28,7 @@ import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, sameNat, type (+))
+import GHC.TypeLits (KnownNat, type (+))
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
@@ -99,7 +99,7 @@ instance BaseTensor Concrete where
   {-# INLINE trfromVector #-}
   trfromVector @_ @r v | Dict <- eltDictRep (knownSTK @r) =
     case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
-      Just l -> Concrete $ Nested.rfromListOuter l
+      Just l -> Concrete $ Nested.rfromListOuterN (V.length v) l
       Nothing -> error "rfromVector: empty vector"
   {-# INLINE trfromVector0N #-}
   trfromVector0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
@@ -158,9 +158,7 @@ instance BaseTensor Concrete where
   {-# INLINE trmaxIndex #-}
   trmaxIndex = Concrete . tmaxIndexR . unConcrete
   {-# INLINE triota #-}
-  triota n = case NonEmpty.nonEmpty [0 .. fromIntegral n - 1] of
-    Nothing -> error "riota: n < 1"
-    Just l -> Concrete $ Nested.rfromList1 $ NonEmpty.map fromInteger l
+  triota n = trfromIntegral $ Concrete $ Nested.riota @Int n
   {-# INLINE trappend #-}
   trappend @_ @r u v | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ Nested.rappend (unConcrete u) (unConcrete v)
@@ -337,11 +335,7 @@ instance BaseTensor Concrete where
   {-# INLINE tsmaxIndex #-}
   tsmaxIndex = Concrete . tmaxIndexS . unConcrete
   {-# INLINE tsiota #-}
-  tsiota @n = case NonEmpty.nonEmpty [0 .. valueOf @n - 1] of
-    Nothing -> case sameNat (Proxy @n) (Proxy @0) of
-      Just Refl -> Concrete $ Nested.semptyArray ZSS
-      Nothing -> error "siota: n < 1"
-    Just l -> Concrete $ Nested.sfromList1 SNat $ NonEmpty.map fromInteger l
+  tsiota @n = tsfromIntegral $ Concrete $ Nested.siota @Int (SNat @n)
   {-# INLINE tsappend #-}
   tsappend @_ @_ @_ @r u v | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ Nested.sappend (unConcrete u) (unConcrete v)
@@ -387,7 +381,7 @@ instance BaseTensor Concrete where
     case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
       Just l -> Concrete
                 $ Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
-                $ Nested.mfromListOuter  l
+                $ Nested.mfromListOuterSN (SNat @n) l
       Nothing -> error "xfromVector: empty vector"
   {-# INLINE txfromVector0N #-}
   txfromVector0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
@@ -518,12 +512,7 @@ instance BaseTensor Concrete where
   {-# INLINE txmaxIndex #-}
   txmaxIndex = Concrete . tmaxIndexX . unConcrete
   {-# INLINE txiota #-}
-  txiota @n = case NonEmpty.nonEmpty [0 .. valueOf @n - 1] of
-    Nothing -> error "xiota: n < 1"
-    Just l -> Concrete
-              $ Nested.mcast (Nested.SKnown (SNat @n) :!% ZKX)
-              $ Nested.mfromList1
-              $ NonEmpty.map fromInteger l
+  txiota @n = txfromIntegral $ Concrete $ Nested.miota @Int (SNat @n)
   {-# INLINE txappend #-}
   txappend @_ @_ @_ @r u v | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ Nested.mappend (unConcrete u) (unConcrete v)
@@ -1105,7 +1094,7 @@ tgatherZ1R k t f = case (SNat @n, knownSTK @r) of
     0 -> Concrete
          $ Nested.rreshape (0 :$: shrDrop (rshape t)) Nested.remptyArray
     _ ->
-      Concrete $ Nested.rfromListOuter $ NonEmpty.fromList
+      Concrete $ Nested.rfromListOuterN k $ NonEmpty.fromList
       $ map (\i -> unConcrete $ t `trindex` f (Concrete i))
             [0 .. fromIntegral (k - 1)]
         -- this must be slightly faster than just
@@ -1528,20 +1517,19 @@ tgatherZ1X
   -> (IntOf Concrete -> IxXOf Concrete shp)
   -> Concrete (TKX2 (Just n2 ': shn) r)
 {-# INLINE tgatherZ1X #-}   -- this function takes a function as an argument
-tgatherZ1X SNat t f = case (knownShX @shn, knownSTK @r) of
+tgatherZ1X n2@SNat t f = case (knownShX @shn, knownSTK @r) of
   (ZKX, STKScalar) | Refl <- lemAppNil @shp ->  -- an optimized common case
     let l = [ unConcrete $ t `txindex0` (f (Concrete i))
             | i <- [0 .. valueOf @n2 - 1] ]
     in Concrete
        $ Nested.mfromListPrimLinear
            (SKnown SNat :$% shxDropSSX (knownShX @shp) (xshape t)) l
-  _ | Dict <- eltDictRep (knownSTK @r) -> case SNat @n2 of
+  _ | Dict <- eltDictRep (knownSTK @r) -> case n2 of
     SNat' @0 -> Concrete
                 $ Nested.memptyArray (shxDropSSX (knownShX @shp) $ xshape t)
     _ ->
       Concrete
-      $ Mixed.mcastPartial (SUnknown () :!% ZKX) (SKnown SNat :!% ZKX) Proxy
-      $ Nested.mfromListOuter $ NonEmpty.fromList
+      $ Nested.mfromListOuterSN n2 $ NonEmpty.fromList
       $ map (\i -> unConcrete $ t `txindex` f (Concrete i))
             [0 .. valueOf @n2 - 1]
         -- this must be slightly faster than just

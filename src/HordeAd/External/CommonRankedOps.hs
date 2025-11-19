@@ -54,7 +54,7 @@ rfromIndex1 :: forall n r target.
                , NumScalar r )
             => IxROf target n -> target (TKR 1 r)
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
-  Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
+  Just Refl -> const $ rconcrete $ Nested.remptyArray
   _ -> rfromIntegral . tfromPlain knownSTK . rfromList . NonEmpty.fromList
        . map rfromK . toList
 

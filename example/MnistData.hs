@@ -125,10 +125,8 @@ mkMnistDataBatchS :: forall batch_size r. (Nested.Elt r, KnownNat batch_size)
                   => [MnistDataS r] -> MnistDataBatchS batch_size r
 mkMnistDataBatchS l =
   let (inputs, targets) = unzip l
-  in ( Nested.sfromListOuter (SNat @batch_size)
-       $ NonEmpty.fromList inputs
-     , Nested.sfromListOuter (SNat @batch_size)
-       $ NonEmpty.fromList targets )
+  in ( Nested.sfromListOuter (SNat @batch_size) $ NonEmpty.fromList inputs
+     , Nested.sfromListOuter (SNat @batch_size) $ NonEmpty.fromList targets )
 {-# SPECIALIZE mkMnistDataBatchS :: forall batch_size. KnownNat batch_size => [MnistDataS Double] -> MnistDataBatchS batch_size Double #-}
 {-# SPECIALIZE mkMnistDataBatchS :: forall batch_size. KnownNat batch_size => [MnistDataS Float] -> MnistDataBatchS batch_size Float #-}
 

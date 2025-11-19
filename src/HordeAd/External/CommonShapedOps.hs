@@ -50,7 +50,7 @@ sfromIndex1 :: forall r sh target.
             => IxSOf target sh -> target (TKS '[Rank sh] r)
 sfromIndex1 =
   case shsRank (knownShS @sh) of
-    SNat' @0 -> const $ sconcrete $ Nested.sfromListPrimLinear knownShS []
+    SNat' @0 -> const $ sconcrete $ Nested.semptyArray knownShS
     SNat -> sfromR . rfromIntegral . tfromPlain knownSTK . rfromList
             . NonEmpty.fromList . map rfromK . toList
 
