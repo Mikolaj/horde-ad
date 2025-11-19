@@ -270,7 +270,7 @@ class ShareTensor (target :: Target) where
                       -> [target y]
   tunravelToListShare snat@SNat stk u = case stk of
     STKScalar -> let !uShared = tshare u
-                 in map kfromS $ tsunravelToList uShared
+                 in tkunravelToList uShared
     STKR SNat x | Dict <- lemKnownSTK x -> let !uShared = tshare u
                                            in trunravelToList uShared
     STKS sh x | Dict <- lemKnownSTK x -> let !uShared = tshare u
@@ -399,6 +399,12 @@ class ( Num (IntOf target)
              => Nested.Mixed sh r -> target (TKX sh r)
   tkconcrete :: GoodScalar r => r -> target (TKScalar r)
   tconcrete :: FullShapeTK y -> Concrete y -> target y
+  tkunravelToList :: forall n r.(KnownNat n, GoodScalar r)
+                  => target (TKS '[n] r) -> [target (TKScalar r)]
+  tkunravelToList t =
+    let f :: Int -> target (TKScalar r)
+        f i = tsindex0 t (fromIntegral i :.$ ZIS)
+    in map f [0 .. valueOf @n - 1]
 
   -- These nine methods can't be replaced by tfromVector, because the concrete
   -- instance has much faster implementations.

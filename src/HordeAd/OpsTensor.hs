@@ -22,7 +22,7 @@ module HordeAd.OpsTensor
   , rconcrete, rscalar, rrepl, ringestData, rfromListLinear
   , sconcrete, sscalar, srepl, singestData, sfromListLinear
   , xconcrete, xscalar, xrepl, xingestData, xfromListLinear
-  , kconcrete
+  , kconcrete, kunravelToList
   , rfromList, rfromVector, rfromVector0N, rfromList0N, runravelToList
   , sfromList, sfromVector, sfromVector0N, sfromList0N, sunravelToList
   , xfromList, xfromVector, xfromVector0N, xfromList0N, xunravelToList
@@ -163,6 +163,10 @@ xfromListLinear sh = xingestData sh . NonEmpty.toList
 kconcrete :: (GoodScalar r, BaseTensor target)
           => r -> target (TKScalar r)
 kconcrete = tkconcrete
+
+kunravelToList :: (KnownNat n, GoodScalar r, BaseTensor target)
+               => target (TKS '[n] r) -> [target (TKScalar r)]
+kunravelToList = tkunravelToList
 
 -- | Create a tensor from a list treated as the outermost dimension,
 -- going through strict boxed vectors, because laziness is risky with

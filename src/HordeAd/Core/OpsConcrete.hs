@@ -12,6 +12,7 @@ import Prelude hiding (foldl')
 
 import Control.Arrow (second)
 import Control.Exception.Assert.Sugar
+import Data.Array.Internal.ShapedS qualified as SS
 import Data.Coerce (Coercible, coerce)
 import Data.Default
 import Data.Foldable qualified as Foldable
@@ -89,6 +90,9 @@ instance ShareTensor Concrete where
   tunpair (Concrete (t1, t2)) = (Concrete t1, Concrete t2)
 
 instance BaseTensor Concrete where
+  {-# INLINE tkunravelToList #-}
+  tkunravelToList =
+    map Concrete . SS.toList . Nested.stoOrthotope . unConcrete
   -- Ranked ops
   {-# INLINE rshape #-}
   rshape @_ @r | Dict <- eltDictRep (knownSTK @r) = Nested.rshape . unConcrete
