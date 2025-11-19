@@ -417,6 +417,11 @@ backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 -- I can't switch to ixxFromLinear and ixxToLinear from ox-arrays
 -- even just because IntegralH is not available in ox-arrays.
 --
+-- The inlines are not needed due to function arguments,
+-- because there are none, but due to observed significant speedup
+-- they provide in tests that intensively use these operations.
+-- Maybe specialization doesn't quite work for them? Not verified.
+--
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing
 -- at a scalar. It may point at the start of a larger tensor instead.
@@ -424,19 +429,17 @@ backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 -- If any of the dimensions is 0 or if rank is 0, the result will be 0,
 -- which is fine, that's pointing at the start of the empty buffer.
 -- Note that the resulting 0 may be a complex term.
---
--- Warning: @fromInteger@ of type @j@ cannot be used.
 toLinearIdxR :: forall m n j. Num j
-             => (Int -> j) -> ShR (m + n) Int -> IxR m j -> j
+             => ShR (m + n) Int -> IxR m j -> j
 {-# INLINE toLinearIdxR #-}
-toLinearIdxR fromInt = \sh idx -> go sh idx (fromInt 0)
+toLinearIdxR = \sh idx -> go sh idx 0
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
     go :: ShR (m1 + n) Int -> IxR m1 j -> j -> j
-    go !sh ZIR !tensidx = fromInt (shrSize sh) * tensidx
-    go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromInt n * tensidx + i)
+    go !sh ZIR !tensidx = fromIntegral (shrSize sh) * tensidx
+    go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
 
 -- | Given a linear index into the buffer, get the corresponding
 -- multidimensional index. Here we require an index pointing at a scalar.
@@ -446,36 +449,29 @@ toLinearIdxR fromInt = \sh idx -> go sh idx (fromInt 0)
 -- and a fake index with correct length but lots of zeroes is produced,
 -- because it doesn't matter, because it's going to point at the start
 -- of the empty buffer anyway.
---
--- Warning: @fromInteger@ of type @j@ cannot be used.
 fromLinearIdxR :: forall n j. IntegralH j
-               => (Int -> j) -> ShR n Int -> j -> IxR n j
+               => ShR n Int -> j -> IxR n j
 {-# INLINE fromLinearIdxR #-}
-fromLinearIdxR fromInt = \sh lin -> case go sh lin of (# _, ix #) -> ix
+fromLinearIdxR = \sh lin -> case go sh lin of (# _, ix #) -> ix
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
     go :: ShR n1 Int -> j -> (# j, IxR n1 j #)
     go ZSR !n = (# n, ZIR #)
-    go (k :$: sh) _ | k == 0 =
-      (# fromInt 0, fromInt 0 :.: zeroOfR fromInt sh #)
+    go (k :$: sh) _ | k == 0 = (# 0, 0 :.: zeroOfR sh #)
     go (n :$: sh) lin =
       let (# tensLin, idxInTens #) = go sh lin
-          tensLin' = tensLin `quotH` fromInt n
-          i = tensLin `remH` fromInt n
+          tensLin' = tensLin `quotH` fromIntegral n
+          i = tensLin `remH` fromIntegral n
       in (# tensLin', i :.: idxInTens #)
 
--- | The zero index in this shape (not dependent on the actual integers).
-zeroOfR :: Num j => (Int -> j) -> ShR n i -> IxR n j
+-- | The zero index in this shape (not dependent on the actual integers
+-- inside indexes).
+zeroOfR :: Num j => ShR n i -> IxR n j
 {-# INLINE zeroOfR #-}
-zeroOfR _ ZSR = ZIR
-zeroOfR fromInt (_ :$: sh) = fromInt 0 :.: zeroOfR fromInt sh
+zeroOfR ZSR = ZIR
+zeroOfR (_ :$: sh) = 0 :.: zeroOfR sh
 
--- The inlines are not needed due to function arguments, because there
--- are none for shaped tensors, but due to observed significant speedup
--- they provide in tests that intensively use these operations.
--- Maybe specialization doesn't quite work for them? Not verified.
---
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing
 -- at a scalar. It may point at the start of a larger tensor instead.
@@ -521,48 +517,64 @@ fromLinearIdxS = \sh lin -> case go sh lin of (# _, ix #) -> ix
           i = tensLin `remH` fromIntegral (sNatValue n)
       in (# tensLin', i :.$ idxInTens #)
 
--- | The zero index in this shape (not dependent on the actual integers).
+-- | The zero index in this shape (not dependent on the actual integers
+-- inside indexes).
 zeroOfS :: Num j => ShS sh -> IxS sh j
 {-# INLINE zeroOfS #-}
 zeroOfS ZSS = ZIS
 zeroOfS ((:$$) _ sh) = 0 :.$ zeroOfS sh
 
+-- | Given a multidimensional index, get the corresponding linear
+-- index into the buffer. Note that the index doesn't need to be pointing
+-- at a scalar. It may point at the start of a larger tensor instead.
+--
+-- If any of the dimensions is 0 or if rank is 0, the result will be 0,
+-- which is fine, that's pointing at the start of the empty buffer.
+-- Note that the resulting 0 may be a complex term.
 toLinearIdxX :: forall sh1 sh2 j. Num j
-             => (Int -> j) -> IShX (sh1 ++ sh2) -> IxX sh1 j -> j
+             => IShX (sh1 ++ sh2) -> IxX sh1 j -> j
 {-# INLINE toLinearIdxX #-}
-toLinearIdxX fromInt = \sh idx -> go sh idx (fromInt 0)
+toLinearIdxX = \sh idx -> go sh idx 0
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
     go :: forall sh3. IShX (sh3 ++ sh2) -> IxX sh3 j -> j -> j
-    go !sh ZIX !tensidx = fromInt (shxSize sh) * tensidx
+    go !sh ZIX !tensidx = fromIntegral (shxSize sh) * tensidx
     go ((:$%) n sh) (i :.% idx) tensidx =
-      go sh idx (fromInt (fromSMayNat' n) * tensidx + i)
+      go sh idx (fromIntegral (fromSMayNat' n) * tensidx + i)
     go _ _ _ = error "toLinearIdxX: impossible pattern needlessly required"
 
+-- | Given a linear index into the buffer, get the corresponding
+-- multidimensional index. Here we require an index pointing at a scalar.
+--
+-- If any of the dimensions is 0, the linear index has to be 0
+-- (which we can't assert, because j may be a term and so == lies)
+-- and a fake index with correct length but lots of zeroes is produced,
+-- because it doesn't matter, because it's going to point at the start
+-- of the empty buffer anyway.
 fromLinearIdxX :: forall sh j. IntegralH j
-               => (Int -> j) -> IShX sh -> j -> IxX sh j
+               => IShX sh -> j -> IxX sh j
 {-# INLINE fromLinearIdxX #-}
-fromLinearIdxX fromInt = \sh lin -> case go sh lin of (# _, ix #) -> ix
+fromLinearIdxX = \sh lin -> case go sh lin of (# _, ix #) -> ix
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
     go :: IShX sh1 -> j -> (# j, IxX sh1 j #)
     go ZSX !n = (# n, ZIX #)
-    go ((:$%) k sh) _ | fromSMayNat' k == 0 =
-      (# fromInt 0, fromInt 0 :.% zeroOfX fromInt sh #)
+    go ((:$%) k sh) _ | fromSMayNat' k == 0 = (# 0, 0 :.% zeroOfX sh #)
     go ((:$%) n sh) lin =
       let (# tensLin, idxInTens #) = go sh lin
-          tensLin' = tensLin `quotH` fromInt (fromSMayNat' n)
-          i = tensLin `remH` fromInt (fromSMayNat' n)
+          tensLin' = tensLin `quotH` fromIntegral (fromSMayNat' n)
+          i = tensLin `remH` fromIntegral (fromSMayNat' n)
       in (# tensLin', i :.% idxInTens #)
 
--- | The zero index in this shape (not dependent on the actual integers).
-zeroOfX :: Num j => (Int -> j) -> IShX sh -> IxX sh j
+-- | The zero index in this shape (not dependent on the actual integers
+-- inside indexes).
+zeroOfX :: Num j => IShX sh -> IxX sh j
 {-# INLINE zeroOfX #-}
-zeroOfX _ ZSX = ZIX
-zeroOfX fromInt ((:$%) _ sh) = fromInt 0 :.% zeroOfX fromInt sh
+zeroOfX ZSX = ZIX
+zeroOfX ((:$%) _ sh) = 0 :.% zeroOfX sh
 
 
 -- * Shopping list for ox-arrays
