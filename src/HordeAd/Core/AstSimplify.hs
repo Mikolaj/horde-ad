@@ -97,7 +97,7 @@ import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
-import HordeAd.Core.CarriersAst (sunReplicate1, sunReplicateN, sunReplicateScal)
+import HordeAd.Core.CarriersAst (sunReplicate1, sunReplicateN, sunReplicatePrim)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
@@ -4220,7 +4220,7 @@ unRepl :: AstSpan s
 unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
 unRepl (Ast.AstReplicate _ STKScalar u) = Just $ astSFromK' u
 unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
-unRepl (AstConcreteS a) = AstConcreteS . Nested.sscalar <$> sunReplicateScal a
+unRepl (AstConcreteS a) = AstConcreteS . Nested.sscalar <$> sunReplicatePrim a
 unRepl (Ast.AstCond b v1 v2) = do
   u1 <- unRepl v1
   u2 <- unRepl v2

@@ -9,7 +9,7 @@
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
   , astShareNoSimplify, astLetFunNoSimplify
-  , sunReplicate1, sunReplicateN, sunReplicateScal
+  , sunReplicate1, sunReplicateN, sunReplicatePrim
   ) where
 
 import Prelude hiding (foldl')
@@ -812,7 +812,7 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
       AstConvert c (remH n k)
   remH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (remH n k)
   remH z _ | Just 0 <- unReplC z = z
---  remH _ (AstConcreteS s) | Just 1 <- sunReplicateScal s = AstConcreteS 0
+--  remH _ (AstConcreteS s) | Just 1 <- sunReplicatePrim s = AstConcreteS 0
   remH u v = AstI2S RemOp u v
 
 instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
@@ -1478,14 +1478,14 @@ astLetFunNoSimplify a f = case a of
     ftk -> let (var, ast) = funToAst2 ftk Nothing f
            in AstLet var a ast
 
-sunReplicateScal :: Nested.Elt a
+sunReplicatePrim :: Nested.Elt a
                  => Nested.Shaped sh a -> Maybe a
-sunReplicateScal (Nested.Shaped arr)
+sunReplicatePrim (Nested.Shaped arr)
   | all (all (== 0) . take (shxLength (Nested.mshape arr)))
         (Mixed.marrayStrides arr)
   , shxSize (Nested.mshape arr) /= 0 =
     Just $ Nested.mindex arr $ ixxZero' $ Nested.mshape arr
-sunReplicateScal _ = Nothing
+sunReplicatePrim _ = Nothing
 
 sunReplicate1 :: Nested.Elt a
               => Nested.Shaped (n ': sh) a -> Maybe (Nested.Shaped sh a)
@@ -1503,9 +1503,9 @@ sunReplicateN _ _ = Nothing
 
 unReplC :: AstSpan s
         => AstTensor ms s (TKS sh r) -> Maybe r
-unReplC (AstReplicate _ _ (AstConcreteS a)) = sunReplicateScal a
+unReplC (AstReplicate _ _ (AstConcreteS a)) = sunReplicatePrim a
 unReplC (AstReplicate _ _ (AstConcreteK a)) = Just a
-unReplC (AstConcreteS a) = sunReplicateScal a
+unReplC (AstConcreteS a) = sunReplicatePrim a
 unReplC (AstLet _ _ t) = unReplC t
 unReplC (AstPrimalPart t) = unReplC t
 unReplC (AstDualPart t) = unReplC t
