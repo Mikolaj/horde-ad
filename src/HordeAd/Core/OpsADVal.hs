@@ -166,8 +166,34 @@ instance (ADReadyNoLet target, ShareTensor target)
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target), ShareTensor (PlainOf target) )
          => BaseTensor (ADVal target) where
-  -- Ranked ops
   rshape (D u _) = rshape u
+  sshape (D u _) = sshape u
+  xshape (D u _) = xshape u
+  tftk _stk (D _ u') = ftkDelta u'
+  tpair (D u u') (D v v') = dDnotShared (tpair u v) (DeltaPair u' v')
+  tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unDeltaPairUnshared u')
+  tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
+  -- Bangs are for the proper order of sharing stamps.
+  tcond !stk !b !u !v =
+    let uv = tfromVector (SNat @2) stk (V.fromListN 2 [u, v])
+    in tindexBuild (SNat @2) stk uv (tcond knownSTK b 0 1)
+  trconcrete a =
+    let v = trconcrete a
+    in fromPrimalFTK (FTKR (Nested.rshape a) FTKScalar) v
+  tsconcrete a =
+    let v = tsconcrete a
+    in fromPrimalFTK (FTKS (Nested.sshape a) FTKScalar) v
+  txconcrete a =
+    let v = txconcrete a
+    in fromPrimalFTK (FTKX (Nested.mshape a) FTKScalar) v
+  tkconcrete a =
+    let v = tkconcrete a
+    in fromPrimalFTK FTKScalar v
+  tconcrete ftk t | Dict <- lemKnownSTK (ftkToSTK ftk) =
+    fromPrimalFTK ftk $ tconcrete ftk t
+  tfromVector snat stk lu =
+    dD (tfromVector snat stk $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVector snat stk $ V.map (\(D _ u') -> u') lu)
   trsum (D u u') = withSNat (rwidth u) $ \snat ->
     dD (trsum u) (DeltaSum snat knownSTK u')
   trsum0 (D u u') = dD (trsum0 u) (DeltaSum0R u')
@@ -185,57 +211,6 @@ instance ( ADReadyNoLet target, ShareTensor target
              * trtranspose [1,0] (trreplicate (rwidth m1) m2))
   trreplicate k (D u u') = withSNat k $ \snat ->
     dD (trreplicate k u) (DeltaReplicate snat knownSTK u')
-  trindex (D u u') i =
-    let !ix = tshare <$> i
-    in dD (trindex u ix) (DeltaIndexR SNat u' ix)
-  trindex0 (D u u') i =
-    let !ix = tshare <$> i
-        c = convCmp ConvX0 ConvRX
-    in dD (trindex0 u ix) (DeltaConvert c (DeltaIndexR (SNat @0) u' ix))
-  trscatter sh (D u u') f =
-    dD (trscatter sh u f) (DeltaScatterR SNat SNat SNat sh u' f)
-  trgather sh (D u u') f =
-    dD (trgather sh u f) (DeltaGatherR SNat SNat SNat sh u' f)
-      -- Note how f is not interpreted as a function on dual numbers
-      -- but just on integers and so no cotangents for results of application
-      -- of f have to be computed and stored in contangent maps later on.
-      -- Note also how f is duplicated and this leads to loss of sharing
-      -- of indexes in AST instances.
-  trconcrete a =
-    let v = trconcrete a
-    in fromPrimalFTK (FTKR (Nested.rshape a) FTKScalar) v
-  trfloor (D u _) =
-    let v = trfloor u
-    in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
-  trfromIntegral (D u _) =
-    let v = trfromIntegral u
-    in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
-  trcast (D u u') = dD (trcast u) (DeltaCastR u')
-  trminIndex (D u _) =
-    let v = trminIndex u
-    in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
-  trmaxIndex (D u _) =
-    let v = trmaxIndex u
-    in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
-  triota n = fromPrimalFTK (FTKR (n :$: ZSR) FTKScalar) $ triota n
-  trappend (D u u') (D v v') = dD (trappend u v) (DeltaAppendR u' v')
-  trslice i n (D u u') = dD (trslice i n u) (DeltaSliceR i n u')
-  trreverse (D u u') = dD (trreverse u) (DeltaReverseR u')
-  trtranspose perm (D u u') = dD (trtranspose perm u) (DeltaTransposeR perm u')
-  trreshape sh (D u u') = dD (trreshape sh u) (DeltaReshapeR sh u')
-  trbuild1 @n @x k f =
-    if k == 0
-    then case sameNat (Proxy @n) (Proxy @0) of
-      Just Refl | Dict <- eltDictRep (knownSTK @x) ->
-        let arr = Nested.remptyArray
-        in tconcrete (tftkG knownSTK arr) (Concrete arr)
-      Nothing -> error "rbuild1: shape ambiguity"
-    else let l = [0 .. fromIntegral k - 1]
-         in trfromVector $ V.fromListN k $ map (f . fromInteger) l
-              -- hope this fuses
-
-  -- Shaped ops
-  sshape (D u _) = sshape u
   tssum (D u u') = dD (tssum u) (DeltaSum SNat knownSTK u')
   tssum0 (D u u') = dD (tssum0 u) (DeltaSum0S u')
   tsdot0 (D ue u') (D ve v') =
@@ -251,50 +226,8 @@ instance ( ADReadyNoLet target, ShareTensor target
                        (tsreplicate SNat knownShS m1)
            * tstranspose (Permutation.makePerm @'[1, 0])
                          (tsreplicate SNat knownShS m2))
-  tsindex (D u u') i =
-    let !ix = tshare <$> i
-    in dD (tsindex u ix) (DeltaIndexS knownShS u' ix)
-  tsindex0 @sh (D u u') i | Refl <- lemAppNil @sh =
-    let !ix = tshare <$> i
-        c = convCmp ConvX0 ConvSX
-    in dD (tsindex0 u ix) (DeltaConvert c (DeltaIndexS ZSS u' ix))
-  tsscatter @shm @shn @shp (D u u') f =
-    dD (tsscatter @_ @shm @shn @shp u f)
-       (DeltaScatterS @shm @shn @shp knownShS knownShS knownShS u' f)
-  tsgather @shm @shn @shp (D u u') f =
-    dD (tsgather @_ @shm @shn @shp u f)
-       (DeltaGatherS @shm @shn @shp knownShS knownShS knownShS u' f)
-  tsconcrete a =
-    let v = tsconcrete a
-    in fromPrimalFTK (FTKS (Nested.sshape a) FTKScalar) v
-  tsfloor (D u _) =
-    let v = tsfloor u
-    in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
-  tsfromIntegral (D u _) =
-    let v = tsfromIntegral u
-    in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
-  tscast (D u u') = dD (tscast u) (DeltaCastS u')
-  tsminIndex (D u _) =
-    let v = tsminIndex u
-    in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
-  tsmaxIndex (D u _) =
-    let v = tsmaxIndex u
-    in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
-  tsiota = fromPrimalFTK (FTKS (SNat :$$ ZSS) FTKScalar) tsiota
-  tsappend (D u u') (D v v') = dD (tsappend u v) (DeltaAppendS u' v')
-  tsslice i n k (D u u') = dD (tsslice i n k u) (DeltaSliceS i n k u')
-  tsreverse (D u u') = dD (tsreverse u) (DeltaReverseS u')
-  tsbuild1 @k @sh @r f | Dict <- eltDictRep (knownSTK @r) =
-    if valueOf @k == (0 :: Int)
-    then let arr = Nested.semptyArray @_ @(RepConcrete r) (knownShS @sh)
-         in gcastWith (unsafeCoerceRefl :: k :~: 0) $
-            tconcrete (tftkG knownSTK arr) (Concrete arr)
-    else let l = [0 .. valueOf @k - 1]
-         in tsfromVector $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
-              -- hope this fuses
-
-  -- Mixed ops
-  xshape (D u _) = xshape u
+  tsreplicate snat sh (D u u') =
+    dD (tsreplicate snat sh u) (DeltaReplicate snat (STKS sh knownSTK) u')
   txsum (D u u') = dD (txsum u) (DeltaSum SNat knownSTK u')
   txsum0 (D u u') = dD (txsum0 u) (DeltaSum0X u')
   txdot0 (D ue u') (D ve v') =
@@ -323,6 +256,35 @@ instance ( ADReadyNoLet target, ShareTensor target
                          (txreplicate SNat knownShX m2))
   txreplicate snat sh (D u u') =
     dD (txreplicate snat sh u) (DeltaReplicate snat (STKX sh knownSTK) u')
+  trindex (D u u') i =
+    let !ix = tshare <$> i
+    in dD (trindex u ix) (DeltaIndexR SNat u' ix)
+  trindex0 (D u u') i =
+    let !ix = tshare <$> i
+        c = convCmp ConvX0 ConvRX
+    in dD (trindex0 u ix) (DeltaConvert c (DeltaIndexR (SNat @0) u' ix))
+  trscatter sh (D u u') f =
+    dD (trscatter sh u f) (DeltaScatterR SNat SNat SNat sh u' f)
+  trgather sh (D u u') f =
+    dD (trgather sh u f) (DeltaGatherR SNat SNat SNat sh u' f)
+      -- Note how f is not interpreted as a function on dual numbers
+      -- but just on integers and so no cotangents for results of application
+      -- of f have to be computed and stored in contangent maps later on.
+      -- Note also how f is duplicated and this leads to loss of sharing
+      -- of indexes in AST instances.
+  tsindex (D u u') i =
+    let !ix = tshare <$> i
+    in dD (tsindex u ix) (DeltaIndexS knownShS u' ix)
+  tsindex0 @sh (D u u') i | Refl <- lemAppNil @sh =
+    let !ix = tshare <$> i
+        c = convCmp ConvX0 ConvSX
+    in dD (tsindex0 u ix) (DeltaConvert c (DeltaIndexS ZSS u' ix))
+  tsscatter @shm @shn @shp (D u u') f =
+    dD (tsscatter @_ @shm @shn @shp u f)
+       (DeltaScatterS @shm @shn @shp knownShS knownShS knownShS u' f)
+  tsgather @shm @shn @shp (D u u') f =
+    dD (tsgather @_ @shm @shn @shp u f)
+       (DeltaGatherS @shm @shn @shp knownShS knownShS knownShS u' f)
   txindex (D u u') i =
     let !ix = tshare <$> i
     in dD (txindex u ix) (DeltaIndexX knownShX u' ix)
@@ -336,9 +298,34 @@ instance ( ADReadyNoLet target, ShareTensor target
   txgather @shm @shn @shp sh (D u u') f =
     dD (txgather @_ @shm @shn @shp sh u f)
        (DeltaGatherX @shm @shn @shp knownShX knownShX knownShX sh u' f)
-  txconcrete a =
-    let v = txconcrete a
-    in fromPrimalFTK (FTKX (Nested.mshape a) FTKScalar) v
+  trfloor (D u _) =
+    let v = trfloor u
+    in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
+  trfromIntegral (D u _) =
+    let v = trfromIntegral u
+    in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
+  trcast (D u u') = dD (trcast u) (DeltaCastR u')
+  trminIndex (D u _) =
+    let v = trminIndex u
+    in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
+  trmaxIndex (D u _) =
+    let v = trmaxIndex u
+    in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
+  triota n = fromPrimalFTK (FTKR (n :$: ZSR) FTKScalar) $ triota n
+  tsfloor (D u _) =
+    let v = tsfloor u
+    in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
+  tsfromIntegral (D u _) =
+    let v = tsfromIntegral u
+    in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
+  tscast (D u u') = dD (tscast u) (DeltaCastS u')
+  tsminIndex (D u _) =
+    let v = tsminIndex u
+    in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
+  tsmaxIndex (D u _) =
+    let v = tsmaxIndex u
+    in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
+  tsiota = fromPrimalFTK (FTKS (SNat :$$ ZSS) FTKScalar) tsiota
   txfloor (D u _) =
     let v = txfloor u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
@@ -353,12 +340,48 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = txmaxIndex u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
   txiota = fromPrimalFTK (FTKX (Nested.SKnown SNat :$% ZSX) FTKScalar) txiota
+  tkfloor (D u _) =
+    let v = tkfloor u
+    in fromPrimalFTK FTKScalar v
+  tkfromIntegral (D u _) =
+    let v = tkfromIntegral u
+    in fromPrimalFTK FTKScalar v
+  tkcast (D u u') = dD (tkcast u) (DeltaCastK u')
+  trappend (D u u') (D v v') = dD (trappend u v) (DeltaAppendR u' v')
+  trslice i n (D u u') = dD (trslice i n u) (DeltaSliceR i n u')
+  trreverse (D u u') = dD (trreverse u) (DeltaReverseR u')
+  trtranspose perm (D u u') = dD (trtranspose perm u) (DeltaTransposeR perm u')
+  trreshape sh (D u u') = dD (trreshape sh u) (DeltaReshapeR sh u')
+  tsappend (D u u') (D v v') = dD (tsappend u v) (DeltaAppendS u' v')
+  tsslice i n k (D u u') = dD (tsslice i n k u) (DeltaSliceS i n k u')
+  tsreverse (D u u') = dD (tsreverse u) (DeltaReverseS u')
+  tstranspose perm (D u u') =
+    dD (tstranspose perm u) (DeltaTransposeS @_ @_ @_ @target perm u')
+  tsreshape sh (D u u') = dD (tsreshape sh u) (DeltaReshapeS sh u')
   txappend (D u u') (D v v') = dD (txappend u v) (DeltaAppendX u' v')
   txslice i n k (D u u') = dD (txslice i n k u) (DeltaSliceX i n k u')
   txreverse (D u u') = dD (txreverse u) (DeltaReverseX u')
   txtranspose perm (D u u') =
     dD (txtranspose perm u) (DeltaTransposeX @_ @_ @_ @target perm u')
   txreshape sh (D u u') = dD (txreshape sh u) (DeltaReshapeX sh u')
+  trbuild1 @n @x k f =
+    if k == 0
+    then case sameNat (Proxy @n) (Proxy @0) of
+      Just Refl | Dict <- eltDictRep (knownSTK @x) ->
+        let arr = Nested.remptyArray
+        in tconcrete (tftkG knownSTK arr) (Concrete arr)
+      Nothing -> error "rbuild1: shape ambiguity"
+    else let l = [0 .. fromIntegral k - 1]
+         in trfromVector $ V.fromListN k $ map (f . fromInteger) l
+              -- hope this fuses
+  tsbuild1 @k @sh @r f | Dict <- eltDictRep (knownSTK @r) =
+    if valueOf @k == (0 :: Int)
+    then let arr = Nested.semptyArray @_ @(RepConcrete r) (knownShS @sh)
+         in gcastWith (unsafeCoerceRefl :: k :~: 0) $
+            tconcrete (tftkG knownSTK arr) (Concrete arr)
+    else let l = [0 .. valueOf @k - 1]
+         in tsfromVector $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
+              -- hope this fuses
   txbuild1 @k @sh @r f =
     if valueOf @k == (0 :: Int)
     then case testEquality (knownShX @sh) ZKX of
@@ -370,31 +393,6 @@ instance ( ADReadyNoLet target, ShareTensor target
     else let l = [0 .. valueOf @k - 1]
          in txfromVector $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
               -- hope this fuses
-
-  -- Scalar ops
-  tkconcrete a =
-    let v = tkconcrete a
-    in fromPrimalFTK FTKScalar v
-  tkfloor (D u _) =
-    let v = tkfloor u
-    in fromPrimalFTK FTKScalar v
-  tkfromIntegral (D u _) =
-    let v = tkfromIntegral u
-    in fromPrimalFTK FTKScalar v
-  tkcast (D u u') = dD (tkcast u) (DeltaCastK u')
-
-  -- General operations that don't require LetTensor nor ShareTensor
-  tftk _stk (D _ u') = ftkDelta u'
-  tconcrete ftk t | Dict <- lemKnownSTK (ftkToSTK ftk) =
-    fromPrimalFTK ftk $ tconcrete ftk t
-  tpair (D u u') (D v v') = dDnotShared (tpair u v) (DeltaPair u' v')
-  tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unDeltaPairUnshared u')
-  tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
-  tsreplicate snat sh (D u u') =
-    dD (tsreplicate snat sh u) (DeltaReplicate snat (STKS sh knownSTK) u')
-  tstranspose perm (D u u') =
-    dD (tstranspose perm u) (DeltaTransposeS @_ @_ @_ @target perm u')
-  tsreshape sh (D u u') = dD (tsreshape sh u) (DeltaReshapeS sh u')
   tmapAccumRDer @accy @by @ey _ !k accftk bftk eftk f df rf acc0D esD
    | Dict <- lemKnownSTKOfBuild k (ftkToSTK accftk)
    , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk)
@@ -523,17 +521,6 @@ instance ( ADReadyNoLet target, ShareTensor target
     in dD (tpair accFin bs) dual
   tapply (HFun f) = f
   tlambda _ = id
-  -- Bangs are for the proper order of sharing stamps.
-  tcond !stk !b !u !v =
-    let uv = tfromVector (SNat @2) stk (V.fromListN 2 [u, v])
-    in tindexBuild (SNat @2) stk uv (tcond knownSTK b 0 1)
-  tprimalPart (D u _) = u
-  tdualPart _stk (D _ u') = u'
-  tplainPart (D u _) = tplainPart u
-  tfromPrimal stk t = fromPrimalFTK (tftk stk t) t
-  tfromDual t = dDnotShared (tdefTarget (ftkDelta t)) t
-  tfromPlain stk t = fromPrimalFTK (tftk stk t) (tfromPlain stk t)
-  tScale _stk = dScale
   tgrad @x @r xftk h | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     let rf :: forall f. ADReady f
            => f x
@@ -570,11 +557,13 @@ instance ( ADReadyNoLet target, ShareTensor target
                              (unHFun h @(ADVal (ShareOf f)))
                              (toShare $ tproject1 da_aShared)
     in HFun df
-
-  tfromVector snat stk lu =
-    dD (tfromVector snat stk $ V.map (\(D u _) -> u) lu)
-       (DeltaFromVector snat stk $ V.map (\(D _ u') -> u') lu)
-
+  tprimalPart (D u _) = u
+  tdualPart _stk (D _ u') = u'
+  tplainPart (D u _) = tplainPart u
+  tfromPrimal stk t = fromPrimalFTK (tftk stk t) t
+  tfromDual t = dDnotShared (tdefTarget (ftkDelta t)) t
+  tfromPlain stk t = fromPrimalFTK (tftk stk t) (tfromPlain stk t)
+  tScale _stk = dScale
   treplTarget r ftk = dDnotShared (treplTarget r ftk) (DeltaZero ftk)
   tdefTarget ftk = dDnotShared (tdefTarget ftk) (DeltaZero ftk)
   taddTarget = addTarget

@@ -239,12 +239,31 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
 -- | The checks and error messages in these functions result in complete
 -- shape-checking of the ranked and mixed user code (shaped is already
 -- fully checked by the Haskell type system).
+--
+-- Them methods are listed in ranked, shaped, mixed order to keep
+-- similar code transformations together.
 instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Ranked ops
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
   trsum v = withSNat (rwidth v) $ \snat -> astSum snat knownSTK v
   trreplicate k = withSNat k $ \snat -> astReplicate snat knownSTK
+  trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (Concrete a)
+  trfloor @_ @r2 a = case ftkAst a of
+    FTKR sh' FTKScalar ->
+      withShsFromShR sh' $ \(sh :: ShS sh) ->
+        astFromS' @(TKS sh r2) (FTKR sh' FTKScalar)
+        . fromPlain . astFloorS . astPlainPart . astSFromR' @sh sh $ a
+  trfromIntegral @_ @r2 a = case ftkAst a of
+    FTKR sh' FTKScalar ->
+      withShsFromShR sh' $ \(sh :: ShS sh) ->
+        astFromS' @(TKS sh r2) (FTKR sh' FTKScalar)
+        . fromPlain . astFromIntegralS . astPlainPart . astSFromR' @sh sh $ a
+  trcast @_ @r2 a = case ftkAst a of
+    FTKR sh' FTKScalar ->
+      withShsFromShR sh' $ \(sh :: ShS sh) ->
+        astFromS' @(TKS sh r2) (FTKR sh' FTKScalar)
+        . astCastS . astSFromR' sh $ a
   trindex @m @n a ix = case ftkAst a of
     FTKR @_ @x shmshn x ->
       withShsFromShR shmshn $ \(sh :: ShS sh) ->
@@ -306,22 +325,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
-  trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (Concrete a)
-  trfloor @_ @r2 a = case ftkAst a of
-    FTKR sh' FTKScalar ->
-      withShsFromShR sh' $ \(sh :: ShS sh) ->
-        astFromS' @(TKS sh r2) (FTKR sh' FTKScalar)
-        . fromPlain . astFloorS . astPlainPart . astSFromR' @sh sh $ a
-  trfromIntegral @_ @r2 a = case ftkAst a of
-    FTKR sh' FTKScalar ->
-      withShsFromShR sh' $ \(sh :: ShS sh) ->
-        astFromS' @(TKS sh r2) (FTKR sh' FTKScalar)
-        . fromPlain . astFromIntegralS . astPlainPart . astSFromR' @sh sh $ a
-  trcast @_ @r2 a = case ftkAst a of
-    FTKR sh' FTKScalar ->
-      withShsFromShR sh' $ \(sh :: ShS sh) ->
-        astFromS' @(TKS sh r2) (FTKR sh' FTKScalar)
-        . astCastS . astSFromR' sh $ a
   trminIndex @_ @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
@@ -420,6 +423,11 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sshape t = case ftkAst t of
     FTKS sh _ -> sh
   tssum = astSum SNat knownSTK
+  tsreplicate snat sh = astReplicate snat (STKS sh knownSTK)
+  tsconcrete = fromPlain . AstConcreteS
+  tsfloor = fromPlain . astFloorS . astPlainPart
+  tsfromIntegral = fromPlain . astFromIntegralS . astPlainPart
+  tscast = astCastS
   tsindex = astIndexS knownShS
   tsindex0 @sh a ix | Refl <- lemAppNil @sh = kfromS $ tsindex a ix
   tsscatter @shm @shn @shp t f =
@@ -428,16 +436,14 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tsgather @shm @shn @shp t f =
     astGatherS @shm @shn @shp knownShS t
     $ funToAstIxS knownShS f  -- this introduces new variable names
-  tsconcrete = fromPlain . AstConcreteS
-  tsfloor = fromPlain . astFloorS . astPlainPart
-  tsfromIntegral = fromPlain . astFromIntegralS . astPlainPart
-  tscast = astCastS
   tsminIndex = fromPlain . AstMinIndexS . astPlainPart
   tsmaxIndex = fromPlain . AstMaxIndexS . astPlainPart
   tsiota = fromPlain $ AstIotaS SNat
   tsappend = astAppendS
   tsslice = astSliceS
   tsreverse = astReverseS
+  tstranspose = astTransposeS
+  tsreshape = astReshapeS
   tsbuild1 @k @sh @x =
     astBuild1Vectorize (SNat @k) (STKS (knownShS @sh) (knownSTK @x))
 
@@ -446,6 +452,23 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKX sh _ -> sh
   txsum = astSum SNat knownSTK
   txreplicate snat sh = astReplicate snat (STKX sh knownSTK)
+  txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (Concrete a)
+  txfloor @_ @r2 @sh' a = case ftkAst a of
+    FTKX sh' FTKScalar ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
+        astFromS' @(TKS sh r2) (FTKX sh' FTKScalar)
+        . fromPlain . astFloorS . astPlainPart . astSFromX' @sh @sh' sh $ a
+  txfromIntegral @_ @r2 @sh' a = case ftkAst a of
+    FTKX sh' FTKScalar ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
+        astFromS' @(TKS sh r2) (FTKX sh' FTKScalar)
+        . fromPlain . astFromIntegralS
+        . astPlainPart . astSFromX' @sh @sh' sh $ a
+  txcast @_ @r2 a = case ftkAst a of
+    FTKX sh' FTKScalar ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
+        astFromS' @(TKS sh r2) (FTKX sh' FTKScalar)
+        . astCastS . astSFromX' sh $ a
   txindex @sh1 @sh2 a ix = case ftkAst a of
     FTKX @sh1sh2 @x sh1sh2 x | SNat <- ssxRank (knownShX @sh1) ->
       withShsFromShX sh1sh2 $ \(sh :: ShS sh) ->
@@ -522,23 +545,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           _ -> error $ "xgather: shapes don't match: "
                        ++ show ( shsDrop @(Rank shp) shpshn
                                , shsDrop @(Rank shm) shmshn )
-  txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (Concrete a)
-  txfloor @_ @r2 @sh' a = case ftkAst a of
-    FTKX sh' FTKScalar ->
-      withShsFromShX sh' $ \(sh :: ShS sh) ->
-        astFromS' @(TKS sh r2) (FTKX sh' FTKScalar)
-        . fromPlain . astFloorS . astPlainPart . astSFromX' @sh @sh' sh $ a
-  txfromIntegral @_ @r2 @sh' a = case ftkAst a of
-    FTKX sh' FTKScalar ->
-      withShsFromShX sh' $ \(sh :: ShS sh) ->
-        astFromS' @(TKS sh r2) (FTKX sh' FTKScalar)
-        . fromPlain . astFromIntegralS
-        . astPlainPart . astSFromX' @sh @sh' sh $ a
-  txcast @_ @r2 a = case ftkAst a of
-    FTKX sh' FTKScalar ->
-      withShsFromShX sh' $ \(sh :: ShS sh) ->
-        astFromS' @(TKS sh r2) (FTKX sh' FTKScalar)
-        . astCastS . astSFromX' sh $ a
   txminIndex @_ @_ @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
@@ -615,13 +621,12 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst
-  tconcrete ftk a = fromPlain $ astConcrete ftk a
   tpair = astPair
   tproject1 = astProject1
   tproject2 = astProject2
-  tsreplicate snat sh = astReplicate snat (STKS sh knownSTK)
-  tstranspose = astTransposeS
-  tsreshape = astReshapeS
+  tcond _ !b !u !v = astCond b u v
+  tconcrete ftk a = fromPlain $ astConcrete ftk a
+  tfromVector = astFromVector
   tmapAccumRDer _ !k _ !bftk !eftk f df rf acc0 es =
     astMapAccumRDer k bftk eftk f df rf acc0 es
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
@@ -630,13 +635,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tlambda ftk f =
     let (var, ast) = funToAst ftk Nothing $ unHFun f
     in AstLambda var ast
-  tcond _ !b !u !v = astCond b u v
-  tprimalPart = astPrimalPart
-  tdualPart _ = dualPart
-  tplainPart = astPlainPart
-  tfromPrimal _ = fromPrimal
-  tfromDual = fromDual
-  tfromPlain _ = fromPlain
   tgrad @_ @r xftk f | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     -- We don't have an AST constructor to hold it, so we compute outright.
     --
@@ -680,7 +678,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           in interpretAst env $ simplifyInline artDerivativeFwd
     in AstLambda varP ast
 
-  tfromVector = astFromVector
   tsum snat@SNat stk u = case stk of
     STKScalar -> kfromS $ tssum u
     STKR SNat x | Dict <- lemKnownSTK x -> trsum u
@@ -708,6 +705,13 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
       ttlet u $ \ !u3 ->
         tpair (tindexBuild snat stk1 (tproject1 u3) i)
               (tindexBuild snat stk2 (tproject2 u3) i)
+
+  tprimalPart = astPrimalPart
+  tdualPart _ = dualPart
+  tplainPart = astPlainPart
+  tfromPrimal _ = fromPrimal
+  tfromDual = fromDual
+  tfromPlain _ = fromPlain
 
   treplTarget = replTarget
   tdefTarget = defTarget
@@ -748,6 +752,22 @@ instance AstSpan s => BaseTensor (AstRaw s) where
               AstRaw . AstSum snat knownSTK . unAstRaw $ v
   trreplicate k = withSNat k $ \snat ->
     AstRaw . AstReplicate snat knownSTK . unAstRaw
+  trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (Concrete a)
+  trfloor @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKR sh' FTKScalar ->
+      withShsFromShR sh' $ \(sh :: ShS sh) ->
+        cAstFromS @(TKS sh r2) (FTKR sh' FTKScalar)
+        . fromPlain . AstFloorS . plainPart . cAstSFromR @sh sh $ a
+  trfromIntegral @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKR sh' FTKScalar ->
+      withShsFromShR sh' $ \(sh :: ShS sh) ->
+        cAstFromS @(TKS sh r2) (FTKR sh' FTKScalar)
+        . fromPlain . AstFromIntegralS . plainPart . cAstSFromR @sh sh $ a
+  trcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKR sh' FTKScalar ->
+      withShsFromShR sh' $ \(sh :: ShS sh) ->
+        cAstFromS @(TKS sh r2) (FTKR sh' FTKScalar)
+        . AstCastS . cAstSFromR sh $ a
   trindex @m @n (AstRaw a) ix = AstRaw $ case ftkAst a of
     FTKR @_ @x shmshn x ->
       withShsFromShR shmshn $ \(sh :: ShS sh) ->
@@ -813,22 +833,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
-  trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (Concrete a)
-  trfloor @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR sh' FTKScalar ->
-      withShsFromShR sh' $ \(sh :: ShS sh) ->
-        cAstFromS @(TKS sh r2) (FTKR sh' FTKScalar)
-        . fromPlain . AstFloorS . plainPart . cAstSFromR @sh sh $ a
-  trfromIntegral @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR sh' FTKScalar ->
-      withShsFromShR sh' $ \(sh :: ShS sh) ->
-        cAstFromS @(TKS sh r2) (FTKR sh' FTKScalar)
-        . fromPlain . AstFromIntegralS . plainPart . cAstSFromR @sh sh $ a
-  trcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKR sh' FTKScalar ->
-      withShsFromShR sh' $ \(sh :: ShS sh) ->
-        cAstFromS @(TKS sh r2) (FTKR sh' FTKScalar)
-        . AstCastS . cAstSFromR sh $ a
   trminIndex @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
@@ -931,6 +935,12 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   sshape t = case ftkAst $ unAstRaw t of
     FTKS sh _ -> sh
   tssum = AstRaw . AstSum SNat knownSTK . unAstRaw
+  tsreplicate snat sh = AstRaw . AstReplicate snat (STKS sh knownSTK) . unAstRaw
+  tsconcrete = AstRaw . fromPlain . AstConcreteS
+  tsfloor = AstRaw . fromPlain . AstFloorS . plainPart . unAstRaw
+  tsfromIntegral =
+    AstRaw . fromPlain . AstFromIntegralS . plainPart . unAstRaw
+  tscast = AstRaw . AstCastS . unAstRaw
   tsindex v ix = AstRaw $ AstIndexS knownShS (unAstRaw v) (unAstRaw <$> ix)
   tsindex0 @sh a ix | Refl <- lemAppNil @sh = kfromS $ tsindex a ix
   tsscatter @shm @shn @shp t f =
@@ -941,17 +951,14 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstGatherS @shm @shn @shp knownShS (unAstRaw t)
            $ funToAstIxS knownShS (fmap unAstRaw . f . fmap AstRaw)
                -- this introduces new variable names
-  tsconcrete = AstRaw . fromPlain . AstConcreteS
-  tsfloor = AstRaw . fromPlain . AstFloorS . plainPart . unAstRaw
-  tsfromIntegral =
-    AstRaw . fromPlain . AstFromIntegralS . plainPart . unAstRaw
-  tscast = AstRaw . AstCastS . unAstRaw
   tsminIndex = AstRaw . fromPlain . AstMinIndexS . plainPart . unAstRaw
   tsmaxIndex = AstRaw . fromPlain . AstMaxIndexS . plainPart . unAstRaw
   tsiota = AstRaw . fromPlain $ AstIotaS SNat
   tsappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
   tsslice i n k = AstRaw . AstSliceS i n k . unAstRaw
   tsreverse = AstRaw . AstReverseS . unAstRaw
+  tstranspose perm = AstRaw . AstTransposeS perm . unAstRaw
+  tsreshape sh = AstRaw . AstReshapeS sh . unAstRaw
   tsbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
                   $ funToAstI (Just (0, valueOf @k - 1))
                       -- this introduces new variable names
@@ -962,6 +969,23 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     FTKX sh _ -> sh
   txsum = AstRaw . AstSum SNat knownSTK . unAstRaw
   txreplicate snat sh = AstRaw . AstReplicate snat (STKX sh knownSTK) . unAstRaw
+  txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (Concrete a)
+  txfloor @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh' FTKScalar ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
+        cAstFromS @(TKS sh r2) (FTKX sh' FTKScalar)
+        . fromPlain . AstFloorS . plainPart . cAstSFromX @sh @sh' sh $ a
+  txfromIntegral @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh' FTKScalar ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
+        cAstFromS @(TKS sh r2) (FTKX sh' FTKScalar)
+        . fromPlain . AstFromIntegralS
+        . plainPart . cAstSFromX @sh @sh' sh $ a
+  txcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+    FTKX sh' FTKScalar ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
+        cAstFromS @(TKS sh r2) (FTKX sh' FTKScalar)
+        . AstCastS . cAstSFromX sh $ a
   txindex @sh1 @sh2 (AstRaw a) ix = case ftkAst a of
     FTKX @sh1sh2 @x sh1sh2 x | SNat <- ssxRank (knownShX @sh1) ->
       withShsFromShX sh1sh2 $ \(sh :: ShS sh) ->
@@ -1042,23 +1066,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           _ -> error $ "xgather: shapes don't match: "
                        ++ show ( shsDrop @(Rank shp) shpshn
                                , shsDrop @(Rank shm) shmshn )
-  txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (Concrete a)
-  txfloor @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh' FTKScalar ->
-      withShsFromShX sh' $ \(sh :: ShS sh) ->
-        cAstFromS @(TKS sh r2) (FTKX sh' FTKScalar)
-        . fromPlain . AstFloorS . plainPart . cAstSFromX @sh @sh' sh $ a
-  txfromIntegral @_ @r2 @sh' (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh' FTKScalar ->
-      withShsFromShX sh' $ \(sh :: ShS sh) ->
-        cAstFromS @(TKS sh r2) (FTKX sh' FTKScalar)
-        . fromPlain . AstFromIntegralS
-        . plainPart . cAstSFromX @sh @sh' sh $ a
-  txcast @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
-    FTKX sh' FTKScalar ->
-      withShsFromShX sh' $ \(sh :: ShS sh) ->
-        cAstFromS @(TKS sh r2) (FTKX sh' FTKScalar)
-        . AstCastS . cAstSFromX sh $ a
   txminIndex @_ @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
@@ -1139,26 +1146,19 @@ instance AstSpan s => BaseTensor (AstRaw s) where
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst . unAstRaw
-  tconcrete ftk a = AstRaw $ fromPlain $ unAstRaw $ astConcreteRaw ftk a
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
-  tsreplicate snat sh = AstRaw . AstReplicate snat (STKS sh knownSTK) . unAstRaw
-  tstranspose perm = AstRaw . AstTransposeS perm . unAstRaw
-  tsreshape sh = AstRaw . AstReshapeS sh . unAstRaw
+  tcond _ !b !u !v = AstRaw $ AstCond (unAstRaw b) (unAstRaw u) (unAstRaw v)
+  tconcrete ftk a = AstRaw $ fromPlain $ unAstRaw $ astConcreteRaw ftk a
+  tfromVector k stk =
+    AstRaw . AstFromVector k stk . V.map unAstRaw
   tmapAccumRDer _ !k _ !bftk !eftk f df rf acc0 es =
     AstRaw $ AstMapAccumRDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
     AstRaw $ AstMapAccumLDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
   tapply t ll = AstRaw $ AstApply t (unAstRaw ll)
   tlambda = tlambda @(AstTensor AstMethodLet s)
-  tcond _ !b !u !v = AstRaw $ AstCond (unAstRaw b) (unAstRaw u) (unAstRaw v)
-  tprimalPart t = AstRaw $ primalPart $ unAstRaw t
-  tdualPart _ t = dualPart $ unAstRaw t
-  tplainPart t = AstRaw $ plainPart $ unAstRaw t
-  tfromPrimal _ t = AstRaw $ fromPrimal $ unAstRaw t
-  tfromDual t = AstRaw $ fromDual t
-  tfromPlain _ t = AstRaw $ fromPlain $ unAstRaw t
   -- These three methods are called at this type in delta evaluation via
   -- tmapAccumR and tmapAccumL, so they have to work. We could refrain from
   -- simplifying the resulting terms, but it's not clear that's more consistent.
@@ -1166,8 +1166,12 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tvjp = tvjp @(AstTensor AstMethodLet s)
   tjvp = tjvp @(AstTensor AstMethodLet s)
 
-  tfromVector k stk =
-    AstRaw . AstFromVector k stk . V.map unAstRaw
+  tprimalPart t = AstRaw $ primalPart $ unAstRaw t
+  tdualPart _ t = dualPart $ unAstRaw t
+  tplainPart t = AstRaw $ plainPart $ unAstRaw t
+  tfromPrimal _ t = AstRaw $ fromPrimal $ unAstRaw t
+  tfromDual t = AstRaw $ fromDual t
+  tfromPlain _ t = AstRaw $ fromPlain $ unAstRaw t
 
   treplTarget = replTarget
   tdefTarget = defTarget
@@ -1308,6 +1312,10 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   rshape = rshape . unAstNoVectorize
   trsum = AstNoVectorize . trsum . unAstNoVectorize
   trreplicate k = AstNoVectorize . trreplicate k . unAstNoVectorize
+  trconcrete = AstNoVectorize . trconcrete
+  trfloor = AstNoVectorize . trfloor . unAstNoVectorize
+  trfromIntegral = AstNoVectorize . trfromIntegral . unAstNoVectorize
+  trcast = AstNoVectorize . trcast . unAstNoVectorize
   trindex v ix =
     AstNoVectorize $ trindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   trindex0 a ix = kfromR $ trindex a ix
@@ -1317,10 +1325,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   trgather sh t f =
     AstNoVectorize $ trgather sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
-  trconcrete = AstNoVectorize . trconcrete
-  trfloor = AstNoVectorize . trfloor . unAstNoVectorize
-  trfromIntegral = AstNoVectorize . trfromIntegral . unAstNoVectorize
-  trcast = AstNoVectorize . trcast . unAstNoVectorize
   trminIndex = AstNoVectorize . trminIndex . unAstNoVectorize
   trmaxIndex = AstNoVectorize . trmaxIndex . unAstNoVectorize
   triota = AstNoVectorize . triota
@@ -1339,6 +1343,11 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   -- Shaped ops
   sshape = sshape . unAstNoVectorize
   tssum = AstNoVectorize . tssum . unAstNoVectorize
+  tsreplicate snat sh = AstNoVectorize . tsreplicate snat sh. unAstNoVectorize
+  tsconcrete = AstNoVectorize . tsconcrete
+  tsfloor = AstNoVectorize . tsfloor . unAstNoVectorize
+  tsfromIntegral = AstNoVectorize . tsfromIntegral . unAstNoVectorize
+  tscast = AstNoVectorize . tscast . unAstNoVectorize
   tsindex v ix =
     AstNoVectorize $ tsindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   tsindex0 @sh a ix | Refl <- lemAppNil @sh = kfromS $ tsindex a ix
@@ -1348,10 +1357,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tsgather @_ @shm @shn @shp t f =
     AstNoVectorize $ tsgather @_ @_ @shm @shn @shp (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
-  tsconcrete = AstNoVectorize . tsconcrete
-  tsfloor = AstNoVectorize . tsfloor . unAstNoVectorize
-  tsfromIntegral = AstNoVectorize . tsfromIntegral . unAstNoVectorize
-  tscast = AstNoVectorize . tscast . unAstNoVectorize
   tsminIndex = AstNoVectorize . tsminIndex . unAstNoVectorize
   tsmaxIndex = AstNoVectorize . tsmaxIndex . unAstNoVectorize
   tsiota = AstNoVectorize tsiota
@@ -1359,6 +1364,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ tsappend (unAstNoVectorize u) (unAstNoVectorize v)
   tsslice i n k = AstNoVectorize . tsslice i n k . unAstNoVectorize
   tsreverse = AstNoVectorize . tsreverse . unAstNoVectorize
+  tstranspose perm =
+    AstNoVectorize . tstranspose perm . unAstNoVectorize
+  tsreshape sh = AstNoVectorize . tsreshape sh . unAstNoVectorize
   tsbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
                   $ funToAstI (Just (0, valueOf @k - 1))
                       -- this introduces new variable names
@@ -1368,6 +1376,10 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   xshape = xshape . unAstNoVectorize
   txsum = AstNoVectorize . txsum . unAstNoVectorize
   txreplicate snat sh = AstNoVectorize . txreplicate snat sh . unAstNoVectorize
+  txconcrete = AstNoVectorize . txconcrete
+  txfloor = AstNoVectorize . txfloor . unAstNoVectorize
+  txfromIntegral = AstNoVectorize . txfromIntegral . unAstNoVectorize
+  txcast = AstNoVectorize . txcast . unAstNoVectorize
   txindex v ix =
     AstNoVectorize $ txindex (unAstNoVectorize v) (unAstNoVectorize <$> ix)
   txindex0 @sh a ix | Refl <- lemAppNil @sh = kfromX $ txindex a ix
@@ -1377,10 +1389,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   txgather @_ @shm @shn @shp sh t f =
     AstNoVectorize $ txgather @_ @_ @shm @shn @shp sh (unAstNoVectorize t)
                    $ fmap unAstNoVectorize . f . fmap AstNoVectorize
-  txconcrete = AstNoVectorize . txconcrete
-  txfloor = AstNoVectorize . txfloor . unAstNoVectorize
-  txfromIntegral = AstNoVectorize . txfromIntegral . unAstNoVectorize
-  txcast = AstNoVectorize . txcast . unAstNoVectorize
   txminIndex = AstNoVectorize . txminIndex . unAstNoVectorize
   txmaxIndex = AstNoVectorize . txmaxIndex . unAstNoVectorize
   txiota @n = AstNoVectorize $ txiota @_ @n
@@ -1403,15 +1411,16 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk = tftk stk . unAstNoVectorize
-  tconcrete ftk a = AstNoVectorize $ tconcrete ftk a
   tpair t1 t2 =
     AstNoVectorize $ tpair (unAstNoVectorize t1) (unAstNoVectorize t2)
   tproject1 t = AstNoVectorize $ tproject1 $ unAstNoVectorize t
   tproject2 t = AstNoVectorize $ tproject2 $ unAstNoVectorize t
-  tsreplicate snat sh = AstNoVectorize . tsreplicate snat sh. unAstNoVectorize
-  tstranspose perm =
-    AstNoVectorize . tstranspose perm . unAstNoVectorize
-  tsreshape sh = AstNoVectorize . tsreshape sh . unAstNoVectorize
+  tcond !stk !b !u !v =
+    AstNoVectorize $ tcond stk (unAstNoVectorize b)
+                               (unAstNoVectorize u) (unAstNoVectorize v)
+  tconcrete ftk a = AstNoVectorize $ tconcrete ftk a
+  tfromVector k stk =
+    AstNoVectorize . tfromVector k stk . V.map unAstNoVectorize
   tmapAccumRDer _ !k !accftk !bftk !eftk f df rf acc0 es =
     AstNoVectorize $ tmapAccumRDer Proxy k accftk bftk eftk f df rf
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
@@ -1420,27 +1429,23 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
   tapply t ll = AstNoVectorize $ tapply t (unAstNoVectorize ll)
   tlambda = tlambda @(AstTensor AstMethodLet s)
-  tcond !stk !b !u !v =
-    AstNoVectorize $ tcond stk (unAstNoVectorize b)
-                               (unAstNoVectorize u) (unAstNoVectorize v)
-  tprimalPart t = AstNoVectorize $ tprimalPart $ unAstNoVectorize t
-  tdualPart stk t = tdualPart stk $ unAstNoVectorize t
-  tplainPart t = AstNoVectorize $ tplainPart $ unAstNoVectorize t
-  tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
-  tfromDual t = AstNoVectorize $ tfromDual t
-  tfromPlain stk t = AstNoVectorize $ tfromPlain stk $ unAstNoVectorize t
   tgrad = tgrad @(AstTensor AstMethodLet s)
   tvjp = tvjp @(AstTensor AstMethodLet s)
   tjvp = tjvp @(AstTensor AstMethodLet s)
 
-  tfromVector k stk =
-    AstNoVectorize . tfromVector k stk . V.map unAstNoVectorize
   tsum k stk =
     AstNoVectorize . tsum k stk . unAstNoVectorize
   treplicate k stk =
     AstNoVectorize . treplicate k stk . unAstNoVectorize
   tindexBuild k stk u i =
     AstNoVectorize $ tindexBuild k stk (unAstNoVectorize u) (unAstNoVectorize i)
+
+  tprimalPart t = AstNoVectorize $ tprimalPart $ unAstNoVectorize t
+  tdualPart stk t = tdualPart stk $ unAstNoVectorize t
+  tplainPart t = AstNoVectorize $ tplainPart $ unAstNoVectorize t
+  tfromPrimal stk t = AstNoVectorize $ tfromPrimal stk $ unAstNoVectorize t
+  tfromDual t = AstNoVectorize $ tfromDual t
+  tfromPlain stk t = AstNoVectorize $ tfromPlain stk $ unAstNoVectorize t
 
   treplTarget r ftk = AstNoVectorize $ treplTarget r ftk
   tdefTarget = AstNoVectorize . tdefTarget
@@ -1535,6 +1540,10 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   rshape = rshape . wunAstNoSimplify
   trsum = wAstNoSimplify . trsum . wunAstNoSimplify
   trreplicate k = wAstNoSimplify . trreplicate k . wunAstNoSimplify
+  trconcrete = wAstNoSimplify . trconcrete
+  trfloor = wAstNoSimplify . trfloor . wunAstNoSimplify
+  trfromIntegral = wAstNoSimplify . trfromIntegral . wunAstNoSimplify
+  trcast = wAstNoSimplify . trcast . wunAstNoSimplify
   trindex v ix =
     wAstNoSimplify $ trindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
   trindex0 a ix = kfromR $ trindex a ix
@@ -1544,10 +1553,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   trgather sh t f =
     wAstNoSimplify $ trgather sh (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
-  trconcrete = wAstNoSimplify . trconcrete
-  trfloor = wAstNoSimplify . trfloor . wunAstNoSimplify
-  trfromIntegral = wAstNoSimplify . trfromIntegral . wunAstNoSimplify
-  trcast = wAstNoSimplify . trcast . wunAstNoSimplify
   trminIndex = wAstNoSimplify . trminIndex . wunAstNoSimplify
   trmaxIndex = wAstNoSimplify . trmaxIndex . wunAstNoSimplify
   triota = wAstNoSimplify . triota
@@ -1561,6 +1566,11 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   -- Shaped ops
   sshape = sshape . wunAstNoSimplify
   tssum = wAstNoSimplify . tssum . wunAstNoSimplify
+  tsreplicate snat sh = wAstNoSimplify . tsreplicate snat sh . wunAstNoSimplify
+  tsconcrete = wAstNoSimplify . tsconcrete
+  tsfloor = wAstNoSimplify . tsfloor . wunAstNoSimplify
+  tsfromIntegral = wAstNoSimplify . tsfromIntegral . wunAstNoSimplify
+  tscast = wAstNoSimplify . tscast . wunAstNoSimplify
   tsindex v ix =
     wAstNoSimplify $ tsindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
   tsindex0 @sh a ix | Refl <- lemAppNil @sh = kfromS $ tsindex a ix
@@ -1570,10 +1580,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tsgather @_ @shm @shn @shp t f =
     wAstNoSimplify $ tsgather @_ @_ @shm @shn @shp (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
-  tsconcrete = wAstNoSimplify . tsconcrete
-  tsfloor = wAstNoSimplify . tsfloor . wunAstNoSimplify
-  tsfromIntegral = wAstNoSimplify . tsfromIntegral . wunAstNoSimplify
-  tscast = wAstNoSimplify . tscast . wunAstNoSimplify
   tsminIndex = wAstNoSimplify . tsminIndex . wunAstNoSimplify
   tsmaxIndex = wAstNoSimplify . tsmaxIndex . wunAstNoSimplify
   tsiota = wAstNoSimplify tsiota
@@ -1581,11 +1587,18 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ tsappend (wunAstNoSimplify u) (wunAstNoSimplify v)
   tsslice i n k = wAstNoSimplify . tsslice i n k . wunAstNoSimplify
   tsreverse = wAstNoSimplify . tsreverse . wunAstNoSimplify
+  tstranspose perm =
+    wAstNoSimplify . tstranspose perm . wunAstNoSimplify
+  tsreshape sh = wAstNoSimplify . tsreshape sh . wunAstNoSimplify
 
   -- Mixed ops
   xshape = xshape . wunAstNoSimplify
   txsum = wAstNoSimplify . txsum . wunAstNoSimplify
   txreplicate snat sh = wAstNoSimplify . txreplicate snat sh . wunAstNoSimplify
+  txconcrete = wAstNoSimplify . txconcrete
+  txfloor = wAstNoSimplify . txfloor . wunAstNoSimplify
+  txfromIntegral = wAstNoSimplify . txfromIntegral . wunAstNoSimplify
+  txcast = wAstNoSimplify . txcast . wunAstNoSimplify
   txindex v ix =
     wAstNoSimplify $ txindex (wunAstNoSimplify v) (wunAstNoSimplify <$> ix)
   txindex0 @sh a ix | Refl <- lemAppNil @sh = kfromX $ txindex a ix
@@ -1595,10 +1608,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   txgather @_ @shm @shn @shp sh t f =
     wAstNoSimplify $ txgather @_ @_ @shm @shn @shp sh (wunAstNoSimplify t)
                    $ fmap wunAstNoSimplify . f . fmap wAstNoSimplify
-  txconcrete = wAstNoSimplify . txconcrete
-  txfloor = wAstNoSimplify . txfloor . wunAstNoSimplify
-  txfromIntegral = wAstNoSimplify . txfromIntegral . wunAstNoSimplify
-  txcast = wAstNoSimplify . txcast . wunAstNoSimplify
   txminIndex = wAstNoSimplify . txminIndex . wunAstNoSimplify
   txmaxIndex = wAstNoSimplify . txmaxIndex . wunAstNoSimplify
   txiota @n = wAstNoSimplify $ txiota @_ @n
@@ -1617,15 +1626,13 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk = tftk stk . wunAstNoSimplify
-  tconcrete ftk a = wAstNoSimplify $ tconcrete ftk a
   tpair t1 t2 =
     wAstNoSimplify $ tpair (wunAstNoSimplify t1) (wunAstNoSimplify t2)
   tproject1 t = wAstNoSimplify $ tproject1 $ wunAstNoSimplify t
   tproject2 t = wAstNoSimplify $ tproject2 $ wunAstNoSimplify t
-  tsreplicate snat sh = wAstNoSimplify . tsreplicate snat sh . wunAstNoSimplify
-  tstranspose perm =
-    wAstNoSimplify . tstranspose perm . wunAstNoSimplify
-  tsreshape sh = wAstNoSimplify . tsreshape sh . wunAstNoSimplify
+  tconcrete ftk a = wAstNoSimplify $ tconcrete ftk a
+  tfromVector k stk =
+    wAstNoSimplify . tfromVector k stk . V.map wunAstNoSimplify
   tmapAccumRDer _ !k !accftk !bftk !eftk f df rf acc0 es =
     wAstNoSimplify $ tmapAccumRDer Proxy k accftk bftk eftk f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)
@@ -1634,16 +1641,10 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)
   tapply t ll = wAstNoSimplify $ tapply t (wunAstNoSimplify ll)
   tlambda = tlambda @(AstRaw s)
-  tprimalPart t = wAstNoSimplify $ tprimalPart $ wunAstNoSimplify t
-  tplainPart t = wAstNoSimplify $ tplainPart $ wunAstNoSimplify t
-  tfromPrimal stk t = wAstNoSimplify $ tfromPrimal stk $ wunAstNoSimplify t
-  tfromPlain stk t = wAstNoSimplify $ tfromPlain stk $ wunAstNoSimplify t
   tgrad = tgrad @(AstRaw s)
   tvjp = tvjp @(AstRaw s)
   tjvp = tjvp @(AstRaw s)
 
-  tfromVector k stk =
-    wAstNoSimplify . tfromVector k stk . V.map wunAstNoSimplify
   tsum snat@SNat stk u = case stk of
     STKScalar -> kfromS $ tssum u
     STKR SNat x | Dict <- lemKnownSTK x -> trsum u
@@ -1671,6 +1672,11 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
       ttlet u $ \ !u3 ->
         tpair (tindexBuild snat stk1 (tproject1 u3) i)
               (tindexBuild snat stk2 (tproject2 u3) i)
+
+  tprimalPart t = wAstNoSimplify $ tprimalPart $ wunAstNoSimplify t
+  tplainPart t = wAstNoSimplify $ tplainPart $ wunAstNoSimplify t
+  tfromPrimal stk t = wAstNoSimplify $ tfromPrimal stk $ wunAstNoSimplify t
+  tfromPlain stk t = wAstNoSimplify $ tfromPlain stk $ wunAstNoSimplify t
 
   treplTarget r ftk = wAstNoSimplify $ treplTarget r ftk
   tdefTarget = wAstNoSimplify . tdefTarget
