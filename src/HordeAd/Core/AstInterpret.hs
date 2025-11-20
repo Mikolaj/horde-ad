@@ -94,7 +94,7 @@ interpretAstPrimal !env v1 = case v1 of
         es2 = interpretAstPrimal env es
     in tmapAccumLDer (Proxy @(PrimalOf target))
                      k (ftkAst acc0) bftk eftk f df rf acc02 es2
-  Astapply{} -> tprimalPart (interpretAst env v1)  -- TODO
+  AstApply{} -> tprimalPart (interpretAst env v1)  -- TODO
   AstVar var ->
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env
@@ -297,7 +297,7 @@ interpretAstPlain !env v1 = case v1 of
         es2 = interpretAstPlain env es
     in tmapAccumLDer (Proxy @(PlainOf target))
                      k (ftkAst acc0) bftk eftk f df rf acc02 es2
-  Astapply{} -> tplainPart (interpretAst env v1)  -- TODO
+  AstApply{} -> tplainPart (interpretAst env v1)  -- TODO
   AstVar var ->
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env
@@ -585,7 +585,7 @@ interpretAst !env = \case
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
     in tmapAccumLDer (Proxy @target) k (ftkAst acc0) bftk eftk f df rf acc02 es2
-  Astapply t ll ->
+  AstApply t ll ->
     let t2 = interpretAstHFun env t
         ll2 = interpretAst env ll
     in tapply t2 ll2

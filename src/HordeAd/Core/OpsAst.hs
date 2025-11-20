@@ -626,7 +626,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astMapAccumRDer k bftk eftk f df rf acc0 es
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
     astMapAccumLDer k bftk eftk f df rf acc0 es
-  tapply = astapply
+  tapply = astApply
   tlambda ftk f =
     let (var, ast) = funToAst ftk Nothing $ unHFun f
     in AstLambda var ast
@@ -1150,7 +1150,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
     AstRaw $ AstMapAccumRDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
     AstRaw $ AstMapAccumLDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
-  tapply t ll = AstRaw $ Astapply t (unAstRaw ll)
+  tapply t ll = AstRaw $ AstApply t (unAstRaw ll)
   tlambda = tlambda @(AstTensor AstMethodLet s)
   tcond _ !b !u !v = AstRaw $ AstCond (unAstRaw b) (unAstRaw u) (unAstRaw v)
   tprimalPart t = AstRaw $ primalPart $ unAstRaw t

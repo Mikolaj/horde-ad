@@ -181,8 +181,8 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
         (\x1bs1 -> astPair (astProject1 x1bs1)
                            (astTrBuild (SNat @k5) (SNat @k)
                                        (ftkToSTK bftk) (astProject2 x1bs1)))
-    Ast.Astapply t ll -> traceRule $
-      astapply (build1VHFun snat (var, t))
+    Ast.AstApply t ll -> traceRule $
+      astApply (build1VHFun snat (var, t))
                (build1VOccurrenceUnknown snat (var, ll))
     Ast.AstVar var2 -> traceRule $
       if varNameToAstVarId var2 == varNameToAstVarId var

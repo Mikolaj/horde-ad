@@ -219,7 +219,7 @@ printAst cfg d = \case
       . printAst cfg 11 acc0
       . showString " "
       . printAst cfg 11 es
-  Astapply t ll -> showParen (d > 10)
+  AstApply t ll -> showParen (d > 10)
                    $ showString "tapply "
                      . printAstHFunOneUnignore cfg 10 t
                          -- this is a lambda, but not nested, so always printed
