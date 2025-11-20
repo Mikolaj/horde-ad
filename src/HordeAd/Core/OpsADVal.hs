@@ -27,6 +27,7 @@ import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Delta
 import HordeAd.Core.DeltaEval

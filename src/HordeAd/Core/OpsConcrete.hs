@@ -44,6 +44,7 @@ import Data.Array.Nested.Types (Init, unsafeCoerceRefl)
 import Data.Array.Strided.Orthotope (liftVEltwise1)
 
 import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal

@@ -53,6 +53,7 @@ import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (Init)
 
+import HordeAd.Core.Conversion
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 

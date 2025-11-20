@@ -36,6 +36,7 @@ import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
 
+import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Delta
 import HordeAd.Core.Ops

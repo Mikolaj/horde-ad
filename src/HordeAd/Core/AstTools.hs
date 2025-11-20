@@ -40,6 +40,7 @@ import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (snatPlus)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.Conversion
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 

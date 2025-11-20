@@ -57,6 +57,7 @@ import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (snatPlus, unsafeCoerceRefl)
 
+import HordeAd.Core.Conversion
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types

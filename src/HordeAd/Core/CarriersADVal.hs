@@ -26,6 +26,7 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
 
 import Data.Array.Nested.Lemmas
+import HordeAd.Core.Conversion
 import HordeAd.Core.Delta
 import HordeAd.Core.DeltaFreshId
 import HordeAd.Core.Ops

@@ -146,6 +146,7 @@ library
                       HordeAd.Core.CarriersADVal
                       HordeAd.Core.CarriersAst
                       HordeAd.Core.CarriersConcrete
+                      HordeAd.Core.Conversion
                       HordeAd.Core.ConvertTensor
                       HordeAd.Core.Delta
                       HordeAd.Core.DeltaEval
