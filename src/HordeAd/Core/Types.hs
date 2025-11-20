@@ -8,7 +8,7 @@
 module HordeAd.Core.Types
   ( -- * Re-exports and definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, pattern SNat'
-  , withSNat, sNatValue, proxyFromSNat, valueOf
+  , withSNat, sNatValue, proxyFromSNat, valueOf, snatSucc
     -- * Kinds of the parameterized types that determine the structure of a tensor
   , Target, TK (..), TKR, TKS, TKX, TKUnit, TKAllNum
     -- * Some fundamental constraints and types related to tensors
@@ -116,6 +116,9 @@ pattern SNat' <- (matchSNat (Proxy @n) -> Just (Refl :: n :~: m))
 matchSNat :: forall n m proxy. KnownNat n
           => proxy n -> SNat m -> Maybe (n :~: m)
 matchSNat p m@SNat = sameNat p m
+
+snatSucc :: SNat n -> SNat (1 + n)
+snatSucc SNat = SNat
 
 
 -- * Kinds of the functors that determine the structure of a tensor type

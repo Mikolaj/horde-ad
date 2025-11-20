@@ -19,7 +19,7 @@ import Data.Foldable qualified as Foldable
 import Data.Function ((&))
 import Data.Functor.WithIndex (imap)
 import Data.Int (Int64)
-import Data.List (foldl', mapAccumL, mapAccumR)
+import Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Map.Strict qualified as M
 import Data.Proxy (Proxy (Proxy))
@@ -63,8 +63,10 @@ instance LetTensor Concrete where
   tD _stk t DummyDualTarget{} = t
   {-# INLINE tfold #-}
   tfold k _ stk f x0 es = foldl' f x0 (tunravelToListShare k stk es)
-   {- This is worse than the above when the vector needs to be allocated,
-      because of complex strides. Apparently this happens often enough.
+   {- This is worse than the above when the vector needs to be allocated
+      due to complex strides. Apparently this happens often enough
+      and checking strides is costly for small folds (but do we care?
+      but then, how often do big folds work on rank 1 arrays anyway?).
    case stk of
     STKScalar ->
       let g !yn !ym = f yn (Concrete ym)
@@ -80,9 +82,9 @@ instance LetTensor Concrete where
       in VS.foldl' g x0 (xtoVector es)
     _ -> foldl' f x0 (tunravelToListShare k stk es) -}
   {-# INLINE tscan #-}
-  tscan k@(SNat @k) nstk stk f x0 as =
-    tfromVector (SNat @(1 + k)) nstk
-    $ V.scanl' f x0 (V.fromListN (sNatValue k) $ tunravelToListShare k stk as)
+  tscan k nstk stk f x0 as =
+    tfromVector (snatSucc k) nstk $ V.fromListN (sNatValue (snatSucc k))
+    $ scanl' f x0 $ tunravelToListShare k stk as
 
 instance ShareTensor Concrete where
   tshare = id
