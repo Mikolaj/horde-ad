@@ -3,7 +3,7 @@
 -- | Conversion constructors.
 module HordeAd.Core.Conversion
   ( TKConversion(..), convCmp, lemTKAllNumConvert, lemTKAllNumConvertForward
-  , convertSTK, convertFTK, buildTKConversion
+  , convertSTK, convertFTK, buildTKConversion, transposeTKConversion
   ) where
 
 import Prelude hiding ((.))
@@ -336,3 +336,31 @@ buildTKConversion k aftk c0 = case c0 of
   ConvUnnest -> ConvUnnest
   ConvZip astk1 astk2 -> ConvZip astk1 astk2
   ConvUnzip astk1 astk2 -> ConvUnzip astk1 astk2
+
+transposeTKConversion :: FullShapeTK a -> TKConversion a b -> TKConversion b a
+transposeTKConversion aftk c0 = case c0 of
+  ConvId -> ConvId
+  ConvCmp c1 c2 -> transposeTKConversion aftk c2
+                   `convCmp` transposeTKConversion (convertFTK c2 aftk) c1
+  ConvRX | FTKR @n _ x <- aftk
+         , Refl <- lemRankReplicate (Proxy @n) ->
+    ConvXR (ftkToSTK x)
+  ConvSX -> ConvXS
+  ConvXR @_ @sh _stk | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
+    convCmp (ConvXX' aftk) ConvRX
+  ConvXS -> ConvSX
+  ConvXS' (FTKS sh _) | Refl <- lemRankMapJust sh ->
+    convCmp (ConvXX' aftk) ConvSX
+  ConvXX' _ftk -> ConvXX' aftk
+  ConvRR c | FTKR _ x <- aftk -> ConvRR (transposeTKConversion x c)
+  ConvSS c | FTKS _ x <- aftk -> ConvSS (transposeTKConversion x c)
+  ConvXX c | FTKX _ x <- aftk -> ConvXX (transposeTKConversion x c)
+  ConvT2 c1 c2 | FTKProduct x1 x2 <- aftk ->
+    ConvT2 (transposeTKConversion x1 c1) (transposeTKConversion x2 c2)
+  Conv0X _stk -> ConvX0
+  ConvX0 | FTKX ZSX x <- aftk -> Conv0X (ftkToSTK x)
+  ConvNest _stk -> ConvUnnest
+  ConvUnnest | (FTKX shx (FTKX _ x)) <- aftk ->
+    ConvNest (STKX (ssxFromShX shx) (ftkToSTK x))
+  ConvZip stk1 stk2 -> ConvUnzip stk1 stk2
+  ConvUnzip stk1 stk2 -> ConvZip stk1 stk2
