@@ -84,8 +84,7 @@ instance LetTensor Concrete where
     _ -> foldl' f x0 (tunravelToListShare k stk es) -}
   {-# INLINE tscan #-}
   tscan k nstk stk f x0 as =
-    tfromVector (snatSucc k) nstk $ V.fromListN (sNatValue (snatSucc k))
-    $ scanl' f x0 $ tunravelToListShare k stk as
+    tfromList (snatSucc k) nstk $ scanl' f x0 $ tunravelToListShare k stk as
 
 instance ShareTensor Concrete where
   tshare = id
@@ -140,11 +139,9 @@ instance BaseTensor Concrete where
   tsunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     fmapConcrete . Nested.stoListOuter . unConcrete
   {-# INLINE txfromVector #-}
-  txfromVector @n @sh @r v | Dict <- eltDictRep (knownSTK @r) =
+  txfromVector @n @_ @r v | Dict <- eltDictRep (knownSTK @r) =
     case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
-      Just l -> Concrete
-                $ Nested.mcast (Nested.SKnown (SNat @n) :!% knownShX @sh)
-                $ Nested.mfromListOuterSN (SNat @n) l
+      Just l -> Concrete $ Nested.mfromListOuterSN (SNat @n) l
       Nothing -> error "xfromVector: empty vector"
   {-# INLINE txfromVector0N #-}
   txfromVector0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
@@ -153,15 +150,34 @@ instance BaseTensor Concrete where
   txunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     fmapConcrete . Nested.mtoListOuter . unConcrete
   {-# INLINE tfromVector #-}
-  tfromVector snat@SNat stk v = assert (V.length v == sNatValue snat)
-                                $ case stk of
-    STKScalar -> tsfromVector $ V.map sfromK v
+  tfromVector snat@SNat stk v = case stk of
+    STKScalar -> Concrete $ Nested.sfromList1Prim snat
+                 $ fmapUnConcrete $ V.toList v
     STKR SNat x | Dict <- lemKnownSTK x -> trfromVector v
     STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tsfromVector v
     STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txfromVector v
     STKProduct stk1 stk2 ->
       let (v1, v2) = V.unzip $ V.map tunpair v
       in tpair (tfromVector snat stk1 v1) (tfromVector snat stk2 v2)
+  {-# INLINE tfromList #-}
+  tfromList snat@SNat stk l = case stk of
+    STKScalar -> Concrete $ Nested.sfromList1Prim snat
+                 $ fmapUnConcrete l
+    STKR SNat x | Dict <- eltDictRep x ->
+      case NonEmpty.nonEmpty $ fmapUnConcrete l of
+        Just nl -> Concrete $ Nested.rfromListOuterN (sNatValue snat) nl
+        Nothing -> error "tfromList: empty list"
+    STKS _sh x | Dict <- eltDictRep x ->
+      case NonEmpty.nonEmpty $ fmapUnConcrete l of
+        Just nl -> Concrete $ Nested.sfromListOuter snat nl
+        Nothing -> error "tfromList: empty list"
+    STKX _sh x | Dict <- eltDictRep x ->
+      case NonEmpty.nonEmpty $ fmapUnConcrete l of
+        Just nl -> Concrete $ Nested.mfromListOuterSN snat nl
+        Nothing -> error "tfromList: empty list"
+    STKProduct stk1 stk2 ->
+      let (l1, l2) = unzip $ map tunpair l
+      in tpair (tfromList snat stk1 l1) (tfromList snat stk2 l2)
   {-# INLINE trsum #-}
   trsum t = case tftk knownSTK t of
     FTKR _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
@@ -642,8 +658,7 @@ ixInBounds ix sh =
 ravel :: forall k y.
          SNat k -> SingletonTK y -> [Concrete y]
       -> Concrete (BuildTensorKind k y)
-{-# INLINE ravel #-}
-ravel k stk l = tfromVector k stk (V.fromListN (sNatValue k) l)
+ravel = tfromList
 
 unravel :: forall k y.
            SNat k -> SingletonTK y -> Concrete (BuildTensorKind k y)
