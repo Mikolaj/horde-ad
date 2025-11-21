@@ -172,7 +172,7 @@ library
 
     build-depends:
         assert-failure < 0.1.4
-      , base >= 4.20.1 && < 4.22
+      , base >= 4.20.1 && < 4.23
       , Boolean < 0.3
       , containers >= 0.6 && < 0.9
       , deepseq < 1.7
