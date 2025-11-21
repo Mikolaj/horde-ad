@@ -521,14 +521,17 @@ interpretAstDual !env v1 =
 -- e.g., we'd need an extra type family
 --
 -- type family SpanTarget s target :: Target where
---   SpanTarget PrimalSpan target = PrimalOf target
+--   SpanTarget (PrimalStepSpan s2) target = PrimalOf (SpanTarget s2 target)
 --   SpanTarget DualSpan target = DualOf target
 --   SpanTarget FullSpan target = target
+--   SpanTarget PlainSpan target = PlainOf target
 --
 -- to be used in AstEnv and the codomain of interpretAst and a lot of other
--- code would need to be changed. So instead we promote results to @target@
--- similarly as in AstEnv and simiarly as we omit @PrimalOf@ in the signatures
--- of most "Ops" methods.
+-- code would need to be changed. Alternatively, we could use a GADT indexed
+-- by the spans and maybe put values of this GADT in environment,
+-- but this would still be complex and likely affecting performance.
+-- Instead we promote results to @target@ similarly as in AstEnv
+-- and simiarly as we omit @PrimalOf@ in the signatures of most "Ops" methods.
 --
 -- | Interpret a term in an environment.
 --
