@@ -419,7 +419,7 @@ contractAst t0 = case t0 of
                  (Ast.AstTransposeS @permu permu
                     (Ast.AstReplicate (SNat @ku) (STKS @shu _ _) u2))) ->
     let perm10 = Permutation.makePerm @'[1, 0]
-        t2 = fromPlain t2'
+        t2 = fromPlain @s t2'
     in fromMaybe (astSum snat stk (contractAst v))
        $ case (permt, permu) of
       ( SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil
@@ -484,7 +484,7 @@ contractAst t0 = case t0 of
                     (Ast.AstTransposeS @permu permu
                       (Ast.AstReplicate (SNat @ku) (STKS @shu _ _) u2')))) ->
     let perm10 = Permutation.makePerm @'[1, 0]
-        u2 = fromPlain u2'
+        u2 = fromPlain @s u2'
     in fromMaybe (astSum snat stk (contractAst v))
        $ case (permt, permu) of
       ( SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil

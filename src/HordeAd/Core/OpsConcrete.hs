@@ -408,7 +408,7 @@ instance BaseTensor Concrete where
   tsbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ tbuild1S (unConcrete . f . Concrete)
   {-# INLINE tsbuild #-}
-  tsbuild @m @sh @x f | Dict <- eltDictRep (knownSTK @x) =
+  tsbuild @m @sh @x _ f | Dict <- eltDictRep (knownSTK @x) =
     Concrete $ tbuildS @m @sh (unConcrete . f . fmapConcrete)
   {-# INLINE tsmap0N #-}
   tsmap0N @sh @r @r1 f v = case (knownSTK @r1, knownSTK @r) of
@@ -416,9 +416,11 @@ instance BaseTensor Concrete where
       Concrete $ tmap0NS (unConcrete . f . Concrete) (unConcrete v)
     _ | Refl <- lemAppNil @sh ->
       -- this is the default implementation from the class
-      gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
-      $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-      $ tsbuild @_ @(Rank sh) (f . tsindex v)
+      gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
+      gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
+      case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
+        SNat ->
+          tsbuild @_ @(Rank sh) SNat (f . tsindex v)
   {-# INLINE tszipWith0N #-}
   tszipWith0N @sh @r1 @r2 @r f t u =
     case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
@@ -428,14 +430,16 @@ instance BaseTensor Concrete where
                       (unConcrete t) (unConcrete u)
       _ | Refl <- lemAppNil @sh ->
         -- this is the default implementation from the class
-        gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
-        $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-        $ tsbuild @_ @(Rank sh) (\ix -> f (tsindex t ix) (tsindex u ix))
+        gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
+        gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
+        case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
+          SNat ->
+            tsbuild @_ @(Rank sh) SNat (\ix -> f (tsindex t ix) (tsindex u ix))
   {-# INLINE txbuild1 #-}
   txbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ tbuild1X (unConcrete . f . Concrete)
   {-# INLINE txbuild #-}
-  txbuild @m @sh @x sh f | Dict <- eltDictRep (knownSTK @x) =
+  txbuild @m @sh @x _ sh f | Dict <- eltDictRep (knownSTK @x) =
     Concrete $ tbuildX @m @sh sh (unConcrete . f . fmapConcrete)
   -- The eta-expansion below is needed for typing.
   {-# INLINE tmapAccumRDer #-}
@@ -1178,7 +1182,9 @@ tgatherZS @shm @shn @shp @r t f =
       in Concrete $ Nested.sfromListPrimLinear shm l
     _ ->
       withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-      tsbuild @_ @(Rank shm) (\ix -> t `tsindex` f ix)
+      case shsRank (knownShS @shm) of
+        SNat -> -- needed only for GHC 9.10
+          tsbuild @_ @(Rank shm) SNat (\ix -> t `tsindex` f ix)
 
 tgatherZ1S
   :: (KnownNat n2, KnownShS shn, KnownShS shp, KnownSTK x)
@@ -1452,7 +1458,9 @@ tgatherZX @shm @shn @shp @r sh t f =
          $ Nested.mfromListPrimLinear shm l
     _ ->
       withKnownShX (ssxFromShX sh) $
-      txbuild @_ @(Rank shm) sh (\ix -> t `txindex` f ix)
+      case ssxRank (knownShX @shm) of
+        SNat -> -- needed only for GHC 9.10
+          txbuild @_ @(Rank shm) SNat sh (\ix -> t `txindex` f ix)
 
 tgatherZ1X :: forall n2 shn shp x.
               (KnownNat n2, KnownShX shn, KnownShX shp, KnownSTK x)

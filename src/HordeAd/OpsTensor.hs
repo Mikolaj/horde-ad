@@ -825,14 +825,16 @@ sbuild1 :: (KnownNat k, KnownShS sh, KnownSTK x, BaseTensor target)
         -> target (TKS2 (k ': sh) x)
 sbuild1 = tsbuild1
 sbuild :: ( KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh, KnownSTK x
-          , BaseTensor target )
+          , BaseTensor target
+          , KnownNat m )  -- needed only for GHC 9.10
        => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) x))
             -- ^ the function to build with
        -> target (TKS2 sh x)
-sbuild @m = tsbuild @_ @m
+sbuild @m = tsbuild @_ @m SNat
 smap :: ( KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh
         , KnownSTK x, KnownSTK x2
-        , BaseTensor target )
+        , BaseTensor target
+        , KnownNat m )  -- needed only for GHC 9.10
      => (target (TKS2 (Drop m sh) x) -> target (TKS2 (Drop m sh) x2))
           -- ^ the function to map with
      -> target (TKS2 sh x)  -- ^ the tensor to map over
@@ -856,7 +858,8 @@ szipWith :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
             , KnownShS (Take m sh), KnownShS (Drop m sh)
             , KnownSTK x, KnownSTK x1, KnownSTK x2, KnownShS sh
             , sh1 ~ Take m sh ++ Drop m sh1
-            , sh2 ~ Take m sh ++ Drop m sh2, BaseTensor target )
+            , sh2 ~ Take m sh ++ Drop m sh2, BaseTensor target
+            , KnownNat m )  -- needed only for GHC 9.10
          => (target (TKS2 (Drop m sh1) x1) -> target (TKS2 (Drop m sh2) x2)
              -> target (TKS2 (Drop m sh) x))  -- ^ the function to zip with
          -> target (TKS2 sh1 x1)  -- ^ the first tensor to zip over
@@ -886,7 +889,8 @@ szipWith3 :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
              , KnownSTK x, KnownSTK x1, KnownSTK x2, KnownSTK x3
              , sh1 ~ Take m sh ++ Drop m sh1
              , sh2 ~ Take m sh ++ Drop m sh2
-             , sh3 ~ Take m sh ++ Drop m sh3, BaseTensor target )
+             , sh3 ~ Take m sh ++ Drop m sh3, BaseTensor target
+             , KnownNat m )  -- needed only for GHC 9.10
           => (target (TKS2 (Drop m sh1) x1) -> target (TKS2 (Drop m sh2) x2)
               -> target (TKS2 (Drop m sh3) x3)
               -> target (TKS2 (Drop m sh) x))  -- ^ the function to zip with
@@ -919,9 +923,11 @@ szipWith30N :: ( KnownShS sh, KnownSTK x, KnownSTK x1, KnownSTK x2, KnownSTK x3
             -> target (TKS2 sh x3)  -- ^ the third tensor to zip over
             -> target (TKS2 sh x)
 szipWith30N @sh f u v w | Refl <- lemAppNil @sh =
-  gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
-  $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-  $ sbuild @(Rank sh) (\ix -> f (sindex u ix) (sindex v ix) (sindex w ix))
+  gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
+  gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
+  case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
+    SNat ->
+      sbuild @(Rank sh) (\ix -> f (sindex u ix) (sindex v ix) (sindex w ix))
 szipWith4 :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
              , KnownShS (Drop m sh3), KnownShS (Drop m sh4)
              , KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh
@@ -929,7 +935,8 @@ szipWith4 :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
              , sh1 ~ Take m sh ++ Drop m sh1
              , sh2 ~ Take m sh ++ Drop m sh2
              , sh3 ~ Take m sh ++ Drop m sh3
-             , sh4 ~ Take m sh ++ Drop m sh4, BaseTensor target )
+             , sh4 ~ Take m sh ++ Drop m sh4, BaseTensor target
+             , KnownNat m )  -- needed only for GHC 9.10
           => (target (TKS2 (Drop m sh1) x1) -> target (TKS2 (Drop m sh2) x2)
               -> target (TKS2 (Drop m sh3) x3) -> target (TKS2 (Drop m sh4) x4)
               -> target (TKS2 (Drop m sh) x))  -- ^ the function to zip with
@@ -969,22 +976,25 @@ szipWith40N :: ( KnownShS sh, KnownSTK x
             -> target (TKS2 sh x4)  -- ^ the fourth tensor to zip over
             -> target (TKS2 sh x)
 szipWith40N @sh f u v w x | Refl <- lemAppNil @sh =
-  gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[])
-  $ gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh)
-  $ sbuild @(Rank sh) (\ix -> f (sindex u ix) (sindex v ix) (sindex w ix)
-                                (sindex x ix))
+  gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
+  gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
+  case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
+    SNat ->
+      sbuild @(Rank sh) (\ix -> f (sindex u ix) (sindex v ix) (sindex w ix)
+                                  (sindex x ix))
 
 xbuild1 :: (KnownNat k, KnownShX sh, KnownSTK x, BaseTensor target)
         => (IntOf target -> target (TKX2 sh x))  -- ^ the function to build with
         -> target (TKX2 (Just k ': sh) x)
 xbuild1 = txbuild1
 xbuild :: ( KnownShX (Take m sh), KnownShX (Drop m sh), KnownSTK x
-          , BaseTensor target, ConvertTensor target )
+          , BaseTensor target, ConvertTensor target
+          , KnownNat m )  -- needed only for GHC 9.10
        => IShX sh  -- ^ the shape of the resulting tensor
        -> (IxXOf target (Take m sh) -> target (TKX2 (Drop m sh) x))
             -- ^ the function to build with
        -> target (TKX2 sh x)
-xbuild @m = txbuild @_ @m
+xbuild @m = txbuild @_ @m SNat
 -- xmap and other special cases of build can be defined by the user.
 
 rfold

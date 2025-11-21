@@ -265,11 +265,13 @@ slicezS d ixBase | Refl <- lemAppNil @sh =
   gcastWith (unsafeCoerceRefl
              :: Rank (Take (Rank shOut) shOut) :~: Rank shOut) $
   gcastWith (unsafeCoerceRefl :: Drop (Rank sh) shOut :~: '[]) $
-  sbuild @(Rank shOut)
-  $ \ixResult ->
-      sindex @sh @'[] d
-             (ixsFromIxR' knownShS
-              $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
+  case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
+    SNat ->
+      sbuild @(Rank shOut)
+      $ \ixResult ->
+          sindex @sh @'[] d
+                 (ixsFromIxR' knownShS
+                  $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
       -- TODO: this doesn't work, because ixsZipWith has too strict a type:
       -- sbuild @(Rank shOut) $ \ixResult -> sindex d (ixsZipWith (+) ixBase ixResult)
 
