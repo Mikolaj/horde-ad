@@ -19,13 +19,14 @@ module HordeAd.OpsTensor
   , xshape, xlength, xsize, xwidth
   , tsize, tftk
     -- * Constructing arrays from concrete values, lists and vectors
+  , kconcrete
   , rconcrete, rscalar, rrepl, ringestData, rfromListLinear
   , sconcrete, sscalar, srepl, singestData, sfromListLinear
   , xconcrete, xscalar, xrepl, xingestData, xfromListLinear
-  , kconcrete, kunravelToList
   , rfromList, rfromVector, rfromVector0N, rfromList0N, runravelToList
   , sfromList, sfromVector, sfromVector0N, sfromList0N, sunravelToList
   , xfromList, xfromVector, xfromVector0N, xfromList0N, xunravelToList
+  , kunravelToList
     -- * Main array operations
   , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
   , tpair, tproject1, tproject2
@@ -39,10 +40,10 @@ module HordeAd.OpsTensor
   , str, stranspose, sflatten, sreshape
   , xtr, xtranspose, xflatten, xreshape
    -- * Auxiliary array operations
+  , kfloor, kfromIntegral, kcast
   , rfloor, rfromIntegral, rcast, rminIndex, rmaxIndex, riota
   , sfloor, sfromIntegral, scast, sminIndex, smaxIndex, siota
   , xfloor, xfromIntegral, xcast, xminIndex, xmaxIndex, xiota
-  , kfloor, kfromIntegral, kcast
   , rappend, rconcat, rslice, runcons, rreverse
   , sappend, sslice, suncons, sreverse
   , xappend, xappend0, xconcat, xslice, xuncons, xreverse
@@ -58,12 +59,12 @@ module HordeAd.OpsTensor
     -- * Array operations producing derivatives
   , kgrad, rvjp, rjvp, svjp, sjvp
     -- * Operations dealing with dual numbers
+  , kprimalPart, kdualPart, kplainPart, kfromPrimal, kfromDual, kfromPlain
+  , kScale
   , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
   , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
   , xprimalPart, xdualPart, xfromPrimal, xfromDual, xScale
-  , kprimalPart, kdualPart, kplainPart, kfromPrimal, kfromDual, kfromPlain
   , tplainPart, tfromPlain
-  , kScale
     -- * Array operations that utilize unwinding of nested arrays
   , treplTarget, tdefTarget, taddTarget, tmultTarget, tsum0Target, tdot0Target
     -- * Minimal re-exports to make this module a higher level replacement for "HordeAd.Core.Ops"
@@ -164,10 +165,6 @@ kconcrete :: (GoodScalar r, BaseTensor target)
           => r -> target (TKScalar r)
 kconcrete = tkconcrete
 
-kunravelToList :: (KnownNat n, GoodScalar r, BaseTensor target)
-               => target (TKS '[n] r) -> [target (TKScalar r)]
-kunravelToList = tkunravelToList
-
 -- | Create a tensor from a list treated as the outermost dimension,
 -- going through strict boxed vectors, because laziness is risky with
 -- impurity, e.g., it easily perturbs results of fragile tests.
@@ -256,6 +253,10 @@ xfromList0N sh = txfromVector0N sh . V.fromListN (shxSize sh)
 xunravelToList :: (KnownNat n, KnownShX sh, KnownSTK x, BaseTensor target)
                => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
 xunravelToList = txunravelToList
+
+kunravelToList :: (KnownNat n, GoodScalar r, BaseTensor target)
+               => target (TKS '[n] r) -> [target (TKScalar r)]
+kunravelToList = tkunravelToList
 
 tunit :: BaseTensor target
       => target TKUnit
@@ -530,6 +531,18 @@ xreshape :: forall sh sh2 x target. (KnownSTK x, BaseTensor target)
          => IShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
 xreshape = txreshape
 
+kfloor :: ( GoodScalar r, RealFrac r, NumScalar r2, Integral r2
+          , BaseTensor target )
+       => target (TKScalar r) -> target (TKScalar r2)
+kfloor = tkfloor
+kfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
+              => target (TKScalar r1) -> target (TKScalar r2)
+kfromIntegral = tkfromIntegral
+kcast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
+         , BaseTensor target )
+      => target (TKScalar r1) -> target (TKScalar r2)
+kcast = tkcast
+
 rfloor :: ( GoodScalar r, RealFrac r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKR n r) -> target (TKR n r2)
@@ -589,18 +602,6 @@ xmaxIndex = txmaxIndex
 xiota :: (KnownNat n, NumScalar r, BaseTensor target)
       => target (TKX '[Just n] r)  -- from 0 to n - 1
 xiota = txiota
-
-kfloor :: ( GoodScalar r, RealFrac r, NumScalar r2, Integral r2
-          , BaseTensor target )
-       => target (TKScalar r) -> target (TKScalar r2)
-kfloor = tkfloor
-kfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
-              => target (TKScalar r1) -> target (TKScalar r2)
-kfromIntegral = tkfromIntegral
-kcast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
-         , BaseTensor target )
-      => target (TKScalar r1) -> target (TKScalar r2)
-kcast = tkcast
 
 -- | Append two arrays along the outermost dimension.
 -- All dimensions, except the outermost, must be the same.
@@ -1109,6 +1110,30 @@ sjvp :: forall sh x r target. BaseTensor target
 sjvp f xftk =
   \ !es !ds -> tapply (tjvp @target xftk $ HFun f) (tpair ds es)
 
+kprimalPart :: BaseTensor target
+            => target (TKScalar r) -> PrimalOf target (TKScalar r)
+kprimalPart = tprimalPart
+kdualPart :: (BaseTensor target, GoodScalar r)
+          => target (TKScalar r) -> DualOf target (TKScalar r)
+kdualPart = tdualPart knownSTK
+kplainPart :: BaseTensor target
+           => target (TKScalar r) -> PlainOf target (TKScalar r)
+kplainPart = tplainPart
+kfromPrimal :: (BaseTensor target, GoodScalar r)
+            => PrimalOf target (TKScalar r) -> target (TKScalar r)
+kfromPrimal = tfromPrimal knownSTK
+kfromDual :: BaseTensor target
+          => DualOf target (TKScalar r) -> target (TKScalar r)
+kfromDual = tfromDual
+kfromPlain :: (BaseTensor target, GoodScalar r)
+            => PlainOf target (TKScalar r) -> target (TKScalar r)
+kfromPlain = tfromPlain knownSTK
+kScale :: ( BaseTensor target, GoodScalar r
+          , Num (target (TKScalar r)), Num (PrimalOf target (TKScalar r)) )
+       => PrimalOf target (TKScalar r) -> DualOf target (TKScalar r)
+       -> DualOf target (TKScalar r)
+kScale @target = tScale @target knownSTK
+
 -- These take @target@ first, because they change the target.
 rprimalPart :: BaseTensor target
             => target (TKR2 n x) -> PrimalOf target (TKR2 n x)
@@ -1163,27 +1188,3 @@ xScale :: ( BaseTensor target, KnownShX sh, GoodScalar r
        => PrimalOf target (TKX sh r) -> DualOf target (TKX sh r)
        -> DualOf target (TKX sh r)
 xScale @target = tScale @target knownSTK
-
-kprimalPart :: BaseTensor target
-            => target (TKScalar r) -> PrimalOf target (TKScalar r)
-kprimalPart = tprimalPart
-kdualPart :: (BaseTensor target, GoodScalar r)
-          => target (TKScalar r) -> DualOf target (TKScalar r)
-kdualPart = tdualPart knownSTK
-kplainPart :: BaseTensor target
-           => target (TKScalar r) -> PlainOf target (TKScalar r)
-kplainPart = tplainPart
-kfromPrimal :: (BaseTensor target, GoodScalar r)
-            => PrimalOf target (TKScalar r) -> target (TKScalar r)
-kfromPrimal = tfromPrimal knownSTK
-kfromDual :: BaseTensor target
-          => DualOf target (TKScalar r) -> target (TKScalar r)
-kfromDual = tfromDual
-kfromPlain :: (BaseTensor target, GoodScalar r)
-            => PlainOf target (TKScalar r) -> target (TKScalar r)
-kfromPlain = tfromPlain knownSTK
-kScale :: ( BaseTensor target, GoodScalar r
-          , Num (target (TKScalar r)), Num (PrimalOf target (TKScalar r)) )
-       => PrimalOf target (TKScalar r) -> DualOf target (TKScalar r)
-       -> DualOf target (TKScalar r)
-kScale @target = tScale @target knownSTK

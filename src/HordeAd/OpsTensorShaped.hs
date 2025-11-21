@@ -19,8 +19,7 @@ module HordeAd.OpsTensorShaped
     sshape, slength, ssize, swidth
   , tsize, tftk
     -- * Constructing arrays from concrete values, lists and vectors
-  , sconcrete, sscalar, srepl, singestData, sfromListLinear
-  , kconcrete
+  , kconcrete, sconcrete, sscalar, srepl, singestData, sfromListLinear
   , sfromList, sfromVector, sfromVector0N, sfromList0N, sunravelToList
     -- * Main array operations
   , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
@@ -29,8 +28,8 @@ module HordeAd.OpsTensorShaped
   , sindex, (!$), sindex0, soneHot, sscatter, sscatter1, sgather, sgather1
   , str, stranspose, sflatten, sreshape
    -- * Auxiliary array operations
-  , sfloor, sfromIntegral, scast, sminIndex, smaxIndex, siota
   , kfloor, kfromIntegral, kcast
+  , sfloor, sfromIntegral, scast, sminIndex, smaxIndex, siota
   , sappend, sslice, suncons, sreverse
     -- * Array operations derived from @build@
   , sbuild, sbuild1, smap, smap1, smap0N, szipWith, szipWith1, szipWith0N
@@ -40,8 +39,8 @@ module HordeAd.OpsTensorShaped
     -- * Array operations producing derivatives
   , kgrad, svjp, sjvp
     -- * Operations dealing with dual numbers
-  , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
   , kprimalPart, kdualPart, kfromPrimal, kfromDual, kScale
+  , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
     -- * Array operations that utilize unwinding of nested arrays
   , treplTarget, tdefTarget, taddTarget, tmultTarget, tsum0Target, tdot0Target
     -- * Minimal re-exports to make this module a higher level replacement for the shaped part of "HordeAd.Core.Ops"

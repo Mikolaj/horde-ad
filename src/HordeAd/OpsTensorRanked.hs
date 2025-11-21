@@ -19,8 +19,7 @@ module HordeAd.OpsTensorRanked
     rshape, rlength, rsize, rwidth
   , tsize, tftk
     -- * Constructing arrays from concrete values, lists and vectors
-  , rconcrete, rscalar, rrepl, ringestData, rfromListLinear
-  , kconcrete
+  , kconcrete, rconcrete, rscalar, rrepl, ringestData, rfromListLinear
   , rfromList, rfromVector, rfromVector0N, rfromList0N, runravelToList
     -- * Main array operations
   , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
@@ -29,8 +28,8 @@ module HordeAd.OpsTensorRanked
   , rindex, (!), rindex0, roneHot, rscatter, rscatter1, rgather, rgather1
   , rtr, rtranspose, rflatten, rreshape
    -- * Auxiliary array operations
-  , rfloor, rfromIntegral, rcast, rminIndex, rmaxIndex, riota
   , kfloor, kfromIntegral, kcast
+  , rfloor, rfromIntegral, rcast, rminIndex, rmaxIndex, riota
   , rappend, rconcat, rslice, runcons, rreverse
     -- * Array operations derived from @build@
   , rbuild, rbuild1, rmap, rmap1, rmap0N, rzipWith, rzipWith1, rzipWith0N
@@ -40,8 +39,8 @@ module HordeAd.OpsTensorRanked
     -- * Array operations producing derivatives
   , kgrad, rvjp, rjvp
     -- * Operations dealing with dual numbers
-  , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
   , kprimalPart, kdualPart, kfromPrimal, kfromDual, kScale
+  , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
     -- * Array operations that utilize unwinding of nested arrays
   , treplTarget, tdefTarget, taddTarget, tmultTarget, tsum0Target, tdot0Target
     -- * Minimal re-exports to make this module a higher level replacement for the ranked part of "HordeAd.Core.Ops"

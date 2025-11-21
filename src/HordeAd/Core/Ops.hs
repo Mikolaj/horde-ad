@@ -389,21 +389,15 @@ class ( Num (IntOf target)
   -- the user to convert, so we leave that precision to the AST only
   -- which means the AST instance will automatically insert such
   -- conversions as needed. The same holds for trfloor and many others.
+  tkconcrete :: GoodScalar r
+             => r -> target (TKScalar r)
   trconcrete :: GoodScalar r
              => Nested.Ranked n r -> target (TKR n r)
   tsconcrete :: GoodScalar r
              => Nested.Shaped sh r -> target (TKS sh r)
   txconcrete :: GoodScalar r
              => Nested.Mixed sh r -> target (TKX sh r)
-  tkconcrete :: GoodScalar r => r -> target (TKScalar r)
   tconcrete :: FullShapeTK y -> Concrete y -> target y
-
-  tkunravelToList :: forall n r.(KnownNat n, GoodScalar r)
-                  => target (TKS '[n] r) -> [target (TKScalar r)]
-  tkunravelToList t =
-    let f :: Int -> target (TKScalar r)
-        f i = tsindex0 t (fromIntegral i :.$ ZIS)
-    in map f [0 .. valueOf @n - 1]
 
   -- These nine methods can't be replaced by tfromVector, because the concrete
   -- instance has much faster implementations.
@@ -483,6 +477,13 @@ class ( Num (IntOf target)
   tfromListR stk l =
     tfromList (listrRank l) stk  -- not valueOf @k, because k ambiguous
     . toList $ l
+
+  tkunravelToList :: forall n r.(KnownNat n, GoodScalar r)
+                  => target (TKS '[n] r) -> [target (TKScalar r)]
+  tkunravelToList t =
+    let f :: Int -> target (TKScalar r)
+        f i = tsindex0 t (fromIntegral i :.$ ZIS)
+    in map f [0 .. valueOf @n - 1]
 
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain
@@ -790,6 +791,13 @@ class ( Num (IntOf target)
              (Nested.SKnown k :$% shxDropSSX (knownShX @shp) (xshape v)) v
              (\(i :.% ZIX) -> f i)
 
+  tkfloor :: (GoodScalar r, RealFrac r, NumScalar r2, Integral r2)
+          => target (TKScalar r) -> target (TKScalar r2)
+  tkfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2)
+                 => target (TKScalar r1) -> target (TKScalar r2)
+  tkcast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
+         => target (TKScalar r1) -> target (TKScalar r2)
+
   trfloor :: (GoodScalar r, RealFrac r, NumScalar r2, Integral r2)
           => target (TKR n r) -> target (TKR n r2)
   trfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2)
@@ -824,13 +832,6 @@ class ( Num (IntOf target)
     => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
   txiota :: (KnownNat n, NumScalar r)
          => target (TKX '[Just n] r)  -- from 0 to n - 1
-
-  tkfloor :: (GoodScalar r, RealFrac r, NumScalar r2, Integral r2)
-          => target (TKScalar r) -> target (TKScalar r2)
-  tkfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2)
-                 => target (TKScalar r1) -> target (TKScalar r2)
-  tkcast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
-         => target (TKScalar r1) -> target (TKScalar r2)
 
   trappend :: forall n x. KnownSTK x
            => target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)

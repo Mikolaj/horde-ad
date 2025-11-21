@@ -106,10 +106,10 @@ instance BaseTensor Concrete where
   tproject2 = Concrete . snd . unConcrete
   {-# INLINE tcond #-}
   tcond _ b u v = if unConcrete b then u else v
+  tkconcrete = Concrete
   trconcrete = Concrete
   tsconcrete = Concrete
   txconcrete = Concrete
-  tkconcrete = Concrete
   tconcrete _ = id
   {-# INLINE tkunravelToList #-}
   tkunravelToList =
@@ -310,6 +310,12 @@ instance BaseTensor Concrete where
   txscatter1 = tscatterZ1X
   txgather @shm @shn = tgatherZX @shm @shn
   txgather1 = tgatherZ1X
+  {-# INLINE tkfloor #-}
+  tkfloor = Concrete . floor . unConcrete
+  {-# INLINE tkfromIntegral #-}
+  tkfromIntegral = fromIntegral . unConcrete
+  {-# INLINE tkcast #-}
+  tkcast = Concrete . realToFrac . unConcrete
   {-# INLINE trfloor #-}
   trfloor = Concrete . liftVR (V.map floor) . unConcrete
   {-# INLINE trfromIntegral #-}
@@ -346,12 +352,6 @@ instance BaseTensor Concrete where
   txmaxIndex = Concrete . tmaxIndexX . unConcrete
   {-# INLINE txiota #-}
   txiota @n = txfromIntegral $ Concrete $ Nested.miota @Int (SNat @n)
-  {-# INLINE tkfloor #-}
-  tkfloor = Concrete . floor . unConcrete
-  {-# INLINE tkfromIntegral #-}
-  tkfromIntegral = fromIntegral . unConcrete
-  {-# INLINE tkcast #-}
-  tkcast = Concrete . realToFrac . unConcrete
   {-# INLINE trappend #-}
   trappend @_ @r u v | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ Nested.rappend (unConcrete u) (unConcrete v)

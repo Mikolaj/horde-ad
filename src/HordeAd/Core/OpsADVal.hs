@@ -178,6 +178,9 @@ instance ( ADReadyNoLet target, ShareTensor target
   tcond !stk !b !u !v =
     let uv = tfromList (SNat @2) stk [u, v]
     in tindexBuild (SNat @2) stk uv (tcond knownSTK b 0 1)
+  tkconcrete a =
+    let v = tkconcrete a
+    in fromPrimalFTK FTKScalar v
   trconcrete a =
     let v = trconcrete a
     in fromPrimalFTK (FTKR (Nested.rshape a) FTKScalar) v
@@ -187,9 +190,6 @@ instance ( ADReadyNoLet target, ShareTensor target
   txconcrete a =
     let v = txconcrete a
     in fromPrimalFTK (FTKX (Nested.mshape a) FTKScalar) v
-  tkconcrete a =
-    let v = tkconcrete a
-    in fromPrimalFTK FTKScalar v
   tconcrete ftk t | Dict <- lemKnownSTK (ftkToSTK ftk) =
     fromPrimalFTK ftk $ tconcrete ftk t
   tfromVector snat stk lu =
@@ -299,6 +299,13 @@ instance ( ADReadyNoLet target, ShareTensor target
   txgather @shm @shn @shp sh (D u u') f =
     dD (txgather @_ @shm @shn @shp sh u f)
        (DeltaGatherX @shm @shn @shp knownShX knownShX knownShX sh u' f)
+  tkfloor (D u _) =
+    let v = tkfloor u
+    in fromPrimalFTK FTKScalar v
+  tkfromIntegral (D u _) =
+    let v = tkfromIntegral u
+    in fromPrimalFTK FTKScalar v
+  tkcast (D u u') = dD (tkcast u) (DeltaCastK u')
   trfloor (D u _) =
     let v = trfloor u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
@@ -341,13 +348,6 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = txmaxIndex u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
   txiota = fromPrimalFTK (FTKX (Nested.SKnown SNat :$% ZSX) FTKScalar) txiota
-  tkfloor (D u _) =
-    let v = tkfloor u
-    in fromPrimalFTK FTKScalar v
-  tkfromIntegral (D u _) =
-    let v = tkfromIntegral u
-    in fromPrimalFTK FTKScalar v
-  tkcast (D u u') = dD (tkcast u) (DeltaCastK u')
   trappend (D u u') (D v v') = dD (trappend u v) (DeltaAppendR u' v')
   trslice i n (D u u') = dD (trslice i n u) (DeltaSliceR i n u')
   trreverse (D u u') = dD (trreverse u) (DeltaReverseR u')
