@@ -15,7 +15,6 @@ import Control.Exception.Assert.Sugar
 import Data.Array.Internal.ShapedS qualified as SS
 import Data.Coerce (Coercible, coerce)
 import Data.Default
-import Data.Foldable qualified as Foldable
 import Data.Function ((&))
 import Data.Functor.WithIndex (imap)
 import Data.Int (Int64)
@@ -796,7 +795,7 @@ tindexZR v ixConcrete | Dict <- showDictRep (knownSTK @x)
   let ix = fmapUnConcrete ixConcrete
   in case tftk knownSTK v of
     FTKR sh x ->
-     if ixInBounds (Foldable.toList ix) (Foldable.toList sh)
+     if ixInBounds (toList ix) (toList sh)
      then Concrete $ tindexNR (unConcrete v) ix
      else tdefTarget (FTKR (shrDrop @m sh) x)
 
@@ -1063,7 +1062,7 @@ tindexZS v ixConcrete | Dict <- eltDictRep (knownSTK @x) =
   in withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
      case tftk knownSTK v of
        FTKS sh x ->
-         if ixInBounds (Foldable.toList ix) (shsToList sh)
+         if ixInBounds (toList ix) (shsToList sh)
          then Concrete $ tindexNS (unConcrete v) ix
          else tdefTarget (FTKS knownShS x)
 
@@ -1170,7 +1169,7 @@ tscatterZ1S t f = case tftk knownSTK t of
         zero = tdefTarget (FTKS shpshn x)
         lt = tsunravelToList t
         g i ti = let ix2 = f $ fromIntegral i
-                 in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
+                 in if ixInBounds (fmapUnConcrete $ toList ix2)
                                   (shsToList shpshn)
                     then withKnownShS shpshn $
                          updateNS (Proxy @(Rank shp)) zero [(ix2, ti)]
@@ -1368,7 +1367,7 @@ tindexZX @sh1 @sh2 @x v ixConcrete | Dict <- eltDictRep (knownSTK @x) =
   in withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
      case tftk knownSTK v of
        FTKX sh x ->
-         if ixInBounds (Foldable.toList ix) (shxToList sh)
+         if ixInBounds (toList ix) (shxToList sh)
          then Concrete $ tindexNX (unConcrete v) ix
          else tdefTarget (FTKX (shxDropSSX (knownShX @sh1) sh) x)
 
@@ -1445,7 +1444,7 @@ tscatterZ1X @_ @shn @shp sh t f =
       let zero = tdefTarget (FTKX sh x)
           lt = txunravelToList t
           g i ti = let ix2 = f $ fromIntegral i
-                   in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
+                   in if ixInBounds (fmapUnConcrete $ toList ix2)
                                     (shxToList sh)
                       then updateNX (Proxy @(Rank shp)) zero [(ix2, ti)]
                       else zero
