@@ -15,6 +15,7 @@ import Prelude
 
 import Data.Coerce (coerce)
 import Data.Dependent.EnumMap.Strict qualified as DMap
+import Data.Functor.Const
 import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
@@ -57,8 +58,6 @@ interpretAstPrimal
   -> PrimalOf target y
 interpretAstPrimal !env v1 = case v1 of
   AstPair t1 t2 -> tpair (interpretAstPrimal env t1) (interpretAstPrimal env t2)
-  -- We do this optimization only for concrete instance(s), because otherwise
-  -- it's poinless and also leads to a recomputation of derivatives (_rf0),
   AstProject1 (AstMapAccumLDer @accy @by @ey
                                k _bftk eftk f0 _df0 _rf0 acc0 es)
               | show (1 :: target (TKScalar Int64)) == "1" ->
@@ -186,6 +185,16 @@ interpretAstPrimal !env v1 = case v1 of
       let v2 = interpretAstPrimal env v
           ix3 = interpretAstPlain env <$> ix
       in tsindex @_ @sh1 v2 ix3
+  AstScatterS @_ @shn @shp
+              shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS shn $
+      withKnownShS (shsFromIxS ix) $
+      withKnownSTK x $
+      let t1 = interpretAstPrimal env v
+          f2 :: IntOf target -> IxSOf target shp
+          f2 !i2 = interpretAstPlain (extendEnvI (getConst var) i2 env) <$> ix
+      in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -197,12 +206,17 @@ interpretAstPrimal !env v1 = case v1 of
           f2 :: IxSOf target shm -> IxSOf target shp
           f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
       in tsscatter @_ @shm @shn @shp t1 f2
-  AstGatherS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
+  AstGatherS shn v (ZS, ix) -> interpretAstPrimal env (AstIndexS shn v ix)
+  AstGatherS @_ @shn @shp
+             shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
       withKnownShS (shsFromIxS ix) $
       withKnownSTK x $
-      tsindex (interpretAstPrimal env v) (interpretAstPlain env <$> ix)
+      let t1 = interpretAstPrimal env v
+          f2 :: IntOf target -> IxSOf target shp
+          f2 !i2 = interpretAstPlain (extendEnvI (getConst var) i2 env) <$> ix
+      in tsgather1 @_ @_ @shn @shp t1 f2
   AstGatherS @shm @shn @shp
              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -261,8 +275,6 @@ interpretAstPlain
   -> PlainOf target y
 interpretAstPlain !env v1 = case v1 of
   AstPair t1 t2 -> tpair (interpretAstPlain env t1) (interpretAstPlain env t2)
-  -- We do this optimization only for concrete instance(s), because otherwise
-  -- it's poinless and also leads to a recomputation of derivatives (_rf0),
   AstProject1 (AstMapAccumLDer @accy @by @ey
                                k _bftk eftk f0 _df0 _rf0 acc0 es)
               | show (1 :: target (TKScalar Int64)) == "1" ->
@@ -398,6 +410,16 @@ interpretAstPlain !env v1 = case v1 of
       let v2 = interpretAstPlain env v
           ix3 = interpretAstPlain env <$> ix
       in tsindex @_ @sh1 v2 ix3
+  AstScatterS @_ @shn @shp
+              shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS shn $
+      withKnownShS (shsFromIxS ix) $
+      withKnownSTK x $
+      let t1 = interpretAstPlain env v
+          f2 :: IntOf target -> IxSOf target shp
+          f2 !i2 = interpretAstPlain (extendEnvI (getConst var) i2 env) <$> ix
+      in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -409,12 +431,17 @@ interpretAstPlain !env v1 = case v1 of
           f2 :: IxSOf target shm -> IxSOf target shp
           f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
       in tsscatter @_ @shm @shn @shp t1 f2
-  AstGatherS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
+  AstGatherS shn v (ZS, ix) -> interpretAstPlain env (AstIndexS shn v ix)
+  AstGatherS @_ @shn @shp
+             shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
       withKnownShS (shsFromIxS ix) $
       withKnownSTK x $
-      tsindex (interpretAstPlain env v) (interpretAstPlain env <$> ix)
+      let t1 = interpretAstPlain env v
+          f2 :: IntOf target -> IxSOf target shp
+          f2 !i2 = interpretAstPlain (extendEnvI (getConst var) i2 env) <$> ix
+      in tsgather1 @_ @_ @shn @shp t1 f2
   AstGatherS @shm @shn @shp
              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -554,9 +581,12 @@ interpretAst
   -> target y
 interpretAst !env = \case
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
-  -- TODO: do the same to tscan or a variant of it
   -- We do this optimization only for concrete instance(s), because otherwise
   -- it's poinless and also leads to a recomputation of derivatives (_rf0),
+  -- We can't do the same for tscan, because AstProject2 does not guarantee
+  -- that the argument function is not doing something nontrivial in the second
+  -- component of its result. We'd need to analyze its code to make sure,
+  -- e.g., that it contains near the end AstPair of twice the same variable.
   AstProject1 (AstMapAccumLDer @accy @by @ey
                                k _bftk eftk f0 _df0 _rf0 acc0 es)
               | show (1 :: target (TKScalar Int64)) == "1" ->
@@ -613,6 +643,8 @@ interpretAst !env = \case
     let c = interpretAstPlain env b
     in tcond (ftkToSTK (ftkAst a1)) c
              (interpretAst env a1) (interpretAst env a2)
+  -- TODO: recognize nested builds and, for Concrete, call tbuild instead
+  -- also recognize map and zipWith in nested builds and call these
   AstBuild1 snat stk (var, v) ->
     let f i = interpretAst (extendEnvI var i env) v
     in tbuild1 snat stk f
@@ -746,6 +778,16 @@ interpretAst !env = \case
       withKnownShS (shsFromIxS ix) $
       withKnownSTK x $
       tsoneHot (interpretAst env v) (interpretAstPrimal env <$> ix) -}
+  AstScatterS @_ @shn @shp
+              shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS shn $
+      withKnownShS (shsFromIxS ix) $
+      withKnownSTK x $
+      let t1 = interpretAst env v
+          f2 :: IntOf target -> IxSOf target shp
+          f2 !i2 = interpretAstPlain (extendEnvI (getConst var) i2 env) <$> ix
+      in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -757,12 +799,17 @@ interpretAst !env = \case
           f2 :: IxSOf target shm -> IxSOf target shp
           f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
       in tsscatter @_ @shm @shn @shp t1 f2
-  AstGatherS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
+  AstGatherS shn v (ZS, ix) -> interpretAst env (AstIndexS shn v ix)
+  AstGatherS @_ @shn @shp
+             shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
       withKnownShS (shsFromIxS ix) $
       withKnownSTK x $
-      tsindex (interpretAst env v) (interpretAstPlain env <$> ix)
+      let t1 = interpretAst env v
+          f2 :: IntOf target -> IxSOf target shp
+          f2 !i2 = interpretAstPlain (extendEnvI (getConst var) i2 env) <$> ix
+      in tsgather1 @_ @_ @shn @shp t1 f2
   AstGatherS @shm @shn @shp
              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->

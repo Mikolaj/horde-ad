@@ -260,7 +260,7 @@ class LetTensor (target :: Target) where
 class ShareTensor (target :: Target) where
   tshare :: target y -> target y
   tunpair :: target (TKProduct x z) -> (target x, target z)
-  -- This would suffer from lack of sharing with LetTensor, because
+  -- This would suffer from lack of sharing if in LetTensor, because
   -- ttlet doesn't work over a list. With sharing it's fine.
   tunravelToListShare :: forall y k. (BaseTensor target, ConvertTensor target)
                       => SNat k -> SingletonTK y
@@ -397,6 +397,7 @@ class ( Num (IntOf target)
              => Nested.Mixed sh r -> target (TKX sh r)
   tkconcrete :: GoodScalar r => r -> target (TKScalar r)
   tconcrete :: FullShapeTK y -> Concrete y -> target y
+
   tkunravelToList :: forall n r.(KnownNat n, GoodScalar r)
                   => target (TKS '[n] r) -> [target (TKScalar r)]
   tkunravelToList t =
