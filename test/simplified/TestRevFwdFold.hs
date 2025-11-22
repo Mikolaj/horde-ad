@@ -1359,7 +1359,7 @@ testSin0rmapAccumRD00SCacc0 = do
                            in g)
                           tunit
                           (srepl 0)
-            in f) (srepl 1.1) (sfromList0N []))
+            in f) (srepl 1.1) (srepl @'[0] 0))
 
 {- TODO: crashes due to a zero dimension
 testSin0rmapAccumRD00SCacc0 :: Assertion
@@ -1453,7 +1453,7 @@ testSin0rmapAccumRD00SCall0 = do
                            in g)
                           tunit
                           (treplicate (SNat @0) stkUnit tunit)
-            in f) (srepl 1.1) (sfromList0N []))
+            in f) (srepl 1.1) (srepl @'[0] 0))
 
 {- TODO: crashes due to a zero dimension
 testSin0rmapAccumRD00SCall00 :: Assertion
@@ -1730,7 +1730,7 @@ testSin0rmapAccumRD01SN531a = do
                                  (sreplicate @6 (sfromIndex0 i)
                                           - sflatten (sappend x0 x0)))
                           (tpair (sfromList [srepl (-0.1), sreshape @'[] @'[1] $ sfromIndex0 j])
-                                 ((sfromList0N
+                                 ((sreshape $ sfromList
                                            [sscalar 0.4, sscalar (-0.01), sscalar (-0.3), sfromIndex0 i, sscalar 0.5, sscalar 1.3]))))
            in rfromS . f . sfromR) (ringestData [3] [1.1, 2, 3.14]))
 
@@ -1855,7 +1855,7 @@ testSin0rmapAccumRD01SN531c = do
                                       (srepl 1 - sin x / srepl 3 - a)
                            in g)
                           (x0 / (srepl 1 + sfromIndex0 j))
-                          (sfromList0N [sscalar 0.4, sfromIndex0 i])))
+                          (sreshape $ sfromList [sscalar 0.4, sfromIndex0 i])))
            in rfromS . f . sfromR) (rscalar 1.1))
 
 testSin0rmapAccumRD01SN531Slice :: Assertion
@@ -1964,7 +1964,7 @@ testSin0rmapAccumRD01SN55acc = do
                            in g)
                           tunit
                           (tpair (singestData [-0.1, 0.23])
-                                 (sfromList0N
+                                 (sreshape $ sfromList
                                     [sindex @'[3] @'[] x0 [1], sscalar (-0.01), sscalar (-0.3), ssum x0, sscalar 0.5, sscalar 1.3]))
            in rfromS . f . sfromR) (ringestData [3] [1.1, 2, 3.14]))
 
