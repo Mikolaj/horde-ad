@@ -408,14 +408,6 @@ class ( Num (IntOf target)
                -> target (TKR2 (1 + n) x)
   trfromVector v = withSNat (V.length v) $ \k ->
     tfromVector k (STKR SNat knownSTK) v
-  trfromVector0N :: forall n x. KnownSTK x
-                 => IShR n -> Data.Vector.Vector (target (TKR2 0 x))
-                 -> target (TKR2 n x)
-  trfromVector0N sh v | Dict <- eltDictRep (knownSTK @x) =
-    if V.null v
-    then let arr = Nested.remptyArray
-         in trreshape sh $ tconcrete (tftkG knownSTK arr) (Concrete arr)
-    else trreshape sh $ trfromVector v
   trunravelToList :: (KnownNat n, KnownSTK x)
                   => target (TKR2 (1 + n) x) -> [target (TKR2 n x)]
   trunravelToList @n @x t =
@@ -427,16 +419,6 @@ class ( Num (IntOf target)
                => Data.Vector.Vector (target (TKS2 sh x))
                -> target (TKS2 (n ': sh) x)
   tsfromVector = tfromVector SNat (STKS knownShS knownSTK)
-  tsfromVector0N :: (KnownShS sh, KnownSTK x)
-                 => Data.Vector.Vector (target (TKS2 '[] x))
-                 -> target (TKS2 sh x)
-  tsfromVector0N @sh @x v | Dict <- eltDictRep (knownSTK @x)
-                          , SNat <- shsProduct (knownShS @sh) =
-    if V.null v
-    then gcastWith (unsafeCoerceRefl :: Product sh :~: 0) $
-         let arr = Nested.semptyArray ZSS
-         in tsreshape knownShS $ tconcrete (tftkG knownSTK arr) (Concrete arr)
-    else tsreshape (knownShS @sh) $ tsfromVector v
   tsunravelToList :: (KnownNat n, KnownShS sh, KnownSTK x)
                   => target (TKS2 (n ': sh) x) -> [target (TKS2 sh x)]
   tsunravelToList @_ @sh @x t =
@@ -448,15 +430,6 @@ class ( Num (IntOf target)
                => Data.Vector.Vector (target (TKX2 sh x))
                -> target (TKX2 (Just n ': sh) x)
   txfromVector = tfromVector SNat (STKX knownShX knownSTK)
-  txfromVector0N :: forall sh x. KnownSTK x
-                 => IShX sh -> Data.Vector.Vector (target (TKX2 '[] x))
-                 -> target (TKX2 sh x)
-  txfromVector0N sh v | Dict <- eltDictRep (knownSTK @x) =
-    if V.null v
-    then let arr = Nested.memptyArray ZSX
-         in txreshape sh $ tconcrete (tftkG knownSTK arr) (Concrete arr)
-    else withSNat (shxSize sh) $ \(SNat @n) ->
-           txreshape @_ @'[Just n] sh $ txfromVector v
   txunravelToList :: (KnownNat n, KnownShX sh, KnownSTK x)
                   => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
   txunravelToList @_ @sh @x t =
