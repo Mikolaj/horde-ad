@@ -517,9 +517,9 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   AstConvert :: TKConversion a b -> AstTensor ms s a -> AstTensor ms s b
 
   -- Backend-specific primitives
-  AstSum0S :: TKAllNum x
-           => AstTensor ms s (TKS2 sh x)
-           -> AstTensor ms s (TKS2 '[] x)
+  AstSum0S :: NumScalar r
+           => AstTensor ms s (TKS sh r)
+           -> AstTensor ms s (TKScalar r)
   AstDot0S :: NumScalar r
            => AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
            -> AstTensor ms s (TKS '[] r)

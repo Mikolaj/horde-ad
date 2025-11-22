@@ -3748,6 +3748,7 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstFromPrimal a -> fromPrimal $ astConvertSFromK c zftk a
   Ast.AstFromDual a -> fromDual $ astConvertSFromK c zftk a
   Ast.AstFromPlain a -> fromPlain $ astConvertSFromK c zftk a
+  Ast.AstSum0S{} -> Ast.AstConvert c a0
   Ast.AstBoolNot{} -> Ast.AstConvert c a0
   Ast.AstBoolAnd{} -> Ast.AstConvert c a0
   Ast.AstLeqK{} -> Ast.AstConvert c a0
@@ -3945,24 +3946,20 @@ astSFromX' sh t = case ftkAst t of
     let zftk = FTKS sh x
     in astConvertSFromX (ConvXS' zftk) zftk t
 
-astSum0S :: (AstSpan s, TKAllNum x)
-         => AstTensor AstMethodLet s (TKS2 sh x)
-         -> AstTensor AstMethodLet s (TKS2 '[] x)
+astSum0S :: (NumScalar r, AstSpan s)
+         => AstTensor AstMethodLet s (TKS sh r)
+         -> AstTensor AstMethodLet s (TKScalar r)
 astSum0S t = case t of
   Ast.AstSum SNat _ u -> astSum0S u
-  Ast.AstReplicate snat (STKS _ (STKScalar @r)) u
-    | Dict0 <- numFromTKAllNum (Proxy @r) ->
-      astSum0S u * (fromPlain $ AstConcreteS
-                    $ Nested.sscalar $ fromInteger $ fromSNat snat)
-  Ast.AstReplicate snat (STKScalar @r) u
-    | Dict0 <- numFromTKAllNum (Proxy @r) ->
-      astSFromK' u * (fromPlain $ AstConcreteS
-                      $ Nested.sscalar $ fromInteger $ fromSNat snat)
+  Ast.AstReplicate snat (STKS _ STKScalar) u ->
+    astSum0S u * (fromPlain $ AstConcreteK $ fromInteger $ fromSNat snat)
+  Ast.AstReplicate snat STKScalar u ->
+    u * (fromPlain $ AstConcreteK $ fromInteger $ fromSNat snat)
   Ast.AstLet var u v -> astLet var u (astSum0S v)
-  AstTimesS t1 t2 -> astDot0S t1 t2
+  AstTimesS t1 t2 -> astKFromS' $ astDot0S t1 t2
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
-    astConcreteS $ tssum0 (Concrete v)
+    astConcreteK $ tssum0 (Concrete v)
   Ast.AstFromPrimal u -> fromPrimal $ astSum0S u
   Ast.AstFromDual u -> fromDual $ astSum0S u
   Ast.AstFromPlain u -> fromPlain $ astSum0S u
@@ -3970,10 +3967,10 @@ astSum0S t = case t of
   Ast.AstTransposeS _ u -> astSum0S u
   Ast.AstReshapeS _ u -> astSum0S u
   Ast.AstN1S NegateOp u -> negate $ astSum0S u
-  Ast.AstSum0S u -> astSum0S u
-  Ast.AstDot0S{} -> t
-  Ast.AstDot1InS _ _ t1 t2 -> astDot0S t1 t2
+  Ast.AstDot0S{} -> astKFromS' t
+  Ast.AstDot1InS _ _ t1 t2 -> astKFromS' $ astDot0S t1 t2
   Ast.AstMatmul2S m@SNat SNat p@SNat m1 m2 ->
+    astKFromS' $
     astDot0S (astTransposeS (Permutation.makePerm @'[1, 0])
                             (astReplicate p knownSTK m1))
              (astTransposeS (Permutation.makePerm @'[0, 2, 1])

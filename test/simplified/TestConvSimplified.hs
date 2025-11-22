@@ -1534,7 +1534,7 @@ testCNNOPP6b = do
   printArtifactPretty artifactRev
     @?= "\\dret u1 -> let t44 = ssum @2 (stranspose @[2, 0, 1] (sfromR dret)) in rfromS (soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t44)))))) [0, 0, 0, 0])"
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret u1 -> rfromS (soneHot (ssum0 (stranspose @[0, 1, 3, 2] (sfromR dret) !$ [0, 0, 0])) [0, 0, 0, 0])"
+    @?= "\\dret u1 -> rfromS (soneHot (sfromK (ssum0 (stranspose @[0, 1, 3, 2] (sfromR dret) !$ [0, 0, 0]))) [0, 0, 0, 0])"
 
 conv2dSame3z
   :: (ADReady target, NumScalar r)

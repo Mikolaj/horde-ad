@@ -108,10 +108,10 @@ sum0RepW ftk a = case (ftk, a) of
     ifDifferentiable @r (kcast $ rsum0 ta) 0
   (WFTKS sh, WTKS @r ta) ->
     withKnownShS sh $
-    ifDifferentiable @r (kcast $ kfromS $ ssum0 ta) 0
+    ifDifferentiable @r (kcast $ ssum0 ta) 0
   (WFTKX sh, WTKX @r ta) ->
     withKnownShX (ssxFromShX sh) $
-    ifDifferentiable @r (kcast $ kfromX $ xsum0 ta) 0
+    ifDifferentiable @r (kcast $ xsum0 ta) 0
   (WFTKProduct ftk1 ftk2, WTKProduct ta1 ta2) ->
     sum0RepW ftk1 ta1 + sum0RepW ftk2 ta2
 

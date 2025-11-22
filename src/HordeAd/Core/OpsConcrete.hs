@@ -205,10 +205,7 @@ instance BaseTensor Concrete where
           sh = shsTail $ sshape t
       in foldr (taddTarget knownSTK) (tdefTarget (FTKS sh x)) l
   {-# INLINE tssum0 #-}
-  tssum0 @sh @r t | SNat <- shsProduct (knownShS @sh) = case knownSTK @r of
-    STKScalar @r2 | Dict0 <- numFromTKAllNum (Proxy @r2) ->  -- optimized
-      Concrete . Nested.sscalar . Nested.ssumAllPrim . unConcrete $ t
-    _ -> tssum . sflatten $ t
+  tssum0 = Concrete . Nested.ssumAllPrim . unConcrete
   {-# INLINE tsdot0 #-}
   tsdot0 u v  =
     Concrete $ Nested.sscalar $ Nested.sdot (unConcrete u) (unConcrete v)
@@ -240,12 +237,7 @@ instance BaseTensor Concrete where
           sh = shxTail $ xshape t
       in foldr (taddTarget knownSTK) (tdefTarget (FTKX sh x)) l
   {-# INLINE txsum0 #-}
-  txsum0 @_ @r t =
-    case knownSTK @r of
-      STKScalar @r2 | Dict0 <- numFromTKAllNum (Proxy @r2) ->  -- optimized
-        Concrete . Nested.mscalar . Nested.msumAllPrim . unConcrete $ t
-      _ -> withSNat (shxSize $ xshape t) $ \snat ->
-        txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
+  txsum0 = Concrete . Nested.msumAllPrim . unConcrete
   {-# INLINE txdot0 #-}
   txdot0 u v =
     Concrete $ Nested.mscalar $ Nested.mdot (unConcrete u) (unConcrete v)

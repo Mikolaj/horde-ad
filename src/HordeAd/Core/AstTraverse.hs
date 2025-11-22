@@ -13,6 +13,7 @@ import Prelude
 
 import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Maybe (fromMaybe)
+import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
@@ -345,8 +346,11 @@ contractAst t0 = case t0 of
   Ast.AstProject1 v -> astProject1 (contractAst v)
   Ast.AstProject2 v -> astProject2 (contractAst v)
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map contractAst l)
-  Ast.AstSum _ (STKS ZSS _) t2 -> astSum0S (contractAst t2)
-  Ast.AstSum _ STKScalar t2 -> astKFromS' $ astSum0S (contractAst t2)
+  Ast.AstSum _ (STKS ZSS (STKScalar @r)) t2
+    | Dict0 <- numFromTKAllNum (Proxy @r) ->
+      astSFromK' $ astSum0S (contractAst t2)
+  Ast.AstSum _ (STKScalar @r) t2 | Dict0 <- numFromTKAllNum (Proxy @r) ->
+    astSum0S (contractAst t2)
   Ast.AstSum
     snat@(SNat @m2)
     stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar)

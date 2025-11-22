@@ -52,10 +52,10 @@ sfromListLinear [2,2] [4.242393641025528,4.242393641025528,4.242393641025528,4.2
 ```
 
 Instantiated to matrices, `foo` now returns a matrix, not a scalar &mdash; but a gradient can only be computed of a function that returns a scalar.
-To remediate this, let's sum the whole output of `foo` and only then compute its gradient: (note that `ssum0` returns a zero-dimensional array; `kfromS` extracts the (single) scalar from that)
+To remediate this, let's sum the whole output of `foo` and only then compute its gradient:
 ```hs
 gradSumFooMatrix :: ThreeMatrices Double -> ThreeMatrices Double
-gradSumFooMatrix = cgrad (kfromS . ssum0 . foo)
+gradSumFooMatrix = cgrad (ssum0 . foo)
 ```
 
 This works as well as before:
@@ -102,7 +102,7 @@ The vector-Jacobian product program (presented below with additional formatting)
        ((m4 * m5) * dret + m4 * dret)
 ```
 
-A concrete value of this symbolic reverse derivative at the same input as before can be obtained by interpreting its program in the context of the operations supplied by the horde-ad library. (Note that the output happens to be the same as `gradSumFooMatrix threeSimpleMatrices` above, which used `cgrad` on `kfromS . ssum0 . foo`; the reason is that `srepl 1.0` happens to be the reverse derivative of `kfromS . ssum0`.)
+A concrete value of this symbolic reverse derivative at the same input as before can be obtained by interpreting its program in the context of the operations supplied by the horde-ad library. (Note that the output happens to be the same as `gradSumFooMatrix threeSimpleMatrices` above, which used `cgrad` on `ssum0 . foo`; the reason is that `srepl 1.0` happens to be the reverse derivative of `ssum0`.)
 ```hs
 >>> vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1.0)
 ((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeConcreteMatrices Double)
@@ -112,7 +112,7 @@ Note that, as evidenced by the `printArtifactPretty` call above, `artifact` cont
 
 A shorthand that creates a symbolic gradient program, simplifies it and interprets it with a given input on the default CPU backend is called `grad` and is used exactly the same as (but with often much better performance on the same program than) `cgrad`:
 ```hs
->>> grad (kfromS . ssum0 . fooLet) threeSimpleMatrices
+>>> grad (ssum0 . fooLet) threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
 ```
 

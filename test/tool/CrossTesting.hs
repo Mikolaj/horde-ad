@@ -34,7 +34,7 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.ConvertTensor (kfromS, rfromK)
+import HordeAd.Core.ConvertTensor (rfromK)
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorKind
@@ -501,7 +501,7 @@ srev1 :: forall g r sh sh2 r3.
          (ADReady g, GoodScalar r, KnownShS sh, NumScalar r3, KnownShS sh2)
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh r))
-srev1 f u = kgrad (kfromS. ssum0 . f) (tftk knownSTK u) u
+srev1 f u = kgrad (ssum0 . f) (tftk knownSTK u) u
 
 sfwd1 :: forall g r sh sh2 r3.
          (ADReady g, GoodScalar r, NumScalar (ADTensorScalar r), KnownShS sh)

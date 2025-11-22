@@ -297,8 +297,8 @@ rreplicate0N = trreplicate0N
 ssum :: (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
 ssum = tssum
-ssum0 :: (KnownShS sh, TKAllNum x, KnownSTK x, BaseTensor target)
-      => target (TKS2 sh x) -> target (TKS2 '[] x)
+ssum0 :: (KnownShS sh, NumScalar r, BaseTensor target, ConvertTensor target)
+      => target (TKS sh r) -> target (TKScalar r)
 ssum0 = tssum0
 sdot0 :: (KnownShS sh, NumScalar r, BaseTensor target)
       => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
@@ -326,9 +326,8 @@ sreplicate0N = tsreplicate0N knownShS
 xsum :: (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKX2 (Just n ': sh) x) -> target (TKX2 sh x)
 xsum = txsum
-xsum0 :: ( KnownShX sh, TKAllNum x, KnownSTK x, BaseTensor target
-         , ConvertTensor target )
-      => target (TKX2 sh x) -> target (TKX2 '[] x)
+xsum0 :: ( KnownShX sh, NumScalar r, BaseTensor target, ConvertTensor target)
+      => target (TKX sh r) -> target (TKScalar r)
 xsum0 = txsum0
 xdot0 :: ( KnownShX sh, NumScalar r
          , BaseTensor target, ConvertTensor target )

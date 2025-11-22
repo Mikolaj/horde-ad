@@ -263,7 +263,8 @@ data Delta :: Target -> Target where
   -- Shaped tensor operations
   DeltaCastS :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
              => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
-  DeltaSum0S :: Delta target (TKS2 sh r) -> Delta target (TKS2 '[] r)
+  DeltaSum0S :: NumScalar r
+             => Delta target (TKS sh r) -> Delta target (TKScalar r)
   DeltaDot0S :: (NumScalar r, Show (target (TKS sh r)))
              => target (TKS sh r) -> Delta target (TKS sh r)
              -> Delta target (TKS '[] r)
@@ -303,7 +304,8 @@ data Delta :: Target -> Target where
   -- Mixed tensor operations
   DeltaCastX :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
              => Delta target (TKX sh r1) -> Delta target (TKX sh r2)
-  DeltaSum0X :: Delta target (TKX2 sh r) -> Delta target (TKX2 '[] r)
+  DeltaSum0X :: NumScalar r
+             => Delta target (TKX sh r) -> Delta target (TKScalar r)
   DeltaDot0X :: (NumScalar r, Show (target (TKX sh r)))
              => target (TKX sh r) -> Delta target (TKX sh r)
              -> Delta target (TKX '[] r)
@@ -412,8 +414,7 @@ ftkDelta = \case
 
   DeltaCastS d -> case ftkDelta d of
     FTKS sh FTKScalar -> FTKS sh FTKScalar
-  DeltaSum0S d -> case ftkDelta d of
-    FTKS _ x -> FTKS ZSS x
+  DeltaSum0S{} -> FTKScalar
   DeltaDot0S{} -> FTKS ZSS FTKScalar
   DeltaIndexS shn d _ix -> case ftkDelta d of
     FTKS _ x -> FTKS shn x
@@ -433,8 +434,7 @@ ftkDelta = \case
 
   DeltaCastX d -> case ftkDelta d of
     FTKX sh FTKScalar -> FTKX sh FTKScalar
-  DeltaSum0X d -> case ftkDelta d of
-    FTKX _ x -> FTKX ZSX x
+  DeltaSum0X{} -> FTKScalar
   DeltaDot0X{} -> FTKX ZSX FTKScalar
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x | SNat @len <- ixxRank ix ->

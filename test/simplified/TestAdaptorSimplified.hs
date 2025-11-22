@@ -226,7 +226,7 @@ testZeroS :: Assertion
 testZeroS =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @'[0, 2, 4, 0, 1] knownShS [])
-    (cgrad (kfromS . ssum0 .
+    (cgrad (ssum0 .
             let f :: ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
                   -> ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
                 f = const (srepl 3)
@@ -282,7 +282,7 @@ testZero3S :: Assertion
 testZero3S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @'[33, 2] knownShS (replicate 66 3.6174114266850617))
-    (cgrad (kfromS . ssum0 . (\x -> barF @(ADVal Concrete (TKS '[33, 2] Double)) (x, x))) (srepl 1))
+    (cgrad (ssum0 . (\x -> barF @(ADVal Concrete (TKS '[33, 2] Double)) (x, x))) (srepl 1))
 
 testCFwdZero3S :: Assertion
 testCFwdZero3S =
@@ -309,7 +309,7 @@ testZero5S :: Assertion
 testZero5S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @'[44] knownShS (replicate 44 1))
-    (grad (kfromS . ssum0 .
+    (grad (ssum0 .
            let f :: a -> a
                f = id
            in f @(AstTensor AstMethodLet FullSpan (TKS '[44] Double))) (srepl 42))
@@ -318,7 +318,7 @@ testZero6S :: Assertion
 testZero6S =
   assertEqualUpToEpsilon 1e-9
     (sconcrete $ Nested.sfromListPrimLinear @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] knownShS (replicate (product ([2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] :: [Int])) 3.6174114266850617))
-    (grad (kfromS . ssum0 @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] @(TKScalar Double) . (\x -> barF (x, x))) (srepl 1))
+    (grad (ssum0 @'[2, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 2, 2, 2, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,111,1,1,1,1, 2, 2, 2, 2] @Double . (\x -> barF (x, x))) (srepl 1))
 
 testZero7S :: Assertion
 testZero7S =
@@ -336,7 +336,7 @@ testZero9S :: Assertion
 testZero9S =
   assertEqualUpToEpsilon 1e-9
     (ringestData [0, 2, 4, 0, 1] [])
-    (cgrad (kfromS . ssum0 .
+    (cgrad (ssum0 .
             let f :: ADVal Concrete (TKR 5 Double)
                   -> ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
                 f = const (srepl 3)
@@ -368,7 +368,7 @@ testZero10S =
   assertEqualUpToEpsilon 1e-9
     ( ringestData [0, 2, 4, 0, 1] []
     , sconcrete $ Nested.sfromListPrimLinear @'[0, 2, 4, 0, 1] knownShS [] )
-    (cgrad (kfromS . ssum0 .
+    (cgrad (ssum0 .
             let f = const (srepl 3) . snd
             in f :: ( ADVal Concrete (TKR 5 Double)
                     , ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double) )
@@ -572,7 +572,7 @@ testOverleafPP = do
   printArtifactPretty (simplifyArtifactRev artifactRev)
     @?= "\\dret v1 -> rfromS (sscatter @[50] (sreplicate @50 (sfromR dret)) (\\[i5] -> [remH i5 28]))"
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\v1 -> rfromS (ssum0 (sgather @[50] (sfromR v1) (\\[i3] -> [remH i3 28])))"
+    @?= "\\v1 -> rfromK (ssum0 (sgather @[50] (sfromR v1) (\\[i3] -> [remH i3 28])))"
   show deltas
     @?= "DeltaConvert (ConvCmp (ConvXR STKScalar) ConvSX) (DeltaShare 100000002 (DeltaSum (SNat @50) (STKS [] STKScalar) (DeltaShare 100000001 (DeltaGatherS [50] [] [28] (DeltaConvert (ConvCmp (ConvXS' (FTKS [28] FTKScalar)) ConvRX) (DeltaInput (InputId 0))) <function>))))"
 
@@ -605,7 +605,7 @@ threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)
 fooMatrixValue :: Matrix2x2 Double
 fooMatrixValue = foo threeSimpleMatrices
 gradSumFooMatrix :: ThreeMatrices Double -> ThreeMatrices Double
-gradSumFooMatrix = cgrad @_ @_ @_ @Concrete (kfromS . ssum0 . foo)
+gradSumFooMatrix = cgrad @_ @_ @_ @Concrete (ssum0 . foo)
 
 testFooMatrix :: Assertion
 testFooMatrix =
@@ -644,7 +644,7 @@ testGradFooMatrixRev :: Assertion
 testGradFooMatrixRev =
   assertEqualUpToEpsilon 1e-10
     (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
-    (grad (kfromS . ssum0 . fooLet) threeSimpleMatrices)
+    (grad (ssum0 . fooLet) threeSimpleMatrices)
 
 testGradFooLetMatrixSimpPP :: Assertion
 testGradFooLetMatrixSimpPP = do
@@ -667,7 +667,7 @@ type Matrix2x2f f r = f (TKS '[2, 2] r)
 sumFooMatrix :: (ADReady f, RealFloat (Matrix2x2f f r), NumScalar r)
              => (Matrix2x2f f r, Matrix2x2f f r, Matrix2x2f f r)
              -> f (TKScalar r)
-sumFooMatrix = kfromS . ssum0 . foo
+sumFooMatrix = ssum0 . foo
 
 testfooSumMatrix :: Assertion
 testfooSumMatrix =
@@ -729,20 +729,20 @@ testFooS :: Assertion
 testFooS = do
   assertEqualUpToEpsilon 1e-10
     (srepl 2.4396285219055063, srepl (-1.953374825727421), srepl 0.9654825811012627)
-    (grad (kfromS @_ @Double . ssum0 @'[3, 534, 3] @(TKScalar Double) . foo2) (srepl 1.1, srepl 2.2, srepl 3.3))
+    (grad (ssum0 @'[3, 534, 3] @Double . foo2) (srepl 1.1, srepl 2.2, srepl 3.3))
 
 testFooSToFloat :: Assertion
 testFooSToFloat = do
   assertEqualUpToEpsilon 1e-5
     (srepl 2.4396285219055063, srepl (-1.953374825727421), srepl 0.9654825811012627)
-    (grad (kfromS @_ @Float . ssum0 . scast . foo2)
+    (grad (ssum0 @_ @Float . scast . foo2)
          (srepl 1.1 :: Concrete (TKS '[3, 534, 3] Double), srepl 2.2, srepl 3.3))
 
 testFooSBoth :: Assertion
 testFooSBoth = do
   assertEqualUpToEpsilon 1e-5
     (srepl 2.439628436155373, srepl (-1.9533749), srepl 0.9654825479484146)
-    (grad (kfromS @_ @Float . ssum0 . scast . foo2 . (\(d, f, d2) -> (d, scast f, d2)))
+    (grad (ssum0 @_ @Float . scast . foo2 . (\(d, f, d2) -> (d, scast f, d2)))
          ( srepl 1.1 :: Concrete (TKS '[3, 534, 3] Double)
          , srepl 2.2 :: Concrete (TKS '[3, 534, 3] Float)
          , srepl 3.3 ))
@@ -1371,7 +1371,7 @@ testReluSimpler4s = do
     ( sconcrete
       $ Nested.sfromListPrimLinear @'[3, 4] knownShS [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , srepl 57.1 )
-    (grad (kfromS . ssum0 . reluT2) (sconcrete $ Nested.sfromListPrimLinear @'[3, 4] knownShS [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
+    (grad (ssum0 . reluT2) (sconcrete $ Nested.sfromListPrimLinear @'[3, 4] knownShS [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
 
 testReluSimplerPP7s2 :: Assertion
 testReluSimplerPP7s2 = do
@@ -1398,7 +1398,7 @@ testReluSimpler7s = do
     ( sconcrete
       $ Nested.sfromListPrimLinear @'[3, 4] knownShS [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , srepl 57.1 )
-    (grad (kfromS . ssum0 . reluT2) (sconcrete $ Nested.sfromListPrimLinear @'[3, 4] knownShS [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
+    (grad (ssum0 . reluT2) (sconcrete $ Nested.sfromListPrimLinear @'[3, 4] knownShS [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], srepl 7))
 
 reluMax :: forall target n r. (ADReady target, NumScalar r, KnownNat n)
         => target (TKR n r) -> target (TKR n r)
@@ -1607,7 +1607,7 @@ testBar2S :: Assertion
 testBar2S =
   assertEqualUpToEpsilon 1e-9
     (srepl 3.1435239435581166, srepl (-1.1053869545195814))
-    (grad (kfromS . ssum0 . barF @(AstTensor AstMethodLet FullSpan (TKS '[52, 2, 2, 1, 1, 3] Double))) (srepl 1.1, srepl 2.2))
+    (grad (ssum0 . barF @(AstTensor AstMethodLet FullSpan (TKS '[52, 2, 2, 1, 1, 3] Double))) (srepl 1.1, srepl 2.2))
 
 testBarCFwd :: Assertion
 testBarCFwd =

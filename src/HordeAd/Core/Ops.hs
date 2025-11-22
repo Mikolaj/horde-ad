@@ -496,9 +496,9 @@ class ( Num (IntOf target)
 
   tssum :: (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x)
         => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
-  tssum0 :: (KnownShS sh, TKAllNum x, KnownSTK x)
-         => target (TKS2 sh x) -> target (TKS2 '[] x)
-  tssum0 @sh | SNat <- shsProduct (knownShS @sh) = tssum . sflatten
+  tssum0 :: (KnownShS sh, NumScalar r, ConvertTensor target)
+         => target (TKS sh r) -> target (TKScalar r)
+  tssum0 @sh | SNat <- shsProduct (knownShS @sh) = kfromS . tssum . sflatten
   tsdot0 :: (KnownShS sh, NumScalar r)
          => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
   tsdot0 @sh t u | SNat <- shsProduct (knownShS @sh) = tssum (sflatten (t * u))
@@ -539,10 +539,10 @@ class ( Num (IntOf target)
   --     => target (TKX2 (mn ': sh) x) -> target (TKX2 sh x)
   txsum :: (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x)
         => target (TKX2 (Just n ': sh) x) -> target (TKX2 sh x)
-  txsum0 :: (KnownShX sh, TKAllNum x, KnownSTK x, ConvertTensor target)
-         => target (TKX2 sh x) -> target (TKX2 '[] x)
+  txsum0 :: (KnownShX sh, NumScalar r, ConvertTensor target)
+         => target (TKX sh r) -> target (TKScalar r)
   txsum0 t = withSNat (shxSize $ xshape t) $ \snat ->
-    txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
+    kfromX $ txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
   txdot0 :: (KnownShX sh, NumScalar r, ConvertTensor target)
          => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
   txdot0 t u = withSNat (shxSize $ xshape t) $ \snat ->

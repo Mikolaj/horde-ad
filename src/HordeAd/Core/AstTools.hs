@@ -131,8 +131,7 @@ ftkAst t = case t of
 
   AstConvert c u -> convertFTK c $ ftkAst u
 
-  AstSum0S v ->  case ftkAst v of
-    FTKS _ x -> FTKS ZSS x
+  AstSum0S{} -> FTKScalar
   AstDot0S _u _v -> FTKS ZSS FTKScalar
   AstDot1InS sh _ _u _v -> FTKS sh FTKScalar
   AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar

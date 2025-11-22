@@ -133,7 +133,7 @@ lossSoftMaxCrossEntropyS expected d' = tlet d' $ \d ->
             expU' = exp (u - sreplicate0N (sminimum u))
         in tlet expU' $ \expU ->
           let sumExpU = ssum0 expU
-              recipSum = recip sumExpU
+              recipSum = sfromK $ recip sumExpU
           in sreplicate0N recipSum * expU
   in tletPrimal softMaxU0 $ \softMaxU -> kfromS $
     tD knownSTK
@@ -158,12 +158,12 @@ maxPool1S v =
   in sfromList $ NonEmpty.fromList $ map maxOfSlice l
 
 softMax1S :: forall target sh r.
-             ( KnownShS sh, BaseTensor target, LetTensor target
-             , NumScalar r, Differentiable r )
+             ( KnownShS sh, NumScalar r, Differentiable r
+             , BaseTensor target, LetTensor target, ConvertTensor target )
           => target (TKS sh r) -> target (TKS sh r)
 softMax1S d =
   let expU0 = exp d
-  in tlet expU0 $ \expU -> sreplicate0N (recip $ ssum0 expU) * expU
+  in tlet expU0 $ \expU -> sreplicate0N (sfromK $ recip $ ssum0 expU) * expU
 
 -- | Full convolution, where the output image size is the same
 -- as the input size.
