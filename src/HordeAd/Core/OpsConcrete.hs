@@ -179,8 +179,7 @@ instance BaseTensor Concrete where
   {-# INLINE trsum0 #-}
   trsum0 = Concrete . Nested.rsumAllPrim . unConcrete
   {-# INLINE trdot0 #-}
-  trdot0 u v =
-    Concrete $ Nested.rscalar $ Nested.rdot (unConcrete u) (unConcrete v)
+  trdot0 u v = Concrete $ Nested.rdot (unConcrete u) (unConcrete v)
   {-# INLINE trdot1In #-}
   trdot1In u v = Concrete $ Nested.rdot1Inner (unConcrete u) (unConcrete v)
   {-# INLINE trmatvecmul #-}
@@ -207,8 +206,7 @@ instance BaseTensor Concrete where
   {-# INLINE tssum0 #-}
   tssum0 = Concrete . Nested.ssumAllPrim . unConcrete
   {-# INLINE tsdot0 #-}
-  tsdot0 u v  =
-    Concrete $ Nested.sscalar $ Nested.sdot (unConcrete u) (unConcrete v)
+  tsdot0 u v = Concrete $ Nested.sdot (unConcrete u) (unConcrete v)
   {-# INLINE tsdot1In #-}
   tsdot1In @_ (SNat @n) u v =
     Concrete $ Nested.sdot1Inner (Proxy @n) (unConcrete u) (unConcrete v)
@@ -239,8 +237,7 @@ instance BaseTensor Concrete where
   {-# INLINE txsum0 #-}
   txsum0 = Concrete . Nested.msumAllPrim . unConcrete
   {-# INLINE txdot0 #-}
-  txdot0 u v =
-    Concrete $ Nested.mscalar $ Nested.mdot (unConcrete u) (unConcrete v)
+  txdot0 u v = Concrete $ Nested.mdot (unConcrete u) (unConcrete v)
   {-# INLINE txdot1In #-}
   txdot1In @_ (SNat @n) u v =
     Concrete $ Nested.mdot1Inner (Proxy @(Just n)) (unConcrete u) (unConcrete v)

@@ -3749,6 +3749,7 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstFromDual a -> fromDual $ astConvertSFromK c zftk a
   Ast.AstFromPlain a -> fromPlain $ astConvertSFromK c zftk a
   Ast.AstSum0S{} -> Ast.AstConvert c a0
+  Ast.AstDot0S{} -> Ast.AstConvert c a0
   Ast.AstBoolNot{} -> Ast.AstConvert c a0
   Ast.AstBoolAnd{} -> Ast.AstConvert c a0
   Ast.AstLeqK{} -> Ast.AstConvert c a0
@@ -3956,7 +3957,7 @@ astSum0S t = case t of
   Ast.AstReplicate snat STKScalar u ->
     u * (fromPlain $ AstConcreteK $ fromInteger $ fromSNat snat)
   Ast.AstLet var u v -> astLet var u (astSum0S v)
-  AstTimesS t1 t2 -> astKFromS' $ astDot0S t1 t2
+  AstTimesS t1 t2 -> astDot0S t1 t2
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
     astConcreteK $ tssum0 (Concrete v)
@@ -3967,10 +3968,8 @@ astSum0S t = case t of
   Ast.AstTransposeS _ u -> astSum0S u
   Ast.AstReshapeS _ u -> astSum0S u
   Ast.AstN1S NegateOp u -> negate $ astSum0S u
-  Ast.AstDot0S{} -> astKFromS' t
-  Ast.AstDot1InS _ _ t1 t2 -> astKFromS' $ astDot0S t1 t2
+  Ast.AstDot1InS _ _ t1 t2 -> astDot0S t1 t2
   Ast.AstMatmul2S m@SNat SNat p@SNat m1 m2 ->
-    astKFromS' $
     astDot0S (astTransposeS (Permutation.makePerm @'[1, 0])
                             (astReplicate p knownSTK m1))
              (astTransposeS (Permutation.makePerm @'[0, 2, 1])
@@ -3980,16 +3979,15 @@ astSum0S t = case t of
 astDot0S :: (NumScalar r, AstSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS sh r)
-         -> AstTensor AstMethodLet s (TKS '[] r)
+         -> AstTensor AstMethodLet s (TKScalar r)
 astDot0S t1 t2 = case (t1, t2) of
   (AstConcreteS v1, AstConcreteS v2) ->
     withKnownShS (Nested.sshape v1) $
-    astConcreteS $ tsdot0 (Concrete v1) (Concrete v2)
+    astConcreteK $ tsdot0 (Concrete v1) (Concrete v2)
   _ | FTKS (snat :$$ _) _ <- ftkAst t1
     , Just u1 <- unRepl1 t1
     , Just u2 <- unRepl1 t2 ->
-      astDot0S u1 u2 * (fromPlain $ AstConcreteS
-                        $ Nested.sscalar $ fromInteger $ fromSNat snat)
+      astDot0S u1 u2 * (fromPlain $ AstConcreteK $ fromInteger $ fromSNat snat)
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
     fromPrimal $ astDot0S u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->

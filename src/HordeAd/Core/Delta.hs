@@ -233,7 +233,7 @@ data Delta :: Target -> Target where
              => Delta target (TKR n r) -> Delta target (TKScalar r)
   DeltaDot0R :: (NumScalar r, Show (target (TKR n r)))
              => target (TKR n r) -> Delta target (TKR n r)
-             -> Delta target (TKR 0 r)
+             -> Delta target (TKScalar r)
   DeltaIndexR :: forall m n r target.
                  SNat n
               -> Delta target (TKR2 (m + n) r) -> IxROf target m
@@ -267,7 +267,7 @@ data Delta :: Target -> Target where
              => Delta target (TKS sh r) -> Delta target (TKScalar r)
   DeltaDot0S :: (NumScalar r, Show (target (TKS sh r)))
              => target (TKS sh r) -> Delta target (TKS sh r)
-             -> Delta target (TKS '[] r)
+             -> Delta target (TKScalar r)
   DeltaIndexS :: forall shm shn r target.
                  ShS shn
               -> Delta target (TKS2 (shm ++ shn) r) -> IxSOf target shm
@@ -308,7 +308,7 @@ data Delta :: Target -> Target where
              => Delta target (TKX sh r) -> Delta target (TKScalar r)
   DeltaDot0X :: (NumScalar r, Show (target (TKX sh r)))
              => target (TKX sh r) -> Delta target (TKX sh r)
-             -> Delta target (TKX '[] r)
+             -> Delta target (TKScalar r)
   DeltaIndexX :: forall shm shn r target.
                  StaticShX shn
               -> Delta target (TKX2 (shm ++ shn) r) -> IxXOf target shm
@@ -392,7 +392,7 @@ ftkDelta = \case
   DeltaCastR d -> case ftkDelta d of
     FTKR sh _ -> FTKR sh FTKScalar
   DeltaSum0R{} -> FTKScalar
-  DeltaDot0R{} -> FTKR ZSR FTKScalar
+  DeltaDot0R{} -> FTKScalar
   DeltaIndexR SNat d ix | SNat <- ixrRank ix -> case ftkDelta d of
     FTKR sh x -> FTKR (shrDrop sh) x
   DeltaScatterR _ _ _ sh d _ -> case ftkDelta d of
@@ -415,7 +415,7 @@ ftkDelta = \case
   DeltaCastS d -> case ftkDelta d of
     FTKS sh FTKScalar -> FTKS sh FTKScalar
   DeltaSum0S{} -> FTKScalar
-  DeltaDot0S{} -> FTKS ZSS FTKScalar
+  DeltaDot0S{} -> FTKScalar
   DeltaIndexS shn d _ix -> case ftkDelta d of
     FTKS _ x -> FTKS shn x
   DeltaScatterS _shm shn shp d _ -> case ftkDelta d of
@@ -435,7 +435,7 @@ ftkDelta = \case
   DeltaCastX d -> case ftkDelta d of
     FTKX sh FTKScalar -> FTKX sh FTKScalar
   DeltaSum0X{} -> FTKScalar
-  DeltaDot0X{} -> FTKX ZSX FTKScalar
+  DeltaDot0X{} -> FTKScalar
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x | SNat @len <- ixxRank ix ->
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $

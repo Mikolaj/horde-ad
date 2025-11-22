@@ -122,13 +122,13 @@ dot0RepW ftk a b = case (ftk, a, b) of
   (_, WTKScalar @r ta, WTKScalar tb) ->
     ifDifferentiable @r (kcast $ ta * tb) 0
   (WFTKR sh, WTKR @r ta, WTKR tb) | SNat <- shrRank sh ->
-    ifDifferentiable @r (kcast $ kfromR $ rdot0 ta tb) 0
+    ifDifferentiable @r (kcast $ rdot0 ta tb) 0
   (WFTKS sh, WTKS @r ta, WTKS tb) ->
     withKnownShS sh $
-    ifDifferentiable @r (kcast $ kfromS $ sdot0 ta tb) 0
+    ifDifferentiable @r (kcast $ sdot0 ta tb) 0
   (WFTKX sh, WTKX @r ta, WTKX tb) ->
     withKnownShX (ssxFromShX sh) $
-    ifDifferentiable @r (kcast $ kfromX $ xdot0 ta tb) 0
+    ifDifferentiable @r (kcast $ xdot0 ta tb) 0
   (WFTKProduct ftk1 ftk2, WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
     dot0RepW ftk1 ta1 tb1 + dot0RepW ftk2 ta2 tb2
 

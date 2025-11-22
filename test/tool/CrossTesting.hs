@@ -441,7 +441,7 @@ assertEqualUpToEpsilon1
   -- and a similar property stated mathematically is in Lemma 1 in
   -- https://www.microsoft.com/en-us/research/uploads/prod/2021/08/higher-order-ad.pdf
   assertEqualUpToEpsilonWithMark "Reverse vs forward"
-                                 1e-5 (rfromK $ rsum0 derivative) (rdot0 expected (toADTensorKindShared ftk vals))
+                                 1e-5 (rfromK $ rsum0 derivative) (rfromK $ rdot0 expected (toADTensorKindShared ftk vals))
   {- TODO: this most probably leaks gigabytes of strings from one test case
   -- to another in -O0 mode, leading to OOMs, so it's disabled for now.
   -- We could also try to stream the strings and compare on the fly.

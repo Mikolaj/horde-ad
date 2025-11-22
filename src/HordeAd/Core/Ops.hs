@@ -468,20 +468,21 @@ class ( Num (IntOf target)
   trsum0 :: (KnownNat n, NumScalar r, ConvertTensor target)
          => target (TKR n r) -> target (TKScalar r)
   trsum0 = kfromR . trsum . rflatten
-  trdot0 :: (KnownNat n, NumScalar r)
-         => target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
-  trdot0 t u = trsum (rflatten (t * u))
+  trdot0 :: (KnownNat n, NumScalar r, ConvertTensor target)
+         => target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
+  trdot0 t u = trsum0 (rflatten (t * u))
   trdot1In :: (KnownNat n, NumScalar r)
            => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
            -> target (TKR n r)
   trdot1In @n t u = trsum $ trtranspose (permCycle $ 1 + valueOf @n) (t * u)
-  trmatvecmul :: NumScalar r
+  trmatvecmul :: (NumScalar r, ConvertTensor target)
               => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
 -- How to generalize (#69)? The few straightforward generalizations
 -- differ in types but all are far from matmul2.
 -- rmatvecmul m v = rflatten $ rmap1 (rreplicate 1 . rdot0 v) m
-  trmatvecmul m v = trbuild1 (rwidth m) (\i -> trdot0 v (m `trindex` [i]))
-  trmatmul2 :: NumScalar r
+  trmatvecmul m v =
+    trbuild1 (rwidth m) (\i -> rfromK $ trdot0 v (m `trindex` [i]))
+  trmatmul2 :: (NumScalar r, ConvertTensor target)
             => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 -- How to generalize to tmatmul (#69)?
 -- Just rmatmul2 the two outermost dimensions?
@@ -498,10 +499,12 @@ class ( Num (IntOf target)
         => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
   tssum0 :: (KnownShS sh, NumScalar r, ConvertTensor target)
          => target (TKS sh r) -> target (TKScalar r)
-  tssum0 @sh | SNat <- shsProduct (knownShS @sh) = kfromS . tssum . sflatten
-  tsdot0 :: (KnownShS sh, NumScalar r)
-         => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
-  tsdot0 @sh t u | SNat <- shsProduct (knownShS @sh) = tssum (sflatten (t * u))
+  tssum0 @sh | SNat <- shsProduct (knownShS @sh) =
+    kfromS . tssum . sflatten
+  tsdot0 :: (KnownShS sh, NumScalar r, ConvertTensor target)
+         => target (TKS sh r) -> target (TKS sh r) -> target (TKScalar r)
+  tsdot0 @sh t u | SNat <- shsProduct (knownShS @sh) =
+    tssum0 (sflatten (t * u))
   tsdot1In :: (KnownShS sh, NumScalar r)
            => SNat n -> target (TKS (sh ++ '[n]) r)
            -> target (TKS (sh ++ '[n]) r)
@@ -516,11 +519,13 @@ class ( Num (IntOf target)
          fromMaybe (error "tsdot1In: impossible non-permutation")
          $ Permutation.permCheckPermutation cperm
          $ tssum $ tstranspose cperm (t * u)
-  tsmatvecmul :: (KnownNat m, KnownNat n, NumScalar r)
+  tsmatvecmul :: (KnownNat m, KnownNat n, NumScalar r, ConvertTensor target)
               => target (TKS '[m, n] r) -> target (TKS '[n] r)
               -> target (TKS '[m] r)
-  tsmatvecmul @m m v = tsbuild1 @_ @m (\i -> tsdot0 v (m `tsindex` (i :.$ ZIS)))
-  tsmatmul2 :: (KnownNat m, KnownNat n, KnownNat p, NumScalar r)
+  tsmatvecmul @m m v =
+    tsbuild1 @_ @m (\i -> sfromK $ tsdot0 v (m `tsindex` (i :.$ ZIS)))
+  tsmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p, NumScalar r
+               , ConvertTensor target )
             => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
             -> target (TKS '[m, p] r)
   tsmatmul2 @m m1 m2 =
@@ -544,9 +549,9 @@ class ( Num (IntOf target)
   txsum0 t = withSNat (shxSize $ xshape t) $ \snat ->
     kfromX $ txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
   txdot0 :: (KnownShX sh, NumScalar r, ConvertTensor target)
-         => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
-  txdot0 t u = withSNat (shxSize $ xshape t) $ \snat ->
-    txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten (t * u))
+         => target (TKX sh r) -> target (TKX sh r) -> target (TKScalar r)
+  txdot0 t u =
+    txsum0 (xflatten (t * u))
   txdot1In :: (KnownShX sh, NumScalar r)
            => SNat n -> target (TKX (sh ++ '[Just n]) r)
            -> target (TKX (sh ++ '[Just n]) r)
@@ -571,7 +576,7 @@ class ( Num (IntOf target)
     withKnownShX (ssxFromShX $ mn :$% ZSX) $
     withSNat (fromSMayNat' mm) $ \(SNat @k) ->
       xmcast (ssxFromShX $ mm :$% ZSX)
-      $ txbuild1 @_ @k (\i -> txdot0 v (m `txindex` (i :.% ZIX)))
+      $ txbuild1 @_ @k (\i -> xfromK $ txdot0 v (m `txindex` (i :.% ZIX)))
   txmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p
                , NumScalar r, ConvertTensor target )
             => target (TKX '[Just m, Just n] r)

@@ -128,7 +128,7 @@ lossCrossEntropyV
   :: ( BaseTensor target, ConvertTensor target
      , KnownNat n, NumScalar r, Differentiable r )
   => target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
-lossCrossEntropyV targ res = kfromR $ negate $ log res `rdot0` targ
+lossCrossEntropyV targ res = negate $ log res `rdot0` targ
 
 -- | Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @expected@ is one-hot. Otherwise, results vary wildly. In our
@@ -153,11 +153,11 @@ lossSoftMaxCrossEntropyR expected d' = tlet d' $ \d ->
           let sumExpU = rsum0 expU
               recipSum = rfromK $ recip sumExpU
           in rreplicate0N (rshape u) recipSum * expU
-    in tletPrimal softMaxU0 $ \softMaxU -> kfromR $
-      tD knownSTK
+    in tletPrimal softMaxU0 $ \softMaxU ->
+      tD STKScalar
          (negate $ log softMaxU `rdot0` expected)
            -- TODO: avoid: log . exp
-         (rdualPart $ rfromPrimal (softMaxU - expected) `rdot0` d)
+         (kdualPart $ rfromPrimal (softMaxU - expected) `rdot0` d)
 
 -- | No padding; remaining areas ignored.
 maxPool1 :: ( BaseTensor target, ConvertTensor target, LetTensor target
@@ -193,7 +193,7 @@ conv2dSame arrK arrA =
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicez shK1 arrA [iImg, 0, iBh, iBw]
           arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
-      in rdot0 arrAt arrKt
+      in rfromK $ rdot0 arrAt arrKt
     _ -> error "conv2dSame: impossible pattern needlessly required"
 
 -- | Full convolution with only enough padding to ensure all output points
@@ -216,7 +216,7 @@ conv2dShrinking arrK arrA =
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicez shK1 arrA [iImg, 0, iBh, iBw]
           arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
-      in rdot0 arrAt arrKt
+      in rfromK $ rdot0 arrAt arrKt
     _ -> error "conv2dShrinking: impossible pattern needlessly required"
 
 -- | Full convolution with enough padding to apply kernels at all
@@ -238,7 +238,7 @@ conv2dPadded arrK arrA =
                                    , iBh - fromIntegral nKh + 1
                                    , iBw - fromIntegral nKw + 1 ]
           arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
-      in rdot0 arrAt arrKt
+      in rfromK $ rdot0 arrAt arrKt
     _ -> error "conv2dPadded: impossible pattern needlessly required"
 
 -- | Full convolution with custom padding, where the output image size
@@ -260,7 +260,7 @@ conv2dCustomPadded (nPh, nPw) arrK arrA =
           iFw = iBw - fromIntegral nPw
           arrAt = slicez shK1 arrA [iImg, 0, iFh, iFw]
           arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
-      in rdot0 arrAt arrKt
+      in rfromK $ rdot0 arrAt arrKt
     _ -> error "conv2dCustomPadded: impossible pattern needlessly required"
 
 -- | Slice a section out of a tensor,

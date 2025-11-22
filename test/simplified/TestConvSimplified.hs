@@ -482,7 +482,7 @@ conv2dSameL arrK arrA =
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicezL shK1 arrA [iImg, 0, iBh, iBw]
           arrKt = slicezL shK1 arrK [iCout, 0, 0, 0]
-      in rdot0 arrAt arrKt
+      in rfromK $ rdot0 arrAt arrKt
     _ -> error "conv2dSameL: impossible pattern needlessly required"
 
 -- | Slice a section out of a tensor,
@@ -808,7 +808,7 @@ conv2dPaddedB arrK arrA =
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicezL shK1 arrAPadded [iImg, 0, iBh, iBw]
           arrKt = slicezL shK1 arrK [iCout, 0, 0, 0]
-      in rdot0 arrAt arrKt
+      in rfromK $ rdot0 arrAt arrKt
     _ -> error "conv2dPaddedB: impossible pattern needlessly required"
 
 conv2d1Padded
@@ -1218,13 +1218,13 @@ testTomsSlicePP = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent codeTomsSlice (FTKR [32, 4] FTKScalar)
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\m1 -> rfromS (sscalar 4.0 * sdot0 (sconcrete (sfromListLinear [32] [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0,16.0,17.0,18.0,19.0,20.0,21.0,22.0,23.0,24.0,25.0,26.0,27.0,28.0,29.0,30.0,31.0])) (sreplicate @32 (sdot0 (sslice (SNat @0) (SNat @3) (str (sfromR m1))) (sslice (SNat @1) (SNat @3) (str (sfromR m1))))))"
+    @?= "\\m1 -> rfromS (sscalar 4.0 * sfromK (sdot0 (sconcrete (sfromListLinear [32] [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0,16.0,17.0,18.0,19.0,20.0,21.0,22.0,23.0,24.0,25.0,26.0,27.0,28.0,29.0,30.0,31.0])) (sreplicate @32 (sfromK (sdot0 (sslice (SNat @0) (SNat @3) (str (sfromR m1))) (sslice (SNat @1) (SNat @3) (str (sfromR m1))))))))"
   printArtifactPrimalPretty artifactRev
     @?= "\\m1 -> let v8 = sreplicate @32 (ssum @96 (sreshape @[96] (str (sslice (SNat @0) (SNat @3) (str (sfromR m1))) * str (sslice (SNat @1) (SNat @3) (str (sfromR m1)))))) in rfromS (ssum @128 (sreshape @[128] (str (sreplicate @4 (siota (SNat @32) * v8)))))"
   printArtifactPretty artifactRev
     @?= "\\dret m1 -> let m10 = sreshape @[32, 3] (sreplicate @96 (ssum @32 (siota (SNat @32) * ssum @4 (str (sreshape @[32, 4] (sreplicate @128 (sfromR dret))))))) in rfromS (str (sappend (sconcrete (sfromListLinear [0,32] [])) (sappend (str (str (sslice (SNat @1) (SNat @3) (str (sfromR m1))) * m10)) (sconcrete (sreplicate [1,32] 0.0)))) + str (sappend (sconcrete (sreplicate [1,32] 0.0)) (sappend (str (str (sslice (SNat @0) (SNat @3) (str (sfromR m1))) * m10)) (sconcrete (sfromListLinear [0,32] [])))))"
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret m1 -> rfromS (let x10 = sscalar 4.0 * sdot0 (sconcrete (sfromListLinear [32] [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0,16.0,17.0,18.0,19.0,20.0,21.0,22.0,23.0,24.0,25.0,26.0,27.0,28.0,29.0,30.0,31.0])) (sreplicate @32 (sfromR dret)) in str (sappend (sslice (SNat @1) (SNat @3) (str (sfromR m1)) * sreplicate @3 (sreplicate @32 x10)) (sconcrete (sreplicate [1,32] 0.0))) + str (sappend (sconcrete (sreplicate [1,32] 0.0)) (sslice (SNat @0) (SNat @3) (str (sfromR m1)) * sreplicate @3 (sreplicate @32 x10))))"
+    @?= "\\dret m1 -> rfromS (let x10 = sscalar 4.0 * sfromK (sdot0 (sconcrete (sfromListLinear [32] [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0,16.0,17.0,18.0,19.0,20.0,21.0,22.0,23.0,24.0,25.0,26.0,27.0,28.0,29.0,30.0,31.0])) (sreplicate @32 (sfromR dret))) in str (sappend (sslice (SNat @1) (SNat @3) (str (sfromR m1)) * sreplicate @3 (sreplicate @32 x10)) (sconcrete (sreplicate [1,32] 0.0))) + str (sappend (sconcrete (sreplicate [1,32] 0.0)) (sslice (SNat @0) (SNat @3) (str (sfromR m1)) * sreplicate @3 (sreplicate @32 x10))))"
 
 testCNNOPP0c :: Assertion
 testCNNOPP0c = do
@@ -1689,7 +1689,7 @@ conv2dPaddedLet arrK arrA =
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicezL shK1 arrAPadded2 [iImg, 0, iBh, iBw]
           arrKt = slicezL shK1 arrK [iCout, 0, 0, 0]
-      in rdot0 arrAt arrKt
+      in rfromK $ rdot0 arrAt arrKt
     _ -> error "conv2dPaddedLet: impossible pattern needlessly required"
 
 testPaddedCNNOPPLet2 :: Assertion
@@ -1738,7 +1738,7 @@ conv2dPaddedLet2 arrK arrA =
       let arrAt = tlet arrAPadded $ \arrAPadded2 ->
                     slicezL shK1 arrAPadded2 [iImg, 0, iBh, iBw]
           arrKt = slicezL shK1 arrK [iCout, 0, 0, 0]
-      in rdot0 arrAt arrKt
+      in rfromK $ rdot0 arrAt arrKt
     _ -> error "conv2dPaddedLet2: impossible pattern needlessly required"
 
 testPaddedCNNOPP2 :: Assertion
@@ -1781,7 +1781,7 @@ conv2dPadded2 arrK arrA =
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicezL shK1 arrAPadded [iImg, 0, iBh, iBw]
           arrKt = slicezL shK1 arrK [iCout, 0, 0, 0]
-      in rdot0 arrAt arrKt
+      in rfromK $ rdot0 arrAt arrKt
     _ -> error "conv2dPadded2: impossible pattern needlessly required"
 
 

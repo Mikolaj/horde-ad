@@ -112,7 +112,7 @@ lossCrossEntropyVS :: ( KnownShS sh, NumScalar r, Differentiable r
                    => target (TKS sh r)
                    -> target (TKS sh r)
                    -> target (TKScalar r)
-lossCrossEntropyVS targ res = kfromS $ negate $ log res `sdot0` targ
+lossCrossEntropyVS targ res = negate $ log res `sdot0` targ
 
 -- | Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @expected@ is one-hot. Otherwise, results vary wildly. In our
@@ -135,11 +135,11 @@ lossSoftMaxCrossEntropyS expected d' = tlet d' $ \d ->
           let sumExpU = ssum0 expU
               recipSum = sfromK $ recip sumExpU
           in sreplicate0N recipSum * expU
-  in tletPrimal softMaxU0 $ \softMaxU -> kfromS $
-    tD knownSTK
+  in tletPrimal softMaxU0 $ \softMaxU ->
+    tD STKScalar
        (negate $ log softMaxU `sdot0` expected)
          -- TODO: avoid: log . exp
-       (sdualPart $ sfromPrimal (softMaxU - expected) `sdot0` d)
+       (kdualPart $ sfromPrimal (softMaxU - expected) `sdot0` d)
 
 -- | No padding; remaining areas ignored.
 maxPool1S :: forall ksize stride m target r.
@@ -187,7 +187,7 @@ conv2dSameS arrK arrA =
                           [iImg, 0, iBh, iBw]
           arrKt = slicezS arrK
                           [iCout, 0, 0, 0]
-      in sdot0 arrAt arrKt
+      in sfromK $ sdot0 arrAt arrKt
     _ -> error "conv2dSameS: impossible pattern needlessly required"
 
 -- | Full convolution with only enough padding to ensure all output points
@@ -218,7 +218,7 @@ conv2dShrinkingS arrK arrA =
                           [iImg, 0, iBh, iBw]
           arrKt = slicezS arrK
                           [iCout, 0, 0, 0]
-      in sdot0 arrAt arrKt
+      in sfromK $ sdot0 arrAt arrKt
     _ -> error "conv2dShrinkingS: impossible pattern needlessly required"
 
 -- | Full convolution with enough padding to apply kernels at all
@@ -248,7 +248,7 @@ conv2dPaddedS arrK arrA =
                           [iImg, 0, iBh - nKh1, iBw - nKw1]
           arrKt = slicezS arrK
                           [iCout, 0, 0, 0]
-      in sdot0 arrAt arrKt
+      in sfromK $ sdot0 arrAt arrKt
     _ -> error "conv2dPaddedS: impossible pattern needlessly required"
 
 -- | Slice a section out of a tensor,

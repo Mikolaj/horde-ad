@@ -522,7 +522,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
            -> AstTensor ms s (TKScalar r)
   AstDot0S :: NumScalar r
            => AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
-           -> AstTensor ms s (TKS '[] r)
+           -> AstTensor ms s (TKScalar r)
   AstDot1InS :: forall sh n r ms s. NumScalar r
              => ShS sh -> SNat n
              -> AstTensor ms s (TKS (sh ++ '[n]) r)

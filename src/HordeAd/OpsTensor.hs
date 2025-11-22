@@ -273,17 +273,17 @@ rsum = trsum
 rsum0 :: (KnownNat n, NumScalar r, BaseTensor target, ConvertTensor target)
       => target (TKR n r) -> target (TKScalar r)
 rsum0 = trsum0
-rdot0 :: (KnownNat n, NumScalar r, BaseTensor target)
-      => target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
+rdot0 :: (KnownNat n, NumScalar r, BaseTensor target, ConvertTensor target)
+      => target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
 rdot0 = trdot0
 rdot1In :: (KnownNat n, NumScalar r, BaseTensor target)
         => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
         -> target (TKR n r)
 rdot1In = trdot1In
-rmatvecmul :: (NumScalar r, BaseTensor target)
+rmatvecmul :: (NumScalar r, BaseTensor target, ConvertTensor target)
            => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
 rmatvecmul = trmatvecmul
-rmatmul2 :: (NumScalar r, BaseTensor target)
+rmatmul2 :: (NumScalar r, BaseTensor target, ConvertTensor target)
          => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 rmatmul2 = trmatmul2
 -- | Copy the given tensor along the new, outermost dimension.
@@ -300,19 +300,20 @@ ssum = tssum
 ssum0 :: (KnownShS sh, NumScalar r, BaseTensor target, ConvertTensor target)
       => target (TKS sh r) -> target (TKScalar r)
 ssum0 = tssum0
-sdot0 :: (KnownShS sh, NumScalar r, BaseTensor target)
-      => target (TKS sh r) -> target (TKS sh r) -> target (TKS '[] r)
+sdot0 :: (KnownShS sh, NumScalar r, BaseTensor target, ConvertTensor target)
+      => target (TKS sh r) -> target (TKS sh r) -> target (TKScalar r)
 sdot0 = tsdot0
 sdot1In :: (KnownShS sh, KnownNat n, NumScalar r, BaseTensor target)
         => target (TKS (sh ++ '[n]) r) -> target (TKS (sh ++ '[n]) r)
         -> target (TKS sh r)
 sdot1In @sh @n = tsdot1In @_ @sh (SNat @n)
-smatvecmul :: (KnownNat m, KnownNat n, NumScalar r, BaseTensor target)
+smatvecmul :: ( KnownNat m, KnownNat n, NumScalar r
+              , BaseTensor target, ConvertTensor target )
            => target (TKS '[m, n] r) -> target (TKS '[n] r)
            -> target (TKS '[m] r)
 smatvecmul = tsmatvecmul
 smatmul2 :: ( KnownNat m, KnownNat n, KnownNat p
-            , NumScalar r, BaseTensor target )
+            , NumScalar r, BaseTensor target, ConvertTensor target )
          => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
          -> target (TKS '[m, p] r)
 smatmul2 = tsmatmul2
@@ -329,9 +330,8 @@ xsum = txsum
 xsum0 :: ( KnownShX sh, NumScalar r, BaseTensor target, ConvertTensor target)
       => target (TKX sh r) -> target (TKScalar r)
 xsum0 = txsum0
-xdot0 :: ( KnownShX sh, NumScalar r
-         , BaseTensor target, ConvertTensor target )
-      => target (TKX sh r) -> target (TKX sh r) -> target (TKX '[] r)
+xdot0 :: (KnownShX sh, NumScalar r, BaseTensor target, ConvertTensor target)
+      => target (TKX sh r) -> target (TKX sh r) -> target (TKScalar r)
 xdot0 = txdot0
 xdot1In :: (KnownShX sh, KnownNat n, NumScalar r, BaseTensor target)
         => target (TKX (sh ++ '[Just n]) r)

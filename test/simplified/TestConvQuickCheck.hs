@@ -216,7 +216,7 @@ conv2dSame_dInp arrK arrB =
                           [iImg,  0, iAh - nKh + 1, iAw - nKw + 1]
           arrKt = slicezS (stranspose @'[1, 0] arrKFlipped)
                           [iCinp, 0 , 0, 0]
-      in sdot0 arrBt arrKt
+      in sfromK $ sdot0 arrBt arrKt
     _ -> error "conv2dSame_dInp: impossible pattern needlessly required"
 -- Note that
 -- > ... in conv2dSameS (stranspose @'[1, 0] arrKFlipped) arrB
@@ -246,7 +246,7 @@ conv2dSame_dKrn arrA arrB =
                           [0, iCout, 0, 0]
           arrAt = slicezS arrA
                           [0, iCinp, iKh, iKw]
-      in sdot0 arrBt arrAt
+      in sfromK $ sdot0 arrBt arrAt
     _ -> error "conv2dSame_dKrn: impossible pattern needlessly required"
 
 test_conv2dSameVjp_dInp :: Assertion

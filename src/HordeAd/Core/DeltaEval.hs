@@ -691,7 +691,7 @@ evalRevSame !s !c = \case
       evalRevSame s (trreplicate0N sh $ rfromK c) d
   DeltaDot0R v d -> case ftkDelta d of
     FTKR sh FTKScalar | SNat <- shrRank sh ->
-      evalRevSame s (v * trreplicate0N (rshape v) c) d
+      evalRevSame s (v * trreplicate0N (rshape v) (rfromK c)) d
         -- too slow: evalRevSame s (rmap0N (* (tscalar c)) v) vd
 
   DeltaCastS d -> case ftkDelta d of
@@ -703,7 +703,7 @@ evalRevSame !s !c = \case
       evalRevSame s (tsreplicate0N sh $ sfromK c) d
   DeltaDot0S v d -> case ftkDelta d of
     FTKS sh FTKScalar ->
-      evalRevSame s (v * tsreplicate0N sh c) d
+      evalRevSame s (v * tsreplicate0N sh (sfromK c)) d
 
   DeltaCastX d -> case ftkDelta d of
     y ->
@@ -716,7 +716,7 @@ evalRevSame !s !c = \case
   DeltaDot0X v d -> case ftkDelta d of
     FTKX sh FTKScalar ->
       withKnownShX (ssxFromShX sh) $
-      evalRevSame s (v * txreplicate0N (xshape v) c) d
+      evalRevSame s (v * txreplicate0N (xshape v) (xfromK c)) d
 
   DeltaConvert @a c1 d -> case ftkDelta d of
     aftk ->
@@ -1032,7 +1032,7 @@ evalFwdSame params s = \case
   DeltaSum0R d -> case ftkDelta d of
     FTKR sh FTKScalar | SNat <- shrRank sh ->
       second trsum0 $ evalFwdSame params s d
-  DeltaDot0R _ DeltaZero{} -> (s, trconcrete $ Nested.rscalar 0)
+  DeltaDot0R _ DeltaZero{} -> (s, 0)
   DeltaDot0R v d -> case ftkDelta d of
     FTKR sh FTKScalar | SNat <- shrRank sh ->
       second (trdot0 v) $ evalFwdSame params s d
@@ -1046,7 +1046,7 @@ evalFwdSame params s = \case
     FTKS sh FTKScalar ->
       withKnownShS sh $
       second tssum0 $ evalFwdSame params s d
-  DeltaDot0S _ DeltaZero{} -> (s, tsconcrete $ Nested.sscalar 0)
+  DeltaDot0S _ DeltaZero{} -> (s, 0)
   DeltaDot0S v d -> case ftkDelta d of
     FTKS sh FTKScalar ->
       withKnownShS sh $
@@ -1061,7 +1061,7 @@ evalFwdSame params s = \case
     FTKX sh FTKScalar ->
       withKnownShX (ssxFromShX sh) $
       second txsum0 $ evalFwdSame params s d
-  DeltaDot0X _ DeltaZero{} -> (s, txconcrete $ Nested.mscalar 0)
+  DeltaDot0X _ DeltaZero{} -> (s, 0)
   DeltaDot0X v d -> case ftkDelta d of
     FTKX sh FTKScalar ->
       withKnownShX (ssxFromShX sh) $
