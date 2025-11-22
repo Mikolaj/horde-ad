@@ -120,8 +120,10 @@ instance BaseTensor Concrete where
       Just l -> Concrete $ Nested.rfromListOuterN (V.length v) l
       Nothing -> error "rfromVector: empty vector"
   {-# INLINE trfromVector0N #-}
-  trfromVector0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
-    Concrete . tfromVector0NR sh . fmapUnConcrete
+  trfromVector0N @_ @r sh v | Dict <- eltDictRep (knownSTK @r) = Concrete $
+    case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
+      Nothing -> Nested.rreshape sh Nested.remptyArray
+      Just l -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar l
   {-# INLINE trunravelToList #-}
   trunravelToList @_ @r | Dict <- eltDictRep (knownSTK @r) =
     fmapConcrete . Nested.rtoListOuter . unConcrete
@@ -131,8 +133,14 @@ instance BaseTensor Concrete where
       Just l -> Concrete $ Nested.sfromListOuter SNat l
       Nothing -> error "sfromVector: empty vector"
   {-# INLINE tsfromVector0N #-}
-  tsfromVector0N @_ @r | Dict <- eltDictRep (knownSTK @r) =
-    Concrete . tfromVector0NS . fmapUnConcrete
+  tsfromVector0N @sh @r v | Dict <- eltDictRep (knownSTK @r) = Concrete $
+    case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
+      Nothing -> case testEquality (shsProduct (knownShS @sh)) (SNat @0) of
+        Just Refl -> Nested.sreshape (knownShS @sh)
+                     $ Nested.semptyArray (knownShS @sh)
+        Nothing -> error "sfromVector0N: empty list, but not shape"
+      Just l -> Nested.sfromListLinear knownShS
+                $ NonEmpty.map Nested.sunScalar l
   {-# INLINE tsunravelToList #-}
   tsunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     fmapConcrete . Nested.stoListOuter . unConcrete
@@ -142,8 +150,12 @@ instance BaseTensor Concrete where
       Just l -> Concrete $ Nested.mfromListOuterSN (SNat @n) l
       Nothing -> error "xfromVector: empty vector"
   {-# INLINE txfromVector0N #-}
-  txfromVector0N @_ @r sh | Dict <- eltDictRep (knownSTK @r) =
-    Concrete . tfromVector0NX sh . fmapUnConcrete
+  txfromVector0N @_ @r sh v | Dict <- eltDictRep (knownSTK @r) = Concrete $
+    case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
+      Nothing -> if shxSize sh == 0
+                 then Nested.mreshape sh $ Nested.memptyArray sh
+                 else error "xfromVector0N: empty list, but not shape"
+      Just l -> Nested.mfromListLinear sh $ NonEmpty.map Nested.munScalar l
   {-# INLINE txunravelToList #-}
   txunravelToList @_ @_ @r | Dict <- eltDictRep (knownSTK @r) =
     fmapConcrete . Nested.mtoListOuter . unConcrete
