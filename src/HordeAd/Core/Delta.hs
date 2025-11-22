@@ -229,7 +229,8 @@ data Delta :: Target -> Target where
   -- Ranked tensor operations
   DeltaCastR :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
              => Delta target (TKR n r1) -> Delta target (TKR n r2)
-  DeltaSum0R :: Delta target (TKR2 n r) -> Delta target (TKR2 0 r)
+  DeltaSum0R :: NumScalar r
+             => Delta target (TKR n r) -> Delta target (TKScalar r)
   DeltaDot0R :: (NumScalar r, Show (target (TKR n r)))
              => target (TKR n r) -> Delta target (TKR n r)
              -> Delta target (TKR 0 r)
@@ -388,8 +389,7 @@ ftkDelta = \case
 
   DeltaCastR d -> case ftkDelta d of
     FTKR sh _ -> FTKR sh FTKScalar
-  DeltaSum0R d -> case ftkDelta d of
-    FTKR _ x -> FTKR ZSR x
+  DeltaSum0R{} -> FTKScalar
   DeltaDot0R{} -> FTKR ZSR FTKScalar
   DeltaIndexR SNat d ix | SNat <- ixrRank ix -> case ftkDelta d of
     FTKR sh x -> FTKR (shrDrop sh) x

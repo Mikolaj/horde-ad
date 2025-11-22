@@ -406,7 +406,7 @@ testZero11S =
   assertEqualUpToEpsilon 1e-9
     ( ringestData [0, 2, 4, 0, 1] []
     , sconcrete $ Nested.sfromListPrimLinear @'[0, 2, 4, 0, 1] knownShS [] )
-    (cgrad (kfromR . rsum0 .
+    (cgrad (rsum0 .
             let f = const (rreplicate0N [0, 2, 4, 0, 1] (rscalar 3)) . snd
             in f :: ( ADVal Concrete (TKR 5 Double)
                     , ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double) )
@@ -683,7 +683,7 @@ foo2 (x, y, z) =
 gradFooMatrix2 :: (Differentiable r, NumScalar r)
                => (Concrete (TKR 2 r), Concrete (TKR 2 r), Concrete (TKR 2 r))
                -> (Concrete (TKR 2 r), Concrete (TKR 2 r), Concrete (TKR 2 r))
-gradFooMatrix2 = grad (kfromR . rsum0 . foo2)
+gradFooMatrix2 = grad (rsum0 . foo2)
 
 testGradFooMatrix2 :: Assertion
 testGradFooMatrix2 =
@@ -1304,7 +1304,7 @@ testReluSimpler3 = do
   assertEqualUpToEpsilon 1e-10
     ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , rscalar 57.1 )
-    (grad (kfromR . rsum0 . reluT2) (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
+    (grad (rsum0 . reluT2) (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
 
 testReluSimplerPP4 :: Assertion
 testReluSimplerPP4 = do
@@ -1331,7 +1331,7 @@ testReluSimpler4 = do
   assertEqualUpToEpsilon 1e-10
     ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , rscalar 57.1 )
-    (grad (kfromR . rsum0 . reluT2) (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
+    (grad (rsum0 . reluT2) (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
 
 testReluSimplerPP4s :: Assertion
 testReluSimplerPP4s = do
@@ -1455,7 +1455,7 @@ testReluMax3 = do
   assertEqualUpToEpsilon 1e-10
     ( ringestData [3, 4] [7.0,0.0,0.0,7.0,7.0,7.0,7.0,7.0,0.0,0.0,7.0,7.0]
     , rscalar 57.1 )
-    (grad (kfromR . rsum0 . reluT2) (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
+    (grad (rsum0 . reluT2) (ringestData [3, 4] [1.1, -2.2, 0, 4.4, 5.5, 6.6, 7.7, 8.8, -9.9, -10, 11, 12], rscalar 7))
 
 testDot1PP :: Assertion
 testDot1PP = do
@@ -1690,7 +1690,7 @@ testFooD =
 fooBuild1 :: (ADReady target, NumScalar r, Differentiable r)
           => target (TKR 1 r) -> target (TKR 1 r)
 fooBuild1 v =
-  let r = rsum0 v
+  let r = rfromK $ rsum0 v
       v' = rminimum v
   in rbuild1 3 $ \ix ->
        r * foo2 ( rscalar 3
@@ -1728,7 +1728,7 @@ testFooBuild =
 fooNoGo :: forall target r. (ADReady target, NumScalar r, Differentiable r)
         => target (TKR 1 r) -> target (TKR 1 r)
 fooNoGo v =
-  let r = rsum0 v
+  let r = rfromK $ rsum0 v
   in rbuild1 3 (\ix' -> let ix :: PlainOf target (TKS '[] Int64)
                             ix = sfromR $ rfromK ix' in
        bar (rscalar 3.14, bar (rscalar 3.14, rindex v [kfromS $ (ix + (tplainPart . sfloor . sfromR) r) `minH` sscalar 2 `maxH` sscalar 0]))
@@ -1759,10 +1759,10 @@ nestedBuildMap r =
         fooMap1 r2 =
           let v = fooBuild1 $ rreplicate0N [130] r2
           in rmap0N (\x -> x * r2 + rscalar 5) v
-    in rmap0N (\x0 -> tlet x0 $ \x -> x * rsum0
+    in rmap0N (\x0 -> tlet x0 $ \x -> x * rfromK (rsum0
                            (rbuild1 3 (\ix -> bar (x, rindex v' [ix]))
                             + (tlet (nestedMap x) $ \x3 -> fooBuild1 x3)
-                            / (tlet x $ \x4 -> fooMap1 x4))
+                            / (tlet x $ \x4 -> fooMap1 x4)))
               ) doublyBuild
 
 testNestedBuildMap1 :: Assertion
@@ -1787,7 +1787,7 @@ nestedSumBuild v0 = tlet v0 $ \v ->
              , rsum (rbuild1 3 (\ix7 ->
                  rsum (rreplicate 5 (rfromIndex0 ix7))))
              ]))))))
- + tlet (nestedBuildMap (rsum0 v)) (\nbmt -> (rbuild1 13 (\ix ->
+ + tlet (nestedBuildMap (rfromK $ rsum0 v)) (\nbmt -> (rbuild1 13 (\ix ->
      nbmt `rindex` [minH ix 4])))
 
 testNestedSumBuild :: Assertion
@@ -1915,7 +1915,7 @@ testBarReluMax3FwdR =
          (ringestData [2, 1, 2] [0.1, 0.2, 0.3, 0.42]))
 
 f1 :: (ADReady target, NumScalar r) => target (TKR 0 r) -> target (TKR 0 r)
-f1 = \arg -> rsum0 (rbuild1 10 (\i -> arg * rfromIndex0 i))
+f1 = \arg -> rfromK $ rsum0 (rbuild1 10 (\i -> arg * rfromIndex0 i))
 
 testF1 :: Assertion
 testF1 =
@@ -1933,11 +1933,11 @@ f2 :: forall target r. (ADReady target, NumScalar r)
    => target (TKR 0 r) -> target (TKR 0 r)
 f2 = \arg ->
   let fun1 i = arg * rfromIndex0 i
-      v1a = rsum0 (rbuild1 10 fun1)
-      v1b = rsum0 (rbuild1 20 fun1)
+      v1a = rfromK $ rsum0 (rbuild1 10 fun1)
+      v1b = rfromK $ rsum0 (rbuild1 20 fun1)
       fun2 y i = y * rfromIndex0 @r i
-      v2a = rsum0 (rbuild1 10 (fun2 arg))
-      v2b = rsum0 (rbuild1 20 (fun2 (arg + rscalar 1)))
+      v2a = rfromK $ rsum0 (rbuild1 10 (fun2 arg))
+      v2b = rfromK $ rsum0 (rbuild1 20 (fun2 (arg + rscalar 1)))
   in v1a + v1b + v2a + v2b
 
 testF2 :: Assertion
@@ -1990,7 +1990,7 @@ testRecycled1 :: Assertion
 testRecycled1 =
   assertEqualUpToEpsilon 1e-6
     (rscalar 348356.9278600814)
-    (grad (kfromR @_ @Double . rsum0 . recycled) (rscalar 0.0000001))
+    (grad (rsum0 @_ @Double . recycled) (rscalar 0.0000001))
 
 concatBuild :: (ADReady target, NumScalar r) => target (TKR 0 r) -> target (TKR 2 r)
 concatBuild r =
@@ -2426,7 +2426,7 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   , testCase "blowupLet 2000" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [0.3333133339329949,-0.22220888928866325])
-        (grad (kfromR @_ @Double . rsum0 . (\intputs -> fblowupLet 1 2000 intputs))
+        (grad (rsum0 @_ @Double . (\intputs -> fblowupLet 1 2000 intputs))
               (ringestData [2] [2, 3]))
   , testCase "blowupLet prim 200" $ do
       assertEqualUpToEpsilon' 1e-10
@@ -2435,34 +2435,34 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   , testCase "blowupLet 7000" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [0.3332633406816766,-0.22217556045445108])
-        (grad (kfromR @_ @Double . rsum0 . fblowupLet 0 7000) (ringestData [2] [2, 3]))
+        (grad (rsum0 @_ @Double . fblowupLet 0 7000) (ringestData [2] [2, 3]))
   , testCase "blowupLet tbuild0" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [333.2633406816765,-222.175560454451])
-        (grad (kfromR @_ @Double . rsum0 . (\intputs -> rbuild1 1000 (\_ -> fblowupLet 0 7000 intputs)))
+        (grad (rsum0 @_ @Double . (\intputs -> rbuild1 1000 (\_ -> fblowupLet 0 7000 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupLet tbuild2" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [333.2633406816765,-222.175560454451])
-        (grad (kfromR @_ @Double . rsum0 . (\intputs -> rbuild1 1000 (\_ -> fblowupLet 2 7000 intputs)))
+        (grad (rsum0 @_ @Double . (\intputs -> rbuild1 1000 (\_ -> fblowupLet 2 7000 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupLet tbuildi" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [333.2983351701977,-222.19889011346513])
-        (grad (kfromR @_ @Double . rsum0
+        (grad (rsum0 @_ @Double
                . (\intputs -> rbuild1 1000 (\i -> fblowupLet i 3500 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupLet tbuildc" $ do
       assertEqualUpToEpsilon 1e-7
         (ringestData [2] [333.326333406717,-222.21755560448116])
         (cgrad @_ @_ @_ @Concrete
-               (kfromR @_ @Double . rsum0
+               (rsum0 @_ @Double
                 . (\intputs -> rbuild1 1000 (\i -> fblowupLet i 700 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupLet prim tbuild" $ do
       assertEqualUpToEpsilon 1e-7
         (ringestData [2] [33.33263334067178,-22.221755560447928])
-        (grad (kfromR @_ @Double . rsum0
+        (grad (rsum0 @_ @Double
                . (\intputs -> rbuild1 100 (\i -> fblowupLet i 700 intputs)))
               (ringestData [2] [2, 3]))
   , testCase "blowupMult 3" $ do
@@ -2482,7 +2482,7 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   , testCase "blowupMultLet tbuild1" $ do
       assertEqualUpToEpsilon 1e-10
         (ringestData [2] [14.9999773958889,39.9999398380561])
-        (grad (kfromR @_ @Double . rsum0
+        (grad (rsum0 @_ @Double
                . (\intputs -> rbuild1 100 (\i -> fblowupMultLet i 50 intputs)))
               (ringestData [2] [0.2, 0.3]))
   ]

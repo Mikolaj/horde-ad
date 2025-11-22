@@ -34,7 +34,7 @@ import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
-import HordeAd.Core.ConvertTensor (kfromR, kfromS)
+import HordeAd.Core.ConvertTensor (kfromS, rfromK)
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorKind
@@ -441,7 +441,7 @@ assertEqualUpToEpsilon1
   -- and a similar property stated mathematically is in Lemma 1 in
   -- https://www.microsoft.com/en-us/research/uploads/prod/2021/08/higher-order-ad.pdf
   assertEqualUpToEpsilonWithMark "Reverse vs forward"
-                                 1e-5 (rsum0 derivative) (rdot0 expected (toADTensorKindShared ftk vals))
+                                 1e-5 (rfromK $ rsum0 derivative) (rdot0 expected (toADTensorKindShared ftk vals))
   {- TODO: this most probably leaks gigabytes of strings from one test case
   -- to another in -O0 mode, leading to OOMs, so it's disabled for now.
   -- We could also try to stream the strings and compare on the fly.
@@ -477,7 +477,7 @@ rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, KnownNat n, NumScalar r3, KnownNat m)
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR n r))
-rrev1 f u = kgrad (kfromR . rsum0 . f) (tftk knownSTK u) u
+rrev1 f u = kgrad (rsum0 . f) (tftk knownSTK u) u
 
 rrevFTK :: forall g x z. (ADReady g, KnownSTK x, TKAllNum z)
         => FullShapeTK z -> (forall f. ADReady f => f x -> f z) -> g x

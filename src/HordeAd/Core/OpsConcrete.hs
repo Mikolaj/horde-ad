@@ -177,10 +177,7 @@ instance BaseTensor Concrete where
         -- Concrete has a ShareTensor instance, so taddTarget arguments
         -- don't need to be duplicable
   {-# INLINE trsum0 #-}
-  trsum0 @_ @r t = case knownSTK @r of
-    STKScalar @r2 | Dict0 <- numFromTKAllNum (Proxy @r2) ->  -- optimized
-      Concrete . Nested.rscalar . Nested.rsumAllPrim . unConcrete $ t
-    _ -> trsum . rflatten $ t
+  trsum0 = Concrete . Nested.rsumAllPrim . unConcrete
   {-# INLINE trdot0 #-}
   trdot0 u v =
     Concrete $ Nested.rscalar $ Nested.rdot (unConcrete u) (unConcrete v)

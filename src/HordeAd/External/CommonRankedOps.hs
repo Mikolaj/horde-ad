@@ -151,7 +151,7 @@ lossSoftMaxCrossEntropyR expected d' = tlet d' $ \d ->
   in tletPrimal expU' $ \expU ->
     let softMaxU0 =
           let sumExpU = rsum0 expU
-              recipSum = recip sumExpU
+              recipSum = rfromK $ recip sumExpU
           in rreplicate0N (rshape u) recipSum * expU
     in tletPrimal softMaxU0 $ \softMaxU -> kfromR $
       tD knownSTK
@@ -167,12 +167,13 @@ maxPool1 ksize stride v =
   let slices = [rslice i ksize v | i <- [0, stride .. rwidth v - ksize]]
   in rfromList $ NonEmpty.fromList $ map rmaximum slices
 
-softMax1 :: ( BaseTensor target, LetTensor target
+softMax1 :: ( BaseTensor target, LetTensor target, ConvertTensor target
             , KnownNat n, NumScalar r, Differentiable r )
          => target (TKR n r) -> target (TKR n r)
 softMax1 d =
   let expU0 = exp d
-  in tlet expU0 $ \expU -> rreplicate0N (rshape d) (recip $ rsum0 expU) * expU
+  in tlet expU0 $ \expU ->
+       rreplicate0N (rshape d) (rfromK $ recip $ rsum0 expU) * expU
 
 -- | Unpadded full convolution, where the output image size is the same
 -- as the input size.

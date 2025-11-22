@@ -840,7 +840,7 @@ testSin0Fold8fwd2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rscalar 98.72666469795735)
-    (cgrad (kfromR . rsum0 . h) (rscalar 1.1))
+    (cgrad (rsum0 . h) (rscalar 1.1))
 
 testSin0Fold8Sjvp :: Assertion
 testSin0Fold8Sjvp = do
@@ -1210,7 +1210,7 @@ testSin0Scan8fwd2 = do
                         (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.95794829475744])
-    (cgrad (kfromR . rsum0 . h) (rscalar 1.1))
+    (cgrad (rsum0 . h) (rscalar 1.1))
 
 testUnitriangular0PP :: Assertion
 testUnitriangular0PP = do
@@ -2261,7 +2261,7 @@ testSin0ScanD8fwd2 = do
                        (rreplicate 3 a0))
   assertEqualUpToEpsilon 1e-10
     (rconcrete $ Nested.rfromListPrimLinear [] [285.95794829475744])
-    (cgrad (kfromR . rsum0 . h) (rscalar 1.1))
+    (cgrad (rsum0 . h) (rscalar 1.1))
 
 testSin0FoldNestedS1 :: Assertion
 testSin0FoldNestedS1 = do
@@ -2909,7 +2909,7 @@ testSin0revhV4 = do
                doms3 x (ringestData [4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (rfromList [rscalar 0, rscalar 0, rscalar 0])
-    (cgrad @_ @_ @_ @Concrete (kfromR . rsum0 . f) (rreplicate 3 (rscalar 1.1)))
+    (cgrad @_ @_ @_ @Concrete (rsum0 . f) (rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV5 :: Assertion
 testSin0revhV5 = do
@@ -2937,7 +2937,7 @@ testSin0revhV6 = do
                doms3 x (ringestData [4] [1, 2, 3, 4])
   assertEqualUpToEpsilon 1e-10
     (ringestData [3] [4.0,6.0,8.0])
-    (cgrad @_ @_ @_ @Concrete (kfromR . rsum0 . f) (rreplicate 3 (rscalar 1.1)))
+    (cgrad @_ @_ @_ @Concrete (rsum0 . f) (rreplicate 3 (rscalar 1.1)))
 
 testSin0revhV7 :: Assertion
 testSin0revhV7 = do

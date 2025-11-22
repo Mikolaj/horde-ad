@@ -478,10 +478,6 @@ evalRevFTK !s !c d0 = case d0 of
         s2 = evalRevFTK s dacc acc0'
     in evalRevFTK s2 des es'
 
-  DeltaSum0R d -> case ftkDelta d of
-    FTKR sh x | SNat <- shrRank sh ->
-      withKnownSTK (adSTK $ ftkToSTK x) $
-      evalRevFTK s (trreplicate0N sh c) d
   DeltaIndexR SNat d ix -> case ftkDelta d of
     FTKR sh x | SNat <- ixrRank ix
               , Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
@@ -699,6 +695,9 @@ evalRevSame !s !c = \case
     y ->
       evalRevRRuntimeSpecialized
       s (toADTensorKindShared y $ trcast c) d
+  DeltaSum0R d -> case ftkDelta d of
+    FTKR sh FTKScalar | SNat <- shrRank sh ->
+      evalRevSame s (trreplicate0N sh $ rfromK c) d
   DeltaDot0R v d -> case ftkDelta d of
     FTKR sh FTKScalar | SNat <- shrRank sh ->
       evalRevSame s (v * trreplicate0N (rshape v) c) d
@@ -870,12 +869,6 @@ evalFwd params s d0 = case d0 of
                        cacc0
                        (tpair ces (tpair q es)))
 
-  DeltaSum0R (DeltaZero (FTKR _ x)) -> (s, tdefTarget (FTKR ZSR (adFTK x)))
-  DeltaSum0R d -> case ftkDelta d of
-    FTKR sh x | SNat <- shrRank sh
-              , Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
-      withKnownSTK (adSTK $ ftkToSTK x) $
-      second trsum0 $ evalFwd params s d
   DeltaIndexR SNat d ix -> case ftkDelta d of
     FTKR _ x | SNat <- ixrRank ix ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -1049,6 +1042,10 @@ evalFwdSame params s = \case
     y -> case matchingFTK y (adFTK y) of
       Just Refl -> second trcast $ evalFwdSame params s d
       _ -> (s, tdefTarget $ adFTK $ ftkDelta d0)
+  DeltaSum0R DeltaZero{} -> (s, 0)
+  DeltaSum0R d -> case ftkDelta d of
+    FTKR sh FTKScalar | SNat <- shrRank sh ->
+      second trsum0 $ evalFwdSame params s d
   DeltaDot0R _ DeltaZero{} -> (s, trconcrete $ Nested.rscalar 0)
   DeltaDot0R v d -> case ftkDelta d of
     FTKR sh FTKScalar | SNat <- shrRank sh ->

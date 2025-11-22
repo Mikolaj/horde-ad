@@ -105,7 +105,7 @@ sum0RepW ftk a = case (ftk, a) of
   (_, WTKScalar @r ta) ->
     ifDifferentiable @r (kcast ta) 0
   (WFTKR sh, WTKR @r ta) | SNat <- shrRank sh ->
-    ifDifferentiable @r (kcast $ kfromR $ rsum0 ta) 0
+    ifDifferentiable @r (kcast $ rsum0 ta) 0
   (WFTKS sh, WTKS @r ta) ->
     withKnownShS sh $
     ifDifferentiable @r (kcast $ kfromS $ ssum0 ta) 0

@@ -270,8 +270,8 @@ maxH u v = ifH (u >=. v) u v
 rsum :: (KnownNat n, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKR2 (1 + n) x) -> target (TKR2 n x)
 rsum = trsum
-rsum0 :: (KnownNat n, TKAllNum x, KnownSTK x, BaseTensor target)
-      => target (TKR2 n x) -> target (TKR2 0 x)
+rsum0 :: (KnownNat n, NumScalar r, BaseTensor target, ConvertTensor target)
+      => target (TKR n r) -> target (TKScalar r)
 rsum0 = trsum0
 rdot0 :: (KnownNat n, NumScalar r, BaseTensor target)
       => target (TKR n r) -> target (TKR n r) -> target (TKR 0 r)
