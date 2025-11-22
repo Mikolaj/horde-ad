@@ -69,13 +69,11 @@ reluS, reluLeakyS
      (KnownShS sh, ADReady target, NumScalar r, Differentiable r)
   => target (TKS sh r) -> target (TKS sh r)
 reluS v0 = tlet v0 $ \v ->
-  let oneIfGtZero =
-        smap0N (\x -> ifH (x <=. sscalar 0) (sscalar 0.0) (sscalar 1.0)) v
+  let oneIfGtZero = smap0N (\x -> ifH (x <=. 0) 0.0 1.0) v
   in oneIfGtZero * v
 
 reluLeakyS v0 = tlet v0 $ \v ->
-  let oneIfGtZero =
-        smap0N (\x -> ifH (x <=. sscalar 0) (sscalar 00.01) (sscalar 01.0)) v
+  let oneIfGtZero = smap0N (\x -> ifH (x <=. 0) 00.01 01.0) v
   in oneIfGtZero * v
 
 logisticS :: forall target r sh.

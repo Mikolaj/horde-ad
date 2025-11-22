@@ -380,20 +380,12 @@ instance BaseTensor Concrete where
   trbuild @_ @_ @r k f | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ tbuildR k (unConcrete . f . fmapConcrete)
   {-# INLINE trmap0N #-}
-  trmap0N @_ @r @r1 f t = case (knownSTK @r1, knownSTK @r) of
-    (STKScalar, STKScalar) ->
-      Concrete $ tmap0NR (unConcrete . f . Concrete) (unConcrete t)
-    _ ->  -- this is the default implementation from the class
-      trbuild (rshape t) (f . trindex t)
+  trmap0N f t = Concrete $ tmap0NR (unConcrete . f . Concrete) (unConcrete t)
   {-# INLINE trzipWith0N #-}
-  trzipWith0N @_ @r1 @r2 @r f t u =
-    case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
-      (STKScalar, STKScalar, STKScalar) ->
-        Concrete
-        $ tzipWith0NR (\v w -> unConcrete $ f (Concrete v) (Concrete w))
-                      (unConcrete t) (unConcrete u)
-      _ ->  -- this is the default implementation from the class
-        trbuild (rshape u) (\ix -> f (trindex t ix) (trindex u ix))
+  trzipWith0N f t u =
+    Concrete
+    $ tzipWith0NR (\v w -> unConcrete $ f (Concrete v) (Concrete w))
+                  (unConcrete t) (unConcrete u)
   {-# INLINE tsbuild1 #-}
   tsbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ tbuild1S (unConcrete . f . Concrete)
@@ -401,30 +393,12 @@ instance BaseTensor Concrete where
   tsbuild @m @sh @x _ f | Dict <- eltDictRep (knownSTK @x) =
     Concrete $ tbuildS @m @sh (unConcrete . f . fmapConcrete)
   {-# INLINE tsmap0N #-}
-  tsmap0N @sh @r @r1 f v = case (knownSTK @r1, knownSTK @r) of
-    (STKScalar, STKScalar) ->
-      Concrete $ tmap0NS (unConcrete . f . Concrete) (unConcrete v)
-    _ | Refl <- lemAppNil @sh ->
-      -- this is the default implementation from the class
-      gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
-      gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
-      case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
-        SNat ->
-          tsbuild @_ @(Rank sh) SNat (f . tsindex v)
+  tsmap0N f v = Concrete $ tmap0NS (unConcrete . f . Concrete) (unConcrete v)
   {-# INLINE tszipWith0N #-}
-  tszipWith0N @sh @r1 @r2 @r f t u =
-    case (knownSTK @r1, knownSTK @r2, knownSTK @r) of
-      (STKScalar, STKScalar, STKScalar) ->
-        Concrete
-        $ tzipWith0NS (\v w -> unConcrete $ f (Concrete v) (Concrete w))
-                      (unConcrete t) (unConcrete u)
-      _ | Refl <- lemAppNil @sh ->
-        -- this is the default implementation from the class
-        gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
-        gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
-        case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
-          SNat ->
-            tsbuild @_ @(Rank sh) SNat (\ix -> f (tsindex t ix) (tsindex u ix))
+  tszipWith0N f t u =
+    Concrete
+    $ tzipWith0NS (\v w -> unConcrete $ f (Concrete v) (Concrete w))
+                  (unConcrete t) (unConcrete u)
   {-# INLINE txbuild1 #-}
   txbuild1 @_ @_ @r f | Dict <- eltDictRep (knownSTK @r) =
     Concrete $ tbuild1X (unConcrete . f . Concrete)
@@ -903,22 +877,16 @@ tbuildR sh f =
 
 tmap0NR
   :: (Nested.PrimElt r1, Nested.PrimElt r)
-  => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r) -> Nested.Ranked n r1
-  -> Nested.Ranked n r
+  => (r1 -> r) -> Nested.Ranked n r1 -> Nested.Ranked n r
 {-# INLINE tmap0NR #-}
-tmap0NR f = Ranked.liftRanked1
-              (Mixed.mliftPrim (Nested.runScalar . f . Nested.rscalar))
-  -- too slow: tbuildNR (Nested.rshape v) (\ix -> f $ v `tindexNR` ix)
+tmap0NR f = Ranked.liftRanked1 (Mixed.mliftPrim f)
 
 tzipWith0NR
   :: (Nested.PrimElt r, Nested.PrimElt r1, Nested.PrimElt r2)
-  => (Nested.Ranked 0 r1 -> Nested.Ranked 0 r2 -> Nested.Ranked 0 r)
-  -> Nested.Ranked n r1 -> Nested.Ranked n r2 -> Nested.Ranked n r
+  => (r1 -> r2 -> r) -> Nested.Ranked n r1 -> Nested.Ranked n r2
+  -> Nested.Ranked n r
 {-# INLINE tzipWith0NR #-}
-tzipWith0NR f =
-  Ranked.liftRanked2
-    (Mixed.mliftPrim2
-       (\x y -> Nested.runScalar $ f (Nested.rscalar x) (Nested.rscalar y)))
+tzipWith0NR f = Ranked.liftRanked2 (Mixed.mliftPrim2 f)
 
 
 -- * Shaped internal definitions
@@ -1222,23 +1190,16 @@ tbuildS f =
 
 tmap0NS
   :: forall r1 r sh. (Nested.PrimElt r1, Nested.PrimElt r)
-  => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r) -> Nested.Shaped sh r1
-  -> Nested.Shaped sh r
+  => (r1 -> r) -> Nested.Shaped sh r1 -> Nested.Shaped sh r
 {-# INLINE tmap0NS #-}
-tmap0NS f =
-  Shaped.liftShaped1
-    (Mixed.mliftPrim (Nested.sunScalar . f . Nested.sscalar))
-      -- too slow: tbuildNS (tshapeS v) (\ix -> f $ v `tindexNS` ix)
+tmap0NS f = Shaped.liftShaped1 (Mixed.mliftPrim f)
 
 tzipWith0NS
   :: forall r1 r2 r sh. (Nested.PrimElt r, Nested.PrimElt r1, Nested.PrimElt r2)
-  => (Nested.Shaped '[] r1 -> Nested.Shaped '[] r2 -> Nested.Shaped '[] r)
-  -> Nested.Shaped sh r1 -> Nested.Shaped sh r2 -> Nested.Shaped sh r
+  => (r1 -> r2 -> r) -> Nested.Shaped sh r1 -> Nested.Shaped sh r2
+  -> Nested.Shaped sh r
 {-# INLINE tzipWith0NS #-}
-tzipWith0NS f =
-  Shaped.liftShaped2
-    (Mixed.mliftPrim2
-       (\x y -> Nested.sunScalar $ f (Nested.sscalar x) (Nested.sscalar y)))
+tzipWith0NS f = Shaped.liftShaped2 (Mixed.mliftPrim2 f)
 
 
 -- * Mixed internal definitions

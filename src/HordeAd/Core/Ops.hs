@@ -870,17 +870,19 @@ class ( Num (IntOf target)
           let g i = buildSh sh (\ix -> f (i :.: ix))
           in trbuild1 k g
     in buildSh (shrTake @m @n sh0) f0
-  trmap0N :: (KnownNat n, KnownSTK x, KnownSTK x1)
-          => (target (TKR2 0 x1) -> target (TKR2 0 x)) -> target (TKR2 n x1)
-          -> target (TKR2 n x)
+  trmap0N :: (KnownNat n, GoodScalar r1, GoodScalar r, ConvertTensor target)
+          => (target (TKScalar r1) -> target (TKScalar r)) -> target (TKR n r1)
+          -> target (TKR n r)
   {-# INLINE trmap0N #-}
-  trmap0N f v = trbuild (rshape v) (f . trindex v)
-  trzipWith0N :: (KnownNat n, KnownSTK x, KnownSTK x1, KnownSTK x2)
-              => (target (TKR2 0 x1) -> target (TKR2 0 x2) -> target (TKR2 0 x))
-              -> target (TKR2 n x1) -> target (TKR2 n x2) -> target (TKR2 n x)
+  trmap0N f v = trbuild (rshape v) (rfromK . f . trindex0 v)
+  trzipWith0N :: ( KnownNat n, GoodScalar r, GoodScalar r1, GoodScalar r2
+                 , ConvertTensor target )
+              => (target (TKScalar r1) -> target (TKScalar r2)
+                  -> target (TKScalar r))
+              -> target (TKR n r1) -> target (TKR n r2) -> target (TKR n r)
   {-# INLINE trzipWith0N #-}
   trzipWith0N f u v =
-    trbuild (rshape v) (\ix -> f (trindex u ix) (trindex v ix))
+    trbuild (rshape v) (\ix -> rfromK $ f (trindex0 u ix) (trindex0 v ix))
 
   tsbuild1 :: (KnownNat k, KnownShS sh, KnownSTK x)
            => (IntOf target -> target (TKS2 sh x))
@@ -905,28 +907,30 @@ class ( Num (IntOf target)
             in tsbuild1 g
     in gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh)
        $ buildSh (knownShS @(Take m sh)) (knownShS @sh)
-  tsmap0N :: (KnownShS sh, KnownSTK x, KnownSTK x1)
-          => (target (TKS2 '[] x1) -> target (TKS2 '[] x))
-          -> target (TKS2 sh x1)
-          -> target (TKS2 sh x)
+  tsmap0N :: (KnownShS sh, GoodScalar r1, GoodScalar r, ConvertTensor target)
+          => (target (TKScalar r1) -> target (TKScalar r))
+          -> target (TKS sh r1)
+          -> target (TKS sh r)
   {-# INLINE tsmap0N #-}
   tsmap0N @sh f v | Refl <- lemAppNil @sh =
     gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
     gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
     case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
-      SNat -> tsbuild @_ @(Rank sh) SNat (f . tsindex v)
-  tszipWith0N :: (KnownShS sh, KnownSTK x, KnownSTK x1, KnownSTK x2)
-              => (target (TKS2 '[] x1) -> target (TKS2 '[] x2)
-                  -> target (TKS2 '[] x))
-              -> target (TKS2 sh x1) -> target (TKS2 sh x2)
-              -> target (TKS2 sh x)
+      SNat -> tsbuild @_ @(Rank sh) SNat (sfromK . f . tsindex0 v)
+  tszipWith0N :: ( KnownShS sh, GoodScalar r, GoodScalar r1, GoodScalar r2
+                 , ConvertTensor target )
+              => (target (TKScalar r1) -> target (TKScalar r2)
+                  -> target (TKScalar r))
+              -> target (TKS sh r1) -> target (TKS sh r2)
+              -> target (TKS sh r)
   {-# INLINE tszipWith0N #-}
   tszipWith0N @sh f u v | Refl <- lemAppNil @sh =
     gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
     gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
     case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
       SNat ->
-        tsbuild @_ @(Rank sh) SNat (\ix -> f (tsindex u ix) (tsindex v ix))
+        tsbuild @_ @(Rank sh) SNat
+                (\ix -> sfromK $ f (tsindex0 u ix) (tsindex0 v ix))
 
   txbuild1 :: (KnownNat k, KnownShX sh, KnownSTK x)
            => (IntOf target -> target (TKX2 sh x))

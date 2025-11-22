@@ -18,12 +18,14 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Functor.Const
 import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
 
+import Data.Array.Nested (Rank)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -422,8 +424,7 @@ interpretAstPlain !env v1 = case v1 of
       in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS (shsFromListS vars) $
+    STKS _ x ->      withKnownShS (shsFromListS vars) $
       withKnownShS shn $
       withKnownShS (shsFromIxS ix) $
       withKnownSTK x $
@@ -503,7 +504,7 @@ interpretAstPlain !env v1 = case v1 of
     notB $ interpretAstPlain env arg
   AstBoolNotA arg | STKS sh _ <- ftkToSTK $ ftkAst arg ->
     withKnownShS sh $
-    tsmap0N (sfromK . notB . kfromS) $ interpretAstPlain env arg
+    tsmap0N notB $ interpretAstPlain env arg
   AstBoolAnd arg1 arg2 ->
     let b1 = interpretAstPlain env arg1
         b2 = interpretAstPlain env arg2
@@ -512,7 +513,7 @@ interpretAstPlain !env v1 = case v1 of
     withKnownShS sh $
     let b1 = interpretAstPlain env arg1
         b2 = interpretAstPlain env arg2
-    in tszipWith0N (\c1 c2 -> sfromK $ kfromS c1 &&* kfromS c2) b1 b2
+    in tszipWith0N (&&*) b1 b2
   AstLeqK arg1 arg2 ->
     let r1 = interpretAstPlain env arg1
         r2 = interpretAstPlain env arg2
@@ -527,7 +528,7 @@ interpretAstPlain !env v1 = case v1 of
     let r1 = interpretAstPlain env arg1
         r2 = interpretAstPlain env arg2
     in sunNest
-       $ tszipWith0N
+       $ szipWithNested
            (\a1 a2 ->
              let c = convCmp ConvXS
                              (convCmp (Conv0X (STKS ZSS STKScalar))
@@ -874,7 +875,7 @@ interpretAst !env = \case
   AstBoolNotA arg | STKS sh _ <- ftkToSTK $ ftkAst arg ->
     withKnownShS sh $
     tfromPlain (ftkToSTK $ ftkAst arg)
-    $ tsmap0N (sfromK . notB . kfromS) $ interpretAstPlain env arg
+    $ tsmap0N notB $ interpretAstPlain env arg
   AstBoolAnd arg1 arg2 ->
     let b1 = interpretAstPlain env arg1
         b2 = interpretAstPlain env arg2
@@ -884,7 +885,7 @@ interpretAst !env = \case
     let b1 = interpretAstPlain env arg1
         b2 = interpretAstPlain env arg2
     in tfromPlain (ftkToSTK $ ftkAst arg1)
-       $ tszipWith0N (\c1 c2 -> sfromK $ kfromS c1 &&* kfromS c2) b1 b2
+       $ tszipWith0N (&&*) b1 b2
   AstLeqK arg1 arg2 ->
     let r1 = interpretAstPlain env arg1
         r2 = interpretAstPlain env arg2
@@ -900,7 +901,7 @@ interpretAst !env = \case
         r2 = interpretAstPlain env arg2
     in tfromPlain (STKS shb STKScalar)
        $ sunNest
-       $ tszipWith0N
+       $ szipWithNested
            (\a1 a2 ->
              let c = convCmp ConvXS
                              (convCmp (Conv0X (STKS ZSS STKScalar))
@@ -942,6 +943,21 @@ interpretAstHFunPlain
 interpretAstHFunPlain _env (AstLambda var l) =
   tlambda @(PlainOf target) (varNameToFTK var)
   $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
+
+-- This version accepts nested arrays, because they are needed here.
+szipWithNested :: ( KnownShS sh, KnownSTK x, KnownSTK x1, KnownSTK x2
+                  , BaseTensor target )
+               => (target (TKS2 '[] x1) -> target (TKS2 '[] x2)
+                   -> target (TKS2 '[] x))
+               -> target (TKS2 sh x1) -> target (TKS2 sh x2)
+               -> target (TKS2 sh x)
+{-# INLINE szipWithNested #-}
+szipWithNested @sh f u v | Refl <- lemAppNil @sh =
+  gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
+  gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
+  case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
+    SNat ->
+      tsbuild @_ @(Rank sh) SNat (\ix -> f (tsindex u ix) (tsindex v ix))
 
 
 -- * Interpretation of arithmetic, boolean and relation operations

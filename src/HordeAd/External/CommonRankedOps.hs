@@ -86,13 +86,11 @@ relu, reluLeaky
      (ADReady target, NumScalar r, KnownNat n, Differentiable r)
   => target (TKR n r) -> target (TKR n r)
 relu v0 = tlet v0 $ \v ->
-  let oneIfGtZero =
-        rmap0N (\x -> ifH (x <=. rscalar 0) (rscalar 0.0) (rscalar 1.0)) v
+  let oneIfGtZero = rmap0N (\x -> ifH (x <=. 0) 0.0 1.0) v
   in oneIfGtZero * v
 
 reluLeaky v0 = tlet v0 $ \v ->
-  let oneIfGtZero =
-        rmap0N (\x -> ifH (x <=. rscalar 0) (rscalar 0.01) (rscalar 1.0)) v
+  let oneIfGtZero = rmap0N (\x -> ifH (x <=. 0) 0.01 1.0) v
   in oneIfGtZero * v
 
 logistic :: forall target r n.

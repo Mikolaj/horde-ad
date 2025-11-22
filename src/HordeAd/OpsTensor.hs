@@ -697,11 +697,12 @@ rmap1 :: (KnownNat n, KnownSTK x, KnownSTK x2, BaseTensor target)
       -> target (TKR2 (1 + n) x)  -- ^ the tensor to map over
       -> target (TKR2 (1 + n) x2)
 rmap1 f u = rbuild1 (rwidth u) (\i -> f (u ! [i]))
-rmap0N :: (KnownNat n, KnownSTK x, KnownSTK x1, BaseTensor target)
-       => (target (TKR2 0 x1) -> target (TKR2 0 x))
+rmap0N :: ( KnownNat n, GoodScalar r1, GoodScalar r
+          , BaseTensor target, ConvertTensor target )
+       => (target (TKScalar r1) -> target (TKScalar r))
             -- ^ the function to map with
-       -> target (TKR2 n x1)  -- ^ the tensor to map over
-       -> target (TKR2 n x)
+       -> target (TKR n r1)  -- ^ the tensor to map over
+       -> target (TKR n r)
 rmap0N = trmap0N
 rzipWith :: ( KnownNat m, KnownNat n1, KnownNat n2, KnownNat n, KnownSTK x
             , KnownSTK x1, KnownSTK x2, BaseTensor target )
@@ -720,13 +721,14 @@ rzipWith1 :: ( KnownNat n1, KnownNat n2, KnownNat n, KnownSTK x
           -> target (TKR2 (1 + n2) x2)  -- ^ the second tensor to zip over
           -> target (TKR2 (1 + n) x)
 rzipWith1 f u v = rbuild1 (rwidth u) (\i -> f (u ! [i]) (v ! [i]))
-rzipWith0N :: ( KnownNat n, KnownSTK x, KnownSTK x1, KnownSTK x2
-              , BaseTensor target )
-           => (target (TKR2 0 x1) -> target (TKR2 0 x2) -> target (TKR2 0 x))
+rzipWith0N :: ( KnownNat n, GoodScalar r, GoodScalar r1, GoodScalar r2
+              , BaseTensor target, ConvertTensor target )
+           => (target (TKScalar r1) -> target (TKScalar r2)
+               -> target (TKScalar r))
                 -- ^ the function to zip with
-           -> target (TKR2 n x1)  -- ^ the first tensor to zip over
-           -> target (TKR2 n x2)  -- ^ the second tensor to zip over
-           -> target (TKR2 n x)
+           -> target (TKR n r1)  -- ^ the first tensor to zip over
+           -> target (TKR n r2)  -- ^ the second tensor to zip over
+           -> target (TKR n r)
 rzipWith0N  = trzipWith0N
 rzipWith3 :: ( KnownNat m, KnownNat n1, KnownNat n2, KnownNat n3
              , KnownNat n, KnownSTK x
@@ -749,6 +751,8 @@ rzipWith31 :: ( KnownNat n1, KnownNat n2, KnownNat n3, KnownNat n, KnownSTK x
            -> target (TKR2 (1 + n) x)
 rzipWith31 f u v w =
   rbuild1 (rwidth u) (\i -> f (u ! [i]) (v ! [i]) (w ! [i]))
+-- TODO: change the rank 0 ranked tensors to scalars unless many cases
+-- such as szipWithNested emerge and then even rzipWith0N gets changed back
 rzipWith30N :: ( KnownNat n, KnownSTK x
                , KnownSTK x1, KnownSTK x2, KnownSTK x3, BaseTensor target )
             => (target (TKR2 0 x1) -> target (TKR2 0 x2) -> target (TKR2 0 x3)
@@ -832,11 +836,12 @@ smap1 :: (KnownNat n, KnownShS sh, KnownSTK x, KnownSTK x2, BaseTensor target)
       -> target (TKS2 (n ': sh) x)  -- ^ the tensor to map over
       -> target (TKS2 (n ': sh) x2)
 smap1 f u = sbuild1 (\i -> f (u !$ (i :.$ ZIS)))
-smap0N :: (KnownShS sh, KnownSTK x1, KnownSTK x, BaseTensor target)
-       => (target (TKS2 '[] x1) -> target (TKS2 '[] x))
+smap0N :: ( KnownShS sh, GoodScalar r1, GoodScalar r
+          , BaseTensor target, ConvertTensor target )
+       => (target (TKScalar r1) -> target (TKScalar r))
             -- ^ the function to map with
-       -> target (TKS2 sh x1)  -- ^ the tensor to map over
-       -> target (TKS2 sh x)
+       -> target (TKS sh r1)  -- ^ the tensor to map over
+       -> target (TKS sh r)
 smap0N = tsmap0N
 szipWith :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
             , KnownShS (Take m sh), KnownShS (Drop m sh)
@@ -859,13 +864,13 @@ szipWith1 :: ( KnownNat n, KnownShS sh1, KnownShS sh2, KnownShS sh
           -> target (TKS2 (n ': sh) x)
 szipWith1 f u v = sbuild1 (\i -> f (u !$ (i :.$ ZIS))
                                    (v !$ (i :.$ ZIS)))
-szipWith0N :: ( KnownShS sh, KnownSTK x, KnownSTK x1, KnownSTK x2
-              , BaseTensor target )
-           => (target (TKS2 '[] x1) -> target (TKS2 '[] x2)
-               -> target (TKS2 '[] x))  -- ^ the function to zip with
-           -> target (TKS2 sh x1)  -- ^ the first tensor to zip over
-           -> target (TKS2 sh x2)  -- ^ the second tensor to zip over
-           -> target (TKS2 sh x)
+szipWith0N :: ( KnownShS sh, GoodScalar r, GoodScalar r1, GoodScalar r2
+              , BaseTensor target, ConvertTensor target )
+           => (target (TKScalar r1) -> target (TKScalar r2)
+               -> target (TKScalar r))  -- ^ the function to zip with
+           -> target (TKS sh r1)  -- ^ the first tensor to zip over
+           -> target (TKS sh r2)  -- ^ the second tensor to zip over
+           -> target (TKS sh r)
 szipWith0N = tszipWith0N
 szipWith3 :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
              , KnownShS (Drop m sh3), KnownShS (Take m sh), KnownShS (Drop m sh)
