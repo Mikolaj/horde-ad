@@ -66,7 +66,7 @@ data FullShapeTKW y where
   WFTKProduct :: FullShapeTKW y -> FullShapeTKW z
               -> FullShapeTKW (TKProduct y z)
 
-replRepW :: forall y target. (TKAllNum y, BaseTensor target)
+replRepW :: forall y target. BaseTensor target
          => (forall r. NumScalar r => r)
          -> FullShapeTKW y -> RepW target y
 {-# INLINE replRepW #-}
@@ -78,7 +78,7 @@ replRepW r = \case
   WFTKProduct ftk1 ftk2 ->
     WTKProduct (replRepW r ftk1) (replRepW r ftk2)
 
-addRepW :: forall y target. (TKAllNum y, BaseTensor target)
+addRepW :: forall y target. BaseTensor target
         => RepW target y -> RepW target y -> RepW target y
 addRepW a b = case (a, b) of
   (WTKScalar ta, WTKScalar tb) -> WTKScalar $ ta + tb
@@ -88,7 +88,7 @@ addRepW a b = case (a, b) of
   (WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
     WTKProduct (addRepW ta1 tb1) (addRepW ta2 tb2)
 
-multRepW :: forall y target. (TKAllNum y, BaseTensor target)
+multRepW :: forall y target. BaseTensor target
          => RepW target y -> RepW target y -> RepW target y
 multRepW a b = case (a, b) of
   (WTKScalar ta, WTKScalar tb) -> WTKScalar $ ta * tb
@@ -98,8 +98,7 @@ multRepW a b = case (a, b) of
   (WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
     WTKProduct (multRepW ta1 tb1) (multRepW ta2 tb2)
 
-sum0RepW :: forall y target.
-            (TKAllNum y, BaseTensor target, ConvertTensor target)
+sum0RepW :: forall y target. (BaseTensor target, ConvertTensor target)
          => FullShapeTKW y -> RepW target y
          -> target (TKScalar Double)
 sum0RepW ftk a = case (ftk, a) of
@@ -116,8 +115,7 @@ sum0RepW ftk a = case (ftk, a) of
   (WFTKProduct ftk1 ftk2, WTKProduct ta1 ta2) ->
     sum0RepW ftk1 ta1 + sum0RepW ftk2 ta2
 
-dot0RepW :: forall y target.
-            (TKAllNum y, BaseTensor target, ConvertTensor target)
+dot0RepW :: forall y target. (BaseTensor target, ConvertTensor target)
          => FullShapeTKW y -> RepW target y -> RepW target y
          -> target (TKScalar Double)
 dot0RepW ftk a b = case (ftk, a, b) of

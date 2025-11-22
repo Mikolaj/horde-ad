@@ -1051,8 +1051,7 @@ evalFwdSame params s = \case
       _ -> (s, tdefTarget $ adFTK $ ftkDelta d0)
   DeltaDot0R _ DeltaZero{} -> (s, trconcrete $ Nested.rscalar 0)
   DeltaDot0R v d -> case ftkDelta d of
-    FTKR sh (FTKScalar @r) | SNat <- shrRank sh
-                           , Dict0 <- lemTKScalarAllNumAD (Proxy @r) ->
+    FTKR sh FTKScalar | SNat <- shrRank sh ->
       second (trdot0 v) $ evalFwdSame params s d
 
   d0@(DeltaCastS d) -> case ftkDelta d of
@@ -1061,7 +1060,7 @@ evalFwdSame params s = \case
       _ -> (s, tdefTarget $ adFTK $ ftkDelta d0)
   DeltaDot0S _ DeltaZero{} -> (s, tsconcrete $ Nested.sscalar 0)
   DeltaDot0S v d -> case ftkDelta d of
-    FTKS sh (FTKScalar @r) | Dict0 <- lemTKScalarAllNumAD (Proxy @r) ->
+    FTKS sh FTKScalar ->
       withKnownShS sh $
       second (tsdot0 v) $ evalFwdSame params s d
 
@@ -1071,7 +1070,7 @@ evalFwdSame params s = \case
       _ -> (s, tdefTarget $ adFTK $ ftkDelta d0)
   DeltaDot0X _ DeltaZero{} -> (s, txconcrete $ Nested.mscalar 0)
   DeltaDot0X v d -> case ftkDelta d of
-    FTKX sh (FTKScalar @r) | Dict0 <- lemTKScalarAllNumAD (Proxy @r) ->
+    FTKX sh FTKScalar ->
       withKnownShX (ssxFromShX sh) $
       second (txdot0 v) $ evalFwdSame params s d
 
