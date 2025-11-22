@@ -24,7 +24,6 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
-import Data.Vector.Strict qualified as Data.Vector
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+))
 
@@ -737,16 +736,17 @@ updateNR arr upd = case knownSTK @x of
         f i v = case lookup (fromLinearIdxR @n shNested (fromIntegral i)) upd of
           Just u -> rnest (SNat @0) u
           Nothing -> v
-    in runNest $ trfromVector0N shNested $ V.fromListN (shrSize shNested)
+    in runNest $ tfromListLinearR shNested
        $ imap f $ trunravelToList $ rflatten arrNested
 
-tfromVector0NR
-  :: Nested.KnownElt r
-  => IShR n -> Data.Vector.Vector (Nested.Ranked 0 r) -> Nested.Ranked n r
-{-# INLINE tfromVector0NR #-}
-tfromVector0NR sh l = case NonEmpty.nonEmpty $ V.toList l of
-  Nothing -> Nested.rreshape sh Nested.remptyArray
-  Just nl -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar nl
+tfromListLinearR
+  :: forall n x. KnownSTK x
+  => IShR n -> [Concrete (TKR2 0 x)] -> Concrete (TKR2 n x)
+{-# INLINE tfromListLinearR #-}
+tfromListLinearR sh l | Dict <- eltDictRep (knownSTK @x) = Concrete $
+  case NonEmpty.nonEmpty $ fmapUnConcrete l of
+    Nothing -> Nested.rreshape sh Nested.remptyArray
+    Just nl -> Nested.rfromListLinear sh $ NonEmpty.map Nested.runScalar nl
 
 tindexNR
   :: Nested.Elt x
@@ -996,20 +996,21 @@ updateNS _ arr upd = case knownSTK @r of
                                  shNested (fromIntegral i)) upd of
             Just u -> snest (knownShS @'[]) u
             Nothing -> v
-      in sunNest @_ @(Take n sh) $ tsfromVector0N
-         $ V.fromListN (shsSize shNested)
+      in sunNest @_ @(Take n sh) $ tfromListLinearS
          $ imap f $ tsunravelToList $ sflatten arrNested
 
-tfromVector0NS
-  :: forall r sh. (Nested.KnownElt r, KnownShS sh)
-  => Data.Vector.Vector (Nested.Shaped '[] r) -> Nested.Shaped sh r
-{-# INLINE tfromVector0NS #-}
-tfromVector0NS l = case NonEmpty.nonEmpty $ V.toList l of
-  Nothing -> case testEquality (shsProduct (knownShS @sh)) (SNat @0) of
-    Just Refl -> Nested.sreshape (knownShS @sh)
-                 $ Nested.semptyArray (knownShS @sh)
-    Nothing -> error "tfromVector0N: empty list, but not shape"
-  Just nl -> Nested.sfromListLinear knownShS $ NonEmpty.map Nested.sunScalar nl
+tfromListLinearS
+  :: forall sh x. (KnownShS sh, KnownSTK x)
+  => [Concrete (TKS2 '[] x)] -> Concrete (TKS2 sh x)
+{-# INLINE tfromListLinearS #-}
+tfromListLinearS l | Dict <- eltDictRep (knownSTK @x) = Concrete $
+  case NonEmpty.nonEmpty $ fmapUnConcrete l of
+    Nothing -> case testEquality (shsProduct (knownShS @sh)) (SNat @0) of
+      Just Refl -> Nested.sreshape (knownShS @sh)
+                   $ Nested.semptyArray (knownShS @sh)
+      Nothing -> error "xfromListLinear: empty list, but not shape"
+    Just nl -> Nested.sfromListLinear knownShS
+               $ NonEmpty.map Nested.sunScalar nl
 
 tindexNS
   :: Nested.Elt x
@@ -1311,21 +1312,21 @@ updateNX _ arr upd = case knownSTK @r of
             Just u -> xnest ZKX u
             Nothing -> v
       in withSNat (shxSize shNested) $ \snat ->
-           xunNest @_ @(Take n sh) $ txfromVector0N shNested
-           $ V.fromListN (shxSize shNested)
+           xunNest @_ @(Take n sh) $ tfromListLinearX shNested
            $ imap f $ txunravelToList
            $ Concrete $ Nested.mcast (Nested.SKnown snat :!% ZKX)
            $ unConcrete $ xflatten arrNested
 
-tfromVector0NX
-  :: forall r sh. Nested.KnownElt r
-  => IShX sh -> Data.Vector.Vector (Nested.Mixed '[] r) -> Nested.Mixed sh r
-{-# INLINE tfromVector0NX #-}
-tfromVector0NX sh l = case NonEmpty.nonEmpty $ V.toList l of
-  Nothing -> if shxSize sh == 0
-             then Nested.mreshape sh $ Nested.memptyArray sh
-             else error "tfromVector0N: empty list, but not shape"
-  Just nl -> Nested.mfromListLinear sh $ NonEmpty.map Nested.munScalar nl
+tfromListLinearX
+  :: forall x sh. KnownSTK x
+  => IShX sh -> [Concrete (TKX2 '[] x)] -> Concrete (TKX2 sh x)
+{-# INLINE tfromListLinearX #-}
+tfromListLinearX sh l | Dict <- eltDictRep (knownSTK @x) = Concrete $
+  case NonEmpty.nonEmpty $ fmapUnConcrete l of
+    Nothing -> if shxSize sh == 0
+               then Nested.mreshape sh $ Nested.memptyArray sh
+               else error "xfromListLinear: empty list, but not shape"
+    Just nl -> Nested.mfromListLinear sh $ NonEmpty.map Nested.munScalar nl
 
 tindexNX
   :: Nested.Elt r
