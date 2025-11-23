@@ -14,8 +14,8 @@ module HordeAd.Core.AstTools
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstConvert, cAstSFromR, cAstSFromX, cAstXFromS
   , pattern AstSFromK', pattern AstFromS'
-  , checkAstFromS, checkFtkAstFromS, checkAstSFrom, checkFtkAstSFrom
-  , cAstFromS, cAstSFrom, convFromS, convSFrom
+  , checkAstFromSNotK, cAstFromS, cAstSFrom
+  , convFromS, convSFrom, convFromSMaybe, convSFromMaybe
   , setTotalSharing
   ) where
 
@@ -440,42 +440,35 @@ cAstSFromR :: forall sh x ms s. AstSpan s
            => ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
            -> AstTensor ms s (TKS2 sh x)
 cAstSFromR sh v = case ftkAst v of
-  FTKR _ x | Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
-    let c2 = convCmp (ConvXS' (FTKS sh x)) ConvRX
-    in cAstConvert c2 v
+  FTKR _ x -> cAstSFrom (FTKS sh x) v
 
 cAstSFromX :: forall sh sh' x ms s. (AstSpan s, Rank sh ~ Rank sh')
            => ShS sh -> AstTensor ms s (TKX2 sh' x)
            -> AstTensor ms s (TKS2 sh x)
 cAstSFromX sh v = case ftkAst v of
-  FTKX _ x -> let c2 = ConvXS' (FTKS sh x)
-              in cAstConvert c2 v
+  FTKX _ x -> cAstSFrom (FTKS sh x) v
 
 cAstXFromS :: forall sh sh' x ms s. (AstSpan s, Rank sh ~ Rank sh')
            => StaticShX sh' -> AstTensor ms s (TKS2 sh x)
            -> AstTensor ms s (TKX2 sh' x)
-cAstXFromS ssx v
-  | FTKS sh x <- ftkAst v
-  , let shx = shCastSX ssx sh
-  , Refl <- lemRankMapJust sh =
-    let c2 = convCmp (ConvXX' (FTKX shx x)) ConvSX
-    in cAstConvert c2 v
+cAstXFromS ssx v = case ftkAst v of
+  FTKS sh x -> cAstFromS (FTKX (shCastSX ssx sh) x) v
 
 pattern AstSFromK' :: () => sh ~ '[]
                    => AstTensor AstMethodLet s (TKScalar r)
                    -> AstTensor AstMethodLet s (TKS sh r)
 pattern AstSFromK' t <-
-  AstConvert c (checkPatternAstSFromK' c -> Just (Refl, t))
+  AstConvert c (checkPatternAstSFromK c -> Just (Refl, t))
 
-checkPatternAstSFromK' :: TKConversion y (TKS2 sh (TKScalar r))
-                       -> AstTensor AstMethodLet s y
-                       -> Maybe ( sh :~: '[]
-                                , AstTensor AstMethodLet s (TKScalar r) )
-checkPatternAstSFromK' c t
+checkPatternAstSFromK :: TKConversion y (TKS2 sh (TKScalar r))
+                      -> AstTensor AstMethodLet s y
+                      -> Maybe ( sh :~: '[]
+                               , AstTensor AstMethodLet s (TKScalar r) )
+checkPatternAstSFromK c t
   | FTKScalar @ry <- ftkAst t
   , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
   , Just Refl <- testEquality (typeRep @ry) (typeRep @r) = Just (Refl, t)
-checkPatternAstSFromK' _ _ = Nothing
+checkPatternAstSFromK _ _ = Nothing
 
 pattern AstFromS' :: forall {z1} {ms1} {s1}.
                      forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)
@@ -488,37 +481,14 @@ checkPatternAstFromS :: TKConversion y z -> AstTensor ms s y
                      -> Maybe (FullShapeTK z, AstTensor ms s y)
 checkPatternAstFromS c t =
   let zftk = convertFTK c (ftkAst t)
-  in if checkFtkAstFromS (ftkAst t) zftk then Just (zftk, t) else Nothing
+  in const (zftk, t) <$> convFromSMaybe (ftkAst t) zftk
 
-checkAstFromS :: TKConversion a b -> AstTensor ms s a -> Bool
-checkAstFromS c t = isJust $ checkPatternAstFromS c t
-
--- TODO: this is too lax, since it accepts nests/unnests. Add tests and fix.
-checkFtkAstFromS :: FullShapeTK y -> FullShapeTK z -> Bool
-checkFtkAstFromS yftk zftk | Just Refl <- matchingFTK yftk zftk = True
-checkFtkAstFromS FTKS{} FTKS{} = False
-checkFtkAstFromS FTKS{} _ = True
-checkFtkAstFromS (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) =
-  checkFtkAstFromS yftk1 zftk1 && checkFtkAstFromS yftk2 zftk2
-checkFtkAstFromS (FTKProduct yftk1 yftk2) zftk =
-  checkFtkAstFromS yftk1 zftk && checkFtkAstFromS yftk2 zftk
-checkFtkAstFromS yftk (FTKProduct zftk1 zftk2) =
-  checkFtkAstFromS yftk zftk1 && checkFtkAstFromS yftk zftk2
-checkFtkAstFromS _ _ = False
-
-checkAstSFrom :: TKConversion a b -> AstTensor ms s a -> Bool
-checkAstSFrom c t =
-  isJust
-  $ let zftk = convertFTK c (ftkAst t)
-    in if checkFtkAstSFrom (ftkAst t) zftk then Just (zftk, t) else Nothing
-
-checkFtkAstSFrom :: FullShapeTK y -> FullShapeTK z -> Bool
-checkFtkAstSFrom yftk zftk | Just Refl <- matchingFTK yftk zftk = True
-checkFtkAstSFrom FTKS{} FTKS{} = False
-checkFtkAstSFrom _ FTKS{} = True
-checkFtkAstSFrom (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) =
-  checkFtkAstSFrom yftk1 zftk1 && checkFtkAstSFrom yftk2 zftk2
-checkFtkAstSFrom _ _ = False
+checkAstFromSNotK :: TKConversion a b -> AstTensor ms s a -> Bool
+checkAstFromSNotK c t =
+  let zftk = convertFTK c (ftkAst t)
+  in case zftk of
+    FTKScalar -> False
+    _ -> isJust $ convFromSMaybe (ftkAst t) zftk
 
 cAstFromS :: forall y z ms s. AstSpan s
           => FullShapeTK z -> AstTensor ms s y
@@ -530,66 +500,82 @@ cAstSFrom :: forall y z ms s. AstSpan s
           -> AstTensor ms s z
 cAstSFrom zftk t = cAstConvert (convSFrom (ftkAst t) (ftkToSTK zftk)) t
 
-convFromS :: FullShapeTK y0 -> FullShapeTK z0 -> TKConversion y0 z0
-convFromS yftk0 zftk0 = case (yftk0, zftk0) of
-  _ | Just Refl <- matchingFTK yftk0 zftk0 -> ConvId
+convFromS :: FullShapeTK y -> FullShapeTK z -> TKConversion y z
+convFromS yftk zftk = case convFromSMaybe yftk zftk of
+  Just c -> c
+  Nothing -> error $ "convFromS: unexpected types "  -- TODO: try nevertheless?
+                     ++ "(" ++ show yftk ++ ", " ++ show zftk ++ ")"
+
+convSFrom :: FullShapeTK y ->SingletonTK z -> TKConversion y z
+convSFrom yftk zstk = case convSFromMaybe yftk zstk of
+  Just c -> c
+  Nothing -> error $ "convSFrom: unexpected types "  -- TODO: try nevertheless?
+                     ++ "(" ++ show yftk ++ ", " ++ show zstk ++ ")"
+
+convFromSMaybe :: FullShapeTK y0 -> FullShapeTK z0 -> Maybe (TKConversion y0 z0)
+convFromSMaybe yftk0 zftk0 = case (yftk0, zftk0) of
+  _ | Just Refl <- matchingFTK yftk0 zftk0 -> Just ConvId
   (FTKS ZSS (FTKScalar @ry), FTKScalar @rz)
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
-      convCmp ConvX0 ConvSX
+      Just $ convCmp ConvX0 ConvSX
   (FTKS sh x, FTKR rsh rx)
     | Just Refl <- matchingFTK x rx
     , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
     , Refl <- lemRankMapJust sh ->
-      convCmp (ConvXR (ftkToSTK x)) ConvSX
+      Just $ convCmp (ConvXR (ftkToSTK x)) ConvSX
   (FTKS sh x, FTKX xsh xx)
     | Just Refl <- matchingFTK x xx
     , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
     , Refl <- lemRankMapJust sh ->
-      convCmp (ConvXX' zftk0) ConvSX
-  (FTKProduct yftk1 yftk2, FTKProduct zftk1 zftk2) ->
-    ConvT2 (convFromS yftk1 zftk1) (convFromS yftk2 zftk2)
+      Just $ convCmp (ConvXX' zftk0) ConvSX
+  (FTKProduct yftk1 yftk2, FTKProduct zftk1 zftk2) -> do
+    c1 <- convFromSMaybe yftk1 zftk1
+    c2 <- convFromSMaybe yftk2 zftk2
+    pure $! ConvT2 c1 c2
   ( FTKS sh (FTKProduct yftk1 yftk2)
    ,FTKProduct (FTKS sh' yftk1') (FTKS sh'' yftk2') )
     | Just Refl <- testEquality sh sh'
     , Just Refl <- testEquality sh sh''
     , Just Refl <- matchingFTK yftk1 yftk1'
     , Just Refl <- matchingFTK yftk2 yftk2' ->
-      convCmp
-        (ConvT2 ConvXS ConvXS)
-        (convCmp
-           (ConvUnzip (ftkToSTK yftk1) (ftkToSTK yftk2))
-           ConvSX)
-  _ -> error $ "convFromS': unexpected types "  -- TODO: try nevertheless
-               ++ "(" ++ show yftk0 ++ ", " ++ show zftk0 ++ ")"
+      Just
+      $ convCmp
+          (ConvT2 ConvXS ConvXS)
+          (convCmp
+             (ConvUnzip (ftkToSTK yftk1) (ftkToSTK yftk2))
+             ConvSX)
+  _ -> Nothing
 
-convSFrom :: FullShapeTK y0 -> SingletonTK z0 -> TKConversion y0 z0
-convSFrom yftk0 zstk0 = case (zstk0, yftk0) of
-  _ | Just Refl <- sameSTK (ftkToSTK yftk0) zstk0 -> ConvId
+convSFromMaybe :: FullShapeTK y0 -> SingletonTK z0 -> Maybe (TKConversion y0 z0)
+convSFromMaybe yftk0 zstk0 = case (zstk0, yftk0) of
+  _ | Just Refl <- sameSTK (ftkToSTK yftk0) zstk0 -> Just ConvId
   (STKS ZSS (STKScalar @ry), FTKScalar @rz)
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
-      convCmp ConvXS (Conv0X STKScalar)
+      Just $ convCmp ConvXS (Conv0X STKScalar)
   (STKS @sh sh x, FTKR rsh rx)
     | Just Refl <- sameSTK x (ftkToSTK rx)
     , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
     , Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
-      convCmp (ConvXS' (FTKS sh rx)) ConvRX
+      Just $ convCmp (ConvXS' (FTKS sh rx)) ConvRX
   (STKS sh x, FTKX xsh xx)
     | Just Refl <- sameSTK x (ftkToSTK xx)
     , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
     , Refl <- lemRankMapJust sh ->
-      ConvXS' (FTKS sh xx)
-  (STKProduct zstk1 zstk2, FTKProduct yftk1 yftk2) ->
-    ConvT2 (convSFrom yftk1 zstk1) (convSFrom yftk2 zstk2)
+      Just $ ConvXS' (FTKS sh xx)
+  (STKProduct zstk1 zstk2, FTKProduct yftk1 yftk2) -> do
+    c1 <- convSFromMaybe yftk1 zstk1
+    c2 <- convSFromMaybe yftk2 zstk2
+    pure $! ConvT2 c1 c2
   ( STKS sh (STKProduct ystk1 ystk2)
    ,FTKProduct (FTKS sh' yftk1) (FTKS sh'' yftk2) )
     | Just Refl <- testEquality sh sh'
     , Just Refl <- testEquality sh sh''
     , Just Refl <- sameSTK ystk1 (ftkToSTK yftk1)
     , Just Refl <- sameSTK ystk2 (ftkToSTK yftk2) ->
-      convCmp
-        ConvXS
-        (convCmp
-           (ConvZip ystk1 ystk2)
-           (ConvT2 ConvSX ConvSX))
-  _ -> error $ "convSFrom': unexpected types "  -- TODO: try nevertheless
-               ++ "(" ++ show yftk0 ++ ", " ++ show zstk0 ++ ")"
+      Just
+      $ convCmp
+          ConvXS
+          (convCmp
+             (ConvZip ystk1 ystk2)
+             (ConvT2 ConvSX ConvSX))
+  _ -> Nothing
