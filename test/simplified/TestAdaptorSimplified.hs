@@ -167,7 +167,8 @@ testTrees =
   , testCase "2fooBuild" testFooBuild
   , testCase "2fooNoGo0" testFooNoGo0
   , testCase "2nestedBuildMap1" testNestedBuildMap1
--- segfaults:  , testCase "2nestedSumBuild" testNestedSumBuild
+-- segfaults even with -O0:  , testCase "2nestedSumBuild0" testNestedSumBuild0
+-- segfaults even with -O0:  , testCase "2nestedSumBuild" testNestedSumBuild
   , testCase "2nestedBuildIndex" testNestedBuildIndex
   , testCase "2barReluDt" testBarReluDt
   , testCase "2barRelu" testBarRelu
@@ -1770,6 +1771,20 @@ testNestedBuildMap1 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 107.25984443006627)
     (rev' @Double @1 nestedBuildMap (rscalar 1.1))
+
+_nestedSumBuild0 :: ADReady target
+                => target (TKR 0 CInt) -> target (TKScalar CInt)
+_nestedSumBuild0 _ =
+ rsum0
+ $ rreplicate 2 $ rsum  -- neded to work around   Exception: src/HordeAd/Core/Conversion.hs:(258,14)-(280,40): Non-exhaustive patterns in \cases
+ $ tlet (rbuild1 2 (rfromIntegral . rfromK . tfromPlain STKScalar))
+        (\x -> x)
+
+_testNestedSumBuild0 :: Assertion
+_testNestedSumBuild0 =
+  assertEqualUpToEpsilon' 1e-8
+    (rscalar 0)
+    (rev' (rfromK . _nestedSumBuild0) ((rscalar 1)))
 
 nestedSumBuild :: (ADReady target, NumScalar r, Differentiable r)
                => target (TKR 1 r) -> target (TKR 1 r)
