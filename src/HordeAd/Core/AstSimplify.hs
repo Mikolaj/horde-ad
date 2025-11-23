@@ -447,6 +447,28 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
          Nothing -> Nothing
      Just{} -> Nothing
      Nothing -> error "astFromVector: empty vector")
+  `mplus`
+  (let unFrom :: FullShapeTK (TKScalar r)
+              -> AstTensor AstMethodLet s (TKS '[] r)
+              -> Maybe (AstTensor AstMethodLet s (TKScalar r))
+       unFrom (FTKScalar @r) (AstSFromK' @_ @_ @r2 t) =
+         case testEquality (typeRep @r) (typeRep @r2) of
+           Just Refl -> Just t
+           Nothing -> error "astFromVector: impossible shape"
+       unFrom (FTKScalar @r) (AstConcreteS @r2 v) =
+         case testEquality (typeRep @r) (typeRep @r2) of
+           Just Refl -> Just $ AstConcreteK $ Nested.sunScalar v
+           Nothing -> error "astFromVector: impossible shape"
+       unFrom _ _ = Nothing
+   in case V.uncons l of
+     Just (u, _) ->
+       case ftkAst u of
+         FTKS ZSS x@FTKScalar ->
+           case V.mapM (unFrom x) l of
+             Just l2 -> Just $ astFromVector snat (ftkToSTK x) l2
+             Nothing -> Nothing
+         _ -> Nothing
+     Nothing -> error "astFromVector: empty vector")
 
 astSum :: forall y k s. (AstSpan s, TKAllNum y)
        => SNat k -> SingletonTK y

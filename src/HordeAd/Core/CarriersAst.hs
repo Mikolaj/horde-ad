@@ -635,10 +635,7 @@ instance (NumScalar r, AstSpan s)
   AstConcreteS n + w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFrom (ftkAst w)
-      $ AstConcreteK
-          (Nested.convert (Nested.ConvCmp Nested.ConvX0 Nested.ConvSX) n)
-        + k
+      cAstSFrom (ftkAst w) $ AstConcreteK (Nested.sunScalar n) + k
   AstConcreteS n + AstPlusS (AstConcreteS k) u =
     AstPlusS (AstConcreteS (n + k)) u
   AstPlusS (AstConcreteS n) u + AstConcreteS k =
@@ -691,10 +688,7 @@ instance (NumScalar r, AstSpan s)
   AstConcreteS n * w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFrom (ftkAst w)
-      $ AstConcreteK
-          (Nested.convert (Nested.ConvCmp Nested.ConvX0 Nested.ConvSX) n)
-        * k
+      cAstSFrom (ftkAst w) $ AstConcreteK (Nested.sunScalar n) * k
   AstConcreteS n * AstTimesS (AstConcreteS k) u =
     AstTimesS (AstConcreteS (n * k)) u
   AstTimesS (AstConcreteS n) u * AstConcreteS k =
@@ -810,10 +804,7 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   quotH (AstConcreteS n) w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFrom (ftkAst w)
-      $ quotH (AstConcreteK
-                (Nested.convert (Nested.ConvCmp Nested.ConvX0 Nested.ConvSX) n))
-              k
+      cAstSFrom (ftkAst w) $ quotH (AstConcreteK (Nested.sunScalar n)) k
   quotH z _ | Just 0 <- unReplC z = z
   quotH u s | Just 1 <- unReplC s = u
   quotH (AstI2S QuotOp u v) w = quotH u (v * w)
@@ -835,10 +826,7 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   remH (AstConcreteS n) w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFrom (ftkAst w)
-      $ remH (AstConcreteK
-               (Nested.convert (Nested.ConvCmp Nested.ConvX0 Nested.ConvSX) n))
-             k
+      cAstSFrom (ftkAst w) $ remH (AstConcreteK (Nested.sunScalar n)) k
   remH z _ | Just 0 <- unReplC z = z
 --  remH _ (AstConcreteS s) | Just 1 <- sunReplicatePrim s = AstConcreteS 0
   remH u v = AstI2S RemOp u v
@@ -1303,9 +1291,7 @@ instance (AstSpan s, NumScalar r)
   AstConcreteS u <=. AstConcreteS v = AstConcreteK $ u <= v
   AstConcreteS u <=. v
     | FTKS ZSS FTKScalar <- ftkAst v =
-      AstConcreteK
-        (Nested.convert (Nested.ConvCmp Nested.ConvX0 Nested.ConvSX) u)
-      <=. cAstFromS FTKScalar v
+      AstConcreteK (Nested.sunScalar u) <=. cAstFromS FTKScalar v
   AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
     | varNameToAstVarId u == varNameToAstVarId v =
       true
