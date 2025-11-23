@@ -454,11 +454,24 @@ cAstXFromS :: forall sh sh' x ms s. (AstSpan s, Rank sh ~ Rank sh')
 cAstXFromS ssx v = case ftkAst v of
   FTKS sh x -> cAstFromS (FTKX (shCastSX ssx sh) x) v
 
-pattern AstSFromK' :: () => sh ~ '[]
+pattern AstSFromK' :: AstSpan s => sh ~ '[]
                    => AstTensor AstMethodLet s (TKScalar r)
                    -> AstTensor AstMethodLet s (TKS sh r)
-pattern AstSFromK' t <-
-  AstConvert c (checkPatternAstSFromK c -> Just (Refl, t))
+pattern AstSFromK' t <- (matchAstSFromK -> Just (Refl, t))
+
+matchAstSFromK :: AstSpan s
+               => AstTensor AstMethodLet s (TKS sh r)
+               -> Maybe ( sh :~: '[]
+                        , AstTensor AstMethodLet s (TKScalar r) )
+matchAstSFromK = \case
+  AstConvert c t -> checkPatternAstSFromK c t
+  AstFromPrimal (AstConvert c t) -> checkPatternAstSFromK c (fromPrimal t)
+  AstFromDual (AstConvert c t) -> checkPatternAstSFromK c (fromDual t)
+  AstFromPlain (AstConvert c t) -> checkPatternAstSFromK c (fromPlain t)
+  AstPrimalPart (AstConvert c t) -> checkPatternAstSFromK c (primalPart t)
+  AstDualPart (AstConvert c t) -> checkPatternAstSFromK c (dualPart t)
+  AstPlainPart (AstConvert c t) -> checkPatternAstSFromK c (plainPart t)
+  _ -> Nothing
 
 checkPatternAstSFromK :: TKConversion y (TKS2 sh (TKScalar r))
                       -> AstTensor AstMethodLet s y
@@ -470,18 +483,48 @@ checkPatternAstSFromK c t
   , Just Refl <- testEquality (typeRep @ry) (typeRep @r) = Just (Refl, t)
 checkPatternAstSFromK _ _ = Nothing
 
-pattern AstFromS' :: forall {z1} {ms1} {s1}.
-                     forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)
+-- TODO: simplify this monstrosity, if possible
+pattern AstFromS' :: forall {z1} {ms1} {s1}. AstSpan s1
+                  => forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)
                   => FullShapeTK z -> AstTensor ms s y
                   -> AstTensor ms1 s1 z1
-pattern AstFromS' zftk a <-
-  AstConvert c (checkPatternAstFromS c -> Just (zftk, a))
+pattern AstFromS' zftk a <- (matchAstAstFromS -> AstFromSJust (zftk, a))
 
-checkPatternAstFromS :: TKConversion y z -> AstTensor ms s y
-                     -> Maybe (FullShapeTK z, AstTensor ms s y)
-checkPatternAstFromS c t =
-  let zftk = convertFTK c (ftkAst t)
-  in const (zftk, t) <$> convFromSMaybe (ftkAst t) zftk
+type role AstFromSMaybe nominal nominal nominal
+data AstFromSMaybe z ms s =
+    forall y. AstFromSJust (FullShapeTK z, AstTensor ms s y)
+  | AstFromSNothing
+
+matchAstAstFromS :: AstSpan s => AstTensor ms s z -> AstFromSMaybe z ms s
+matchAstAstFromS = \case
+  AstConvert c t -> case checkPatternAstFromS c (ftkAst t) of
+    Just zftk -> AstFromSJust $ (zftk, t)
+    Nothing -> AstFromSNothing
+  AstFromPrimal (AstConvert c t) -> case checkPatternAstFromS c (ftkAst t) of
+    Just zftk -> AstFromSJust $ (zftk, fromPrimal t)
+    Nothing -> AstFromSNothing
+  AstFromDual (AstConvert c t) -> case checkPatternAstFromS c (ftkAst t) of
+    Just zftk -> AstFromSJust $ (zftk, fromDual t)
+    Nothing -> AstFromSNothing
+  AstFromPlain (AstConvert c t) -> case checkPatternAstFromS c (ftkAst t) of
+    Just zftk -> AstFromSJust $ (zftk, fromPlain t)
+    Nothing -> AstFromSNothing
+  AstPrimalPart (AstConvert c t) -> case checkPatternAstFromS c (ftkAst t) of
+    Just zftk -> AstFromSJust $ (zftk, primalPart t)
+    Nothing -> AstFromSNothing
+  AstDualPart (AstConvert c t) -> case checkPatternAstFromS c (ftkAst t) of
+    Just zftk -> AstFromSJust $ (zftk, dualPart t)
+    Nothing -> AstFromSNothing
+  AstPlainPart (AstConvert c t) -> case checkPatternAstFromS c (ftkAst t) of
+    Just zftk -> AstFromSJust $ (zftk, plainPart t)
+    Nothing -> AstFromSNothing
+  _ -> AstFromSNothing
+
+checkPatternAstFromS :: TKConversion y z -> FullShapeTK y
+                     -> Maybe (FullShapeTK z)
+checkPatternAstFromS c yftk =
+  let zftk = convertFTK c yftk
+  in const zftk <$> convFromSMaybe yftk zftk
 
 checkAstFromSNotK :: TKConversion a b -> AstTensor ms s a -> Bool
 checkAstFromSNotK c t =
