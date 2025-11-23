@@ -23,10 +23,10 @@ module HordeAd.OpsTensor
   , rconcrete, rscalar, rrepl, ringestData, rfromListLinear
   , sconcrete, sscalar, srepl, singestData, sfromListLinear
   , xconcrete, xscalar, xrepl, xingestData, xfromListLinear
+  , kunravelToList
   , rfromList, rfromVector, runravelToList
   , sfromList, sfromVector, sunravelToList
   , xfromList, xfromVector, xunravelToList
-  , kunravelToList
     -- * Main array operations
   , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
   , tpair, tproject1, tproject2
@@ -173,6 +173,10 @@ kconcrete :: (GoodScalar r, BaseTensor target)
           => r -> target (TKScalar r)
 kconcrete = tkconcrete
 
+kunravelToList :: (KnownNat n, GoodScalar r, BaseTensor target)
+               => target (TKS '[n] r) -> [target (TKScalar r)]
+kunravelToList = tkunravelToList
+
 -- | Create a tensor from a list treated as the outermost dimension,
 -- going through strict boxed vectors, because laziness is risky with
 -- impurity, e.g., it easily perturbs results of fragile tests.
@@ -237,10 +241,6 @@ xfromVector = txfromVector
 xunravelToList :: (KnownNat n, KnownShX sh, KnownSTK x, BaseTensor target)
                => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
 xunravelToList = txunravelToList
-
-kunravelToList :: (KnownNat n, GoodScalar r, BaseTensor target)
-               => target (TKS '[n] r) -> [target (TKScalar r)]
-kunravelToList = tkunravelToList
 
 tunit :: BaseTensor target
       => target TKUnit

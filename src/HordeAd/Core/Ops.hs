@@ -399,10 +399,14 @@ class ( Num (IntOf target)
              => Nested.Mixed sh r -> target (TKX sh r)
   tconcrete :: FullShapeTK y -> Concrete y -> target y
 
-  -- These nine methods can't be replaced by tfromVector, because the concrete
-  -- instance has much faster implementations.
-  --
-  -- This is morally non-empty strict vectors:
+  tkunravelToList :: forall n r.(KnownNat n, GoodScalar r)
+                  => target (TKS '[n] r) -> [target (TKScalar r)]
+  tkunravelToList t =
+    let f :: Int -> target (TKScalar r)
+        f i = tsindex0 t (fromIntegral i :.$ ZIS)
+    in map f [0 .. valueOf @n - 1]
+
+  -- The argument is assumed to be a non-empty strict vector:
   trfromVector :: (KnownNat n, KnownSTK x)
                => Data.Vector.Vector (target (TKR2 n x))
                -> target (TKR2 (1 + n) x)
@@ -450,13 +454,6 @@ class ( Num (IntOf target)
   tfromListR stk l =
     tfromList (listrRank l) stk  -- not valueOf @k, because k ambiguous
     . toList $ l
-
-  tkunravelToList :: forall n r.(KnownNat n, GoodScalar r)
-                  => target (TKS '[n] r) -> [target (TKScalar r)]
-  tkunravelToList t =
-    let f :: Int -> target (TKScalar r)
-        f i = tsindex0 t (fromIntegral i :.$ ZIS)
-    in map f [0 .. valueOf @n - 1]
 
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain
