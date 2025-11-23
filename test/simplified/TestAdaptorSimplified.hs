@@ -455,9 +455,9 @@ testPiecewiseLinearPP = do
       fT x = ifH (x >. rscalar 0) (rscalar 2 * x) (rscalar 5 * x)
       (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKR ZSR FTKScalar)
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret x1 -> rfromS (let v3 = soneHot (sfromR dret) [ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) 0 1] in sscalar 5.0 * v3 !$ [0] + sscalar 2.0 * v3 !$ [1])"
+    @?= "\\dret x1 -> rfromS (let v3 = soneHot (sfromR dret) [ifH ((-0.0) <=. tplainPart (negate (kfromR x1))) 0 1] in sscalar 5.0 * v3 !$ [0] + sscalar 2.0 * v3 !$ [1])"
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\x1 -> rfromS (ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) (sscalar 5.0 * sfromR x1) (sscalar 2.0 * sfromR x1))"
+    @?= "\\x1 -> rfromS (ifH ((-0.0) <=. tplainPart (negate (kfromR x1))) (sscalar 5.0 * sfromR x1) (sscalar 2.0 * sfromR x1))"
 
 testPiecewiseLinear2 :: Assertion
 testPiecewiseLinear2 =
@@ -475,9 +475,9 @@ testPiecewiseLinear2PP = do
       fT x = ifH (x >. rscalar 0) (rscalar 2) (rscalar 5) * x
       (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKR ZSR FTKScalar)
   printArtifactPretty artifactRev
-    @?= "\\dret x1 -> rfromS (ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) (sscalar 5.0) (sscalar 2.0) * sfromR dret)"
+    @?= "\\dret x1 -> rfromS (ifH ((-0.0) <=. kfromS (splainPart (negate (sfromR x1)))) (sscalar 5.0) (sscalar 2.0) * sfromR dret)"
   printArtifactPrimalPretty artifactRev
-    @?= "\\x1 -> rfromS (ifH (sscalar (-0.0) <=. splainPart (negate (sfromR x1))) (sscalar 5.0) (sscalar 2.0) * sfromR x1)"
+    @?= "\\x1 -> rfromS (ifH ((-0.0) <=. kfromS (splainPart (negate (sfromR x1)))) (sscalar 5.0) (sscalar 2.0) * sfromR x1)"
 
 overleaf :: forall r target. (ADReady target, NumScalar r)
          => target (TKR 1 r) -> target (TKR 0 r)
