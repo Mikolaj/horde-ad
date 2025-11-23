@@ -3654,7 +3654,8 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
     Ast.AstConvert c2 t2 -> astConvert (c `convCmp` c2) t2
     _ -> Ast.AstConvert c a
 
--- We are pulling conversions from shaped tensors up, except for to scalars.
+-- We are pulling conversions from shaped tensors up, except for conversions
+-- to scalars that are pushed down.
 -- z is shaped or a product (presumably with some shaped components,
 -- but it's not checked; the other components are supposed to be
 -- converted identically, which is not checked in c, either).
@@ -3663,11 +3664,117 @@ astConvertFromS
   => TKConversion y z -> FullShapeTK z -> AstTensor AstMethodLet s y
   -> AstTensor AstMethodLet s z
 astConvertFromS c zftk a = case (zftk, a) of
-  (_, Ast.AstConvert c2 a2) -> astConvert (c `convCmp` c2) a2
+  (FTKScalar, Ast.AstPair{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstProject1{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstProject2{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstFromVector{}) -> error "astConvertFromS: impossible"
+  (FTKScalar @r1, Ast.AstSum snat (STKS ZSS (STKScalar @r2)) v)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      astSum snat STKScalar v
+  (FTKScalar, Ast.AstSum{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstReplicate{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstMapAccumRDer{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstMapAccumLDer{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstApply (AstLambda !var !v) ll) ->
+    astApply (AstLambda var (astConvertFromS c FTKScalar v)) ll
+  (FTKScalar, Ast.AstVar{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstCond b v1 v2) ->
+    astCond b (astConvertFromS c FTKScalar v1)
+              (astConvertFromS c FTKScalar v2)
+  (FTKScalar, Ast.AstBuild1{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstLet var u v) ->
+    astLet var u (astConvertFromS c FTKScalar v)
+  (FTKScalar, AstPlusK{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, AstTimesK{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstN1K{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstR1K{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstR2K{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstI2K{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, AstConcreteK{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstFloorK{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstFromIntegralK{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstCastK{}) -> error "astConvertFromS: impossible"
+  (FTKScalar @r1, AstPlusS @r2 u v)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      astConvertFromS c FTKScalar u + astConvertFromS c FTKScalar v
+  (FTKScalar, AstPlusS{}) -> error "astConvertFromS: impossible"
+  (FTKScalar @r1, AstTimesS @r2 u v)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      astConvertFromS c FTKScalar u * astConvertFromS c FTKScalar v
+  (FTKScalar, AstTimesS{}) -> error "astConvertFromS: impossible"
+  (FTKScalar @r1, Ast.AstN1S @r2 NegateOp u)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      negate (astConvertFromS c FTKScalar u)
+  (FTKScalar @r1, Ast.AstN1S @r2 AbsOp u)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      abs (astConvertFromS c FTKScalar u)
+  (FTKScalar @r1, Ast.AstN1S @r2 SignumOp u)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      signum (astConvertFromS c FTKScalar u)
+  (FTKScalar, Ast.AstN1S{}) -> error "astConvertFromS: impossible"
+  (FTKScalar @r1, Ast.AstR1S @r2 opCode u)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      Ast.AstR1K opCode (astConvertFromS c FTKScalar u)
+  (FTKScalar, Ast.AstR1S{}) -> error "astConvertFromS: impossible"
+  (FTKScalar @r1, Ast.AstR2S @r2 opCode u v)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      Ast.AstR2K opCode (astConvertFromS c FTKScalar u)
+                        (astConvertFromS c FTKScalar v)
+  (FTKScalar, Ast.AstR2S{}) -> error "astConvertFromS: impossible"
+  (FTKScalar @r1, Ast.AstI2S @r2 QuotOp u v)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      astConvertFromS c FTKScalar u
+      `quotH` astConvertFromS c FTKScalar v
+  (FTKScalar @r1, Ast.AstI2S @r2 RemOp u v)
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      astConvertFromS c FTKScalar u
+      `remH` astConvertFromS c FTKScalar v
+  (FTKScalar, Ast.AstI2S{}) -> error "astConvertFromS: impossible"
   (FTKScalar @r1, AstConcreteS @r2 v)
     | ZSS <- Nested.sshape v
     , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
       AstConcreteK (Nested.sunScalar v)
+  (FTKScalar, AstConcreteS{}) -> error "astConvertFromS: impossible"
+  {- TODO:
+  (FTKScalar @r, Ast.AstFloorS v) | FTKS ZSS FTKScalar <- ftkAst v
+                                  , Dict0 <- lemTKAllNumConvertForward c
+                                  , Dict0 <- numFromTKAllNum (Proxy @r) ->
+    astFloorK (astKFromS' v) -}
+  (FTKScalar, Ast.AstFloorS{}) -> Ast.AstConvert c a
+  (FTKScalar @r, Ast.AstFromIntegralS v)
+    | FTKS ZSS FTKScalar <- ftkAst v
+    , Dict0 <- lemTKAllNumConvertForward c
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
+      astFromIntegralK (astKFromS' v)
+  (FTKScalar, Ast.AstFromIntegralS{}) -> error "astConvertFromS: impossible"
+  {- TODO:
+  (FTKScalar @r, Ast.AstCastS v) | FTKS ZSS FTKScalar <- ftkAst v
+                                 , Dict0 <- lemTKAllNumConvertForward c
+                                 , Dict0 <- numFromTKAllNum (Proxy @r) ->
+    astCastK (astKFromS' v) -}
+  (FTKScalar, Ast.AstCastS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstIndexS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstScatterS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstGatherS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstMinIndexS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstMaxIndexS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstIotaS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstAppendS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstSliceS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstReverseS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstTransposeS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstReshapeS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstSum0S{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstDot0S{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstDot1InS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstMatmul2S{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstBoolNot{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstBoolNotA{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstBoolAnd{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstBoolAndA{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstLeqK{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstLeqS{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstLeqA{}) -> Ast.AstConvert c a
   -- Rare cases where we don't pull up but push down so that conversions
   -- don't end up interspersed with AstFromPrimal and similar.
   (_, Ast.AstPrimalPart v) ->
@@ -3682,47 +3789,8 @@ astConvertFromS c zftk a = case (zftk, a) of
     fromDual $ astConvertFromS c zftk v
   (_, Ast.AstFromPlain v) ->
     fromPlain $ astConvertFromS c zftk v
-  (FTKScalar, Ast.AstCond b v1 v2) ->
-    astCond b (astConvertFromS c FTKScalar v1)
-              (astConvertFromS c FTKScalar v2)
-      -- for scalars, we don't pull up but push down
-  (FTKScalar, Ast.AstLet var u v) ->
-    astLet var u (astConvertFromS c FTKScalar v)
-  (FTKScalar @r, AstPlusS u v)
-    | Dict0 <- lemTKAllNumConvertForward c
-    , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      astConvertFromS c FTKScalar u + astConvertFromS c FTKScalar v
-  (FTKScalar @r, AstTimesS u v)
-    | Dict0 <- lemTKAllNumConvertForward c
-    , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      astConvertFromS c FTKScalar u * astConvertFromS c FTKScalar v
-  (FTKScalar @r, Ast.AstN1S NegateOp u)
-    | Dict0 <- lemTKAllNumConvertForward c
-    , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      negate (astConvertFromS c FTKScalar u)
-  (FTKScalar @r, Ast.AstN1S AbsOp u)
-    | Dict0 <- lemTKAllNumConvertForward c
-    , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      abs (astConvertFromS c FTKScalar u)
-  (FTKScalar @r, Ast.AstN1S SignumOp u)
-    | Dict0 <- lemTKAllNumConvertForward c
-    , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      signum (astConvertFromS c FTKScalar u)
-  (FTKScalar @r1, Ast.AstR1S @r2 opCode u)
-    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
-      Ast.AstR1K opCode (astConvertFromS c FTKScalar u)
-  (FTKScalar @r1, Ast.AstR2S @r2 opCode u v)
-    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
-      Ast.AstR2K opCode (astConvertFromS c FTKScalar u)
-                        (astConvertFromS c FTKScalar v)
-  (FTKScalar @r1, Ast.AstI2S @r2 QuotOp u v)
-    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
-      astConvertFromS c FTKScalar u
-      `quotH` astConvertFromS c FTKScalar v
-  (FTKScalar @r1, Ast.AstI2S @r2 RemOp u v)
-    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
-      astConvertFromS c FTKScalar u
-      `remH` astConvertFromS c FTKScalar v
+  (_, Ast.AstConvert c2 a2) -> astConvert (c `convCmp` c2) a2
+  -- keep: (FTKScalar, _) -> error "add above until GHC say this case redundant"
   _ -> Ast.AstConvert c a  -- by default we pull up
 
 -- We are pushing conversions to shaped tensors down, into concrete values

@@ -506,7 +506,7 @@ convFromS yftk zftk = case convFromSMaybe yftk zftk of
   Nothing -> error $ "convFromS: unexpected types "  -- TODO: try nevertheless?
                      ++ "(" ++ show yftk ++ ", " ++ show zftk ++ ")"
 
-convSFrom :: FullShapeTK y ->SingletonTK z -> TKConversion y z
+convSFrom :: FullShapeTK y -> SingletonTK z -> TKConversion y z
 convSFrom yftk zstk = case convSFromMaybe yftk zstk of
   Just c -> c
   Nothing -> error $ "convSFrom: unexpected types "  -- TODO: try nevertheless?
