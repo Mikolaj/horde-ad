@@ -3787,18 +3787,23 @@ astSum0S t = case t of
     astSum0S u * (fromPlain $ AstConcreteK $ fromInteger $ fromSNat snat)
   Ast.AstReplicate snat STKScalar u ->
     u * (fromPlain $ AstConcreteK $ fromInteger $ fromSNat snat)
+  _ | FTKS (snat :$$ _) _ <- ftkAst t
+    , Just u <- unRepl1 t ->
+      astSum0S u * (fromPlain $ AstConcreteK $ fromInteger $ fromSNat snat)
   Ast.AstLet var u v -> astLet var u (astSum0S v)
-  AstTimesS t1 t2 -> astDot0S t1 t2
-  AstConcreteS v ->
-    withKnownShS (Nested.sshape v) $
-    astConcreteK $ tssum0 (Concrete v)
   Ast.AstFromPrimal u -> fromPrimal $ astSum0S u
   Ast.AstFromDual u -> fromDual $ astSum0S u
   Ast.AstFromPlain u -> fromPlain $ astSum0S u
+  AstTimesS t1 t2 -> astDot0S t1 t2
+  Ast.AstN1S NegateOp u -> negate $ astSum0S u
+  AstConcreteS v ->
+    withKnownShS (Nested.sshape v) $
+    astConcreteK $ tssum0 (Concrete v)
+  Ast.AstAppendS u v -> astSum0S u + astSum0S v
   Ast.AstReverseS u -> astSum0S u
   Ast.AstTransposeS _ u -> astSum0S u
   Ast.AstReshapeS _ u -> astSum0S u
-  Ast.AstN1S NegateOp u -> negate $ astSum0S u
+  AstSFromK' u -> u
   Ast.AstDot1InS _ _ t1 t2 -> astDot0S t1 t2
   Ast.AstMatmul2S m@SNat SNat p@SNat m1 m2 ->
     astDot0S (astTransposeS (Permutation.makePerm @'[1, 0])
@@ -3812,9 +3817,17 @@ astDot0S :: (NumScalar r, AstSpan s)
          -> AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKScalar r)
 astDot0S t1 t2 = case (t1, t2) of
-  (AstConcreteS v1, AstConcreteS v2) ->
-    withKnownShS (Nested.sshape v1) $
-    astConcreteK $ tsdot0 (Concrete v1) (Concrete v2)
+  (Ast.AstSum snat1 _ u1, Ast.AstSum snat2 _ u2)
+    | Just Refl <- testEquality snat1 snat2 ->
+      astDot0S u1 u2
+  ( Ast.AstReplicate snat1 (STKS _ STKScalar) u1
+   ,Ast.AstReplicate snat2 (STKS _ STKScalar) u2 )
+    | Just Refl <- testEquality snat1 snat2 ->
+      astDot0S u1 u2 * (fromPlain $ AstConcreteK $ fromInteger $ fromSNat snat1)
+  ( Ast.AstReplicate snat1 STKScalar u1
+   , Ast.AstReplicate snat2 STKScalar u2 )
+    | Just Refl <- testEquality snat1 snat2 ->
+      u1 * u2 * (fromPlain $ AstConcreteK $ fromInteger $ fromSNat snat1)
   _ | FTKS (snat :$$ _) _ <- ftkAst t1
     , Just u1 <- unRepl1 t1
     , Just u2 <- unRepl1 t2 ->
@@ -3825,12 +3838,20 @@ astDot0S t1 t2 = case (t1, t2) of
     fromDual $ astDot0S u1 u2
   (Ast.AstFromPlain u1, Ast.AstFromPlain u2) ->
     fromPlain $ astDot0S u1 u2
+  (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot0S u1 u2
+  (AstConcreteS v1, AstConcreteS v2) ->
+    withKnownShS (Nested.sshape v1) $
+    astConcreteK $ tsdot0 (Concrete v1) (Concrete v2)
+  {- KnownNat would be needed (or SNat):
+  (Ast.AstAppendS @m1 u1 v1, Ast.AstAppendS @m2 u2 v2)
+    | Just Refl <- sameNat (SNat @m1) (SNat @m2) ->
+      astDot0S u1 u2 + astDot0S v1 v2 -}
+  (Ast.AstReverseS u1, Ast.AstReverseS u2) -> astDot0S u1 u2
   (Ast.AstTransposeS @_ @sh1 perm1 u1, Ast.AstTransposeS @_ @sh2 perm2 u2)
     | Just Refl <- testEquality perm1 perm2 ->
       gcastWith (unsafeCoerceRefl :: sh1 :~: sh2) $
       astDot0S u1 u2
-  (Ast.AstReverseS u1, Ast.AstReverseS u2) -> astDot0S u1 u2
-  (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot0S u1 u2
+  (AstSFromK' u1, AstSFromK' u2) -> u1 * u2
   _ -> Ast.AstDot0S t1 t2
 
 astDot1InS :: forall sh n r s. (NumScalar r, AstSpan s)
@@ -3839,15 +3860,16 @@ astDot1InS :: forall sh n r s. (NumScalar r, AstSpan s)
            -> AstTensor AstMethodLet s (TKS (sh ++ '[n]) r)
            -> AstTensor AstMethodLet s (TKS sh r)
 astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
-  (AstConcreteS v1, AstConcreteS v2) ->
-    withKnownShS sh $
-    astConcreteS $ tsdot1In @_ @sh (SNat @n) (Concrete v1) (Concrete v2)
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
     fromPrimal $ astDot1InS sh n u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
     fromDual $ astDot1InS sh n u1 u2
   (Ast.AstFromPlain u1, Ast.AstFromPlain u2) ->
     fromPlain $ astDot1InS sh n u1 u2
+  (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot1InS sh n u1 u2
+  (AstConcreteS v1, AstConcreteS v2) ->
+    withKnownShS sh $
+    astConcreteS $ tsdot1In @_ @sh (SNat @n) (Concrete v1) (Concrete v2)
   _ -> Ast.AstDot1InS sh n t1 t2
 
 astMatmul2S :: (NumScalar r, AstSpan s)
@@ -3856,14 +3878,14 @@ astMatmul2S :: (NumScalar r, AstSpan s)
             -> AstTensor AstMethodLet s (TKS '[n, p] r)
             -> AstTensor AstMethodLet s (TKS '[m, p] r)
 astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
-  (AstConcreteS v1, AstConcreteS v2) ->
-    astConcreteS $ tsmatmul2 (Concrete v1) (Concrete v2)
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
     fromPrimal $ astMatmul2S m n p u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
     fromDual $ astMatmul2S m n p u1 u2
   (Ast.AstFromPlain u1, Ast.AstFromPlain u2) ->
     fromPlain $ astMatmul2S m n p u1 u2
+  (AstConcreteS v1, AstConcreteS v2) ->
+    astConcreteS $ tsmatmul2 (Concrete v1) (Concrete v2)
   _ -> Ast.AstMatmul2S m n p t1 t2
 
 
