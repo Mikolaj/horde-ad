@@ -32,6 +32,8 @@ import HordeAd.Core.Types
 -- TODO: ensure that terms roundtrip if neither loseRoudtrip
 -- nor ignoreNestedLambdas is set and that explicit sharing is then preserved
 -- as opposed to displaying sharing as Haskell lets.
+-- The operations in OpsTensor should suffice to roundtrip. Adjust both
+-- OpsTensor and the pretty-printing until they do.
 -- Note that disabling ignoreNestedLambdas causes derivatives to be computed,
 -- so pretty-printing in this way can be very expensive.
 data PrintConfig = PrintConfig
