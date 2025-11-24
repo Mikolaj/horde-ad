@@ -136,14 +136,15 @@ convCmp a b = case (a, b) of
   (ConvT2 a1 a2, ConvT2 b1 b2) -> convT2 (convCmp a1 b1) (convCmp a2 b2)
   (ConvT2 a1 a2, ConvCmp (ConvT2 b1 b2) c) ->
     convCmp (convT2 (convCmp a1 b1) (convCmp a2 b2)) c
-  (ConvNest @sh @_ @sh' _, ConvUnnest @sh2 @sh2') ->
-    gcastWith (unsafeCoerceRefl :: sh :~: sh2) $
-    gcastWith (unsafeCoerceRefl :: sh' :~: sh2') $
-    ConvId
-  (ConvNest @sh @_ @sh' _, ConvCmp (ConvUnnest @sh2 @sh2') c) ->
-    gcastWith (unsafeCoerceRefl :: sh :~: sh2) $
-    gcastWith (unsafeCoerceRefl :: sh' :~: sh2') $
-    c
+  {- Not enough singletons to decide the equality here:
+  (ConvNest @sh @_ @sh' _, ConvUnnest @sh2 @sh2')
+    | Just Refl <- testEquality sh :~: sh2) ->
+      gcastWith (unsafeCoerceRefl :: sh' :~: sh2') $
+      ConvId
+  (ConvNest @sh @_ @sh' _, ConvCmp (ConvUnnest @sh2 @sh2') c)
+    | Just Refl <- testEquality sh :~: sh2) ->
+      gcastWith (unsafeCoerceRefl :: sh' :~: sh2') $
+      c -}
 -- not enough type info in the AST:
 -- (ConvNest (STKX sh x), ConvXX d) ->
 --   convCmp (ConvXX (ConvXX d)) (ConvNest (STKX sh (convertSTKBack d x)))
