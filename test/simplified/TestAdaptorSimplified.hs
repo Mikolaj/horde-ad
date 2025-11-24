@@ -167,6 +167,7 @@ testTrees =
   , testCase "2fooBuild" testFooBuild
   , testCase "2fooNoGo0" testFooNoGo0
   , testCase "2nestedBuildMap1" testNestedBuildMap1
+-- crashes at case:  , testCase "2nestedSumBuildm1" testNestedSumBuildm1
 -- segfaults even with -O0:  , testCase "2nestedSumBuild0" testNestedSumBuild0
 -- segfaults even with -O0:  , testCase "2nestedSumBuild" testNestedSumBuild
   , testCase "2nestedBuildIndex" testNestedBuildIndex
@@ -1771,6 +1772,19 @@ testNestedBuildMap1 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 107.25984443006627)
     (rev' @Double @1 nestedBuildMap (rscalar 1.1))
+
+_nestedSumBuildm1 :: ADReady target
+                  => target (TKR 0 CInt) -> target (TKScalar CInt)
+_nestedSumBuildm1 _ =
+ rsum0
+ $ tlet (rbuild1 2 (rfromIntegral . rfromK . tfromPlain STKScalar))
+        (\x -> x)
+
+_testNestedSumBuildm1 :: Assertion
+_testNestedSumBuildm1 =
+  assertEqualUpToEpsilon' 1e-8
+    (rscalar 0)
+    (rev' (rfromK . _nestedSumBuildm1) ((rscalar 1)))
 
 _nestedSumBuild0 :: ADReady target
                 => target (TKR 0 CInt) -> target (TKScalar CInt)
