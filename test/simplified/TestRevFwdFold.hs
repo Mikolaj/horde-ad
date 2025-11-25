@@ -155,7 +155,7 @@ testTrees =
   , testCase "4S0rmapAccumRD01SN51" testSin0rmapAccumRD01SN51
   , testCase "4S0rmapAccumRD01SN531a" testSin0rmapAccumRD01SN531a
   , testCase "4S0rmapAccumRD01SN531b0" testSin0rmapAccumRD01SN531b0
---  , testCase "4S0rmapAccumRD01SN531b0PP" testSin0rmapAccumRD01SN531b0PP
+  , testCase "4S0rmapAccumRD01SN531b0PP" testSin0rmapAccumRD01SN531b0PP
   , testCase "4S0rmapAccumRD01SN531b0PPj" testSin0rmapAccumRD01SN531b0PPj
   , testCase "4S0rmapAccumRD01SN531bRPPj" testSin0rmapAccumRD01SN531bRPPj
   , testCase "4S0rmapAccumRD01SN531c" testSin0rmapAccumRD01SN531c
@@ -1764,9 +1764,8 @@ testSin0rmapAccumRD01SN531b0 = do
                           (rconcrete $ Nested.rfromListPrimLinear [0] []))
            in f) (rscalar 1.1))
 
--- Different result with -O1:
-_testSin0rmapAccumRD01SN531b0PP :: Assertion
-_testSin0rmapAccumRD01SN531b0PP = do
+testSin0rmapAccumRD01SN531b0PP :: Assertion
+testSin0rmapAccumRD01SN531b0PP = do
   resetVarCounter
   let f :: forall f. ADReady f
                  => f (TKR 0 Double)

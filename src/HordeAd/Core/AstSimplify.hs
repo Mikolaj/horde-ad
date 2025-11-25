@@ -514,15 +514,21 @@ astSum snat@SNat stk t0 = case t0 of
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKS sh _  <- stk ->  -- other cases too rare
       astIndexS sh t0 (0 :.$ ZIS)  -- astReshape slows down the CNNO test
-  Ast.AstFromVector @y2 _ _ l ->
-    gcastWith (unsafeCoerceRefl :: y2 :~: y) $
+  Ast.AstFromVector _ stk2 l ->
     case stk of
-      STKScalar @r | Dict0 <- numFromTKAllNum (Proxy @r) -> foldr1 (+) l
-      STKR _ (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+      STKScalar @r | Dict0 <- numFromTKAllNum (Proxy @r) ->
+        case stk2 of
+          STKScalar -> foldr1 (+) l
+          STKS ZSS STKScalar -> kfromS $ foldr1 (+) l
+      STKR _ (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r)
+                            , STKR{} <- stk2 ->
         foldr1 (+) l
       STKS _ (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
-        foldr1 (+) l
-      STKX _ (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+        case stk2 of
+          STKScalar -> sfromK $ foldr1 (+) l
+          STKS{} -> foldr1 (+) l
+      STKX _ (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r)
+                            , STKX{} <- stk2 ->
         foldr1 (+) l
       _ -> Ast.AstSum snat stk t0
   -- See the analogous astSliceS rule.
