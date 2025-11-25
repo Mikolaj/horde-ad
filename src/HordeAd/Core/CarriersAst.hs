@@ -1456,9 +1456,7 @@ astShareNoSimplify :: AstSpan s
 astShareNoSimplify a | astIsSmall True a = a
                          -- too important an optimization to skip
 astShareNoSimplify a = case a of
-  AstFromS' FTKScalar _ ->
-    fun1ToAst (ftkAst a) $ \ !var -> AstShare var a
-  AstFromS' @y2 ftkz v ->
+  AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
     cAstFromS @y2 ftkz $ fun1ToAst (ftkAst v) $ \ !var -> AstShare var v
   AstFromPrimal v -> fromPrimal $ astShareNoSimplify v
   AstFromDual v -> fromDual $ astShareNoSimplify v
@@ -1488,10 +1486,7 @@ astLetFunNoSimplify
 astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
 astLetFunNoSimplify a f = case a of
-  AstFromS' FTKScalar _ ->
-    let (var, ast) = funToAst (ftkAst a) Nothing f
-    in AstLet var a ast
-  AstFromS' @y2 ftkz v ->
+  AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
     let (var, ast) = funToAst (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
     in AstLet var v ast
   AstFromPrimal v -> astLetFunNoSimplify v (f . fromPrimal)

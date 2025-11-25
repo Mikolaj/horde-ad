@@ -429,11 +429,11 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
               => FullShapeTK x
               -> AstTensor AstMethodLet s2 y
               -> Maybe (AstTensor AstMethodLet s2 x)
-       unFrom _ (AstFromS' FTKScalar _) = Nothing
-       unFrom yftk (AstFromS' _ t) =
-         case matchingFTK (ftkAst t) yftk of
-           Just Refl -> Just t
-           Nothing -> error "astFromVector: impossible shape"
+       unFrom yftk (AstFromS' ftkz t)
+         | case ftkz of; FTKScalar -> False; _ -> True =
+           case matchingFTK (ftkAst t) yftk of
+             Just Refl -> Just t
+             Nothing -> error "astFromVector: impossible shape"
        unFrom yftk (Ast.AstFromPrimal t) = fromPrimal <$> unFrom yftk t
        unFrom yftk (Ast.AstFromDual t) = fromDual <$> unFrom yftk t
        unFrom yftk (Ast.AstFromPlain t) = fromPlain <$> unFrom yftk t
@@ -965,10 +965,10 @@ astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
   fromDual $ astCond b v w
 astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
   fromPlain $ astCond b v w
-astCond b v@(AstFromS' FTKScalar _) w = Ast.AstCond b v w
 -- We rely here on c and the other conversion being semantically equal.
-astCond b (AstFromS' _ v) (Ast.AstConvert c w)
-  | Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
+astCond b (AstFromS' ftkz v) (Ast.AstConvert c w)
+  | case ftkz of; FTKScalar -> False; _ -> True
+  , Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
     astConvert c $ astCond b v w
 astCond b v w = Ast.AstCond b v w
 
@@ -4070,10 +4070,7 @@ astLetFunBounds :: forall y z s s2. (AstSpan s, AstSpan s2)
                 -> AstTensor AstMethodLet s2 z
 astLetFunBounds _ a f | astIsSmall True a = f a
 astLetFunBounds mbs a f = case a of
-  AstFromS' FTKScalar _ ->
-    let (var, ast) = funToAst (ftkAst a) mbs f
-    in astLet var a ast
-  AstFromS' @y2 ftkz v ->
+  AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
     let (var, ast) = funToAst (ftkAst v) mbs (f . astFromS' @y2 ftkz)
     in astLet var v ast
   Ast.AstFromPrimal v -> astLetFunBounds mbs v (f . fromPrimal)
