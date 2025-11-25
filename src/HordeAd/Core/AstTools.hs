@@ -14,7 +14,7 @@ module HordeAd.Core.AstTools
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstConvert, cAstSFromR, cAstSFromX, cAstXFromS
   , pattern AstSFromK', pattern AstFromS'
-  , checkAstFromSNotK, cAstFromS, cAstSFrom
+  , checkPatternAstSFromK, checkAstFromSNotK, cAstFromS, cAstSFrom
   , convFromS, convSFrom, convFromSMaybe, convSFromMaybe
   , setTotalSharing
   ) where
@@ -473,7 +473,7 @@ matchAstSFromK = \case
   AstPlainPart (AstConvert c t) -> checkPatternAstSFromK c (plainPart t)
   _ -> Nothing
 
-checkPatternAstSFromK :: TKConversion y (TKS2 sh (TKScalar r))
+checkPatternAstSFromK :: TKConversion y (TKS sh r)
                       -> AstTensor AstMethodLet s y
                       -> Maybe ( sh :~: '[]
                                , AstTensor AstMethodLet s (TKScalar r) )

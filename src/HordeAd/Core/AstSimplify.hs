@@ -425,14 +425,18 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
      Just l2 -> Just $ fromPlain $ astFromVector snat stk l2
      Nothing -> Nothing)
   `mplus`
-  (let unFrom :: FullShapeTK x
-              -> AstTensor AstMethodLet s y
-              -> Maybe (AstTensor AstMethodLet s x)
+  (let unFrom :: AstSpan s2
+              => FullShapeTK x
+              -> AstTensor AstMethodLet s2 y
+              -> Maybe (AstTensor AstMethodLet s2 x)
        unFrom _ (AstFromS' FTKScalar _) = Nothing
        unFrom yftk (AstFromS' _ t) =
          case matchingFTK (ftkAst t) yftk of
            Just Refl -> Just t
            Nothing -> error "astFromVector: impossible shape"
+       unFrom yftk (Ast.AstFromPrimal t) = fromPrimal <$> unFrom yftk t
+       unFrom yftk (Ast.AstFromDual t) = fromDual <$> unFrom yftk t
+       unFrom yftk (Ast.AstFromPlain t) = fromPlain <$> unFrom yftk t
        unFrom _ _ = Nothing
    in case V.uncons l of
      Just (Ast.AstConvert c0 t, _) ->
@@ -445,29 +449,47 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
            Just $ astConvert (buildTKConversion snat yftk c0)
                 $ astFromVector snat (ftkToSTK yftk) l2
          Nothing -> Nothing
+     Just (Ast.AstFromPrimal (Ast.AstConvert c0 t), _) ->
+       let yftk = ftkAst t
+       in case V.mapM (unFrom yftk) l of
+         Just l2 ->
+           Just $ astConvert (buildTKConversion snat yftk c0)
+                $ astFromVector snat (ftkToSTK yftk) l2
+         Nothing -> Nothing
+     Just (Ast.AstFromDual (Ast.AstConvert c0 t), _) ->
+       let yftk = ftkAst t
+       in case V.mapM (unFrom yftk) l of
+         Just l2 ->
+           Just $ astConvert (buildTKConversion snat yftk c0)
+                $ astFromVector snat (ftkToSTK yftk) l2
+         Nothing -> Nothing
+     Just (Ast.AstFromPlain (Ast.AstConvert c0 t), _) ->
+       let yftk = ftkAst t
+       in case V.mapM (unFrom yftk) l of
+         Just l2 ->
+           Just $ astConvert (buildTKConversion snat yftk c0)
+                $ astFromVector snat (ftkToSTK yftk) l2
+         Nothing -> Nothing
      Just{} -> Nothing
      Nothing -> error "astFromVector: empty vector")
   `mplus`
-  (let unFrom :: FullShapeTK (TKScalar r)
-              -> AstTensor AstMethodLet s (TKS '[] r)
-              -> Maybe (AstTensor AstMethodLet s (TKScalar r))
-       unFrom (FTKScalar @r) (AstSFromK' @_ @_ @r2 t) =
-         case testEquality (typeRep @r) (typeRep @r2) of
-           Just Refl -> Just t
-           Nothing -> error "astFromVector: impossible shape"
-       unFrom (FTKScalar @r) (AstConcreteS @r2 v) =
-         case testEquality (typeRep @r) (typeRep @r2) of
-           Just Refl -> Just $ AstConcreteK $ Nested.sunScalar v
-           Nothing -> error "astFromVector: impossible shape"
-       unFrom _ _ = Nothing
-   in case V.uncons l of
-     Just (u, _) ->
-       case ftkAst u of
-         FTKS ZSS x@FTKScalar ->
-           case V.mapM (unFrom x) l of
-             Just l2 -> Just $ astFromVector snat (ftkToSTK x) l2
-             Nothing -> Nothing
-         _ -> Nothing
+  (let unFrom :: AstSpan s2
+              => AstTensor AstMethodLet s2 (TKS '[] r)
+              -> Maybe (AstTensor AstMethodLet s2 (TKScalar r))
+       unFrom (AstSFromK' t) = Just t
+       unFrom (AstConcreteS v) = Just $ AstConcreteK $ Nested.sunScalar v
+       unFrom (Ast.AstSum snat2 (STKS _ STKScalar) v) =
+         Just $ astSum snat2 STKScalar v
+       unFrom (Ast.AstFromPrimal t) = fromPrimal <$> unFrom t
+       unFrom (Ast.AstFromDual t) = fromDual <$> unFrom t
+       unFrom (Ast.AstFromPlain t) = fromPlain <$> unFrom t
+       unFrom _ = Nothing
+   in case ftkAst . fst <$> V.uncons l of
+     Just (FTKS ZSS FTKScalar) ->
+       case V.mapM unFrom l of
+         Just l2 -> Just $ astFromVector snat STKScalar l2
+         Nothing -> Nothing
+     Just _ -> Nothing
      Nothing -> error "astFromVector: empty vector")
 
 astSum :: forall y k s. (AstSpan s, TKAllNum y)
@@ -476,8 +498,11 @@ astSum :: forall y k s. (AstSpan s, TKAllNum y)
        -> AstTensor AstMethodLet s y
 astSum snat@SNat stk t0 = case t0 of
   _ | Just Refl <- testEquality snat (SNat @0) ->
-    let ftk = razeFTK snat stk (ftkAst t0)
-    in fromPlain $ astConcrete ftk (tdefTarget ftk)
+      let ftk = razeFTK snat stk (ftkAst t0)
+      in fromPlain $ astConcrete ftk (tdefTarget ftk)
+  {- TODO: this results in small PP terms, but much higher allocation somewhere:
+  _ | STKS ZSS STKScalar <- stk ->
+      sfromK $ astSum snat STKScalar t0 -}
   _ | STKS sh (STKScalar @r) <- stk
     , Just u <- unRepl1 t0
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
@@ -614,6 +639,9 @@ astReplicate snat@SNat stk t0 = case t0 of
     astConcreteS $ treplicate snat stk $ Concrete t
       -- revisit the trade-offs once we compile instead of interpreting
       -- and so building big blobby concrete arrays is cheap
+  Ast.AstConvert c t | STKS ZSS STKScalar <- stk
+                     , Just (_, t2) <- checkPatternAstSFromK c t ->
+    astReplicate snat STKScalar t2
   Ast.AstConvert c t | checkAstFromSNotK c t ->
     let xftk = ftkAst t
     in astConvert (buildTKConversion snat xftk c)
@@ -3551,7 +3579,7 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
   Ast.AstProject1{} -> Ast.AstConvert c a0
   Ast.AstProject2{} -> Ast.AstConvert c a0
-  Ast.AstSum snat@SNat STKScalar a -> astSum snat (STKS ZSS STKScalar) a
+  Ast.AstSum{} -> Ast.AstConvert c a0
   AstConcreteK k -> AstConcreteS $ Nested.sscalar k
   Ast.AstFloorK{} -> Ast.AstConvert c a0
   Ast.AstFromIntegralK{} -> Ast.AstConvert c a0
