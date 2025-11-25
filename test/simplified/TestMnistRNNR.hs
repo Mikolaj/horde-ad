@@ -209,11 +209,11 @@ mnistTestCaseRNNRI prefix epochs maxBatches width miniBatchSize totalBatchSize
          funToAstIO (FTKR (miniBatchSize
                            :$: sizeMnistHeightInt
                            :$: sizeMnistWidthInt
-                           :$: ZSR) FTKScalar) id
+                           :$: ZSR) FTKScalar) Nothing id
        (varLabel, astLabel) <-
          funToAstIO (FTKR (miniBatchSize
                            :$: sizeMnistLabelInt
-                           :$: ZSR) FTKScalar) id
+                           :$: ZSR) FTKScalar) Nothing id
        let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
            ast = simplifyInline
                  $ MnistRnnRanked2.rnnMnistLossFusedR

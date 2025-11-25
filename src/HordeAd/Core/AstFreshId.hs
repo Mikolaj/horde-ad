@@ -5,7 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of the impurity escapes
 -- and is encapsulated elsewhere.
 module HordeAd.Core.AstFreshId
-  ( funToAstIO, funToAst, funToAst2, fun1ToAst
+  ( funToAstIO, funToAst, fun1ToAst
   , funToAstRevIO, funToAstFwdIO
   , funToAstIntVarIO, funToAstIntVar, funToAstI
   , funToVarsIxS, funToAstIxS
@@ -50,52 +50,40 @@ unsafeGetFreshAstVarName ftk bounds =
   mkAstVarName ftk bounds
   . intToAstVarId <$> add unsafeAstVarCounter 1
 
-funToAstIO2 :: forall y z s s2 ms. AstSpan s
-            => FullShapeTK y -> Maybe (Int64, Int64)
-            -> (AstTensor ms s y -> AstTensor ms s2 z)
-            -> IO (AstVarName s y, AstTensor ms s2 z)
-{-# INLINE funToAstIO2 #-}
-funToAstIO2 ftk bounds f = do
-  freshId <- unsafeGetFreshAstVarName ftk bounds
-  let !x = f (astVar freshId)
+funToAstIOGeneric :: forall y z s s2 ms.
+                     FullShapeTK y -> Maybe (Int64, Int64)
+                  -> (AstVarName s y -> AstTensor ms s2 z)
+                  -> IO (AstVarName s y, AstTensor ms s2 z)
+{-# INLINE funToAstIOGeneric  #-}
+funToAstIOGeneric ftk bounds f = do
+  !freshId <- unsafeGetFreshAstVarName ftk bounds
+  let !x = f freshId
   return (freshId, x)
 -- Warning: adding a bang before freshId breaks fragile tests.
 -- Probably GHC then optimizes differently and less predictably
 -- and so changes results between -O0 vs -O1 and possibly also
 -- between different GHC versions and between local vs CI setup.
 
-funToAst2 :: AstSpan s
-          => FullShapeTK y -> Maybe (Int64, Int64)
-          -> (AstTensor ms s y -> AstTensor ms s2 z)
-          -> (AstVarName s y, AstTensor ms s2 z)
-{-# NOINLINE funToAst2 #-}
-funToAst2 ftk bounds = unsafePerformIO . funToAstIO2 ftk bounds
-
-funToAstIO :: forall y z s ms. AstSpan s
-           => FullShapeTK y
-           -> (AstTensor ms s y -> AstTensor ms s z)
-           -> IO (AstVarName s y, AstTensor ms s z)
+funToAstIO :: forall y z s s2 ms. AstSpan s
+           => FullShapeTK y -> Maybe (Int64, Int64)
+           -> (AstTensor ms s y -> AstTensor ms s2 z)
+           -> IO (AstVarName s y, AstTensor ms s2 z)
 {-# INLINE funToAstIO #-}
-funToAstIO ftk = funToAstIO2 ftk Nothing
+funToAstIO ftk bounds f = funToAstIOGeneric ftk bounds (f . astVar)
 
 funToAst :: AstSpan s
          => FullShapeTK y -> Maybe (Int64, Int64)
-         -> (AstTensor ms s y -> AstTensor ms s z)
-         -> (AstVarName s y, AstTensor ms s z)
+         -> (AstTensor ms s y -> AstTensor ms s2 z)
+         -> (AstVarName s y, AstTensor ms s2 z)
 {-# NOINLINE funToAst #-}
-funToAst ftk bounds = unsafePerformIO . funToAstIO2 ftk bounds
-
-fun1ToAstIO :: FullShapeTK y -> (AstVarName s y -> AstTensor ms s y)
-            -> IO (AstTensor ms s y)
-{-# INLINE fun1ToAstIO #-}
-fun1ToAstIO ftk f = do
-  !freshId <- unsafeGetFreshAstVarName ftk Nothing
-  return $! f freshId
+funToAst ftk bounds = unsafePerformIO . funToAstIO ftk bounds
 
 fun1ToAst :: FullShapeTK y -> (AstVarName s y -> AstTensor ms s y)
           -> AstTensor ms s y
 {-# NOINLINE fun1ToAst #-}
-fun1ToAst ftk = unsafePerformIO . fun1ToAstIO ftk
+fun1ToAst ftk f = unsafePerformIO $ do
+  (_, t) <- funToAstIOGeneric ftk Nothing f
+  return $! t
 
 funToAstRevIO :: forall x.
                  FullShapeTK x

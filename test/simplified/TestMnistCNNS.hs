@@ -208,11 +208,11 @@ mnistTestCaseCNNSI prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
          funToAstIO (FTKS (miniBatchSize
                            :$$ sizeMnistHeight
                            :$$ sizeMnistWidth
-                           :$$ ZSS) FTKScalar) id
+                           :$$ ZSS) FTKScalar) Nothing id
        (varLabel, astLabel) <-
          funToAstIO (FTKS (miniBatchSize
                            :$$ sizeMnistLabel
-                           :$$ ZSS) FTKScalar) id
+                           :$$ ZSS) FTKScalar) Nothing id
        let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
            ast = simplifyInline
                  $ MnistCnnShaped2.convMnistLossFusedS

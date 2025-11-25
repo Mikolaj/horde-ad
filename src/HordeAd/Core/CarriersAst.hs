@@ -1468,10 +1468,10 @@ astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
 astLetFunNoSimplify a f = case a of
   AstFromS' FTKScalar _ ->
-    let (var, ast) = funToAst2 (ftkAst a) Nothing f
+    let (var, ast) = funToAst (ftkAst a) Nothing f
     in AstLet var a ast
   AstFromS' @y2 ftkz v ->
-    let (var, ast) = funToAst2 (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
+    let (var, ast) = funToAst (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
     in AstLet var v ast
   AstFromPrimal v -> astLetFunNoSimplify v (f . fromPrimal)
   AstFromDual v -> astLetFunNoSimplify v (f . fromDual)
@@ -1480,18 +1480,18 @@ astLetFunNoSimplify a f = case a of
     ftk@(FTKR @_ @x2 sh' x) ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
-              funToAst2 (FTKS sh x) Nothing
+              funToAst (FTKS sh x) Nothing
                         (f . cAstFromS @(TKS2 sh x2) ftk)
         in AstLet var (cAstSFromR @sh sh a) ast
              -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
-              funToAst2 (FTKS sh x) Nothing
+              funToAst (FTKS sh x) Nothing
                         (f . cAstFromS @(TKS2 sh x) ftk)
         in AstLet var (cAstSFromX @sh sh a) ast
     -- processing product recursively may be not worth it
-    ftk -> let (var, ast) = funToAst2 ftk Nothing f
+    ftk -> let (var, ast) = funToAst ftk Nothing f
            in AstLet var a ast
 
 sunReplicatePrim :: Nested.Elt a

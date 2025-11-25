@@ -4071,10 +4071,10 @@ astLetFunBounds :: forall y z s s2. (AstSpan s, AstSpan s2)
 astLetFunBounds _ a f | astIsSmall True a = f a
 astLetFunBounds mbs a f = case a of
   AstFromS' FTKScalar _ ->
-    let (var, ast) = funToAst2 (ftkAst a) mbs f
+    let (var, ast) = funToAst (ftkAst a) mbs f
     in astLet var a ast
   AstFromS' @y2 ftkz v ->
-    let (var, ast) = funToAst2 (ftkAst v) mbs (f . astFromS' @y2 ftkz)
+    let (var, ast) = funToAst (ftkAst v) mbs (f . astFromS' @y2 ftkz)
     in astLet var v ast
   Ast.AstFromPrimal v -> astLetFunBounds mbs v (f . fromPrimal)
   Ast.AstFromDual v -> astLetFunBounds mbs v (f . fromDual)
@@ -4083,18 +4083,18 @@ astLetFunBounds mbs a f = case a of
     ftk@(FTKR @_ @x sh' x) ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
-              funToAst2 (FTKS sh x) mbs
+              funToAst (FTKS sh x) mbs
                         (f . astFromS' @(TKS2 sh x) ftk)
         in astLet var (astSFromR' sh a) ast
              -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
-              funToAst2 (FTKS sh x) mbs
+              funToAst (FTKS sh x) mbs
                         (f . astFromS' @(TKS2 sh x) ftk)
         in astLet var (astSFromX' sh a) ast
     -- calling recursively for product may be not worth it
-    ftk -> let (var, ast) = funToAst2 ftk mbs f
+    ftk -> let (var, ast) = funToAst ftk mbs f
            in astLet var a ast
 
 astReplicateNS :: forall shn shp s x. AstSpan s

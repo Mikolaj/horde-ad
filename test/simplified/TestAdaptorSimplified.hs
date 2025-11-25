@@ -863,7 +863,7 @@ testVstackBuildAstPP = do
   let (var3, ast3) =
         funToAst (FTKProduct (FTKProduct (FTKR [10] FTKScalar) (FTKR [10] FTKScalar)) (FTKR [10] FTKScalar))
           Nothing (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double . fromTarget)
-  "\\" ++ printAstVarName var3
+  "\\" ++ printAstVarName @FullSpan var3
        ++ " -> " ++ printAstPretty ast3
     @?= "\\v1 -> rfromS (let x7 = sfromR (tproject1 (tproject1 v1)) !$ [0] + sfromR (tproject2 (tproject1 v1)) !$ [1] ; v8 = sgather @[10] (str (sfromVector (fromList [sreplicate @10 (sfromR (tproject1 (tproject1 v1)) !$ [9] + sfromR (tproject2 v1) !$ [8]), (sfromR (tproject1 (tproject1 v1)) + sappend (sslice (SNat @1) (SNat @9) (sfromR (tproject2 (tproject1 v1)))) (sconcrete (sfromListLinear [1] [0.0]))) + sappend (sconcrete (sfromListLinear [1] [0.0])) (sslice (SNat @0) (SNat @9) (sfromR (tproject2 v1)))]))) (\\[i5] -> [i5, ifH (let i3 = 9 + negate i5 in 0 <=. i3 &&* 0 <=. negate i3) 0 1]) in sappend (sreplicate @1 x7) (sslice (SNat @1) (SNat @9) v8))"
   "\\" ++ printAstVarName var3
