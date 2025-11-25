@@ -933,10 +933,9 @@ astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
   fromPlain $ astCond b v w
 astCond b v@(AstFromS' FTKScalar _) w = Ast.AstCond b v w
 -- We rely here on c and the other conversion being semantically equal.
-astCond b (Ast.AstConvert c v) (AstFromS' _ w) =
-  case matchingFTK (ftkAst v) (ftkAst w) of
-    Just Refl -> astConvert c $ astCond b v w
-    Nothing -> error "astCond: shapes don't match"
+astCond b (AstFromS' _ v) (Ast.AstConvert c w)
+  | Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
+    astConvert c $ astCond b v w
 astCond b v w = Ast.AstCond b v w
 
 -- Invariant: if the variable has bounds, the expression can only have
