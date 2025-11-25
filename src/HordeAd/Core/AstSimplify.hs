@@ -3808,14 +3808,17 @@ astSum0S t = case t of
   Ast.AstReverseS u -> astSum0S u
   Ast.AstTransposeS _ u -> astSum0S u
   Ast.AstReshapeS _ u -> astSum0S u
-  AstSFromK' u -> u
   Ast.AstDot1InS _ _ t1 t2 -> astDot0S t1 t2
   Ast.AstMatmul2S m@SNat SNat p@SNat m1 m2 ->
     astDot0S (astTransposeS (Permutation.makePerm @'[1, 0])
                             (astReplicate p knownSTK m1))
              (astTransposeS (Permutation.makePerm @'[0, 2, 1])
                             (astReplicate m knownSTK m2))
-  _ -> Ast.AstSum0S t
+  _ -> case ftkAst t of
+    FTKS ZSS FTKScalar -> astKFromS' t
+    FTKS (SNat' @1 :$$ ZSS) FTKScalar ->
+      astKFromS' (astIndexS ZSS t (0 :.$ ZIS))
+    _ -> Ast.AstSum0S t
 
 astDot0S :: (NumScalar r, AstSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
@@ -3825,6 +3828,10 @@ astDot0S t1 t2 = case (t1, t2) of
   (Ast.AstSum snat1 _ u1, Ast.AstSum snat2 _ u2)
     | Just Refl <- testEquality snat1 snat2 ->
       astDot0S u1 u2
+  _ | Just u1 <- unRepl t1 ->
+      astKFromS' u1 * astSum0S t2
+  _ | Just u2 <- unRepl t2 ->
+      astKFromS' u2 * astSum0S t1
   ( Ast.AstReplicate snat1 (STKS _ STKScalar) u1
    ,Ast.AstReplicate snat2 (STKS _ STKScalar) u2 )
     | Just Refl <- testEquality snat1 snat2 ->
@@ -3856,8 +3863,12 @@ astDot0S t1 t2 = case (t1, t2) of
     | Just Refl <- testEquality perm1 perm2 ->
       gcastWith (unsafeCoerceRefl :: sh1 :~: sh2) $
       astDot0S u1 u2
-  (AstSFromK' u1, AstSFromK' u2) -> u1 * u2
-  _ -> Ast.AstDot0S t1 t2
+  _ -> case ftkAst t1 of
+    FTKS ZSS FTKScalar -> astKFromS' t1 * astKFromS' t2
+    FTKS (SNat' @1 :$$ ZSS) FTKScalar ->
+      astKFromS' (astIndexS ZSS t1 (0 :.$ ZIS))
+      * astKFromS' (astIndexS ZSS t2 (0 :.$ ZIS))
+    _ -> Ast.AstDot0S t1 t2
 
 astDot1InS :: forall sh n r s. (NumScalar r, AstSpan s)
            => ShS sh -> SNat n
