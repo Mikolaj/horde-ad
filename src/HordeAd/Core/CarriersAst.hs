@@ -1472,6 +1472,9 @@ astShareNoSimplify a = case a of
       withShsFromShX sh' $ \(sh :: ShS sh) ->
         cAstFromS @(TKS2 sh x) ftk
         $ fun1ToAst (FTKS sh x) $ \ !var -> AstShare var (cAstSFromX @sh sh a)
+    ftk@(FTKS ZSS x@FTKScalar) ->
+        cAstSFrom ftk
+        $ fun1ToAst FTKScalar $ \ !var -> AstShare var (cAstFromS x a)
     -- processing product recursively may be not worth it
     _ -> fun1ToAst (ftkAst a) $ \ !var -> AstShare var a
 
@@ -1508,6 +1511,11 @@ astLetFunNoSimplify a f = case a of
               funToAst (FTKS sh x) Nothing
                         (f . cAstFromS @(TKS2 sh x) ftk)
         in AstLet var (cAstSFromX @sh sh a) ast
+    ftk@(FTKS ZSS x@FTKScalar) ->
+        let (var, ast) =
+              funToAst FTKScalar Nothing
+                       (f . cAstSFrom ftk)
+        in AstLet var (cAstFromS x a) ast
     -- processing product recursively may be not worth it
     ftk -> let (var, ast) = funToAst ftk Nothing f
            in AstLet var a ast

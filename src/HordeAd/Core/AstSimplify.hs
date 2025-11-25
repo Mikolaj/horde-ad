@@ -4093,6 +4093,11 @@ astLetFunBounds mbs a f = case a of
               funToAst (FTKS sh x) mbs
                         (f . astFromS' @(TKS2 sh x) ftk)
         in astLet var (astSFromX' sh a) ast
+    FTKS ZSS FTKScalar ->
+        let (var, ast) =
+              funToAst FTKScalar mbs
+                       (f . astSFromK')
+        in astLet var (astKFromS' a) ast
     -- calling recursively for product may be not worth it
     ftk -> let (var, ast) = funToAst ftk mbs f
            in astLet var a ast
