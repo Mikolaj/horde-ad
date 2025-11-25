@@ -21,7 +21,6 @@ import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (IsList (..))
 
-import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast (AstTensor)
@@ -29,7 +28,6 @@ import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstSimplify (substituteAst)
 import HordeAd.Core.AstTools
-import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 -- * The pass that inlines lets with the bottom-up strategy
@@ -380,84 +378,18 @@ unshareAst memo = \case
     in (memo1, Ast.AstBuild1 snat stk (var, v2))
 
   -- We assume v is the same if var is the same.
-  Ast.AstShare varRaw a | Just Refl <- sameAstSpan @s @PrimalSpan -> case a of
-    AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
-      let var = mkAstVarName
-                  (ftkAst v) (varNameToBounds varRaw) (varNameToAstVarId varRaw)
-          astVar0 = cAstFromS @y2 ftkz $ Ast.AstVar var
-      in if var `DMap.member` fst memo
-         then (memo, astVar0)
-         else let (memo1, !a2) = unshareAst memo v
-                    -- DMap is strict, but let's be paranoid
-              in ((DMap.insert var a2 $ fst memo1, snd memo1), astVar0)
-    -- The PrimalSpan check ensures there's no need to match for
-    -- Ast.AstFromPrimal (Ast.AstFromS).
-    _ -> case varNameToFTK varRaw of
-      ftk@(FTKR @_ @x sh' x) ->
-        withShsFromShR sh' $ \(sh :: ShS sh) ->
-          let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
-                                 (varNameToAstVarId varRaw)
-              astVar0 = cAstFromS @(TKS2 sh x) ftk $ Ast.AstVar var
-          in if var `DMap.member` fst memo
-             then (memo, astVar0)
-             else let (memo1, !a2) = unshareAst memo (cAstSFromR @sh sh a)
-                  in ((DMap.insert var a2 $ fst memo1, snd memo1), astVar0)
-      ftk@(FTKX @_ @x sh' x) ->
-        withShsFromShX sh' $ \(sh :: ShS sh) ->
-          let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
-                                 (varNameToAstVarId varRaw)
-              astVar0 = cAstFromS @(TKS2 sh x) ftk $ Ast.AstVar var
-          in if var `DMap.member` fst memo
-             then (memo, astVar0)
-             else let (memo1, !a2) = unshareAst memo (cAstSFromX @sh sh a)
-                  in ((DMap.insert var a2 $ fst memo1, snd memo1), astVar0)
-      -- it maybe not be worth it to recursively convert product
-      -- so let's not do that until profiling shows we need it
-      _ -> let var = varRaw
-               astVar0 = Ast.AstVar var
-           in if var `DMap.member` fst memo
-              then (memo, astVar0)
-              else let (memo1, !a2) = unshareAst memo a
-                   in ((DMap.insert var a2 $ fst memo1, snd memo1), astVar0)
-  Ast.AstShare varRaw a | Just Refl <- sameAstSpan @s @PlainSpan -> case a of
-    AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
-      let var = mkAstVarName
-                  (ftkAst v) (varNameToBounds varRaw) (varNameToAstVarId varRaw)
-          astVar0 = cAstFromS @y2 ftkz $ Ast.AstVar var
-      in if var `DMap.member` snd memo
-         then (memo, astVar0)
-         else let (memo1, !a2) = unshareAst memo v
-                    -- DMap is strict, but let's be paranoid
-              in ((fst memo1, DMap.insert var a2 $ snd memo1), astVar0)
-    -- The PlainSpan check ensures there's no need to match for
-    -- Ast.AstFromPlain (Ast.AstFromS).
-    _ -> case varNameToFTK varRaw of
-      ftk@(FTKR @_ @x sh' x) ->
-        withShsFromShR sh' $ \(sh :: ShS sh) ->
-          let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
-                                 (varNameToAstVarId varRaw)
-              astVar0 = cAstFromS @(TKS2 sh x) ftk $ Ast.AstVar var
-          in if var `DMap.member` snd memo
-             then (memo, astVar0)
-             else let (memo1, !a2) = unshareAst memo (cAstSFromR @sh sh a)
-                  in ((fst memo1, DMap.insert var a2 $ snd memo1), astVar0)
-      ftk@(FTKX @_ @x sh' x) ->
-        withShsFromShX sh' $ \(sh :: ShS sh) ->
-          let var = mkAstVarName (FTKS sh x) (varNameToBounds varRaw)
-                                 (varNameToAstVarId varRaw)
-              astVar0 = cAstFromS @(TKS2 sh x) ftk $ Ast.AstVar var
-          in if var `DMap.member` snd memo
-             then (memo, astVar0)
-             else let (memo1, !a2) = unshareAst memo (cAstSFromX @sh sh a)
-                  in ((fst memo1, DMap.insert var a2 $ snd memo1), astVar0)
-      -- it maybe not be worth it to recursively convert product
-      -- so let's not do that until profiling shows we need it
-      _ -> let var = varRaw
-               astVar0 = Ast.AstVar var
-           in if var `DMap.member` snd memo
-              then (memo, astVar0)
-              else let (memo1, !a2) = unshareAst memo a
-                   in ((fst memo1, DMap.insert var a2 $ snd memo1), astVar0)
+  Ast.AstShare var a | Just Refl <- sameAstSpan @s @PrimalSpan ->
+    let astVar0 = Ast.AstVar var
+    in if var `DMap.member` fst memo
+       then (memo, astVar0)
+       else let (memo1, !a2) = unshareAst memo a
+            in ((DMap.insert var a2 $ fst memo1, snd memo1), astVar0)
+  Ast.AstShare var a | Just Refl <- sameAstSpan @s @PlainSpan ->
+    let astVar0 = Ast.AstVar var
+    in if var `DMap.member` snd memo
+       then (memo, astVar0)
+       else let (memo1, !a2) = unshareAst memo a
+            in ((fst memo1, DMap.insert var a2 $ snd memo1), astVar0)
   Ast.AstShare{} ->
     error "unshareAst: AstShare not in PrimalSpan nor PlainSpan"
   Ast.AstToShare v -> (memo, v)  -- nothing to unshare in this subtree

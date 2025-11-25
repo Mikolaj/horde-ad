@@ -1450,12 +1450,30 @@ deriving instance (RealFloatH (AstTensor AstMethodLet s y))
 
 -- * Misc
 
-astShareNoSimplify :: AstTensor AstMethodShare s y
+astShareNoSimplify :: AstSpan s
+                   => AstTensor AstMethodShare s y
                    -> AstTensor AstMethodShare s y
-astShareNoSimplify t =
-  if astIsSmall True t
-  then t
-  else fun1ToAst (ftkAst t) $ \ !var -> AstShare var t
+astShareNoSimplify a | astIsSmall True a = a
+                         -- too important an optimization to skip
+astShareNoSimplify a = case a of
+  AstFromS' FTKScalar _ ->
+    fun1ToAst (ftkAst a) $ \ !var -> AstShare var a
+  AstFromS' @y2 ftkz v ->
+    cAstFromS @y2 ftkz $ fun1ToAst (ftkAst v) $ \ !var -> AstShare var v
+  AstFromPrimal v -> fromPrimal $ astShareNoSimplify v
+  AstFromDual v -> fromDual $ astShareNoSimplify v
+  AstFromPlain v -> fromPlain $ astShareNoSimplify v
+  _ -> case ftkAst a of
+    ftk@(FTKR @_ @x sh' x) ->
+      withShsFromShR sh' $ \(sh :: ShS sh) ->
+        cAstFromS @(TKS2 sh x) ftk
+        $ fun1ToAst (FTKS sh x) $ \ !var -> AstShare var (cAstSFromR @sh sh a)
+    ftk@(FTKX @_ @x sh' x) ->
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
+        cAstFromS @(TKS2 sh x) ftk
+        $ fun1ToAst (FTKS sh x) $ \ !var -> AstShare var (cAstSFromX @sh sh a)
+    -- processing product recursively may be not worth it
+    _ -> fun1ToAst (ftkAst a) $ \ !var -> AstShare var a
 
 -- INLINE here would bloat the binary a lot, probably negating any
 -- gains from directly calling the function. Also, this is not a bottleneck.
@@ -1477,11 +1495,11 @@ astLetFunNoSimplify a f = case a of
   AstFromDual v -> astLetFunNoSimplify v (f . fromDual)
   AstFromPlain v -> astLetFunNoSimplify v (f . fromPlain)
   _ -> case ftkAst a of
-    ftk@(FTKR @_ @x2 sh' x) ->
+    ftk@(FTKR @_ @x sh' x) ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
               funToAst (FTKS sh x) Nothing
-                        (f . cAstFromS @(TKS2 sh x2) ftk)
+                        (f . cAstFromS @(TKS2 sh x) ftk)
         in AstLet var (cAstSFromR @sh sh a) ast
              -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->

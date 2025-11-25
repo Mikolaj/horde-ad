@@ -455,14 +455,14 @@ cAstXFromS ssx v = case ftkAst v of
   FTKS sh x -> cAstFromS (FTKX (shCastSX ssx sh) x) v
 
 pattern AstSFromK' :: AstSpan s => sh ~ '[]
-                   => AstTensor AstMethodLet s (TKScalar r)
-                   -> AstTensor AstMethodLet s (TKS sh r)
+                   => AstTensor ms s (TKScalar r)
+                   -> AstTensor ms s (TKS sh r)
 pattern AstSFromK' t <- (matchAstSFromK -> Just (Refl, t))
 
 matchAstSFromK :: AstSpan s
-               => AstTensor AstMethodLet s (TKS sh r)
+               => AstTensor ms s (TKS sh r)
                -> Maybe ( sh :~: '[]
-                        , AstTensor AstMethodLet s (TKScalar r) )
+                        , AstTensor ms s (TKScalar r) )
 matchAstSFromK = \case
   AstConvert c t -> checkPatternAstSFromK c t
   AstFromPrimal (AstConvert c t) -> checkPatternAstSFromK c (fromPrimal t)
@@ -474,9 +474,9 @@ matchAstSFromK = \case
   _ -> Nothing
 
 checkPatternAstSFromK :: TKConversion y (TKS sh r)
-                      -> AstTensor AstMethodLet s y
+                      -> AstTensor ms s y
                       -> Maybe ( sh :~: '[]
-                               , AstTensor AstMethodLet s (TKScalar r) )
+                               , AstTensor ms s (TKScalar r) )
 checkPatternAstSFromK c t
   | FTKScalar @ry <- ftkAst t
   , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
