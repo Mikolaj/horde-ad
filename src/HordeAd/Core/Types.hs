@@ -461,19 +461,11 @@ fromLinearIdxR = \sh lin -> case go sh lin of (# _, ix #) -> ix
     -- multi-index within sub-tensor).
     go :: ShR n1 Int -> j -> (# j, IxR n1 j #)
     go ZSR !n = (# n, ZIR #)
-    go (k :$: sh) _ | k == 0 = (# 0, 0 :.: zeroOfR sh #)
     go (n :$: sh) lin =
       let (# tensLin, idxInTens #) = go sh lin
           tensLin' = tensLin `quotH` fromIntegral n
           i = tensLin `remH` fromIntegral n
       in (# tensLin', i :.: idxInTens #)
-
--- | The zero index in this shape (not dependent on the actual integers
--- inside indexes).
-zeroOfR :: Num j => ShR n i -> IxR n j
-{-# INLINE zeroOfR #-}
-zeroOfR ZSR = ZIR
-zeroOfR (_ :$: sh) = 0 :.: zeroOfR sh
 
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing
@@ -513,19 +505,11 @@ fromLinearIdxS = \sh lin -> case go sh lin of (# _, ix #) -> ix
     -- multi-index within sub-tensor).
     go :: ShS sh1 -> j -> (# j, IxS sh1 j #)
     go ZSS !n = (# n, ZIS #)
-    go ((:$$) k sh) _ | sNatValue k == 0 = (# 0, 0 :.$ zeroOfS sh #)
     go ((:$$) n sh) lin =
       let (# tensLin, idxInTens #) = go sh lin
           tensLin' = tensLin `quotH` fromIntegral (sNatValue n)
           i = tensLin `remH` fromIntegral (sNatValue n)
       in (# tensLin', i :.$ idxInTens #)
-
--- | The zero index in this shape (not dependent on the actual integers
--- inside indexes).
-zeroOfS :: Num j => ShS sh -> IxS sh j
-{-# INLINE zeroOfS #-}
-zeroOfS ZSS = ZIS
-zeroOfS ((:$$) _ sh) = 0 :.$ zeroOfS sh
 
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing
@@ -565,19 +549,11 @@ fromLinearIdxX = \sh lin -> case go sh lin of (# _, ix #) -> ix
     -- multi-index within sub-tensor).
     go :: IShX sh1 -> j -> (# j, IxX sh1 j #)
     go ZSX !n = (# n, ZIX #)
-    go ((:$%) k sh) _ | fromSMayNat' k == 0 = (# 0, 0 :.% zeroOfX sh #)
     go ((:$%) n sh) lin =
       let (# tensLin, idxInTens #) = go sh lin
           tensLin' = tensLin `quotH` fromIntegral (fromSMayNat' n)
           i = tensLin `remH` fromIntegral (fromSMayNat' n)
       in (# tensLin', i :.% idxInTens #)
-
--- | The zero index in this shape (not dependent on the actual integers
--- inside indexes).
-zeroOfX :: Num j => IShX sh -> IxX sh j
-{-# INLINE zeroOfX #-}
-zeroOfX ZSX = ZIX
-zeroOfX ((:$%) _ sh) = 0 :.% zeroOfX sh
 
 
 -- * Shopping list for ox-arrays
