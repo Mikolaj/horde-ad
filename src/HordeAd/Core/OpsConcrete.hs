@@ -752,7 +752,6 @@ tscatterZR sh t f
     -- Optimized.
     let zero = tdefTarget (FTKR sh x)
         (shm, shDropP) = shrSplitAt @m $ rshape t
-        s = shrSize shm
         g :: IxR m Int64
           -> M.Map (IxROf Concrete p) (VS.Vector r)
           -> M.Map (IxROf Concrete p) (VS.Vector r)
@@ -762,23 +761,20 @@ tscatterZR sh t f
              then M.insertWith (V.zipWith (+)) ix2
                                (Nested.rtoVector $ unConcrete t `tindexNR` ix)
              else id
-        ivs = foldr g M.empty [ fromLinearIdxR shm i
-                              | i <- [0 .. fromIntegral s - 1] ]
+        ivs = foldr g M.empty (shrEnum' shm)
     in updateNR zero
        $ map (second $ Concrete . Nested.rfromVector shDropP)
        $ M.assocs ivs
   FTKR _ x ->
     let zero = tdefTarget (FTKR sh x)
         (shm, _) = shrSplitAt @m $ rshape t
-        s = shrSize shm
         g ix =
           let ix2 = f $ fmapConcrete ix
           in if ixInBounds (fmapUnConcrete $ toList ix2) (toList sh)
              then M.insertWith (taddTarget knownSTK) ix2
                                (Concrete $ unConcrete t `tindexNR` ix)
              else id
-        ivs = foldr g M.empty [ fromLinearIdxR shm i
-                              | i <- [0 .. fromIntegral s - 1] ]
+        ivs = foldr g M.empty (shrEnum' shm)
     in updateNR zero
        $ M.assocs ivs
 
@@ -812,10 +808,8 @@ tgatherZR :: forall m n p x. (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
 tgatherZR sh t f = case (SNat @n, knownSTK @x) of
   (SNat' @0, STKScalar) ->  -- an optimized common case
     let shm = sh
-        s = shrSize shm
-        l = [ unConcrete $
-              t `trindex0` f (fmapConcrete $ fromLinearIdxR shm i)
-            | i <- [0 .. fromIntegral s - 1] ]
+        l = [ unConcrete $ t `trindex0` (f $ fmapConcrete i)
+            | i <- shrEnum' shm ]
     in Concrete $ Nested.rfromListPrimLinear shm l
   _ -> trbuild sh (\ix -> t `trindex` f ix)
 
@@ -1021,7 +1015,6 @@ tscatterZS @shm @shn @shp t f =
                                         :~: shn) $
          let zero = tdefTarget @Concrete (FTKS shpshn x)
              shm = knownShS @shm
-             s = shsSize shm
              g :: IxS shm Int64
                -> M.Map (IxSOf Concrete shp) (VS.Vector r)
                -> M.Map (IxSOf Concrete shp) (VS.Vector r)
@@ -1033,8 +1026,7 @@ tscatterZS @shm @shn @shp t f =
                          (Nested.stoVector
                           $ tindexNS @_ @shm @shn (unConcrete t) ix)
                   else id
-             ivs = foldr g M.empty [ fromLinearIdxS shm i
-                                   | i <- [0 .. fromIntegral s - 1] ]
+             ivs = foldr g M.empty (shsEnum' shm)
          in withKnownShS shpshn $
             updateNS (Proxy @(Rank shp)) zero
             $ map (second $ Concrete . Nested.sfromVector (knownShS @shn))
@@ -1046,7 +1038,6 @@ tscatterZS @shm @shn @shp t f =
                                      :~: shn) $
          let zero = tdefTarget @Concrete (FTKS shpshn x)
              shm = knownShS @shm
-             s = shsSize shm
              g ix =
                let ix2 = f $ fmapConcrete ix
                in if ixInBounds (fmapUnConcrete $ toList ix2)
@@ -1055,8 +1046,7 @@ tscatterZS @shm @shn @shp t f =
                          (Concrete
                           $ tindexNS @_ @shm @shn (unConcrete t) ix)
                   else id
-             ivs = foldr g M.empty [ fromLinearIdxS shm i
-                                   | i <- [0 .. fromIntegral s - 1] ]
+             ivs = foldr g M.empty (shsEnum' shm)
          in withKnownShS shpshn $
             updateNS (Proxy @(Rank shp)) zero
             $ M.assocs ivs
@@ -1100,10 +1090,8 @@ tgatherZS @shm @shn @shp @r t f =
     (ZSS, STKScalar) | Refl <- lemAppNil @shm
                      , Refl <- lemAppNil @shp ->  -- an optimized common case
       let shm = knownShS @shm
-          s = shsSize shm
-          l = [ unConcrete $
-                t `tsindex0` f (fmapConcrete $ fromLinearIdxS shm i)
-              | i <- [0 .. fromIntegral s - 1] ]
+          l = [ unConcrete $ t `tsindex0` (f $ fmapConcrete i)
+              | i <- shsEnum' shm ]
       in Concrete $ Nested.sfromListPrimLinear shm l
     _ ->
       withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
@@ -1299,7 +1287,6 @@ tscatterZX @shm @shn @shp sh t f =
       let zero = tdefTarget (FTKX sh x)
           shm = shxTakeSSX (Proxy @shn) (knownShX @shm) (xshape t)
           shDropP = shxDropSSX (knownShX @shm) (xshape t)
-          s = shxSize shm
           g :: IxX shm Int64
             -> M.Map (IxXOf Concrete shp) (VS.Vector r)
             -> M.Map (IxXOf Concrete shp) (VS.Vector r)
@@ -1310,15 +1297,13 @@ tscatterZX @shm @shn @shp sh t f =
                       (Nested.mtoVector
                        $ tindexNX @_ @shm @shn (unConcrete t) ix)
                else id
-          ivs = foldr g M.empty [ fromLinearIdxX shm i
-                                | i <- [0 .. fromIntegral s - 1] ]
+          ivs = foldr g M.empty (shxEnum' shm)
       in updateNX (Proxy @(Rank shp)) zero
          $ map (second $ Concrete . Nested.mfromVector shDropP)
          $ M.assocs ivs
     FTKX _ x | Dict <- eltDictRep (ftkToSTK x) ->
       let zero = tdefTarget (FTKX sh x)
           shm = shxTakeSSX (Proxy @shn) (knownShX @shm) (xshape t)
-          s = shxSize shm
           g ix =
             let ix2 = f $ fmapConcrete ix
             in if ixInBounds (fmapUnConcrete $ toList ix2) (shxToList sh)
@@ -1326,8 +1311,7 @@ tscatterZX @shm @shn @shp sh t f =
                       (Concrete
                        $ tindexNX @_ @shm @shn (unConcrete t) ix)
                else id
-          ivs = foldr g M.empty [ fromLinearIdxX shm i
-                                | i <- [0 .. fromIntegral s - 1] ]
+          ivs = foldr g M.empty (shxEnum' shm)
       in updateNX (Proxy @(Rank shp)) zero
          $ M.assocs ivs
 
@@ -1366,10 +1350,8 @@ tgatherZX @shm @shn @shp @r sh t f =
     (ZKX, STKScalar) | Refl <- lemAppNil @shm
                      , Refl <- lemAppNil @shp ->  -- an optimized common case
       let shm = sh
-          s = shxSize shm
-          l = [ unConcrete $
-                t `txindex0` f (fmapConcrete $ fromLinearIdxX shm i)
-              | i <- [0 .. fromIntegral s - 1] ]
+          l = [ unConcrete $ t `txindex0` (f $ fmapConcrete i)
+              | i <- shxEnum' shm ]
       in Concrete $ Nested.mfromListPrimLinear shm l
     _ ->
       withKnownShX (ssxFromShX sh) $
