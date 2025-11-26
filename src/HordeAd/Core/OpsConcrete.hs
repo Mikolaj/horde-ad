@@ -14,6 +14,7 @@ import Control.Arrow (second)
 import Data.Array.Internal.ShapedS qualified as SS
 import Data.Coerce (Coercible, coerce)
 import Data.Default
+import Data.Foldable qualified as Foldable
 import Data.Function ((&))
 import Data.Functor.WithIndex (imap)
 import Data.Int (Int64)
@@ -624,9 +625,6 @@ oRtmapAccumL k bftk eftk f acc0 es = case sNatValue k of
 
 -- * Ranked internal definitions
 
--- TODO: check what the following did in tsum0R and if worth emulating
--- (also in sum1Inner and extremum and maybe tdot0R):
--- LA.sumElements $ OI.toUnorderedVectorT sh t
 {-
 tdot0R t u = OR.toVector t LA.<.> OR.toVector u
   -- TODO: if offset 0 and same strides, use toUnorderedVectorT
@@ -711,20 +709,21 @@ tindexZR :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
 tindexZR v ixConcrete | Dict <- eltDictRep (knownSTK @x) =
   let uv = unConcrete v
       ix = fmapUnConcrete ixConcrete
-  in if ixInBounds (toList ix) (toList $ Nested.rshape uv)
+  in if ixInBounds (Foldable.toList ix) (Foldable.toList $ Nested.rshape uv)
      then Concrete $ tindexNR uv ix
      else case tftk knownSTK v of
        FTKR sh x -> tdefTarget (FTKR (shrDrop @m sh) x)
 
-tindex0R :: (KnownNat m, GoodScalar r)
+tindex0R :: GoodScalar r
          => Concrete (TKR m r) -> IxROf Concrete m -> Concrete (TKScalar r)
 {-# INLINE tindex0R #-}  -- the function is just a wrapper
 tindex0R v ixConcrete =
   let uv = unConcrete v
       ix = fmapUnConcrete ixConcrete
-  in Concrete $ if ixInBounds (toList ix) (toList $ Nested.rshape uv)
-                then Nested.rindex uv (fmap fromIntegral ix)
-                else def
+  in Concrete
+     $ if ixInBounds (Foldable.toList ix) (Foldable.toList $ Nested.rshape uv)
+       then Nested.rindex uv (fmap fromIntegral ix)
+       else def
 {- TODO: see above
 tindex0R (RS.A (RG.A _ OI.T{..})) ix =
   values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
@@ -965,21 +964,22 @@ tindexZS :: forall shm shn x. (KnownShS shm, KnownShS shn, KnownSTK x)
 tindexZS v ixConcrete | Dict <- eltDictRep (knownSTK @x) =
   let uv = unConcrete v
       ix = fmapUnConcrete ixConcrete
-  in withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-     if ixInBounds (toList ix) (toList $ Nested.sshape uv)
+  in if ixInBounds (Foldable.toList ix) (shsToList $ Nested.sshape uv)
          then Concrete $ tindexNS uv ix
-         else case tftk knownSTK v of
+         else case tftk (STKS (knownShS @shm `shsAppend` knownShS @shn)
+                              (knownSTK @x)) v of
            FTKS _sh x -> tdefTarget (FTKS knownShS x)
 
-tindex0S :: (KnownShS sh1, GoodScalar r)
+tindex0S :: GoodScalar r
          => Concrete (TKS sh1 r) -> IxSOf Concrete sh1 -> Concrete (TKScalar r)
 {-# INLINE tindex0S #-}  -- the function is just a wrapper
 tindex0S v ixConcrete =
   let uv = unConcrete v
       ix = fmapUnConcrete ixConcrete
-  in Concrete $ if ixInBounds (toList ix) (toList $ Nested.sshape uv)
-                then Nested.sindex uv (fmap fromIntegral ix)
-                else def
+  in Concrete
+     $ if ixInBounds (Foldable.toList ix) (shsToList $ Nested.sshape uv)
+       then Nested.sindex uv (fmap fromIntegral ix)
+       else def
 {- TODO: benchmark if this is faster enough for its complexity;
          probably not, becasue orthotope's index does no canonicalization either
 tindex0S (SS.A (SG.A OI.T{..})) ix =
@@ -1255,21 +1255,22 @@ tindexZX :: (KnownShX sh1, KnownShX sh2, KnownSTK x)
 tindexZX @sh1 @sh2 @x v ixConcrete | Dict <- eltDictRep (knownSTK @x) =
   let uv = unConcrete v
       ix = fmapUnConcrete ixConcrete
-  in withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-     if ixInBounds (toList ix) (toList $ Nested.mshape uv)
+  in if ixInBounds (Foldable.toList ix) (shxToList $ Nested.mshape uv)
      then Concrete $ tindexNX uv ix
-     else case tftk knownSTK v of
+     else case tftk (STKX (knownShX @sh1 `ssxAppend` knownShX @sh2)
+                          (knownSTK @x)) v of
        FTKX sh x -> tdefTarget (FTKX (shxDropSSX (knownShX @sh1) sh) x)
 
-tindex0X :: (KnownShX sh1, GoodScalar r)
+tindex0X :: GoodScalar r
          => Concrete (TKX sh1 r) -> IxXOf Concrete sh1 -> Concrete (TKScalar r)
 {-# INLINE tindex0X #-}  -- the function is just a wrapper
 tindex0X v ixConcrete =
   let uv = unConcrete v
       ix = fmapUnConcrete ixConcrete
-  in Concrete $ if ixInBounds (toList ix) (toList $ Nested.mshape uv)
-                then Nested.mindex uv (fmap fromIntegral ix)
-                else def
+  in Concrete
+     $ if ixInBounds (Foldable.toList ix) (shxToList $ Nested.mshape uv)
+       then Nested.mindex uv (fmap fromIntegral ix)
+       else def
 
 tscatterZX :: ( KnownShX shm, KnownShX shn, KnownShX shp
               , TKAllNum x, KnownSTK x )
