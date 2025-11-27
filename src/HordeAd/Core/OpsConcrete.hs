@@ -690,18 +690,6 @@ tindexNR
   => Nested.Ranked (m + n) x -> IxR m Int64 -> Nested.Ranked n x
 {-# INLINE tindexNR #-}  -- the function is just a wrapper
 tindexNR v ix = Nested.rindexPartial v (fmap fromIntegral ix)
-{- TODO: benchmark if this is faster enough for its complexity;
-         probably not, becasue orthotope's index does no canonicalization either
-tindexNR v@(RS.A (RG.A sh OI.T{strides, offset, values})) ix =
-  let l = indexToList ix
-      linear = offset + sum (zipWith (*) (map fromIntegral l) strides)
-      plen = valueOf @m  -- length of prefix being indexed out of
-      !_A = assert (ixInBounds l sh `blame` (ix, sh, v)) ()
-  in
-    RS.A (RG.A (drop plen sh) OI.T{ strides = drop plen strides
-                                  , offset = linear
-                                  , values })
--}
 
 tindexZR :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
          => Concrete (TKR2 (m + n) x) -> IxROf Concrete m -> Concrete (TKR2 n x)
@@ -724,11 +712,6 @@ tindex0R v ixConcrete =
      $ if ixInBounds (Foldable.toList ix) (Foldable.toList $ Nested.rshape uv)
        then Nested.rindex uv (fmap fromIntegral ix)
        else def
-{- TODO: see above
-tindex0R (RS.A (RG.A _ OI.T{..})) ix =
-  values V.! (offset + sum (zipWith (*) (map fromIntegral $ indexToList ix)
-                                        strides))
--}
 
 -- Performance depends a lot on the number and size of tensors.
 -- If tensors are not tiny, memory taken by underlying vectors matters most
@@ -943,16 +926,6 @@ tindexNS
   => Nested.Shaped (sh1 ++ sh2) x -> IxS sh1 Int64 -> Nested.Shaped sh2 x
 {-# INLINE tindexNS #-}  -- the function is just a wrapper
 tindexNS v ix = Nested.sindexPartial v (fmap fromIntegral ix)
-{- TODO
-tindexNS (SS.A (SG.A OI.T{strides, offset, values})) ix =
-  let l = ShapedList.indexToList ix
-      linear = offset + sum (zipWith (*) (map fromIntegral l) strides)
-      plen = length l  -- length of prefix being indexed out of
-  in
-    SS.A (SG.A OI.T{ strides = drop plen strides
-                   , offset = linear
-                   , values })
--}
 
 -- Note that after vectorization, the index may not fit within
 -- the type-level shape, which we catch in the @ixInBounds@
@@ -980,14 +953,6 @@ tindex0S v ixConcrete =
      $ if ixInBounds (Foldable.toList ix) (shsToList $ Nested.sshape uv)
        then Nested.sindex uv (fmap fromIntegral ix)
        else def
-{- TODO: benchmark if this is faster enough for its complexity;
-         probably not, becasue orthotope's index does no canonicalization either
-tindex0S (SS.A (SG.A OI.T{..})) ix =
-  values V.! (offset + sum (zipWith (*) (map fromIntegral
-                                         $ ShapedList.indexToList ix)
-                                        strides))
-    -- to avoid linearizing @values@, we do everything in unsized way
--}
 
 tscatterZS :: (KnownShS shm, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x)
            => Concrete (TKS2 (shm ++ shn) x)
@@ -1432,6 +1397,7 @@ tbuild1X f =
   Nested.munNest
   $ Nested.mgenerate (Nested.SKnown (SNat @k) :$% ZSX) $ \(i :.% ZIX) ->
       f (fromIntegral i)
+
 tbuildX
   :: forall m sh x.
      (KnownShX (Take m sh), KnownShX (Drop m sh), Nested.KnownElt x)
