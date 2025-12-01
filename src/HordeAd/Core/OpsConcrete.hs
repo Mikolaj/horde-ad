@@ -112,7 +112,7 @@ instance BaseTensor Concrete where
   tconcrete _ = id
   {-# INLINE tkunravelToList #-}
   tkunravelToList =
-    map Concrete . SS.toList . Nested.stoOrthotope . unConcrete
+    fmapConcrete . SS.toList . Nested.stoOrthotope . unConcrete
   {-# INLINE trfromVector #-}
   trfromVector @_ @r v | Dict <- eltDictRep (knownSTK @r) =
     case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
