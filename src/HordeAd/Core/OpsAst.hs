@@ -390,7 +390,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   trtranspose @n @r permr a = case ftkAst a of
     FTKR sh' x ->
       withShsFromShR sh' $ \(sh :: ShS sh)  ->
-        Permutation.permFromList permr $ \(perm :: Permutation.Perm perm) ->
+        Permutation.permFromListCont permr $ \(perm :: Permutation.Perm perm) ->
           let result :: AstTensor AstMethodLet s (TKR2 n r)
               result =
                 -- A noble lie, verified down below.
@@ -899,7 +899,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   trtranspose @n @r permr (AstRaw a) = AstRaw $ case ftkAst a of
     ftk@(FTKR sh' _) ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->
-        Permutation.permFromList permr $ \(perm :: Permutation.Perm perm) ->
+        Permutation.permFromListCont permr $ \(perm :: Permutation.Perm perm) ->
           let result :: AstTensor AstMethodShare s (TKR2 n r)
               result =
                 -- A noble lie, verified down below.

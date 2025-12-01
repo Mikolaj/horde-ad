@@ -1740,7 +1740,8 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                     (i1 :.$ ZIS)
   Ast.AstSum snat@(SNat @n1) STKS{} v ->
     let perm3 = backpermCycle $ shsLength (shsFromIxS ix) + 1
-    in Permutation.permFromList perm3 $ \(perm :: Permutation.Perm perm3P) ->
+    in Permutation.permFromListCont perm3 $ \(perm
+                                              :: Permutation.Perm perm3P) ->
          gcastWith (unsafeCoerceRefl
                     :: Compare (Rank perm3P) (Rank (n1 : shm ++ shn))
                        :~: LT) $
@@ -2477,9 +2478,11 @@ astGatherKnobsS knobs shn v0
     withSNat (min (valueOf @p) (valueOf @m)) $ \(SNat @m2) ->
     gcastWith (unsafeCoerceRefl :: (m2 <=? p) :~: True) $
     gcastWith (unsafeCoerceRefl :: (m2 <=? m) :~: True) $
-    Permutation.permFromList (permCycle $ shsLength (shsFromListS mrest) + 1)
+    Permutation.permFromListCont (permCycle
+                                  $ shsLength (shsFromListS mrest) + 1)
     $ \(permVars :: Permutation.Perm permVars) ->
-    Permutation.permFromList (backpermCycle $ shsLength (shsFromIxS prest) + 1)
+    Permutation.permFromListCont (backpermCycle
+                                  $ shsLength (shsFromIxS prest) + 1)
     $ \(permIx :: Permutation.Perm permIx) ->
        gcastWith (unsafeCoerceRefl
                   :: m2 ': shmTail ++ shn
@@ -2612,7 +2615,7 @@ astGatherKnobsS knobs shn v0
   , not (intInteresting i1)  -- now vars may need to be reordered, too
   , Just i <- findIndex intInteresting
                         (Foldable.toList ix) = assert (i > 0) $
-    Permutation.permFromList (backpermCycle $ i + 1)
+    Permutation.permFromListCont (backpermCycle $ i + 1)
     $ \(perm :: Permutation.Perm perm) ->
     gcastWith (unsafeCoerceRefl
                :: Permutation.PermutePrefix perm (shp ++ shn)
@@ -2688,7 +2691,7 @@ astGatherKnobsS knobs shn v0
   , Just varp <- varInteresting i1
   , Just i <- findIndex ((== varNameToAstVarId varp) . varNameToAstVarId)
                         (listsToList vars) = assert (i > 0) $
-    Permutation.permFromList (backpermCycle $ i + 1)
+    Permutation.permFromListCont (backpermCycle $ i + 1)
     $ \(permWhole :: Permutation.Perm permWhole) ->
     permInverse permWhole $ \(invperm :: Nested.Perm invperm) _ ->
     gcastWith (unsafeCoerceRefl
@@ -2739,7 +2742,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
     Ast.AstSum snat@(SNat @n1) STKS{} v ->
       let perm3 = backpermCycle $ shsLength (shsFromIxS ix4) + 1
           perm4 = permCycle $ shsLength (shsFromListS vars4) + 1
-      in Permutation.permFromList perm3
+      in Permutation.permFromListCont perm3
          $ \(perm3S :: Permutation.Perm perm3P) ->
          gcastWith (unsafeCoerceRefl
                     :: Compare (Rank perm3P) (Rank (n1 : shp ++ shn))
@@ -2749,7 +2752,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
                        :~: shp ++ (n1 : shn)) $
          fromMaybe (error "astGatherKnobsS: impossible non-permutation")
          $ Permutation.permCheckPermutation perm3S
-         $ Permutation.permFromList perm4
+         $ Permutation.permFromListCont perm4
          $ \(perm4S :: Permutation.Perm perm4P) ->
          gcastWith (unsafeCoerceRefl
                     :: Compare (Rank perm4P) (Rank (shm ++ (n1 : shn)))
@@ -2852,7 +2855,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
                 -> AstInt AstMethodLet
           subst (IxS ix) vars t0 =
             foldr (\ (v, i) -> substituteAst i v)
-                  t0 (listsFold (\(Fun.Pair (Const v) (Const i)) -> [(v, i)])
+                  t0 (listsFoldMap (\(Fun.Pair (Const v) (Const i)) -> [(v, i)])
                       $ listsZip vars ix)
           inBounds :: AstIxS AstMethodLet shm7 -> AstVarListS shm7 -> Bool
           inBounds (IxS ix) vars =
@@ -2861,7 +2864,8 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
                   in case varNameToBounds v of
                     Nothing -> True
                     Just (lbv, ubv) -> lbv <= lbi && ubi <= ubv
-            in all inb (listsFold (\(Fun.Pair (Const v) (Const i)) -> [(v, i)])
+            in all inb (listsFoldMap (\(Fun.Pair (Const v) (Const i)) ->
+                                          [(v, i)])
                         $ listsZip vars ix)
           IxS list4 = ix4
           composedGather ::  -- rank4 <= rank2
@@ -3279,7 +3283,7 @@ astTransposeS perm t =
 --  Ast.AstCastS v -> astCastS $ astTransposeS perm v
 
   Ast.AstIndexS @shm shn v ix | SNat @n <- ixsRank ix ->
-    Permutation.permFromList
+    Permutation.permFromListCont
       (Permutation.permToList'
        $ iterate (unsafeCoerce Permutation.permShift1) perm
          !! (valueOf @n))  -- this has a fake type, but that's fine
@@ -3343,7 +3347,8 @@ astTransposeS perm t =
           ++ take (length permV - length perm2V) (drop (length perm2V) [0 ..])
         perm3V = normalizePermutationHack
                  $ backpermutePrefixList permV perm2Matched
-    in Permutation.permFromList perm3V $ \(perm3 :: Permutation.Perm perm3) ->
+    in Permutation.permFromListCont perm3V $ \(perm3
+                                               :: Permutation.Perm perm3) ->
       fromMaybe (error "astTransposeS: impossible non-permutation")
       $ Permutation.permCheckPermutation perm3
       $ gcastWith (unsafeCoerceRefl

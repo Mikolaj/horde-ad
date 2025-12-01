@@ -617,7 +617,7 @@ type family UnMapSucc is where
 permUnShift1 :: Permutation.Perm (0 : l)
              -> Permutation.Perm (UnMapSucc l)
 permUnShift1 (Permutation.PCons _ permRest) =
-  Permutation.permFromList
+  Permutation.permFromListCont
     (permUnMapSucc (Permutation.permToList' permRest)) unsafeCoerce
  where
   permUnMapSucc :: [Int] -> [Int]

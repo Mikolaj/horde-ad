@@ -508,7 +508,7 @@ class ( Num (IntOf target)
            -> target (TKS sh r)
   tsdot1In @sh (SNat @n) t u =
     let cpermR = permCycle $ 1 + shsLength (knownShS @sh)
-    in Permutation.permFromList cpermR $ \(cperm :: Permutation.Perm cperm) ->
+    in Permutation.permFromListCont cpermR $ \(cperm :: Permutation.Perm cperm) ->
          gcastWith (unsafeCoerceRefl :: Rank cperm :~: Rank (sh ++ '[n])) $
          gcastWith (unsafeCoerceRefl
                     :: Permutation.PermutePrefix cperm (sh ++ '[n])
@@ -554,7 +554,7 @@ class ( Num (IntOf target)
            -> target (TKX sh r)
   txdot1In @sh (SNat @n) t u =
     let cpermR = permCycle $ 1 + sNatValue (ssxRank (knownShX @sh))
-    in Permutation.permFromList cpermR $ \(cperm :: Permutation.Perm cperm) ->
+    in Permutation.permFromListCont cpermR $ \(cperm :: Permutation.Perm cperm) ->
          gcastWith (unsafeCoerceRefl :: Rank cperm :~: Rank (sh ++ '[Just n])) $
          gcastWith (unsafeCoerceRefl
                     :: Permutation.PermutePrefix cperm (sh ++ '[Just n])
