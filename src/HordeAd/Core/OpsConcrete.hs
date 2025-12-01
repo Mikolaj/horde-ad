@@ -25,7 +25,6 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+))
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
@@ -739,7 +738,8 @@ tscatterZR sh t f
           -> M.Map (IxROf Concrete p) (VS.Vector r)
         g ix =
           let ix2 = f $ fmapConcrete ix
-          in if ixInBounds (fmapUnConcrete $ toList ix2) (toList sh)
+          in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
+                           (Foldable.toList sh)
              then M.insertWith (V.zipWith (+)) ix2
                                (Nested.rtoVector $ unConcrete t `tindexNR` ix)
              else id
@@ -752,7 +752,8 @@ tscatterZR sh t f
         (shm, _) = shrSplitAt @m $ rshape t
         g ix =
           let ix2 = f $ fmapConcrete ix
-          in if ixInBounds (fmapUnConcrete $ toList ix2) (toList sh)
+          in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
+                           (Foldable.toList sh)
              then M.insertWith (taddTarget knownSTK) ix2
                                (Concrete $ unConcrete t `tindexNR` ix)
              else id
@@ -774,7 +775,8 @@ tscatterZ1R sh t f = case tftk knownSTK t of
     let zero = tdefTarget (FTKR sh x)
         lt = trunravelToList t
         g i ti = let ix2 = f $ fromIntegral i
-                 in if ixInBounds (fmapUnConcrete $ toList ix2) (toList sh)
+                 in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
+                                  (Foldable.toList sh)
                     then updateNR zero [(ix2, ti)]
                     else zero
         lu = imap g lt
@@ -985,7 +987,7 @@ tscatterZS @shm @shn @shp t f =
                -> M.Map (IxSOf Concrete shp) (VS.Vector r)
              g ix =
                let ix2 = f $ fmapConcrete ix
-               in if ixInBounds (fmapUnConcrete $ toList ix2)
+               in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                 (shsToList shpshn)
                   then M.insertWith (V.zipWith (+)) ix2
                          (Nested.stoVector
@@ -1005,7 +1007,7 @@ tscatterZS @shm @shn @shp t f =
              shm = knownShS @shm
              g ix =
                let ix2 = f $ fmapConcrete ix
-               in if ixInBounds (fmapUnConcrete $ toList ix2)
+               in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                 (shsToList shpshn)
                   then M.insertWith (taddTarget knownSTK) ix2
                          (Concrete
@@ -1035,7 +1037,7 @@ tscatterZ1S t f = case tftk knownSTK t of
         zero = tdefTarget (FTKS shpshn x)
         lt = tsunravelToList t
         g i ti = let ix2 = f $ fromIntegral i
-                 in if ixInBounds (fmapUnConcrete $ toList ix2)
+                 in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                   (shsToList shpshn)
                     then withKnownShS shpshn $
                          updateNS (Proxy @(Rank shp)) zero [(ix2, ti)]
@@ -1258,7 +1260,8 @@ tscatterZX @shm @shn @shp sh t f =
             -> M.Map (IxXOf Concrete shp) (VS.Vector r)
           g ix =
             let ix2 = f $ fmapConcrete ix
-            in if ixInBounds (fmapUnConcrete $ toList ix2) (shxToList sh)
+            in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
+                             (shxToList sh)
                then M.insertWith (V.zipWith (+)) ix2
                       (Nested.mtoVector
                        $ tindexNX @_ @shm @shn (unConcrete t) ix)
@@ -1272,7 +1275,8 @@ tscatterZX @shm @shn @shp sh t f =
           shm = shxTakeSSX (Proxy @shn) (knownShX @shm) (xshape t)
           g ix =
             let ix2 = f $ fmapConcrete ix
-            in if ixInBounds (fmapUnConcrete $ toList ix2) (shxToList sh)
+            in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
+                             (shxToList sh)
                then M.insertWith (taddTarget knownSTK) ix2
                       (Concrete
                        $ tindexNX @_ @shm @shn (unConcrete t) ix)
@@ -1296,7 +1300,7 @@ tscatterZ1X @_ @shn @shp sh t f =
       let zero = tdefTarget (FTKX sh x)
           lt = txunravelToList t
           g i ti = let ix2 = f $ fromIntegral i
-                   in if ixInBounds (fmapUnConcrete $ toList ix2)
+                   in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                     (shxToList sh)
                       then updateNX (Proxy @(Rank shp)) zero [(ix2, ti)]
                       else zero

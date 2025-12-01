@@ -7,10 +7,10 @@ module HordeAd.External.CommonRankedOps
 import Prelude
 
 import Control.Exception.Assert.Sugar
+import Data.Foldable qualified as Foldable
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, sameNat)
 
 import Data.Array.Nested qualified as Nested
@@ -56,7 +56,7 @@ rfromIndex1 :: forall n r target.
 rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.remptyArray
   _ -> rfromIntegral . tfromPlain knownSTK . rfromList . NonEmpty.fromList
-       . map rfromK . toList
+       . map rfromK . Foldable.toList
 
 {-
 rint64FromIndex1 :: forall n target.

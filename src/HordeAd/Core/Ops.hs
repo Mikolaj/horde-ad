@@ -33,6 +33,7 @@ module HordeAd.Core.Ops
 
 import Prelude
 
+import Data.Foldable qualified as Foldable
 import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
 import Data.Maybe (fromMaybe)
@@ -40,7 +41,6 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Strict qualified as Data.Vector
-import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+), type (<=), type (<=?))
 import Type.Reflection (typeRep)
 
@@ -448,12 +448,12 @@ class ( Num (IntOf target)
                SNat k -> SingletonTK y -> [target y]
             -> target (BuildTensorKind k y)
   tfromList k stk l = tfromVector k stk $ V.fromListN (sNatValue k) l
-  tfromListR :: forall y k. KnownNat k
-             => SingletonTK y -> ListR k (target y)
+  tfromListR :: forall y k.
+                SingletonTK y -> ListR k (target y)
              -> target (BuildTensorKind k y)
   tfromListR stk l =
     tfromList (listrRank l) stk  -- not valueOf @k, because k ambiguous
-    . toList $ l
+    . Foldable.toList $ l
 
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain
@@ -608,7 +608,7 @@ class ( Num (IntOf target)
         -- TODO: def at out of bounds
         let f ix2 = tcond knownSTK
                           (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                           $ zip (toList ix) (toList ix2))
+                           $ zip (Foldable.toList ix) (Foldable.toList ix2))
                           (trindex v (ixrDrop ix2))
                           (tdefTarget (FTKR ZSR ftk2))
         in trbuild (shrAppend sh (rshape v)) f
@@ -670,7 +670,7 @@ class ( Num (IntOf target)
             let f ix2 = tcond knownSTK
                               (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2)
                                       true
-                               $ zip (toList ix) (toList ix2))
+                               $ zip (Foldable.toList ix) (Foldable.toList ix2))
                               (tsindex v (ixsDrop @(Rank sh1) ix2))
                               (tdefTarget (FTKS ZSS ftk2))
             in tsbuild @_ @(Rank (sh1 ++ sh2)) SNat f
@@ -732,7 +732,7 @@ class ( Num (IntOf target)
             let f ix2 = tcond knownSTK
                               (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2)
                                       true
-                               $ zip (toList ix) (toList ix2))
+                               $ zip (Foldable.toList ix) (Foldable.toList ix2))
                               (txindex v (ixxDrop' @(Rank sh1) ix2))
                               (tdefTarget (FTKX ZSX ftk2))
             in txbuild @_ @(Rank (sh1 ++ sh2)) SNat (shxAppend sh1 (xshape v)) f

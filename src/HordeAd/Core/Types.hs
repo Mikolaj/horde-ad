@@ -47,6 +47,7 @@ import Data.Array.Internal.RankedS qualified as RS
 import Data.Boolean (Boolean (..))
 import Data.Coerce (coerce)
 import Data.Default
+import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Kind (Constraint, Type)
@@ -667,7 +668,7 @@ listsSplitAt
   -> (ListS (Take len sh) (Const i), ListS (Drop len sh) (Const i))
 listsSplitAt ix = (listsTake @len ix, listsDrop @len ix)
 
-ixrTake :: forall m n i. (KnownNat m, KnownNat n)
+ixrTake :: forall m n i. KnownNat m
         => IxR (m + n) i -> IxR m i
 ixrTake (IxR ix) = IxR $ listrTake ix
 
@@ -679,7 +680,7 @@ ixrSplitAt :: (KnownNat m, KnownNat n)
            => IxR (m + n) i -> (IxR m i, IxR n i)
 ixrSplitAt ix = (ixrTake ix, ixrDrop ix)
 
-shrTake :: forall m n i. (KnownNat n, KnownNat m)
+shrTake :: forall m n i. KnownNat m
         => ShR (m + n) i -> ShR m i
 shrTake (ShR ix) = ShR $ listrTake ix
 
@@ -691,13 +692,13 @@ shrSplitAt :: (KnownNat m, KnownNat n)
            => ShR (m + n) i -> (ShR m i, ShR n i)
 shrSplitAt ix = (shrTake ix, shrDrop ix)
 
-listrTake :: forall len n i. (KnownNat n, KnownNat len)
+listrTake :: forall len n i. KnownNat len
           => ListR (len + n) i -> ListR len i
-listrTake ix = fromList $ take (valueOf @len) $ toList ix
+listrTake ix = fromList $ take (valueOf @len) $ Foldable.toList ix
 
 listrDrop :: forall len n i. (KnownNat len, KnownNat n)
           => ListR (len + n) i -> ListR n i
-listrDrop ix = fromList $ drop (valueOf @len) $ toList ix
+listrDrop ix = fromList $ drop (valueOf @len) $ Foldable.toList ix
 
 listrSplitAt :: (KnownNat m, KnownNat n)
              => ListR (m + n) i -> (ListR m i, ListR n i)
@@ -750,13 +751,13 @@ shxDrop :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
         => IShX sh -> IShX (Drop len sh)
 shxDrop sh0 = fromList $ drop (valueOf @len) $ toList sh0
 
-ixxTake :: forall len sh i. (KnownNat len, KnownShX sh, KnownShX (Take len sh))
+ixxTake :: forall len sh i. (KnownNat len, KnownShX (Take len sh))
         => IxX sh i -> IxX (Take len sh) i
-ixxTake sh0 = fromList $ take (valueOf @len) $ toList sh0
+ixxTake sh0 = fromList $ take (valueOf @len) $ Foldable.toList sh0
 
-ixxDrop' :: forall len sh i. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
+ixxDrop' :: forall len sh i. (KnownNat len, KnownShX (Drop len sh))
          => IxX sh i -> IxX (Drop len sh) i
-ixxDrop' sh0 = fromList $ drop (valueOf @len) $ toList sh0
+ixxDrop' sh0 = fromList $ drop (valueOf @len) $ Foldable.toList sh0
 
 listsTakeLen :: forall f g sh1 sh2.
                 ListS sh1 f -> ListS sh2 g -> ListS (TakeLen sh1 sh2) g

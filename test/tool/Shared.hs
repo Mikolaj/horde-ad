@@ -7,12 +7,11 @@ module Shared
 import Prelude
 
 import Data.Char qualified
-import Data.Foldable qualified
+import Data.Foldable qualified as Foldable
 import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Vector.Storable qualified as VS
 import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Shaped.Shape
@@ -27,8 +26,8 @@ lowercase = map Data.Char.toLower
 class HasShape a where
   shapeL :: a -> [Int]
 
-instance (KnownNat n, Nested.PrimElt a) => HasShape (Nested.Ranked n a) where
-  shapeL = toList . Nested.rshape
+instance Nested.PrimElt a => HasShape (Nested.Ranked n a) where
+  shapeL = Foldable.toList . Nested.rshape
 
 instance KnownShS sh => HasShape (Nested.Shaped sh a) where
   shapeL _ = toList $ knownShS @sh
@@ -104,4 +103,4 @@ instance Linearizable Z1 Z1 where
   linearize _ = []
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => Linearizable (t a) a where
-  linearize = Data.Foldable.toList
+  linearize = Foldable.toList

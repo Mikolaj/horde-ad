@@ -8,10 +8,10 @@ module HordeAd.External.CommonShapedOps
 
 import Prelude
 
+import Data.Foldable qualified as Foldable
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
-import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), someNatVal, type (+), type (-), type (<=))
 
@@ -52,7 +52,7 @@ sfromIndex1 =
   case shsRank (knownShS @sh) of
     SNat' @0 -> const $ sconcrete $ Nested.semptyArray knownShS
     SNat -> sfromR . rfromIntegral . tfromPlain knownSTK . rfromList
-            . NonEmpty.fromList . map rfromK . toList
+            . NonEmpty.fromList . map rfromK . Foldable.toList
 
 {-
 sletIx :: forall r sh n target.
