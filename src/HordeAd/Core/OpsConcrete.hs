@@ -385,14 +385,15 @@ instance BaseTensor Concrete where
         $ Nested.rgenerate (k :$: ZSR) $ \(i :.: ZIR) -> g i
   {-# INLINE trbuild #-}
   trbuild @_ @n @x sh f =
-    let g ix = unConcrete $ f (fmapConcrete $ fmap fromIntegral ix)
+    let g ix = unConcrete $ f (fmapConcrete ix)
+        h ix = unConcrete $ f (fmapConcrete $ fmap fromIntegral ix)
         shTake = shrTake sh
     in case knownSTK @x of
       STKScalar | SNat' @0 <- SNat @n ->
         Concrete $ Nested.rgeneratePrim sh (Nested.runScalar . g)
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.runNest
-        $ Nested.rgenerate shTake $ \ix -> g ix
+        $ Nested.rgenerate shTake $ \ix -> h ix
   {-# INLINE trmap0N #-}
   trmap0N f t = Concrete $ tmap0NR (unConcrete . f . Concrete) (unConcrete t)
   {-# INLINE trzipWith0N #-}
@@ -413,7 +414,8 @@ instance BaseTensor Concrete where
   {-# INLINE tsbuild #-}
   tsbuild @m @sh @x _ f =
     gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
-    let g ix = unConcrete $ f (fmapConcrete $ fmap fromIntegral ix)
+    let g ix = unConcrete $ f (fmapConcrete ix)
+        h ix = unConcrete $ f (fmapConcrete $ fmap fromIntegral ix)
         shTake = knownShS @(Take m sh)
     in case knownSTK @x of
       STKScalar | ZSS <- knownShS @(Drop m sh)
@@ -421,7 +423,7 @@ instance BaseTensor Concrete where
         Concrete $ Nested.sgeneratePrim shTake (Nested.sunScalar . g)
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.sunNest
-        $ Nested.sgenerate shTake $ \ix -> g ix
+        $ Nested.sgenerate shTake $ \ix -> h ix
   {-# INLINE tsmap0N #-}
   tsmap0N f v = Concrete $ tmap0NS (unConcrete . f . Concrete) (unConcrete v)
   {-# INLINE tszipWith0N #-}
@@ -444,7 +446,8 @@ instance BaseTensor Concrete where
   {-# INLINE txbuild #-}
   txbuild @m @sh @x _ sh f =
     gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
-    let g ix = unConcrete $ f (fmapConcrete $ fmap fromIntegral ix)
+    let g ix = unConcrete $ f (fmapConcrete ix)
+        h ix = unConcrete $ f (fmapConcrete $ fmap fromIntegral ix)
         shTake = shxTakeSSX (Proxy @(Drop m sh)) (knownShX @(Take m sh)) sh
     in case knownSTK @x of
       STKScalar | ZKX <- knownShX @(Drop m sh)
@@ -452,7 +455,7 @@ instance BaseTensor Concrete where
         Concrete $ Nested.mgeneratePrim sh (Nested.munScalar . g)
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.munNest
-        $ Nested.mgenerate shTake $ \ix -> g ix
+        $ Nested.mgenerate shTake $ \ix -> h ix
   {-# INLINE tmapAccumRDer #-}
   tmapAccumRDer _ k _ bftk eftk f _df _rf = oRtmapAccumR k bftk eftk f
   {-# INLINE tmapAccumLDer #-}
