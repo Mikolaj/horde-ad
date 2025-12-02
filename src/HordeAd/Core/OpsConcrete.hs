@@ -375,10 +375,14 @@ instance BaseTensor Concrete where
     Concrete . Nested.mreshape sh . unConcrete
   {-# INLINE trbuild1 #-}
   trbuild1 @_ @x k f | Dict <- eltDictRep (knownSTK @x) =
-    Concrete $ tbuild1R k (unConcrete . f . Concrete)
+    Concrete $ Nested.runNest
+    $ Nested.rgenerate (k :$: ZSR) $ \(i :.: ZIR) ->
+        unConcrete $ f (Concrete $ fromIntegral i)
   {-# INLINE trbuild #-}
-  trbuild @_ @_ @x k f | Dict <- eltDictRep (knownSTK @x) =
-    Concrete $ tbuildR k (unConcrete . f . fmapConcrete)
+  trbuild @m @_ @x sh f | Dict <- eltDictRep (knownSTK @x) =
+    Concrete $ Nested.runNest
+    $ Nested.rgenerate (shrTake @m sh) $ \i ->
+        unConcrete $ f (fmapConcrete $ fmap fromIntegral i)
   {-# INLINE trmap0N #-}
   trmap0N f t = Concrete $ tmap0NR (unConcrete . f . Concrete) (unConcrete t)
   {-# INLINE trzipWith0N #-}
@@ -388,10 +392,15 @@ instance BaseTensor Concrete where
                   (unConcrete t) (unConcrete u)
   {-# INLINE tsbuild1 #-}
   tsbuild1 @_ @_ @x f | Dict <- eltDictRep (knownSTK @x) =
-    Concrete $ tbuild1S (unConcrete . f . Concrete)
+    Concrete $ Nested.sunNest
+    $ Nested.sgenerate (SNat :$$ ZSS) $ \(i :.$ ZIS) ->
+        unConcrete $ f (Concrete $ fromIntegral i)
   {-# INLINE tsbuild #-}
   tsbuild @m @sh @x _ f | Dict <- eltDictRep (knownSTK @x) =
-    Concrete $ tbuildS @m @sh (unConcrete . f . fmapConcrete)
+    gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
+    Concrete $ Nested.sunNest
+    $ Nested.sgenerate (knownShS @(Take m sh)) $ \i ->
+        unConcrete $ f (fmapConcrete $ fmap fromIntegral i)
   {-# INLINE tsmap0N #-}
   tsmap0N f v = Concrete $ tmap0NS (unConcrete . f . Concrete) (unConcrete v)
   {-# INLINE tszipWith0N #-}
@@ -401,10 +410,16 @@ instance BaseTensor Concrete where
                   (unConcrete t) (unConcrete u)
   {-# INLINE txbuild1 #-}
   txbuild1 @_ @_ @x f | Dict <- eltDictRep (knownSTK @x) =
-    Concrete $ tbuild1X (unConcrete . f . Concrete)
+    Concrete $ Nested.munNest
+    $ Nested.mgenerate (Nested.SKnown SNat :$% ZSX) $ \(i :.% ZIX) ->
+        unConcrete $ f (Concrete $ fromIntegral i)
   {-# INLINE txbuild #-}
   txbuild @m @sh @x _ sh f | Dict <- eltDictRep (knownSTK @x) =
-    Concrete $ tbuildX @m @sh sh (unConcrete . f . fmapConcrete)
+    gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
+    Concrete $ Nested.munNest
+    $ Nested.mgenerate
+        (shxTakeSSX (Proxy @(Drop m sh)) (knownShX @(Take m sh)) sh) $ \i ->
+          unConcrete $ f (fmapConcrete $ fmap fromIntegral i)
   {-# INLINE tmapAccumRDer #-}
   tmapAccumRDer _ k _ bftk eftk f _df _rf = oRtmapAccumR k bftk eftk f
   {-# INLINE tmapAccumLDer #-}
@@ -836,23 +851,6 @@ tmaxIndexR v | SNat <- Nested.rrank v =
       f = Nested.rscalar . fromIntegral . ixrHead . Nested.rmaxIndexPrim
   in Nested.runNest $ Nested.rrerankPrim ZSR f (Nested.rnest SNat v)
 
-tbuild1R
-  :: forall x n. (Nested.KnownElt x, KnownNat n)
-  => Int -> (Int64 -> Nested.Ranked n x) -> Nested.Ranked (1 + n) x
-{-# INLINE tbuild1R #-}
-tbuild1R k f =
-  Nested.runNest
-  $ Nested.rgenerate (k :$: ZSR) $ \(i :.: ZIR) -> f (fromIntegral i)
-
-tbuildR
-  :: forall m n x. (KnownNat m, KnownNat n, Nested.KnownElt x)
-  => IShR (m + n) -> (IxR m Int64 -> Nested.Ranked n x)
-  -> Nested.Ranked (m + n) x
-{-# INLINE tbuildR #-}
-tbuildR sh f =
-  Nested.runNest
-  $ Nested.rgenerate (shrTake @m sh) $ \i -> f (fmap fromIntegral i)
-
 tmap0NR
   :: (Nested.PrimElt r1, Nested.PrimElt r)
   => (r1 -> r) -> Nested.Ranked n r1 -> Nested.Ranked n r
@@ -1124,25 +1122,6 @@ tmaxIndexS v | sh1@(_ :$$ sh) <- Nested.sshape v =
         Nested.srerankPrim @'[m] @'[] @(Init (n ': sh)) ZSS (f @m) $
           Nested.snest (shsInit sh1) v
 
-tbuild1S
-  :: forall k sh x. (KnownNat k, KnownShS sh, Nested.KnownElt x)
-  => (Int64 -> Nested.Shaped sh x) -> Nested.Shaped (k ': sh) x
-{-# INLINE tbuild1S #-}
-tbuild1S f =
-  Nested.sunNest
-  $ Nested.sgenerate (SNat @k :$$ ZSS) $ \(i :.$ ZIS) -> f (fromIntegral i)
-
-tbuildS
-  :: forall m sh x.
-     (KnownShS (Take m sh), KnownShS (Drop m sh), Nested.KnownElt x)
-  => (IxS (Take m sh) Int64 -> Nested.Shaped (Drop m sh) x)
-  -> Nested.Shaped sh x
-{-# INLINE tbuildS #-}
-tbuildS f =
-  gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
-  Nested.sunNest
-  $ Nested.sgenerate (knownShS @(Take m sh)) $ \i -> f (fmap fromIntegral i)
-
 tmap0NS
   :: forall r1 r sh. (Nested.PrimElt r1, Nested.PrimElt r)
   => (r1 -> r) -> Nested.Shaped sh r1 -> Nested.Shaped sh r
@@ -1392,25 +1371,3 @@ tmaxIndexX v | sh1@(_ :$% sh) <- Nested.mshape v =
         Nested.mrerankPrim @'[Just m] @'[] @(Init (mn ': sh))
                            ZSX (f @(Just m)) $
           Nested.mnest (ssxFromShX $ shxInit sh1) v
-
-tbuild1X
-  :: forall k sh x. (KnownNat k, KnownShX sh, Nested.KnownElt x)
-  => (Int64 -> Nested.Mixed sh x) -> Nested.Mixed (Just k ': sh) x
-{-# INLINE tbuild1X #-}
-tbuild1X f =
-  Nested.munNest
-  $ Nested.mgenerate (Nested.SKnown (SNat @k) :$% ZSX) $ \(i :.% ZIX) ->
-      f (fromIntegral i)
-
-tbuildX
-  :: forall m sh x.
-     (KnownShX (Take m sh), KnownShX (Drop m sh), Nested.KnownElt x)
-  => IShX sh -> (IxX (Take m sh) Int64 -> Nested.Mixed (Drop m sh) x)
-  -> Nested.Mixed sh x
-{-# INLINE tbuildX #-}
-tbuildX sh f =
-  gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
-  Nested.munNest
-  $ Nested.mgenerate
-      (shxTakeSSX (Proxy @(Drop m sh)) (knownShX @(Take m sh)) sh) $ \i ->
-        f (fmap fromIntegral i)
