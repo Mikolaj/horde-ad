@@ -11,7 +11,7 @@ import Prelude hiding (foldl')
 
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
 
@@ -23,7 +23,6 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
@@ -365,6 +364,16 @@ instance ( ADReadyNoLet target, ShareTensor target
   txtranspose perm (D u u') =
     dD (txtranspose perm u) (DeltaTransposeX @_ @_ @_ @target perm u')
   txreshape sh (D u u') = dD (txreshape sh u) (DeltaReshapeX sh u')
+  tkbuild1 @k f =
+    case SNat @k of
+      SNat' @0 ->
+        let arr = Nested.semptyArray ZSS
+        in tconcrete (FTKS (SNat @0 :$$ ZSS) FTKScalar) (Concrete arr)
+      _ ->
+        let l = [0 .. valueOf @k - 1]
+        in tfromVector SNat STKScalar
+           $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
+             -- hope this fuses
   trbuild1 @n @x k f =
     if k == 0
     then case sameNat (Proxy @n) (Proxy @0) of
@@ -376,24 +385,25 @@ instance ( ADReadyNoLet target, ShareTensor target
          in trfromVector $ V.fromListN k $ map (f . fromInteger) l
               -- hope this fuses
   tsbuild1 @k @sh @r f | Dict <- eltDictRep (knownSTK @r) =
-    if valueOf @k == (0 :: Int)
-    then let arr = Nested.semptyArray @_ @(RepConcrete r) (knownShS @sh)
-         in gcastWith (unsafeCoerceRefl :: k :~: 0) $
-            tconcrete (tftkG knownSTK arr) (Concrete arr)
-    else let l = [0 .. valueOf @k - 1]
-         in tsfromVector $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
-              -- hope this fuses
+    case SNat @k of
+      SNat' @0 ->
+        let arr = Nested.semptyArray @_ @(RepConcrete r) (knownShS @sh)
+        in tconcrete (tftkG knownSTK arr) (Concrete arr)
+      _ ->
+        let l = [0 .. valueOf @k - 1]
+        in tsfromVector $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
+             -- hope this fuses
   txbuild1 @k @sh @r f =
-    if valueOf @k == (0 :: Int)
-    then case testEquality (knownShX @sh) ZKX of
-       Just Refl | Dict <- eltDictRep (knownSTK @r) ->
-         let arr = Nested.memptyArray @_ @(RepConcrete r) ZSX
-         in gcastWith (unsafeCoerceRefl :: k :~: 0) $
-            tconcrete (tftkG knownSTK arr) (Concrete arr)
-       Nothing -> error "xbuild1: shape ambiguity"
-    else let l = [0 .. valueOf @k - 1]
-         in txfromVector $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
-              -- hope this fuses
+    case SNat @k of
+      SNat' @0 -> case testEquality (knownShX @sh) ZKX of
+        Just Refl | Dict <- eltDictRep (knownSTK @r) ->
+          let arr = Nested.memptyArray @_ @(RepConcrete r) ZSX
+          in tconcrete (tftkG knownSTK arr) (Concrete arr)
+        _ -> error "xbuild1: shape ambiguity"
+      _ ->
+        let l = [0 .. valueOf @k - 1]
+        in txfromVector $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
+             -- hope this fuses
   tmapAccumRDer @accy @by @ey _ !k accftk bftk eftk f df rf acc0D esD
    | Dict <- lemKnownSTKOfBuild k (ftkToSTK accftk)
    , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk)

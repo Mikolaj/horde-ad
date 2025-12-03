@@ -619,6 +619,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tkfloor = fromPlain . astFloorK . astPlainPart
   tkfromIntegral = fromPlain . astFromIntegralK . astPlainPart
   tkcast = astCastK
+  tkbuild1 @k = astBuild1Vectorize (SNat @k) STKScalar
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst
@@ -1152,6 +1153,10 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tkfromIntegral = AstRaw . fromPlain . AstFromIntegralK
                    . plainPart . unAstRaw
   tkcast = AstRaw . AstCastK . unAstRaw
+  tkbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) STKScalar
+                  $ funToAstI (Just (0, valueOf @k - 1))
+                      -- this introduces new variable names
+                  $ unAstRaw . f . AstRaw
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk _stk = ftkAst . unAstRaw
@@ -1427,6 +1432,10 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tkfloor = AstNoVectorize . tkfloor . unAstNoVectorize
   tkfromIntegral = AstNoVectorize . tkfromIntegral . unAstNoVectorize
   tkcast = AstNoVectorize . tkcast . unAstNoVectorize
+  tkbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) STKScalar
+                  $ funToAstI (Just (0, valueOf @k - 1))
+                      -- this introduces new variable names
+                  $ unAstNoVectorize . f . AstNoVectorize
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk = tftk stk . unAstNoVectorize
@@ -1543,6 +1552,10 @@ fmapwUnAstNoSimplify = unsafeCoerce
 
 instance AstSpan s => BaseTensor (AstNoSimplify s) where
   -- The implementation of these methods differs from the AstRaw instance:
+  tkbuild1 @k f =
+    AstNoSimplify
+    $ astBuild1Vectorize (SNat @k) STKScalar
+                         (unAstNoSimplify . f . AstNoSimplify)
   trbuild1 @n @x k f = withSNat k $ \snat ->
     AstNoSimplify
     $ astBuild1Vectorize snat (STKR (SNat @n) (knownSTK @x))

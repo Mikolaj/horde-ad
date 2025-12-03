@@ -520,7 +520,7 @@ class ( Num (IntOf target)
               => target (TKS '[m, n] r) -> target (TKS '[n] r)
               -> target (TKS '[m] r)
   tsmatvecmul @m m v =
-    tsbuild1 @_ @m (\i -> sfromK $ tsdot0 v (m `tsindex` (i :.$ ZIS)))
+    tkbuild1 @_ @m (\i -> tsdot0 v (m `tsindex` (i :.$ ZIS)))
   tsmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p, NumScalar r
                , ConvertTensor target )
             => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
@@ -850,6 +850,30 @@ class ( Num (IntOf target)
   txreshape :: forall sh sh2 x. KnownSTK x
             => IShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
 
+  tkbuild1 :: (KnownNat k, GoodScalar r)
+           => (IntOf target -> target (TKScalar r))
+           -> target (TKS '[k] r)
+  tkbuild :: (KnownShS sh, GoodScalar r, ConvertTensor target)
+          => (IxSOf target sh -> target (TKScalar r))
+          -> target (TKS sh r)
+  {-# INLINE tkbuild #-}
+  tkbuild @sh @r =
+    gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
+    gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
+    let buildSh
+          :: forall sh1.
+             ShS sh1
+          -> (IxSOf target sh1 -> target (TKScalar r))
+          -> target (TKS sh1 r)
+        buildSh sh1 f = case sh1 of
+          ZSS -> sfromK $ f ZIS
+          SNat :$$ ZSS ->
+            tkbuild1 (\i -> f (i :.$ ZIS))
+          SNat :$$ sh2 ->
+            withKnownShS sh2 $
+            let g i = buildSh sh2 (f . (i :.$))
+            in tsbuild1 g
+    in buildSh (knownShS @sh)
   trbuild1 :: (KnownNat n, KnownSTK x)
            => Int -> (IntOf target -> target (TKR2 n x))
            -> target (TKR2 (1 + n) x)
@@ -912,7 +936,7 @@ class ( Num (IntOf target)
     gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
     gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
     case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
-      SNat -> tsbuild @_ @(Rank sh) SNat (sfromK . f . tsindex0 v)
+      SNat -> tkbuild (f . tsindex0 v)
   tszipWith0N :: ( KnownShS sh, GoodScalar r, GoodScalar r1, GoodScalar r2
                  , ConvertTensor target )
               => (target (TKScalar r1) -> target (TKScalar r2)
@@ -925,8 +949,7 @@ class ( Num (IntOf target)
     gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
     case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
       SNat ->
-        tsbuild @_ @(Rank sh) SNat
-                (\ix -> sfromK $ f (tsindex0 u ix) (tsindex0 v ix))
+        tkbuild (\ix -> f (tsindex0 u ix) (tsindex0 v ix))
 
   txbuild1 :: (KnownNat k, KnownShX sh, KnownSTK x)
            => (IntOf target -> target (TKX2 sh x))
@@ -962,7 +985,7 @@ class ( Num (IntOf target)
     let replSTK :: SingletonTK z -> (IntOf target -> target z)
                 -> target (BuildTensorKind k z)
         replSTK stk g = case stk of
-          STKScalar -> tsbuild1 (sfromK . g)
+          STKScalar -> tkbuild1 g
           STKR SNat x | Dict <- lemKnownSTK x -> trbuild1 (sNatValue snat) g
           STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tsbuild1 g
           STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txbuild1 g

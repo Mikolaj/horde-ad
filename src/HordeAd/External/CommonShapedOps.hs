@@ -179,13 +179,13 @@ conv2dSameS
      )
   => target (TKS shK r) -> target (TKS shA r) -> target (TKS shB r)
 conv2dSameS arrK arrA =
-  sbuild @(Rank shB) $ \case
+  kbuild $ \case
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicezS @shK1 arrA
                           [iImg, 0, iBh, iBw]
           arrKt = slicezS arrK
                           [iCout, 0, 0, 0]
-      in sfromK $ sdot0 arrAt arrKt
+      in sdot0 arrAt arrKt
     _ -> error "conv2dSameS: impossible pattern needlessly required"
 
 -- | Full convolution with only enough padding to ensure all output points
@@ -210,13 +210,13 @@ conv2dShrinkingS
      )
   => target (TKS shK r) -> target (TKS shA r) -> target (TKS shB r)
 conv2dShrinkingS arrK arrA =
-  sbuild @(Rank shB) $ \case
+  kbuild $ \case
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicezS @shK1 arrA
                           [iImg, 0, iBh, iBw]
           arrKt = slicezS arrK
                           [iCout, 0, 0, 0]
-      in sfromK $ sdot0 arrAt arrKt
+      in sdot0 arrAt arrKt
     _ -> error "conv2dShrinkingS: impossible pattern needlessly required"
 
 -- | Full convolution with enough padding to apply kernels at all
@@ -238,7 +238,7 @@ conv2dPaddedS
      )
   => target (TKS shK r) -> target (TKS shA r) -> target (TKS shB r)
 conv2dPaddedS arrK arrA =
-  sbuild @(Rank shB) $ \case
+  kbuild $ \case
     [iImg, iCout, iBh, iBw] ->
       let nKh1 = valueOf @nKh1
           nKw1 = valueOf @nKw1
@@ -246,7 +246,7 @@ conv2dPaddedS arrK arrA =
                           [iImg, 0, iBh - nKh1, iBw - nKw1]
           arrKt = slicezS arrK
                           [iCout, 0, 0, 0]
-      in sfromK $ sdot0 arrAt arrKt
+      in sdot0 arrAt arrKt
     _ -> error "conv2dPaddedS: impossible pattern needlessly required"
 
 -- | Slice a section out of a tensor,
@@ -256,7 +256,7 @@ conv2dPaddedS arrK arrA =
 --   elements are set to zero.
 slicezS
   :: forall shOut sh target r.
-     ( KnownShS sh, KnownShS shOut, KnownShS (Take (Rank sh) shOut)
+     ( KnownShS sh, KnownShS shOut
      , Rank shOut ~ Rank sh, ADReady target, NumScalar r )
   => target (TKS sh r) -> IxSOf target sh -> target (TKS shOut r)
 slicezS d ixBase | Refl <- lemAppNil @sh =
@@ -265,11 +265,11 @@ slicezS d ixBase | Refl <- lemAppNil @sh =
   gcastWith (unsafeCoerceRefl :: Drop (Rank sh) shOut :~: '[]) $
   case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
     SNat ->
-      sbuild @(Rank shOut)
+      kbuild
       $ \ixResult ->
-          sindex @sh @'[] d
-                 (ixsFromIxR' knownShS
-                  $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
+          sindex0 @sh d
+                  (ixsFromIxR' knownShS
+                   $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
       -- TODO: this doesn't work, because ixsZipWith has too strict a type:
       -- sbuild @(Rank shOut) $ \ixResult -> sindex d (ixsZipWith (+) ixBase ixResult)
 

@@ -48,6 +48,7 @@ module HordeAd.OpsTensor
   , sappend, sslice, suncons, sreverse
   , xappend, xappend0, xconcat, xslice, xuncons, xreverse
     -- * Array operations derived from @build@
+  , kbuild, kbuild1
   , rbuild, rbuild1, rmap, rmap1, rmap0N, rzipWith, rzipWith1, rzipWith0N
   , rzipWith3, rzipWith31, rzipWith30N, rzipWith4, rzipWith41, rzipWith40N
   , sbuild, sbuild1, smap, smap1, smap0N, szipWith, szipWith1, szipWith0N
@@ -670,6 +671,15 @@ xuncons @n v = case cmpNat (Proxy @1) (Proxy @n) of
 xreverse :: forall mn sh x target. (KnownSTK x, BaseTensor target)
          => target (TKX2 (mn ': sh) x) -> target (TKX2 (mn ': sh) x)
 xreverse = txreverse
+
+kbuild1 :: (KnownNat k, GoodScalar r, BaseTensor target)
+        => (IntOf target -> target (TKScalar r))
+        -> target (TKS '[k] r)
+kbuild1 = tkbuild1
+kbuild :: (KnownShS sh, GoodScalar r, BaseTensor target, ConvertTensor target)
+       => (IxSOf target sh -> target (TKScalar r))
+       -> target (TKS sh r)
+kbuild = tkbuild
 
 rbuild1 :: (KnownNat n, KnownSTK x, BaseTensor target)
         => Int  -- ^ width of the outermost dimension of the created tensor

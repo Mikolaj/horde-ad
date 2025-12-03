@@ -373,6 +373,16 @@ instance BaseTensor Concrete where
   {-# INLINE txreshape #-}
   txreshape @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.mreshape sh . unConcrete
+  {-# INLINE tkbuild1 #-}
+  tkbuild1 @k f =
+    let g i = unConcrete $ f (Concrete $ fromIntegral i)
+    in Concrete $ Nested.sfromVector (SNat :$$ ZSS)
+       $ VS.generate (valueOf @k) g
+  {-# INLINE tkbuild #-}
+  tkbuild @sh f =
+    let g ix = unConcrete $ f (fmapConcrete ix)
+        shTake = knownShS @sh
+    in Concrete $ Nested.sgeneratePrim shTake g
   {-# INLINE trbuild1 #-}
   trbuild1 @n @x k f =
     let g i = unConcrete $ f (Concrete $ fromIntegral i)
@@ -402,25 +412,23 @@ instance BaseTensor Concrete where
     $ tzipWith0NR (\v w -> unConcrete $ f (Concrete v) (Concrete w))
                   (unConcrete t) (unConcrete u)
   {-# INLINE tsbuild1 #-}
-  tsbuild1 @k @sh @x f =
+  tsbuild1 @_ @sh @x f =
     let g i = unConcrete $ f (Concrete $ fromIntegral i)
     in case knownSTK @x of
       STKScalar | ZSS <- knownShS @sh ->
-        Concrete $ Nested.sfromVector (SNat :$$ ZSS)
-        $ VS.generate (valueOf @k) (Nested.sunScalar . g)
+        tkbuild1 (Concrete . Nested.sunScalar . unConcrete . f)
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.sunNest
         $ Nested.sgenerate (SNat :$$ ZSS) $ \(i :.$ ZIS) -> g i
   {-# INLINE tsbuild #-}
   tsbuild @m @sh @x _ f =
     gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
-    let g ix = unConcrete $ f (fmapConcrete ix)
-        h ix = unConcrete $ f (fmapConcrete $ fmap fromIntegral ix)
+    let h ix = unConcrete $ f (fmapConcrete $ fmap fromIntegral ix)
         shTake = knownShS @(Take m sh)
     in case knownSTK @x of
       STKScalar | ZSS <- knownShS @(Drop m sh)
                 , Refl <- lemAppNil @(Take m sh) ->
-        Concrete $ Nested.sgeneratePrim shTake (Nested.sunScalar . g)
+        tkbuild (Concrete . Nested.sunScalar . unConcrete . f)
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.sunNest
         $ Nested.sgenerate shTake $ \ix -> h ix
