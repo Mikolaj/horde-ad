@@ -2229,8 +2229,7 @@ emptyArgs t =
                               !$ (fromIntegral (rlength t) `quotH` i :.$ ZIS)
                               / sfromIndex0 i)
        + sbuild @1 (const $ sscalar 73)
-       - ssum (sbuild @0
-                      (const (sreplicate @1 (sfromR emptyTensor)))))
+       - ssum (sbuild @0 (const (sreplicate @1 (sfromR emptyTensor)))))
   + rfromX
       (xingestData (SKnown (SNat @0) :$% ZSX) []
        + xconcrete (Nested.memptyArray ZSX)
@@ -2247,8 +2246,7 @@ emptyArgs t =
                         $ NonEmpty.fromList [Nested.memptyArray ZSX])
        * xsum @1 (xfromList [xconcrete $ Nested.memptyArray ZSX])
        * xsum @1 (xfromList [xfromR @_ @'[Just 0] emptyTensor])
-       * xsum @1 (xfromList [xsum @0
-                                     (xingestData
+       * xsum @1 (xfromList [xsum @0 (xingestData
                                         (SKnown (SNat @0)
                                          :$% xshape @target @_ @(TKScalar r)
                                                (xfromR @_ @'[Just 0]
@@ -2272,9 +2270,7 @@ emptyArgs t =
                               / xfromIndex0 i)
        + xbuild @1 (SKnown (SNat @0) :$% ZSX)
                 (const $ xscalar 73)
-       - xsum (xbuild @0 (SKnown (SNat @0)
-                                                :$% SKnown (SNat @0)
-                                                :$% ZSX)
+       - xsum (xbuild @0 (SKnown (SNat @0) :$% SKnown (SNat @0) :$% ZSX)
                       (const (xreplicate (xfromR emptyTensor)))))
 --  - rgather1 0 emptyTensor (:.: ZIR)
 --  - rsum (rgather1 0 emptyTensor (const ZIR))

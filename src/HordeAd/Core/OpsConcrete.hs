@@ -390,9 +390,12 @@ instance BaseTensor Concrete where
       STKScalar | SNat' @0 <- SNat @n ->
         Concrete $ Nested.rfromVector (k :$: ZSR)
         $ VS.generate k (Nested.runScalar . g)
-      _ | Dict <- eltDictRep (knownSTK @x) ->
-        Concrete $ Nested.runNest
-        $ Nested.rgenerate (k :$: ZSR) $ \(i :.: ZIR) -> g i
+      _ | Dict <- eltDictRep (knownSTK @x) -> case k of
+        0 ->
+          Concrete $ Nested.runNest $ Nested.remptyArray
+        _ ->
+          Concrete $ Nested.rfromListOuterN k $ NonEmpty.fromList
+          $ map g [0 .. k - 1]
   {-# INLINE trbuild #-}
   trbuild @_ @n @x sh f =
     let g ix = unConcrete $ f (fmapConcrete ix)
@@ -412,14 +415,18 @@ instance BaseTensor Concrete where
     $ tzipWith0NR (\v w -> unConcrete $ f (Concrete v) (Concrete w))
                   (unConcrete t) (unConcrete u)
   {-# INLINE tsbuild1 #-}
-  tsbuild1 @_ @sh @x f =
-    let g i = unConcrete $ f (Concrete $ fromIntegral i)
+  tsbuild1 @k @sh @x f =
+    let g :: Int -> RepConcrete (TKS2 sh x)
+        g i = unConcrete $ f (Concrete $ fromIntegral i)
     in case knownSTK @x of
       STKScalar | ZSS <- knownShS @sh ->
         tkbuild1 (Concrete . Nested.sunScalar . unConcrete . f)
-      _ | Dict <- eltDictRep (knownSTK @x) ->
-        Concrete $ Nested.sunNest
-        $ Nested.sgenerate (SNat :$$ ZSS) $ \(i :.$ ZIS) -> g i
+      _ | Dict <- eltDictRep (knownSTK @x) -> case SNat @k of
+        SNat' @0 ->
+          Concrete $ Nested.semptyArray knownShS
+        _ ->
+          Concrete $ Nested.sfromListOuter SNat $ NonEmpty.fromList
+          $ map g [0 .. valueOf @k - 1]
   {-# INLINE tsbuild #-}
   tsbuild @m @sh @x _ f =
     gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
@@ -441,16 +448,20 @@ instance BaseTensor Concrete where
                   (unConcrete t) (unConcrete u)
   {-# INLINE txbuild1 #-}
   txbuild1 @k @sh @x f =
-    let g i = unConcrete $ f (Concrete $ fromIntegral i)
+    let g :: Int -> RepConcrete (TKX2 sh x)
+        g i = unConcrete $ f (Concrete $ fromIntegral i)
     in case knownSTK @x of
       STKScalar | ZKX <- knownShX @sh ->
         Concrete $ Nested.mfromVector (Nested.SKnown SNat :$% ZSX)
         $ VS.generate (valueOf @k) (Nested.munScalar . g)
           -- this is somewhat faster and not much more complex than if
           -- done with mgeneratePrim
-      _ | Dict <- eltDictRep (knownSTK @x) ->
-        Concrete $ Nested.munNest
-        $ Nested.mgenerate (Nested.SKnown SNat :$% ZSX) $ \(i :.% ZIX) -> g i
+      _ | Dict <- eltDictRep (knownSTK @x) -> case SNat @k of
+        SNat' @0 ->
+          Concrete $ Nested.munNest $ Nested.memptyArray ZSX
+        _ ->
+          Concrete $ Nested.mfromListOuterSN SNat $ NonEmpty.fromList
+          $ map g [0 .. valueOf @k - 1]
   {-# INLINE txbuild #-}
   txbuild @m @sh @x _ sh f =
     gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
@@ -1105,9 +1116,9 @@ tgatherZ1S
 {-# INLINE tgatherZ1S #-}   -- this function takes a function as an argument
 tgatherZ1S @_ @shn @shp @x t f = case (knownShS @shn, knownSTK @x) of
   (ZSS, STKScalar) | Refl <- lemAppNil @shp ->  -- an optimized common case
-    let g i = t `tsindex0` f i
-    in tkbuild1 g
-  _ -> tsbuild1 (\ix -> t `tsindex` f ix)
+    tkbuild1 (\ix -> t `tsindex0` f ix)
+  _ ->
+    tsbuild1 (\ix -> t `tsindex` f ix)
 
 tminIndexS
   :: forall n sh r r2.
