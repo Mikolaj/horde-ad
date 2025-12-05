@@ -384,7 +384,8 @@ instance BaseTensor Concrete where
     in Concrete $ Nested.sgeneratePrim shTake g
   {-# INLINE trbuild1 #-}
   trbuild1 @n @x k f =
-    let g i = unConcrete $ f (Concrete $ fromIntegral i)
+    let g :: Int -> RepConcrete (TKR2 n x)
+        g i = unConcrete $ f (Concrete $ fromIntegral i)
     in case knownSTK @x of
       STKScalar | SNat' @0 <- SNat @n ->
         Concrete $ Nested.rfromVector (k :$: ZSR)
@@ -863,14 +864,7 @@ tgatherZ1R k t f = case (SNat @n, knownSTK @x) of
     let shm = k :$: shrDrop (rshape t)
         g i = unConcrete $ t `trindex0` (f $ Concrete $ fromIntegral i)
     in Concrete $ Nested.rfromVector shm $ VS.generate k g
-  _ | Dict <- eltDictRep (knownSTK @x) -> case k of
-    0 -> Concrete
-         $ Nested.rreshape (0 :$: shrDrop (rshape t)) Nested.remptyArray
-    _ -> Concrete $ Nested.rfromListOuterN k $ NonEmpty.fromList
-         $ map (\i -> unConcrete $ t `trindex` f (Concrete i))
-               [0 .. fromIntegral (k - 1)]
-             -- this must be slightly faster than just
-             -- trbuild1 k (\ix -> t `trindex` f ix)
+  _ -> trbuild1 k (\ix -> t `trindex` f ix)
 
 tminIndexR
   :: forall r r2 n.
@@ -1109,18 +1103,11 @@ tgatherZ1S
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS2 (k ': shn) x)
 {-# INLINE tgatherZ1S #-}   -- this function takes a function as an argument
-tgatherZ1S @k @shn @shp @x t f = case (knownShS @shn, knownSTK @x) of
+tgatherZ1S @_ @shn @shp @x t f = case (knownShS @shn, knownSTK @x) of
   (ZSS, STKScalar) | Refl <- lemAppNil @shp ->  -- an optimized common case
     let g i = t `tsindex0` f i
     in tkbuild1 g
-  _ | Dict <- eltDictRep (knownSTK @x) -> case SNat @k of
-    SNat' @0 -> Concrete $ Nested.semptyArray knownShS
-    _ ->
-      Concrete $ Nested.sfromListOuter SNat $ NonEmpty.fromList
-      $ map (\i -> unConcrete $ t `tsindex` f (Concrete i))
-            [0 .. valueOf @k - 1]
-        -- this must be slightly faster than just
-        -- tsbuild1 (\ix -> t `tsindex` f ix)
+  _ -> tsbuild1 (\ix -> t `tsindex` f ix)
 
 tminIndexS
   :: forall n sh r r2.
@@ -1350,21 +1337,12 @@ tgatherZ1X :: forall k shn shp x.
            -> (IntOf Concrete -> IxXOf Concrete shp)
            -> Concrete (TKX2 (Just k ': shn) x)
 {-# INLINE tgatherZ1X #-}   -- this function takes a function as an argument
-tgatherZ1X k@SNat t f = case (knownShX @shn, knownSTK @x) of
+tgatherZ1X _ t f = case (knownShX @shn, knownSTK @x) of
   (ZKX, STKScalar) | Refl <- lemAppNil @shp ->  -- an optimized common case
     let shm = SKnown SNat :$% shxDropSSX (knownShX @shp) (xshape t)
         g i = unConcrete $ t `txindex0` (f $ Concrete $ fromIntegral i)
     in Concrete $ Nested.mfromVector shm $ VS.generate (valueOf @k) g
-  _ | Dict <- eltDictRep (knownSTK @x) -> case k of
-    SNat' @0 ->
-      Concrete $ Nested.memptyArray (shxDropSSX (knownShX @shp) $ xshape t)
-    _ ->
-      Concrete
-      $ Nested.mfromListOuterSN k $ NonEmpty.fromList
-      $ map (\i -> unConcrete $ t `txindex` f (Concrete i))
-            [0 .. valueOf @k - 1]
-        -- this must be slightly faster than just
-        -- txbuild1 @_ @k (\ix -> t `txindex` f ix)
+  _ -> txbuild1 @_ @k (\ix -> t `txindex` f ix)
 
 tminIndexX
   :: forall mn sh r r2.
