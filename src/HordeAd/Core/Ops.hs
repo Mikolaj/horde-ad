@@ -600,20 +600,26 @@ class ( Num (IntOf target)
            => IShR m -> target (TKR2 n x) -> IxROf target m
            -> target (TKR2 (m + n) x)
   {-# INLINE troneHot #-}
-  troneHot @_ @_ @x sh v ix = case knownSTK @x of
-    STKScalar ->
-      trscatter @_ @0 (shrAppend sh (rshape v)) v (const ix)
-    _ -> case tftk knownSTK v of
-      FTKR _ ftk2 ->
-        -- TODO: def at out of bounds
-        let f ix2 = tcond knownSTK
-                          (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
-                           $ zip (Foldable.toList ix) (Foldable.toList ix2))
-                          (trindex v (ixrDrop ix2))
-                          (tdefTarget (FTKR ZSR ftk2))
-        in trbuild (shrAppend sh (rshape v)) f
-           -- TODO: if this is used often, maybe express this as the gather that
-           -- would come out of vectorization, making sure it simplifies well
+  troneHot sh v ix =
+    trscatter @_ @0 (shrAppend sh (rshape v)) v (const ix)
+      -- this code is often better for differentiable contexts, because
+      -- a gather results, though this code is problematic if vectorization
+      -- blows up the dimensions
+    {- _ ->
+      -- TODO: def at out of bounds and handle empty arrays
+      let f ix2 = tcond knownSTK
+                        (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                         $ zip (Foldable.toList ix) (Foldable.toList ix2))
+                        v
+                        (tdefTarget (tftk knownSTK v))
+      in trbuild (shrAppend sh (rshape v)) f
+        -- this code is probably better for non-differentiable contexts
+        -- (even though it seems to do more work than the scatter above),
+        -- because this code vectorizes better, often to the same size gather
+        -- TODO: so maybe check if all scalars in v are non-differentiable
+        -- and choose this if so?
+        -- TODO: if this is used often, maybe express this as the gather that
+        -- would come out of vectorization, to help it simplify well -}
   trscatter :: (KnownNat m, KnownNat n, KnownNat p, TKAllNum x, KnownSTK x)
             => IShR (p + n) -> target (TKR2 (m + n) x)
             -> (IxROf target m -> IxROf target p)
@@ -648,32 +654,22 @@ class ( Num (IntOf target)
            => target (TKS2 sh2 x) -> IxSOf target sh1
            -> target (TKS2 (sh1 ++ sh2) x)
   {-# INLINE tsoneHot #-}  -- this doesn't want to specialize
-  tsoneHot @sh1 @sh2 @x v ix
-   | SNat <- shsRank (knownShS @sh1)
-   , Refl <- lemAppNil @sh2 = case knownSTK @x of
-    STKScalar ->
-      gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
+  tsoneHot v ix =
+    tsscatter @_ @'[] v (const ix)
+    {- _ | SNat <- shsRank (knownShS @sh1)
+         , Refl <- lemAppNil @sh2 ->
+      -- TODO: def at out of bounds and handle empty arrays
       gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-      tsscatter @_ @'[] @_ @sh1 v (const ix)
-    _ -> case tftk knownSTK v of
-      FTKS _ ftk2 ->
-        -- TODO: def at out of bounds
-        gcastWith (unsafeCoerceRefl
-                   :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
-        gcastWith (unsafeCoerceRefl
-                   :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-        withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
-        case shsRank (knownShS @(sh1 ++ sh2)) of
-          SNat -> -- needed only for GHC 9.10
-            let f ix2 = tcond knownSTK
-                              (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2)
-                                      true
-                               $ zip (Foldable.toList ix) (Foldable.toList ix2))
-                              (tsindex v (ixsDrop @(Rank sh1) ix2))
-                              (tdefTarget (FTKS ZSS ftk2))
-            in tsbuild @_ @(Rank (sh1 ++ sh2)) SNat f
+      gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
+      withKnownShS (knownShS @sh1 `shsAppend` knownShS @sh2) $
+      case shsRank (knownShS @(sh1 ++ sh2)) of
+        SNat -> -- needed only for GHC 9.10
+          let f ix2 = tcond knownSTK
+                            (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                             $ zip (Foldable.toList ix) (Foldable.toList ix2))
+                            v
+                            (tdefTarget (tftk knownSTK v))
+          in tsbuild @_ @(Rank sh1) SNat f -}
   tsscatter
      :: (KnownShS shm, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x)
      => target (TKS2 (shm ++ shn) x)
@@ -710,32 +706,22 @@ class ( Num (IntOf target)
            => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
            -> target (TKX2 (sh1 ++ sh2) x)
   {-# INLINE txoneHot #-}
-  txoneHot @sh1 @sh2 @x sh1 v ix
-   | SNat <- ssxRank (knownShX @sh1)
-   , Refl <- lemAppNil @sh2 = case knownSTK @x of
-    STKScalar ->
-      gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
+  txoneHot sh1 v ix =
+    txscatter @_ @'[] (shxAppend sh1 (xshape v)) v (const ix)
+    {- _ | SNat <- ssxRank (knownShX @sh1)
+         , Refl <- lemAppNil @sh2 ->
+      -- TODO: def at out of bounds and handle empty arrays
       gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-      txscatter @_ @'[] @_ @sh1 (shxAppend sh1 (xshape v)) v (const ix)
-    _ -> case tftk knownSTK v of
-      FTKX _ ftk2 ->
-        -- TODO: def at out of bounds
-        gcastWith (unsafeCoerceRefl
-                   :: Drop (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: '[]) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take (Rank (sh1 ++ sh2)) (sh1 ++ sh2) :~: (sh1 ++ sh2)) $
-        gcastWith (unsafeCoerceRefl
-                   :: Drop (Rank sh1) (sh1 ++ sh2) :~: sh2) $
-        withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
-        case ssxRank (knownShX @(sh1 ++ sh2)) of
-          SNat -> -- needed only for GHC 9.10
-            let f ix2 = tcond knownSTK
-                              (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2)
-                                      true
-                               $ zip (Foldable.toList ix) (Foldable.toList ix2))
-                              (txindex v (ixxDrop' @(Rank sh1) ix2))
-                              (tdefTarget (FTKX ZSX ftk2))
-            in txbuild @_ @(Rank (sh1 ++ sh2)) SNat (shxAppend sh1 (xshape v)) f
+      gcastWith (unsafeCoerceRefl :: Take (Rank sh1) (sh1 ++ sh2) :~: sh1) $
+      withKnownShX (knownShX @sh1 `ssxAppend` knownShX @sh2) $
+      case ssxRank (knownShX @(sh1 ++ sh2)) of
+        SNat -> -- needed only for GHC 9.10
+          let f ix2 = tcond knownSTK
+                            (foldl' (\ !acc (!i, !i2) -> acc &&* i ==. i2) true
+                             $ zip (Foldable.toList ix) (Foldable.toList ix2))
+                            v
+                            (tdefTarget (tftk knownSTK v))
+          in txbuild @_ @(Rank sh1) SNat (shxAppend sh1 (xshape v)) f -}
   txscatter :: ( KnownShX shm, KnownShX shn, KnownShX shp
                , TKAllNum x, KnownSTK x )
             => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) x)
