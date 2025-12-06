@@ -187,6 +187,12 @@ interpretAstPrimal !env v1 = case v1 of
       let v2 = interpretAstPrimal env v
           ix3 = interpretAstPlain env <$> ix
       in tsindex @_ @sh1 v2 ix3
+  AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS shn $
+      withKnownShS (shsFromIxS ix) $
+      withKnownSTK x $
+      tsoneHot (interpretAstPrimal env v) (interpretAstPlain env <$> ix)
   AstScatterS @_ @shn @shp
               shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -412,6 +418,12 @@ interpretAstPlain !env v1 = case v1 of
       let v2 = interpretAstPlain env v
           ix3 = interpretAstPlain env <$> ix
       in tsindex @_ @sh1 v2 ix3
+  AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
+      withKnownShS shn $
+      withKnownShS (shsFromIxS ix) $
+      withKnownSTK x $
+      tsoneHot (interpretAstPlain env v) (interpretAstPlain env <$> ix)
   AstScatterS @_ @shn @shp
               shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
@@ -772,13 +784,13 @@ interpretAst !env = \case
   -- TODO: once specialization inspect-testing is back online,
   -- recover and also handle similarly tsupdate, both implemented
   -- as a gather and as a scatter
-  {- TODO: this breaks specialization:
+  -- TODO: this breaks specialization:
   AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
       withKnownShS (shsFromIxS ix) $
       withKnownSTK x $
-      tsoneHot (interpretAst env v) (interpretAstPrimal env <$> ix) -}
+      tsoneHot (interpretAst env v) (interpretAstPlain env <$> ix)
   AstScatterS @_ @shn @shp
               shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
