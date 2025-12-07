@@ -8,6 +8,7 @@ module HordeAd.Core.AstPrettyPrint
 import Prelude
 
 import Data.Foldable qualified as Foldable
+import Data.Functor.Const
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IM
 import Data.List (intersperse)
@@ -390,6 +391,28 @@ printAst cfg d = \case
       . printAst cfg 11 v
       . showString " "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
+  AstScatterS _sh v ((::$) @n (Const var) ZS, ix) ->
+   if loseRoudtrip cfg
+   then
+    showParen (d > 10)
+    $ showString ("sscatter1 @" ++ show (valueOf @n :: Int) ++ " ")
+      . printAst cfg 11 v
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . printAstIntVar cfg var
+           . showString " -> "
+           . showListWith (printAst cfg 0) (Foldable.toList ix))
+   else
+    showParen (d > 10)
+    $ showString ("sscatter1 @" ++ show (valueOf @n :: Int) ++ " ")
+      . printAst cfg 11 v
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . printAstIntVar cfg var
+           . showString " -> "
+           . showListWith (printAst cfg 0) (Foldable.toList ix))
   AstScatterS _sh v (vars, ix) ->
    if loseRoudtrip cfg
    then
@@ -424,6 +447,28 @@ printAst cfg d = \case
     $ printAst cfg 10 v
       . showString " !$ "
       . showListWith (printAst cfg 0) (Foldable.toList ix) -}
+  AstGatherS _sh v ((::$) @n (Const var) ZS, ix) ->
+   if loseRoudtrip cfg
+   then
+    showParen (d > 10)
+    $ showString ("sgather1 @" ++ show (valueOf @n :: Int) ++ " ")
+      . printAst cfg 11 v
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . printAstIntVar cfg var
+           . showString " -> "
+           . showListWith (printAst cfg 0) (Foldable.toList ix))
+   else
+    showParen (d > 10)
+    $ showString ("sgather1 @" ++ show (valueOf @n :: Int) ++ " ")
+      . printAst cfg 11 v
+      . showString " "
+      . (showParen True
+         $ showString "\\"
+           . printAstIntVar cfg var
+           . showString " -> "
+           . showListWith (printAst cfg 0) (Foldable.toList ix))
   AstGatherS _sh v (vars, ix) ->
    if loseRoudtrip cfg
    then
