@@ -10,6 +10,8 @@ module HordeAd.Core.OpsConcrete
 
 import Prelude hiding (foldl')
 
+import Control.Monad (when)
+import Control.Monad.ST
 import Data.Array.Internal.ShapedS qualified as SS
 import Data.Coerce (Coercible, coerce)
 import Data.Default
@@ -24,10 +26,12 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
-import GHC.TypeLits (KnownNat, type (+))
+import GHC.TypeLits (KnownNat, Nat, type (+))
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Convert
+  (ixxFromIxR, ixxFromIxS, shxFromShR, shxFromShS)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
@@ -268,18 +272,21 @@ instance BaseTensor Concrete where
     Concrete . Nested.mreplicate sh . unConcrete
   trindex = tindexZR
   trindex0 = tindex0R
+  troneHot = toneHotR
   trscatter = tscatterZR
   trscatter1 = tscatterZ1R
   trgather = tgatherZR
   trgather1 = tgatherZ1R
   tsindex = tindexZS
   tsindex0 = tindex0S
+  tsoneHot = toneHotS
   tsscatter @shm @shn = tscatterZS @shm @shn
   tsscatter1 = tscatterZ1S
   tsgather @shm @shn = tgatherZS @shm @shn
   tsgather1 = tgatherZ1S
   txindex = tindexZX
   txindex0 = tindex0X
+  txoneHot = toneHotX
   txscatter @shm @shn = tscatterZX @shm @shn
   txscatter1 = tscatterZ1X
   txgather @shm @shn = tgatherZX @shm @shn
@@ -781,6 +788,31 @@ tindex0R v ixConcrete =
        then Nested.rindex uv (fmap fromIntegral ix)
        else def
 
+toneHotR :: forall m n x. (KnownNat n, KnownSTK x)
+         => IShR m -> Concrete (TKR2 n x) -> IxROf Concrete m
+         -> Concrete (TKR2 (m + n) x)
+{-# INLINE toneHotR #-}
+toneHotR sh v ix | Dict <- eltDictRep (knownSTK @x)
+                 , Dict <- lemKnownReplicate (SNat @n) = case tftk knownSTK v of
+  FTKR sh2Ranked x -> runST $ do
+    let vx = Nested.rtoMixed $ unConcrete v
+        zero = unConcrete $ tdefTarget x
+        sh1 = shxFromShR sh
+        sh2 = shxFromShR sh2Ranked
+        ixx = ixxFromIxR ix
+    vecs <- Mixed.MV_Nest sh2
+            <$> Mixed.mvecsReplicate (sh1 `shxAppend` sh2) zero
+      -- this completely avoids the slow case of mvecsReplicate if x is TKScalar
+    when (ixInBounds (Foldable.toList $ fmapUnConcrete ixx) (shxToList sh1)) $
+      Mixed.mvecsWrite sh1 (fmap fromIntegral $ fmapUnConcrete ixx) vx vecs
+    gcastWith (unsafeCoerceRefl
+               :: Rank (Replicate m (Nothing @Nat) ++ Replicate n Nothing)
+                  :~: m + n) $
+      Concrete
+      . Nested.mtoRanked
+      . Nested.munNest
+      <$> Mixed.mvecsFreeze sh1 vecs
+
 -- Performance depends a lot on the number and size of tensors.
 -- If tensors are not tiny, memory taken by underlying vectors matters most
 -- and this implementation is probably optimal in this respect
@@ -1000,6 +1032,30 @@ tindex0S v ixConcrete =
      $ if ixInBounds (Foldable.toList ix) (shsToList $ Nested.sshape uv)
        then Nested.sindex uv (fmap fromIntegral ix)
        else def
+
+toneHotS :: forall sh1 sh2 x. (KnownShS sh1, KnownShS sh2, KnownSTK x)
+         => Concrete (TKS2 sh2 x) -> IxSOf Concrete sh1
+         -> Concrete (TKS2 (sh1 ++ sh2) x)
+{-# INLINE toneHotS #-}
+toneHotS v ix | Dict <- eltDictRep (knownSTK @x)
+              , Dict <- lemKnownMapJust (Proxy @sh2) = case tftk knownSTK v of
+  FTKS sh2Shaped x -> runST $ do
+    let vx = Nested.stoMixed $ unConcrete v
+        zero = unConcrete $ tdefTarget x
+        sh1 = shxFromShS $ knownShS @sh1
+        sh2 = shxFromShS sh2Shaped
+        ixx = ixxFromIxS ix
+    vecs <- Mixed.MV_Nest sh2
+            <$> Mixed.mvecsReplicate (sh1 `shxAppend` sh2) zero
+      -- this completely avoids the slow case of mvecsReplicate if x is TKScalar
+    when (ixInBounds (Foldable.toList $ fmapUnConcrete ixx) (shxToList sh1)) $
+      Mixed.mvecsWrite sh1 (fmap fromIntegral $ fmapUnConcrete ixx) vx vecs
+    gcastWith (unsafeCoerceRefl
+               :: Rank (MapJust sh1 ++ MapJust sh2) :~: Rank (sh1 ++ sh2)) $
+      Concrete
+      . Nested.mcastToShaped (knownShS @sh1 `shsAppend` knownShS @sh2)
+      . Nested.munNest
+      <$> Mixed.mvecsFreeze sh1 vecs
 
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensor is added at such an index.
@@ -1247,6 +1303,22 @@ tindex0X v ixConcrete =
      $ if ixInBounds (Foldable.toList ix) (shxToList $ Nested.mshape uv)
        then Nested.mindex uv (fmap fromIntegral ix)
        else def
+
+toneHotX :: forall sh1 sh2 x. (KnownShX sh2, KnownSTK x)
+         => IShX sh1 -> Concrete (TKX2 sh2 x) -> IxXOf Concrete sh1
+         -> Concrete (TKX2 (sh1 ++ sh2) x)
+{-# INLINE toneHotX #-}
+toneHotX sh1 v ix | Dict <- eltDictRep (knownSTK @x) = case tftk knownSTK v of
+  FTKX sh2 x -> runST $ do
+    let zero = unConcrete $ tdefTarget x
+    vecs <- Mixed.MV_Nest sh2
+            <$> Mixed.mvecsReplicate (sh1 `shxAppend` sh2) zero
+      -- this completely avoids the slow case of mvecsReplicate if x is TKScalar
+    when (ixInBounds (Foldable.toList $ fmapUnConcrete ix)
+                     (shxToList sh1)) $
+      Mixed.mvecsWrite sh1 (fmap fromIntegral $ fmapUnConcrete ix)
+                       (unConcrete v) vecs
+    Concrete . Nested.munNest <$> Mixed.mvecsFreeze sh1 vecs
 
 tscatterZX :: ( KnownShX shm, KnownShX shn, KnownShX shp
               , TKAllNum x, KnownSTK x )
