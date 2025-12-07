@@ -828,43 +828,39 @@ tscatterZR :: forall m n p x.
            -> (IxROf Concrete m -> IxROf Concrete p)
            -> Concrete (TKR2 (p + n) x)
 {-# INLINE tscatterZR #-}   -- this function takes a function as an argument
-tscatterZR sh t f
- | Dict <- eltDictRep (knownSTK @x) = case tftk knownSTK t of
-  FTKR _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
-    -- Optimized: using (+) instead of taddTarget.
-    let zero = tdefTarget (FTKR sh FTKScalar)
-        shm = shrTake @m $ rshape t
-        shp = shrTake @p sh
-        g :: IxR m Int64
-          -> M.Map (IxROf Concrete p) (Concrete (TKR2 n x))
-          -> M.Map (IxROf Concrete p) (Concrete (TKR2 n x))
-        g ix =
-          let ix2 = f $ fmapConcrete ix
-          in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
-                           (Foldable.toList $ shp)
-             then M.insertWith (+) ix2
-                    (Concrete $ tindexNR (unConcrete t) ix)
-             else id
-        ivs = foldr g M.empty (shrEnum' shm)
-    in updateNR zero
-       $ M.assocs ivs
-  FTKR _ x ->
-    let zero = tdefTarget (FTKR sh x)
-        shm = shrTake @m $ rshape t
-        shp = shrTake @p sh
-        g :: IxR m Int64
-          -> M.Map (IxROf Concrete p) (Concrete (TKR2 n x))
-          -> M.Map (IxROf Concrete p) (Concrete (TKR2 n x))
-        g ix =
-          let ix2 = f $ fmapConcrete ix
-          in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
-                           (Foldable.toList shp)
-             then M.insertWith (taddTarget knownSTK) ix2
-                    (Concrete $ tindexNR (unConcrete t) ix)
-             else id
-        ivs = foldr g M.empty (shrEnum' shm)
-    in updateNR zero
-       $ M.assocs ivs
+tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
+  let shm = shrTake @m $ rshape t
+      shp = shrTake @p sh
+  in case tftk knownSTK t of
+    FTKR _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+      -- Optimized: using (+) instead of taddTarget.
+      let zero = tdefTarget (FTKR sh FTKScalar)
+          g :: IxR m Int64
+            -> M.Map (IxROf Concrete p) (Concrete (TKR2 n x))
+            -> M.Map (IxROf Concrete p) (Concrete (TKR2 n x))
+          g ix =
+            let ix2 = f $ fmapConcrete ix
+            in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
+                             (Foldable.toList $ shp)
+               then M.insertWith (+) ix2
+                      (Concrete $ tindexNR (unConcrete t) ix)
+               else id
+          ivs = foldr g M.empty (shrEnum' shm)
+      in updateNR zero $ M.assocs ivs
+    FTKR _ x ->
+      let zero = tdefTarget (FTKR sh x)
+          g :: IxR m Int64
+            -> M.Map (IxROf Concrete p) (Concrete (TKR2 n x))
+            -> M.Map (IxROf Concrete p) (Concrete (TKR2 n x))
+          g ix =
+            let ix2 = f $ fmapConcrete ix
+            in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
+                             (Foldable.toList shp)
+               then M.insertWith (taddTarget knownSTK) ix2
+                      (Concrete $ tindexNR (unConcrete t) ix)
+               else id
+          ivs = foldr g M.empty (shrEnum' shm)
+      in updateNR zero $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
@@ -956,35 +952,30 @@ liftVS
 {-# INLINE liftVS #-}
 liftVS f = Shaped.liftShaped1 (Mixed.mliftNumElt1 (`liftVEltwise1` f))
 
-updateNS :: forall n sh x proxy.
-            ( KnownSTK x, KnownShS sh, KnownShS (Drop n sh)
-            , KnownShS (Take n sh) )
-         => proxy n -> Concrete (TKS2 sh x)
-         -> [(IxSOf Concrete (Take n sh), Concrete (TKS2 (Drop n sh) x))]
-         -> Concrete (TKS2 sh x)
+updateNS :: forall sh1 sh2 x. (KnownSTK x, KnownShS sh1, KnownShS sh2)
+         => Concrete (TKS2 (sh1 ++ sh2) x)
+         -> [(IxSOf Concrete sh1, Concrete (TKS2 sh2 x))]
+         -> Concrete (TKS2 (sh1 ++ sh2) x)
 {-# INLINE updateNS #-}
-updateNS _ arr upd = case knownSTK @x of
+updateNS arr upd = case knownSTK @x of
   STKScalar ->
     let values = stoVector arr
-        sh = knownShS @sh
+        sh = knownShS @sh1 `shsAppend` knownShS @sh2
         f !t (ix, u) =
           let v = stoVector u
-              i = gcastWith (unsafeCoerceRefl
-                             :: sh :~: Take n sh ++ Drop n sh)
-                  $ fromIntegral $ unConcrete
-                  $ toLinearIdxS @(Take n sh) @(Drop n sh) sh ix
+              i = fromIntegral $ unConcrete
+                  $ toLinearIdxS @sh1 @sh2 sh ix
           in V.concat [V.take i t, v, V.drop (i + V.length v) t]
-    in Concrete $ Nested.sfromVector knownShS (foldl' f values upd)
-  _ -> case shsProduct (knownShS @(Take n sh)) of
+    in Concrete $ Nested.sfromVector sh (foldl' f values upd)
+  _ -> case shsProduct (knownShS @sh1) of
     SNat ->
-      gcastWith (unsafeCoerceRefl :: sh :~: Take n sh ++ Drop n sh) $
-      let arrNested = snest (knownShS @(Take n sh)) arr
+      let arrNested = snest (knownShS @sh1) arr
           shNested = sshape arrNested
-          f i v = case lookup (fromLinearIdxS @(Take n sh)
+          f i v = case lookup (fromLinearIdxS @sh1
                                  shNested (fromIntegral i)) upd of
             Just u -> snest (knownShS @'[]) u
             Nothing -> v
-      in sunNest @_ @(Take n sh) $ tfromListLinearS
+      in sunNest @_ @sh1 $ tfromListLinearS
          $ imap f $ tsunravelToList $ sflatten arrNested
 
 tfromListLinearS
@@ -1066,16 +1057,12 @@ tscatterZS :: (KnownShS shm, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x)
 {-# INLINE tscatterZS #-}  -- this function takes a function as an argument
 tscatterZS @shm @shn @shp @x t f =
   let shpshn = knownShS @shp `shsAppend` knownShS @shn
+      shm = knownShS @shm
   in withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
      case tftk knownSTK t of
        FTKS _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
          -- Optimized: using (+) instead of taddTarget.
-         gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn)
-                                        :~: shp) $
-         gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn)
-                                        :~: shn) $
          let zero = tdefTarget @Concrete (FTKS shpshn FTKScalar)
-             shm = knownShS @shm
              g :: IxS shm Int64
                -> M.Map (IxSOf Concrete shp) (Concrete (TKS2 shn x))
                -> M.Map (IxSOf Concrete shp) (Concrete (TKS2 shn x))
@@ -1087,16 +1074,9 @@ tscatterZS @shm @shn @shp @x t f =
                          (Concrete $ tindexNS @_ @shm @shn (unConcrete t) ix)
                   else id
              ivs = foldr g M.empty (shsEnum' shm)
-         in withKnownShS shpshn $
-            updateNS (Proxy @(Rank shp)) zero
-            $ M.assocs ivs
+         in updateNS zero $ M.assocs ivs
        FTKS _ x | Dict <- eltDictRep (ftkToSTK x) ->
-         gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn)
-                                     :~: shp) $
-         gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn)
-                                     :~: shn) $
          let zero = tdefTarget @Concrete (FTKS shpshn x)
-             shm = knownShS @shm
              g :: IxS shm Int64
                -> M.Map (IxSOf Concrete shp) (Concrete (TKS2 shn x))
                -> M.Map (IxSOf Concrete shp) (Concrete (TKS2 shn x))
@@ -1108,9 +1088,7 @@ tscatterZS @shm @shn @shp @x t f =
                          (Concrete $ tindexNS @_ @shm @shn (unConcrete t) ix)
                   else id
              ivs = foldr g M.empty (shsEnum' shm)
-         in withKnownShS shpshn $
-            updateNS (Proxy @(Rank shp)) zero
-            $ M.assocs ivs
+         in updateNS zero $ M.assocs ivs
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
@@ -1125,19 +1103,17 @@ tscatterZ1S
 {-# INLINE tscatterZ1S #-}   -- this function takes a function as an argument
 tscatterZ1S t f = case tftk knownSTK t of
   FTKS _ x ->
-    gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
-    gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
     let shpshn = knownShS @shp `shsAppend` knownShS @shn
-        zero = tdefTarget (FTKS shpshn x)
+        ftk = FTKS shpshn x
+        zero = tdefTarget ftk
         lt = tsunravelToList t
         g i ti = let ix2 = f $ fromIntegral i
                  in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                   (shsToList $ knownShS @shp)
-                    then withKnownShS shpshn $
-                         updateNS (Proxy @(Rank shp)) zero [(ix2, ti)]
+                    then updateNS zero [(ix2, ti)]
                     else zero
         lu = imap g lt
-    in foldr (taddTarget (STKS shpshn (knownSTK @x))) zero lu
+    in foldr (taddTarget (ftkToSTK ftk)) zero lu
 
 tgatherZS :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x)
           => Concrete (TKS2 (shp ++ shn) x)
@@ -1231,34 +1207,30 @@ liftVX
 {-# INLINE liftVX #-}
 liftVX f = Mixed.mliftNumElt1 (`liftVEltwise1` f)
 
-updateNX :: forall n sh x proxy.
-            (KnownSTK x, KnownShX (Drop n sh), KnownShX (Take n sh))
-         => proxy n -> Concrete (TKX2 sh x)
-         -> [(IxXOf Concrete (Take n sh), Concrete (TKX2 (Drop n sh) x))]
-         -> Concrete (TKX2 sh x)
+updateNX :: forall sh1 sh2 x. (KnownSTK x, KnownShX sh1, KnownShX sh2)
+         => Concrete (TKX2 (sh1 ++ sh2) x)
+         -> [(IxXOf Concrete sh1, Concrete (TKX2 sh2 x))]
+         -> Concrete (TKX2 (sh1 ++ sh2) x)
 {-# INLINE updateNX #-}
-updateNX _ arr upd = case knownSTK @x of
+updateNX arr upd = case knownSTK @x of
   STKScalar ->
     let values = xtoVector arr
         sh = xshape arr
         f !t (ix, u) =
           let v = xtoVector u
-              i = gcastWith (unsafeCoerceRefl
-                             :: sh :~: Take n sh ++ Drop n sh)
-                  $ fromIntegral $ unConcrete
-                  $ toLinearIdxX @(Take n sh) @(Drop n sh) sh ix
+              i = fromIntegral $ unConcrete
+                  $ toLinearIdxX @sh1 @sh2 sh ix
           in V.concat [V.take i t, v, V.drop (i + V.length v) t]
     in Concrete $ Nested.mfromVector (xshape arr) (foldl' f values upd)
   _ | Dict <- eltDictRep (knownSTK @x) ->
-      gcastWith (unsafeCoerceRefl :: sh :~: Take n sh ++ Drop n sh) $
-      let arrNested = xnest (knownShX @(Take n sh)) arr
+      let arrNested = xnest (knownShX @sh1) arr
           shNested = xshape arrNested
-          f i v = case lookup (fromLinearIdxX @(Take n sh)
+          f i v = case lookup (fromLinearIdxX @sh1
                                  shNested (fromIntegral i)) upd of
             Just u -> xnest ZKX u
             Nothing -> v
       in withSNat (shxSize shNested) $ \snat ->
-           xunNest @_ @(Take n sh) $ tfromListLinearX shNested
+           xunNest @_ @sh1 $ tfromListLinearX shNested
            $ imap f $ txunravelToList
            $ Concrete $ Nested.mcast (Nested.SKnown snat :!% ZKX)
            $ unConcrete $ xflatten arrNested
@@ -1320,75 +1292,66 @@ toneHotX sh1 v ix | Dict <- eltDictRep (knownSTK @x) = case tftk knownSTK v of
                        (unConcrete v) vecs
     Concrete . Nested.munNest <$> Mixed.mvecsFreeze sh1 vecs
 
-tscatterZX :: ( KnownShX shm, KnownShX shn, KnownShX shp
-              , TKAllNum x, KnownSTK x )
+tscatterZX :: (KnownShX shm, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x)
            => IShX (shp ++ shn) -> Concrete (TKX2 (shm ++ shn) x)
            -> (IxXOf Concrete shm -> IxXOf Concrete shp)
            -> Concrete (TKX2 (shp ++ shn) x)
 {-# INLINE tscatterZX #-}  -- this function takes a function as an argument
 tscatterZX @shm @shn @shp @x sh t f =
-  withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
-  gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
-  gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-  case tftk knownSTK t of
-    FTKX _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
-      -- Optimized: using (+) instead of taddTarget.
-      let zero = tdefTarget (FTKX sh FTKScalar)
-          shm = shxTakeSSX (Proxy @shn) (knownShX @shm) (xshape t)
-          shp = shxTakeSSX (Proxy @shn) (knownShX @shp) sh
-          g :: IxX shm Int64
-            -> M.Map (IxXOf Concrete shp) (Concrete (TKX2 shn x))
-            -> M.Map (IxXOf Concrete shp) (Concrete (TKX2 shn x))
-          g ix =
-            let ix2 = f $ fmapConcrete ix
-            in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
-                             (shxToList shp)
-               then M.insertWith (+) ix2
-                      (Concrete $ tindexNX @_ @shm @shn (unConcrete t) ix)
-               else id
-          ivs = foldr g M.empty (shxEnum' shm)
-      in updateNX (Proxy @(Rank shp)) zero
-         $ M.assocs ivs
-    FTKX _ x | Dict <- eltDictRep (ftkToSTK x) ->
-      let zero = tdefTarget (FTKX sh x)
-          shm = shxTakeSSX (Proxy @shn) (knownShX @shm) (xshape t)
-          shp = shxTakeSSX (Proxy @shn) (knownShX @shp) sh
-          g :: IxX shm Int64
-            -> M.Map (IxXOf Concrete shp) (Concrete (TKX2 shn x))
-            -> M.Map (IxXOf Concrete shp) (Concrete (TKX2 shn x))
-          g ix =
-            let ix2 = f $ fmapConcrete ix
-            in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
-                             (shxToList shp)
-               then M.insertWith (taddTarget knownSTK) ix2
-                      (Concrete $ tindexNX @_ @shm @shn (unConcrete t) ix)
-               else id
-          ivs = foldr g M.empty (shxEnum' shm)
-      in updateNX (Proxy @(Rank shp)) zero
-         $ M.assocs ivs
+  let shm = shxTakeSSX (Proxy @shn) (knownShX @shm) (xshape t)
+      shp = shxTakeSSX (Proxy @shn) (knownShX @shp) sh
+  in withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
+     case tftk knownSTK t of
+       FTKX _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+         -- Optimized: using (+) instead of taddTarget.
+         let zero = tdefTarget (FTKX sh FTKScalar)
+             g :: IxX shm Int64
+               -> M.Map (IxXOf Concrete shp) (Concrete (TKX2 shn x))
+               -> M.Map (IxXOf Concrete shp) (Concrete (TKX2 shn x))
+             g ix =
+               let ix2 = f $ fmapConcrete ix
+               in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
+                                (shxToList shp)
+                  then M.insertWith (+) ix2
+                         (Concrete $ tindexNX @_ @shm @shn (unConcrete t) ix)
+                  else id
+             ivs = foldr g M.empty (shxEnum' shm)
+         in updateNX zero $ M.assocs ivs
+       FTKX _ x | Dict <- eltDictRep (ftkToSTK x) ->
+         let zero = tdefTarget (FTKX sh x)
+             g :: IxX shm Int64
+               -> M.Map (IxXOf Concrete shp) (Concrete (TKX2 shn x))
+               -> M.Map (IxXOf Concrete shp) (Concrete (TKX2 shn x))
+             g ix =
+               let ix2 = f $ fmapConcrete ix
+               in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
+                                (shxToList shp)
+                  then M.insertWith (taddTarget knownSTK) ix2
+                         (Concrete $ tindexNX @_ @shm @shn (unConcrete t) ix)
+                  else id
+             ivs = foldr g M.empty (shxEnum' shm)
+         in updateNX zero $ M.assocs ivs
 
-tscatterZ1X :: ( KnownNat n2, KnownShX shn, KnownShX shp
-               , TKAllNum x, KnownSTK x )
-            => IShX (shp ++ shn) -> Concrete (TKX2 (Just n2 ': shn) x)
-            -> (IntOf Concrete -> IxXOf Concrete shp)
-            -> Concrete (TKX2 (shp ++ shn) x)
+tscatterZ1X
+  :: forall n2 shn shp x.
+     (KnownNat n2, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x)
+  => IShX (shp ++ shn) -> Concrete (TKX2 (Just n2 ': shn) x)
+  -> (IntOf Concrete -> IxXOf Concrete shp)
+  -> Concrete (TKX2 (shp ++ shn) x)
 {-# INLINE tscatterZ1X #-}   -- this function takes a function as an argument
-tscatterZ1X @_ @shn @shp sh t f =
-  case tftk knownSTK t of
-    FTKX _ x ->
-      withKnownShX (ssxFromShX sh) $
-      gcastWith (unsafeCoerceRefl :: Take (Rank shp) (shp ++ shn) :~: shp) $
-      gcastWith (unsafeCoerceRefl :: Drop (Rank shp) (shp ++ shn) :~: shn) $
-      let zero = tdefTarget (FTKX sh x)
-          shp = shxTakeSSX (Proxy @shn) (knownShX @shp) sh
-          lt = txunravelToList t
-          g i ti = let ix2 = f $ fromIntegral i
-                   in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
-                                    (shxToList shp)
-                      then updateNX (Proxy @(Rank shp)) zero [(ix2, ti)]
-                      else zero
-          lu = imap g lt
-      in foldr (taddTarget knownSTK) zero lu
+tscatterZ1X sh t f = case tftk knownSTK t of
+  FTKX _ x ->
+    let shp = shxTakeSSX (Proxy @shn) (knownShX @shp) sh
+        ftk = FTKX sh x
+        zero = tdefTarget ftk
+        lt = txunravelToList t
+        g i ti = let ix2 = f $ fromIntegral i
+                 in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
+                                  (shxToList shp)
+                    then updateNX zero [(ix2, ti)]
+                    else zero
+        lu = imap g lt
+    in foldr (taddTarget (ftkToSTK ftk)) zero lu
 
 tgatherZX :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
           => IShX (shm ++ shn)
