@@ -724,29 +724,26 @@ liftVR
 {-# INLINE liftVR #-}
 liftVR f = Ranked.liftRanked1 (Mixed.mliftNumElt1 (`liftVEltwise1` f))
 
-manyHotNR :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
+manyHotNR :: forall m n x. (KnownNat m, KnownSTK x)
           => FullShapeTK (TKR2 (m + n) x)
           -> [(Int, Concrete (TKR2 n x))]
           -> Concrete (TKR2 (m + n) x)
 {-# INLINE manyHotNR #-}
-manyHotNR (FTKR shRanked x) upd | Dict <- eltDictRep (knownSTK @x) = runST $ do
+manyHotNR (FTKR shRanked x) upd | Dict <- eltDictRep (knownSTK @x)
+                                , Refl <- lemRankReplicate (Proxy @(m + n))
+                                , Refl <- lemReplicatePlusApp
+                                            (SNat @m)
+                                            (Proxy @n)
+                                            (Proxy @(Nothing @Nat)) = runST $ do
   let zero = unConcrete $ tdefTarget x
       sh1 = shxFromShR $ shrTake @m shRanked
-      sh2 = shxFromShR $ shrDrop @m shRanked
-      sh = sh1 `shxAppend` sh2
-  vecs <- Mixed.MV_Nest sh2 <$> Mixed.mvecsReplicate sh zero
-    -- this completely avoids the slow case of mvecsReplicate if x is TKScalar
+      sh = shxFromShR shRanked
+  vecs <- Mixed.mvecsReplicate sh zero
+    -- this avoids the slow case of mvecsReplicate if x is TKScalar
   forM_ upd $ \(ix, v) -> do
-    let vx = Nested.rtoMixed $ unConcrete v
-        ixx = ixxFromLinear sh1 ix
-    Mixed.mvecsWrite sh1 ixx vx vecs
-  gcastWith (unsafeCoerceRefl
-             :: Rank (Replicate m (Nothing @Nat) ++ Replicate n Nothing)
-                :~: m + n) $
-    Concrete
-    . Nested.mtoRanked
-    . Nested.munNest
-    <$> Mixed.mvecsFreeze sh1 vecs
+    let ixx = ixxFromLinear sh1 ix
+    Mixed.mvecsWritePartial sh1 ixx (Nested.rtoMixed $ unConcrete v) vecs
+  Concrete . Nested.mtoRanked <$> Mixed.mvecsFreeze sh vecs
 
 tindexNR
   :: Nested.Elt x
@@ -925,23 +922,20 @@ manyHotNS :: forall sh1 sh2 x. (KnownShS sh1, KnownShS sh2, KnownSTK x)
           -> [(Int, Concrete (TKS2 sh2 x))]
           -> Concrete (TKS2 (sh1 ++ sh2) x)
 {-# INLINE manyHotNS #-}
-manyHotNS x upd | Dict <- eltDictRep (knownSTK @x) = runST $ do
+manyHotNS x upd | Dict <- eltDictRep (knownSTK @x)
+                , let shShaped = knownShS @sh1 `shsAppend` knownShS @sh2
+                , Refl <- lemRankMapJust shShaped
+                , Refl <- lemMapJustApp (knownShS @sh1)
+                                        (Proxy @sh2) = runST $ do
   let zero = unConcrete $ tdefTarget x
       sh1 = shxFromShS $ knownShS @sh1
-      sh2 = shxFromShS $ knownShS @sh2
-      sh = sh1 `shxAppend` sh2
-  vecs <- Mixed.MV_Nest sh2 <$> Mixed.mvecsReplicate sh zero
-    -- this completely avoids the slow case of mvecsReplicate if x is TKScalar
+      sh = shxFromShS shShaped
+  vecs <- Mixed.mvecsReplicate sh zero
+    -- this avoids the slow case of mvecsReplicate if x is TKScalar
   forM_ upd $ \(ix, v) -> do
-    let vx = Nested.stoMixed $ unConcrete v
-        ixx = ixxFromLinear sh1 ix
-    Mixed.mvecsWrite sh1 ixx vx vecs
-  gcastWith (unsafeCoerceRefl
-             :: Rank (MapJust sh1 ++ MapJust sh2) :~: Rank (sh1 ++ sh2)) $
-    Concrete
-    . Nested.mcastToShaped (knownShS @sh1 `shsAppend` knownShS @sh2)
-    . Nested.munNest
-    <$> Mixed.mvecsFreeze sh1 vecs
+    let ixx = ixxFromLinear sh1 ix
+    Mixed.mvecsWritePartial sh1 ixx (Nested.stoMixed $ unConcrete v) vecs
+  Concrete . Nested.mcastToShaped shShaped <$> Mixed.mvecsFreeze sh vecs
 
 tindexNS
   :: Nested.Elt x
@@ -1150,13 +1144,12 @@ manyHotNX :: forall sh1 sh2 x. (KnownShX sh1, KnownSTK x)
 manyHotNX (FTKX sh x) upd | Dict <- eltDictRep (knownSTK @x) = runST $ do
   let zero = unConcrete $ tdefTarget x
       sh1 = shxTakeSSX (Proxy @sh2) (knownShX @sh1) sh
-      sh2 = shxDropSSX (knownShX @sh1) sh
-  vecs <- Mixed.MV_Nest sh2 <$> Mixed.mvecsReplicate sh zero
-    -- this completely avoids the slow case of mvecsReplicate if x is TKScalar
+  vecs <- Mixed.mvecsReplicate sh zero
+    -- this avoids the slow case of mvecsReplicate if x is TKScalar
   forM_ upd $ \(ix, v) -> do
     let ixx = ixxFromLinear sh1 ix
-    Mixed.mvecsWrite sh1 ixx (unConcrete v) vecs
-  Concrete . Nested.munNest <$> Mixed.mvecsFreeze sh1 vecs
+    Mixed.mvecsWritePartial sh1 ixx (unConcrete v) vecs
+  Concrete <$> Mixed.mvecsFreeze sh vecs
 
 tindexNX
   :: Nested.Elt x
