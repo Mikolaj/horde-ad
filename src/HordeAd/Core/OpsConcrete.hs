@@ -17,7 +17,6 @@ import Data.Coerce (Coercible, coerce)
 import Data.Default
 import Data.Foldable qualified as Foldable
 import Data.Function ((&))
-import Data.Functor.WithIndex (imap)
 import Data.Int (Int64)
 import Data.IntMap.Strict qualified as IM
 import Data.List (foldl', mapAccumL, mapAccumR, scanl')
@@ -273,21 +272,19 @@ instance BaseTensor Concrete where
   trindex0 = tindex0R
   troneHot = toneHotR
   trscatter = tscatterZR
-  trscatter1 = tscatterZ1R
+  -- no meaningful optimization here so far: trscatter1 = tscatterZ1R
   trgather = tgatherZR
   trgather1 = tgatherZ1R
   tsindex = tindexZS
   tsindex0 = tindex0S
   tsoneHot = toneHotS
   tsscatter @shm @shn = tscatterZS @shm @shn
-  tsscatter1 = tscatterZ1S
   tsgather @shm @shn = tgatherZS @shm @shn
   tsgather1 = tgatherZ1S
   txindex = tindexZX
   txindex0 = tindex0X
   txoneHot = toneHotX
   txscatter @shm @shn = tscatterZX @shm @shn
-  txscatter1 = tscatterZ1X
   txgather @shm @shn = tgatherZX @shm @shn
   txgather1 = tgatherZ1X
   {-# INLINE tkfloor #-}
@@ -830,25 +827,6 @@ tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
           ivs = foldr g IM.empty (shrEnum' shm)
       in manyHotNR ftk $ IM.assocs ivs
 
-tscatterZ1R :: forall n p x. (KnownNat n, KnownNat p, TKAllNum x, KnownSTK x)
-            => IShR (p + n) -> Concrete (TKR2 (1 + n) x)
-            -> (IntOf Concrete -> IxROf Concrete p)
-            -> Concrete (TKR2 (p + n) x)
-{-# INLINE tscatterZ1R #-}   -- this function takes a function as an argument
-tscatterZ1R sh t f = case tftk knownSTK t of
-  FTKR _ x ->
-    let ftk = FTKR sh x
-        zero = tdefTarget ftk
-        lt = trunravelToList t
-        shp = shrTake @p sh
-        g i ti = let ix2 = f $ fromIntegral i
-                 in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
-                                  (Foldable.toList shp)
-                    then manyHotNR ftk [(fromIntegral $ unConcrete $ toLinearIdxR shp ix2, ti)]
-                    else zero
-        lu = imap g lt
-    in foldr (taddTarget knownSTK) zero lu
-
 -- The semantics of the operation permits index out of bounds
 -- and the result of such indexing is def, which is 0.
 tgatherZR :: forall m n p x. (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
@@ -1022,27 +1000,6 @@ tscatterZS @shm @shn @shp @x t f =
                   else id
              ivs = foldr g IM.empty (shsEnum' shm)
          in manyHotNS @shp x $ IM.assocs ivs
-
-tscatterZ1S
-  :: forall n2 shn shp x.
-     (KnownNat n2, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x)
-  => Concrete (TKS2 (n2 ': shn) x)
-  -> (IntOf Concrete -> IxSOf Concrete shp)
-  -> Concrete (TKS2 (shp ++ shn) x)
-{-# INLINE tscatterZ1S #-}   -- this function takes a function as an argument
-tscatterZ1S t f = case tftk knownSTK t of
-  FTKS _ x ->
-    let shpshn = knownShS @shp `shsAppend` knownShS @shn
-        ftk = FTKS shpshn x
-        zero = tdefTarget ftk
-        lt = tsunravelToList t
-        g i ti = let ix2 = f $ fromIntegral i
-                 in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
-                                  (shsToList $ knownShS @shp)
-                    then manyHotNS @shp x [(fromIntegral $ unConcrete $ toLinearIdxS (knownShS @shp) ix2, ti)]
-                    else zero
-        lu = imap g lt
-    in foldr (taddTarget (ftkToSTK ftk)) zero lu
 
 tgatherZS :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x)
           => Concrete (TKS2 (shp ++ shn) x)
@@ -1235,27 +1192,6 @@ tscatterZX @shm @shn @shp @x sh t f =
                   else id
              ivs = foldr g IM.empty (shxEnum' shm)
          in manyHotNX @shp ftk $ IM.assocs ivs
-
-tscatterZ1X
-  :: forall n2 shn shp x.
-     (KnownNat n2, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x)
-  => IShX (shp ++ shn) -> Concrete (TKX2 (Just n2 ': shn) x)
-  -> (IntOf Concrete -> IxXOf Concrete shp)
-  -> Concrete (TKX2 (shp ++ shn) x)
-{-# INLINE tscatterZ1X #-}   -- this function takes a function as an argument
-tscatterZ1X sh t f = case tftk knownSTK t of
-  FTKX _ x ->
-    let shp = shxTakeSSX (Proxy @shn) (knownShX @shp) sh
-        ftk = FTKX sh x
-        zero = tdefTarget ftk
-        lt = txunravelToList t
-        g i ti = let ix2 = f $ fromIntegral i
-                 in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
-                                  (shxToList shp)
-                    then manyHotNX @shp ftk [(fromIntegral $ unConcrete $ toLinearIdxX shp ix2, ti)]
-                    else zero
-        lu = imap g lt
-    in foldr (taddTarget (ftkToSTK ftk)) zero lu
 
 tgatherZX :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
           => IShX (shm ++ shn)

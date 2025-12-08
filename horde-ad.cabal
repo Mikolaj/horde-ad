@@ -182,7 +182,6 @@ library
       , enummapset < 0.8
       , ghc-typelits-knownnat >= 0.8.0 && < 1
       , ghc-typelits-natnormalise >= 0.8.1 && < 1
-      , indexed-traversable < 0.2
       , orthotope < 0.2
       , ox-arrays < 0.2
       , random >= 1.3.0 && < 1.4
