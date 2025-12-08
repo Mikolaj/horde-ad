@@ -207,7 +207,7 @@ astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
                                   , FTKS shIn _ <- ftkAst v =
   funToVarsIxS shOut $ \ (!vars, !ix) ->
     let iUnshared :: AstInt AstMethodLet
-        iUnshared = toLinearIdxS @sh2 @'[] shOut ix
+        iUnshared = toLinearIdxS @sh2 shOut ix
         asts :: AstInt AstMethodLet -> AstIxS AstMethodLet sh
         asts i = fromLinearIdxS shIn i
     in gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
