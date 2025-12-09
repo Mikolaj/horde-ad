@@ -23,8 +23,7 @@ module HordeAd.Core.Types
     -- * Misc
   , Dict(..), IntegralH(..), RealFloatH(..), Boolean (..), EqH(..), OrdH(..)
   , backpermutePrefixList
-  , toLinearIdxR, fromLinearIdxR, toLinearIdxS, fromLinearIdxS
-  , toLinearIdxX, fromLinearIdxX
+  , fromLinearIdxR, fromLinearIdxS, fromLinearIdxX
     -- * Feature requests for ox-arrays
   , Take, Drop, UnMapSucc
   , listsTake, listsDrop, listsSplitAt, ixrTake, ixrDrop, ixrSplitAt
@@ -426,30 +425,12 @@ backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 -- they provide in tests that intensively use these operations.
 -- Maybe specialization doesn't quite work for them? Not verified.
 --
--- | Given a multidimensional index, get the corresponding linear
--- index into the buffer.
---
--- If any of the dimensions is 0 or if rank is 0, the result will be 0,
--- which is fine, that's pointing at the start of the empty buffer.
--- Note that the resulting 0 may be a complex term if @j@ belongs to the AST,
--- so checking for the 0 is not an option.
-toLinearIdxR :: forall m j. Num j
-             => ShR m Int -> IxR m j -> j
-{-# INLINE toLinearIdxR #-}
-toLinearIdxR = \sh idx -> go sh idx 0
-  where
-    -- Additional argument: index, in the @m - m1@ dimensional array so far,
-    -- of the @m - m1 + n@ dimensional tensor pointed to by the current
-    -- @m - m1@ dimensional index prefix.
-    go :: ShR m1 Int -> IxR m1 j -> j -> j
-    go ZSR ZIR tensidx = tensidx
-    go (n :$: sh) (i :.: idx) tensidx = go sh idx (fromIntegral n * tensidx + i)
-
 -- | Given a linear index into the buffer, get the corresponding
 -- multidimensional index.
 --
 -- If any of the dimensions is 0, the linear index has to be 0
--- (which we can't assert, because j may be a term and so == lies).
+-- (which we can't assert, because j may be a term and so == lies),
+-- which is fine, because that's pointing at the start of the empty buffer.
 fromLinearIdxR :: forall n j. IntegralH j
                => ShR n Int -> j -> IxR n j
 {-# INLINE fromLinearIdxR #-}
@@ -465,18 +446,6 @@ fromLinearIdxR = \sh lin -> case go sh lin of (# _, ix #) -> ix
           i = tensLin `remH` fromIntegral n
       in (# tensLin', i :.: idxInTens #)
 
--- | Given a multidimensional index, get the corresponding linear
--- index into the buffer.
-toLinearIdxS :: forall sh1 j. Num j
-             => ShS sh1 -> IxS sh1 j -> j
-{-# INLINE toLinearIdxS #-}
-toLinearIdxS = \sh idx -> go sh idx 0
-  where
-    go :: forall sh3. ShS sh3 -> IxS sh3 j -> j -> j
-    go ZSS ZIS tensidx = tensidx
-    go ((:$$) n sh) (i :.$ idx) tensidx =
-      go sh idx (fromIntegral (sNatValue n) * tensidx + i)
-
 -- | Given a linear index into the buffer, get the corresponding
 -- multidimensional index.
 fromLinearIdxS :: forall sh j. IntegralH j
@@ -491,18 +460,6 @@ fromLinearIdxS = \sh lin -> case go sh lin of (# _, ix #) -> ix
           tensLin' = tensLin `quotH` fromIntegral (sNatValue n)
           i = tensLin `remH` fromIntegral (sNatValue n)
       in (# tensLin', i :.$ idxInTens #)
-
--- | Given a multidimensional index, get the corresponding linear
--- index into the buffer.
-toLinearIdxX :: forall sh1 j. Num j
-             => IShX sh1 -> IxX sh1 j -> j
-{-# INLINE toLinearIdxX #-}
-toLinearIdxX = \sh idx -> go sh idx 0
-  where
-    go :: forall sh3. IShX sh3 -> IxX sh3 j -> j -> j
-    go ZSX ZIX tensidx = tensidx
-    go ((:$%) n sh) (i :.% idx) tensidx =
-      go sh idx (fromIntegral (fromSMayNat' n) * tensidx + i)
 
 -- | Given a linear index into the buffer, get the corresponding
 -- multidimensional index.

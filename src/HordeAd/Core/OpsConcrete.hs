@@ -780,7 +780,7 @@ toneHotR sh1 v ix = case tftk knownSTK v of
     in if ixInBounds (Foldable.toList $ fmapUnConcrete ix)
                      (shrToList sh1)
        then case shrRank sh1 of
-         SNat -> manyHotNR ftk [(fromIntegral $ unConcrete $ toLinearIdxR sh1 ix, v)]
+         SNat -> manyHotNR ftk [(fromIntegral $ unConcrete $ ixrToLinear sh1 ix, v)]
        else tdefTarget ftk
 
 -- Note how ix being in bounds is checked. The semantics of the operation
@@ -806,7 +806,7 @@ tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
             in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                              (Foldable.toList $ shp)
                then IM.insertWith (+)
-                      (fromIntegral $ unConcrete $ toLinearIdxR shp ix2)
+                      (fromIntegral $ unConcrete $ ixrToLinear shp ix2)
                       (Concrete $ tindexNR (unConcrete t) ix)
                else id
           ivs = foldr g IM.empty (shrEnum' shm)
@@ -821,7 +821,7 @@ tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
             in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                              (Foldable.toList shp)
                then IM.insertWith (taddTarget knownSTK)
-                      (fromIntegral $ unConcrete $ toLinearIdxR shp ix2)
+                      (fromIntegral $ unConcrete $ ixrToLinear shp ix2)
                       (Concrete $ tindexNR (unConcrete t) ix)
                else id
           ivs = foldr g IM.empty (shrEnum' shm)
@@ -957,7 +957,7 @@ toneHotS v ix = case tftk knownSTK v of
     let ftk = FTKS (knownShS @sh1 `shsAppend` sh2) x
     in if ixInBounds (Foldable.toList $ fmapUnConcrete ix)
                      (shsToList (knownShS @sh1))
-       then manyHotNS @sh1 x [(fromIntegral $ unConcrete $ toLinearIdxS (knownShS @sh1) ix, v)]
+       then manyHotNS @sh1 x [(fromIntegral $ unConcrete $ ixsToLinear (knownShS @sh1) ix, v)]
        else tdefTarget ftk
 
 -- Note how ix being in bounds is checked. The semantics of the operation
@@ -981,7 +981,7 @@ tscatterZS @shm @shn @shp @x t f =
                in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                 (shsToList $ knownShS @shp)
                   then IM.insertWith (+)
-                         (fromIntegral $ unConcrete $ toLinearIdxS (knownShS @shp) ix2)
+                         (fromIntegral $ unConcrete $ ixsToLinear (knownShS @shp) ix2)
                          (Concrete $ tindexNS @_ @shm @shn (unConcrete t) ix)
                   else id
              ivs = foldr g IM.empty (shsEnum' shm)
@@ -995,7 +995,7 @@ tscatterZS @shm @shn @shp @x t f =
                in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                 (shsToList $ knownShS @shp)
                   then IM.insertWith (taddTarget knownSTK)
-                         (fromIntegral $ unConcrete $ toLinearIdxS (knownShS @shp) ix2)
+                         (fromIntegral $ unConcrete $ ixsToLinear (knownShS @shp) ix2)
                          (Concrete $ tindexNS @_ @shm @shn (unConcrete t) ix)
                   else id
              ivs = foldr g IM.empty (shsEnum' shm)
@@ -1148,7 +1148,7 @@ toneHotX sh1 v ix = case tftk knownSTK v of
     in if ixInBounds (Foldable.toList $ fmapUnConcrete ix)
                      (shxToList sh1)
        then withKnownShX (ssxFromShX sh1)
-            $ manyHotNX @sh1 ftk [(fromIntegral $ unConcrete $ toLinearIdxX sh1 ix, v)]
+            $ manyHotNX @sh1 ftk [(fromIntegral $ unConcrete $ ixxToLinear sh1 ix, v)]
        else tdefTarget ftk
 
 tscatterZX :: (KnownShX shm, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x)
@@ -1172,7 +1172,7 @@ tscatterZX @shm @shn @shp @x sh t f =
                in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                 (shxToList shp)
                   then IM.insertWith (+)
-                         (fromIntegral $ unConcrete $ toLinearIdxX shp ix2)
+                         (fromIntegral $ unConcrete $ ixxToLinear shp ix2)
                          (Concrete $ tindexNX @_ @shm @shn (unConcrete t) ix)
                   else id
              ivs = foldr g IM.empty (shxEnum' shm)
@@ -1187,7 +1187,7 @@ tscatterZX @shm @shn @shp @x sh t f =
                in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
                                 (shxToList shp)
                   then IM.insertWith (taddTarget knownSTK)
-                         (fromIntegral $ unConcrete $ toLinearIdxX shp ix2)
+                         (fromIntegral $ unConcrete $ ixxToLinear shp ix2)
                          (Concrete $ tindexNX @_ @shm @shn (unConcrete t) ix)
                   else id
              ivs = foldr g IM.empty (shxEnum' shm)
