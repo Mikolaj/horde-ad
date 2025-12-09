@@ -733,13 +733,12 @@ manyHotNR (FTKR shRanked x) upd | Dict <- eltDictRep (knownSTK @x)
                                             (Proxy @n)
                                             (Proxy @(Nothing @Nat)) = runST $ do
   let zero = unConcrete $ tdefTarget x
-      sh1 = shxFromShR $ shrTake @m shRanked
       sh = shxFromShR shRanked
   vecs <- Mixed.mvecsReplicate sh zero
     -- this avoids the slow case of mvecsReplicate if x is TKScalar
-  forM_ upd $ \(ix, v) -> do
-    let ixx = ixxFromLinear sh1 ix
-    Mixed.mvecsWritePartial sh1 ixx (Nested.rtoMixed $ unConcrete v) vecs
+  forM_ upd $ \(ix, v) ->
+    Mixed.mvecsWritePartialLinear
+      (Proxy @(Replicate m Nothing)) ix (Nested.rtoMixed $ unConcrete v) vecs
   Concrete . Nested.mtoRanked <$> Mixed.mvecsFreeze sh vecs
 
 tindexNR
@@ -906,13 +905,12 @@ manyHotNS x upd | Dict <- eltDictRep (knownSTK @x)
                 , Refl <- lemMapJustApp (knownShS @sh1)
                                         (Proxy @sh2) = runST $ do
   let zero = unConcrete $ tdefTarget x
-      sh1 = shxFromShS $ knownShS @sh1
       sh = shxFromShS shShaped
   vecs <- Mixed.mvecsReplicate sh zero
     -- this avoids the slow case of mvecsReplicate if x is TKScalar
-  forM_ upd $ \(ix, v) -> do
-    let ixx = ixxFromLinear sh1 ix
-    Mixed.mvecsWritePartial sh1 ixx (Nested.stoMixed $ unConcrete v) vecs
+  forM_ upd $ \(ix, v) ->
+    Mixed.mvecsWritePartialLinear
+      (Proxy @(MapJust sh1)) ix (Nested.stoMixed $ unConcrete v) vecs
   Concrete . Nested.mcastToShaped shShaped <$> Mixed.mvecsFreeze sh vecs
 
 tindexNS
@@ -1093,19 +1091,17 @@ liftVX
 {-# INLINE liftVX #-}
 liftVX f = Mixed.mliftNumElt1 (`liftVEltwise1` f)
 
-manyHotNX :: forall sh1 sh2 x. (KnownShX sh1, KnownSTK x)
+manyHotNX :: forall sh1 sh2 x. KnownSTK x
           => FullShapeTK (TKX2 (sh1 ++ sh2) x)
           -> [(Int, Concrete (TKX2 sh2 x))]
           -> Concrete (TKX2 (sh1 ++ sh2) x)
 {-# INLINE manyHotNX #-}
 manyHotNX (FTKX sh x) upd | Dict <- eltDictRep (knownSTK @x) = runST $ do
   let zero = unConcrete $ tdefTarget x
-      sh1 = shxTakeSSX (Proxy @sh2) (knownShX @sh1) sh
   vecs <- Mixed.mvecsReplicate sh zero
     -- this avoids the slow case of mvecsReplicate if x is TKScalar
-  forM_ upd $ \(ix, v) -> do
-    let ixx = ixxFromLinear sh1 ix
-    Mixed.mvecsWritePartial sh1 ixx (unConcrete v) vecs
+  forM_ upd $ \(ix, v) ->
+    Mixed.mvecsWritePartialLinear (Proxy @sh1) ix (unConcrete v) vecs
   Concrete <$> Mixed.mvecsFreeze sh vecs
 
 tindexNX
@@ -1147,8 +1143,7 @@ toneHotX sh1 v ix = case tftk knownSTK v of
     let ftk = FTKX (sh1 `shxAppend` sh2) x
     in if ixInBounds (Foldable.toList $ fmapUnConcrete ix)
                      (shxToList sh1)
-       then withKnownShX (ssxFromShX sh1)
-            $ manyHotNX @sh1 ftk [(fromIntegral $ unConcrete $ ixxToLinear sh1 ix, v)]
+       then manyHotNX @sh1 ftk [(fromIntegral $ unConcrete $ ixxToLinear sh1 ix, v)]
        else tdefTarget ftk
 
 tscatterZX :: (KnownShX shm, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x)
