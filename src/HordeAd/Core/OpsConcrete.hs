@@ -739,7 +739,7 @@ manyHotNR (FTKR shRanked x) upd | Dict <- eltDictRep (knownSTK @x)
   forM_ upd $ \(ix, v) ->
     Mixed.mvecsWritePartialLinear
       (Proxy @(Replicate m Nothing)) ix (Nested.rtoMixed $ unConcrete v) vecs
-  Concrete . Nested.mtoRanked <$> Mixed.mvecsFreeze sh vecs
+  Concrete . Nested.mtoRanked <$> Mixed.mvecsUnsafeFreeze sh vecs
 
 tindexNR
   :: Nested.Elt x
@@ -911,7 +911,7 @@ manyHotNS x upd | Dict <- eltDictRep (knownSTK @x)
   forM_ upd $ \(ix, v) ->
     Mixed.mvecsWritePartialLinear
       (Proxy @(MapJust sh1)) ix (Nested.stoMixed $ unConcrete v) vecs
-  Concrete . Nested.mcastToShaped shShaped <$> Mixed.mvecsFreeze sh vecs
+  Concrete . Nested.mcastToShaped shShaped <$> Mixed.mvecsUnsafeFreeze sh vecs
 
 tindexNS
   :: Nested.Elt x
@@ -1102,7 +1102,7 @@ manyHotNX (FTKX sh x) upd | Dict <- eltDictRep (knownSTK @x) = runST $ do
     -- this avoids the slow case of mvecsReplicate if x is TKScalar
   forM_ upd $ \(ix, v) ->
     Mixed.mvecsWritePartialLinear (Proxy @sh1) ix (unConcrete v) vecs
-  Concrete <$> Mixed.mvecsFreeze sh vecs
+  Concrete <$> Mixed.mvecsUnsafeFreeze sh vecs
 
 tindexNX
   :: Nested.Elt x
