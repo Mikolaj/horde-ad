@@ -7,7 +7,7 @@
 -- Large portions of this module are copied to HordeAd.Core.UnwindNum
 -- in order to have more accurate typing and pattern exhaustiveness checks.
 module HordeAd.Core.Unwind
-  ( defTarget, concreteTarget
+  ( concreteTarget
   , toADTensorKindShared, fromADTensorKindShared
   ) where
 
@@ -70,16 +70,6 @@ data FullShapeTKW y where
   WFTKProduct :: FullShapeTKW y -> FullShapeTKW z
               -> FullShapeTKW (TKProduct y z)
 
-defRepW :: forall y target. BaseTensor target
-        => FullShapeTKW y -> RepW target y
-defRepW = \case
-  WFTKScalar -> WTKScalar $ kconcrete def
-  WFTKR sh -> WTKR $ rrepl sh def
-  WFTKS sh -> WTKS $ sconcrete $ Nested.sreplicatePrim sh def
-  WFTKX sh -> WTKX $ xrepl sh def
-  WFTKProduct ftk1 ftk2 ->
-    WTKProduct (defRepW ftk1) (defRepW ftk2)
-
 concreteRepW
   :: forall y target. (ConvertTensor Concrete, ConvertTensor target)
   => (forall r. GoodScalar r => Concrete (TKScalar r) -> target (TKScalar r))
@@ -137,19 +127,19 @@ fromADTensorKindW stk t = case (stk, t) of
   (STKScalar @r1, WTKScalar @r2 _) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> defRepW WFTKScalar
+      _ -> WTKScalar $ kconcrete def  -- def is Z1 here
   (STKR _ (STKScalar @r1), WTKR @r2 v) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> defRepW (WFTKR (rshape v))
+      _ -> WTKR $ rrepl (rshape v) def
   (STKS sh (STKScalar @r1), WTKS @r2 _) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> defRepW (WFTKS sh)
+      _ -> WTKS $ sconcrete $ Nested.sreplicatePrim sh def
   (STKX _ (STKScalar @r1), WTKX @r2 v) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> defRepW (WFTKX (xshape v))
+      _ -> WTKX $ xrepl (xshape v) def
   (STKProduct stk1 stk2, WTKProduct t1 t2) ->
     WTKProduct (fromADTensorKindW stk1 t1) (fromADTensorKindW stk2 t2)
   _ -> error "fromADTensorKindW: impossible SingletonTK"
@@ -369,12 +359,6 @@ windTarget stk t = case (stk, t) of
 
 
 -- * Operations defined using unwinding
-
--- | Replicate the default value along the given full shape singleton.
-defTarget :: forall y target. (BaseTensor target, ConvertTensor target)
-          => FullShapeTK y -> target y
-defTarget ftk =
-  windTarget (ftkToSTK ftk) $ defRepW (unWindFTK ftk)
 
 concreteTarget
   :: forall y target. (ConvertTensor Concrete, ConvertTensor target)

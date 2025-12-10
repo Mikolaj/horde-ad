@@ -33,7 +33,6 @@ import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Core.Unwind
 
 -- * Type family instances for AstTensor
 
@@ -1208,16 +1207,14 @@ instance (AstSpan s, NumScalar r)
 instance (AstSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKS sh r) where
   vUnshared ==. uUnshared = astLetFunNoSimplify (uUnshared - vUnshared) $ \uv ->
-    let zero = fromPlain $ AstConcreteS $ unConcrete
-               $ defTarget $ ftkAst vUnshared
+    let zero = fromPlain $ AstConcreteS $ defTargetRep $ ftkAst vUnshared
     in zero <=. uv &&* uv <=. zero
 
 instance (AstSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKS sh r) where
   vUnshared ==. uUnshared =
     let uv = astShareNoSimplify (uUnshared - vUnshared)
-        zero = fromPlain $ AstConcreteS $ unConcrete
-               $ defTarget $ ftkAst vUnshared
+        zero = fromPlain $ AstConcreteS $ defTargetRep $ ftkAst vUnshared
     in zero <=. uv &&* uv <=. zero
 
 -- These are common in indexing, so worth optimizing early via AstConcrete.

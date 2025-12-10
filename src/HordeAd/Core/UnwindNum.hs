@@ -7,7 +7,7 @@
 -- Large portions of this module are a copy of HordeAd.Core.Unwind
 -- with the addition of the @Num@ constraint on the underlying scalars.
 module HordeAd.Core.UnwindNum
-  ( replTarget, addTarget, multTarget, sum0Target, dot0Target
+  ( addTarget, multTarget, sum0Target, dot0Target
   ) where
 
 import Prelude
@@ -17,7 +17,6 @@ import Data.Type.Equality (gcastWith, (:~:))
 import GHC.TypeLits (type (+))
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
@@ -65,18 +64,6 @@ data FullShapeTKW y where
         => IShX sh -> FullShapeTKW (TKX sh r)
   WFTKProduct :: FullShapeTKW y -> FullShapeTKW z
               -> FullShapeTKW (TKProduct y z)
-
-replRepW :: forall y target. BaseTensor target
-         => (forall r. NumScalar r => r)
-         -> FullShapeTKW y -> RepW target y
-{-# INLINE replRepW #-}
-replRepW r = \case
-  WFTKScalar -> WTKScalar $ kconcrete r
-  WFTKR sh -> WTKR $ rrepl sh r
-  WFTKS sh -> WTKS $ sconcrete $ Nested.sreplicatePrim sh r
-  WFTKX sh -> WTKX $ xrepl sh r
-  WFTKProduct ftk1 ftk2 ->
-    WTKProduct (replRepW r ftk1) (replRepW r ftk2)
 
 addRepW :: forall y target. BaseTensor target
         => RepW target y -> RepW target y -> RepW target y
@@ -318,16 +305,6 @@ windTarget stk t = case (stk, t) of
 
 
 -- * Operations defined using unwinding
-
--- | Replicate a scalar along the given full shape singleton.
-replTarget :: forall y target.
-              (TKAllNum y, BaseTensor target, ConvertTensor target)
-           => (forall r. NumScalar r => r)
-           -> FullShapeTK y -> target y
-{-# INLINE replTarget #-}
-replTarget r ftk =
-  gcastWith (unsafeCoerceRefl :: TKAllNum (UnWind y) :~: TKAllNum y)
-  $ windTarget (ftkToSTK ftk) $ replRepW r (unWindFTK ftk)
 
 -- | Add two (nested pairs of) tensors. Requires duplicable arguments
 -- or a `ShareTensor` instance.
