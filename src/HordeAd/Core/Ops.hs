@@ -25,7 +25,7 @@ module HordeAd.Core.Ops
   , AllTargetShow, CommonTargetEqOrd
     -- * Helper functions
   , rtr, rflatten, str, sflatten, xtr, xflatten
-  , tmapAccumR, tmapAccumL
+  , tmapAccumR, tmapAccumL, treplTarget, tdefTarget
     -- * Helper classes and types
   , IntegralHAndIntElt, RealFloatAndFloatElt
   , TensorSupportsX, TensorSupportsS, TensorSupportsR, TensorSupports
@@ -139,6 +139,16 @@ tmapAccumL proxy !k !accftk !bftk !eftk f acc0 es =
                    (tjvp @target xftk $ HFun fl)
                    (tvjp @target xftk $ HFun fl)
                    acc0 es
+
+-- | Construct tensors with the given constant in each cell.
+treplTarget :: (TKAllNum y, BaseTensor target)
+            => (forall r. NumScalar r => r) -> FullShapeTK y -> target y
+treplTarget r ftk = tconcrete ftk $ Concrete $ replTargetRep r ftk
+
+-- | Construct tensors with @def@ in each cell.
+tdefTarget :: BaseTensor target
+           => FullShapeTK y -> target y
+tdefTarget ftk = tconcrete ftk $ Concrete $ defTargetRep ftk
 
 type TensorSupports :: (Type -> Constraint) -> (Type -> Constraint)
                     -> Target -> Constraint
@@ -1127,11 +1137,6 @@ class ( Num (IntOf target)
                (tindexBuild snat stk2 u2 i)
 
   -- Unwinding methods, needed mostly to split off the Unwind module.
-  -- | Construct tensors with the given constant in each cell.
-  treplTarget :: TKAllNum y
-              => (forall r. NumScalar r => r) -> FullShapeTK y -> target y
-  -- | Construct tensors with @def@ in each cell.
-  tdefTarget :: FullShapeTK y -> target y
   -- | Add pointwise all corresponding tensors within nested product, if any.
   --
   -- Requires duplicable arguments or a ShareTensor instance.

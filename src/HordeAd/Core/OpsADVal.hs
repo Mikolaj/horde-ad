@@ -575,8 +575,6 @@ instance ( ADReadyNoLet target, ShareTensor target
   tfromDual t = dDnotShared (tdefTarget (ftkDelta t)) t
   tfromPlain stk t = fromPrimalFTK (tftk stk t) (tfromPlain stk t)
   tScale _stk = dScale
-  treplTarget r ftk = dDnotShared (treplTarget r ftk) (DeltaZero ftk)
-  tdefTarget ftk = dDnotShared (tdefTarget ftk) (DeltaZero ftk)
   taddTarget = addTarget
   tmultTarget = multTarget
   tsum0Target = sum0Target

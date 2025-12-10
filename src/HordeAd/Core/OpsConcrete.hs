@@ -49,7 +49,6 @@ import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.Core.Unwind
 import HordeAd.Core.UnwindNum
 
 -- * Tensor classes instance
@@ -508,12 +507,11 @@ instance BaseTensor Concrete where
   tfromDual (DummyDualTarget ftk) = tdefTarget ftk
   tfromPlain _ t = t
   tScale _ _ t = t
-  treplTarget = replTarget
-  tdefTarget = defTarget
   taddTarget = addTarget
   tmultTarget = multTarget
   tsum0Target = sum0Target
   tdot0Target = dot0Target
+
 
 instance ConvertTensor Concrete where
   {-# INLINE tconvert #-}

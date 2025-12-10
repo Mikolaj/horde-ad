@@ -7,22 +7,27 @@
 module HordeAd.Core.CarriersConcrete
   ( -- * RepConcrete and its operations
     RepConcrete, tftkG, eltDictRep, showDictRep
-    -- * Concrete and its operations
+  , replTargetRep, defTargetRep
+    -- * Concrete and its instances
   , Concrete(..), rtoVector, stoVector, xtoVector
   ) where
 
 import Prelude hiding (foldl')
 
 import Control.DeepSeq (NFData (..))
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Storable qualified as VS
 
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked qualified as Ranked
 import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Strided.Orthotope (liftVEltwise1)
+import Data.Default
 
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -208,6 +213,47 @@ nfdataDictRep = \case
              , Dict <- eltDictRep x -> Dict
     STKProduct stk1 stk2 | Dict <- nfdataDictRep stk1
                          , Dict <- nfdataDictRep stk2 -> Dict
+
+replTargetRep :: TKAllNum y
+              => (forall r. NumScalar r => r) -> FullShapeTK y -> RepConcrete y
+replTargetRep r = \case
+  FTKScalar @r | Dict0 <- numFromTKAllNum (Proxy @r) -> r
+  FTKR sh (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
+    Nested.rreplicatePrim sh r
+  FTKS @sh sh (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r)
+                             , Refl <- lemAppNil @sh ->
+    Nested.sreplicatePrim sh r
+  FTKX @sh sh (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r)
+                             , Refl <- lemAppNil @sh ->
+    Nested.mreplicatePrim sh r
+  FTKR sh x | Dict <- eltDictRep (ftkToSTK x) ->
+    Nested.rreplicate sh $ Nested.rscalar $ replTargetRep r x
+  FTKS @sh sh x | Dict <- eltDictRep (ftkToSTK x)
+                , Refl <- lemAppNil @sh ->
+    Nested.sreplicate sh $ Nested.sscalar $ replTargetRep r x
+  FTKX @sh sh x | Dict <- eltDictRep (ftkToSTK x)
+                , Refl <- lemAppNil @sh ->
+    Nested.mreplicate sh $ Nested.mscalar $ replTargetRep r x
+  FTKProduct ftk1 ftk2 -> (replTargetRep r ftk1, replTargetRep r ftk2)
+
+defTargetRep :: FullShapeTK y -> RepConcrete y
+defTargetRep = \case
+  FTKScalar -> def
+  FTKR sh FTKScalar ->
+    Nested.rreplicatePrim sh def
+  FTKS @sh sh FTKScalar | Refl <- lemAppNil @sh ->
+    Nested.sreplicatePrim sh def
+  FTKX @sh sh FTKScalar | Refl <- lemAppNil @sh ->
+    Nested.mreplicatePrim sh def
+  FTKR sh x | Dict <- eltDictRep (ftkToSTK x) ->
+    Nested.rreplicate sh $ Nested.rscalar $ defTargetRep x
+  FTKS @sh sh x | Dict <- eltDictRep (ftkToSTK x)
+                , Refl <- lemAppNil @sh ->
+    Nested.sreplicate sh $ Nested.sscalar $ defTargetRep x
+  FTKX @sh sh x | Dict <- eltDictRep (ftkToSTK x)
+                , Refl <- lemAppNil @sh ->
+    Nested.mreplicate sh $ Nested.mscalar $ defTargetRep x
+  FTKProduct ftk1 ftk2 -> (defTargetRep ftk1, defTargetRep ftk2)
 
 
 -- * Concrete and its instances

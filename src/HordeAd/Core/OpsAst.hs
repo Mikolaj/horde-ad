@@ -715,8 +715,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tfromDual = fromDual
   tfromPlain _ = fromPlain
 
-  treplTarget = replTarget
-  tdefTarget = defTarget
   taddTarget = addTarget
   tmultTarget = multTarget
   tsum0Target = sum0Target
@@ -1187,8 +1185,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tfromDual t = AstRaw $ fromDual t
   tfromPlain _ t = AstRaw $ fromPlain $ unAstRaw t
 
-  treplTarget = replTarget
-  tdefTarget = defTarget
   taddTarget = addTarget
   tmultTarget = multTarget
   tsum0Target = sum0Target
@@ -1475,8 +1471,6 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tfromDual t = AstNoVectorize $ tfromDual t
   tfromPlain stk t = AstNoVectorize $ tfromPlain stk $ unAstNoVectorize t
 
-  treplTarget r ftk = AstNoVectorize $ treplTarget r ftk
-  tdefTarget = AstNoVectorize . tdefTarget
   taddTarget stk a b = AstNoVectorize $ taddTarget stk (unAstNoVectorize a)
                                                        (unAstNoVectorize b)
   tmultTarget stk a b = AstNoVectorize $ tmultTarget stk (unAstNoVectorize a)
@@ -1718,8 +1712,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tfromPrimal stk t = wAstNoSimplify $ tfromPrimal stk $ wunAstNoSimplify t
   tfromPlain stk t = wAstNoSimplify $ tfromPlain stk $ wunAstNoSimplify t
 
-  treplTarget r ftk = wAstNoSimplify $ treplTarget r ftk
-  tdefTarget = wAstNoSimplify . tdefTarget
   taddTarget stk a b = wAstNoSimplify $ taddTarget stk (wunAstNoSimplify a)
                                                        (wunAstNoSimplify b)
   tmultTarget stk a b = wAstNoSimplify $ tmultTarget stk (wunAstNoSimplify a)
