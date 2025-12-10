@@ -324,6 +324,8 @@ instance (NumScalar r, AstSpan s)
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int16)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int8)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int8)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int)) #-}
+  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar CInt)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar CInt)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Double)) #-}
@@ -420,6 +422,8 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int16)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int8)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int8)) #-}
+  {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int)) #-}
+  {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar CInt)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar CInt)) #-}
 

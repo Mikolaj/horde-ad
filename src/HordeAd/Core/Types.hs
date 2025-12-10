@@ -150,6 +150,7 @@ type family TKAllNum (y :: TK) :: Constraint where
   TKAllNum (TKScalar Int32) = ()
   TKAllNum (TKScalar Int16) = ()
   TKAllNum (TKScalar Int8) = ()
+  TKAllNum (TKScalar Int) = ()
   TKAllNum (TKScalar CInt) = ()
   TKAllNum (TKScalar Double) = ()
   TKAllNum (TKScalar Float) = ()
@@ -374,6 +375,10 @@ instance IntegralH Int16 where
   remH a b = if b == 0 then a else rem a b
 
 instance IntegralH Int8 where
+  quotH a b = if b == 0 then a else quot a b
+  remH a b = if b == 0 then a else rem a b
+
+instance IntegralH Int where
   quotH a b = if b == 0 then a else quot a b
   remH a b = if b == 0 then a else rem a b
 

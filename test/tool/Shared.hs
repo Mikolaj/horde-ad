@@ -53,6 +53,9 @@ instance HasShape Int16 where
 instance HasShape Int8 where
   shapeL _ = []
 
+instance HasShape Int where
+  shapeL _ = []
+
 instance HasShape CInt where
   shapeL _ = []
 
@@ -94,6 +97,9 @@ instance Linearizable Int16 Int16 where
   linearize x = [x]
 
 instance Linearizable Int8 Int8 where
+  linearize x = [x]
+
+instance Linearizable Int Int where
   linearize x = [x]
 
 instance Linearizable CInt CInt where

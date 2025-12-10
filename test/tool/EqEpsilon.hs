@@ -171,6 +171,9 @@ instance AssertEqualUpToEpsilon Int16 where
 instance AssertEqualUpToEpsilon Int8 where
   assertEqualUpToEpsilonWithMsg = assert_close_eps ""
 
+instance AssertEqualUpToEpsilon Int where
+  assertEqualUpToEpsilonWithMsg = assert_close_eps ""
+
 instance AssertEqualUpToEpsilon CInt where
   assertEqualUpToEpsilonWithMsg = assert_close_eps ""
 
