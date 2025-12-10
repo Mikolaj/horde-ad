@@ -17,7 +17,6 @@ import Data.Coerce (Coercible, coerce)
 import Data.Default
 import Data.Foldable qualified as Foldable
 import Data.Function ((&))
-import Data.Int (Int64)
 import Data.IntMap.Strict qualified as IM
 import Data.List (foldl', mapAccumL, mapAccumR, scanl')
 import Data.List.NonEmpty qualified as NonEmpty
@@ -653,7 +652,7 @@ fmapUnConcrete :: Coercible (f (Concrete y)) (f (RepConcrete y))
                => f (Concrete y) -> f (RepConcrete y)
 fmapUnConcrete = coerce
 
-ixInBounds :: [Int64] -> [Int] -> Bool
+ixInBounds :: [Int] -> [Int] -> Bool
 {-# INLINE ixInBounds #-}
 ixInBounds ix sh =
   and $ zipWith (\i dim -> 0 <= i && i < fromIntegral dim) ix sh
@@ -742,7 +741,7 @@ manyHotNR (FTKR shRanked x) upd | Dict <- eltDictRep (knownSTK @x)
 
 tindexNR
   :: Nested.Elt x
-  => Nested.Ranked (m + n) x -> IxR m Int64 -> Nested.Ranked n x
+  => Nested.Ranked (m + n) x -> IxR m Int -> Nested.Ranked n x
 {-# INLINE tindexNR #-}  -- the function is just a wrapper
 tindexNR v ix = Nested.rindexPartial v (fmap fromIntegral ix)
 
@@ -809,7 +808,7 @@ tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
        (_, FTKR _ (FTKScalar @r)) | Dict0 <- numFromTKAllNum (Proxy @r) ->
          -- Optimized: using (+) instead of taddTarget.
          let ftk = FTKR sh FTKScalar
-             g :: IxR m Int64
+             g :: IxR m Int
                -> IM.IntMap (Concrete (TKR2 n x))
                -> IM.IntMap (Concrete (TKR2 n x))
              g ix =
@@ -824,7 +823,7 @@ tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
          in manyHotNR ftk $ IM.assocs ivs
        (_, FTKR _ x) ->
          let ftk = FTKR sh x
-             g :: IxR m Int64
+             g :: IxR m Int
                -> IM.IntMap (Concrete (TKR2 n x))
                -> IM.IntMap (Concrete (TKR2 n x))
              g ix =
@@ -927,7 +926,7 @@ manyHotNS x upd | Dict <- eltDictRep (knownSTK @x)
 
 tindexNS
   :: Nested.Elt x
-  => Nested.Shaped (sh1 ++ sh2) x -> IxS sh1 Int64 -> Nested.Shaped sh2 x
+  => Nested.Shaped (sh1 ++ sh2) x -> IxS sh1 Int -> Nested.Shaped sh2 x
 {-# INLINE tindexNS #-}  -- the function is just a wrapper
 tindexNS v ix = Nested.sindexPartial v (fmap fromIntegral ix)
 
@@ -998,7 +997,7 @@ tscatterZS @shm @shn @shp @x t f =
          Concrete . Nested.sfromVector shp <$> VS.unsafeFreeze vec
        (_, FTKS _ (FTKScalar @r)) | Dict0 <- numFromTKAllNum (Proxy @r) ->
          -- Optimized: using (+) instead of taddTarget.
-         let g :: IxS shm Int64
+         let g :: IxS shm Int
                -> IM.IntMap (Concrete (TKS2 shn x))
                -> IM.IntMap (Concrete (TKS2 shn x))
              g ix =
@@ -1012,7 +1011,7 @@ tscatterZS @shm @shn @shp @x t f =
              ivs = foldr g IM.empty (shsEnum' shm)
          in manyHotNS @shp FTKScalar $ IM.assocs ivs
        (_, FTKS _ x) | Dict <- eltDictRep (ftkToSTK x) ->
-         let g :: IxS shm Int64
+         let g :: IxS shm Int
                -> IM.IntMap (Concrete (TKS2 shn x))
                -> IM.IntMap (Concrete (TKS2 shn x))
              g ix =
@@ -1133,7 +1132,7 @@ manyHotNX (FTKX sh x) upd | Dict <- eltDictRep (knownSTK @x) = runST $ do
 
 tindexNX
   :: Nested.Elt x
-  => Nested.Mixed (sh1 ++ sh2) x -> IxX sh1 Int64 -> Nested.Mixed sh2 x
+  => Nested.Mixed (sh1 ++ sh2) x -> IxX sh1 Int -> Nested.Mixed sh2 x
 {-# INLINE tindexNX #-}  -- the function is just a wrapper
 tindexNX v ix = Nested.mindexPartial v (fmap fromIntegral ix)
 
@@ -1202,7 +1201,7 @@ tscatterZX @shm @shn @shp @x sh t f =
          -- TODO: write to vecs and use a bitmap to record the written indexes
          -- and the intmap only for subsequent writes
          let ftk = FTKX sh FTKScalar
-             g :: IxX shm Int64
+             g :: IxX shm Int
                -> IM.IntMap (Concrete (TKX2 shn x))
                -> IM.IntMap (Concrete (TKX2 shn x))
              g ix =
@@ -1219,7 +1218,7 @@ tscatterZX @shm @shn @shp @x sh t f =
          -- TODO: write to vecs and use a bitmap to record the written indexes
          -- and the intmap only for subsequent writes
          let ftk = FTKX sh x
-             g :: IxX shm Int64
+             g :: IxX shm Int
                -> IM.IntMap (Concrete (TKX2 shn x))
                -> IM.IntMap (Concrete (TKX2 shn x))
              g ix =

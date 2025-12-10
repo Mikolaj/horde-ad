@@ -22,7 +22,6 @@ module HordeAd.Core.AstTools
 import Prelude hiding (foldl')
 
 import Control.Exception.Assert.Sugar
-import Data.Int (Int64)
 import Data.IORef
 import Data.Maybe (isJust)
 import Data.Proxy (Proxy (Proxy))
@@ -148,7 +147,7 @@ isTensorInt :: forall s y ms. AstSpan s
             => Proxy s -> FullShapeTK y
             -> Maybe (AstTensor ms s y :~: AstInt ms)
 isTensorInt _ ftk = case ftk of
-  FTKScalar @r -> case ( testEquality (typeRep @r) (typeRep @Int64)
+  FTKScalar @r -> case ( testEquality (typeRep @r) (typeRep @Int)
                        , sameAstSpan @s @PlainSpan ) of
                     (Just Refl, Just Refl) -> Just Refl
                     _ -> Nothing

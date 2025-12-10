@@ -34,7 +34,6 @@ module HordeAd.Core.Ops
 import Prelude
 
 import Data.Foldable qualified as Foldable
-import Data.Int (Int64)
 import Data.Kind (Constraint, Type)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
@@ -606,7 +605,7 @@ class ( Num (IntOf target)
            => target (TKR m r) -> IxROf target m -> target (TKScalar r)
   troneHot :: ( KnownNat m, KnownNat n, TKAllNum x, KnownSTK x
               , PlainOf (PlainOf target) ~ PlainOf target
-              , EqH (PlainOf target) (TKScalar Int64))
+              , EqH (PlainOf target) (TKScalar Int))
            => IShR m -> target (TKR2 n x) -> IxROf target m
            -> target (TKR2 (m + n) x)
   {-# INLINE troneHot #-}
@@ -660,7 +659,7 @@ class ( Num (IntOf target)
            => target (TKS sh1 r) -> IxSOf target sh1 -> target (TKScalar r)
   tsoneHot :: ( KnownShS sh1, KnownShS sh2, TKAllNum x, KnownSTK x
               , PlainOf (PlainOf target) ~ PlainOf target
-              , EqH (PlainOf target) (TKScalar Int64) )
+              , EqH (PlainOf target) (TKScalar Int) )
            => target (TKS2 sh2 x) -> IxSOf target sh1
            -> target (TKS2 (sh1 ++ sh2) x)
   {-# INLINE tsoneHot #-}  -- this doesn't want to specialize
@@ -712,7 +711,7 @@ class ( Num (IntOf target)
            => target (TKX sh1 r) -> IxXOf target sh1 -> target (TKScalar r)
   txoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
               , PlainOf (PlainOf target) ~ PlainOf target
-              , EqH (PlainOf target) (TKScalar Int64), ConvertTensor target )
+              , EqH (PlainOf target) (TKScalar Int), ConvertTensor target )
            => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
            -> target (TKX2 (sh1 ++ sh2) x)
   {-# INLINE txoneHot #-}

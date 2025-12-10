@@ -62,7 +62,7 @@ rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
 rint64FromIndex1 :: forall n target.
                     ( KnownNat n
                     , BaseTensor target, BaseTensor (PrimalOf target) )
-                 => IxROf target n -> target (TKR Int64 1)
+                 => IxROf target n -> target (TKR Int 1)
 rint64FromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
   Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
   _ -> rfromPrimal . rfromList . NonEmpty.fromList . indexToList
@@ -70,7 +70,7 @@ rint64FromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
 rint64ToIndex1 :: forall n target.
                   ( KnownNat n
                   , BaseTensor target, BaseTensor (PrimalOf target) )
-               => target (TKR Int64 1) -> IxROf target n
+               => target (TKR Int 1) -> IxROf target n
 rint64ToIndex1 v = listToIndex $ runravelToList $ rprimalPart v
 
 tletIx :: ( KnownNat n, KnownNat m, NumScalar r

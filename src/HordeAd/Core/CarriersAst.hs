@@ -1243,15 +1243,15 @@ instance (AstSpan s, NumScalar r)
     AstConcreteK (negate v) <=. negate u
   AstConcreteK u <=. AstTimesK (AstConcreteK v) w
     | v > 0 && u >= 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
       AstConcreteK ((u + v - 1) `quotH` v) <=. w -- 10 == 5 * 2, 11 > 5 * 2
   AstConcreteK u <=. AstTimesK (AstConcreteK v) w
     | v > 0 && u < 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
       AstConcreteK (u `quotH` v) <=. w  -- -10 == 5 * -2, -9 > 5 * -2
   AstConcreteK u <=. AstTimesK (AstConcreteK v) w
     | v < 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
       AstConcreteK u <=. AstTimesK (AstConcreteK $ negate v) (AstN1K NegateOp w)
   v@AstConcreteK{} <=. u = AstLeqK v u
   u <=. AstPlusK (AstFromPlain (AstConcreteK v)) w =
@@ -1262,17 +1262,17 @@ instance (AstSpan s, NumScalar r)
     AstFromPlain (AstConcreteK (negate v)) <=. negate u
   AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK v)) w
     | v > 0 && u >= 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
       AstFromPlain (AstConcreteK ((u + v - 1) `quotH` v)) <=. w
         -- 10 == 5 * 2, 11 > 5 * 2
   AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK v)) w
     | v > 0 && u < 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
       AstFromPlain (AstConcreteK (u `quotH` v)) <=. w
         -- -10 == 5 * -2, -9 > 5 * -2
   AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK v)) w
     | v < 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
       AstFromPlain (AstConcreteK u)
       <=. AstTimesK (AstFromPlain (AstConcreteK $ negate v)) (AstN1K NegateOp w)
   AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)

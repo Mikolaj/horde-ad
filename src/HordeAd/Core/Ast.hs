@@ -38,7 +38,6 @@ import Prelude hiding (foldl')
 
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Functor.Const
-import Data.Int (Int64)
 import Data.Kind (Type)
 import Data.Some
 import Data.Type.Equality (TestEquality (..), (:~:) (Refl))
@@ -201,7 +200,7 @@ intToAstVarId = AstVarId
 type role AstVarName phantom nominal
 data AstVarName :: AstSpanType -> TK -> Type where
   AstVarName :: forall s y.
-                FullShapeTK y -> Int64 -> Int64 -> AstVarId
+                FullShapeTK y -> Int -> Int -> AstVarId
              -> AstVarName s y
 
 instance Eq (AstVarName s y) where
@@ -219,14 +218,14 @@ instance DMap.Enum1 (AstVarName s) where
     Some $ AstVarName ftk minb maxb $ toEnum varIdInt
 
 type role FtkAndBounds nominal
-data FtkAndBounds y = FtkAndBounds (FullShapeTK y) Int64 Int64
+data FtkAndBounds y = FtkAndBounds (FullShapeTK y) Int Int
 
 instance TestEquality (AstVarName s) where
   testEquality (AstVarName ftk1 _ _ _) (AstVarName ftk2 _ _ _) =
     matchingFTK ftk1 ftk2
 
 mkAstVarName :: forall s y.
-                FullShapeTK y -> Maybe (Int64, Int64) -> AstVarId
+                FullShapeTK y -> Maybe (Int, Int) -> AstVarId
              -> AstVarName s y
 mkAstVarName ftk Nothing = AstVarName ftk (-1000000000) 1000000000
 mkAstVarName ftk (Just (minb, maxb)) = AstVarName ftk minb maxb
@@ -237,7 +236,7 @@ varNameToAstVarId (AstVarName _ _ _ varId) = varId
 varNameToFTK :: AstVarName s y -> FullShapeTK y
 varNameToFTK (AstVarName ftk _ _ _) = ftk
 
-varNameToBounds :: AstVarName s y -> Maybe (Int64, Int64)
+varNameToBounds :: AstVarName s y -> Maybe (Int, Int)
 varNameToBounds (AstVarName _ minb maxb _) =
   if minb == -1000000000 && maxb == 1000000000
   then Nothing
@@ -247,7 +246,7 @@ astVar :: AstSpan s
        => AstVarName s y -> AstTensor ms s y
 astVar (AstVarName (FTKScalar @r) lb ub _)
   | lb == ub
-  , Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+  , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
     fromPlain $ AstConcreteK lb
 astVar varName = AstVar varName
 
@@ -275,10 +274,10 @@ data AstArtifactFwd x z = AstArtifactFwd
 
 -- | This is the (arbitrarily) chosen representation of terms denoting
 -- integers in the indexes of tensor operations.
-type AstInt ms = AstTensor ms PlainSpan (TKScalar Int64)
+type AstInt ms = AstTensor ms PlainSpan (TKScalar Int)
 -- ~ IntOf (AstTensor ms s)
 
-type IntVarName = AstVarName PlainSpan (TKScalar Int64)
+type IntVarName = AstVarName PlainSpan (TKScalar Int)
 
 pattern AstIntVar :: IntVarName -> AstInt ms
 pattern AstIntVar var <- AstVar var
@@ -297,7 +296,7 @@ pattern AstLeqInt t u <- (matchAstLeqInt -> Just (t, u))
 
 matchAstLeqInt :: AstBool ms -> Maybe (AstInt ms, AstInt ms)
 matchAstLeqInt (AstLeqK @r t u)
-  | Just Refl <- testEquality (typeRep @r) (typeRep @Int64) =
+  | Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
       Just (t, u)
 matchAstLeqInt _ = Nothing
 

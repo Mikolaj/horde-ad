@@ -53,7 +53,6 @@ import Data.Foldable qualified as Foldable
 import Data.Functor.Const
 import Data.Functor.Product qualified as Fun
 import Data.GADT.Compare
-import Data.Int (Int64)
 import Data.List (findIndex)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
@@ -4060,8 +4059,8 @@ astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
 astLetFun = astLetFunBounds Nothing
 
 astLetFunB :: forall z s s2. (AstSpan s, AstSpan s2)
-           => AstTensor AstMethodLet s (TKScalar Int64)
-           -> (AstTensor AstMethodLet s (TKScalar Int64)
+           => AstTensor AstMethodLet s (TKScalar Int)
+           -> (AstTensor AstMethodLet s (TKScalar Int)
                -> AstTensor AstMethodLet s2 z)
            -> AstTensor AstMethodLet s2 z
 {-# INLINE astLetFunB #-}
@@ -4070,7 +4069,7 @@ astLetFunB w = astLetFunBounds (Just $ bounds w) w
 -- INLINE here would bloat the binary a lot, probably negating any
 -- gains from directly calling the function. Also, this is not a bottleneck.
 astLetFunBounds :: forall y z s s2. (AstSpan s, AstSpan s2)
-                => Maybe (Int64, Int64) -> AstTensor AstMethodLet s y
+                => Maybe (Int, Int) -> AstTensor AstMethodLet s y
                 -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
                 -> AstTensor AstMethodLet s2 z
 astLetFunBounds _ a f | astIsSmall True a = f a

@@ -271,7 +271,7 @@ instance (NumScalar r, ShareTensor f, ADReadyNoLet f)
 {- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Double)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Float)) #-}
-  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKScalar Int)) #-}
 -}
 
 instance (TKAllNum (TKR n x), Num (f (TKR n x)), ShareTensor f, ADReadyNoLet f)
@@ -327,13 +327,13 @@ instance ( TKAllNum (TKX sh x), Num (f (TKX sh x)), ShareTensor f
 {- TODO: RULE left-hand side too complicated to desugar
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Double)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Float)) #-}
-  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKR n Int)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKS sh Double)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKS sh Float)) #-}
-  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKS sh Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKS sh Int)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKX sh Double)) #-}
   {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKX sh Float)) #-}
-  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKX sh Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => Num (ADVal Concrete (TKX sh Int)) #-}
 -}
 
 instance (TKAllNum z, Num (ADVal f z), Real (f z), ADReadyNoLet f)
@@ -349,9 +349,9 @@ instance (TKAllNum z, Num (ADVal f z), IntegralH (f z), ADReadyNoLet f)
   -- The constraints in the pragmas below are needed only to avoid
   -- module import cycles.
 {- TODO: RULE left-hand side too complicated to desugar
-  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKR n Int64)) #-}
-  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKS sh Int64)) #-}
-  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKX sh Int64)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKR n Int)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKS sh Int)) #-}
+  {-# SPECIALIZE instance (ShareTensor Concrete, ADReadyNoLet Concrete) => IntegralH (ADVal Concrete (TKX sh Int)) #-}
 -}
 
 -- This is copied from below to permit fromRational for TKScalar.

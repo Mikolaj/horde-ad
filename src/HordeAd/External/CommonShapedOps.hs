@@ -59,7 +59,7 @@ sletIx :: forall r sh n target.
           (ADReady target, NumScalar r, KnownShS sh, KnownNat n)
        => IxROf target n -> (IxROf target n -> target (TKS sh r))
        -> target (TKS sh r)
-sletIx ix0 f = tlet (sfromR @target @Int64 @'[n]
+sletIx ix0 f = tlet (sfromR @target @Int @'[n]
                      $ rint64FromIndex1 ix0) $ \ixT ->
                  f $ rint64ToIndex1 $ rfromS @target ixT
 -}

@@ -75,7 +75,6 @@ module HordeAd.OpsTensor
 
 import Prelude
 
-import Data.Int (Int64)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
@@ -371,7 +370,7 @@ rindex0 :: (KnownNat m, GoodScalar r, BaseTensor target)
 rindex0 = trindex0
 roneHot :: ( KnownNat m, KnownNat n, TKAllNum x, KnownSTK x
            , PlainOf (PlainOf target) ~ PlainOf target
-           , EqH (PlainOf target) (TKScalar Int64), BaseTensor target)
+           , EqH (PlainOf target) (TKScalar Int), BaseTensor target)
         => IShR m -> target (TKR2 n x) -> IxROf target m
         -> target (TKR2 (m + n) x)
 roneHot = troneHot
@@ -418,7 +417,7 @@ sindex0 :: (KnownShS sh1, GoodScalar r, BaseTensor target)
 sindex0 = tsindex0
 soneHot :: ( KnownShS sh1, KnownShS sh2, TKAllNum x, KnownSTK x
            , PlainOf (PlainOf target) ~ PlainOf target
-           , EqH (PlainOf target) (TKScalar Int64), BaseTensor target )
+           , EqH (PlainOf target) (TKScalar Int), BaseTensor target )
         => target (TKS2 sh2 x) -> IxSOf target sh1
         -> target (TKS2 (sh1 ++ sh2) x)
 soneHot = tsoneHot
@@ -458,7 +457,7 @@ xindex0 :: (KnownShX sh1, GoodScalar r, BaseTensor target)
 xindex0 = txindex0
 xoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
            , PlainOf (PlainOf target) ~ PlainOf target
-           , EqH (PlainOf target) (TKScalar Int64)
+           , EqH (PlainOf target) (TKScalar Int)
            , BaseTensor target, ConvertTensor target )
         => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
         -> target (TKX2 (sh1 ++ sh2) x)

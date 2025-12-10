@@ -419,7 +419,7 @@ evalRevFTK !s !c d0 = case d0 of
     FTKProduct _ ftk2 ->
       let zero = tdefTarget $ adFTK ftk2
       in evalRevFTK s (tpair c zero) d
-    -- if y is, e.g., TKR 0 Int64, we eval this delta anyway, even though
+    -- if y is, e.g., TKR 0 Int, we eval this delta anyway, even though
     -- we could ignore it at the price of complicating or duplicating
     -- the code slightly more
   DeltaProject2 d -> case ftkDelta d of

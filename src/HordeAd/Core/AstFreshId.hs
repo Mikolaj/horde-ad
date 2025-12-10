@@ -16,7 +16,6 @@ module HordeAd.Core.AstFreshId
 import Prelude
 
 import Control.Concurrent.Counter (Counter, add, new, set)
-import Data.Int (Int64)
 import GHC.Exts (IsList (..))
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -43,7 +42,7 @@ unsafeGetFreshAstVarId :: IO AstVarId
 unsafeGetFreshAstVarId =
   intToAstVarId <$> add unsafeAstVarCounter 1
 
-unsafeGetFreshAstVarName :: FullShapeTK y -> Maybe (Int64, Int64)
+unsafeGetFreshAstVarName :: FullShapeTK y -> Maybe (Int, Int)
                          -> IO (AstVarName s y)
 {-# INLINE unsafeGetFreshAstVarName #-}
 unsafeGetFreshAstVarName ftk bounds =
@@ -51,7 +50,7 @@ unsafeGetFreshAstVarName ftk bounds =
   . intToAstVarId <$> add unsafeAstVarCounter 1
 
 funToAstIOGeneric :: forall y z s s2 ms.
-                     FullShapeTK y -> Maybe (Int64, Int64)
+                     FullShapeTK y -> Maybe (Int, Int)
                   -> (AstVarName s y -> AstTensor ms s2 z)
                   -> IO (AstVarName s y, AstTensor ms s2 z)
 {-# INLINE funToAstIOGeneric  #-}
@@ -65,14 +64,14 @@ funToAstIOGeneric ftk bounds f = do
 -- between different GHC versions and between local vs CI setup.
 
 funToAstIO :: forall y z s s2 ms. AstSpan s
-           => FullShapeTK y -> Maybe (Int64, Int64)
+           => FullShapeTK y -> Maybe (Int, Int)
            -> (AstTensor ms s y -> AstTensor ms s2 z)
            -> IO (AstVarName s y, AstTensor ms s2 z)
 {-# INLINE funToAstIO #-}
 funToAstIO ftk bounds f = funToAstIOGeneric ftk bounds (f . astVar)
 
 funToAst :: AstSpan s
-         => FullShapeTK y -> Maybe (Int64, Int64)
+         => FullShapeTK y -> Maybe (Int, Int)
          -> (AstTensor ms s y -> AstTensor ms s2 z)
          -> (AstVarName s y, AstTensor ms s2 z)
 {-# NOINLINE funToAst #-}
@@ -130,18 +129,18 @@ funToAstFwdIO ftk = do
       !astVarD = astVar var
   return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVarD)
 
-funToAstIntVarIO :: Maybe (Int64, Int64) -> ((IntVarName, AstInt ms) -> a)
+funToAstIntVarIO :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a)
                  -> IO a
 {-# INLINE funToAstIntVarIO #-}
 funToAstIntVarIO bounds f = do
-  !varName <- unsafeGetFreshAstVarName (FTKScalar @Int64) bounds
+  !varName <- unsafeGetFreshAstVarName (FTKScalar @Int) bounds
   return $! f (varName, astVar varName)
 
-funToAstIntVar :: Maybe (Int64, Int64) -> ((IntVarName, AstInt ms) -> a) -> a
+funToAstIntVar :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a) -> a
 {-# NOINLINE funToAstIntVar #-}
 funToAstIntVar bounds = unsafePerformIO . funToAstIntVarIO bounds
 
-funToAstI :: Maybe (Int64, Int64) -> (AstInt ms -> t) -> (IntVarName, t)
+funToAstI :: Maybe (Int, Int) -> (AstInt ms -> t) -> (IntVarName, t)
 {-# NOINLINE funToAstI #-}
 funToAstI bounds f = unsafePerformIO . funToAstIntVarIO bounds
                      $ \ (!var, !i) -> let !x = f i in (var, x)
@@ -152,7 +151,7 @@ funToVarsIxIOS
 {-# INLINE funToVarsIxIOS #-}
 funToVarsIxIOS sh f = withKnownShS sh $ do
   let freshBound n =
-        unsafeGetFreshAstVarName (FTKScalar @Int64)
+        unsafeGetFreshAstVarName (FTKScalar @Int)
                                  (Just (0, fromIntegral n - 1))
   !varList <- mapM freshBound $ shsToList sh
   let !vars = fromList varList

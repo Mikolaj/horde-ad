@@ -253,7 +253,7 @@ type family ADTensorScalar r where
 -- but would lead to irregular tensors, especially after vectorization,
 -- and would prevent statically known shapes.
 -- | The (arbitrariliy chosen) type of scalars to be used for indexing.
-type IntOf (f :: Target) = PlainOf f (TKScalar Int64)
+type IntOf (f :: Target) = PlainOf f (TKScalar Int)
 
 type BoolOf (f :: Target) = PlainOf f (TKScalar Bool)
 

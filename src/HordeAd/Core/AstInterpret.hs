@@ -16,7 +16,6 @@ import Prelude
 import Data.Coerce (coerce)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Functor.Const
-import Data.Int (Int64)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -62,7 +61,7 @@ interpretAstPrimal !env v1 = case v1 of
   AstPair t1 t2 -> tpair (interpretAstPrimal env t1) (interpretAstPrimal env t2)
   AstProject1 (AstMapAccumLDer @accy @by @ey
                                k _bftk eftk f0 _df0 _rf0 acc0 es)
-              | show (1 :: target (TKScalar Int64)) == "1" ->
+              | show (1 :: target (TKScalar Int)) == "1" ->
     let acc02 = interpretAst env acc0
         es2 = interpretAst env es
         h :: forall f. ADReady f => f accy -> f ey -> f accy
@@ -285,7 +284,7 @@ interpretAstPlain !env v1 = case v1 of
   AstPair t1 t2 -> tpair (interpretAstPlain env t1) (interpretAstPlain env t2)
   AstProject1 (AstMapAccumLDer @accy @by @ey
                                k _bftk eftk f0 _df0 _rf0 acc0 es)
-              | show (1 :: target (TKScalar Int64)) == "1" ->
+              | show (1 :: target (TKScalar Int)) == "1" ->
     let acc02 = interpretAstPlain env acc0
         es2 = interpretAstPlain env es
         h :: forall f. ADReady f => f accy -> f ey -> f accy
@@ -602,7 +601,7 @@ interpretAst !env = \case
   -- e.g., that it contains near the end AstPair of twice the same variable.
   AstProject1 (AstMapAccumLDer @accy @by @ey
                                k _bftk eftk f0 _df0 _rf0 acc0 es)
-              | show (1 :: target (TKScalar Int64)) == "1" ->
+              | show (1 :: target (TKScalar Int)) == "1" ->
     let acc02 = interpretAst env acc0
         es2 = interpretAst env es
         h :: forall f. ADReady f => f accy -> f ey -> f accy
