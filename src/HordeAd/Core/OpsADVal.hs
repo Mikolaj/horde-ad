@@ -370,9 +370,9 @@ instance ( ADReadyNoLet target, ShareTensor target
         let arr = Nested.semptyArray ZSS
         in tconcrete (FTKS (SNat @0 :$$ ZSS) FTKScalar) (Concrete arr)
       _ ->
-        let l = [0 .. valueOf @k - 1]
+        let l = [0 .. valueOf @k - 1 :: Int]
         in tfromVector SNat STKScalar
-           $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
+           $ V.fromListN (valueOf @k) $ map (f . fromIntegral) l
              -- hope this fuses
   trbuild1 @n @x k f =
     if k == 0
@@ -381,8 +381,8 @@ instance ( ADReadyNoLet target, ShareTensor target
         let arr = Nested.remptyArray
         in tconcrete (tftkG knownSTK arr) (Concrete arr)
       Nothing -> error "rbuild1: shape ambiguity"
-    else let l = [0 .. fromIntegral k - 1]
-         in trfromVector $ V.fromListN k $ map (f . fromInteger) l
+    else let l = [0 .. k - 1]
+         in trfromVector $ V.fromListN k $ map (f . fromIntegral) l
               -- hope this fuses
   tsbuild1 @k @sh @r f | Dict <- eltDictRep (knownSTK @r) =
     case SNat @k of
@@ -390,8 +390,8 @@ instance ( ADReadyNoLet target, ShareTensor target
         let arr = Nested.semptyArray @_ @(RepConcrete r) (knownShS @sh)
         in tconcrete (tftkG knownSTK arr) (Concrete arr)
       _ ->
-        let l = [0 .. valueOf @k - 1]
-        in tsfromVector $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
+        let l = [0 .. valueOf @k - 1 :: Int]
+        in tsfromVector $ V.fromListN (valueOf @k) $ map (f . fromIntegral) l
              -- hope this fuses
   txbuild1 @k @sh @r f =
     case SNat @k of
@@ -401,8 +401,8 @@ instance ( ADReadyNoLet target, ShareTensor target
           in tconcrete (tftkG knownSTK arr) (Concrete arr)
         _ -> error "xbuild1: shape ambiguity"
       _ ->
-        let l = [0 .. valueOf @k - 1]
-        in txfromVector $ V.fromListN (valueOf @k) $ map (f . fromInteger) l
+        let l = [0 .. valueOf @k - 1 :: Int]
+        in txfromVector $ V.fromListN (valueOf @k) $ map (f . fromIntegral) l
              -- hope this fuses
   tmapAccumRDer @accy @by @ey _ !k accftk bftk eftk f df rf acc0D esD
    | Dict <- lemKnownSTKOfBuild k (ftkToSTK accftk)

@@ -935,7 +935,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                                , sNatValue (shsProduct sh2) )
   trbuild1 k f = withSNat k $ \snat ->
     AstRaw $ AstBuild1 snat knownSTK
-    $ funToAstI (Just (0, fromIntegral k - 1))
+    $ funToAstI (Just (0, k - 1))
         -- this introduces new variable names
     $ unAstRaw . f . AstRaw
 
@@ -1356,7 +1356,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   trreshape sh = AstNoVectorize . trreshape sh . unAstNoVectorize
   trbuild1 k f = withSNat k $ \snat ->
     AstNoVectorize $ AstBuild1 snat knownSTK
-    $ funToAstI (Just (0, fromIntegral k - 1))
+    $ funToAstI (Just (0, k - 1))
         -- this introduces new variable names
     $ unAstNoVectorize . f . AstNoVectorize
 

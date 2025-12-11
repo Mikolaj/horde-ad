@@ -1694,7 +1694,7 @@ astIndexKnobsS _ shn v0 (i1 :.$ _)
 -- this doesn't work in GHC 9.10:
 --      FTKS (snat :$$ _) x = ftkAst v0
   , FTKS (snat :$$ _) x <- ftkAst v0
-  , ub < 0 || lb >= fromInteger (fromSNat snat) =
+  , ub < 0 || lb >= sNatValue snat =
     let ftk = FTKS shn x
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
@@ -1724,12 +1724,10 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
  in case v0 of
   Ast.AstProject1{} -> Ast.AstIndexS shn v0 ix
   Ast.AstProject2{} -> Ast.AstIndexS shn v0 ix
-  Ast.AstFromVector _ STKS{} l | AstConcreteK it <- i1 ->
-    let i = fromIntegral it
-    in astIndex shn (l V.! i) rest1
-  Ast.AstFromVector _ STKScalar l | AstConcreteK it <- i1, ZIS <- rest1 ->
-    let i = fromIntegral it
-    in astSFromK' (l V.! i)
+  Ast.AstFromVector _ STKS{} l | AstConcreteK i <- i1 ->
+    astIndex shn (l V.! i) rest1
+  Ast.AstFromVector _ STKScalar l | AstConcreteK i <- i1, ZIS <- rest1 ->
+    astSFromK' (l V.! i)
   Ast.AstFromVector{} | ZIS <- rest1 ->  -- normal form
     Ast.AstIndexS shn v0 ix
   Ast.AstFromVector snat STKS{} l ->
@@ -2074,7 +2072,7 @@ astGatherKnobsS _ shn v0 (vars, i1 :.$ _)
 -- this doesn't work in GHC 9.10:
 --      FTKS (snat :$$ _) x = ftkAst v0
   , FTKS (snat :$$ _) x <- ftkAst v0
-  , ub < 0 || lb >= fromInteger (fromSNat snat) =
+  , ub < 0 || lb >= sNatValue snat =
     let ftk = FTKS (shsFromListS vars `shsAppend` shn) x
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0)
@@ -2304,19 +2302,19 @@ astGatherKnobsS
 -- Rules with AstConcreteK on the right hand side of AstPlusK are
 -- not needed, thanks to the normal form of AstPlusK rewriting.
 astGatherKnobsS knobs shn v0
-  (vars, AstPlusK (AstConcreteK i64) i1 :.$ prest)
+  (vars, AstPlusK (AstConcreteK i) i1 :.$ prest)
   | let (lb, ub) = bounds i1
   , lb >= 0  -- if not, we may need to apply astReverse first
   , FTKS (SNat @p :$$ _) x <- ftkAst v0 =
-    if i64 >= 0 then
-      withSNat (fromIntegral i64) $ \(SNat @i) ->
-      withSNat (fromIntegral $ min (valueOf @p - i64) (ub + 1)) $ \(SNat @k) ->
+    if i >= 0 then
+      withSNat i $ \(SNat @i) ->
+      withSNat (min (valueOf @p - i) (ub + 1)) $ \(SNat @k) ->
         gcastWith (unsafeCoerceRefl :: (i + k <=? p) :~: True) $
         let v2 = astSliceS (SNat @i) (SNat @k) (SNat @(p - (i + k))) v0
         in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
              -- this gather may still index out of bounds, which is fine
     else
-      withSNat (- fromIntegral i64) $ \(SNat @i) ->
+      withSNat (- i) $ \(SNat @i) ->
         let ftk = FTKS (SNat @i :$$ shsFromIxS prest `shsAppend` shn) x
             v2 = fromPlain (astConcrete ftk (tdefTarget ftk))
                  `astAppendS`
@@ -2324,19 +2322,19 @@ astGatherKnobsS knobs shn v0
         in astGatherKnobsS knobs shn v2 (vars, i1 :.$ prest)
              -- this gather may still index out of bounds, which is fine
 astGatherKnobsS knobs shn v0
-  (vars, Ast.AstLet varN uN (AstPlusK (AstConcreteK i64) i1) :.$ prest)
+  (vars, Ast.AstLet varN uN (AstPlusK (AstConcreteK i) i1) :.$ prest)
   | let (lb, ub) = bounds i1
   , lb >= 0  -- if not, we may need to apply astReverse first
   , FTKS (SNat @p :$$ _) x <- ftkAst v0 =
-    if i64 >= 0 then
-      withSNat (fromIntegral i64) $ \(SNat @i) ->
-      withSNat (fromIntegral $ min (valueOf @p - i64) (ub + 1)) $ \(SNat @k) ->
+    if i >= 0 then
+      withSNat i $ \(SNat @i) ->
+      withSNat (min (valueOf @p - i) (ub + 1)) $ \(SNat @k) ->
         gcastWith (unsafeCoerceRefl :: (i + k <=? p) :~: True) $
         let v2 = astSliceS (SNat @i) (SNat @k) (SNat @(p - (i + k))) v0
         in astGatherKnobsS knobs shn v2 (vars, Ast.AstLet varN uN i1 :.$ prest)
              -- this gather may still index out of bounds, which is fine
     else
-      withSNat (- fromIntegral i64) $ \(SNat @i) ->
+      withSNat (- i) $ \(SNat @i) ->
         let ftk = FTKS (SNat @i :$$ shsFromIxS prest `shsAppend` shn) x
             v2 = fromPlain (astConcrete ftk (tdefTarget ftk))
                  `astAppendS`
@@ -2354,7 +2352,7 @@ astGatherKnobsS knobs shn v0
        | j >= valueOf @m ->
          astGatherKnobsS knobs shn v0 (vars, i2 :.$ prest)
        | otherwise ->
-         withSNat (fromIntegral j) $ \(SNat @j) ->
+         withSNat j $ \(SNat @j) ->
          gcastWith (unsafeCoerceRefl :: (j <=? m) :~: True) $
          astLetFun v0 $ \v ->
          let varm2 = mkAstVarName (varNameToFTK varm)
@@ -2384,7 +2382,7 @@ astGatherKnobsS knobs shn v0
        | - j + 1 >= valueOf @m ->
          astGatherKnobsS knobs shn v0 (vars, i1 :.$ prest)
        | otherwise ->
-         withSNat (- fromIntegral j + 1) $ \(SNat @mj) ->
+         withSNat (- j + 1) $ \(SNat @mj) ->
          gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
          astLetFun v0 $ \v ->
          let varm2 = mkAstVarName (varNameToFTK varm)
@@ -2416,7 +2414,7 @@ astGatherKnobsS knobs shn v0
        | j >= valueOf @m ->
          astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i2 :.$ prest)
        | otherwise ->
-         withSNat (fromIntegral j) $ \(SNat @j) ->
+         withSNat j $ \(SNat @j) ->
          gcastWith (unsafeCoerceRefl :: (j <=? m) :~: True) $
          astLetFun v0 $ \v ->
          let varm2 = mkAstVarName (varNameToFTK varm)
@@ -2448,7 +2446,7 @@ astGatherKnobsS knobs shn v0
        | - j + 1 >= valueOf @m ->
          astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i1 :.$ prest)
        | otherwise ->
-         withSNat (- fromIntegral j + 1) $ \(SNat @mj) ->
+         withSNat (- j + 1) $ \(SNat @mj) ->
          gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
          astLetFun v0 $ \v ->
          let varm2 = mkAstVarName (varNameToFTK varm)
@@ -2522,7 +2520,7 @@ astGatherKnobsS knobs shn v7@(Ast.AstFromVector _ (STKS _ x2) l)
   , ixIsSmall rest4 =
     let f i =
           let subRest4 = substituteAstIxS (AstConcreteK i) var4 rest4
-              j = fromIntegral $ h i
+              j = h i
           in if j >= V.length l
              then let FTKS _ x = ftkAst v7
                       ftk = FTKS (shsFromListS vrest4 `shsAppend` shn) x

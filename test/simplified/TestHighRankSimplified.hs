@@ -6,7 +6,6 @@ module TestHighRankSimplified (testTrees) where
 
 import Prelude
 
-import Data.Int (Int64)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import Test.Tasty
@@ -172,7 +171,7 @@ fooBuild2
      (ADReady target, NumScalar r, KnownNat n, Floating (target (TKR n r)), RealFloat r)
   => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild2 v =
-  rbuild1 2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int64)
+  rbuild1 2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int)
                           ix = sfromR $ rfromK ix' in
     ifH (ix - (tplainPart . sfloor . sfromK) (rsum0 @5 @r
                       $ rreplicate0N [5,12,11,9,4] (rfromK $ rsum0 v)) - sscalar 10001 >=. sscalar 0
@@ -225,7 +224,7 @@ fooBuild2S
      (ADReady target, NumScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh)
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuild2S v = rfromS $
-  sbuild1 @2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int64)
+  sbuild1 @2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int)
                            ix = sfromR $ rfromK ix' in
     ifH (ix - (tplainPart . sfloor) (sfromK $ ssum0 @[5,12,11,9,4] @r
              $ sreplicate0N @[5,12,11,9,4] (sfromK $ ssum0 v)) - srepl 10001 >=. srepl 0
@@ -256,7 +255,7 @@ fooBuildNest2S
      (ADReady target, NumScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh)
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuildNest2S v = rfromS $
-  sbuild1 @2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int64)
+  sbuild1 @2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int)
                            ix = sfromR $ rfromK ix' in
     ifH (ix - (sunNest @_ @'[] @'[] . tplainPart . snest knownShS . sfloor) (sfromK $ ssum0 @[5,12,11,9,4] @r
              $ sreplicate0N @[5,12,11,9,4] (sfromK $ ssum0 v)) - srepl 10001 >=. srepl 0
