@@ -26,7 +26,7 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (Perm (..))
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (unsafeCoerceRefl)
+import Data.Array.Nested.Types (snatMinus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
   ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
@@ -668,37 +668,55 @@ contractAst t0 = case t0 of
   Ast.AstCond b a2 a3 ->
     astCond (contractAst b) (contractAst a2) (contractAst a3)
   -- These are only needed for tests that don't vectorize Ast.
-  Ast.AstBuild1 snat (STKS ZSS _)  -- generalize
-                (var, Ast.AstSum
-                        n _
-                        (AstTimesS
-                           t2
-                           (Ast.AstIndexS _shn
-                              u (((:.$) @m (AstIntVar var2) ZIS)))))
-    | Just Refl <- testEquality snat (SNat @m)
-    , var == var2
-    , not (varNameInAst var t2), not (varNameInAst var u) ->
-        astDot1InS (snat :$$ ZSS) n
-                   (contractAst u)
-                   (contractAst
-                    $ Ast.AstReplicate snat (ftkToSTK (ftkAst t2)) t2)
-  Ast.AstBuild1 snat (STKS ZSS _)
-                (var, Ast.AstSum _ _
-                        (Ast.AstReshapeS
-                           _sh (AstTimesS
-                                  t2
-                                  (Ast.AstIndexS _shn
-                                     u (((:.$) @m (AstIntVar var2) ZIS))))))
+  Ast.AstBuild1 snat stk@(STKS ZSS _)  -- generalize
+                (var, v@(Ast.AstSum n _
+                           (AstTimesS
+                              t2
+                              (Ast.AstIndexS @shm @shn shn
+                                 u ((AstIntVar var2 :.$ ZIS))))))
+    | var == var2
+    , not (varNameInAst var t2), not (varNameInAst var u)
+    , FTKS shmshn _ <- ftkAst u
+    , SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
+      gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
+      withKnownShS shmshn $
+      gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
+      withKnownShS (shsTake @(Rank shm) shmshn) $
+      case knownShS @shm of
+        snat2 :$$ _ | Just Refl <- testEquality snat snat2 ->
+          astDot1InS (snat :$$ ZSS) n
+                     (contractAst u)
+                     (contractAst $ Ast.AstReplicate snat (ftkToSTK (ftkAst t2)) t2)
+        _ ->
+          let !v2 = contractAst v
+          in Ast.AstBuild1 snat stk (var, v2)
+  Ast.AstBuild1 snat stk@(STKS ZSS _)
+                (var, v@(Ast.AstSum _ _
+                           (Ast.AstReshapeS
+                              _sh (AstTimesS
+                                      t2
+                                     (Ast.AstIndexS @shm @shn shn
+                                        u ((AstIntVar var2 :.$ ZIS)))))))
     | ftk2@(FTKS (n :$$ ZSS) _) <- ftkAst t2
-    , Just Refl <- testEquality snat (SNat @m)
     , var == var2
-    , not (varNameInAst var t2), not (varNameInAst var u) ->
-        astDot1InS (snat :$$ ZSS) n
-                   (contractAst u)
-                   (contractAst $ Ast.AstReplicate snat (ftkToSTK ftk2) t2)
-  Ast.AstBuild1 k stk (var, v) ->
+    , not (varNameInAst var t2), not (varNameInAst var u)
+    , FTKS shmshn _ <- ftkAst u
+    , SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
+      gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
+      withKnownShS shmshn $
+      gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
+      withKnownShS (shsTake @(Rank shm) shmshn) $
+      case knownShS @shm of
+        snat2 :$$ _ | Just Refl <- testEquality snat snat2 ->
+          astDot1InS (snat :$$ ZSS) n
+                     (contractAst u)
+                     (contractAst $ Ast.AstReplicate snat (ftkToSTK ftk2) t2)
+        _ ->
+          let !v2 = contractAst v
+          in Ast.AstBuild1 snat stk (var, v2)
+  Ast.AstBuild1 snat stk (var, v) ->
     let !v2 = contractAst v
-    in Ast.AstBuild1 k stk (var, v2)
+    in Ast.AstBuild1 snat stk (var, v2)
 
   Ast.AstLet var u v -> astLet var (contractAst u) (contractAst v)
 

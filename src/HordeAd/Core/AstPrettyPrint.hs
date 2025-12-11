@@ -391,11 +391,11 @@ printAst cfg d = \case
       . printAst cfg 11 v
       . showString " "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
-  AstScatterS _sh v ((::$) @n (Const var) ZS, ix) ->
+  AstScatterS @shm _sh v (Const var ::$ ZS, ix) | snat :$$ _ <- knownShS @shm ->
    if loseRoudtrip cfg
    then
     showParen (d > 10)
-    $ showString ("sscatter1 @" ++ show (valueOf @n :: Int) ++ " ")
+    $ showString ("sscatter1 @" ++ show (sNatValue snat) ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -405,7 +405,7 @@ printAst cfg d = \case
            . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
     showParen (d > 10)
-    $ showString ("sscatter1 @" ++ show (valueOf @n :: Int) ++ " ")
+    $ showString ("sscatter1 @" ++ show (sNatValue snat) ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -424,8 +424,7 @@ printAst cfg d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith (printAstIntVar cfg)
-                          (listsToList vars)
+           . showListWith (printAstIntVar cfg) (listsToList vars)
            . showString " -> "
            . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
@@ -435,8 +434,7 @@ printAst cfg d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith (printAstIntVar cfg)
-                          (listsToList vars)
+           . showListWith (printAstIntVar cfg) (listsToList vars)
            . showString " -> "
            . showListWith (printAst cfg 0) (Foldable.toList ix))
   {- Let's re-enable this when/if we remove AstIndexS altogether
@@ -447,11 +445,11 @@ printAst cfg d = \case
     $ printAst cfg 10 v
       . showString " !$ "
       . showListWith (printAst cfg 0) (Foldable.toList ix) -}
-  AstGatherS _sh v ((::$) @n (Const var) ZS, ix) ->
+  AstGatherS @shm _sh v (Const var ::$ ZS, ix) | snat :$$ _ <- knownShS @shm ->
    if loseRoudtrip cfg
    then
     showParen (d > 10)
-    $ showString ("sgather1 @" ++ show (valueOf @n :: Int) ++ " ")
+    $ showString ("sgather1 @" ++ show (sNatValue snat) ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -461,7 +459,7 @@ printAst cfg d = \case
            . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
     showParen (d > 10)
-    $ showString ("sgather1 @" ++ show (valueOf @n :: Int) ++ " ")
+    $ showString ("sgather1 @" ++ show (sNatValue snat) ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True

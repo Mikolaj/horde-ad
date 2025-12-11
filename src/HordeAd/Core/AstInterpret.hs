@@ -196,9 +196,9 @@ interpretAstPrimal !env v1 = case v1 of
       withKnownShS (knownShS @shp) $
       withKnownSTK x $
       tsoneHot (interpretAstPrimal env v) (interpretAstPlain env <$> ix)
-  AstScatterS @_ @shn @shp
+  AstScatterS @shm @shn @shp
               shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
+    STKS _ x | SNat :$$ _ <- knownShS @shm ->
       withKnownShS shn $
       withKnownShS (knownShS @shp) $
       withKnownSTK x $
@@ -218,9 +218,9 @@ interpretAstPrimal !env v1 = case v1 of
           f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
       in tsscatter @_ @shm @shn @shp t1 f2
   AstGatherS shn v (ZS, ix) -> interpretAstPrimal env (AstIndexS shn v ix)
-  AstGatherS @_ @shn @shp
+  AstGatherS @shm @shn @shp
              shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
+    STKS _ x | SNat :$$ _ <- knownShS @shm ->
       withKnownShS shn $
       withKnownShS (knownShS @shp) $
       withKnownSTK x $
@@ -430,9 +430,9 @@ interpretAstPlain !env v1 = case v1 of
       withKnownShS (knownShS @shp) $
       withKnownSTK x $
       tsoneHot (interpretAstPlain env v) (interpretAstPlain env <$> ix)
-  AstScatterS @_ @shn @shp
+  AstScatterS @shm @shn @shp
               shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
+    STKS _ x | SNat :$$ _ <- knownShS @shm ->
       withKnownShS shn $
       withKnownShS (knownShS @shp) $
       withKnownSTK x $
@@ -442,7 +442,8 @@ interpretAstPlain !env v1 = case v1 of
       in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->      withKnownShS (knownShS @shm) $
+    STKS _ x ->
+      withKnownShS (knownShS @shm) $
       withKnownShS shn $
       withKnownShS (knownShS @shp) $
       withKnownSTK x $
@@ -451,9 +452,9 @@ interpretAstPlain !env v1 = case v1 of
           f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
       in tsscatter @_ @shm @shn @shp t1 f2
   AstGatherS shn v (ZS, ix) -> interpretAstPlain env (AstIndexS shn v ix)
-  AstGatherS @_ @shn @shp
+  AstGatherS @shm @shn @shp
              shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
+    STKS _ x | SNat :$$ _ <- knownShS @shm ->
       withKnownShS shn $
       withKnownShS (knownShS @shp) $
       withKnownSTK x $
@@ -800,9 +801,9 @@ interpretAst !env = \case
       withKnownShS (knownShS @shp) $
       withKnownSTK x $
       tsoneHot (interpretAst env v) (interpretAstPlain env <$> ix)
-  AstScatterS @_ @shn @shp
+  AstScatterS @shm @shn @shp
               shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
+    STKS _ x | SNat :$$ _ <- knownShS @shm ->
       withKnownShS shn $
       withKnownShS (knownShS @shp) $
       withKnownSTK x $
@@ -822,9 +823,9 @@ interpretAst !env = \case
           f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
       in tsscatter @_ @shm @shn @shp t1 f2
   AstGatherS shn v (ZS, ix) -> interpretAst env (AstIndexS shn v ix)
-  AstGatherS @_ @shn @shp
+  AstGatherS @shm @shn @shp
              shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
+    STKS _ x | SNat :$$ _ <- knownShS @shm ->
       withKnownShS shn $
       withKnownShS (knownShS @shp) $
       withKnownSTK x $

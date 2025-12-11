@@ -542,11 +542,11 @@ evalRevFTK !s !c d0 = case d0 of
       withKnownShS shp $
       evalRevFTK s (tsscatter @_ @shm @shn c f) d
   DeltaAppendS d e -> case (ftkDelta d, ftkDelta e) of
-    (FTKS (msnat :$$ _) x, FTKS (_ :$$ _) _) ->
+    (FTKS (msnat :$$ _) x, FTKS (nsnat :$$ _) _) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       let cShared = tshare c
-          s2 = evalRevFTK s (tsslice (SNat @0) SNat SNat cShared) d
-      in evalRevFTK s2 (tsslice msnat SNat SNat cShared) e
+          s2 = evalRevFTK s (tsslice (SNat @0) msnat nsnat cShared) d
+      in evalRevFTK s2 (tsslice msnat nsnat SNat cShared) e
   DeltaSliceS i@SNat _ k@SNat d -> case ftkDelta d of
     FTKS (_ :$$ sh) x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
