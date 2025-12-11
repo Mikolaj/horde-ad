@@ -28,7 +28,7 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (Tail, unsafeCoerceRefl)
+import Data.Array.Nested.Types (Tail, snatMinus, unsafeCoerceRefl)
 
 import HordeAd.AstEngine
 import HordeAd.Core.Ast (AstTensor)
@@ -401,7 +401,7 @@ build1VIndexS
   -> AstTensor AstMethodLet s (TKS2 (k ': shn) x)
 build1VIndexS k _ (!var, !v0, ZIS) =
   build1VOccurrenceUnknown k (var, v0)
-build1VIndexS k@SNat shn (var, v0, ix) | FTKS _ x' <- ftkAst v0 =
+build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
   let x = ftkToSTK x'
       vTrace = Ast.AstBuild1 k (STKS shn x) (var, Ast.AstIndexS shn v0 ix)
       traceRule = mkTraceRule "build1VIndexS" vTrace
@@ -411,12 +411,19 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS _ x' <- ftkAst v0 =
                               shn v0 ix of  -- push deeper
        Ast.AstIndexS _ v1 ZIS -> traceRule $
          build1VOccurrenceUnknown k (var, v1)
-       v@(Ast.AstIndexS shn1 v1 ix1) -> traceRule $
+       v@(Ast.AstIndexS @shm1 @shn1 shn1 v1 ix1) -> traceRule $
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix1)
              ruleD :: AstTensor AstMethodLet s (TKS2 (k ': shn) x)
-             ruleD = astGatherS
-                       shn1 (build1VOccurrenceUnknown k (var, v1))
-                       (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
+             ruleD | FTKS shmshn1 _ <- ftkAst v1 =
+               case snatMinus (shsRank shmshn1) (shsRank shn1) of
+                 SNat @rankshn1 ->
+                   gcastWith (unsafeCoerceRefl :: Rank shm1 :~: rankshn1) $
+                   withKnownShS shmshn1 $
+                   withKnownShS (shsTake @(Rank shm1) shmshn1) $
+                   gcastWith (unsafeCoerceRefl
+                              :: Take (Rank shm1) (shm1 ++ shn1) :~: shm1) $
+                   astGatherS shn1 (build1VOccurrenceUnknown k (var, v1))
+                              (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = ixsLength ix1
              pickRuleD :: AstTensor AstMethodLet s2 y2 -> Bool
              pickRuleD = \case  -- try to avoid ruleD if not a normal form
@@ -444,8 +451,14 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS _ x' <- ftkAst v0 =
        v -> traceRule $
          build1VOccurrenceUnknown k (var, v)
            -- peel off yet another constructor
-     else traceRule $
-            astGatherS shn v0 (Const var ::$ ZS, ix)
+     else traceRule $ case snatMinus (shsRank shmshn) (shsRank shn) of
+            SNat @rankshn ->
+              gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
+              withKnownShS shmshn $
+              withKnownShS (shsTake @(Rank shm) shmshn) $
+              gcastWith (unsafeCoerceRefl
+                         :: Take (Rank shm) (shm ++ shn) :~: shm) $
+              astGatherS shn v0 (Const var ::$ ZS, ix)
 
 build1VHFun
   :: forall k x z s s2. (AstSpan s, AstSpan s2)

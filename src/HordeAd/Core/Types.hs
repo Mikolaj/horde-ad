@@ -28,7 +28,7 @@ module HordeAd.Core.Types
   , Take, Drop, UnMapSucc
   , listsTake, listsDrop, listsSplitAt, ixrTake, ixrDrop, ixrSplitAt
   , shrTake, shrDrop, shrSplitAt
-  , listrSplitAt, ixsDrop, shsTake, shsDrop
+  , listrSplitAt, ixsTake, ixsDrop, shsTake, shsDrop
   , shxTake, shxDrop, ixxTake, ixxDrop'
   , listsTakeLen, listsDropLen, shsDropLen
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
@@ -628,6 +628,10 @@ listrDrop ix = fromList $ drop (valueOf @len) $ Foldable.toList ix
 listrSplitAt :: (KnownNat m, KnownNat n)
              => ListR (m + n) i -> (ListR m i, ListR n i)
 listrSplitAt ix = (listrTake ix, listrDrop ix)
+
+ixsTake :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Take len sh))
+        => IxS sh i -> IxS (Take len sh) i
+ixsTake (IxS ix) = IxS $ listsTake @len ix
 
 ixsDrop :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
         => IxS sh i -> IxS (Drop len sh) i

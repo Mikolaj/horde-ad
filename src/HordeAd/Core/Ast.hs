@@ -477,13 +477,15 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
             -> AstTensor ms s (TKS2 (shm ++ shn) x) -> AstIxS ms shm
             -> AstTensor ms s (TKS2 shn x)
     -- out of bounds indexing is permitted and the results is def (==0)
-  AstScatterS :: forall shm shn shp x s ms. TKAllNum x
+  AstScatterS :: forall shm shn shp x s ms.
+                 (KnownShS shm, KnownShS shp, TKAllNum x)
               => ShS shn -> AstTensor ms s (TKS2 (shm ++ shn) x)
               -> (AstVarListS shm, AstIxS ms shp)
               -> AstTensor ms s (TKS2 (shp ++ shn) x)
     -- out of bounds indexing is permitted and the results is def (==0)
   AstGatherS :: forall shm shn shp x s ms.
-                ShS shn -> AstTensor ms s (TKS2 (shp ++ shn) x)
+                (KnownShS shm, KnownShS shp)
+             => ShS shn -> AstTensor ms s (TKS2 (shp ++ shn) x)
              -> (AstVarListS shm, AstIxS ms shp)
              -> AstTensor ms s (TKS2 (shm ++ shn) x)
     -- out of bounds indexing is permitted and the results is def (==0)
