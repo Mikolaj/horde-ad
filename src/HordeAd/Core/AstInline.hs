@@ -18,16 +18,20 @@ import Data.EnumMap.Strict qualified as EM
 import Data.Foldable qualified as Foldable
 import Data.List (mapAccumR, sortOn)
 import Data.Some
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import GHC.Exts (IsList (..))
 
+import Data.Array.Nested (type (++))
+import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (snatMinus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstSimplify (substituteAst)
 import HordeAd.Core.AstTools
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 -- * The pass that inlines lets with the bottom-up strategy
@@ -175,24 +179,29 @@ inlineAst memo v0 = case v0 of
   Ast.AstFromIntegralS v -> second Ast.AstFromIntegralS $ inlineAst memo v
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v
 
-  Ast.AstIndexS @sh1 shn v ix ->
-    let (memo1, v2) = inlineAst memo v
-        (memo2, ix2) = mapAccumR inlineAst memo1 (Foldable.toList ix)
-    in withKnownShS (shsFromIxS ix)
-       (memo2, Ast.AstIndexS @sh1 shn v2 (fromList ix2))
+  Ast.AstIndexS @shm @shn shn v ix
+    | FTKS shmshn _ <- ftkAst v
+    , SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
+      gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
+      withKnownShS shmshn $
+      gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
+      withKnownShS (shsTake @(Rank shm) shmshn) $
+      let (memo1, v2) = inlineAst memo v
+          (memo2, ix2) = mapAccumR inlineAst memo1 (Foldable.toList ix)
+      in (memo2, Ast.AstIndexS @shm shn v2 (fromList ix2))
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
-        memoI2 = EM.map (shsSize (shsFromIxS ix) *) memoI0
+        memoI2 = EM.map (shsSize (knownShS @shp) *) memoI0
         memo2 = EM.unionWith (+) memo1 memoI2
-        !ix3 = withKnownShS (shsFromIxS ix) $ fromList ix2
+        !ix3 = withKnownShS (knownShS @shp) $ fromList ix2
     in (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
-        memoI2 = EM.map (shsSize (shsFromListS vars) *) memoI0
+        memoI2 = EM.map (shsSize (knownShS @shm) *) memoI0
         memo2 = EM.unionWith (+) memo1 memoI2
-        !ix3 = withKnownShS (shsFromIxS ix) $ fromList ix2
+        !ix3 = withKnownShS (knownShS @shp) $ fromList ix2
     in (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
@@ -455,24 +464,29 @@ unshareAst memo = \case
   Ast.AstFromIntegralS v -> second Ast.AstFromIntegralS $ unshareAst memo v
   Ast.AstCastS v -> second Ast.AstCastS $ unshareAst memo v
 
-  Ast.AstIndexS @sh1 shn v ix ->
-    let (memo1, v2) = unshareAst memo v
-        (memo2, ix2) = mapAccumR unshareAst memo1 (Foldable.toList ix)
-    in withKnownShS (shsFromIxS ix)
-       (memo2, Ast.AstIndexS @sh1 shn v2 (fromList ix2))
+  Ast.AstIndexS @shm @shn shn v ix
+    | FTKS shmshn _ <- ftkAst v
+    , SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
+      gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
+      withKnownShS shmshn $
+      gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
+      withKnownShS (shsTake @(Rank shm) shmshn) $
+      let (memo1, v2) = unshareAst memo v
+          (memo2, ix2) = mapAccumR unshareAst memo1 (Foldable.toList ix)
+      in (memo2, Ast.AstIndexS @shm shn v2 (fromList ix2))
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (unshareAstScoped $ listsToList vars)
                     memo (Foldable.toList ix)
         (memo2, v2) = unshareAst memo1 v
-        !ix3 = withKnownShS (shsFromIxS ix) $ fromList ix2
+        !ix3 = withKnownShS (knownShS @shp) $ fromList ix2
     in (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (unshareAstScoped $ listsToList vars)
                     memo (Foldable.toList ix)
         (memo2, v2) = unshareAst memo1 v
-        !ix3 = withKnownShS (shsFromIxS ix) $ fromList ix2
+        !ix3 = withKnownShS (knownShS @shp) $ fromList ix2
     in (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, ix3))
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ unshareAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ unshareAst memo a

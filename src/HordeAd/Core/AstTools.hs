@@ -109,10 +109,10 @@ ftkAst t = case t of
 
   AstIndexS shn v _ix -> case ftkAst v of
     FTKS _ x -> FTKS shn x
-  AstScatterS shn v (_ , ix) -> case ftkAst v of
-    FTKS _ x -> FTKS (shsFromIxS ix `shsAppend` shn) x
-  AstGatherS shn v (vars, _) -> case ftkAst v of
-    FTKS _ x -> FTKS (shsFromListS vars `shsAppend` shn) x
+  AstScatterS @_ @_ @shp shn v _ -> case ftkAst v of
+    FTKS _ x -> FTKS (knownShS @shp `shsAppend` shn) x
+  AstGatherS @shm shn v _ -> case ftkAst v of
+    FTKS _ x -> FTKS (knownShS @shm `shsAppend` shn) x
   AstMinIndexS v -> case ftkAst v of
     FTKS sh FTKScalar -> FTKS (shsInit sh) FTKScalar
   AstMaxIndexS v -> case ftkAst v of

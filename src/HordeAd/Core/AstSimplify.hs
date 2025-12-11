@@ -87,7 +87,7 @@ import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types
-  (Head, Init, Last, Tail, snatPlus, unsafeCoerceRefl)
+  (Head, Init, Last, Tail, snatMinus, snatPlus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
   ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
@@ -1706,13 +1706,27 @@ astIndexKnobsS _ shn v0 (i1 :.$ _)
 astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
   | knobPhase knobs `notElem` [PhaseUnspecified, PhaseVectorization] =
       -- don't undo vectorization tweaks
-    astLetFun v0 $ \v ->
-    shareIx rest0 $ \rest ->
-      astCond b (astIndexKnobsS knobs shn v (i1 :.$ rest))
-                (astIndexKnobsS knobs shn v (i2 :.$ rest))
-astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
- let FTKS _ x = ftkAst v0
-     astIndex
+    let FTKS shmshn _ = ftkAst v0
+    in case snatMinus (shsRank shmshn) (shsRank shn) of
+      SNat @rankshn ->
+        gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
+        withKnownShS shmshn $
+        gcastWith (unsafeCoerceRefl
+                   :: Take (Rank shm) (shm ++ shn) :~: shm) $
+        withKnownShS (shsTail (shsTake @(Rank shm) shmshn)) $
+        astLetFun v0 $ \v ->
+        shareIx rest0 $ \rest ->
+        astCond b (astIndexKnobsS knobs shn v (i1 :.$ rest))
+                  (astIndexKnobsS knobs shn v (i2 :.$ rest))
+astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1)
+ | FTKS shmshn x <- ftkAst v0
+ , SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) =
+ gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
+ withKnownShS shmshn $
+ gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
+ withKnownShS (shsTake @(Rank shm) shmshn) $
+ withKnownShS (shsTail (shsTake @(Rank shm) shmshn)) $
+ let astIndex
        :: forall shm' shn' s' r'. AstSpan s'
        => ShS shn'
        -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r')
@@ -1742,7 +1756,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
                                       $ V.map (\a -> astIndex shn a rest2) l)
                     (i1 :.$ ZIS)
   Ast.AstSum snat@(SNat @n1) STKS{} v ->
-    let perm3 = backpermCycle $ shsLength (shsFromIxS ix) + 1
+    let perm3 = backpermCycle $ ixsLength ix + 1
     in Permutation.permFromListCont perm3 $ \(perm
                                               :: Permutation.Perm perm3P) ->
          gcastWith (unsafeCoerceRefl
@@ -1827,7 +1841,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     $ \ !ix2 -> Ast.AstI2S opCode (astIndexKnobsS knobs shn u ix2)
                                   (astIndexKnobsS knobs shn v ix2)
   AstConcreteS a | AstConcreteK i <- i1 ->
-    let u = withKnownShS (shsFromIxS rest1 `shsAppend` shn) $
+    let u = withKnownShS (shsTail shmshn) $
             tsindex (Concrete a) (Concrete i :.$ ZIS)
     in astIndex shn (astConcreteS u) rest1
   AstConcreteS{} -> case unRepl1 v0 of
@@ -1954,7 +1968,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
     let iRev = valueOf @in1 - 1 - i1
     in astIndex shn v (iRev :.$ rest1)
   Ast.AstTransposeS @_ @sh2 perm v
-    | gcompare (shsRank (shsFromIxS ix)) (Permutation.permRank perm) /= GLT ->
+    | gcompare (ixsRank ix) (Permutation.permRank perm) /= GLT ->
       -- TODO: remake once there's an S version of permInverse:
       permInverse perm $ \(permR :: Permutation.Perm permR) _ ->
       let ix2 :: AstIxS AstMethodLet (Permutation.PermutePrefix permR shm)
@@ -1993,7 +2007,7 @@ astIndexKnobsS knobs shn v0 ix@((:.$) @in1 @shm1 i1 rest1) =
 -- or design something even better.
 --
 -- See https://github.com/Mikolaj/horde-ad/issues/119.
-shareIx :: AstSpan s
+shareIx :: forall s shm y. (AstSpan s, KnownShS shm)
         => AstIxS AstMethodLet shm
         -> (AstIxS AstMethodLet shm -> AstTensor AstMethodLet s y)
         -> AstTensor AstMethodLet s y
@@ -2010,7 +2024,7 @@ shareIx ix f = unsafePerformIO $ do
                                            (Just (varFresh, i), astVarFresh)
   (bindings, ix2) <- mapAndUnzipM shareI (Foldable.toList ix)
   return $! foldr (uncurry astLet)
-                  (withKnownShS (shsFromIxS ix) $ f $ fromList ix2)
+                  (withKnownShS (knownShS @shm) $ f $ fromList ix2)
                   (catMaybes bindings)
 
 -- TODO: fuse scatters, scatter and sum, and perhaps more (fromList?)
@@ -2021,24 +2035,26 @@ astScatterS :: forall shm shn shp r s.
             -> (AstVarListS shm, AstIxS AstMethodLet shp)
             -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
 astScatterS _shn v (ZS, ZIS) = v
-astScatterS shn v0 (_vars, ix@((:.$) @k i1 _))
+astScatterS shn v0 (_, (:.$) @k i1 _)
   | let (lb, ub) = bounds i1
         FTKS _ x = ftkAst v0
   , ub < 0 || lb >= valueOf @k =
-    let ftk = FTKS (shsFromIxS ix `shsAppend` shn) x
+    let ftk = FTKS (knownShS @shp `shsAppend` shn) x
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astScatterS shn v (vars, (:.$) @k (AstConcreteK _) rest)
   | Just Refl <- sameNat (SNat @k) (SNat @1)
   , FTKS _ x <- ftkAst v =
     withKnownShS (shsTail (knownShS @shp)) $
-    astReplicate (SNat @1) (STKS (shsFromIxS rest `shsAppend` shn) (ftkToSTK x))
+    astReplicate (SNat @1) (STKS (shsTail (knownShS @shp)
+                                  `shsAppend` shn) (ftkToSTK x))
     $ astScatterS shn v (vars, rest)
 astScatterS shn v (Const var ::$ (vars :: AstVarListS sh3), ix)
   | not $ var `varNameInIxS` ix
   , FTKS _ x <- ftkAst v =
       withKnownShS (shsTail (knownShS @shm)) $
       astScatterS @sh3 @shn @shp shn
-        (astSum SNat (STKS (shsFromListS vars `shsAppend` shn) (ftkToSTK x)) v)
+        (astSum SNat (STKS (shsTail (knownShS @shm)
+                            `shsAppend` shn) (ftkToSTK x)) v)
         (vars, ix)
 -- TODO? astScatterS v (ZR, ix) = update (rzero sh 0) ix v
 astScatterS shn (Ast.AstLet var u v) (vars, ix) =
@@ -2077,20 +2093,20 @@ astGatherKnobsS _ _ v0 (!vars0, !_ix0)
   | any (`varNameInAst` v0) $ listsToList vars0 =
     error $ "astGatherKnobsS: gather vars in v0: " ++ show (vars0, v0)
 astGatherKnobsS knobs shn v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
-astGatherKnobsS _ _ v0 (vars0, ZIS) =
-  astReplicateNS @shm @shn (shsFromListS vars0) v0
-astGatherKnobsS _ shn v0 (vars, i1 :.$ _)
+astGatherKnobsS _ _ v0 (_, ZIS) =
+  astReplicateNS @shm @shn (knownShS @shm) v0
+astGatherKnobsS _ shn v0 (_, i1 :.$ _)
   | let (lb, ub) = bounds i1
 -- this doesn't work in GHC 9.10:
 --      FTKS (snat :$$ _) x = ftkAst v0
   , FTKS (snat :$$ _) x <- ftkAst v0
   , ub < 0 || lb >= sNatValue snat =
-    let ftk = FTKS (shsFromListS vars `shsAppend` shn) x
+    let ftk = FTKS (knownShS @shm `shsAppend` shn) x
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
-astGatherKnobsS knobs shn v0 (vars0@(var1 ::$ vars1), ix0)
+astGatherKnobsS knobs shn v0 (var1 ::$ vars1, ix0)
   | not (getConst var1 `varNameInIxS` ix0) =
     withKnownShS (shsTail (knownShS @shm)) $
-    let k :$$ sh' = shsFromListS vars0
+    let k :$$ sh' = knownShS @shm
         FTKS _ x = ftkAst v0
     in astReplicate k (STKS (sh' `shsAppend` shn) (ftkToSTK x))
                     (astGatherKnobsS @(Tail shm) @shn @shp
@@ -2102,8 +2118,8 @@ astGatherKnobsS knobs shn v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))
   , AstIntVar ixvarLast <- ixsLast ix0
   , ixvarLast == varLast
   , not (varLast `varNameInIxS` ixInit)
-  , kLast@SNat <- shsLast (shsFromListS vars0)
-  , Just Refl <- testEquality kLast (shsLast (shsFromIxS ix0)) =
+  , kLast@SNat <- shsLast (knownShS @shm)
+  , Just Refl <- testEquality kLast (shsLast (knownShS @shp)) =
     gcastWith (unsafeCoerceRefl
                :: Init shp ++ (Last shm ': shn) :~: shp ++ shn) $
     gcastWith (unsafeCoerceRefl
@@ -2331,7 +2347,7 @@ astGatherKnobsS knobs shn v0
              -- this gather may still index out of bounds, which is fine
     else
       withSNat (- i) $ \(SNat @i) ->
-        let ftk = FTKS (SNat @i :$$ shsFromIxS prest `shsAppend` shn) x
+        let ftk = FTKS (SNat @i :$$ shsTail (knownShS @shp) `shsAppend` shn) x
             v2 = fromPlain (astConcrete ftk (tdefTarget ftk))
                  `astAppendS`
                  v0
@@ -2352,7 +2368,7 @@ astGatherKnobsS knobs shn v0
              -- this gather may still index out of bounds, which is fine
     else
       withSNat (- i) $ \(SNat @i) ->
-        let ftk = FTKS (SNat @i :$$ shsFromIxS prest `shsAppend` shn) x
+        let ftk = FTKS (SNat @i :$$ shsTail (knownShS @shp) `shsAppend` shn) x
             v2 = fromPlain (astConcrete ftk (tdefTarget ftk))
                  `astAppendS`
                  v0
@@ -2501,10 +2517,10 @@ astGatherKnobsS knobs shn v0
     gcastWith (unsafeCoerceRefl :: (m2 <=? p) :~: True) $
     gcastWith (unsafeCoerceRefl :: (m2 <=? m) :~: True) $
     Permutation.permFromListCont (permCycle
-                                  $ shsLength (shsFromListS mrest) + 1)
+                                  $ shsLength (shsTail (knownShS @shm)) + 1)
     $ \(permVars :: Permutation.Perm permVars) ->
     Permutation.permFromListCont (backpermCycle
-                                  $ shsLength (shsFromIxS prest) + 1)
+                                  $ shsLength (shsTail (knownShS @shp)) + 1)
     $ \(permIx :: Permutation.Perm permIx) ->
        gcastWith (unsafeCoerceRefl
                   :: m2 ': shmTail ++ shn
@@ -2528,8 +2544,8 @@ astGatherKnobsS knobs shn v0
        $ let v2 = astTransposeS permIx
                   $ astSliceS (SNat @0) (SNat @m2) (SNat @(p - m2)) v0
              u = astGatherKnobsS knobs (SNat @m2 :$$ shn) v2 (mrest, prest)
-             ftk =
-               FTKS (SNat @(m - m2) :$$ shsFromListS mrest `shsAppend` shn) x
+             ftk = FTKS (SNat @(m - m2)
+                         :$$ shsTail (knownShS @shm) `shsAppend` shn) x
          in astTransposeS permVars u
             `astAppendS`
             fromPlain (astConcrete ftk (tdefTarget ftk))
@@ -2550,14 +2566,14 @@ astGatherKnobsS knobs shn v7@(Ast.AstFromVector _ (STKS _ x2) l)
               j = h i
           in if j >= V.length l
              then let FTKS _ x = ftkAst v7
-                      ftk = FTKS (shsFromListS vrest4 `shsAppend` shn) x
+                      ftk = FTKS (shsTail (knownShS @shm) `shsAppend` shn) x
                   in fromPlain $ astConcrete ftk (tdefTarget ftk)
              else withKnownShS (shsTail (knownShS @shm)) $
                   withKnownShS (shsTail (knownShS @shp)) $
                   astGatherKnobsS @shm4 @shn @shp1' knobs shn
                                   (l V.! j) (vrest4, subRest4)
     in astFromVector (SNat @m1')
-                     (STKS (shsFromListS vrest4 `shsAppend` shn) x2)
+                     (STKS (shsTail (knownShS @shm) `shsAppend` shn) x2)
        $ V.fromListN (valueOf @m1') $ map f [0 .. valueOf @m1' - 1]
 astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
   | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
@@ -2566,7 +2582,8 @@ astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
     withKnownShS (shsTail (knownShS @shp)) $
     astGatherKnobsS @shm @shn
       knobs shn
-      (astIndexKnobsS knobs (shsFromIxS rest1 `shsAppend` shn) v0 (i1 :.$ ZIS))
+      (astIndexKnobsS knobs (shsTail (knownShS @shp)
+                             `shsAppend` shn) v0 (i1 :.$ ZIS))
       (vars0, rest1)
 astGatherKnobsS knobs shn v0
   (vars@((::$) @m _ _), ix@(i1 :.$ prest))
@@ -2741,7 +2758,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
   | FTKS _ x <- ftkAst v4 = case v4 of
     Ast.AstProject1{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstProject2{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
-    {- Ast.AstFromVector{} | gatherFromNF (shsFromIxS rest4) vars4 ix4 ->
+    {- Ast.AstFromVector{} | gatherFromNF (shsTail (knownShS @shp)) vars4 ix4 ->
         -- normal form
       Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4) -}
     {- this rule seems counterproductive in many cases, so disabled until
@@ -2749,7 +2766,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
     Ast.AstFromVector snat STKS{} l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use tlet.
-      funToVarsIxS @shm (shsFromListS vars4) $ \ (!varsFresh, IxS !ixFresh) ->
+      funToVarsIxS @shm (knownShS @shm) $ \ (!varsFresh, IxS !ixFresh) ->
         let f v = astGather @shm @shn @shp1' shn v (vars4, rest4)
             -- This subst doesn't currently break sharing because it's a rename.
             subst i =
@@ -2769,8 +2786,8 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
     -- that doesn't fuse here unless astTransposeAsGatherS is used.
     -- Since the transpose is O(1), let's leave this as is.
     Ast.AstSum snat@(SNat @n1) STKS{} v ->
-      let perm3 = backpermCycle $ shsLength (shsFromIxS ix4) + 1
-          perm4 = permCycle $ shsLength (shsFromListS vars4) + 1
+      let perm3 = backpermCycle $ shsLength (knownShS @shp) + 1
+          perm4 = permCycle $ shsLength (knownShS @shm) + 1
       in Permutation.permFromListCont perm3
          $ \(perm3S :: Permutation.Perm perm3P) ->
          gcastWith (unsafeCoerceRefl
@@ -2794,7 +2811,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
          $ let innerGather =
                  astGather @shm @(n1 : shn) @shp
                            (snat :$$ shn) (astTransposeS perm3S v) (vars4, ix4)
-           in astSum snat (STKS (shsFromListS vars4 `shsAppend` shn)
+           in astSum snat (STKS (knownShS @shm `shsAppend` shn)
                                 (ftkToSTK x))
               $ astTransposeS perm4S innerGather
                 {- TODO: disabled until we can reliably fuse back to transpose
@@ -2802,7 +2819,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
                 then astTransposeS perm4S innerGather
                 else astTransposeAsGatherS knobs perm4S innerGather -}
     Ast.AstReplicate _ STKS{} v ->
-      let ftk = FTKS (shsFromListS vars4 `shsAppend` shn) x
+      let ftk = FTKS (knownShS @shm `shsAppend` shn) x
           defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
       -- This boolean term may have free variables that act as universally
       -- quantified.
@@ -2814,7 +2831,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
           else defArr
         _ -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     Ast.AstReplicate (SNat @k) STKScalar v | ZIS <- rest4 ->
-      let ftk = FTKS (shsFromListS vars4 `shsAppend` shn) x
+      let ftk = FTKS (knownShS @shm `shsAppend` shn) x
           defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
       in case 0 <=. i4 &&* i4 <=. valueOf @k - 1 of
         AstConcreteK b ->
@@ -2830,7 +2847,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@((:.$) @in1 @shp1' i4 rest4))
     Ast.AstBuild1{} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
     AstConcreteS{} -> case unRepl1 v4 of
       Just u ->
-        let ftk = FTKS (shsFromListS vars4 `shsAppend` shn) x
+        let ftk = FTKS (knownShS @shm `shsAppend` shn) x
             defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
         in case 0 <=. i4 &&* i4 <=. valueOf @in1 - 1 of
           AstConcreteK b ->

@@ -21,10 +21,11 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested (Rank)
+import Data.Array.Nested (type (++))
 import Data.Array.Nested.Lemmas
+import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (unsafeCoerceRefl)
+import Data.Array.Nested.Types (snatMinus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -171,32 +172,35 @@ interpretAstPrimal !env v1 = case v1 of
           _ -> tscast @_ @Float $ interpretAstPrimal env v
         _ -> tscast $ interpretAstPrimal env v
 
-  AstFromS' ftk (AstIndexS @sh1 ZSS v ix) | FTKS _ ftk2@FTKScalar <- ftkAst v
+  AstFromS' ftk (AstIndexS @sh1 ZSS v ix) | FTKS sh1 ftk2@FTKScalar <- ftkAst v
                                           , Just Refl <- matchingFTK ftk ftk2
                                           , Refl <- lemAppNil @sh1 ->
-    withKnownShS (shsFromIxS ix) $
+    withKnownShS sh1 $
     let v2 = interpretAstPrimal env v
         ix3 = interpretAstPlain env <$> ix
     in tsindex0 v2 ix3
-  AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS (shsFromIxS ix) $
-      withKnownShS sh2 $
+  AstIndexS @shm @shn shn v ix -> case ftkToSTK (ftkAst v) of
+    STKS shmshn x | SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
+      gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
+      withKnownShS shmshn $
+      gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
+      withKnownShS (shsTake @(Rank shm) shmshn) $
+      withKnownShS shn $
       withKnownSTK x $
       let v2 = interpretAstPrimal env v
           ix3 = interpretAstPlain env <$> ix
-      in tsindex @_ @sh1 v2 ix3
-  AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
+      in tsindex @_ @shm v2 ix3
+  AstScatterS @_ @_ @shp shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       tsoneHot (interpretAstPrimal env v) (interpretAstPlain env <$> ix)
   AstScatterS @_ @shn @shp
               shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       let t1 = interpretAstPrimal env v
           f2 :: IntOf target -> IxSOf target shp
@@ -205,9 +209,9 @@ interpretAstPrimal !env v1 = case v1 of
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
-      withKnownShS (shsFromListS vars) $
+      withKnownShS (knownShS @shm) $
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       let t1 = interpretAstPrimal env v
           f2 :: IxSOf target shm -> IxSOf target shp
@@ -218,7 +222,7 @@ interpretAstPrimal !env v1 = case v1 of
              shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       let t1 = interpretAstPrimal env v
           f2 :: IntOf target -> IxSOf target shp
@@ -227,9 +231,9 @@ interpretAstPrimal !env v1 = case v1 of
   AstGatherS @shm @shn @shp
              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
-      withKnownShS (shsFromListS vars) $
+      withKnownShS (knownShS @shm) $
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       let t1 = interpretAstPrimal env v
           f2 :: IxSOf target shm -> IxSOf target shp
@@ -402,32 +406,35 @@ interpretAstPlain !env v1 = case v1 of
           _ -> tscast @_ @Float $ interpretAstPlain env v
         _ -> tscast $ interpretAstPlain env v
 
-  AstFromS' ftk (AstIndexS @sh1 ZSS v ix) | FTKS _ ftk2@FTKScalar <- ftkAst v
+  AstFromS' ftk (AstIndexS @sh1 ZSS v ix) | FTKS sh1 ftk2@FTKScalar <- ftkAst v
                                           , Just Refl <- matchingFTK ftk ftk2
                                           , Refl <- lemAppNil @sh1 ->
-    withKnownShS (shsFromIxS ix) $
+    withKnownShS sh1 $
     let v2 = interpretAstPlain env v
         ix3 = interpretAstPlain env <$> ix
     in tsindex0 v2 ix3
-  AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS (shsFromIxS ix) $
-      withKnownShS sh2 $
+  AstIndexS @shm @shn shn v ix -> case ftkToSTK (ftkAst v) of
+    STKS shmshn x | SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
+      gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
+      withKnownShS shmshn $
+      gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
+      withKnownShS (shsTake @(Rank shm) shmshn) $
+      withKnownShS shn $
       withKnownSTK x $
       let v2 = interpretAstPlain env v
           ix3 = interpretAstPlain env <$> ix
-      in tsindex @_ @sh1 v2 ix3
-  AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
+      in tsindex @_ @shm v2 ix3
+  AstScatterS @_ @_ @shp shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       tsoneHot (interpretAstPlain env v) (interpretAstPlain env <$> ix)
   AstScatterS @_ @shn @shp
               shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       let t1 = interpretAstPlain env v
           f2 :: IntOf target -> IxSOf target shp
@@ -435,9 +442,9 @@ interpretAstPlain !env v1 = case v1 of
       in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->      withKnownShS (shsFromListS vars) $
+    STKS _ x ->      withKnownShS (knownShS @shm) $
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       let t1 = interpretAstPlain env v
           f2 :: IxSOf target shm -> IxSOf target shp
@@ -448,7 +455,7 @@ interpretAstPlain !env v1 = case v1 of
              shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       let t1 = interpretAstPlain env v
           f2 :: IntOf target -> IxSOf target shp
@@ -457,9 +464,9 @@ interpretAstPlain !env v1 = case v1 of
   AstGatherS @shm @shn @shp
              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
-      withKnownShS (shsFromListS vars) $
+      withKnownShS (knownShS @shm) $
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       let t1 = interpretAstPlain env v
           f2 :: IxSOf target shm -> IxSOf target shp
@@ -765,36 +772,39 @@ interpretAst !env = \case
           _ -> tscast @_ @Float $ interpretAst env v
         _ -> tscast $ interpretAst env v
 
-  AstFromS' ftk (AstIndexS @sh1 ZSS v ix) | FTKS _ ftk2@FTKScalar <- ftkAst v
+  AstFromS' ftk (AstIndexS @sh1 ZSS v ix) | FTKS sh1 ftk2@FTKScalar <- ftkAst v
                                           , Just Refl <- matchingFTK ftk ftk2
                                           , Refl <- lemAppNil @sh1 ->
-    withKnownShS (shsFromIxS ix) $
+    withKnownShS sh1 $
     let v2 = interpretAst env v
         ix3 = interpretAstPlain env <$> ix
     in tsindex0 v2 ix3
-  AstIndexS @sh1 sh2 v ix -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS (shsFromIxS ix) $
-      withKnownShS sh2 $
+  AstIndexS @shm @shn shn v ix -> case ftkToSTK (ftkAst v) of
+    STKS shmshn x | SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
+      gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
+      withKnownShS shmshn $
+      gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
+      withKnownShS (shsTake @(Rank shm) shmshn) $
+      withKnownShS shn $
       withKnownSTK x $
       let v2 = interpretAst env v
           ix3 = interpretAstPlain env <$> ix
-      in tsindex @target @sh1 v2 ix3
+      in tsindex @_ @shm v2 ix3
   -- TODO: once specialization inspect-testing is back online,
   -- recover and also handle similarly tsupdate, both implemented
   -- as a gather and as a scatter
   -- TODO: this breaks specialization:
-  AstScatterS shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
+  AstScatterS @_ @_ @shp shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       tsoneHot (interpretAst env v) (interpretAstPlain env <$> ix)
   AstScatterS @_ @shn @shp
               shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       let t1 = interpretAst env v
           f2 :: IntOf target -> IxSOf target shp
@@ -803,9 +813,9 @@ interpretAst !env = \case
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
-      withKnownShS (shsFromListS vars) $
+      withKnownShS (knownShS @shm) $
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       let t1 = interpretAst env v
           f2 :: IxSOf target shm -> IxSOf target shp
@@ -816,7 +826,7 @@ interpretAst !env = \case
              shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       let t1 = interpretAst env v
           f2 :: IntOf target -> IxSOf target shp
@@ -825,9 +835,9 @@ interpretAst !env = \case
   AstGatherS @shm @shn @shp
              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
     STKS _ x ->
-      withKnownShS (shsFromListS vars) $
+      withKnownShS (knownShS @shm) $
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (knownShS @shp) $
       withKnownSTK x $
       let t1 = interpretAst env v
           f2 :: IxSOf target shm -> IxSOf target shp

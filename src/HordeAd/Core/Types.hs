@@ -33,7 +33,6 @@ module HordeAd.Core.Types
   , listsTakeLen, listsDropLen, shsDropLen
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
   , shCastSX, lemRankMapJust'
-  , shsFromIxS, shsFromListS
   , normalizePermutationHack, backpermCycle, permCycle
   , permUnShift1
   , ssxTakeIx

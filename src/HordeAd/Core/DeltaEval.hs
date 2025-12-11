@@ -32,6 +32,7 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (permInverse)
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
 
@@ -482,7 +483,7 @@ evalRevFTK !s !c d0 = case d0 of
     FTKR sh x | SNat <- ixrRank ix
               , Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
-      evalRevFTK s (troneHot (shrTake sh) c ix) d  -- TODO: ixrToShR ix
+      evalRevFTK s (troneHot (shrTake sh) c ix) d
   DeltaScatterR SNat SNat SNat _sh d f -> case ftkDelta d of
     FTKR sh x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -520,11 +521,11 @@ evalRevFTK !s !c d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       evalRevFTK s (trreshape sh c) d
 
-  DeltaIndexS shn d ix -> case ftkDelta d of
-    FTKS _ x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
+  DeltaIndexS @shm @shn shn d ix -> case ftkDelta d of
+    FTKS sh x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (Shaped.shsTakeIx @shn @shm Proxy sh ix) $
       evalRevFTK s (tsoneHot c ix) d
   DeltaScatterS @shm @shn shm shn shp d f -> case ftkDelta d of
     FTKS _ x ->
@@ -904,11 +905,11 @@ evalFwd params s d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       second (trreshape sh2) $ evalFwd params s d
 
-  DeltaIndexS shn d ix -> case ftkDelta d of
-    FTKS _ x ->
+  DeltaIndexS @shm @shn shn d ix -> case ftkDelta d of
+    FTKS sh x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       withKnownShS shn $
-      withKnownShS (shsFromIxS ix) $
+      withKnownShS (Shaped.shsTakeIx @shn @shm Proxy sh ix) $
       second (`tsindex` ix) $ evalFwd params s d
   DeltaScatterS @shm @shn shm shn shp d f -> case ftkDelta d of
     FTKS _ x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
@@ -953,7 +954,6 @@ evalFwd params s d0 = case d0 of
     FTKX sh x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       withKnownShX shn $
--- TODO      withKnownShX (ssxFromIxX ix) $
       withKnownShX (ssxTakeIx @shm @shn (ssxFromShX sh) ix) $
       second (`txindex` ix) $ evalFwd params s d
   DeltaScatterX @shm @shn shm shn shp sh d f -> case ftkDelta d of
