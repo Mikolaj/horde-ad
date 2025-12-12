@@ -1757,21 +1757,21 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
        Ast.AstIndexS @'[in1] @shn shn (astFromVector snat (STKS shn (ftkToSTK x))
                                        $ V.map (\a -> astIndex shn a rest2) l)
                      (i1 :.$ ZIS)
-   Ast.AstSum snat@(SNat @n1) STKS{} v ->
+   Ast.AstSum snat@(SNat @k1) STKS{} v ->
      let perm3 = backpermCycle $ ixsLength ix + 1
      in Permutation.permFromListCont perm3 $ \(perm
                                                :: Permutation.Perm perm3P) ->
           gcastWith (unsafeCoerceRefl
-                     :: Compare (Rank perm3P) (Rank (n1 : shm ++ shn))
+                     :: Compare (Rank perm3P) (Rank (k1 : shm ++ shn))
                         :~: LT) $
           gcastWith (unsafeCoerceRefl
-                     :: Permutation.PermutePrefix perm3P (n1 : (shm ++ shn))
-                        :~: shm ++ (n1 : shn)) $
+                     :: Permutation.PermutePrefix perm3P (k1 : (shm ++ shn))
+                        :~: shm ++ (k1 : shn)) $
           fromMaybe (error "astIndexKnobsS: impossible non-permutation")
           $ Permutation.permCheckPermutation perm
           $ astSum snat (STKS shn (ftkToSTK x))
-          $ astIndex @shm @(n1 : shn) (snat :$$ shn)
-                     (astTransposeS @perm3P @(n1 : shm ++ shn) perm v)
+          $ astIndex @shm @(k1 : shn) (snat :$$ shn)
+                     (astTransposeS @perm3P @(k1 : shm ++ shn) perm v)
                      ix
    Ast.AstReplicate _ STKS{} v ->
      let ftk = FTKS shn x

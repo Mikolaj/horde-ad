@@ -706,7 +706,7 @@ shsDropLen = coerce (listsDropLenPerm @SNat)
 
 listxTake :: forall f g sh sh'. ListX (sh ++ sh') f -> ListX sh g -> ListX sh f
 listxTake _ ZX = ZX
-listxTake (i ::% long') ((::%) @_ @_ @sh2 _ short) =
+listxTake (i ::% long') ((::%) @_ @sh2 _ short) =
   i ::% listxTake @f @g @sh2 @sh' long' short
 
 ssxTakeIx :: forall sh sh' i. StaticShX (sh ++ sh') -> IxX sh i -> StaticShX sh
