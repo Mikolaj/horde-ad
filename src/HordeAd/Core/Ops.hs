@@ -573,7 +573,7 @@ class ( Num (IntOf target)
          $ txsum $ txtranspose cperm (t * u)
   txmatvecmul :: forall mm mn r.
                  (NumScalar r, ConvertTensor target)
-              => Nested.SMayNat Int SNat mm -> Nested.SMayNat Int SNat mn
+              => Nested.SMayNat Int mm -> Nested.SMayNat Int mn
               -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
               -> target (TKX '[mm] r)
   txmatvecmul mm mn m v =

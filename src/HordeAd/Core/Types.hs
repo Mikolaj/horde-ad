@@ -709,4 +709,4 @@ listxTake (i ::% long') ((::%) @_ @sh2 _ short) =
   i ::% listxTake @f @g @sh2 @sh' long' short
 
 ssxTakeIx :: forall sh sh' i. StaticShX (sh ++ sh') -> IxX sh i -> StaticShX sh
-ssxTakeIx = coerce (listxTake @(Nested.SMayNat () SNat) @(Const i) @_ @sh')
+ssxTakeIx = coerce (listxTake @(Nested.SMayNat ()) @(Const i) @_ @sh')

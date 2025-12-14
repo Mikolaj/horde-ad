@@ -340,7 +340,7 @@ xdot1In :: (KnownShX sh, KnownNat n, NumScalar r, BaseTensor target)
 xdot1In @sh @n = txdot1In @_ @sh (SNat @n)
 xmatvecmul :: forall mm mn r target.
               (NumScalar r, BaseTensor target, ConvertTensor target)
-           => Nested.SMayNat Int SNat mm -> Nested.SMayNat Int SNat mn
+           => Nested.SMayNat Int mm -> Nested.SMayNat Int mn
            -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
            -> target (TKX '[mm] r)
 xmatvecmul = txmatvecmul
