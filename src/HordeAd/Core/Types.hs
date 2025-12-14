@@ -575,15 +575,16 @@ type family Drop (n :: Nat) (xs :: [k]) :: [k] where
   Drop 0 xs = xs
   Drop n (x ': xs) = Drop (n - 1) xs
 
+-- TODO: shed the constraints by using listsFromListSPartial Proxy Proxy
 listsTake :: forall len sh i.
              (KnownShS sh, KnownNat len, KnownShS (Take len sh))
           => ListS sh (Const i) -> ListS (Take len sh) (Const i)
-listsTake ix = fromList $ take (valueOf @len) $ toList ix
+listsTake l = fromList $ take (valueOf @len) $ toList l
 
 listsDrop :: forall len sh i.
              (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
           => ListS sh (Const i) -> ListS (Drop len sh) (Const i)
-listsDrop ix = fromList $ drop (valueOf @len) $ toList ix
+listsDrop l = fromList $ drop (valueOf @len) $ toList l
 
 listsSplitAt
   :: forall sh len i.

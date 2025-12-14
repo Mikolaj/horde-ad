@@ -60,7 +60,6 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
 import Data.Vector.Strict qualified as Data.Vector
-import GHC.Exts (IsList (..))
 import GHC.TypeLits
   ( Nat
   , OrderingI (..)
@@ -1706,27 +1705,17 @@ astIndexKnobsS _ shn v0 (i1 :.$ _)
 astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
   | knobPhase knobs `notElem` [PhaseUnspecified, PhaseVectorization] =
       -- don't undo vectorization tweaks
-    let FTKS shmshn _ = ftkAst v0
-    in case snatMinus (shsRank shmshn) (shsRank shn) of
-      SNat @rankshn ->
-        gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-        withKnownShS shmshn $
-        gcastWith (unsafeCoerceRefl
-                   :: Take (Rank shm) (shm ++ shn) :~: shm) $
-        withKnownShS (shsTail (shsTake @(Rank shm) shmshn)) $
-        astLetFun v0 $ \v ->
-        shareIx rest0 $ \rest ->
-        astCond b (astIndexKnobsS knobs shn v (i1 :.$ rest))
-                  (astIndexKnobsS knobs shn v (i2 :.$ rest))
+    astLetFun v0 $ \v ->
+    shareIx rest0 $ \rest ->
+    astCond b (astIndexKnobsS knobs shn v (i1 :.$ rest))
+              (astIndexKnobsS knobs shn v (i2 :.$ rest))
 astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
  | FTKS shmshn x <- ftkAst v0
  , SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) =
  gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
  withKnownShS shmshn $
- gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
- withKnownShS (shsTake @(Rank shm) shmshn) $
- withKnownShS (shsTail (shsTake @(Rank shm) shmshn)) $
- case knownShS @shm of
+ gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
+ case shsTake @(Rank shm) shmshn of
   SNat @in1 :$$ (_ :: ShS shm1) ->
    let astIndex
          :: forall shm' shn' s' r'. AstSpan s'
@@ -2009,7 +1998,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
 -- or design something even better.
 --
 -- See https://github.com/Mikolaj/horde-ad/issues/119.
-shareIx :: forall s shm y. (AstSpan s, KnownShS shm)
+shareIx :: forall s shm y. AstSpan s
         => AstIxS AstMethodLet shm
         -> (AstIxS AstMethodLet shm -> AstTensor AstMethodLet s y)
         -> AstTensor AstMethodLet s y
@@ -2026,7 +2015,7 @@ shareIx ix f = unsafePerformIO $ do
                                            (Just (varFresh, i), astVarFresh)
   (bindings, ix2) <- mapAndUnzipM shareI (Foldable.toList ix)
   return $! foldr (uncurry astLet)
-                  (withKnownShS (knownShS @shm) $ f $ fromList ix2)
+                  (f $ ixsFromIxS ix ix2)
                   (catMaybes bindings)
 
 -- TODO: fuse scatters, scatter and sum, and perhaps more (fromList?)
