@@ -418,7 +418,6 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                case snatMinus (shsRank shmshn1) (shsRank shn1) of
                  SNat @rankshn1 ->
                    gcastWith (unsafeCoerceRefl :: Rank shm1 :~: rankshn1) $
-                   withKnownShS shmshn1 $
                    withKnownShS (shsTake @(Rank shm1) shmshn1) $
                    gcastWith (unsafeCoerceRefl
                               :: Take (Rank shm1) (shm1 ++ shn1) :~: shm1) $
@@ -454,7 +453,6 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
      else traceRule $ case snatMinus (shsRank shmshn) (shsRank shn) of
             SNat @rankshn ->
               gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-              withKnownShS shmshn $
               withKnownShS (shsTake @(Rank shm) shmshn) $
               gcastWith (unsafeCoerceRefl
                          :: Take (Rank shm) (shm ++ shn) :~: shm) $

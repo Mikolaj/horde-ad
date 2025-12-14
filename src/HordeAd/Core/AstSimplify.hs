@@ -1713,7 +1713,6 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
  | FTKS shmshn x <- ftkAst v0
  , SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) =
  gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
- withKnownShS shmshn $
  gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
  case shsTake @(Rank shm) shmshn of
   SNat @in1 :$$ (_ :: ShS shm1) ->

@@ -580,7 +580,6 @@ evalRevFTK !s !c d0 = case d0 of
               , Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       withKnownShX shn $
-      withKnownShX (ssxFromShX sh) $
       withKnownShX (ssxTakeIx @shm @shn (ssxFromShX sh) ix) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
       evalRevFTK s (txoneHot (shxTake @len sh) c ix) d

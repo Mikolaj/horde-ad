@@ -576,19 +576,17 @@ type family Drop (n :: Nat) (xs :: [k]) :: [k] where
   Drop n (x ': xs) = Drop (n - 1) xs
 
 -- TODO: shed the constraints by using listsFromListSPartial Proxy Proxy
-listsTake :: forall len sh i.
-             (KnownShS sh, KnownNat len, KnownShS (Take len sh))
+listsTake :: forall len sh i. (KnownNat len, KnownShS (Take len sh))
           => ListS sh (Const i) -> ListS (Take len sh) (Const i)
-listsTake l = fromList $ take (valueOf @len) $ toList l
+listsTake l = fromList $ take (valueOf @len) $ listsToList l
 
-listsDrop :: forall len sh i.
-             (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
+listsDrop :: forall len sh i. (KnownNat len, KnownShS (Drop len sh))
           => ListS sh (Const i) -> ListS (Drop len sh) (Const i)
-listsDrop l = fromList $ drop (valueOf @len) $ toList l
+listsDrop l = fromList $ drop (valueOf @len) $ listsToList l
 
 listsSplitAt
   :: forall sh len i.
-     (KnownShS sh, KnownNat len, KnownShS (Drop len sh), KnownShS (Take len sh))
+     (KnownNat len, KnownShS (Drop len sh), KnownShS (Take len sh))
   => ListS sh (Const i)
   -> (ListS (Take len sh) (Const i), ListS (Drop len sh) (Const i))
 listsSplitAt ix = (listsTake @len ix, listsDrop @len ix)
@@ -629,20 +627,20 @@ listrSplitAt :: (KnownNat m, KnownNat n)
              => ListR (m + n) i -> (ListR m i, ListR n i)
 listrSplitAt ix = (listrTake ix, listrDrop ix)
 
-ixsTake :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Take len sh))
+ixsTake :: forall len sh i. (KnownNat len, KnownShS (Take len sh))
         => IxS sh i -> IxS (Take len sh) i
 ixsTake (IxS ix) = IxS $ listsTake @len ix
 
-ixsDrop :: forall len sh i. (KnownShS sh, KnownNat len, KnownShS (Drop len sh))
+ixsDrop :: forall len sh i. (KnownNat len, KnownShS (Drop len sh))
         => IxS sh i -> IxS (Drop len sh) i
 ixsDrop (IxS ix) = IxS $ listsDrop @len ix
 
 -- TODO
-shsTake :: forall len sh. (KnownNat len, KnownShS sh)
+shsTake :: forall len sh. KnownNat len
         => ShS sh -> ShS (Take len sh)
-shsTake sh0 = fromList2 $ take (valueOf @len) $ toList sh0
+shsTake sh0 = fromList2 $ take (valueOf @len) $ shsToList sh0
  where
-  fromList2 topl = ShS (go (knownShS @sh) topl)
+  fromList2 topl = ShS (go sh0 topl)
     where  -- TODO: induction over (unary) SNat?
       go :: forall sh'. ShS sh' -> [Int] -> ListS (Take len sh') SNat
       go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZS
@@ -651,15 +649,15 @@ shsTake sh0 = fromList2 $ take (valueOf @len) $ toList sh0
         | otherwise = error $ "shsTake: Value does not match typing (type says "
                                 ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
       go _ _ = error $ "shsTake: Mismatched list length (type says "
-                         ++ show (shsLength (knownShS @sh)) ++ ", list has length "
+                         ++ show (shsLength sh0) ++ ", list has length "
                          ++ show (length topl) ++ ")"
 
 -- TODO
-shsDrop :: forall len sh. (KnownNat len, KnownShS sh)
+shsDrop :: forall len sh. KnownNat len
         => ShS sh -> ShS (Drop len sh)
-shsDrop sh0 = fromList2 $ drop (valueOf @len) $ toList sh0
+shsDrop sh0 = fromList2 $ drop (valueOf @len) $ shsToList sh0
  where
-  fromList2 topl = ShS (go (knownShS @sh) $ replicate (valueOf @len) (-1) ++ topl)
+  fromList2 topl = ShS (go sh0 $ replicate (valueOf @len) (-1) ++ topl)
     where  -- TODO: induction over (unary) SNat?
       go :: forall sh'. ShS sh' -> [Int] -> ListS (Drop len sh') SNat
       go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZS
@@ -669,16 +667,16 @@ shsDrop sh0 = fromList2 $ drop (valueOf @len) $ toList sh0
         | otherwise = error $ "shsDrop: Value does not match typing (type says "
                                 ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
       go _ _ = error $ "shsDrop: Mismatched list length (type says "
-                         ++ show (shsLength (knownShS @sh)) ++ ", list has length "
+                         ++ show (shsLength sh0) ++ ", list has length "
                          ++ show (length topl) ++ ")"
 
-shxTake :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Take len sh))
+shxTake :: forall len sh. (KnownNat len, KnownShX (Take len sh))
         => IShX sh -> IShX (Take len sh)
-shxTake sh0 = fromList $ take (valueOf @len) $ toList sh0
+shxTake sh0 = fromList $ take (valueOf @len) $ shxToList sh0
 
-shxDrop :: forall len sh. (KnownNat len, KnownShX sh, KnownShX (Drop len sh))
+shxDrop :: forall len sh. (KnownNat len, KnownShX (Drop len sh))
         => IShX sh -> IShX (Drop len sh)
-shxDrop sh0 = fromList $ drop (valueOf @len) $ toList sh0
+shxDrop sh0 = fromList $ drop (valueOf @len) $ shxToList sh0
 
 ixxTake :: forall len sh i. (KnownNat len, KnownShX (Take len sh))
         => IxX sh i -> IxX (Take len sh) i

@@ -679,7 +679,6 @@ contractAst t0 = case t0 of
     , FTKS shmshn _ <- ftkAst u
     , SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
       gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-      withKnownShS shmshn $
       gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
       withKnownShS (shsTake @(Rank shm) shmshn) $
       case knownShS @shm of
@@ -703,7 +702,6 @@ contractAst t0 = case t0 of
     , FTKS shmshn _ <- ftkAst u
     , SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
       gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-      withKnownShS shmshn $
       gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
       withKnownShS (shsTake @(Rank shm) shmshn) $
       case knownShS @shm of

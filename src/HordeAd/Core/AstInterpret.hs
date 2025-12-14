@@ -182,7 +182,6 @@ interpretAstPrimal !env v1 = case v1 of
   AstIndexS @shm @shn shn v ix -> case ftkToSTK (ftkAst v) of
     STKS shmshn x | SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
       gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-      withKnownShS shmshn $
       gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
       withKnownShS (shsTake @(Rank shm) shmshn) $
       withKnownShS shn $
@@ -416,7 +415,6 @@ interpretAstPlain !env v1 = case v1 of
   AstIndexS @shm @shn shn v ix -> case ftkToSTK (ftkAst v) of
     STKS shmshn x | SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
       gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-      withKnownShS shmshn $
       gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
       withKnownShS (shsTake @(Rank shm) shmshn) $
       withKnownShS shn $
@@ -783,7 +781,6 @@ interpretAst !env = \case
   AstIndexS @shm @shn shn v ix -> case ftkToSTK (ftkAst v) of
     STKS shmshn x | SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
       gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-      withKnownShS shmshn $
       gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
       withKnownShS (shsTake @(Rank shm) shmshn) $
       withKnownShS shn $

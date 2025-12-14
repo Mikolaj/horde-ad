@@ -439,7 +439,6 @@ ftkDelta = \case
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x | SNat @len <- ixxRank ix ->
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
-      withKnownShX (ssxFromShX sh) $
       withKnownShX shn $
       FTKX (shxDrop @len sh) x  -- TODO: (shxDropSSX sh (ssxFromIxX ix)) x
   DeltaScatterX _ _ _ sh d _ -> case ftkDelta d of
