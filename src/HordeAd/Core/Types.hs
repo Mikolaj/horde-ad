@@ -30,12 +30,11 @@ module HordeAd.Core.Types
   , shrTake, shrDrop, shrSplitAt
   , listrSplitAt, ixsTake, ixsDrop, shsTake, shsDrop
   , shxTake, shxDrop, ixxTake, ixxDrop'
-  , listsTakeLen, listsDropLen, shsDropLen
+  , listsTakeLen, listsDropLen
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
   , shCastSX, lemRankMapJust'
   , normalizePermutationHack, backpermCycle, permCycle
   , permUnShift1
-  , ssxTakeIx
   ) where
 
 import Prelude
@@ -43,7 +42,6 @@ import Prelude
 import Control.DeepSeq (NFData (..))
 import Data.Array.Internal.RankedS qualified as RS
 import Data.Boolean (Boolean (..))
-import Data.Coerce (coerce)
 import Data.Default
 import Data.Foldable qualified as Foldable
 import Data.Functor.Const
@@ -74,7 +72,7 @@ import System.Random
 import Type.Reflection (Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (MapJust, type (++))
+import Data.Array.Nested (MapJust)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (shxFromShS)
 import Data.Array.Nested.Mixed qualified as Mixed
@@ -640,12 +638,12 @@ shsTake :: forall len sh. KnownNat len
         => ShS sh -> ShS (Take len sh)
 shsTake sh0 = fromList2 $ take (valueOf @len) $ shsToList sh0
  where
-  fromList2 topl = ShS (go sh0 topl)
+  fromList2 topl = ShS (ShX (go sh0 topl))
     where  -- TODO: induction over (unary) SNat?
-      go :: forall sh'. ShS sh' -> [Int] -> ListS (Take len sh') SNat
-      go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZS
+      go :: forall sh'. ShS sh' -> [Int] -> ListH (MapJust (Take len sh')) Int
+      go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZH
       go (sn :$$ sh) (i : is)
-        | i == fromSNat' sn = unsafeCoerce $ sn ::$ go sh is
+        | i == fromSNat' sn = unsafeCoerce $ SKnown sn ::# go sh is
         | otherwise = error $ "shsTake: Value does not match typing (type says "
                                 ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
       go _ _ = error $ "shsTake: Mismatched list length (type says "
@@ -657,13 +655,13 @@ shsDrop :: forall len sh. KnownNat len
         => ShS sh -> ShS (Drop len sh)
 shsDrop sh0 = fromList2 $ drop (valueOf @len) $ shsToList sh0
  where
-  fromList2 topl = ShS (go sh0 $ replicate (valueOf @len) (-1) ++ topl)
+  fromList2 topl = ShS (ShX (go sh0 $ replicate (valueOf @len) (-1) ++ topl))
     where  -- TODO: induction over (unary) SNat?
-      go :: forall sh'. ShS sh' -> [Int] -> ListS (Drop len sh') SNat
-      go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZS
+      go :: forall sh'. ShS sh' -> [Int] -> ListH (MapJust (Drop len sh')) Int
+      go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZH
       go (sn :$$ sh) (i : is)
         | i == -1 = unsafeCoerce $ go sh is
-        | i == fromSNat' sn = unsafeCoerce $ sn ::$ go sh is
+        | i == fromSNat' sn = unsafeCoerce $ SKnown sn ::# go sh is
         | otherwise = error $ "shsDrop: Value does not match typing (type says "
                                 ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
       go _ _ = error $ "shsDrop: Mismatched list length (type says "
@@ -697,16 +695,3 @@ listsDropLen :: forall f g sh1 sh2.
 listsDropLen ZS sh = sh
 listsDropLen (_ ::$ sh1) (_ ::$ sh2) = listsDropLen sh1 sh2
 listsDropLen (_ ::$ _) ZS = error "listsDropLen: list too short"
-
-shsDropLen :: Permutation.Perm is -> ShS sh -> ShS (DropLen is sh)
-shsDropLen = coerce (listsDropLenPerm @SNat)
-
--- This is only needed as a workaround for other ops not provided.
-
-listxTake :: forall f g sh sh'. ListX (sh ++ sh') f -> ListX sh g -> ListX sh f
-listxTake _ ZX = ZX
-listxTake (i ::% long') ((::%) @_ @sh2 _ short) =
-  i ::% listxTake @f @g @sh2 @sh' long' short
-
-ssxTakeIx :: forall sh sh' i. StaticShX (sh ++ sh') -> IxX sh i -> StaticShX sh
-ssxTakeIx = coerce (listxTake @(Nested.SMayNat ()) @(Const i) @_ @sh')

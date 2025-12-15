@@ -580,7 +580,7 @@ evalRevFTK !s !c d0 = case d0 of
               , Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       withKnownShX shn $
-      withKnownShX (ssxTakeIx @shm @shn (ssxFromShX sh) ix) $
+      withKnownShX (ssxTakeIx @shm @shn Proxy ix (ssxFromShX sh)) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
       evalRevFTK s (txoneHot (shxTake @len sh) c ix) d
 --TODO      evalRevFTK s (xoneHot (shxTakeSSX (Proxy @shn) sh
@@ -953,7 +953,7 @@ evalFwd params s d0 = case d0 of
     FTKX sh x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       withKnownShX shn $
-      withKnownShX (ssxTakeIx @shm @shn (ssxFromShX sh) ix) $
+      withKnownShX (ssxTakeIx @shm @shn Proxy ix (ssxFromShX sh)) $
       second (`txindex` ix) $ evalFwd params s d
   DeltaScatterX @shm @shn shm shn shp sh d f -> case ftkDelta d of
     FTKX _ x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
