@@ -643,7 +643,7 @@ shsTake sh0 = fromList2 $ take (valueOf @len) $ shsToList sh0
       go :: forall sh'. ShS sh' -> [Int] -> ListH (MapJust (Take len sh')) Int
       go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZH
       go (sn :$$ sh) (i : is)
-        | i == fromSNat' sn = unsafeCoerce $ SKnown sn ::# go sh is
+        | i == fromSNat' sn = unsafeCoerce $ sn `ConsKnown` go sh is
         | otherwise = error $ "shsTake: Value does not match typing (type says "
                                 ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
       go _ _ = error $ "shsTake: Mismatched list length (type says "
@@ -661,7 +661,7 @@ shsDrop sh0 = fromList2 $ drop (valueOf @len) $ shsToList sh0
       go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZH
       go (sn :$$ sh) (i : is)
         | i == -1 = unsafeCoerce $ go sh is
-        | i == fromSNat' sn = unsafeCoerce $ SKnown sn ::# go sh is
+        | i == fromSNat' sn = unsafeCoerce $ sn `ConsKnown` go sh is
         | otherwise = error $ "shsDrop: Value does not match typing (type says "
                                 ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
       go _ _ = error $ "shsDrop: Mismatched list length (type says "
