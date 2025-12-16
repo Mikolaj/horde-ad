@@ -747,7 +747,7 @@ tindexZR :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
 tindexZR v ixConcrete | Dict <- eltDictRep (knownSTK @x) =
   let uv = unConcrete v
       ix = fmapUnConcrete ixConcrete
-  in if ixInBounds (Foldable.toList ix) (Foldable.toList $ Nested.rshape uv)
+  in if ixInBounds (Foldable.toList ix) (shrToList $ Nested.rshape uv)
      then Concrete $ tindexNR uv ix
      else case tftk knownSTK v of
        FTKR sh x -> tdefTarget (FTKR (shrDrop @m sh) x)
@@ -759,7 +759,7 @@ tindex0R v ixConcrete =
   let uv = unConcrete v
       ix = fmapUnConcrete ixConcrete
   in Concrete
-     $ if ixInBounds (Foldable.toList ix) (Foldable.toList $ Nested.rshape uv)
+     $ if ixInBounds (Foldable.toList ix) (shrToList $ Nested.rshape uv)
        then Nested.rindex uv ix
        else def
 
@@ -810,7 +810,7 @@ tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
              g ix =
                let ix2 = f $ fmapConcrete ix
                in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
-                                (Foldable.toList $ shp)
+                                (shrToList $ shp)
                   then IM.insertWith (+)
                          (unConcrete $ ixrToLinear shp ix2)
                          (Concrete $ tindexNR (unConcrete t) ix)
@@ -825,7 +825,7 @@ tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
              g ix =
                let ix2 = f $ fmapConcrete ix
                in if ixInBounds (fmapUnConcrete $ Foldable.toList ix2)
-                                (Foldable.toList shp)
+                                (shrToList shp)
                   then IM.insertWith (taddTarget knownSTK)
                          (unConcrete $ ixrToLinear shp ix2)
                          (Concrete $ tindexNR (unConcrete t) ix)

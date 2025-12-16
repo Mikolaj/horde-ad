@@ -14,6 +14,7 @@ import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
 
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.CarriersConcrete
@@ -27,7 +28,7 @@ class HasShape a where
   shapeL :: a -> [Int]
 
 instance Nested.PrimElt a => HasShape (Nested.Ranked n a) where
-  shapeL = Foldable.toList . Nested.rshape
+  shapeL = shrToList . Nested.rshape
 
 instance KnownShS sh => HasShape (Nested.Shaped sh a) where
   shapeL _ = toList $ knownShS @sh

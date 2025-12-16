@@ -15,7 +15,7 @@ import GHC.TypeLits (type (+))
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested.Convert
-  (shrFromShX, shsFromSSX, shsFromShX, shxFromShR, shxFromShS)
+  (shrFromShXAnyShape, shsFromSSX, shsFromShX, shxFromShR, shxFromShS)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
@@ -261,7 +261,7 @@ convertFTK = \cases
   (ConvCmp c1 c2) aftk -> convertFTK c1 (convertFTK c2 aftk)
   ConvRX (FTKR shr a) -> FTKX (shxFromShR shr) a
   ConvSX (FTKS sh a) -> FTKX (shxFromShS sh) a
-  (ConvXR _stk) (FTKX shx a) -> FTKR (shrFromShX shx) a
+  (ConvXR _stk) (FTKX shx a) -> FTKR (shrFromShXAnyShape shx) a
   ConvXS (FTKX shx a) -> FTKS (shsFromShX shx) a
   (ConvXS' ftk) _ -> ftk
   (ConvXX' ftk) _ -> ftk

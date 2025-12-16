@@ -27,8 +27,7 @@ module HordeAd.Core.Types
     -- * Feature requests for ox-arrays
   , Take, Drop, UnMapSucc
   , listsTake, listsDrop, listsSplitAt, ixrTake, ixrDrop, ixrSplitAt
-  , shrTake, shrDrop, shrSplitAt
-  , listrSplitAt, ixsTake, ixsDrop, shsTake, shsDrop
+  , shrTake, shrDrop, ixsTake, ixsDrop, shsTake, shsDrop
   , shxTake, shxDrop, ixxTake, ixxDrop'
   , listsTakeLen, listsDropLen
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
@@ -75,6 +74,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Nested (MapJust)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (shxFromShS)
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, PermR, TakeLen)
@@ -601,17 +601,23 @@ ixrSplitAt :: (KnownNat m, KnownNat n)
            => IxR (m + n) i -> (IxR m i, IxR n i)
 ixrSplitAt ix = (ixrTake ix, ixrDrop ix)
 
-shrTake :: forall m n i. KnownNat m
-        => ShR (m + n) i -> ShR m i
-shrTake (ShR ix) = ShR $ listrTake ix
+shrTake :: forall m n. KnownNat m
+        => IShR (m + n) -> IShR m
+shrTake (ShR ix) =
+  gcastWith (unsafeCoerceRefl
+             :: Take m (Nested.Replicate (m + n) (Nothing @Nat))
+                :~: Nested.Replicate m Nothing) $
+  case lemKnownReplicate (SNat @m) of
+    Dict -> ShR $ shxTake @m ix
 
-shrDrop :: forall m n i. (KnownNat m, KnownNat n)
-          => ShR (m + n) i -> ShR n i
-shrDrop (ShR ix) = ShR $ listrDrop ix
-
-shrSplitAt :: (KnownNat m, KnownNat n)
-           => ShR (m + n) i -> (ShR m i, ShR n i)
-shrSplitAt ix = (shrTake ix, shrDrop ix)
+shrDrop :: forall m n. (KnownNat m, KnownNat n)
+        => IShR (m + n) -> IShR n
+shrDrop (ShR ix) =
+  gcastWith (unsafeCoerceRefl
+             :: Drop m (Nested.Replicate (m + n) (Nothing @Nat))
+                :~: Nested.Replicate n Nothing) $
+  case lemKnownReplicate (SNat @n) of
+    Dict -> ShR $ shxDrop @m ix
 
 listrTake :: forall len n i. KnownNat len
           => ListR (len + n) i -> ListR len i
@@ -620,10 +626,6 @@ listrTake ix = fromList $ take (valueOf @len) $ Foldable.toList ix
 listrDrop :: forall len n i. (KnownNat len, KnownNat n)
           => ListR (len + n) i -> ListR n i
 listrDrop ix = fromList $ drop (valueOf @len) $ Foldable.toList ix
-
-listrSplitAt :: (KnownNat m, KnownNat n)
-             => ListR (m + n) i -> (ListR m i, ListR n i)
-listrSplitAt ix = (listrTake ix, listrDrop ix)
 
 ixsTake :: forall len sh i. (KnownNat len, KnownShS (Take len sh))
         => IxS sh i -> IxS (Take len sh) i
