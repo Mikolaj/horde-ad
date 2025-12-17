@@ -15,7 +15,6 @@ import Prelude
 
 import Data.Coerce (coerce)
 import Data.Dependent.EnumMap.Strict qualified as DMap
-import Data.Functor.Const
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -203,7 +202,7 @@ interpretAstPrimal !env v1 = case v1 of
       withKnownSTK x $
       let t1 = interpretAstPrimal env v
           f2 :: IntOf target -> IxSOf target shp
-          f2 !i2 = interpretAstPlain (extendEnvI (getConst var) i2 env) <$> ix
+          f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
       in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
@@ -225,7 +224,7 @@ interpretAstPrimal !env v1 = case v1 of
       withKnownSTK x $
       let t1 = interpretAstPrimal env v
           f2 :: IntOf target -> IxSOf target shp
-          f2 !i2 = interpretAstPlain (extendEnvI (getConst var) i2 env) <$> ix
+          f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
       in tsgather1 @_ @_ @shn @shp t1 f2
   AstGatherS @shm @shn @shp
              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
@@ -436,7 +435,7 @@ interpretAstPlain !env v1 = case v1 of
       withKnownSTK x $
       let t1 = interpretAstPlain env v
           f2 :: IntOf target -> IxSOf target shp
-          f2 !i2 = interpretAstPlain (extendEnvI (getConst var) i2 env) <$> ix
+          f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
       in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
@@ -458,7 +457,7 @@ interpretAstPlain !env v1 = case v1 of
       withKnownSTK x $
       let t1 = interpretAstPlain env v
           f2 :: IntOf target -> IxSOf target shp
-          f2 !i2 = interpretAstPlain (extendEnvI (getConst var) i2 env) <$> ix
+          f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
       in tsgather1 @_ @_ @shn @shp t1 f2
   AstGatherS @shm @shn @shp
              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
@@ -806,7 +805,7 @@ interpretAst !env = \case
       withKnownSTK x $
       let t1 = interpretAst env v
           f2 :: IntOf target -> IxSOf target shp
-          f2 !i2 = interpretAstPlain (extendEnvI (getConst var) i2 env) <$> ix
+          f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
       in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
               shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
@@ -828,7 +827,7 @@ interpretAst !env = \case
       withKnownSTK x $
       let t1 = interpretAst env v
           f2 :: IntOf target -> IxSOf target shp
-          f2 !i2 = interpretAstPlain (extendEnvI (getConst var) i2 env) <$> ix
+          f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
       in tsgather1 @_ @_ @shn @shp t1 f2
   AstGatherS @shm @shn @shp
              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of

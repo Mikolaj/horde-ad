@@ -50,8 +50,6 @@ import Prelude
 import Control.Exception.Assert.Sugar
 import Control.Monad (mapAndUnzipM, mplus)
 import Data.Foldable qualified as Foldable
-import Data.Functor.Const
-import Data.Functor.Product qualified as Fun
 import Data.GADT.Compare
 import Data.List (findIndex)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
@@ -1874,7 +1872,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
                   :~: shp' ++ (in1 ': shm1 ++ shn)) $
      astIndex @(shp' ++ shm) @shn shn v (ix2 `ixsAppend` ix)
    Ast.AstGatherS @shm' @shn' @shp' shn'
-                  v (Const var2 ::$ vars, ix2) | SNat @m71 :$$ (_ :: ShS shm71) <- knownShS @shm' ->
+                  v (var2 ::$ vars, ix2) | SNat @m71 :$$ (_ :: ShS shm71) <- knownShS @shm' ->
      gcastWith (unsafeCoerceRefl :: shm71 ++ shn' :~: shm1 ++ shn) $
      withKnownShS (shsTail (knownShS @shm')) $
      let ftk = FTKS shn x
@@ -2039,7 +2037,7 @@ astScatterS shn v (vars, AstConcreteK _ :.$ rest)
     astReplicate (SNat @1) (STKS (shsTail (knownShS @shp)
                                   `shsAppend` shn) (ftkToSTK x))
     $ astScatterS shn v (vars, rest)
-astScatterS shn v (Const var ::$ (vars :: AstVarListS sh3), ix)
+astScatterS shn v (var ::$ (vars :: AstVarListS sh3), ix)
   | not $ var `varNameInIxS` ix
   , SNat :$$ _ <- knownShS @shm
   , FTKS _ x <- ftkAst v =
@@ -2096,7 +2094,7 @@ astGatherKnobsS _ shn v0 (_, i1 :.$ _)
     let ftk = FTKS (knownShS @shm `shsAppend` shn) x
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astGatherKnobsS knobs shn v0 (var1 ::$ vars1, ix0)
-  | not (getConst var1 `varNameInIxS` ix0) =
+  | not (var1 `varNameInIxS` ix0) =
     withKnownShS (shsTail (knownShS @shm)) $
     let k :$$ sh' = knownShS @shm
         FTKS _ x = ftkAst v0
@@ -2106,7 +2104,7 @@ astGatherKnobsS knobs shn v0 (var1 ::$ vars1, ix0)
 astGatherKnobsS knobs shn v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))
   | let ixInit = ixsInit ix0
         varInit = listsInit vars0
-        varLast = getConst $ listsLast vars0
+        varLast = listsLast vars0
   , AstIntVar ixvarLast <- ixsLast ix0
   , ixvarLast == varLast
   , not (varLast `varNameInIxS` ixInit)
@@ -2383,7 +2381,7 @@ astGatherKnobsS knobs shn v0
         in astGatherKnobsS knobs shn v2 (vars, Ast.AstLet varN uN i1 :.$ prest)
              -- this gather may still index out of bounds, which is fine
 astGatherKnobsS knobs shn v0
-  ( vars@(Const varm ::$ mrest)
+  ( vars@(varm ::$ mrest)
   , Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2
     :.$ prest )
   | varNameToAstVarId varm == varNameToAstVarId varp
@@ -2406,16 +2404,16 @@ astGatherKnobsS knobs shn v0
                                   (Just (0, valueOf @m - j - 1))
                                   (varNameToAstVarId varm)
          in astGatherKnobsS knobs shn v
-              ( (::$) @j (Const varm2) mrest
+              ( (::$) @j (varm2) mrest
               , substituteAstIxS (astVar varm2)
                                  varm (i2 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs shn v
-              ( (::$) @(m - j) (Const varm3) mrest
+              ( (::$) @(m - j) (varm3) mrest
               , substituteAstIxS (AstConcreteK j + astVar varm3)
                                  varm (i1 :.$ prest) )
 astGatherKnobsS knobs shn v0
-  ( vars@(Const varm ::$ mrest)
+  ( vars@(varm ::$ mrest)
   , Ast.AstCond (AstLeqInt (AstConcreteK j)
                            (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2
     :.$ prest )
@@ -2439,18 +2437,18 @@ astGatherKnobsS knobs shn v0
                                   (Just (0, valueOf @m - valueOf @mj - 1))
                                   (varNameToAstVarId varm)
          in astGatherKnobsS knobs shn v
-              ( (::$) @mj (Const varm2) mrest
+              ( (::$) @mj varm2 mrest
               , substituteAstIxS (astVar varm2)
 -- TODO: when I use AstIntVar here, which is wrong, I get phantom errors;
 -- make sure this vanished after the fixes in HEAD
                                  varm (i1 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs shn v
-              ( (::$) @(m - mj) (Const varm3) mrest
+              ( (::$) @(m - mj) varm3 mrest
               , substituteAstIxS (AstConcreteK (- j + 1) + astVar varm3)
                                  varm (i2 :.$ prest))
 astGatherKnobsS knobs shn v0
-  ( vars@(Const varm ::$ mrest)
+  ( vars@(varm ::$ mrest)
   , Ast.AstLet varN uN
       (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2)
       :.$ prest )
@@ -2474,16 +2472,16 @@ astGatherKnobsS knobs shn v0
                                   (Just (0, valueOf @m - j - 1))
                                   (varNameToAstVarId varm)
          in astGatherKnobsS knobs shn v
-              ( (::$) @j (Const varm2) mrest
+              ( (::$) @j varm2 mrest
               , substituteAstIxS (astVar varm2) varm
                                  (Ast.AstLet varN uN i2 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs shn v
-              ( (::$) @(m - j) (Const varm3) mrest
+              ( (::$) @(m - j) varm3 mrest
               , substituteAstIxS (AstConcreteK j + astVar varm3)
                                  varm (Ast.AstLet varN uN i1 :.$ prest) )
 astGatherKnobsS knobs shn v0
-  ( vars@(Const varm ::$ mrest)
+  ( vars@(varm ::$ mrest)
   , Ast.AstLet varN uN
       (Ast.AstCond (AstLeqInt (AstConcreteK j)
                               (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2)
@@ -2509,16 +2507,16 @@ astGatherKnobsS knobs shn v0
                                   (Just (0, valueOf @m - valueOf @mj - 1))
                                   (varNameToAstVarId varm)
          in astGatherKnobsS knobs shn v
-              ( (::$) @mj (Const varm2) mrest
+              ( (::$) @mj varm2 mrest
               , substituteAstIxS (astVar varm2)
                                  varm (Ast.AstLet varN uN i1 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs shn v
-              ( (::$) @(m - mj) (Const varm3) mrest
+              ( (::$) @(m - mj) varm3 mrest
               , substituteAstIxS (AstConcreteK (- j + 1) + astVar varm3)
                                  varm (Ast.AstLet varN uN i2 :.$ prest))
 astGatherKnobsS knobs shn v0
-  ( Const varm ::$ mrest
+  ( varm ::$ mrest
   , AstIntVar varp :.$ prest )
   | SNat @m :$$ (_ :: ShS shmTail) <- knownShS @shm
   , SNat @p :$$ (_ :: ShS shpTail) <- knownShS @shp
@@ -2564,7 +2562,7 @@ astGatherKnobsS knobs shn v0
             `astAppendS`
             fromPlain (astConcrete ftk (tdefTarget ftk))
 astGatherKnobsS knobs shn v7@(Ast.AstFromVector _ (STKS _ x2) l)
-                ( Const var4 ::$ vrest4
+                ( var4 ::$ vrest4
                 , (:.$) @_ @shp1' i4 rest4 )
   | SNat @m1' :$$ (_ :: ShS shm4) <- knownShS @shm
   , knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
@@ -2924,8 +2922,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@(i4 :.$ rest4))
                 -> AstInt AstMethodLet
           subst (IxS ix) vars t0 =
             foldr (\ (v, i) -> substituteAst i v)
-                  t0 (listsFoldMap (\(Fun.Pair (Const v) (Const i)) -> [(v, i)])
-                      $ listsZip vars ix)
+                  t0 (listsZip vars ix)
           inBounds :: AstIxS AstMethodLet shm7 -> AstVarListS shm7 -> Bool
           inBounds (IxS ix) vars =
             let inb (v, i) =
@@ -2933,9 +2930,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@(i4 :.$ rest4))
                   in case varNameToBounds v of
                     Nothing -> True
                     Just (lbv, ubv) -> lbv <= lbi && ubi <= ubv
-            in all inb (listsFoldMap (\(Fun.Pair (Const v) (Const i)) ->
-                                          [(v, i)])
-                        $ listsZip vars ix)
+            in all inb (listsZip vars ix)
           composedGather ::  -- rank4 <= rank2
             Maybe (AstTensor AstMethodLet s (TKS2 (shm ++ shn) r))
           composedGather | SNat <- shsRank (knownShS @shm) =
@@ -3168,14 +3163,14 @@ astSliceS (SNat' @0) SNat (SNat' @0) v = v
 astSliceS SNat (SNat' @1) SNat v | FTKS (_ :$$ sh) x <- ftkAst v =
   astReplicate (SNat @1) (STKS sh (ftkToSTK x))
                (astIndexS sh v (valueOf @i :.$ ZIS))
-astSliceS SNat SNat SNat (Ast.AstGatherS @shm shn v (Const var ::$ vars, ix)) =
+astSliceS SNat SNat SNat (Ast.AstGatherS @shm shn v (var ::$ vars, ix)) =
   let varn = mkAstVarName (varNameToFTK var)
                           (Just (0, valueOf @n - 1))
                           (varNameToAstVarId var)
       ivar = valueOf @i + astVar varn
       ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
   in withKnownShS (SNat @n :$$ shsTail (knownShS @shm)) $
-     astGatherS shn v (Const varn ::$ vars, ix2)
+     astGatherS shn v (varn ::$ vars, ix2)
 astSliceS i n@(SNat @n0) _k (Ast.AstAppendS v1 v2)
   | FTKS (m1@(SNat @m1) :$$ _) _ <- ftkAst v1
   , FTKS (m2@(SNat @m2) :$$ _) _ <- ftkAst v2 =
@@ -3249,10 +3244,10 @@ astReverseS (Ast.AstLet var u v) = astLet var u (astReverseS v)
 astReverseS (Ast.AstFromPrimal v) = fromPrimal $ astReverseS v
 astReverseS (Ast.AstFromDual v) = fromDual $ astReverseS v
 astReverseS (Ast.AstFromPlain v) = fromPlain $ astReverseS v
-astReverseS (Ast.AstGatherS @shm @shn @shp shn v (Const var ::$ vars, ix)) | SNat @k :$$ _ <- knownShS @shm =
+astReverseS (Ast.AstGatherS @shm @shn @shp shn v (var ::$ vars, ix)) | SNat @k :$$ _ <- knownShS @shm =
   let ivar = valueOf @k - astVar var
       ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
-  in astGatherS @shm @shn @shp shn v (Const var ::$ vars, ix2)
+  in astGatherS @shm @shn @shp shn v (var ::$ vars, ix2)
 astReverseS (Ast.AstReverseS v) = v
 astReverseS (Ast.AstTransposeS perm@(SNat' @1 `PCons` SNat' @0 `PCons` PNil) t)
   | STKS (snat :$$ sh2@(_ :$$ _)) x <- ftkToSTK $ ftkAst t

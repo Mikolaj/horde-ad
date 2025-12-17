@@ -37,7 +37,6 @@ module HordeAd.Core.Ast
 import Prelude hiding (foldl')
 
 import Data.Dependent.EnumMap.Strict qualified as DMap
-import Data.Functor.Const
 import Data.Kind (Type)
 import Data.Some
 import Data.Type.Equality (TestEquality (..), (:~:) (Refl))
@@ -284,7 +283,7 @@ pattern AstIntVar var <- AstVar var
 
 -- Data invariant: the var names have bounds of the form (0, k - 1),
 -- where the corresponding dimension in sh is k. This is never checked.
-type AstVarListS sh = ListS sh (Const IntVarName)
+type AstVarListS sh = ListS sh IntVarName
 
 -- There's no data invariant here. The shape matches rather the argument
 -- of indexing (or gather) than the indexes.

@@ -8,7 +8,6 @@ module HordeAd.Core.AstPrettyPrint
 import Prelude
 
 import Data.Foldable qualified as Foldable
-import Data.Functor.Const
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IM
 import Data.List (intersperse)
@@ -391,7 +390,7 @@ printAst cfg d = \case
       . printAst cfg 11 v
       . showString " "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
-  AstScatterS @shm _sh v (Const var ::$ ZS, ix) | snat :$$ _ <- knownShS @shm ->
+  AstScatterS @shm _sh v (var ::$ ZS, ix) | snat :$$ _ <- knownShS @shm ->
    if loseRoudtrip cfg
    then
     showParen (d > 10)
@@ -445,7 +444,7 @@ printAst cfg d = \case
     $ printAst cfg 10 v
       . showString " !$ "
       . showListWith (printAst cfg 0) (Foldable.toList ix) -}
-  AstGatherS @shm _sh v (Const var ::$ ZS, ix) | snat :$$ _ <- knownShS @shm ->
+  AstGatherS @shm _sh v (var ::$ ZS, ix) | snat :$$ _ <- knownShS @shm ->
    if loseRoudtrip cfg
    then
     showParen (d > 10)

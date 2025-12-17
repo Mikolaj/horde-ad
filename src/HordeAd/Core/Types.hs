@@ -43,7 +43,6 @@ import Data.Array.Internal.RankedS qualified as RS
 import Data.Boolean (Boolean (..))
 import Data.Default
 import Data.Foldable qualified as Foldable
-import Data.Functor.Const
 import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Kind (Constraint, Type)
 import Data.List (dropWhileEnd, sort)
@@ -575,18 +574,18 @@ type family Drop (n :: Nat) (xs :: [k]) :: [k] where
 
 -- TODO: shed the constraints by using listsFromListSPartial Proxy Proxy
 listsTake :: forall len sh i. (KnownNat len, KnownShS (Take len sh))
-          => ListS sh (Const i) -> ListS (Take len sh) (Const i)
+          => ListS sh i -> ListS (Take len sh) i
 listsTake l = fromList $ take (valueOf @len) $ listsToList l
 
 listsDrop :: forall len sh i. (KnownNat len, KnownShS (Drop len sh))
-          => ListS sh (Const i) -> ListS (Drop len sh) (Const i)
+          => ListS sh i -> ListS (Drop len sh) i
 listsDrop l = fromList $ drop (valueOf @len) $ listsToList l
 
 listsSplitAt
   :: forall sh len i.
      (KnownNat len, KnownShS (Drop len sh), KnownShS (Take len sh))
-  => ListS sh (Const i)
-  -> (ListS (Take len sh) (Const i), ListS (Drop len sh) (Const i))
+  => ListS sh i
+  -> (ListS (Take len sh) i, ListS (Drop len sh) i)
 listsSplitAt ix = (listsTake @len ix, listsDrop @len ix)
 
 ixrTake :: forall m n i. KnownNat m

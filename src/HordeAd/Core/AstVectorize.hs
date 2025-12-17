@@ -12,7 +12,6 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Control.Monad (when)
-import Data.Functor.Const
 import Data.IORef
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
@@ -292,12 +291,12 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix)
       in astScatterS @(k ': shm) @shn @(k ': shp) shn
                      (build1VOccurrenceUnknown snat (var, v))
-                     (Const varFresh ::$ vars, astVarFresh :.$ ix2)
+                     (varFresh ::$ vars, astVarFresh :.$ ix2)
     Ast.AstGatherS @shm @shn @shp shn v (vars, ix) -> traceRule $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix)
       in astGatherS @(k ': shm) @shn @(k ': shp) shn
                     (build1VOccurrenceUnknown snat (var, v))
-                    (Const varFresh ::$ vars, astVarFresh :.$ ix2)
+                    (varFresh ::$ vars, astVarFresh :.$ ix2)
     Ast.AstMinIndexS v -> traceRule $
       Ast.AstMinIndexS $ build1V snat (var, v)
     Ast.AstMaxIndexS v -> traceRule $
@@ -422,7 +421,7 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                    gcastWith (unsafeCoerceRefl
                               :: Take (Rank shm1) (shm1 ++ shn1) :~: shm1) $
                    astGatherS shn1 (build1VOccurrenceUnknown k (var, v1))
-                              (Const varFresh ::$ ZS, astVarFresh :.$ ix2)
+                              (varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = ixsLength ix1
              pickRuleD :: AstTensor AstMethodLet s2 y2 -> Bool
              pickRuleD = \case  -- try to avoid ruleD if not a normal form
@@ -456,7 +455,7 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
               withKnownShS (shsTake @(Rank shm) shmshn) $
               gcastWith (unsafeCoerceRefl
                          :: Take (Rank shm) (shm ++ shn) :~: shm) $
-              astGatherS shn v0 (Const var ::$ ZS, ix)
+              astGatherS shn v0 (var ::$ ZS, ix)
 
 build1VHFun
   :: forall k x z s s2. (AstSpan s, AstSpan s2)
