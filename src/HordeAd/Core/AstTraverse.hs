@@ -26,7 +26,7 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (Perm (..))
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (snatMinus, unsafeCoerceRefl)
+import Data.Array.Nested.Types (fromSNat', snatMinus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
   ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
@@ -823,7 +823,7 @@ contractAst t0 = case t0 of
               (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromK i)) -}
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (contractAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (contractAst a)
-  Ast.AstIotaS snat@(SNat @n) | sNatValue snat < 100 ->
+  Ast.AstIotaS snat@(SNat @n) | fromSNat' snat < 100 ->
     astConcreteS $ tsiota @_ @n  -- likely not to be O(data size)
   Ast.AstIotaS{} -> t0  -- tough trade-offs here
   Ast.AstAppendS x y -> astAppendS (contractAst x) (contractAst y)

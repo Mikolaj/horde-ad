@@ -51,7 +51,7 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (Init, unsafeCoerceRefl)
+import Data.Array.Nested.Types (Init, fromSNat', unsafeCoerceRefl)
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.ConvertTensor
@@ -351,7 +351,7 @@ class ( Num (IntOf target)
   swidth :: forall n sh x. KnownSTK x
           => target (TKS2 (n ': sh) x) -> Int
   swidth a = case sshape a of
-    n :$$ _ -> sNatValue n
+    n :$$ _ -> fromSNat' n
 
   xshape :: forall sh x. KnownSTK x
          => target (TKX2 sh x) -> IShX sh
@@ -456,7 +456,7 @@ class ( Num (IntOf target)
   tfromList :: forall y k.
                SNat k -> SingletonTK y -> [target y]
             -> target (BuildTensorKind k y)
-  tfromList k stk l = tfromVector k stk $ V.fromListN (sNatValue k) l
+  tfromList k stk l = tfromVector k stk $ V.fromListN (fromSNat' k) l
   tfromListR :: forall y k.
                 SingletonTK y -> ListR k (target y)
              -> target (BuildTensorKind k y)
@@ -562,7 +562,7 @@ class ( Num (IntOf target)
            -> target (TKX (sh ++ '[Just n]) r)
            -> target (TKX sh r)
   txdot1In @sh (SNat @n) t u =
-    let cpermR = permCycle $ 1 + sNatValue (ssxRank (knownShX @sh))
+    let cpermR = permCycle $ 1 + fromSNat' (ssxRank (knownShX @sh))
     in Permutation.permFromListCont cpermR $ \(cperm :: Permutation.Perm cperm) ->
          gcastWith (unsafeCoerceRefl :: Rank cperm :~: Rank (sh ++ '[Just n])) $
          gcastWith (unsafeCoerceRefl
@@ -981,7 +981,7 @@ class ( Num (IntOf target)
                 -> target (BuildTensorKind k z)
         replSTK stk g = case stk of
           STKScalar -> tkbuild1 g
-          STKR SNat x | Dict <- lemKnownSTK x -> trbuild1 (sNatValue snat) g
+          STKR SNat x | Dict <- lemKnownSTK x -> trbuild1 (fromSNat' snat) g
           STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tsbuild1 g
           STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txbuild1 g
           STKProduct @z1 @z2 stk1 stk2 ->
@@ -1110,7 +1110,7 @@ class ( Num (IntOf target)
     -> target (BuildTensorKind k z)
   treplicate snat@SNat stk u = case stk of
     STKScalar -> tsreplicate snat ZSS $ sfromK u
-    STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (sNatValue snat) u
+    STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (fromSNat' snat) u
     STKS sh x | Dict <- lemKnownSTK x -> tsreplicate snat sh u
     STKX sh x | Dict <- lemKnownSTK x -> txreplicate snat sh u
     STKProduct stk1 stk2 ->

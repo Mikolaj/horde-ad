@@ -26,6 +26,7 @@ import Test.Tasty.HUnit hiding (assert)
 import Text.Printf
 
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (fromSNat')
 
 import HordeAd
 import HordeAd.Core.Adaptor
@@ -65,10 +66,10 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                    | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   let targetInit =
         fst $ randomValue @(Concrete (XParams width r)) 0.23 (mkStdGen 44)
-      miniBatchSize = sNatValue batch_size
+      miniBatchSize = fromSNat' batch_size
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (sNatValue width), show miniBatchSize
+                        , show (fromSNat' width), show miniBatchSize
                         , show $ widthSTK
                           $ knownSTK @(XParams width r)
                         , show (tsize knownSTK targetInit) ]
@@ -114,7 +115,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                    ftest @len (mkMnistDataBatchS chunk) parameters2
                  testScore = ftest @lenTestData testDataS parameters2
                  lenChunk = length chunk
-             unless (sNatValue width < 10) $ do
+             unless (fromSNat' width < 10) $ do
                hPutStrLn stderr $
                  printf "\n%s: (Batch %d with %d points)"
                         prefix k lenChunk
@@ -131,7 +132,7 @@ mnistTestCaseRNNSA prefix epochs maxBatches width@SNat batch_size@SNat
                     -> IO (Concrete (XParams width r))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
-             unless (sNatValue width < 10) $
+             unless (fromSNat' width < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
@@ -175,10 +176,10 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   let targetInit =
         fst $ randomValue @(Concrete (XParams width r)) 0.23 (mkStdGen 44)
-      miniBatchSize = sNatValue batch_size
+      miniBatchSize = fromSNat' batch_size
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (sNatValue width), show miniBatchSize
+                        , show (fromSNat' width), show miniBatchSize
                         , show $ widthSTK
                           $ knownSTK @(XParams width r)
                         , show (tsize knownSTK targetInit) ]
@@ -234,7 +235,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                    ftest @len (mkMnistDataBatchS chunk) parameters2
                  testScore = ftest @lenTestData testDataS parameters2
                  lenChunk = length chunk
-             unless (sNatValue width < 10) $ do
+             unless (fromSNat' width < 10) $ do
                hPutStrLn stderr $
                  printf "\n%s: (Batch %d with %d points)"
                         prefix k lenChunk
@@ -251,7 +252,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
                     -> IO (Concrete (XParams width r))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
-             unless (sNatValue width < 10) $
+             unless (fromSNat' width < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
@@ -294,10 +295,10 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                    totalBatchSize expected =
   let targetInit =
         fst $ randomValue @(Concrete (XParams width r)) 0.23 (mkStdGen 44)
-      miniBatchSize = sNatValue batch_size
+      miniBatchSize = fromSNat' batch_size
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (sNatValue width), show miniBatchSize
+                        , show (fromSNat' width), show miniBatchSize
                         , show $ widthSTK
                           $ knownSTK @(XParams width r)
                         , show (tsize knownSTK targetInit) ]
@@ -370,7 +371,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                    ftest @len (mkMnistDataBatchS chunk) parameters2
                  testScore = ftest @lenTestData testDataS parameters2
                  lenChunk = length chunk
-             unless (sNatValue width < 10) $ do
+             unless (fromSNat' width < 10) $ do
                hPutStrLn stderr $
                  printf "\n%s: (Batch %d with %d points)"
                         prefix k lenChunk
@@ -387,7 +388,7 @@ mnistTestCaseRNNSO prefix epochs maxBatches width@SNat batch_size@SNat
                     -> IO (Concrete (XParams width r))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam@(!_, !_) = do
-             unless (sNatValue width < 10) $
+             unless (fromSNat' width < 10) $
                hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches

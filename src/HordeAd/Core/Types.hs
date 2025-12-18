@@ -8,7 +8,7 @@
 module HordeAd.Core.Types
   ( -- * Re-exports and definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, pattern SNat'
-  , withSNat, sNatValue, proxyFromSNat, valueOf, snatSucc
+  , withSNat, proxyFromSNat, valueOf, snatSucc
     -- * Kinds of the parameterized types that determine the structure of a tensor
   , Target, TK (..), TKR, TKS, TKX, TKUnit, TKAllNum
     -- * Some fundamental constraints and types related to tensors
@@ -93,10 +93,6 @@ withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
 withSNat i f = withSomeSNat (fromIntegral i) $ \case
   Just snat@SNat -> f snat
   Nothing -> error $ "withSNat: negative argument: " ++ show i
-
-sNatValue :: forall n. SNat n -> Int
-{-# INLINE sNatValue #-}
-sNatValue = fromInteger . fromSNat
 
 proxyFromSNat :: SNat n -> Proxy n
 proxyFromSNat SNat = Proxy
@@ -342,8 +338,8 @@ instance NumElt Z1 where
   numEltProduct1Inner _ arr = fromO (RS.index (toO arr) 0)
   numEltSumFull _ _arr = Z1
   numEltProductFull _ _arr = Z1
-  numEltMinIndex snat _arr = replicate (sNatValue snat) 0
-  numEltMaxIndex snat _arr = replicate (sNatValue snat) 0
+  numEltMinIndex snat _arr = replicate (fromSNat' snat) 0
+  numEltMaxIndex snat _arr = replicate (fromSNat' snat) 0
   numEltDotprodInner _ arr1 _arr2 = fromO (RS.index (toO arr1) 0)
 
 
@@ -458,8 +454,8 @@ fromLinearIdxS = \sh lin -> case go sh lin of (# _, ix #) -> ix
     go ZSS !n = (# n, ZIS #)
     go ((:$$) n sh) lin =
       let (# tensLin, idxInTens #) = go sh lin
-          tensLin' = tensLin `quotH` fromIntegral (sNatValue n)
-          i = tensLin `remH` fromIntegral (sNatValue n)
+          tensLin' = tensLin `quotH` fromIntegral (fromSNat' n)
+          i = tensLin `remH` fromIntegral (fromSNat' n)
       in (# tensLin', i :.$ idxInTens #)
 
 -- | Given a linear index into the buffer, get the corresponding

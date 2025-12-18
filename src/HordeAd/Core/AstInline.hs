@@ -21,13 +21,13 @@ import Data.Some
 import Data.Type.Equality ((:~:) (Refl))
 
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (fromSNat')
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstSimplify (substituteAst)
 import HordeAd.Core.AstTools
-import HordeAd.Core.Types
 
 -- * The pass that inlines lets with the bottom-up strategy
 
@@ -88,7 +88,7 @@ inlineAst memo v0 = case v0 of
     in (memo5, Ast.AstCond b1 t2 t3)
   Ast.AstBuild1 k stk (var, v) ->
     let (memoV0, !v2) = inlineAst EM.empty v
-        memoV2 = EM.map (sNatValue k *) memoV0
+        memoV2 = EM.map (fromSNat' k *) memoV0
         memo1 = EM.unionWith (+) memo memoV2
     in (memo1, Ast.AstBuild1 k stk (var, v2))
 

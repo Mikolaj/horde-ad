@@ -30,7 +30,6 @@ import Data.Array.Nested.Convert
   , ixsFromIxR
   , ixsFromIxR'
   , ixsFromIxX'
-  , ixxFromIxS
   , withShsFromShR
   , withShsFromShX
   )
@@ -39,7 +38,7 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (Init, snatPlus, unsafeCoerceRefl)
+import Data.Array.Nested.Types (Init, fromSNat', snatPlus, unsafeCoerceRefl)
 
 import HordeAd.AstEngine
 import HordeAd.Core.Ast
@@ -365,7 +364,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           withSNat i $ \isnat@(SNat @i) -> withSNat n $ \nsnat@(SNat @n) ->
             case cmpNat (snatPlus isnat nsnat) msnat of
               GTI -> error $ "rslice: argument tensor too narrow: "
-                             ++ show (i, n, sNatValue msnat)
+                             ++ show (i, n, fromSNat' msnat)
               EQI ->
                 astFromS' (FTKR sh' x)
                 . astSliceS isnat nsnat (SNat @(m - (i + n)))
@@ -399,7 +398,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             (psnat@SNat, shsnat@SNat) ->
               case cmpNat psnat shsnat of
                 GTI -> error $ "rtranspose: rank mismatch: "
-                               ++ show (sNatValue psnat, sNatValue shsnat)
+                               ++ show (fromSNat' psnat, fromSNat' shsnat)
                 EQI -> result
                 LTI -> result
   trreshape sh2' a = case ftkAst a of
@@ -410,8 +409,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           Just Refl -> astFromS' (FTKR sh2' x)
                        . astReshapeS sh2 . astSFromR' sh $ a
           _ -> error $ "rreshape: tensor size mismatch: "
-                       ++ show ( sNatValue (shsProduct sh)
-                               , sNatValue (shsProduct sh2) )
+                       ++ show ( fromSNat' (shsProduct sh)
+                               , fromSNat' (shsProduct sh2) )
   trbuild1 @n @x k f = withSNat k $ \snat ->
     astBuild1Vectorize snat (STKR (SNat @n) (knownSTK @x)) f
 
@@ -576,8 +575,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             astFromS' (FTKX (SKnown n :$% sh2') x)
             . astSliceS i n k . astSFromX' sh $ a
           _ -> error $ "xslice: argument tensor too narrow: "
-                       ++ show ( sNatValue i, sNatValue n, sNatValue k
-                               , sNatValue msnat )
+                       ++ show ( fromSNat' i, fromSNat' n, fromSNat' k
+                               , fromSNat' msnat )
   txreverse a = case ftkAst a of
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
@@ -598,8 +597,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             astFromS' (FTKX sh2' x)
             . astReshapeS sh2 . astSFromX' sh $ a
           _ -> error $ "xreshape: tensor size mismatch: "
-                       ++ show ( sNatValue (shsProduct sh)
-                               , sNatValue (shsProduct sh2) )
+                       ++ show ( fromSNat' (shsProduct sh)
+                               , fromSNat' (shsProduct sh2) )
   txbuild1 @k @sh @x =
     astBuild1Vectorize (SNat @k) (STKX (knownShX @sh) (knownSTK @x))
 
@@ -680,7 +679,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
               (tsum snat stk2 (tproject2 u3))
   treplicate snat@SNat stk u = case stk of
     STKScalar -> tsreplicate snat ZSS $ sfromK u
-    STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (sNatValue snat) u
+    STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (fromSNat' snat) u
     STKS sh x | Dict <- lemKnownSTK x -> tsreplicate snat sh u
     STKX sh x | Dict <- lemKnownSTK x -> txreplicate snat sh u
     STKProduct stk1 stk2 ->
@@ -870,7 +869,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           withSNat i $ \isnat@(SNat @i) -> withSNat n $ \nsnat@(SNat @n) ->
             case cmpNat (snatPlus isnat nsnat) msnat of
               GTI -> error $ "rslice: argument tensor too narrow: "
-                             ++ show (i, n, sNatValue msnat)
+                             ++ show (i, n, fromSNat' msnat)
               EQI ->
                 cAstFromS ftk
                 . AstSliceS isnat nsnat (SNat @(m - (i + n)))
@@ -904,7 +903,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
             (psnat@SNat, shsnat@SNat) ->
               case cmpNat psnat shsnat of
                 GTI -> error $ "rtranspose: rank mismatch: "
-                               ++ show (sNatValue psnat, sNatValue shsnat)
+                               ++ show (fromSNat' psnat, fromSNat' shsnat)
                 EQI -> result
                 LTI -> result
   trreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
@@ -915,8 +914,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           Just Refl -> cAstFromS (FTKR sh2' x)
                        . AstReshapeS sh2 . cAstSFromR sh $ a
           _ -> error $ "rreshape: tensor size mismatch: "
-                       ++ show ( sNatValue (shsProduct sh)
-                               , sNatValue (shsProduct sh2) )
+                       ++ show ( fromSNat' (shsProduct sh)
+                               , fromSNat' (shsProduct sh2) )
   trbuild1 k f = withSNat k $ \snat ->
     AstRaw $ AstBuild1 snat knownSTK
     $ funToAstI (Just (0, k - 1))
@@ -1093,8 +1092,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
             cAstFromS (FTKX (SKnown n :$% sh2') x)
             . AstSliceS i n k . cAstSFromX sh $ a
           _ -> error $ "xslice: argument tensor too narrow: "
-                       ++ show ( sNatValue i, sNatValue n, sNatValue k
-                               , sNatValue msnat )
+                       ++ show ( fromSNat' i, fromSNat' n, fromSNat' k
+                               , fromSNat' msnat )
   txreverse (AstRaw a) = AstRaw $ case ftkAst a of
     ftk@(FTKX sh' _) ->
       withShsFromShX sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
@@ -1116,8 +1115,8 @@ instance AstSpan s => BaseTensor (AstRaw s) where
             cAstFromS (FTKX sh2' x)
             . AstReshapeS sh2 . cAstSFromX sh $ a
           _ -> error $ "xreshape: tensor size mismatch: "
-                       ++ show ( sNatValue (shsProduct sh)
-                               , sNatValue (shsProduct sh2) )
+                       ++ show ( fromSNat' (shsProduct sh)
+                               , fromSNat' (shsProduct sh2) )
   txbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
                   $ funToAstI (Just (0, valueOf @k - 1))
                       -- this introduces new variable names
@@ -1668,7 +1667,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
               (tsum snat stk2 (tproject2 u3))
   treplicate snat@SNat stk u = case stk of
     STKScalar -> tsreplicate snat ZSS $ sfromK u
-    STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (sNatValue snat) u
+    STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (fromSNat' snat) u
     STKS sh x | Dict <- lemKnownSTK x -> tsreplicate snat sh u
     STKX sh x | Dict <- lemKnownSTK x -> txreplicate snat sh u
     STKProduct stk1 stk2 ->

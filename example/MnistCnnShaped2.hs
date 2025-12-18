@@ -16,6 +16,7 @@ import GHC.TypeLits (fromSNat, type (*), type (+), type (<=), type Div)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (fromSNat')
 
 import HordeAd
 import MnistData
@@ -141,7 +142,7 @@ convMnistTestS
   -> ADCnnMnistParametersShaped target h w kh kw c_out n_hidden r
   -> r
 convMnistTestS _ _ _ _ batch_size@SNat _ _
-  | sNatValue batch_size == 0 = 0
+  | fromSNat' batch_size == 0 = 0
 convMnistTestS kh@SNat kw@SNat
                c_out@SNat n_hidden@SNat batch_size@SNat
                (glyphS, labelS) testParams =

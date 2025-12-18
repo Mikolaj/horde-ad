@@ -22,6 +22,7 @@ import System.Random
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (fromSNat')
 
 import HordeAd
 
@@ -31,7 +32,7 @@ sizeMnistWidth :: SNat SizeMnistWidth
 sizeMnistWidth = SNat @SizeMnistWidth
 
 sizeMnistWidthInt :: Int
-sizeMnistWidthInt = sNatValue sizeMnistWidth
+sizeMnistWidthInt = fromSNat' sizeMnistWidth
 
 type SizeMnistHeight = SizeMnistWidth
 
@@ -52,7 +53,7 @@ sizeMnistLabel :: SNat SizeMnistLabel
 sizeMnistLabel = SNat @SizeMnistLabel
 
 sizeMnistLabelInt :: Int
-sizeMnistLabelInt = sNatValue sizeMnistLabel
+sizeMnistLabelInt = fromSNat' sizeMnistLabel
 
 type LengthTestData = 10000 :: Nat
 

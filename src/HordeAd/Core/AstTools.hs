@@ -36,7 +36,7 @@ import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (snatPlus)
+import Data.Array.Nested.Types (fromSNat', snatPlus)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Conversion
@@ -273,7 +273,7 @@ astIsSmall :: Bool -> AstTensor ms s y -> Bool
 astIsSmall _ AstVar{} = True
 astIsSmall _ AstShare{} = True
 astIsSmall _ AstConcreteK{} = True
-astIsSmall _ (AstConcreteS a) | sNatValue (Nested.srank a) == 0 = True
+astIsSmall _ (AstConcreteS a) | fromSNat' (Nested.srank a) == 0 = True
 astIsSmall lax t = unsafePerformIO $ do
   unsafeTotalSharing <- readIORef unsafeTotalSharingRef
   return $! if | unsafeTotalSharing -> False

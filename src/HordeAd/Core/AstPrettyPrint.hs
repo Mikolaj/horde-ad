@@ -18,6 +18,7 @@ import Data.Vector.Generic qualified as V
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Permutation (Perm (..), permToList)
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (fromSNat')
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstTools
@@ -132,24 +133,24 @@ printAst cfg d = \case
   AstSum snat stk v -> case stk of
     STKR{} -> printPrefixOp printAst cfg d "rsum" [v]
     STKS{} -> printPrefixOp printAst cfg d
-                            ("ssum @" ++ show (sNatValue snat)) [v]
+                            ("ssum @" ++ show (fromSNat' snat)) [v]
     STKX{} -> printPrefixOp printAst cfg d
-                            ("xsum @" ++ show (sNatValue snat)) [v]
+                            ("xsum @" ++ show (fromSNat' snat)) [v]
     STKScalar -> printPrefixOp printAst cfg d
-                               ("ssum @" ++ show (sNatValue snat)) [v]
+                               ("ssum @" ++ show (fromSNat' snat)) [v]
     _ ->  -- scalar and product
       printPrefixOp printAst cfg d
                     ("tsum (" ++ show snat ++ ") (" ++ show stk ++ ")") [v]
   -- This is too common to be verbose even in no loseRoudtrip mode.
   AstReplicate snat stk v -> case stk of
     STKR{} -> printPrefixOp printAst cfg d
-                            ("rreplicate " ++ show (sNatValue snat)) [v]
+                            ("rreplicate " ++ show (fromSNat' snat)) [v]
     STKS{} -> printPrefixOp printAst cfg d
-                            ("sreplicate @" ++ show (sNatValue snat)) [v]
+                            ("sreplicate @" ++ show (fromSNat' snat)) [v]
     STKX{} -> printPrefixOp printAst cfg d
-                            ("xreplicate @" ++ show (sNatValue snat)) [v]
+                            ("xreplicate @" ++ show (fromSNat' snat)) [v]
     STKScalar -> printPrefixOp printAst cfg d
-                               ("sreplicate @" ++ show (sNatValue snat)) [v]
+                               ("sreplicate @" ++ show (fromSNat' snat)) [v]
     _ ->  -- product
       printPrefixOp
         printAst cfg d
@@ -394,7 +395,7 @@ printAst cfg d = \case
    if loseRoudtrip cfg
    then
     showParen (d > 10)
-    $ showString ("sscatter1 @" ++ show (sNatValue snat) ++ " ")
+    $ showString ("sscatter1 @" ++ show (fromSNat' snat) ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -404,7 +405,7 @@ printAst cfg d = \case
            . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
     showParen (d > 10)
-    $ showString ("sscatter1 @" ++ show (sNatValue snat) ++ " ")
+    $ showString ("sscatter1 @" ++ show (fromSNat' snat) ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -448,7 +449,7 @@ printAst cfg d = \case
    if loseRoudtrip cfg
    then
     showParen (d > 10)
-    $ showString ("sgather1 @" ++ show (sNatValue snat) ++ " ")
+    $ showString ("sgather1 @" ++ show (fromSNat' snat) ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -458,7 +459,7 @@ printAst cfg d = \case
            . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
     showParen (d > 10)
-    $ showString ("sgather1 @" ++ show (sNatValue snat) ++ " ")
+    $ showString ("sgather1 @" ++ show (fromSNat' snat) ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True

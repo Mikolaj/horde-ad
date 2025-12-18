@@ -152,7 +152,7 @@ instance BaseTensor Concrete where
     STKScalar -> Concrete $ Nested.sfromList1Prim snat $ fmapUnConcrete l
     STKR SNat x | Dict <- eltDictRep x ->
       case NonEmpty.nonEmpty $ fmapUnConcrete l of
-        Just nl -> Concrete $ Nested.rfromListOuterN (sNatValue snat) nl
+        Just nl -> Concrete $ Nested.rfromListOuterN (fromSNat' snat) nl
         Nothing -> error "tfromList: empty list"
     STKS _sh x | Dict <- eltDictRep x ->
       case NonEmpty.nonEmpty $ fmapUnConcrete l of
@@ -705,7 +705,7 @@ oRtmapAccumR
   -> Concrete (BuildTensorKind k ey)
   -> Concrete (TKProduct accy (BuildTensorKind k by))
 {-# INLINE oRtmapAccumR #-}
-oRtmapAccumR k bftk eftk f acc0 es = case sNatValue k of
+oRtmapAccumR k bftk eftk f acc0 es = case fromSNat' k of
   0 -> tpair acc0 (tdefTarget (buildFTK k bftk))
   _ -> let (xout, lout) =
              mapAccumR (curry $ coerce f) acc0
@@ -722,7 +722,7 @@ oRtmapAccumL
   -> Concrete (BuildTensorKind k ey)
   -> Concrete (TKProduct accy (BuildTensorKind k by))
 {-# INLINE oRtmapAccumL #-}
-oRtmapAccumL k bftk eftk f acc0 es = case sNatValue k of
+oRtmapAccumL k bftk eftk f acc0 es = case fromSNat' k of
   0 -> tpair acc0 (tdefTarget (buildFTK k bftk))
   _ -> let (xout, lout) =
              mapAccumL (curry $ coerce f) acc0

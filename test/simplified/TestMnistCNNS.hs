@@ -21,6 +21,7 @@ import Test.Tasty.HUnit hiding (assert)
 import Text.Printf
 
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (fromSNat')
 
 import HordeAd
 import HordeAd.Core.Adaptor
@@ -70,7 +71,7 @@ mnistTestCaseCNNSA prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
                 0.4 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (sNatValue kh), show (sNatValue kw)
+                        , show (fromSNat' kh), show (fromSNat' kw)
                         , show c_outInt, show n_hiddenInt
                         , show miniBatchSizeInt
                         , show $ widthSTK $ knownSTK @(XParams kh kw c_out n_hidden r)
@@ -181,7 +182,7 @@ mnistTestCaseCNNSI prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
                 0.4 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (sNatValue kh), show (sNatValue kw)
+                        , show (fromSNat' kh), show (fromSNat' kw)
                         , show c_outInt, show n_hiddenInt
                         , show miniBatchSizeInt
                         , show $ widthSTK $ knownSTK @(XParams kh kw c_out n_hidden r)
@@ -309,7 +310,7 @@ mnistTestCaseCNNSO prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
                 0.4 (mkStdGen 44)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (sNatValue kh), show (sNatValue kw)
+                        , show (fromSNat' kh), show (fromSNat' kw)
                         , show c_outInt, show n_hiddenInt
                         , show miniBatchSizeInt
                         , show $ widthSTK

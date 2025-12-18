@@ -31,7 +31,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (unsafeCoerceRefl)
+import Data.Array.Nested.Types (fromSNat', unsafeCoerceRefl)
 
 import HordeAd.Core.Types
 
@@ -319,7 +319,7 @@ ftkUnit = FTKScalar
 buildFTK :: SNat k -> FullShapeTK y -> FullShapeTK (BuildTensorKind k y)
 buildFTK snat@SNat = \case
   FTKScalar -> FTKS (snat :$$ ZSS) FTKScalar
-  FTKR sh x -> FTKR (sNatValue snat :$: sh) x
+  FTKR sh x -> FTKR (fromSNat' snat :$: sh) x
   FTKS sh x -> FTKS (snat :$$ sh) x
   FTKX sh x -> FTKX (SKnown snat :$% sh) x
   FTKProduct ftk1 ftk2 -> FTKProduct (buildFTK snat ftk1) (buildFTK snat ftk2)

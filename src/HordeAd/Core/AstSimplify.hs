@@ -84,7 +84,7 @@ import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types
-  (Head, Init, Last, Tail, snatMinus, snatPlus, unsafeCoerceRefl)
+  (Head, Init, Last, Tail, fromSNat', snatMinus, snatPlus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
   ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
@@ -635,9 +635,9 @@ astReplicate snat@SNat stk t0 = case t0 of
   Ast.AstFromPrimal v -> fromPrimal $ astReplicate snat stk v
   Ast.AstFromDual v -> fromDual $ astReplicate snat stk v
   Ast.AstFromPlain v -> fromPlain $ astReplicate snat stk v
-  AstConcreteK t | sNatValue snat < 100 ->  -- likely not to be O(data size)
+  AstConcreteK t | fromSNat' snat < 100 ->  -- likely not to be O(data size)
     astConcreteS $ treplicate snat stk $ Concrete t
-  AstConcreteS t | sNatValue snat < 100 ->  -- tough trade-offs here
+  AstConcreteS t | fromSNat' snat < 100 ->  -- tough trade-offs here
     astConcreteS $ treplicate snat stk $ Concrete t
       -- revisit the trade-offs once we compile instead of interpreting
       -- and so building big blobby concrete arrays is cheap
@@ -1697,7 +1697,7 @@ astIndexKnobsS _ shn v0 (i1 :.$ _)
 -- this doesn't work in GHC 9.10:
 --      FTKS (snat :$$ _) x = ftkAst v0
   , FTKS (snat :$$ _) x <- ftkAst v0
-  , ub < 0 || lb >= sNatValue snat =
+  , ub < 0 || lb >= fromSNat' snat =
     let ftk = FTKS shn x
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
@@ -1948,8 +1948,8 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
      astLetFunB i1 $ \iShared ->
      let ftk = FTKS shn x
          defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-         b = (if sNatValue i == 0 then true else 0 <=. iShared )
-             &&* (if sNatValue k == 0 then true else iShared <=. valueOf @n - 1)
+         b = (if fromSNat' i == 0 then true else 0 <=. iShared )
+             &&* (if fromSNat' k == 0 then true else iShared <=. valueOf @n - 1)
          ii = valueOf @i + iShared
      in astCond b (astIndex shn v (ii :.$ rest1)) defArr
    Ast.AstReverseS v ->
@@ -2090,7 +2090,7 @@ astGatherKnobsS _ shn v0 (_, i1 :.$ _)
 -- this doesn't work in GHC 9.10:
 --      FTKS (snat :$$ _) x = ftkAst v0
   , FTKS (snat :$$ _) x <- ftkAst v0
-  , ub < 0 || lb >= sNatValue snat =
+  , ub < 0 || lb >= fromSNat' snat =
     let ftk = FTKS (knownShS @shm `shsAppend` shn) x
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astGatherKnobsS knobs shn v0 (var1 ::$ vars1, ix0)
@@ -3174,13 +3174,13 @@ astSliceS SNat SNat SNat (Ast.AstGatherS @shm shn v (var ::$ vars, ix)) =
 astSliceS i n@(SNat @n0) _k (Ast.AstAppendS v1 v2)
   | FTKS (m1@(SNat @m1) :$$ _) _ <- ftkAst v1
   , FTKS (m2@(SNat @m2) :$$ _) _ <- ftkAst v2 =
-    let i1 = sNatValue i `min` sNatValue m1
-        n1 = sNatValue n `min` (sNatValue m1 - i1)
-        k1 = sNatValue m1 - i1 - n1
-        i2' = sNatValue i `max` sNatValue m1
-        i2 = i2' - sNatValue m1
-        n2 = sNatValue n - n1
-        k2 = sNatValue m2 - i2 - n2
+    let i1 = fromSNat' i `min` fromSNat' m1
+        n1 = fromSNat' n `min` (fromSNat' m1 - i1)
+        k1 = fromSNat' m1 - i1 - n1
+        i2' = fromSNat' i `max` fromSNat' m1
+        i2 = i2' - fromSNat' m1
+        n2 = fromSNat' n - n1
+        k2 = fromSNat' m2 - i2 - n2
     in withSNat i1 $ \si1@(SNat @i1) ->
        withSNat n1 $ \sn1@(SNat @n1) ->
        withSNat k1 $ \sk1@(SNat @k1) ->
