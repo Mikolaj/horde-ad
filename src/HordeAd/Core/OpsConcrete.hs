@@ -666,9 +666,9 @@ ixInBoundsX ZSX ZIX = True
 ixInBoundsX ((fromSMayNat' -> n) :$% sh) (Concrete i :.% ix) =
   if 0 <= i && i < n then ixInBoundsX sh ix else False
 
-ixrToLinearMaybe :: IxROf Concrete n -> IShR n -> Maybe Int
+ixrToLinearMaybe :: IShR n -> IxROf Concrete n -> Maybe Int
 {-# INLINE ixrToLinearMaybe #-}
-ixrToLinearMaybe = \ix sh -> go sh ix 0
+ixrToLinearMaybe = \sh ix -> go sh ix 0
   where
     go :: IShR sh -> IxROf Concrete sh -> Int -> Maybe Int
     go ZSR ZIR a = Just a
@@ -677,18 +677,18 @@ ixrToLinearMaybe = \ix sh -> go sh ix 0
 
 -- This would be shorter, but a bit more expensive:
 --   ixxToLinearMaybe (ixxFromIxS ix)
-ixsToLinearMaybe :: IxSOf Concrete sh -> ShS sh -> Maybe Int
+ixsToLinearMaybe :: ShS sh -> IxSOf Concrete sh -> Maybe Int
 {-# INLINE ixsToLinearMaybe #-}
-ixsToLinearMaybe = \ix sh -> go sh ix 0
+ixsToLinearMaybe = \sh ix -> go sh ix 0
   where
     go :: ShS sh -> IxSOf Concrete sh -> Int -> Maybe Int
     go ZSS ZIS a = Just a
     go ((fromSNat' -> n) :$$ sh) (Concrete i :.$ ix) a =
       if 0 <= i && i < n then go sh ix (n * a + i) else Nothing
 
-ixxToLinearMaybe :: IxXOf Concrete sh -> IShX sh -> Maybe Int
+ixxToLinearMaybe :: IShX sh -> IxXOf Concrete sh -> Maybe Int
 {-# INLINE ixxToLinearMaybe #-}
-ixxToLinearMaybe = \ix sh -> go sh ix 0
+ixxToLinearMaybe = \sh ix -> go sh ix 0
   where
     go :: IShX sh -> IxXOf Concrete sh -> Int -> Maybe Int
     go ZSX ZIX a = Just a
@@ -799,17 +799,16 @@ tindex0R v ixConcrete =
        then Nested.rindex uv ix
        else def
 
-toneHotR :: forall m n x. (KnownNat n, KnownSTK x)
+toneHotR :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
          => IShR m -> Concrete (TKR2 n x) -> IxROf Concrete m
          -> Concrete (TKR2 (m + n) x)
 {-# INLINE toneHotR #-}
 toneHotR sh1 v ix = case tftk knownSTK v of
   FTKR sh2 x ->
     let ftk = FTKR (sh1 `shrAppend` sh2) x
-    in if ixInBoundsR sh1 ix
-       then case shrRank sh1 of
-         SNat -> manyHotNR ftk [(unConcrete $ ixrToLinear sh1 ix, v)]
-       else tdefTarget ftk
+    in case ixrToLinearMaybe sh1 ix of
+         Nothing -> tdefTarget ftk
+         Just i2 -> manyHotNR ftk [(i2, v)]
 
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensor is added at such an index.
@@ -829,7 +828,7 @@ tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
          vec <- VSM.replicate (shrSize shp) 0
          forM_ (shrEnum shm) $ \ix -> do
            let ix2 = f $ fmapConcrete ix
-           case ixrToLinearMaybe ix2 shp of
+           case ixrToLinearMaybe shp ix2 of
              Nothing -> return ()
              Just i2 -> do
                let v = Nested.rindex (unConcrete t) ix
@@ -844,7 +843,7 @@ tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
                -> IM.IntMap (Concrete (TKR2 n x))
              g ix =
                let ix2 = f $ fmapConcrete ix
-               in case ixrToLinearMaybe ix2 shp of
+               in case ixrToLinearMaybe shp ix2 of
                  Nothing -> id
                  Just i2 ->
                    IM.insertWith (+) i2
@@ -858,7 +857,7 @@ tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
                -> IM.IntMap (Concrete (TKR2 n x))
              g ix =
                let ix2 = f $ fmapConcrete ix
-               in case ixrToLinearMaybe ix2 shp of
+               in case ixrToLinearMaybe shp ix2 of
                  Nothing -> id
                  Just i2 ->
                    IM.insertWith (taddTarget knownSTK) i2
@@ -987,9 +986,9 @@ toneHotS :: forall sh1 sh2 x. (KnownShS sh1, KnownShS sh2, KnownSTK x)
 toneHotS v ix = case tftk knownSTK v of
   FTKS sh2 x ->
     let ftk = FTKS (knownShS @sh1 `shsAppend` sh2) x
-    in if ixInBoundsS (knownShS @sh1) ix
-       then manyHotNS @sh1 x [(unConcrete $ ixsToLinear (knownShS @sh1) ix, v)]
-       else tdefTarget ftk
+    in case ixsToLinearMaybe (knownShS @sh1) ix of
+         Nothing -> tdefTarget ftk
+         Just i2 -> manyHotNS @sh1 x [(i2, v)]
 
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensor is added at such an index.
@@ -1010,7 +1009,7 @@ tscatterZS @shm @shn @shp @x t f =
          vec <- VSM.replicate (shsSize shp) 0
          forM_ (shsEnum shm) $ \ix -> do
            let ix2 = f $ fmapConcrete ix
-           case ixsToLinearMaybe ix2 shp of
+           case ixsToLinearMaybe shp ix2 of
              Nothing -> return ()
              Just i2 -> do
                let v = Nested.sindex (unConcrete t) ix
@@ -1024,7 +1023,7 @@ tscatterZS @shm @shn @shp @x t f =
                -> IM.IntMap (Concrete (TKS2 shn x))
              g ix =
                let ix2 = f $ fmapConcrete ix
-               in case ixsToLinearMaybe ix2 shp of
+               in case ixsToLinearMaybe shp ix2 of
                  Nothing -> id
                  Just i2 ->
                    IM.insertWith (+) i2
@@ -1038,7 +1037,7 @@ tscatterZS @shm @shn @shp @x t f =
                -> IM.IntMap (Concrete (TKS2 shn x))
              g ix =
                let ix2 = f $ fmapConcrete ix
-               in case ixsToLinearMaybe ix2 shp of
+               in case ixsToLinearMaybe shp ix2 of
                  Nothing -> id
                  Just i2 ->
                    IM.insertWith (taddTarget knownSTK) i2
@@ -1184,9 +1183,9 @@ toneHotX :: forall sh1 sh2 x. (KnownShX sh2, KnownSTK x)
 toneHotX sh1 v ix = case tftk knownSTK v of
   FTKX sh2 x ->
     let ftk = FTKX (sh1 `shxAppend` sh2) x
-    in if ixInBoundsX sh1 ix
-       then manyHotNX @sh1 ftk [(unConcrete $ ixxToLinear sh1 ix, v)]
-       else tdefTarget ftk
+    in case ixxToLinearMaybe sh1 ix of
+         Nothing -> tdefTarget ftk
+         Just i2 -> manyHotNX @sh1 ftk [(i2, v)]
 
 tscatterZX :: (KnownShX shm, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x)
            => IShX (shp ++ shn) -> Concrete (TKX2 (shm ++ shn) x)
@@ -1205,7 +1204,7 @@ tscatterZX @shm @shn @shp @x sh t f =
          vec <- VSM.replicate (shxSize shp) 0
          forM_ (shxEnum shm) $ \ix -> do
            let ix2 = f $ fmapConcrete ix
-           case ixxToLinearMaybe ix2 shp of
+           case ixxToLinearMaybe shp ix2 of
              Nothing -> return ()
              Just i2 -> do
                let v = Nested.mindex (unConcrete t) ix
@@ -1222,7 +1221,7 @@ tscatterZX @shm @shn @shp @x sh t f =
                -> IM.IntMap (Concrete (TKX2 shn x))
              g ix =
                let ix2 = f $ fmapConcrete ix
-               in case ixxToLinearMaybe ix2 shp of
+               in case ixxToLinearMaybe shp ix2 of
                  Nothing -> id
                  Just i2 ->
                    IM.insertWith (+) i2
@@ -1239,7 +1238,7 @@ tscatterZX @shm @shn @shp @x sh t f =
                -> IM.IntMap (Concrete (TKX2 shn x))
              g ix =
                let ix2 = f $ fmapConcrete ix
-               in case ixxToLinearMaybe ix2 shp of
+               in case ixxToLinearMaybe shp ix2 of
                  Nothing -> id
                  Just i2 ->
                    IM.insertWith (taddTarget knownSTK) i2
