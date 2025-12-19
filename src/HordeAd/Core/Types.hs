@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, DerivingVia, ImpredicativeTypes,
-             UnboxedTuples, UndecidableInstances, UndecidableSuperClasses,
-             ViewPatterns #-}
+             UndecidableInstances, UndecidableSuperClasses, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -23,7 +22,6 @@ module HordeAd.Core.Types
     -- * Misc
   , Dict(..), IntegralH(..), RealFloatH(..), Boolean (..), EqH(..), OrdH(..)
   , backpermutePrefixList
-  , fromLinearIdxR, fromLinearIdxS, fromLinearIdxX
     -- * Feature requests for ox-arrays
   , Take, Drop, UnMapSucc
   , listsTake, listsDrop, listsSplitAt, ixrTake, ixrDrop, ixrSplitAt
@@ -411,65 +409,6 @@ class Boolean (BoolOf f) => OrdH (f :: Target) y where
 
 backpermutePrefixList :: PermR -> [i] -> [i]
 backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
-
--- I can't switch to ixxFromLinear from ox-arrays
--- even just because IntegralH is not available in ox-arrays.
---
--- The inlines are not needed due to function arguments,
--- because there are none, but due to observed significant speedup
--- they provide in tests that intensively use these operations.
--- Maybe specialization doesn't quite work for them? Not verified.
---
--- | Given a linear index into the buffer, get the corresponding
--- multidimensional index.
---
--- If any of the dimensions is 0, the linear index has to be 0
--- (which we can't assert, because j may be a term and so == lies),
--- which is fine, because that's pointing at the start of the empty buffer.
-fromLinearIdxR :: forall n j. IntegralH j
-               => ShR n Int -> j -> IxR n j
-{-# INLINE fromLinearIdxR #-}
-fromLinearIdxR = \sh lin -> case go sh lin of (# _, ix #) -> ix
-  where
-    -- Returns (linear index into array of sub-tensors,
-    -- multi-index within sub-tensor).
-    go :: ShR n1 Int -> j -> (# j, IxR n1 j #)
-    go ZSR !n = (# n, ZIR #)
-    go (n :$: sh) lin =
-      let (# tensLin, idxInTens #) = go sh lin
-          tensLin' = tensLin `quotH` fromIntegral n
-          i = tensLin `remH` fromIntegral n
-      in (# tensLin', i :.: idxInTens #)
-
--- | Given a linear index into the buffer, get the corresponding
--- multidimensional index.
-fromLinearIdxS :: forall sh j. IntegralH j
-               => ShS sh -> j -> IxS sh j
-{-# INLINE fromLinearIdxS #-}
-fromLinearIdxS = \sh lin -> case go sh lin of (# _, ix #) -> ix
-  where
-    go :: ShS sh1 -> j -> (# j, IxS sh1 j #)
-    go ZSS !n = (# n, ZIS #)
-    go ((:$$) n sh) lin =
-      let (# tensLin, idxInTens #) = go sh lin
-          tensLin' = tensLin `quotH` fromIntegral (fromSNat' n)
-          i = tensLin `remH` fromIntegral (fromSNat' n)
-      in (# tensLin', i :.$ idxInTens #)
-
--- | Given a linear index into the buffer, get the corresponding
--- multidimensional index.
-fromLinearIdxX :: forall sh j. IntegralH j
-               => IShX sh -> j -> IxX sh j
-{-# INLINE fromLinearIdxX #-}
-fromLinearIdxX = \sh lin -> case go sh lin of (# _, ix #) -> ix
-  where
-    go :: IShX sh1 -> j -> (# j, IxX sh1 j #)
-    go ZSX !n = (# n, ZIX #)
-    go ((:$%) n sh) lin =
-      let (# tensLin, idxInTens #) = go sh lin
-          tensLin' = tensLin `quotH` fromIntegral (fromSMayNat' n)
-          i = tensLin `remH` fromIntegral (fromSMayNat' n)
-      in (# tensLin', i :.% idxInTens #)
 
 
 -- * Shopping list for ox-arrays

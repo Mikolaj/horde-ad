@@ -19,6 +19,7 @@ import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (fromSNat')
 
 import HordeAd
 import HordeAd.Core.AstEnv
@@ -1643,6 +1644,18 @@ smaximum4 t0 | Refl <- lemAppNil @sh =
     sindex t
     $ fromLinearIdxS (sshape t)
                      (kplainPart $ kfromPrimal @target maxIndex)
+
+fromLinearIdxS :: forall sh j. IntegralH j
+               => ShS sh -> j -> IxS sh j
+fromLinearIdxS = \sh lin -> case go sh lin of (_, ix) -> ix
+  where
+    go :: ShS sh1 -> j -> (j, IxS sh1 j)
+    go ZSS !n = (n, ZIS)
+    go ((:$$) n sh) lin =
+      let (tensLin, idxInTens) = go sh lin
+          tensLin' = tensLin `quotH` fromIntegral (fromSNat' n)
+          i = tensLin `remH` fromIntegral (fromSNat' n)
+      in (tensLin', i :.$ idxInTens)
 
 maxPool2dUnpaddedS4
   :: forall ksize stride batch_size channels h w target r shOut shK1.

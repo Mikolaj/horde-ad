@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE AllowAmbiguousTypes, UnboxedTuples #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -216,6 +216,32 @@ astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
        in withKnownShS shOut $
           withKnownShS shIn $
           astGatherKnobsS @sh2 @'[] @sh knobs ZSS v (vars, asts i)
+
+-- I can't switch to ixxFromLinear from ox-arrays
+-- even just because IntegralH is not available in ox-arrays.
+--
+-- The inlines are not needed due to function arguments,
+-- because there are none, but due to observed significant speedup
+-- they provide in tests that intensively use these operations.
+-- Maybe specialization doesn't quite work for them? Not verified.
+--
+-- | Given a linear index into the buffer, get the corresponding
+-- multidimensional index.
+--
+-- If any of the dimensions is 0, the linear index has to be 0
+-- (which we can't assert, because j may be a term and so == lies),
+-- which is fine, because that's pointing at the start of the empty buffer.
+fromLinearIdxS :: forall sh j. IntegralH j
+               => ShS sh -> j -> IxS sh j
+fromLinearIdxS = \sh lin -> case go sh lin of (# _, ix #) -> ix
+  where
+    go :: ShS sh1 -> j -> (# j, IxS sh1 j #)
+    go ZSS !n = (# n, ZIS #)
+    go ((:$$) n sh) lin =
+      let (# tensLin, idxInTens #) = go sh lin
+          tensLin' = tensLin `quotH` fromIntegral (fromSNat' n)
+          i = tensLin `remH` fromIntegral (fromSNat' n)
+      in (# tensLin', i :.$ idxInTens #)
 
 
 -- * The simplifying combinators, one for almost each AST constructor
