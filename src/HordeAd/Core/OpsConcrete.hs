@@ -13,7 +13,7 @@ import Prelude hiding (foldl')
 import Control.Monad (forM_)
 import Control.Monad.ST
 import Data.Array.Internal.ShapedS qualified as SS
-import Data.Coerce (coerce)
+import Data.Coerce (Coercible, coerce)
 import Data.Default
 import Data.Function ((&))
 import Data.IntMap.Strict qualified as IM
@@ -25,7 +25,6 @@ import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
 import Data.Vector.Storable.Mutable qualified as VSM
 import GHC.TypeLits (KnownNat, Nat, type (+))
-import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
@@ -642,11 +641,13 @@ interpretTKConversion c0 = case c0 of
 
 -- * Misc
 
-fmapConcrete :: f (RepConcrete y) -> f (Concrete y)
-fmapConcrete = unsafeCoerce
+fmapConcrete :: Coercible (f (RepConcrete y)) (f (Concrete y))
+               => f (RepConcrete y) -> f (Concrete y)
+fmapConcrete = coerce
 
-fmapUnConcrete :: f (Concrete y) -> f (RepConcrete y)
-fmapUnConcrete = unsafeCoerce
+fmapUnConcrete :: Coercible (f (Concrete y)) (f (RepConcrete y))
+               => f (Concrete y) -> f (RepConcrete y)
+fmapUnConcrete = coerce
 
 ixInBoundsR :: IShR n -> IxROf Concrete n -> Bool
 {-# INLINE ixInBoundsR #-}
