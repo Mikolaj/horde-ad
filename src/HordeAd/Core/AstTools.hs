@@ -1,4 +1,4 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE LambdaCase, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | An assortment of operations working on AST of the code to be differentiated
 -- or the code resulting from differentiation.
@@ -555,27 +555,27 @@ convSFrom yftk zstk = case convSFromMaybe yftk zstk of
                      ++ "(" ++ show yftk ++ ", " ++ show zstk ++ ")"
 
 convFromSMaybe :: FullShapeTK y0 -> FullShapeTK z0 -> Maybe (TKConversion y0 z0)
-convFromSMaybe yftk0 zftk0 = case (yftk0, zftk0) of
-  _ | Just Refl <- matchingFTK yftk0 zftk0 -> Just ConvId
-  (FTKS ZSS (FTKScalar @ry), FTKScalar @rz)
+convFromSMaybe = \cases
+  yftk0 zftk0 | Just Refl <- matchingFTK yftk0 zftk0 -> Just ConvId
+  (FTKS ZSS (FTKScalar @ry)) (FTKScalar @rz)
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       Just $ convCmp ConvX0 ConvSX
-  (FTKS sh x, FTKR rsh rx)
+  (FTKS sh x) (FTKR rsh rx)
     | Just Refl <- matchingFTK x rx
     , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
     , Refl <- lemRankMapJust sh ->
       Just $ convCmp (ConvXR (ftkToSTK x)) ConvSX
-  (FTKS sh x, FTKX xsh xx)
+  (FTKS sh x) zftk0@(FTKX xsh xx)
     | Just Refl <- matchingFTK x xx
     , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
     , Refl <- lemRankMapJust sh ->
       Just $ convCmp (ConvXX' zftk0) ConvSX
-  (FTKProduct yftk1 yftk2, FTKProduct zftk1 zftk2) -> do
+  (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) -> do
     c1 <- convFromSMaybe yftk1 zftk1
     c2 <- convFromSMaybe yftk2 zftk2
-    pure $! ConvT2 c1 c2
-  ( FTKS sh (FTKProduct yftk1 yftk2)
-   ,FTKProduct (FTKS sh' yftk1') (FTKS sh'' yftk2') )
+    Just $ ConvT2 c1 c2
+  (FTKS sh (FTKProduct yftk1 yftk2)) (FTKProduct (FTKS sh' yftk1')
+                                                 (FTKS sh'' yftk2'))
     | Just Refl <- testEquality sh sh'
     , Just Refl <- testEquality sh sh''
     , Just Refl <- matchingFTK yftk1 yftk1'
@@ -586,30 +586,30 @@ convFromSMaybe yftk0 zftk0 = case (yftk0, zftk0) of
           (convCmp
              (ConvUnzip (ftkToSTK yftk1) (ftkToSTK yftk2))
              ConvSX)
-  _ -> Nothing
+  _ _ -> Nothing
 
 convSFromMaybe :: FullShapeTK y0 -> SingletonTK z0 -> Maybe (TKConversion y0 z0)
-convSFromMaybe yftk0 zstk0 = case (zstk0, yftk0) of
-  _ | Just Refl <- sameSTK (ftkToSTK yftk0) zstk0 -> Just ConvId
-  (STKS ZSS (STKScalar @ry), FTKScalar @rz)
+convSFromMaybe = \cases
+  yftk0 zstk0 | Just Refl <- sameSTK (ftkToSTK yftk0) zstk0 -> Just ConvId
+  (FTKScalar @rz) (STKS ZSS (STKScalar @ry))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       Just $ convCmp ConvXS (Conv0X STKScalar)
-  (STKS @sh sh x, FTKR rsh rx)
+  (FTKR rsh rx) (STKS @sh sh x)
     | Just Refl <- sameSTK x (ftkToSTK rx)
     , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
     , Refl <- lemRankReplicate (Proxy @(Rank sh)) ->
       Just $ convCmp (ConvXS' (FTKS sh rx)) ConvRX
-  (STKS sh x, FTKX xsh xx)
+  (FTKX xsh xx) (STKS sh x)
     | Just Refl <- sameSTK x (ftkToSTK xx)
     , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
     , Refl <- lemRankMapJust sh ->
       Just $ ConvXS' (FTKS sh xx)
-  (STKProduct zstk1 zstk2, FTKProduct yftk1 yftk2) -> do
+  (FTKProduct yftk1 yftk2) (STKProduct zstk1 zstk2) -> do
     c1 <- convSFromMaybe yftk1 zstk1
     c2 <- convSFromMaybe yftk2 zstk2
-    pure $! ConvT2 c1 c2
-  ( STKS sh (STKProduct ystk1 ystk2)
-   ,FTKProduct (FTKS sh' yftk1) (FTKS sh'' yftk2) )
+    Just $ ConvT2 c1 c2
+  (FTKProduct (FTKS sh' yftk1) (FTKS sh'' yftk2)) (STKS sh (STKProduct ystk1
+                                                                       ystk2))
     | Just Refl <- testEquality sh sh'
     , Just Refl <- testEquality sh sh''
     , Just Refl <- sameSTK ystk1 (ftkToSTK yftk1)
@@ -620,4 +620,4 @@ convSFromMaybe yftk0 zstk0 = case (zstk0, yftk0) of
           (convCmp
              (ConvZip ystk1 ystk2)
              (ConvT2 ConvSX ConvSX))
-  _ -> Nothing
+  _ _ -> Nothing

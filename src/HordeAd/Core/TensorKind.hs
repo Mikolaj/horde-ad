@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Two kinds of singletons for tensor kindss and constraints
@@ -93,23 +94,29 @@ sameKnownSTK = sameSTK (knownSTK @y1) (knownSTK @y2)
 
 -- | A plausible implementation of `testEquality` on `SingletonTK`.
 sameSTK :: SingletonTK y1 -> SingletonTK y2 -> Maybe (y1 :~: y2)
-sameSTK stk1 stk2 = case (stk1, stk2) of
-  (STKScalar @r1, STKScalar @r2)
+{-# INLINE sameSTK #-}
+sameSTK = \cases
+  (STKScalar @r1) (STKScalar @r2)
     | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
       Just Refl
-  (STKR snat1 x1, STKR snat2 x2)
+  -- A common non-recursive case as a shorthand:
+  (STKS sh1 (STKScalar @r1)) (STKS sh2 (STKScalar @r2))
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+    , Just Refl <- testEquality sh1 sh2 ->
+      Just Refl
+  (STKR snat1 x1) (STKR snat2 x2)
     | Just Refl <- sameSTK x1 x2, Just Refl <- testEquality snat1 snat2 ->
       Just Refl
-  (STKS sh1 x1, STKS sh2 x2)
+  (STKS sh1 x1) (STKS sh2 x2)
     | Just Refl <- sameSTK x1 x2, Just Refl <- testEquality sh1 sh2 ->
       Just Refl
-  (STKX sh1 x1, STKX sh2 x2)
+  (STKX sh1 x1) (STKX sh2 x2)
     | Just Refl <- sameSTK x1 x2, Just Refl <- testEquality sh1 sh2 ->
       Just Refl
-  (STKProduct x1 y1, STKProduct x2 y2)
+  (STKProduct x1 y1) (STKProduct x2 y2)
     | Just Refl <- sameSTK x1 x2, Just Refl <- sameSTK y1 y2 ->
       Just Refl
-  _ -> Nothing
+  _ _ -> Nothing
 
 -- | Evidence for the constraint @c@. Works for type families,
 -- such as @TKAllNum@.
@@ -282,26 +289,32 @@ deriving instance Eq (FullShapeTK y)
 -- take into account shape difference in ranked and mixed tensors
 -- that `FullShapeTK`, but not `SingletonTK`, captures.
 matchingFTK :: FullShapeTK y1 -> FullShapeTK y2 -> Maybe (y1 :~: y2)
-matchingFTK ftk1 ftk2 = case (ftk1, ftk2) of
-  (FTKScalar @r1, FTKScalar @r2)
+{-# INLINE matchingFTK #-}
+matchingFTK = \cases
+  (FTKScalar @r1) (FTKScalar @r2)
     | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
       Just Refl
-  (FTKR sh1 x1, FTKR sh2 x2)
+  -- A common non-recursive case as a shorthand:
+  (FTKS sh1 (FTKScalar @r1)) (FTKS sh2 (FTKScalar @r2))
+    | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+    , Just Refl <- testEquality sh1 sh2 ->
+      Just Refl
+  (FTKR sh1 x1) (FTKR sh2 x2)
     | Just Refl <- matchingFTK x1 x2
     , Just Refl <- testEquality (shrRank sh1) (shrRank sh2) ->  -- weaker!!!
       Just Refl
-  (FTKS sh1 x1, FTKS sh2 x2)
+  (FTKS sh1 x1) (FTKS sh2 x2)
     | Just Refl <- matchingFTK x1 x2
     , Just Refl <- testEquality sh1 sh2 ->
       Just Refl
-  (FTKX sh1 x1, FTKX sh2 x2)
+  (FTKX sh1 x1) (FTKX sh2 x2)
     | Just Refl <- matchingFTK x1 x2
     , Just Refl <- testEquality (ssxFromShX sh1) (ssxFromShX sh2) ->  -- !!!
       Just Refl
-  (FTKProduct x1 y1, FTKProduct x2 y2)
+  (FTKProduct x1 y1) (FTKProduct x2 y2)
     | Just Refl <- matchingFTK x1 x2, Just Refl <- matchingFTK y1 y2 ->
       Just Refl
-  _ -> Nothing
+  _ _ -> Nothing
 
 -- | A conversion that is fully determined by the property that it
 -- commutes with the `testEquality` implementations.
