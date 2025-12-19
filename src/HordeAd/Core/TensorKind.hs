@@ -25,7 +25,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Foreign.C (CInt)
 import GHC.Exts (withDict)
-import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat, fromSNat)
+import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested qualified as Nested
@@ -253,7 +253,7 @@ lemBuildOfAD snat@SNat = \case
 
 lengthSTK :: SingletonTK x -> Int
 lengthSTK STKScalar = 0
-lengthSTK (STKR snat _) = fromInteger $ fromSNat snat
+lengthSTK (STKR snat _) = fromSNat' snat
 lengthSTK (STKS sh _) = shsLength sh
 lengthSTK (STKX sh _) = ssxLength sh
 lengthSTK (STKProduct sy sz) = lengthSTK sy `max` lengthSTK sz

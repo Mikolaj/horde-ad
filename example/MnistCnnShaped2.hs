@@ -12,7 +12,7 @@ import Prelude
 
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
-import GHC.TypeLits (fromSNat, type (*), type (+), type (<=), type Div)
+import GHC.TypeLits (type (*), type (+), type (<=), type Div)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Shaped.Shape
@@ -124,7 +124,7 @@ convMnistLossFusedS kh@SNat kw@SNat
                              input adparameters
       targets = str labelS
       loss = lossSoftMaxCrossEntropyS targets result
-  in kfromPrimal (recip $ kconcrete $ fromInteger $ fromSNat batch_size) * loss
+  in kfromPrimal (recip $ kconcrete $ fromIntegral $ fromSNat' batch_size) * loss
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
@@ -165,4 +165,4 @@ convMnistTestS kh@SNat kw@SNat
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
   in fromIntegral (sum (zipWith matchesLabels outputs labels))
-     / fromInteger (fromSNat batch_size)
+     / fromIntegral (fromSNat' batch_size)

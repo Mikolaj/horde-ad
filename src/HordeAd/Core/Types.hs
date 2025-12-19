@@ -59,13 +59,12 @@ import GHC.TypeLits
   , Nat
   , SNat
   , TypeError
-  , fromSNat
   , pattern SNat
   , sameNat
   , type (+)
   , type (-)
-  , withSomeSNat
   )
+import GHC.TypeNats qualified as TN
 import System.Random
 import Type.Reflection (Typeable, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
@@ -90,16 +89,15 @@ instance NFData (SNat n) where
 
 withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
 {-# INLINE withSNat #-}
-withSNat i f = withSomeSNat (fromIntegral i) $ \case
-  Just snat@SNat -> f snat
-  Nothing -> error $ "withSNat: negative argument: " ++ show i
+withSNat i f = TN.withSomeSNat (toEnum i) $ \case
+  snat@SNat -> f snat
 
 proxyFromSNat :: SNat n -> Proxy n
 proxyFromSNat SNat = Proxy
 
 {-# INLINE valueOf #-}
 valueOf :: forall n r. (KnownNat n, Num r) => r
-valueOf = fromInteger $ fromSNat (SNat @n)
+valueOf = fromIntegral $ fromSNat' (SNat @n)
 
 pattern SNat' :: forall n m. KnownNat n => (KnownNat m, n ~ m) => SNat m
 pattern SNat' <- (matchSNat (Proxy @n) -> Just (Refl :: n :~: m))
