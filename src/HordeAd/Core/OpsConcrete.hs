@@ -832,7 +832,7 @@ tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
            case ixrToLinearMaybe ix2 shp of
              Nothing -> return ()
              Just i2 -> do
-               let v = unConcrete $ trindex0 t $ fmapConcrete ix
+               let v = Nested.rindex (unConcrete t) ix
                v2 <- VSM.read vec i2
                VSM.write vec i2 (v + v2)
          Concrete . Nested.rfromVector shp <$> VS.unsafeFreeze vec
@@ -1013,7 +1013,7 @@ tscatterZS @shm @shn @shp @x t f =
            case ixsToLinearMaybe ix2 shp of
              Nothing -> return ()
              Just i2 -> do
-               let v = unConcrete $ tsindex0 t $ fmapConcrete ix
+               let v = Nested.sindex (unConcrete t) ix
                v2 <- VSM.read vec i2
                VSM.write vec i2 (v + v2)
          Concrete . Nested.sfromVector shp <$> VS.unsafeFreeze vec
@@ -1208,7 +1208,7 @@ tscatterZX @shm @shn @shp @x sh t f =
            case ixxToLinearMaybe ix2 shp of
              Nothing -> return ()
              Just i2 -> do
-               let v = unConcrete $ txindex0 t $ fmapConcrete ix
+               let v = Nested.mindex (unConcrete t) ix
                v2 <- VSM.read vec i2
                VSM.write vec i2 (v + v2)
          Concrete . Nested.mfromVector shp <$> VS.unsafeFreeze vec
