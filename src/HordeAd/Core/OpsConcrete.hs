@@ -672,7 +672,7 @@ ixrToLinearMaybe :: IShR n -> IxROf Concrete n -> Maybe Int
 ixrToLinearMaybe = \sh ix -> go sh ix 0
   where
     go :: IShR sh -> IxROf Concrete sh -> Int -> Maybe Int
-    go ZSR ZIR a = Just a
+    go ZSR ZIR !a = Just a
     go (n :$: sh) (Concrete i :.: ix) a =
       if 0 <= i && i < n then go sh ix (n * a + i) else Nothing
 
@@ -683,7 +683,7 @@ ixsToLinearMaybe :: ShS sh -> IxSOf Concrete sh -> Maybe Int
 ixsToLinearMaybe = \sh ix -> go sh ix 0
   where
     go :: ShS sh -> IxSOf Concrete sh -> Int -> Maybe Int
-    go ZSS ZIS a = Just a
+    go ZSS ZIS !a = Just a
     go ((fromSNat' -> n) :$$ sh) (Concrete i :.$ ix) a =
       if 0 <= i && i < n then go sh ix (n * a + i) else Nothing
 
@@ -692,7 +692,7 @@ ixxToLinearMaybe :: IShX sh -> IxXOf Concrete sh -> Maybe Int
 ixxToLinearMaybe = \sh ix -> go sh ix 0
   where
     go :: IShX sh -> IxXOf Concrete sh -> Int -> Maybe Int
-    go ZSX ZIX a = Just a
+    go ZSX ZIX !a = Just a
     go ((fromSMayNat' -> n) :$% sh) (Concrete i :.% ix) a =
       if 0 <= i && i < n then go sh ix (n * a + i) else Nothing
 
