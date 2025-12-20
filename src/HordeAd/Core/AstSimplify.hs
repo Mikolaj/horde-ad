@@ -138,7 +138,7 @@ astTransposeAsGatherS
 astTransposeAsGatherS knobs perm v =
   let FTKS shn _ = ftkAst v
       shnPermuted = shsPermute perm (shsTakeLen perm shn)
-  in funToVarsIxS @_ @AstMethodLet shnPermuted $ \ (!vars, !ix) ->
+  in funToVarsIxS @_ @AstMethodLet shnPermuted $ \vars ix ->
     -- See astGatherCase.AstTransposeS for similar code with more comments.
     gcastWith (lemRankMapJust $ shsTakeLen perm shn) $
     gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
@@ -203,7 +203,7 @@ astReshapeAsGatherS
 astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
                                   , Refl <- lemAppNil @sh
                                   , FTKS shIn _ <- ftkAst v =
-  funToVarsIxS shOut $ \ (!vars, !ix) ->
+  funToVarsIxS shOut $ \vars ix ->
     let iUnshared :: AstInt AstMethodLet
         iUnshared = ixsToLinear shOut ix
         asts :: AstInt AstMethodLet -> AstIxS AstMethodLet sh
@@ -2806,7 +2806,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@(i4 :.$ rest4))
     Ast.AstFromVector snat STKS{} l ->
       -- Term rest4 is duplicated without sharing and we can't help it,
       -- because it needs to be in scope of vars4, so we can't use tlet.
-      funToVarsIxS @shm (knownShS @shm) $ \ (!varsFresh, IxS !ixFresh) ->
+      funToVarsIxS @shm (knownShS @shm) $ \varsFresh (IxS !ixFresh) ->
         let f v = astGather @shm @shn @shp1' shn v (vars4, rest4)
             -- This subst doesn't currently break sharing because it's a rename.
             subst i =

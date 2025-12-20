@@ -147,17 +147,17 @@ funToAstI bounds f = unsafePerformIO . funToAstIntVarIO bounds
 
 funToVarsIxIOS
   :: forall sh a ms.
-     ShS sh -> ((AstVarListS sh, AstIxS ms sh) -> a) -> IO a
+     ShS sh -> (AstVarListS sh -> AstIxS ms sh -> a) -> IO a
 {-# INLINE funToVarsIxIOS #-}
 funToVarsIxIOS sh f = withKnownShS sh $ do
   let freshBound n = unsafeGetFreshAstVarName (FTKScalar @Int) (Just (0, n - 1))
-  !varList <- mapM freshBound $ shsToList sh
+  varList <- mapM freshBound $ shsToList sh
   let !vars = fromList varList
-  let !ix = fromList $ map astVar varList
-  return $! f (vars, ix)
+  let !ix = fmap astVar $ IxS vars
+  return $! f vars ix
 
 funToVarsIxS
-  :: ShS sh -> ((AstVarListS sh, AstIxS ms sh) -> a) -> a
+  :: ShS sh -> (AstVarListS sh -> AstIxS ms sh -> a) -> a
 {-# NOINLINE funToVarsIxS #-}
 funToVarsIxS sh = unsafePerformIO . funToVarsIxIOS sh
 
@@ -166,4 +166,4 @@ funToAstIxS
   -> (AstVarListS sh, AstIxS ms sh2)
 {-# NOINLINE funToAstIxS #-}
 funToAstIxS sh f = unsafePerformIO $ funToVarsIxIOS sh
-                   $ \ (!vars, !ix) -> let !x = f ix in (vars, x)
+                   $ \vars ix -> let !x = f ix in (vars, x)
