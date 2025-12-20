@@ -11,6 +11,7 @@ module HordeAd.Core.AstTraverse
 
 import Prelude
 
+import Data.Foldable qualified as Foldable
 import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
@@ -805,7 +806,7 @@ contractAst t0 = case t0 of
     astScatterS @shm @shn @shp shn (contractAst v) (vars, contractAstIxS ix)
   -- This rule is reverted in vectorization, so contraction phase may be fine.
   Ast.AstGatherS shn v (vars, Ast.AstCond b i1 i2 :.$ prest)
-    | not $ any ((`varInAst` b) . varNameToAstVarId) (listsToList vars) ->
+    | not $ Foldable.any ((`varInAst` b) . varNameToAstVarId) vars ->
       contractAst
       $ Ast.AstCond b (Ast.AstGatherS shn v (vars, i1 :.$ prest))
                       (Ast.AstGatherS shn v (vars, i2 :.$ prest))

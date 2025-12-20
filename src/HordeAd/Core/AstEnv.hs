@@ -11,7 +11,6 @@ import Data.Coerce (coerce)
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum
-import Data.Foldable qualified as Foldable
 import Data.Kind (Type)
 import Text.Show (showListWith)
 
@@ -49,7 +48,7 @@ showsPrecAstEnv d demap =
 extendEnv :: forall target s y.
              AstVarName s y -> target y -> AstEnv target
           -> AstEnv target
-extendEnv var !t !env =
+extendEnv !var !t !env =
   let var2 :: AstVarName FullSpan y
       var2 = coerce var  -- only FullSpan variables permitted in env; see above
   in DMap.insertWithKey (\_ _ _ -> error $ "extendEnv: duplicate " ++ show var)
@@ -58,11 +57,11 @@ extendEnv var !t !env =
 extendEnvI :: BaseTensor target
            => IntVarName -> IntOf target -> AstEnv target
            -> AstEnv target
-extendEnvI var !i !env = extendEnv var (tfromPlain STKScalar i) env
+extendEnvI !var !i !env = extendEnv var (tfromPlain STKScalar i) env
 
 extendEnvVarsS :: forall target sh. BaseTensor target
                => AstVarListS sh -> IxSOf target sh -> AstEnv target
                -> AstEnv target
-extendEnvVarsS vars !ix !env =
-  let assocs = zip (listsToList vars) (Foldable.toList ix)
-  in foldr (uncurry extendEnvI) env assocs
+extendEnvVarsS ZS ZIS !env = env
+extendEnvVarsS (var ::$ vars) (i :.$ ix) env =
+  extendEnvVarsS vars ix (extendEnvI var i env)

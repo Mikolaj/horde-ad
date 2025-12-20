@@ -2105,7 +2105,7 @@ astGatherKnobsS
   -> (AstVarListS shm, AstIxS AstMethodLet shp)
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
 astGatherKnobsS _ _ v0 (!vars0, !_ix0)
-  | any (`varNameInAst` v0) $ listsToList vars0 =
+  | Foldable.any (`varNameInAst` v0) vars0 =
     error $ "astGatherKnobsS: gather vars in v0: " ++ show (vars0, v0)
 astGatherKnobsS knobs shn v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
 astGatherKnobsS _ _ v0 (_, ZIS) =
@@ -2615,7 +2615,7 @@ astGatherKnobsS knobs shn v7@(Ast.AstFromVector _ (STKS _ x2) l)
 astGatherKnobsS knobs shn v0 (vars0, i1 :.$ rest1)
   | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
       -- prevent a loop
-  , not (any (`varNameInAst` i1) $ listsToList vars0) =
+  , not (Foldable.any (`varNameInAst` i1) vars0) =
     withKnownShS (shsTail (knownShS @shp)) $
     astGatherKnobsS @shm @shn
       knobs shn
@@ -2634,47 +2634,47 @@ astGatherKnobsS knobs shn v0
             | fst (bounds i2) >= 0 -> True
           Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _
             | j <= 0 || j >= fromSNat' m || ixIsSmall prest
-            , any ((== varNameToAstVarId var) . varNameToAstVarId)
-                  (listsToList vars) -> True
+            , Foldable.any ((== varNameToAstVarId var)
+                            . varNameToAstVarId) vars -> True
           Ast.AstCond (AstLeqInt (AstConcreteK j)
                                  (Ast.AstN1K NegateOp (AstIntVar var))) _ _
             | - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest
-            , any ((== varNameToAstVarId var) . varNameToAstVarId)
-                  (listsToList vars) -> True
+            , Foldable.any ((== varNameToAstVarId var)
+                            . varNameToAstVarId) vars -> True
           Ast.AstLet _ uN
             (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _)
             | j <= 0 || j >= fromSNat' m
               || ixIsSmall prest && astIsSmall True uN
-            , any ((== varNameToAstVarId var) . varNameToAstVarId)
-                  (listsToList vars) -> True
+            , Foldable.any ((== varNameToAstVarId var)
+                            . varNameToAstVarId) vars -> True
           Ast.AstLet _ uN
             (Ast.AstCond (AstLeqInt (AstConcreteK j)
                                     (Ast.AstN1K NegateOp (AstIntVar var))) _ _)
             | - j + 1 <= 0 || - j + 1 >= fromSNat' m
               || ixIsSmall prest && astIsSmall True uN
-            , any ((== varNameToAstVarId var) . varNameToAstVarId)
-                  (listsToList vars) -> True
+            , Foldable.any ((== varNameToAstVarId var)
+                            . varNameToAstVarId) vars -> True
           Ast.AstCond
             (Ast.AstBoolAnd
                (AstLeqInt (AstConcreteK j) (AstIntVar var)) _) _ _
             | j <= 0 || j >= fromSNat' m || ixIsSmall prest
-            , any ((== varNameToAstVarId var) . varNameToAstVarId)
-                  (listsToList vars) -> True
+            , Foldable.any ((== varNameToAstVarId var)
+                            . varNameToAstVarId) vars -> True
           Ast.AstCond
             (Ast.AstBoolAnd
                (AstLeqInt (AstConcreteK j)
                           (Ast.AstN1K NegateOp (AstIntVar var))) _) _ _
             | - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest
-            , any ((== varNameToAstVarId var) . varNameToAstVarId)
-                  (listsToList vars) -> True
+            , Foldable.any ((== varNameToAstVarId var)
+                            . varNameToAstVarId) vars -> True
           Ast.AstLet _ uN
             (Ast.AstCond
                (Ast.AstBoolAnd
                   (AstLeqInt (AstConcreteK j) (AstIntVar var)) _) _ _)
             | j <= 0 || j >= fromSNat' m
               || ixIsSmall prest && astIsSmall True uN
-            , any ((== varNameToAstVarId var) . varNameToAstVarId)
-                  (listsToList vars) -> True
+            , Foldable.any ((== varNameToAstVarId var)
+                            . varNameToAstVarId) vars -> True
           Ast.AstLet _ uN
             (Ast.AstCond
                (Ast.AstBoolAnd
@@ -2682,15 +2682,15 @@ astGatherKnobsS knobs shn v0
                              (Ast.AstN1K NegateOp (AstIntVar var))) _) _ _)
             | - j + 1 <= 0 || - j + 1 >= fromSNat' m
               || ixIsSmall prest && astIsSmall True uN
-            , any ((== varNameToAstVarId var) . varNameToAstVarId)
-                  (listsToList vars) -> True
+            , Foldable.any ((== varNameToAstVarId var)
+                            . varNameToAstVarId) vars -> True
           AstIntVar var
             | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
             , null $ drop 1 $ filter (var `varNameInAst`) (Foldable.toList ix)
-            , any ((== varNameToAstVarId var) . varNameToAstVarId)
-                  (listsToList vars) -> True
+            , Foldable.any ((== varNameToAstVarId var)
+                            . varNameToAstVarId) vars -> True
           ik | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
-             , not (any (`varNameInAst` ik) $ listsToList vars) -> True
+             , not (Foldable.any (`varNameInAst` ik) vars) -> True
           -- We can't reorder ix for the gather(fromVector) rule above,
           -- because it becomes gather(transpose); we can only reorder vars.
           _ -> False
@@ -2810,9 +2810,9 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@(i4 :.$ rest4))
         let f v = astGather @shm @shn @shp1' shn v (vars4, rest4)
             -- This subst doesn't currently break sharing because it's a rename.
             subst i =
-              foldr (\(i2, var2) v2 -> substituteAst i2 var2 v2)
+              Foldable.foldr (\(i2, var2) v2 -> substituteAst i2 var2 v2)
                     i
-                    (listsToList $ zipSizedS ixFresh vars4)
+                    (zipSizedS ixFresh vars4)
             i5 = subst i4
        in astGather @shm @shn @(p1' ': shm)
                     shn (astFromVector snat (STKS (shsFromListS varsFresh
