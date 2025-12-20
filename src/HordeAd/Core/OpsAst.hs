@@ -26,13 +26,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Nested (Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
-  ( ixrFromIxS
-  , ixsFromIxR
-  , ixsFromIxR'
-  , ixsFromIxX'
-  , withShsFromShR
-  , withShsFromShX
-  )
+  (ixrFromIxS, ixsFromIxR, ixsFromIxX', withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
@@ -270,11 +264,10 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Drop m sh) :~: n) $
         gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
-        withKnownShS (shsTake @m sh) $
         astFromS' @(TKS2 (Drop m sh) x) (FTKR (shrDrop @m shmshn) x)
         $ astIndexS @(Take m sh) @(Drop m sh)
                     (shsDrop @m sh) (astSFromR' @sh sh a)
-                    (ixsFromIxR' knownShS ix)
+                    (ixsFromIxR ix)
   trindex0 a ix = kfromR $ trindex a ix
   trscatter @m @_ @p shpshn0 t f = case ftkAst t of
     FTKR @_ @x shmshn0 x ->
@@ -294,7 +287,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             astFromS' @(TKS2 shpshn x) (FTKR shpshn0 x)
             $ astScatterS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
                           knownShS (astSFromR' shmshn t)
-            $ funToAstIxS knownShS (ixsFromIxR' knownShS . f . ixrFromIxS)
+            $ funToAstIxS knownShS (ixsFromIxR . f . ixrFromIxS)
                 -- this introduces new variable names
           _ -> error $ "rscatter: shapes don't match: "
                        ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
@@ -316,7 +309,7 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
             astFromS' (FTKR shmshn0 x)
             $ astGatherS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
                          knownShS (astSFromR' shpshn t)
-            $ funToAstIxS knownShS (ixsFromIxR' knownShS . f . ixrFromIxS)
+            $ funToAstIxS knownShS (ixsFromIxR . f . ixrFromIxS)
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
@@ -770,11 +763,10 @@ instance AstSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Drop m sh) :~: n) $
         gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
-        withKnownShS (shsTake @m sh) $
         cAstFromS @(TKS2 (Drop m sh) x) (FTKR (shrDrop @m shmshn) x)
         $ AstIndexS @(Take m sh) @(Drop m sh)
                     (shsDrop @m sh) (cAstSFromR @sh sh a)
-                    (ixsFromIxR knownShS (fmapUnAstRaw ix))
+                    (ixsFromIxR (fmapUnAstRaw ix))
   trindex0 a ix = kfromR $ trindex a ix
   trscatter @m @_ @p shpshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKR @_ @x shmshn0 x ->
@@ -794,7 +786,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
             cAstFromS @(TKS2 shpshn x) (FTKR shpshn0 x)
             $ AstScatterS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
                           knownShS (cAstSFromR shmshn t)
-            $ funToAstIxS knownShS (fmapUnAstRaw . ixsFromIxR knownShS
+            $ funToAstIxS knownShS (fmapUnAstRaw . ixsFromIxR
                                     . f . ixrFromIxS
                                     . fmapAstRaw)
                 -- this introduces new variable names
@@ -818,7 +810,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
             cAstFromS (FTKR shmshn0 x)
             $ AstGatherS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
                          knownShS (cAstSFromR shpshn t)
-            $ funToAstIxS knownShS (fmapUnAstRaw . ixsFromIxR knownShS
+            $ funToAstIxS knownShS (fmapUnAstRaw . ixsFromIxR
                                     . f . ixrFromIxS
                            . fmapAstRaw)
                 -- this introduces new variable names

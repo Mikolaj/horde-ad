@@ -16,7 +16,7 @@ import GHC.TypeLits
   (Div, KnownNat, SomeNat (..), someNatVal, type (+), type (-), type (<=))
 
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert (ixrFromIxS, ixsFromIxR')
+import Data.Array.Nested.Convert (ixrFromIxS, ixsFromIxR)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
@@ -268,7 +268,7 @@ slicezS d ixBase | Refl <- lemAppNil @sh =
       kbuild
       $ \ixResult ->
           sindex0 @sh d
-                  (ixsFromIxR' knownShS
+                  (ixsFromIxR
                    $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
       -- TODO: this doesn't work, because ixsZipWith has too strict a type:
       -- sbuild @(Rank shOut) $ \ixResult -> sindex d (ixsZipWith (+) ixBase ixResult)
