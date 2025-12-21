@@ -499,6 +499,8 @@ evalRevFTK !s !c d0 = case d0 of
           s2 = evalRevFTK s (trslice 0 m cShared) d
       in evalRevFTK s2 (trslice m n cShared) e
     _ -> error "evalRevFTK: impossible pattern needlessly required"
+  -- Depite the warning, the pattern match is exhaustive and if a dummy
+  -- pattern is added, GHC 9.14.1 complains about that, in turn.
   DeltaSliceR i n d -> case ftkDelta d of
     FTKR (l :$: rest) x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -506,7 +508,6 @@ evalRevFTK !s !c d0 = case d0 of
                        (tdefTarget (FTKR (i :$: rest) (adFTK x)))
                        (trappend c
                           (tdefTarget (FTKR (l - i - n :$: rest) (adFTK x))))) d
-    FTKR ZSR _ -> error "evalRevFTK: impossible pattern needlessly required"
   DeltaReverseR d -> case ftkDelta d of
     FTKR _ x ->
       withKnownSTK (adSTK $ ftkToSTK x) $

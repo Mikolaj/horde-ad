@@ -399,10 +399,10 @@ ftkDelta = \case
     FTKR _ x -> FTKR sh x
   DeltaGatherR _ _ _ sh d _ -> case ftkDelta d of
     FTKR _ x -> FTKR sh x
+  -- Depite the warning, the pattern match is exhaustive and if a dummy
+  -- pattern is added, GHC 9.14.1 complains about that, in turn.
   DeltaAppendR a b -> case ftkDelta a of
-    FTKR ZSR _ -> error "ftkDelta: impossible pattern needlessly required"
     FTKR (ai :$: ash) x -> case ftkDelta b of
-      FTKR ZSR _ -> error "ftkDelta: impossible pattern needlessly required"
       FTKR (bi :$: _) _ -> FTKR (ai + bi :$: ash) x
   DeltaSliceR _ n d -> case ftkDelta d of
     FTKR sh x -> FTKR (n :$: shrTail sh) x

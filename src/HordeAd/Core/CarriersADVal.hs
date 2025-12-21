@@ -409,7 +409,7 @@ instance ( TKAllNum (TKX sh x), Num (ADVal f (TKX sh x))
     in dD (recip v) (dScale minusRecipSq v')
   fromRational = error "fromRational is not defined for tensors in general"
 
-instance ( TKAllNum z, Num (ADVal f z), Fractional (ADVal f z), Floating (f z)
+instance ( TKAllNum z, Fractional (ADVal f z), Floating (f z)
          , ShareTensor f, ADReadyNoLet f )
          => Floating (ADVal f z) where
   pi = error "pi is not defined for tensors"
@@ -457,14 +457,13 @@ instance ( TKAllNum z, Num (ADVal f z), Fractional (ADVal f z), Floating (f z)
                     in dD (atanh u)
                           (dScale (recip (intOfShape u' 1 - u * u)) u')
 
-instance ( TKAllNum z, Num (ADVal f z), Fractional (ADVal f z), RealFrac (f z)
-         , ShareTensor f, ADReadyNoLet f )
+instance (TKAllNum z, Fractional (ADVal f z), RealFrac (f z), ADReadyNoLet f)
          => RealFrac (ADVal f z) where
   properFraction = error "properFraction is not defined for tensors"
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance ( TKAllNum z, Num (ADVal f z), Fractional (ADVal f z), RealFloatH (f z)
+instance ( TKAllNum z, Fractional (ADVal f z), RealFloatH (f z)
          , ShareTensor f, ADReadyNoLet f )
          => RealFloatH (ADVal f z) where
   atan2H (D ue u') (D ve v') =
@@ -473,7 +472,7 @@ instance ( TKAllNum z, Num (ADVal f z), Fractional (ADVal f z), RealFloatH (f z)
     let !t = tshare (recip (u * u + v * v))
     in dD (atan2H u v) (dAdd (dScale ((- u) * t) v') (dScale (v * t) u'))
 
-instance ( TKAllNum z, Num (ADVal f z), Fractional (ADVal f z), RealFloat (f z)
+instance ( TKAllNum z, Fractional (ADVal f z), RealFloat (f z)
          , ShareTensor f, ADReadyNoLet f )
          => RealFloat (ADVal f z) where
   atan2 (D ue u') (D ve v') =

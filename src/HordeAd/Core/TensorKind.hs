@@ -169,7 +169,7 @@ lemTKAllNumRaze k = \case
                        , Dict0 <- lemTKAllNumRaze k stk2 -> Dict0
 
 -- Despite what GHC says, TKAllNum (TKScalar r) is not redundant,
--- because it ensure the error case can't appear.
+-- because it ensures the error case can't appear.
 numFromTKAllNum :: forall r. (GoodScalar r, TKAllNum (TKScalar r))
                 => Proxy r -> Dict0 (Num r, Nested.NumElt r)
 numFromTKAllNum Proxy =
@@ -337,13 +337,14 @@ buildFTK snat@SNat = \case
   FTKX sh x -> FTKX (SKnown snat :$% sh) x
   FTKProduct ftk1 ftk2 -> FTKProduct (buildFTK snat ftk1) (buildFTK snat ftk2)
 
+-- Depite the warning, the pattern match is exhaustive and if a dummy
+-- pattern is added, GHC 9.14.1 complains about that, in turn.
 razeFTK :: forall y k.
            SNat k -> SingletonTK y -> FullShapeTK (BuildTensorKind k y)
         -> FullShapeTK y
 razeFTK snat@SNat stk ftk = case (stk, ftk) of
   (STKScalar, FTKS (_ :$$ ZSS) FTKScalar) -> FTKScalar
   (STKR{}, FTKR (_ :$: sh) x) -> FTKR sh x
-  (STKR{}, FTKR ZSR _) -> error "razeFTK: impossible built tensor kind"
   (STKS{}, FTKS (_ :$$ sh) x) -> FTKS sh x
   (STKX{}, FTKX (_ :$% sh) x) -> FTKX sh x
   (STKProduct stk1 stk2, FTKProduct ftk1 ftk2) ->

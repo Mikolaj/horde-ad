@@ -649,6 +649,7 @@ fmapUnConcrete :: Coercible (f (Concrete y)) (f (RepConcrete y))
                => f (Concrete y) -> f (RepConcrete y)
 fmapUnConcrete = coerce
 
+-- Depite the warning, the pattern match is exhaustive.
 ixInBoundsR :: IShR n -> IxROf Concrete n -> Bool
 {-# INLINE ixInBoundsR #-}
 ixInBoundsR ZSR ZIR = True
@@ -667,11 +668,12 @@ ixInBoundsX ZSX ZIX = True
 ixInBoundsX ((fromSMayNat' -> n) :$% sh) (Concrete i :.% ix) =
   if 0 <= i && i < n then ixInBoundsX sh ix else False
 
+-- Depite the warning, the pattern match is exhaustive.
 ixrToLinearMaybe :: IShR n -> IxROf Concrete n -> Maybe Int
 {-# INLINE ixrToLinearMaybe #-}
 ixrToLinearMaybe = \sh ix -> go sh ix 0
   where
-    go :: IShR sh -> IxROf Concrete sh -> Int -> Maybe Int
+    go :: IShR n -> IxROf Concrete n -> Int -> Maybe Int
     go ZSR ZIR !a = Just a
     go (n :$: sh) (Concrete i :.: ix) a =
       if 0 <= i && i < n then go sh ix (n * a + i) else Nothing

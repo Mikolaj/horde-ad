@@ -101,9 +101,6 @@ instance AdaptableTarget target (target y) where
   type X (target y) = y
   toTarget = id
   fromTarget t = t
-  {-# SPECIALIZE instance AdaptableTarget Concrete (Concrete (TKS sh Double)) #-}
-  {-# SPECIALIZE instance AdaptableTarget Concrete (Concrete (TKS sh Float)) #-}
-    -- a failed attempt to specialize without -fpolymorphic-specialisation
 
 instance KnownSTK y
          => TermValue (AstTensor AstMethodLet FullSpan y) where

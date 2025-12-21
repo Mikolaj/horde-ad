@@ -313,6 +313,8 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
+  -- Depite the warning, the pattern match is exhaustive and if a dummy
+  -- pattern is added, GHC 9.14.1 complains about that, in turn.
   trminIndex @_ @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
@@ -322,7 +324,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           astFromS' @(TKS (Init sh) r2) (FTKR (shrInit sh') FTKScalar)
           . fromPlain . AstMinIndexS . astPlainPart . astSFromR' @sh sh $ a
-        ZSS -> error "rminIndex: impossible empty shape"
   trmaxIndex @_ @_ @r2 a = case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
@@ -330,7 +331,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           astFromS' @(TKS (Init sh) r2) (FTKR (shrInit sh') FTKScalar)
           . fromPlain . AstMaxIndexS . astPlainPart . astSFromR' @sh sh $ a
-        ZSS -> error "rmaxIndex: impossible empty shape"
   triota @r n =
     withSNat n $ \(SNat @n) ->
       astFromS' (FTKR (n :$: ZSR) FTKScalar)
@@ -349,7 +349,6 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                   _ -> error $ "rappend: shapes don't match: "
                                ++ show (restu, restv)
               ZSS -> error "rappend: impossible shape"
-          ZSS -> error "rappend: impossible shape"
   trslice i n a = case ftkAst a of
     FTKR sh' x ->
       withShsFromShR sh' $ \sh -> case sh of
@@ -366,14 +365,12 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
                 astFromS' (FTKR sh' x)
                 . astSliceS isnat nsnat (SNat @(m - (i + n)))
                 . astSFromR' sh $ a
-        ZSS -> error "xslice: impossible shape"
   trreverse a = case ftkAst a of
     FTKR sh' x ->
       withShsFromShR sh' $ \sh -> case sh of
         _ :$$ _ ->
           astFromS' (FTKR sh' x)
           . astReverseS . astSFromR' sh $ a
-        ZSS -> error "xreverse: impossible shape"
   trtranspose @n @r permr a = case ftkAst a of
     FTKR sh' x ->
       withShsFromShR sh' $ \(sh :: ShS sh)  ->
@@ -825,7 +822,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           cAstFromS @(TKS (Init sh) r2) (FTKR (shrInit sh') FTKScalar)
           . fromPlain . AstMinIndexS . plainPart . cAstSFromR @sh sh $ a
-        ZSS -> error "rminIndex: impossible shape"
   trmaxIndex @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
@@ -833,7 +829,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           cAstFromS @(TKS (Init sh) r2) (FTKR (shrInit sh') FTKScalar)
           . fromPlain . AstMaxIndexS . plainPart . cAstSFromR @sh sh $ a
-        ZSS -> error "rmaxIndex: impossible shape"
   triota @r n =
     AstRaw
     $ withSNat n $ \(SNat @n) ->
@@ -853,7 +848,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                   _ -> error $ "rappend: shapes don't match: "
                                ++ show (restu, restv)
               ZSS -> error "rappend: impossible shape"
-          ZSS -> error "rappend: impossible shape"
   trslice i n (AstRaw a) = AstRaw $ case ftkAst a of
     ftk@(FTKR sh' _) ->
       withShsFromShR sh' $ \sh -> case sh of
@@ -870,14 +864,12 @@ instance AstSpan s => BaseTensor (AstRaw s) where
                 cAstFromS ftk
                 . AstSliceS isnat nsnat (SNat @(m - (i + n)))
                 . cAstSFromR sh $ a
-        ZSS -> error "xslice: impossible shape"
   trreverse (AstRaw a) = AstRaw $ case ftkAst a of
     ftk@(FTKR sh' _) ->
       withShsFromShR sh' $ \sh -> case sh of
         _ :$$ _ ->
           cAstFromS ftk
           . AstReverseS . cAstSFromR sh $ a
-        ZSS -> error "xreverse: impossible shape"
   trtranspose @n @r permr (AstRaw a) = AstRaw $ case ftkAst a of
     ftk@(FTKR sh' _) ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->

@@ -441,6 +441,7 @@ cAstSFromR :: forall sh x ms s. AstSpan s
 cAstSFromR sh v = case ftkAst v of
   FTKR _ x -> cAstSFrom (FTKS sh x) v
 
+-- Regardless of the warning, the rank equality is morally necessary.
 cAstSFromX :: forall sh sh' x ms s. (AstSpan s, Rank sh ~ Rank sh')
            => ShS sh -> AstTensor ms s (TKX2 sh' x)
            -> AstTensor ms s (TKS2 sh x)
