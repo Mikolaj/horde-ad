@@ -1,5 +1,10 @@
 packages: ./
 
+source-repository-package
+     type: git
+     location: https://git.tomsmeding.com/ox-arrays
+     tag: b1253991b2db0810bc892dd60fcbce1d5f4dda63
+
 -- needed for profiling build:
 package statistics
   ghc-options: -fsimpl-tick-factor=10000
