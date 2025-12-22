@@ -47,11 +47,11 @@ category:           Machine Learning, Tensors
 build-type:         Simple
 
 -- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
-extra-doc-files:    README.md,
-                    CHANGELOG.md,
+extra-doc-files:    README.md
+                    CHANGELOG.md
                     CREDITS.md
 
-tested-with:        GHC ==9.10.3 || ==9.12.3
+tested-with:        GHC ==9.10.3 || ==9.12.3 || ==9.14.1
 
 bug-reports:        https://github.com/Mikolaj/horde-ad/issues
 
@@ -76,14 +76,15 @@ flag test_seq
 
 common options
   default-language:   GHC2024
-  default-extensions: StrictData, TypeFamilies, TypeFamilyDependencies,
-                      FunctionalDependencies, RecordWildCards, MultiWayIf,
-                      DefaultSignatures, PatternSynonyms, NoStarIsType,
-                      TypeData, TypeAbstractions
-  other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists,
-                      DeriveAnyClass, UndecidableInstances, AllowAmbiguousTypes,
-                      QuantifiedConstraints, TemplateHaskell, DerivingVia,
-                      ImpredicativeTypes
+  default-extensions: StrictData TypeFamilies TypeFamilyDependencies
+                      FunctionalDependencies RecordWildCards MultiWayIf
+                      DefaultSignatures PatternSynonyms NoStarIsType
+                      TypeData TypeAbstractions
+  other-extensions:   UnboxedTuples CPP ViewPatterns OverloadedLists
+                      DeriveAnyClass QuantifiedConstraints TemplateHaskell
+                      DerivingVia ImpredicativeTypes
+                      UndecidableInstances UndecidableSuperClasses
+                      AllowAmbiguousTypes
   ghc-options:        -Wall -Wcompat -Wimplicit-prelude -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages -Wredundant-bang-patterns -Woperator-whitespace -Wredundant-strictness-flags -Wterm-variable-capture -Wmissed-specialisations
   ghc-options:        -Wmissing-poly-kind-signatures -Wmissing-role-annotations -Wno-unticked-promoted-constructors
   ghc-options:        -fprint-explicit-kinds
