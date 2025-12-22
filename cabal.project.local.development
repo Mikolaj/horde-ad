@@ -1,6 +1,12 @@
+optimization: False
+
+package dependent-enummap
+  ghc-options: -fno-ignore-asserts
+
 package horde-ad
   tests: True
   benchmarks: True
 
-test-show-details: direct
-optimization: False
+-- for weeder
+--package *
+--  ghc-options: -fwrite-ide-info
