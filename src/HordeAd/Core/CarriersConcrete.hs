@@ -295,8 +295,7 @@ instance GoodScalar r => EqH Concrete (TKX sh r) where
 instance GoodScalar r => OrdH Concrete (TKX sh r) where
   Concrete u <=. Concrete v = Concrete $ u <= v
 
-deriving instance Boolean (RepConcrete (TKScalar Bool))
-                  => Boolean (Concrete (TKScalar Bool))
+deriving instance Boolean (Concrete (TKScalar Bool))
 deriving instance Eq (RepConcrete y) => Eq (Concrete y)
 deriving instance Ord (RepConcrete y) => Ord (Concrete y)
 deriving instance Num (RepConcrete y) => Num (Concrete y)
