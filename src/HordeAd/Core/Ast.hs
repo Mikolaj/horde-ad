@@ -38,7 +38,6 @@ import Prelude hiding (foldl')
 
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Kind (Type)
-import Data.Some
 import Data.Type.Equality (TestEquality (..), (:~:) (Refl))
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.TypeLits (type (+), type (<=))
@@ -210,11 +209,11 @@ instance Show (AstVarName s y) where
     showsPrec d varId  -- less verbose, more readable
 
 instance DMap.Enum1 (AstVarName s) where
-  type Enum1Info (AstVarName s) = Some FtkAndBounds
+  type Enum1Info (AstVarName s) = FtkAndBounds
   fromEnum1 (AstVarName ftk minb maxb varId) =
-    (fromEnum varId, Some (FtkAndBounds ftk minb maxb))
-  toEnum1 varIdInt (Some (FtkAndBounds ftk minb maxb)) =
-    Some $ AstVarName ftk minb maxb $ toEnum varIdInt
+    (fromEnum varId, FtkAndBounds ftk minb maxb)
+  toEnum1 varIdInt (FtkAndBounds ftk minb maxb) =
+    AstVarName ftk minb maxb $ toEnum varIdInt
 
 type role FtkAndBounds nominal
 data FtkAndBounds y = FtkAndBounds (FullShapeTK y) Int Int

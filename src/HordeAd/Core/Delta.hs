@@ -42,7 +42,6 @@ import Prelude
 import Control.Exception.Assert.Sugar
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Kind (Type)
-import Data.Some
 import Data.Type.Equality (TestEquality (..), gcastWith, testEquality, (:~:))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Strict qualified as Data.Vector
@@ -76,9 +75,9 @@ instance Show (NodeId target y) where
     showsPrec d n  -- less verbose, more readable
 
 instance DMap.Enum1 (NodeId target) where
-  type Enum1Info (NodeId target) = Some FullShapeTK
-  fromEnum1 (NodeId ftk n) = (n, Some ftk)
-  toEnum1 n (Some ftk) = Some $ NodeId ftk n
+  type Enum1Info (NodeId target) = FullShapeTK
+  fromEnum1 (NodeId ftk n) = (n, ftk)
+  toEnum1 n ftk = NodeId ftk n
 
 instance TestEquality (NodeId target) where
   testEquality (NodeId ftk1 _) (NodeId ftk2 _) = matchingFTK ftk1 ftk2
@@ -104,9 +103,9 @@ instance Show (InputId target y) where  -- backward compatibility
       . shows n
 
 instance DMap.Enum1 (InputId target) where
-  type Enum1Info (InputId target) = Some FullShapeTK
-  fromEnum1 (InputId ftk n) = (n, Some ftk)
-  toEnum1 n (Some ftk) = Some $ InputId ftk n
+  type Enum1Info (InputId target) = FullShapeTK
+  fromEnum1 (InputId ftk n) = (n, ftk)
+  toEnum1 n ftk = InputId ftk n
 
 instance TestEquality (InputId target) where
   testEquality (InputId ftk1 _) (InputId ftk2 _) = matchingFTK ftk1 ftk2

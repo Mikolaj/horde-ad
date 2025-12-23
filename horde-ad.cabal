@@ -178,7 +178,7 @@ library
       , containers >= 0.6 && < 0.9
       , deepseq < 1.7
       , data-default < 0.9
-      , dependent-enummap < 0.2
+      , dependent-enummap >= 0.2 && < 0.3
       , dependent-sum >= 0.7 && < 0.8
       , enummapset < 0.8
       , ghc-typelits-knownnat >= 0.8.0 && < 1
