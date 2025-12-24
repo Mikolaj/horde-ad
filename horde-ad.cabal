@@ -90,7 +90,7 @@ common options
   -- This is supposedly risky, but prevents STG from creating thunks, #23848:
   ghc-options:        -fworker-wrapper-cbv
   -- Disabling this breaks performance:
-  ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200
+  ghc-options:        -fspecialise-aggressively -fsimpl-tick-factor=200
   -- Disabling hurts performance to some extent:
   ghc-options:        -fdicts-cheap -flate-dmd-anal
   -- ghc-options: -O2 -flate-specialise
