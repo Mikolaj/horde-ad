@@ -175,9 +175,9 @@ inlineAst memo v0 = case v0 of
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v
 
   Ast.AstIndexS @shm shn v ix ->
-      let (memo1, v2) = inlineAst memo v
-          (memo2, ix2) = mapAccumR inlineAst memo1 (Foldable.toList ix)
-      in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
+    let (memo1, v2) = inlineAst memo v
+        (memo2, ix2) = mapAccumR inlineAst memo1 (Foldable.toList ix)
+    in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumR inlineAst EM.empty (Foldable.toList ix)
@@ -206,6 +206,10 @@ inlineAst memo v0 = case v0 of
 
   Ast.AstConvert c v -> second (Ast.AstConvert c) $ inlineAst memo v
 
+  Ast.AstIndex0S v ix ->
+    let (memo1, v2) = inlineAst memo v
+        (memo2, ix2) = mapAccumR inlineAst memo1 (Foldable.toList ix)
+    in (memo2, Ast.AstIndex0S v2 (ixsFromIxS ix ix2))
   Ast.AstSum0S v -> second Ast.AstSum0S (inlineAst memo v)
   Ast.AstDot0S u v ->
     let (memo2, u2) = inlineAst memo u
@@ -454,9 +458,9 @@ unshareAst memo = \case
   Ast.AstCastS v -> second Ast.AstCastS $ unshareAst memo v
 
   Ast.AstIndexS @shm shn v ix ->
-      let (memo1, v2) = unshareAst memo v
-          (memo2, ix2) = mapAccumR unshareAst memo1 (Foldable.toList ix)
-      in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
+    let (memo1, v2) = unshareAst memo v
+        (memo2, ix2) = mapAccumR unshareAst memo1 (Foldable.toList ix)
+    in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
   Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
     let (memo1, ix2) =
           mapAccumR (unshareAstScoped $ listsToList vars)
@@ -486,6 +490,10 @@ unshareAst memo = \case
 
   Ast.AstConvert c v -> second (Ast.AstConvert c) $ unshareAst memo v
 
+  Ast.AstIndex0S v ix ->
+    let (memo1, v2) = unshareAst memo v
+        (memo2, ix2) = mapAccumR unshareAst memo1 (Foldable.toList ix)
+    in (memo2, Ast.AstIndex0S v2 (ixsFromIxS ix ix2))
   Ast.AstSum0S v -> second Ast.AstSum0S (unshareAst memo v)
   Ast.AstDot0S u v ->
     let (memo2, u2) = unshareAst memo u

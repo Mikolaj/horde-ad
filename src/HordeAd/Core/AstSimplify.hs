@@ -37,7 +37,7 @@ module HordeAd.Core.AstSimplify
   , astConvert
   , astFromS', astKFromS', astRFromS', astXFromS'
   , astSFromK', astSFromR', astSFromX'
-  , astSum0S, astDot0S, astDot1InS, astMatmul2S
+  , astIndex0S, astSum0S, astDot0S, astDot1InS, astMatmul2S
 
     -- * Helper combinators
   , astLetFun
@@ -1231,6 +1231,7 @@ astPrimalPart t = case t of
   Ast.AstConvert{} -> Ast.AstPrimalPart t
 
   -- These should not appear in this context unless via wacky tests.
+  Ast.AstIndex0S{} -> Ast.AstPrimalPart t
   Ast.AstSum0S{} -> Ast.AstPrimalPart t
   Ast.AstDot0S{} -> Ast.AstPrimalPart t
   Ast.AstDot1InS{} -> Ast.AstPrimalPart t
@@ -1368,6 +1369,7 @@ astDualPart t = case t of
   Ast.AstConvert{} -> Ast.AstDualPart t
 
   -- These should not appear in this context unless via wacky tests.
+  Ast.AstIndex0S{} -> Ast.AstDualPart t
   Ast.AstSum0S{} -> Ast.AstDualPart t
   Ast.AstDot0S{} -> Ast.AstDualPart t
   Ast.AstDot1InS{} -> Ast.AstDualPart t
@@ -1519,6 +1521,7 @@ astPlainPart t = case t of
   Ast.AstConvert{} -> Ast.AstPlainPart t
 
   -- These should not appear in this context unless via wacky tests.
+  Ast.AstIndex0S{} -> Ast.AstPlainPart t
   Ast.AstSum0S{} -> Ast.AstPlainPart t
   Ast.AstDot0S{} -> Ast.AstPlainPart t
   Ast.AstDot1InS{} -> Ast.AstPlainPart t
@@ -1703,10 +1706,10 @@ astCastS t = case t of
   _ -> Ast.AstCastS t
 
 astIndexS
-  :: forall shm shn s r. AstSpan s
+  :: forall shm shn s x. AstSpan s
   => ShS shn
-  -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r) -> AstIxS AstMethodLet shm
-  -> AstTensor AstMethodLet s (TKS2 shn r)
+  -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x) -> AstIxS AstMethodLet shm
+  -> AstTensor AstMethodLet s (TKS2 shn x)
 astIndexS = astIndexKnobsS defaultKnobs
 
 astIndexKnobsS
@@ -3642,6 +3645,7 @@ astConvertFromS c zftk a = case (zftk, a) of
   (FTKScalar, Ast.AstReverseS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstTransposeS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstReshapeS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstIndex0S{}) -> error "astConvertFromS: impossible"
   (FTKScalar, Ast.AstSum0S{}) -> error "astConvertFromS: impossible"
   (FTKScalar, Ast.AstDot0S{}) -> error "astConvertFromS: impossible"
   (FTKScalar, Ast.AstDot1InS{}) -> Ast.AstConvert c a
@@ -3716,6 +3720,7 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstFromPrimal a -> fromPrimal $ astConvertSFromK c zftk a
   Ast.AstFromDual a -> fromDual $ astConvertSFromK c zftk a
   Ast.AstFromPlain a -> fromPlain $ astConvertSFromK c zftk a
+  Ast.AstIndex0S{} -> Ast.AstConvert c a0
   Ast.AstSum0S{} -> Ast.AstConvert c a0
   Ast.AstDot0S{} -> Ast.AstConvert c a0
   Ast.AstBoolNot{} -> Ast.AstConvert c a0
@@ -3913,6 +3918,13 @@ astSFromX' sh t = case ftkAst t of
   FTKX _ x ->
     let zftk = FTKS sh x
     in astConvertSFromX (ConvXS' zftk) zftk t
+
+-- TODO: how to add more without duplicating astIndexKnobsS?
+astIndex0S
+  :: forall shm s r. GoodScalar r
+  => AstTensor AstMethodLet s (TKS shm r) -> AstIxS AstMethodLet shm
+  -> AstTensor AstMethodLet s (TKScalar r)
+astIndex0S = Ast.AstIndex0S
 
 astSum0S :: (NumScalar r, AstSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
@@ -4509,6 +4521,10 @@ substitute1Ast i var = subst where
 
   Ast.AstConvert c v -> astConvert c <$> subst v
 
+  Ast.AstIndex0S v ix ->
+    case (subst v, substitute1AstIxS i var ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ astIndex0S (fromMaybe v mv) (fromMaybe ix mix)
   Ast.AstSum0S v -> astSum0S <$> subst v
   Ast.AstDot0S u v ->
     let mu = subst u

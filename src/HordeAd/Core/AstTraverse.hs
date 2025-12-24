@@ -23,6 +23,7 @@ import GHC.TypeLits (KnownNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++))
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (Perm (..))
 import Data.Array.Nested.Permutation qualified as Permutation
@@ -221,6 +222,7 @@ expandAst t = case t of
   Ast.AstConvert c v -> astConvert c $ expandAst v
 
   -- These should not appear in this context unless via wacky tests.
+  Ast.AstIndex0S{} -> t
   Ast.AstSum0S{} -> t
   Ast.AstDot0S{} -> t
   Ast.AstDot1InS{} -> t
@@ -375,6 +377,7 @@ simplifyAst t = case t of
   Ast.AstConvert c v -> astConvert c $ simplifyAst v
 
   -- These should not appear in this context unless via wacky tests.
+  Ast.AstIndex0S{} -> t
   Ast.AstSum0S{} -> t
   Ast.AstDot0S{} -> t
   Ast.AstDot1InS{} -> t
@@ -799,6 +802,11 @@ contractAst t0 = case t0 of
       astConcreteS (tscast $ Concrete a)
     t2 -> astCastS t2
 
+  AstFromS' ftk (Ast.AstIndexS @sh1 ZSS v ix)
+    | FTKS _ ftk2@FTKScalar <- ftkAst v
+    , Just Refl <- matchingFTK ftk ftk2
+    , Refl <- lemAppNil @sh1 ->
+      astIndex0S (contractAst v) (contractAstIxS ix)
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                    shn (contractAst v) (contractAstIxS ix)
@@ -838,6 +846,7 @@ contractAst t0 = case t0 of
   Ast.AstConvert c v -> astConvert c $ contractAst v
 
   -- These should not appear in this context unless via wacky tests.
+  Ast.AstIndex0S{} -> t0
   Ast.AstSum0S{} -> t0
   Ast.AstDot0S{} -> t0
   Ast.AstDot1InS{} -> t0

@@ -331,6 +331,7 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       astConvert (buildTKConversion snat (ftkAst v) c)
       $ build1V snat (var, v)
 
+    Ast.AstIndex0S{} -> error "build1V: term not accessible from user API"
     Ast.AstSum0S{} -> error "build1V: term not accessible from user API"
     Ast.AstDot0S{} -> error "build1V: term not accessible from user API"
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"

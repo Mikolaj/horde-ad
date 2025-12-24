@@ -171,13 +171,6 @@ interpretAstPrimal !env v1 = case v1 of
           _ -> tscast @_ @Float $ interpretAstPrimal env v
         _ -> tscast $ interpretAstPrimal env v
 
-  AstFromS' ftk (AstIndexS @sh1 ZSS v ix) | FTKS sh1 ftk2@FTKScalar <- ftkAst v
-                                          , Just Refl <- matchingFTK ftk ftk2
-                                          , Refl <- lemAppNil @sh1 ->
-    withKnownShS sh1 $
-    let v2 = interpretAstPrimal env v
-        ix3 = interpretAstPlain env <$> ix
-    in tsindex0 v2 ix3
   AstIndexS @shm @shn shn v ix -> case ftkToSTK (ftkAst v) of
     STKS shmshn x | SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
       gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
@@ -263,6 +256,12 @@ interpretAstPrimal !env v1 = case v1 of
   AstConvert c a ->
     tconvert c (ftkToSTK (ftkAst a)) (interpretAstPrimal env a)
 
+  AstIndex0S v ix -> case ftkToSTK (ftkAst v) of
+    STKS shm _ ->
+      withKnownShS shm $
+      let v2 = interpretAstPrimal env v
+          ix3 = interpretAstPlain env <$> ix
+      in tsindex0 v2 ix3
   AstSum0S v -> case ftkToSTK (ftkAst v) of
     STKS sh x ->
       withKnownShS sh $
@@ -404,13 +403,6 @@ interpretAstPlain !env v1 = case v1 of
           _ -> tscast @_ @Float $ interpretAstPlain env v
         _ -> tscast $ interpretAstPlain env v
 
-  AstFromS' ftk (AstIndexS @sh1 ZSS v ix) | FTKS sh1 ftk2@FTKScalar <- ftkAst v
-                                          , Just Refl <- matchingFTK ftk ftk2
-                                          , Refl <- lemAppNil @sh1 ->
-    withKnownShS sh1 $
-    let v2 = interpretAstPlain env v
-        ix3 = interpretAstPlain env <$> ix
-    in tsindex0 v2 ix3
   AstIndexS @shm @shn shn v ix -> case ftkToSTK (ftkAst v) of
     STKS shmshn x | SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
       gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
@@ -501,6 +493,12 @@ interpretAstPlain !env v1 = case v1 of
   AstConvert c a ->
     tconvert c (ftkToSTK (ftkAst a)) (interpretAstPlain env a)
 
+  AstIndex0S v ix -> case ftkToSTK (ftkAst v) of
+    STKS shm _ ->
+      withKnownShS shm $
+      let v2 = interpretAstPlain env v
+          ix3 = interpretAstPlain env <$> ix
+      in tsindex0 v2 ix3
   AstSum0S v -> case ftkToSTK (ftkAst v) of
     STKS sh x ->
       withKnownShS sh $
@@ -770,13 +768,6 @@ interpretAst !env = \case
           _ -> tscast @_ @Float $ interpretAst env v
         _ -> tscast $ interpretAst env v
 
-  AstFromS' ftk (AstIndexS @sh1 ZSS v ix) | FTKS sh1 ftk2@FTKScalar <- ftkAst v
-                                          , Just Refl <- matchingFTK ftk ftk2
-                                          , Refl <- lemAppNil @sh1 ->
-    withKnownShS sh1 $
-    let v2 = interpretAst env v
-        ix3 = interpretAstPlain env <$> ix
-    in tsindex0 v2 ix3
   AstIndexS @shm @shn shn v ix -> case ftkToSTK (ftkAst v) of
     STKS shmshn x | SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
       gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
@@ -873,6 +864,12 @@ interpretAst !env = \case
   AstConvert c a ->
     tconvert c (ftkToSTK (ftkAst a)) (interpretAst env a)
 
+  AstIndex0S v ix -> case ftkToSTK (ftkAst v) of
+    STKS shm _ ->
+      withKnownShS shm $
+      let v2 = interpretAst env v
+          ix3 = interpretAstPlain env <$> ix
+      in tsindex0 v2 ix3
   AstSum0S v -> case ftkToSTK (ftkAst v) of
     STKS sh x ->
       withKnownShS sh $

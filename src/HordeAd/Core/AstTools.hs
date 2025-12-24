@@ -130,6 +130,7 @@ ftkAst t = case t of
 
   AstConvert c u -> convertFTK c $ ftkAst u
 
+  AstIndex0S{} -> FTKScalar
   AstSum0S{} -> FTKScalar
   AstDot0S{} -> FTKScalar
   AstDot1InS sh _ _u _v -> FTKS sh FTKScalar
@@ -226,6 +227,7 @@ varInAst var = \case
 
   AstConvert _ v -> varInAst var v
 
+  AstIndex0S v ix -> varInAst var v || varInIxS var ix
   AstSum0S v -> varInAst var v
   AstDot0S u v -> varInAst var u || varInAst var v
   AstDot1InS _ _ u v -> varInAst var u || varInAst var v
