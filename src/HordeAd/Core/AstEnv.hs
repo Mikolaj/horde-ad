@@ -51,8 +51,9 @@ extendEnv :: forall target s y.
 extendEnv !var !t !env =
   let var2 :: AstVarName FullSpan y
       var2 = coerce var  -- only FullSpan variables permitted in env; see above
-  in DMap.insertWith (\_ _ -> error $ "extendEnv: duplicate " ++ show var)
-                     var2 t env
+  in if DMap.member var2 env
+     then error $ "extendEnv: duplicate " ++ show var
+     else DMap.insert var2 t env
 
 extendEnvI :: BaseTensor target
            => IntVarName -> IntOf target -> AstEnv target
