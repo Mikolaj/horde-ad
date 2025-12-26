@@ -361,35 +361,18 @@ library testCommonLibrary
     import:           options
     visibility:       public
 
-    exposed-modules:  TestAdaptorSimplified
-                      TestConvQuickCheck
-                      TestConvSimplified
-                      TestGatherSimplified
-                      TestHighRankSimplified
-                      TestMnistCNNR
-                      TestMnistCNNS
-                      TestMnistFCNNR
-                      TestMnistPP
-                      TestMnistRNNR
-                      TestMnistRNNS
-                      TestRevFwdFold
+    exposed-modules:  TestConvQuickCheck
 
     hs-source-dirs:   test/simplified
 
     -- Other library packages from which modules are imported.
     build-depends:
-      , horde-ad:horde-ad
       , horde-ad:exampleLibrary
-      , horde-ad:testToolLibrary
+      , horde-ad:horde-ad
 
-      , assert-failure
       , base
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-      , ox-arrays
       , random
       , tasty >= 1.0 && < 1.6
-      , tasty-hunit < 0.11
       , tasty-quickcheck < 0.12
 
 -- The data files for this are not included in the cabal package,
