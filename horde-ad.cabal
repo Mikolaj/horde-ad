@@ -185,6 +185,7 @@ library
       , ghc-typelits-natnormalise >= 0.8.1 && < 1
       , orthotope < 0.2
       , ox-arrays < 0.2
+      , ox-arrays:strided-array-ops
       , random >= 1.3.0 && < 1.4
       , some >= 1 && < 2
       , atomic-counter < 0.2

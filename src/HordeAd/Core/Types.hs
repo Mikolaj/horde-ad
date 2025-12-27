@@ -37,7 +37,6 @@ module HordeAd.Core.Types
 import Prelude
 
 import Control.DeepSeq (NFData (..))
-import Data.Array.Internal.RankedS qualified as RS
 import Data.Boolean (Boolean (..))
 import Data.Default
 import Data.Foldable qualified as Foldable
@@ -78,7 +77,8 @@ import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (Dict (..), Tail, fromSNat', unsafeCoerceRefl)
-import Data.Array.Strided.Orthotope (NumElt (..), fromO, toO)
+import Data.Array.Strided.Arith (NumElt (..))
+import Data.Array.Strided.Array as SA
 
 -- * Definitions to help express and manipulate type-level natural numbers
 
@@ -330,13 +330,23 @@ instance NumElt Z1 where
   numEltNeg _ arr = arr
   numEltAbs _ arr = arr
   numEltSignum _ arr = arr
-  numEltSum1Inner _ arr = fromO (RS.index (toO arr) 0)
-  numEltProduct1Inner _ arr = fromO (RS.index (toO arr) 0)
+  numEltSum1Inner _ = indexZ1
+  numEltProduct1Inner _ = indexZ1
   numEltSumFull _ _arr = Z1
   numEltProductFull _ _arr = Z1
   numEltMinIndex snat _arr = replicate (fromSNat' snat) 0
   numEltMaxIndex snat _arr = replicate (fromSNat' snat) 0
-  numEltDotprodInner _ arr1 _arr2 = fromO (RS.index (toO arr1) 0)
+  numEltDotprodInner _ arr1 _arr2 = indexZ1 arr1
+
+indexZ1 :: SA.Array (1 + n) a -> SA.Array n a
+indexZ1 SA.Array{ SA.arrShape = _ : sh
+                , SA.arrStrides = _ : strides
+                , SA.arrOffset = _
+                , SA.arrValues } = SA.Array { SA.arrShape = sh
+                                            , SA.arrStrides = strides
+                                            , SA.arrOffset = 0
+                                            , SA.arrValues = arrValues }
+indexZ1 _ = error "indexZ1: impossible"
 
 
 -- * Misc
