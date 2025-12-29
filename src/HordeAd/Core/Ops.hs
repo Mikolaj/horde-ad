@@ -408,7 +408,7 @@ class ( Num (IntOf target)
              => Nested.Mixed sh r -> target (TKX sh r)
   tconcrete :: FullShapeTK y -> Concrete y -> target y
 
-  tkunravelToList :: forall n r.(KnownNat n, GoodScalar r)
+  tkunravelToList :: forall n r. (KnownNat n, GoodScalar r)
                   => target (TKS '[n] r) -> [target (TKScalar r)]
   tkunravelToList t =
     let f :: Int -> target (TKScalar r)
@@ -601,7 +601,7 @@ class ( Num (IntOf target)
 
   trindex :: (KnownNat m, KnownNat n, KnownSTK x)
           => target (TKR2 (m + n) x) -> IxROf target m -> target (TKR2 n x)
-  trindex0 :: (KnownNat m, GoodScalar r)
+  trindex0 :: forall m r. GoodScalar r
            => target (TKR m r) -> IxROf target m -> target (TKScalar r)
   troneHot :: ( KnownNat m, KnownNat n, TKAllNum x, KnownSTK x
               , PlainOf (PlainOf target) ~ PlainOf target
@@ -655,7 +655,7 @@ class ( Num (IntOf target)
   tsindex :: (KnownShS shm, KnownShS shn, KnownSTK x)
           => target (TKS2 (shm ++ shn) x) -> IxSOf target shm
           -> target (TKS2 shn x)
-  tsindex0 :: (KnownShS sh1, GoodScalar r)
+  tsindex0 :: forall sh1 r. GoodScalar r
            => target (TKS sh1 r) -> IxSOf target sh1 -> target (TKScalar r)
   tsoneHot :: ( KnownShS sh1, KnownShS sh2, TKAllNum x, KnownSTK x
               , PlainOf (PlainOf target) ~ PlainOf target
@@ -707,7 +707,7 @@ class ( Num (IntOf target)
   txindex :: (KnownShX sh1, KnownShX sh2, KnownSTK x)
           => target (TKX2 (sh1 ++ sh2) x) -> IxXOf target sh1
           -> target (TKX2 sh2 x)
-  txindex0 :: (KnownShX sh1, GoodScalar r)
+  txindex0 :: forall sh1 r. GoodScalar r
            => target (TKX sh1 r) -> IxXOf target sh1 -> target (TKScalar r)
   txoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
               , PlainOf (PlainOf target) ~ PlainOf target

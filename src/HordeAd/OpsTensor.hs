@@ -365,7 +365,7 @@ rindex, (!) :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
 rindex = trindex
 infixl 9 !
 (!) = rindex  -- prefix form better when type applications are necessary
-rindex0 :: (KnownNat m, GoodScalar r, BaseTensor target)
+rindex0 :: forall m r target. (GoodScalar r, BaseTensor target)
         => target (TKR m r) -> IxROf target m -> target (TKScalar r)
 rindex0 = trindex0
 roneHot :: ( KnownNat m, KnownNat n, TKAllNum x, KnownSTK x
@@ -412,7 +412,7 @@ sindex, (!$) :: (KnownShS shm, KnownShS shn, KnownSTK x, BaseTensor target)
 sindex = tsindex
 infixl 9 !$
 (!$) = sindex  -- prefix form better when type applications are necessary
-sindex0 :: (KnownShS sh1, GoodScalar r, BaseTensor target)
+sindex0 :: forall sh1 r target. (GoodScalar r, BaseTensor target)
         => target (TKS sh1 r) -> IxSOf target sh1 -> target (TKScalar r)
 sindex0 = tsindex0
 soneHot :: ( KnownShS sh1, KnownShS sh2, TKAllNum x, KnownSTK x
@@ -452,7 +452,7 @@ xindex :: (KnownShX sh1, KnownShX sh2, KnownSTK x, BaseTensor target)
        => target (TKX2 (sh1 ++ sh2) x) -> IxXOf target sh1
        -> target (TKX2 sh2 x)
 xindex = txindex
-xindex0 :: (KnownShX sh1, GoodScalar r, BaseTensor target)
+xindex0 :: forall sh1 r target. (GoodScalar r, BaseTensor target)
         => target (TKX sh1 r) -> IxXOf target sh1 -> target (TKScalar r)
 xindex0 = txindex0
 xoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
