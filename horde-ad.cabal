@@ -87,17 +87,21 @@ common options
                       AllowAmbiguousTypes
   ghc-options:        -Wall -Wcompat -Wimplicit-prelude -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages -Wredundant-bang-patterns -Woperator-whitespace -Wredundant-strictness-flags -Wterm-variable-capture -Wmissed-specialisations
   ghc-options:        -Wmissing-poly-kind-signatures -Wmissing-role-annotations -Wno-unticked-promoted-constructors
-  ghc-options:        -fprint-explicit-kinds
+  ghc-options:        -fprint-explicit-kinds -fsimpl-tick-factor=200
   -- This is supposedly risky, but prevents STG from creating thunks, #23848:
   ghc-options:        -fworker-wrapper-cbv
   -- Disabling this breaks performance:
-  ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200
-  -- Disabling hurts performance to some extent:
+  ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively
+  -- Disabling any of these hurts performance to some extent:
   ghc-options:        -fdicts-cheap -flate-dmd-anal
-  -- ghc-options: -O2 -flate-specialise
-  -- Disabling a warning we can't yet fix:
+  -- compilation OOMs; AstTraverse.hs alone takes > 60G
+  -- ghc-options:     -flate-specialise
+  -- 30% longer compilation for small and inconsistent performance benefits:
+  -- ghc-options:     -O2
+  -- Disables a warning we can't yet fix:
   if impl(ghc >= 9.14)
     ghc-options:        -Wno-pattern-namespace-specifier
+
     ghc-options:        -fpolymorphic-specialisation
 
   if flag(with_expensive_assertions)
@@ -110,16 +114,11 @@ common options
   ghc-options:        -fno-ignore-asserts
 
 common exe-options
-  ghc-options:        -rtsopts
+  ghc-options:        -rtsopts -threaded
   -- Make GC more predictable in benchmarks.
   ghc-options:        "-with-rtsopts=-H1.5g -A0.75g -I0"
 
-common exe-options-for-sequential-tests
-  ghc-options:        -rtsopts -threaded
-  ghc-options:        "-with-rtsopts=-H1.5g -A0.75g -I0"
-    -- unconditionally seqential, because counter reset is not thread-safe
-
-common exe-options-test
+common exe-options-for-parallel-tests
   ghc-options:        -rtsopts -threaded
   if flag(test_seq)
     ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0"
@@ -398,7 +397,7 @@ library testCommonLibrary
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
 test-suite fullTest
-    import:           options, exe-options-for-sequential-tests
+    import:           options, exe-options
 
     if flag(release)
       buildable: False
@@ -419,7 +418,7 @@ test-suite fullTest
       , tasty >= 1.0
 
 test-suite CAFlessTest
-    import:           options, exe-options-for-sequential-tests
+    import:           options, exe-options
 
     if flag(release)
       buildable: False
@@ -440,7 +439,7 @@ test-suite CAFlessTest
       , tasty >= 1.0
 
 test-suite parallelTest
-    import:           options, exe-options-test
+    import:           options, exe-options-for-parallel-tests
 
     if flag(release)
       buildable: False
@@ -460,8 +459,9 @@ test-suite parallelTest
       , base
       , tasty >= 1.0
 
+-- This test must be sequential, because counter reset is not thread-safe.
 test-suite sequentialMnistTest
-    import:           options, exe-options-for-sequential-tests
+    import:           options, exe-options
 
     if flag(release)
       buildable: False
@@ -484,7 +484,7 @@ test-suite sequentialMnistTest
 -- These tests don't require any dataset and are short, so can be enabled
 -- in the Hackage package.
 test-suite minimalTest
-    import:           options, exe-options-for-sequential-tests
+    import:           options, exe-options
 
     type:             exitcode-stdio-1.0
 
