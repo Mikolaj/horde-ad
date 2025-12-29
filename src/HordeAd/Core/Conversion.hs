@@ -273,7 +273,8 @@ convertFTK = \cases
   (Conv0X _stk) ftk -> FTKX ZSX ftk
   ConvX0 (FTKX ZSX ftk) -> ftk
   (ConvNest @_ @_ @sh' (STKX ssx _x)) (FTKX shsh' x) ->
-    FTKX (shxTakeSSX (Proxy @sh') ssx shsh') (FTKX (shxDropSSX ssx shsh') x)
+    let (t, d) = shxSplitApp (Proxy @sh') ssx shsh'
+    in FTKX t (FTKX d x)
   ConvUnnest (FTKX sh (FTKX sh' x)) -> FTKX (sh `shxAppend` sh') x
   (ConvZip _ _) (FTKProduct (FTKX sh a1) (FTKX _sh a2)) ->
     FTKX sh (FTKProduct a1 a2)
