@@ -577,14 +577,16 @@ data AstHFun s s2 x z where
     -- The constructor is non-strict in order not to pre-compute
     -- higher derivatives (e.g., inside folds) that are never going to be used.
     -- As a side effect, all lambdas (closed functions) are processed
-    -- lazily, which makes no harm, since they have no outside free variables
+    -- lazily, which causes no harm, since they have no outside free variables
     -- and so can't easiliy induce leaks by retaining outside values (e.g.,
     -- big environments from which values for the variables would be drawn).
     -- The cost of computing a reverse derivative of a fold nested inside
     -- the function argument n times is reduced by the laziness from 20^n
     -- to under 2^n (old experimental results). Note, however,
     -- that if the n-th forward and reverse derivative is taken,
-    -- the laziness is defeated.
+    -- the laziness is defeated. To make the variable argument strict
+    -- we'd need to modify some other code fragments, while the performance
+    -- impact seems mixed.
 
 deriving instance Show (AstHFun s s2 x z)
 

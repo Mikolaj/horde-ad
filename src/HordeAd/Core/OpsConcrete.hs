@@ -783,23 +783,21 @@ manyHotNR (FTKR shRanked x) upd | Dict <- eltDictRep (knownSTK @x)
 tindexZR :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
          => Concrete (TKR2 (m + n) x) -> IxROf Concrete m -> Concrete (TKR2 n x)
 {-# INLINE tindexZR #-}  -- the function is just a wrapper
-tindexZR v ixConcrete | Dict <- eltDictRep (knownSTK @x) =
+tindexZR v ix | Dict <- eltDictRep (knownSTK @x) =
   let uv = unConcrete v
-      ix = fmapUnConcrete ixConcrete
-  in if ixInBoundsR (shrTake @m $ Nested.rshape uv) ixConcrete
-     then Concrete $ Nested.rindexPartial uv ix
+  in if ixInBoundsR (shrTake @m $ Nested.rshape uv) ix
+     then Concrete $ Nested.rindexPartial uv (fmapUnConcrete ix)
      else case tftk knownSTK v of
        FTKR sh x -> tdefTarget (FTKR (shrDrop @m sh) x)
 
 tindex0R :: GoodScalar r
          => Concrete (TKR m r) -> IxROf Concrete m -> Concrete (TKScalar r)
 {-# INLINE tindex0R #-}  -- the function is just a wrapper
-tindex0R v ixConcrete =
+tindex0R v ix =
   let uv = unConcrete v
-      ix = fmapUnConcrete ixConcrete
   in Concrete
-     $ if ixInBoundsR (Nested.rshape uv) ixConcrete
-       then Nested.rindex uv ix
+     $ if ixInBoundsR (Nested.rshape uv) ix
+       then Nested.rindex uv (fmapUnConcrete ix)
        else def
 
 toneHotR :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
@@ -962,24 +960,22 @@ tindexZS :: forall shm shn x. (KnownShS shm, KnownShS shn, KnownSTK x)
          => Concrete (TKS2 (shm ++ shn) x) -> IxSOf Concrete shm
          -> Concrete (TKS2 shn x)
 {-# INLINE tindexZS #-}  -- the function is just a wrapper
-tindexZS v ixConcrete | Dict <- eltDictRep (knownSTK @x) =
+tindexZS v ix | Dict <- eltDictRep (knownSTK @x) =
   let uv = unConcrete v
-      ix = fmapUnConcrete ixConcrete
-  in if ixInBoundsS (knownShS @shm) ixConcrete
-     then Concrete $ Nested.sindexPartial uv ix
+  in if ixInBoundsS (knownShS @shm) ix
+     then Concrete $ Nested.sindexPartial uv (fmapUnConcrete ix)
      else case tftk (STKS (knownShS @shm `shsAppend` knownShS @shn)
                           (knownSTK @x)) v of
-            FTKS _sh x -> tdefTarget (FTKS knownShS x)
+            FTKS _sh x -> tdefTarget (FTKS (knownShS @shn) x)
 
-tindex0S :: GoodScalar r
+tindex0S :: forall sh1 r. GoodScalar r
          => Concrete (TKS sh1 r) -> IxSOf Concrete sh1 -> Concrete (TKScalar r)
 {-# INLINE tindex0S #-}  -- the function is just a wrapper
-tindex0S v ixConcrete =
+tindex0S v ix =
   let uv = unConcrete v
-      ix = fmapUnConcrete ixConcrete
   in Concrete
-     $ if ixInBoundsS (Nested.sshape uv) ixConcrete
-       then Nested.sindex uv ix
+     $ if ixInBoundsS (Nested.sshape uv) ix
+       then Nested.sindex uv (fmapUnConcrete ix)
        else def
 
 toneHotS :: forall sh1 sh2 x. (KnownShS sh1, KnownShS sh2, KnownSTK x)
@@ -1158,12 +1154,11 @@ tindexZX :: (KnownShX sh1, KnownShX sh2, KnownSTK x)
          => Concrete (TKX2 (sh1 ++ sh2) x) -> IxXOf Concrete sh1
          -> Concrete (TKX2 sh2 x)
 {-# INLINE tindexZX #-}  -- the function is just a wrapper
-tindexZX @sh1 @sh2 @x v ixConcrete | Dict <- eltDictRep (knownSTK @x) =
+tindexZX @sh1 @sh2 @x v ix | Dict <- eltDictRep (knownSTK @x) =
   let uv = unConcrete v
-      ix = fmapUnConcrete ixConcrete
   in if ixInBoundsX (shxTakeSSX (Proxy @sh2) (knownShX @sh1) (Nested.mshape uv))
-                    ixConcrete
-     then Concrete $ Nested.mindexPartial uv ix
+                    ix
+     then Concrete $ Nested.mindexPartial uv (fmapUnConcrete ix)
      else case tftk (STKX (knownShX @sh1 `ssxAppend` knownShX @sh2)
                           (knownSTK @x)) v of
        FTKX sh x -> tdefTarget (FTKX (shxDropSSX (knownShX @sh1) sh) x)
@@ -1171,12 +1166,11 @@ tindexZX @sh1 @sh2 @x v ixConcrete | Dict <- eltDictRep (knownSTK @x) =
 tindex0X :: GoodScalar r
          => Concrete (TKX sh1 r) -> IxXOf Concrete sh1 -> Concrete (TKScalar r)
 {-# INLINE tindex0X #-}  -- the function is just a wrapper
-tindex0X v ixConcrete =
+tindex0X v ix =
   let uv = unConcrete v
-      ix = fmapUnConcrete ixConcrete
   in Concrete
-     $ if ixInBoundsX (Nested.mshape uv) ixConcrete
-       then Nested.mindex uv ix
+     $ if ixInBoundsX (Nested.mshape uv) ix
+       then Nested.mindex uv (fmapUnConcrete ix)
        else def
 
 toneHotX :: forall sh1 sh2 x. (KnownShX sh2, KnownSTK x)
@@ -1265,7 +1259,7 @@ tgatherZX @shm @shn @shp @x sh t f =
       let g ix = unConcrete $ t `txindex0` (f $ fmapConcrete ix)
       in Concrete $ Nested.mgeneratePrim sh g
     _ ->
-      withKnownShX (ssxFromShX sh) $
+      withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
       case ssxRank (knownShX @shm) of
         SNat -> -- needed only for GHC 9.10
           txbuild @_ @(Rank shm) SNat sh (\ix -> t `txindex` f ix)
