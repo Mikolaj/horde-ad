@@ -45,7 +45,6 @@ import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Delta
-import HordeAd.Core.DeltaEval
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsADVal
 import HordeAd.Core.OpsAst
@@ -687,81 +686,3 @@ cjvp2 f vals0 ds =
      then cfwdOnParams xftk valsTarget g
           $ toADTensorKindShared xftk dsTarget
      else error "cjvp2: forward derivative input must have the same shape as the perturbation argument"
-
-
-
-
-
--- This specialization is not possible where the functions are defined,
--- due to dependency cycles, but it's possible here:
-{-# SPECIALIZE gradientFromDelta :: FullShapeTK x -> FullShapeTK z -> Concrete (ADTensorKind z) -> Delta Concrete z -> Concrete (ADTensorKind x) #-}
-{-# SPECIALIZE evalRev :: FullShapeTK y -> EvalState Concrete -> Concrete (ADTensorKind y) -> Delta Concrete y -> EvalState Concrete #-}
-{-# SPECIALIZE evalRevFTK :: EvalState Concrete -> Concrete (ADTensorKind y) -> Delta Concrete y -> EvalState Concrete #-}
--- RULE left-hand side too complicated to desugar:
--- {-# SPECIALIZE evalRevSame :: y ~ ADTensorKind y => EvalState Concrete -> Concrete (ADTensorKind y) -> Delta Concrete y -> EvalState Concrete #-}
-{-# SPECIALIZE evalRevFromnMap :: EvalState Concrete -> EvalState Concrete #-}
-
-{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKScalar Double) -> Delta Concrete (TKScalar Double) -> EvalState Concrete #-}
-{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKScalar Float) -> Delta Concrete (TKScalar Float) -> EvalState Concrete #-}
-{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKR n Double) -> Delta Concrete (TKR n Double) -> EvalState Concrete #-}
-{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKR n Float) -> Delta Concrete (TKR n Float) -> EvalState Concrete #-}
-{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKS sh Double) -> Delta Concrete (TKS sh Double) -> EvalState Concrete #-}
-{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKS sh Float) -> Delta Concrete (TKS sh Float) -> EvalState Concrete #-}
-{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKX sh Double) -> Delta Concrete (TKX sh Double) -> EvalState Concrete #-}
-{-# SPECIALIZE evalRevSame :: EvalState Concrete -> Concrete (TKX sh Float) -> Delta Concrete (TKX sh Float) -> EvalState Concrete #-}
-
-
--- These and all other SPECIALIZE pragmas are needed due to the already
--- mostly fixed issues #21286 and others, even just to compare
--- the output with them and without.
--- This is needed for all three AstSpan values, to handle recursive calls
--- from interpretAstDual, etc.
-{-# SPECIALIZE interpretAst
-  :: AstEnv (ADVal Concrete)
-  -> AstTensor AstMethodLet PrimalSpan y
-  -> ADVal Concrete y #-}
-{-# SPECIALIZE interpretAst
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet PrimalSpan y
-  -> ADVal (AstRaw PrimalSpan) y #-}
-{-# SPECIALIZE interpretAst
-  :: AstEnv Concrete
-  -> AstTensor AstMethodLet PrimalSpan y
-  -> Concrete y #-}
-{-# SPECIALIZE interpretAst
-  :: AstEnv (ADVal Concrete)
-  -> AstTensor AstMethodLet DualSpan y
-  -> ADVal Concrete y #-}
-{-# SPECIALIZE interpretAst
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet DualSpan y
-  -> ADVal (AstRaw PrimalSpan) y #-}
-{-# SPECIALIZE interpretAst
-  :: AstEnv Concrete
-  -> AstTensor AstMethodLet DualSpan y
-  -> Concrete y #-}
-{-# SPECIALIZE interpretAst
-  :: AstEnv (ADVal Concrete)
-  -> AstTensor AstMethodLet FullSpan y
-  -> ADVal Concrete y #-}
-{-# SPECIALIZE interpretAst
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet FullSpan y
-  -> ADVal (AstRaw PrimalSpan) y #-}
-{-# SPECIALIZE interpretAst
-  :: AstEnv Concrete
-  -> AstTensor AstMethodLet FullSpan y
-  -> Concrete y #-}
-
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv (ADVal Concrete)
-  -> AstTensor AstMethodLet PrimalSpan y
-  -> Concrete y #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodLet PrimalSpan y
-  -> AstRaw PrimalSpan y #-}
-{-# SPECIALIZE interpretAstPrimal
-  :: AstEnv Concrete
-  -> AstTensor AstMethodLet PrimalSpan y
-  -> Concrete y #-}

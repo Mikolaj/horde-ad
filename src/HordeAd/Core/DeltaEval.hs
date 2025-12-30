@@ -7,8 +7,6 @@
 module HordeAd.Core.DeltaEval
   ( -- * Delta expression evaluation
     gradientFromDelta, derivativeFromDelta
-    -- * Exported to be specialized elsewhere
-  , evalRev, evalRevFTK, evalRevSame, evalRevFromnMap, EvalState
   ) where
 
 import Prelude
