@@ -48,7 +48,6 @@ crevMaybeBoth
   :: forall r m f src tgt.
      ( GoodScalar r, f ~ Concrete, X src ~ X (DValue src), KnownSTK (X src)
      , AdaptableTarget (ADVal Concrete) src
-     , AdaptableTarget (ADVal Concrete) tgt
      , AdaptableTarget Concrete (DValue src)
      , tgt ~ ADVal f (TKR m r) )
   => (src -> tgt)
@@ -311,6 +310,7 @@ assertEqualUpToEpsilon'
          , Concrete (TKR n r), w, w, w
          , a, a, a, a, a ) )
     -> Assertion
+{-# INLINE assertEqualUpToEpsilon' #-}
 assertEqualUpToEpsilon' errMargin expected' (tup1, tup2) = do
   assertEqualUpToEpsilon1 errMargin expected' tup1
   assertEqualUpToEpsilon1 errMargin expected' tup2
@@ -477,11 +477,13 @@ rrev1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, KnownNat n, NumScalar r3, KnownNat m)
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR n r))
+{-# INLINE rrev1 #-}
 rrev1 f u = kgrad (rsum0 . f) (tftk knownSTK u) u
 
 rrevFTK :: forall g x z. (ADReady g, KnownSTK x, TKAllNum z)
         => FullShapeTK z -> (forall f. ADReady f => f x -> f z) -> g x
         -> g (ADTensorKind x)
+{-# INLINE rrevFTK #-}
 rrevFTK ftk f u = kgrad (tsum0Target ftk . f) (tftk knownSTK u) u
 
 rfwd1ds :: forall g r n m r3.
@@ -489,22 +491,26 @@ rfwd1ds :: forall g r n m r3.
         => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
         -> g (ADTensorKind (TKR n r))
         -> g (ADTensorKind (TKR m r3))
+{-# INLINE rfwd1ds #-}
 rfwd1ds f u = rjvp f (tftk knownSTK u) u
 
 rfwd1 :: forall g r n m r3.
          (ADReady g, GoodScalar r, NumScalar (ADTensorScalar r), KnownNat n)
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR m r3))
+{-# INLINE rfwd1 #-}
 rfwd1 f u = rfwd1ds f u (rrepl (rshape u) 1)
 
 srev1 :: forall g r sh sh2 r3.
          (ADReady g, GoodScalar r, KnownShS sh, NumScalar r3, KnownShS sh2)
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh r))
+{-# INLINE srev1 #-}
 srev1 f u = kgrad (ssum0 . f) (tftk knownSTK u) u
 
 sfwd1 :: forall g r sh sh2 r3.
          (ADReady g, GoodScalar r, NumScalar (ADTensorScalar r), KnownShS sh)
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh2 r3))
+{-# INLINE sfwd1 #-}
 sfwd1 f u = sjvp f (tftk knownSTK u) u (srepl @_ @(ADTensorScalar r) 1)
