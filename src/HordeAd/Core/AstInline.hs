@@ -1,11 +1,10 @@
+{-# OPTIONS_GHC -fno-expose-all-unfoldings #-}
 -- | Inlining and global sharing elimination.
 module HordeAd.Core.AstInline
   ( -- * Inlining
-    inlineAst
+    inlineAstTensor
     -- * Translation of global sharing to local lets
   , unshareAstTensor
-    -- * Helper classes and types
-  , AstMemo
   ) where
 
 import Prelude
@@ -33,7 +32,15 @@ import HordeAd.Core.AstTools
 
 type AstMemo = EM.EnumMap AstVarId Int
 
--- | This inlines 'HordeAd.Core.Ast.AstLet', traversing the term bottom-up.
+-- | This inlines occurences of 'HordeAd.Core.Ast.AstLet', traversing
+-- the term bottom-up.
+inlineAstTensor
+  :: forall s y. AstSpan s
+  => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
+inlineAstTensor = snd . inlineAst EM.empty
+
+-- | This inlines occurences of 'HordeAd.Core.Ast.AstLet', traversing
+-- the term bottom-up.
 inlineAst
   :: forall s y. AstSpan s
   => AstMemo -> AstTensor AstMethodLet s y

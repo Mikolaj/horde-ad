@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-expose-all-unfoldings #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -214,9 +215,11 @@ astBuild1Vectorize
   => SNat k -> SingletonTK y
   -> (AstInt AstMethodLet -> AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
-{-# INLINE astBuild1Vectorize #-}
-astBuild1Vectorize k@(SNat @k) stk f =
-  build1Vectorize k stk $ funToAstI (Just (0, valueOf @k - 1)) f
+{-# NOINLINE astBuild1Vectorize #-}
+astBuild1Vectorize k stk f = unsafePerformIO $ do
+  varx <- funToAstIntVarIO (Just (0, fromSNat' k - 1))
+          $ \ (!var, !i) -> let !x = f i in (var, x)
+  build1Vectorize k stk varx
 
 instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
   ttlet = astLetFun

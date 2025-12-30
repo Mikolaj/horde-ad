@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-expose-all-unfoldings #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | BOT (bulk-operation transformation) of the AST, which is a kind
@@ -53,9 +54,9 @@ import HordeAd.Core.Types
 build1Vectorize
   :: forall y k s. AstSpan s
   => SNat k -> SingletonTK y -> (IntVarName, AstTensor AstMethodLet s y)
-  -> AstTensor AstMethodLet s (BuildTensorKind k y)
-{-# NOINLINE build1Vectorize #-}
-build1Vectorize snat@SNat stk (!var, !v0) = unsafePerformIO $ do
+  -> IO (AstTensor AstMethodLet s (BuildTensorKind k y))
+{-# INLINE build1Vectorize #-}
+build1Vectorize snat@SNat stk (!var, !v0) = do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
       startTerm = Ast.AstBuild1 snat stk (var, v0)
@@ -74,9 +75,9 @@ build1Vectorize snat@SNat stk (!var, !v0) = unsafePerformIO $ do
       ++ ellipsisString width (printAstSimple endTerm)
       ++ "\n"
   let !_A = assert (ftkAst startTerm == ftkAst endTerm
-                   `blame` "build1Vectorize: term shape changed"
-                   `swith`( ftkAst startTerm
-                          , ftkAst endTerm) ) ()
+                    `blame` "build1Vectorize: term shape changed"
+                    `swith` ( ftkAst startTerm
+                            , ftkAst endTerm )) ()
   return endTerm
 
 
@@ -635,8 +636,8 @@ mkTraceRule prefix from !fromFTK caseAnalysed nwords ~to = unsafePerformIO $ do
     modifyIORef' traceNestingLevel pred
   let !_A = assert (fromFTK == ftkAst to
                     `blame` "mkTraceRule: term shape changed"
-                    `swith`( fromFTK, ftkAst to
-                           , from, to )) ()
+                    `swith` ( fromFTK, ftkAst to
+                            , from, to )) ()
   return $! to
 
 hPutStrLnFlush :: Handle -> String -> IO ()

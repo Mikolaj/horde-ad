@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-expose-all-unfoldings #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Definitions, mostly class instances, needed to make AST a valid
@@ -9,7 +10,7 @@
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
   , astShareNoSimplify, astLetFunNoSimplify
-  , sunReplicate1, sunReplicateN, sunReplicatePrim
+  , sunReplicatePrim, sunReplicate1, sunReplicateN
   ) where
 
 import Prelude hiding (foldl')
@@ -1518,6 +1519,7 @@ astLetFunNoSimplify a f = case a of
 
 sunReplicatePrim :: Nested.Elt a
                  => Nested.Shaped sh a -> Maybe a
+{-# INLINE sunReplicatePrim #-}
 sunReplicatePrim (Nested.Shaped arr)
   | all (all (== 0) . take (shxLength (Nested.mshape arr)))
         (Mixed.marrayStrides arr)
@@ -1527,12 +1529,14 @@ sunReplicatePrim _ = Nothing
 
 sunReplicate1 :: Nested.Elt a
               => Nested.Shaped (n ': sh) a -> Maybe (Nested.Shaped sh a)
+{-# INLINE sunReplicate1 #-}
 sunReplicate1 a | (snat :$$ _) <- Nested.sshape a =
   sunReplicateN (snat :$$ ZSS) a
 
 sunReplicateN :: Nested.Elt a
               => ShS shm -> Nested.Shaped (shm ++ shn) a
               -> Maybe (Nested.Shaped shn a)
+{-# INLINE sunReplicateN #-}
 sunReplicateN shm a@(Nested.Shaped arr)
   | all (all (== 0) . take (shsLength shm)) (Mixed.marrayStrides arr)
   , shsSize shm /= 0 =

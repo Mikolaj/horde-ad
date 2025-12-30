@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-expose-all-unfoldings #-}
 {-# LANGUAGE AllowAmbiguousTypes, UnboxedTuples #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
