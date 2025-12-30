@@ -45,6 +45,7 @@ sgd :: forall a x z. (TKAllNum (ADTensorKind z), KnownSTK x)
     -> [a]  -- ^ training data
     -> Concrete x  -- ^ initial parameters
     -> (Concrete x, Concrete z)
+{-# INLINE sgd #-}
 sgd = sgdSTK knownSTK
 
 -- We inline (possibly causing a binary blowup) until we are able to work around
@@ -69,7 +70,6 @@ sgdAdamArgs
   -> Concrete x
   -> StateAdam x
   -> (Concrete x, StateAdam x)
-{-# INLINE sgdAdamArgs #-}
 sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
