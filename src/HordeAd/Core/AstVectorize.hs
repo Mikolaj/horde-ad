@@ -30,7 +30,6 @@ import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (Tail, snatMinus, unsafeCoerceRefl)
 
-import HordeAd.AstEngine
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
@@ -39,6 +38,7 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
+import HordeAd.Core.PPEngine
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 

@@ -36,9 +36,9 @@ import Prelude
 
 import Data.Proxy (Proxy (Proxy))
 
-import HordeAd.AstEngine
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
+import HordeAd.Core.AstEngine
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.CarriersADVal

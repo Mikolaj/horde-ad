@@ -24,9 +24,9 @@ import HordeAd.ADEngine
   , revInterpretArtifact
   , revProduceArtifactWithoutInterpretation
   )
-import HordeAd.AstEngine
 import HordeAd.Core.Adaptor
 import HordeAd.Core.Ast
+import HordeAd.Core.AstEngine
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInterpret

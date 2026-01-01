@@ -1,10 +1,7 @@
--- | Predefined common functions for simplification and pretty-printing of AST.
-module HordeAd.AstEngine
-  ( -- * The joint inlining and simplification term transformations
-    simplifyArtifactRev, simplifyArtifactFwd
-  , simplifyInline, simplifyInlineContract, simplifyInlineContractNoExpand
-    -- * Pretty-printing terms in a few useful configurations
-  , printAstVarName
+-- | Predefined common functions for pretty-printing AST terms
+-- in a few useful configurations.
+module HordeAd.Core.PPEngine
+  ( printAstVarName
   , printAstSimple, printAstPretty, printAstPrettyButNested
   , printArtifactSimple, printArtifactPretty
   , printArtifactPrimalSimple, printArtifactPrimalPretty
@@ -16,63 +13,7 @@ import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IM
 
 import HordeAd.Core.Ast
-import HordeAd.Core.AstInline
-import HordeAd.Core.AstPrettyPrint
-import HordeAd.Core.AstTraverse
-
--- * The joint inlining and simplification term transformation
-
--- | Simplify the whole reverse derivative artifact (which includes
--- also the primal value computed during the differentiation process).
-{-# INLINE simplifyArtifactRev #-}
-simplifyArtifactRev :: AstArtifactRev x z -> AstArtifactRev x z
-simplifyArtifactRev art =
-  let !der = simplifyInlineContract $ artDerivativeRev art in
-  let prim = simplifyInlineContract $ artPrimalRev art
-  in art {artDerivativeRev = der, artPrimalRev = prim}
-
--- | Simplify the whole forward derivative artifact (which includes
--- also the primal value computed during the differentiation process).
-{-# INLINE simplifyArtifactFwd #-}
-simplifyArtifactFwd :: AstArtifactFwd x z -> AstArtifactFwd x z
-simplifyArtifactFwd art =
-  let !der = simplifyInlineContract $ artDerivativeFwd art in
-  let prim = simplifyInlineContract $ artPrimalFwd art
-  in art {artDerivativeFwd = der, artPrimalFwd = prim}
-
--- | A mixture of simplification and inlining to use when the resultng
--- term is not yet supposed to be interpreted using a computational backed,
--- but rather to be stored and later composed with other terms.
-{-# INLINE simplifyInline #-}
-simplifyInline
-  :: forall z s. AstSpan s
-  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
-simplifyInline =
-  simplifyAst . expandAst . inlineAstTensor
-  . simplifyAst . expandAst . inlineAstTensor
-  . simplifyAst
-
--- | A mixture of simplification, inlining and recognition of additional
--- backend-specific primitives, to be used just before a term
--- is interpreted as a value in the computational backend.
-{-# INLINE simplifyInlineContract #-}
-simplifyInlineContract
-  :: forall z s. AstSpan s
-  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
-simplifyInlineContract =
-  contractAst . expandAst . inlineAstTensor
-  . simplifyAst . expandAst . inlineAstTensor
-  . simplifyAst
-
-{-# INLINE simplifyInlineContractNoExpand #-}
-simplifyInlineContractNoExpand
-  :: forall z s. AstSpan s
-  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
-simplifyInlineContractNoExpand =
-  contractAst . simplifyAst . inlineAstTensor
-  . simplifyAst . inlineAstTensor
-  . simplifyAst
-
+import HordeAd.Core.PPTools
 
 -- * Pretty-printing terms in a few useful configurations
 

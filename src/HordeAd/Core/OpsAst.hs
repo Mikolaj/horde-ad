@@ -35,8 +35,8 @@ import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (Init, fromSNat', snatPlus, unsafeCoerceRefl)
 
-import HordeAd.AstEngine
 import HordeAd.Core.Ast
+import HordeAd.Core.AstEngine
 import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
