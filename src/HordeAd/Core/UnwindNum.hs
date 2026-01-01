@@ -27,7 +27,6 @@ import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.OpsTensor
 
 -- * Winding and unwinding
 
@@ -90,15 +89,15 @@ sum0RepW :: forall y target. (BaseTensor target, ConvertTensor target)
          -> target (TKScalar Double)
 sum0RepW ftk a = case (ftk, a) of
   (_, WTKScalar @r ta) ->
-    ifDifferentiable @r (kcast ta) 0
+    ifDifferentiable @r (tkcast ta) 0
   (WFTKR sh, WTKR @r ta) | SNat <- shrRank sh ->
-    ifDifferentiable @r (kcast $ rsum0 ta) 0
+    ifDifferentiable @r (tkcast $ trsum0 ta) 0
   (WFTKS sh, WTKS @r ta) ->
     withKnownShS sh $
-    ifDifferentiable @r (kcast $ ssum0 ta) 0
+    ifDifferentiable @r (tkcast $ tssum0 ta) 0
   (WFTKX sh, WTKX @r ta) ->
     withKnownShX (ssxFromShX sh) $
-    ifDifferentiable @r (kcast $ xsum0 ta) 0
+    ifDifferentiable @r (tkcast $ txsum0 ta) 0
   (WFTKProduct ftk1 ftk2, WTKProduct ta1 ta2) ->
     sum0RepW ftk1 ta1 + sum0RepW ftk2 ta2
 
@@ -107,15 +106,15 @@ dot0RepW :: forall y target. (BaseTensor target, ConvertTensor target)
          -> target (TKScalar Double)
 dot0RepW ftk a b = case (ftk, a, b) of
   (_, WTKScalar @r ta, WTKScalar tb) ->
-    ifDifferentiable @r (kcast $ ta * tb) 0
+    ifDifferentiable @r (tkcast $ ta * tb) 0
   (WFTKR sh, WTKR @r ta, WTKR tb) | SNat <- shrRank sh ->
-    ifDifferentiable @r (kcast $ rdot0 ta tb) 0
+    ifDifferentiable @r (tkcast $ trdot0 ta tb) 0
   (WFTKS sh, WTKS @r ta, WTKS tb) ->
     withKnownShS sh $
-    ifDifferentiable @r (kcast $ sdot0 ta tb) 0
+    ifDifferentiable @r (tkcast $ tsdot0 ta tb) 0
   (WFTKX sh, WTKX @r ta, WTKX tb) ->
     withKnownShX (ssxFromShX sh) $
-    ifDifferentiable @r (kcast $ xdot0 ta tb) 0
+    ifDifferentiable @r (tkcast $ txdot0 ta tb) 0
   (WFTKProduct ftk1 ftk2, WTKProduct ta1 ta2, WTKProduct tb1 tb2) ->
     dot0RepW ftk1 ta1 tb1 + dot0RepW ftk2 ta2 tb2
 

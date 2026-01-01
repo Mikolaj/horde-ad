@@ -32,7 +32,6 @@ import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
-import HordeAd.OpsTensor
 
 -- * Winding and unwinding
 
@@ -96,13 +95,23 @@ concreteRepW concreteK concreteS fromS w = case w of
     WTKProduct (concreteRepW concreteK concreteS fromS v1)
                (concreteRepW concreteK concreteS fromS v2)
 
+-- Copied from HordeAd.OpsTensor to avoid the dependency.
+rrepl :: forall n r target. (GoodScalar r, BaseTensor target)
+      => IShR n -> r -> target (TKR n r)
+rrepl sh a = tconcrete (FTKR sh FTKScalar)
+                       (Concrete $ Nested.rreplicatePrim sh a)
+xrepl :: forall sh r target. (GoodScalar r, BaseTensor target)
+      => IShX sh -> r -> target (TKX sh r)
+xrepl sh a = tconcrete (FTKX sh FTKScalar)
+                       (Concrete $ Nested.mreplicatePrim sh a)
+
 toADTensorKindW
   :: forall y target. BaseTensor target
   => RepW target y -> FullShapeTKW y -> RepW target (ADTensorKind y)
 toADTensorKindW t = \case
   WFTKScalar @r -> case testEquality (typeRep @(ADTensorScalar r))
                                      (typeRep @Z1) of
-    Just Refl -> WTKScalar $ kconcrete Z1
+    Just Refl -> WTKScalar $ tkconcrete Z1
     _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
   WFTKR @r sh -> case testEquality (typeRep @(ADTensorScalar r))
                                    (typeRep @Z1) of
@@ -110,7 +119,7 @@ toADTensorKindW t = \case
     _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
   WFTKS @r sh -> case testEquality (typeRep @(ADTensorScalar r))
                                    (typeRep @Z1) of
-    Just Refl -> WTKS $ sconcrete $ Nested.sreplicatePrim sh Z1
+    Just Refl -> WTKS $ tsconcrete $ Nested.sreplicatePrim sh Z1
     _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
   WFTKX @r sh -> case testEquality (typeRep @(ADTensorScalar r))
                                    (typeRep @Z1) of
@@ -127,7 +136,7 @@ fromADTensorKindW stk t = case (stk, t) of
   (STKScalar @r1, WTKScalar @r2 _) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> WTKScalar $ kconcrete def  -- def is Z1 here
+      _ -> WTKScalar $ tkconcrete def  -- def is Z1 here
   (STKR _ (STKScalar @r1), WTKR @r2 v) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
@@ -135,7 +144,7 @@ fromADTensorKindW stk t = case (stk, t) of
   (STKS sh (STKScalar @r1), WTKS @r2 _) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
-      _ -> WTKS $ sconcrete $ Nested.sreplicatePrim sh def
+      _ -> WTKS $ tsconcrete $ Nested.sreplicatePrim sh def
   (STKX _ (STKScalar @r1), WTKX @r2 v) ->
     case testEquality (typeRep @r1) (typeRep @r2) of
       Just Refl -> t
