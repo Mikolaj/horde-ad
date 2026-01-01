@@ -131,9 +131,7 @@ common exe-options-for-parallel-tests
 library
     import:           options
 
-    exposed-modules:  HordeAd
-                      HordeAd.ADEngine
-                      HordeAd.AstEngine
+    exposed-modules:  HordeAd.AstEngine
                       HordeAd.Core.Adaptor
                       HordeAd.Core.Ast
                       HordeAd.Core.AstEnv
@@ -161,14 +159,6 @@ library
                       HordeAd.Core.Types
                       HordeAd.Core.Unwind
                       HordeAd.Core.UnwindNum
-                      HordeAd.External.CommonRankedOps
-                      HordeAd.External.CommonShapedOps
-                      HordeAd.External.Optimizer
-                      HordeAd.External.OptimizerTools
-                      HordeAd.OpsTensor
-                      HordeAd.OpsTensorRanked
-                      HordeAd.OpsTensorShaped
-                      HordeAd.OpsTensorMixed
 
     hs-source-dirs:   src
 
