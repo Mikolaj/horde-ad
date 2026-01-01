@@ -93,7 +93,7 @@ common options
   -- These improve performance, but slow down compilation:
   ghc-options:        -fexpose-overloaded-unfoldings -fspecialise-aggressively
   -- These improve performance to some extent:
-  ghc-options:        -fdicts-cheap -flate-dmd-anal
+  ghc-options:        -fdicts-cheap -flate-dmd-anal -flate-specialise
   -- This one improves both performance and compilation speed:
   ghc-options:        -fkeep-auto-rules
   -- Twice the compilation time and no consistent performance boost:
