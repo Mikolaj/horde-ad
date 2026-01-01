@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-expose-all-unfoldings #-}
+{-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
 -- | Inlining and global sharing elimination.
 module HordeAd.Core.AstInline
   ( -- * Inlining

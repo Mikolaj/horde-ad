@@ -90,12 +90,14 @@ common options
   ghc-options:        -fprint-explicit-kinds -fsimpl-tick-factor=200
   -- This is supposedly risky, but prevents STG from creating thunks, #23848:
   ghc-options:        -fworker-wrapper-cbv
-  -- Disabling this breaks performance:
-  ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively
-  -- Disabling any of these hurts performance to some extent:
+  -- These improve performance, but slow down compilation:
+  ghc-options:        -fexpose-overloaded-unfoldings -fspecialise-aggressively
+  -- These improve performance to some extent:
   ghc-options:        -fdicts-cheap -flate-dmd-anal
-  -- compilation OOMs; AstTraverse.hs alone takes > 60G
-  -- ghc-options:     -flate-specialise
+  -- This one improves both performance and compilation speed:
+  ghc-options:        -fkeep-auto-rules
+  -- Twice the compilation time and no consistent performance boost:
+  -- ghc-options      -flate-specialise
   -- 30% longer compilation for small and inconsistent performance benefits:
   -- ghc-options:     -O2
   -- Disables a warning we can't yet fix:

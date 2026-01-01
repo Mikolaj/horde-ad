@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-late-specialise #-}
 {-# LANGUAGE OverloadedLists #-}
 -- | Tests of MNIST nns that pretty-print resulting gradient and primal terms.
 module TestMnistPP

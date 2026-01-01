@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-expose-all-unfoldings #-}
+{-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
 -- | Pretty-printing of the AST. Some of the variants of pretty-printing
 -- almost roundtrip, while others are more readable but less faithful.
 module HordeAd.Core.AstPrettyPrint

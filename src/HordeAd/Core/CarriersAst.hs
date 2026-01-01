@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-expose-all-unfoldings #-}
+{-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Definitions, mostly class instances, needed to make AST a valid
