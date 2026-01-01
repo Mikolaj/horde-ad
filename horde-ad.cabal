@@ -104,8 +104,6 @@ common options
   if impl(ghc >= 9.14)
     ghc-options:        -Wno-pattern-namespace-specifier
 
-    ghc-options:        -fpolymorphic-specialisation
-
   if flag(with_expensive_assertions)
     cpp-options:      -DWITH_EXPENSIVE_ASSERTIONS
 
