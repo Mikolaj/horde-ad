@@ -1,0 +1,15 @@
+optimization: False
+
+
+source-repository-package
+    type: git
+    location: https://github.com/clash-lang/ghc-typelits-knownnat
+    tag: 5ac2316a8b350482441b374941e02dd251ea91bd
+
+package horde-ad
+  tests: True
+  benchmarks: True
+
+-- for weeder
+--package *
+--  ghc-options: -fwrite-ide-info

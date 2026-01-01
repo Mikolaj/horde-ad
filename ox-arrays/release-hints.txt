@@ -1,0 +1,5 @@
+- Temporarily enable -Wredundant-constraints
+  - Has too many false-positives to enable normally, but sometimes catches actual redundant constraints
+- Don't forget to rerun gentrace.sh
+- Test with GHC 9.6, it's rather picky around type-level nats
+  - Whenever we drop support for GHC 9.6, search for "9,8" and remove all the conditionals, as well as the GHC.TypeLits.Orphans module

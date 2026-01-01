@@ -1,0 +1,192 @@
+cabal-version:   3.0
+name:            ox-arrays
+version:         0.1.0.0
+synopsis:        An efficient CPU-based multidimensional array (tensor) library
+description:
+  An efficient and richly typed CPU-based multidimensional array (tensor)
+  library built upon the optimized tensor representation (strides list)
+  implemented in the orthotope package. See the README.
+
+  If you use this package: let me know (e.g. via email) if you find it useful!
+  Both positive feedback (keep this!) and negative feedback (I needed this but
+  ox-arrays doesn't provide it) is welcome.
+copyright:       (c) 2025 Tom Smeding, Mikolaj Konarski
+author:          Tom Smeding, Mikolaj Konarski
+maintainer:      Tom Smeding <xhackage@tomsmeding.com>
+license:         BSD-3-Clause
+category:        Array, Tensors
+build-type:      Simple
+
+extra-doc-files: README.md CHANGELOG.md
+extra-source-files: cbits/arith_lists.h
+
+flag trace-wrappers
+  description:
+    Compile modules that define wrappers around the array methods that trace
+    their arguments and results. This is conditional on a flag because these
+    modules make documentation generation fail.
+    (@https://gitlab.haskell.org/ghc/ghc/-/issues/24964@ , should be fixed in
+    GHC 9.12)
+  default: False
+  manual: True
+
+flag nonportable-simd
+  description:
+    Assume the binary will be run on the same CPU as where it is built. Setting
+    this flag causes `-march=native` to be passed to the C compiler when
+    compiling arithmetic operations. The result is generally much faster
+    arithmetic operations, but the executable is much less portable to
+    different computers.
+  default: False
+  manual: True
+
+flag pedantic-c-warnings
+  description:
+    Compile embedded C code with a high warning level. Only useful for
+    ox-arrays developers.
+  default: False
+  manual: True
+
+flag default-show-instances
+  description:
+    Use default GHC-derived Show instances for arrays, shapes and indices. This
+    exposes the internal struct-of-arrays representation and is less readable,
+    but can be useful for ox-arrays debugging.
+  default: False
+  manual: True
+
+common basics
+  default-language: Haskell2010
+  ghc-options: -Wall -Wcompat -Widentities -Wunused-packages -Wpartial-fields -Wredundant-bang-patterns -Woperator-whitespace -Wredundant-strictness-flags
+  if impl(ghc >= 9.14)
+    ghc-options: -Wno-pattern-namespace-specifier
+
+library
+  import: basics
+  exposed-modules:
+    -- put this module on top so ghci considers it the "main" module
+    Data.Array.Nested
+
+    Data.Array.Nested.Convert
+    Data.Array.Nested.Mixed
+    Data.Array.Nested.Mixed.Shape
+    Data.Array.Nested.Lemmas
+    Data.Array.Nested.Permutation
+    Data.Array.Nested.Ranked
+    Data.Array.Nested.Ranked.Base
+    Data.Array.Nested.Ranked.Shape
+    Data.Array.Nested.Shaped
+    Data.Array.Nested.Shaped.Base
+    Data.Array.Nested.Shaped.Shape
+    Data.Array.Nested.Types
+    Data.Array.Strided.Orthotope
+    Data.Array.XArray
+    Data.Bag
+    Data.Vector.Generic.Checked
+
+  if impl(ghc < 9.8)
+    exposed-modules:
+      GHC.TypeLits.Orphans
+
+  if flag(trace-wrappers)
+    exposed-modules:
+      Data.Array.Nested.Trace
+      Data.Array.Nested.Trace.TH
+
+  if flag(default-show-instances)
+    cpp-options: -DOXAR_DEFAULT_SHOW_INSTANCES
+
+  build-depends:
+    ox-arrays:strided-array-ops,
+
+    base,
+    deepseq < 1.7,
+    ghc-typelits-knownnat,
+    ghc-typelits-natnormalise,
+    orthotope < 0.2,
+    vector,
+    vector-stream
+  hs-source-dirs: src
+
+library strided-array-ops
+  import: basics
+  visibility: public
+  exposed-modules:
+    Data.Array.Strided
+    Data.Array.Strided.Array
+    Data.Array.Strided.Arith
+    Data.Array.Strided.Arith.Internal
+    Data.Array.Strided.Arith.Internal.Foreign
+    Data.Array.Strided.Arith.Internal.Lists
+    Data.Array.Strided.Arith.Internal.Lists.TH
+  build-depends:
+    base >=4.18 && <4.23,
+    ghc-typelits-knownnat >= 0.8.0 && < 1
+      -- 0.9.0 is unsound: https://github.com/clash-lang/ghc-typelits-natnormalise/issues/105
+      && (< 0.9.0 || > 0.9.0),
+    ghc-typelits-natnormalise >= 0.8.1 && < 1,
+    template-haskell < 3,
+    vector < 0.14
+  hs-source-dirs: ops
+  c-sources: cbits/arith.c
+
+  cc-options: -O3 -std=c11
+  if flag(pedantic-c-warnings)
+    cc-options: -Wall -Wextra -pedantic
+  if flag(nonportable-simd)
+    cc-options: -march=native
+  elif arch(x86_64) || arch(i386)
+    -- hmatrix assumes sse2, so we can too
+    cc-options: -msse2
+
+  other-extensions: TemplateHaskell
+
+test-suite test
+  import: basics
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+    Gen
+    Tests.C
+    Tests.Permutation
+    Util
+  build-depends:
+    ox-arrays,
+    base,
+    bytestring,
+    ghc-typelits-knownnat,
+    ghc-typelits-natnormalise,
+    hedgehog,
+    orthotope,
+    random >= 1.3.0,
+    tasty,
+    tasty-hedgehog,
+    vector
+  hs-source-dirs: test
+
+test-suite example
+  import: basics
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  build-depends:
+    ox-arrays,
+    base
+  hs-source-dirs: example
+
+benchmark bench
+  import: basics
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  build-depends:
+    ox-arrays,
+    ox-arrays:strided-array-ops,
+    base,
+    hmatrix,
+    orthotope,
+    tasty-bench,
+    vector
+  hs-source-dirs: bench
+
+source-repository head
+  type: git
+  location: https://git.tomsmeding.com/ox-arrays
