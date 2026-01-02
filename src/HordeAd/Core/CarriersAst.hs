@@ -15,9 +15,7 @@ module HordeAd.Core.CarriersAst
 
 import Prelude hiding (foldl')
 
-import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Type.Equality (testEquality, (:~:) (Refl))
-import Foreign.C (CInt)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++))
@@ -315,25 +313,12 @@ instance (NumScalar r, AstSpan s)
   signum (AstConcreteK n) = AstConcreteK (signum n)
   signum (AstN1K SignumOp u) = AstN1K SignumOp u
   signum u = AstN1K SignumOp u
+  {-# INLINE fromInteger #-}
   fromInteger i = fromPlain $ AstConcreteK (fromInteger i)
-{- TODO: RULE left-hand side too complicated to desugar
-  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int64)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int64)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int32)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int32)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int16)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int16)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int8)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int8)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar CInt)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar CInt)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Double)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Double)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Float)) #-}
-  {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Float)) #-}
--}
+  {-# SPECIALIZE instance Num (AstTensor ms PlainSpan (TKScalar Int)) #-}
+  {-# SPECIALIZE instance AstSpan s => Num (AstTensor ms s (TKScalar Int)) #-}
 
 -- An approximation. False doesn't imply terms have different semantics,
 -- but True implies they have equal semantics.
@@ -415,18 +400,10 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
     let t = AstI2K RemOp u v
         (u1, u2) = bounds t
     in if u1 == u2 then fromPlain $ AstConcreteK u1 else t
-  {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int64)) #-}
-  {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int64)) #-}
-  {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int32)) #-}
-  {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int32)) #-}
-  {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int16)) #-}
-  {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int16)) #-}
-  {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int8)) #-}
-  {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int8)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int)) #-}
-  {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar CInt)) #-}
-  {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar CInt)) #-}
+  {-# SPECIALIZE instance IntegralH (AstTensor ms PlainSpan (TKScalar Int)) #-}
+  {-# SPECIALIZE instance AstSpan s => IntegralH (AstTensor ms s (TKScalar Int)) #-}
 
 instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
@@ -443,6 +420,7 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   recip (AstFromPlain u) = fromPlain (recip u)
   recip (AstConcreteK u) = AstConcreteK (recip u)
   recip u = AstR1K RecipOp u
+  {-# INLINE fromRational #-}
   fromRational r = fromPlain $ AstConcreteK (fromRational r)
 
 instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
@@ -1202,12 +1180,20 @@ instance (AstSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKScalar r) where
   vUnshared ==. uUnshared = astLetFunNoSimplify (uUnshared - vUnshared) $ \uv ->
     0 <=. uv &&* uv <=. 0
+  {-# SPECIALIZE instance EqH (AstTensor AstMethodLet FullSpan) (TKScalar Int) #-}
+  {-# SPECIALIZE instance EqH (AstTensor AstMethodLet PrimalSpan) (TKScalar Int) #-}
+  {-# SPECIALIZE instance EqH (AstTensor AstMethodLet PlainSpan) (TKScalar Int) #-}
+  {-# SPECIALIZE instance AstSpan s => EqH (AstTensor AstMethodLet s) (TKScalar Int) #-}
 
 instance (AstSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKScalar r) where
   vUnshared ==. uUnshared =
     let uv = astShareNoSimplify (uUnshared - vUnshared)
     in 0 <=. uv &&* uv <=. 0
+  {-# SPECIALIZE instance EqH (AstTensor AstMethodShare FullSpan) (TKScalar Int) #-}
+  {-# SPECIALIZE instance EqH (AstTensor AstMethodShare PrimalSpan) (TKScalar Int) #-}
+  {-# SPECIALIZE instance EqH (AstTensor AstMethodShare PlainSpan) (TKScalar Int) #-}
+  {-# SPECIALIZE instance AstSpan s => EqH (AstTensor AstMethodShare s) (TKScalar Int) #-}
 
 instance (AstSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKS sh r) where
@@ -1280,6 +1266,10 @@ instance (AstSpan s, NumScalar r)
     | varNameToAstVarId u == varNameToAstVarId v =
       true
   v <=. u = AstConcreteK 0 <=. plainPart u - plainPart v
+  {-# SPECIALIZE instance OrdH (AstTensor ms FullSpan) (TKScalar Int) #-}
+  {-# SPECIALIZE instance OrdH (AstTensor ms PrimalSpan) (TKScalar Int) #-}
+  {-# SPECIALIZE instance OrdH (AstTensor ms PlainSpan) (TKScalar Int) #-}
+  {-# SPECIALIZE instance AstSpan s => OrdH (AstTensor ms s) (TKScalar Int) #-}
 
 instance (AstSpan s, NumScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
