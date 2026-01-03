@@ -193,6 +193,10 @@ numFromTKAllNum _ =
                     Just Refl -> Dict0
                     _ -> error "numFromTKAllNum: impossible type"
 
+-- The explicit dictionary is needed to trick GHC into specializing f at types
+-- Int, Double, etc. insteasd of at type r, to simpify away the dictionaries
+-- emerging from the constraints in the signature of f.
+--
 -- Despite what GHC says, TKAllNum (TKScalar r) is not redundant,
 -- because it ensures the error case can't appear.
 contFromTKAllNum :: forall r a. (Typeable r, TKAllNum (TKScalar r))

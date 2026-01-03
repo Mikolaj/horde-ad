@@ -1003,9 +1003,10 @@ tscatterZS @shm @shn @shp @x t f =
   in withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
      case tftk knownSTK t of
        FTKS _ (FTKScalar @r) ->  -- we don't use full dictionary from FTKScalar
-         contFromTKAllNum (tscatterZSTKScalar @shm @shn @shp @r t f)
+         contFromTKAllNum @r (tscatterZSTKScalar @shm @shn @shp t f)
+           -- Optimized: using (+) instead of taddTarget
        FTKS _ x | Dict <- eltDictRep (ftkToSTK x) ->
-         let g :: IxS shm Int
+         let g :: IIxS shm
                -> IM.IntMap (Concrete (TKS2 shn x))
                -> IM.IntMap (Concrete (TKS2 shn x))
              g ix =
@@ -1019,21 +1020,26 @@ tscatterZS @shm @shn @shp @x t f =
              ivs = foldr g IM.empty (shsEnum shm)
          in manyHotNS @shp x $ IM.assocs ivs
 
--- Optimized: using (+) instead of taddTarget
+-- The inlining phase control and the explicit dictionaryy argument
+-- are required for GHC to consistently specialize the inlined
+-- tscatterZSTKScalar code to Int, Double, etc.
+-- Phase 99 suffices in GHC 9.14.1, but a later phase is set for a good measure.
+-- Maybe what needs to happen is that tscatterZSTKScalar gets specialized
+-- before it's inlined.
 tscatterZSTKScalar
   :: (KnownShS shm, KnownShS shn, KnownShS shp, Num r, Nested.NumElt r)
   => Concrete (TKS (shm ++ shn) r)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Dict GoodScalar r
   -> Concrete (TKS (shp ++ shn) r)
-{-# INLINE tscatterZSTKScalar #-}  -- takes a function as an argument
+{-# INLINE [1] tscatterZSTKScalar #-}  -- takes a function as an argument
 tscatterZSTKScalar @shm @shn @shp @r t f Dict =
   let shm = knownShS @shm
       shp = knownShS @shp
   in case knownShS @shn of
        ZSS | Refl <- lemAppNil @shp
            , Refl <- lemAppNil @shm -> runST $ do
-         -- Optimized: using Nested.sindex.
+         -- Optimized: using Nested.sindex instead of Nested.sindexPartial.
          vec <- VSM.replicate (shsSize shp) 0
          forM_ (shsEnum shm) $ \ix -> do
            let ix2 = f $ fmapConcrete ix
@@ -1044,8 +1050,8 @@ tscatterZSTKScalar @shm @shn @shp @r t f Dict =
                v2 <- VSM.read vec i2
                VSM.write vec i2 (v + v2)
          Concrete . Nested.sfromVector shp <$> VS.unsafeFreeze vec
-       _ ->
-         let g :: IxS shm Int
+       shn -> runST $ do
+         let g :: IIxS shm
                -> IM.IntMap (Concrete (TKS shn r))
                -> IM.IntMap (Concrete (TKS shn r))
              g ix =
@@ -1057,8 +1063,12 @@ tscatterZSTKScalar @shm @shn @shp @r t f Dict =
                      (Concrete
                       $ Nested.sindexPartial @shm @shn (unConcrete t) ix)
              ivs = foldr g IM.empty (shsEnum shm)
-         in manyHotNS @shp FTKScalar $ IM.assocs ivs
-              -- TODO: is the inlined manyHotNS simplified enough here?
+             shnSize = shsSize shn
+         vec <- VSM.replicate (shsSize shp * shnSize) 0
+         forM_ (IM.assocs ivs) $ \(i, Concrete v) ->
+           VS.copy (VSM.slice (i * shnSize) shnSize vec) (Nested.stoVector v)
+         Concrete . Nested.sfromVector (shp `shsAppend` shn)
+           <$> VS.unsafeFreeze vec
 
 tgatherZS :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x)
           => Concrete (TKS2 (shp ++ shn) x)
