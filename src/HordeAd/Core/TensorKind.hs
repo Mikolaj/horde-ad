@@ -8,7 +8,8 @@ module HordeAd.Core.TensorKind
     SingletonTK(..), KnownSTK(..)
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , Dict0(..), lemTKAllNumAD, lemTKScalarAllNumAD
-  , lemTKAllNumBuild, lemTKAllNumRaze, numFromTKAllNum, contFromTKAllNum
+  , lemTKAllNumBuild, lemTKAllNumRaze
+  , numFromTKAllNum, contFromTKAllNum, contFromTypeable
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
     -- * Full shape tensor kind quasi-singletons
@@ -200,8 +201,7 @@ numFromTKAllNum _ =
 -- Despite what GHC says, TKAllNum (TKScalar r) is not redundant,
 -- because it ensures the error case can't appear.
 contFromTKAllNum :: forall r a. (Typeable r, TKAllNum (TKScalar r))
-                 => ((Num r, Nested.NumElt r) => Dict GoodScalar r -> a)
-                 -> a
+                 => ((Num r, Nested.NumElt r) => Dict GoodScalar r -> a) -> a
 {-# INLINE contFromTKAllNum #-}  -- takes a function as an argument
 contFromTKAllNum f =
   case testEquality (typeRep @r) (typeRep @Int) of
@@ -223,6 +223,35 @@ contFromTKAllNum f =
                   _ -> case testEquality (typeRep @r) (typeRep @CInt) of
                     Just Refl -> f Dict
                     _ -> error "contFromTKAllNum: impossible type"
+
+-- See above. The list comes from ox-arrays at [PRIMITIVE ELEMENT TYPES LIST].
+contFromTypeable :: forall r a. Typeable r
+                 => (Dict GoodScalar r -> a) -> a
+{-# INLINE contFromTypeable #-}  -- takes a function as an argument
+contFromTypeable f =
+  case testEquality (typeRep @r) (typeRep @Int) of
+    Just Refl -> f Dict
+    _ -> case testEquality (typeRep @r) (typeRep @Double) of
+      Just Refl -> f Dict
+      _ -> case testEquality (typeRep @r) (typeRep @Float) of
+        Just Refl -> f Dict
+        _ -> case testEquality (typeRep @r) (typeRep @Z1) of
+          Just Refl -> f Dict
+          _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+            Just Refl -> f Dict
+            _ -> case testEquality (typeRep @r) (typeRep @Int32) of
+              Just Refl -> f Dict
+              _ -> case testEquality (typeRep @r) (typeRep @Int16) of
+                Just Refl -> f Dict
+                _ -> case testEquality (typeRep @r) (typeRep @Int8) of
+                  Just Refl -> f Dict
+                  _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+                    Just Refl -> f Dict
+                    _ -> case testEquality (typeRep @r) (typeRep @Bool) of
+                      Just Refl -> f Dict
+                      _ -> case testEquality (typeRep @r) (typeRep @()) of
+                        Just Refl -> f Dict
+                        _ -> error "contFromTypeable: impossible type"
 
 stkUnit :: SingletonTK TKUnit
 stkUnit = STKScalar

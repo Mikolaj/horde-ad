@@ -671,32 +671,32 @@ ixInBoundsX ((fromSMayNat' -> n) :$% sh) (Concrete i :.% ix) =
 -- Depite the warning, the pattern match is exhaustive.
 ixrToLinearMaybe :: IShR n -> IxROf Concrete n -> Maybe Int
 {-# INLINE ixrToLinearMaybe #-}
-ixrToLinearMaybe = \sh ix -> go sh ix 0
+ixrToLinearMaybe = \sh ix -> goR sh ix 0
   where
-    go :: IShR n -> IxROf Concrete n -> Int -> Maybe Int
-    go ZSR ZIR !a = Just a
-    go (n :$: sh) (Concrete i :.: ix) a =
-      if 0 <= i && i < n then go sh ix (n * a + i) else Nothing
+    goR :: IShR n -> IxROf Concrete n -> Int -> Maybe Int
+    goR ZSR ZIR !a = Just a
+    goR (n :$: sh) (Concrete i :.: ix) a =
+      if 0 <= i && i < n then goR sh ix (n * a + i) else Nothing
 
 -- This would be shorter, but a bit more expensive:
 --   ixxToLinearMaybe (ixxFromIxS ix)
 ixsToLinearMaybe :: ShS sh -> IxSOf Concrete sh -> Maybe Int
 {-# INLINE ixsToLinearMaybe #-}
-ixsToLinearMaybe = \sh ix -> go sh ix 0
+ixsToLinearMaybe = \sh ix -> goS sh ix 0
   where
-    go :: ShS sh -> IxSOf Concrete sh -> Int -> Maybe Int
-    go ZSS ZIS !a = Just a
-    go ((fromSNat' -> n) :$$ sh) (Concrete i :.$ ix) a =
-      if 0 <= i && i < n then go sh ix (n * a + i) else Nothing
+    goS :: ShS sh -> IxSOf Concrete sh -> Int -> Maybe Int
+    goS ZSS ZIS !a = Just a
+    goS ((fromSNat' -> n) :$$ sh) (Concrete i :.$ ix) a =
+      if 0 <= i && i < n then goS sh ix (n * a + i) else Nothing
 
 ixxToLinearMaybe :: IShX sh -> IxXOf Concrete sh -> Maybe Int
 {-# INLINE ixxToLinearMaybe #-}
-ixxToLinearMaybe = \sh ix -> go sh ix 0
+ixxToLinearMaybe = \sh ix -> goX sh ix 0
   where
-    go :: IShX sh -> IxXOf Concrete sh -> Int -> Maybe Int
-    go ZSX ZIX !a = Just a
-    go ((fromSMayNat' -> n) :$% sh) (Concrete i :.% ix) a =
-      if 0 <= i && i < n then go sh ix (n * a + i) else Nothing
+    goX :: IShX sh -> IxXOf Concrete sh -> Int -> Maybe Int
+    goX ZSX ZIX !a = Just a
+    goX ((fromSMayNat' -> n) :$% sh) (Concrete i :.% ix) a =
+      if 0 <= i && i < n then goX sh ix (n * a + i) else Nothing
 
 oRtmapAccumR
   :: forall k accy by ey.
@@ -892,9 +892,15 @@ tgatherZR :: forall m n p x. (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
           -> Concrete (TKR2 (m + n) x)
 {-# INLINE tgatherZR #-}   -- this function takes a function as an argument
 tgatherZR sh t f = case (SNat @n, knownSTK @x) of
-  (SNat' @0, STKScalar) ->  -- an optimized common case
-    let g ix = unConcrete $ t `trindex0` (f $ fmapConcrete ix)
-    in Concrete $ Nested.rgeneratePrim sh g
+  (SNat' @0, STKScalar @r) ->  -- an optimized common case
+      let tgatherTKScalar :: Concrete (TKR (p + n) r1)
+                          -> Dict GoodScalar r1
+                          -> Concrete (TKR (m + n) r1)
+          {-# INLINE [1] tgatherTKScalar #-}
+          tgatherTKScalar t1 Dict =
+            let g ix = unConcrete $ t1 `trindex0` (f $ fmapConcrete ix)
+            in Concrete $ Nested.rgeneratePrim sh g
+      in contFromTypeable @r (tgatherTKScalar t)
   _ -> trbuild sh (\ix -> t `trindex` f ix)
 
 tgatherZ1R :: forall n p x. (KnownNat n, KnownNat p, KnownSTK x)
@@ -903,10 +909,16 @@ tgatherZ1R :: forall n p x. (KnownNat n, KnownNat p, KnownSTK x)
            -> Concrete (TKR2 (1 + n) x)
 {-# INLINE tgatherZ1R #-}   -- this function takes a function as an argument
 tgatherZ1R k t f = case (SNat @n, knownSTK @x) of
-  (SNat' @0, STKScalar) ->  -- an optimized common case
-    let shm = k :$: shrDrop (rshape t)
-        g i = unConcrete $ t `trindex0` (f $ Concrete i)
-    in Concrete $ Nested.rfromVector shm $ VS.generate k g
+  (SNat' @0, STKScalar @r) ->  -- an optimized common case
+      let tgatherTKScalar :: Concrete (TKR (p + n) r1)
+                          -> Dict GoodScalar r1
+                          -> Concrete (TKR (1 + n) r1)
+          {-# INLINE [1] tgatherTKScalar #-}
+          tgatherTKScalar t1 Dict =
+            let shm = k :$: shrDrop (rshape t)
+                g i = unConcrete $ t1 `trindex0` (f $ Concrete i)
+            in Concrete $ Nested.rfromVector shm $ VS.generate k g
+      in contFromTypeable @r (tgatherTKScalar t)
   _ -> trbuild1 k (\ix -> t `trindex` f ix)
 
 tminIndexR
@@ -1097,10 +1109,15 @@ tgatherZS @shm @shn @shp @x t f =
   gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
   gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
   case (knownShS @shn, knownSTK @x) of
-    (ZSS, STKScalar) | Refl <- lemAppNil @shm
-                     , Refl <- lemAppNil @shp ->  -- an optimized common case
-      let g ix = t `tsindex0` f ix
-      in tkbuild g
+    (ZSS, STKScalar @r) | Refl <- lemAppNil @shm
+                        , Refl <- lemAppNil @shp ->  -- an optimized common case
+      let tgatherTKScalar :: Concrete (TKS (shp ++ shn) r1)
+                          -> Dict GoodScalar r1
+                          -> Concrete (TKS (shm ++ shn) r1)
+          {-# INLINE [1] tgatherTKScalar #-}
+          tgatherTKScalar t1 Dict =
+            tkbuild (\ix -> t1 `tsindex0` f ix)
+      in contFromTypeable @r (tgatherTKScalar t)
     _ ->
       withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
       case shsRank (knownShS @shm) of
@@ -1113,9 +1130,15 @@ tgatherZ1S
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS2 (k ': shn) x)
 {-# INLINE tgatherZ1S #-}   -- this function takes a function as an argument
-tgatherZ1S @_ @shn @shp @x t f = case (knownShS @shn, knownSTK @x) of
-  (ZSS, STKScalar) | Refl <- lemAppNil @shp ->  -- an optimized common case
-    tkbuild1 (\ix -> t `tsindex0` f ix)
+tgatherZ1S @k @shn @shp @x t f = case (knownShS @shn, knownSTK @x) of
+  (ZSS, STKScalar @r) | Refl <- lemAppNil @shp ->  -- an optimized common case
+      let tgatherTKScalar :: Concrete (TKS (shp ++ shn) r1)
+                          -> Dict GoodScalar r1
+                          -> Concrete (TKS (k ': shn) r1)
+          {-# INLINE [1] tgatherTKScalar #-}
+          tgatherTKScalar t1 Dict =
+            tkbuild1 @_ @k (\ix -> t1 `tsindex0` f ix)
+      in contFromTypeable @r (tgatherTKScalar t)
   _ ->
     tsbuild1 (\ix -> t `tsindex` f ix)
 
