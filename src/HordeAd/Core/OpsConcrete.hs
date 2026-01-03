@@ -819,39 +819,14 @@ tscatterZR :: forall m n p x.
            -> (IxROf Concrete m -> IxROf Concrete p)
            -> Concrete (TKR2 (p + n) x)
 {-# INLINE tscatterZR #-}   -- this function takes a function as an argument
-tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
+tscatterZR sh t f =
   let shm = shrTake @m $ rshape t
       shp = shrTake @p sh
-  in case (SNat @n, tftk knownSTK t) of
-       (SNat' @0, FTKR _ (FTKScalar @r)) | Dict0 <- numFromTKAllNum
-                                                      (Proxy @r) -> runST $ do
-         -- Optimized: using (+) instead of taddTarget and using trindex0.
-         vec <- VSM.replicate (shrSize shp) 0
-         forM_ (shrEnum shm) $ \ix -> do
-           let ix2 = f $ fmapConcrete ix
-           case ixrToLinearMaybe shp ix2 of
-             Nothing -> return ()
-             Just i2 -> do
-               let v = Nested.rindex (unConcrete t) ix
-               v2 <- VSM.read vec i2
-               VSM.write vec i2 (v + v2)
-         Concrete . Nested.rfromVector shp <$> VS.unsafeFreeze vec
-       (_, FTKR _ (FTKScalar @r)) | Dict0 <- numFromTKAllNum (Proxy @r) ->
-         -- Optimized: using (+) instead of taddTarget.
-         let ftk = FTKR sh FTKScalar
-             g :: IIxR m
-               -> IM.IntMap (Concrete (TKR2 n x))
-               -> IM.IntMap (Concrete (TKR2 n x))
-             g ix =
-               let ix2 = f $ fmapConcrete ix
-               in case ixrToLinearMaybe shp ix2 of
-                 Nothing -> id
-                 Just i2 ->
-                   IM.insertWith (+) i2
-                     (Concrete $ Nested.rindexPartial (unConcrete t) ix)
-             ivs = foldr g IM.empty (shrEnum shm)
-         in manyHotNR ftk $ IM.assocs ivs
-       (_, FTKR _ x) ->
+  in case tftk knownSTK t of
+       FTKR _ (FTKScalar @r) ->  -- we don't use full dictionary from FTKScalar
+         contFromTKAllNum @r (tscatterZRTKScalar @m @n @p sh t f)
+           -- Optimized: using (+) instead of taddTarget
+       FTKR _ x | Dict <- eltDictRep (knownSTK @x) ->
          let ftk = FTKR sh x
              g :: IIxR m
                -> IM.IntMap (Concrete (TKR2 n x))
@@ -865,6 +840,49 @@ tscatterZR sh t f | Dict <- eltDictRep (knownSTK @x) =
                      (Concrete $ Nested.rindexPartial (unConcrete t) ix)
              ivs = foldr g IM.empty (shrEnum shm)
          in manyHotNR ftk $ IM.assocs ivs
+
+-- See the comment about tscatterZSTKScalar.
+tscatterZRTKScalar
+  :: (KnownNat m, KnownNat n, KnownNat p, Num r, Nested.NumElt r)
+  => IShR (p + n) -> Concrete (TKR (m + n) r)
+  -> (IxROf Concrete m -> IxROf Concrete p)
+  -> Dict GoodScalar r
+  -> Concrete (TKR (p + n) r)
+{-# INLINE [1] tscatterZRTKScalar #-}  -- takes a function as an argument
+tscatterZRTKScalar @m @n @p @r sh t f Dict =
+  let shm = shrTake @m $ rshape t
+      shp = shrTake @p sh
+  in case SNat @n of
+       SNat' @0 -> runST $ do
+         -- Optimized: using Nested.rindex instesad of Nested.rindexPartial.
+         vec <- VSM.replicate (shrSize shp) 0
+         forM_ (shrEnum shm) $ \ix -> do
+           let ix2 = f $ fmapConcrete ix
+           case ixrToLinearMaybe sh ix2 of
+             Nothing -> return ()
+             Just i2 -> do
+               let v = Nested.rindex (unConcrete t) ix
+               v2 <- VSM.read vec i2
+               VSM.write vec i2 (v + v2)
+         Concrete . Nested.rfromVector shp <$> VS.unsafeFreeze vec
+       _ -> runST $ do
+         let g :: IIxR m
+               -> IM.IntMap (Concrete (TKR n r))
+               -> IM.IntMap (Concrete (TKR n r))
+             g ix =
+               let ix2 = f $ fmapConcrete ix
+               in case ixrToLinearMaybe shp ix2 of
+                 Nothing -> id
+                 Just i2 ->
+                   IM.insertWith (+) i2
+                     (Concrete $ Nested.rindexPartial (unConcrete t) ix)
+             ivs = foldr g IM.empty (shrEnum shm)
+             shnSize = shrSize $ shrDrop @p sh
+         vec <- VSM.replicate (shrSize shp * shnSize) 0
+         forM_ (IM.assocs ivs) $ \(i, Concrete v) ->
+           VS.copy (VSM.slice (i * shnSize) shnSize vec) (Nested.rtoVector v)
+         Concrete . Nested.rfromVector sh
+           <$> VS.unsafeFreeze vec
 
 -- The semantics of the operation permits index out of bounds
 -- and the result of such indexing is def, which is 0.
