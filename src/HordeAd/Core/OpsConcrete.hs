@@ -991,46 +991,20 @@ toneHotS v ix = case tftk knownSTK v of
 
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensor is added at such an index.
-tscatterZS :: (KnownShS shm, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x)
-           => Concrete (TKS2 (shm ++ shn) x)
-           -> (IxSOf Concrete shm -> IxSOf Concrete shp)
-           -> Concrete (TKS2 (shp ++ shn) x)
+tscatterZS
+  :: (KnownShS shm, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x)
+  => Concrete (TKS2 (shm ++ shn) x)
+  -> (IxSOf Concrete shm -> IxSOf Concrete shp)
+  -> Concrete (TKS2 (shp ++ shn) x)
 {-# INLINE tscatterZS #-}  -- this function takes a function as an argument
 tscatterZS @shm @shn @shp @x t f =
   let shm = knownShS @shm
       shp = knownShS @shp
   in withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-     case (knownShS @shn, tftk knownSTK t) of
-       (ZSS, FTKS _ (FTKScalar @r)) | Dict0 <- numFromTKAllNum (Proxy @r)
-                                    , Refl <- lemAppNil @shp
-                                    , Refl <- lemAppNil @shm -> runST $ do
-         -- Optimized: using (+) instead of taddTarget and using txindex0.
-         vec <- VSM.replicate (shsSize shp) 0
-         forM_ (shsEnum shm) $ \ix -> do
-           let ix2 = f $ fmapConcrete ix
-           case ixsToLinearMaybe shp ix2 of
-             Nothing -> return ()
-             Just i2 -> do
-               let v = Nested.sindex (unConcrete t) ix
-               v2 <- VSM.read vec i2
-               VSM.write vec i2 (v + v2)
-         Concrete . Nested.sfromVector shp <$> VS.unsafeFreeze vec
-       (_, FTKS _ (FTKScalar @r)) | Dict0 <- numFromTKAllNum (Proxy @r) ->
-         -- Optimized: using (+) instead of taddTarget.
-         let g :: IxS shm Int
-               -> IM.IntMap (Concrete (TKS2 shn x))
-               -> IM.IntMap (Concrete (TKS2 shn x))
-             g ix =
-               let ix2 = f $ fmapConcrete ix
-               in case ixsToLinearMaybe shp ix2 of
-                 Nothing -> id
-                 Just i2 ->
-                   IM.insertWith (+) i2
-                     (Concrete
-                      $ Nested.sindexPartial @shm @shn (unConcrete t) ix)
-             ivs = foldr g IM.empty (shsEnum shm)
-         in manyHotNS @shp FTKScalar $ IM.assocs ivs
-       (_, FTKS _ x) | Dict <- eltDictRep (ftkToSTK x) ->
+     case tftk knownSTK t of
+       FTKS _ (FTKScalar @r) ->  -- we don't use full dictionary from FTKScalar
+         contFromTKAllNum (tscatterZSTKScalar @shm @shn @shp @r t f)
+       FTKS _ x | Dict <- eltDictRep (ftkToSTK x) ->
          let g :: IxS shm Int
                -> IM.IntMap (Concrete (TKS2 shn x))
                -> IM.IntMap (Concrete (TKS2 shn x))
@@ -1044,6 +1018,47 @@ tscatterZS @shm @shn @shp @x t f =
                       $ Nested.sindexPartial @shm @shn (unConcrete t) ix)
              ivs = foldr g IM.empty (shsEnum shm)
          in manyHotNS @shp x $ IM.assocs ivs
+
+-- Optimized: using (+) instead of taddTarget
+tscatterZSTKScalar
+  :: (KnownShS shm, KnownShS shn, KnownShS shp, Num r, Nested.NumElt r)
+  => Concrete (TKS (shm ++ shn) r)
+  -> (IxSOf Concrete shm -> IxSOf Concrete shp)
+  -> Dict GoodScalar r
+  -> Concrete (TKS (shp ++ shn) r)
+{-# INLINE tscatterZSTKScalar #-}  -- takes a function as an argument
+tscatterZSTKScalar @shm @shn @shp @r t f Dict =
+  let shm = knownShS @shm
+      shp = knownShS @shp
+  in case knownShS @shn of
+       ZSS | Refl <- lemAppNil @shp
+           , Refl <- lemAppNil @shm -> runST $ do
+         -- Optimized: using Nested.sindex.
+         vec <- VSM.replicate (shsSize shp) 0
+         forM_ (shsEnum shm) $ \ix -> do
+           let ix2 = f $ fmapConcrete ix
+           case ixsToLinearMaybe shp ix2 of
+             Nothing -> return ()
+             Just i2 -> do
+               let v = Nested.sindex (unConcrete t) ix
+               v2 <- VSM.read vec i2
+               VSM.write vec i2 (v + v2)
+         Concrete . Nested.sfromVector shp <$> VS.unsafeFreeze vec
+       _ ->
+         let g :: IxS shm Int
+               -> IM.IntMap (Concrete (TKS shn r))
+               -> IM.IntMap (Concrete (TKS shn r))
+             g ix =
+               let ix2 = f $ fmapConcrete ix
+               in case ixsToLinearMaybe shp ix2 of
+                 Nothing -> id
+                 Just i2 ->
+                   IM.insertWith (+) i2
+                     (Concrete
+                      $ Nested.sindexPartial @shm @shn (unConcrete t) ix)
+             ivs = foldr g IM.empty (shsEnum shm)
+         in manyHotNS @shp FTKScalar $ IM.assocs ivs
+              -- TODO: is the inlined manyHotNS simplified enough here?
 
 tgatherZS :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x)
           => Concrete (TKS2 (shp ++ shn) x)

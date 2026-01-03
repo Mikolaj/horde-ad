@@ -8,7 +8,7 @@ module HordeAd.Core.TensorKind
     SingletonTK(..), KnownSTK(..)
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , Dict0(..), lemTKAllNumAD, lemTKScalarAllNumAD
-  , lemTKAllNumBuild, lemTKAllNumRaze, numFromTKAllNum
+  , lemTKAllNumBuild, lemTKAllNumRaze, numFromTKAllNum, contFromTKAllNum
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
     -- * Full shape tensor kind quasi-singletons
@@ -26,7 +26,7 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Foreign.C (CInt)
 import GHC.Exts (withDict)
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat)
-import Type.Reflection (typeRep)
+import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape
@@ -172,26 +172,53 @@ lemTKAllNumRaze k = \case
 -- because it ensures the error case can't appear.
 numFromTKAllNum :: forall r. (GoodScalar r, TKAllNum (TKScalar r))
                 => Proxy r -> Dict0 (Num r, Nested.NumElt r)
-numFromTKAllNum Proxy =
-  case testEquality (typeRep @r) (typeRep @Int64) of
+numFromTKAllNum _ =
+  case testEquality (typeRep @r) (typeRep @Int) of
     Just Refl -> Dict0
-    _ -> case testEquality (typeRep @r) (typeRep @Int32) of
+    _ -> case testEquality (typeRep @r) (typeRep @Double) of
       Just Refl -> Dict0
-      _ -> case testEquality (typeRep @r) (typeRep @Int16) of
+      _ -> case testEquality (typeRep @r) (typeRep @Float) of
         Just Refl -> Dict0
-        _ -> case testEquality (typeRep @r) (typeRep @Int8) of
+        _ -> case testEquality (typeRep @r) (typeRep @Z1) of
           Just Refl -> Dict0
-          _ -> case testEquality (typeRep @r) (typeRep @Int) of
+          _ -> case testEquality (typeRep @r) (typeRep @Int64) of
             Just Refl -> Dict0
-            _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+            _ -> case testEquality (typeRep @r) (typeRep @Int32) of
               Just Refl -> Dict0
-              _ -> case testEquality (typeRep @r) (typeRep @Double) of
+              _ -> case testEquality (typeRep @r) (typeRep @Int16) of
                 Just Refl -> Dict0
-                _ -> case testEquality (typeRep @r) (typeRep @Float) of
+                _ -> case testEquality (typeRep @r) (typeRep @Int8) of
                   Just Refl -> Dict0
-                  _ -> case testEquality (typeRep @r) (typeRep @Z1) of
+                  _ -> case testEquality (typeRep @r) (typeRep @CInt) of
                     Just Refl -> Dict0
                     _ -> error "numFromTKAllNum: impossible type"
+
+-- Despite what GHC says, TKAllNum (TKScalar r) is not redundant,
+-- because it ensures the error case can't appear.
+contFromTKAllNum :: forall r a. (Typeable r, TKAllNum (TKScalar r))
+                 => ((Num r, Nested.NumElt r) => Dict GoodScalar r -> a)
+                 -> a
+{-# INLINE contFromTKAllNum #-}  -- takes a function as an argument
+contFromTKAllNum f =
+  case testEquality (typeRep @r) (typeRep @Int) of
+    Just Refl -> f Dict
+    _ -> case testEquality (typeRep @r) (typeRep @Double) of
+      Just Refl -> f Dict
+      _ -> case testEquality (typeRep @r) (typeRep @Float) of
+        Just Refl -> f Dict
+        _ -> case testEquality (typeRep @r) (typeRep @Z1) of
+          Just Refl -> f Dict
+          _ -> case testEquality (typeRep @r) (typeRep @Int64) of
+            Just Refl -> f Dict
+            _ -> case testEquality (typeRep @r) (typeRep @Int32) of
+              Just Refl -> f Dict
+              _ -> case testEquality (typeRep @r) (typeRep @Int16) of
+                Just Refl -> f Dict
+                _ -> case testEquality (typeRep @r) (typeRep @Int8) of
+                  Just Refl -> f Dict
+                  _ -> case testEquality (typeRep @r) (typeRep @CInt) of
+                    Just Refl -> f Dict
+                    _ -> error "contFromTKAllNum: impossible type"
 
 stkUnit :: SingletonTK TKUnit
 stkUnit = STKScalar
