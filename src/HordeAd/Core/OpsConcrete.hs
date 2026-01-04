@@ -781,24 +781,61 @@ manyHotNR (FTKR shRanked x) upd | Dict <- eltDictRep (knownSTK @x)
   Concrete . Nested.mtoRanked <$> Mixed.mvecsUnsafeFreeze sh vecs
 
 tindexZR :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
-         => Concrete (TKR2 (m + n) x) -> IxROf Concrete m -> Concrete (TKR2 n x)
-{-# INLINE tindexZR #-}  -- the function is just a wrapper
-tindexZR v ix | Dict <- eltDictRep (knownSTK @x) =
+         => Concrete (TKR2 (m + n) x) -> IxROf Concrete m
+         -> Concrete (TKR2 n x)
+{-# INLINE tindexZR #-}
+tindexZR v ix = case knownSTK @x of
+  STKScalar @r -> contFromTypeable @r (tindexZRDict v ix)
+  _ -> tindexZRBase v ix
+
+tindexZRBase :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
+             => Concrete (TKR2 (m + n) x) -> IxROf Concrete m
+             -> Concrete (TKR2 n x)
+{-# INLINE tindexZRBase #-}
+tindexZRBase v ix | Dict <- eltDictRep (knownSTK @x) =
   let uv = unConcrete v
   in if ixInBoundsR (shrTake @m $ Nested.rshape uv) ix
      then Concrete $ Nested.rindexPartial uv (fmapUnConcrete ix)
      else case tftk knownSTK v of
        FTKR sh x -> tdefTarget (FTKR (shrDrop @m sh) x)
 
-tindex0R :: GoodScalar r
-         => Concrete (TKR m r) -> IxROf Concrete m -> Concrete (TKScalar r)
-{-# INLINE tindex0R #-}  -- the function is just a wrapper
-tindex0R v ix =
+tindexZRDict :: forall m n r. (KnownNat m, KnownNat n)
+             => Concrete (TKR (m + n) r)
+             -> IxROf Concrete m
+             -> Dict GoodScalar r
+             -> Concrete (TKR n r)
+{-# INLINE [1] tindexZRDict #-}
+tindexZRDict v ix Dict =
+  let uv = unConcrete v
+  in Concrete
+     $ if ixInBoundsR (shrTake @m $ Nested.rshape uv) ix
+       then Nested.rindexPartial uv (fmapUnConcrete ix)
+       else Nested.rreplicatePrim (shrDrop @m (rshape v)) def
+
+tindex0R :: forall m r. GoodScalar r
+         => Concrete (TKR m r) -> IxROf Concrete m
+         -> Concrete (TKScalar r)
+{-# INLINE tindex0R #-}
+tindex0R v ix = contFromTypeable @r (tindex0RDict v ix)
+
+tindex0RBase :: forall m r. GoodScalar r
+             => Concrete (TKR m r) -> IxROf Concrete m
+             -> Concrete (TKScalar r)
+{-# INLINE tindex0RBase #-}
+tindex0RBase v ix =
   let uv = unConcrete v
   in Concrete
      $ if ixInBoundsR (Nested.rshape uv) ix
        then Nested.rindex uv (fmapUnConcrete ix)
        else def
+
+tindex0RDict :: forall m r.
+                Concrete (TKR m r)
+             -> IxROf Concrete m
+             -> Dict GoodScalar r
+             -> Concrete (TKScalar r)
+{-# INLINE [1] tindex0RDict #-}
+tindex0RDict v ix Dict = tindex0RBase v ix
 
 toneHotR :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
          => IShR m -> Concrete (TKR2 n x) -> IxROf Concrete m
@@ -898,10 +935,10 @@ tgatherZR sh t f = case (SNat @n, knownSTK @x) of
                           -> Concrete (TKR (m + n) r1)
           {-# INLINE [1] tgatherTKScalar #-}
           tgatherTKScalar t1 Dict =
-            let g ix = unConcrete $ t1 `trindex0` (f $ fmapConcrete ix)
+            let g ix = unConcrete $ t1 `tindex0RBase` (f $ fmapConcrete ix)
             in Concrete $ Nested.rgeneratePrim sh g
       in contFromTypeable @r (tgatherTKScalar t)
-  _ -> trbuild sh (\ix -> t `trindex` f ix)
+  _ -> trbuild sh (\ix -> t `tindexZRBase` f ix)
 
 tgatherZ1R :: forall n p x. (KnownNat n, KnownNat p, KnownSTK x)
            => Int -> Concrete (TKR2 (p + n) x)
@@ -916,10 +953,10 @@ tgatherZ1R k t f = case (SNat @n, knownSTK @x) of
           {-# INLINE [1] tgatherTKScalar #-}
           tgatherTKScalar t1 Dict =
             let shm = k :$: shrDrop (rshape t)
-                g i = unConcrete $ t1 `trindex0` (f $ Concrete i)
+                g i = unConcrete $ t1 `tindex0RBase` (f $ Concrete i)
             in Concrete $ Nested.rfromVector shm $ VS.generate k g
       in contFromTypeable @r (tgatherTKScalar t)
-  _ -> trbuild1 k (\ix -> t `trindex` f ix)
+  _ -> trbuild1 k (\ix -> t `tindexZRBase` f ix)
 
 tminIndexR
   :: forall r r2 n.
@@ -989,8 +1026,16 @@ manyHotNS x upd | Dict <- eltDictRep (knownSTK @x)
 tindexZS :: forall shm shn x. (KnownShS shm, KnownShS shn, KnownSTK x)
          => Concrete (TKS2 (shm ++ shn) x) -> IxSOf Concrete shm
          -> Concrete (TKS2 shn x)
-{-# INLINE tindexZS #-}  -- the function is just a wrapper
-tindexZS v ix | Dict <- eltDictRep (knownSTK @x) =
+{-# INLINE tindexZS #-}
+tindexZS v ix = case knownSTK @x of
+  STKScalar @r -> contFromTypeable @r (tindexZSDict v ix)
+  _ -> tindexZSBase v ix
+
+tindexZSBase :: forall shm shn x. (KnownShS shm, KnownShS shn, KnownSTK x)
+             => Concrete (TKS2 (shm ++ shn) x) -> IxSOf Concrete shm
+             -> Concrete (TKS2 shn x)
+{-# INLINE tindexZSBase #-}
+tindexZSBase v ix | Dict <- eltDictRep (knownSTK @x) =
   let uv = unConcrete v
   in if ixInBoundsS (knownShS @shm) ix
      then Concrete $ Nested.sindexPartial uv (fmapUnConcrete ix)
@@ -998,15 +1043,43 @@ tindexZS v ix | Dict <- eltDictRep (knownSTK @x) =
                           (knownSTK @x)) v of
             FTKS _sh x -> tdefTarget (FTKS (knownShS @shn) x)
 
+tindexZSDict :: forall shm shn r. (KnownShS shm, KnownShS shn)
+             => Concrete (TKS (shm ++ shn) r)
+             -> IxSOf Concrete shm
+             -> Dict GoodScalar r
+             -> Concrete (TKS shn r)
+{-# INLINE [1] tindexZSDict #-}
+tindexZSDict v ix Dict =
+  let uv = unConcrete v
+  in Concrete
+     $ if ixInBoundsS (knownShS @shm) ix
+       then Nested.sindexPartial uv (fmapUnConcrete ix)
+       else Nested.sreplicatePrim (knownShS @shn) def
+
 tindex0S :: forall sh1 r. GoodScalar r
-         => Concrete (TKS sh1 r) -> IxSOf Concrete sh1 -> Concrete (TKScalar r)
-{-# INLINE tindex0S #-}  -- the function is just a wrapper
-tindex0S v ix =
+         => Concrete (TKS sh1 r) -> IxSOf Concrete sh1
+         -> Concrete (TKScalar r)
+{-# INLINE tindex0S #-}
+tindex0S v ix = contFromTypeable @r (tindex0SDict v ix)
+
+tindex0SBase :: forall sh1 r. GoodScalar r
+             => Concrete (TKS sh1 r) -> IxSOf Concrete sh1
+             -> Concrete (TKScalar r)
+{-# INLINE tindex0SBase #-}
+tindex0SBase v ix =
   let uv = unConcrete v
   in Concrete
      $ if ixInBoundsS (Nested.sshape uv) ix
        then Nested.sindex uv (fmapUnConcrete ix)
        else def
+
+tindex0SDict :: forall sh1 r.
+                Concrete (TKS sh1 r)
+             -> IxSOf Concrete sh1
+             -> Dict GoodScalar r
+             -> Concrete (TKScalar r)
+{-# INLINE [1] tindex0SDict #-}
+tindex0SDict v ix Dict = tindex0SBase v ix
 
 toneHotS :: forall sh1 sh2 x. (KnownShS sh1, KnownShS sh2, KnownSTK x)
          => Concrete (TKS2 sh2 x) -> IxSOf Concrete sh1
@@ -1116,13 +1189,13 @@ tgatherZS @shm @shn @shp @x t f =
                           -> Concrete (TKS (shm ++ shn) r1)
           {-# INLINE [1] tgatherTKScalar #-}
           tgatherTKScalar t1 Dict =
-            tkbuild (\ix -> t1 `tsindex0` f ix)
+            tkbuild (\ix -> t1 `tindex0SBase` f ix)
       in contFromTypeable @r (tgatherTKScalar t)
     _ ->
       withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
       case shsRank (knownShS @shm) of
         SNat -> -- needed only for GHC 9.10
-          tsbuild @_ @(Rank shm) SNat (\ix -> t `tsindex` f ix)
+          tsbuild @_ @(Rank shm) SNat (\ix -> t `tindexZSBase` f ix)
 
 tgatherZ1S
   :: (KnownNat k, KnownShS shn, KnownShS shp, KnownSTK x)
@@ -1137,10 +1210,10 @@ tgatherZ1S @k @shn @shp @x t f = case (knownShS @shn, knownSTK @x) of
                           -> Concrete (TKS (k ': shn) r1)
           {-# INLINE [1] tgatherTKScalar #-}
           tgatherTKScalar t1 Dict =
-            tkbuild1 @_ @k (\ix -> t1 `tsindex0` f ix)
+            tkbuild1 @_ @k (\ix -> t1 `tindex0SBase` f ix)
       in contFromTypeable @r (tgatherTKScalar t)
   _ ->
-    tsbuild1 (\ix -> t `tsindex` f ix)
+    tsbuild1 (\ix -> t `tindexZSBase` f ix)
 
 tminIndexS
   :: forall n sh r r2.
@@ -1263,7 +1336,7 @@ tscatterZX @shm @shn @shp @x sh t f =
        (ZKX, FTKX _ (FTKScalar @r)) | Dict0 <- numFromTKAllNum (Proxy @r)
                                     , Refl <- lemAppNil @shp
                                     , Refl <- lemAppNil @shm -> runST $ do
-         -- Optimized: using (+) instead of taddTarget and using tsindex0.
+         -- Optimized: using (+) instead of taddTarget and using mindex.
          vec <- VSM.replicate (shxSize shp) 0
          forM_ (shxEnum shm) $ \ix -> do
            let ix2 = f $ fmapConcrete ix
