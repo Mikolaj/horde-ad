@@ -861,7 +861,7 @@ tscatterZR sh t f =
       shp = shrTake @p sh
   in case tftk knownSTK t of
        FTKR _ (FTKScalar @r) ->  -- we don't use full dictionary from FTKScalar
-         contFromTKAllNum @r (tscatterZRTKScalar @m @n @p sh t f)
+         contFromTKAllNum @r (tscatterZRDict @m @n @p sh t f)
            -- Optimized: using (+) instead of taddTarget
        FTKR _ x | Dict <- eltDictRep (knownSTK @x) ->
          let ftk = FTKR sh x
@@ -878,15 +878,15 @@ tscatterZR sh t f =
              ivs = foldr g IM.empty (shrEnum shm)
          in manyHotNR ftk $ IM.assocs ivs
 
--- See the comment about tscatterZSTKScalar.
-tscatterZRTKScalar
+-- See the comment about tscatterZSDict.
+tscatterZRDict
   :: (KnownNat m, KnownNat n, KnownNat p, Num r, Nested.NumElt r)
   => IShR (p + n) -> Concrete (TKR (m + n) r)
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Dict GoodScalar r
   -> Concrete (TKR (p + n) r)
-{-# INLINE [1] tscatterZRTKScalar #-}  -- takes a function as an argument
-tscatterZRTKScalar @m @n @p @r sh t f Dict =
+{-# INLINE [1] tscatterZRDict #-}  -- takes a function as an argument
+tscatterZRDict @m @n @p @r sh t f Dict =
   let shm = shrTake @m $ rshape t
       shp = shrTake @p sh
   in case SNat @n of
@@ -930,14 +930,14 @@ tgatherZR :: forall m n p x. (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
 {-# INLINE tgatherZR #-}   -- this function takes a function as an argument
 tgatherZR sh t f = case (SNat @n, knownSTK @x) of
   (SNat' @0, STKScalar @r) ->  -- an optimized common case
-      let tgatherTKScalar :: Concrete (TKR (p + n) r1)
-                          -> Dict GoodScalar r1
-                          -> Concrete (TKR (m + n) r1)
-          {-# INLINE [1] tgatherTKScalar #-}
-          tgatherTKScalar t1 Dict =
+      let tgatherDict :: Concrete (TKR (p + n) r1)
+                      -> Dict GoodScalar r1
+                      -> Concrete (TKR (m + n) r1)
+          {-# INLINE [1] tgatherDict #-}
+          tgatherDict t1 Dict =
             let g ix = unConcrete $ t1 `tindex0RBase` (f $ fmapConcrete ix)
             in Concrete $ Nested.rgeneratePrim sh g
-      in contFromTypeable @r (tgatherTKScalar t)
+      in contFromTypeable @r (tgatherDict t)
   _ -> trbuild sh (\ix -> t `tindexZRBase` f ix)
 
 tgatherZ1R :: forall n p x. (KnownNat n, KnownNat p, KnownSTK x)
@@ -947,15 +947,15 @@ tgatherZ1R :: forall n p x. (KnownNat n, KnownNat p, KnownSTK x)
 {-# INLINE tgatherZ1R #-}   -- this function takes a function as an argument
 tgatherZ1R k t f = case (SNat @n, knownSTK @x) of
   (SNat' @0, STKScalar @r) ->  -- an optimized common case
-      let tgatherTKScalar :: Concrete (TKR (p + n) r1)
-                          -> Dict GoodScalar r1
-                          -> Concrete (TKR (1 + n) r1)
-          {-# INLINE [1] tgatherTKScalar #-}
-          tgatherTKScalar t1 Dict =
+      let tgatherDict :: Concrete (TKR (p + n) r1)
+                      -> Dict GoodScalar r1
+                      -> Concrete (TKR (1 + n) r1)
+          {-# INLINE [1] tgatherDict #-}
+          tgatherDict t1 Dict =
             let shm = k :$: shrDrop (rshape t)
                 g i = unConcrete $ t1 `tindex0RBase` (f $ Concrete i)
             in Concrete $ Nested.rfromVector shm $ VS.generate k g
-      in contFromTypeable @r (tgatherTKScalar t)
+      in contFromTypeable @r (tgatherDict t)
   _ -> trbuild1 k (\ix -> t `tindexZRBase` f ix)
 
 tminIndexR
@@ -1106,7 +1106,7 @@ tscatterZS @shm @shn @shp @x t f =
   in withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
      case tftk knownSTK t of
        FTKS _ (FTKScalar @r) ->  -- we don't use full dictionary from FTKScalar
-         contFromTKAllNum @r (tscatterZSTKScalar @shm @shn @shp t f)
+         contFromTKAllNum @r (tscatterZSDict @shm @shn @shp t f)
            -- Optimized: using (+) instead of taddTarget
        FTKS _ x | Dict <- eltDictRep (ftkToSTK x) ->
          let g :: IIxS shm
@@ -1125,18 +1125,18 @@ tscatterZS @shm @shn @shp @x t f =
 
 -- The inlining phase control and the explicit dictionaryy argument
 -- are required for GHC to consistently specialize the inlined
--- tscatterZSTKScalar code to Int, Double, etc.
+-- tscatterZSDict code to Int, Double, etc.
 -- Phase 99 suffices in GHC 9.14.1, but a later phase is set for a good measure.
--- Maybe what needs to happen is that tscatterZSTKScalar gets specialized
+-- Maybe what needs to happen is that tscatterZSDict gets specialized
 -- before it's inlined.
-tscatterZSTKScalar
+tscatterZSDict
   :: (KnownShS shm, KnownShS shn, KnownShS shp, Num r, Nested.NumElt r)
   => Concrete (TKS (shm ++ shn) r)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Dict GoodScalar r
   -> Concrete (TKS (shp ++ shn) r)
-{-# INLINE [1] tscatterZSTKScalar #-}  -- takes a function as an argument
-tscatterZSTKScalar @shm @shn @shp @r t f Dict =
+{-# INLINE [1] tscatterZSDict #-}  -- takes a function as an argument
+tscatterZSDict @shm @shn @shp @r t f Dict =
   let shm = knownShS @shm
       shp = knownShS @shp
   in case knownShS @shn of
@@ -1184,13 +1184,13 @@ tgatherZS @shm @shn @shp @x t f =
   case (knownShS @shn, knownSTK @x) of
     (ZSS, STKScalar @r) | Refl <- lemAppNil @shm
                         , Refl <- lemAppNil @shp ->  -- an optimized common case
-      let tgatherTKScalar :: Concrete (TKS (shp ++ shn) r1)
-                          -> Dict GoodScalar r1
-                          -> Concrete (TKS (shm ++ shn) r1)
-          {-# INLINE [1] tgatherTKScalar #-}
-          tgatherTKScalar t1 Dict =
+      let tgatherDict :: Concrete (TKS (shp ++ shn) r1)
+                      -> Dict GoodScalar r1
+                      -> Concrete (TKS (shm ++ shn) r1)
+          {-# INLINE [1] tgatherDict #-}
+          tgatherDict t1 Dict =
             tkbuild (\ix -> t1 `tindex0SBase` f ix)
-      in contFromTypeable @r (tgatherTKScalar t)
+      in contFromTypeable @r (tgatherDict t)
     _ ->
       withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
       case shsRank (knownShS @shm) of
@@ -1205,13 +1205,13 @@ tgatherZ1S
 {-# INLINE tgatherZ1S #-}   -- this function takes a function as an argument
 tgatherZ1S @k @shn @shp @x t f = case (knownShS @shn, knownSTK @x) of
   (ZSS, STKScalar @r) | Refl <- lemAppNil @shp ->  -- an optimized common case
-      let tgatherTKScalar :: Concrete (TKS (shp ++ shn) r1)
-                          -> Dict GoodScalar r1
-                          -> Concrete (TKS (k ': shn) r1)
-          {-# INLINE [1] tgatherTKScalar #-}
-          tgatherTKScalar t1 Dict =
+      let tgatherDict :: Concrete (TKS (shp ++ shn) r1)
+                      -> Dict GoodScalar r1
+                      -> Concrete (TKS (k ': shn) r1)
+          {-# INLINE [1] tgatherDict #-}
+          tgatherDict t1 Dict =
             tkbuild1 @_ @k (\ix -> t1 `tindex0SBase` f ix)
-      in contFromTypeable @r (tgatherTKScalar t)
+      in contFromTypeable @r (tgatherDict t)
   _ ->
     tsbuild1 (\ix -> t `tindexZSBase` f ix)
 
