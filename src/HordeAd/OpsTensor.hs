@@ -410,7 +410,8 @@ rgather1 :: (KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
 {-# INLINE rgather1 #-}
 rgather1 = trgather1
 
-sindex, (!$) :: (KnownShS shm, KnownShS shn, KnownSTK x, BaseTensor target)
+sindex, (!$) :: forall shm shn x target.
+                (KnownShS shn, KnownSTK x, BaseTensor target)
              => target (TKS2 (shm ++ shn) x) -> IxSOf target shm
              -> target (TKS2 shn x)
 sindex = tsindex

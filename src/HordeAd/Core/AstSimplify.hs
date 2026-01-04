@@ -82,9 +82,10 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, Perm (..), TakeLen, permInverse)
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types
-  (Head, Init, Last, Tail, fromSNat', snatMinus, snatPlus, unsafeCoerceRefl)
+  (Head, Init, Last, Tail, fromSNat', snatPlus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
   ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
@@ -1737,11 +1738,8 @@ astIndexKnobsS knobs shn v0 (Ast.AstCond b i1 i2 :.$ rest0)
     astCond b (astIndexKnobsS knobs shn v (i1 :.$ rest))
               (astIndexKnobsS knobs shn v (i2 :.$ rest))
 astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
- | FTKS shmshn x <- ftkAst v0
- , SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) =
- gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
- gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
- case shsTake @(Rank shm) shmshn of
+ | FTKS shmshn x <- ftkAst v0 =
+ case Shaped.shsTakeIx @shn @shm Proxy shmshn ix of
   SNat @in1 :$$ (_ :: ShS shm1) ->
    let astIndex
          :: forall shm' shn' s' r'. AstSpan s'

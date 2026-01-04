@@ -28,8 +28,9 @@ import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (Perm (..))
 import Data.Array.Nested.Permutation qualified as Permutation
+import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (fromSNat', snatMinus, unsafeCoerceRefl)
+import Data.Array.Nested.Types (fromSNat', unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
   ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
@@ -677,15 +678,12 @@ contractAst t0 = case t0 of
                 (var, v@(Ast.AstSum n _
                            (AstTimesS
                               t2
-                              (Ast.AstIndexS @shm @shn shn
-                                 u ((AstIntVar var2 :.$ ZIS))))))
+                              (Ast.AstIndexS @shm @shn _shn
+                                 u (ix@(AstIntVar var2 :.$ ZIS))))))
     | var == var2
     , not (varNameInAst var t2), not (varNameInAst var u)
-    , FTKS shmshn _ <- ftkAst u
-    , SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
-      gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-      gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
-      withKnownShS (shsTake @(Rank shm) shmshn) $
+    , FTKS shmshn _ <- ftkAst u ->
+      withKnownShS (Shaped.shsTakeIx @shn @shm Proxy shmshn ix) $
       case knownShS @shm of
         snat2 :$$ _ | Just Refl <- testEquality snat snat2 ->
           astDot1InS (snat :$$ ZSS) n
@@ -699,16 +697,13 @@ contractAst t0 = case t0 of
                            (Ast.AstReshapeS
                               _sh (AstTimesS
                                       t2
-                                     (Ast.AstIndexS @shm @shn shn
-                                        u ((AstIntVar var2 :.$ ZIS)))))))
+                                     (Ast.AstIndexS @shm @shn _shn
+                                        u (ix@(AstIntVar var2 :.$ ZIS)))))))
     | ftk2@(FTKS (n :$$ ZSS) _) <- ftkAst t2
     , var == var2
     , not (varNameInAst var t2), not (varNameInAst var u)
-    , FTKS shmshn _ <- ftkAst u
-    , SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
-      gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-      gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
-      withKnownShS (shsTake @(Rank shm) shmshn) $
+    , FTKS shmshn _ <- ftkAst u ->
+      withKnownShS (Shaped.shsTakeIx @shn @shm Proxy shmshn ix) $
       case knownShS @shm of
         snat2 :$$ _ | Just Refl <- testEquality snat snat2 ->
           astDot1InS (snat :$$ ZSS) n

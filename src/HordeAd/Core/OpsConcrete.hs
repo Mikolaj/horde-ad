@@ -1006,7 +1006,7 @@ manyHotNS x upd | Dict <- eltDictRep (knownSTK @x)
 -- Note that after vectorization, the index may not fit within
 -- the type-level shape, which we catch in the @ixInBounds@
 -- and return def, so it's fine. Similarly in gather and scatter.
-tindexZS :: forall shm shn x. (KnownShS shm, KnownShS shn, KnownSTK x)
+tindexZS :: forall shm shn x. (KnownShS shn, KnownSTK x)
          => Concrete (TKS2 (shm ++ shn) x) -> IxSOf Concrete shm
          -> Concrete (TKS2 shn x)
 {-# INLINE tindexZS #-}
@@ -1014,19 +1014,18 @@ tindexZS v ix = case knownSTK @x of
   STKScalar @r -> contFromTypeable @r (tindexZSDict v ix)
   _ -> tindexZSBase v ix
 
-tindexZSBase :: forall shm shn x. (KnownShS shm, KnownShS shn, KnownSTK x)
+tindexZSBase :: forall shm shn x. (KnownShS shn, KnownSTK x)
              => Concrete (TKS2 (shm ++ shn) x) -> IxSOf Concrete shm
              -> Concrete (TKS2 shn x)
 {-# INLINE tindexZSBase #-}
 tindexZSBase v ix | Dict <- eltDictRep (knownSTK @x) =
   let uv = unConcrete v
-  in if ixInBoundsS (knownShS @shm) ix
+  in if ixInBoundsS (Shaped.shsTakeIx @shn @shm Proxy (sshape v) ix) ix
      then Concrete $ Nested.sindexPartial uv (fmapUnConcrete ix)
-     else case tftk (STKS (knownShS @shm `shsAppend` knownShS @shn)
-                          (knownSTK @x)) v of
+     else case tftk (STKS (sshape v) (knownSTK @x)) v of
             FTKS _sh x -> tdefTarget (FTKS (knownShS @shn) x)
 
-tindexZSDict :: forall shm shn r. (KnownShS shm, KnownShS shn)
+tindexZSDict :: forall shm shn r. KnownShS shn
              => Concrete (TKS (shm ++ shn) r)
              -> IxSOf Concrete shm
              -> Dict GoodScalar r
@@ -1035,7 +1034,7 @@ tindexZSDict :: forall shm shn r. (KnownShS shm, KnownShS shn)
 tindexZSDict v ix Dict =
   let uv = unConcrete v
   in Concrete
-     $ if ixInBoundsS (knownShS @shm) ix
+     $ if ixInBoundsS (Shaped.shsTakeIx @shn @shm Proxy (sshape v) ix) ix
        then Nested.sindexPartial uv (fmapUnConcrete ix)
        else Nested.sreplicatePrim (knownShS @shn) def
 
@@ -1156,12 +1155,12 @@ tscatterZSDict @shm @shn @shp @r t f Dict =
          Concrete . Nested.sfromVector (shp `shsAppend` shn)
            <$> VS.unsafeFreeze vec
 
-tgatherZS :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x)
+tgatherZS :: forall shm shn shp x. (KnownShS shm, KnownShS shn, KnownSTK x)
           => Concrete (TKS2 (shp ++ shn) x)
           -> (IxSOf Concrete shm -> IxSOf Concrete shp)
           -> Concrete (TKS2 (shm ++ shn) x)
 {-# INLINE tgatherZS #-}  -- this function takes a function as an argument
-tgatherZS @shm @shn @shp @x t f =
+tgatherZS t f =
   gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
   gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
   case (knownShS @shn, knownSTK @x) of
@@ -1181,12 +1180,12 @@ tgatherZS @shm @shn @shp @x t f =
           tsbuild @_ @(Rank shm) SNat (\ix -> t `tindexZSBase` f ix)
 
 tgatherZ1S
-  :: (KnownNat k, KnownShS shn, KnownShS shp, KnownSTK x)
+  :: forall k shn shp x. (KnownNat k, KnownShS shn, KnownSTK x)
   => Concrete (TKS2 (shp ++ shn) x)
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS2 (k ': shn) x)
 {-# INLINE tgatherZ1S #-}   -- this function takes a function as an argument
-tgatherZ1S @k @shn @shp @x t f = case (knownShS @shn, knownSTK @x) of
+tgatherZ1S t f = case (knownShS @shn, knownSTK @x) of
   (ZSS, STKScalar @r) | Refl <- lemAppNil @shp ->  -- an optimized common case
       let tgatherDict :: Concrete (TKS (shp ++ shn) r1)
                       -> Dict GoodScalar r1

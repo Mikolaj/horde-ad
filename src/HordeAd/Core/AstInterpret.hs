@@ -20,11 +20,10 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
 
-import Data.Array.Nested (type (++))
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (snatMinus, unsafeCoerceRefl)
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -171,11 +170,8 @@ interpretAstPrimal !env v1 = case v1 of
           _ -> tscast @_ @Float $ interpretAstPrimal env v
         _ -> tscast $ interpretAstPrimal env v
 
-  AstIndexS @shm @shn shn v ix -> case ftkToSTK (ftkAst v) of
-    STKS shmshn x | SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
-      gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-      gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
-      withKnownShS (shsTake @(Rank shm) shmshn) $
+  AstIndexS @shm shn v ix -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
       withKnownShS shn $
       withKnownSTK x $
       let v2 = interpretAstPrimal env v
@@ -401,11 +397,8 @@ interpretAstPlain !env v1 = case v1 of
           _ -> tscast @_ @Float $ interpretAstPlain env v
         _ -> tscast $ interpretAstPlain env v
 
-  AstIndexS @shm @shn shn v ix -> case ftkToSTK (ftkAst v) of
-    STKS shmshn x | SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
-      gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-      gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
-      withKnownShS (shsTake @(Rank shm) shmshn) $
+  AstIndexS @shm shn v ix -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
       withKnownShS shn $
       withKnownSTK x $
       let v2 = interpretAstPlain env v
@@ -764,11 +757,8 @@ interpretAst !env = \case
           _ -> tscast @_ @Float $ interpretAst env v
         _ -> tscast $ interpretAst env v
 
-  AstIndexS @shm @shn shn v ix -> case ftkToSTK (ftkAst v) of
-    STKS shmshn x | SNat @rankshn <- snatMinus (shsRank shmshn) (shsRank shn) ->
-      gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-      gcastWith (unsafeCoerceRefl:: Take (Rank shm) (shm ++ shn) :~: shm) $
-      withKnownShS (shsTake @(Rank shm) shmshn) $
+  AstIndexS @shm shn v ix -> case ftkToSTK (ftkAst v) of
+    STKS _ x ->
       withKnownShS shn $
       withKnownSTK x $
       let v2 = interpretAst env v

@@ -27,8 +27,9 @@ import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (Tail, snatMinus, unsafeCoerceRefl)
+import Data.Array.Nested.Types (Tail, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast (AstTensor)
 import HordeAd.Core.Ast hiding (AstTensor (..))
@@ -416,14 +417,9 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix1)
              ruleD :: AstTensor AstMethodLet s (TKS2 (k ': shn) x)
              ruleD | FTKS shmshn1 _ <- ftkAst v1 =
-               case snatMinus (shsRank shmshn1) (shsRank shn1) of
-                 SNat @rankshn1 ->
-                   gcastWith (unsafeCoerceRefl :: Rank shm1 :~: rankshn1) $
-                   withKnownShS (shsTake @(Rank shm1) shmshn1) $
-                   gcastWith (unsafeCoerceRefl
-                              :: Take (Rank shm1) (shm1 ++ shn1) :~: shm1) $
-                   astGatherS shn1 (build1VOccurrenceUnknown k (var, v1))
-                              (varFresh ::$ ZS, astVarFresh :.$ ix2)
+               withKnownShS (Shaped.shsTakeIx @shn1 @shm1 Proxy shmshn1 ix2) $
+               astGatherS shn1 (build1VOccurrenceUnknown k (var, v1))
+                          (varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = ixsLength ix1
              pickRuleD :: AstTensor AstMethodLet s2 y2 -> Bool
              pickRuleD = \case  -- try to avoid ruleD if not a normal form
@@ -451,13 +447,9 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
        v -> traceRule $
          build1VOccurrenceUnknown k (var, v)
            -- peel off yet another constructor
-     else traceRule $ case snatMinus (shsRank shmshn) (shsRank shn) of
-            SNat @rankshn ->
-              gcastWith (unsafeCoerceRefl :: Rank shm :~: rankshn) $
-              withKnownShS (shsTake @(Rank shm) shmshn) $
-              gcastWith (unsafeCoerceRefl
-                         :: Take (Rank shm) (shm ++ shn) :~: shm) $
-              astGatherS shn v0 (var ::$ ZS, ix)
+     else traceRule $
+            withKnownShS (Shaped.shsTakeIx @shn @shm Proxy shmshn ix) $
+            astGatherS shn v0 (var ::$ ZS, ix)
 
 build1VHFun
   :: forall k x z s s2. (AstSpan s, AstSpan s2)

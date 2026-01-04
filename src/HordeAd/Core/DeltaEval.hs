@@ -907,7 +907,6 @@ evalFwd params s d0 = case d0 of
     FTKS sh x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       withKnownShS shn $
-      withKnownShS (Shaped.shsTakeIx @shn @shm Proxy sh ix) $
       second (`tsindex` ix) $ evalFwd params s d
   DeltaScatterS @shm @shn shm shn shp d f -> case ftkDelta d of
     FTKS _ x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->

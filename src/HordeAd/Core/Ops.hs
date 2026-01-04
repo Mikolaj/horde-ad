@@ -651,7 +651,7 @@ class ( Num (IntOf target)
                              (k :$: shrDrop (rshape v)) v
                              (\(i :.: ZIR) -> f i)
 
-  tsindex :: (KnownShS shm, KnownShS shn, KnownSTK x)
+  tsindex :: forall shm shn x. (KnownShS shn, KnownSTK x)
           => target (TKS2 (shm ++ shn) x) -> IxSOf target shm
           -> target (TKS2 shn x)
   tsindex0 :: forall sh1 r. GoodScalar r
