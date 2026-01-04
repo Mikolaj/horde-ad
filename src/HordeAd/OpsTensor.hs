@@ -379,6 +379,7 @@ rscatter :: ( KnownNat m, KnownNat n, KnownNat p, TKAllNum x, KnownSTK x
          => IShR (p + n) -> target (TKR2 (m + n) x)
          -> (IxROf target m -> IxROf target p)
          -> target (TKR2 (p + n) x)
+{-# INLINE rscatter #-}
 rscatter = trscatter
 -- | Build a tensor by adding up tensors of rank @n@ taken from
 -- the second argument and inserted in a zero tensor
@@ -390,11 +391,13 @@ rscatter1 :: ( KnownNat n, KnownNat p, TKAllNum x, KnownSTK x
           => IShR (p + n) -> target (TKR2 (1 + n) x)
           -> (IntOf target -> IxROf target p)
           -> target (TKR2 (p + n) x)
+{-# INLINE rscatter1 #-}
 rscatter1 = trscatter1
 rgather :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
         => IShR (m + n) -> target (TKR2 (p + n) x)
         -> (IxROf target m -> IxROf target p)
         -> target (TKR2 (m + n) x)
+{-# INLINE rgather #-}
 rgather = trgather
 -- | Build a tensor by collecting tensors of rank @n@ obtained by indexing
 -- in the second argument at the given indexes of length @p@.
@@ -404,6 +407,7 @@ rgather1 :: (KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
          => Int -> target (TKR2 (p + n) x)
          -> (IntOf target -> IxROf target p)
          -> target (TKR2 (1 + n) x)
+{-# INLINE rgather1 #-}
 rgather1 = trgather1
 
 sindex, (!$) :: (KnownShS shm, KnownShS shn, KnownSTK x, BaseTensor target)
@@ -427,6 +431,7 @@ sscatter
   => target (TKS2 (shm ++ shn) x)
   -> (IxSOf target shm -> IxSOf target shp)
   -> target (TKS2 (shp ++ shn) x)
+{-# INLINE sscatter #-}
 sscatter @shm @shn @shp = tsscatter @_ @shm @shn @shp
 sscatter1
   :: ( KnownNat n2, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x
@@ -434,18 +439,21 @@ sscatter1
   => target (TKS2 (n2 ': shn) x)
   -> (IntOf target -> IxSOf target shp)
   -> target (TKS2 (shp ++ shn) x)
+{-# INLINE sscatter1 #-}
 sscatter1 = tsscatter1
 sgather
   :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x, BaseTensor target)
   => target (TKS2 (shp ++ shn) x)
   -> (IxSOf target shm -> IxSOf target shp)
   -> target (TKS2 (shm ++ shn) x)
+{-# INLINE sgather #-}
 sgather @shm @shn @shp = tsgather @_ @shm @shn @shp
 sgather1
   :: (KnownNat n2, KnownShS shn, KnownShS shp, KnownSTK x, BaseTensor target)
   => target (TKS2 (shp ++ shn) x)
   -> (IntOf target -> IxSOf target shp)
   -> target (TKS2 (n2 ': shn) x)
+{-# INLINE sgather1 #-}
 sgather1 = tsgather1
 
 xindex :: (KnownShX sh1, KnownShX sh2, KnownSTK x, BaseTensor target)
@@ -467,12 +475,14 @@ xscatter :: ( KnownShX shm, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x
          => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) x)
          -> (IxXOf target shm -> IxXOf target shp)
          -> target (TKX2 (shp ++ shn) x)
+{-# INLINE xscatter #-}
 xscatter @shm @shn @shp = txscatter @_ @shm @shn @shp
 xscatter1 :: ( KnownNat n2, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x
              , BaseTensor target )
           => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) x)
           -> (IntOf target -> IxXOf target shp)
           -> target (TKX2 (shp ++ shn) x)
+{-# INLINE xscatter1 #-}
 xscatter1 = txscatter1
 xgather :: ( KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x
            , BaseTensor target )
@@ -480,12 +490,14 @@ xgather :: ( KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x
         -> target (TKX2 (shp ++ shn) x)
         -> (IxXOf target shm -> IxXOf target shp)
         -> target (TKX2 (shm ++ shn) x)
+{-# INLINE xgather #-}
 xgather @shm @shn @shp = txgather @_ @shm @shn @shp
 xgather1 :: ( KnownNat n2, KnownShX shn, KnownShX shp, KnownSTK x
             , BaseTensor target )
          => SNat n2 -> target (TKX2 (shp ++ shn) x)
          -> (IntOf target -> IxXOf target shp)
          -> target (TKX2 (Just n2 ': shn) x)
+{-# INLINE xgather1 #-}
 xgather1 = txgather1
 
 -- | Transpose according to the permutation.
@@ -674,16 +686,19 @@ xreverse = txreverse
 kbuild1 :: (KnownNat k, GoodScalar r, BaseTensor target)
         => (IntOf target -> target (TKScalar r))
         -> target (TKS '[k] r)
+{-# INLINE kbuild1 #-}
 kbuild1 = tkbuild1
 kbuild :: (KnownShS sh, GoodScalar r, BaseTensor target, ConvertTensor target)
        => (IxSOf target sh -> target (TKScalar r))
        -> target (TKS sh r)
+{-# INLINE  kbuild#-}
 kbuild = tkbuild
 
 rbuild1 :: (KnownNat n, KnownSTK x, BaseTensor target)
         => Int  -- ^ width of the outermost dimension of the created tensor
         -> (IntOf target -> target (TKR2 n x))  -- ^ the function to build with
         -> target (TKR2 (1 + n) x)
+{-# INLINE rbuild1 #-}
 rbuild1 = trbuild1
 -- | Building a tensor (also known as @generate@ and @tabulate@).
 -- The resulting tensor should have no zero dimensions.
@@ -694,6 +709,7 @@ rbuild :: (KnownNat m, KnownNat n, KnownSTK x, BaseTensor target)
        -> (IxROf target m -> target (TKR2 n x))
             -- ^ the function to build with
        -> target (TKR2 (m + n) x)
+{-# INLINE rbuild #-}
 rbuild = trbuild
 rmap :: (KnownNat m, KnownNat n, KnownSTK x, KnownSTK x2, BaseTensor target)
      => (target (TKR2 n x) -> target (TKR2 n x2))  -- ^ the function to map with
@@ -820,6 +836,7 @@ rzipWith40N f u v w x =
 sbuild1 :: (KnownNat k, KnownShS sh, KnownSTK x, BaseTensor target)
         => (IntOf target -> target (TKS2 sh x))  -- ^ the function to build with
         -> target (TKS2 (k ': sh) x)
+{-# INLINE sbuild1 #-}
 sbuild1 = tsbuild1
 sbuild :: ( KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh, KnownSTK x
           , BaseTensor target
@@ -827,6 +844,7 @@ sbuild :: ( KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh, KnownSTK x
        => (IxSOf target (Take m sh) -> target (TKS2 (Drop m sh) x))
             -- ^ the function to build with
        -> target (TKS2 sh x)
+{-# INLINE sbuild #-}
 sbuild @m = tsbuild @_ @m SNat
 smap :: ( KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh
         , KnownSTK x, KnownSTK x2
@@ -984,6 +1002,7 @@ szipWith40N @sh f u v w x | Refl <- lemAppNil @sh =
 xbuild1 :: (KnownNat k, KnownShX sh, KnownSTK x, BaseTensor target)
         => (IntOf target -> target (TKX2 sh x))  -- ^ the function to build with
         -> target (TKX2 (Just k ': sh) x)
+{-# INLINE xbuild1 #-}
 xbuild1 = txbuild1
 xbuild :: ( KnownShX (Take m sh), KnownShX (Drop m sh), KnownSTK x
           , BaseTensor target, ConvertTensor target
@@ -992,6 +1011,7 @@ xbuild :: ( KnownShX (Take m sh), KnownShX (Drop m sh), KnownSTK x
        -> (IxXOf target (Take m sh) -> target (TKX2 (Drop m sh) x))
             -- ^ the function to build with
        -> target (TKX2 sh x)
+{-# INLINE xbuild #-}
 xbuild @m = txbuild @_ @m SNat
 -- xmap and other special cases of build can be defined by the user.
 
@@ -1072,6 +1092,7 @@ kgrad :: forall x r target. (GoodScalar r, BaseTensor target)
       -> FullShapeTK x  -- ^ shape of x and dx
       -> target x  -- ^ input x
       -> target (ADTensorKind x)  -- ^ gradient dx
+{-# INLINE kgrad #-}
 kgrad f xftk =
   \ !es -> tapply (tgrad @target xftk (HFun f)) es
 rvjp :: forall n x r target. BaseTensor target
@@ -1080,6 +1101,7 @@ rvjp :: forall n x r target. BaseTensor target
      -> target x  -- ^ input x
      -> target (ADTensorKind (TKR2 n r))  -- ^ incoming cotangent dz
      -> target (ADTensorKind x)  -- ^ gradient dx
+{-# INLINE rvjp #-}
 rvjp f xftk =
   \ !es !dt -> tapply (tvjp @target xftk $ HFun f) (tpair dt es)
 rjvp :: forall n x r target. BaseTensor target
@@ -1088,6 +1110,7 @@ rjvp :: forall n x r target. BaseTensor target
      -> target x  -- ^ input x
      -> target (ADTensorKind x)  -- ^ incoming tangent dx
      -> target (ADTensorKind (TKR2 n r))  -- ^ derivative dz
+{-# INLINE rjvp #-}
 rjvp f xftk =
   \ !es !ds -> tapply (tjvp @target xftk $ HFun f) (tpair ds es)
 svjp :: forall sh x r target. BaseTensor target
@@ -1096,6 +1119,7 @@ svjp :: forall sh x r target. BaseTensor target
      -> target x  -- ^ input x
      -> target (ADTensorKind (TKS2 sh r))  -- ^ incoming cotangent dz
      -> target (ADTensorKind x)  -- ^ gradient dx
+{-# INLINE svjp #-}
 svjp f xftk =
   \ !es !dt -> tapply (tvjp @target xftk $ HFun f) (tpair dt es)
 sjvp :: forall sh x r target. BaseTensor target
@@ -1104,6 +1128,7 @@ sjvp :: forall sh x r target. BaseTensor target
      -> target x  -- ^ input x
      -> target (ADTensorKind x)  -- ^ incoming tangent dx
      -> target (ADTensorKind (TKS2 sh r))  -- ^ derivative dz
+{-# INLINE sjvp #-}
 sjvp f xftk =
   \ !es !ds -> tapply (tjvp @target xftk $ HFun f) (tpair ds es)
 

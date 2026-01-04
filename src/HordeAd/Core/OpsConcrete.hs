@@ -136,7 +136,6 @@ instance BaseTensor Concrete where
   {-# INLINE txunravelToList #-}
   txunravelToList @_ @_ @x | Dict <- eltDictRep (knownSTK @x) =
     fmapConcrete . Nested.mtoListOuter . unConcrete
-  {-# INLINE tfromVector #-}
   tfromVector snat@SNat stk v = case stk of
     STKScalar -> Concrete $ Nested.sfromList1Prim snat
                  $ fmapUnConcrete $ V.toList v
@@ -146,7 +145,6 @@ instance BaseTensor Concrete where
     STKProduct stk1 stk2 ->
       let (v1, v2) = V.unzip $ V.map tunpair v
       in tpair (tfromVector snat stk1 v1) (tfromVector snat stk2 v2)
-  {-# INLINE tfromList #-}
   tfromList snat@SNat stk l = case stk of
     STKScalar -> Concrete $ Nested.sfromList1Prim snat $ fmapUnConcrete l
     STKR SNat x | Dict <- eltDictRep x ->
@@ -164,7 +162,6 @@ instance BaseTensor Concrete where
     STKProduct stk1 stk2 ->
       let (l1, l2) = unzip $ map tunpair l
       in tpair (tfromList snat stk1 l1) (tfromList snat stk2 l2)
-  {-# INLINE trsum #-}
   trsum t = case tftk knownSTK t of
     FTKR _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
       Concrete . Nested.rsumOuter1Prim . unConcrete $ t  -- optimized
@@ -180,9 +177,7 @@ instance BaseTensor Concrete where
   trdot0 u v = Concrete $ Nested.rdot (unConcrete u) (unConcrete v)
   {-# INLINE trdot1In #-}
   trdot1In u v = Concrete $ Nested.rdot1Inner (unConcrete u) (unConcrete v)
-  {-# INLINE trmatvecmul #-}
   trmatvecmul m v = trdot1In m (trreplicate (rwidth m) v)
-  {-# INLINE trmatmul2 #-}
   trmatmul2 m1 m2 = case rshape m2 of
     _ :$: width2 :$: ZSR ->
       trdot1In (trtranspose [1, 0] (trreplicate width2 m1))
@@ -193,7 +188,6 @@ instance BaseTensor Concrete where
   {-# INLINE trreplicate0N #-}
   trreplicate0N @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.rreplicate sh . unConcrete
-  {-# INLINE tssum #-}
   tssum t = case tftk knownSTK t of
     FTKS _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
       Concrete . Nested.ssumOuter1Prim . unConcrete $ t  -- optimized
@@ -208,9 +202,7 @@ instance BaseTensor Concrete where
   {-# INLINE tsdot1In #-}
   tsdot1In @_ (SNat @n) u v =
     Concrete $ Nested.sdot1Inner (Proxy @n) (unConcrete u) (unConcrete v)
-  {-# INLINE tsmatvecmul #-}
   tsmatvecmul m v = tsdot1In SNat m (tsreplicate SNat knownShS v)
-  {-# INLINE tsmatmul2 #-}
   tsmatmul2 m1 m2 =
     tsdot1In SNat
              (tstranspose (Permutation.makePerm @'[1, 0])
@@ -224,7 +216,6 @@ instance BaseTensor Concrete where
   tsreplicate0N @sh @x sh | Refl <- lemAppNil @sh
                           , Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.sreplicate sh . unConcrete
-  {-# INLINE txsum #-}
   txsum t = case tftk knownSTK t of
     FTKX _ (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
       Concrete . Nested.msumOuter1Prim . unConcrete $ t  -- optimized
@@ -239,7 +230,6 @@ instance BaseTensor Concrete where
   {-# INLINE txdot1In #-}
   txdot1In @_ (SNat @n) u v =
     Concrete $ Nested.mdot1Inner (Proxy @(Just n)) (unConcrete u) (unConcrete v)
-  {-# INLINE txmatvecmul #-}
   txmatvecmul mm mn m v =
     withKnownShX (ssxFromShX $ mn :$% ZSX) $
     withKnownShX (ssxFromShX $ mm :$% mn :$% ZSX) $
@@ -252,7 +242,6 @@ instance BaseTensor Concrete where
                     * xmcast (ssxFromShX (Nested.SKnown (SNat @m)
                                             :$% Nested.SKnown (SNat @n)
                                             :$% ZSX)) m))
-  {-# INLINE txmatmul2 #-}
   txmatmul2 m1 m2 =
     txdot1In SNat
              (txtranspose (Permutation.makePerm @'[1, 0])
@@ -297,9 +286,7 @@ instance BaseTensor Concrete where
   trfromIntegral = Concrete . liftVR (V.map fromIntegral) . unConcrete
   {-# INLINE trcast #-}
   trcast = Concrete . liftVR (V.map realToFrac) . unConcrete
-  {-# INLINE trminIndex #-}
   trminIndex = Concrete . tminIndexR . unConcrete
-  {-# INLINE trmaxIndex #-}
   trmaxIndex = Concrete . tmaxIndexR . unConcrete
   {-# INLINE triota #-}
   triota n = trfromIntegral $ Concrete $ Nested.riota @Int n
@@ -309,9 +296,7 @@ instance BaseTensor Concrete where
   tsfromIntegral = Concrete . liftVS (V.map fromIntegral) . unConcrete
   {-# INLINE tscast #-}
   tscast = Concrete . liftVS (V.map realToFrac) . unConcrete
-  {-# INLINE tsminIndex #-}
   tsminIndex = Concrete . tminIndexS . unConcrete
-  {-# INLINE tsmaxIndex #-}
   tsmaxIndex = Concrete . tmaxIndexS . unConcrete
   {-# INLINE tsiota #-}
   tsiota @n = tsfromIntegral $ Concrete $ Nested.siota @Int (SNat @n)
@@ -321,9 +306,7 @@ instance BaseTensor Concrete where
   txfromIntegral = Concrete . liftVX (V.map fromIntegral) . unConcrete
   {-# INLINE txcast #-}
   txcast = Concrete . liftVX (V.map realToFrac) . unConcrete
-  {-# INLINE txminIndex #-}
   txminIndex = Concrete . tminIndexX . unConcrete
-  {-# INLINE txmaxIndex #-}
   txmaxIndex = Concrete . tmaxIndexX . unConcrete
   {-# INLINE txiota #-}
   txiota @n = txfromIntegral $ Concrete $ Nested.miota @Int (SNat @n)
