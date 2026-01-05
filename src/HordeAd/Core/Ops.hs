@@ -63,25 +63,31 @@ import HordeAd.Core.Types
 
 rtr :: forall n x target. (KnownSTK x, BaseTensor target)
     => target (TKR2 (2 + n) x) -> target (TKR2 (2 + n) x)
+{-# INLINE rtr #-}
 rtr = trtranspose [1, 0]
 rflatten :: forall n x target. (KnownSTK x, BaseTensor target)
          => target (TKR2 n x) -> target (TKR2 1 x)
+{-# INLINE rflatten #-}
 rflatten u = trreshape (rsize u :$: ZSR) u
 str :: forall n m sh x target. (KnownSTK x, BaseTensor target)
     => target (TKS2 (n ': m ': sh) x) -> target (TKS2 (m ': n ': sh) x)
+{-# INLINE str #-}
 str = gcastWith (unsafeCoerceRefl :: (2 <=? Rank (n ': m ': sh)) :~: True) $
       tstranspose (Permutation.makePerm @'[1, 0])
 sflatten :: (KnownShS sh, KnownSTK x, BaseTensor target )
          => target (TKS2 sh x) -> target (TKS2 '[Product sh] x)
+{-# INLINE sflatten #-}
 sflatten @sh | SNat <- shsProduct (knownShS @sh) = tsreshape knownShS
 xtr :: forall n m sh x target. (KnownSTK x, BaseTensor target)
     => target (TKX2 (Just n ': Just m ': sh) x)
     -> target (TKX2 (Just m ': Just n ': sh) x)
+{-# INLINE xtr #-}
 xtr = gcastWith (unsafeCoerceRefl
                  :: (2 <=? Rank (Just n ': Just m ': sh)) :~: True) $
       txtranspose (Permutation.makePerm @'[1, 0])
 xflatten :: forall sh x target. (KnownSTK x, BaseTensor target)
          => target (TKX2 sh x) -> target (TKX2 '[Nothing] x)
+{-# INLINE xflatten #-}
 xflatten u = txreshape (Nested.SUnknown (xsize u) :$% ZSX) u
 
 -- | A strict right mapAccum.
@@ -331,12 +337,15 @@ class ( Num (IntOf target)
          => target (TKR2 n x) -> IShR n
   rlength :: forall n x. KnownSTK x
           => target (TKR2 n x) -> Int
+  {-# INLINE rlength #-}
   rlength = shrLength . rshape
   rsize :: forall n x. KnownSTK x
         => target (TKR2 n x) -> Int
+  {-# INLINE rsize #-}
   rsize = shrSize . rshape
   rwidth :: forall n x. KnownSTK x
-          => target (TKR2 (1 + n) x) -> Int
+         => target (TKR2 (1 + n) x) -> Int
+  {-# INLINE rwidth #-}
   rwidth a = case rshape a of
     k :$: _ -> k
 
@@ -344,12 +353,15 @@ class ( Num (IntOf target)
          => target (TKS2 sh x) -> ShS sh
   slength :: forall sh x. KnownSTK x
           => target (TKS2 sh x) -> Int
+  {-# INLINE slength #-}
   slength = shsLength . sshape
   ssize :: forall sh x. KnownSTK x
         => target (TKS2 sh x) -> Int
+  {-# INLINE ssize #-}
   ssize = shsSize . sshape
   swidth :: forall n sh x. KnownSTK x
-          => target (TKS2 (n ': sh) x) -> Int
+         => target (TKS2 (n ': sh) x) -> Int
+  {-# INLINE swidth #-}
   swidth a = case sshape a of
     n :$$ _ -> fromSNat' n
 
@@ -357,12 +369,15 @@ class ( Num (IntOf target)
          => target (TKX2 sh x) -> IShX sh
   xlength :: forall sh x. KnownSTK x
           => target (TKX2 sh x) -> Int
+  {-# INLINE xlength #-}
   xlength = shxLength . xshape
   xsize :: forall sh x. KnownSTK x
         => target (TKX2 sh x) -> Int
+  {-# INLINE xsize #-}
   xsize = shxSize . xshape
   xwidth :: forall mn sh x. KnownSTK x
-          => target (TKX2 (mn ': sh) x) -> Int
+         => target (TKX2 (mn ': sh) x) -> Int
+  {-# INLINE xwidth #-}
   xwidth a = case xshape a of
     mn :$% _ -> fromSMayNat' mn
 
@@ -610,6 +625,7 @@ class ( Num (IntOf target)
               , EqH (PlainOf target) (TKScalar Int))
            => IShR m -> target (TKR2 n x) -> IxROf target m
            -> target (TKR2 (m + n) x)
+  {-# INLINE troneHot #-}
   troneHot sh v ix =
     trscatter @_ @0 (shrAppend sh (rshape v)) v (const ix)
       -- this code is often better for differentiable contexts, because
@@ -638,6 +654,7 @@ class ( Num (IntOf target)
              => IShR (p + n) -> target (TKR2 (1 + n) x)
              -> (IntOf target -> IxROf target p)
              -> target (TKR2 (p + n) x)
+  {-# INLINE trscatter1 #-}
   trscatter1 sh v f = trscatter @target @1 sh v (\(i :.: ZIR) -> f i)
   trgather :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
            => IShR (m + n) -> target (TKR2 (p + n) x)
@@ -647,6 +664,7 @@ class ( Num (IntOf target)
             => Int -> target (TKR2 (p + n) x)
             -> (IntOf target -> IxROf target p)
             -> target (TKR2 (1 + n) x)
+  {-# INLINE trgather1 #-}
   trgather1 k v f = trgather @target @1
                              (k :$: shrDrop (rshape v)) v
                              (\(i :.: ZIR) -> f i)
@@ -661,6 +679,7 @@ class ( Num (IntOf target)
               , EqH (PlainOf target) (TKScalar Int) )
            => target (TKS2 sh2 x) -> IxSOf target sh1
            -> target (TKS2 (sh1 ++ sh2) x)
+  {-# INLINE tsoneHot #-}
   tsoneHot v ix =
     tsscatter @_ @'[] v (const ix)
     {- _ | SNat <- shsRank (knownShS @sh1)
@@ -687,6 +706,7 @@ class ( Num (IntOf target)
      => target (TKS2 (n2 ': shn) x)
      -> (IntOf target -> IxSOf target shp)
      -> target (TKS2 (shp ++ shn) x)
+  {-# INLINE tsscatter1 #-}
   tsscatter1 @n2 v f = tsscatter @_ @'[n2] v (\(i :.$ _) -> f i)
   tsgather
      :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x)
@@ -698,6 +718,7 @@ class ( Num (IntOf target)
      => target (TKS2 (shp ++ shn) x)
      -> (IntOf target -> IxSOf target shp)
      -> target (TKS2 (n2 ': shn) x)
+  {-# INLINE tsgather1 #-}
   tsgather1 @n2 v f = tsgather @target @'[n2] v (\(i :.$ _) -> f i)
 
   txindex :: (KnownShX sh1, KnownShX sh2, KnownSTK x)
@@ -710,6 +731,7 @@ class ( Num (IntOf target)
               , EqH (PlainOf target) (TKScalar Int), ConvertTensor target )
            => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
            -> target (TKX2 (sh1 ++ sh2) x)
+  {-# INLINE txoneHot #-}
   txoneHot sh1 v ix =
     txscatter @_ @'[] (shxAppend sh1 (xshape v)) v (const ix)
     {- _ | SNat <- ssxRank (knownShX @sh1)
@@ -737,6 +759,7 @@ class ( Num (IntOf target)
              => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) x)
              -> (IntOf target -> IxXOf target shp)
              -> target (TKX2 (shp ++ shn) x)
+  {-# INLINE txscatter1 #-}
   txscatter1 @n2 @_ @shp @x sh v f = txscatter @_ @'[Just n2] @_ @shp @x sh v
                                                (\(i :.% _) -> f i)
   txgather :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
@@ -748,6 +771,7 @@ class ( Num (IntOf target)
             => SNat n2 -> target (TKX2 (shp ++ shn) x)
             -> (IntOf target -> IxXOf target shp)
             -> target (TKX2 (Just n2 ': shn) x)
+  {-# INLINE txgather1 #-}
   txgather1 @n2 @_ @shp k v f =
     txgather @target @'[Just n2]
              (Nested.SKnown k :$% shxDropSSX (knownShX @shp) (xshape v)) v

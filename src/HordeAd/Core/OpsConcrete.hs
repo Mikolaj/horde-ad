@@ -145,6 +145,7 @@ instance BaseTensor Concrete where
     STKProduct stk1 stk2 ->
       let (v1, v2) = V.unzip $ V.map tunpair v
       in tpair (tfromVector snat stk1 v1) (tfromVector snat stk2 v2)
+  {-# INLINE tfromList #-}
   tfromList snat@SNat stk l = case stk of
     STKScalar -> Concrete $ Nested.sfromList1Prim snat $ fmapUnConcrete l
     STKR SNat x | Dict <- eltDictRep x ->
@@ -255,24 +256,42 @@ instance BaseTensor Concrete where
   txreplicate0N @sh @x sh | Refl <- lemAppNil @sh
                           , Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.mreplicate sh . unConcrete
+  {-# INLINE trindex #-}
   trindex = tindexZR
+  {-# INLINE trindex0 #-}
   trindex0 = tindex0R
+  {-# INLINE troneHot #-}
   troneHot = toneHotR
+  {-# INLINE trscatter #-}
   trscatter = tscatterZR
   -- no meaningful optimization here so far: trscatter1 = tscatterZ1R
+  {-# INLINE trgather #-}
   trgather = tgatherZR
+  {-# INLINE trgather1 #-}
   trgather1 = tgatherZ1R
+  {-# INLINE tsindex #-}
   tsindex = tindexZS
+  {-# INLINE tsindex0 #-}
   tsindex0 = tindex0S
+  {-# INLINE tsoneHot #-}
   tsoneHot = toneHotS
+  {-# INLINE tsscatter #-}
   tsscatter @shm @shn = tscatterZS @shm @shn
+  {-# INLINE tsgather #-}
   tsgather @shm @shn = tgatherZS @shm @shn
+  {-# INLINE tsgather1 #-}
   tsgather1 = tgatherZ1S
+  {-# INLINE txindex #-}
   txindex = tindexZX
+  {-# INLINE txindex0 #-}
   txindex0 = tindex0X
+  {-# INLINE txoneHot #-}
   txoneHot = toneHotX
+  {-# INLINE txscatter #-}
   txscatter @shm @shn = tscatterZX @shm @shn
+  {-# INLINE txgather #-}
   txgather @shm @shn = tgatherZX @shm @shn
+  {-# INLINE txgather1 #-}
   txgather1 = tgatherZ1X
   {-# INLINE tkfloor #-}
   tkfloor = Concrete . floor . unConcrete
@@ -388,7 +407,7 @@ instance BaseTensor Concrete where
         Concrete $ Nested.rgeneratePrim sh (Nested.runScalar . g)
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.runNest
-        $ Nested.rgenerate shTake $ \ix -> g ix
+        $ Nested.rgenerate shTake g
   {-# INLINE trmap0N #-}
   trmap0N f t = Concrete $ tmap0NR (unConcrete . f . Concrete) (unConcrete t)
   {-# INLINE trzipWith0N #-}
@@ -420,7 +439,7 @@ instance BaseTensor Concrete where
         tkbuild (Concrete . Nested.sunScalar . unConcrete . f)
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.sunNest
-        $ Nested.sgenerate shTake $ \ix -> h ix
+        $ Nested.sgenerate shTake h
   {-# INLINE tsmap0N #-}
   tsmap0N f v = Concrete $ tmap0NS (unConcrete . f . Concrete) (unConcrete v)
   {-# INLINE tszipWith0N #-}
@@ -455,7 +474,7 @@ instance BaseTensor Concrete where
         Concrete $ Nested.mgeneratePrim sh (Nested.munScalar . g)
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.munNest
-        $ Nested.mgenerate shTake $ \ix -> g ix
+        $ Nested.mgenerate shTake g
   {-# INLINE tmapAccumRDer #-}
   tmapAccumRDer _ k _ bftk eftk f _df _rf = oRtmapAccumR k bftk eftk f
   {-# INLINE tmapAccumLDer #-}
