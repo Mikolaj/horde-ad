@@ -4,7 +4,7 @@
 -- or the code resulting from differentiation.
 module HordeAd.Core.AstTools
   ( -- * Full tensor kind derivation
-    ftkAst, isTensorInt
+    ftkAst, stkAstX, isTensorInt
     -- * Variable occurrence detection
   , varInAst, varInIxS, varNameInAst, varNameInIxS
     -- * Determining if a term is too small to require sharing
@@ -143,6 +143,11 @@ ftkAst t = case t of
   AstLeqK{} -> FTKScalar
   AstLeqS{} -> FTKScalar
   AstLeqA shb _ _ _ -> FTKS shb FTKScalar
+
+stkAstX :: forall s x ms sh. AstTensor ms s (TKS2 sh x) -> SingletonTK x
+{-# INLINE stkAstX #-}
+stkAstX t = case ftkAst t of
+  FTKS _ x -> ftkToSTK x
 
 isTensorInt :: forall s y ms. AstSpan s
             => Proxy s -> FullShapeTK y

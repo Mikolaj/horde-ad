@@ -2058,20 +2058,18 @@ astScatterS shn v0 (_,  i1 :.$ _)
     let ftk = FTKS (knownShS @shp `shsAppend` shn) x
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astScatterS shn v (vars, AstConcreteK _ :.$ rest)
-  | SNat' @1 :$$ _ <- knownShS @shp
-  , FTKS _ x <- ftkAst v =
+  | SNat' @1 :$$ _ <- knownShS @shp =
     withKnownShS (shsTail (knownShS @shp)) $
     astReplicate (SNat @1) (STKS (shsTail (knownShS @shp)
-                                  `shsAppend` shn) (ftkToSTK x))
+                                  `shsAppend` shn) (stkAstX v))
     $ astScatterS shn v (vars, rest)
 astScatterS shn v (var ::$ (vars :: AstVarListS sh3), ix)
   | not $ var `varNameInIxS` ix
-  , SNat :$$ _ <- knownShS @shm
-  , FTKS _ x <- ftkAst v =
+  , SNat :$$ _ <- knownShS @shm =
       withKnownShS (shsTail (knownShS @shm)) $
       astScatterS @sh3 @shn @shp shn
         (astSum SNat (STKS (shsTail (knownShS @shm)
-                            `shsAppend` shn) (ftkToSTK x)) v)
+                            `shsAppend` shn) (stkAstX v)) v)
         (vars, ix)
 -- TODO? astScatterS v (ZR, ix) = update (rzero sh 0) ix v
 astScatterS shn (Ast.AstLet var u v) (vars, ix) =
@@ -2124,8 +2122,7 @@ astGatherKnobsS knobs shn v0 (var1 ::$ vars1, ix0)
   | not (var1 `varNameInIxS` ix0) =
     withKnownShS (shsTail (knownShS @shm)) $
     let k :$$ sh' = knownShS @shm
-        FTKS _ x = ftkAst v0
-    in astReplicate k (STKS (sh' `shsAppend` shn) (ftkToSTK x))
+    in astReplicate k (STKS (sh' `shsAppend` shn) (stkAstX v0))
                     (astGatherKnobsS @(Tail shm) @shn @shp
                                      knobs shn v0 (vars1, ix0))
 astGatherKnobsS knobs shn v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))

@@ -170,84 +170,73 @@ interpretAstPrimal !env v1 = case v1 of
           _ -> tscast @_ @Float $ interpretAstPrimal env v
         _ -> tscast $ interpretAstPrimal env v
 
-  AstIndexS @shm shn v ix -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS shn $
-      withKnownSTK x $
-      let v2 = interpretAstPrimal env v
-          ix3 = interpretAstPlain env <$> ix
-      in tsindex @_ @shm v2 ix3
-  AstScatterS @_ @_ @shp shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      tsoneHot (interpretAstPrimal env v) (interpretAstPlain env <$> ix)
+  AstIndexS @shm shn v ix ->
+    withKnownShS shn $
+    withKnownSTK (stkAstX v) $
+    let v2 = interpretAstPrimal env v
+        ix3 = interpretAstPlain env <$> ix
+    in tsindex @_ @shm v2 ix3
+  AstScatterS @_ @_ @shp shn v (ZS, ix) ->
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    tsoneHot (interpretAstPrimal env v) (interpretAstPlain env <$> ix)
   AstScatterS @shm @shn @shp
-              shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x | SNat :$$ _ <- knownShS @shm ->
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      let t1 = interpretAstPrimal env v
-          f2 :: IntOf target -> IxSOf target shp
-          f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
-      in tsscatter1 @_ @_ @shn @shp t1 f2
+              shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    let t1 = interpretAstPrimal env v
+        f2 :: IntOf target -> IxSOf target shp
+        f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
+    in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
-              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS (knownShS @shm) $
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      let t1 = interpretAstPrimal env v
-          f2 :: IxSOf target shm -> IxSOf target shp
-          f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
-      in tsscatter @_ @shm @shn @shp t1 f2
+              shn v (vars, ix) ->
+    withKnownShS (knownShS @shm) $
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    let t1 = interpretAstPrimal env v
+        f2 :: IxSOf target shm -> IxSOf target shp
+        f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
+    in tsscatter @_ @shm @shn @shp t1 f2
   AstGatherS shn v (ZS, ix) -> interpretAstPrimal env (AstIndexS shn v ix)
   AstGatherS @shm @shn @shp
-             shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x | SNat :$$ _ <- knownShS @shm ->
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      let t1 = interpretAstPrimal env v
-          f2 :: IntOf target -> IxSOf target shp
-          f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
-      in tsgather1 @_ @_ @shn @shp t1 f2
+             shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    let t1 = interpretAstPrimal env v
+        f2 :: IntOf target -> IxSOf target shp
+        f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
+    in tsgather1 @_ @_ @shn @shp t1 f2
   AstGatherS @shm @shn @shp
-             shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS (knownShS @shm) $
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      let t1 = interpretAstPrimal env v
-          f2 :: IxSOf target shm -> IxSOf target shp
-          f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
-      in tsgather @_ @shm @shn @shp t1 f2
-  AstAppendS a b -> case ftkToSTK (ftkAst a) of
-    STKS _ x ->
-      withKnownSTK x $
-      let t1 = interpretAstPrimal env a
-          t2 = interpretAstPrimal env b
-      in tsappend t1 t2
-  AstSliceS i n k v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tsslice i n k $ interpretAstPrimal env v
-  AstReverseS v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tsreverse (interpretAstPrimal env v)
-  AstTransposeS perm v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tstranspose perm $ interpretAstPrimal env v
-  AstReshapeS sh2 v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tsreshape sh2 (interpretAstPrimal env v)
+             shn v (vars, ix) ->
+    withKnownShS (knownShS @shm) $
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    let t1 = interpretAstPrimal env v
+        f2 :: IxSOf target shm -> IxSOf target shp
+        f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
+    in tsgather @_ @shm @shn @shp t1 f2
+  AstAppendS a b ->
+    withKnownSTK (stkAstX a) $
+    let t1 = interpretAstPrimal env a
+        t2 = interpretAstPrimal env b
+    in tsappend t1 t2
+  AstSliceS i n k v ->
+    withKnownSTK (stkAstX v) $
+    tsslice i n k $ interpretAstPrimal env v
+  AstReverseS v ->
+    withKnownSTK (stkAstX v) $
+    tsreverse (interpretAstPrimal env v)
+  AstTransposeS perm v ->
+    withKnownSTK (stkAstX v) $
+    tstranspose perm $ interpretAstPrimal env v
+  AstReshapeS sh2 v ->
+    withKnownSTK (stkAstX v) $
+    tsreshape sh2 (interpretAstPrimal env v)
 
   AstConvert c a ->
     tconvert c (ftkToSTK (ftkAst a)) (interpretAstPrimal env a)
@@ -256,10 +245,9 @@ interpretAstPrimal !env v1 = case v1 of
     let v2 = interpretAstPrimal env v
         ix3 = interpretAstPlain env <$> ix
     in tsindex0 v2 ix3
-  AstSum0S v -> case ftkToSTK (ftkAst v) of
-    STKS sh x ->
+  AstSum0S v -> case ftkAst v of
+    FTKS sh _ ->
       withKnownShS sh $
-      withKnownSTK x $
       tssum0 (interpretAstPrimal env v)
   AstDot0S u v -> case ftkAst u of
     FTKS sh _ ->
@@ -397,89 +385,78 @@ interpretAstPlain !env v1 = case v1 of
           _ -> tscast @_ @Float $ interpretAstPlain env v
         _ -> tscast $ interpretAstPlain env v
 
-  AstIndexS @shm shn v ix -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS shn $
-      withKnownSTK x $
-      let v2 = interpretAstPlain env v
-          ix3 = interpretAstPlain env <$> ix
-      in tsindex @_ @shm v2 ix3
-  AstScatterS @_ @_ @shp shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      tsoneHot (interpretAstPlain env v) (interpretAstPlain env <$> ix)
+  AstIndexS @shm shn v ix ->
+    withKnownShS shn $
+    withKnownSTK (stkAstX v) $
+    let v2 = interpretAstPlain env v
+        ix3 = interpretAstPlain env <$> ix
+    in tsindex @_ @shm v2 ix3
+  AstScatterS @_ @_ @shp shn v (ZS, ix) ->
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    tsoneHot (interpretAstPlain env v) (interpretAstPlain env <$> ix)
   AstScatterS @shm @shn @shp
-              shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x | SNat :$$ _ <- knownShS @shm ->
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      let t1 = interpretAstPlain env v
-          f2 :: IntOf target -> IxSOf target shp
-          f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
-      in tsscatter1 @_ @_ @shn @shp t1 f2
+              shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    let t1 = interpretAstPlain env v
+        f2 :: IntOf target -> IxSOf target shp
+        f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
+    in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
-              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS (knownShS @shm) $
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      let t1 = interpretAstPlain env v
-          f2 :: IxSOf target shm -> IxSOf target shp
-          f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
-      in tsscatter @_ @shm @shn @shp t1 f2
+              shn v (vars, ix) ->
+    withKnownShS (knownShS @shm) $
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    let t1 = interpretAstPlain env v
+        f2 :: IxSOf target shm -> IxSOf target shp
+        f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
+    in tsscatter @_ @shm @shn @shp t1 f2
   AstGatherS shn v (ZS, ix) -> interpretAstPlain env (AstIndexS shn v ix)
   AstGatherS @shm @shn @shp
-             shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x | SNat :$$ _ <- knownShS @shm ->
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      let t1 = interpretAstPlain env v
-          f2 :: IntOf target -> IxSOf target shp
-          f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
-      in tsgather1 @_ @_ @shn @shp t1 f2
+             shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    let t1 = interpretAstPlain env v
+        f2 :: IntOf target -> IxSOf target shp
+        f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
+    in tsgather1 @_ @_ @shn @shp t1 f2
   AstGatherS @shm @shn @shp
-             shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS (knownShS @shm) $
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      let t1 = interpretAstPlain env v
-          f2 :: IxSOf target shm -> IxSOf target shp
-          f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
-      in tsgather @_ @shm @shn @shp t1 f2
+             shn v (vars, ix) ->
+    withKnownShS (knownShS @shm) $
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    let t1 = interpretAstPlain env v
+        f2 :: IxSOf target shm -> IxSOf target shp
+        f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
+    in tsgather @_ @shm @shn @shp t1 f2
   AstMinIndexS v ->
     tsminIndex $ interpretAstPlain env v
   AstMaxIndexS v ->
     tsmaxIndex $ interpretAstPlain env v
   AstIotaS SNat -> tsiota
-  AstAppendS a b -> case ftkToSTK (ftkAst a) of
-    STKS _ x ->
-      withKnownSTK x $
-      let t1 = interpretAstPlain env a
-          t2 = interpretAstPlain env b
-      in tsappend t1 t2
-  AstSliceS i n k v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tsslice i n k $ interpretAstPlain env v
-  AstReverseS v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tsreverse (interpretAstPlain env v)
-  AstTransposeS perm v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tstranspose perm $ interpretAstPlain env v
-  AstReshapeS sh2 v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tsreshape sh2 (interpretAstPlain env v)
+  AstAppendS a b ->
+    withKnownSTK (stkAstX a) $
+    let t1 = interpretAstPlain env a
+        t2 = interpretAstPlain env b
+    in tsappend t1 t2
+  AstSliceS i n k v ->
+    withKnownSTK (stkAstX v) $
+    tsslice i n k $ interpretAstPlain env v
+  AstReverseS v ->
+    withKnownSTK (stkAstX v) $
+    tsreverse (interpretAstPlain env v)
+  AstTransposeS perm v ->
+    withKnownSTK (stkAstX v) $
+    tstranspose perm $ interpretAstPlain env v
+  AstReshapeS sh2 v ->
+    withKnownSTK (stkAstX v) $
+    tsreshape sh2 (interpretAstPlain env v)
 
   AstConvert c a ->
     tconvert c (ftkToSTK (ftkAst a)) (interpretAstPlain env a)
@@ -488,10 +465,10 @@ interpretAstPlain !env v1 = case v1 of
     let v2 = interpretAstPlain env v
         ix3 = interpretAstPlain env <$> ix
     in tsindex0 v2 ix3
-  AstSum0S v -> case ftkToSTK (ftkAst v) of
-    STKS sh x ->
+  AstSum0S v -> case ftkAst v of
+    FTKS sh _ ->
       withKnownShS sh $
-      withKnownSTK x $
+      withKnownSTK (stkAstX v) $
       tssum0 (interpretAstPlain env v)
   AstDot0S u v -> case ftkAst u of
     FTKS sh _ ->
@@ -505,14 +482,14 @@ interpretAstPlain !env v1 = case v1 of
 
   AstBoolNot arg ->
     notB $ interpretAstPlain env arg
-  AstBoolNotA arg | STKS sh _ <- ftkToSTK $ ftkAst arg ->
+  AstBoolNotA arg | FTKS sh _ <- ftkAst arg ->
     withKnownShS sh $
     tsmap0N notB $ interpretAstPlain env arg
   AstBoolAnd arg1 arg2 ->
     let b1 = interpretAstPlain env arg1
         b2 = interpretAstPlain env arg2
     in b1 &&* b2
-  AstBoolAndA arg1 arg2 | STKS sh _ <- ftkToSTK $ ftkAst arg1 ->
+  AstBoolAndA arg1 arg2 | FTKS sh _ <- ftkAst arg1 ->
     withKnownShS sh $
     let b1 = interpretAstPlain env arg1
         b2 = interpretAstPlain env arg2
@@ -757,66 +734,60 @@ interpretAst !env = \case
           _ -> tscast @_ @Float $ interpretAst env v
         _ -> tscast $ interpretAst env v
 
-  AstIndexS @shm shn v ix -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS shn $
-      withKnownSTK x $
-      let v2 = interpretAst env v
-          ix3 = interpretAstPlain env <$> ix
-      in tsindex @_ @shm v2 ix3
+  AstIndexS @shm shn v ix ->
+    withKnownShS shn $
+    withKnownSTK (stkAstX v) $
+    let v2 = interpretAst env v
+        ix3 = interpretAstPlain env <$> ix
+    in tsindex @_ @shm v2 ix3
   -- TODO: once specialization inspect-testing is back online,
   -- recover and also handle similarly tsupdate, both implemented
   -- as a gather and as a scatter
   -- TODO: this breaks specialization:
-  AstScatterS @_ @_ @shp shn v (ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      tsoneHot (interpretAst env v) (interpretAstPlain env <$> ix)
+  AstScatterS @_ @_ @shp shn v (ZS, ix) ->
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    tsoneHot (interpretAst env v) (interpretAstPlain env <$> ix)
   AstScatterS @shm @shn @shp
-              shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x | SNat :$$ _ <- knownShS @shm ->
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      let t1 = interpretAst env v
-          f2 :: IntOf target -> IxSOf target shp
-          f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
-      in tsscatter1 @_ @_ @shn @shp t1 f2
+              shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    let t1 = interpretAst env v
+        f2 :: IntOf target -> IxSOf target shp
+        f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
+    in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
-              shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS (knownShS @shm) $
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      let t1 = interpretAst env v
-          f2 :: IxSOf target shm -> IxSOf target shp
-          f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
-      in tsscatter @_ @shm @shn @shp t1 f2
+              shn v (vars, ix) ->
+    withKnownShS (knownShS @shm) $
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    let t1 = interpretAst env v
+        f2 :: IxSOf target shm -> IxSOf target shp
+        f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
+    in tsscatter @_ @shm @shn @shp t1 f2
   AstGatherS shn v (ZS, ix) -> interpretAst env (AstIndexS shn v ix)
   AstGatherS @shm @shn @shp
-             shn v (var ::$ ZS, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x | SNat :$$ _ <- knownShS @shm ->
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      let t1 = interpretAst env v
-          f2 :: IntOf target -> IxSOf target shp
-          f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
-      in tsgather1 @_ @_ @shn @shp t1 f2
+             shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    let t1 = interpretAst env v
+        f2 :: IntOf target -> IxSOf target shp
+        f2 !i2 = interpretAstPlain (extendEnvI var i2 env) <$> ix
+    in tsgather1 @_ @_ @shn @shp t1 f2
   AstGatherS @shm @shn @shp
-             shn v (vars, ix) -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownShS (knownShS @shm) $
-      withKnownShS shn $
-      withKnownShS (knownShS @shp) $
-      withKnownSTK x $
-      let t1 = interpretAst env v
-          f2 :: IxSOf target shm -> IxSOf target shp
-          f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
-      in tsgather @_ @shm @shn @shp t1 f2
+             shn v (vars, ix) ->
+    withKnownShS (knownShS @shm) $
+    withKnownShS shn $
+    withKnownShS (knownShS @shp) $
+    withKnownSTK (stkAstX v) $
+    let t1 = interpretAst env v
+        f2 :: IxSOf target shm -> IxSOf target shp
+        f2 !ix2 = interpretAstPlain (extendEnvVarsS vars ix2 env) <$> ix
+    in tsgather @_ @shm @shn @shp t1 f2
   AstMinIndexS v ->
     -- By the invariant v has zero dual part, so the following suffices:
     tsminIndex $ interpretAst env v
@@ -824,28 +795,23 @@ interpretAst !env = \case
     -- By the invariant v has zero dual part, so the following suffices:
     tsmaxIndex $ interpretAst env v
   AstIotaS SNat -> tsiota
-  AstAppendS a b -> case ftkToSTK (ftkAst a) of
-    STKS _ x ->
-      withKnownSTK x $
-      let t1 = interpretAst env a
-          t2 = interpretAst env b
-      in tsappend t1 t2
-  AstSliceS i n k v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tsslice i n k $ interpretAst env v
-  AstReverseS v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tsreverse (interpretAst env v)
-  AstTransposeS perm v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tstranspose perm $ interpretAst env v
-  AstReshapeS sh2 v -> case ftkToSTK (ftkAst v) of
-    STKS _ x ->
-      withKnownSTK x $
-      tsreshape sh2 (interpretAst env v)
+  AstAppendS a b ->
+    withKnownSTK (stkAstX a) $
+    let t1 = interpretAst env a
+        t2 = interpretAst env b
+    in tsappend t1 t2
+  AstSliceS i n k v ->
+    withKnownSTK (stkAstX v) $
+    tsslice i n k $ interpretAst env v
+  AstReverseS v ->
+    withKnownSTK (stkAstX v) $
+    tsreverse (interpretAst env v)
+  AstTransposeS perm v ->
+    withKnownSTK (stkAstX v) $
+    tstranspose perm $ interpretAst env v
+  AstReshapeS sh2 v ->
+    withKnownSTK (stkAstX v) $
+    tsreshape sh2 (interpretAst env v)
 
   AstConvert c a ->
     tconvert c (ftkToSTK (ftkAst a)) (interpretAst env a)
@@ -854,10 +820,9 @@ interpretAst !env = \case
     let v2 = interpretAst env v
         ix3 = interpretAstPlain env <$> ix
     in tsindex0 v2 ix3
-  AstSum0S v -> case ftkToSTK (ftkAst v) of
-    STKS sh x ->
+  AstSum0S v -> case ftkAst v of
+    FTKS sh _ ->
       withKnownShS sh $
-      withKnownSTK x $
       tssum0 (interpretAst env v)
   AstDot0S u v -> case ftkAst u of
     FTKS sh _ ->
@@ -871,7 +836,7 @@ interpretAst !env = \case
 
   AstBoolNot arg ->
     tfromPlain STKScalar $ notB $ interpretAstPlain env arg
-  AstBoolNotA arg | STKS sh _ <- ftkToSTK $ ftkAst arg ->
+  AstBoolNotA arg | FTKS sh _ <- ftkAst arg ->
     withKnownShS sh $
     tfromPlain (ftkToSTK $ ftkAst arg)
     $ tsmap0N notB $ interpretAstPlain env arg
@@ -879,7 +844,7 @@ interpretAst !env = \case
     let b1 = interpretAstPlain env arg1
         b2 = interpretAstPlain env arg2
     in tfromPlain STKScalar $ b1 &&* b2
-  AstBoolAndA arg1 arg2 | STKS sh _ <- ftkToSTK $ ftkAst arg1 ->
+  AstBoolAndA arg1 arg2 | FTKS sh _ <- ftkAst arg1 ->
     withKnownShS sh $
     let b1 = interpretAstPlain env arg1
         b2 = interpretAstPlain env arg2

@@ -75,11 +75,11 @@ instance (KnownSTK y, KnownSTK z)
          => KnownSTK (TKProduct y z) where
   knownSTK = STKProduct (knownSTK @y) (knownSTK @z)
 
--- | Turning a singleton into a constraint via a continuation.
+-- | Turn a singleton into a constraint via a continuation.
 withKnownSTK :: forall y r. SingletonTK y -> (KnownSTK y => r) -> r
 withKnownSTK = withDict @(KnownSTK y)
 
--- | Turning a singleton into a dictionary containing constraint.
+-- | Turn a singleton into a dictionary.
 lemKnownSTK :: SingletonTK y -> Dict KnownSTK y
 lemKnownSTK = \case
   STKScalar -> Dict
