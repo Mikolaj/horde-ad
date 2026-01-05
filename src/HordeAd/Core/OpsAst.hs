@@ -19,7 +19,6 @@ import Data.Coerce (Coercible, coerce)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import GHC.Exts (inline)
 import GHC.TypeLits (OrderingI (..), cmpNat, type (+), type (-), type (<=?))
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
@@ -126,7 +125,7 @@ revProduceArtifact
   -> AstArtifactRev x z
 {-# INLINE revProduceArtifact #-}
 revProduceArtifact cotangentHandling g envInit xftk =
-  fst $ inline revArtifactFromForwardPass
+  fst $ revArtifactFromForwardPass
           cotangentHandling (forwardPassByInterpretation g envInit) xftk
 
 -- These two functions are as above, but the dt must be provided and so,
@@ -166,7 +165,7 @@ revProduceArtifactDt
   -> AstArtifactRev x z
 {-# INLINE revProduceArtifactDt #-}
 revProduceArtifactDt g envInit xftk =
-  fst $ inline revArtifactFromForwardPassDt
+  fst $ revArtifactFromForwardPassDt
           (forwardPassByInterpretation g envInit) xftk
 
 fwdArtifactFromForwardPass
@@ -198,7 +197,7 @@ fwdProduceArtifact
   -> AstArtifactFwd x z
 {-# INLINE fwdProduceArtifact #-}
 fwdProduceArtifact f envInit xftk =
-  fst $ inline fwdArtifactFromForwardPass
+  fst $ fwdArtifactFromForwardPass
           (forwardPassByInterpretation f envInit) xftk
 
 

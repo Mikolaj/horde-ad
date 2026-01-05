@@ -903,8 +903,8 @@ evalFwd params s d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       second (trreshape sh2) $ evalFwd params s d
 
-  DeltaIndexS @shm @shn shn d ix -> case ftkDelta d of
-    FTKS sh x ->
+  DeltaIndexS shn d ix -> case ftkDelta d of
+    FTKS _ x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       withKnownShS shn $
       second (`tsindex` ix) $ evalFwd params s d
