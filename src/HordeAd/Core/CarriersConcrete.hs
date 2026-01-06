@@ -200,13 +200,20 @@ tftkG stk t =
     _ | Dict <- eltDictRep stk -> repackShapeTree stk (Mixed.mshapeTree t)
 
 eltDictRep :: SingletonTK y -> Dict Nested.KnownElt (RepConcrete y)
-eltDictRep = \case
-    STKScalar -> Dict
-    STKR SNat x | Dict <- eltDictRep x -> Dict
-    STKS sh x | Dict <- eltDictRep x -> withKnownShS sh Dict
-    STKX sh x | Dict <- eltDictRep x -> withKnownShX sh Dict
-    STKProduct stk1 stk2 | Dict <- eltDictRep stk1
-                         , Dict <- eltDictRep stk2 -> Dict
+{-# INLINE eltDictRep #-}
+eltDictRep stk =
+  let eltDictRec :: SingletonTK y -> Dict Nested.KnownElt (RepConcrete y)
+      {-# NOINLINE eltDictRec #-}
+      eltDictRec = \case
+        STKScalar -> Dict
+        STKR SNat x | Dict <- eltDictRec x -> Dict
+        STKS sh x | Dict <- eltDictRec x -> withKnownShS sh Dict
+        STKX sh x | Dict <- eltDictRec x -> withKnownShX sh Dict
+        STKProduct stk1 stk2 | Dict <- eltDictRec stk1
+                             , Dict <- eltDictRec stk2 -> Dict
+  in case stk of
+    STKScalar -> Dict  -- the prevalent case
+    _ -> eltDictRec stk
 
 showDictRep :: SingletonTK y -> Dict Show (RepConcrete y)
 showDictRep = \case
