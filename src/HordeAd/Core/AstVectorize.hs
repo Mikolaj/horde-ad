@@ -1,4 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if MIN_VERSION_GLASGOW_HASKELL(9,12,1,0)
 {-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
+#endif
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | BOT (bulk-operation transformation) of the AST, which is a kind

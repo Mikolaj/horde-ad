@@ -1,4 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if MIN_VERSION_GLASGOW_HASKELL(9,12,1,0)
 {-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
+#endif
 -- | Inlining and global sharing elimination.
 module HordeAd.Core.AstInline
   ( -- * Inlining

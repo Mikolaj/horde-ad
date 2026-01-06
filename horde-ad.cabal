@@ -91,7 +91,9 @@ common options
   -- This is supposedly risky, but prevents STG from creating thunks, #23848:
   ghc-options:        -fworker-wrapper-cbv
   -- These improve performance, but slow down compilation:
-  ghc-options:        -fexpose-overloaded-unfoldings -fspecialise-aggressively
+  if impl(ghc >= 9.12)
+    ghc-options:      -fexpose-overloaded-unfoldings
+  ghc-options:        -fspecialise-aggressively
   -- These improve performance to some extent:
   ghc-options:        -fdicts-cheap -flate-dmd-anal
   -- This one improves both performance and compilation speed:

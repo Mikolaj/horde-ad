@@ -1,4 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if MIN_VERSION_GLASGOW_HASKELL(9,12,1,0)
 {-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
+#endif
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Definitions, mostly class instances, needed to make AST a valid

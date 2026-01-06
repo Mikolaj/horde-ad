@@ -1,4 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if MIN_VERSION_GLASGOW_HASKELL(9,12,1,0)
 {-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
+#endif
 -- | Pretty-printing of the AST. Some of the variants of pretty-printing
 -- almost roundtrip, while others are more readable but less faithful.
 module HordeAd.Core.PPTools

@@ -1,4 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if MIN_VERSION_GLASGOW_HASKELL(9,12,1,0)
 {-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
+#endif
 -- | This module implements a few complete bottom-up simplifying passes
 -- over any AST expression.
 module HordeAd.Core.AstTraverse
