@@ -241,7 +241,7 @@ testCFwdZeroS =
     (cjvp (let f :: ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
                  -> ADVal Concrete (TKS '[0, 2, 4, 0, 1] Double)
                f = const (srepl 3)
-           in f) 42 41)
+           in f) (srepl 42) (srepl 41))
 
 testFwdZeroS :: Assertion
 testFwdZeroS =

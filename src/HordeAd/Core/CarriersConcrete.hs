@@ -15,6 +15,7 @@ module HordeAd.Core.CarriersConcrete
 import Prelude hiding (foldl')
 
 import Control.DeepSeq (NFData (..))
+import Data.Default
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Storable qualified as VS
@@ -24,10 +25,11 @@ import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked qualified as Ranked
+import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (fromSNat')
 import Data.Array.Strided.Orthotope (liftVEltwise1)
-import Data.Default
 
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -148,38 +150,54 @@ type family RepConcrete (y :: TK) where
   RepConcrete (TKX2 sh x) = Nested.Mixed sh (RepConcrete x)
   RepConcrete (TKProduct x z) = (RepConcrete x, RepConcrete z)
 
--- | Computing full shape tensor kinds for concrete arrays.
+-- TODO: check if we can get errors due to the made-up shapes
+-- and if the errors are early and clear. Maybe for nested fully shaped tensors
+-- no errors are possible? Statically known dimensions are preserved fine
+-- also in mixed arrays.
+-- | Compute the full shape tensor kind for a concrete array.
+-- If the array is empty and not shaped, shapes can be made up
+-- (defaulting to zero dimensions).
 tftkG :: SingletonTK y -> RepConcrete y -> FullShapeTK y
+{-# INLINE tftkG #-}
 tftkG stk t =
   let repackShapeTree :: SingletonTK y
                       -> Mixed.ShapeTree (RepConcrete y)
                       -> FullShapeTK y
+      {-# NOINLINE repackShapeTree #-}
       repackShapeTree stk0 tree = case stk0 of
         STKScalar -> FTKScalar
         STKR _ stk1 -> let (sh, rest) = tree
-                       in FTKR sh $ repackShapeTree stk1 rest
+                       in FTKR sh $ if shrSize sh == 0  -- rest crashes
+                                    then zeroShapes stk1
+                                    else repackShapeTree stk1 rest
         STKS _ stk1 -> let (sh, rest) = tree
-                       in FTKS sh $ repackShapeTree stk1 rest
+                       in FTKS sh $ if shsSize sh == 0  -- rest crashes
+                                    then zeroShapes stk1
+                                    else repackShapeTree stk1 rest
         STKX _ stk1 -> let (sh, rest) = tree
-                       in FTKX sh $ repackShapeTree stk1 rest
+                       in FTKX sh $ if shxSize sh == 0  -- rest crashes
+                                    then zeroShapes stk1
+                                    else repackShapeTree stk1 rest
         STKProduct stk1 stk2 ->
                        let (tree1, tree2) = tree
                        in FTKProduct (repackShapeTree stk1 tree1)
                                      (repackShapeTree stk2 tree2)
-  in case stk of
+      zeroShapes :: SingletonTK y -> FullShapeTK y
+      {-# NOINLINE zeroShapes #-}
+      zeroShapes stk0 = case stk0 of
+        STKScalar -> FTKScalar
+        STKR n stk1 -> FTKR (shrFromList n (replicate (fromSNat' n) 0))
+                            (zeroShapes stk1)
+        STKS sh stk1 -> FTKS sh $ zeroShapes stk1  -- not made up in this case
+        STKX ssx stk1 -> FTKX (shxCompleteZeros ssx) $ zeroShapes stk1
+                           -- statically known shapes not made up
+        STKProduct stk1 stk2 -> FTKProduct (zeroShapes stk1) (zeroShapes stk2)
+  in case stk of  -- this starts with non-recursive shorthands
     STKScalar -> FTKScalar
-    STKR _ stk1 | Dict <- eltDictRep stk1 ->
-      FTKR (Nested.rshape t) $ repackShapeTree stk1
-      $ snd $ Mixed.mshapeTree t
-    STKS sh stk1 | Dict <- eltDictRep stk1 ->
-      FTKS sh $ repackShapeTree stk1
-      $ snd $ Mixed.mshapeTree t
-    STKX _ stk1 | Dict <- eltDictRep stk1 ->
-      FTKX (Nested.mshape t) $ repackShapeTree stk1
-      $ snd $ Mixed.mshapeTree t
-    STKProduct stk1 stk2 ->
-      FTKProduct (tftkG stk1 (fst t))
-                 (tftkG stk2 (snd t))
+    STKR _ STKScalar -> FTKR (Nested.rshape t) FTKScalar
+    STKS sh STKScalar -> FTKS sh FTKScalar
+    STKX _ STKScalar -> FTKX (Nested.mshape t) FTKScalar
+    _ | Dict <- eltDictRep stk -> repackShapeTree stk (Mixed.mshapeTree t)
 
 eltDictRep :: SingletonTK y -> Dict Nested.KnownElt (RepConcrete y)
 eltDictRep = \case
