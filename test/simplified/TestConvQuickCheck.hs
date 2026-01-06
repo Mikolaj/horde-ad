@@ -16,7 +16,6 @@ import Test.Tasty.HUnit hiding (assert)
 import Test.Tasty.QuickCheck hiding (label, shuffle)
 
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
 
@@ -210,7 +209,7 @@ conv2dSame_dInp arrK arrB =
   let arrKFlipped = flip42 arrK
       nKh = valueOf @nKh
       nKw = valueOf @nKw
-  in sbuild @(Rank shA) $ \case
+  in sbuild @shA $ \case
     [iImg, iCinp, iAh, iAw] ->
       let arrBt = slicezS @shB1 arrB
                           [iImg,  0, iAh - nKh + 1, iAw - nKw + 1]
@@ -240,7 +239,7 @@ conv2dSame_dKrn
   -> target (TKS shB r)
   -> target (TKS shK r)
 conv2dSame_dKrn arrA arrB =
-  sbuild @(Rank shK) $ \case
+  sbuild @shK $ \case
     [iCout, iCinp, iKh, iKw] ->
       let arrBt = slicezS @shB1 arrB
                           [0, iCout, 0, 0]

@@ -263,15 +263,13 @@ slicezS d ixBase | Refl <- lemAppNil @sh =
   gcastWith (unsafeCoerceRefl
              :: Rank (Take (Rank shOut) shOut) :~: Rank shOut) $
   gcastWith (unsafeCoerceRefl :: Drop (Rank sh) shOut :~: '[]) $
-  case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
-    SNat ->
-      kbuild
-      $ \ixResult ->
-          sindex0 @sh d
-                  (ixsFromIxR
-                   $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
-      -- TODO: this doesn't work, because ixsZipWith has too strict a type:
-      -- sbuild @(Rank shOut) $ \ixResult -> sindex d (ixsZipWith (+) ixBase ixResult)
+  kbuild
+  $ \ixResult ->
+      sindex0 @sh d
+              (ixsFromIxR
+               $ ixrZipWith (+) (ixrFromIxS ixBase) (ixrFromIxS ixResult))
+  -- TODO: this doesn't work, because ixsZipWith has too strict a type:
+  -- sbuild @(Rank shOut) $ \ixResult -> sindex d (ixsZipWith (+) ixBase ixResult)
 
 maxPool2dUnpaddedS
   :: forall ksize stride batch_size channels h w target r shOut shK1.
@@ -286,7 +284,7 @@ maxPool2dUnpaddedS
   -> target (TKS shOut r)
 maxPool2dUnpaddedS arr =
   let stride = valueOf @stride :: Int
-  in sbuild @(Rank shOut) $ \case
+  in sbuild @shOut $ \case
     [iImg, iChan, iBh, iBw] ->
       smaximum $ slicezS @shK1 arr [ iImg, iChan
                                    , fromIntegral stride * iBh

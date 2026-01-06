@@ -2207,7 +2207,7 @@ emptyArgs t =
   + rbuild1 0 (\i -> t ! (i :.: ZIR))
   + rbuild1 0 (\i -> t ! [fromIntegral (rlength t) `quotH` i] / rfromIndex0 i)
   + rbuild @1 (0 :$: ZSR) (const $ rscalar 73)
-  - rsum (rbuild @0 (0 :$: 0 :$: ZSR)
+  - rsum (rbuild @0 ZSR
                  (const (rreplicate 1 emptyTensor)))
   + rfromS
       (srepl @'[0] 0
@@ -2228,8 +2228,8 @@ emptyArgs t =
        + sbuild1 @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t)
                               !$ (fromIntegral (rlength t) `quotH` i :.$ ZIS)
                               / sfromIndex0 i)
-       + sbuild @1 (const $ sscalar 73)
-       - ssum (sbuild @0 (const (sreplicate @1 (sfromR emptyTensor)))))
+       + sbuild @'[0] (const $ sscalar 73)
+       - ssum (sbuild @'[] (const (sreplicate @1 (sfromR emptyTensor)))))
   + rfromX
       (xingestData (SKnown (SNat @0) :$% ZSX) []
        + xconcrete (Nested.memptyArray ZSX)
@@ -2268,10 +2268,10 @@ emptyArgs t =
                               `xindex`
                               (fromIntegral (rlength t) `quotH` i :.% ZIX)
                               / xfromIndex0 i)
-       + xbuild @1 (SKnown (SNat @0) :$% ZSX)
+       + xbuild @'[Just 0] (SKnown (SNat @0) :$% ZSX)
                 (const $ xscalar 73)
-       - xsum (xbuild @0 (SKnown (SNat @0) :$% SKnown (SNat @0) :$% ZSX)
-                      (const (xreplicate (xfromR emptyTensor)))))
+       - xsum @0 (xbuild @'[] ZSX
+                         (const (xreplicate (xfromR emptyTensor)))))
 --  - rgather1 0 emptyTensor (:.: ZIR)
 --  - rsum (rgather1 0 emptyTensor (const ZIR))
 --  - rsum (rgather @target @(TKScalar r) @2 (0 :$: 0 :$: ZSR) emptyTensor (const (0 :.: ZIR)))
@@ -2301,7 +2301,7 @@ testEmptyArgs4 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1] [0])
     (rev' @Double @1
-          (\t -> rbuild [2, 5, 11, 0] (const $ emptyArgs t))
+          (\t -> rbuild [] (const $ emptyArgs t))
           (ringestData [1] [0.24]))
 
 filterPositiveFail :: ADReady target

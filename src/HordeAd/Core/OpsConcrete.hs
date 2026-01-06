@@ -399,15 +399,13 @@ instance BaseTensor Concrete where
           Concrete $ Nested.rfromListOuterN k $ NonEmpty.fromList
           $ map g [0 .. k - 1]
   {-# INLINE trbuild #-}
-  trbuild @_ @n @x sh f =
+  trbuild @_ @n @x shm f =
     let g ix = unConcrete $ f (fmapConcrete ix)
-        shTake = shrTake sh
     in case knownSTK @x of
       STKScalar | SNat' @0 <- SNat @n ->
-        Concrete $ Nested.rgeneratePrim sh (Nested.runScalar . g)
+        Concrete $ Nested.rgeneratePrim shm (Nested.runScalar . g)
       _ | Dict <- eltDictRep (knownSTK @x) ->
-        Concrete $ Nested.runNest
-        $ Nested.rgenerate shTake g
+        Concrete $ Nested.runNest $ Nested.rgenerate shm g
   {-# INLINE trmap0N #-}
   trmap0N f t = Concrete $ tmap0NR (unConcrete . f . Concrete) (unConcrete t)
   {-# INLINE trzipWith0N #-}
@@ -429,17 +427,14 @@ instance BaseTensor Concrete where
           Concrete $ Nested.sfromListOuter SNat $ NonEmpty.fromList
           $ map g [0 .. valueOf @k - 1]
   {-# INLINE tsbuild #-}
-  tsbuild @m @sh @x _ f =
-    gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
+  tsbuild @shm @shn @x f =
     let h ix = unConcrete $ f (fmapConcrete ix)
-        shTake = knownShS @(Take m sh)
     in case knownSTK @x of
-      STKScalar | ZSS <- knownShS @(Drop m sh)
-                , Refl <- lemAppNil @(Take m sh) ->
+      STKScalar | ZSS <- knownShS @shn
+                , Refl <- lemAppNil @shm ->
         tkbuild (Concrete . Nested.sunScalar . unConcrete . f)
       _ | Dict <- eltDictRep (knownSTK @x) ->
-        Concrete $ Nested.sunNest
-        $ Nested.sgenerate shTake h
+        Concrete $ Nested.sunNest $ Nested.sgenerate (knownShS @shm) h
   {-# INLINE tsmap0N #-}
   tsmap0N f v = Concrete $ tmap0NS (unConcrete . f . Concrete) (unConcrete v)
   {-# INLINE tszipWith0N #-}
@@ -464,17 +459,14 @@ instance BaseTensor Concrete where
           Concrete $ Nested.mfromListOuterSN SNat $ NonEmpty.fromList
           $ map g [0 .. valueOf @k - 1]
   {-# INLINE txbuild #-}
-  txbuild @m @sh @x _ sh f =
-    gcastWith (unsafeCoerceRefl :: sh :~: Take m sh ++ Drop m sh) $
+  txbuild @shm @shn @x shm f =
     let g ix = unConcrete $ f (fmapConcrete ix)
-        shTake = shxTakeSSX (Proxy @(Drop m sh)) (knownShX @(Take m sh)) sh
     in case knownSTK @x of
-      STKScalar | ZKX <- knownShX @(Drop m sh)
-                , Refl <- lemAppNil @(Take m sh) ->
-        Concrete $ Nested.mgeneratePrim sh (Nested.munScalar . g)
+      STKScalar | ZKX <- knownShX @shn
+                , Refl <- lemAppNil @shm ->
+        Concrete $ Nested.mgeneratePrim shm (Nested.munScalar . g)
       _ | Dict <- eltDictRep (knownSTK @x) ->
-        Concrete $ Nested.munNest
-        $ Nested.mgenerate shTake g
+        Concrete $ Nested.munNest $ Nested.mgenerate shm g
   {-# INLINE tmapAccumRDer #-}
   tmapAccumRDer _ k _ bftk eftk f _df _rf = oRtmapAccumR k bftk eftk f
   {-# INLINE tmapAccumLDer #-}
@@ -962,7 +954,7 @@ tgatherZR sh t f = case (SNat @n, knownSTK @x) of
           let g ix = unConcrete $ t1 `tindex0RBase` (f $ fmapConcrete ix)
           in Concrete $ Nested.rgeneratePrim sh g
     in contFromTypeable @r (tgatherDict t)
-  _ -> trbuild sh (\ix -> t `tindexZRBase` f ix)
+  _ -> trbuild (shrTake @m sh) (\ix -> t `tindexZRBase` f ix)
 
 tgatherZ1R :: forall n p x. (KnownNat n, KnownNat p, KnownSTK x)
            => Int -> Concrete (TKR2 (p + n) x)
@@ -1224,8 +1216,6 @@ tgatherZS
   -> Concrete (TKS2 (shm ++ shn) x)
 {-# INLINE tgatherZS #-}  -- this function takes a function as an argument
 tgatherZS t f =
-  gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
-  gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
   case (knownShS @shn, knownSTK @x) of
     (ZSS, STKScalar @r) | Refl <- lemAppNil @shm
                         , Refl <- lemAppNil @shp ->  -- an optimized common case
@@ -1238,9 +1228,7 @@ tgatherZS t f =
       in contFromTypeable @r (tgatherDict t)
     _ ->
       withKnownShS (knownShS @shm `shsAppend` knownShS @shn) $
-      case shsRank (knownShS @shm) of
-        SNat -> -- needed only for GHC 9.10
-          tsbuild @_ @(Rank shm) SNat (\ix -> t `tindexZSBase` f ix)
+      tsbuild @_ @shm @shn (\ix -> t `tindexZSBase` f ix)
 
 tgatherZ1S
   :: forall k shn shp x. (KnownNat k, KnownShS shn, KnownSTK x)
@@ -1432,7 +1420,6 @@ tgatherZX :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
 {-# INLINE tgatherZX #-}  -- this function takes a function as an argument
 tgatherZX @shm @shn @shp @x sh t f =
   gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
-  gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
   case (knownShX @shn, knownSTK @x) of
     (ZKX, STKScalar) | Refl <- lemAppNil @shm
                      , Refl <- lemAppNil @shp ->  -- an optimized common case
@@ -1442,7 +1429,8 @@ tgatherZX @shm @shn @shp @x sh t f =
       withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
       case ssxRank (knownShX @shm) of
         SNat -> -- needed only for GHC 9.10
-          txbuild @_ @(Rank shm) SNat sh (\ix -> t `txindex` f ix)
+          txbuild @_ @shm @shn (shxTake @(Rank shm) sh)
+                               (\ix -> t `txindex` f ix)
 
 tgatherZ1X :: forall k shn shp x.
               (KnownNat k, KnownShX shn, KnownShX shp, KnownSTK x)

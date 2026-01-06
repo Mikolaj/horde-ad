@@ -16,7 +16,6 @@ import Test.Tasty.HUnit hiding (assert)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Lemmas
-import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (fromSNat')
@@ -1669,7 +1668,7 @@ maxPool2dUnpaddedS4
   -> target (TKS shOut r)
 maxPool2dUnpaddedS4 arr =
   let stride = valueOf @stride :: Int
-  in sbuild @(Rank shOut) $ \case
+  in sbuild @shOut $ \case
     [iImg, iChan, iBh, iBw] ->
       smaximum4 $ slicezS @shK1 arr [ iImg, iChan
                                     , fromIntegral stride * iBh

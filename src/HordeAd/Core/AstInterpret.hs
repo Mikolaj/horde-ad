@@ -16,14 +16,12 @@ import Prelude
 import Data.Coerce (coerce)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested.Lemmas
-import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEnv
@@ -917,11 +915,7 @@ szipWithNested :: ( KnownShS sh, KnownSTK x, KnownSTK x1, KnownSTK x2
                -> target (TKS2 sh x)
 {-# INLINE szipWithNested #-}
 szipWithNested @sh f u v | Refl <- lemAppNil @sh =
-  gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
-  gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
-  case shsRank (knownShS @sh) of  -- needed only for GHC 9.10
-    SNat ->
-      tsbuild @_ @(Rank sh) SNat (\ix -> f (tsindex u ix) (tsindex v ix))
+  tsbuild @_ @sh (\ix -> f (tsindex u ix) (tsindex v ix))
 
 
 -- * Interpretation of arithmetic, boolean and relation operations

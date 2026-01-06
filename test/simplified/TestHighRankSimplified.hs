@@ -446,7 +446,8 @@ nestedSumBuild
      (ADReady target, NumScalar r, n <= 4, KnownNat n, Differentiable r)
   => target (TKR n r) -> target (TKR (2 + n) r)
 nestedSumBuild v =
-  rbuild1 13 $ \ix1 -> rbuild1 4 $ \ix2 ->
+  rbuild @2 @n (13 :$: 4 :$: ZSR) $ \ (ix1 :.: ix2 :.: ZIR) ->
+--  rbuild1 13 $ \ix1 -> rbuild1 4 $ \ix2 ->
     ifH (ix2 >. ix1)
         (rmap0N ((* (-0.00000003)) . sqrt . abs)
          $ nestedBuildMap (rfromK $ rsum0 v)
@@ -471,7 +472,7 @@ testNestedSumBuild5 =
 nestedSumBuildB :: forall target n r. (ADReady target, NumScalar r, KnownNat n)
                 => target (TKR (1 + n) r) -> target (TKR 3 r)
 nestedSumBuildB v =
-  rbuild @2 [13, 4, 2] $ \case
+  rbuild @2 [13, 4] $ \case
     [ix, ix2] ->
       flip rindex [ix2]
         (rfromList
@@ -562,8 +563,9 @@ testBraidedBuilds1 =
 recycled :: (ADReady target, NumScalar r, KnownNat n)
          => target (TKR n r) -> target (TKR 7 r)
 recycled r =
-  rbuild1 2 $ \_ -> rbuild1 4 $ \_ -> rbuild1 2 $ \_ -> rbuild1 3 $ \_ ->
-    nestedSumBuildB (rreplicate 4 r)
+  rbuild [2, 4, 2, 3] $ \_ -> nestedSumBuildB (rreplicate 4 r)
+--  rbuild1 2 $ \_ -> rbuild1 4 $ \_ -> rbuild1 2 $ \_ -> rbuild1 3 $ \_ ->
+--    nestedSumBuildB (rreplicate 4 r)
 
 testRecycled :: Assertion
 testRecycled =
