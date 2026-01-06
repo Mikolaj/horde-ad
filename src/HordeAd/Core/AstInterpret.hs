@@ -176,13 +176,11 @@ interpretAstPrimal !env v1 = case v1 of
     in tsindex @_ @shm v2 ix3
   AstScatterS @_ @_ @shp shn v (ZS, ix) ->
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     tsoneHot (interpretAstPrimal env v) (interpretAstPlain env <$> ix)
   AstScatterS @shm @shn @shp
               shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAstPrimal env v
         f2 :: IntOf target -> IxSOf target shp
@@ -190,9 +188,7 @@ interpretAstPrimal !env v1 = case v1 of
     in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
               shn v (vars, ix) ->
-    withKnownShS (knownShS @shm) $
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAstPrimal env v
         f2 :: IxSOf target shm -> IxSOf target shp
@@ -202,7 +198,6 @@ interpretAstPrimal !env v1 = case v1 of
   AstGatherS @shm @shn @shp
              shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAstPrimal env v
         f2 :: IntOf target -> IxSOf target shp
@@ -210,9 +205,7 @@ interpretAstPrimal !env v1 = case v1 of
     in tsgather1 @_ @_ @shn @shp t1 f2
   AstGatherS @shm @shn @shp
              shn v (vars, ix) ->
-    withKnownShS (knownShS @shm) $
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAstPrimal env v
         f2 :: IxSOf target shm -> IxSOf target shp
@@ -391,13 +384,11 @@ interpretAstPlain !env v1 = case v1 of
     in tsindex @_ @shm v2 ix3
   AstScatterS @_ @_ @shp shn v (ZS, ix) ->
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     tsoneHot (interpretAstPlain env v) (interpretAstPlain env <$> ix)
   AstScatterS @shm @shn @shp
               shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAstPlain env v
         f2 :: IntOf target -> IxSOf target shp
@@ -405,9 +396,7 @@ interpretAstPlain !env v1 = case v1 of
     in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
               shn v (vars, ix) ->
-    withKnownShS (knownShS @shm) $
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAstPlain env v
         f2 :: IxSOf target shm -> IxSOf target shp
@@ -417,7 +406,6 @@ interpretAstPlain !env v1 = case v1 of
   AstGatherS @shm @shn @shp
              shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAstPlain env v
         f2 :: IntOf target -> IxSOf target shp
@@ -425,9 +413,7 @@ interpretAstPlain !env v1 = case v1 of
     in tsgather1 @_ @_ @shn @shp t1 f2
   AstGatherS @shm @shn @shp
              shn v (vars, ix) ->
-    withKnownShS (knownShS @shm) $
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAstPlain env v
         f2 :: IxSOf target shm -> IxSOf target shp
@@ -744,13 +730,11 @@ interpretAst !env = \case
   -- TODO: this breaks specialization:
   AstScatterS @_ @_ @shp shn v (ZS, ix) ->
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     tsoneHot (interpretAst env v) (interpretAstPlain env <$> ix)
   AstScatterS @shm @shn @shp
               shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAst env v
         f2 :: IntOf target -> IxSOf target shp
@@ -758,9 +742,7 @@ interpretAst !env = \case
     in tsscatter1 @_ @_ @shn @shp t1 f2
   AstScatterS @shm @shn @shp
               shn v (vars, ix) ->
-    withKnownShS (knownShS @shm) $
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAst env v
         f2 :: IxSOf target shm -> IxSOf target shp
@@ -770,7 +752,6 @@ interpretAst !env = \case
   AstGatherS @shm @shn @shp
              shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAst env v
         f2 :: IntOf target -> IxSOf target shp
@@ -778,9 +759,7 @@ interpretAst !env = \case
     in tsgather1 @_ @_ @shn @shp t1 f2
   AstGatherS @shm @shn @shp
              shn v (vars, ix) ->
-    withKnownShS (knownShS @shm) $
     withKnownShS shn $
-    withKnownShS (knownShS @shp) $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAst env v
         f2 :: IxSOf target shm -> IxSOf target shp
