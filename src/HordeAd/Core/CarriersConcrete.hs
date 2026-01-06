@@ -158,7 +158,6 @@ type family RepConcrete (y :: TK) where
 -- If the array is empty and not shaped, shapes can be made up
 -- (defaulting to zero dimensions).
 tftkG :: SingletonTK y -> RepConcrete y -> FullShapeTK y
-{-# INLINE tftkG #-}
 tftkG stk t =
   let repackShapeTree :: SingletonTK y
                       -> Mixed.ShapeTree (RepConcrete y)
@@ -197,33 +196,31 @@ tftkG stk t =
     STKR _ STKScalar -> FTKR (Nested.rshape t) FTKScalar
     STKS sh STKScalar -> FTKS sh FTKScalar
     STKX _ STKScalar -> FTKX (Nested.mshape t) FTKScalar
-    _ | Dict <- eltDictRep stk -> repackShapeTree stk (Mixed.mshapeTree t)
+    _ | Dict <- eltDictRec stk -> repackShapeTree stk (Mixed.mshapeTree t)
 
 eltDictRep :: SingletonTK y -> Dict Nested.KnownElt (RepConcrete y)
-{-# INLINE eltDictRep #-}
-eltDictRep stk =
-  let eltDictRec :: SingletonTK y -> Dict Nested.KnownElt (RepConcrete y)
-      {-# NOINLINE eltDictRec #-}
-      eltDictRec = \case
-        STKScalar -> Dict
-        STKR SNat x | Dict <- eltDictRec x -> Dict
-        STKS sh x | Dict <- eltDictRec x -> withKnownShS sh Dict
-        STKX sh x | Dict <- eltDictRec x -> withKnownShX sh Dict
-        STKProduct stk1 stk2 | Dict <- eltDictRec stk1
-                             , Dict <- eltDictRec stk2 -> Dict
-  in case stk of
-    STKScalar -> Dict  -- the prevalent case
-    _ -> eltDictRec stk
+eltDictRep STKScalar = Dict  -- the prevalent case
+eltDictRep stk = eltDictRec stk
+
+eltDictRec :: SingletonTK y -> Dict Nested.KnownElt (RepConcrete y)
+{-# NOINLINE eltDictRec #-}
+eltDictRec = \case
+  STKScalar -> Dict
+  STKR SNat x | Dict <- eltDictRec x -> Dict
+  STKS sh x | Dict <- eltDictRec x -> withKnownShS sh Dict
+  STKX sh x | Dict <- eltDictRec x -> withKnownShX sh Dict
+  STKProduct stk1 stk2 | Dict <- eltDictRec stk1
+                       , Dict <- eltDictRec stk2 -> Dict
 
 showDictRep :: SingletonTK y -> Dict Show (RepConcrete y)
 showDictRep = \case
     STKScalar -> Dict
     STKR _ x | Dict <- showDictRep x
-             , Dict <- eltDictRep x -> Dict
+             , Dict <- eltDictRec x -> Dict
     STKS _ x | Dict <- showDictRep x
-             , Dict <- eltDictRep x -> Dict
+             , Dict <- eltDictRec x -> Dict
     STKX _ x | Dict <- showDictRep x
-             , Dict <- eltDictRep x -> Dict
+             , Dict <- eltDictRec x -> Dict
     STKProduct stk1 stk2 | Dict <- showDictRep stk1
                          , Dict <- showDictRep stk2 -> Dict
 
@@ -231,11 +228,11 @@ nfdataDictRep :: SingletonTK y -> Dict NFData (RepConcrete y)
 nfdataDictRep = \case
     STKScalar -> Dict
     STKR _ x | Dict <- nfdataDictRep x
-             , Dict <- eltDictRep x -> Dict
+             , Dict <- eltDictRec x -> Dict
     STKS _ x | Dict <- nfdataDictRep x
-             , Dict <- eltDictRep x -> Dict
+             , Dict <- eltDictRec x -> Dict
     STKX _ x | Dict <- nfdataDictRep x
-             , Dict <- eltDictRep x -> Dict
+             , Dict <- eltDictRec x -> Dict
     STKProduct stk1 stk2 | Dict <- nfdataDictRep stk1
                          , Dict <- nfdataDictRep stk2 -> Dict
 
@@ -251,12 +248,12 @@ replTargetRep r = \case
   FTKX @sh sh (FTKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r)
                              , Refl <- lemAppNil @sh ->
     Nested.mreplicatePrim sh r
-  FTKR sh x | Dict <- eltDictRep (ftkToSTK x) ->
+  FTKR sh x | Dict <- eltDictRec (ftkToSTK x) ->
     Nested.rreplicate sh $ Nested.rscalar $ replTargetRep r x
-  FTKS @sh sh x | Dict <- eltDictRep (ftkToSTK x)
+  FTKS @sh sh x | Dict <- eltDictRec (ftkToSTK x)
                 , Refl <- lemAppNil @sh ->
     Nested.sreplicate sh $ Nested.sscalar $ replTargetRep r x
-  FTKX @sh sh x | Dict <- eltDictRep (ftkToSTK x)
+  FTKX @sh sh x | Dict <- eltDictRec (ftkToSTK x)
                 , Refl <- lemAppNil @sh ->
     Nested.mreplicate sh $ Nested.mscalar $ replTargetRep r x
   FTKProduct ftk1 ftk2 -> (replTargetRep r ftk1, replTargetRep r ftk2)
@@ -270,12 +267,12 @@ defTargetRep = \case
     Nested.sreplicatePrim sh def
   FTKX @sh sh FTKScalar | Refl <- lemAppNil @sh ->
     Nested.mreplicatePrim sh def
-  FTKR sh x | Dict <- eltDictRep (ftkToSTK x) ->
+  FTKR sh x | Dict <- eltDictRec (ftkToSTK x) ->
     Nested.rreplicate sh $ Nested.rscalar $ defTargetRep x
-  FTKS @sh sh x | Dict <- eltDictRep (ftkToSTK x)
+  FTKS @sh sh x | Dict <- eltDictRec (ftkToSTK x)
                 , Refl <- lemAppNil @sh ->
     Nested.sreplicate sh $ Nested.sscalar $ defTargetRep x
-  FTKX @sh sh x | Dict <- eltDictRep (ftkToSTK x)
+  FTKX @sh sh x | Dict <- eltDictRec (ftkToSTK x)
                 , Refl <- lemAppNil @sh ->
     Nested.mreplicate sh $ Nested.mscalar $ defTargetRep x
   FTKProduct ftk1 ftk2 -> (defTargetRep ftk1, defTargetRep ftk2)
