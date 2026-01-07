@@ -645,26 +645,22 @@ fmapUnConcrete = coerce
 
 -- Depite the warning, the pattern match is exhaustive.
 ixInBoundsR :: IShR n -> IxROf Concrete n -> Bool
-{-# INLINE ixInBoundsR #-}
 ixInBoundsR ZSR ZIR = True
 ixInBoundsR (n :$: sh) (Concrete i :.: ix) =
-  if 0 <= i && i < n then ixInBoundsR sh ix else False
+  0 <= i && i < n && ixInBoundsR sh ix
 
 ixInBoundsS :: ShS sh -> IxSOf Concrete sh -> Bool
-{-# INLINE ixInBoundsS #-}
 ixInBoundsS ZSS ZIS = True
 ixInBoundsS ((fromSNat' -> n) :$$ sh) (Concrete i :.$ ix) =
-  if 0 <= i && i < n then ixInBoundsS sh ix else False
+  0 <= i && i < n && ixInBoundsS sh ix
 
 ixInBoundsX :: IShX sh -> IxXOf Concrete sh -> Bool
-{-# INLINE ixInBoundsX #-}
 ixInBoundsX ZSX ZIX = True
 ixInBoundsX ((fromSMayNat' -> n) :$% sh) (Concrete i :.% ix) =
-  if 0 <= i && i < n then ixInBoundsX sh ix else False
+  0 <= i && i < n && ixInBoundsX sh ix
 
 -- Depite the warning, the pattern match is exhaustive.
 ixrToLinearMaybe :: IShR n -> IxROf Concrete n -> Maybe Int
-{-# INLINE ixrToLinearMaybe #-}
 ixrToLinearMaybe = \sh ix -> goR sh ix 0
   where
     goR :: IShR n -> IxROf Concrete n -> Int -> Maybe Int
@@ -675,7 +671,6 @@ ixrToLinearMaybe = \sh ix -> goR sh ix 0
 -- This would be shorter, but a bit more expensive:
 --   ixxToLinearMaybe (ixxFromIxS ix)
 ixsToLinearMaybe :: ShS sh -> IxSOf Concrete sh -> Maybe Int
-{-# INLINE ixsToLinearMaybe #-}
 ixsToLinearMaybe = \sh ix -> goS sh ix 0
   where
     goS :: ShS sh -> IxSOf Concrete sh -> Int -> Maybe Int
@@ -684,7 +679,6 @@ ixsToLinearMaybe = \sh ix -> goS sh ix 0
       if 0 <= i && i < n then goS sh ix (n * a + i) else Nothing
 
 ixxToLinearMaybe :: IShX sh -> IxXOf Concrete sh -> Maybe Int
-{-# INLINE ixxToLinearMaybe #-}
 ixxToLinearMaybe = \sh ix -> goX sh ix 0
   where
     goX :: IShX sh -> IxXOf Concrete sh -> Int -> Maybe Int
