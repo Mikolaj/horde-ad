@@ -799,11 +799,14 @@ tindexZRScalar :: forall m n r. (KnownNat m, KnownNat n, GoodScalar r)
                => Concrete (TKR (m + n) r) -> IxROf Concrete m
                -> Concrete (TKR n r)
 {-# INLINE tindexZRScalar #-}
-tindexZRScalar (Concrete v) ix =
-  Concrete
-  $ if ixInBoundsR (shrTake @m $ Nested.rshape v) ix
-    then Nested.rindexPartial v (fmapUnConcrete ix)
-    else Nested.rreplicatePrim (shrDrop @m (Nested.rshape v)) def
+tindexZRScalar (Concrete v) ix = case SNat @n of
+  SNat' @0 ->  -- an optimized common case
+    rfromK $ tindex0R (Concrete v) ix
+  _ ->
+    Concrete
+    $ if ixInBoundsR (shrTake @m $ Nested.rshape v) ix
+      then Nested.rindexPartial v (fmapUnConcrete ix)
+      else Nested.rreplicatePrim (shrDrop @m (Nested.rshape v)) def
 
 tindex0R :: forall m r. GoodScalar r
          => Concrete (TKR m r) -> IxROf Concrete m
@@ -1114,11 +1117,16 @@ tindexZSScalar :: forall shm shn r. (KnownShS shn, GoodScalar r)
                => Concrete (TKS (shm ++ shn) r) -> IxSOf Concrete shm
                -> Concrete (TKS shn r)
 {-# INLINE tindexZSScalar #-}
-tindexZSScalar (Concrete v) ix =
-  Concrete
-  $ if ixInBoundsS (Shaped.shsTakeIx @shn @shm Proxy (Nested.sshape v) ix) ix
-    then Nested.sindexPartial v (fmapUnConcrete ix)
-    else Nested.sreplicatePrim (knownShS @shn) def
+tindexZSScalar (Concrete v) ix = case knownShS @shn of
+  ZSS | Refl <- lemAppNil @shm ->  -- an optimized common case
+    sfromK $ tindex0SImpl (Concrete v) ix
+      -- TODO: benchmark and possibly duplicate the Concrete instance
+      -- to avoid this overhead in symbolic pipeline; also in tindexZRScalar
+  _ ->
+    Concrete
+    $ if ixInBoundsS (Shaped.shsTakeIx @shn @shm Proxy (Nested.sshape v) ix) ix
+      then Nested.sindexPartial v (fmapUnConcrete ix)
+      else Nested.sreplicatePrim (knownShS @shn) def
 
 tindex0S :: forall sh1 r. GoodScalar r
          => Concrete (TKS sh1 r) -> IxSOf Concrete sh1
