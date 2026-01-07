@@ -780,18 +780,19 @@ tindexZR :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
 {-# INLINE tindexZR #-}
 tindexZR v ix = case knownSTK @x of
   STKScalar @r -> contFromTypeable @r (tindexZRDict v ix)
-  _ -> tindexZRBase v ix
+  _ -> tindexZRSlow v ix
 
-tindexZRBase :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
+tindexZRSlow :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
              => Concrete (TKR2 (m + n) x) -> IxROf Concrete m
              -> Concrete (TKR2 n x)
-{-# NOINLINE tindexZRBase #-}  -- the rare slow case
-tindexZRBase (Concrete v) ix | Dict <- eltDictRep (knownSTK @x) =
+{-# NOINLINE tindexZRSlow #-}  -- the rare slow case
+tindexZRSlow (Concrete v) ix | Dict <- eltDictRep (knownSTK @x) =
   if ixInBoundsR (shrTake @m $ Nested.rshape v) ix
   then Concrete $ Nested.rindexPartial v (fmapUnConcrete ix)
   else case tftkG (STKR SNat (knownSTK @x)) v of
          FTKR sh x -> tdefTarget (FTKR (shrDrop @m sh) x)
 
+-- See the comment about tscatterZSDict.
 tindexZRDict :: forall m n r. (KnownNat m, KnownNat n)
              => Concrete (TKR (m + n) r)
              -> IxROf Concrete m
@@ -816,11 +817,11 @@ tindex0R :: forall m r. GoodScalar r
 {-# INLINE tindex0R #-}
 tindex0R v ix = contFromTypeable @r (tindex0RDict v ix)
 
-tindex0RBase :: forall m r. GoodScalar r
+tindex0RImpl :: forall m r. GoodScalar r
              => Concrete (TKR m r) -> IxROf Concrete m
              -> Concrete (TKScalar r)
-{-# INLINE tindex0RBase #-}
-tindex0RBase (Concrete v) ix =
+{-# INLINE tindex0RImpl #-}
+tindex0RImpl (Concrete v) ix =
   Concrete
   $ if ixInBoundsR (Nested.rshape v) ix
     then Nested.rindex v (fmapUnConcrete ix)
@@ -832,7 +833,7 @@ tindex0RDict :: forall m r.
              -> Dict GoodScalar r
              -> Concrete (TKScalar r)
 {-# INLINE [1] tindex0RDict #-}
-tindex0RDict v ix Dict = tindex0RBase v ix
+tindex0RDict v ix Dict = tindex0RImpl v ix
 
 toneHotR :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
          => IShR m -> Concrete (TKR2 n x) -> IxROf Concrete m
@@ -858,16 +859,16 @@ tscatterZR sh t f = case knownSTK @x of
   STKScalar @r ->  -- we don't use full dictionary from FTKScalar
     contFromTKAllNum @r (tscatterZRDict sh t f)
       -- Optimized: using (+) instead of taddTarget
-  _ -> tscatterZRBase sh t f
+  _ -> tscatterZRSlow sh t f
 
-tscatterZRBase
+tscatterZRSlow
   :: forall m n p x.
      (KnownNat m, KnownNat n, KnownNat p, TKAllNum x, KnownSTK x)
   => IShR (p + n) -> Concrete (TKR2 (m + n) x)
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR2 (p + n) x)
-{-# NOINLINE tscatterZRBase #-}  -- the rare slow case
-tscatterZRBase sh (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
+{-# NOINLINE tscatterZRSlow #-}  -- the rare slow case
+tscatterZRSlow sh (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
   case tftkG (STKR SNat (knownSTK @x)) v of
     FTKR sht x ->
       let shm = shrTake @m sht
@@ -940,40 +941,90 @@ tscatterZRScalar sh (Concrete v) f =
 
 -- The semantics of the operation permits index out of bounds
 -- and the result of such indexing is def, which is 0.
-tgatherZR :: forall m n p x. (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
-          => IShR (m + n) -> Concrete (TKR2 (p + n) x)
-          -> (IxROf Concrete m -> IxROf Concrete p)
-          -> Concrete (TKR2 (m + n) x)
-{-# INLINE tgatherZR #-}   -- this function takes a function as an argument
-tgatherZR sh t f = case (SNat @n, knownSTK @x) of
-  (SNat' @0, STKScalar @r) ->  -- an optimized common case
-    let tgatherDict :: Concrete (TKR (p + n) r1)
-                    -> Dict GoodScalar r1
-                    -> Concrete (TKR (m + n) r1)
-        {-# INLINE [1] tgatherDict #-}
-        tgatherDict t1 Dict =
-          let g ix = unConcrete $ t1 `tindex0RBase` (f $ fmapConcrete ix)
-          in Concrete $ Nested.rgeneratePrim sh g
-    in contFromTypeable @r (tgatherDict t)
-  _ -> trbuild (shrTake @m sh) (\ix -> t `tindexZRBase` f ix)
+tgatherZR
+  :: forall m n p x. (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
+  => IShR (m + n) -> Concrete (TKR2 (p + n) x)
+  -> (IxROf Concrete m -> IxROf Concrete p)
+  -> Concrete (TKR2 (m + n) x)
+{-# INLINE tgatherZR #-}
+tgatherZR sh t f = case knownSTK @x of
+  STKScalar @r ->  -- we don't use full dictionary from FTKScalar
+    contFromTypeable @r (tgatherZRDict sh t f)
+      -- Code gets specialized to a particular underlying scalar.
+  _ -> tgatherZRSlow sh t f
 
-tgatherZ1R :: forall n p x. (KnownNat n, KnownNat p, KnownSTK x)
-           => Int -> Concrete (TKR2 (p + n) x)
-           -> (IntOf Concrete -> IxROf Concrete p)
-           -> Concrete (TKR2 (1 + n) x)
-{-# INLINE tgatherZ1R #-}   -- this function takes a function as an argument
-tgatherZ1R k t f = case (SNat @n, knownSTK @x) of
-  (SNat' @0, STKScalar @r) ->  -- an optimized common case
-      let tgatherDict :: Concrete (TKR (p + n) r1)
-                      -> Dict GoodScalar r1
-                      -> Concrete (TKR (1 + n) r1)
-          {-# INLINE [1] tgatherDict #-}
-          tgatherDict t1 Dict =
-            let shm = k :$: shrDrop (rshape t)
-                g i = unConcrete $ t1 `tindex0RBase` (f $ Concrete i)
-            in Concrete $ Nested.rfromVector shm $ VS.generate k g
-      in contFromTypeable @r (tgatherDict t)
-  _ -> trbuild1 k (\ix -> t `tindexZRBase` f ix)
+tgatherZRSlow
+  :: forall m n p x. (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
+  => IShR (m + n) -> Concrete (TKR2 (p + n) x)
+  -> (IxROf Concrete m -> IxROf Concrete p)
+  -> Concrete (TKR2 (m + n) x)
+{-# NOINLINE tgatherZRSlow #-}
+tgatherZRSlow sh t f =
+  trbuild (shrTake @m sh) (\ix -> t `tindexZRSlow` f ix)
+
+tgatherZRDict
+  :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
+  => IShR (m + n) -> Concrete (TKR (p + n) r)
+  -> (IxROf Concrete m -> IxROf Concrete p)
+  -> Dict GoodScalar r
+  -> Concrete (TKR (m + n) r)
+{-# INLINE [1] tgatherZRDict #-}
+tgatherZRDict sh t f Dict = tgatherZRScalar sh t f
+
+tgatherZRScalar
+  :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p, GoodScalar r)
+  => IShR (m + n) -> Concrete (TKR (p + n) r)
+  -> (IxROf Concrete m -> IxROf Concrete p)
+  -> Concrete (TKR (m + n) r)
+{-# INLINE tgatherZRScalar #-}
+tgatherZRScalar sh t f = case SNat @n of
+  SNat' @0 ->  -- an optimized common case
+    let g ix = unConcrete $ t `tindex0RImpl` (f $ fmapConcrete ix)
+    in Concrete $ Nested.rgeneratePrim sh g
+  _ -> trbuild (shrTake @m sh) (\ix -> t `tindexZRScalar` f ix)
+
+tgatherZ1R
+  :: forall n p x. (KnownNat n, KnownNat p, KnownSTK x)
+  => Int -> Concrete (TKR2 (p + n) x)
+  -> (IntOf Concrete -> IxROf Concrete p)
+  -> Concrete (TKR2 (1 + n) x)
+{-# INLINE tgatherZ1R #-}
+tgatherZ1R k t f = case knownSTK @x of
+  STKScalar @r ->  -- we don't use full dictionary from FTKScalar
+    contFromTypeable @r (tgatherZ1RDict k t f)
+      -- Code gets specialized to a particular underlying scalar.
+  _ -> tgatherZ1RSlow k t f
+
+tgatherZ1RSlow
+  :: forall n p x. (KnownNat n, KnownNat p, KnownSTK x)
+  => Int -> Concrete (TKR2 (p + n) x)
+  -> (IntOf Concrete -> IxROf Concrete p)
+  -> Concrete (TKR2 (1 + n) x)
+{-# NOINLINE tgatherZ1RSlow #-}
+tgatherZ1RSlow k t f =
+  trbuild1 k (\ix -> t `tindexZRSlow` f ix)
+
+tgatherZ1RDict
+  :: forall n p r. (KnownNat n, KnownNat p)
+  => Int -> Concrete (TKR (p + n) r)
+  -> (IntOf Concrete -> IxROf Concrete p)
+  -> Dict GoodScalar r
+  -> Concrete (TKR (1 + n) r)
+{-# INLINE [1] tgatherZ1RDict #-}
+tgatherZ1RDict k t f Dict = tgatherZ1RScalar k t f
+
+tgatherZ1RScalar
+  :: forall n p r. (KnownNat n, KnownNat p, GoodScalar r)
+  => Int -> Concrete (TKR (p + n) r)
+  -> (IntOf Concrete -> IxROf Concrete p)
+  -> Concrete (TKR (1 + n) r)
+{-# INLINE tgatherZ1RScalar #-}
+tgatherZ1RScalar k t f = case SNat @n of
+  SNat' @0 ->  -- an optimized common case
+    let shm = k :$: shrDrop (rshape t)
+        g i = unConcrete $ t `tindex0RImpl` (f $ Concrete i)
+    in Concrete $ Nested.rfromVector shm $ VS.generate k g
+  _ -> trbuild1 k (\ix -> t `tindexZRScalar` f ix)
 
 tminIndexR
   :: forall r r2 n.
@@ -1046,13 +1097,13 @@ tindexZS :: forall shm shn x. (KnownShS shn, KnownSTK x)
 {-# INLINE tindexZS #-}
 tindexZS v ix = case knownSTK @x of
   STKScalar @r -> contFromTypeable @r (tindexZSDict v ix)
-  _ -> tindexZSBase v ix
+  _ -> tindexZSSlow v ix
 
-tindexZSBase :: forall shm shn x. (KnownShS shn, KnownSTK x)
+tindexZSSlow :: forall shm shn x. (KnownShS shn, KnownSTK x)
              => Concrete (TKS2 (shm ++ shn) x) -> IxSOf Concrete shm
              -> Concrete (TKS2 shn x)
-{-# NOINLINE tindexZSBase #-}  -- the rare slow case
-tindexZSBase (Concrete v) ix | Dict <- eltDictRep (knownSTK @x) =
+{-# NOINLINE tindexZSSlow #-}  -- the rare slow case
+tindexZSSlow (Concrete v) ix | Dict <- eltDictRep (knownSTK @x) =
   if ixInBoundsS (Shaped.shsTakeIx @shn @shm Proxy (Nested.sshape v) ix) ix
   then Concrete $ Nested.sindexPartial v (fmapUnConcrete ix)
   else case tftkG (STKS (Nested.sshape v) (knownSTK @x)) v of
@@ -1082,11 +1133,11 @@ tindex0S :: forall sh1 r. GoodScalar r
 {-# INLINE tindex0S #-}
 tindex0S v ix = contFromTypeable @r (tindex0SDict v ix)
 
-tindex0SBase :: forall sh1 r. GoodScalar r
+tindex0SImpl :: forall sh1 r. GoodScalar r
              => Concrete (TKS sh1 r) -> IxSOf Concrete sh1
              -> Concrete (TKScalar r)
-{-# INLINE tindex0SBase #-}
-tindex0SBase (Concrete v) ix =
+{-# INLINE tindex0SImpl #-}
+tindex0SImpl (Concrete v) ix =
   Concrete
   $ if ixInBoundsS (Nested.sshape v) ix
     then Nested.sindex v (fmapUnConcrete ix)
@@ -1098,7 +1149,7 @@ tindex0SDict :: forall sh1 r.
              -> Dict GoodScalar r
              -> Concrete (TKScalar r)
 {-# INLINE [1] tindex0SDict #-}
-tindex0SDict v ix Dict = tindex0SBase v ix
+tindex0SDict v ix Dict = tindex0SImpl v ix
 
 toneHotS :: forall sh1 sh2 x. (KnownShS sh1, KnownShS sh2, KnownSTK x)
          => Concrete (TKS2 sh2 x) -> IxSOf Concrete sh1
@@ -1124,16 +1175,16 @@ tscatterZS t f = case knownSTK @x of
   STKScalar @r ->  -- we don't use full dictionary from FTKScalar
     contFromTKAllNum @r (tscatterZSDict @shm @shn t f)
       -- Optimized: using (+) instead of taddTarget
-  _ -> tscatterZSBase @shm @shn t f
+  _ -> tscatterZSSlow @shm @shn t f
 
-tscatterZSBase
+tscatterZSSlow
   :: forall shm shn shp x.
      (KnownShS shm, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x)
   => Concrete (TKS2 (shm ++ shn) x)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS2 (shp ++ shn) x)
-{-# NOINLINE tscatterZSBase #-}  -- the rare slow case
-tscatterZSBase (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
+{-# NOINLINE tscatterZSSlow #-}  -- the rare slow case
+tscatterZSSlow (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
   case tftkG (STKS (knownShS @shm `shsAppend` knownShS @shn) (knownSTK @x)) v of
     FTKS _sht x ->
       let shm = knownShS @shm
@@ -1215,37 +1266,83 @@ tgatherZS
   => Concrete (TKS2 (shp ++ shn) x)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS2 (shm ++ shn) x)
-{-# INLINE tgatherZS #-}  -- this function takes a function as an argument
-tgatherZS t f =
-  case (knownShS @shn, knownSTK @x) of
-    (ZSS, STKScalar @r) | Refl <- lemAppNil @shm
-                        , Refl <- lemAppNil @shp ->  -- an optimized common case
-      let tgatherDict :: Concrete (TKS (shp ++ shn) r1)
-                      -> Dict GoodScalar r1
-                      -> Concrete (TKS (shm ++ shn) r1)
-          {-# INLINE [1] tgatherDict #-}
-          tgatherDict t1 Dict =
-            tkbuild (\ix -> t1 `tindex0SBase` f ix)
-      in contFromTypeable @r (tgatherDict t)
-    _ -> tsbuild @_ @shm @shn (\ix -> t `tindexZSBase` f ix)
+{-# INLINE tgatherZS #-}
+tgatherZS t f = case knownSTK @x of
+  STKScalar @r ->  -- we don't use full dictionary from FTKScalar
+    contFromTypeable @r (tgatherZSDict @shm @shn t f)
+      -- Code gets specialized to a particular underlying scalar.
+  _ -> tgatherZSSlow @shm @shn t f
+
+tgatherZSSlow
+  :: forall shm shn shp x. (KnownShS shm, KnownShS shn, KnownSTK x)
+  => Concrete (TKS2 (shp ++ shn) x)
+  -> (IxSOf Concrete shm -> IxSOf Concrete shp)
+  -> Concrete (TKS2 (shm ++ shn) x)
+{-# NOINLINE tgatherZSSlow #-}
+tgatherZSSlow t f =
+  tsbuild @_ @shm @shn (\ix -> t `tindexZSSlow` f ix)
+
+tgatherZSDict
+  :: forall shm shn shp r. (KnownShS shm, KnownShS shn)
+  => Concrete (TKS (shp ++ shn) r)
+  -> (IxSOf Concrete shm -> IxSOf Concrete shp)
+  -> Dict GoodScalar r
+  -> Concrete (TKS (shm ++ shn) r)
+{-# INLINE [1] tgatherZSDict #-}
+tgatherZSDict t f Dict = tgatherZSScalar @shm @shn t f
+
+tgatherZSScalar
+  :: forall shm shn shp r. (KnownShS shm, KnownShS shn, GoodScalar r)
+  => Concrete (TKS (shp ++ shn) r)
+  -> (IxSOf Concrete shm -> IxSOf Concrete shp)
+  -> Concrete (TKS (shm ++ shn) r)
+{-# INLINE tgatherZSScalar #-}
+tgatherZSScalar t f = case knownShS @shn of
+  ZSS | Refl <- lemAppNil @shm
+      , Refl <- lemAppNil @shp ->  -- an optimized common case
+    tkbuild (\ix -> t `tindex0SImpl` f ix)
+  _ -> tsbuild @_ @shm @shn (\ix -> t `tindexZSScalar` f ix)
 
 tgatherZ1S
   :: forall k shn shp x. (KnownNat k, KnownShS shn, KnownSTK x)
   => Concrete (TKS2 (shp ++ shn) x)
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS2 (k ': shn) x)
-{-# INLINE tgatherZ1S #-}   -- this function takes a function as an argument
-tgatherZ1S t f = case (knownShS @shn, knownSTK @x) of
-  (ZSS, STKScalar @r) | Refl <- lemAppNil @shp ->  -- an optimized common case
-      let tgatherDict :: Concrete (TKS (shp ++ shn) r1)
-                      -> Dict GoodScalar r1
-                      -> Concrete (TKS (k ': shn) r1)
-          {-# INLINE [1] tgatherDict #-}
-          tgatherDict t1 Dict =
-            tkbuild1 @_ @k (\ix -> t1 `tindex0SBase` f ix)
-      in contFromTypeable @r (tgatherDict t)
-  _ ->
-    tsbuild1 (\ix -> t `tindexZSBase` f ix)
+{-# INLINE tgatherZ1S #-}
+tgatherZ1S t f = case knownSTK @x of
+  STKScalar @r ->  -- we don't use full dictionary from FTKScalar
+    contFromTypeable @r (tgatherZ1SDict @k @shn t f)
+      -- Code gets specialized to a particular underlying scalar.
+  _ -> tgatherZ1SSlow @k @shn t f
+
+tgatherZ1SSlow
+  :: forall k shn shp x. (KnownNat k, KnownShS shn, KnownSTK x)
+  => Concrete (TKS2 (shp ++ shn) x)
+  -> (IntOf Concrete -> IxSOf Concrete shp)
+  -> Concrete (TKS2 (k ': shn) x)
+{-# NOINLINE tgatherZ1SSlow #-}
+tgatherZ1SSlow t f =
+  tsbuild1 (\ix -> t `tindexZSSlow` f ix)
+
+tgatherZ1SDict
+  :: forall k shn shp r. (KnownNat k, KnownShS shn)
+  => Concrete (TKS (shp ++ shn) r)
+  -> (IntOf Concrete -> IxSOf Concrete shp)
+  -> Dict GoodScalar r
+  -> Concrete (TKS (k ': shn) r)
+{-# INLINE [1] tgatherZ1SDict #-}
+tgatherZ1SDict t f Dict = tgatherZ1SScalar @k @shn t f
+
+tgatherZ1SScalar
+  :: forall k shn shp r. (KnownNat k, KnownShS shn, GoodScalar r)
+  => Concrete (TKS (shp ++ shn) r)
+  -> (IntOf Concrete -> IxSOf Concrete shp)
+  -> Concrete (TKS (k ': shn) r)
+{-# INLINE tgatherZ1SScalar #-}
+tgatherZ1SScalar t f = case knownShS @shn of
+  ZSS | Refl <- lemAppNil @shp ->  -- an optimized common case
+    tkbuild1 @_ @k (\ix -> t `tindex0SImpl` f ix)
+  _ -> tsbuild1 (\ix -> t `tindexZSScalar` f ix)
 
 tminIndexS
   :: forall n sh r r2.
