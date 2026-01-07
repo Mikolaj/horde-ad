@@ -201,27 +201,27 @@ numFromTKAllNum _ =
 -- Despite what GHC says, TKAllNum (TKScalar r) is not redundant,
 -- because it ensures the error case can't appear.
 contFromTKAllNum :: forall r a. (Typeable r, TKAllNum (TKScalar r))
-                 => ((Num r, Nested.NumElt r) => Dict GoodScalar r -> a) -> a
+                 => (Dict0 (Num r, Nested.NumElt r, GoodScalar r) -> a) -> a
 {-# INLINE contFromTKAllNum #-}  -- takes a function as an argument
 contFromTKAllNum f =
   case testEquality (typeRep @r) (typeRep @Int) of
-    Just Refl -> f Dict
+    Just Refl -> f Dict0
     _ -> case testEquality (typeRep @r) (typeRep @Double) of
-      Just Refl -> f Dict
+      Just Refl -> f Dict0
       _ -> case testEquality (typeRep @r) (typeRep @Float) of
-        Just Refl -> f Dict
+        Just Refl -> f Dict0
         _ -> case testEquality (typeRep @r) (typeRep @Z1) of
-          Just Refl -> f Dict
+          Just Refl -> f Dict0
           _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-            Just Refl -> f Dict
+            Just Refl -> f Dict0
             _ -> case testEquality (typeRep @r) (typeRep @Int32) of
-              Just Refl -> f Dict
+              Just Refl -> f Dict0
               _ -> case testEquality (typeRep @r) (typeRep @Int16) of
-                Just Refl -> f Dict
+                Just Refl -> f Dict0
                 _ -> case testEquality (typeRep @r) (typeRep @Int8) of
-                  Just Refl -> f Dict
+                  Just Refl -> f Dict0
                   _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-                    Just Refl -> f Dict
+                    Just Refl -> f Dict0
                     _ -> error "contFromTKAllNum: impossible type"
 
 -- See above. The list comes from ox-arrays at [PRIMITIVE ELEMENT TYPES LIST].
