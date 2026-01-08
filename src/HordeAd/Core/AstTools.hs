@@ -19,7 +19,7 @@ module HordeAd.Core.AstTools
   , setTotalSharing
   ) where
 
-import Prelude hiding (foldl')
+import Prelude
 
 import Control.Exception.Assert.Sugar
 import Data.IORef

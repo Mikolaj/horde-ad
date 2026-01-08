@@ -2041,9 +2041,9 @@ shareIx ix f = unsafePerformIO $ do
         in funToAstIntVarIO (Just bds) $ \ (!varFresh, !astVarFresh) ->
                                            (Just (varFresh, i), astVarFresh)
   (bindings, ix2) <- mapAndUnzipM shareI (Foldable.toList ix)
-  return $! foldr (uncurry astLet)
-                  (f $ ixsFromIxS ix ix2)
-                  (catMaybes bindings)
+  return $! foldl' (\v (var, u) -> astLet var u v)
+                   (f $ ixsFromIxS ix ix2)
+                   (catMaybes bindings)
 
 -- TODO: fuse scatters, scatter and sum, and perhaps more (fromList?)
 astScatterS :: forall shm shn shp r s.

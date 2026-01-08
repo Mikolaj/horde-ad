@@ -7,7 +7,7 @@ module HordeAd.Core.OpsADVal
   ( crevOnADInputs, crevOnParams, crevOnParamsDt, cfwdOnParams
   ) where
 
-import Prelude hiding (foldl')
+import Prelude
 
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))

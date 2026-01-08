@@ -12,7 +12,7 @@ module HordeAd.Core.CarriersConcrete
   , Concrete(..), rtoVector, stoVector, xtoVector
   ) where
 
-import Prelude hiding (foldl')
+import Prelude
 
 import Control.DeepSeq (NFData (..))
 import Data.Default

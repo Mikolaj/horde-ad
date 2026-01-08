@@ -256,8 +256,7 @@ conv2dPaddedS arrK arrA =
 --   elements are set to zero.
 slicezS
   :: forall shOut sh target r.
-     ( KnownShS sh, KnownShS shOut
-     , Rank shOut ~ Rank sh, ADReady target, NumScalar r )
+     (KnownShS shOut, Rank shOut ~ Rank sh, ADReady target, NumScalar r)
   => target (TKS sh r) -> IxSOf target sh -> target (TKS shOut r)
 slicezS d ixBase | Refl <- lemAppNil @sh =
   gcastWith (unsafeCoerceRefl

@@ -16,7 +16,7 @@ module HordeAd.Core.CarriersAst
   , sunReplicatePrim, sunReplicate1, sunReplicateN
   ) where
 
-import Prelude hiding (foldl')
+import Prelude
 
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Type.Reflection (typeRep)

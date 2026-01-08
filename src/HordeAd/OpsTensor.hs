@@ -75,6 +75,7 @@ module HordeAd.OpsTensor
 
 import Prelude
 
+import Data.List (foldl1')
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
@@ -607,7 +608,7 @@ rappend :: forall n x target. (KnownSTK x, BaseTensor target)
 rappend = trappend
 rconcat :: forall n x target. (KnownSTK x, BaseTensor target)
         => NonEmpty (target (TKR2 (1 + n) x)) -> target (TKR2 (1 + n) x)
-rconcat = foldr1 rappend
+rconcat = foldl1' rappend . NonEmpty.toList
 -- | Extract a slice of an array along the outermost dimension.
 -- The extracted slice must fall within the dimension.
 rslice :: forall n x target. (KnownSTK x, BaseTensor target)
@@ -665,7 +666,7 @@ xconcat :: forall sh x target.
            (KnownSTK x, BaseTensor target, ConvertTensor target)
         => NonEmpty (target (TKX2 (Nothing ': sh) x))
         -> target (TKX2 (Nothing ': sh) x)
-xconcat = foldr1 xappend0
+xconcat = foldl1' xappend0 . NonEmpty.toList
 xslice :: forall i n k sh x target. (KnownSTK x, BaseTensor target)
        => SNat i -> SNat n -> SNat k
        -> target (TKX2 (Just (i + n + k) ': sh) x)
@@ -845,7 +846,7 @@ sbuild :: (KnownShS shm, KnownShS shn, KnownSTK x, BaseTensor target)
        -> target (TKS2 (shm ++ shn) x)
 {-# INLINE sbuild #-}
 sbuild = tsbuild
-smap :: ( KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh
+smap :: ( KnownShS (Take m sh), KnownShS (Drop m sh)
         , KnownSTK x, KnownSTK x2, BaseTensor target )
      => (target (TKS2 (Drop m sh) x) -> target (TKS2 (Drop m sh) x2))
           -- ^ the function to map with
@@ -869,7 +870,7 @@ smap0N :: ( KnownShS sh, GoodScalar r1, GoodScalar r
 smap0N = tsmap0N
 szipWith :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
             , KnownShS (Take m sh), KnownShS (Drop m sh)
-            , KnownSTK x, KnownSTK x1, KnownSTK x2, KnownShS sh
+            , KnownSTK x, KnownSTK x1, KnownSTK x2
             , sh ~ Take m sh ++ Drop m sh
             , sh1 ~ Take m sh ++ Drop m sh1
             , sh2 ~ Take m sh ++ Drop m sh2, BaseTensor target )
@@ -898,7 +899,6 @@ szipWith0N :: ( KnownShS sh, GoodScalar r, GoodScalar r1, GoodScalar r2
 szipWith0N = tszipWith0N
 szipWith3 :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
              , KnownShS (Drop m sh3), KnownShS (Take m sh), KnownShS (Drop m sh)
-             , KnownShS sh
              , KnownSTK x, KnownSTK x1, KnownSTK x2, KnownSTK x3
              , sh ~ Take m sh ++ Drop m sh
              , sh1 ~ Take m sh ++ Drop m sh1
@@ -940,7 +940,7 @@ szipWith30N @sh f u v w | Refl <- lemAppNil @sh =
   sbuild @sh (\ix -> f (sindex u ix) (sindex v ix) (sindex w ix))
 szipWith4 :: ( KnownShS (Drop m sh1), KnownShS (Drop m sh2)
              , KnownShS (Drop m sh3), KnownShS (Drop m sh4)
-             , KnownShS (Take m sh), KnownShS (Drop m sh), KnownShS sh
+             , KnownShS (Take m sh), KnownShS (Drop m sh)
              , KnownSTK x, KnownSTK x1, KnownSTK x2, KnownSTK x3, KnownSTK x4
              , sh ~ Take m sh ++ Drop m sh
              , sh1 ~ Take m sh ++ Drop m sh1

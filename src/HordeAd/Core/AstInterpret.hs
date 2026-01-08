@@ -174,7 +174,7 @@ interpretAstPrimal !env v1 = case v1 of
     let v2 = interpretAstPrimal env v
         ix3 = interpretAstPlain env <$> ix
     in tsindex @_ @shm v2 ix3
-  AstScatterS @_ @_ @shp shn v (ZS, ix) ->
+  AstScatterS shn v (ZS, ix) ->
     withKnownShS shn $
     withKnownSTK (stkAstX v) $
     tsoneHot (interpretAstPrimal env v) (interpretAstPlain env <$> ix)
@@ -382,7 +382,7 @@ interpretAstPlain !env v1 = case v1 of
     let v2 = interpretAstPlain env v
         ix3 = interpretAstPlain env <$> ix
     in tsindex @_ @shm v2 ix3
-  AstScatterS @_ @_ @shp shn v (ZS, ix) ->
+  AstScatterS shn v (ZS, ix) ->
     withKnownShS shn $
     withKnownSTK (stkAstX v) $
     tsoneHot (interpretAstPlain env v) (interpretAstPlain env <$> ix)
@@ -728,7 +728,7 @@ interpretAst !env = \case
   -- recover and also handle similarly tsupdate, both implemented
   -- as a gather and as a scatter
   -- TODO: this breaks specialization:
-  AstScatterS @_ @_ @shp shn v (ZS, ix) ->
+  AstScatterS shn v (ZS, ix) ->
     withKnownShS shn $
     withKnownSTK (stkAstX v) $
     tsoneHot (interpretAst env v) (interpretAstPlain env <$> ix)

@@ -3,10 +3,9 @@
 -- for classification of MNIST digits. Sports 2 hidden layers.
 module MnistRnnRanked2 where
 
-import Prelude hiding (foldl')
+import Prelude
 
 import Data.Kind (Type)
-import Data.List (foldl')
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable (Vector)
 import GHC.TypeLits (KnownNat, Nat, type (+))

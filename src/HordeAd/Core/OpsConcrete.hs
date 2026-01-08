@@ -8,7 +8,7 @@
 module HordeAd.Core.OpsConcrete
   () where
 
-import Prelude hiding (foldl')
+import Prelude
 
 import Control.Monad (forM_)
 import Control.Monad.ST
@@ -17,7 +17,7 @@ import Data.Coerce (Coercible, coerce)
 import Data.Default
 import Data.Function ((&))
 import Data.IntMap.Strict qualified as IM
-import Data.List (foldl', mapAccumL, mapAccumR, scanl')
+import Data.List (mapAccumL, mapAccumR, scanl')
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -169,7 +169,7 @@ instance BaseTensor Concrete where
     _ -> case tftk knownSTK t of
       FTKR sh x ->  -- GHC 9.14 says (_ :$: rest) not exhaustive
         let l = trunravelToList t
-        in foldr (taddTarget knownSTK) (tdefTarget (FTKR (shrTail sh) x)) l
+        in foldl' (taddTarget knownSTK) (tdefTarget (FTKR (shrTail sh) x)) l
           -- Concrete has a ShareTensor instance, so taddTarget arguments
           -- don't need to be duplicable
   {-# INLINE trsum0 #-}
@@ -195,7 +195,7 @@ instance BaseTensor Concrete where
     _ -> case tftk knownSTK t of
       FTKS (_ :$$ rest) x ->
         let l = tsunravelToList t
-        in foldr (taddTarget knownSTK) (tdefTarget (FTKS rest x)) l
+        in foldl' (taddTarget knownSTK) (tdefTarget (FTKS rest x)) l
   {-# INLINE tssum0 #-}
   tssum0 = Concrete . Nested.ssumAllPrim . unConcrete
   {-# INLINE tsdot0 #-}
@@ -223,7 +223,7 @@ instance BaseTensor Concrete where
     _ -> case tftk knownSTK t of
       FTKX (_ :$% rest) x ->
         let l = txunravelToList t
-        in foldr (taddTarget knownSTK) (tdefTarget (FTKX rest x)) l
+        in foldl' (taddTarget knownSTK) (tdefTarget (FTKX rest x)) l
   {-# INLINE txsum0 #-}
   txsum0 = Concrete . Nested.msumAllPrim . unConcrete
   {-# INLINE txdot0 #-}
@@ -881,7 +881,7 @@ tscatterZRSlow sh (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
               Just i2 ->
                 IM.insertWith (taddTarget knownSTK) i2
                   (Concrete $ Nested.rindexPartial v ix)
-          ivs = foldr g IM.empty (shrEnum shm)
+          ivs = foldl' (flip g) IM.empty (shrEnum shm)
       in manyHotNR ftk $ IM.assocs ivs
 
 -- See the comment about tscatterZSDict.
@@ -927,7 +927,7 @@ tscatterZRScalar sh (Concrete v) f =
                  Nothing -> id
                  Just i2 ->
                    IM.insertWith (+) i2 (Nested.rindexPartial v ix)
-             ivs = foldr g IM.empty (shrEnum shm)
+             ivs = foldl' (flip g) IM.empty (shrEnum shm)
              shnSize = shrSize $ shrDrop @p sh
          vec <- VSM.replicate (shrSize shp * shnSize) 0
          forM_ (IM.assocs ivs) $ \(i, u) ->
@@ -1200,7 +1200,7 @@ tscatterZSSlow (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
               Just i2 ->
                 IM.insertWith (taddTarget knownSTK) i2
                   (Concrete $ Nested.sindexPartial @shm @shn v ix)
-          ivs = foldr g IM.empty (shsEnum shm)
+          ivs = foldl' (flip g) IM.empty (shsEnum shm)
       in manyHotNS @shp x $ IM.assocs ivs
 
 -- The inlining phase control and the explicit dictionaryy argument
@@ -1253,7 +1253,7 @@ tscatterZSScalar (Concrete v) f =
                  Nothing -> id
                  Just i2 ->
                    IM.insertWith (+) i2 (Nested.sindexPartial @shm @shn v ix)
-             ivs = foldr g IM.empty (shsEnum shm)
+             ivs = foldl' (flip g) IM.empty (shsEnum shm)
              shnSize = shsSize shn
          vec <- VSM.replicate (shsSize shp * shnSize) 0
          forM_ (IM.assocs ivs) $ \(i, u) ->
@@ -1489,7 +1489,7 @@ tscatterZX @shm @shn @shp @x
                  Just i2 ->
                    IM.insertWith (+) i2
                      (Concrete $ Nested.mindexPartial @_ @shm @shn v ix)
-             ivs = foldr g IM.empty (shxEnum shm)
+             ivs = foldl' (flip g) IM.empty (shxEnum shm)
          in manyHotNX @shp ftk $ IM.assocs ivs
        (_, FTKX _ x) ->
          -- TODO: write to vecs and use a bitmap to record the written indexes
@@ -1505,7 +1505,7 @@ tscatterZX @shm @shn @shp @x
                  Just i2 ->
                    IM.insertWith (taddTarget knownSTK) i2
                      (Concrete $ Nested.mindexPartial @_ @shm @shn v ix)
-             ivs = foldr g IM.empty (shxEnum shm)
+             ivs = foldl' (flip g) IM.empty (shxEnum shm)
          in manyHotNX @shp ftk $ IM.assocs ivs
 
 tgatherZX :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)

@@ -34,7 +34,7 @@ module HordeAd.Core.Ast
   , OpCodeNum1(..), OpCode1(..), OpCode2(..), OpCodeIntegral2(..)
   ) where
 
-import Prelude hiding (foldl')
+import Prelude
 
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Kind (Type)
