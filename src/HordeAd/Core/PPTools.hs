@@ -180,6 +180,8 @@ printAst cfg d = \case
     $ showString "tmapAccumRDer "
       . showParen True (shows k)
       . showString " "
+      . showParen True (shows (ftkAst acc0))
+      . showString " "
       . showParen True (shows bftk)
       . showString " "
       . showParen True (shows eftk)
@@ -213,6 +215,8 @@ printAst cfg d = \case
     showParen (d > 10)
     $ showString "tmapAccumLDer "
       . showParen True (shows k)
+      . showString " "
+      . showParen True (shows (ftkAst acc0))
       . showString " "
       . showParen True (shows bftk)
       . showString " "
