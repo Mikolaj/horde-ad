@@ -17,7 +17,6 @@ import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.Proxy (Proxy (Proxy))
-import Data.Traversable (mapAccumL)
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Text.Show (showListWith)
@@ -791,7 +790,7 @@ evalFwd
   :: forall target y. (ADReadyNoLet target, ShareTensor target)
   => IMap target -> ADMap target -> Delta target y
   -> (ADMap target, target (ADTensorKind y))
-evalFwd params s d0 = case d0 of
+evalFwd params !s d0 = case d0 of
   DeltaShare n d ->
     case DMap.lookup n s of
       Just e1 -> (s, unCotangent e1)
@@ -820,8 +819,8 @@ evalFwd params s d0 = case d0 of
     let (s2, v) = evalFwd params s d
     in (s2, tproject2 v)
   DeltaFromVector snat stk lsd | Refl <- lemBuildOfAD snat stk ->
-    let (s2, l) = mapAccumL (evalFwd params) s lsd
-    in (s2, tfromVector snat (adSTK stk) l)
+    let (s2, l) = mapAccumL' (evalFwd params) s $ V.toList lsd
+    in (s2, tfromVector snat (adSTK stk) $ V.fromListN (V.length lsd) l)
   DeltaSum snat stk d | Refl <- lemBuildOfAD snat stk
                       , Dict0 <- lemTKAllNumAD stk ->
     let (s2, t) = evalFwd params s d
@@ -1003,7 +1002,7 @@ evalFwdSame
      (ADReadyNoLet target, ShareTensor target, y ~ ADTensorKind y)
   => IMap target -> ADMap target -> Delta target y
   -> (ADMap target, target (ADTensorKind y))
-evalFwdSame params s = \case
+evalFwdSame params !s = \case
   DeltaInput inputId ->
     case DMap.lookup inputId params of
       Just dtk -> (s, evalTensorOrZero dtk)
