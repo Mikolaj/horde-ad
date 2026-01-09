@@ -10,6 +10,8 @@ import Prelude
 import Control.Arrow ((***))
 import Control.Monad (foldM, unless)
 import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (gcastWith, (:~:))
+import GHC.TypeLits (type (<=?))
 import System.IO (hPutStrLn, stderr)
 import System.Random
 import Test.Tasty
@@ -17,6 +19,7 @@ import Test.Tasty.HUnit hiding (assert)
 import Text.Printf
 
 import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd
 import HordeAd.Core.Adaptor
@@ -92,6 +95,8 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
+  gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden) :~: True) $
+  gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden2) :~: True) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     Concrete widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
@@ -194,6 +199,8 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
+  gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden) :~: True) $
+  gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden2) :~: True) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     Concrete widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
@@ -307,6 +314,8 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
+  gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden) :~: True) $
+  gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden2) :~: True) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     Concrete widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)

@@ -9,6 +9,7 @@ module HordeAd.Core.OpsADVal
 
 import Prelude
 
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
@@ -175,7 +176,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
   -- Bangs are for the proper order of sharing stamps.
   tcond !stk !b !u !v =
-    let uv = tfromList (SNat @2) stk [u, v]
+    let uv = tfromList (SNat @2) stk (u :| [v])
     in tindexBuild (SNat @2) stk uv (tcond knownSTK b 0 1)
   tkconcrete a =
     let v = tkconcrete a

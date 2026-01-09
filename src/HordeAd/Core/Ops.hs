@@ -35,6 +35,8 @@ import Prelude
 
 import Data.Foldable qualified as Foldable
 import Data.Kind (Constraint, Type)
+import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -270,7 +272,8 @@ class LetTensor (target :: Target) where
                in g)
               acc0
               es
-    in tappend (SNat @1) k nstk (tfromList (SNat @1) nstk [acc0]) bs
+    in tappend (SNat @1) k nstk (tfromList (SNat @1) nstk
+                                           (NonEmpty.singleton acc0)) bs
 
 class ShareTensor (target :: Target) where
   tshare :: target y -> target y
@@ -469,15 +472,16 @@ class ( Num (IntOf target)
                  SNat k -> SingletonTK y -> Data.Vector.Vector (target y)
               -> target (BuildTensorKind k y)
   tfromList :: forall y k.
-               SNat k -> SingletonTK y -> [target y]
+               SNat k -> SingletonTK y -> NonEmpty (target y)
             -> target (BuildTensorKind k y)
-  tfromList k stk l = tfromVector k stk $ V.fromListN (fromSNat' k) l
-  tfromListR :: forall y k.
-                SingletonTK y -> ListR k (target y)
+  tfromList k stk l =
+    tfromVector k stk $ V.fromListN (fromSNat' k) $ NonEmpty.toList l
+  tfromListR :: forall y k. 1 <= k
+             => SingletonTK y -> ListR k (target y)
              -> target (BuildTensorKind k y)
-  tfromListR stk l =
-    tfromList (listrRank l) stk  -- not valueOf @k, because k ambiguous
-    . Foldable.toList $ l
+  tfromListR stk l = case NonEmpty.nonEmpty $ Foldable.toList l of
+    Just nl -> tfromList (listrRank l) stk nl
+    Nothing -> error "tfromListR: empty list"
 
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain

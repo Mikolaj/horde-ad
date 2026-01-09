@@ -80,7 +80,9 @@ instance LetTensor Concrete where
     _ -> foldl' f x0 (tunravelToListShare k stk es) -}
   {-# INLINE tscan #-}
   tscan k nstk stk f x0 as =
-    tfromList (snatSucc k) nstk $ scanl' f x0 $ tunravelToListShare k stk as
+    case NonEmpty.nonEmpty $ scanl' f x0 $ tunravelToListShare k stk as of
+      Just nl -> tfromList (snatSucc k) nstk nl
+      Nothing -> error "tscan: impossible"
 
 instance ShareTensor Concrete where
   tshare = id
@@ -136,32 +138,21 @@ instance BaseTensor Concrete where
   {-# INLINE txunravelToList #-}
   txunravelToList @_ @_ @x | Dict <- eltDictRep (knownSTK @x) =
     fmapConcrete . Nested.mtoListOuter . unConcrete
-  tfromVector snat@SNat stk v = case stk of
-    STKScalar -> Concrete $ Nested.sfromList1Prim snat
-                 $ fmapUnConcrete $ V.toList v
-    STKR SNat x | Dict <- lemKnownSTK x -> trfromVector v
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tsfromVector v
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txfromVector v
-    STKProduct stk1 stk2 ->
-      let (v1, v2) = V.unzip $ V.map tunpair v
-      in tpair (tfromVector snat stk1 v1) (tfromVector snat stk2 v2)
+  tfromVector snat stk v = case NonEmpty.nonEmpty $ V.toList v of
+    Just nl -> tfromList snat stk nl
+    Nothing -> error "tfromVector: empty vector"
   {-# INLINE tfromList #-}
   tfromList snat@SNat stk l = case stk of
-    STKScalar -> Concrete $ Nested.sfromList1Prim snat $ fmapUnConcrete l
+    STKScalar ->
+      Concrete $ Nested.sfromList1Prim snat $ fmapUnConcrete $ NonEmpty.toList l
     STKR SNat x | Dict <- eltDictRep x ->
-      case NonEmpty.nonEmpty $ fmapUnConcrete l of
-        Just nl -> Concrete $ Nested.rfromListOuterN (fromSNat' snat) nl
-        Nothing -> error "tfromList: empty list"
+      Concrete $ Nested.rfromListOuterN (fromSNat' snat) $ fmapUnConcrete l
     STKS _sh x | Dict <- eltDictRep x ->
-      case NonEmpty.nonEmpty $ fmapUnConcrete l of
-        Just nl -> Concrete $ Nested.sfromListOuter snat nl
-        Nothing -> error "tfromList: empty list"
+      Concrete $ Nested.sfromListOuter snat $ fmapUnConcrete l
     STKX _sh x | Dict <- eltDictRep x ->
-      case NonEmpty.nonEmpty $ fmapUnConcrete l of
-        Just nl -> Concrete $ Nested.mfromListOuterSN snat nl
-        Nothing -> error "tfromList: empty list"
+      Concrete $ Nested.mfromListOuterSN snat $ fmapUnConcrete l
     STKProduct stk1 stk2 ->
-      let (l1, l2) = unzip $ map tunpair l
+      let (l1, l2) = NonEmpty.unzip $ NonEmpty.map tunpair l
       in tpair (tfromList snat stk1 l1) (tfromList snat stk2 l2)
   trsum @_ @x t = case knownSTK @x of
     STKScalar @r | Dict0 <- numFromTKAllNum (Proxy @r) ->
@@ -701,7 +692,9 @@ oRtmapAccumR k bftk eftk f acc0 es = case fromSNat' k of
   _ -> let (xout, lout) =
              mapAccumR (curry $ coerce f) acc0
                        (tunravelToListShare k (ftkToSTK eftk) es)
-       in tpair xout (tfromList k (ftkToSTK bftk) lout)
+       in case NonEmpty.nonEmpty lout of
+         Just nl -> tpair xout (tfromList k (ftkToSTK bftk) nl)
+         Nothing -> error "oRtmapAccumR: impossible"
 
 oRtmapAccumL
   :: forall k accy by ey.
@@ -718,7 +711,9 @@ oRtmapAccumL k bftk eftk f acc0 es = case fromSNat' k of
   _ -> let (xout, lout) =
              mapAccumL (curry $ coerce f) acc0
                        (tunravelToListShare k (ftkToSTK eftk) es)
-       in tpair xout (tfromList k (ftkToSTK bftk) lout)
+       in case NonEmpty.nonEmpty lout of
+         Just nl -> tpair xout (tfromList k (ftkToSTK bftk) nl)
+         Nothing -> error "oRtmapAccumL: impossible"
 
 
 -- * Ranked internal definitions

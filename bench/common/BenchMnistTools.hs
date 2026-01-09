@@ -10,8 +10,9 @@ import Control.DeepSeq (NFData (..))
 import Criterion.Main
 import Data.Default qualified as Default
 import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (gcastWith, (:~:))
 import GHC.Exts (WithDict)
-import GHC.TypeLits (KnownNat)
+import GHC.TypeLits (KnownNat, type (<=?))
 import System.Random
 import Test.Inspection
 import Type.Reflection (Typeable)
@@ -23,6 +24,7 @@ import HordeAd.External.OptimizerTools
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import MnistData
 import MnistFcnnRanked1 qualified
@@ -50,6 +52,8 @@ mnistTrainBench1VTA prefix widthHiddenInt widthHidden2Int
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
+  gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden) :~: True) $
+  gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden2) :~: True) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     Concrete widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
@@ -86,6 +90,8 @@ mnistTestBench1VTA prefix widthHiddenInt widthHidden2Int
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
+  gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden) :~: True) $
+  gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden2) :~: True) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     Concrete widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
@@ -144,6 +150,8 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
     (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
     (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
+  gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden) :~: True) $
+  gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden2) :~: True) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
                     Concrete widthHidden widthHidden2 r
       valsInit = fst $ randomValue 1 (mkStdGen 44)
