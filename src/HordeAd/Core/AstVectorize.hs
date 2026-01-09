@@ -115,8 +115,8 @@ build1VOccurrenceUnknownRefresh
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE build1VOccurrenceUnknownRefresh #-}
-build1VOccurrenceUnknownRefresh snat@SNat (!var, !v0) =
-  funToAstIntVar (varNameToBounds var) $ \ (!varFresh, !astVarFresh) ->
+build1VOccurrenceUnknownRefresh snat@SNat (var, v0) =
+  funToAstIntVar (varNameToBounds var) $ \ (!varFresh, astVarFresh) ->
     let !v2 = substituteAst astVarFresh var v0
                 -- cheap subst, because only a renaming
     in build1VOccurrenceUnknown snat (varFresh, v2)
@@ -370,8 +370,8 @@ intBindingRefreshS
   :: (IntVarName, AstIxS AstMethodLet sh)
   -> (IntVarName, AstInt AstMethodLet, AstIxS AstMethodLet sh)
 {-# NOINLINE intBindingRefreshS #-}
-intBindingRefreshS (!var, !ix) =
-  funToAstIntVar (varNameToBounds var) $ \ (!varFresh, !astVarFresh) ->
+intBindingRefreshS (var, ix) =
+  funToAstIntVar (varNameToBounds var) $ \ (!varFresh, astVarFresh) ->
     let !ix2 = substituteAstIxS astVarFresh var ix
                  -- cheap subst, because only a renaming
     in (varFresh, astVarFresh, ix2)
@@ -458,7 +458,7 @@ build1VHFun
   :: forall k x z s s2. (AstSpan s, AstSpan s2)
   => SNat k -> (IntVarName, AstHFun s s2 x z)
   -> AstHFun s s2 (BuildTensorKind k x) (BuildTensorKind k z)
-build1VHFun snat@SNat (!var, !v0) = case v0 of
+build1VHFun snat@SNat (var, v0) = case v0 of
   Ast.AstLambda var1 t ->
     -- This handles the case of l having free variables beyond var1,
     -- which is not possible for lambdas used in folds, etc.
