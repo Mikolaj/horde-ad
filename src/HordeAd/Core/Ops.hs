@@ -1109,6 +1109,23 @@ class ( Num (IntOf target)
       let (u1, u2) = tunpair u
       in tpair (treplicate snat stk1 u1)
                (treplicate snat stk2 u2)
+  treverse
+    :: forall z k. ConvertTensor target
+    => SNat k -> SingletonTK z -> target (BuildTensorKind k z)
+    -> target (BuildTensorKind k z)
+  default treverse
+    :: forall z k. (ShareTensor target, ConvertTensor target)
+    => SNat k -> SingletonTK z -> target (BuildTensorKind k z)
+    -> target (BuildTensorKind k z)
+  treverse snat stk u = case stk of
+    STKScalar -> tsreverse u
+    STKR _ x | Dict <- lemKnownSTK x -> trreverse u
+    STKS _ x | Dict <- lemKnownSTK x -> tsreverse u
+    STKX _ x | Dict <- lemKnownSTK x -> txreverse u
+    STKProduct stk1 stk2 ->
+      let (u1, u2) = tunpair u
+      in tpair (treverse snat stk1 u1)
+               (treverse snat stk2 u2)
   tindexBuild
     :: forall z k. ConvertTensor target
     => SNat k -> SingletonTK z -> target (BuildTensorKind k z) -> IntOf target

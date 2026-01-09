@@ -686,6 +686,15 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
       ttlet u $ \ !u3 ->
         tpair (treplicate snat stk1 (tproject1 u3))
               (treplicate snat stk2 (tproject2 u3))
+  treverse snat stk u = case stk of
+    STKScalar -> tsreverse u
+    STKR _ x | Dict <- lemKnownSTK x -> trreverse u
+    STKS _ x | Dict <- lemKnownSTK x -> tsreverse u
+    STKX _ x | Dict <- lemKnownSTK x -> txreverse u
+    STKProduct stk1 stk2 ->
+      ttlet u $ \ !u3 ->
+        tpair (treverse snat stk1 (tproject1 u3))
+              (treverse snat stk2 (tproject2 u3))
   tindexBuild snat@SNat stk u i = case stk of
     STKScalar -> kfromS $ tsindex u (i :.$ ZIS)
     STKR SNat x | Dict <- lemKnownSTK x -> trindex u (i :.: ZIR)
@@ -1442,6 +1451,8 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize . tsum k stk . unAstNoVectorize
   treplicate k stk =
     AstNoVectorize . treplicate k stk . unAstNoVectorize
+  treverse k stk =
+    AstNoVectorize . treverse k stk . unAstNoVectorize
   tindexBuild k stk u i =
     AstNoVectorize $ tindexBuild k stk (unAstNoVectorize u) (unAstNoVectorize i)
 
@@ -1683,6 +1694,15 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
       ttlet u $ \ !u3 ->
         tpair (treplicate snat stk1 (tproject1 u3))
               (treplicate snat stk2 (tproject2 u3))
+  treverse snat stk u = case stk of
+    STKScalar -> tsreverse u
+    STKR _ x | Dict <- lemKnownSTK x -> trreverse u
+    STKS _ x | Dict <- lemKnownSTK x -> tsreverse u
+    STKX _ x | Dict <- lemKnownSTK x -> txreverse u
+    STKProduct stk1 stk2 ->
+      ttlet u $ \ !u3 ->
+        tpair (treverse snat stk1 (tproject1 u3))
+              (treverse snat stk2 (tproject2 u3))
   tindexBuild snat@SNat stk u i = case stk of
     STKScalar -> kfromS $ tsindex u (i :.$ ZIS)
     STKR SNat x | Dict <- lemKnownSTK x -> trindex u (i :.: ZIR)
