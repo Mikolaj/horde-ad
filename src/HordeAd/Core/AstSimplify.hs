@@ -4315,9 +4315,14 @@ substitute1Ast :: forall s s2 y z. (AstSpan s, AstSpan s2)
                -> AstTensor AstMethodLet s y
                -> Maybe (AstTensor AstMethodLet s y)
 substitute1Ast i var = subst where
+ substIxS :: AstIxS AstMethodLet sh3 -> Maybe (AstIxS AstMethodLet sh3)
+ substIxS ix =
+   let mix = fmap subst ix
+   in if any isJust mix
+      then Just $ ixsZipWith fromMaybe ix mix
+      else Nothing
  subst :: forall s3 y2. AstSpan s3
-       => AstTensor AstMethodLet s3 y2
-       -> Maybe (AstTensor AstMethodLet s3 y2)
+       => AstTensor AstMethodLet s3 y2 -> Maybe (AstTensor AstMethodLet s3 y2)
  subst = \case
   Ast.AstPair u v ->
     case (subst u, subst v) of
@@ -4390,9 +4395,7 @@ substitute1Ast i var = subst where
       _ -> error "substitute1Ast: span"
     else Nothing
   Ast.AstCond b v w ->
-    case ( substitute1Ast i var b
-         , subst v
-         , subst w ) of
+    case (subst b, subst v, subst w) of
       (Nothing, Nothing, Nothing) -> Nothing
       (mb, mv, mw) ->
         Just $ astCond (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
@@ -4491,17 +4494,17 @@ substitute1Ast i var = subst where
   Ast.AstCastS v -> astCastS <$> subst v
 
   Ast.AstIndexS shn v ix ->
-    case (subst v, substitute1AstIxS i var ix) of
+    case (subst v, substIxS ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astIndexS shn (fromMaybe v mv) (fromMaybe ix mix)
   Ast.AstScatterS shn v (vars, ix) ->
-    case (subst v, substitute1AstIxS i var ix) of
+    case (subst v, substIxS ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astScatterS shn
                                       (fromMaybe v mv)
                                       (vars, fromMaybe ix mix)
   Ast.AstGatherS shn v (vars, ix) ->
-    case (subst v, substitute1AstIxS i var ix) of
+    case (subst v, substIxS ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astGatherS shn
                                      (fromMaybe v mv)
@@ -4521,7 +4524,7 @@ substitute1Ast i var = subst where
   Ast.AstConvert c v -> astConvert c <$> subst v
 
   Ast.AstIndex0S v ix ->
-    case (subst v, substitute1AstIxS i var ix) of
+    case (subst v, substIxS ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astIndex0S (fromMaybe v mv) (fromMaybe ix mix)
   Ast.AstSum0S v -> astSum0S <$> subst v
@@ -4558,20 +4561,20 @@ substitute1Ast i var = subst where
        then Just $ fromMaybe arg1 mb1 `Ast.AstBoolAndA` fromMaybe arg2 mb2
        else Nothing
   Ast.AstLeqK arg1 arg2 ->
-    let mr1 = substitute1Ast i var arg1
-        mr2 = substitute1Ast i var arg2
+    let mr1 = subst arg1
+        mr2 = subst arg2
     in if isJust mr1 || isJust mr2
        then Just $ fromMaybe arg1 mr1 <=. fromMaybe arg2 mr2
        else Nothing
   Ast.AstLeqS arg1 arg2 ->
-    let mr1 = substitute1Ast i var arg1
-        mr2 = substitute1Ast i var arg2
+    let mr1 = subst arg1
+        mr2 = subst arg2
     in if isJust mr1 || isJust mr2
        then Just $ fromMaybe arg1 mr1 <=. fromMaybe arg2 mr2
        else Nothing
   Ast.AstLeqA shb sh arg1 arg2 ->
-    let mr1 = substitute1Ast i var arg1
-        mr2 = substitute1Ast i var arg2
+    let mr1 = subst arg1
+        mr2 = subst arg2
     in if isJust mr1 || isJust mr2
        then Just $ Ast.AstLeqA shb sh (fromMaybe arg1 mr1) (fromMaybe arg2 mr2)
        else Nothing
