@@ -17,7 +17,7 @@ import Data.Coerce (Coercible, coerce)
 import Data.Default
 import Data.Function ((&))
 import Data.IntMap.Strict qualified as IM
-import Data.List (mapAccumL, mapAccumR, scanl')
+import Data.List (mapAccumL, scanl')
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
@@ -690,10 +690,12 @@ oRtmapAccumR
 oRtmapAccumR k bftk eftk f acc0 es = case fromSNat' k of
   0 -> tpair acc0 (tdefTarget (buildFTK k bftk))
   _ -> let (xout, lout) =
-             mapAccumR (curry $ coerce f) acc0
-                       (tunravelToListShare k (ftkToSTK eftk) es)
+             mapAccumL (curry $ coerce f) acc0
+                       (tunravelToListShare k (ftkToSTK eftk)
+                                            (treverse k (ftkToSTK eftk) es))
        in case NonEmpty.nonEmpty lout of
-         Just nl -> tpair xout (tfromList k (ftkToSTK bftk) nl)
+         Just nl -> tpair xout (treverse k (ftkToSTK bftk)
+                                $ tfromList k (ftkToSTK bftk) nl)
          Nothing -> error "oRtmapAccumR: impossible"
 
 oRtmapAccumL
