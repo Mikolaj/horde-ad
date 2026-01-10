@@ -102,9 +102,9 @@ benchProdShort
   -> [Benchmark]
 benchProdShort ~(snat, list, l, lt, t) = case snat of
   SNat ->
---    [ bench "cgrad s MapAccum" $ nf (crevSMapAccum snat) t
---    , bench "grad s MapAccum" $ nf (revSMapAccum snat) t
-    [ bench "cgrad k MapAccum" $ nf (crevScalarMapAccum snat) t
+    [ bench "cgrad s MapAccum" $ nf (crevSMapAccum snat) t
+    , bench "grad s MapAccum" $ nf (revSMapAccum snat) t
+    , bench "cgrad k MapAccum" $ nf (crevScalarMapAccum snat) t
     , bench "grad k MapAccum" $ nf (revScalarMapAccum snat) t
 --    , bench "cgrad k list" $ nf crevScalarList list
 --    , bench "grad k list" $ nf revScalarList list
@@ -130,9 +130,9 @@ benchProdShortest
   -> [Benchmark]
 benchProdShortest ~(snat, list, l, lt, t) = case snat of
   SNat ->
---    [ bench "cgrad s MapAccum" $ nf (crevSMapAccum snat) t
---    , bench "grad s MapAccum" $ nf (revSMapAccum snat) t
-    [ bench "cgrad k MapAccum" $ nf (crevScalarMapAccum snat) t
+    [ bench "cgrad s MapAccum" $ nf (crevSMapAccum snat) t
+    , bench "grad s MapAccum" $ nf (revSMapAccum snat) t
+    , bench "cgrad k MapAccum" $ nf (crevScalarMapAccum snat) t
     , bench "grad k MapAccum" $ nf (revScalarMapAccum snat) t
 --    , bench "cgrad k list" $ nf crevScalarList list
 --    , bench "grad k list" $ nf revScalarList list
