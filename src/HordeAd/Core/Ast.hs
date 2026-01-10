@@ -329,24 +329,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
                   SNat k -> SingletonTK y
                -> AstTensor ms s y
                -> AstTensor ms s (BuildTensorKind k y)
-  AstMapAccumRDer
-    :: forall accy by ey k ms s.
-       SNat k
-    -> FullShapeTK by
-    -> FullShapeTK ey
-    -> AstHFun s s
-               (TKProduct accy ey) (TKProduct accy by)
-    -> AstHFun s s
-               (TKProduct (ADTensorKind (TKProduct accy ey))
-                          (TKProduct accy ey))
-               (ADTensorKind (TKProduct accy by))
-    -> AstHFun s s
-               (TKProduct (ADTensorKind (TKProduct accy by))
-                          (TKProduct accy ey))
-               (ADTensorKind (TKProduct accy ey))
-    -> AstTensor ms s accy
-    -> AstTensor ms s (BuildTensorKind k ey)
-    -> AstTensor ms s (TKProduct accy (BuildTensorKind k by))
   AstMapAccumLDer
     :: forall accy by ey k ms s.
        SNat k

@@ -159,42 +159,6 @@ printAst cfg d = \case
       printPrefixOp
         printAst cfg d
         ("treplicate (" ++ show snat ++ ") (" ++ show stk ++ ")") [v]
-  AstMapAccumRDer k bftk eftk f df rf acc0 es ->
-   if loseRoudtrip cfg
-   then
-    showParen (d > 10)
-    $ showString "tmapAccumRDer "
-      . showParen True (shows k)
-      . showString " "
-      . printAstHFun cfg 10 f
-      . showString " "
-      . printAstHFun cfg 10 df
-      . showString " "
-      . printAstHFun cfg 10 rf
-      . showString " "
-      . printAst cfg 11 acc0
-      . showString " "
-      . printAst cfg 11 es
-   else
-    showParen (d > 10)
-    $ showString "tmapAccumRDer "
-      . showParen True (shows k)
-      . showString " "
-      . showParen True (shows (ftkAst acc0))
-      . showString " "
-      . showParen True (shows bftk)
-      . showString " "
-      . showParen True (shows eftk)
-      . showString " "
-      . printAstHFun cfg 10 f
-      . showString " "
-      . printAstHFun cfg 10 df
-      . showString " "
-      . printAstHFun cfg 10 rf
-      . showString " "
-      . printAst cfg 11 acc0
-      . showString " "
-      . printAst cfg 11 es
   AstMapAccumLDer k bftk eftk f df rf acc0 es ->
    if loseRoudtrip cfg
    then

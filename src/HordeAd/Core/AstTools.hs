@@ -62,8 +62,6 @@ ftkAst t = case t of
     Just (v, _) -> buildFTK snat (ftkAst v)
   AstSum snat stk v -> razeFTK snat stk (ftkAst v)
   AstReplicate snat _ v -> buildFTK snat (ftkAst v)
-  AstMapAccumRDer k bftk _eftk _f _df _rf acc0 _es ->
-    FTKProduct (ftkAst acc0) (buildFTK k bftk)
   AstMapAccumLDer k bftk _eftk _f _df _rf acc0 _es ->
     FTKProduct (ftkAst acc0) (buildFTK k bftk)
   AstApply (AstLambda !_ !l) _ -> ftkAst l
@@ -174,8 +172,6 @@ varInAst var = \case
   AstFromVector _ _ vl -> any (varInAst var) vl
   AstSum _ _ v -> varInAst var v
   AstReplicate _ _ v -> varInAst var v
-  AstMapAccumRDer _k _bftk _eftk _f _df _rf acc0 es ->
-    varInAst var acc0 || varInAst var es
   AstMapAccumLDer _k _bftk _eftk _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
   AstApply t ll -> varInAstHFun var t || varInAst var ll

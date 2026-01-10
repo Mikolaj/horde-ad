@@ -63,13 +63,6 @@ inlineAst !memo v0 = case v0 of
   Ast.AstSum snat stk v -> second (Ast.AstSum snat stk) (inlineAst memo v)
   Ast.AstReplicate snat stk v ->
     second (Ast.AstReplicate snat stk) (inlineAst memo v)
-  Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
-    let (memo1, f2) = inlineAstHFun memo f
-        (memo2, df2) = inlineAstHFun memo1 df
-        (memo3, rf2) = inlineAstHFun memo2 rf
-        (memo4, acc02) = inlineAst memo3 acc0
-        (memo5, es2) = inlineAst memo4 es
-    in (memo5, Ast.AstMapAccumRDer k bftk eftk f2 df2 rf2 acc02 es2)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f
         (memo2, df2) = inlineAstHFun memo1 df
@@ -368,10 +361,6 @@ unshareAst !memo@(!_, !_) = \case
   Ast.AstSum snat stk v -> second (Ast.AstSum snat stk) (unshareAst memo v)
   Ast.AstReplicate snat stk v ->
     second (Ast.AstReplicate snat stk) (unshareAst memo v)
-  Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
-    let (memo1, acc02) = unshareAst memo acc0
-        (memo2, es2) = unshareAst memo1 es
-    in (memo2, Ast.AstMapAccumRDer k bftk eftk f df rf acc02 es2)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     let (memo1, acc02) = unshareAst memo acc0
         (memo2, es2) = unshareAst memo1 es

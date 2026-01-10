@@ -150,24 +150,6 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
     Ast.AstReplicate snat2 stk v -> traceRule $
       astTrBuild snat2 snat stk
       $ astReplicate snat2 (buildSTK snat stk) $ build1V snat (var, v)
-    Ast.AstMapAccumRDer k5@(SNat @k5) bftk eftk f df rf acc0 es
-     | Refl <- lemBuildOfAD snat (ftkToSTK (ftkAst acc0))
-     , Refl <- lemBuildOfAD snat (ftkToSTK bftk)
-     , Refl <- lemBuildOfAD snat (ftkToSTK eftk) -> traceRule $
-      astLetFun
-        (astMapAccumRDer
-           k5
-           (buildFTK snat bftk)
-           (buildFTK snat eftk)
-           (build1VHFun snat (var, f))
-           (build1VHFun snat (var, df))
-           (build1VHFun snat (var, rf))
-           (build1VOccurrenceUnknown snat (var, acc0))
-           (astTrBuild (SNat @k) (SNat @k5) (ftkToSTK eftk)
-            $ build1VOccurrenceUnknown snat (var, es)))
-        (\x1bs1 -> astPair (astProject1 x1bs1)
-                           (astTrBuild (SNat @k5) (SNat @k)
-                                       (ftkToSTK bftk) (astProject2 x1bs1)))
     Ast.AstMapAccumLDer k5@(SNat @k5) bftk eftk f df rf acc0 es
      | Refl <- lemBuildOfAD snat (ftkToSTK (ftkAst acc0))
      , Refl <- lemBuildOfAD snat (ftkToSTK bftk)
@@ -429,7 +411,6 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                Ast.AstFromVector{} -> len == 1
                Ast.AstScatterS{} -> True
                Ast.AstGatherS{} -> True
-               Ast.AstMapAccumRDer{} -> True
                Ast.AstMapAccumLDer{} -> True
                -- These can only be simplified to the AstFromVector NF above.
                Ast.AstReplicate{} -> True

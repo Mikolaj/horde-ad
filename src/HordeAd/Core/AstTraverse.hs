@@ -67,13 +67,6 @@ expandAst t = case t of
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map expandAst l)
   Ast.AstSum snat stk v -> astSum snat stk (expandAst v)
   Ast.AstReplicate snat stk v -> astReplicate snat stk (expandAst v)
-  Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
-    astMapAccumRDer k bftk eftk
-                    (expandAstHFun f)
-                    (expandAstHFun df)
-                    (expandAstHFun rf)
-                    (expandAst acc0)
-                    (expandAst es)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     astMapAccumLDer k bftk eftk
                     (expandAstHFun f)
@@ -266,13 +259,6 @@ simplifyAst t = case t of
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map simplifyAst l)
   Ast.AstSum snat stk v -> astSum snat stk (simplifyAst v)
   Ast.AstReplicate snat stk v -> astReplicate snat stk (simplifyAst v)
-  Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
-    astMapAccumRDer k bftk eftk
-                    (simplifyAstHFun f)
-                    (simplifyAstHFun df)
-                    (simplifyAstHFun rf)
-                    (simplifyAst acc0)
-                    (simplifyAst es)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     astMapAccumLDer k bftk eftk
                     (simplifyAstHFun f)
@@ -658,13 +644,6 @@ contractAst t0 = case t0 of
                (contractAst (Ast.AstSum snat stk (Ast.AstSum snat2 stk2 t2)))
   Ast.AstSum snat stk v -> astSum snat stk (contractAst v)
   Ast.AstReplicate snat stk v -> astReplicate snat stk (contractAst v)
-  Ast.AstMapAccumRDer k bftk eftk f df rf acc0 es ->
-    astMapAccumRDer k bftk eftk
-                    (contractAstHFun f)
-                    (contractAstHFun df)
-                    (contractAstHFun rf)
-                    (contractAst acc0)
-                    (contractAst es)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     astMapAccumLDer k bftk eftk
                     (contractAstHFun f)

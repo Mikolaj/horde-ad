@@ -76,14 +76,6 @@ interpretAstPrimal !env v1 = case v1 of
   AstReplicate snat stk v ->
     treplicate snat stk (interpretAstPrimal env v)
   -- This prevents computing the complex dual parts for mapAccum in ADVal.
-  AstMapAccumRDer k bftk eftk f0 df0 rf0 acc0 es ->
-    let f = interpretAstHFunPrimal env f0
-        df = interpretAstHFunPrimal env df0
-        rf = interpretAstHFunPrimal env rf0
-        acc02 = interpretAstPrimal env acc0
-        es2 = interpretAstPrimal env es
-    in tmapAccumRDer (Proxy @(PrimalOf target))
-                     k (ftkAst acc0) bftk eftk f df rf acc02 es2
   AstMapAccumLDer k bftk eftk f0 df0 rf0 acc0 es ->
     let f = interpretAstHFunPrimal env f0
         df = interpretAstHFunPrimal env df0
@@ -275,14 +267,6 @@ interpretAstPlain !env v1 = case v1 of
   AstReplicate snat stk v ->
     treplicate snat stk (interpretAstPlain env v)
   -- This prevents computing the complex dual parts for mapAccum in ADVal.
-  AstMapAccumRDer k bftk eftk f0 df0 rf0 acc0 es ->
-    let f = interpretAstHFunPlain env f0
-        df = interpretAstHFunPlain env df0
-        rf = interpretAstHFunPlain env rf0
-        acc02 = interpretAstPlain env acc0
-        es2 = interpretAstPlain env es
-    in tmapAccumRDer (Proxy @(PlainOf target))
-                     k (ftkAst acc0) bftk eftk f df rf acc02 es2
   AstMapAccumLDer k bftk eftk f0 df0 rf0 acc0 es ->
     let f = interpretAstHFunPlain env f0
         df = interpretAstHFunPlain env df0
@@ -570,13 +554,6 @@ interpretAst !env = \case
   AstSum snat stk v -> tsum snat stk $ interpretAst env v
   AstReplicate snat stk v ->
     treplicate snat stk (interpretAst env v)
-  AstMapAccumRDer k bftk eftk f0 df0 rf0 acc0 es ->
-    let f = interpretAstHFun env f0
-        df = interpretAstHFun env df0
-        rf = interpretAstHFun env rf0
-        acc02 = interpretAst env acc0
-        es2 = interpretAst env es
-    in tmapAccumRDer (Proxy @target) k (ftkAst acc0) bftk eftk f df rf acc02 es2
   AstMapAccumLDer k bftk eftk f0 df0 rf0 acc0 es ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0

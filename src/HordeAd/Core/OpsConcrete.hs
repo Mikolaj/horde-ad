@@ -472,8 +472,6 @@ instance BaseTensor Concrete where
         Concrete $ Nested.mgeneratePrim shm (Nested.munScalar . g)
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.munNest $ Nested.mgenerate shm g
-  {-# INLINE tmapAccumRDer #-}
-  tmapAccumRDer _ k _ bftk eftk f _df _rf = oRtmapAccumR k bftk eftk f
   {-# INLINE tmapAccumLDer #-}
   tmapAccumLDer _ k _ bftk eftk f _df _rf = oRtmapAccumL k bftk eftk f
   {-# INLINE tapply #-}
@@ -690,29 +688,6 @@ ixxToLinearMaybe = \sh ix -> goX sh ix 0
     goX ZSX ZIX !a = Just a
     goX ((fromSMayNat' -> n) :$% sh) (Concrete i :.% ix) a =
       if 0 <= i && i < n then goX sh ix (n * a + i) else Nothing
-
-oRtmapAccumR
-  :: forall k accy by ey.
-     SNat k
-  -> FullShapeTK by
-  -> FullShapeTK ey
-  -> ((RepConcrete accy, RepConcrete ey) -> RepConcrete (TKProduct accy by))
-  -> Concrete accy
-  -> Concrete (BuildTensorKind k ey)
-  -> Concrete (TKProduct accy (BuildTensorKind k by))
-{-# INLINE oRtmapAccumR #-}
-oRtmapAccumR k bftk eftk f acc0 es = case fromSNat' k of
-  0 -> tpair acc0 (tdefTarget (buildFTK k bftk))
-  _ -> let (xout, lout) =
-             mapAccumL' (curry $ coerce f) acc0
-                        (tunravelToListShare k (ftkToSTK eftk)
-                                             (treverse k (ftkToSTK eftk) es))
-       in case NonEmpty.nonEmpty lout of
-         Just nl ->
-           let !lout2 = treverse k (ftkToSTK bftk)
-                        $ tfromList k (ftkToSTK bftk) nl
-           in tpair xout lout2
-         Nothing -> error "oRtmapAccumR: impossible"
 
 oRtmapAccumL
   :: forall k accy by ey.

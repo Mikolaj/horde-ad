@@ -433,27 +433,6 @@ evalRevFTK !s !c d0 = case d0 of
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk
                             , Dict0 <- lemTKAllNumAD stk ->
     evalRevFTK s (tsum snat (adSTK stk) c) d
-  DeltaMapAccumR k bftk eftk q es _df rf acc0' es'
-   | Refl <- lemBuildOfAD k (ftkToSTK bftk)
-   , Refl <- lemBuildOfAD k (ftkToSTK eftk) ->
-    let accftk = ftkDelta acc0'
-        accftkAD = adFTK accftk
-        bftkAD = adFTK bftk
-        eftkAD = adFTK eftk
-        (c0, crest) = tunpair c
-        dacc_des =
-          tmapAccumL (Proxy @target)
-                     k accftkAD eftkAD (FTKProduct bftkAD
-                                                   (FTKProduct accftk eftk))
-                     (\dx db_acc_e ->
-                        ttlet db_acc_e $ \ !db_acc_e1 ->
-                          unHFun rf (tpair (tpair dx (tproject1 db_acc_e1))
-                                           (tproject2 db_acc_e1)))
-                     c0
-                     (tpair crest (tpair q es))
-        (dacc, des) = tunpair dacc_des
-        s2 = evalRevFTK s dacc acc0'
-    in evalRevFTK s2 des es'
   DeltaMapAccumL k bftk eftk q es _df rf acc0' es'
    | Refl <- lemBuildOfAD k (ftkToSTK bftk)
    , Refl <- lemBuildOfAD k (ftkToSTK eftk) ->
@@ -828,24 +807,6 @@ evalFwd params !s d0 = case d0 of
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
     let (s2, t) = evalFwd params s d
     in (s2, treplicate snat (adSTK stk) t)
-  DeltaMapAccumR k bftk eftk q es df _rf acc0' es'
-   | Refl <- lemBuildOfAD k (ftkToSTK bftk)
-   , Refl <- lemBuildOfAD k (ftkToSTK eftk) ->
-    let accftk = ftkDelta acc0'
-        accftkAD = adFTK accftk
-        bftkAD = adFTK bftk
-        eftkAD = adFTK eftk
-        (s2, cacc0) = evalFwd params s acc0'
-        (s3, ces) = evalFwd params s2 es'
-    in (s3, tmapAccumR (Proxy @target)
-                       k accftkAD bftkAD (FTKProduct eftkAD
-                                                     (FTKProduct accftk eftk))
-                       (\dacc de_acc_e ->
-                        ttlet de_acc_e $ \ !de_acc_e1 ->
-                          unHFun df (tpair (tpair dacc (tproject1 de_acc_e1))
-                                           (tproject2 de_acc_e1)))
-                       cacc0
-                       (tpair ces (tpair q es)))
   DeltaMapAccumL k bftk eftk q es df _rf acc0' es'
    | Refl <- lemBuildOfAD k (ftkToSTK bftk)
    , Refl <- lemBuildOfAD k (ftkToSTK eftk) ->

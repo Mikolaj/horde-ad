@@ -177,24 +177,6 @@ data Delta :: Target -> Target where
                     SNat k -> SingletonTK y
                  -> Delta target y
                  -> Delta target (BuildTensorKind k y)
-  DeltaMapAccumR
-    :: forall target k accy by ey.
-       ( Show (target (BuildTensorKind k accy))
-       , Show (target (BuildTensorKind k ey)) )
-    => SNat k
-    -> FullShapeTK by
-    -> FullShapeTK ey
-    -> target (BuildTensorKind k accy)
-    -> target (BuildTensorKind k ey)
-    -> HFun (TKProduct (ADTensorKind (TKProduct accy ey))
-                       (TKProduct accy ey))
-            (ADTensorKind (TKProduct accy by))
-    -> HFun (TKProduct (ADTensorKind (TKProduct accy by))
-                       (TKProduct accy ey))
-            (ADTensorKind (TKProduct accy ey))
-    -> Delta target accy
-    -> Delta target (BuildTensorKind k ey)
-    -> Delta target (TKProduct accy (BuildTensorKind k by))
   DeltaMapAccumL
     :: forall target k accy by ey.
        ( Show (target (BuildTensorKind k accy))
@@ -376,8 +358,6 @@ ftkDelta = \case
     Just (d, _) -> buildFTK snat (ftkDelta d)
   DeltaSum snat stk d -> razeFTK snat stk (ftkDelta d)
   DeltaReplicate snat _ d -> buildFTK snat (ftkDelta d)
-  DeltaMapAccumR k bftk _eftk _q _es _df _rf acc0' _es' ->
-    FTKProduct (ftkDelta acc0') (buildFTK k bftk)
   DeltaMapAccumL k bftk _eftk _q _es _df _rf acc0' _es' ->
     FTKProduct (ftkDelta acc0') (buildFTK k bftk)
 

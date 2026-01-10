@@ -25,7 +25,7 @@ module HordeAd.Core.Ops
   , AllTargetShow, CommonTargetEqOrd
     -- * Helper functions
   , rtr, rflatten, str, sflatten, xtr, xflatten
-  , tmapAccumR, tmapAccumL, treplTarget, tdefTarget
+  , treplTarget, tdefTarget
     -- * Helper classes and types
   , IntegralHAndIntElt, RealFloatAndFloatElt
   , TensorSupportsX, TensorSupportsS, TensorSupportsR, TensorSupports
@@ -91,61 +91,6 @@ xflatten :: forall sh x target. (KnownSTK x, BaseTensor target)
          => target (TKX2 sh x) -> target (TKX2 '[Nothing] x)
 {-# INLINE xflatten #-}
 xflatten u = txreshape (Nested.SUnknown (xsize u) :$% ZSX) u
-
--- | A strict right mapAccum.
-tmapAccumR
-  :: forall accy by ey k target. BaseTensor target
-  => Proxy target
-  -> SNat k  -- ^ length of the input
-  -> FullShapeTK accy  -- ^ shape of the accumulator
-  -> FullShapeTK by  -- ^ shape of the output
-  -> FullShapeTK ey  -- ^ shape of an individual input
-  -> (forall f. ADReady f
-      => f accy -> f ey -> f (TKProduct accy by))
-       -- ^ the function to mapAccum with
-  -> target accy  -- ^ the initial accumulator
-  -> target (BuildTensorKind k ey)  -- ^ the inputs
-  -> target (TKProduct accy (BuildTensorKind k by))
-{-# INLINE tmapAccumR #-}  -- this doesn't want to specialize
-tmapAccumR proxy !k !accftk !bftk !eftk f acc0 es =
-  let xftk = FTKProduct accftk eftk
-      fl :: forall f. ADReady f
-         => f (TKProduct accy ey)
-         -> f (TKProduct accy by)
-      fl !args = ttlet args $ \ !args1 ->
-                   f (tproject1 args1) (tproject2 args1)
-  in tmapAccumRDer proxy k accftk bftk eftk
-                   (tlambda @target xftk (HFun fl))
-                   (tjvp @target xftk $ HFun fl)
-                   (tvjp @target xftk $ HFun fl)
-                   acc0 es
--- | A strict left mapAccum.
-tmapAccumL
-  :: forall accy by ey k target. BaseTensor target
-  => Proxy target
-  -> SNat k  -- ^ length of the input
-  -> FullShapeTK accy  -- ^ shape of the accumulator
-  -> FullShapeTK by  -- ^ shape of the output
-  -> FullShapeTK ey  -- ^ shape of an individual input
-  -> (forall f. ADReady f
-      => f accy -> f ey -> f (TKProduct accy by))
-       -- ^ the function to mapAccum with
-  -> target accy  -- ^ the initial accumulator
-  -> target (BuildTensorKind k ey)  -- ^ the inputs
-  -> target (TKProduct accy (BuildTensorKind k by))
-{-# INLINE tmapAccumL #-}  -- this doesn't want to specialize
-tmapAccumL proxy !k !accftk !bftk !eftk f acc0 es =
-  let xftk = FTKProduct accftk eftk
-      fl :: forall f. ADReady f
-         => f (TKProduct accy ey)
-         -> f (TKProduct accy by)
-      fl !args = ttlet args $ \ !args1 ->
-                   f (tproject1 args1) (tproject2 args1)
-  in tmapAccumLDer proxy k accftk bftk eftk
-                   (tlambda @target xftk (HFun fl))
-                   (tjvp @target xftk $ HFun fl)
-                   (tvjp @target xftk $ HFun fl)
-                   acc0 es
 
 -- | Construct tensors with the given constant in each cell.
 treplTarget :: (TKAllNum y, BaseTensor target)
@@ -989,19 +934,66 @@ class ( Num (IntOf target)
     in replSTK stk0 f
 
   -- | A strict right mapAccum.
-  --
-  -- The applications of 'tjvp' and 'tvjp' performed already at this point
-  -- ensure that the computation of a derivative is not repeated
-  -- and that its result is shared. However, most of the time
-  -- the computation is unnneeded, so the AST instance uses a non-strict
-  -- constructor 'HordeAd.Core.Ast.AstLambda' for it's instance of 'HFunOf'.
-  --
-  -- If the same argument functions are passed to many mapAccum calls, as in
-  -- > let f = ... in ... (tmapAccumR ... f ...) ... (tmapAccumL ... f ...)
-  -- extra care is needed to prevent double derivative computation.
-  -- One needs to use tmapAccumRDer manually as in (simplified)
-  -- > let f = ...; df = tjvp f; rf = tgrad f
-  -- > in ... (tmapAccumRDer f df rf ...) ... (tmapAccumLDer f df rf ...)
+  tmapAccumR
+    :: forall accy by ey k.
+       Proxy target
+    -> SNat k  -- ^ length of the input
+    -> FullShapeTK accy  -- ^ shape of the accumulator
+    -> FullShapeTK by  -- ^ shape of the output
+    -> FullShapeTK ey  -- ^ shape of an individual input
+    -> (forall f. ADReady f
+        => f accy -> f ey -> f (TKProduct accy by))
+         -- ^ the function to mapAccum with
+    -> target accy  -- ^ the initial accumulator
+    -> target (BuildTensorKind k ey)  -- ^ the inputs
+    -> target (TKProduct accy (BuildTensorKind k by))
+  default tmapAccumR
+    :: forall accy by ey k. ShareTensor target
+    => Proxy target
+    -> SNat k  -- ^ length of the input
+    -> FullShapeTK accy  -- ^ shape of the accumulator
+    -> FullShapeTK by  -- ^ shape of the output
+    -> FullShapeTK ey  -- ^ shape of an individual input
+    -> (forall f. ADReady f
+        => f accy -> f ey -> f (TKProduct accy by))
+         -- ^ the function to mapAccum with
+    -> target accy  -- ^ the initial accumulator
+    -> target (BuildTensorKind k ey)  -- ^ the inputs
+    -> target (TKProduct accy (BuildTensorKind k by))
+  {-# INLINE tmapAccumR #-}  -- this doesn't want to specialize
+  tmapAccumR proxy !k !accftk !bftk !eftk f acc0 es =
+    let (acc, l) =
+          tunpair $ tmapAccumL proxy k accftk bftk eftk f acc0
+                               (treverse k (ftkToSTK eftk) es)
+    in tpair acc (treverse k (ftkToSTK bftk) l)
+  -- | A strict left mapAccum.
+  tmapAccumL
+    :: forall accy by ey k.
+       Proxy target
+    -> SNat k  -- ^ length of the input
+    -> FullShapeTK accy  -- ^ shape of the accumulator
+    -> FullShapeTK by  -- ^ shape of the output
+    -> FullShapeTK ey  -- ^ shape of an individual input
+    -> (forall f. ADReady f
+        => f accy -> f ey -> f (TKProduct accy by))
+         -- ^ the function to mapAccum with
+    -> target accy  -- ^ the initial accumulator
+    -> target (BuildTensorKind k ey)  -- ^ the inputs
+    -> target (TKProduct accy (BuildTensorKind k by))
+  {-# INLINE tmapAccumL #-}  -- this doesn't want to specialize
+  tmapAccumL proxy !k !accftk !bftk !eftk f acc0 es =
+    let xftk = FTKProduct accftk eftk
+        fl :: forall f. ADReady f
+           => f (TKProduct accy ey)
+           -> f (TKProduct accy by)
+        fl !args = ttlet args $ \ !args1 ->
+                     f (tproject1 args1) (tproject2 args1)
+    in tmapAccumLDer proxy k accftk bftk eftk
+                     (tlambda @target xftk (HFun fl))
+                     (tjvp @target xftk $ HFun fl)
+                     (tvjp @target xftk $ HFun fl)
+                     acc0 es
+  -- | An strict right mapAccum with explicitly provided derivatives.
   tmapAccumRDer
     :: forall accy by ey k.
        Proxy target
@@ -1022,7 +1014,45 @@ class ( Num (IntOf target)
     -> target accy  -- ^ the initial accumulator
     -> target (BuildTensorKind k ey)  -- ^ the inputs
     -> target (TKProduct accy (BuildTensorKind k by))
-  -- | A strict left mapAccum.
+  default tmapAccumRDer
+    :: forall accy by ey k. ShareTensor target
+    => Proxy target
+    -> SNat k  -- ^ length of the input
+    -> FullShapeTK accy  -- ^ shape of the accumulator
+    -> FullShapeTK by  -- ^ shape of the output
+    -> FullShapeTK ey  -- ^ shape of an individual input
+    -> HFunOf target (TKProduct accy ey) (TKProduct accy by)
+         -- ^ the function to mapAccum with
+    -> HFunOf target (TKProduct (ADTensorKind (TKProduct accy ey))
+                                (TKProduct accy ey))
+                     (ADTensorKind (TKProduct accy by))
+         -- ^ the derivative of the function to mapAccum with
+    -> HFunOf target (TKProduct (ADTensorKind (TKProduct accy by))
+                                (TKProduct accy ey))
+                     (ADTensorKind (TKProduct accy ey))
+         -- ^ the reverse derivative of the function to mapAccum with
+    -> target accy  -- ^ the initial accumulator
+    -> target (BuildTensorKind k ey)  -- ^ the inputs
+    -> target (TKProduct accy (BuildTensorKind k by))
+  tmapAccumRDer proxy !k !accftk !bftk !eftk f df rf acc0 es =
+    let (acc, l) =
+          tunpair $ tmapAccumLDer proxy k accftk bftk eftk f df rf acc0
+                                  (treverse k (ftkToSTK eftk) es)
+    in tpair acc (treverse k (ftkToSTK bftk) l)
+  -- | A strict left mapAccum with explicitly provided derivatives.
+  --
+  -- The applications of 'tjvp' and 'tvjp' performed already at this point
+  -- ensure that the computation of a derivative is not repeated
+  -- and that its result is shared. However, most of the time
+  -- the computation is unnneeded, so the AST instance uses a non-strict
+  -- constructor 'HordeAd.Core.Ast.AstLambda' for it's instance of 'HFunOf'.
+  --
+  -- If the same argument functions are passed to many mapAccum calls, as in
+  -- > let f = ... in ... (tmapAccumR ... f ...) ... (tmapAccumL ... f ...)
+  -- extra care is needed to prevent double derivative computation.
+  -- One needs to use tmapAccumRDer manually as in (simplified)
+  -- > let f = ...; df = tjvp f; rf = tgrad f
+  -- > in ... (tmapAccumRDer f df rf ...) ... (tmapAccumLDer f df rf ...)
   tmapAccumLDer
     :: forall accy by ey k.
        Proxy target
@@ -1114,11 +1144,11 @@ class ( Num (IntOf target)
       in tpair (treplicate snat stk1 u1)
                (treplicate snat stk2 u2)
   treverse
-    :: forall z k. ConvertTensor target
-    => SNat k -> SingletonTK z -> target (BuildTensorKind k z)
+    :: forall z k.
+       SNat k -> SingletonTK z -> target (BuildTensorKind k z)
     -> target (BuildTensorKind k z)
   default treverse
-    :: forall z k. (ShareTensor target, ConvertTensor target)
+    :: forall z k. ShareTensor target
     => SNat k -> SingletonTK z -> target (BuildTensorKind k z)
     -> target (BuildTensorKind k z)
   treverse snat stk u = case stk of

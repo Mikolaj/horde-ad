@@ -617,8 +617,14 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tcond _ !b !u !v = astCond b u v
   tconcrete ftk a = fromPlain $ astConcrete ftk a
   tfromVector = astFromVector
-  tmapAccumRDer _ !k _ !bftk !eftk f df rf acc0 es =
-    astMapAccumRDer k bftk eftk f df rf acc0 es
+  tmapAccumR proxy !k !accftk !bftk !eftk f acc0 es =
+    ttlet (tmapAccumL proxy k accftk bftk eftk f acc0
+                      (treverse k (ftkToSTK eftk) es)) $ \ !res ->
+      tpair (tproject1 res) (treverse k (ftkToSTK bftk) $ tproject2 res)
+  tmapAccumRDer proxy !k !accftk !bftk !eftk f df rf acc0 es =
+    ttlet (tmapAccumLDer proxy k accftk bftk eftk f df rf acc0
+                         (treverse k (ftkToSTK eftk) es)) $ \ !res ->
+      tpair (tproject1 res) (treverse k (ftkToSTK bftk) $ tproject2 res)
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
     astMapAccumLDer k bftk eftk f df rf acc0 es
   tapply = astApply
@@ -1150,8 +1156,6 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tconcrete ftk a = AstRaw $ fromPlain $ unAstRaw $ astConcreteRaw ftk a
   tfromVector k stk =
     AstRaw . AstFromVector k stk . fmapUnAstRaw
-  tmapAccumRDer _ !k _ !bftk !eftk f df rf acc0 es =
-    AstRaw $ AstMapAccumRDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
     AstRaw $ AstMapAccumLDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
   tapply t ll = AstRaw $ AstApply t (unAstRaw ll)
@@ -1435,6 +1439,9 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tconcrete ftk a = AstNoVectorize $ tconcrete ftk a
   tfromVector k stk =
     AstNoVectorize . tfromVector k stk . fmapUnAstNoVectorize
+  tmapAccumR _ !k !accftk !bftk !eftk f acc0 es =
+    AstNoVectorize $ tmapAccumR Proxy k accftk bftk eftk f
+                       (unAstNoVectorize acc0) (unAstNoVectorize es)
   tmapAccumRDer _ !k !accftk !bftk !eftk f df rf acc0 es =
     AstNoVectorize $ tmapAccumRDer Proxy k accftk bftk eftk f df rf
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
@@ -1554,6 +1561,12 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
     AstNoSimplify
     $ astBuild1Vectorize (SNat @k) (STKX (knownShX @sh) (knownSTK @x))
                          (unAstNoSimplify . f . AstNoSimplify)
+  tmapAccumR _ !k !accftk !bftk !eftk f acc0 es =
+    AstNoSimplify $ tmapAccumR Proxy k accftk bftk eftk f
+                      (unAstNoSimplify acc0) (unAstNoSimplify es)
+  tmapAccumRDer _ !k !accftk !bftk !eftk f df rf acc0 es =
+    AstNoSimplify $ tmapAccumRDer Proxy k accftk bftk eftk f df rf
+                      (unAstNoSimplify acc0) (unAstNoSimplify es)
   -- These three have tricky types, so we repaat the AstRaw definitions:
   tcond _ !b !u !v =
     AstNoSimplify $ AstCond (unAstNoSimplify b)
@@ -1664,9 +1677,6 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tconcrete ftk a = wAstNoSimplify $ tconcrete ftk a
   tfromVector k stk =
     wAstNoSimplify . tfromVector k stk . fmapwUnAstNoSimplify
-  tmapAccumRDer _ !k !accftk !bftk !eftk f df rf acc0 es =
-    wAstNoSimplify $ tmapAccumRDer Proxy k accftk bftk eftk f df rf
-                       (wunAstNoSimplify acc0) (wunAstNoSimplify es)
   tmapAccumLDer _ !k !accftk !bftk !eftk f df rf acc0 es =
     wAstNoSimplify $ tmapAccumLDer Proxy k accftk bftk eftk f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)
