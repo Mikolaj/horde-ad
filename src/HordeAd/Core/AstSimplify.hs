@@ -1610,9 +1610,11 @@ astFloorS t = case t of
     , Just u <- unRepl1 t ->
       astReplicate snat (STKS sh2 STKScalar) (astFloorS u)
   Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v) ->
-    Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, astFloorS v)
+    let !v2 = astFloorS v
+    in Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v2)
   Ast.AstBuild1 snat STKScalar (var, v) ->
-    Ast.AstBuild1 snat STKScalar (var, astFloorK v)
+    let !v2 = astFloorK v
+    in Ast.AstBuild1 snat STKScalar (var, v2)
   Ast.AstLet var u v -> astLet var u (astFloorS v)
   Ast.AstScatterS shn v (vars, ix) ->
     astScatterS shn (astFloorS v) (vars, ix)
@@ -1641,9 +1643,11 @@ astFromIntegralS t = case t of
 --  Ast.AstFromVector snat STKScalar l ->
 --   astFromVector snat STKScalar (V.map astFromIntegralK l)
   Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v) ->
-    Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, astFromIntegralS v)
+    let !v2 = astFromIntegralS v
+    in Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v2)
   Ast.AstBuild1 snat STKScalar (var, v) ->
-    Ast.AstBuild1 snat STKScalar (var, astFromIntegralK v)
+    let !v2 = astFromIntegralK v
+    in Ast.AstBuild1 snat STKScalar (var, v2)
   Ast.AstLet var u v -> astLet var u (astFromIntegralS v)
   Ast.AstN1S NegateOp u -> negate (astFromIntegralS u)
   Ast.AstN1S AbsOp u -> abs (astFromIntegralS u)
@@ -1681,9 +1685,11 @@ astCastS t = case t of
   Ast.AstSum snat (STKS sh STKScalar) a ->
     astSum snat (STKS sh STKScalar) (astCastS a) -}
   Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v) ->
-    Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, astCastS v)
+    let !v2 = astCastS v
+    in Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v2)
   Ast.AstBuild1 snat STKScalar (var, v) ->
-    Ast.AstBuild1 snat STKScalar (var, astCastK v)
+    let !v2 = astCastK v
+    in Ast.AstBuild1 snat STKScalar (var, v2)
   Ast.AstLet var u v -> astLet var u (astCastS v)
   -- These (rarely) loop if ast* is used instead of Ast.Ast*.
   Ast.AstPrimalPart a -> Ast.AstPrimalPart $ astCastS a
@@ -4401,7 +4407,9 @@ substitute1Ast i var = subst where
         Just $ astCond (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
   Ast.AstBuild1 k stk (var2, v) ->
     assert (varNameToAstVarId var2 /= varNameToAstVarId var) $
-    Ast.AstBuild1 k stk . (var2,) <$> subst v
+    case subst v of
+      Just !v2 -> Just $ Ast.AstBuild1 k stk (var2, v2)
+      Nothing -> Nothing
 
   Ast.AstLet var2 u v ->
     case (subst u, subst v) of
