@@ -100,7 +100,7 @@ instance BaseTensor Concrete where
   {-# INLINE tftk #-}
   tftk stk (Concrete t) = tftkG stk t
   {-# INLINE tpair #-}
-  tpair !u !v = Concrete (unConcrete u, unConcrete v)
+  tpair u v = u `seq` v `seq` Concrete (unConcrete u, unConcrete v)
   {-# INLINE tproject1 #-}
   tproject1 = Concrete . fst . unConcrete
   {-# INLINE tproject2 #-}
@@ -708,8 +708,10 @@ oRtmapAccumR k bftk eftk f acc0 es = case fromSNat' k of
                         (tunravelToListShare k (ftkToSTK eftk)
                                              (treverse k (ftkToSTK eftk) es))
        in case NonEmpty.nonEmpty lout of
-         Just nl -> tpair xout (treverse k (ftkToSTK bftk)
-                                $ tfromList k (ftkToSTK bftk) nl)
+         Just nl ->
+           let !lout2 = treverse k (ftkToSTK bftk)
+                        $ tfromList k (ftkToSTK bftk) nl
+           in tpair xout lout2
          Nothing -> error "oRtmapAccumR: impossible"
 
 oRtmapAccumL
@@ -728,7 +730,13 @@ oRtmapAccumL k bftk eftk f acc0 es = case fromSNat' k of
              mapAccumL' (curry $ coerce f) acc0
                         (tunravelToListShare k (ftkToSTK eftk) es)
        in case NonEmpty.nonEmpty lout of
-         Just nl -> tpair xout (tfromList k (ftkToSTK bftk) nl)
+         Just nl ->
+           -- The bang is needed to stream the list, which may still partially
+           -- fail if the output is a tuple of non-Z1 lists and then only
+           -- the first of them is streamed. Such tuples are common
+           -- in gradients.
+           let !lout2 = tfromList k (ftkToSTK bftk) nl
+           in tpair xout lout2
          Nothing -> error "oRtmapAccumL: impossible"
 
 
