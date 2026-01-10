@@ -20,11 +20,12 @@ import Data.IntMap.Strict qualified as IM
 import Data.List (scanl')
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
 import Data.Vector.Storable.Mutable qualified as VSM
 import GHC.TypeLits (KnownNat, Nat, type (+))
+import Type.Reflection (typeRep)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
@@ -152,8 +153,21 @@ instance BaseTensor Concrete where
     STKX _sh x | Dict <- eltDictRep x ->
       Concrete $ Nested.mfromListOuterSN snat $ fmapUnConcrete l
     STKProduct stk1 stk2 ->
-      let (l1, l2) = NonEmpty.unzip $ NonEmpty.map tunpair l
-      in tpair (tfromList snat stk1 l1) (tfromList snat stk2 l2)
+      let (l1, l2) = NonEmpty.unzip $ coerce l  -- NonEmpty.map tunpair l
+          a1 = tfromList snat stk1 l1
+          a2 = tfromList snat stk2 l2
+          -- This processes a list of trivial primitive elements first,
+          -- which does not force the list, which prevents forcing
+          -- the other (tuple of) list prematurely, which makes streaming
+          -- possible (sometimes).
+      in case stk2 of
+           STKScalar @r2 | Just Refl <- testEquality (typeRep @r2)
+                                                     (typeRep @Z1) ->
+             a2 `seq` tpair a1 a2
+           _ -> tpair a1 a2
+             -- TODO: instead construct both (tuples of) tensors at once,
+             -- element by element to stream even when more than one
+             -- list of nontrivial elements is present; use mvecsWrite?
   trsum @_ @x t = case knownSTK @x of
     STKScalar @r | Dict0 <- numFromTKAllNum (Proxy @r) ->
       Concrete . Nested.rsumOuter1Prim . unConcrete $ t  -- optimized
