@@ -427,7 +427,8 @@ instance ( ADReadyNoLet target, ShareTensor target
                        acc0 es
         (accFin, as) = tunpair p
         dual = DeltaMapAccumL k bftk eftk as es df rf acc0' es'
-    in dD (tpair accFin (treplicate k STKScalar (tkconcrete Z1))) dual
+        lout2 = tsconcrete $ Nested.sreplicatePrim (k :$$ ZSS) Z1
+    in dD (tpair accFin lout2) dual
   tmapAccumLDer @accy @by @ey _ !k accftk bftk eftk f df rf acc0D esD
    | Dict <- lemKnownSTKOfBuild k (ftkToSTK accftk)
    , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk) =

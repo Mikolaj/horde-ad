@@ -56,17 +56,6 @@ interpretAstPrimal
   -> PrimalOf target y
 interpretAstPrimal !env v1 = case v1 of
   AstPair t1 t2 -> tpair (interpretAstPrimal env t1) (interpretAstPrimal env t2)
-  AstProject1 (AstMapAccumLDer @accy @by @ey
-                               k _bftk eftk f0 _df0 _rf0 acc0 es)
-              | show (1 :: target (TKScalar Int)) == "1" ->
-    let acc02 = interpretAst env acc0
-        es2 = interpretAst env es
-        h :: forall f. ADReady f => f accy -> f ey -> f accy
-        h !acc !e =
-          let g = interpretAstHFun @f emptyEnv f0
-          in tproject1 $ tapply @f @_ @(TKProduct accy by) g (tpair acc e)
-    in tprimalPart
-       $ tfold k (ftkToSTK $ ftkAst acc0) (ftkToSTK eftk) h acc02 es2
   AstProject1 t -> tproject1 (interpretAstPrimal env t)
   AstProject2 t -> tproject2 (interpretAstPrimal env t)
   AstFromVector snat stk l ->
@@ -248,16 +237,6 @@ interpretAstPlain
   -> PlainOf target y
 interpretAstPlain !env v1 = case v1 of
   AstPair t1 t2 -> tpair (interpretAstPlain env t1) (interpretAstPlain env t2)
-  AstProject1 (AstMapAccumLDer @accy @by @ey
-                               k _bftk eftk f0 _df0 _rf0 acc0 es)
-              | show (1 :: target (TKScalar Int)) == "1" ->
-    let acc02 = interpretAstPlain env acc0
-        es2 = interpretAstPlain env es
-        h :: forall f. ADReady f => f accy -> f ey -> f accy
-        h !acc !e =
-          let g = interpretAstHFun @f emptyEnv f0
-          in tproject1 $ tapply @f @_ @(TKProduct accy by) g (tpair acc e)
-    in tfold k (ftkToSTK $ ftkAst acc0) (ftkToSTK eftk) h acc02 es2
   AstProject1 t -> tproject1 (interpretAstPlain env t)
   AstProject2 t -> tproject2 (interpretAstPlain env t)
   AstFromVector snat stk l ->
@@ -530,22 +509,6 @@ interpretAst
   -> target y
 interpretAst !env = \case
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
-  -- We do this optimization only for concrete instance(s), because otherwise
-  -- it's poinless and also leads to a recomputation of derivatives (_rf0),
-  -- We can't do the same for tscan, because AstProject2 does not guarantee
-  -- that the argument function is not doing something nontrivial in the second
-  -- component of its result. We'd need to analyze its code to make sure,
-  -- e.g., that it contains near the end AstPair of twice the same variable.
-  AstProject1 (AstMapAccumLDer @accy @by @ey
-                               k _bftk eftk f0 _df0 _rf0 acc0 es)
-              | show (1 :: target (TKScalar Int)) == "1" ->
-    let acc02 = interpretAst env acc0
-        es2 = interpretAst env es
-        h :: forall f. ADReady f => f accy -> f ey -> f accy
-        h !acc !e =
-          let g = interpretAstHFun @f emptyEnv f0
-          in tproject1 $ tapply @f @_ @(TKProduct accy by) g (tpair acc e)
-    in tfold k (ftkToSTK $ ftkAst acc0) (ftkToSTK eftk) h acc02 es2
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
   AstFromVector snat stk l ->

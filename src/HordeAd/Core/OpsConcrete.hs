@@ -694,25 +694,31 @@ oRtmapAccumL
      SNat k
   -> FullShapeTK by
   -> FullShapeTK ey
-  -> ((RepConcrete accy, RepConcrete ey) -> RepConcrete (TKProduct accy by))
+  -> (RepConcrete (TKProduct accy ey) -> RepConcrete (TKProduct accy by))
   -> Concrete accy
   -> Concrete (BuildTensorKind k ey)
   -> Concrete (TKProduct accy (BuildTensorKind k by))
 {-# INLINE oRtmapAccumL #-}
-oRtmapAccumL k bftk eftk f acc0 es = case fromSNat' k of
-  0 -> tpair acc0 (tdefTarget (buildFTK k bftk))
-  _ -> let (xout, lout) =
-             mapAccumL' (curry $ coerce f) acc0
-                        (tunravelToListShare k (ftkToSTK eftk) es)
-       in case NonEmpty.nonEmpty lout of
-         Just nl ->
-           -- The bang is needed to stream the list, which may still partially
-           -- fail if the output is a tuple of non-Z1 lists and then only
-           -- the first of them is streamed. Such tuples are common
-           -- in gradients.
-           let !lout2 = tfromList k (ftkToSTK bftk) nl
-           in tpair xout lout2
-         Nothing -> error "oRtmapAccumL: impossible"
+oRtmapAccumL k (FTKScalar @z1) eftk f acc0 es
+  | Just Refl <- testEquality (typeRep @z1) (typeRep @Z1) =
+    let h :: Concrete accy -> Concrete ey -> Concrete accy
+        h !acc !e = Concrete $ fst $ f (unConcrete acc, unConcrete e)
+        xout = foldl' h acc0 (tunravelToListShare k (ftkToSTK eftk) es)
+        lout2 = Concrete $ Nested.sreplicatePrim (k :$$ ZSS) Z1
+    in tpair xout lout2
+oRtmapAccumL k bftk eftk f acc0 es =
+  let (xout, lout) =
+        mapAccumL' (curry $ coerce f) acc0
+                   (tunravelToListShare k (ftkToSTK eftk) es)
+  in case NonEmpty.nonEmpty lout of
+    Just nl ->
+      -- The bang is needed to stream the list, which may still partially
+      -- fail if the output is a tuple of non-Z1 lists and then only
+      -- the first of them is streamed. Such tuples are common
+      -- in gradients.
+      let !lout2 = tfromList k (ftkToSTK bftk) nl
+      in tpair xout lout2
+    Nothing -> tpair acc0 (tdefTarget (buildFTK k bftk))
 
 
 -- * Ranked internal definitions
