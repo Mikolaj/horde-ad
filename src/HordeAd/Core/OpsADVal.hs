@@ -414,56 +414,16 @@ instance ( ADReadyNoLet target, ShareTensor target
     let !es = tshare esNotShared
         codomainShs = FTKProduct accftk bftk
         g :: forall f. ADReady f
-          => f (TKProduct accy ey)
+          => f accy -> f ey
           -> f (TKProduct accy (TKProduct accy by))
-        g !acc_e =
-          ttlet acc_e $ \ !acc_e1 ->
-          ttlet (unHFun f acc_e) $ \ !accRes_bRes ->
+        g !acc !e =
+          ttlet (unHFun f (tpair acc e)) $ \ !accRes_bRes ->
             tpair (tproject1 accRes_bRes)
-                  (tpair (tproject1 acc_e1) (tproject2 accRes_bRes))
-        dg :: forall f. ADReady f
-           => f (TKProduct (ADTensorKind (TKProduct accy ey))
-                           (TKProduct accy ey))
-           -> f (ADTensorKind (TKProduct accy (TKProduct accy by)))
-        dg !dacc_de_acc_e =
-          ttlet dacc_de_acc_e $ \ !dacc_de_acc_e1 ->
-            let (!dacc_de, !_acc_e) =
-                  (tproject1 dacc_de_acc_e1, tproject2 dacc_de_acc_e1)
-                !dacc1 = tproject1 dacc_de
-            in ttlet (unHFun df dacc_de_acc_e) $ \ !accRes_bRes ->
-                 tpair (tproject1 accRes_bRes)
-                       (tpair dacc1 (tproject2 accRes_bRes))
-        rg :: forall f. ADReady f
-           => f (TKProduct (ADTensorKind (TKProduct accy
-                                         (TKProduct accy by)))
-                           (TKProduct accy ey))
-           -> f (ADTensorKind (TKProduct accy ey))
-        rg !args =
-          ttlet args $ \ args1 ->
-            let (!dx_db, !acc_e) = (tproject1 args1, tproject2 args1)
-            in ttlet dx_db $ \ !dx_db1 ->
-              let (!dx, !db) = (tproject1 dx_db1, tproject2 dx_db1)
-              in ttlet db $ \ !db1 ->
-                let dx_dbRes = tpair dx (tproject2 db1)
-                in ttlet (unHFun rf (tpair dx_dbRes acc_e))
-                   $ \ !daccRes_deRes ->
-                  let added = taddTarget (adSTK $ ftkToSTK accftk)
-                                         (tproject1 daccRes_deRes)
-                                         (tproject1 db1)
-                  in tpair added (tproject2 daccRes_deRes)
-        p = tmapAccumLDer (Proxy @target)
-                          k accftk codomainShs eftk
-                          (tlambda @target (FTKProduct accftk eftk)
-                           $ HFun g)
-                          (tlambda @target
-                             (FTKProduct (adFTK (FTKProduct accftk eftk))
-                                         (FTKProduct accftk eftk))
-                           $ HFun dg)
-                          (tlambda @target
-                             (FTKProduct (adFTK (FTKProduct accftk codomainShs))
-                                         (FTKProduct accftk eftk))
-                           $ HFun rg)
-                          acc0 es
+                  (tpair acc (tproject2 accRes_bRes))
+        p = tmapAccumL (Proxy @target)
+                       k accftk codomainShs eftk
+                       g
+                       acc0 es
         (accFin, qbs) = tunpair p
         (q, bs) = tunpair qbs
         dual = DeltaMapAccumL k bftk eftk q es df rf acc0' es'
