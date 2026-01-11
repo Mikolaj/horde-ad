@@ -1078,7 +1078,7 @@ class ( Num (IntOf target)
 
   -- | Reverse derivative.
   --
-  -- The followign methods (and tlambda) are exactly what is needed as arguments
+  -- The following methods (and tlambda) are exactly what is needed as arguments
   -- of tmapAccumRDer.
   tgrad
     :: forall x r. GoodScalar r

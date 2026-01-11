@@ -1559,7 +1559,7 @@ testSin0rmapAccumRD0R1 = do
                           (let g :: forall g. ADReady g
                                  => g (TKR 0 Double) -> g (TKR 0 Double)
                                  -> g (TKProduct (TKR 0 Double) (TKR 0 Double))
-                               g _x _a = tpair 1 2
+                               g _x _a = tpair (rscalar 1) (rscalar 2)
                            in g)
                           (rscalar 3)
                           (rreverse $ rrepl [0] 0)) $ \a ->
@@ -2854,7 +2854,7 @@ testSin0FoldNestedR400 = do
                         rfold (\x2 a2 ->
                           rfold (\x3 a3 ->
                             rfold (\x4 a4 ->
-                              rfold (\_x5 _a5 -> 0)
+                              rfold (\_x5 _a5 -> rscalar 0)
                                     a4 (rreplicate 0 x4))
                                   a3 (rreplicate 0 x3))
                                 a2 (rreplicate 0 x2))

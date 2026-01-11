@@ -684,7 +684,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
   let accftkFrom = ftkAst acc0From
       accFromSTK = ftkToSTK accftkFrom
       ftkf2 = FTKProduct accftkFrom eftk
-      varf2 = mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
+      varf2 =
+        mkAstVarName ftkf2 (varNameToBounds varf) (varNameToAstVarId varf)
       astf2 = astVar varf2
       vf2 =
         let subbed =
@@ -693,8 +694,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                          (astProject2 astf2))
                 varf vf
         in astSFrom' @(TKProduct accy by)
-                    (STKProduct accFromSTK (ftkToSTK bftk))
-                    subbed
+                     (STKProduct accFromSTK (ftkToSTK bftk))
+                     subbed
       ftkd2 = FTKProduct
                 (adFTK $ FTKProduct accftkFrom eftk)
                 (FTKProduct accftkFrom eftk)
@@ -712,8 +713,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                                   (astProject2 (astProject2 astd2))))
                 vard vd
         in astSFrom' @(ADTensorKind (TKProduct accy by))
-                    (adSTK $ STKProduct accFromSTK (ftkToSTK bftk))
-                    subbed
+                     (adSTK $ STKProduct accFromSTK (ftkToSTK bftk))
+                     subbed
       ftkr2 = FTKProduct
                 (adFTK $ FTKProduct accftkFrom bftk)
                 (FTKProduct accftkFrom eftk)
@@ -731,8 +732,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                                   (astProject2 (astProject2 astr2))))
                 varr vr
         in astSFrom' @(ADTensorKind (TKProduct accy ey))
-                    (adSTK $ STKProduct accFromSTK (ftkToSTK eftk))
-                    subbed
+                     (adSTK $ STKProduct accFromSTK (ftkToSTK eftk))
+                     subbed
   in astFromS' @(TKProduct accyFrom (BuildTensorKind k by))
                (FTKProduct accftk (buildFTK k bftk))
      $ astMapAccumLDer k bftk eftk (AstLambda varf2 vf2)
@@ -797,8 +798,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                                          (astProject2 (astProject2 astr2)))))
                     varr vr
             in astSFrom' @(ADTensorKind (TKProduct accy ey))
-                        (adSTK $ STKProduct accstk eftkFromSTK)
-                        subbed
+                         (adSTK $ STKProduct accstk eftkFromSTK)
+                         subbed
       in astMapAccumLDer k bftk eftkFrom (AstLambda varf2 vf2)
                                          (AstLambda vard2 vd2)
                                          (AstLambda varr2 vr2)

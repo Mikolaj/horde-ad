@@ -58,10 +58,6 @@ funToAstIOGeneric ftk bounds f = do
   !freshId <- unsafeGetFreshAstVarName ftk bounds
   let !x = f freshId
   return (freshId, x)
--- Warning: adding a bang before freshId breaks fragile tests.
--- Probably GHC then optimizes differently and less predictably
--- and so changes results between -O0 vs -O1 and possibly also
--- between different GHC versions and between local vs CI setup.
 
 funToAstIO :: forall y z s s2 ms. AstSpan s
            => FullShapeTK y -> Maybe (Int, Int)
