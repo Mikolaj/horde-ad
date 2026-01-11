@@ -683,10 +683,10 @@ evalRevSame !s !c = \case
       s (toADTensorKindShared y $ trcast c) d
   DeltaSum0R d -> case ftkDelta d of
     FTKR sh FTKScalar | SNat <- shrRank sh ->
-      evalRevSame s (trreplicate0N sh $ rfromK c) d
+      evalRevSame s (trreplicate0N sh c) d
   DeltaDot0R v d -> case ftkDelta d of
     FTKR sh FTKScalar | SNat <- shrRank sh ->
-      evalRevSame s (v * trreplicate0N (rshape v) (rfromK c)) d
+      evalRevSame s (v * trreplicate0N (rshape v) c) d
         -- too slow: evalRevSame s (rmap0N (* (tscalar c)) v) vd
 
   DeltaCastS d -> case ftkDelta d of
@@ -695,10 +695,10 @@ evalRevSame !s !c = \case
       s (toADTensorKindShared y $ tscast c) d
   DeltaSum0S d -> case ftkDelta d of
     FTKS sh FTKScalar ->
-      evalRevSame s (tsreplicate0N sh $ sfromK c) d
+      evalRevSame s (tsreplicate0N sh c) d
   DeltaDot0S v d -> case ftkDelta d of
     FTKS sh FTKScalar ->
-      evalRevSame s (v * tsreplicate0N sh (sfromK c)) d
+      evalRevSame s (v * tsreplicate0N sh c) d
 
   DeltaCastX d -> case ftkDelta d of
     y ->
@@ -707,11 +707,11 @@ evalRevSame !s !c = \case
   DeltaSum0X d -> case ftkDelta d of
     FTKX sh FTKScalar ->
       withKnownShX (ssxFromShX sh) $
-      evalRevSame s (txreplicate0N sh $ xfromK c) d
+      evalRevSame s (txreplicate0N sh c) d
   DeltaDot0X v d -> case ftkDelta d of
     FTKX sh FTKScalar ->
       withKnownShX (ssxFromShX sh) $
-      evalRevSame s (v * txreplicate0N (xshape v) (xfromK c)) d
+      evalRevSame s (v * txreplicate0N (xshape v) c) d
 
   DeltaConvert @a c1 d -> case ftkDelta d of
     aftk ->

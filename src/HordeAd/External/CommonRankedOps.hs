@@ -14,7 +14,9 @@ import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import GHC.TypeLits (KnownNat, sameNat)
 
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Convert (withShsFromShR)
 import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.ConvertTensor
@@ -30,18 +32,16 @@ assumeEquality = gcastWith (unsafeCoerceRefl :: a :~: b)
 rminimum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
             , NumScalar r )
-         => target (TKR n r) -> target (TKR 0 r)
-rminimum t =
-  tlet (rflatten t) $ \tf ->
-    rindex tf (tplainPart (kfromR (rminIndex tf)) :.: ZIR)
+         => target (TKR n r) -> target (TKScalar r)
+rminimum t = tlet (rflatten t) $ \tf ->
+               rindex0 tf (tplainPart (kfromR (rminIndex tf)) :.: ZIR)
 
 rmaximum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
             , NumScalar r )
-         => target (TKR n r) -> target (TKR 0 r)
-rmaximum t =
-  tlet (rflatten t) $ \tf ->
-    rindex tf (tplainPart (kfromR (rmaxIndex tf)) :.: ZIR)
+         => target (TKR n r) -> target (TKScalar r)
+rmaximum t = tlet (rflatten t) $ \tf ->
+               rindex0 tf (tplainPart (kfromR (rmaxIndex tf)) :.: ZIR)
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, ConvertTensor target, NumScalar r)
@@ -149,7 +149,7 @@ lossSoftMaxCrossEntropyR expected d' = tlet d' $ \d ->
   in tletPrimal expU' $ \expU ->
     let softMaxU0 =
           let sumExpU = rsum0 expU
-              recipSum = rfromK $ recip sumExpU
+              recipSum = recip sumExpU
           in rreplicate0N (rshape u) recipSum * expU
     in tletPrimal softMaxU0 $ \softMaxU ->
       tD STKScalar
@@ -163,7 +163,8 @@ maxPool1 :: ( BaseTensor target, ConvertTensor target, LetTensor target
          => Int -> Int -> target (TKR 1 r) -> target (TKR 1 r)
 maxPool1 ksize stride v =
   let slices = [rslice i ksize v | i <- [0, stride .. rwidth v - ksize]]
-  in rfromList $ NonEmpty.fromList $ map rmaximum slices
+  in withSNat ((rwidth v - ksize) `div` stride) $ \k ->
+       rfromS $ tfromList k STKScalar $ NonEmpty.fromList $ map rmaximum slices
 
 softMax1 :: ( BaseTensor target, LetTensor target, ConvertTensor target
             , KnownNat n, NumScalar r, Differentiable r )
@@ -171,7 +172,7 @@ softMax1 :: ( BaseTensor target, LetTensor target, ConvertTensor target
 softMax1 d =
   let expU0 = exp d
   in tlet expU0 $ \expU ->
-       rreplicate0N (rshape d) (rfromK $ recip $ rsum0 expU) * expU
+       rreplicate0N (rshape d) (recip $ rsum0 expU) * expU
 
 -- | Unpadded full convolution, where the output image size is the same
 -- as the input size.
@@ -277,9 +278,12 @@ maxPool2dUnpadded
   => Int -> Int -> target (TKR 4 r) -> target (TKR 4 r)
 maxPool2dUnpadded ksize stride arr =
   let [batch_size, channels, h, w] = rshape arr
-      shOut = [batch_size, channels, h `div` stride, w `div` stride]
+      shOutR = [batch_size, channels, h `div` stride, w `div` stride]
       shK1 = [1, 1, ksize, ksize]
-  in rbuild shOut $ \case
+  in
+    withShsFromShR shOutR $ \(sh :: ShS shOut) ->
+    withKnownShS sh $
+    rfromS $ kbuild @shOut $ \case
     [iImg, iChan, iBh, iBw] ->
       rmaximum $ slicez shK1 arr [ iImg, iChan
                                  , fromIntegral stride * iBh

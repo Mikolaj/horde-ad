@@ -12,8 +12,7 @@ import Data.Foldable qualified as Foldable
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
-import GHC.TypeLits
-  (Div, KnownNat, SomeNat (..), someNatVal, type (+), type (-), type (<=))
+import GHC.TypeLits (Div, KnownNat, type (+), type (-), type (<=))
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (ixrFromIxS, ixsFromIxR)
@@ -30,16 +29,14 @@ import HordeAd.Core.Types
 import HordeAd.OpsTensor
 
 sminimum :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
-         => target (TKS sh r) -> target (TKS '[] r)
-sminimum t | SNat <- shsProduct (knownShS @sh) =
-  tlet (sflatten t) $ \tf ->
-    sindex tf (tplainPart (kfromS (sminIndex tf)) :.$ ZIS)
+         => target (TKS sh r) -> target (TKScalar r)
+sminimum t = tlet (sflatten t) $ \tf ->
+               sindex0 tf (tplainPart (kfromS (sminIndex tf)) :.$ ZIS)
 
 smaximum :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
-         => target (TKS sh r) -> target (TKS '[] r)
-smaximum t | SNat <- shsProduct (knownShS @sh) =
-  tlet (sflatten t) $ \tf ->
-    sindex tf (tplainPart (kfromS (smaxIndex tf)) :.$ ZIS)
+         => target (TKS sh r) -> target (TKScalar r)
+smaximum t = tlet (sflatten t) $ \tf ->
+               sindex0 tf (tplainPart (kfromS (smaxIndex tf)) :.$ ZIS)
 
 sfromIndex0 :: forall r target. (ADReady target, NumScalar r)
             => IntOf target -> target (TKS '[] r)
@@ -131,7 +128,7 @@ lossSoftMaxCrossEntropyS expected d' = tlet d' $ \d ->
             expU' = exp (u - sreplicate0N (sminimum u))
         in tlet expU' $ \expU ->
           let sumExpU = ssum0 expU
-              recipSum = sfromK $ recip sumExpU
+              recipSum = recip sumExpU
           in sreplicate0N recipSum * expU
   in tletPrimal softMaxU0 $ \softMaxU ->
     tD STKScalar
@@ -146,14 +143,11 @@ maxPool1S :: forall ksize stride m target r.
           => target (TKS '[m] r) -> target (TKS '[m] r)
 maxPool1S v =
   let l = [0, valueOf @stride .. swidth v - valueOf @ksize]
-      maxOfSlice i =
-        case someNatVal $ toInteger i of
-          Just (SomeNat @i _proxy) ->
-            gcastWith (unsafeCoerceRefl :: Compare i m :~: LT) $
-            gcastWith (unsafeCoerceRefl :: Compare ksize (m - i) :~: LT) $
-            smaximum $ sslice @i @(m - i - ksize) @ksize SNat SNat SNat v
-          Nothing -> error "maxPool1S: impossible someNatVal error"
-  in sfromList $ NonEmpty.fromList $ map maxOfSlice l
+      maxOfSlice i = withSNat i $ \ (SNat @i) ->
+        gcastWith (unsafeCoerceRefl :: Compare i m :~: LT) $
+        gcastWith (unsafeCoerceRefl :: Compare ksize (m - i) :~: LT) $
+        smaximum $ sslice @i @(m - i - ksize) @ksize SNat SNat SNat v
+  in tfromList (SNat @m) STKScalar $ NonEmpty.fromList $ map maxOfSlice l
 
 softMax1S :: forall target sh r.
              ( KnownShS sh, NumScalar r, Differentiable r
@@ -161,7 +155,7 @@ softMax1S :: forall target sh r.
           => target (TKS sh r) -> target (TKS sh r)
 softMax1S d =
   let expU0 = exp d
-  in tlet expU0 $ \expU -> sreplicate0N (sfromK $ recip $ ssum0 expU) * expU
+  in tlet expU0 $ \expU -> sreplicate0N (recip $ ssum0 expU) * expU
 
 -- | Full convolution, where the output image size is the same
 -- as the input size.
@@ -283,7 +277,7 @@ maxPool2dUnpaddedS
   -> target (TKS shOut r)
 maxPool2dUnpaddedS arr =
   let stride = valueOf @stride :: Int
-  in sbuild @shOut $ \case
+  in kbuild @shOut $ \case
     [iImg, iChan, iBh, iBw] ->
       smaximum $ slicezS @shK1 arr [ iImg, iChan
                                    , fromIntegral stride * iBh

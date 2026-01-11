@@ -192,8 +192,7 @@ instance BaseTensor Concrete where
   trreplicate @_ @x k | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.rreplicate (k :$: ZSR) . unConcrete
   {-# INLINE trreplicate0N #-}
-  trreplicate0N @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
-    Concrete . Nested.rreplicate sh . unConcrete
+  trreplicate0N sh = Concrete . Nested.rreplicatePrim sh . unConcrete
   tssum @_ @_ @x t = case knownSTK @x of
     STKScalar @r | Dict0 <- numFromTKAllNum (Proxy @r) ->
       Concrete . Nested.ssumOuter1Prim . unConcrete $ t  -- optimized
@@ -219,9 +218,7 @@ instance BaseTensor Concrete where
   tsreplicate @_ @_ @x snat@SNat _sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.sreplicate (snat :$$ ZSS) . unConcrete
   {-# INLINE tsreplicate0N #-}
-  tsreplicate0N @sh @x sh | Refl <- lemAppNil @sh
-                          , Dict <- eltDictRep (knownSTK @x) =
-    Concrete . Nested.sreplicate sh . unConcrete
+  tsreplicate0N sh = Concrete . Nested.sreplicatePrim sh . unConcrete
   txsum @_ @_ @x t = case knownSTK @x of
     STKScalar @r | Dict0 <- numFromTKAllNum (Proxy @r) ->
       Concrete . Nested.msumOuter1Prim . unConcrete $ t  -- optimized
@@ -258,9 +255,7 @@ instance BaseTensor Concrete where
   txreplicate @_ @_ @x snat _sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.mreplicate (Nested.SKnown snat :$% ZSX) . unConcrete
   {-# INLINE txreplicate0N #-}
-  txreplicate0N @sh @x sh | Refl <- lemAppNil @sh
-                          , Dict <- eltDictRep (knownSTK @x) =
-    Concrete . Nested.mreplicate sh . unConcrete
+  txreplicate0N sh = Concrete . Nested.mreplicatePrim sh . unConcrete
   {-# INLINE trindex #-}
   trindex = tindexZR
   {-# INLINE trindex0 #-}
@@ -704,7 +699,7 @@ oRtmapAccumL k (FTKScalar @z1) eftk f acc0 es
     let h :: Concrete accy -> Concrete ey -> Concrete accy
         h !acc !e = Concrete $ fst $ f (unConcrete acc, unConcrete e)
         xout = foldl' h acc0 (tunravelToListShare k (ftkToSTK eftk) es)
-        lout2 = Concrete $ Nested.sreplicatePrim (k :$$ ZSS) Z1
+        lout2 = tsreplicate0N (k :$$ ZSS) (Concrete Z1)
     in tpair xout lout2
 oRtmapAccumL k bftk eftk f acc0 es =
   let (xout, lout) =

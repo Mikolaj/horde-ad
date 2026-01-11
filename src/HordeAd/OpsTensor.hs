@@ -291,8 +291,9 @@ rmatmul2 = trmatmul2
 rreplicate :: (KnownNat n, KnownSTK x, BaseTensor target)
            => Int -> target (TKR2 n x) -> target (TKR2 (1 + n) x)
 rreplicate = trreplicate
-rreplicate0N :: (KnownNat n, KnownSTK x, BaseTensor target)
-             => IShR n -> target (TKR2 0 x) -> target (TKR2 n x)
+rreplicate0N :: ( KnownNat n, GoodScalar r
+                , BaseTensor target, ConvertTensor target )
+             => IShR n -> target (TKScalar r) -> target (TKR n r)
 rreplicate0N = trreplicate0N
 
 ssum :: (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x, BaseTensor target)
@@ -321,8 +322,9 @@ smatmul2 = tsmatmul2
 sreplicate :: (KnownNat k, KnownShS sh, KnownSTK x, BaseTensor target)
            => target (TKS2 sh x) -> target (TKS2 (k ': sh) x)
 sreplicate = tsreplicate SNat knownShS
-sreplicate0N :: (KnownShS sh, KnownSTK x, BaseTensor target)
-             => target (TKS2 '[] x) -> target (TKS2 sh x)
+sreplicate0N :: ( KnownShS sh, GoodScalar r
+                , BaseTensor target, ConvertTensor target )
+             => target (TKScalar r) -> target (TKS sh r)
 sreplicate0N = tsreplicate0N knownShS
 
 xsum :: (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x, BaseTensor target)
@@ -354,8 +356,9 @@ xmatmul2 = txmatmul2
 xreplicate :: (KnownNat k, KnownShX sh, KnownSTK x, BaseTensor target)
            => target (TKX2 sh x) -> target (TKX2 (Just k ': sh) x)
 xreplicate = txreplicate SNat knownShX
-xreplicate0N :: (KnownShX sh, KnownSTK x, BaseTensor target)
-             => IShX sh -> target (TKX2 '[] x) -> target (TKX2 sh x)
+xreplicate0N :: ( KnownShX sh, GoodScalar r
+                , BaseTensor target, ConvertTensor target )
+             => IShX sh -> target (TKScalar r) -> target (TKX sh r)
 xreplicate0N = txreplicate0N
 
 -- | First index is for outermost dimension; empty index means identity,

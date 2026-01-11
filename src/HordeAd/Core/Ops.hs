@@ -461,9 +461,9 @@ class ( Num (IntOf target)
     trbuild1 (rwidth m1) (\i -> trmatvecmul (rtr m2) (m1 `trindex` [i]))
   trreplicate :: (KnownNat n, KnownSTK x)
               => Int -> target (TKR2 n x) -> target (TKR2 (1 + n) x)
-  trreplicate0N :: (KnownNat n, KnownSTK x)
-                => IShR n -> target (TKR2 0 x) -> target (TKR2 n x)
-  trreplicate0N sh = trreshape sh . trreplicate (shrSize sh)
+  trreplicate0N :: (KnownNat n, GoodScalar r, ConvertTensor target)
+                => IShR n -> target (TKScalar r) -> target (TKR n r)
+  trreplicate0N sh = trreshape sh . trreplicate (shrSize sh) . rfromK
 
   tssum :: (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x)
         => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
@@ -504,10 +504,9 @@ class ( Num (IntOf target)
   tsreplicate :: forall sh k x. KnownSTK x
               => SNat k -> ShS sh -> target (TKS2 sh x)
               -> target (TKS2 (k ': sh) x)
-  tsreplicate0N :: forall sh x. KnownSTK x
-                => ShS sh -> target (TKS2 '[] x)
-                -> target (TKS2 sh x)
-  tsreplicate0N sh = tsreshape sh . tsreplicate (shsProduct sh) ZSS
+  tsreplicate0N :: forall sh r. (GoodScalar r, ConvertTensor target)
+                => ShS sh -> target (TKScalar r) -> target (TKS sh r)
+  tsreplicate0N sh = tsreshape sh . tsreplicate (shsProduct sh) ZSS . sfromK
 
   -- The choice in BuildTensorKind makes it hard to support this one,
   -- due to DeltaSum and AstSum being typed with BuildTensorKind:
@@ -560,10 +559,10 @@ class ( Num (IntOf target)
   txreplicate :: forall sh k x. KnownSTK x
               => SNat k -> StaticShX sh -> target (TKX2 sh x)
               -> target (TKX2 (Just k ': sh) x)
-  txreplicate0N :: (KnownShX sh, KnownSTK x)
-                => IShX sh -> target (TKX2 '[] x) -> target (TKX2 sh x)
+  txreplicate0N :: (KnownShX sh, GoodScalar r, ConvertTensor target)
+                => IShX sh -> target (TKScalar r) -> target (TKX sh r)
   txreplicate0N sh = withSNat (shxSize sh) $ \snat ->
-    txreshape sh . txreplicate snat knownShX
+    txreshape sh . txreplicate snat knownShX . xfromK
 
   trindex :: (KnownNat m, KnownNat n, KnownSTK x)
           => target (TKR2 (m + n) x) -> IxROf target m -> target (TKR2 n x)

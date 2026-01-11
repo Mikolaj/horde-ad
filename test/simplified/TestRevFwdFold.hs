@@ -954,7 +954,7 @@ testSin0Scan3 = do
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1,1,1,1,1] [1.360788364276732] :: Concrete (TKR 5 Double))
     (rev' (\a0 -> rscan (\_x a -> sin a)
-                        (rreplicate0N [1,1,1,1,1] (rscalar 84))
+                        (rreplicate0N [1,1,1,1,1] 84)
                         (rreplicate 3 a0)) (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0Scan4 :: Assertion
@@ -962,7 +962,7 @@ testSin0Scan4 = do
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1,1,1,1,1] [-0.4458209450295252] :: Concrete (TKR 5 Double))
     (rev' (\a0 -> rscan (\x a -> atan2H (sin x) (sin a))
-                        (rreplicate0N [1,1,1,1,1] (rscalar 2) * a0)
+                        (rreplicate0N [1,1,1,1,1] 2 * a0)
                         (rreplicate 3 a0)) (ringestData [1,1,1,1,1] [1.1]))
 
 testSin0Scan5 :: Assertion
@@ -973,7 +973,7 @@ testSin0Scan5 = do
                                  $ atan2H (sin $ rreplicate 5 x)
                                          (rsum $ sin $ rsum
                                           $ rtr $ rreplicate 7 a))
-                        (rreplicate0N [1,1,1,1] (rscalar 2) * a0)
+                        (rreplicate0N [1,1,1,1] 2 * a0)
                         (rreplicate 3 (rreplicate 2 (rreplicate 5 a0))))
           (ringestData [1,1,1,1] [1.1]))
 
@@ -1002,7 +1002,7 @@ testSin0Scan8 = do
                                  $ atan2H (rsum (rtr $ sin x))
                                          (rreplicate 2
                                           $ sin (rsum $ rreplicate 7 a)))
-                        (rreplicate 2 (rreplicate 5 (rreplicate0N [1,1,1] (rscalar 2) * a0)))
+                        (rreplicate 2 (rreplicate 5 (rreplicate0N [1,1,1] 2 * a0)))
                         (rreplicate 3 a0)) (ringestData [1,1,1] [1.1]))
 
 testSin0Scan8grad :: Assertion
@@ -1233,7 +1233,7 @@ unitriangular1 :: (KnownNat k, NumScalar rk, ADReady target)
 unitriangular1 k sh =
   rbuild1 k $ \i ->
     rbuild1 k $ \j ->
-      ifH (i <=. j) (rreplicate0N sh (rscalar 0)) (rreplicate0N sh (rscalar 1))
+      ifH (i <=. j) (rreplicate0N sh 0) (rreplicate0N sh 1)
 
 testUnitriangular1PP :: Assertion
 testUnitriangular1PP = do
@@ -1248,8 +1248,8 @@ unitriangular2 :: (KnownNat k, NumScalar rk, ADReady target)
                => Int -> IShR k -> target (TKR (2 + k) rk)
 unitriangular2 k sh =
   rgather @_ @_ @1 (k :$: k :$: sh)
-          (rfromList [ rreplicate0N sh (rscalar 0)
-                     , rreplicate0N sh (rscalar 1) ])
+          (rfromList [ rreplicate0N sh 0
+                     , rreplicate0N sh 1 ])
           (\(i :.: j :.: ZIR) -> ifH (i <. j) 0 1 :.: ZIR)
 
 testUnitriangular2PP :: Assertion
@@ -1732,7 +1732,7 @@ testSin0rmapAccumRD01SN51 = do
                           (tpair (x0 / (srepl 1 + sfromIndex0 j))
                                  (sreplicate @3 x0))
                           (tpair (tpair (srepl 1) (sreplicate0N @'[5, 3]
-                                               (sfromIndex0 j)))
+                                               (kfromS $ sfromIndex0 j)))
                                  (tpair (srepl 3) (srepl 4)))
            in rfromS . f . sfromR) (rscalar 1.1))
 
@@ -2005,16 +2005,16 @@ testSin0rmapAccumRD01SN55acc = do
                                            (srepl 1 - sreplicate @7
                                                  (ssum
                                                   $ sin x - tproject2 a)))
-                                        (sreplicate0N (sscalar 1)
+                                        (sreplicate0N 1
                                          - sreplicate @3
                                              (ssum @1 (tproject1 a))
-                                           - sin x / sreplicate0N (sscalar 3)
+                                           - sin x / sreplicate0N 3
                                            - sreplicate @3
                                              (sindex @'[3]
                                                        (tproject2 a) [1]
                                              - smaxIndex
                                                  @3 @'[]
-                                                 (sin x / sreplicate0N (sscalar 3)))))
+                                                 (sin x / sreplicate0N 3))))
                            in g)
                           tunit
                           (tpair (singestData [-0.1, 0.23])
@@ -2084,10 +2084,10 @@ testSin0rmapAccumRD01SN7 = do
                            in g)
                           x0
                           (tpair
-                             (tpair (sreplicate0N $ sscalar 0)
-                                    (sreplicate0N $ sscalar 0))
-                             (tpair (sreplicate0N $ sscalar 0)
-                                    (sreplicate0N $ sscalar 0)))
+                             (tpair (sreplicate0N 0)
+                                    (sreplicate0N 0))
+                             (tpair (sreplicate0N 0)
+                                    (sreplicate0N 0)))
             in tdot0Target (FTKProduct (FTKS ZSS FTKScalar)
                              (FTKProduct (FTKS (SNat @1 :$$ SNat @3 :$$ ZSS) FTKScalar)
                                          (FTKS (SNat @1 :$$ SNat @3 :$$ ZSS) FTKScalar))) (treplTarget 1 (FTKProduct (FTKS ZSS FTKScalar)
@@ -2127,7 +2127,7 @@ testSin0ScanD51 = do
                                           $ rreplicate 2 $ rreplicate 5
                                           $ rsum $ rsum a))
                          (FTKR (8 :$: 3 :$: 1 :$: 1 :$: 1 :$: 1 :$: ZSR) FTKScalar)
-                         (rreplicate0N [1,1,1,1] (rscalar 2) * a0)
+                         (rreplicate0N [1,1,1,1] 2 * a0)
                          (rreplicate 3 (rreplicate 8 (rreplicate 3 a0)))
                          )
           (ringestData [1,1,1,1] [1.1]))
@@ -2142,7 +2142,7 @@ testSin0ScanD8 = do
                                           $ sin (rsum (rreplicate 7 a))))
                        (FTKR (1 :$: 1 :$: 1 :$: ZSR) FTKScalar)
                        (rreplicate 2 (rreplicate 5
-                                        (rreplicate0N [1,1,1] (rscalar 2) * a0)))
+                                        (rreplicate0N [1,1,1] 2 * a0)))
                        (rreplicate 3 a0))
           (ringestData [1,1,1] [1.1]))
 
@@ -2167,7 +2167,7 @@ testSin0ScanD8MapAccum = do
                                 x
                     in g)
                       (rreplicate 2 (rreplicate 5
-                                      (rreplicate0N [1,1,1] (rscalar 2) * a0)))
+                                      (rreplicate0N [1,1,1] 2 * a0)))
                       (rreplicate 4 a0))
        (ringestData [1,1,1] [1.1]))
 

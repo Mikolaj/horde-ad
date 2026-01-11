@@ -263,7 +263,7 @@ testGatherNestedBuild2 =
                  [6.0,0.0,0.0,0.0,6.0,6.0,0.0,0.0,6.0,6.0,0.0,0.0,0.0,6.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             gatherNested2 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
+             gatherNested2 (t * rreplicate0N [7, 2] (kfromR $ rfromIndex0 i))))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 gather2 :: forall target r. (ADReady target, GoodScalar r)
@@ -288,7 +288,7 @@ testGatherBuild2 =
                  [6.0,0.0,0.0,0.0,6.0,6.0,0.0,0.0,6.0,6.0,0.0,0.0,0.0,6.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             gather2 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
+             gather2 (t * rreplicate0N [7, 2] (kfromR $ rfromIndex0 i))))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherSimpPP2 :: Assertion
@@ -449,7 +449,7 @@ testGatherReshapeBuild22 =
                  [6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             gatherReshape22 (t * rreplicate0N [6, 2] (rfromIndex0 i))))
+             gatherReshape22 (t * rreplicate0N [6, 2] (kfromR $ rfromIndex0 i))))
           (rreplicate 6 $ ringestData [2] [0, 1]))
 
 testGatherSimpPP22 :: Assertion
@@ -498,14 +498,14 @@ testGatherSimpPP23 = do
   resetVarCounter
   let !t1 = (\t -> rbuild1 4 (\i ->
               gatherReshape22 @(AstTensor AstMethodLet PrimalSpan)
-                (t * rreplicate0N [6, 2] (rfromIndex0 i))))
+                (t * rreplicate0N [6, 2] (kfromR $ rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [6, 2] FTKScalar) Nothing . intToAstVarId $ 100000000)
   length (show t1) @?= 465
   length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 471
   resetVarCounter
   let !t2 = (\t -> rbuild1 4 (\i ->
               rreshape @2 @2 [2, 6]
-                (t * rreplicate0N [6, 2] (rfromIndex0 i))))
+                (t * rreplicate0N [6, 2] (kfromR $ rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [6, 2] FTKScalar) Nothing . intToAstVarId $ 100000000)
   length (show t2) @?= 465
   length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 471
@@ -518,16 +518,16 @@ testGatherSimp23 = do
       env = extendEnv varName (ringestData [6, 2] vals) emptyEnv
   let !t1 = (\t -> rbuild1 4 (\i ->
               gatherReshape22 @(AstTensor AstMethodLet PrimalSpan)
-                (t * rreplicate0N [6, 2] (rfromIndex0 i)))) var
+                (t * rreplicate0N [6, 2] (kfromR $ rfromIndex0 i)))) var
   let !t2 = (\t -> rbuild1 4 (\i ->
               rreshape @2 @2 [2, 6]
-                (t * rreplicate0N [6, 2] (rfromIndex0 i)))) (ringestData [6, 2] vals)
+                (t * rreplicate0N [6, 2] (kfromR $ rfromIndex0 i)))) (ringestData [6, 2] vals)
   let !t1n = unAstNoSimplify $ (\t -> rbuild1 4 (\i ->
               gatherReshape22
-                (t * rreplicate0N [6, 2] (rfromIndex0 i)))) $ AstNoSimplify var
+                (t * rreplicate0N [6, 2] (kfromR $ rfromIndex0 i)))) $ AstNoSimplify var
   let !t2n = unAstNoSimplify $ (\t -> rbuild1 4 (\i ->
               rreshape @2 @2 [2, 6]
-                (t * rreplicate0N [6, 2] (rfromIndex0 i)))) $ AstNoSimplify var
+                (t * rreplicate0N [6, 2] (kfromR $ rfromIndex0 i)))) $ AstNoSimplify var
   interpretAstPrimal @Concrete env t1
     @?= interpretAstPrimal @Concrete env t1n
   interpretAstPrimal @Concrete env t1n
@@ -591,7 +591,7 @@ testGatherTransposeBuild33 =
     (ringestData [1,2,2,1,2,2,2,2,2,1] [487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             gatherTranspose33 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
+             gatherTranspose33 (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (kfromR $ rfromIndex0 i))))
           t128)
 
 testGatherTransposeBuild33PP :: Assertion
@@ -603,7 +603,7 @@ testGatherTransposeBuild33PP = do
           (\t -> rbuild1 4 (\i ->
              gatherTranspose33
                (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1]
-                                 (rfromIndex0 i))))
+                                 (kfromR $ rfromIndex0 i))))
           (FTKR @10 [1, 2, 2, 1, 2, 2, 2, 2, 2, 1]
                 (FTKScalar @Double))
   printArtifactPrimalSimple (simplifyArtifactRev artifactRev)
@@ -615,7 +615,7 @@ testGatherTransposeBuild331 =
     (ringestData [2, 3] [1,1,1,1,1,1])
     (rev' @Double @3
           (\t -> rbuild1 2 (\i ->
-             rtranspose [1, 0] (t * rreplicate0N [2, 3] (rfromIndex0 i))))
+             rtranspose [1, 0] (t * rreplicate0N [2, 3] (kfromR $ rfromIndex0 i))))
           (ringestData [2, 3] [1,2,3,4,5,6]))
 
 testGatherTransposeBuild332 :: Assertion
@@ -624,7 +624,7 @@ testGatherTransposeBuild332 =
     (ringestData [2, 3] [1,1,1,1,1,1])
     (rev' @Double @3
           (\t -> rbuild1 2 (\i ->
-             rtranspose [1, 0] (t * rreplicate0N [2, 3] (rfromIndex0 i))))
+             rtranspose [1, 0] (t * rreplicate0N [2, 3] (kfromR $ rfromIndex0 i))))
           (ringestData [2, 3] [1,2,3,4,5,6]))
 
 testGatherTransposeBuild333 :: Assertion
@@ -633,7 +633,7 @@ testGatherTransposeBuild333 =
     (ringestData [2] [1,1])
     (rev' @Double @2
           (\t -> rbuild1 2 (\i ->
-             t * rreplicate0N [2] (rfromIndex0 i)))
+             t * rreplicate0N [2] (kfromR $ rfromIndex0 i)))
           (ringestData [2] [0,0]))
 
 testGatherTransposeBuild334 :: Assertion
@@ -687,7 +687,7 @@ testGatherSimpPP34 :: Assertion
 testGatherSimpPP34 = do
   resetVarCounter
   let !t1 = (\t -> rbuild1 4 (\i ->
-             gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
+             gatherTranspose33 @(AstTensor AstMethodLet PrimalSpan) (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (kfromR $ rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) Nothing . intToAstVarId $ 100000000)
   length (show t1) @?= 2534
   length (show (simplifyInlineContract @(TKR 3 Float) t1)) @?= 19868
@@ -695,7 +695,7 @@ testGatherSimpPP34 = do
   let !t2 = (\t -> rbuild1 4 (\i ->
               (\t' -> rmatmul2 (rreshape [6, 8] (rconcrete $ unConcrete t48))
                                (rreshape @10 [8, 16] t'))
-                (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rfromIndex0 i))))
+                (t * rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (kfromR $ rfromIndex0 i))))
             $ AstVar (mkAstVarName (FTKR [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] FTKScalar) Nothing . intToAstVarId $ 100000000)
   length (show t2) @?= 2175
   length (show (simplifyInlineContract @(TKR 3 Float) @PrimalSpan t2)) @?= 19509
@@ -723,7 +723,7 @@ testGatherCondBuild =
                  [6.0,6.0,6.0,6.0,6.0,6.0,12.0,0.0,6.0,6.0,6.0,6.0,6.0,6.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             gatherCond (t * rreplicate0N [7, 2] (rfromIndex0 i))))
+             gatherCond (t * rreplicate0N [7, 2] (kfromR $ rfromIndex0 i))))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 gatherCond2 :: forall target r. (ADReady target, GoodScalar r)
@@ -747,7 +747,7 @@ testGatherCondBuild2 =
                  [6.0,6.0,6.0,6.0,6.0,6.0,12.0,0.0,6.0,6.0,6.0,6.0,6.0,6.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             gatherCond2 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
+             gatherCond2 (t * rreplicate0N [7, 2] (kfromR $ rfromIndex0 i))))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherSimpCond :: Assertion
@@ -800,7 +800,7 @@ testGatherCondBuild3 =
                  [6.0,0.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             gatherCond3 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
+             gatherCond3 (t * rreplicate0N [7, 2] (kfromR $ rfromIndex0 i))))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 gatherCond4 :: forall target r. (ADReady target, GoodScalar r)
@@ -824,7 +824,7 @@ testGatherCondBuild4 =
                  [6.0,0.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             gatherCond4 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
+             gatherCond4 (t * rreplicate0N [7, 2] (kfromR $ rfromIndex0 i))))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testGatherSimpCond3 :: Assertion
@@ -876,7 +876,7 @@ testGatherCondBuild5 =
                  [6.0,0.0,0.0,0.0,0.0,12.0,0.0,0.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             gatherCond5 (t * rreplicate0N [2,4,2] (rfromIndex0 i))))
+             gatherCond5 (t * rreplicate0N [2,4,2] (kfromR $ rfromIndex0 i))))
           (rreplicate 2 $ rreplicate 4 $ ringestData [2] [0, 1]))
 
 gatherCond6 :: forall target r. (ADReady target, GoodScalar r)
@@ -900,7 +900,7 @@ testGatherCondBuild6 =
                  [6.0,0.0,0.0,0.0,0.0,12.0,0.0,0.0,6.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             gatherCond6 (t * rreplicate0N [2,4,2] (rfromIndex0 i))))
+             gatherCond6 (t * rreplicate0N [2,4,2] (kfromR $ rfromIndex0 i))))
           (rreplicate 2 $ rreplicate 4 $ ringestData [2] [0, 1]))
 
 testGatherSimpCond5 :: Assertion
@@ -1054,7 +1054,7 @@ testScatterNestedBuild2 =
                  [6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             scatterNested2 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
+             scatterNested2 (t * rreplicate0N [7, 2] (kfromR $ rfromIndex0 i))))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 scatter2 :: forall target r. (ADReady target, NumScalar r)
@@ -1079,7 +1079,7 @@ testScatterBuild2 =
                  [6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0])
     (rev' @Double @3
           (\t -> rbuild1 4 (\i ->
-             scatter2 (t * rreplicate0N [7, 2] (rfromIndex0 i))))
+             scatter2 (t * rreplicate0N [7, 2] (kfromR $ rfromIndex0 i))))
           (rreplicate 7 $ ringestData [2] [0, 1]))
 
 testScatterSimpPP2 :: Assertion
@@ -1259,7 +1259,7 @@ bar (x, y) =
 barRelu
   :: ( ADReady target, NumScalar r, KnownNat n, Differentiable r )
   => target (TKR n r) -> target (TKR n r)
-barRelu x = let t = rreplicate0N (rshape x) (rscalar 0.001) * x
+barRelu x = let t = rreplicate0N (rshape x) 0.001 * x
             in relu $ bar (t, relu t)
 
 barRelu10xSlower

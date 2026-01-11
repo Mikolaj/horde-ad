@@ -55,7 +55,7 @@ mnistTestCase2VTOrev =
         MnistFcnnRanked2.mnistTrainBench2VTOGradientX
           @Double (Proxy @Float) IgnoreIncomingCotangent
           1 (mkStdGen 44) 1500 500
-      blackGlyph = rreplicate sizeMnistGlyphInt $ rscalar 7
+      blackGlyph = rreplicate0N [sizeMnistGlyphInt] 7
       ftk = tftk @Concrete (knownSTK @(XParams2 Double Float))
                  targetInit
       f :: forall target r. (ADReady target, r ~ Double)
@@ -68,7 +68,7 @@ mnistTestCase2VTOrev =
            $ interpretAst @target env (artDerivativeRev art)
   in assertEqualUpToEpsilon' 1e-10
        (ringestData [10] [6.922657834114052e-2,-3.2210167235305924e-5,0.12334696753032606,-4.892729845753193e-3,3.010762414514606e-2,2.0344986964700877e-2,-3.78339785604896e-2,5.77360835535866e-2,0.10761507003315526,-7.909016076299641e-2])
-       (rev' f (rreplicate sizeMnistLabelInt $ rscalar 8))
+       (rev' f (rreplicate0N [sizeMnistLabelInt] 8))
 
 
 -- * Using lists of vectors, which is rank 1

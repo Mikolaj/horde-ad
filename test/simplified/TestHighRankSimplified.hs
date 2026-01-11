@@ -135,7 +135,7 @@ testFooD =
   assertEqualUpToEpsilon 1e-10
     (fromList [ringestData [1,2,2,1,2,2,2,2,2,1] [18.73108960474591,20.665204824764675,25.821775835995922,18.666613887422585,34.775664100213014,62.54884873632415,37.93303229694526,11.635186977032971,18.73108960474591,20.665204824764675,25.821775835995922,20.600738734367262,34.775664100213014,62.54884873632415,16.663997008808924,3.1300339898598155,1.060799258653783,3.78942741815228,0.1889454555944933,-1.060799258653783,62.54884873632415,37.93303229694526,62.54884873632415,35.99996432769119,62.54884873632415,37.93303229694526,11.635186977032971,18.73108960474591,20.665204824764675,25.821775835995922,20.665204824764675,20.665204824764675,25.821775835995922,34.134947381491145,34.775664100213014,45527.22315787758,-4.488300547708207,2.1475176207684497,8.404498097344806,5.747373381623309,5.096832468946128,-2.4630526910399646,18.666613887422585,1.7769486222994448,-215.8115662030395,16.73214939773215,1.060799258653783,1.060799258653783,1.060799258653783,1.060799258653783,2.1475176207684497,2.1475176207684497,2.1475176207684497,2.1475176207684497,16.08742477551077,16.08742477551077,16.08742477551077,16.08742477551077,2.1475176207684497,2.1475176207684497,2.1475176207684497,2.1475176207684497,16.08742477551077,16.08742477551077,16.08742477551077,16.08742477551077,25.821775835995922,5.096832468946128,7.045006174919766,-1.7808956511653404,16.663997008744435,18.533999054066836,-25.177267779903083,16.60317012020362,25.821775835995922,5.096832468946128,7.045006174919766,-1.7808956511653404,16.663997008744435,18.533999054066836,-12.280721583745471,16.60317012020362,5.161956818274285,18.73108960474591,20.665204824764675,25.821775835995922,20.665204824764675,25.821775835995922,188.11000552192755,34.775664100213014,62.54884873632415,35.99996432769119,62.54884873632415,55.32933980086011,62.54884873632415,55.32933980086011,11.635186977032971,18.73108960474591,20.665204824764675,25.821775835995922,20.665204824764675,25.821775835995922,20.665204824764675,25.821775835995922,14.152094926881784,34.775664100213014,62.54884873632415,53.39649491503442,62.54884873632415,14.72904006548922,62.54884873632415,37.93303229694526,11.635186977032971,18.73108960474591,20.665204824764675,25.821775835995922,20.665204824764675,25.821775835995922,20.665204824764675,25.821775835995922,57.33025874582143,34.775664100213014,62.54884873632415,36.64432517917614,62.54884873632415,34.06684929392724,62.54884873632415,35.99996432769119], ringestData [1,2,2,1,2,2,2,2,2,1] [647.1354943759653,787.5605199613974,1229.333367336918,642.6917612678424,2229.2701397674327,7210.705208776531,2652.3459120285806,250.02943073785886,647.1354943759653,787.5605199613974,1229.333367336918,782.6578815409038,2229.2701397674327,7210.705208776531,512.2982591657892,18.580536443699742,2.518850510725482,26.993800503829114,0.2243239488720164,2.518850510725482,7210.705208776531,2652.3459120285806,7210.705208776531,2388.9603285490866,7210.705208776531,2652.3459120285806,250.02943073785886,647.1354943759653,787.5605199613974,1229.333367336918,787.5605199613974,787.5605199613974,1229.333367336918,2147.9011858437157,2229.2701397674327,-0.5405182383359878,-0.5328698165396271,-0.5099245509210925,130.7140495214786,61.4116989316311,48.40938174779479,11.696956758139343,642.6917612678424,6.317020301049852,85833.87394976329,516.4928003659018,2.518850510725482,2.518850510725482,2.518850510725482,2.518850510725482,-0.5099245509210925,-0.5099245509210925,-0.5099245509210925,-0.5099245509210925,477.4973215160379,477.4973215160379,477.4973215160379,477.4973215160379,-0.5099245509210925,-0.5099245509210925,-0.5099245509210925,-0.5099245509210925,477.4973215160379,477.4973215160379,477.4973215160379,477.4973215160379,1229.333367336918,48.40938174779479,92.00538642301063,6.3430614471479245,512.2982591618282,633.5999783697488,1168.7578661039847,508.56903530563443,1229.333367336918,48.40938174779479,92.00538642301063,6.3430614471479245,512.2982591618282,633.5999783697488,278.48156010484087,508.56903530563443,49.64077766932281,647.1354943759653,787.5605199613974,1229.333367336918,787.5605199613974,1229.333367336918,65212.963738386214,2229.2701397674327,7210.705208776531,2388.9603285490866,7210.705208776531,5642.338335044463,7210.705208776531,5642.338335044463,250.02943073785886,647.1354943759653,787.5605199613974,1229.333367336918,787.5605199613974,1229.333367336918,787.5605199613974,1229.333367336918,369.6431004072799,2229.2701397674327,7210.705208776531,5255.048317224881,7210.705208776531,400.3514287686239,7210.705208776531,2652.3459120285806,250.02943073785886,647.1354943759653,787.5605199613974,1229.333367336918,787.5605199613974,1229.333367336918,787.5605199613974,1229.333367336918,6057.774447242021,2229.2701397674327,7210.705208776531,2475.225838667682,7210.705208776531,2139.3419044407133,7210.705208776531,2388.9603285490866], ringestData [1,2,2,1,2,2,2,2,2,1] [18.76237979248771,20.69357069589509,25.8444826804669,18.698011972363496,34.7925278085306,62.558226125235436,37.948492946856575,11.685493300971446,18.76237979248771,20.69357069589509,25.8444826804669,20.629193248844963,34.7925278085306,62.558226125235436,16.699160877305292,3.3121428825170947,1.516071490296981,3.9411848287000124,1.0994899188808887,-1.516071490296981,62.558226125235436,37.948492946856575,62.558226125235436,36.01625479268449,62.558226125235436,37.948492946856575,11.685493300971446,18.76237979248771,20.69357069589509,25.8444826804669,20.69357069589509,20.69357069589509,25.8444826804669,34.1521274657041,34.7925278085306,-45527.22317076194,4.617144085155745,-2.4052046956635262,8.474005308282699,5.84854498865513,5.210650526856928,-2.6906888068615635,18.698011972363496,2.0810391881996813,-215.8142842462135,16.767170338627782,1.516071490296981,1.516071490296981,1.516071490296981,1.516071490296981,-2.4052046956635262,-2.4052046956635262,-2.4052046956635262,-2.4052046956635262,16.123846116986126,16.123846116986126,16.123846116986126,16.123846116986126,-2.4052046956635262,-2.4052046956635262,-2.4052046956635262,-2.4052046956635262,16.123846116986126,16.123846116986126,16.123846116986126,16.123846116986126,25.8444826804669,5.210650526856928,7.127782944309438,-2.0844104722608057,16.69916087724094,18.565621417897145,-25.200555362084323,16.638462541261234,25.8444826804669,5.210650526856928,7.127782944309438,-2.0844104722608057,16.69916087724094,18.565621417897145,-12.328394068734287,16.638462541261234,5.2743697149763085,18.76237979248771,20.69357069589509,25.8444826804669,20.69357069589509,25.8444826804669,188.113123824884,34.7925278085306,62.558226125235436,36.01625479268449,62.558226125235436,55.33994055377702,62.558226125235436,55.33994055377702,11.685493300971446,18.76237979248771,20.69357069589509,25.8444826804669,20.69357069589509,25.8444826804669,20.69357069589509,25.8444826804669,14.193483311576621,34.7925278085306,62.558226125235436,53.40747931617656,62.558226125235436,14.768811697198851,62.558226125235436,37.948492946856575,11.685493300971446,18.76237979248771,20.69357069589509,25.8444826804669,20.69357069589509,25.8444826804669,20.69357069589509,25.8444826804669,57.34048958248757,34.7925278085306,62.558226125235436,36.660329315674915,62.558226125235436,34.08406370302229,62.558226125235436,36.01625479268449]])
     (cgrad (rsum0 . fooD) (fromList [ t128
-               , rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (rscalar (0.7 :: Double))
+               , rreplicate0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (0.7 :: Concrete (TKScalar Double))
                , t128 ]))
 
 fooBuild0 :: forall target r n. (ADReady target, NumScalar r, KnownNat n)
@@ -172,11 +172,11 @@ fooBuild2 v =
   rbuild1 2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int)
                           ix = sfromR $ rfromK ix' in
     ifH (ix - (tplainPart . sfloor . sfromK) (rsum0 @5 @r
-                      $ rreplicate0N [5,12,11,9,4] (rfromK $ rsum0 v)) - sscalar 10001 >=. sscalar 0
+                      $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - sscalar 10001 >=. sscalar 0
          &&* ix - (tplainPart . sfloor . sfromK) (rsum0 @5 @r @target
-                          $ rreplicate0N [5,12,11,9,4] (rfromK $ rsum0 v)) - sscalar 10001 <=. sscalar 1)
+                          $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - sscalar 10001 <=. sscalar 1)
         (rindex v [kfromR $ rfromS $ ix - (tplainPart . sfloor . sfromK) (rsum0 @5 @r @target
-                                $ rreplicate0N [5,12,11,9,4] (rfromK $ rsum0 v)) - sscalar 10001])
+                                $ rreplicate0N [5,12,11,9,4] (rsum0 v)) - sscalar 10001])
            -- index out of bounds; also fine
         (sqrt $ abs $ rindex v [kfromS
                                 $ let rr = (ix - (sfromK . tplainPart . kfloor) (rsum0 v) - sscalar 10001) `remH` sscalar 2
@@ -225,11 +225,11 @@ fooBuild2S v = rfromS $
   sbuild1 @2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int)
                            ix = sfromR $ rfromK ix' in
     ifH (ix - (tplainPart . sfloor) (sfromK $ ssum0 @[5,12,11,9,4] @r
-             $ sreplicate0N @[5,12,11,9,4] (sfromK $ ssum0 v)) - srepl 10001 >=. srepl 0
+             $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
          &&* ix - (tplainPart . sfloor) (sfromK $ ssum0 @[5,12,11,9,4] @r
-             $ sreplicate0N @[5,12,11,9,4] (sfromK $ ssum0 v)) - srepl 10001 <=. srepl 1)
+             $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
         (sindex v ((kfromS $ ix - (tplainPart . sfloor) (sfromK $ ssum0 @[5,12,11,9,4] @r
-             $ sreplicate0N @[5,12,11,9,4] (sfromK $ ssum0 v)) - srepl 10001) :.$ ZIS ))
+             $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001) :.$ ZIS ))
            -- index out of bounds; also fine
         (sqrt $ abs $ sindex v ((kfromR $ rfromS $ let rr = (ix - (tplainPart . sfloor) (sfromK $ ssum0 v) - srepl 10001) `remH` srepl 2
                                 in ifH (signum rr ==. negate (signum $ srepl 2))
@@ -256,12 +256,12 @@ fooBuildNest2S v = rfromS $
   sbuild1 @2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int)
                            ix = sfromR $ rfromK ix' in
     ifH (ix - (sunNest @_ @'[] @'[] . tplainPart . snest knownShS . sfloor) (sfromK $ ssum0 @[5,12,11,9,4] @r
-             $ sreplicate0N @[5,12,11,9,4] (sfromK $ ssum0 v)) - srepl 10001 >=. srepl 0
+             $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001 >=. srepl 0
          &&* ix - (tplainPart . sfloor) (sfromK $ ssum0 @[5,12,11,9,4] @r
-             $ sreplicate0N @[5,12,11,9,4] (sfromK $ ssum0 v)) - srepl 10001 <=. srepl 1)
+             $ sreplicate0N @[5,12,11,9,4] (ssum0 v)) - srepl 10001 <=. srepl 1)
 -- TODO:        (sindex v (ShapedList.singletonIndex (ix - (sprimalPart . sfloor) (ssum0 @[5,12,11,9,4] @r $ sunNest $ treplicate (SNat @5) knownSTK $ snest (knownShS @[12,11])
         (sindex v ((kfromR $ rfromS $ ix - (tplainPart . sfloor) (sfromK $ ssum0 @[5,12,11,9,4] @r @target $ sunNest $ tproject2 $ tfromPrimal knownSTK $ tpair tunit (sprimalPart $ snest (knownShS @[5,12,11])
-             $ sreplicate0N @[5,12,11,9,4] (sfromK $ ssum0 v))) - srepl 10001) :.$ ZIS))
+             $ sreplicate0N @[5,12,11,9,4] (ssum0 v))) - srepl 10001) :.$ ZIS))
            -- index out of bounds; also fine
 -- TODO:        (sunNest @_ @'[] @sh $ tlet (snest (knownShS @'[]) $ (sfromPrimal ix - sfloor (ssum0 v) - srepl 10001) `remH` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v (ShapedList.singletonIndex (ifH (signum (sprimalPart (sunNest rr)) ==. negate (signum $ srepl 2)) (sprimalPart (sunNest rr) + srepl 2) (sprimalPart (sunNest rr)))))
         (sunNest @_ @'[] @sh $ tlet ((tfromPlain knownSTK ix - sfloor (sfromK $ ssum0 v) - srepl 10001) `remH` srepl 2) $ \rr -> snest (knownShS @'[]) $ sqrt $ abs $ sindex v ((kfromS $ ifH (signum (tplainPart rr) ==. negate (signum $ srepl 2)) (tplainPart rr + srepl 2) (tplainPart rr)) :.$ ZIS))
@@ -283,7 +283,7 @@ fooBuild3 :: forall target r n.
           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild3 v =
   rbuild1 22 $ \ix ->
-    bar ( rreplicate0N (shrTail $ rshape v) (rscalar 1)
+    bar ( rreplicate0N (shrTail $ rshape v) 1
         , rindex v [minH 1 (ix + 1)] )  -- index not out of bounds
 
 testFooBuild3 :: Assertion
@@ -299,7 +299,7 @@ fooBuild5 v =
   let r = rsum v
       v' = rreplicate0N (shrTail $ rshape v) $ rminimum $ rflatten v
   in rbuild1 2 $ \ix ->
-       r * foo ( rreplicate0N (shrTail $ rshape v) (rscalar 3)
+       r * foo ( rreplicate0N (shrTail $ rshape v) 3
                , rrepl (rshape r) 5 * r
                , r * v')
        + bar (r, rindex v [minH 1 (ix + 1)])  -- index not out of bounds
@@ -309,14 +309,14 @@ testFooBuildDt =
   assertEqualUpToEpsilon 1e-5
     (rconcrete $ Nested.rfromListPrimLinear [2,2,1,2,2] [1.1033568028244503e7,74274.22833989389,-5323238.2765011545,253074.03394016018,4.14744804041263e7,242643.98750578283,-1.922371592087736e7,2.730274503834733e7,1.135709425204681e7,6924.195066252549,-5345004.080027547,255679.51406100337,3.8870981856703006e7,241810.92121468345,-1.9380955730171032e7,2.877024321777493e7])
     (vjp @_ @(TKR 5 Double)
-           fooBuild5 t16 (rreplicate0N [2, 2, 1, 2, 2] (rscalar 42)))
+           fooBuild5 t16 (rreplicate0N [2, 2, 1, 2, 2] 42))
 
 testFooBuildDt2 :: Assertion
 testFooBuildDt2 =
   assertEqualUpToEpsilon 1e-5
     (rconcrete $ Nested.rfromListPrimLinear [2,2,1,2,2] [2.206713605648901e7,148548.45667978778,-1.0646476553002307e7,506148.0678803204,8.294896080825263e7,485287.9750115657,-3.844743184175473e7,5.460549007669466e7,2.271418850409362e7,13848.390132505112,-1.0690008160055092e7,511359.0281220066,7.774196371340603e7,483621.8424293669,-3.876191146034207e7,5.754048643554987e7])
     (vjp @_ @(TKProduct (TKR 5 Double) (TKR 5 Double))
-           (\x -> let y = fooBuild5 x in tpair y y) t16 (let dt = rreplicate0N [2, 2, 1, 2, 2] (rscalar 42) in tpair dt dt))
+           (\x -> let y = fooBuild5 x in tpair y y) t16 (let dt = rreplicate0N [2, 2, 1, 2, 2] 42 in tpair dt dt))
 
 testFooBuild5 :: Assertion
 testFooBuild5 =
@@ -329,8 +329,8 @@ fooBuild1 :: forall target r n.
           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild1 v =
   let r = rsum v
-      tk = rreplicate0N (shrTail $ rshape v)
-      v' = tk $ rminimum $ rflatten v
+      tk = rreplicate0N (shrTail $ rshape v) . kfromR
+      v' = tk $ rfromK $ rminimum $ rflatten v
   in rbuild1 3 $ \ix ->
        r * foo ( tk (rscalar 3)
                , tk (rscalar 5) * r
@@ -346,7 +346,7 @@ testFooBuild1 =
 fooMap1 :: (ADReady target, NumScalar r, KnownNat n, Differentiable r)
         => IShR (1 + n) -> target (TKR 0 r) -> target (TKR (1 + n) r)
 fooMap1 sh r =
-  let v = fooBuild1 $ rreplicate0N sh (r * r)
+  let v = fooBuild1 $ rreplicate0N sh (kfromR $ r * r)
   in rmap0N (\x -> x * kfromR r + 5) v
 
 testFooMap :: Assertion
@@ -370,11 +370,11 @@ fooNoGo v =
       r0 = rsum0 v
       shTail = shrTail (rshape v)
   in rbuild1 3 (\ix ->
-       bar ( rreplicate0N shTail (rscalar 3.14)
+       bar ( rreplicate0N shTail 3.14
            , bar ( rrepl shTail 3.14
                  , rindex v [ix]) )
-       + ifH (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail (rscalar 0) &&* 6 >. abs ix)
-               r (rreplicate0N shTail (rscalar 5) * r))
+       + ifH (rindex v (ix * 2 :.: ZIR) <=. rreplicate0N shTail 0 &&* 6 >. abs ix)
+               r (rreplicate0N shTail 5 * r))
      / rslice 1 3 (rmap0N (\x -> ifH (x >. r0) r0 x) v)
      * rbuild1 3 (const $ rrepl shTail 1)
 
@@ -395,8 +395,8 @@ nestedBuildMap :: forall target n r.
                   (ADReady target, NumScalar r, n <= 6, KnownNat n, Differentiable r)
                => target (TKR 0 r) -> target (TKR (1 + n) r)
 nestedBuildMap r =
-  let w x = rreplicate0N [4] x :: target (TKR 1 r)
-      v' = rreplicate0N (177 :$: ZSR) r
+  let w x = rreplicate0N [4] (kfromR x) :: target (TKR 1 r)
+      v' = rreplicate0N (177 :$: ZSR) (kfromR r)
       nestedMap x = rmap0N (kfromR x /) (w x)
       variableLengthBuild iy = rbuild1 7 (\ix ->
         rindex v' (ix + iy :.: ZIR))
@@ -507,7 +507,7 @@ testNestedBuildIndex =
 barRelu
   :: ( ADReady target, NumScalar r, KnownNat n, Differentiable r )
   => target (TKR n r) -> target (TKR n r)
-barRelu x = let t = rreplicate0N (rshape x) (rscalar 0.001) * x
+barRelu x = let t = rreplicate0N (rshape x) 0.001 * x
             in relu $ bar (t, relu t)
 
 testBarReluADValDt :: Assertion
@@ -515,7 +515,7 @@ testBarReluADValDt =
   assertEqualUpToEpsilon 1e-6
     (rconcrete $ Nested.rfromListPrimLinear [2,2,1,2,2] [1.2916050471365906e-2,1.2469757606504572e-2,1.3064120086501589e-2,1.2320300700062944e-2,0.0,1.217049789428711e-2,1.2185494267265312e-2,0.0,1.4105363649830907e-2,1.3506236503127638e-2,1.3359213691150671e-2,0.0,1.7066665416485535e-2,1.2618022646204737e-2,0.0,1.595161947206668e-2])
     (vjp @_ @(TKR 5 Double)
-           barRelu t16 (rreplicate0N [ 2 , 2 , 1 , 2 , 2 ] (rscalar 42.2)))
+           barRelu t16 (rreplicate0N [ 2 , 2 , 1 , 2 , 2 ] 42.2))
 
 testBarReluADValDt2 :: Assertion
 testBarReluADValDt2 =
@@ -526,7 +526,7 @@ testBarReluADValDt2 =
                   (TKProduct (TKR 5 Float)
                              (TKS [2,2,1,2,2] Double)))
            (\x -> tpair (rsum x) (tpair (rcast $ barRelu x) (sfromR $ barRelu x))) t16
-                  (let dt = rreplicate0N [ 2 , 2 , 1 , 2 , 2 ] (rscalar 42.2)
+                  (let dt = rreplicate0N [ 2 , 2 , 1 , 2 , 2 ] 42.2
                    in tpair (rsum dt) (tpair (rcast dt) (sfromR dt))))
 
 testBarReluADVal :: Assertion
@@ -552,7 +552,7 @@ testBraidedBuilds :: Assertion
 testBraidedBuilds =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [4] [0.0,4.0,0.0,0.0])
-    (rev' @Double @2 (braidedBuilds @_ @0) (rreplicate0N [4] (rscalar 3.4)))
+    (rev' @Double @2 (braidedBuilds @_ @0) (rreplicate0N [4] 3.4))
 
 testBraidedBuilds1 :: Assertion
 testBraidedBuilds1 =
@@ -571,14 +571,14 @@ testRecycled :: Assertion
 testRecycled =
   assertEqualUpToEpsilon' 1e-6
     (rrepl [2] 5616)
-    (rev' @Double @7 (recycled @_ @_ @1) (rreplicate0N [2] (rscalar 1.0001)))
+    (rev' @Double @7 (recycled @_ @_ @1) (rreplicate0N [2] 1.0001))
 
 {-
 testRecycled1 :: Assertion
 testRecycled1 =
   assertEqualUpToEpsilon' 1e-6
     (ringestData [5, 4, 2] [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
-    (rev' @Double @7 (recycled @_ @_ @3) (rreplicate0N [5, 4, 2] (rscalar 0.0002)))
+    (rev' @Double @7 (recycled @_ @_ @3) (rreplicate0N [5, 4, 2] 0.0002))
 -}
 
 concatBuild :: forall target r n.
