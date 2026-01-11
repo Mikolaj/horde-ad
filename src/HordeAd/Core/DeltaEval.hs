@@ -433,7 +433,25 @@ evalRevFTK !s !c d0 = case d0 of
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk
                             , Dict0 <- lemTKAllNumAD stk ->
     evalRevFTK s (tsum snat (adSTK stk) c) d
-  DeltaMapAccumL k bftk eftk q es _df rf acc0' es'
+  DeltaMapAccumL k (FTKScalar @z1) eftk
+                 as es _df rf acc0' es' -- special case to speed up folds
+   | Just Refl <- testEquality (typeRep @z1) (typeRep @Z1)
+   , Refl <- lemBuildOfAD k (ftkToSTK eftk) ->
+    let accftk = ftkDelta acc0'
+        accftkAD = adFTK accftk
+        eftkAD = adFTK eftk
+        (c0, _crest) = tunpair c
+        dacc_des =
+          tmapAccumR (Proxy @target)
+                     k accftkAD eftkAD (FTKProduct accftk eftk)
+                     (\dx acc_e ->
+                        unHFun rf (tpair (tpair dx (tkconcrete Z1)) acc_e))
+                     c0
+                     (tpair as es)
+        (dacc, des) = tunpair dacc_des
+        s2 = evalRevFTK s dacc acc0'
+    in evalRevFTK s2 des es'
+  DeltaMapAccumL k bftk eftk as es _df rf acc0' es'
    | Refl <- lemBuildOfAD k (ftkToSTK bftk)
    , Refl <- lemBuildOfAD k (ftkToSTK eftk) ->
     let accftk = ftkDelta acc0'
@@ -450,7 +468,7 @@ evalRevFTK !s !c d0 = case d0 of
                           unHFun rf (tpair (tpair dx (tproject1 db_acc_e1))
                                            (tproject2 db_acc_e1)))
                      c0
-                     (tpair crest (tpair q es))
+                     (tpair crest (tpair as es))
         (dacc, des) = tunpair dacc_des
         s2 = evalRevFTK s dacc acc0'
     in evalRevFTK s2 des es'
@@ -807,7 +825,8 @@ evalFwd params !s d0 = case d0 of
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
     let (s2, t) = evalFwd params s d
     in (s2, treplicate snat (adSTK stk) t)
-  DeltaMapAccumL k bftk eftk q es df _rf acc0' es'
+  -- No special case to speed up folds, because no potential gain.
+  DeltaMapAccumL k bftk eftk as es df _rf acc0' es'
    | Refl <- lemBuildOfAD k (ftkToSTK bftk)
    , Refl <- lemBuildOfAD k (ftkToSTK eftk) ->
     let accftk = ftkDelta acc0'
@@ -824,7 +843,7 @@ evalFwd params !s d0 = case d0 of
                           unHFun df (tpair (tpair dacc (tproject1 de_acc_e1))
                                            (tproject2 de_acc_e1)))
                        cacc0
-                       (tpair ces (tpair q es)))
+                       (tpair ces (tpair as es)))
 
   DeltaIndexR SNat d ix -> case ftkDelta d of
     FTKR _ x | SNat <- ixrRank ix ->

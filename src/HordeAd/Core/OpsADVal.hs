@@ -15,6 +15,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (sameNat)
+import Type.Reflection (typeRep)
 
 import Data.Array.Nested (Replicate, type (++))
 import Data.Array.Nested qualified as Nested
@@ -405,10 +406,31 @@ instance ( ADReadyNoLet target, ShareTensor target
         let l = [0 .. valueOf @k - 1 :: Int]
         in txfromVector $ V.fromListN (valueOf @k) $ map (f . fromIntegral) l
              -- hope this fuses
+  tmapAccumLDer @accy @_ @ey  -- special case to speed up folds
+                _ k accftk bftk@(FTKScalar @z1) eftk f df rf acc0D esD
+   | Just Refl <- testEquality (typeRep @z1) (typeRep @Z1)
+   , Dict <- lemKnownSTKOfBuild k (ftkToSTK accftk)
+   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk) =
+    let !(D acc0 acc0') = acc0D in
+    let !(D esNotShared es') = esD in
+    let !es = tshare esNotShared
+        codomainShs = accftk
+        g :: forall f. ADReady f
+          => f accy -> f ey
+          -> f (TKProduct accy accy)
+        g !acc !e =
+          let accRes_bRes = unHFun f (tpair acc e)
+          in tpair (tproject1 accRes_bRes) acc
+        p = tmapAccumL (Proxy @target)
+                       k accftk codomainShs eftk
+                       g
+                       acc0 es
+        (accFin, as) = tunpair p
+        dual = DeltaMapAccumL k bftk eftk as es df rf acc0' es'
+    in dD (tpair accFin (treplicate k STKScalar (tkconcrete Z1))) dual
   tmapAccumLDer @accy @by @ey _ !k accftk bftk eftk f df rf acc0D esD
    | Dict <- lemKnownSTKOfBuild k (ftkToSTK accftk)
-   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk)
-   , Dict0 <- lemTKAllNumAD (ftkToSTK accftk) =
+   , Dict <- lemKnownSTKOfBuild k (ftkToSTK eftk) =
     let !(D acc0 acc0') = acc0D in
     let !(D esNotShared es') = esD in
     let !es = tshare esNotShared
@@ -424,9 +446,9 @@ instance ( ADReadyNoLet target, ShareTensor target
                        k accftk codomainShs eftk
                        g
                        acc0 es
-        (accFin, qbs) = tunpair p
-        (q, bs) = tunpair qbs
-        dual = DeltaMapAccumL k bftk eftk q es df rf acc0' es'
+        (accFin, asbs) = tunpair p
+        (as, bs) = tunpair asbs
+        dual = DeltaMapAccumL k bftk eftk as es df rf acc0' es'
     in dD (tpair accFin bs) dual
   tapply (HFun f) = f
   tlambda _ = id
