@@ -49,7 +49,7 @@ simplifyInlineContract
   :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContract =
-  contractAst . expandAst . inlineAstTensor
+  letDownAst . contractAst . expandAst . inlineAstTensor
   . simplifyAst . expandAst . inlineAstTensor
   . simplifyAst
 
@@ -58,6 +58,6 @@ simplifyInlineContractNoExpand
   :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContractNoExpand =
-  contractAst . simplifyAst . inlineAstTensor
+  letDownAst . contractAst . simplifyAst . inlineAstTensor
   . simplifyAst . inlineAstTensor
   . simplifyAst

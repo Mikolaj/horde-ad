@@ -7,8 +7,8 @@ module HordeAd.Core.AstTools
     ftkAst, stkAstX, isTensorInt
     -- * Variable occurrence detection
   , varInAst, varInIxS, varNameInAst, varNameInIxS
-    -- * Determining if a term is too small to require sharing
-  , astIsSmall, ixIsSmall
+    -- * Tools related to sharing
+  , astIsSmall, ixIsSmall, astLetDown
     -- * Odds and ends
   , bounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
@@ -339,6 +339,118 @@ astIsSmallN n t0 = case t0 of
 
 ixIsSmall :: AstIxS ms sh -> Bool
 ixIsSmall = all (astIsSmall True)
+
+-- Try to limit the scope of the let cheaply.
+astLetDown :: forall y z s s2. (AstSpan s, AstSpan s2)
+           => AstVarName s y -> AstTensor AstMethodLet s y
+           -> AstTensor AstMethodLet s2 z
+           -> AstTensor AstMethodLet s2 z
+astLetDown var u v@(AstVar var2) =
+  if varNameToAstVarId var2 == varNameToAstVarId var
+  then case sameAstSpan @s @s2 of
+    Just Refl -> case testEquality var var2 of
+      Just Refl -> u
+      _ -> error "astLetDown: wrong variable types at AstVar"
+    _ -> error "astLetDown: wrong span at AstVar"
+  else v
+astLetDown var u v = case v of
+  -- Normaly the type bounds pair nesting, so the check is cheap.
+  AstPair t1 t2 ->
+    if | not (varNameInAst var t1) -> AstPair t1 (astLetDown var u t2)
+       | not (varNameInAst var t2) -> AstPair (astLetDown var u t1) t2
+       | otherwise -> AstLet var u v
+  AstProject1 v2 -> AstProject1 (astLetDown var u v2)
+  AstProject2 v2 -> AstProject2 (astLetDown var u v2)
+  AstFromVector{} -> AstLet var u v
+  AstSum snat stk v2 -> AstSum snat stk (astLetDown var u v2)
+  AstReplicate snat stk v2 -> AstReplicate snat stk (astLetDown var u v2)
+  -- Plausibly, accumulators are small and mapAccums are rare,
+  -- so the check is cheap.
+  AstMapAccumLDer k bftk eftk f df rf acc0 es ->
+    if varNameInAst var acc0
+    then AstLet var u v
+    else AstMapAccumLDer k bftk eftk f df rf acc0 (astLetDown var u es)
+  AstApply f t -> AstApply f (astLetDown var u t)
+  -- handled above: AstVar
+  AstCond{} -> AstLet var u v
+  AstBuild1 k stk (var2, v2) ->
+    let !v3 = astLetDown var u v2
+    in AstBuild1 k stk (var2, v3)
+
+  AstLet{} -> AstLet var u v
+
+  AstPrimalPart v2 -> AstPrimalPart (astLetDown var u v2)
+  AstDualPart v2 -> AstDualPart (astLetDown var u v2)
+  AstPlainPart v2 -> AstPlainPart (astLetDown var u v2)
+  AstFromPrimal v2 -> fromPrimal (astLetDown var u v2)
+  AstFromDual v2 -> fromDual (astLetDown var u v2)
+  AstFromPlain v2 -> fromPlain (astLetDown var u v2)
+
+  AstPlusK{} -> AstLet var u v
+  AstTimesK{} -> AstLet var u v
+  AstN1K op u2 -> AstN1K op (astLetDown var u u2)
+  AstR1K op u2 -> AstR1K op (astLetDown var u u2)
+  AstR2K{} -> AstLet var u v
+  AstI2K{} -> AstLet var u v
+  AstConcreteK{} -> v
+  AstFloorK a -> AstFloorK (astLetDown var u a)
+  AstFromIntegralK v2 -> AstFromIntegralK (astLetDown var u v2)
+  AstCastK v2 -> AstCastK (astLetDown var u v2)
+
+  AstPlusS{} -> AstLet var u v
+  AstTimesS{} -> AstLet var u v
+  AstN1S op u2 -> AstN1S op (astLetDown var u u2)
+  AstR1S op u2 -> AstR1S op (astLetDown var u u2)
+  AstR2S{} -> AstLet var u v
+  AstI2S{} -> AstLet var u v
+  AstConcreteS{} -> v
+  AstFloorS a -> AstFloorS (astLetDown var u a)
+  AstFromIntegralS v2 -> AstFromIntegralS (astLetDown var u v2)
+  AstCastS v2 -> AstCastS (astLetDown var u v2)
+
+  -- In these three, index terms are usually small, so the check is cheap.
+  -- Also, this undoes precisely the pushing of let up that rules
+  -- for these three perform when simplifying.
+  AstIndexS shn v2 ix ->
+    if varNameInIxS var ix
+    then AstLet var u v
+    else AstIndexS shn (astLetDown var u v2) ix
+  AstScatterS @shm @shn @shp shn v2 (vars, ix) ->
+    if varNameInIxS var ix
+    then AstLet var u v
+    else AstScatterS @shm @shn @shp shn (astLetDown var u v2) (vars, ix)
+  AstGatherS @shm @shn @shp shn v2 (vars, ix) ->
+    if varNameInIxS var ix
+    then AstLet var u v
+    else AstGatherS @shm @shn @shp shn (astLetDown var u v2) (vars, ix)
+  AstMinIndexS a -> AstMinIndexS (astLetDown var u a)
+  AstMaxIndexS a -> AstMaxIndexS (astLetDown var u a)
+  AstIotaS{} -> v
+  AstAppendS{} -> AstLet var u v
+  AstSliceS i n k v2 -> AstSliceS i n k (astLetDown var u v2)
+  AstReverseS v2 -> AstReverseS (astLetDown var u v2)
+  AstTransposeS perm v2 -> AstTransposeS perm (astLetDown var u v2)
+  AstReshapeS sh v2 -> AstReshapeS sh (astLetDown var u v2)
+
+  AstConvert c v2 -> AstConvert c (astLetDown var u v2)
+
+  AstIndex0S v2 ix ->
+    if varNameInIxS var ix
+    then AstLet var u v
+    else AstIndex0S (astLetDown var u v2) ix
+  AstSum0S v2 -> AstSum0S (astLetDown var u v2)
+  AstDot0S{} -> AstLet var u v
+  AstDot1InS{} -> AstLet var u v
+  AstMatmul2S{} -> AstLet var u v
+
+  AstBoolNot arg -> AstBoolNot (astLetDown var u arg)
+  AstBoolNotA arg -> AstBoolNotA (astLetDown var u arg)
+  AstBoolAnd{} -> AstLet var u v
+  AstBoolAndA{} -> AstLet var u v
+  AstLeqK{} -> AstLet var u v
+  AstLeqS{} -> AstLet var u v
+  AstLeqA{} -> AstLet var u v
+
 
 -- * Odds and ends
 

@@ -11,6 +11,8 @@ module HordeAd.Core.AstTraverse
   , simplifyAst
     -- * The contraction (e.g., from gather expressions) bottom-up pass
   , contractAst
+    -- * The let down (reducing the scope of lets cheaply) bottom-up pass
+  , letDownAst
   ) where
 
 import Prelude
@@ -75,13 +77,13 @@ expandAst t = case t of
                     (expandAst acc0)
                     (expandAst es)
   Ast.AstApply v ll -> astApply (expandAstHFun v) (expandAst ll)
-  Ast.AstVar var -> astVar var
+  Ast.AstVar{} -> t
   Ast.AstCond b a2 a3 -> astCond (expandAst b) (expandAst a2) (expandAst a3)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = expandAst v
     in Ast.AstBuild1 k stk (var, v2)
 
-  Ast.AstLet var u v -> astLet var (expandAst u) (expandAst v)
+  Ast.AstLet var u v -> astLetDown var (expandAst u) (expandAst v)
 
   Ast.AstPrimalPart v -> astPrimalPart (expandAst v)
   Ast.AstDualPart v -> astDualPart (expandAst v)
@@ -117,7 +119,7 @@ expandAst t = case t of
   Ast.AstR2K Atan2Op u v -> atan2H (expandAst u) (expandAst v)
   Ast.AstI2K QuotOp u v -> quotH (expandAst u) (expandAst v)
   Ast.AstI2K RemOp u v -> remH (expandAst u) (expandAst v)
-  AstConcreteK k -> AstConcreteK k
+  AstConcreteK{} -> t
   Ast.AstFloorK a -> astFloorK (expandAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ expandAst v
   Ast.AstCastK v -> astCastK $ expandAst v
@@ -266,8 +268,8 @@ simplifyAst t = case t of
                     (simplifyAstHFun rf)
                     (simplifyAst acc0)
                     (simplifyAst es)
-  Ast.AstApply v ll -> astApply (simplifyAstHFun v) (simplifyAst ll)
-  Ast.AstVar var -> astVar var
+  Ast.AstApply f a -> astApply (simplifyAstHFun f) (simplifyAst a)
+  Ast.AstVar{} -> t
   Ast.AstCond b a2 a3 ->
     astCond (simplifyAst b) (simplifyAst a2) (simplifyAst a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -310,7 +312,7 @@ simplifyAst t = case t of
   Ast.AstR2K Atan2Op u v -> atan2H (simplifyAst u) (simplifyAst v)
   Ast.AstI2K QuotOp u v -> quotH (simplifyAst u) (simplifyAst v)
   Ast.AstI2K RemOp u v -> remH (simplifyAst u) (simplifyAst v)
-  AstConcreteK k -> AstConcreteK k
+  AstConcreteK{} -> t
   Ast.AstFloorK a -> astFloorK (simplifyAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ simplifyAst v
   Ast.AstCastK v -> astCastK $ simplifyAst v
@@ -652,7 +654,7 @@ contractAst t0 = case t0 of
                     (contractAst acc0)
                     (contractAst es)
   Ast.AstApply v ll -> astApply (contractAstHFun v) (contractAst ll)
-  Ast.AstVar var -> astVar var
+  Ast.AstVar{} -> t0
   Ast.AstCond b a2 a3 ->
     astCond (contractAst b) (contractAst a2) (contractAst a3)
   -- These are only needed for tests that don't vectorize Ast.
@@ -734,7 +736,7 @@ contractAst t0 = case t0 of
   Ast.AstR2K Atan2Op u v -> atan2H (contractAst u) (contractAst v)
   Ast.AstI2K QuotOp u v -> quotH (contractAst u) (contractAst v)
   Ast.AstI2K RemOp u v -> remH (contractAst u) (contractAst v)
-  AstConcreteK k -> AstConcreteK k
+  AstConcreteK{} -> t0
   Ast.AstFloorK a -> astFloorK (contractAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ contractAst v
   Ast.AstCastK v -> astCastK $ contractAst v
@@ -766,7 +768,7 @@ contractAst t0 = case t0 of
   Ast.AstR2S Atan2Op u v -> atan2H (contractAst u) (contractAst v)
   Ast.AstI2S QuotOp u v -> quotH (contractAst u) (contractAst v)
   Ast.AstI2S RemOp u v -> remH (contractAst u) (contractAst v)
-  AstConcreteS a -> AstConcreteS a
+  AstConcreteS{} -> t0
   Ast.AstFloorS @r1 @r2 t -> case contractAst t of
     AstConcreteS a | sizeOf (undefined :: r1) >= sizeOf (undefined :: r2) ->
       fromPlain $ astConcreteS $ tsfloor $ Concrete a
@@ -840,6 +842,10 @@ contractAst t0 = case t0 of
   Ast.AstLeqA shb sh arg1 arg2 ->
     fromPlain $ Ast.AstLeqA shb sh (contractAst arg1) (contractAst arg2)
 
+contractAstHFun :: AstSpan s2
+                => AstHFun s s2 x y -> AstHFun s s2 x y
+contractAstHFun (AstLambda var l) = AstLambda var (contractAst l)
+
 attemptMatmul2
   :: forall m n p r s.
      (KnownNat m, KnownNat n, KnownNat p, GoodScalar r, AstSpan s)
@@ -878,6 +884,105 @@ attemptMatmul2 t3 u3 = Just $
                       astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
                     _ -> error "attemptMatmul2: unexpected scalar"
 
-contractAstHFun :: AstSpan s2
-                => AstHFun s s2 x y -> AstHFun s s2 x y
-contractAstHFun (AstLambda var l) = AstLambda var (contractAst l)
+
+-- * The let down (reducing the scope of lets cheaply) bottom-up pass
+
+letDownAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
+letDownAstIxS = fmap letDownAst
+
+letDownAst
+  :: forall s y. AstSpan s
+  => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
+letDownAst t = case t of
+  Ast.AstPair t1 t2 -> Ast.AstPair (letDownAst t1) (letDownAst t2)
+  Ast.AstProject1 v -> Ast.AstProject1 (letDownAst v)
+  Ast.AstProject2 v -> Ast.AstProject2 (letDownAst v)
+  Ast.AstFromVector snat stk l ->
+    Ast.AstFromVector snat stk (V.map letDownAst l)
+  Ast.AstSum snat stk v -> Ast.AstSum snat stk (letDownAst v)
+  Ast.AstReplicate snat stk v -> Ast.AstReplicate snat stk (letDownAst v)
+  Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
+    Ast.AstMapAccumLDer k bftk eftk
+                        (letDownAstHFun f)
+                        (letDownAstHFun df)
+                        (letDownAstHFun rf)
+                        (letDownAst acc0)
+                        (letDownAst es)
+  Ast.AstApply v ll -> Ast.AstApply (letDownAstHFun v) (letDownAst ll)
+  Ast.AstVar{} -> t
+  Ast.AstCond b a2 a3 ->
+    Ast.AstCond (letDownAst b) (letDownAst a2) (letDownAst a3)
+  Ast.AstBuild1 k stk (var, v) ->
+    let !v2 = letDownAst v
+    in Ast.AstBuild1 k stk (var, v2)
+
+  Ast.AstLet var u v -> astLetDown var (letDownAst u) (letDownAst v)
+
+  Ast.AstPrimalPart v -> Ast.AstPrimalPart (letDownAst v)
+  Ast.AstDualPart v -> Ast.AstDualPart (letDownAst v)
+  Ast.AstPlainPart v -> Ast.AstPlainPart (letDownAst v)
+  Ast.AstFromPrimal v -> fromPrimal (letDownAst v)
+  Ast.AstFromDual v -> fromDual (letDownAst v)
+  Ast.AstFromPlain v -> fromPlain (letDownAst v)
+
+  AstPlusK u v -> AstPlusK (letDownAst u) (letDownAst v)
+  AstTimesK u v -> AstTimesK (letDownAst u) (letDownAst v)
+  Ast.AstN1K op u -> Ast.AstN1K op (letDownAst u)
+  Ast.AstR1K op u -> Ast.AstR1K op (letDownAst u)
+  Ast.AstR2K op u v -> Ast.AstR2K op (letDownAst u) (letDownAst v)
+  Ast.AstI2K op u v -> Ast.AstI2K op (letDownAst u) (letDownAst v)
+  AstConcreteK{} -> t
+  Ast.AstFloorK a -> Ast.AstFloorK (letDownAst a)
+  Ast.AstFromIntegralK v -> Ast.AstFromIntegralK (letDownAst v)
+  Ast.AstCastK v -> Ast.AstCastK (letDownAst v)
+
+  AstPlusS u v -> AstPlusS (letDownAst u) (letDownAst v)
+  AstTimesS u v -> AstTimesS (letDownAst u) (letDownAst v)
+  Ast.AstN1S op u -> Ast.AstN1S op (letDownAst u)
+  Ast.AstR1S op u -> Ast.AstR1S op (letDownAst u)
+  Ast.AstR2S op u v -> Ast.AstR2S op (letDownAst u) (letDownAst v)
+  Ast.AstI2S op u v -> Ast.AstI2S op (letDownAst u) (letDownAst v)
+  AstConcreteS{} -> t
+  Ast.AstFloorS a -> Ast.AstFloorS (letDownAst a)
+  Ast.AstFromIntegralS v -> Ast.AstFromIntegralS (letDownAst v)
+  Ast.AstCastS v -> Ast.AstCastS (letDownAst v)
+
+  Ast.AstIndexS shn v ix ->
+    Ast.AstIndexS shn (letDownAst v) (letDownAstIxS ix)
+  Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
+    let !ix2 = letDownAstIxS ix
+    in Ast.AstScatterS @shm @shn @shp shn (letDownAst v) (vars, ix2)
+  Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
+    let !ix2 = letDownAstIxS ix
+    in Ast.AstGatherS @shm @shn @shp shn (letDownAst v) (vars, ix2)
+  Ast.AstMinIndexS a -> Ast.AstMinIndexS (letDownAst a)
+  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (letDownAst a)
+  Ast.AstIotaS{} -> t
+  Ast.AstAppendS x y -> Ast.AstAppendS (letDownAst x) (letDownAst y)
+  Ast.AstSliceS i n k v -> Ast.AstSliceS i n k (letDownAst v)
+  Ast.AstReverseS v -> Ast.AstReverseS (letDownAst v)
+  Ast.AstTransposeS perm v -> Ast.AstTransposeS perm (letDownAst v)
+  Ast.AstReshapeS sh v -> Ast.AstReshapeS sh (letDownAst v)
+
+  Ast.AstConvert c v -> Ast.AstConvert c (letDownAst v)
+
+  Ast.AstIndex0S v ix -> Ast.AstIndex0S (letDownAst v)  (letDownAstIxS ix)
+  Ast.AstSum0S v -> Ast.AstSum0S (letDownAst v)
+  Ast.AstDot0S u v -> Ast.AstDot0S (letDownAst u) (letDownAst v)
+  Ast.AstDot1InS sh n u v -> Ast.AstDot1InS sh n (letDownAst u) (letDownAst v)
+  Ast.AstMatmul2S m n p u v ->
+    Ast.AstMatmul2S m n p (letDownAst u) (letDownAst v)
+
+  Ast.AstBoolNot arg -> Ast.AstBoolNot (letDownAst arg)
+  Ast.AstBoolNotA arg -> Ast.AstBoolNotA (letDownAst arg)
+  Ast.AstBoolAnd arg1 arg2 -> Ast.AstBoolAnd (letDownAst arg1) (letDownAst arg2)
+  Ast.AstBoolAndA arg1 arg2 ->
+    Ast.AstBoolAndA (letDownAst arg1) (letDownAst arg2)
+  Ast.AstLeqK arg1 arg2 -> Ast.AstLeqK (letDownAst arg1) (letDownAst arg2)
+  Ast.AstLeqS arg1 arg2 -> Ast.AstLeqS (letDownAst arg1) (letDownAst arg2)
+  Ast.AstLeqA shb sh arg1 arg2 ->
+    Ast.AstLeqA shb sh (letDownAst arg1) (letDownAst arg2)
+
+letDownAstHFun :: AstSpan s2
+               => AstHFun s s2 x y -> AstHFun s s2 x y
+letDownAstHFun (AstLambda var l) = AstLambda var (letDownAst l)

@@ -1823,7 +1823,7 @@ astScatterS shn v (var ::$ (vars :: AstVarListS sh3), ix)
         (vars, ix)
 -- TODO? astScatterS v (ZR, ix) = update (rzero sh 0) ix v
 astScatterS shn (Ast.AstLet var u v) (vars, ix) =
-      astLet var u (astScatterS @shm @shn @shp shn v (vars, ix))
+  astLet var u (astScatterS @shm @shn @shp shn v (vars, ix))
 astScatterS shn (Ast.AstFromPrimal v) (vars, ix) =
   fromPrimal $ astScatterS @shm @shn @shp shn v (vars, ix)
 astScatterS shn (Ast.AstFromDual v) (vars, ix) =

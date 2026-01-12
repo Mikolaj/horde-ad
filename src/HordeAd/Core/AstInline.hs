@@ -278,8 +278,8 @@ data DSumSpan =
   | DSumPlainSpan
       (DSum (AstVarName PlainSpan) (AstTensor AstMethodLet PlainSpan))
 
-bindsToLet :: forall s y.
-              AstTensor AstMethodLet s y -> AstBindings
+bindsToLet :: forall s y. AstSpan s
+           => AstTensor AstMethodLet s y -> AstBindings
            -> AstTensor AstMethodLet s y
 bindsToLet u0 (!bsPr, !bsPl) = foldl' bindToLet u0 l
  where
@@ -288,11 +288,13 @@ bindsToLet u0 (!bsPr, !bsPl) = foldl' bindToLet u0 l
   l :: [DSumSpan]
   l = reverse $ sortOn varFromDSum $ map DSumPrimalSpan (DMap.toList bsPr)
                                      ++ map DSumPlainSpan (DMap.toList bsPl)
+  -- Lets are immediately pushed down before other rewrites block
+  -- some opportunities.
   bindToLet :: AstTensor AstMethodLet s y
             -> DSumSpan
             -> AstTensor AstMethodLet s y
-  bindToLet !u (DSumPrimalSpan (var :=> w)) = Ast.AstLet var w u
-  bindToLet u (DSumPlainSpan (var :=> w)) = Ast.AstLet var w u
+  bindToLet !u (DSumPrimalSpan (var :=> w)) = astLetDown var w u
+  bindToLet u (DSumPlainSpan (var :=> w)) = astLetDown var w u
 
 -- | This replaces 'HordeAd.Core.Ast.AstShare' with 'HordeAd.Core.Ast.AstLet',
 -- traversing the term bottom-up.
