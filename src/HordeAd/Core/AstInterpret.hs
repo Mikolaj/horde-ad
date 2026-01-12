@@ -795,9 +795,9 @@ interpretAstHFun
   => AstEnv target -> AstHFun s s2 x y
   -> HFunOf target x y
 {-# INLINE interpretAstHFun #-}
-interpretAstHFun _env (AstLambda var l) =
+interpretAstHFun _env (AstLambda var t) =
   tlambda @target (varNameToFTK var)
-  $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
+  $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) t
       -- Interpretation in empty environment makes sense here, because
       -- there are no free variables except for the one declared.
 
@@ -806,9 +806,9 @@ interpretAstHFunPrimal
   => AstEnv target -> AstHFun PrimalSpan PrimalSpan x y
   -> HFunOf (PrimalOf target) x y
 {-# INLINE interpretAstHFunPrimal #-}
-interpretAstHFunPrimal _env (AstLambda var l) =
+interpretAstHFunPrimal _env (AstLambda var t) =
   tlambda @(PrimalOf target) (varNameToFTK var)
-  $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
+  $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) t
       -- This is probably optimized as much as possible, because
       -- thanks to the invariant, we get zero dual part from this
       -- PrimalSpan term and so interpretAstPrimal and tfromPrimal
@@ -821,9 +821,9 @@ interpretAstHFunPlain
   => AstEnv target -> AstHFun PlainSpan PlainSpan x y
   -> HFunOf (PlainOf target) x y
 {-# INLINE interpretAstHFunPlain #-}
-interpretAstHFunPlain _env (AstLambda var l) =
+interpretAstHFunPlain _env (AstLambda var t) =
   tlambda @(PlainOf target) (varNameToFTK var)
-  $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) l
+  $ HFun $ \ws -> interpretAst (extendEnv var ws emptyEnv) t
 
 -- This version accepts nested arrays, because they are needed here.
 szipWithNested :: ( KnownShS sh, KnownSTK x, KnownSTK x1, KnownSTK x2

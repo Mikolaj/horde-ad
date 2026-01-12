@@ -710,7 +710,7 @@ oRtmapAccumL k bftk eftk f acc0 es =
       -- The bang is needed to stream the list, which may still partially
       -- fail if the output is a tuple of non-Z1 lists and then only
       -- the first of them is streamed. Such tuples are common
-      -- in gradients.
+      -- in gradients of non-fold mapAccums.
       let !lout2 = tfromList k (ftkToSTK bftk) nl
       in tpair xout lout2
     Nothing -> tpair acc0 (tdefTarget (buildFTK k bftk))

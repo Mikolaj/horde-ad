@@ -354,16 +354,15 @@ indexZ1 _ = error "indexZ1: impossible"
 
 -- TODO: move all these somewhere
 
--- Copied from Data.OldList but made strict in state.
+-- All below is copied from Data.OldList but made strict in state.
 mapAccumL' :: (acc -> x -> (acc, y)) -> acc -> [x] -> (acc, [y])
-{-# NOINLINE [1] mapAccumL' #-}
-mapAccumL' _ s [] =  (s, [])
+{-# INLINE [1] mapAccumL' #-}
+mapAccumL' _ s [] = (s, [])
 mapAccumL' f !s (x : xs) = (s'', y : ys)
- where (s', y ) = f s x
+ where (s', y) = f s x
        (s'', ys) = mapAccumL' f s' xs
 
--- I'm not sure this fuses fine, but there are no obviously performance
--- disasters from the rules, either.
+-- This apparently increases performance, so it must somehow work.
 {-# RULES
 "mapAccumL'" [~1] forall f s xs . mapAccumL' f s xs = foldr (mapAccumLF' f) pairWithNil xs s
 "mapAccumL'List" [1] forall f s xs . foldr (mapAccumLF' f) pairWithNil xs s = mapAccumL' f s xs
