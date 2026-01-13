@@ -468,7 +468,7 @@ instance BaseTensor Concrete where
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.munNest $ Nested.mgenerate shm g
   {-# INLINE tmapAccumLDer #-}
-  tmapAccumLDer _ k _ bftk eftk f _df _rf = oRtmapAccumL k bftk eftk f
+  tmapAccumLDer _ k _ bftk eftk f _df _rf = tmapAccumLC k bftk eftk f
   {-# INLINE tapply #-}
   tapply f = Concrete . f . unConcrete
   {-# INLINE tlambda #-}
@@ -684,7 +684,7 @@ ixxToLinearMaybe = \sh ix -> goX sh ix 0
     goX ((fromSMayNat' -> n) :$% sh) (Concrete i :.% ix) a =
       if 0 <= i && i < n then goX sh ix (n * a + i) else Nothing
 
-oRtmapAccumL
+tmapAccumLC
   :: forall k accy by ey.
      SNat k
   -> FullShapeTK by
@@ -693,15 +693,15 @@ oRtmapAccumL
   -> Concrete accy
   -> Concrete (BuildTensorKind k ey)
   -> Concrete (TKProduct accy (BuildTensorKind k by))
-{-# INLINE oRtmapAccumL #-}
-oRtmapAccumL k (FTKScalar @z1) eftk f acc0 es
+{-# INLINE tmapAccumLC #-}
+tmapAccumLC k (FTKScalar @z1) eftk f acc0 es
   | Just Refl <- testEquality (typeRep @z1) (typeRep @Z1) =
     let h :: Concrete accy -> Concrete ey -> Concrete accy
         h !acc !e = Concrete $ fst $ f (unConcrete acc, unConcrete e)
         xout = foldl' h acc0 (tunravelToListShare k (ftkToSTK eftk) es)
         lout2 = tsreplicate0N (k :$$ ZSS) (Concrete Z1)
     in tpair xout lout2
-oRtmapAccumL k bftk eftk f acc0 es =
+tmapAccumLC k bftk eftk f acc0 es =
   let (xout, lout) =
         mapAccumL' (curry $ coerce f) acc0
                    (tunravelToListShare k (ftkToSTK eftk) es)
