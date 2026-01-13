@@ -215,7 +215,7 @@ mnistTestCaseCNNSI prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
                            :$$ sizeMnistLabel
                            :$$ ZSS) FTKScalar) Nothing id
        let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
-           ast = simplifyInline
+           ast = simplifyUserCode
                  $ MnistCnnShaped2.convMnistLossFusedS
                      kh kw (SNat @c_out) (SNat @n_hidden)
                      miniBatchSize (astGlyph, astLabel)

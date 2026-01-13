@@ -255,7 +255,7 @@ revArtifactAdapt
 {-# INLINE revArtifactAdapt #-}
 revArtifactAdapt cotangentHandling f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
-      g !arg = simplifyInline $ ttlet arg $ f . fromTarget
+      g !arg = simplifyUserCode $ ttlet arg $ f . fromTarget
                                   -- fromTarget requires duplicable
   in revProduceArtifact cotangentHandling g emptyEnv xftk
 
@@ -315,7 +315,7 @@ revArtifactAdaptDt
 {-# INLINE revArtifactAdaptDt #-}
 revArtifactAdaptDt f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
-      g !arg = simplifyInline $ ttlet arg $ f . fromTarget
+      g !arg = simplifyUserCode $ ttlet arg $ f . fromTarget
                                   -- fromTarget requires duplicable
   in revProduceArtifactDt g emptyEnv xftk
 
@@ -475,7 +475,7 @@ fwdArtifactAdapt
 {-# INLINE fwdArtifactAdapt #-}
 fwdArtifactAdapt f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
-      g !arg = simplifyInline $ ttlet arg $ f . fromTarget
+      g !arg = simplifyUserCode $ ttlet arg $ f . fromTarget
                                   -- fromTarget requires duplicable
   in fwdProduceArtifact g emptyEnv xftk
 

@@ -1799,7 +1799,7 @@ testSameCNNOPPKrnHandwritten = do
       t = conv2dSame_dKrn varA varB
   "\\u0 -> \\u99 -> " ++ printAstPretty t
     @?= "\\u0 -> \\u99 -> ssum @108 (stranspose @[4, 0, 1, 2, 3] (sreshape @[3, 3, 3, 3, 108] (str (sreplicate @3 (str (sreplicate @3 (str (sreplicate @3 (stranspose @[1, 2, 0] (sreplicate @1 (str u99)))))))) * sreplicate @3 (stranspose @[1, 2, 3, 4, 0] (sreplicate @1 (stranspose @[2, 3, 0, 4, 5, 1] (sgather @[3, 6] (stranspose @[4, 2, 0, 3, 1] (sgather @[3, 6] (stranspose @[2, 1, 0] u0) (\\[i18, i11] -> [i18 + i11]))) (\\[i16, i12] -> [i16 + i12]))))))))"
-  "\\u0 -> \\u99 -> " ++ printAstPretty (simplifyInline t)
+  "\\u0 -> \\u99 -> " ++ printAstPretty (simplifyUserCode t)
     @?= "\\u0 -> \\u99 -> ssum @108 (stranspose @[4, 0, 1, 2, 3] (sreshape @[3, 3, 3, 3, 108] (str (sreplicate @3 (str (sreplicate @3 (str (sreplicate @3 (stranspose @[1, 2, 0] (sreplicate @1 (str u99)))))))) * sreplicate @3 (stranspose @[1, 2, 3, 4, 0] (sreplicate @1 (stranspose @[2, 3, 0, 4, 5, 1] (sgather @[3, 6] (stranspose @[4, 2, 0, 3, 1] (sgather @[3, 6] (stranspose @[2, 1, 0] u0) (\\[i35, i37] -> [i35 + i37]))) (\\[i16, i12] -> [i16 + i12]))))))))"
 
 -- Convolution differentiated wrt the kernel.

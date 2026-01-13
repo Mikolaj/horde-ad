@@ -118,7 +118,7 @@ testVTOAst = do
   interpretAstFull @Concrete env afcnn1
     @?= afcnn2 valsInitVTOPP
   interpretAstFull @Concrete env
-                   (simplifyInline @(TKR 1 Float) afcnn1)
+                   (simplifyUserCode @(TKR 1 Float) afcnn1)
     @?= afcnn2 valsInitVTOPP
   interpretAstFull @Concrete env
                    (simplifyInlineContract @(TKR 1 Float) afcnn1)
@@ -168,7 +168,7 @@ testVTOAstNonLin = do
   interpretAstFull @Concrete env afcnn1
     @?= afcnn2 valsInitVTOPP
   interpretAstFull @Concrete env
-                   (simplifyInline @(TKR 1 Double) afcnn1)
+                   (simplifyUserCode @(TKR 1 Double) afcnn1)
     @?= afcnn2 valsInitVTOPP
   interpretAstFull @Concrete env
                    (simplifyInlineContract @(TKR 1 Double) afcnn1)
@@ -227,7 +227,7 @@ testVT2OAst = do
   interpretAstFull @Concrete env afcnn1
     @?= afcnn2 valsInitVT2OPP
   interpretAstFull @Concrete env
-                   (simplifyInline @(TKR 1 Double) afcnn1)
+                   (simplifyUserCode @(TKR 1 Double) afcnn1)
     @?= afcnn2 valsInitVT2OPP
   interpretAstFull @Concrete env
                    (simplifyInlineContract @(TKR 1 Double) afcnn1)
@@ -299,7 +299,7 @@ testVT2OAstNonLin2 = do
   interpretAstFull @Concrete env afcnn1
     @?= afcnn2 valsInitVT2OPP
   interpretAstFull @Concrete env
-                   (simplifyInline @(TKR 1 Double) afcnn1)
+                   (simplifyUserCode @(TKR 1 Double) afcnn1)
     @?= afcnn2 valsInitVT2OPP
   interpretAstFull @Concrete env
                    (simplifyInlineContract @(TKR 1 Double) afcnn1)
@@ -350,7 +350,7 @@ testVT2OAstNonLin3 = do
   interpretAstFull @Concrete env afcnn1
     @?= afcnn2 valsInitVT2OPP
   interpretAstFull @Concrete env
-                   (simplifyInline @(TKScalar Double) afcnn1)
+                   (simplifyUserCode @(TKScalar Double) afcnn1)
     @?= afcnn2 valsInitVT2OPP
   interpretAstFull @Concrete env
                    (simplifyInlineContract @(TKScalar Double) afcnn1)
@@ -448,7 +448,7 @@ testRNNOAst = do
   interpretAstFull @Concrete env afcnn1
     @?= afcnn2 (valsInitRNNOPP 1 sizeMnistHeightI)
   interpretAstFull @Concrete env
-                   (simplifyInline @(TKR 2 Double) afcnn1)
+                   (simplifyUserCode @(TKR 2 Double) afcnn1)
     @?= afcnn2 (valsInitRNNOPP 1 sizeMnistHeightI)
   interpretAstFull @Concrete env
                    (simplifyInlineContract @(TKR 2 Double) afcnn1)
@@ -507,7 +507,7 @@ testRNNOAst2 = do
   interpretAstFull @Concrete env afcnn1
     @?= afcnn2 (valsInitRNNOPP 2 sizeMnistHeightI)
   interpretAstFull @Concrete env
-                   (simplifyInline @(TKR 2 Double) afcnn1)
+                   (simplifyUserCode @(TKR 2 Double) afcnn1)
     @?= afcnn2 (valsInitRNNOPP 2 sizeMnistHeightI)
   interpretAstFull @Concrete env
                    (simplifyInlineContract @(TKR 2 Double) afcnn1)
@@ -600,7 +600,7 @@ testCNNOAst1 = do
   interpretAstFull @Concrete env afcnn1
     @?= afcnn2 valsInit
   interpretAstFull @Concrete env
-                   (simplifyInline @(TKR 2 Double) afcnn1)
+                   (simplifyUserCode @(TKR 2 Double) afcnn1)
     @?= afcnn2 valsInit
   interpretAstFull @Concrete env
                    (simplifyInlineContract @(TKR 2 Double) afcnn1)
@@ -681,7 +681,7 @@ testCNNOAst2 = do
   interpretAstFull @Concrete env afcnn1
     @?= afcnn2 valsInit
   interpretAstFull @Concrete env
-                   (simplifyInline @(TKR 2 Double) afcnn1)
+                   (simplifyUserCode @(TKR 2 Double) afcnn1)
     @?= afcnn2 valsInit
   interpretAstFull @Concrete env
                    (simplifyInlineContract @(TKR 2 Double) afcnn1)

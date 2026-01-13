@@ -642,36 +642,36 @@ instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
         -- is related to terms getting spans converted when interpreted)
         AstArtifactRev{..} =
           revProduceArtifact
-            IgnoreIncomingCotangent (simplifyInline . unHFun f) emptyEnv xftk
+            IgnoreIncomingCotangent (simplifyUserCode . unHFun f) emptyEnv xftk
         -- A new variable is created to give it the right span as opposed
         -- to the fixed PrimalSpan that artVarDomainRev has.
         (varP, ast) = funToAst xftk Nothing $ \ !astP ->
           let env = extendEnv artVarDomainRev astP emptyEnv
-          in interpretAst env $ simplifyInline artDerivativeRev
+          in interpretAst env $ simplifyUserCode artDerivativeRev
     in AstLambda varP ast
   tvjp ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let AstArtifactRev{..} =
           revProduceArtifactDt
-            (simplifyInline . unHFun f) emptyEnv ftkx
+            (simplifyUserCode . unHFun f) emptyEnv ftkx
         ftkz = varNameToFTK artVarDtRev
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 Nothing $ \ !astP ->
           let env = extendEnv artVarDtRev (astProject1 astP)
                     $ extendEnv artVarDomainRev (astProject2 astP) emptyEnv
-          in interpretAst env $ simplifyInline artDerivativeRev
+          in interpretAst env $ simplifyUserCode artDerivativeRev
     in AstLambda varP ast
   tjvp ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
     let AstArtifactFwd{..} =
-          fwdProduceArtifact (simplifyInline . unHFun f) emptyEnv ftkx
+          fwdProduceArtifact (simplifyUserCode . unHFun f) emptyEnv ftkx
         ftk2 = FTKProduct (adFTK ftkx) ftkx
         (varP, ast) = funToAst ftk2 Nothing $ \ !astP ->
           let env = extendEnv artVarDsFwd (astProject1 astP)
                     $ extendEnv artVarDomainFwd (astProject2 astP) emptyEnv
-          in interpretAst env $ simplifyInline artDerivativeFwd
+          in interpretAst env $ simplifyUserCode artDerivativeFwd
     in AstLambda varP ast
 
   tsum snat@SNat stk u = case stk of

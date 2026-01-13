@@ -206,7 +206,7 @@ mnistTestCaseRNNSI prefix epochs maxBatches width@SNat batch_size@SNat
        (varGlyph, astGlyph) <- funToAstIO (FTKS knownShS FTKScalar) Nothing id
        (varLabel, astLabel) <- funToAstIO (FTKS knownShS FTKScalar) Nothing id
        let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
-           ast = simplifyInline
+           ast = simplifyUserCode
                  $ MnistRnnShaped2.rnnMnistLossFusedS
                      width batch_size (astGlyph, astLabel)
                      (fromTarget varAst)

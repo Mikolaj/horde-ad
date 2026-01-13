@@ -163,7 +163,7 @@ rev1 f !vals = do
                 ftkz (rrev1 @_ @r @n @m @r
                             (hGeneral unAstNoSimplify AstNoSimplify id)) vals
       !(!value3UnSimp, !gradient3UnSimp) =
-        crevMaybeBoth (h (simplifyInline . unAstNoSimplify) AstNoSimplify simplifyInlineContract)
+        crevMaybeBoth (h (simplifyUserCode . unAstNoSimplify) AstNoSimplify simplifyInlineContract)
                       vals
       gradientRrev3UnSimp =
         rrev1 @Concrete @r @n @m @r
@@ -219,7 +219,7 @@ rev1 f !vals = do
         revInterpretArtifact7 (simplifyArtifactRev artifactsGradAst)
       artifactsGradAstT =
         fst $ revProduceArtifactWithoutInterpretation
-                UseIncomingCotangent (hAst simplifyInline id id) ftk
+                UseIncomingCotangent (hAst simplifyUserCode id id) ftk
       !(!value2AstST, !gradient2AstST) =
         revInterpretArtifact7 (simplifyArtifactRev artifactsGradAstT)
       artifactsSimpleAst =

@@ -233,7 +233,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
     (varLabel, astLabel) <-
       funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) Nothing id
     let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
-        ast = simplifyInline
+        ast = simplifyUserCode
               $ MnistFcnnRanked1.afcnnMnistLoss1
                   widthHiddenSNat widthHidden2SNat (astGlyph, astLabel)
                   (fromTarget varAst)
@@ -551,7 +551,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
     (varLabel, astLabel) <-
       funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) Nothing id
     let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
-        ast = simplifyInline
+        ast = simplifyUserCode
               $ MnistFcnnRanked2.afcnnMnistLoss2
                   (astGlyph, astLabel)
                   (fromTarget varAst)

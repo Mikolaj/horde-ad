@@ -206,7 +206,7 @@ mnistTestCaseCNNRI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                            :$: sizeMnistLabelInt
                            :$: ZSR) FTKScalar) Nothing id
        let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
-           ast = simplifyInline
+           ast = simplifyUserCode
                  $ MnistCnnRanked2.convMnistLossFusedR
                      miniBatchSize (astGlyph, astLabel)
                      (fromTarget varAst2)

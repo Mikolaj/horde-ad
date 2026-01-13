@@ -320,7 +320,7 @@ testSin0Rrev4 = do
 testSin0RrevPP4 :: Assertion
 testSin0RrevPP4 = do
   let a1 = (rrev1 sin . rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
-  printAstPretty (simplifyInline a1)
+  printAstPretty (simplifyUserCode a1)
     @?= "rfromK 0.8988770945225438"
 
 testSin0Rrev5 :: Assertion
@@ -373,7 +373,7 @@ testSin0RfwdPP1 = do
   resetVarCounter
   let a1 :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double)
       a1 = rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin (rscalar 1.1)
-  printAstPretty (simplifyInline a1)
+  printAstPretty (simplifyUserCode a1)
     @?= "rfromK 0.4535961214255773"
 
 testSin0RfwdPP1FullUnsimp :: Assertion
@@ -412,7 +412,7 @@ testSin0RfwdPP4P = do
       a1 = (rfwd1 sin . rfwd1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @0 sin) (rscalar 1.1)
   interpretAstPrimal @Concrete emptyEnv a1
     @?= rscalar 0.8988770945225438
-  printAstPretty (simplifyInline a1)
+  printAstPretty (simplifyUserCode a1)
     @?= "rfromK 0.8988770945225438"
 
 testSin0RfwdPP4Dual :: Assertion
@@ -465,7 +465,7 @@ testSin0RrevPP5S :: Assertion
 testSin0RrevPP5S = do
   resetVarCounter
   let a1 = srev1 @(AstTensor AstMethodLet PrimalSpan) @Double @'[] @'[] (srev1 sin) (srepl 1.1)
-  printAstPretty (simplifyInline a1)
+  printAstPretty (simplifyUserCode a1)
     @?= "sscalar (-0.8912073600614354)"
 
 testSin0Fold0 :: Assertion
@@ -1059,7 +1059,7 @@ testSin0Scan1RevPPForComparison = do
                  (\x0 -> rfromList [sin (sin x0), sin x0, x0]) (rscalar 1.1)
   printAstPretty a1
     @?= "rfromS (sscalar 1.0 + (cos (sscalar 1.1) * cos (sin (sscalar 1.1)) + cos (sscalar 1.1)))"
-  printAstPretty (simplifyInline a1)
+  printAstPretty (simplifyUserCode a1)
     @?= "rfromS (sscalar 1.738669201145692)"
 
 testSin0ScanFwdPP :: Assertion
@@ -1140,7 +1140,7 @@ testSin0Scan1Rev3PPForComparison = do
                  (\x0 -> rfromList [sin (sin x0 - x0 * rscalar 5) - x0 * rscalar 7, sin x0 - x0 * rscalar 5, x0]) (rscalar 1.1)
   printAstPretty a1
     @?= "rfromS (let x6 = cos ((-5.5) + sin 1.1) in sscalar (-11.0) + (cos (sscalar 1.1) * sfromK x6 + (sscalar (-5.0) * sfromK x6 + cos (sscalar 1.1))))"
-  printAstPretty (simplifyInline a1)
+  printAstPretty (simplifyUserCode a1)
     @?= "rfromS (sscalar (-10.076255083995068))"
 
 testSin0ScanFwd3PP :: Assertion
@@ -1241,7 +1241,7 @@ testUnitriangular1PP = do
   let sh = 2 :$: 3 :$: 6 :$: ZSR
       k = 10
       a1 = unitriangular1 @3 @Double @(AstTensor AstMethodLet PrimalSpan) k sh
-  printAstPretty (simplifyInline a1)
+  printAstPretty (simplifyUserCode a1)
     @?= "rfromS (sgather @[10, 10] (sconcrete (sfromListLinear [2,2,3,6] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])) (\\[i3, i2] -> [ifH (0 <=. i2 + negate i3) 0 1]))"
 
 unitriangular2 :: (KnownNat k, NumScalar rk, ADReady target)
@@ -1258,7 +1258,7 @@ testUnitriangular2PP = do
   let sh = 2 :$: 3 :$: 6 :$: ZSR
       k = 10
       a1 = unitriangular2 @3 @Double @(AstTensor AstMethodLet PrimalSpan) k sh
-  printAstPretty (simplifyInline a1)
+  printAstPretty (simplifyUserCode a1)
     @?= "rfromS (sgather @[10, 10] (sconcrete (sfromListLinear [2,2,3,6] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])) (\\[i1, i2] -> [ifH (0 <=. i1 + negate i2) 1 0]))"
 
 testSin0rmapAccumRD0S :: Assertion

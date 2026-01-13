@@ -215,7 +215,7 @@ mnistTestCaseRNNRI prefix epochs maxBatches width miniBatchSize totalBatchSize
                            :$: sizeMnistLabelInt
                            :$: ZSR) FTKScalar) Nothing id
        let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
-           ast = simplifyInline
+           ast = simplifyUserCode
                  $ MnistRnnRanked2.rnnMnistLossFusedR
                      miniBatchSize (astGlyph, astLabel)
                      (fromTarget varAst)

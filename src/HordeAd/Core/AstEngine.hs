@@ -2,7 +2,7 @@
 -- of AST terms.
 module HordeAd.Core.AstEngine
   ( simplifyArtifactRev, simplifyArtifactFwd
-  , simplifyInline, simplifyInlineContract
+  , simplifyUserCode, simplifyInlineContract
   ) where
 
 import Prelude
@@ -32,11 +32,11 @@ simplifyArtifactFwd art =
 -- | A mixture of simplification and inlining to use when the resultng
 -- term is not yet supposed to be interpreted using a computational backed,
 -- but rather to be stored and later composed with other terms.
-{-# INLINE simplifyInline #-}
-simplifyInline
+{-# INLINE simplifyUserCode #-}
+simplifyUserCode
   :: forall z s. AstSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
-simplifyInline =
+simplifyUserCode =
   simplifyAst . expandAst . inlineAstTensor
   . simplifyAst . expandAst . inlineAstTensor
   . simplifyAst
