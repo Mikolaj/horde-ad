@@ -2,7 +2,7 @@
 -- of AST terms.
 module HordeAd.Core.AstEngine
   ( simplifyArtifactRev, simplifyArtifactFwd
-  , simplifyInline, simplifyInlineContract, simplifyInlineContractNoExpand
+  , simplifyInline, simplifyInlineContract
   ) where
 
 import Prelude
@@ -51,13 +51,4 @@ simplifyInlineContract
 simplifyInlineContract =
   letDownAst . contractAst . expandAst . inlineAstTensor
   . simplifyAst . expandAst . inlineAstTensor
-  . simplifyAst
-
-{-# INLINE simplifyInlineContractNoExpand #-}
-simplifyInlineContractNoExpand
-  :: forall z s. AstSpan s
-  => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
-simplifyInlineContractNoExpand =
-  letDownAst . contractAst . simplifyAst . inlineAstTensor
-  . simplifyAst . inlineAstTensor
   . simplifyAst
