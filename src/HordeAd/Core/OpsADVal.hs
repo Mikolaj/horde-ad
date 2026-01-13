@@ -272,8 +272,14 @@ instance ( ADReadyNoLet target, ShareTensor target
       -- Note how f is not interpreted as a function on dual numbers
       -- but just on integers and so no cotangents for results of application
       -- of f have to be computed and stored in contangent maps later on.
-      -- Note also how f is duplicated and this leads to loss of sharing
-      -- of indexes in AST instances.
+      -- Oh, and also a fun little detail: note how f is duplicated and this
+      -- leads to loss of sharing of indexes in AST instances. If the index
+      -- expressions are large, e.g., they perform a lookup in a non-constant
+      -- big table, the user needs to work around this loss of sharing by, e.g.,
+      -- adding a let expression with the said lookup table. Inlining should
+      -- not inline such tables if the interation is non-trivial.
+      -- Another workaround is to make the tables constant, precompute them
+      -- and then all their copies are shared as Haskell values.
   tsindex (D u u') i =
     let !ix = tshare <$> i
     in dD (tsindex u ix) (DeltaIndexS knownShS u' ix)

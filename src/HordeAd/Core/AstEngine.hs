@@ -32,6 +32,7 @@ simplifyArtifactFwd art =
 -- | A mixture of simplification and inlining to use when the resultng
 -- term is not yet supposed to be interpreted using a computational backed,
 -- but rather to be stored and later composed with other terms.
+-- A typical example is user code to be differentiated afterwards.
 {-# INLINE simplifyUserCode #-}
 simplifyUserCode
   :: forall z s. AstSpan s
@@ -40,6 +41,8 @@ simplifyUserCode =
   simplifyAst . expandAst . inlineAstTensor
   . simplifyAst . expandAst . inlineAstTensor
   . simplifyAst
+    -- no need to start with letDown, because either the user writes
+    -- good lets or unsharing happens just before this simplification
 
 -- | A mixture of simplification, inlining and recognition of additional
 -- backend-specific primitives, to be used just before a term
@@ -52,3 +55,4 @@ simplifyInlineContract =
   letDownAst . contractAst . expandAst . inlineAstTensor
   . simplifyAst . expandAst . inlineAstTensor
   . simplifyAst
+    -- this usually starts with letDown from unsharing

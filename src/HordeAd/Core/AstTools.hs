@@ -340,7 +340,12 @@ astIsSmallN n t0 = case t0 of
 ixIsSmall :: AstIxS ms sh -> Bool
 ixIsSmall = all (astIsSmall True)
 
--- Try to limit the scope of the let cheaply.
+-- | Try to limit the scope of the let cheaply.
+--
+-- Note that this doesn't inline lets into indexes, so it can be safely
+-- performed on user code without the risk of removing the workaround lets for
+-- big non-constant values in indexes that prevent the loss of sharing occurring
+-- when differentiating indexing. gathers and scatters.
 astLetDown :: forall y z s s2. (AstSpan s, AstSpan s2)
            => AstVarName s y -> AstTensor AstMethodLet s y
            -> AstTensor AstMethodLet s2 z
@@ -409,8 +414,11 @@ astLetDown var u v = case v of
   AstCastS v2 -> AstCastS (astLetDown var u v2)
 
   -- In these three, index terms are usually small, so the check is cheap.
-  -- Also, this undoes precisely the pushing of let up that rules
-  -- for these three perform when simplifying.
+  -- Also, this undoes precisely the pushing of the lets up that rules
+  -- for these three perform when simplifying. Note that we never push
+  -- lets down indexes, which is important for user workarounds
+  -- and is a legal inlining only when the iteration is trivial and so
+  -- the number of dynamic occurrences of the inlined variable is trivial.
   AstIndexS shn v2 ix ->
     if varNameInIxS var ix
     then AstLet var u v
