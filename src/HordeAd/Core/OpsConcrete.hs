@@ -713,7 +713,7 @@ tmapAccumLC k bftk eftk f acc0 es =
       -- in gradients of non-fold mapAccums.
       let !lout2 = tfromList k (ftkToSTK bftk) nl
       in tpair xout lout2
-    Nothing -> tpair acc0 (tdefTarget (buildFTK k bftk))
+    Nothing -> tpair xout (tdefTarget (buildFTK k bftk))
 
 
 -- * Ranked internal definitions
