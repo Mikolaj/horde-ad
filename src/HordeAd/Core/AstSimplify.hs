@@ -3402,6 +3402,19 @@ astConvertFromS c zftk a = case (zftk, a) of
   (FTKScalar, Ast.AstLeqK{}) -> error "astConvertFromS: impossible"
   (FTKScalar, Ast.AstLeqS{}) -> error "astConvertFromS: impossible"
   (FTKScalar, Ast.AstLeqA{}) -> Ast.AstConvert c a
+  {- TODO: This probably requires a separate handling of astFromK and astKFrom
+     or a new framework for rewriting conversions or equality saturation:
+  (FTKR ZSR (FTKScalar @r1), AstConcreteS @r2 v)
+    | ZSS <- Nested.sshape v
+    , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      Ast.AstConvert (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))
+                     (AstConcreteK (Nested.sunScalar v))
+  (FTKX ZSX (FTKScalar @r1), AstConcreteS @r2 v)
+    | ZSS <- Nested.sshape v
+    , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      Ast.AstConvert (Conv0X STKScalar)
+                     (AstConcreteK (Nested.sunScalar v))
+  -}
   -- Rare cases where we don't pull up but push down so that conversions
   -- don't end up interspersed with AstFromPrimal and similar.
   (_, Ast.AstPrimalPart v) ->
