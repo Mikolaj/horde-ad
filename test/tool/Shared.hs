@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances, ViewPatterns #-}
 -- | Additional classes that help in comparing values in tests.
 module Shared
   ( lowercase, HasShape (shapeL), Linearizable (linearize)
@@ -6,16 +6,19 @@ module Shared
 
 import Prelude
 
+import Data.Array.Internal.RankedS qualified as RS
 import Data.Char qualified
 import Data.Foldable qualified as Foldable
 import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Vector.Storable qualified as VS
 import Foreign.C (CInt)
-import GHC.Exts (IsList (..))
 
 import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Mixed qualified as Nested.Mixed
 import Data.Array.Nested.Ranked.Shape
+import Data.Array.Nested.Shaped (stoPrimitive)
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.XArray qualified as X
 
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Types
@@ -27,11 +30,11 @@ lowercase = map Data.Char.toLower
 class HasShape a where
   shapeL :: a -> [Int]
 
-instance Nested.PrimElt a => HasShape (Nested.Ranked n a) where
+instance Nested.Elt a => HasShape (Nested.Ranked n a) where
   shapeL = shrToList . Nested.rshape
 
-instance KnownShS sh => HasShape (Nested.Shaped sh a) where
-  shapeL _ = toList $ knownShS @sh
+instance Nested.Elt a => HasShape (Nested.Shaped sh a) where
+  shapeL = shsToList . Nested.sshape
 
 instance HasShape (RepConcrete y) => HasShape (Concrete y) where
   shapeL = shapeL . unConcrete
@@ -72,11 +75,13 @@ class Linearizable a b | a -> b where
 
 instance (VS.Storable a, Nested.PrimElt a)
          => Linearizable (Nested.Ranked n a) a where
-  linearize = VS.toList . Nested.rtoVector
+  linearize = RS.toList . Nested.rtoOrthotope
 
 instance (VS.Storable a, Nested.PrimElt a)
          => Linearizable (Nested.Shaped sh a) a where
-  linearize = VS.toList . Nested.stoVector
+  linearize (stoPrimitive
+             -> Nested.Shaped (Nested.Mixed.M_Primitive _ (X.XArray arr))) =
+    RS.toList arr
 
 instance Linearizable (RepConcrete y) a
          => Linearizable (Concrete y) a where

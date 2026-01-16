@@ -359,6 +359,7 @@ library testToolLibrary
       , horde-ad:horde-ad
 
       , base
+      , orthotope < 0.2
       , ox-arrays
       , tasty >= 1.0 && < 1.6
       , tasty-hunit < 0.11

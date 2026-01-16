@@ -724,10 +724,6 @@ tdot0R t u = OR.toVector t LA.<.> OR.toVector u
   -- TODO: if either has length 1 values, it may or may not be faster to do
   -- tsum0R (t * u) -}
 
--- TODO: check what the following did in tsum0R and if worth emulating
--- (also in sum1Inner and extremum and maybe tdot0R):
--- LA.sumElements $ OI.toUnorderedVectorT sh t
-
 -- We could generalize by unwinding and only then doing the PrimElt things,
 -- but we'd need a type family that says "replace this underlying scalars
 -- by this one", which makes things too complicated.
@@ -927,6 +923,7 @@ tscatterZRScalar sh (Concrete v) f =
          vec <- VSM.replicate (shrSize shp * shnSize) 0
          forM_ (IM.assocs ivs) $ \(i, u) ->
            VS.copy (VSM.slice (i * shnSize) shnSize vec) (Nested.rtoVector u)
+             -- TODO: use toVectorList instead
          Concrete . Nested.rfromVector sh
            <$> VS.unsafeFreeze vec
 
