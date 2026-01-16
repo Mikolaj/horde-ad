@@ -53,7 +53,7 @@ import HordeAd.Core.UnwindNum
 -- * Tensor classes instance
 
 instance LetTensor Concrete where
-  ttlet = (&)
+  ttlet = (&)  -- doesn't have to be strict, just as tcond
   ttletPrimal = (&)
   ttletPlain = (&)
   toShare = id
@@ -107,6 +107,7 @@ instance BaseTensor Concrete where
   tproject2 = Concrete . snd . unConcrete
   {-# INLINE tcond #-}
   tcond _ b u v = if unConcrete b then u else v
+    -- doesn't have to be strict, just as tlet
   tkconcrete = Concrete
   trconcrete = Concrete
   tsconcrete = Concrete
@@ -701,7 +702,7 @@ tmapAccumLC k (FTKScalar @z1) eftk f acc0 es
         xout = foldl' h acc0 (tunravelToListShare k (ftkToSTK eftk) es)
         lout2 = tsreplicate0N (k :$$ ZSS) (Concrete Z1)
     in tpair xout lout2
-tmapAccumLC k bftk eftk f acc0 es =
+tmapAccumLC k bftk eftk f !acc0 !es =
   let (xout, lout) =
         mapAccumL' (curry $ coerce f) acc0
                    (tunravelToListShare k (ftkToSTK eftk) es)
@@ -827,7 +828,7 @@ toneHotR :: forall m n x. (KnownNat m, KnownNat n, KnownSTK x)
          => IShR m -> Concrete (TKR2 n x) -> IxROf Concrete m
          -> Concrete (TKR2 (m + n) x)
 {-# INLINE toneHotR #-}
-toneHotR sh1 v ix = case tftk knownSTK v of
+toneHotR sh1 !v ix = case tftk knownSTK v of
   FTKR sh2 x ->
     let ftk = FTKR (sh1 `shrAppend` sh2) x
     in case ixrToLinearMaybe sh1 ix of
@@ -872,7 +873,7 @@ tscatterZRSlow sh (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
               Just i2 ->
                 IM.insertWith (taddTarget knownSTK) i2
                   (Concrete $ Nested.rindexPartial v ix)
-          ivs = foldl' (flip g) IM.empty (shrEnum shm)
+          !ivs = foldl' (flip g) IM.empty (shrEnum shm)
       in manyHotNR ftk $ IM.assocs ivs
 
 -- See the comment about tscatterZSDict.
@@ -892,7 +893,7 @@ tscatterZRScalar
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR (p + n) r)
 {-# INLINE tscatterZRScalar #-}
-tscatterZRScalar sh (Concrete v) f =
+tscatterZRScalar sh !(Concrete v) f =
   let shm = shrTake @m $ Nested.rshape v
       shp = shrTake @p sh
   in case SNat @n of
@@ -947,7 +948,7 @@ tgatherZRSlow
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR2 (m + n) x)
 {-# NOINLINE tgatherZRSlow #-}
-tgatherZRSlow sh t f =
+tgatherZRSlow sh !t f =
   trbuild (shrTake @m sh) (\ix -> t `tindexZRSlow` f ix)
 
 tgatherZRDict
@@ -965,7 +966,7 @@ tgatherZRScalar
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR (m + n) r)
 {-# INLINE tgatherZRScalar #-}
-tgatherZRScalar sh t f = case SNat @n of
+tgatherZRScalar sh !t f = case SNat @n of
   SNat' @0 ->  -- an optimized common case
     let g ix = unConcrete $ t `tindex0RImpl` (f $ fmapConcrete ix)
     in Concrete $ Nested.rgeneratePrim sh g
@@ -989,7 +990,7 @@ tgatherZ1RSlow
   -> (IntOf Concrete -> IxROf Concrete p)
   -> Concrete (TKR2 (1 + n) x)
 {-# NOINLINE tgatherZ1RSlow #-}
-tgatherZ1RSlow k t f =
+tgatherZ1RSlow k !t f =
   trbuild1 k (\ix -> t `tindexZRSlow` f ix)
 
 tgatherZ1RDict
@@ -1007,7 +1008,7 @@ tgatherZ1RScalar
   -> (IntOf Concrete -> IxROf Concrete p)
   -> Concrete (TKR (1 + n) r)
 {-# INLINE tgatherZ1RScalar #-}
-tgatherZ1RScalar k t f = case SNat @n of
+tgatherZ1RScalar k !t f = case SNat @n of
   SNat' @0 ->  -- an optimized common case
     let shm = k :$: shrDrop (rshape t)
         g i = unConcrete $ t `tindex0RImpl` (f $ Concrete i)
@@ -1148,7 +1149,7 @@ toneHotS :: forall sh1 sh2 x. (KnownShS sh1, KnownShS sh2, KnownSTK x)
          => Concrete (TKS2 sh2 x) -> IxSOf Concrete sh1
          -> Concrete (TKS2 (sh1 ++ sh2) x)
 {-# INLINE toneHotS #-}
-toneHotS v ix = case tftk knownSTK v of
+toneHotS !v ix = case tftk knownSTK v of
   FTKS sh2 x ->
     let ftk = FTKS (knownShS @sh1 `shsAppend` sh2) x
     in case ixsToLinearMaybe (knownShS @sh1) ix of
@@ -1192,7 +1193,7 @@ tscatterZSSlow (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
               Just i2 ->
                 IM.insertWith (taddTarget knownSTK) i2
                   (Concrete $ Nested.sindexPartial @shm @shn v ix)
-          ivs = foldl' (flip g) IM.empty (shsEnum shm)
+          !ivs = foldl' (flip g) IM.empty (shsEnum shm)
       in manyHotNS @shp x $ IM.assocs ivs
 
 -- The inlining phase control and the explicit dictionaryy argument
@@ -1218,7 +1219,7 @@ tscatterZSScalar
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS (shp ++ shn) r)
 {-# INLINE tscatterZSScalar #-}
-tscatterZSScalar (Concrete v) f =
+tscatterZSScalar !(Concrete v) f =
   let shm = knownShS @shm
       shp = knownShS @shp
   in case knownShS @shn of
@@ -1271,7 +1272,7 @@ tgatherZSSlow
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS2 (shm ++ shn) x)
 {-# NOINLINE tgatherZSSlow #-}
-tgatherZSSlow t f =
+tgatherZSSlow !t f =
   tsbuild @_ @shm @shn (\ix -> t `tindexZSSlow` f ix)
 
 tgatherZSDict
@@ -1289,7 +1290,7 @@ tgatherZSScalar
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS (shm ++ shn) r)
 {-# INLINE tgatherZSScalar #-}
-tgatherZSScalar t f = case knownShS @shn of
+tgatherZSScalar !t f = case knownShS @shn of
   ZSS | Refl <- lemAppNil @shm
       , Refl <- lemAppNil @shp ->  -- an optimized common case
     tkbuild (\ix -> t `tindex0SImpl` f ix)
@@ -1313,7 +1314,7 @@ tgatherZ1SSlow
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS2 (k ': shn) x)
 {-# NOINLINE tgatherZ1SSlow #-}
-tgatherZ1SSlow t f =
+tgatherZ1SSlow !t f =
   tsbuild1 (\ix -> t `tindexZSSlow` f ix)
 
 tgatherZ1SDict
@@ -1331,7 +1332,7 @@ tgatherZ1SScalar
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS (k ': shn) r)
 {-# INLINE tgatherZ1SScalar #-}
-tgatherZ1SScalar t f = case knownShS @shn of
+tgatherZ1SScalar !t f = case knownShS @shn of
   ZSS | Refl <- lemAppNil @shp ->  -- an optimized common case
     tkbuild1 @_ @k (\ix -> t `tindex0SImpl` f ix)
   _ -> tsbuild1 (\ix -> t `tindexZSScalar` f ix)
@@ -1434,7 +1435,7 @@ toneHotX :: forall sh1 sh2 x. (KnownShX sh2, KnownSTK x)
          => IShX sh1 -> Concrete (TKX2 sh2 x) -> IxXOf Concrete sh1
          -> Concrete (TKX2 (sh1 ++ sh2) x)
 {-# INLINE toneHotX #-}
-toneHotX sh1 v ix = case tftk knownSTK v of
+toneHotX sh1 !v ix = case tftk knownSTK v of
   FTKX sh2 x ->
     let ftk = FTKX (sh1 `shxAppend` sh2) x
     in case ixxToLinearMaybe sh1 ix of
@@ -1447,7 +1448,7 @@ tscatterZX :: (KnownShX shm, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x)
            -> Concrete (TKX2 (shp ++ shn) x)
 {-# INLINE tscatterZX #-}  -- this function takes a function as an argument
 tscatterZX @shm @shn @shp @x
-           sh v0@(Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
+           sh !v0@(Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
   let shm = shxTakeSSX (Proxy @shn) (knownShX @shm) (Nested.mshape v)
       shp = shxTakeSSX (Proxy @shn) (knownShX @shp) sh
   in withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
@@ -1481,7 +1482,7 @@ tscatterZX @shm @shn @shp @x
                  Just i2 ->
                    IM.insertWith (+) i2
                      (Concrete $ Nested.mindexPartial @_ @shm @shn v ix)
-             ivs = foldl' (flip g) IM.empty (shxEnum shm)
+             !ivs = foldl' (flip g) IM.empty (shxEnum shm)
          in manyHotNX @shp ftk $ IM.assocs ivs
        (_, FTKX _ x) ->
          -- TODO: write to vecs and use a bitmap to record the written indexes
@@ -1497,7 +1498,7 @@ tscatterZX @shm @shn @shp @x
                  Just i2 ->
                    IM.insertWith (taddTarget knownSTK) i2
                      (Concrete $ Nested.mindexPartial @_ @shm @shn v ix)
-             ivs = foldl' (flip g) IM.empty (shxEnum shm)
+             !ivs = foldl' (flip g) IM.empty (shxEnum shm)
          in manyHotNX @shp ftk $ IM.assocs ivs
 
 tgatherZX :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
@@ -1506,7 +1507,7 @@ tgatherZX :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
           -> (IxXOf Concrete shm -> IxXOf Concrete shp)
           -> Concrete (TKX2 (shm ++ shn) x)
 {-# INLINE tgatherZX #-}  -- this function takes a function as an argument
-tgatherZX @shm @shn @shp @x sh t f =
+tgatherZX @shm @shn @shp @x sh !t f =
   gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
   case (knownShX @shn, knownSTK @x) of
     (ZKX, STKScalar) | Refl <- lemAppNil @shm
@@ -1525,7 +1526,7 @@ tgatherZ1X :: forall k shn shp x.
            -> (IntOf Concrete -> IxXOf Concrete shp)
            -> Concrete (TKX2 (Just k ': shn) x)
 {-# INLINE tgatherZ1X #-}   -- this function takes a function as an argument
-tgatherZ1X _ t f = case (knownShX @shn, knownSTK @x) of
+tgatherZ1X _ !t f = case (knownShX @shn, knownSTK @x) of
   (ZKX, STKScalar) | Refl <- lemAppNil @shp ->  -- an optimized common case
     let shm = SKnown SNat :$% shxDropSSX (knownShX @shp)
                                          (Nested.mshape $ unConcrete t)
