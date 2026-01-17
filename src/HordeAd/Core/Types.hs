@@ -20,7 +20,7 @@ module HordeAd.Core.Types
     -- * The Z1 Num unit type and its instances
   , Z1(..)
     -- * Misc
-  , mapAccumL'
+  , pattern Is, mapAccumL'
   , Dict(..), IntegralH(..), RealFloatH(..), Boolean (..), EqH(..), OrdH(..)
   , backpermutePrefixList
     -- * Feature requests for ox-arrays
@@ -45,7 +45,8 @@ import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Kind (Constraint, Type)
 import Data.List (dropWhileEnd, sort)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality
+  (gcastWith, testEquality, type (~~), (:~:) (Refl), (:~~:) (HRefl))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
@@ -64,7 +65,7 @@ import GHC.TypeLits
   )
 import GHC.TypeNats qualified as TN
 import System.Random
-import Type.Reflection (Typeable, typeRep)
+import Type.Reflection (TypeRep, Typeable, eqTypeRep, pattern TypeRep, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (MapJust)
@@ -354,6 +355,10 @@ indexZ1 _ = error "indexZ1: impossible"
 -- * Misc
 
 -- TODO: move all these somewhere
+
+pattern Is :: forall a b. Typeable a => a ~~ b => TypeRep b
+pattern Is <- (eqTypeRep (TypeRep @a) -> Just (HRefl :: a :~~: b))
+  where Is = TypeRep
 
 -- All below is copied from Data.OldList but made strict in state.
 mapAccumL' :: (acc -> x -> (acc, y)) -> acc -> [x] -> (acc, [y])

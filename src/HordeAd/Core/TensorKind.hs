@@ -203,55 +203,35 @@ numFromTKAllNum _ =
 contFromTKAllNum :: forall r a. (Typeable r, TKAllNum (TKScalar r))
                  => (Dict0 (Num r, Nested.NumElt r, GoodScalar r) -> a) -> a
 {-# INLINE contFromTKAllNum #-}  -- takes a function as an argument
-contFromTKAllNum f =
-  case testEquality (typeRep @r) (typeRep @Int) of
-    Just Refl -> f Dict0
-    _ -> case testEquality (typeRep @r) (typeRep @Double) of
-      Just Refl -> f Dict0
-      _ -> case testEquality (typeRep @r) (typeRep @Float) of
-        Just Refl -> f Dict0
-        _ -> case testEquality (typeRep @r) (typeRep @Z1) of
-          Just Refl -> f Dict0
-          _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-            Just Refl -> f Dict0
-            _ -> case testEquality (typeRep @r) (typeRep @Int32) of
-              Just Refl -> f Dict0
-              _ -> case testEquality (typeRep @r) (typeRep @Int16) of
-                Just Refl -> f Dict0
-                _ -> case testEquality (typeRep @r) (typeRep @Int8) of
-                  Just Refl -> f Dict0
-                  _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-                    Just Refl -> f Dict0
-                    _ -> error "contFromTKAllNum: impossible type"
+contFromTKAllNum f = case typeRep @r of
+  Is @Int -> f Dict0
+  Is @Double -> f Dict0
+  Is @Float -> f Dict0
+  Is @Z1 -> f Dict0
+  Is @Int64 -> f Dict0
+  Is @Int32-> f Dict0
+  Is @Int16 -> f Dict0
+  Is @Int8 -> f Dict0
+  Is @CInt -> f Dict0
+  _ -> error "contFromTKAllNum: impossible type"
 
 -- See above. The list comes from ox-arrays at [PRIMITIVE ELEMENT TYPES LIST].
 contFromTypeable :: forall r a. Typeable r
                  => (Dict GoodScalar r -> a) -> a
 {-# INLINE contFromTypeable #-}  -- takes a function as an argument
-contFromTypeable f =
-  case testEquality (typeRep @r) (typeRep @Int) of
-    Just Refl -> f Dict
-    _ -> case testEquality (typeRep @r) (typeRep @Double) of
-      Just Refl -> f Dict
-      _ -> case testEquality (typeRep @r) (typeRep @Float) of
-        Just Refl -> f Dict
-        _ -> case testEquality (typeRep @r) (typeRep @Z1) of
-          Just Refl -> f Dict
-          _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-            Just Refl -> f Dict
-            _ -> case testEquality (typeRep @r) (typeRep @Int32) of
-              Just Refl -> f Dict
-              _ -> case testEquality (typeRep @r) (typeRep @Int16) of
-                Just Refl -> f Dict
-                _ -> case testEquality (typeRep @r) (typeRep @Int8) of
-                  Just Refl -> f Dict
-                  _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-                    Just Refl -> f Dict
-                    _ -> case testEquality (typeRep @r) (typeRep @Bool) of
-                      Just Refl -> f Dict
-                      _ -> case testEquality (typeRep @r) (typeRep @()) of
-                        Just Refl -> f Dict
-                        _ -> error "contFromTypeable: impossible type"
+contFromTypeable f = case typeRep @r of
+  Is @Int -> f Dict
+  Is @Double -> f Dict
+  Is @Float -> f Dict
+  Is @Z1 -> f Dict
+  Is @Int64 -> f Dict
+  Is @Int32 -> f Dict
+  Is @Int16-> f Dict
+  Is @Int8 -> f Dict
+  Is @CInt -> f Dict
+  Is @Bool -> f Dict
+  Is @() -> f Dict
+  _ -> error "contFromTypeable: impossible type"
 
 stkUnit :: SingletonTK TKUnit
 stkUnit = STKScalar
