@@ -265,9 +265,9 @@ evalRevScalarRuntimeSpecialized
 {-# INLINE evalRevScalarRuntimeSpecialized #-}
 evalRevScalarRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> evalRevSame @(TKScalar Double) s c
+    Just Refl -> evalRevFTK @(TKScalar Double) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> evalRevSame @(TKScalar Float) s c
+      Just Refl -> evalRevFTK @(TKScalar Float) s c
       _ -> const s
 
 evalRevRRuntimeSpecialized
@@ -284,9 +284,9 @@ evalRevRRuntimeSpecialized !s !c =
   -- be included in the list of expected underlying scalar types.
   -- If the scalar type is not on the list, performance suffers greatly.
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> evalRevSame @(TKR n Double) s c
+    Just Refl -> evalRevFTK @(TKR n Double) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> evalRevSame @(TKR n Float) s c
+      Just Refl -> evalRevFTK @(TKR n Float) s c
       _ -> const s
 
 evalSRuntimeSpecialized
@@ -298,9 +298,9 @@ evalSRuntimeSpecialized
 {-# INLINE evalSRuntimeSpecialized #-}
 evalSRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> evalRevSame @(TKS sh Double) s c
+    Just Refl -> evalRevFTK @(TKS sh Double) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> evalRevSame @(TKS sh Float) s c
+      Just Refl -> evalRevFTK @(TKS sh Float) s c
       _ -> const s
 
 evalXRuntimeSpecialized
@@ -312,9 +312,9 @@ evalXRuntimeSpecialized
 {-# INLINE evalXRuntimeSpecialized #-}
 evalXRuntimeSpecialized !s !c =
   case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> evalRevSame @(TKX sh Double) s c
+    Just Refl -> evalRevFTK @(TKX sh Double) s c
     _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> evalRevSame @(TKX sh Float) s c
+      Just Refl -> evalRevFTK @(TKX sh Float) s c
       _ -> const s
 
 -- | Reverse pass, that is, transpose/evaluation of the delta expressions
@@ -350,11 +350,6 @@ evalRev ftk !s !c d = case ftk of
 
 -- | A helper function to `evalRev`. The @FTK@ suffix denotes it doesn't get
 -- an FTK as an argument but reconstructs it as needed.
---
--- All constructors that can have a type with TKProduct kind
--- need to be handled here,
--- as opposed to in 'evalRevSame', except for DeltaInput that is always
--- constructed only in basic kinds even though its type permits others.
 evalRevFTK
   :: forall y target.
      (ADReadyNoLet target, ShareTensor target)
@@ -409,6 +404,15 @@ evalRevFTK !s !c d0 = case d0 of
       else let cd = Cotangent c
            in s { nMap = DMap.insert n d $ nMap s
                 , dMap = DMap.insert n cd $ dMap s }
+  DeltaInput i | Dict0 <- lemTKAllNumAD (ftkToSTK $ inputIdToFTK i) ->
+    -- This is true for DeltaInput by construction:
+    gcastWith (unsafeCoerceRefl :: ADTensorKind y :~: y) $
+    let cs = TOTensor c
+    in s {iMap = DMap.adjust (addTensorOrZero (ftkToSTK $ inputIdToFTK i) cs) i
+                 $ iMap s}
+    -- Note that we can't express sharing by inserting DeltaShare constructors
+    -- into iMap, because often sharing needs to work across many
+    -- iMap keys. That's why global sharing is used.
 
   DeltaPair d1 d2 ->
     let (c1, c2) = tunpair c
@@ -473,6 +477,42 @@ evalRevFTK !s !c d0 = case d0 of
         s2 = evalRevFTK s dacc acc0'
     in evalRevFTK s2 des es'
 
+  DeltaZero{} -> s
+  DeltaScale (NestedTarget k) d ->
+    let y = ftkDelta d0
+    in case matchingFTK y (adFTK y) of
+         Just Refl -> evalRevFTK s (k * c) d
+         _ -> s
+  DeltaAdd d e ->
+    let cShared = tshare c
+    in evalRevFTK (evalRevFTK s cShared d) cShared e
+
+  DeltaCastK @r1 d ->
+    let y = ftkDelta d0
+    in case matchingFTK y (adFTK y) of
+         Just Refl ->
+           evalRevScalarRuntimeSpecialized
+           s (toADTensorKindShared (FTKScalar @r1) $ tkcast c) d
+         _ -> s
+
+  DeltaCastR d ->
+    let y = ftkDelta d0
+    in case matchingFTK y (adFTK y) of
+         Just Refl ->
+           evalRevRRuntimeSpecialized
+             s (toADTensorKindShared (ftkDelta d) $ trcast c) d
+         _ -> s
+  DeltaSum0R d -> case adFTK $ ftkDelta d of
+    FTKR sh FTKScalar | SNat <- shrRank sh ->
+      evalRevFTK s (trreplicate0N sh c) d
+  DeltaDot0R v d ->
+    let y = ftkDelta d0
+    in case matchingFTK y (adFTK y) of
+         Just Refl -> case ftkDelta d of
+           FTKR sh FTKScalar | SNat <- shrRank sh ->
+             evalRevFTK s (v * trreplicate0N (rshape v) c) d
+               -- too slow: evalRevFTK s (rmap0N (* (tscalar c)) v) vd
+         _ -> s
   DeltaIndexR SNat d ix -> case ftkDelta d of
     FTKR sh x | SNat <- ixrRank ix
               , Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
@@ -516,6 +556,22 @@ evalRevFTK !s !c d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       evalRevFTK s (trreshape sh c) d
 
+  DeltaCastS d ->
+    let y = ftkDelta d0
+    in case matchingFTK y (adFTK y) of
+         Just Refl ->
+           evalSRuntimeSpecialized
+             s (toADTensorKindShared (ftkDelta d) $ tscast c) d
+         _ -> s
+  DeltaSum0S d -> case adFTK $ ftkDelta d of
+    FTKS sh FTKScalar ->
+      evalRevFTK s (tsreplicate0N sh c) d
+  DeltaDot0S v d -> let y = ftkDelta d0
+    in case matchingFTK y (adFTK y) of
+         Just Refl -> case ftkDelta d of
+           FTKS sh FTKScalar ->
+             evalRevFTK s (v * tsreplicate0N sh c) d
+         _ -> s
   DeltaIndexS @shm @shn shn d ix -> case ftkDelta d of
     FTKS sh x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -570,6 +626,25 @@ evalRevFTK !s !c d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       evalRevFTK s (tsreshape sh c) d
 
+  DeltaCastX d ->
+    let y = ftkDelta d0
+    in case matchingFTK y (adFTK y) of
+         Just Refl ->
+           evalXRuntimeSpecialized
+             s (toADTensorKindShared (ftkDelta d) $ txcast c) d
+         _ -> s
+  DeltaSum0X d -> case adFTK $ ftkDelta d of
+    FTKX sh FTKScalar ->
+      withKnownShX (ssxFromShX sh) $
+      evalRevFTK s (txreplicate0N sh c) d
+  DeltaDot0X v d ->
+    let y = ftkDelta d0
+    in case matchingFTK y (adFTK y) of
+         Just Refl -> case ftkDelta d of
+           FTKX sh FTKScalar ->
+             withKnownShX (ssxFromShX sh) $
+             evalRevFTK s (v * txreplicate0N (xshape v) c) d
+         _ -> s
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x | SNat @len <- ixxRank ix
               , Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
@@ -629,101 +704,16 @@ evalRevFTK !s !c d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       evalRevFTK s (txreshape sh c) d
 
-  _ -> let y = ftkDelta d0
-       in case matchingFTK y (adFTK y) of
-         Just Refl -> evalRevSame s c d0
+  DeltaConvert @a c1 d ->
+    let y = ftkDelta d0
+    in case matchingFTK y (adFTK y) of
+         Just Refl ->
+           -- This follows from the same property for @b@ and from @c1@
+           -- not changing the underlying scalar types.
+           gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
+           evalRevFTK s (tconvert (transposeTKConversion (ftkDelta d) c1)
+                      (convertSTK c1 $ ftkToSTK $ ftkDelta d) c) d
          _ -> s
-           -- the constructors remaining here have y that is not of
-           -- a TKProduct type (or otherwise permitted, see evalRevSame),
-           -- so if y is not equal to ADTensorKind y, the latter is
-           -- of the Z1 type and so it has no influence on the derivative.
-
--- | A helper function to `evalRev`. It assumes all the scalars underlying
--- the tensor kind of its arguments are differentiable (also in TKProduct
--- nested inside TKR2, etc.).
---
--- All constructors that can only have types with non-TKProduct kinds
--- (and the DeltaInput constructor, the vector space constructors
--- and the conversion constructor) can be handled here, where the extra
--- equality constraint makes it less verbose and less costly.
-evalRevSame
-  :: forall y target.
-     (ADReadyNoLet target, ShareTensor target, y ~ ADTensorKind y)
-  => EvalState target -> target (ADTensorKind y) -> Delta target y
-  -> EvalState target
-evalRevSame !s !c = \case
-  DeltaInput i | Dict0 <- lemTKAllNumAD (ftkToSTK $ inputIdToFTK i) ->
-    let cs = TOTensor c
-    in s {iMap = DMap.adjust (addTensorOrZero (ftkToSTK $ inputIdToFTK i) cs) i
-                 $ iMap s}
-    -- This and similar don't need to be runtime-specialized,
-    -- because the type of c determines the Num instance for (+).
-    -- Note that we can't express sharing by inserting DeltaShare constructors
-    -- into iMap, because often sharing needs to work across many
-    -- iMap keys. That's why global sharing is used.
-
-  -- By placing these here, we force their derivatives to be zeroed
-  -- whenever they are called on TKProduct types (top-level or nested),
-  -- which they should not ever be (this is ensured by the types
-  -- of the three constructors and the fact that Num is defined only
-  -- for base types).
-  DeltaZero{} -> s
-  DeltaScale (NestedTarget k) d -> evalRevSame s (k * c) d
-  DeltaAdd d e ->
-    let cShared = tshare c
-    in evalRevSame (evalRevSame s cShared d) cShared e
-
-  DeltaCastK @r1 d ->
-    evalRevScalarRuntimeSpecialized
-    s (toADTensorKindShared (FTKScalar @r1) $ tkcast c) d
-
-  DeltaCastR d -> case ftkDelta d of
-    y ->
-      evalRevRRuntimeSpecialized
-      s (toADTensorKindShared y $ trcast c) d
-  DeltaSum0R d -> case ftkDelta d of
-    FTKR sh FTKScalar | SNat <- shrRank sh ->
-      evalRevSame s (trreplicate0N sh c) d
-  DeltaDot0R v d -> case ftkDelta d of
-    FTKR sh FTKScalar | SNat <- shrRank sh ->
-      evalRevSame s (v * trreplicate0N (rshape v) c) d
-        -- too slow: evalRevSame s (rmap0N (* (tscalar c)) v) vd
-
-  DeltaCastS d -> case ftkDelta d of
-    y ->
-      evalSRuntimeSpecialized
-      s (toADTensorKindShared y $ tscast c) d
-  DeltaSum0S d -> case ftkDelta d of
-    FTKS sh FTKScalar ->
-      evalRevSame s (tsreplicate0N sh c) d
-  DeltaDot0S v d -> case ftkDelta d of
-    FTKS sh FTKScalar ->
-      evalRevSame s (v * tsreplicate0N sh c) d
-
-  DeltaCastX d -> case ftkDelta d of
-    y ->
-      evalXRuntimeSpecialized
-      s (toADTensorKindShared y $ txcast c) d
-  DeltaSum0X d -> case ftkDelta d of
-    FTKX sh FTKScalar ->
-      withKnownShX (ssxFromShX sh) $
-      evalRevSame s (txreplicate0N sh c) d
-  DeltaDot0X v d -> case ftkDelta d of
-    FTKX sh FTKScalar ->
-      withKnownShX (ssxFromShX sh) $
-      evalRevSame s (v * txreplicate0N (xshape v) c) d
-
-  DeltaConvert @a c1 d -> case ftkDelta d of
-    aftk ->
-      -- This follows from the same property for @b@ and from @c1@
-      -- not changing the underlying scalar types.
-      gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
-      evalRevSame
-        s (tconvert (transposeTKConversion aftk c1)
-                    (convertSTK c1 $ ftkToSTK $ ftkDelta d) c) d
-
-  d -> evalRevFTK s c d
-    -- the remaining constructors are already handled in evalRevFTK
 
 evalRevFromnMap :: forall target. (ADReadyNoLet target, ShareTensor target)
                 => EvalState target -> EvalState target
@@ -988,7 +978,6 @@ evalFwdSame params !s = \case
       Just dtk -> (s, evalTensorOrZero dtk)
       Nothing -> error "evalFwdSame: missing input"
 
-  -- See the comment about these three in evalRevSame.
   DeltaZero ftk -> (s, tdefTarget $ adFTK ftk)
   DeltaScale (NestedTarget k) d -> second (* k) $ evalFwdSame params s d
   DeltaAdd d e -> let (s2, t) = evalFwdSame params s d
