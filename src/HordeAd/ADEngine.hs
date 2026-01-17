@@ -240,7 +240,7 @@ revMaybe f vals0 mdt =
       artifactRaw = revArtifactAdapt cotangentHandling f xftk
       artifact = simplifyArtifactRev artifactRaw
       (primal, res) = revInterpretArtifact artifact valsTarget mdt
-  in (primal, fromTarget $ fromADTensorKindShared (ftkToSTK xftk) res)
+  in (primal, fromTarget $ fromADTensorKindShared xftk res)
 
 revArtifactAdapt
   :: forall src ztgt tgt.
@@ -302,7 +302,7 @@ revMaybeDt f vals0 dt =
       artifactRaw = revArtifactAdaptDt f xftk
       artifact = simplifyArtifactRev artifactRaw
       (primal, res) = revInterpretArtifactDt artifact valsTarget dt
-  in (primal, fromTarget $ fromADTensorKindShared (ftkToSTK xftk) res)
+  in (primal, fromTarget $ fromADTensorKindShared xftk res)
 
 revArtifactAdaptDt
   :: forall src ztgt tgt.
@@ -617,7 +617,7 @@ crevMaybe f vals0 mdt =
       g = f . fromTarget
       xftk = tftk (knownSTK @(X src)) valsTarget
       (primal, res) = crevOnParams mdt g xftk valsTarget
-  in (primal, fromTarget $ fromADTensorKindShared (ftkToSTK xftk) res)
+  in (primal, fromTarget $ fromADTensorKindShared xftk res)
 
 -- This function is as above, but the dt must be provided and so,
 -- due to technical reasons, the type is less constrained.
@@ -640,7 +640,7 @@ crevMaybeDt f vals0 dt =
       g = f . fromTarget
       xftk = tftk (knownSTK @(X src)) valsTarget
       (primal, res) = crevOnParamsDt dt g xftk valsTarget
-  in (primal, fromTarget $ fromADTensorKindShared (ftkToSTK xftk) res)
+  in (primal, fromTarget $ fromADTensorKindShared xftk res)
 
 
 -- * Non-symbolic forward derivative adaptors

@@ -193,13 +193,13 @@ type Differentiable r =
 -- in which nil is represented as Z1, which is not differentiable.
 -- In other cases it should be rare.
 ifDifferentiable :: forall r a. Typeable r
-                 => (Differentiable r => a) -> a -> a
+                 => (Differentiable r => a) -> (ADTensorScalar r ~ Z1 => a) -> a
 {-# INLINE ifDifferentiable #-}
 ifDifferentiable ra _
   | Just Refl <- testEquality (typeRep @r) (typeRep @Double) = ra
 ifDifferentiable ra _
   | Just Refl <- testEquality (typeRep @r) (typeRep @Float) = ra
-ifDifferentiable _ a = a
+ifDifferentiable _ a = gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) a
 
 type family BuildTensorKind k tk where
   BuildTensorKind k (TKScalar r) = TKS '[k] r

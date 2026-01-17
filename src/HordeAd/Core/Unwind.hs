@@ -14,9 +14,8 @@ module HordeAd.Core.Unwind
 import Prelude
 
 import Data.Default
-import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality ((:~:) (Refl))
 import GHC.TypeLits (type (+))
-import Type.Reflection (typeRep)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
@@ -109,49 +108,33 @@ toADTensorKindW
   :: forall y target. BaseTensor target
   => RepW target y -> FullShapeTKW y -> RepW target (ADTensorKind y)
 toADTensorKindW t = \case
-  WFTKScalar @r -> case testEquality (typeRep @(ADTensorScalar r))
-                                     (typeRep @Z1) of
-    Just Refl -> WTKScalar $ tkconcrete Z1
-    _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
-  WFTKR @r sh -> case testEquality (typeRep @(ADTensorScalar r))
-                                   (typeRep @Z1) of
-    Just Refl -> WTKR $ rrepl @_ @_ @target sh Z1
-    _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
-  WFTKS @r sh -> case testEquality (typeRep @(ADTensorScalar r))
-                                   (typeRep @Z1) of
-    Just Refl -> WTKS $ tsconcrete $ Nested.sreplicatePrim sh Z1
-    _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
-  WFTKX @r sh -> case testEquality (typeRep @(ADTensorScalar r))
-                                   (typeRep @Z1) of
-    Just Refl -> WTKX $ xrepl @_ @_ @target sh Z1
-    _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: r) t
+  WFTKScalar @r ->
+    ifDifferentiable @r t (WTKScalar $ tkconcrete Z1)
+  WFTKR @r sh ->
+    ifDifferentiable @r t (WTKR $ rrepl @_ @_ @target sh Z1)
+  WFTKS @r sh ->
+    ifDifferentiable @r t (WTKS $ tsconcrete $ Nested.sreplicatePrim sh Z1)
+  WFTKX @r sh ->
+    ifDifferentiable @r t (WTKX $ xrepl @_ @_ @target sh Z1)
   WFTKProduct ftk1 ftk2 -> case t of
     WTKProduct t1 t2 ->
       WTKProduct (toADTensorKindW t1 ftk1) (toADTensorKindW t2 ftk2)
 
 fromADTensorKindW
   :: forall y target. BaseTensor target
-  => SingletonTK y -> RepW target (ADTensorKind y) -> RepW target y
-fromADTensorKindW stk t = case (stk, t) of
-  (STKScalar @r1, WTKScalar @r2 _) ->
-    case testEquality (typeRep @r1) (typeRep @r2) of
-      Just Refl -> t
-      _ -> WTKScalar $ tkconcrete def  -- def is Z1 here
-  (STKR _ (STKScalar @r1), WTKR @r2 v) ->
-    case testEquality (typeRep @r1) (typeRep @r2) of
-      Just Refl -> t
-      _ -> WTKR $ rrepl (rshape v) def
-  (STKS sh (STKScalar @r1), WTKS @r2 _) ->
-    case testEquality (typeRep @r1) (typeRep @r2) of
-      Just Refl -> t
-      _ -> WTKS $ tsconcrete $ Nested.sreplicatePrim sh def
-  (STKX _ (STKScalar @r1), WTKX @r2 v) ->
-    case testEquality (typeRep @r1) (typeRep @r2) of
-      Just Refl -> t
-      _ -> WTKX $ xrepl (xshape v) def
-  (STKProduct stk1 stk2, WTKProduct t1 t2) ->
-    WTKProduct (fromADTensorKindW stk1 t1) (fromADTensorKindW stk2 t2)
-  _ -> error "fromADTensorKindW: impossible SingletonTK"
+  => RepW target (ADTensorKind y) -> FullShapeTKW y -> RepW target y
+fromADTensorKindW t = \case
+  WFTKScalar @r ->
+    ifDifferentiable @r t (WTKScalar $ tkconcrete def)
+  WFTKR @r sh ->
+    ifDifferentiable @r t (WTKR $ rrepl sh def)
+  WFTKS @r sh ->
+    ifDifferentiable @r t (WTKS $ tsconcrete $ Nested.sreplicatePrim sh def)
+  WFTKX @r sh ->
+    ifDifferentiable @r t (WTKX $ xrepl sh def)
+  WFTKProduct stk1 stk2 -> case t of
+    WTKProduct t1 t2 ->
+      WTKProduct (fromADTensorKindW t1 stk1) (fromADTensorKindW t2 stk2)
 
 type family UnWind y where
   UnWind (TKScalar r) =
@@ -188,40 +171,6 @@ type family UnWind y where
     TKProduct (UnWind (TKX2 sh1 y)) (UnWind (TKX2 sh1 z))
   UnWind (TKProduct y z) =
     TKProduct (UnWind y) (UnWind z)
-
-unWindSTK :: SingletonTK y -> SingletonTK (UnWind y)
-unWindSTK = \case
-  stk@STKScalar -> stk
-  stk@(STKR _ STKScalar) -> stk
-  STKR (SNat @n) (STKR (SNat @m) stk2) ->
-    unWindSTK $ STKR (SNat @(n + m)) stk2
-  STKR n (STKS sh2 stk2) ->
-    unWindSTK
-    $ STKX (ssxReplicate n `ssxAppend` ssxFromShX (shxFromShS sh2)) stk2
-  STKR n (STKX sh2 stk2) ->
-    unWindSTK $ STKX (ssxReplicate n `ssxAppend` sh2) stk2
-  STKR n@SNat (STKProduct y z) ->
-    unWindSTK $ STKProduct (STKR n y) (STKR n z)
-  stk@(STKS _ STKScalar) -> stk
-  STKS sh1 (STKR m stk2) ->
-    unWindSTK
-    $ STKX (ssxFromShX (shxFromShS sh1) `ssxAppend` ssxReplicate m) stk2
-  STKS sh1 (STKS sh2 stk2) ->
-    unWindSTK $ STKS (sh1 `shsAppend` sh2) stk2
-  STKS sh1 (STKX sh2 stk2) ->
-    unWindSTK $ STKX (ssxFromShX (shxFromShS sh1) `ssxAppend` sh2) stk2
-  STKS sh1 (STKProduct y z)->
-    unWindSTK $ STKProduct (STKS sh1 y) (STKS sh1 z)
-  stk@(STKX _ STKScalar) -> stk
-  STKX sh1 (STKR m stk2) ->
-    unWindSTK $ STKX (sh1 `ssxAppend` ssxReplicate m) stk2
-  STKX sh1 (STKS sh2 stk2) ->
-    unWindSTK $ STKX (sh1 `ssxAppend` ssxFromShX (shxFromShS sh2)) stk2
-  STKX sh1 (STKX sh2 stk2) ->
-    unWindSTK $ STKX (sh1 `ssxAppend` sh2) stk2
-  STKX sh1 (STKProduct y z) ->
-    unWindSTK $ STKProduct (STKX sh1 y) (STKX sh1 z)
-  STKProduct y z -> STKProduct (unWindSTK y) (unWindSTK z)
 
 unWindFTK :: FullShapeTK y -> FullShapeTKW (UnWind y)
 unWindFTK = \case
@@ -386,7 +335,7 @@ lemUnWindOfAD :: SingletonTK y
               -> UnWind (ADTensorKind y) :~: ADTensorKind (UnWind y)
 lemUnWindOfAD _ = unsafeCoerceRefl
 
--- | Convert a tensor into a tensor with only trivial non-differentiable
+-- | Convert a tensor into a tensor with only trivial (Z1) non-differentiable
 -- scalars. The `ShareTensor` constraint is needed, despite what GHC says,
 -- in order not to require duplicable arguments.
 toADTensorKindShared
@@ -397,15 +346,15 @@ toADTensorKindShared ftk a | Refl <- lemUnWindOfAD (ftkToSTK ftk) =
   windTarget (adSTK $ ftkToSTK ftk)
   $ toADTensorKindW (unWindTarget (ftkToSTK ftk) a) (unWindFTK ftk)
 
--- | Convert a tensor with only trivial non-differentiable scalars
+-- | Convert a tensor with only trivial (Z1) non-differentiable scalars
 -- into a tensor with the non-differentiable scalars given by the singleton
 -- and with zero values at the non-differentiable types. The `ShareTensor`
 -- constraint is needed, despite what GHC says, in order not to require
 -- duplicable arguments.
 fromADTensorKindShared
   :: (BaseTensor target, ConvertTensor target, ShareTensor target)
-  => SingletonTK y -> target (ADTensorKind y)
+  => FullShapeTK y -> target (ADTensorKind y)
   -> target y
-fromADTensorKindShared stk a | Refl <- lemUnWindOfAD stk =
-  windTarget stk
-  $ fromADTensorKindW (unWindSTK stk) $ unWindTarget (adSTK stk) a
+fromADTensorKindShared ftk a | Refl <- lemUnWindOfAD (ftkToSTK ftk) =
+  windTarget (ftkToSTK ftk)
+  $ fromADTensorKindW (unWindTarget (adSTK $ ftkToSTK ftk) a) (unWindFTK ftk)

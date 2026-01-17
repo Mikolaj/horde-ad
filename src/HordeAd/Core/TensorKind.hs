@@ -293,11 +293,11 @@ adSTK = \case
   STKProduct stk1 stk2 -> STKProduct (adSTK stk1) (adSTK stk2)
 
 lemKnownSTKOfBuild :: SNat k -> SingletonTK y
-                     -> Dict KnownSTK (BuildTensorKind k y)
+                   -> Dict KnownSTK (BuildTensorKind k y)
 lemKnownSTKOfBuild snat = lemKnownSTK . buildSTK snat
 
 lemKnownSTKOfAD :: SingletonTK y
-                  -> Dict KnownSTK (ADTensorKind y)
+                -> Dict KnownSTK (ADTensorKind y)
 lemKnownSTKOfAD = lemKnownSTK . adSTK
 
 lemBuildOfAD :: SNat k -> SingletonTK y
