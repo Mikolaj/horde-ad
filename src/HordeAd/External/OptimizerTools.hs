@@ -9,9 +9,6 @@ module HordeAd.External.OptimizerTools
 
 import Prelude
 
-import Data.Type.Equality (gcastWith, (:~:))
-
-import Data.Array.Nested.Types (unsafeCoerceRefl)
 import Data.Array.Nested qualified as Nested
 
 import HordeAd.Core.CarriersConcrete
@@ -28,27 +25,23 @@ updateWithGradient gamma stk p@(Concrete params)
                              g@(Concrete gradient) = case stk of
   STKScalar @r -> Concrete $
     ifDifferentiable @r
-      (gcastWith (unsafeCoerceRefl :: y :~: ADTensorKind y) $
-       params - realToFrac gamma * gradient)
+      (params - realToFrac gamma * gradient)
       params
   STKR _ (STKScalar @r) -> Concrete $
     ifDifferentiable @r
-      (gcastWith (unsafeCoerceRefl :: y :~: ADTensorKind y) $
-       params - Nested.rreplicatePrim (Nested.rshape params)
+      (params - Nested.rreplicatePrim (Nested.rshape params)
                                       (realToFrac gamma)
                 * gradient)
       params
   STKS _ (STKScalar @r) -> Concrete $
     ifDifferentiable @r
-      (gcastWith (unsafeCoerceRefl :: y :~: ADTensorKind y) $
-       params - Nested.sreplicatePrim (Nested.sshape params)
+      (params - Nested.sreplicatePrim (Nested.sshape params)
                                       (realToFrac gamma)
                 * gradient)
       params
   STKX _ (STKScalar @r) -> Concrete $
     ifDifferentiable @r
-      (gcastWith (unsafeCoerceRefl :: y :~: ADTensorKind y) $
-       params - Nested.mreplicatePrim (Nested.mshape params)
+      (params - Nested.mreplicatePrim (Nested.mshape params)
                                       (realToFrac gamma)
                 * gradient)
       params
@@ -175,8 +168,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} stk0 paramsR gradientR =
                      (Concrete p) (Concrete g) = case stk of
         STKScalar @r ->
           ifDifferentiable @r
-            (gcastWith (unsafeCoerceRefl :: y2 :~: ADTensorKind y2) $
-             let !(!mAN, !vAN, !pN) =
+            (let !(!mAN, !vAN, !pN) =
                    updateR (Nested.rscalar mA)
                            (Nested.rscalar vA)
                            (Nested.rscalar p)
@@ -188,14 +180,12 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} stk0 paramsR gradientR =
             (Concrete ((mA, vA), p))
         STKR SNat (STKScalar @r) ->
           ifDifferentiable @r
-            (gcastWith (unsafeCoerceRefl :: y2 :~: ADTensorKind y2) $
-             let !(!mAN, !vAN, !pN) = updateR mA vA p g
+            (let !(!mAN, !vAN, !pN) = updateR mA vA p g
              in Concrete ((mAN, vAN), pN))
             (Concrete ((mA, vA), p))
         STKS sh (STKScalar @r) ->
           ifDifferentiable @r
-            (gcastWith (unsafeCoerceRefl :: y2 :~: ADTensorKind y2) $
-             let !(!mAN, !vAN, !pN) =
+            (let !(!mAN, !vAN, !pN) =
                    updateR (Nested.stoRanked mA)
                            (Nested.stoRanked vA)
                            (Nested.stoRanked p)
@@ -207,8 +197,7 @@ updateWithGradientAdam ArgsAdam{..} StateAdam{..} stk0 paramsR gradientR =
             (Concrete ((mA, vA), p))
         STKX _ (STKScalar @r) ->
           ifDifferentiable @r
-            (gcastWith (unsafeCoerceRefl :: y2 :~: ADTensorKind y2) $
-             let !(!mAN, !vAN, !pN) =
+            (let !(!mAN, !vAN, !pN) =
                    updateR (Nested.mtoRanked mA)
                            (Nested.mtoRanked vA)
                            (Nested.mtoRanked p)

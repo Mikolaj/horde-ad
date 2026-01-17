@@ -1180,26 +1180,26 @@ class ( Num (IntOf target)
   -- Unwinding methods, needed mostly to split off the Unwind module.
   -- | Add pointwise all corresponding tensors within nested product, if any.
   --
-  -- Requires duplicable arguments or a ShareTensor instance.
+  -- Requires duplicable arguments or a 'ShareTensor' instance.
   taddTarget :: TKAllNum y
              => SingletonTK y -> target y -> target y -> target y
   -- | Multiply pointwise all corresponding tensors within nested products,
   -- if any.
   --
-  -- Requires duplicable arguments or a ShareTensor instance.
+  -- Requires duplicable arguments or a 'ShareTensor' instance.
   tmultTarget :: TKAllNum y
               => SingletonTK y -> target y -> target y -> target y
   -- | Sum all dimensions of each component and then sum it all. Ignore all
-  -- tensors with non-differentiable elements.
+  -- subtensors with non-differentiable elements.
   --
-  -- Requires duplicable arguments or a ShareTensor instance.
+  -- Requires duplicable arguments or a 'ShareTensor' instance.
   tsum0Target :: TKAllNum y
               => FullShapeTK y -> target y
               -> target (TKScalar Double)
   -- | Dot product each component and then sum it all. Ignore all
   -- tensors with non-differentiable elements.
   --
-  -- Requires duplicable arguments or a ShareTensor instance.
+  -- Requires duplicable arguments or a 'ShareTensor' instance.
   tdot0Target :: TKAllNum y
               => FullShapeTK y -> target y -> target y
               -> target (TKScalar Double)

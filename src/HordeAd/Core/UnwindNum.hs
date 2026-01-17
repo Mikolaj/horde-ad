@@ -327,8 +327,10 @@ multTarget stk a b =
   in gcastWith (unsafeCoerceRefl :: TKAllNum (UnWind y) :~: TKAllNum y)
      $ windTarget stk $ multRepW a2 b2
 
--- | Sum all dimensions of each component and then sum it all.
--- Requires duplicable arguments or a `ShareTensor` instance.
+-- | Sum all dimensions of each component and then sum it all. Ignore all
+-- subtensors with non-differentiable elements.
+--
+-- Requires duplicable arguments or a 'ShareTensor' instance.
 sum0Target :: forall y target.
               (TKAllNum y, BaseTensor target, ConvertTensor target)
            => FullShapeTK y -> target y
@@ -338,8 +340,10 @@ sum0Target ftk a =
   in gcastWith (unsafeCoerceRefl :: TKAllNum (UnWind y) :~: TKAllNum y)
      $ sum0RepW (unWindFTK ftk) a2
 
--- | Dot product each component and then sum it all.
--- Requires duplicable arguments or a `ShareTensor` instance.
+-- | Dot product each component and then sum it all. Ignore all
+-- tensors with non-differentiable elements.
+--
+-- Requires duplicable arguments or a 'ShareTensor' instance.
 dot0Target :: forall y target.
               (TKAllNum y, BaseTensor target, ConvertTensor target)
            => FullShapeTK y -> target y -> target y

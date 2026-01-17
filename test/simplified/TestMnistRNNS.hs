@@ -286,8 +286,7 @@ tensorADValMnistTestsRNNSI = testGroup "RNNS Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseRNNSO
   :: forall width batch_size r.
-     ( Differentiable r, NumScalar r
-     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
+     (Differentiable r, NumScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> SNat width -> SNat batch_size -> Int -> r
   -> TestTree

@@ -292,8 +292,7 @@ tensorADValMnistTestsCNNSI = testGroup "CNNS Intermediate MNIST tests"
 mnistTestCaseCNNSO
   :: forall kh kw r.
      ( 1 <= kh, 1 <= kw
-     , Differentiable r, NumScalar r
-     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
+     , Differentiable r, NumScalar r, PrintfArg r, AssertEqualUpToEpsilon r )
   => String
   -> Int -> Int -> SNat kh -> SNat kw -> Int -> Int -> Int -> Int -> r
   -> TestTree

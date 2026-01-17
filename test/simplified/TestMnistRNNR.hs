@@ -299,8 +299,7 @@ tensorADValMnistTestsRNNRI = testGroup "RNNR Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCaseRNNRO
   :: forall r.
-     ( Differentiable r, NumScalar r
-     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
+     (Differentiable r, NumScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> Int -> Int -> Int -> r
   -> TestTree

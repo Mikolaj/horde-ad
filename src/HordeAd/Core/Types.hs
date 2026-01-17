@@ -179,7 +179,8 @@ instance
 -- | The constraint for scalars that can be non-trivially differentiated,
 -- e.g., floating numbers, but not integers.
 type Differentiable r =
-  (RealFloatH r, Nested.FloatElt r, RealFrac r, RealFloat r, Random r)
+  ( RealFloatH r, Nested.FloatElt r, RealFrac r, RealFloat r, Random r
+  , ADTensorScalar r ~ r )
 
 -- We white-list all types on which we permit differentiation (e.g., SGD)
 -- to work. This is for technical typing purposes and imposes updates
