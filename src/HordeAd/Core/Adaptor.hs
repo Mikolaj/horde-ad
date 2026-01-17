@@ -165,7 +165,7 @@ instance forall r target. (GoodScalar r, BaseTensor target)
        in (tkconcrete m, g2))
       (tkconcrete def, g)
 
-instance forall sh r target. (KnownShS sh, NumScalar r, BaseTensor target)
+instance forall sh r target. (KnownShS sh, GoodScalar r, BaseTensor target)
          => RandomValue (target (TKS sh r)) where
   randomValue range g =
     ifDifferentiable @r

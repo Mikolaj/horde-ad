@@ -45,8 +45,7 @@ import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Kind (Constraint, Type)
 import Data.List (dropWhileEnd, sort)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality
-  (gcastWith, testEquality, type (~~), (:~:) (Refl), (:~~:) (HRefl))
+import Data.Type.Equality (gcastWith, type (~~), (:~:) (Refl), (:~~:) (HRefl))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
@@ -194,13 +193,14 @@ type Differentiable r =
 -- in which nil is represented as Z1, which is not differentiable.
 -- In other cases it should be rare.
 ifDifferentiable :: forall r a. Typeable r
-                 => (Differentiable r => a) -> (ADTensorScalar r ~ Z1 => a) -> a
+                 => ((NumScalar r, Differentiable r) => a)
+                 -> (ADTensorScalar r ~ Z1 => a)
+                 -> a
 {-# INLINE ifDifferentiable #-}
-ifDifferentiable ra _
-  | Just Refl <- testEquality (typeRep @r) (typeRep @Double) = ra
-ifDifferentiable ra _
-  | Just Refl <- testEquality (typeRep @r) (typeRep @Float) = ra
-ifDifferentiable _ a = gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) a
+ifDifferentiable diff nonDiff = case typeRep @r of
+  Is @Double -> diff
+  Is @Float -> diff
+  _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) nonDiff
 
 type family BuildTensorKind k tk where
   BuildTensorKind k (TKScalar r) = TKS '[k] r
@@ -358,7 +358,6 @@ indexZ1 _ = error "indexZ1: impossible"
 
 pattern Is :: forall a b. Typeable a => a ~~ b => TypeRep b
 pattern Is <- (eqTypeRep (TypeRep @a) -> Just (HRefl :: a :~~: b))
-  where Is = TypeRep
 
 -- All below is copied from Data.OldList but made strict in state.
 mapAccumL' :: (acc -> x -> (acc, y)) -> acc -> [x] -> (acc, [y])

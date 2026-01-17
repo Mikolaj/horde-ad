@@ -16,7 +16,7 @@ import Prelude
 import Data.Coerce (coerce)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Type.Reflection (typeRep)
 
@@ -139,15 +139,14 @@ interpretAstPrimal !env v1 = case v1 of
     interpretAstI2 opCode (interpretAstPrimal env u) (interpretAstPrimal env v)
   AstCastS @r1 @r2 v ->
     -- Specializing for the cases covered by rules in GHC.Internal.Float.
-    case testEquality (typeRep @r1) (typeRep @Double) of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @Float) of
-        Just Refl -> tscast @_ @Double @Float $ interpretAstPrimal env v
+    case typeRep @r1 of
+      Is @Double -> case typeRep @r2 of
+        Is @Float -> tscast @_ @Double @Float $ interpretAstPrimal env v
         _ -> tscast @_ @Double $ interpretAstPrimal env v
-      _ -> case testEquality (typeRep @r1) (typeRep @Float) of
-        Just Refl -> case testEquality (typeRep @r2) (typeRep @Double) of
-          Just Refl -> tscast @_ @Float @Double $ interpretAstPrimal env v
-          _ -> tscast @_ @Float $ interpretAstPrimal env v
-        _ -> tscast $ interpretAstPrimal env v
+      Is @Float -> case typeRep @r2 of
+        Is @Double -> tscast @_ @Float @Double $ interpretAstPrimal env v
+        _ -> tscast @_ @Float $ interpretAstPrimal env v
+      _ -> tscast $ interpretAstPrimal env v
 
   AstIndexS @shm shn v ix ->
     withKnownShS shn $
@@ -329,15 +328,14 @@ interpretAstPlain !env v1 = case v1 of
     tsfromIntegral $ interpretAstPlain env v
   AstCastS @r1 @r2 v ->
     -- Specializing for the cases covered by rules in GHC.Internal.Float.
-    case testEquality (typeRep @r1) (typeRep @Double) of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @Float) of
-        Just Refl -> tscast @_ @Double @Float $ interpretAstPlain env v
+    case typeRep @r1 of
+      Is @Double -> case typeRep @r2 of
+        Is @Float -> tscast @_ @Double @Float $ interpretAstPlain env v
         _ -> tscast @_ @Double $ interpretAstPlain env v
-      _ -> case testEquality (typeRep @r1) (typeRep @Float) of
-        Just Refl -> case testEquality (typeRep @r2) (typeRep @Double) of
-          Just Refl -> tscast @_ @Float @Double $ interpretAstPlain env v
-          _ -> tscast @_ @Float $ interpretAstPlain env v
-        _ -> tscast $ interpretAstPlain env v
+      Is @Float -> case typeRep @r2 of
+        Is @Double -> tscast @_ @Float @Double $ interpretAstPlain env v
+        _ -> tscast @_ @Float $ interpretAstPlain env v
+      _ -> tscast $ interpretAstPlain env v
 
   AstIndexS @shm shn v ix ->
     withKnownShS shn $
@@ -648,15 +646,14 @@ interpretAst !env = \case
     tsfromIntegral $ interpretAst env v
   AstCastS @r1 @r2 v ->
     -- Specializing for the cases covered by rules in GHC.Internal.Float.
-    case testEquality (typeRep @r1) (typeRep @Double) of
-      Just Refl -> case testEquality (typeRep @r2) (typeRep @Float) of
-        Just Refl -> tscast @_ @Double @Float $ interpretAst env v
+    case typeRep @r1 of
+      Is @Double -> case typeRep @r2 of
+        Is @Float -> tscast @_ @Double @Float $ interpretAst env v
         _ -> tscast @_ @Double $ interpretAst env v
-      _ -> case testEquality (typeRep @r1) (typeRep @Float) of
-        Just Refl -> case testEquality (typeRep @r2) (typeRep @Double) of
-          Just Refl -> tscast @_ @Float @Double $ interpretAst env v
-          _ -> tscast @_ @Float $ interpretAst env v
-        _ -> tscast $ interpretAst env v
+      Is @Float -> case typeRep @r2 of
+        Is @Double -> tscast @_ @Float @Double $ interpretAst env v
+        _ -> tscast @_ @Float $ interpretAst env v
+      _ -> tscast $ interpretAst env v
 
   AstIndexS @shm shn v ix ->
     withKnownShS shn $

@@ -855,34 +855,17 @@ attemptMatmul2
 attemptMatmul2 t3 u3 = Just $
   let t4 = contractAst t3
       u4 = contractAst u3
-  in case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl ->
-      astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl ->
-        astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-      _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-        Just Refl ->
-          astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-        _ -> case testEquality (typeRep @r) (typeRep @Int32) of
-          Just Refl ->
-            astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-          _ -> case testEquality (typeRep @r) (typeRep @Int16) of
-            Just Refl ->
-              astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-            _ -> case testEquality (typeRep @r) (typeRep @Int8) of
-              Just Refl ->
-                astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-              _ -> case testEquality (typeRep @r) (typeRep @Int) of
-                Just Refl ->
-                  astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-                _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-                  Just Refl ->
-                    astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-                  _ -> case testEquality (typeRep @r) (typeRep @Z1) of
-                    Just Refl ->
-                      astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-                    _ -> error "attemptMatmul2: unexpected scalar"
+  in case typeRep @r of
+    Is @Int -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    Is @Double -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    Is @Float -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    Is @Z1 -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    Is @Int64 -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    Is @Int32-> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    Is @Int16 -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    Is @Int8 -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    Is @CInt -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    _ -> error "attemptMatmul2: unexpected scalar"
 
 
 -- * The let down (reducing the scope of lets cheaply) bottom-up pass

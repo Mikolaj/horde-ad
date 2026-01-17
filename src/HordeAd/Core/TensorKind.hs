@@ -23,7 +23,7 @@ import Prelude hiding ((.))
 import Control.Category
 import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Foreign.C (CInt)
 import GHC.Exts (withDict)
 import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat)
@@ -134,18 +134,12 @@ lemTKAllNumAD = \case
   STKProduct stk1 stk2 | Dict0 <- lemTKAllNumAD stk1
                        , Dict0 <- lemTKAllNumAD stk2 -> Dict0
 
-lemTKScalarAllNumAD :: forall r. GoodScalar r
+lemTKScalarAllNumAD :: forall r. Typeable r
                     => Proxy r
                     -> Dict0 ( TKAllNum (TKScalar (ADTensorScalar r))
                              , Num (ADTensorScalar r)
                              , Nested.NumElt (ADTensorScalar r) )
-lemTKScalarAllNumAD Proxy =
-  case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> Dict0
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> Dict0
-      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) $
-           Dict0
+lemTKScalarAllNumAD _ = ifDifferentiable @r Dict0 Dict0
 
 lemTKAllNumBuild :: TKAllNum y
                  => SNat k -> SingletonTK y
@@ -173,26 +167,17 @@ lemTKAllNumRaze k = \case
 -- because it ensures the error case can't appear.
 numFromTKAllNum :: forall r. (GoodScalar r, TKAllNum (TKScalar r))
                 => Proxy r -> Dict0 (Num r, Nested.NumElt r)
-numFromTKAllNum _ =
-  case testEquality (typeRep @r) (typeRep @Int) of
-    Just Refl -> Dict0
-    _ -> case testEquality (typeRep @r) (typeRep @Double) of
-      Just Refl -> Dict0
-      _ -> case testEquality (typeRep @r) (typeRep @Float) of
-        Just Refl -> Dict0
-        _ -> case testEquality (typeRep @r) (typeRep @Z1) of
-          Just Refl -> Dict0
-          _ -> case testEquality (typeRep @r) (typeRep @Int64) of
-            Just Refl -> Dict0
-            _ -> case testEquality (typeRep @r) (typeRep @Int32) of
-              Just Refl -> Dict0
-              _ -> case testEquality (typeRep @r) (typeRep @Int16) of
-                Just Refl -> Dict0
-                _ -> case testEquality (typeRep @r) (typeRep @Int8) of
-                  Just Refl -> Dict0
-                  _ -> case testEquality (typeRep @r) (typeRep @CInt) of
-                    Just Refl -> Dict0
-                    _ -> error "numFromTKAllNum: impossible type"
+numFromTKAllNum _ = case typeRep @r of
+  Is @Int -> Dict0
+  Is @Double -> Dict0
+  Is @Float -> Dict0
+  Is @Z1 -> Dict0
+  Is @Int64 -> Dict0
+  Is @Int32-> Dict0
+  Is @Int16 -> Dict0
+  Is @Int8 -> Dict0
+  Is @CInt -> Dict0
+  _ -> error "numFromTKAllNum: impossible type"
 
 -- The explicit dictionary is needed to trick GHC into specializing f at types
 -- Int, Double, etc. insteasd of at type r, to simpify away the dictionaries
@@ -261,12 +246,7 @@ razeSTK = \case
 
 adSTK :: SingletonTK y -> SingletonTK (ADTensorKind y)
 adSTK = \case
-  t@(STKScalar @r) -> case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> t
-      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1)
-           STKScalar
+  t@(STKScalar @r) -> ifDifferentiable @r t STKScalar
   STKR sh x -> STKR sh $ adSTK x
   STKS sh x -> STKS sh $ adSTK x
   STKX sh x -> STKX sh $ adSTK x
@@ -393,12 +373,7 @@ razeFTK snat@SNat stk ftk = case (stk, ftk) of
 adFTK :: FullShapeTK y
       -> FullShapeTK (ADTensorKind y)
 adFTK = \case
-  t@(FTKScalar @r) -> case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> t
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> t
-      _ -> gcastWith (unsafeCoerceRefl :: ADTensorScalar r :~: Z1) $
-           FTKScalar @Z1
+  t@(FTKScalar @r) -> ifDifferentiable @r t FTKScalar
   FTKR sh x -> FTKR sh $ adFTK x
   FTKS sh x -> FTKS sh $ adFTK x
   FTKX sh x -> FTKX sh $ adFTK x
@@ -408,11 +383,7 @@ adFTK = \case
 -- from any non-differentiable types, such as integers.
 differentiableFTK :: FullShapeTK y -> Bool
 differentiableFTK = \case
-  FTKScalar @r -> case testEquality (typeRep @r) (typeRep @Double) of
-    Just Refl -> True
-    _ -> case testEquality (typeRep @r) (typeRep @Float) of
-      Just Refl -> True
-      _ -> False
+  FTKScalar @r -> ifDifferentiable @r True False
   FTKR _ x -> differentiableFTK x
   FTKS _ x -> differentiableFTK x
   FTKX _ x -> differentiableFTK x
