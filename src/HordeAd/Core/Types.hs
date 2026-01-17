@@ -98,7 +98,7 @@ proxyFromSNat SNat = Proxy
 valueOf :: forall n r. (KnownNat n, Num r) => r
 valueOf = fromIntegral $ fromSNat' (SNat @n)
 
-pattern SNat' :: forall n m. KnownNat n => (KnownNat m, n ~ m) => SNat m
+pattern SNat' :: forall n m. KnownNat n => n ~ m => SNat m
 pattern SNat' <- (matchSNat (Proxy @n) -> Just (Refl :: n :~: m))
   where SNat' = SNat
 
