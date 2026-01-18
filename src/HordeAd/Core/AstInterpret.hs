@@ -18,7 +18,6 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import Type.Reflection (typeRep)
 
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Shaped.Shape
@@ -137,16 +136,7 @@ interpretAstPrimal !env v1 = case v1 of
     interpretAstR2 opCode (interpretAstPrimal env u) (interpretAstPrimal env v)
   AstI2S opCode u v ->
     interpretAstI2 opCode (interpretAstPrimal env u) (interpretAstPrimal env v)
-  AstCastS @r1 @r2 v ->
-    -- Specializing for the cases covered by rules in GHC.Internal.Float.
-    case typeRep @r1 of
-      Is @Double -> case typeRep @r2 of
-        Is @Float -> tscast @_ @Double @Float $ interpretAstPrimal env v
-        _ -> tscast @_ @Double $ interpretAstPrimal env v
-      Is @Float -> case typeRep @r2 of
-        Is @Double -> tscast @_ @Float @Double $ interpretAstPrimal env v
-        _ -> tscast @_ @Float $ interpretAstPrimal env v
-      _ -> tscast $ interpretAstPrimal env v
+  AstCastS v -> tscast $ interpretAstPrimal env v
 
   AstIndexS @shm shn v ix ->
     withKnownShS shn $
@@ -322,20 +312,9 @@ interpretAstPlain !env v1 = case v1 of
   AstI2S opCode u v ->
     interpretAstI2 opCode (interpretAstPlain env u) (interpretAstPlain env v)
   AstConcreteS a -> tsconcrete a
-  AstFloorS v ->
-    tsfloor $ interpretAstPlain env v
-  AstFromIntegralS v ->
-    tsfromIntegral $ interpretAstPlain env v
-  AstCastS @r1 @r2 v ->
-    -- Specializing for the cases covered by rules in GHC.Internal.Float.
-    case typeRep @r1 of
-      Is @Double -> case typeRep @r2 of
-        Is @Float -> tscast @_ @Double @Float $ interpretAstPlain env v
-        _ -> tscast @_ @Double $ interpretAstPlain env v
-      Is @Float -> case typeRep @r2 of
-        Is @Double -> tscast @_ @Float @Double $ interpretAstPlain env v
-        _ -> tscast @_ @Float $ interpretAstPlain env v
-      _ -> tscast $ interpretAstPlain env v
+  AstFloorS v -> tsfloor $ interpretAstPlain env v
+  AstFromIntegralS v -> tsfromIntegral $ interpretAstPlain env v
+  AstCastS v -> tscast $ interpretAstPlain env v
 
   AstIndexS @shm shn v ix ->
     withKnownShS shn $
@@ -644,16 +623,7 @@ interpretAst !env = \case
   AstFromIntegralS v ->
     -- By the invariant v has zero dual part, so the following suffices:
     tsfromIntegral $ interpretAst env v
-  AstCastS @r1 @r2 v ->
-    -- Specializing for the cases covered by rules in GHC.Internal.Float.
-    case typeRep @r1 of
-      Is @Double -> case typeRep @r2 of
-        Is @Float -> tscast @_ @Double @Float $ interpretAst env v
-        _ -> tscast @_ @Double $ interpretAst env v
-      Is @Float -> case typeRep @r2 of
-        Is @Double -> tscast @_ @Float @Double $ interpretAst env v
-        _ -> tscast @_ @Float $ interpretAst env v
-      _ -> tscast $ interpretAst env v
+  AstCastS v -> tscast $ interpretAst env v
 
   AstIndexS @shm shn v ix ->
     withKnownShS shn $

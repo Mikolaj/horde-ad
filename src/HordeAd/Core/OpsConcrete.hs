@@ -299,13 +299,40 @@ instance BaseTensor Concrete where
   {-# INLINE tkfromIntegral #-}
   tkfromIntegral = fromIntegral . unConcrete
   {-# INLINE tkcast #-}
-  tkcast = Concrete . realToFrac . unConcrete
+  tkcast @r1 @r2 a =
+    let cast :: (RealFrac r1', RealFrac r2')
+             => Concrete (TKScalar r1') -> Concrete (TKScalar r2')
+        {-# INLINE cast #-}
+        cast = Concrete . realToFrac . unConcrete
+    -- Specializing just for the cases covered by realToFrac rules
+    -- in GHC.Internal.Float, except for the Int cases that the RealFrac
+    -- constraint required by reverse differenciation precludes.
+    in case typeRep @r1 of
+      Is @Double -> case typeRep @r2 of
+        Is @Float -> cast @Double @Float a
+        _ -> cast a
+      Is @Float -> case typeRep @r2 of
+        Is @Double -> cast @Float @Double a
+        _ -> cast a
+      _ -> cast a
   {-# INLINE trfloor #-}
   trfloor = Concrete . liftVR (V.map floor) . unConcrete
   {-# INLINE trfromIntegral #-}
   trfromIntegral = Concrete . liftVR (V.map fromIntegral) . unConcrete
   {-# INLINE trcast #-}
-  trcast = Concrete . liftVR (V.map realToFrac) . unConcrete
+  trcast @r1 @r2 a =
+    let cast :: (RealFrac r1', NumScalar r1', RealFrac r2', NumScalar r2')
+             => Concrete (TKR n r1') -> Concrete (TKR n r2')
+        {-# INLINE cast #-}
+        cast = Concrete . liftVR (V.map realToFrac) . unConcrete
+    in case typeRep @r1 of
+      Is @Double -> case typeRep @r2 of
+        Is @Float -> cast @Double @Float a
+        _ -> cast a
+      Is @Float -> case typeRep @r2 of
+        Is @Double -> cast @Float @Double a
+        _ -> cast a
+      _ -> cast a
   trminIndex = Concrete . tminIndexR . unConcrete
   trmaxIndex = Concrete . tmaxIndexR . unConcrete
   {-# INLINE triota #-}
@@ -315,7 +342,19 @@ instance BaseTensor Concrete where
   {-# INLINE tsfromIntegral #-}
   tsfromIntegral = Concrete . liftVS (V.map fromIntegral) . unConcrete
   {-# INLINE tscast #-}
-  tscast = Concrete . liftVS (V.map realToFrac) . unConcrete
+  tscast @r1 @r2 a =
+    let cast :: (RealFrac r1', NumScalar r1', RealFrac r2', NumScalar r2')
+             => Concrete (TKS sh r1') -> Concrete (TKS sh r2')
+        {-# INLINE cast #-}
+        cast = Concrete . liftVS (V.map realToFrac) . unConcrete
+    in case typeRep @r1 of
+      Is @Double -> case typeRep @r2 of
+        Is @Float -> cast @Double @Float a
+        _ -> cast a
+      Is @Float -> case typeRep @r2 of
+        Is @Double -> cast @Float @Double a
+        _ -> cast a
+      _ -> cast a
   tsminIndex = Concrete . tminIndexS . unConcrete
   tsmaxIndex = Concrete . tmaxIndexS . unConcrete
   {-# INLINE tsiota #-}
@@ -325,7 +364,19 @@ instance BaseTensor Concrete where
   {-# INLINE txfromIntegral #-}
   txfromIntegral = Concrete . liftVX (V.map fromIntegral) . unConcrete
   {-# INLINE txcast #-}
-  txcast = Concrete . liftVX (V.map realToFrac) . unConcrete
+  txcast @r1 @r2 a =
+    let cast :: (RealFrac r1', NumScalar r1', RealFrac r2', NumScalar r2')
+             => Concrete (TKX sh r1') -> Concrete (TKX sh r2')
+        {-# INLINE cast #-}
+        cast = Concrete . liftVX (V.map realToFrac) . unConcrete
+    in case typeRep @r1 of
+      Is @Double -> case typeRep @r2 of
+        Is @Float -> cast @Double @Float a
+        _ -> cast a
+      Is @Float -> case typeRep @r2 of
+        Is @Double -> cast @Float @Double a
+        _ -> cast a
+      _ -> cast a
   txminIndex = Concrete . tminIndexX . unConcrete
   txmaxIndex = Concrete . tmaxIndexX . unConcrete
   {-# INLINE txiota #-}

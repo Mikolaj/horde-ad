@@ -216,7 +216,7 @@ contFromTypeable f = case typeRep @r of
   Is @CInt -> f Dict
   Is @Bool -> f Dict
   Is @() -> f Dict
-  _ -> error "contFromTypeable: impossible type"
+  _ -> error "contFromTypeable: unexpected type"
 
 stkUnit :: SingletonTK TKUnit
 stkUnit = STKScalar

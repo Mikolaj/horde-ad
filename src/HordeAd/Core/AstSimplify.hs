@@ -1315,7 +1315,7 @@ astFromIntegralK t = case t of
   _ -> Ast.AstFromIntegralK t
 
 astCastK :: forall r1 r2 s.
-            (NumScalar r1, RealFrac r1, RealFrac r2, NumScalar r2, AstSpan s)
+            (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2, AstSpan s)
          => AstTensor AstMethodLet s (TKScalar r1)
          -> AstTensor AstMethodLet s (TKScalar r2)
 astCastK t = case t of

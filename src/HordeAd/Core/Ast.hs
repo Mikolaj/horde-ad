@@ -413,7 +413,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
   AstFromIntegralK :: (GoodScalar r1, Integral r1, NumScalar r2)
                    => AstTensor ms PlainSpan (TKScalar r1)
                    -> AstTensor ms PlainSpan (TKScalar r2)
-  AstCastK :: (NumScalar r1, RealFrac r1, RealFrac r2, NumScalar r2)
+  AstCastK :: (NumScalar r1, RealFrac r1, NumScalar r2, RealFrac r2)
            => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
 
   -- Shaped arithmetic
@@ -441,7 +441,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpanType -> Target where
          -> AstTensor ms s (TKS sh r)
   AstConcreteS :: GoodScalar r
                => Nested.Shaped sh r -> AstTensor ms PlainSpan (TKS sh r)
-  AstFloorS :: (GoodScalar r1, RealFrac r1, Integral r2, NumScalar r2)
+  AstFloorS :: (GoodScalar r1, RealFrac r1, NumScalar r2, Integral r2)
             => AstTensor ms PlainSpan (TKS sh r1)
             -> AstTensor ms PlainSpan (TKS sh r2)
   AstFromIntegralS :: (GoodScalar r1, Integral r1, NumScalar r2)
