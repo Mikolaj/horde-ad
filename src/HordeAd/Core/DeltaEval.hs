@@ -401,38 +401,36 @@ evalRev !s !c d0 = case d0 of
 
   DeltaZero{} -> s
   DeltaScale (NestedTarget k) d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
+    let z = ftkDelta d
+    in case matchingFTK z (adFTK z) of
          Just Refl -> evalRev s (k * c) d
          _ -> s
   DeltaAdd d e ->
     let cShared = tshare c
     in evalRev (evalRev s cShared d) cShared e
 
-  DeltaCastK @r1 d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl ->
-           evalRev s (toADTensorKindShared (FTKScalar @r1) $ tkcast c) d
-         _ -> s
+  DeltaCastK @r1 @r2 d ->
+    ifDifferentiable @r1
+      (ifDifferentiable @r2
+         (evalRev s (tkcast c) d)
+         s)
+      s
 
-  DeltaCastR d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl ->
-           evalRev s (toADTensorKindShared (ftkDelta d) $ trcast c) d
-         _ -> s
+  DeltaCastR @r1 @r2 d ->
+    ifDifferentiable @r1
+      (ifDifferentiable @r2
+         (evalRev s (trcast c) d)
+         s)
+      s
   DeltaSum0R d -> case adFTK $ ftkDelta d of
     FTKR sh FTKScalar | SNat <- shrRank sh ->
       evalRev s (trreplicate0N sh c) d
-  DeltaDot0R v d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case ftkDelta d of
-           FTKR sh FTKScalar | SNat <- shrRank sh ->
-             evalRev s (v * trreplicate0N (rshape v) c) d
-               -- too slow: evalRev s (rmap0N (* (tscalar c)) v) vd
-         _ -> s
+  DeltaDot0R @r v d ->
+    case testEquality (typeRep @r) (typeRep @(ADTensorScalar r)) of
+      Just Refl -> case ftkDelta d of
+        FTKR sh FTKScalar | SNat <- shrRank sh ->
+          evalRev s (v * trreplicate0N sh c) d
+      Nothing -> s
   DeltaIndexR SNat d ix -> case ftkDelta d of
     FTKR sh x | SNat <- ixrRank ix
               , Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
@@ -476,21 +474,21 @@ evalRev !s !c d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       evalRev s (trreshape sh c) d
 
-  DeltaCastS d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl ->
-           evalRev s (toADTensorKindShared (ftkDelta d) $ tscast c) d
-         _ -> s
+  DeltaCastS @r1 @r2 d ->
+    ifDifferentiable @r1
+      (ifDifferentiable @r2
+         (evalRev s (tscast c) d)
+         s)
+      s
   DeltaSum0S d -> case adFTK $ ftkDelta d of
     FTKS sh FTKScalar ->
       evalRev s (tsreplicate0N sh c) d
-  DeltaDot0S v d -> let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case ftkDelta d of
-           FTKS sh FTKScalar ->
-             evalRev s (v * tsreplicate0N sh c) d
-         _ -> s
+  DeltaDot0S @r v d ->
+    case testEquality (typeRep @r) (typeRep @(ADTensorScalar r)) of
+      Just Refl -> case ftkDelta d of
+        FTKS sh FTKScalar->
+          evalRev s (v * tsreplicate0N sh c) d
+      Nothing -> s
   DeltaIndexS @shm @shn shn d ix -> case ftkDelta d of
     FTKS sh x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -545,24 +543,23 @@ evalRev !s !c d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       evalRev s (tsreshape sh c) d
 
-  DeltaCastX d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl ->
-           evalRev s (toADTensorKindShared (ftkDelta d) $ txcast c) d
-         _ -> s
+  DeltaCastX @r1 @r2 d ->
+    ifDifferentiable @r1
+      (ifDifferentiable @r2
+         (evalRev s (txcast c) d)
+         s)
+      s
   DeltaSum0X d -> case adFTK $ ftkDelta d of
     FTKX sh FTKScalar ->
       withKnownShX (ssxFromShX sh) $
       evalRev s (txreplicate0N sh c) d
-  DeltaDot0X v d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case ftkDelta d of
-           FTKX sh FTKScalar ->
-             withKnownShX (ssxFromShX sh) $
-             evalRev s (v * txreplicate0N (xshape v) c) d
-         _ -> s
+  DeltaDot0X @r v d ->
+    case testEquality (typeRep @r) (typeRep @(ADTensorScalar r)) of
+      Just Refl -> case ftkDelta d of
+        FTKX sh FTKScalar ->
+          withKnownShX (ssxFromShX sh) $
+          evalRev s (v * txreplicate0N sh c) d
+      Nothing -> s
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x | SNat @len <- ixxRank ix
               , Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
@@ -622,13 +619,13 @@ evalRev !s !c d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       evalRev s (txreshape sh c) d
 
-  DeltaConvert @a c1 d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
+  DeltaConvert c1 d ->
+    let z = ftkDelta d
+    in case matchingFTK z (adFTK z) of
          Just Refl ->
-           -- This follows from the same property for @b@ and from @c1@
-           -- not changing the underlying scalar types.
-           gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
+           -- This follows from the property of conversions reflecting
+           -- the underlying scalar types unchanged.
+           gcastWith (unsafeCoerceRefl :: ADTensorKind y :~: y) $
            evalRev s (tconvert (transposeTKConversion (ftkDelta d) c1)
                    (convertSTK c1 $ ftkToSTK $ ftkDelta d) c) d
          _ -> s
@@ -733,7 +730,8 @@ evalFwd params !s d0 = case d0 of
   DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
     let (s2, t) = evalFwd params s d
     in (s2, treplicate snat (adSTK stk) t)
-  -- No special case to speed up folds, because no potential gain.
+  -- No special case to speed up folds, because the concrete tmapAccumLDer
+  -- does the very Z1 optimization that could be performed here.
   DeltaMapAccumL k bftk eftk as es df _rf acc0' es'
    | Refl <- lemBuildOfAD k (ftkToSTK bftk)
    , Refl <- lemBuildOfAD k (ftkToSTK eftk) ->
@@ -755,12 +753,12 @@ evalFwd params !s d0 = case d0 of
 
   DeltaZero ftk -> (s, tdefTarget $ adFTK ftk)
   DeltaScale (NestedTarget k) d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
+    let z = ftkDelta d
+    in case matchingFTK z (adFTK z) of
          Just Refl -> second (* k) $ evalFwd params s d
-         _ -> (s, tdefTarget $ adFTK y)
+         _ -> (s, tdefTarget $ adFTK z)
   DeltaAdd d e ->
-    let y = ftkDelta d0
+    let y = ftkDelta d0  -- either d or e may be DeltaShare
     in case matchingFTK y (adFTK y) of
          Just Refl ->
            let (s2, t) = evalFwd params s d
@@ -768,38 +766,33 @@ evalFwd params !s d0 = case d0 of
            in (s3, t + u)
          _ -> (s, tdefTarget $ adFTK y)
 
-  DeltaCastK @r1 d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case sameSTK (STKScalar @r1) (adSTK (STKScalar @r1)) of
-           Just Refl -> second tkcast $ evalFwd params s d
-           _ -> (s, tdefTarget $ adFTK y)
-         _ -> (s, tdefTarget $ adFTK y)
+  DeltaCastK @r1 @r2 d ->
+    ifDifferentiable @r1
+      (ifDifferentiable @r2
+         (second tkcast $ evalFwd params s d)
+         (s, toADTensorKindShared (FTKScalar @r2) 0))
+      (s, toADTensorKindShared (FTKScalar @r2) 0)
 
-  DeltaCastR d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case ftkDelta d of
-           z -> case matchingFTK z (adFTK z) of
-             Just Refl -> second trcast $ evalFwd params s d
-             _ -> (s, tdefTarget $ adFTK y)
-         _ -> (s, tdefTarget $ adFTK y)
+  DeltaCastR @r1 @r2 d ->
+    ifDifferentiable @r1
+      (ifDifferentiable @r2
+         (second trcast $ evalFwd params s d)
+         (s, tdefTarget $ adFTK (ftkDelta d0)))
+      (s, tdefTarget $ adFTK (ftkDelta d0))
   DeltaSum0R @r DeltaZero{} -> (s, toADTensorKindShared (FTKScalar @r) 0)
-  DeltaSum0R d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case ftkDelta d of
-           FTKR sh FTKScalar | SNat <- shrRank sh ->
-             second trsum0 $ evalFwd params s d
-         _ -> (s, tdefTarget $ adFTK y)
+  DeltaSum0R @r d ->
+    case testEquality (typeRep @r) (typeRep @(ADTensorScalar r)) of
+      Just Refl -> case ftkDelta d of
+        FTKR sh FTKScalar | SNat <- shrRank sh ->
+          second trsum0 $ evalFwd params s d
+      Nothing -> (s, toADTensorKindShared (FTKScalar @r) 0)
   DeltaDot0R @r _ DeltaZero{} -> (s, toADTensorKindShared (FTKScalar @r) 0)
-  DeltaDot0R v d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case ftkDelta d of
-           FTKR sh FTKScalar | SNat <- shrRank sh ->
-             second (trdot0 v) $ evalFwd params s d
-         _ -> (s, tdefTarget $ adFTK y)
+  DeltaDot0R @r v d ->
+    case testEquality (typeRep @r) (typeRep @(ADTensorScalar r)) of
+      Just Refl -> case ftkDelta d of
+        FTKR sh FTKScalar | SNat <- shrRank sh ->
+          second (trdot0 v) $ evalFwd params s d
+      Nothing -> (s, toADTensorKindShared (FTKScalar @r) 0)
   DeltaIndexR SNat d ix -> case ftkDelta d of
     FTKR _ x | SNat <- ixrRank ix ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -837,32 +830,28 @@ evalFwd params !s d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       second (trreshape sh2) $ evalFwd params s d
 
-  DeltaCastS d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case ftkDelta d of
-           z -> case matchingFTK z (adFTK z) of
-             Just Refl -> second tscast $ evalFwd params s d
-             _ -> (s, tdefTarget $ adFTK y)
-         _ -> (s, tdefTarget $ adFTK y)
+  DeltaCastS @r1 @r2 d ->
+    ifDifferentiable @r1
+      (ifDifferentiable @r2
+         (second tscast $ evalFwd params s d)
+         (s, tdefTarget $ adFTK (ftkDelta d0)))
+      (s, tdefTarget $ adFTK (ftkDelta d0))
   DeltaSum0S @r DeltaZero{} -> (s, toADTensorKindShared (FTKScalar @r) 0)
-  DeltaSum0S d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case ftkDelta d of
-           FTKS sh FTKScalar ->
-             withKnownShS sh $
-             second tssum0 $ evalFwd params s d
-         _ -> (s, tdefTarget $ adFTK y)
+  DeltaSum0S @r d ->
+    case testEquality (typeRep @r) (typeRep @(ADTensorScalar r)) of
+      Just Refl -> case ftkDelta d of
+        FTKS sh FTKScalar ->
+          withKnownShS sh $
+          second tssum0 $ evalFwd params s d
+      Nothing -> (s, toADTensorKindShared (FTKScalar @r) 0)
   DeltaDot0S @r _ DeltaZero{} -> (s, toADTensorKindShared (FTKScalar @r) 0)
-  DeltaDot0S v d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case ftkDelta d of
-           FTKS sh FTKScalar ->
-             withKnownShS sh $
-             second (tsdot0 v) $ evalFwd params s d
-         _ -> (s, tdefTarget $ adFTK y)
+  DeltaDot0S @r v d ->
+    case testEquality (typeRep @r) (typeRep @(ADTensorScalar r)) of
+      Just Refl -> case ftkDelta d of
+        FTKS sh FTKScalar ->
+          withKnownShS sh $
+          second (tsdot0 v) $ evalFwd params s d
+      Nothing -> (s, toADTensorKindShared (FTKScalar @r) 0)
   DeltaIndexS shn d ix -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -907,32 +896,28 @@ evalFwd params !s d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       second (tsreshape sh2) $ evalFwd params s d
 
-  DeltaCastX d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case ftkDelta d of
-           z -> case matchingFTK z (adFTK z) of
-             Just Refl -> second txcast $ evalFwd params s d
-             _ -> (s, tdefTarget $ adFTK y)
-         _ -> (s, tdefTarget $ adFTK y)
+  DeltaCastX @r1 @r2  d ->
+    ifDifferentiable @r1
+      (ifDifferentiable @r2
+         (second txcast $ evalFwd params s d)
+         (s, tdefTarget $ adFTK (ftkDelta d0)))
+      (s, tdefTarget $ adFTK (ftkDelta d0))
   DeltaSum0X @r DeltaZero{} -> (s, toADTensorKindShared (FTKScalar @r) 0)
-  DeltaSum0X d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case ftkDelta d of
-           FTKX sh FTKScalar ->
-             withKnownShX (ssxFromShX sh) $
-             second txsum0 $ evalFwd params s d
-         _ -> (s, tdefTarget $ adFTK y)
+  DeltaSum0X @r d ->
+    case testEquality (typeRep @r) (typeRep @(ADTensorScalar r)) of
+      Just Refl -> case ftkDelta d of
+        FTKX sh FTKScalar ->
+          withKnownShX (ssxFromShX sh) $
+          second txsum0 $ evalFwd params s d
+      Nothing -> (s, toADTensorKindShared (FTKScalar @r) 0)
   DeltaDot0X @r _ DeltaZero{} -> (s, toADTensorKindShared (FTKScalar @r) 0)
-  DeltaDot0X v d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
-         Just Refl -> case ftkDelta d of
-           FTKX sh FTKScalar ->
-             withKnownShX (ssxFromShX sh) $
-             second (txdot0 v) $ evalFwd params s d
-         _ -> (s, tdefTarget $ adFTK y)
+  DeltaDot0X @r v d ->
+    case testEquality (typeRep @r) (typeRep @(ADTensorScalar r)) of
+      Just Refl -> case ftkDelta d of
+        FTKX sh FTKScalar ->
+          withKnownShX (ssxFromShX sh) $
+          second (txdot0 v) $ evalFwd params s d
+      Nothing -> (s, toADTensorKindShared (FTKScalar @r) 0)
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -978,13 +963,13 @@ evalFwd params !s d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       second (txreshape sh2) $ evalFwd params s d
 
-  DeltaConvert @a c1 d ->
-    let y = ftkDelta d0
-    in case matchingFTK y (adFTK y) of
+  DeltaConvert c1 d ->
+    let z = ftkDelta d
+    in case matchingFTK z (adFTK z) of
          Just Refl ->
-           -- This follows from the same property for @b@ and from @c1@
-           -- not changing the underlying scalar types.
-           gcastWith (unsafeCoerceRefl :: ADTensorKind a :~: a) $
+           -- This follows from the property of conversions reflecting
+           -- the underlying scalar types unchanged.
+           gcastWith (unsafeCoerceRefl :: ADTensorKind y :~: y) $
            second (tconvert c1 (ftkToSTK (ftkDelta d)))
                   (evalFwd params s d)
-         _ -> (s, tdefTarget $ adFTK y)
+         _ -> (s, tdefTarget $ adFTK $ ftkDelta d0)
