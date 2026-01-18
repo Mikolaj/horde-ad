@@ -56,7 +56,7 @@ crevOnADInputs mdt f xftk inputs =
       !(D v delta) = f inputs in
   let zftk = ftkDelta delta
       dt = fromMaybe (treplTarget 1 $ adFTK zftk) mdt
-      !gradient = gradientFromDelta xftk zftk dt delta
+      !gradient = gradientFromDelta xftk dt delta
   in (v, gradient)
 
 crevOnParams
@@ -88,8 +88,7 @@ crevOnADInputsDt dt f xftk inputs =
   let -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started.
       !(D v delta) = f inputs in
-  let zftk = ftkDelta delta
-      !gradient = gradientFromDelta xftk zftk dt delta
+  let gradient = gradientFromDelta xftk dt delta
   in (v, gradient)
 
 crevOnParamsDt

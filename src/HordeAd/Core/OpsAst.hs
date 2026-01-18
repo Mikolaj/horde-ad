@@ -113,7 +113,7 @@ revArtifactFromForwardPass cotangentHandling
       !dt = case cotangentHandling of
         UseIncomingCotangent -> AstRaw astDt
         IgnoreIncomingCotangent -> oneAtF
-  let !gradient = gradientFromDelta xftk zftk dt delta
+  let !gradient = gradientFromDelta xftk dt delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
       unPrimal = unshareAstTensor $ unAstRaw primalBody
   return (AstArtifactRev varDt varPrimal unGradient unPrimal, delta)
@@ -154,7 +154,7 @@ revArtifactFromForwardPassDt forwardPass xftk = unsafePerformIO $ do
   let !(D primalBody delta) = forwardPass astVarPrimal var astVar0
   let zftk = ftkAst $ unAstRaw primalBody
       (!varDt, !dt) = funToAst (adFTK zftk) Nothing id
-  let !gradient = gradientFromDelta xftk zftk (AstRaw dt) delta
+  let !gradient = gradientFromDelta xftk (AstRaw dt) delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
       unPrimal = unshareAstTensor $ unAstRaw primalBody
   return (AstArtifactRev varDt varPrimal unGradient unPrimal, delta)
