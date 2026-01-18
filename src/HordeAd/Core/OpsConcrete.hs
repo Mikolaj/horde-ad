@@ -16,6 +16,7 @@ import Data.Array.Internal.ShapedS qualified as SS
 import Data.Coerce (Coercible, coerce)
 import Data.Default
 import Data.Function ((&))
+import Data.Int (Int16, Int32, Int64, Int8)
 import Data.IntMap.Strict qualified as IM
 import Data.List (scanl')
 import Data.List.NonEmpty qualified as NonEmpty
@@ -24,8 +25,9 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
 import Data.Vector.Storable.Mutable qualified as VSM
+import Foreign.C (CInt)
 import GHC.TypeLits (KnownNat, Nat, type (+))
-import Type.Reflection (typeRep)
+import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
@@ -766,6 +768,45 @@ tmapAccumLC k bftk eftk f !acc0 !es =
       let !lout2 = tfromList k (ftkToSTK bftk) nl
       in tpair xout lout2
     Nothing -> tpair xout (tdefTarget (buildFTK k bftk))
+
+-- The explicit dictionary is needed to trick GHC into specializing f at types
+-- Int, Double, etc. insteasd of at type r, to simpify away the dictionaries
+-- emerging from the constraints in the signature of f.
+--
+-- Despite what GHC says, TKAllNum (TKScalar r) is not redundant,
+-- because it ensures the error case can't appear.
+contFromTKAllNum :: forall r a. (Typeable r, TKAllNum (TKScalar r))
+                 => (Dict0 (Num r, Nested.NumElt r, GoodScalar r) -> a) -> a
+{-# INLINE contFromTKAllNum #-}  -- needed for the specialization hack
+contFromTKAllNum f = case typeRep @r of
+  Is @Int -> f Dict0
+  Is @Double -> f Dict0
+  Is @Float -> f Dict0
+  Is @Z1 -> f Dict0
+  Is @Int64 -> f Dict0
+  Is @Int32-> f Dict0
+  Is @Int16 -> f Dict0
+  Is @Int8 -> f Dict0
+  Is @CInt -> f Dict0
+  _ -> error "contFromTKAllNum: impossible type"
+
+-- See above. The list comes from ox-arrays at [PRIMITIVE ELEMENT TYPES LIST].
+contFromTypeable :: forall r a. Typeable r
+                 => (Dict GoodScalar r -> a) -> a
+{-# INLINE contFromTypeable #-}  -- needed for the specialization hack
+contFromTypeable f = case typeRep @r of
+  Is @Int -> f Dict
+  Is @Double -> f Dict
+  Is @Float -> f Dict
+  Is @Z1 -> f Dict
+  Is @Int64 -> f Dict
+  Is @Int32 -> f Dict
+  Is @Int16-> f Dict
+  Is @Int8 -> f Dict
+  Is @CInt -> f Dict
+  Is @Bool -> f Dict
+  Is @() -> f Dict
+  _ -> error "contFromTypeable: unexpected type"
 
 
 -- * Ranked internal definitions

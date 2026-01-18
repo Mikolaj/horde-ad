@@ -8,8 +8,7 @@ module HordeAd.Core.TensorKind
     SingletonTK(..), KnownSTK(..)
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
   , Dict0(..), lemTKAllNumAD, lemTKScalarAllNumAD
-  , lemTKAllNumBuild, lemTKAllNumRaze
-  , numFromTKAllNum, contFromTKAllNum, contFromTypeable
+  , lemTKAllNumBuild, lemTKAllNumRaze, numFromTKAllNum
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
     -- * Full shape tensor kind quasi-singletons
@@ -178,45 +177,6 @@ numFromTKAllNum _ = case typeRep @r of
   Is @Int8 -> Dict0
   Is @CInt -> Dict0
   _ -> error "numFromTKAllNum: impossible type"
-
--- The explicit dictionary is needed to trick GHC into specializing f at types
--- Int, Double, etc. insteasd of at type r, to simpify away the dictionaries
--- emerging from the constraints in the signature of f.
---
--- Despite what GHC says, TKAllNum (TKScalar r) is not redundant,
--- because it ensures the error case can't appear.
-contFromTKAllNum :: forall r a. (Typeable r, TKAllNum (TKScalar r))
-                 => (Dict0 (Num r, Nested.NumElt r, GoodScalar r) -> a) -> a
-{-# INLINE contFromTKAllNum #-}  -- takes a function as an argument
-contFromTKAllNum f = case typeRep @r of
-  Is @Int -> f Dict0
-  Is @Double -> f Dict0
-  Is @Float -> f Dict0
-  Is @Z1 -> f Dict0
-  Is @Int64 -> f Dict0
-  Is @Int32-> f Dict0
-  Is @Int16 -> f Dict0
-  Is @Int8 -> f Dict0
-  Is @CInt -> f Dict0
-  _ -> error "contFromTKAllNum: impossible type"
-
--- See above. The list comes from ox-arrays at [PRIMITIVE ELEMENT TYPES LIST].
-contFromTypeable :: forall r a. Typeable r
-                 => (Dict GoodScalar r -> a) -> a
-{-# INLINE contFromTypeable #-}  -- takes a function as an argument
-contFromTypeable f = case typeRep @r of
-  Is @Int -> f Dict
-  Is @Double -> f Dict
-  Is @Float -> f Dict
-  Is @Z1 -> f Dict
-  Is @Int64 -> f Dict
-  Is @Int32 -> f Dict
-  Is @Int16-> f Dict
-  Is @Int8 -> f Dict
-  Is @CInt -> f Dict
-  Is @Bool -> f Dict
-  Is @() -> f Dict
-  _ -> error "contFromTypeable: unexpected type"
 
 stkUnit :: SingletonTK TKUnit
 stkUnit = STKScalar
