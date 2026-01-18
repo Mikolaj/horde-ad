@@ -302,7 +302,7 @@ instance BaseTensor Concrete where
   tkfromIntegral = fromIntegral . unConcrete
   {-# INLINE tkcast #-}
   tkcast @r1 @r2 a =
-    let cast :: (RealFrac r1', RealFrac r2')
+    let cast :: (Differentiable r1', Differentiable r2')
              => Concrete (TKScalar r1') -> Concrete (TKScalar r2')
         {-# INLINE cast #-}
         cast = Concrete . realToFrac . unConcrete
@@ -323,7 +323,8 @@ instance BaseTensor Concrete where
   trfromIntegral = Concrete . liftVR (V.map fromIntegral) . unConcrete
   {-# INLINE trcast #-}
   trcast @r1 @r2 a =
-    let cast :: (RealFrac r1', NumScalar r1', RealFrac r2', NumScalar r2')
+    let cast :: ( Differentiable r1', NumScalar r1'
+                , Differentiable r2', NumScalar r2' )
              => Concrete (TKR n r1') -> Concrete (TKR n r2')
         {-# INLINE cast #-}
         cast = Concrete . liftVR (V.map realToFrac) . unConcrete
@@ -345,7 +346,8 @@ instance BaseTensor Concrete where
   tsfromIntegral = Concrete . liftVS (V.map fromIntegral) . unConcrete
   {-# INLINE tscast #-}
   tscast @r1 @r2 a =
-    let cast :: (RealFrac r1', NumScalar r1', RealFrac r2', NumScalar r2')
+    let cast :: ( Differentiable r1', NumScalar r1'
+                , Differentiable r2', NumScalar r2' )
              => Concrete (TKS sh r1') -> Concrete (TKS sh r2')
         {-# INLINE cast #-}
         cast = Concrete . liftVS (V.map realToFrac) . unConcrete
@@ -367,7 +369,8 @@ instance BaseTensor Concrete where
   txfromIntegral = Concrete . liftVX (V.map fromIntegral) . unConcrete
   {-# INLINE txcast #-}
   txcast @r1 @r2 a =
-    let cast :: (RealFrac r1', NumScalar r1', RealFrac r2', NumScalar r2')
+    let cast :: ( Differentiable r1', NumScalar r1'
+                , Differentiable r2', NumScalar r2' )
              => Concrete (TKX sh r1') -> Concrete (TKX sh r2')
         {-# INLINE cast #-}
         cast = Concrete . liftVX (V.map realToFrac) . unConcrete

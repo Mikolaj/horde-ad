@@ -166,7 +166,7 @@ testFooBuildOut =
 
 fooBuild2
   :: forall target r n.
-     (ADReady target, NumScalar r, KnownNat n, Floating (target (TKR n r)), RealFloat r)
+     (ADReady target, NumScalar r, KnownNat n, Floating (target (TKR n r)), Differentiable r)
   => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
 fooBuild2 v =
   rbuild1 2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int)
@@ -186,7 +186,7 @@ fooBuild2 v =
 
 fooBuild2L
   :: forall k target r n.
-     (ADReady target, NumScalar r, KnownNat n, Floating (target (TKR n r)), RealFloat r)
+     (ADReady target, NumScalar r, KnownNat n, Floating (target (TKR n r)), Differentiable r)
   => ListR k (target (TKR (1 + n) r)) -> target (TKR (1 + n) r)
 fooBuild2L = foldr1 (+) . fmap fooBuild2
 
@@ -219,7 +219,7 @@ testFooBuild25 =
 
 fooBuild2S
   :: forall k sh target r.
-     (ADReady target, NumScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh)
+     (ADReady target, NumScalar r, KnownNat k, Floating (target (TKS sh r)), Differentiable r, KnownShS sh)
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuild2S v = rfromS $
   sbuild1 @2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int)
@@ -250,7 +250,7 @@ testFooBuild25S =
 
 fooBuildNest2S
   :: forall k sh target r.
-     (ADReady target, NumScalar r, KnownNat k, Floating (target (TKS sh r)), RealFloat r, KnownShS sh)
+     (ADReady target, NumScalar r, KnownNat k, Floating (target (TKS sh r)), Differentiable r, KnownShS sh)
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuildNest2S v = rfromS $
   sbuild1 @2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int)

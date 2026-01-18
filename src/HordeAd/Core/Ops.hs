@@ -717,29 +717,29 @@ class ( Num (IntOf target)
              (Nested.SKnown k :$% shxDropSSX (knownShX @shp) (xshape v)) v
              (\(i :.% ZIX) -> f i)
 
-  tkfloor :: (GoodScalar r, RealFrac r, NumScalar r2, Integral r2)
+  tkfloor :: (GoodScalar r, Differentiable r, NumScalar r2, Integral r2)
           => target (TKScalar r) -> target (TKScalar r2)
   tkfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2)
                  => target (TKScalar r1) -> target (TKScalar r2)
-  tkcast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
+  tkcast :: (Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2)
          => target (TKScalar r1) -> target (TKScalar r2)
 
-  trfloor :: (GoodScalar r, RealFrac r, NumScalar r2, Integral r2)
+  trfloor :: (GoodScalar r, Differentiable r, NumScalar r2, Integral r2)
           => target (TKR n r) -> target (TKR n r2)
   trfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2)
                  => target (TKR n r1) -> target (TKR n r2)
-  trcast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
+  trcast :: (Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2)
          => target (TKR n r1) -> target (TKR n r2)
   trminIndex, trmaxIndex  -- partial
     :: forall n r r2. (NumScalar r, NumScalar r2)
     => target (TKR (1 + n) r) -> target (TKR n r2)
   triota :: NumScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
 
-  tsfloor :: (GoodScalar r, RealFrac r, NumScalar r2, Integral r2)
+  tsfloor :: (GoodScalar r, Differentiable r, NumScalar r2, Integral r2)
           => target (TKS sh r) -> target (TKS sh r2)
   tsfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2)
                  => target (TKS sh r1) -> target (TKS sh r2)
-  tscast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
+  tscast :: (Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2)
          => target (TKS sh r1) -> target (TKS sh r2)
   tsminIndex, tsmaxIndex  -- partial
     :: forall n sh r r2. (NumScalar r, NumScalar r2)
@@ -747,11 +747,11 @@ class ( Num (IntOf target)
   tsiota :: (KnownNat n, NumScalar r)
          => target (TKS '[n] r)  -- from 0 to n - 1
 
-  txfloor :: (GoodScalar r, RealFrac r, NumScalar r2, Integral r2)
+  txfloor :: (GoodScalar r, Differentiable r, NumScalar r2, Integral r2)
           => target (TKX sh r) -> target (TKX sh r2)
   txfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2)
                  => target (TKX sh r1) -> target (TKX sh r2)
-  txcast :: (RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2)
+  txcast :: (Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2)
          => target (TKX sh r1) -> target (TKX sh r2)
   txminIndex, txmaxIndex  -- partial
     :: forall mn sh r r2. (NumScalar r, NumScalar r2)

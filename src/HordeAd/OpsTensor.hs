@@ -531,26 +531,26 @@ xreshape :: forall sh sh2 x target. (KnownSTK x, BaseTensor target)
          => IShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
 xreshape = txreshape
 
-kfloor :: ( GoodScalar r, RealFrac r, NumScalar r2, Integral r2
+kfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKScalar r) -> target (TKScalar r2)
 kfloor = tkfloor
 kfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
               => target (TKScalar r1) -> target (TKScalar r2)
 kfromIntegral = tkfromIntegral
-kcast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
+kcast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
          , BaseTensor target )
       => target (TKScalar r1) -> target (TKScalar r2)
 kcast = tkcast
 
-rfloor :: ( GoodScalar r, RealFrac r, NumScalar r2, Integral r2
+rfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKR n r) -> target (TKR n r2)
 rfloor = trfloor
 rfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
               => target (TKR n r1) -> target (TKR n r2)
 rfromIntegral = trfromIntegral
-rcast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
+rcast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
          , BaseTensor target )
       => target (TKR n r1) -> target (TKR n r2)
 rcast = trcast
@@ -563,14 +563,14 @@ riota :: (NumScalar r, BaseTensor target)
       => Int -> target (TKR 1 r)  -- from 0 to n - 1
 riota = triota
 
-sfloor :: ( GoodScalar r, RealFrac r, NumScalar r2, Integral r2
+sfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKS sh r) -> target (TKS sh r2)
 sfloor = tsfloor
 sfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
               => target (TKS sh r1) -> target (TKS sh r2)
 sfromIntegral = tsfromIntegral
-scast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
+scast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
          , BaseTensor target )
       => target (TKS sh r1) -> target (TKS sh r2)
 scast = tscast
@@ -583,14 +583,14 @@ siota :: (KnownNat n, NumScalar r, BaseTensor target)
       => target (TKS '[n] r)  -- from 0 to n - 1
 siota = tsiota
 
-xfloor :: ( GoodScalar r, RealFrac r, NumScalar r2, Integral r2
+xfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKX sh r) -> target (TKX sh r2)
 xfloor = txfloor
 xfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
               => target (TKX sh r1) -> target (TKX sh r2)
 xfromIntegral = txfromIntegral
-xcast :: ( RealFrac r1, NumScalar r1, RealFrac r2, NumScalar r2
+xcast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
          , BaseTensor target )
       => target (TKX sh r1) -> target (TKX sh r2)
 xcast = txcast
