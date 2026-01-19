@@ -300,6 +300,16 @@ instance BaseTensor Concrete where
   tkfloor = Concrete . floor . unConcrete
   {-# INLINE tkfromIntegral #-}
   tkfromIntegral = fromIntegral . unConcrete
+    -- Here runtime specialization would be questionable. It can take several
+    -- comparisons to make a single scalar operation (much) faster.
+    -- The only big gain is when/if this gets inlined into the interpreter
+    -- and so the interpretation resulting in @a@ is performed at a concrete
+    -- type, e.g., it may be a big arithmetic expression, which we never
+    -- runtime-specialize. Or when/if this op is repeated in a loop
+    -- and the comparison is floated up out of the loop.
+    --
+    -- Benchmarks indicate this lowers allocation considerably, but increases
+    -- runtime just as considerably, so it's disabled for now.
   {-# INLINE tkcast #-}
   tkcast @r1 @r2 a =
     let cast :: (Differentiable r1', Differentiable r2')
@@ -320,7 +330,67 @@ instance BaseTensor Concrete where
   {-# INLINE trfloor #-}
   trfloor = Concrete . liftVR (V.map floor) . unConcrete
   {-# INLINE trfromIntegral #-}
-  trfromIntegral = Concrete . liftVR (V.map fromIntegral) . unConcrete
+  trfromIntegral @r1 @r2 a =
+    let cast :: (GoodScalar r1', Integral r1', NumScalar r2')
+             => Concrete (TKR n r1') -> Concrete (TKR n r2')
+        {-# INLINE cast #-}
+        cast = Concrete . liftVR (V.map fromIntegral) . unConcrete
+    in case typeRep @r1 of
+        Is @Int -> case typeRep @r2 of
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int16 -> cast a
+          Is @Int32 -> cast a
+          Is @Int64 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @Int8 -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int16 -> cast a
+          Is @Int32 -> cast a
+          Is @Int64 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @Int16 -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int32 -> cast a
+          Is @Int64 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @Int32 -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int16 -> cast a
+          Is @Int64 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @Int64 -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int16 -> cast a
+          Is @Int32 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @CInt -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int16 -> cast a
+          Is @Int32 -> cast a
+          Is @Int64 -> cast a
+          _ -> cast a
+        _ -> cast a
   {-# INLINE trcast #-}
   trcast @r1 @r2 a =
     let cast :: ( Differentiable r1', NumScalar r1'
@@ -343,7 +413,67 @@ instance BaseTensor Concrete where
   {-# INLINE tsfloor #-}
   tsfloor = Concrete . liftVS (V.map floor) . unConcrete
   {-# INLINE tsfromIntegral #-}
-  tsfromIntegral = Concrete . liftVS (V.map fromIntegral) . unConcrete
+  tsfromIntegral @r1 @r2 a =
+    let cast :: (GoodScalar r1', Integral r1', NumScalar r2')
+             => Concrete (TKS sh r1') -> Concrete (TKS sh r2')
+        {-# INLINE cast #-}
+        cast = Concrete . liftVS (V.map fromIntegral) . unConcrete
+    in case typeRep @r1 of
+        Is @Int -> case typeRep @r2 of
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int16 -> cast a
+          Is @Int32 -> cast a
+          Is @Int64 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @Int8 -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int16 -> cast a
+          Is @Int32 -> cast a
+          Is @Int64 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @Int16 -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int32 -> cast a
+          Is @Int64 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @Int32 -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int16 -> cast a
+          Is @Int64 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @Int64 -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int16 -> cast a
+          Is @Int32 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @CInt -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int16 -> cast a
+          Is @Int32 -> cast a
+          Is @Int64 -> cast a
+          _ -> cast a
+        _ -> cast a
   {-# INLINE tscast #-}
   tscast @r1 @r2 a =
     let cast :: ( Differentiable r1', NumScalar r1'
@@ -366,7 +496,67 @@ instance BaseTensor Concrete where
   {-# INLINE txfloor #-}
   txfloor = Concrete . liftVX (V.map floor) . unConcrete
   {-# INLINE txfromIntegral #-}
-  txfromIntegral = Concrete . liftVX (V.map fromIntegral) . unConcrete
+  txfromIntegral @r1 @r2 a =
+    let cast :: (GoodScalar r1', Integral r1', NumScalar r2')
+             => Concrete (TKX sh r1') -> Concrete (TKX sh r2')
+        {-# INLINE cast #-}
+        cast = Concrete . liftVX (V.map fromIntegral) . unConcrete
+    in case typeRep @r1 of
+        Is @Int -> case typeRep @r2 of
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int16 -> cast a
+          Is @Int32 -> cast a
+          Is @Int64 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @Int8 -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int16 -> cast a
+          Is @Int32 -> cast a
+          Is @Int64 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @Int16 -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int32 -> cast a
+          Is @Int64 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @Int32 -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int16 -> cast a
+          Is @Int64 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @Int64 -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int16 -> cast a
+          Is @Int32 -> cast a
+          Is @CInt -> cast a
+          _ -> cast a
+        Is @CInt -> case typeRep @r2 of
+          Is @Int -> cast a
+          Is @Double -> cast a
+          Is @Float -> cast a
+          Is @Int8 -> cast a
+          Is @Int16 -> cast a
+          Is @Int32 -> cast a
+          Is @Int64 -> cast a
+          _ -> cast a
+        _ -> cast a
   {-# INLINE txcast #-}
   txcast @r1 @r2 a =
     let cast :: ( Differentiable r1', NumScalar r1'
