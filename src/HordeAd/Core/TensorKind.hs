@@ -170,12 +170,12 @@ numFromTKAllNum _ = case typeRep @r of
   Is @Int -> Dict0
   Is @Double -> Dict0
   Is @Float -> Dict0
-  Is @Z1 -> Dict0
-  Is @Int64 -> Dict0
-  Is @Int32-> Dict0
-  Is @Int16 -> Dict0
   Is @Int8 -> Dict0
+  Is @Int16 -> Dict0
+  Is @Int32-> Dict0
+  Is @Int64 -> Dict0
   Is @CInt -> Dict0
+  Is @Z1 -> Dict0
   _ -> error "numFromTKAllNum: impossible type"
 
 stkUnit :: SingletonTK TKUnit
