@@ -1,4 +1,3 @@
-{-# LANGUAGE QuantifiedConstraints #-}
 -- | The environment datatype and operations for creating and accessing it.
 module HordeAd.Core.AstEnv
   ( AstEnv, emptyEnv, showsPrecAstEnv
@@ -34,7 +33,7 @@ emptyEnv :: AstEnv target
 emptyEnv = DMap.empty
 
 showsPrecAstEnv
-  :: (forall y. KnownSTK y => Show (target y))
+  :: AllTargetShow target
   => Int -> AstEnv target -> ShowS
 showsPrecAstEnv d demap =
   showParen (d > 10) $

@@ -26,6 +26,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
@@ -1283,7 +1284,8 @@ instance (AstSpan s, NumScalar r)
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
   AstFromDual{} <=. AstFromDual{} = true
   AstFromPlain u <=. AstFromPlain v = u <=. v
-  AstConcreteS u <=. AstConcreteS v = AstConcreteK $ u <= v
+  AstConcreteS u <=. AstConcreteS v =
+    AstConcreteK $ Shaped.stoPrimitive u <= Shaped.stoPrimitive v
   AstConcreteS u <=. v
     | FTKS ZSS FTKScalar <- ftkAst v =
       AstConcreteK (Nested.sunScalar u) <=. cAstFromS FTKScalar v

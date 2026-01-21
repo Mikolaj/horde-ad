@@ -1,5 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, DerivingVia, ImpredicativeTypes,
-             UndecidableInstances, UndecidableSuperClasses, ViewPatterns #-}
+{-# LANGUAGE AllowAmbiguousTypes, DerivingVia, UndecidableInstances,
+             UndecidableSuperClasses, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -156,9 +156,7 @@ type family TKAllNum (y :: TK) :: Constraint where
 
 type GoodScalarConstraint r =
   ( Show r, Ord r, Typeable r, Typeable (ADTensorScalar r)
-  , Default r, NFData r, Nested.PrimElt r, Nested.KnownElt r
-  , forall sh. Show (Nested.Mixed sh r), forall sh. Ord (Nested.Mixed sh r)
-  , forall sh. NFData (Nested.Mixed sh r))
+  , Default r, NFData r, Nested.PrimElt r, Nested.KnownElt r )
 
 -- Attempted optimization via storing one pointer to a class dictionary
 -- in existential datatypes instead of six pointers. No effect.
@@ -167,14 +165,13 @@ type GoodScalarConstraint r =
 --
 -- | The constraint that signifies a scalar type, e.g., a float or an integers,
 -- is a well-behaved cell content of tensors supported by horde-ad.
-class GoodScalarConstraint r => GoodScalar r
+class    GoodScalarConstraint r => GoodScalar r
 instance GoodScalarConstraint r => GoodScalar r
 
-class (GoodScalarConstraint r, Num r, Nested.NumElt r, TKAllNum (TKScalar r))
-      => NumScalar r
-instance
-      (GoodScalarConstraint r, Num r, Nested.NumElt r, TKAllNum (TKScalar r))
-      => NumScalar r
+class    (GoodScalarConstraint r, Num r, Nested.NumElt r, TKAllNum (TKScalar r))
+         => NumScalar r
+instance (GoodScalarConstraint r, Num r, Nested.NumElt r, TKAllNum (TKScalar r))
+         => NumScalar r
 
 -- | The constraint for scalars that can be non-trivially differentiated,
 -- e.g., floating numbers, but not integers.

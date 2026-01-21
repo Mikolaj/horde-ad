@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, QuantifiedConstraints #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Evaluation of delta expressions, that is, transpose of the linear
@@ -99,7 +99,7 @@ type ADMap target = DEnumMap (NodeId target) (Cotangent target)
 type IMap target = DEnumMap (InputId target) (TensorOrZero target)
 
 showsPrec_IMap
-  :: (forall y. KnownSTK y => Show (TensorOrZero target y))
+  :: AllTargetShow target
   => Int -> IMap target -> ShowS
 showsPrec_IMap d demap =
   showParen (d > 10) $
@@ -111,7 +111,7 @@ showsPrec_IMap d demap =
         (DMap.toList demap)
 
 show_IMap
-  :: (forall y. KnownSTK y => Show (TensorOrZero target y))
+  :: AllTargetShow target
   => IMap target -> String
 show_IMap iMap = showsPrec_IMap 0 iMap ""
 

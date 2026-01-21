@@ -54,27 +54,27 @@ instance (Nested.IntElt r, Nested.PrimElt r, Eq r, Num r)
   quotH a b = Nested.mquotArray a (mmakeNonZero b)
   remH a b = Nested.mremArray a (mmakeNonZero b)
 
-instance NumScalar r
+instance (NumScalar r, Ord (Nested.Ranked n r))
          => Real (Nested.Ranked n r) where
   toRational = error "toRational is not defined for tensors"
 
-instance NumScalar r
+instance (NumScalar r, Ord (Nested.Shaped sh r))
          => Real (Nested.Shaped sh r) where
   toRational = error "toRational is not defined for tensors"
 
-instance NumScalar r
+instance (NumScalar r, Ord (Nested.Mixed sh r))
          => Real (Nested.Mixed sh r) where
   toRational = error "toRational is not defined for tensors"
 
-instance (NumScalar r, Nested.FloatElt r)
+instance (NumScalar r, Ord (Nested.Ranked n r), Nested.FloatElt r)
          => RealFrac (Nested.Ranked n r) where
   properFraction = error "properFraction is not defined for tensors"
 
-instance (NumScalar r, Nested.FloatElt r)
+instance (NumScalar r, Ord (Nested.Shaped sh r), Nested.FloatElt r)
          => RealFrac (Nested.Shaped sh r) where
   properFraction = error "properFraction is not defined for tensors"
 
-instance (NumScalar r, Nested.FloatElt r)
+instance (NumScalar r, Ord (Nested.Mixed sh r), Nested.FloatElt r)
          => RealFrac (Nested.Mixed sh r) where
   properFraction = error "properFraction is not defined for tensors"
 
@@ -90,7 +90,8 @@ instance (Nested.PrimElt r, Nested.FloatElt r)
          => RealFloatH (Nested.Mixed sh r) where
   atan2H = Nested.matan2Array
 
-instance (NumScalar r, Nested.PrimElt r, Nested.FloatElt r)
+instance ( NumScalar r, Ord (Nested.Ranked n r), Nested.PrimElt r
+         , Nested.FloatElt r )
          => RealFloat (Nested.Ranked n r) where
   atan2 = Nested.ratan2Array
   floatRadix = error "operation not defined for tensors"
@@ -104,7 +105,8 @@ instance (NumScalar r, Nested.PrimElt r, Nested.FloatElt r)
   isNegativeZero = error "operation not defined for tensors"
   isIEEE = error "operation not defined for tensors"
 
-instance (NumScalar r, Nested.PrimElt r, Nested.FloatElt r)
+instance ( NumScalar r, Ord (Nested.Shaped sh r), Nested.PrimElt r
+         , Nested.FloatElt r )
          => RealFloat (Nested.Shaped sh r) where
   atan2 = Nested.satan2Array
   floatRadix = error "operation not defined for tensors"
@@ -118,7 +120,8 @@ instance (NumScalar r, Nested.PrimElt r, Nested.FloatElt r)
   isNegativeZero = error "operation not defined for tensors"
   isIEEE = error "operation not defined for tensors"
 
-instance (NumScalar r, Nested.PrimElt r, Nested.FloatElt r)
+instance ( NumScalar r, Ord (Nested.Mixed sh r), Nested.PrimElt r
+         , Nested.FloatElt r )
          => RealFloat (Nested.Mixed sh r) where
   atan2 = Nested.matan2Array
   floatRadix = error "operation not defined for tensors"
@@ -305,17 +308,23 @@ instance GoodScalar r => EqH Concrete (TKScalar r) where
 instance GoodScalar r => OrdH Concrete (TKScalar r) where
   Concrete u <=. Concrete v = Concrete $ u <= v
 instance GoodScalar r => EqH Concrete (TKR n r) where
-  Concrete u ==. Concrete v = Concrete $ u == v
+  Concrete u ==. Concrete v =
+    Concrete $ Ranked.rtoPrimitive u == Ranked.rtoPrimitive v
 instance GoodScalar r => OrdH Concrete (TKR n r) where
-  Concrete u <=. Concrete v = Concrete $ u <= v
+  Concrete u <=. Concrete v =
+    Concrete $ Ranked.rtoPrimitive u <= Ranked.rtoPrimitive v
 instance GoodScalar r => EqH Concrete (TKS sh r) where
-  Concrete u ==. Concrete v = Concrete $ u == v
+  Concrete u ==. Concrete v =
+    Concrete $ Shaped.stoPrimitive u == Shaped.stoPrimitive v
 instance GoodScalar r => OrdH Concrete (TKS sh r) where
-  Concrete u <=. Concrete v = Concrete $ u <= v
+  Concrete u <=. Concrete v =
+    Concrete $ Shaped.stoPrimitive u <= Shaped.stoPrimitive v
 instance GoodScalar r => EqH Concrete (TKX sh r) where
-  Concrete u ==. Concrete v = Concrete $ u == v
+  Concrete u ==. Concrete v =
+    Concrete $ Mixed.toPrimitive u == Mixed.toPrimitive v
 instance GoodScalar r => OrdH Concrete (TKX sh r) where
-  Concrete u <=. Concrete v = Concrete $ u <= v
+  Concrete u <=. Concrete v =
+    Concrete $ Mixed.toPrimitive u <= Mixed.toPrimitive v
 
 deriving instance Boolean (Concrete (TKScalar Bool))
 deriving instance Eq (RepConcrete y) => Eq (Concrete y)
