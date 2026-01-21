@@ -408,7 +408,7 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   {-# SPECIALIZE instance IntegralH (AstTensor ms PlainSpan (TKScalar Int)) #-}
   {-# SPECIALIZE instance AstSpan s => IntegralH (AstTensor ms s (TKScalar Int)) #-}
 
-instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, Differentiable r, AstSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
   AstPrimalPart u / AstPrimalPart v = primalPart $ u / v
   AstPlainPart @_ @s1 u / AstPlainPart @_ @s2 v
@@ -426,7 +426,7 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   {-# INLINE fromRational #-}
   fromRational r = fromPlain $ AstConcreteK (fromRational r)
 
-instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, Differentiable r, AstSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
   pi = error "pi is not defined for tensors"
   exp (AstPrimalPart u) = primalPart $ exp u
@@ -534,7 +534,7 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   atanh (AstConcreteK u) = AstConcreteK $ atanh u
   atanh u = AstR1K AtanhOp u
 
-instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, Differentiable r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKScalar r)) where
   atan2H (AstPrimalPart u) (AstPrimalPart v) = primalPart $ atan2H u v
   atan2H (AstPlainPart @_ @s1 u) (AstPlainPart @_ @s2 v)
@@ -563,14 +563,14 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   quotH = liftRFromS2 quotH
   remH = liftRFromS2 remH
 
-instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, Differentiable r, AstSpan s)
          => Fractional (AstTensor ms s (TKR n r)) where
   (/) = liftRFromS2 (/)
   recip = liftRFromS1 recip
   fromRational r = error $ "fromRational is not defined for ranked tensors: "
                            ++ show r
 
-instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, Differentiable r, AstSpan s)
          => Floating (AstTensor ms s (TKR n r)) where
   pi = error "pi is not defined for tensors"
   exp = liftRFromS1 exp
@@ -591,7 +591,7 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   acosh = liftRFromS1 acosh
   atanh = liftRFromS1 atanh
 
-instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, Differentiable r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKR n r)) where
   atan2H = liftRFromS2 atan2H
 
@@ -816,7 +816,7 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
 --  remH _ (AstConcreteS s) | Just 1 <- sunReplicatePrim s = AstConcreteS 0
   remH u v = AstI2S RemOp u v
 
-instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, Differentiable r, AstSpan s)
          => Fractional (AstTensor ms s (TKS sh r)) where
   AstPrimalPart u / AstPrimalPart v = primalPart $ u / v
   AstPlainPart @_ @s1 u / AstPlainPart @_ @s2 v
@@ -834,7 +834,7 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   fromRational r = error $ "fromRational is not defined for shaped tensors: "
                            ++ show r
 
-instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, Differentiable r, AstSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
   pi = error "pi is not defined for tensors"
   exp (AstPrimalPart u) = primalPart $ exp u
@@ -942,7 +942,7 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   atanh (AstConcreteS u) = AstConcreteS $ atanh u
   atanh u = AstR1S AtanhOp u
 
-instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, Differentiable r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKS sh r)) where
   atan2H (AstPrimalPart u) (AstPrimalPart v) = primalPart $ atan2H u v
   atan2H (AstPlainPart @_ @s1 u) (AstPlainPart @_ @s2 v)
@@ -971,14 +971,14 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   quotH = liftXFromS2 quotH
   remH = liftXFromS2 remH
 
-instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, Differentiable r, AstSpan s)
          => Fractional (AstTensor ms s (TKX sh r)) where
   (/) = liftXFromS2 (/)
   recip = liftXFromS1 recip
   fromRational r = error $ "fromRational is not defined for mixed tensors: "
                            ++ show r
 
-instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, Differentiable r, AstSpan s)
          => Floating (AstTensor ms s (TKX sh r)) where
   pi = error "pi is not defined for tensors"
   exp = liftXFromS1 exp
@@ -999,7 +999,7 @@ instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
   acosh = liftXFromS1 acosh
   atanh = liftXFromS1 atanh
 
-instance (NumScalar r, RealFloatH r, Nested.FloatElt r, AstSpan s)
+instance (NumScalar r, Differentiable r, AstSpan s)
          => RealFloatH (AstTensor ms s (TKX sh r)) where
   atan2H = liftXFromS2 atan2H
 

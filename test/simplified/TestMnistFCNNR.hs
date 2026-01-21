@@ -301,8 +301,7 @@ tensorIntermediateMnistTests = testGroup "Ranked Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCase1VTO
   :: forall r.
-     ( Differentiable r, NumScalar r, ADTensorScalar r ~ r
-     , PrintfArg r, AssertEqualUpToEpsilon r)
+     (Differentiable r, NumScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree
@@ -621,8 +620,7 @@ tensorIntermediateMnistTests2 = testGroup "Ranked2 Intermediate MNIST tests"
 -- descent iteration.
 mnistTestCase2VTO
   :: forall r.
-     ( Differentiable r, NumScalar r
-     , PrintfArg r, AssertEqualUpToEpsilon r, ADTensorScalar r ~ r )
+     (Differentiable r, NumScalar r, PrintfArg r, AssertEqualUpToEpsilon r)
   => String
   -> Int -> Int -> Int -> Int -> Double -> Int -> r
   -> TestTree

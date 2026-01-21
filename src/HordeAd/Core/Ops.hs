@@ -126,15 +126,15 @@ type TensorSupportsX c1 c2 f =
   forall r sh. NumScalar r
                => c1 r => c2 (f (TKX sh r))
 
-class (RealFloatH r, Nested.FloatElt r)
-      => RealFloatAndFloatElt r
-instance (RealFloatH r, Nested.FloatElt r)
+class    Differentiable r
+         => RealFloatAndFloatElt r
+instance Differentiable r
          => RealFloatAndFloatElt r
 
-class (IntegralH r, Nested.IntElt r)
-      => IntegralHAndIntElt r
+class    (IntegralH r, Nested.IntElt r)
+         => IntegralHAndIntElt r
 instance (IntegralH r, Nested.IntElt r)
-      => IntegralHAndIntElt r
+         => IntegralHAndIntElt r
 
 class LetTensor (target :: Target) where
   ttlet :: target x -> (target x -> target z) -> target z

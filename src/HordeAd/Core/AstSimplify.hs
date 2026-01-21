@@ -1344,7 +1344,7 @@ astConcreteS :: GoodScalar r
 astConcreteS = AstConcreteS . unConcrete
 
 astFloorS :: forall r1 r2 sh.
-             (GoodScalar r1, Differentiable r1, Integral r2, NumScalar r2)
+             (GoodScalar r1, Differentiable r1, NumScalar r2, Integral r2)
           => AstTensor AstMethodLet PlainSpan (TKS sh r1)
           -> AstTensor AstMethodLet PlainSpan (TKS sh r2)
 astFloorS t = case t of
