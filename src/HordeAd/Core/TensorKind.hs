@@ -21,7 +21,7 @@ import Prelude hiding ((.))
 
 import Control.Category
 import Data.Int (Int16, Int32, Int64, Int8)
-import Data.Proxy (Proxy (Proxy))
+import Data.Proxy (Proxy)
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Foreign.C (CInt)
 import GHC.Exts (withDict)
@@ -126,7 +126,7 @@ data Dict0 c where
 
 lemTKAllNumAD :: SingletonTK y -> Dict0 (TKAllNum (ADTensorKind y))
 lemTKAllNumAD = \case
-  STKScalar @r | Dict0 <- lemTKScalarAllNumAD (Proxy @r) -> Dict0
+  STKScalar @r -> ifDifferentiable @r Dict0 Dict0
   STKR _ x | Dict0 <- lemTKAllNumAD x -> Dict0
   STKS _ x | Dict0 <- lemTKAllNumAD x -> Dict0
   STKX _ x | Dict0 <- lemTKAllNumAD x -> Dict0
@@ -135,9 +135,7 @@ lemTKAllNumAD = \case
 
 lemTKScalarAllNumAD :: forall r. Typeable r
                     => Proxy r
-                    -> Dict0 ( TKAllNum (TKScalar (ADTensorScalar r))
-                             , Num (ADTensorScalar r)
-                             , Nested.NumElt (ADTensorScalar r) )
+                    -> Dict0 (TKAllNum (TKScalar (ADTensorScalar r)))
 lemTKScalarAllNumAD _ = ifDifferentiable @r Dict0 Dict0
 
 lemTKAllNumBuild :: TKAllNum y
@@ -164,7 +162,7 @@ lemTKAllNumRaze k = \case
 
 -- Despite what GHC says, TKAllNum (TKScalar r) is not redundant,
 -- because it ensures the error case can't appear.
-numFromTKAllNum :: forall r. (GoodScalar r, TKAllNum (TKScalar r))
+numFromTKAllNum :: forall r. (Typeable r, TKAllNum (TKScalar r))
                 => Proxy r -> Dict0 (Num r, Nested.NumElt r)
 numFromTKAllNum _ = case typeRep @r of
   Is @Int -> Dict0

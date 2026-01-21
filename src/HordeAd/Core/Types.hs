@@ -155,8 +155,8 @@ type family TKAllNum (y :: TK) :: Constraint where
 -- * Some fundamental constraints and types
 
 type GoodScalarConstraint r =
-  ( Show r, Ord r, Typeable r, Typeable (ADTensorScalar r)
-  , Default r, NFData r, Nested.PrimElt r, Nested.KnownElt r )
+  ( Show r, Ord r, Typeable r, Default r, NFData r
+  , Nested.PrimElt r, Nested.KnownElt r )
 
 -- Attempted optimization via storing one pointer to a class dictionary
 -- in existential datatypes instead of six pointers. No effect.
