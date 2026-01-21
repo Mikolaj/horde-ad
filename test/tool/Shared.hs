@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances, ViewPatterns #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- | Additional classes that help in comparing values in tests.
 module Shared
   ( lowercase, HasShape (shapeL), Linearizable (linearize)
@@ -79,9 +79,10 @@ instance (VS.Storable a, Nested.PrimElt a)
 
 instance (VS.Storable a, Nested.PrimElt a)
          => Linearizable (Nested.Shaped sh a) a where
-  linearize (stoPrimitive
-             -> Nested.Shaped (Nested.Mixed.M_Primitive _ (X.XArray arr))) =
-    RS.toList arr
+  linearize a =
+    let Nested.Shaped (Nested.Mixed.M_Primitive _ (X.XArray arr)) =
+          stoPrimitive a
+    in RS.toList arr
 
 instance Linearizable (RepConcrete y) a
          => Linearizable (Concrete y) a where

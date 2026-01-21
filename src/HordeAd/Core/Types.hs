@@ -161,9 +161,9 @@ type GoodScalarConstraint r =
   , forall sh. NFData (Nested.Mixed sh r))
 
 -- Attempted optimization via storing one pointer to a class dictionary
--- in existential datatypes instead of six pointers. No effect, strangely.
--- As a side effect, this avoids ImpredicativeTypes.
--- Also, the constraint can be represented by a single Dict.
+-- in existential datatypes instead of six pointers. No effect.
+-- As a side effect, this avoids ImpredicativeTypes and UndecidableInstances
+-- in many modules.
 --
 -- | The constraint that signifies a scalar type, e.g., a float or an integers,
 -- is a well-behaved cell content of tensors supported by horde-ad.
