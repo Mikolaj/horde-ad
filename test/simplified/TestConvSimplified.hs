@@ -1811,8 +1811,10 @@ testSameCNNOPP0cW = do
       var = AstVar varName
       ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
       f = flip conv2dSame var
+      varName2 = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
+      var2 = AstVar varName2
       env =
-        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkD)) emptyEnv
+        extendEnv varName (dDnotShared (AstRaw var2) (DeltaZero ftkD)) emptyEnv
       (artifactRev, _) =
         revArtifactFromForwardPass
           UseIncomingCotangent (forwardPassByInterpretation f env) ftkK
@@ -1834,8 +1836,10 @@ testSameCNNOPP0bW = do
       var = AstVar varName
       ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
       f = conv2dSame var
+      varName2 = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
+      var2 = AstVar varName2
       env =
-        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkK)) emptyEnv
+        extendEnv varName (dDnotShared (AstRaw var2) (DeltaZero ftkK)) emptyEnv
       (artifactRev, _) =
         revArtifactFromForwardPass
           UseIncomingCotangent (forwardPassByInterpretation f env) ftkD
@@ -1880,8 +1884,10 @@ testShrinkingCNNOPP0cW = do
       var = AstVar varName
       ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
       f = flip conv2dShrinking var
+      varName2 = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
+      var2 = AstVar varName2
       env =
-        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkD)) emptyEnv
+        extendEnv varName (dDnotShared (AstRaw var2) (DeltaZero ftkD)) emptyEnv
       (artifactRev, _) =
         revArtifactFromForwardPass
           UseIncomingCotangent (forwardPassByInterpretation f env) ftkK
@@ -1903,8 +1909,10 @@ testShrinkingCNNOPP0bW = do
       var = AstVar varName
       ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
       f = conv2dShrinking var
+      varName2 = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
+      var2 = AstVar varName2
       env =
-        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkK)) emptyEnv
+        extendEnv varName (dDnotShared (AstRaw var2) (DeltaZero ftkK)) emptyEnv
       (artifactRev, _) =
         revArtifactFromForwardPass
           UseIncomingCotangent (forwardPassByInterpretation f env) ftkD
@@ -1949,8 +1957,10 @@ testPaddedCNNOPP0cW = do
       var = AstVar varName
       ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
       f = flip conv2dPadded var
+      varName2 = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
+      var2 = AstVar varName2
       env =
-        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkD)) emptyEnv
+        extendEnv varName (dDnotShared (AstRaw var2) (DeltaZero ftkD)) emptyEnv
       (artifactRev, _) =
         revArtifactFromForwardPass
           UseIncomingCotangent (forwardPassByInterpretation f env) ftkK
@@ -1972,8 +1982,10 @@ testPaddedCNNOPP0bW = do
       var = AstVar varName
       ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
       f = conv2dPadded var
+      varName2 = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
+      var2 = AstVar varName2
       env =
-        extendEnv varName (dDnotShared (AstRaw var) (DeltaZero ftkK)) emptyEnv
+        extendEnv varName (dDnotShared (AstRaw var2) (DeltaZero ftkK)) emptyEnv
       (artifactRev, _) =
         revArtifactFromForwardPass
           UseIncomingCotangent (forwardPassByInterpretation f env) ftkD

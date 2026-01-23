@@ -19,7 +19,7 @@ import HordeAd.Core.PPTools
 
 {-# INLINE printAstVarRename #-}
 printAstVarRename :: KnownSpan s
-                  => IntMap String -> AstVarName s y -> String
+                  => IntMap String -> AstVarName '(s, y) -> String
 printAstVarRename renames var =
   printAstVar (defaulPrintConfig {varRenames = renames}) var ""
 
@@ -38,7 +38,7 @@ printAstPrettyRename renames t =
 
 {-# INLINE printAstVarName #-}
 printAstVarName :: KnownSpan s
-                => AstVarName s y -> String
+                => AstVarName '(s, y) -> String
 printAstVarName var =
   printAstVar defaulPrintConfig var ""
 

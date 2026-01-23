@@ -65,7 +65,7 @@ printAstVarId prefix cfg var =
     _ -> prefix ++ show n
 
 printAstVar :: forall s y. KnownSpan s
-            => PrintConfig -> AstVarName s y -> ShowS
+            => PrintConfig -> AstVarName '(s, y) -> ShowS
 printAstVar cfg var = case isTensorInt (Proxy @s) (varNameToFTK var) of
   Just Refl -> printAstIntVar cfg var
   _ -> let prefix = case lengthSTK (ftkToSTK $ varNameToFTK var) of

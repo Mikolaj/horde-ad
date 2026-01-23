@@ -834,7 +834,7 @@ astCond b v w = Ast.AstCond b v w
 -- Invariant: if the variable has bounds, the expression can only have
 -- values within the bounds (regardless of what the `bounds` call would say).
 astLet :: forall y z s s2. (KnownSpan s, KnownSpan s2)
-       => AstVarName s y -> AstTensor AstMethodLet s y
+       => AstVarName '(s, y) -> AstTensor AstMethodLet s y
        -> AstTensor AstMethodLet s2 z
        -> AstTensor AstMethodLet s2 z
 astLet _var _u v@Ast.AstConcreteK{} = v
@@ -4035,7 +4035,7 @@ unReplN _ _ = Nothing
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
 substituteAst :: forall s s2 y z. (KnownSpan s, KnownSpan s2)
-              => AstTensor AstMethodLet s2 z -> AstVarName s2 z
+              => AstTensor AstMethodLet s2 z -> AstVarName '(s2, z)
               -> AstTensor AstMethodLet s y
               -> AstTensor AstMethodLet s y
 substituteAst i var v1 =
@@ -4043,7 +4043,7 @@ substituteAst i var v1 =
 
 substituteAstIxS
   :: KnownSpan s
-  => AstTensor AstMethodLet s y -> AstVarName s y -> AstIxS AstMethodLet sh
+  => AstTensor AstMethodLet s y -> AstVarName '(s, y) -> AstIxS AstMethodLet sh
   -> AstIxS AstMethodLet sh
 substituteAstIxS i var ix =
   fromMaybe ix $ substitute1AstIxS i var ix
@@ -4054,7 +4054,7 @@ substituteAstIxS i var ix =
 -- Invariant: if the variable has bounds, the expression can only have
 -- values within the bounds (regardless of what the `bounds` call would say).
 substitute1Ast :: forall s s2 y z. (KnownSpan s, KnownSpan s2)
-               => AstTensor AstMethodLet s2 z -> AstVarName s2 z
+               => AstTensor AstMethodLet s2 z -> AstVarName '(s2, z)
                -> AstTensor AstMethodLet s y
                -> Maybe (AstTensor AstMethodLet s y)
 substitute1Ast i var = subst where
@@ -4314,7 +4314,7 @@ substitute1Ast i var = subst where
 
 substitute1AstIxS
   :: KnownSpan s2
-  => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstIxS AstMethodLet sh
+  => AstTensor AstMethodLet s2 y -> AstVarName '(s2, y) -> AstIxS AstMethodLet sh
   -> Maybe (AstIxS AstMethodLet sh)
 substitute1AstIxS i var ix =
   let mix = fmap (substitute1Ast i var) ix
@@ -4324,7 +4324,7 @@ substitute1AstIxS i var ix =
 
 substitute1AstHFun
   :: forall s s2 s3 x y z.
-     AstTensor AstMethodLet s3 z -> AstVarName s3 z -> AstHFun s s2 x y
+     AstTensor AstMethodLet s3 z -> AstVarName '(s3, z) -> AstHFun s s2 x y
   -> Maybe (AstHFun s s2 x y)
 substitute1AstHFun _i _var AstLambda{} =
   Nothing  -- no outside free variables

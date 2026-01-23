@@ -534,12 +534,12 @@ astIndexBuild snat@SNat ftk u i = case ftk of
 substProjRep
   :: forall k s s2 y2 y. (KnownSpan s, KnownSpan s2)
   => SNat k -> IntVarName
-  -> AstVarName s2 y2 -> AstTensor AstMethodLet s y
-  -> (AstVarName s2 (BuildTensorKind k y2), AstTensor AstMethodLet s y)
+  -> AstVarName '(s2, y2) -> AstTensor AstMethodLet s y
+  -> (AstVarName '(s2, BuildTensorKind k y2), AstTensor AstMethodLet s y)
 substProjRep snat@SNat var var1 v =
   let ftk1 = varNameToFTK var1
       ftk3 = buildFTK snat ftk1
-      var3 :: AstVarName s2 (BuildTensorKind k y2)
+      var3 :: AstVarName '(s2, BuildTensorKind k y2)
       var3 = mkAstVarName ftk3 (varNameToBounds var1) (varNameToAstVarId var1)
       astVar3 = astVar var3
       indexing = astIndexBuild snat ftk1 astVar3 (astVar var)

@@ -21,13 +21,14 @@
 -- (A copy of the text above is in "HordeAd.Core.Ops".)
 module HordeAd.Core.Ast
   ( -- * The AstSpan tags, singletons and operations
-    AstSpan(..), PrimalSpan, SAstSpan(..), KnownSpan(..)
+    AstSpan(..), PrimalSpan, SAstSpan(..), KnownSpan(..), withKnownSpan
   , primalPart, dualPart, plainPart, fromPrimal, fromDual, fromPlain
     -- * Variables and related types
   , AstVarId, intToAstVarId
   , AstInt, IntVarName, pattern AstIntVar, AstBool
-  , AstVarName, mkAstVarName, varNameToAstVarId, varNameToFTK, varNameToBounds
-  , astVar
+  , AstVarName
+  , mkAstVarName, varNameToAstVarId
+  , varNameToSpan, varNameToFTK, varNameToBounds, astVar
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIxS, AstVarListS, pattern AstLeqInt
     -- * AST
@@ -211,54 +212,60 @@ newtype AstVarId = AstVarId Int
 intToAstVarId :: Int -> AstVarId
 intToAstVarId = AstVarId
 
-type role AstVarName phantom nominal
-data AstVarName :: AstSpan -> TK -> Type where
-  AstVarName :: forall s y.
-                FullShapeTK y -> Int -> Int -> AstVarId
-             -> AstVarName s y
+type role AstVarName nominal
+data AstVarName :: (AstSpan, TK) -> Type where
+  AstVarName :: SAstSpan s -> FullShapeTK y -> Int -> Int -> AstVarId
+             -> AstVarName '(s, y)
 
-instance Eq (AstVarName s y) where
-  AstVarName _ _ _ varId1 == AstVarName _ _ _ varId2 = varId1 == varId2
+instance Eq (AstVarName '(s, y)) where
+  AstVarName _ _ _ _ varId1 == AstVarName _ _ _ _ varId2 = varId1 == varId2
 
-instance Show (AstVarName s y) where
-  showsPrec d (AstVarName _ _ _ varId) =
+instance Show (AstVarName '(s, y)) where
+  showsPrec d (AstVarName _ _ _ _ varId) =
     showsPrec d varId  -- less verbose, more readable
 
-instance DMap.Enum1 (AstVarName s) where
-  type Enum1Info (AstVarName s) = FtkAndBounds
-  fromEnum1 (AstVarName ftk minb maxb varId) =
-    (fromEnum varId, FtkAndBounds ftk minb maxb)
-  toEnum1 varIdInt (FtkAndBounds ftk minb maxb) =
-    AstVarName ftk minb maxb $ toEnum varIdInt
+instance TestEquality AstVarName where
+  testEquality (AstVarName span1 ftk1 _ _ _) (AstVarName span2 ftk2 _ _ _)
+    | Just Refl <- testEquality span1 span2
+    , Just Refl <- matchingFTK ftk1 ftk2 =
+      Just Refl
+  testEquality _ _ = Nothing
+
+instance DMap.Enum1 AstVarName where
+  type Enum1Info AstVarName = FtkAndBounds
+  fromEnum1 (AstVarName astSpan ftk minb maxb varId) =
+    (fromEnum varId, FtkAndBounds astSpan ftk minb maxb)
+  toEnum1 varIdInt (FtkAndBounds astSpan ftk minb maxb) =
+    AstVarName astSpan ftk minb maxb $ toEnum varIdInt
 
 type role FtkAndBounds nominal
-data FtkAndBounds y = FtkAndBounds (FullShapeTK y) Int Int
+data FtkAndBounds :: (AstSpan, TK) -> Type where
+  FtkAndBounds :: SAstSpan s -> FullShapeTK y -> Int -> Int
+               -> FtkAndBounds '(s, y)
 
-instance TestEquality (AstVarName s) where
-  testEquality (AstVarName ftk1 _ _ _) (AstVarName ftk2 _ _ _) =
-    matchingFTK ftk1 ftk2
+mkAstVarName :: forall s y. KnownSpan s
+             => FullShapeTK y -> Maybe (Int, Int) -> AstVarId
+             -> AstVarName '(s, y)
+mkAstVarName ftk Nothing = AstVarName knownSpan ftk (-1000000000) 1000000000
+mkAstVarName ftk (Just (minb, maxb)) = AstVarName knownSpan ftk minb maxb
 
-mkAstVarName :: forall s y.
-                FullShapeTK y -> Maybe (Int, Int) -> AstVarId
-             -> AstVarName s y
-mkAstVarName ftk Nothing = AstVarName ftk (-1000000000) 1000000000
-mkAstVarName ftk (Just (minb, maxb)) = AstVarName ftk minb maxb
+varNameToAstVarId :: AstVarName s_y -> AstVarId
+varNameToAstVarId (AstVarName _ _ _ _ varId) = varId
 
-varNameToAstVarId :: AstVarName s y -> AstVarId
-varNameToAstVarId (AstVarName _ _ _ varId) = varId
+varNameToSpan :: AstVarName '(s, y) -> SAstSpan s
+varNameToSpan (AstVarName astSpan _  _ _ _) = astSpan
 
-varNameToFTK :: AstVarName s y -> FullShapeTK y
-varNameToFTK (AstVarName ftk _ _ _) = ftk
+varNameToFTK :: AstVarName '(s, y) -> FullShapeTK y
+varNameToFTK (AstVarName _ ftk _ _ _) = ftk
 
-varNameToBounds :: AstVarName s y -> Maybe (Int, Int)
-varNameToBounds (AstVarName _ minb maxb _) =
+varNameToBounds :: AstVarName '(s, y) -> Maybe (Int, Int)
+varNameToBounds (AstVarName _ _ minb maxb _) =
   if minb == -1000000000 && maxb == 1000000000
   then Nothing
   else Just (minb, maxb)
 
-astVar :: KnownSpan s
-       => AstVarName s y -> AstTensor ms s y
-astVar (AstVarName (FTKScalar @r) lb ub _)
+astVar :: AstVarName '(s, y) -> AstTensor ms s y
+astVar (AstVarName SPlainSpan (FTKScalar @r) lb ub _)
   | lb == ub
   , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
     fromPlain $ AstConcreteK lb
@@ -267,8 +274,8 @@ astVar varName = AstVar varName
 -- | The reverse derivative artifact.
 type role AstArtifactRev nominal nominal
 data AstArtifactRev x z = AstArtifactRev
-  { artVarDtRev      :: AstVarName PrimalSpan (ADTensorKind z)
-  , artVarDomainRev  :: AstVarName PrimalSpan x
+  { artVarDtRev      :: AstVarName '(PrimalSpan, ADTensorKind z)
+  , artVarDomainRev  :: AstVarName '(PrimalSpan, x)
   , artDerivativeRev :: AstTensor AstMethodLet PrimalSpan (ADTensorKind x)
   , artPrimalRev     :: ~(AstTensor AstMethodLet PrimalSpan z)
       -- rarely used, so not forced
@@ -278,8 +285,8 @@ data AstArtifactRev x z = AstArtifactRev
 -- | The forward derivative artifact.
 type role AstArtifactFwd nominal nominal
 data AstArtifactFwd x z = AstArtifactFwd
-  { artVarDsFwd      :: AstVarName PrimalSpan (ADTensorKind x)
-  , artVarDomainFwd  :: AstVarName PrimalSpan x
+  { artVarDsFwd      :: AstVarName '(PrimalSpan, ADTensorKind x)
+  , artVarDomainFwd  :: AstVarName '(PrimalSpan, x)
   , artDerivativeFwd :: AstTensor AstMethodLet PrimalSpan (ADTensorKind z)
   , artPrimalFwd     :: ~(AstTensor AstMethodLet PrimalSpan z)
       -- rarely used, so not forced
@@ -291,7 +298,7 @@ data AstArtifactFwd x z = AstArtifactFwd
 type AstInt ms = AstTensor ms PlainSpan (TKScalar Int)
 -- ~ IntOf (AstTensor ms s)
 
-type IntVarName = AstVarName PlainSpan (TKScalar Int)
+type IntVarName = AstVarName '(PlainSpan, TKScalar Int)
 
 pattern AstIntVar :: IntVarName -> AstInt ms
 pattern AstIntVar var <- AstVar var
@@ -365,7 +372,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
     -> AstTensor ms s (TKProduct accy (BuildTensorKind k by))
   AstApply :: (KnownSpan s1, KnownSpan s)
            => AstHFun s1 s x z -> AstTensor ms s1 x -> AstTensor ms s z
-  AstVar :: AstVarName s y -> AstTensor ms s y
+  AstVar :: AstVarName '(s, y) -> AstTensor ms s y
   AstCond :: forall y ms s.
              AstBool ms -> AstTensor ms s y -> AstTensor ms s y
           -> AstTensor ms s y
@@ -376,10 +383,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
 
   -- Sharing-related operations, mutually exclusive via AstMethodOfSharing
   AstLet :: forall y z s s2. KnownSpan s
-         => AstVarName s y -> AstTensor AstMethodLet s y
+         => AstVarName '(s, y) -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s2 z
          -> AstTensor AstMethodLet s2 z
-  AstShare :: AstVarName s y -> AstTensor AstMethodShare s y
+  AstShare :: AstVarName '(s, y) -> AstTensor AstMethodShare s y
            -> AstTensor AstMethodShare s y
   AstToShare :: AstTensor AstMethodLet s y
              -> AstTensor AstMethodShare s y
@@ -564,7 +571,7 @@ deriving instance Show (AstTensor ms s y)
 
 type role AstHFun nominal nominal nominal nominal
 data AstHFun s s2 x z where
-  AstLambda :: ~(AstVarName s x)
+  AstLambda :: ~(AstVarName '(s, x))
             -> ~(AstTensor AstMethodLet s2 z)
             -> AstHFun s s2 x z
     -- ^ The function body can't have any free variables outside those

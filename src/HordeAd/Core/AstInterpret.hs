@@ -14,7 +14,6 @@ module HordeAd.Core.AstInterpret
 
 import Prelude
 
-import Data.Coerce (coerce)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
@@ -78,9 +77,7 @@ interpretAstPrimal !env v1 = case v1 of
         t2 = interpretAst env t
     in tprimalPart $ tapply f2 t2
   AstVar var ->
-    let var2 :: AstVarName FullSpan y
-        var2 = coerce var  -- only FullSpan variables permitted in env
-    in case DMap.lookup var2 env of
+    case DMap.lookup var env of
       Just (SpanTarget t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
         withKnownSTK (ftkToSTK $ varNameToFTK var) $
@@ -252,9 +249,7 @@ interpretAstPlain !env v1 = case v1 of
         t2 = interpretAst env t
     in tplainPart $ tapply f2 t2
   AstVar var ->
-    let var2 :: AstVarName FullSpan y
-        var2 = coerce var  -- only FullSpan variables permitted in env
-    in case DMap.lookup var2 env of
+    case DMap.lookup var env of
       Just (SpanTarget t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
         withKnownSTK (ftkToSTK $ varNameToFTK var) $
@@ -515,9 +510,7 @@ interpretAst !env = \case
         t2 = interpretAst env t
     in tapply f2 t2
   AstVar var ->
-    let var2 :: AstVarName FullSpan y
-        var2 = coerce var  -- only FullSpan variables permitted in env
-    in case DMap.lookup var2 env of
+    case DMap.lookup var env of
       Just (SpanTarget t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
         withKnownSTK (ftkToSTK $ varNameToFTK var) $

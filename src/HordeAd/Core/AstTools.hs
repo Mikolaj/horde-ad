@@ -248,10 +248,10 @@ varInAstHFun :: AstVarId -> AstHFun s s2 x y -> Bool
 varInAstHFun _var AstLambda{} =
   False  -- we take advantage of the term being closed
 
-varNameInAst :: AstVarName f y -> AstTensor ms s2 y2 -> Bool
+varNameInAst :: AstVarName '(s, y) -> AstTensor ms s2 y2 -> Bool
 varNameInAst var = varInAst (varNameToAstVarId var)
 
-varNameInIxS :: AstVarName f y -> AstIxS ms sh -> Bool
+varNameInIxS :: AstVarName '(s, y) -> AstIxS ms sh -> Bool
 varNameInIxS var = varInIxS (varNameToAstVarId var)
 
 
@@ -346,7 +346,7 @@ ixIsSmall = all (astIsSmall True)
 -- big non-constant values in indexes that prevent the loss of sharing occurring
 -- when differentiating indexing. gathers and scatters.
 astLetDown :: forall y z s s2. (KnownSpan s, KnownSpan s2)
-           => AstVarName s y -> AstTensor AstMethodLet s y
+           => AstVarName '(s, y) -> AstTensor AstMethodLet s y
            -> AstTensor AstMethodLet s2 z
            -> AstTensor AstMethodLet s2 z
 astLetDown var u v@(AstVar var2) =

@@ -18,6 +18,7 @@ import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
 import Data.EnumMap.Strict qualified as EM
 import Data.Foldable qualified as Foldable
+import Data.Kind (Type)
 import Data.List (sortOn)
 import Data.Some
 import Data.Vector.Generic qualified as V
@@ -30,7 +31,7 @@ import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstSimplify (substituteAst)
 import HordeAd.Core.AstTools
-import HordeAd.Core.Types (mapAccumL')
+import HordeAd.Core.Types (TK, mapAccumL')
 
 -- * The pass that inlines lets with the bottom-up strategy
 
@@ -267,63 +268,50 @@ inlineAstHFun !memo v0 = case v0 of
 
 -- * Translation of global sharing to normal lets
 
-type AstBindings =
-  ( DEnumMap (AstVarName PrimalSpan) (AstTensor AstMethodLet PrimalSpan)
-  , DEnumMap (AstVarName PlainSpan) (AstTensor AstMethodLet PlainSpan) )
+type AstBindings = DEnumMap AstVarName SpanTarget
 
-data DSumSpan =
-    DSumPrimalSpan
-      (DSum (AstVarName PrimalSpan) (AstTensor AstMethodLet PrimalSpan))
-  | DSumPlainSpan
-      (DSum (AstVarName PlainSpan) (AstTensor AstMethodLet PlainSpan))
+type role SpanTarget nominal
+data SpanTarget :: (AstSpan, TK) -> Type where
+  SpanTarget :: AstTensor AstMethodLet s y -> SpanTarget '(s, y)
 
 bindsToLet :: forall s y. KnownSpan s
            => AstTensor AstMethodLet s y -> AstBindings
            -> AstTensor AstMethodLet s y
-bindsToLet u0 (!bsPr, !bsPl) = foldl' bindToLet u0 l
+bindsToLet u0 !memo = foldl' bindToLet u0 l
  where
-  varFromDSum (DSumPrimalSpan (var :=> _)) = varNameToAstVarId var
-  varFromDSum (DSumPlainSpan (var :=> _)) = varNameToAstVarId var
-  l :: [DSumSpan]
-  l = reverse $ sortOn varFromDSum $ map DSumPrimalSpan (DMap.toList bsPr)
-                                     ++ map DSumPlainSpan (DMap.toList bsPl)
+  varFromDSum :: DSum AstVarName SpanTarget -> AstVarId
+  varFromDSum (var :=> _) = varNameToAstVarId var
+  l :: [DSum AstVarName SpanTarget]
+  l = reverse $ sortOn varFromDSum $ DMap.toList memo
   -- Lets are immediately pushed down before other rewrites block
   -- some opportunities.
   bindToLet :: AstTensor AstMethodLet s y
-            -> DSumSpan
+            -> DSum AstVarName SpanTarget
             -> AstTensor AstMethodLet s y
-  bindToLet !u (DSumPrimalSpan (var :=> w)) = astLetDown var w u
-  bindToLet u (DSumPlainSpan (var :=> w)) = astLetDown var w u
+  bindToLet !u (var :=> SpanTarget w) = withKnownSpan (varNameToSpan var)
+                                        $ astLetDown var w u
 
 -- | This replaces 'HordeAd.Core.Ast.AstShare' with 'HordeAd.Core.Ast.AstLet',
 -- traversing the term bottom-up.
 unshareAstTensor :: AstTensor AstMethodShare PrimalSpan y
                  -> AstTensor AstMethodLet PrimalSpan y
 unshareAstTensor tShare =
-  let (memoOut, tLet) = unshareAst (DMap.empty, DMap.empty) tShare
+  let (memoOut, tLet) = unshareAst DMap.empty tShare
   in bindsToLet tLet memoOut
 
 -- Splitting the variable list to make it more typed complicates
 -- and slows down the code, so let's keep it just [AstVarId].
 closeOccurs :: [AstVarId] -> AstBindings -> (AstBindings, AstBindings)
-closeOccurs vars (!bsPr, !bsPl) =
-  let varsOccur :: AstTensor AstMethodLet s2 y -> Bool
-      varsOccur t = any (`varInAst` t) vars
-      (bsPrLocal, bsPrGlobal) = DMap.partition varsOccur bsPr
-      (bsPlLocal, bsPlGlobal) = DMap.partition varsOccur bsPl
-      memoLocal = (bsPrLocal, bsPlLocal)
-      memoGlobal = (bsPrGlobal, bsPlGlobal)
-  in if DMap.null bsPrLocal && DMap.null bsPlLocal
+closeOccurs vars !memo =
+  let varsOccur :: SpanTarget s_y -> Bool
+      varsOccur (SpanTarget t) = any (`varInAst` t) vars
+      (memoLocal, memoGlobal) = DMap.partition varsOccur memo
+  in if DMap.null memoLocal
      then (memoLocal, memoGlobal)
      else let vars2 = map (\(Some var) -> varNameToAstVarId var)
-                          (DMap.keys bsPrLocal)
-                      ++ map (\(Some var) -> varNameToAstVarId var)
-                             (DMap.keys bsPlLocal)
-              ((bsPrLocal2, bsPlLocal2), memoGlobal2) =
-                closeOccurs vars2 memoGlobal
-          in ( ( DMap.union bsPrLocal bsPrLocal2
-               , DMap.union bsPlLocal bsPlLocal2 )
-             , memoGlobal2 )
+                          (DMap.keys memoLocal)
+              (memoLocal2, memoGlobal2) = closeOccurs vars2 memoGlobal
+          in (DMap.union memoLocal memoLocal2, memoGlobal2)
 
 -- This works only because the other code never inserts the same rshare
 -- into more than one index element, with the share containing
@@ -332,15 +320,12 @@ unshareAstScoped
   :: forall z s. KnownSpan s
   => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s z
   -> (AstBindings, AstTensor AstMethodLet s z)
-unshareAstScoped vars0 (!bsPr0, !bsPl0) v0 =
-  let ((bsPr1, bsPl1), v1) = unshareAst (bsPr0, bsPl0) v0
-      memoDiffPr = DMap.difference bsPr1 bsPr0
-      memoDiffPl = DMap.difference bsPl1 bsPl0
-      (memoLocal1, (bsPrGlobal1, bsPlGlobal1)) =
-        closeOccurs (map varNameToAstVarId vars0) (memoDiffPr, memoDiffPl)
-  in ( ( DMap.union bsPr0 bsPrGlobal1
-       , DMap.union bsPl0 bsPlGlobal1 )
-     , bindsToLet v1 memoLocal1 )
+unshareAstScoped vars0 !memo0 v0 =
+  let (memo1, v1) = unshareAst memo0 v0
+      memoDiff = DMap.difference memo1 memo0
+      (memoLocal1, memoGlobal1) =
+        closeOccurs (map varNameToAstVarId vars0) memoDiff
+  in (DMap.union memo0 memoGlobal1, bindsToLet v1 memoLocal1)
 
 -- So far, there are no lets in the resulting term,
 -- but we mark it as potentially containing lets, because in the future
@@ -349,7 +334,7 @@ unshareAst
   :: forall s y. KnownSpan s
   => AstBindings -> AstTensor AstMethodShare s y
   -> (AstBindings, AstTensor AstMethodLet s y)
-unshareAst !memo@(!_, !_) = \case
+unshareAst !memo = \case
   Ast.AstPair t1 t2 ->
     let (memo1, v1) = unshareAst memo t1
         (memo2, v2) = unshareAst memo1 t2
@@ -381,20 +366,12 @@ unshareAst !memo@(!_, !_) = \case
     in (memo1, Ast.AstBuild1 snat stk (var, v2))
 
   -- We assume v is the same if var is the same.
-  Ast.AstShare var a | SPrimalStepSpan SFullSpan <- knownSpan @s ->
+  Ast.AstShare var a ->
     let astVar0 = Ast.AstVar var
-    in if var `DMap.member` fst memo
+    in if var `DMap.member` memo
        then (memo, astVar0)
        else let (memo1, a2) = unshareAst memo a
-            in ((DMap.insert var a2 $ fst memo1, snd memo1), astVar0)
-  Ast.AstShare var a | SPlainSpan <- knownSpan @s ->
-    let astVar0 = Ast.AstVar var
-    in if var `DMap.member` snd memo
-       then (memo, astVar0)
-       else let (memo1, a2) = unshareAst memo a
-            in ((fst memo1, DMap.insert var a2 $ snd memo1), astVar0)
-  Ast.AstShare{} ->
-    error "unshareAst: AstShare not in PrimalSpan nor PlainSpan"
+            in (DMap.insert var (SpanTarget a2) memo1, astVar0)
   Ast.AstToShare v -> (memo, v)  -- nothing to unshare in this subtree
 
   Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ unshareAst memo a

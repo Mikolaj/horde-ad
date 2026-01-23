@@ -42,17 +42,18 @@ unsafeGetFreshAstVarId :: IO AstVarId
 unsafeGetFreshAstVarId =
   intToAstVarId <$> add unsafeAstVarCounter 1
 
-unsafeGetFreshAstVarName :: FullShapeTK y -> Maybe (Int, Int)
-                         -> IO (AstVarName s y)
+unsafeGetFreshAstVarName :: KnownSpan s
+                         => FullShapeTK y -> Maybe (Int, Int)
+                         -> IO (AstVarName '(s, y))
 {-# INLINE unsafeGetFreshAstVarName #-}
 unsafeGetFreshAstVarName ftk bounds =
   mkAstVarName ftk bounds
   . intToAstVarId <$> add unsafeAstVarCounter 1
 
-funToAstIOGeneric :: forall y z s s2 ms.
-                     FullShapeTK y -> Maybe (Int, Int)
-                  -> (AstVarName s y -> AstTensor ms s2 z)
-                  -> IO (AstVarName s y, AstTensor ms s2 z)
+funToAstIOGeneric :: forall y z s s2 ms. KnownSpan s
+                  => FullShapeTK y -> Maybe (Int, Int)
+                  -> (AstVarName '(s, y) -> AstTensor ms s2 z)
+                  -> IO (AstVarName '(s, y), AstTensor ms s2 z)
 {-# INLINE funToAstIOGeneric  #-}
 funToAstIOGeneric ftk bounds f = do
   !freshId <- unsafeGetFreshAstVarName ftk bounds
@@ -62,18 +63,19 @@ funToAstIOGeneric ftk bounds f = do
 funToAstIO :: forall y z s s2 ms. KnownSpan s
            => FullShapeTK y -> Maybe (Int, Int)
            -> (AstTensor ms s y -> AstTensor ms s2 z)
-           -> IO (AstVarName s y, AstTensor ms s2 z)
+           -> IO (AstVarName '(s, y), AstTensor ms s2 z)
 {-# INLINE funToAstIO #-}
 funToAstIO ftk bounds f = funToAstIOGeneric ftk bounds (f . astVar)
 
 funToAst :: KnownSpan s
          => FullShapeTK y -> Maybe (Int, Int)
          -> (AstTensor ms s y -> AstTensor ms s2 z)
-         -> (AstVarName s y, AstTensor ms s2 z)
+         -> (AstVarName '(s, y), AstTensor ms s2 z)
 {-# NOINLINE funToAst #-}
 funToAst ftk bounds = unsafePerformIO . funToAstIO ftk bounds
 
-fun1ToAst :: FullShapeTK y -> (AstVarName s y -> AstTensor ms s y)
+fun1ToAst :: KnownSpan s
+          => FullShapeTK y -> (AstVarName '(s, y) -> AstTensor ms s y)
           -> AstTensor ms s y
 {-# NOINLINE fun1ToAst #-}
 fun1ToAst ftk f = unsafePerformIO $ do
@@ -82,16 +84,16 @@ fun1ToAst ftk f = unsafePerformIO $ do
 
 funToAstRevIO :: forall x.
                  FullShapeTK x
-              -> IO ( AstVarName PrimalSpan x
+              -> IO ( AstVarName '(PrimalSpan, x)
                     , AstTensor AstMethodShare PrimalSpan x
-                    , AstVarName FullSpan x
+                    , AstVarName '(FullSpan, x)
                     , AstTensor AstMethodLet FullSpan x )
 {-# INLINE funToAstRevIO #-}
 funToAstRevIO ftk = do
   !freshId <- unsafeGetFreshAstVarId
-  let varPrimal :: AstVarName PrimalSpan x
+  let varPrimal :: AstVarName '(PrimalSpan, x)
       varPrimal = mkAstVarName ftk Nothing freshId
-      var :: AstVarName FullSpan x
+      var :: AstVarName '(FullSpan, x)
       var = mkAstVarName ftk Nothing freshId
       astVarPrimal :: AstTensor AstMethodShare PrimalSpan x
       !astVarPrimal = astVar varPrimal
@@ -101,21 +103,21 @@ funToAstRevIO ftk = do
 
 funToAstFwdIO :: forall x.
                  FullShapeTK x
-              -> IO ( AstVarName PrimalSpan (ADTensorKind x)
+              -> IO ( AstVarName '(PrimalSpan, ADTensorKind x)
                     , AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
-                    , AstVarName PrimalSpan x
+                    , AstVarName '(PrimalSpan, x)
                     , AstTensor AstMethodShare PrimalSpan x
-                    , AstVarName FullSpan x
+                    , AstVarName '(FullSpan, x)
                     , AstTensor AstMethodLet FullSpan x )
 {-# INLINE funToAstFwdIO #-}
 funToAstFwdIO ftk = do
   !freshIdDs <- unsafeGetFreshAstVarId
   !freshId <- unsafeGetFreshAstVarId
-  let varPrimalD :: AstVarName PrimalSpan (ADTensorKind x)
+  let varPrimalD :: AstVarName '(PrimalSpan, ADTensorKind x)
       varPrimalD = mkAstVarName (adFTK ftk) Nothing freshIdDs
-      varPrimal :: AstVarName PrimalSpan x
+      varPrimal :: AstVarName '(PrimalSpan, x)
       varPrimal = mkAstVarName ftk Nothing freshId
-      var :: AstVarName FullSpan x
+      var :: AstVarName '(FullSpan, x)
       var = mkAstVarName ftk Nothing freshId
       astVarPrimalD :: AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
       !astVarPrimalD = astVar varPrimalD

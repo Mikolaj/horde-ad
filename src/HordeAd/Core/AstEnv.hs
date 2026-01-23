@@ -6,7 +6,6 @@ module HordeAd.Core.AstEnv
 
 import Prelude
 
-import Data.Coerce (coerce)
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum
@@ -23,15 +22,11 @@ import HordeAd.Core.Types
 -- | The environment that keeps values assigned to variables
 -- during interpretation.
 type AstEnv :: Target -> Type
-type AstEnv target = DEnumMap (AstVarName FullSpan) (SpanTarget target)
-  -- We can't easily index over span and tensor kind at once,
-  -- so instead we represent PrimalSpan values as FullSpan
-  -- (dual number) values with zero dual component and DualSpan values
-  -- as FullSpan values with zero primal component.
+type AstEnv target = DEnumMap AstVarName (SpanTarget target)
 
 type role SpanTarget representational nominal
-data SpanTarget :: Target -> ({-AstSpan, -}TK) -> Type where
-  SpanTarget :: target y -> SpanTarget target {-'(s, -}y{-)-}
+data SpanTarget :: Target -> (AstSpan, TK) -> Type where
+  SpanTarget :: target y -> SpanTarget target '(s, y)
 
 emptyEnv :: AstEnv target
 emptyEnv = DMap.empty
@@ -49,14 +44,12 @@ showsPrecAstEnv d demap =
         (DMap.toList demap)
 
 extendEnv :: forall target s y.
-             AstVarName s y -> target y -> AstEnv target
+             AstVarName '(s, y) -> target y -> AstEnv target
           -> AstEnv target
 extendEnv !var !t !env =
-  let var2 :: AstVarName FullSpan y
-      var2 = coerce var  -- only FullSpan variables permitted in env; see above
-  in if DMap.member var2 env
-     then error $ "extendEnv: duplicate " ++ show var
-     else DMap.insert var2 (SpanTarget t) env
+  if DMap.member var env
+  then error $ "extendEnv: duplicate " ++ show var
+  else DMap.insert var (SpanTarget t) env
 
 extendEnvI :: BaseTensor target
            => IntVarName -> IntOf target -> AstEnv target

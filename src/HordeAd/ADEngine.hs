@@ -376,7 +376,7 @@ forwardPassByApplication
   :: forall x z.
      (ADVal (AstRaw PrimalSpan) x -> ADVal (AstRaw PrimalSpan) z)
   -> AstTensor AstMethodShare PrimalSpan x
-  -> AstVarName FullSpan x
+  -> AstVarName '(FullSpan, x)
   -> AstTensor AstMethodLet FullSpan x
   -> ADVal (AstRaw PrimalSpan) z
 {-# INLINE forwardPassByApplication #-}

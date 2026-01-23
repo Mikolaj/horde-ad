@@ -75,7 +75,7 @@ forwardPassByInterpretation
       -> AstTensor AstMethodLet FullSpan z)
   -> AstEnv (ADVal (AstRaw PrimalSpan))
   -> AstTensor AstMethodShare PrimalSpan x
-  -> AstVarName FullSpan x
+  -> AstVarName '(FullSpan, x)
   -> AstTensor AstMethodLet FullSpan x
   -> ADVal (AstRaw PrimalSpan) z
 {-# INLINE forwardPassByInterpretation #-}
@@ -90,7 +90,7 @@ revArtifactFromForwardPass
   :: forall x z. TKAllNum (ADTensorKind z)
   => IncomingCotangentHandling
   -> (AstTensor AstMethodShare PrimalSpan x
-      -> AstVarName FullSpan x
+      -> AstVarName '(FullSpan, x)
       -> AstTensor AstMethodLet FullSpan x
       -> ADVal (AstRaw PrimalSpan) z)
   -> FullShapeTK x
@@ -136,7 +136,7 @@ revProduceArtifact cotangentHandling g envInit xftk =
 revArtifactFromForwardPassDt
   :: forall x z.
      (AstTensor AstMethodShare PrimalSpan x
-      -> AstVarName FullSpan x
+      -> AstVarName '(FullSpan, x)
       -> AstTensor AstMethodLet FullSpan x
       -> ADVal (AstRaw PrimalSpan) z)
   -> FullShapeTK x
@@ -174,7 +174,7 @@ revProduceArtifactDt g envInit xftk =
 fwdArtifactFromForwardPass
   :: forall x z.
      (AstTensor AstMethodShare PrimalSpan x
-      -> AstVarName FullSpan x
+      -> AstVarName '(FullSpan, x)
       -> AstTensor AstMethodLet FullSpan x
       -> ADVal (AstRaw PrimalSpan) z)
   -> FullShapeTK x
