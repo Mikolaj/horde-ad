@@ -81,7 +81,7 @@ interpretAstPrimal !env v1 = case v1 of
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env
     in case DMap.lookup var2 env of
-      Just t ->
+      Just (SpanTarget t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
         withKnownSTK (ftkToSTK $ varNameToFTK var) $
         -- We can't assert anything about bounds, because values can be
@@ -255,7 +255,7 @@ interpretAstPlain !env v1 = case v1 of
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env
     in case DMap.lookup var2 env of
-      Just t ->
+      Just (SpanTarget t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
         withKnownSTK (ftkToSTK $ varNameToFTK var) $
         -- We can't assert anything about bounds, because values can be
@@ -518,7 +518,7 @@ interpretAst !env = \case
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env
     in case DMap.lookup var2 env of
-      Just t ->
+      Just (SpanTarget t) ->
 #ifdef WITH_EXPENSIVE_ASSERTIONS
         withKnownSTK (ftkToSTK $ varNameToFTK var) $
         -- We can't assert anything about bounds, because values can be
