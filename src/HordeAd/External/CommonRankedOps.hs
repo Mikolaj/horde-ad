@@ -278,7 +278,9 @@ maxPool2dUnpadded
   => Int -> Int -> target (TKR 4 r) -> target (TKR 4 r)
 maxPool2dUnpadded ksize stride arr =
   let [batch_size, channels, h, w] = rshape arr
+      shOutR :: IShR 4
       shOutR = [batch_size, channels, h `div` stride, w `div` stride]
+      shK1 :: IShR 4
       shK1 = [1, 1, ksize, ksize]
   in
     withShsFromShR shOutR $ \(sh :: ShS shOut) ->
