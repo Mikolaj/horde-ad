@@ -8,7 +8,8 @@
 -- The sharing mechanisms are translated so as to preserve sharing in case
 -- the instance is a term algebra as well.
 module HordeAd.Core.AstInterpret
-  ( interpretAstFull, interpretAstPrimal, interpretAstDual, interpretAst
+  ( interpretAstFull, interpretAstPrimal, interpretAstDual, interpretAstPlain
+  , interpretAst
   ) where
 
 import Prelude
@@ -72,7 +73,10 @@ interpretAstPrimal !env v1 = case v1 of
         es2 = interpretAstPrimal env es
     in tmapAccumLDer (Proxy @(PrimalOf target))
                      k (ftkAst acc0) bftk eftk f df rf acc02 es2
-  AstApply{} -> tprimalPart (interpretAst env v1)  -- TODO
+  AstApply f t ->
+    let f2 = interpretAstHFun env f
+        t2 = interpretAst env t
+    in tprimalPart $ tapply f2 t2
   AstVar var ->
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env
@@ -243,7 +247,10 @@ interpretAstPlain !env v1 = case v1 of
         es2 = interpretAstPlain env es
     in tmapAccumLDer (Proxy @(PlainOf target))
                      k (ftkAst acc0) bftk eftk f df rf acc02 es2
-  AstApply{} -> tplainPart (interpretAst env v1)  -- TODO
+  AstApply f t ->
+    let f2 = interpretAstHFun env f
+        t2 = interpretAst env t
+    in tplainPart $ tapply f2 t2
   AstVar var ->
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env
@@ -392,7 +399,6 @@ interpretAstPlain !env v1 = case v1 of
   AstSum0S v -> case ftkAst v of
     FTKS sh _ ->
       withKnownShS sh $
-      withKnownSTK (stkAstX v) $
       tssum0 (interpretAstPlain env v)
   AstDot0S u v -> case ftkAst u of
     FTKS sh _ ->
@@ -449,19 +455,22 @@ interpretAstDual !env v1 =
   tdualPart (ftkToSTK $ ftkAst v1) (interpretAst env v1)
 
 -- A more precise type signature would result in @PrimalOf target@
--- whenever @s@ is @PrimalSpan@, but this would complicate things,
+-- whenever @s@ is @PrimalSpan@, etc., but this would complicate things,
 -- e.g., we'd need an extra type family
 --
--- type family SpanTarget s target :: Target where
---   SpanTarget (PrimalStepSpan s2) target = PrimalOf (SpanTarget s2 target)
---   SpanTarget DualSpan target = DualOf target
---   SpanTarget FullSpan target = target
---   SpanTarget PlainSpan target = PlainOf target
+-- type family target SpanTarget (s, y) :: Target where
+--   SpanTarget target '(PrimalStepSpan s2, y) target =
+--     PrimalOf '(SpanTarget target '(s2, y))
+--   SpanTarget target '(DualSpan, y) = DualOf target y
+--   SpanTarget target '(FullSpan, y) = target y
+--   SpanTarget target '(PlainSpan, y) = PlainOf target y
 --
--- to be used in AstEnv and the codomain of interpretAst and a lot of other
--- code would need to be changed. Alternatively, we could use a GADT indexed
--- by the spans and maybe put values of this GADT in environment,
--- but this would still be complex and likely affecting performance.
+-- to be used in AstEnv, we'd have @AstVarName '(s, y)@ and we'd need to
+-- store a singleton for @s@ in AstEnv keys. Alternatively, we could use
+-- a GADT indexed by the spans and put values of this GADT in environment,
+-- but this would still be complex and affecting performance even more.
+-- With the type family, we would have to use it partially applied in AstEnv,
+-- which is unsupported, so as a workaround we'd be using a datatype anyway.
 -- Instead we promote results to @target@ similarly as in AstEnv
 -- and simiarly as we omit @PrimalOf@ in the signatures of most "Ops" methods.
 --
@@ -501,10 +510,10 @@ interpretAst !env = \case
         acc02 = interpretAst env acc0
         es2 = interpretAst env es
     in tmapAccumLDer (Proxy @target) k (ftkAst acc0) bftk eftk f df rf acc02 es2
-  AstApply t ll ->
-    let t2 = interpretAstHFun env t
-        ll2 = interpretAst env ll
-    in tapply t2 ll2
+  AstApply f t ->
+    let f2 = interpretAstHFun env f
+        t2 = interpretAst env t
+    in tapply f2 t2
   AstVar var ->
     let var2 :: AstVarName FullSpan y
         var2 = coerce var  -- only FullSpan variables permitted in env
@@ -596,10 +605,10 @@ interpretAst !env = \case
     let u2 = interpretAst env u
         v2 = interpretAst env v
     in interpretAstI2 opCode u2 v2
-  AstConcreteK k -> tkconcrete @target k
+  AstConcreteK k -> tkconcrete k
     -- this is equal to the following
     -- (and similarly for tsconcretet and tsiota below):
-    -- tfromPrimal @target STKScalar $ tkconcrete @(PrimalOf target) k
+    -- tfromPrimal STKScalar $ tkconcrete @(PrimalOf target) k
   AstFloorK v ->
     -- By the invariant v has zero dual part, so the following suffices:
     tkfloor $ interpretAst env v
