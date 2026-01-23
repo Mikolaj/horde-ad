@@ -56,7 +56,7 @@ import HordeAd.Core.Types
 -- If no @AstBuild1@ terms occur in @v@, the resulting term won't
 -- have any, either.
 build1Vectorize
-  :: forall y k s. AstSpan s
+  :: forall y k s. KnownSpan s
   => SNat k -> SingletonTK y -> (IntVarName, AstTensor AstMethodLet s y)
   -> IO (AstTensor AstMethodLet s (BuildTensorKind k y))
 {-# INLINE build1Vectorize #-}
@@ -91,7 +91,7 @@ build1Vectorize snat@SNat stk (!var, !v0) = do
 -- term @AstBuild1 k (var, v)@, where it's unknown whether
 -- @var@ occurs in @v@.
 build1VOccurrenceUnknown
-  :: forall y k s. AstSpan s
+  :: forall y k s. KnownSpan s
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 build1VOccurrenceUnknown snat@SNat (!var, !v0)
@@ -111,7 +111,7 @@ build1VOccurrenceUnknown snat@SNat (!var, !v0)
 -- and break our invariants that we need for simplified handling of bindings
 -- when rewriting terms.
 build1VOccurrenceUnknownRefresh
-  :: forall y k s. AstSpan s
+  :: forall y k s. KnownSpan s
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE build1VOccurrenceUnknownRefresh #-}
@@ -125,7 +125,7 @@ build1VOccurrenceUnknownRefresh snat@SNat (var, v0) =
 -- @AstBuild1 k (var, v)@, where it's known that- @var@ occurs in @v@,
 -- see above for what it means precisely.
 build1V
-  :: forall y k s. AstSpan s
+  :: forall y k s. KnownSpan s
   => SNat k -> (IntVarName, AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
@@ -380,7 +380,7 @@ intBindingRefreshS (var, ix) =
 -- eventually proven unnecessary. The rule changes the index to a gather
 -- and pushes the build down the gather, getting the vectorization unstuck.
 build1VIndexS
-  :: forall k shm shn x s. AstSpan s
+  :: forall k shm shn x s. KnownSpan s
   => SNat k -> ShS shn
   -> ( IntVarName  -- bounds (0, k - 1)
      , AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
@@ -436,7 +436,7 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
             astGatherS shn v0 (var ::$ ZS, ix)
 
 build1VHFun
-  :: forall k x z s s2. (AstSpan s, AstSpan s2)
+  :: forall k x z s s2. (KnownSpan s, KnownSpan s2)
   => SNat k -> (IntVarName, AstHFun s s2 x z)
   -> AstHFun s s2 (BuildTensorKind k x) (BuildTensorKind k z)
 build1VHFun snat@SNat (var, v0) = case v0 of
@@ -452,7 +452,7 @@ build1VHFun snat@SNat (var, v0) = case v0 of
 
 -- * Auxiliary operations
 
-astTr :: forall n s r. AstSpan s
+astTr :: forall n s r. KnownSpan s
       => AstTensor AstMethodLet s (TKR2 (2 + n) r)
       -> AstTensor AstMethodLet s (TKR2 (2 + n) r)
 astTr a = case Permutation.makePerm @'[1, 0] of
@@ -464,14 +464,14 @@ astTr a = case Permutation.makePerm @'[1, 0] of
         . astTransposeS perm . astSFromR' sh $ a
     _ -> error "astTr: impossible shape"
 
-astTrS :: forall n m sh s r. AstSpan s
+astTrS :: forall n m sh s r. KnownSpan s
        => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r)
        -> AstTensor AstMethodLet s (TKS2 (m ': n ': sh) r)
 astTrS a | FTKS (_ :$$ _ :$$ sh) _ <- ftkAst a
          , SNat <- shsRank sh =  -- why on Earth is this needed?
   astTransposeS (Permutation.makePerm @'[1, 0]) a
 
-astTrX :: forall n m shx s r. AstSpan s
+astTrX :: forall n m shx s r. KnownSpan s
        => AstTensor AstMethodLet s (TKX2 (Just n ': Just m ': shx) r)
        -> AstTensor AstMethodLet s (TKX2 (Just m ': Just n ': shx) r)
 astTrX a = case Permutation.makePerm @'[1, 0] of
@@ -483,7 +483,7 @@ astTrX a = case Permutation.makePerm @'[1, 0] of
         . astTransposeS perm . astSFromX' sh $ a
 
 astTrBuild
-  :: forall k1 k2 s y. AstSpan s
+  :: forall k1 k2 s y. KnownSpan s
   => SNat k1 -> SNat k2 -> SingletonTK y
   -> AstTensor AstMethodLet s (BuildTensorKind k1 (BuildTensorKind k2 y))
   -> AstTensor AstMethodLet s (BuildTensorKind k2 (BuildTensorKind k1 y))
@@ -498,7 +498,7 @@ astTrBuild SNat SNat stk t = case stk of
       in astPair (astTrBuild (SNat @k1) (SNat @k2) stk1 u1)
                  (astTrBuild (SNat @k1) (SNat @k2) stk2 u2)
 
-astIndexBuild :: forall y k s. AstSpan s
+astIndexBuild :: forall y k s. KnownSpan s
               => SNat k -> FullShapeTK y
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
               -> AstInt AstMethodLet
@@ -532,7 +532,7 @@ astIndexBuild snat@SNat ftk u i = case ftk of
     $ astIndexS ZSS (nestTargetK snat ftk u) (i :.$ ZIS) -}
 
 substProjRep
-  :: forall k s s2 y2 y. (AstSpan s, AstSpan s2)
+  :: forall k s s2 y2 y. (KnownSpan s, KnownSpan s2)
   => SNat k -> IntVarName
   -> AstVarName s2 y2 -> AstTensor AstMethodLet s y
   -> (AstVarName s2 (BuildTensorKind k y2), AstTensor AstMethodLet s y)
@@ -579,7 +579,7 @@ ellipsisString width full = let cropped = take width full
 -- @to@ is evaluated (or diverges).
 -- TODO: switch away from IORefs to ensure correct blocking and then
 -- really display the first part of the message before @to@ diverges.
-mkTraceRule :: forall y z s. AstSpan s
+mkTraceRule :: forall y z s. KnownSpan s
             => String
             -> AstTensor AstMethodLet s y
             -> FullShapeTK y

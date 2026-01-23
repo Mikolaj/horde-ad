@@ -213,7 +213,7 @@ fwdProduceArtifact f envInit xftk =
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
 astBuild1Vectorize
-  :: AstSpan s
+  :: KnownSpan s
   => SNat k -> SingletonTK y
   -> (AstInt AstMethodLet -> AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
@@ -223,7 +223,7 @@ astBuild1Vectorize k stk f = unsafePerformIO $ do
           $ \ (!var, !i) -> let !x = f i in (var, x)
   build1Vectorize k stk varx
 
-instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
+instance KnownSpan s => LetTensor (AstTensor AstMethodLet s) where
   ttlet = astLetFun
   ttletPrimal = astLetFun
   ttletPlain = astLetFun
@@ -231,8 +231,8 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   tunshare =
-    case sameAstSpan @s @PrimalSpan of
-      Just Refl -> unshareAstTensor . unAstRaw
+    case knownSpan @s of
+      SPrimalStepSpan SFullSpan -> unshareAstTensor . unAstRaw
       _ -> error "tunshare: used not at PrimalSpan"
 
 -- | The checks and error messages in these functions result in complete
@@ -241,7 +241,7 @@ instance AstSpan s => LetTensor (AstTensor AstMethodLet s) where
 --
 -- Them methods are listed in ranked, shaped, mixed order to keep
 -- similar code transformations together.
-instance AstSpan s => BaseTensor (AstTensor AstMethodLet s) where
+instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Ranked ops
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
@@ -734,7 +734,7 @@ fmapUnAstRaw :: Coercible (f (AstRaw s y)) (f (AstTensor AstMethodShare s y))
              => f (AstRaw s y) -> f (AstTensor AstMethodShare s y)
 fmapUnAstRaw = coerce
 
-instance AstSpan s => LetTensor (AstRaw s) where
+instance KnownSpan s => LetTensor (AstRaw s) where
   ttlet u f =
     let !var2 = tshare u
     in f var2
@@ -747,7 +747,7 @@ instance AstSpan s => LetTensor (AstRaw s) where
   toShare = id
   tunshare = id
 
-instance AstSpan s => ShareTensor (AstRaw s) where
+instance KnownSpan s => ShareTensor (AstRaw s) where
   -- For convenience and simplicity we define this for all spans,
   -- but it can only ever be used for PrimalSpan.
   tshare t = AstRaw $ astShareNoSimplify $ unAstRaw t
@@ -755,7 +755,7 @@ instance AstSpan s => ShareTensor (AstRaw s) where
   tunpair t = let tShared = tshare t
               in (tproject1 tShared, tproject2 tShared)
 
-instance AstSpan s => BaseTensor (AstRaw s) where
+instance KnownSpan s => BaseTensor (AstRaw s) where
   -- Ranked ops
   rshape t = case ftkAst $ unAstRaw t of
     FTKR sh _ -> sh
@@ -1179,7 +1179,7 @@ instance AstSpan s => BaseTensor (AstRaw s) where
   tsum0Target = sum0Target
   tdot0Target = dot0Target
 
-instance AstSpan s => ConvertTensor (AstRaw s) where
+instance KnownSpan s => ConvertTensor (AstRaw s) where
   tconvert c _astk = AstRaw . cAstConvert c . unAstRaw
 
   rfromX a = case ftkAst $ unAstRaw a of
@@ -1304,7 +1304,7 @@ fmapUnAstNoVectorize
   => f (AstNoVectorize s y) -> f (AstTensor AstMethodLet s y)
 fmapUnAstNoVectorize = coerce
 
-instance AstSpan s => LetTensor (AstNoVectorize s) where
+instance KnownSpan s => LetTensor (AstNoVectorize s) where
   ttlet u f = AstNoVectorize
               $ ttlet (unAstNoVectorize u)
                       (unAstNoVectorize . f . AstNoVectorize)
@@ -1316,7 +1316,7 @@ instance AstSpan s => LetTensor (AstNoVectorize s) where
                                 (unAstNoVectorize . f . AstNoVectorize)
   toShare t = toShare $ unAstNoVectorize t
 
-instance AstSpan s => BaseTensor (AstNoVectorize s) where
+instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   -- Ranked ops
   rshape = rshape . unAstNoVectorize
   trsum = AstNoVectorize . trsum . unAstNoVectorize
@@ -1478,7 +1478,7 @@ instance AstSpan s => BaseTensor (AstNoVectorize s) where
   tdot0Target stk a b = AstNoVectorize $ tdot0Target stk (unAstNoVectorize a)
                                                          (unAstNoVectorize b)
 
-instance AstSpan s => ConvertTensor (AstNoVectorize s) where
+instance KnownSpan s => ConvertTensor (AstNoVectorize s) where
   tconvert c _astk = AstNoVectorize . astConvert c . unAstNoVectorize
 
   rfromX = AstNoVectorize . rfromX . unAstNoVectorize
@@ -1509,7 +1509,7 @@ instance AstSpan s => ConvertTensor (AstNoVectorize s) where
 
 -- * AstNoSimplify instances
 
-instance AstSpan s => LetTensor (AstNoSimplify s) where
+instance KnownSpan s => LetTensor (AstNoSimplify s) where
   ttlet u f = AstNoSimplify
               $ astLetFunNoSimplify (unAstNoSimplify u)
                                     (unAstNoSimplify . f . AstNoSimplify)
@@ -1543,7 +1543,7 @@ fmapwUnAstNoSimplify
   :: f (AstNoSimplify s y) -> f (AstRaw s y)
 fmapwUnAstNoSimplify = unsafeCoerce
 
-instance AstSpan s => BaseTensor (AstNoSimplify s) where
+instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   -- The implementation of these methods differs from the AstRaw instance:
   tkbuild1 @k f =
     AstNoSimplify
@@ -1736,7 +1736,7 @@ instance AstSpan s => BaseTensor (AstNoSimplify s) where
   tdot0Target stk a b = wAstNoSimplify $ tdot0Target stk (wunAstNoSimplify a)
                                                          (wunAstNoSimplify b)
 
-instance AstSpan s => ConvertTensor (AstNoSimplify s) where
+instance KnownSpan s => ConvertTensor (AstNoSimplify s) where
   tconvert c astk = wAstNoSimplify . tconvert c astk . wunAstNoSimplify
 
   rfromX = wAstNoSimplify . rfromX . wunAstNoSimplify

@@ -20,7 +20,6 @@ import Data.EnumMap.Strict qualified as EM
 import Data.Foldable qualified as Foldable
 import Data.List (sortOn)
 import Data.Some
-import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 
 import Data.Array.Nested.Shaped.Shape
@@ -40,14 +39,14 @@ type AstMemo = EM.EnumMap AstVarId Int
 -- | This inlines occurences of 'HordeAd.Core.Ast.AstLet', traversing
 -- the term bottom-up.
 inlineAstTensor
-  :: forall s y. AstSpan s
+  :: forall s y. KnownSpan s
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 inlineAstTensor = snd . inlineAst EM.empty
 
 -- | This inlines occurences of 'HordeAd.Core.Ast.AstLet', traversing
 -- the term bottom-up.
 inlineAst
-  :: forall s y. AstSpan s
+  :: forall s y. KnownSpan s
   => AstMemo -> AstTensor AstMethodLet s y
   -> (AstMemo, AstTensor AstMethodLet s y)
 inlineAst !memo v0 = case v0 of
@@ -257,7 +256,7 @@ inlineAst !memo v0 = case v0 of
     in (memo2, Ast.AstLeqA shb sh r1 r2)
 
 inlineAstHFun
-  :: AstSpan s2
+  :: KnownSpan s2
   => AstMemo -> AstHFun s s2 x y -> (AstMemo, AstHFun s s2 x y)
 inlineAstHFun !memo v0 = case v0 of
   Ast.AstLambda var l ->
@@ -278,7 +277,7 @@ data DSumSpan =
   | DSumPlainSpan
       (DSum (AstVarName PlainSpan) (AstTensor AstMethodLet PlainSpan))
 
-bindsToLet :: forall s y. AstSpan s
+bindsToLet :: forall s y. KnownSpan s
            => AstTensor AstMethodLet s y -> AstBindings
            -> AstTensor AstMethodLet s y
 bindsToLet u0 (!bsPr, !bsPl) = foldl' bindToLet u0 l
@@ -330,7 +329,7 @@ closeOccurs vars (!bsPr, !bsPl) =
 -- into more than one index element, with the share containing
 -- the gather/scatter/build variables corresponding to the index.
 unshareAstScoped
-  :: forall z s. AstSpan s
+  :: forall z s. KnownSpan s
   => [IntVarName] -> AstBindings -> AstTensor AstMethodShare s z
   -> (AstBindings, AstTensor AstMethodLet s z)
 unshareAstScoped vars0 (!bsPr0, !bsPl0) v0 =
@@ -347,7 +346,7 @@ unshareAstScoped vars0 (!bsPr0, !bsPl0) v0 =
 -- but we mark it as potentially containing lets, because in the future
 -- we may optimize this by inserting some lets not at the top-level.
 unshareAst
-  :: forall s y. AstSpan s
+  :: forall s y. KnownSpan s
   => AstBindings -> AstTensor AstMethodShare s y
   -> (AstBindings, AstTensor AstMethodLet s y)
 unshareAst !memo@(!_, !_) = \case
@@ -382,13 +381,13 @@ unshareAst !memo@(!_, !_) = \case
     in (memo1, Ast.AstBuild1 snat stk (var, v2))
 
   -- We assume v is the same if var is the same.
-  Ast.AstShare var a | Just Refl <- sameAstSpan @s @PrimalSpan ->
+  Ast.AstShare var a | SPrimalStepSpan SFullSpan <- knownSpan @s ->
     let astVar0 = Ast.AstVar var
     in if var `DMap.member` fst memo
        then (memo, astVar0)
        else let (memo1, a2) = unshareAst memo a
             in ((DMap.insert var a2 $ fst memo1, snd memo1), astVar0)
-  Ast.AstShare var a | Just Refl <- sameAstSpan @s @PlainSpan ->
+  Ast.AstShare var a | SPlainSpan <- knownSpan @s ->
     let astVar0 = Ast.AstVar var
     in if var `DMap.member` snd memo
        then (memo, astVar0)

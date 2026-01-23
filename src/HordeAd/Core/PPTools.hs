@@ -64,7 +64,7 @@ printAstVarId prefix cfg var =
     Just name | name /= "" -> name
     _ -> prefix ++ show n
 
-printAstVar :: forall s y. AstSpan s
+printAstVar :: forall s y. KnownSpan s
             => PrintConfig -> AstVarName s y -> ShowS
 printAstVar cfg var = case isTensorInt (Proxy @s) (varNameToFTK var) of
   Just Refl -> printAstIntVar cfg var
@@ -84,7 +84,7 @@ printAstIntVar cfg var = printAstVarId "i" cfg (varNameToAstVarId var)
 -- * Pretty-printing of AST terms
 
 -- Precedences used are as in Haskell.
-printAst :: forall s y ms. AstSpan s
+printAst :: forall s y ms. KnownSpan s
          => PrintConfig -> Int -> AstTensor ms s y -> ShowS
 printAst cfg d = \case
   AstPair t1 t2 ->
@@ -251,11 +251,9 @@ printAst cfg d = \case
                   [name . showString " = " . uPP | (name, uPP) <- pairs])
               . showString " in "
               . core
-    else let keyword = case ( sameAstSpan @s1 @PrimalSpan
-                            , sameAstSpan @s1 @PlainSpan
-                            , sameAstSpan @s @FullSpan ) of
-               (Just Refl, _, Just Refl) -> "tletPrimal "
-               (_, Just Refl, Just Refl) -> "tletPlain "
+    else let keyword = case (knownSpan @s1, knownSpan @s1, knownSpan @s) of
+               (SPrimalStepSpan SFullSpan, _, SFullSpan) -> "tletPrimal "
+               (_, SPlainSpan, SFullSpan) -> "tletPlain "
                _ -> "tlet "
          in showParen (d > 10)
             $ showString keyword
@@ -552,7 +550,7 @@ showCollectionWith start sep end showx (x:xs) s = start ++ showx x (showl xs)
   showl []     = end ++ s
   showl (y:ys) = sep ++ showx y (showl ys)
 
-printAstHFun :: (AstSpan s, AstSpan s2)
+printAstHFun :: (KnownSpan s, KnownSpan s2)
              => PrintConfig -> Int -> AstHFun s s2 x y -> ShowS
 printAstHFun cfg d = \case
   AstLambda !var !l ->
@@ -570,7 +568,7 @@ printAstHFun cfg d = \case
            . showString " -> "
            . printAst cfg 0 l
 
-printAstHFunOneUnignore :: (AstSpan s, AstSpan s2)
+printAstHFunOneUnignore :: (KnownSpan s, KnownSpan s2)
                         => PrintConfig -> Int -> AstHFun s s2 x y -> ShowS
 printAstHFunOneUnignore cfg d = \case
   AstLambda !var !l ->

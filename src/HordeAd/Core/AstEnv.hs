@@ -30,7 +30,7 @@ type AstEnv target = DEnumMap (AstVarName FullSpan) (SpanTarget target)
   -- as FullSpan values with zero primal component.
 
 type role SpanTarget representational nominal
-data SpanTarget :: Target -> ({-AstSpanType, -}TK) -> Type where
+data SpanTarget :: Target -> ({-AstSpan, -}TK) -> Type where
   SpanTarget :: target y -> SpanTarget target {-'(s, -}y{-)-}
 
 emptyEnv :: AstEnv target

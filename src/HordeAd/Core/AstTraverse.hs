@@ -60,7 +60,7 @@ expandAstIxS = fmap expandAst
 -- fusion rules that would be immediately counteracted by expansion rules
 -- if applied earlier.
 expandAst
-  :: forall s y. AstSpan s
+  :: forall s y. KnownSpan s
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 expandAst t = case t of
   Ast.AstPair t1 t2 -> astPair (expandAst t1) (expandAst t2)
@@ -237,7 +237,7 @@ expandAst t = case t of
   Ast.AstLeqA shb sh arg1 arg2 ->
     fromPlain $ Ast.AstLeqA shb sh (expandAst arg1) (expandAst arg2)
 
-expandAstHFun :: AstSpan s2
+expandAstHFun :: KnownSpan s2
               => AstHFun s s2 x y -> AstHFun s s2 x y
 expandAstHFun (AstLambda var l) = AstLambda var (expandAst l)
 
@@ -252,7 +252,7 @@ simplifyAstIxS = fmap simplifyAst
 -- is visited and each combinator applied. The most exhaustive and costly
 -- variants of each combinator are used, e.g., astIndexR.
 simplifyAst
-  :: forall s y. AstSpan s
+  :: forall s y. KnownSpan s
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 simplifyAst t = case t of
   Ast.AstPair t1 t2 -> astPair (simplifyAst t1) (simplifyAst t2)
@@ -386,7 +386,7 @@ simplifyAst t = case t of
   Ast.AstLeqA shb sh arg1 arg2 ->
     fromPlain $ Ast.AstLeqA shb sh (simplifyAst arg1) (simplifyAst arg2)
 
-simplifyAstHFun :: AstSpan s2
+simplifyAstHFun :: KnownSpan s2
                 => AstHFun s s2 x y -> AstHFun s s2 x y
 simplifyAstHFun (AstLambda var l) = AstLambda var (simplifyAst l)
 
@@ -406,7 +406,7 @@ contractAstIxS = fmap contractAst
 -- is not written in a compositional style nor close to it,
 -- but it's instead defined in an ad-hoc way based on benchmarks.
 contractAst
-  :: forall s y. AstSpan s
+  :: forall s y. KnownSpan s
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 contractAst t0 = case t0 of
   Ast.AstPair t1 t2 -> astPair (contractAst t1) (contractAst t2)
@@ -842,13 +842,13 @@ contractAst t0 = case t0 of
   Ast.AstLeqA shb sh arg1 arg2 ->
     fromPlain $ Ast.AstLeqA shb sh (contractAst arg1) (contractAst arg2)
 
-contractAstHFun :: AstSpan s2
+contractAstHFun :: KnownSpan s2
                 => AstHFun s s2 x y -> AstHFun s s2 x y
 contractAstHFun (AstLambda var l) = AstLambda var (contractAst l)
 
 attemptMatmul2
   :: forall m n p r s.
-     (KnownNat m, KnownNat n, KnownNat p, GoodScalar r, AstSpan s)
+     (KnownNat m, KnownNat n, KnownNat p, GoodScalar r, KnownSpan s)
   => AstTensor AstMethodLet s (TKS '[m, n] r)
   -> AstTensor AstMethodLet s (TKS '[n, p] r)
   -> Maybe (AstTensor AstMethodLet s (TKS '[m, p] r))
@@ -874,7 +874,7 @@ letDownAstIxS :: AstIxS AstMethodLet sh -> AstIxS AstMethodLet sh
 letDownAstIxS = fmap letDownAst
 
 letDownAst
-  :: forall s y. AstSpan s
+  :: forall s y. KnownSpan s
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
 letDownAst t = case t of
   Ast.AstPair t1 t2 -> Ast.AstPair (letDownAst t1) (letDownAst t2)
@@ -966,6 +966,6 @@ letDownAst t = case t of
   Ast.AstLeqA shb sh arg1 arg2 ->
     Ast.AstLeqA shb sh (letDownAst arg1) (letDownAst arg2)
 
-letDownAstHFun :: AstSpan s2
+letDownAstHFun :: KnownSpan s2
                => AstHFun s s2 x y -> AstHFun s s2 x y
 letDownAstHFun (AstLambda var l) = AstLambda var (letDownAst l)

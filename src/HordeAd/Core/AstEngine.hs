@@ -35,7 +35,7 @@ simplifyArtifactFwd art =
 -- A typical example is user code to be differentiated afterwards.
 {-# INLINE simplifyUserCode #-}
 simplifyUserCode
-  :: forall z s. AstSpan s
+  :: forall z s. KnownSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyUserCode =
   simplifyAst . expandAst . inlineAstTensor
@@ -49,7 +49,7 @@ simplifyUserCode =
 -- is interpreted as a value in the computational backend.
 {-# INLINE simplifyInlineContract #-}
 simplifyInlineContract
-  :: forall z s. AstSpan s
+  :: forall z s. KnownSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContract =
   letDownAst . contractAst . expandAst . inlineAstTensor

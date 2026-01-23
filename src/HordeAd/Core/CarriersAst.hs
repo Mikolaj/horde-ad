@@ -90,12 +90,13 @@ instance Ord (AstTensor ms s y) where
 -- The normal form has AstConcreteK or AstFromPlain (AstConcreteK),
 -- if any, as the first argument of the constructor.
 -- No flattening is performed beyond that.
-instance (NumScalar r, AstSpan s)
+instance (NumScalar r, KnownSpan s)
          => Num (AstTensor ms s (TKScalar r)) where
   AstPrimalPart u + AstPrimalPart v = primalPart $ u + v
   AstDualPart u + AstDualPart v = dualPart $ u + v
   AstPlainPart @_ @s1 u + AstPlainPart @_ @s2 v
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart $ u + v
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart $ u + v
   AstFromPrimal u + AstFromPrimal v = fromPrimal $ u + v
   AstFromDual u + AstFromDual v = fromDual $ u + v
   AstFromPlain u + AstFromPlain v = fromPlain $ u + v
@@ -194,7 +195,8 @@ instance (NumScalar r, AstSpan s)
 
   AstPrimalPart u * AstPrimalPart v = primalPart $ u * v
   AstPlainPart @_ @s1 u * AstPlainPart @_ @s2 v
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart $ u * v
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart $ u * v
   AstFromPrimal u * AstFromPrimal v = fromPrimal $ u * v
   AstFromDual{} * AstFromDual{} = 0
   AstFromPlain u * AstFromPlain v = fromPlain $ u * v
@@ -322,7 +324,7 @@ instance (NumScalar r, AstSpan s)
   {-# SPECIALIZE instance Num (AstTensor ms FullSpan (TKScalar Int)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms PrimalSpan (TKScalar Int)) #-}
   {-# SPECIALIZE instance Num (AstTensor ms PlainSpan (TKScalar Int)) #-}
-  {-# SPECIALIZE instance AstSpan s => Num (AstTensor ms s (TKScalar Int)) #-}
+  {-# SPECIALIZE instance KnownSpan s => Num (AstTensor ms s (TKScalar Int)) #-}
 
 -- An approximation. False doesn't imply terms have different semantics,
 -- but True implies they have equal semantics.
@@ -331,12 +333,12 @@ eqK (AstVar var1) (AstVar var2) = var1 == var2
 eqK (AstLet @_ @_ @s1 var1 u1 v1) (AstLet @_ @_ @s2 var2 u2 v2)
   | FTKScalar @r1 <- ftkAst u1, FTKScalar @r2 <- ftkAst u2
   , Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- sameAstSpan @s1 @s2 =
+  , Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
     var1 == var2 && eqK u1 u2 && eqK v1 v2
 eqK (AstPrimalPart u1) (AstPrimalPart u2) = eqK u1 u2
 eqK (AstDualPart u1) (AstDualPart u2) = eqK u1 u2
 eqK (AstPlainPart @_ @s1 u1) (AstPlainPart @_ @s2 u2)
-  | Just Refl <- sameAstSpan @s1 @s2 =
+  | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
     eqK u1 u2
 eqK (AstFromPrimal u1) (AstFromPrimal u2) = eqK u1 u2
 eqK (AstFromDual u1) (AstFromDual u2) = eqK u1 u2
@@ -362,11 +364,12 @@ eqK _ _ = False
 
 -- Div and mod operations are very costly (simplifying them requires
 -- constructing conditionals, etc), so they are not included in IntegralH.
-instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
+instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
          => IntegralH (AstTensor ms s (TKScalar r)) where
   quotH (AstPrimalPart n) (AstPrimalPart k) = primalPart (quotH n k)
   quotH (AstPlainPart @_ @s1 n) (AstPlainPart @_ @s2 k)
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart (quotH n k)
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart (quotH n k)
   quotH (AstFromPrimal n) (AstFromPrimal k) = fromPrimal (quotH n k)
   quotH (AstFromPlain n) (AstFromPlain k) = fromPlain (quotH n k)
   quotH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (quotH n k)
@@ -386,7 +389,8 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
 
   remH (AstPrimalPart n) (AstPrimalPart k) = primalPart (remH n k)
   remH (AstPlainPart @_ @s1 n) (AstPlainPart @_ @s2 k)
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart (remH n k)
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart (remH n k)
   remH (AstFromPrimal n) (AstFromPrimal k) = fromPrimal (remH n k)
   remH (AstFromPlain n) (AstFromPlain k) = fromPlain (remH n k)
   remH (AstConcreteK n) (AstConcreteK k) = AstConcreteK (remH n k)
@@ -407,13 +411,14 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
   {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms PlainSpan (TKScalar Int)) #-}
-  {-# SPECIALIZE instance AstSpan s => IntegralH (AstTensor ms s (TKScalar Int)) #-}
+  {-# SPECIALIZE instance KnownSpan s => IntegralH (AstTensor ms s (TKScalar Int)) #-}
 
-instance (NumScalar r, Differentiable r, AstSpan s)
+instance (NumScalar r, Differentiable r, KnownSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
   AstPrimalPart u / AstPrimalPart v = primalPart $ u / v
   AstPlainPart @_ @s1 u / AstPlainPart @_ @s2 v
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart $ u / v
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart $ u / v
   AstFromPrimal u / AstFromPrimal v = fromPrimal $ u / v
   AstFromPlain u / AstFromPlain v = fromPlain $ u / v
   AstConcreteK u / AstConcreteK v = AstConcreteK $ u / v
@@ -427,7 +432,7 @@ instance (NumScalar r, Differentiable r, AstSpan s)
   {-# INLINE fromRational #-}
   fromRational r = fromPlain $ AstConcreteK (fromRational r)
 
-instance (NumScalar r, Differentiable r, AstSpan s)
+instance (NumScalar r, Differentiable r, KnownSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
   pi = error "pi is not defined for tensors"
   exp (AstPrimalPart u) = primalPart $ exp u
@@ -450,14 +455,16 @@ instance (NumScalar r, Differentiable r, AstSpan s)
   sqrt u = AstR1K SqrtOp u
   (AstPrimalPart u) ** (AstPrimalPart v) = primalPart $ u ** v
   (AstPlainPart @_ @s1 u) ** (AstPlainPart @_ @s2 v)
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart $ u ** v
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart $ u ** v
   (AstFromPrimal u) ** (AstFromPrimal v) = fromPrimal $ u ** v
   (AstFromPlain u) ** (AstFromPlain v) = fromPlain $ u ** v
   (AstConcreteK u) ** (AstConcreteK v) = AstConcreteK $ u ** v
   u ** v = AstR2K PowerOp u v
   logBase (AstPrimalPart u) (AstPrimalPart v) = primalPart $ logBase u v
   logBase (AstPlainPart @_ @s1 u) (AstPlainPart @_ @s2 v)
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart $ logBase u v
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart $ logBase u v
   logBase (AstFromPrimal u) (AstFromPrimal v) = fromPrimal $ logBase u v
   logBase (AstFromPlain u) (AstFromPlain v) = fromPlain $ logBase u v
   logBase (AstConcreteK u) (AstConcreteK v) = AstConcreteK $ logBase u v
@@ -535,11 +542,12 @@ instance (NumScalar r, Differentiable r, AstSpan s)
   atanh (AstConcreteK u) = AstConcreteK $ atanh u
   atanh u = AstR1K AtanhOp u
 
-instance (NumScalar r, Differentiable r, AstSpan s)
+instance (NumScalar r, Differentiable r, KnownSpan s)
          => RealFloatH (AstTensor ms s (TKScalar r)) where
   atan2H (AstPrimalPart u) (AstPrimalPart v) = primalPart $ atan2H u v
   atan2H (AstPlainPart @_ @s1 u) (AstPlainPart @_ @s2 v)
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart $ atan2H u v
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart $ atan2H u v
   atan2H (AstFromPrimal u) (AstFromPrimal v) = fromPrimal $ atan2H u v
   atan2H (AstFromPlain u) (AstFromPlain v) = fromPlain $ atan2H u v
   atan2H (AstConcreteK u) (AstConcreteK v) = AstConcreteK $ atan2H u v
@@ -548,7 +556,7 @@ instance (NumScalar r, Differentiable r, AstSpan s)
 
 -- * Unlawful numeric instances for ranked AST; lawful modulo evaluation
 
-instance (NumScalar r, AstSpan s)
+instance (NumScalar r, KnownSpan s)
          => Num (AstTensor ms s (TKR n r)) where
   (+) = liftRFromS2 (+)
   (-) = liftRFromS2 (-)
@@ -559,19 +567,19 @@ instance (NumScalar r, AstSpan s)
   fromInteger i = error $ "fromInteger is not defined for ranked tensors: "
                           ++ show i
 
-instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
+instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
          => IntegralH (AstTensor ms s (TKR n r)) where
   quotH = liftRFromS2 quotH
   remH = liftRFromS2 remH
 
-instance (NumScalar r, Differentiable r, AstSpan s)
+instance (NumScalar r, Differentiable r, KnownSpan s)
          => Fractional (AstTensor ms s (TKR n r)) where
   (/) = liftRFromS2 (/)
   recip = liftRFromS1 recip
   fromRational r = error $ "fromRational is not defined for ranked tensors: "
                            ++ show r
 
-instance (NumScalar r, Differentiable r, AstSpan s)
+instance (NumScalar r, Differentiable r, KnownSpan s)
          => Floating (AstTensor ms s (TKR n r)) where
   pi = error "pi is not defined for tensors"
   exp = liftRFromS1 exp
@@ -592,21 +600,22 @@ instance (NumScalar r, Differentiable r, AstSpan s)
   acosh = liftRFromS1 acosh
   atanh = liftRFromS1 atanh
 
-instance (NumScalar r, Differentiable r, AstSpan s)
+instance (NumScalar r, Differentiable r, KnownSpan s)
          => RealFloatH (AstTensor ms s (TKR n r)) where
   atan2H = liftRFromS2 atan2H
 
 
 -- * Unlawful numeric instances for shaped AST; lawful modulo evaluation
 
-instance (NumScalar r, AstSpan s)
+instance (NumScalar r, KnownSpan s)
          => Num (AstTensor ms s (TKS sh r)) where
   AstReplicate snat stk@STKS{} u + AstReplicate _ STKS{} v =
     AstReplicate snat stk $ u + v
   AstPrimalPart u + AstPrimalPart v = primalPart $ u + v
   AstDualPart u + AstDualPart v = dualPart $ u + v
   AstPlainPart @_ @s1 u + AstPlainPart @_ @s2 v
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart $ u + v
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart $ u + v
   AstFromPrimal u + AstFromPrimal v = fromPrimal $ u + v
   AstFromDual u + AstFromDual v = fromDual $ u + v
   AstFromPlain u + AstFromPlain v = fromPlain $ u + v
@@ -657,7 +666,8 @@ instance (NumScalar r, AstSpan s)
     AstReplicate snat stk $ u * v
   AstPrimalPart u * AstPrimalPart v = primalPart $ u * v
   AstPlainPart @_ @s1 u * AstPlainPart @_ @s2 v
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart $ u * v
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart $ u * v
   AstFromPrimal u * AstFromPrimal v = fromPrimal $ u * v
 --  AstFromDual{} * AstFromDual{} = 0
   AstFromPlain u * AstFromPlain v = fromPlain $ u * v
@@ -772,13 +782,14 @@ instance (NumScalar r, AstSpan s)
   fromInteger i = error $ "fromInteger is not defined for shaped tensors: "
                           ++ show i
 
-instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
+instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
          => IntegralH (AstTensor ms s (TKS sh r)) where
   quotH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
     AstReplicate snat stk $ quotH u v
   quotH (AstPrimalPart n) (AstPrimalPart k) = primalPart (quotH n k)
   quotH (AstPlainPart @_ @s1 n) (AstPlainPart @_ @s2 k)
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart (quotH n k)
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart (quotH n k)
   quotH (AstFromPrimal n) (AstFromPrimal k) = fromPrimal (quotH n k)
   quotH (AstFromPlain n) (AstFromPlain k) = fromPlain (quotH n k)
   quotH w@(AstConvert _ n) (AstConvert _ k)
@@ -800,7 +811,8 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
     AstReplicate snat stk $ remH u v
   remH (AstPrimalPart n) (AstPrimalPart k) = primalPart (remH n k)
   remH (AstPlainPart @_ @s1 n) (AstPlainPart @_ @s2 k)
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart (remH n k)
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart (remH n k)
   remH (AstFromPrimal n) (AstFromPrimal k) = fromPrimal (remH n k)
   remH (AstFromPlain n) (AstFromPlain k) = fromPlain (remH n k)
   remH w@(AstConvert _ n) (AstConvert _ k)
@@ -817,11 +829,12 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
 --  remH _ (AstConcreteS s) | Just 1 <- sunReplicatePrim s = AstConcreteS 0
   remH u v = AstI2S RemOp u v
 
-instance (NumScalar r, Differentiable r, AstSpan s)
+instance (NumScalar r, Differentiable r, KnownSpan s)
          => Fractional (AstTensor ms s (TKS sh r)) where
   AstPrimalPart u / AstPrimalPart v = primalPart $ u / v
   AstPlainPart @_ @s1 u / AstPlainPart @_ @s2 v
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart $ u / v
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart $ u / v
   AstFromPrimal u / AstFromPrimal v = fromPrimal $ u / v
   AstFromPlain u / AstFromPlain v = fromPlain $ u / v
   AstConcreteS u / AstConcreteS v = AstConcreteS $ u / v
@@ -835,7 +848,7 @@ instance (NumScalar r, Differentiable r, AstSpan s)
   fromRational r = error $ "fromRational is not defined for shaped tensors: "
                            ++ show r
 
-instance (NumScalar r, Differentiable r, AstSpan s)
+instance (NumScalar r, Differentiable r, KnownSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
   pi = error "pi is not defined for tensors"
   exp (AstPrimalPart u) = primalPart $ exp u
@@ -858,14 +871,16 @@ instance (NumScalar r, Differentiable r, AstSpan s)
   sqrt u = AstR1S SqrtOp u
   (AstPrimalPart u) ** (AstPrimalPart v) = primalPart $ u ** v
   (AstPlainPart @_ @s1 u) ** (AstPlainPart @_ @s2 v)
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart $ u ** v
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart $ u ** v
   (AstFromPrimal u) ** (AstFromPrimal v) = fromPrimal $ u ** v
   (AstFromPlain u) ** (AstFromPlain v) = fromPlain $ u ** v
   (AstConcreteS u) ** (AstConcreteS v) = AstConcreteS $ u ** v
   u ** v = AstR2S PowerOp u v
   logBase (AstPrimalPart u) (AstPrimalPart v) = primalPart $ logBase u v
   logBase (AstPlainPart @_ @s1 u) (AstPlainPart @_ @s2 v)
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart $ logBase u v
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart $ logBase u v
   logBase (AstFromPrimal u) (AstFromPrimal v) = fromPrimal $ logBase u v
   logBase (AstFromPlain u) (AstFromPlain v) = fromPlain $ logBase u v
   logBase (AstConcreteS u) (AstConcreteS v) = AstConcreteS $ logBase u v
@@ -943,11 +958,12 @@ instance (NumScalar r, Differentiable r, AstSpan s)
   atanh (AstConcreteS u) = AstConcreteS $ atanh u
   atanh u = AstR1S AtanhOp u
 
-instance (NumScalar r, Differentiable r, AstSpan s)
+instance (NumScalar r, Differentiable r, KnownSpan s)
          => RealFloatH (AstTensor ms s (TKS sh r)) where
   atan2H (AstPrimalPart u) (AstPrimalPart v) = primalPart $ atan2H u v
   atan2H (AstPlainPart @_ @s1 u) (AstPlainPart @_ @s2 v)
-    | Just Refl <- sameAstSpan @s1 @s2 = plainPart $ atan2H u v
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+      plainPart $ atan2H u v
   atan2H (AstFromPrimal u) (AstFromPrimal v) = fromPrimal $ atan2H u v
   atan2H (AstFromPlain u) (AstFromPlain v) = fromPlain $ atan2H u v
   atan2H (AstConcreteS u) (AstConcreteS v) = AstConcreteS $ atan2H u v
@@ -956,7 +972,7 @@ instance (NumScalar r, Differentiable r, AstSpan s)
 
 -- * Unlawful numeric instances for mixed AST; lawful modulo evaluation
 
-instance (NumScalar r, AstSpan s)
+instance (NumScalar r, KnownSpan s)
          => Num (AstTensor ms s (TKX sh r)) where
   (+) = liftXFromS2 (+)
   (-) = liftXFromS2 (-)
@@ -967,19 +983,19 @@ instance (NumScalar r, AstSpan s)
   fromInteger i = error $ "fromInteger is not defined for mixed tensors: "
                           ++ show i
 
-instance (NumScalar r, IntegralH r, Nested.IntElt r, AstSpan s)
+instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
          => IntegralH (AstTensor ms s (TKX sh r)) where
   quotH = liftXFromS2 quotH
   remH = liftXFromS2 remH
 
-instance (NumScalar r, Differentiable r, AstSpan s)
+instance (NumScalar r, Differentiable r, KnownSpan s)
          => Fractional (AstTensor ms s (TKX sh r)) where
   (/) = liftXFromS2 (/)
   recip = liftXFromS1 recip
   fromRational r = error $ "fromRational is not defined for mixed tensors: "
                            ++ show r
 
-instance (NumScalar r, Differentiable r, AstSpan s)
+instance (NumScalar r, Differentiable r, KnownSpan s)
          => Floating (AstTensor ms s (TKX sh r)) where
   pi = error "pi is not defined for tensors"
   exp = liftXFromS1 exp
@@ -1000,7 +1016,7 @@ instance (NumScalar r, Differentiable r, AstSpan s)
   acosh = liftXFromS1 acosh
   atanh = liftXFromS1 atanh
 
-instance (NumScalar r, Differentiable r, AstSpan s)
+instance (NumScalar r, Differentiable r, KnownSpan s)
          => RealFloatH (AstTensor ms s (TKX sh r)) where
   atan2H = liftXFromS2 atan2H
 
@@ -1103,7 +1119,7 @@ instance Boolean (AstBool ms) where
   b ||* c = notB (notB b &&* notB c)
 
 -- TODO: refactor with something like liftRFromS2
-instance (AstSpan s, NumScalar r)
+instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKR n r) where
   v ==. u = case ftkAst v of
     FTKR shv' _ -> case ftkAst u of
@@ -1115,7 +1131,7 @@ instance (AstSpan s, NumScalar r)
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, NumScalar r)
+instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKR n r) where
   v ==. u = case ftkAst v of
     FTKR shv' _ -> case ftkAst u of
@@ -1127,7 +1143,7 @@ instance (AstSpan s, NumScalar r)
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, NumScalar r)
+instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKX sh r) where
   v ==. u = case ftkAst v of
     FTKX shv' _ -> case ftkAst u of
@@ -1139,7 +1155,7 @@ instance (AstSpan s, NumScalar r)
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, NumScalar r)
+instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKX sh r) where
   v ==. u = case ftkAst v of
     FTKX shv' _ -> case ftkAst u of
@@ -1151,7 +1167,7 @@ instance (AstSpan s, NumScalar r)
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKR n r) where
+instance (KnownSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKR n r) where
   v <=. u = case ftkAst v of
     FTKR shv' _ -> case ftkAst u of
       FTKR shu' _ ->
@@ -1162,7 +1178,7 @@ instance (AstSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKR n r) where
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
-instance (AstSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
+instance (KnownSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
   v <=. u = case ftkAst v of
     FTKX shv' _ -> case ftkAst u of
       FTKX shu' _ ->
@@ -1180,16 +1196,16 @@ instance (AstSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
 -- Otherwise, if u and v are variables, the sharing would vanish
 -- before vectoriation complicates the expression a bit, making it
 -- worth sharing.
-instance (AstSpan s, NumScalar r)
+instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKScalar r) where
   vUnshared ==. uUnshared = astLetFunNoSimplify (uUnshared - vUnshared) $ \uv ->
     0 <=. uv &&* uv <=. 0
   {-# SPECIALIZE instance EqH (AstTensor AstMethodLet FullSpan) (TKScalar Int) #-}
   {-# SPECIALIZE instance EqH (AstTensor AstMethodLet PrimalSpan) (TKScalar Int) #-}
   {-# SPECIALIZE instance EqH (AstTensor AstMethodLet PlainSpan) (TKScalar Int) #-}
-  {-# SPECIALIZE instance AstSpan s => EqH (AstTensor AstMethodLet s) (TKScalar Int) #-}
+  {-# SPECIALIZE instance KnownSpan s => EqH (AstTensor AstMethodLet s) (TKScalar Int) #-}
 
-instance (AstSpan s, NumScalar r)
+instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKScalar r) where
   vUnshared ==. uUnshared =
     let uv = astShareNoSimplify (uUnshared - vUnshared)
@@ -1197,15 +1213,15 @@ instance (AstSpan s, NumScalar r)
   {-# SPECIALIZE instance EqH (AstTensor AstMethodShare FullSpan) (TKScalar Int) #-}
   {-# SPECIALIZE instance EqH (AstTensor AstMethodShare PrimalSpan) (TKScalar Int) #-}
   {-# SPECIALIZE instance EqH (AstTensor AstMethodShare PlainSpan) (TKScalar Int) #-}
-  {-# SPECIALIZE instance AstSpan s => EqH (AstTensor AstMethodShare s) (TKScalar Int) #-}
+  {-# SPECIALIZE instance KnownSpan s => EqH (AstTensor AstMethodShare s) (TKScalar Int) #-}
 
-instance (AstSpan s, NumScalar r)
+instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKS sh r) where
   vUnshared ==. uUnshared = astLetFunNoSimplify (uUnshared - vUnshared) $ \uv ->
     let zero = fromPlain $ AstConcreteS $ defTargetRep $ ftkAst vUnshared
     in zero <=. uv &&* uv <=. zero
 
-instance (AstSpan s, NumScalar r)
+instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKS sh r) where
   vUnshared ==. uUnshared =
     let uv = astShareNoSimplify (uUnshared - vUnshared)
@@ -1214,14 +1230,14 @@ instance (AstSpan s, NumScalar r)
 
 -- These are common in indexing, so worth optimizing early via AstConcrete.
 -- We keep AstConcrete on the left, as with AstPlusK and others.
-instance (AstSpan s, NumScalar r)
+instance (KnownSpan s, NumScalar r)
          => OrdH (AstTensor ms s) (TKScalar r) where
   u <=. v | let (u1, u2) = bounds u
                 (v1, v2) = bounds v
           , u2 <= v1 || u1 > v2 = AstConcreteK (u2 <= v1)
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
   AstPlainPart @_ @s1 u <=. AstPlainPart @_ @s2 v
-    | Just Refl <- sameAstSpan @s1 @s2 =
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
       u <=. v
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
   AstFromDual{} <=. AstFromDual{} = true
@@ -1273,13 +1289,13 @@ instance (AstSpan s, NumScalar r)
   {-# SPECIALIZE instance OrdH (AstTensor ms FullSpan) (TKScalar Int) #-}
   {-# SPECIALIZE instance OrdH (AstTensor ms PrimalSpan) (TKScalar Int) #-}
   {-# SPECIALIZE instance OrdH (AstTensor ms PlainSpan) (TKScalar Int) #-}
-  {-# SPECIALIZE instance AstSpan s => OrdH (AstTensor ms s) (TKScalar Int) #-}
+  {-# SPECIALIZE instance KnownSpan s => OrdH (AstTensor ms s) (TKScalar Int) #-}
 
-instance (AstSpan s, NumScalar r)
+instance (KnownSpan s, NumScalar r)
          => OrdH (AstTensor ms s) (TKS sh r) where
   AstPrimalPart u <=. AstPrimalPart v = u <=. v
   AstPlainPart @_ @s1 u <=. AstPlainPart @_ @s2 v
-    | Just Refl <- sameAstSpan @s1 @s2 =
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
       u <=. v
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
   AstFromDual{} <=. AstFromDual{} = true
@@ -1447,7 +1463,7 @@ deriving instance (RealFloatH (AstTensor AstMethodLet s y))
 
 -- * Misc
 
-astShareNoSimplify :: AstSpan s
+astShareNoSimplify :: KnownSpan s
                    => AstTensor AstMethodShare s y
                    -> AstTensor AstMethodShare s y
 astShareNoSimplify a | astIsSmall True a = a
@@ -1476,7 +1492,7 @@ astShareNoSimplify a = case a of
 -- INLINE here would bloat the binary a lot, probably negating any
 -- gains from directly calling the function. Also, this is not a bottleneck.
 astLetFunNoSimplify
-  :: forall y z s s2. AstSpan s
+  :: forall y z s s2. KnownSpan s
   => AstTensor AstMethodLet s y
   -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
   -> AstTensor AstMethodLet s2 z
@@ -1538,7 +1554,7 @@ sunReplicateN shm a@(Nested.Shaped arr)
     Just $ Nested.sindexPartial a $ ixsZero shm
 sunReplicateN _ _ = Nothing
 
-unReplC :: AstSpan s
+unReplC :: KnownSpan s
         => AstTensor ms s (TKS sh r) -> Maybe r
 unReplC (AstReplicate _ _ (AstConcreteS a)) = sunReplicatePrim a
 unReplC (AstReplicate _ _ (AstConcreteK a)) = Just a

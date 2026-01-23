@@ -135,7 +135,7 @@ deVect knobs = knobs
 -- and nesting with reshape and gather they don't fuse, which is when
 -- this function is invoked.
 astTransposeAsGatherS
-  :: forall perm sh s r. AstSpan s
+  :: forall perm sh s r. KnownSpan s
   => SimplifyKnobs -> Permutation.Perm perm
   -> AstTensor AstMethodLet s (TKS2 sh r)
   -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
@@ -201,7 +201,7 @@ astTransposeAsGatherS knobs perm v =
 -- In fact, to simplify the terms we'd need advanced solving of equations
 -- in integer arithmetic modulo.
 astReshapeAsGatherS
-  :: forall sh sh2 x s. AstSpan s
+  :: forall sh sh2 x s. KnownSpan s
   => SimplifyKnobs -> ShS sh2 -> AstTensor AstMethodLet s (TKS2 sh x)
   -> AstTensor AstMethodLet s (TKS2 sh2 x)
 {-# NOINLINE astReshapeAsGatherS #-}
@@ -251,7 +251,7 @@ fromLinearIdxS = \sh lin -> case go sh lin of (# _, ix #) -> ix
 
 -- * The simplifying combinators, one for almost each AST constructor
 
-astPair :: AstSpan s
+astPair :: KnownSpan s
         => AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s (TKProduct x y)
 astPair (Ast.AstProject1 (Ast.AstVar var))
@@ -268,7 +268,7 @@ astPair (Ast.AstProject1 (Ast.AstDualPart (Ast.AstVar var)))
     Ast.AstDualPart (Ast.AstVar var)
 astPair (Ast.AstProject1 (Ast.AstPlainPart (Ast.AstVar @s1 var)))
         (Ast.AstProject2 (Ast.AstPlainPart (Ast.AstVar @s2 var')))
-  | Just Refl <- sameAstSpan @s1 @s2
+  | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2)
   , Just Refl <- testEquality var var', var == var' =
     Ast.AstPlainPart (Ast.AstVar var)
 astPair (Ast.AstProject1 (Ast.AstProject1 (Ast.AstVar var)))
@@ -297,7 +297,7 @@ astPair v1 (Ast.AstConvert c2 v2)
 astPair v1 v2 = Ast.AstPair v1 v2
 
 astProject1
-  :: forall x z s. AstSpan s
+  :: forall x z s. KnownSpan s
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s x
 astProject1 u = case u of
   Ast.AstPair x _z -> x
@@ -345,7 +345,7 @@ astProject1 u = case u of
   _ -> Ast.AstProject1 u
 
 astProject2
-  :: forall x z s. AstSpan s
+  :: forall x z s. KnownSpan s
   => AstTensor AstMethodLet s (TKProduct x z) -> AstTensor AstMethodLet s z
 astProject2 u = case u of
   Ast.AstPair _x z -> z
@@ -366,7 +366,7 @@ astProject2 u = case u of
   Ast.AstConvert (ConvT2 _c1 c2) t -> astConvert c2 $ astProject2 t
   _ -> Ast.AstProject2 u
 
-astFromVector :: forall y k s. AstSpan s
+astFromVector :: forall y k s. KnownSpan s
               => SNat k -> SingletonTK y
               -> Data.Vector.Vector (AstTensor AstMethodLet s y)
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
@@ -376,8 +376,8 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   -- of concrete arrays, but allocating an extra array of the same size
   -- as the fromVector is not a big deal and early rules are better
   -- then the same rules in contraction phase.
-  (case (sameAstSpan @s @PlainSpan, stk) of
-     (Just Refl, STKScalar) ->
+  (case (knownSpan @s, stk) of
+     (SPlainSpan, STKScalar) ->
        let unConc :: AstTensor AstMethodLet PlainSpan y
                   -> Maybe (Concrete y)
            unConc (AstConcreteK a) = Just $ Concrete a
@@ -388,8 +388,8 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
-  (case (sameAstSpan @s @PlainSpan, stk) of
-     (Just Refl, STKS _ STKScalar) ->
+  (case (knownSpan @s, stk) of
+     (SPlainSpan, STKS _ STKScalar) ->
        let unConc :: AstTensor AstMethodLet PlainSpan y
                   -> Maybe (Concrete y)
            unConc (AstConcreteS a) = Just $ Concrete a
@@ -409,8 +409,8 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
      Just l2 -> Just $ fromPrimal $ astFromVector snat stk l2
      Nothing -> Nothing)
   `mplus`
-  (case sameAstSpan @s @FullSpan of
-     Just Refl ->
+  (case knownSpan @s of
+     SFullSpan ->
        let unFromDual :: AstTensor AstMethodLet FullSpan y
                       -> Maybe (AstTensor AstMethodLet DualSpan y)
            unFromDual (Ast.AstFromDual t) = Just t
@@ -430,7 +430,7 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
      Just l2 -> Just $ fromPlain $ astFromVector snat stk l2
      Nothing -> Nothing)
   `mplus`
-  (let unFrom :: AstSpan s2
+  (let unFrom :: KnownSpan s2
               => FullShapeTK x
               -> AstTensor AstMethodLet s2 y
               -> Maybe (AstTensor AstMethodLet s2 x)
@@ -478,7 +478,7 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
      Just{} -> Nothing
      Nothing -> error "astFromVector: empty vector")
   `mplus`
-  (let unFrom :: AstSpan s2
+  (let unFrom :: KnownSpan s2
               => AstTensor AstMethodLet s2 (TKS '[] r)
               -> Maybe (AstTensor AstMethodLet s2 (TKScalar r))
        unFrom (AstSFromK' t) = Just t
@@ -497,7 +497,7 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
      Just _ -> Nothing
      Nothing -> error "astFromVector: empty vector")
 
-astSum :: forall y k s. (AstSpan s, TKAllNum y)
+astSum :: forall y k s. (KnownSpan s, TKAllNum y)
        => SNat k -> SingletonTK y
        -> AstTensor AstMethodLet s (BuildTensorKind k y)
        -> AstTensor AstMethodLet s y
@@ -619,7 +619,7 @@ astSum snat@SNat stk t0 = case t0 of
     _ -> Ast.AstSum snat stk t0  -- products probably not worth the effort
   _ -> Ast.AstSum snat stk t0
 
-astReplicate :: forall y k s. AstSpan s
+astReplicate :: forall y k s. KnownSpan s
              => SNat k -> SingletonTK y
              -> AstTensor AstMethodLet s y
              -> AstTensor AstMethodLet s (BuildTensorKind k y)
@@ -659,7 +659,7 @@ astReplicate snat@SNat stk t0 = case t0 of
   -- but the reverse rule is already in astTransposeS
 
 astMapAccumLDer
-  :: forall accy by ey k s. AstSpan s
+  :: forall accy by ey k s. KnownSpan s
   => SNat k
   -> FullShapeTK by
   -> FullShapeTK ey
@@ -807,12 +807,12 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
 astMapAccumLDer k bftk eftk f df rf acc0 es =
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es
 
-astApply :: forall x z s1 s. (AstSpan s1, AstSpan s)
+astApply :: forall x z s1 s. (KnownSpan s1, KnownSpan s)
          => AstHFun s1 s x z -> AstTensor AstMethodLet s1 x
          -> AstTensor AstMethodLet s z
 astApply (AstLambda !var !v) u = astLet var u v
 
-astCond :: AstSpan s
+astCond :: KnownSpan s
         => AstBool AstMethodLet
         -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s y
@@ -833,7 +833,7 @@ astCond b v w = Ast.AstCond b v w
 
 -- Invariant: if the variable has bounds, the expression can only have
 -- values within the bounds (regardless of what the `bounds` call would say).
-astLet :: forall y z s s2. (AstSpan s, AstSpan s2)
+astLet :: forall y z s s2. (KnownSpan s, KnownSpan s2)
        => AstVarName s y -> AstTensor AstMethodLet s y
        -> AstTensor AstMethodLet s2 z
        -> AstTensor AstMethodLet s2 z
@@ -842,7 +842,7 @@ astLet _var _u v@Ast.AstConcreteS{} = v
 astLet _var _u v@Ast.AstIotaS{} = v
 astLet var u v@(Ast.AstVar var2) =
   if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @s2 of
+  then case testEquality (knownSpan @s) (knownSpan @s2) of
     Just Refl -> case testEquality var var2 of
       Just Refl -> u
       _ -> error "astLet: wrong variable types at AstVar"
@@ -850,7 +850,7 @@ astLet var u v@(Ast.AstVar var2) =
   else v
 astLet var u v@(Ast.AstPrimalPart (Ast.AstVar var2)) =  -- a common noop
   if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s2 @(PrimalStepSpan s) of
+  then case testEquality (knownSpan @s2) (knownSpan @(PrimalStepSpan s)) of
     Just Refl -> case testEquality var var2 of
       Just Refl -> astPrimalPart u
       _ -> error "astLet: wrong variable types at AstPrimalPart"
@@ -858,7 +858,7 @@ astLet var u v@(Ast.AstPrimalPart (Ast.AstVar var2)) =  -- a common noop
   else v
 astLet var u v@(Ast.AstDualPart (Ast.AstVar var2)) =  -- a noop
   if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @FullSpan of
+  then case testEquality (knownSpan @s) SFullSpan of
     Just Refl -> case testEquality var var2 of
       Just Refl -> astDualPart u
       _ -> error "astLet: wrong variable types at AstDualPart"
@@ -866,7 +866,7 @@ astLet var u v@(Ast.AstDualPart (Ast.AstVar var2)) =  -- a noop
   else v
 astLet var u v@(Ast.AstPlainPart @_ @s1 (Ast.AstVar var2)) =  -- a noop
   if varNameToAstVarId var2 == varNameToAstVarId var
-  then case sameAstSpan @s @s1 of
+  then case testEquality (knownSpan @s) (knownSpan @s1) of
     Just Refl -> case testEquality var var2 of
       Just Refl -> astPlainPart u
       _ -> error "astLet: wrong variable types at AstPlainPart"
@@ -920,7 +920,7 @@ astLet var u (Ast.AstConvert c a)
     astConvert c $ astLet var u a
 astLet var u v = Ast.AstLet var u v
 
-astPrimalPart :: AstSpan s
+astPrimalPart :: KnownSpan s
               => AstTensor AstMethodLet s y
               -> AstTensor AstMethodLet (PrimalStepSpan s) y
 astPrimalPart t = case t of
@@ -1155,11 +1155,11 @@ astDualPart t = case t of
 
   _ -> Ast.AstDualPart t
 
-astPlainPart :: forall y s. AstSpan s
+astPlainPart :: forall y s. KnownSpan s
              => AstTensor AstMethodLet s y
              -> AstTensor AstMethodLet PlainSpan y
 astPlainPart t = case t of
-  _ | Just Refl <- sameAstSpan @s @PlainSpan -> t
+  _ | SPlainSpan <- knownSpan @s -> t
   Ast.AstPair t1 t2 -> astPair (astPlainPart t1) (astPlainPart t2)
   -- We really need equality saturation...
   Ast.AstProject1 u@Ast.AstMapAccumLDer{} -> astProject1 $ astPlainPart u
@@ -1213,7 +1213,6 @@ astPlainPart t = case t of
 
   Ast.AstPrimalPart v -> astPlainPart v
   Ast.AstDualPart{} -> Ast.AstPlainPart t
-  Ast.AstPlainPart{} -> t  -- subsumed by the first case
   Ast.AstFromPrimal v -> astPlainPart v
   Ast.AstFromDual v ->
     let ftk = ftkAst v
@@ -1229,9 +1228,6 @@ astPlainPart t = case t of
   Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astPlainPart u) (astPlainPart v)
   Ast.AstI2K QuotOp u v -> quotH (astPlainPart u) (astPlainPart v)
   Ast.AstI2K RemOp u v -> remH (astPlainPart u) (astPlainPart v)
-  AstConcreteK{} -> t
-  Ast.AstFloorK{} -> Ast.AstPlainPart t
-  Ast.AstFromIntegralK{} -> Ast.AstPlainPart t
   Ast.AstCastK v -> astCastK $ astPlainPart v
 
   AstPlusS u v -> astPlainPart u + astPlainPart v
@@ -1243,9 +1239,6 @@ astPlainPart t = case t of
   Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astPlainPart u) (astPlainPart v)
   Ast.AstI2S QuotOp u v -> quotH (astPlainPart u) (astPlainPart v)
   Ast.AstI2S RemOp u v -> remH (astPlainPart u) (astPlainPart v)
-  AstConcreteS{} -> Ast.AstPlainPart t
-  Ast.AstFloorS{} -> Ast.AstPlainPart t
-  Ast.AstFromIntegralS{} -> Ast.AstPlainPart t
   Ast.AstCastS v -> astCastS $ astPlainPart v
 
   Ast.AstIndexS shn v ix ->
@@ -1254,9 +1247,6 @@ astPlainPart t = case t of
     astScatterS @shm @shn @shp shn (astPlainPart v) (vars, ix)
   Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
     astGatherS @shm @shn @shp shn (astPlainPart v) (vars, ix)
-  Ast.AstMinIndexS{} -> Ast.AstPlainPart t
-  Ast.AstMaxIndexS{} -> Ast.AstPlainPart t
-  Ast.AstIotaS{} -> Ast.AstPlainPart t
   Ast.AstAppendS x y -> astAppendS (astPlainPart x) (astPlainPart y)
   Ast.AstSliceS i n k v -> astSliceS i n k (astPlainPart v)
   Ast.AstReverseS v -> astReverseS (astPlainPart v)
@@ -1272,14 +1262,6 @@ astPlainPart t = case t of
   Ast.AstDot0S{} -> Ast.AstPlainPart t
   Ast.AstDot1InS{} -> Ast.AstPlainPart t
   Ast.AstMatmul2S{} -> Ast.AstPlainPart t
-
-  Ast.AstBoolNot{} -> t
-  Ast.AstBoolNotA{} -> t
-  Ast.AstBoolAnd{} -> t
-  Ast.AstBoolAndA{} -> t
-  Ast.AstLeqK{} -> t
-  Ast.AstLeqS{} -> t
-  Ast.AstLeqA{} -> t
 
 astConcreteK :: GoodScalar r
              => Concrete (TKScalar r)
@@ -1316,7 +1298,7 @@ astFromIntegralK t = case t of
 
 astCastK :: forall r1 r2 s.
             ( NumScalar r1, Differentiable r1
-            , NumScalar r2, Differentiable r2, AstSpan s )
+            , NumScalar r2, Differentiable r2, KnownSpan s )
          => AstTensor AstMethodLet s (TKScalar r1)
          -> AstTensor AstMethodLet s (TKScalar r2)
 astCastK t = case t of
@@ -1411,7 +1393,7 @@ astFromIntegralS t = case t of
 
 astCastS :: forall r1 r2 s sh.
             ( NumScalar r1, Differentiable r1
-            , NumScalar r2, Differentiable r2, AstSpan s )
+            , NumScalar r2, Differentiable r2, KnownSpan s )
          => AstTensor AstMethodLet s (TKS sh r1)
          -> AstTensor AstMethodLet s (TKS sh r2)
 astCastS t = case t of
@@ -1460,14 +1442,14 @@ astCastS t = case t of
   _ -> Ast.AstCastS t
 
 astIndexS
-  :: forall shm shn s x. AstSpan s
+  :: forall shm shn s x. KnownSpan s
   => ShS shn
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x) -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKS2 shn x)
 astIndexS = astIndexKnobsS defaultKnobs
 
 astIndexKnobsS
-  :: forall shm shn s r. AstSpan s
+  :: forall shm shn s r. KnownSpan s
   => SimplifyKnobs
   -> ShS shn
   -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
@@ -1494,7 +1476,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
  case Shaped.shsTakeIx @shn @shm Proxy shmshn ix of
   SNat @in1 :$$ (_ :: ShS shm1) ->
    let astIndex
-         :: forall shm' shn' s' r'. AstSpan s'
+         :: forall shm' shn' s' r'. KnownSpan s'
          => ShS shn'
          -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r')
          -> AstIxS AstMethodLet shm'
@@ -1774,7 +1756,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
 -- or design something even better.
 --
 -- See https://github.com/Mikolaj/horde-ad/issues/119.
-shareIx :: forall s shm y. AstSpan s
+shareIx :: forall s shm y. KnownSpan s
         => AstIxS AstMethodLet shm
         -> (AstIxS AstMethodLet shm -> AstTensor AstMethodLet s y)
         -> AstTensor AstMethodLet s y
@@ -1796,7 +1778,7 @@ shareIx ix f = unsafePerformIO $ do
 
 -- TODO: fuse scatters, scatter and sum, and perhaps more (fromList?)
 astScatterS :: forall shm shn shp r s.
-               (AstSpan s, TKAllNum r, KnownShS shm, KnownShS shp)
+               (KnownSpan s, TKAllNum r, KnownShS shm, KnownShS shp)
             => ShS shn
             -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
             -> (AstVarListS shm, AstIxS AstMethodLet shp)
@@ -1838,7 +1820,7 @@ flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
 flipCompare = unsafeCoerceRefl
 
 astGatherS
-  :: forall shm shn shp r s. (AstSpan s, KnownShS shm, KnownShS shp)
+  :: forall shm shn shp r s. (KnownSpan s, KnownShS shm, KnownShS shp)
   => ShS shn
   -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
   -> (AstVarListS shm, AstIxS AstMethodLet shp)
@@ -1850,7 +1832,7 @@ astGatherS = astGatherKnobsS @shm @shn @shp defaultKnobs
 -- as resetVarCounter is not used. The assumption makes it easier to spot
 -- bugs or corruption, hence we assert it in the code below.
 astGatherKnobsS
-  :: forall shm shn shp r s. (AstSpan s, KnownShS shm, KnownShS shp)
+  :: forall shm shn shp r s. (KnownSpan s, KnownShS shm, KnownShS shp)
   => SimplifyKnobs
   -> ShS shn
   -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
@@ -2888,7 +2870,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@(i4 :.$ rest4))
     Ast.AstLeqA {} -> Ast.AstGatherS @shm @shn @shp shn v4 (vars4, ix4)
  where
   astGather
-    :: forall shm' shn' shp' s' r'. (AstSpan s', KnownShS shm', KnownShS shp')
+    :: forall shm' shn' shp' s' r'. (KnownSpan s', KnownShS shm', KnownShS shp')
     => ShS shn'
     -> AstTensor AstMethodLet s' (TKS2 (shp' ++ shn') r')
     -> (AstVarListS shm', AstIxS AstMethodLet shp')
@@ -2897,7 +2879,7 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@(i4 :.$ rest4))
     astGatherKnobsS @shm' @shn' @shp' knobs shn' v2 (vars2, ix2)
 
 -- Normal form of chains of appends has the append constructor on the right.
-astAppendS :: AstSpan s
+astAppendS :: KnownSpan s
            => AstTensor AstMethodLet s (TKS2 (m ': sh) r)
            -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
            -> AstTensor AstMethodLet s (TKS2 ((m + n) ': sh) r)
@@ -2922,7 +2904,7 @@ astAppendS (AstConcreteS u) (Ast.AstAppendS (AstConcreteS v) w) =
 astAppendS (Ast.AstAppendS v u) w = astAppendS v (astAppendS u w)
 astAppendS u v = Ast.AstAppendS u v
 
-astSliceS :: forall i n k sh s r. AstSpan s
+astSliceS :: forall i n k sh s r. KnownSpan s
           => SNat i -> SNat n -> SNat k
           -> AstTensor AstMethodLet s (TKS2 (i + n + k ': sh) r)
           -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
@@ -3008,7 +2990,7 @@ astSliceS i n k v1 = case v1 of
   AstConcreteS v -> astConcreteS (tsslice i n k $ Concrete v)
   _ -> Ast.AstSliceS i n k v1
 
-astReverseS :: forall n sh s r. AstSpan s
+astReverseS :: forall n sh s r. KnownSpan s
             => AstTensor AstMethodLet s (TKS2 (n ': sh) r)
             -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astReverseS (Ast.AstFromVector snat stk l) =
@@ -3040,7 +3022,7 @@ astReverseS v = Ast.AstReverseS v
 -- if full simplification is required.
 astTransposeS
   :: forall perm sh s r.
-     (Permutation.IsPermutation perm, Rank perm <= Rank sh, AstSpan s)
+     (Permutation.IsPermutation perm, Rank perm <= Rank sh, KnownSpan s)
   => Permutation.Perm perm -> AstTensor AstMethodLet s (TKS2 sh r)
   -> AstTensor AstMethodLet s (TKS2 (Permutation.PermutePrefix perm sh) r)
 astTransposeS perm t =
@@ -3218,7 +3200,7 @@ astTransposeS perm t =
 -- | Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
 -- if full simplification is required.
-astReshapeS :: forall sh sh2 x s. (Product sh ~ Product sh2, AstSpan s)
+astReshapeS :: forall sh sh2 x s. (Product sh ~ Product sh2, KnownSpan s)
             => ShS sh2 -> AstTensor AstMethodLet s (TKS2 sh x)
             -> AstTensor AstMethodLet s (TKS2 sh2 x)
 astReshapeS sh2 t = case t of
@@ -3246,7 +3228,7 @@ astReshapeS sh2 t = case t of
     _ -> Ast.AstReshapeS sh2 t
 
 astConvert
-  :: AstSpan s
+  :: KnownSpan s
   => TKConversion y z -> AstTensor AstMethodLet s y
   -> AstTensor AstMethodLet s z
 astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
@@ -3289,7 +3271,7 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
 -- but it's not checked; the other components are supposed to be
 -- converted identically, which is not checked in c, either).
 astConvertFromS
-  :: AstSpan s
+  :: KnownSpan s
   => TKConversion y z -> FullShapeTK z -> AstTensor AstMethodLet s y
   -> AstTensor AstMethodLet s z
 astConvertFromS c zftk a = case (zftk, a) of
@@ -3437,7 +3419,7 @@ astConvertFromS c zftk a = case (zftk, a) of
 
 -- We are pushing conversions to shaped tensors down, into concrete values
 -- and towards variables, so that the conversions often cancel out.
-astConvertSFromK :: forall r s. AstSpan s
+astConvertSFromK :: forall r s. KnownSpan s
                  => TKConversion (TKScalar r) (TKS '[] r)
                  -> FullShapeTK (TKS '[] r)
                  -> AstTensor AstMethodLet s (TKScalar r)
@@ -3488,7 +3470,7 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstLeqK{} -> Ast.AstConvert c a0
   Ast.AstLeqS{} -> Ast.AstConvert c a0
 
-astConvertSFromR :: forall sh x s. AstSpan s
+astConvertSFromR :: forall sh x s. KnownSpan s
                  => TKConversion (TKR2 (Rank sh) x) (TKS2 sh x)
                  -> FullShapeTK (TKS2 sh x)
                  -> AstTensor AstMethodLet s (TKR2 (Rank sh) x)
@@ -3536,7 +3518,7 @@ astConvertSFromR c zftk@(FTKS sh x) a0 = case a0 of
   Ast.AstFromDual a -> fromDual $ astConvertSFromR c zftk a
   Ast.AstFromPlain a -> fromPlain $ astConvertSFromR c zftk a
 
-astConvertSFromX :: forall sh shx x s. (AstSpan s, Rank shx ~ Rank sh)
+astConvertSFromX :: forall sh shx x s. (KnownSpan s, Rank shx ~ Rank sh)
                  => TKConversion (TKX2 shx x) (TKS2 sh x)
                  -> FullShapeTK (TKS2 sh x)
                  -> AstTensor AstMethodLet s (TKX2 shx x)
@@ -3587,7 +3569,7 @@ astConvertSFromX c zftk@(FTKS sh x) a0 = case a0 of
 
 -- We are pushing conversions to shaped tensors down, into concrete values
 -- and towards variables, so that the conversions often cancel out.
-astConvertSFrom :: forall y z s. AstSpan s
+astConvertSFrom :: forall y z s. KnownSpan s
                 => TKConversion y z -> FullShapeTK z
                 -> AstTensor AstMethodLet s y
                 -> AstTensor AstMethodLet s z
@@ -3625,30 +3607,30 @@ astConvertSFrom c zftk t = case (zftk, ftkAst t) of
 
 -- The smart constructor with the prime suffix create canonical conversions
 -- instead of taking a conversion as an argument.
-astFromS' :: forall y z s. AstSpan s
+astFromS' :: forall y z s. KnownSpan s
           => FullShapeTK z -> AstTensor AstMethodLet s y
           -> AstTensor AstMethodLet s z
 astFromS' zftk t = astConvertFromS (convFromS (ftkAst t) zftk) zftk t
 
-astSFrom' :: forall y z s. AstSpan s
+astSFrom' :: forall y z s. KnownSpan s
           => SingletonTK z -> AstTensor AstMethodLet s y
           -> AstTensor AstMethodLet s z
 astSFrom' zstk t = astConvert (convSFrom (ftkAst t) zstk) t
 
-astKFromS' :: forall r s. (AstSpan s, GoodScalar r)
+astKFromS' :: forall r s. (KnownSpan s, GoodScalar r)
            => AstTensor AstMethodLet s (TKS2 '[] (TKScalar r))
            -> AstTensor AstMethodLet s (TKScalar r)
 astKFromS' t = astConvertFromS (ConvCmp ConvX0 ConvSX) FTKScalar t
 
 -- Or should we take SNat (Rank sh) to help proving n ~ Rank sh?
-astRFromS' :: forall sh x s. AstSpan s
+astRFromS' :: forall sh x s. KnownSpan s
            => AstTensor AstMethodLet s (TKS2 sh x)
            -> AstTensor AstMethodLet s (TKR2 (Rank sh) x)
 astRFromS' t | FTKS sh x <- ftkAst t =
   let zftk = FTKR (shrFromShS sh) x
   in astConvertFromS (convFromS (ftkAst t) zftk) zftk t
 
-astXFromS' :: forall sh shx x s. (AstSpan s, Rank sh ~ Rank shx)
+astXFromS' :: forall sh shx x s. (KnownSpan s, Rank sh ~ Rank shx)
            => StaticShX shx -> AstTensor AstMethodLet s (TKS2 sh x)
            -> AstTensor AstMethodLet s (TKX2 shx x)
 astXFromS' ssx t | FTKS sh x <- ftkAst t =
@@ -3656,14 +3638,14 @@ astXFromS' ssx t | FTKS sh x <- ftkAst t =
   in astConvertFromS (convFromS (ftkAst t) zftk) zftk t
 
 -- These three are much faster than going through convSFrom.
-astSFromK' :: forall r s. (GoodScalar r, AstSpan s)
+astSFromK' :: forall r s. (GoodScalar r, KnownSpan s)
            => AstTensor AstMethodLet s (TKScalar r)
            -> AstTensor AstMethodLet s (TKS '[] r)
 astSFromK' a =
   let c2 = ConvCmp ConvXS (Conv0X STKScalar)
   in astConvertSFromK c2 (FTKS ZSS FTKScalar) a
 
-astSFromR' :: forall sh s r. AstSpan s
+astSFromR' :: forall sh s r. KnownSpan s
            => ShS sh -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
            -> AstTensor AstMethodLet s (TKS2 sh r)
 astSFromR' sh t = case ftkAst t of
@@ -3671,7 +3653,7 @@ astSFromR' sh t = case ftkAst t of
     let zftk = FTKS sh x
     in astConvertSFromR (ConvCmp (ConvXS' zftk) ConvRX) zftk t
 
-astSFromX' :: forall sh sh' s x. (AstSpan s, Rank sh ~ Rank sh')
+astSFromX' :: forall sh sh' s x. (KnownSpan s, Rank sh ~ Rank sh')
            => ShS sh -> AstTensor AstMethodLet s (TKX2 sh' x)
            -> AstTensor AstMethodLet s (TKS2 sh x)
 astSFromX' sh t = case ftkAst t of
@@ -3686,7 +3668,7 @@ astIndex0S
   -> AstTensor AstMethodLet s (TKScalar r)
 astIndex0S = Ast.AstIndex0S
 
-astSum0S :: (NumScalar r, AstSpan s)
+astSum0S :: (NumScalar r, KnownSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKScalar r)
 astSum0S t = case t of
@@ -3723,7 +3705,7 @@ astSum0S t = case t of
       astKFromS' (astIndexS ZSS t (0 :.$ ZIS))
     _ -> Ast.AstSum0S t
 
-astDot0S :: (NumScalar r, AstSpan s)
+astDot0S :: (NumScalar r, KnownSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKScalar r)
@@ -3775,7 +3757,7 @@ astDot0S t1 t2 = case (t1, t2) of
       * astKFromS' (astIndexS ZSS t2 (0 :.$ ZIS))
     _ -> Ast.AstDot0S t1 t2
 
-astDot1InS :: forall sh n r s. (NumScalar r, AstSpan s)
+astDot1InS :: forall sh n r s. (NumScalar r, KnownSpan s)
            => ShS sh -> SNat n
            -> AstTensor AstMethodLet s (TKS (sh ++ '[n]) r)
            -> AstTensor AstMethodLet s (TKS (sh ++ '[n]) r)
@@ -3793,7 +3775,7 @@ astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
     astConcreteS $ tsdot1In @_ @sh (SNat @n) (Concrete v1) (Concrete v2)
   _ -> Ast.AstDot1InS sh n t1 t2
 
-astMatmul2S :: (NumScalar r, AstSpan s)
+astMatmul2S :: (NumScalar r, KnownSpan s)
             => SNat m -> SNat n -> SNat p
             -> AstTensor AstMethodLet s (TKS '[m, n] r)
             -> AstTensor AstMethodLet s (TKS '[n, p] r)
@@ -3812,7 +3794,7 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
 
 -- * ConvertTensor instances needed for unwinding in astConcrete
 
-instance AstSpan s => ConvertTensor (AstTensor AstMethodLet s) where
+instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   tconvert c _astk v = astConvert c v
 
   rfromX a = case ftkAst a of
@@ -3924,14 +3906,14 @@ astConcrete ftk v = case ftk of
     astPair (astConcrete ftk1 (tproject1 v)) (astConcrete ftk2 (tproject2 v))
   _ -> concreteTarget astConcreteK astConcreteS astFromS' (ftkToSTK ftk) v
 
-astLetFun :: forall y z s s2. (AstSpan s, AstSpan s2)
+astLetFun :: forall y z s s2. (KnownSpan s, KnownSpan s2)
           => AstTensor AstMethodLet s y
           -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
           -> AstTensor AstMethodLet s2 z
 {-# INLINE astLetFun #-}
 astLetFun = astLetFunBounds Nothing
 
-astLetFunB :: forall z s s2. (AstSpan s, AstSpan s2)
+astLetFunB :: forall z s s2. (KnownSpan s, KnownSpan s2)
            => AstTensor AstMethodLet s (TKScalar Int)
            -> (AstTensor AstMethodLet s (TKScalar Int)
                -> AstTensor AstMethodLet s2 z)
@@ -3941,7 +3923,7 @@ astLetFunB w = astLetFunBounds (Just $ bounds w) w
 
 -- INLINE here would bloat the binary a lot, probably negating any
 -- gains from directly calling the function. Also, this is not a bottleneck.
-astLetFunBounds :: forall y z s s2. (AstSpan s, AstSpan s2)
+astLetFunBounds :: forall y z s s2. (KnownSpan s, KnownSpan s2)
                 => Maybe (Int, Int) -> AstTensor AstMethodLet s y
                 -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
                 -> AstTensor AstMethodLet s2 z
@@ -3976,7 +3958,7 @@ astLetFunBounds mbs a f = case a of
     ftk -> let (var, ast) = funToAst ftk mbs f
            in astLet var a ast
 
-astReplicateNS :: forall shn shp s x. AstSpan s
+astReplicateNS :: forall shn shp s x. KnownSpan s
                => ShS shn -> AstTensor AstMethodLet s (TKS2 shp x)
                -> AstTensor AstMethodLet s (TKS2 (shn ++ shp) x)
 astReplicateNS shn v | STKS shp x <- ftkToSTK (ftkAst v) =
@@ -3986,7 +3968,7 @@ astReplicateNS shn v | STKS shp x <- ftkToSTK (ftkAst v) =
         astReplicate snat (STKS (shn2 `shsAppend` shp) x) $ go shn2
   in go shn
 
-unRepl :: AstSpan s
+unRepl :: KnownSpan s
        => AstTensor AstMethodLet s (TKS2 sh x)
        -> Maybe (AstTensor AstMethodLet s (TKS2 '[] x))
 unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
@@ -4006,7 +3988,7 @@ unRepl (Ast.AstFromDual t) = fromDual <$> unRepl t
 unRepl (Ast.AstFromPlain t) = fromPlain <$> unRepl t
 unRepl _ = Nothing
 
-unRepl1 :: AstSpan s
+unRepl1 :: KnownSpan s
         => AstTensor AstMethodLet s (TKS2 (n ': sh) x)
         -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
 unRepl1 (Ast.AstReplicate _ STKS{} u) = Just u
@@ -4025,7 +4007,7 @@ unRepl1 (Ast.AstFromDual t) = fromDual <$> unRepl1 t
 unRepl1 (Ast.AstFromPlain t) = fromPlain <$> unRepl1 t
 unRepl1 _ = Nothing
 
-unReplN :: AstSpan s
+unReplN :: KnownSpan s
         => ShS shm -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
         -> Maybe (AstTensor AstMethodLet s (TKS2 shn x))
 unReplN ZSS a = Just a
@@ -4052,7 +4034,7 @@ unReplN _ _ = Nothing
 -- and nobody substitutes into variables that are bound.
 -- This keeps the substitution code simple, because we never need to compare
 -- variables to any variable in the bindings.
-substituteAst :: forall s s2 y z. (AstSpan s, AstSpan s2)
+substituteAst :: forall s s2 y z. (KnownSpan s, KnownSpan s2)
               => AstTensor AstMethodLet s2 z -> AstVarName s2 z
               -> AstTensor AstMethodLet s y
               -> AstTensor AstMethodLet s y
@@ -4060,7 +4042,7 @@ substituteAst i var v1 =
   fromMaybe v1 $ substitute1Ast i var v1
 
 substituteAstIxS
-  :: AstSpan s
+  :: KnownSpan s
   => AstTensor AstMethodLet s y -> AstVarName s y -> AstIxS AstMethodLet sh
   -> AstIxS AstMethodLet sh
 substituteAstIxS i var ix =
@@ -4071,7 +4053,7 @@ substituteAstIxS i var ix =
 
 -- Invariant: if the variable has bounds, the expression can only have
 -- values within the bounds (regardless of what the `bounds` call would say).
-substitute1Ast :: forall s s2 y z. (AstSpan s, AstSpan s2)
+substitute1Ast :: forall s s2 y z. (KnownSpan s, KnownSpan s2)
                => AstTensor AstMethodLet s2 z -> AstVarName s2 z
                -> AstTensor AstMethodLet s y
                -> Maybe (AstTensor AstMethodLet s y)
@@ -4082,7 +4064,7 @@ substitute1Ast i var = subst where
    in if any isJust mix
       then Just $ ixsZipWith fromMaybe ix mix
       else Nothing
- subst :: forall s3 y2. AstSpan s3
+ subst :: forall s3 y2. KnownSpan s3
        => AstTensor AstMethodLet s3 y2 -> Maybe (AstTensor AstMethodLet s3 y2)
  subst = \case
   Ast.AstPair u v ->
@@ -4120,7 +4102,7 @@ substitute1Ast i var = subst where
     -- We can't assert anything here, because only all runtime values need
     -- to be in bounds and bounds approximations don't have to agree.
     if varNameToAstVarId var == varNameToAstVarId var2
-    then case sameAstSpan @s3 @s2 of
+    then case testEquality (knownSpan @s3) (knownSpan @s2) of
       Just Refl -> case testEquality var var2 of
         Just Refl -> case i of
           Ast.AstVar var3 | FTKScalar <- varNameToFTK var3 ->
@@ -4331,7 +4313,7 @@ substitute1Ast i var = subst where
        else Nothing
 
 substitute1AstIxS
-  :: AstSpan s2
+  :: KnownSpan s2
   => AstTensor AstMethodLet s2 y -> AstVarName s2 y -> AstIxS AstMethodLet sh
   -> Maybe (AstIxS AstMethodLet sh)
 substitute1AstIxS i var ix =

@@ -59,14 +59,14 @@ funToAstIOGeneric ftk bounds f = do
   let !x = f freshId
   return (freshId, x)
 
-funToAstIO :: forall y z s s2 ms. AstSpan s
+funToAstIO :: forall y z s s2 ms. KnownSpan s
            => FullShapeTK y -> Maybe (Int, Int)
            -> (AstTensor ms s y -> AstTensor ms s2 z)
            -> IO (AstVarName s y, AstTensor ms s2 z)
 {-# INLINE funToAstIO #-}
 funToAstIO ftk bounds f = funToAstIOGeneric ftk bounds (f . astVar)
 
-funToAst :: AstSpan s
+funToAst :: KnownSpan s
          => FullShapeTK y -> Maybe (Int, Int)
          -> (AstTensor ms s y -> AstTensor ms s2 z)
          -> (AstVarName s y, AstTensor ms s2 z)

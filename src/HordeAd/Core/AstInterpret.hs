@@ -490,7 +490,7 @@ interpretAstDual !env v1 =
 -- in their method signatures in @Ops@, for user convenience.
 -- See, e.g., 'AstConcreteS' vs 'tsconcrete' and 'AstFloorS' vs 'tsfloor'.
 interpretAst
-  :: forall target s y. (ADReady target, AstSpan s)
+  :: forall target s y. (ADReady target, KnownSpan s)
   => AstEnv target -> AstTensor AstMethodLet s y
   -> target y
 interpretAst !env = \case
@@ -542,7 +542,7 @@ interpretAst !env = \case
 
   -- We assume there are no nested lets with the same variable.
   --
-  -- Note that without the second sameAstSpan check, AstLet with both PrimalSpan
+  -- Note that without the second testEquality check, AstLet with both PrimalSpan
   -- would get translated to a composition of ttletPrimal and tfromPrimal,
   -- which doesn't make a difference in a translation from PrimalSpan
   -- terms to PrimalSpan terms, but does in a translation from PrimalSpan
@@ -552,8 +552,8 @@ interpretAst !env = \case
   -- it increases the allocation in testsuites by ~3% and slows down the VTO1
   -- benchmark 5 times. To be re-evaluated when rewriting is changed
   -- and also more examples are available.
-  AstLet {-@_ @_ @s1-} var u v -> {- case ( sameAstSpan @s1 @PrimalSpan
-                                          , sameAstSpan @s @FullSpan ) of
+  AstLet {-@_ @_ @s1-} var u v -> {- case ( testEquality @s1 @PrimalSpan
+                                          , testEquality @s @FullSpan ) of
     (Just Refl, Just Refl) ->
       let t = interpretAstPrimal env u
           stk = ftkToSTK (ftkAst u)
@@ -572,7 +572,7 @@ interpretAst !env = \case
     tfromDual (tdualPart (ftkToSTK (ftkAst a)) $ interpretAstFull env a)
   AstPlainPart a ->
     tfromPlain (ftkToSTK (ftkAst a)) (tplainPart $ interpretAst env a)
-  AstFromPrimal a | Just Refl <- sameAstSpan @s @FullSpan ->
+  AstFromPrimal a | SFullSpan <- knownSpan @s ->
     -- By the invariant, interpretation of @a@ has zero dual part,
     -- so we don't have to do the following to remove the dual part,
     -- but we still do, because there's almost no rewriting of delta
@@ -767,7 +767,7 @@ interpretAst !env = \case
            (snest @_ @_ @sh shb r1) (snest shb r2)
 
 interpretAstHFun
-  :: forall target x y s s2. (AstSpan s2, BaseTensor target)
+  :: forall target x y s s2. (KnownSpan s2, BaseTensor target)
   => AstEnv target -> AstHFun s s2 x y
   -> HFunOf target x y
 {-# INLINE interpretAstHFun #-}
