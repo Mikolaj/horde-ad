@@ -29,11 +29,18 @@ type AstEnv :: Target -> Type
 type AstEnv target = DEnumMap AstVarName (SpanTarget target)
 
 type family SpanTargetFam target s :: Target where
+--this causes problems;
 --SpanTargetFam target (PrimalStepSpan s2) = SpanTargetFam (PrimalOf target) s2
   SpanTargetFam target (PrimalStepSpan s2) = PrimalOf (SpanTargetFam target s2)
-  SpanTargetFam target DualSpan = DualOf target
+  SpanTargetFam target DualSpan = target  -- !!! not: DualOf target
   SpanTargetFam target FullSpan = target
   SpanTargetFam target PlainSpan = PlainOf target
+  -- The equation for DualSpan is hacky to prevent failing fast due to
+  -- no tensor operations defined for Delta expressions. Instead of
+  -- producing Delta expressions (in non-symbolic instances),
+  -- we produce full dual numbers. To to keep it sound, we try
+  -- to manually ensure the primal part of these dual numbers
+  -- is always zero, so only the dual part, the Delta expression, matters.
 
 -- This is needed, because type families can't yet be partially applied.
 type role SpanTarget nominal nominal
@@ -50,7 +57,7 @@ lemPlainOfSpan _ = \case
   -- This is true morally and in all instances, even though it's
   -- not derivable.
   SPrimalStepSpan _ -> unsafeCoerceRefl
-  SDualSpan -> unsafeCoerceRefl  -- illegal and zero anyway; TODO
+  SDualSpan -> Refl  -- due to the dual hack
   SPlainSpan -> Refl
 
 dictSpanFam :: ADReady target
@@ -62,8 +69,7 @@ dictSpanFam _ = \case
   SPrimalStepSpan SFullSpan -> Dict0
   SPrimalStepSpan _ ->
     error "dictSpanFam: these operations on nested primal terms are illegal"
-  SDualSpan ->
-    error "dictSpanFam: these operations on DualSpan terms are illegal"
+  SDualSpan -> Dict0  -- due to the dual hack
   SPlainSpan -> Dict0
 
 toFromFullSpan
@@ -86,8 +92,7 @@ toFromFullSpan stk = \case
     let (toFull, fromFull) = toFromFull stk s4
     in (toFull . tfromPrimal stk, tprimalPart . fromFull)
   -}
-  SDualSpan ->
-    error "toFromFullSpan: can't convert a dual part to a full dual number"
+  SDualSpan -> (id, id)  -- due to the dual hack
   SPlainSpan -> (tfromPlain stk, tplainPart)
 
 toFullSpan :: BaseTensor target
@@ -99,8 +104,7 @@ toFullSpan stk = \case
   SPrimalStepSpan SFullSpan -> tfromPrimal stk
   SPrimalStepSpan _ ->
     error "toFullSpan: nested primal numbers are not converted to full dual numbers"
-  SDualSpan ->
-    error "toFullSpan: can't convert a dual part to a full dual number"
+  SDualSpan -> id  -- due to the dual hack
   SPlainSpan -> tfromPlain stk
 
 fromFullSpan :: BaseTensor target
@@ -112,8 +116,7 @@ fromFullSpan = \case
   SPrimalStepSpan SFullSpan -> tprimalPart
   SPrimalStepSpan _ ->
     error "fromFullSpan: nested primal numbers are not converted to full dual numbers"
-  SDualSpan ->
-    error "fromFullSpan: can't convert a dual part to a full dual number"
+  SDualSpan -> id  -- due to the dual hack
   SPlainSpan -> tplainPart
 
 emptyEnv :: AstEnv target

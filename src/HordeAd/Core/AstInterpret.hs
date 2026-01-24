@@ -49,13 +49,12 @@ interpretAstPrimal
 {-# INLINE interpretAstPrimal #-}
 interpretAstPrimal = interpretAst
 
--- TODO: this fails too early (correctly, but not ideally)
 interpretAstDual
   :: forall target y. ADReady target
   => AstEnv target -> AstTensor AstMethodLet DualSpan y
   -> DualOf target y
 {-# INLINE interpretAstDual #-}
-interpretAstDual = interpretAst
+interpretAstDual env a = tdualPart (ftkToSTK (ftkAst a)) $ interpretAst env a
 
 interpretAstPlain
   :: forall target y. ADReady target
@@ -130,7 +129,9 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
          SPrimalStepSpan _ ->
            error "interpretAst: can't store a nested primal value"
              -- actually, we could, by substituting into v0, etc.
-         SDualSpan -> error "interpretAst: can't store a dual value"
+         SDualSpan ->
+           fromFull $ ttlet t (\w -> toFull $ interpretAst (env2 w) v)
+             -- due to the dual hack
          SPlainSpan | SPlainSpan <- knownSpan @s2 ->  -- a speedup
            ttlet t (\w -> interpretAst (env2 w) v)
          SPlainSpan ->
@@ -142,7 +143,10 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
       error "interpretAst: can't convert a nested primal value"  -- (... easily)
     SDualSpan -> tdefTarget (ftkAst a)  -- primal zero
     SPlainSpan -> tprimalPart $ interpretAst env a
-  AstDualPart a -> tdualPart (ftkToSTK (ftkAst a)) $ interpretAst env a
+  AstDualPart a ->
+    -- We zero the primal part, but keep it a dual number, not its second
+    -- component, that is a Delta expression (in non-symbolic instances).
+    tfromDual $ tdualPart (ftkToSTK (ftkAst a)) $ interpretAst env a
   AstPlainPart @_ @s2 a -> case knownSpan @s2 of
     SFullSpan -> tplainPart $ interpretAst env a
     SPrimalStepSpan SFullSpan -> tplainPart $ interpretAst env a
@@ -151,7 +155,13 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
     SDualSpan -> tdefTarget (ftkAst a)  -- plain zero
     SPlainSpan -> interpretAst env a
   AstFromPrimal a -> tfromPrimal (ftkToSTK (ftkAst a)) $ interpretAst env a
-  AstFromDual a -> tfromDual $ interpretAst env a
+  AstFromDual a ->
+    -- Not @tfromDual $ interpretAst env a@, because dual parts are represented
+    -- as dual numbers with zero primal parts, so nothing needs to be done here,
+    -- because the part is already zeroed by inductive assumption, so this
+    -- also works as a representation of a dual number with zero primal part,
+    -- which is the semantics of `AstFromDual`.
+    interpretAst env a
   AstFromPlain a -> tfromPlain (ftkToSTK (ftkAst a)) $ interpretAst env a
 
   AstPlusK u v -> interpretAst env u + interpretAst env v

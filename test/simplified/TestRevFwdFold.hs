@@ -418,9 +418,8 @@ testSin0RfwdPP4Dual :: Assertion
 testSin0RfwdPP4Dual = do
   let a1 :: AstTensor AstMethodLet DualSpan (TKR 0 Double)
       a1 = (rfwd1 sin . rfwd1 @(AstTensor AstMethodLet DualSpan) @Double @0 @0 sin) (rscalar 1.1)
--- TODO:
---  interpretAstDual @Concrete emptyEnv a1
---    @?= DummyDualTarget (FTKR [] FTKScalar)
+  interpretAstDual @Concrete emptyEnv a1
+    @?= DummyDualTarget (FTKR [] FTKScalar)
   printAstPretty (simplifyInlineContract a1)
     @?= "rfromK (tdualPart 0.0 * cos (tdualPart 0.0))"
 
