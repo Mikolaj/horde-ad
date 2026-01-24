@@ -65,7 +65,7 @@ mnistTestCase2VTOrev =
                         (tpair (rconcrete $ unConcrete blackGlyph) label)
             env = extendEnv (artVarDomainRev art) val emptyEnv
         in tproject1 $ tproject2
-           $ interpretAst @target env (artDerivativeRev art)
+           $ interpretAstFull @target env (artDerivativeRev art)
   in assertEqualUpToEpsilon' 1e-10
        (ringestData [10] [6.922657834114052e-2,-3.2210167235305924e-5,0.12334696753032606,-4.892729845753193e-3,3.010762414514606e-2,2.0344986964700877e-2,-3.78339785604896e-2,5.77360835535866e-2,0.10761507003315526,-7.909016076299641e-2])
        (rev' f (rreplicate0N [sizeMnistLabelInt] 8))

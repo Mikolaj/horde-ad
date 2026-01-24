@@ -9,7 +9,6 @@
 -- the instance is a term algebra as well.
 module HordeAd.Core.AstInterpret
   ( interpretAstFull, interpretAstPrimal, interpretAstDual, interpretAstPlain
-  , interpretAst
   ) where
 
 import Prelude

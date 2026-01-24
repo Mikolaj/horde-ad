@@ -630,6 +630,9 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
     --
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
+    gcastWith (unsafeCoerceRefl
+               :: SpanTargetFam (AstTensor AstMethodLet FullSpan) s
+                  :~: AstTensor AstMethodLet s) $
     let -- No bangs here, because this goes under lambda and should not be
         -- evaluated too early (which at some point was even incorrect
         -- and triggered error "tunshare: used not at FullSpan"; maybe this
@@ -638,34 +641,56 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
           revProduceArtifact
             IgnoreIncomingCotangent (simplifyUserCode . unHFun f) emptyEnv xftk
         -- A new variable is created to give it the right span as opposed
-        -- to the fixed PrimalSpan that artVarDomainRev has.
+        -- to the fixed FullSpan that artVarDomainRev has.
         (varP, ast) = funToAst xftk Nothing $ \ !astP ->
-          let env = extendEnv artVarDomainRev astP emptyEnv
-          in interpretAst env $ simplifyUserCode artDerivativeRev
+          simplifyUserCode
+          $ fromFullSpan (knownSpan @s)
+          $ substituteAst (toFullSpan (ftkToSTK xftk) (knownSpan @s) astP)
+                          artVarDomainRev
+                          artDerivativeRev
     in AstLambda varP ast
   tvjp ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
+    gcastWith (unsafeCoerceRefl
+               :: SpanTargetFam (AstTensor AstMethodLet FullSpan) s
+                  :~: AstTensor AstMethodLet s) $
     let AstArtifactRev{..} =
           revProduceArtifactDt
             (simplifyUserCode . unHFun f) emptyEnv ftkx
         ftkz = varNameToFTK artVarDtRev
         ftk2 = FTKProduct ftkz ftkx
         (varP, ast) = funToAst ftk2 Nothing $ \ !astP ->
-          let env = extendEnv artVarDtRev (astProject1 astP)
-                    $ extendEnv artVarDomainRev (astProject2 astP) emptyEnv
-          in interpretAst env $ simplifyUserCode artDerivativeRev
+          simplifyUserCode
+          $ fromFullSpan (knownSpan @s)
+          $ substituteAst
+              (toFullSpan (ftkToSTK ftkx) (knownSpan @s) (astProject2 astP))
+              artVarDomainRev
+          $ substituteAst
+              (toFullSpan (ftkToSTK ftkz) (knownSpan @s) (astProject1 astP))
+              artVarDtRev
+              artDerivativeRev
     in AstLambda varP ast
   tjvp ftkx f =
     -- This computes the (AST of) derivative of f once and interprets it again
     -- for each new tensor of arguments, which is better than computing it anew.
+    gcastWith (unsafeCoerceRefl
+               :: SpanTargetFam (AstTensor AstMethodLet FullSpan) s
+                  :~: AstTensor AstMethodLet s) $
     let AstArtifactFwd{..} =
           fwdProduceArtifact (simplifyUserCode . unHFun f) emptyEnv ftkx
         ftk2 = FTKProduct (adFTK ftkx) ftkx
         (varP, ast) = funToAst ftk2 Nothing $ \ !astP ->
-          let env = extendEnv artVarDsFwd (astProject1 astP)
-                    $ extendEnv artVarDomainFwd (astProject2 astP) emptyEnv
-          in interpretAst env $ simplifyUserCode artDerivativeFwd
+          simplifyUserCode
+          $ fromFullSpan (knownSpan @s)
+          $ substituteAst
+              (toFullSpan (ftkToSTK ftkx) (knownSpan @s) (astProject2 astP))
+              artVarDomainFwd
+          $ substituteAst
+              (toFullSpan (ftkToSTK (adFTK ftkx)) (knownSpan @s)
+                          (astProject1 astP))
+              artVarDsFwd
+              artDerivativeFwd
     in AstLambda varP ast
 
   tsum snat@SNat stk u = case stk of
@@ -742,8 +767,6 @@ instance KnownSpan s => LetTensor (AstRaw s) where
   tunshare = id
 
 instance KnownSpan s => ShareTensor (AstRaw s) where
-  -- For convenience and simplicity we define this for all spans,
-  -- but it can only ever be used for PrimalSpan.
   tshare t = AstRaw $ astShareNoSimplify $ unAstRaw t
   tunpair (AstRaw (AstPair t1 t2)) = (AstRaw t1, AstRaw t2)
   tunpair t = let tShared = tshare t
