@@ -1152,7 +1152,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
     AstRaw . AstFromVector k stk . fmapUnAstRaw
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
     AstRaw $ AstMapAccumLDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
-  tapply t ll = AstRaw $ AstApply t (unAstRaw ll)
+  tapply f t = AstRaw $ AstApply f (unAstRaw t)
   tlambda = tlambda @(AstTensor AstMethodLet s)
   -- These three methods are called at this type in delta evaluation via
   -- tmapAccumR and tmapAccumL, so they have to work. We could refrain from
@@ -1442,7 +1442,7 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   tmapAccumLDer _ !k !accftk !bftk !eftk f df rf acc0 es =
     AstNoVectorize $ tmapAccumLDer Proxy k accftk bftk eftk f df rf
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
-  tapply t ll = AstNoVectorize $ tapply t (unAstNoVectorize ll)
+  tapply f t = AstNoVectorize $ tapply f (unAstNoVectorize t)
   tlambda = tlambda @(AstTensor AstMethodLet s)
   tgrad = tgrad @(AstTensor AstMethodLet s)
   tvjp = tvjp @(AstTensor AstMethodLet s)
@@ -1674,7 +1674,7 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   tmapAccumLDer _ !k !accftk !bftk !eftk f df rf acc0 es =
     wAstNoSimplify $ tmapAccumLDer Proxy k accftk bftk eftk f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)
-  tapply t ll = wAstNoSimplify $ tapply t (wunAstNoSimplify ll)
+  tapply f t = wAstNoSimplify $ tapply f (wunAstNoSimplify t)
   tlambda = tlambda @(AstRaw s)
   tgrad = tgrad @(AstRaw s)
   tvjp = tvjp @(AstRaw s)

@@ -330,6 +330,8 @@ type AstBool ms = AstTensor ms PlainSpan (TKScalar Bool)
 type data AstMethodOfSharing = AstMethodShare | AstMethodLet
 
 -- | AST for tensors that are meant to be differentiated.
+--
+-- Some terms have no semantics, e.g., arithmetic terms with span @DualSpan@.
 type role AstTensor nominal nominal nominal
 data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
   -- General operations, for scalar, ranked, shared and other tensors at once
