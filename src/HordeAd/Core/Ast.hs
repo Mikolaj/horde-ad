@@ -357,21 +357,21 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
        SNat k
     -> FullShapeTK by
     -> FullShapeTK ey
-    -> AstHFun s s
+    -> AstHFun s
                (TKProduct accy ey) (TKProduct accy by)
-    -> AstHFun s s
+    -> AstHFun s
                (TKProduct (ADTensorKind (TKProduct accy ey))
                           (TKProduct accy ey))
                (ADTensorKind (TKProduct accy by))
-    -> AstHFun s s
+    -> AstHFun s
                (TKProduct (ADTensorKind (TKProduct accy by))
                           (TKProduct accy ey))
                (ADTensorKind (TKProduct accy ey))
     -> AstTensor ms s accy
     -> AstTensor ms s (BuildTensorKind k ey)
     -> AstTensor ms s (TKProduct accy (BuildTensorKind k by))
-  AstApply :: (KnownSpan s1, KnownSpan s)
-           => AstHFun s1 s x z -> AstTensor ms s1 x -> AstTensor ms s z
+  AstApply :: KnownSpan s
+           => AstHFun s x z -> AstTensor ms s x -> AstTensor ms s z
   AstVar :: AstVarName '(s, y) -> AstTensor ms s y
   AstCond :: forall y ms s.
              AstBool ms -> AstTensor ms s y -> AstTensor ms s y
@@ -569,11 +569,11 @@ deriving instance Show (AstTensor ms s y)
   -- an alternative might be @Has Show (AstTensor ms s)@, but then we'd need
   -- to write @has@ before we apply @show@ and we'd weaken @AllTargetShow@
 
-type role AstHFun nominal nominal nominal nominal
-data AstHFun s s2 x z where
+type role AstHFun nominal nominal nominal
+data AstHFun s x z where
   AstLambda :: ~(AstVarName '(s, x))
-            -> ~(AstTensor AstMethodLet s2 z)
-            -> AstHFun s s2 x z
+            -> ~(AstTensor AstMethodLet s z)
+            -> AstHFun s x z
     -- ^ The function body can't have any free variables outside those
     -- listed in the first component of the pair; this reflects
     -- the quantification in 'HordeAd.Core.Ops.rrev'
@@ -593,7 +593,7 @@ data AstHFun s s2 x z where
     -- we'd need to modify some other code fragments, while the performance
     -- impact seems mixed.
 
-deriving instance Show (AstHFun s s2 x z)
+deriving instance Show (AstHFun s x z)
 
 data OpCodeNum1 =
     NegateOp | AbsOp | SignumOp

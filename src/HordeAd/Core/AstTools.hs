@@ -244,7 +244,7 @@ varInAst var = \case
 varInIxS :: AstVarId -> AstIxS ms sh -> Bool
 varInIxS var = any (varInAst var)
 
-varInAstHFun :: AstVarId -> AstHFun s s2 x y -> Bool
+varInAstHFun :: AstVarId -> AstHFun s x y -> Bool
 varInAstHFun _var AstLambda{} =
   False  -- we take advantage of the term being closed
 

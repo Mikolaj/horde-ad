@@ -436,9 +436,9 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
             astGatherS shn v0 (var ::$ ZS, ix)
 
 build1VHFun
-  :: forall k x z s s2. (KnownSpan s, KnownSpan s2)
-  => SNat k -> (IntVarName, AstHFun s s2 x z)
-  -> AstHFun s s2 (BuildTensorKind k x) (BuildTensorKind k z)
+  :: forall k x z s. KnownSpan s
+  => SNat k -> (IntVarName, AstHFun s x z)
+  -> AstHFun s (BuildTensorKind k x) (BuildTensorKind k z)
 build1VHFun snat@SNat (var, v0) = case v0 of
   Ast.AstLambda var1 t ->
     -- This handles the case of l having free variables beyond var1,

@@ -760,8 +760,8 @@ interpretAst !env = \case
            (snest @_ @_ @sh shb r1) (snest shb r2)
 
 interpretAstHFun
-  :: forall target x y s s2. (KnownSpan s2, BaseTensor target)
-  => AstEnv target -> AstHFun s s2 x y
+  :: forall target x y s. (KnownSpan s, BaseTensor target)
+  => AstEnv target -> AstHFun s x y
   -> HFunOf target x y
 {-# INLINE interpretAstHFun #-}
 interpretAstHFun _env (AstLambda var t) =
@@ -772,7 +772,7 @@ interpretAstHFun _env (AstLambda var t) =
 
 interpretAstHFunPrimal
   :: forall target x y. ADReady target
-  => AstEnv target -> AstHFun PrimalSpan PrimalSpan x y
+  => AstEnv target -> AstHFun PrimalSpan x y
   -> HFunOf (PrimalOf target) x y
 {-# INLINE interpretAstHFunPrimal #-}
 interpretAstHFunPrimal _env (AstLambda var t) =
@@ -787,7 +787,7 @@ interpretAstHFunPrimal _env (AstLambda var t) =
 
 interpretAstHFunPlain
   :: forall target x y. ADReady target
-  => AstEnv target -> AstHFun PlainSpan PlainSpan x y
+  => AstEnv target -> AstHFun PlainSpan x y
   -> HFunOf (PlainOf target) x y
 {-# INLINE interpretAstHFunPlain #-}
 interpretAstHFunPlain _env (AstLambda var t) =

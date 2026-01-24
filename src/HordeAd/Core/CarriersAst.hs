@@ -47,7 +47,7 @@ import HordeAd.Core.Types
 -- would not eliminate the variable and also would likely results
 -- in more costly computations. Also, that would prevent simplification
 -- of the instances, especially after applied to arguments that are terms.
-type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun s s x z
+type instance HFunOf (AstTensor AstMethodLet s) x z = AstHFun s x z
 
 -- This can't be defined only for FullSpan, because the BaseTensor instance
 -- for @AstTensor ms PrimalSpan@ needs it and we need the instance
@@ -1365,19 +1365,19 @@ type instance PrimalOf (AstRaw s) = AstRaw (PrimalStepSpan s)
 type instance DualOf (AstRaw s) = AstTensor AstMethodShare DualSpan
 type instance PlainOf (AstRaw s) = AstRaw PlainSpan
 type instance ShareOf (AstRaw s) = AstRaw s
-type instance HFunOf (AstRaw s) x y = AstHFun s s x y
+type instance HFunOf (AstRaw s) x y = AstHFun s x y
 
 type instance PrimalOf (AstNoVectorize s) = AstNoVectorize (PrimalStepSpan s)
 type instance DualOf (AstNoVectorize s) = AstTensor AstMethodLet DualSpan
 type instance PlainOf (AstNoVectorize s) = AstNoVectorize PlainSpan
 type instance ShareOf (AstNoVectorize s) = AstRaw s
-type instance HFunOf (AstNoVectorize s) x z = AstHFun s s x z
+type instance HFunOf (AstNoVectorize s) x z = AstHFun s x z
 
 type instance PrimalOf (AstNoSimplify s) = AstNoSimplify (PrimalStepSpan s)
 type instance DualOf (AstNoSimplify s) = AstTensor AstMethodLet DualSpan
 type instance PlainOf (AstNoSimplify s) = AstNoSimplify PlainSpan
 type instance ShareOf (AstNoSimplify s) = AstRaw s
-type instance HFunOf (AstNoSimplify s) x z = AstHFun s s x z
+type instance HFunOf (AstNoSimplify s) x z = AstHFun s x z
 
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify other instances

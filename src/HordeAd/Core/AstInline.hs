@@ -257,8 +257,8 @@ inlineAst !memo v0 = case v0 of
     in (memo2, Ast.AstLeqA shb sh r1 r2)
 
 inlineAstHFun
-  :: KnownSpan s2
-  => AstMemo -> AstHFun s s2 x y -> (AstMemo, AstHFun s s2 x y)
+  :: KnownSpan s
+  => AstMemo -> AstHFun s x y -> (AstMemo, AstHFun s x y)
 inlineAstHFun !memo v0 = case v0 of
   Ast.AstLambda var l ->
     -- No other free variables in l, so no outside lets can reach there,
@@ -512,7 +512,7 @@ unshareAst !memo = \case
     in (memo2, Ast.AstLeqA shb sh r1 r2)
 
 unshareAstHFun
-  :: AstBindings -> AstHFun s s2 x y -> (AstBindings, AstHFun s s2 x y)
+  :: AstBindings -> AstHFun s x y -> (AstBindings, AstHFun s x y)
 unshareAstHFun memo v0 = case v0 of
   Ast.AstLambda{} ->
     -- No other free variables in l, so no outside lets can reach there,

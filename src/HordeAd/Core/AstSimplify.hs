@@ -663,13 +663,13 @@ astMapAccumLDer
   => SNat k
   -> FullShapeTK by
   -> FullShapeTK ey
-  -> AstHFun s s
+  -> AstHFun s
              (TKProduct accy ey) (TKProduct accy by)
-  -> AstHFun s s
+  -> AstHFun s
              (TKProduct (ADTensorKind (TKProduct accy ey))
                         (TKProduct accy ey))
              (ADTensorKind (TKProduct accy by))
-  -> AstHFun s s
+  -> AstHFun s
              (TKProduct (ADTensorKind (TKProduct accy by))
                         (TKProduct accy ey))
              (ADTensorKind (TKProduct accy ey))
@@ -807,8 +807,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
 astMapAccumLDer k bftk eftk f df rf acc0 es =
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es
 
-astApply :: forall x z s1 s. (KnownSpan s1, KnownSpan s)
-         => AstHFun s1 s x z -> AstTensor AstMethodLet s1 x
+astApply :: forall x z s. KnownSpan s
+         => AstHFun s x z -> AstTensor AstMethodLet s x
          -> AstTensor AstMethodLet s z
 astApply (AstLambda !var !v) u = astLet var u v
 
@@ -965,8 +965,7 @@ astPrimalPart t = case t of
                                    (AstLambda vard2 vd2)
                                    (AstLambda varr2 vr2)
                        (astPrimalPart acc0) (astPrimalPart es)
-  Ast.AstApply (AstLambda !var !v) ll ->
-    astApply (AstLambda var (astPrimalPart v)) ll
+  Ast.AstApply{} -> Ast.AstPrimalPart t
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
   Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -1080,8 +1079,7 @@ astDualPart t = case t of
                                    (AstLambda vard2 vd2)
                                    (AstLambda varr2 vr2)
                        (astDualPart acc0) (astDualPart es)
-  Ast.AstApply (AstLambda !var !v) ll ->
-    astApply (AstLambda var (astDualPart v)) ll
+  Ast.AstApply{} -> Ast.AstDualPart t
   Ast.AstVar{} -> Ast.AstDualPart t
   Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -1201,8 +1199,7 @@ astPlainPart t = case t of
                                    (AstLambda vard2 vd2)
                                    (AstLambda varr2 vr2)
                        (astPlainPart acc0) (astPlainPart es)
-  Ast.AstApply (AstLambda !var !v) ll ->
-    astApply (AstLambda var (astPlainPart v)) ll
+  Ast.AstApply{} -> Ast.AstPlainPart t
   Ast.AstVar{} -> Ast.AstPlainPart t  -- the only normal form
   Ast.AstCond b a2 a3 -> astCond b (astPlainPart a2) (astPlainPart a3)
   Ast.AstBuild1 k stk (var, v) ->
@@ -4323,8 +4320,8 @@ substitute1AstIxS i var ix =
      else Nothing
 
 substitute1AstHFun
-  :: forall s s2 s3 x y z.
-     AstTensor AstMethodLet s3 z -> AstVarName '(s3, z) -> AstHFun s s2 x y
-  -> Maybe (AstHFun s s2 x y)
+  :: forall s s3 x y z.
+     AstTensor AstMethodLet s3 z -> AstVarName '(s3, z) -> AstHFun s x y
+  -> Maybe (AstHFun s x y)
 substitute1AstHFun _i _var AstLambda{} =
   Nothing  -- no outside free variables

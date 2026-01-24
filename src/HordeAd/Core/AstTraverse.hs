@@ -237,8 +237,8 @@ expandAst t = case t of
   Ast.AstLeqA shb sh arg1 arg2 ->
     fromPlain $ Ast.AstLeqA shb sh (expandAst arg1) (expandAst arg2)
 
-expandAstHFun :: KnownSpan s2
-              => AstHFun s s2 x y -> AstHFun s s2 x y
+expandAstHFun :: KnownSpan s
+              => AstHFun s x y -> AstHFun s x y
 expandAstHFun (AstLambda var l) = AstLambda var (expandAst l)
 
 
@@ -386,8 +386,8 @@ simplifyAst t = case t of
   Ast.AstLeqA shb sh arg1 arg2 ->
     fromPlain $ Ast.AstLeqA shb sh (simplifyAst arg1) (simplifyAst arg2)
 
-simplifyAstHFun :: KnownSpan s2
-                => AstHFun s s2 x y -> AstHFun s s2 x y
+simplifyAstHFun :: KnownSpan s
+                => AstHFun s x y -> AstHFun s x y
 simplifyAstHFun (AstLambda var l) = AstLambda var (simplifyAst l)
 
 
@@ -842,8 +842,8 @@ contractAst t0 = case t0 of
   Ast.AstLeqA shb sh arg1 arg2 ->
     fromPlain $ Ast.AstLeqA shb sh (contractAst arg1) (contractAst arg2)
 
-contractAstHFun :: KnownSpan s2
-                => AstHFun s s2 x y -> AstHFun s s2 x y
+contractAstHFun :: KnownSpan s
+                => AstHFun s x y -> AstHFun s x y
 contractAstHFun (AstLambda var l) = AstLambda var (contractAst l)
 
 attemptMatmul2
@@ -966,6 +966,6 @@ letDownAst t = case t of
   Ast.AstLeqA shb sh arg1 arg2 ->
     Ast.AstLeqA shb sh (letDownAst arg1) (letDownAst arg2)
 
-letDownAstHFun :: KnownSpan s2
-               => AstHFun s s2 x y -> AstHFun s s2 x y
+letDownAstHFun :: KnownSpan s
+               => AstHFun s x y -> AstHFun s x y
 letDownAstHFun (AstLambda var l) = AstLambda var (letDownAst l)
