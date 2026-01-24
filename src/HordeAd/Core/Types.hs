@@ -21,7 +21,8 @@ module HordeAd.Core.Types
   , Z1(..)
     -- * Misc
   , pattern Is, mapAccumL'
-  , Dict(..), IntegralH(..), RealFloatH(..), Boolean (..), EqH(..), OrdH(..)
+  , Dict(..), Dict0(..)
+  , IntegralH(..), RealFloatH(..), Boolean (..), EqH(..), OrdH(..)
   , backpermutePrefixList
     -- * Feature requests for ox-arrays
   , Take, Drop, UnMapSucc
@@ -351,6 +352,12 @@ indexZ1 _ = error "indexZ1: impossible"
 -- * Misc
 
 -- TODO: move all these somewhere
+
+-- | Evidence for the constraint @c@. Works for type families,
+-- such as @TKAllNum@.
+type role Dict0 representational
+data Dict0 c where
+  Dict0 :: c => Dict0 c
 
 pattern Is :: forall a b. Typeable a => a ~~ b => TypeRep b
 pattern Is <- (eqTypeRep (TypeRep @a) -> Just (HRefl :: a :~~: b))

@@ -7,7 +7,7 @@ module HordeAd.Core.TensorKind
   ( -- * Tensor kind singletons
     SingletonTK(..), KnownSTK(..)
   , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
-  , Dict0(..), lemTKAllNumAD, lemTKScalarAllNumAD
+  , lemTKAllNumAD, lemTKScalarAllNumAD
   , lemTKAllNumBuild, lemTKAllNumRaze, numFromTKAllNum
   , stkUnit, buildSTK, razeSTK, adSTK
   , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
@@ -116,12 +116,6 @@ sameSTK = \cases
     | Just Refl <- sameSTK x1 x2, Just Refl <- sameSTK y1 y2 ->
       Just Refl
   _ _ -> Nothing
-
--- | Evidence for the constraint @c@. Works for type families,
--- such as @TKAllNum@.
-type role Dict0 representational
-data Dict0 c where
-  Dict0 :: c => Dict0 c
 
 lemTKAllNumAD :: SingletonTK y -> Dict0 (TKAllNum (ADTensorKind y))
 lemTKAllNumAD = \case
