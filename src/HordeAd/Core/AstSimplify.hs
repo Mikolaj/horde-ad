@@ -842,35 +842,27 @@ astLet _var _u v@Ast.AstConcreteS{} = v
 astLet _var _u v@Ast.AstIotaS{} = v
 astLet var u v@(Ast.AstVar var2) =
   if varNameToAstVarId var2 == varNameToAstVarId var
-  then case testEquality (knownSpan @s) (knownSpan @s2) of
-    Just Refl -> case testEquality var var2 of
-      Just Refl -> u
-      _ -> error "astLet: wrong variable types at AstVar"
-    _ -> error "astLet: wrong span at AstVar"
+  then case testEquality var var2 of
+    Just Refl -> u
+    _ -> error "astLet: wrong variable types at AstVar"
   else v
 astLet var u v@(Ast.AstPrimalPart (Ast.AstVar var2)) =  -- a common noop
   if varNameToAstVarId var2 == varNameToAstVarId var
-  then case testEquality (knownSpan @s2) (knownSpan @(PrimalStepSpan s)) of
-    Just Refl -> case testEquality var var2 of
-      Just Refl -> astPrimalPart u
-      _ -> error "astLet: wrong variable types at AstPrimalPart"
-    _ -> error "astLet: wrong span at AstPrimalPart"
+  then case testEquality var var2 of
+    Just Refl -> astPrimalPart u
+    _ -> error "astLet: wrong variable types at AstPrimalPart"
   else v
 astLet var u v@(Ast.AstDualPart (Ast.AstVar var2)) =  -- a noop
   if varNameToAstVarId var2 == varNameToAstVarId var
-  then case testEquality (knownSpan @s) SFullSpan of
-    Just Refl -> case testEquality var var2 of
-      Just Refl -> astDualPart u
-      _ -> error "astLet: wrong variable types at AstDualPart"
-    _ -> error "astLet: wrong span at AstDualPart"
+  then case testEquality var var2 of
+    Just Refl -> astDualPart u
+    _ -> error "astLet: wrong variable types at AstDualPart"
   else v
-astLet var u v@(Ast.AstPlainPart @_ @s1 (Ast.AstVar var2)) =  -- a noop
+astLet var u v@(Ast.AstPlainPart (Ast.AstVar var2)) =  -- a noop
   if varNameToAstVarId var2 == varNameToAstVarId var
-  then case testEquality (knownSpan @s) (knownSpan @s1) of
-    Just Refl -> case testEquality var var2 of
-      Just Refl -> astPlainPart u
-      _ -> error "astLet: wrong variable types at AstPlainPart"
-    _ -> error "astLet: wrong span at AstPlainPart"
+  then case testEquality var var2 of
+    Just Refl -> astPlainPart u
+    _ -> error "astLet: wrong variable types at AstPlainPart"
   else v
 astLet var u v | astIsSmall True u =
   substituteAst u var v
@@ -4099,28 +4091,26 @@ substitute1Ast i var = subst where
     -- We can't assert anything here, because only all runtime values need
     -- to be in bounds and bounds approximations don't have to agree.
     if varNameToAstVarId var == varNameToAstVarId var2
-    then case testEquality (knownSpan @s3) (knownSpan @s2) of
-      Just Refl -> case testEquality var var2 of
-        Just Refl -> case i of
-          Ast.AstVar var3 | FTKScalar <- varNameToFTK var3 ->
-            let (lb, ub) = fromMaybe (-1000000000, 1000000000)
-                           $ varNameToBounds var
-                (lb2, ub2) = fromMaybe (-1000000000, 1000000000)
-                             $ varNameToBounds var2
-                (lb3, ub3) = fromMaybe (-1000000000, 1000000000)
-                             $ varNameToBounds var3
-                bs = (max (max lb lb2) lb3, min (min ub ub2) ub3)
-                  -- We know all bounds approximations have to be correct
-                  -- so we can intersect them.
-            in Just $ astVar $ mkAstVarName (varNameToFTK var3)
-                                            (Just bs)
-                                            (varNameToAstVarId var3)
-          _ -> Just i
-        _ -> error $ "substitute1Ast: kind of the variable "
-                     ++ show var2 ++ ": " ++ show (varNameToFTK var)
-                     ++ ", payload kind: " ++ show (varNameToFTK var2)
-                     ++ ", payload: " ++ show i
-      _ -> error "substitute1Ast: span"
+    then case testEquality var var2 of
+      Just Refl -> case i of
+        Ast.AstVar var3 | FTKScalar <- varNameToFTK var3 ->
+          let (lb, ub) = fromMaybe (-1000000000, 1000000000)
+                         $ varNameToBounds var
+              (lb2, ub2) = fromMaybe (-1000000000, 1000000000)
+                           $ varNameToBounds var2
+              (lb3, ub3) = fromMaybe (-1000000000, 1000000000)
+                           $ varNameToBounds var3
+              bs = (max (max lb lb2) lb3, min (min ub ub2) ub3)
+                -- We know all bounds approximations have to be correct
+                -- so we can intersect them.
+          in Just $ astVar $ mkAstVarName (varNameToFTK var3)
+                                          (Just bs)
+                                          (varNameToAstVarId var3)
+        _ -> Just i
+      _ -> error $ "substitute1Ast: kind of the variable "
+                   ++ show var2 ++ ": " ++ show (varNameToFTK var)
+                   ++ ", payload kind: " ++ show (varNameToFTK var2)
+                   ++ ", payload: " ++ show i
     else Nothing
   Ast.AstCond b v w ->
     case (subst b, subst v, subst w) of

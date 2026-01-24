@@ -351,11 +351,9 @@ astLetDown :: forall y z s s2. (KnownSpan s, KnownSpan s2)
            -> AstTensor AstMethodLet s2 z
 astLetDown var u v@(AstVar var2) =
   if varNameToAstVarId var2 == varNameToAstVarId var
-  then case testEquality (knownSpan @s) (knownSpan @s2) of
-    Just Refl -> case testEquality var var2 of
-      Just Refl -> u
-      _ -> error "astLetDown: wrong variable types at AstVar"
-    _ -> error "astLetDown: wrong span at AstVar"
+  then case testEquality var var2 of
+    Just Refl -> u
+    _ -> error "astLetDown: wrong variable types at AstVar"
   else v
 astLetDown var u v = case v of
   -- Normaly the type bounds pair nesting, so the check is cheap.
