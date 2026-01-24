@@ -14,7 +14,6 @@ module HordeAd.Core.TensorKind
     -- * Full shape tensor kind quasi-singletons
   , FullShapeTK(..)
   , matchingFTK, ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK, differentiableFTK
-  , DummyDualTarget(..)
   ) where
 
 import Prelude hiding ((.))
@@ -346,7 +345,3 @@ differentiableFTK = \case
   FTKS _ x -> differentiableFTK x
   FTKX _ x -> differentiableFTK x
   FTKProduct ftk1 ftk2 -> differentiableFTK ftk1 && differentiableFTK ftk2
-
-type role DummyDualTarget nominal
-type DummyDualTarget :: Target
-newtype DummyDualTarget y = DummyDualTarget (FullShapeTK y)

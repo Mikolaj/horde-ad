@@ -10,6 +10,7 @@ module HordeAd.Core.CarriersConcrete
   , replTargetRep, defTargetRep
     -- * Concrete and its instances
   , Concrete(..), ConcreteFun(..), rtoVector, stoVector, xtoVector
+  , DummyDualTarget(..)
   ) where
 
 import Prelude
@@ -349,3 +350,8 @@ stoVector = Nested.stoVector . unConcrete
 
 xtoVector :: GoodScalar r => Concrete (TKX sh r) -> VS.Vector r
 xtoVector = Nested.mtoVector . unConcrete
+
+type role DummyDualTarget nominal
+type DummyDualTarget :: Target
+newtype DummyDualTarget y = DummyDualTarget (FullShapeTK y)
+  deriving (Eq, Show)
