@@ -1018,8 +1018,11 @@ astPrimalPart t = case t of
   Ast.AstTransposeS perm v -> astTransposeS perm (astPrimalPart v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astPrimalPart v)
 
-  -- All conversions need to stay down here to cancel out.
-  Ast.AstConvert{} -> Ast.AstPrimalPart t
+  -- Most conversions need to stay down here to cancel out.
+  Ast.AstConvert c a ->
+    if checkAstFromSNotK c a
+    then astConvert c $ astPrimalPart a
+    else Ast.AstPrimalPart t
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstIndex0S{} -> Ast.AstPrimalPart t
@@ -1133,8 +1136,11 @@ astDualPart t = case t of
   Ast.AstTransposeS perm v -> astTransposeS perm (astDualPart v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astDualPart v)
 
-  -- All conversions need to stay down here to cancel out.
-  Ast.AstConvert{} -> Ast.AstDualPart t
+  -- Most conversions need to stay down here to cancel out.
+  Ast.AstConvert c a ->
+    if checkAstFromSNotK c a
+    then astConvert c $ astDualPart a
+    else Ast.AstDualPart t
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstIndex0S{} -> Ast.AstDualPart t
@@ -1242,8 +1248,11 @@ astPlainPart t = case t of
   Ast.AstTransposeS perm v -> astTransposeS perm (astPlainPart v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astPlainPart v)
 
-  -- All conversions need to stay down here to cancel out.
-  Ast.AstConvert{} -> Ast.AstPlainPart t
+  -- Most conversions need to stay down here to cancel out.
+  Ast.AstConvert c a ->
+    if checkAstFromSNotK c a
+    then astConvert c $ astPlainPart a
+    else Ast.AstPlainPart t
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstIndex0S{} -> Ast.AstPlainPart t
@@ -3283,6 +3292,12 @@ astConvertFromS c zftk a = case (zftk, a) of
   (FTKScalar, Ast.AstBuild1{}) -> error "astConvertFromS: impossible"
   (FTKScalar, Ast.AstLet var u v) ->
     astLet var u (astConvertFromS c FTKScalar v)
+  (FTKScalar, Ast.AstPrimalPart v) ->
+    astPrimalPart $ astConvertFromS c FTKScalar v
+  (FTKScalar, Ast.AstDualPart v) ->
+    astDualPart $ astConvertFromS c FTKScalar v
+  (FTKScalar, Ast.AstPlainPart v) ->
+    astPlainPart $ astConvertFromS c FTKScalar v
   (FTKScalar, AstPlusK{}) -> error "astConvertFromS: impossible"
   (FTKScalar, AstTimesK{}) -> error "astConvertFromS: impossible"
   (FTKScalar, Ast.AstN1K{}) -> error "astConvertFromS: impossible"
@@ -3390,18 +3405,18 @@ astConvertFromS c zftk a = case (zftk, a) of
   -}
   -- Rare cases where we don't pull up but push down so that conversions
   -- don't end up interspersed with AstFromPrimal and similar.
-  (_, Ast.AstPrimalPart v) ->
-    astPrimalPart $ astConvertFromS c zftk v
-  (_, Ast.AstDualPart v) ->
-    astDualPart $ astConvertFromS c zftk v
-  (_, Ast.AstPlainPart v) ->
-    astPlainPart $ astConvertFromS c zftk v
   (_, Ast.AstFromPrimal v) ->
     fromPrimal $ astConvertFromS c zftk v
   (_, Ast.AstFromDual v) ->
     fromDual $ astConvertFromS c zftk v
   (_, Ast.AstFromPlain v) ->
     fromPlain $ astConvertFromS c zftk v
+  (_, Ast.AstPrimalPart (Ast.AstConvert c2 a2)) ->
+    astPrimalPart $ astConvert (c `convCmp` c2) a2
+  (_, Ast.AstDualPart (Ast.AstConvert c2 a2)) ->
+    astDualPart $ astConvert (c `convCmp` c2) a2
+  (_, Ast.AstPlainPart (Ast.AstConvert c2 a2)) ->
+    astPlainPart $ astConvert (c `convCmp` c2) a2
   (_, Ast.AstConvert c2 a2) -> astConvert (c `convCmp` c2) a2
   -- keep: (FTKScalar, _) -> error "add above until GHC say this case redundant"
   _ -> Ast.AstConvert c a  -- by default we pull up

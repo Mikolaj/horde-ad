@@ -1217,7 +1217,7 @@ testReluPP = do
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
     @?= "\\m1 -> rfromS (sgather @[3, 4] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i6] -> [ifH (0.0 <=. tplainPart (negate (sfromR m1 `index0` [i5, i6]))) 0 1]) * sfromR m1)"
   show deltas
-    @?= "DeltaConvert (ConvCmp (ConvXR STKScalar) ConvSX) (DeltaShare 100000003 (DeltaScale <primal> (DeltaConvert (ConvCmp (ConvXS' (FTKS [3,4] FTKScalar)) ConvRX) (DeltaInput (InputId 0)))))"
+    @?= "DeltaConvert (ConvCmp (ConvXR STKScalar) ConvSX) (DeltaShare 100000001 (DeltaScale <primal> (DeltaConvert (ConvCmp (ConvXS' (FTKS [3,4] FTKScalar)) ConvRX) (DeltaInput (InputId 0)))))"
 
 testReluPP2 :: Assertion
 testReluPP2 = do
