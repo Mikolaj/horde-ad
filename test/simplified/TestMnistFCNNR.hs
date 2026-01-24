@@ -227,7 +227,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map mkMnistDataLinearR . take (batchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
-    (_, _, var, varAst) <- funToAstRevIO ftk
+    (_, var, varAst) <- funToAstRevIO ftk
     (varGlyph, astGlyph) <-
       funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) Nothing id
     (varLabel, astLabel) <-
@@ -544,7 +544,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
     testData <- map mkMnistDataLinearR . take (batchSize * maxBatches)
                 <$> loadMnistData testGlyphsPath testLabelsPath
     let ftk = tftk @Concrete (knownSTK @(XParams2 r Float)) targetInit
-    (_, _, var, varAst) <- funToAstRevIO ftk
+    (_, var, varAst) <- funToAstRevIO ftk
     (varGlyph, astGlyph) <-
       funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) Nothing id
     (varLabel, astLabel) <-

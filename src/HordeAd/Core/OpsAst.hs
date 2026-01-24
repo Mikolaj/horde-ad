@@ -64,20 +64,15 @@ import HordeAd.Core.UnwindNum
 
 data IncomingCotangentHandling = UseIncomingCotangent | IgnoreIncomingCotangent
 
--- Here a choice is made that derivatives are PrimalSpan terms.
--- This makes them easier to simplify and expresses via type that they
--- don't introduce tangents nor cotangents, but are purely primal functions.
--- They can still be liften to dual number functions via interpretations,
--- as is done, e.g., in tgrad below.
 forwardPassByInterpretation
   :: forall x z.
      (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
-  -> AstEnv (ADVal (AstRaw PrimalSpan))
-  -> AstTensor AstMethodShare PrimalSpan x
+  -> AstEnv (ADVal (AstRaw FullSpan))
+  -> AstTensor AstMethodShare FullSpan x
   -> AstVarName '(FullSpan, x)
   -> AstTensor AstMethodLet FullSpan x
-  -> ADVal (AstRaw PrimalSpan) z
+  -> ADVal (AstRaw FullSpan) z
 {-# INLINE forwardPassByInterpretation #-}
 forwardPassByInterpretation g envInit astVarPrimal var astVar0 =
   let deltaInputs = generateDeltaInputs $ varNameToFTK var
@@ -89,12 +84,12 @@ forwardPassByInterpretation g envInit astVarPrimal var astVar0 =
 revArtifactFromForwardPass
   :: forall x z. TKAllNum (ADTensorKind z)
   => IncomingCotangentHandling
-  -> (AstTensor AstMethodShare PrimalSpan x
+  -> (AstTensor AstMethodShare FullSpan x
       -> AstVarName '(FullSpan, x)
       -> AstTensor AstMethodLet FullSpan x
-      -> ADVal (AstRaw PrimalSpan) z)
+      -> ADVal (AstRaw FullSpan) z)
   -> FullShapeTK x
-  -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
+  -> (AstArtifactRev x z, Delta (AstRaw FullSpan) z)
 -- Break the inline chain to prevent false positives in inspection testing
 -- and protect the unsafePerformIO.
 {-# NOINLINE revArtifactFromForwardPass #-}
@@ -103,7 +98,7 @@ revArtifactFromForwardPass cotangentHandling
   -- IO and bangs and the compound function to fix the numbering of variables
   -- for pretty-printing and prevent sharing the impure values
   -- in tests that reset the impure counters.
-  (!varPrimal, astVarPrimal, var, astVar0) <- funToAstRevIO xftk
+  (!astVarPrimal, var, astVar0) <- funToAstRevIO xftk
   -- Evaluate completely after terms constructed, to free memory
   -- before gradientFromDelta allocates new memory and new FFI is started.
   let !(D primalBody delta) = forwardPass astVarPrimal var astVar0
@@ -116,14 +111,14 @@ revArtifactFromForwardPass cotangentHandling
   let !gradient = gradientFromDelta xftk dt delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
       unPrimal = unshareAstTensor $ unAstRaw primalBody
-  return (AstArtifactRev varDt varPrimal unGradient unPrimal, delta)
+  return (AstArtifactRev varDt var unGradient unPrimal, delta)
 
 revProduceArtifact
   :: forall x z. TKAllNum (ADTensorKind z)
   => IncomingCotangentHandling
   -> (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
-  -> AstEnv (ADVal (AstRaw PrimalSpan))
+  -> AstEnv (ADVal (AstRaw FullSpan))
   -> FullShapeTK x
   -> AstArtifactRev x z
 {-# INLINE revProduceArtifact #-}
@@ -135,12 +130,12 @@ revProduceArtifact cotangentHandling g envInit xftk =
 -- due to technical reasons, the type is less constrained.
 revArtifactFromForwardPassDt
   :: forall x z.
-     (AstTensor AstMethodShare PrimalSpan x
+     (AstTensor AstMethodShare FullSpan x
       -> AstVarName '(FullSpan, x)
       -> AstTensor AstMethodLet FullSpan x
-      -> ADVal (AstRaw PrimalSpan) z)
+      -> ADVal (AstRaw FullSpan) z)
   -> FullShapeTK x
-  -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
+  -> (AstArtifactRev x z, Delta (AstRaw FullSpan) z)
 -- Break the inline chain to prevent false positives in inspection testing
 -- and protect the unsafePerformIO.
 {-# NOINLINE revArtifactFromForwardPassDt #-}
@@ -148,7 +143,7 @@ revArtifactFromForwardPassDt forwardPass xftk = unsafePerformIO $ do
   -- IO and bangs and the compound function to fix the numbering of variables
   -- for pretty-printing and prevent sharing the impure values
   -- in tests that reset the impure counters.
-  (!varPrimal, astVarPrimal, var, astVar0) <- funToAstRevIO xftk
+  (!astVarPrimal, var, astVar0) <- funToAstRevIO xftk
   -- Evaluate completely after terms constructed, to free memory
   -- before gradientFromDelta allocates new memory and new FFI is started.
   let !(D primalBody delta) = forwardPass astVarPrimal var astVar0
@@ -157,13 +152,13 @@ revArtifactFromForwardPassDt forwardPass xftk = unsafePerformIO $ do
   let !gradient = gradientFromDelta xftk (AstRaw dt) delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
       unPrimal = unshareAstTensor $ unAstRaw primalBody
-  return (AstArtifactRev varDt varPrimal unGradient unPrimal, delta)
+  return (AstArtifactRev varDt var unGradient unPrimal, delta)
 
 revProduceArtifactDt
   :: forall x z.
      (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
-  -> AstEnv (ADVal (AstRaw PrimalSpan))
+  -> AstEnv (ADVal (AstRaw FullSpan))
   -> FullShapeTK x
   -> AstArtifactRev x z
 {-# INLINE revProduceArtifactDt #-}
@@ -173,29 +168,28 @@ revProduceArtifactDt g envInit xftk =
 
 fwdArtifactFromForwardPass
   :: forall x z.
-     (AstTensor AstMethodShare PrimalSpan x
+     (AstTensor AstMethodShare FullSpan x
       -> AstVarName '(FullSpan, x)
       -> AstTensor AstMethodLet FullSpan x
-      -> ADVal (AstRaw PrimalSpan) z)
+      -> ADVal (AstRaw FullSpan) z)
   -> FullShapeTK x
-  -> (AstArtifactFwd x z, Delta (AstRaw PrimalSpan) z)
+  -> (AstArtifactFwd x z, Delta (AstRaw FullSpan) z)
 -- Break the inline chain to prevent false positives in inspection testing
 -- and protect the unsafePerformIO.
 {-# NOINLINE fwdArtifactFromForwardPass #-}
 fwdArtifactFromForwardPass forwardPass xftk = unsafePerformIO $ do
-  (!varPrimalD, astVarD, varPrimal, astVarPrimal, var, astVar0)
-    <- funToAstFwdIO xftk
+  (!varPrimalD, astVarD, astVarPrimal, var, astVar0) <- funToAstFwdIO xftk
   let !(D primalBody delta) = forwardPass astVarPrimal var astVar0
   let !derivative = derivativeFromDelta @x delta (adFTK xftk) (AstRaw astVarD)
       !unDerivative = unshareAstTensor $ unAstRaw derivative
       unPrimal = unshareAstTensor $ unAstRaw primalBody
-  return (AstArtifactFwd varPrimalD varPrimal unDerivative unPrimal, delta)
+  return (AstArtifactFwd varPrimalD var unDerivative unPrimal, delta)
 
 fwdProduceArtifact
   :: forall x z.
      (AstTensor AstMethodLet FullSpan x
       -> AstTensor AstMethodLet FullSpan z)
-  -> AstEnv (ADVal (AstRaw PrimalSpan))
+  -> AstEnv (ADVal (AstRaw FullSpan))
   -> FullShapeTK x
   -> AstArtifactFwd x z
 {-# INLINE fwdProduceArtifact #-}
@@ -229,11 +223,11 @@ instance KnownSpan s => LetTensor (AstTensor AstMethodLet s) where
   ttletPlain = astLetFun
   toShare t = AstRaw $ AstToShare t
   -- For convenience and simplicity we define this for all spans,
-  -- but it can only ever be used for PrimalSpan.
+  -- but it can only ever be used for FullSpan.
   tunshare =
     case knownSpan @s of
-      SPrimalStepSpan SFullSpan -> unshareAstTensor . unAstRaw
-      _ -> error "tunshare: used not at PrimalSpan"
+      SFullSpan -> unshareAstTensor . unAstRaw
+      _ -> error "tunshare: used not at FullSpan"
 
 -- | The checks and error messages in these functions result in complete
 -- shape-checking of the ranked and mixed user code (shaped is already
@@ -638,7 +632,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
     -- for each new tensor of arguments, which is better than computing it anew.
     let -- No bangs here, because this goes under lambda and should not be
         -- evaluated too early (which at some point was even incorrect
-        -- and triggered error "tunshare: used not at PrimalSpan"; maybe this
+        -- and triggered error "tunshare: used not at FullSpan"; maybe this
         -- is related to terms getting spans converted when interpreted)
         AstArtifactRev{..} =
           revProduceArtifact

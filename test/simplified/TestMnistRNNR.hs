@@ -204,7 +204,7 @@ mnistTestCaseRNNRI prefix epochs maxBatches width miniBatchSize totalBatchSize
            ftk = tftk @Concrete
                       (knownSTK @(X (ADRnnMnistParameters Concrete r)))
                       targetInit
-       (_, _, var, varAst) <- funToAstRevIO ftk
+       (_, var, varAst) <- funToAstRevIO ftk
        (varGlyph, astGlyph) <-
          funToAstIO (FTKR (miniBatchSize
                            :$: sizeMnistHeightInt

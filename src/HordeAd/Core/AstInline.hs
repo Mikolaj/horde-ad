@@ -293,8 +293,8 @@ bindsToLet u0 !memo = foldl' bindToLet u0 l
 
 -- | This replaces 'HordeAd.Core.Ast.AstShare' with 'HordeAd.Core.Ast.AstLet',
 -- traversing the term bottom-up.
-unshareAstTensor :: AstTensor AstMethodShare PrimalSpan y
-                 -> AstTensor AstMethodLet PrimalSpan y
+unshareAstTensor :: AstTensor AstMethodShare FullSpan y
+                 -> AstTensor AstMethodLet FullSpan y
 unshareAstTensor tShare =
   let (memoOut, tLet) = unshareAst DMap.empty tShare
   in bindsToLet tLet memoOut

@@ -204,7 +204,7 @@ mnistTestCaseCNNSI prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
       withSNat (totalBatchSize * maxBatches) $ \(SNat @lenTestData) -> do
        let testDataS = mkMnistDataBatchS testData
            ftk = tftk @Concrete (knownSTK @(XParams kh kw c_out n_hidden r)) targetInit
-       (_, _, var, varAst2) <- funToAstRevIO ftk
+       (_, var, varAst2) <- funToAstRevIO ftk
        (varGlyph, astGlyph) <-
          funToAstIO (FTKS (miniBatchSize
                            :$$ sizeMnistHeight

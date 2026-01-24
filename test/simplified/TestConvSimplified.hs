@@ -2032,10 +2032,10 @@ testCNNOPP4bW = do
                       (tconcrete ftkDt (treplTarget 7 ftkDt))
             $ extendEnv (artVarDomainRev artSimp)
                         (tconcrete ftk1 (treplTarget 42 ftk1)) emptyEnv
-  interpretAstPrimal @Concrete env (artPrimalRev artifactRev)
-    @?= interpretAstPrimal @Concrete env (artPrimalRev artSimp)
-  interpretAstPrimal @Concrete env (artDerivativeRev artifactRev)
-    @?= interpretAstPrimal @Concrete env (artDerivativeRev artSimp)
+  interpretAstFull @Concrete env (artPrimalRev artifactRev)
+    @?= interpretAstFull @Concrete env (artPrimalRev artSimp)
+  interpretAstFull @Concrete env (artDerivativeRev artifactRev)
+    @?= interpretAstFull @Concrete env (artDerivativeRev artSimp)
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
     @?= "\\u1 -> rfromS (let w47 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i127, i128] -> [2 * i127 + i128]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sgather @[7, 7, 3, 3] w47 (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kfromS (smaxIndex (splainPart w47 !$ [i48, i49, i50, i51]))]))"
   printArtifactPrimalPretty artifactRev
@@ -2061,10 +2061,10 @@ testCNNOPP4bD = do
                       (tconcrete ftkDt (treplTarget 7 ftkDt))
             $ extendEnv (artVarDomainRev artSimp)
                         (tconcrete ftk1 (treplTarget 42 ftk1)) emptyEnv
-  interpretAstPrimal @Concrete env (artPrimalRev artifactRev)
-    @?= interpretAstPrimal @Concrete env (artPrimalRev artSimp)
-  interpretAstPrimal @Concrete env (artDerivativeRev artifactRev)
-    @?= interpretAstPrimal @Concrete env (artDerivativeRev artSimp)
+  interpretAstFull @Concrete env (artPrimalRev artifactRev)
+    @?= interpretAstFull @Concrete env (artPrimalRev artSimp)
+  interpretAstFull @Concrete env (artDerivativeRev artifactRev)
+    @?= interpretAstFull @Concrete env (artDerivativeRev artSimp)
   printArtifactPrimalPretty artSimp
     @?= "\\u1 -> rfromS (let w47 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i93, i94] -> [2 * i93 + i94]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sgather @[7, 7, 3, 3] w47 (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kfromS (smaxIndex (splainPart w47 !$ [i48, i49, i50, i51]))]))"
   printArtifactPrimalPretty artifactRev

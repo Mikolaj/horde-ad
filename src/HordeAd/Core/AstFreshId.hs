@@ -84,48 +84,42 @@ fun1ToAst ftk f = unsafePerformIO $ do
 
 funToAstRevIO :: forall x.
                  FullShapeTK x
-              -> IO ( AstVarName '(PrimalSpan, x)
-                    , AstTensor AstMethodShare PrimalSpan x
+              -> IO ( AstTensor AstMethodShare FullSpan x
                     , AstVarName '(FullSpan, x)
                     , AstTensor AstMethodLet FullSpan x )
 {-# INLINE funToAstRevIO #-}
 funToAstRevIO ftk = do
   !freshId <- unsafeGetFreshAstVarId
-  let varPrimal :: AstVarName '(PrimalSpan, x)
-      varPrimal = mkAstVarName ftk Nothing freshId
-      var :: AstVarName '(FullSpan, x)
+  let var :: AstVarName '(FullSpan, x)
       var = mkAstVarName ftk Nothing freshId
-      astVarPrimal :: AstTensor AstMethodShare PrimalSpan x
-      !astVarPrimal = astVar varPrimal
+      astVarPrimal :: AstTensor AstMethodShare FullSpan x
+      !astVarPrimal = astVar var
       astVarD :: AstTensor AstMethodLet FullSpan x
       !astVarD = astVar var
-  return (varPrimal, astVarPrimal, var, astVarD)
+  return (astVarPrimal, var, astVarD)
 
 funToAstFwdIO :: forall x.
                  FullShapeTK x
-              -> IO ( AstVarName '(PrimalSpan, ADTensorKind x)
-                    , AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
-                    , AstVarName '(PrimalSpan, x)
-                    , AstTensor AstMethodShare PrimalSpan x
+              -> IO ( AstVarName '(FullSpan, ADTensorKind x)
+                    , AstTensor AstMethodShare FullSpan (ADTensorKind x)
+                    , AstTensor AstMethodShare FullSpan x
                     , AstVarName '(FullSpan, x)
                     , AstTensor AstMethodLet FullSpan x )
 {-# INLINE funToAstFwdIO #-}
 funToAstFwdIO ftk = do
   !freshIdDs <- unsafeGetFreshAstVarId
   !freshId <- unsafeGetFreshAstVarId
-  let varPrimalD :: AstVarName '(PrimalSpan, ADTensorKind x)
+  let varPrimalD :: AstVarName '(FullSpan, ADTensorKind x)
       varPrimalD = mkAstVarName (adFTK ftk) Nothing freshIdDs
-      varPrimal :: AstVarName '(PrimalSpan, x)
-      varPrimal = mkAstVarName ftk Nothing freshId
       var :: AstVarName '(FullSpan, x)
       var = mkAstVarName ftk Nothing freshId
-      astVarPrimalD :: AstTensor AstMethodShare PrimalSpan (ADTensorKind x)
+      astVarPrimalD :: AstTensor AstMethodShare FullSpan (ADTensorKind x)
       !astVarPrimalD = astVar varPrimalD
-      astVarPrimal :: AstTensor AstMethodShare PrimalSpan x
-      !astVarPrimal = astVar varPrimal
+      astVarPrimal :: AstTensor AstMethodShare FullSpan x
+      !astVarPrimal = astVar var
       astVarD :: AstTensor AstMethodLet FullSpan x
       !astVarD = astVar var
-  return (varPrimalD, astVarPrimalD, varPrimal, astVarPrimal, var, astVarD)
+  return (varPrimalD, astVarPrimalD, astVarPrimal, var, astVarD)
 
 funToAstIntVarIO :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a)
                  -> IO a

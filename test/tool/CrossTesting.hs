@@ -68,13 +68,13 @@ rev' :: forall r m n v a w.
      => (forall f. ADReady f => f (TKR n r) -> f (TKR m r))
      -> Concrete (TKR n r)
      -> ( ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-          , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
+          , AstTensor AstMethodLet FullSpan (TKR m r), AstTensor AstMethodLet FullSpan (TKR m r)
           , v, v, v, v, v, v, v, v, v, v, v, v, v, v
           , a, a, a, a, a, a, a, a, a, a, a, a, a, a
           , Concrete (TKR n r), w, w, w
           , a, a, a, a, a )
         , ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-          , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
+          , AstTensor AstMethodLet FullSpan (TKR m r), AstTensor AstMethodLet FullSpan (TKR m r)
           , v, v, v, v, v, v, v, v, v, v, v, v, v, v
           , a, a, a, a, a, a, a, a, a, a, a, a, a, a
           , Concrete (TKR n r), w, w, w
@@ -97,7 +97,7 @@ rev1 :: forall r m n v a w.
      => (forall f. ADReady f => f (TKR n r) -> f (TKR m r))
      -> Concrete (TKR n r)
      -> IO ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-           , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
+           , AstTensor AstMethodLet FullSpan (TKR m r), AstTensor AstMethodLet FullSpan (TKR m r)
            , v, v, v, v, v, v, v, v, v, v, v, v, v, v
            , a, a, a, a, a, a, a, a, a, a, a, a, a, a
            , Concrete (TKR n r), w, w, w
@@ -114,9 +114,9 @@ rev1 f !vals = do
       gradientRrev1 = rrev1 @Concrete @r @n @m f vals
       secondRrev1 = rrevFTK @Concrete @(TKR n r) @(ADTensorKind (TKR n r))
                             ftkz (rrev1 @_ @r @n @m f) vals
-      g9 :: ADVal (AstRaw PrimalSpan) (TKR n r)
-         -> ADVal (AstRaw PrimalSpan) (TKR m r)
-      g9 inputs = f @(ADVal (AstRaw PrimalSpan))
+      g9 :: ADVal (AstRaw FullSpan) (TKR n r)
+         -> ADVal (AstRaw FullSpan) (TKR m r)
+      g9 inputs = f @(ADVal (AstRaw FullSpan))
                   $ fromTarget inputs
         -- fromTarget is fine, because primal of inputs is a variable,
         -- hence it's duplicable
@@ -203,10 +203,10 @@ rev1 f !vals = do
            => (f1 (TKR m r) -> AstTensor AstMethodLet FullSpan (TKR m r))
            -> (AstTensor AstMethodLet FullSpan (TKR n r) -> f1 (TKR n r))
            -> (AstTensor AstMethodLet FullSpan (TKR m r) -> AstTensor AstMethodLet FullSpan (TKR m r))
-           -> ADVal (AstRaw PrimalSpan) (TKR n r)
-           -> ADVal (AstRaw PrimalSpan) (TKR m r)
+           -> ADVal (AstRaw FullSpan) (TKR n r)
+           -> ADVal (AstRaw FullSpan) (TKR m r)
       hAst fx1 fx2 gx inputs
-        = hGeneral @(ADVal (AstRaw PrimalSpan))
+        = hGeneral @(ADVal (AstRaw FullSpan))
                    fx1 fx2 gx (fromTarget inputs)
         -- fromTarget is fine, because primal of inputs is a variable,
         -- hence it's duplicable
@@ -298,13 +298,13 @@ assertEqualUpToEpsilon'
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> Concrete (TKR n r)  -- ^ expected reverse derivative value
     -> ( ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-         , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
+         , AstTensor AstMethodLet FullSpan (TKR m r), AstTensor AstMethodLet FullSpan (TKR m r)
          , v, v, v, v, v, v, v, v, v, v, v, v, v, v
          , a, a, a, a, a, a, a, a, a, a, a, a, a, a
          , Concrete (TKR n r), w, w, w
          , a, a, a, a, a )
        , ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-         , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
+         , AstTensor AstMethodLet FullSpan (TKR m r), AstTensor AstMethodLet FullSpan (TKR m r)
          , v, v, v, v, v, v, v, v, v, v, v, v, v, v
          , a, a, a, a, a, a, a, a, a, a, a, a, a, a
          , Concrete (TKR n r), w, w, w
@@ -326,7 +326,7 @@ assertEqualUpToEpsilon1
     => Rational  -- ^ error margin (i.e., the epsilon)
     -> Concrete (TKR n r)  -- ^ expected reverse derivative value
     -> ( v, v, v, v, v, v, v, v, a, a, a, a, a, a, a, a, a, a, a, a
-       , AstTensor AstMethodLet PrimalSpan (TKR m r), AstTensor AstMethodLet PrimalSpan (TKR m r)
+       , AstTensor AstMethodLet FullSpan (TKR m r), AstTensor AstMethodLet FullSpan (TKR m r)
        , v, v, v, v, v, v, v, v, v, v, v, v, v, v
        , a, a, a, a, a, a, a, a, a, a, a, a, a, a
        , Concrete (TKR n r), w, w, w

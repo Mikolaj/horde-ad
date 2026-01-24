@@ -274,10 +274,10 @@ astVar varName = AstVar varName
 -- | The reverse derivative artifact.
 type role AstArtifactRev nominal nominal
 data AstArtifactRev x z = AstArtifactRev
-  { artVarDtRev      :: AstVarName '(PrimalSpan, ADTensorKind z)
-  , artVarDomainRev  :: AstVarName '(PrimalSpan, x)
-  , artDerivativeRev :: AstTensor AstMethodLet PrimalSpan (ADTensorKind x)
-  , artPrimalRev     :: ~(AstTensor AstMethodLet PrimalSpan z)
+  { artVarDtRev      :: AstVarName '(FullSpan, ADTensorKind z)
+  , artVarDomainRev  :: AstVarName '(FullSpan, x)
+  , artDerivativeRev :: AstTensor AstMethodLet FullSpan (ADTensorKind x)
+  , artPrimalRev     :: ~(AstTensor AstMethodLet FullSpan z)
       -- rarely used, so not forced
   }
  deriving Show
@@ -285,10 +285,10 @@ data AstArtifactRev x z = AstArtifactRev
 -- | The forward derivative artifact.
 type role AstArtifactFwd nominal nominal
 data AstArtifactFwd x z = AstArtifactFwd
-  { artVarDsFwd      :: AstVarName '(PrimalSpan, ADTensorKind x)
-  , artVarDomainFwd  :: AstVarName '(PrimalSpan, x)
-  , artDerivativeFwd :: AstTensor AstMethodLet PrimalSpan (ADTensorKind z)
-  , artPrimalFwd     :: ~(AstTensor AstMethodLet PrimalSpan z)
+  { artVarDsFwd      :: AstVarName '(FullSpan, ADTensorKind x)
+  , artVarDomainFwd  :: AstVarName '(FullSpan, x)
+  , artDerivativeFwd :: AstTensor AstMethodLet FullSpan (ADTensorKind z)
+  , artPrimalFwd     :: ~(AstTensor AstMethodLet FullSpan z)
       -- rarely used, so not forced
   }
  deriving Show

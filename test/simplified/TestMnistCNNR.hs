@@ -195,7 +195,7 @@ mnistTestCaseCNNRI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
                    <$> loadMnistData testGlyphsPath testLabelsPath
        let testDataR = mkMnistDataBatchR testData
            ftk = tftk @Concrete (knownSTK @(XParams r)) targetInit
-       (_, _, var, varAst2) <- funToAstRevIO ftk
+       (_, var, varAst2) <- funToAstRevIO ftk
        (varGlyph, astGlyph) <-
          funToAstIO (FTKR (miniBatchSize
                            :$: sizeMnistHeightInt

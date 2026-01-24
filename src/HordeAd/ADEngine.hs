@@ -190,7 +190,7 @@ gradInterpretArtifact AstArtifactRev{..} parameters
         env = extendEnv artVarDtRev oneAtF
               $ extendEnv artVarDomainRev parameters emptyEnv
     in if tftkG (ftkToSTK xftk) (unConcrete parameters) == xftk
-       then fromTarget $ interpretAstPrimal env artDerivativeRev
+       then fromTarget $ interpretAstFull env artDerivativeRev
        else error "gradInterpretArtifact: reverse derivative parameters must have the same shape as the domain of the objective function"
 
 -- | Interpret the "artifact" as a function from concrete tensors
@@ -212,7 +212,7 @@ vjpInterpretArtifact AstArtifactRev{..} parameters dt =
             $ extendEnv artVarDomainRev parameters emptyEnv
   in if tftkG (ftkToSTK xftk) (unConcrete parameters) == xftk
      then if tftkG (ftkToSTK azftk) (unConcrete dt) == azftk
-          then fromTarget $ interpretAstPrimal env artDerivativeRev
+          then fromTarget $ interpretAstFull env artDerivativeRev
           else error "vjpInterpretArtifact: reverse derivative incoming cotangent must have the same shape as the codomain of the objective function"
      else error "vjpInterpretArtifact: reverse derivative parameters must have the same shape as the domain of the objective function"
 
@@ -278,8 +278,8 @@ revInterpretArtifact AstArtifactRev{..} parameters mdt =
           if tftkG (ftkToSTK azftk) (unConcrete dt) == azftk
           then extendEnv artVarDtRev dt env
           else error "revInterpretArtifact: reverse derivative incoming cotangent must have the same shape as the codomain of the objective function"
-      gradient = interpretAstPrimal envDt artDerivativeRev
-      primal = interpretAstPrimal env artPrimalRev
+      gradient = interpretAstFull envDt artDerivativeRev
+      primal = interpretAstFull env artPrimalRev
   in (primal, gradient)
 
 -- These three functions are as above, but the dt must be provided and so,
@@ -334,8 +334,8 @@ revInterpretArtifactDt AstArtifactRev{..} parameters dt =
         if tftkG (ftkToSTK azftk) (unConcrete dt) == azftk
         then extendEnv artVarDtRev dt env
         else error "revInterpretArtifactDt: reverse derivative incoming cotangent must have the same shape as the codomain of the objective function"
-      gradient = interpretAstPrimal envDt artDerivativeRev
-      primal = interpretAstPrimal env artPrimalRev
+      gradient = interpretAstFull envDt artDerivativeRev
+      primal = interpretAstFull env artPrimalRev
   in (primal, gradient)
 
 
@@ -349,7 +349,7 @@ revArtifactDelta
   => IncomingCotangentHandling
   -> (src -> tgt)  -- ^ the objective function
   -> FullShapeTK (X src)
-  -> (AstArtifactRev (X src) ztgt, Delta (AstRaw PrimalSpan) ztgt)
+  -> (AstArtifactRev (X src) ztgt, Delta (AstRaw FullSpan) ztgt)
        -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE revArtifactDelta #-}
 revArtifactDelta cotangentHandling f xftk =
@@ -361,9 +361,9 @@ revArtifactDelta cotangentHandling f xftk =
 revProduceArtifactWithoutInterpretation
   :: forall x z. TKAllNum (ADTensorKind z)
   => IncomingCotangentHandling
-  -> (ADVal (AstRaw PrimalSpan) x -> ADVal (AstRaw PrimalSpan) z)
+  -> (ADVal (AstRaw FullSpan) x -> ADVal (AstRaw FullSpan) z)
   -> FullShapeTK x
-  -> (AstArtifactRev x z, Delta (AstRaw PrimalSpan) z)
+  -> (AstArtifactRev x z, Delta (AstRaw FullSpan) z)
        -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
 revProduceArtifactWithoutInterpretation cotangentHandling f xftk =
@@ -374,11 +374,11 @@ revProduceArtifactWithoutInterpretation cotangentHandling f xftk =
 
 forwardPassByApplication
   :: forall x z.
-     (ADVal (AstRaw PrimalSpan) x -> ADVal (AstRaw PrimalSpan) z)
-  -> AstTensor AstMethodShare PrimalSpan x
+     (ADVal (AstRaw FullSpan) x -> ADVal (AstRaw FullSpan) z)
+  -> AstTensor AstMethodShare FullSpan x
   -> AstVarName '(FullSpan, x)
   -> AstTensor AstMethodLet FullSpan x
-  -> ADVal (AstRaw PrimalSpan) z
+  -> ADVal (AstRaw FullSpan) z
 {-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g astVarPrimal var _astVar =
   let deltaInputs = generateDeltaInputs $ varNameToFTK var
@@ -494,8 +494,8 @@ fwdInterpretArtifact AstArtifactFwd{..} parameters ds =
       envD = extendEnv artVarDsFwd ds env
   in if tftkG xstk (unConcrete parameters) == xftk
      then if tftkG (adSTK xstk) (unConcrete ds) == adFTK xftk
-          then let derivative = interpretAstPrimal envD artDerivativeFwd
-                   primal = interpretAstPrimal env artPrimalFwd
+          then let derivative = interpretAstFull envD artDerivativeFwd
+                   primal = interpretAstFull env artPrimalFwd
                in (primal, derivative)
           else error "fwdInterpretArtifact: forward derivative perturbation must have the same shape as the domain of the objective function"
      else error "fwdInterpretArtifact: forward derivative input must have the same shape as the domain of the objective function"
@@ -509,7 +509,7 @@ fwdArtifactDelta
      , tgt ~ AstTensor AstMethodLet FullSpan ztgt )
   => (src -> tgt)  -- ^ the objective function
   -> FullShapeTK (X src)
-  -> (AstArtifactFwd (X src) ztgt, Delta (AstRaw PrimalSpan) ztgt)
+  -> (AstArtifactFwd (X src) ztgt, Delta (AstRaw FullSpan) ztgt)
        -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE fwdArtifactDelta #-}
 fwdArtifactDelta f xftk =
