@@ -253,8 +253,7 @@ type BoolOf (f :: Target) = PlainOf f (TKScalar Bool)
 --
 -- The type family can't easily be made injective, because the @ADVal f@
 -- instance is independent of @f@.
-type family HFunOf (f :: Target)
-                   (x :: TK) (z :: TK) :: Type
+type family HFunOf (f :: Target) :: TK -> TK -> Type
 
 type family PrimalOf (f :: Target) :: Target
 

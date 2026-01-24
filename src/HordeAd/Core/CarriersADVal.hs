@@ -228,7 +228,7 @@ instance EqH f (TKX sh r) => EqH (ADVal f) (TKX sh r) where
 instance OrdH f (TKX sh r) => OrdH (ADVal f) (TKX sh r) where
   D u _ <=. D v _ = u <=. v
 
-type instance HFunOf (ADVal f) x y = HFun x y
+type instance HFunOf (ADVal f) = HFun
 type instance PrimalOf (ADVal f) = f
 type instance DualOf (ADVal f) = Delta f
 type instance PlainOf (ADVal f) = PlainOf f

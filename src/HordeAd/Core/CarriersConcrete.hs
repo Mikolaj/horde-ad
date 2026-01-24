@@ -9,7 +9,7 @@ module HordeAd.Core.CarriersConcrete
     RepConcrete, tftkG, eltDictRep, showDictRep
   , replTargetRep, defTargetRep
     -- * Concrete and its instances
-  , Concrete(..), rtoVector, stoVector, xtoVector
+  , Concrete(..), ConcreteFun(..), rtoVector, stoVector, xtoVector
   ) where
 
 import Prelude
@@ -297,7 +297,10 @@ instance KnownSTK y => Show (Concrete y) where
 instance KnownSTK y => NFData (Concrete y) where
   rnf (Concrete t) | Dict <- nfdataDictRep (knownSTK @y) = rnf t
 
-type instance HFunOf Concrete x z = RepConcrete x -> RepConcrete z
+type role ConcreteFun nominal nominal
+newtype ConcreteFun x z = ConcreteFun (RepConcrete x -> RepConcrete z)
+type instance HFunOf Concrete = ConcreteFun
+
 type instance PrimalOf Concrete = Concrete
 type instance DualOf Concrete = DummyDualTarget
 type instance PlainOf Concrete = Concrete

@@ -715,22 +715,24 @@ instance BaseTensor Concrete where
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.munNest $ Nested.mgenerate shm g
   {-# INLINE tmapAccumLDer #-}
-  tmapAccumLDer _ k _ bftk eftk f _df _rf = tmapAccumLC k bftk eftk f
+  tmapAccumLDer _ k _ bftk eftk (ConcreteFun f) _df _rf =
+    tmapAccumLC k bftk eftk f
   {-# INLINE tapply #-}
-  tapply f = Concrete . f . unConcrete
+  tapply (ConcreteFun f) = Concrete . f . unConcrete
   {-# INLINE tlambda #-}
-  tlambda _ f = unConcrete . unHFun f . Concrete
+  tlambda _ f = ConcreteFun $ unConcrete . unHFun f . Concrete
   -- The code for tvjp and tjvp in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
   {-# INLINE tgrad #-}
   tgrad @_ @r xftk h | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
-    unConcrete . snd . crevOnParams Nothing (unHFun h) xftk . Concrete
+    ConcreteFun
+    $ unConcrete . snd . crevOnParams Nothing (unHFun h) xftk . Concrete
   {-# INLINE tvjp #-}
-  tvjp xftk h = \db_a ->
+  tvjp xftk h = ConcreteFun $ \db_a ->
     unConcrete $ snd
     $ crevOnParamsDt (Concrete $ fst db_a) (unHFun h) xftk (Concrete $ snd db_a)
   {-# INLINE tjvp #-}
-  tjvp xftk h = \da_a ->
+  tjvp xftk h = ConcreteFun $ \da_a ->
     unConcrete $ snd
     $ cfwdOnParams xftk (Concrete $ snd da_a) (unHFun h) (Concrete $ fst da_a)
   tprimalPart = id
