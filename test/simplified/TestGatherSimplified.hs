@@ -7,8 +7,11 @@ module TestGatherSimplified (testTrees) where
 
 import Prelude
 
-import Data.Int (Int64)
+import Control.Monad.ST.Strict (ST, runST)
+import Data.Int (Int64, Int8)
 import Data.Type.Equality ((:~:) (Refl))
+import Data.Vector.Storable qualified as VS
+import Data.Vector.Storable.Mutable qualified as VSM
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (Div, KnownNat, type (<=))
 import Test.Tasty
@@ -124,8 +127,10 @@ testTrees =
   , testCase "sminimizedCNNOPP7" testCNNOPP7
   , testCase "sminimizedCNNOPP7b" testCNNOPP7b
   , testCase "minimizedCNNOPP4bU" testCNNOPP4bU
+  , testCase "detSquarePP" testDetSquarePP
+  , testCase "detSquare3" testDetSquare3
+  , testCase "detSquare9" testDetSquare9
   ]
-
 
 -- * Gathers
 
@@ -1674,3 +1679,137 @@ maxPool2dUnpaddedS4 arr =
                                     , fromIntegral stride * iBh
                                     , fromIntegral stride * iBw ]
     _ -> error "maxPool2dUnpaddedS4: impossible pattern needlessly required"
+
+type IntOr8 = Int8
+type Int8OrDouble = Int8
+
+detSquare :: forall target. ADReady target
+          => target (TKR 2 Double) -> target (TKScalar Double)
+detSquare =
+  let fact :: Int -> Int
+      fact n = factAcc 1 n
+        where factAcc acc i | i <= 1 = acc
+              factAcc acc i = factAcc (i * acc) (i - 1)
+
+      fused :: forall s.
+               Int -> Int -> VSM.MVector s IntOr8 -> VSM.MVector s Bool
+            -> ST s ()
+      fused !len !idx0 !perm !freeSpots = do
+        let nthFreeSpot :: Int -> Int -> ST s Int
+            nthFreeSpot !pos !el = do
+              free <- VSM.read freeSpots el
+              if pos <= 0 && free
+              then return el
+              else nthFreeSpot (pos - fromEnum free) (el + 1)
+            loop :: Int -> Int -> Int -> ST s ()
+            loop _ _ 0 = return ()
+            loop !idx !fi i2 = do
+              let fi2 = fi `quot` i2
+                  (idxDigit, idxRest) = idx `quotRem` fi2
+              el <- nthFreeSpot idxDigit 0
+              VSM.write perm (len - i2) (fromIntegral el)
+              VSM.write freeSpots el False
+              loop idxRest fi2 (i2 - 1)
+        loop idx0 (fact len) len
+
+      mutated :: forall s. Int -> ST s (VS.Vector IntOr8)
+      mutated !len = do
+        perms <- VSM.unsafeNew (len * fact len)
+        freeSpots <- VSM.unsafeNew len
+        let loop :: Int -> ST s ()
+            loop (-1) = return ()
+            loop i = do
+              VSM.set freeSpots True
+              fused len i (VSM.slice (i * len) len perms) freeSpots
+              loop (i - 1)
+        loop (fact len - 1)
+        VS.unsafeFreeze perms
+
+      idx_to_perm :: Int -> Nested.Ranked 2 IntOr8
+      idx_to_perm n = Nested.rfromVector [fact n, n] $ runST $ mutated n
+
+      inversion_number_from_idx :: Int -> Nested.Ranked 1 Int8OrDouble
+      inversion_number_from_idx n =
+        let loop :: Int -> Int -> Int -> Int -> Int8OrDouble
+            loop s _ _ i | i == 1 = fromIntegral s
+            loop s idx fi i =
+              let fi2 = fi `quot` i
+                  (s1, idx2) = idx `quotRem` fi2
+                  s2 = s + s1
+              in loop s2 idx2 fi2 (i - 1)
+            f idx0 = loop 0 idx0 (fact n) n
+        in Nested.rfromVector [fact n] $ VS.generate (fact n) f
+
+      productR :: target (TKR 1 Double) -> target (TKScalar Double)
+      productR = kfromR . rfold (*) (rscalar 1)
+
+      det :: target (TKR 2 Double) -> target (TKScalar Double)
+      det a =
+        let ell = rwidth a
+            p :: PlainOf target (TKR 2 IntOr8)
+            p = rconcrete $ idx_to_perm ell
+            q :: PlainOf target (TKR 1 Int8OrDouble)
+            q = rconcrete $ inversion_number_from_idx ell
+            f :: IntOf target -> target (TKScalar Double)
+            f i = (-1) ** kfromIntegral (kfromPlain (q `rindex0` [i]))
+                  * productR (rgather1 ell a $ \i2 ->
+                                [i2, kfromIntegral $ p `rindex0` [i, i2]])
+        in withSNat (fact ell) $ \ (SNat @k) ->
+             ssum0 $ kbuild1 @k f
+      {-
+      gradient :: Input -> GradientOutput
+      gradient a =
+        let ell = rwidth a
+        in if ell /= 5
+             let art = gradArtifact det a
+                 artSimp = simplifyArtifactRev art
+             in traceShow ("gradient", printArtifactSimple art) $
+                traceShow ("gradSimp", printArtifactSimple artSimp) $
+                 gradInterpretArtifact artSimp (chunk ell a)
+      -}
+  in det
+
+testDetSquarePP :: Assertion
+testDetSquarePP = do
+  resetVarCounter
+  let artifactRev = revArtifactAdapt UseIncomingCotangent detSquare
+                                     (FTKR [3, 3] (FTKScalar @Double))
+  printArtifactPretty (simplifyArtifactRev artifactRev)
+    @?= "\\dret m1 -> rfromS (sscatter @[3, 6] (sreverse (tproject2 (tmapAccumLDer (SNat @3) <lambda> <lambda> <lambda> (sconcrete (sreplicate [6] (-1.0)) ** sfromIntegral (sconcrete (sfromListLinear [6] [0,1,1,2,2,3])) * sreplicate @6 dret) (let m8 = sgather @[3, 6] (sfromR m1) (\\[i6, i7] -> [i6, kfromIntegral (sconcrete (sfromListLinear [6,3] [0,1,2,0,2,1,1,0,2,1,2,0,2,0,1,2,1,0]) `index0` [i7, i6])]) in tpair (sreverse (tproject2 (tmapAccumLDer (SNat @3) <lambda> <lambda> <lambda> (sconcrete (sreplicate [6] 1.0)) m8))) (sreverse m8))))) (\\[i13, i14] -> [i13, kfromIntegral (sconcrete (sfromListLinear [6,3] [0,1,2,0,2,1,1,0,2,1,2,0,2,0,1,2,1,0]) `index0` [i14, i13])]))"
+  printArtifactPretty artifactRev
+    @?= "\\dret m1 -> rfromS (sscatter @[3, 6] (sreverse (tproject2 (let m8 = sgather @[3, 6] (sfromR m1) (\\[i6, i7] -> [i6, kfromIntegral (kfromS (sconcrete (sfromListLinear [6,3] [0,1,2,0,2,1,1,0,2,1,2,0,2,0,1,2,1,0]) !$ [i7, i6]))]) ; m9 = tmapAccumLDer (SNat @3) <lambda> <lambda> <lambda> (sconcrete (sreplicate [6] 1.0)) m8 ; v10 = sconcrete (sreplicate [6] (-1.0)) ** sfromIntegral (sconcrete (sfromListLinear [6] [0,1,1,2,2,3])) in tmapAccumLDer (SNat @3) <lambda> <lambda> <lambda> (v10 * sreplicate @6 (sfromK dret)) (tpair (sreverse (tproject2 m9)) (sreverse m8))))) (\\[i13, i14] -> [i13, kfromIntegral (kfromS (sconcrete (sfromListLinear [6,3] [0,1,2,0,2,1,1,0,2,1,2,0,2,0,1,2,1,0]) !$ [i14, i13]))]))"
+  printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
+    @?= "\\m1 -> sdot0 (sconcrete (sreplicate [6] (-1.0)) ** sfromIntegral (sconcrete (sfromListLinear [6] [0,1,1,2,2,3]))) (tproject1 (tmapAccumLDer (SNat @3) <lambda> <lambda> <lambda> (sconcrete (sreplicate [6] 1.0)) (sgather @[3, 6] (sfromR m1) (\\[i6, i7] -> [i6, kfromIntegral (sconcrete (sfromListLinear [6,3] [0,1,2,0,2,1,1,0,2,1,2,0,2,0,1,2,1,0]) `index0` [i7, i6])]))))"
+  printArtifactPrimalPretty artifactRev
+    @?= "\\m1 -> kfromS (ssum @6 (let m8 = sgather @[3, 6] (sfromR m1) (\\[i6, i7] -> [i6, kfromIntegral (kfromS (sconcrete (sfromListLinear [6,3] [0,1,2,0,2,1,1,0,2,1,2,0,2,0,1,2,1,0]) !$ [i7, i6]))]) ; m9 = tmapAccumLDer (SNat @3) <lambda> <lambda> <lambda> (sconcrete (sreplicate [6] 1.0)) m8 ; v10 = sconcrete (sreplicate [6] (-1.0)) ** sfromIntegral (sconcrete (sfromListLinear [6] [0,1,1,2,2,3])) in v10 * tproject1 (tpair (tproject1 m9) (sconcrete (sreplicate [3] Z1)))))"
+
+testDetSquare3 :: Assertion
+testDetSquare3 =
+  assertEqualUpToEpsilon' 1e-5
+    (ringestData [6,6] [-4.869053606042778e-3,5.097805950791719e-4,2.8429105389292052e-3,2.7764540017998364e-2,4.728231081593177e-3,-2.4786176657837146e-2,-2.3469141678115176e-3,1.1152144353350756e-2,-5.653171988563392e-3,-2.9237121329780706e-3,1.9330615364900276e-3,-9.47499409844526e-4,8.025631739575951e-3,1.532840697726606e-3,-7.047121923697899e-3,-4.305940089911722e-3,1.4834586948324607e-4,1.9922535230070225e-3,-8.022565662650867e-3,-1.2603575569596842e-2,8.144948602197404e-3,-9.343418236792108e-3,8.06305133890595e-3,1.7102844846324558e-2,4.888906896881243e-3,-4.884300437195866e-3,4.144990592410334e-4,-4.765756648788264e-3,-4.741976230085896e-3,1.3056977293001447e-2,1.0096879396193574e-2,1.1166653675142208e-2,-1.279846251614077e-4,-7.896243314270949e-3,-9.67019219688691e-3,-5.316279354872351e-3])
+    (rev' @Double @0 (rfromK . detSquare)
+                     (ringestData [6,6]
+          (map (* 0.01)
+             [ 40.1,32.1,40.1,32.1,40.1,22.0
+             , 9.71,58.8943200001,18.1,29.1,32.1,40.1
+             , 55.8943200001, 1, -2, 0.97,58.200001,1
+             , 40.1,29.0,53.99432,7.1,58.8943200001,18.1
+             , 32.1,40.1,29.0,53.99432,2.971,58.8943200001
+             , 40.1,32.0,53.99432,0.97,25.8943200001, 5 ])))
+
+testDetSquare9 :: Assertion
+testDetSquare9 =
+  assertEqualUpToEpsilon 1e-10
+    (ringestData [10,10] [198.10693359375,-208.391845703125,-74.715576171875,-235.9921875,-56.984375,31.765625,20.578125,-214.5625,-41.9375,-181.75,-158.23355102539063,15.689483642578125,-6.07183837890625,-32.855712890625,-18.2464599609375,-13.33154296875,8.1669921875,9.7578125,36.15625,49.59375,4.102272751895559e15,-7.306139851602269e13,1.6344669707400714e16,-2.0387070048459585e15,1.1609737081775948e14,-5.972802872324755e15,-8.292337523172424e14,6.612381495486813e14,1.3074134839774018e15,-4.551880458211714e15,14.17529296875,-9.8779296875,28.02752685546875,-12.56640625,40.626953125,-29.2734375,4.2890625,41.9375,-2.474609375,-6.21875,-54.611328125,-16.91455078125,-39.5654296875,8.5,-6.6484375,35.75,-9.375e-2,-57.0625,19.8515625,-28.75,32.62109375,16.92626953125,94.29736328125,10.3125,-22.953125,-14.3125,-8.9375,9.625,0.259765625,-17.0,-4.10227275189546e15,7.306139851613288e13,-1.6344669707400854e16,2.0387070048459333e15,-1.1609737081777206e14,5.972802872324765e15,8.292337523172635e14,-6.612381495487908e14,-1.3074134839774085e15,4.551880458211696e15,-44.125,63.90625,24.578125,-34.1015625,-16.609375,-12.015625,0.109375,-7.28125,10.8671875,10.1875,-70.75,-21.0,-31.0625,31.78125,-19.25,77.75,-19.125,43.625,5.875,-32.375,51.25,-17.875,26.5,-10.34375,36.1875,23.4375,1.625,-45.625,-20.59375,-68.25])
+    (grad detSquare
+          (ringestData [10,10]
+             [ 7, 0.92, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432
+             , 7, 25.8, 8.1,29.1,32.1,40.1,32.1,40.1,292.0,53.99432
+             , 7, 40.1,32.1,40.1,89.0,53.99432,97.1,56.8200001,97.1,52.843201
+             , 7, 97.1,55.8943200001,97.1,85.894001,97.1,85.801,18.1,29.1,32.1
+             , 7, 40.1,32.1,40.1,32.1,40.1,22.0,53.99432,97.1,82.8943200001
+             , 7, 97.1,22.8943200001,97.1,58.8943200001,18.1,29.1,32.1,40.1,32.1
+             , 7, 40.1,32.1,40.1,89.0,53.99432,97.1,56.8200001,97.1,52.843201
+             , 7, 97.1,55.8943200001, 1, -2, 97.1,58.200001,97.1,55.894320,97.1
+             , 7, 29.1,32.1,40.1,29.0,53.99432,97.1,58.8943200001,18.1,29.1
+             , 7, 32.1,40.1,32.0,53.99432,97.1,25.8943200001, 5, 2, 6 ]))

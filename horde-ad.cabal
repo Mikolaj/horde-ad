@@ -399,6 +399,7 @@ library testCommonLibrary
       , tasty >= 1.0 && < 1.6
       , tasty-hunit < 0.11
       , tasty-quickcheck < 0.12
+      , vector >= 0.13.2.0 && < 0.14
 
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
