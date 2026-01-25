@@ -29,23 +29,25 @@ type AstEnv :: Target -> Type
 type AstEnv target = DEnumMap AstVarName (SpanTarget target)
 
 type family SpanTargetFam target s :: Target where
---this causes problems;
+  -- This variant causes typing problems;
 --SpanTargetFam target (PrimalStepSpan s2) = SpanTargetFam (PrimalOf target) s2
   SpanTargetFam target (PrimalStepSpan s2) = PrimalOf (SpanTargetFam target s2)
-  SpanTargetFam target DualSpan = target  -- !!! not: DualOf target
+  SpanTargetFam target DualSpan = target  -- !!! not: DualOf target, see below
   SpanTargetFam target FullSpan = target
   SpanTargetFam target PlainSpan = PlainOf target
-  -- The equation for DualSpan is hacky to prevent failing fast due to
-  -- no tensor operations defined for Delta expressions. Instead of
-  -- producing Delta expressions (in non-symbolic instances),
-  -- we produce full dual numbers. To to keep it sound, we try
-  -- to manually ensure the primal part of these dual numbers
-  -- is always zero, so only the dual part, the Delta expression, matters.
+  -- The equation for DualSpan is hacky to prevent interpreter crashing fast
+  -- due to no tensor operations defined for Delta expressions. Instead of
+  -- producing the Delta expressions (in non-symbolic instances), we produce
+  -- full dual numbers for which tensor operations are always defined.
+  -- To keep the artificial representation sound, we try to manually ensure
+  -- in the interpreter code that the primal part of these dual numbers
+  -- is always zero, so only the dual part (the Delta expression) matters.
 
 -- This is needed, because type families can't yet be partially applied.
 type role SpanTarget nominal nominal
-data SpanTarget :: Target -> (AstSpan, TK) -> Type where
-  SpanTarget :: SpanTargetFam target s y -> SpanTarget target '(s, y)
+newtype SpanTarget target s_y = SpanTarget (SpanTargetFamUncurried target s_y)
+type family SpanTargetFamUncurried target s_y :: Type where
+  SpanTargetFamUncurried target '(s, y) = SpanTargetFam target s y
 
 lemPlainOfSpan :: ADReady target
                => Proxy target -> SAstSpan s

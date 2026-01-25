@@ -331,7 +331,7 @@ type data AstMethodOfSharing = AstMethodShare | AstMethodLet
 
 -- | AST for tensors that are meant to be differentiated.
 --
--- Some terms have no semantics, e.g., arithmetic terms with span @DualSpan@.
+-- Some terms have no semantics, e.g., currently terms with nested primal span.
 type role AstTensor nominal nominal nominal
 data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
   -- General operations, for scalar, ranked, shared and other tensors at once
