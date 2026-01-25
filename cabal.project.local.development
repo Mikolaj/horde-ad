@@ -1,3 +1,6 @@
+jobs: 12
+semaphore: True
+
 optimization: False
 
 package dependent-enummap
@@ -8,5 +11,13 @@ package horde-ad
   benchmarks: True
 
 -- for weeder
---package *
+-- package *
 --  ghc-options: -fwrite-ide-info
+
+-- for GHC testing
+-- package *
+--   ghc-options: -dcore-lint -dstg-lint -dcmm-lint -dtag-inference-checks
+
+-- for eventlog heap profiling
+-- package *
+--   ghc-options: --ghc-options='-finfo-table-map -fdistinct-constructor-tables'
