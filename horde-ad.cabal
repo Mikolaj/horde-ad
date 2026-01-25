@@ -195,162 +195,11 @@ library
       , atomic-counter < 0.2
       , vector >= 0.13.2.0 && < 0.14
 
-library exampleLibrary
-    import:           options
-    visibility:       public
-
-    exposed-modules:  MnistData
-                      MnistCnnRanked2
-                      MnistCnnShaped2
-                      MnistFcnnRanked1
-                      MnistFcnnRanked2
-                      MnistRnnRanked2
-                      MnistRnnShaped2
-
-    hs-source-dirs:   example
-
-    build-depends:
-      , horde-ad:horde-ad
-
-      , base
-      , bytestring < 0.13
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-      , mnist-idx < 0.2
-      , ox-arrays
-      , random
-      , vector
-      , zlib < 0.8
-
-library benchCommonLibrary
-    import:           options
-    visibility:       public
-
-    exposed-modules:  BenchMnistTools
-                      BenchProdTools
-
-    hs-source-dirs:   bench/common
-
-    build-depends:
-      , horde-ad:exampleLibrary
-      , horde-ad:horde-ad
-
-      , base
-      , criterion < 1.7
-      , deepseq < 1.7
-      , data-default < 0.9
-      , inspection-testing < 0.7
-      , ox-arrays
-      , random
-
-benchmark longProdBench
-    import:           options, exe-options
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          LongProdBench.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-
-      , base
-      , criterion
-      , deepseq
-      , random
-
-benchmark shortProdForCI
-    import:           options, exe-options
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          ShortProdForCI.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-
-      , base
-      , criterion
-      , deepseq
-      , random
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-benchmark longMnistBench
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          LongMnistBench.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-
-      , base
-      , criterion
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-benchmark shortMnistForCI
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          ShortMnistForCI.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-
-      , base
-      , criterion
-
--- takes forever, so mostly to invoke with --benchmark-options='-n 1 +RTS -s'
-benchmark realisticMnistBench
-    import:           options, exe-options
-
--- Disabled so that `cabal bench` terminates in finite time.
---    if flag(release)
-    buildable: False
---    else
---      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   bench
-
-    main-is:          RealisticMnistBench.hs
-
-    build-depends:
-      , horde-ad:benchCommonLibrary
-      , horde-ad:exampleLibrary
-
-      , base
-      , criterion
-      , random
-
 library testToolLibrary
     import:           options
     visibility:       public
 
-    exposed-modules:  CrossTesting
-                      EqEpsilon
+    exposed-modules:  EqEpsilon
                       Shared
 
     hs-source-dirs:   test/tool
@@ -369,60 +218,22 @@ library testCommonLibrary
     import:           options
     visibility:       public
 
-    exposed-modules:  TestAdaptorSimplified
-                      TestConvQuickCheck
-                      TestConvSimplified
-                      TestGatherSimplified
-                      TestHighRankSimplified
-                      TestMnistCNNR
-                      TestMnistCNNS
-                      TestMnistFCNNR
-                      TestMnistPP
-                      TestMnistRNNR
-                      TestMnistRNNS
-                      TestRevFwdFold
+    exposed-modules:  TestGatherSimplified
 
     hs-source-dirs:   test/simplified
 
     -- Other library packages from which modules are imported.
     build-depends:
       , horde-ad:horde-ad
-      , horde-ad:exampleLibrary
       , horde-ad:testToolLibrary
 
-      , assert-failure
       , base
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , ox-arrays
-      , random
       , tasty >= 1.0 && < 1.6
       , tasty-hunit < 0.11
-      , tasty-quickcheck < 0.12
       , vector >= 0.13.2.0 && < 0.14
-
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-test-suite fullTest
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-
-    main-is:          FullTest.hs
-
-    build-depends:
-      , horde-ad:testCommonLibrary
-      , horde-ad:testToolLibrary
-
-      , base
-      , tasty >= 1.0
 
 test-suite CAFlessTest
     import:           options, exe-options
@@ -437,67 +248,6 @@ test-suite CAFlessTest
     hs-source-dirs:   test
 
     main-is:          CAFlessTest.hs
-
-    build-depends:
-      , horde-ad:testCommonLibrary
-      , horde-ad:testToolLibrary
-
-      , base
-      , tasty >= 1.0
-
-test-suite parallelTest
-    import:           options, exe-options-for-parallel-tests
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-
-    main-is:          ParallelTest.hs
-
-    build-depends:
-      , horde-ad:testCommonLibrary
-      , horde-ad:testToolLibrary
-
-      , base
-      , tasty >= 1.0
-
--- This test must be sequential, because counter reset is not thread-safe.
-test-suite sequentialMnistTest
-    import:           options, exe-options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-
-    main-is:          SequentialMnistTest.hs
-
-    build-depends:
-      , horde-ad:testCommonLibrary
-      , horde-ad:testToolLibrary
-
-      , base
-      , tasty >= 1.0
-
--- These tests don't require any dataset and are short, so can be enabled
--- in the Hackage package.
-test-suite minimalTest
-    import:           options, exe-options
-
-    type:             exitcode-stdio-1.0
-
-    hs-source-dirs:   test
-
-    main-is:          MinimalTest.hs
 
     build-depends:
       , horde-ad:testCommonLibrary

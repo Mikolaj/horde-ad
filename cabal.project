@@ -4,4 +4,29 @@ packages: ./
 package statistics
   ghc-options: -fsimpl-tick-factor=10000
 
+package dependent-enummap
+  ghc-options: -fno-ignore-asserts
 
+package horde-ad
+  tests: True
+  benchmarks: True
+
+source-repository-package
+    type: git
+    location: https://git.tomsmeding.com/ox-arrays
+    tag: 736e04ab36c57306bd7d30221c32a70e265dd34a
+
+source-repository-package
+    type: git
+    location: https://github.com/augustss/orthotope
+    tag: 9934dec3b4eb9f57a720db31b69d9f4b213c4da8
+
+source-repository-package
+    type: git
+    location: https://git.tomsmeding.com/dependent-enummap
+    tag: 44c5622fba89bc7fed5523f4a397f1e2f95c62c9
+
+source-repository-package
+    type: git
+    location: https://github.com/clash-lang/ghc-typelits-natnormalise
+    tag: a4fdc5bf17f678e74a47bf3b8924c6a35e214fb2

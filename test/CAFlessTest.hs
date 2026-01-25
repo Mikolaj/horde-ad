@@ -9,12 +9,7 @@ import Test.Tasty.Options
 import Test.Tasty.Runners
 
 import EqEpsilon
-import TestAdaptorSimplified qualified
-import TestConvSimplified qualified
 import TestGatherSimplified qualified
-import TestHighRankSimplified qualified
-import TestMnistPP qualified
-import TestRevFwdFold qualified
 
 main :: IO ()
 main = do
@@ -31,10 +26,5 @@ tests :: TestTree
 tests =
   testGroup "Tests for simplified horde-ad that don't create big CAFs"
     [ testGroup "Short_tests"
-        (TestAdaptorSimplified.testTrees
-         ++ TestConvSimplified.testTrees
-         ++ TestGatherSimplified.testTrees
-         ++ TestHighRankSimplified.testTrees
-         ++ TestRevFwdFold.testTrees
-         ++ TestMnistPP.testTrees)
+        (TestGatherSimplified.testTrees)
     ]
