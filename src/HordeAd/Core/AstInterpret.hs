@@ -67,7 +67,7 @@ interpretAst
   :: forall target s y. (ADReady target, KnownSpan s)
   => AstEnv target -> AstTensor AstMethodLet s y
   -> SpanTargetFam target s y
-{-# INLINEABLE interpretAst #-}
+{-# INLINEABLE [99] interpretAst #-}
 interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
                   , Dict0 <- dictSpanFam (Proxy @target) (knownSpan @s) = \case
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
