@@ -693,6 +693,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
               artDerivativeFwd
     in AstLambda varP ast
 
+  {-# INLINE tsum #-}
   tsum snat@SNat stk u = case stk of
     STKScalar -> kfromS $ tssum u
     STKR SNat x | Dict <- lemKnownSTK x -> trsum u
@@ -702,6 +703,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
       ttlet u $ \ !u3 ->
         tpair (tsum snat stk1 (tproject1 u3))
               (tsum snat stk2 (tproject2 u3))
+  {-# INLINE treplicate #-}
   treplicate snat@SNat stk u = case stk of
     STKScalar -> tsreplicate snat ZSS $ sfromK u
     STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (fromSNat' snat) u
@@ -711,6 +713,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
       ttlet u $ \ !u3 ->
         tpair (treplicate snat stk1 (tproject1 u3))
               (treplicate snat stk2 (tproject2 u3))
+  {-# INLINE treverse #-}
   treverse snat stk u = case stk of
     STKScalar -> tsreverse u
     STKR _ x | Dict <- lemKnownSTK x -> trreverse u
@@ -720,6 +723,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
       ttlet u $ \ !u3 ->
         tpair (treverse snat stk1 (tproject1 u3))
               (treverse snat stk2 (tproject2 u3))
+  {-# INLINE tindexBuild #-}
   tindexBuild snat@SNat stk u i = case stk of
     STKScalar -> kfromS $ tsindex u (i :.$ ZIS)
     STKR SNat x | Dict <- lemKnownSTK x -> trindex u (i :.: ZIR)

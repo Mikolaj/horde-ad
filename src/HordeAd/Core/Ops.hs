@@ -166,6 +166,7 @@ class LetTensor (target :: Target) where
           => SNat m -> SNat n -> SingletonTK y
           -> target (BuildTensorKind m y) -> target (BuildTensorKind n y)
           -> target (BuildTensorKind (m + n) y)
+  {-# INLINE tappend #-}
   tappend msnat@SNat nsnat@SNat stk a b = case stk of
     STKScalar -> tsappend a b
     STKR _ x | Dict <- lemKnownSTK x -> trappend a b
@@ -246,6 +247,7 @@ class ShareTensor (target :: Target) where
                       => SNat k -> SingletonTK y
                       -> target (BuildTensorKind k y)
                       -> [target y]
+  {-# INLINE tunravelToListShare #-}
   tunravelToListShare snat@SNat stk u = case stk of
     STKScalar -> let !uShared = tshare u
                  in tkunravelToList uShared
@@ -347,6 +349,7 @@ class ( Num (IntOf target)
     mn :$% _ -> fromSMayNat' mn
 
   tsize :: SingletonTK y -> target y -> Int
+  {-# INLINE tsize #-}
   tsize stk a = case stk of
     STKScalar @r -> case testEquality (typeRep @r) (typeRep @Z1) of
       Just Refl -> 0
@@ -1133,6 +1136,7 @@ class ( Num (IntOf target)
     :: forall z k. (ShareTensor target, ConvertTensor target, TKAllNum z)
     => SNat k -> SingletonTK z -> target (BuildTensorKind k z)
     -> target z
+  {-# INLINE tsum #-}
   tsum snat@SNat stk u = case stk of
     STKScalar -> kfromS $ tssum u
     STKR SNat x | Dict <- lemKnownSTK x -> trsum u
@@ -1150,6 +1154,7 @@ class ( Num (IntOf target)
     :: forall z k. (ShareTensor target, ConvertTensor target)
     => SNat k -> SingletonTK z -> target z
     -> target (BuildTensorKind k z)
+  {-# INLINE treplicate #-}
   treplicate snat@SNat stk u = case stk of
     STKScalar -> tsreplicate snat ZSS $ sfromK u
     STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (fromSNat' snat) u
@@ -1167,6 +1172,7 @@ class ( Num (IntOf target)
     :: forall z k. ShareTensor target
     => SNat k -> SingletonTK z -> target (BuildTensorKind k z)
     -> target (BuildTensorKind k z)
+  {-# INLINE treverse #-}
   treverse snat stk u = case stk of
     STKScalar -> tsreverse u
     STKR _ x | Dict <- lemKnownSTK x -> trreverse u
@@ -1184,6 +1190,7 @@ class ( Num (IntOf target)
     :: forall z k. (ShareTensor target, ConvertTensor target)
     => SNat k -> SingletonTK z -> target (BuildTensorKind k z) -> IntOf target
     -> target z
+  {-# INLINE tindexBuild #-}
   tindexBuild snat@SNat stk u i = case stk of
     STKScalar -> kfromS $ tsindex u (i :.$ ZIS)
     STKR SNat x | Dict <- lemKnownSTK x -> trindex u (i :.: ZIR)

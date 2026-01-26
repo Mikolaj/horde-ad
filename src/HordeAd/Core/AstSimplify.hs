@@ -3895,6 +3895,7 @@ instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
 
 -- All but the last case are shortcuts for common forms.
 astConcrete :: FullShapeTK y -> Concrete y -> AstTensor AstMethodLet PlainSpan y
+{-# INLINE astConcrete #-}
 astConcrete ftk v = case ftk of
   FTKScalar -> astConcreteK $ v
   FTKR sh' FTKScalar ->
