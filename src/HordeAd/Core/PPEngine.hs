@@ -18,8 +18,7 @@ import HordeAd.Core.PPTools
 -- * Pretty-printing terms in a few useful configurations
 
 {-# INLINE printAstVarRename #-}
-printAstVarRename :: KnownSpan s
-                  => IntMap String -> AstVarName '(s, y) -> String
+printAstVarRename :: IntMap String -> AstVarName '(s, y) -> String
 printAstVarRename renames var =
   printAstVar (defaulPrintConfig {varRenames = renames}) var ""
 
@@ -37,8 +36,7 @@ printAstPrettyRename renames t =
   printAst (defaulPrintConfig {varRenames = renames}) 0 t ""
 
 {-# INLINE printAstVarName #-}
-printAstVarName :: KnownSpan s
-                => AstVarName '(s, y) -> String
+printAstVarName :: AstVarName '(s, y) -> String
 printAstVarName var =
   printAstVar defaulPrintConfig var ""
 

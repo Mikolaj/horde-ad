@@ -15,9 +15,9 @@ import Data.Foldable qualified as Foldable
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IM
 import Data.List (intersperse)
-import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import Type.Reflection (typeRep)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Permutation (Perm (..), permToList)
@@ -64,18 +64,20 @@ printAstVarId prefix cfg var =
     Just name | name /= "" -> name
     _ -> prefix ++ show n
 
-printAstVar :: forall s y. KnownSpan s
-            => PrintConfig -> AstVarName '(s, y) -> ShowS
-printAstVar cfg var = case isTensorInt (Proxy @s) (varNameToFTK var) of
-  Just Refl -> printAstIntVar cfg var
-  _ -> let prefix = case lengthSTK (ftkToSTK $ varNameToFTK var) of
-             0 -> "x"
-             1 -> "v"
-             2 -> "m"
-             3 -> "t"
-             4 -> "u"
-             _ -> "w"
-       in printAstVarId prefix cfg (varNameToAstVarId var)
+printAstVar :: PrintConfig -> AstVarName '(s, y) -> ShowS
+printAstVar cfg var =
+  case varNameToFTK var of
+    FTKScalar @r | SPlainSpan <- varNameToSpan var
+                 , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
+      printAstIntVar cfg var
+    _ -> let prefix = case lengthSTK (ftkToSTK $ varNameToFTK var) of
+               0 -> "x"
+               1 -> "v"
+               2 -> "m"
+               3 -> "t"
+               4 -> "u"
+               _ -> "w"
+         in printAstVarId prefix cfg (varNameToAstVarId var)
 
 printAstIntVar :: PrintConfig -> IntVarName -> ShowS
 printAstIntVar cfg var = printAstVarId "i" cfg (varNameToAstVarId var)

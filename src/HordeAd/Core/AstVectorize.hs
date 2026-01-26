@@ -173,8 +173,8 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
                (build1VOccurrenceUnknown snat (var, ll))
     Ast.AstVar var2 -> traceRule $
       if varNameToAstVarId var2 == varNameToAstVarId var
-      then case isTensorInt (Proxy @s) (varNameToFTK var2) of
-        Just Refl -> fromPlain @s $ Ast.AstIotaS snat
+      then case var2 of
+        AstVarName _ FtkAndBoundsBounds{} -> fromPlain @s $ Ast.AstIotaS snat
         _ -> error "build1V: build variable is not an index variable"
       else error "build1V: AstVar can't contain other free variables"
     Ast.AstCond b u v -> traceRule $

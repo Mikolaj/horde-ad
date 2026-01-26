@@ -1743,8 +1743,8 @@ shareIx ix f = unsafePerformIO $ do
       shareI i =
         -- i can be OOB, so we can't use shape to determine its bounds
         let bds = bounds i
-        in funToAstIntVarIO (Just bds) $ \ (!varFresh, !astVarFresh) ->
-                                           (Just (varFresh, i), astVarFresh)
+        in funToAstIntVarIO bds $ \ (!varFresh, !astVarFresh) ->
+                                      (Just (varFresh, i), astVarFresh)
   (bindings, ix2) <- mapAndUnzipM shareI (Foldable.toList ix)
   return $! foldl' (\v (var, u) -> astLet var u v)
                    (f $ ixsFromIxS ix ix2)
@@ -3903,14 +3903,14 @@ astLetFunBounds mbs a f = case a of
       withShsFromShR sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
               funToAst (FTKS sh x) mbs
-                        (f . astFromS' @(TKS2 sh x) ftk)
+                       (f . astFromS' @(TKS2 sh x) ftk)
         in astLet var (astSFromR' sh a) ast
              -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
         let (var, ast) =
               funToAst (FTKS sh x) mbs
-                        (f . astFromS' @(TKS2 sh x) ftk)
+                       (f . astFromS' @(TKS2 sh x) ftk)
         in astLet var (astSFromX' sh a) ast
     FTKS ZSS FTKScalar ->
         let (var, ast) =
@@ -4066,16 +4066,11 @@ substitute1Ast i var = subst where
     if varNameToAstVarId var == varNameToAstVarId var2
     then case testEquality var var2 of
       Just Refl -> case i of
-        Ast.AstVar var3
-         | FTKScalar @r <- varNameToFTK var3
-         , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
-         , SPlainSpan <- varNameToSpan var3 ->
+        Ast.AstVar var3@(AstVarName _ (FtkAndBoundsBounds lb3 ub3)) ->
           let (lb, ub) = fromMaybe (-1000000000, 1000000000)
                          $ varNameToBounds var
               (lb2, ub2) = fromMaybe (-1000000000, 1000000000)
                            $ varNameToBounds var2
-              (lb3, ub3) = fromMaybe (-1000000000, 1000000000)
-                           $ varNameToBounds var3
               bs = (max (max lb lb2) lb3, min (min ub ub2) ub3)
                 -- We know all bounds approximations have to be correct
                 -- so we can intersect them.

@@ -26,7 +26,7 @@ module HordeAd.Core.Ast
     -- * Variables and related types
   , AstVarId, intToAstVarId
   , AstInt, IntVarName, pattern AstIntVar, AstBool
-  , AstVarName
+  , AstVarName(..), FtkAndBounds(..)
   , mkAstVarName, reshapeVarName, respanVarName, reboundsVarName
   , varNameToAstVarId, varNameToSpan, varNameToFTK, varNameToBounds, astVar
   , AstArtifactRev(..), AstArtifactFwd(..)
@@ -214,61 +214,124 @@ intToAstVarId = AstVarId
 
 type role AstVarName nominal
 data AstVarName :: (AstSpan, TK) -> Type where
-  AstVarName :: SAstSpan s -> FullShapeTK y -> Int -> Int -> AstVarId
-             -> AstVarName '(s, y)
+  AstVarName :: AstVarId -> FtkAndBounds s_y -> AstVarName s_y
 
 instance Eq (AstVarName '(s, y)) where
-  AstVarName _ _ _ _ varId1 == AstVarName _ _ _ _ varId2 = varId1 == varId2
+  AstVarName varId1 _ == AstVarName varId2 _ = varId1 == varId2
 
 instance Show (AstVarName '(s, y)) where
-  showsPrec d (AstVarName _ _ _ _ varId) =
+  showsPrec d (AstVarName varId _) =
     showsPrec d varId  -- less verbose, more readable
 
 instance TestEquality AstVarName where
-  testEquality (AstVarName span1 ftk1 _ _ _) (AstVarName span2 ftk2 _ _ _)
-    | Just Refl <- testEquality span1 span2
-    , Just Refl <- matchingFTK ftk1 ftk2 =
+  testEquality (AstVarName _ ftkBounds1) (AstVarName _ ftkBounds2)
+    | Just Refl <- testEquality ftkBounds1 ftkBounds2 =
       Just Refl
   testEquality _ _ = Nothing
 
 instance DMap.Enum1 AstVarName where
   type Enum1Info AstVarName = FtkAndBounds
-  fromEnum1 (AstVarName astSpan ftk minb maxb varId) =
-    (fromEnum varId, FtkAndBounds astSpan ftk minb maxb)
-  toEnum1 varIdInt (FtkAndBounds astSpan ftk minb maxb) =
-    AstVarName astSpan ftk minb maxb $ toEnum varIdInt
+  fromEnum1 (AstVarName varId ftkBounds) = (fromEnum varId, ftkBounds)
+  toEnum1 varIdInt ftkBounds = AstVarName (toEnum varIdInt) ftkBounds
 
 type role FtkAndBounds nominal
 data FtkAndBounds :: (AstSpan, TK) -> Type where
-  FtkAndBounds :: SAstSpan s -> FullShapeTK y -> Int -> Int
-               -> FtkAndBounds '(s, y)
+  FtkAndBoundsFull :: FullShapeTK y
+                   -> FtkAndBounds '(FullSpan, y)
+  FtkAndBoundsPrimal :: FullShapeTK y -> SAstSpan s
+                     -> FtkAndBounds '(PrimalStepSpan s, y)
+  FtkAndBoundsDual :: FullShapeTK y
+                   -> FtkAndBounds '(DualSpan, y)
+  FtkAndBoundsPlain :: FullShapeTK y
+                    -> FtkAndBounds '(PlainSpan, y)
+  FtkAndBoundsBounds :: Int -> Int
+                     -> FtkAndBounds '(PlainSpan, TKScalar Int)
+
+instance TestEquality FtkAndBounds where
+  testEquality ftkBounds1 ftkBounds2 = case (ftkBounds1, ftkBounds2) of
+    (FtkAndBoundsFull ftk1, FtkAndBoundsFull ftk2)
+      | Just Refl <- matchingFTK ftk1 ftk2 ->
+        Just Refl
+    (FtkAndBoundsPrimal ftk1 sspan1, FtkAndBoundsPrimal ftk2 sspan2)
+      | Just Refl <- testEquality sspan1 sspan2
+      , Just Refl <- matchingFTK ftk1 ftk2 ->
+        Just Refl
+    (FtkAndBoundsDual ftk1, FtkAndBoundsDual ftk2)
+      | Just Refl <- matchingFTK ftk1 ftk2 ->
+        Just Refl
+    (FtkAndBoundsPlain ftk1, FtkAndBoundsPlain ftk2)
+      | Just Refl <- matchingFTK ftk1 ftk2 ->
+        Just Refl
+    (FtkAndBoundsBounds _ _ , FtkAndBoundsBounds _ _) ->
+      Just Refl
+    _ -> Nothing
 
 mkAstVarName :: forall s y. KnownSpan s
              => FullShapeTK y -> Maybe (Int, Int) -> AstVarId
              -> AstVarName '(s, y)
-mkAstVarName ftk Nothing = AstVarName knownSpan ftk (-1000000000) 1000000000
-mkAstVarName ftk (Just (minb, maxb)) = AstVarName knownSpan ftk minb maxb
+mkAstVarName ftk mbounds varId =
+  let ftkBounds = case (knownSpan @s, mbounds) of
+        (SFullSpan, Nothing) -> FtkAndBoundsFull ftk
+        (SPrimalStepSpan sspan, Nothing) -> FtkAndBoundsPrimal ftk sspan
+        (SDualSpan, Nothing) -> FtkAndBoundsDual ftk
+        (SPlainSpan, Nothing) -> FtkAndBoundsPlain ftk
+        (SPlainSpan, Just (minb, maxb))
+          | FTKScalar @r <- ftk
+          , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
+            FtkAndBoundsBounds minb maxb
+        _ -> error "mkAstVarName: bounds for non-plain span"
+  in AstVarName varId ftkBounds
+
+reshapeVarName :: FullShapeTK z -> AstVarName '(s, y) -> AstVarName '(s, z)
+reshapeVarName ftk (AstVarName varId ftkBounds) =
+  AstVarName varId $ case ftkBounds of
+    FtkAndBoundsFull{} -> FtkAndBoundsFull ftk
+    (FtkAndBoundsPrimal _ sspan) -> FtkAndBoundsPrimal ftk sspan
+    FtkAndBoundsDual{} -> FtkAndBoundsDual ftk
+    FtkAndBoundsPlain{} -> FtkAndBoundsPlain ftk
+    FtkAndBoundsBounds{}
+      | FTKScalar @r <- ftk
+      , Just Refl <- testEquality (typeRep @r) (typeRep @Int) -> ftkBounds
+    FtkAndBoundsBounds{} -> FtkAndBoundsPlain ftk
+
+respanVarName :: forall s s2 y. KnownSpan s2
+              => AstVarName '(s, y) -> AstVarName '(s2, y)
+respanVarName var =
+  mkAstVarName (varNameToFTK var) (varNameToBounds var) (varNameToAstVarId var)
+
+reboundsVarName :: (Int, Int) -> AstVarName '(PlainSpan, TKScalar Int)
+                -> AstVarName '(PlainSpan, TKScalar Int)
+reboundsVarName (minb, maxb) (AstVarName varId _) =
+  AstVarName varId $ FtkAndBoundsBounds minb maxb
 
 varNameToAstVarId :: AstVarName s_y -> AstVarId
-varNameToAstVarId (AstVarName _ _ _ _ varId) = varId
+varNameToAstVarId (AstVarName varId _) = varId
 
 varNameToSpan :: AstVarName '(s, y) -> SAstSpan s
-varNameToSpan (AstVarName astSpan _  _ _ _) = astSpan
+varNameToSpan (AstVarName _ ftkBounds) = case ftkBounds of
+  FtkAndBoundsFull{} -> SFullSpan
+  (FtkAndBoundsPrimal _ sspan) -> SPrimalStepSpan sspan
+  FtkAndBoundsDual{} -> SDualSpan
+  FtkAndBoundsPlain{} -> SPlainSpan
+  FtkAndBoundsBounds{} -> SPlainSpan
 
 varNameToFTK :: AstVarName '(s, y) -> FullShapeTK y
-varNameToFTK (AstVarName _ ftk _ _ _) = ftk
+varNameToFTK (AstVarName _ ftkBounds) = case ftkBounds of
+  (FtkAndBoundsFull ftk) -> ftk
+  (FtkAndBoundsPrimal ftk _) -> ftk
+  (FtkAndBoundsDual ftk) -> ftk
+  (FtkAndBoundsPlain ftk) -> ftk
+  FtkAndBoundsBounds{} -> FTKScalar
 
 varNameToBounds :: AstVarName '(s, y) -> Maybe (Int, Int)
-varNameToBounds (AstVarName _ _ minb maxb _) =
+varNameToBounds (AstVarName _ (FtkAndBoundsBounds minb maxb)) =
   if minb == -1000000000 && maxb == 1000000000
   then Nothing
   else Just (minb, maxb)
+varNameToBounds _ = Nothing
 
 astVar :: AstVarName '(s, y) -> AstTensor ms s y
-astVar (AstVarName SPlainSpan (FTKScalar @r) lb ub _)
-  | lb == ub
-  , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
-    fromPlain $ AstConcreteK lb
+astVar (AstVarName _ (FtkAndBoundsBounds lb ub)) | lb == ub = AstConcreteK lb
 astVar varName = AstVar varName
 
 -- | The reverse derivative artifact.
@@ -292,20 +355,6 @@ data AstArtifactFwd x z = AstArtifactFwd
       -- rarely used, so not forced
   }
  deriving Show
-
-reshapeVarName :: FullShapeTK z -> AstVarName '(s, y) -> AstVarName '(s, z)
-reshapeVarName ftk (AstVarName sspan _ minb maxb varId) =
-  AstVarName sspan ftk minb maxb varId
-
-respanVarName :: forall s s2 y. KnownSpan s2
-              => AstVarName '(s, y) -> AstVarName '(s2, y)
-respanVarName (AstVarName _ ftk minb maxb varId) =
-  AstVarName (knownSpan @s2) ftk minb maxb varId
-
-reboundsVarName :: (Int, Int) -> AstVarName '(PlainSpan, TKScalar Int)
-                -> AstVarName '(PlainSpan, TKScalar Int)
-reboundsVarName (minb, maxb) (AstVarName sspan ftk _ _ varId) =
-  AstVarName sspan ftk minb maxb varId
 
 -- | This is the (arbitrarily) chosen representation of terms denoting
 -- integers in the indexes of tensor operations.
