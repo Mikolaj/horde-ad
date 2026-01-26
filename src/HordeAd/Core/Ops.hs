@@ -25,7 +25,7 @@ module HordeAd.Core.Ops
   , AllTargetShow, CommonTargetEqOrd
     -- * Helper functions
   , rtr, rflatten, str, sflatten, xtr, xflatten
-  , treplTarget, tdefTarget
+  , rrepl, srepl, xrepl, treplTarget, tdefTarget
     -- * Helper classes and types
   , IntegralHAndIntElt, RealFloatAndFloatElt
   , TensorSupportsX, TensorSupportsS, TensorSupportsR, TensorSupports
@@ -91,6 +91,23 @@ xflatten :: forall sh x target. (KnownSTK x, BaseTensor target)
          => target (TKX2 sh x) -> target (TKX2 '[Nothing] x)
 {-# INLINE xflatten #-}
 xflatten u = txreshape (Nested.SUnknown (xsize u) :$% ZSX) u
+
+rrepl :: forall n r target. (GoodScalar r, BaseTensor target)
+      => IShR n -> r -> target (TKR n r)
+{-# INLINE rrepl #-}
+rrepl sh a = tconcrete (FTKR sh FTKScalar)
+                       (Concrete $ Nested.rreplicatePrim sh a)
+
+srepl :: (KnownShS sh, GoodScalar r, BaseTensor target)
+      => r -> target (TKS sh r)
+{-# INLINE srepl #-}
+srepl = tsconcrete . Nested.sreplicatePrim knownShS
+
+xrepl :: forall sh r target. (GoodScalar r, BaseTensor target)
+      => IShX sh -> r -> target (TKX sh r)
+{-# INLINE xrepl #-}
+xrepl sh a = tconcrete (FTKX sh FTKScalar)
+                       (Concrete $ Nested.mreplicatePrim sh a)
 
 -- | Construct tensors with the given constant in each cell.
 treplTarget :: (TKAllNum y, BaseTensor target)

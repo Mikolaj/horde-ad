@@ -94,16 +94,6 @@ concreteRepW concreteK concreteS fromS w = case w of
     WTKProduct (concreteRepW concreteK concreteS fromS v1)
                (concreteRepW concreteK concreteS fromS v2)
 
--- Copied from HordeAd.OpsTensor to avoid the dependency.
-rrepl :: forall n r target. (GoodScalar r, BaseTensor target)
-      => IShR n -> r -> target (TKR n r)
-rrepl sh a = tconcrete (FTKR sh FTKScalar)
-                       (Concrete $ Nested.rreplicatePrim sh a)
-xrepl :: forall sh r target. (GoodScalar r, BaseTensor target)
-      => IShX sh -> r -> target (TKX sh r)
-xrepl sh a = tconcrete (FTKX sh FTKScalar)
-                       (Concrete $ Nested.mreplicatePrim sh a)
-
 toADTensorKindW
   :: forall y target. BaseTensor target
   => RepW target y -> FullShapeTKW y -> RepW target (ADTensorKind y)
