@@ -27,8 +27,8 @@ module HordeAd.Core.Ast
   , AstVarId, intToAstVarId
   , AstInt, IntVarName, pattern AstIntVar, AstBool
   , AstVarName
-  , mkAstVarName, varNameToAstVarId
-  , varNameToSpan, varNameToFTK, varNameToBounds, astVar
+  , mkAstVarName, reshapeVarName, respanVarName, reboundsVarName
+  , varNameToAstVarId, varNameToSpan, varNameToFTK, varNameToBounds, astVar
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIxS, AstVarListS, pattern AstLeqInt
     -- * AST
@@ -292,6 +292,20 @@ data AstArtifactFwd x z = AstArtifactFwd
       -- rarely used, so not forced
   }
  deriving Show
+
+reshapeVarName :: FullShapeTK z -> AstVarName '(s, y) -> AstVarName '(s, z)
+reshapeVarName ftk (AstVarName sspan _ minb maxb varId) =
+  AstVarName sspan ftk minb maxb varId
+
+respanVarName :: forall s s2 y. KnownSpan s2
+              => AstVarName '(s, y) -> AstVarName '(s2, y)
+respanVarName (AstVarName _ ftk minb maxb varId) =
+  AstVarName (knownSpan @s2) ftk minb maxb varId
+
+reboundsVarName :: (Int, Int) -> AstVarName '(PlainSpan, TKScalar Int)
+                -> AstVarName '(PlainSpan, TKScalar Int)
+reboundsVarName (minb, maxb) (AstVarName sspan ftk _ _ varId) =
+  AstVarName sspan ftk minb maxb varId
 
 -- | This is the (arbitrarily) chosen representation of terms denoting
 -- integers in the indexes of tensor operations.
