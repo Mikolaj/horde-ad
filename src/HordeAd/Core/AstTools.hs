@@ -23,7 +23,7 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Data.IORef
-import Data.Maybe (isJust)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -473,11 +473,18 @@ intBounds (AstPlusK u v) = do
 intBounds (AstN1K NegateOp u) = do
   (u1, u2) <- intBounds u
   pure (- u2, - u1)
-intBounds (AstTimesK u v) = do
-  (u1, u2) <- intBounds u
-  (v1, v2) <- intBounds v
-  let l = [u1 * v1, u1 * v2, u2 * v1, u2 * v2]
-  pure (minimum l, maximum l)
+intBounds (AstTimesK u v) = case (intBounds u, intBounds v) of
+  (Nothing, Nothing) -> Nothing
+  (mu, mv) ->  -- multiplication by zero makes even one operand enough;
+               -- TODO: but this is, in theory, unsound, because the below
+               -- are not real infinities
+    let (u1, u2) = fromMaybe (-1000000000, 1000000000) mu
+        (v1, v2) = fromMaybe (-1000000000, 1000000000) mv
+        l = [u1 * v1, u1 * v2, u2 * v1, u2 * v2]
+        (lb, ub) = (minimum l, maximum l)
+    in if lb == -1000000000 && ub == 1000000000
+       then Nothing
+       else Just (lb, ub)
 intBounds (AstI2K QuotOp u (AstConcreteK v)) | v > 0 = do  -- a common case
   (u1, u2) <- intBounds u
   pure (u1 `quotH` v, u2 `quotH` v)
