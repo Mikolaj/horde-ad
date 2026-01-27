@@ -1437,7 +1437,7 @@ astIndexKnobsS
   -> AstTensor AstMethodLet s (TKS2 shn r)
 astIndexKnobsS _ _ v0 ZIS = v0
 astIndexKnobsS _ shn v0 (i1 :.$ _)
-  | let (lb, ub) = bounds i1
+  | Just (lb, ub) <- intBounds i1
 -- this doesn't work in GHC 9.10:
 --      FTKS (snat :$$ _) x = ftkAst v0
   , FTKS (snat :$$ _) x <- ftkAst v0
@@ -1748,9 +1748,8 @@ shareIx ix f = unsafePerformIO $ do
       shareI i | astIsSmall True i = return (Nothing, i)
       shareI i =
         -- i can be OOB, so we can't use shape to determine its bounds
-        let bds = bounds i
-        in funToAstIntVarIO bds $ \ (!varFresh, !astVarFresh) ->
-                                      (Just (varFresh, i), astVarFresh)
+        funToAstIntVarMaybeIO (intBounds i) $ \ (!varFresh, !astVarFresh) ->
+          (Just (varFresh, i), astVarFresh)
   (bindings, ix2) <- mapAndUnzipM shareI (Foldable.toList ix)
   return $! foldl' (\v (var, u) -> astLet var u v)
                    (f $ ixsFromIxS ix ix2)
@@ -1765,8 +1764,8 @@ astScatterS :: forall shm shn shp r s.
             -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
 astScatterS _shn v (ZS, ZIS) = v
 astScatterS shn v0 (_,  i1 :.$ _)
-  | let (lb, ub) = bounds i1
-        FTKS _ x = ftkAst v0
+  | Just (lb, ub) <- intBounds i1
+  , let FTKS _ x = ftkAst v0
   , k :$$ _ <- knownShS @shp
   , ub < 0 || lb >= fromSNat' k =
     let ftk = FTKS (knownShS @shp `shsAppend` shn) x
@@ -1825,7 +1824,7 @@ astGatherKnobsS knobs shn v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
 astGatherKnobsS _ _ v0 (_, ZIS) =
   astReplicateNS @shm @shn (knownShS @shm) v0
 astGatherKnobsS _ shn v0 (_, i1 :.$ _)
-  | let (lb, ub) = bounds i1
+  | Just (lb, ub) <- intBounds i1
 -- this doesn't work in GHC 9.10:
 --      FTKS (snat :$$ _) x = ftkAst v0
   , FTKS (snat :$$ _) x <- ftkAst v0
@@ -2078,7 +2077,7 @@ astGatherKnobsS
 -- not needed, thanks to the normal form of AstPlusK rewriting.
 astGatherKnobsS knobs shn v0
   (vars, AstPlusK (AstConcreteK i) i1 :.$ prest)
-  | let (lb, ub) = bounds i1
+  | Just (lb, ub) <- intBounds i1
   , lb >= 0  -- if not, we may need to apply astReverse first
   , FTKS (SNat @p :$$ _) x <- ftkAst v0 =
     withKnownShS (shsTail (knownShS @shp)) $
@@ -2099,7 +2098,7 @@ astGatherKnobsS knobs shn v0
              -- this gather may still index out of bounds, which is fine
 astGatherKnobsS knobs shn v0
   (vars, Ast.AstLet varN uN (AstPlusK (AstConcreteK i) i1) :.$ prest)
-  | let (lb, ub) = bounds i1
+  | Just (lb, ub) <- intBounds i1
   , lb >= 0  -- if not, we may need to apply astReverse first
   , FTKS (SNat @p :$$ _) x <- ftkAst v0 =
     withKnownShS (shsTail (knownShS @shp)) $
@@ -2326,9 +2325,11 @@ astGatherKnobsS knobs shn v0
       -- prevent a loop
   , let intInteresting = \case
           AstPlusK (AstConcreteK _) i2
-            | fst (bounds i2) >= 0 -> True
+            | Just (lb, _) <- intBounds i2
+            , lb >= 0 -> True
           Ast.AstLet _ _ (AstPlusK (AstConcreteK _) i2)
-            | fst (bounds i2) >= 0 -> True
+            | Just (lb, _) <- intBounds i2
+            , lb >= 0 -> True
           Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _
             | j <= 0 || j >= fromSNat' m || ixIsSmall prest
             , Foldable.any ((== varNameToAstVarId var)
@@ -2646,11 +2647,10 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@(i4 :.$ rest4))
                   t0 (listsZip vars ix)
           inBounds :: AstIxS AstMethodLet shm7 -> AstVarListS shm7 -> Bool
           inBounds (IxS ix) vars =
-            let inb (v, i) =
-                  let (lbi, ubi) = bounds i
-                  in case varNameToBounds v of
-                    Nothing -> True
-                    Just (lbv, ubv) -> lbv <= lbi && ubi <= ubv
+            let inb (v, i) | Just (lbv, ubv) <- varNameToBounds v
+                           , Just (lbi, ubi) <- intBounds i =
+                  lbv <= lbi && ubi <= ubv
+                inb _ = True
             in all inb (listsZip vars ix)
           composedGather ::  -- rank4 <= rank2
             Maybe (AstTensor AstMethodLet s (TKS2 (shm ++ shn) r))
@@ -3882,13 +3882,13 @@ astLetFun :: forall y z s s2. (KnownSpan s, KnownSpan s2)
 {-# INLINE astLetFun #-}
 astLetFun = astLetFunBounds Nothing
 
-astLetFunB :: forall z s s2. (KnownSpan s, KnownSpan s2)
-           => AstTensor AstMethodLet s (TKScalar Int)
-           -> (AstTensor AstMethodLet s (TKScalar Int)
+astLetFunB :: forall z s2. KnownSpan s2
+           => AstTensor AstMethodLet PlainSpan (TKScalar Int)
+           -> (AstTensor AstMethodLet PlainSpan (TKScalar Int)
                -> AstTensor AstMethodLet s2 z)
            -> AstTensor AstMethodLet s2 z
 {-# INLINE astLetFunB #-}
-astLetFunB w = astLetFunBounds (Just $ bounds w) w
+astLetFunB w = astLetFunBounds (intBounds w) w
 
 -- INLINE here would bloat the binary a lot, probably negating any
 -- gains from directly calling the function. Also, this is not a bottleneck.
@@ -4067,8 +4067,9 @@ substitute1Ast i var = subst where
       (Nothing, Nothing) -> Nothing
       (mt, mll) -> Just $ astApply (fromMaybe t mt) (fromMaybe ll mll)
   Ast.AstVar var2 ->
-    -- We can't assert anything here, because only all runtime values need
-    -- to be in bounds and bounds approximations don't have to agree.
+    -- We can't assert anything here about bounds, because only runtime concrete
+    -- concrete values need to be in bounds and bounds approximations
+    -- don't have to agree.
     if varNameToAstVarId var == varNameToAstVarId var2
     then case testEquality var var2 of
       Just Refl -> case i of

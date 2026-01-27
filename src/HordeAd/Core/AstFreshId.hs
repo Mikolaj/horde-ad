@@ -7,7 +7,7 @@
 module HordeAd.Core.AstFreshId
   ( funToAstIO, funToAst, fun1ToAst
   , funToAstRevIO, funToAstFwdIO
-  , funToAstIntVarIO, funToAstIntVar, funToAstI
+  , funToAstIntVarMaybeIO, funToAstIntVar, funToAstIntVarIO, funToAstI
   , funToVarsIxS
     -- * Low level counter manipulation to be used only in sequential tests
   , resetVarCounter
@@ -47,9 +47,9 @@ funToAstIOGeneric :: forall y z s s2 ms. KnownSpan s
                   -> (AstVarName '(s, y) -> AstTensor ms s2 z)
                   -> IO (AstVarName '(s, y), AstTensor ms s2 z)
 {-# INLINE funToAstIOGeneric  #-}
-funToAstIOGeneric ftk bounds f = do
+funToAstIOGeneric ftk mbounds f = do
   !freshId <- unsafeGetFreshAstVarId
-  let !var = mkAstVarName ftk bounds freshId
+  let !var = mkAstVarName ftk mbounds freshId
       !x = f var
   return (var, x)
 
@@ -58,14 +58,14 @@ funToAstIO :: forall y z s s2 ms. KnownSpan s
            -> (AstTensor ms s y -> AstTensor ms s2 z)
            -> IO (AstVarName '(s, y), AstTensor ms s2 z)
 {-# INLINE funToAstIO #-}
-funToAstIO ftk bounds f = funToAstIOGeneric ftk bounds (f . astVar)
+funToAstIO ftk mbounds f = funToAstIOGeneric ftk mbounds (f . astVar)
 
 funToAst :: KnownSpan s
          => FullShapeTK y -> Maybe (Int, Int)
          -> (AstTensor ms s y -> AstTensor ms s2 z)
          -> (AstVarName '(s, y), AstTensor ms s2 z)
 {-# NOINLINE funToAst #-}
-funToAst ftk bounds = unsafePerformIO . funToAstIO ftk bounds
+funToAst ftk mbounds = unsafePerformIO . funToAstIO ftk mbounds
 
 fun1ToAst :: KnownSpan s
           => FullShapeTK y -> (AstVarName '(s, y) -> AstTensor ms s y)
@@ -121,18 +121,18 @@ funToAstIntVarMaybeIO mbounds f = do
   !freshId <- unsafeGetFreshAstVarId
   let !var = case mbounds of
         Nothing -> AstVarName freshId $ FtkAndBoundsPlain FTKScalar
-        Just (minb, maxb) -> AstVarName freshId $ FtkAndBoundsBounds minb maxb
+        Just (lb, ub) -> AstVarName freshId $ FtkAndBoundsBounds lb ub
   return $! f (var, astVar var)
 
 funToAstIntVar :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a) -> a
 {-# NOINLINE funToAstIntVar #-}
-funToAstIntVar bounds = unsafePerformIO . funToAstIntVarMaybeIO bounds
+funToAstIntVar mbounds = unsafePerformIO . funToAstIntVarMaybeIO mbounds
 
 funToAstIntVarIO :: (Int, Int) -> ((IntVarName, AstInt ms) -> a)-> IO a
 {-# INLINE funToAstIntVarIO #-}
-funToAstIntVarIO (minb, maxb) f = do
+funToAstIntVarIO (lb, ub) f = do
   !freshId <- unsafeGetFreshAstVarId
-  let !var = AstVarName freshId $ FtkAndBoundsBounds minb maxb
+  let !var = AstVarName freshId $ FtkAndBoundsBounds lb ub
   return $! f (var, astVar var)
 
 funToAstI :: (Int, Int) -> (AstInt ms -> t) -> (IntVarName, t)

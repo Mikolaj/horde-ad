@@ -275,10 +275,10 @@ mkAstVarName ftk mbounds varId =
         (SPrimalStepSpan sspan, Nothing) -> FtkAndBoundsPrimal ftk sspan
         (SDualSpan, Nothing) -> FtkAndBoundsDual ftk
         (SPlainSpan, Nothing) -> FtkAndBoundsPlain ftk
-        (SPlainSpan, Just (minb, maxb))
+        (SPlainSpan, Just (lb, ub))
           | FTKScalar @r <- ftk
           , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
-            FtkAndBoundsBounds minb maxb
+            FtkAndBoundsBounds lb ub
         _ -> error "mkAstVarName: bounds for non-plain span"
   in AstVarName varId ftkBounds
 
@@ -301,8 +301,8 @@ respanVarName var =
 
 reboundsVarName :: (Int, Int) -> AstVarName '(PlainSpan, TKScalar Int)
                 -> AstVarName '(PlainSpan, TKScalar Int)
-reboundsVarName (minb, maxb) (AstVarName varId _) =
-  AstVarName varId $ FtkAndBoundsBounds minb maxb
+reboundsVarName (lb, ub) (AstVarName varId _) =
+  AstVarName varId $ FtkAndBoundsBounds lb ub
 
 varNameToAstVarId :: AstVarName s_y -> AstVarId
 varNameToAstVarId (AstVarName varId _) = varId
@@ -324,10 +324,7 @@ varNameToFTK (AstVarName _ ftkBounds) = case ftkBounds of
   FtkAndBoundsBounds{} -> FTKScalar
 
 varNameToBounds :: AstVarName '(s, y) -> Maybe (Int, Int)
-varNameToBounds (AstVarName _ (FtkAndBoundsBounds minb maxb)) =
-  if minb == -1000000000 && maxb == 1000000000
-  then Nothing
-  else Just (minb, maxb)
+varNameToBounds (AstVarName _ (FtkAndBoundsBounds lb ub)) = Just (lb, ub)
 varNameToBounds _ = Nothing
 
 astVar :: AstVarName '(s, y) -> AstTensor ms s y

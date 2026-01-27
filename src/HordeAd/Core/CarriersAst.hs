@@ -384,8 +384,9 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
     | n == n' = v
   quotH u v =
     let t = AstI2K QuotOp u v
-        (u1, u2) = bounds t
-    in if u1 == u2 then fromPlain $ AstConcreteK u1 else t
+    in case bounds t of
+      Just (u1, u2) | u1 == u2 -> fromPlain $ AstConcreteK u1
+      _ -> t
 
   remH (AstPrimalPart n) (AstPrimalPart k) = primalPart (remH n k)
   remH (AstPlainPart @_ @s1 n) (AstPlainPart @_ @s2 k)
@@ -406,8 +407,9 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
     | remH n n' == 0 = 0
   remH u v =
     let t = AstI2K RemOp u v
-        (u1, u2) = bounds t
-    in if u1 == u2 then fromPlain $ AstConcreteK u1 else t
+    in case bounds t of
+      Just (u1, u2) | u1 == u2 -> fromPlain $ AstConcreteK u1
+      _ -> t
   {-# SPECIALIZE instance IntegralH (AstTensor ms FullSpan (TKScalar Int)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms PrimalSpan (TKScalar Int)) #-}
   {-# SPECIALIZE instance IntegralH (AstTensor ms PlainSpan (TKScalar Int)) #-}
@@ -1232,8 +1234,8 @@ instance (KnownSpan s, NumScalar r)
 -- We keep AstConcrete on the left, as with AstPlusK and others.
 instance (KnownSpan s, NumScalar r)
          => OrdH (AstTensor ms s) (TKScalar r) where
-  u <=. v | let (u1, u2) = bounds u
-                (v1, v2) = bounds v
+  u <=. v | Just (u1, u2) <- bounds u
+          , Just (v1, v2) <- bounds v
           , u2 <= v1 || u1 > v2 = AstConcreteK (u2 <= v1)
   AstFromPrimal u <=. AstFromPrimal v = u <=. v
   AstPlainPart @_ @s1 u <=. AstPlainPart @_ @s2 v

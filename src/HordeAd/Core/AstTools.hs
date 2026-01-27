@@ -10,7 +10,7 @@ module HordeAd.Core.AstTools
     -- * Tools related to sharing
   , astIsSmall, ixIsSmall, astLetDown
     -- * Odds and ends
-  , bounds
+  , bounds, intBounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstConvert, cAstSFromR, cAstSFromX, cAstXFromS
   , pattern AstSFromK', pattern AstFromS'
@@ -28,7 +28,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import System.IO.Unsafe (unsafePerformIO)
-import Type.Reflection (typeRep)
+import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
@@ -450,39 +450,43 @@ astLetDown var u v = case v of
 
 -- * Odds and ends
 
+bounds :: forall r s ms. (Typeable r, KnownSpan s)
+       => AstTensor ms s (TKScalar r) -> Maybe (r, r)
+bounds t | SPlainSpan <- knownSpan @s
+         , Just Refl <- testEquality (typeRep @r) (typeRep @Int) = intBounds t
+bounds _ = Nothing
+
 -- An approximation: lower and upper bound.
 -- TODO: extend, e.g., to general quot and rem.
-bounds :: NumScalar r => AstTensor ms s (TKScalar r) -> (r, r)
-bounds (AstConcreteK u) = (u, u)
-bounds (AstVar var) = case varNameToBounds var of
-  Nothing -> (-1000000000, 1000000000)
-  Just (u1, u2) -> (fromIntegral u1, fromIntegral u2)
-bounds (AstPrimalPart u) = bounds u
-bounds (AstPlainPart u) = bounds u
-bounds (AstFromPrimal u) = bounds u
-bounds (AstFromPlain u) = bounds u
-bounds (AstCond _b u v) = let (u1, u2) = bounds u
-                              (v1, v2) = bounds v
-                          in (min u1 v1, max u2 v2)
-bounds (AstLet _ _ u) = bounds u  -- TODO: substitute?
-bounds (AstPlusK u v) = let (u1, u2) = bounds u
-                            (v1, v2) = bounds v
-                        in (u1 + v1, u2 + v2)
-bounds (AstN1K NegateOp u) = let (u1, u2) = bounds u in (- u2, - u1)
-bounds (AstTimesK u v) =
-  let (u1, u2) = bounds u
-      (v1, v2) = bounds v
-      l = [u1 * v1, u1 * v2, u2 * v1, u2 * v2]
-  in (minimum l, maximum l)
-bounds (AstI2K QuotOp u (AstConcreteK v)) | v > 0 =  -- a common case
-  let (u1, u2) = bounds u
-  in (u1 `quotH` v, u2 `quotH` v)
-bounds (AstI2K RemOp u (AstConcreteK v)) | v > 0 =
-  let (u1, u2) = bounds u
-  in if | u1 >= 0 -> (0, min u2 (v - 1))  -- very crude
-        | u2 <= 0 -> (max u1 (- v + 1), 0)
-        | otherwise -> (- v + 1, v - 1)
-bounds _ = (-1000000000, 1000000000)
+intBounds :: AstTensor ms PlainSpan (TKScalar Int) -> Maybe (Int, Int)
+intBounds (AstConcreteK u) = Just (u, u)
+intBounds (AstVar var) = varNameToBounds var
+intBounds (AstCond _b u v) = do
+  (u1, u2) <- intBounds u
+  (v1, v2) <- intBounds v
+  pure (min u1 v1, max u2 v2)
+intBounds (AstLet _ _ u) = intBounds u  -- TODO: substitute?
+intBounds (AstPlusK u v) = do
+  (u1, u2) <- intBounds u
+  (v1, v2) <- intBounds v
+  pure (u1 + v1, u2 + v2)
+intBounds (AstN1K NegateOp u) = do
+  (u1, u2) <- intBounds u
+  pure (- u2, - u1)
+intBounds (AstTimesK u v) = do
+  (u1, u2) <- intBounds u
+  (v1, v2) <- intBounds v
+  let l = [u1 * v1, u1 * v2, u2 * v1, u2 * v2]
+  pure (minimum l, maximum l)
+intBounds (AstI2K QuotOp u (AstConcreteK v)) | v > 0 = do  -- a common case
+  (u1, u2) <- intBounds u
+  pure (u1 `quotH` v, u2 `quotH` v)
+intBounds (AstI2K RemOp u (AstConcreteK v)) | v > 0 = do
+  (u1, u2) <- intBounds u
+  pure $ if | u1 >= 0 -> (0, min u2 (v - 1))  -- very crude
+            | u2 <= 0 -> (max u1 (- v + 1), 0)
+            | otherwise -> (- v + 1, v - 1)
+intBounds _ = Nothing
 
 liftRFromS1 :: forall n x ms s. KnownSpan s
             => (forall sh.
