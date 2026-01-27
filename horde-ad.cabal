@@ -85,29 +85,33 @@ common options
                       DerivingVia ImpredicativeTypes
                       UndecidableInstances UndecidableSuperClasses
                       AllowAmbiguousTypes
+  -- * Warnings and similar.
   ghc-options:        -Wall -Wcompat -Wimplicit-prelude -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages -Wredundant-bang-patterns -Woperator-whitespace -Wredundant-strictness-flags -Wterm-variable-capture -Wmissed-specialisations
   ghc-options:        -Wmissing-poly-kind-signatures -Wmissing-role-annotations -Wno-unticked-promoted-constructors
+  -- Disables a warning we can't yet fix:
+  if impl(ghc >= 9.14)
+    ghc-options:      -Wno-pattern-namespace-specifier
   ghc-options:        -fprint-explicit-kinds -fsimpl-tick-factor=200
+
+  -- * Performance.
   -- This is supposedly risky, but prevents STG from creating thunks, #23848:
   ghc-options:        -fworker-wrapper-cbv
   -- These improve performance, but slow down compilation:
   if impl(ghc >= 9.12)
     ghc-options:      -fexpose-overloaded-unfoldings
   ghc-options:        -fspecialise-aggressively
-  -- These improve performance to some extent:
-  ghc-options:        -fdicts-cheap -flate-dmd-anal
+  if impl(ghc >= 9.14)
+    ghc-options:      -fpolymorphic-specialisation
   -- This one improves both performance and compilation speed:
   ghc-options:        -fkeep-auto-rules
+  -- These improve performance to some extent:
+  ghc-options:        -fdicts-cheap -flate-dmd-anal
   -- Twice the compilation time and no consistent performance boost:
   -- ghc-options      -flate-specialise
   -- 30% longer compilation for small and inconsistent performance benefits:
   -- ghc-options:     -O2
-  -- Disables a warning we can't yet fix:
-  if impl(ghc >= 9.14)
-    ghc-options:        -Wno-pattern-namespace-specifier
 
-    ghc-options:        -fpolymorphic-specialisation
-
+  -- * Misc.
   if flag(with_expensive_assertions)
     cpp-options:      -DWITH_EXPENSIVE_ASSERTIONS
 
