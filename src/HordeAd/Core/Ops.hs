@@ -863,14 +863,12 @@ class ( Num (IntOf target)
   trmap0N :: (KnownNat n, GoodScalar r1, GoodScalar r, ConvertTensor target)
           => (target (TKScalar r1) -> target (TKScalar r)) -> target (TKR n r1)
           -> target (TKR n r)
-  {-# INLINE trmap0N #-}
   trmap0N f v = trbuild (rshape v) (rfromK . f . trindex0 v)
   trzipWith0N :: ( KnownNat n, GoodScalar r, GoodScalar r1, GoodScalar r2
                  , ConvertTensor target )
               => (target (TKScalar r1) -> target (TKScalar r2)
                   -> target (TKScalar r))
               -> target (TKR n r1) -> target (TKR n r2) -> target (TKR n r)
-  {-# INLINE trzipWith0N #-}
   trzipWith0N f u v =
     trbuild (rshape v) (\ix -> rfromK $ f (trindex0 u ix) (trindex0 v ix))
 
@@ -897,7 +895,6 @@ class ( Num (IntOf target)
           => (target (TKScalar r1) -> target (TKScalar r))
           -> target (TKS sh r1)
           -> target (TKS sh r)
-  {-# INLINE tsmap0N #-}
   tsmap0N @sh f v | Refl <- lemAppNil @sh = tkbuild (f . tsindex0 v)
   tszipWith0N :: ( KnownShS sh, GoodScalar r, GoodScalar r1, GoodScalar r2
                  , ConvertTensor target )
@@ -905,7 +902,6 @@ class ( Num (IntOf target)
                   -> target (TKScalar r))
               -> target (TKS sh r1) -> target (TKS sh r2)
               -> target (TKS sh r)
-  {-# INLINE tszipWith0N #-}
   tszipWith0N @sh f u v | Refl <- lemAppNil @sh =
     tkbuild (\ix -> f (tsindex0 u ix) (tsindex0 v ix))
 
