@@ -3892,10 +3892,15 @@ astLetFunB w = astLetFunBounds (intBounds w) w
 
 -- INLINE here would bloat the binary a lot, probably negating any
 -- gains from directly calling the function. Also, this is not a bottleneck.
+-- It would also trigger specialization of many other functions from this
+-- module, which would fail, because their unfolding is not exposed.
+-- To some extend, this is even happening with no pragma (wrappers and
+-- similar functions derived from this one fail to specialize in other modules).
 astLetFunBounds :: forall y z s s2. (KnownSpan s, KnownSpan s2)
                 => Maybe (Int, Int) -> AstTensor AstMethodLet s y
                 -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
                 -> AstTensor AstMethodLet s2 z
+{-# NOINLINE astLetFunBounds #-}
 astLetFunBounds _ a f | astIsSmall True a = f a
 astLetFunBounds mbs a f = case a of
   AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
