@@ -169,7 +169,7 @@ astTransposeAsGatherS knobs perm v =
                           (Permutation.Permute perm (TakeLen perm sh))
                         :~: TakeLen perm sh) $
           let asts :: AstIxS AstMethodLet (TakeLen perm sh)
-              asts = ixsPermutePrefix invperm ix
+              !asts = ixsPermutePrefix invperm ix
           in gcastWith (unsafeCoerceRefl
                         :: TakeLen perm sh ++ DropLen perm sh :~: sh) $
              withKnownShS (shsPermute perm (shsTakeLen perm shn)) $
@@ -211,16 +211,16 @@ astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
   funToVarsIxS shOut $ \vars ix ->
     let iUnshared :: AstInt AstMethodLet
         iUnshared = ixsToLinear shOut ix
-        asts :: AstInt AstMethodLet -> AstIxS AstMethodLet sh
-        asts i = fromLinearIdxS shIn i
-    in gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
-       gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
 -- This can't be done, because i depends on vars:
 --     astLetFunB iUnshared $ \i ->
-       let i = iUnshared  -- sharing broken
-       in withKnownShS shOut $
-          withKnownShS shIn $
-          astGatherKnobsS @sh2 @'[] @sh knobs ZSS v (vars, asts i)
+        i = iUnshared  -- sharing broken
+        asts :: AstIxS AstMethodLet sh
+        !asts = fromLinearIdxS shIn i
+    in gcastWith (unsafeCoerceRefl :: Take (Rank sh) sh :~: sh) $
+       gcastWith (unsafeCoerceRefl :: Drop (Rank sh) sh :~: '[]) $
+       withKnownShS shOut $
+       withKnownShS shIn $
+       astGatherKnobsS @sh2 @'[] @sh knobs ZSS v (vars, asts)
 
 -- I can't switch to ixxFromLinear from ox-arrays
 -- even just because IntegralH is not available in ox-arrays.

@@ -285,9 +285,12 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
         case testEquality (shsDrop @p shpshn) (shsDrop @m shmshn) of
           Just Refl ->
             astFromS' @(TKS2 shpshn x) (FTKR shpshn0 x)
-            $ astScatterS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
-                          knownShS (astSFromR' shmshn t)
-            $ funToAstIxS knownShS (ixsFromIxR . f . ixrFromIxS)
+            $ funToVarsIxS knownShS $ \vars ix ->
+                let !ix2 = ixsFromIxR . f . ixrFromIxS $ ix
+                in astScatterS @(Take m shmshn)
+                               @(Drop m shmshn)
+                               @(Take p shpshn)
+                               knownShS (astSFromR' shmshn t) (vars, ix2)
                 -- this introduces new variable names
           _ -> error $ "rscatter: shapes don't match: "
                        ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
@@ -307,9 +310,12 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
         case testEquality (shsDrop @p shpshn) (shsDrop @m shmshn) of
           Just Refl ->
             astFromS' (FTKR shmshn0 x)
-            $ astGatherS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
-                         knownShS (astSFromR' shpshn t)
-            $ funToAstIxS knownShS (ixsFromIxR . f . ixrFromIxS)
+            $ funToVarsIxS knownShS $ \vars ix ->
+                let !ix2 = ixsFromIxR . f . ixrFromIxS $ ix
+                in astGatherS @(Take m shmshn)
+                              @(Drop m shmshn)
+                              @(Take p shpshn)
+                              knownShS (astSFromR' shpshn t) (vars, ix2)
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
@@ -418,11 +424,15 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
     withKnownShS (sshape a) $
     kfromS $ tsindex a ix
   tsscatter @shm @shn @shp t f =
-    astScatterS @shm @shn @shp knownShS t
-    $ funToAstIxS knownShS f  -- this introduces new variable names
+    funToVarsIxS knownShS $ \vars ix ->
+      let !ix2 = f ix
+      in astScatterS @shm @shn @shp knownShS t (vars, ix2)
+      -- this introduces new variable names
   tsgather @shm @shn @shp t f =
-    astGatherS @shm @shn @shp knownShS t
-    $ funToAstIxS knownShS f  -- this introduces new variable names
+    funToVarsIxS knownShS $ \vars ix ->
+      let !ix2 = f ix
+      in astGatherS @shm @shn @shp knownShS t (vars, ix2)
+      -- this introduces new variable names
   tsminIndex = fromPlain . AstMinIndexS . astPlainPart
   tsmaxIndex = fromPlain . AstMaxIndexS . astPlainPart
   tsiota = fromPlain $ AstIotaS SNat
@@ -490,12 +500,13 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
                           (shsDrop @(Rank shm) shmshn) of
           Just Refl ->
             astFromS' (FTKX shpshn0 x)
-            $ astScatterS @(Take (Rank shm) shmshn)
-                          @(Drop (Rank shm) shmshn)
-                          @(Take (Rank shp) shpshn)
-                          knownShS (astSFromX' shmshn t)
-            $ funToAstIxS knownShS (ixsFromIxX' knownShS
-                                    . f . ixxCast knownShX . ixxFromIxS)
+            $ funToVarsIxS knownShS $ \vars ix ->
+                let !ix2 = ixsFromIxX' knownShS
+                           . f . ixxCast knownShX . ixxFromIxS $ ix
+                in astScatterS @(Take (Rank shm) shmshn)
+                               @(Drop (Rank shm) shmshn)
+                               @(Take (Rank shp) shpshn)
+                               knownShS (astSFromX' shmshn t) (vars, ix2)
                 -- this introduces new variable names
           _ -> error $ "xscatter: shapes don't match: "
                        ++ show ( shsDrop @(Rank shp) shpshn
@@ -518,12 +529,13 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
                           (shsDrop @(Rank shm) shmshn) of
           Just Refl ->
             astFromS' (FTKX shmshn0 x)
-            $ astGatherS @(Take (Rank shm) shmshn)
-                         @(Drop (Rank shm) shmshn)
-                         @(Take (Rank shp) shpshn)
-                         knownShS (astSFromX' shpshn t)
-            $ funToAstIxS knownShS (ixsFromIxX' knownShS
-                                    . f . ixxCast knownShX . ixxFromIxS)
+            $ funToVarsIxS knownShS $ \vars ix ->
+                let !ix2 = ixsFromIxX' knownShS
+                           . f . ixxCast knownShX . ixxFromIxS $ ix
+                in astGatherS @(Take (Rank shm) shmshn)
+                              @(Drop (Rank shm) shmshn)
+                              @(Take (Rank shp) shpshn)
+                              knownShS (astSFromX' shpshn t) (vars, ix2)
                 -- this introduces new variable names
           _ -> error $ "xgather: shapes don't match: "
                        ++ show ( shsDrop @(Rank shp) shpshn
@@ -828,11 +840,13 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         case testEquality (shsDrop @p shpshn) (shsDrop @m shmshn) of
           Just Refl ->
             cAstFromS @(TKS2 shpshn x) (FTKR shpshn0 x)
-            $ AstScatterS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
-                          knownShS (cAstSFromR shmshn t)
-            $ funToAstIxS knownShS (fmapUnAstRaw . ixsFromIxR
-                                    . f . ixrFromIxS
-                                    . fmapAstRaw)
+            $ funToVarsIxS knownShS $ \vars ix ->
+                let !ix2 = fmapUnAstRaw . ixsFromIxR
+                           . f . ixrFromIxS. fmapAstRaw $ ix
+                in AstScatterS @(Take m shmshn)
+                               @(Drop m shmshn)
+                               @(Take p shpshn)
+                               knownShS (cAstSFromR shmshn t) (vars, ix2)
                 -- this introduces new variable names
           _ -> error $ "rscatter: shapes don't match: "
                        ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
@@ -852,11 +866,13 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         case testEquality (shsDrop @p shpshn) (shsDrop @m shmshn) of
           Just Refl ->
             cAstFromS (FTKR shmshn0 x)
-            $ AstGatherS @(Take m shmshn) @(Drop m shmshn) @(Take p shpshn)
-                         knownShS (cAstSFromR shpshn t)
-            $ funToAstIxS knownShS (fmapUnAstRaw . ixsFromIxR
-                                    . f . ixrFromIxS
-                           . fmapAstRaw)
+            $ funToVarsIxS knownShS $ \vars ix ->
+                let !ix2 = fmapUnAstRaw . ixsFromIxR
+                           . f . ixrFromIxS. fmapAstRaw $ ix
+                in AstGatherS @(Take m shmshn)
+                              @(Drop m shmshn)
+                              @(Take p shpshn)
+                              knownShS (cAstSFromR shpshn t) (vars, ix2)
                 -- this introduces new variable names
           _ -> error $ "rgather: shapes don't match: "
                        ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
@@ -967,14 +983,15 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   tsindex0 @sh a ix | Refl <- lemAppNil @sh =
     withKnownShS (sshape a) $
     kfromS $ tsindex a ix
-  tsscatter @shm @shn @shp t f =
-    AstRaw $ AstScatterS @shm @shn @shp knownShS (unAstRaw t)
-           $ funToAstIxS knownShS (fmapUnAstRaw . f . fmapAstRaw)
-               -- this introduces new variable names
-  tsgather @shm @shn @shp t f =
-    AstRaw $ AstGatherS @shm @shn @shp knownShS (unAstRaw t)
-           $ funToAstIxS knownShS (fmapUnAstRaw . f . fmapAstRaw)
-               -- this introduces new variable names
+  tsscatter @shm @shn @shp t f = AstRaw $
+    funToVarsIxS knownShS $ \vars ix ->
+      let !ix2 = fmapUnAstRaw . f . fmapAstRaw $ ix
+      in AstScatterS @shm @shn @shp knownShS (unAstRaw t) (vars, ix2)
+      -- this introduces new variable names
+  tsgather @shm @shn @shp t f = AstRaw $
+    funToVarsIxS knownShS $ \vars ix ->
+      let !ix2 = fmapUnAstRaw . f . fmapAstRaw $ ix
+      in AstGatherS @shm @shn @shp knownShS (unAstRaw t) (vars, ix2)
   tsminIndex = AstRaw . fromPlain . AstMinIndexS . plainPart . unAstRaw
   tsmaxIndex = AstRaw . fromPlain . AstMaxIndexS . plainPart . unAstRaw
   tsiota = AstRaw . fromPlain $ AstIotaS SNat
@@ -1044,14 +1061,13 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                           (shsDrop @(Rank shm) shmshn) of
           Just Refl ->
             cAstFromS (FTKX shpshn0 x)
-            $ AstScatterS @(Take (Rank shm) shmshn)
-                          @(Drop (Rank shm) shmshn)
-                          @(Take (Rank shp) shpshn)
-                          knownShS (cAstSFromX shmshn t)
-            $ funToAstIxS knownShS (fmapUnAstRaw
-                                    . ixsFromIxX' knownShS
-                                    . f . ixxCast knownShX . ixxFromIxS
-                                    . fmapAstRaw)
+            $ funToVarsIxS knownShS $ \vars ix ->
+                let !ix2 = fmapUnAstRaw . ixsFromIxX' knownShS
+                           . f . ixxCast knownShX . ixxFromIxS . fmapAstRaw $ ix
+                in AstScatterS @(Take (Rank shm) shmshn)
+                               @(Drop (Rank shm) shmshn)
+                               @(Take (Rank shp) shpshn)
+                               knownShS (cAstSFromX shmshn t) (vars, ix2)
                 -- this introduces new variable names
           _ -> error $ "xscatter: shapes don't match: "
                        ++ show ( shsDrop @(Rank shp) shpshn
@@ -1074,14 +1090,13 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                           (shsDrop @(Rank shm) shmshn) of
           Just Refl ->
             cAstFromS (FTKX shmshn0 x)
-            $ AstGatherS @(Take (Rank shm) shmshn)
-                         @(Drop (Rank shm) shmshn)
-                         @(Take (Rank shp) shpshn)
-                         knownShS (cAstSFromX shpshn t)
-            $ funToAstIxS knownShS (fmapUnAstRaw
-                                    . ixsFromIxX' knownShS
-                                    . f . ixxCast knownShX . ixxFromIxS
-                                    . fmapAstRaw)
+            $ funToVarsIxS knownShS $ \vars ix ->
+                let !ix2 = fmapUnAstRaw . ixsFromIxX' knownShS
+                           . f . ixxCast knownShX . ixxFromIxS . fmapAstRaw $ ix
+                in AstGatherS @(Take (Rank shm) shmshn)
+                              @(Drop (Rank shm) shmshn)
+                              @(Take (Rank shp) shpshn)
+                              knownShS (cAstSFromX shpshn t) (vars, ix2)
                 -- this introduces new variable names
           _ -> error $ "xgather: shapes don't match: "
                        ++ show ( shsDrop @(Rank shp) shpshn

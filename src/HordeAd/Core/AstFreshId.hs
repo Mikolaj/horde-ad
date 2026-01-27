@@ -8,7 +8,7 @@ module HordeAd.Core.AstFreshId
   ( funToAstIO, funToAst, fun1ToAst
   , funToAstRevIO, funToAstFwdIO
   , funToAstIntVarIO, funToAstIntVar, funToAstI
-  , funToVarsIxS, funToAstIxS
+  , funToVarsIxS
     -- * Low level counter manipulation to be used only in sequential tests
   , resetVarCounter
   ) where
@@ -158,10 +158,3 @@ funToVarsIxS
   :: ShS sh -> (AstVarListS sh -> AstIxS ms sh -> a) -> a
 {-# NOINLINE funToVarsIxS #-}
 funToVarsIxS sh = unsafePerformIO . funToVarsIxIOS sh
-
-funToAstIxS
-  :: ShS sh -> (AstIxS ms sh -> AstIxS ms sh2)
-  -> (AstVarListS sh, AstIxS ms sh2)
-{-# NOINLINE funToAstIxS #-}
-funToAstIxS sh f = unsafePerformIO $ funToVarsIxIOS sh
-                   $ \vars ix -> let !x = f ix in (vars, x)
