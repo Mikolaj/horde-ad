@@ -4072,15 +4072,14 @@ substitute1Ast i var = subst where
     -- don't have to agree.
     if varNameToAstVarId var == varNameToAstVarId var2
     then case testEquality var var2 of
-      Just Refl -> case i of
-        Ast.AstVar var3@(AstVarName _ (FtkAndBoundsBounds lb3 ub3)) ->
-          let (lb, ub) = fromMaybe (-1000000000, 1000000000)
-                         $ varNameToBounds var
-              (lb2, ub2) = fromMaybe (-1000000000, 1000000000)
-                           $ varNameToBounds var2
-              bs = (max (max lb lb2) lb3, min (min ub ub2) ub3)
+      Just Refl -> case (i, var2) of
+        ( Ast.AstVar var3@(AstVarName _ (FtkAndBoundsBounds lb3 ub3))
+         ,AstVarName _ (FtkAndBoundsBounds lb2 ub2) ) ->
+          let bs = (max lb2 lb3, min ub2 ub3)
                 -- We know all bounds approximations have to be correct
-                -- so we can intersect them.
+                -- so we can intersect them. We ignore approximations
+                -- from @var, because they should be equal to those of var2,
+                -- because we never shadow variables nor update their types.
           in Just $ astVar $ reboundsVarName bs var3
         _ -> Just i
       _ -> error $ "substitute1Ast: kind of the variable "
