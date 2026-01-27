@@ -83,7 +83,9 @@ expandAst t = case t of
     let !v2 = expandAst v
     in Ast.AstBuild1 k stk (var, v2)
 
-  Ast.AstLet var u v -> astLetDown var (expandAst u) (expandAst v)
+  Ast.AstLet var u v ->
+    astLetDown var (withKnownSpan (varNameToSpan var) $ expandAst u)
+                   (expandAst v)
 
   Ast.AstPrimalPart v -> astPrimalPart (expandAst v)
   Ast.AstDualPart v -> astDualPart (expandAst v)
@@ -276,7 +278,9 @@ simplifyAst t = case t of
     let !v2 = simplifyAst v
     in Ast.AstBuild1 k stk (var, v2)
 
-  Ast.AstLet var u v -> astLet var (simplifyAst u) (simplifyAst v)
+  Ast.AstLet var u v ->
+    astLet var (withKnownSpan (varNameToSpan var) $ simplifyAst u)
+               (simplifyAst v)
 
   Ast.AstPrimalPart v -> astPrimalPart (simplifyAst v)
   Ast.AstDualPart v -> astDualPart (simplifyAst v)
@@ -632,17 +636,18 @@ contractAst t0 = case t0 of
         -- if we omitted this check.
     -}
     astLet vart
-           (contractAst vt)
+           (withKnownSpan (varNameToSpan vart) $ contractAst vt)
            (contractAst $ Ast.AstSum snat stk  -- the crucial exposed redex
                                      (AstTimesS t2 u))
   Ast.AstSum snat stk (AstTimesS t2 (Ast.AstLet varu vu u)) ->
     astLet varu
-           (contractAst vu)
+           (withKnownSpan (varNameToSpan varu) $ contractAst vu)
            (contractAst $ Ast.AstSum snat stk (AstTimesS t2 u))
   Ast.AstSum snat stk (Ast.AstLet var v t2) ->
-    astLet var (contractAst v) (contractAst (Ast.AstSum snat stk t2))
+    astLet var (withKnownSpan (varNameToSpan var) $ contractAst v)
+               (contractAst (Ast.AstSum snat stk t2))
   Ast.AstSum snat stk (Ast.AstSum snat2 stk2 (Ast.AstLet var v t2)) ->
-    astLet var (contractAst v)
+    astLet var (withKnownSpan (varNameToSpan var) $ contractAst v)
                (contractAst (Ast.AstSum snat stk (Ast.AstSum snat2 stk2 t2)))
   Ast.AstSum snat stk v -> astSum snat stk (contractAst v)
   Ast.AstReplicate snat stk v -> astReplicate snat stk (contractAst v)
@@ -700,7 +705,9 @@ contractAst t0 = case t0 of
     let !v2 = contractAst v
     in Ast.AstBuild1 snat stk (var, v2)
 
-  Ast.AstLet var u v -> astLet var (contractAst u) (contractAst v)
+  Ast.AstLet var u v ->
+    astLet var (withKnownSpan (varNameToSpan var) $ contractAst u)
+               (contractAst v)
 
   Ast.AstPrimalPart v -> astPrimalPart (contractAst v)
   Ast.AstDualPart v -> astDualPart (contractAst v)
@@ -899,7 +906,9 @@ letDownAst t = case t of
     let !v2 = letDownAst v
     in Ast.AstBuild1 k stk (var, v2)
 
-  Ast.AstLet var u v -> astLetDown var (letDownAst u) (letDownAst v)
+  Ast.AstLet var u v ->
+    astLetDown var (withKnownSpan (varNameToSpan var) $ letDownAst u)
+                   (letDownAst v)
 
   Ast.AstPrimalPart v -> Ast.AstPrimalPart (letDownAst v)
   Ast.AstDualPart v -> Ast.AstDualPart (letDownAst v)

@@ -116,12 +116,12 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
     in tbuild1 snat stk f
 
   -- We assume there are no nested lets with the same variable.
-  AstLet @_ @_ @s1 @s2 var u v ->
+  AstLet @_ @_ @_ @s2 var u v ->
     let (toFull, fromFull) =
           toFromFullSpan (ftkToSTK (ftkAst v)) (knownSpan @s2)
-        t = interpretAst env u
+        t = withKnownSpan (varNameToSpan var) $ interpretAst env u
         env2 w = extendEnv var w env
-    in case knownSpan @s1 of
+    in case varNameToSpan var of
          SFullSpan ->
            fromFull $ ttlet t (\w -> toFull $ interpretAst (env2 w) v)
          SPrimalStepSpan SFullSpan ->

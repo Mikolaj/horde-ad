@@ -102,6 +102,7 @@ inlineAst !memo v0 = case v0 of
     -- the delete and hence var couldn't appear in memo, so we can make
     -- the recursive call for v with memo intact, to record extra occurrences
     -- of other variables without the costly summing of maps.
+    withKnownSpan (varNameToSpan var) $
     let vv = varNameToAstVarId var
         (memo1, v2) = inlineAst memo v
         memo1NoVar = EM.delete vv memo1
@@ -288,8 +289,7 @@ bindsToLet u0 !memo = foldl' bindToLet u0 l
   bindToLet :: AstTensor AstMethodLet s y
             -> DSum AstVarName SpanTarget
             -> AstTensor AstMethodLet s y
-  bindToLet !u (var :=> SpanTarget w) = withKnownSpan (varNameToSpan var)
-                                        $ astLetDown var w u
+  bindToLet !u (var :=> SpanTarget w) = astLetDown var w u
 
 -- | This replaces 'HordeAd.Core.Ast.AstShare' with 'HordeAd.Core.Ast.AstLet',
 -- traversing the term bottom-up.

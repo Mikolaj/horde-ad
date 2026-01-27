@@ -435,8 +435,7 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
     -> AstTensor ms s accy
     -> AstTensor ms s (BuildTensorKind k ey)
     -> AstTensor ms s (TKProduct accy (BuildTensorKind k by))
-  AstApply :: KnownSpan s
-           => AstHFun s x z -> AstTensor ms s x -> AstTensor ms s z
+  AstApply :: AstHFun s x z -> AstTensor ms s x -> AstTensor ms s z
   AstVar :: AstVarName '(s, y) -> AstTensor ms s y
   AstCond :: forall y ms s.
              AstBool ms -> AstTensor ms s y -> AstTensor ms s y
@@ -447,8 +446,8 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
             -> AstTensor ms s (BuildTensorKind k y)
 
   -- Sharing-related operations, mutually exclusive via AstMethodOfSharing
-  AstLet :: forall y z s s2. KnownSpan s
-         => AstVarName '(s, y) -> AstTensor AstMethodLet s y
+  AstLet :: forall y z s s2.
+            AstVarName '(s, y) -> AstTensor AstMethodLet s y
          -> AstTensor AstMethodLet s2 z
          -> AstTensor AstMethodLet s2 z
   AstShare :: AstVarName '(s, y) -> AstTensor AstMethodShare s y

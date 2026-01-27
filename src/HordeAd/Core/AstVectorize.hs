@@ -199,7 +199,8 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
 
     Ast.AstLet var1 u v -> traceRule $
       let (var3, v2) = substProjRep snat var var1 v
-      in astLet var3 (build1VOccurrenceUnknown snat (var, u))
+      in astLet var3 (withKnownSpan (varNameToSpan var1) $
+                      build1VOccurrenceUnknown snat (var, u))
                      (build1VOccurrenceUnknownRefresh snat (var, v2))
            -- ensures no duplicated bindings, see below
 
@@ -532,7 +533,7 @@ astIndexBuild snat@SNat ftk u i = case ftk of
     $ astIndexS ZSS (nestTargetK snat ftk u) (i :.$ ZIS) -}
 
 substProjRep
-  :: forall k s s2 y2 y. (KnownSpan s, KnownSpan s2)
+  :: forall k s s2 y2 y. KnownSpan s
   => SNat k -> IntVarName
   -> AstVarName '(s2, y2) -> AstTensor AstMethodLet s y
   -> (AstVarName '(s2, BuildTensorKind k y2), AstTensor AstMethodLet s y)
@@ -542,7 +543,8 @@ substProjRep snat@SNat var var1 v =
       var3 :: AstVarName '(s2, BuildTensorKind k y2)
       var3 = reshapeVarName ftk3 var1
       astVar3 = astVar var3
-      indexing = astIndexBuild snat ftk1 astVar3 (astVar var)
+      indexing = withKnownSpan (varNameToSpan var1) $
+                 astIndexBuild snat ftk1 astVar3 (astVar var)
       v2 = substituteAst indexing var1 v
         -- The subsitutions of projections and indexing don't break sharing
         -- too much, because they don't duplicate variables and the added var

@@ -828,7 +828,7 @@ astCond b v w = Ast.AstCond b v w
 
 -- Invariant: if the variable has bounds, the expression can only have
 -- values within the bounds (regardless of what the `bounds` call would say).
-astLet :: forall y z s s2. (KnownSpan s, KnownSpan s2)
+astLet :: forall y z s s2. KnownSpan s2
        => AstVarName '(s, y) -> AstTensor AstMethodLet s y
        -> AstTensor AstMethodLet s2 z
        -> AstTensor AstMethodLet s2 z
@@ -865,26 +865,32 @@ astLet var u (Ast.AstFromPrimal v0) = fromPrimal $ astLet var u v0
 astLet var u (Ast.AstFromDual v0) = fromDual $ astLet var u v0
 astLet var u (Ast.AstFromPlain v0) = fromPlain $ astLet var u v0
 astLet var (Ast.AstFromPrimal u) v =
-  astLetFun u $ \ !ast1 -> substituteAst (fromPrimal ast1) var v
+  withKnownSpan (varNameToSpan var)
+  $ astLetFun u $ \ !ast1 -> substituteAst (fromPrimal ast1) var v
 astLet var (Ast.AstFromDual u) v =
   astLetFun u $ \ !ast1 -> substituteAst (fromDual ast1) var v
 astLet var (Ast.AstFromPlain u) v =
-  astLetFun u $ \ !ast1 -> substituteAst (fromPlain ast1) var v
+  withKnownSpan (varNameToSpan var)
+  $ astLetFun u $ \ !ast1 -> substituteAst (fromPlain ast1) var v
 astLet var (Ast.AstPair u1 u2) v =
-  astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-    substituteAst (Ast.AstPair ast1 ast2) var v
+  withKnownSpan (varNameToSpan var)
+  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
+      substituteAst (Ast.AstPair ast1 ast2) var v
 astLet var (Ast.AstLet varN uN (Ast.AstPair u1 u2)) v =
   astLet varN uN
+  $ withKnownSpan (varNameToSpan var)
   $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
       substituteAst (Ast.AstPair ast1 ast2) var v
 -- This is a common case, e.g., from representing conditionals.
 astLet var (Ast.AstFromVector snat stk u) v | V.length u == 2 =
-  astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-    substituteAst (Ast.AstFromVector snat stk
-                   $ V.fromListN 2 [ast1, ast2]) var v
+  withKnownSpan (varNameToSpan var)
+  $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
+      substituteAst (Ast.AstFromVector snat stk
+                     $ V.fromListN 2 [ast1, ast2]) var v
 astLet var (Ast.AstLet varN uN
               (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
   astLet varN uN
+  $ withKnownSpan (varNameToSpan var)
   $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
       substituteAst (Ast.AstFromVector snat stk
                      $ V.fromListN 2 [ast1, ast2]) var v
@@ -899,7 +905,7 @@ astLet var (Ast.AstTransposeS perm a) v =
 astLet var (Ast.AstConvert c a) v
   | checkAstFromSNotK c a =
     let var2 = reshapeVarName (ftkAst a) var
-        ast = astConvert c $ astVar var2
+        ast = withKnownSpan (varNameToSpan var) $ astConvert c $ astVar var2
     in astLet var2 a (substituteAst ast var v)
 astLet var u (Ast.AstConvert c a)
   | checkAstFromSNotK c a =
@@ -4093,7 +4099,7 @@ substitute1Ast i var = subst where
       Nothing -> Nothing
 
   Ast.AstLet var2 u v ->
-    case (subst u, subst v) of
+    case (withKnownSpan (varNameToSpan var2) $ subst u, subst v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLet var2 (fromMaybe u mu) (fromMaybe v mv)
 

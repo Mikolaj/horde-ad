@@ -336,7 +336,7 @@ ixIsSmall = all (astIsSmall True)
 -- performed on user code without the risk of removing the workaround lets for
 -- big non-constant values in indexes that prevent the loss of sharing occurring
 -- when differentiating indexing. gathers and scatters.
-astLetDown :: forall y z s s2. (KnownSpan s, KnownSpan s2)
+astLetDown :: forall y z s s2. KnownSpan s2
            => AstVarName '(s, y) -> AstTensor AstMethodLet s y
            -> AstTensor AstMethodLet s2 z
            -> AstTensor AstMethodLet s2 z

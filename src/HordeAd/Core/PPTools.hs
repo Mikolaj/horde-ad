@@ -237,12 +237,13 @@ printAst cfg d = \case
            . showString " -> "
            . printAst cfg 0 v)
 
-  t@(AstLet @_ @_ @s1 var0 u0 v0) ->
+  t@(AstLet @_ @_ @s0 var0 u0 v0) ->
+    withKnownSpan (varNameToSpan var0) $
     if loseRoudtrip cfg
     then let collect :: AstTensor AstMethodLet s y -> ([(ShowS, ShowS)], ShowS)
              collect (AstLet var u v) =
                let name = printAstVar cfg var
-                   uPP = printAst cfg 0 u
+                   uPP = withKnownSpan (varNameToSpan var) $ printAst cfg 0 u
                    (rest, corePP) = collect v
                in ((name, uPP) : rest, corePP)
              collect v = ([], printAst cfg 0 v)
@@ -253,9 +254,9 @@ printAst cfg d = \case
                   [name . showString " = " . uPP | (name, uPP) <- pairs])
               . showString " in "
               . core
-    else let keyword = case (knownSpan @s1, knownSpan @s1, knownSpan @s) of
-               (SPrimalStepSpan SFullSpan, _, SFullSpan) -> "tletPrimal "
-               (_, SPlainSpan, SFullSpan) -> "tletPlain "
+    else let keyword = case (knownSpan @s0, knownSpan @s) of
+               (SPrimalStepSpan SFullSpan, SFullSpan) -> "tletPrimal "
+               (SPlainSpan, SFullSpan) -> "tletPlain "
                _ -> "tlet "
          in showParen (d > 10)
             $ showString keyword

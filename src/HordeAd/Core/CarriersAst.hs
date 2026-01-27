@@ -330,11 +330,11 @@ instance (NumScalar r, KnownSpan s)
 -- but True implies they have equal semantics.
 eqK :: AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r) -> Bool
 eqK (AstVar var1) (AstVar var2) = var1 == var2
-eqK (AstLet @_ @_ @s1 var1 u1 v1) (AstLet @_ @_ @s2 var2 u2 v2)
-  | FTKScalar @r1 <- ftkAst u1, FTKScalar @r2 <- ftkAst u2
-  , Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
-  , Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
-    var1 == var2 && eqK u1 u2 && eqK v1 v2
+eqK (AstLet var1 u1 v1) (AstLet var2 u2 v2)
+  | varNameToAstVarId var1 == varNameToAstVarId var2
+  , FTKScalar <- varNameToFTK var1
+  , Just Refl <- testEquality var1 var2 =
+    eqK u1 u2 && eqK v1 v2
 eqK (AstPrimalPart u1) (AstPrimalPart u2) = eqK u1 u2
 eqK (AstDualPart u1) (AstDualPart u2) = eqK u1 u2
 eqK (AstPlainPart @_ @s1 u1) (AstPlainPart @_ @s2 u2)
