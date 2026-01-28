@@ -1481,6 +1481,9 @@ astShareNoSimplify a = case a of
   AstFromDual v -> fromDual $ astShareNoSimplify v
   AstFromPlain v -> fromPlain $ astShareNoSimplify v
   _ -> unsafePerformIO $ case ftkAst a of
+    ftk@FTKScalar -> do
+        var <- funToAstAutoBoundsIO ftk a
+        pure $! AstShare var a
     ftk@(FTKR @_ @x sh' x) ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
         let v = cAstSFromR @sh sh a
@@ -1493,7 +1496,7 @@ astShareNoSimplify a = case a of
         pure $! cAstFromS @(TKS2 sh x) ftk $ AstShare var v
     ftk@(FTKS ZSS x@FTKScalar) -> do
         let v = cAstFromS x a
-        var <- funToAstNoBoundsIO FTKScalar
+        var <- funToAstAutoBoundsIO x v
         pure $! cAstSFrom ftk $ AstShare var v
     -- calling recursively for product may be not worth it
     ftk -> do

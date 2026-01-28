@@ -64,7 +64,7 @@ ftkAst t = case t of
   AstReplicate snat _ v -> buildFTK snat (ftkAst v)
   AstMapAccumLDer k bftk _eftk _f _df _rf acc0 _es ->
     FTKProduct (ftkAst acc0) (buildFTK k bftk)
-  AstApply (AstLambda !_ !l) _ -> ftkAst l
+  AstApply (AstLambda !_ !u) _ -> ftkAst u
   AstVar var -> varNameToFTK var
   AstCond _b v _w -> ftkAst v
   AstBuild1 snat _ (_var, v) -> buildFTK snat (ftkAst v)
@@ -460,12 +460,15 @@ bounds _ = Nothing
 -- TODO: extend, e.g., to general quot and rem.
 intBounds :: AstTensor ms PlainSpan (TKScalar Int) -> Maybe (Int, Int)
 intBounds (AstConcreteK u) = Just (u, u)
+intBounds (AstApply (AstLambda _ u) _) = intBounds u
 intBounds (AstVar var) = varNameToBounds var
 intBounds (AstCond _b u v) = do
   (u1, u2) <- intBounds u
   (v1, v2) <- intBounds v
   pure (min u1 v1, max u2 v2)
 intBounds (AstLet _ _ u) = intBounds u  -- TODO: substitute?
+intBounds (AstShare var _) = varNameToBounds var
+intBounds (AstToShare u) = intBounds u
 intBounds (AstPlusK u v) = do
   (u1, u2) <- intBounds u
   (v1, v2) <- intBounds v
