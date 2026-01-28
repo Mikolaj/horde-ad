@@ -5,7 +5,7 @@
 -- with @unsafePerformIO@ outside, so some of the impurity escapes
 -- and is encapsulated elsewhere.
 module HordeAd.Core.AstFreshId
-  ( funToAstIO, funToAst, fun1ToAst
+  ( funToAstIO, funToAst, funToAstAutoBoundsIO, funToAstNoBoundsIO
   , funToAstRevIO, funToAstFwdIO
   , funToAstIntVarMaybeIO, funToAstIntVar, funToAstIntVarIO, funToAstI
   , funToVarsIxS
@@ -16,12 +16,15 @@ module HordeAd.Core.AstFreshId
 import Prelude
 
 import Control.Concurrent.Counter (Counter, add, new, set)
+import Data.Type.Equality (testEquality, (:~:) (Refl))
 import GHC.Exts (IsList (..))
 import System.IO.Unsafe (unsafePerformIO)
+import Type.Reflection (typeRep)
 
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstTools
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
@@ -42,12 +45,12 @@ unsafeGetFreshAstVarId :: IO AstVarId
 unsafeGetFreshAstVarId =
   intToAstVarId <$> add unsafeAstVarCounter 1
 
-funToAstIOGeneric :: forall y z s s2 ms. KnownSpan s
-                  => FullShapeTK y -> Maybe (Int, Int)
-                  -> (AstVarName '(s, y) -> AstTensor ms s2 z)
-                  -> IO (AstVarName '(s, y), AstTensor ms s2 z)
-{-# INLINE funToAstIOGeneric  #-}
-funToAstIOGeneric ftk mbounds f = do
+funVarToAstIO :: forall y z s s2 ms. KnownSpan s
+              => FullShapeTK y -> Maybe (Int, Int)
+              -> (AstVarName '(s, y) -> AstTensor ms s2 z)
+              -> IO (AstVarName '(s, y), AstTensor ms s2 z)
+{-# INLINE funVarToAstIO  #-}
+funVarToAstIO ftk mbounds f = do
   !freshId <- unsafeGetFreshAstVarId
   let !var = mkAstVarName ftk mbounds freshId
       !x = f var
@@ -58,22 +61,33 @@ funToAstIO :: forall y z s s2 ms. KnownSpan s
            -> (AstTensor ms s y -> AstTensor ms s2 z)
            -> IO (AstVarName '(s, y), AstTensor ms s2 z)
 {-# INLINE funToAstIO #-}
-funToAstIO ftk mbounds f = funToAstIOGeneric ftk mbounds (f . astVar)
+funToAstIO ftk mbounds f = funVarToAstIO ftk mbounds (f . astVar)
 
 funToAst :: KnownSpan s
-         => FullShapeTK y -> Maybe (Int, Int)
+         => FullShapeTK y
          -> (AstTensor ms s y -> AstTensor ms s2 z)
          -> (AstVarName '(s, y), AstTensor ms s2 z)
 {-# NOINLINE funToAst #-}
-funToAst ftk mbounds = unsafePerformIO . funToAstIO ftk mbounds
+funToAst ftk = unsafePerformIO . funToAstIO ftk Nothing
 
-fun1ToAst :: KnownSpan s
-          => FullShapeTK y -> (AstVarName '(s, y) -> AstTensor ms s y)
-          -> AstTensor ms s y
-{-# NOINLINE fun1ToAst #-}
-fun1ToAst ftk f = unsafePerformIO $ do
-  (_, t) <- funToAstIOGeneric ftk Nothing f
-  return $! t
+funToAstAutoBoundsIO :: forall r s ms. KnownSpan s
+                     => FullShapeTK (TKScalar r) -> AstTensor ms s (TKScalar r)
+                     -> IO (AstVarName '(s, TKScalar r))
+{-# INLINE funToAstAutoBoundsIO #-}
+funToAstAutoBoundsIO ftk@FTKScalar a = do
+  !freshId <- unsafeGetFreshAstVarId
+  case knownSpan @s of
+    SPlainSpan | Just Refl <- testEquality (typeRep @r) (typeRep @Int)
+               , Just (lb, ub) <- intBounds a ->
+      pure $! AstVarName freshId $ FtkAndBoundsBounds lb ub
+    _ -> pure $! mkAstVarName ftk Nothing freshId
+
+funToAstNoBoundsIO :: KnownSpan s
+                   => FullShapeTK y -> IO (AstVarName '(s, y))
+{-# INLINE funToAstNoBoundsIO #-}
+funToAstNoBoundsIO ftk = do
+  !freshId <- unsafeGetFreshAstVarId
+  pure $! mkAstVarName ftk Nothing freshId
 
 funToAstRevIO :: forall x.
                  FullShapeTK x
@@ -137,8 +151,8 @@ funToAstIntVarIO (lb, ub) f = do
 
 funToAstI :: (Int, Int) -> (AstInt ms -> t) -> (IntVarName, t)
 {-# NOINLINE funToAstI #-}
-funToAstI bounds f = unsafePerformIO . funToAstIntVarIO bounds
-                     $ \ (!var, !i) -> let !x = f i in (var, x)
+funToAstI bds f = unsafePerformIO . funToAstIntVarIO bds
+                  $ \ (!var, !i) -> let !x = f i in (var, x)
 
 funToVarsIxIOS
   :: forall sh a ms.

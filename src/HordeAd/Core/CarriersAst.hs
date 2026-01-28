@@ -19,6 +19,7 @@ module HordeAd.Core.CarriersAst
 import Prelude
 
 import Data.Type.Equality (testEquality, (:~:) (Refl))
+import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++))
@@ -1468,28 +1469,36 @@ deriving instance (RealFloatH (AstTensor AstMethodLet s y))
 astShareNoSimplify :: KnownSpan s
                    => AstTensor AstMethodShare s y
                    -> AstTensor AstMethodShare s y
+{-# NOINLINE astShareNoSimplify #-}
 astShareNoSimplify a | astIsSmall True a = a
                          -- too important an optimization to skip
 astShareNoSimplify a = case a of
   AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
-    cAstFromS @y2 ftkz $ fun1ToAst (ftkAst v) $ \ !var -> AstShare var v
+    unsafePerformIO $ do
+      var <- funToAstNoBoundsIO (ftkAst v)
+      pure $! cAstFromS @y2 ftkz $ AstShare var v
   AstFromPrimal v -> fromPrimal $ astShareNoSimplify v
   AstFromDual v -> fromDual $ astShareNoSimplify v
   AstFromPlain v -> fromPlain $ astShareNoSimplify v
-  _ -> case ftkAst a of
+  _ -> unsafePerformIO $ case ftkAst a of
     ftk@(FTKR @_ @x sh' x) ->
-      withShsFromShR sh' $ \(sh :: ShS sh) ->
-        cAstFromS @(TKS2 sh x) ftk
-        $ fun1ToAst (FTKS sh x) $ \ !var -> AstShare var (cAstSFromR @sh sh a)
+      withShsFromShR sh' $ \(sh :: ShS sh) -> do
+        let v = cAstSFromR @sh sh a
+        var <- funToAstNoBoundsIO (FTKS sh x)
+        pure $! cAstFromS @(TKS2 sh x) ftk $ AstShare var v
     ftk@(FTKX @_ @x sh' x) ->
-      withShsFromShX sh' $ \(sh :: ShS sh) ->
-        cAstFromS @(TKS2 sh x) ftk
-        $ fun1ToAst (FTKS sh x) $ \ !var -> AstShare var (cAstSFromX @sh sh a)
-    ftk@(FTKS ZSS x@FTKScalar) ->
-        cAstSFrom ftk
-        $ fun1ToAst FTKScalar $ \ !var -> AstShare var (cAstFromS x a)
-    -- processing product recursively may be not worth it
-    _ -> fun1ToAst (ftkAst a) $ \ !var -> AstShare var a
+      withShsFromShX sh' $ \(sh :: ShS sh) -> do
+        let v = cAstSFromX @sh sh a
+        var <- funToAstNoBoundsIO (FTKS sh x)
+        pure $! cAstFromS @(TKS2 sh x) ftk $ AstShare var v
+    ftk@(FTKS ZSS x@FTKScalar) -> do
+        let v = cAstFromS x a
+        var <- funToAstNoBoundsIO FTKScalar
+        pure $! cAstSFrom ftk $ AstShare var v
+    -- calling recursively for product may be not worth it
+    ftk -> do
+        var <- funToAstNoBoundsIO ftk
+        pure $! AstShare var a
 
 -- INLINE here would bloat the binary a lot, probably negating any
 -- gains from directly calling the function. Also, this is not a bottleneck.
@@ -1498,37 +1507,40 @@ astLetFunNoSimplify
   => AstTensor AstMethodLet s y
   -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
   -> AstTensor AstMethodLet s2 z
+{-# NOINLINE astLetFunNoSimplify #-}
 astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
 astLetFunNoSimplify a f = case a of
   AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
-    let (var, ast) = funToAst (ftkAst v) Nothing (f . cAstFromS @y2 ftkz)
-    in AstLet var v ast
+    unsafePerformIO $ do
+      var <- funToAstNoBoundsIO (ftkAst v)
+      pure $! AstLet var v (f $ cAstFromS @y2 ftkz $ astVar var)
   AstFromPrimal v -> astLetFunNoSimplify v (f . fromPrimal)
   AstFromDual v -> astLetFunNoSimplify v (f . fromDual)
   AstFromPlain v -> astLetFunNoSimplify v (f . fromPlain)
-  _ -> case ftkAst a of
+  _ -> unsafePerformIO $ case ftkAst a of
+    ftk@FTKScalar -> do
+        var <- funToAstAutoBoundsIO ftk a
+        pure $! AstLet var a (f $ astVar var)
     ftk@(FTKR @_ @x sh' x) ->
-      withShsFromShR sh' $ \(sh :: ShS sh) ->
-        let (var, ast) =
-              funToAst (FTKS sh x) Nothing
-                        (f . cAstFromS @(TKS2 sh x) ftk)
-        in AstLet var (cAstSFromR @sh sh a) ast
-             -- safe, because subsitution ruled out above
+      withShsFromShR sh' $ \(sh :: ShS sh) -> do
+        let v = cAstSFromR @sh sh a
+        var <- funToAstNoBoundsIO (FTKS sh x)
+        pure $! AstLet var v (f $ cAstFromS @(TKS2 sh x) ftk $ astVar var)
+          -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->
-      withShsFromShX sh' $ \(sh :: ShS sh) ->
-        let (var, ast) =
-              funToAst (FTKS sh x) Nothing
-                        (f . cAstFromS @(TKS2 sh x) ftk)
-        in AstLet var (cAstSFromX @sh sh a) ast
-    ftk@(FTKS ZSS x@FTKScalar) ->
-        let (var, ast) =
-              funToAst FTKScalar Nothing
-                       (f . cAstSFrom ftk)
-        in AstLet var (cAstFromS x a) ast
-    -- processing product recursively may be not worth it
-    ftk -> let (var, ast) = funToAst ftk Nothing f
-           in AstLet var a ast
+      withShsFromShX sh' $ \(sh :: ShS sh) -> do
+        let v = cAstSFromX @sh sh a
+        var <- funToAstNoBoundsIO (FTKS sh x)
+        pure $! AstLet var v (f $ cAstFromS @(TKS2 sh x) ftk $ astVar var)
+    ftk@(FTKS ZSS x@FTKScalar) -> do
+        let v = cAstFromS x a
+        var <- funToAstAutoBoundsIO x v
+        pure $! AstLet var v (f $ cAstSFrom ftk $ astVar var)
+    -- calling recursively for product may be not worth it
+    ftk -> do
+        var <- funToAstNoBoundsIO ftk
+        pure $! AstLet var a (f $ astVar var)
 
 sunReplicatePrim :: Nested.Elt a
                  => Nested.Shaped sh a -> Maybe a

@@ -250,8 +250,9 @@ testVT2OPPNonLin = do
              , fromPrimal $ rcast $ rconcrete $ unConcrete a4 )
            , ( rcast $ fromPrimal $ rconcrete $ unConcrete a5
              , fromPrimal $ rcast $ rconcrete $ unConcrete a6 ) )
-      ast3 = fun1ToAst (FTKR (0 :$: ZSR) (FTKScalar @Float))
-                       (const $ afcnn2TnonLin constant)
+      ast3 = snd $ funToAst @FullSpan
+                            (FTKR (0 :$: ZSR) (FTKScalar @Float))
+                            (const $ afcnn2TnonLin constant)
   "\\dummy" ++ " -> " ++ printAstSimple ast3
     @?= "\\dummy -> rfromS (tlet (exp (ssum @5 (str (sreplicate @2 (tlet (ssum @4 (tfromPlain (STKS [4,5] STKScalar) (sconcrete (sfromListLinear [4,5] [1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,3.0,3.0,4.0,4.0,4.0,4.0,4.0])) * tfromPrimal (STKS [4,5] STKScalar) (str (sreplicate @5 (tlet (sconcrete (sreplicate [4] 7.0) * ssum @3 (str (scast (sconcrete (sfromListLinear [4,3] [1.0,2.0,3.0,1.0,2.0,3.0,1.0,2.0,3.0,1.0,2.0,3.0])))) + scast (sconcrete (sfromListLinear [4] [1.0,2.0,3.0,4.0]))) (\\v7 -> recip (tfromPlain (STKS [4] STKScalar) (sconcrete (sreplicate [4] 1.0)) + exp (tfromPlain (STKS [4] STKScalar) (negate v7)))))))) + tfromPlain (STKS [5] STKScalar) (scast (sconcrete (sfromListLinear [5] [1.0,2.0,3.0,4.0,5.0])))) (\\v8 -> tletPrimal (recip (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 1.0)) + tprimalPart (exp (negate v8)))) (\\v9 -> tfromPrimal (STKS [5] STKScalar) v9 + tfromDual (sfromR (tdualPart (STKR (SNat @1) STKScalar) (rfromS (tfromPrimal (STKS [5] STKScalar) (v9 * (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 1.0)) + negate v9)) * tfromDual (sfromR (tdualPart (STKR (SNat @1) STKScalar) (rfromS v8))))))))))) * tfromPlain (STKS [5,2] STKScalar) (str (scast (sconcrete (sfromListLinear [2,5] [1.0,2.0,3.0,4.0,5.0,1.0,2.0,3.0,4.0,5.0]))))) + tfromPlain (STKS [2] STKScalar) (scast (sconcrete (sfromListLinear [2] [1.0,2.0]))))) (\\v10 -> sreplicate @2 (recip (sfromK (ssum @2 v10))) * v10))"
   "\\dummy" ++ " -> " ++ printAstSimple (simplifyInlineContract ast3)

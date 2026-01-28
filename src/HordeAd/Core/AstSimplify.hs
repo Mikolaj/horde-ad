@@ -212,7 +212,7 @@ astReshapeAsGatherS knobs shOut v | Refl <- lemAppNil @sh2
     let iUnshared :: AstInt AstMethodLet
         iUnshared = ixsToLinear shOut ix
 -- This can't be done, because i depends on vars:
---     astLetFunB iUnshared $ \i ->
+--     astLetFun iUnshared $ \i ->
         i = iUnshared  -- sharing broken
         asts :: AstIxS AstMethodLet sh
         !asts = fromLinearIdxS shIn i
@@ -1523,7 +1523,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
    Ast.AstBuild1 (SNat @k) STKS{} (var2, v) ->
      let ftk = FTKS shn x
          defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-     in astLetFunB i1 $ \i ->
+     in astLetFun i1 $ \i ->
      astCond (0 <=. i &&* i <=. valueOf @k - 1)
              (astIndex shn (astLet var2 i v) rest1)
              defArr -}
@@ -1659,14 +1659,14 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
      Just Refl ->
        let ftk = FTKS ZSS x
            defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-       in astLetFunB i1 $ \i ->
+       in astLetFun i1 $ \i ->
          astCond (0 <=. i &&* i <=. valueOf @k - 1)
                  (astFromIntegralS $ astSFromK' i)
                  defArr
      _ -> error "astIndexKnobsS: shape not []"
    Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
      if knobPhase knobs == PhaseExpansion then
-       astLetFunB i1 $ \i ->
+       astLetFun i1 $ \i ->
        shareIx rest1 $ \ !rest2 ->
        let ulen = valueOf @m
            ix1 = i :.$ rest2
@@ -1686,7 +1686,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
          AstConcreteK b -> if b then astIndex shn v ix2 else astIndex shn u ix1
          _ -> Ast.AstIndexS shn v0 ix
    Ast.AstSliceS i@(SNat @i) (SNat @n) k@SNat v ->
-     astLetFunB i1 $ \iShared ->
+     astLetFun i1 $ \iShared ->
      let ftk = FTKS shn x
          defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
          b = (if fromSNat' i == 0 then true else 0 <=. iShared )
@@ -1863,7 +1863,7 @@ astGatherKnobsS
            v w :.$ prest )
     | m :$$ _ <- knownShS @shm
     , j <= 0 || j >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
@@ -1874,7 +1874,7 @@ astGatherKnobsS
               v w) :.$ prest )
     | m :$$ _ <- knownShS @shm
     , j <= 0 || j >= fromSNat' m || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shn v0
@@ -1885,7 +1885,7 @@ astGatherKnobsS
            v w :.$ prest )
     | m :$$ _ <- knownShS @shm
     , - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
@@ -1898,7 +1898,7 @@ astGatherKnobsS
     | m :$$ _ <- knownShS @shm
     , - j + 1 <= 0 || - j + 1 >= fromSNat' m
       || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 
 astGatherKnobsS
@@ -1910,7 +1910,7 @@ astGatherKnobsS
            v w :.$ prest )
     | m :$$ _ <- knownShS @shm
     , j <= 0 || j >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
@@ -1922,7 +1922,7 @@ astGatherKnobsS
               v w) :.$ prest )
     | m :$$ _ <- knownShS @shm
     , j <= 0 || j >= fromSNat' m || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shn v0
@@ -1935,7 +1935,7 @@ astGatherKnobsS
            v w :.$ prest )
     | m :$$ _ <- knownShS @shm
     , - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
@@ -1950,7 +1950,7 @@ astGatherKnobsS
     | m :$$ _ <- knownShS @shm
     , - j + 1 <= 0 || - j + 1 >= fromSNat' m
       || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 
 astGatherKnobsS
@@ -1963,7 +1963,7 @@ astGatherKnobsS
       v w :.$ prest )
     | m :$$ _ <- knownShS @shm
     , j <= 0 || j >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
@@ -1977,7 +1977,7 @@ astGatherKnobsS
               v w) :.$ prest )
     | m :$$ _ <- knownShS @shm
     , j <= 0 || j >= fromSNat' m || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shn v0
@@ -1991,7 +1991,7 @@ astGatherKnobsS
            v w :.$ prest )
     | m :$$ _ <- knownShS @shm
     , - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
@@ -2008,7 +2008,7 @@ astGatherKnobsS
     | m :$$ _ <- knownShS @shm
     , - j + 1 <= 0 || - j + 1 >= fromSNat' m
       || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 
 astGatherKnobsS
@@ -2023,7 +2023,7 @@ astGatherKnobsS
            v w :.$ prest )
     | m :$$ _ <- knownShS @shm
     , j <= 0 || j >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
@@ -2038,7 +2038,7 @@ astGatherKnobsS
               v w) :.$ prest )
     | m :$$ _ <- knownShS @shm
     , j <= 0 || j >= fromSNat' m || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shn v0
@@ -2053,7 +2053,7 @@ astGatherKnobsS
            v w :.$ prest )
     | m :$$ _ <- knownShS @shm
     , - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shn v0
@@ -2071,7 +2071,7 @@ astGatherKnobsS
     | m :$$ _ <- knownShS @shm
     , - j + 1 <= 0 || - j + 1 >= fromSNat' m
       || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFunB w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
   in astGatherKnobsS knobs shn v0 (vars, Ast.AstLet varN uN i :.$ prest)
 -- Rules with AstConcreteK on the right hand side of AstPlusK are
 -- not needed, thanks to the normal form of AstPlusK rewriting.
@@ -3875,62 +3875,49 @@ astConcrete ftk v = case ftk of
     astPair (astConcrete ftk1 (tproject1 v)) (astConcrete ftk2 (tproject2 v))
   _ -> concreteTarget astConcreteK astConcreteS astFromS' (ftkToSTK ftk) v
 
-astLetFun :: forall y z s s2. (KnownSpan s, KnownSpan s2)
-          => AstTensor AstMethodLet s y
-          -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
-          -> AstTensor AstMethodLet s2 z
-{-# INLINE astLetFun #-}
-astLetFun = astLetFunBounds Nothing
-
-astLetFunB :: forall z s2. KnownSpan s2
-           => AstTensor AstMethodLet PlainSpan (TKScalar Int)
-           -> (AstTensor AstMethodLet PlainSpan (TKScalar Int)
-               -> AstTensor AstMethodLet s2 z)
-           -> AstTensor AstMethodLet s2 z
-{-# INLINE astLetFunB #-}
-astLetFunB w = astLetFunBounds (intBounds w) w
-
 -- INLINE here would bloat the binary a lot, probably negating any
 -- gains from directly calling the function. Also, this is not a bottleneck.
 -- It would also trigger specialization of many other functions from this
 -- module, which would fail, because their unfolding is not exposed.
 -- To some extend, this is even happening with no pragma (wrappers and
 -- similar functions derived from this one fail to specialize in other modules).
-astLetFunBounds :: forall y z s s2. (KnownSpan s, KnownSpan s2)
-                => Maybe (Int, Int) -> AstTensor AstMethodLet s y
-                -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
-                -> AstTensor AstMethodLet s2 z
-{-# NOINLINE astLetFunBounds #-}
-astLetFunBounds _ a f | astIsSmall True a = f a
-astLetFunBounds mbs a f = case a of
+astLetFun :: forall y z s s2. (KnownSpan s, KnownSpan s2)
+          => AstTensor AstMethodLet s y
+          -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
+          -> AstTensor AstMethodLet s2 z
+{-# NOINLINE astLetFun #-}
+astLetFun a f | astIsSmall True a = f a
+astLetFun a f = case a of
   AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
-    let (var, ast) = funToAst (ftkAst v) mbs (f . astFromS' @y2 ftkz)
-    in astLet var v ast
-  Ast.AstFromPrimal v -> astLetFunBounds mbs v (f . fromPrimal)
-  Ast.AstFromDual v -> astLetFunBounds mbs v (f . fromDual)
-  Ast.AstFromPlain v -> astLetFunBounds mbs v (f . fromPlain)
-  _ -> case ftkAst a of
+    unsafePerformIO $ do
+      var <- funToAstNoBoundsIO (ftkAst v)
+      pure $! astLet var v (f $ astFromS' @y2 ftkz $ astVar var)
+  Ast.AstFromPrimal v -> astLetFun v (f . fromPrimal)
+  Ast.AstFromDual v -> astLetFun v (f . fromDual)
+  Ast.AstFromPlain v -> astLetFun v (f . fromPlain)
+  _ -> unsafePerformIO $ case ftkAst a of
+    ftk@FTKScalar -> do
+        var <- funToAstAutoBoundsIO ftk a
+        pure $! astLet var a (f $ astVar var)
     ftk@(FTKR @_ @x sh' x) ->
-      withShsFromShR sh' $ \(sh :: ShS sh) ->
-        let (var, ast) =
-              funToAst (FTKS sh x) mbs
-                       (f . astFromS' @(TKS2 sh x) ftk)
-        in astLet var (astSFromR' sh a) ast
-             -- safe, because subsitution ruled out above
+      withShsFromShR sh' $ \(sh :: ShS sh) -> do
+        let v = astSFromR' sh a
+        var <- funToAstNoBoundsIO (FTKS sh x)
+        pure $! astLet var v (f $ astFromS' @(TKS2 sh x) ftk $ astVar var)
+          -- safe, because subsitution ruled out above
     ftk@(FTKX @_ @x sh' x) ->
-      withShsFromShX sh' $ \(sh :: ShS sh) ->
-        let (var, ast) =
-              funToAst (FTKS sh x) mbs
-                       (f . astFromS' @(TKS2 sh x) ftk)
-        in astLet var (astSFromX' sh a) ast
-    FTKS ZSS FTKScalar ->
-        let (var, ast) =
-              funToAst FTKScalar mbs
-                       (f . astSFromK')
-        in astLet var (astKFromS' a) ast
+      withShsFromShX sh' $ \(sh :: ShS sh) -> do
+        let v = astSFromX' sh a
+        var <- funToAstNoBoundsIO (FTKS sh x)
+        pure $! astLet var v (f $ astFromS' @(TKS2 sh x) ftk $ astVar var)
+    FTKS ZSS x@FTKScalar -> do
+        let v = astKFromS' a
+        var <- funToAstAutoBoundsIO x v
+        pure $! astLet var v (f $ astSFromK' $ astVar var)
     -- calling recursively for product may be not worth it
-    ftk -> let (var, ast) = funToAst ftk mbs f
-           in astLet var a ast
+    ftk -> do
+        var <- funToAstNoBoundsIO ftk
+        pure $! astLet var a (f $ astVar var)
 
 astReplicateNS :: forall shn shp s x. KnownSpan s
                => ShS shn -> AstTensor AstMethodLet s (TKS2 shp x)

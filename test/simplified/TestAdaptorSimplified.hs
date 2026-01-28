@@ -565,7 +565,7 @@ testOverleafPP = do
   let fT :: AstTensor AstMethodLet FullSpan (TKR 1 Double)
          -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = overleaf
-      (var3, ast3) = funToAst (FTKR [28] FTKScalar) Nothing fT
+      (var3, ast3) = funToAst (FTKR [28] FTKScalar) fT
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\v1 -> rfromS (ssum @50 (sgather1 @50 (sfromR v1) (\\i2 -> [remH i2 28])))"
@@ -862,13 +862,13 @@ testVstackBuildAstPP = do
   resetVarCounter
   let (var3, ast3) =
         funToAst (FTKProduct (FTKProduct (FTKR [10] FTKScalar) (FTKR [10] FTKScalar)) (FTKR [10] FTKScalar))
-          Nothing (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double . fromTarget)
+          (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double . fromTarget)
   "\\" ++ printAstVarName @FullSpan var3
        ++ " -> " ++ printAstPretty ast3
-    @?= "\\v1 -> rfromS (let x7 = sfromR (tproject1 (tproject1 v1)) !$ [0] + sfromR (tproject2 (tproject1 v1)) !$ [1] ; v8 = sgather1 @10 (str (sfromVector (fromList [sreplicate @10 (sfromR (tproject1 (tproject1 v1)) !$ [9] + sfromR (tproject2 v1) !$ [8]), (sfromR (tproject1 (tproject1 v1)) + sappend (sslice (SNat @1) (SNat @9) (sfromR (tproject2 (tproject1 v1)))) (sconcrete (sfromListLinear [1] [0.0]))) + sappend (sconcrete (sfromListLinear [1] [0.0])) (sslice (SNat @0) (SNat @9) (sfromR (tproject2 v1)))]))) (\\i5 -> [i5, ifH (let i3 = 9 + negate i5 in 0 <=. i3 &&* 0 <=. negate i3) 0 1]) in sappend (sreplicate @1 x7) (sslice (SNat @1) (SNat @9) v8))"
+    @?= "\\v1 -> rfromS (let x7 = sfromR (tproject1 (tproject1 v1)) !$ [0] + sfromR (tproject2 (tproject1 v1)) !$ [1] ; v8 = sgather1 @10 (str (sfromVector (fromList [sreplicate @10 (sfromR (tproject1 (tproject1 v1)) !$ [9] + sfromR (tproject2 v1) !$ [8]), (sfromR (tproject1 (tproject1 v1)) + sappend (sslice (SNat @1) (SNat @9) (sfromR (tproject2 (tproject1 v1)))) (sconcrete (sfromListLinear [1] [0.0]))) + sappend (sconcrete (sfromListLinear [1] [0.0])) (sslice (SNat @0) (SNat @9) (sfromR (tproject2 v1)))]))) (\\i5 -> [i5, ifH (let i3 = 9 + negate i5 in 0 <=. negate i3) 0 1]) in sappend (sreplicate @1 x7) (sslice (SNat @1) (SNat @9) v8))"
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstPretty (simplifyInlineContract ast3)
-    @?= "\\v1 -> rfromS (sappend (sreplicate @1 (sfromR (tproject1 (tproject1 v1)) !$ [0] + sfromR (tproject2 (tproject1 v1)) !$ [1])) (sgather1 @9 (sfromVector (fromList [sreplicate @9 (sfromR (tproject1 (tproject1 v1)) !$ [9] + sfromR (tproject2 v1) !$ [8]), (sslice (SNat @1) (SNat @9) (sfromR (tproject1 (tproject1 v1))) + sappend (sslice (SNat @2) (SNat @8) (sfromR (tproject2 (tproject1 v1)))) (sconcrete (sfromListLinear [1] [0.0]))) + sslice (SNat @0) (SNat @9) (sfromR (tproject2 v1))])) (\\i5 -> [ifH (let i3 = 8 + negate i5 in 0 <=. i3 &&* 0 <=. negate i3) 0 1, i5])))"
+    @?= "\\v1 -> rfromS (sappend (sreplicate @1 (sfromR (tproject1 (tproject1 v1)) !$ [0] + sfromR (tproject2 (tproject1 v1)) !$ [1])) (sappend ((sslice (SNat @1) (SNat @8) (sfromR (tproject1 (tproject1 v1))) + sslice (SNat @2) (SNat @8) (sfromR (tproject2 (tproject1 v1)))) + sslice (SNat @0) (SNat @8) (sfromR (tproject2 v1))) (sreplicate @1 (sfromR (tproject1 (tproject1 v1)) !$ [9] + sfromR (tproject2 v1) !$ [8]))))"
 
 {- The above is:
 \v1 ->
@@ -932,12 +932,12 @@ testVstackBuildAstPP2 = do
   (printAstPretty
      (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
                   (replIota2 10)))
-    @?= "rfromS (let x12 = sfromIntegral (sscalar 0) + sscalar 2.0 * sfromIntegral (sscalar 1) ; v13 = sgather1 @10 (str (sfromVector (fromList [sreplicate @10 (sfromIntegral (sscalar 9) + sscalar 3.0 * sfromIntegral (sscalar 8)), (siota (SNat @10) + (let v4 = sconcrete (sreplicate [10] 1) + siota (SNat @10) in sgather1 @10 (sconcrete (sreplicate [10] 2.0)) (\\i9 -> [kfromS (v4 !$ [i9])]) * sgather1 @10 (str (sfromVector (fromList [sfromIntegral v4, sconcrete (sreplicate [10] 0.0)]))) (\\i10 -> [i10, ifH ((-9) <=. negate (kfromS (v4 !$ [i10]))) 0 1]))) + (let v3 = sconcrete (sreplicate [10] (-1)) + siota (SNat @10) in sgather1 @10 (sconcrete (sreplicate [10] 3.0)) (\\i7 -> [kfromS (v3 !$ [i7])]) * sgather1 @10 (str (sfromVector (fromList [sfromIntegral v3, sconcrete (sreplicate [10] 0.0)]))) (\\i8 -> [i8, ifH (0 <=. kfromS (v3 !$ [i8])) 0 1]))]))) (\\i6 -> [i6, ifH (let i2 = 9 + negate i6 in 0 <=. i2 &&* 0 <=. negate i2) 0 1]) in sappend (sreplicate @1 x12) (sslice (SNat @1) (SNat @9) v13))"
+    @?= "rfromS (let x12 = sfromIntegral (sscalar 0) + sscalar 2.0 * sfromIntegral (sscalar 1) ; v13 = sgather1 @10 (str (sfromVector (fromList [sreplicate @10 (sfromIntegral (sscalar 9) + sscalar 3.0 * sfromIntegral (sscalar 8)), (siota (SNat @10) + (let v4 = sconcrete (sreplicate [10] 1) + siota (SNat @10) in sgather1 @10 (sconcrete (sreplicate [10] 2.0)) (\\i9 -> [kfromS (v4 !$ [i9])]) * sgather1 @10 (str (sfromVector (fromList [sfromIntegral v4, sconcrete (sreplicate [10] 0.0)]))) (\\i10 -> [i10, ifH ((-9) <=. negate (kfromS (v4 !$ [i10]))) 0 1]))) + (let v3 = sconcrete (sreplicate [10] (-1)) + siota (SNat @10) in sgather1 @10 (sconcrete (sreplicate [10] 3.0)) (\\i7 -> [kfromS (v3 !$ [i7])]) * sgather1 @10 (str (sfromVector (fromList [sfromIntegral v3, sconcrete (sreplicate [10] 0.0)]))) (\\i8 -> [i8, ifH (0 <=. kfromS (v3 !$ [i8])) 0 1]))]))) (\\i6 -> [i6, ifH (let i2 = 9 + negate i6 in 0 <=. negate i2) 0 1]) in sappend (sreplicate @1 x12) (sslice (SNat @1) (SNat @9) v13))"
   (printAstPretty
      (simplifyInlineContract
         (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double
                      (replIota2 10))))
-    @?= "rfromS (sappend (sconcrete (sfromListLinear [1] [2.0])) (sgather1 @9 (sfromVector (fromList [sconcrete (sreplicate [9] 33.0), sconcrete (sfromListLinear [9] [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]) + (sgather1 @9 (sconcrete (sreplicate [10] 2.0)) (\\i22 -> [sconcrete (sfromListLinear [10] [1,2,3,4,5,6,7,8,9,10]) `index0` [1 + i22]]) * sgather1 @9 (sfromVector (fromList [sfromIntegral (sconcrete (sfromListLinear [9] [2,3,4,5,6,7,8,9,10])), sconcrete (sreplicate [9] 0.0)])) (\\i23 -> [ifH ((-9) <=. negate (sconcrete (sfromListLinear [10] [1,2,3,4,5,6,7,8,9,10]) `index0` [1 + i23])) 0 1, i23]) + sgather1 @9 (sconcrete (sreplicate [10] 3.0)) (\\i20 -> [sconcrete (sfromListLinear [10] [-1,0,1,2,3,4,5,6,7,8]) `index0` [1 + i20]]) * sgather1 @9 (sfromVector (fromList [sfromIntegral (sconcrete (sfromListLinear [9] [0,1,2,3,4,5,6,7,8])), sconcrete (sreplicate [9] 0.0)])) (\\i21 -> [ifH (0 <=. sconcrete (sfromListLinear [10] [-1,0,1,2,3,4,5,6,7,8]) `index0` [1 + i21]) 0 1, i21]))])) (\\i19 -> [ifH (let i15 = 8 + negate i19 in 0 <=. i15 &&* 0 <=. negate i15) 0 1, i19])))"
+    @?= "rfromS (sappend (sconcrete (sfromListLinear [1] [2.0])) (sappend (sconcrete (sfromListLinear [8] [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0]) + (sgather1 @8 (sconcrete (sreplicate [10] 2.0)) (\\i22 -> [sconcrete (sfromListLinear [10] [1,2,3,4,5,6,7,8,9,10]) `index0` [1 + i22]]) * sgather1 @8 (sfromVector (fromList [sfromIntegral (sconcrete (sfromListLinear [9] [2,3,4,5,6,7,8,9,10])), sconcrete (sreplicate [9] 0.0)])) (\\i23 -> [ifH ((-9) <=. negate (sconcrete (sfromListLinear [10] [1,2,3,4,5,6,7,8,9,10]) `index0` [1 + i23])) 0 1, i23]) + sgather1 @8 (sconcrete (sreplicate [10] 3.0)) (\\i20 -> [sconcrete (sfromListLinear [10] [-1,0,1,2,3,4,5,6,7,8]) `index0` [1 + i20]]) * sgather1 @8 (sfromVector (fromList [sfromIntegral (sconcrete (sfromListLinear [9] [0,1,2,3,4,5,6,7,8])), sconcrete (sreplicate [9] 0.0)])) (\\i21 -> [ifH (0 <=. sconcrete (sfromListLinear [10] [-1,0,1,2,3,4,5,6,7,8]) `index0` [1 + i21]) 0 1, i21]))) (sconcrete (sfromListLinear [1] [33.0]))))"
       -- TODO: this reduced to "rfromS (sconcrete (sfromListLinear [10] [2.0,5.0,11.0,17.0,23.0,29.0,35.0,41.0,47.0,33.0]))" when tshare/tlet were inserted less often
 
 testFooPP :: Assertion
@@ -945,7 +945,7 @@ testFooPP = do
   resetVarCounter
   let fooT = foo2 @(AstTensor AstMethodLet FullSpan (TKR 0 Double))
       foo3 x = fooT (x, x, x)
-      (var3, ast3) = funToAst (FTKR ZSR FTKScalar) Nothing foo3
+      (var3, ast3) = funToAst (FTKR ZSR FTKScalar) foo3
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\x1 -> rfromS (atan2H (sfromR x1) (sfromR x1 * sin (sfromR x1)) + sfromR x1 * (sfromR x1 * sin (sfromR x1)))"
@@ -975,7 +975,7 @@ testFooLetPP = do
   resetVarCounter
   let fooLetT = fooLetOld @(AstTensor AstMethodLet FullSpan) @Double
       fooLet3 x = fooLetT (x, x, x)
-      (var3, ast3) = funToAst (FTKR ZSR FTKScalar) Nothing fooLet3
+      (var3, ast3) = funToAst (FTKR ZSR FTKScalar) fooLet3
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\x1 -> rfromS (tlet (sfromR x1 * sin (sfromR x1)) (\\x2 -> atan2H (sfromR x1) x2 + sfromR x1 * x2))"
@@ -1206,7 +1206,7 @@ testReluPP = do
   resetVarCounter >> resetIdCounter
   let reluT :: AstTensor AstMethodLet FullSpan (TKR 2 Double) -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       reluT = reluPrimal
-      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) Nothing reluT
+      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) reluT
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (tfromPlain (STKS [3,4] STKScalar) (sgather @[3,4] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifH (0.0 <=. tplainPart (negate (kfromS (tprimalPart (sfromR m1) !$ [i4, i3])))) 0 1])) * sfromR m1)"
@@ -1225,7 +1225,7 @@ testReluPP2 = do
   let reluT2 :: (AstTensor AstMethodLet FullSpan (TKR 1 Double), AstTensor AstMethodLet FullSpan (TKR 0 Double))
              -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       reluT2 (t, r) = reluPrimal (t * rreplicate 5 r)
-      (var3, ast3) = funToAst (FTKR [5] FTKScalar) Nothing (\t -> reluT2 (t, rscalar 7))
+      (var3, ast3) = funToAst (FTKR [5] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\v1 -> rfromS (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * (tfromPlain (STKS [5] STKScalar) (sgather1 @5 (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\i2 -> [ifH (0.0 <=. tplainPart (tfromPlain (STKScalar) (-7.0) * kfromS (tprimalPart (sfromR v1) !$ [i2]))) 0 1])) * sfromR v1))"
@@ -1247,7 +1247,7 @@ testReluSimplerPP = do
   resetVarCounter >> resetIdCounter
   let reluT :: AstTensor AstMethodLet FullSpan (TKR 2 Double) -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       reluT = relu
-      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) Nothing reluT
+      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) reluT
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (tfromPlain (STKS [3,4] STKScalar) (sgather @[3,4] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i4, i3] -> [ifH (0.0 <=. tplainPart (negate (kfromS (sfromR m1 !$ [i4, i3])))) 0 1])) * sfromR m1)"
@@ -1266,7 +1266,7 @@ testReluSimplerPP2 = do
   let reluT2 :: (AstTensor AstMethodLet FullSpan (TKR 1 Double), AstTensor AstMethodLet FullSpan (TKR 0 Double))
              -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       reluT2 (t, r) = relu (t * rreplicate 5 r)
-      (var3, ast3) = funToAst (FTKR [5] FTKScalar) Nothing (\t -> reluT2 (t, rscalar 7))
+      (var3, ast3) = funToAst (FTKR [5] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\v1 -> rfromS (tlet (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * sfromR v1) (\\v2 -> tfromPlain (STKS [5] STKScalar) (sgather1 @5 (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\i3 -> [ifH (0.0 <=. tplainPart (negate (kfromS (v2 !$ [i3])))) 0 1])) * v2))"
@@ -1283,7 +1283,7 @@ testReluSimplerPP3 = do
   let reluT2 :: (AstTensor AstMethodLet FullSpan (TKR 2 Double), AstTensor AstMethodLet FullSpan (TKR 0 Double))
              -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       reluT2 (t, r) = relu (t * rreplicate 3 (rreplicate 4 r))
-      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) Nothing (\t -> reluT2 (t, rscalar 7))
+      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (tlet (tfromPlain (STKS [3,4] STKScalar) (sconcrete (sreplicate [3,4] 7.0)) * sfromR m1) (\\m2 -> tfromPlain (STKS [3,4] STKScalar) (sgather @[3,4] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifH (0.0 <=. tplainPart (negate (kfromS (m2 !$ [i5, i4])))) 0 1])) * m2))"
@@ -1310,7 +1310,7 @@ testReluSimplerPP4 = do
   let reluT2 :: (AstTensor AstMethodLet FullSpan (TKR 2 Double), AstTensor AstMethodLet FullSpan (TKR 0 Double))
              -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       reluT2 (t, r) = relu (t * rreplicate0N [3, 4] (kfromR r))
-      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) Nothing (\t -> reluT2 (t, rscalar 7))
+      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (tlet (tfromPlain (STKS [3,4] STKScalar) (sconcrete (sreplicate [3,4] 7.0)) * sfromR m1) (\\m2 -> tfromPlain (STKS [3,4] STKScalar) (sgather @[3,4] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifH (0.0 <=. tplainPart (negate (kfromS (m2 !$ [i5, i4])))) 0 1])) * m2))"
@@ -1337,7 +1337,7 @@ testReluSimplerPP4s = do
   let reluT2 :: (AstTensor AstMethodLet FullSpan (TKS '[3, 4] Float), AstTensor AstMethodLet FullSpan (TKS '[] Float))
              -> AstTensor AstMethodLet FullSpan (TKS '[3, 4] Float)
       reluT2 (t, r) = reluS (t * sreplicate0N (kfromS r))
-      (var3, ast3) = funToAst (FTKS knownShS FTKScalar) Nothing (\t -> reluT2 (t, srepl 7))
+      (var3, ast3) = funToAst (FTKS knownShS FTKScalar) (\t -> reluT2 (t, srepl 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> tlet (tfromPlain (STKS [3,4] STKScalar) (sconcrete (sreplicate [3,4] 7.0)) * m1) (\\m2 -> tfromPlain (STKS [3,4] STKScalar) (sgather @[3,4] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i5, i4] -> [ifH (0.0 <=. tplainPart (negate (kfromS (m2 !$ [i5, i4])))) 0 1])) * m2)"
@@ -1413,7 +1413,7 @@ testReluMaxPP = do
   resetVarCounter >> resetIdCounter
   let reluT :: AstTensor AstMethodLet FullSpan (TKR 2 Double) -> AstTensor AstMethodLet FullSpan (TKR 2 Double)
       reluT = reluMax
-      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) Nothing reluT
+      (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) reluT
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\m1 -> rfromS (sgather @[3,4] (ttranspose (makePerm @[1, 2, 0]) (tfromVector (SNat @2) (STKS [3,4] STKScalar) (fromList [tfromPlain (STKS [3,4] STKScalar) (sconcrete (sreplicate [3,4] 0.0)), sfromR m1]))) (\\[i5, i4] -> [i5, i4, ifH (0.0 <=. tplainPart (negate (kfromS (sfromR m1 !$ [i5, i4])))) 0 1]))"
@@ -1432,7 +1432,7 @@ testReluMaxPP2 = do
   let reluT2 :: (AstTensor AstMethodLet FullSpan (TKR 1 Double), AstTensor AstMethodLet FullSpan (TKR 0 Double))
              -> AstTensor AstMethodLet FullSpan (TKR 1 Double)
       reluT2 (t, r) = reluMax (t * rreplicate 5 r)
-      (var3, ast3) = funToAst (FTKR [5] FTKScalar) Nothing (\t -> reluT2 (t, rscalar 7))
+      (var3, ast3) = funToAst (FTKR [5] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\v1 -> rfromS (sgather1 @5 (str (tfromVector (SNat @2) (STKS [5] STKScalar) (fromList [tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 0.0)), tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * sfromR v1]))) (\\i3 -> [i3, ifH (0.0 <=. (-7.0) * tplainPart (kfromS (sfromR v1 !$ [i3]))) 0 1]))"
@@ -2518,7 +2518,7 @@ testConcatBuild3PP :: Assertion
 testConcatBuild3PP = do
   resetVarCounter
   let t = concatBuild33 @(AstTensor AstMethodLet FullSpan) @Float
-      (var3, ast3) = funToAst (FTKR [3] FTKScalar) Nothing t
+      (var3, ast3) = funToAst (FTKR [3] FTKScalar) t
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
     @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (sgather @[5,2] (ttranspose (makePerm @[1, 2, 0]) (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @5 (siota (SNat @2)), quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sconcrete (sreplicate [2] 1) + siota (SNat @2)))])))) (\\[i5, i4] -> [i5, i4, ifH (0 <=. i4 + quotH (negate i5) (1 + i4)) 0 1])))"

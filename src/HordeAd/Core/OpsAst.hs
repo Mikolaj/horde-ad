@@ -103,7 +103,7 @@ revArtifactFromForwardPass cotangentHandling
   -- before gradientFromDelta allocates new memory and new FFI is started.
   let !(D primalBody delta) = forwardPass astVarPrimal var astVar0
   let zftk = ftkAst $ unAstRaw primalBody
-      (!varDt, astDt) = funToAst (adFTK zftk) Nothing id
+      (!varDt, astDt) = funToAst (adFTK zftk) id
   let oneAtF = treplTarget 1 $ adFTK zftk
       !dt = case cotangentHandling of
         UseIncomingCotangent -> AstRaw astDt
@@ -148,7 +148,7 @@ revArtifactFromForwardPassDt forwardPass xftk = unsafePerformIO $ do
   -- before gradientFromDelta allocates new memory and new FFI is started.
   let !(D primalBody delta) = forwardPass astVarPrimal var astVar0
   let zftk = ftkAst $ unAstRaw primalBody
-      (!varDt, !dt) = funToAst (adFTK zftk) Nothing id
+      (!varDt, !dt) = funToAst (adFTK zftk) id
   let !gradient = gradientFromDelta xftk (AstRaw dt) delta
       !unGradient = unshareAstTensor $ unAstRaw gradient
       unPrimal = unshareAstTensor $ unAstRaw primalBody
@@ -635,7 +635,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
     astMapAccumLDer k bftk eftk f df rf acc0 es
   tapply = astApply
   tlambda ftk f =
-    let (var, ast) = funToAst ftk Nothing $ unHFun f
+    let (var, ast) = funToAst ftk $ unHFun f
     in AstLambda var ast
   tgrad @_ @r xftk f | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     -- We don't have an AST constructor to hold it, so we compute outright.
@@ -654,7 +654,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
             IgnoreIncomingCotangent (simplifyUserCode . unHFun f) emptyEnv xftk
         -- A new variable is created to give it the right span as opposed
         -- to the fixed FullSpan that artVarDomainRev has.
-        (varP, ast) = funToAst xftk Nothing $ \ !astP ->
+        (varP, ast) = funToAst xftk $ \ !astP ->
           simplifyUserCode
           $ fromFullSpan (knownSpan @s)
           $ substituteAst (toFullSpan (ftkToSTK xftk) (knownSpan @s) astP)
@@ -672,7 +672,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
             (simplifyUserCode . unHFun f) emptyEnv ftkx
         ftkz = varNameToFTK artVarDtRev
         ftk2 = FTKProduct ftkz ftkx
-        (varP, ast) = funToAst ftk2 Nothing $ \ !astP ->
+        (varP, ast) = funToAst ftk2 $ \ !astP ->
           simplifyUserCode
           $ fromFullSpan (knownSpan @s)
           $ substituteAst
@@ -692,7 +692,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
     let AstArtifactFwd{..} =
           fwdProduceArtifact (simplifyUserCode . unHFun f) emptyEnv ftkx
         ftk2 = FTKProduct (adFTK ftkx) ftkx
-        (varP, ast) = funToAst ftk2 Nothing $ \ !astP ->
+        (varP, ast) = funToAst ftk2 $ \ !astP ->
           simplifyUserCode
           $ fromFullSpan (knownSpan @s)
           $ substituteAst
