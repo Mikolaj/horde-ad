@@ -66,9 +66,9 @@ funToAst ftk = unsafePerformIO . funToAstIO ftk
 funToAstIntIO :: (Int, Int) -> (AstInt ms -> AstTensor ms s2 z)
               -> IO (IntVarName, AstTensor ms s2 z)
 {-# INLINE funToAstIntIO #-}
-funToAstIntIO (lb, ub) f = do
+funToAstIntIO bds f = do
   !freshId <- unsafeGetFreshAstVarId
-  let !var = AstVarName freshId $ FtkAndBoundsBounds lb ub
+  let !var = mkAstVarNameBounds bds freshId
       x = f $ astVar var
   return (var, x)
 
@@ -83,8 +83,8 @@ funToAstIntMaybeIO :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a)
 funToAstIntMaybeIO mbounds f = do
   !freshId <- unsafeGetFreshAstVarId
   let !var = case mbounds of
-        Nothing -> AstVarName freshId $ FtkAndBoundsPlain FTKScalar
-        Just (lb, ub) -> AstVarName freshId $ FtkAndBoundsBounds lb ub
+        Nothing -> mkAstVarName FTKScalar freshId
+        Just bds -> mkAstVarNameBounds bds freshId
       x = astVar var
   return $! f (var, x)
 
@@ -100,8 +100,8 @@ funToAstAutoBoundsIO ftk@FTKScalar a = do
   !freshId <- unsafeGetFreshAstVarId
   case knownSpan @s of
     SPlainSpan | Just Refl <- testEquality (typeRep @r) (typeRep @Int)
-               , Just (lb, ub) <- intBounds a ->
-      pure $! AstVarName freshId $ FtkAndBoundsBounds lb ub
+               , Just bds <- intBounds a ->
+      pure $! mkAstVarNameBounds bds freshId
     _ -> pure $! mkAstVarName ftk freshId
 
 funToAstNoBoundsIO :: KnownSpan s
@@ -120,7 +120,7 @@ funToAstRevIO :: forall x.
 funToAstRevIO ftk = do
   !freshId <- unsafeGetFreshAstVarId
   let var :: AstVarName '(FullSpan, x)
-      var = AstVarName freshId $ FtkAndBoundsFull ftk
+      var = mkAstVarName ftk freshId
       astVarPrimal :: AstTensor AstMethodShare FullSpan x
       !astVarPrimal = astVar var
       astVarD :: AstTensor AstMethodLet FullSpan x
@@ -139,9 +139,9 @@ funToAstFwdIO ftk = do
   !freshIdD <- unsafeGetFreshAstVarId
   !freshId <- unsafeGetFreshAstVarId
   let varPrimalD :: AstVarName '(FullSpan, ADTensorKind x)
-      varPrimalD = AstVarName freshIdD $ FtkAndBoundsFull (adFTK ftk)
+      varPrimalD = mkAstVarName (adFTK ftk) freshIdD
       var :: AstVarName '(FullSpan, x)
-      var = AstVarName freshId $ FtkAndBoundsFull ftk
+      var = mkAstVarName ftk freshId
       astVarPrimalD :: AstTensor AstMethodShare FullSpan (ADTensorKind x)
       !astVarPrimalD = astVar varPrimalD
       astVarPrimal :: AstTensor AstMethodShare FullSpan x
@@ -158,7 +158,7 @@ funToVarsIxIOS sh f = withKnownShS sh $ do
   let unsafeGetFreshIntVarName :: Int -> IO IntVarName
       unsafeGetFreshIntVarName n = do
         freshId <- unsafeGetFreshAstVarId
-        return $! AstVarName freshId $ FtkAndBoundsBounds 0 (n - 1)
+        return $! mkAstVarNameBounds (0, n - 1) freshId
   varList <- mapM unsafeGetFreshIntVarName $ shsToList sh
   let !vars = fromList varList
       ix = fmap astVar $ IxS vars

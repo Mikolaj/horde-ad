@@ -27,7 +27,8 @@ module HordeAd.Core.Ast
   , AstVarId, intToAstVarId
   , AstInt, IntVarName, pattern AstIntVar, AstBool
   , AstVarName(..), FtkAndBounds(..)
-  , mkAstVarName, reshapeVarName, respanVarName, reboundsVarName
+  , mkAstVarName, mkAstVarNameBounds
+  , reshapeVarName, respanVarName, reboundsVarName
   , varNameToAstVarId, varNameToSpan, varNameToFTK, varNameToBounds, astVar
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIxS, AstVarListS, pattern AstLeqInt
@@ -276,6 +277,11 @@ mkAstVarName ftk varId =
         SPlainSpan -> FtkAndBoundsPlain ftk
   in AstVarName varId ftkBounds
 
+mkAstVarNameBounds :: (Int, Int) -> AstVarId
+                   -> AstVarName '(PlainSpan, TKScalar Int)
+{-# INLINE mkAstVarNameBounds #-}
+mkAstVarNameBounds (lb, ub) varId = AstVarName varId $ FtkAndBoundsBounds lb ub
+
 reshapeVarName :: FullShapeTK z -> AstVarName '(s, y) -> AstVarName '(s, z)
 reshapeVarName ftk (AstVarName varId ftkBounds) =
   AstVarName varId $ case ftkBounds of
@@ -299,7 +305,7 @@ respanVarName var@(AstVarName varId ftkBounds) = case ftkBounds of
 reboundsVarName :: (Int, Int) -> AstVarName '(PlainSpan, TKScalar Int)
                 -> AstVarName '(PlainSpan, TKScalar Int)
 reboundsVarName (lb, ub) (AstVarName varId _) =
-  AstVarName varId $ FtkAndBoundsBounds lb ub
+  mkAstVarNameBounds (lb, ub) varId
 
 varNameToAstVarId :: AstVarName s_y -> AstVarId
 varNameToAstVarId (AstVarName varId _) = varId
