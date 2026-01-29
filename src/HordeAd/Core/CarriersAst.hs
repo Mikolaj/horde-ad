@@ -1476,32 +1476,32 @@ astShareNoSimplify a = case a of
   AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
     unsafePerformIO $ do
       var <- funToAstNoBoundsIO (ftkAst v)
-      pure $! cAstFromS @y2 ftkz $ AstShare var v
+      pure $! cAstFromS @y2 ftkz $ astShare var v
   AstFromPrimal v -> fromPrimal $ astShareNoSimplify v
   AstFromDual v -> fromDual $ astShareNoSimplify v
   AstFromPlain v -> fromPlain $ astShareNoSimplify v
   _ -> unsafePerformIO $ case ftkAst a of
     ftk@FTKScalar -> do
         var <- funToAstAutoBoundsIO ftk a
-        pure $! AstShare var a
+        pure $! astShare var a
     ftk@(FTKR @_ @x sh' x) ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
         let v = cAstSFromR @sh sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! cAstFromS @(TKS2 sh x) ftk $ AstShare var v
+        pure $! cAstFromS @(TKS2 sh x) ftk $ astShare var v
     ftk@(FTKX @_ @x sh' x) ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> do
         let v = cAstSFromX @sh sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! cAstFromS @(TKS2 sh x) ftk $ AstShare var v
+        pure $! cAstFromS @(TKS2 sh x) ftk $ astShare var v
     ftk@(FTKS ZSS x@FTKScalar) -> do
         let v = cAstFromS x a
         var <- funToAstAutoBoundsIO x v
-        pure $! cAstSFrom ftk $ AstShare var v
+        pure $! cAstSFrom ftk $ astShare var v
     -- calling recursively for product may be not worth it
     ftk -> do
         var <- funToAstNoBoundsIO ftk
-        pure $! AstShare var a
+        pure $! astShare var a
 
 -- INLINE here would bloat the binary a lot, probably negating any
 -- gains from directly calling the function. Also, this is not a bottleneck.

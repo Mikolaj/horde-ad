@@ -29,7 +29,7 @@ module HordeAd.Core.Ast
   , AstVarName(..), FtkAndBounds(..)
   , mkAstVarName, mkAstVarNameBounds
   , reshapeVarName, respanVarName, reboundsVarName
-  , varNameToAstVarId, varNameToSpan, varNameToFTK, varNameToBounds, astVar
+  , varNameToAstVarId, varNameToSpan, varNameToFTK, varNameToBounds
   , AstArtifactRev(..), AstArtifactFwd(..)
   , AstIxS, AstVarListS, pattern AstLeqInt
     -- * AST
@@ -329,10 +329,6 @@ varNameToFTK (AstVarName _ ftkBounds) = case ftkBounds of
 varNameToBounds :: AstVarName '(s, y) -> Maybe (Int, Int)
 varNameToBounds (AstVarName _ (FtkAndBoundsBounds lb ub)) = Just (lb, ub)
 varNameToBounds _ = Nothing
-
-astVar :: AstVarName '(s, y) -> AstTensor ms s y
-astVar (AstVarName _ (FtkAndBoundsBounds lb ub)) | lb == ub = AstConcreteK lb
-astVar varName = AstVar varName
 
 -- | The reverse derivative artifact.
 type role AstArtifactRev nominal nominal

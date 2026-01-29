@@ -8,7 +8,7 @@ module HordeAd.Core.AstTools
     -- * Variable occurrence detection
   , varInAst, varInIxS, varNameInAst, varNameInIxS
     -- * Tools related to sharing
-  , astIsSmall, ixIsSmall, astLetDown
+  , astIsSmall, ixIsSmall, astLetDown, astVar, astShare
     -- * Odds and ends
   , bounds, intBounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
@@ -246,7 +246,7 @@ varNameInIxS :: AstVarName '(s, y) -> AstIxS ms sh -> Bool
 varNameInIxS var = varInIxS (varNameToAstVarId var)
 
 
--- * Determining if a term requires sharing
+-- * Tools related to sharing
 
 -- Turns off all but the most trivial cases of astIsSmall.
 -- For tests only. Affects all simplification and inlining taking place
@@ -446,6 +446,17 @@ astLetDown var u v = case v of
   AstLeqK{} -> AstLet var u v
   AstLeqS{} -> AstLet var u v
   AstLeqA{} -> AstLet var u v
+
+astVar :: AstVarName '(s, y) -> AstTensor ms s y
+astVar (AstVarName _ (FtkAndBoundsBounds lb ub)) | lb == ub =
+  AstConcreteK lb
+astVar var = AstVar var
+
+astShare :: AstVarName '(s, y) -> AstTensor AstMethodShare s y
+         -> AstTensor AstMethodShare s y
+astShare (AstVarName _ (FtkAndBoundsBounds lb ub)) _ | lb == ub =
+  AstConcreteK lb
+astShare var t = AstShare var t
 
 
 -- * Odds and ends
