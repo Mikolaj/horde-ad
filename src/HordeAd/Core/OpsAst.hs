@@ -213,8 +213,7 @@ astBuild1Vectorize
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE astBuild1Vectorize #-}
 astBuild1Vectorize k stk f = unsafePerformIO $ do
-  varx <- funToAstIntVarIO (0, fromSNat' k - 1)
-          $ \ (!var, !i) -> let !x = f i in (var, x)
+  varx <- funToAstIntIO (0, fromSNat' k - 1) f
   build1Vectorize k stk varx
 
 instance KnownSpan s => LetTensor (AstTensor AstMethodLet s) where
@@ -965,7 +964,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                                , fromSNat' (shsProduct sh2) )
   trbuild1 k f = withSNat k $ \snat ->
     AstRaw $ AstBuild1 snat knownSTK
-    $ funToAstI (0, k - 1)
+    $ funToAstInt (0, k - 1)
         -- this introduces new variable names
     $ unAstRaw . f . AstRaw
 
@@ -1001,7 +1000,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   tstranspose perm = AstRaw . AstTransposeS perm . unAstRaw
   tsreshape sh = AstRaw . AstReshapeS sh . unAstRaw
   tsbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
-                  $ funToAstI (0, valueOf @k - 1)
+                  $ funToAstInt (0, valueOf @k - 1)
                       -- this introduces new variable names
                   $ unAstRaw . f . AstRaw
 
@@ -1168,7 +1167,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                        ++ show ( fromSNat' (shsProduct sh)
                                , fromSNat' (shsProduct sh2) )
   txbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) knownSTK
-                  $ funToAstI (0, valueOf @k - 1)
+                  $ funToAstInt (0, valueOf @k - 1)
                       -- this introduces new variable names
                   $ unAstRaw . f . AstRaw
 
@@ -1179,7 +1178,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                    . plainPart . unAstRaw
   tkcast = AstRaw . AstCastK . unAstRaw
   tkbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) STKScalar
-                  $ funToAstI (0, valueOf @k - 1)
+                  $ funToAstInt (0, valueOf @k - 1)
                       -- this introduces new variable names
                   $ unAstRaw . f . AstRaw
 
@@ -1382,7 +1381,7 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   trreshape sh = AstNoVectorize . trreshape sh . unAstNoVectorize
   trbuild1 k f = withSNat k $ \snat ->
     AstNoVectorize $ AstBuild1 snat knownSTK
-    $ funToAstI (0, k - 1)
+    $ funToAstInt (0, k - 1)
         -- this introduces new variable names
     $ unAstNoVectorize . f . AstNoVectorize
 
@@ -1416,7 +1415,7 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize . tstranspose perm . unAstNoVectorize
   tsreshape sh = AstNoVectorize . tsreshape sh . unAstNoVectorize
   tsbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
-                  $ funToAstI (0, valueOf @k - 1)
+                  $ funToAstInt (0, valueOf @k - 1)
                       -- this introduces new variable names
                   $ unAstNoVectorize . f . AstNoVectorize
 
@@ -1449,7 +1448,7 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   txtranspose perm = AstNoVectorize . txtranspose perm . unAstNoVectorize
   txreshape sh = AstNoVectorize . txreshape sh . unAstNoVectorize
   txbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) knownSTK
-                  $ funToAstI (0, valueOf @k - 1)
+                  $ funToAstInt (0, valueOf @k - 1)
                       -- this introduces new variable names
                   $ unAstNoVectorize . f . AstNoVectorize
 
@@ -1459,7 +1458,7 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   tkfromIntegral = AstNoVectorize . tkfromIntegral . unAstNoVectorize
   tkcast = AstNoVectorize . tkcast . unAstNoVectorize
   tkbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) STKScalar
-                  $ funToAstI (0, valueOf @k - 1)
+                  $ funToAstInt (0, valueOf @k - 1)
                       -- this introduces new variable names
                   $ unAstNoVectorize . f . AstNoVectorize
 

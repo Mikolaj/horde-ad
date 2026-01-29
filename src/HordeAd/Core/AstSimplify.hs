@@ -1748,7 +1748,7 @@ shareIx ix f = unsafePerformIO $ do
       shareI i | astIsSmall True i = return (Nothing, i)
       shareI i =
         -- i can be OOB, so we can't use shape to determine its bounds
-        funToAstIntVarMaybeIO (intBounds i) $ \ (!varFresh, !astVarFresh) ->
+        funToAstIntMaybeIO (intBounds i) $ \ (!varFresh, !astVarFresh) ->
           (Just (varFresh, i), astVarFresh)
   (bindings, ix2) <- mapAndUnzipM shareI (Foldable.toList ix)
   return $! foldl' (\v (var, u) -> astLet var u v)

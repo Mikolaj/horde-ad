@@ -200,11 +200,11 @@ mnistTestCaseCNNRI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
          funToAstIO (FTKR (miniBatchSize
                            :$: sizeMnistHeightInt
                            :$: sizeMnistWidthInt
-                           :$: ZSR) FTKScalar) Nothing id
+                           :$: ZSR) FTKScalar) id
        (varLabel, astLabel) <-
          funToAstIO (FTKR (miniBatchSize
                            :$: sizeMnistLabelInt
-                           :$: ZSR) FTKScalar) Nothing id
+                           :$: ZSR) FTKScalar) id
        let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
            ast = simplifyUserCode
                  $ MnistCnnRanked2.convMnistLossFusedR

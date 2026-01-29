@@ -229,9 +229,9 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
                 <$> loadMnistData testGlyphsPath testLabelsPath
     (_, var, varAst) <- funToAstRevIO ftk
     (varGlyph, astGlyph) <-
-      funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) Nothing id
+      funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) id
     (varLabel, astLabel) <-
-      funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) Nothing id
+      funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) id
     let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
         ast = simplifyUserCode
               $ MnistFcnnRanked1.afcnnMnistLoss1
@@ -546,9 +546,9 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
     let ftk = tftk @Concrete (knownSTK @(XParams2 r Float)) targetInit
     (_, var, varAst) <- funToAstRevIO ftk
     (varGlyph, astGlyph) <-
-      funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) Nothing id
+      funToAstIO (FTKR (sizeMnistGlyphInt :$: ZSR) FTKScalar) id
     (varLabel, astLabel) <-
-      funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) Nothing id
+      funToAstIO (FTKR (sizeMnistLabelInt :$: ZSR) FTKScalar) id
     let ast :: AstTensor AstMethodLet FullSpan (TKScalar r)
         ast = simplifyUserCode
               $ MnistFcnnRanked2.afcnnMnistLoss2

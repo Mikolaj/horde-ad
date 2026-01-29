@@ -5,9 +5,11 @@
 -- with @unsafePerformIO@ outside, so some of the impurity escapes
 -- and is encapsulated elsewhere.
 module HordeAd.Core.AstFreshId
-  ( funToAstIO, funToAst, funToAstAutoBoundsIO, funToAstNoBoundsIO
+  ( funToAstIO, funToAst
+  , funToAstIntIO, funToAstInt
+  , funToAstIntMaybeIO, funToAstIntMaybe
+  , funToAstAutoBoundsIO, funToAstNoBoundsIO
   , funToAstRevIO, funToAstFwdIO
-  , funToAstIntVarMaybeIO, funToAstIntVar, funToAstIntVarIO, funToAstI
   , funToVarsIxS
     -- * Low level counter manipulation to be used only in sequential tests
   , resetVarCounter
@@ -45,30 +47,50 @@ unsafeGetFreshAstVarId :: IO AstVarId
 unsafeGetFreshAstVarId =
   intToAstVarId <$> add unsafeAstVarCounter 1
 
-funVarToAstIO :: forall y z s s2 ms. KnownSpan s
-              => FullShapeTK y -> Maybe (Int, Int)
-              -> (AstVarName '(s, y) -> AstTensor ms s2 z)
-              -> IO (AstVarName '(s, y), AstTensor ms s2 z)
-{-# INLINE funVarToAstIO  #-}
-funVarToAstIO ftk mbounds f = do
+funToAstIO :: KnownSpan s
+           => FullShapeTK y -> (AstTensor ms s y -> AstTensor ms s2 z)
+           -> IO (AstVarName '(s, y), AstTensor ms s2 z)
+{-# INLINE funToAstIO  #-}
+funToAstIO ftk f = do
   !freshId <- unsafeGetFreshAstVarId
-  let !var = mkAstVarName ftk mbounds freshId
-      !x = f var
+  let !var = mkAstVarName ftk freshId
+      x = f $ astVar var
   return (var, x)
 
-funToAstIO :: forall y z s s2 ms. KnownSpan s
-           => FullShapeTK y -> Maybe (Int, Int)
-           -> (AstTensor ms s y -> AstTensor ms s2 z)
-           -> IO (AstVarName '(s, y), AstTensor ms s2 z)
-{-# INLINE funToAstIO #-}
-funToAstIO ftk mbounds f = funVarToAstIO ftk mbounds (f . astVar)
-
 funToAst :: KnownSpan s
-         => FullShapeTK y
-         -> (AstTensor ms s y -> AstTensor ms s2 z)
+         => FullShapeTK y -> (AstTensor ms s y -> AstTensor ms s2 z)
          -> (AstVarName '(s, y), AstTensor ms s2 z)
 {-# NOINLINE funToAst #-}
-funToAst ftk = unsafePerformIO . funToAstIO ftk Nothing
+funToAst ftk = unsafePerformIO . funToAstIO ftk
+
+funToAstIntIO :: (Int, Int) -> (AstInt ms -> AstTensor ms s2 z)
+              -> IO (IntVarName, AstTensor ms s2 z)
+{-# INLINE funToAstIntIO #-}
+funToAstIntIO (lb, ub) f = do
+  !freshId <- unsafeGetFreshAstVarId
+  let !var = AstVarName freshId $ FtkAndBoundsBounds lb ub
+      x = f $ astVar var
+  return (var, x)
+
+funToAstInt :: (Int, Int) -> (AstInt ms -> AstTensor ms s2 z)
+            -> (IntVarName, AstTensor ms s2 z)
+{-# NOINLINE funToAstInt #-}
+funToAstInt bds = unsafePerformIO . funToAstIntIO bds
+
+funToAstIntMaybeIO :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a)
+                   -> IO a
+{-# INLINE funToAstIntMaybeIO #-}
+funToAstIntMaybeIO mbounds f = do
+  !freshId <- unsafeGetFreshAstVarId
+  let !var = case mbounds of
+        Nothing -> AstVarName freshId $ FtkAndBoundsPlain FTKScalar
+        Just (lb, ub) -> AstVarName freshId $ FtkAndBoundsBounds lb ub
+      x = astVar var
+  return $! f (var, x)
+
+funToAstIntMaybe :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a) -> a
+{-# NOINLINE funToAstIntMaybe #-}
+funToAstIntMaybe mbounds = unsafePerformIO . funToAstIntMaybeIO mbounds
 
 funToAstAutoBoundsIO :: forall r s ms. KnownSpan s
                      => FullShapeTK (TKScalar r) -> AstTensor ms s (TKScalar r)
@@ -80,14 +102,14 @@ funToAstAutoBoundsIO ftk@FTKScalar a = do
     SPlainSpan | Just Refl <- testEquality (typeRep @r) (typeRep @Int)
                , Just (lb, ub) <- intBounds a ->
       pure $! AstVarName freshId $ FtkAndBoundsBounds lb ub
-    _ -> pure $! mkAstVarName ftk Nothing freshId
+    _ -> pure $! mkAstVarName ftk freshId
 
 funToAstNoBoundsIO :: KnownSpan s
                    => FullShapeTK y -> IO (AstVarName '(s, y))
 {-# INLINE funToAstNoBoundsIO #-}
 funToAstNoBoundsIO ftk = do
   !freshId <- unsafeGetFreshAstVarId
-  pure $! mkAstVarName ftk Nothing freshId
+  pure $! mkAstVarName ftk freshId
 
 funToAstRevIO :: forall x.
                  FullShapeTK x
@@ -128,35 +150,9 @@ funToAstFwdIO ftk = do
       !astVarD = astVar var
   return (varPrimalD, astVarPrimalD, astVarPrimal, var, astVarD)
 
-funToAstIntVarMaybeIO :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a)
-                      -> IO a
-{-# INLINE funToAstIntVarMaybeIO #-}
-funToAstIntVarMaybeIO mbounds f = do
-  !freshId <- unsafeGetFreshAstVarId
-  let !var = case mbounds of
-        Nothing -> AstVarName freshId $ FtkAndBoundsPlain FTKScalar
-        Just (lb, ub) -> AstVarName freshId $ FtkAndBoundsBounds lb ub
-  return $! f (var, astVar var)
-
-funToAstIntVar :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a) -> a
-{-# NOINLINE funToAstIntVar #-}
-funToAstIntVar mbounds = unsafePerformIO . funToAstIntVarMaybeIO mbounds
-
-funToAstIntVarIO :: (Int, Int) -> ((IntVarName, AstInt ms) -> a)-> IO a
-{-# INLINE funToAstIntVarIO #-}
-funToAstIntVarIO (lb, ub) f = do
-  !freshId <- unsafeGetFreshAstVarId
-  let !var = AstVarName freshId $ FtkAndBoundsBounds lb ub
-  return $! f (var, astVar var)
-
-funToAstI :: (Int, Int) -> (AstInt ms -> t) -> (IntVarName, t)
-{-# NOINLINE funToAstI #-}
-funToAstI bds f = unsafePerformIO . funToAstIntVarIO bds
-                  $ \ (!var, !i) -> let !x = f i in (var, x)
-
 funToVarsIxIOS
-  :: forall sh a ms.
-     ShS sh -> (AstVarListS sh -> AstIxS ms sh -> a) -> IO a
+  :: ShS sh -> (AstVarListS sh -> AstIxS ms sh -> AstTensor ms s2 z)
+  -> IO (AstTensor ms s2 z)
 {-# INLINE funToVarsIxIOS #-}
 funToVarsIxIOS sh f = withKnownShS sh $ do
   let unsafeGetFreshIntVarName :: Int -> IO IntVarName
@@ -165,10 +161,11 @@ funToVarsIxIOS sh f = withKnownShS sh $ do
         return $! AstVarName freshId $ FtkAndBoundsBounds 0 (n - 1)
   varList <- mapM unsafeGetFreshIntVarName $ shsToList sh
   let !vars = fromList varList
-  let !ix = fmap astVar $ IxS vars
+      ix = fmap astVar $ IxS vars
   return $! f vars ix
 
 funToVarsIxS
-  :: ShS sh -> (AstVarListS sh -> AstIxS ms sh -> a) -> a
+  :: ShS sh -> (AstVarListS sh -> AstIxS ms sh -> AstTensor ms s2 z)
+  -> AstTensor ms s2 z
 {-# NOINLINE funToVarsIxS #-}
 funToVarsIxS sh = unsafePerformIO . funToVarsIxIOS sh

@@ -116,7 +116,7 @@ build1VOccurrenceUnknownRefresh
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE build1VOccurrenceUnknownRefresh #-}
 build1VOccurrenceUnknownRefresh snat@SNat (var, v0) =
-  funToAstIntVar (varNameToBounds var) $ \ (!varFresh, astVarFresh) ->
+  funToAstIntMaybe (varNameToBounds var) $ \ (!varFresh, astVarFresh) ->
     let !v2 = substituteAst astVarFresh var v0
                 -- cheap subst, because only a renaming
     in build1VOccurrenceUnknown snat (varFresh, v2)
@@ -354,7 +354,7 @@ intBindingRefreshS
   -> (IntVarName, AstInt AstMethodLet, AstIxS AstMethodLet sh)
 {-# NOINLINE intBindingRefreshS #-}
 intBindingRefreshS (var, ix) =
-  funToAstIntVar (varNameToBounds var) $ \ (!varFresh, astVarFresh) ->
+  funToAstIntMaybe (varNameToBounds var) $ \ (!varFresh, astVarFresh) ->
     let !ix2 = substituteAstIxS astVarFresh var ix
                  -- cheap subst, because only a renaming
     in (varFresh, astVarFresh, ix2)

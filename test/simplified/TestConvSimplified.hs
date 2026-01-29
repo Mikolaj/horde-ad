@@ -1791,9 +1791,9 @@ testSameCNNOPPKrnHandwritten :: Assertion
 testSameCNNOPPKrnHandwritten = do
   resetVarCounter
   let ftk = FTKS (knownShS @'[3, 3, 6, 6]) (FTKScalar @Double)
-      varNameA = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
+      varNameA = mkAstVarName ftk . intToAstVarId $ 100000000
       varA = AstVar varNameA
-      varNameB = mkAstVarName ftk Nothing . intToAstVarId $ 100000099
+      varNameB = mkAstVarName ftk . intToAstVarId $ 100000099
       varB = AstVar varNameB
       t :: AstTensor AstMethodLet FullSpan (TKS [3, 3, 3, 3] Double)
       t = conv2dSame_dKrn varA varB
@@ -1807,11 +1807,11 @@ testSameCNNOPP0cW :: Assertion
 testSameCNNOPP0cW = do
   resetVarCounter
   let ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
-      varName = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftkD . intToAstVarId $ 100000000
       var = AstVar varName
       ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
       f = flip conv2dSame var
-      varName2 = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
+      varName2 = mkAstVarName ftkD . intToAstVarId $ 100000000
       var2 = AstVar varName2
       env =
         extendEnv varName (dDnotShared (AstRaw var2) (DeltaZero ftkD)) emptyEnv
@@ -1832,11 +1832,11 @@ testSameCNNOPP0bW :: Assertion
 testSameCNNOPP0bW = do
   resetVarCounter
   let ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
-      varName = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftkK . intToAstVarId $ 100000000
       var = AstVar varName
       ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
       f = conv2dSame var
-      varName2 = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
+      varName2 = mkAstVarName ftkK . intToAstVarId $ 100000000
       var2 = AstVar varName2
       env =
         extendEnv varName (dDnotShared (AstRaw var2) (DeltaZero ftkK)) emptyEnv
@@ -1880,11 +1880,11 @@ testShrinkingCNNOPP0cW :: Assertion
 testShrinkingCNNOPP0cW = do
   resetVarCounter
   let ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
-      varName = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftkD . intToAstVarId $ 100000000
       var = AstVar varName
       ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
       f = flip conv2dShrinking var
-      varName2 = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
+      varName2 = mkAstVarName ftkD . intToAstVarId $ 100000000
       var2 = AstVar varName2
       env =
         extendEnv varName (dDnotShared (AstRaw var2) (DeltaZero ftkD)) emptyEnv
@@ -1905,11 +1905,11 @@ testShrinkingCNNOPP0bW :: Assertion
 testShrinkingCNNOPP0bW = do
   resetVarCounter
   let ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
-      varName = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftkK . intToAstVarId $ 100000000
       var = AstVar varName
       ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
       f = conv2dShrinking var
-      varName2 = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
+      varName2 = mkAstVarName ftkK . intToAstVarId $ 100000000
       var2 = AstVar varName2
       env =
         extendEnv varName (dDnotShared (AstRaw var2) (DeltaZero ftkK)) emptyEnv
@@ -1953,11 +1953,11 @@ testPaddedCNNOPP0cW :: Assertion
 testPaddedCNNOPP0cW = do
   resetVarCounter
   let ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
-      varName = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftkD . intToAstVarId $ 100000000
       var = AstVar varName
       ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
       f = flip conv2dPadded var
-      varName2 = mkAstVarName ftkD Nothing . intToAstVarId $ 100000000
+      varName2 = mkAstVarName ftkD . intToAstVarId $ 100000000
       var2 = AstVar varName2
       env =
         extendEnv varName (dDnotShared (AstRaw var2) (DeltaZero ftkD)) emptyEnv
@@ -1978,11 +1978,11 @@ testPaddedCNNOPP0bW :: Assertion
 testPaddedCNNOPP0bW = do
   resetVarCounter
   let ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
-      varName = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftkK . intToAstVarId $ 100000000
       var = AstVar varName
       ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
       f = conv2dPadded var
-      varName2 = mkAstVarName ftkK Nothing . intToAstVarId $ 100000000
+      varName2 = mkAstVarName ftkK . intToAstVarId $ 100000000
       var2 = AstVar varName2
       env =
         extendEnv varName (dDnotShared (AstRaw var2) (DeltaZero ftkK)) emptyEnv

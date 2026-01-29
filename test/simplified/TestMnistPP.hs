@@ -102,7 +102,7 @@ testVTOAst :: Assertion
 testVTOAst = do
   let ftk = tftk @Concrete (knownSTK @(XParams 3 4 Float))
                  (toTarget @Concrete valsInitVTOPP)
-      varName = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
       var :: AstTensor AstMethodLet FullSpan (XParams 3 4 Float)
       var = AstVar varName
       vals = toTarget @Concrete valsInitVTOPP
@@ -152,7 +152,7 @@ testVTOAstNonLin :: Assertion
 testVTOAstNonLin = do
   let ftk = tftk @Concrete (knownSTK @(XParams 3 4 Double))
                  (toTarget @Concrete valsInitVTOPP)
-      varName = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
       var :: AstTensor AstMethodLet FullSpan (XParams 3 4 Double)
       var = AstVar varName
       vals = toTarget @Concrete valsInitVTOPP
@@ -211,7 +211,7 @@ testVT2OAst :: Assertion
 testVT2OAst = do
   let ftk = tftk @Concrete (knownSTK @(XParams2 Double Float))
                  (toTarget @Concrete valsInitVT2OPP)
-      varName = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
       var :: AstTensor AstMethodLet FullSpan (XParams2 Double Float)
       var = AstVar varName
       vals = toTarget @Concrete valsInitVT2OPP
@@ -284,7 +284,7 @@ testVT2OAstNonLin2 :: Assertion
 testVT2OAstNonLin2 = do
   let ftk = tftk @Concrete (knownSTK @(XParams2 Double Float))
                  (toTarget @Concrete valsInitVT2OPP)
-      varName = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
       var :: AstTensor AstMethodLet FullSpan (XParams2 Double Float)
       var = AstVar varName
       vals = toTarget @Concrete valsInitVT2OPP
@@ -334,7 +334,7 @@ testVT2OAstNonLin3 :: Assertion
 testVT2OAstNonLin3 = do
   let ftk = tftk @Concrete (knownSTK @(XParams2 Double Float))
                  (toTarget @Concrete valsInitVT2OPP)
-      varName = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
       var :: AstTensor AstMethodLet FullSpan (XParams2 Double Float)
       var = AstVar varName
       vals = toTarget @Concrete valsInitVT2OPP
@@ -431,7 +431,7 @@ testRNNOAst = do
       ftk = tftk @Concrete
                  (knownSTK @(X (ADRnnMnistParameters Concrete Double)))
                  (toTarget @Concrete $ valsInitRNNOPP 1 sizeMnistHeightI)
-      varName = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
       var :: AstTensor AstMethodLet FullSpan
                        (X (ADRnnMnistParameters Concrete Double))
       var = AstVar varName
@@ -490,7 +490,7 @@ testRNNOAst2 = do
       ftk = tftk @Concrete
                  (knownSTK @(X (ADRnnMnistParameters Concrete Double)))
                  (toTarget @Concrete $ valsInitRNNOPP 2 sizeMnistHeightI)
-      varName = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
       var :: AstTensor AstMethodLet FullSpan
                        (X (ADRnnMnistParameters Concrete Double))
       var = AstVar varName
@@ -573,7 +573,7 @@ testCNNOAst1 = do
                  (knownSTK @(X (MnistCnnRanked2.ADCnnMnistParameters
                                   Concrete Double)))
                  vals
-      varName = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
       var :: AstTensor AstMethodLet FullSpan
                        (X (MnistCnnRanked2.ADCnnMnistParameters
                              Concrete Double))
@@ -654,7 +654,7 @@ testCNNOAst2 = do
                  (knownSTK @(X (MnistCnnRanked2.ADCnnMnistParameters
                                   Concrete Double)))
                  vals
-      varName = mkAstVarName ftk Nothing . intToAstVarId $ 100000000
+      varName = mkAstVarName ftk . intToAstVarId $ 100000000
       var :: AstTensor AstMethodLet FullSpan
                        (X (MnistCnnRanked2.ADCnnMnistParameters
                              Concrete Double))

@@ -267,19 +267,13 @@ instance TestEquality FtkAndBounds where
     _ -> Nothing
 
 mkAstVarName :: forall s y. KnownSpan s
-             => FullShapeTK y -> Maybe (Int, Int) -> AstVarId
-             -> AstVarName '(s, y)
-mkAstVarName ftk mbounds varId =
-  let ftkBounds = case (knownSpan @s, mbounds) of
-        (SFullSpan, Nothing) -> FtkAndBoundsFull ftk
-        (SPrimalStepSpan sspan, Nothing) -> FtkAndBoundsPrimal ftk sspan
-        (SDualSpan, Nothing) -> FtkAndBoundsDual ftk
-        (SPlainSpan, Nothing) -> FtkAndBoundsPlain ftk
-        (SPlainSpan, Just (lb, ub))
-          | FTKScalar @r <- ftk
-          , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
-            FtkAndBoundsBounds lb ub
-        _ -> error "mkAstVarName: bounds for non-plain span"
+             => FullShapeTK y -> AstVarId -> AstVarName '(s, y)
+mkAstVarName ftk varId =
+  let ftkBounds = case knownSpan @s of
+        SFullSpan -> FtkAndBoundsFull ftk
+        SPrimalStepSpan sspan -> FtkAndBoundsPrimal ftk sspan
+        SDualSpan -> FtkAndBoundsDual ftk
+        SPlainSpan -> FtkAndBoundsPlain ftk
   in AstVarName varId ftkBounds
 
 reshapeVarName :: FullShapeTK z -> AstVarName '(s, y) -> AstVarName '(s, z)
@@ -294,10 +288,13 @@ reshapeVarName ftk (AstVarName varId ftkBounds) =
       , Just Refl <- testEquality (typeRep @r) (typeRep @Int) -> ftkBounds
     FtkAndBoundsBounds{} -> FtkAndBoundsPlain ftk
 
+-- | This fails if the variable had bounds (that would be now lost,
+-- unless the new span is the same as old, which is just as irregular).
 respanVarName :: forall s s2 y. KnownSpan s2
               => AstVarName '(s, y) -> AstVarName '(s2, y)
-respanVarName var =
-  mkAstVarName (varNameToFTK var) (varNameToBounds var) (varNameToAstVarId var)
+respanVarName var@(AstVarName varId ftkBounds) = case ftkBounds of
+  FtkAndBoundsBounds{} -> error "respanVarName: bounds lost"
+  _ -> mkAstVarName (varNameToFTK var) varId
 
 reboundsVarName :: (Int, Int) -> AstVarName '(PlainSpan, TKScalar Int)
                 -> AstVarName '(PlainSpan, TKScalar Int)
