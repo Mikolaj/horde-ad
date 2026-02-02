@@ -103,6 +103,11 @@ logistic d0 = tlet d0 $ \d ->  -- used in rprimalPart and in tdualPart
   in tletPrimal y0 $ \y ->
        rfromPrimal y + rfromDual (rScale @target (y * (one - y)) $ rdualPart d)
 
+rsquare :: (NumScalar a, ADReady target)
+        => target (TKR n a) -> target (TKR n a)
+rsquare x' = tlet x' $ \x -> x * x
+  -- slower even symbolically: rsquare x = x ** rrepl (rshape x) 2
+
 -- Optimized and more clearly written @u ** 2@. It's not clear if this is
 -- currently faster than @u ** 2@ and in which pipelines, but it's different,
 -- so useful as a test.
@@ -156,6 +161,14 @@ lossSoftMaxCrossEntropyR expected d' = tlet d' $ \d ->
          (negate $ log softMaxU `rdot0` expected)
            -- TODO: avoid: log . exp
          (kdualPart $ rfromPrimal (softMaxU - expected) `rdot0` d)
+
+-- Fails for empty x'.
+logsumexp :: (KnownNat n, NumScalar r, Differentiable r, ADReady target)
+          => target (TKR n r) -> target (TKScalar r)
+logsumexp x' = tlet x' $ \x -> tlet (rmaximum x) $ \maxx ->
+  let shiftedx = x - rreplicate0N (rshape x) maxx
+      logged = log (rsum0 (exp shiftedx))
+  in logged + maxx
 
 -- | No padding; remaining areas ignored.
 maxPool1 :: ( BaseTensor target, ConvertTensor target, LetTensor target
