@@ -392,6 +392,7 @@ mapAccumLF' f = \x r -> oneShot (\ !s ->
 -- 'mod' and 'rem' that are very slow, pair-producing operations that don't fit
 -- the AST GADT format and 'toInteger' that doesn't make sense with AST
 -- without an environment to look up variables in.
+infixl 7 `quotH`, `remH`
 class Num a => IntegralH a where
   quotH, remH :: a -> a -> a
 
