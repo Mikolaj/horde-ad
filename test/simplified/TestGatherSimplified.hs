@@ -139,7 +139,7 @@ gatherNested1 :: forall target r. (ADReady target, GoodScalar r)
 gatherNested1 t =
   rgather @1
           (2 :$: ZSR)
-          (rgather @1
+          (rgather @1 @1 @1
                    (4 :$: ZSR) t
                    (\(k3 :.: ZIR) -> k3 :.: ZIR))
           (\(i2 :.: ZIR) -> i2 + i2 :.: i2 :.: ZIR)
@@ -232,7 +232,7 @@ gatherNested02 :: forall target r. (ADReady target, GoodScalar r)
 gatherNested02 t =
   rgather @1
           (1 :$: ZSR)
-          (rgather @1
+          (rgather @1 @0 @1
                    (2 :$: ZSR) t
                    (\(k3 :.: ZIR) -> k3 + k3 :.: ZIR))
           (\(i1 :.: ZIR) -> i1 + i1 + i1 :.: ZIR)
@@ -248,7 +248,7 @@ gatherNested2 :: forall target r. (ADReady target, GoodScalar r)
 gatherNested2 t =
   rgather @2
           (2 :$: 3 :$: ZSR)
-          (rgather @3
+          (rgather @3 @1 @1
                    (2 :$: 3 :$: 4 :$: ZSR) t
                    (\(k1 :.: k2 :.: k3 :.: ZIR) -> k1 + k2 + k3 :.: ZIR))
           (\(i1 :.: i2 :.: ZIR) -> i1 :.: i2 :.: i1 + i2 :.: i1 :.: ZIR)
@@ -341,7 +341,7 @@ gatherNested12 :: forall target r. (ADReady target, GoodScalar r)
 gatherNested12 t =
   rgather @1
           (2 :$: ZSR)
-          (rgather @3
+          (rgather @3 @0 @2
                    (2 :$: 3 :$: 4 :$: ZSR) t
                    (\(k1 :.: k2 :.: k3 :.: ZIR) -> k1 + k2 + k3 :.: k1 :.: ZIR))
           (\(i1 :.: ZIR) -> i1 :.: i1 + i1 :.: ZIR)
