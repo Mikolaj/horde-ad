@@ -469,64 +469,48 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   txindex0 @sh a ix | Refl <- lemAppNil @sh =
     withKnownShX (ssxFromShX $ xshape a) $
     kfromX $ txindex a ix
-  txscatter @shm @_ @shp shpshn0 t f = case ftkAst t of
+  txscatter @shm @shn @shp shp0 t f = case ftkAst t of
     FTKX shmshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
       withShsFromShX shmshn0 $ \(shmshn :: ShS shmshn) ->
-      withShsFromShX shpshn0 $ \(shpshn :: ShS shpshn) ->
+      withShsFromShX shp0 $ \(shp :: ShS shp2) ->
         withKnownShS (shsTake @(Rank shm) shmshn) $
         withKnownShS (shsDrop @(Rank shm) shmshn) $
-        withKnownShS (shsTake @(Rank shp) shpshn) $
+        withKnownShS shp $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
                       :~: shmshn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take (Rank shp) shpshn ++ Drop (Rank shp) shpshn
-                      :~: shpshn) $
-        case testEquality (shsDrop @(Rank shp) shpshn)
-                          (shsDrop @(Rank shm) shmshn) of
-          Just Refl ->
-            astFromS' (FTKX shpshn0 x)
-            $ funToVarsIxS knownShS $ \vars ix ->
-                let !ix2 = ixsFromIxX' knownShS
-                           . f . ixxCast knownShX . ixxFromIxS $ ix
-                in astScatterS @(Take (Rank shm) shmshn)
-                               @(Drop (Rank shm) shmshn)
-                               @(Take (Rank shp) shpshn)
-                               knownShS (astSFromX' shmshn t) (vars, ix2)
-                -- this introduces new variable names
-          _ -> error $ "xscatter: shapes don't match: "
-                       ++ show ( shsDrop @(Rank shp) shpshn
-                               , shsDrop @(Rank shm) shmshn )
-  txgather @shm @_ @shp shmshn0 t f = case ftkAst t of
+        astFromS' (FTKX (shp0 `shxAppend` shxDropSSX @_ @shn
+                                                     (knownShX @shm) shmshn0) x)
+        $ funToVarsIxS knownShS $ \vars ix ->
+            let !ix2 = ixsFromIxX' knownShS
+                       . f . ixxCast knownShX . ixxFromIxS $ ix
+            in astScatterS @(Take (Rank shm) shmshn)
+                           @(Drop (Rank shm) shmshn)
+                           @shp2
+                           knownShS (astSFromX' shmshn t) (vars, ix2)
+            -- this introduces new variable names
+  txgather @shm @shn @shp shm0 t f = case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
-      withShsFromShX shmshn0 $ \(shmshn :: ShS shmshn) ->
+      withShsFromShX shm0 $ \(shm :: ShS shm2) ->
       withShsFromShX shpshn0 $ \(shpshn :: ShS shpshn) ->
-        withKnownShS (shsTake @(Rank shm) shmshn) $
-        withKnownShS (shsDrop @(Rank shm) shmshn) $
+        withKnownShS shm $
+        withKnownShS (shsDrop @(Rank shp) shpshn) $
         withKnownShS (shsTake @(Rank shp) shpshn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
-                      :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shp) shpshn ++ Drop (Rank shp) shpshn
                       :~: shpshn) $
-        case testEquality (shsDrop @(Rank shp) shpshn)
-                          (shsDrop @(Rank shm) shmshn) of
-          Just Refl ->
-            astFromS' (FTKX shmshn0 x)
-            $ funToVarsIxS knownShS $ \vars ix ->
-                let !ix2 = ixsFromIxX' knownShS
-                           . f . ixxCast knownShX . ixxFromIxS $ ix
-                in astGatherS @(Take (Rank shm) shmshn)
-                              @(Drop (Rank shm) shmshn)
-                              @(Take (Rank shp) shpshn)
-                              knownShS (astSFromX' shpshn t) (vars, ix2)
-                -- this introduces new variable names
-          _ -> error $ "xgather: shapes don't match: "
-                       ++ show ( shsDrop @(Rank shp) shpshn
-                               , shsDrop @(Rank shm) shmshn )
+        astFromS' (FTKX (shm0 `shxAppend` shxDropSSX @_ @shn
+                                                     (knownShX @shp) shpshn0) x)
+        $ funToVarsIxS shm $ \vars ix ->
+            let !ix2 = ixsFromIxX' knownShS
+                       . f . ixxCast knownShX . ixxFromIxS $ ix
+            in astGatherS @shm2
+                          @(Drop (Rank shp) shpshn)
+                          @(Take (Rank shp) shpshn)
+                          knownShS (astSFromX' shpshn t) (vars, ix2)
+            -- this introduces new variable names
   txminIndex @_ @_ @_ @r2 a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
@@ -1017,64 +1001,48 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   txindex0 @sh a ix | Refl <- lemAppNil @sh =
     withKnownShX (ssxFromShX $ xshape a) $
     kfromX $ txindex a ix
-  txscatter @shm @_ @shp shpshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
+  txscatter @shm @shn @shp shp0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKX shmshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
       withShsFromShX shmshn0 $ \(shmshn :: ShS shmshn) ->
-      withShsFromShX shpshn0 $ \(shpshn :: ShS shpshn) ->
+      withShsFromShX shp0 $ \(shp :: ShS shp2) ->
         withKnownShS (shsTake @(Rank shm) shmshn) $
         withKnownShS (shsDrop @(Rank shm) shmshn) $
-        withKnownShS (shsTake @(Rank shp) shpshn) $
+        withKnownShS shp $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
                       :~: shmshn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take (Rank shp) shpshn ++ Drop (Rank shp) shpshn
-                      :~: shpshn) $
-        case testEquality (shsDrop @(Rank shp) shpshn)
-                          (shsDrop @(Rank shm) shmshn) of
-          Just Refl ->
-            cAstFromS (FTKX shpshn0 x)
-            $ funToVarsIxS knownShS $ \vars ix ->
-                let !ix2 = fmapUnAstRaw . ixsFromIxX' knownShS
-                           . f . ixxCast knownShX . ixxFromIxS . fmapAstRaw $ ix
-                in AstScatterS @(Take (Rank shm) shmshn)
-                               @(Drop (Rank shm) shmshn)
-                               @(Take (Rank shp) shpshn)
-                               knownShS (cAstSFromX shmshn t) (vars, ix2)
-                -- this introduces new variable names
-          _ -> error $ "xscatter: shapes don't match: "
-                       ++ show ( shsDrop @(Rank shp) shpshn
-                               , shsDrop @(Rank shm) shmshn )
-  txgather @shm @_ @shp shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
+        cAstFromS (FTKX (shp0 `shxAppend` shxDropSSX @_ @shn
+                                                     (knownShX @shm) shmshn0) x)
+        $ funToVarsIxS knownShS $ \vars ix ->
+            let !ix2 = fmapUnAstRaw . ixsFromIxX' knownShS
+                       . f . ixxCast knownShX . ixxFromIxS . fmapAstRaw $ ix
+            in AstScatterS @(Take (Rank shm) shmshn)
+                           @(Drop (Rank shm) shmshn)
+                           @shp2
+                           knownShS (cAstSFromX shmshn t) (vars, ix2)
+            -- this introduces new variable names
+  txgather @shm @shn @shp shm0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKX shpshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
-      withShsFromShX shmshn0 $ \(shmshn :: ShS shmshn) ->
+      withShsFromShX shm0 $ \(shm :: ShS shm2) ->
       withShsFromShX shpshn0 $ \(shpshn :: ShS shpshn) ->
-        withKnownShS (shsTake @(Rank shm) shmshn) $
-        withKnownShS (shsDrop @(Rank shm) shmshn) $
+        withKnownShS shm $
+        withKnownShS (shsDrop @(Rank shp) shpshn) $
         withKnownShS (shsTake @(Rank shp) shpshn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
-                      :~: shmshn) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank shp) shpshn ++ Drop (Rank shp) shpshn
                       :~: shpshn) $
-        case testEquality (shsDrop @(Rank shp) shpshn)
-                          (shsDrop @(Rank shm) shmshn) of
-          Just Refl ->
-            cAstFromS (FTKX shmshn0 x)
-            $ funToVarsIxS knownShS $ \vars ix ->
-                let !ix2 = fmapUnAstRaw . ixsFromIxX' knownShS
-                           . f . ixxCast knownShX . ixxFromIxS . fmapAstRaw $ ix
-                in AstGatherS @(Take (Rank shm) shmshn)
-                              @(Drop (Rank shm) shmshn)
-                              @(Take (Rank shp) shpshn)
-                              knownShS (cAstSFromX shpshn t) (vars, ix2)
-                -- this introduces new variable names
-          _ -> error $ "xgather: shapes don't match: "
-                       ++ show ( shsDrop @(Rank shp) shpshn
-                               , shsDrop @(Rank shm) shmshn )
+        cAstFromS (FTKX (shm0 `shxAppend` shxDropSSX @_ @shn
+                                                     (knownShX @shp) shpshn0) x)
+        $ funToVarsIxS shm $ \vars ix ->
+            let !ix2 = fmapUnAstRaw . ixsFromIxX' knownShS
+                       . f . ixxCast knownShX . ixxFromIxS . fmapAstRaw $ ix
+            in AstGatherS @shm2
+                          @(Drop (Rank shp) shpshn)
+                          @(Take (Rank shp) shpshn)
+                          knownShS (cAstSFromX shpshn t) (vars, ix2)
+            -- this introduces new variable names
   txminIndex @_ @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of

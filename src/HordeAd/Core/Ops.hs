@@ -693,8 +693,7 @@ class ( Num (IntOf target)
            => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
            -> target (TKX2 (sh1 ++ sh2) x)
   {-# INLINE txoneHot #-}
-  txoneHot sh1 v ix =
-    txscatter @_ @'[] (shxAppend sh1 (xshape v)) v (const ix)
+  txoneHot sh1 v ix = txscatter @_ @'[] sh1 v (const ix)
     {- _ | SNat <- ssxRank (knownShX @sh1)
          , Refl <- lemAppNil @sh2 ->
       -- TODO: def at out of bounds and handle empty arrays
@@ -707,20 +706,20 @@ class ( Num (IntOf target)
           in txbuild @_ @(Rank sh1) SNat (shxAppend sh1 (xshape v)) f -}
   txscatter :: ( KnownShX shm, KnownShX shn, KnownShX shp
                , TKAllNum x, KnownSTK x )
-            => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) x)
+            => IShX shp -> target (TKX2 (shm ++ shn) x)
             -> (IxXOf target shm -> IxXOf target shp)
             -> target (TKX2 (shp ++ shn) x)
   -- TODO: generalize this to non-Just types.
   txscatter1 :: ( KnownNat n2, KnownShX shn, KnownShX shp
                 , TKAllNum x, KnownSTK x )
-             => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) x)
+             => IShX shp -> target (TKX2 (Just n2 ': shn) x)
              -> (IntOf target -> IxXOf target shp)
              -> target (TKX2 (shp ++ shn) x)
   {-# INLINE txscatter1 #-}
   txscatter1 @n2 @_ @shp @x sh v f = txscatter @_ @'[Just n2] @_ @shp @x sh v
                                                (\(i :.% _) -> f i)
   txgather :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
-           => IShX (shm ++ shn)
+           => IShX shm
            -> target (TKX2 (shp ++ shn) x)
            -> (IxXOf target shm -> IxXOf target shp)
            -> target (TKX2 (shm ++ shn) x)
@@ -729,10 +728,9 @@ class ( Num (IntOf target)
             -> (IntOf target -> IxXOf target shp)
             -> target (TKX2 (Just n2 ': shn) x)
   {-# INLINE txgather1 #-}
-  txgather1 @n2 @_ @shp k v f =
+  txgather1 @n2 k v f =
     txgather @target @'[Just n2]
-             (Nested.SKnown k :$% shxDropSSX (knownShX @shp) (xshape v)) v
-             (\(i :.% ZIX) -> f i)
+             (Nested.SKnown k :$% ZSX) v (\(i :.% ZIX) -> f i)
 
   tkfloor :: (GoodScalar r, Differentiable r, NumScalar r2, Integral r2)
           => target (TKScalar r) -> target (TKScalar r2)

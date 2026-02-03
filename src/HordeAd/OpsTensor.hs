@@ -466,21 +466,21 @@ xoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
 xoneHot = txoneHot
 xscatter :: ( KnownShX shm, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x
             , BaseTensor target )
-         => IShX (shp ++ shn) -> target (TKX2 (shm ++ shn) x)
+         => IShX shp -> target (TKX2 (shm ++ shn) x)
          -> (IxXOf target shm -> IxXOf target shp)
          -> target (TKX2 (shp ++ shn) x)
 {-# INLINE xscatter #-}
 xscatter @shm @shn @shp = txscatter @_ @shm @shn @shp
 xscatter1 :: ( KnownNat n2, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x
              , BaseTensor target )
-          => IShX (shp ++ shn) -> target (TKX2 (Just n2 ': shn) x)
+          => IShX shp -> target (TKX2 (Just n2 ': shn) x)
           -> (IntOf target -> IxXOf target shp)
           -> target (TKX2 (shp ++ shn) x)
 {-# INLINE xscatter1 #-}
 xscatter1 = txscatter1
 xgather :: ( KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x
            , BaseTensor target )
-        => IShX (shm ++ shn)
+        => IShX shm
         -> target (TKX2 (shp ++ shn) x)
         -> (IxXOf target shm -> IxXOf target shp)
         -> target (TKX2 (shm ++ shn) x)

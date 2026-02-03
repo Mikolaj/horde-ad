@@ -1730,15 +1730,16 @@ toneHotX sh1 !v ix = case tftk knownSTK v of
          Nothing -> tdefTarget ftk
          Just i2 -> manyHotNX @sh1 ftk [(i2, v)]
 
-tscatterZX :: (KnownShX shm, KnownShX shn, KnownShX shp, TKAllNum x, KnownSTK x)
-           => IShX (shp ++ shn) -> Concrete (TKX2 (shm ++ shn) x)
+tscatterZX :: forall shm shn shp x.
+              (KnownShX shm, KnownShX shn, TKAllNum x, KnownSTK x)
+           => IShX shp -> Concrete (TKX2 (shm ++ shn) x)
            -> (IxXOf Concrete shm -> IxXOf Concrete shp)
            -> Concrete (TKX2 (shp ++ shn) x)
 {-# INLINE tscatterZX #-}  -- this function takes a function as an argument
-tscatterZX @shm @shn @shp @x
-           sh !v0@(Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
-  let shm = shxTakeSSX (Proxy @shn) (knownShX @shm) (Nested.mshape v)
-      shp = shxTakeSSX (Proxy @shn) (knownShX @shp) sh
+tscatterZX shp !v0@(Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
+  let sht = Nested.mshape v
+      shm = shxTakeSSX (Proxy @shn) (knownShX @shm) sht
+      shn = shxDropSSX @_ @shn (knownShX @shm) sht
   in withKnownShX (knownShX @shm `ssxAppend` knownShX @shn) $
      case (knownShX @shn, tftk knownSTK v0) of
        (ZKX, FTKX _ (FTKScalar @r)) | Dict0 <- numFromTKAllNum (Proxy @r)
@@ -1759,7 +1760,7 @@ tscatterZX @shm @shn @shp @x
          -- Optimized: using (+) instead of taddTarget.
          -- TODO: write to vecs and use a bitmap to record the written indexes
          -- and the intmap only for subsequent writes
-         let ftk = FTKX sh FTKScalar
+         let ftk = FTKX (shp `shxAppend` shn) FTKScalar
              g :: IIxX shm
                -> IM.IntMap (Concrete (TKX2 shn x))
                -> IM.IntMap (Concrete (TKX2 shn x))
@@ -1775,7 +1776,7 @@ tscatterZX @shm @shn @shp @x
        (_, FTKX _ x) ->
          -- TODO: write to vecs and use a bitmap to record the written indexes
          -- and the intmap only for subsequent writes
-         let ftk = FTKX sh x
+         let ftk = FTKX (shp `shxAppend` shn) x
              g :: IIxX shm
                -> IM.IntMap (Concrete (TKX2 shn x))
                -> IM.IntMap (Concrete (TKX2 shn x))
@@ -1790,23 +1791,22 @@ tscatterZX @shm @shn @shp @x
          in manyHotNX @shp ftk $ IM.assocs ivs
 
 tgatherZX :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
-          => IShX (shm ++ shn)
+          => IShX shm
           -> Concrete (TKX2 (shp ++ shn) x)
           -> (IxXOf Concrete shm -> IxXOf Concrete shp)
           -> Concrete (TKX2 (shm ++ shn) x)
 {-# INLINE tgatherZX #-}  -- this function takes a function as an argument
-tgatherZX @shm @shn @shp @x sh !t f =
+tgatherZX @shm @shn @shp @x shm !t f =
   gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
   case (knownShX @shn, knownSTK @x) of
     (ZKX, STKScalar) | Refl <- lemAppNil @shm
                      , Refl <- lemAppNil @shp ->  -- an optimized common case
       let g ix = unConcrete $ t `txindex0` (f $ fmapConcrete ix)
-      in Concrete $ Nested.mgeneratePrim sh g
+      in Concrete $ Nested.mgeneratePrim shm g
     _ ->
       case ssxRank (knownShX @shm) of
         SNat -> -- needed only for GHC 9.10
-          txbuild @_ @shm @shn (shxTake @(Rank shm) sh)
-                               (\ix -> t `txindex` f ix)
+          txbuild @_ @shm @shn shm (\ix -> t `txindex` f ix)
 
 tgatherZ1X :: forall k shn shp x.
               (KnownNat k, KnownShX shn, KnownShX shp, KnownSTK x)

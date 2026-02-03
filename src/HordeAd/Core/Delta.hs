@@ -299,11 +299,11 @@ data Delta :: Target -> Target where
               -> Delta target (TKX2 (shm ++ shn) r) -> IxXOf target shm
               -> Delta target (TKX2 shn r)
   DeltaScatterX :: StaticShX shm -> StaticShX shn -> StaticShX shp
-                -> IShX (shp ++ shn) -> Delta target (TKX2 (shm ++ shn) r)
+                -> IShX shp -> Delta target (TKX2 (shm ++ shn) r)
                 -> (IxXOf target shm -> IxXOf target shp)
                 -> Delta target (TKX2 (shp ++ shn) r)
   DeltaGatherX :: StaticShX shm -> StaticShX shn -> StaticShX shp
-               -> IShX (shm ++ shn) -> Delta target (TKX2 (shp ++ shn) r)
+               -> IShX shm -> Delta target (TKX2 (shp ++ shn) r)
                -> (IxXOf target shm -> IxXOf target shp)
                -> Delta target (TKX2 (shm ++ shn) r)
   DeltaAppendX :: Delta target (TKX2 (Just m ': sh) r)
@@ -424,10 +424,10 @@ ftkDelta = \case
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
       withKnownShX shn $
       FTKX (shxDrop @len sh) x  -- TODO: (shxDropSSX sh (ssxFromIxX ix)) x
-  DeltaScatterX _ _ _ sh d _ -> case ftkDelta d of
-    FTKX _ x -> FTKX sh x
-  DeltaGatherX _ _ _ sh d _ -> case ftkDelta d of
-    FTKX _ x -> FTKX sh x
+  DeltaScatterX @_ @shn ssm _ _ shp d _ -> case ftkDelta d of
+    FTKX sh x -> FTKX (shp `shxAppend` shxDropSSX @_ @shn ssm sh) x
+  DeltaGatherX @_ @shn _ _ ssp shm d _ -> case ftkDelta d of
+    FTKX sh x -> FTKX (shm `shxAppend` shxDropSSX @_ @shn ssp sh) x
   DeltaAppendX a b -> case (ftkDelta a, ftkDelta b) of
     (FTKX (Nested.SKnown m :$% sh) x, FTKX (Nested.SKnown n :$% _) _) ->
       FTKX (Nested.SKnown (snatPlus m n) :$% sh) x

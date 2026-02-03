@@ -555,14 +555,14 @@ evalRev !s !c d0 = case d0 of
       withKnownShX shm $
       withKnownShX shn $
       withKnownShX shp $
-      evalRev s (txgather @_ @shm @shn sh c f) d
+      evalRev s (txgather @_ @shm @shn (shxTakeSSX @_ @shn Proxy shm sh) c f) d
   DeltaGatherX @shm @shn shm shn shp _sh d f -> case ftkDelta d of
     FTKX sh x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       withKnownShX shm $
       withKnownShX shn $
       withKnownShX shp $
-      evalRev s (txscatter @_ @shm @shn sh c f) d
+      evalRev s (txscatter @_ @shm @shn (shxTakeSSX @_ @shn Proxy shp sh) c f) d
   DeltaAppendX d e -> case (ftkDelta d, ftkDelta e) of
     (FTKX (Nested.SKnown m@SNat :$% _) x, FTKX (Nested.SKnown SNat :$% _) _) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
