@@ -61,7 +61,7 @@ convMnistLayerS SNat SNat SNat SNat SNat SNat SNat
                       $ sreplicate {-@h-}
                       $ sreplicate {-@w-} bias
       yRelu = reluS $ yConv + biasStretched
-  in maxPool2dUnpaddedS @2 @2 yRelu
+  in maxPool2dUnpaddedS (SNat @2) (SNat @2) yRelu
 
 -- | Composition of two convolutional layers.
 convMnistTwoS

@@ -2,7 +2,7 @@
 #if MIN_VERSION_GLASGOW_HASKELL(9,12,1,0)
 {-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
 #endif
-{-# LANGUAGE AllowAmbiguousTypes, UnboxedTuples #-}
+{-# LANGUAGE UnboxedTuples #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -1795,8 +1795,9 @@ astScatterS shn (Ast.AstFromPlain v) (vars, ix) =
   fromPlain $ astScatterS @shm @shn @shp shn v (vars, ix)
 astScatterS shn v (vars, ix) = Ast.AstScatterS @shm @shn @shp shn v (vars, ix)
 
-flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
-flipCompare = unsafeCoerceRefl
+flipCompare :: forall (a :: Nat) b. Compare a b ~ GT
+            => Proxy a -> Proxy b -> Compare b a :~: LT
+flipCompare _ _ = unsafeCoerceRefl
 
 astGatherS
   :: forall shm shn shp r s. (KnownSpan s, KnownShS shm, KnownShS shp)
@@ -2704,7 +2705,8 @@ astGatherKnobsS knobs shn v4 (vars4, ix4@(i4 :.$ rest4))
          $ case cmpNat (Proxy @rank4) (Proxy @rank2) of
         LTI -> composedGather
         EQI -> assimilatedGather
-        GTI -> gcastWith (flipCompare @rank4 @rank2) assimilatedGather
+        GTI -> gcastWith (flipCompare (Proxy @rank4) (Proxy @rank2))
+                         assimilatedGather
     Ast.AstMinIndexS @n @sh v -> case ftkAst v of
      FTKS nsh _ -> case shsLast nsh of
       nl@(SNat @nl) ->

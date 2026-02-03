@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, CPP #-}
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Interpretation of AST terms in an arbitrary tensor operations

@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Commonly used operations on shaped tensors.
@@ -138,10 +138,10 @@ lossSoftMaxCrossEntropyS expected d' = tlet d' $ \d ->
 
 -- | No padding; remaining areas ignored.
 maxPool1S :: forall ksize stride m target r.
-             ( ADReady target, NumScalar r
-             , KnownNat ksize, KnownNat stride, KnownNat m )
-          => target (TKS '[m] r) -> target (TKS '[m] r)
-maxPool1S v =
+             (ADReady target, NumScalar r, KnownNat m)
+          => SNat ksize -> SNat stride
+          -> target (TKS '[m] r) -> target (TKS '[m] r)
+maxPool1S SNat SNat v =
   let l = [0, valueOf @stride .. swidth v - valueOf @ksize]
       maxOfSlice i = withSNat i $ \ (SNat @i) ->
         gcastWith (unsafeCoerceRefl :: Compare i m :~: LT) $
@@ -266,16 +266,17 @@ slicezS d ixBase | Refl <- lemAppNil @sh =
 
 maxPool2dUnpaddedS
   :: forall ksize stride batch_size channels h w target r shOut shK1.
-     ( KnownNat ksize, KnownNat stride, KnownNat batch_size, KnownNat channels
+     ( KnownNat batch_size, KnownNat channels
      , KnownNat h, KnownNat w
      , 1 <= stride  -- wrongly reported as redundant due to plugins
      , ADReady target, NumScalar r
      , shOut ~ '[batch_size, channels, h `Div` stride, w `Div` stride]
      , shK1 ~ '[1, 1, ksize, ksize]
      )
-  => target (TKS '[batch_size, channels, h, w] r)
+  => SNat ksize -> SNat stride
+  -> target (TKS '[batch_size, channels, h, w] r)
   -> target (TKS shOut r)
-maxPool2dUnpaddedS arr =
+maxPool2dUnpaddedS SNat SNat arr =
   let stride = valueOf @stride :: Int
   in kbuild @shOut $ \case
     [iImg, iChan, iBh, iBw] ->

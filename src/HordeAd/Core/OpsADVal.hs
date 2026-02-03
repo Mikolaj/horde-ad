@@ -113,7 +113,7 @@ cfwdOnADInputs
 -- {-# INLINE cfwdOnADInputs #-}
 cfwdOnADInputs xftk inputs f ds =
   let !(D v delta) = f inputs in
-  let !derivative = derivativeFromDelta @x delta (adFTK xftk) ds
+  let !derivative = derivativeFromDelta (Proxy @x) delta (adFTK xftk) ds
   in (v, derivative)
 
 cfwdOnParams

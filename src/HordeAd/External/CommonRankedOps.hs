@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
+{-# LANGUAGE OverloadedLists #-}
 -- | Commonly used ranked operations on tensors.
 module HordeAd.External.CommonRankedOps
   ( module HordeAd.External.CommonRankedOps

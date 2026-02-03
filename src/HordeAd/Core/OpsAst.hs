@@ -180,7 +180,8 @@ fwdArtifactFromForwardPass
 fwdArtifactFromForwardPass forwardPass xftk = unsafePerformIO $ do
   (!varPrimalD, astVarD, astVarPrimal, var, astVar0) <- funToAstFwdIO xftk
   let !(D primalBody delta) = forwardPass astVarPrimal var astVar0
-  let !derivative = derivativeFromDelta @x delta (adFTK xftk) (AstRaw astVarD)
+  let !derivative =
+        derivativeFromDelta (Proxy @x) delta (adFTK xftk) (AstRaw astVarD)
       !unDerivative = unshareAstTensor $ unAstRaw derivative
       unPrimal = unshareAstTensor $ unAstRaw primalBody
   return (AstArtifactFwd varPrimalD var unDerivative unPrimal, delta)

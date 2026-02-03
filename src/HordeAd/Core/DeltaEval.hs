@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Evaluation of delta expressions, that is, transpose of the linear
@@ -82,10 +81,10 @@ gradientFromDelta !xftk !dt deltaTopLevel =
 -- of an objective function.
 derivativeFromDelta
   :: forall x z target. (ADReadyNoLet target, ShareTensor target)
-  => Delta target z -> FullShapeTK (ADTensorKind x)
+  => Proxy x -> Delta target z -> FullShapeTK (ADTensorKind x)
   -> target (ADTensorKind x)
   -> target (ADTensorKind z)
-derivativeFromDelta deltaTopLevel ftk ds =
+derivativeFromDelta _ deltaTopLevel ftk ds =
     let iMap = DMap.fromDistinctAscList $ fst $ generateDSums 0 ftk ds
         s0 = DMap.empty
         !(!_s2, !c) = evalFwd iMap s0 deltaTopLevel
