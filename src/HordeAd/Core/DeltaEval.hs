@@ -428,11 +428,11 @@ evalRev !s !c d0 = case d0 of
   DeltaScatterR SNat SNat SNat _sh d f -> case ftkDelta d of
     FTKR sh x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
-      evalRev s (trgather sh c f) d
+      evalRev s (trgather (shrTake sh) c f) d
   DeltaGatherR SNat SNat SNat _sh d f -> case ftkDelta d of
     FTKR sh x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
-      evalRev s (trscatter sh c f) d
+      evalRev s (trscatter (shrTake sh) c f) d
   DeltaAppendR d e -> case (ftkDelta d, ftkDelta e) of
     (FTKR (m :$: _) x, FTKR (n :$: _) _) ->
       withKnownSTK (adSTK $ ftkToSTK x) $

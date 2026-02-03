@@ -223,12 +223,12 @@ data Delta :: Target -> Target where
               -> Delta target (TKR2 n r)
   DeltaScatterR :: forall m n p r target.
                    SNat m -> SNat n -> SNat p
-                -> IShR (p + n) -> Delta target (TKR2 (m + n) r)
+                -> IShR p -> Delta target (TKR2 (m + n) r)
                 -> (IxROf target m -> IxROf target p)
                 -> Delta target (TKR2 (p + n) r)
   DeltaGatherR :: forall m n p r target.
                   SNat m -> SNat n -> SNat p
-               -> IShR (m + n) -> Delta target (TKR2 (p + n) r)
+               -> IShR m -> Delta target (TKR2 (p + n) r)
                -> (IxROf target m -> IxROf target p)
                -> Delta target (TKR2 (m + n) r)
   DeltaAppendR :: Delta target (TKR2 (1 + n) r)
@@ -378,10 +378,10 @@ ftkDelta = \case
   DeltaDot0R{} -> FTKScalar
   DeltaIndexR SNat d ix | SNat <- ixrRank ix -> case ftkDelta d of
     FTKR sh x -> FTKR (shrDrop sh) x
-  DeltaScatterR _ _ _ sh d _ -> case ftkDelta d of
-    FTKR _ x -> FTKR sh x
-  DeltaGatherR _ _ _ sh d _ -> case ftkDelta d of
-    FTKR _ x -> FTKR sh x
+  DeltaScatterR (SNat @m) SNat _ shp d _ -> case ftkDelta d of
+    FTKR sh x -> FTKR (shp `shrAppend` shrDrop @m sh) x
+  DeltaGatherR _ SNat (SNat @p) shm d _ -> case ftkDelta d of
+    FTKR sh x -> FTKR (shm `shrAppend` shrDrop @p sh) x
   -- Depite the warning, the pattern match is exhaustive and if a dummy
   -- pattern is added, GHC 9.14.1 complains about that, in turn.
   DeltaAppendR a b -> case ftkDelta a of

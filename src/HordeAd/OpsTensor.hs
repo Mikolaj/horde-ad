@@ -369,7 +369,7 @@ roneHot :: ( KnownNat m, KnownNat n, TKAllNum x, KnownSTK x
 roneHot = troneHot
 rscatter :: ( KnownNat m, KnownNat n, KnownNat p, TKAllNum x, KnownSTK x
             , BaseTensor target )
-         => IShR (p + n) -> target (TKR2 (m + n) x)
+         => IShR p -> target (TKR2 (m + n) x)
          -> (IxROf target m -> IxROf target p)
          -> target (TKR2 (p + n) x)
 {-# INLINE rscatter #-}
@@ -381,13 +381,13 @@ rscatter = trscatter
 -- and then no tensor is added at such an index.
 rscatter1 :: ( KnownNat n, KnownNat p, TKAllNum x, KnownSTK x
              , BaseTensor target )
-          => IShR (p + n) -> target (TKR2 (1 + n) x)
+          => IShR p -> target (TKR2 (1 + n) x)
           -> (IntOf target -> IxROf target p)
           -> target (TKR2 (p + n) x)
 {-# INLINE rscatter1 #-}
 rscatter1 = trscatter1
 rgather :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x, BaseTensor target)
-        => IShR (m + n) -> target (TKR2 (p + n) x)
+        => IShR m -> target (TKR2 (p + n) x)
         -> (IxROf target m -> IxROf target p)
         -> target (TKR2 (m + n) x)
 {-# INLINE rgather #-}

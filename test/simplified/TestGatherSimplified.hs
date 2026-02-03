@@ -140,7 +140,7 @@ gatherNested1 t =
   rgather @1
           (2 :$: ZSR)
           (rgather @1
-                   (4 :$: 2 :$: ZSR) t
+                   (4 :$: ZSR) t
                    (\(k3 :.: ZIR) -> k3 :.: ZIR))
           (\(i2 :.: ZIR) -> i2 + i2 :.: i2 :.: ZIR)
 
@@ -249,7 +249,7 @@ gatherNested2 t =
   rgather @2
           (2 :$: 3 :$: ZSR)
           (rgather @3
-                   (2 :$: 3 :$: 4 :$: 2 :$: ZSR) t
+                   (2 :$: 3 :$: 4 :$: ZSR) t
                    (\(k1 :.: k2 :.: k3 :.: ZIR) -> k1 + k2 + k3 :.: ZIR))
           (\(i1 :.: i2 :.: ZIR) -> i1 :.: i2 :.: i1 + i2 :.: i1 :.: ZIR)
 
@@ -340,7 +340,7 @@ gatherNested12 :: forall target r. (ADReady target, GoodScalar r)
                => target (TKR 2 r) -> target (TKR 2 r)
 gatherNested12 t =
   rgather @1
-          (2 :$: 4 :$: ZSR)
+          (2 :$: ZSR)
           (rgather @3
                    (2 :$: 3 :$: 4 :$: ZSR) t
                    (\(k1 :.: k2 :.: k3 :.: ZIR) -> k1 + k2 + k3 :.: k1 :.: ZIR))
@@ -947,7 +947,7 @@ scatterNested1 t =
   rscatter @2
           (2 :$: ZSR)
           (rscatter @1
-                   (7 :$: 2 :$: ZSR) t
+                   (7 :$: ZSR) t
                    (\(k3 :.: ZIR) -> k3 :.: ZIR))
           (\(i1 :.: i2 :.: ZIR) -> i2 `quotH` (1 + i1) :.: ZIR)
 
@@ -1040,7 +1040,7 @@ scatterNested2 t =
   rscatter @4
           (2 :$: 3 :$: ZSR)
           (rscatter @1
-                   (2 :$: 3 :$: 4 :$: 2 :$: ZSR) t
+                   (2 :$: 3 :$: 4 :$: ZSR) t
                    (\(k1 :.: ZIR) -> minH k1 1 :.: minH k1 2  :.: minH k1 3 :.: ZIR))
           (\(i1 :.: i2 :.: _i3 :.: i4 :.: ZIR) ->
             minH (i1 + i2) 1 :.: minH (i4 + i1) 2 :.: ZIR)
@@ -1132,7 +1132,7 @@ scatterNested12 :: forall target r. (ADReady target, NumScalar r)
                => target (TKR 2 r) -> target (TKR 2 r)
 scatterNested12 t =
   rscatter @2
-          (2 :$: 4 :$: ZSR)
+          (2 :$: ZSR)
           (rscatter @2
                    (2 :$: 3 :$: 4 :$: ZSR) t
                    (\(k1 :.: k2 :.: ZIR) ->

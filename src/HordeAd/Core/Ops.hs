@@ -594,8 +594,7 @@ class ( Num (IntOf target)
            => IShR m -> target (TKR2 n x) -> IxROf target m
            -> target (TKR2 (m + n) x)
   {-# INLINE troneHot #-}
-  troneHot sh v ix =
-    trscatter @_ @0 (shrAppend sh (rshape v)) v (const ix)
+  troneHot sh v ix = trscatter @_ @0 sh v (const ix)
       -- this code is often better for differentiable contexts, because
       -- a gather results, though this code is problematic if vectorization
       -- blows up the dimensions
@@ -615,17 +614,17 @@ class ( Num (IntOf target)
         -- TODO: if this is used often, maybe express this as the gather that
         -- would come out of vectorization, to help it simplify well -}
   trscatter :: (KnownNat m, KnownNat n, KnownNat p, TKAllNum x, KnownSTK x)
-            => IShR (p + n) -> target (TKR2 (m + n) x)
+            => IShR p -> target (TKR2 (m + n) x)
             -> (IxROf target m -> IxROf target p)
             -> target (TKR2 (p + n) x)
   trscatter1 :: (KnownNat n, KnownNat p, TKAllNum x, KnownSTK x)
-             => IShR (p + n) -> target (TKR2 (1 + n) x)
+             => IShR p -> target (TKR2 (1 + n) x)
              -> (IntOf target -> IxROf target p)
              -> target (TKR2 (p + n) x)
   {-# INLINE trscatter1 #-}
   trscatter1 sh v f = trscatter @target @1 sh v (\(i :.: ZIR) -> f i)
   trgather :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
-           => IShR (m + n) -> target (TKR2 (p + n) x)
+           => IShR m -> target (TKR2 (p + n) x)
            -> (IxROf target m -> IxROf target p)
            -> target (TKR2 (m + n) x)
   trgather1 :: (KnownNat n, KnownNat p, KnownSTK x)
@@ -633,9 +632,7 @@ class ( Num (IntOf target)
             -> (IntOf target -> IxROf target p)
             -> target (TKR2 (1 + n) x)
   {-# INLINE trgather1 #-}
-  trgather1 k v f = trgather @target @1
-                             (k :$: shrDrop (rshape v)) v
-                             (\(i :.: ZIR) -> f i)
+  trgather1 k v f = trgather @target @1 (k :$: ZSR) v (\(i :.: ZIR) -> f i)
 
   tsindex :: forall shm shn x. (KnownShS shn, KnownSTK x)
           => target (TKS2 (shm ++ shn) x) -> IxSOf target shm

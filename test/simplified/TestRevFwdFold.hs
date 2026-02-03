@@ -1246,7 +1246,7 @@ testUnitriangular1PP = do
 unitriangular2 :: (KnownNat k, NumScalar rk, ADReady target)
                => Int -> IShR k -> target (TKR (2 + k) rk)
 unitriangular2 k sh =
-  rgather @_ @_ @1 (k :$: k :$: sh)
+  rgather @_ @_ @1 (k :$: k :$: ZSR)
           (rfromList [ rreplicate0N sh 0
                      , rreplicate0N sh 1 ])
           (\(i :.: j :.: ZIR) -> ifH (i <. j) 0 1 :.: ZIR)

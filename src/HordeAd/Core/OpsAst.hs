@@ -269,56 +269,43 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
                     (ixsFromIxR ix)
   trindex0 a ix | SNat <- shrRank (rshape a) =
     kfromR $ trindex a ix
-  trscatter @m @_ @p shpshn0 t f = case ftkAst t of
+  trscatter @m shp0 t f = case ftkAst t of
     FTKR @_ @x shmshn0 x ->
       withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
-      withShsFromShR shpshn0 $ \(shpshn :: ShS shpshn) ->
+      withShsFromShR shp0 $ \(shp :: ShS shp) ->
         withKnownShS (shsTake @m shmshn) $
         withKnownShS (shsDrop @m shmshn) $
-        withKnownShS (shsTake @p shpshn) $
+        withKnownShS shp $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
-        gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         gcastWith (unsafeCoerceRefl
                    :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take p shpshn ++ Drop p shpshn :~: shpshn) $
-        case testEquality (shsDrop @p shpshn) (shsDrop @m shmshn) of
-          Just Refl ->
-            astFromS' @(TKS2 shpshn x) (FTKR shpshn0 x)
-            $ funToVarsIxS knownShS $ \vars ix ->
-                let !ix2 = ixsFromIxR . f . ixrFromIxS $ ix
-                in astScatterS @(Take m shmshn)
-                               @(Drop m shmshn)
-                               @(Take p shpshn)
-                               knownShS (astSFromR' shmshn t) (vars, ix2)
-                -- this introduces new variable names
-          _ -> error $ "rscatter: shapes don't match: "
-                       ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
-  trgather @m @_ @p shmshn0 t f = case ftkAst t of
+        astFromS' @(TKS2 (shp ++ Drop m shmshn) x)
+                  (FTKR (shp0 `shrAppend` shrDrop @m shmshn0) x)
+        $ funToVarsIxS knownShS $ \vars ix ->
+            let !ix2 = ixsFromIxR . f . ixrFromIxS $ ix
+            in astScatterS @(Take m shmshn)
+                           @(Drop m shmshn)
+                           @shp
+                           knownShS (astSFromR' shmshn t) (vars, ix2)
+            -- this introduces new variable names
+  trgather @_ @_ @p shm0 t f = case ftkAst t of
     FTKR shpshn0 x ->
-      withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
+      withShsFromShR shm0 $ \(shm :: ShS shm) ->
       withShsFromShR shpshn0 $ \(shpshn :: ShS shpshn) ->
-        withKnownShS (shsTake @m shmshn) $
-        withKnownShS (shsDrop @m shmshn) $
+        withKnownShS shm $
+        withKnownShS (shsDrop @p shpshn) $
         withKnownShS (shsTake @p shpshn) $
-        gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         gcastWith (unsafeCoerceRefl
-                   :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
-        gcastWith (unsafeCoerceRefl
                    :: Take p shpshn ++ Drop p shpshn :~: shpshn) $
-        case testEquality (shsDrop @p shpshn) (shsDrop @m shmshn) of
-          Just Refl ->
-            astFromS' (FTKR shmshn0 x)
-            $ funToVarsIxS knownShS $ \vars ix ->
-                let !ix2 = ixsFromIxR . f . ixrFromIxS $ ix
-                in astGatherS @(Take m shmshn)
-                              @(Drop m shmshn)
-                              @(Take p shpshn)
-                              knownShS (astSFromR' shpshn t) (vars, ix2)
-                -- this introduces new variable names
-          _ -> error $ "rgather: shapes don't match: "
-                       ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
+        astFromS' (FTKR (shm0 `shrAppend` shrDrop @p shpshn0) x)
+        $ funToVarsIxS shm $ \vars ix ->
+            let !ix2 = ixsFromIxR . f . ixrFromIxS $ ix
+            in astGatherS @shm
+                          @(Drop p shpshn)
+                          @(Take p shpshn)
+                          knownShS (astSFromR' shpshn t) (vars, ix2)
+            -- this introduces new variable names
   -- Depite the warning, the pattern match is exhaustive and if a dummy
   -- pattern is added, GHC 9.14.1 complains about that, in turn.
   trminIndex @_ @_ @r2 a = case ftkAst a of
@@ -824,58 +811,45 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                     (ixsFromIxR (fmapUnAstRaw ix))
   trindex0 a ix | SNat <- shrRank (rshape a) =
     kfromR $ trindex a ix
-  trscatter @m @_ @p shpshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
+  trscatter @m shp0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKR @_ @x shmshn0 x ->
       withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
-      withShsFromShR shpshn0 $ \(shpshn :: ShS shpshn) ->
+      withShsFromShR shp0 $ \(shp :: ShS shp) ->
         withKnownShS (shsTake @m shmshn) $
         withKnownShS (shsDrop @m shmshn) $
-        withKnownShS (shsTake @p shpshn) $
+        withKnownShS shp $
         gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
-        gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         gcastWith (unsafeCoerceRefl
                    :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
-        gcastWith (unsafeCoerceRefl
-                   :: Take p shpshn ++ Drop p shpshn :~: shpshn) $
-        case testEquality (shsDrop @p shpshn) (shsDrop @m shmshn) of
-          Just Refl ->
-            cAstFromS @(TKS2 shpshn x) (FTKR shpshn0 x)
-            $ funToVarsIxS knownShS $ \vars ix ->
-                let !ix2 = fmapUnAstRaw . ixsFromIxR
-                           . f . ixrFromIxS. fmapAstRaw $ ix
-                in AstScatterS @(Take m shmshn)
-                               @(Drop m shmshn)
-                               @(Take p shpshn)
-                               knownShS (cAstSFromR shmshn t) (vars, ix2)
-                -- this introduces new variable names
-          _ -> error $ "rscatter: shapes don't match: "
-                       ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
-  trgather @m @_ @p shmshn0 (AstRaw t) f = AstRaw $ case ftkAst t of
+        cAstFromS @(TKS2 (shp ++ Drop m shmshn) x)
+                  (FTKR (shp0 `shrAppend` shrDrop @m shmshn0) x)
+        $ funToVarsIxS knownShS $ \vars ix ->
+            let !ix2 = fmapUnAstRaw . ixsFromIxR
+                       . f . ixrFromIxS . fmapAstRaw $ ix
+            in AstScatterS @(Take m shmshn)
+                           @(Drop m shmshn)
+                           @shp
+                           knownShS (cAstSFromR shmshn t) (vars, ix2)
+            -- this introduces new variable names
+  trgather @_ @_ @p shm0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKR shpshn0 x ->
-      withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
+      withShsFromShR shm0 $ \(shm :: ShS shm) ->
       withShsFromShR shpshn0 $ \(shpshn :: ShS shpshn) ->
-        withKnownShS (shsTake @m shmshn) $
-        withKnownShS (shsDrop @m shmshn) $
+        withKnownShS shm $
+        withKnownShS (shsDrop @p shpshn) $
         withKnownShS (shsTake @p shpshn) $
-        gcastWith (unsafeCoerceRefl :: Rank (Take m shmshn) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Take p shpshn) :~: p) $
         gcastWith (unsafeCoerceRefl
-                   :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
-        gcastWith (unsafeCoerceRefl
                    :: Take p shpshn ++ Drop p shpshn :~: shpshn) $
-        case testEquality (shsDrop @p shpshn) (shsDrop @m shmshn) of
-          Just Refl ->
-            cAstFromS (FTKR shmshn0 x)
-            $ funToVarsIxS knownShS $ \vars ix ->
-                let !ix2 = fmapUnAstRaw . ixsFromIxR
-                           . f . ixrFromIxS. fmapAstRaw $ ix
-                in AstGatherS @(Take m shmshn)
-                              @(Drop m shmshn)
-                              @(Take p shpshn)
-                              knownShS (cAstSFromR shpshn t) (vars, ix2)
-                -- this introduces new variable names
-          _ -> error $ "rgather: shapes don't match: "
-                       ++ show (shsDrop @p shpshn, shsDrop @m shmshn)
+        cAstFromS (FTKR (shm0 `shrAppend` shrDrop @p shpshn0) x)
+        $ funToVarsIxS shm $ \vars ix ->
+            let !ix2 = fmapUnAstRaw . ixsFromIxR
+                       . f . ixrFromIxS . fmapAstRaw $ ix
+            in AstGatherS @shm
+                          @(Drop p shpshn)
+                          @(Take p shpshn)
+                          knownShS (cAstSFromR shpshn t) (vars, ix2)
+            -- this introduces new variable names
   trminIndex @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of

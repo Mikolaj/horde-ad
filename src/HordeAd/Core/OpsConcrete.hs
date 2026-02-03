@@ -1127,7 +1127,7 @@ toneHotR sh1 !v ix = case tftk knownSTK v of
 tscatterZR
   :: forall m n p x.
      (KnownNat m, KnownNat n, KnownNat p, TKAllNum x, KnownSTK x)
-  => IShR (p + n) -> Concrete (TKR2 (m + n) x)
+  => IShR p -> Concrete (TKR2 (m + n) x)
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR2 (p + n) x)
 {-# INLINE tscatterZR #-}
@@ -1140,16 +1140,16 @@ tscatterZR = case knownSTK @x of
 tscatterZRSlow
   :: forall m n p x.
      (KnownNat m, KnownNat n, KnownNat p, TKAllNum x, KnownSTK x)
-  => IShR (p + n) -> Concrete (TKR2 (m + n) x)
+  => IShR p -> Concrete (TKR2 (m + n) x)
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR2 (p + n) x)
 {-# NOINLINE tscatterZRSlow #-}  -- the rare slow case
-tscatterZRSlow sh (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
+tscatterZRSlow shp (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
   case tftkG (STKR SNat (knownSTK @x)) v of
     FTKR sht x ->
       let shm = shrTake @m sht
-          shp = shrTake @p sh
-          ftk = FTKR sh x
+          shn = shrDrop @m sht
+          ftk = FTKR (shp `shrAppend` shn) x
           g :: IIxR m
             -> IM.IntMap (Concrete (TKR2 n x))
             -> IM.IntMap (Concrete (TKR2 n x))
@@ -1165,9 +1165,9 @@ tscatterZRSlow sh (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
 
 -- See the comment about tscatterZSDict.
 tscatterZRDict
-  :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
+  :: forall m n p r. (KnownNat m, KnownNat n)
   => Dict0 (Num r, Nested.NumElt r, GoodScalar r)
-  -> IShR (p + n) -> Concrete (TKR (m + n) r)
+  -> IShR p -> Concrete (TKR (m + n) r)
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR (p + n) r)
 {-# INLINE [1] tscatterZRDict #-}
@@ -1175,21 +1175,21 @@ tscatterZRDict Dict0 = tscatterZRScalar
 
 tscatterZRScalar
   :: forall m n p r.
-     (KnownNat m, KnownNat n, KnownNat p, GoodScalar r, Num r, Nested.NumElt r)
-  => IShR (p + n) -> Concrete (TKR (m + n) r)
+     (KnownNat m, KnownNat n, GoodScalar r, Num r, Nested.NumElt r)
+  => IShR p -> Concrete (TKR (m + n) r)
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR (p + n) r)
 {-# INLINE tscatterZRScalar #-}
-tscatterZRScalar sh !(Concrete v) f =
-  let shm = shrTake @m $ Nested.rshape v
-      shp = shrTake @p sh
+tscatterZRScalar shp !(Concrete v) f =
+  let sht = Nested.rshape v
+      shm = shrTake @m sht
   in case SNat @n of
        SNat' @0 -> runST $ do
          -- Optimized: using Nested.rindex instesad of Nested.rindexPartial.
          vec <- VSM.replicate (shrSize shp) 0
          forM_ (shrEnum shm) $ \ix -> do
            let ix2 = f $ fmapConcrete ix
-           case ixrToLinearMaybe sh ix2 of
+           case ixrToLinearMaybe shp ix2 of
              Nothing -> return ()
              Just i2 -> do
                let u = Nested.rindex v ix
@@ -1207,19 +1207,20 @@ tscatterZRScalar sh !(Concrete v) f =
                  Just i2 ->
                    IM.insertWith (+) i2 (Nested.rindexPartial v ix)
              ivs = foldl' (flip g) IM.empty (shrEnum shm)
-             shnSize = shrSize $ shrDrop @p sh
+             shn = shrDrop @m sht
+             shnSize = shrSize shn
          vec <- VSM.replicate (shrSize shp * shnSize) 0
          forM_ (IM.assocs ivs) $ \(i, u) ->
            VS.copy (VSM.slice (i * shnSize) shnSize vec) (Nested.rtoVector u)
              -- TODO: use toVectorList instead
-         Concrete . Nested.rfromVector sh
+         Concrete . Nested.rfromVector (shp `shrAppend` shn)
            <$> VS.unsafeFreeze vec
 
 -- The semantics of the operation permits index out of bounds
 -- and the result of such indexing is def, which is 0.
 tgatherZR
   :: forall m n p x. (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
-  => IShR (m + n) -> Concrete (TKR2 (p + n) x)
+  => IShR m -> Concrete (TKR2 (p + n) x)
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR2 (m + n) x)
 {-# INLINE tgatherZR #-}
@@ -1231,17 +1232,17 @@ tgatherZR = case knownSTK @x of
 
 tgatherZRSlow
   :: forall m n p x. (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
-  => IShR (m + n) -> Concrete (TKR2 (p + n) x)
+  => IShR m -> Concrete (TKR2 (p + n) x)
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR2 (m + n) x)
 {-# NOINLINE tgatherZRSlow #-}
-tgatherZRSlow sh !t f =
-  trbuild (shrTake @m sh) (\ix -> t `tindexZRSlow` f ix)
+tgatherZRSlow shm !t f =
+  trbuild shm (\ix -> t `tindexZRSlow` f ix)
 
 tgatherZRDict
   :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
   => Dict GoodScalar r
-  -> IShR (m + n) -> Concrete (TKR (p + n) r)
+  -> IShR m -> Concrete (TKR (p + n) r)
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR (m + n) r)
 {-# INLINE tgatherZRDict #-}
@@ -1249,15 +1250,15 @@ tgatherZRDict Dict = tgatherZRScalar
 
 tgatherZRScalar
   :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p, GoodScalar r)
-  => IShR (m + n) -> Concrete (TKR (p + n) r)
+  => IShR m -> Concrete (TKR (p + n) r)
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR (m + n) r)
 {-# INLINE tgatherZRScalar #-}
-tgatherZRScalar sh !t f = case SNat @n of
+tgatherZRScalar shm !t f = case SNat @n of
   SNat' @0 ->  -- an optimized common case
     let g ix = unConcrete $ t `tindex0RImpl` (f $ fmapConcrete ix)
-    in Concrete $ Nested.rgeneratePrim sh g
-  _ -> trbuild (shrTake @m sh) (\ix -> t `tindexZRScalar` f ix)
+    in Concrete $ Nested.rgeneratePrim shm g
+  _ -> trbuild shm (\ix -> t `tindexZRScalar` f ix)
 
 tgatherZ1R
   :: forall n p x. (KnownNat n, KnownNat p, KnownSTK x)
