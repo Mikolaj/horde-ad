@@ -645,8 +645,7 @@ class ( Num (IntOf target)
            => target (TKS2 sh2 x) -> IxSOf target sh1
            -> target (TKS2 (sh1 ++ sh2) x)
   {-# INLINE tsoneHot #-}
-  tsoneHot v ix =
-    tsscatter @_ @'[] v (const ix)
+  tsoneHot v ix = tsscatter @_ @'[] v (const ix)
     {- _ | SNat <- shsRank (knownShS @sh1)
          , Refl <- lemAppNil @sh2 ->
       -- TODO: def at out of bounds and handle empty arrays

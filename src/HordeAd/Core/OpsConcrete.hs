@@ -273,17 +273,19 @@ instance BaseTensor Concrete where
   {-# INLINE trgather1 #-}
   trgather1 = tgatherZ1R
   {-# INLINE tsindex #-}
-  tsindex = tindexZS
+  tsindex @_ @shn = tindexZS (knownShS @shn)
   {-# INLINE tsindex0 #-}
   tsindex0 = tindex0S
   {-# INLINE tsoneHot #-}
-  tsoneHot = toneHotS
+  tsoneHot @shp @shn = toneHotS (knownShS @shn) (knownShS @shp)
   {-# INLINE tsscatter #-}
-  tsscatter @shm @shn = tscatterZS @shm @shn
+  tsscatter @shm @shn @shp =
+    tscatterZS (knownShS @shm) (knownShS @shn) (knownShS @shp)
   {-# INLINE tsgather #-}
-  tsgather @shm @shn = tgatherZS @shm @shn
+  tsgather @shm @shn =
+    tgatherZS (knownShS @shm) (knownShS @shn)
   {-# INLINE tsgather1 #-}
-  tsgather1 = tgatherZ1S
+  tsgather1 @_ @shn = tgatherZ1S (knownShS @shn)
   {-# INLINE txindex #-}
   txindex = tindexZX
   {-# INLINE txindex0 #-}
@@ -622,15 +624,9 @@ instance BaseTensor Concrete where
   txreshape @_ @_ @x sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.mreshape sh . unConcrete
   {-# INLINE tkbuild1 #-}
-  tkbuild1 @k f =
-    let g i = unConcrete $ f (Concrete i)
-    in Concrete $ Nested.sfromVector (SNat :$$ ZSS)
-       $ VS.generate (valueOf @k) g
+  tkbuild1 f = tbuild1K f
   {-# INLINE tkbuild #-}
-  tkbuild @sh f =
-    let g ix = unConcrete $ f (fmapConcrete ix)
-        shTake = knownShS @sh
-    in Concrete $ Nested.sgeneratePrim shTake g
+  tkbuild @sh f = tbuildK (knownShS @sh) f
   {-# INLINE trbuild1 #-}
   trbuild1 @n @x k f =
     let g :: Int -> RepConcrete (TKR2 n x)
@@ -661,27 +657,9 @@ instance BaseTensor Concrete where
     $ tzipWith0NR (\v w -> unConcrete $ f (Concrete v) (Concrete w))
                   (unConcrete t) (unConcrete u)
   {-# INLINE tsbuild1 #-}
-  tsbuild1 @k @sh @x f =
-    let g :: Int -> RepConcrete (TKS2 sh x)
-        g i = unConcrete $ f (Concrete i)
-    in case knownSTK @x of
-      STKScalar | ZSS <- knownShS @sh ->
-        tkbuild1 (Concrete . Nested.sunScalar . unConcrete . f)
-      _ | Dict <- eltDictRep (knownSTK @x) -> case SNat @k of
-        SNat' @0 ->
-          Concrete $ Nested.semptyArray knownShS
-        _ ->
-          Concrete $ Nested.sfromListOuter SNat $ NonEmpty.fromList
-          $ map g [0 .. valueOf @k - 1]
+  tsbuild1 @_ @sh f = tbuild1S (knownShS @sh) f
   {-# INLINE tsbuild #-}
-  tsbuild @shm @shn @x f =
-    let h ix = unConcrete $ f (fmapConcrete ix)
-    in case knownSTK @x of
-      STKScalar | ZSS <- knownShS @shn
-                , Refl <- lemAppNil @shm ->
-        tkbuild (Concrete . Nested.sunScalar . unConcrete . f)
-      _ | Dict <- eltDictRep (knownSTK @x) ->
-        Concrete $ Nested.sunNest $ Nested.sgenerate (knownShS @shm) h
+  tsbuild @shm @shn f = tbuildS (knownShS @shm) (knownShS @shn) f
   {-# INLINE tsmap0N #-}
   tsmap0N f v = Concrete $ tmap0NS (unConcrete . f . Concrete) (unConcrete v)
   {-# INLINE tszipWith0N #-}
@@ -1002,6 +980,23 @@ contFromTypeable f = case typeRep @r of
   Is @Bool -> f Dict
   Is @() -> f Dict
   _ -> error "contFromTypeable: unexpected type"
+
+tbuild1K :: (KnownNat k, GoodScalar r)
+         => (IntOf Concrete -> Concrete (TKScalar r))
+         -> Concrete (TKS '[k] r)
+{-# INLINE tbuild1K #-}
+tbuild1K @k f =
+  let g i = unConcrete $ f (Concrete i)
+  in Concrete $ Nested.sfromVector (SNat :$$ ZSS)
+     $ VS.generate (valueOf @k) g
+
+tbuildK :: GoodScalar r
+        => ShS sh -> (IxSOf Concrete sh -> Concrete (TKScalar r))
+        -> Concrete (TKS sh r)
+{-# INLINE tbuildK #-}
+tbuildK sh f =
+  let g ix = unConcrete $ f (fmapConcrete ix)
+  in Concrete $ Nested.sgeneratePrim sh g
 
 
 -- * Ranked internal definitions
@@ -1346,59 +1341,58 @@ liftVS
 {-# INLINE liftVS #-}
 liftVS f = Shaped.liftShaped1 (Mixed.mliftNumElt1 (`liftVEltwise1` f))
 
-manyHotNS :: forall sh1 sh2 x. (KnownShS sh1, KnownShS sh2, KnownSTK x)
-          => FullShapeTK x
-          -> [(Int, Concrete (TKS2 sh2 x))]
-          -> Concrete (TKS2 (sh1 ++ sh2) x)
+manyHotNS :: forall shn shp x.
+             ShS shn -> ShS shp -> FullShapeTK x
+          -> [(Int, Concrete (TKS2 shn x))]
+          -> Concrete (TKS2 (shp ++ shn) x)
 {-# INLINE manyHotNS #-}
-manyHotNS x upd | Dict <- eltDictRep (knownSTK @x)
-                , let shShaped = knownShS @sh1 `shsAppend` knownShS @sh2
-                , Refl <- lemRankMapJust shShaped
-                , Refl <- lemMapJustApp (knownShS @sh1)
-                                        (Proxy @sh2) = runST $ do
+manyHotNS shn shp x upd | Dict <- eltDictRep (ftkToSTK x)
+                        , let shShaped = shp `shsAppend` shn
+                        , Refl <- lemRankMapJust shShaped
+                        , Refl <- lemMapJustApp shp (Proxy @shn) = runST $ do
   let zero = unConcrete $ tdefTarget x
       sh = shxFromShS shShaped
   vecs <- Mixed.mvecsReplicate sh zero
     -- this avoids the slow case of mvecsReplicate if x is TKScalar
   forM_ upd $ \(ix, Concrete v) ->
     Mixed.mvecsWritePartialLinear
-      (Proxy @(MapJust sh1)) ix (Nested.stoMixed v) vecs
+      (Proxy @(MapJust shp)) ix (Nested.stoMixed v) vecs
   Concrete . Nested.mcastToShaped shShaped <$> Mixed.mvecsUnsafeFreeze sh vecs
 
 -- Note that after vectorization, the index may not fit within
 -- the type-level shape, which we catch in the @ixInBounds@
 -- and return def, so it's fine. Similarly in gather and scatter.
-tindexZS :: forall shm shn x. (KnownShS shn, KnownSTK x)
-         => Concrete (TKS2 (shm ++ shn) x) -> IxSOf Concrete shm
+tindexZS :: forall shm shn x. KnownSTK x
+         => ShS shn -> Concrete (TKS2 (shm ++ shn) x) -> IxSOf Concrete shm
          -> Concrete (TKS2 shn x)
 {-# INLINE tindexZS #-}
 tindexZS = case knownSTK @x of
   STKScalar @r -> contFromTypeable @r tindexZSDict
   _ -> tindexZSSlow
 
-tindexZSSlow :: forall shm shn x. (KnownShS shn, KnownSTK x)
-             => Concrete (TKS2 (shm ++ shn) x) -> IxSOf Concrete shm
+tindexZSSlow :: forall shm shn x. KnownSTK x
+             => ShS shn -> Concrete (TKS2 (shm ++ shn) x) -> IxSOf Concrete shm
              -> Concrete (TKS2 shn x)
 {-# NOINLINE tindexZSSlow #-}  -- the rare slow case
-tindexZSSlow (Concrete v) ix | Dict <- eltDictRep (knownSTK @x) =
+tindexZSSlow shn (Concrete v) ix | Dict <- eltDictRep (knownSTK @x) =
   if ixInBoundsS (Shaped.shsTakeIx @shn @shm Proxy (Nested.sshape v) ix) ix
   then Concrete $ Nested.sindexPartial v (fmapUnConcrete ix)
   else case tftkG (STKS (Nested.sshape v) (knownSTK @x)) v of
-         FTKS _sh x -> tdefTarget (FTKS (knownShS @shn) x)
+         FTKS _sh x -> tdefTarget (FTKS shn x)
 
-tindexZSDict :: forall shm shn r. KnownShS shn
-             => Dict GoodScalar r
-             -> Concrete (TKS (shm ++ shn) r)
+tindexZSDict :: forall shm shn r.
+                Dict GoodScalar r
+             -> ShS shn -> Concrete (TKS (shm ++ shn) r)
              -> IxSOf Concrete shm
              -> Concrete (TKS shn r)
 {-# INLINE tindexZSDict #-}
 tindexZSDict Dict = tindexZSScalar
 
-tindexZSScalar :: forall shm shn r. (KnownShS shn, GoodScalar r)
-               => Concrete (TKS (shm ++ shn) r) -> IxSOf Concrete shm
+tindexZSScalar :: forall shm shn r. GoodScalar r
+               => ShS shn -> Concrete (TKS (shm ++ shn) r) -> IxSOf Concrete shm
                -> Concrete (TKS shn r)
 {-# INLINE tindexZSScalar #-}
-tindexZSScalar (Concrete v) ix = case knownShS @shn of
+tindexZSScalar shn (Concrete v) ix = case shn of
   ZSS | Refl <- lemAppNil @shm ->  -- an optimized common case
     sfromK $ tindex0SImpl (Concrete v) ix
       -- TODO: benchmark and possibly duplicate the Concrete instance
@@ -1407,7 +1401,7 @@ tindexZSScalar (Concrete v) ix = case knownShS @shn of
     Concrete
     $ if ixInBoundsS (Shaped.shsTakeIx @shn @shm Proxy (Nested.sshape v) ix) ix
       then Nested.sindexPartial v (fmapUnConcrete ix)
-      else Nested.sreplicatePrim (knownShS @shn) def
+      else Nested.sreplicatePrim shn def
 
 tindex0S :: forall sh1 r. GoodScalar r
          => Concrete (TKS sh1 r) -> IxSOf Concrete sh1
@@ -1433,23 +1427,23 @@ tindex0SDict :: forall sh1 r.
 {-# INLINE tindex0SDict #-}
 tindex0SDict Dict = tindex0SImpl
 
-toneHotS :: forall sh1 sh2 x. (KnownShS sh1, KnownShS sh2, KnownSTK x)
-         => Concrete (TKS2 sh2 x) -> IxSOf Concrete sh1
-         -> Concrete (TKS2 (sh1 ++ sh2) x)
+toneHotS :: forall shp shn x. KnownSTK x
+         => ShS shn -> ShS shp -> Concrete (TKS2 shn x) -> IxSOf Concrete shp
+         -> Concrete (TKS2 (shp ++ shn) x)
 {-# INLINE toneHotS #-}
-toneHotS !v ix = case tftk knownSTK v of
-  FTKS sh2 x ->
-    let ftk = FTKS (knownShS @sh1 `shsAppend` sh2) x
-    in case ixsToLinearMaybe (knownShS @sh1) ix of
+toneHotS shn shp !v ix = case tftk (STKS shn knownSTK) v of
+  FTKS _ x ->
+    let ftk = FTKS (shp `shsAppend` shn) x
+    in case ixsToLinearMaybe shp ix of
          Nothing -> tdefTarget ftk
-         Just i2 -> manyHotNS @sh1 x [(i2, v)]
+         Just i2 -> manyHotNS shn shp x [(i2, v)]
 
 -- Note how ix being in bounds is checked. The semantics of the operation
 -- permits index out of bounds and then no tensor is added at such an index.
 tscatterZS
-  :: forall shm shn shp x.
-     (KnownShS shm, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x)
-  => Concrete (TKS2 (shm ++ shn) x)
+  :: forall shm shn shp x. (TKAllNum x, KnownSTK x)
+  => ShS shm -> ShS shn -> ShS shp
+  -> Concrete (TKS2 (shm ++ shn) x)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS2 (shp ++ shn) x)
 {-# INLINE tscatterZS #-}
@@ -1460,18 +1454,16 @@ tscatterZS = case knownSTK @x of
   _ -> tscatterZSSlow @shm @shn
 
 tscatterZSSlow
-  :: forall shm shn shp x.
-     (KnownShS shm, KnownShS shn, KnownShS shp, TKAllNum x, KnownSTK x)
-  => Concrete (TKS2 (shm ++ shn) x)
+  :: forall shm shn shp x. (TKAllNum x, KnownSTK x)
+  => ShS shm -> ShS shn -> ShS shp
+  -> Concrete (TKS2 (shm ++ shn) x)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS2 (shp ++ shn) x)
 {-# NOINLINE tscatterZSSlow #-}  -- the rare slow case
-tscatterZSSlow (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
-  case tftkG (STKS (knownShS @shm `shsAppend` knownShS @shn) (knownSTK @x)) v of
+tscatterZSSlow shm shn shp (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
+  case tftkG (STKS (shm `shsAppend` shn) (knownSTK @x)) v of
     FTKS _sht x ->
-      let shm = knownShS @shm
-          shp = knownShS @shp
-          g :: IIxS shm
+      let g :: IIxS shm
             -> IM.IntMap (Concrete (TKS2 shn x))
             -> IM.IntMap (Concrete (TKS2 shn x))
           g ix =
@@ -1479,10 +1471,10 @@ tscatterZSSlow (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
             in case ixsToLinearMaybe shp ix2 of
               Nothing -> id
               Just i2 ->
-                IM.insertWith (taddTarget knownSTK) i2
+                IM.insertWith (taddTarget $ STKS shn (ftkToSTK x)) i2
                   (Concrete $ Nested.sindexPartial @shm @shn v ix)
           !ivs = foldl' (flip g) IM.empty (shsEnum shm)
-      in manyHotNS @shp x $ IM.assocs ivs
+      in manyHotNS shn shp x $ IM.assocs ivs
 
 -- The inlining phase control and the explicit dictionaryy argument
 -- are required for GHC to consistently specialize the inlined
@@ -1491,8 +1483,9 @@ tscatterZSSlow (Concrete v) f | Dict <- eltDictRep (knownSTK @x) =
 -- Maybe what needs to happen is that tscatterZSDict gets specialized
 -- before it's inlined.
 tscatterZSDict
-  :: forall shm shn shp r. (KnownShS shm, KnownShS shn, KnownShS shp)
-  => Dict0 (Num r, Nested.NumElt r, GoodScalar r)
+  :: forall shm shn shp r.
+     Dict0 (Num r, Nested.NumElt r, GoodScalar r)
+  -> ShS shm -> ShS shn -> ShS shp
   -> Concrete (TKS (shm ++ shn) r)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS (shp ++ shn) r)
@@ -1500,51 +1493,49 @@ tscatterZSDict
 tscatterZSDict Dict0 = tscatterZSScalar @shm @shn
 
 tscatterZSScalar
-  :: forall shm shn shp r.
-     ( KnownShS shm, KnownShS shn, KnownShS shp
-     , GoodScalar r, Num r, Nested.NumElt r )
-  => Concrete (TKS (shm ++ shn) r)
+  :: forall shm shn shp r. (GoodScalar r, Num r, Nested.NumElt r)
+  => ShS shm -> ShS shn -> ShS shp
+  -> Concrete (TKS (shm ++ shn) r)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS (shp ++ shn) r)
 {-# INLINE tscatterZSScalar #-}
-tscatterZSScalar !(Concrete v) f =
-  let shm = knownShS @shm
-      shp = knownShS @shp
-  in case knownShS @shn of
-       ZSS | Refl <- lemAppNil @shp
-           , Refl <- lemAppNil @shm -> runST $ do
-         -- Optimized: using Nested.sindex instead of Nested.sindexPartial.
-         vec <- VSM.replicate (shsSize shp) 0
-         forM_ (shsEnum shm) $ \ix -> do
-           let ix2 = f $ fmapConcrete ix
-           case ixsToLinearMaybe shp ix2 of
-             Nothing -> return ()
-             Just i2 -> do
-               let u = Nested.sindex v ix
-               u2 <- VSM.read vec i2
-               VSM.write vec i2 (u + u2)
-         Concrete . Nested.sfromVector shp <$> VS.unsafeFreeze vec
-       shn -> runST $ do
-         let g :: IIxS shm
-               -> IM.IntMap (Nested.Shaped shn r)
-               -> IM.IntMap (Nested.Shaped shn r)
-             g ix =
-               let ix2 = f $ fmapConcrete ix
-               in case ixsToLinearMaybe shp ix2 of
-                 Nothing -> id
-                 Just i2 ->
-                   IM.insertWith (+) i2 (Nested.sindexPartial @shm @shn v ix)
-             ivs = foldl' (flip g) IM.empty (shsEnum shm)
-             shnSize = shsSize shn
-         vec <- VSM.replicate (shsSize shp * shnSize) 0
-         forM_ (IM.assocs ivs) $ \(i, u) ->
-           VS.copy (VSM.slice (i * shnSize) shnSize vec) (Nested.stoVector u)
-         Concrete . Nested.sfromVector (shp `shsAppend` shn)
-           <$> VS.unsafeFreeze vec
+tscatterZSScalar shm shn shp !(Concrete v) f =
+  case shn of
+    ZSS | Refl <- lemAppNil @shp
+        , Refl <- lemAppNil @shm -> runST $ do
+      -- Optimized: using Nested.sindex instead of Nested.sindexPartial.
+      vec <- VSM.replicate (shsSize shp) 0
+      forM_ (shsEnum shm) $ \ix -> do
+        let ix2 = f $ fmapConcrete ix
+        case ixsToLinearMaybe shp ix2 of
+          Nothing -> return ()
+          Just i2 -> do
+            let u = Nested.sindex v ix
+            u2 <- VSM.read vec i2
+            VSM.write vec i2 (u + u2)
+      Concrete . Nested.sfromVector shp <$> VS.unsafeFreeze vec
+    _ -> runST $ do
+      let g :: IIxS shm
+            -> IM.IntMap (Nested.Shaped shn r)
+            -> IM.IntMap (Nested.Shaped shn r)
+          g ix =
+            let ix2 = f $ fmapConcrete ix
+            in case ixsToLinearMaybe shp ix2 of
+              Nothing -> id
+              Just i2 ->
+                IM.insertWith (+) i2 (Nested.sindexPartial @shm @shn v ix)
+          ivs = foldl' (flip g) IM.empty (shsEnum shm)
+          shnSize = shsSize shn
+      vec <- VSM.replicate (shsSize shp * shnSize) 0
+      forM_ (IM.assocs ivs) $ \(i, u) ->
+        VS.copy (VSM.slice (i * shnSize) shnSize vec) (Nested.stoVector u)
+      Concrete . Nested.sfromVector (shp `shsAppend` shn)
+        <$> VS.unsafeFreeze vec
 
 tgatherZS
-  :: forall shm shn shp x. (KnownShS shm, KnownShS shn, KnownSTK x)
-  => Concrete (TKS2 (shp ++ shn) x)
+  :: forall shm shn shp x. KnownSTK x
+  => ShS shm -> ShS shn
+  -> Concrete (TKS2 (shp ++ shn) x)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS2 (shm ++ shn) x)
 {-# INLINE tgatherZS #-}
@@ -1555,17 +1546,19 @@ tgatherZS = case knownSTK @x of
   _ -> tgatherZSSlow @shm @shn
 
 tgatherZSSlow
-  :: forall shm shn shp x. (KnownShS shm, KnownShS shn, KnownSTK x)
-  => Concrete (TKS2 (shp ++ shn) x)
+  :: forall shm shn shp x. KnownSTK x
+  => ShS shm -> ShS shn
+  -> Concrete (TKS2 (shp ++ shn) x)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS2 (shm ++ shn) x)
 {-# NOINLINE tgatherZSSlow #-}
-tgatherZSSlow !t f =
-  tsbuild @_ @shm @shn (\ix -> t `tindexZSSlow` f ix)
+tgatherZSSlow shm shn !t f =
+  tbuildS shm shn (\ix -> tindexZSSlow shn t (f ix))
 
 tgatherZSDict
-  :: forall shm shn shp r. (KnownShS shm, KnownShS shn)
-  => Dict GoodScalar r
+  :: forall shm shn shp r.
+     Dict GoodScalar r
+  -> ShS shm -> ShS shn
   -> Concrete (TKS (shp ++ shn) r)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS (shm ++ shn) r)
@@ -1573,20 +1566,22 @@ tgatherZSDict
 tgatherZSDict Dict = tgatherZSScalar @shm @shn
 
 tgatherZSScalar
-  :: forall shm shn shp r. (KnownShS shm, KnownShS shn, GoodScalar r)
-  => Concrete (TKS (shp ++ shn) r)
+  :: forall shm shn shp r. GoodScalar r
+  => ShS shm -> ShS shn
+  -> Concrete (TKS (shp ++ shn) r)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS (shm ++ shn) r)
 {-# INLINE tgatherZSScalar #-}
-tgatherZSScalar !t f = case knownShS @shn of
+tgatherZSScalar shm shn !t f = case shn of
   ZSS | Refl <- lemAppNil @shm
       , Refl <- lemAppNil @shp ->  -- an optimized common case
-    tkbuild (\ix -> t `tindex0SImpl` f ix)
-  _ -> tsbuild @_ @shm @shn (\ix -> t `tindexZSScalar` f ix)
+    tbuildK shm (\ix -> t `tindex0SImpl` f ix)
+  _ -> tbuildS shm shn (\ix -> tindexZSScalar shn t (f ix))
 
 tgatherZ1S
-  :: forall k shn shp x. (KnownNat k, KnownShS shn, KnownSTK x)
-  => Concrete (TKS2 (shp ++ shn) x)
+  :: forall k shn shp x. (KnownNat k, KnownSTK x)
+  => ShS shn
+  -> Concrete (TKS2 (shp ++ shn) x)
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS2 (k ': shn) x)
 {-# INLINE tgatherZ1S #-}
@@ -1597,17 +1592,19 @@ tgatherZ1S = case knownSTK @x of
   _ -> tgatherZ1SSlow @k @shn
 
 tgatherZ1SSlow
-  :: forall k shn shp x. (KnownNat k, KnownShS shn, KnownSTK x)
-  => Concrete (TKS2 (shp ++ shn) x)
+  :: forall k shn shp x. (KnownNat k, KnownSTK x)
+  => ShS shn
+  -> Concrete (TKS2 (shp ++ shn) x)
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS2 (k ': shn) x)
 {-# NOINLINE tgatherZ1SSlow #-}
-tgatherZ1SSlow !t f =
-  tsbuild1 (\ix -> t `tindexZSSlow` f ix)
+tgatherZ1SSlow shn !t f =
+  tbuild1S shn (\ix -> tindexZSSlow shn t (f ix))
 
 tgatherZ1SDict
-  :: forall k shn shp r. (KnownNat k, KnownShS shn)
+  :: forall k shn shp r. KnownNat k
   => Dict GoodScalar r
+  -> ShS shn
   -> Concrete (TKS (shp ++ shn) r)
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS (k ': shn) r)
@@ -1615,15 +1612,16 @@ tgatherZ1SDict
 tgatherZ1SDict Dict = tgatherZ1SScalar @k @shn
 
 tgatherZ1SScalar
-  :: forall k shn shp r. (KnownNat k, KnownShS shn, GoodScalar r)
-  => Concrete (TKS (shp ++ shn) r)
+  :: forall k shn shp r. (KnownNat k, GoodScalar r)
+  => ShS shn
+  -> Concrete (TKS (shp ++ shn) r)
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS (k ': shn) r)
 {-# INLINE tgatherZ1SScalar #-}
-tgatherZ1SScalar !t f = case knownShS @shn of
+tgatherZ1SScalar shn !t f = case shn of
   ZSS | Refl <- lemAppNil @shp ->  -- an optimized common case
     tkbuild1 @_ @k (\ix -> t `tindex0SImpl` f ix)
-  _ -> tsbuild1 (\ix -> t `tindexZSScalar` f ix)
+  _ -> tbuild1S shn (\ix -> tindexZSScalar shn t (f ix))
 
 tminIndexS
   :: forall n sh r r2.
@@ -1675,6 +1673,34 @@ tzipWith0NS
   -> Nested.Shaped sh r
 {-# INLINE tzipWith0NS #-}
 tzipWith0NS f = Shaped.liftShaped2 (Mixed.mliftPrim2 f)
+
+tbuild1S :: forall k sh x. (KnownNat k, KnownSTK x)
+         => ShS sh -> (IntOf Concrete -> Concrete (TKS2 sh x))
+         -> Concrete (TKS2 (k ': sh) x)
+{-# INLINE tbuild1S #-}
+tbuild1S sh f = case knownSTK @x of
+  STKScalar | ZSS <- sh ->
+    tbuild1K (Concrete . Nested.sunScalar . unConcrete . f)
+  _ | Dict <- eltDictRep (knownSTK @x) -> case SNat @k of
+    SNat' @0 ->
+      Concrete $ Nested.semptyArray sh
+    _ ->
+      let g i = unConcrete $ f (Concrete i)
+      in Concrete $ Nested.sfromListOuter SNat $ NonEmpty.fromList
+         $ map g [0 .. valueOf @k - 1]
+
+tbuildS :: forall shm shn x. KnownSTK x
+        => ShS shm -> ShS shn -> (IxSOf Concrete shm -> Concrete (TKS2 shn x))
+        -> Concrete (TKS2 (shm ++ shn) x)
+{-# INLINE tbuildS #-}
+tbuildS shm shn f = case knownSTK @x of
+  STKScalar | ZSS <- shn
+            , Refl <- lemAppNil @shm ->
+    tbuildK shm (Concrete . Nested.sunScalar . unConcrete . f)
+  _ | Dict <- eltDictRep (knownSTK @x) ->
+    withKnownShS shn $  -- TODO: why exactly is this needed?
+    let h ix = unConcrete $ f (fmapConcrete ix)
+    in Concrete $ Nested.sunNest $ Nested.sgenerate shm h
 
 
 -- * Mixed internal definitions
