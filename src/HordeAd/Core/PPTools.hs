@@ -352,13 +352,13 @@ printAst cfg d = \case
     $ printAst cfg 10 v
       . showString " !$ "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
-  AstScatterS _ v (ZS, ix) ->
+  AstScatterS _ _ _ v (ZS, ix) ->
     showParen (d > 9)
     $ showString "soneHot "
       . printAst cfg 11 v
       . showString " "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
-  AstScatterS @shm _sh v (var ::$ ZS, ix) | snat :$$ _ <- knownShS @shm ->
+  AstScatterS (snat :$$ _) _ _ v (var ::$ ZS, ix) ->
    if loseRoudtrip cfg
    then
     showParen (d > 10)
@@ -380,12 +380,12 @@ printAst cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . showListWith (printAst cfg 0) (Foldable.toList ix))
-  AstScatterS @shm _sh v (vars, ix) ->
+  AstScatterS shm _ _ v (vars, ix) ->
    if loseRoudtrip cfg
    then
     showParen (d > 10)
     $ showString "sscatter @"
-      . showListWith shows (shsToList (knownShS @shm))
+      . showListWith shows (shsToList shm)
       . showString " "
       . printAst cfg 11 v
       . showString " "
@@ -396,7 +396,7 @@ printAst cfg d = \case
            . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
     showParen (d > 10)
-    $ showString ("sscatter @" ++ show (knownShS @shm) ++ " ")
+    $ showString ("sscatter @" ++ show shm ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True
@@ -412,7 +412,7 @@ printAst cfg d = \case
     $ printAst cfg 10 v
       . showString " !$ "
       . showListWith (printAst cfg 0) (Foldable.toList ix) -}
-  AstGatherS @shm _sh v (var ::$ ZS, ix) | snat :$$ _ <- knownShS @shm ->
+  AstGatherS (snat :$$ _) _ _ v (var ::$ ZS, ix) ->
    if loseRoudtrip cfg
    then
     showParen (d > 10)
@@ -434,12 +434,12 @@ printAst cfg d = \case
            . printAstIntVar cfg var
            . showString " -> "
            . showListWith (printAst cfg 0) (Foldable.toList ix))
-  AstGatherS @shm _sh v (vars, ix) ->
+  AstGatherS shm _ _ v (vars, ix) ->
    if loseRoudtrip cfg
    then
     showParen (d > 10)
     $ showString "sgather @"
-      . showListWith shows (shsToList (knownShS @shm))
+      . showListWith shows (shsToList shm)
       . showString " "
       . printAst cfg 11 v
       . showString " "
@@ -451,7 +451,7 @@ printAst cfg d = \case
            . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
     showParen (d > 10)
-    $ showString ("sgather @" ++ show (knownShS @shm) ++ " ")
+    $ showString ("sgather @" ++ show shm ++ " ")
       . printAst cfg 11 v
       . showString " "
       . (showParen True

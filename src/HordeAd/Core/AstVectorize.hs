@@ -275,14 +275,14 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
 
     Ast.AstIndexS shn v ix -> traceRule $
       build1VIndexS snat shn (var, v, ix)  -- @var@ is in @v@ or @ix@
-    Ast.AstScatterS @shm @shn @shp shn v (vars, ix) -> traceRule $
+    Ast.AstScatterS shm shn shp v (vars, ix) -> traceRule $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix)
-      in astScatterS @(k ': shm) @shn @(k ': shp) shn
+      in astScatterS (SNat @k :$$ shm) shn (SNat @k :$$ shp)
                      (build1VOccurrenceUnknown snat (var, v))
                      (varFresh ::$ vars, astVarFresh :.$ ix2)
-    Ast.AstGatherS @shm @shn @shp shn v (vars, ix) -> traceRule $
+    Ast.AstGatherS shm shn shp v (vars, ix) -> traceRule $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix)
-      in astGatherS @(k ': shm) @shn @(k ': shp) shn
+      in astGatherS (SNat @k :$$ shm) shn (SNat @k :$$ shp)
                     (build1VOccurrenceUnknown snat (var, v))
                     (varFresh ::$ vars, astVarFresh :.$ ix2)
     Ast.AstMinIndexS v -> traceRule $
@@ -403,9 +403,12 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
          let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix1)
              ruleD :: AstTensor AstMethodLet s (TKS2 (k ': shn) x)
              ruleD | FTKS shmshn1 _ <- ftkAst v1 =
-               withKnownShS (Shaped.shsTakeIx @shn1 @shm1 Proxy shmshn1 ix2) $
-               astGatherS shn1 (build1VOccurrenceUnknown k (var, v1))
-                          (varFresh ::$ ZS, astVarFresh :.$ ix2)
+               astGatherS
+                 (SNat @k :$$ ZSS)
+                 shn1
+                 (SNat @k :$$ Shaped.shsTakeIx @shn1 @shm1 Proxy shmshn1 ix2)
+                 (build1VOccurrenceUnknown k (var, v1))
+                 (varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = ixsLength ix1
              pickRuleD :: AstTensor AstMethodLet s2 y2 -> Bool
              pickRuleD = \case  -- try to avoid ruleD if not a normal form
@@ -433,8 +436,10 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
          build1VOccurrenceUnknown k (var, v)
            -- peel off yet another constructor
      else traceRule $
-            withKnownShS (Shaped.shsTakeIx @shn @shm Proxy shmshn ix) $
-            astGatherS shn v0 (var ::$ ZS, ix)
+            astGatherS (SNat @k :$$ ZSS)
+                       shn
+                       (Shaped.shsTakeIx @shn @shm Proxy shmshn ix)
+                       v0 (var ::$ ZS, ix)
 
 build1VHFun
   :: forall k x z s. KnownSpan s

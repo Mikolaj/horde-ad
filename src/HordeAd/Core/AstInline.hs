@@ -184,20 +184,20 @@ inlineAst !memo v0 = case v0 of
     let (memo1, v2) = inlineAst memo v
         (memo2, ix2) = mapAccumL' inlineAst memo1 (Foldable.toList ix)
     in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
-  Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
+  Ast.AstScatterS shm shn shp v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumL' inlineAst EM.empty (Foldable.toList ix)
-        memoI2 = EM.map (shsSize (knownShS @shp) *) memoI0
+        memoI2 = EM.map (shsSize shp *) memoI0
         memo2 = EM.unionWith (+) memo1 memoI2
         !ix3 = ixsFromIxS ix ix2
-    in (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, ix3))
-  Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
+    in (memo2, Ast.AstScatterS shm shn shp v2 (vars, ix3))
+  Ast.AstGatherS shm shn shp v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumL' inlineAst EM.empty (Foldable.toList ix)
-        memoI2 = EM.map (shsSize (knownShS @shm) *) memoI0
+        memoI2 = EM.map (shsSize shm *) memoI0
         memo2 = EM.unionWith (+) memo1 memoI2
         !ix3 = ixsFromIxS ix ix2
-    in (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, ix3))
+    in (memo2, Ast.AstGatherS shm shn shp v2 (vars, ix3))
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
   Ast.AstIotaS{} -> (memo, v0)
@@ -439,18 +439,18 @@ unshareAst !memo = \case
     let (memo1, v2) = unshareAst memo v
         (memo2, ix2) = mapAccumL' unshareAst memo1 (Foldable.toList ix)
     in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
-  Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
+  Ast.AstScatterS shm shn shp v (vars, ix) ->
     let (memo1, ix2) = mapAccumL' (unshareAstScoped $ listsToList vars)
                                   memo (Foldable.toList ix)
         (memo2, v2) = unshareAst memo1 v
         !ix3 = ixsFromIxS ix ix2
-    in (memo2, Ast.AstScatterS @shm @shn @shp shn v2 (vars, ix3))
-  Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
+    in (memo2, Ast.AstScatterS shm shn shp v2 (vars, ix3))
+  Ast.AstGatherS shm shn shp v (vars, ix) ->
     let (memo1, ix2) = mapAccumL' (unshareAstScoped $ listsToList vars)
                                   memo (Foldable.toList ix)
         (memo2, v2) = unshareAst memo1 v
         !ix3 = ixsFromIxS ix ix2
-    in (memo2, Ast.AstGatherS @shm @shn @shp shn v2 (vars, ix3))
+    in (memo2, Ast.AstGatherS shm shn shp v2 (vars, ix3))
   Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ unshareAst memo a
   Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ unshareAst memo a
   Ast.AstIotaS snat -> (memo, Ast.AstIotaS snat)

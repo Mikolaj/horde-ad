@@ -746,8 +746,8 @@ instance (NumScalar r, KnownSpan s)
   negate (AstI2S RemOp u v) = AstI2S RemOp (negate u) v
     -- v is likely positive and let's keep it so
   negate (AstConcreteS n) = AstConcreteS (negate n)
-  negate (AstGatherS @shm @shn @shp shn v (vars, ix)) =
-    AstGatherS @shm @shn @shp shn (negate v) (vars, ix)
+  negate (AstGatherS shm shn shp v (vars, ix)) =
+    AstGatherS shm shn shp (negate v) (vars, ix)
   negate w@(AstConvert _ n)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst n) =

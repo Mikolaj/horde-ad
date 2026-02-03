@@ -208,43 +208,46 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
   -- recover and also handle similarly tsupdate, both implemented
   -- as a gather and as a scatter
   -- TODO: this breaks specialization:
-  AstScatterS shn v (ZS, ix) ->
+  AstScatterS _ shn shp v (ZS, ix) ->
     withKnownShS shn $
+    withKnownShS shp $
     withKnownSTK (stkAstX v) $
     tsoneHot (interpretAst env v) (interpretAst env <$> ix)
-  AstScatterS @shm @shn @shp
-              shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
+  AstScatterS @_ @_ @shp (SNat :$$ _) shn shp v (var ::$ ZS, ix) ->
     withKnownShS shn $
+    withKnownShS shp $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAst env v
         f2 :: IntOf target -> IxSOf target shp
         f2 !i2 = interpretAst (extendEnvI var i2 env) <$> ix
-    in tsscatter1 @_ @_ @shn @shp t1 f2
-  AstScatterS @shm @shn @shp
-              shn v (vars, ix) ->
+    in tsscatter1 t1 f2
+  AstScatterS @shm @shn @shp shm shn shp v (vars, ix) ->
+    withKnownShS shm $
     withKnownShS shn $
+    withKnownShS shp $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAst env v
         f2 :: IxSOf target shm -> IxSOf target shp
         f2 !ix2 = interpretAst (extendEnvVarsS vars ix2 env) <$> ix
-    in tsscatter @_ @shm @shn @shp t1 f2
-  AstGatherS shn v (ZS, ix) -> interpretAst env (AstIndexS shn v ix)
-  AstGatherS @shm @shn @shp
-             shn v (var ::$ ZS, ix) | SNat :$$ _ <- knownShS @shm ->
+    in tsscatter @_ @_ @shn t1 f2
+  AstGatherS _ shn _ v (ZS, ix) -> interpretAst env (AstIndexS shn v ix)
+  AstGatherS @_ @_ @shp (SNat :$$ _) shn shp v (var ::$ ZS, ix) ->
     withKnownShS shn $
+    withKnownShS shp $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAst env v
         f2 :: IntOf target -> IxSOf target shp
         f2 !i2 = interpretAst (extendEnvI var i2 env) <$> ix
-    in tsgather1 @_ @_ @shn @shp t1 f2
-  AstGatherS @shm @shn @shp
-             shn v (vars, ix) ->
+    in tsgather1 t1 f2
+  AstGatherS @shm @shn @shp shm shn shp v (vars, ix) ->
+    withKnownShS shm $
     withKnownShS shn $
+    withKnownShS shp $
     withKnownSTK (stkAstX v) $
     let t1 = interpretAst env v
         f2 :: IxSOf target shm -> IxSOf target shp
         f2 !ix2 = interpretAst (extendEnvVarsS vars ix2 env) <$> ix
-    in tsgather @_ @shm @shn @shp t1 f2
+    in tsgather @_ @_ @shn t1 f2
   AstMinIndexS v -> tsminIndex $ interpretAst env v
   AstMaxIndexS v -> tsmaxIndex $ interpretAst env v
   AstIotaS SNat -> tsiota

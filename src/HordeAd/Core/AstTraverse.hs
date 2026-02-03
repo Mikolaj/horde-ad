@@ -161,12 +161,11 @@ expandAst t = case t of
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
                    shn (expandAst v) (expandAstIxS ix)
-  Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
-    astScatterS @shm @shn @shp shn (expandAst v) (vars, expandAstIxS ix)
-  Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
-    astGatherKnobsS @shm @shn @shp
-                    (defaultKnobs {knobPhase = PhaseExpansion})
-                    shn (expandAst v) (vars, expandAstIxS ix)
+  Ast.AstScatterS shm shn shp v (vars, ix) ->
+    astScatterS shm shn shp (expandAst v) (vars, expandAstIxS ix)
+  Ast.AstGatherS shm shn shp v (vars, ix) ->
+    astGatherKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
+                    shm shn shp (expandAst v) (vars, expandAstIxS ix)
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (expandAst a)
   Ast.AstIotaS{} -> t
@@ -356,12 +355,11 @@ simplifyAst t = case t of
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
                    shn (simplifyAst v) (simplifyAstIxS ix)
-  Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
-    astScatterS @shm @shn @shp shn (simplifyAst v) (vars, simplifyAstIxS ix)
-  Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
-    astGatherKnobsS @shm @shn @shp
-                    (defaultKnobs {knobPhase = PhaseSimplification})
-                    shn (simplifyAst v) (vars, simplifyAstIxS ix)
+  Ast.AstScatterS shm shn shp v (vars, ix) ->
+    astScatterS shm shn shp (simplifyAst v) (vars, simplifyAstIxS ix)
+  Ast.AstGatherS shm shn shp v (vars, ix) ->
+    astGatherKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
+                    shm shn shp (simplifyAst v) (vars, simplifyAstIxS ix)
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAst a)
   Ast.AstIotaS{} -> t
@@ -797,18 +795,17 @@ contractAst t0 = case t0 of
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                    shn (contractAst v) (contractAstIxS ix)
-  Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
-    astScatterS @shm @shn @shp shn (contractAst v) (vars, contractAstIxS ix)
+  Ast.AstScatterS shm shn shp v (vars, ix) ->
+    astScatterS shm shn shp (contractAst v) (vars, contractAstIxS ix)
   -- This rule is reverted in vectorization, so contraction phase may be fine.
-  Ast.AstGatherS shn v (vars, Ast.AstCond b i1 i2 :.$ prest)
+  Ast.AstGatherS shm shn shp v (vars, Ast.AstCond b i1 i2 :.$ prest)
     | not $ Foldable.any ((`varInAst` b) . varNameToAstVarId) vars ->
       contractAst
-      $ Ast.AstCond b (Ast.AstGatherS shn v (vars, i1 :.$ prest))
-                      (Ast.AstGatherS shn v (vars, i2 :.$ prest))
-  Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
-    astGatherKnobsS @shm @shn @shp
-                    (defaultKnobs {knobPhase = PhaseContraction})
-                    shn (contractAst v) (vars, contractAstIxS ix)
+      $ Ast.AstCond b (Ast.AstGatherS shm shn shp v (vars, i1 :.$ prest))
+                      (Ast.AstGatherS shm shn shp v (vars, i2 :.$ prest))
+  Ast.AstGatherS shm shn shp v (vars, ix) ->
+    astGatherKnobsS (defaultKnobs {knobPhase = PhaseContraction})
+                    shm shn shp (contractAst v) (vars, contractAstIxS ix)
 {- TODO, but sbuild is tricky, so only if benchmarks show it's worth it:
   AstGatherS @shm AstIotaS (vars, i :.$ ZIS) | Refl <- lemAppNil @shm ->
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) shm :~: '[]) $
@@ -941,12 +938,12 @@ letDownAst t = case t of
 
   Ast.AstIndexS shn v ix ->
     Ast.AstIndexS shn (letDownAst v) (letDownAstIxS ix)
-  Ast.AstScatterS @shm @shn @shp shn v (vars, ix) ->
+  Ast.AstScatterS shm shn shp v (vars, ix) ->
     let !ix2 = letDownAstIxS ix
-    in Ast.AstScatterS @shm @shn @shp shn (letDownAst v) (vars, ix2)
-  Ast.AstGatherS @shm @shn @shp shn v (vars, ix) ->
+    in Ast.AstScatterS shm shn shp (letDownAst v) (vars, ix2)
+  Ast.AstGatherS shm shn shp v (vars, ix) ->
     let !ix2 = letDownAstIxS ix
-    in Ast.AstGatherS @shm @shn @shp shn (letDownAst v) (vars, ix2)
+    in Ast.AstGatherS shm shn shp (letDownAst v) (vars, ix2)
   Ast.AstMinIndexS a -> Ast.AstMinIndexS (letDownAst a)
   Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (letDownAst a)
   Ast.AstIotaS{} -> t
