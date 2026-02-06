@@ -1075,7 +1075,7 @@ tindexZRScalar :: forall m n r. (KnownNat m, KnownNat n, GoodScalar r)
 {-# INLINE tindexZRScalar #-}
 tindexZRScalar (Concrete v) ix = case SNat @n of
   SNat' @0 ->  -- an optimized common case
-    rfromK $ tindex0R (Concrete v) ix
+    rfromK $ Concrete v `tindex0RImpl` ix
   _ ->
     Concrete
     $ if ixInBoundsR (shrTake @m $ Nested.rshape v) ix
@@ -1728,7 +1728,7 @@ manyHotNX (FTKX sh x) upd | Dict <- eltDictRep (knownSTK @x) = runST $ do
 tindexZX :: (KnownShX sh1, KnownShX sh2, KnownSTK x)
          => Concrete (TKX2 (sh1 ++ sh2) x) -> IxXOf Concrete sh1
          -> Concrete (TKX2 sh2 x)
-{-# INLINE tindexZX #-}  -- the function is just a wrapper
+{-# INLINE tindexZX #-}
 tindexZX @sh1 @sh2 @x (Concrete v) ix | Dict <- eltDictRep (knownSTK @x) =
   if ixInBoundsX (shxTakeSSX (Proxy @sh2) (knownShX @sh1) (Nested.mshape v)) ix
   then Concrete $ Nested.mindexPartial v (fmapUnConcrete ix)
@@ -1738,7 +1738,7 @@ tindexZX @sh1 @sh2 @x (Concrete v) ix | Dict <- eltDictRep (knownSTK @x) =
 
 tindex0X :: GoodScalar r
          => Concrete (TKX sh1 r) -> IxXOf Concrete sh1 -> Concrete (TKScalar r)
-{-# INLINE tindex0X #-}  -- the function is just a wrapper
+{-# INLINE tindex0X #-}
 tindex0X (Concrete v) ix =
   Concrete
   $ if ixInBoundsX (Nested.mshape v) ix
