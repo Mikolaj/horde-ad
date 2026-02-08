@@ -1249,6 +1249,7 @@ astFloorK t = case t of
   -- This increases work and term size, because conditional is eager.
   -- Ast.AstCond b a2 a3 -> Ast.AstCond b (astFloorK a2) (astFloorK a3)
   -- These values are small, so we can simplify them ASAP.
+  AstConcreteK k -> astConcreteK (tkfloor $ Concrete k)
   Ast.AstFloorK v -> astFloorK v
   Ast.AstFromIntegralK v -> astFromIntegralK v
   Ast.AstCastK v -> astFloorK v
@@ -1263,6 +1264,7 @@ astFromIntegralK :: forall r1 r2. (NumScalar r1, Integral r1, NumScalar r2)
 astFromIntegralK t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
   Ast.AstLet var u v -> astLet var u (astFromIntegralK v)
+  AstConcreteK k -> astConcreteK (tkfromIntegral $ Concrete k)
   Ast.AstN1K NegateOp u -> negate (astFromIntegralK u)
   Ast.AstN1K AbsOp u -> abs (astFromIntegralK u)
   Ast.AstN1K SignumOp u -> signum (astFromIntegralK u)
@@ -1294,11 +1296,12 @@ astCastK t = case t of
   _ -> Ast.AstCastK t
 
 astArgMinK :: NumScalar r
-           => AstTensor ms PlainSpan (TKS '[n] r)
-           -> AstTensor ms PlainSpan (TKScalar Int)
+           => AstTensor AstMethodLet PlainSpan (TKS '[n] r)
+           -> AstTensor AstMethodLet PlainSpan (TKScalar Int)
 astArgMinK t = case t of
   Ast.AstReplicate{} -> 0  -- we mask undefined if n is zero; tough luck
   Ast.AstLet var u v -> astLet var u (astArgMinK v)
+  AstConcreteS v -> astConcreteK (tkargMin $ Concrete v)
   Ast.AstN1S NegateOp u -> astArgMaxK u
   Ast.AstFromIntegralS v -> astArgMinK v
   Ast.AstCastS v -> astArgMinK v
@@ -1306,11 +1309,12 @@ astArgMinK t = case t of
   _ -> Ast.AstArgMinK t
 
 astArgMaxK :: NumScalar r
-           => AstTensor ms PlainSpan (TKS '[n] r)
-           -> AstTensor ms PlainSpan (TKScalar Int)
+           => AstTensor AstMethodLet PlainSpan (TKS '[n] r)
+           -> AstTensor AstMethodLet PlainSpan (TKScalar Int)
 astArgMaxK t = case t of
   Ast.AstReplicate{} -> 0
   Ast.AstLet var u v -> astLet var u (astArgMaxK v)
+  AstConcreteS v -> astConcreteK (tkargMax $ Concrete v)
   Ast.AstN1S NegateOp u -> astArgMinK u
   Ast.AstFromIntegralS v -> astArgMaxK v
   Ast.AstCastS v -> astArgMaxK v

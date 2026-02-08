@@ -2433,7 +2433,7 @@ fblowupLetPP16 = do
   let fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 1 6
   let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fblowupLetT (FTKR [2] FTKScalar)
   printArtifactPrimalSimple (simplifyArtifactRev artifactRev)
-    @?= "\\v1 -> rfromS (tlet (((((tfromPlain (STKScalar) 0.9999998500000087 * (sfromR v1 `index0` [0] / sfromR v1 `index0` [1]) + tfromPlain (STKScalar) (0.49999992500000434 * negate (kfromIntegral 1))) + tfromPlain (STKScalar) (0.4999999400000026 * negate (kfromIntegral 1))) + tfromPlain (STKScalar) (0.4999999550000013 * negate (kfromIntegral 1))) + tfromPlain (STKScalar) (0.4999999700000004 * negate (kfromIntegral 1))) + tfromPlain (STKScalar) (0.499999985 * negate (kfromIntegral 1))) (\\x15 -> tfromPlain (STKS [] STKScalar) (sscalar (-1.499999985)) + (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * sfromK x15 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * sfromK x15)))"
+    @?= "\\v1 -> rfromS (tlet (tfromPlain (STKScalar) (-2.4999997750000085) + tfromPlain (STKScalar) 0.9999998500000087 * (sfromR v1 `index0` [0] / sfromR v1 `index0` [1])) (\\x15 -> tfromPlain (STKS [] STKScalar) (sscalar (-1.499999985)) + (tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * sfromK x15 + tfromPlain (STKS [] STKScalar) (sscalar 0.499999985) * sfromK x15)))"
   printArtifactSimple (simplifyArtifactRev artifactRev)
     @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `index0` [1]) (\\x9 -> tlet (tfromPlain (STKScalar) 0.4999999100000066 * kfromR dret + tfromPlain (STKScalar) 0.4999999100000066 * kfromR dret) (\\x22 -> soneHot (recip (sfromK x9) * sfromK x22) [0] + soneHot ((negate (sfromR v1 !$ [0]) / sfromK (x9 * x9)) * sfromK x22) [1])))"
 
