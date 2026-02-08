@@ -40,7 +40,7 @@ module HordeAd.OpsTensor
   , str, stranspose, sflatten, sreshape
   , xtr, xtranspose, xflatten, xreshape
    -- * Auxiliary array operations
-  , kfloor, kfromIntegral, kcast
+  , kfloor, kfromIntegral, kcast, kargMin, kargMax
   , rfloor, rfromIntegral, rcast, rminIndex, rmaxIndex, riota
   , sfloor, sfromIntegral, scast, sminIndex, smaxIndex, siota
   , xfloor, xfromIntegral, xcast, xminIndex, xmaxIndex, xiota
@@ -531,6 +531,12 @@ kcast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
          , BaseTensor target )
       => target (TKScalar r1) -> target (TKScalar r2)
 kcast = tkcast
+-- | Throws if the array is empty.
+kargMin, kargMax
+  :: forall n r target. (NumScalar r, BaseTensor target)
+  => target (TKS '[n] r) -> target (TKScalar Int)
+kargMin = tkargMin
+kargMax = tkargMax
 
 rfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )

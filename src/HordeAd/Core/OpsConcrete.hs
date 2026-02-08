@@ -329,6 +329,8 @@ instance BaseTensor Concrete where
         Is @Double -> cast @Float @Double a
         _ -> cast a
       _ -> cast a
+  tkargMin = Concrete . targMinK . unConcrete
+  tkargMax = Concrete . targMaxK . unConcrete
   {-# INLINE trfloor #-}
   trfloor = Concrete . liftVR (V.map floor) . unConcrete
   {-# INLINE trfromIntegral #-}
@@ -980,6 +982,18 @@ contFromTypeable f = case typeRep @r of
   Is @Bool -> f Dict
   Is @() -> f Dict
   _ -> error "contFromTypeable: unexpected type"
+
+targMinK
+  :: forall n r. (Nested.PrimElt r, Nested.NumElt r)
+  => Nested.Shaped '[n] r -> Int
+{-# INLINE targMinK #-}
+targMinK = ixsHead . Nested.sminIndexPrim
+
+targMaxK
+  :: forall n r. (Nested.PrimElt r, Nested.NumElt r)
+  => Nested.Shaped '[n] r -> Int
+{-# INLINE targMaxK #-}
+targMaxK = ixsHead . Nested.smaxIndexPrim
 
 tbuild1K :: (KnownNat k, GoodScalar r)
          => (IntOf Concrete -> Concrete (TKScalar r))

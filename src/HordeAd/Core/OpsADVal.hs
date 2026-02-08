@@ -312,6 +312,12 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = tkfromIntegral u
     in fromPrimalFTK FTKScalar v
   tkcast (D u u') = dD (tkcast u) (DeltaCastK u')
+  tkargMin (D u _) =
+    let v = tkargMin u
+    in fromPrimalFTK FTKScalar v
+  tkargMax (D u _) =
+    let v = tkargMax u
+    in fromPrimalFTK FTKScalar v
   trfloor (D u _) =
     let v = trfloor u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v

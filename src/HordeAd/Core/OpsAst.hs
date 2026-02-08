@@ -570,6 +570,8 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tkfloor = fromPlain . astFloorK . astPlainPart
   tkfromIntegral = fromPlain . astFromIntegralK . astPlainPart
   tkcast = astCastK
+  tkargMin = fromPlain . AstArgMinK . astPlainPart
+  tkargMax = fromPlain . AstArgMaxK . astPlainPart
   tkbuild1 @k = astBuild1Vectorize (SNat @k) STKScalar
 
   -- General operations that don't require LetTensor nor ShareTensor
@@ -1092,6 +1094,8 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   tkfromIntegral = AstRaw . fromPlain . AstFromIntegralK
                    . plainPart . unAstRaw
   tkcast = AstRaw . AstCastK . unAstRaw
+  tkargMin = AstRaw . fromPlain . AstArgMinK . plainPart . unAstRaw
+  tkargMax = AstRaw . fromPlain . AstArgMaxK . plainPart . unAstRaw
   tkbuild1 @k f = AstRaw $ AstBuild1 (SNat @k) STKScalar
                   $ funToAstInt (0, valueOf @k - 1)
                       -- this introduces new variable names
@@ -1372,6 +1376,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   tkfloor = AstNoVectorize . tkfloor . unAstNoVectorize
   tkfromIntegral = AstNoVectorize . tkfromIntegral . unAstNoVectorize
   tkcast = AstNoVectorize . tkcast . unAstNoVectorize
+  tkargMin = AstNoVectorize . tkargMin . unAstNoVectorize
+  tkargMax = AstNoVectorize . tkargMax . unAstNoVectorize
   tkbuild1 @k f = AstNoVectorize $ AstBuild1 (SNat @k) STKScalar
                   $ funToAstInt (0, valueOf @k - 1)
                       -- this introduces new variable names
@@ -1617,6 +1623,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   tkfloor = wAstNoSimplify . tkfloor . wunAstNoSimplify
   tkfromIntegral = wAstNoSimplify . tkfromIntegral . wunAstNoSimplify
   tkcast = wAstNoSimplify . tkcast . wunAstNoSimplify
+  tkargMin = wAstNoSimplify . tkargMin . wunAstNoSimplify
+  tkargMax = wAstNoSimplify . tkargMax . wunAstNoSimplify
 
   -- General operations that don't require LetTensor nor ShareTensor
   tftk stk = tftk stk . wunAstNoSimplify

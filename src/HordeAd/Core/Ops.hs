@@ -739,6 +739,9 @@ class ( Num (IntOf target)
                  => target (TKScalar r1) -> target (TKScalar r2)
   tkcast :: (Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2)
          => target (TKScalar r1) -> target (TKScalar r2)
+  tkargMin, tkargMax  -- partial
+    :: forall n r. NumScalar r
+    => target (TKS '[n] r) -> target (TKScalar Int)
 
   trfloor :: (GoodScalar r, Differentiable r, NumScalar r2, Integral r2)
           => target (TKR n r) -> target (TKR n r2)

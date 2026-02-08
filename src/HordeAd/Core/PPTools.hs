@@ -342,8 +342,8 @@ printAst cfg d = \case
   AstFloorS a -> printPrefixOp printAst cfg d "sfloor" [a]
   AstFromIntegralS a -> printPrefixOp printAst cfg d "sfromIntegral" [a]
   AstCastS a -> printPrefixOp printAst cfg d "scast" [a]
-  AstArgMinA a -> printPrefixOp printAst cfg d "sminIndex" [a]
-  AstArgMaxA a -> printPrefixOp printAst cfg d "smaxIndex" [a]
+  AstArgMinA a -> printPrefixOp printAst cfg d "sargMin" [a]
+  AstArgMaxA a -> printPrefixOp printAst cfg d "sargMax" [a]
 
   AstIndexS _ v ix ->
     showParen (d > 9)
