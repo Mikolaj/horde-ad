@@ -125,6 +125,8 @@ expandAst t = case t of
   Ast.AstFloorK a -> astFloorK (expandAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ expandAst v
   Ast.AstCastK v -> astCastK $ expandAst v
+  Ast.AstArgMinK v -> astArgMinK $ expandAst v
+  Ast.AstArgMaxK v -> astArgMaxK $ expandAst v
 
   AstPlusS u v -> expandAst u + expandAst v
   AstTimesS u v -> expandAst u * expandAst v
@@ -319,6 +321,8 @@ simplifyAst t = case t of
   Ast.AstFloorK a -> astFloorK (simplifyAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ simplifyAst v
   Ast.AstCastK v -> astCastK $ simplifyAst v
+  Ast.AstArgMinK v -> astArgMinK $ simplifyAst v
+  Ast.AstArgMaxK v -> astArgMaxK $ simplifyAst v
 
   AstPlusS u v -> simplifyAst u + simplifyAst v
   AstTimesS u v -> simplifyAst u * simplifyAst v
@@ -745,6 +749,8 @@ contractAst t0 = case t0 of
   Ast.AstFloorK a -> astFloorK (contractAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ contractAst v
   Ast.AstCastK v -> astCastK $ contractAst v
+  Ast.AstArgMinK v -> astArgMinK $ contractAst v
+  Ast.AstArgMaxK v -> astArgMaxK $ contractAst v
 
   AstPlusS u v -> contractAst u + contractAst v
   AstTimesS u v -> contractAst u * contractAst v
@@ -924,6 +930,8 @@ letDownAst t = case t of
   Ast.AstFloorK a -> Ast.AstFloorK (letDownAst a)
   Ast.AstFromIntegralK v -> Ast.AstFromIntegralK (letDownAst v)
   Ast.AstCastK v -> Ast.AstCastK (letDownAst v)
+  Ast.AstArgMinK v -> Ast.AstArgMinK (letDownAst v)
+  Ast.AstArgMaxK v -> Ast.AstArgMaxK (letDownAst v)
 
   AstPlusS u v -> AstPlusS (letDownAst u) (letDownAst v)
   AstTimesS u v -> AstTimesS (letDownAst u) (letDownAst v)

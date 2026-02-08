@@ -498,6 +498,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
                    -> AstTensor ms PlainSpan (TKScalar r2)
   AstCastK :: (NumScalar r1, Differentiable r1, NumScalar r2, Differentiable r2)
            => AstTensor ms s (TKScalar r1) -> AstTensor ms s (TKScalar r2)
+  AstArgMinK :: forall n r ms. NumScalar r
+             => AstTensor ms PlainSpan (TKS '[n] r)
+             -> AstTensor ms PlainSpan (TKScalar Int)
+  AstArgMaxK :: forall n r ms. NumScalar r
+             => AstTensor ms PlainSpan (TKS '[n] r)
+             -> AstTensor ms PlainSpan (TKScalar Int)
 
   -- Shaped arithmetic
   AstPlusS :: NumScalar r

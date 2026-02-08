@@ -152,6 +152,8 @@ inlineAst !memo v0 = case v0 of
   Ast.AstFloorK a -> second Ast.AstFloorK $ inlineAst memo a
   Ast.AstFromIntegralK a -> second Ast.AstFromIntegralK $ inlineAst memo a
   Ast.AstCastK a -> second Ast.AstCastK $ inlineAst memo a
+  Ast.AstArgMinK a -> second Ast.AstArgMinK $ inlineAst memo a
+  Ast.AstArgMaxK a -> second Ast.AstArgMaxK $ inlineAst memo a
 
   Ast.AstPlusS u v ->
     let (memo2, u2) = inlineAst memo u
@@ -407,6 +409,8 @@ unshareAst !memo = \case
   Ast.AstFloorK a -> second Ast.AstFloorK $ unshareAst memo a
   Ast.AstFromIntegralK v -> second Ast.AstFromIntegralK $ unshareAst memo v
   Ast.AstCastK v -> second Ast.AstCastK $ unshareAst memo v
+  Ast.AstArgMinK v -> second Ast.AstArgMinK $ unshareAst memo v
+  Ast.AstArgMaxK v -> second Ast.AstArgMaxK $ unshareAst memo v
 
   Ast.AstPlusS u v ->
     let (memo2, u2) = unshareAst memo u

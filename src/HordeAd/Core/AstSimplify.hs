@@ -31,7 +31,7 @@ module HordeAd.Core.AstSimplify
 
   , astPrimalPart, astDualPart, astPlainPart
 
-  , astFloorK, astFromIntegralK, astCastK
+  , astFloorK, astFromIntegralK, astCastK, astArgMinK, astArgMaxK
 
   , astFloorS, astFromIntegralS, astCastS
 
@@ -973,6 +973,8 @@ astPrimalPart t = case t of
   Ast.AstFloorK{} -> Ast.AstPrimalPart t
   Ast.AstFromIntegralK{} -> Ast.AstPrimalPart t
   Ast.AstCastK v -> astCastK $ astPrimalPart v
+  Ast.AstArgMinK{} -> Ast.AstPrimalPart t
+  Ast.AstArgMaxK{} -> Ast.AstPrimalPart t
 
   AstPlusS u v -> astPrimalPart u + astPrimalPart v
   AstTimesS u v -> astPrimalPart u * astPrimalPart v
@@ -1290,6 +1292,30 @@ astCastK t = case t of
   Ast.AstFromIntegralK v -> astFromIntegralK v
   Ast.AstCastK v -> astCastK v
   _ -> Ast.AstCastK t
+
+astArgMinK :: NumScalar r
+           => AstTensor ms PlainSpan (TKS '[n] r)
+           -> AstTensor ms PlainSpan (TKScalar Int)
+astArgMinK t = case t of
+  Ast.AstReplicate{} -> 0  -- we mask undefined if n is zero; tough luck
+  Ast.AstLet var u v -> astLet var u (astArgMinK v)
+  Ast.AstN1S NegateOp u -> astArgMaxK u
+  Ast.AstFromIntegralS v -> astArgMinK v
+  Ast.AstCastS v -> astArgMinK v
+  Ast.AstIotaS{} -> 0
+  _ -> Ast.AstArgMinK t
+
+astArgMaxK :: NumScalar r
+           => AstTensor ms PlainSpan (TKS '[n] r)
+           -> AstTensor ms PlainSpan (TKScalar Int)
+astArgMaxK t = case t of
+  Ast.AstReplicate{} -> 0
+  Ast.AstLet var u v -> astLet var u (astArgMaxK v)
+  Ast.AstN1S NegateOp u -> astArgMinK u
+  Ast.AstFromIntegralS v -> astArgMaxK v
+  Ast.AstCastS v -> astArgMaxK v
+  Ast.AstIotaS{} -> 0
+  _ -> Ast.AstArgMaxK t
 
 astConcreteS :: GoodScalar r
              => Concrete (TKS sh r)
@@ -3222,6 +3248,8 @@ astConvertFromS c zftk a = case (zftk, a) of
   (FTKScalar, Ast.AstFloorK{}) -> error "astConvertFromS: impossible"
   (FTKScalar, Ast.AstFromIntegralK{}) -> error "astConvertFromS: impossible"
   (FTKScalar, Ast.AstCastK{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstArgMinK{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstArgMaxK{}) -> error "astConvertFromS: impossible"
   (FTKScalar @r1, AstPlusS @r2 u v)
     | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
       astConvertFromS c FTKScalar u + astConvertFromS c FTKScalar v
@@ -3284,7 +3312,15 @@ astConvertFromS c zftk a = case (zftk, a) of
   (FTKScalar, Ast.AstIndexS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstScatterS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstGatherS{}) -> Ast.AstConvert c a
+  (FTKScalar @r, Ast.AstMinIndexS v)
+    | FTKS (_ :$$ ZSS) FTKScalar <- ftkAst v
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
+      astArgMinK v
   (FTKScalar, Ast.AstMinIndexS{}) -> Ast.AstConvert c a
+  (FTKScalar @r, Ast.AstMaxIndexS v)
+    | FTKS (_ :$$ ZSS) FTKScalar <- ftkAst v
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
+      astArgMaxK v
   (FTKScalar, Ast.AstMaxIndexS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstIotaS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstAppendS{}) -> Ast.AstConvert c a
@@ -3351,6 +3387,8 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstFloorK{} -> Ast.AstConvert c a0
   Ast.AstFromIntegralK{} -> Ast.AstConvert c a0
   Ast.AstCastK{} -> Ast.AstConvert c a0
+  Ast.AstArgMinK{} -> Ast.AstConvert c a0
+  Ast.AstArgMaxK{} -> Ast.AstConvert c a0
   AstPlusK u v ->
     astConvertSFromK c zftk u + astConvertSFromK c zftk v
   AstTimesK u v ->
@@ -4092,6 +4130,8 @@ substitute1Ast i var = subst where
   Ast.AstFloorK a -> astFloorK <$> subst a
   Ast.AstFromIntegralK v -> astFromIntegralK <$> subst v
   Ast.AstCastK v -> astCastK <$> subst v
+  Ast.AstArgMinK v -> astArgMinK <$> subst v
+  Ast.AstArgMaxK v -> astArgMaxK <$> subst v
 
   AstPlusS u v ->
     let mu = subst u

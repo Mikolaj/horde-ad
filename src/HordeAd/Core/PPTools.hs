@@ -319,12 +319,11 @@ printAst cfg d = \case
   AstR2K opCode u v -> printAstR2R printAst cfg d opCode u v
   AstI2K opCode u v -> printAstI2R printAst cfg d opCode u v
   AstConcreteK k -> showNumber k
-  AstFloorK v ->
-    printPrefixOp printAst cfg d "kfloor" [v]
-  AstFromIntegralK v ->
-    printPrefixOp printAst cfg d "kfromIntegral" [v]
-  AstCastK v ->
-    printPrefixOp printAst cfg d "kcast" [v]
+  AstFloorK v -> printPrefixOp printAst cfg d "kfloor" [v]
+  AstFromIntegralK v -> printPrefixOp printAst cfg d "kfromIntegral" [v]
+  AstCastK v -> printPrefixOp printAst cfg d "kcast" [v]
+  AstArgMinK v -> printPrefixOp printAst cfg d "kargMin" [v]
+  AstArgMaxK v -> printPrefixOp printAst cfg d "kargMax" [v]
 
   AstPlusS u v -> printBinaryOp printAst cfg d u (6, "+") v
   AstTimesS u v -> printBinaryOp printAst cfg d u (7, "*") v
@@ -340,12 +339,9 @@ printAst cfg d = \case
          $ showString "sconcrete "
            . (showParen True
               $ shows a)
-  AstFloorS a ->
-    printPrefixOp printAst cfg d "sfloor" [a]
-  AstFromIntegralS a ->
-    printPrefixOp printAst cfg d "sfromIntegral" [a]
-  AstCastS a ->
-    printPrefixOp printAst cfg d "scast" [a]
+  AstFloorS a -> printPrefixOp printAst cfg d "sfloor" [a]
+  AstFromIntegralS a -> printPrefixOp printAst cfg d "sfromIntegral" [a]
+  AstCastS a -> printPrefixOp printAst cfg d "scast" [a]
 
   AstIndexS _ v ix ->
     showParen (d > 9)

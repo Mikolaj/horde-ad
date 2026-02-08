@@ -244,6 +244,10 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       astFromIntegralS $ build1V snat (var, v)
     Ast.AstCastK v -> traceRule $
       astCastS $ build1V snat (var, v)
+    Ast.AstArgMinK v -> traceRule $
+      Ast.AstMinIndexS $ build1V snat (var, v)
+    Ast.AstArgMaxK v -> traceRule $
+      Ast.AstMaxIndexS $ build1V snat (var, v)
 
     Ast.AstPlusS u v -> traceRule $
       build1VOccurrenceUnknown snat (var, u)

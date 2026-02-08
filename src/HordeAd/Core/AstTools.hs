@@ -90,6 +90,8 @@ ftkAst t = case t of
   AstFloorK{} -> FTKScalar
   AstFromIntegralK{} -> FTKScalar
   AstCastK{} -> FTKScalar
+  AstArgMinK{} -> FTKScalar
+  AstArgMaxK{} -> FTKScalar
 
   AstPlusS v _ -> ftkAst v
   AstTimesS v _ -> ftkAst v
@@ -192,6 +194,8 @@ varInAst var = \case
   AstFloorK a -> varInAst var a
   AstFromIntegralK t -> varInAst var t
   AstCastK t -> varInAst var t
+  AstArgMinK t -> varInAst var t
+  AstArgMaxK t -> varInAst var t
 
   AstPlusS t u -> varInAst var t || varInAst var u
   AstTimesS t u -> varInAst var t || varInAst var u
@@ -389,6 +393,8 @@ astLetDown var u v = case v of
   AstFloorK a -> AstFloorK (astLetDown var u a)
   AstFromIntegralK v2 -> AstFromIntegralK (astLetDown var u v2)
   AstCastK v2 -> AstCastK (astLetDown var u v2)
+  AstArgMinK v2 -> AstArgMinK (astLetDown var u v2)
+  AstArgMaxK v2 -> AstArgMaxK (astLetDown var u v2)
 
   AstPlusS{} -> AstLet var u v
   AstTimesS{} -> AstLet var u v
