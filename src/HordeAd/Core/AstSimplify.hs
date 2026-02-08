@@ -1272,8 +1272,8 @@ astFromIntegralK t = case t of
   _ -> Ast.AstFromIntegralK t
 
 astCastK :: forall r1 r2 s.
-            ( NumScalar r1, Differentiable r1
-            , NumScalar r2, Differentiable r2, KnownSpan s )
+            ( NumScalar r1, Differentiable r1, NumScalar r2, Differentiable r2
+            , KnownSpan s )
          => AstTensor AstMethodLet s (TKScalar r1)
          -> AstTensor AstMethodLet s (TKScalar r2)
 astCastK t = case t of
@@ -1290,7 +1290,7 @@ astCastK t = case t of
   Ast.AstN1K NegateOp u -> negate (astCastK u)
   Ast.AstN1K AbsOp u -> abs (astCastK u)
   Ast.AstN1K SignumOp u -> signum (astCastK u)
---  Ast.AstR1K opCode u -> Ast.AstR1K opCode (astCastK u)
+  Ast.AstR1K opCode u -> Ast.AstR1K opCode (astCastK u)
   Ast.AstFromIntegralK v -> astFromIntegralK v
   Ast.AstCastK v -> astCastK v
   _ -> Ast.AstCastK t
@@ -1341,6 +1341,9 @@ astFloorS t = case t of
     let !v2 = astFloorK v
     in Ast.AstBuild1 snat STKScalar (var, v2)
   Ast.AstLet var u v -> astLet var u (astFloorS v)
+  Ast.AstFloorS v -> astFloorS v
+  Ast.AstFromIntegralS v -> astFromIntegralS v
+  Ast.AstCastS v -> astFloorS v
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterS shm shn shp (astFloorS v) (vars, ix)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
@@ -1350,9 +1353,6 @@ astFloorS t = case t of
   Ast.AstTransposeS perm v -> astTransposeS perm (astFloorS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astFloorS v)
   AstSFromK' a -> astSFromK' (astFloorK a)
-  Ast.AstFloorS v -> astFloorS v
-  Ast.AstFromIntegralS v -> astFromIntegralS v
-  Ast.AstCastS v -> astFloorS v
   _ -> Ast.AstFloorS t
 
 astFromIntegralS :: forall r1 r2 sh. (NumScalar r1, NumScalar r2, Integral r1)
@@ -1427,9 +1427,9 @@ astCastS t = case t of
   Ast.AstN1S NegateOp u -> negate (astCastS u)
   Ast.AstN1S AbsOp u -> abs (astCastS u)
   Ast.AstN1S SignumOp u -> signum (astCastS u)
+  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astCastS u)
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstCastS v -> astCastS v
---  Ast.AstArgMinA v -> Ast.AstArgMinA (astCastS v)
 --  Ast.AstIndexS shn v ix -> astIndexS shn (astCastS v) ix
     -- increases work; also index goes into fromIntegral, so we'd loop
   Ast.AstScatterS shm shn shp v (vars, ix) ->
