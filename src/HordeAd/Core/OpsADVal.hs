@@ -325,11 +325,11 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = trfromIntegral u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
   trcast (D u u') = dD (trcast u) (DeltaCastR u')
-  trminIndex (D u _) =
-    let v = trminIndex u
+  trargMin (D u _) =
+    let v = trargMin u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
-  trmaxIndex (D u _) =
-    let v = trmaxIndex u
+  trargMax (D u _) =
+    let v = trargMax u
     in fromPrimalFTK (FTKR (rshape v) FTKScalar) v
   triota n = fromPrimalFTK (FTKR (n :$: ZSR) FTKScalar) $ triota n
   tsfloor (D u _) =
@@ -339,11 +339,11 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = tsfromIntegral u
     in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
   tscast (D u u') = dD (tscast u) (DeltaCastS u')
-  tsminIndex (D u _) =
-    let v = tsminIndex u
+  tsargMin (D u _) =
+    let v = tsargMin u
     in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
-  tsmaxIndex (D u _) =
-    let v = tsmaxIndex u
+  tsargMax (D u _) =
+    let v = tsargMax u
     in fromPrimalFTK (FTKS (sshape v) FTKScalar) v
   tsiota = fromPrimalFTK (FTKS (SNat :$$ ZSS) FTKScalar) tsiota
   txfloor (D u _) =
@@ -353,11 +353,11 @@ instance ( ADReadyNoLet target, ShareTensor target
     let v = txfromIntegral u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
   txcast (D u u') = dD (txcast u) (DeltaCastX u')
-  txminIndex (D u _) =
-    let v = txminIndex u
+  txargMin (D u _) =
+    let v = txargMin u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
-  txmaxIndex (D u _) =
-    let v = txmaxIndex u
+  txargMax (D u _) =
+    let v = txargMax u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
   txiota = fromPrimalFTK (FTKX (Nested.SKnown SNat :$% ZSX) FTKScalar) txiota
   trappend (D u u') (D v v') = dD (trappend u v) (DeltaAppendR u' v')

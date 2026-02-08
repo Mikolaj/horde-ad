@@ -410,8 +410,8 @@ instance BaseTensor Concrete where
         Is @Double -> cast @Float @Double a
         _ -> cast a
       _ -> cast a
-  trminIndex = Concrete . tminIndexR . unConcrete
-  trmaxIndex = Concrete . tmaxIndexR . unConcrete
+  trargMin = Concrete . targMinR . unConcrete
+  trargMax = Concrete . targMaxR . unConcrete
   {-# INLINE triota #-}
   triota n = trfromIntegral $ Concrete $ Nested.riota @Int n
   {-# INLINE tsfloor #-}
@@ -493,8 +493,8 @@ instance BaseTensor Concrete where
         Is @Double -> cast @Float @Double a
         _ -> cast a
       _ -> cast a
-  tsminIndex = Concrete . tminIndexS . unConcrete
-  tsmaxIndex = Concrete . tmaxIndexS . unConcrete
+  tsargMin = Concrete . targMinS . unConcrete
+  tsargMax = Concrete . targMaxS . unConcrete
   {-# INLINE tsiota #-}
   tsiota @n = tsfromIntegral $ Concrete $ Nested.siota @Int (SNat @n)
   {-# INLINE txfloor #-}
@@ -576,8 +576,8 @@ instance BaseTensor Concrete where
         Is @Double -> cast @Float @Double a
         _ -> cast a
       _ -> cast a
-  txminIndex = Concrete . tminIndexX . unConcrete
-  txmaxIndex = Concrete . tmaxIndexX . unConcrete
+  txargMin = Concrete . targMinX . unConcrete
+  txargMax = Concrete . targMaxX . unConcrete
   {-# INLINE txiota #-}
   txiota @n = txfromIntegral $ Concrete $ Nested.miota @Int (SNat @n)
   {-# INLINE trappend #-}
@@ -1312,20 +1312,20 @@ tgatherZ1RScalar k !t f = case SNat @n of
     in Concrete $ Nested.rfromVector shm $ VS.generate k g
   _ -> trbuild1 k (\ix -> t `tindexZRScalar` f ix)
 
-tminIndexR
+targMinR
   :: forall r n. (Nested.PrimElt r, Nested.NumElt r)
   => Nested.Ranked (1 + n) r -> Nested.Ranked n Int
-{-# INLINE tminIndexR #-}
-tminIndexR v | SNat <- Nested.rrank v =
+{-# INLINE targMinR #-}
+targMinR v | SNat <- Nested.rrank v =
   let f :: Nested.Ranked 1 r -> Nested.Ranked 0 Int
       f = Nested.rscalar . ixrHead . Nested.rminIndexPrim
   in Nested.runNest $ Nested.rrerankPrim ZSR f (Nested.rnest SNat v)
 
-tmaxIndexR
+targMaxR
   :: forall r n. (Nested.PrimElt r, Nested.NumElt r)
   => Nested.Ranked (1 + n) r -> Nested.Ranked n Int
-{-# INLINE tmaxIndexR #-}
-tmaxIndexR v | SNat <- Nested.rrank v =
+{-# INLINE targMaxR #-}
+targMaxR v | SNat <- Nested.rrank v =
   let f :: Nested.Ranked 1 r -> Nested.Ranked 0 Int
       f = Nested.rscalar . ixrHead . Nested.rmaxIndexPrim
   in Nested.runNest $ Nested.rrerankPrim ZSR f (Nested.rnest SNat v)
@@ -1635,11 +1635,11 @@ tgatherZ1SScalar shn !t f = case shn of
     tkbuild1 @_ @k (\ix -> t `tindex0SImpl` f ix)
   _ -> tbuild1S shn (\ix -> tindexZSScalar shn t (f ix))
 
-tminIndexS
+targMinS
   :: forall n sh r. (Nested.PrimElt r, Nested.NumElt r)
   => Nested.Shaped (n ': sh) r -> Nested.Shaped (Init (n ': sh)) Int
-{-# INLINE tminIndexS #-}
-tminIndexS v | sh1@(_ :$$ sh) <- Nested.sshape v =
+{-# INLINE targMinS #-}
+targMinS v | sh1@(_ :$$ sh) <- Nested.sshape v =
   let f :: Nested.Shaped '[m] r -> Nested.Shaped '[] Int
       f = Nested.sscalar . ixsHead . Nested.sminIndexPrim
   in case sh of
@@ -1653,11 +1653,11 @@ tminIndexS v | sh1@(_ :$$ sh) <- Nested.sshape v =
         Nested.srerankPrim @'[m] @'[] @(Init (n ': sh)) ZSS (f @m) $
           Nested.snest (shsInit sh1) v
 
-tmaxIndexS
+targMaxS
   :: forall n sh r. (Nested.PrimElt r, Nested.NumElt r)
   => Nested.Shaped (n ': sh) r -> Nested.Shaped (Init (n ': sh)) Int
-{-# INLINE tmaxIndexS #-}
-tmaxIndexS v | sh1@(_ :$$ sh) <- Nested.sshape v =
+{-# INLINE targMaxS #-}
+targMaxS v | sh1@(_ :$$ sh) <- Nested.sshape v =
   let f :: Nested.Shaped '[m] r -> Nested.Shaped '[] Int
       f = Nested.sscalar . ixsHead . Nested.smaxIndexPrim
   in case sh of
@@ -1858,11 +1858,11 @@ tgatherZ1X _ !t f = case (knownShX @shn, knownSTK @x) of
     in Concrete $ Nested.mfromVector shm $ VS.generate (valueOf @k) g
   _ -> txbuild1 @_ @k (\ix -> t `txindex` f ix)
 
-tminIndexX
+targMinX
   :: forall mn sh r. (Nested.PrimElt r, Nested.NumElt r)
   => Nested.Mixed (mn ': sh) r -> Nested.Mixed (Init (mn ': sh)) Int
-{-# INLINE tminIndexX #-}
-tminIndexX v | sh1@(_ :$% sh) <- Nested.mshape v =
+{-# INLINE targMinX #-}
+targMinX v | sh1@(_ :$% sh) <- Nested.mshape v =
   let f :: Nested.Mixed '[mm] r -> Nested.Mixed '[] Int
       f = Nested.mscalar . ixxHead . Nested.mminIndexPrim
   in case sh of
@@ -1877,11 +1877,11 @@ tminIndexX v | sh1@(_ :$% sh) <- Nested.mshape v =
                            ZSX (f @(Just m)) $
           Nested.mnest (ssxFromShX $ shxInit sh1) v
 
-tmaxIndexX
+targMaxX
   :: forall mn sh r. (Nested.PrimElt r, Nested.NumElt r)
   => Nested.Mixed (mn ': sh) r -> Nested.Mixed (Init (mn ': sh)) Int
-{-# INLINE tmaxIndexX #-}
-tmaxIndexX v | sh1@(_ :$% sh) <- Nested.mshape v =
+{-# INLINE targMaxX #-}
+targMaxX v | sh1@(_ :$% sh) <- Nested.mshape v =
   let f :: Nested.Mixed '[mm] r -> Nested.Mixed '[] Int
       f = Nested.mscalar . ixxHead . Nested.mmaxIndexPrim
   in case sh of

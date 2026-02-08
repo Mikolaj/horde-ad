@@ -749,7 +749,7 @@ class ( Num (IntOf target)
                  => target (TKR n r1) -> target (TKR n r2)
   trcast :: (Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2)
          => target (TKR n r1) -> target (TKR n r2)
-  trminIndex, trmaxIndex  -- partial
+  trargMin, trargMax  -- partial
     :: forall n r. NumScalar r
     => target (TKR (1 + n) r) -> target (TKR n Int)
   triota :: NumScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
@@ -760,7 +760,7 @@ class ( Num (IntOf target)
                  => target (TKS sh r1) -> target (TKS sh r2)
   tscast :: (Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2)
          => target (TKS sh r1) -> target (TKS sh r2)
-  tsminIndex, tsmaxIndex  -- partial
+  tsargMin, tsargMax  -- partial
     :: forall n sh r. NumScalar r
     => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) Int)
   tsiota :: (KnownNat n, NumScalar r)
@@ -772,7 +772,7 @@ class ( Num (IntOf target)
                  => target (TKX sh r1) -> target (TKX sh r2)
   txcast :: (Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2)
          => target (TKX sh r1) -> target (TKX sh r2)
-  txminIndex, txmaxIndex  -- partial
+  txargMin, txargMax  -- partial
     :: forall mn sh r. NumScalar r
     => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) Int)
   txiota :: (KnownNat n, NumScalar r)

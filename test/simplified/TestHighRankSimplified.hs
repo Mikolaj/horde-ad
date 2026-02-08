@@ -593,7 +593,7 @@ concatBuild r =
                   (kplainPart @target (kfromR (rscalar 125)) * (j `remH` (abs (signum i + abs i) + 1))
                    + maxH j (i `quotH` (j + 1)) * (kplainPart . kfloor) (rsum0 r)
                    - ifH (r <=. r &&* i <. j)
-                         (kplainPart $ kfromR $ rminIndex (rflatten r))
+                         (kplainPart $ kfromR $ rargMin (rflatten r))
                          ((kplainPart . kfloor) $ rsum0 $ r ! ((i * j) `remH` 7 :.: ZIR))))) r)
             , rbuild1 13 (\_k ->
                 rsum $ rtr $ rreplicate (rwidth r) (rslice 0 1 r)) ])

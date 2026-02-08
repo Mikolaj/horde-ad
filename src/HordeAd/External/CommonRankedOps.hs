@@ -34,14 +34,14 @@ rminimum :: forall target n r.
             , NumScalar r )
          => target (TKR n r) -> target (TKScalar r)
 rminimum t = tlet (rflatten t) $ \tf ->
-               rindex0 tf (tplainPart (kfromR (rminIndex tf)) :.: ZIR)
+               rindex0 tf (tplainPart (kfromR (rargMin tf)) :.: ZIR)
 
 rmaximum :: forall target n r.
             ( BaseTensor target, ConvertTensor target, LetTensor target
             , NumScalar r )
          => target (TKR n r) -> target (TKScalar r)
 rmaximum t = tlet (rflatten t) $ \tf ->
-               rindex0 tf (tplainPart (kfromR (rmaxIndex tf)) :.: ZIR)
+               rindex0 tf (tplainPart (kfromR (rargMax tf)) :.: ZIR)
 
 rfromIndex0 :: forall r target.
                (BaseTensor target, ConvertTensor target, NumScalar r)

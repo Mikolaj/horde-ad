@@ -28,7 +28,7 @@ module HordeAd.OpsTensorRanked
   , rtr, rtranspose, rflatten, rreshape
    -- * Auxiliary array operations
   , kfloor, kfromIntegral, kcast
-  , rfloor, rfromIntegral, rcast, rminIndex, rmaxIndex, riota
+  , rfloor, rfromIntegral, rcast, rargMin, rargMax, riota
   , rappend, rconcat, rslice, runcons, rreverse
     -- * Array operations derived from @build@
   , rbuild, rbuild1, rmap, rmap1, rmap0N, rzipWith, rzipWith1, rzipWith0N

@@ -1669,7 +1669,7 @@ testSin0rmapAccumRD01SN5 = do
                                                             (TKS '[3] Double)))
                                g x a =
                                  tpair (sin x
-                                           - (sfromIntegral $ smaxIndex
+                                           - (sfromIntegral $ sargMax
                                                @2 @'[]
                                                (tproject2 $ tproject1 a)))
                                    (tpair (sreplicate @3
@@ -1716,7 +1716,7 @@ testSin0rmapAccumRD01SN51 = do
                                      x1 = tproject2 xh
                                  in tpair (tpair
                                             (sin x
-                                           - (sfromIntegral $ smaxIndex
+                                           - (sfromIntegral $ sargMax
                                                @2 @'[]
                                                (tproject2 $ tproject2 a)))
                                             (sreplicate @3
@@ -1776,7 +1776,7 @@ testSin0rmapAccumRD01SN531a = do
                                            - sreplicate @3
                                              (sindex @'[3]
                                                        (tproject2 a) [1]
-                                             - (sfromIntegral $ smaxIndex
+                                             - (sfromIntegral $ sargMax
                                                  @3 @'[]
                                                  (sin x / srepl 3))))
                            in g)
@@ -1958,7 +1958,7 @@ testSin0rmapAccumRD01SN55 = do
                                  tpair (sin x - x)
                                        (tpair (sreplicate @3
                                              (sindex @'[3] x [1]
-                                              - (sfromIntegral $ smaxIndex
+                                              - (sfromIntegral $ sargMax
                                                   @3 @'[]
                                                   (x / sin x / srepl 3))))
                                           (sreplicate @3
@@ -2011,7 +2011,7 @@ testSin0rmapAccumRD01SN55acc = do
                                            - sreplicate @3
                                              (sindex @'[3]
                                                        (tproject2 a) [1]
-                                             - (sfromIntegral $ smaxIndex
+                                             - (sfromIntegral $ sargMax
                                                  @3 @'[]
                                                  (sin x / sreplicate0N 3)))))
                            in g)
@@ -2069,7 +2069,7 @@ testSin0rmapAccumRD01SN7 = do
                                                             (TKS '[3] Double)))
                                g x a =
                                   tpair (sin x
-                                           ** (sfromIntegral $ smaxIndex
+                                           ** (sfromIntegral $ sargMax
                                                 @2 @'[]
                                                 (tproject2 $ tproject1 a)))
                                     (tpair (sreplicate @3

@@ -199,8 +199,8 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
   AstFloorS v -> tsfloor $ interpretAst env v
   AstFromIntegralS v -> tsfromIntegral $ interpretAst env v
   AstCastS v -> tscast $ interpretAst env v
-  AstArgMinA v -> tsminIndex $ interpretAst env v
-  AstArgMaxA v -> tsmaxIndex $ interpretAst env v
+  AstArgMinA v -> tsargMin $ interpretAst env v
+  AstArgMaxA v -> tsargMax $ interpretAst env v
 
   AstIndexS @shm shn v ix ->
     withKnownShS shn $

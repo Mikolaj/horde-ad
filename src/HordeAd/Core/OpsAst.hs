@@ -301,7 +301,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
             -- this introduces new variable names
   -- Depite the warning, the pattern match is exhaustive and if a dummy
   -- pattern is added, GHC 9.14.1 complains about that, in turn.
-  trminIndex a = case ftkAst a of
+  trargMin a = case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ _ ->
@@ -310,7 +310,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           astFromS' @(TKS (Init sh) Int) (FTKR (shrInit sh') FTKScalar)
           . fromPlain . AstArgMinA . astPlainPart . astSFromR' @sh sh $ a
-  trmaxIndex a = case ftkAst a of
+  trargMax a = case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ _ ->
@@ -414,8 +414,8 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
       in astGatherS (knownShS @shm) (knownShS @shn) (knownShS @shp)
                     t (vars, ix2)
       -- this introduces new variable names
-  tsminIndex = fromPlain . AstArgMinA . astPlainPart
-  tsmaxIndex = fromPlain . AstArgMaxA . astPlainPart
+  tsargMin = fromPlain . AstArgMinA . astPlainPart
+  tsargMax = fromPlain . AstArgMaxA . astPlainPart
   tsiota = fromPlain $ AstIotaS SNat
   tsappend = astAppendS
   tsslice = astSliceS
@@ -499,7 +499,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
                           (shsTake @(Rank shp) shpshn)
                           (astSFromX' shpshn t) (vars, ix2)
             -- this introduces new variable names
-  txminIndex a = case ftkAst a of
+  txargMin a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
@@ -507,7 +507,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
           astFromS' @(TKS (Init sh) Int) (FTKX (shxInit sh') FTKScalar)
           . fromPlain . AstArgMinA @n @rest
           . astPlainPart . astSFromX' @sh @sh' sh $ a
-  txmaxIndex a = case ftkAst a of
+  txargMax a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
@@ -815,7 +815,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                           (shsTake @p shpshn)
                           (cAstSFromR shpshn t) (vars, ix2)
             -- this introduces new variable names
-  trminIndex (AstRaw a) = AstRaw $ case ftkAst a of
+  trargMin (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ _ ->
@@ -824,7 +824,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           cAstFromS @(TKS (Init sh) Int) (FTKR (shrInit sh') FTKScalar)
           . fromPlain . AstArgMinA . plainPart . cAstSFromR @sh sh $ a
-  trmaxIndex (AstRaw a) = AstRaw $ case ftkAst a of
+  trargMax (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ _ ->
@@ -932,8 +932,8 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
       let !ix2 = fmapUnAstRaw . f . fmapAstRaw $ ix
       in AstGatherS (knownShS @shm) (knownShS @shn) (knownShS @shp)
                     (unAstRaw t) (vars, ix2)
-  tsminIndex = AstRaw . fromPlain . AstArgMinA . plainPart . unAstRaw
-  tsmaxIndex = AstRaw . fromPlain . AstArgMaxA . plainPart . unAstRaw
+  tsargMin = AstRaw . fromPlain . AstArgMinA . plainPart . unAstRaw
+  tsargMax = AstRaw . fromPlain . AstArgMaxA . plainPart . unAstRaw
   tsiota = AstRaw . fromPlain $ AstIotaS SNat
   tsappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
   tsslice i n k = AstRaw . AstSliceS i n k . unAstRaw
@@ -1019,7 +1019,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                           (shsTake @(Rank shp) shpshn)
                           (cAstSFromX shpshn t) (vars, ix2)
             -- this introduces new variable names
-  txminIndex (AstRaw a) = AstRaw $ case ftkAst a of
+  txargMin (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
@@ -1027,7 +1027,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
           cAstFromS @(TKS (Init sh) Int) (FTKX (shxInit sh') FTKScalar)
           . fromPlain . AstArgMinA @n @rest
           . plainPart . cAstSFromX @sh @sh' sh $ a
-  txmaxIndex (AstRaw a) = AstRaw $ case ftkAst a of
+  txargMax (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
@@ -1289,8 +1289,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   trgather sh t f =
     AstNoVectorize $ trgather sh (unAstNoVectorize t)
                    $ fmapUnAstNoVectorize . f . fmapAstNoVectorize
-  trminIndex = AstNoVectorize . trminIndex . unAstNoVectorize
-  trmaxIndex = AstNoVectorize . trmaxIndex . unAstNoVectorize
+  trargMin = AstNoVectorize . trargMin . unAstNoVectorize
+  trargMax = AstNoVectorize . trargMax . unAstNoVectorize
   triota = AstNoVectorize . triota
   trappend u v =
     AstNoVectorize $ trappend (unAstNoVectorize u) (unAstNoVectorize v)
@@ -1323,8 +1323,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   tsgather @_ @shm @shn @shp t f =
     AstNoVectorize $ tsgather @_ @_ @shm @shn @shp (unAstNoVectorize t)
                    $ fmapUnAstNoVectorize . f . fmapAstNoVectorize
-  tsminIndex = AstNoVectorize . tsminIndex . unAstNoVectorize
-  tsmaxIndex = AstNoVectorize . tsmaxIndex . unAstNoVectorize
+  tsargMin = AstNoVectorize . tsargMin . unAstNoVectorize
+  tsargMax = AstNoVectorize . tsargMax . unAstNoVectorize
   tsiota = AstNoVectorize tsiota
   tsappend u v =
     AstNoVectorize $ tsappend (unAstNoVectorize u) (unAstNoVectorize v)
@@ -1357,8 +1357,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   txgather @_ @shm @shn @shp sh t f =
     AstNoVectorize $ txgather @_ @_ @shm @shn @shp sh (unAstNoVectorize t)
                    $ fmapUnAstNoVectorize . f . fmapAstNoVectorize
-  txminIndex = AstNoVectorize . txminIndex . unAstNoVectorize
-  txmaxIndex = AstNoVectorize . txmaxIndex . unAstNoVectorize
+  txargMin = AstNoVectorize . txargMin . unAstNoVectorize
+  txargMax = AstNoVectorize . txargMax . unAstNoVectorize
   txiota @n = AstNoVectorize $ txiota @_ @n
   txappend u v =
     AstNoVectorize $ txappend (unAstNoVectorize u) (unAstNoVectorize v)
@@ -1549,8 +1549,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   trgather sh t f =
     wAstNoSimplify $ trgather sh (wunAstNoSimplify t)
                    $ fmapwUnAstNoSimplify . f . fmapwAstNoSimplify
-  trminIndex = wAstNoSimplify . trminIndex . wunAstNoSimplify
-  trmaxIndex = wAstNoSimplify . trmaxIndex . wunAstNoSimplify
+  trargMin = wAstNoSimplify . trargMin . wunAstNoSimplify
+  trargMax = wAstNoSimplify . trargMax . wunAstNoSimplify
   triota = wAstNoSimplify . triota
   trappend u v =
     wAstNoSimplify $ trappend (wunAstNoSimplify u) (wunAstNoSimplify v)
@@ -1578,8 +1578,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   tsgather @_ @shm @shn @shp t f =
     wAstNoSimplify $ tsgather @_ @_ @shm @shn @shp (wunAstNoSimplify t)
                    $ fmapwUnAstNoSimplify . f . fmapwAstNoSimplify
-  tsminIndex = wAstNoSimplify . tsminIndex . wunAstNoSimplify
-  tsmaxIndex = wAstNoSimplify . tsmaxIndex . wunAstNoSimplify
+  tsargMin = wAstNoSimplify . tsargMin . wunAstNoSimplify
+  tsargMax = wAstNoSimplify . tsargMax . wunAstNoSimplify
   tsiota = wAstNoSimplify tsiota
   tsappend u v =
     wAstNoSimplify $ tsappend (wunAstNoSimplify u) (wunAstNoSimplify v)
@@ -1608,8 +1608,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   txgather @_ @shm @shn @shp sh t f =
     wAstNoSimplify $ txgather @_ @_ @shm @shn @shp sh (wunAstNoSimplify t)
                    $ fmapwUnAstNoSimplify . f . fmapwAstNoSimplify
-  txminIndex = wAstNoSimplify . txminIndex . wunAstNoSimplify
-  txmaxIndex = wAstNoSimplify . txmaxIndex . wunAstNoSimplify
+  txargMin = wAstNoSimplify . txargMin . wunAstNoSimplify
+  txargMax = wAstNoSimplify . txargMax . wunAstNoSimplify
   txiota @n = wAstNoSimplify $ txiota @_ @n
   txappend u v =
     wAstNoSimplify $ txappend (wunAstNoSimplify u) (wunAstNoSimplify v)

@@ -41,9 +41,9 @@ module HordeAd.OpsTensor
   , xtr, xtranspose, xflatten, xreshape
    -- * Auxiliary array operations
   , kfloor, kfromIntegral, kcast, kargMin, kargMax
-  , rfloor, rfromIntegral, rcast, rminIndex, rmaxIndex, riota
-  , sfloor, sfromIntegral, scast, sminIndex, smaxIndex, siota
-  , xfloor, xfromIntegral, xcast, xminIndex, xmaxIndex, xiota
+  , rfloor, rfromIntegral, rcast, rargMin, rargMax, riota
+  , sfloor, sfromIntegral, scast, sargMin, sargMax, siota
+  , xfloor, xfromIntegral, xcast, xargMin, xargMax, xiota
   , rappend, rconcat, rslice, runcons, rreverse
   , sappend, sslice, suncons, sreverse
   , xappend, xappend0, xconcat, xslice, xuncons, xreverse
@@ -550,11 +550,11 @@ rcast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
       => target (TKR n r1) -> target (TKR n r2)
 rcast = trcast
 -- | Throws if the array is empty.
-rminIndex, rmaxIndex
+rargMin, rargMax
   :: forall n r target. (NumScalar r, BaseTensor target)
   => target (TKR (1 + n) r) -> target (TKR n Int)
-rminIndex = trminIndex
-rmaxIndex = trmaxIndex
+rargMin = trargMin
+rargMax = trargMax
 riota :: (NumScalar r, BaseTensor target)
       => Int -> target (TKR 1 r)  -- from 0 to n - 1
 riota = triota
@@ -571,11 +571,11 @@ scast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
       => target (TKS sh r1) -> target (TKS sh r2)
 scast = tscast
 -- | Throws if the array is empty.
-sminIndex, smaxIndex
+sargMin, sargMax
   :: forall n sh r target. (NumScalar r, BaseTensor target)
   => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) Int)
-sminIndex = tsminIndex
-smaxIndex = tsmaxIndex
+sargMin = tsargMin
+sargMax = tsargMax
 siota :: (KnownNat n, NumScalar r, BaseTensor target)
       => target (TKS '[n] r)  -- from 0 to n - 1
 siota = tsiota
@@ -592,11 +592,11 @@ xcast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
       => target (TKX sh r1) -> target (TKX sh r2)
 xcast = txcast
 -- | Throws if the array is empty.
-xminIndex, xmaxIndex
+xargMin, xargMax
   :: forall mn sh r target. (NumScalar r, BaseTensor target)
   => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) Int)
-xminIndex = txminIndex
-xmaxIndex = txmaxIndex
+xargMin = txargMin
+xargMax = txargMax
 xiota :: (KnownNat n, NumScalar r, BaseTensor target)
       => target (TKX '[Just n] r)  -- from 0 to n - 1
 xiota = txiota

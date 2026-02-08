@@ -28,7 +28,7 @@ module HordeAd.OpsTensorShaped
   , str, stranspose, sflatten, sreshape
    -- * Auxiliary array operations
   , kfloor, kfromIntegral, kcast
-  , sfloor, sfromIntegral, scast, sminIndex, smaxIndex, siota
+  , sfloor, sfromIntegral, scast, sargMin, sargMax, siota
   , sappend, sslice, suncons, sreverse
     -- * Array operations derived from @build@
   , sbuild, sbuild1, smap, smap1, smap0N, szipWith, szipWith1, szipWith0N

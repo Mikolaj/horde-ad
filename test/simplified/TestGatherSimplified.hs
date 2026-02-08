@@ -1616,28 +1616,28 @@ conv2dSame3y arrA =
     _ -> error "conv2dSame3y: impossible pattern needlessly required"
 
 -- This test uses a disastrous version of smaximum, but shows how
--- smaxIndex gets non-trivially vectorized, preserving sharing, too.
+-- sargMax gets non-trivially vectorized, preserving sharing, too.
 testCNNOPP4bU :: Assertion
 testCNNOPP4bU = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpaddedS4 @4 @2) (FTKS (SNat @31 :$$ SNat @31 :$$ SNat @31 :$$ SNat @31 :$$ ZSS) (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\u1 -> let w52 = sgather @[15, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[15, 4] (stranspose @[2, 0, 1] u1) (\\[i99, i100] -> [2 * i99 + i100]))) (\\[i50, i51] -> [2 * i50 + i51]) ; u53 = smaxIndex (sreshape @[31, 31, 15, 15, 16] (stranspose @[2, 3, 4, 0, 5, 1] (splainPart w52))) in sgather @[31, 31, 15, 15] w52 (\\[i54, i55, i56, i57] -> [i57, remH (u53 `index0` [i54, i55, i56, i57]) 4, i54, i55, i56, remH (quotH (u53 `index0` [i54, i55, i56, i57]) 4) 4])"
+    @?= "\\u1 -> let w52 = sgather @[15, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[15, 4] (stranspose @[2, 0, 1] u1) (\\[i99, i100] -> [2 * i99 + i100]))) (\\[i50, i51] -> [2 * i50 + i51]) ; u53 = sargMax (sreshape @[31, 31, 15, 15, 16] (stranspose @[2, 3, 4, 0, 5, 1] (splainPart w52))) in sgather @[31, 31, 15, 15] w52 (\\[i54, i55, i56, i57] -> [i57, remH (u53 `index0` [i54, i55, i56, i57]) 4, i54, i55, i56, remH (quotH (u53 `index0` [i54, i55, i56, i57]) 4) 4])"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> let w52 = sgather @[15, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[15, 4] (stranspose @[2, 0, 1] u1) (\\[i48, i49] -> [2 * i48 + i49]))) (\\[i50, i51] -> [2 * i50 + i51]) ; u53 = smaxIndex (sreshape @[31, 31, 15, 15, 16] (stranspose @[2, 3, 4, 0, 5, 1] (splainPart w52))) in sgather @[31, 31, 15, 15] w52 (\\[i54, i55, i56, i57] -> [i57, remH (kfromS (u53 !$ [i54, i55, i56, i57])) 4, i54, i55, i56, remH (quotH (kfromS (u53 !$ [i54, i55, i56, i57])) 4) 4])"
+    @?= "\\u1 -> let w52 = sgather @[15, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[15, 4] (stranspose @[2, 0, 1] u1) (\\[i48, i49] -> [2 * i48 + i49]))) (\\[i50, i51] -> [2 * i50 + i51]) ; u53 = sargMax (sreshape @[31, 31, 15, 15, 16] (stranspose @[2, 3, 4, 0, 5, 1] (splainPart w52))) in sgather @[31, 31, 15, 15] w52 (\\[i54, i55, i56, i57] -> [i57, remH (kfromS (u53 !$ [i54, i55, i56, i57])) 4, i54, i55, i56, remH (quotH (kfromS (u53 !$ [i54, i55, i56, i57])) 4) 4])"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> stranspose @[1, 2, 0] (sscatter @[15, 4] (stranspose @[3, 4, 1, 2, 0] (sscatter @[15, 4] (let w52 = sgather @[15, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[15, 4] (stranspose @[2, 0, 1] u1) (\\[i48, i49] -> [2 * i48 + i49]))) (\\[i50, i51] -> [2 * i50 + i51]) ; u53 = smaxIndex (sreshape @[31, 31, 15, 15, 16] (stranspose @[2, 3, 4, 0, 5, 1] (splainPart w52))) in sscatter @[31, 31, 15, 15] dret (\\[i59, i60, i61, i62] -> [i62, remH (kfromS (u53 !$ [i59, i60, i61, i62])) 4, i59, i60, i61, remH (quotH (kfromS (u53 !$ [i59, i60, i61, i62])) 4) 4])) (\\[i63, i64] -> [2 * i63 + i64]))) (\\[i65, i66] -> [2 * i65 + i66]))"
+    @?= "\\dret u1 -> stranspose @[1, 2, 0] (sscatter @[15, 4] (stranspose @[3, 4, 1, 2, 0] (sscatter @[15, 4] (let w52 = sgather @[15, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[15, 4] (stranspose @[2, 0, 1] u1) (\\[i48, i49] -> [2 * i48 + i49]))) (\\[i50, i51] -> [2 * i50 + i51]) ; u53 = sargMax (sreshape @[31, 31, 15, 15, 16] (stranspose @[2, 3, 4, 0, 5, 1] (splainPart w52))) in sscatter @[31, 31, 15, 15] dret (\\[i59, i60, i61, i62] -> [i62, remH (kfromS (u53 !$ [i59, i60, i61, i62])) 4, i59, i60, i61, remH (quotH (kfromS (u53 !$ [i59, i60, i61, i62])) 4) 4])) (\\[i63, i64] -> [2 * i63 + i64]))) (\\[i65, i66] -> [2 * i65 + i66]))"
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret u1 -> stranspose @[1, 2, 0] (sscatter @[15, 4] (stranspose @[3, 4, 1, 2, 0] (sscatter @[15, 4] (let u53 = smaxIndex (sreshape @[31, 31, 15, 15, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[15, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[15, 4] (stranspose @[2, 0, 1] (splainPart u1)) (\\[i116, i117] -> [2 * i116 + i117]))) (\\[i50, i51] -> [2 * i50 + i51])))) in sscatter @[31, 31, 15, 15] dret (\\[i59, i60, i61, i62] -> [i62, remH (u53 `index0` [i59, i60, i61, i62]) 4, i59, i60, i61, remH (quotH (u53 `index0` [i59, i60, i61, i62]) 4) 4])) (\\[i63, i64] -> [2 * i63 + i64]))) (\\[i65, i66] -> [2 * i65 + i66]))"
+    @?= "\\dret u1 -> stranspose @[1, 2, 0] (sscatter @[15, 4] (stranspose @[3, 4, 1, 2, 0] (sscatter @[15, 4] (let u53 = sargMax (sreshape @[31, 31, 15, 15, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[15, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[15, 4] (stranspose @[2, 0, 1] (splainPart u1)) (\\[i116, i117] -> [2 * i116 + i117]))) (\\[i50, i51] -> [2 * i50 + i51])))) in sscatter @[31, 31, 15, 15] dret (\\[i59, i60, i61, i62] -> [i62, remH (u53 `index0` [i59, i60, i61, i62]) 4, i59, i60, i61, remH (quotH (u53 `index0` [i59, i60, i61, i62]) 4) 4])) (\\[i63, i64] -> [2 * i63 + i64]))) (\\[i65, i66] -> [2 * i65 + i66]))"
 
 smaximum4 :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
           => target (TKS sh r) -> target (TKS '[] r)
 smaximum4 t0 | Refl <- lemAppNil @sh =
   tlet t0 $ \t ->
-  tletPrimal (tprimalPart $ kfromS $ smaxIndex (sflatten t)) $ \maxIndex ->
+  tletPrimal (tprimalPart $ kfromS $ sargMax (sflatten t)) $ \argMax ->
     sindex t
     $ fromLinearIdxS (sshape t)
-                     (kplainPart $ kfromPrimal @target maxIndex)
+                     (kplainPart $ kfromPrimal @target argMax)
 
 fromLinearIdxS :: forall sh j. IntegralH j
                => ShS sh -> j -> IxS sh j
