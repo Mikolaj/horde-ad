@@ -3295,32 +3295,29 @@ astConvertFromS c zftk a = case (zftk, a) of
     , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
       AstConcreteK (Nested.sunScalar v)
   (FTKScalar, AstConcreteS{}) -> error "astConvertFromS: impossible"
-  {- TODO:
-  (FTKScalar @r, Ast.AstFloorS v) | FTKS ZSS FTKScalar <- ftkAst v
-                                  , Dict0 <- lemTKAllNumConvertForward c
-                                  , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    astFloorK (astKFromS' v) -}
-  (FTKScalar, Ast.AstFloorS{}) -> Ast.AstConvert c a
-  (FTKScalar @r, Ast.AstFromIntegralS v)
+  (FTKScalar @r1, Ast.AstFloorS @_ @r2 v)
     | FTKS ZSS FTKScalar <- ftkAst v
-    , Dict0 <- lemTKAllNumConvertForward c
-    , Dict0 <- numFromTKAllNum (Proxy @r) ->
+    , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      astFloorK (astKFromS' v)
+  (FTKScalar, Ast.AstFloorS{}) -> Ast.AstConvert c a
+  (FTKScalar @r1, Ast.AstFromIntegralS @_ @r2 v)
+    | FTKS ZSS FTKScalar <- ftkAst v
+    , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
       astFromIntegralK (astKFromS' v)
   (FTKScalar, Ast.AstFromIntegralS{}) -> error "astConvertFromS: impossible"
-  {- TODO:
-  (FTKScalar @r, Ast.AstCastS v) | FTKS ZSS FTKScalar <- ftkAst v
-                                 , Dict0 <- lemTKAllNumConvertForward c
-                                 , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    astCastK (astKFromS' v) -}
+  (FTKScalar @r1, Ast.AstCastS @_ @r2 v)
+    | FTKS ZSS FTKScalar <- ftkAst v
+    , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
+      astCastK (astKFromS' v)
   (FTKScalar, Ast.AstCastS{}) -> Ast.AstConvert c a
-  (FTKScalar @r, Ast.AstArgMinA v)
+  (FTKScalar @r1, Ast.AstArgMinA v)
     | FTKS (_ :$$ ZSS) FTKScalar <- ftkAst v
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
+    , Just Refl <- testEquality (typeRep @r1) (typeRep @Int) ->
       astArgMinK v
   (FTKScalar, Ast.AstArgMinA{}) -> Ast.AstConvert c a
-  (FTKScalar @r, Ast.AstArgMaxA v)
+  (FTKScalar @r1, Ast.AstArgMaxA v)
     | FTKS (_ :$$ ZSS) FTKScalar <- ftkAst v
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
+    , Just Refl <- testEquality (typeRep @r1) (typeRep @Int) ->
       astArgMaxK v
   (FTKScalar, Ast.AstArgMaxA{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstIndexS{}) -> Ast.AstConvert c a
