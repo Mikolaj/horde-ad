@@ -31,12 +31,12 @@ import HordeAd.OpsTensor
 sminimum :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKScalar r)
 sminimum t = tlet (sflatten t) $ \tf ->
-               sindex0 tf (tplainPart (kfromS (sargMin tf)) :.$ ZIS)
+               sindex0 tf (tplainPart (kargMin tf) :.$ ZIS)
 
 smaximum :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKScalar r)
 smaximum t = tlet (sflatten t) $ \tf ->
-               sindex0 tf (tplainPart (kfromS (sargMax tf)) :.$ ZIS)
+               sindex0 tf (tplainPart (kargMax tf) :.$ ZIS)
 
 sfromIndex0 :: forall r target. (ADReady target, NumScalar r)
             => IntOf target -> target (TKS '[] r)
