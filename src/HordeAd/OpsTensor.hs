@@ -543,9 +543,10 @@ rcast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
          , BaseTensor target )
       => target (TKR n r1) -> target (TKR n r2)
 rcast = trcast
-rminIndex, rmaxIndex  -- partial
-  :: forall n r r2 target. (NumScalar r, NumScalar r2, BaseTensor target)
-  => target (TKR (1 + n) r) -> target (TKR n r2)
+-- | Throws if the array is empty.
+rminIndex, rmaxIndex
+  :: forall n r target. (NumScalar r, BaseTensor target)
+  => target (TKR (1 + n) r) -> target (TKR n Int)
 rminIndex = trminIndex
 rmaxIndex = trmaxIndex
 riota :: (NumScalar r, BaseTensor target)
@@ -563,9 +564,10 @@ scast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
          , BaseTensor target )
       => target (TKS sh r1) -> target (TKS sh r2)
 scast = tscast
-sminIndex, smaxIndex  -- partial
-  :: forall n sh r r2 target. (NumScalar r, NumScalar r2, BaseTensor target)
-  => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) r2)
+-- | Throws if the array is empty.
+sminIndex, smaxIndex
+  :: forall n sh r target. (NumScalar r, BaseTensor target)
+  => target (TKS (n ': sh) r) -> target (TKS (Init (n ': sh)) Int)
 sminIndex = tsminIndex
 smaxIndex = tsmaxIndex
 siota :: (KnownNat n, NumScalar r, BaseTensor target)
@@ -583,9 +585,10 @@ xcast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
          , BaseTensor target )
       => target (TKX sh r1) -> target (TKX sh r2)
 xcast = txcast
-xminIndex, xmaxIndex  -- partial
-  :: forall mn sh r r2 target. (NumScalar r, NumScalar r2, BaseTensor target)
-  => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) r2)
+-- | Throws if the array is empty.
+xminIndex, xmaxIndex
+  :: forall mn sh r target. (NumScalar r, BaseTensor target)
+  => target (TKX (mn ': sh) r) -> target (TKX (Init (mn ': sh)) Int)
 xminIndex = txminIndex
 xmaxIndex = txmaxIndex
 xiota :: (KnownNat n, NumScalar r, BaseTensor target)

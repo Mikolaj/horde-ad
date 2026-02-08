@@ -301,21 +301,21 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
             -- this introduces new variable names
   -- Depite the warning, the pattern match is exhaustive and if a dummy
   -- pattern is added, GHC 9.14.1 complains about that, in turn.
-  trminIndex @_ @_ @r2 a = case ftkAst a of
+  trminIndex a = case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ _ ->
           -- unfortunately, this is not enough:
           -- gcastWith (unsafeCoerceRefl :: Rank sh :~: 1 + Rank (Init sh)) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          astFromS' @(TKS (Init sh) r2) (FTKR (shrInit sh') FTKScalar)
+          astFromS' @(TKS (Init sh) Int) (FTKR (shrInit sh') FTKScalar)
           . fromPlain . AstMinIndexS . astPlainPart . astSFromR' @sh sh $ a
-  trmaxIndex @_ @_ @r2 a = case ftkAst a of
+  trmaxIndex a = case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          astFromS' @(TKS (Init sh) r2) (FTKR (shrInit sh') FTKScalar)
+          astFromS' @(TKS (Init sh) Int) (FTKR (shrInit sh') FTKScalar)
           . fromPlain . AstMaxIndexS . astPlainPart . astSFromR' @sh sh $ a
   triota @r n =
     withSNat n $ \(SNat @n) ->
@@ -499,22 +499,20 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
                           (shsTake @(Rank shp) shpshn)
                           (astSFromX' shpshn t) (vars, ix2)
             -- this introduces new variable names
-  txminIndex @_ @_ @_ @r2 a = case ftkAst a of
+  txminIndex a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          astFromS' @(TKS (Init sh) r2)
-                    (FTKX (shxInit sh') FTKScalar)
+          astFromS' @(TKS (Init sh) Int) (FTKX (shxInit sh') FTKScalar)
           . fromPlain . AstMinIndexS @n @rest
           . astPlainPart . astSFromX' @sh @sh' sh $ a
-  txmaxIndex @_ @_ @_ @r2 a = case ftkAst a of
+  txmaxIndex a = case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          astFromS' @(TKS (Init sh) r2)
-                   (FTKX (shxInit sh') FTKScalar)
+          astFromS' @(TKS (Init sh) Int) (FTKX (shxInit sh') FTKScalar)
           . fromPlain . AstMaxIndexS @n @rest
           . astPlainPart . astSFromX' @sh @sh' sh $ a
   txiota @n @r = astFromS' (FTKX (SKnown (SNat @n) :$% ZSX) FTKScalar)
@@ -815,21 +813,21 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                           (shsTake @p shpshn)
                           (cAstSFromR shpshn t) (vars, ix2)
             -- this introduces new variable names
-  trminIndex @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  trminIndex (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ _ ->
           -- unfortunately, this is not enough:
           -- gcastWith (unsafeCoerceRefl :: Rank sh :~: 1 + Rank (Init sh)) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          cAstFromS @(TKS (Init sh) r2) (FTKR (shrInit sh') FTKScalar)
+          cAstFromS @(TKS (Init sh) Int) (FTKR (shrInit sh') FTKScalar)
           . fromPlain . AstMinIndexS . plainPart . cAstSFromR @sh sh $ a
-  trmaxIndex @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  trmaxIndex (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          cAstFromS @(TKS (Init sh) r2) (FTKR (shrInit sh') FTKScalar)
+          cAstFromS @(TKS (Init sh) Int) (FTKR (shrInit sh') FTKScalar)
           . fromPlain . AstMaxIndexS . plainPart . cAstSFromR @sh sh $ a
   triota @r n =
     AstRaw
@@ -1019,22 +1017,20 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                           (shsTake @(Rank shp) shpshn)
                           (cAstSFromX shpshn t) (vars, ix2)
             -- this introduces new variable names
-  txminIndex @_ @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  txminIndex (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          cAstFromS @(TKS (Init sh) r2)
-                    (FTKX (shxInit sh') FTKScalar)
+          cAstFromS @(TKS (Init sh) Int) (FTKX (shxInit sh') FTKScalar)
           . fromPlain . AstMinIndexS @n @rest
           . plainPart . cAstSFromX @sh @sh' sh $ a
-  txmaxIndex @_ @_ @_ @r2 (AstRaw a) = AstRaw $ case ftkAst a of
+  txmaxIndex (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          cAstFromS @(TKS (Init sh) r2)
-                   (FTKX (shxInit sh') FTKScalar)
+          cAstFromS @(TKS (Init sh) Int) (FTKX (shxInit sh') FTKScalar)
           . fromPlain . AstMaxIndexS @n @rest
           . plainPart . cAstSFromX @sh @sh' sh $ a
   txiota @n @r = AstRaw $ cAstFromS (FTKX (SKnown (SNat @n) :$% ZSX) FTKScalar)
