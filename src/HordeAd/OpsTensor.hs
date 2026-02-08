@@ -524,7 +524,7 @@ kfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKScalar r) -> target (TKScalar r2)
 kfloor = tkfloor
-kfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
+kfromIntegral :: (NumScalar r1, Integral r1, NumScalar r2, BaseTensor target)
               => target (TKScalar r1) -> target (TKScalar r2)
 kfromIntegral = tkfromIntegral
 kcast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
@@ -536,7 +536,7 @@ rfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKR n r) -> target (TKR n r2)
 rfloor = trfloor
-rfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
+rfromIntegral :: (NumScalar r1, Integral r1, NumScalar r2, BaseTensor target)
               => target (TKR n r1) -> target (TKR n r2)
 rfromIntegral = trfromIntegral
 rcast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
@@ -557,7 +557,7 @@ sfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKS sh r) -> target (TKS sh r2)
 sfloor = tsfloor
-sfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
+sfromIntegral :: (NumScalar r1, Integral r1, NumScalar r2, BaseTensor target)
               => target (TKS sh r1) -> target (TKS sh r2)
 sfromIntegral = tsfromIntegral
 scast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2
@@ -578,7 +578,7 @@ xfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKX sh r) -> target (TKX sh r2)
 xfloor = txfloor
-xfromIntegral :: (GoodScalar r1, Integral r1, NumScalar r2, BaseTensor target)
+xfromIntegral :: (NumScalar r1, Integral r1, NumScalar r2, BaseTensor target)
               => target (TKX sh r1) -> target (TKX sh r2)
 xfromIntegral = txfromIntegral
 xcast :: ( Differentiable r1, NumScalar r1, Differentiable r2, NumScalar r2

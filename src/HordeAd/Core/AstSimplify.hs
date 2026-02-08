@@ -1255,7 +1255,7 @@ astFloorK t = case t of
 -- Beware that increasing the number of calls to this constructor
 -- sometimes increases runtime, because not enough copies cancel out.
 -- Hence the commented out rules below.
-astFromIntegralK :: forall r1 r2. (GoodScalar r1, Integral r1, NumScalar r2)
+astFromIntegralK :: forall r1 r2. (NumScalar r1, Integral r1, NumScalar r2)
                  => AstTensor AstMethodLet PlainSpan (TKScalar r1)
                  -> AstTensor AstMethodLet PlainSpan (TKScalar r2)
 astFromIntegralK t = case t of
@@ -1325,7 +1325,7 @@ astFloorS t = case t of
   Ast.AstCastS v -> astFloorS v
   _ -> Ast.AstFloorS t
 
-astFromIntegralS :: forall r1 r2 sh. (GoodScalar r1, NumScalar r2, Integral r1)
+astFromIntegralS :: forall r1 r2 sh. (NumScalar r1, NumScalar r2, Integral r1)
                  => AstTensor AstMethodLet PlainSpan (TKS sh r1)
                  -> AstTensor AstMethodLet PlainSpan (TKS sh r2)
 astFromIntegralS t = case t of
