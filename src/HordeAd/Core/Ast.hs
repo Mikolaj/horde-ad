@@ -558,10 +558,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
              -> (AstVarListS shm, AstIxS ms shp)
              -> AstTensor ms s (TKS2 (shm ++ shn) x)
     -- out of bounds indexing is permitted and the results is def (==0)
-  AstMinIndexS :: forall n sh r ms. NumScalar r
+  AstArgMinA :: forall n sh r ms. NumScalar r
                => AstTensor ms PlainSpan (TKS (n ': sh) r)
                -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) Int)
-  AstMaxIndexS :: forall n sh r ms. NumScalar r
+  AstArgMaxA :: forall n sh r ms. NumScalar r
                => AstTensor ms PlainSpan (TKS (n ': sh) r)
                -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) Int)
   AstIotaS :: forall n r ms. NumScalar r

@@ -113,9 +113,9 @@ ftkAst t = case t of
     FTKS _ x -> FTKS (shp `shsAppend` shn) x
   AstGatherS shm shn _shp v _ -> case ftkAst v of
     FTKS _ x -> FTKS (shm `shsAppend` shn) x
-  AstMinIndexS v -> case ftkAst v of
+  AstArgMinA v -> case ftkAst v of
     FTKS sh FTKScalar -> FTKS (shsInit sh) FTKScalar
-  AstMaxIndexS v -> case ftkAst v of
+  AstArgMaxA v -> case ftkAst v of
     FTKS sh FTKScalar -> FTKS (shsInit sh) FTKScalar
   AstIotaS n@SNat -> FTKS (n :$$ ZSS) FTKScalar
   AstAppendS a b -> case (ftkAst a, ftkAst b) of
@@ -211,8 +211,8 @@ varInAst var = \case
   AstIndexS _ v ix -> varInAst var v || varInIxS var ix
   AstScatterS _ _ _ v (_vars, ix) -> varInIxS var ix || varInAst var v
   AstGatherS _ _ _ v (_vars, ix) -> varInIxS var ix || varInAst var v
-  AstMinIndexS a -> varInAst var a
-  AstMaxIndexS a -> varInAst var a
+  AstArgMinA a -> varInAst var a
+  AstArgMaxA a -> varInAst var a
   AstIotaS{} -> False
   AstAppendS v u -> varInAst var v || varInAst var u
   AstSliceS _ _ _ v -> varInAst var v
@@ -425,8 +425,8 @@ astLetDown var u v = case v of
     if varNameInIxS var ix
     then AstLet var u v
     else AstGatherS shm shn shp (astLetDown var u v2) (vars, ix)
-  AstMinIndexS a -> AstMinIndexS (astLetDown var u a)
-  AstMaxIndexS a -> AstMaxIndexS (astLetDown var u a)
+  AstArgMinA a -> AstArgMinA (astLetDown var u a)
+  AstArgMaxA a -> AstArgMaxA (astLetDown var u a)
   AstIotaS{} -> v
   AstAppendS{} -> AstLet var u v
   AstSliceS i n k v2 -> AstSliceS i n k (astLetDown var u v2)

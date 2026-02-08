@@ -996,8 +996,8 @@ astPrimalPart t = case t of
     astScatterS shm shn shp (astPrimalPart v) (vars, ix)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     astGatherS shm shn shp (astPrimalPart v) (vars, ix)
-  Ast.AstMinIndexS{} -> Ast.AstPrimalPart t
-  Ast.AstMaxIndexS{} -> Ast.AstPrimalPart t
+  Ast.AstArgMinA{} -> Ast.AstPrimalPart t
+  Ast.AstArgMaxA{} -> Ast.AstPrimalPart t
   Ast.AstIotaS{} -> Ast.AstPrimalPart t
   Ast.AstAppendS x y -> astAppendS (astPrimalPart x) (astPrimalPart y)
   Ast.AstSliceS i n k v -> astSliceS i n k (astPrimalPart v)
@@ -1431,7 +1431,7 @@ astCastS t = case t of
     astScatterS shm shn shp (astCastS v) (vars, ix)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     astGatherS shm shn shp (astCastS v) (vars, ix)
---  Ast.AstMinIndexS v -> Ast.AstMinIndexS (astCastS v)
+--  Ast.AstArgMinA v -> Ast.AstArgMinA (astCastS v)
   Ast.AstIotaS snat -> Ast.AstIotaS snat
 --  Ast.AstSliceS i n k v -> astSliceS i n k (astCastS v)
   Ast.AstReverseS v -> astReverseS (astCastS v)
@@ -1641,7 +1641,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
      in case 0 <=. i1 &&* i1 <=. valueOf @m71 - 1 of
        AstConcreteK b -> if b then u else defArr
        _ -> Ast.AstIndexS shn v0 ix
-   Ast.AstMinIndexS @n1 @shz v -> case ftkAst v of
+   Ast.AstArgMinA @n1 @shz v -> case ftkAst v of
      FTKS nsh _ -> case shsLast nsh of
       nl@(SNat @nl) ->
        let shnl = shn `shsAppend` (nl :$$ ZSS)
@@ -1653,10 +1653,10 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
                      :: Init (shn ++ '[nl]) :~: shn) $
           gcastWith (unsafeCoerceRefl
                      :: shm ++ (shn ++ '[nl]) :~: n1 ': shz) $
-          Ast.AstMinIndexS @(Head (shn ++ '[nl]))
+          Ast.AstArgMinA @(Head (shn ++ '[nl]))
                            @(Tail (shn ++ '[nl]))
           $ astIndexKnobsS @shm @(shn ++ '[nl]) knobs shnl v ix
-   Ast.AstMaxIndexS @n1 @shz v -> case ftkAst v of
+   Ast.AstArgMaxA @n1 @shz v -> case ftkAst v of
      FTKS nsh _ -> case shsLast nsh of
       nl@(SNat @nl) ->
        let shnl = shn `shsAppend` (nl :$$ ZSS)
@@ -1668,7 +1668,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
                      :: Init (shn ++ '[nl]) :~: shn) $
           gcastWith (unsafeCoerceRefl
                      :: shm ++ (shn ++ '[nl]) :~: n1 ': shz) $
-          Ast.AstMaxIndexS @(Head (shn ++ '[nl]))
+          Ast.AstArgMaxA @(Head (shn ++ '[nl]))
                            @(Tail (shn ++ '[nl]))
           $ astIndexKnobsS @shm @(shn ++ '[nl]) knobs shnl v ix
    Ast.AstIotaS (SNat @k) -> case testEquality shn ZSS of
@@ -2685,7 +2685,7 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
         EQI -> assimilatedGather
         GTI -> gcastWith (flipCompare (Proxy @rank4) (Proxy @rank2))
                          assimilatedGather
-    Ast.AstMinIndexS @n @sh v -> case ftkAst v of
+    Ast.AstArgMinA @n @sh v -> case ftkAst v of
      FTKS nsh _ -> case shsLast nsh of
       nl@(SNat @nl) ->
         let shnl = shn `shsAppend` (nl :$$ ZSS)
@@ -2698,10 +2698,10 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
            gcastWith (unsafeCoerceRefl
                       :: Init (shm ++ (shn ++ '[nl]))
                       :~: shm ++ shn) $
-           Ast.AstMinIndexS @(Head (shm ++ (shn ++ '[nl])))
+           Ast.AstArgMinA @(Head (shm ++ (shn ++ '[nl])))
                             @(Tail (shm ++ (shn ++ '[nl])))
            $ astGather shm shnl shp v (vars4, ix4)
-    Ast.AstMaxIndexS @n @sh v -> case ftkAst v of
+    Ast.AstArgMaxA @n @sh v -> case ftkAst v of
      FTKS nsh _ -> case shsLast nsh of
       nl@(SNat @nl) ->
         let shnl = shn `shsAppend` (nl :$$ ZSS)
@@ -2714,7 +2714,7 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
            gcastWith (unsafeCoerceRefl
                       :: Init (shm ++ (shn ++ '[nl]))
                       :~: shm ++ shn) $
-           Ast.AstMaxIndexS @(Head (shm ++ (shn ++ '[nl])))
+           Ast.AstArgMaxA @(Head (shm ++ (shn ++ '[nl])))
                             @(Tail (shm ++ (shn ++ '[nl])))
            $ astGather shm shnl shp v (vars4, ix4)
     Ast.AstIotaS{} ->  -- probably nothing can be simplified; a normal form
@@ -3312,16 +3312,16 @@ astConvertFromS c zftk a = case (zftk, a) of
   (FTKScalar, Ast.AstIndexS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstScatterS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstGatherS{}) -> Ast.AstConvert c a
-  (FTKScalar @r, Ast.AstMinIndexS v)
+  (FTKScalar @r, Ast.AstArgMinA v)
     | FTKS (_ :$$ ZSS) FTKScalar <- ftkAst v
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
       astArgMinK v
-  (FTKScalar, Ast.AstMinIndexS{}) -> Ast.AstConvert c a
-  (FTKScalar @r, Ast.AstMaxIndexS v)
+  (FTKScalar, Ast.AstArgMinA{}) -> Ast.AstConvert c a
+  (FTKScalar @r, Ast.AstArgMaxA v)
     | FTKS (_ :$$ ZSS) FTKScalar <- ftkAst v
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
       astArgMaxK v
-  (FTKScalar, Ast.AstMaxIndexS{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstArgMaxA{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstIotaS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstAppendS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstSliceS{}) -> Ast.AstConvert c a
@@ -4188,8 +4188,8 @@ substitute1Ast i var = subst where
       (mv, mix) -> Just $ astGatherS shm shn shp
                                      (fromMaybe v mv)
                                      (vars, fromMaybe ix mix)
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS <$> subst a
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS <$> subst a
+  Ast.AstArgMinA a -> Ast.AstArgMinA <$> subst a
+  Ast.AstArgMaxA a -> Ast.AstArgMaxA <$> subst a
   Ast.AstIotaS{} -> Nothing
   Ast.AstAppendS x y ->
     case (subst x, subst y) of

@@ -245,9 +245,9 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
     Ast.AstCastK v -> traceRule $
       astCastS $ build1V snat (var, v)
     Ast.AstArgMinK v -> traceRule $
-      Ast.AstMinIndexS $ build1V snat (var, v)
+      Ast.AstArgMinA $ build1V snat (var, v)
     Ast.AstArgMaxK v -> traceRule $
-      Ast.AstMaxIndexS $ build1V snat (var, v)
+      Ast.AstArgMaxA $ build1V snat (var, v)
 
     Ast.AstPlusS u v -> traceRule $
       build1VOccurrenceUnknown snat (var, u)
@@ -289,10 +289,10 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       in astGatherS (SNat @k :$$ shm) shn (SNat @k :$$ shp)
                     (build1VOccurrenceUnknown snat (var, v))
                     (varFresh ::$ vars, astVarFresh :.$ ix2)
-    Ast.AstMinIndexS v -> traceRule $
-      Ast.AstMinIndexS $ build1V snat (var, v)
-    Ast.AstMaxIndexS v -> traceRule $
-      Ast.AstMaxIndexS $ build1V snat (var, v)
+    Ast.AstArgMinA v -> traceRule $
+      Ast.AstArgMinA $ build1V snat (var, v)
+    Ast.AstArgMaxA v -> traceRule $
+      Ast.AstArgMaxA $ build1V snat (var, v)
     Ast.AstIotaS{} ->
       error "build1V: AstIotaS can't have free variables"
     Ast.AstAppendS v w -> traceRule $

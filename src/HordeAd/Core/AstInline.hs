@@ -200,8 +200,8 @@ inlineAst !memo v0 = case v0 of
         memo2 = EM.unionWith (+) memo1 memoI2
         !ix3 = ixsFromIxS ix ix2
     in (memo2, Ast.AstGatherS shm shn shp v2 (vars, ix3))
-  Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ inlineAst memo a
-  Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ inlineAst memo a
+  Ast.AstArgMinA a -> second Ast.AstArgMinA $ inlineAst memo a
+  Ast.AstArgMaxA a -> second Ast.AstArgMaxA $ inlineAst memo a
   Ast.AstIotaS{} -> (memo, v0)
   Ast.AstAppendS x y ->
     let (memo1, t1) = inlineAst memo x
@@ -455,8 +455,8 @@ unshareAst !memo = \case
         (memo2, v2) = unshareAst memo1 v
         !ix3 = ixsFromIxS ix ix2
     in (memo2, Ast.AstGatherS shm shn shp v2 (vars, ix3))
-  Ast.AstMinIndexS a -> second Ast.AstMinIndexS $ unshareAst memo a
-  Ast.AstMaxIndexS a -> second Ast.AstMaxIndexS $ unshareAst memo a
+  Ast.AstArgMinA a -> second Ast.AstArgMinA $ unshareAst memo a
+  Ast.AstArgMaxA a -> second Ast.AstArgMaxA $ unshareAst memo a
   Ast.AstIotaS snat -> (memo, Ast.AstIotaS snat)
   Ast.AstAppendS x y ->
     let (memo1, t1) = unshareAst memo x

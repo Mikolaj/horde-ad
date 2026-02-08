@@ -456,8 +456,8 @@ printAst cfg d = \case
                           (listsToList vars)
            . showString " -> "
            . showListWith (printAst cfg 0) (Foldable.toList ix))
-  AstMinIndexS a -> printPrefixOp printAst cfg d "sminIndex" [a]
-  AstMaxIndexS a -> printPrefixOp printAst cfg d "smaxIndex" [a]
+  AstArgMinA a -> printPrefixOp printAst cfg d "sminIndex" [a]
+  AstArgMaxA a -> printPrefixOp printAst cfg d "smaxIndex" [a]
   AstIotaS snat ->
     showParen (d > 10)
     $ showString ("siota (" ++ show snat ++ ")")

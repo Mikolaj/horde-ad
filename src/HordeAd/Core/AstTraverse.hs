@@ -168,8 +168,8 @@ expandAst t = case t of
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
                     shm shn shp (expandAst v) (vars, expandAstIxS ix)
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS (expandAst a)
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (expandAst a)
+  Ast.AstArgMinA a -> Ast.AstArgMinA (expandAst a)
+  Ast.AstArgMaxA a -> Ast.AstArgMaxA (expandAst a)
   Ast.AstIotaS{} -> t
   Ast.AstAppendS x y -> astAppendS (expandAst x) (expandAst y)
   Ast.AstSliceS i n k v -> astSliceS i n k (expandAst v)
@@ -364,8 +364,8 @@ simplifyAst t = case t of
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
                     shm shn shp (simplifyAst v) (vars, simplifyAstIxS ix)
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS (simplifyAst a)
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (simplifyAst a)
+  Ast.AstArgMinA a -> Ast.AstArgMinA (simplifyAst a)
+  Ast.AstArgMaxA a -> Ast.AstArgMaxA (simplifyAst a)
   Ast.AstIotaS{} -> t
   Ast.AstAppendS x y -> astAppendS (simplifyAst x) (simplifyAst y)
   Ast.AstSliceS i n k v -> astSliceS i n k (simplifyAst v)
@@ -820,8 +820,8 @@ contractAst t0 = case t0 of
            (interpretLambdaIndexS
               interpretAst env
               (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromK i)) -}
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS (contractAst a)
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (contractAst a)
+  Ast.AstArgMinA a -> Ast.AstArgMinA (contractAst a)
+  Ast.AstArgMaxA a -> Ast.AstArgMaxA (contractAst a)
   Ast.AstIotaS snat@(SNat @n) | fromSNat' snat < 100 ->
     astConcreteS $ tsiota @_ @n  -- likely not to be O(data size)
   Ast.AstIotaS{} -> t0  -- tough trade-offs here
@@ -952,8 +952,8 @@ letDownAst t = case t of
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     let !ix2 = letDownAstIxS ix
     in Ast.AstGatherS shm shn shp (letDownAst v) (vars, ix2)
-  Ast.AstMinIndexS a -> Ast.AstMinIndexS (letDownAst a)
-  Ast.AstMaxIndexS a -> Ast.AstMaxIndexS (letDownAst a)
+  Ast.AstArgMinA a -> Ast.AstArgMinA (letDownAst a)
+  Ast.AstArgMaxA a -> Ast.AstArgMaxA (letDownAst a)
   Ast.AstIotaS{} -> t
   Ast.AstAppendS x y -> Ast.AstAppendS (letDownAst x) (letDownAst y)
   Ast.AstSliceS i n k v -> Ast.AstSliceS i n k (letDownAst v)
