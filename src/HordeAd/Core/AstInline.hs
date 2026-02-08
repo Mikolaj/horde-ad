@@ -181,8 +181,8 @@ inlineAst !memo v0 = case v0 of
   Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAst memo a
   Ast.AstFromIntegralS v -> second Ast.AstFromIntegralS $ inlineAst memo v
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v
-  Ast.AstArgMinA a -> second Ast.AstArgMinA $ inlineAst memo a
-  Ast.AstArgMaxA a -> second Ast.AstArgMaxA $ inlineAst memo a
+  Ast.AstArgMinS a -> second Ast.AstArgMinS $ inlineAst memo a
+  Ast.AstArgMaxS a -> second Ast.AstArgMaxS $ inlineAst memo a
 
   Ast.AstIndexS @shm shn v ix ->
     let (memo1, v2) = inlineAst memo v
@@ -214,15 +214,15 @@ inlineAst !memo v0 = case v0 of
 
   Ast.AstConvert c v -> second (Ast.AstConvert c) $ inlineAst memo v
 
-  Ast.AstIndex0S v ix ->
+  Ast.AstIndex0 v ix ->
     let (memo1, v2) = inlineAst memo v
         (memo2, ix2) = mapAccumL' inlineAst memo1 (Foldable.toList ix)
-    in (memo2, Ast.AstIndex0S v2 (ixsFromIxS ix ix2))
-  Ast.AstSum0S v -> second Ast.AstSum0S (inlineAst memo v)
-  Ast.AstDot0S u v ->
+    in (memo2, Ast.AstIndex0 v2 (ixsFromIxS ix ix2))
+  Ast.AstSum0 v -> second Ast.AstSum0 (inlineAst memo v)
+  Ast.AstDot0 u v ->
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
-    in (memo3, Ast.AstDot0S u2 v3)
+    in (memo3, Ast.AstDot0 u2 v3)
   Ast.AstDot1InS m n u v ->
     let (memo2, u2) = inlineAst memo u
         (memo3, v3) = inlineAst memo2 v
@@ -438,8 +438,8 @@ unshareAst !memo = \case
   Ast.AstFloorS a -> second Ast.AstFloorS $ unshareAst memo a
   Ast.AstFromIntegralS v -> second Ast.AstFromIntegralS $ unshareAst memo v
   Ast.AstCastS v -> second Ast.AstCastS $ unshareAst memo v
-  Ast.AstArgMinA a -> second Ast.AstArgMinA $ unshareAst memo a
-  Ast.AstArgMaxA a -> second Ast.AstArgMaxA $ unshareAst memo a
+  Ast.AstArgMinS a -> second Ast.AstArgMinS $ unshareAst memo a
+  Ast.AstArgMaxS a -> second Ast.AstArgMaxS $ unshareAst memo a
 
   Ast.AstIndexS @shm shn v ix ->
     let (memo1, v2) = unshareAst memo v
@@ -470,15 +470,15 @@ unshareAst !memo = \case
 
   Ast.AstConvert c v -> second (Ast.AstConvert c) $ unshareAst memo v
 
-  Ast.AstIndex0S v ix ->
+  Ast.AstIndex0 v ix ->
     let (memo1, v2) = unshareAst memo v
         (memo2, ix2) = mapAccumL' unshareAst memo1 (Foldable.toList ix)
-    in (memo2, Ast.AstIndex0S v2 (ixsFromIxS ix ix2))
-  Ast.AstSum0S v -> second Ast.AstSum0S (unshareAst memo v)
-  Ast.AstDot0S u v ->
+    in (memo2, Ast.AstIndex0 v2 (ixsFromIxS ix ix2))
+  Ast.AstSum0 v -> second Ast.AstSum0 (unshareAst memo v)
+  Ast.AstDot0 u v ->
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v
-    in (memo3, Ast.AstDot0S u2 v3)
+    in (memo3, Ast.AstDot0 u2 v3)
   Ast.AstDot1InS m n u v ->
     let (memo2, u2) = unshareAst memo u
         (memo3, v3) = unshareAst memo2 v

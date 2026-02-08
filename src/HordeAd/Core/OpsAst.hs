@@ -309,14 +309,14 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
           -- gcastWith (unsafeCoerceRefl :: Rank sh :~: 1 + Rank (Init sh)) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           astFromS' @(TKS (Init sh) Int) (FTKR (shrInit sh') FTKScalar)
-          . fromPlain . AstArgMinA . astPlainPart . astSFromR' @sh sh $ a
+          . fromPlain . AstArgMinS . astPlainPart . astSFromR' @sh sh $ a
   trargMax a = case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           astFromS' @(TKS (Init sh) Int) (FTKR (shrInit sh') FTKScalar)
-          . fromPlain . AstArgMaxA . astPlainPart . astSFromR' @sh sh $ a
+          . fromPlain . AstArgMaxS . astPlainPart . astSFromR' @sh sh $ a
   triota @r n =
     withSNat n $ \(SNat @n) ->
       astFromS' (FTKR (n :$: ZSR) FTKScalar)
@@ -414,8 +414,8 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
       in astGatherS (knownShS @shm) (knownShS @shn) (knownShS @shp)
                     t (vars, ix2)
       -- this introduces new variable names
-  tsargMin = fromPlain . AstArgMinA . astPlainPart
-  tsargMax = fromPlain . AstArgMaxA . astPlainPart
+  tsargMin = fromPlain . AstArgMinS . astPlainPart
+  tsargMax = fromPlain . AstArgMaxS . astPlainPart
   tsiota = fromPlain $ AstIotaS SNat
   tsappend = astAppendS
   tsslice = astSliceS
@@ -505,7 +505,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
           astFromS' @(TKS (Init sh) Int) (FTKX (shxInit sh') FTKScalar)
-          . fromPlain . AstArgMinA @n @rest
+          . fromPlain . AstArgMinS @n @rest
           . astPlainPart . astSFromX' @sh @sh' sh $ a
   txargMax a = case ftkAst a of
     FTKX @sh' sh' _ ->
@@ -513,7 +513,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
           astFromS' @(TKS (Init sh) Int) (FTKX (shxInit sh') FTKScalar)
-          . fromPlain . AstArgMaxA @n @rest
+          . fromPlain . AstArgMaxS @n @rest
           . astPlainPart . astSFromX' @sh @sh' sh $ a
   txiota @n @r = astFromS' (FTKX (SKnown (SNat @n) :$% ZSX) FTKScalar)
                  $ fromPlain $ AstIotaS @n @r SNat
@@ -823,14 +823,14 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
           -- gcastWith (unsafeCoerceRefl :: Rank sh :~: 1 + Rank (Init sh)) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           cAstFromS @(TKS (Init sh) Int) (FTKR (shrInit sh') FTKScalar)
-          . fromPlain . AstArgMinA . plainPart . cAstSFromR @sh sh $ a
+          . fromPlain . AstArgMinS . plainPart . cAstSFromR @sh sh $ a
   trargMax (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' _ ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
           cAstFromS @(TKS (Init sh) Int) (FTKR (shrInit sh') FTKScalar)
-          . fromPlain . AstArgMaxA . plainPart . cAstSFromR @sh sh $ a
+          . fromPlain . AstArgMaxS . plainPart . cAstSFromR @sh sh $ a
   triota @r n =
     AstRaw
     $ withSNat n $ \(SNat @n) ->
@@ -932,8 +932,8 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
       let !ix2 = fmapUnAstRaw . f . fmapAstRaw $ ix
       in AstGatherS (knownShS @shm) (knownShS @shn) (knownShS @shp)
                     (unAstRaw t) (vars, ix2)
-  tsargMin = AstRaw . fromPlain . AstArgMinA . plainPart . unAstRaw
-  tsargMax = AstRaw . fromPlain . AstArgMaxA . plainPart . unAstRaw
+  tsargMin = AstRaw . fromPlain . AstArgMinS . plainPart . unAstRaw
+  tsargMax = AstRaw . fromPlain . AstArgMaxS . plainPart . unAstRaw
   tsiota = AstRaw . fromPlain $ AstIotaS SNat
   tsappend u v = AstRaw $ AstAppendS (unAstRaw u) (unAstRaw v)
   tsslice i n k = AstRaw . AstSliceS i n k . unAstRaw
@@ -1025,7 +1025,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
           cAstFromS @(TKS (Init sh) Int) (FTKX (shxInit sh') FTKScalar)
-          . fromPlain . AstArgMinA @n @rest
+          . fromPlain . AstArgMinS @n @rest
           . plainPart . cAstSFromX @sh @sh' sh $ a
   txargMax (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' _ ->
@@ -1033,7 +1033,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
           cAstFromS @(TKS (Init sh) Int) (FTKX (shxInit sh') FTKScalar)
-          . fromPlain . AstArgMaxA @n @rest
+          . fromPlain . AstArgMaxS @n @rest
           . plainPart . cAstSFromX @sh @sh' sh $ a
   txiota @n @r = AstRaw $ cAstFromS (FTKX (SKnown (SNat @n) :$% ZSX) FTKScalar)
                  $ fromPlain $ AstIotaS @n @r SNat

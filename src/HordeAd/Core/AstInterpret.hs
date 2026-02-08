@@ -199,8 +199,8 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
   AstFloorS v -> tsfloor $ interpretAst env v
   AstFromIntegralS v -> tsfromIntegral $ interpretAst env v
   AstCastS v -> tscast $ interpretAst env v
-  AstArgMinA v -> tsargMin $ interpretAst env v
-  AstArgMaxA v -> tsargMax $ interpretAst env v
+  AstArgMinS v -> tsargMin $ interpretAst env v
+  AstArgMaxS v -> tsargMax $ interpretAst env v
 
   AstIndexS @shm shn v ix ->
     withKnownShS shn $
@@ -274,15 +274,15 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
   AstConvert c a ->
     tconvert c (ftkToSTK (ftkAst a)) (interpretAst env a)
 
-  AstIndex0S v ix ->
+  AstIndex0 v ix ->
     let v2 = interpretAst env v
         ix3 = interpretAst env <$> ix
     in tsindex0 v2 ix3
-  AstSum0S v -> case ftkAst v of
+  AstSum0 v -> case ftkAst v of
     FTKS sh _ ->
       withKnownShS sh $
       tssum0 (interpretAst env v)
-  AstDot0S u v -> case ftkAst u of
+  AstDot0 u v -> case ftkAst u of
     FTKS sh _ ->
       withKnownShS sh $
       tsdot0 (interpretAst env u) (interpretAst env v)

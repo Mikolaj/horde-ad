@@ -342,8 +342,8 @@ printAst cfg d = \case
   AstFloorS a -> printPrefixOp printAst cfg d "sfloor" [a]
   AstFromIntegralS a -> printPrefixOp printAst cfg d "sfromIntegral" [a]
   AstCastS a -> printPrefixOp printAst cfg d "scast" [a]
-  AstArgMinA a -> printPrefixOp printAst cfg d "sargMin" [a]
-  AstArgMaxA a -> printPrefixOp printAst cfg d "sargMax" [a]
+  AstArgMinS a -> printPrefixOp printAst cfg d "sargMin" [a]
+  AstArgMaxS a -> printPrefixOp printAst cfg d "sargMax" [a]
 
   AstIndexS _ v ix ->
     showParen (d > 9)
@@ -504,14 +504,14 @@ printAst cfg d = \case
     (ystk, _) -> let s = "tconvert (" ++ show c ++ ") (" ++ show ystk ++ ")"
                  in printPrefixOp printAst cfg d s [t]
 
-  AstIndex0S v ix ->
+  AstIndex0 v ix ->
     showParen (d > 9)
     $ printAst cfg 10 v
       . showString " `index0` "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
-  AstSum0S v ->
+  AstSum0 v ->
     printPrefixOp printAst cfg d "ssum0" [v]
-  AstDot0S u v ->
+  AstDot0 u v ->
     printPrefixOp printAst cfg d "sdot0" [u, v]
   AstDot1InS _ _ u v ->
     printPrefixOp printAst cfg d "sdot1In" [u, v]

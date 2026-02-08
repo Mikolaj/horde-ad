@@ -539,10 +539,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
   AstCastS :: (NumScalar r1, Differentiable r1, NumScalar r2, Differentiable r2)
            => AstTensor ms s (TKS sh r1)
            -> AstTensor ms s (TKS sh r2)
-  AstArgMinA :: forall n sh r ms. NumScalar r
+  AstArgMinS :: forall n sh r ms. NumScalar r
              => AstTensor ms PlainSpan (TKS (n ': sh) r)
              -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) Int)
-  AstArgMaxA :: forall n sh r ms. NumScalar r
+  AstArgMaxS :: forall n sh r ms. NumScalar r
              => AstTensor ms PlainSpan (TKS (n ': sh) r)
              -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) Int)
 
@@ -587,15 +587,15 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
   AstConvert :: TKConversion a b -> AstTensor ms s a -> AstTensor ms s b
 
   -- Backend-specific primitives
-  AstIndex0S :: forall shm r s ms. GoodScalar r
-             => AstTensor ms s (TKS shm r) -> AstIxS ms shm
-             -> AstTensor ms s (TKScalar r)
-  AstSum0S :: NumScalar r
-           => AstTensor ms s (TKS sh r)
-           -> AstTensor ms s (TKScalar r)
-  AstDot0S :: NumScalar r
-           => AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
-           -> AstTensor ms s (TKScalar r)
+  AstIndex0 :: forall shm r s ms. GoodScalar r
+            => AstTensor ms s (TKS shm r) -> AstIxS ms shm
+            -> AstTensor ms s (TKScalar r)
+  AstSum0 :: NumScalar r
+          => AstTensor ms s (TKS sh r)
+          -> AstTensor ms s (TKScalar r)
+  AstDot0 :: NumScalar r
+          => AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
+          -> AstTensor ms s (TKScalar r)
   AstDot1InS :: forall sh n r ms s. NumScalar r
              => ShS sh -> SNat n
              -> AstTensor ms s (TKS (sh ++ '[n]) r)

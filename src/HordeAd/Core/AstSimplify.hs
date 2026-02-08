@@ -41,7 +41,7 @@ module HordeAd.Core.AstSimplify
   , astConvert
   , astFromS', astKFromS', astRFromS', astXFromS'
   , astSFromK', astSFromR', astSFromX'
-  , astIndex0S, astSum0S, astDot0S, astDot1InS, astMatmul2S
+  , astIndex0, astSum0, astDot0, astDot1InS, astMatmul2S
 
     -- * Helper combinators
   , astLetFun
@@ -989,8 +989,8 @@ astPrimalPart t = case t of
   Ast.AstFloorS{} -> Ast.AstPrimalPart t
   Ast.AstFromIntegralS{} -> Ast.AstPrimalPart t
   Ast.AstCastS v -> astCastS $ astPrimalPart v
-  Ast.AstArgMinA{} -> Ast.AstPrimalPart t
-  Ast.AstArgMaxA{} -> Ast.AstPrimalPart t
+  Ast.AstArgMinS{} -> Ast.AstPrimalPart t
+  Ast.AstArgMaxS{} -> Ast.AstPrimalPart t
 
   Ast.AstIndexS shn v ix ->
     astIndexS shn (astPrimalPart v) ix
@@ -1012,9 +1012,9 @@ astPrimalPart t = case t of
     else Ast.AstPrimalPart t
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstIndex0S{} -> Ast.AstPrimalPart t
-  Ast.AstSum0S{} -> Ast.AstPrimalPart t
-  Ast.AstDot0S{} -> Ast.AstPrimalPart t
+  Ast.AstIndex0{} -> Ast.AstPrimalPart t
+  Ast.AstSum0{} -> Ast.AstPrimalPart t
+  Ast.AstDot0{} -> Ast.AstPrimalPart t
   Ast.AstDot1InS{} -> Ast.AstPrimalPart t
   Ast.AstMatmul2S{} -> Ast.AstPrimalPart t
 
@@ -1124,9 +1124,9 @@ astDualPart t = case t of
     else Ast.AstDualPart t
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstIndex0S{} -> Ast.AstDualPart t
-  Ast.AstSum0S{} -> Ast.AstDualPart t
-  Ast.AstDot0S{} -> Ast.AstDualPart t
+  Ast.AstIndex0{} -> Ast.AstDualPart t
+  Ast.AstSum0{} -> Ast.AstDualPart t
+  Ast.AstDot0{} -> Ast.AstDualPart t
   Ast.AstDot1InS{} -> Ast.AstDualPart t
   Ast.AstMatmul2S{} -> Ast.AstDualPart t
 
@@ -1230,9 +1230,9 @@ astPlainPart t = case t of
     else Ast.AstPlainPart t
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstIndex0S{} -> Ast.AstPlainPart t
-  Ast.AstSum0S{} -> Ast.AstPlainPart t
-  Ast.AstDot0S{} -> Ast.AstPlainPart t
+  Ast.AstIndex0{} -> Ast.AstPlainPart t
+  Ast.AstSum0{} -> Ast.AstPlainPart t
+  Ast.AstDot0{} -> Ast.AstPlainPart t
   Ast.AstDot1InS{} -> Ast.AstPlainPart t
   Ast.AstMatmul2S{} -> Ast.AstPlainPart t
 
@@ -1607,7 +1607,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
    Ast.AstFloorS v -> astFloorS $ astIndexKnobsS knobs shn v ix
    Ast.AstFromIntegralS v -> astFromIntegralS $ astIndexKnobsS knobs shn v ix
    Ast.AstCastS t -> astCastS $ astIndexKnobsS knobs shn t ix
-   Ast.AstArgMinA @n1 @shz v -> case ftkAst v of
+   Ast.AstArgMinS @n1 @shz v -> case ftkAst v of
      FTKS nsh _ -> case shsLast nsh of
       nl@(SNat @nl) ->
        let shnl = shn `shsAppend` (nl :$$ ZSS)
@@ -1619,10 +1619,10 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
                      :: Init (shn ++ '[nl]) :~: shn) $
           gcastWith (unsafeCoerceRefl
                      :: shm ++ (shn ++ '[nl]) :~: n1 ': shz) $
-          Ast.AstArgMinA @(Head (shn ++ '[nl]))
+          Ast.AstArgMinS @(Head (shn ++ '[nl]))
                          @(Tail (shn ++ '[nl]))
           $ astIndexKnobsS @shm @(shn ++ '[nl]) knobs shnl v ix
-   Ast.AstArgMaxA @n1 @shz v -> case ftkAst v of
+   Ast.AstArgMaxS @n1 @shz v -> case ftkAst v of
      FTKS nsh _ -> case shsLast nsh of
       nl@(SNat @nl) ->
        let shnl = shn `shsAppend` (nl :$$ ZSS)
@@ -1634,7 +1634,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
                      :: Init (shn ++ '[nl]) :~: shn) $
           gcastWith (unsafeCoerceRefl
                      :: shm ++ (shn ++ '[nl]) :~: n1 ': shz) $
-          Ast.AstArgMaxA @(Head (shn ++ '[nl]))
+          Ast.AstArgMaxS @(Head (shn ++ '[nl]))
                          @(Tail (shn ++ '[nl]))
           $ astIndexKnobsS @shm @(shn ++ '[nl]) knobs shnl v ix
 
@@ -2606,7 +2606,7 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
     Ast.AstFloorS{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     Ast.AstFromIntegralS{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     Ast.AstCastS{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
-    Ast.AstArgMinA @n @sh v -> case ftkAst v of
+    Ast.AstArgMinS @n @sh v -> case ftkAst v of
      FTKS nsh _ -> case shsLast nsh of
       nl@(SNat @nl) ->
         let shnl = shn `shsAppend` (nl :$$ ZSS)
@@ -2619,10 +2619,10 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
            gcastWith (unsafeCoerceRefl
                       :: Init (shm ++ (shn ++ '[nl]))
                       :~: shm ++ shn) $
-           Ast.AstArgMinA @(Head (shm ++ (shn ++ '[nl])))
+           Ast.AstArgMinS @(Head (shm ++ (shn ++ '[nl])))
                           @(Tail (shm ++ (shn ++ '[nl])))
            $ astGather shm shnl shp v (vars4, ix4)
-    Ast.AstArgMaxA @n @sh v -> case ftkAst v of
+    Ast.AstArgMaxS @n @sh v -> case ftkAst v of
      FTKS nsh _ -> case shsLast nsh of
       nl@(SNat @nl) ->
         let shnl = shn `shsAppend` (nl :$$ ZSS)
@@ -2635,7 +2635,7 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
            gcastWith (unsafeCoerceRefl
                       :: Init (shm ++ (shn ++ '[nl]))
                       :~: shm ++ shn) $
-           Ast.AstArgMaxA @(Head (shm ++ (shn ++ '[nl])))
+           Ast.AstArgMaxS @(Head (shm ++ (shn ++ '[nl])))
                           @(Tail (shm ++ (shn ++ '[nl])))
            $ astGather shm shnl shp v (vars4, ix4)
 
@@ -3311,16 +3311,16 @@ astConvertFromS c zftk a = case (zftk, a) of
     , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
       astCastK (astKFromS' v)
   (FTKScalar, Ast.AstCastS{}) -> Ast.AstConvert c a
-  (FTKScalar @r1, Ast.AstArgMinA v)
+  (FTKScalar @r1, Ast.AstArgMinS v)
     | FTKS (_ :$$ ZSS) FTKScalar <- ftkAst v
     , Just Refl <- testEquality (typeRep @r1) (typeRep @Int) ->
       astArgMinK v
-  (FTKScalar, Ast.AstArgMinA{}) -> Ast.AstConvert c a
-  (FTKScalar @r1, Ast.AstArgMaxA v)
+  (FTKScalar, Ast.AstArgMinS{}) -> Ast.AstConvert c a
+  (FTKScalar @r1, Ast.AstArgMaxS v)
     | FTKS (_ :$$ ZSS) FTKScalar <- ftkAst v
     , Just Refl <- testEquality (typeRep @r1) (typeRep @Int) ->
       astArgMaxK v
-  (FTKScalar, Ast.AstArgMaxA{}) -> Ast.AstConvert c a
+  (FTKScalar, Ast.AstArgMaxS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstIndexS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstScatterS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstGatherS{}) -> Ast.AstConvert c a
@@ -3330,9 +3330,9 @@ astConvertFromS c zftk a = case (zftk, a) of
   (FTKScalar, Ast.AstReverseS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstTransposeS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstReshapeS{}) -> Ast.AstConvert c a
-  (FTKScalar, Ast.AstIndex0S{}) -> error "astConvertFromS: impossible"
-  (FTKScalar, Ast.AstSum0S{}) -> error "astConvertFromS: impossible"
-  (FTKScalar, Ast.AstDot0S{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstIndex0{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstSum0{}) -> error "astConvertFromS: impossible"
+  (FTKScalar, Ast.AstDot0{}) -> error "astConvertFromS: impossible"
   (FTKScalar, Ast.AstDot1InS{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstMatmul2S{}) -> Ast.AstConvert c a
   (FTKScalar, Ast.AstBoolNotK{}) -> error "astConvertFromS: impossible"
@@ -3420,9 +3420,9 @@ astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
   Ast.AstFromPrimal a -> fromPrimal $ astConvertSFromK c zftk a
   Ast.AstFromDual a -> fromDual $ astConvertSFromK c zftk a
   Ast.AstFromPlain a -> fromPlain $ astConvertSFromK c zftk a
-  Ast.AstIndex0S{} -> Ast.AstConvert c a0
-  Ast.AstSum0S{} -> Ast.AstConvert c a0
-  Ast.AstDot0S{} -> Ast.AstConvert c a0
+  Ast.AstIndex0{} -> Ast.AstConvert c a0
+  Ast.AstSum0{} -> Ast.AstConvert c a0
+  Ast.AstDot0{} -> Ast.AstConvert c a0
   Ast.AstBoolNotK{} -> Ast.AstConvert c a0
   Ast.AstBoolAndK{} -> Ast.AstConvert c a0
   Ast.AstLeqK{} -> Ast.AstConvert c a0
@@ -3620,40 +3620,40 @@ astSFromX' sh t = case ftkAst t of
     in astConvertSFromX (ConvXS' zftk) zftk t
 
 -- TODO: how to add more without duplicating astIndexKnobsS?
-astIndex0S
+astIndex0
   :: forall shm s r. GoodScalar r
   => AstTensor AstMethodLet s (TKS shm r) -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKScalar r)
-astIndex0S = Ast.AstIndex0S
+astIndex0 = Ast.AstIndex0
 
-astSum0S :: (NumScalar r, KnownSpan s)
+astSum0 :: (NumScalar r, KnownSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKScalar r)
-astSum0S t = case t of
-  Ast.AstSum SNat _ u -> astSum0S u
+astSum0 t = case t of
+  Ast.AstSum SNat _ u -> astSum0 u
   Ast.AstReplicate snat (STKS _ STKScalar) u ->
-    astSum0S u * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
+    astSum0 u * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
   Ast.AstReplicate snat STKScalar u ->
     u * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
   _ | FTKS (snat :$$ _) _ <- ftkAst t
     , Just u <- unRepl1 t ->
-      astSum0S u * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
-  Ast.AstLet var u v -> astLet var u (astSum0S v)
-  Ast.AstFromPrimal u -> fromPrimal $ astSum0S u
-  Ast.AstFromDual u -> fromDual $ astSum0S u
-  Ast.AstFromPlain u -> fromPlain $ astSum0S u
-  AstTimesS t1 t2 -> astDot0S t1 t2
-  Ast.AstN1S NegateOp u -> negate $ astSum0S u
+      astSum0 u * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
+  Ast.AstLet var u v -> astLet var u (astSum0 v)
+  Ast.AstFromPrimal u -> fromPrimal $ astSum0 u
+  Ast.AstFromDual u -> fromDual $ astSum0 u
+  Ast.AstFromPlain u -> fromPlain $ astSum0 u
+  AstTimesS t1 t2 -> astDot0 t1 t2
+  Ast.AstN1S NegateOp u -> negate $ astSum0 u
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
     astConcreteK $ tssum0 (Concrete v)
-  Ast.AstAppendS u v -> astSum0S u + astSum0S v
-  Ast.AstReverseS u -> astSum0S u
-  Ast.AstTransposeS _ u -> astSum0S u
-  Ast.AstReshapeS _ u -> astSum0S u
-  Ast.AstDot1InS _ _ t1 t2 -> astDot0S t1 t2
+  Ast.AstAppendS u v -> astSum0 u + astSum0 v
+  Ast.AstReverseS u -> astSum0 u
+  Ast.AstTransposeS _ u -> astSum0 u
+  Ast.AstReshapeS _ u -> astSum0 u
+  Ast.AstDot1InS _ _ t1 t2 -> astDot0 t1 t2
   Ast.AstMatmul2S m@SNat SNat p@SNat m1 m2 ->
-    astDot0S (astTransposeS (Permutation.makePerm @'[1, 0])
+    astDot0 (astTransposeS (Permutation.makePerm @'[1, 0])
                             (astReplicate p knownSTK m1))
              (astTransposeS (Permutation.makePerm @'[0, 2, 1])
                             (astReplicate m knownSTK m2))
@@ -3661,24 +3661,24 @@ astSum0S t = case t of
     FTKS ZSS FTKScalar -> astKFromS' t
     FTKS (SNat' @1 :$$ ZSS) FTKScalar ->
       astKFromS' (astIndexS ZSS t (0 :.$ ZIS))
-    _ -> Ast.AstSum0S t
+    _ -> Ast.AstSum0 t
 
-astDot0S :: (NumScalar r, KnownSpan s)
+astDot0 :: (NumScalar r, KnownSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKScalar r)
-astDot0S t1 t2 = case (t1, t2) of
+astDot0 t1 t2 = case (t1, t2) of
   (Ast.AstSum snat1 _ u1, Ast.AstSum snat2 _ u2)
     | Just Refl <- testEquality snat1 snat2 ->
-      astDot0S u1 u2
+      astDot0 u1 u2
   _ | Just u1 <- unRepl t1 ->
-      astKFromS' u1 * astSum0S t2
+      astKFromS' u1 * astSum0 t2
   _ | Just u2 <- unRepl t2 ->
-      astKFromS' u2 * astSum0S t1
+      astKFromS' u2 * astSum0 t1
   ( Ast.AstReplicate snat1 (STKS _ STKScalar) u1
    ,Ast.AstReplicate snat2 (STKS _ STKScalar) u2 )
     | Just Refl <- testEquality snat1 snat2 ->
-      astDot0S u1 u2
+      astDot0 u1 u2
       * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat1)
   ( Ast.AstReplicate snat1 STKScalar u1
    , Ast.AstReplicate snat2 STKScalar u2 )
@@ -3687,33 +3687,33 @@ astDot0S t1 t2 = case (t1, t2) of
   _ | FTKS (snat :$$ _) _ <- ftkAst t1
     , Just u1 <- unRepl1 t1
     , Just u2 <- unRepl1 t2 ->
-      astDot0S u1 u2
+      astDot0 u1 u2
       * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
-    fromPrimal $ astDot0S u1 u2
+    fromPrimal $ astDot0 u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
-    fromDual $ astDot0S u1 u2
+    fromDual $ astDot0 u1 u2
   (Ast.AstFromPlain u1, Ast.AstFromPlain u2) ->
-    fromPlain $ astDot0S u1 u2
-  (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot0S u1 u2
+    fromPlain $ astDot0 u1 u2
+  (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot0 u1 u2
   (AstConcreteS v1, AstConcreteS v2) ->
     withKnownShS (Nested.sshape v1) $
     astConcreteK $ tsdot0 (Concrete v1) (Concrete v2)
   {- KnownNat would be needed (or SNat):
   (Ast.AstAppendS @m1 u1 v1, Ast.AstAppendS @m2 u2 v2)
     | Just Refl <- sameNat (SNat @m1) (SNat @m2) ->
-      astDot0S u1 u2 + astDot0S v1 v2 -}
-  (Ast.AstReverseS u1, Ast.AstReverseS u2) -> astDot0S u1 u2
+      astDot0 u1 u2 + astDot0 v1 v2 -}
+  (Ast.AstReverseS u1, Ast.AstReverseS u2) -> astDot0 u1 u2
   (Ast.AstTransposeS @_ @sh1 perm1 u1, Ast.AstTransposeS @_ @sh2 perm2 u2)
     | Just Refl <- testEquality perm1 perm2 ->
       gcastWith (unsafeCoerceRefl :: sh1 :~: sh2) $
-      astDot0S u1 u2
+      astDot0 u1 u2
   _ -> case ftkAst t1 of
     FTKS ZSS FTKScalar -> astKFromS' t1 * astKFromS' t2
     FTKS (SNat' @1 :$$ ZSS) FTKScalar ->
       astKFromS' (astIndexS ZSS t1 (0 :.$ ZIS))
       * astKFromS' (astIndexS ZSS t2 (0 :.$ ZIS))
-    _ -> Ast.AstDot0S t1 t2
+    _ -> Ast.AstDot0 t1 t2
 
 astDot1InS :: forall sh n r s. (NumScalar r, KnownSpan s)
            => ShS sh -> SNat n
@@ -4173,8 +4173,8 @@ substitute1Ast i var = subst where
   Ast.AstFloorS a -> astFloorS <$> subst a
   Ast.AstFromIntegralS a -> astFromIntegralS <$> subst a
   Ast.AstCastS v -> astCastS <$> subst v
-  Ast.AstArgMinA a -> Ast.AstArgMinA <$> subst a
-  Ast.AstArgMaxA a -> Ast.AstArgMaxA <$> subst a
+  Ast.AstArgMinS a -> Ast.AstArgMinS <$> subst a
+  Ast.AstArgMaxS a -> Ast.AstArgMaxS <$> subst a
 
   Ast.AstIndexS shn v ix ->
     case (subst v, substIxS ix) of
@@ -4204,16 +4204,16 @@ substitute1Ast i var = subst where
 
   Ast.AstConvert c v -> astConvert c <$> subst v
 
-  Ast.AstIndex0S v ix ->
+  Ast.AstIndex0 v ix ->
     case (subst v, substIxS ix) of
       (Nothing, Nothing) -> Nothing
-      (mv, mix) -> Just $ astIndex0S (fromMaybe v mv) (fromMaybe ix mix)
-  Ast.AstSum0S v -> astSum0S <$> subst v
-  Ast.AstDot0S u v ->
+      (mv, mix) -> Just $ astIndex0 (fromMaybe v mv) (fromMaybe ix mix)
+  Ast.AstSum0 v -> astSum0 <$> subst v
+  Ast.AstDot0 u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ astDot0S (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ astDot0 (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstDot1InS sh n u v ->
     let mu = subst u

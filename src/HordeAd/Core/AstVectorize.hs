@@ -245,9 +245,9 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
     Ast.AstCastK v -> traceRule $
       astCastS $ build1V snat (var, v)
     Ast.AstArgMinK v -> traceRule $
-      Ast.AstArgMinA $ build1V snat (var, v)
+      Ast.AstArgMinS $ build1V snat (var, v)
     Ast.AstArgMaxK v -> traceRule $
-      Ast.AstArgMaxA $ build1V snat (var, v)
+      Ast.AstArgMaxS $ build1V snat (var, v)
 
     Ast.AstPlusS u v -> traceRule $
       build1VOccurrenceUnknown snat (var, u)
@@ -276,10 +276,10 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       astFromIntegralS $ build1V snat (var, v)
     Ast.AstCastS v -> traceRule $
       astCastS $ build1V snat (var, v)
-    Ast.AstArgMinA v -> traceRule $
-      Ast.AstArgMinA $ build1V snat (var, v)
-    Ast.AstArgMaxA v -> traceRule $
-      Ast.AstArgMaxA $ build1V snat (var, v)
+    Ast.AstArgMinS v -> traceRule $
+      Ast.AstArgMinS $ build1V snat (var, v)
+    Ast.AstArgMaxS v -> traceRule $
+      Ast.AstArgMaxS $ build1V snat (var, v)
 
     Ast.AstIndexS shn v ix -> traceRule $
       build1VIndexS snat shn (var, v, ix)  -- @var@ is in @v@ or @ix@
@@ -323,9 +323,9 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       astConvert (buildTKConversion snat (ftkAst v) c)
       $ build1V snat (var, v)
 
-    Ast.AstIndex0S{} -> error "build1V: term not accessible from user API"
-    Ast.AstSum0S{} -> error "build1V: term not accessible from user API"
-    Ast.AstDot0S{} -> error "build1V: term not accessible from user API"
+    Ast.AstIndex0{} -> error "build1V: term not accessible from user API"
+    Ast.AstSum0{} -> error "build1V: term not accessible from user API"
+    Ast.AstDot0{} -> error "build1V: term not accessible from user API"
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatmul2S{} -> error "build1V: term not accessible from user API"
 

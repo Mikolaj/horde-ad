@@ -106,9 +106,9 @@ ftkAst t = case t of
     FTKS sh FTKScalar -> FTKS sh FTKScalar
   AstCastS v -> case ftkAst v of
     FTKS sh FTKScalar -> FTKS sh FTKScalar
-  AstArgMinA v -> case ftkAst v of
+  AstArgMinS v -> case ftkAst v of
     FTKS sh FTKScalar -> FTKS (shsInit sh) FTKScalar
-  AstArgMaxA v -> case ftkAst v of
+  AstArgMaxS v -> case ftkAst v of
     FTKS sh FTKScalar -> FTKS (shsInit sh) FTKScalar
 
   AstIndexS shn v _ix -> case ftkAst v of
@@ -130,9 +130,9 @@ ftkAst t = case t of
 
   AstConvert c u -> convertFTK c $ ftkAst u
 
-  AstIndex0S{} -> FTKScalar
-  AstSum0S{} -> FTKScalar
-  AstDot0S{} -> FTKScalar
+  AstIndex0{} -> FTKScalar
+  AstSum0{} -> FTKScalar
+  AstDot0{} -> FTKScalar
   AstDot1InS sh _ _u _v -> FTKS sh FTKScalar
   AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar
 
@@ -207,8 +207,8 @@ varInAst var = \case
   AstFloorS a -> varInAst var a
   AstFromIntegralS a -> varInAst var a
   AstCastS t -> varInAst var t
-  AstArgMinA a -> varInAst var a
-  AstArgMaxA a -> varInAst var a
+  AstArgMinS a -> varInAst var a
+  AstArgMaxS a -> varInAst var a
 
   AstIndexS _ v ix -> varInAst var v || varInIxS var ix
   AstScatterS _ _ _ v (_vars, ix) -> varInIxS var ix || varInAst var v
@@ -222,9 +222,9 @@ varInAst var = \case
 
   AstConvert _ v -> varInAst var v
 
-  AstIndex0S v ix -> varInAst var v || varInIxS var ix
-  AstSum0S v -> varInAst var v
-  AstDot0S u v -> varInAst var u || varInAst var v
+  AstIndex0 v ix -> varInAst var v || varInIxS var ix
+  AstSum0 v -> varInAst var v
+  AstDot0 u v -> varInAst var u || varInAst var v
   AstDot1InS _ _ u v -> varInAst var u || varInAst var v
   AstMatmul2S _ _ _ u v -> varInAst var u || varInAst var v
 
@@ -406,8 +406,8 @@ astLetDown var u v = case v of
   AstFloorS a -> AstFloorS (astLetDown var u a)
   AstFromIntegralS v2 -> AstFromIntegralS (astLetDown var u v2)
   AstCastS v2 -> AstCastS (astLetDown var u v2)
-  AstArgMinA a -> AstArgMinA (astLetDown var u a)
-  AstArgMaxA a -> AstArgMaxA (astLetDown var u a)
+  AstArgMinS a -> AstArgMinS (astLetDown var u a)
+  AstArgMaxS a -> AstArgMaxS (astLetDown var u a)
 
   -- In these three, index terms are usually small, so the check is cheap.
   -- Also, this undoes precisely the pushing of the lets up that rules
@@ -436,12 +436,12 @@ astLetDown var u v = case v of
 
   AstConvert c v2 -> AstConvert c (astLetDown var u v2)
 
-  AstIndex0S v2 ix ->
+  AstIndex0 v2 ix ->
     if varNameInIxS var ix
     then AstLet var u v
-    else AstIndex0S (astLetDown var u v2) ix
-  AstSum0S v2 -> AstSum0S (astLetDown var u v2)
-  AstDot0S{} -> AstLet var u v
+    else AstIndex0 (astLetDown var u v2) ix
+  AstSum0 v2 -> AstSum0 (astLetDown var u v2)
+  AstDot0{} -> AstLet var u v
   AstDot1InS{} -> AstLet var u v
   AstMatmul2S{} -> AstLet var u v
 
