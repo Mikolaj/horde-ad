@@ -608,11 +608,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
               -> AstTensor ms s (TKS '[m, p] r)
 
   -- Booleans
-  AstBoolNot :: AstBool ms -> AstBool ms
-  AstBoolNotA :: AstTensor ms PlainSpan (TKS sh Bool)
+  AstBoolNotK :: AstBool ms -> AstBool ms
+  AstBoolNotS :: AstTensor ms PlainSpan (TKS sh Bool)
               -> AstTensor ms PlainSpan (TKS sh Bool)
-  AstBoolAnd :: AstBool ms -> AstBool ms -> AstBool ms
-  AstBoolAndA :: AstTensor ms PlainSpan (TKS sh Bool)
+  AstBoolAndK :: AstBool ms -> AstBool ms -> AstBool ms
+  AstBoolAndS :: AstTensor ms PlainSpan (TKS sh Bool)
               -> AstTensor ms PlainSpan (TKS sh Bool)
               -> AstTensor ms PlainSpan (TKS sh Bool)
   -- There are existential variables here.
@@ -620,11 +620,11 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
           => AstTensor ms PlainSpan (TKScalar r)
           -> AstTensor ms PlainSpan (TKScalar r)
           -> AstBool ms
-  AstLeqS :: forall sh r ms. NumScalar r
-          => AstTensor ms PlainSpan (TKS sh r)
-          -> AstTensor ms PlainSpan (TKS sh r)
-          -> AstBool ms
-  AstLeqA :: forall shb sh r ms. NumScalar r
+  AstLeq :: forall sh r ms. NumScalar r
+         => AstTensor ms PlainSpan (TKS sh r)
+         -> AstTensor ms PlainSpan (TKS sh r)
+         -> AstBool ms
+  AstLeqS :: forall shb sh r ms. NumScalar r
           => ShS shb -> ShS sh
           -> AstTensor ms PlainSpan (TKS (shb ++ sh) r)
           -> AstTensor ms PlainSpan (TKS (shb ++ sh) r)

@@ -136,13 +136,13 @@ ftkAst t = case t of
   AstDot1InS sh _ _u _v -> FTKS sh FTKScalar
   AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar
 
-  AstBoolNot{} -> FTKScalar
-  AstBoolNotA a -> ftkAst a
-  AstBoolAnd{} -> FTKScalar
-  AstBoolAndA a _ -> ftkAst a
+  AstBoolNotK{} -> FTKScalar
+  AstBoolNotS a -> ftkAst a
+  AstBoolAndK{} -> FTKScalar
+  AstBoolAndS a _ -> ftkAst a
   AstLeqK{} -> FTKScalar
-  AstLeqS{} -> FTKScalar
-  AstLeqA shb _ _ _ -> FTKS shb FTKScalar
+  AstLeq{} -> FTKScalar
+  AstLeqS shb _ _ _ -> FTKS shb FTKScalar
 
 stkAstX :: forall s x ms sh. AstTensor ms s (TKS2 sh x) -> SingletonTK x
 {-# INLINE stkAstX #-}
@@ -228,13 +228,13 @@ varInAst var = \case
   AstDot1InS _ _ u v -> varInAst var u || varInAst var v
   AstMatmul2S _ _ _ u v -> varInAst var u || varInAst var v
 
-  AstBoolNot b -> varInAst var b
-  AstBoolNotA b -> varInAst var b
-  AstBoolAnd arg1 arg2 -> varInAst var arg1 || varInAst var arg2
-  AstBoolAndA arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstBoolNotK b -> varInAst var b
+  AstBoolNotS b -> varInAst var b
+  AstBoolAndK arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstBoolAndS arg1 arg2 -> varInAst var arg1 || varInAst var arg2
   AstLeqK arg1 arg2 -> varInAst var arg1 || varInAst var arg2
-  AstLeqS arg1 arg2 -> varInAst var arg1 || varInAst var arg2
-  AstLeqA _ _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstLeq arg1 arg2 -> varInAst var arg1 || varInAst var arg2
+  AstLeqS _ _ arg1 arg2 -> varInAst var arg1 || varInAst var arg2
 
 varInIxS :: AstVarId -> AstIxS ms sh -> Bool
 varInIxS var = any (varInAst var)
@@ -324,10 +324,10 @@ astIsSmallN n t0 = case t0 of
 
   AstConvert _ v -> astIsSmallN (n - 1) v
 
-  AstBoolNot v -> astIsSmallN (n - 1) v
-  AstBoolAnd u v -> astIsSmallN (astIsSmallN (n - 1) u) v
+  AstBoolNotK v -> astIsSmallN (n - 1) v
+  AstBoolAndK u v -> astIsSmallN (astIsSmallN (n - 1) u) v
   AstLeqK u v -> astIsSmallN (astIsSmallN (n - 1) u) v
-  AstLeqS u v -> astIsSmallN (astIsSmallN (n - 1) u) v
+  AstLeq u v -> astIsSmallN (astIsSmallN (n - 1) u) v
 
   _ -> 0
 
@@ -445,13 +445,13 @@ astLetDown var u v = case v of
   AstDot1InS{} -> AstLet var u v
   AstMatmul2S{} -> AstLet var u v
 
-  AstBoolNot arg -> AstBoolNot (astLetDown var u arg)
-  AstBoolNotA arg -> AstBoolNotA (astLetDown var u arg)
-  AstBoolAnd{} -> AstLet var u v
-  AstBoolAndA{} -> AstLet var u v
+  AstBoolNotK arg -> AstBoolNotK (astLetDown var u arg)
+  AstBoolNotS arg -> AstBoolNotS (astLetDown var u arg)
+  AstBoolAndK{} -> AstLet var u v
+  AstBoolAndS{} -> AstLet var u v
   AstLeqK{} -> AstLet var u v
+  AstLeq{} -> AstLet var u v
   AstLeqS{} -> AstLet var u v
-  AstLeqA{} -> AstLet var u v
 
 astVar :: AstVarName '(s, y) -> AstTensor ms s y
 astVar (AstVarName _ (FtkAndBoundsBounds lb ub)) | lb == ub =

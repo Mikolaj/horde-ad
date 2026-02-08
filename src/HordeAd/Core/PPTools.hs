@@ -522,13 +522,13 @@ printAst cfg d = \case
       . showString " "
       . printAst cfg 11 v
 
-  AstBoolNot u -> printPrefixOp printAst cfg d "notB" [u]
-  AstBoolNotA u -> printPrefixOp printAst cfg d "notA" [u]  -- TODO
-  AstBoolAnd u v -> printBinaryOp printAst cfg d u (3, "&&*") v
-  AstBoolAndA u v -> printBinaryOp printAst cfg d u (3, "`andA`") v  -- TODO
+  AstBoolNotK u -> printPrefixOp printAst cfg d "notB" [u]
+  AstBoolNotS u -> printPrefixOp printAst cfg d "notA" [u]  -- TODO
+  AstBoolAndK u v -> printBinaryOp printAst cfg d u (3, "&&*") v
+  AstBoolAndS u v -> printBinaryOp printAst cfg d u (3, "`andA`") v  -- TODO
   AstLeqK u v -> printBinaryOp printAst cfg d u (4, "<=.") v
-  AstLeqS u v -> printBinaryOp printAst cfg d u (4, "<=.") v
-  AstLeqA _ _ u v -> printBinaryOp printAst cfg d u (4, "`leqA`") v  -- TODO
+  AstLeq u v -> printBinaryOp printAst cfg d u (4, "<=.") v
+  AstLeqS _ _ u v -> printBinaryOp printAst cfg d u (4, "`leqA`") v  -- TODO
 
 showNumber :: Show a => a -> ShowS
 {-# INLINE showNumber #-}

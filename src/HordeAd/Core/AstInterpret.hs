@@ -292,17 +292,17 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
   AstMatmul2S SNat SNat SNat u v ->
     tsmatmul2 (interpretAst env u) (interpretAst env v)
 
-  AstBoolNot arg ->
+  AstBoolNotK arg ->
     tfromPlain STKScalar $ notB $ interpretAst env arg
-  AstBoolNotA arg | FTKS sh _ <- ftkAst arg ->
+  AstBoolNotS arg | FTKS sh _ <- ftkAst arg ->
     withKnownShS sh $
     tfromPlain (ftkToSTK $ ftkAst arg)
     $ tsmap0N notB $ interpretAst env arg
-  AstBoolAnd arg1 arg2 ->
+  AstBoolAndK arg1 arg2 ->
     let b1 = interpretAst env arg1
         b2 = interpretAst env arg2
     in tfromPlain STKScalar $ b1 &&* b2
-  AstBoolAndA arg1 arg2 | FTKS sh _ <- ftkAst arg1 ->
+  AstBoolAndS arg1 arg2 | FTKS sh _ <- ftkAst arg1 ->
     withKnownShS sh $
     let b1 = interpretAst env arg1
         b2 = interpretAst env arg2
@@ -312,11 +312,11 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
     let r1 = interpretAst env arg1
         r2 = interpretAst env arg2
     in tfromPlain STKScalar $ r1 <=. r2
-  AstLeqS arg1 arg2 ->
+  AstLeq arg1 arg2 ->
     let r1 = interpretAst env arg1
         r2 = interpretAst env arg2
     in tfromPlain STKScalar $ r1 <=. r2
-  AstLeqA @shb @sh shb sh arg1 arg2 | Refl <- lemAppNil @shb ->
+  AstLeqS @shb @sh shb sh arg1 arg2 | Refl <- lemAppNil @shb ->
     withKnownShS shb $
     withKnownShS sh $
     let r1 = interpretAst env arg1

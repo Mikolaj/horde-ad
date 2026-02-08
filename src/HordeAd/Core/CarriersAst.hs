@@ -1031,94 +1031,94 @@ instance Boolean (AstBool ms) where
   true = AstConcreteK True
   false = AstConcreteK False
   notB (AstConcreteK b) = AstConcreteK $ not b
-  notB (AstBoolNot b) = b
-  notB b = AstBoolNot b
+  notB (AstBoolNotK b) = b
+  notB b = AstBoolNotK b
   AstConcreteK True &&* b = b
   AstConcreteK False &&* _b = false
   b &&* AstConcreteK True = b
   _b &&* AstConcreteK False = false
-  AstBoolAnd b c &&* d = b &&* (c &&* d)
-  b@(AstLeqK AstConcreteK{} AstVar{}) &&* c = AstBoolAnd b c
+  AstBoolAndK b c &&* d = b &&* (c &&* d)
+  b@(AstLeqK AstConcreteK{} AstVar{}) &&* c = AstBoolAndK b c
   b@(AstLeqK AstConcreteK{} (AstN1K NegateOp
-                                    AstVar{})) &&* c = AstBoolAnd b c
-  b@(AstBoolNot
-       (AstLeqK AstConcreteK{} AstVar{})) &&* c = AstBoolAnd b c
-  b@(AstBoolNot
+                                    AstVar{})) &&* c = AstBoolAndK b c
+  b@(AstBoolNotK
+       (AstLeqK AstConcreteK{} AstVar{})) &&* c = AstBoolAndK b c
+  b@(AstBoolNotK
        (AstLeqK AstConcreteK{} (AstN1K NegateOp
-                                       AstVar{}))) &&* c = AstBoolAnd b c
-  b@(AstBoolNot
-       (AstBoolAnd (AstLeqK AstConcreteK{} AstVar{}) _)) &&* c = AstBoolAnd b c
-  b@(AstBoolNot
-       (AstBoolAnd
+                                       AstVar{}))) &&* c = AstBoolAndK b c
+  b@(AstBoolNotK
+       (AstBoolAndK (AstLeqK AstConcreteK{} AstVar{}) _)) &&* c = AstBoolAndK b c
+  b@(AstBoolNotK
+       (AstBoolAndK
           (AstLeqK AstConcreteK{}
-                   (AstN1K NegateOp AstVar{})) _)) &&* c = AstBoolAnd b c
-  b@(AstBoolNot
-       (AstBoolAnd (AstBoolNot (AstLeqK AstConcreteK{}
-                                        AstVar{})) _)) &&* c = AstBoolAnd b c
-  b@(AstBoolNot
-       (AstBoolAnd
-          (AstBoolNot
+                   (AstN1K NegateOp AstVar{})) _)) &&* c = AstBoolAndK b c
+  b@(AstBoolNotK
+       (AstBoolAndK (AstBoolNotK (AstLeqK AstConcreteK{}
+                                          AstVar{})) _)) &&* c = AstBoolAndK b c
+  b@(AstBoolNotK
+       (AstBoolAndK
+          (AstBoolNotK
              (AstLeqK AstConcreteK{}
-                      (AstN1K NegateOp AstVar{}))) _)) &&* c = AstBoolAnd b c
-  b &&* c@(AstLeqK AstConcreteK{} AstVar{}) = AstBoolAnd c b
+                      (AstN1K NegateOp AstVar{}))) _)) &&* c = AstBoolAndK b c
+  b &&* c@(AstLeqK AstConcreteK{} AstVar{}) = AstBoolAndK c b
   b &&* c@(AstLeqK AstConcreteK{} (AstN1K NegateOp
-                                          AstVar{})) = AstBoolAnd c b
-  b &&* c@(AstBoolNot
-             (AstLeqK AstConcreteK{} AstVar{})) = AstBoolAnd c b
-  b &&* c@(AstBoolNot
+                                          AstVar{})) = AstBoolAndK c b
+  b &&* c@(AstBoolNotK
+             (AstLeqK AstConcreteK{} AstVar{})) = AstBoolAndK c b
+  b &&* c@(AstBoolNotK
              (AstLeqK AstConcreteK{} (AstN1K NegateOp
-                                             AstVar{}))) = AstBoolAnd c b
-  b &&* c@(AstBoolNot
-             (AstBoolAnd (AstLeqK AstConcreteK{} AstVar{}) _)) = AstBoolAnd c b
-  b &&* c@(AstBoolNot
-             (AstBoolAnd
+                                             AstVar{}))) = AstBoolAndK c b
+  b &&* c@(AstBoolNotK
+             (AstBoolAndK (AstLeqK AstConcreteK{} AstVar{}) _)) = AstBoolAndK c b
+  b &&* c@(AstBoolNotK
+             (AstBoolAndK
                 (AstLeqK AstConcreteK{}
-                         (AstN1K NegateOp AstVar{})) _)) = AstBoolAnd c b
-  b &&* c@(AstBoolNot
-             (AstBoolAnd (AstBoolNot (AstLeqK AstConcreteK{}
-                                              AstVar{})) _)) = AstBoolAnd c b
-  b &&* c@(AstBoolNot
-             (AstBoolAnd
-                (AstBoolNot
+                         (AstN1K NegateOp AstVar{})) _)) = AstBoolAndK c b
+  b &&* c@(AstBoolNotK
+             (AstBoolAndK (AstBoolNotK (AstLeqK AstConcreteK{}
+                                                AstVar{})) _)) = AstBoolAndK c b
+  b &&* c@(AstBoolNotK
+             (AstBoolAndK
+                (AstBoolNotK
                    (AstLeqK AstConcreteK{}
-                            (AstN1K NegateOp AstVar{}))) _)) = AstBoolAnd c b
-  b &&* AstBoolAnd
-          c@(AstLeqK AstConcreteK{} AstVar{}) d = AstBoolAnd c (b &&* d)
-  b &&* AstBoolAnd
+                            (AstN1K NegateOp AstVar{}))) _)) = AstBoolAndK c b
+  b &&* AstBoolAndK
+          c@(AstLeqK AstConcreteK{} AstVar{}) d = AstBoolAndK c (b &&* d)
+  b &&* AstBoolAndK
           c@(AstLeqK AstConcreteK{}
-                     (AstN1K NegateOp AstVar{})) d = AstBoolAnd c (b &&* d)
-  b &&* AstBoolAnd
-          c@(AstBoolNot (AstLeqK AstConcreteK{}
-                                 AstVar{})) d = AstBoolAnd c (b &&* d)
-  b &&* AstBoolAnd
-          c@(AstBoolNot
+                     (AstN1K NegateOp AstVar{})) d = AstBoolAndK c (b &&* d)
+  b &&* AstBoolAndK
+          c@(AstBoolNotK (AstLeqK AstConcreteK{}
+                                  AstVar{})) d = AstBoolAndK c (b &&* d)
+  b &&* AstBoolAndK
+          c@(AstBoolNotK
                (AstLeqK AstConcreteK{}
-                        (AstN1K NegateOp AstVar{}))) d = AstBoolAnd c (b &&* d)
-  b &&* AstBoolAnd
-          c@(AstBoolNot
-               (AstBoolAnd (AstLeqK AstConcreteK{}
-                                    AstVar{}) _)) d = AstBoolAnd c (b &&* d)
-  b &&* AstBoolAnd
-          c@(AstBoolNot
-               (AstBoolAnd
+                        (AstN1K NegateOp AstVar{}))) d = AstBoolAndK c (b &&* d)
+  b &&* AstBoolAndK
+          c@(AstBoolNotK
+               (AstBoolAndK (AstLeqK AstConcreteK{}
+                                     AstVar{}) _)) d = AstBoolAndK c (b &&* d)
+  b &&* AstBoolAndK
+          c@(AstBoolNotK
+               (AstBoolAndK
                   (AstLeqK AstConcreteK{}
                            (AstN1K NegateOp
-                                   AstVar{})) _)) d = AstBoolAnd c (b &&* d)
-  b &&* AstBoolAnd
-          c@(AstBoolNot
-               (AstBoolAnd
-                  (AstBoolNot
+                                   AstVar{})) _)) d = AstBoolAndK c (b &&* d)
+  b &&* AstBoolAndK
+          c@(AstBoolNotK
+               (AstBoolAndK
+                  (AstBoolNotK
                      (AstLeqK AstConcreteK{}
-                              AstVar{})) _)) d = AstBoolAnd c (b &&* d)
-  b &&* AstBoolAnd
-          c@(AstBoolNot
-               (AstBoolAnd
-                  (AstBoolNot
+                              AstVar{})) _)) d = AstBoolAndK c (b &&* d)
+  b &&* AstBoolAndK
+          c@(AstBoolNotK
+               (AstBoolAndK
+                  (AstBoolNotK
                      (AstLeqK AstConcreteK{}
                               (AstN1K
                                  NegateOp
-                                 AstVar{}))) _)) d = AstBoolAnd c (b &&* d)
-  b &&* c = AstBoolAnd b c
+                                 AstVar{}))) _)) d = AstBoolAndK c (b &&* d)
+  b &&* c = AstBoolAndK b c
   b ||* c = notB (notB b &&* notB c)
 
 -- TODO: refactor with something like liftRFromS2
@@ -1333,7 +1333,7 @@ instance (KnownSpan s, NumScalar r)
     AstFromPlain (AstConcreteS (negate v)) <=. negate u
   AstVar u <=. AstVar v | u == v =
     true
-  v <=. u = AstLeqS (plainPart v) (plainPart u)
+  v <=. u = AstLeq (plainPart v) (plainPart u)
 
 
 -- * AstRaw, AstNoVectorize and AstNoSimplify definitions

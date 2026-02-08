@@ -329,26 +329,26 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatmul2S{} -> error "build1V: term not accessible from user API"
 
-    Ast.AstBoolNot b -> traceRule $
-      Ast.AstBoolNotA $ build1V snat (var, b)
-    Ast.AstBoolNotA b -> traceRule $
-      Ast.AstBoolNotA $ build1V snat (var, b)
-    Ast.AstBoolAnd b c -> traceRule $
-      Ast.AstBoolAndA (build1VOccurrenceUnknown snat (var, b))
+    Ast.AstBoolNotK b -> traceRule $
+      Ast.AstBoolNotS $ build1V snat (var, b)
+    Ast.AstBoolNotS b -> traceRule $
+      Ast.AstBoolNotS $ build1V snat (var, b)
+    Ast.AstBoolAndK b c -> traceRule $
+      Ast.AstBoolAndS (build1VOccurrenceUnknown snat (var, b))
                       (build1VOccurrenceUnknown snat (var, c))
-    Ast.AstBoolAndA b c -> traceRule $
-      Ast.AstBoolAndA (build1VOccurrenceUnknown snat (var, b))
+    Ast.AstBoolAndS b c -> traceRule $
+      Ast.AstBoolAndS (build1VOccurrenceUnknown snat (var, b))
                       (build1VOccurrenceUnknown snat (var, c))
     Ast.AstLeqK u v -> traceRule $
-      Ast.AstLeqA (snat :$$ ZSS) ZSS
+      Ast.AstLeqS (snat :$$ ZSS) ZSS
                   (build1VOccurrenceUnknown snat (var, u))
                   (build1VOccurrenceUnknown snat (var, v))
-    Ast.AstLeqS u v | FTKS sh _ <- ftkAst u -> traceRule $
-      Ast.AstLeqA (snat :$$ ZSS) sh
+    Ast.AstLeq u v | FTKS sh _ <- ftkAst u -> traceRule $
+      Ast.AstLeqS (snat :$$ ZSS) sh
                   (build1VOccurrenceUnknown snat (var, u))
                   (build1VOccurrenceUnknown snat (var, v))
-    Ast.AstLeqA shb sh u v -> traceRule $
-      Ast.AstLeqA (snat :$$ shb) sh
+    Ast.AstLeqS shb sh u v -> traceRule $
+      Ast.AstLeqS (snat :$$ shb) sh
                   (build1VOccurrenceUnknown snat (var, u))
                   (build1VOccurrenceUnknown snat (var, v))
 

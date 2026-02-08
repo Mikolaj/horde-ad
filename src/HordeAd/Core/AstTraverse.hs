@@ -231,14 +231,14 @@ expandAst t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatmul2S{} -> t
 
-  Ast.AstBoolNot arg -> notB $ expandAst arg
-  Ast.AstBoolNotA arg -> Ast.AstBoolNotA $ expandAst arg
-  Ast.AstBoolAnd arg1 arg2 -> expandAst arg1 &&* expandAst arg2
-  Ast.AstBoolAndA arg1 arg2 -> expandAst arg1 `Ast.AstBoolAndA` expandAst arg2
+  Ast.AstBoolNotK arg -> notB $ expandAst arg
+  Ast.AstBoolNotS arg -> Ast.AstBoolNotS $ expandAst arg
+  Ast.AstBoolAndK arg1 arg2 -> expandAst arg1 &&* expandAst arg2
+  Ast.AstBoolAndS arg1 arg2 -> expandAst arg1 `Ast.AstBoolAndS` expandAst arg2
   Ast.AstLeqK arg1 arg2 -> fromPlain $ expandAst arg1 <=. expandAst arg2
-  Ast.AstLeqS arg1 arg2 -> fromPlain $ expandAst arg1 <=. expandAst arg2
-  Ast.AstLeqA shb sh arg1 arg2 ->
-    fromPlain $ Ast.AstLeqA shb sh (expandAst arg1) (expandAst arg2)
+  Ast.AstLeq arg1 arg2 -> fromPlain $ expandAst arg1 <=. expandAst arg2
+  Ast.AstLeqS shb sh arg1 arg2 ->
+    fromPlain $ Ast.AstLeqS shb sh (expandAst arg1) (expandAst arg2)
 
 expandAstHFun :: KnownSpan s
               => AstHFun s x y -> AstHFun s x y
@@ -382,15 +382,15 @@ simplifyAst t = case t of
   Ast.AstDot1InS{} -> t
   Ast.AstMatmul2S{} -> t
 
-  Ast.AstBoolNot arg -> notB $ simplifyAst arg
-  Ast.AstBoolNotA arg -> Ast.AstBoolNotA $ simplifyAst arg
-  Ast.AstBoolAnd arg1 arg2 -> simplifyAst arg1 &&* simplifyAst arg2
-  Ast.AstBoolAndA arg1 arg2 ->
-    simplifyAst arg1 `Ast.AstBoolAndA` simplifyAst arg2
+  Ast.AstBoolNotK arg -> notB $ simplifyAst arg
+  Ast.AstBoolNotS arg -> Ast.AstBoolNotS $ simplifyAst arg
+  Ast.AstBoolAndK arg1 arg2 -> simplifyAst arg1 &&* simplifyAst arg2
+  Ast.AstBoolAndS arg1 arg2 ->
+    simplifyAst arg1 `Ast.AstBoolAndS` simplifyAst arg2
   Ast.AstLeqK arg1 arg2 -> fromPlain $ simplifyAst arg1 <=. simplifyAst arg2
-  Ast.AstLeqS arg1 arg2 -> fromPlain $ simplifyAst arg1 <=. simplifyAst arg2
-  Ast.AstLeqA shb sh arg1 arg2 ->
-    fromPlain $ Ast.AstLeqA shb sh (simplifyAst arg1) (simplifyAst arg2)
+  Ast.AstLeq arg1 arg2 -> fromPlain $ simplifyAst arg1 <=. simplifyAst arg2
+  Ast.AstLeqS shb sh arg1 arg2 ->
+    fromPlain $ Ast.AstLeqS shb sh (simplifyAst arg1) (simplifyAst arg2)
 
 simplifyAstHFun :: KnownSpan s
                 => AstHFun s x y -> AstHFun s x y
@@ -842,15 +842,15 @@ contractAst t0 = case t0 of
   Ast.AstDot1InS{} -> t0
   Ast.AstMatmul2S{} -> t0
 
-  Ast.AstBoolNot arg -> notB $ contractAst arg
-  Ast.AstBoolNotA arg -> Ast.AstBoolNotA $ contractAst arg
-  Ast.AstBoolAnd arg1 arg2 -> contractAst arg1 &&* contractAst arg2
-  Ast.AstBoolAndA arg1 arg2 ->
-    contractAst arg1 `Ast.AstBoolAndA` contractAst arg2
+  Ast.AstBoolNotK arg -> notB $ contractAst arg
+  Ast.AstBoolNotS arg -> Ast.AstBoolNotS $ contractAst arg
+  Ast.AstBoolAndK arg1 arg2 -> contractAst arg1 &&* contractAst arg2
+  Ast.AstBoolAndS arg1 arg2 ->
+    contractAst arg1 `Ast.AstBoolAndS` contractAst arg2
   Ast.AstLeqK arg1 arg2 -> fromPlain $ contractAst arg1 <=. contractAst arg2
-  Ast.AstLeqS arg1 arg2 -> fromPlain $ contractAst arg1 <=. contractAst arg2
-  Ast.AstLeqA shb sh arg1 arg2 ->
-    fromPlain $ Ast.AstLeqA shb sh (contractAst arg1) (contractAst arg2)
+  Ast.AstLeq arg1 arg2 -> fromPlain $ contractAst arg1 <=. contractAst arg2
+  Ast.AstLeqS shb sh arg1 arg2 ->
+    fromPlain $ Ast.AstLeqS shb sh (contractAst arg1) (contractAst arg2)
 
 contractAstHFun :: KnownSpan s
                 => AstHFun s x y -> AstHFun s x y
@@ -970,15 +970,15 @@ letDownAst t = case t of
   Ast.AstMatmul2S m n p u v ->
     Ast.AstMatmul2S m n p (letDownAst u) (letDownAst v)
 
-  Ast.AstBoolNot arg -> Ast.AstBoolNot (letDownAst arg)
-  Ast.AstBoolNotA arg -> Ast.AstBoolNotA (letDownAst arg)
-  Ast.AstBoolAnd arg1 arg2 -> Ast.AstBoolAnd (letDownAst arg1) (letDownAst arg2)
-  Ast.AstBoolAndA arg1 arg2 ->
-    Ast.AstBoolAndA (letDownAst arg1) (letDownAst arg2)
+  Ast.AstBoolNotK arg -> Ast.AstBoolNotK (letDownAst arg)
+  Ast.AstBoolNotS arg -> Ast.AstBoolNotS (letDownAst arg)
+  Ast.AstBoolAndK arg1 arg2 -> Ast.AstBoolAndK (letDownAst arg1) (letDownAst arg2)
+  Ast.AstBoolAndS arg1 arg2 ->
+    Ast.AstBoolAndS (letDownAst arg1) (letDownAst arg2)
   Ast.AstLeqK arg1 arg2 -> Ast.AstLeqK (letDownAst arg1) (letDownAst arg2)
-  Ast.AstLeqS arg1 arg2 -> Ast.AstLeqS (letDownAst arg1) (letDownAst arg2)
-  Ast.AstLeqA shb sh arg1 arg2 ->
-    Ast.AstLeqA shb sh (letDownAst arg1) (letDownAst arg2)
+  Ast.AstLeq arg1 arg2 -> Ast.AstLeq (letDownAst arg1) (letDownAst arg2)
+  Ast.AstLeqS shb sh arg1 arg2 ->
+    Ast.AstLeqS shb sh (letDownAst arg1) (letDownAst arg2)
 
 letDownAstHFun :: KnownSpan s
                => AstHFun s x y -> AstHFun s x y
