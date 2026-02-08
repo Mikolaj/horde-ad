@@ -159,6 +159,8 @@ expandAst t = case t of
   Ast.AstFloorS a -> astFloorS (expandAst a)
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAst v
   Ast.AstCastS v -> astCastS $ expandAst v
+  Ast.AstArgMinA a -> Ast.AstArgMinA (expandAst a)
+  Ast.AstArgMaxA a -> Ast.AstArgMaxA (expandAst a)
 
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
@@ -168,8 +170,6 @@ expandAst t = case t of
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
                     shm shn shp (expandAst v) (vars, expandAstIxS ix)
-  Ast.AstArgMinA a -> Ast.AstArgMinA (expandAst a)
-  Ast.AstArgMaxA a -> Ast.AstArgMaxA (expandAst a)
   Ast.AstIotaS{} -> t
   Ast.AstAppendS x y -> astAppendS (expandAst x) (expandAst y)
   Ast.AstSliceS i n k v -> astSliceS i n k (expandAst v)
@@ -355,6 +355,8 @@ simplifyAst t = case t of
   Ast.AstFloorS a -> astFloorS (simplifyAst a)
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
   Ast.AstCastS v -> astCastS $ simplifyAst v
+  Ast.AstArgMinA a -> Ast.AstArgMinA (simplifyAst a)
+  Ast.AstArgMaxA a -> Ast.AstArgMaxA (simplifyAst a)
 
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
@@ -364,8 +366,6 @@ simplifyAst t = case t of
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
                     shm shn shp (simplifyAst v) (vars, simplifyAstIxS ix)
-  Ast.AstArgMinA a -> Ast.AstArgMinA (simplifyAst a)
-  Ast.AstArgMaxA a -> Ast.AstArgMaxA (simplifyAst a)
   Ast.AstIotaS{} -> t
   Ast.AstAppendS x y -> astAppendS (simplifyAst x) (simplifyAst y)
   Ast.AstSliceS i n k v -> astSliceS i n k (simplifyAst v)
@@ -792,6 +792,8 @@ contractAst t0 = case t0 of
     AstConcreteS a | sizeOf (undefined :: r1) >= sizeOf (undefined :: r2) ->
       astConcreteS (tscast $ Concrete a)
     t2 -> astCastS t2
+  Ast.AstArgMinA a -> Ast.AstArgMinA (contractAst a)
+  Ast.AstArgMaxA a -> Ast.AstArgMaxA (contractAst a)
 
   AstFromS' ftk (Ast.AstIndexS @sh1 ZSS v ix)
     | FTKS _ ftk2@FTKScalar <- ftkAst v
@@ -820,8 +822,6 @@ contractAst t0 = case t0 of
            (interpretLambdaIndexS
               interpretAst env
               (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromK i)) -}
-  Ast.AstArgMinA a -> Ast.AstArgMinA (contractAst a)
-  Ast.AstArgMaxA a -> Ast.AstArgMaxA (contractAst a)
   Ast.AstIotaS snat@(SNat @n) | fromSNat' snat < 100 ->
     astConcreteS $ tsiota @_ @n  -- likely not to be O(data size)
   Ast.AstIotaS{} -> t0  -- tough trade-offs here
@@ -943,6 +943,8 @@ letDownAst t = case t of
   Ast.AstFloorS a -> Ast.AstFloorS (letDownAst a)
   Ast.AstFromIntegralS v -> Ast.AstFromIntegralS (letDownAst v)
   Ast.AstCastS v -> Ast.AstCastS (letDownAst v)
+  Ast.AstArgMinA a -> Ast.AstArgMinA (letDownAst a)
+  Ast.AstArgMaxA a -> Ast.AstArgMaxA (letDownAst a)
 
   Ast.AstIndexS shn v ix ->
     Ast.AstIndexS shn (letDownAst v) (letDownAstIxS ix)
@@ -952,8 +954,6 @@ letDownAst t = case t of
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     let !ix2 = letDownAstIxS ix
     in Ast.AstGatherS shm shn shp (letDownAst v) (vars, ix2)
-  Ast.AstArgMinA a -> Ast.AstArgMinA (letDownAst a)
-  Ast.AstArgMaxA a -> Ast.AstArgMaxA (letDownAst a)
   Ast.AstIotaS{} -> t
   Ast.AstAppendS x y -> Ast.AstAppendS (letDownAst x) (letDownAst y)
   Ast.AstSliceS i n k v -> Ast.AstSliceS i n k (letDownAst v)

@@ -106,6 +106,10 @@ ftkAst t = case t of
     FTKS sh FTKScalar -> FTKS sh FTKScalar
   AstCastS v -> case ftkAst v of
     FTKS sh FTKScalar -> FTKS sh FTKScalar
+  AstArgMinA v -> case ftkAst v of
+    FTKS sh FTKScalar -> FTKS (shsInit sh) FTKScalar
+  AstArgMaxA v -> case ftkAst v of
+    FTKS sh FTKScalar -> FTKS (shsInit sh) FTKScalar
 
   AstIndexS shn v _ix -> case ftkAst v of
     FTKS _ x -> FTKS shn x
@@ -113,10 +117,6 @@ ftkAst t = case t of
     FTKS _ x -> FTKS (shp `shsAppend` shn) x
   AstGatherS shm shn _shp v _ -> case ftkAst v of
     FTKS _ x -> FTKS (shm `shsAppend` shn) x
-  AstArgMinA v -> case ftkAst v of
-    FTKS sh FTKScalar -> FTKS (shsInit sh) FTKScalar
-  AstArgMaxA v -> case ftkAst v of
-    FTKS sh FTKScalar -> FTKS (shsInit sh) FTKScalar
   AstIotaS n@SNat -> FTKS (n :$$ ZSS) FTKScalar
   AstAppendS a b -> case (ftkAst a, ftkAst b) of
     (FTKS (m :$$ sh) x, FTKS (n :$$ _) _) -> FTKS (snatPlus m n :$$ sh) x
@@ -207,12 +207,12 @@ varInAst var = \case
   AstFloorS a -> varInAst var a
   AstFromIntegralS a -> varInAst var a
   AstCastS t -> varInAst var t
+  AstArgMinA a -> varInAst var a
+  AstArgMaxA a -> varInAst var a
 
   AstIndexS _ v ix -> varInAst var v || varInIxS var ix
   AstScatterS _ _ _ v (_vars, ix) -> varInIxS var ix || varInAst var v
   AstGatherS _ _ _ v (_vars, ix) -> varInIxS var ix || varInAst var v
-  AstArgMinA a -> varInAst var a
-  AstArgMaxA a -> varInAst var a
   AstIotaS{} -> False
   AstAppendS v u -> varInAst var v || varInAst var u
   AstSliceS _ _ _ v -> varInAst var v
@@ -406,6 +406,8 @@ astLetDown var u v = case v of
   AstFloorS a -> AstFloorS (astLetDown var u a)
   AstFromIntegralS v2 -> AstFromIntegralS (astLetDown var u v2)
   AstCastS v2 -> AstCastS (astLetDown var u v2)
+  AstArgMinA a -> AstArgMinA (astLetDown var u a)
+  AstArgMaxA a -> AstArgMaxA (astLetDown var u a)
 
   -- In these three, index terms are usually small, so the check is cheap.
   -- Also, this undoes precisely the pushing of the lets up that rules
@@ -425,8 +427,6 @@ astLetDown var u v = case v of
     if varNameInIxS var ix
     then AstLet var u v
     else AstGatherS shm shn shp (astLetDown var u v2) (vars, ix)
-  AstArgMinA a -> AstArgMinA (astLetDown var u a)
-  AstArgMaxA a -> AstArgMaxA (astLetDown var u a)
   AstIotaS{} -> v
   AstAppendS{} -> AstLet var u v
   AstSliceS i n k v2 -> AstSliceS i n k (astLetDown var u v2)

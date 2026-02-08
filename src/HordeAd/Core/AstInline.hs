@@ -181,6 +181,8 @@ inlineAst !memo v0 = case v0 of
   Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAst memo a
   Ast.AstFromIntegralS v -> second Ast.AstFromIntegralS $ inlineAst memo v
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v
+  Ast.AstArgMinA a -> second Ast.AstArgMinA $ inlineAst memo a
+  Ast.AstArgMaxA a -> second Ast.AstArgMaxA $ inlineAst memo a
 
   Ast.AstIndexS @shm shn v ix ->
     let (memo1, v2) = inlineAst memo v
@@ -200,8 +202,6 @@ inlineAst !memo v0 = case v0 of
         memo2 = EM.unionWith (+) memo1 memoI2
         !ix3 = ixsFromIxS ix ix2
     in (memo2, Ast.AstGatherS shm shn shp v2 (vars, ix3))
-  Ast.AstArgMinA a -> second Ast.AstArgMinA $ inlineAst memo a
-  Ast.AstArgMaxA a -> second Ast.AstArgMaxA $ inlineAst memo a
   Ast.AstIotaS{} -> (memo, v0)
   Ast.AstAppendS x y ->
     let (memo1, t1) = inlineAst memo x
@@ -438,6 +438,8 @@ unshareAst !memo = \case
   Ast.AstFloorS a -> second Ast.AstFloorS $ unshareAst memo a
   Ast.AstFromIntegralS v -> second Ast.AstFromIntegralS $ unshareAst memo v
   Ast.AstCastS v -> second Ast.AstCastS $ unshareAst memo v
+  Ast.AstArgMinA a -> second Ast.AstArgMinA $ unshareAst memo a
+  Ast.AstArgMaxA a -> second Ast.AstArgMaxA $ unshareAst memo a
 
   Ast.AstIndexS @shm shn v ix ->
     let (memo1, v2) = unshareAst memo v
@@ -455,8 +457,6 @@ unshareAst !memo = \case
         (memo2, v2) = unshareAst memo1 v
         !ix3 = ixsFromIxS ix ix2
     in (memo2, Ast.AstGatherS shm shn shp v2 (vars, ix3))
-  Ast.AstArgMinA a -> second Ast.AstArgMinA $ unshareAst memo a
-  Ast.AstArgMaxA a -> second Ast.AstArgMaxA $ unshareAst memo a
   Ast.AstIotaS snat -> (memo, Ast.AstIotaS snat)
   Ast.AstAppendS x y ->
     let (memo1, t1) = unshareAst memo x

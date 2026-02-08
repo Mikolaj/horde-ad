@@ -539,6 +539,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
   AstCastS :: (NumScalar r1, Differentiable r1, NumScalar r2, Differentiable r2)
            => AstTensor ms s (TKS sh r1)
            -> AstTensor ms s (TKS sh r2)
+  AstArgMinA :: forall n sh r ms. NumScalar r
+             => AstTensor ms PlainSpan (TKS (n ': sh) r)
+             -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) Int)
+  AstArgMaxA :: forall n sh r ms. NumScalar r
+             => AstTensor ms PlainSpan (TKS (n ': sh) r)
+             -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) Int)
 
   -- Shaped tensor operations
   AstIndexS :: forall shm shn x s ms.
@@ -558,12 +564,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
              -> (AstVarListS shm, AstIxS ms shp)
              -> AstTensor ms s (TKS2 (shm ++ shn) x)
     -- out of bounds indexing is permitted and the results is def (==0)
-  AstArgMinA :: forall n sh r ms. NumScalar r
-               => AstTensor ms PlainSpan (TKS (n ': sh) r)
-               -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) Int)
-  AstArgMaxA :: forall n sh r ms. NumScalar r
-               => AstTensor ms PlainSpan (TKS (n ': sh) r)
-               -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) Int)
   AstIotaS :: forall n r ms. NumScalar r
            => SNat n -> AstTensor ms PlainSpan (TKS '[n] r)
   AstAppendS :: forall m n sh x ms s.
