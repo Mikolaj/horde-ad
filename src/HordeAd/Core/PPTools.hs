@@ -543,7 +543,7 @@ printAst cfg d = \case
   AstIndex0 v ix ->
     showParen (d > 9)
     $ printAst cfg 10 v
-      . showString " `index0` "
+      . showString " `sindex0` "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
   AstSum0 v ->
     printPrefixOp printAst cfg d "ssum0" [v]

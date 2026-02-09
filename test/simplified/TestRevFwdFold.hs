@@ -2925,7 +2925,7 @@ testSin0FoldNestedR21PP = do
                             a0 (rreplicate 2 a0)
            in f) (rscalar 1.1)
   length (printAstSimple (simplifyInlineContract a1))
-    @?= 59003
+    @?= 59007
 
 testSin0revhV :: Assertion
 testSin0revhV = do
