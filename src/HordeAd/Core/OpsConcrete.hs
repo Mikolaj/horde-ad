@@ -93,6 +93,7 @@ instance ShareTensor Concrete where
   tunpair (Concrete (t1, t2)) = (Concrete t1, Concrete t2)
 
 instance BaseTensor Concrete where
+  isConcreteInstance = True
   {-# INLINE rshape #-}
   rshape @_ @x | Dict <- eltDictRep (knownSTK @x) = Nested.rshape . unConcrete
   {-# INLINE sshape #-}

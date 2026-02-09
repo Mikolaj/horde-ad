@@ -298,6 +298,7 @@ class ( Num (IntOf target)
       , TensorSupportsX IntegralHAndIntElt IntegralH target )
       => BaseTensor (target :: Target) where
 
+  isConcreteInstance :: Bool
   -- First type argument being @target@ is acceptable here, since these
   -- operations are mostly used when the shape is not known at the type level,
   -- so it can't be used as an explicit type argument.

@@ -167,6 +167,7 @@ instance (ADReadyNoLet target, ShareTensor target)
 instance ( ADReadyNoLet target, ShareTensor target
          , ShareTensor (PrimalOf target), ShareTensor (PlainOf target) )
          => BaseTensor (ADVal target) where
+  isConcreteInstance = False
   rshape (D u _) = rshape u
   sshape (D u _) = sshape u
   xshape (D u _) = xshape u

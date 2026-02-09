@@ -236,6 +236,7 @@ instance KnownSpan s => LetTensor (AstTensor AstMethodLet s) where
 -- Them methods are listed in ranked, shaped, mixed order to keep
 -- similar code transformations together.
 instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
+  isConcreteInstance = False
   -- Ranked ops
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
@@ -753,6 +754,7 @@ instance KnownSpan s => ShareTensor (AstRaw s) where
               in (tproject1 tShared, tproject2 tShared)
 
 instance KnownSpan s => BaseTensor (AstRaw s) where
+  isConcreteInstance = False
   -- Ranked ops
   rshape t = case ftkAst $ unAstRaw t of
     FTKR sh _ -> sh
@@ -1281,6 +1283,7 @@ instance KnownSpan s => LetTensor (AstNoVectorize s) where
   toShare t = toShare $ unAstNoVectorize t
 
 instance KnownSpan s => BaseTensor (AstNoVectorize s) where
+  isConcreteInstance = False
   -- Ranked ops
   rshape = rshape . unAstNoVectorize
   trsum = AstNoVectorize . trsum . unAstNoVectorize
@@ -1510,6 +1513,7 @@ fmapwUnAstNoSimplify
 fmapwUnAstNoSimplify = unsafeCoerce
 
 instance KnownSpan s => BaseTensor (AstNoSimplify s) where
+  isConcreteInstance = False
   -- The implementation of these methods differs from the AstRaw instance:
   tkbuild1 @k f =
     AstNoSimplify

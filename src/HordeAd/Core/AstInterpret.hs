@@ -14,11 +14,14 @@ module HordeAd.Core.AstInterpret
 import Prelude
 
 import Data.Dependent.EnumMap.Strict qualified as DMap
+import Data.List.NonEmpty (NonEmpty (..))
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Generic qualified as V
 
 import Data.Array.Nested.Lemmas
+import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
@@ -253,11 +256,24 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
         f2 !ix2 = interpretAst (extendEnvVarsS vars ix2 env) <$> ix
     in tsgather @_ @_ @shn t1 f2
   AstIotaS SNat -> tsiota
-  AstAppendS a b ->
-    withKnownSTK (stkAstX a) $
-    let t1 = interpretAst env a
-        t2 = interpretAst env b
-    in tsappend t1 t2
+  t@(AstAppendS @_ @_ @shRest @x a b) -> case ftkAst t of
+    FTKS (SNat :$$ shRest) x ->
+      withKnownShS shRest $
+      withKnownSTK (ftkToSTK x) $
+      let flattenAppend
+            :: AstTensor AstMethodLet s (TKS2 (m ': shRest) x)
+            -> NonEmpty (SpanTargetFam target s (TKR2 (Rank (m ': shRest)) x))
+          flattenAppend (AstAppendS c d) = flattenAppend c <> flattenAppend d
+          flattenAppend u | (FTKS (SNat :$$ _) _) <- ftkAst u =
+            NonEmpty.singleton (rfromS $ interpretAst env u)
+      in case flattenAppend t of
+        -- At least 3 elements and a concrete instance:
+        ne@(_ :| _ : _ : _) | isConcreteInstance @target ->
+          sfromR $ trconcat ne
+        _ ->
+          let t1 = interpretAst env a
+              t2 = interpretAst env b
+          in tsappend t1 t2
   AstSliceS i n k v ->
     withKnownSTK (stkAstX v) $
     tsslice i n k $ interpretAst env v
