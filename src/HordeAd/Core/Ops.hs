@@ -35,6 +35,7 @@ import Prelude
 
 import Data.Foldable qualified as Foldable
 import Data.Kind (Constraint, Type)
+import Data.List (foldl1')
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (fromMaybe)
@@ -781,6 +782,9 @@ class ( Num (IntOf target)
   trappend :: forall n x. KnownSTK x
            => target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
            -> target (TKR2 (1 + n) x)
+  trconcat :: forall n x. KnownSTK x
+           => NonEmpty (target (TKR2 (1 + n) x)) -> target (TKR2 (1 + n) x)
+  trconcat = foldl1' trappend . NonEmpty.toList
   trslice :: forall n x. KnownSTK x
           => Int -> Int -> target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
   trreverse :: forall n x. KnownSTK x
@@ -806,12 +810,16 @@ class ( Num (IntOf target)
             => ShS sh2 -> target (TKS2 sh x) -> target (TKS2 sh2 x)
 
   txappend :: forall m n sh x. KnownSTK x
-           => target (TKX2 (Just m ': sh) x) -> target (TKX2 (Just n ': sh) x)
-           -> target (TKX2 (Just (m + n) ': sh) x)
+           => target (TKX2 (m ': sh) x) -> target (TKX2 (n ': sh) x)
+           -> target (TKX2 (AddMaybe m n ': sh) x)
+  txconcat :: forall sh x. KnownSTK x
+           => NonEmpty (target (TKX2 (Nothing ': sh) x))
+           -> target (TKX2 (Nothing ': sh) x)
+  txconcat = foldl1' txappend . NonEmpty.toList
   txslice :: forall i n k sh x. KnownSTK x
-          => SNat i -> SNat n -> SNat k
-          -> target (TKX2 (Just (i + n + k) ': sh) x)
-          -> target (TKX2 (Just n ': sh) x)
+          => SMayNat Int i -> SMayNat Int n -> SMayNat Int k
+          -> target (TKX2 (AddMaybe (AddMaybe i n) k ': sh) x)
+          -> target (TKX2 (n ': sh) x)
   txreverse :: forall mn sh x. KnownSTK x
             => target (TKX2 (mn ': sh) x) -> target (TKX2 (mn ': sh) x)
   txtranspose :: ( Permutation.IsPermutation perm

@@ -46,7 +46,7 @@ module HordeAd.OpsTensor
   , xfloor, xfromIntegral, xcast, xargMin, xargMax, xiota
   , rappend, rconcat, rslice, runcons, rreverse
   , sappend, sslice, suncons, sreverse
-  , xappend, xappend0, xconcat, xslice, xuncons, xreverse
+  , xappend, xconcat, xslice, xuncons, xreverse
     -- * Array operations derived from @build@
   , kbuild, kbuild1
   , rbuild, rbuild1, rmap, rmap1, rmap0N, rzipWith, rzipWith1, rzipWith0N
@@ -75,7 +75,6 @@ module HordeAd.OpsTensor
 
 import Prelude
 
-import Data.List (foldl1')
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
@@ -607,9 +606,11 @@ rappend :: forall n x target. (KnownSTK x, BaseTensor target)
         => target (TKR2 (1 + n) x) -> target (TKR2 (1 + n) x)
         -> target (TKR2 (1 + n) x)
 rappend = trappend
+-- | Append a list of arrays that agree on all dimensions, including
+-- in arrays in their elements, except for the outermost dimension.
 rconcat :: forall n x target. (KnownSTK x, BaseTensor target)
         => NonEmpty (target (TKR2 (1 + n) x)) -> target (TKR2 (1 + n) x)
-rconcat = foldl1' rappend . NonEmpty.toList
+rconcat = trconcat
 -- | Extract a slice of an array along the outermost dimension.
 -- The extracted slice must fall within the dimension.
 rslice :: forall n x target. (KnownSTK x, BaseTensor target)
@@ -647,40 +648,30 @@ sreverse :: forall n sh x target. (KnownSTK x, BaseTensor target)
 sreverse = tsreverse
 
 xappend :: forall m n sh x target. (KnownSTK x, BaseTensor target)
-        => target (TKX2 (Just m ': sh) x) -> target (TKX2 (Just n ': sh) x)
-        -> target (TKX2 (Just (m + n) ': sh) x)
+        => target (TKX2 (m ': sh) x) -> target (TKX2 (n ': sh) x)
+        -> target (TKX2 (AddMaybe m n ': sh) x)
 xappend = txappend
-xappend0 :: forall sh x target.
-            (KnownSTK x, BaseTensor target, ConvertTensor target)
-         => target (TKX2 (Nothing ': sh) x) -> target (TKX2 (Nothing ': sh) x)
-         -> target (TKX2 (Nothing ': sh) x)
-xappend0 a b = case xshape a of
-  mmsnat :$% sh ->
-    withSNat (fromSMayNat' mmsnat) $ \msnat ->
-    withSNat (shxLength $ xshape b) $ \nsnat ->
-    let sh0 = Nested.SUnknown () :!% ssxFromShX sh
-        sha = Nested.SKnown msnat :!% ssxFromShX sh
-        shb = Nested.SKnown nsnat :!% ssxFromShX sh
-    in withKnownShX (ssxFromShX sh) $
-       xmcast sh0 $ xappend (xmcast sha a) (xmcast shb b)
-xconcat :: forall sh x target.
-           (KnownSTK x, BaseTensor target, ConvertTensor target)
+-- | Append a list of arrays that agree on all dimensions, including
+-- in arrays in their elements, except for the outermost dimension.
+xconcat :: forall sh x target. (KnownSTK x, BaseTensor target)
         => NonEmpty (target (TKX2 (Nothing ': sh) x))
         -> target (TKX2 (Nothing ': sh) x)
-xconcat = foldl1' xappend0 . NonEmpty.toList
+xconcat = txconcat
 xslice :: forall i n k sh x target. (KnownSTK x, BaseTensor target)
-       => SNat i -> SNat n -> SNat k
-       -> target (TKX2 (Just (i + n + k) ': sh) x)
-       -> target (TKX2 (Just n ': sh) x)
+       => SMayNat Int i -> SMayNat Int n -> SMayNat Int k
+       -> target (TKX2 (AddMaybe (AddMaybe i n) k ': sh) x)
+       -> target (TKX2 (n ': sh) x)
 xslice = txslice
 xuncons :: (KnownNat n, KnownShX sh, KnownSTK x, BaseTensor target)
         => target (TKX2 (Just n ': sh) x)
         -> Maybe (target (TKX2 sh x), target (TKX2 (Just (n - 1) ': sh) x))
 xuncons @n v = case cmpNat (Proxy @1) (Proxy @n) of
   EQI -> Just ( v `xindex` (0 :.% ZIX)
-              , xslice @1 @(n - 1) @0 SNat SNat SNat v )
+              , xslice @(Just 1) @(Just (n - 1)) @(Just 0)
+                       (SKnown SNat) (SKnown SNat) (SKnown SNat) v )
   LTI -> Just ( v `xindex` (0 :.% ZIX)
-              , xslice @1 @(n - 1) @0 SNat SNat SNat v )
+              , xslice @(Just 1) @(Just (n - 1)) @(Just 0)
+                       (SKnown SNat) (SKnown SNat) (SKnown SNat) v )
   _ -> Nothing
 xreverse :: forall mn sh x target. (KnownSTK x, BaseTensor target)
          => target (TKX2 (mn ': sh) x) -> target (TKX2 (mn ': sh) x)

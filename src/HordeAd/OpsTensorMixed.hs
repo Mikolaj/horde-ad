@@ -29,7 +29,7 @@ module HordeAd.OpsTensorMixed
    -- * Auxiliary array operations
   , kfloor, kfromIntegral, kcast
   , xfloor, xfromIntegral, xcast, xargMin, xargMax, xiota
-  , xappend, xappend0, xconcat, xslice, xuncons, xreverse
+  , xappend, xconcat, xslice, xuncons, xreverse
     -- * Array operations derived from @build@
   , xbuild, xbuild1
     -- * Array operations derived from @mapAccum@

@@ -614,8 +614,8 @@ instance BaseTensor Concrete where
   txappend @_ @_ @_ @x u v | Dict <- eltDictRep (knownSTK @x) =
     Concrete $ Nested.mappend (unConcrete u) (unConcrete v)
   {-# INLINE txslice #-}
-  txslice @_ @_ @_ @_ @x i n _ | Dict <- eltDictRep (knownSTK @x) =
-    Concrete . Nested.msliceSN i n . unConcrete
+  txslice @_ @_ @_ @_ @x i n k | Dict <- eltDictRep (knownSTK @x) =
+    Concrete . Nested.mslice i n k . unConcrete
   {-# INLINE txreverse #-}
   txreverse @_ @_ @x | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.mrev1 . unConcrete

@@ -23,7 +23,6 @@ import Text.Show.Functions ()
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++))
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (permInverse)
 import Data.Array.Nested.Permutation qualified as Permutation
@@ -563,20 +562,27 @@ evalRev !s !c d0 = case d0 of
       withKnownShX shn $
       withKnownShX shp $
       evalRev s (txscatter @_ @shm @shn (shxTakeSSX @_ @shn Proxy shp sh) c f) d
-  DeltaAppendX d e -> case (ftkDelta d, ftkDelta e) of
-    (FTKX (Nested.SKnown m@SNat :$% _) x, FTKX (Nested.SKnown SNat :$% _) _) ->
+  DeltaAppendX @m @n d e -> case (ftkDelta d, ftkDelta e) of
+    (FTKX (m :$% _) x, FTKX (n :$% _) _) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       let cShared = tshare c
-          s2 = evalRev s (txslice (SNat @0) SNat SNat cShared) d
-      in evalRev s2 (txslice m SNat SNat cShared) e
-  DeltaSliceX i@SNat _ k@SNat d -> case ftkDelta d of
+          s2 = gcastWith (unsafeCoerceRefl
+                          :: AddMaybe (AddMaybe (Just 0) m) n
+                             :~: AddMaybe m n) $
+               evalRev s (txslice (SKnown (SNat @0)) m n cShared) d
+      in gcastWith (unsafeCoerceRefl
+                    :: AddMaybe (AddMaybe m n) (Just 0) :~: AddMaybe m n) $
+         evalRev s2 (txslice m n (SKnown (SNat @0)) cShared) e
+  DeltaSliceX @i @n @k i _ k d -> case ftkDelta d of
     FTKX (_ :$% sh) x ->
+      gcastWith (unsafeCoerceRefl
+                :: AddMaybe (AddMaybe i n) k :~: AddMaybe i (AddMaybe n k)) $
       withKnownSTK (adSTK $ ftkToSTK x) $
       evalRev s (txappend
-                   (tdefTarget (FTKX (Nested.SKnown i :$% sh) (adFTK x)))
-                      (txappend
-                         c (tdefTarget
-                              (FTKX (Nested.SKnown k :$% sh) (adFTK x))))) d
+                   (tdefTarget (FTKX (i :$% sh) (adFTK x)))
+                   (txappend
+                      c (tdefTarget
+                           (FTKX (k :$% sh) (adFTK x))))) d
   DeltaReverseX d -> case ftkDelta d of
     FTKX _ x ->
       withKnownSTK (adSTK $ ftkToSTK x) $

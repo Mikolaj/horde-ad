@@ -49,7 +49,6 @@ import GHC.TypeLits (type (+), type (<=))
 import Text.Show.Functions ()
 
 import Data.Array.Nested (type (++))
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
@@ -306,12 +305,13 @@ data Delta :: Target -> Target where
                -> IShX shm -> Delta target (TKX2 (shp ++ shn) r)
                -> (IxXOf target shm -> IxXOf target shp)
                -> Delta target (TKX2 (shm ++ shn) r)
-  DeltaAppendX :: Delta target (TKX2 (Just m ': sh) r)
-               -> Delta target (TKX2 (Just n ': sh) r)
-               -> Delta target (TKX2 (Just (m + n) ': sh) r)
-  DeltaSliceX :: SNat i -> SNat n -> SNat k
-              -> Delta target (TKX2 (Just (i + n + k) ': sh) r)
-              -> Delta target (TKX2 (Just n ': sh) r)
+  DeltaAppendX :: forall m n sh r target.
+                  Delta target (TKX2 (m ': sh) r)
+               -> Delta target (TKX2 (n ': sh) r)
+               -> Delta target (TKX2 (AddMaybe m n ': sh) r)
+  DeltaSliceX :: SMayNat Int i -> SMayNat Int n -> SMayNat Int k
+              -> Delta target (TKX2 (AddMaybe (AddMaybe i n) k ': sh) r)
+              -> Delta target (TKX2 (n ': sh) r)
   DeltaReverseX :: Delta target (TKX2 (mn ': sh) r)
                 -> Delta target (TKX2 (mn ': sh) r)
   DeltaTransposeX :: forall perm sh r target.
@@ -429,10 +429,10 @@ ftkDelta = \case
   DeltaGatherX @_ @shn _ _ ssp shm d _ -> case ftkDelta d of
     FTKX sh x -> FTKX (shm `shxAppend` shxDropSSX @_ @shn ssp sh) x
   DeltaAppendX a b -> case (ftkDelta a, ftkDelta b) of
-    (FTKX (Nested.SKnown m :$% sh) x, FTKX (Nested.SKnown n :$% _) _) ->
-      FTKX (Nested.SKnown (snatPlus m n) :$% sh) x
-  DeltaSliceX _ n@SNat _ d -> case ftkDelta d of
-    FTKX (_ :$% sh) x -> FTKX (Nested.SKnown n :$% sh) x
+    (FTKX (m :$% sh) x, FTKX (n :$% _) _) ->
+      FTKX (smnAddMaybe m n :$% sh) x
+  DeltaSliceX _ n _ d -> case ftkDelta d of
+    FTKX (_ :$% sh) x -> FTKX (n :$% sh) x
   DeltaReverseX d -> ftkDelta d
   DeltaTransposeX perm d -> case ftkDelta d of
     FTKX sh x -> FTKX (shxPermutePrefix perm sh) x

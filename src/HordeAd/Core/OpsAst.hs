@@ -518,26 +518,31 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   txiota @n @r = astFromS' (FTKX (SKnown (SNat @n) :$% ZSX) FTKScalar)
                  $ fromPlain $ AstIotaS @n @r SNat
   txappend u v = case ftkAst u of
-    FTKX (Nested.SKnown m@SNat :$% shu') x -> case ftkAst v of
-      FTKX (Nested.SKnown n@SNat :$% shv') _ ->
+    FTKX (m' :$% shu') x -> case ftkAst v of
+      FTKX (n' :$% shv') _ ->
+        withSNat (fromSMayNat' m') $ \m ->
+        withSNat (fromSMayNat' n') $ \n ->
         withShsFromShX shu' $ \(shu :: ShS shu) ->
-          withShsFromShX shv' $ \(shv :: ShS shv) ->
-            case shxEqual shu' shv' of
-              Just Refl ->
-                gcastWith (unsafeCoerceRefl :: shu :~: shv) $
-                astFromS' (FTKX (Nested.SKnown (snatPlus m n) :$% shu') x)
-                $ astAppendS (astSFromX' (m :$$ shu) u)
-                             (astSFromX' (n :$$ shv) v)
-              _ -> error $ "xappend: shapes don't match: "
-                           ++ show (shu', shv')
-  txslice i n@SNat k a = case ftkAst a of
+        withShsFromShX shv' $ \(shv :: ShS shv) ->
+          case shxEqual shu' shv' of
+            Just Refl ->
+              gcastWith (unsafeCoerceRefl :: shu :~: shv) $
+              astFromS' (FTKX (smnAddMaybe m' n' :$% shu') x)
+              $ astAppendS (astSFromX' (m :$$ shu) u)
+                           (astSFromX' (n :$$ shv) v)
+            _ -> error $ "xappend: shapes don't match: "
+                         ++ show (shu', shv')
+  txslice i' n' k' a = case ftkAst a of
     FTKX sh'@(_ :$% sh2') x ->
+      withSNat (fromSMayNat' i') $ \i ->
+      withSNat (fromSMayNat' n') $ \n ->
+      withSNat (fromSMayNat' k') $ \k ->
       withShsFromShX sh' $ \sh@(msnat :$$ _) ->
-        case testEquality (snatPlus i (snatPlus n k)) msnat of
+        case testEquality (snatPlus (snatPlus i n) k) msnat of
           Just Refl ->
-            astFromS' (FTKX (SKnown n :$% sh2') x)
+            astFromS' (FTKX (n' :$% sh2') x)
             . astSliceS i n k . astSFromX' sh $ a
-          _ -> error $ "xslice: argument tensor too narrow: "
+          _ -> error $ "xslice: argument tensor has a wrong width: "
                        ++ show ( fromSNat' i, fromSNat' n, fromSNat' k
                                , fromSNat' msnat )
   txreverse a = case ftkAst a of
@@ -1038,26 +1043,31 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   txiota @n @r = AstRaw $ cAstFromS (FTKX (SKnown (SNat @n) :$% ZSX) FTKScalar)
                  $ fromPlain $ AstIotaS @n @r SNat
   txappend (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
-    FTKX (Nested.SKnown m@SNat :$% shu') x -> case ftkAst v of
-      FTKX (Nested.SKnown n@SNat :$% shv') _ ->
+    FTKX (m' :$% shu') x -> case ftkAst v of
+      FTKX (n' :$% shv') _ ->
+        withSNat (fromSMayNat' m') $ \m ->
+        withSNat (fromSMayNat' n') $ \n ->
         withShsFromShX shu' $ \(shu :: ShS shu) ->
-          withShsFromShX shv' $ \(shv :: ShS shv) ->
-            case shxEqual shu' shv' of
-              Just Refl ->
-                gcastWith (unsafeCoerceRefl :: shu :~: shv) $
-                cAstFromS (FTKX (SKnown (snatPlus m n) :$% shu') x)
-                $ AstAppendS (cAstSFromX (m :$$ shu) u)
-                             (cAstSFromX (n :$$ shv) v)
-              _ -> error $ "xappend: shapes don't match: "
-                           ++ show (shu', shv')
-  txslice i n@SNat k (AstRaw a) = AstRaw $ case ftkAst a of
+        withShsFromShX shv' $ \(shv :: ShS shv) ->
+          case shxEqual shu' shv' of
+            Just Refl ->
+              gcastWith (unsafeCoerceRefl :: shu :~: shv) $
+              cAstFromS (FTKX (smnAddMaybe m' n' :$% shu') x)
+              $ AstAppendS (cAstSFromX (m :$$ shu) u)
+                           (cAstSFromX (n :$$ shv) v)
+            _ -> error $ "xappend: shapes don't match: "
+                         ++ show (shu', shv')
+  txslice i' n' k' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh'@(_ :$% sh2') x ->
+      withSNat (fromSMayNat' i') $ \i ->
+      withSNat (fromSMayNat' n') $ \n ->
+      withSNat (fromSMayNat' k') $ \k ->
       withShsFromShX sh' $ \sh@(msnat :$$ _) ->
-        case testEquality (snatPlus i (snatPlus n k)) msnat of
+        case testEquality (snatPlus (snatPlus i n) k) msnat of
           Just Refl ->
-            cAstFromS (FTKX (SKnown n :$% sh2') x)
+            cAstFromS (FTKX (n' :$% sh2') x)
             . AstSliceS i n k . cAstSFromX sh $ a
-          _ -> error $ "xslice: argument tensor too narrow: "
+          _ -> error $ "xslice: argument tensor has a wrong width: "
                        ++ show ( fromSNat' i, fromSNat' n, fromSNat' k
                                , fromSNat' msnat )
   txreverse (AstRaw a) = AstRaw $ case ftkAst a of
