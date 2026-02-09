@@ -583,6 +583,9 @@ instance BaseTensor Concrete where
   {-# INLINE trappend #-}
   trappend @_ @x u v | Dict <- eltDictRep (knownSTK @x) =
     Concrete $ Nested.rappend (unConcrete u) (unConcrete v)
+  {-# INLINE trconcat #-}
+  trconcat @_ @x l | Dict <- eltDictRep (knownSTK @x) =
+    Concrete $ Nested.rconcat (fmapUnConcrete l)
   {-# INLINE trslice #-}
   trslice @_ @x i n | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.rslice i n . unConcrete
@@ -613,6 +616,9 @@ instance BaseTensor Concrete where
   {-# INLINE txappend #-}
   txappend @_ @_ @_ @x u v | Dict <- eltDictRep (knownSTK @x) =
     Concrete $ Nested.mappend (unConcrete u) (unConcrete v)
+  {-# INLINE txconcat #-}
+  txconcat @_ @x l | Dict <- eltDictRep (knownSTK @x) =
+    Concrete $ Nested.mconcat (fmapUnConcrete l)
   {-# INLINE txslice #-}
   txslice @_ @_ @_ @_ @x i n k | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.mslice i n k . unConcrete
