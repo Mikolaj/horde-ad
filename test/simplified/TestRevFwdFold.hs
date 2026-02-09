@@ -421,7 +421,7 @@ testSin0RfwdPP4Dual = do
   interpretAstDual @Concrete emptyEnv a1
     @?= DummyDualTarget (FTKR [] FTKScalar)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromK (tdualPart 0.0 * cos (tdualPart 0.0))"
+    @?= "rfromK (kdualPart 0.0 * cos (kdualPart 0.0))"
 
 testSin0Rfwd5 :: Assertion
 testSin0Rfwd5 = do
@@ -1138,7 +1138,7 @@ testSin0Scan1Rev3PPForComparison = do
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rfromList [sin (sin x0 - x0 * rscalar 5) - x0 * rscalar 7, sin x0 - x0 * rscalar 5, x0]) (rscalar 1.1)
   printAstPretty a1
-    @?= "rfromS (let x4 = cos ((-5.5) + sin 1.1) in sscalar (-11.0) + (cos (sscalar 1.1) * sprimalPart (sfromK x4) + (sscalar (-5.0) * sprimalPart (sfromK x4) + cos (sscalar 1.1))))"
+    @?= "rfromS (let x4 = cos ((-5.5) + kfromPrimal (sin 1.1)) in sscalar (-11.0) + (cos (sscalar 1.1) * sprimalPart (sfromK x4) + (sscalar (-5.0) * sprimalPart (sfromK x4) + cos (sscalar 1.1))))"
   printAstPretty (simplifyUserCode a1)
     @?= "rfromS (sscalar (-10.076255083995068))"
 
@@ -1225,7 +1225,7 @@ testUnitriangular0PP = do
            $ \i -> rbuild1 k
            $ \j -> ifH (i <=. j) (rscalar 0) (rscalar 1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromS (sgather @[1000000, 1000000] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3, i2] -> [ifH (0 <=. i2 + negate i3) 0 1]))"
+    @?= "rfromPlain (rfromS (sgather @[1000000, 1000000] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3, i2] -> [ifH (0 <=. i2 + negate i3) 0 1])))"
 
 unitriangular1 :: (KnownNat k, NumScalar rk, ADReady target)
                => Int -> IShR k -> target (TKR (2 + k) rk)
@@ -1239,7 +1239,7 @@ testUnitriangular1PP = do
   resetVarCounter
   let sh = 2 :$: 3 :$: 6 :$: ZSR
       k = 10
-      a1 = unitriangular1 @3 @Double @(AstTensor AstMethodLet PrimalSpan) k sh
+      a1 = unitriangular1 @3 @Double @(AstTensor AstMethodLet PlainSpan) k sh
   printAstPretty (simplifyUserCode a1)
     @?= "rfromS (sgather @[10, 10] (sconcrete (sfromListLinear [2,2,3,6] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])) (\\[i3, i2] -> [ifH (0 <=. i2 + negate i3) 0 1]))"
 
@@ -1256,7 +1256,7 @@ testUnitriangular2PP = do
   resetVarCounter
   let sh = 2 :$: 3 :$: 6 :$: ZSR
       k = 10
-      a1 = unitriangular2 @3 @Double @(AstTensor AstMethodLet PrimalSpan) k sh
+      a1 = unitriangular2 @3 @Double @(AstTensor AstMethodLet PlainSpan) k sh
   printAstPretty (simplifyUserCode a1)
     @?= "rfromS (sgather @[10, 10] (sconcrete (sfromListLinear [2,2,3,6] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])) (\\[i1, i2] -> [ifH (0 <=. i1 + negate i2) 1 0]))"
 
@@ -2362,7 +2362,7 @@ testSin0FoldNestedK0PP = do
   printAstPrettyButNested
     (simplifyInlineContract
      $ g @(AstTensor AstMethodLet PrimalSpan) 1.1)
-    @?= "let v4 = tmapAccumLDer (SNat @2) (\\x6 -> tpair (tproject1 x6) (tproject1 x6)) (\\x10 -> tpair (tproject1 (tproject1 x10)) (tproject1 (tproject1 x10))) (\\x13 -> tpair (tproject2 (tproject1 x13) + tproject1 (tproject1 x13)) (tpair 0.0 0.0)) 1.0 (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @2) (\\x16 -> tpair (tproject1 x16 + tproject2 x16) (tproject1 x16)) (\\x18 -> tpair (tproject1 (tproject1 x18) + tproject2 (tproject1 x18)) (tproject1 (tproject1 x18))) (\\x22 -> tpair (tproject1 (tproject1 x22) + tproject2 (tproject1 x22)) (tproject1 (tproject1 x22))) 1.1 (sconcrete (sreplicate [2] 1.1))))) (sconcrete (sreplicate [2] 1.1))) in ssum0 (sprimalPart (tproject2 v4)) + tprimalPart (tproject1 v4)"
+    @?= "let v4 = tmapAccumLDer (SNat @2) (\\x6 -> tpair (tproject1 x6) (tproject1 x6)) (\\x10 -> tpair (tproject1 (tproject1 x10)) (tproject1 (tproject1 x10))) (\\x13 -> tpair (tproject2 (tproject1 x13) + tproject1 (tproject1 x13)) (tpair 0.0 0.0)) 1.0 (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @2) (\\x16 -> tpair (tproject1 x16 + tproject2 x16) (tproject1 x16)) (\\x18 -> tpair (tproject1 (tproject1 x18) + tproject2 (tproject1 x18)) (tproject1 (tproject1 x18))) (\\x22 -> tpair (tproject1 (tproject1 x22) + tproject2 (tproject1 x22)) (tproject1 (tproject1 x22))) 1.1 (sconcrete (sreplicate [2] 1.1))))) (sconcrete (sreplicate [2] 1.1))) in ssum0 (sprimalPart (tproject2 v4)) + kprimalPart (tproject1 v4)"
 
 testSin0FoldNestedS0PP :: Assertion
 testSin0FoldNestedS0PP = do
@@ -2388,7 +2388,7 @@ testSin0FoldNestedR0PP = do
   printAstPrettyButNested
     (simplifyInlineContract
      $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (let v4 = tmapAccumLDer (SNat @2) (\\x6 -> tpair (tproject1 x6) (tproject1 x6)) (\\x10 -> tpair (tproject1 (tproject1 x10)) (tproject1 (tproject1 x10))) (\\x13 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvT2 (ConvCmp (ConvXS' (FTKS [] FTKScalar)) ConvRX) ConvId)) (STKProduct (STKS [] STKScalar) (STKProduct (STKR (SNat @0) STKScalar) (STKR (SNat @0) STKScalar))) (tpair (sfromR (tproject2 (tproject1 x13)) + sfromR (tproject1 (tproject1 x13))) (tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvCmp (ConvXR STKScalar) ConvSX)) (STKProduct (STKS [] STKScalar) (STKS [] STKScalar)) (tpair (sscalar 0.0) (sscalar 0.0))))) (rfromK 1.0) (tpair (sreverse (sfromR (tproject2 (tmapAccumLDer (SNat @2) (\\x16 -> tconvert (ConvT2 ConvId (ConvCmp (ConvXR STKScalar) ConvSX)) (STKProduct (STKS [] STKScalar) (STKS [] STKScalar)) (tpair (tproject1 x16 + tproject2 x16) (tproject1 x16))) (\\x18 -> tconvert (ConvT2 ConvId (ConvCmp (ConvXR STKScalar) ConvSX)) (STKProduct (STKS [] STKScalar) (STKS [] STKScalar)) (tpair (tproject1 (tproject1 x18) + tproject2 (tproject1 x18)) (tproject1 (tproject1 x18)))) (\\x22 -> tpair (tproject1 (tproject1 x22) + sfromR (tproject2 (tproject1 x22))) (tproject1 (tproject1 x22))) (sscalar 1.1) (sconcrete (sreplicate [2] 1.1)))))) (rfromS (sconcrete (sreplicate [2] 1.1)))) in sfromK (ssum0 (sprimalPart (sfromR (tproject2 v4)))) + sprimalPart (sfromR (tproject1 v4)))"
+    @?= "rfromS (let v4 = tmapAccumLDer (SNat @2) (\\x6 -> tpair (tproject1 x6) (tproject1 x6)) (\\x10 -> tpair (tproject1 (tproject1 x10)) (tproject1 (tproject1 x10))) (\\x13 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvT2 (ConvCmp (ConvXS' (FTKS [] FTKScalar)) ConvRX) ConvId)) (STKProduct (STKS [] STKScalar) (STKProduct (STKR (SNat @0) STKScalar) (STKR (SNat @0) STKScalar))) (tpair (sfromR (tproject2 (tproject1 x13)) + sfromR (tproject1 (tproject1 x13))) (tfromPlain (tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvCmp (ConvXR STKScalar) ConvSX)) (STKProduct (STKS [] STKScalar) (STKS [] STKScalar)) (tpair (sscalar 0.0) (sscalar 0.0)))))) (rfromK 1.0) (tpair (sreverse (sfromR (tproject2 (tmapAccumLDer (SNat @2) (\\x16 -> tconvert (ConvT2 ConvId (ConvCmp (ConvXR STKScalar) ConvSX)) (STKProduct (STKS [] STKScalar) (STKS [] STKScalar)) (tpair (tproject1 x16 + tproject2 x16) (tproject1 x16))) (\\x18 -> tconvert (ConvT2 ConvId (ConvCmp (ConvXR STKScalar) ConvSX)) (STKProduct (STKS [] STKScalar) (STKS [] STKScalar)) (tpair (tproject1 (tproject1 x18) + tproject2 (tproject1 x18)) (tproject1 (tproject1 x18)))) (\\x22 -> tpair (tproject1 (tproject1 x22) + sfromR (tproject2 (tproject1 x22))) (tproject1 (tproject1 x22))) (sscalar 1.1) (sconcrete (sreplicate [2] 1.1)))))) (rfromS (sconcrete (sreplicate [2] 1.1)))) in sfromK (ssum0 (sprimalPart (sfromR (tproject2 v4)))) + sprimalPart (sfromR (tproject1 v4)))"
 
 testSin0FoldNestedK0LengthPPs :: Assertion
 testSin0FoldNestedK0LengthPPs = do

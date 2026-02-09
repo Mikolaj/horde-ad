@@ -270,9 +270,37 @@ printAst cfg d = \case
   AstShare _var v -> printPrefixOp printAst cfg d "tshare" [v]
   AstToShare v -> printPrefixOp printAst cfg d "toShare" [v]
 
+  AstConcreteK k -> showNumber k
+  AstFromPlain (AstConcreteK k) | loseRoudtrip cfg -> showNumber k
+  AstFromPlain t@(AstConvert _ AstConcreteK{}) | loseRoudtrip cfg ->
+    printAst cfg d t
+  AstFromPlain t@(AstPair AstConcreteK{} AstConcreteK{}) | loseRoudtrip cfg ->
+    printAst cfg d t
+  AstConcreteS a -> case Nested.sshape a of
+    ZSS -> showParen (d > 10)
+           $ showString "sscalar "
+             . showNumber (Nested.sunScalar a)
+    _ -> showParen (d > 10)
+         $ showString "sconcrete "
+           . (showParen True
+              $ shows a)
+  AstFromPlain (AstConcreteS a) | loseRoudtrip cfg -> case Nested.sshape a of
+    ZSS -> showParen (d > 10)
+           $ showString "sscalar "
+             . showNumber (Nested.sunScalar a)
+    _ -> showParen (d > 10)
+         $ showString "sconcrete "
+           . (showParen True
+              $ shows a)
+  AstFromPlain t@(AstConvert _ AstConcreteS{}) | loseRoudtrip cfg ->
+    printAst cfg d t
+  AstFromPlain t@(AstPair AstConcreteS{} AstConcreteS{}) | loseRoudtrip cfg ->
+    printAst cfg d t
+
   AstPrimalPart a ->
     if loseRoudtrip cfg
     then case ftkAst a of
+      FTKScalar{} -> printPrefixOp printAst cfg d "kprimalPart" [a]
       FTKR{} -> printPrefixOp printAst cfg d "rprimalPart" [a]
       FTKS{} -> printPrefixOp printAst cfg d "sprimalPart" [a]
       FTKX{} -> printPrefixOp printAst cfg d "xprimalPart" [a]
@@ -281,6 +309,7 @@ printAst cfg d = \case
   AstDualPart a ->
     if loseRoudtrip cfg
     then case ftkAst a of
+      FTKScalar{} -> printPrefixOp printAst cfg d "kdualPart" [a]
       FTKR{} -> printPrefixOp printAst cfg d "rdualPart" [a]
       FTKS{} -> printPrefixOp printAst cfg d "sdualPart" [a]
       FTKX{} -> printPrefixOp printAst cfg d "xdualPart" [a]
@@ -290,6 +319,7 @@ printAst cfg d = \case
   AstPlainPart a ->
     if loseRoudtrip cfg
     then case ftkAst a of
+      FTKScalar{} -> printPrefixOp printAst cfg d "kplainPart" [a]
       FTKR{} -> printPrefixOp printAst cfg d "rplainPart" [a]
       FTKS{} -> printPrefixOp printAst cfg d "splainPart" [a]
       FTKX{} -> printPrefixOp printAst cfg d "xplainPart" [a]
@@ -297,17 +327,32 @@ printAst cfg d = \case
     else printPrefixOp printAst cfg d "tplainPart" [a]
   AstFromPrimal a ->
     if loseRoudtrip cfg
-    then printAst cfg d a
+    then case ftkAst a of
+      FTKScalar{} -> printPrefixOp printAst cfg d "kfromPrimal" [a]
+      FTKR{} -> printPrefixOp printAst cfg d "rfromPrimal" [a]
+      FTKS{} -> printPrefixOp printAst cfg d "sfromPrimal" [a]
+      FTKX{} -> printPrefixOp printAst cfg d "xfromPrimal" [a]
+      _      -> printPrefixOp printAst cfg d "tfromPrimal" [a]
     else printPrefixOp
            printAst cfg d
            ("tfromPrimal (" ++ show (ftkToSTK (ftkAst a)) ++ ")") [a]
   AstFromDual a ->
     if loseRoudtrip cfg
-    then printAst cfg d a
+    then case ftkAst a of
+      FTKScalar{} -> printPrefixOp printAst cfg d "kfromDual" [a]
+      FTKR{} -> printPrefixOp printAst cfg d "rfromDual" [a]
+      FTKS{} -> printPrefixOp printAst cfg d "sfromDual" [a]
+      FTKX{} -> printPrefixOp printAst cfg d "xfromDual" [a]
+      _      -> printPrefixOp printAst cfg d "tfromDual" [a]
     else printPrefixOp printAst cfg d "tfromDual" [a]
   AstFromPlain a ->
     if loseRoudtrip cfg
-    then printAst cfg d a
+    then case ftkAst a of
+      FTKScalar{} -> printPrefixOp printAst cfg d "kfromPlain" [a]
+      FTKR{} -> printPrefixOp printAst cfg d "rfromPlain" [a]
+      FTKS{} -> printPrefixOp printAst cfg d "sfromPlain" [a]
+      FTKX{} -> printPrefixOp printAst cfg d "xfromPlain" [a]
+      _      -> printPrefixOp printAst cfg d "tfromPlain" [a]
     else printPrefixOp
            printAst cfg d
            ("tfromPlain (" ++ show (ftkToSTK (ftkAst a)) ++ ")") [a]
@@ -318,7 +363,6 @@ printAst cfg d = \case
   AstR1K opCode u -> printAstR1R printAst cfg d opCode u
   AstR2K opCode u v -> printAstR2R printAst cfg d opCode u v
   AstI2K opCode u v -> printAstI2R printAst cfg d opCode u v
-  AstConcreteK k -> showNumber k
   AstFloorK v -> printPrefixOp printAst cfg d "kfloor" [v]
   AstFromIntegralK v -> printPrefixOp printAst cfg d "kfromIntegral" [v]
   AstCastK v -> printPrefixOp printAst cfg d "kcast" [v]
@@ -331,14 +375,6 @@ printAst cfg d = \case
   AstR1S opCode u -> printAstR1R printAst cfg d opCode u
   AstR2S opCode u v -> printAstR2R printAst cfg d opCode u v
   AstI2S opCode u v -> printAstI2R printAst cfg d opCode u v
-  AstConcreteS a -> case Nested.sshape a of
-    ZSS -> showParen (d > 10)
-           $ showString "sscalar "
-             . showNumber (Nested.sunScalar a)
-    _ -> showParen (d > 10)
-         $ showString "sconcrete "
-           . (showParen True
-              $ shows a)
   AstFloorS a -> printPrefixOp printAst cfg d "sfloor" [a]
   AstFromIntegralS a -> printPrefixOp printAst cfg d "sfromIntegral" [a]
   AstCastS a -> printPrefixOp printAst cfg d "scast" [a]
