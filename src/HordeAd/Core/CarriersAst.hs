@@ -1489,10 +1489,6 @@ astShareNoSimplify :: KnownSpan s
 astShareNoSimplify a | astIsSmall True a = a
                          -- too important an optimization to skip
 astShareNoSimplify a = case a of
-  AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
-    unsafePerformIO $ do
-      var <- funToAstNoBoundsIO (ftkAst v)
-      pure $! cAstFromS @y2 ftkz $ astShare var v
   AstFromPrimal v -> fromPrimal $ astShareNoSimplify v
   AstFromDual v -> fromDual $ astShareNoSimplify v
   AstFromPlain v -> fromPlain $ astShareNoSimplify v
@@ -1530,10 +1526,6 @@ astLetFunNoSimplify
 astLetFunNoSimplify a f | astIsSmall True a = f a
                             -- too important an optimization to skip
 astLetFunNoSimplify a f = case a of
-  AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
-    unsafePerformIO $ do
-      var <- funToAstNoBoundsIO (ftkAst v)
-      pure $! AstLet var v (f $ cAstFromS @y2 ftkz $ astVar var)
   AstFromPrimal v -> astLetFunNoSimplify v (f . fromPrimal)
   AstFromDual v -> astLetFunNoSimplify v (f . fromDual)
   AstFromPlain v -> astLetFunNoSimplify v (f . fromPlain)
