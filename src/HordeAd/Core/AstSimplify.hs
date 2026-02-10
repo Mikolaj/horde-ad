@@ -3180,9 +3180,10 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
     -- causes c to take more memory but doesn't inhibit rewriting
   -- Below we heavily depend on c being semantically determined
   -- by the domain and codomain. We pick the simplest such c.
-  (FTKScalar @ry, zftk@(FTKS ZSS (FTKScalar @rz)))
+  (FTKScalar @ry, FTKS ZSS (FTKScalar @rz))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
-      astConvertSFromK (convSFrom yftk (ftkToSTK zftk)) zftk a
+      let c2 = ConvCmp ConvXS (Conv0X STKScalar)
+      in astConvertSFromK c2 a
   (FTKR shr xy, zftk@(FTKS sh xz))
     | Just Refl <- matchingFTK xy xz
     , Just Refl <- testEquality (shrRank shr) (shsRank sh) ->
@@ -3373,61 +3374,49 @@ astConvertFromS c zftk a = case (zftk, a) of
   -- keep: (FTKScalar, _) -> error "add above until GHC say this case redundant"
   _ -> Ast.AstConvert c a  -- by default we pull up
 
--- We are pushing conversions to shaped tensors down, into concrete values
--- and towards variables, so that the conversions often cancel out.
+-- In case of a conversion to scalar values, we are not pushing down but up
+-- except when we can immediately simplify.
 astConvertSFromK :: forall r s. KnownSpan s
                  => TKConversion (TKScalar r) (TKS '[] r)
-                 -> FullShapeTK (TKS '[] r)
                  -> AstTensor AstMethodLet s (TKScalar r)
                  -> AstTensor AstMethodLet s (TKS '[] r)
-astConvertSFromK c zftk@(FTKS ZSS FTKScalar) a0 = case a0 of
-  Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
-  Ast.AstProject1{} -> Ast.AstConvert c a0
-  Ast.AstProject2{} -> Ast.AstConvert c a0
-  Ast.AstSum{} -> Ast.AstConvert c a0
+astConvertSFromK c a0 = case a0 of
+  -- TODO: remove these once we reduce the terms in other ways
   AstConcreteK k -> AstConcreteS $ Nested.sscalar k
-  Ast.AstFloorK{} -> Ast.AstConvert c a0
-  Ast.AstFromIntegralK{} -> Ast.AstConvert c a0
-  Ast.AstCastK{} -> Ast.AstConvert c a0
-  Ast.AstArgMinK{} -> Ast.AstConvert c a0
-  Ast.AstArgMaxK{} -> Ast.AstConvert c a0
   AstPlusK u v ->
-    astConvertSFromK c zftk u + astConvertSFromK c zftk v
+    astConvertSFromK c u + astConvertSFromK c v
   AstTimesK u v ->
-    astConvertSFromK c zftk u * astConvertSFromK c zftk v
+    astConvertSFromK c u * astConvertSFromK c v
   Ast.AstN1K NegateOp u ->
-    negate (astConvertSFromK c zftk u)
+    negate (astConvertSFromK c u)
   Ast.AstN1K AbsOp u ->
-    abs (astConvertSFromK c zftk u)
+    abs (astConvertSFromK c u)
   Ast.AstN1K SignumOp u ->
-    signum (astConvertSFromK c zftk u)
-  Ast.AstR1K opCode u -> Ast.AstR1S opCode (astConvertSFromK c zftk u)
+    signum (astConvertSFromK c u)
+  Ast.AstR1K opCode u -> Ast.AstR1S opCode (astConvertSFromK c u)
   Ast.AstR2K opCode u v ->
-    Ast.AstR2S opCode (astConvertSFromK c zftk u)
-                      (astConvertSFromK c zftk v)
+    Ast.AstR2S opCode (astConvertSFromK c u)
+                      (astConvertSFromK c v)
   Ast.AstI2K QuotOp u v ->
-    astConvertSFromK c zftk u `quotH` astConvertSFromK c zftk v
+    astConvertSFromK c u `quotH` astConvertSFromK c v
   Ast.AstI2K RemOp u v ->
-    astConvertSFromK c zftk u `remH` astConvertSFromK c zftk v
-  Ast.AstApply{} -> Ast.AstConvert c a0
-  Ast.AstVar{} -> Ast.AstConvert c a0
-  Ast.AstCond b v w -> astCond b (astConvertSFromK c zftk v)
-                                 (astConvertSFromK c zftk w)
-  Ast.AstLet var u v -> astLet var u (astConvertSFromK c zftk v)
-  Ast.AstPrimalPart a -> astPrimalPart $ astConvertSFromK c zftk a
-  Ast.AstDualPart a -> astDualPart $ astConvertSFromK c zftk a
-  Ast.AstPlainPart a -> astPlainPart $ astConvertSFromK c zftk a
-  Ast.AstFromPrimal a -> fromPrimal $ astConvertSFromK c zftk a
-  Ast.AstFromDual a -> fromDual $ astConvertSFromK c zftk a
-  Ast.AstFromPlain a -> fromPlain $ astConvertSFromK c zftk a
-  Ast.AstIndex0{} -> Ast.AstConvert c a0
-  Ast.AstSum0{} -> Ast.AstConvert c a0
-  Ast.AstDot0{} -> Ast.AstConvert c a0
-  Ast.AstBoolNotK{} -> Ast.AstConvert c a0
-  Ast.AstBoolAndK{} -> Ast.AstConvert c a0
-  Ast.AstLeqK{} -> Ast.AstConvert c a0
-  Ast.AstLeq{} -> Ast.AstConvert c a0
+    astConvertSFromK c u `remH` astConvertSFromK c v
+  Ast.AstCond b v w -> astCond b (astConvertSFromK c v)
+                                 (astConvertSFromK c w)
+  Ast.AstLet var u v -> astLet var u (astConvertSFromK c v)
+  Ast.AstPrimalPart a -> astPrimalPart $ astConvertSFromK c a
+  Ast.AstDualPart a -> astDualPart $ astConvertSFromK c a
+  Ast.AstPlainPart a -> astPlainPart $ astConvertSFromK c a
 
+
+  Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
+  Ast.AstFromPrimal a -> fromPrimal $ astConvertSFromK c a
+  Ast.AstFromDual a -> fromDual $ astConvertSFromK c a
+  Ast.AstFromPlain a -> fromPlain $ astConvertSFromK c a
+  _ -> Ast.AstConvert c a0
+
+-- We are pushing conversions to shaped tensors down, into concrete values
+-- and towards variables, so that the conversions often cancel out.
 astConvertSFromR :: forall sh x s. KnownSpan s
                  => TKConversion (TKR2 (Rank sh) x) (TKS2 sh x)
                  -> FullShapeTK (TKS2 sh x)
@@ -3535,7 +3524,7 @@ astConvertSFrom c zftk t = case (zftk, ftkAst t) of
   (_, yftk) | Just Refl <- matchingFTK yftk zftk -> t
   (FTKS ZSS (FTKScalar @rz), FTKScalar @ry) ->
     case testEquality (typeRep @ry) (typeRep @rz) of
-      Just Refl -> astConvertSFromK c zftk t
+      Just Refl -> astConvertSFromK c t
       Nothing -> error "astConvertSFrom: tensor kinds don't match"
   (FTKS shz zx, FTKR shr yx)->
     case (matchingFTK yx zx, testEquality (shsRank shz) (shrRank shr)) of
@@ -3601,7 +3590,7 @@ astSFromK' :: forall r s. (GoodScalar r, KnownSpan s)
            -> AstTensor AstMethodLet s (TKS '[] r)
 astSFromK' a =
   let c2 = ConvCmp ConvXS (Conv0X STKScalar)
-  in astConvertSFromK c2 (FTKS ZSS FTKScalar) a
+  in astConvertSFromK c2 a
 
 astSFromR' :: forall sh s r. KnownSpan s
            => ShS sh -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
