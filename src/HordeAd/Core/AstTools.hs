@@ -12,9 +12,9 @@ module HordeAd.Core.AstTools
     -- * Odds and ends
   , bounds, intBounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
-  , cAstConvert, cAstSFromR, cAstSFromX, cAstXFromS
+  , cAstConvert, cAstSFromK, cAstSFromR, cAstSFromX, cAstXFromS
   , pattern AstSFromK', pattern AstFromS'
-  , checkPatternAstSFromK, checkAstFromSNotK, cAstFromS, cAstSFrom
+  , checkPatternAstSFromK, checkAstFromSNotK, cAstFromS
   , convFromS, convSFrom, convFromSMaybe, convSFromMaybe
   , setTotalSharing
   ) where
@@ -577,18 +577,23 @@ cAstConvert c1 (AstFromDual v) = fromDual $ cAstConvert c1 v
 cAstConvert c1 (AstFromPlain v) = fromPlain $ cAstConvert c1 v
 cAstConvert c t = AstConvert c t
 
+cAstSFromK :: forall r ms s. (KnownSpan s, GoodScalar r)
+           => AstTensor ms s (TKScalar r)
+           -> AstTensor ms s (TKS '[] r)
+cAstSFromK v = cAstConvert (ConvCmp ConvXS (Conv0X STKScalar)) v
+
 cAstSFromR :: forall sh x ms s. KnownSpan s
            => ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
            -> AstTensor ms s (TKS2 sh x)
 cAstSFromR sh v = case ftkAst v of
-  FTKR _ x -> cAstSFrom (FTKS sh x) v
+  FTKR _ x -> cAstConvert (convSFrom (ftkAst v) (ftkToSTK (FTKS sh x))) v
 
 -- Regardless of the warning, the rank equality is morally necessary.
 cAstSFromX :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
            => ShS sh -> AstTensor ms s (TKX2 sh' x)
            -> AstTensor ms s (TKS2 sh x)
 cAstSFromX sh v = case ftkAst v of
-  FTKX _ x -> cAstSFrom (FTKS sh x) v
+  FTKX _ x -> cAstConvert (convSFrom (ftkAst v) (ftkToSTK (FTKS sh x))) v
 
 cAstXFromS :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
            => StaticShX sh' -> AstTensor ms s (TKS2 sh x)
@@ -679,11 +684,6 @@ cAstFromS :: forall y z ms s. KnownSpan s
           => FullShapeTK z -> AstTensor ms s y
           -> AstTensor ms s z
 cAstFromS zftk t = cAstConvert (convFromS (ftkAst t) zftk) t
-
-cAstSFrom :: forall y z ms s. KnownSpan s
-          => FullShapeTK z -> AstTensor ms s y
-          -> AstTensor ms s z
-cAstSFrom zftk t = cAstConvert (convSFrom (ftkAst t) (ftkToSTK zftk)) t
 
 convFromS :: FullShapeTK y -> FullShapeTK z -> TKConversion y z
 convFromS yftk zftk = case convFromSMaybe yftk zftk of

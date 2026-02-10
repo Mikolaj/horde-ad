@@ -626,14 +626,18 @@ instance (NumScalar r, KnownSpan s)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst v) =
-      cAstSFrom (ftkAst w) $ u + v
+      cAstSFromK $ u + v
   z + u | Just 0 <- unReplC z = u
   u + z | Just 0 <- unReplC z = u
   AstConcreteS n + AstConcreteS k = AstConcreteS (n + k)
   AstConcreteS n + w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFrom (ftkAst w) $ AstConcreteK (Nested.sunScalar n) + k
+      cAstSFromK $ AstConcreteK (Nested.sunScalar n) + k
+  AstFromPlain (AstConcreteS n) + w@(AstConvert _ k)
+    | FTKS ZSS x@FTKScalar <- ftkAst w
+    , Just Refl <- matchingFTK x (ftkAst k) =
+      cAstSFromK $ AstFromPlain (AstConcreteK (Nested.sunScalar n)) + k
   AstConcreteS n + AstPlusS (AstConcreteS k) u =
     AstPlusS (AstConcreteS (n + k)) u
   AstPlusS (AstConcreteS n) u + AstConcreteS k =
@@ -682,12 +686,16 @@ instance (NumScalar r, KnownSpan s)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst v) =
-      cAstSFrom (ftkAst w) $ u * v
+      cAstSFromK $ u * v
   AstConcreteS n * AstConcreteS k = AstConcreteS (n * k)
   AstConcreteS n * w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFrom (ftkAst w) $ AstConcreteK (Nested.sunScalar n) * k
+      cAstSFromK $ AstConcreteK (Nested.sunScalar n) * k
+  AstFromPlain (AstConcreteS n) * w@(AstConvert _ k)
+    | FTKS ZSS x@FTKScalar <- ftkAst w
+    , Just Refl <- matchingFTK x (ftkAst k) =
+      cAstSFromK $ AstFromPlain (AstConcreteK (Nested.sunScalar n)) * k
   AstConcreteS n * AstTimesS (AstConcreteS k) u =
     AstTimesS (AstConcreteS (n * k)) u
   AstTimesS (AstConcreteS n) u * AstConcreteS k =
@@ -751,7 +759,7 @@ instance (NumScalar r, KnownSpan s)
   negate w@(AstConvert _ n)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst n) =
-      cAstSFrom (ftkAst w) $ negate n
+      cAstSFromK $ negate n
   negate u = AstN1S NegateOp u
   abs (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (abs u)
   abs (AstPrimalPart n) = primalPart (abs n)
@@ -765,7 +773,7 @@ instance (NumScalar r, KnownSpan s)
   abs w@(AstConvert _ n)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst n) =
-      cAstSFrom (ftkAst w) $ abs n
+      cAstSFromK $ abs n
   abs (AstN1S NegateOp u) = abs u
   abs u = AstN1S AbsOp u
   signum (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (signum u)
@@ -780,7 +788,7 @@ instance (NumScalar r, KnownSpan s)
   signum w@(AstConvert _ n)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst n) =
-      cAstSFrom (ftkAst w) $ signum n
+      cAstSFromK $ signum n
   signum u = AstN1S SignumOp u
   fromInteger i = error $ "fromInteger is not defined for shaped tensors: "
                           ++ show i
@@ -799,12 +807,16 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFrom (ftkAst w) $ quotH n k
+      cAstSFromK $ quotH n k
   quotH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (quotH n k)
   quotH (AstConcreteS n) w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFrom (ftkAst w) $ quotH (AstConcreteK (Nested.sunScalar n)) k
+      cAstSFromK $ quotH (AstConcreteK (Nested.sunScalar n)) k
+  quotH (AstFromPlain (AstConcreteS n)) w@(AstConvert _ k)
+    | FTKS ZSS x@FTKScalar <- ftkAst w
+    , Just Refl <- matchingFTK x (ftkAst k) =
+      cAstSFromK $ quotH (AstFromPlain (AstConcreteK (Nested.sunScalar n))) k
   quotH z _ | Just 0 <- unReplC z = z
   quotH u s | Just 1 <- unReplC s = u
   quotH (AstI2S QuotOp u v) w = quotH u (v * w)
@@ -822,12 +834,16 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFrom (ftkAst w) $ remH n k
+      cAstSFromK $ remH n k
   remH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (remH n k)
   remH (AstConcreteS n) w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFrom (ftkAst w) $ remH (AstConcreteK (Nested.sunScalar n)) k
+      cAstSFromK $ remH (AstConcreteK (Nested.sunScalar n)) k
+  remH (AstFromPlain (AstConcreteS n)) w@(AstConvert _ k)
+    | FTKS ZSS x@FTKScalar <- ftkAst w
+    , Just Refl <- matchingFTK x (ftkAst k) =
+      cAstSFromK $ remH (AstFromPlain (AstConcreteK (Nested.sunScalar n))) k
   remH z _ | Just 0 <- unReplC z = z
 --  remH _ (AstConcreteS s) | Just 1 <- sunReplicatePrim s = AstConcreteS 0
   remH u v = AstI2S RemOp u v
@@ -1494,10 +1510,10 @@ astShareNoSimplify a = case a of
         let v = cAstSFromX @sh sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
         pure $! cAstFromS @(TKS2 sh x) ftk $ astShare var v
-    ftk@(FTKS ZSS x@FTKScalar) -> do
+    FTKS ZSS x@FTKScalar -> do
         let v = cAstFromS x a
         var <- funToAstAutoBoundsIO x v
-        pure $! cAstSFrom ftk $ astShare var v
+        pure $! cAstSFromK $ astShare var v
     -- calling recursively for product may be not worth it
     ftk -> do
         var <- funToAstNoBoundsIO ftk
@@ -1536,10 +1552,10 @@ astLetFunNoSimplify a f = case a of
         let v = cAstSFromX @sh sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
         pure $! AstLet var v (f $ cAstFromS @(TKS2 sh x) ftk $ astVar var)
-    ftk@(FTKS ZSS x@FTKScalar) -> do
+    FTKS ZSS x@FTKScalar -> do
         let v = cAstFromS x a
         var <- funToAstAutoBoundsIO x v
-        pure $! AstLet var v (f $ cAstSFrom ftk $ astVar var)
+        pure $! AstLet var v (f $ cAstSFromK $ astVar var)
     -- calling recursively for product may be not worth it
     ftk -> do
         var <- funToAstNoBoundsIO ftk

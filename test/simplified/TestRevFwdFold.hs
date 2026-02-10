@@ -270,7 +270,7 @@ testFooRrevPP2 :: Assertion
 testFooRrevPP2 = do
   let (a1, _, _) = fooRgrad @(AstTensor AstMethodLet PrimalSpan) @Double (1.1, 2.2, 3.3)
   printAstSimple (simplifyInlineContract a1)
-    @?= "tfromPlain (STKR (SNat @0) STKScalar) (rfromS (sscalar 2.4396285219055063))"
+    @?= "tfromPlain (STKR (SNat @0) STKScalar) (rfromK 2.4396285219055063)"
 
 testFooRrev3 :: Assertion
 testFooRrev3 = do
@@ -1138,7 +1138,7 @@ testSin0Scan1Rev3PPForComparison = do
   let a1 = rrev1 @(AstTensor AstMethodLet PrimalSpan) @Double @0 @1
                  (\x0 -> rfromList [sin (sin x0 - x0 * rscalar 5) - x0 * rscalar 7, sin x0 - x0 * rscalar 5, x0]) (rscalar 1.1)
   printAstPretty a1
-    @?= "rfromS (let x4 = cos ((-5.5) + kfromPrimal (sin 1.1)) in sscalar (-11.0) + (cos (sscalar 1.1) * sprimalPart (sfromK x4) + (sscalar (-5.0) * sprimalPart (sfromK x4) + cos (sscalar 1.1))))"
+    @?= "rfromS (let x4 = cos ((-5.5) + kfromPrimal (sin 1.1)) in sscalar (-11.0) + (cos (sscalar 1.1) * sprimalPart (sfromK x4) + (sprimalPart (sfromK ((-5.0) * x4)) + cos (sscalar 1.1))))"
   printAstPretty (simplifyUserCode a1)
     @?= "rfromS (sscalar (-10.076255083995068))"
 
@@ -2448,7 +2448,7 @@ testSin0FoldNestedR2LengthPPs = do
     (printAstSimple
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 379736
+    @?= 380378
 
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
@@ -2468,7 +2468,7 @@ testSin0FoldNestedR3LengthPPs = do
     (printAstSimple
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 5597612
+    @?= 5608538
 
 -- Takes 70s, probably due to something (simplification?) forcing all derivs.
 _testSin0FoldNestedR4LengthPPs :: Assertion

@@ -1218,7 +1218,7 @@ testTomsSlicePP = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent codeTomsSlice (FTKR [32, 4] FTKScalar)
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\m1 -> rfromS (sscalar 1984.0 * sfromK (sdot0 (sslice (SNat @0) (SNat @3) (str (sfromR m1))) (sslice (SNat @1) (SNat @3) (str (sfromR m1)))))"
+    @?= "\\m1 -> rfromK (1984.0 * sdot0 (sslice (SNat @0) (SNat @3) (str (sfromR m1))) (sslice (SNat @1) (SNat @3) (str (sfromR m1))))"
   printArtifactPrimalPretty artifactRev
     @?= "\\m1 -> rfromS (ssum @128 (sreshape @[128] (str (sreplicate @4 (let v8 = sreplicate @32 (ssum @96 (sreshape @[96] (str (sslice (SNat @0) (SNat @3) (str (sfromR m1))) * str (sslice (SNat @1) (SNat @3) (str (sfromR m1)))))) in sfromPlain (siota (SNat @32)) * v8)))))"
   printArtifactPretty artifactRev
