@@ -12,9 +12,10 @@ module HordeAd.Core.AstTools
     -- * Odds and ends
   , bounds, intBounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
-  , cAstConvert, cAstSFromK, cAstSFromR, cAstSFromX, cAstXFromS
+  , cAstConvert, cAstSFromK, cAstSFromR, cAstSFromX
+  , cAstKFromS, cAstRFromS, cAstXFromS, cAstFromSGeneric
   , pattern AstSFromK', pattern AstFromS'
-  , checkPatternAstSFromK, checkAstFromSNotK, cAstFromS
+  , checkPatternAstSFromK, checkAstFromSNotK
   , convFromS, convSFrom, convFromSMaybe, convSFromMaybe
   , setTotalSharing
   ) where
@@ -523,9 +524,9 @@ liftRFromS1 :: forall n x ms s. KnownSpan s
             -> AstTensor ms s (TKR2 n x)
 {-# INLINE liftRFromS1 #-}
 liftRFromS1 f a = case ftkAst a of
-  ftk@(FTKR sh' _) ->
+  FTKR sh' _ ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
-      cAstFromS @(TKS2 sh x) ftk
+      cAstRFromS sh'
       $ f (cAstSFromR @sh sh a)
 
 liftRFromS2 :: forall n x ms s. KnownSpan s
@@ -536,9 +537,9 @@ liftRFromS2 :: forall n x ms s. KnownSpan s
             -> AstTensor ms s (TKR2 n x)
 {-# INLINE liftRFromS2 #-}
 liftRFromS2 f a b  = case ftkAst a of
-  ftk@(FTKR sh' _) ->
+  FTKR sh' _ ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
-      cAstFromS @(TKS2 sh x) ftk
+      cAstRFromS sh'
       $ f (cAstSFromR @sh sh a) (cAstSFromR @sh sh b)
 
 liftXFromS1 :: forall sh' x ms s. KnownSpan s
@@ -549,9 +550,9 @@ liftXFromS1 :: forall sh' x ms s. KnownSpan s
             -> AstTensor ms s (TKX2 sh' x)
 {-# INLINE liftXFromS1 #-}
 liftXFromS1 f a = case ftkAst a of
-  ftk@(FTKX sh' _) ->
+  FTKX sh' _ ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
-      cAstFromS @(TKS2 sh x) ftk
+      cAstXFromS sh'
       $ f (cAstSFromX @sh @sh' sh a)
 
 liftXFromS2 :: forall sh' x ms s. KnownSpan s
@@ -562,9 +563,9 @@ liftXFromS2 :: forall sh' x ms s. KnownSpan s
             -> AstTensor ms s (TKX2 sh' x)
 {-# INLINE liftXFromS2 #-}
 liftXFromS2 f a b = case ftkAst a of
-  ftk@(FTKX sh' _) ->
+  FTKX sh' _ ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
-      cAstFromS @(TKS2 sh x) ftk
+      cAstXFromS sh'
       $ f (cAstSFromX @sh @sh' sh a) (cAstSFromX @sh @sh' sh b)
 
 cAstConvert :: KnownSpan s
@@ -580,26 +581,42 @@ cAstConvert c t = AstConvert c t
 cAstSFromK :: forall r ms s. (KnownSpan s, GoodScalar r)
            => AstTensor ms s (TKScalar r)
            -> AstTensor ms s (TKS '[] r)
-cAstSFromK v = cAstConvert (ConvCmp ConvXS (Conv0X STKScalar)) v
+cAstSFromK = cAstConvert (ConvCmp ConvXS (Conv0X STKScalar))
+
+cAstKFromS :: forall r ms s. KnownSpan s
+           => AstTensor ms s (TKS '[] r)
+           -> AstTensor ms s (TKScalar r)
+cAstKFromS = cAstConvert (ConvCmp ConvX0 ConvSX)
 
 cAstSFromR :: forall sh x ms s. KnownSpan s
            => ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
            -> AstTensor ms s (TKS2 sh x)
-cAstSFromR sh v = case ftkAst v of
-  FTKR _ x -> cAstConvert (convSFrom (ftkAst v) (ftkToSTK (FTKS sh x))) v
+cAstSFromR sh t = case ftkAst t of
+  FTKR _ x -> cAstConvert (convSFrom (ftkAst t) (ftkToSTK (FTKS sh x))) t
+
+cAstRFromS :: forall sh x ms s. KnownSpan s
+           => IShR (Rank sh) -> AstTensor ms s (TKS2 sh x)
+           -> AstTensor ms s (TKR2 (Rank sh) x)
+cAstRFromS sh' t = case ftkAst t of
+  FTKS _ x -> cAstConvert (convFromS (ftkAst t) (FTKR sh' x)) t
 
 -- Regardless of the warning, the rank equality is morally necessary.
 cAstSFromX :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
            => ShS sh -> AstTensor ms s (TKX2 sh' x)
            -> AstTensor ms s (TKS2 sh x)
-cAstSFromX sh v = case ftkAst v of
-  FTKX _ x -> cAstConvert (convSFrom (ftkAst v) (ftkToSTK (FTKS sh x))) v
+cAstSFromX sh t = case ftkAst t of
+  FTKX _ x -> cAstConvert (convSFrom (ftkAst t) (ftkToSTK (FTKS sh x))) t
 
 cAstXFromS :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
-           => StaticShX sh' -> AstTensor ms s (TKS2 sh x)
+           => IShX sh' -> AstTensor ms s (TKS2 sh x)
            -> AstTensor ms s (TKX2 sh' x)
-cAstXFromS ssx v = case ftkAst v of
-  FTKS sh x -> cAstFromS (FTKX (shCastSX ssx sh) x) v
+cAstXFromS sh' t = case ftkAst t of
+  FTKS _ x -> cAstConvert (convFromS (ftkAst t) (FTKX sh' x)) t
+
+cAstFromSGeneric :: forall y z ms s. KnownSpan s
+                 => FullShapeTK z -> AstTensor ms s y
+                 -> AstTensor ms s z
+cAstFromSGeneric zftk t = cAstConvert (convFromS (ftkAst t) zftk) t
 
 pattern AstSFromK' :: KnownSpan s => sh ~ '[]
                    => AstTensor ms s (TKScalar r)
@@ -679,11 +696,6 @@ checkAstFromSNotK c t =
   in case zftk of
     FTKScalar -> False
     _ -> isJust $ convFromSMaybe (ftkAst t) zftk
-
-cAstFromS :: forall y z ms s. KnownSpan s
-          => FullShapeTK z -> AstTensor ms s y
-          -> AstTensor ms s z
-cAstFromS zftk t = cAstConvert (convFromS (ftkAst t) zftk) t
 
 convFromS :: FullShapeTK y -> FullShapeTK z -> TKConversion y z
 convFromS yftk zftk = case convFromSMaybe yftk zftk of

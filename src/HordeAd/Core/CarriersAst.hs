@@ -1323,18 +1323,18 @@ instance (KnownSpan s, NumScalar r)
     AstConcreteK $ Shaped.stoPrimitive u <= Shaped.stoPrimitive v
   AstConcreteS u <=. v
     | FTKS ZSS FTKScalar <- ftkAst v =
-      AstConcreteK (Nested.sunScalar u) <=. cAstFromS FTKScalar v
+      AstConcreteK (Nested.sunScalar u) <=. cAstKFromS v
   AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
     | varNameToAstVarId u == varNameToAstVarId v =
       true
   w <=. AstConvert _ v
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst v) =
-      cAstFromS FTKScalar w <=. v
+      cAstKFromS w <=. v
   AstConvert _ v <=. w
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst v) =
-      v <=. cAstFromS FTKScalar w
+      v <=. cAstKFromS w
   u <=. AstPlusS (AstConcreteS v) w =
     u - AstConcreteS v <=. w
   AstPlusS (AstConcreteS u) w <=. v =
@@ -1496,18 +1496,18 @@ astShareNoSimplify a = case a of
     ftk@FTKScalar -> do
         var <- funToAstAutoBoundsIO ftk a
         pure $! astShare var a
-    ftk@(FTKR @_ @x sh' x) ->
+    FTKR sh' x ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
         let v = cAstSFromR @sh sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! cAstFromS @(TKS2 sh x) ftk $ astShare var v
-    ftk@(FTKX @_ @x sh' x) ->
+        pure $! cAstRFromS sh' $ astShare var v
+    FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> do
         let v = cAstSFromX @sh sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! cAstFromS @(TKS2 sh x) ftk $ astShare var v
+        pure $! cAstXFromS sh' $ astShare var v
     FTKS ZSS x@FTKScalar -> do
-        let v = cAstFromS x a
+        let v = cAstKFromS a
         var <- funToAstAutoBoundsIO x v
         pure $! cAstSFromK $ astShare var v
     -- calling recursively for product may be not worth it
@@ -1533,19 +1533,19 @@ astLetFunNoSimplify a f = case a of
     ftk@FTKScalar -> do
         var <- funToAstAutoBoundsIO ftk a
         pure $! AstLet var a (f $ astVar var)
-    ftk@(FTKR @_ @x sh' x) ->
+    FTKR sh' x ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
         let v = cAstSFromR @sh sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! AstLet var v (f $ cAstFromS @(TKS2 sh x) ftk $ astVar var)
+        pure $! AstLet var v (f $ cAstRFromS sh' $ astVar var)
           -- safe, because subsitution ruled out above
-    ftk@(FTKX @_ @x sh' x) ->
+    FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> do
         let v = cAstSFromX @sh sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! AstLet var v (f $ cAstFromS @(TKS2 sh x) ftk $ astVar var)
+        pure $! AstLet var v (f $ cAstXFromS sh' $ astVar var)
     FTKS ZSS x@FTKScalar -> do
-        let v = cAstFromS x a
+        let v = cAstKFromS a
         var <- funToAstAutoBoundsIO x v
         pure $! AstLet var v (f $ cAstSFromK $ astVar var)
     -- calling recursively for product may be not worth it
