@@ -251,7 +251,7 @@ class ShareTensor (target :: Target) where
   {-# INLINE tunravelToListShare #-}
   tunravelToListShare snat@SNat stk u = case stk of
     STKScalar -> let !uShared = tshare u
-                 in tkunravelToList uShared
+                 in tstoListLinear uShared
     STKR SNat x | Dict <- lemKnownSTK x -> let !uShared = tshare u
                                            in trunravelToList uShared
     STKS sh x | Dict <- lemKnownSTK x -> let !uShared = tshare u
@@ -393,13 +393,6 @@ class ( Num (IntOf target)
              => Nested.Mixed sh r -> target (TKX sh r)
   tconcrete :: FullShapeTK y -> Concrete y -> target y
 
-  tkunravelToList :: forall n r. (KnownNat n, GoodScalar r)
-                  => target (TKS '[n] r) -> [target (TKScalar r)]
-  tkunravelToList t =
-    let f :: Int -> target (TKScalar r)
-        f i = tsindex0 t (fromIntegral i :.$ ZIS)
-    in map f [0 .. valueOf @n - 1]
-
   -- The argument is assumed to be a non-empty strict vector:
   trfromVector :: (KnownNat n, KnownSTK x)
                => Data.Vector.Vector (target (TKR2 n x))
@@ -412,6 +405,9 @@ class ( Num (IntOf target)
     let f :: Int -> target (TKR2 n x)
         f i = trindex t (fromIntegral i :.: ZIR)
     in map f [0 .. rwidth t - 1]
+  trtoListLinear :: forall n r. GoodScalar r
+                 => target (TKR n r) -> [target (TKScalar r)]
+  trtoListLinear t = map (trindex0 t) (shrEnum' (rshape t))
 
   tsfromVector :: (KnownNat n, KnownShS sh, KnownSTK x)
                => Data.Vector.Vector (target (TKS2 sh x))
@@ -423,6 +419,9 @@ class ( Num (IntOf target)
     let f :: Int -> target (TKS2 sh x)
         f i = tsindex t (fromIntegral i :.$ ZIS)
     in map f [0 .. swidth t - 1]
+  tstoListLinear :: forall sh r. GoodScalar r
+                 => target (TKS sh r) -> [target (TKScalar r)]
+  tstoListLinear t = map (tsindex0 t) (shsEnum' (sshape t))
 
   txfromVector :: (KnownNat n, KnownShX sh, KnownSTK x)
                => Data.Vector.Vector (target (TKX2 sh x))
@@ -434,6 +433,9 @@ class ( Num (IntOf target)
     let f :: Int -> target (TKX2 sh x)
         f i = txindex t (fromIntegral i :.% ZIX)
     in map f [0 .. xwidth t - 1]
+  txtoListLinear :: forall sh r. GoodScalar r
+                 => target (TKX sh r) -> [target (TKScalar r)]
+  txtoListLinear t = map (txindex0 t) (shxEnum' (xshape t))
 
   tfromVector :: forall y k.
                  SNat k -> SingletonTK y -> Data.Vector.Vector (target y)

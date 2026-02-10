@@ -216,8 +216,7 @@ instance (BaseTensor target, ConvertTensor target, GoodScalar r)
   toTarget l = if null l
                then trconcrete Nested.remptyArray
                else trfromVector $ V.fromList $ map rfromK l
-  fromTarget = map kfromR . trunravelToList
-                              -- inefficient, but we probably can't do better
+  fromTarget = trtoListLinear  -- inefficient, but we probably can't do better
 
 instance (BaseTensor target, ConvertTensor target, GoodScalar r)
          => AdaptableTarget target
@@ -226,9 +225,8 @@ instance (BaseTensor target, ConvertTensor target, GoodScalar r)
   toTarget v = if V.null v
                then trconcrete Nested.remptyArray
                else trfromVector $ V.map rfromK v
-  fromTarget t =
-    V.fromListN (rwidth t) . map kfromR . trunravelToList $ t
-                                -- inefficient, but we probably can't do better
+  fromTarget t = V.fromListN (rwidth t) . trtoListLinear $ t
+    -- inefficient, but we probably can't do better
 
 type family Tups n t where
   Tups 0 t = TKUnit

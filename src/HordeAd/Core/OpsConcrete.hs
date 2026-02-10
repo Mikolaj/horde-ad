@@ -12,7 +12,6 @@ import Prelude
 
 import Control.Monad (forM_)
 import Control.Monad.ST
-import Data.Array.Internal.ShapedS qualified as SS
 import Data.Coerce (Coercible, coerce)
 import Data.Default
 import Data.Function ((&))
@@ -116,9 +115,6 @@ instance BaseTensor Concrete where
   tsconcrete = Concrete
   txconcrete = Concrete
   tconcrete _ = id
-  {-# INLINE tkunravelToList #-}
-  tkunravelToList =
-    fmapConcrete . SS.toList . Nested.stoOrthotope . unConcrete
   {-# INLINE trfromVector #-}
   trfromVector @_ @x v | Dict <- eltDictRep (knownSTK @x) =
     case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
@@ -127,6 +123,8 @@ instance BaseTensor Concrete where
   {-# INLINE trunravelToList #-}
   trunravelToList @_ @x | Dict <- eltDictRep (knownSTK @x) =
     fmapConcrete . Nested.rtoListOuter . unConcrete
+  {-# INLINE trtoListLinear #-}
+  trtoListLinear = fmapConcrete . Nested.rtoListPrimLinear . unConcrete
   {-# INLINE tsfromVector #-}
   tsfromVector @_ @_ @x v | Dict <- eltDictRep (knownSTK @x) =
     case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
@@ -135,6 +133,8 @@ instance BaseTensor Concrete where
   {-# INLINE tsunravelToList #-}
   tsunravelToList @_ @_ @x | Dict <- eltDictRep (knownSTK @x) =
     fmapConcrete . Nested.stoListOuter . unConcrete
+  {-# INLINE tstoListLinear #-}
+  tstoListLinear = fmapConcrete . Nested.stoListPrimLinear . unConcrete
   {-# INLINE txfromVector #-}
   txfromVector @n @_ @x v | Dict <- eltDictRep (knownSTK @x) =
     case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
@@ -143,6 +143,8 @@ instance BaseTensor Concrete where
   {-# INLINE txunravelToList #-}
   txunravelToList @_ @_ @x | Dict <- eltDictRep (knownSTK @x) =
     fmapConcrete . Nested.mtoListOuter . unConcrete
+  {-# INLINE txtoListLinear #-}
+  txtoListLinear = fmapConcrete . Nested.mtoListPrimLinear . unConcrete
   tfromVector snat stk v = case NonEmpty.nonEmpty $ V.toList v of
     Just nl -> tfromList snat stk nl
     Nothing -> error "tfromVector: empty vector"

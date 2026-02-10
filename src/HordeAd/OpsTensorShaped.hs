@@ -19,7 +19,7 @@ module HordeAd.OpsTensorShaped
   , tsize, tftk
     -- * Constructing arrays from concrete values, lists and vectors
   , kconcrete, sconcrete, sscalar, srepl, singestData, sfromListLinear
-  , sfromList, sfromVector, sunravelToList
+  , sfromList, sfromVector, sunravelToList, stoListLinear
     -- * Main array operations
   , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
   , tpair, tproject1, tproject2

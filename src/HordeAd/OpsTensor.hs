@@ -23,10 +23,9 @@ module HordeAd.OpsTensor
   , rconcrete, rscalar, rrepl, ringestData, rfromListLinear
   , sconcrete, sscalar, srepl, singestData, sfromListLinear
   , xconcrete, xscalar, xrepl, xingestData, xfromListLinear
-  , kunravelToList
-  , rfromList, rfromVector, runravelToList
-  , sfromList, sfromVector, sunravelToList
-  , xfromList, xfromVector, xunravelToList
+  , rfromList, rfromVector, runravelToList, stoListLinear
+  , sfromList, sfromVector, sunravelToList, rtoListLinear
+  , xfromList, xfromVector, xunravelToList, xtoListLinear
     -- * Main array operations
   , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
   , tpair, tproject1, tproject2
@@ -162,10 +161,6 @@ kconcrete :: (GoodScalar r, BaseTensor target)
           => r -> target (TKScalar r)
 kconcrete = tkconcrete
 
-kunravelToList :: (KnownNat n, GoodScalar r, BaseTensor target)
-               => target (TKS '[n] r) -> [target (TKScalar r)]
-kunravelToList = tkunravelToList
-
 -- | Create a tensor from a list treated as the outermost dimension,
 -- going through strict boxed vectors, because laziness is risky with
 -- impurity, e.g., it easily perturbs results of fragile tests.
@@ -187,6 +182,9 @@ runravelToList :: forall n x target.
                   (KnownSTK x, KnownNat n, BaseTensor target)
                => target (TKR2 (1 + n) x) -> [target (TKR2 n x)]
 runravelToList = trunravelToList
+rtoListLinear :: forall n r target. (GoodScalar r, BaseTensor target)
+              => target (TKR n r) -> [target (TKScalar r)]
+rtoListLinear = trtoListLinear
 
 -- | Create a tensor from a list treated as the outermost dimension,
 -- going through strict boxed vectors, because laziness is risky with
@@ -209,6 +207,9 @@ sfromVector = tsfromVector
 sunravelToList :: (KnownNat n, KnownShS sh, KnownSTK x, BaseTensor target)
                => target (TKS2 (n ': sh) x) -> [target (TKS2 sh x)]
 sunravelToList = tsunravelToList
+stoListLinear :: forall sh r target. (GoodScalar r, BaseTensor target)
+              => target (TKS sh r) -> [target (TKScalar r)]
+stoListLinear = tstoListLinear
 
 -- | Create a tensor from a list treated as the outermost dimension,
 -- going through strict boxed vectors, because laziness is risky with
@@ -230,6 +231,9 @@ xfromVector = txfromVector
 xunravelToList :: (KnownNat n, KnownShX sh, KnownSTK x, BaseTensor target)
                => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
 xunravelToList = txunravelToList
+xtoListLinear :: forall sh r target. (GoodScalar r, BaseTensor target)
+              => target (TKX sh r) -> [target (TKScalar r)]
+xtoListLinear = txtoListLinear
 
 tunit :: BaseTensor target
       => target TKUnit
