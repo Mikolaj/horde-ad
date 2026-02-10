@@ -734,9 +734,6 @@ convFromSMaybe = \cases
 convSFromMaybe :: FullShapeTK y0 -> SingletonTK z0 -> Maybe (TKConversion y0 z0)
 convSFromMaybe = \cases
   yftk0 zstk0 | Just Refl <- sameSTK (ftkToSTK yftk0) zstk0 -> Just ConvId
-  (FTKScalar @rz) (STKS ZSS (STKScalar @ry))
-    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
-      Just $ convCmp ConvXS (Conv0X STKScalar)
   (FTKR rsh rx) (STKS @sh sh x)
     | Just Refl <- sameSTK x (ftkToSTK rx)
     , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
