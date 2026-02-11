@@ -12,11 +12,12 @@ module HordeAd.Core.AstTools
     -- * Odds and ends
   , bounds, intBounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
-  , cAstConvert, cAstSFromK, cAstSFromR, cAstSFromX
-  , cAstKFromS, cAstRFromS, cAstXFromS
-  , pattern AstSFromK', pattern AstFromS'
-  , checkPatternAstSFromK, checkAstFromS
-  , convFromS, convSFrom, convFromSMaybe, convSFromMaybe
+  , cAstConvert
+  , cAstConvDownKFromS, cAstConvDownSFromR, cAstConvDownSFromX
+  , cAstConvUpSFromK, cAstConvUpRFromS, cAstConvUpXFromS
+  , pattern AstConvUpSFromK', pattern AstConvUp
+  , checkPatternAstConvUpSFromK, checkAstConvUp
+  , convDown, convUp, convDownMaybe, convUpMaybe
   , setTotalSharing
   ) where
 
@@ -526,8 +527,8 @@ liftRFromS1 :: forall n x ms s. KnownSpan s
 liftRFromS1 f a = case ftkAst a of
   FTKR sh' _ ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
-      cAstRFromS sh'
-      $ f (cAstSFromR @sh sh a)
+      cAstConvUpRFromS sh'
+      $ f (cAstConvDownSFromR @sh sh a)
 
 liftRFromS2 :: forall n x ms s. KnownSpan s
             => (forall sh.
@@ -539,8 +540,8 @@ liftRFromS2 :: forall n x ms s. KnownSpan s
 liftRFromS2 f a b  = case ftkAst a of
   FTKR sh' _ ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
-      cAstRFromS sh'
-      $ f (cAstSFromR @sh sh a) (cAstSFromR @sh sh b)
+      cAstConvUpRFromS sh'
+      $ f (cAstConvDownSFromR @sh sh a) (cAstConvDownSFromR @sh sh b)
 
 liftXFromS1 :: forall sh' x ms s. KnownSpan s
             => (forall sh.
@@ -552,8 +553,8 @@ liftXFromS1 :: forall sh' x ms s. KnownSpan s
 liftXFromS1 f a = case ftkAst a of
   FTKX sh' _ ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
-      cAstXFromS sh'
-      $ f (cAstSFromX @sh @sh' sh a)
+      cAstConvUpXFromS sh'
+      $ f (cAstConvDownSFromX @sh @sh' sh a)
 
 liftXFromS2 :: forall sh' x ms s. KnownSpan s
             => (forall sh.
@@ -565,8 +566,8 @@ liftXFromS2 :: forall sh' x ms s. KnownSpan s
 liftXFromS2 f a b = case ftkAst a of
   FTKX sh' _ ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
-      cAstXFromS sh'
-      $ f (cAstSFromX @sh @sh' sh a) (cAstSFromX @sh @sh' sh b)
+      cAstConvUpXFromS sh'
+      $ f (cAstConvDownSFromX @sh @sh' sh a) (cAstConvDownSFromX @sh @sh' sh b)
 
 cAstConvert :: KnownSpan s
             => TKConversion x z -> AstTensor ms s x -> AstTensor ms s z
@@ -578,163 +579,132 @@ cAstConvert c1 (AstFromDual v) = fromDual $ cAstConvert c1 v
 cAstConvert c1 (AstFromPlain v) = fromPlain $ cAstConvert c1 v
 cAstConvert c t = AstConvert c t
 
-cAstSFromK :: forall r ms s. (KnownSpan s, GoodScalar r)
-           => AstTensor ms s (TKScalar r)
-           -> AstTensor ms s (TKS '[] r)
-cAstSFromK = cAstConvert (ConvCmp ConvXS (Conv0X STKScalar))
+cAstConvDownKFromS :: forall r ms s. KnownSpan s
+                   => AstTensor ms s (TKS '[] r)
+                   -> AstTensor ms s (TKScalar r)
+cAstConvDownKFromS = cAstConvert (ConvCmp ConvX0 ConvSX)
 
-cAstKFromS :: forall r ms s. KnownSpan s
-           => AstTensor ms s (TKS '[] r)
-           -> AstTensor ms s (TKScalar r)
-cAstKFromS = cAstConvert (ConvCmp ConvX0 ConvSX)
-
-cAstSFromR :: forall sh x ms s. KnownSpan s
-           => ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
-           -> AstTensor ms s (TKS2 sh x)
-cAstSFromR sh t = case ftkAst t of
-  FTKR _ x -> cAstConvert (convSFrom (ftkAst t) (ftkToSTK (FTKS sh x))) t
-
-cAstRFromS :: forall sh x ms s. KnownSpan s
-           => IShR (Rank sh) -> AstTensor ms s (TKS2 sh x)
-           -> AstTensor ms s (TKR2 (Rank sh) x)
-cAstRFromS sh' t = case ftkAst t of
-  FTKS _ x -> cAstConvert (convFromS (ftkAst t) (FTKR sh' x)) t
+cAstConvDownSFromR :: forall sh x ms s. KnownSpan s
+                   => ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
+                   -> AstTensor ms s (TKS2 sh x)
+cAstConvDownSFromR sh t = case ftkAst t of
+  FTKR _ x -> cAstConvert (convDown (ftkAst t) (ftkToSTK (FTKS sh x))) t
 
 -- Regardless of the warning, the rank equality is morally necessary.
-cAstSFromX :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
-           => ShS sh -> AstTensor ms s (TKX2 sh' x)
-           -> AstTensor ms s (TKS2 sh x)
-cAstSFromX sh t = case ftkAst t of
-  FTKX _ x -> cAstConvert (convSFrom (ftkAst t) (ftkToSTK (FTKS sh x))) t
+cAstConvDownSFromX :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
+                   => ShS sh -> AstTensor ms s (TKX2 sh' x)
+                   -> AstTensor ms s (TKS2 sh x)
+cAstConvDownSFromX sh t = case ftkAst t of
+  FTKX _ x -> cAstConvert (convDown (ftkAst t) (ftkToSTK (FTKS sh x))) t
 
-cAstXFromS :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
-           => IShX sh' -> AstTensor ms s (TKS2 sh x)
-           -> AstTensor ms s (TKX2 sh' x)
-cAstXFromS sh' t = case ftkAst t of
-  FTKS _ x -> cAstConvert (convFromS (ftkAst t) (FTKX sh' x)) t
+cAstConvUpSFromK :: forall r ms s. (KnownSpan s, GoodScalar r)
+                 => AstTensor ms s (TKScalar r)
+                 -> AstTensor ms s (TKS '[] r)
+cAstConvUpSFromK = cAstConvert (ConvCmp ConvXS (Conv0X STKScalar))
 
-pattern AstSFromK' :: KnownSpan s => sh ~ '[]
-                   => AstTensor ms s (TKScalar r)
-                   -> AstTensor ms s (TKS sh r)
-pattern AstSFromK' t <- (matchAstSFromK -> Just (Refl, t))
+cAstConvUpRFromS :: forall sh x ms s. KnownSpan s
+                 => IShR (Rank sh) -> AstTensor ms s (TKS2 sh x)
+                 -> AstTensor ms s (TKR2 (Rank sh) x)
+cAstConvUpRFromS sh' t = case ftkAst t of
+  FTKS _ x -> cAstConvert (convUp (ftkAst t) (FTKR sh' x)) t
 
-matchAstSFromK :: KnownSpan s
-               => AstTensor ms s (TKS sh r)
-               -> Maybe ( sh :~: '[]
-                        , AstTensor ms s (TKScalar r) )
-matchAstSFromK = \case
-  AstConvert c t -> checkPatternAstSFromK c t
-  AstFromPrimal (AstConvert c t) -> checkPatternAstSFromK c (fromPrimal t)
-  AstFromDual (AstConvert c t) -> checkPatternAstSFromK c (fromDual t)
-  AstFromPlain (AstConvert c t) -> checkPatternAstSFromK c (fromPlain t)
-  AstPrimalPart (AstConvert c t) -> checkPatternAstSFromK c (primalPart t)
-  AstDualPart (AstConvert c t) -> checkPatternAstSFromK c (dualPart t)
-  AstPlainPart (AstConvert c t) -> checkPatternAstSFromK c (plainPart t)
+cAstConvUpXFromS :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
+                 => IShX sh' -> AstTensor ms s (TKS2 sh x)
+                 -> AstTensor ms s (TKX2 sh' x)
+cAstConvUpXFromS sh' t = case ftkAst t of
+  FTKS _ x -> cAstConvert (convUp (ftkAst t) (FTKX sh' x)) t
+
+pattern AstConvUpSFromK' :: KnownSpan s => sh ~ '[]
+                         => AstTensor ms s (TKScalar r)
+                         -> AstTensor ms s (TKS sh r)
+pattern AstConvUpSFromK' t <- (matchAstConvUpSFromK -> Just (Refl, t))
+
+matchAstConvUpSFromK :: KnownSpan s
+                     => AstTensor ms s (TKS sh r)
+                     -> Maybe ( sh :~: '[]
+                              , AstTensor ms s (TKScalar r) )
+matchAstConvUpSFromK = \case
+  AstConvert c t -> checkPatternAstConvUpSFromK c t
+  AstFromPrimal (AstConvert c t) -> checkPatternAstConvUpSFromK c (fromPrimal t)
+  AstFromDual (AstConvert c t) -> checkPatternAstConvUpSFromK c (fromDual t)
+  AstFromPlain (AstConvert c t) -> checkPatternAstConvUpSFromK c (fromPlain t)
+  AstPrimalPart (AstConvert c t) -> checkPatternAstConvUpSFromK c (primalPart t)
+  AstDualPart (AstConvert c t) -> checkPatternAstConvUpSFromK c (dualPart t)
+  AstPlainPart (AstConvert c t) -> checkPatternAstConvUpSFromK c (plainPart t)
   _ -> Nothing
 
-checkPatternAstSFromK :: TKConversion y (TKS sh r)
-                      -> AstTensor ms s y
-                      -> Maybe ( sh :~: '[]
-                               , AstTensor ms s (TKScalar r) )
-checkPatternAstSFromK c t
+checkPatternAstConvUpSFromK :: TKConversion y (TKS sh r)
+                            -> AstTensor ms s y
+                            -> Maybe ( sh :~: '[]
+                                     , AstTensor ms s (TKScalar r) )
+checkPatternAstConvUpSFromK c t
   | FTKScalar @ry <- ftkAst t
   , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
   , Just Refl <- testEquality (typeRep @ry) (typeRep @r) = Just (Refl, t)
-checkPatternAstSFromK _ _ = Nothing
+checkPatternAstConvUpSFromK _ _ = Nothing
 
 -- TODO: simplify this monstrosity, if possible
-pattern AstFromS' :: forall {z1} {ms1} {s1}. KnownSpan s1
+pattern AstConvUp :: forall {z1} {ms1} {s1}. KnownSpan s1
                   => forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)
                   => FullShapeTK z -> AstTensor ms s y
                   -> AstTensor ms1 s1 z1
-pattern AstFromS' zftk a <- (matchAstAstFromS -> AstFromSJust (zftk, a))
+pattern AstConvUp zftk a <- (matchAstConvUp -> AstConvUpJust (zftk, a))
 
-type role AstFromSMaybe nominal nominal nominal
-data AstFromSMaybe z ms s =
-    forall y. AstFromSJust (FullShapeTK z, AstTensor ms s y)
-  | AstFromSNothing
+type role AstConvUpMaybe nominal nominal nominal
+data AstConvUpMaybe z ms s =
+    forall y. AstConvUpJust (FullShapeTK z, AstTensor ms s y)
+  | AstConvUpNothing
 
-matchAstAstFromS :: KnownSpan s => AstTensor ms s z -> AstFromSMaybe z ms s
-matchAstAstFromS = \case
-  AstConvert c t -> case checkPatternAstFromS c (ftkAst t) of
-    Just zftk -> AstFromSJust $ (zftk, t)
-    Nothing -> AstFromSNothing
-  AstFromPrimal (AstConvert c t) -> case checkPatternAstFromS c (ftkAst t) of
-    Just zftk -> AstFromSJust $ (zftk, fromPrimal t)
-    Nothing -> AstFromSNothing
-  AstFromDual (AstConvert c t) -> case checkPatternAstFromS c (ftkAst t) of
-    Just zftk -> AstFromSJust $ (zftk, fromDual t)
-    Nothing -> AstFromSNothing
-  AstFromPlain (AstConvert c t) -> case checkPatternAstFromS c (ftkAst t) of
-    Just zftk -> AstFromSJust $ (zftk, fromPlain t)
-    Nothing -> AstFromSNothing
-  AstPrimalPart (AstConvert c t) -> case checkPatternAstFromS c (ftkAst t) of
-    Just zftk -> AstFromSJust $ (zftk, primalPart t)
-    Nothing -> AstFromSNothing
-  AstDualPart (AstConvert c t) -> case checkPatternAstFromS c (ftkAst t) of
-    Just zftk -> AstFromSJust $ (zftk, dualPart t)
-    Nothing -> AstFromSNothing
-  AstPlainPart (AstConvert c t) -> case checkPatternAstFromS c (ftkAst t) of
-    Just zftk -> AstFromSJust $ (zftk, plainPart t)
-    Nothing -> AstFromSNothing
-  _ -> AstFromSNothing
+matchAstConvUp :: KnownSpan s => AstTensor ms s z -> AstConvUpMaybe z ms s
+matchAstConvUp = \case
+  AstConvert c t -> case checkPatternAstConvUp c (ftkAst t) of
+    Just zftk -> AstConvUpJust $ (zftk, t)
+    Nothing -> AstConvUpNothing
+  AstFromPrimal (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
+    Just zftk -> AstConvUpJust $ (zftk, fromPrimal t)
+    Nothing -> AstConvUpNothing
+  AstFromDual (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
+    Just zftk -> AstConvUpJust $ (zftk, fromDual t)
+    Nothing -> AstConvUpNothing
+  AstFromPlain (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
+    Just zftk -> AstConvUpJust $ (zftk, fromPlain t)
+    Nothing -> AstConvUpNothing
+  AstPrimalPart (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
+    Just zftk -> AstConvUpJust $ (zftk, primalPart t)
+    Nothing -> AstConvUpNothing
+  AstDualPart (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
+    Just zftk -> AstConvUpJust $ (zftk, dualPart t)
+    Nothing -> AstConvUpNothing
+  AstPlainPart (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
+    Just zftk -> AstConvUpJust $ (zftk, plainPart t)
+    Nothing -> AstConvUpNothing
+  _ -> AstConvUpNothing
 
-checkPatternAstFromS :: TKConversion y z -> FullShapeTK y
-                     -> Maybe (FullShapeTK z)
-checkPatternAstFromS c yftk =
+checkPatternAstConvUp :: TKConversion y z -> FullShapeTK y
+                      -> Maybe (FullShapeTK z)
+checkPatternAstConvUp c yftk =
   let zftk = convertFTK c yftk
-  in const zftk <$> convFromSMaybe yftk zftk
+  in const zftk <$> convUpMaybe yftk zftk
 
-checkAstFromS :: TKConversion a b -> AstTensor ms s a -> Bool
-checkAstFromS c t =
+checkAstConvUp :: TKConversion a b -> AstTensor ms s a -> Bool
+checkAstConvUp c t =
   let zftk = convertFTK c (ftkAst t)
-  in isJust $ convFromSMaybe (ftkAst t) zftk
+  in isJust $ convUpMaybe (ftkAst t) zftk
 
-convFromS :: FullShapeTK y -> FullShapeTK z -> TKConversion y z
-convFromS yftk zftk = case convFromSMaybe yftk zftk of
+convDown :: FullShapeTK y -> SingletonTK z -> TKConversion y z
+convDown yftk zstk = case convDownMaybe yftk zstk of
   Just c -> c
-  Nothing -> error $ "convFromS: unexpected types "  -- TODO: try nevertheless?
-                     ++ "(" ++ show yftk ++ ", " ++ show zftk ++ ")"
-
-convSFrom :: FullShapeTK y -> SingletonTK z -> TKConversion y z
-convSFrom yftk zstk = case convSFromMaybe yftk zstk of
-  Just c -> c
-  Nothing -> error $ "convSFrom: unexpected types "  -- TODO: try nevertheless?
+  Nothing -> error $ "convDown: unexpected types "  -- TODO: try nevertheless?
                      ++ "(" ++ show yftk ++ ", " ++ show zstk ++ ")"
 
-convFromSMaybe :: FullShapeTK y0 -> FullShapeTK z0 -> Maybe (TKConversion y0 z0)
-convFromSMaybe = \cases
-  yftk0 zftk0 | Just Refl <- matchingFTK yftk0 zftk0 -> Just ConvId
-  (FTKS sh x) (FTKR rsh rx)
-    | Just Refl <- matchingFTK x rx
-    , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
-    , Refl <- lemRankMapJust sh ->
-      Just $ convCmp (ConvXR (ftkToSTK x)) ConvSX
-  (FTKS sh x) zftk0@(FTKX xsh xx)
-    | Just Refl <- matchingFTK x xx
-    , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
-    , Refl <- lemRankMapJust sh ->
-      Just $ convCmp (ConvXX' zftk0) ConvSX
-  (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) -> do
-    c1 <- convFromSMaybe yftk1 zftk1
-    c2 <- convFromSMaybe yftk2 zftk2
-    Just $ ConvT2 c1 c2
-  (FTKS sh (FTKProduct yftk1 yftk2)) (FTKProduct (FTKS sh' yftk1')
-                                                 (FTKS sh'' yftk2'))
-    | Just Refl <- testEquality sh sh'
-    , Just Refl <- testEquality sh sh''
-    , Just Refl <- matchingFTK yftk1 yftk1'
-    , Just Refl <- matchingFTK yftk2 yftk2' ->
-      Just
-      $ convCmp
-          (ConvT2 ConvXS ConvXS)
-          (convCmp
-             (ConvUnzip (ftkToSTK yftk1) (ftkToSTK yftk2))
-             ConvSX)
-  _ _ -> Nothing
+convUp :: FullShapeTK y -> FullShapeTK z -> TKConversion y z
+convUp yftk zftk = case convUpMaybe yftk zftk of
+  Just c -> c
+  Nothing -> error $ "convUp: unexpected types "  -- TODO: try nevertheless?
+                     ++ "(" ++ show yftk ++ ", " ++ show zftk ++ ")"
 
-convSFromMaybe :: FullShapeTK y0 -> SingletonTK z0 -> Maybe (TKConversion y0 z0)
-convSFromMaybe = \cases
+convDownMaybe :: FullShapeTK y0 -> SingletonTK z0 -> Maybe (TKConversion y0 z0)
+convDownMaybe = \cases
   yftk0 zstk0 | Just Refl <- sameSTK (ftkToSTK yftk0) zstk0 -> Just ConvId
   (FTKR rsh rx) (STKS @sh sh x)
     | Just Refl <- sameSTK x (ftkToSTK rx)
@@ -747,8 +717,8 @@ convSFromMaybe = \cases
     , Refl <- lemRankMapJust sh ->
       Just $ ConvXS' (FTKS sh xx)
   (FTKProduct yftk1 yftk2) (STKProduct zstk1 zstk2) -> do
-    c1 <- convSFromMaybe yftk1 zstk1
-    c2 <- convSFromMaybe yftk2 zstk2
+    c1 <- convDownMaybe yftk1 zstk1
+    c2 <- convDownMaybe yftk2 zstk2
     Just $ ConvT2 c1 c2
   (FTKProduct (FTKS sh' yftk1) (FTKS sh'' yftk2)) (STKS sh (STKProduct ystk1
                                                                        ystk2))
@@ -762,4 +732,35 @@ convSFromMaybe = \cases
           (convCmp
              (ConvZip ystk1 ystk2)
              (ConvT2 ConvSX ConvSX))
+  _ _ -> Nothing
+
+convUpMaybe :: FullShapeTK y0 -> FullShapeTK z0 -> Maybe (TKConversion y0 z0)
+convUpMaybe = \cases
+  yftk0 zftk0 | Just Refl <- matchingFTK yftk0 zftk0 -> Just ConvId
+  (FTKS sh x) (FTKR rsh rx)
+    | Just Refl <- matchingFTK x rx
+    , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
+    , Refl <- lemRankMapJust sh ->
+      Just $ convCmp (ConvXR (ftkToSTK x)) ConvSX
+  (FTKS sh x) zftk0@(FTKX xsh xx)
+    | Just Refl <- matchingFTK x xx
+    , Just Refl <- testEquality (shsRank sh) (shxRank xsh)
+    , Refl <- lemRankMapJust sh ->
+      Just $ convCmp (ConvXX' zftk0) ConvSX
+  (FTKProduct yftk1 yftk2) (FTKProduct zftk1 zftk2) -> do
+    c1 <- convUpMaybe yftk1 zftk1
+    c2 <- convUpMaybe yftk2 zftk2
+    Just $ ConvT2 c1 c2
+  (FTKS sh (FTKProduct yftk1 yftk2)) (FTKProduct (FTKS sh' yftk1')
+                                                 (FTKS sh'' yftk2'))
+    | Just Refl <- testEquality sh sh'
+    , Just Refl <- testEquality sh sh''
+    , Just Refl <- matchingFTK yftk1 yftk1'
+    , Just Refl <- matchingFTK yftk2 yftk2' ->
+      Just
+      $ convCmp
+          (ConvT2 ConvXS ConvXS)
+          (convCmp
+             (ConvUnzip (ftkToSTK yftk1) (ftkToSTK yftk2))
+             ConvSX)
   _ _ -> Nothing

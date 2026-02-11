@@ -626,18 +626,18 @@ instance (NumScalar r, KnownSpan s)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst v) =
-      cAstSFromK $ u + v
+      cAstConvUpSFromK $ u + v
   z + u | Just 0 <- unReplC z = u
   u + z | Just 0 <- unReplC z = u
   AstConcreteS n + AstConcreteS k = AstConcreteS (n + k)
   AstConcreteS n + w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFromK $ AstConcreteK (Nested.sunScalar n) + k
+      cAstConvUpSFromK $ AstConcreteK (Nested.sunScalar n) + k
   AstFromPlain (AstConcreteS n) + w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFromK $ AstFromPlain (AstConcreteK (Nested.sunScalar n)) + k
+      cAstConvUpSFromK $ AstFromPlain (AstConcreteK (Nested.sunScalar n)) + k
   AstConcreteS n + AstPlusS (AstConcreteS k) u =
     AstPlusS (AstConcreteS (n + k)) u
   AstPlusS (AstConcreteS n) u + AstConcreteS k =
@@ -686,16 +686,16 @@ instance (NumScalar r, KnownSpan s)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst u)
     , Just Refl <- matchingFTK x (ftkAst v) =
-      cAstSFromK $ u * v
+      cAstConvUpSFromK $ u * v
   AstConcreteS n * AstConcreteS k = AstConcreteS (n * k)
   AstConcreteS n * w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFromK $ AstConcreteK (Nested.sunScalar n) * k
+      cAstConvUpSFromK $ AstConcreteK (Nested.sunScalar n) * k
   AstFromPlain (AstConcreteS n) * w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFromK $ AstFromPlain (AstConcreteK (Nested.sunScalar n)) * k
+      cAstConvUpSFromK $ AstFromPlain (AstConcreteK (Nested.sunScalar n)) * k
   AstConcreteS n * AstTimesS (AstConcreteS k) u =
     AstTimesS (AstConcreteS (n * k)) u
   AstTimesS (AstConcreteS n) u * AstConcreteS k =
@@ -759,7 +759,7 @@ instance (NumScalar r, KnownSpan s)
   negate w@(AstConvert _ n)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst n) =
-      cAstSFromK $ negate n
+      cAstConvUpSFromK $ negate n
   negate u = AstN1S NegateOp u
   abs (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (abs u)
   abs (AstPrimalPart n) = primalPart (abs n)
@@ -773,7 +773,7 @@ instance (NumScalar r, KnownSpan s)
   abs w@(AstConvert _ n)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst n) =
-      cAstSFromK $ abs n
+      cAstConvUpSFromK $ abs n
   abs (AstN1S NegateOp u) = abs u
   abs u = AstN1S AbsOp u
   signum (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (signum u)
@@ -788,7 +788,7 @@ instance (NumScalar r, KnownSpan s)
   signum w@(AstConvert _ n)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst n) =
-      cAstSFromK $ signum n
+      cAstConvUpSFromK $ signum n
   signum u = AstN1S SignumOp u
   fromInteger i = error $ "fromInteger is not defined for shaped tensors: "
                           ++ show i
@@ -807,16 +807,16 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFromK $ quotH n k
+      cAstConvUpSFromK $ quotH n k
   quotH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (quotH n k)
   quotH (AstConcreteS n) w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFromK $ quotH (AstConcreteK (Nested.sunScalar n)) k
+      cAstConvUpSFromK $ quotH (AstConcreteK (Nested.sunScalar n)) k
   quotH (AstFromPlain (AstConcreteS n)) w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFromK $ quotH (AstFromPlain (AstConcreteK (Nested.sunScalar n))) k
+      cAstConvUpSFromK $ quotH (AstFromPlain (AstConcreteK (Nested.sunScalar n))) k
   quotH z _ | Just 0 <- unReplC z = z
   quotH u s | Just 1 <- unReplC s = u
   quotH (AstI2S QuotOp u v) w = quotH u (v * w)
@@ -834,16 +834,16 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst n)
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFromK $ remH n k
+      cAstConvUpSFromK $ remH n k
   remH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (remH n k)
   remH (AstConcreteS n) w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFromK $ remH (AstConcreteK (Nested.sunScalar n)) k
+      cAstConvUpSFromK $ remH (AstConcreteK (Nested.sunScalar n)) k
   remH (AstFromPlain (AstConcreteS n)) w@(AstConvert _ k)
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstSFromK $ remH (AstFromPlain (AstConcreteK (Nested.sunScalar n))) k
+      cAstConvUpSFromK $ remH (AstFromPlain (AstConcreteK (Nested.sunScalar n))) k
   remH z _ | Just 0 <- unReplC z = z
 --  remH _ (AstConcreteS s) | Just 1 <- sunReplicatePrim s = AstConcreteS 0
   remH u v = AstI2S RemOp u v
@@ -1146,7 +1146,7 @@ instance (KnownSpan s, NumScalar r)
         withShsFromShR shv' $ \shv ->
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
-              Just Refl -> cAstSFromR shu v ==. cAstSFromR shv u
+              Just Refl -> cAstConvDownSFromR shu v ==. cAstConvDownSFromR shv u
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -1158,7 +1158,7 @@ instance (KnownSpan s, NumScalar r)
         withShsFromShR shv' $ \shv ->
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
-              Just Refl -> cAstSFromR shu v ==. cAstSFromR shv u
+              Just Refl -> cAstConvDownSFromR shu v ==. cAstConvDownSFromR shv u
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -1170,7 +1170,7 @@ instance (KnownSpan s, NumScalar r)
         withShsFromShX shv' $ \shv ->
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
-              Just Refl -> cAstSFromX shu v ==. cAstSFromX shv u
+              Just Refl -> cAstConvDownSFromX shu v ==. cAstConvDownSFromX shv u
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -1182,7 +1182,7 @@ instance (KnownSpan s, NumScalar r)
         withShsFromShX shv' $ \shv ->
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
-              Just Refl -> cAstSFromX shu v ==. cAstSFromX shv u
+              Just Refl -> cAstConvDownSFromX shu v ==. cAstConvDownSFromX shv u
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -1193,7 +1193,7 @@ instance (KnownSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKR n r) where
         withShsFromShR shv' $ \shv ->
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
-              Just Refl -> cAstSFromR shu v <=. cAstSFromR shv u
+              Just Refl -> cAstConvDownSFromR shu v <=. cAstConvDownSFromR shv u
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -1204,7 +1204,7 @@ instance (KnownSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
         withShsFromShX shv' $ \shv ->
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
-              Just Refl -> cAstSFromX shu v <=. cAstSFromX shv u
+              Just Refl -> cAstConvDownSFromX shu v <=. cAstConvDownSFromX shv u
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -1323,18 +1323,18 @@ instance (KnownSpan s, NumScalar r)
     AstConcreteK $ Shaped.stoPrimitive u <= Shaped.stoPrimitive v
   AstConcreteS u <=. v
     | FTKS ZSS FTKScalar <- ftkAst v =
-      AstConcreteK (Nested.sunScalar u) <=. cAstKFromS v
+      AstConcreteK (Nested.sunScalar u) <=. cAstConvDownKFromS v
   AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
     | varNameToAstVarId u == varNameToAstVarId v =
       true
   w <=. AstConvert _ v
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst v) =
-      cAstKFromS w <=. v
+      cAstConvDownKFromS w <=. v
   AstConvert _ v <=. w
     | FTKS ZSS x@FTKScalar <- ftkAst w
     , Just Refl <- matchingFTK x (ftkAst v) =
-      v <=. cAstKFromS w
+      v <=. cAstConvDownKFromS w
   u <=. AstPlusS (AstConcreteS v) w =
     u - AstConcreteS v <=. w
   AstPlusS (AstConcreteS u) w <=. v =
@@ -1498,18 +1498,18 @@ astShareNoSimplify a = case a of
         pure $! astShare var a
     FTKR sh' x ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
-        let v = cAstSFromR @sh sh a
+        let v = cAstConvDownSFromR @sh sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! cAstRFromS sh' $ astShare var v
+        pure $! cAstConvUpRFromS sh' $ astShare var v
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> do
-        let v = cAstSFromX @sh sh a
+        let v = cAstConvDownSFromX @sh sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! cAstXFromS sh' $ astShare var v
+        pure $! cAstConvUpXFromS sh' $ astShare var v
     FTKS ZSS x@FTKScalar -> do
-        let v = cAstKFromS a
+        let v = cAstConvDownKFromS a
         var <- funToAstAutoBoundsIO x v
-        pure $! cAstSFromK $ astShare var v
+        pure $! cAstConvUpSFromK $ astShare var v
     -- calling recursively for product may be not worth it
     ftk -> do
         var <- funToAstNoBoundsIO ftk
@@ -1535,19 +1535,19 @@ astLetFunNoSimplify a f = case a of
         pure $! AstLet var a (f $ astVar var)
     FTKR sh' x ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
-        let v = cAstSFromR @sh sh a
+        let v = cAstConvDownSFromR @sh sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! AstLet var v (f $ cAstRFromS sh' $ astVar var)
+        pure $! AstLet var v (f $ cAstConvUpRFromS sh' $ astVar var)
           -- safe, because subsitution ruled out above
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> do
-        let v = cAstSFromX @sh sh a
+        let v = cAstConvDownSFromX @sh sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! AstLet var v (f $ cAstXFromS sh' $ astVar var)
+        pure $! AstLet var v (f $ cAstConvUpXFromS sh' $ astVar var)
     FTKS ZSS x@FTKScalar -> do
-        let v = cAstKFromS a
+        let v = cAstConvDownKFromS a
         var <- funToAstAutoBoundsIO x v
-        pure $! AstLet var v (f $ cAstSFromK $ astVar var)
+        pure $! AstLet var v (f $ cAstConvUpSFromK $ astVar var)
     -- calling recursively for product may be not worth it
     ftk -> do
         var <- funToAstNoBoundsIO ftk

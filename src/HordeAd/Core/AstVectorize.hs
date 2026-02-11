@@ -472,8 +472,8 @@ astTr a = case Permutation.makePerm @'[1, 0] of
         gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank sh) :~: True) $
         gcastWith (unsafeCoerceRefl
                    :: Rank (Permutation.PermutePrefix perm sh) :~: Rank sh) $
-        astRFromS' (m :$: k :$: shr)
-        . astTransposeS perm . astSFromR' sh $ a
+        astConvUpRFromS (m :$: k :$: shr)
+        . astTransposeS perm . astConvDownSFromR sh $ a
     _ -> error "astTr: impossible shape"
 
 astTrS :: forall n m sh s r. KnownSpan s
@@ -493,8 +493,8 @@ astTrX a = case Permutation.makePerm @'[1, 0] of
         gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank sh) :~: True) $
         gcastWith (unsafeCoerceRefl
                    :: Rank (Permutation.PermutePrefix perm sh) :~: Rank sh) $
-        astXFromS' (mm :$% mn :$% shx)
-        . astTransposeS perm . astSFromX' sh $ a
+        astConvUpXFromS (mm :$% mn :$% shx)
+        . astTransposeS perm . astConvDownSFromX sh $ a
 
 astTrBuild
   :: forall k1 k2 s y. KnownSpan s
@@ -518,18 +518,18 @@ astIndexBuild :: forall y k s. KnownSpan s
               -> AstInt AstMethodLet
               -> AstTensor AstMethodLet s y
 astIndexBuild snat@SNat ftk u i = case ftk of
-  FTKScalar -> astKFromS' $ astIndexS ZSS u (i :.$ ZIS)
+  FTKScalar -> astConvDownKFromS $ astIndexS ZSS u (i :.$ ZIS)
   FTKR sh' _ -> case ftkAst u of
     FTKR shmshn _ ->
       withShsFromShR shmshn $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: k ': Tail sh :~: sh) $
-        astRFromS' sh' $ astIndexS (shsTail sh) (astSFromR' sh u) (i :.$ ZIS)
+        astConvUpRFromS sh' $ astIndexS (shsTail sh) (astConvDownSFromR sh u) (i :.$ ZIS)
   FTKS sh _ -> astIndexS sh u (i :.$ ZIS)
   FTKX sh' _ -> case ftkAst u of
    FTKX shBuild' _->
     withShsFromShX shBuild' $ \shBuild -> case shBuild of
       _ :$$ rest ->
-        astXFromS' sh' $ astIndexS rest (astSFromX' shBuild u) (i :.$ ZIS)
+        astConvUpXFromS sh' $ astIndexS rest (astConvDownSFromX shBuild u) (i :.$ ZIS)
   FTKProduct ftk1 ftk2 ->
     astLetFun u $ \ !u3 ->
       astPair (astIndexBuild snat ftk1 (astProject1 u3) i)

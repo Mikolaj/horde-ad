@@ -422,7 +422,7 @@ contractAst t0 = case t0 of
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map contractAst l)
   Ast.AstSum _ (STKS ZSS (STKScalar @r)) t2
     | Dict0 <- numFromTKAllNum (Proxy @r) ->
-      astSFromK' $ astSum0 (contractAst t2)
+      astConvUpSFromK $ astSum0 (contractAst t2)
   Ast.AstSum _ (STKScalar @r) t2 | Dict0 <- numFromTKAllNum (Proxy @r) ->
     astSum0 (contractAst t2)
   Ast.AstSum
@@ -822,7 +822,7 @@ contractAst t0 = case t0 of
     sbuild @_ @_ @(Rank shm)
            (interpretLambdaIndexS
               interpretAst env
-              (vars, fromPrimal @s $ AstFromIntegralS $ AstSFromK i)) -}
+              (vars, fromPrimal @s $ AstFromIntegralS $ AstConvUpSFromK i)) -}
   Ast.AstIotaS snat@(SNat @n) | fromSNat' snat < 100 ->
     astConcreteS $ tsiota @_ @n  -- likely not to be O(data size)
   Ast.AstIotaS{} -> t0  -- tough trade-offs here
