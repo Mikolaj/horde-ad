@@ -707,9 +707,6 @@ convSFrom yftk zstk = case convSFromMaybe yftk zstk of
 convFromSMaybe :: FullShapeTK y0 -> FullShapeTK z0 -> Maybe (TKConversion y0 z0)
 convFromSMaybe = \cases
   yftk0 zftk0 | Just Refl <- matchingFTK yftk0 zftk0 -> Just ConvId
-  (FTKS ZSS (FTKScalar @ry)) (FTKScalar @rz)
-    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
-      Just $ convCmp ConvX0 ConvSX
   (FTKS sh x) (FTKR rsh rx)
     | Just Refl <- matchingFTK x rx
     , Just Refl <- testEquality (shsRank sh) (shrRank rsh)

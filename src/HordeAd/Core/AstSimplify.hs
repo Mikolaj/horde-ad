@@ -3180,6 +3180,10 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
     -- causes c to take more memory but doesn't inhibit rewriting
   -- Below we heavily depend on c being semantically determined
   -- by the domain and codomain. We pick the simplest such c.
+  (FTKS ZSS (FTKScalar @rz), FTKScalar @ry)
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      let c2 = ConvCmp ConvX0 ConvSX
+      in astConvertFromS c2 FTKScalar a
   (FTKScalar @ry, FTKS ZSS (FTKScalar @rz))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       let c2 = ConvCmp ConvXS (Conv0X STKScalar)
@@ -3192,10 +3196,10 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
     | Just Refl <- matchingFTK xy xz
     , Just Refl <- testEquality (shxRank shx) (shsRank sh) ->
       astConvertSFromX (convSFrom yftk (ftkToSTK zftk)) zftk a
-  (_, zftk) | Just c2 <- convFromSMaybe yftk zftk ->
-    astConvertFromS c2 zftk a
   (_, zftk) | Just c2 <- convSFromMaybe yftk (ftkToSTK zftk) ->
     astConvertSFrom c2 zftk a
+  (_, zftk) | Just c2 <- convFromSMaybe yftk zftk ->
+    astConvertFromS c2 zftk a
   _ -> case a of  -- normalize somewhat even for, e.g., product to product
     -- This may enlarge terms and it's not clear if this simplifies away.
     -- Ast.AstCond b v w -> astCond b (astConvert c v) (astConvert c w)
