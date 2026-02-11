@@ -467,10 +467,12 @@ astTr :: forall n s r. KnownSpan s
       -> AstTensor AstMethodLet s (TKR2 (2 + n) r)
 astTr a = case Permutation.makePerm @'[1, 0] of
   (perm :: Permutation.Perm perm) -> case ftkAst a of
-    FTKR sh'@(k :$: m :$: shr) x | SNat <- shrRank sh' ->
+    FTKR sh'@(k :$: m :$: shr) _ | SNat <- shrRank sh' ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank sh) :~: True) $
-        astFromS' (FTKR (m :$: k :$: shr) x)
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (Permutation.PermutePrefix perm sh) :~: Rank sh) $
+        astRFromS' (m :$: k :$: shr)
         . astTransposeS perm . astSFromR' sh $ a
     _ -> error "astTr: impossible shape"
 
@@ -486,10 +488,12 @@ astTrX :: forall n m shx s r. KnownSpan s
        -> AstTensor AstMethodLet s (TKX2 (Just m ': Just n ': shx) r)
 astTrX a = case Permutation.makePerm @'[1, 0] of
   (perm :: Permutation.Perm perm) -> case ftkAst a of
-    FTKX sh'@(mn :$% mm :$% shx) x ->
+    FTKX sh'@(mn :$% mm :$% shx) _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank sh) :~: True) $
-        astFromS' (FTKX (mm :$% mn :$% shx) x)
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (Permutation.PermutePrefix perm sh) :~: Rank sh) $
+        astXFromS' (mm :$% mn :$% shx)
         . astTransposeS perm . astSFromX' sh $ a
 
 astTrBuild
@@ -514,18 +518,18 @@ astIndexBuild :: forall y k s. KnownSpan s
               -> AstInt AstMethodLet
               -> AstTensor AstMethodLet s y
 astIndexBuild snat@SNat ftk u i = case ftk of
-  FTKScalar -> astFromS' ftk $ astIndexS ZSS u (i :.$ ZIS)
-  FTKR{} -> case ftkAst u of
+  FTKScalar -> astKFromS' $ astIndexS ZSS u (i :.$ ZIS)
+  FTKR sh' _ -> case ftkAst u of
     FTKR shmshn _ ->
       withShsFromShR shmshn $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: k ': Tail sh :~: sh) $
-        astFromS' ftk $ astIndexS (shsTail sh) (astSFromR' sh u) (i :.$ ZIS)
+        astRFromS' sh' $ astIndexS (shsTail sh) (astSFromR' sh u) (i :.$ ZIS)
   FTKS sh _ -> astIndexS sh u (i :.$ ZIS)
-  FTKX{} -> case ftkAst u of
+  FTKX sh' _ -> case ftkAst u of
    FTKX shBuild' _->
     withShsFromShX shBuild' $ \shBuild -> case shBuild of
       _ :$$ rest ->
-        astFromS' ftk $ astIndexS rest (astSFromX' shBuild u) (i :.$ ZIS)
+        astXFromS' sh' $ astIndexS rest (astSFromX' shBuild u) (i :.$ ZIS)
   FTKProduct ftk1 ftk2 ->
     astLetFun u $ \ !u3 ->
       astPair (astIndexBuild snat ftk1 (astProject1 u3) i)

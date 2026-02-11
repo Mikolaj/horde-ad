@@ -45,6 +45,7 @@ import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.Conversion
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -795,9 +796,9 @@ contractAst t0 = case t0 of
   Ast.AstArgMinS a -> Ast.AstArgMinS (contractAst a)
   Ast.AstArgMaxS a -> Ast.AstArgMaxS (contractAst a)
 
-  AstFromS' ftk (Ast.AstIndexS @sh1 ZSS v ix)
+  Ast.AstConvert c (Ast.AstIndexS @sh1 ZSS v ix)
     | FTKS _ ftk2@FTKScalar <- ftkAst v
-    , Just Refl <- matchingFTK ftk ftk2
+    , Just Refl <- matchingFTK (convertFTK c (FTKS ZSS ftk2)) ftk2
     , Refl <- lemAppNil @sh1 ->
       astIndex0 (contractAst v) (contractAstIxS ix)
   Ast.AstIndexS shn v ix ->

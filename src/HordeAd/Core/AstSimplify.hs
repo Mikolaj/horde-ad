@@ -569,19 +569,19 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstReplicate _ _ v | STKR _ (STKScalar @r) <- stk
                          , Dict0 <- numFromTKAllNum (Proxy @r) ->
     case ftkAst v of
-      ftk@(FTKR sh' FTKScalar) ->
+      FTKR sh' FTKScalar ->
         withShsFromShR sh' $ \(sh :: ShS sh) ->
-          v * astFromS'
-                ftk (fromPlain $ AstConcreteS @r
-                     $ Nested.sreplicatePrim sh $ fromIntegral $ fromSNat' snat)
+          v * astRFromS' sh'
+                (fromPlain $ AstConcreteS @r
+                 $ Nested.sreplicatePrim sh $ fromIntegral $ fromSNat' snat)
   Ast.AstReplicate _ _ v | STKX _ (STKScalar @r) <- stk
                          , Dict0 <- numFromTKAllNum (Proxy @r) ->
     case ftkAst v of
-      ftk@(FTKX sh' FTKScalar) ->
+      FTKX sh' FTKScalar ->
         withShsFromShX sh' $ \(sh :: ShS sh) ->
-          v * astFromS'
-                ftk (fromPlain $ AstConcreteS @r
-                     $ Nested.sreplicatePrim sh $ fromIntegral $ fromSNat' snat)
+          v * astXFromS' sh'
+                (fromPlain $ AstConcreteS @r
+                 $ Nested.sreplicatePrim sh $ fromIntegral $ fromSNat' snat)
   -- This keeps tensors alive for longer, but it enables new simplifications,
   -- while hiding a sum inside let not often prevents other simplifications,
   -- because there are few redexes with sum but not at the top.
