@@ -79,7 +79,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Nested (Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
-  (shrFromShS, shxFromShS, withShsFromShR, withShsFromShX)
+  (shxFromShS, withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, Perm (..), TakeLen, permInverse)
@@ -3571,17 +3571,17 @@ astKFromS' t = astConvertFromS (ConvCmp ConvX0 ConvSX) FTKScalar t
 
 -- Or should we take SNat (Rank sh) to help proving n ~ Rank sh?
 astRFromS' :: forall sh x s. KnownSpan s
-           => AstTensor AstMethodLet s (TKS2 sh x)
+           => IShR (Rank sh) -> AstTensor AstMethodLet s (TKS2 sh x)
            -> AstTensor AstMethodLet s (TKR2 (Rank sh) x)
-astRFromS' t | FTKS sh x <- ftkAst t =
-  let zftk = FTKR (shrFromShS sh) x
+astRFromS' sh' t | FTKS _ x <- ftkAst t =
+  let zftk = FTKR sh' x
   in astConvertFromS (convFromS (ftkAst t) zftk) zftk t
 
-astXFromS' :: forall sh shx x s. (KnownSpan s, Rank sh ~ Rank shx)
-           => StaticShX shx -> AstTensor AstMethodLet s (TKS2 sh x)
-           -> AstTensor AstMethodLet s (TKX2 shx x)
-astXFromS' ssx t | FTKS sh x <- ftkAst t =
-  let zftk = FTKX (shCastSX ssx sh) x
+astXFromS' :: forall sh sh' x s. (KnownSpan s, Rank sh ~ Rank sh')
+           => IShX sh' -> AstTensor AstMethodLet s (TKS2 sh x)
+           -> AstTensor AstMethodLet s (TKX2 sh' x)
+astXFromS' sh' t | FTKS _ x <- ftkAst t =
+  let zftk = FTKX sh' x
   in astConvertFromS (convFromS (ftkAst t) zftk) zftk t
 
 -- These three are much faster than going through convSFrom.
@@ -3757,7 +3757,10 @@ instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
 
   sfromR = astSFromR' knownShS
   sfromX = astSFromX' knownShS
-  xfromS = astXFromS' knownShX
+  xfromS t = case ftkAst t of
+    FTKS sh x ->
+      let zftk = FTKX (shCastSX knownShX sh) x
+      in astConvertFromS (convFromS (ftkAst t) zftk) zftk t
 
   rzip @_ @_ @n a
    | Refl <- lemRankReplicate (Proxy @n) = case ftkAst a of
@@ -3852,7 +3855,8 @@ astConcrete ftk v = case ftk of
       astFromS' ftk $ astConcreteS (sfromX @_ @sh v)
   FTKProduct ftk1 ftk2 ->
     astPair (astConcrete ftk1 (tproject1 v)) (astConcrete ftk2 (tproject2 v))
-  _ -> concreteTarget astConcreteK astConcreteS astFromS' (ftkToSTK ftk) v
+  _ -> concreteTarget astConcreteK astConcreteS astRFromS' astXFromS'
+                      (ftkToSTK ftk) v
 
 -- INLINE here would bloat the binary a lot, probably negating any
 -- gains from directly calling the function. Also, this is not a bottleneck.

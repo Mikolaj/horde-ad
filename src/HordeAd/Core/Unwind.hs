@@ -72,27 +72,28 @@ concreteRepW
   :: forall y target. (ConvertTensor Concrete, ConvertTensor target)
   => (forall r. GoodScalar r => Concrete (TKScalar r) -> target (TKScalar r))
   -> (forall r sh. GoodScalar r => Concrete (TKS sh r) -> target (TKS sh r))
-  -> (forall x z. FullShapeTK z -> target x -> target z)
+  -> (forall r sh. IShR (Rank sh) -> target (TKS sh r)
+      -> target (TKR (Rank sh) r))
+  -> (forall r sh sh'. Rank sh ~ Rank sh'
+      => IShX sh' -> target (TKS sh r) -> target (TKX sh' r))
   -> RepW Concrete y -> RepW target y
 {-# INLINE concreteRepW #-}
-concreteRepW concreteK concreteS fromS w = case w of
+concreteRepW concreteK concreteS toRfromS toXfromS w = case w of
   WTKScalar v -> WTKScalar $ concreteK v
   WTKR v -> WTKR $
     let sh' = Nested.rshape $ unConcrete v
     in withShsFromShR sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      fromS (FTKR sh' FTKScalar)
-      $ concreteS (sfromR @_ @sh v)
+      toRfromS sh' $ concreteS (sfromR @_ @sh v)
   WTKS v -> WTKS $ concreteS v
   WTKX v -> WTKX $
     let sh' = Nested.mshape $ unConcrete v
     in withShsFromShX sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      fromS (FTKX sh' FTKScalar)
-      $ concreteS (sfromX @_ @sh v)
+      toXfromS sh' $ concreteS (sfromX @_ @sh v)
   WTKProduct v1 v2 ->
-    WTKProduct (concreteRepW concreteK concreteS fromS v1)
-               (concreteRepW concreteK concreteS fromS v2)
+    WTKProduct (concreteRepW concreteK concreteS toRfromS toXfromS v1)
+               (concreteRepW concreteK concreteS toRfromS toXfromS v2)
 
 toADTensorKindW
   :: forall y target. BaseTensor target
@@ -312,13 +313,16 @@ concreteTarget
   :: forall y target. (ConvertTensor Concrete, ConvertTensor target)
   => (forall r. GoodScalar r => Concrete (TKScalar r) -> target (TKScalar r))
   -> (forall r sh. GoodScalar r => Concrete (TKS sh r) -> target (TKS sh r))
-  -> (forall x z. FullShapeTK z -> target x -> target z)
+  -> (forall r sh. IShR (Rank sh) -> target (TKS sh r)
+      -> target (TKR (Rank sh) r))
+  -> (forall r sh sh'. Rank sh ~ Rank sh'
+      => IShX sh' -> target (TKS sh r) -> target (TKX sh' r))
   -> SingletonTK y -> Concrete y
   -> target y
 {-# INLINE concreteTarget #-}
-concreteTarget concreteK concreteS fromS stk v =
+concreteTarget concreteK concreteS toRfromS toXfromS stk v =
   windTarget stk
-  $ concreteRepW concreteK concreteS fromS
+  $ concreteRepW concreteK concreteS toRfromS toXfromS
   $ unWindTarget stk v
 
 lemUnWindOfAD :: SingletonTK y

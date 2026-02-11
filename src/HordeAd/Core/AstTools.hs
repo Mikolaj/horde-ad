@@ -13,7 +13,7 @@ module HordeAd.Core.AstTools
   , bounds, intBounds
   , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstConvert, cAstSFromK, cAstSFromR, cAstSFromX
-  , cAstKFromS, cAstRFromS, cAstXFromS, cAstFromSGeneric
+  , cAstKFromS, cAstRFromS, cAstXFromS
   , pattern AstSFromK', pattern AstFromS'
   , checkPatternAstSFromK, checkAstFromSNotK
   , convFromS, convSFrom, convFromSMaybe, convSFromMaybe
@@ -612,11 +612,6 @@ cAstXFromS :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
            -> AstTensor ms s (TKX2 sh' x)
 cAstXFromS sh' t = case ftkAst t of
   FTKS _ x -> cAstConvert (convFromS (ftkAst t) (FTKX sh' x)) t
-
-cAstFromSGeneric :: forall y z ms s. KnownSpan s
-                 => FullShapeTK z -> AstTensor ms s y
-                 -> AstTensor ms s z
-cAstFromSGeneric zftk t = cAstConvert (convFromS (ftkAst t) zftk) t
 
 pattern AstSFromK' :: KnownSpan s => sh ~ '[]
                    => AstTensor ms s (TKScalar r)

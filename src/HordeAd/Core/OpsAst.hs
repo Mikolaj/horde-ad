@@ -1277,7 +1277,8 @@ astConcreteRaw ftk v = case ftk of
     AstPair (unAstRaw $ astConcreteRaw ftk1 (tproject1 v))
             (unAstRaw $ astConcreteRaw ftk2 (tproject2 v))
   _ -> concreteTarget (tkconcrete . unConcrete) (tsconcrete . unConcrete)
-                      (\ftk2 a -> AstRaw $ cAstFromSGeneric ftk2 $ unAstRaw a)
+                      (\sh' -> AstRaw . cAstRFromS sh' . unAstRaw)
+                      (\sh' -> AstRaw . cAstXFromS sh' . unAstRaw)
                       (ftkToSTK ftk) v
 
 
