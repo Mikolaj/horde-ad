@@ -278,13 +278,13 @@ astPair (Ast.AstFromDual v1) (Ast.AstFromDual v2) =
 astPair (Ast.AstFromPlain v1) (Ast.AstFromPlain v2) =
   fromPlain $ astPair v1 v2
 astPair (Ast.AstConvert c1 v1) (Ast.AstConvert c2 v2)
-  | checkAstFromSNotK c1 v1 && checkAstFromSNotK c2 v2 =
+  | checkAstFromS c1 v1 && checkAstFromS c2 v2 =
     astConvert (ConvT2 c1 c2) $ astPair v1 v2
 astPair (Ast.AstConvert c1 v1) v2
-  | checkAstFromSNotK c1 v1 =
+  | checkAstFromS c1 v1 =
     astConvert (ConvT2 c1 ConvId) $ astPair v1 v2
 astPair v1 (Ast.AstConvert c2 v2)
-  | checkAstFromSNotK c2 v2 =
+  | checkAstFromS c2 v2 =
     astConvert (ConvT2 ConvId c2) $ astPair v1 v2
 astPair v1 v2 = Ast.AstPair v1 v2
 
@@ -425,11 +425,10 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
               => FullShapeTK x
               -> AstTensor AstMethodLet s2 y
               -> Maybe (AstTensor AstMethodLet s2 x)
-       unFrom yftk (AstFromS' ftkz t)
-         | case ftkz of; FTKScalar -> False; _ -> True =
-           case matchingFTK (ftkAst t) yftk of
-             Just Refl -> Just t
-             Nothing -> error "astFromVector: impossible shape"
+       unFrom yftk (AstFromS' _ t) =
+         case matchingFTK (ftkAst t) yftk of
+           Just Refl -> Just t
+           Nothing -> error "astFromVector: impossible shape"
        unFrom yftk (Ast.AstFromPrimal t) = fromPrimal <$> unFrom yftk t
        unFrom yftk (Ast.AstFromDual t) = fromDual <$> unFrom yftk t
        unFrom yftk (Ast.AstFromPlain t) = fromPlain <$> unFrom yftk t
@@ -597,7 +596,7 @@ astSum snat@SNat stk t0 = case t0 of
         AstConcreteK True ->
           astScatterS shm shn (shsTail shp) v (vars, rest)
         _ -> Ast.AstSum snat stk t0
-  Ast.AstConvert c t | checkAstFromSNotK c t -> case ftkAst t of
+  Ast.AstConvert c t | checkAstFromS c t -> case ftkAst t of
     FTKS (snat2 :$$ rest) x
       | Dict0 <- lemTKAllNumBuild snat stk
       , Dict0 <- lemTKAllNumConvert c
@@ -638,7 +637,7 @@ astReplicate snat@SNat stk t0 = case t0 of
   Ast.AstConvert c t | STKS ZSS STKScalar <- stk
                      , Just (_, t2) <- checkPatternAstSFromK c t ->
     astReplicate snat STKScalar t2
-  Ast.AstConvert c t | checkAstFromSNotK c t ->
+  Ast.AstConvert c t | checkAstFromS c t ->
     let xftk = ftkAst t
     in astConvert (buildTKConversion snat xftk c)
                   (astReplicate snat (ftkToSTK xftk) t)
@@ -669,8 +668,7 @@ astMapAccumLDer
 astMapAccumLDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
-                (AstFromS' @accyFrom accftk acc0From) es
-                | case accftk of; FTKScalar -> False; _ -> True =
+                (AstFromS' @accyFrom accftk acc0From) es =
   let accftkFrom = ftkAst acc0From
       accFromSTK = ftkToSTK accftkFrom
       ftkf2 = FTKProduct accftkFrom eftk
@@ -732,8 +730,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
 astMapAccumLDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
-                acc0 (AstFromS' @esShsFrom esShsFTK esFrom)
-                | case esShsFTK of; FTKScalar -> False; _ -> True =
+                acc0 (AstFromS' @esShsFrom _esShsFTK esFrom) =
   let accftk = ftkAst acc0
       accstk = ftkToSTK accftk
       esShsFrom = ftkAst esFrom
@@ -811,9 +808,8 @@ astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
 astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
   fromPlain $ astCond b v w
 -- We rely here on c and the other conversion being semantically equal.
-astCond b (AstFromS' ftkz v) (Ast.AstConvert c w)
-  | case ftkz of; FTKScalar -> False; _ -> True
-  , Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
+astCond b (AstFromS' _ v) (Ast.AstConvert c w)
+  | Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
     astConvert c $ astCond b v w
 astCond b v w = Ast.AstCond b v w
 
@@ -894,12 +890,12 @@ astLet var (Ast.AstTransposeS perm a) v =
       ast = Ast.AstTransposeS perm $ astVar var2
   in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstConvert c a) v
-  | checkAstFromSNotK c a =
+  | checkAstFromS c a =
     let var2 = reshapeVarName (ftkAst a) var
         ast = withKnownSpan (varNameToSpan var) $ astConvert c $ astVar var2
     in astLet var2 a (substituteAst ast var v)
 astLet var u (Ast.AstConvert c a)
-  | checkAstFromSNotK c a =
+  | checkAstFromS c a =
     astConvert c $ astLet var u a
 astLet var u v = Ast.AstLet var u v
 
@@ -1007,7 +1003,7 @@ astPrimalPart t = case t of
 
   -- Most conversions need to stay down here to cancel out.
   Ast.AstConvert c a ->
-    if checkAstFromSNotK c a
+    if checkAstFromS c a
     then astConvert c $ astPrimalPart a
     else Ast.AstPrimalPart t
 
@@ -1119,7 +1115,7 @@ astDualPart t = case t of
 
   -- Most conversions need to stay down here to cancel out.
   Ast.AstConvert c a ->
-    if checkAstFromSNotK c a
+    if checkAstFromS c a
     then astConvert c $ astDualPart a
     else Ast.AstDualPart t
 
@@ -1225,7 +1221,7 @@ astPlainPart t = case t of
 
   -- Most conversions need to stay down here to cancel out.
   Ast.AstConvert c a ->
-    if checkAstFromSNotK c a
+    if checkAstFromS c a
     then astConvert c $ astPlainPart a
     else Ast.AstPlainPart t
 
@@ -3875,7 +3871,7 @@ astLetFun :: forall y z s s2. (KnownSpan s, KnownSpan s2)
 {-# NOINLINE astLetFun #-}
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f = case a of
-  AstFromS' @y2 ftkz v | case ftkz of; FTKScalar -> False; _ -> True ->
+  AstFromS' @y2 ftkz v ->
     unsafePerformIO $ do
       var <- funToAstNoBoundsIO (ftkAst v)
       pure $! astLet var v (f $ astFromS' @y2 ftkz $ astVar var)

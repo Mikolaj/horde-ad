@@ -15,7 +15,7 @@ module HordeAd.Core.AstTools
   , cAstConvert, cAstSFromK, cAstSFromR, cAstSFromX
   , cAstKFromS, cAstRFromS, cAstXFromS
   , pattern AstSFromK', pattern AstFromS'
-  , checkPatternAstSFromK, checkAstFromSNotK
+  , checkPatternAstSFromK, checkAstFromS
   , convFromS, convSFrom, convFromSMaybe, convSFromMaybe
   , setTotalSharing
   ) where
@@ -685,12 +685,10 @@ checkPatternAstFromS c yftk =
   let zftk = convertFTK c yftk
   in const zftk <$> convFromSMaybe yftk zftk
 
-checkAstFromSNotK :: TKConversion a b -> AstTensor ms s a -> Bool
-checkAstFromSNotK c t =
+checkAstFromS :: TKConversion a b -> AstTensor ms s a -> Bool
+checkAstFromS c t =
   let zftk = convertFTK c (ftkAst t)
-  in case zftk of
-    FTKScalar -> False
-    _ -> isJust $ convFromSMaybe (ftkAst t) zftk
+  in isJust $ convFromSMaybe (ftkAst t) zftk
 
 convFromS :: FullShapeTK y -> FullShapeTK z -> TKConversion y z
 convFromS yftk zftk = case convFromSMaybe yftk zftk of
