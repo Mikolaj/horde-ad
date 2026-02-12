@@ -421,7 +421,7 @@ testSin0RfwdPP4Dual = do
   interpretAstDual @Concrete emptyEnv a1
     @?= DummyDualTarget (FTKR [] FTKScalar)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromK (kdualPart 0.0 * cos (kdualPart 0.0 * cos (kdualPart 0.0)))"
+    @?= "rfromK (kfromR (rdualPart (rfromS (sscalar 0.0))) * cos (kdualPart 0.0))"
 
 testSin0Rfwd5 :: Assertion
 testSin0Rfwd5 = do
@@ -2448,7 +2448,7 @@ testSin0FoldNestedR2LengthPPs = do
     (printAstSimple
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 395433
+    @?= 396732
 
 testSin0FoldNestedR3LengthPPs :: Assertion
 testSin0FoldNestedR3LengthPPs = do
@@ -2468,7 +2468,7 @@ testSin0FoldNestedR3LengthPPs = do
     (printAstSimple
        (simplifyInlineContract
         $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1)))
-    @?= 5858165
+    @?= 5873736
 
 -- Takes 70s, probably due to something (simplification?) forcing all derivs.
 _testSin0FoldNestedR4LengthPPs :: Assertion

@@ -3197,12 +3197,12 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
   (_, zftk) | Just c2 <- convUpMaybe yftk zftk ->
     astConvertUp c2 zftk a
   _ -> case a of  -- normalize somewhat even for, e.g., product to product
-    -- This may enlarge terms and it's not clear if this simplifies away.
-    -- Ast.AstCond b v w -> astCond b (astConvert c v) (astConvert c w)
-    Ast.AstLet var u v -> astLet var u (astConvert c v)
-    Ast.AstPrimalPart v -> astPrimalPart $ astConvert c v
-    Ast.AstDualPart v -> astDualPart $ astConvert c v
-    Ast.AstPlainPart v -> astPlainPart $ astConvert c v
+    Ast.AstPrimalPart (Ast.AstConvert c2 a2) ->
+      astPrimalPart $ astConvert (c `convCmp` c2) a2
+    Ast.AstDualPart (Ast.AstConvert c2 a2) ->
+      astDualPart $ astConvert (c `convCmp` c2) a2
+    Ast.AstPlainPart (Ast.AstConvert c2 a2) ->
+      astPlainPart $ astConvert (c `convCmp` c2) a2
     Ast.AstFromPrimal v -> fromPrimal $ astConvert c v
     Ast.AstFromDual v -> fromDual $ astConvert c v
     Ast.AstFromPlain v -> fromPlain $ astConvert c v
@@ -3464,18 +3464,18 @@ astConvertUp c zftk t = case (ftkAst t, zftk, t) of
   (yftk, _, _) | Just Refl <- matchingFTK yftk zftk -> t
   -- Rare cases where we don't pull up but push down so that conversions
   -- don't end up interspersed with AstFromPrimal and similar.
-  (_, _, Ast.AstFromPrimal v) ->
-    fromPrimal $ astConvertUp c zftk v
-  (_, _, Ast.AstFromDual v) ->
-    fromDual $ astConvertUp c zftk v
-  (_, _, Ast.AstFromPlain v )->
-    fromPlain $ astConvertUp c zftk v
   (_, _, Ast.AstPrimalPart (Ast.AstConvert c2 a2)) ->
     astPrimalPart $ astConvert (c `convCmp` c2) a2
   (_, _, Ast.AstDualPart (Ast.AstConvert c2 a2)) ->
     astDualPart $ astConvert (c `convCmp` c2) a2
   (_, _, Ast.AstPlainPart (Ast.AstConvert c2 a2)) ->
     astPlainPart $ astConvert (c `convCmp` c2) a2
+  (_, _, Ast.AstFromPrimal v) ->
+    fromPrimal $ astConvertUp c zftk v
+  (_, _, Ast.AstFromDual v) ->
+    fromDual $ astConvertUp c zftk v
+  (_, _, Ast.AstFromPlain v )->
+    fromPlain $ astConvertUp c zftk v
   (_, _, Ast.AstConvert c2 a2) ->
     astConvert (c `convCmp` c2) a2
   (FTKScalar @ry, FTKS ZSS (FTKScalar @rz), _) ->
@@ -3490,13 +3490,6 @@ astConvertUp c zftk t = case (ftkAst t, zftk, t) of
     case (matchingFTK yx zx, testEquality (shsRank shz) (shxRank shy)) of
       (Just Refl, Just Refl) -> Ast.AstConvert c t
       _ -> error "astConvertUp: tensor kinds don't match"
-{- TODO: this causes a loop; can it be removed?
-  (FTKProduct yftk1 yftk2, _, Ast.AstPair a1 a2)
-    | FTKProduct zftk1 zftk2 <- zftk ->
-      -- Here we can't always use the c the user presumably wrote,
-      -- so we always create a canonical one.
-      astPair (astConvertUp (convUp yftk1 zftk1) zftk1 a1)
-              (astConvertUp (convUp yftk2 zftk2) zftk2 a2) -}
   (FTKProduct{}, _, _) -> Ast.AstConvert c t
   (yftk, _, _) ->
     error $ "astConvertUp: wrong tensor kinds: " ++ show (yftk, zftk, t)
