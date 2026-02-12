@@ -428,7 +428,7 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
        unFrom yftk (AstConvUp _ t) =
          case matchingFTK (ftkAst t) yftk of
            Just Refl -> Just t
-           Nothing -> error "astFromVector: impossible shape"
+           Nothing -> Nothing  -- e.g., a conversion from X instead of R
        unFrom yftk (Ast.AstFromPrimal t) = fromPrimal <$> unFrom yftk t
        unFrom yftk (Ast.AstFromDual t) = fromDual <$> unFrom yftk t
        unFrom yftk (Ast.AstFromPlain t) = fromPlain <$> unFrom yftk t
@@ -474,6 +474,8 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
        unFrom (AstConvUpSFromK t) = Just t
          -- AstConvUp above subsumes AstConvUpSFromK, but the cases below
          -- can be easily handled only within this narrow typing.
+         -- The AstConcreteS is impossible for R and X, so a generalization
+         -- to RFromK or XFromK is not worth the effort.
        unFrom (AstConcreteS v) = Just $ AstConcreteK $ Nested.sunScalar v
        unFrom (Ast.AstSum snat2 (STKS _ STKScalar) v) =
          Just $ astSum snat2 STKScalar v
@@ -3221,6 +3223,14 @@ astConvertDown c zftk t = case (ftkAst t, zftk) of
     case testEquality (typeRep @ry) (typeRep @rz) of
       Just Refl -> astConvertDownKFromS c FTKScalar t
       Nothing -> error "astConvertDown: tensor kinds don't match"
+  (FTKR ZSR (FTKScalar @rz), FTKScalar @ry) ->
+    case testEquality (typeRep @ry) (typeRep @rz) of
+      Just Refl -> astConvertDownKFromR c t
+      Nothing -> error "astConvertDown: tensor kinds don't match"
+  (FTKX ZSX (FTKScalar @rz), FTKScalar @ry) ->
+    case testEquality (typeRep @ry) (typeRep @rz) of
+      Just Refl -> astConvertDownKFromX c t
+      Nothing -> error "astConvertDown: tensor kinds don't match"
   (FTKR shr yx, FTKS shz zx)->
     case (matchingFTK yx zx, testEquality (shsRank shz) (shrRank shr)) of
       (Just Refl, Just Refl) -> astConvertDownSFromR c zftk t
@@ -3353,6 +3363,62 @@ astConvertDownKFromS c (FTKScalar @r1) a = case a of
   Ast.AstFromPlain v -> fromPlain $ astConvertDownKFromS c FTKScalar v
   Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
 
+astConvertDownKFromR
+  :: KnownSpan s
+  => TKConversion (TKR 0 r) (TKScalar r)
+  -> AstTensor AstMethodLet s (TKR 0 r)
+  -> AstTensor AstMethodLet s (TKScalar r)
+astConvertDownKFromR c a = case a of
+  Ast.AstProject1{} -> Ast.AstConvert c a
+  Ast.AstProject2{} -> Ast.AstConvert c a
+  Ast.AstSum{} -> Ast.AstConvert c a  -- too complex and surely already done
+  Ast.AstApply (AstLambda !var !v) ll ->
+    astApply (AstLambda var (astConvertDownKFromR c v)) ll
+  Ast.AstVar{} -> Ast.AstConvert c a
+  Ast.AstCond b v1 v2 ->
+    astCond b (astConvertDownKFromR c v1)
+              (astConvertDownKFromR c v2)
+  Ast.AstLet var u v ->
+    astLet var u (astConvertDownKFromR c v)
+  Ast.AstPrimalPart v ->
+    astPrimalPart $ astConvertDownKFromR c v
+  Ast.AstDualPart v ->
+    astDualPart $ astConvertDownKFromR c v
+  Ast.AstPlainPart v ->
+    astPlainPart $ astConvertDownKFromR c v
+  Ast.AstFromPrimal v -> fromPrimal $ astConvertDownKFromR c v
+  Ast.AstFromDual v -> fromDual $ astConvertDownKFromR c v
+  Ast.AstFromPlain v -> fromPlain $ astConvertDownKFromR c v
+  Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
+
+astConvertDownKFromX
+  :: KnownSpan s
+  => TKConversion (TKX '[] r) (TKScalar r)
+  -> AstTensor AstMethodLet s (TKX '[] r)
+  -> AstTensor AstMethodLet s (TKScalar r)
+astConvertDownKFromX c a = case a of
+  Ast.AstProject1{} -> Ast.AstConvert c a
+  Ast.AstProject2{} -> Ast.AstConvert c a
+  Ast.AstSum{} -> Ast.AstConvert c a  -- too complex and surely already done
+  Ast.AstApply (AstLambda !var !v) ll ->
+    astApply (AstLambda var (astConvertDownKFromX c v)) ll
+  Ast.AstVar{} -> Ast.AstConvert c a
+  Ast.AstCond b v1 v2 ->
+    astCond b (astConvertDownKFromX c v1)
+              (astConvertDownKFromX c v2)
+  Ast.AstLet var u v ->
+    astLet var u (astConvertDownKFromX c v)
+  Ast.AstPrimalPart v ->
+    astPrimalPart $ astConvertDownKFromX c v
+  Ast.AstDualPart v ->
+    astDualPart $ astConvertDownKFromX c v
+  Ast.AstPlainPart v ->
+    astPlainPart $ astConvertDownKFromX c v
+  Ast.AstFromPrimal v -> fromPrimal $ astConvertDownKFromX c v
+  Ast.AstFromDual v -> fromDual $ astConvertDownKFromX c v
+  Ast.AstFromPlain v -> fromPlain $ astConvertDownKFromX c v
+  Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
+
 -- We are pushing conversions to shaped tensors down, into concrete values
 -- and towards variables, so that the conversions often cancel out.
 astConvertDownSFromR :: forall sh x s. KnownSpan s
@@ -3481,6 +3547,14 @@ astConvertUp c zftk t = case (ftkAst t, zftk, t) of
   (FTKScalar @ry, FTKS ZSS (FTKScalar @rz), _) ->
     case testEquality (typeRep @ry) (typeRep @rz) of
       Just Refl -> astConvertUpSFromK c t
+      Nothing -> error "astConvertUp: tensor kinds don't match"
+  (FTKScalar @ry, FTKR ZSR (FTKScalar @rz), _) ->
+    case testEquality (typeRep @ry) (typeRep @rz) of
+      Just Refl -> Ast.AstConvert c t
+      Nothing -> error "astConvertUp: tensor kinds don't match"
+  (FTKScalar @ry, FTKX ZSX (FTKScalar @rz), _) ->
+    case testEquality (typeRep @ry) (typeRep @rz) of
+      Just Refl -> Ast.AstConvert c t
       Nothing -> error "astConvertUp: tensor kinds don't match"
   (FTKS shz zx, FTKR shr yx, _) ->
     case (matchingFTK yx zx, testEquality (shsRank shz) (shrRank shr)) of

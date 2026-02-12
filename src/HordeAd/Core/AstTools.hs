@@ -714,6 +714,12 @@ convDownMaybe = \cases
   (FTKS ZSS (FTKScalar @ry)) (STKScalar @rz)
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       Just $ convCmp ConvX0 ConvSX
+  (FTKR ZSR (FTKScalar @ry)) (STKScalar @rz)
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      Just $ convCmp ConvX0 ConvRX
+  (FTKX ZSX (FTKScalar @ry)) (STKScalar @rz)
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      Just ConvX0
   (FTKR rsh rx) (STKS @sh sh x)
     | Just Refl <- sameSTK x (ftkToSTK rx)
     , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
@@ -748,6 +754,12 @@ convUpMaybe = \cases
   (FTKScalar @rz) (FTKS ZSS (FTKScalar @ry))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       Just $ convCmp ConvXS (Conv0X STKScalar)
+  (FTKScalar @rz) (FTKR ZSR (FTKScalar @ry))
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      Just $ convCmp (ConvXR STKScalar) (Conv0X STKScalar)
+  (FTKScalar @rz) (FTKX ZSX (FTKScalar @ry))
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      Just $ Conv0X STKScalar
   (FTKS sh x) (FTKR rsh rx)
     | Just Refl <- matchingFTK x rx
     , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
