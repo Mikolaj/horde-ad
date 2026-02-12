@@ -736,7 +736,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
       accstk = ftkToSTK accftk
       esShsFrom = ftkAst esFrom
       esShsFromSTK = ftkToSTK esShsFrom
-  in case razeSTK esShsFromSTK of
+  in case razeSTK eftk esShsFromSTK of
     (eftkFromSTK :: SingletonTK eyFrom) ->
       gcastWith (unsafeCoerceRefl
                  :: BuildTensorKind k eyFrom :~: esShsFrom) $

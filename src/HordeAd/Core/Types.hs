@@ -209,17 +209,15 @@ type family BuildTensorKind k tk where
     TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
 
 -- This is an inverse of BuildTensorKind.
--- This could be more efficient
---   RazeTensorKind (TKS2 '[m] (TKScalar r)) = TKScalar r
--- but then we'd lose the simplifying property that razing does not
--- change the tensor kind variant, which is important, e.g.,
--- when rewriting AstFromS t and trying to use AstFromS of the razed t.
-type family RazeTensorKind tk where
-  RazeTensorKind (TKR2 n x) = TKR2 (n - 1) x
-  RazeTensorKind (TKS2 sh x) = TKS2 (Tail sh) x
-  RazeTensorKind (TKX2 sh x) = TKX2 (Tail sh) x
-  RazeTensorKind (TKProduct y z) =
-    TKProduct (RazeTensorKind y) (RazeTensorKind z)
+type family RazeTensorKind tkGuikde tk where
+  RazeTensorKind y (TKR2 n x) = TKR2 (n - 1) x
+  RazeTensorKind (TKScalar r0) (TKS2 '[n] (TKScalar r)) = TKScalar r
+  RazeTensorKind (TKR2 n0 x0) (TKS2 sh x) = TKS2 (Tail sh) x
+  RazeTensorKind (TKS2 sh0 x0) (TKS2 sh x) = TKS2 (Tail sh) x
+  RazeTensorKind (TKX2 sh0 x0) (TKS2 sh x) = TKS2 (Tail sh) x
+  RazeTensorKind y (TKX2 sh x) = TKX2 (Tail sh) x
+  RazeTensorKind (TKProduct y1 y2) (TKProduct z1 z2) =
+    TKProduct (RazeTensorKind y1 z1) (RazeTensorKind y2 z2)
 
 type family ADTensorKind tk where
   ADTensorKind (TKScalar r) = TKScalar (ADTensorScalar r)
