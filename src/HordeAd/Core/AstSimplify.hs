@@ -3216,21 +3216,21 @@ astConvertDown :: forall y z s. KnownSpan s
                => TKConversion y z -> FullShapeTK z
                -> AstTensor AstMethodLet s y
                -> AstTensor AstMethodLet s z
-astConvertDown c zftk t = case (zftk, ftkAst t) of
-  (_, yftk) | Just Refl <- matchingFTK yftk zftk -> t
+astConvertDown c zftk t = case (ftkAst t, zftk) of
+  (yftk, _) | Just Refl <- matchingFTK yftk zftk -> t
   (FTKS ZSS (FTKScalar @rz), FTKScalar @ry) ->
     case testEquality (typeRep @ry) (typeRep @rz) of
-      Just Refl -> astConvertUpSFromK c t
+      Just Refl -> astConvertDownKFromS c FTKScalar t
       Nothing -> error "astConvertDown: tensor kinds don't match"
-  (FTKS shz zx, FTKR shr yx)->
+  (FTKR shr yx, FTKS shz zx)->
     case (matchingFTK yx zx, testEquality (shsRank shz) (shrRank shr)) of
       (Just Refl, Just Refl) -> astConvertDownSFromR c zftk t
       _ -> error "astConvertDown: tensor kinds don't match"
-  (FTKS shz zx, FTKX shy yx) ->
+  (FTKX shy yx, FTKS shz zx) ->
     case (matchingFTK yx zx, testEquality (shsRank shz) (shxRank shy)) of
       (Just Refl, Just Refl) -> astConvertDownSFromX c zftk t
       _ -> error "astConvertDown: tensor kinds don't match"
-  (_, FTKProduct yftk1 yftk2) -> case t of
+  (FTKProduct yftk1 yftk2, _) -> case t of
     Ast.AstPair a1 a2 | FTKProduct zftk1 zftk2 <- zftk ->
       -- Here we can't always use the c the user presumably wrote,
       -- so we always create a canonical one.
@@ -3245,7 +3245,7 @@ astConvertDown c zftk t = case (zftk, ftkAst t) of
     Ast.AstFromPlain v -> fromPlain $ astConvertDown c zftk v
     Ast.AstConvert c2 t2 -> astConvert (c `convCmp` c2) t2
     _ -> Ast.AstConvert c t  -- don't introduce let just to push a conversion
-  (_, yftk) ->
+  (yftk, _) ->
     error $ "astConvertDown: wrong tensor kinds: " ++ show (yftk, zftk, t)
 
 astConvertDownKFromS
@@ -3461,36 +3461,46 @@ astConvertUp
   :: KnownSpan s
   => TKConversion y z -> FullShapeTK z -> AstTensor AstMethodLet s y
   -> AstTensor AstMethodLet s z
-astConvertUp c zftk a = case a of
-  {- TODO: This probably requires a separate handling of astFromK and astKFrom
-     or a new framework for rewriting conversions or equality saturation:
-  (FTKR ZSR (FTKScalar @r1), AstConcreteS @r2 v)
-    | ZSS <- Nested.sshape v
-    , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
-      Ast.AstConvert (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))
-                     (AstConcreteK (Nested.sunScalar v))
-  (FTKX ZSX (FTKScalar @r1), AstConcreteS @r2 v)
-    | ZSS <- Nested.sshape v
-    , Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
-      Ast.AstConvert (Conv0X STKScalar)
-                     (AstConcreteK (Nested.sunScalar v))
-  -}
+astConvertUp c zftk t = case (ftkAst t, zftk, t) of
+  (yftk, _, _) | Just Refl <- matchingFTK yftk zftk -> t
   -- Rare cases where we don't pull up but push down so that conversions
   -- don't end up interspersed with AstFromPrimal and similar.
-  Ast.AstFromPrimal v ->
+  (_, _, Ast.AstFromPrimal v) ->
     fromPrimal $ astConvertUp c zftk v
-  Ast.AstFromDual v ->
+  (_, _, Ast.AstFromDual v) ->
     fromDual $ astConvertUp c zftk v
-  Ast.AstFromPlain v ->
+  (_, _, Ast.AstFromPlain v )->
     fromPlain $ astConvertUp c zftk v
-  Ast.AstPrimalPart (Ast.AstConvert c2 a2) ->
+  (_, _, Ast.AstPrimalPart (Ast.AstConvert c2 a2)) ->
     astPrimalPart $ astConvert (c `convCmp` c2) a2
-  Ast.AstDualPart (Ast.AstConvert c2 a2) ->
+  (_, _, Ast.AstDualPart (Ast.AstConvert c2 a2)) ->
     astDualPart $ astConvert (c `convCmp` c2) a2
-  Ast.AstPlainPart (Ast.AstConvert c2 a2) ->
+  (_, _, Ast.AstPlainPart (Ast.AstConvert c2 a2)) ->
     astPlainPart $ astConvert (c `convCmp` c2) a2
-  Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
-  _ -> Ast.AstConvert c a
+  (_, _, Ast.AstConvert c2 a2) ->
+    astConvert (c `convCmp` c2) a2
+  (FTKScalar @ry, FTKS ZSS (FTKScalar @rz), _) ->
+    case testEquality (typeRep @ry) (typeRep @rz) of
+      Just Refl -> astConvertUpSFromK c t
+      Nothing -> error "astConvertUp: tensor kinds don't match"
+  (FTKS shz zx, FTKR shr yx, _) ->
+    case (matchingFTK yx zx, testEquality (shsRank shz) (shrRank shr)) of
+      (Just Refl, Just Refl) -> Ast.AstConvert c t
+      _ -> error "astConvertUp: tensor kinds don't match"
+  (FTKS shz zx, FTKX shy yx, _) ->
+    case (matchingFTK yx zx, testEquality (shsRank shz) (shxRank shy)) of
+      (Just Refl, Just Refl) -> Ast.AstConvert c t
+      _ -> error "astConvertUp: tensor kinds don't match"
+{- TODO: this causes a loop; can it be removed?
+  (FTKProduct yftk1 yftk2, _, Ast.AstPair a1 a2)
+    | FTKProduct zftk1 zftk2 <- zftk ->
+      -- Here we can't always use the c the user presumably wrote,
+      -- so we always create a canonical one.
+      astPair (astConvertUp (convUp yftk1 zftk1) zftk1 a1)
+              (astConvertUp (convUp yftk2 zftk2) zftk2 a2) -}
+  (FTKProduct{}, _, _) -> Ast.AstConvert c t
+  (yftk, _, _) ->
+    error $ "astConvertUp: wrong tensor kinds: " ++ show (yftk, zftk, t)
 
 -- In case of a conversion to scalar values, we are not pushing down but up
 -- except when we can immediately simplify.
@@ -3541,7 +3551,7 @@ astConvDown zstk t = astConvert (convDown (ftkAst t) zstk) t
 astConvDownKFromS :: forall r s. (KnownSpan s, GoodScalar r)
                   => AstTensor AstMethodLet s (TKS2 '[] (TKScalar r))
                   -> AstTensor AstMethodLet s (TKScalar r)
-astConvDownKFromS t = astConvertUp (ConvCmp ConvX0 ConvSX) FTKScalar t
+astConvDownKFromS t = astConvertDownKFromS (ConvCmp ConvX0 ConvSX) FTKScalar t
 
 astConvDownSFromR :: forall sh s r. KnownSpan s
                   => ShS sh -> AstTensor AstMethodLet s (TKR2 (Rank sh) r)
