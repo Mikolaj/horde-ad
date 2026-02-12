@@ -3185,7 +3185,7 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
   (FTKScalar @ry, FTKS ZSS (FTKScalar @rz))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       let c2 = ConvCmp ConvXS (Conv0X STKScalar)
-      in astConvertUpSFromK c2 a
+      in astConvertUp c2 (FTKS ZSS FTKScalar) a
   (FTKR shr xy, zftk@(FTKS sh xz))
     | Just Refl <- matchingFTK xy xz
     , Just Refl <- testEquality (shrRank shr) (shsRank sh) ->
@@ -3546,7 +3546,7 @@ astConvertUp c zftk t = case (ftkAst t, zftk, t) of
     astConvert (c `convCmp` c2) a2
   (FTKScalar @ry, FTKS ZSS (FTKScalar @rz), _) ->
     case testEquality (typeRep @ry) (typeRep @rz) of
-      Just Refl -> astConvertUpSFromK c t
+      Just Refl -> Ast.AstConvert c t
       Nothing -> error "astConvertUp: tensor kinds don't match"
   (FTKScalar @ry, FTKR ZSR (FTKScalar @rz), _) ->
     case testEquality (typeRep @ry) (typeRep @rz) of
@@ -3567,41 +3567,6 @@ astConvertUp c zftk t = case (ftkAst t, zftk, t) of
   (FTKProduct{}, _, _) -> Ast.AstConvert c t
   (yftk, _, _) ->
     error $ "astConvertUp: wrong tensor kinds: " ++ show (yftk, zftk, t)
-
--- In case of a conversion to scalar values, we are not pushing down but up
--- except when we can immediately simplify.
-astConvertUpSFromK :: forall r s. KnownSpan s
-                   => TKConversion (TKScalar r) (TKS '[] r)
-                   -> AstTensor AstMethodLet s (TKScalar r)
-                   -> AstTensor AstMethodLet s (TKS '[] r)
-astConvertUpSFromK c a0 = case a0 of
-  -- TODO: remove these once we reduce the terms in other ways
-  AstConcreteK k -> AstConcreteS $ Nested.sscalar k
-  AstPlusK u v ->
-    astConvertUpSFromK c u + astConvertUpSFromK c v
-  AstTimesK u v ->
-    astConvertUpSFromK c u * astConvertUpSFromK c v
-  Ast.AstN1K NegateOp u ->
-    negate (astConvertUpSFromK c u)
-  Ast.AstN1K AbsOp u ->
-    abs (astConvertUpSFromK c u)
-  Ast.AstN1K SignumOp u ->
-    signum (astConvertUpSFromK c u)
-  Ast.AstR1K opCode u -> Ast.AstR1S opCode (astConvertUpSFromK c u)
-  Ast.AstR2K opCode u v ->
-    Ast.AstR2S opCode (astConvertUpSFromK c u)
-                      (astConvertUpSFromK c v)
-  Ast.AstI2K QuotOp u v ->
-    astConvertUpSFromK c u `quotH` astConvertUpSFromK c v
-  Ast.AstI2K RemOp u v ->
-    astConvertUpSFromK c u `remH` astConvertUpSFromK c v
-
-
-  Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
-  Ast.AstFromPrimal a -> fromPrimal $ astConvertUpSFromK c a
-  Ast.AstFromDual a -> fromDual $ astConvertUpSFromK c a
-  Ast.AstFromPlain a -> fromPlain $ astConvertUpSFromK c a
-  _ -> Ast.AstConvert c a0
 
 astConvDown :: forall y z s. KnownSpan s
             => SingletonTK z -> AstTensor AstMethodLet s y
@@ -3642,7 +3607,7 @@ astConvUpSFromK :: forall r s. (GoodScalar r, KnownSpan s)
                 -> AstTensor AstMethodLet s (TKS '[] r)
 astConvUpSFromK a =
   let c2 = ConvCmp ConvXS (Conv0X STKScalar)
-  in astConvertUpSFromK c2 a
+  in astConvertUp c2 (FTKS ZSS FTKScalar) a
 
 -- Or should we take SNat (Rank sh) to help proving n ~ Rank sh?
 astConvUpRFromS :: forall sh x s. KnownSpan s
