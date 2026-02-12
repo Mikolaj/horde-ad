@@ -3529,12 +3529,6 @@ astConvertUpSFromK c a0 = case a0 of
     astConvertUpSFromK c u `quotH` astConvertUpSFromK c v
   Ast.AstI2K RemOp u v ->
     astConvertUpSFromK c u `remH` astConvertUpSFromK c v
-  Ast.AstCond b v w -> astCond b (astConvertUpSFromK c v)
-                                 (astConvertUpSFromK c w)
-  Ast.AstLet var u v -> astLet var u (astConvertUpSFromK c v)
-  Ast.AstPrimalPart a -> astPrimalPart $ astConvertUpSFromK c a
-  Ast.AstDualPart a -> astDualPart $ astConvertUpSFromK c a
-  Ast.AstPlainPart a -> astPlainPart $ astConvertUpSFromK c a
 
 
   Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2

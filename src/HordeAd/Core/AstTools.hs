@@ -706,6 +706,9 @@ convUp yftk zftk = case convUpMaybe yftk zftk of
 convDownMaybe :: FullShapeTK y0 -> SingletonTK z0 -> Maybe (TKConversion y0 z0)
 convDownMaybe = \cases
   yftk0 zstk0 | Just Refl <- sameSTK (ftkToSTK yftk0) zstk0 -> Just ConvId
+  (FTKS ZSS (FTKScalar @ry)) (STKScalar @rz)
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      Just $ convCmp ConvX0 ConvSX
   (FTKR rsh rx) (STKS @sh sh x)
     | Just Refl <- sameSTK x (ftkToSTK rx)
     , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
@@ -737,6 +740,9 @@ convDownMaybe = \cases
 convUpMaybe :: FullShapeTK y0 -> FullShapeTK z0 -> Maybe (TKConversion y0 z0)
 convUpMaybe = \cases
   yftk0 zftk0 | Just Refl <- matchingFTK yftk0 zftk0 -> Just ConvId
+  (FTKScalar @rz) (FTKS ZSS (FTKScalar @ry))
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      Just $ convCmp ConvXS (Conv0X STKScalar)
   (FTKS sh x) (FTKR rsh rx)
     | Just Refl <- matchingFTK x rx
     , Just Refl <- testEquality (shsRank sh) (shrRank rsh)
