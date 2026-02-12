@@ -1734,7 +1734,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
    AstConvUp ftkz v -> case matchingFTK (ftkAst v) ftkz of
      Just Refl -> astIndexKnobsS knobs shn v ix
        -- rare, usually simplifies away earlier
-     Nothing -> error "astIndexKnobsS: wrong tensor kinds in AstFromS"
+     Nothing -> error "astIndexKnobsS: wrong tensor kinds in AstConvUp"
    -- These conversions need to stay down, so this is NF, see vectorization.
    Ast.AstConvert{} -> Ast.AstIndexS shn v0 ix
 
@@ -2801,7 +2801,7 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
     AstConvUp ftkz v -> case matchingFTK (ftkAst v) ftkz of
       Just Refl -> astGather shm shn shp v (vars4, ix4)
         -- rare, usually simplifies away earlier
-      Nothing -> error "astGatherKnobsS: wrong tensor kinds in AstFromS"
+      Nothing -> error "astGatherKnobsS: wrong tensor kinds in AstConvUp"
     -- These conversions need to stay down.
     Ast.AstConvert{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
 
@@ -3632,8 +3632,7 @@ astSum0 t = case t of
                             (astReplicate m knownSTK m2))
   _ -> case ftkAst t of
     FTKS ZSS FTKScalar -> astConvDownKFromS t
-    FTKS (SNat' @1 :$$ ZSS) FTKScalar ->
-      astConvDownKFromS (astIndexS ZSS t (0 :.$ ZIS))
+    FTKS (SNat' @1 :$$ ZSS) FTKScalar -> astIndex0 t (0 :.$ ZIS)
     _ -> Ast.AstSum0 t
 
 astDot0 :: (NumScalar r, KnownSpan s)
@@ -3684,8 +3683,7 @@ astDot0 t1 t2 = case (t1, t2) of
   _ -> case ftkAst t1 of
     FTKS ZSS FTKScalar -> astConvDownKFromS t1 * astConvDownKFromS t2
     FTKS (SNat' @1 :$$ ZSS) FTKScalar ->
-      astConvDownKFromS (astIndexS ZSS t1 (0 :.$ ZIS))
-      * astConvDownKFromS (astIndexS ZSS t2 (0 :.$ ZIS))
+      astIndex0 t1 (0 :.$ ZIS) * astIndex0 t2 (0 :.$ ZIS)
     _ -> Ast.AstDot0 t1 t2
 
 astDot1InS :: forall sh n r s. (NumScalar r, KnownSpan s)
