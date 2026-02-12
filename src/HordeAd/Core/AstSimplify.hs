@@ -471,7 +471,9 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   (let unFrom :: KnownSpan s2
               => AstTensor AstMethodLet s2 (TKS '[] r)
               -> Maybe (AstTensor AstMethodLet s2 (TKScalar r))
-       unFrom (AstConvUpSFromK' t) = Just t
+       unFrom (AstConvUpSFromK t) = Just t
+         -- AstConvUp above subsumes AstConvUpSFromK, but the cases below
+         -- can be easily handled only within this narrow typing.
        unFrom (AstConcreteS v) = Just $ AstConcreteK $ Nested.sunScalar v
        unFrom (Ast.AstSum snat2 (STKS _ STKScalar) v) =
          Just $ astSum snat2 STKScalar v
@@ -635,9 +637,6 @@ astReplicate snat@SNat stk t0 = case t0 of
     astConcreteS $ treplicate snat stk $ Concrete t
       -- revisit the trade-offs once we compile instead of interpreting
       -- and so building big blobby concrete arrays is cheap
-  Ast.AstConvert c t | STKS ZSS STKScalar <- stk
-                     , Just (_, t2) <- checkPatternAstConvUpSFromK c t ->
-    astReplicate snat STKScalar t2
   Ast.AstConvert c t | checkAstConvUp c t ->
     let xftk = ftkAst t
     in astConvert (buildTKConversion snat xftk c)
@@ -1349,7 +1348,7 @@ astFloorS t = case t of
   Ast.AstReverseS v -> astReverseS (astFloorS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astFloorS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astFloorS v)
-  AstConvUpSFromK' a -> astConvUpSFromK (astFloorK a)
+  AstConvUpSFromK a -> astConvUpSFromK (astFloorK a)
   _ -> Ast.AstFloorS t
 
 astFromIntegralS :: forall r1 r2 sh. (NumScalar r1, NumScalar r2, Integral r1)
@@ -1386,7 +1385,7 @@ astFromIntegralS t = case t of
   Ast.AstReverseS v -> astReverseS (astFromIntegralS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astFromIntegralS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astFromIntegralS v)
-  AstConvUpSFromK' a -> astConvUpSFromK (astFromIntegralK a)
+  AstConvUpSFromK a -> astConvUpSFromK (astFromIntegralK a)
   _ -> Ast.AstFromIntegralS t
 
 astCastS :: forall r1 r2 s sh.
@@ -1438,7 +1437,7 @@ astCastS t = case t of
   Ast.AstReverseS v -> astReverseS (astCastS v)
   Ast.AstTransposeS perm v -> astTransposeS perm (astCastS v)
   Ast.AstReshapeS sh v -> astReshapeS sh (astCastS v)
-  AstConvUpSFromK' a -> astConvUpSFromK (astCastK a)
+  AstConvUpSFromK a -> astConvUpSFromK (astCastK a)
   _ -> Ast.AstCastS t
 
 astIndexS

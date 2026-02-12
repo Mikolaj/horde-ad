@@ -15,9 +15,8 @@ module HordeAd.Core.AstTools
   , cAstConvert
   , cAstConvDownKFromS, cAstConvDownSFromR, cAstConvDownSFromX
   , cAstConvUpSFromK, cAstConvUpRFromS, cAstConvUpXFromS
-  , pattern AstConvUpSFromK', pattern AstConvUp
-  , checkPatternAstConvUpSFromK, checkAstConvUp
-  , convDown, convUp, convDownMaybe, convUpMaybe
+  , pattern AstConvUpSFromK, pattern AstConvUp
+  , checkAstConvUp, convDown, convUp, convDownMaybe, convUpMaybe
   , setTotalSharing
   ) where
 
@@ -614,10 +613,10 @@ cAstConvUpXFromS :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
 cAstConvUpXFromS sh' t = case ftkAst t of
   FTKS _ x -> cAstConvert (convUp (ftkAst t) (FTKX sh' x)) t
 
-pattern AstConvUpSFromK' :: KnownSpan s => sh ~ '[]
-                         => AstTensor ms s (TKScalar r)
-                         -> AstTensor ms s (TKS sh r)
-pattern AstConvUpSFromK' t <- (matchAstConvUpSFromK -> Just (Refl, t))
+pattern AstConvUpSFromK :: KnownSpan s => sh ~ '[]
+                        => AstTensor ms s (TKScalar r)
+                        -> AstTensor ms s (TKS sh r)
+pattern AstConvUpSFromK t <- (matchAstConvUpSFromK -> Just (Refl, t))
 
 matchAstConvUpSFromK :: KnownSpan s
                      => AstTensor ms s (TKS sh r)
