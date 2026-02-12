@@ -24,14 +24,15 @@ import Data.Proxy (Proxy)
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Foreign.C (CInt)
 import GHC.Exts (withDict)
-import GHC.TypeLits (KnownNat, OrderingI (..), cmpNat)
+import GHC.TypeLits (KnownNat)
 import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (fromSNat', unsafeCoerceRefl)
+import Data.Array.Nested.Types
+  (fromSNat', pattern SS, pattern SZ, unsafeCoerceRefl)
 
 import HordeAd.Core.Types
 
@@ -183,11 +184,8 @@ buildSTK snat@SNat = \case
 razeSTK :: SingletonTK z -> SingletonTK (RazeTensorKind z)
 razeSTK = \case
   STKScalar -> error "razeSTK: impossible argument"
-  STKR snat@SNat x ->
-    case cmpNat (SNat @1) snat of
-      LTI -> STKR SNat x
-      EQI -> STKR SNat x
-      _ -> error "razeSTK: impossible argument"
+  STKR SZ _ -> error "razeSTK: impossible argument"
+  STKR (SS snat) x -> STKR snat x
   STKS ZSS _ -> error "razeSTK: impossible argument"
   STKS (_ :$$ sh) x -> STKS sh x
   STKX ZKX _ -> error "razeSTK: impossible argument"
@@ -313,7 +311,7 @@ buildFTK snat@SNat = \case
 razeFTK :: forall y k.
            SNat k -> SingletonTK y -> FullShapeTK (BuildTensorKind k y)
         -> FullShapeTK y
-razeFTK snat@SNat stk ftk = case (stk, ftk) of
+razeFTK snat stk ftk = case (stk, ftk) of
   (STKScalar, FTKS (_ :$$ ZSS) FTKScalar) -> FTKScalar
   (STKR{}, FTKR (_ :$: sh) x) -> FTKR sh x
   (STKS{}, FTKS (_ :$$ sh) x) -> FTKS sh x
