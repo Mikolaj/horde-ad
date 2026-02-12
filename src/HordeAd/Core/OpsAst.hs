@@ -1264,11 +1264,20 @@ instance KnownSpan s => ConvertTensor (AstRaw s) where
 astConcreteRaw :: FullShapeTK y -> Concrete y -> AstRaw PlainSpan y
 astConcreteRaw ftk v = case ftk of
   FTKScalar -> AstRaw $ AstConcreteK $ unConcrete v
+  FTKR ZSR FTKScalar ->
+    AstRaw $ AstConvert (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))
+    $ AstConcreteK $ Nested.runScalar $ unConcrete v
   FTKR sh' FTKScalar -> AstRaw $
     withShsFromShR sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
       cAstConvUpRFromS sh' $ AstConcreteS $ unConcrete $ sfromR @_ @sh v
+  FTKS ZSS FTKScalar ->
+    AstRaw $ AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
+    $ AstConcreteK $ Nested.sunScalar $ unConcrete v
   FTKS _ FTKScalar -> AstRaw $ AstConcreteS $ unConcrete v
+  FTKX ZSX FTKScalar ->
+    AstRaw $ AstConvert (Conv0X STKScalar)
+    $ AstConcreteK $ Nested.munScalar $ unConcrete v
   FTKX sh' FTKScalar -> AstRaw $
     withShsFromShX sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $

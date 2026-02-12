@@ -29,6 +29,7 @@ import GHC.TypeLits (KnownNat)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++))
+import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (Perm (..))
@@ -46,6 +47,7 @@ import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
+import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -834,7 +836,7 @@ contractAst t0 = case t0 of
     AstConcreteS v -> astConcreteS (tsreshape sh2 $ Concrete v)
     t2 -> astReshapeS sh2 t2
 
-  Ast.AstConvert c v -> astConvert c $ contractAst v
+  Ast.AstConvert c v -> astConvertConcrete c $ contractAst v
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstIndex0{} -> t0
@@ -856,6 +858,31 @@ contractAst t0 = case t0 of
 contractAstHFun :: KnownSpan s
                 => AstHFun s x y -> AstHFun s x y
 contractAstHFun (AstLambda var l) = AstLambda var (contractAst l)
+
+astConvertConcrete :: forall y z s. KnownSpan s
+                   => TKConversion y z
+                   -> AstTensor AstMethodLet s y
+                   -> AstTensor AstMethodLet s z
+astConvertConcrete c a0 = case a0 of
+  AstConcreteK a -> astConcreteKeepShaped (convertFTK c FTKScalar)
+                    $ tconvert c STKScalar $ Concrete a
+  AstConcreteS a -> let ftk = FTKS (Nested.sshape a) FTKScalar
+                    in astConcreteKeepShaped (convertFTK c ftk)
+                       $ tconvert c (ftkToSTK ftk) $ Concrete a
+  Ast.AstPrimalPart a -> astPrimalPart $ astConvertConcrete c a
+  Ast.AstDualPart a -> astDualPart $ astConvertConcrete c a
+  Ast.AstPlainPart a -> astPlainPart $ astConvertConcrete c a
+  Ast.AstFromPrimal a -> fromPrimal $ astConvertConcrete c a
+  Ast.AstFromDual a -> fromDual $ astConvertConcrete c a
+  Ast.AstFromPlain a -> fromPlain $ astConvertConcrete c a
+  Ast.AstConvert c2 a2 -> astConvertConcrete (c `convCmp` c2) a2
+  _ -> astConvert c a0
+
+astConcreteKeepShaped :: FullShapeTK y -> Concrete y
+                      -> AstTensor AstMethodLet PlainSpan y
+astConcreteKeepShaped ftk v = case ftk of
+  FTKS _ FTKScalar -> astConcreteS v
+  _ -> astConcrete ftk v
 
 attemptMatmul2
   :: forall m n p r s.

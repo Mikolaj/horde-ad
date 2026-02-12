@@ -3857,16 +3857,25 @@ instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
 astConcrete :: FullShapeTK y -> Concrete y -> AstTensor AstMethodLet PlainSpan y
 {-# INLINE astConcrete #-}
 astConcrete ftk v = case ftk of
-  FTKScalar -> astConcreteK $ v
+  FTKScalar -> astConcreteK v
+  FTKR ZSR FTKScalar ->
+    Ast.AstConvert (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))
+    $ AstConcreteK $ Nested.runScalar $ unConcrete v
   FTKR sh' FTKScalar ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      astConvUp ftk $ astConcreteS (sfromR @_ @sh v)
+      astConvUpRFromS sh' $ astConcreteS (sfromR @_ @sh v)
+  FTKS ZSS FTKScalar ->
+    Ast.AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
+    $ AstConcreteK $ Nested.sunScalar $ unConcrete v
   FTKS _ FTKScalar -> astConcreteS v
+  FTKX ZSX FTKScalar ->
+    Ast.AstConvert (Conv0X STKScalar)
+    $ AstConcreteK $ Nested.munScalar $ unConcrete v
   FTKX sh' FTKScalar ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      astConvUp ftk $ astConcreteS (sfromX @_ @sh v)
+      astConvUpXFromS sh' $ astConcreteS (sfromX @_ @sh v)
   FTKProduct ftk1 ftk2 ->
     astPair (astConcrete ftk1 (tproject1 v)) (astConcrete ftk2 (tproject2 v))
   _ -> concreteTarget astConcreteK astConcreteS astConvUpRFromS astConvUpXFromS
@@ -3896,17 +3905,17 @@ astLetFun a f = case a of
     ftk@FTKScalar -> do
         var <- funToAstAutoBoundsIO ftk a
         pure $! astLet var a (f $ astVar var)
-    ftk@(FTKR @_ @x sh' x) ->
+    FTKR sh' x ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
         let v = astConvDownSFromR sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! astLet var v (f $ astConvUp @(TKS2 sh x) ftk $ astVar var)
+        pure $! astLet var v (f $ astConvUpRFromS sh' $ astVar var)
           -- safe, because subsitution ruled out above
-    ftk@(FTKX @_ @x sh' x) ->
+    FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> do
         let v = astConvDownSFromX sh a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! astLet var v (f $ astConvUp @(TKS2 sh x) ftk $ astVar var)
+        pure $! astLet var v (f $ astConvUpXFromS sh' $ astVar var)
     FTKS ZSS x@FTKScalar -> do
         let v = astConvDownKFromS a
         var <- funToAstAutoBoundsIO x v
