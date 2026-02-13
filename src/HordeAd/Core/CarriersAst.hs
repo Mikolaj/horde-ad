@@ -222,7 +222,18 @@ instance (NumScalar r, KnownSpan s)
     * AstTimesK (AstFromPlain (AstConcreteK k)) v =
       AstFromPlain (AstConcreteK (n * k)) * AstTimesK u v
 
-  -- Term u is concrete, so doesn't have to be shared despite the duplication.
+  -- This breaks sharing, because although u is concrete and so doesn't
+  -- have to be shared, the multiplication is not shared --- we end up
+  -- with one addition and two multiplications, not one. Similarly below.
+  -- However, three instead of two cheap scalar operations is benign
+  -- and there's no risk of exponential blowup via duplicating
+  -- variables, so the ability to simplify better is worth the overhead.
+  -- OTOH, we don't declare scalar operations small in astIsSmall,
+  -- because that could lead to such operations being inlined an unbounded
+  -- number of times into expressions.
+  -- Note that due to non-scalar versions of these rules being banned,
+  -- we get different terms depending on the form of conversions
+  -- and rank 0 arrays.
   u@AstConcreteK{} * AstPlusK v w = AstPlusK (u * v) (u * w)
   AstTimesK u@AstConcreteK{} x * AstPlusK v w =
     AstTimesK x (AstPlusK (u * v) (u * w))
@@ -710,18 +721,21 @@ instance (NumScalar r, KnownSpan s)
     * AstTimesS (AstFromPlain (AstConcreteS k)) v =
       AstTimesS (AstFromPlain (AstConcreteS (n * k))) (AstTimesS u v)
 
-  u@AstConcreteS{} * AstPlusS v w = AstPlusS (u * v) (u * w)
-  AstTimesS u@AstConcreteS{} x * AstPlusS v w =
-    AstTimesS x (AstPlusS (u * v) (u * w))
-  AstPlusS v w * u@AstConcreteS{} = AstPlusS (v * u) (w * u)
-  AstPlusS v w * AstTimesS u@AstConcreteS{} x =
-    AstTimesS (AstPlusS (v * u) (w * u)) x
-  u@(AstFromPlain (AstConcreteS{})) * AstPlusS v w = AstPlusS (u * v) (u * w)
-  AstTimesS u@(AstFromPlain (AstConcreteS{})) x * AstPlusS v w =
-    AstTimesS x (AstPlusS (u * v) (u * w))
-  AstPlusS v w * u@(AstFromPlain (AstConcreteS{})) = AstPlusS (v * u) (w * u)
-  AstPlusS v w * AstTimesS u@(AstFromPlain (AstConcreteS{})) x =
-    AstTimesS (AstPlusS (v * u) (w * u)) x
+  -- This breaks sharing, because although u is concrete and so doesn't
+  -- have to be shared, the multiplication is not shared --- we end up
+  -- with one addition and two multiplications, not one. Similarly below.
+  -- u@AstConcreteS{} * AstPlusS v w = AstPlusS (u * v) (u * w)
+  -- AstTimesS u@AstConcreteS{} x * AstPlusS v w =
+  --   AstTimesS x (AstPlusS (u * v) (u * w))
+  -- AstPlusS v w * u@AstConcreteS{} = AstPlusS (v * u) (w * u)
+  -- AstPlusS v w * AstTimesS u@AstConcreteS{} x =
+  --   AstTimesS (AstPlusS (v * u) (w * u)) x
+  -- u@(AstFromPlain (AstConcreteS{})) * AstPlusS v w = AstPlusS (u * v) (u * w)
+  -- AstTimesS u@(AstFromPlain (AstConcreteS{})) x * AstPlusS v w =
+  --   AstTimesS x (AstPlusS (u * v) (u * w))
+  -- AstPlusS v w * u@(AstFromPlain (AstConcreteS{})) = AstPlusS (v * u) (w * u)
+  -- AstPlusS v w * AstTimesS u@(AstFromPlain (AstConcreteS{})) x =
+  --   AstTimesS (AstPlusS (v * u) (w * u)) x
 
   AstN1S NegateOp u * AstN1S NegateOp v = AstTimesS u v
 
