@@ -842,14 +842,12 @@ astLet var (Ast.AstTransposeS perm a) v =
   let var2 = reshapeVarName (ftkAst a) var
       ast = Ast.AstTransposeS perm $ astVar var2
   in astLet var2 a (substituteAst ast var v)
-astLet var (Ast.AstConvert c a) v
-  | checkAstConvUp c a =
-    let var2 = reshapeVarName (ftkAst a) var
-        ast = withKnownSpan (varNameToSpan var) $ astConvert c $ astVar var2
-    in astLet var2 a (substituteAst ast var v)
-astLet var u (Ast.AstConvert c a)
-  | checkAstConvUp c a =
-    astConvert c $ astLet var u a
+astLet var (AstConvUp zftk a) v =
+  let var2 = reshapeVarName (ftkAst a) var
+      ast = withKnownSpan (varNameToSpan var) $ astConvUp zftk $ astVar var2
+  in astLet var2 a (substituteAst ast var v)
+astLet var u (AstConvUp zftk a) =
+  astConvUp zftk $ astLet var u a
 astLet var u v = Ast.AstLet var u v
 
 astPrimalPart :: KnownSpan s
