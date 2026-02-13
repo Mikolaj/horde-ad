@@ -277,15 +277,12 @@ astPair (Ast.AstFromDual v1) (Ast.AstFromDual v2) =
   fromDual $ astPair v1 v2
 astPair (Ast.AstFromPlain v1) (Ast.AstFromPlain v2) =
   fromPlain $ astPair v1 v2
-astPair (Ast.AstConvert c1 v1) (Ast.AstConvert c2 v2)
-  | checkAstConvUp c1 v1 && checkAstConvUp c2 v2 =
-    astConvert (ConvT2 c1 c2) $ astPair v1 v2
-astPair (Ast.AstConvert c1 v1) v2
-  | checkAstConvUp c1 v1 =
-    astConvert (ConvT2 c1 ConvId) $ astPair v1 v2
-astPair v1 (Ast.AstConvert c2 v2)
-  | checkAstConvUp c2 v2 =
-    astConvert (ConvT2 ConvId c2) $ astPair v1 v2
+astPair (AstConvUp ftk1 v1) (AstConvUp ftk2 v2) =
+  astConvUp (FTKProduct ftk1 ftk2) (astPair v1 v2)
+astPair (AstConvUp ftk1 v1) v2 =
+  astConvUp (FTKProduct ftk1 (ftkAst v2)) (astPair v1 v2)
+astPair v1 (AstConvUp ftk2 v2) =
+  astConvUp (FTKProduct (ftkAst v1) ftk2) (astPair v1 v2)
 astPair v1 v2 = Ast.AstPair v1 v2
 
 astProject1
@@ -639,10 +636,9 @@ astReplicate snat@SNat stk t0 = case t0 of
     astConcreteS $ treplicate snat stk $ Concrete t
       -- revisit the trade-offs once we compile instead of interpreting
       -- and so building big blobby concrete arrays is cheap
-  Ast.AstConvert c t | checkAstConvUp c t ->
+  AstConvUp zftk t ->
     let xftk = ftkAst t
-    in astConvert (buildTKConversion snat xftk c)
-                  (astReplicate snat (ftkToSTK xftk) t)
+    in astConvUp (buildFTK snat zftk) (astReplicate snat (ftkToSTK xftk) t)
   _ -> Ast.AstReplicate snat stk t0
   -- TODO: maybe add a rule and then generalize:
   -- replicate n1 (str (replicate n2 u))
@@ -810,9 +806,9 @@ astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
 astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
   fromPlain $ astCond b v w
 -- We rely here on c and the other conversion being semantically equal.
-astCond b (AstConvUp _ v) (Ast.AstConvert c w)
+astCond b (AstConvUp zftk v) (AstConvUp _ w)
   | Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
-    astConvert c $ astCond b v w
+    astConvUp zftk $ astCond b v w
 astCond b v w = Ast.AstCond b v w
 
 -- Invariant: if the variable has bounds, the expression can only have
