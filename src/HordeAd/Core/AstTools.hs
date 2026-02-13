@@ -620,13 +620,12 @@ cAstConvUpXFromS :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
 cAstConvUpXFromS sh' t = case ftkAst t of
   FTKS _ x -> cAstConvert (convUp (ftkAst t) (FTKX sh' x)) t
 
-pattern AstConvUpSFromK :: KnownSpan s => sh ~ '[]
+pattern AstConvUpSFromK :: () => sh ~ '[]
                         => AstTensor ms s (TKScalar r)
                         -> AstTensor ms s (TKS sh r)
 pattern AstConvUpSFromK t <- (matchAstConvUpSFromK -> Just (Refl, t))
 
-matchAstConvUpSFromK :: KnownSpan s
-                     => AstTensor ms s (TKS sh r)
+matchAstConvUpSFromK :: AstTensor ms s (TKS sh r)
                      -> Maybe ( sh :~: '[]
                               , AstTensor ms s (TKScalar r) )
 matchAstConvUpSFromK = \case
@@ -637,14 +636,14 @@ matchAstConvUpSFromK = \case
       Just (Refl, t)
   AstConcreteS a | ZSS <- Nested.sshape a ->
     Just (Refl, AstConcreteK $ Nested.sunScalar a)
-  AstFromPrimal t -> second fromPrimal <$> matchAstConvUpSFromK t
+  AstFromPrimal t -> second AstFromPrimal <$> matchAstConvUpSFromK t
   AstFromDual t -> second fromDual <$> matchAstConvUpSFromK t
-  AstFromPlain t -> second fromPlain <$> matchAstConvUpSFromK t
+  AstFromPlain t -> second AstFromPlain <$> matchAstConvUpSFromK t
   _ -> Nothing
 
 -- TODO: simplify this monstrosity, if possible
-pattern AstConvUp :: forall {z1} {ms1} {s1}. KnownSpan s1
-                  => forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)
+pattern AstConvUp :: forall {z1} {ms1} {s1}.
+                     forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)
                   => FullShapeTK z -> AstTensor ms s y
                   -> AstTensor ms1 s1 z1
 pattern AstConvUp zftk a <- (matchAstConvUp -> AstConvUpJust zftk a)
@@ -654,7 +653,7 @@ data AstConvUpMaybe z ms s =
     forall y. AstConvUpJust (FullShapeTK z) (AstTensor ms s y)
   | AstConvUpNothing
 
-matchAstConvUp :: KnownSpan s => AstTensor ms s z -> AstConvUpMaybe z ms s
+matchAstConvUp :: AstTensor ms s z -> AstConvUpMaybe z ms s
 matchAstConvUp = \case
   AstConvert c t ->
     let yftk = ftkAst t
@@ -665,13 +664,13 @@ matchAstConvUp = \case
   AstConcreteS a | ZSS <- Nested.sshape a ->
     AstConvUpJust (FTKS ZSS FTKScalar) (AstConcreteK $ Nested.sunScalar a)
   AstFromPrimal t -> case matchAstConvUp t of
-    AstConvUpJust zftk u -> AstConvUpJust zftk (fromPrimal u)
+    AstConvUpJust zftk u -> AstConvUpJust zftk (AstFromPrimal u)
     AstConvUpNothing -> AstConvUpNothing
   AstFromDual t -> case matchAstConvUp t of
     AstConvUpJust zftk u -> AstConvUpJust zftk (fromDual u)
     AstConvUpNothing -> AstConvUpNothing
   AstFromPlain t -> case matchAstConvUp t of
-    AstConvUpJust zftk u -> AstConvUpJust zftk (fromPlain u)
+    AstConvUpJust zftk u -> AstConvUpJust zftk (AstFromPlain u)
     AstConvUpNothing -> AstConvUpNothing
   _ -> AstConvUpNothing
 
