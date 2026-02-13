@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Conversion constructors.
 module HordeAd.Core.Conversion
-  ( TKConversion(..), convCmp, lemTKAllNumConvert
+  ( TKConversion(..), convCmp, lemTKAllNumConvert, lemTKAllNumBackConvert
   , convertSTK, convertFTK, buildTKConversion, transposeTKConversion
   ) where
 
@@ -182,12 +182,12 @@ convXX  :: TKConversion a b -> TKConversion (TKX2 sh a) (TKX2 sh b)
 convXX ConvId = ConvId
 convXX a = ConvXX a
 
-lemTKAllNumConvert :: TKAllNum b
-                   => TKConversion a b -> Dict0 (TKAllNum a)
+lemTKAllNumConvert :: TKAllNum a
+                   => TKConversion a b -> Dict0 (TKAllNum b)
 lemTKAllNumConvert = \case
   ConvId -> Dict0
-  ConvCmp c1 c2 | Dict0 <- lemTKAllNumConvert c1 ->
-    lemTKAllNumConvert c2
+  ConvCmp c1 c2 | Dict0 <- lemTKAllNumConvert c2 ->
+    lemTKAllNumConvert c1
   ConvRX -> Dict0
   ConvSX -> Dict0
   ConvXR{}  -> Dict0
@@ -199,6 +199,30 @@ lemTKAllNumConvert = \case
   ConvXX c | Dict0 <- lemTKAllNumConvert c -> Dict0
   ConvT2 c1 c2 | Dict0 <- lemTKAllNumConvert c1
                , Dict0 <- lemTKAllNumConvert c2 -> Dict0
+  Conv0X{} -> Dict0
+  ConvX0 -> Dict0
+  ConvNest{} -> Dict0
+  ConvUnnest -> Dict0
+  ConvZip{} -> Dict0
+  ConvUnzip{} -> Dict0
+
+lemTKAllNumBackConvert :: TKAllNum b
+                       => TKConversion a b -> Dict0 (TKAllNum a)
+lemTKAllNumBackConvert = \case
+  ConvId -> Dict0
+  ConvCmp c1 c2 | Dict0 <- lemTKAllNumBackConvert c1 ->
+    lemTKAllNumBackConvert c2
+  ConvRX -> Dict0
+  ConvSX -> Dict0
+  ConvXR{}  -> Dict0
+  ConvXS -> Dict0
+  ConvXS'{} -> Dict0
+  ConvXX'{} -> Dict0
+  ConvRR c | Dict0 <- lemTKAllNumBackConvert c -> Dict0
+  ConvSS c | Dict0 <- lemTKAllNumBackConvert c -> Dict0
+  ConvXX c | Dict0 <- lemTKAllNumBackConvert c -> Dict0
+  ConvT2 c1 c2 | Dict0 <- lemTKAllNumBackConvert c1
+               , Dict0 <- lemTKAllNumBackConvert c2 -> Dict0
   Conv0X{} -> Dict0
   ConvX0 -> Dict0
   ConvNest{} -> Dict0

@@ -597,17 +597,19 @@ astSum snat@SNat stk t0 = case t0 of
         AstConcreteK True ->
           astScatterS shm shn (shsTail shp) v (vars, rest)
         _ -> Ast.AstSum snat stk t0
-  Ast.AstConvert c t | checkAstConvUp c t -> case ftkAst t of
-    -- The FTKScalar case is impossible.
-    FTKS (snat2 :$$ rest) x
-      | Dict0 <- lemTKAllNumBuild snat stk
-      , Dict0 <- lemTKAllNumConvert c
-      , Dict0 <- lemTKAllNumRaze snat2 (STKS rest (ftkToSTK x)) ->
-        -- Here we'd need to change the types inside c, so instead we construct
-        -- a new conversion based on the domain and codomain.
-        astConvUp (razeFTK snat stk (ftkAst t0))
-        $ astSum snat2 (STKS rest (ftkToSTK x)) t
-    _ -> Ast.AstSum snat stk t0  -- products probably not worth the effort
+  AstConvUp @xs zftk t ->
+    let xftk = ftkAst t
+        c = convUp xftk zftk
+        zftkRazed = razeFTK snat stk zftk
+    in case razeSTK zftkRazed (ftkToSTK xftk) of
+      (xstkRazed :: SingletonTK x) ->
+        gcastWith (unsafeCoerceRefl :: BuildTensorKind k x :~: xs) $
+        case lemTKAllNumBuild snat stk of
+          Dict0 -> case lemTKAllNumBackConvert c of
+            Dict0 -> case lemTKAllNumRaze snat xstkRazed of
+              Dict0 ->
+                astConvUp zftkRazed (astSum snat xstkRazed t)
+                  -- this uses razed c, not c
   _ -> Ast.AstSum snat stk t0
 
 astReplicate :: forall y k s. KnownSpan s
@@ -735,8 +737,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
       esShsFromSTK = ftkToSTK esShsFrom
   in case razeSTK eftk esShsFromSTK of
     (eftkFromSTK :: SingletonTK eyFrom) ->
-      gcastWith (unsafeCoerceRefl
-                 :: BuildTensorKind k eyFrom :~: esShsFrom) $
+      gcastWith (unsafeCoerceRefl :: BuildTensorKind k eyFrom :~: esShsFrom) $
       let eftkFrom = razeFTK k eftkFromSTK esShsFrom
           ftkf2 = FTKProduct accftk eftkFrom
           varf2 = reshapeVarName ftkf2 varf
