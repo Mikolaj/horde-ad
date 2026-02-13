@@ -424,74 +424,22 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
      Just l2 -> Just $ fromPlain $ astFromVector snat stk l2
      Nothing -> Nothing)
   `mplus`
-  (let unFrom :: KnownSpan s2
-              => FullShapeTK x
-              -> AstTensor AstMethodLet s2 y
+  (let unFrom :: FullShapeTK x -> AstTensor AstMethodLet s2 y
               -> Maybe (AstTensor AstMethodLet s2 x)
        unFrom yftk (AstConvUp _ t) =
          case matchingFTK (ftkAst t) yftk of
            Just Refl -> Just t
            Nothing -> Nothing  -- e.g., a conversion from X instead of R
-       unFrom yftk (Ast.AstFromPrimal t) = fromPrimal <$> unFrom yftk t
-       unFrom yftk (Ast.AstFromDual t) = fromDual <$> unFrom yftk t
-       unFrom yftk (Ast.AstFromPlain t) = fromPlain <$> unFrom yftk t
        unFrom _ _ = Nothing
    in case V.uncons l of
-     Just (Ast.AstConvert c0 t, _) ->
-       let yftk = ftkAst t
-           -- Here we heavily depend on c being semantically determined
-           -- by the domain and codomain. We take an arbitrary such c
-           -- and rely on astConvert to replace it with a canonical one.
-       in case V.mapM (unFrom yftk) l of
-         Just l2 ->
-           Just $ astConvert (buildTKConversion snat yftk c0)
-                $ astFromVector snat (ftkToSTK yftk) l2
-         Nothing -> Nothing
-     Just (Ast.AstFromPrimal (Ast.AstConvert c0 t), _) ->
+     Just (AstConvUp zftk t, _) ->
        let yftk = ftkAst t
        in case V.mapM (unFrom yftk) l of
          Just l2 ->
-           Just $ astConvert (buildTKConversion snat yftk c0)
-                $ astFromVector snat (ftkToSTK yftk) l2
-         Nothing -> Nothing
-     Just (Ast.AstFromDual (Ast.AstConvert c0 t), _) ->
-       let yftk = ftkAst t
-       in case V.mapM (unFrom yftk) l of
-         Just l2 ->
-           Just $ astConvert (buildTKConversion snat yftk c0)
-                $ astFromVector snat (ftkToSTK yftk) l2
-         Nothing -> Nothing
-     Just (Ast.AstFromPlain (Ast.AstConvert c0 t), _) ->
-       let yftk = ftkAst t
-       in case V.mapM (unFrom yftk) l of
-         Just l2 ->
-           Just $ astConvert (buildTKConversion snat yftk c0)
+           Just $ astConvUp (buildFTK snat zftk)
                 $ astFromVector snat (ftkToSTK yftk) l2
          Nothing -> Nothing
      Just{} -> Nothing
-     Nothing -> error "astFromVector: empty vector")
-  `mplus`
-  (let unFrom :: KnownSpan s2
-              => AstTensor AstMethodLet s2 (TKS '[] r)
-              -> Maybe (AstTensor AstMethodLet s2 (TKScalar r))
-       unFrom (AstConvUpSFromK t) = Just t
-         -- AstConvUp above subsumes AstConvUpSFromK, but the cases below
-         -- can be easily handled only within this narrow typing.
-         -- The AstConcreteS is impossible for R and X, so a generalization
-         -- to RFromK or XFromK is not worth the effort.
-       unFrom (AstConcreteS v) = Just $ AstConcreteK $ Nested.sunScalar v
-       unFrom (Ast.AstSum snat2 (STKS _ STKScalar) v) =
-         Just $ astSum snat2 STKScalar v
-       unFrom (Ast.AstFromPrimal t) = fromPrimal <$> unFrom t
-       unFrom (Ast.AstFromDual t) = fromDual <$> unFrom t
-       unFrom (Ast.AstFromPlain t) = fromPlain <$> unFrom t
-       unFrom _ = Nothing
-   in case ftkAst . fst <$> V.uncons l of
-     Just (FTKS ZSS FTKScalar) ->
-       case V.mapM unFrom l of
-         Just l2 -> Just $ astFromVector snat STKScalar l2
-         Nothing -> Nothing
-     Just _ -> Nothing
      Nothing -> error "astFromVector: empty vector")
 
 astSum :: forall y k s. (KnownSpan s, TKAllNum y)
