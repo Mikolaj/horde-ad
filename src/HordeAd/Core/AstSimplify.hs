@@ -250,16 +250,16 @@ astPair (Ast.AstProject1 (Ast.AstVar var))
         (Ast.AstProject2 (Ast.AstVar var'))
   | Just Refl <- testEquality var var', var == var' =
     Ast.AstVar var
-astPair (Ast.AstProject1 (Ast.AstPrimalPart (Ast.AstVar var)))
-        (Ast.AstProject2 (Ast.AstPrimalPart (Ast.AstVar var')))
+astPair (Ast.AstPrimalPart (Ast.AstProject1 (Ast.AstVar var)))
+        (Ast.AstPrimalPart (Ast.AstProject2 (Ast.AstVar var')))
   | Just Refl <- testEquality var var', var == var' =
     Ast.AstPrimalPart (Ast.AstVar var)
-astPair (Ast.AstProject1 (Ast.AstDualPart (Ast.AstVar var)))
-        (Ast.AstProject2 (Ast.AstDualPart (Ast.AstVar var')))
+astPair (Ast.AstDualPart (Ast.AstProject1 (Ast.AstVar var)))
+        (Ast.AstDualPart (Ast.AstProject2 (Ast.AstVar var')))
   | Just Refl <- testEquality var var', var == var' =
     Ast.AstDualPart (Ast.AstVar var)
-astPair (Ast.AstProject1 (Ast.AstPlainPart (Ast.AstVar @s1 var)))
-        (Ast.AstProject2 (Ast.AstPlainPart (Ast.AstVar @s2 var')))
+astPair (Ast.AstPlainPart (Ast.AstProject1 (Ast.AstVar @s1 var)))
+        (Ast.AstPlainPart (Ast.AstProject2 (Ast.AstVar @s2 var')))
   | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2)
   , Just Refl <- testEquality var var', var == var' =
     Ast.AstPlainPart (Ast.AstVar var)
