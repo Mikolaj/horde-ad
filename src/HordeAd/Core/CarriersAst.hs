@@ -633,22 +633,9 @@ instance (NumScalar r, KnownSpan s)
   AstFromPrimal u + AstFromPrimal v = fromPrimal $ u + v
   AstFromDual u + AstFromDual v = fromDual $ u + v
   AstFromPlain u + AstFromPlain v = fromPlain $ u + v
-  w@(AstConvert _ u) + AstConvert _ v
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst u)
-    , Just Refl <- matchingFTK x (ftkAst v) =
-      cAstConvUpSFromK $ u + v
   z + u | Just 0 <- unReplC z = u
   u + z | Just 0 <- unReplC z = u
   AstConcreteS n + AstConcreteS k = AstConcreteS (n + k)
-  AstConcreteS n + w@(AstConvert _ k)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstConvUpSFromK $ AstConcreteK (Nested.sunScalar n) + k
-  AstFromPlain (AstConcreteS n) + w@(AstConvert _ k)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstConvUpSFromK $ AstFromPlain (AstConcreteK (Nested.sunScalar n)) + k
   AstConcreteS n + AstPlusS (AstConcreteS k) u =
     AstPlusS (AstConcreteS (n + k)) u
   AstPlusS (AstConcreteS n) u + AstConcreteS k =
@@ -662,6 +649,11 @@ instance (NumScalar r, KnownSpan s)
   AstPlusS (AstFromPlain (AstConcreteS n)) u
     + AstPlusS (AstFromPlain (AstConcreteS k)) v =
       AstPlusS (AstFromPlain (AstConcreteS (n + k))) (AstPlusS u v)
+  AstConvUpSFromK u + AstConvUpSFromK v = cAstConvUpSFromK $ u + v
+  AstConvUpSFromK u + AstPlusS (AstConvUpSFromK v) w =
+    cAstConvUpSFromK (u + v) + w
+  AstPlusS w (AstConvUpSFromK u) + AstConvUpSFromK v =
+    w + cAstConvUpSFromK (u + v)
 
 --  AstN1S NegateOp (AstVar var) + AstVar var'
 --    | var == var' = 0
@@ -693,20 +685,7 @@ instance (NumScalar r, KnownSpan s)
   _ * z | Just 0 <- unReplC z = z
   s * u | Just 1 <- unReplC s = u
   u * s | Just 1 <- unReplC s = u
-  w@(AstConvert _ u) * AstConvert _ v
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst u)
-    , Just Refl <- matchingFTK x (ftkAst v) =
-      cAstConvUpSFromK $ u * v
   AstConcreteS n * AstConcreteS k = AstConcreteS (n * k)
-  AstConcreteS n * w@(AstConvert _ k)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstConvUpSFromK $ AstConcreteK (Nested.sunScalar n) * k
-  AstFromPlain (AstConcreteS n) * w@(AstConvert _ k)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstConvUpSFromK $ AstFromPlain (AstConcreteK (Nested.sunScalar n)) * k
   AstConcreteS n * AstTimesS (AstConcreteS k) u =
     AstTimesS (AstConcreteS (n * k)) u
   AstTimesS (AstConcreteS n) u * AstConcreteS k =
@@ -720,6 +699,11 @@ instance (NumScalar r, KnownSpan s)
   AstTimesS (AstFromPlain (AstConcreteS n)) u
     * AstTimesS (AstFromPlain (AstConcreteS k)) v =
       AstTimesS (AstFromPlain (AstConcreteS (n * k))) (AstTimesS u v)
+  AstConvUpSFromK u * AstConvUpSFromK v = cAstConvUpSFromK $ u * v
+  AstConvUpSFromK u * AstTimesS (AstConvUpSFromK v) w =
+    cAstConvUpSFromK (u * v) * w
+  AstTimesS w (AstConvUpSFromK u) * (AstConvUpSFromK v) =
+    w * cAstConvUpSFromK (u * v)
 
   -- This breaks sharing, because although u is concrete and so doesn't
   -- have to be shared, the multiplication is not shared --- we end up
@@ -770,10 +754,7 @@ instance (NumScalar r, KnownSpan s)
   negate (AstConcreteS n) = AstConcreteS (negate n)
   negate (AstGatherS shm shn shp v (vars, ix)) =
     AstGatherS shm shn shp (negate v) (vars, ix)
-  negate w@(AstConvert _ n)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst n) =
-      cAstConvUpSFromK $ negate n
+  negate (AstConvUpSFromK n) = cAstConvUpSFromK $ negate n
   negate u = AstN1S NegateOp u
   abs (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (abs u)
   abs (AstPrimalPart n) = primalPart (abs n)
@@ -782,13 +763,10 @@ instance (NumScalar r, KnownSpan s)
   abs (AstFromPrimal n) = fromPrimal (abs n)
   abs (AstFromDual n) = fromDual (abs n)
   abs (AstFromPlain n) = fromPlain (abs n)
+  abs (AstN1S NegateOp u) = abs u
   abs (AstN1S AbsOp u) = AstN1S AbsOp u
   abs (AstConcreteS u) = AstConcreteS (abs u)
-  abs w@(AstConvert _ n)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst n) =
-      cAstConvUpSFromK $ abs n
-  abs (AstN1S NegateOp u) = abs u
+  abs (AstConvUpSFromK n) = cAstConvUpSFromK $ abs n
   abs u = AstN1S AbsOp u
   signum (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (signum u)
   signum (AstPrimalPart n) = primalPart (signum n)
@@ -799,10 +777,7 @@ instance (NumScalar r, KnownSpan s)
   signum (AstFromPlain n) = fromPlain (signum n)
   signum (AstN1S SignumOp u) = AstN1S SignumOp u
   signum (AstConcreteS u) = AstConcreteS (signum u)
-  signum w@(AstConvert _ n)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst n) =
-      cAstConvUpSFromK $ signum n
+  signum (AstConvUpSFromK n) = cAstConvUpSFromK $ signum n
   signum u = AstN1S SignumOp u
   fromInteger i = error $ "fromInteger is not defined for shaped tensors: "
                           ++ show i
@@ -817,22 +792,10 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
       plainPart (quotH n k)
   quotH (AstFromPrimal n) (AstFromPrimal k) = fromPrimal (quotH n k)
   quotH (AstFromPlain n) (AstFromPlain k) = fromPlain (quotH n k)
-  quotH w@(AstConvert _ n) (AstConvert _ k)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst n)
-    , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstConvUpSFromK $ quotH n k
-  quotH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (quotH n k)
-  quotH (AstConcreteS n) w@(AstConvert _ k)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstConvUpSFromK $ quotH (AstConcreteK (Nested.sunScalar n)) k
-  quotH (AstFromPlain (AstConcreteS n)) w@(AstConvert _ k)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstConvUpSFromK $ quotH (AstFromPlain (AstConcreteK (Nested.sunScalar n))) k
   quotH z _ | Just 0 <- unReplC z = z
   quotH u s | Just 1 <- unReplC s = u
+  quotH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (quotH n k)
+  quotH (AstConvUpSFromK n) (AstConvUpSFromK k) = cAstConvUpSFromK $ quotH n k
   quotH (AstI2S QuotOp u v) w = quotH u (v * w)
   quotH u v = AstI2S QuotOp u v
 
@@ -844,21 +807,9 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
       plainPart (remH n k)
   remH (AstFromPrimal n) (AstFromPrimal k) = fromPrimal (remH n k)
   remH (AstFromPlain n) (AstFromPlain k) = fromPlain (remH n k)
-  remH w@(AstConvert _ n) (AstConvert _ k)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst n)
-    , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstConvUpSFromK $ remH n k
-  remH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (remH n k)
-  remH (AstConcreteS n) w@(AstConvert _ k)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstConvUpSFromK $ remH (AstConcreteK (Nested.sunScalar n)) k
-  remH (AstFromPlain (AstConcreteS n)) w@(AstConvert _ k)
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst k) =
-      cAstConvUpSFromK $ remH (AstFromPlain (AstConcreteK (Nested.sunScalar n))) k
   remH z _ | Just 0 <- unReplC z = z
+  remH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (remH n k)
+  remH (AstConvUpSFromK n) (AstConvUpSFromK k) = cAstConvUpSFromK $ remH n k
 --  remH _ (AstConcreteS s) | Just 1 <- sunReplicatePrim s = AstConcreteS 0
   remH u v = AstI2S RemOp u v
 
@@ -1335,20 +1286,6 @@ instance (KnownSpan s, NumScalar r)
   AstFromPlain u <=. AstFromPlain v = u <=. v
   AstConcreteS u <=. AstConcreteS v =
     AstConcreteK $ Shaped.stoPrimitive u <= Shaped.stoPrimitive v
-  AstConcreteS u <=. v
-    | FTKS ZSS FTKScalar <- ftkAst v =
-      AstConcreteK (Nested.sunScalar u) <=. cAstConvDownKFromS v
-  AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
-    | varNameToAstVarId u == varNameToAstVarId v =
-      true
-  w <=. AstConvert _ v
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst v) =
-      cAstConvDownKFromS w <=. v
-  AstConvert _ v <=. w
-    | FTKS ZSS x@FTKScalar <- ftkAst w
-    , Just Refl <- matchingFTK x (ftkAst v) =
-      v <=. cAstConvDownKFromS w
   u <=. AstPlusS (AstConcreteS v) w =
     u - AstConcreteS v <=. w
   AstPlusS (AstConcreteS u) w <=. v =
@@ -1361,6 +1298,12 @@ instance (KnownSpan s, NumScalar r)
     AstFromPlain (AstConcreteS u) <=. v - w
   u <=. AstFromPlain (AstConcreteS v) =
     AstFromPlain (AstConcreteS (negate v)) <=. negate u
+  AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
+    | varNameToAstVarId u == varNameToAstVarId v =
+      true
+  AstConvUpSFromK w <=. AstConvUpSFromK v = w <=. v
+  w <=. AstConvUpSFromK v = cAstConvDownKFromS w <=. v
+  AstConvUpSFromK v <=. w = v <=. cAstConvDownKFromS w
   AstVar u <=. AstVar v | u == v =
     true
   v <=. u = AstLeq (plainPart v) (plainPart u)

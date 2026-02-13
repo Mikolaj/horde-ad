@@ -30,6 +30,7 @@ import Data.Type.Equality (testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (Typeable, typeRep)
+import Data.Bifunctor (second)
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
@@ -629,24 +630,17 @@ matchAstConvUpSFromK :: KnownSpan s
                      -> Maybe ( sh :~: '[]
                               , AstTensor ms s (TKScalar r) )
 matchAstConvUpSFromK = \case
-  AstConvert c t -> checkPatternAstConvUpSFromK c t
-  AstFromPrimal (AstConvert c t) -> checkPatternAstConvUpSFromK c (fromPrimal t)
-  AstFromDual (AstConvert c t) -> checkPatternAstConvUpSFromK c (fromDual t)
-  AstFromPlain (AstConvert c t) -> checkPatternAstConvUpSFromK c (fromPlain t)
-  AstPrimalPart (AstConvert c t) -> checkPatternAstConvUpSFromK c (primalPart t)
-  AstDualPart (AstConvert c t) -> checkPatternAstConvUpSFromK c (dualPart t)
-  AstPlainPart (AstConvert c t) -> checkPatternAstConvUpSFromK c (plainPart t)
+  AstConvert c t
+    | FTKScalar @ry <- ftkAst t
+    , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
+    , Just Refl <- testEquality (typeRep @ry) (typeRep @r) ->
+      Just (Refl, t)
+  AstConcreteS a | ZSS <- Nested.sshape a ->
+    Just (Refl, AstConcreteK $ Nested.sunScalar a)
+  AstFromPrimal t -> second fromPrimal <$> matchAstConvUpSFromK t
+  AstFromDual t -> second fromDual <$> matchAstConvUpSFromK t
+  AstFromPlain t -> second fromPlain <$> matchAstConvUpSFromK t
   _ -> Nothing
-
-checkPatternAstConvUpSFromK :: TKConversion y (TKS sh r)
-                            -> AstTensor ms s y
-                            -> Maybe ( sh :~: '[]
-                                     , AstTensor ms s (TKScalar r) )
-checkPatternAstConvUpSFromK c t
-  | FTKScalar @ry <- ftkAst t
-  , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
-  , Just Refl <- testEquality (typeRep @ry) (typeRep @r) = Just (Refl, t)
-checkPatternAstConvUpSFromK _ _ = Nothing
 
 -- TODO: simplify this monstrosity, if possible
 pattern AstConvUp :: forall {z1} {ms1} {s1}. KnownSpan s1
@@ -673,15 +667,6 @@ matchAstConvUp = \case
     Nothing -> AstConvUpNothing
   AstFromPlain (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
     Just zftk -> AstConvUpJust $ (zftk, fromPlain t)
-    Nothing -> AstConvUpNothing
-  AstPrimalPart (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
-    Just zftk -> AstConvUpJust $ (zftk, primalPart t)
-    Nothing -> AstConvUpNothing
-  AstDualPart (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
-    Just zftk -> AstConvUpJust $ (zftk, dualPart t)
-    Nothing -> AstConvUpNothing
-  AstPlainPart (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
-    Just zftk -> AstConvUpJust $ (zftk, plainPart t)
     Nothing -> AstConvUpNothing
   _ -> AstConvUpNothing
 
