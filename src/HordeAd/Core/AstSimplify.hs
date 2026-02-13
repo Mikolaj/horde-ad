@@ -330,6 +330,12 @@ astProject1 u = case u of
   Ast.AstFromDual u1 -> fromDual $ astProject1 u1
   Ast.AstFromPlain u1 -> fromPlain $ astProject1 u1
   Ast.AstConvert (ConvT2 c1 _c2) t -> astConvert c1 $ astProject1 t
+    -- Even Down conversions are not pushed down projections, so AstConvUp
+    -- is not necessary here for consistency of rewriting. The AstConvUp case
+    -- commented out below probably doesn't add anything, because ConvCmp is not
+    -- a normal form of conversions of products (and ConvZip is ruled out).
+    -- AstConvUp (FTKProduct zftk _) t | FTKProduct yftk _ <- ftkAst t ->
+    --   astConvert (convUp yftk zftk) (astProject1 t)
   _ -> Ast.AstProject1 u
 
 astProject2
