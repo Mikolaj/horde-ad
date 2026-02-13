@@ -647,34 +647,33 @@ pattern AstConvUp :: forall {z1} {ms1} {s1}. KnownSpan s1
                   => forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)
                   => FullShapeTK z -> AstTensor ms s y
                   -> AstTensor ms1 s1 z1
-pattern AstConvUp zftk a <- (matchAstConvUp -> AstConvUpJust (zftk, a))
+pattern AstConvUp zftk a <- (matchAstConvUp -> AstConvUpJust zftk a)
 
 type role AstConvUpMaybe nominal nominal nominal
 data AstConvUpMaybe z ms s =
-    forall y. AstConvUpJust (FullShapeTK z, AstTensor ms s y)
+    forall y. AstConvUpJust (FullShapeTK z) (AstTensor ms s y)
   | AstConvUpNothing
 
 matchAstConvUp :: KnownSpan s => AstTensor ms s z -> AstConvUpMaybe z ms s
 matchAstConvUp = \case
-  AstConvert c t -> case checkPatternAstConvUp c (ftkAst t) of
-    Just zftk -> AstConvUpJust $ (zftk, t)
-    Nothing -> AstConvUpNothing
-  AstFromPrimal (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
-    Just zftk -> AstConvUpJust $ (zftk, fromPrimal t)
-    Nothing -> AstConvUpNothing
-  AstFromDual (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
-    Just zftk -> AstConvUpJust $ (zftk, fromDual t)
-    Nothing -> AstConvUpNothing
-  AstFromPlain (AstConvert c t) -> case checkPatternAstConvUp c (ftkAst t) of
-    Just zftk -> AstConvUpJust $ (zftk, fromPlain t)
-    Nothing -> AstConvUpNothing
+  AstConvert c t ->
+    let yftk = ftkAst t
+        zftk = convertFTK c yftk
+    in case convUpMaybe (ftkAst t) zftk  of
+      Just {} -> AstConvUpJust zftk t
+      Nothing -> AstConvUpNothing
+  AstConcreteS a | ZSS <- Nested.sshape a ->
+    AstConvUpJust (FTKS ZSS FTKScalar) (AstConcreteK $ Nested.sunScalar a)
+  AstFromPrimal t -> case matchAstConvUp t of
+    AstConvUpJust zftk u -> AstConvUpJust zftk (fromPrimal u)
+    AstConvUpNothing -> AstConvUpNothing
+  AstFromDual t -> case matchAstConvUp t of
+    AstConvUpJust zftk u -> AstConvUpJust zftk (fromDual u)
+    AstConvUpNothing -> AstConvUpNothing
+  AstFromPlain t -> case matchAstConvUp t of
+    AstConvUpJust zftk u -> AstConvUpJust zftk (fromPlain u)
+    AstConvUpNothing -> AstConvUpNothing
   _ -> AstConvUpNothing
-
-checkPatternAstConvUp :: TKConversion y z -> FullShapeTK y
-                      -> Maybe (FullShapeTK z)
-checkPatternAstConvUp c yftk =
-  let zftk = convertFTK c yftk
-  in const zftk <$> convUpMaybe yftk zftk
 
 checkAstConvUp :: TKConversion a b -> AstTensor ms s a -> Bool
 checkAstConvUp c t =
