@@ -3578,7 +3578,8 @@ astIndex0
   :: forall shm s r. GoodScalar r
   => AstTensor AstMethodLet s (TKS shm r) -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKScalar r)
-astIndex0 = Ast.AstIndex0
+astIndex0 v0 ZIS = Ast.AstConvert (ConvCmp ConvX0 ConvSX) v0
+astIndex0 v0 ix = Ast.AstIndex0 v0 ix
 
 astSum0 :: (NumScalar r, KnownSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
@@ -3589,6 +3590,7 @@ astSum0 t = case t of
     astSum0 u * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
   Ast.AstReplicate snat STKScalar u ->
     u * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
+  _ | FTKS ZSS _ <- ftkAst t -> astConvDownKFromS t
   _ | FTKS (snat :$$ _) _ <- ftkAst t
     , Just u <- unRepl1 t ->
       astSum0 u * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
@@ -3611,10 +3613,7 @@ astSum0 t = case t of
                             (astReplicate p knownSTK m1))
              (astTransposeS (Permutation.makePerm @'[0, 2, 1])
                             (astReplicate m knownSTK m2))
-  _ -> case ftkAst t of
-    FTKS ZSS FTKScalar -> astConvDownKFromS t
-    FTKS (SNat' @1 :$$ ZSS) FTKScalar -> astIndex0 t (0 :.$ ZIS)
-    _ -> Ast.AstSum0 t
+  _ -> Ast.AstSum0 t
 
 astDot0 :: (NumScalar r, KnownSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
