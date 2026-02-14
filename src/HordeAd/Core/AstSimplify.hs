@@ -450,6 +450,14 @@ astSum snat@SNat stk t0 = case t0 of
   _ | Just Refl <- testEquality snat (SNat @0) ->
       let ftk = razeFTK snat stk (ftkAst t0)
       in fromPlain $ astConcrete ftk (tdefTarget ftk)
+  _ | Just Refl <- testEquality snat (SNat @1)
+    , STKScalar <- stk ->
+      astConvDownKFromS $ astIndexS ZSS t0 (0 :.$ ZIS)
+  _ | Just Refl <- testEquality snat (SNat @1)
+    , STKS sh _  <- stk ->  -- other cases too rare
+      astIndexS sh t0 (0 :.$ ZIS)  -- astReshape slows down the CNNO test
+  _ | STKS ZSS STKScalar <- stk ->
+      astConvUpSFromK $ astSum snat STKScalar t0
   -- This exchanges one multiplication at rank n+1 for two multiplications
   -- at rank n, which should be faster. We choose t1, since it's likely to be
   -- concrete and so it's easier to see if it's replicated and also t2 is
@@ -471,12 +479,6 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstIotaS n | STKScalar <- stk ->
     AstConcreteK $ fromIntegral $ fromSNat' n * (fromSNat' n - 1) `div` 2
   Ast.AstReverseS v -> astSum snat stk v
-  _ | Just Refl <- testEquality snat (SNat @1)
-    , STKScalar <- stk ->
-      astConvDownKFromS $ astIndexS ZSS t0 (0 :.$ ZIS)
-  _ | Just Refl <- testEquality snat (SNat @1)
-    , STKS sh _  <- stk ->  -- other cases too rare
-      astIndexS sh t0 (0 :.$ ZIS)  -- astReshape slows down the CNNO test
   Ast.AstFromVector _ STKScalar l
     | STKScalar @r <- stk
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
@@ -516,6 +518,12 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstFromPrimal v -> fromPrimal $ astSum snat stk v
   Ast.AstFromDual v -> fromDual $ astSum snat stk v
   Ast.AstFromPlain v -> fromPlain $ astSum snat stk v
+  Ast.AstScatterS shm shn _shp v (vars, (:.$) @k2 i1 ZIS)
+    | STKScalar <- stk
+      -- This boolean term may have free variables that act as universally
+      -- quantified.
+    , AstConcreteK True <- 0 <=. i1 &&* i1 <=. valueOf @k2 - 1 ->
+        kfromS $ astScatterS shm shn ZSS v (vars, ZIS)
   Ast.AstScatterS shm shn shp v (vars, (:.$) @k2 i1 rest)
     | STKS{} <- stk
       -- This boolean term may have free variables that act as universally
@@ -535,8 +543,6 @@ astSum snat@SNat stk t0 = case t0 of
               Dict0 ->
                 astConvUp zftkRazed (astSum snat xstkRazed t)
                   -- this uses razed c, not c
-  _ | STKS ZSS STKScalar <- stk ->
-      astConvUpSFromK $ astSum snat STKScalar t0
   _ -> Ast.AstSum snat stk t0
 
 astReplicate :: forall y k s. KnownSpan s
