@@ -518,7 +518,7 @@ astIndexBuild :: forall y k s. KnownSpan s
               -> AstInt AstMethodLet
               -> AstTensor AstMethodLet s y
 astIndexBuild snat@SNat ftk u i = case ftk of
-  FTKScalar -> astConvDownKFromS $ astIndexS ZSS u (i :.$ ZIS)
+  FTKScalar -> kfromS $ astIndexS ZSS u (i :.$ ZIS)
   FTKR sh' _ -> case ftkAst u of
     FTKR shmshn _ ->
       withShsFromShR shmshn $ \(sh :: ShS sh) ->
