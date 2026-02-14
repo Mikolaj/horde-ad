@@ -97,7 +97,7 @@ import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
-import HordeAd.Core.CarriersAst (sunReplicate1, sunReplicateN, sunReplicatePrim)
+import HordeAd.Core.CarriersAst (sunReplicateN, sunReplicatePrim, unRepl1)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
@@ -3814,25 +3814,6 @@ unRepl (Ast.AstFromPrimal t) = fromPrimal <$> unRepl t
 unRepl (Ast.AstFromDual t) = fromDual <$> unRepl t
 unRepl (Ast.AstFromPlain t) = fromPlain <$> unRepl t
 unRepl _ = Nothing
-
-unRepl1 :: KnownSpan s
-        => AstTensor AstMethodLet s (TKS2 (n ': sh) x)
-        -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
-unRepl1 (Ast.AstReplicate _ STKS{} u) = Just u
-unRepl1 (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
-unRepl1 (AstConcreteS a) = AstConcreteS <$> sunReplicate1 a
-unRepl1 (Ast.AstCond b v1 v2) = do
-  u1 <- unRepl1 v1
-  u2 <- unRepl1 v2
-  return $! astCond b u1 u2
-unRepl1 (Ast.AstLet var u t) = Ast.AstLet var u <$> unRepl1 t
-unRepl1 (Ast.AstPrimalPart t) = astPrimalPart <$> unRepl1 t
-unRepl1 (Ast.AstDualPart t) = astDualPart <$> unRepl1 t
-unRepl1 (Ast.AstPlainPart t) = astPlainPart <$> unRepl1 t
-unRepl1 (Ast.AstFromPrimal t) = fromPrimal <$> unRepl1 t
-unRepl1 (Ast.AstFromDual t) = fromDual <$> unRepl1 t
-unRepl1 (Ast.AstFromPlain t) = fromPlain <$> unRepl1 t
-unRepl1 _ = Nothing
 
 unReplN :: KnownSpan s
         => ShS shm -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)

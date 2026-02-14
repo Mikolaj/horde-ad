@@ -13,7 +13,7 @@
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
   , astShareNoSimplify, astLetFunNoSimplify
-  , sunReplicatePrim, sunReplicate1, sunReplicateN
+  , sunReplicatePrim, sunReplicate1, sunReplicateN, unRepl1
   ) where
 
 import Prelude
@@ -623,8 +623,10 @@ instance (NumScalar r, Differentiable r, KnownSpan s)
 
 instance (NumScalar r, KnownSpan s)
          => Num (AstTensor ms s (TKS sh r)) where
-  AstReplicate snat stk@STKS{} u + AstReplicate _ STKS{} v =
-    AstReplicate snat stk $ u + v
+  u + v | FTKS (snat :$$ sh) x <- ftkAst u
+        , Just u0 <- unRepl1 u
+        , Just v0 <- unRepl1 v =
+    AstReplicate snat (STKS sh (ftkToSTK x)) $ u0 + v0
   AstPrimalPart u + AstPrimalPart v = primalPart $ u + v
   AstDualPart u + AstDualPart v = dualPart $ u + v
   AstPlainPart @_ @s1 u + AstPlainPart @_ @s2 v
@@ -672,8 +674,10 @@ instance (NumScalar r, KnownSpan s)
   u + AstPlusS v@(AstFromPlain (AstConcreteS{})) w = AstPlusS v (AstPlusS u w)
   u + v = AstPlusS u v
 
-  AstReplicate snat stk@STKS{} u * AstReplicate _ STKS{} v =
-    AstReplicate snat stk $ u * v
+  u * v | FTKS (snat :$$ sh) x <- ftkAst u
+        , Just u0 <- unRepl1 u
+        , Just v0 <- unRepl1 v =
+    AstReplicate snat (STKS sh (ftkToSTK x)) $ u0 * v0
   AstPrimalPart u * AstPrimalPart v = primalPart $ u * v
   AstPlainPart @_ @s1 u * AstPlainPart @_ @s2 v
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
@@ -733,7 +737,9 @@ instance (NumScalar r, KnownSpan s)
     AstTimesS v (AstTimesS u w)
   u * v = AstTimesS u v
 
-  negate (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (negate u)
+  negate u | FTKS (snat :$$ sh) x <- ftkAst u
+           , Just u0 <- unRepl1 u =
+    AstReplicate snat (STKS sh (ftkToSTK x)) (negate u0)
   negate (AstCond b n k) = AstCond b (negate n) (negate k)
 -- TODO: negate (AstBuild1 k stk (var, v)) = AstBuild1 k stk (var, negate v)
   negate (AstLet var n k) = AstLet var n (negate k)
@@ -756,7 +762,9 @@ instance (NumScalar r, KnownSpan s)
     AstGatherS shm shn shp (negate v) (vars, ix)
   negate (AstConvUpSFromK n) = cAstConvUpSFromK $ negate n
   negate u = AstN1S NegateOp u
-  abs (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (abs u)
+  abs u | FTKS (snat :$$ sh) x <- ftkAst u
+        , Just u0 <- unRepl1 u =
+    AstReplicate snat (STKS sh (ftkToSTK x)) (abs u0)
   abs (AstPrimalPart n) = primalPart (abs n)
   abs (AstDualPart n) = dualPart (abs n)
   abs (AstPlainPart n) = plainPart (abs n)
@@ -768,7 +776,9 @@ instance (NumScalar r, KnownSpan s)
   abs (AstConcreteS u) = AstConcreteS (abs u)
   abs (AstConvUpSFromK n) = cAstConvUpSFromK $ abs n
   abs u = AstN1S AbsOp u
-  signum (AstReplicate snat stk@STKS{} u) = AstReplicate snat stk (signum u)
+  signum u | FTKS (snat :$$ sh) x <- ftkAst u
+           , Just u0 <- unRepl1 u =
+    AstReplicate snat (STKS sh (ftkToSTK x)) (signum u0)
   signum (AstPrimalPart n) = primalPart (signum n)
   signum (AstDualPart n) = dualPart (signum n)
   signum (AstPlainPart n) = plainPart (signum n)
@@ -784,8 +794,10 @@ instance (NumScalar r, KnownSpan s)
 
 instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
          => IntegralH (AstTensor ms s (TKS sh r)) where
-  quotH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
-    AstReplicate snat stk $ quotH u v
+  quotH u v | FTKS (SNat :$$ sh) x <- ftkAst u
+            , Just u0 <- unRepl1 u
+            , Just v0 <- unRepl1 v =
+    AstReplicate SNat (STKS sh (ftkToSTK x)) $ quotH u0 v0
   quotH (AstPrimalPart n) (AstPrimalPart k) = primalPart (quotH n k)
   quotH (AstPlainPart @_ @s1 n) (AstPlainPart @_ @s2 k)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
@@ -799,8 +811,10 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
   quotH (AstI2S QuotOp u v) w = quotH u (v * w)
   quotH u v = AstI2S QuotOp u v
 
-  remH (AstReplicate snat stk@STKS{} u) (AstReplicate _ STKS{} v) =
-    AstReplicate snat stk $ remH u v
+  remH u v | FTKS (SNat :$$ sh) x <- ftkAst u
+           , Just u0 <- unRepl1 u
+           , Just v0 <- unRepl1 v =
+    AstReplicate SNat (STKS sh (ftkToSTK x)) $ remH u0 v0
   remH (AstPrimalPart n) (AstPrimalPart k) = primalPart (remH n k)
   remH (AstPlainPart @_ @s1 n) (AstPlainPart @_ @s2 k)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
@@ -1549,3 +1563,22 @@ unReplC (AstFromPrimal t) = unReplC t
 unReplC (AstFromDual t) = unReplC t
 unReplC (AstFromPlain t) = unReplC t
 unReplC _ = Nothing
+
+unRepl1 :: KnownSpan s
+        => AstTensor ms s (TKS2 (n ': sh) x)
+        -> Maybe (AstTensor ms s (TKS2 sh x))
+unRepl1 (AstReplicate _ STKS{} u) = Just u
+unRepl1 (AstReplicate _ STKScalar u) = Just $ cAstConvUpSFromK u
+unRepl1 (AstConcreteS a) = AstConcreteS <$> sunReplicate1 a
+unRepl1 (AstCond b v1 v2) = do
+  u1 <- unRepl1 v1
+  u2 <- unRepl1 v2
+  return $! AstCond b u1 u2
+unRepl1 (AstLet var u t) = AstLet var u <$> unRepl1 t
+unRepl1 (AstPrimalPart t) = primalPart <$> unRepl1 t
+unRepl1 (AstDualPart t) = dualPart <$> unRepl1 t
+unRepl1 (AstPlainPart t) = plainPart <$> unRepl1 t
+unRepl1 (AstFromPrimal t) = fromPrimal <$> unRepl1 t
+unRepl1 (AstFromDual t) = fromDual <$> unRepl1 t
+unRepl1 (AstFromPlain t) = fromPlain <$> unRepl1 t
+unRepl1 _ = Nothing
