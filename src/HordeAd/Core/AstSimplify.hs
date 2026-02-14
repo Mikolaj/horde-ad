@@ -468,12 +468,8 @@ astSum snat@SNat stk t0 = case t0 of
     STKScalar ->
       gcastWith (unsafeCoerceRefl :: '[k] :~: sh2) $
       astConcreteK $ tsum snat stk $ Concrete t
-  Ast.AstIotaS @_ @r n ->
-    let i :: r
-        i = fromIntegral $ fromSNat' n * (fromSNat' n - 1) `div` 2
-    in case stk of
-      STKScalar -> AstConcreteK $ i
-      STKS ZSS STKScalar -> AstConcreteS $ Nested.sscalar i
+  Ast.AstIotaS n | STKScalar <- stk ->
+    AstConcreteK $ fromIntegral $ fromSNat' n * (fromSNat' n - 1) `div` 2
   Ast.AstReverseS v -> astSum snat stk v
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKScalar <- stk ->
@@ -481,23 +477,18 @@ astSum snat@SNat stk t0 = case t0 of
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKS sh _  <- stk ->  -- other cases too rare
       astIndexS sh t0 (0 :.$ ZIS)  -- astReshape slows down the CNNO test
-  Ast.AstFromVector _ stk2 l ->
-    case stk of
-      STKScalar @r | Dict0 <- numFromTKAllNum (Proxy @r) ->
-        case stk2 of
-          STKScalar -> foldr1 (+) l
-          STKS ZSS STKScalar -> kfromS $ foldr1 (+) l
-      STKR _ (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r)
-                            , STKR{} <- stk2 ->
-        foldr1 (+) l
-      STKS _ (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r) ->
-        case stk2 of
-          STKScalar -> sfromK $ foldr1 (+) l
-          STKS{} -> foldr1 (+) l
-      STKX _ (STKScalar @r) | Dict0 <- numFromTKAllNum (Proxy @r)
-                            , STKX{} <- stk2 ->
-        foldr1 (+) l
-      _ -> Ast.AstSum snat stk t0
+  Ast.AstFromVector _ STKScalar l
+    | STKScalar @r <- stk
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
+      foldr1 (+) l
+  Ast.AstFromVector _ (STKS ZSS STKScalar) l
+    | STKScalar @r <- stk
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
+      kfromS $ foldr1 (+) l
+  Ast.AstFromVector _ STKS{} l
+    | STKS _ (STKScalar @r) <- stk
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
+      foldr1 (+) l
   -- See the analogous astSliceS rule.
   Ast.AstTransposeS (SNat' @1 `PCons` SNat' @0 `PCons` PNil) t
     | FTKS (_ :$$ _ :$$ _) _ <- ftkAst t
@@ -526,13 +517,11 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstFromDual v -> fromDual $ astSum snat stk v
   Ast.AstFromPlain v -> fromPlain $ astSum snat stk v
   Ast.AstScatterS shm shn shp v (vars, (:.$) @k2 i1 rest)
-    | STKS{} <- stk ->
+    | STKS{} <- stk
       -- This boolean term may have free variables that act as universally
       -- quantified.
-      case 0 <=. i1 &&* i1 <=. valueOf @k2 - 1 of
-        AstConcreteK True ->
-          astScatterS shm shn (shsTail shp) v (vars, rest)
-        _ -> Ast.AstSum snat stk t0
+    , AstConcreteK True <- 0 <=. i1 &&* i1 <=. valueOf @k2 - 1 ->
+        astScatterS shm shn (shsTail shp) v (vars, rest)
   AstConvUp @xs zftk t ->
     let xftk = ftkAst t
         c = convUp xftk zftk
