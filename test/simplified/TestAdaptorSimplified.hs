@@ -568,7 +568,7 @@ testOverleafPP = do
       (var3, ast3) = funToAst (FTKR [28] FTKScalar) fT
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
-    @?= "\\v1 -> rfromS (ssum @50 (sgather1 @50 (sfromR v1) (\\i2 -> [remH i2 28])))"
+    @?= "\\v1 -> rfromK (ssum @50 (sgather1 @50 (sfromR v1) (\\i2 -> [remH i2 28])))"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactDelta UseIncomingCotangent fT (FTKR [28] FTKScalar)
   printArtifactPretty (simplifyArtifactRev artifactRev)
@@ -576,7 +576,7 @@ testOverleafPP = do
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
     @?= "\\v1 -> rfromK (ssum0 (sgather1 @50 (sfromR v1) (\\i3 -> [remH i3 28])))"
   show deltas
-    @?= "DeltaConvert (ConvCmp (ConvXR STKScalar) ConvSX) (DeltaShare 100000002 (DeltaSum (SNat @50) (STKS [] STKScalar) (DeltaShare 100000001 (DeltaGatherS [50] [] [28] (DeltaConvert (ConvCmp (ConvXS' (FTKS [28] FTKScalar)) ConvRX) (DeltaInput (InputId 0))) <function>))))"
+    @?= "DeltaConvert (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar)) (DeltaConvert (ConvCmp ConvX0 ConvSX) (DeltaShare 100000002 (DeltaSum (SNat @50) (STKS [] STKScalar) (DeltaShare 100000001 (DeltaGatherS [50] [] [28] (DeltaConvert (ConvCmp (ConvXS' (FTKS [28] FTKScalar)) ConvRX) (DeltaInput (InputId 0))) <function>)))))"
 
 foo :: RealFloat a => (a, a, a) -> a
 foo (x, y, z) =

@@ -422,9 +422,6 @@ contractAst t0 = case t0 of
   Ast.AstProject1 v -> astProject1 (contractAst v)
   Ast.AstProject2 v -> astProject2 (contractAst v)
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map contractAst l)
-  Ast.AstSum _ (STKS ZSS (STKScalar @r)) t2
-    | Dict0 <- numFromTKAllNum (Proxy @r) ->
-      astConvUpSFromK $ astSum0 (contractAst t2)
   Ast.AstSum _ (STKScalar @r) t2 | Dict0 <- numFromTKAllNum (Proxy @r) ->
     astSum0 (contractAst t2)
   Ast.AstSum

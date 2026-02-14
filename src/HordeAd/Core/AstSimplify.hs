@@ -450,9 +450,6 @@ astSum snat@SNat stk t0 = case t0 of
   _ | Just Refl <- testEquality snat (SNat @0) ->
       let ftk = razeFTK snat stk (ftkAst t0)
       in fromPlain $ astConcrete ftk (tdefTarget ftk)
-  {- TODO: this results in small PP terms, but much higher allocation somewhere:
-  _ | STKS ZSS STKScalar <- stk ->
-      sfromK $ astSum snat STKScalar t0 -}
   _ | STKS sh (STKScalar @r) <- stk
     , Just u <- unRepl1 t0
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
@@ -564,6 +561,8 @@ astSum snat@SNat stk t0 = case t0 of
               Dict0 ->
                 astConvUp zftkRazed (astSum snat xstkRazed t)
                   -- this uses razed c, not c
+  _ | STKS ZSS STKScalar <- stk ->
+      astConvUpSFromK $ astSum snat STKScalar t0
   _ -> Ast.AstSum snat stk t0
 
 astReplicate :: forall y k s. KnownSpan s

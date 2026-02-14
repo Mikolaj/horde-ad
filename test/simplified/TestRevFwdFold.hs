@@ -801,7 +801,7 @@ testSin0Fold182SrevPP = do
                         (sreplicate @1 a0)
             in rfromS . f . sfromR) (rscalar 1.1)
   printAstPretty a1
-    @?= "rfromS (let v4 = tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.0)) (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.1)) (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1]))) in ssum @5 (sprimalPart (tproject1 v4)) + sprimalPart (tproject2 v4) !$ [0])"
+    @?= "rfromS (let v4 = tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.0)) (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.1)) (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1]))) in sfromK (ssum @5 (sprimalPart (tproject1 v4))) + sprimalPart (tproject2 v4) !$ [0])"
   printAstPretty (simplifyInlineContract a1)
     @?= "rfromS (let v4 = tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.0)) (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.1)) (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1]))) in sfromK (ssum0 (sprimalPart (tproject1 v4))) + sprimalPart (tproject2 v4) !$ [0])"
 
@@ -2337,7 +2337,7 @@ testSin0FoldNestedS1PP = do
       g = kgrad (kfromS . f) (FTKS ZSS FTKScalar)
   printAstPretty
     (g @(AstTensor AstMethodLet PrimalSpan) (sscalar 1.1))
-    @?= "let v4 = tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> 1.0 (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> 1.1 (sconcrete (sreplicate [11] 1.1))))) (sconcrete (sreplicate [11] 1.1))) in ssum @11 (sprimalPart (tproject2 v4)) + sfromK (kprimalPart (tproject1 v4))"
+    @?= "sfromK (let v4 = tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> 1.0 (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> 1.1 (sconcrete (sreplicate [11] 1.1))))) (sconcrete (sreplicate [11] 1.1))) in ssum @11 (sprimalPart (tproject2 v4)) + kprimalPart (tproject1 v4))"
 
 testSin0FoldNestedR1PP :: Assertion
 testSin0FoldNestedR1PP = do
