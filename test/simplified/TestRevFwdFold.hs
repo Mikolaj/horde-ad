@@ -802,6 +802,8 @@ testSin0Fold182SrevPP = do
             in rfromS . f . sfromR) (rscalar 1.1)
   printAstPretty a1
     @?= "rfromS (let v4 = tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.0)) (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.1)) (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1]))) in ssum @5 (sprimalPart (tproject1 v4)) + sprimalPart (tproject2 v4) !$ [0])"
+  printAstPretty (simplifyInlineContract a1)
+    @?= "rfromS (let v4 = tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.0)) (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.1)) (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1]))) in sfromK (ssum0 (sprimalPart (tproject1 v4))) + sprimalPart (tproject2 v4) !$ [0])"
 
 testSin0Fold18Sgrad :: Assertion
 testSin0Fold18Sgrad = do
@@ -2348,8 +2350,9 @@ testSin0FoldNestedR1PP = do
       g :: forall f. ADReady f => f (TKR 0 Double) -> f (TKR 0 Double)
       g = kgrad (kfromR . f) (FTKR ZSR FTKScalar)
   printAstPretty
-    (g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
-    @?= "rfromS (let v4 = tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> 1.0 (tpair (sreverse (sfromR (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> 1.1 (sconcrete (sreplicate [11] 1.1)))))) (sconcrete (sreplicate [11] 1.1))) in ssum @11 (sprimalPart (sfromR (tproject2 v4))) + sfromK (kprimalPart (tproject1 v4)))"
+    (simplifyInlineContract
+     $ g @(AstTensor AstMethodLet PrimalSpan) (rscalar 1.1))
+    @?= "rfromK (let v4 = tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> 1.0 (tpair (sreverse (sfromR (tproject2 (tmapAccumLDer (SNat @11) <lambda> <lambda> <lambda> 1.1 (sconcrete (sreplicate [11] 1.1)))))) (sconcrete (sreplicate [11] 1.1))) in ssum0 (sprimalPart (sfromR (tproject2 v4))) + kprimalPart (tproject1 v4))"
 
 testSin0FoldNestedK0PP :: Assertion
 testSin0FoldNestedK0PP = do
