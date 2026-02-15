@@ -575,11 +575,11 @@ cAstConvert :: KnownSpan s
 cAstConvert c t
   | Just Refl <- matchingFTK (ftkAst t) (convertFTK c (ftkAst t)) = t
 cAstConvert c1 (AstPrimalPart (AstConvert c2 t2)) =
-  AstPrimalPart $ cAstConvert (c1 `convCmp` c2) t2
+  primalPart $ cAstConvert (c1 `convCmp` c2) t2
 cAstConvert c1 (AstDualPart (AstConvert c2 t2)) =
-  AstDualPart $ cAstConvert (c1 `convCmp` c2) t2
+  dualPart $ cAstConvert (c1 `convCmp` c2) t2
 cAstConvert c1 (AstPlainPart (AstConvert c2 t2)) =
-  AstPlainPart $ cAstConvert (c1 `convCmp` c2) t2
+  plainPart $ cAstConvert (c1 `convCmp` c2) t2
 cAstConvert c1 (AstFromPrimal v) = fromPrimal $ cAstConvert c1 v
 cAstConvert c1 (AstFromDual v) = fromDual $ cAstConvert c1 v
 cAstConvert c1 (AstFromPlain v) = fromPlain $ cAstConvert c1 v
@@ -604,17 +604,17 @@ cAstConvDownSFromX :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
                    -> AstTensor ms s (TKS2 sh x)
 cAstConvDownSFromX sh x t = cAstConvert (ConvXS' (FTKS sh x)) t
 
-cAstConvUpSFromK :: forall r ms s. GoodScalar r
+cAstConvUpSFromK :: forall r ms s. (KnownSpan s, GoodScalar r)
                  => AstTensor ms s (TKScalar r)
                  -> AstTensor ms s (TKS '[] r)
-cAstConvUpSFromK = AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
+cAstConvUpSFromK = cAstConvert (ConvCmp ConvXS (Conv0X STKScalar))
 
 cAstConvUpRFromS :: forall sh x ms s. KnownSpan s
                  => ShS sh -> SingletonTK x
                  -> AstTensor ms s (TKS2 sh x)
                  -> AstTensor ms s (TKR2 (Rank sh) x)
 cAstConvUpRFromS sh x | Refl <- lemRankMapJust sh =
-  AstConvert (ConvCmp (ConvXR x) ConvSX)
+  cAstConvert (ConvCmp (ConvXR x) ConvSX)
 
 cAstConvUpXFromS :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
                  => IShX sh' -> FullShapeTK x
@@ -622,7 +622,7 @@ cAstConvUpXFromS :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
                  -> AstTensor ms s (TKX2 sh' x)
 cAstConvUpXFromS sh' x =
   gcastWith (unsafeCoerceRefl :: Rank (MapJust sh) :~: Rank sh) $
-  AstConvert (ConvCmp (ConvXX' (FTKX sh' x)) ConvSX)
+  cAstConvert (ConvCmp (ConvXX' (FTKX sh' x)) ConvSX)
 
 pattern AstConvUpSFromK :: () => sh ~ '[]
                         => AstTensor ms s (TKScalar r)
