@@ -3735,12 +3735,8 @@ astConcrete ftk v = case ftk of
   FTKProduct ftk1 ftk2 ->
     astPair (astConcrete ftk1 (tproject1 v)) (astConcrete ftk2 (tproject2 v))
   _ -> concreteTarget astConcreteK astConcreteS
-                      (\_sh' t -> case ftkAst t of
-                          FTKS sh FTKScalar ->
-                            astConvUpRFromS sh STKScalar t)
-                      (\sh' t -> case ftkAst t of
-                          FTKS _sh FTKScalar ->
-                            astConvUpXFromS sh' FTKScalar t)
+                      (\sh -> astConvUpRFromS sh STKScalar)
+                      (\sh' -> astConvUpXFromS sh' FTKScalar)
                       (ftkToSTK ftk) v
 
 -- INLINE here would bloat the binary a lot, probably negating any

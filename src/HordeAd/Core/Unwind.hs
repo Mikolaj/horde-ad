@@ -72,9 +72,9 @@ concreteRepW
   :: forall y target. (ConvertTensor Concrete, ConvertTensor target)
   => (forall r. GoodScalar r => Concrete (TKScalar r) -> target (TKScalar r))
   -> (forall r sh. GoodScalar r => Concrete (TKS sh r) -> target (TKS sh r))
-  -> (forall r sh. IShR (Rank sh) -> target (TKS sh r)
-      -> target (TKR (Rank sh) r))
-  -> (forall r sh sh'. Rank sh ~ Rank sh'
+  -> (forall r sh. GoodScalar r
+      => ShS sh -> target (TKS sh r) -> target (TKR (Rank sh) r))
+  -> (forall r sh sh'. (GoodScalar r, Rank sh ~ Rank sh')
       => IShX sh' -> target (TKS sh r) -> target (TKX sh' r))
   -> RepW Concrete y -> RepW target y
 {-# INLINE concreteRepW #-}
@@ -84,7 +84,7 @@ concreteRepW concreteK concreteS toRfromS toXfromS w = case w of
     let sh' = Nested.rshape $ unConcrete v
     in withShsFromShR sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      toRfromS sh' $ concreteS (sfromR @_ @sh v)
+      toRfromS sh $ concreteS (sfromR @_ @sh v)
   WTKS v -> WTKS $ concreteS v
   WTKX v -> WTKX $
     let sh' = Nested.mshape $ unConcrete v
@@ -313,9 +313,9 @@ concreteTarget
   :: forall y target. (ConvertTensor Concrete, ConvertTensor target)
   => (forall r. GoodScalar r => Concrete (TKScalar r) -> target (TKScalar r))
   -> (forall r sh. GoodScalar r => Concrete (TKS sh r) -> target (TKS sh r))
-  -> (forall r sh. IShR (Rank sh) -> target (TKS sh r)
-      -> target (TKR (Rank sh) r))
-  -> (forall r sh sh'. Rank sh ~ Rank sh'
+  -> (forall r sh. GoodScalar r
+      => ShS sh -> target (TKS sh r) -> target (TKR (Rank sh) r))
+  -> (forall r sh sh'. (GoodScalar r, Rank sh ~ Rank sh')
       => IShX sh' -> target (TKS sh r) -> target (TKX sh' r))
   -> SingletonTK y -> Concrete y
   -> target y

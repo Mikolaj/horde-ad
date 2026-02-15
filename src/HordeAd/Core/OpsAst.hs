@@ -1308,14 +1308,11 @@ astConcreteRaw ftk v = case ftk of
   FTKProduct ftk1 ftk2 -> AstRaw $
     AstPair (unAstRaw $ astConcreteRaw ftk1 (tproject1 v))
             (unAstRaw $ astConcreteRaw ftk2 (tproject2 v))
-  _ -> concreteTarget (tkconcrete . unConcrete) (tsconcrete . unConcrete)
-                      (\_sh' (AstRaw t) -> case ftkAst t of
-                          FTKS sh FTKScalar ->
-                            AstRaw $ cAstConvUpRFromS sh STKScalar t)
-                      (\sh' (AstRaw t) -> case ftkAst t of
-                          FTKS _sh FTKScalar ->
-                            AstRaw $ cAstConvUpXFromS sh' FTKScalar t)
-                      (ftkToSTK ftk) v
+  _ -> concreteTarget
+         (tkconcrete . unConcrete) (tsconcrete . unConcrete)
+         (\sh (AstRaw t) -> AstRaw $ cAstConvUpRFromS sh STKScalar t)
+         (\sh' (AstRaw t) -> AstRaw $ cAstConvUpXFromS sh' FTKScalar t)
+         (ftkToSTK ftk) v
 
 
 -- * AstNoVectorize instances
