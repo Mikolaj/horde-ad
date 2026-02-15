@@ -3101,6 +3101,12 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
   (FTKS ZSS (FTKScalar @rz), FTKScalar @ry)
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       kfromS a
+  (FTKR ZSR (FTKScalar @rz), FTKScalar @ry)
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      kfromR a
+  (FTKX ZSX (FTKScalar @rz), FTKScalar @ry)
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      kfromX a
   (FTKScalar @ry, FTKS ZSS (FTKScalar @rz))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       sfromK a
@@ -3112,6 +3118,14 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
     | Just Refl <- matchingFTK xy xz
     , Just Refl <- testEquality (shxRank shx) (shsRank sh) ->
       astConvDownSFromX sh xz a
+  (FTKS sh xy, FTKR shr xz)
+    | Just Refl <- matchingFTK xy xz
+    , Just Refl <- testEquality (shrRank shr) (shsRank sh) ->
+      astConvUpRFromS sh xz a
+  (FTKS sh xy, FTKX shx xz)
+    | Just Refl <- matchingFTK xy xz
+    , Just Refl <- testEquality (shxRank shx) (shsRank sh) ->
+      astConvUpXFromS shx xz a
   (_, zftk) | Just c2 <- convDownMaybe yftk (ftkToSTK zftk) ->
     astConvertDown c2 zftk a
   (_, zftk) | Just c2 <- convUpMaybe yftk zftk ->
@@ -3580,8 +3594,10 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
 instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   tconvert c _astk = astConvert c
 
-  -- These two are somewhat faster than their default implementations.
+  -- These are somewhat faster than their default implementations.
+  kfromR = astConvertDownKFromR (ConvCmp ConvX0 ConvRX)
   kfromS = astConvertDownKFromS (ConvCmp ConvX0 ConvSX)
+  kfromX = astConvertDownKFromX ConvX0
   sfromK = Ast.AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
 
   rfromS t = case ftkAst t of
