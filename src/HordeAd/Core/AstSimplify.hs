@@ -78,7 +78,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
-  (shxFromShS, withShsFromShR, withShsFromShX)
+  (shrFromShS, shxFromShS, withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, Perm (..), TakeLen, permInverse)
@@ -3431,20 +3431,21 @@ astConvUp :: forall y z s. KnownSpan s
           -> AstTensor AstMethodLet s z
 astConvUp zftk t = astConvertUp (convUp (ftkAst t) zftk) zftk t
 
-astConvUpRFromS :: forall sh x s.
-                   ShS sh -> SingletonTK x
+astConvUpRFromS :: forall sh x s. KnownSpan s
+                => ShS sh -> FullShapeTK x
                 -> AstTensor AstMethodLet s (TKS2 sh x)
                 -> AstTensor AstMethodLet s (TKR2 (Rank sh) x)
-astConvUpRFromS sh x | Refl <- lemRankMapJust sh =
-  Ast.AstConvert (ConvCmp (ConvXR x) ConvSX)
+astConvUpRFromS sh x t | Refl <- lemRankMapJust sh =
+  astConvertUp
+    (ConvCmp (ConvXR (ftkToSTK x)) ConvSX) (FTKR (shrFromShS sh) x) t
 
-astConvUpXFromS :: forall sh sh' x s. Rank sh ~ Rank sh'
+astConvUpXFromS :: forall sh sh' x s. (Rank sh ~ Rank sh', KnownSpan s)
                 => IShX sh' -> FullShapeTK x
                 -> AstTensor AstMethodLet s (TKS2 sh x)
                 -> AstTensor AstMethodLet s (TKX2 sh' x)
 astConvUpXFromS sh' x =
   gcastWith (unsafeCoerceRefl :: Rank (MapJust sh) :~: Rank sh) $
-  Ast.AstConvert (ConvCmp (ConvXX' (FTKX sh' x)) ConvSX)
+  astConvertUp (ConvCmp (ConvXX' (FTKX sh' x)) ConvSX) (FTKX sh' x)
 
 -- TODO: how to add more without duplicating astIndexKnobsS?
 astIndex0
@@ -3583,16 +3584,17 @@ instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   kfromS = astConvertDownKFromS (ConvCmp ConvX0 ConvSX)
   sfromK = Ast.AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
 
-  rfromS = astConvUpRFromS knownShS knownSTK
-  rfromX a = case ftkAst a of
+  rfromS t = case ftkAst t of
+    FTKS sh x -> astConvUpRFromS sh x t
+  rfromX t = case ftkAst t of
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
-        astConvUpRFromS sh (ftkToSTK x) $ astConvDownSFromX sh x a
-  xfromR a = case ftkAst a of
+        astConvUpRFromS sh x $ astConvDownSFromX sh x t
+  xfromR t = case ftkAst t of
     FTKR shr x ->
       withShsFromShR shr $ \(sh :: ShS sh) ->
         astConvUpXFromS (shCastSX knownShX sh) x
-        $ astConvDownSFromR sh x a
+        $ astConvDownSFromR sh x t
   sfromR t = case ftkAst t of
     FTKR _ x -> astConvDownSFromR knownShS x t
   sfromX t = case ftkAst t of
@@ -3688,7 +3690,7 @@ astConcrete ftk v = case ftk of
   FTKR sh' FTKScalar ->
     withShsFromShR sh' $ \sh ->
       withKnownShS sh $
-      astConvUpRFromS sh STKScalar $ astConcreteS $ sfromR v
+      astConvUpRFromS sh FTKScalar $ astConcreteS $ sfromR v
   FTKS ZSS FTKScalar ->
     sfromK $ AstConcreteK $ Nested.sunScalar $ unConcrete v
   FTKS _ FTKScalar -> astConcreteS v
@@ -3704,7 +3706,7 @@ astConcrete ftk v = case ftk of
     astPair (astConcrete ftk1 (tproject1 v))
             (astConcrete ftk2 (tproject2 v))
   _ -> concreteTarget astConcreteK astConcreteS
-                      (\sh -> astConvUpRFromS sh STKScalar)
+                      (\sh -> astConvUpRFromS sh FTKScalar)
                       (\sh' -> astConvUpXFromS sh' FTKScalar)
                       (ftkToSTK ftk) v
 
@@ -3736,7 +3738,7 @@ astLetFun a f = case a of
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
         let v = astConvDownSFromR sh x a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! astLet var v (f $ astConvUpRFromS sh (ftkToSTK x) $ astVar var)
+        pure $! astLet var v (f $ astConvUpRFromS sh x $ astVar var)
           -- safe, because subsitution ruled out above
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> do

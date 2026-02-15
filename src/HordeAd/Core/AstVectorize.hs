@@ -470,7 +470,7 @@ astTr a = case Permutation.makePerm @'[1, 0] of
         gcastWith (unsafeCoerceRefl :: (Rank perm <=? Rank sh) :~: True) $
         gcastWith (unsafeCoerceRefl
                    :: Rank (Permutation.PermutePrefix perm sh) :~: Rank sh) $
-        astConvUpRFromS (shsPermutePrefix perm sh) (ftkToSTK x)
+        astConvUpRFromS (shsPermutePrefix perm sh) x
         . astTransposeS perm . astConvDownSFromR sh x $ a
 
 astTrS :: forall n m sh s r. KnownSpan s
@@ -520,7 +520,7 @@ astIndexBuild snat@SNat ftk u i = case ftk of
     FTKR shmshn x ->
       withShsFromShR shmshn $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: k ': Tail sh :~: sh) $
-        astConvUpRFromS (shsTail sh) (ftkToSTK x)
+        astConvUpRFromS (shsTail sh) x
         $ astIndexS (shsTail sh) (astConvDownSFromR sh x u) (i :.$ ZIS)
   FTKS sh _ -> astIndexS sh u (i :.$ ZIS)
   FTKX sh' _ -> case ftkAst u of
