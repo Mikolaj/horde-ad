@@ -1190,25 +1190,22 @@ instance KnownSpan s => ConvertTensor (AstRaw s) where
   kfromS = AstRaw . cAstConvDownKFromS . unAstRaw
   sfromK = AstRaw . cAstConvUpSFromK . unAstRaw
 
-  rfromS @sh (AstRaw a) = AstRaw $ cAstConvUpRFromS (knownShS @sh) knownSTK a
-  rfromX (AstRaw a) = case ftkAst a of
+  rfromS (AstRaw a) = AstRaw $ cAstConvUpRFromS knownShS knownSTK a
+  rfromX (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        rfromS $ AstRaw $ cAstConvDownSFromX sh x a
-  xfromR (AstRaw a) = case ftkAst a of
+        cAstConvUpRFromS sh (ftkToSTK x) $ cAstConvDownSFromX sh x a
+  xfromR (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR shr x ->
       withShsFromShR shr $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        xfromS @_ @sh $ AstRaw $ cAstConvDownSFromR sh x a
-
-  sfromR a = case ftkAst $ unAstRaw a of
-    FTKR _ x -> AstRaw . cAstConvDownSFromR knownShS x . unAstRaw $ a
-  sfromX a = case ftkAst $ unAstRaw a of
-    FTKX _ x -> AstRaw . cAstConvDownSFromX knownShS x . unAstRaw $ a
-  xfromS @_ @sh' (AstRaw t) = case ftkAst t of
-    FTKS sh x ->
-      AstRaw $ cAstConvUpXFromS (shCastSX (knownShX @sh') sh) x t
+        cAstConvUpXFromS (shCastSX knownShX sh) x
+        $ cAstConvDownSFromR sh x a
+  sfromR (AstRaw t) = AstRaw $ case ftkAst t of
+    FTKR _ x -> cAstConvDownSFromR knownShS x t
+  sfromX (AstRaw t) = AstRaw $ case ftkAst t of
+    FTKX _ x -> cAstConvDownSFromX knownShS x t
+  xfromS (AstRaw t) = AstRaw $ case ftkAst t of
+    FTKS sh x -> cAstConvUpXFromS (shCastSX knownShX sh) x t
 
   rzip @_ @_ @n (AstRaw a)
    | Refl <- lemRankReplicate (Proxy @n) = AstRaw $ case ftkAst a of

@@ -3615,7 +3615,7 @@ instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   kfromS = astConvertDownKFromS (ConvCmp ConvX0 ConvSX)
   sfromK = Ast.AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
 
-  rfromS @sh = astConvUpRFromS (knownShS @sh) knownSTK
+  rfromS = astConvUpRFromS knownShS knownSTK
   rfromX a = case ftkAst a of
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
@@ -3623,14 +3623,14 @@ instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   xfromR a = case ftkAst a of
     FTKR shr x ->
       withShsFromShR shr $ \(sh :: ShS sh) ->
-        astConvUpXFromS (shCastSX knownShX sh) x $ astConvDownSFromR sh x a
+        astConvUpXFromS (shCastSX knownShX sh) x
+        $ astConvDownSFromR sh x a
   sfromR t = case ftkAst t of
     FTKR _ x -> astConvDownSFromR knownShS x t
   sfromX t = case ftkAst t of
     FTKX _ x -> astConvDownSFromX knownShS x t
   xfromS t = case ftkAst t of
-    FTKS sh x ->
-      astConvUpXFromS (shCastSX knownShX sh) x t
+    FTKS sh x -> astConvUpXFromS (shCastSX knownShX sh) x t
 
   rzip @_ @_ @n a
    | Refl <- lemRankReplicate (Proxy @n) = case ftkAst a of
