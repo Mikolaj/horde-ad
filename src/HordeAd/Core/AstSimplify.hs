@@ -76,7 +76,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (Replicate, type (++))
+import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
   (shxFromShS, withShsFromShR, withShsFromShX)
@@ -3463,20 +3463,20 @@ astConvUp :: forall y z s. KnownSpan s
           -> AstTensor AstMethodLet s z
 astConvUp zftk t = astConvertUp (convUp (ftkAst t) zftk) zftk t
 
--- Or should we take SNat (Rank sh) to help proving n ~ Rank sh?
-astConvUpRFromS :: forall sh x s. KnownSpan s
-                => IShR (Rank sh) -> AstTensor AstMethodLet s (TKS2 sh x)
+astConvUpRFromS :: forall sh x s.
+                   ShS sh -> SingletonTK x
+                -> AstTensor AstMethodLet s (TKS2 sh x)
                 -> AstTensor AstMethodLet s (TKR2 (Rank sh) x)
-astConvUpRFromS sh' t | FTKS _ x <- ftkAst t =
-  let zftk = FTKR sh' x
-  in astConvertUp (convUp (ftkAst t) zftk) zftk t
+astConvUpRFromS sh x | Refl <- lemRankMapJust sh =
+  Ast.AstConvert (ConvCmp (ConvXR x) ConvSX)
 
-astConvUpXFromS :: forall sh sh' x s. (KnownSpan s, Rank sh ~ Rank sh')
-                => IShX sh' -> AstTensor AstMethodLet s (TKS2 sh x)
+astConvUpXFromS :: forall sh sh' x s. Rank sh ~ Rank sh'
+                => IShX sh' -> FullShapeTK x
+                -> AstTensor AstMethodLet s (TKS2 sh x)
                 -> AstTensor AstMethodLet s (TKX2 sh' x)
-astConvUpXFromS sh' t | FTKS _ x <- ftkAst t =
-  let zftk = FTKX sh' x
-  in astConvertUp (convUp (ftkAst t) zftk) zftk t
+astConvUpXFromS sh' x =
+  gcastWith (unsafeCoerceRefl :: Rank (MapJust sh) :~: Rank sh) $
+  Ast.AstConvert (ConvCmp (ConvXX' (FTKX sh' x)) ConvSX)
 
 -- TODO: how to add more without duplicating astIndexKnobsS?
 astIndex0
@@ -3609,12 +3609,13 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
 -- * ConvertTensor instances needed for unwinding in astConcrete
 
 instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
-  tconvert c _astk v = astConvert c v
+  tconvert c _astk = astConvert c
 
   -- These two are somewhat faster than their default implementations.
   kfromS = astConvertDownKFromS (ConvCmp ConvX0 ConvSX)
   sfromK = Ast.AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
 
+  rfromS @sh = astConvUpRFromS (knownShS @sh) knownSTK
   rfromX a = case ftkAst a of
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
@@ -3625,15 +3626,13 @@ instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
       withShsFromShR shr $ \(sh :: ShS sh) ->
         withKnownShS sh $
         xfromS @_ @sh $ astConvDownSFromR sh x a
-
   sfromR t = case ftkAst t of
     FTKR _ x -> astConvDownSFromR knownShS x t
   sfromX t = case ftkAst t of
     FTKX _ x -> astConvDownSFromX knownShS x t
   xfromS t = case ftkAst t of
     FTKS sh x ->
-      let zftk = FTKX (shCastSX knownShX sh) x
-      in astConvertUp (convUp (ftkAst t) zftk) zftk t
+      astConvUpXFromS (shCastSX knownShX sh) x t
 
   rzip @_ @_ @n a
    | Refl <- lemRankReplicate (Proxy @n) = case ftkAst a of
@@ -3723,7 +3722,7 @@ astConcrete ftk v = case ftk of
   FTKR sh' FTKScalar ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      astConvUpRFromS sh' $ astConcreteS (sfromR @_ @sh v)
+      astConvUpRFromS sh STKScalar $ astConcreteS (sfromR @_ @sh v)
   FTKS ZSS FTKScalar ->
     Ast.AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
     $ AstConcreteK $ Nested.sunScalar $ unConcrete v
@@ -3734,10 +3733,16 @@ astConcrete ftk v = case ftk of
   FTKX sh' FTKScalar ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      astConvUpXFromS sh' $ astConcreteS (sfromX @_ @sh v)
+      astConvUpXFromS sh' FTKScalar $ astConcreteS (sfromX @_ @sh v)
   FTKProduct ftk1 ftk2 ->
     astPair (astConcrete ftk1 (tproject1 v)) (astConcrete ftk2 (tproject2 v))
-  _ -> concreteTarget astConcreteK astConcreteS astConvUpRFromS astConvUpXFromS
+  _ -> concreteTarget astConcreteK astConcreteS
+                      (\_sh' t -> case ftkAst t of
+                          FTKS sh FTKScalar ->
+                            astConvUpRFromS sh STKScalar t)
+                      (\sh' t -> case ftkAst t of
+                          FTKS _sh FTKScalar ->
+                            astConvUpXFromS sh' FTKScalar t)
                       (ftkToSTK ftk) v
 
 -- INLINE here would bloat the binary a lot, probably negating any
@@ -3768,13 +3773,13 @@ astLetFun a f = case a of
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
         let v = astConvDownSFromR sh x a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! astLet var v (f $ astConvUpRFromS sh' $ astVar var)
+        pure $! astLet var v (f $ astConvUpRFromS sh (ftkToSTK x) $ astVar var)
           -- safe, because subsitution ruled out above
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> do
         let v = astConvDownSFromX sh x a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! astLet var v (f $ astConvUpXFromS sh' $ astVar var)
+        pure $! astLet var v (f $ astConvUpXFromS sh' x $ astVar var)
     FTKS ZSS x@FTKScalar -> do
         let v = kfromS a
         var <- funToAstAutoBoundsIO x v

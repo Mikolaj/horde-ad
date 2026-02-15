@@ -435,13 +435,13 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   txsum = astSum SNat knownSTK
   txreplicate snat sh = astReplicate snat (STKX sh knownSTK)
   txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (Concrete a)
-  txfloor @_ @r2 @sh' a = case ftkAst a of
+  txfloor @_ @r2 a = case ftkAst a of
     FTKX sh' FTKScalar ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
         astConvUp @(TKS sh r2) (FTKX sh' FTKScalar)
         . fromPlain . astFloorS . astPlainPart
         . astConvDownSFromX sh FTKScalar $ a
-  txfromIntegral @_ @r2 @sh' a = case ftkAst a of
+  txfromIntegral @_ @r2 a = case ftkAst a of
     FTKX sh' FTKScalar ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
         astConvUp @(TKS sh r2) (FTKX sh' FTKScalar)
