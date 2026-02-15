@@ -24,27 +24,26 @@ module HordeAd.Core.AstSimplify
   ( RewritePhase(..), SimplifyKnobs (..), defaultKnobs
   , -- * The simplifying combinators, one for almost each AST constructor
     astPair, astProject1, astProject2, astFromVector, astSum, astReplicate
-  , astMapAccumLDer, astApply, astCond
-  , astConcrete, astConcreteK, astConcreteS
-
-  , astLet
+  , astMapAccumLDer, astApply, astCond, astLet
 
   , astPrimalPart, astDualPart, astPlainPart
 
-  , astFloorK, astFromIntegralK, astCastK, astArgMinK, astArgMaxK
+  , astConcrete, astConcreteK, astConcreteS
 
+  , astFloorK, astFromIntegralK, astCastK, astArgMinK, astArgMaxK
   , astFloorS, astFromIntegralS, astCastS
 
   , astIndexS, astIndexKnobsS, astScatterS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
 
   , astConvert
-  , astConvDownSFromR, astConvDownSFromX
-  , astConvUp, astConvUpRFromS, astConvUpXFromS
+  , astConvDownSFromR, astConvDownSFromX, astConvUpRFromS, astConvUpXFromS
+
   , astIndex0, astSum0, astDot0, astDot1InS, astMatmul2S
 
     -- * Helper combinators
   , astLetFun
+
     -- * Substitution operations
   , substituteAst, substituteAstIxS
   ) where
