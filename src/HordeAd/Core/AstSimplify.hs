@@ -3100,20 +3100,18 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
   -- by the domain and codomain. We pick the simplest such c.
   (FTKS ZSS (FTKScalar @rz), FTKScalar @ry)
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
-      let c2 = ConvCmp ConvX0 ConvSX
-      in astConvertDownKFromS c2 a
+      kfromS a
   (FTKScalar @ry, FTKS ZSS (FTKScalar @rz))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
-      let c2 = ConvCmp ConvXS (Conv0X STKScalar)
-      in astConvertUp c2 (FTKS ZSS FTKScalar) a
-  (FTKR shr xy, zftk@(FTKS sh xz))
+      sfromK a
+  (FTKR shr xy, FTKS sh xz)
     | Just Refl <- matchingFTK xy xz
     , Just Refl <- testEquality (shrRank shr) (shsRank sh) ->
-      astConvertDownSFromR (convDown yftk (ftkToSTK zftk)) sh xz a
-  (FTKX shx xy, zftk@(FTKS sh xz))
+      astConvDownSFromR sh xz a
+  (FTKX shx xy, FTKS sh xz)
     | Just Refl <- matchingFTK xy xz
     , Just Refl <- testEquality (shxRank shx) (shsRank sh) ->
-      astConvertDownSFromX (convDown yftk (ftkToSTK zftk)) sh xz a
+      astConvDownSFromX sh xz a
   (_, zftk) | Just c2 <- convDownMaybe yftk (ftkToSTK zftk) ->
     astConvertDown c2 zftk a
   (_, zftk) | Just c2 <- convUpMaybe yftk zftk ->
@@ -3165,6 +3163,8 @@ astConvertDown c zftk t = case (ftkAst t, zftk) of
       -- so we always create a canonical one.
       astPair (astConvertDown (convDown yftk1 (ftkToSTK zftk1)) zftk1 a1)
               (astConvertDown (convDown yftk2 (ftkToSTK zftk2)) zftk2 a2)
+    Ast.AstCond b v1 v2 -> astCond b (astConvertDown c zftk v1)
+                                     (astConvertDown c zftk v2)
     Ast.AstLet var u v -> astLet var u (astConvertDown c zftk v)
     Ast.AstPrimalPart v -> astPrimalPart $ astConvertDown c zftk v
     Ast.AstDualPart v -> astDualPart $ astConvertDown c zftk v
@@ -3189,8 +3189,8 @@ astConvertDownKFromS c a = case a of
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astConvertDownKFromS c v)) ll
   Ast.AstVar{} -> Ast.AstConvert c a
-  Ast.AstCond b v1 v2 ->
-    astCond b (astConvertDownKFromS c v1) (astConvertDownKFromS c v2)
+  Ast.AstCond b v1 v2 -> astCond b (astConvertDownKFromS c v1)
+                                   (astConvertDownKFromS c v2)
   Ast.AstLet var u v -> astLet var u (astConvertDownKFromS c v)
   Ast.AstPrimalPart v -> astPrimalPart $ astConvertDownKFromS c v
   Ast.AstDualPart v -> astDualPart $ astConvertDownKFromS c v
@@ -3239,9 +3239,8 @@ astConvertDownKFromR c a = case a of
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astConvertDownKFromR c v)) ll
   Ast.AstVar{} -> Ast.AstConvert c a
-  Ast.AstCond b v1 v2 ->
-    astCond b (astConvertDownKFromR c v1)
-              (astConvertDownKFromR c v2)
+  Ast.AstCond b v1 v2 -> astCond b (astConvertDownKFromR c v1)
+                                   (astConvertDownKFromR c v2)
   Ast.AstLet var u v ->
     astLet var u (astConvertDownKFromR c v)
   Ast.AstPrimalPart v ->
@@ -3267,9 +3266,8 @@ astConvertDownKFromX c a = case a of
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astConvertDownKFromX c v)) ll
   Ast.AstVar{} -> Ast.AstConvert c a
-  Ast.AstCond b v1 v2 ->
-    astCond b (astConvertDownKFromX c v1)
-              (astConvertDownKFromX c v2)
+  Ast.AstCond b v1 v2 -> astCond b (astConvertDownKFromX c v1)
+                                   (astConvertDownKFromX c v2)
   Ast.AstLet var u v ->
     astLet var u (astConvertDownKFromX c v)
   Ast.AstPrimalPart v ->
@@ -3408,29 +3406,7 @@ astConvertUp c zftk t = case (ftkAst t, zftk, t) of
     fromPlain $ astConvertUp c zftk v
   (_, _, Ast.AstConvert c2 a2) ->
     astConvert (c `convCmp` c2) a2
-  (FTKScalar @ry, FTKS ZSS (FTKScalar @rz), _) ->
-    case testEquality (typeRep @ry) (typeRep @rz) of
-      Just Refl -> Ast.AstConvert c t
-      Nothing -> error "astConvertUp: tensor kinds don't match"
-  (FTKScalar @ry, FTKR ZSR (FTKScalar @rz), _) ->
-    case testEquality (typeRep @ry) (typeRep @rz) of
-      Just Refl -> Ast.AstConvert c t
-      Nothing -> error "astConvertUp: tensor kinds don't match"
-  (FTKScalar @ry, FTKX ZSX (FTKScalar @rz), _) ->
-    case testEquality (typeRep @ry) (typeRep @rz) of
-      Just Refl -> Ast.AstConvert c t
-      Nothing -> error "astConvertUp: tensor kinds don't match"
-  (FTKS shz zx, FTKR shr yx, _) ->
-    case (matchingFTK yx zx, testEquality (shsRank shz) (shrRank shr)) of
-      (Just Refl, Just Refl) -> Ast.AstConvert c t
-      _ -> error "astConvertUp: tensor kinds don't match"
-  (FTKS shz zx, FTKX shy yx, _) ->
-    case (matchingFTK yx zx, testEquality (shsRank shz) (shxRank shy)) of
-      (Just Refl, Just Refl) -> Ast.AstConvert c t
-      _ -> error "astConvertUp: tensor kinds don't match"
-  (FTKProduct{}, _, _) -> Ast.AstConvert c t
-  (yftk, _, _) ->
-    error $ "astConvertUp: wrong tensor kinds: " ++ show (yftk, zftk, t)
+  _ -> Ast.AstConvert c t
 
 astConvDown :: forall y z s. KnownSpan s
             => SingletonTK z -> AstTensor AstMethodLet s y
