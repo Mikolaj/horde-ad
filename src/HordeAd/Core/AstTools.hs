@@ -525,10 +525,10 @@ liftRFromS1 :: forall n x ms s. KnownSpan s
             -> AstTensor ms s (TKR2 n x)
 {-# INLINE liftRFromS1 #-}
 liftRFromS1 f a = case ftkAst a of
-  FTKR sh' _ ->
+  FTKR sh' x ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
       cAstConvUpRFromS sh'
-      $ f (cAstConvDownSFromR @sh sh a)
+      $ f (cAstConvDownSFromR sh x a)
 
 liftRFromS2 :: forall n x ms s. KnownSpan s
             => (forall sh.
@@ -538,10 +538,10 @@ liftRFromS2 :: forall n x ms s. KnownSpan s
             -> AstTensor ms s (TKR2 n x)
 {-# INLINE liftRFromS2 #-}
 liftRFromS2 f a b  = case ftkAst a of
-  FTKR sh' _ ->
+  FTKR sh' x ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
       cAstConvUpRFromS sh'
-      $ f (cAstConvDownSFromR @sh sh a) (cAstConvDownSFromR @sh sh b)
+      $ f (cAstConvDownSFromR sh x a) (cAstConvDownSFromR sh x b)
 
 liftXFromS1 :: forall sh' x ms s. KnownSpan s
             => (forall sh.
@@ -551,10 +551,10 @@ liftXFromS1 :: forall sh' x ms s. KnownSpan s
             -> AstTensor ms s (TKX2 sh' x)
 {-# INLINE liftXFromS1 #-}
 liftXFromS1 f a = case ftkAst a of
-  FTKX sh' _ ->
+  FTKX sh' x ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
       cAstConvUpXFromS sh'
-      $ f (cAstConvDownSFromX @sh @sh' sh a)
+      $ f (cAstConvDownSFromX sh x a)
 
 liftXFromS2 :: forall sh' x ms s. KnownSpan s
             => (forall sh.
@@ -564,10 +564,10 @@ liftXFromS2 :: forall sh' x ms s. KnownSpan s
             -> AstTensor ms s (TKX2 sh' x)
 {-# INLINE liftXFromS2 #-}
 liftXFromS2 f a b = case ftkAst a of
-  FTKX sh' _ ->
+  FTKX sh' x ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
       cAstConvUpXFromS sh'
-      $ f (cAstConvDownSFromX @sh @sh' sh a) (cAstConvDownSFromX @sh @sh' sh b)
+      $ f (cAstConvDownSFromX sh x a) (cAstConvDownSFromX sh x b)
 
 cAstConvert :: KnownSpan s
             => TKConversion x z -> AstTensor ms s x -> AstTensor ms s z
@@ -591,22 +591,22 @@ cAstConvDownKFromS :: forall r ms s. KnownSpan s
 cAstConvDownKFromS = cAstConvert (ConvCmp ConvX0 ConvSX)
 
 cAstConvDownSFromR :: forall sh x ms s. KnownSpan s
-                   => ShS sh -> AstTensor ms s (TKR2 (Rank sh) x)
+                   => ShS sh -> FullShapeTK x
+                   -> AstTensor ms s (TKR2 (Rank sh) x)
                    -> AstTensor ms s (TKS2 sh x)
-cAstConvDownSFromR sh t = case ftkAst t of
-  FTKR _ x -> cAstConvert (convDown (ftkAst t) (ftkToSTK (FTKS sh x))) t
+cAstConvDownSFromR sh x t | Refl <- lemRankReplicate (Proxy @(Rank sh)) =
+  cAstConvert (ConvCmp (ConvXS' (FTKS sh x)) ConvRX) t
 
--- Regardless of the warning, the rank equality is morally necessary.
 cAstConvDownSFromX :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
-                   => ShS sh -> AstTensor ms s (TKX2 sh' x)
+                   => ShS sh -> FullShapeTK x
+                   -> AstTensor ms s (TKX2 sh' x)
                    -> AstTensor ms s (TKS2 sh x)
-cAstConvDownSFromX sh t = case ftkAst t of
-  FTKX _ x -> cAstConvert (convDown (ftkAst t) (ftkToSTK (FTKS sh x))) t
+cAstConvDownSFromX sh x t = cAstConvert (ConvXS' (FTKS sh x)) t
 
-cAstConvUpSFromK :: forall r ms s. (KnownSpan s, GoodScalar r)
+cAstConvUpSFromK :: forall r ms s. GoodScalar r
                  => AstTensor ms s (TKScalar r)
                  -> AstTensor ms s (TKS '[] r)
-cAstConvUpSFromK = cAstConvert (ConvCmp ConvXS (Conv0X STKScalar))
+cAstConvUpSFromK = AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
 
 cAstConvUpRFromS :: forall sh x ms s. KnownSpan s
                  => IShR (Rank sh) -> AstTensor ms s (TKS2 sh x)

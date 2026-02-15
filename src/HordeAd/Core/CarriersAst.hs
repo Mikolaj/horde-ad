@@ -1120,70 +1120,76 @@ instance Boolean (AstBool ms) where
 instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKR n r) where
   v ==. u = case ftkAst v of
-    FTKR shv' _ -> case ftkAst u of
+    FTKR shv' x -> case ftkAst u of
       FTKR shu' _ ->
         withShsFromShR shv' $ \shv ->
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
-              Just Refl -> cAstConvDownSFromR shu v ==. cAstConvDownSFromR shv u
+              Just Refl ->
+                cAstConvDownSFromR shu x v ==. cAstConvDownSFromR shv x u
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
 instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKR n r) where
   v ==. u = case ftkAst v of
-    FTKR shv' _ -> case ftkAst u of
+    FTKR shv' x -> case ftkAst u of
       FTKR shu' _ ->
         withShsFromShR shv' $ \shv ->
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
-              Just Refl -> cAstConvDownSFromR shu v ==. cAstConvDownSFromR shv u
+              Just Refl ->
+                cAstConvDownSFromR shu x v ==. cAstConvDownSFromR shv x u
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
 instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKX sh r) where
   v ==. u = case ftkAst v of
-    FTKX shv' _ -> case ftkAst u of
+    FTKX shv' x -> case ftkAst u of
       FTKX shu' _ ->
         withShsFromShX shv' $ \shv ->
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
-              Just Refl -> cAstConvDownSFromX shu v ==. cAstConvDownSFromX shv u
+              Just Refl ->
+                cAstConvDownSFromX shu x v ==. cAstConvDownSFromX shv x u
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
 instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKX sh r) where
   v ==. u = case ftkAst v of
-    FTKX shv' _ -> case ftkAst u of
+    FTKX shv' x -> case ftkAst u of
       FTKX shu' _ ->
         withShsFromShX shv' $ \shv ->
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
-              Just Refl -> cAstConvDownSFromX shu v ==. cAstConvDownSFromX shv u
+              Just Refl ->
+                cAstConvDownSFromX shu x v ==. cAstConvDownSFromX shv x u
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
 instance (KnownSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKR n r) where
   v <=. u = case ftkAst v of
-    FTKR shv' _ -> case ftkAst u of
+    FTKR shv' x -> case ftkAst u of
       FTKR shu' _ ->
         withShsFromShR shv' $ \shv ->
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
-              Just Refl -> cAstConvDownSFromR shu v <=. cAstConvDownSFromR shv u
+              Just Refl ->
+                cAstConvDownSFromR shu x v <=. cAstConvDownSFromR shv x u
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
 instance (KnownSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
   v <=. u = case ftkAst v of
-    FTKX shv' _ -> case ftkAst u of
+    FTKX shv' x -> case ftkAst u of
       FTKX shu' _ ->
         withShsFromShX shv' $ \shv ->
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
-              Just Refl -> cAstConvDownSFromX shu v <=. cAstConvDownSFromX shv u
+              Just Refl ->
+                cAstConvDownSFromX shu x v <=. cAstConvDownSFromX shv x u
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -1469,12 +1475,12 @@ astShareNoSimplify a = case a of
         pure $! astShare var a
     FTKR sh' x ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
-        let v = cAstConvDownSFromR @sh sh a
+        let v = cAstConvDownSFromR sh x a
         var <- funToAstNoBoundsIO (FTKS sh x)
         pure $! cAstConvUpRFromS sh' $ astShare var v
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> do
-        let v = cAstConvDownSFromX @sh sh a
+        let v = cAstConvDownSFromX sh x a
         var <- funToAstNoBoundsIO (FTKS sh x)
         pure $! cAstConvUpXFromS sh' $ astShare var v
     FTKS ZSS x@FTKScalar -> do
@@ -1506,13 +1512,13 @@ astLetFunNoSimplify a f = case a of
         pure $! AstLet var a (f $ astVar var)
     FTKR sh' x ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
-        let v = cAstConvDownSFromR @sh sh a
+        let v = cAstConvDownSFromR sh x a
         var <- funToAstNoBoundsIO (FTKS sh x)
         pure $! AstLet var v (f $ cAstConvUpRFromS sh' $ astVar var)
           -- safe, because subsitution ruled out above
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> do
-        let v = cAstConvDownSFromX @sh sh a
+        let v = cAstConvDownSFromX sh x a
         var <- funToAstNoBoundsIO (FTKS sh x)
         pure $! AstLet var v (f $ cAstConvUpXFromS sh' $ astVar var)
     FTKS ZSS x@FTKScalar -> do
