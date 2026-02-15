@@ -528,7 +528,7 @@ liftRFromS1 :: forall n x ms s. KnownSpan s
 liftRFromS1 f a = case ftkAst a of
   FTKR sh' x ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
-      cAstConvUpRFromS sh (ftkToSTK x)
+      cAstConvUpRFromS sh x
       $ f (cAstConvDownSFromR sh x a)
 
 liftRFromS2 :: forall n x ms s. KnownSpan s
@@ -541,7 +541,7 @@ liftRFromS2 :: forall n x ms s. KnownSpan s
 liftRFromS2 f a b  = case ftkAst a of
   FTKR sh' x ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
-      cAstConvUpRFromS sh (ftkToSTK x)
+      cAstConvUpRFromS sh x
       $ f (cAstConvDownSFromR sh x a) (cAstConvDownSFromR sh x b)
 
 liftXFromS1 :: forall sh' x ms s. KnownSpan s
@@ -610,11 +610,11 @@ cAstConvUpSFromK :: forall r ms s. (KnownSpan s, GoodScalar r)
 cAstConvUpSFromK = cAstConvert (ConvCmp ConvXS (Conv0X STKScalar))
 
 cAstConvUpRFromS :: forall sh x ms s. KnownSpan s
-                 => ShS sh -> SingletonTK x
+                 => ShS sh -> FullShapeTK x
                  -> AstTensor ms s (TKS2 sh x)
                  -> AstTensor ms s (TKR2 (Rank sh) x)
 cAstConvUpRFromS sh x | Refl <- lemRankMapJust sh =
-  cAstConvert (ConvCmp (ConvXR x) ConvSX)
+  cAstConvert (ConvCmp (ConvXR (ftkToSTK x)) ConvSX)
 
 cAstConvUpXFromS :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
                  => IShX sh' -> FullShapeTK x
