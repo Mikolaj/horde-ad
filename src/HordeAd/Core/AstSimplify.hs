@@ -539,9 +539,8 @@ astSum snat@SNat stk t0 = case t0 of
         case lemTKAllNumBuild snat stk of
           Dict0 -> case lemTKAllNumBackConvert c of
             Dict0 -> case lemTKAllNumRaze snat xstkRazed of
-              Dict0 ->
-                astConvUp zftkRazed (astSum snat xstkRazed t)
-                  -- this uses razed c, not c
+              Dict0 -> astConvUp zftkRazed (astSum snat xstkRazed t)
+                -- this uses razed c, not c
   _ -> Ast.AstSum snat stk t0
 
 astReplicate :: forall y k s. KnownSpan s
@@ -1660,11 +1659,8 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
      astIndex shn (astReshapeAsGatherS (deVect knobs) sh v) ix
    Ast.AstReshapeS{} -> Ast.AstIndexS shn v0 ix
 
-   AstConvUp ftkz v -> case matchingFTK (ftkAst v) ftkz of
-     Just Refl -> astIndexKnobsS knobs shn v ix
-       -- rare, usually simplifies away earlier
-     Nothing -> error "astIndexKnobsS: wrong tensor kinds in AstConvUp"
-   -- These conversions need to stay down, so this is NF, see vectorization.
+   -- These conversions usually need to stay down, so this is NF,
+   -- see AstVectorize.build1VIndexS.
    Ast.AstConvert{} -> Ast.AstIndexS shn v0 ix
 
    -- These should not appear here unless via wacky tests.
@@ -2727,11 +2723,8 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
                      (astReshapeAsGatherS knobs sh v) (vars4, ix4)
       else Ast.AstGatherS shm shn shp v4 (vars4, ix4)
 
-    AstConvUp ftkz v -> case matchingFTK (ftkAst v) ftkz of
-      Just Refl -> astGather shm shn shp v (vars4, ix4)
-        -- rare, usually simplifies away earlier
-      Nothing -> error "astGatherKnobsS: wrong tensor kinds in AstConvUp"
-    -- These conversions need to stay down.
+    -- These conversions usually need to stay down, so this is NF,
+    -- see AstVectorize.build1VIndexS.
     Ast.AstConvert{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
 
     -- These should not appear here unless via wacky tests.

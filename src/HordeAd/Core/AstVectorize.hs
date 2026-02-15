@@ -426,8 +426,6 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                -- These, in general, simplify to gathers, so as bad as ruleD.
                Ast.AstTransposeS{} -> True
                Ast.AstReshapeS{} -> True
-               -- Rarely these don't simplify enough; left as an escape hatch:
-               -- (TODO: simplify better)
                Ast.AstConvert{} -> True
                -- Hard to tell just from the prefix:
                Ast.AstProject1 v2 -> pickRuleD v2
