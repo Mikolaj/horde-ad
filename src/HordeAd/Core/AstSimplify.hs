@@ -3619,13 +3619,11 @@ instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   rfromX a = case ftkAst a of
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        rfromS $ astConvDownSFromX sh x a
+        astConvUpRFromS sh (ftkToSTK x) $ astConvDownSFromX sh x a
   xfromR a = case ftkAst a of
     FTKR shr x ->
       withShsFromShR shr $ \(sh :: ShS sh) ->
-        withKnownShS sh $
-        xfromS @_ @sh $ astConvDownSFromR sh x a
+        astConvUpXFromS (shCastSX knownShX sh) x $ astConvDownSFromR sh x a
   sfromR t = case ftkAst t of
     FTKR _ x -> astConvDownSFromR knownShS x t
   sfromX t = case ftkAst t of

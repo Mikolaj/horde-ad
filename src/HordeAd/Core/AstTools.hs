@@ -26,7 +26,7 @@ import Control.Exception.Assert.Sugar
 import Data.IORef
 import Data.Maybe (fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (Typeable, typeRep)
@@ -38,7 +38,8 @@ import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (fromSNat', snatPlus)
+import Data.Array.Nested.Types (fromSNat', snatPlus, unsafeCoerceRefl)
+import Data.Array.Nested (MapJust)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Conversion
@@ -527,7 +528,7 @@ liftRFromS1 :: forall n x ms s. KnownSpan s
 liftRFromS1 f a = case ftkAst a of
   FTKR sh' x ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
-      cAstConvUpRFromS sh'
+      cAstConvUpRFromS sh (ftkToSTK x)
       $ f (cAstConvDownSFromR sh x a)
 
 liftRFromS2 :: forall n x ms s. KnownSpan s
@@ -540,7 +541,7 @@ liftRFromS2 :: forall n x ms s. KnownSpan s
 liftRFromS2 f a b  = case ftkAst a of
   FTKR sh' x ->
     withShsFromShR sh' $ \(sh :: ShS sh) ->
-      cAstConvUpRFromS sh'
+      cAstConvUpRFromS sh (ftkToSTK x)
       $ f (cAstConvDownSFromR sh x a) (cAstConvDownSFromR sh x b)
 
 liftXFromS1 :: forall sh' x ms s. KnownSpan s
@@ -553,7 +554,7 @@ liftXFromS1 :: forall sh' x ms s. KnownSpan s
 liftXFromS1 f a = case ftkAst a of
   FTKX sh' x ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
-      cAstConvUpXFromS sh'
+      cAstConvUpXFromS sh' x
       $ f (cAstConvDownSFromX sh x a)
 
 liftXFromS2 :: forall sh' x ms s. KnownSpan s
@@ -566,7 +567,7 @@ liftXFromS2 :: forall sh' x ms s. KnownSpan s
 liftXFromS2 f a b = case ftkAst a of
   FTKX sh' x ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
-      cAstConvUpXFromS sh'
+      cAstConvUpXFromS sh' x
       $ f (cAstConvDownSFromX sh x a) (cAstConvDownSFromX sh x b)
 
 cAstConvert :: KnownSpan s
@@ -609,16 +610,19 @@ cAstConvUpSFromK :: forall r ms s. GoodScalar r
 cAstConvUpSFromK = AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
 
 cAstConvUpRFromS :: forall sh x ms s. KnownSpan s
-                 => IShR (Rank sh) -> AstTensor ms s (TKS2 sh x)
+                 => ShS sh -> SingletonTK x
+                 -> AstTensor ms s (TKS2 sh x)
                  -> AstTensor ms s (TKR2 (Rank sh) x)
-cAstConvUpRFromS sh' t = case ftkAst t of
-  FTKS _ x -> cAstConvert (convUp (ftkAst t) (FTKR sh' x)) t
+cAstConvUpRFromS sh x | Refl <- lemRankMapJust sh =
+  AstConvert (ConvCmp (ConvXR x) ConvSX)
 
 cAstConvUpXFromS :: forall sh sh' x ms s. (KnownSpan s, Rank sh ~ Rank sh')
-                 => IShX sh' -> AstTensor ms s (TKS2 sh x)
+                 => IShX sh' -> FullShapeTK x
+                 -> AstTensor ms s (TKS2 sh x)
                  -> AstTensor ms s (TKX2 sh' x)
-cAstConvUpXFromS sh' t = case ftkAst t of
-  FTKS _ x -> cAstConvert (convUp (ftkAst t) (FTKX sh' x)) t
+cAstConvUpXFromS sh' x =
+  gcastWith (unsafeCoerceRefl :: Rank (MapJust sh) :~: Rank sh) $
+  AstConvert (ConvCmp (ConvXX' (FTKX sh' x)) ConvSX)
 
 pattern AstConvUpSFromK :: () => sh ~ '[]
                         => AstTensor ms s (TKScalar r)

@@ -1477,12 +1477,12 @@ astShareNoSimplify a = case a of
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
         let v = cAstConvDownSFromR sh x a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! cAstConvUpRFromS sh' $ astShare var v
+        pure $! cAstConvUpRFromS sh (ftkToSTK x) $ astShare var v
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> do
         let v = cAstConvDownSFromX sh x a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! cAstConvUpXFromS sh' $ astShare var v
+        pure $! cAstConvUpXFromS sh' x $ astShare var v
     FTKS ZSS x@FTKScalar -> do
         let v = cAstConvDownKFromS a
         var <- funToAstAutoBoundsIO x v
@@ -1514,13 +1514,13 @@ astLetFunNoSimplify a f = case a of
       withShsFromShR sh' $ \(sh :: ShS sh) -> do
         let v = cAstConvDownSFromR sh x a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! AstLet var v (f $ cAstConvUpRFromS sh' $ astVar var)
+        pure $! AstLet var v (f $ cAstConvUpRFromS sh (ftkToSTK x) $ astVar var)
           -- safe, because subsitution ruled out above
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) -> do
         let v = cAstConvDownSFromX sh x a
         var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! AstLet var v (f $ cAstConvUpXFromS sh' $ astVar var)
+        pure $! AstLet var v (f $ cAstConvUpXFromS sh' x $ astVar var)
     FTKS ZSS x@FTKScalar -> do
         let v = cAstConvDownKFromS a
         var <- funToAstAutoBoundsIO x v

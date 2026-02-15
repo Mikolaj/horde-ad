@@ -36,6 +36,7 @@ import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (Init, fromSNat', snatPlus, unsafeCoerceRefl)
+import Data.Array.Nested.Permutation (DropLen, TakeLen)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEngine
@@ -771,19 +772,19 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   trfloor (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' FTKScalar ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->
-        cAstConvUpRFromS sh'
+        cAstConvUpRFromS sh STKScalar
         . fromPlain . AstFloorS . plainPart
         . cAstConvDownSFromR sh FTKScalar $ a
   trfromIntegral (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' FTKScalar ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->
-        cAstConvUpRFromS sh'
+        cAstConvUpRFromS sh STKScalar
         . fromPlain . AstFromIntegralS . plainPart
         . cAstConvDownSFromR sh FTKScalar $ a
   trcast (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' FTKScalar ->
       withShsFromShR sh' $ \(sh :: ShS sh) ->
-        cAstConvUpRFromS sh'
+        cAstConvUpRFromS sh STKScalar
         . AstCastS . cAstConvDownSFromR sh FTKScalar $ a
   trindex @m @n (AstRaw a) ix = AstRaw $ case ftkAst a of
     FTKR shmshn x ->
@@ -791,7 +792,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
         gcastWith (unsafeCoerceRefl :: Rank (Drop m sh) :~: n) $
         gcastWith (unsafeCoerceRefl :: Take m sh ++ Drop m sh :~: sh) $
-        cAstConvUpRFromS (shrDrop @m shmshn)
+        cAstConvUpRFromS (shsDrop @m sh) (ftkToSTK x)
         $ AstIndexS @(Take m sh) @(Drop m sh)
                     (shsDrop @m sh) (cAstConvDownSFromR sh x a)
                     (ixsFromIxR (fmapUnAstRaw ix))
@@ -808,7 +809,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl
                    :: Rank (shp ++ Drop m shmshn)
                       :~: Rank shp + Rank (Drop m shmshn)) $
-        cAstConvUpRFromS (shp0 `shrAppend` shrDrop @m shmshn0)
+        cAstConvUpRFromS (shp `shsAppend` shsDrop @m shmshn) (ftkToSTK x)
         $ funToVarsIxS (shsTake @m shmshn) $ \vars ix ->
             let !ix2 = fmapUnAstRaw . ixsFromIxR
                        . f . ixrFromIxS . fmapAstRaw $ ix
@@ -828,7 +829,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl
                    :: Rank (shm ++ Drop p shpshn)
                       :~: Rank shm + Rank (Drop p shpshn)) $
-        cAstConvUpRFromS (shm0 `shrAppend` shrDrop @p shpshn0)
+        cAstConvUpRFromS (shm `shsAppend` shsDrop @p shpshn) (ftkToSTK x)
         $ funToVarsIxS shm $ \vars ix ->
             let !ix2 = fmapUnAstRaw . ixsFromIxR
                        . f . ixrFromIxS . fmapAstRaw $ ix
@@ -844,55 +845,56 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
           -- unfortunately, this is not enough:
           -- gcastWith (unsafeCoerceRefl :: Rank sh :~: 1 + Rank (Init sh)) $
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          cAstConvUpRFromS (shrInit sh')
+          cAstConvUpRFromS (shsInit sh) STKScalar
           . fromPlain . AstArgMinS . plainPart . cAstConvDownSFromR sh x $ a
   trargMax (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' x ->
       withShsFromShR sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @_ @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank (Init sh)) $
-          cAstConvUpRFromS (shrInit sh')
+          cAstConvUpRFromS (shsInit sh) STKScalar
           . fromPlain . AstArgMaxS . plainPart . cAstConvDownSFromR sh x $ a
   triota @r n =
     AstRaw
-    $ withSNat n $ \(SNat @n) ->
-        cAstConvUpRFromS (n :$: ZSR)
+    $ withSNat n $ \snat@(SNat @n) ->
+        cAstConvUpRFromS (snat :$$ ZSS) STKScalar
         $ fromPlain $ AstIotaS @n @r SNat
   trappend (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
     FTKR shu' x -> case ftkAst v of
       FTKR shv' _ ->
         withShsFromShR shu' $ \shu -> case shu of
-          _ :$$ restu ->
+          usnat :$$ restu ->
             withShsFromShR shv' $ \shv -> case shv of
-              _ :$$ restv ->
+              vsnat :$$ restv ->
                 case testEquality restu restv of
                   Just Refl ->
-                    cAstConvUpRFromS shu'
+                    cAstConvUpRFromS (snatPlus usnat vsnat :$$ restu)
+                                     (ftkToSTK x)
                     $ AstAppendS (cAstConvDownSFromR shu x u)
                                  (cAstConvDownSFromR shv x v)
                   _ -> error $ "rappend: shapes don't match: "
                                ++ show (restu, restv)
   trslice i n (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' x ->
-      withShsFromShR sh' $ \sh -> case sh of
+      withShsFromShR sh' $ \sh@(_ :$$ shRest) -> case sh of
         msnat@(SNat @m) :$$ _ ->
           withSNat i $ \isnat@(SNat @i) -> withSNat n $ \nsnat@(SNat @n) ->
             case cmpNat (snatPlus isnat nsnat) msnat of
               GTI -> error $ "rslice: argument tensor too narrow: "
                              ++ show (i, n, fromSNat' msnat)
               EQI ->
-                cAstConvUpRFromS sh'
+                cAstConvUpRFromS (nsnat :$$ shRest) (ftkToSTK x)
                 . AstSliceS isnat nsnat (SNat @(m - (i + n)))
                 . cAstConvDownSFromR sh x $ a
               LTI ->
-                cAstConvUpRFromS sh'
+                cAstConvUpRFromS (nsnat :$$ shRest) (ftkToSTK x)
                 . AstSliceS isnat nsnat (SNat @(m - (i + n)))
                 . cAstConvDownSFromR sh x $ a
   trreverse (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' x ->
       withShsFromShR sh' $ \sh -> case sh of
         _ :$$ _ ->
-          cAstConvUpRFromS sh'
+          cAstConvUpRFromS sh (ftkToSTK x)
           . AstReverseS . cAstConvDownSFromR sh x $ a
   trtranspose @n @r permr (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' x ->
@@ -906,9 +908,13 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                 gcastWith (unsafeCoerceRefl
                            :: Rank (Permutation.PermutePrefix perm sh)
                               :~: Rank sh) $
+                gcastWith (unsafeCoerceRefl
+                           :: Permutation.Permute perm (TakeLen perm sh)
+                              ++ DropLen perm sh
+                              :~: sh) $
                 fromMaybe (error "rtranspose: impossible non-permutation")
                 $ Permutation.permCheckPermutation perm
-                $ cAstConvUpRFromS sh'
+                $ cAstConvUpRFromS sh (ftkToSTK x)
                   . AstTransposeS perm . cAstConvDownSFromR sh x $ a
           in case (Permutation.permRank perm, shsRank sh) of
             (psnat@SNat, shsnat@SNat) ->
@@ -922,7 +928,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
       withShsFromShR sh' $ \sh ->
       withShsFromShR sh2' $ \sh2 ->
         case testEquality (shsProduct sh) (shsProduct sh2) of
-          Just Refl -> cAstConvUpRFromS sh2'
+          Just Refl -> cAstConvUpRFromS sh2 (ftkToSTK x)
                        . AstReshapeS sh2 . cAstConvDownSFromR sh x $ a
           _ -> error $ "rreshape: tensor size mismatch: "
                        ++ show ( fromSNat' (shsProduct sh)
@@ -980,19 +986,19 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   txfloor (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' FTKScalar ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
-        cAstConvUpXFromS sh'
+        cAstConvUpXFromS sh' FTKScalar
         . fromPlain . AstFloorS . plainPart
         . cAstConvDownSFromX sh FTKScalar $ a
   txfromIntegral (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' FTKScalar ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
-        cAstConvUpXFromS sh'
+        cAstConvUpXFromS sh' FTKScalar
         . fromPlain . AstFromIntegralS
         . plainPart . cAstConvDownSFromX sh FTKScalar $ a
   txcast (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' FTKScalar ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
-        cAstConvUpXFromS sh'
+        cAstConvUpXFromS sh' FTKScalar
         . AstCastS . cAstConvDownSFromX sh FTKScalar $ a
   txindex @sh1 @sh2 (AstRaw a) ix = case ftkAst a of
     FTKX @sh1sh2 sh1sh2 x | SNat <- ssxRank (knownShX @sh1) ->
@@ -1002,7 +1008,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
         gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) sh1sh2 :~: sh2) $
         withKnownShS (shsTake @(Rank sh1) sh) $
-        AstRaw $ cAstConvUpXFromS (shxDrop @(Rank sh1) sh1sh2)
+        AstRaw $ cAstConvUpXFromS (shxDrop @(Rank sh1) sh1sh2) x
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (shsDrop @(Rank sh1) sh)
                     (cAstConvDownSFromX sh x a)
@@ -1022,7 +1028,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                    :: Take (Rank shm) shmshn ++ Drop (Rank shm) shmshn
                       :~: shmshn) $
         cAstConvUpXFromS (shp0 `shxAppend` shxDropSSX @_ @shn
-                                                (knownShX @shm) shmshn0)
+                                             (knownShX @shm) shmshn0) x
         $ funToVarsIxS (shsTake @(Rank shm) shmshn) $ \vars ix ->
             let !ix2 = fmapUnAstRaw . ixsFromIxX' shp
                        . f . ixxCast knownShX . ixxFromIxS . fmapAstRaw $ ix
@@ -1043,7 +1049,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                    :: Take (Rank shp) shpshn ++ Drop (Rank shp) shpshn
                       :~: shpshn) $
         cAstConvUpXFromS (shm0 `shxAppend` shxDropSSX @_ @shn
-                                                (knownShX @shp) shpshn0)
+                                             (knownShX @shp) shpshn0) x
         $ funToVarsIxS shm $ \vars ix ->
             let !ix2 = fmapUnAstRaw . ixsFromIxX' (shsTake @(Rank shp) shpshn)
                        . f . ixxCast knownShX . ixxFromIxS . fmapAstRaw $ ix
@@ -1057,7 +1063,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          cAstConvUpXFromS (shxInit sh')
+          cAstConvUpXFromS (shxInit sh') FTKScalar
           . fromPlain . AstArgMinS @n @rest
           . plainPart . cAstConvDownSFromX sh x $ a
   txargMax (AstRaw a) = AstRaw $ case ftkAst a of
@@ -1065,10 +1071,10 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
       withShsFromShX sh' $ \(sh :: ShS sh) -> case sh of
         (:$$) @n @rest _ _ ->
           gcastWith (unsafeCoerceRefl :: Rank (Init sh') :~: Rank (Init sh)) $
-          cAstConvUpXFromS (shxInit sh')
+          cAstConvUpXFromS (shxInit sh') FTKScalar
           . fromPlain . AstArgMaxS @n @rest
           . plainPart . cAstConvDownSFromX sh x $ a
-  txiota @n @r = AstRaw $ cAstConvUpXFromS (SKnown (SNat @n) :$% ZSX)
+  txiota @n @r = AstRaw $ cAstConvUpXFromS (SKnown (SNat @n) :$% ZSX) FTKScalar
                  $ fromPlain $ AstIotaS @n @r SNat
   txappend (AstRaw u) (AstRaw v) = AstRaw $ case ftkAst u of
     FTKX (m' :$% shu') x -> case ftkAst v of
@@ -1080,7 +1086,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
           case shxEqual shu' shv' of
             Just Refl ->
               gcastWith (unsafeCoerceRefl :: shu :~: shv) $
-              cAstConvUpXFromS (smnAddMaybe m' n' :$% shu')
+              cAstConvUpXFromS (smnAddMaybe m' n' :$% shu') x
               $ AstAppendS (cAstConvDownSFromX (m :$$ shu) x u)
                            (cAstConvDownSFromX (n :$$ shv) x v)
             _ -> error $ "xappend: shapes don't match: "
@@ -1093,7 +1099,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
       withShsFromShX sh' $ \sh@(msnat :$$ _) ->
         case testEquality (snatPlus (snatPlus i n) k) msnat of
           Just Refl ->
-            cAstConvUpXFromS (n' :$% sh2')
+            cAstConvUpXFromS (n' :$% sh2') x
             . AstSliceS i n k . cAstConvDownSFromX sh x $ a
           _ -> error $ "xslice: argument tensor has a wrong width: "
                        ++ show ( fromSNat' i, fromSNat' n, fromSNat' k
@@ -1101,7 +1107,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   txreverse (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
-        cAstConvUpXFromS sh'
+        cAstConvUpXFromS sh' x
         . AstReverseS . cAstConvDownSFromX sh x $ a
   txtranspose @perm perm (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' x ->
@@ -1113,7 +1119,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
            gcastWith (unsafeCoerceRefl
                       :: Rank (Permutation.PermutePrefix perm sh)
                          :~: Rank sh) $
-           cAstConvUpXFromS sh2'
+           cAstConvUpXFromS sh2' x
            . AstTransposeS perm
            . cAstConvDownSFromX sh x $ a
   txreshape sh2' (AstRaw a) = AstRaw $ case ftkAst a of
@@ -1122,7 +1128,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
       withShsFromShX sh2' $ \sh2 ->
         case testEquality (shsProduct sh) (shsProduct sh2) of
           Just Refl ->
-            cAstConvUpXFromS sh2'
+            cAstConvUpXFromS sh2' x
             . AstReshapeS sh2 . cAstConvDownSFromX sh x $ a
           _ -> error $ "xreshape: tensor size mismatch: "
                        ++ show ( fromSNat' (shsProduct sh)
@@ -1184,6 +1190,7 @@ instance KnownSpan s => ConvertTensor (AstRaw s) where
   kfromS = AstRaw . cAstConvDownKFromS . unAstRaw
   sfromK = AstRaw . cAstConvUpSFromK . unAstRaw
 
+  rfromS @sh (AstRaw a) = AstRaw $ cAstConvUpRFromS (knownShS @sh) knownSTK a
   rfromX (AstRaw a) = case ftkAst a of
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->
@@ -1200,7 +1207,8 @@ instance KnownSpan s => ConvertTensor (AstRaw s) where
   sfromX a = case ftkAst $ unAstRaw a of
     FTKX _ x -> AstRaw . cAstConvDownSFromX knownShS x . unAstRaw $ a
   xfromS @_ @sh' (AstRaw t) = case ftkAst t of
-    FTKS sh _ -> AstRaw $ cAstConvUpXFromS (shCastSX (knownShX @sh') sh) t
+    FTKS sh x ->
+      AstRaw $ cAstConvUpXFromS (shCastSX (knownShX @sh') sh) x t
 
   rzip @_ @_ @n (AstRaw a)
    | Refl <- lemRankReplicate (Proxy @n) = AstRaw $ case ftkAst a of
@@ -1286,7 +1294,8 @@ astConcreteRaw ftk v = case ftk of
   FTKR sh' FTKScalar -> AstRaw $
     withShsFromShR sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      cAstConvUpRFromS sh' $ AstConcreteS $ unConcrete $ sfromR @_ @sh v
+      cAstConvUpRFromS sh STKScalar
+      $ AstConcreteS $ unConcrete $ sfromR @_ @sh v
   FTKS ZSS FTKScalar ->
     AstRaw $ AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
     $ AstConcreteK $ Nested.sunScalar $ unConcrete v
@@ -1297,13 +1306,18 @@ astConcreteRaw ftk v = case ftk of
   FTKX sh' FTKScalar -> AstRaw $
     withShsFromShX sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      cAstConvUpXFromS sh' $ AstConcreteS $ unConcrete $ sfromX @_ @sh v
+      cAstConvUpXFromS sh' FTKScalar
+      $ AstConcreteS $ unConcrete $ sfromX @_ @sh v
   FTKProduct ftk1 ftk2 -> AstRaw $
     AstPair (unAstRaw $ astConcreteRaw ftk1 (tproject1 v))
             (unAstRaw $ astConcreteRaw ftk2 (tproject2 v))
   _ -> concreteTarget (tkconcrete . unConcrete) (tsconcrete . unConcrete)
-                      (\sh' -> AstRaw . cAstConvUpRFromS sh' . unAstRaw)
-                      (\sh' -> AstRaw . cAstConvUpXFromS sh' . unAstRaw)
+                      (\_sh' (AstRaw t) -> case ftkAst t of
+                          FTKS sh FTKScalar ->
+                            AstRaw $ cAstConvUpRFromS sh STKScalar t)
+                      (\sh' (AstRaw t) -> case ftkAst t of
+                          FTKS _sh FTKScalar ->
+                            AstRaw $ cAstConvUpXFromS sh' FTKScalar t)
                       (ftkToSTK ftk) v
 
 
