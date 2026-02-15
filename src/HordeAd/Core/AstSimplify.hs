@@ -3598,8 +3598,10 @@ instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   kfromR = astConvertDownKFromR (ConvCmp ConvX0 ConvRX)
   kfromS = astConvertDownKFromS (ConvCmp ConvX0 ConvSX)
   kfromX = astConvertDownKFromX ConvX0
-  sfromK = Ast.AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
+  sfromK = astConvertUp (ConvCmp ConvXS (Conv0X STKScalar)) (FTKS ZSS FTKScalar)
 
+  rfromK = astConvertUp (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))
+                        (FTKR ZSR FTKScalar)
   rfromS t = case ftkAst t of
     FTKS sh x -> astConvUpRFromS sh x t
   rfromX t = case ftkAst t of
@@ -3615,6 +3617,7 @@ instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
     FTKR _ x -> astConvDownSFromR knownShS x t
   sfromX t = case ftkAst t of
     FTKX _ x -> astConvDownSFromX knownShS x t
+  xfromK = astConvertUp (Conv0X STKScalar) (FTKX ZSX FTKScalar)
   xfromS t = case ftkAst t of
     FTKS sh x -> astConvUpXFromS (shCastSX knownShX sh) x t
 
@@ -3701,8 +3704,7 @@ astConcrete :: FullShapeTK y -> Concrete y -> AstTensor AstMethodLet PlainSpan y
 astConcrete ftk v = case ftk of
   FTKScalar -> astConcreteK v
   FTKR ZSR FTKScalar ->
-    Ast.AstConvert (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))
-    $ AstConcreteK $ Nested.runScalar $ unConcrete v
+    rfromK $ AstConcreteK $ Nested.runScalar $ unConcrete v
   FTKR sh' FTKScalar ->
     withShsFromShR sh' $ \sh ->
       withKnownShS sh $
@@ -3711,8 +3713,7 @@ astConcrete ftk v = case ftk of
     sfromK $ AstConcreteK $ Nested.sunScalar $ unConcrete v
   FTKS _ FTKScalar -> astConcreteS v
   FTKX ZSX FTKScalar ->
-    Ast.AstConvert (Conv0X STKScalar)
-    $ AstConcreteK $ Nested.munScalar $ unConcrete v
+    xfromK $ AstConcreteK $ Nested.munScalar $ unConcrete v
   FTKX sh' FTKScalar ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $

@@ -1211,10 +1211,15 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
 instance KnownSpan s => ConvertTensor (AstRaw s) where
   tconvert c _astk = AstRaw . cAstConvert c . unAstRaw
 
-  -- These two are somewhat faster than their default implementations.
+  -- These are somewhat faster than their default implementations.
+  kfromR = AstRaw . cAstConvert (ConvCmp ConvX0 ConvRX) . unAstRaw
   kfromS = AstRaw . cAstConvDownKFromS . unAstRaw
+  kfromX = AstRaw . cAstConvert ConvX0 . unAstRaw
   sfromK = AstRaw . cAstConvUpSFromK . unAstRaw
 
+  rfromK = AstRaw
+           . cAstConvert (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))
+           . unAstRaw
   rfromS (AstRaw t) = AstRaw $ cAstConvUpRFromS knownShS knownSTK t
   rfromX (AstRaw t) = AstRaw $ case ftkAst t of
     FTKX sh' x ->
@@ -1229,6 +1234,7 @@ instance KnownSpan s => ConvertTensor (AstRaw s) where
     FTKR _ x -> cAstConvDownSFromR knownShS x t
   sfromX (AstRaw t) = AstRaw $ case ftkAst t of
     FTKX _ x -> cAstConvDownSFromX knownShS x t
+  xfromK = AstRaw . cAstConvert (Conv0X STKScalar) . unAstRaw
   xfromS (AstRaw t) = AstRaw $ case ftkAst t of
     FTKS sh x -> cAstConvUpXFromS (shCastSX knownShX sh) x t
 
@@ -1311,7 +1317,7 @@ astConcreteRaw :: FullShapeTK y -> Concrete y -> AstRaw PlainSpan y
 astConcreteRaw ftk v = case ftk of
   FTKScalar -> AstRaw $ AstConcreteK $ unConcrete v
   FTKR ZSR FTKScalar ->
-    AstRaw $ AstConvert (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))
+    AstRaw $ cAstConvert (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))
     $ AstConcreteK $ Nested.runScalar $ unConcrete v
   FTKR sh' FTKScalar -> AstRaw $
     withShsFromShR sh' $ \sh ->
@@ -1321,7 +1327,7 @@ astConcreteRaw ftk v = case ftk of
     sfromK $ AstRaw $ AstConcreteK $ Nested.sunScalar $ unConcrete v
   FTKS _ FTKScalar -> AstRaw $ AstConcreteS $ unConcrete v
   FTKX ZSX FTKScalar ->
-    AstRaw $ AstConvert (Conv0X STKScalar)
+    AstRaw $ cAstConvert (Conv0X STKScalar)
     $ AstConcreteK $ Nested.munScalar $ unConcrete v
   FTKX sh' FTKScalar -> AstRaw $
     withShsFromShX sh' $ \(sh :: ShS sh) ->
