@@ -3717,12 +3717,11 @@ astConcrete ftk v = case ftk of
     Ast.AstConvert (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))
     $ AstConcreteK $ Nested.runScalar $ unConcrete v
   FTKR sh' FTKScalar ->
-    withShsFromShR sh' $ \(sh :: ShS sh) ->
+    withShsFromShR sh' $ \sh ->
       withKnownShS sh $
-      astConvUpRFromS sh STKScalar $ astConcreteS (sfromR @_ @sh v)
+      astConvUpRFromS sh STKScalar $ astConcreteS $ sfromR v
   FTKS ZSS FTKScalar ->
-    Ast.AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
-    $ AstConcreteK $ Nested.sunScalar $ unConcrete v
+    sfromK $ AstConcreteK $ Nested.sunScalar $ unConcrete v
   FTKS _ FTKScalar -> astConcreteS v
   FTKX ZSX FTKScalar ->
     Ast.AstConvert (Conv0X STKScalar)
@@ -3730,9 +3729,11 @@ astConcrete ftk v = case ftk of
   FTKX sh' FTKScalar ->
     withShsFromShX sh' $ \(sh :: ShS sh) ->
       withKnownShS sh $
-      astConvUpXFromS sh' FTKScalar $ astConcreteS (sfromX @_ @sh v)
+      astConvUpXFromS sh' FTKScalar
+      $ astConcreteS $ sfromX @_ @sh v
   FTKProduct ftk1 ftk2 ->
-    astPair (astConcrete ftk1 (tproject1 v)) (astConcrete ftk2 (tproject2 v))
+    astPair (astConcrete ftk1 (tproject1 v))
+            (astConcrete ftk2 (tproject2 v))
   _ -> concreteTarget astConcreteK astConcreteS
                       (\sh -> astConvUpRFromS sh STKScalar)
                       (\sh' -> astConvUpXFromS sh' FTKScalar)
