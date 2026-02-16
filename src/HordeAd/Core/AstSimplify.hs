@@ -3108,19 +3108,19 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
   (FTKScalar @ry, FTKS ZSS (FTKScalar @rz))
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       sfromK a
-  (FTKR shr xy, FTKS sh xz)
+  (FTKR shr xy, FTKS sh@(_ :$$ _) xz)
     | Just Refl <- matchingFTK xy xz
     , Just Refl <- testEquality (shrRank shr) (shsRank sh) ->
       astConvDownSFromR sh xz a
-  (FTKX shx xy, FTKS sh xz)
+  (FTKX shx xy, FTKS sh@(_ :$$ _) xz)
     | Just Refl <- matchingFTK xy xz
     , Just Refl <- testEquality (shxRank shx) (shsRank sh) ->
       astConvDownSFromX sh xz a
-  (FTKS sh xy, FTKR shr xz)
+  (FTKS sh@(_ :$$ _) xy, FTKR shr xz)
     | Just Refl <- matchingFTK xy xz
     , Just Refl <- testEquality (shrRank shr) (shsRank sh) ->
       astConvUpRFromS sh xz a
-  (FTKS sh xy, FTKX shx xz)
+  (FTKS sh@(_ :$$ _) xy, FTKX shx xz)
     | Just Refl <- matchingFTK xy xz
     , Just Refl <- testEquality (shxRank shx) (shsRank sh) ->
       astConvUpXFromS shx xz a
@@ -3155,11 +3155,11 @@ astConvertDown c zftk t = case (ftkAst t, zftk) of
     case testEquality (typeRep @ry) (typeRep @rz) of
       Just Refl -> astConvertDownKFromX c t
       Nothing -> error "astConvertDown: tensor kinds don't match"
-  (FTKR shr yx, FTKS shz zx)->
+  (FTKR shr yx, FTKS shz@(_ :$$ _) zx)->
     case (matchingFTK yx zx, testEquality (shsRank shz) (shrRank shr)) of
       (Just Refl, Just Refl) -> astConvertDownSFromR c shz zx t
       _ -> error "astConvertDown: tensor kinds don't match"
-  (FTKX shy yx, FTKS shz zx) ->
+  (FTKX shy yx, FTKS shz@(_ :$$ _) zx) ->
     case (matchingFTK yx zx, testEquality (shsRank shz) (shxRank shy)) of
       (Just Refl, Just Refl) -> astConvertDownSFromX c shz zx t
       _ -> error "astConvertDown: tensor kinds don't match"
