@@ -3404,12 +3404,6 @@ astConvertUp c zftk t = case (ftkAst t, zftk, t) of
   (yftk, _, _) | Just Refl <- matchingFTK yftk zftk -> t
   -- Rare cases where we don't pull up but push down so that conversions
   -- don't end up interspersed with AstFromPrimal and similar.
-  (_, _, Ast.AstPrimalPart (Ast.AstConvert c2 a2)) ->
-    astPrimalPart $ astConvert (c `convCmp` c2) a2
-  (_, _, Ast.AstDualPart (Ast.AstConvert c2 a2)) ->
-    astDualPart $ astConvert (c `convCmp` c2) a2
-  (_, _, Ast.AstPlainPart (Ast.AstConvert c2 a2)) ->
-    astPlainPart $ astConvert (c `convCmp` c2) a2
   (_, _, Ast.AstFromPrimal v) ->
     fromPrimal $ astConvertUp c zftk v
   (_, _, Ast.AstFromDual v) ->
