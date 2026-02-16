@@ -662,7 +662,7 @@ matchAstConvUp = \case
   AstConvert c t ->
     let yftk = ftkAst t
         zftk = convertFTK c yftk
-    in case convUpMaybe (ftkAst t) zftk  of
+    in case convUpMaybe (ftkAst t) zftk of
       Just {} -> AstConvUpJust zftk t
       Nothing -> AstConvUpNothing
   AstConcreteS a | ZSS <- Nested.sshape a ->

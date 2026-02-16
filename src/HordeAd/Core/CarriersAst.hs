@@ -462,6 +462,8 @@ instance (NumScalar r, Differentiable r, KnownSpan s)
 astR1K :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode1 -> AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r)
 astR1K opCode = \case
+  AstCond b n k -> AstCond b (astR1K opCode n) (astR1K opCode k)
+  AstLet var n k -> AstLet var n (astR1K opCode k)
   AstPrimalPart u -> primalPart $ astR1K opCode u
   AstPlainPart u -> plainPart $ astR1K opCode u
   AstFromPrimal u -> fromPrimal $ astR1K opCode u
@@ -797,10 +799,16 @@ instance (NumScalar r, Differentiable r, KnownSpan s)
 astR1S :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode1 -> AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
 astR1S opCode = \case
+  u | FTKS (snat :$$ sh) x <- ftkAst u
+    , Just u0 <- unRepl1 u ->
+      AstReplicate snat (STKS sh (ftkToSTK x)) $ astR1S opCode u0
+  AstCond b n k -> AstCond b (astR1S opCode n) (astR1S opCode k)
+  AstLet var n k -> AstLet var n (astR1S opCode k)
   AstPrimalPart u -> primalPart $ astR1S opCode u
   AstPlainPart u -> plainPart $ astR1S opCode u
   AstFromPrimal u -> fromPrimal $ astR1S opCode u
   AstFromPlain u -> fromPlain $ astR1S opCode u
+  AstConvUpSFromK n -> cAstConvUpSFromK $ astR1K opCode n
   AstConcreteS u -> case opCode of
     RecipOp -> AstConcreteS $ recip u
     ExpOp -> AstConcreteS $ exp u
@@ -824,12 +832,18 @@ astR2S :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode2 -> AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
        -> AstTensor ms s (TKS sh r)
 astR2S opCode = \cases
+  u v | FTKS (SNat :$$ sh) x <- ftkAst u
+      , Just u0 <- unRepl1 u
+      , Just v0 <- unRepl1 v ->
+        AstReplicate SNat (STKS sh (ftkToSTK x)) $ astR2S opCode u0 v0
   (AstPrimalPart u) (AstPrimalPart v) -> primalPart $ astR2S opCode u v
   (AstPlainPart @_ @s1 u) (AstPlainPart @_ @s2 v)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
       plainPart $ astR2S opCode u v
   (AstFromPrimal u) (AstFromPrimal v) -> fromPrimal $ astR2S opCode u v
   (AstFromPlain u) (AstFromPlain v) -> fromPlain $ astR2S opCode u v
+  (AstConvUpSFromK n) (AstConvUpSFromK k) ->
+    cAstConvUpSFromK $ astR2K opCode n k
   (AstConcreteS u) (AstConcreteS v) -> case opCode of
     DivideOp -> AstConcreteS $ u / v
     PowerOp -> AstConcreteS $ u ** v
