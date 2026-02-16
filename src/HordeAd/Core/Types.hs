@@ -209,15 +209,17 @@ type family BuildTensorKind k tk where
     TKProduct (BuildTensorKind k y) (BuildTensorKind k z)
 
 -- This is an inverse of BuildTensorKind.
-type family RazeTensorKind tkGuikde tk where
-  RazeTensorKind y (TKR2 n x) = TKR2 (n - 1) x
-  RazeTensorKind (TKScalar r0) (TKS2 '[n] (TKScalar r)) = TKScalar r
-  RazeTensorKind (TKR2 n0 x0) (TKS2 sh x) = TKS2 (Tail sh) x
-  RazeTensorKind (TKS2 sh0 x0) (TKS2 sh x) = TKS2 (Tail sh) x
-  RazeTensorKind (TKX2 sh0 x0) (TKS2 sh x) = TKS2 (Tail sh) x
-  RazeTensorKind y (TKX2 sh x) = TKX2 (Tail sh) x
-  RazeTensorKind (TKProduct y1 y2) (TKProduct z1 z2) =
-    TKProduct (RazeTensorKind y1 z1) (RazeTensorKind y2 z2)
+type family RazeTensorKind tk where
+  RazeTensorKind (TKR2 n x) = TKR2 (n - 1) x
+  RazeTensorKind (TKS2 '[n] (TKScalar r)) = TKScalar r
+  RazeTensorKind (TKS2 '[n] (TKR2 k y)) = TKS2 '[] (TKR2 k y)
+  RazeTensorKind (TKS2 '[n] (TKS2 sh y)) = TKS2 '[] (TKS2 sh y)
+  RazeTensorKind (TKS2 '[n] (TKX2 sh y)) = TKS2 '[] (TKX2 sh y)
+  RazeTensorKind (TKS2 '[n] (TKProduct y z)) = TKS2 '[] (TKProduct y z)
+  RazeTensorKind (TKS2 (n ': m ': sh) x) = TKS2 (m ': sh) x
+  RazeTensorKind (TKX2 sh x) = TKX2 (Tail sh) x
+  RazeTensorKind (TKProduct z1 z2) =
+    TKProduct (RazeTensorKind z1) (RazeTensorKind z2)
 
 type family ADTensorKind tk where
   ADTensorKind (TKScalar r) = TKScalar (ADTensorScalar r)

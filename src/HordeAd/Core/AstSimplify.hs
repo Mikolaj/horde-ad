@@ -533,7 +533,7 @@ astSum snat@SNat stk t0 = case t0 of
   AstConvUp @xs c zftk t ->
     let xftk = ftkAst t
         zftkRazed = razeFTK snat stk zftk
-    in case razeSTK zftkRazed (ftkToSTK xftk) of
+    in case razeSTK (ftkToSTK xftk) of
       (xstkRazed :: SingletonTK x) ->
         gcastWith (unsafeCoerceRefl :: BuildTensorKind k x :~: xs) $
         case lemTKAllNumBuild snat stk of
@@ -614,8 +614,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                          (astProject2 astf2))
                 varf vf
         in astConvDown @(TKProduct accy by)
-                     (STKProduct accFromSTK (ftkToSTK bftk))
-                     subbed
+                       (STKProduct accFromSTK (ftkToSTK bftk))
+                       subbed
       ftkd2 = FTKProduct
                 (adFTK $ FTKProduct accftkFrom eftk)
                 (FTKProduct accftkFrom eftk)
@@ -634,8 +634,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                                   (astProject2 (astProject2 astd2))))
                 vard vd
         in astConvDown @(ADTensorKind (TKProduct accy by))
-                     (adSTK $ STKProduct accFromSTK (ftkToSTK bftk))
-                     subbed
+                       (adSTK $ STKProduct accFromSTK (ftkToSTK bftk))
+                       subbed
       ftkr2 = FTKProduct
                 (adFTK $ FTKProduct accftkFrom bftk)
                 (FTKProduct accftkFrom eftk)
@@ -653,8 +653,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                                   (astProject2 (astProject2 astr2))))
                 varr vr
         in astConvDown @(ADTensorKind (TKProduct accy ey))
-                     (adSTK $ STKProduct accFromSTK (ftkToSTK eftk))
-                     subbed
+                       (adSTK $ STKProduct accFromSTK (ftkToSTK eftk))
+                       subbed
   in astConvertUp (ConvT2 c ConvId)
                   (FTKProduct accftk (buildFTK k bftk))
      $ astMapAccumLDer k bftk eftk (AstLambda varf2 vf2)
@@ -669,7 +669,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
       accstk = ftkToSTK accftk
       esShsFrom = ftkAst esFrom
       esShsFromSTK = ftkToSTK esShsFrom
-  in case razeSTK eftk esShsFromSTK of
+  in case razeSTK esShsFromSTK of
     (eftkFromSTK :: SingletonTK eyFrom) ->
       gcastWith (unsafeCoerceRefl :: BuildTensorKind k eyFrom :~: esShsFrom) $
       let eftkFrom = razeFTK k eftkFromSTK esShsFrom
@@ -714,8 +714,8 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                                          (astProject2 (astProject2 astr2)))))
                     varr vr
             in astConvDown @(ADTensorKind (TKProduct accy ey))
-                         (adSTK $ STKProduct accstk eftkFromSTK)
-                         subbed
+                           (adSTK $ STKProduct accstk eftkFromSTK)
+                           subbed
       in astMapAccumLDer k bftk eftkFrom (AstLambda varf2 vf2)
                                          (AstLambda vard2 vd2)
                                          (AstLambda varr2 vr2)

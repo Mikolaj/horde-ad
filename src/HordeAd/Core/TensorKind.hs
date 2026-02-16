@@ -181,25 +181,23 @@ buildSTK snat@SNat = \case
   STKX sh x -> STKX (SKnown snat :!% sh) x
   STKProduct stk1 stk2 -> STKProduct (buildSTK snat stk1) (buildSTK snat stk2)
 
--- This function should be called on arguments in a AstConvUp relationship
--- similar to the one in astMapAccumLDer. Then the type family is not stuck
--- and the error can't happen.
-razeSTK :: FullShapeTK y -> SingletonTK z -> SingletonTK (RazeTensorKind y z)
-razeSTK ftkGuide stk = case (ftkGuide, stk) of
-  (_, STKScalar) -> error "razeSTK: impossible argument"
-  (_, STKR SZ _) -> error "razeSTK: impossible argument"
-  (_, STKR (SS snat) x) -> STKR snat x
-  (_, STKS ZSS _) -> error "razeSTK: impossible argument"
-  (FTKScalar, STKS (_ :$$ ZSS) STKScalar) -> STKScalar
-  (FTKR{}, STKS (_ :$$ sh) x) -> STKS sh x
-  (FTKS{}, STKS (_ :$$ sh) x) -> STKS sh x
-  (FTKX{}, STKS (_ :$$ sh) x) -> STKS sh x
-  (_, STKX ZKX _) -> error "razeSTK: impossible argument"
-  (_, STKX (SUnknown _ :!% _) _) -> error "razeSTK: impossible argument"
-  (_, STKX (SKnown _ :!% sh) x) -> STKX sh x
-  (FTKProduct ftk1 ftk2, STKProduct stk1 stk2) ->
-    STKProduct (razeSTK ftk1 stk1) (razeSTK ftk2 stk2)
-  _ -> error $ "razeSTK: stuck RazeTensorKind at " ++ show (ftkGuide, stk)
+-- The argument is assumed to be the result of buildSTK.
+razeSTK :: SingletonTK z -> SingletonTK (RazeTensorKind z)
+razeSTK stk = case stk of
+  STKScalar -> error "razeSTK: impossible argument"
+  STKR SZ _ -> error "razeSTK: impossible argument"
+  STKR (SS snat) x -> STKR snat x
+  STKS ZSS _ -> error "razeSTK: impossible argument"
+  STKS (_ :$$ ZSS) STKScalar -> STKScalar
+  STKS (_ :$$ ZSS) x@STKR{} -> STKS ZSS x
+  STKS (_ :$$ ZSS) x@STKS{}  -> STKS ZSS x
+  STKS (_ :$$ ZSS) x@STKX{}  -> STKS ZSS x
+  STKS (_ :$$ ZSS) x@STKProduct{}  -> STKS ZSS x
+  STKS (_ :$$ m :$$ sh) x -> STKS (m :$$ sh) x
+  STKX ZKX _ -> error "razeSTK: impossible argument"
+  STKX (SUnknown _ :!% _) _ -> error "razeSTK: impossible argument"
+  STKX (SKnown _ :!% sh) x -> STKX sh x
+  STKProduct stk1 stk2 -> STKProduct (razeSTK stk1) (razeSTK stk2)
 
 adSTK :: SingletonTK y -> SingletonTK (ADTensorKind y)
 adSTK = \case
