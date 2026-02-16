@@ -276,12 +276,12 @@ astPair (Ast.AstFromDual v1) (Ast.AstFromDual v2) =
   fromDual $ astPair v1 v2
 astPair (Ast.AstFromPlain v1) (Ast.AstFromPlain v2) =
   fromPlain $ astPair v1 v2
-astPair (AstConvUp ftk1 v1) (AstConvUp ftk2 v2) =
-  astConvUp (FTKProduct ftk1 ftk2) (astPair v1 v2)
-astPair (AstConvUp ftk1 v1) v2 =
-  astConvUp (FTKProduct ftk1 (ftkAst v2)) (astPair v1 v2)
-astPair v1 (AstConvUp ftk2 v2) =
-  astConvUp (FTKProduct (ftkAst v1) ftk2) (astPair v1 v2)
+astPair (AstConvUp c1 ftk1 v1) (AstConvUp c2 ftk2 v2) =
+  astConvertUp (ConvT2 c1 c2) (FTKProduct ftk1 ftk2) (astPair v1 v2)
+astPair (AstConvUp c1 ftk1 v1) v2 =
+  astConvertUp (ConvT2 c1 ConvId) (FTKProduct ftk1 (ftkAst v2)) (astPair v1 v2)
+astPair v1 (AstConvUp c2 ftk2 v2) =
+  astConvertUp (ConvT2 ConvId c2) (FTKProduct (ftkAst v1) ftk2) (astPair v1 v2)
 astPair v1 v2 = Ast.AstPair v1 v2
 
 astProject1
@@ -425,18 +425,19 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   `mplus`
   (let unFrom :: FullShapeTK x -> AstTensor AstMethodLet s2 y
               -> Maybe (AstTensor AstMethodLet s2 x)
-       unFrom yftk (AstConvUp _ t) =
+       unFrom yftk (AstConvUp _ _ t) =
          case matchingFTK (ftkAst t) yftk of
            Just Refl -> Just t
            Nothing -> Nothing  -- e.g., a conversion from X instead of R
        unFrom _ _ = Nothing
    in case V.uncons l of
-     Just (AstConvUp zftk t, _) ->
+     Just (AstConvUp c zftk t, _) ->
        let yftk = ftkAst t
        in case V.mapM (unFrom yftk) l of
          Just l2 ->
-           Just $ astConvUp (buildFTK snat zftk)
-                $ astFromVector snat (ftkToSTK yftk) l2
+           Just $ astConvertUp (buildTKConversion snat yftk c)
+                               (buildFTK snat zftk)
+                               (astFromVector snat (ftkToSTK yftk) l2)
          Nothing -> Nothing
      Just{} -> Nothing
      Nothing -> error "astFromVector: empty vector")
@@ -529,9 +530,8 @@ astSum snat@SNat stk t0 = case t0 of
       -- quantified.
     , AstConcreteK True <- 0 <=. i1 &&* i1 <=. valueOf @k2 - 1 ->
         astScatterS shm shn (shsTail shp) v (vars, rest)
-  AstConvUp @xs zftk t ->
+  AstConvUp @xs c zftk t ->
     let xftk = ftkAst t
-        c = convUp xftk zftk
         zftkRazed = razeFTK snat stk zftk
     in case razeSTK zftkRazed (ftkToSTK xftk) of
       (xstkRazed :: SingletonTK x) ->
@@ -569,9 +569,11 @@ astReplicate snat@SNat stk t0 = case t0 of
     astConcreteS $ treplicate snat stk $ Concrete t
       -- revisit the trade-offs once we compile instead of interpreting
       -- and so building big blobby concrete arrays is cheap
-  AstConvUp zftk t ->
+  AstConvUp c zftk t ->
     let xftk = ftkAst t
-    in astConvUp (buildFTK snat zftk) (astReplicate snat (ftkToSTK xftk) t)
+    in astConvertUp (buildTKConversion snat xftk c)
+                    (buildFTK snat zftk)
+                    (astReplicate snat (ftkToSTK xftk) t)
   _ -> Ast.AstReplicate snat stk t0
   -- TODO: maybe add a rule and then generalize:
   -- replicate n1 (str (replicate n2 u))
@@ -599,7 +601,7 @@ astMapAccumLDer
 astMapAccumLDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
-                (AstConvUp @accyFrom accftk acc0From) es =
+                (AstConvUp @accyFrom c accftk acc0From) es =
   let accftkFrom = ftkAst acc0From
       accFromSTK = ftkToSTK accftkFrom
       ftkf2 = FTKProduct accftkFrom eftk
@@ -608,7 +610,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
       vf2 =
         let subbed =
               substituteAst
-                (astPair (astConvUp @accyFrom accftk (astProject1 astf2))
+                (astPair (astConvertUp c accftk (astProject1 astf2))
                          (astProject2 astf2))
                 varf vf
         in astConvDown @(TKProduct accy by)
@@ -625,8 +627,9 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                 (astPair (astPair (astConvUp @(ADTensorKind accyFrom)
                                      (adFTK accftk)
                                      (astProject1 (astProject1 astd2)))
+                                     -- TODO: adTKConversion c?
                                   (astProject2 (astProject1 astd2)))
-                         (astPair (astConvUp @accyFrom accftk
+                         (astPair (astConvertUp c accftk
                                      (astProject1 (astProject2 astd2)))
                                   (astProject2 (astProject2 astd2))))
                 vard vd
@@ -645,15 +648,15 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
                                      (adFTK accftk)
                                      (astProject1 (astProject1 astr2)))
                                   (astProject2 (astProject1 astr2)))
-                         (astPair (astConvUp @accyFrom accftk
+                         (astPair (astConvertUp c accftk
                                      (astProject1 (astProject2 astr2)))
                                   (astProject2 (astProject2 astr2))))
                 varr vr
         in astConvDown @(ADTensorKind (TKProduct accy ey))
                      (adSTK $ STKProduct accFromSTK (ftkToSTK eftk))
                      subbed
-  in astConvUp @(TKProduct accyFrom (BuildTensorKind k by))
-               (FTKProduct accftk (buildFTK k bftk))
+  in astConvertUp (ConvT2 c ConvId)
+                  (FTKProduct accftk (buildFTK k bftk))
      $ astMapAccumLDer k bftk eftk (AstLambda varf2 vf2)
                                    (AstLambda vard2 vd2)
                                    (AstLambda varr2 vr2)
@@ -661,7 +664,7 @@ astMapAccumLDer k bftk eftk (AstLambda varf vf)
 astMapAccumLDer k bftk eftk (AstLambda varf vf)
                             (AstLambda vard vd)
                             (AstLambda varr vr)
-                acc0 (AstConvUp @esShsFrom _esShsFTK esFrom) =
+                acc0 (AstConvUp @esShsFrom _c _esShsFTK esFrom) =
   let accftk = ftkAst acc0
       accstk = ftkToSTK accftk
       esShsFrom = ftkAst esFrom
@@ -738,9 +741,9 @@ astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
 astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
   fromPlain $ astCond b v w
 -- We rely here on c and the other conversion being semantically equal.
-astCond b (AstConvUp zftk v) (AstConvUp _ w)
+astCond b (AstConvUp c zftk v) (AstConvUp _ _ w)
   | Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
-    astConvUp zftk $ astCond b v w
+    astConvertUp c zftk (astCond b v w)
 astCond b v w = Ast.AstCond b v w
 
 -- Invariant: if the variable has bounds, the expression can only have
@@ -819,12 +822,13 @@ astLet var (Ast.AstTransposeS perm a) v =
   let var2 = reshapeVarName (ftkAst a) var
       ast = Ast.AstTransposeS perm $ astVar var2
   in astLet var2 a (substituteAst ast var v)
-astLet var (AstConvUp zftk a) v =
+astLet var (AstConvUp c zftk a) v =
   let var2 = reshapeVarName (ftkAst a) var
-      ast = withKnownSpan (varNameToSpan var) $ astConvUp zftk $ astVar var2
+      ast = withKnownSpan (varNameToSpan var)
+            $ astConvertUp c zftk $ astVar var2
   in astLet var2 a (substituteAst ast var v)
-astLet var u (AstConvUp zftk a) =
-  astConvUp zftk $ astLet var u a
+astLet var u (AstConvUp c zftk a) =
+  astConvertUp c zftk $ astLet var u a
 astLet var u v = Ast.AstLet var u v
 
 astPrimalPart :: KnownSpan s
@@ -3740,10 +3744,10 @@ astLetFun :: forall y z s s2. (KnownSpan s, KnownSpan s2)
 {-# NOINLINE astLetFun #-}
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f = case a of
-  AstConvUp @y2 ftkz v ->
+  AstConvUp c ftkz v ->
     unsafePerformIO $ do
       var <- funToAstNoBoundsIO (ftkAst v)
-      pure $! astLet var v (f $ astConvUp @y2 ftkz $ astVar var)
+      pure $! astLet var v (f $ astConvertUp c ftkz $ astVar var)
   Ast.AstFromPrimal v -> astLetFun v (f . fromPrimal)
   Ast.AstFromDual v -> astLetFun v (f . fromDual)
   Ast.AstFromPlain v -> astLetFun v (f . fromPlain)

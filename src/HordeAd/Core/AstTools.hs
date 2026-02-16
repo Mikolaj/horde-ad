@@ -648,13 +648,14 @@ matchAstConvUpSFromK = \case
 -- TODO: simplify this monstrosity, if possible
 pattern AstConvUp :: forall {z1} {ms1} {s1}.
                      forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)
-                  => FullShapeTK z -> AstTensor ms s y
+                  => (TKConversion y z) -> FullShapeTK z -> AstTensor ms s y
                   -> AstTensor ms1 s1 z1
-pattern AstConvUp zftk a <- (matchAstConvUp -> AstConvUpJust zftk a)
+pattern AstConvUp c zftk a <- (matchAstConvUp -> AstConvUpJust c zftk a)
 
 type role AstConvUpMaybe nominal nominal nominal
 data AstConvUpMaybe z ms s =
-    forall y. AstConvUpJust (FullShapeTK z) (AstTensor ms s y)
+    forall y.
+    AstConvUpJust (TKConversion y z) (FullShapeTK z) (AstTensor ms s y)
   | AstConvUpNothing
 
 matchAstConvUp :: AstTensor ms s z -> AstConvUpMaybe z ms s
@@ -663,18 +664,20 @@ matchAstConvUp = \case
     let yftk = ftkAst t
         zftk = convertFTK c yftk
     in case convUpMaybe (ftkAst t) zftk of
-      Just {} -> AstConvUpJust zftk t
+      Just c2 -> AstConvUpJust c2 zftk t
       Nothing -> AstConvUpNothing
   AstConcreteS a | ZSS <- Nested.sshape a ->
-    AstConvUpJust (FTKS ZSS FTKScalar) (AstConcreteK $ Nested.sunScalar a)
+    AstConvUpJust (ConvCmp ConvXS (Conv0X STKScalar))
+                  (FTKS ZSS FTKScalar)
+                  (AstConcreteK $ Nested.sunScalar a)
   AstFromPrimal t -> case matchAstConvUp t of
-    AstConvUpJust zftk u -> AstConvUpJust zftk (AstFromPrimal u)
+    AstConvUpJust c zftk u -> AstConvUpJust c zftk (AstFromPrimal u)
     AstConvUpNothing -> AstConvUpNothing
   AstFromDual t -> case matchAstConvUp t of
-    AstConvUpJust zftk u -> AstConvUpJust zftk (fromDual u)
+    AstConvUpJust c zftk u -> AstConvUpJust c zftk (AstFromDual u)
     AstConvUpNothing -> AstConvUpNothing
   AstFromPlain t -> case matchAstConvUp t of
-    AstConvUpJust zftk u -> AstConvUpJust zftk (AstFromPlain u)
+    AstConvUpJust c zftk u -> AstConvUpJust c zftk (AstFromPlain u)
     AstConvUpNothing -> AstConvUpNothing
   _ -> AstConvUpNothing
 
