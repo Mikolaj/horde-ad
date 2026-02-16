@@ -3096,13 +3096,13 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
     -- causes c to take more memory but doesn't inhibit rewriting
   -- Below we heavily depend on c being semantically determined
   -- by the domain and codomain. We pick the simplest such c.
-  (FTKS ZSS (FTKScalar @rz), FTKScalar @ry)
+  (FTKS ZSS (FTKScalar @ry), FTKScalar @rz)
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       kfromS a
-  (FTKR ZSR (FTKScalar @rz), FTKScalar @ry)
+  (FTKR ZSR (FTKScalar @ry), FTKScalar @rz)
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       kfromR a
-  (FTKX ZSX (FTKScalar @rz), FTKScalar @ry)
+  (FTKX ZSX (FTKScalar @ry), FTKScalar @rz)
     | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
       kfromX a
   (FTKScalar @ry, FTKS ZSS (FTKScalar @rz))
@@ -3128,6 +3128,17 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
     astConvertDown c2 zftk a
   (_, zftk) | Just c2 <- convUpMaybe yftk zftk ->
     astConvertUp c2 zftk a
+  {- This has barely any effect:
+  (FTKR ZSR (FTKScalar @ry), FTKS ZSS (FTKScalar @rz))
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      case kfromR a of
+        Ast.AstConvert{} -> Ast.AstConvert c a  -- would likely loop
+        b -> sfromK b
+  (FTKX ZSX (FTKScalar @ry), FTKS ZSS (FTKScalar @rz))
+    | Just Refl <- testEquality (typeRep @ry) (typeRep @rz) ->
+      case kfromX a of
+        Ast.AstConvert{} -> Ast.AstConvert c a  -- would likely loop
+        b -> sfromK b -}
   _ -> case a of  -- normalize somewhat even for, e.g., product to product
     Ast.AstFromPrimal v -> fromPrimal $ astConvert c v
     Ast.AstFromDual v -> fromDual $ astConvert c v
@@ -3143,15 +3154,15 @@ astConvertDown :: forall y z s. KnownSpan s
                -> AstTensor AstMethodLet s z
 astConvertDown c zftk t = case (ftkAst t, zftk) of
   (yftk, _) | Just Refl <- matchingFTK yftk zftk -> t
-  (FTKS ZSS (FTKScalar @rz), FTKScalar @ry) ->
+  (FTKS ZSS (FTKScalar @ry), FTKScalar @rz) ->
     case testEquality (typeRep @ry) (typeRep @rz) of
       Just Refl -> astConvertDownKFromS c t
       Nothing -> error "astConvertDown: tensor kinds don't match"
-  (FTKR ZSR (FTKScalar @rz), FTKScalar @ry) ->
+  (FTKR ZSR (FTKScalar @ry), FTKScalar @rz) ->
     case testEquality (typeRep @ry) (typeRep @rz) of
       Just Refl -> astConvertDownKFromR c t
       Nothing -> error "astConvertDown: tensor kinds don't match"
-  (FTKX ZSX (FTKScalar @rz), FTKScalar @ry) ->
+  (FTKX ZSX (FTKScalar @ry), FTKScalar @rz) ->
     case testEquality (typeRep @ry) (typeRep @rz) of
       Just Refl -> astConvertDownKFromX c t
       Nothing -> error "astConvertDown: tensor kinds don't match"

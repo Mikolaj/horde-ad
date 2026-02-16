@@ -632,10 +632,20 @@ matchAstConvUpSFromK = \case
     , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
     , Just Refl <- testEquality (typeRep @ry) (typeRep @r) ->
       Just (Refl, t)
+  AstConvert c t
+    | FTKR ZSR (FTKScalar @ry) <- ftkAst t
+    , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
+    , Just Refl <- testEquality (typeRep @ry) (typeRep @r) ->
+      Just (Refl, AstConvert (ConvCmp ConvX0 ConvRX) t)
+  AstConvert c t
+    | FTKX ZSX (FTKScalar @ry) <- ftkAst t
+    , FTKS ZSS (FTKScalar @r) <- convertFTK c (ftkAst t)
+    , Just Refl <- testEquality (typeRep @ry) (typeRep @r) ->
+      Just (Refl, AstConvert ConvX0 t)
   AstConcreteS a | ZSS <- Nested.sshape a ->
     Just (Refl, AstConcreteK $ Nested.sunScalar a)
   AstFromPrimal t -> second AstFromPrimal <$> matchAstConvUpSFromK t
-  AstFromDual t -> second fromDual <$> matchAstConvUpSFromK t
+  AstFromDual t -> second AstFromDual <$> matchAstConvUpSFromK t
   AstFromPlain t -> second AstFromPlain <$> matchAstConvUpSFromK t
   _ -> Nothing
 
@@ -654,6 +664,22 @@ data AstConvUpMaybe z ms s =
 
 matchAstConvUp :: AstTensor ms s z -> AstConvUpMaybe z ms s
 matchAstConvUp = \case
+  AstConvert c t
+    | FTKR ZSR (FTKScalar @ry) <- ftkAst t
+    , let zftk = convertFTK c (ftkAst t)
+    , FTKS ZSS (FTKScalar @r) <- zftk
+    , Just Refl <- testEquality (typeRep @ry) (typeRep @r) ->
+      AstConvUpJust (ConvCmp ConvXS (Conv0X STKScalar))
+                    zftk
+                    (AstConvert (ConvCmp ConvX0 ConvRX) t)
+  AstConvert c t
+    | FTKX ZSX (FTKScalar @ry) <- ftkAst t
+    , let zftk = convertFTK c (ftkAst t)
+    , FTKS ZSS (FTKScalar @r) <- zftk
+    , Just Refl <- testEquality (typeRep @ry) (typeRep @r) ->
+      AstConvUpJust (ConvCmp ConvXS (Conv0X STKScalar))
+                    zftk
+                    (AstConvert ConvX0 t)
   AstConvert c t ->
     let yftk = ftkAst t
         zftk = convertFTK c yftk
