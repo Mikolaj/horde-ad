@@ -3129,12 +3129,6 @@ astConvert c a | yftk <- ftkAst a = case (yftk, convertFTK c yftk) of
   (_, zftk) | Just c2 <- convUpMaybe yftk zftk ->
     astConvertUp c2 zftk a
   _ -> case a of  -- normalize somewhat even for, e.g., product to product
-    Ast.AstPrimalPart (Ast.AstConvert c2 a2) ->
-      astPrimalPart $ astConvert (c `convCmp` c2) a2
-    Ast.AstDualPart (Ast.AstConvert c2 a2) ->
-      astDualPart $ astConvert (c `convCmp` c2) a2
-    Ast.AstPlainPart (Ast.AstConvert c2 a2) ->
-      astPlainPart $ astConvert (c `convCmp` c2) a2
     Ast.AstFromPrimal v -> fromPrimal $ astConvert c v
     Ast.AstFromDual v -> fromDual $ astConvert c v
     Ast.AstFromPlain v -> fromPlain $ astConvert c v
