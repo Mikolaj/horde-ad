@@ -16,7 +16,7 @@ module HordeAd.Core.AstTools
   , cAstConvDownKFromS, cAstConvDownSFromR, cAstConvDownSFromX
   , cAstConvUpSFromK, cAstConvUpRFromS, cAstConvUpXFromS
   , pattern AstConvUpSFromK, pattern AstConvUp
-  , checkAstConvUp, convDown, convUp, convDownMaybe, convUpMaybe
+  , convDown, convUp, convDownMaybe, convUpMaybe
   , setTotalSharing
   ) where
 
@@ -24,7 +24,7 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Data.IORef
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
@@ -680,11 +680,6 @@ matchAstConvUp = \case
     AstConvUpJust c zftk u -> AstConvUpJust c zftk (AstFromPlain u)
     AstConvUpNothing -> AstConvUpNothing
   _ -> AstConvUpNothing
-
-checkAstConvUp :: TKConversion a b -> AstTensor ms s a -> Bool
-checkAstConvUp c t =
-  let zftk = convertFTK c (ftkAst t)
-  in isJust $ convUpMaybe (ftkAst t) zftk
 
 convDown :: FullShapeTK y -> SingletonTK z -> TKConversion y z
 convDown yftk zstk = case convDownMaybe yftk zstk of

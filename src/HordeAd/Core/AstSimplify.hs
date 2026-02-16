@@ -934,10 +934,8 @@ astPrimalPart t = case t of
   Ast.AstReshapeS sh v -> astReshapeS sh (astPrimalPart v)
 
   -- Most conversions need to stay down here to cancel out.
-  Ast.AstConvert c a ->
-    if checkAstConvUp c a
-    then astConvert c $ astPrimalPart a
-    else Ast.AstPrimalPart t
+  AstConvUp c zftk a -> astConvertUp c zftk $ astPrimalPart a
+  Ast.AstConvert{} -> Ast.AstPrimalPart t
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstIndex0{} -> Ast.AstPrimalPart t
@@ -1046,10 +1044,8 @@ astDualPart t = case t of
   Ast.AstReshapeS sh v -> astReshapeS sh (astDualPart v)
 
   -- Most conversions need to stay down here to cancel out.
-  Ast.AstConvert c a ->
-    if checkAstConvUp c a
-    then astConvert c $ astDualPart a
-    else Ast.AstDualPart t
+  AstConvUp c zftk a -> astConvertUp c zftk $ astDualPart a
+  Ast.AstConvert{} -> Ast.AstDualPart t
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstIndex0{} -> Ast.AstDualPart t
@@ -1152,10 +1148,8 @@ astPlainPart t = case t of
   Ast.AstReshapeS sh v -> astReshapeS sh (astPlainPart v)
 
   -- Most conversions need to stay down here to cancel out.
-  Ast.AstConvert c a ->
-    if checkAstConvUp c a
-    then astConvert c $ astPlainPart a
-    else Ast.AstPlainPart t
+  AstConvUp c zftk a -> astConvertUp c zftk $ astPlainPart a
+  Ast.AstConvert{} -> Ast.AstPlainPart t
 
   -- These should not appear in this context unless via wacky tests.
   Ast.AstIndex0{} -> Ast.AstPlainPart t
