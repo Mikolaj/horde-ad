@@ -20,7 +20,7 @@ import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (unsafeCoerceRefl)
+import Data.Array.Nested.Types (pattern SZ, unsafeCoerceRefl)
 
 import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops
@@ -47,7 +47,7 @@ sfromIndex1 :: forall r sh target.
             => IxSOf target sh -> target (TKS '[Rank sh] r)
 sfromIndex1 =
   case shsRank (knownShS @sh) of
-    SNat' @0 -> const $ sconcrete $ Nested.semptyArray knownShS
+    SZ -> const $ sconcrete $ Nested.semptyArray knownShS
     SNat -> sfromR . rfromIntegral . tfromPlain knownSTK . rfromList
             . NonEmpty.fromList . map rfromK . Foldable.toList
 

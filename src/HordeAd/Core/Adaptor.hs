@@ -30,7 +30,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (unsafeCoerceRefl)
+import Data.Array.Nested.Types (pattern SZ, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.CarriersADVal
@@ -234,7 +234,7 @@ type family Tups n t where
 
 stkOfListR :: forall t n.
               SingletonTK t -> SNat n -> SingletonTK (Tups n t)
-stkOfListR _ (SNat' @0) = stkUnit
+stkOfListR _ SZ = stkUnit
 stkOfListR stk SNat =
   gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
   gcastWith (unsafeCoerceRefl :: Tups n t :~: TKProduct t (Tups (n - 1) t)) $
@@ -251,7 +251,7 @@ instance (BaseTensor target, KnownNat n, AdaptableTarget target a)
         rest1 = toTarget rest
     in tpair a1 rest1
   fromTarget tups = case SNat @n of
-    SNat' @0 -> ZR
+    SZ -> ZR
     _ ->
       gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
       gcastWith (unsafeCoerceRefl

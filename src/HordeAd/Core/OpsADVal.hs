@@ -25,6 +25,7 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (pattern SZ)
 
 import HordeAd.Core.CarriersADVal
 import HordeAd.Core.CarriersConcrete
@@ -380,7 +381,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   txreshape sh (D u u') = dD (txreshape sh u) (DeltaReshapeX sh u')
   tkbuild1 @k f =
     case SNat @k of
-      SNat' @0 ->
+      SZ ->
         let arr = Nested.semptyArray ZSS
         in tconcrete (FTKS (SNat @0 :$$ ZSS) FTKScalar) (Concrete arr)
       _ ->
@@ -400,7 +401,7 @@ instance ( ADReadyNoLet target, ShareTensor target
               -- hope this fuses
   tsbuild1 @k @sh @r f | Dict <- eltDictRep (knownSTK @r) =
     case SNat @k of
-      SNat' @0 ->
+      SZ ->
         let arr = Nested.semptyArray @_ @(RepConcrete r) (knownShS @sh)
         in tconcrete (tftkG knownSTK arr) (Concrete arr)
       _ ->
@@ -409,7 +410,7 @@ instance ( ADReadyNoLet target, ShareTensor target
              -- hope this fuses
   txbuild1 @k @sh @r f =
     case SNat @k of
-      SNat' @0 -> case testEquality (knownShX @sh) ZKX of
+      SZ -> case testEquality (knownShX @sh) ZKX of
         Just Refl | Dict <- eltDictRep (knownSTK @r) ->
           let arr = Nested.memptyArray @_ @(RepConcrete r) ZSX
           in tconcrete (tftkG knownSTK arr) (Concrete arr)

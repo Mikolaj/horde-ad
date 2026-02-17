@@ -87,7 +87,7 @@ import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types
-  (Head, Init, Last, Tail, fromSNat', snatPlus, unsafeCoerceRefl)
+  (pattern SZ, Head, Init, Last, Tail, fromSNat', snatPlus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
   ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
@@ -2747,8 +2747,8 @@ astAppendS :: KnownSpan s
            => AstTensor AstMethodLet s (TKS2 (m ': sh) r)
            -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
            -> AstTensor AstMethodLet s (TKS2 ((m + n) ': sh) r)
-astAppendS u v | FTKS (SNat' @0 :$$ _) _ <- ftkAst u = v
-astAppendS u v | FTKS (SNat' @0 :$$ _) _ <- ftkAst v = u
+astAppendS u v | FTKS (SZ :$$ _) _ <- ftkAst u = v
+astAppendS u v | FTKS (SZ :$$ _) _ <- ftkAst v = u
 astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
            (Ast.AstFromVector (SNat @k2) STKS{} l2) =
   astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2
@@ -2780,7 +2780,7 @@ astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKS{} v) =
   astReplicate (SNat @n) stk v
 astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKScalar v) =
   astReplicate (SNat @n) stk v
-astSliceS (SNat' @0) SNat (SNat' @0) v = v
+astSliceS SZ SNat SZ v = v
 astSliceS SNat (SNat' @1) SNat v | FTKS (_ :$$ sh) x <- ftkAst v =
   astReplicate (SNat @1) (STKS sh (ftkToSTK x))
                (astIndexS sh v (valueOf @i :.$ ZIS))

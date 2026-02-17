@@ -39,7 +39,7 @@ import Data.Array.Nested.Ranked qualified as Ranked
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (Init, fromSNat', unsafeCoerceRefl)
+import Data.Array.Nested.Types (Init, fromSNat', pattern SZ, unsafeCoerceRefl)
 import Data.Array.Strided.Orthotope (liftVEltwise1)
 
 import HordeAd.Core.CarriersConcrete
@@ -70,7 +70,7 @@ instance LetTensor Concrete where
     STKScalar ->
       let g !yn !ym = f yn (Concrete ym)
       in VS.foldl' g x0 (stoVector es)
-    STKR (SNat' @0) STKScalar ->
+    STKR SZ STKScalar ->
       let g !yn !ym = f yn (rfromK $ Concrete ym)
       in VS.foldl' g x0 (rtoVector es)
     STKS ZSS STKScalar ->
@@ -643,7 +643,7 @@ instance BaseTensor Concrete where
     let g :: Int -> RepConcrete (TKR2 n x)
         g i = unConcrete $ f (Concrete i)
     in case knownSTK @x of
-      STKScalar | SNat' @0 <- SNat @n ->
+      STKScalar | SZ <- SNat @n ->
         Concrete $ Nested.rfromVector (k :$: ZSR)
         $ VS.generate k (Nested.runScalar . g)
       _ | Dict <- eltDictRep (knownSTK @x) -> case k of
@@ -656,7 +656,7 @@ instance BaseTensor Concrete where
   trbuild @_ @n @x shm f =
     let g ix = unConcrete $ f (fmapConcrete ix)
     in case knownSTK @x of
-      STKScalar | SNat' @0 <- SNat @n ->
+      STKScalar | SZ <- SNat @n ->
         Concrete $ Nested.rgeneratePrim shm (Nested.runScalar . g)
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.runNest $ Nested.rgenerate shm g
@@ -689,7 +689,7 @@ instance BaseTensor Concrete where
           -- this is somewhat faster and not much more complex than if
           -- done with mgeneratePrim
       _ | Dict <- eltDictRep (knownSTK @x) -> case SNat @k of
-        SNat' @0 ->
+        SZ ->
           Concrete $ Nested.munNest $ Nested.memptyArray ZSX
         _ ->
           Concrete $ Nested.mfromListOuterSN SNat $ NonEmpty.fromList
@@ -1097,7 +1097,7 @@ tindexZRScalar :: forall m n r. (KnownNat m, KnownNat n, GoodScalar r)
                -> Concrete (TKR n r)
 {-# INLINE tindexZRScalar #-}
 tindexZRScalar (Concrete v) ix = case SNat @n of
-  SNat' @0 ->  -- an optimized common case
+  SZ ->  -- an optimized common case
     rfromK $ Concrete v `tindex0RImpl` ix
   _ ->
     Concrete
@@ -1202,7 +1202,7 @@ tscatterZRScalar shp !(Concrete v) f =
   let sht = Nested.rshape v
       shm = shrTake @m sht
   in case SNat @n of
-       SNat' @0 -> runST $ do
+       SZ -> runST $ do
          -- Optimized: using Nested.rindex instesad of Nested.rindexPartial.
          vec <- VSM.replicate (shrSize shp) 0
          forM_ (shrEnum shm) $ \ix -> do
@@ -1273,7 +1273,7 @@ tgatherZRScalar
   -> Concrete (TKR (m + n) r)
 {-# INLINE tgatherZRScalar #-}
 tgatherZRScalar shm !t f = case SNat @n of
-  SNat' @0 ->  -- an optimized common case
+  SZ ->  -- an optimized common case
     let g ix = unConcrete $ t `tindex0RImpl` (f $ fmapConcrete ix)
     in Concrete $ Nested.rgeneratePrim shm g
   _ -> trbuild shm (\ix -> t `tindexZRScalar` f ix)
@@ -1315,7 +1315,7 @@ tgatherZ1RScalar
   -> Concrete (TKR (1 + n) r)
 {-# INLINE tgatherZ1RScalar #-}
 tgatherZ1RScalar k !t f = case SNat @n of
-  SNat' @0 ->  -- an optimized common case
+  SZ ->  -- an optimized common case
     let shm = k :$: shrDrop (rshape t)
         g i = unConcrete $ t `tindex0RImpl` (f $ Concrete i)
     in Concrete $ Nested.rfromVector shm $ VS.generate k g
@@ -1701,7 +1701,7 @@ tbuild1S sh f = case knownSTK @x of
   STKScalar | ZSS <- sh ->
     tbuild1K (Concrete . Nested.sunScalar . unConcrete . f)
   _ | Dict <- eltDictRep (knownSTK @x) -> case SNat @k of
-    SNat' @0 ->
+    SZ ->
       Concrete $ Nested.semptyArray sh
     _ ->
       let g i = unConcrete $ f (Concrete i)
