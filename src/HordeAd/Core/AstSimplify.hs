@@ -3778,17 +3778,23 @@ astReplicateNS shn v | STKS shp x <- ftkToSTK (ftkAst v) =
         astReplicate snat (STKS (shn2 `shsAppend` shp) x) $ go shn2
   in go shn
 
+-- The result must not be equal to the argument.
 unRepl :: KnownSpan s
        => AstTensor AstMethodLet s (TKS2 sh x)
        -> Maybe (AstTensor AstMethodLet s (TKS2 '[] x))
+-- This is too costly and not needed in all the places where unRepl is used,
+-- hence the restriction to different result and argument:
+-- unRepl t | FTKS ZSS _ <- ftkAst t = Just t
 unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
 unRepl (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
 unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
-unRepl (AstConcreteS a) = AstConcreteS . Nested.sscalar <$> sunReplicatePrim a
-unRepl (Ast.AstCond b v1 v2) = do
-  u1 <- unRepl v1
-  u2 <- unRepl v2
-  return $! astCond b u1 u2
+unRepl (AstConcreteS a) | _ :$$ _ <- Nested.sshape a =
+  AstConcreteS . Nested.sscalar <$> sunReplicatePrim a
+-- This is potentially exponential, which is too risky for a heuristic.
+-- unRepl (Ast.AstCond b v1 v2) = do
+--  u1 <- unRepl v1
+--  u2 <- unRepl v2
+--  return $! astCond b u1 u2
 unRepl (Ast.AstLet var u t) = Ast.AstLet var u <$> unRepl t
 unRepl (Ast.AstPrimalPart t) = astPrimalPart <$> unRepl t
 unRepl (Ast.AstDualPart t) = astDualPart <$> unRepl t

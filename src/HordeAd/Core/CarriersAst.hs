@@ -37,6 +37,7 @@ import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+import HordeAd.Core.Conversion
 
 -- * Type family instances for AstTensor
 
@@ -1422,6 +1423,7 @@ sunReplicatePrim (Nested.Shaped arr)
         (Mixed.marrayStrides arr)
   , shxSize (Nested.mshape arr) /= 0 =
     Just $ Nested.mindex arr $ ixxZero' $ Nested.mshape arr
+sunReplicatePrim arr | ZSS <- Nested.sshape arr = Just $ Nested.sunScalar arr
 sunReplicatePrim _ = Nothing
 
 sunReplicate1 :: Nested.Elt a
@@ -1445,6 +1447,8 @@ unReplC :: KnownSpan s
 unReplC (AstReplicate _ _ (AstConcreteS a)) = sunReplicatePrim a
 unReplC (AstReplicate _ _ (AstConcreteK a)) = Just a
 unReplC (AstConcreteS a) = sunReplicatePrim a
+unReplC (AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) (AstConcreteK a)) =
+  Just a
 unReplC (AstLet _ _ t) = unReplC t
 unReplC (AstPrimalPart t) = unReplC t
 unReplC (AstDualPart t) = unReplC t
