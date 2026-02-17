@@ -27,6 +27,7 @@ import System.IO.Unsafe (unsafePerformIO)
 
 import Data.Array.Nested (type (++))
 import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
+import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
@@ -248,6 +249,8 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       Ast.AstArgMinS $ build1V snat (var, v)
     Ast.AstArgMaxK v -> traceRule $
       Ast.AstArgMaxS $ build1V snat (var, v)
+    Ast.AstIndexK @shm v ix | Refl <- lemAppNil @shm -> traceRule $
+      build1VIndexS snat ZSS (var, v, ix)  -- @var@ is in @v@ or @ix@
 
     Ast.AstPlusS u v -> traceRule $
       build1VOccurrenceUnknown snat (var, u)
@@ -280,9 +283,9 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       Ast.AstArgMinS $ build1V snat (var, v)
     Ast.AstArgMaxS v -> traceRule $
       Ast.AstArgMaxS $ build1V snat (var, v)
-
     Ast.AstIndexS shn v ix -> traceRule $
       build1VIndexS snat shn (var, v, ix)  -- @var@ is in @v@ or @ix@
+
     Ast.AstScatterS shm shn shp v (vars, ix) -> traceRule $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix)
       in astScatterS (SNat @k :$$ shm) shn (SNat @k :$$ shp)
@@ -323,7 +326,6 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       astConvert (buildTKConversion snat (ftkAst v) c)
       $ build1V snat (var, v)
 
-    Ast.AstIndex0{} -> error "build1V: term not accessible from user API"
     Ast.AstSum0{} -> error "build1V: term not accessible from user API"
     Ast.AstDot0{} -> error "build1V: term not accessible from user API"
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"
@@ -609,6 +611,7 @@ mkTraceRule prefix from !fromFTK caseAnalysed nwords ~to = unsafePerformIO $ do
         unwords $ take nwords $ words $ take 21
         $ case caseAnalysed of
           Ast.AstVar{} -> "variable"
+          Ast.AstIndexK{} -> "sindex0"
           Ast.AstIndexS{} -> "sindex"
           _ -> printAstSimple caseAnalysed
       ruleName = prefix ++ "." ++ constructorName

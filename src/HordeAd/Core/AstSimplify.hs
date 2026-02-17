@@ -30,16 +30,16 @@ module HordeAd.Core.AstSimplify
 
   , astConcrete, astConcreteK, astConcreteS
 
-  , astFloorK, astFromIntegralK, astCastK, astArgMinK, astArgMaxK
-  , astFloorS, astFromIntegralS, astCastS
+  , astFloorK, astFromIntegralK, astCastK, astArgMinK, astArgMaxK, astIndexK
+  , astFloorS, astFromIntegralS, astCastS, astIndexS, astIndexKnobsS
 
-  , astIndexS, astIndexKnobsS, astScatterS, astGatherS, astGatherKnobsS
+  , astScatterS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
 
   , astConvert
   , astConvDownSFromR, astConvDownSFromX, astConvUpRFromS, astConvUpXFromS
 
-  , astIndex0, astSum0, astDot0, astDot1InS, astMatmul2S
+  , astSum0, astDot0, astDot1InS, astMatmul2S
 
     -- * Helper combinators
   , astLetFun
@@ -446,7 +446,7 @@ astSum snat@SNat stk t0 = case t0 of
       in fromPlain $ astConcrete ftk (tdefTarget ftk)
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKScalar <- stk ->
-      kfromS $ astIndexS ZSS t0 (0 :.$ ZIS)
+      astIndexK t0 (0 :.$ ZIS)
   _ | Just Refl <- testEquality snat (SNat @1)
     , STKS sh _  <- stk ->  -- other cases too rare
       astIndexS sh t0 (0 :.$ ZIS)  -- astReshape slows down the CNNO test
@@ -902,6 +902,7 @@ astPrimalPart t = case t of
   Ast.AstCastK v -> astCastK $ astPrimalPart v
   Ast.AstArgMinK{} -> Ast.AstPrimalPart t
   Ast.AstArgMaxK{} -> Ast.AstPrimalPart t
+  Ast.AstIndexK v ix -> astIndexK (astPrimalPart v) ix
 
   AstPlusS u v -> astPrimalPart u + astPrimalPart v
   AstTimesS u v -> astPrimalPart u * astPrimalPart v
@@ -918,9 +919,8 @@ astPrimalPart t = case t of
   Ast.AstCastS v -> astCastS $ astPrimalPart v
   Ast.AstArgMinS{} -> Ast.AstPrimalPart t
   Ast.AstArgMaxS{} -> Ast.AstPrimalPart t
+  Ast.AstIndexS shn v ix -> astIndexS shn (astPrimalPart v) ix
 
-  Ast.AstIndexS shn v ix ->
-    astIndexS shn (astPrimalPart v) ix
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterS shm shn shp (astPrimalPart v) (vars, ix)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
@@ -937,7 +937,6 @@ astPrimalPart t = case t of
   Ast.AstConvert{} -> Ast.AstPrimalPart t
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstIndex0{} -> Ast.AstPrimalPart t
   Ast.AstSum0{} -> Ast.AstPrimalPart t
   Ast.AstDot0{} -> Ast.AstPrimalPart t
   Ast.AstDot1InS{} -> Ast.AstPrimalPart t
@@ -1014,6 +1013,7 @@ astDualPart t = case t of
   Ast.AstI2K RemOp u v -> remH (astDualPart u) (astDualPart v)
   -}
   Ast.AstCastK v -> astCastK $ astDualPart v
+  Ast.AstIndexK v ix -> astIndexK (astDualPart v) ix
 
   AstPlusS u v -> astDualPart u + astDualPart v
   -- This one is mathematically wrong, dual numbers don't mult like that:
@@ -1029,9 +1029,8 @@ astDualPart t = case t of
                                              (astDualPart v)
   -}
   Ast.AstCastS v -> astCastS $ astDualPart v
+  Ast.AstIndexS shn v ix -> astIndexS shn (astDualPart v) ix
 
-  Ast.AstIndexS shn v ix ->
-    astIndexS shn (astDualPart v) ix
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterS shm shn shp (astDualPart v) (vars, ix)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
@@ -1047,7 +1046,6 @@ astDualPart t = case t of
   Ast.AstConvert{} -> Ast.AstDualPart t
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstIndex0{} -> Ast.AstDualPart t
   Ast.AstSum0{} -> Ast.AstDualPart t
   Ast.AstDot0{} -> Ast.AstDualPart t
   Ast.AstDot1InS{} -> Ast.AstDualPart t
@@ -1122,6 +1120,7 @@ astPlainPart t = case t of
   Ast.AstI2K QuotOp u v -> quotH (astPlainPart u) (astPlainPart v)
   Ast.AstI2K RemOp u v -> remH (astPlainPart u) (astPlainPart v)
   Ast.AstCastK v -> astCastK $ astPlainPart v
+  Ast.AstIndexK v ix -> astIndexK (astPlainPart v) ix
 
   AstPlusS u v -> astPlainPart u + astPlainPart v
   AstTimesS u v -> astPlainPart u * astPlainPart v
@@ -1133,9 +1132,8 @@ astPlainPart t = case t of
   Ast.AstI2S QuotOp u v -> quotH (astPlainPart u) (astPlainPart v)
   Ast.AstI2S RemOp u v -> remH (astPlainPart u) (astPlainPart v)
   Ast.AstCastS v -> astCastS $ astPlainPart v
+  Ast.AstIndexS shn v ix -> astIndexS shn (astPlainPart v) ix
 
-  Ast.AstIndexS shn v ix ->
-    astIndexS shn (astPlainPart v) ix
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterS shm shn shp (astPlainPart v) (vars, ix)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
@@ -1151,7 +1149,6 @@ astPlainPart t = case t of
   Ast.AstConvert{} -> Ast.AstPlainPart t
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstIndex0{} -> Ast.AstPlainPart t
   Ast.AstSum0{} -> Ast.AstPlainPart t
   Ast.AstDot0{} -> Ast.AstPlainPart t
   Ast.AstDot1InS{} -> Ast.AstPlainPart t
@@ -1241,6 +1238,14 @@ astArgMaxK t = case t of
   Ast.AstCastS v -> astArgMaxK v
   Ast.AstIotaS{} -> 0
   _ -> Ast.AstArgMaxK t
+
+-- TODO: how to add more without duplicating astIndexKnobsS?
+astIndexK
+  :: forall shm s r. GoodScalar r
+  => AstTensor AstMethodLet s (TKS shm r) -> AstIxS AstMethodLet shm
+  -> AstTensor AstMethodLet s (TKScalar r)
+astIndexK v0 ZIS = Ast.AstConvert (ConvCmp ConvX0 ConvSX) v0
+astIndexK v0 ix = Ast.AstIndexK v0 ix
 
 astConcreteS :: GoodScalar r
              => Concrete (TKS sh r)
@@ -1352,7 +1357,7 @@ astCastS t = case t of
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstCastS v -> astCastS v
 --  Ast.AstIndexS shn v ix -> astIndexS shn (astCastS v) ix
-    -- increases work; also index goes into fromIntegral, so we'd loop
+    -- increases work; also index goes into astCastS, so we'd loop
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterS shm shn shp (astCastS v) (vars, ix)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
@@ -1558,10 +1563,10 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
           Ast.AstArgMaxS @(Head (shn ++ '[nl]))
                          @(Tail (shn ++ '[nl]))
           $ astIndexKnobsS @shm @(shn ++ '[nl]) knobs shnl v ix
-
    Ast.AstIndexS _ v (ix2 :: AstIxS AstMethodLet sh4)
      | Refl <- lemAppAssoc (Proxy @sh4) (Proxy @shm) (Proxy @shn) ->
        astIndexKnobsS knobs shn v (ix2 `ixsAppend` ix)
+
    Ast.AstScatterS shm7 shn7 shp7 v (vars, AstIntVar var5 :.$ ix2)
      | AstIntVar var6 <- i1, var6 == var5 ->
          astIndex shn (astScatterS shm7 shn7 (shsTail shp7)
@@ -3457,14 +3462,6 @@ astConvUpXFromS sh' x =
   gcastWith (unsafeCoerceRefl :: Rank (MapJust sh) :~: Rank sh) $
   astConvertUp (ConvCmp (ConvXX' (FTKX sh' x)) ConvSX) (FTKX sh' x)
 
--- TODO: how to add more without duplicating astIndexKnobsS?
-astIndex0
-  :: forall shm s r. GoodScalar r
-  => AstTensor AstMethodLet s (TKS shm r) -> AstIxS AstMethodLet shm
-  -> AstTensor AstMethodLet s (TKScalar r)
-astIndex0 v0 ZIS = Ast.AstConvert (ConvCmp ConvX0 ConvSX) v0
-astIndex0 v0 ix = Ast.AstIndex0 v0 ix
-
 astSum0 :: (NumScalar r, KnownSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKScalar r)
@@ -3547,7 +3544,7 @@ astDot0 t1 t2 = case (t1, t2) of
   _ -> case ftkAst t1 of
     FTKS ZSS FTKScalar -> kfromS t1 * kfromS t2
     FTKS (SNat' @1 :$$ ZSS) FTKScalar ->
-      astIndex0 t1 (0 :.$ ZIS) * astIndex0 t2 (0 :.$ ZIS)
+      astIndexK t1 (0 :.$ ZIS) * astIndexK t2 (0 :.$ ZIS)
     _ -> Ast.AstDot0 t1 t2
 
 astDot1InS :: forall sh n r s. (NumScalar r, KnownSpan s)
@@ -3996,6 +3993,10 @@ substitute1Ast i var = subst where
   Ast.AstCastK v -> astCastK <$> subst v
   Ast.AstArgMinK v -> astArgMinK <$> subst v
   Ast.AstArgMaxK v -> astArgMaxK <$> subst v
+  Ast.AstIndexK v ix ->
+    case (subst v, substIxS ix) of
+      (Nothing, Nothing) -> Nothing
+      (mv, mix) -> Just $ astIndexK (fromMaybe v mv) (fromMaybe ix mix)
 
   AstPlusS u v ->
     let mu = subst u
@@ -4037,11 +4038,11 @@ substitute1Ast i var = subst where
   Ast.AstCastS v -> astCastS <$> subst v
   Ast.AstArgMinS a -> Ast.AstArgMinS <$> subst a
   Ast.AstArgMaxS a -> Ast.AstArgMaxS <$> subst a
-
   Ast.AstIndexS shn v ix ->
     case (subst v, substIxS ix) of
       (Nothing, Nothing) -> Nothing
       (mv, mix) -> Just $ astIndexS shn (fromMaybe v mv) (fromMaybe ix mix)
+
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     case (subst v, substIxS ix) of
       (Nothing, Nothing) -> Nothing
@@ -4066,10 +4067,6 @@ substitute1Ast i var = subst where
 
   Ast.AstConvert c v -> astConvert c <$> subst v
 
-  Ast.AstIndex0 v ix ->
-    case (subst v, substIxS ix) of
-      (Nothing, Nothing) -> Nothing
-      (mv, mix) -> Just $ astIndex0 (fromMaybe v mv) (fromMaybe ix mix)
   Ast.AstSum0 v -> astSum0 <$> subst v
   Ast.AstDot0 u v ->
     let mu = subst u

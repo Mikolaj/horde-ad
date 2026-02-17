@@ -189,6 +189,10 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
   AstCastK v -> tkcast $ interpretAst env v
   AstArgMinK v -> tkargMin $ interpretAst env v
   AstArgMaxK v -> tkargMax $ interpretAst env v
+  AstIndexK v ix ->
+    let v2 = interpretAst env v
+        ix3 = interpretAst env <$> ix
+    in tsindex0 v2 ix3
 
   AstPlusS u v -> interpretAst env u + interpretAst env v
   AstTimesS u v -> interpretAst env u * interpretAst env v
@@ -204,13 +208,13 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
   AstCastS v -> tscast $ interpretAst env v
   AstArgMinS v -> tsargMin $ interpretAst env v
   AstArgMaxS v -> tsargMax $ interpretAst env v
-
   AstIndexS @shm shn v ix ->
     withKnownShS shn $
     withKnownSTK (stkAstX v) $
     let v2 = interpretAst env v
         ix3 = interpretAst env <$> ix
     in tsindex @_ @shm v2 ix3
+
   -- TODO: once specialization inspect-testing is back online,
   -- recover and also handle similarly tsupdate, both implemented
   -- as a gather and as a scatter
@@ -290,10 +294,6 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
   AstConvert c a ->
     tconvert c (ftkToSTK (ftkAst a)) (interpretAst env a)
 
-  AstIndex0 v ix ->
-    let v2 = interpretAst env v
-        ix3 = interpretAst env <$> ix
-    in tsindex0 v2 ix3
   AstSum0 v -> case ftkAst v of
     FTKS sh _ ->
       withKnownShS sh $

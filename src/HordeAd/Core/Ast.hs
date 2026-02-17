@@ -504,6 +504,10 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
   AstArgMaxK :: forall n r ms. NumScalar r
              => AstTensor ms PlainSpan (TKS '[n] r)
              -> AstTensor ms PlainSpan (TKScalar Int)
+  AstIndexK :: forall shm r s ms. GoodScalar r
+            => AstTensor ms s (TKS shm r) -> AstIxS ms shm
+            -> AstTensor ms s (TKScalar r)
+    -- out of bounds indexing is permitted and the results is def (==0)
 
   -- Shaped arithmetic
   AstPlusS :: NumScalar r
@@ -545,13 +549,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
   AstArgMaxS :: forall n sh r ms. NumScalar r
              => AstTensor ms PlainSpan (TKS (n ': sh) r)
              -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) Int)
-
-  -- Shaped tensor operations
   AstIndexS :: forall shm shn x s ms.
                ShS shn
             -> AstTensor ms s (TKS2 (shm ++ shn) x) -> AstIxS ms shm
             -> AstTensor ms s (TKS2 shn x)
-    -- out of bounds indexing is permitted and the results is def (==0)
+
+  -- Shaped tensor operations
   AstScatterS :: forall shm shn shp x s ms. TKAllNum x
               => ShS shm -> ShS shn -> ShS shp
               -> AstTensor ms s (TKS2 (shm ++ shn) x)
@@ -587,9 +590,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
   AstConvert :: TKConversion a b -> AstTensor ms s a -> AstTensor ms s b
 
   -- Backend-specific primitives
-  AstIndex0 :: forall shm r s ms. GoodScalar r
-            => AstTensor ms s (TKS shm r) -> AstIxS ms shm
-            -> AstTensor ms s (TKScalar r)
   AstSum0 :: NumScalar r
           => AstTensor ms s (TKS sh r)
           -> AstTensor ms s (TKScalar r)

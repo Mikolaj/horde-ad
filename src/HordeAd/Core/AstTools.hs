@@ -95,6 +95,7 @@ ftkAst t = case t of
   AstCastK{} -> FTKScalar
   AstArgMinK{} -> FTKScalar
   AstArgMaxK{} -> FTKScalar
+  AstIndexK{} -> FTKScalar
 
   AstPlusS v _ -> ftkAst v
   AstTimesS v _ -> ftkAst v
@@ -113,9 +114,9 @@ ftkAst t = case t of
     FTKS sh FTKScalar -> FTKS (shsInit sh) FTKScalar
   AstArgMaxS v -> case ftkAst v of
     FTKS sh FTKScalar -> FTKS (shsInit sh) FTKScalar
-
   AstIndexS shn v _ix -> case ftkAst v of
     FTKS _ x -> FTKS shn x
+
   AstScatterS _ shn shp v _ -> case ftkAst v of
     FTKS _ x -> FTKS (shp `shsAppend` shn) x
   AstGatherS shm shn _shp v _ -> case ftkAst v of
@@ -133,7 +134,6 @@ ftkAst t = case t of
 
   AstConvert c u -> convertFTK c $ ftkAst u
 
-  AstIndex0{} -> FTKScalar
   AstSum0{} -> FTKScalar
   AstDot0{} -> FTKScalar
   AstDot1InS sh _ _u _v -> FTKS sh FTKScalar
@@ -199,6 +199,7 @@ varInAst var = \case
   AstCastK t -> varInAst var t
   AstArgMinK t -> varInAst var t
   AstArgMaxK t -> varInAst var t
+  AstIndexK v ix -> varInAst var v || varInIxS var ix
 
   AstPlusS t u -> varInAst var t || varInAst var u
   AstTimesS t u -> varInAst var t || varInAst var u
@@ -212,8 +213,8 @@ varInAst var = \case
   AstCastS t -> varInAst var t
   AstArgMinS a -> varInAst var a
   AstArgMaxS a -> varInAst var a
-
   AstIndexS _ v ix -> varInAst var v || varInIxS var ix
+
   AstScatterS _ _ _ v (_vars, ix) -> varInIxS var ix || varInAst var v
   AstGatherS _ _ _ v (_vars, ix) -> varInIxS var ix || varInAst var v
   AstIotaS{} -> False
@@ -225,7 +226,6 @@ varInAst var = \case
 
   AstConvert _ v -> varInAst var v
 
-  AstIndex0 v ix -> varInAst var v || varInIxS var ix
   AstSum0 v -> varInAst var v
   AstDot0 u v -> varInAst var u || varInAst var v
   AstDot1InS _ _ u v -> varInAst var u || varInAst var v
@@ -398,6 +398,10 @@ astLetDown var u v = case v of
   AstCastK v2 -> AstCastK (astLetDown var u v2)
   AstArgMinK v2 -> AstArgMinK (astLetDown var u v2)
   AstArgMaxK v2 -> AstArgMaxK (astLetDown var u v2)
+  AstIndexK v2 ix ->
+    if varNameInIxS var ix
+    then AstLet var u v
+    else AstIndexK (astLetDown var u v2) ix
 
   AstPlusS{} -> AstLet var u v
   AstTimesS{} -> AstLet var u v
@@ -411,7 +415,6 @@ astLetDown var u v = case v of
   AstCastS v2 -> AstCastS (astLetDown var u v2)
   AstArgMinS a -> AstArgMinS (astLetDown var u a)
   AstArgMaxS a -> AstArgMaxS (astLetDown var u a)
-
   -- In these three, index terms are usually small, so the check is cheap.
   -- Also, this undoes precisely the pushing of the lets up that rules
   -- for these three perform when simplifying. Note that we never push
@@ -422,6 +425,7 @@ astLetDown var u v = case v of
     if varNameInIxS var ix
     then AstLet var u v
     else AstIndexS shn (astLetDown var u v2) ix
+
   AstScatterS shm shn shp v2 (vars, ix) ->
     if varNameInIxS var ix
     then AstLet var u v
@@ -439,10 +443,6 @@ astLetDown var u v = case v of
 
   AstConvert c v2 -> AstConvert c (astLetDown var u v2)
 
-  AstIndex0 v2 ix ->
-    if varNameInIxS var ix
-    then AstLet var u v
-    else AstIndex0 (astLetDown var u v2) ix
   AstSum0 v2 -> AstSum0 (astLetDown var u v2)
   AstDot0{} -> AstLet var u v
   AstDot1InS{} -> AstLet var u v

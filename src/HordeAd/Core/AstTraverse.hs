@@ -130,6 +130,10 @@ expandAst t = case t of
   Ast.AstCastK v -> astCastK $ expandAst v
   Ast.AstArgMinK v -> astArgMinK $ expandAst v
   Ast.AstArgMaxK v -> astArgMaxK $ expandAst v
+  Ast.AstIndexK @shm v ix | Refl <- lemAppNil @shm ->
+    kfromS
+    $ astIndexKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
+                     ZSS (expandAst v) (expandAstIxS ix)
 
   AstPlusS u v -> expandAst u + expandAst v
   AstTimesS u v -> expandAst u * expandAst v
@@ -164,10 +168,10 @@ expandAst t = case t of
   Ast.AstCastS v -> astCastS $ expandAst v
   Ast.AstArgMinS a -> Ast.AstArgMinS (expandAst a)
   Ast.AstArgMaxS a -> Ast.AstArgMaxS (expandAst a)
-
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
                    shn (expandAst v) (expandAstIxS ix)
+
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterS shm shn shp (expandAst v) (vars, expandAstIxS ix)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
@@ -228,7 +232,6 @@ expandAst t = case t of
   Ast.AstConvert c v -> astConvert c $ expandAst v
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstIndex0{} -> t
   Ast.AstSum0{} -> t
   Ast.AstDot0{} -> t
   Ast.AstDot1InS{} -> t
@@ -326,6 +329,10 @@ simplifyAst t = case t of
   Ast.AstCastK v -> astCastK $ simplifyAst v
   Ast.AstArgMinK v -> astArgMinK $ simplifyAst v
   Ast.AstArgMaxK v -> astArgMaxK $ simplifyAst v
+  Ast.AstIndexK @shm v ix | Refl <- lemAppNil @shm ->
+    kfromS
+    $ astIndexKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
+                     ZSS (simplifyAst v) (simplifyAstIxS ix)
 
   AstPlusS u v -> simplifyAst u + simplifyAst v
   AstTimesS u v -> simplifyAst u * simplifyAst v
@@ -360,10 +367,10 @@ simplifyAst t = case t of
   Ast.AstCastS v -> astCastS $ simplifyAst v
   Ast.AstArgMinS a -> Ast.AstArgMinS (simplifyAst a)
   Ast.AstArgMaxS a -> Ast.AstArgMaxS (simplifyAst a)
-
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
                    shn (simplifyAst v) (simplifyAstIxS ix)
+
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterS shm shn shp (simplifyAst v) (vars, simplifyAstIxS ix)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
@@ -379,7 +386,6 @@ simplifyAst t = case t of
   Ast.AstConvert c v -> astConvert c $ simplifyAst v
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstIndex0{} -> t
   Ast.AstSum0{} -> t
   Ast.AstDot0{} -> t
   Ast.AstDot1InS{} -> t
@@ -751,6 +757,7 @@ contractAst t0 = case t0 of
   Ast.AstCastK v -> astCastK $ contractAst v
   Ast.AstArgMinK v -> astArgMinK $ contractAst v
   Ast.AstArgMaxK v -> astArgMaxK $ contractAst v
+  Ast.AstIndexK v ix -> astIndexK (contractAst v) (contractAstIxS ix)
 
   AstPlusS u v -> contractAst u + contractAst v
   AstTimesS u v -> contractAst u * contractAst v
@@ -794,15 +801,15 @@ contractAst t0 = case t0 of
     t2 -> astCastS t2
   Ast.AstArgMinS a -> Ast.AstArgMinS (contractAst a)
   Ast.AstArgMaxS a -> Ast.AstArgMaxS (contractAst a)
-
   Ast.AstConvert c (Ast.AstIndexS @sh1 ZSS v ix)
     | FTKS _ ftk2@FTKScalar <- ftkAst v
     , Just Refl <- matchingFTK (convertFTK c (FTKS ZSS ftk2)) ftk2
     , Refl <- lemAppNil @sh1 ->
-      astIndex0 (contractAst v) (contractAstIxS ix)
+      astIndexK (contractAst v) (contractAstIxS ix)
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                    shn (contractAst v) (contractAstIxS ix)
+
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterS shm shn shp (contractAst v) (vars, contractAstIxS ix)
   -- This rule is reverted in vectorization, so contraction phase may be fine.
@@ -836,7 +843,6 @@ contractAst t0 = case t0 of
   Ast.AstConvert c v -> astConvertConcrete c $ contractAst v
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstIndex0{} -> t0
   Ast.AstSum0{} -> t0
   Ast.AstDot0{} -> t0
   Ast.AstDot1InS{} -> t0
@@ -957,6 +963,7 @@ letDownAst t = case t of
   Ast.AstCastK v -> Ast.AstCastK (letDownAst v)
   Ast.AstArgMinK v -> Ast.AstArgMinK (letDownAst v)
   Ast.AstArgMaxK v -> Ast.AstArgMaxK (letDownAst v)
+  Ast.AstIndexK v ix -> Ast.AstIndexK (letDownAst v) (letDownAstIxS ix)
 
   AstPlusS u v -> AstPlusS (letDownAst u) (letDownAst v)
   AstTimesS u v -> AstTimesS (letDownAst u) (letDownAst v)
@@ -970,9 +977,8 @@ letDownAst t = case t of
   Ast.AstCastS v -> Ast.AstCastS (letDownAst v)
   Ast.AstArgMinS a -> Ast.AstArgMinS (letDownAst a)
   Ast.AstArgMaxS a -> Ast.AstArgMaxS (letDownAst a)
+  Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (letDownAst v) (letDownAstIxS ix)
 
-  Ast.AstIndexS shn v ix ->
-    Ast.AstIndexS shn (letDownAst v) (letDownAstIxS ix)
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     let !ix2 = letDownAstIxS ix
     in Ast.AstScatterS shm shn shp (letDownAst v) (vars, ix2)
@@ -988,7 +994,6 @@ letDownAst t = case t of
 
   Ast.AstConvert c v -> Ast.AstConvert c (letDownAst v)
 
-  Ast.AstIndex0 v ix -> Ast.AstIndex0 (letDownAst v)  (letDownAstIxS ix)
   Ast.AstSum0 v -> Ast.AstSum0 (letDownAst v)
   Ast.AstDot0 u v -> Ast.AstDot0 (letDownAst u) (letDownAst v)
   Ast.AstDot1InS sh n u v -> Ast.AstDot1InS sh n (letDownAst u) (letDownAst v)

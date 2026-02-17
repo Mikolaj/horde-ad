@@ -368,6 +368,11 @@ printAst cfg d = \case
   AstCastK v -> printPrefixOp printAst cfg d "kcast" [v]
   AstArgMinK v -> printPrefixOp printAst cfg d "kargMin" [v]
   AstArgMaxK v -> printPrefixOp printAst cfg d "kargMax" [v]
+  AstIndexK v ix ->
+    showParen (d > 9)
+    $ printAst cfg 10 v
+      . showString " `sindex0` "
+      . showListWith (printAst cfg 0) (Foldable.toList ix)
 
   AstPlusS u v -> printBinaryOp printAst cfg d u (6, "+") v
   AstTimesS u v -> printBinaryOp printAst cfg d u (7, "*") v
@@ -380,12 +385,12 @@ printAst cfg d = \case
   AstCastS a -> printPrefixOp printAst cfg d "scast" [a]
   AstArgMinS a -> printPrefixOp printAst cfg d "sargMin" [a]
   AstArgMaxS a -> printPrefixOp printAst cfg d "sargMax" [a]
-
   AstIndexS _ v ix ->
     showParen (d > 9)
     $ printAst cfg 10 v
       . showString " !$ "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
+
   AstScatterS _ _ _ v (ZS, ix) ->
     showParen (d > 9)
     $ showString "soneHot "
@@ -540,11 +545,6 @@ printAst cfg d = \case
     (ystk, _) -> let s = "tconvert (" ++ show c ++ ") (" ++ show ystk ++ ")"
                  in printPrefixOp printAst cfg d s [t]
 
-  AstIndex0 v ix ->
-    showParen (d > 9)
-    $ printAst cfg 10 v
-      . showString " `sindex0` "
-      . showListWith (printAst cfg 0) (Foldable.toList ix)
   AstSum0 v ->
     printPrefixOp printAst cfg d "ssum0" [v]
   AstDot0 u v ->

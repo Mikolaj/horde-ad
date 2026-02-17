@@ -154,6 +154,10 @@ inlineAst !memo v0 = case v0 of
   Ast.AstCastK a -> second Ast.AstCastK $ inlineAst memo a
   Ast.AstArgMinK a -> second Ast.AstArgMinK $ inlineAst memo a
   Ast.AstArgMaxK a -> second Ast.AstArgMaxK $ inlineAst memo a
+  Ast.AstIndexK v ix ->
+    let (memo1, v2) = inlineAst memo v
+        (memo2, ix2) = mapAccumL' inlineAst memo1 (Foldable.toList ix)
+    in (memo2, Ast.AstIndexK v2 (ixsFromIxS ix ix2))
 
   Ast.AstPlusS u v ->
     let (memo2, u2) = inlineAst memo u
@@ -183,11 +187,11 @@ inlineAst !memo v0 = case v0 of
   Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v
   Ast.AstArgMinS a -> second Ast.AstArgMinS $ inlineAst memo a
   Ast.AstArgMaxS a -> second Ast.AstArgMaxS $ inlineAst memo a
-
   Ast.AstIndexS @shm shn v ix ->
     let (memo1, v2) = inlineAst memo v
         (memo2, ix2) = mapAccumL' inlineAst memo1 (Foldable.toList ix)
     in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
+
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumL' inlineAst EM.empty (Foldable.toList ix)
@@ -214,10 +218,6 @@ inlineAst !memo v0 = case v0 of
 
   Ast.AstConvert c v -> second (Ast.AstConvert c) $ inlineAst memo v
 
-  Ast.AstIndex0 v ix ->
-    let (memo1, v2) = inlineAst memo v
-        (memo2, ix2) = mapAccumL' inlineAst memo1 (Foldable.toList ix)
-    in (memo2, Ast.AstIndex0 v2 (ixsFromIxS ix ix2))
   Ast.AstSum0 v -> second Ast.AstSum0 (inlineAst memo v)
   Ast.AstDot0 u v ->
     let (memo2, u2) = inlineAst memo u
@@ -411,6 +411,10 @@ unshareAst !memo = \case
   Ast.AstCastK v -> second Ast.AstCastK $ unshareAst memo v
   Ast.AstArgMinK v -> second Ast.AstArgMinK $ unshareAst memo v
   Ast.AstArgMaxK v -> second Ast.AstArgMaxK $ unshareAst memo v
+  Ast.AstIndexK v ix ->
+    let (memo1, v2) = unshareAst memo v
+        (memo2, ix2) = mapAccumL' unshareAst memo1 (Foldable.toList ix)
+    in (memo2, Ast.AstIndexK v2 (ixsFromIxS ix ix2))
 
   Ast.AstPlusS u v ->
     let (memo2, u2) = unshareAst memo u
@@ -440,11 +444,11 @@ unshareAst !memo = \case
   Ast.AstCastS v -> second Ast.AstCastS $ unshareAst memo v
   Ast.AstArgMinS a -> second Ast.AstArgMinS $ unshareAst memo a
   Ast.AstArgMaxS a -> second Ast.AstArgMaxS $ unshareAst memo a
-
   Ast.AstIndexS @shm shn v ix ->
     let (memo1, v2) = unshareAst memo v
         (memo2, ix2) = mapAccumL' unshareAst memo1 (Foldable.toList ix)
     in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
+
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     let (memo1, ix2) = mapAccumL' (unshareAstScoped $ listsToList vars)
                                   memo (Foldable.toList ix)
@@ -470,10 +474,6 @@ unshareAst !memo = \case
 
   Ast.AstConvert c v -> second (Ast.AstConvert c) $ unshareAst memo v
 
-  Ast.AstIndex0 v ix ->
-    let (memo1, v2) = unshareAst memo v
-        (memo2, ix2) = mapAccumL' unshareAst memo1 (Foldable.toList ix)
-    in (memo2, Ast.AstIndex0 v2 (ixsFromIxS ix ix2))
   Ast.AstSum0 v -> second Ast.AstSum0 (unshareAst memo v)
   Ast.AstDot0 u v ->
     let (memo2, u2) = unshareAst memo u
