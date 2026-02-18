@@ -744,6 +744,11 @@ astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
 astCond b (AstConvUp c zftk v) (AstConvUp _ _ w)
   | Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
     astConvertUp c zftk (astCond b v w)
+astCond b v (AstConvUp c zftk w) =
+    astConvertUp c zftk (astCond b (astConvDown (ftkToSTK $ ftkAst w) v) w)
+astCond b (AstConvUp c zftk v) w
+  | Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
+    astConvertUp c zftk (astCond b v (astConvDown (ftkToSTK $ ftkAst v) w))
 astCond b v w = Ast.AstCond b v w
 
 -- Invariant: if the variable has bounds, the expression can only have
