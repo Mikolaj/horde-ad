@@ -191,7 +191,9 @@ gradInterpretArtifact AstArtifactRev{..} parameters
               $ extendEnv artVarDomainRev parameters emptyEnv
     in if tftkG (ftkToSTK xftk) (unConcrete parameters) == xftk
        then fromTarget $ interpretAstFull env artDerivativeRev
-       else error "gradInterpretArtifact: reverse derivative parameters must have the same shape as the domain of the objective function"
+       else error $ "gradInterpretArtifact: reverse derivative parameters must have the same shape as the domain of the objective function: "
+                    ++ show ( tftkG (ftkToSTK xftk) (unConcrete parameters)
+                            , xftk )
 
 -- | Interpret the "artifact" as a function from concrete tensors
 -- to a concrete tensor (possibly adapted, e.g., from horde-ad nested pairs
@@ -213,8 +215,10 @@ vjpInterpretArtifact AstArtifactRev{..} parameters dt =
   in if tftkG (ftkToSTK xftk) (unConcrete parameters) == xftk
      then if tftkG (ftkToSTK azftk) (unConcrete dt) == azftk
           then fromTarget $ interpretAstFull env artDerivativeRev
-          else error "vjpInterpretArtifact: reverse derivative incoming cotangent must have the same shape as the codomain of the objective function"
-     else error "vjpInterpretArtifact: reverse derivative parameters must have the same shape as the domain of the objective function"
+          else error $ "vjpInterpretArtifact: reverse derivative incoming cotangent must have the same shape as the codomain of the objective function: "
+                       ++ show (tftkG (ftkToSTK azftk) (unConcrete dt), azftk)
+     else error $ "vjpInterpretArtifact: reverse derivative parameters must have the same shape as the domain of the objective function: "
+                  ++ show (tftkG (ftkToSTK xftk) (unConcrete parameters), xftk)
 
 
 -- * Symbolic reverse derivative adaptors' internal machinery
@@ -277,7 +281,8 @@ revInterpretArtifact AstArtifactRev{..} parameters mdt =
         Just dt ->
           if tftkG (ftkToSTK azftk) (unConcrete dt) == azftk
           then extendEnv artVarDtRev dt env
-          else error "revInterpretArtifact: reverse derivative incoming cotangent must have the same shape as the codomain of the objective function"
+          else error $ "revInterpretArtifact: reverse derivative incoming cotangent must have the same shape as the codomain of the objective function: "
+                       ++ show (tftkG (ftkToSTK azftk) (unConcrete dt), azftk)
       gradient = interpretAstFull envDt artDerivativeRev
       primal = interpretAstFull env artPrimalRev
   in (primal, gradient)
@@ -333,7 +338,8 @@ revInterpretArtifactDt AstArtifactRev{..} parameters dt =
       envDt =
         if tftkG (ftkToSTK azftk) (unConcrete dt) == azftk
         then extendEnv artVarDtRev dt env
-        else error "revInterpretArtifactDt: reverse derivative incoming cotangent must have the same shape as the codomain of the objective function"
+        else error $ "revInterpretArtifactDt: reverse derivative incoming cotangent must have the same shape as the codomain of the objective function: "
+                     ++ show (tftkG (ftkToSTK azftk) (unConcrete dt), azftk)
       gradient = interpretAstFull envDt artDerivativeRev
       primal = interpretAstFull env artPrimalRev
   in (primal, gradient)
@@ -497,8 +503,10 @@ fwdInterpretArtifact AstArtifactFwd{..} parameters ds =
           then let derivative = interpretAstFull envD artDerivativeFwd
                    primal = interpretAstFull env artPrimalFwd
                in (primal, derivative)
-          else error "fwdInterpretArtifact: forward derivative perturbation must have the same shape as the domain of the objective function"
-     else error "fwdInterpretArtifact: forward derivative input must have the same shape as the domain of the objective function"
+          else error $ "fwdInterpretArtifact: forward derivative perturbation must have the same shape as the domain of the objective function: "
+                       ++ show (tftkG (adSTK xstk) (unConcrete ds), adFTK xftk)
+     else error $ "fwdInterpretArtifact: forward derivative input must have the same shape as the domain of the objective function: "
+                  ++ show (tftkG xstk (unConcrete parameters), xftk)
 
 
 -- * Symbolic forward derivative adaptors' testing-only internal machinery
@@ -685,4 +693,5 @@ cjvp2 f vals0 ds =
   in if tftk (ftkToSTK xftk) dsTarget == xftk
      then cfwdOnParams xftk valsTarget g
           $ toADTensorKindShared xftk dsTarget
-     else error "cjvp2: forward derivative input must have the same shape as the perturbation argument"
+     else error $ "cjvp2: forward derivative input must have the same shape as the perturbation argument: "
+                  ++ show (tftk (ftkToSTK xftk) dsTarget, xftk)
