@@ -3216,6 +3216,9 @@ astConvertDownKFromS c a = case a of
   Ast.AstPrimalPart v -> astPrimalPart $ astConvertDownKFromS c v
   Ast.AstDualPart v -> astDualPart $ astConvertDownKFromS c v
   Ast.AstPlainPart v -> astPlainPart $ astConvertDownKFromS c v
+  Ast.AstFromPrimal v -> fromPrimal $ astConvertDownKFromS c v
+  Ast.AstFromDual v -> fromDual $ astConvertDownKFromS c v
+  Ast.AstFromPlain v -> fromPlain $ astConvertDownKFromS c v
   AstPlusS u v -> astConvertDownKFromS c u + astConvertDownKFromS c v
   AstTimesS u v ->  astConvertDownKFromS c u * astConvertDownKFromS c v
   Ast.AstN1S NegateOp u -> negate (astConvertDownKFromS c u)
@@ -3234,18 +3237,17 @@ astConvertDownKFromS c a = case a of
   Ast.AstCastS v -> astCastK (kfromS v)
   Ast.AstArgMinS v | FTKS (_ :$$ ZSS) FTKScalar <- ftkAst v -> astArgMinK v
   Ast.AstArgMaxS v | FTKS (_ :$$ ZSS) FTKScalar <- ftkAst v -> astArgMaxK v
-  Ast.AstIndexS{} -> Ast.AstConvert c a  -- TODO, here and below
-  Ast.AstScatterS{} -> Ast.AstConvert c a
-  Ast.AstGatherS{} -> Ast.AstConvert c a
-  Ast.AstTransposeS{} -> Ast.AstConvert c a
-  Ast.AstReshapeS{} -> Ast.AstConvert c a
-  Ast.AstDot1InS{} -> Ast.AstConvert c a
-  Ast.AstBoolNotS{} -> Ast.AstConvert c a
-  Ast.AstBoolAndS{} -> Ast.AstConvert c a
-  Ast.AstLeqS{} -> Ast.AstConvert c a
-  Ast.AstFromPrimal v -> fromPrimal $ astConvertDownKFromS c v
-  Ast.AstFromDual v -> fromDual $ astConvertDownKFromS c v
-  Ast.AstFromPlain v -> fromPlain $ astConvertDownKFromS c v
+  Ast.AstIndexS @shm ZSS v ix | Refl <- lemAppNil @shm -> astIndexK v ix
+  Ast.AstScatterS{} ->  -- _shm ZSS ZSS _v (_vars, ZIS) ->
+    Ast.AstConvert c a  -- TODO: astSum0
+  Ast.AstGatherS{} -> Ast.AstConvert c a  -- not a NF
+  Ast.AstTransposeS{} -> Ast.AstConvert c a  -- not a NF
+  Ast.AstReshapeS{} -> Ast.AstConvert c a  -- not a NF
+  Ast.AstDot1InS{} -> Ast.AstConvert c a  -- not a NF
+  Ast.AstBoolNotS b -> Ast.AstBoolNotK $ astConvertDownKFromS c b
+  Ast.AstBoolAndS b1 b2 ->
+    Ast.AstBoolAndK (astConvertDownKFromS c b1) (astConvertDownKFromS c b2)
+  Ast.AstLeqS _shb _sh arg1 arg2 -> Ast.AstLeq arg1 arg2
   Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
 
 astConvertDownKFromR

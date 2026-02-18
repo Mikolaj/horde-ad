@@ -509,7 +509,7 @@ testSin0FoldB1PP = do
                            (rscalar 5) (rreplicate 1 x0)
               in f) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rprimalPart (rfromS (sfromR (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> 1.0 (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> 5.0 (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1]))))) !$ [0]))"
+    @?= "rfromK (sprimalPart (sfromR (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> 1.0 (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> 5.0 (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1])))))) `sindex0` [0])"
 
 testSin0FoldB2 :: Assertion
 testSin0FoldB2 = do
@@ -801,9 +801,9 @@ testSin0Fold182SrevPP = do
                         (sreplicate @1 a0)
             in rfromS . f . sfromR) (rscalar 1.1)
   printAstPretty a1
-    @?= "rfromK (let v4 = tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.0)) (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.1)) (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1]))) in ssum @5 (sprimalPart (tproject1 v4)) + kprimalPart (kfromS (tproject2 v4 !$ [0])))"
+    @?= "rfromK (let v4 = tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.0)) (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.1)) (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1]))) in ssum @5 (sprimalPart (tproject1 v4)) + sprimalPart (tproject2 v4) `sindex0` [0])"
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromK (let v4 = tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.0)) (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.1)) (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1]))) in ssum0 (sprimalPart (tproject1 v4)) + kprimalPart (tproject2 v4 `sindex0` [0]))"
+    @?= "rfromK (let v4 = tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.0)) (tpair (sreverse (tproject2 (tmapAccumLDer (SNat @1) <lambda> <lambda> <lambda> (sconcrete (sreplicate [5] 1.1)) (sconcrete (sfromListLinear [1] [1.1]))))) (sconcrete (sfromListLinear [1] [1.1]))) in ssum0 (sprimalPart (tproject1 v4)) + sprimalPart (tproject2 v4) `sindex0` [0])"
 
 testSin0Fold18Sgrad :: Assertion
 testSin0Fold18Sgrad = do
@@ -1131,8 +1131,7 @@ testSin0Scan1Rev3PP0 = do
                  (\x0 -> rscan (\x a -> sin x - a) x0
                            (rfromList [x0 * rscalar 5, x0 * rscalar 7])) (rscalar 1.1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromK (let v5 = tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> 0.0 (tpair (sconcrete (sreplicate [2] 1.0)) (tpair (sreverse (sfromR (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> 1.1 (sconcrete (sfromListLinear [2] [5.5,7.700000000000001]))))))) (sconcrete (sfromListLinear [2] [7.700000000000001,5.5])))) in 1.0 + (5.0 * kprimalPart (tproject2 v5 `sindex0` [1]) + (7.0 * kprimalPart (tproject2 v5 `sindex0` [0]) + kprimalPart (tproject1 v5))))"
-
+    @?= "rfromK (let v5 = tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> 0.0 (tpair (sconcrete (sreplicate [2] 1.0)) (tpair (sreverse (sfromR (tproject1 (tproject2 (tmapAccumLDer (SNat @2) <lambda> <lambda> <lambda> 1.1 (sconcrete (sfromListLinear [2] [5.5,7.700000000000001]))))))) (sconcrete (sfromListLinear [2] [7.700000000000001,5.5])))) in 1.0 + (5.0 * sprimalPart (tproject2 v5) `sindex0` [1] + (7.0 * sprimalPart (tproject2 v5) `sindex0` [0] + kprimalPart (tproject1 v5))))"
 
 testSin0Scan1Rev3PPForComparison :: Assertion
 testSin0Scan1Rev3PPForComparison = do
