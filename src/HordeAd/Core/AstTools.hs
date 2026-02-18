@@ -15,7 +15,7 @@ module HordeAd.Core.AstTools
   , cAstConvert
   , cAstConvDownKFromS, cAstConvDownSFromR, cAstConvDownSFromX
   , cAstConvUpSFromK, cAstConvUpRFromS, cAstConvUpXFromS
-  , pattern AstConvUpSFromK, pattern AstConvUp
+  , pattern AstConvUpSFromK, pattern AstConvUp, AstConvUpMaybe(..)
   , convDown, convUp, convDownMaybe, convUpMaybe
   , setTotalSharing
   ) where
@@ -23,6 +23,7 @@ module HordeAd.Core.AstTools
 import Prelude
 
 import Control.Exception.Assert.Sugar
+import Data.Bifunctor (second)
 import Data.IORef
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
@@ -30,8 +31,8 @@ import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (Typeable, typeRep)
-import Data.Bifunctor (second)
 
+import Data.Array.Nested (MapJust)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
@@ -39,7 +40,6 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (fromSNat', snatPlus, unsafeCoerceRefl)
-import Data.Array.Nested (MapJust)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Conversion
@@ -652,7 +652,7 @@ matchAstConvUpSFromK = \case
 -- TODO: simplify this monstrosity, if possible
 pattern AstConvUp :: forall {z1} {ms1} {s1}.
                      forall y z ms s. (z ~ z1, ms ~ ms1, s ~ s1)
-                  => (TKConversion y z) -> FullShapeTK z -> AstTensor ms s y
+                  => TKConversion y z -> FullShapeTK z -> AstTensor ms s y
                   -> AstTensor ms1 s1 z1
 pattern AstConvUp c zftk a <- (matchAstConvUp -> AstConvUpJust c zftk a)
 

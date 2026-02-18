@@ -865,26 +865,10 @@ testVstackBuildAstPP = do
           (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double . fromTarget)
   "\\" ++ printAstVarName @FullSpan var3
        ++ " -> " ++ printAstPretty ast3
-    @?= "\\v1 -> rfromS (let x7 = sfromR (tproject1 (tproject1 v1)) !$ [0] + sfromR (tproject2 (tproject1 v1)) !$ [1] ; v8 = sgather1 @10 (str (sfromVector (fromList [sreplicate @10 (sfromR (tproject1 (tproject1 v1)) !$ [9] + sfromR (tproject2 v1) !$ [8]), (sfromR (tproject1 (tproject1 v1)) + sappend (sslice (SNat @1) (SNat @9) (sfromR (tproject2 (tproject1 v1)))) (sconcrete (sfromListLinear [1] [0.0]))) + sappend (sconcrete (sfromListLinear [1] [0.0])) (sslice (SNat @0) (SNat @9) (sfromR (tproject2 v1)))]))) (\\i5 -> [i5, ifH (let i3 = 9 + negate i5 in 0 <=. negate i3) 0 1]) in sappend (sreplicate @1 x7) (sslice (SNat @1) (SNat @9) v8))"
+    @?= "\\v1 -> rfromS (let x7 = kfromS (sfromR (tproject1 (tproject1 v1)) !$ [0]) + kfromS (sfromR (tproject2 (tproject1 v1)) !$ [1]) ; v8 = sgather1 @10 (str (sfromVector (fromList [sreplicate @10 (kfromS (sfromR (tproject1 (tproject1 v1)) !$ [9]) + kfromS (sfromR (tproject2 v1) !$ [8])), (sfromR (tproject1 (tproject1 v1)) + sappend (sslice (SNat @1) (SNat @9) (sfromR (tproject2 (tproject1 v1)))) (sconcrete (sfromListLinear [1] [0.0]))) + sappend (sconcrete (sfromListLinear [1] [0.0])) (sslice (SNat @0) (SNat @9) (sfromR (tproject2 v1)))]))) (\\i5 -> [i5, ifH (let i3 = 9 + negate i5 in 0 <=. negate i3) 0 1]) in sappend (sreplicate @1 x7) (sslice (SNat @1) (SNat @9) v8))"
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstPretty (simplifyInlineContract ast3)
-    @?= "\\v1 -> rfromS (sappend (sreplicate @1 (sfromR (tproject1 (tproject1 v1)) !$ [0] + sfromR (tproject2 (tproject1 v1)) !$ [1])) (sappend ((sslice (SNat @1) (SNat @8) (sfromR (tproject1 (tproject1 v1))) + sslice (SNat @2) (SNat @8) (sfromR (tproject2 (tproject1 v1)))) + sslice (SNat @0) (SNat @8) (sfromR (tproject2 v1))) (sreplicate @1 (sfromR (tproject1 (tproject1 v1)) !$ [9] + sfromR (tproject2 v1) !$ [8]))))"
-
-{- The above is:
-\v1 ->
-  rfromS
-    (sappend
-       (sreplicate @1
-          (sfromR (tproject1 (tproject1 v1)) !$ [0] +
-           sfromR (tproject2 (tproject1 v1)) !$ [1]))
-       (sappend
-          ((sslice (SNat @1) (SNat @8) (sfromR (tproject1 (tproject1 v1))) +
-            sslice (SNat @2) (SNat @8) (sfromR (tproject2 (tproject1 v1)))) +
-           sslice (SNat @0) (SNat @8) (sfromR (tproject2 v1)))
-          (sreplicate @1
-             (sfromR (tproject1 (tproject1 v1)) !$ [9] +
-              sfromR (tproject2 v1) !$ [8]))))
--}
+    @?= "\\v1 -> rfromS (sappend (sreplicate @1 (sfromR (tproject1 (tproject1 v1)) `sindex0` [0] + sfromR (tproject2 (tproject1 v1)) `sindex0` [1])) (sappend ((sslice (SNat @1) (SNat @8) (sfromR (tproject1 (tproject1 v1))) + sslice (SNat @2) (SNat @8) (sfromR (tproject2 (tproject1 v1)))) + sslice (SNat @0) (SNat @8) (sfromR (tproject2 v1))) (sreplicate @1 (sfromR (tproject1 (tproject1 v1)) `sindex0` [9] + sfromR (tproject2 v1) `sindex0` [8]))))"
 
 replIota2 :: (ADReady target, NumScalar r)
           => Int -> (target (TKR 1 r), target (TKR 1 r), target (TKR 1 r))

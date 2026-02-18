@@ -54,7 +54,7 @@ import Control.Exception.Assert.Sugar
 import Control.Monad (mapAndUnzipM, mplus)
 import Data.Foldable qualified as Foldable
 import Data.GADT.Compare
-import Data.List (findIndex)
+import Data.List (find, findIndex)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -423,24 +423,18 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
      Just l2 -> Just $ fromPlain $ astFromVector snat stk l2
      Nothing -> Nothing)
   `mplus`
-  (let unFrom :: FullShapeTK x -> AstTensor AstMethodLet s2 y
-              -> Maybe (AstTensor AstMethodLet s2 x)
-       unFrom yftk (AstConvUp _ _ t) =
-         case matchingFTK (ftkAst t) yftk of
-           Just Refl -> Just t
-           Nothing -> Nothing  -- e.g., a conversion from X instead of R
-       unFrom _ _ = Nothing
-   in case V.uncons l of
-     Just (AstConvUp c zftk t, _) ->
+  (let unFrom :: AstTensor AstMethodLet s y -> AstConvUpMaybe y AstMethodLet s
+       unFrom (AstConvUp c zftk t) = AstConvUpJust c zftk t
+       unFrom _ = AstConvUpNothing
+   in case find (\case; AstConvUpNothing -> False; _ -> True)
+           $ map unFrom $ V.toList l of
+     Just (AstConvUpJust c zftk t) ->
        let yftk = ftkAst t
-       in case V.mapM (unFrom yftk) l of
-         Just l2 ->
-           Just $ astConvertUp (buildTKConversion snat yftk c)
-                               (buildFTK snat zftk)
-                               (astFromVector snat (ftkToSTK yftk) l2)
-         Nothing -> Nothing
-     Just{} -> Nothing
-     Nothing -> error "astFromVector: empty vector")
+           l2 = V.map (astConvDown (ftkToSTK yftk)) l
+       in Just $ astConvertUp (buildTKConversion snat yftk c)
+                              (buildFTK snat zftk)
+                              (astFromVector snat (ftkToSTK yftk) l2)
+     _ -> Nothing)
 
 astSum :: forall y k s. (KnownSpan s, TKAllNum y)
        => SNat k -> SingletonTK y
