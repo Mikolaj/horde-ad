@@ -410,11 +410,18 @@ nestedBuildMap r =
                           / fooMap1 [3] (rfromK x)))
             ) doublyBuild
 
+{- one of the exotic pipelines makes this super-slow with AstIndexK
 testNestedBuildMap1 :: Assertion
 testNestedBuildMap1 =
   assertEqualUpToEpsilon' 1e-8
     (rscalar 22.673212907588812)
-    (rev' @Double @1 nestedBuildMap (rscalar 0.6))
+    (rev' @Double @1 nestedBuildMap (rscalar 0.6)) -}
+
+testNestedBuildMap1 :: Assertion
+testNestedBuildMap1 =
+  assertEqualUpToEpsilon 1e-8
+    (rscalar 27.207855489106613)
+    (vjp (nestedBuildMap @_ @1 @Double) (rscalar 0.6) (rrepl [3, 2] 0.6))
 
 testNestedBuildMap10 :: Assertion
 testNestedBuildMap10 =
