@@ -590,10 +590,8 @@ instance (NumScalar r, KnownSpan s)
     + AstPlusS (AstFromPlain (AstConcreteS k)) v =
       AstPlusS (AstFromPlain (AstConcreteS (n + k))) (AstPlusS u v)
   AstConvUpSFromK u + AstConvUpSFromK v = cAstConvUpSFromK $ u + v
-  AstConvUpSFromK u + AstPlusS (AstConvUpSFromK v) w =
-    cAstConvUpSFromK (u + v) + w
-  AstPlusS w (AstConvUpSFromK u) + AstConvUpSFromK v =
-    w + cAstConvUpSFromK (u + v)
+  u + AstConvUpSFromK v = cAstConvUpSFromK $ cAstConvDownKFromS u + v
+  AstConvUpSFromK u + v = cAstConvUpSFromK $ u + cAstConvDownKFromS v
 
 --  AstN1S NegateOp (AstVar var) + AstVar var'
 --    | var == var' = 0
@@ -642,10 +640,8 @@ instance (NumScalar r, KnownSpan s)
     * AstTimesS (AstFromPlain (AstConcreteS k)) v =
       AstTimesS (AstFromPlain (AstConcreteS (n * k))) (AstTimesS u v)
   AstConvUpSFromK u * AstConvUpSFromK v = cAstConvUpSFromK $ u * v
-  AstConvUpSFromK u * AstTimesS (AstConvUpSFromK v) w =
-    cAstConvUpSFromK (u * v) * w
-  AstTimesS w (AstConvUpSFromK u) * (AstConvUpSFromK v) =
-    w * cAstConvUpSFromK (u * v)
+  u * AstConvUpSFromK v = cAstConvUpSFromK $ cAstConvDownKFromS u * v
+  AstConvUpSFromK u * v = cAstConvUpSFromK $ u * cAstConvDownKFromS v
 
   -- This breaks sharing, because although u is concrete and so doesn't
   -- have to be shared, the multiplication is not shared --- we end up
@@ -746,6 +742,10 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
   quotH u s | Just 1 <- unReplC s = u
   quotH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (quotH n k)
   quotH (AstConvUpSFromK n) (AstConvUpSFromK k) = cAstConvUpSFromK $ quotH n k
+  quotH n (AstConvUpSFromK k) =
+    cAstConvUpSFromK $ quotH (cAstConvDownKFromS n) k
+  quotH (AstConvUpSFromK n) k =
+    cAstConvUpSFromK $ quotH n (cAstConvDownKFromS k)
   quotH (AstI2S QuotOp u v) w = quotH u (v * w)
   quotH u v = AstI2S QuotOp u v
 
@@ -762,6 +762,8 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
   remH z _ | Just 0 <- unReplC z = z
   remH (AstConcreteS n) (AstConcreteS k) = AstConcreteS (remH n k)
   remH (AstConvUpSFromK n) (AstConvUpSFromK k) = cAstConvUpSFromK $ remH n k
+  remH n (AstConvUpSFromK k) = cAstConvUpSFromK $ remH (cAstConvDownKFromS n) k
+  remH (AstConvUpSFromK n) k = cAstConvUpSFromK $ remH n (cAstConvDownKFromS k)
 --  remH _ (AstConcreteS s) | Just 1 <- sunReplicatePrim s = AstConcreteS 0
   remH u v = AstI2S RemOp u v
 
@@ -845,6 +847,10 @@ astR2S opCode = \cases
   (AstFromPlain u) (AstFromPlain v) -> fromPlain $ astR2S opCode u v
   (AstConvUpSFromK n) (AstConvUpSFromK k) ->
     cAstConvUpSFromK $ astR2K opCode n k
+  n (AstConvUpSFromK k) ->
+    cAstConvUpSFromK $ astR2K opCode (cAstConvDownKFromS n) k
+  (AstConvUpSFromK n) k ->
+    cAstConvUpSFromK $ astR2K opCode n (cAstConvDownKFromS k)
   (AstConcreteS u) (AstConcreteS v) -> case opCode of
     DivideOp -> AstConcreteS $ u / v
     PowerOp -> AstConcreteS $ u ** v
