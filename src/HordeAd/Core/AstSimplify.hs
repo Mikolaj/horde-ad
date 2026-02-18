@@ -52,6 +52,7 @@ import Prelude
 
 import Control.Exception.Assert.Sugar
 import Control.Monad (mapAndUnzipM, mplus)
+import Data.Default
 import Data.Foldable qualified as Foldable
 import Data.GADT.Compare
 import Data.List (find, findIndex)
@@ -87,7 +88,7 @@ import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types
-  (pattern SZ, Head, Init, Last, Tail, fromSNat', snatPlus, unsafeCoerceRefl)
+  (Head, Init, Last, Tail, fromSNat', pattern SZ, snatPlus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
   ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
@@ -1241,10 +1242,63 @@ astArgMaxK t = case t of
 
 -- TODO: how to add more without duplicating astIndexKnobsS?
 astIndexK
-  :: forall shm s r. GoodScalar r
+  :: forall shm s r. (GoodScalar r, KnownSpan s)
   => AstTensor AstMethodLet s (TKS shm r) -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKScalar r)
 astIndexK v0 ZIS = Ast.AstConvert (ConvCmp ConvX0 ConvSX) v0
+-- These rules shrink the term or are structural, so copied from astIndexKnobsS:
+astIndexK v0 ix@(AstConcreteK i :.$ rest1) = case v0 of
+   Ast.AstFromVector _ STKS{} l ->
+     astIndexK (l V.! i) rest1
+   Ast.AstFromVector _ STKScalar l | ZIS <- rest1 ->
+     l V.! i
+   Ast.AstReplicate snat STKS{} v ->
+     if 0 <= i && i <= fromSNat' snat - 1
+     then astIndexK v rest1
+     else fromPlain $ AstConcreteK def
+   Ast.AstReplicate snat STKScalar v | ZIS <- rest1 ->
+     if 0 <= i && i <= fromSNat' snat - 1
+     then v
+     else fromPlain $ AstConcreteK def
+   Ast.AstBuild1 snat STKS{} (var2, v) ->
+     if 0 <= i && i <= fromSNat' snat - 1
+     then astIndexK (astLet var2 (AstConcreteK i) v) rest1
+     else fromPlain $ AstConcreteK def
+   Ast.AstBuild1 snat STKScalar (var2, v) | ZIS <- rest1 ->
+     if 0 <= i && i <= fromSNat' snat - 1
+     then astLet var2 (AstConcreteK i) v
+     else fromPlain $ AstConcreteK def
+   Ast.AstLet var u v -> astLet var u (astIndexK v ix)
+   Ast.AstFromPrimal v -> fromPrimal $ astIndexK v ix
+   Ast.AstFromDual v -> fromDual $ astIndexK v ix
+   Ast.AstFromPlain v -> fromPlain $ astIndexK v ix
+   AstConcreteS a | _ :$$ shmTail <- Nested.sshape a ->
+     let u = withKnownShS shmTail $
+             tsindex (Concrete a) (Concrete i :.$ ZIS)
+     in astIndexK (astConcreteS u) rest1
+   Ast.AstGatherS (m71 :$$ shm71) shn' shp' v (var2 ::$ vars, ix2) ->
+     let w = astGatherS shm71 shn' shp' v (vars, ix2)
+     in if 0 <= i && i <= fromSNat' m71 - 1
+        then astLet var2 (AstConcreteK i) $ astIndexK w rest1
+        else fromPlain $ AstConcreteK def
+   Ast.AstIotaS snat ->
+     if 0 <= i && i <= fromSNat' snat - 1
+     then AstConcreteK $ fromIntegral i
+     else fromPlain $ AstConcreteK def
+   Ast.AstAppendS u v | FTKS (snat :$$ _) _ <- ftkAst u ->
+       let ulen = fromSNat' snat
+           ix1 = AstConcreteK i :.$ rest1
+           ix2 = AstConcreteK (i - ulen) :.$ rest1
+       in if ulen <= i then astIndexK v ix2 else astIndexK u ix1
+   Ast.AstSliceS i0 n k v ->
+     if (fromSNat' i0 == 0 || 0 <= i)
+        && (fromSNat' k == 0 || i <= fromSNat' n - 1)
+     then astIndexK v (AstConcreteK (fromSNat' i0 + i) :.$ rest1)
+     else fromPlain $ AstConcreteK def
+   Ast.AstReverseS v | FTKS (snat :$$ _) _ <- ftkAst v ->
+     let iRev = fromSNat' snat - 1 - i
+     in astIndexK v (AstConcreteK iRev :.$ rest1)
+   _ -> Ast.AstIndexK v0 ix
 astIndexK v0 ix = Ast.AstIndexK v0 ix
 
 astConcreteS :: GoodScalar r
@@ -1589,13 +1643,13 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
                :: shp' ++ (in1 ': shm1) ++ shn
                   :~: shp' ++ (in1 ': shm1 ++ shn)) $
      astIndex @(shp' ++ shm) @shn shn v (ix2 `ixsAppend` ix)
-   Ast.AstGatherS @_ @shn' shm'@(SNat @m71 :$$ (_ :: ShS shm71)) shn' shp'
+   Ast.AstGatherS @_ @shn' (SNat @m71 :$$ (shm71 :: ShS shm71)) shn' shp'
                   v (var2 ::$ vars, ix2) ->
      gcastWith (unsafeCoerceRefl :: shm71 ++ shn' :~: shm1 ++ shn) $
      let ftk = FTKS shn x
          defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
          w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
-         w = astGather (shsTail shm') shn' shp' v (vars, ix2)
+         w = astGather shm71 shn' shp' v (vars, ix2)
          u = astLet var2 i1 $ astIndex @shm1 @shn shn w rest1
            -- this let makes it impossible to use astCond when i1 is OOB
      in case 0 <=. i1 &&* i1 <=. valueOf @m71 - 1 of
@@ -1635,7 +1689,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
      astLetFun i1 $ \iShared ->
      let ftk = FTKS shn x
          defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-         b = (if fromSNat' i == 0 then true else 0 <=. iShared )
+         b = (if fromSNat' i == 0 then true else 0 <=. iShared)
              &&* (if fromSNat' k == 0 then true else iShared <=. valueOf @n - 1)
          ii = valueOf @i + iShared
      in astCond b (astIndex shn v (ii :.$ rest1)) defArr
