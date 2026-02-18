@@ -32,11 +32,11 @@ import Data.Array.Nested.Convert
   (ixrFromIxS, ixsFromIxR, ixsFromIxX', withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Permutation (DropLen, TakeLen)
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (Init, fromSNat', snatPlus, unsafeCoerceRefl)
-import Data.Array.Nested.Permutation (DropLen, TakeLen)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstEngine
@@ -271,8 +271,10 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
         $ astIndexS @(Take m sh) @(Drop m sh)
                     (shsDrop @m sh) (astConvDownSFromR sh x a)
                     (ixsFromIxR ix)
-  trindex0 a ix | SNat <- shrRank (rshape a) =
-    kfromR $ trindex a ix
+  trindex0 a ix = case ftkAst a of
+    FTKR shm x ->
+      withShsFromShR shm $ \(sh :: ShS sh) ->
+        astIndexK (astConvDownSFromR sh x a) (ixsFromIxR ix)
   trscatter @m shp0 t f = case ftkAst t of
     FTKR shmshn0 x ->
       withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -419,9 +421,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tsfromIntegral = fromPlain . astFromIntegralS . astPlainPart
   tscast = astCastS
   tsindex = astIndexS knownShS
-  tsindex0 @sh a ix | Refl <- lemAppNil @sh =
-    withKnownShS (sshape a) $
-    kfromS $ tsindex a ix
+  tsindex0 = astIndexK
   tsscatter @shm @shn @shp t f =
     funToVarsIxS knownShS $ \vars ix ->
       let !ix2 = f ix
@@ -480,9 +480,10 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
                     (shsDrop @(Rank sh1) sh)
                     (astConvDownSFromX sh x a)
                     (ixsFromIxX' (shsTake @(Rank sh1) sh) ix)
-  txindex0 @sh a ix | Refl <- lemAppNil @sh =
-    withKnownShX (ssxFromShX $ xshape a) $
-    kfromX $ txindex a ix
+  txindex0 a ix = case ftkAst a of
+    FTKX shm x ->
+      withShsFromShX shm $ \(sh :: ShS sh) ->
+        astIndexK (astConvDownSFromX sh x a) (ixsFromIxX' sh ix)
   txscatter @shm @shn @shp shp0 t f = case ftkAst t of
     FTKX shmshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
@@ -822,8 +823,10 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         $ AstIndexS @(Take m sh) @(Drop m sh)
                     (shsDrop @m sh) (cAstConvDownSFromR sh x a)
                     (ixsFromIxR (fmapUnAstRaw ix))
-  trindex0 a ix | SNat <- shrRank (rshape a) =
-    kfromR $ trindex a ix
+  trindex0 (AstRaw a) ix = AstRaw $ case ftkAst a of
+    FTKR shm x ->
+      withShsFromShR shm $ \(sh :: ShS sh) ->
+        AstIndexK (cAstConvDownSFromR sh x a) (ixsFromIxR (fmapUnAstRaw ix))
   trscatter @m @n shp0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKR shmshn0 x ->
       withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -975,9 +978,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
     AstRaw . fromPlain . AstFromIntegralS . plainPart . unAstRaw
   tscast = AstRaw . AstCastS . unAstRaw
   tsindex v ix = AstRaw $ AstIndexS knownShS (unAstRaw v) (fmapUnAstRaw ix)
-  tsindex0 @sh a ix | Refl <- lemAppNil @sh =
-    withKnownShS (sshape a) $
-    kfromS $ tsindex a ix
+  tsindex0 v ix = AstRaw $ AstIndexK (unAstRaw v) (fmapUnAstRaw ix)
   tsscatter @shm @shn @shp t f = AstRaw $
     funToVarsIxS knownShS $ \vars ix ->
       let !ix2 = fmapUnAstRaw . f . fmapAstRaw $ ix
@@ -1037,9 +1038,10 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                     (shsDrop @(Rank sh1) sh)
                     (cAstConvDownSFromX sh x a)
                     (ixsFromIxX' (shsTake @(Rank sh1) sh) (fmapUnAstRaw ix))
-  txindex0 @sh a ix | Refl <- lemAppNil @sh =
-    withKnownShX (ssxFromShX $ xshape a) $
-    kfromX $ txindex a ix
+  txindex0 (AstRaw a) ix = AstRaw $ case ftkAst a of
+    FTKX shm x ->
+      withShsFromShX shm $ \(sh :: ShS sh) ->
+        AstIndexK (cAstConvDownSFromX sh x a) (ixsFromIxX' sh (fmapUnAstRaw ix))
   txscatter @shm @shn @shp shp0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKX shmshn0 x | SNat <- ssxRank (knownShX @shm)
                    , SNat <- ssxRank (knownShX @shp) ->
@@ -1380,8 +1382,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   trcast = AstNoVectorize . trcast . unAstNoVectorize
   trindex v ix =
     AstNoVectorize $ trindex (unAstNoVectorize v) (fmapUnAstNoVectorize ix)
-  trindex0 a ix | SNat <- shrRank (rshape a) =
-    kfromR $ trindex a ix
+  trindex0 v ix =
+    AstNoVectorize $ trindex0 (unAstNoVectorize v) (fmapUnAstNoVectorize ix)
   trscatter sh t f =
     AstNoVectorize $ trscatter sh (unAstNoVectorize t)
                    $ fmapUnAstNoVectorize . f . fmapAstNoVectorize
@@ -1413,9 +1415,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   tscast = AstNoVectorize . tscast . unAstNoVectorize
   tsindex v ix =
     AstNoVectorize $ tsindex (unAstNoVectorize v) (fmapUnAstNoVectorize ix)
-  tsindex0 @sh a ix | Refl <- lemAppNil @sh =
-    withKnownShS (sshape a) $
-    kfromS $ tsindex a ix
+  tsindex0 v ix =
+    AstNoVectorize $ tsindex0 (unAstNoVectorize v) (fmapUnAstNoVectorize ix)
   tsscatter @_ @shm @shn @shp t f =
     AstNoVectorize $ tsscatter @_ @_ @shm @shn @shp (unAstNoVectorize t)
                    $ fmapUnAstNoVectorize . f . fmapAstNoVectorize
@@ -1447,9 +1448,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   txcast = AstNoVectorize . txcast . unAstNoVectorize
   txindex v ix =
     AstNoVectorize $ txindex (unAstNoVectorize v) (fmapUnAstNoVectorize ix)
-  txindex0 @sh a ix | Refl <- lemAppNil @sh =
-    withKnownShX (ssxFromShX $ xshape a) $
-    kfromX $ txindex a ix
+  txindex0 v ix =
+    AstNoVectorize $ txindex0 (unAstNoVectorize v) (fmapUnAstNoVectorize ix)
   txscatter @_ @shm @shn @shp sh t f =
     AstNoVectorize $ txscatter @_ @_ @shm @shn @shp sh (unAstNoVectorize t)
                    $ fmapUnAstNoVectorize . f . fmapAstNoVectorize
@@ -1641,8 +1641,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   trcast = wAstNoSimplify . trcast . wunAstNoSimplify
   trindex v ix =
     wAstNoSimplify $ trindex (wunAstNoSimplify v) (fmapwUnAstNoSimplify ix)
-  trindex0 a ix | SNat <- shrRank (rshape a) =
-    kfromR $ trindex a ix
+  trindex0 v ix =
+    wAstNoSimplify $ trindex0 (wunAstNoSimplify v) (fmapwUnAstNoSimplify ix)
   trscatter sh t f =
     wAstNoSimplify $ trscatter sh (wunAstNoSimplify t)
                    $ fmapwUnAstNoSimplify . f . fmapwAstNoSimplify
@@ -1669,9 +1669,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   tscast = wAstNoSimplify . tscast . wunAstNoSimplify
   tsindex v ix =
     wAstNoSimplify $ tsindex (wunAstNoSimplify v) (fmapwUnAstNoSimplify ix)
-  tsindex0 @sh a ix | Refl <- lemAppNil @sh =
-    withKnownShS (sshape a) $
-    kfromS $ tsindex a ix
+  tsindex0 v ix =
+    wAstNoSimplify $ tsindex0 (wunAstNoSimplify v) (fmapwUnAstNoSimplify ix)
   tsscatter @_ @shm @shn @shp t f =
     wAstNoSimplify $ tsscatter @_ @_ @shm @shn @shp (wunAstNoSimplify t)
                    $ fmapwUnAstNoSimplify . f . fmapwAstNoSimplify
@@ -1699,9 +1698,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   txcast = wAstNoSimplify . txcast . wunAstNoSimplify
   txindex v ix =
     wAstNoSimplify $ txindex (wunAstNoSimplify v) (fmapwUnAstNoSimplify ix)
-  txindex0 @sh a ix | Refl <- lemAppNil @sh =
-    withKnownShX (ssxFromShX $ xshape a) $
-    kfromX $ txindex a ix
+  txindex0 v ix =
+    wAstNoSimplify $ txindex0 (wunAstNoSimplify v) (fmapwUnAstNoSimplify ix)
   txscatter @_ @shm @shn @shp sh t f =
     wAstNoSimplify $ txscatter @_ @_ @shm @shn @shp sh (wunAstNoSimplify t)
                    $ fmapwUnAstNoSimplify . f . fmapwAstNoSimplify
