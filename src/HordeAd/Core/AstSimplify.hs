@@ -3557,6 +3557,9 @@ astDot1InS :: forall sh n r s. (NumScalar r, KnownSpan s)
            -> AstTensor AstMethodLet s (TKS (sh ++ '[n]) r)
            -> AstTensor AstMethodLet s (TKS sh r)
 astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
+  (Ast.AstSum snat1 _ u1, Ast.AstSum snat2 _ u2)
+    | Just Refl <- testEquality snat1 snat2 ->
+      astSum snat1 (STKS sh STKScalar) $ astDot1InS (snat1 :$$ sh) n u1 u2
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
     fromPrimal $ astDot1InS sh n u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
@@ -3567,7 +3570,21 @@ astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
   (AstConcreteS v1, AstConcreteS v2) ->
     withKnownShS sh $
     astConcreteS $ tsdot1In @_ @sh (SNat @n) (Concrete v1) (Concrete v2)
-  _ -> Ast.AstDot1InS sh n t1 t2
+  _ -> case sh of
+    ZSS -> sfromK $ astDot0 t1 t2
+    snat :$$ shRest -> case (t1, t2) of
+      ( Ast.AstReplicate _ (STKS _ x) u1
+       ,Ast.AstReplicate _ (STKS _ _) u2 ) ->
+        Ast.AstReplicate snat (STKS shRest x)
+        $ astDot1InS shRest n u1 u2
+      _ | FTKS _ x <- ftkAst t1
+        , Just u1 <- unRepl1 t1
+        , Just u2 <- unRepl1 t2 ->
+          Ast.AstReplicate snat (STKS shRest (ftkToSTK x))
+          $ astDot1InS shRest n u1 u2
+      (Ast.AstReverseS u1, Ast.AstReverseS u2) ->
+        astReverseS $ astDot1InS sh n u1 u2
+      _ -> Ast.AstDot1InS sh n t1 t2
 
 astMatmul2S :: (NumScalar r, KnownSpan s)
             => SNat m -> SNat n -> SNat p
