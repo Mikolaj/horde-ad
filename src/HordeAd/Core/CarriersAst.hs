@@ -639,6 +639,42 @@ instance (NumScalar r, KnownSpan s)
   AstTimesS (AstFromPlain (AstConcreteS n)) u
     * AstTimesS (AstFromPlain (AstConcreteS k)) v =
       AstTimesS (AstFromPlain (AstConcreteS (n * k))) (AstTimesS u v)
+  AstScatterS shm shn shp v (vars, ix) * u
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v =
+      AstScatterS shm shn shp (v * cAstReplicateNS0 shv w) (vars, ix)
+  AstScatterS shm shn shp v (vars, ix) * AstTimesS u a
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v =
+      AstScatterS shm shn shp (v * cAstReplicateNS0 shv w) (vars, ix) * a
+  AstTimesS a (AstScatterS shm shn shp v (vars, ix)) * u
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v =
+      a * AstScatterS shm shn shp (v * cAstReplicateNS0 shv w) (vars, ix)
+  u * AstScatterS shm shn shp v (vars, ix)
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v =
+      AstScatterS shm shn shp (cAstReplicateNS0 shv w * v) (vars, ix)
+  u * AstTimesS (AstScatterS shm shn shp v (vars, ix)) a
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v =
+      AstScatterS shm shn shp (cAstReplicateNS0 shv w * v) (vars, ix) * a
+  AstTimesS a u * AstScatterS shm shn shp v (vars, ix)
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v =
+      a * AstScatterS shm shn shp (cAstReplicateNS0 shv w * v) (vars, ix)
+  AstGatherS shm shn shp v (vars, ix) * u
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v =
+      AstGatherS shm shn shp (v * cAstReplicateNS0 shv w) (vars, ix)
+  AstGatherS shm shn shp v (vars, ix) * AstTimesS u a
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v =
+      AstGatherS shm shn shp (v * cAstReplicateNS0 shv w) (vars, ix) * a
+  AstTimesS a (AstGatherS shm shn shp v (vars, ix)) * u
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v =
+      a * AstGatherS shm shn shp (v * cAstReplicateNS0 shv w) (vars, ix)
+  u * AstGatherS shm shn shp v (vars, ix)
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v =
+      AstGatherS shm shn shp (cAstReplicateNS0 shv w * v) (vars, ix)
+  u * AstTimesS (AstGatherS shm shn shp v (vars, ix)) a
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v =
+      AstGatherS shm shn shp (cAstReplicateNS0 shv w * v) (vars, ix) * a
+  AstTimesS a u * AstGatherS shm shn shp v (vars, ix)
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v =
+      a * AstGatherS shm shn shp (cAstReplicateNS0 shv w * v) (vars, ix)
   AstConvUpSFromK u * AstConvUpSFromK v = cAstConvUpSFromK $ u * v
   u * AstConvUpSFromK v = cAstConvUpSFromK $ cAstConvDownKFromS u * v
   AstConvUpSFromK u * v = cAstConvUpSFromK $ u * cAstConvDownKFromS v
@@ -692,6 +728,8 @@ instance (NumScalar r, KnownSpan s)
   negate (AstI2S RemOp u v) = AstI2S RemOp (negate u) v
     -- v is likely positive and let's keep it so
   negate (AstConcreteS n) = AstConcreteS (negate n)
+  negate (AstScatterS shm shn shp v (vars, ix)) =
+    AstScatterS shm shn shp (negate v) (vars, ix)
   negate (AstGatherS shm shn shp v (vars, ix)) =
     AstGatherS shm shn shp (negate v) (vars, ix)
   negate (AstConvUpSFromK n) = cAstConvUpSFromK $ negate n
@@ -1420,6 +1458,15 @@ astLetFunNoSimplify a f = case a of
     ftk -> do
         var <- funToAstNoBoundsIO ftk
         pure $! AstLet var a (f $ astVar var)
+
+cAstReplicateNS0 :: forall shn x s ms.
+                    ShS shn -> AstTensor ms s (TKS2 '[] x)
+                 -> AstTensor ms s (TKS2 shn x)
+cAstReplicateNS0 shn v | STKS _ x <- ftkToSTK (ftkAst v) =
+  let go :: ShS shn2 -> AstTensor ms s (TKS2 shn2 x)
+      go ZSS = v
+      go (snat :$$ shn3) = AstReplicate snat (STKS shn3 x) $ go shn3
+  in go shn
 
 sunReplicatePrim :: Nested.Elt a
                  => Nested.Shaped sh a -> Maybe a

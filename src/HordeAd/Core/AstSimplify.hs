@@ -3842,14 +3842,14 @@ astLetFun a f = case a of
         var <- funToAstNoBoundsIO ftk
         pure $! astLet var a (f $ astVar var)
 
-astReplicateNS :: forall shn shp s x. KnownSpan s
+astReplicateNS :: forall shn shp x s. KnownSpan s
                => ShS shn -> AstTensor AstMethodLet s (TKS2 shp x)
                -> AstTensor AstMethodLet s (TKS2 (shn ++ shp) x)
 astReplicateNS shn v | STKS shp x <- ftkToSTK (ftkAst v) =
-  let go :: ShS shn' -> AstTensor AstMethodLet s (TKS2 (shn' ++ shp) x)
+  let go :: ShS shn2 -> AstTensor AstMethodLet s (TKS2 (shn2 ++ shp) x)
       go ZSS = v
-      go (snat :$$ shn2) =
-        astReplicate snat (STKS (shn2 `shsAppend` shp) x) $ go shn2
+      go (snat :$$ shn3) =
+        astReplicate snat (STKS (shn3 `shsAppend` shp) x) $ go shn3
   in go shn
 
 
