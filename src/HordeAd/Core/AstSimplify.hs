@@ -97,7 +97,7 @@ import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
-import HordeAd.Core.CarriersAst (sunReplicateN, sunReplicatePrim, unRepl1)
+import HordeAd.Core.CarriersAst (unRepl1, unRepl, unReplN)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
@@ -2957,7 +2957,7 @@ astTransposeS perm t =
    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix '[0] sh :~: sh) $
    t
  _ | FTKS sh _ <- ftkAst t
-   , Just u2 <- unReplN @_ @_ @(DropLen perm sh) (shsTakeLen perm sh) t ->
+   , Just u2 <- unReplN @_ @(DropLen perm sh) (shsTakeLen perm sh) t ->
    astReplicateNS (shsPermute perm (shsTakeLen perm sh)) u2
  _ -> case t of
   Ast.AstFromVector snat@(SNat @n) (STKS @sh2 sh2 x) l
@@ -3851,52 +3851,6 @@ astReplicateNS shn v | STKS shp x <- ftkToSTK (ftkAst v) =
       go (snat :$$ shn2) =
         astReplicate snat (STKS (shn2 `shsAppend` shp) x) $ go shn2
   in go shn
-
--- The result must not be equal to the argument.
-unRepl :: KnownSpan s
-       => AstTensor AstMethodLet s (TKS2 sh x)
-       -> Maybe (AstTensor AstMethodLet s (TKS2 '[] x))
--- This is too costly and not needed in all the places where unRepl is used,
--- hence the restriction to different result and argument:
--- unRepl t | FTKS ZSS _ <- ftkAst t = Just t
-unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
-unRepl (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
-unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
-unRepl (AstConcreteS a) | _ :$$ _ <- Nested.sshape a =
-  AstConcreteS . Nested.sscalar <$> sunReplicatePrim a
--- This is potentially exponential, which is too risky for a heuristic.
--- unRepl (Ast.AstCond b v1 v2) = do
---  u1 <- unRepl v1
---  u2 <- unRepl v2
---  return $! astCond b u1 u2
-unRepl (Ast.AstLet var u t) = Ast.AstLet var u <$> unRepl t
-unRepl (Ast.AstPrimalPart t) = astPrimalPart <$> unRepl t
-unRepl (Ast.AstDualPart t) = astDualPart <$> unRepl t
-unRepl (Ast.AstPlainPart t) = astPlainPart <$> unRepl t
-unRepl (Ast.AstFromPrimal t) = fromPrimal <$> unRepl t
-unRepl (Ast.AstFromDual t) = fromDual <$> unRepl t
-unRepl (Ast.AstFromPlain t) = fromPlain <$> unRepl t
-unRepl _ = Nothing
-
-unReplN :: KnownSpan s
-        => ShS shm -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
-        -> Maybe (AstTensor AstMethodLet s (TKS2 shn x))
-unReplN ZSS a = Just a
-unReplN (_ :$$ ZSS) (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
-unReplN (_ :$$ sh) (Ast.AstReplicate _ STKS{} u) = unReplN sh u
-unReplN shm (AstConcreteS a) = AstConcreteS <$> sunReplicateN shm a
-unReplN shm (Ast.AstCond b v1 v2) = do
-  u1 <- unReplN shm v1
-  u2 <- unReplN shm v2
-  return $! astCond b u1 u2
-unReplN shm (Ast.AstLet var u t) = Ast.AstLet var u <$> unReplN shm t
-unReplN shm (Ast.AstPrimalPart t) = astPrimalPart <$> unReplN shm t
-unReplN shm (Ast.AstDualPart t) = astDualPart <$> unReplN shm t
-unReplN shm (Ast.AstPlainPart t) = astPlainPart <$> unReplN shm t
-unReplN shm (Ast.AstFromPrimal t) = fromPrimal <$> unReplN shm t
-unReplN shm (Ast.AstFromDual t) = fromDual <$> unReplN shm t
-unReplN shm (Ast.AstFromPlain t) = fromPlain <$> unReplN shm t
-unReplN _ _ = Nothing
 
 
 -- * Substitution wrappers

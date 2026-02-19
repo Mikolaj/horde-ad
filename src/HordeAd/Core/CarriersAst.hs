@@ -13,7 +13,7 @@
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
   , astShareNoSimplify, astLetFunNoSimplify
-  , sunReplicatePrim, sunReplicate1, sunReplicateN, unRepl1
+  , unRepl1, unRepl, unReplN
   ) where
 
 import Prelude
@@ -1448,13 +1448,11 @@ sunReplicateN shm a@(Nested.Shaped arr)
     Just $ Nested.sindexPartial a $ ixsZero shm
 sunReplicateN _ _ = Nothing
 
-unReplC :: KnownSpan s
+unReplC :: forall sh r s ms. KnownSpan s
         => AstTensor ms s (TKS sh r) -> Maybe r
-unReplC (AstReplicate _ _ (AstConcreteS a)) = sunReplicatePrim a
 unReplC (AstReplicate _ _ (AstConcreteK a)) = Just a
+unReplC (AstReplicate _ STKS{} u) = unReplC u
 unReplC (AstConcreteS a) = sunReplicatePrim a
-unReplC (AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) (AstConcreteK a)) =
-  Just a
 unReplC (AstLet _ _ t) = unReplC t
 unReplC (AstPrimalPart t) = unReplC t
 unReplC (AstDualPart t) = unReplC t
@@ -1462,18 +1460,16 @@ unReplC (AstPlainPart t) = unReplC t
 unReplC (AstFromPrimal t) = unReplC t
 unReplC (AstFromDual t) = unReplC t
 unReplC (AstFromPlain t) = unReplC t
+unReplC (AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) (AstConcreteK a)) =
+  Just a
 unReplC _ = Nothing
 
-unRepl1 :: KnownSpan s
+unRepl1 :: forall n sh x s ms. KnownSpan s
         => AstTensor ms s (TKS2 (n ': sh) x)
         -> Maybe (AstTensor ms s (TKS2 sh x))
-unRepl1 (AstReplicate _ STKS{} u) = Just u
 unRepl1 (AstReplicate _ STKScalar u) = Just $ cAstConvUpSFromK u
+unRepl1 (AstReplicate _ STKS{} u) = Just u
 unRepl1 (AstConcreteS a) = AstConcreteS <$> sunReplicate1 a
-unRepl1 (AstCond b v1 v2) = do
-  u1 <- unRepl1 v1
-  u2 <- unRepl1 v2
-  return $! AstCond b u1 u2
 unRepl1 (AstLet var u t) = AstLet var u <$> unRepl1 t
 unRepl1 (AstPrimalPart t) = primalPart <$> unRepl1 t
 unRepl1 (AstDualPart t) = dualPart <$> unRepl1 t
@@ -1482,3 +1478,40 @@ unRepl1 (AstFromPrimal t) = fromPrimal <$> unRepl1 t
 unRepl1 (AstFromDual t) = fromDual <$> unRepl1 t
 unRepl1 (AstFromPlain t) = fromPlain <$> unRepl1 t
 unRepl1 _ = Nothing
+
+-- The result must not be equal to the argument.
+unRepl :: forall sh x s ms. KnownSpan s
+       => AstTensor ms s (TKS2 sh x)
+       -> Maybe (AstTensor ms s (TKS2 '[] x))
+-- This is too costly and not needed in all the places where unRepl is used,
+-- hence the restriction to different result and argument:
+-- unRepl t | FTKS ZSS _ <- ftkAst t = Just t
+unRepl (AstReplicate _ (STKS ZSS _) u) = Just u
+unRepl (AstReplicate _ STKScalar u) = Just $ cAstConvUpSFromK u
+unRepl (AstReplicate _ STKS{} u) = unRepl u
+unRepl (AstConcreteS a) | _ :$$ _ <- Nested.sshape a =
+  AstConcreteS . Nested.sscalar <$> sunReplicatePrim a
+unRepl (AstLet var u t) = AstLet var u <$> unRepl t
+unRepl (AstPrimalPart t) = primalPart <$> unRepl t
+unRepl (AstDualPart t) = dualPart <$> unRepl t
+unRepl (AstPlainPart t) = plainPart <$> unRepl t
+unRepl (AstFromPrimal t) = fromPrimal <$> unRepl t
+unRepl (AstFromDual t) = fromDual <$> unRepl t
+unRepl (AstFromPlain t) = fromPlain <$> unRepl t
+unRepl _ = Nothing
+
+unReplN :: forall shm shn x s ms. KnownSpan s
+        => ShS shm -> AstTensor ms s (TKS2 (shm ++ shn) x)
+        -> Maybe (AstTensor ms s (TKS2 shn x))
+unReplN ZSS a = Just a
+unReplN (_ :$$ ZSS) (AstReplicate _ STKScalar u) = Just $ cAstConvUpSFromK u
+unReplN (_ :$$ sh) (AstReplicate _ STKS{} u) = unReplN sh u
+unReplN shm (AstConcreteS a) = AstConcreteS <$> sunReplicateN shm a
+unReplN shm (AstLet var u t) = AstLet var u <$> unReplN shm t
+unReplN shm (AstPrimalPart t) = primalPart <$> unReplN shm t
+unReplN shm (AstDualPart t) = dualPart <$> unReplN shm t
+unReplN shm (AstPlainPart t) = plainPart <$> unReplN shm t
+unReplN shm (AstFromPrimal t) = fromPrimal <$> unReplN shm t
+unReplN shm (AstFromDual t) = fromDual <$> unReplN shm t
+unReplN shm (AstFromPlain t) = fromPlain <$> unReplN shm t
+unReplN _ _ = Nothing
