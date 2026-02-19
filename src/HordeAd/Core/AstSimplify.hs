@@ -97,7 +97,7 @@ import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
-import HordeAd.Core.CarriersAst (unRepl1, unRepl, unReplN)
+import HordeAd.Core.CarriersAst (eqK, unRepl1, unRepl, unReplN)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
@@ -730,6 +730,15 @@ astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
   fromDual $ astCond b v w
 astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
   fromPlain $ astCond b v w
+astCond _b u v | FTKScalar <- ftkAst u, eqK u v = u
+astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqK u1 v1 =
+  AstPlusK u1 (astCond b u2 v2)
+astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqK u2 v2 =
+  AstPlusK (astCond b u1 v1) u2
+astCond b (AstTimesK u1 u2) (AstTimesK v1 v2) | eqK u1 v1 =
+  AstTimesK u1 (astCond b u2 v2)
+astCond b (AstTimesK u1 u2) (AstTimesK v1 v2) | eqK u2 v2 =
+  AstTimesK (astCond b u1 v1) u2
 astCond b v w | FTKS (snat :$$ sh) x <- ftkAst v
               , Just v1 <- unRepl1 v
               , Just w1 <- unRepl1 w =

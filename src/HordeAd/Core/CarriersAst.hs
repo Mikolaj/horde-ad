@@ -12,7 +12,7 @@
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
-  , astShareNoSimplify, astLetFunNoSimplify
+  , eqK, astShareNoSimplify, astLetFunNoSimplify
   , unRepl1, unRepl, unReplN
   ) where
 

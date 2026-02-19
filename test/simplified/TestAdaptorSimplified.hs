@@ -457,9 +457,9 @@ testPiecewiseLinearPP = do
       fT x = ifH (x >. rscalar 0) (rscalar 2 * x) (rscalar 5 * x)
       (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKR ZSR FTKScalar)
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret x1 -> rfromK (let v3 = soneHot (sfromR dret) [ifH (0.0 <=. kplainPart (negate (kfromR x1))) 0 1] in 5.0 * v3 `sindex0` [0] + 2.0 * v3 `sindex0` [1])"
+    @?= "\\dret x1 -> rfromK (kfromPlain (ifH (0.0 <=. kplainPart (negate (kfromR x1))) 5.0 2.0) * kfromR dret)"
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\x1 -> rfromK (ifH (0.0 <=. kplainPart (negate (kfromR x1))) (5.0 * kfromR x1) (2.0 * kfromR x1))"
+    @?= "\\x1 -> rfromK (kfromPlain (ifH (0.0 <=. kplainPart (negate (kfromR x1))) 5.0 2.0) * kfromR x1)"
 
 testPiecewiseLinear2 :: Assertion
 testPiecewiseLinear2 =
