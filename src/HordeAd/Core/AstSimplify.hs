@@ -1723,9 +1723,14 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
    Ast.AstDot1InS{} -> Ast.AstIndexS shn v0 ix
    Ast.AstMatmul2S{} -> Ast.AstIndexS shn v0 ix
 
-   Ast.AstBoolNotS{} -> Ast.AstIndexS shn v0 ix
-   Ast.AstBoolAndS{} -> Ast.AstIndexS shn v0 ix
-   Ast.AstLeqS{} -> Ast.AstIndexS shn v0 ix
+   Ast.AstBoolNotS a -> Ast.AstBoolNotS $ astIndexKnobsS knobs shn a ix
+   Ast.AstBoolAndS b1 b2 ->
+     Ast.AstBoolAndS (astIndexKnobsS knobs shn b1 ix)
+                     (astIndexKnobsS knobs shn b2 ix)
+   Ast.AstLeqS @_ @sh _shb sh arg1 arg2
+     | Refl <- lemAppAssoc (Proxy @shm) (Proxy @shn) (Proxy @sh) ->
+       Ast.AstLeqS shn sh (astIndexKnobsS knobs (shn `shsAppend` sh) arg1 ix)
+                          (astIndexKnobsS knobs (shn `shsAppend` sh) arg2 ix)
 
 -- TODO: compared to tletIx, it adds many lets, not one, but does not
 -- create other (and non-simplified!) big terms and also uses astIsSmall,
