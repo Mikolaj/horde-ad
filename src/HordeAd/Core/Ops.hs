@@ -735,7 +735,7 @@ class ( Num (IntOf target)
     txgather @target @'[Just n2]
              (Nested.SKnown k :$% ZSX) v (\(i :.% ZIX) -> f i)
 
-  tkfloor :: (GoodScalar r, Differentiable r, NumScalar r2, Integral r2)
+  tkfloor :: (NumScalar r, Differentiable r, NumScalar r2, Integral r2)
           => target (TKScalar r) -> target (TKScalar r2)
   -- The NumScalar r1 is only needed to rewrite well, thanks to the conversion
   -- respecting the NumScalar property.
@@ -747,7 +747,7 @@ class ( Num (IntOf target)
     :: forall n r. NumScalar r
     => target (TKS '[n] r) -> target (TKScalar Int)
 
-  trfloor :: (GoodScalar r, Differentiable r, NumScalar r2, Integral r2)
+  trfloor :: (NumScalar r, Differentiable r, NumScalar r2, Integral r2)
           => target (TKR n r) -> target (TKR n r2)
   trfromIntegral :: (NumScalar r1, Integral r1, NumScalar r2)
                  => target (TKR n r1) -> target (TKR n r2)
@@ -758,7 +758,7 @@ class ( Num (IntOf target)
     => target (TKR (1 + n) r) -> target (TKR n Int)
   triota :: NumScalar r => Int -> target (TKR 1 r)  -- from 0 to n - 1
 
-  tsfloor :: (GoodScalar r, Differentiable r, NumScalar r2, Integral r2)
+  tsfloor :: (NumScalar r, Differentiable r, NumScalar r2, Integral r2)
           => target (TKS sh r) -> target (TKS sh r2)
   tsfromIntegral :: (NumScalar r1, Integral r1, NumScalar r2)
                  => target (TKS sh r1) -> target (TKS sh r2)
@@ -770,7 +770,7 @@ class ( Num (IntOf target)
   tsiota :: (KnownNat n, NumScalar r)
          => target (TKS '[n] r)  -- from 0 to n - 1
 
-  txfloor :: (GoodScalar r, Differentiable r, NumScalar r2, Integral r2)
+  txfloor :: (NumScalar r, Differentiable r, NumScalar r2, Integral r2)
           => target (TKX sh r) -> target (TKX sh r2)
   txfromIntegral :: (NumScalar r1, Integral r1, NumScalar r2)
                  => target (TKX sh r1) -> target (TKX sh r2)

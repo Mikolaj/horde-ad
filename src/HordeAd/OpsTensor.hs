@@ -523,7 +523,7 @@ xreshape :: forall sh sh2 x target. (KnownSTK x, BaseTensor target)
          => IShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
 xreshape = txreshape
 
-kfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
+kfloor :: ( NumScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKScalar r) -> target (TKScalar r2)
 kfloor = tkfloor
@@ -541,7 +541,7 @@ kargMin, kargMax
 kargMin = tkargMin
 kargMax = tkargMax
 
-rfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
+rfloor :: ( NumScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKR n r) -> target (TKR n r2)
 rfloor = trfloor
@@ -562,7 +562,7 @@ riota :: (NumScalar r, BaseTensor target)
       => Int -> target (TKR 1 r)  -- from 0 to n - 1
 riota = triota
 
-sfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
+sfloor :: ( NumScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKS sh r) -> target (TKS sh r2)
 sfloor = tsfloor
@@ -583,7 +583,7 @@ siota :: (KnownNat n, NumScalar r, BaseTensor target)
       => target (TKS '[n] r)  -- from 0 to n - 1
 siota = tsiota
 
-xfloor :: ( GoodScalar r, Differentiable r, NumScalar r2, Integral r2
+xfloor :: ( NumScalar r, Differentiable r, NumScalar r2, Integral r2
           , BaseTensor target )
        => target (TKX sh r) -> target (TKX sh r2)
 xfloor = txfloor
