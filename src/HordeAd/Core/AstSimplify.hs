@@ -545,11 +545,6 @@ astReplicate :: forall y k s. KnownSpan s
 astReplicate snat@SNat stk t0 = case t0 of
   Ast.AstPair t1 t2 | STKProduct stk1 stk2 <- stk ->
     astPair (astReplicate snat stk1 t1) (astReplicate snat stk2 t2)
-  -- This doesn't prevent indexing of replicate, because indexing goes inside
-  -- the conditional, but it prevents the sum(replicate(cond)) simplification,
-  -- because sum can't go inside, because it's costly and cond is eager.
-  -- Ast.AstCond b v1 v2 ->
-  --  astCond b (astReplicate snat stk v1) (astReplicate snat stk v2)
   -- TODO: This rules is, in principle, very good, because it permits many other
   -- rules to fire. However, one of these other rules is indexing of transpose
   -- that in some cases complicates terms and causes OOM in CNNI tests.
@@ -735,6 +730,11 @@ astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
   fromDual $ astCond b v w
 astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
   fromPlain $ astCond b v w
+astCond b v w | FTKS (snat :$$ sh) x <- ftkAst v
+              , Just v1 <- unRepl1 v
+              , Just w1 <- unRepl1 w =
+  astReplicate snat (STKS sh (ftkToSTK x)) (astCond b v1 w1)
+astCond _b (Ast.AstIotaS n) Ast.AstIotaS{} = Ast.AstIotaS n
 -- We rely here on c and the other conversion being semantically equal.
 astCond b (AstConvUp c zftk v) (AstConvUp _ _ w)
   | Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
