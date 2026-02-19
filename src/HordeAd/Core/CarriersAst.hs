@@ -342,19 +342,15 @@ instance (NumScalar r, KnownSpan s)
 -- An approximation. False doesn't imply terms have different semantics,
 -- but True implies they have equal semantics.
 eqK :: AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r) -> Bool
+-- This is wrong for <=. but correct for this approximation:
 eqK (AstVar var1) (AstVar var2) = var1 == var2
-eqK (AstLet var1 u1 v1) (AstLet var2 u2 v2)
-  | varNameToAstVarId var1 == varNameToAstVarId var2
-  , FTKScalar <- varNameToFTK var1
-  , Just Refl <- testEquality var1 var2 =
-    eqK u1 u2 && eqK v1 v2
+eqK (AstLet _ _  v1) (AstLet _ _ v2) = eqK v1 v2
 eqK (AstPrimalPart u1) (AstPrimalPart u2) = eqK u1 u2
-eqK (AstDualPart u1) (AstDualPart u2) = eqK u1 u2
 eqK (AstPlainPart @_ @s1 u1) (AstPlainPart @_ @s2 u2)
   | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
     eqK u1 u2
 eqK (AstFromPrimal u1) (AstFromPrimal u2) = eqK u1 u2
-eqK (AstFromDual u1) (AstFromDual u2) = eqK u1 u2
+eqK AstFromDual{} AstFromDual{} = True
 eqK (AstFromPlain u1) (AstFromPlain u2) = eqK u1 u2
 eqK (AstPlusK u1 v1) (AstPlusK u2 v2) =
   eqK u1 u2 && eqK v1 v2 || eqK u1 v2 && eqK v1 u2
@@ -373,6 +369,8 @@ eqK (AstFromIntegralK @r1 u1) (AstFromIntegralK @r2 u2)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqK u1 u2
 eqK (AstCastK @r1 u1) (AstCastK @r2 u2)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqK u1 u2
+eqK (AstConvert _ (AstVar u)) (AstConvert _ (AstVar v)) =
+  varNameToAstVarId u == varNameToAstVarId v
 eqK _ _ = False
 
 -- Div and mod operations are very costly (simplifying them requires
@@ -1131,6 +1129,7 @@ instance (KnownSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
 -- worth sharing.
 instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKScalar r) where
+  v ==. u | eqK v u = true
   vUnshared ==. uUnshared = astLetFunNoSimplify (uUnshared - vUnshared) $ \uv ->
     0 <=. uv &&* uv <=. 0
   {-# SPECIALIZE instance EqH (AstTensor AstMethodLet FullSpan) (TKScalar Int) #-}
@@ -1140,6 +1139,7 @@ instance (KnownSpan s, NumScalar r)
 
 instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKScalar r) where
+  v ==. u | eqK v u = true
   vUnshared ==. uUnshared =
     let uv = astShareNoSimplify (uUnshared - vUnshared)
     in 0 <=. uv &&* uv <=. 0
@@ -1165,14 +1165,17 @@ instance (KnownSpan s, NumScalar r)
 -- We keep AstConcrete on the left, as with AstPlusK and others.
 instance (KnownSpan s, NumScalar r)
          => OrdH (AstTensor ms s) (TKScalar r) where
+  u <=. v | eqK u v = true
   u <=. v | Just (u1, u2) <- bounds u
           , Just (v1, v2) <- bounds v
           , u2 <= v1 || u1 > v2 = AstConcreteK (u2 <= v1)
-  AstFromPrimal u <=. AstFromPrimal v = u <=. v
+  -- This is wrong, because LHS is a particular valuation and RHS is all.
+  -- AstLet _ _ u <=. AstLet _ _ v = u <=. v
+  AstPrimalPart u <=. AstPrimalPart v = u <=. v
   AstPlainPart @_ @s1 u <=. AstPlainPart @_ @s2 v
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
       u <=. v
-  AstPrimalPart u <=. AstPrimalPart v = u <=. v
+  AstFromPrimal u <=. AstFromPrimal v = u <=. v
   AstFromDual{} <=. AstFromDual{} = true
   AstFromPlain u <=. AstFromPlain v = u <=. v
   u <=. AstPlusK (AstConcreteK v) w =
@@ -1215,9 +1218,6 @@ instance (KnownSpan s, NumScalar r)
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
       AstFromPlain (AstConcreteK u)
       <=. AstTimesK (AstFromPlain (AstConcreteK $ negate v)) (AstN1K NegateOp w)
-  AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
-    | varNameToAstVarId u == varNameToAstVarId v =
-      true
   v <=. u = AstConcreteK 0 <=. plainPart u - plainPart v
   {-# SPECIALIZE instance OrdH (AstTensor ms FullSpan) (TKScalar Int) #-}
   {-# SPECIALIZE instance OrdH (AstTensor ms PrimalSpan) (TKScalar Int) #-}
