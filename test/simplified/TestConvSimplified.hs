@@ -1461,7 +1461,7 @@ testCNNOPP5 = do
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (sconcrete (sreplicate [1,1,2,2] 7.0))"
   printAstPretty afcnn2T
-    @?= "rfromPlain (rreplicate 1 (rreplicate 1 (rreplicate 2 (rreplicate 2 (rfromS (sscalar 7.0))))))"
+    @?= "rfromPlain (rfromS (sreplicate @1 (sreplicate @1 (sreplicate @2 (sreplicate @2 (kfromS (sscalar 7.0)))))))"
 
 testCNNOPP5b :: Assertion
 testCNNOPP5b = do

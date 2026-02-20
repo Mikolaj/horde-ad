@@ -680,6 +680,22 @@ matchAstConvUp = \case
       AstConvUpJust (ConvCmp ConvXS (Conv0X STKScalar))
                     zftk
                     (AstConvert ConvX0 t)
+  AstConvert c t
+    | FTKS ZSS (FTKScalar @r) <- ftkAst t
+    , let zftk = convertFTK c (ftkAst t)
+    , FTKR ZSR (FTKScalar @ry) <- zftk
+    , Just Refl <- testEquality (typeRep @ry) (typeRep @r) ->
+      AstConvUpJust (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))
+                    zftk
+                    (AstConvert (ConvCmp ConvX0 ConvSX) t)
+  AstConvert c t
+    | FTKS ZSS (FTKScalar @r) <- ftkAst t
+    , let zftk = convertFTK c (ftkAst t)
+    , FTKX ZSX (FTKScalar @ry) <- zftk
+    , Just Refl <- testEquality (typeRep @ry) (typeRep @r) ->
+      AstConvUpJust (Conv0X STKScalar)
+                    zftk
+                    (AstConvert (ConvCmp ConvX0 ConvSX) t)
   AstConvert c t ->
     let yftk = ftkAst t
         zftk = convertFTK c yftk

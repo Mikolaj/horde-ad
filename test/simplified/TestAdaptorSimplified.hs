@@ -870,7 +870,7 @@ testVstackBuildAstPP = do
           (vstackBuild @(AstTensor AstMethodLet FullSpan) @Double . fromTarget)
   "\\" ++ printAstVarName @FullSpan var3
        ++ " -> " ++ printAstPretty ast3
-    @?= "\\v1 -> rfromS (let x7 = sfromR (tproject1 (tproject1 v1)) `sindex0` [0] + sfromR (tproject2 (tproject1 v1)) `sindex0` [1] ; v8 = sgather1 @10 (str (sfromVector (fromList [sreplicate @10 (sfromR (tproject1 (tproject1 v1)) `sindex0` [9] + sfromR (tproject2 v1) `sindex0` [8]), (sfromR (tproject1 (tproject1 v1)) + sappend (sslice (SNat @1) (SNat @9) (sfromR (tproject2 (tproject1 v1)))) (sconcrete (sfromListLinear [1] [0.0]))) + sappend (sconcrete (sfromListLinear [1] [0.0])) (sslice (SNat @0) (SNat @9) (sfromR (tproject2 v1)))]))) (\\i5 -> [i5, ifH (let i3 = 9 + negate i5 in 0 <=. negate i3) 0 1]) in sappend (sreplicate @1 x7) (sslice (SNat @1) (SNat @9) v8))"
+    @?= "\\v1 -> rfromS (let x7 = kfromS (sfromR (tproject1 (tproject1 v1)) !$ [0] + sfromR (tproject2 (tproject1 v1)) !$ [1]) ; v8 = sgather1 @10 (str (sfromVector (fromList [sreplicate @10 (kfromS (sfromR (tproject1 (tproject1 v1)) !$ [9] + sfromR (tproject2 v1) !$ [8])), (sfromR (tproject1 (tproject1 v1)) + sappend (sslice (SNat @1) (SNat @9) (sfromR (tproject2 (tproject1 v1)))) (sconcrete (sfromListLinear [1] [0.0]))) + sappend (sconcrete (sfromListLinear [1] [0.0])) (sslice (SNat @0) (SNat @9) (sfromR (tproject2 v1)))]))) (\\i5 -> [i5, ifH (let i3 = 9 + negate i5 in 0 <=. negate i3) 0 1]) in sappend (sreplicate @1 x7) (sslice (SNat @1) (SNat @9) v8))"
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstPretty (simplifyInlineContract ast3)
     @?= "\\v1 -> rfromS (sappend (sreplicate @1 (sfromR (tproject1 (tproject1 v1)) `sindex0` [0] + sfromR (tproject2 (tproject1 v1)) `sindex0` [1])) (sappend ((sslice (SNat @1) (SNat @8) (sfromR (tproject1 (tproject1 v1))) + sslice (SNat @2) (SNat @8) (sfromR (tproject2 (tproject1 v1)))) + sslice (SNat @0) (SNat @8) (sfromR (tproject2 v1))) (sreplicate @1 (sfromR (tproject1 (tproject1 v1)) `sindex0` [9] + sfromR (tproject2 v1) `sindex0` [8]))))"
@@ -2314,13 +2314,13 @@ testFilterPositiveFail0PP = do
         revArtifactDelta UseIncomingCotangent filterPositiveFail
                          (FTKR (2 :$: ZSR) (FTKScalar @Double))
   printArtifactPrimalPretty artifactRev
-    @?= "\\v1 -> rfromVector (fromList [rfromS (sfromR v1 !$ [0]), rfromS (sfromR v1 !$ [1])])"
+    @?= "\\v1 -> rfromS (sfromVector (fromList [sfromR v1 `sindex0` [0], sfromR v1 `sindex0` [1]]))"
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\v1 -> rfromVector (fromList [rfromS (sfromR v1 !$ [0]), rfromS (sfromR v1 !$ [1])])"
+    @?= "\\v1 -> rfromS (sfromVector (fromList [sfromR v1 `sindex0` [0], sfromR v1 `sindex0` [1]]))"
   printArtifactPretty artifactRev
-    @?= "\\dret v1 -> rfromS (soneHot (sfromR dret !$ [0]) [0] + soneHot (sfromR dret !$ [1]) [1])"
+    @?= "\\dret v1 -> rfromS (soneHot (sfromK (sfromR dret `sindex0` [0])) [0] + soneHot (sfromK (sfromR dret `sindex0` [1])) [1])"
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> rfromS (soneHot (sfromR dret !$ [0]) [0] + soneHot (sfromR dret !$ [1]) [1])"
+    @?= "\\dret v1 -> rfromS (soneHot (sfromK (sfromR dret `sindex0` [0])) [0] + soneHot (sfromK (sfromR dret `sindex0` [1])) [1])"
 
 testFilterPositiveFail1 :: Assertion
 testFilterPositiveFail1 =
@@ -2337,13 +2337,13 @@ testFilterPositiveFail1PP = do
         revArtifactDelta UseIncomingCotangent filterPositiveFail
                          (FTKR (3 :$: ZSR) (FTKScalar @Double))
   printArtifactPrimalPretty artifactRev
-    @?= "\\v1 -> rfromVector (fromList [rfromS (sfromR v1 !$ [0]), rfromS (sfromR v1 !$ [1]), rfromS (sfromR v1 !$ [2])])"
+    @?= "\\v1 -> rfromS (sfromVector (fromList [sfromR v1 `sindex0` [0], sfromR v1 `sindex0` [1], sfromR v1 `sindex0` [2]]))"
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\v1 -> rfromVector (fromList [rfromS (sfromR v1 !$ [0]), rfromS (sfromR v1 !$ [1]), rfromS (sfromR v1 !$ [2])])"
+    @?= "\\v1 -> rfromS (sfromVector (fromList [sfromR v1 `sindex0` [0], sfromR v1 `sindex0` [1], sfromR v1 `sindex0` [2]]))"
   printArtifactPretty artifactRev
-    @?= "\\dret v1 -> rfromS (soneHot (sfromR dret !$ [0]) [0] + (soneHot (sfromR dret !$ [1]) [1] + soneHot (sfromR dret !$ [2]) [2]))"
+    @?= "\\dret v1 -> rfromS (soneHot (sfromK (sfromR dret `sindex0` [0])) [0] + (soneHot (sfromK (sfromR dret `sindex0` [1])) [1] + soneHot (sfromK (sfromR dret `sindex0` [2])) [2]))"
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> rfromS (soneHot (sfromR dret !$ [0]) [0] + (soneHot (sfromR dret !$ [1]) [1] + soneHot (sfromR dret !$ [2]) [2]))"
+    @?= "\\dret v1 -> rfromS (soneHot (sfromK (sfromR dret `sindex0` [0])) [0] + (soneHot (sfromK (sfromR dret `sindex0` [1])) [1] + soneHot (sfromK (sfromR dret `sindex0` [2])) [2]))"
 
 testFilterPositiveFail :: Assertion
 testFilterPositiveFail =
@@ -2360,13 +2360,13 @@ testFilterPositiveFailPP = do
         revArtifactDelta UseIncomingCotangent filterPositiveFail
                          (FTKR (15 :$: ZSR) (FTKScalar @Double))
   printArtifactPrimalPretty artifactRev
-    @?= "\\v1 -> rfromVector (fromList [rfromS (sfromR v1 !$ [0]), rfromS (sfromR v1 !$ [1]), rfromS (sfromR v1 !$ [2]), rfromS (sfromR v1 !$ [3]), rfromS (sfromR v1 !$ [4]), rfromS (sfromR v1 !$ [5]), rfromS (sfromR v1 !$ [6]), rfromS (sfromR v1 !$ [7]), rfromS (sfromR v1 !$ [8]), rfromS (sfromR v1 !$ [9]), rfromS (sfromR v1 !$ [10]), rfromS (sfromR v1 !$ [11])])"
+    @?= "\\v1 -> rfromS (sfromVector (fromList [sfromR v1 `sindex0` [0], sfromR v1 `sindex0` [1], sfromR v1 `sindex0` [2], sfromR v1 `sindex0` [3], sfromR v1 `sindex0` [4], sfromR v1 `sindex0` [5], sfromR v1 `sindex0` [6], sfromR v1 `sindex0` [7], sfromR v1 `sindex0` [8], sfromR v1 `sindex0` [9], sfromR v1 `sindex0` [10], sfromR v1 `sindex0` [11]]))"
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\v1 -> rfromVector (fromList [rfromS (sfromR v1 !$ [0]), rfromS (sfromR v1 !$ [1]), rfromS (sfromR v1 !$ [2]), rfromS (sfromR v1 !$ [3]), rfromS (sfromR v1 !$ [4]), rfromS (sfromR v1 !$ [5]), rfromS (sfromR v1 !$ [6]), rfromS (sfromR v1 !$ [7]), rfromS (sfromR v1 !$ [8]), rfromS (sfromR v1 !$ [9]), rfromS (sfromR v1 !$ [10]), rfromS (sfromR v1 !$ [11])])"
+    @?= "\\v1 -> rfromS (sfromVector (fromList [sfromR v1 `sindex0` [0], sfromR v1 `sindex0` [1], sfromR v1 `sindex0` [2], sfromR v1 `sindex0` [3], sfromR v1 `sindex0` [4], sfromR v1 `sindex0` [5], sfromR v1 `sindex0` [6], sfromR v1 `sindex0` [7], sfromR v1 `sindex0` [8], sfromR v1 `sindex0` [9], sfromR v1 `sindex0` [10], sfromR v1 `sindex0` [11]]))"
   printArtifactPretty artifactRev
-    @?= "\\dret v1 -> rfromS (soneHot (sfromR dret !$ [0]) [0] + (soneHot (sfromR dret !$ [1]) [1] + (soneHot (sfromR dret !$ [2]) [2] + (soneHot (sfromR dret !$ [3]) [3] + (soneHot (sfromR dret !$ [4]) [4] + (soneHot (sfromR dret !$ [5]) [5] + (soneHot (sfromR dret !$ [6]) [6] + (soneHot (sfromR dret !$ [7]) [7] + (soneHot (sfromR dret !$ [8]) [8] + (soneHot (sfromR dret !$ [9]) [9] + (soneHot (sfromR dret !$ [10]) [10] + soneHot (sfromR dret !$ [11]) [11])))))))))))"
+    @?= "\\dret v1 -> rfromS (soneHot (sfromK (sfromR dret `sindex0` [0])) [0] + (soneHot (sfromK (sfromR dret `sindex0` [1])) [1] + (soneHot (sfromK (sfromR dret `sindex0` [2])) [2] + (soneHot (sfromK (sfromR dret `sindex0` [3])) [3] + (soneHot (sfromK (sfromR dret `sindex0` [4])) [4] + (soneHot (sfromK (sfromR dret `sindex0` [5])) [5] + (soneHot (sfromK (sfromR dret `sindex0` [6])) [6] + (soneHot (sfromK (sfromR dret `sindex0` [7])) [7] + (soneHot (sfromK (sfromR dret `sindex0` [8])) [8] + (soneHot (sfromK (sfromR dret `sindex0` [9])) [9] + (soneHot (sfromK (sfromR dret `sindex0` [10])) [10] + soneHot (sfromK (sfromR dret `sindex0` [11])) [11])))))))))))"
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> rfromS (soneHot (sfromR dret !$ [0]) [0] + (soneHot (sfromR dret !$ [1]) [1] + (soneHot (sfromR dret !$ [2]) [2] + (soneHot (sfromR dret !$ [3]) [3] + (soneHot (sfromR dret !$ [4]) [4] + (soneHot (sfromR dret !$ [5]) [5] + (soneHot (sfromR dret !$ [6]) [6] + (soneHot (sfromR dret !$ [7]) [7] + (soneHot (sfromR dret !$ [8]) [8] + (soneHot (sfromR dret !$ [9]) [9] + (soneHot (sfromR dret !$ [10]) [10] + soneHot (sfromR dret !$ [11]) [11])))))))))))"
+    @?= "\\dret v1 -> rfromS (soneHot (sfromK (sfromR dret `sindex0` [0])) [0] + (soneHot (sfromK (sfromR dret `sindex0` [1])) [1] + (soneHot (sfromK (sfromR dret `sindex0` [2])) [2] + (soneHot (sfromK (sfromR dret `sindex0` [3])) [3] + (soneHot (sfromK (sfromR dret `sindex0` [4])) [4] + (soneHot (sfromK (sfromR dret `sindex0` [5])) [5] + (soneHot (sfromK (sfromR dret `sindex0` [6])) [6] + (soneHot (sfromK (sfromR dret `sindex0` [7])) [7] + (soneHot (sfromK (sfromR dret `sindex0` [8])) [8] + (soneHot (sfromK (sfromR dret `sindex0` [9])) [9] + (soneHot (sfromK (sfromR dret `sindex0` [10])) [10] + soneHot (sfromK (sfromR dret `sindex0` [11])) [11])))))))))))"
 
 -- Catastrophic loss of sharing prevented.
 fblowup :: forall target r. (ADReady target, NumScalar r, Differentiable r)
@@ -2433,8 +2433,8 @@ fblowupPP = do
     @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x3 -> tlet (sfromR v1 `sindex0` [1]) (\\x5 -> tlet (tfromPlain (STKScalar) 0.499999985 * kfromR dret) (\\x8 -> soneHot (sfromK (recip x3 * x8)) [0] + (soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x3 * x3)) * x8)) [1] + (soneHot (sfromK (recip x5 * x8)) [0] + soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x5 * x5)) * x8)) [1]))))))"
   printArtifactSimple artifactRev
     @?= "\\dret v1 -> rfromS (tlet (kfromS (sfromR v1 !$ [0])) (\\x2 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x3 -> tlet (kfromS (sfromR v1 !$ [0])) (\\x4 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x5 -> tlet (tfromPlain (STKScalar) 0.499999985 * kfromR dret) (\\x8 -> soneHot (sfromK (recip x3 * x8)) [0] + (soneHot (sfromK ((negate x2 / (x3 * x3)) * x8)) [1] + (soneHot (sfromK (recip x5 * x8)) [0] + soneHot (sfromK ((negate x4 / (x5 * x5)) * x8)) [1]))))))))"
-  printArtifactPrimalSimple artifactRev
-    @?= "\\v1 -> rfromK (tlet (kfromS (sfromR v1 !$ [0])) (\\x2 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x3 -> tlet (kfromS (sfromR v1 !$ [0])) (\\x4 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x5 -> tlet (x2 / x3 + x4 / x5) (\\x6 -> tfromPlain (STKScalar) 0.499999985 * x6))))))"
+  printArtifactPrimalSimple (simplifyArtifactRev artifactRev)
+    @?= "\\v1 -> rfromK (tfromPlain (STKScalar) 0.499999985 * (sfromR v1 `sindex0` [0] / sfromR v1 `sindex0` [1]) + tfromPlain (STKScalar) 0.499999985 * (sfromR v1 `sindex0` [0] / sfromR v1 `sindex0` [1]))"
 
 fblowupLetPP :: Assertion
 fblowupLetPP = do
@@ -2442,11 +2442,9 @@ fblowupLetPP = do
   let fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 0 1
   let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fblowupLetT (FTKR [4] FTKScalar)
   printArtifactSimple (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x4 -> tlet (tfromPlain (STKScalar) 0.99999997 * kfromR dret) (\\x9 -> soneHot (sfromK (recip x4 * x9)) [0] + soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x4 * x4)) * x9)) [1])))"
+    @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x4 -> tlet (tfromPlain (STKScalar) 0.99999997 * kfromR dret) (\\x7 -> soneHot (sfromK (recip x4 * x7)) [0] + soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x4 * x4)) * x7)) [1])))"
   printArtifactSimple artifactRev
-    @?= "\\dret v1 -> rfromS (tlet (kfromS (sfromR v1 !$ [0])) (\\x3 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x4 -> tlet (tfromPlain (STKScalar) 0.499999985 * kfromR dret) (\\x8 -> tlet (x8 + x8) (\\x9 -> soneHot (sfromK (recip x4 * x9)) [0] + soneHot (sfromK ((negate x3 / (x4 * x4)) * x9)) [1])))))"
-  printArtifactPrimalSimple artifactRev
-    @?= "\\v1 -> rfromK (tlet (kfromS (sfromR v1 !$ [0])) (\\x3 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x4 -> tlet (x3 / x4) (\\x5 -> tlet (x5 + x5) (\\x6 -> tfromPlain (STKScalar) 0.499999985 * x6)))))"
+    @?= "\\dret v1 -> rfromS (tlet (kfromS (sfromR v1 !$ [0])) (\\x3 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x4 -> tlet (tfromPlain (STKScalar) 0.99999997 * kfromR dret) (\\x7 -> soneHot (sfromK (recip x4 * x7)) [0] + soneHot (sfromK ((negate x3 / (x4 * x4)) * x7)) [1]))))"
 
 fblowupLetPP23 :: Assertion
 fblowupLetPP23 = do
@@ -2454,11 +2452,11 @@ fblowupLetPP23 = do
   let fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 2 3
   let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fblowupLetT (FTKR [4] FTKScalar)
   printArtifactSimple (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x6 -> tlet (tfromPlain (STKScalar) 0.9999999100000025 * kfromR dret) (\\x13 -> soneHot (sfromK (recip x6 * x13)) [0] + soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x6 * x6)) * x13)) [1])))"
+    @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x6 -> tlet (tfromPlain (STKScalar) 0.9999999100000025 * kfromR dret) (\\x11 -> soneHot (sfromK (recip x6 * x11)) [0] + soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x6 * x6)) * x11)) [1])))"
   printArtifactSimple artifactRev
-    @?= "\\dret v1 -> rfromS (tlet (kfromS (sfromR v1 !$ [0])) (\\x5 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x6 -> tlet (tfromPlain (STKScalar) 0.4999999550000013 * kfromR dret) (\\x12 -> tlet (x12 + x12) (\\x13 -> soneHot (sfromK (recip x6 * x13)) [0] + soneHot (sfromK ((negate x5 / (x6 * x6)) * x13)) [1])))))"
-  printArtifactPrimalSimple artifactRev
-    @?= "\\v1 -> rfromK (tlet (kfromS (sfromR v1 !$ [0])) (\\x5 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x6 -> tlet (x5 / x6) (\\x7 -> tlet (x7 + x7) (\\x8 -> tlet (tfromPlain (STKScalar) (-0.99999997) + tfromPlain (STKScalar) 0.499999985 * x8) (\\x9 -> tlet (tfromPlain (STKScalar) (-0.99999997) + tfromPlain (STKScalar) 0.99999997 * x9) (\\x10 -> tfromPlain (STKScalar) (-2.99999997) + tfromPlain (STKScalar) 0.99999997 * x10)))))))"
+    @?= "\\dret v1 -> rfromS (tlet (kfromS (sfromR v1 !$ [0])) (\\x5 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x6 -> tlet (tfromPlain (STKScalar) 0.9999999100000025 * kfromR dret) (\\x11 -> soneHot (sfromK (recip x6 * x11)) [0] + soneHot (sfromK ((negate x5 / (x6 * x6)) * x11)) [1]))))"
+  printArtifactPrimalSimple (simplifyArtifactRev artifactRev)
+    @?= "\\v1 -> rfromK (tfromPlain (STKScalar) (-4.999999820000004) + tfromPlain (STKScalar) 0.9999999100000025 * (sfromR v1 `sindex0` [0] / sfromR v1 `sindex0` [1]))"
 
 fblowupLetPP06 :: Assertion
 fblowupLetPP06 = do
@@ -2466,11 +2464,10 @@ fblowupLetPP06 = do
   let fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 0 6
   let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fblowupLetT (FTKR [2] FTKScalar)
   printArtifactSimple (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x9 -> tlet (tfromPlain (STKScalar) 0.9999998200000132 * kfromR dret) (\\x19 -> soneHot (sfromK (recip x9 * x19)) [0] + soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x9 * x9)) * x19)) [1])))"
+    @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x9 -> tlet (tfromPlain (STKScalar) 0.9999998200000132 * kfromR dret) (\\x17 -> soneHot (sfromK (recip x9 * x17)) [0] + soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x9 * x9)) * x17)) [1])))"
   printArtifactSimple artifactRev
-    @?= "\\dret v1 -> rfromS (tlet (kfromS (sfromR v1 !$ [0])) (\\x8 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x9 -> tlet (tfromPlain (STKScalar) 0.4999999100000066 * kfromR dret) (\\x18 -> tlet (x18 + x18) (\\x19 -> soneHot (sfromK (recip x9 * x19)) [0] + soneHot (sfromK ((negate x8 / (x9 * x9)) * x19)) [1])))))"
-  printArtifactPrimalSimple artifactRev
-    @?= "\\v1 -> rfromK (tlet (kfromS (sfromR v1 !$ [0])) (\\x8 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x9 -> tlet (x8 / x9) (\\x10 -> tlet (x10 + x10) (\\x11 -> tlet (tfromPlain (STKScalar) 0.499999985 * x11) (\\x12 -> tlet (tfromPlain (STKScalar) 0.99999997 * x12) (\\x13 -> tlet (tfromPlain (STKScalar) 0.99999997 * x13) (\\x14 -> tlet (tfromPlain (STKScalar) 0.99999997 * x14) (\\x15 -> tlet (tfromPlain (STKScalar) 0.99999997 * x15) (\\x16 -> tfromPlain (STKScalar) 0.99999997 * x16))))))))))"
+    @?= "\\dret v1 -> rfromS (tlet (kfromS (sfromR v1 !$ [0])) (\\x8 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x9 -> tlet (tfromPlain (STKScalar) 0.9999998200000132 * kfromR dret) (\\x17 -> soneHot (sfromK (recip x9 * x17)) [0] + soneHot (sfromK ((negate x8 / (x9 * x9)) * x17)) [1]))))"
+
 
 fblowupLetPP16 :: Assertion
 fblowupLetPP16 = do
@@ -2480,7 +2477,7 @@ fblowupLetPP16 = do
   printArtifactPrimalSimple (simplifyArtifactRev artifactRev)
     @?= "\\v1 -> rfromK (tfromPlain (STKScalar) (-3.9999996850000157) + tfromPlain (STKScalar) 0.9999998200000132 * (sfromR v1 `sindex0` [0] / sfromR v1 `sindex0` [1]))"
   printArtifactSimple (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x9 -> tlet (tfromPlain (STKScalar) 0.9999998200000132 * kfromR dret) (\\x19 -> soneHot (sfromK (recip x9 * x19)) [0] + soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x9 * x9)) * x19)) [1])))"
+    @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x9 -> tlet (tfromPlain (STKScalar) 0.9999998200000132 * kfromR dret) (\\x17 -> soneHot (sfromK (recip x9 * x17)) [0] + soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x9 * x9)) * x17)) [1])))"
 
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
