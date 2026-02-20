@@ -733,12 +733,28 @@ astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
 astCond _b u v | FTKScalar <- ftkAst u, eqK u v = u
 astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqK u1 v1 =
   AstPlusK u1 (astCond b u2 v2)
+astCond b (AstPlusK u1 u2) v1 | eqK u1 v1 =
+  AstPlusK u1 (astCond b u2 0)
+astCond b u1 (AstPlusK v1 v2) | eqK u1 v1 =
+  AstPlusK u1 (astCond b 0 v2)
 astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqK u2 v2 =
   AstPlusK (astCond b u1 v1) u2
+astCond b (AstPlusK u1 u2) v2 | eqK u2 v2 =
+  AstPlusK (astCond b u1 0) u2
+astCond b u2 (AstPlusK v1 v2) | eqK u2 v2 =
+  AstPlusK (astCond b 0 v1) u2
 astCond b (AstTimesK u1 u2) (AstTimesK v1 v2) | eqK u1 v1 =
   AstTimesK u1 (astCond b u2 v2)
+astCond b (AstTimesK u1 u2) v1 | eqK u1 v1 =
+  AstTimesK u1 (astCond b u2 0)
+astCond b u1 (AstTimesK v1 v2) | eqK u1 v1 =
+  AstTimesK u1 (astCond b 0 v2)
 astCond b (AstTimesK u1 u2) (AstTimesK v1 v2) | eqK u2 v2 =
   AstTimesK (astCond b u1 v1) u2
+astCond b u2 (AstTimesK v1 v2) | eqK u2 v2 =
+  AstTimesK (astCond b 0 v1) u2
+astCond b (AstTimesK u1 u2) v2 | eqK u2 v2 =
+  AstTimesK (astCond b u1 0) u2
 astCond b v w | FTKS (snat :$$ sh) x <- ftkAst v
               , Just v1 <- unRepl1 v
               , Just w1 <- unRepl1 w =
