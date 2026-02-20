@@ -205,7 +205,12 @@ testTrees =
   , testCase "2emptyArgs0" testEmptyArgs0
   , testCase "2emptyArgs1" testEmptyArgs1
   , testCase "2emptyArgs4" testEmptyArgs4
+  , testCase "2filterPositiveFail0" testFilterPositiveFail0
+  , testCase "2filterPositiveFail0PP" testFilterPositiveFail0PP
+  , testCase "2filterPositiveFail1" testFilterPositiveFail1
+  , testCase "2filterPositiveFail1PP" testFilterPositiveFail1PP
   , testCase "2filterPositiveFail" testFilterPositiveFail
+  , testCase "2filterPositiveFailPP" testFilterPositiveFailPP
   , testCase "2blowupPP" fblowupPP
   , testCase "2blowup2LetPP" fblowupLetPP
   , testCase "2blowup2LetPP23" fblowupLetPP23
@@ -2291,16 +2296,77 @@ filterPositiveFail v =
       -- Could not deduce ‘Ord (target Double 0)’
       -- l2 = filter (\x -> x >=. 0) l
       -- Could not deduce ‘BoolOf target ~ Bool’
-      l2 = take 3 l  -- the most I can do
+      l2 = take 12 l  -- the most I can do
   in rfromList $ NonEmpty.fromList l2
+
+testFilterPositiveFail0 :: Assertion
+testFilterPositiveFail0 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [2] [1.0,1.0])
+    (rev' @Double @1
+          filterPositiveFail
+          (ringestData [2] [0.24, 52]))
+
+testFilterPositiveFail0PP :: Assertion
+testFilterPositiveFail0PP = do
+  resetVarCounter
+  let (artifactRev, _) =
+        revArtifactDelta UseIncomingCotangent filterPositiveFail
+                         (FTKR (2 :$: ZSR) (FTKScalar @Double))
+  printArtifactPrimalPretty artifactRev
+    @?= "\\v1 -> rfromVector (fromList [rfromS (sfromR v1 !$ [0]), rfromS (sfromR v1 !$ [1])])"
+  printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
+    @?= "\\v1 -> rfromVector (fromList [rfromS (sfromR v1 !$ [0]), rfromS (sfromR v1 !$ [1])])"
+  printArtifactPretty artifactRev
+    @?= "\\dret v1 -> rfromS (soneHot (sfromR dret !$ [0]) [0] + soneHot (sfromR dret !$ [1]) [1])"
+  printArtifactPretty (simplifyArtifactRev artifactRev)
+    @?= "\\dret v1 -> rfromS (soneHot (sfromR dret !$ [0]) [0] + soneHot (sfromR dret !$ [1]) [1])"
+
+testFilterPositiveFail1 :: Assertion
+testFilterPositiveFail1 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [3] [1.0,1.0,1.0])
+    (rev' @Double @1
+          filterPositiveFail
+          (ringestData [3] [0.24, 52, -0.5]))
+
+testFilterPositiveFail1PP :: Assertion
+testFilterPositiveFail1PP = do
+  resetVarCounter
+  let (artifactRev, _) =
+        revArtifactDelta UseIncomingCotangent filterPositiveFail
+                         (FTKR (3 :$: ZSR) (FTKScalar @Double))
+  printArtifactPrimalPretty artifactRev
+    @?= "\\v1 -> rfromVector (fromList [rfromS (sfromR v1 !$ [0]), rfromS (sfromR v1 !$ [1]), rfromS (sfromR v1 !$ [2])])"
+  printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
+    @?= "\\v1 -> rfromVector (fromList [rfromS (sfromR v1 !$ [0]), rfromS (sfromR v1 !$ [1]), rfromS (sfromR v1 !$ [2])])"
+  printArtifactPretty artifactRev
+    @?= "\\dret v1 -> rfromS (soneHot (sfromR dret !$ [0]) [0] + (soneHot (sfromR dret !$ [1]) [1] + soneHot (sfromR dret !$ [2]) [2]))"
+  printArtifactPretty (simplifyArtifactRev artifactRev)
+    @?= "\\dret v1 -> rfromS (soneHot (sfromR dret !$ [0]) [0] + (soneHot (sfromR dret !$ [1]) [1] + soneHot (sfromR dret !$ [2]) [2]))"
 
 testFilterPositiveFail :: Assertion
 testFilterPositiveFail =
   assertEqualUpToEpsilon' 1e-10
-    (ringestData [5] [1.0,1.0,1.0,0.0,0.0])
+    (ringestData [15] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.0,0.0,0.0])
     (rev' @Double @1
           filterPositiveFail
-          (ringestData [5] [0.24, 52, -0.5, 0.33, 0.1]))
+          (ringestData [15] [0.24, 52, -0.5, 0.33, 0.1, 0.24, 52, -0.5, 0.33, 0.1, 0.24, 52, -0.5, 0.33, 0.1]))
+
+testFilterPositiveFailPP :: Assertion
+testFilterPositiveFailPP = do
+  resetVarCounter
+  let (artifactRev, _) =
+        revArtifactDelta UseIncomingCotangent filterPositiveFail
+                         (FTKR (15 :$: ZSR) (FTKScalar @Double))
+  printArtifactPrimalPretty artifactRev
+    @?= "\\v1 -> rfromVector (fromList [rfromS (sfromR v1 !$ [0]), rfromS (sfromR v1 !$ [1]), rfromS (sfromR v1 !$ [2]), rfromS (sfromR v1 !$ [3]), rfromS (sfromR v1 !$ [4]), rfromS (sfromR v1 !$ [5]), rfromS (sfromR v1 !$ [6]), rfromS (sfromR v1 !$ [7]), rfromS (sfromR v1 !$ [8]), rfromS (sfromR v1 !$ [9]), rfromS (sfromR v1 !$ [10]), rfromS (sfromR v1 !$ [11])])"
+  printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
+    @?= "\\v1 -> rfromVector (fromList [rfromS (sfromR v1 !$ [0]), rfromS (sfromR v1 !$ [1]), rfromS (sfromR v1 !$ [2]), rfromS (sfromR v1 !$ [3]), rfromS (sfromR v1 !$ [4]), rfromS (sfromR v1 !$ [5]), rfromS (sfromR v1 !$ [6]), rfromS (sfromR v1 !$ [7]), rfromS (sfromR v1 !$ [8]), rfromS (sfromR v1 !$ [9]), rfromS (sfromR v1 !$ [10]), rfromS (sfromR v1 !$ [11])])"
+  printArtifactPretty artifactRev
+    @?= "\\dret v1 -> rfromS (soneHot (sfromR dret !$ [0]) [0] + (soneHot (sfromR dret !$ [1]) [1] + (soneHot (sfromR dret !$ [2]) [2] + (soneHot (sfromR dret !$ [3]) [3] + (soneHot (sfromR dret !$ [4]) [4] + (soneHot (sfromR dret !$ [5]) [5] + (soneHot (sfromR dret !$ [6]) [6] + (soneHot (sfromR dret !$ [7]) [7] + (soneHot (sfromR dret !$ [8]) [8] + (soneHot (sfromR dret !$ [9]) [9] + (soneHot (sfromR dret !$ [10]) [10] + soneHot (sfromR dret !$ [11]) [11])))))))))))"
+  printArtifactPretty (simplifyArtifactRev artifactRev)
+    @?= "\\dret v1 -> rfromS (soneHot (sfromR dret !$ [0]) [0] + (soneHot (sfromR dret !$ [1]) [1] + (soneHot (sfromR dret !$ [2]) [2] + (soneHot (sfromR dret !$ [3]) [3] + (soneHot (sfromR dret !$ [4]) [4] + (soneHot (sfromR dret !$ [5]) [5] + (soneHot (sfromR dret !$ [6]) [6] + (soneHot (sfromR dret !$ [7]) [7] + (soneHot (sfromR dret !$ [8]) [8] + (soneHot (sfromR dret !$ [9]) [9] + (soneHot (sfromR dret !$ [10]) [10] + soneHot (sfromR dret !$ [11]) [11])))))))))))"
 
 -- Catastrophic loss of sharing prevented.
 fblowup :: forall target r. (ADReady target, NumScalar r, Differentiable r)
