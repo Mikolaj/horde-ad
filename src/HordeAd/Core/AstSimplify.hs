@@ -1176,14 +1176,12 @@ astPlusK  :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
-astPlusK = (+)
-{-
 astPlusK = \cases
-{-  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astPlusK u v
+  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astPlusK u v
   (Ast.AstDualPart u) (Ast.AstDualPart v) -> dualPart $ astPlusK u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
-      plainPart $ astPlusK u v -}
+      plainPart $ astPlusK u v
   (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astPlusK u v
   (Ast.AstFromDual u) (Ast.AstFromDual v) -> fromDual $ astPlusK u v
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astPlusK u v
@@ -1292,19 +1290,16 @@ astPlusK = \cases
     (AstTimesK (Ast.AstFromPlain (AstConcreteK n2)) t2) | eqK t1 t2 ->
        Ast.AstFromPlain (AstConcreteK (n1 + n2)) `astTimesK` t1
   u v -> AstPlusK u v
--}
 
 astTimesK :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
-astTimesK = (*)
-{-
 astTimesK = \cases
-{-  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astTimesK u v
+  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astTimesK u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
-      plainPart $ astTimesK u v -}
+      plainPart $ astTimesK u v
   (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astTimesK u v
   Ast.AstFromDual{} Ast.AstFromDual{} -> fromPlain $ AstConcreteK 0
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astTimesK u v
@@ -1408,22 +1403,16 @@ astTimesK = \cases
   u (AstTimesK v@(Ast.AstFromPlain AstConcreteK{}) w) ->
     AstTimesK v (AstTimesK u w)  -- as above
   u v -> AstTimesK u v
--}
 
 astN1K :: (NumScalar r, KnownSpan s)
        => OpCodeNum1 -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
-astN1K opCode = case opCode of
-  Ast.NegateOp -> negate
-  Ast.AbsOp -> abs
-  Ast.SignumOp -> signum
-{-
 astN1K opCode t = case t of
   Ast.AstCond b n k -> astCond b (astN1K opCode n) (astN1K opCode k)
   Ast.AstLet var n k -> astLet var n (astN1K opCode k)
-{-  Ast.AstPrimalPart n -> primalPart (astN1K opCode n)
+  Ast.AstPrimalPart n -> primalPart (astN1K opCode n)
   Ast.AstDualPart n -> dualPart (astN1K opCode n)
-  Ast.AstPlainPart n -> plainPart (astN1K opCode n) -}
+  Ast.AstPlainPart n -> plainPart (astN1K opCode n)
   Ast.AstFromPrimal n -> fromPrimal (astN1K opCode n)
   Ast.AstFromDual n -> fromDual (astN1K opCode n)
   Ast.AstFromPlain n -> fromPlain (astN1K opCode n)
@@ -1448,18 +1437,15 @@ astN1K opCode t = case t of
     (Ast.SignumOp, AstConcreteK n) -> AstConcreteK (signum n)
     (Ast.SignumOp, Ast.AstN1K Ast.SignumOp u) -> astN1K Ast.SignumOp u
     _ -> Ast.AstN1K opCode t
--}
 
 astR1K :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode1 -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
-astR1K = Ast.AstR1K
-{-
 astR1K opCode = \case
   Ast.AstCond b n k -> astCond b (astR1K opCode n) (astR1K opCode k)
   Ast.AstLet var n k -> astLet var n (astR1K opCode k)
-{-  Ast.AstPrimalPart u -> primalPart $ astR1K opCode u
-  Ast.AstPlainPart u -> plainPart $ astR1K opCode u -}
+  Ast.AstPrimalPart u -> primalPart $ astR1K opCode u
+  Ast.AstPlainPart u -> plainPart $ astR1K opCode u
   Ast.AstFromPrimal u -> fromPrimal $ astR1K opCode u
   Ast.AstFromPlain u -> fromPlain $ astR1K opCode u
   Ast.AstConcreteK u -> case opCode of
@@ -1480,20 +1466,17 @@ astR1K opCode = \case
     Ast.AcoshOp -> AstConcreteK $ acosh u
     Ast.AtanhOp -> AstConcreteK $ atanh u
   u -> Ast.AstR1K opCode u
--}
 
 astR2K :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode2
        -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
-astR2K = Ast.AstR2K
-{-
 astR2K opCode = \cases
-{- (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astR2K opCode u v
+  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astR2K opCode u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
-      plainPart $ astR2K opCode u v -}
+      plainPart $ astR2K opCode u v
   (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astR2K opCode u v
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astR2K opCode u v
   (AstConcreteK u) (AstConcreteK v) -> case opCode of
@@ -1502,23 +1485,18 @@ astR2K opCode = \cases
     Ast.LogBaseOp -> AstConcreteK $ logBase u v
     Ast.Atan2Op -> AstConcreteK $ atan2H u v
   u v -> Ast.AstR2K opCode u v
--}
 
 astI2K :: (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
        => OpCodeIntegral2
        -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
-astI2K opCode = case opCode of
-  Ast.QuotOp -> quotH
-  Ast.RemOp -> remH
-{-
 astI2K opCode = \cases
-{-  (Ast.AstPrimalPart n) (Ast.AstPrimalPart k) ->
+  (Ast.AstPrimalPart n) (Ast.AstPrimalPart k) ->
     primalPart (astI2K opCode n k)
   (Ast.AstPlainPart @_ @s1 n) (Ast.AstPlainPart @_ @s2 k)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
-      plainPart (astI2K opCode n k) -}
+      plainPart (astI2K opCode n k)
   (Ast.AstFromPrimal n) (Ast.AstFromPrimal k) ->
     fromPrimal (astI2K opCode n k)
   (Ast.AstFromPlain n) (Ast.AstFromPlain k) ->
@@ -1554,7 +1532,6 @@ astI2K opCode = \cases
       (AstTimesK (AstConcreteK n) _, AstConcreteK n')
         | remH n n' == 0 -> AstConcreteK 0
       _ -> Ast.AstI2K Ast.RemOp u v
--}
 
 astConcreteK :: GoodScalar r
              => Concrete (TKScalar r)
@@ -1702,18 +1679,16 @@ astPlusS :: (NumScalar r, KnownSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS sh r)
-astPlusS = (+)
-{-
 astPlusS = \cases
   u v | FTKS (snat :$$ sh) x <- ftkAst u
       , Just u0 <- unRepl1 u
       , Just v0 <- unRepl1 v ->
         Ast.AstReplicate snat (STKS sh (ftkToSTK x)) $ astPlusS u0 v0
-{-  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astPlusS u v
+  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astPlusS u v
   (Ast.AstDualPart u) (Ast.AstDualPart v) -> dualPart $ astPlusS u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
-      plainPart $ astPlusS u v -}
+      plainPart $ astPlusS u v
   (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astPlusS u v
   (Ast.AstFromDual u) (Ast.AstFromDual v) -> fromDual $ astPlusS u v
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astPlusS u v
@@ -1756,23 +1731,20 @@ astPlusS = \cases
   u (AstPlusS v@(Ast.AstFromPlain AstConcreteS{}) w) ->
     AstPlusS v (AstPlusS u w)
   u v -> AstPlusS u v
--}
 
 astTimesS :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKS sh r)
           -> AstTensor AstMethodLet s (TKS sh r)
           -> AstTensor AstMethodLet s (TKS sh r)
-astTimesS = (*)
-{-
 astTimesS = \cases
   u v | FTKS (snat :$$ sh) x <- ftkAst u
       , Just u0 <- unRepl1 u
       , Just v0 <- unRepl1 v ->
         Ast.AstReplicate snat (STKS sh (ftkToSTK x)) $ astTimesS u0 v0
-{-  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astTimesS u v
+  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astTimesS u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
-      plainPart $ astTimesS u v -}
+      plainPart $ astTimesS u v
   (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astTimesS u v
 --  Ast.AstFromDual{} * Ast.AstFromDual{} -> 0
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astTimesS u v
@@ -1883,25 +1855,19 @@ astTimesS = \cases
   u (AstTimesS v@(Ast.AstFromPlain AstConcreteS{}) w) ->
     AstTimesS v (AstTimesS u w)
   u v -> AstTimesS u v
--}
 
 astN1S :: (NumScalar r, KnownSpan s)
        => OpCodeNum1 -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
-astN1S opCode = case opCode of
-  Ast.NegateOp -> negate
-  Ast.AbsOp -> abs
-  Ast.SignumOp -> signum
-{-
 astN1S opCode t = case t of
   _ | FTKS (snat :$$ sh) x <- ftkAst t
     , Just t0 <- unRepl1 t ->
       Ast.AstReplicate snat (STKS sh (ftkToSTK x)) (astN1S opCode t0)
   Ast.AstCond b n k -> astCond b (astN1S opCode n) (astN1S opCode k)
   Ast.AstLet var n k -> astLet var n (astN1S opCode k)
-{-  Ast.AstPrimalPart n -> primalPart (astN1S opCode n)
+  Ast.AstPrimalPart n -> primalPart (astN1S opCode n)
   Ast.AstDualPart n -> dualPart (astN1S opCode n)
-  Ast.AstPlainPart n -> plainPart (astN1S opCode n) -}
+  Ast.AstPlainPart n -> plainPart (astN1S opCode n)
   Ast.AstFromPrimal n -> fromPrimal (astN1S opCode n)
   Ast.AstFromDual n -> fromDual (astN1S opCode n)
   Ast.AstFromPlain n -> fromPlain (astN1S opCode n)
@@ -1931,21 +1897,18 @@ astN1S opCode t = case t of
     (Ast.SignumOp, AstConcreteS n) -> AstConcreteS (signum n)
     (Ast.SignumOp, Ast.AstN1S Ast.SignumOp u) -> astN1S Ast.SignumOp u
     _ -> Ast.AstN1S opCode t
--}
 
 astR1S :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode1 -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
-astR1S = Ast.AstR1S
-{-
 astR1S opCode = \case
   t | FTKS (snat :$$ sh) x <- ftkAst t
     , Just t0 <- unRepl1 t ->
       Ast.AstReplicate snat (STKS sh (ftkToSTK x)) (astR1S opCode t0)
   Ast.AstCond b n k -> astCond b (astR1S opCode n) (astR1S opCode k)
   Ast.AstLet var n k -> astLet var n (astR1S opCode k)
-{-  Ast.AstPrimalPart u -> primalPart $ astR1S opCode u
-  Ast.AstPlainPart u -> plainPart $ astR1S opCode u -}
+  Ast.AstPrimalPart u -> primalPart $ astR1S opCode u
+  Ast.AstPlainPart u -> plainPart $ astR1S opCode u
   Ast.AstFromPrimal u -> fromPrimal $ astR1S opCode u
   Ast.AstFromPlain u -> fromPlain $ astR1S opCode u
   AstConvUpSFromK u -> cAstConvUpSFromK $ astR1K opCode u
@@ -1967,24 +1930,21 @@ astR1S opCode = \case
     Ast.AcoshOp -> AstConcreteS $ acosh u
     Ast.AtanhOp -> AstConcreteS $ atanh u
   u -> Ast.AstR1S opCode u
--}
 
 astR2S :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode2
        -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
-astR2S = Ast.AstR2S
-{-
 astR2S opCode = \cases
   u v | FTKS (snat :$$ sh) x <- ftkAst u
       , Just u0 <- unRepl1 u
       , Just v0 <- unRepl1 v ->
         Ast.AstReplicate snat (STKS sh (ftkToSTK x)) (astR2S opCode u0 v0)
-{- (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astR2S opCode u v
+  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astR2S opCode u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
-      plainPart $ astR2S opCode u v -}
+      plainPart $ astR2S opCode u v
   (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astR2S opCode u v
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astR2S opCode u v
   (AstConvUpSFromK n) (AstConvUpSFromK k) ->
@@ -1999,27 +1959,22 @@ astR2S opCode = \cases
     Ast.LogBaseOp -> AstConcreteS $ logBase u v
     Ast.Atan2Op -> AstConcreteS $ atan2H u v
   u v -> Ast.AstR2S opCode u v
--}
 
 astI2S :: (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
        => OpCodeIntegral2
        -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
-astI2S opCode = case opCode of
-  Ast.QuotOp -> quotH
-  Ast.RemOp -> remH
-{-
 astI2S opCode = \cases
   u v | FTKS (snat :$$ sh) x <- ftkAst u
       , Just u0 <- unRepl1 u
       , Just v0 <- unRepl1 v ->
         Ast.AstReplicate snat (STKS sh (ftkToSTK x)) (astI2S opCode u0 v0)
-{-  (Ast.AstPrimalPart n) (Ast.AstPrimalPart k) ->
+  (Ast.AstPrimalPart n) (Ast.AstPrimalPart k) ->
     primalPart (astI2S opCode n k)
   (Ast.AstPlainPart @_ @s1 n) (Ast.AstPlainPart @_ @s2 k)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
-      plainPart (astI2S opCode n k) -}
+      plainPart (astI2S opCode n k)
   (Ast.AstFromPrimal n) (Ast.AstFromPrimal k) ->
     fromPrimal (astI2S opCode n k)
   (Ast.AstFromPlain n) (Ast.AstFromPlain k) ->
@@ -2045,7 +2000,6 @@ astI2S opCode = \cases
       _ | Just 0 <- unReplC u -> u
       (Ast.AstFromPlain z, _) | Just 0 <- unReplC z -> u
       _ -> Ast.AstI2S Ast.RemOp u v
--}
 
 astConcreteS :: GoodScalar r
              => Concrete (TKS sh r)
