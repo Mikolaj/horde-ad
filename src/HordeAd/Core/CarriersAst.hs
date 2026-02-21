@@ -428,35 +428,35 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
 
 instance (NumScalar r, Differentiable r, KnownSpan s)
          => Fractional (AstTensor ms s (TKScalar r)) where
-  u / v = astR2K DivideOp u v
-  recip u = astR1K RecipOp u
+  (/) = astR2K DivideOp
+  recip = astR1K RecipOp
   {-# INLINE fromRational #-}
   fromRational r = fromPlain $ AstConcreteK (fromRational r)
 
 instance (NumScalar r, Differentiable r, KnownSpan s)
          => Floating (AstTensor ms s (TKScalar r)) where
   pi = error "pi is not defined for tensors"
-  exp u = astR1K ExpOp u
-  log u = astR1K LogOp u
-  sqrt u = astR1K SqrtOp u
-  u ** v = astR2K PowerOp u v
-  logBase u v = astR2K LogBaseOp u v
-  sin u = astR1K SinOp u
-  cos u = astR1K CosOp u
-  tan u = astR1K TanOp u
-  asin u = astR1K AsinOp u
-  acos u = astR1K AcosOp u
-  atan u = astR1K AtanOp u
-  sinh u = astR1K SinhOp u
-  cosh u = astR1K CoshOp u
-  tanh u = astR1K TanhOp u
-  asinh u = astR1K AsinhOp u
-  acosh u = astR1K AcoshOp u
-  atanh u = astR1K AtanhOp u
+  exp = astR1K ExpOp
+  log = astR1K LogOp
+  sqrt = astR1K SqrtOp
+  (**) = astR2K PowerOp
+  logBase = astR2K LogBaseOp
+  sin = astR1K SinOp
+  cos = astR1K CosOp
+  tan = astR1K TanOp
+  asin = astR1K AsinOp
+  acos = astR1K AcosOp
+  atan = astR1K AtanOp
+  sinh = astR1K SinhOp
+  cosh = astR1K CoshOp
+  tanh = astR1K TanhOp
+  asinh = astR1K AsinhOp
+  acosh = astR1K AcoshOp
+  atanh = astR1K AtanhOp
 
 instance (NumScalar r, Differentiable r, KnownSpan s)
          => RealFloatH (AstTensor ms s (TKScalar r)) where
-  atan2H u v = astR2K Atan2Op u v
+  atan2H = astR2K Atan2Op
 
 astR1K :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode1 -> AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r)
@@ -805,35 +805,35 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
 
 instance (NumScalar r, Differentiable r, KnownSpan s)
          => Fractional (AstTensor ms s (TKS sh r)) where
-  u / v = astR2S DivideOp u v
-  recip u = astR1S RecipOp u
+  (/) = astR2S DivideOp
+  recip = astR1S RecipOp
   fromRational r = error $ "fromRational is not defined for shaped tensors: "
                            ++ show r
 
 instance (NumScalar r, Differentiable r, KnownSpan s)
          => Floating (AstTensor ms s (TKS sh r)) where
   pi = error "pi is not defined for tensors"
-  exp u = astR1S ExpOp u
-  log u = astR1S LogOp u
-  sqrt u = astR1S SqrtOp u
-  u ** v = astR2S PowerOp u v
-  logBase u v = astR2S LogBaseOp u v
-  sin u = astR1S SinOp u
-  cos u = astR1S CosOp u
-  tan u = astR1S TanOp u
-  asin u = astR1S AsinOp u
-  acos u = astR1S AcosOp u
-  atan u = astR1S AtanOp u
-  sinh u = astR1S SinhOp u
-  cosh u = astR1S CoshOp u
-  tanh u = astR1S TanhOp u
-  asinh u = astR1S AsinhOp u
-  acosh u = astR1S AcoshOp u
-  atanh u = astR1S AtanhOp u
+  exp = astR1S ExpOp
+  log = astR1S LogOp
+  sqrt = astR1S SqrtOp
+  (**) = astR2S PowerOp
+  logBase = astR2S LogBaseOp
+  sin = astR1S SinOp
+  cos = astR1S CosOp
+  tan = astR1S TanOp
+  asin = astR1S AsinOp
+  acos = astR1S AcosOp
+  atan = astR1S AtanOp
+  sinh = astR1S SinhOp
+  cosh = astR1S CoshOp
+  tanh = astR1S TanhOp
+  asinh = astR1S AsinhOp
+  acosh = astR1S AcoshOp
+  atanh = astR1S AtanhOp
 
 instance (NumScalar r, Differentiable r, KnownSpan s)
          => RealFloatH (AstTensor ms s (TKS sh r)) where
-  atan2H u v = astR2S Atan2Op u v
+  atan2H = astR2S Atan2Op
 
 astR1S :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode1 -> AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
@@ -969,7 +969,8 @@ instance Boolean (AstBool ms) where
        (AstLeqK AstConcreteK{} (AstN1K NegateOp
                                        AstVar{}))) &&* c = AstBoolAndK b c
   b@(AstBoolNotK
-       (AstBoolAndK (AstLeqK AstConcreteK{} AstVar{}) _)) &&* c = AstBoolAndK b c
+       (AstBoolAndK (AstLeqK AstConcreteK{} AstVar{}) _)) &&* c =
+    AstBoolAndK b c
   b@(AstBoolNotK
        (AstBoolAndK
           (AstLeqK AstConcreteK{}
@@ -991,7 +992,8 @@ instance Boolean (AstBool ms) where
              (AstLeqK AstConcreteK{} (AstN1K NegateOp
                                              AstVar{}))) = AstBoolAndK c b
   b &&* c@(AstBoolNotK
-             (AstBoolAndK (AstLeqK AstConcreteK{} AstVar{}) _)) = AstBoolAndK c b
+             (AstBoolAndK (AstLeqK AstConcreteK{} AstVar{}) _)) =
+    AstBoolAndK c b
   b &&* c@(AstBoolNotK
              (AstBoolAndK
                 (AstLeqK AstConcreteK{}

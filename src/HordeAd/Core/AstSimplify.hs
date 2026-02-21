@@ -1726,7 +1726,8 @@ astPlusS = \cases
   (AstPlusS u@AstConcreteS{} v)  w -> AstPlusS u (AstPlusS v w)
   u  v@AstConcreteS{} -> AstPlusS v u
   u (AstPlusS v@AstConcreteS{} w) -> AstPlusS v (AstPlusS u w)
-  (AstPlusS u@(Ast.AstFromPlain AstConcreteS{}) v) w -> AstPlusS u (AstPlusS v w)
+  (AstPlusS u@(Ast.AstFromPlain AstConcreteS{}) v) w ->
+    AstPlusS u (AstPlusS v w)
   u v@(Ast.AstFromPlain AstConcreteS{}) -> AstPlusS v u
   u (AstPlusS v@(Ast.AstFromPlain AstConcreteS{}) w) ->
     AstPlusS v (AstPlusS u w)
@@ -1837,7 +1838,8 @@ astTimesS = \cases
   -- AstPlusS v w * u@AstConcreteS{} -> AstPlusS (v * u) (w * u)
   -- AstPlusS v w * AstTimesS u@AstConcreteS{} x =
   --   AstTimesS (AstPlusS (v * u) (w * u)) x
-  -- u@(AstFromPlain AstConcreteS{}) * AstPlusS v w -> AstPlusS (astTimesS u v) (u * w)
+  -- u@(AstFromPlain AstConcreteS{}) * AstPlusS v w ->
+  --   AstPlusS (astTimesS u v) (u * w)
   -- AstTimesS u@(AstFromPlain AstConcreteS{}) x * AstPlusS v w =
   --   AstTimesS x (AstPlusS (astTimesS u v) (u * w))
   -- AstPlusS v w * u@(AstFromPlain AstConcreteS{}) -> AstPlusS (v * u) (w * u)
@@ -2180,8 +2182,9 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
      Ast.AstIndexS shn v0 ix
    Ast.AstFromVector snat STKS{} l ->
      shareIx rest1 $ \ !rest2 ->
-       Ast.AstIndexS @'[in1] @shn shn (astFromVector snat (STKS shn (ftkToSTK x))
-                                       $ V.map (\a -> astIndex shn a rest2) l)
+       Ast.AstIndexS @'[in1] @shn shn
+                     (astFromVector snat (STKS shn (ftkToSTK x))
+                      $ V.map (\a -> astIndex shn a rest2) l)
                      (i1 :.$ ZIS)
    Ast.AstSum snat@(SNat @k1) STKS{} v ->
      let perm3 = backpermCycle $ ixsLength ix + 1
@@ -4807,8 +4810,10 @@ eqK (AstPlusK u1 v1) (AstPlusK u2 v2) =
   eqK u1 u2 && eqK v1 v2 || eqK u1 v2 && eqK v1 u2
 eqK (AstTimesK u1 v1) (AstTimesK u2 v2) =
   eqK u1 u2 && eqK v1 v2 || eqK u1 v2 && eqK v1 u2
-eqK (Ast.AstN1K opCode1 u1) (Ast.AstN1K opCode2 u2) = opCode1 == opCode2 && eqK u1 u2
-eqK (Ast.AstR1K opCode1 u1) (Ast.AstR1K opCode2 u2) = opCode1 == opCode2 && eqK u1 u2
+eqK (Ast.AstN1K opCode1 u1) (Ast.AstN1K opCode2 u2) =
+  opCode1 == opCode2 && eqK u1 u2
+eqK (Ast.AstR1K opCode1 u1) (Ast.AstR1K opCode2 u2) =
+  opCode1 == opCode2 && eqK u1 u2
 eqK (Ast.AstR2K opCode1 u1 v1) (Ast.AstR2K opCode2 u2 v2) =
   opCode1 == opCode2 && eqK u1 u2 && eqK v1 v2
 eqK (Ast.AstI2K opCode1 u1 v1) (Ast.AstI2K opCode2 u2 v2) =
@@ -5198,7 +5203,8 @@ substitute1Ast i var = subst where
        else Nothing
 
 substitute1AstIxS
-  :: AstTensor AstMethodLet s2 y -> AstVarName '(s2, y) -> AstIxS AstMethodLet sh
+  :: AstTensor AstMethodLet s2 y -> AstVarName '(s2, y)
+  -> AstIxS AstMethodLet sh
   -> Maybe (AstIxS AstMethodLet sh)
 substitute1AstIxS i var ix =
   let mix = fmap (substitute1Ast i var) ix
