@@ -466,7 +466,7 @@ astSum snat@SNat stk t0 = case t0 of
     | STKS _sh (STKScalar @r) <- stk
     , Just u <- unRepl1 t1
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      u * astSum snat stk t2
+      astTimesS u (astSum snat stk t2)
   AstConcreteS @_ @sh2 t -> case stk of
     STKS @sh _ STKScalar ->
       gcastWith (unsafeCoerceRefl :: k ': sh :~: sh2) $
@@ -480,15 +480,15 @@ astSum snat@SNat stk t0 = case t0 of
   Ast.AstFromVector _ STKScalar l
     | STKScalar @r <- stk
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      foldr1 (+) l
+      foldr1 astPlusK l
   Ast.AstFromVector _ (STKS ZSS STKScalar) l
     | STKScalar @r <- stk
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      kfromS $ foldr1 (+) l
+      kfromS $ foldr1 astPlusS l
   Ast.AstFromVector _ STKS{} l
     | STKS _ (STKScalar @r) <- stk
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      foldr1 (+) l
+      foldr1 astPlusS l
   -- See the analogous astSliceS rule.
   Ast.AstTransposeS (SNat' @1 `PCons` SNat' @0 `PCons` PNil) t
     | FTKS (_ :$$ _ :$$ _) _ <- ftkAst t
@@ -501,14 +501,15 @@ astSum snat@SNat stk t0 = case t0 of
   -- or use unRepl and unRepl1 to handle it.
   Ast.AstReplicate _ STKScalar v | STKScalar @r <- stk
                                  , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    v * fromPlain (AstConcreteK $ fromIntegral $ fromSNat' snat)
+    astTimesK v (fromPlain (AstConcreteK $ fromIntegral $ fromSNat' snat))
   Ast.AstReplicate _ STKS{} v | STKScalar @r <- stk
                               , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    kfromS v * fromPlain (AstConcreteK $ fromIntegral $ fromSNat' snat)
+    astTimesK (kfromS v)
+              (fromPlain (AstConcreteK $ fromIntegral $ fromSNat' snat))
   Ast.AstReplicate _ STKS{} v | STKS sh (STKScalar @r) <- stk
                               , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    v * (fromPlain $ AstConcreteS
-         $ Nested.sreplicatePrim sh $ fromIntegral $ fromSNat' snat)
+    astTimesS v (fromPlain $ AstConcreteS
+                 $ Nested.sreplicatePrim sh $ fromIntegral $ fromSNat' snat)
   -- This keeps tensors alive for longer, but it enables new simplifications,
   -- while hiding a sum inside let not often prevents other simplifications,
   -- because there are few redexes with sum but not at the top.
@@ -735,29 +736,29 @@ astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
   fromPlain $ astCond b v w
 astCond _b u v | FTKScalar <- ftkAst u, eqK u v = u
 astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqK u1 v1 =
-  AstPlusK u1 (astCond b u2 v2)
+  astPlusK u1 (astCond b u2 v2)
 astCond b (AstPlusK u1 u2) v1 | eqK u1 v1 =
-  AstPlusK u1 (astCond b u2 0)
+  astPlusK u1 (astCond b u2 0)
 astCond b u1 (AstPlusK v1 v2) | eqK u1 v1 =
-  AstPlusK u1 (astCond b 0 v2)
+  astPlusK u1 (astCond b 0 v2)
 astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqK u2 v2 =
-  AstPlusK (astCond b u1 v1) u2
+  astPlusK (astCond b u1 v1) u2
 astCond b (AstPlusK u1 u2) v2 | eqK u2 v2 =
-  AstPlusK (astCond b u1 0) u2
+  astPlusK (astCond b u1 0) u2
 astCond b u2 (AstPlusK v1 v2) | eqK u2 v2 =
-  AstPlusK (astCond b 0 v1) u2
+  astPlusK (astCond b 0 v1) u2
 astCond b (AstTimesK u1 u2) (AstTimesK v1 v2) | eqK u1 v1 =
-  AstTimesK u1 (astCond b u2 v2)
+  astTimesK u1 (astCond b u2 v2)
 astCond b (AstTimesK u1 u2) v1 | eqK u1 v1 =
-  AstTimesK u1 (astCond b u2 0)
+  astTimesK u1 (astCond b u2 0)
 astCond b u1 (AstTimesK v1 v2) | eqK u1 v1 =
-  AstTimesK u1 (astCond b 0 v2)
+  astTimesK u1 (astCond b 0 v2)
 astCond b (AstTimesK u1 u2) (AstTimesK v1 v2) | eqK u2 v2 =
-  AstTimesK (astCond b u1 v1) u2
+  astTimesK (astCond b u1 v1) u2
 astCond b u2 (AstTimesK v1 v2) | eqK u2 v2 =
-  AstTimesK (astCond b 0 v1) u2
+  astTimesK (astCond b 0 v1) u2
 astCond b (AstTimesK u1 u2) v2 | eqK u2 v2 =
-  AstTimesK (astCond b u1 0) u2
+  astTimesK (astCond b u1 0) u2
 astCond b v w | FTKS (snat :$$ sh) x <- ftkAst v
               , Just v1 <- unRepl1 v
               , Just w1 <- unRepl1 w =
@@ -780,8 +781,8 @@ astLet :: forall y z s s2. KnownSpan s2
        => AstVarName '(s, y) -> AstTensor AstMethodLet s y
        -> AstTensor AstMethodLet s2 z
        -> AstTensor AstMethodLet s2 z
-astLet _var _u v@Ast.AstConcreteK{} = v
-astLet _var _u v@Ast.AstConcreteS{} = v
+astLet _var _u v@AstConcreteK{} = v
+astLet _var _u v@AstConcreteS{} = v
 astLet _var _u v@Ast.AstIotaS{} = v
 astLet var u v@(Ast.AstVar var2) =
   if varNameToAstVarId var2 == varNameToAstVarId var
@@ -916,15 +917,12 @@ astPrimalPart t = case t of
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
   Ast.AstFromPlain v -> fromPlain v
 
-  AstPlusK u v -> astPrimalPart u + astPrimalPart v
-  AstTimesK u v -> astPrimalPart u * astPrimalPart v
-  Ast.AstN1K NegateOp u -> negate (astPrimalPart u)
-  Ast.AstN1K AbsOp u -> abs (astPrimalPart u)
-  Ast.AstN1K SignumOp u -> signum (astPrimalPart u)
-  Ast.AstR1K opCode u -> Ast.AstR1K opCode (astPrimalPart u)
-  Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astPrimalPart u) (astPrimalPart v)
-  Ast.AstI2K QuotOp u v -> quotH (astPrimalPart u) (astPrimalPart v)
-  Ast.AstI2K RemOp u v -> remH (astPrimalPart u) (astPrimalPart v)
+  AstPlusK u v -> astPrimalPart u `astPlusK` astPrimalPart v
+  AstTimesK u v -> astPrimalPart u `astTimesK` astPrimalPart v
+  Ast.AstN1K opCode u -> astN1K opCode (astPrimalPart u)
+  Ast.AstR1K opCode u -> astR1K opCode (astPrimalPart u)
+  Ast.AstR2K opCode u v -> astR2K opCode (astPrimalPart u) (astPrimalPart v)
+  Ast.AstI2K opCode u v -> astI2K opCode (astPrimalPart u) (astPrimalPart v)
   AstConcreteK{} -> Ast.AstPrimalPart t
   Ast.AstFloorK{} -> Ast.AstPrimalPart t
   Ast.AstFromIntegralK{} -> Ast.AstPrimalPart t
@@ -933,15 +931,12 @@ astPrimalPart t = case t of
   Ast.AstArgMaxK{} -> Ast.AstPrimalPart t
   Ast.AstIndexK v ix -> astIndexK (astPrimalPart v) ix
 
-  AstPlusS u v -> astPrimalPart u + astPrimalPart v
-  AstTimesS u v -> astPrimalPart u * astPrimalPart v
-  Ast.AstN1S NegateOp u -> negate (astPrimalPart u)
-  Ast.AstN1S AbsOp u -> abs (astPrimalPart u)
-  Ast.AstN1S SignumOp u -> signum (astPrimalPart u)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPrimalPart u)
-  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astPrimalPart u) (astPrimalPart v)
-  Ast.AstI2S QuotOp u v -> quotH (astPrimalPart u) (astPrimalPart v)
-  Ast.AstI2S RemOp u v -> remH (astPrimalPart u) (astPrimalPart v)
+  AstPlusS u v -> astPrimalPart u `astPlusS` astPrimalPart v
+  AstTimesS u v -> astPrimalPart u `astTimesS` astPrimalPart v
+  Ast.AstN1S opCode u -> astN1S opCode (astPrimalPart u)
+  Ast.AstR1S opCode u -> astR1S opCode (astPrimalPart u)
+  Ast.AstR2S opCode u v -> astR2S opCode (astPrimalPart u) (astPrimalPart v)
+  Ast.AstI2S opCode u v -> astI2S opCode (astPrimalPart u) (astPrimalPart v)
   AstConcreteS{} -> Ast.AstPrimalPart t
   Ast.AstFloorS{} -> Ast.AstPrimalPart t
   Ast.AstFromIntegralS{} -> Ast.AstPrimalPart t
@@ -1029,10 +1024,10 @@ astDualPart t = case t of
        $ astConcrete ftk (tdefTarget ftk)
            -- let's hope this is smaller than v
 
-  AstPlusK u v -> astDualPart u + astDualPart v
+  AstPlusK u v -> astDualPart u `astPlusK` astDualPart v
   -- This one is mathematically wrong, dual numbers don't mult like that:
   -- AstTimesK u v -> astDualPart u * astDualPart v
-  Ast.AstN1K NegateOp u -> negate (astDualPart u)
+  Ast.AstN1K NegateOp u -> astN1K NegateOp (astDualPart u)
   {- Some of these are wrong, so let's be conservative:
   Ast.AstN1K AbsOp u -> abs (astDualPart u)
   Ast.AstN1K SignumOp u -> signum (astDualPart u)
@@ -1044,10 +1039,10 @@ astDualPart t = case t of
   Ast.AstCastK v -> astCastK $ astDualPart v
   Ast.AstIndexK v ix -> astIndexK (astDualPart v) ix
 
-  AstPlusS u v -> astDualPart u + astDualPart v
+  AstPlusS u v -> astDualPart u `astPlusS` astDualPart v
   -- This one is mathematically wrong, dual numbers don't mult like that:
   -- AstTimesS u v -> astDualPart u * astDualPart v
-  Ast.AstN1S NegateOp u -> negate (astDualPart u)
+  Ast.AstN1S NegateOp u -> astN1S NegateOp (astDualPart u)
   {- Some of these are wrong, so let's be conservative:
   Ast.AstN1S AbsOp u -> abs (astDualPart u)
   Ast.AstN1S SignumOp u -> signum (astDualPart u)
@@ -1139,27 +1134,21 @@ astPlainPart t = case t of
     in astConcrete ftk (tdefTarget ftk)
   Ast.AstFromPlain v -> v
 
-  AstPlusK u v -> astPlainPart u + astPlainPart v
-  AstTimesK u v -> astPlainPart u * astPlainPart v
-  Ast.AstN1K NegateOp u -> negate (astPlainPart u)
-  Ast.AstN1K AbsOp u -> abs (astPlainPart u)
-  Ast.AstN1K SignumOp u -> signum (astPlainPart u)
-  Ast.AstR1K opCode u -> Ast.AstR1K opCode (astPlainPart u)
-  Ast.AstR2K opCode u v -> Ast.AstR2K opCode (astPlainPart u) (astPlainPart v)
-  Ast.AstI2K QuotOp u v -> quotH (astPlainPart u) (astPlainPart v)
-  Ast.AstI2K RemOp u v -> remH (astPlainPart u) (astPlainPart v)
+  AstPlusK u v -> astPlainPart u `astPlusK` astPlainPart v
+  AstTimesK u v -> astPlainPart u `astTimesK` astPlainPart v
+  Ast.AstN1K opCode u -> astN1K opCode (astPlainPart u)
+  Ast.AstR1K opCode u -> astR1K opCode (astPlainPart u)
+  Ast.AstR2K opCode u v -> astR2K opCode (astPlainPart u) (astPlainPart v)
+  Ast.AstI2K opCode u v -> astI2K opCode (astPlainPart u) (astPlainPart v)
   Ast.AstCastK v -> astCastK $ astPlainPart v
   Ast.AstIndexK v ix -> astIndexK (astPlainPart v) ix
 
-  AstPlusS u v -> astPlainPart u + astPlainPart v
-  AstTimesS u v -> astPlainPart u * astPlainPart v
-  Ast.AstN1S NegateOp u -> negate (astPlainPart u)
-  Ast.AstN1S AbsOp u -> abs (astPlainPart u)
-  Ast.AstN1S SignumOp u -> signum (astPlainPart u)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astPlainPart u)
-  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astPlainPart u) (astPlainPart v)
-  Ast.AstI2S QuotOp u v -> quotH (astPlainPart u) (astPlainPart v)
-  Ast.AstI2S RemOp u v -> remH (astPlainPart u) (astPlainPart v)
+  AstPlusS u v -> astPlainPart u `astPlusS` astPlainPart v
+  AstTimesS u v -> astPlainPart u `astTimesS` astPlainPart v
+  Ast.AstN1S opCode u -> astN1S opCode (astPlainPart u)
+  Ast.AstR1S opCode u -> astR1S opCode (astPlainPart u)
+  Ast.AstR2S opCode u v -> astR2S opCode (astPlainPart u) (astPlainPart v)
+  Ast.AstI2S opCode u v -> astI2S opCode (astPlainPart u) (astPlainPart v)
   Ast.AstCastS v -> astCastS $ astPlainPart v
   Ast.AstIndexS shn v ix -> astIndexS shn (astPlainPart v) ix
 
@@ -1188,12 +1177,238 @@ astPlusK  :: (NumScalar r, KnownSpan s)
           -> AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
 astPlusK = (+)
+{-
+astPlusK = \cases
+{-  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astPlusK u v
+  (Ast.AstDualPart u) (Ast.AstDualPart v) -> dualPart $ astPlusK u v
+  (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
+      plainPart $ astPlusK u v -}
+  (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astPlusK u v
+  (Ast.AstFromDual u) (Ast.AstFromDual v) -> fromDual $ astPlusK u v
+  (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astPlusK u v
+  (AstConcreteK 0) u -> u
+  u (AstConcreteK 0) -> u
+  (Ast.AstFromPlain (AstConcreteK 0)) u -> u
+  u (Ast.AstFromPlain (AstConcreteK 0)) -> u
+  (AstConcreteK n) (AstConcreteK k) -> AstConcreteK (n + k)
+  (AstConcreteK n) (AstPlusK (AstConcreteK k) u) ->
+    astPlusK (AstConcreteK (n + k)) u
+  (AstPlusK (AstConcreteK n) u) (AstConcreteK k) ->
+    astPlusK (AstConcreteK (n + k)) u
+  (AstPlusK (AstConcreteK n) u) (AstPlusK (AstConcreteK k) v) ->
+    astPlusK (AstConcreteK (n + k)) (AstPlusK u v)
+      -- u and v can cancel, but unlikely
+  (Ast.AstFromPlain (AstConcreteK n))
+    (AstPlusK (Ast.AstFromPlain (AstConcreteK k)) u) ->
+      astPlusK (Ast.AstFromPlain (AstConcreteK (n + k))) u
+  (AstPlusK (Ast.AstFromPlain (AstConcreteK n)) u)
+    (Ast.AstFromPlain (AstConcreteK k)) ->
+      astPlusK (Ast.AstFromPlain (AstConcreteK (n + k))) u
+  (AstPlusK (Ast.AstFromPlain (AstConcreteK n)) u)
+    (AstPlusK (Ast.AstFromPlain (AstConcreteK k)) v) ->
+      astPlusK (Ast.AstFromPlain (AstConcreteK (n + k))) (AstPlusK u v)
+
+  -- Unfortunately, these only fire if the required subterms are at the top
+  -- of the reduced term, which happens rarely except in small terms.
+  -- We could keep variables at the top, but they'd compete with AstConcreteK.
+  (Ast.AstN1K NegateOp (Ast.AstVar var)) (Ast.AstVar var')
+    | var == var' -> fromPlain $ AstConcreteK 0
+  (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var)))
+    (Ast.AstConvert _ (Ast.AstVar var'))
+      | varNameToAstVarId var == varNameToAstVarId var' ->
+        fromPlain $ AstConcreteK 0
+  (Ast.AstN1K NegateOp (Ast.AstVar var)) (AstPlusK (Ast.AstVar var') u)
+    | var == var' -> u
+  (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var)))
+    (AstPlusK (Ast.AstConvert _ (Ast.AstVar var')) u)
+      | varNameToAstVarId var == varNameToAstVarId var' -> u
+  (Ast.AstVar var') (Ast.AstN1K NegateOp (Ast.AstVar var))
+    | var == var' -> fromPlain $ AstConcreteK 0
+  (Ast.AstConvert _ (Ast.AstVar var'))
+    (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var)))
+      | varNameToAstVarId var == varNameToAstVarId var' ->
+        fromPlain $ AstConcreteK 0
+  (Ast.AstVar var') (AstPlusK (Ast.AstN1K NegateOp (Ast.AstVar var)) u)
+    | var == var' -> u
+  (Ast.AstConvert _ (Ast.AstVar var'))
+    (AstPlusK (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var))) u)
+      | varNameToAstVarId var == varNameToAstVarId var' -> u
+
+  (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstVar var)) (AstConcreteK n))
+    (Ast.AstI2K RemOp (Ast.AstVar var') (AstConcreteK n'))
+      | var == var' && n == n' -> AstConcreteK 0
+  (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var)))
+                (AstConcreteK n))
+    (Ast.AstI2K RemOp (Ast.AstConvert _ (Ast.AstVar var')) (AstConcreteK n'))
+      | varNameToAstVarId var == varNameToAstVarId var' && n == n' ->
+        AstConcreteK 0
+  (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstVar var)) (AstConcreteK n))
+    (AstPlusK (Ast.AstI2K RemOp (Ast.AstVar var') (AstConcreteK n')) u)
+      | var == var' && n == n' -> u
+  (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var)))
+                (AstConcreteK n))
+    (AstPlusK (Ast.AstI2K RemOp (Ast.AstConvert _ (Ast.AstVar var'))
+                            (AstConcreteK n')) u)
+      | varNameToAstVarId var == varNameToAstVarId var' && n == n' -> u
+  (Ast.AstI2K RemOp (Ast.AstVar var') (AstConcreteK n'))
+    (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstVar var)) (AstConcreteK n))
+      | var == var' && n == n' -> AstConcreteK 0
+  (Ast.AstI2K RemOp (Ast.AstConvert _ (Ast.AstVar var')) (AstConcreteK n'))
+    (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var)))
+                                   (AstConcreteK n))
+     | varNameToAstVarId var == varNameToAstVarId var' && n == n' ->
+       AstConcreteK 0
+  (Ast.AstI2K RemOp (Ast.AstVar var') (AstConcreteK n'))
+    (AstPlusK (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstVar var))
+                                (AstConcreteK n)) u)
+      | var == var' && n == n' -> u
+  (Ast.AstI2K RemOp (Ast.AstConvert _ (Ast.AstVar var')) (AstConcreteK n'))
+    (AstPlusK (Ast.AstI2K RemOp (Ast.AstN1K NegateOp
+                                            (Ast.AstConvert _ (Ast.AstVar var)))
+                            (AstConcreteK n)) u)
+      | varNameToAstVarId var == varNameToAstVarId var' && n == n' -> u
+
+  (AstPlusK u@AstConcreteK{} v) w -> AstPlusK u (AstPlusK v w)  -- as above
+  u v@AstConcreteK{} -> AstPlusK v u
+  u (AstPlusK v@AstConcreteK{} w) -> AstPlusK v (AstPlusK u w)  -- as above
+  (AstPlusK u@(Ast.AstFromPlain AstConcreteK{}) v) w ->
+    AstPlusK u (AstPlusK v w)  -- as above
+  u v@(Ast.AstFromPlain AstConcreteK{}) -> AstPlusK v u
+  u (AstPlusK v@(Ast.AstFromPlain AstConcreteK{}) w) ->
+    AstPlusK v (AstPlusK u w)  -- as above
+  t1 t2 | eqK t1 t2 -> fromPlain (AstConcreteK 2) `astTimesK` t1
+  t1 (AstTimesK (AstConcreteK n) t2) | eqK t1 t2 ->
+    AstConcreteK (n + 1) `astTimesK` t1
+  (AstTimesK (AstConcreteK n) t2) t1 | eqK t1 t2 ->
+    AstConcreteK (n + 1) `astTimesK` t1
+  (AstTimesK (AstConcreteK n1) t1) (AstTimesK (AstConcreteK n2) t2)
+    | eqK t1 t2 -> AstConcreteK (n1 + n2) `astTimesK` t1
+  t1 (AstTimesK (Ast.AstFromPlain (AstConcreteK n)) t2) | eqK t1 t2 ->
+    Ast.AstFromPlain (AstConcreteK (n + 1)) `astTimesK` t1
+  (AstTimesK (Ast.AstFromPlain (AstConcreteK n)) t2) t1 | eqK t1 t2 ->
+    Ast.AstFromPlain (AstConcreteK (n + 1)) `astTimesK` t1
+  (AstTimesK (Ast.AstFromPlain (AstConcreteK n1)) t1)
+    (AstTimesK (Ast.AstFromPlain (AstConcreteK n2)) t2) | eqK t1 t2 ->
+       Ast.AstFromPlain (AstConcreteK (n1 + n2)) `astTimesK` t1
+  u v -> AstPlusK u v
+-}
 
 astTimesK :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
 astTimesK = (*)
+{-
+astTimesK = \cases
+{-  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astTimesK u v
+  (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
+      plainPart $ astTimesK u v -}
+  (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astTimesK u v
+  Ast.AstFromDual{} Ast.AstFromDual{} -> fromPlain $ AstConcreteK 0
+  (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astTimesK u v
+  (AstConcreteK 0) _ -> AstConcreteK 0
+  _ (AstConcreteK 0) -> AstConcreteK 0
+  (AstConcreteK 1) u -> u
+  u (AstConcreteK 1) -> u
+  (Ast.AstFromPlain (AstConcreteK 0)) _ -> fromPlain $ AstConcreteK 0
+  _ (Ast.AstFromPlain (AstConcreteK 0)) -> fromPlain $ AstConcreteK 0
+  (Ast.AstFromPlain (AstConcreteK 1)) u -> u
+  u (Ast.AstFromPlain (AstConcreteK 1)) -> u
+  (AstConcreteK n) (AstConcreteK k) -> AstConcreteK (n * k)
+  (AstConcreteK n) (AstTimesK (AstConcreteK k) u) ->
+    AstConcreteK (n * k) `astTimesK` u
+  (AstTimesK (AstConcreteK n) u) (AstConcreteK k) ->
+    AstConcreteK (n * k) `astTimesK` u
+  (AstTimesK (AstConcreteK n) u) (AstTimesK (AstConcreteK k) v) ->
+    AstConcreteK (n * k) `astTimesK` AstTimesK u v
+      -- u and v can cancel, but unlikely
+  (Ast.AstFromPlain (AstConcreteK n))
+    (AstTimesK (Ast.AstFromPlain (AstConcreteK k)) u) ->
+      Ast.AstFromPlain (AstConcreteK (n * k)) `astTimesK` u
+  (AstTimesK (Ast.AstFromPlain (AstConcreteK n)) u)
+    (Ast.AstFromPlain (AstConcreteK k)) ->
+      Ast.AstFromPlain (AstConcreteK (n * k)) `astTimesK` u
+  (AstTimesK (Ast.AstFromPlain (AstConcreteK n)) u)
+    (AstTimesK (Ast.AstFromPlain (AstConcreteK k)) v) ->
+      Ast.AstFromPlain (AstConcreteK (n * k)) `astTimesK` AstTimesK u v
+
+  -- This breaks sharing, because although u is concrete and so doesn't
+  -- have to be shared, the multiplication is not shared --- we end up
+  -- with one addition and two multiplications, not one. Similarly below.
+  -- However, three instead of two cheap scalar operations is benign
+  -- and there's no risk of exponential blowup via duplicating
+  -- variables, so the ability to simplify better is worth the overhead.
+  -- OTOH, we don't declare scalar operations small in astIsSmall,
+  -- because that could lead to such operations being inlined an unbounded
+  -- number of times into expressions.
+  -- Note that due to non-scalar versions of these rules being banned,
+  -- we get different terms depending on the form of conversions
+  -- and rank 0 arrays.
+  u@AstConcreteK{} (AstPlusK v w) -> AstPlusK (astTimesK u v) (u `astTimesK` w)
+  (AstTimesK u@AstConcreteK{} x) (AstPlusK v w) ->
+    AstTimesK x (AstPlusK (astTimesK u v) (u `astTimesK` w))
+  (AstPlusK v w) u@AstConcreteK{} ->
+    AstPlusK (v `astTimesK` u) (w `astTimesK` u)
+  (AstPlusK v w) (AstTimesK u@AstConcreteK{} x) ->
+    AstTimesK (AstPlusK (v `astTimesK` u) (w `astTimesK` u)) x
+  u@(Ast.AstFromPlain AstConcreteK{}) (AstPlusK v w) ->
+    AstPlusK (astTimesK u v) (u `astTimesK` w)
+  (AstTimesK u@(Ast.AstFromPlain AstConcreteK{}) x) (AstPlusK v w) ->
+    AstTimesK x (AstPlusK (astTimesK u v) (u `astTimesK` w))
+  (AstPlusK v w) u@(Ast.AstFromPlain AstConcreteK{}) ->
+    AstPlusK (v `astTimesK` u) (w `astTimesK` u)
+  (AstPlusK v w) (AstTimesK u@(Ast.AstFromPlain AstConcreteK{}) x) ->
+    AstTimesK (AstPlusK (v `astTimesK` u) (w `astTimesK` u)) x
+
+  (Ast.AstN1K NegateOp u) (Ast.AstN1K NegateOp v) -> AstTimesK u v
+
+  {- TODO: these rules increase the number of occurrences of a variable
+     and trade multiplication and quotient for an equally problematic remnant,
+     so they are disabled until we find a way to profit from them.
+  -- With static shapes, the second argument to QuotOp and RemOp
+  -- is often a constant, which makes such rules worth including,
+  -- since they are likely to fire. To help them fire, we avoid changing
+  -- that constant, if possible, e.g., in rules for NegateOp.
+  (AstConcreteK n) (Ast.AstI2K QuotOp (Ast.AstVar var) (AstConcreteK n'))
+    | n == n' ->
+      AstPlusK
+        (Ast.AstVar var)
+        (negate (Ast.AstI2K RemOp (Ast.AstVar var) (AstConcreteK n)))
+  (AstTimesK (AstConcreteK n) x) (Ast.AstI2K QuotOp (Ast.AstVar var)
+                                                (AstConcreteK n'))
+    | n == n' ->
+      AstTimesK
+        x
+        (AstPlusK
+           (Ast.AstVar var)
+           (negate (Ast.AstI2K RemOp (Ast.AstVar var) (AstConcreteK n))))
+  (Ast.AstI2K QuotOp (Ast.AstVar var) (AstConcreteK n')) (AstConcreteK n)
+    | n == n' ->
+      AstPlusK
+        (Ast.AstVar var)
+        (negate (Ast.AstI2K RemOp (Ast.AstVar var) (AstConcreteK n)))
+  (Ast.AstI2K QuotOp (Ast.AstVar var)
+                 (AstConcreteK n')) (AstTimesK (AstConcreteK n) x)
+    | n == n' ->
+      AstTimesK
+        (AstPlusK
+           (Ast.AstVar var)
+           (negate (Ast.AstI2K RemOp (Ast.AstVar var) (AstConcreteK n))))
+        x
+  -}
+
+  (AstTimesK u@AstConcreteK{} v) w -> AstTimesK u (AstTimesK v w)  -- as above
+  u v@AstConcreteK{} -> AstTimesK v u
+  u (AstTimesK v@AstConcreteK{} w) -> AstTimesK v (AstTimesK u w)  -- as above
+  (AstTimesK u@(Ast.AstFromPlain AstConcreteK{}) v) w ->
+    AstTimesK u (AstTimesK v w)  -- as above
+  u v@(Ast.AstFromPlain AstConcreteK{}) -> AstTimesK v u
+  u (AstTimesK v@(Ast.AstFromPlain AstConcreteK{}) w) ->
+    AstTimesK v (AstTimesK u w)  -- as above
+  u v -> AstTimesK u v
+-}
 
 astN1K :: (NumScalar r, KnownSpan s)
        => OpCodeNum1 -> AstTensor AstMethodLet s (TKScalar r)
@@ -1202,11 +1417,70 @@ astN1K opCode = case opCode of
   Ast.NegateOp -> negate
   Ast.AbsOp -> abs
   Ast.SignumOp -> signum
+{-
+astN1K opCode t = case t of
+  Ast.AstCond b n k -> astCond b (astN1K opCode n) (astN1K opCode k)
+  Ast.AstLet var n k -> astLet var n (astN1K opCode k)
+{-  Ast.AstPrimalPart n -> primalPart (astN1K opCode n)
+  Ast.AstDualPart n -> dualPart (astN1K opCode n)
+  Ast.AstPlainPart n -> plainPart (astN1K opCode n) -}
+  Ast.AstFromPrimal n -> fromPrimal (astN1K opCode n)
+  Ast.AstFromDual n -> fromDual (astN1K opCode n)
+  Ast.AstFromPlain n -> fromPlain (astN1K opCode n)
+  _ -> case (opCode, t) of
+    (Ast.NegateOp, AstConcreteK n) -> AstConcreteK (negate n)
+    (Ast.NegateOp, AstPlusK u v) ->
+      AstPlusK (astN1K Ast.NegateOp u) (astN1K Ast.NegateOp v)
+    (Ast.NegateOp, AstTimesK u v) ->
+      AstTimesK (astN1K Ast.NegateOp u) v
+    (Ast.NegateOp, Ast.AstN1K Ast.NegateOp u) -> u
+    (Ast.NegateOp, Ast.AstN1K Ast.SignumOp u) ->
+      astN1K Ast.SignumOp (astN1K Ast.NegateOp u)
+    (Ast.NegateOp, Ast.AstI2K Ast.QuotOp u v) ->
+      astI2K Ast.QuotOp (astN1K Ast.NegateOp u) v
+        -- v is likely positive and let's keep it so
+    (Ast.NegateOp, Ast.AstI2K Ast.RemOp u v) ->
+       astI2K Ast.RemOp (astN1K Ast.NegateOp u) v
+         -- v is likely positive and let's keep it so
+    (Ast.AbsOp, AstConcreteK n) -> AstConcreteK (abs n)
+    (Ast.AbsOp, Ast.AstN1K Ast.AbsOp u) -> astN1K Ast.AbsOp u
+    (Ast.AbsOp, Ast.AstN1K Ast.NegateOp u) -> astN1K Ast.AbsOp u
+    (Ast.SignumOp, AstConcreteK n) -> AstConcreteK (signum n)
+    (Ast.SignumOp, Ast.AstN1K Ast.SignumOp u) -> astN1K Ast.SignumOp u
+    _ -> Ast.AstN1K opCode t
+-}
 
 astR1K :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode1 -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
 astR1K = Ast.AstR1K
+{-
+astR1K opCode = \case
+  Ast.AstCond b n k -> astCond b (astR1K opCode n) (astR1K opCode k)
+  Ast.AstLet var n k -> astLet var n (astR1K opCode k)
+{-  Ast.AstPrimalPart u -> primalPart $ astR1K opCode u
+  Ast.AstPlainPart u -> plainPart $ astR1K opCode u -}
+  Ast.AstFromPrimal u -> fromPrimal $ astR1K opCode u
+  Ast.AstFromPlain u -> fromPlain $ astR1K opCode u
+  Ast.AstConcreteK u -> case opCode of
+    Ast.RecipOp -> AstConcreteK $ recip u
+    Ast.ExpOp -> AstConcreteK $ exp u
+    Ast.LogOp -> AstConcreteK $ log u
+    Ast.SqrtOp -> AstConcreteK $ sqrt u
+    Ast.SinOp -> AstConcreteK $ sin u
+    Ast.CosOp -> AstConcreteK $ cos u
+    Ast.TanOp -> AstConcreteK $ tan u
+    Ast.AsinOp -> AstConcreteK $ asin u
+    Ast.AcosOp -> AstConcreteK $ acos u
+    Ast.AtanOp -> AstConcreteK $ atan u
+    Ast.SinhOp -> AstConcreteK $ sinh u
+    Ast.CoshOp -> AstConcreteK $ cosh u
+    Ast.TanhOp -> AstConcreteK $ tanh u
+    Ast.AsinhOp -> AstConcreteK $ asinh u
+    Ast.AcoshOp -> AstConcreteK $ acosh u
+    Ast.AtanhOp -> AstConcreteK $ atanh u
+  u -> Ast.AstR1K opCode u
+-}
 
 astR2K :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode2
@@ -1214,13 +1488,73 @@ astR2K :: (NumScalar r, Differentiable r, KnownSpan s)
        -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
 astR2K = Ast.AstR2K
+{-
+astR2K opCode = \cases
+{- (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astR2K opCode u v
+  (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
+      plainPart $ astR2K opCode u v -}
+  (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astR2K opCode u v
+  (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astR2K opCode u v
+  (AstConcreteK u) (AstConcreteK v) -> case opCode of
+    Ast.DivideOp -> AstConcreteK $ u / v
+    Ast.PowerOp -> AstConcreteK $ u ** v
+    Ast.LogBaseOp -> AstConcreteK $ logBase u v
+    Ast.Atan2Op -> AstConcreteK $ atan2H u v
+  u v -> Ast.AstR2K opCode u v
+-}
 
 astI2K :: (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
        => OpCodeIntegral2
        -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
-astI2K = Ast.AstI2K
+astI2K opCode = case opCode of
+  Ast.QuotOp -> quotH
+  Ast.RemOp -> remH
+{-
+astI2K opCode = \cases
+{-  (Ast.AstPrimalPart n) (Ast.AstPrimalPart k) ->
+    primalPart (astI2K opCode n k)
+  (Ast.AstPlainPart @_ @s1 n) (Ast.AstPlainPart @_ @s2 k)
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
+      plainPart (astI2K opCode n k) -}
+  (Ast.AstFromPrimal n) (Ast.AstFromPrimal k) ->
+    fromPrimal (astI2K opCode n k)
+  (Ast.AstFromPlain n) (Ast.AstFromPlain k) ->
+    fromPlain (astI2K opCode n k)
+  u v | let t = Ast.AstI2K opCode u v
+      , Just (u1, u2) <- bounds t
+      , u1 == u2 ->
+        fromPlain $ AstConcreteK u1
+  u v -> case opCode of
+    Ast.QuotOp -> case (u, v) of
+      (AstConcreteK n, AstConcreteK k) -> AstConcreteK (quotH n k)
+      (AstConcreteK 0, _) -> AstConcreteK 0
+      (Ast.AstFromPlain (AstConcreteK 0), _) -> fromPlain $ AstConcreteK 0
+      (t, AstConcreteK 1) -> t
+      (t, Ast.AstFromPlain (AstConcreteK 1)) -> t
+      (Ast.AstI2K Ast.RemOp _ (AstConcreteK k), AstConcreteK k')
+        | k' >= k && k >= 0 -> AstConcreteK 0
+      (Ast.AstI2K Ast.QuotOp u0 v0, w0) ->
+        astI2K Ast.QuotOp u0 (astTimesK v0 w0)
+      (AstTimesK (AstConcreteK n) t, AstConcreteK n')
+        | n == n' -> t
+      _ -> Ast.AstI2K Ast.QuotOp u v
+    Ast.RemOp -> case (u, v) of
+      (AstConcreteK n, AstConcreteK k) -> AstConcreteK (remH n k)
+      (AstConcreteK 0, _) -> AstConcreteK 0
+      (Ast.AstFromPlain (AstConcreteK 0), _) -> fromPlain $ AstConcreteK 0
+      (_, AstConcreteK 1) -> AstConcreteK 0
+      (_, Ast.AstFromPlain (AstConcreteK 1)) -> fromPlain $ AstConcreteK 0
+      (Ast.AstI2K Ast.RemOp t (AstConcreteK k), AstConcreteK k')
+        | k' >= k && k >= 0 -> astI2K Ast.RemOp t (AstConcreteK k)
+      (Ast.AstI2K Ast.RemOp t (AstConcreteK k), AstConcreteK k')
+        | remH k k' == 0 && k > 0 -> astI2K Ast.RemOp t (AstConcreteK k')
+      (AstTimesK (AstConcreteK n) _, AstConcreteK n')
+        | remH n n' == 0 -> AstConcreteK 0
+      _ -> Ast.AstI2K Ast.RemOp u v
+-}
 
 astConcreteK :: GoodScalar r
              => Concrete (TKScalar r)
@@ -1251,9 +1585,7 @@ astFromIntegralK t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
   Ast.AstLet var u v -> astLet var u (astFromIntegralK v)
   AstConcreteK k -> astConcreteK (tkfromIntegral $ Concrete k)
-  Ast.AstN1K NegateOp u -> negate (astFromIntegralK u)
-  Ast.AstN1K AbsOp u -> abs (astFromIntegralK u)
-  Ast.AstN1K SignumOp u -> signum (astFromIntegralK u)
+  Ast.AstN1K opCode u -> astN1K opCode (astFromIntegralK u)
   Ast.AstFromIntegralK v -> astFromIntegralK v
   _ -> Ast.AstFromIntegralK t
 
@@ -1273,10 +1605,8 @@ astCastK t = case t of
   Ast.AstFromPrimal v -> fromPrimal $ astCastK v
   Ast.AstFromDual v -> fromDual $ astCastK v
   Ast.AstFromPlain v -> fromPlain $ astCastK v
-  Ast.AstN1K NegateOp u -> negate (astCastK u)
-  Ast.AstN1K AbsOp u -> abs (astCastK u)
-  Ast.AstN1K SignumOp u -> signum (astCastK u)
-  Ast.AstR1K opCode u -> Ast.AstR1K opCode (astCastK u)
+  Ast.AstN1K opCode u -> astN1K opCode (astCastK u)
+  Ast.AstR1K opCode u -> astR1K opCode (astCastK u)
   Ast.AstFromIntegralK v -> astFromIntegralK v
   Ast.AstCastK v -> astCastK v
   _ -> Ast.AstCastK t
@@ -1373,12 +1703,187 @@ astPlusS :: (NumScalar r, KnownSpan s)
          -> AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS sh r)
 astPlusS = (+)
+{-
+astPlusS = \cases
+  u v | FTKS (snat :$$ sh) x <- ftkAst u
+      , Just u0 <- unRepl1 u
+      , Just v0 <- unRepl1 v ->
+        Ast.AstReplicate snat (STKS sh (ftkToSTK x)) $ astPlusS u0 v0
+{-  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astPlusS u v
+  (Ast.AstDualPart u) (Ast.AstDualPart v) -> dualPart $ astPlusS u v
+  (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
+      plainPart $ astPlusS u v -}
+  (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astPlusS u v
+  (Ast.AstFromDual u) (Ast.AstFromDual v) -> fromDual $ astPlusS u v
+  (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astPlusS u v
+  u v | Just 0 <- unReplC u -> v
+  u v | Just 0 <- unReplC v -> u
+  (AstConcreteS n) (AstConcreteS k) -> AstConcreteS (n + k)
+  (AstConcreteS n) (AstPlusS (AstConcreteS k) u) ->
+    AstPlusS (AstConcreteS (n + k)) u
+  (AstPlusS (AstConcreteS n) u) (AstConcreteS k) ->
+    AstPlusS (AstConcreteS (n + k)) u
+  (AstPlusS (AstConcreteS n) u) (AstPlusS (AstConcreteS k) v) ->
+    AstPlusS (AstConcreteS (n + k)) (AstPlusS u v)
+  (Ast.AstFromPlain (AstConcreteS n))
+    (AstPlusS (Ast.AstFromPlain (AstConcreteS k)) u) ->
+      AstPlusS (Ast.AstFromPlain (AstConcreteS (n + k))) u
+  (AstPlusS (Ast.AstFromPlain (AstConcreteS n)) u)
+    (Ast.AstFromPlain (AstConcreteS k)) ->
+      AstPlusS (Ast.AstFromPlain (AstConcreteS (n + k))) u
+  (AstPlusS (Ast.AstFromPlain (AstConcreteS n)) u)
+    (AstPlusS (Ast.AstFromPlain (AstConcreteS k)) v) ->
+      AstPlusS (Ast.AstFromPlain (AstConcreteS (n + k))) (AstPlusS u v)
+  (AstConvUpSFromK u) (AstConvUpSFromK v) -> cAstConvUpSFromK $ astPlusK u v
+  u (AstConvUpSFromK v) -> cAstConvUpSFromK $ astPlusK (cAstConvDownKFromS u) v
+  (AstConvUpSFromK u) v -> cAstConvUpSFromK $ astPlusK u (cAstConvDownKFromS v)
+
+--  Ast.AstN1S Ast.NegateOp (Ast.AstVar var) + Ast.AstVar var'
+--    | var == var' -> 0
+  (Ast.AstN1S Ast.NegateOp (Ast.AstVar var)) (AstPlusS (Ast.AstVar var') u)
+    | var == var' -> u
+--  Ast.AstVar var' + Ast.AstN1S Ast.NegateOp (Ast.AstVar var)
+--    | var == var' -> 0
+  (Ast.AstVar var') (AstPlusS (Ast.AstN1S Ast.NegateOp (Ast.AstVar var)) u)
+    | var == var' -> u
+
+  (AstPlusS u@AstConcreteS{} v)  w -> AstPlusS u (AstPlusS v w)
+  u  v@AstConcreteS{} -> AstPlusS v u
+  u (AstPlusS v@AstConcreteS{} w) -> AstPlusS v (AstPlusS u w)
+  (AstPlusS u@(Ast.AstFromPlain AstConcreteS{}) v) w -> AstPlusS u (AstPlusS v w)
+  u v@(Ast.AstFromPlain AstConcreteS{}) -> AstPlusS v u
+  u (AstPlusS v@(Ast.AstFromPlain AstConcreteS{}) w) ->
+    AstPlusS v (AstPlusS u w)
+  u v -> AstPlusS u v
+-}
 
 astTimesS :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKS sh r)
           -> AstTensor AstMethodLet s (TKS sh r)
           -> AstTensor AstMethodLet s (TKS sh r)
 astTimesS = (*)
+{-
+astTimesS = \cases
+  u v | FTKS (snat :$$ sh) x <- ftkAst u
+      , Just u0 <- unRepl1 u
+      , Just v0 <- unRepl1 v ->
+        Ast.AstReplicate snat (STKS sh (ftkToSTK x)) $ astTimesS u0 v0
+{-  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astTimesS u v
+  (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
+      plainPart $ astTimesS u v -}
+  (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astTimesS u v
+--  Ast.AstFromDual{} * Ast.AstFromDual{} -> 0
+  (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astTimesS u v
+  u _ | Just 0 <- unReplC u -> u
+  _ v | Just 0 <- unReplC v -> v
+  u v | Just 1 <- unReplC u -> v
+  u v | Just 1 <- unReplC v -> u
+  (AstConcreteS n) (AstConcreteS k) -> AstConcreteS (n * k)
+  (AstConcreteS n) (AstTimesS (AstConcreteS k) u) ->
+    AstTimesS (AstConcreteS (n * k)) u
+  (AstTimesS (AstConcreteS n) u) (AstConcreteS k) ->
+    AstTimesS (AstConcreteS (n * k)) u
+  (AstTimesS (AstConcreteS n) u) (AstTimesS (AstConcreteS k) v) ->
+    AstTimesS (AstConcreteS (n * k)) (AstTimesS u v)
+  (Ast.AstFromPlain (AstConcreteS n))
+    (AstTimesS (Ast.AstFromPlain (AstConcreteS k)) u) ->
+      AstTimesS (Ast.AstFromPlain (AstConcreteS (n * k))) u
+  (AstTimesS (Ast.AstFromPlain (AstConcreteS n)) u)
+    (Ast.AstFromPlain (AstConcreteS k)) ->
+      AstTimesS (Ast.AstFromPlain (AstConcreteS (n * k))) u
+  (AstTimesS (Ast.AstFromPlain (AstConcreteS n)) u)
+    (AstTimesS (Ast.AstFromPlain (AstConcreteS k)) v) ->
+      AstTimesS (Ast.AstFromPlain (AstConcreteS (n * k))) (AstTimesS u v)
+  (Ast.AstScatterS shm shn shp v (vars, ix)) u
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
+      Ast.AstScatterS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
+                                  (vars, ix)
+  (Ast.AstScatterS shm shn shp v (vars, ix)) (AstTimesS u a)
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
+      astTimesS
+        (Ast.AstScatterS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
+                                     (vars, ix)) a
+  (AstTimesS a (Ast.AstScatterS shm shn shp v (vars, ix))) u
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
+      astTimesS
+      a (Ast.AstScatterS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
+                                     (vars, ix))
+  u (Ast.AstScatterS shm shn shp v (vars, ix))
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
+      Ast.AstScatterS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
+                                  (vars, ix)
+  u  (AstTimesS (Ast.AstScatterS shm shn shp v (vars, ix)) a)
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
+      astTimesS
+        (Ast.AstScatterS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
+                                     (vars, ix)) a
+  (AstTimesS a u) (Ast.AstScatterS shm shn shp v (vars, ix))
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
+      astTimesS
+        a (Ast.AstScatterS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
+                                       (vars, ix))
+  (Ast.AstGatherS shm shn shp v (vars, ix)) u
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
+      Ast.AstGatherS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
+                                 (vars, ix)
+  (Ast.AstGatherS shm shn shp v (vars, ix)) (AstTimesS u a)
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
+      astTimesS
+        (Ast.AstGatherS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
+                                    (vars, ix)) a
+  (AstTimesS a (Ast.AstGatherS shm shn shp v (vars, ix))) u
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
+      astTimesS
+        a (Ast.AstGatherS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
+                                      (vars, ix))
+  u (Ast.AstGatherS shm shn shp v (vars, ix))
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
+      Ast.AstGatherS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
+                                 (vars, ix)
+  u (AstTimesS (Ast.AstGatherS shm shn shp v (vars, ix)) a)
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
+      astTimesS
+        (Ast.AstGatherS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
+                                    (vars, ix)) a
+  (AstTimesS a u) (Ast.AstGatherS shm shn shp v (vars, ix))
+    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
+      astTimesS
+        a (Ast.AstGatherS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
+                                      (vars, ix))
+  (AstConvUpSFromK u) (AstConvUpSFromK v) -> cAstConvUpSFromK $ astTimesK u v
+  u (AstConvUpSFromK v) -> cAstConvUpSFromK $ astTimesK (cAstConvDownKFromS u) v
+  (AstConvUpSFromK u) v -> cAstConvUpSFromK $ astTimesK u (cAstConvDownKFromS v)
+
+  -- This breaks sharing, because although u is concrete and so doesn't
+  -- have to be shared, the multiplication is not shared --- we end up
+  -- with one addition and two multiplications, not one. Similarly below.
+  -- u@AstConcreteS{} * AstPlusS v w -> AstPlusS (astTimesS u v) (u * w)
+  -- AstTimesS u@AstConcreteS{} x * AstPlusS v w =
+  --   AstTimesS x (AstPlusS (astTimesS u v) (u * w))
+  -- AstPlusS v w * u@AstConcreteS{} -> AstPlusS (v * u) (w * u)
+  -- AstPlusS v w * AstTimesS u@AstConcreteS{} x =
+  --   AstTimesS (AstPlusS (v * u) (w * u)) x
+  -- u@(AstFromPlain AstConcreteS{}) * AstPlusS v w -> AstPlusS (astTimesS u v) (u * w)
+  -- AstTimesS u@(AstFromPlain AstConcreteS{}) x * AstPlusS v w =
+  --   AstTimesS x (AstPlusS (astTimesS u v) (u * w))
+  -- AstPlusS v w * u@(AstFromPlain AstConcreteS{}) -> AstPlusS (v * u) (w * u)
+  -- AstPlusS v w * AstTimesS u@(AstFromPlain AstConcreteS{}) x =
+  --   AstTimesS (AstPlusS (v * u) (w * u)) x
+
+  (Ast.AstN1S Ast.NegateOp u) (Ast.AstN1S Ast.NegateOp v) -> AstTimesS u v
+
+  (AstTimesS u@AstConcreteS{} v) w -> AstTimesS u (AstTimesS v w)
+  u v@AstConcreteS{} -> AstTimesS v u
+  u (AstTimesS v@AstConcreteS{} w) -> AstTimesS v (AstTimesS u w)
+  (AstTimesS u@(Ast.AstFromPlain AstConcreteS{}) v) w ->
+    AstTimesS u (AstTimesS v w)
+  u v@(Ast.AstFromPlain AstConcreteS{}) -> AstTimesS v u
+  u (AstTimesS v@(Ast.AstFromPlain AstConcreteS{}) w) ->
+    AstTimesS v (AstTimesS u w)
+  u v -> AstTimesS u v
+-}
 
 astN1S :: (NumScalar r, KnownSpan s)
        => OpCodeNum1 -> AstTensor AstMethodLet s (TKS sh r)
@@ -1387,11 +1892,82 @@ astN1S opCode = case opCode of
   Ast.NegateOp -> negate
   Ast.AbsOp -> abs
   Ast.SignumOp -> signum
+{-
+astN1S opCode t = case t of
+  _ | FTKS (snat :$$ sh) x <- ftkAst t
+    , Just t0 <- unRepl1 t ->
+      Ast.AstReplicate snat (STKS sh (ftkToSTK x)) (astN1S opCode t0)
+  Ast.AstCond b n k -> astCond b (astN1S opCode n) (astN1S opCode k)
+  Ast.AstLet var n k -> astLet var n (astN1S opCode k)
+{-  Ast.AstPrimalPart n -> primalPart (astN1S opCode n)
+  Ast.AstDualPart n -> dualPart (astN1S opCode n)
+  Ast.AstPlainPart n -> plainPart (astN1S opCode n) -}
+  Ast.AstFromPrimal n -> fromPrimal (astN1S opCode n)
+  Ast.AstFromDual n -> fromDual (astN1S opCode n)
+  Ast.AstFromPlain n -> fromPlain (astN1S opCode n)
+  AstConvUpSFromK n -> cAstConvUpSFromK $ astN1K opCode n
+  _ -> case (opCode, t) of
+    (Ast.NegateOp, AstConcreteS n) -> AstConcreteS (negate n)
+    (Ast.NegateOp, AstPlusS u v) ->
+      AstPlusS (astN1S Ast.NegateOp u) (astN1S Ast.NegateOp v)
+    (Ast.NegateOp, AstTimesS u v) ->
+      AstTimesS (astN1S Ast.NegateOp u) v
+    (Ast.NegateOp, Ast.AstN1S Ast.NegateOp u) -> u
+    (Ast.NegateOp, Ast.AstN1S Ast.SignumOp u) ->
+      astN1S Ast.SignumOp (astN1S Ast.NegateOp u)
+    (Ast.NegateOp, Ast.AstI2S Ast.QuotOp u v) ->
+      astI2S Ast.QuotOp (astN1S Ast.NegateOp u) v
+        -- v is likely positive and let's keep it so
+    (Ast.NegateOp, Ast.AstI2S Ast.RemOp u v) ->
+      astI2S Ast.RemOp (astN1S Ast.NegateOp u) v
+        -- v is likely positive and let's keep it so
+    (Ast.NegateOp, Ast.AstScatterS shm shn shp v (vars, ix)) ->
+      astScatterS shm shn shp (astN1S Ast.NegateOp v) (vars, ix)
+    (Ast.NegateOp, Ast.AstGatherS shm shn shp v (vars, ix)) ->
+      astGatherS shm shn shp (astN1S Ast.NegateOp v) (vars, ix)
+    (Ast.AbsOp, AstConcreteS n) -> AstConcreteS (abs n)
+    (Ast.AbsOp, Ast.AstN1S Ast.AbsOp u) -> astN1S Ast.AbsOp u
+    (Ast.AbsOp, Ast.AstN1S Ast.NegateOp u) -> astN1S Ast.AbsOp u
+    (Ast.SignumOp, AstConcreteS n) -> AstConcreteS (signum n)
+    (Ast.SignumOp, Ast.AstN1S Ast.SignumOp u) -> astN1S Ast.SignumOp u
+    _ -> Ast.AstN1S opCode t
+-}
 
 astR1S :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode1 -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
 astR1S = Ast.AstR1S
+{-
+astR1S opCode = \case
+  t | FTKS (snat :$$ sh) x <- ftkAst t
+    , Just t0 <- unRepl1 t ->
+      Ast.AstReplicate snat (STKS sh (ftkToSTK x)) (astR1S opCode t0)
+  Ast.AstCond b n k -> astCond b (astR1S opCode n) (astR1S opCode k)
+  Ast.AstLet var n k -> astLet var n (astR1S opCode k)
+{-  Ast.AstPrimalPart u -> primalPart $ astR1S opCode u
+  Ast.AstPlainPart u -> plainPart $ astR1S opCode u -}
+  Ast.AstFromPrimal u -> fromPrimal $ astR1S opCode u
+  Ast.AstFromPlain u -> fromPlain $ astR1S opCode u
+  AstConvUpSFromK u -> cAstConvUpSFromK $ astR1K opCode u
+  Ast.AstConcreteS u -> case opCode of
+    Ast.RecipOp -> AstConcreteS $ recip u
+    Ast.ExpOp -> AstConcreteS $ exp u
+    Ast.LogOp -> AstConcreteS $ log u
+    Ast.SqrtOp -> AstConcreteS $ sqrt u
+    Ast.SinOp -> AstConcreteS $ sin u
+    Ast.CosOp -> AstConcreteS $ cos u
+    Ast.TanOp -> AstConcreteS $ tan u
+    Ast.AsinOp -> AstConcreteS $ asin u
+    Ast.AcosOp -> AstConcreteS $ acos u
+    Ast.AtanOp -> AstConcreteS $ atan u
+    Ast.SinhOp -> AstConcreteS $ sinh u
+    Ast.CoshOp -> AstConcreteS $ cosh u
+    Ast.TanhOp -> AstConcreteS $ tanh u
+    Ast.AsinhOp -> AstConcreteS $ asinh u
+    Ast.AcoshOp -> AstConcreteS $ acosh u
+    Ast.AtanhOp -> AstConcreteS $ atanh u
+  u -> Ast.AstR1S opCode u
+-}
 
 astR2S :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode2
@@ -1399,13 +1975,77 @@ astR2S :: (NumScalar r, Differentiable r, KnownSpan s)
        -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
 astR2S = Ast.AstR2S
+{-
+astR2S opCode = \cases
+  u v | FTKS (snat :$$ sh) x <- ftkAst u
+      , Just u0 <- unRepl1 u
+      , Just v0 <- unRepl1 v ->
+        Ast.AstReplicate snat (STKS sh (ftkToSTK x)) (astR2S opCode u0 v0)
+{- (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astR2S opCode u v
+  (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
+      plainPart $ astR2S opCode u v -}
+  (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astR2S opCode u v
+  (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astR2S opCode u v
+  (AstConvUpSFromK n) (AstConvUpSFromK k) ->
+    cAstConvUpSFromK $ astR2K opCode n k
+  n (AstConvUpSFromK k) ->
+    cAstConvUpSFromK $ astR2K opCode (cAstConvDownKFromS n) k
+  (AstConvUpSFromK n) k ->
+    cAstConvUpSFromK $ astR2K opCode n (cAstConvDownKFromS k)
+  (AstConcreteS u) (AstConcreteS v) -> case opCode of
+    Ast.DivideOp -> AstConcreteS $ u / v
+    Ast.PowerOp -> AstConcreteS $ u ** v
+    Ast.LogBaseOp -> AstConcreteS $ logBase u v
+    Ast.Atan2Op -> AstConcreteS $ atan2H u v
+  u v -> Ast.AstR2S opCode u v
+-}
 
 astI2S :: (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
        => OpCodeIntegral2
        -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
-astI2S = Ast.AstI2S
+astI2S opCode = case opCode of
+  Ast.QuotOp -> quotH
+  Ast.RemOp -> remH
+{-
+astI2S opCode = \cases
+  u v | FTKS (snat :$$ sh) x <- ftkAst u
+      , Just u0 <- unRepl1 u
+      , Just v0 <- unRepl1 v ->
+        Ast.AstReplicate snat (STKS sh (ftkToSTK x)) (astI2S opCode u0 v0)
+{-  (Ast.AstPrimalPart n) (Ast.AstPrimalPart k) ->
+    primalPart (astI2S opCode n k)
+  (Ast.AstPlainPart @_ @s1 n) (Ast.AstPlainPart @_ @s2 k)
+    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
+      plainPart (astI2S opCode n k) -}
+  (Ast.AstFromPrimal n) (Ast.AstFromPrimal k) ->
+    fromPrimal (astI2S opCode n k)
+  (Ast.AstFromPlain n) (Ast.AstFromPlain k) ->
+    fromPlain (astI2S opCode n k)
+  (AstConvUpSFromK n) (AstConvUpSFromK k) ->
+    cAstConvUpSFromK $ astI2K opCode n k
+  n (AstConvUpSFromK k) ->
+    cAstConvUpSFromK $ astI2K opCode (cAstConvDownKFromS n) k
+  (AstConvUpSFromK n) k ->
+    cAstConvUpSFromK $ astI2K opCode n (cAstConvDownKFromS k)
+  u v -> case opCode of
+    Ast.QuotOp -> case (u, v) of
+      (AstConcreteS n, AstConcreteS k) -> AstConcreteS (quotH n k)
+      _ | Just 0 <- unReplC u -> u
+      (Ast.AstFromPlain z, _) | Just 0 <- unReplC z -> u
+      _ | Just 1 <- unReplC v -> u
+      (_, Ast.AstFromPlain s) | Just 1 <- unReplC s -> u
+      (Ast.AstI2S Ast.QuotOp u0 v0, w0) ->
+        astI2S Ast.QuotOp u0 (astTimesS v0 w0)
+      _ -> Ast.AstI2S Ast.QuotOp u v
+    Ast.RemOp -> case (u, v) of
+      (AstConcreteS n, AstConcreteS k) -> AstConcreteS (remH n k)
+      _ | Just 0 <- unReplC u -> u
+      (Ast.AstFromPlain z, _) | Just 0 <- unReplC z -> u
+      _ -> Ast.AstI2S Ast.RemOp u v
+-}
 
 astConcreteS :: GoodScalar r
              => Concrete (TKS sh r)
@@ -1460,9 +2100,7 @@ astFromIntegralS t = case t of
     let !v2 = astFromIntegralK v
     in Ast.AstBuild1 snat STKScalar (var, v2)
   Ast.AstLet var u v -> astLet var u (astFromIntegralS v)
-  Ast.AstN1S NegateOp u -> negate (astFromIntegralS u)
-  Ast.AstN1S AbsOp u -> abs (astFromIntegralS u)
-  Ast.AstN1S SignumOp u -> signum (astFromIntegralS u)
+  Ast.AstN1S opCode u -> astN1S opCode (astFromIntegralS u)
   Ast.AstFromIntegralS v -> astFromIntegralS v
 --  Ast.AstIndexS shn v ix -> astIndexS shn (astFromIntegralS v) ix
     -- increases work; also index goes into fromIntegral, so we'd loop
@@ -1510,10 +2148,8 @@ astCastS t = case t of
   Ast.AstFromPrimal v -> fromPrimal $ astCastS v
   Ast.AstFromDual v -> fromDual $ astCastS v
   Ast.AstFromPlain v -> fromPlain $ astCastS v
-  Ast.AstN1S NegateOp u -> negate (astCastS u)
-  Ast.AstN1S AbsOp u -> abs (astCastS u)
-  Ast.AstN1S SignumOp u -> signum (astCastS u)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astCastS u)
+  Ast.AstN1S opCode u -> astN1S opCode (astCastS u)
+  Ast.AstR1S opCode u -> astR1S opCode (astCastS u)
   Ast.AstFromIntegralS v -> astFromIntegralS v
   Ast.AstCastS v -> astCastS v
 --  Ast.AstIndexS shn v ix -> astIndexS shn (astCastS v) ix
@@ -1662,22 +2298,20 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
 
    AstPlusS u v ->
      shareIx ix $ \ !ix2 ->
-     astIndexKnobsS knobs shn u ix2 + astIndexKnobsS knobs shn v ix2
+     astIndexKnobsS knobs shn u ix2 `astPlusS` astIndexKnobsS knobs shn v ix2
    AstTimesS u v ->
      shareIx ix $ \ !ix2 ->
-     astIndexKnobsS knobs shn u ix2 * astIndexKnobsS knobs shn v ix2
-   Ast.AstN1S NegateOp u -> negate (astIndexKnobsS knobs shn u ix)
-   Ast.AstN1S AbsOp u -> abs (astIndexKnobsS knobs shn u ix)
-   Ast.AstN1S SignumOp u -> signum (astIndexKnobsS knobs shn u ix)
-   Ast.AstR1S opCode u -> Ast.AstR1S opCode (astIndexKnobsS knobs shn u ix)
+     astIndexKnobsS knobs shn u ix2 `astTimesS` astIndexKnobsS knobs shn v ix2
+   Ast.AstN1S opCode u -> astN1S opCode (astIndexKnobsS knobs shn u ix)
+   Ast.AstR1S opCode u -> astR1S opCode (astIndexKnobsS knobs shn u ix)
    Ast.AstR2S opCode u v ->
      shareIx ix
-     $ \ !ix2 -> Ast.AstR2S opCode (astIndexKnobsS knobs shn u ix2)
-                                   (astIndexKnobsS knobs shn v ix2)
+     $ \ !ix2 -> astR2S opCode (astIndexKnobsS knobs shn u ix2)
+                               (astIndexKnobsS knobs shn v ix2)
    Ast.AstI2S opCode u v ->
      shareIx ix
-     $ \ !ix2 -> Ast.AstI2S opCode (astIndexKnobsS knobs shn u ix2)
-                                   (astIndexKnobsS knobs shn v ix2)
+     $ \ !ix2 -> astI2S opCode (astIndexKnobsS knobs shn u ix2)
+                               (astIndexKnobsS knobs shn v ix2)
    AstConcreteS a | AstConcreteK i <- i1 ->
      let u = withKnownShS (shsTail shmshn) $
              tsindex (Concrete a) (Concrete i :.$ ZIS)
@@ -3004,16 +3638,14 @@ astSliceS i n k v1 = case v1 of
   Ast.AstFromPrimal v -> fromPrimal $ astSliceS i n k v
   Ast.AstFromDual v -> fromDual $ astSliceS i n k v
   Ast.AstFromPlain v -> fromPlain $ astSliceS i n k v
-  AstPlusS u v -> astSliceS i n k u + astSliceS i n k v
-  AstTimesS u v -> astSliceS i n k u * astSliceS i n k v
-  Ast.AstN1S NegateOp u -> negate (astSliceS i n k u)
-  Ast.AstN1S AbsOp u -> abs (astSliceS i n k u)
-  Ast.AstN1S SignumOp u -> signum (astSliceS i n k u)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astSliceS i n k u)
-  Ast.AstR2S opCode u v -> Ast.AstR2S opCode (astSliceS i n k u)
-                                             (astSliceS i n k v)
-  Ast.AstI2S opCode u v -> Ast.AstI2S opCode (astSliceS i n k u)
-                                             (astSliceS i n k v)
+  AstPlusS u v -> astSliceS i n k u `astPlusS` astSliceS i n k v
+  AstTimesS u v -> astSliceS i n k u `astTimesS` astSliceS i n k v
+  Ast.AstN1S opCode u -> astN1S opCode (astSliceS i n k u)
+  Ast.AstR1S opCode u -> astR1S opCode (astSliceS i n k u)
+  Ast.AstR2S opCode u v -> astR2S opCode (astSliceS i n k u)
+                                         (astSliceS i n k v)
+  Ast.AstI2S opCode u v -> astI2S opCode (astSliceS i n k u)
+                                         (astSliceS i n k v)
   Ast.AstFloorS a -> astFloorS $ astSliceS i n k a
   Ast.AstFromIntegralS v -> astFromIntegralS $ astSliceS i n k v
   Ast.AstCastS v -> astCastS $ astSliceS i n k v
@@ -3126,16 +3758,14 @@ astTransposeS perm t =
   Ast.AstFromDual v -> fromDual $ astTransposeS perm v
   Ast.AstFromPlain v -> fromPlain $ astTransposeS perm v
 
-  AstPlusS u v -> astTransposeS perm u + astTransposeS perm v
-  AstTimesS u v -> astTransposeS perm u * astTransposeS perm v
-  Ast.AstN1S NegateOp u -> negate (astTransposeS perm u)
-  Ast.AstN1S AbsOp u -> abs (astTransposeS perm u)
-  Ast.AstN1S SignumOp u -> signum (astTransposeS perm u)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astTransposeS perm u)
+  AstPlusS u v -> astTransposeS perm u `astPlusS` astTransposeS perm v
+  AstTimesS u v -> astTransposeS perm u `astTimesS` astTransposeS perm v
+  Ast.AstN1S opCode u -> astN1S opCode (astTransposeS perm u)
+  Ast.AstR1S opCode u -> astR1S opCode (astTransposeS perm u)
   Ast.AstR2S opCode u v ->
-    Ast.AstR2S opCode (astTransposeS perm u) (astTransposeS perm v)
+    astR2S opCode (astTransposeS perm u) (astTransposeS perm v)
   Ast.AstI2S opCode u v ->
-    Ast.AstI2S opCode (astTransposeS perm u) (astTransposeS perm v)
+    astI2S opCode (astTransposeS perm u) (astTransposeS perm v)
   AstConcreteS v -> astConcreteS (tstranspose perm $ Concrete v)
 --  Ast.AstFloorS v -> astFloorS $ astTransposeS perm v
 --  Ast.AstFromIntegralS v -> astFromIntegralS $ astTransposeS perm v
@@ -3246,10 +3876,8 @@ astReshapeS sh2 t = case t of
   Ast.AstFromDual v -> fromDual $ astReshapeS sh2 v
   Ast.AstFromPlain v -> fromPlain $ astReshapeS sh2 v
   -- Reshaping can be costly, so we don't touch AstTimesS, etc.
-  Ast.AstN1S NegateOp u -> negate (astReshapeS @_ @sh2 sh2 u)
-  Ast.AstN1S AbsOp u -> abs (astReshapeS @_ @sh2 sh2 u)
-  Ast.AstN1S SignumOp u -> signum (astReshapeS @_ @sh2 sh2 u)
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode (astReshapeS @_ @sh2 sh2 u)
+  Ast.AstN1S opCode u -> astN1S opCode (astReshapeS @_ @sh2 sh2 u)
+  Ast.AstR1S opCode u -> astR1S opCode (astReshapeS @_ @sh2 sh2 u)
   Ast.AstReshapeS _ v -> astReshapeS @_ @sh2 sh2 v
   _ | FTKS sh _ <- ftkAst t -> case testEquality sh sh2 of
     Just Refl -> t
@@ -3384,18 +4012,16 @@ astConvertDownKFromS c a = case a of
   Ast.AstFromPrimal v -> fromPrimal $ astConvertDownKFromS c v
   Ast.AstFromDual v -> fromDual $ astConvertDownKFromS c v
   Ast.AstFromPlain v -> fromPlain $ astConvertDownKFromS c v
-  AstPlusS u v -> astConvertDownKFromS c u + astConvertDownKFromS c v
-  AstTimesS u v ->  astConvertDownKFromS c u * astConvertDownKFromS c v
-  Ast.AstN1S NegateOp u -> negate (astConvertDownKFromS c u)
-  Ast.AstN1S AbsOp u -> abs (astConvertDownKFromS c u)
-  Ast.AstN1S SignumOp u -> signum (astConvertDownKFromS c u)
-  Ast.AstR1S opCode u -> Ast.AstR1K opCode (astConvertDownKFromS c u)
+  AstPlusS u v -> astConvertDownKFromS c u `astPlusK` astConvertDownKFromS c v
+  AstTimesS u v -> astConvertDownKFromS c u `astTimesK` astConvertDownKFromS c v
+  Ast.AstN1S opCode u -> astN1K opCode (astConvertDownKFromS c u)
+  Ast.AstR1S opCode u -> astR1K opCode (astConvertDownKFromS c u)
   Ast.AstR2S opCode u v ->
-    Ast.AstR2K opCode (astConvertDownKFromS c u) (astConvertDownKFromS c v)
+    astR2K opCode (astConvertDownKFromS c u) (astConvertDownKFromS c v)
   Ast.AstI2S QuotOp u v ->
-    astConvertDownKFromS c u `quotH` astConvertDownKFromS c v
+    astI2K QuotOp (astConvertDownKFromS c u) (astConvertDownKFromS c v)
   Ast.AstI2S RemOp u v ->
-    astConvertDownKFromS c u `remH` astConvertDownKFromS c v
+    astI2K RemOp (astConvertDownKFromS c u) (astConvertDownKFromS c v)
   AstConcreteS v -> AstConcreteK (Nested.sunScalar v)
   Ast.AstFloorS v -> astFloorK (kfromS v)
   Ast.AstFromIntegralS v -> astFromIntegralK (kfromS v)
@@ -3635,23 +4261,25 @@ astSum0 :: (NumScalar r, KnownSpan s)
 astSum0 t = case t of
   Ast.AstSum SNat _ u -> astSum0 u
   Ast.AstReplicate snat (STKS _ STKScalar) u ->
-    astSum0 u * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
+    astTimesK (astSum0 u)
+              (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
   Ast.AstReplicate snat STKScalar u ->
-    u * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
+    astTimesK u (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
   _ | FTKS ZSS _ <- ftkAst t -> kfromS t
   _ | FTKS (snat :$$ _) _ <- ftkAst t
     , Just u <- unRepl1 t ->
-      astSum0 u * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
+      astTimesK (astSum0 u)
+                (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
   Ast.AstLet var u v -> astLet var u (astSum0 v)
   Ast.AstFromPrimal u -> fromPrimal $ astSum0 u
   Ast.AstFromDual u -> fromDual $ astSum0 u
   Ast.AstFromPlain u -> fromPlain $ astSum0 u
   AstTimesS t1 t2 -> astDot0 t1 t2
-  Ast.AstN1S NegateOp u -> negate $ astSum0 u
+  Ast.AstN1S NegateOp u -> astN1K Ast.NegateOp $ astSum0 u
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
     astConcreteK $ tssum0 (Concrete v)
-  Ast.AstAppendS u v -> astSum0 u + astSum0 v
+  Ast.AstAppendS u v -> astSum0 u `astPlusK` astSum0 v
   Ast.AstReverseS u -> astSum0 u
   Ast.AstTransposeS _ u -> astSum0 u
   Ast.AstReshapeS _ u -> astSum0 u
@@ -3672,23 +4300,24 @@ astDot0 t1 t2 = case (t1, t2) of
     | Just Refl <- testEquality snat1 snat2 ->
       astDot0 u1 u2
   _ | Just u1 <- unRepl t1 ->
-      kfromS u1 * astSum0 t2
+      kfromS u1 `astTimesK` astSum0 t2
   _ | Just u2 <- unRepl t2 ->
-      kfromS u2 * astSum0 t1
+      kfromS u2 `astTimesK` astSum0 t1
   ( Ast.AstReplicate snat1 (STKS _ STKScalar) u1
    ,Ast.AstReplicate snat2 (STKS _ STKScalar) u2 )
     | Just Refl <- testEquality snat1 snat2 ->
-      astDot0 u1 u2
-      * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat1)
+      astTimesK (astDot0 u1 u2)
+                (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat1)
   ( Ast.AstReplicate snat1 STKScalar u1
    , Ast.AstReplicate snat2 STKScalar u2 )
     | Just Refl <- testEquality snat1 snat2 ->
-      u1 * u2 * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat1)
+      u1 `astTimesK` u2
+      `astTimesK` (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat1)
   _ | FTKS (snat :$$ _) _ <- ftkAst t1
     , Just u1 <- unRepl1 t1
     , Just u2 <- unRepl1 t2 ->
-      astDot0 u1 u2
-      * (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
+      astTimesK (astDot0 u1 u2)
+                (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
     fromPrimal $ astDot0 u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
@@ -3709,9 +4338,9 @@ astDot0 t1 t2 = case (t1, t2) of
       gcastWith (unsafeCoerceRefl :: sh1 :~: sh2) $
       astDot0 u1 u2
   _ -> case ftkAst t1 of
-    FTKS ZSS FTKScalar -> kfromS t1 * kfromS t2
+    FTKS ZSS FTKScalar -> kfromS t1 `astTimesK` kfromS t2
     FTKS (SNat' @1 :$$ ZSS) FTKScalar ->
-      astIndexK t1 (0 :.$ ZIS) * astIndexK t2 (0 :.$ ZIS)
+      astTimesK (astIndexK t1 (0 :.$ ZIS)) (astIndexK t2 (0 :.$ ZIS))
     _ -> Ast.AstDot0 t1 t2
 
 astDot1InS :: forall sh n r s. (NumScalar r, KnownSpan s)
@@ -4456,37 +5085,35 @@ substitute1Ast i var = subst where
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ fromMaybe u mu + fromMaybe v mv
+       then Just $ astPlusK (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   AstTimesK u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ fromMaybe u mu * fromMaybe v mv
+       then Just $ astTimesK (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstN1K NegateOp u -> negate <$> subst u
-  Ast.AstN1K AbsOp u -> abs <$> subst u
-  Ast.AstN1K SignumOp u -> signum <$> subst u
-  Ast.AstR1K opCode u -> Ast.AstR1K opCode <$> subst u
+  Ast.AstN1K opCode u -> astN1K opCode <$> subst u
+  Ast.AstR1K opCode u -> astR1K opCode <$> subst u
   Ast.AstR2K opCode u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ Ast.AstR2K opCode (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ astR2K opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstI2K QuotOp u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ quotH (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ astI2K QuotOp (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstI2K RemOp u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ remH (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ astI2K RemOp (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstConcreteK{} -> Nothing
+  AstConcreteK{} -> Nothing
   Ast.AstFloorK a -> astFloorK <$> subst a
   Ast.AstFromIntegralK v -> astFromIntegralK <$> subst v
   Ast.AstCastK v -> astCastK <$> subst v
@@ -4501,37 +5128,35 @@ substitute1Ast i var = subst where
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ fromMaybe u mu + fromMaybe v mv
+       then Just $ astPlusS (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   AstTimesS u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ fromMaybe u mu * fromMaybe v mv
+       then Just $ astTimesS (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstN1S NegateOp u -> negate <$> subst u
-  Ast.AstN1S AbsOp u -> abs <$> subst u
-  Ast.AstN1S SignumOp u -> signum <$> subst u
-  Ast.AstR1S opCode u -> Ast.AstR1S opCode <$> subst u
+  Ast.AstN1S opCode u -> astN1S opCode <$> subst u
+  Ast.AstR1S opCode u -> astR1S opCode <$> subst u
   Ast.AstR2S opCode u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ Ast.AstR2S opCode (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ astR2S opCode (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstI2S QuotOp u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ quotH (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ astI2S QuotOp (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
   Ast.AstI2S RemOp u v ->
     let mu = subst u
         mv = subst v
     in if isJust mu || isJust mv
-       then Just $ remH (fromMaybe u mu) (fromMaybe v mv)
+       then Just $ astI2S RemOp (fromMaybe u mu) (fromMaybe v mv)
        else Nothing
-  Ast.AstConcreteS{} -> Nothing
+  AstConcreteS{} -> Nothing
   Ast.AstFloorS a -> astFloorS <$> subst a
   Ast.AstFromIntegralS a -> astFromIntegralS <$> subst a
   Ast.AstCastS v -> astCastS <$> subst v
