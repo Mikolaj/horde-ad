@@ -389,7 +389,8 @@ mapAccumLF' f = \x r -> oneShot (\ !s ->
                           in (s'', y : ys))
 
 -- | A variant of Integral for horde-ad without the problematic operations:
--- 'mod' and 'rem' that are very slow, pair-producing operations that don't fit
+-- 'mod' and 'rem' that are very slow (and simplifying them in AST requires
+-- constructing conditionals, etc), pair-producing operations that don't fit
 -- the AST GADT format and 'toInteger' that doesn't make sense with AST
 -- without an environment to look up variables in.
 infixl 7 `quotH`, `remH`
