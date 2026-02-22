@@ -99,31 +99,10 @@ expandAst t = case t of
 
   AstPlusK u v -> expandAst u + expandAst v
   AstTimesK u v -> expandAst u * expandAst v
-  Ast.AstN1K NegateOp u -> negate (expandAst u)
-  Ast.AstN1K AbsOp u -> abs (expandAst u)
-  Ast.AstN1K SignumOp u -> signum (expandAst u)
-  Ast.AstR1K RecipOp u -> recip (expandAst u)
-  Ast.AstR1K ExpOp u -> exp (expandAst u)
-  Ast.AstR1K LogOp u -> log (expandAst u)
-  Ast.AstR1K SqrtOp u -> sqrt (expandAst u)
-  Ast.AstR1K SinOp u -> sin (expandAst u)
-  Ast.AstR1K CosOp u -> cos (expandAst u)
-  Ast.AstR1K TanOp u -> tan (expandAst u)
-  Ast.AstR1K AsinOp u -> asin (expandAst u)
-  Ast.AstR1K AcosOp u -> acos (expandAst u)
-  Ast.AstR1K AtanOp u -> atan (expandAst u)
-  Ast.AstR1K SinhOp u -> sinh (expandAst u)
-  Ast.AstR1K CoshOp u -> cosh (expandAst u)
-  Ast.AstR1K TanhOp u -> tanh (expandAst u)
-  Ast.AstR1K AsinhOp u -> asinh (expandAst u)
-  Ast.AstR1K AcoshOp u -> acosh (expandAst u)
-  Ast.AstR1K AtanhOp u -> atanh (expandAst u)
-  Ast.AstR2K DivideOp u v -> expandAst u / expandAst v
-  Ast.AstR2K PowerOp u v -> expandAst u ** expandAst v
-  Ast.AstR2K LogBaseOp u v -> logBase (expandAst u) (expandAst v)
-  Ast.AstR2K Atan2Op u v -> atan2H (expandAst u) (expandAst v)
-  Ast.AstI2K QuotOp u v -> quotH (expandAst u) (expandAst v)
-  Ast.AstI2K RemOp u v -> remH (expandAst u) (expandAst v)
+  Ast.AstN1K opCode u -> astN1K opCode (expandAst u)
+  Ast.AstR1K opCode u -> astR1K opCode (expandAst u)
+  Ast.AstR2K opCode u v -> astR2K opCode (expandAst u) (expandAst v)
+  Ast.AstI2K opCode u v -> astI2K opCode (expandAst u) (expandAst v)
   AstConcreteK{} -> t
   Ast.AstFloorK a -> astFloorK (expandAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ expandAst v
@@ -137,31 +116,10 @@ expandAst t = case t of
 
   AstPlusS u v -> expandAst u + expandAst v
   AstTimesS u v -> expandAst u * expandAst v
-  Ast.AstN1S NegateOp u -> negate (expandAst u)
-  Ast.AstN1S AbsOp u -> abs (expandAst u)
-  Ast.AstN1S SignumOp u -> signum (expandAst u)
-  Ast.AstR1S RecipOp u -> recip (expandAst u)
-  Ast.AstR1S ExpOp u -> exp (expandAst u)
-  Ast.AstR1S LogOp u -> log (expandAst u)
-  Ast.AstR1S SqrtOp u -> sqrt (expandAst u)
-  Ast.AstR1S SinOp u -> sin (expandAst u)
-  Ast.AstR1S CosOp u -> cos (expandAst u)
-  Ast.AstR1S TanOp u -> tan (expandAst u)
-  Ast.AstR1S AsinOp u -> asin (expandAst u)
-  Ast.AstR1S AcosOp u -> acos (expandAst u)
-  Ast.AstR1S AtanOp u -> atan (expandAst u)
-  Ast.AstR1S SinhOp u -> sinh (expandAst u)
-  Ast.AstR1S CoshOp u -> cosh (expandAst u)
-  Ast.AstR1S TanhOp u -> tanh (expandAst u)
-  Ast.AstR1S AsinhOp u -> asinh (expandAst u)
-  Ast.AstR1S AcoshOp u -> acosh (expandAst u)
-  Ast.AstR1S AtanhOp u -> atanh (expandAst u)
-  Ast.AstR2S DivideOp u v -> expandAst u / expandAst v
-  Ast.AstR2S PowerOp u v -> expandAst u ** expandAst v
-  Ast.AstR2S LogBaseOp u v -> logBase (expandAst u) (expandAst v)
-  Ast.AstR2S Atan2Op u v -> atan2H (expandAst u) (expandAst v)
-  Ast.AstI2S QuotOp u v -> quotH (expandAst u) (expandAst v)
-  Ast.AstI2S RemOp u v -> remH (expandAst u) (expandAst v)
+  Ast.AstN1S opCode u -> astN1S opCode (expandAst u)
+  Ast.AstR1S opCode u -> astR1S opCode (expandAst u)
+  Ast.AstR2S opCode u v -> astR2S opCode (expandAst u) (expandAst v)
+  Ast.AstI2S opCode u v -> astI2S opCode (expandAst u) (expandAst v)
   AstConcreteS a -> AstConcreteS a
   Ast.AstFloorS a -> astFloorS (expandAst a)
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAst v
@@ -238,13 +196,13 @@ expandAst t = case t of
   Ast.AstMatmul2S{} -> t
 
   Ast.AstBoolNotK arg -> notB $ expandAst arg
-  Ast.AstBoolNotS arg -> Ast.AstBoolNotS $ expandAst arg
+  Ast.AstBoolNotS arg -> astBoolNotS $ expandAst arg
   Ast.AstBoolAndK arg1 arg2 -> expandAst arg1 &&* expandAst arg2
-  Ast.AstBoolAndS arg1 arg2 -> expandAst arg1 `Ast.AstBoolAndS` expandAst arg2
+  Ast.AstBoolAndS arg1 arg2 -> astBoolAndS (expandAst arg1) (expandAst arg2)
   Ast.AstLeqK arg1 arg2 -> fromPlain $ expandAst arg1 <=. expandAst arg2
   Ast.AstLeq arg1 arg2 -> fromPlain $ expandAst arg1 <=. expandAst arg2
   Ast.AstLeqS shb sh arg1 arg2 ->
-    fromPlain $ Ast.AstLeqS shb sh (expandAst arg1) (expandAst arg2)
+    fromPlain $ astLeqS shb sh (expandAst arg1) (expandAst arg2)
 
 expandAstHFun :: KnownSpan s
               => AstHFun s x y -> AstHFun s x y
@@ -298,31 +256,10 @@ simplifyAst t = case t of
 
   AstPlusK u v -> simplifyAst u + simplifyAst v
   AstTimesK u v -> simplifyAst u * simplifyAst v
-  Ast.AstN1K NegateOp u -> negate (simplifyAst u)
-  Ast.AstN1K AbsOp u -> abs (simplifyAst u)
-  Ast.AstN1K SignumOp u -> signum (simplifyAst u)
-  Ast.AstR1K RecipOp u -> recip (simplifyAst u)
-  Ast.AstR1K ExpOp u -> exp (simplifyAst u)
-  Ast.AstR1K LogOp u -> log (simplifyAst u)
-  Ast.AstR1K SqrtOp u -> sqrt (simplifyAst u)
-  Ast.AstR1K SinOp u -> sin (simplifyAst u)
-  Ast.AstR1K CosOp u -> cos (simplifyAst u)
-  Ast.AstR1K TanOp u -> tan (simplifyAst u)
-  Ast.AstR1K AsinOp u -> asin (simplifyAst u)
-  Ast.AstR1K AcosOp u -> acos (simplifyAst u)
-  Ast.AstR1K AtanOp u -> atan (simplifyAst u)
-  Ast.AstR1K SinhOp u -> sinh (simplifyAst u)
-  Ast.AstR1K CoshOp u -> cosh (simplifyAst u)
-  Ast.AstR1K TanhOp u -> tanh (simplifyAst u)
-  Ast.AstR1K AsinhOp u -> asinh (simplifyAst u)
-  Ast.AstR1K AcoshOp u -> acosh (simplifyAst u)
-  Ast.AstR1K AtanhOp u -> atanh (simplifyAst u)
-  Ast.AstR2K DivideOp u v -> simplifyAst u / simplifyAst v
-  Ast.AstR2K PowerOp u v -> simplifyAst u ** simplifyAst v
-  Ast.AstR2K LogBaseOp u v -> logBase (simplifyAst u) (simplifyAst v)
-  Ast.AstR2K Atan2Op u v -> atan2H (simplifyAst u) (simplifyAst v)
-  Ast.AstI2K QuotOp u v -> quotH (simplifyAst u) (simplifyAst v)
-  Ast.AstI2K RemOp u v -> remH (simplifyAst u) (simplifyAst v)
+  Ast.AstN1K opCode u -> astN1K opCode (simplifyAst u)
+  Ast.AstR1K opCode u -> astR1K opCode (simplifyAst u)
+  Ast.AstR2K opCode u v -> astR2K opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstI2K opCode u v -> astI2K opCode (simplifyAst u) (simplifyAst v)
   AstConcreteK{} -> t
   Ast.AstFloorK a -> astFloorK (simplifyAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ simplifyAst v
@@ -336,31 +273,10 @@ simplifyAst t = case t of
 
   AstPlusS u v -> simplifyAst u + simplifyAst v
   AstTimesS u v -> simplifyAst u * simplifyAst v
-  Ast.AstN1S NegateOp u -> negate (simplifyAst u)
-  Ast.AstN1S AbsOp u -> abs (simplifyAst u)
-  Ast.AstN1S SignumOp u -> signum (simplifyAst u)
-  Ast.AstR1S RecipOp u -> recip (simplifyAst u)
-  Ast.AstR1S ExpOp u -> exp (simplifyAst u)
-  Ast.AstR1S LogOp u -> log (simplifyAst u)
-  Ast.AstR1S SqrtOp u -> sqrt (simplifyAst u)
-  Ast.AstR1S SinOp u -> sin (simplifyAst u)
-  Ast.AstR1S CosOp u -> cos (simplifyAst u)
-  Ast.AstR1S TanOp u -> tan (simplifyAst u)
-  Ast.AstR1S AsinOp u -> asin (simplifyAst u)
-  Ast.AstR1S AcosOp u -> acos (simplifyAst u)
-  Ast.AstR1S AtanOp u -> atan (simplifyAst u)
-  Ast.AstR1S SinhOp u -> sinh (simplifyAst u)
-  Ast.AstR1S CoshOp u -> cosh (simplifyAst u)
-  Ast.AstR1S TanhOp u -> tanh (simplifyAst u)
-  Ast.AstR1S AsinhOp u -> asinh (simplifyAst u)
-  Ast.AstR1S AcoshOp u -> acosh (simplifyAst u)
-  Ast.AstR1S AtanhOp u -> atanh (simplifyAst u)
-  Ast.AstR2S DivideOp u v -> simplifyAst u / simplifyAst v
-  Ast.AstR2S PowerOp u v -> simplifyAst u ** simplifyAst v
-  Ast.AstR2S LogBaseOp u v -> logBase (simplifyAst u) (simplifyAst v)
-  Ast.AstR2S Atan2Op u v -> atan2H (simplifyAst u) (simplifyAst v)
-  Ast.AstI2S QuotOp u v -> quotH (simplifyAst u) (simplifyAst v)
-  Ast.AstI2S RemOp u v -> remH (simplifyAst u) (simplifyAst v)
+  Ast.AstN1S opCode u -> astN1S opCode (simplifyAst u)
+  Ast.AstR1S opCode u -> astR1S opCode (simplifyAst u)
+  Ast.AstR2S opCode u v -> astR2S opCode (simplifyAst u) (simplifyAst v)
+  Ast.AstI2S opCode u v -> astI2S opCode (simplifyAst u) (simplifyAst v)
   AstConcreteS a -> AstConcreteS a
   Ast.AstFloorS a -> astFloorS (simplifyAst a)
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
@@ -392,14 +308,13 @@ simplifyAst t = case t of
   Ast.AstMatmul2S{} -> t
 
   Ast.AstBoolNotK arg -> notB $ simplifyAst arg
-  Ast.AstBoolNotS arg -> Ast.AstBoolNotS $ simplifyAst arg
+  Ast.AstBoolNotS arg -> astBoolNotS $ simplifyAst arg
   Ast.AstBoolAndK arg1 arg2 -> simplifyAst arg1 &&* simplifyAst arg2
-  Ast.AstBoolAndS arg1 arg2 ->
-    simplifyAst arg1 `Ast.AstBoolAndS` simplifyAst arg2
+  Ast.AstBoolAndS arg1 arg2 -> astBoolAndS (simplifyAst arg1) (simplifyAst arg2)
   Ast.AstLeqK arg1 arg2 -> fromPlain $ simplifyAst arg1 <=. simplifyAst arg2
   Ast.AstLeq arg1 arg2 -> fromPlain $ simplifyAst arg1 <=. simplifyAst arg2
   Ast.AstLeqS shb sh arg1 arg2 ->
-    fromPlain $ Ast.AstLeqS shb sh (simplifyAst arg1) (simplifyAst arg2)
+    fromPlain $ astLeqS shb sh (simplifyAst arg1) (simplifyAst arg2)
 
 simplifyAstHFun :: KnownSpan s
                 => AstHFun s x y -> AstHFun s x y
@@ -726,31 +641,10 @@ contractAst t0 = case t0 of
 
   AstPlusK u v -> contractAst u + contractAst v
   AstTimesK u v -> contractAst u * contractAst v
-  Ast.AstN1K NegateOp u -> negate (contractAst u)
-  Ast.AstN1K AbsOp u -> abs (contractAst u)
-  Ast.AstN1K SignumOp u -> signum (contractAst u)
-  Ast.AstR1K RecipOp u -> recip (contractAst u)
-  Ast.AstR1K ExpOp u -> exp (contractAst u)
-  Ast.AstR1K LogOp u -> log (contractAst u)
-  Ast.AstR1K SqrtOp u -> sqrt (contractAst u)
-  Ast.AstR1K SinOp u -> sin (contractAst u)
-  Ast.AstR1K CosOp u -> cos (contractAst u)
-  Ast.AstR1K TanOp u -> tan (contractAst u)
-  Ast.AstR1K AsinOp u -> asin (contractAst u)
-  Ast.AstR1K AcosOp u -> acos (contractAst u)
-  Ast.AstR1K AtanOp u -> atan (contractAst u)
-  Ast.AstR1K SinhOp u -> sinh (contractAst u)
-  Ast.AstR1K CoshOp u -> cosh (contractAst u)
-  Ast.AstR1K TanhOp u -> tanh (contractAst u)
-  Ast.AstR1K AsinhOp u -> asinh (contractAst u)
-  Ast.AstR1K AcoshOp u -> acosh (contractAst u)
-  Ast.AstR1K AtanhOp u -> atanh (contractAst u)
-  Ast.AstR2K DivideOp u v -> contractAst u / contractAst v
-  Ast.AstR2K PowerOp u v -> contractAst u ** contractAst v
-  Ast.AstR2K LogBaseOp u v -> logBase (contractAst u) (contractAst v)
-  Ast.AstR2K Atan2Op u v -> atan2H (contractAst u) (contractAst v)
-  Ast.AstI2K QuotOp u v -> quotH (contractAst u) (contractAst v)
-  Ast.AstI2K RemOp u v -> remH (contractAst u) (contractAst v)
+  Ast.AstN1K opCode u -> astN1K opCode (contractAst u)
+  Ast.AstR1K opCode u -> astR1K opCode (contractAst u)
+  Ast.AstR2K opCode u v -> astR2K opCode (contractAst u) (contractAst v)
+  Ast.AstI2K opCode u v -> astI2K opCode (contractAst u) (contractAst v)
   AstConcreteK{} -> t0
   Ast.AstFloorK a -> astFloorK (contractAst a)
   Ast.AstFromIntegralK v -> astFromIntegralK $ contractAst v
@@ -761,31 +655,10 @@ contractAst t0 = case t0 of
 
   AstPlusS u v -> contractAst u + contractAst v
   AstTimesS u v -> contractAst u * contractAst v
-  Ast.AstN1S NegateOp u -> negate (contractAst u)
-  Ast.AstN1S AbsOp u -> abs (contractAst u)
-  Ast.AstN1S SignumOp u -> signum (contractAst u)
-  Ast.AstR1S RecipOp u -> recip (contractAst u)
-  Ast.AstR1S ExpOp u -> exp (contractAst u)
-  Ast.AstR1S LogOp u -> log (contractAst u)
-  Ast.AstR1S SqrtOp u -> sqrt (contractAst u)
-  Ast.AstR1S SinOp u -> sin (contractAst u)
-  Ast.AstR1S CosOp u -> cos (contractAst u)
-  Ast.AstR1S TanOp u -> tan (contractAst u)
-  Ast.AstR1S AsinOp u -> asin (contractAst u)
-  Ast.AstR1S AcosOp u -> acos (contractAst u)
-  Ast.AstR1S AtanOp u -> atan (contractAst u)
-  Ast.AstR1S SinhOp u -> sinh (contractAst u)
-  Ast.AstR1S CoshOp u -> cosh (contractAst u)
-  Ast.AstR1S TanhOp u -> tanh (contractAst u)
-  Ast.AstR1S AsinhOp u -> asinh (contractAst u)
-  Ast.AstR1S AcoshOp u -> acosh (contractAst u)
-  Ast.AstR1S AtanhOp u -> atanh (contractAst u)
-  Ast.AstR2S DivideOp u v -> contractAst u / contractAst v
-  Ast.AstR2S PowerOp u v -> contractAst u ** contractAst v
-  Ast.AstR2S LogBaseOp u v -> logBase (contractAst u) (contractAst v)
-  Ast.AstR2S Atan2Op u v -> atan2H (contractAst u) (contractAst v)
-  Ast.AstI2S QuotOp u v -> quotH (contractAst u) (contractAst v)
-  Ast.AstI2S RemOp u v -> remH (contractAst u) (contractAst v)
+  Ast.AstN1S opCode u -> astN1S opCode (contractAst u)
+  Ast.AstR1S opCode u -> astR1S opCode (contractAst u)
+  Ast.AstR2S opCode u v -> astR2S opCode (contractAst u) (contractAst v)
+  Ast.AstI2S opCode u v -> astI2S opCode (contractAst u) (contractAst v)
   AstConcreteS{} -> t0
   Ast.AstFloorS @r1 @r2 t -> case contractAst t of
     AstConcreteS a | sizeOf (undefined :: r1) >= sizeOf (undefined :: r2) ->
@@ -849,14 +722,13 @@ contractAst t0 = case t0 of
   Ast.AstMatmul2S{} -> t0
 
   Ast.AstBoolNotK arg -> notB $ contractAst arg
-  Ast.AstBoolNotS arg -> Ast.AstBoolNotS $ contractAst arg
+  Ast.AstBoolNotS arg -> astBoolNotS $ contractAst arg
   Ast.AstBoolAndK arg1 arg2 -> contractAst arg1 &&* contractAst arg2
-  Ast.AstBoolAndS arg1 arg2 ->
-    contractAst arg1 `Ast.AstBoolAndS` contractAst arg2
+  Ast.AstBoolAndS arg1 arg2 -> astBoolAndS (contractAst arg1) (contractAst arg2)
   Ast.AstLeqK arg1 arg2 -> fromPlain $ contractAst arg1 <=. contractAst arg2
   Ast.AstLeq arg1 arg2 -> fromPlain $ contractAst arg1 <=. contractAst arg2
   Ast.AstLeqS shb sh arg1 arg2 ->
-    fromPlain $ Ast.AstLeqS shb sh (contractAst arg1) (contractAst arg2)
+    fromPlain $ astLeqS shb sh (contractAst arg1) (contractAst arg2)
 
 contractAstHFun :: KnownSpan s
                 => AstHFun s x y -> AstHFun s x y
@@ -1002,7 +874,8 @@ letDownAst t = case t of
 
   Ast.AstBoolNotK arg -> Ast.AstBoolNotK (letDownAst arg)
   Ast.AstBoolNotS arg -> Ast.AstBoolNotS (letDownAst arg)
-  Ast.AstBoolAndK arg1 arg2 -> Ast.AstBoolAndK (letDownAst arg1) (letDownAst arg2)
+  Ast.AstBoolAndK arg1 arg2 ->
+    Ast.AstBoolAndK (letDownAst arg1) (letDownAst arg2)
   Ast.AstBoolAndS arg1 arg2 ->
     Ast.AstBoolAndS (letDownAst arg1) (letDownAst arg2)
   Ast.AstLeqK arg1 arg2 -> Ast.AstLeqK (letDownAst arg1) (letDownAst arg2)

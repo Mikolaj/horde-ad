@@ -42,6 +42,8 @@ module HordeAd.Core.AstSimplify
 
   , astSum0, astDot0, astDot1InS, astMatmul2S
 
+  , astBoolNotK, astBoolNotS, astBoolAndK, astBoolAndS, astLeqK, astLeq, astLeqS
+
     -- * Helper combinators
   , astConcrete, astLetFun
 
@@ -1196,6 +1198,7 @@ astPlusK  :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
+{-# INLINEABLE astPlusK #-}
 astPlusK = \cases
   (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astPlusK u v
   (Ast.AstDualPart u) (Ast.AstDualPart v) -> dualPart $ astPlusK u v
@@ -1315,6 +1318,7 @@ astTimesK :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
+{-# INLINEABLE astTimesK #-}
 astTimesK = \cases
   (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astTimesK u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
