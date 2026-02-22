@@ -12,7 +12,7 @@ module HordeAd.Core.AstTools
     -- * Odds and ends
   , bounds, intBounds
   , pattern AstConvUpSFromK, pattern AstConvUp, AstConvUpMaybe(..)
-  , convDown, convUp, convDownMaybe, convUpMaybe
+  , convDownMaybe, convUpMaybe
   , setTotalSharing
   ) where
 
@@ -610,18 +610,6 @@ matchAstConvUp = \case
     AstConvUpJust c zftk u -> AstConvUpJust c zftk (AstFromPlain u)
     AstConvUpNothing -> AstConvUpNothing
   _ -> AstConvUpNothing
-
-convDown :: FullShapeTK y -> SingletonTK z -> TKConversion y z
-convDown yftk zstk = case convDownMaybe yftk zstk of
-  Just c -> c
-  Nothing -> error $ "convDown: unexpected types "  -- TODO: try nevertheless?
-                     ++ "(" ++ show yftk ++ ", " ++ show zstk ++ ")"
-
-convUp :: FullShapeTK y -> FullShapeTK z -> TKConversion y z
-convUp yftk zftk = case convUpMaybe yftk zftk of
-  Just c -> c
-  Nothing -> error $ "convUp: unexpected types "  -- TODO: try nevertheless?
-                     ++ "(" ++ show yftk ++ ", " ++ show zftk ++ ")"
 
 convDownMaybe :: FullShapeTK y0 -> SingletonTK z0 -> Maybe (TKConversion y0 z0)
 convDownMaybe = \cases
