@@ -17,14 +17,70 @@ import Data.Type.Equality (testEquality, (:~:) (Refl))
 
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
+import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
-import HordeAd.Core.AstSimplify ()
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+
+liftRFromS1 :: forall n x s. KnownSpan s
+            => (forall sh.
+                   AstTensor AstMethodLet s (TKS2 sh x)
+                -> AstTensor AstMethodLet s (TKS2 sh x))
+            -> AstTensor AstMethodLet s (TKR2 n x)
+            -> AstTensor AstMethodLet s (TKR2 n x)
+{-# INLINE liftRFromS1 #-}
+liftRFromS1 f a = case ftkAst a of
+  FTKR sh' x ->
+    withShsFromShR sh' $ \(sh :: ShS sh) ->
+      astConvUpRFromS sh x $ f (astConvDownSFromR sh x a)
+
+liftRFromS2 :: forall n x s. KnownSpan s
+            => (forall sh.
+                   AstTensor AstMethodLet s (TKS2 sh x)
+                -> AstTensor AstMethodLet s (TKS2 sh x)
+                -> AstTensor AstMethodLet s (TKS2 sh x))
+            -> AstTensor AstMethodLet s (TKR2 n x)
+            -> AstTensor AstMethodLet s (TKR2 n x)
+            -> AstTensor AstMethodLet s (TKR2 n x)
+{-# INLINE liftRFromS2 #-}
+liftRFromS2 f a b  = case ftkAst a of
+  FTKR sh' x ->
+    withShsFromShR sh' $ \(sh :: ShS sh) ->
+      astConvUpRFromS sh x
+      $ f (astConvDownSFromR sh x a) (astConvDownSFromR sh x b)
+
+liftXFromS1 :: forall sh' x s. KnownSpan s
+            => (forall sh.
+                   AstTensor AstMethodLet s (TKS2 sh x)
+                -> AstTensor AstMethodLet s (TKS2 sh x))
+            -> AstTensor AstMethodLet s (TKX2 sh' x)
+            -> AstTensor AstMethodLet s (TKX2 sh' x)
+{-# INLINE liftXFromS1 #-}
+liftXFromS1 f a = case ftkAst a of
+  FTKX sh' x ->
+    withShsFromShX sh' $ \(sh :: ShS sh) ->
+      astConvUpXFromS sh' x $ f (astConvDownSFromX sh x a)
+
+liftXFromS2 :: forall sh' x s. KnownSpan s
+            => (forall sh.
+                   AstTensor AstMethodLet s (TKS2 sh x)
+                -> AstTensor AstMethodLet s (TKS2 sh x)
+                -> AstTensor AstMethodLet s (TKS2 sh x))
+            -> AstTensor AstMethodLet s (TKX2 sh' x)
+            -> AstTensor AstMethodLet s (TKX2 sh' x)
+            -> AstTensor AstMethodLet s (TKX2 sh' x)
+{-# INLINE liftXFromS2 #-}
+liftXFromS2 f a b = case ftkAst a of
+  FTKX sh' x ->
+    withShsFromShX sh' $ \(sh :: ShS sh) ->
+      astConvUpXFromS sh' x
+      $ f (astConvDownSFromX sh x a) (astConvDownSFromX sh x b)
+
 
 -- * Unlawful numeric instances for ranked AST; lawful modulo evaluation
 

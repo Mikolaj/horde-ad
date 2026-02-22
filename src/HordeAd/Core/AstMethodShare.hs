@@ -27,6 +27,63 @@ import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
+liftRFromS1 :: forall n x s. KnownSpan s
+            => (forall sh.
+                   AstTensor AstMethodShare s (TKS2 sh x)
+                -> AstTensor AstMethodShare s (TKS2 sh x))
+            -> AstTensor AstMethodShare s (TKR2 n x)
+            -> AstTensor AstMethodShare s (TKR2 n x)
+{-# INLINE liftRFromS1 #-}
+liftRFromS1 f a = case ftkAst a of
+  FTKR sh' x ->
+    withShsFromShR sh' $ \(sh :: ShS sh) ->
+      cAstConvUpRFromS sh x
+      $ f (cAstConvDownSFromR sh x a)
+
+liftRFromS2 :: forall n x s. KnownSpan s
+            => (forall sh.
+                   AstTensor AstMethodShare s (TKS2 sh x)
+                -> AstTensor AstMethodShare s (TKS2 sh x)
+                -> AstTensor AstMethodShare s (TKS2 sh x))
+            -> AstTensor AstMethodShare s (TKR2 n x)
+            -> AstTensor AstMethodShare s (TKR2 n x)
+            -> AstTensor AstMethodShare s (TKR2 n x)
+{-# INLINE liftRFromS2 #-}
+liftRFromS2 f a b  = case ftkAst a of
+  FTKR sh' x ->
+    withShsFromShR sh' $ \(sh :: ShS sh) ->
+      cAstConvUpRFromS sh x
+      $ f (cAstConvDownSFromR sh x a) (cAstConvDownSFromR sh x b)
+
+liftXFromS1 :: forall sh' x s. KnownSpan s
+            => (forall sh.
+                   AstTensor AstMethodShare s (TKS2 sh x)
+                -> AstTensor AstMethodShare s (TKS2 sh x))
+            -> AstTensor AstMethodShare s (TKX2 sh' x)
+            -> AstTensor AstMethodShare s (TKX2 sh' x)
+{-# INLINE liftXFromS1 #-}
+liftXFromS1 f a = case ftkAst a of
+  FTKX sh' x ->
+    withShsFromShX sh' $ \(sh :: ShS sh) ->
+      cAstConvUpXFromS sh' x
+      $ f (cAstConvDownSFromX sh x a)
+
+liftXFromS2 :: forall sh' x s. KnownSpan s
+            => (forall sh.
+                   AstTensor AstMethodShare s (TKS2 sh x)
+                -> AstTensor AstMethodShare s (TKS2 sh x)
+                -> AstTensor AstMethodShare s (TKS2 sh x))
+            -> AstTensor AstMethodShare s (TKX2 sh' x)
+            -> AstTensor AstMethodShare s (TKX2 sh' x)
+            -> AstTensor AstMethodShare s (TKX2 sh' x)
+{-# INLINE liftXFromS2 #-}
+liftXFromS2 f a b = case ftkAst a of
+  FTKX sh' x ->
+    withShsFromShX sh' $ \(sh :: ShS sh) ->
+      cAstConvUpXFromS sh' x
+      $ f (cAstConvDownSFromX sh x a) (cAstConvDownSFromX sh x b)
+
+
 -- * Unlawful numeric instances for AST scalars; they are lawful modulo evaluation
 
 -- The normal form has AstConcreteK or AstFromPlain (AstConcreteK),

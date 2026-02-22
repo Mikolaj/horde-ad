@@ -11,7 +11,6 @@ module HordeAd.Core.AstTools
   , astIsSmall, ixIsSmall, astLetDown, astVar, astShare
     -- * Odds and ends
   , bounds, intBounds
-  , liftRFromS1, liftRFromS2, liftXFromS1, liftXFromS2
   , cAstConvert
   , cAstConvDownKFromS, cAstConvDownSFromR, cAstConvDownSFromX
   , cAstConvUpSFromK, cAstConvUpRFromS, cAstConvUpXFromS
@@ -34,7 +33,6 @@ import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Nested (MapJust)
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
@@ -517,58 +515,6 @@ intBounds (AstI2K RemOp u (AstConcreteK v)) | v > 0 = do
             | u2 <= 0 -> (max u1 (- v + 1), 0)
             | otherwise -> (- v + 1, v - 1)
 intBounds _ = Nothing
-
-liftRFromS1 :: forall n x ms s. KnownSpan s
-            => (forall sh.
-                   AstTensor ms s (TKS2 sh x)
-                -> AstTensor ms s (TKS2 sh x))
-            -> AstTensor ms s (TKR2 n x)
-            -> AstTensor ms s (TKR2 n x)
-{-# INLINE liftRFromS1 #-}
-liftRFromS1 f a = case ftkAst a of
-  FTKR sh' x ->
-    withShsFromShR sh' $ \(sh :: ShS sh) ->
-      cAstConvUpRFromS sh x
-      $ f (cAstConvDownSFromR sh x a)
-
-liftRFromS2 :: forall n x ms s. KnownSpan s
-            => (forall sh.
-                   AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh x)
-                -> AstTensor ms s (TKS2 sh x))
-            -> AstTensor ms s (TKR2 n x) -> AstTensor ms s (TKR2 n x)
-            -> AstTensor ms s (TKR2 n x)
-{-# INLINE liftRFromS2 #-}
-liftRFromS2 f a b  = case ftkAst a of
-  FTKR sh' x ->
-    withShsFromShR sh' $ \(sh :: ShS sh) ->
-      cAstConvUpRFromS sh x
-      $ f (cAstConvDownSFromR sh x a) (cAstConvDownSFromR sh x b)
-
-liftXFromS1 :: forall sh' x ms s. KnownSpan s
-            => (forall sh.
-                   AstTensor ms s (TKS2 sh x)
-                -> AstTensor ms s (TKS2 sh x))
-            -> AstTensor ms s (TKX2 sh' x)
-            -> AstTensor ms s (TKX2 sh' x)
-{-# INLINE liftXFromS1 #-}
-liftXFromS1 f a = case ftkAst a of
-  FTKX sh' x ->
-    withShsFromShX sh' $ \(sh :: ShS sh) ->
-      cAstConvUpXFromS sh' x
-      $ f (cAstConvDownSFromX sh x a)
-
-liftXFromS2 :: forall sh' x ms s. KnownSpan s
-            => (forall sh.
-                   AstTensor ms s (TKS2 sh x) -> AstTensor ms s (TKS2 sh x)
-                -> AstTensor ms s (TKS2 sh x))
-            -> AstTensor ms s (TKX2 sh' x) -> AstTensor ms s (TKX2 sh' x)
-            -> AstTensor ms s (TKX2 sh' x)
-{-# INLINE liftXFromS2 #-}
-liftXFromS2 f a b = case ftkAst a of
-  FTKX sh' x ->
-    withShsFromShX sh' $ \(sh :: ShS sh) ->
-      cAstConvUpXFromS sh' x
-      $ f (cAstConvDownSFromX sh x a) (cAstConvDownSFromX sh x b)
 
 cAstConvert :: KnownSpan s
             => TKConversion x z -> AstTensor ms s x -> AstTensor ms s z

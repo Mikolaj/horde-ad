@@ -1422,12 +1422,12 @@ testReluMaxPP2 = do
     @?= "\\v1 -> rfromS (sgather1 @5 (str (tfromVector (SNat @2) (STKS [5] STKScalar) (fromList [tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 0.0)), tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * sfromR v1]))) (\\i3 -> [i3, ifH (0.0 <=. negate ((sconcrete (sreplicate [5] 7.0) * tplainPart (sfromR v1)) `sindex0` [i3])) 0 1]))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
+  printArtifactPretty (simplifyArtifactRev artifactRev)
+    @?= "\\dret v1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))) (STKProduct (STKS [5] STKScalar) STKScalar) (let v8 = sscatter1 @5 (sfromR dret) (\\i6 -> [ifH (0.0 <=. negate (splainPart (sfromR (tproject1 v1)) `sindex0` [i6]) * kplainPart (kfromR (tproject2 v1))) 0 1, i6]) !$ [1] in tpair (sreplicate @5 (kfromR (tproject2 v1)) * v8) (sdot0 (sfromR (tproject1 v1)) v8))"
   printArtifactPretty artifactRev
     @?= "\\dret v1 -> let m7 = str (sscatter1 @5 (sfromR dret) (\\i6 -> [i6, ifH (0.0 <=. negate (splainPart (sfromR (tproject1 v1) * sfromR (rreplicate 5 (tproject2 v1))) `sindex0` [i6])) 0 1])) ; v8 = m7 !$ [1] in tpair (rfromS (sfromR (rreplicate 5 (tproject2 v1)) * v8)) (rsum (rfromS (sfromR (tproject1 v1) * v8)))"
   printArtifactPrimalPretty artifactRev
     @?= "\\v1 -> rfromS (sgather1 @5 (str (sfromVector (fromList [sconcrete (sreplicate [5] 0.0), sfromR (tproject1 v1) * sfromR (rreplicate 5 (tproject2 v1))]))) (\\i4 -> [i4, ifH (0.0 <=. negate (splainPart (sfromR (tproject1 v1) * sfromR (rreplicate 5 (tproject2 v1))) `sindex0` [i4])) 0 1]))"
-  printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))) (STKProduct (STKS [5] STKScalar) STKScalar) (let v8 = sscatter1 @5 (sfromR dret) (\\i6 -> [ifH (0.0 <=. negate (splainPart (sfromR (tproject1 v1)) `sindex0` [i6]) * kplainPart (kfromR (tproject2 v1))) 0 1, i6]) !$ [1] in tpair (sreplicate @5 (kfromR (tproject2 v1)) * v8) (sdot0 (sfromR (tproject1 v1)) v8))"
 
 testReluMax3 :: Assertion
 testReluMax3 = do
