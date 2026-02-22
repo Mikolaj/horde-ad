@@ -20,7 +20,6 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
-import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
 
 import HordeAd.Core.Ast
@@ -279,10 +278,6 @@ instance (NumScalar r, KnownSpan s)
   signum u = AstN1K SignumOp u
   {-# INLINE fromInteger #-}
   fromInteger i = fromPlain $ AstConcreteK (fromInteger i)
-  {-# SPECIALIZE instance Num (AstTensor AstMethodShare FullSpan (TKScalar Int)) #-}
-  {-# SPECIALIZE instance Num (AstTensor AstMethodShare PrimalSpan (TKScalar Int)) #-}
-  {-# SPECIALIZE instance Num (AstTensor AstMethodShare PlainSpan (TKScalar Int)) #-}
-  {-# SPECIALIZE instance KnownSpan s => Num (AstTensor AstMethodShare s (TKScalar Int)) #-}
 
 -- An approximation. False doesn't imply terms have different semantics,
 -- but True implies they have equal semantics.
@@ -367,10 +362,6 @@ instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
     in case bounds t of
       Just (u1, u2) | u1 == u2 -> fromPlain $ AstConcreteK u1
       _ -> t
-  {-# SPECIALIZE instance IntegralH (AstTensor AstMethodShare FullSpan (TKScalar Int)) #-}
-  {-# SPECIALIZE instance IntegralH (AstTensor AstMethodShare PrimalSpan (TKScalar Int)) #-}
-  {-# SPECIALIZE instance IntegralH (AstTensor AstMethodShare PlainSpan (TKScalar Int)) #-}
-  {-# SPECIALIZE instance KnownSpan s => IntegralH (AstTensor AstMethodShare s (TKScalar Int)) #-}
 
 instance (NumScalar r, Differentiable r, KnownSpan s)
          => Fractional (AstTensor AstMethodShare s (TKScalar r)) where
@@ -797,97 +788,8 @@ astR2S opCode = \cases
 instance Boolean (AstBool AstMethodShare) where
   true = AstConcreteK True
   false = AstConcreteK False
-  notB (AstConcreteK b) = AstConcreteK $ not b
-  notB (AstBoolNotK b) = b
-  notB b = AstBoolNotK b
-  AstConcreteK True &&* b = b
-  AstConcreteK False &&* _b = false
-  b &&* AstConcreteK True = b
-  _b &&* AstConcreteK False = false
-  AstBoolAndK b c &&* d = b &&* (c &&* d)
-  b@(AstLeqK AstConcreteK{} AstVar{}) &&* c = AstBoolAndK b c
-  b@(AstLeqK AstConcreteK{} (AstN1K NegateOp
-                                    AstVar{})) &&* c = AstBoolAndK b c
-  b@(AstBoolNotK
-       (AstLeqK AstConcreteK{} AstVar{})) &&* c = AstBoolAndK b c
-  b@(AstBoolNotK
-       (AstLeqK AstConcreteK{} (AstN1K NegateOp
-                                       AstVar{}))) &&* c = AstBoolAndK b c
-  b@(AstBoolNotK
-       (AstBoolAndK (AstLeqK AstConcreteK{} AstVar{}) _)) &&* c =
-    AstBoolAndK b c
-  b@(AstBoolNotK
-       (AstBoolAndK
-          (AstLeqK AstConcreteK{}
-                   (AstN1K NegateOp AstVar{})) _)) &&* c = AstBoolAndK b c
-  b@(AstBoolNotK
-       (AstBoolAndK (AstBoolNotK (AstLeqK AstConcreteK{}
-                                          AstVar{})) _)) &&* c = AstBoolAndK b c
-  b@(AstBoolNotK
-       (AstBoolAndK
-          (AstBoolNotK
-             (AstLeqK AstConcreteK{}
-                      (AstN1K NegateOp AstVar{}))) _)) &&* c = AstBoolAndK b c
-  b &&* c@(AstLeqK AstConcreteK{} AstVar{}) = AstBoolAndK c b
-  b &&* c@(AstLeqK AstConcreteK{} (AstN1K NegateOp
-                                          AstVar{})) = AstBoolAndK c b
-  b &&* c@(AstBoolNotK
-             (AstLeqK AstConcreteK{} AstVar{})) = AstBoolAndK c b
-  b &&* c@(AstBoolNotK
-             (AstLeqK AstConcreteK{} (AstN1K NegateOp
-                                             AstVar{}))) = AstBoolAndK c b
-  b &&* c@(AstBoolNotK
-             (AstBoolAndK (AstLeqK AstConcreteK{} AstVar{}) _)) =
-    AstBoolAndK c b
-  b &&* c@(AstBoolNotK
-             (AstBoolAndK
-                (AstLeqK AstConcreteK{}
-                         (AstN1K NegateOp AstVar{})) _)) = AstBoolAndK c b
-  b &&* c@(AstBoolNotK
-             (AstBoolAndK (AstBoolNotK (AstLeqK AstConcreteK{}
-                                                AstVar{})) _)) = AstBoolAndK c b
-  b &&* c@(AstBoolNotK
-             (AstBoolAndK
-                (AstBoolNotK
-                   (AstLeqK AstConcreteK{}
-                            (AstN1K NegateOp AstVar{}))) _)) = AstBoolAndK c b
-  b &&* AstBoolAndK
-          c@(AstLeqK AstConcreteK{} AstVar{}) d = AstBoolAndK c (b &&* d)
-  b &&* AstBoolAndK
-          c@(AstLeqK AstConcreteK{}
-                     (AstN1K NegateOp AstVar{})) d = AstBoolAndK c (b &&* d)
-  b &&* AstBoolAndK
-          c@(AstBoolNotK (AstLeqK AstConcreteK{}
-                                  AstVar{})) d = AstBoolAndK c (b &&* d)
-  b &&* AstBoolAndK
-          c@(AstBoolNotK
-               (AstLeqK AstConcreteK{}
-                        (AstN1K NegateOp AstVar{}))) d = AstBoolAndK c (b &&* d)
-  b &&* AstBoolAndK
-          c@(AstBoolNotK
-               (AstBoolAndK (AstLeqK AstConcreteK{}
-                                     AstVar{}) _)) d = AstBoolAndK c (b &&* d)
-  b &&* AstBoolAndK
-          c@(AstBoolNotK
-               (AstBoolAndK
-                  (AstLeqK AstConcreteK{}
-                           (AstN1K NegateOp
-                                   AstVar{})) _)) d = AstBoolAndK c (b &&* d)
-  b &&* AstBoolAndK
-          c@(AstBoolNotK
-               (AstBoolAndK
-                  (AstBoolNotK
-                     (AstLeqK AstConcreteK{}
-                              AstVar{})) _)) d = AstBoolAndK c (b &&* d)
-  b &&* AstBoolAndK
-          c@(AstBoolNotK
-               (AstBoolAndK
-                  (AstBoolNotK
-                     (AstLeqK AstConcreteK{}
-                              (AstN1K
-                                 NegateOp
-                                 AstVar{}))) _)) d = AstBoolAndK c (b &&* d)
-  b &&* c = AstBoolAndK b c
+  notB = AstBoolNotK
+  (&&*) = AstBoolAndK
   b ||* c = notB (notB b &&* notB c)
 
 -- Since u and v are duplicated here, they need to be shared.
@@ -903,10 +805,6 @@ instance (KnownSpan s, NumScalar r)
   vUnshared ==. uUnshared =
     let uv = astShareNoSimplify (uUnshared - vUnshared)
     in 0 <=. uv &&* uv <=. 0
-  {-# SPECIALIZE instance EqH (AstTensor AstMethodShare FullSpan) (TKScalar Int) #-}
-  {-# SPECIALIZE instance EqH (AstTensor AstMethodShare PrimalSpan) (TKScalar Int) #-}
-  {-# SPECIALIZE instance EqH (AstTensor AstMethodShare PlainSpan) (TKScalar Int) #-}
-  {-# SPECIALIZE instance KnownSpan s => EqH (AstTensor AstMethodShare s) (TKScalar Int) #-}
 
 instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKS sh r) where
@@ -915,98 +813,12 @@ instance (KnownSpan s, NumScalar r)
         zero = fromPlain $ AstConcreteS $ defTargetRep $ ftkAst vUnshared
     in zero <=. uv &&* uv <=. zero
 
--- These are common in indexing, so worth optimizing early via AstConcrete.
--- We keep AstConcrete on the left, as with AstPlusK and others.
 instance (KnownSpan s, NumScalar r)
          => OrdH (AstTensor AstMethodShare s) (TKScalar r) where
-  u <=. v | eqK u v = true
-  u <=. v | Just (u1, u2) <- bounds u
-          , Just (v1, v2) <- bounds v
-          , u2 <= v1 || u1 > v2 = AstConcreteK (u2 <= v1)
-  AstPrimalPart u <=. AstPrimalPart v = u <=. v
-  AstPlainPart @_ @s1 u <=. AstPlainPart @_ @s2 v
-    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
-      u <=. v
-  AstFromPrimal u <=. AstFromPrimal v = u <=. v
-  AstFromDual{} <=. AstFromDual{} = true
-  AstFromPlain u <=. AstFromPlain v = u <=. v
-  u <=. AstPlusK (AstConcreteK v) w =
-    u - AstConcreteK v <=. w
-  AstPlusK (AstConcreteK u) w <=. v =
-    AstConcreteK u <=. v - w
-  u <=. AstConcreteK v =
-    AstConcreteK (negate v) <=. negate u
-  AstConcreteK u <=. AstTimesK (AstConcreteK v) w
-    | v > 0 && u >= 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
-      AstConcreteK ((u + v - 1) `quotH` v) <=. w -- 10 == 5 * 2, 11 > 5 * 2
-  AstConcreteK u <=. AstTimesK (AstConcreteK v) w
-    | v > 0 && u < 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
-      AstConcreteK (u `quotH` v) <=. w  -- -10 == 5 * -2, -9 > 5 * -2
-  AstConcreteK u <=. AstTimesK (AstConcreteK v) w
-    | v < 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
-      AstConcreteK u <=. AstTimesK (AstConcreteK $ negate v) (AstN1K NegateOp w)
-  v@AstConcreteK{} <=. u = AstLeqK v u
-  u <=. AstPlusK (AstFromPlain (AstConcreteK v)) w =
-    u - AstFromPlain (AstConcreteK v) <=. w
-  AstPlusK (AstFromPlain (AstConcreteK u)) w <=. v =
-    AstFromPlain (AstConcreteK u) <=. v - w
-  u <=. AstFromPlain (AstConcreteK v) =
-    AstFromPlain (AstConcreteK (negate v)) <=. negate u
-  AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK v)) w
-    | v > 0 && u >= 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
-      AstFromPlain (AstConcreteK ((u + v - 1) `quotH` v)) <=. w
-        -- 10 == 5 * 2, 11 > 5 * 2
-  AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK v)) w
-    | v > 0 && u < 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
-      AstFromPlain (AstConcreteK (u `quotH` v)) <=. w
-        -- -10 == 5 * -2, -9 > 5 * -2
-  AstFromPlain (AstConcreteK u) <=. AstTimesK (AstFromPlain (AstConcreteK v)) w
-    | v < 0
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int) =
-      AstFromPlain (AstConcreteK u)
-      <=. AstTimesK (AstFromPlain (AstConcreteK $ negate v)) (AstN1K NegateOp w)
-  v <=. u = AstConcreteK 0 <=. plainPart u - plainPart v
-  {-# SPECIALIZE instance OrdH (AstTensor AstMethodShare FullSpan) (TKScalar Int) #-}
-  {-# SPECIALIZE instance OrdH (AstTensor AstMethodShare PrimalSpan) (TKScalar Int) #-}
-  {-# SPECIALIZE instance OrdH (AstTensor AstMethodShare PlainSpan) (TKScalar Int) #-}
-  {-# SPECIALIZE instance KnownSpan s => OrdH (AstTensor AstMethodShare s) (TKScalar Int) #-}
+  v <=. u = AstLeqK (plainPart v) (plainPart u)
 
 instance (KnownSpan s, NumScalar r)
          => OrdH (AstTensor AstMethodShare s) (TKS sh r) where
-  AstPrimalPart u <=. AstPrimalPart v = u <=. v
-  AstPlainPart @_ @s1 u <=. AstPlainPart @_ @s2 v
-    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
-      u <=. v
-  AstFromPrimal u <=. AstFromPrimal v = u <=. v
-  AstFromDual{} <=. AstFromDual{} = true
-  AstFromPlain u <=. AstFromPlain v = u <=. v
-  AstConcreteS u <=. AstConcreteS v =
-    AstConcreteK $ Shaped.stoPrimitive u <= Shaped.stoPrimitive v
-  u <=. AstPlusS (AstConcreteS v) w =
-    u - AstConcreteS v <=. w
-  AstPlusS (AstConcreteS u) w <=. v =
-    AstConcreteS u <=. v - w
-  u <=. AstConcreteS v =
-    AstConcreteS (negate v) <=. negate u
-  u <=. AstPlusS (AstFromPlain (AstConcreteS v)) w =
-    u - AstFromPlain (AstConcreteS v) <=. w
-  AstPlusS (AstFromPlain (AstConcreteS u)) w <=. v =
-    AstFromPlain (AstConcreteS u) <=. v - w
-  u <=. AstFromPlain (AstConcreteS v) =
-    AstFromPlain (AstConcreteS (negate v)) <=. negate u
-  AstConvert _ (AstVar u) <=. AstConvert _ (AstVar v)
-    | varNameToAstVarId u == varNameToAstVarId v =
-      true
-  AstConvUpSFromK w <=. AstConvUpSFromK v = w <=. v
-  w <=. AstConvUpSFromK v = cAstConvDownKFromS w <=. v
-  AstConvUpSFromK v <=. w = v <=. cAstConvDownKFromS w
-  AstVar u <=. AstVar v | u == v =
-    true
   v <=. u = AstLeq (plainPart v) (plainPart u)
 
 
