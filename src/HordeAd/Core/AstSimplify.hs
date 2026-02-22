@@ -97,7 +97,7 @@ import HordeAd.Core.Ast
   ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
   )
 import HordeAd.Core.Ast hiding (AstTensor (..))
-import HordeAd.Core.Ast qualified as Ast
+import HordeAd.Core.Ast qualified as Ast (AstTensor(..))
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersAst
@@ -1441,25 +1441,25 @@ astN1K opCode t = case t of
   Ast.AstFromDual n -> fromDual (astN1K opCode n)
   Ast.AstFromPlain n -> fromPlain (astN1K opCode n)
   _ -> case (opCode, t) of
-    (Ast.NegateOp, AstConcreteK n) -> AstConcreteK (negate n)
-    (Ast.NegateOp, AstPlusK u v) ->
-      AstPlusK (astN1K Ast.NegateOp u) (astN1K Ast.NegateOp v)
-    (Ast.NegateOp, AstTimesK u v) ->
-      AstTimesK (astN1K Ast.NegateOp u) v
-    (Ast.NegateOp, Ast.AstN1K Ast.NegateOp u) -> u
-    (Ast.NegateOp, Ast.AstN1K Ast.SignumOp u) ->
-      astN1K Ast.SignumOp (astN1K Ast.NegateOp u)
-    (Ast.NegateOp, Ast.AstI2K Ast.QuotOp u v) ->
-      astI2K Ast.QuotOp (astN1K Ast.NegateOp u) v
+    (NegateOp, AstConcreteK n) -> AstConcreteK (negate n)
+    (NegateOp, AstPlusK u v) ->
+      AstPlusK (astN1K NegateOp u) (astN1K NegateOp v)
+    (NegateOp, AstTimesK u v) ->
+      AstTimesK (astN1K NegateOp u) v
+    (NegateOp, Ast.AstN1K NegateOp u) -> u
+    (NegateOp, Ast.AstN1K SignumOp u) ->
+      astN1K SignumOp (astN1K NegateOp u)
+    (NegateOp, Ast.AstI2K QuotOp u v) ->
+      astI2K QuotOp (astN1K NegateOp u) v
         -- v is likely positive and let's keep it so
-    (Ast.NegateOp, Ast.AstI2K Ast.RemOp u v) ->
-       astI2K Ast.RemOp (astN1K Ast.NegateOp u) v
+    (NegateOp, Ast.AstI2K RemOp u v) ->
+       astI2K RemOp (astN1K NegateOp u) v
          -- v is likely positive and let's keep it so
-    (Ast.AbsOp, AstConcreteK n) -> AstConcreteK (abs n)
-    (Ast.AbsOp, Ast.AstN1K Ast.AbsOp u) -> astN1K Ast.AbsOp u
-    (Ast.AbsOp, Ast.AstN1K Ast.NegateOp u) -> astN1K Ast.AbsOp u
-    (Ast.SignumOp, AstConcreteK n) -> AstConcreteK (signum n)
-    (Ast.SignumOp, Ast.AstN1K Ast.SignumOp u) -> astN1K Ast.SignumOp u
+    (AbsOp, AstConcreteK n) -> AstConcreteK (abs n)
+    (AbsOp, Ast.AstN1K AbsOp u) -> astN1K AbsOp u
+    (AbsOp, Ast.AstN1K NegateOp u) -> astN1K AbsOp u
+    (SignumOp, AstConcreteK n) -> AstConcreteK (signum n)
+    (SignumOp, Ast.AstN1K SignumOp u) -> astN1K SignumOp u
     _ -> Ast.AstN1K opCode t
 
 astR1K :: (NumScalar r, Differentiable r, KnownSpan s)
@@ -1472,23 +1472,23 @@ astR1K opCode = \case
   Ast.AstPlainPart u -> plainPart $ astR1K opCode u
   Ast.AstFromPrimal u -> fromPrimal $ astR1K opCode u
   Ast.AstFromPlain u -> fromPlain $ astR1K opCode u
-  Ast.AstConcreteK u -> case opCode of
-    Ast.RecipOp -> AstConcreteK $ recip u
-    Ast.ExpOp -> AstConcreteK $ exp u
-    Ast.LogOp -> AstConcreteK $ log u
-    Ast.SqrtOp -> AstConcreteK $ sqrt u
-    Ast.SinOp -> AstConcreteK $ sin u
-    Ast.CosOp -> AstConcreteK $ cos u
-    Ast.TanOp -> AstConcreteK $ tan u
-    Ast.AsinOp -> AstConcreteK $ asin u
-    Ast.AcosOp -> AstConcreteK $ acos u
-    Ast.AtanOp -> AstConcreteK $ atan u
-    Ast.SinhOp -> AstConcreteK $ sinh u
-    Ast.CoshOp -> AstConcreteK $ cosh u
-    Ast.TanhOp -> AstConcreteK $ tanh u
-    Ast.AsinhOp -> AstConcreteK $ asinh u
-    Ast.AcoshOp -> AstConcreteK $ acosh u
-    Ast.AtanhOp -> AstConcreteK $ atanh u
+  AstConcreteK u -> case opCode of
+    RecipOp -> AstConcreteK $ recip u
+    ExpOp -> AstConcreteK $ exp u
+    LogOp -> AstConcreteK $ log u
+    SqrtOp -> AstConcreteK $ sqrt u
+    SinOp -> AstConcreteK $ sin u
+    CosOp -> AstConcreteK $ cos u
+    TanOp -> AstConcreteK $ tan u
+    AsinOp -> AstConcreteK $ asin u
+    AcosOp -> AstConcreteK $ acos u
+    AtanOp -> AstConcreteK $ atan u
+    SinhOp -> AstConcreteK $ sinh u
+    CoshOp -> AstConcreteK $ cosh u
+    TanhOp -> AstConcreteK $ tanh u
+    AsinhOp -> AstConcreteK $ asinh u
+    AcoshOp -> AstConcreteK $ acosh u
+    AtanhOp -> AstConcreteK $ atanh u
   u -> Ast.AstR1K opCode u
 
 astR2K :: (NumScalar r, Differentiable r, KnownSpan s)
@@ -1504,10 +1504,10 @@ astR2K opCode = \cases
   (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astR2K opCode u v
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astR2K opCode u v
   (AstConcreteK u) (AstConcreteK v) -> case opCode of
-    Ast.DivideOp -> AstConcreteK $ u / v
-    Ast.PowerOp -> AstConcreteK $ u ** v
-    Ast.LogBaseOp -> AstConcreteK $ logBase u v
-    Ast.Atan2Op -> AstConcreteK $ atan2H u v
+    DivideOp -> AstConcreteK $ u / v
+    PowerOp -> AstConcreteK $ u ** v
+    LogBaseOp -> AstConcreteK $ logBase u v
+    Atan2Op -> AstConcreteK $ atan2H u v
   u v -> Ast.AstR2K opCode u v
 
 astI2K :: (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
@@ -1530,32 +1530,32 @@ astI2K opCode = \cases
       , u1 == u2 ->
         fromPlain $ AstConcreteK u1
   u v -> case opCode of
-    Ast.QuotOp -> case (u, v) of
+    QuotOp -> case (u, v) of
       (AstConcreteK n, AstConcreteK k) -> AstConcreteK (quotH n k)
       (AstConcreteK 0, _) -> AstConcreteK 0
       (Ast.AstFromPlain (AstConcreteK 0), _) -> fromPlain $ AstConcreteK 0
       (t, AstConcreteK 1) -> t
       (t, Ast.AstFromPlain (AstConcreteK 1)) -> t
-      (Ast.AstI2K Ast.RemOp _ (AstConcreteK k), AstConcreteK k')
+      (Ast.AstI2K RemOp _ (AstConcreteK k), AstConcreteK k')
         | k' >= k && k >= 0 -> AstConcreteK 0
-      (Ast.AstI2K Ast.QuotOp u0 v0, w0) ->
-        astI2K Ast.QuotOp u0 (astTimesK v0 w0)
+      (Ast.AstI2K QuotOp u0 v0, w0) ->
+        astI2K QuotOp u0 (astTimesK v0 w0)
       (AstTimesK (AstConcreteK n) t, AstConcreteK n')
         | n == n' -> t
-      _ -> Ast.AstI2K Ast.QuotOp u v
-    Ast.RemOp -> case (u, v) of
+      _ -> Ast.AstI2K QuotOp u v
+    RemOp -> case (u, v) of
       (AstConcreteK n, AstConcreteK k) -> AstConcreteK (remH n k)
       (AstConcreteK 0, _) -> AstConcreteK 0
       (Ast.AstFromPlain (AstConcreteK 0), _) -> fromPlain $ AstConcreteK 0
       (_, AstConcreteK 1) -> AstConcreteK 0
       (_, Ast.AstFromPlain (AstConcreteK 1)) -> fromPlain $ AstConcreteK 0
-      (Ast.AstI2K Ast.RemOp t (AstConcreteK k), AstConcreteK k')
-        | k' >= k && k >= 0 -> astI2K Ast.RemOp t (AstConcreteK k)
-      (Ast.AstI2K Ast.RemOp t (AstConcreteK k), AstConcreteK k')
-        | remH k k' == 0 && k > 0 -> astI2K Ast.RemOp t (AstConcreteK k')
+      (Ast.AstI2K RemOp t (AstConcreteK k), AstConcreteK k')
+        | k' >= k && k >= 0 -> astI2K RemOp t (AstConcreteK k)
+      (Ast.AstI2K RemOp t (AstConcreteK k), AstConcreteK k')
+        | remH k k' == 0 && k > 0 -> astI2K RemOp t (AstConcreteK k')
       (AstTimesK (AstConcreteK n) _, AstConcreteK n')
         | remH n n' == 0 -> AstConcreteK 0
-      _ -> Ast.AstI2K Ast.RemOp u v
+      _ -> Ast.AstI2K RemOp u v
 
 astConcreteK :: GoodScalar r
              => Concrete (TKScalar r)
@@ -1738,13 +1738,13 @@ astPlusS = \cases
   u (AstConvUpSFromK v) -> cAstConvUpSFromK $ astPlusK (cAstConvDownKFromS u) v
   (AstConvUpSFromK u) v -> cAstConvUpSFromK $ astPlusK u (cAstConvDownKFromS v)
 
---  Ast.AstN1S Ast.NegateOp (Ast.AstVar var) + Ast.AstVar var'
+--  Ast.AstN1S NegateOp (Ast.AstVar var) + Ast.AstVar var'
 --    | var == var' -> 0
-  (Ast.AstN1S Ast.NegateOp (Ast.AstVar var)) (AstPlusS (Ast.AstVar var') u)
+  (Ast.AstN1S NegateOp (Ast.AstVar var)) (AstPlusS (Ast.AstVar var') u)
     | var == var' -> u
---  Ast.AstVar var' + Ast.AstN1S Ast.NegateOp (Ast.AstVar var)
+--  Ast.AstVar var' + Ast.AstN1S NegateOp (Ast.AstVar var)
 --    | var == var' -> 0
-  (Ast.AstVar var') (AstPlusS (Ast.AstN1S Ast.NegateOp (Ast.AstVar var)) u)
+  (Ast.AstVar var') (AstPlusS (Ast.AstN1S NegateOp (Ast.AstVar var)) u)
     | var == var' -> u
 
   (AstPlusS u@AstConcreteS{} v)  w -> AstPlusS u (AstPlusS v w)
@@ -1870,7 +1870,7 @@ astTimesS = \cases
   -- AstPlusS v w * AstTimesS u@(AstFromPlain AstConcreteS{}) x =
   --   AstTimesS (AstPlusS (v * u) (w * u)) x
 
-  (Ast.AstN1S Ast.NegateOp u) (Ast.AstN1S Ast.NegateOp v) -> AstTimesS u v
+  (Ast.AstN1S NegateOp u) (Ast.AstN1S NegateOp v) -> AstTimesS u v
 
   (AstTimesS u@AstConcreteS{} v) w -> AstTimesS u (AstTimesS v w)
   u v@AstConcreteS{} -> AstTimesS v u
@@ -1899,29 +1899,29 @@ astN1S opCode t = case t of
   Ast.AstFromPlain n -> fromPlain (astN1S opCode n)
   AstConvUpSFromK n -> cAstConvUpSFromK $ astN1K opCode n
   _ -> case (opCode, t) of
-    (Ast.NegateOp, AstConcreteS n) -> AstConcreteS (negate n)
-    (Ast.NegateOp, AstPlusS u v) ->
-      AstPlusS (astN1S Ast.NegateOp u) (astN1S Ast.NegateOp v)
-    (Ast.NegateOp, AstTimesS u v) ->
-      AstTimesS (astN1S Ast.NegateOp u) v
-    (Ast.NegateOp, Ast.AstN1S Ast.NegateOp u) -> u
-    (Ast.NegateOp, Ast.AstN1S Ast.SignumOp u) ->
-      astN1S Ast.SignumOp (astN1S Ast.NegateOp u)
-    (Ast.NegateOp, Ast.AstI2S Ast.QuotOp u v) ->
-      astI2S Ast.QuotOp (astN1S Ast.NegateOp u) v
+    (NegateOp, AstConcreteS n) -> AstConcreteS (negate n)
+    (NegateOp, AstPlusS u v) ->
+      AstPlusS (astN1S NegateOp u) (astN1S NegateOp v)
+    (NegateOp, AstTimesS u v) ->
+      AstTimesS (astN1S NegateOp u) v
+    (NegateOp, Ast.AstN1S NegateOp u) -> u
+    (NegateOp, Ast.AstN1S SignumOp u) ->
+      astN1S SignumOp (astN1S NegateOp u)
+    (NegateOp, Ast.AstI2S QuotOp u v) ->
+      astI2S QuotOp (astN1S NegateOp u) v
         -- v is likely positive and let's keep it so
-    (Ast.NegateOp, Ast.AstI2S Ast.RemOp u v) ->
-      astI2S Ast.RemOp (astN1S Ast.NegateOp u) v
+    (NegateOp, Ast.AstI2S RemOp u v) ->
+      astI2S RemOp (astN1S NegateOp u) v
         -- v is likely positive and let's keep it so
-    (Ast.NegateOp, Ast.AstScatterS shm shn shp v (vars, ix)) ->
-      astScatterS shm shn shp (astN1S Ast.NegateOp v) (vars, ix)
-    (Ast.NegateOp, Ast.AstGatherS shm shn shp v (vars, ix)) ->
-      astGatherS shm shn shp (astN1S Ast.NegateOp v) (vars, ix)
-    (Ast.AbsOp, AstConcreteS n) -> AstConcreteS (abs n)
-    (Ast.AbsOp, Ast.AstN1S Ast.AbsOp u) -> astN1S Ast.AbsOp u
-    (Ast.AbsOp, Ast.AstN1S Ast.NegateOp u) -> astN1S Ast.AbsOp u
-    (Ast.SignumOp, AstConcreteS n) -> AstConcreteS (signum n)
-    (Ast.SignumOp, Ast.AstN1S Ast.SignumOp u) -> astN1S Ast.SignumOp u
+    (NegateOp, Ast.AstScatterS shm shn shp v (vars, ix)) ->
+      astScatterS shm shn shp (astN1S NegateOp v) (vars, ix)
+    (NegateOp, Ast.AstGatherS shm shn shp v (vars, ix)) ->
+      astGatherS shm shn shp (astN1S NegateOp v) (vars, ix)
+    (AbsOp, AstConcreteS n) -> AstConcreteS (abs n)
+    (AbsOp, Ast.AstN1S AbsOp u) -> astN1S AbsOp u
+    (AbsOp, Ast.AstN1S NegateOp u) -> astN1S AbsOp u
+    (SignumOp, AstConcreteS n) -> AstConcreteS (signum n)
+    (SignumOp, Ast.AstN1S SignumOp u) -> astN1S SignumOp u
     _ -> Ast.AstN1S opCode t
 
 astR1S :: (NumScalar r, Differentiable r, KnownSpan s)
@@ -1938,23 +1938,23 @@ astR1S opCode = \case
   Ast.AstFromPrimal u -> fromPrimal $ astR1S opCode u
   Ast.AstFromPlain u -> fromPlain $ astR1S opCode u
   AstConvUpSFromK u -> cAstConvUpSFromK $ astR1K opCode u
-  Ast.AstConcreteS u -> case opCode of
-    Ast.RecipOp -> AstConcreteS $ recip u
-    Ast.ExpOp -> AstConcreteS $ exp u
-    Ast.LogOp -> AstConcreteS $ log u
-    Ast.SqrtOp -> AstConcreteS $ sqrt u
-    Ast.SinOp -> AstConcreteS $ sin u
-    Ast.CosOp -> AstConcreteS $ cos u
-    Ast.TanOp -> AstConcreteS $ tan u
-    Ast.AsinOp -> AstConcreteS $ asin u
-    Ast.AcosOp -> AstConcreteS $ acos u
-    Ast.AtanOp -> AstConcreteS $ atan u
-    Ast.SinhOp -> AstConcreteS $ sinh u
-    Ast.CoshOp -> AstConcreteS $ cosh u
-    Ast.TanhOp -> AstConcreteS $ tanh u
-    Ast.AsinhOp -> AstConcreteS $ asinh u
-    Ast.AcoshOp -> AstConcreteS $ acosh u
-    Ast.AtanhOp -> AstConcreteS $ atanh u
+  AstConcreteS u -> case opCode of
+    RecipOp -> AstConcreteS $ recip u
+    ExpOp -> AstConcreteS $ exp u
+    LogOp -> AstConcreteS $ log u
+    SqrtOp -> AstConcreteS $ sqrt u
+    SinOp -> AstConcreteS $ sin u
+    CosOp -> AstConcreteS $ cos u
+    TanOp -> AstConcreteS $ tan u
+    AsinOp -> AstConcreteS $ asin u
+    AcosOp -> AstConcreteS $ acos u
+    AtanOp -> AstConcreteS $ atan u
+    SinhOp -> AstConcreteS $ sinh u
+    CoshOp -> AstConcreteS $ cosh u
+    TanhOp -> AstConcreteS $ tanh u
+    AsinhOp -> AstConcreteS $ asinh u
+    AcoshOp -> AstConcreteS $ acosh u
+    AtanhOp -> AstConcreteS $ atanh u
   u -> Ast.AstR1S opCode u
 
 astR2S :: (NumScalar r, Differentiable r, KnownSpan s)
@@ -1980,10 +1980,10 @@ astR2S opCode = \cases
   (AstConvUpSFromK n) k ->
     cAstConvUpSFromK $ astR2K opCode n (cAstConvDownKFromS k)
   (AstConcreteS u) (AstConcreteS v) -> case opCode of
-    Ast.DivideOp -> AstConcreteS $ u / v
-    Ast.PowerOp -> AstConcreteS $ u ** v
-    Ast.LogBaseOp -> AstConcreteS $ logBase u v
-    Ast.Atan2Op -> AstConcreteS $ atan2H u v
+    DivideOp -> AstConcreteS $ u / v
+    PowerOp -> AstConcreteS $ u ** v
+    LogBaseOp -> AstConcreteS $ logBase u v
+    Atan2Op -> AstConcreteS $ atan2H u v
   u v -> Ast.AstR2S opCode u v
 
 astI2S :: (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
@@ -2012,20 +2012,20 @@ astI2S opCode = \cases
   (AstConvUpSFromK n) k ->
     cAstConvUpSFromK $ astI2K opCode n (cAstConvDownKFromS k)
   u v -> case opCode of
-    Ast.QuotOp -> case (u, v) of
+    QuotOp -> case (u, v) of
       (AstConcreteS n, AstConcreteS k) -> AstConcreteS (quotH n k)
       _ | Just 0 <- unReplC u -> u
       (Ast.AstFromPlain z, _) | Just 0 <- unReplC z -> u
       _ | Just 1 <- unReplC v -> u
       (_, Ast.AstFromPlain s) | Just 1 <- unReplC s -> u
-      (Ast.AstI2S Ast.QuotOp u0 v0, w0) ->
-        astI2S Ast.QuotOp u0 (astTimesS v0 w0)
-      _ -> Ast.AstI2S Ast.QuotOp u v
-    Ast.RemOp -> case (u, v) of
+      (Ast.AstI2S QuotOp u0 v0, w0) ->
+        astI2S QuotOp u0 (astTimesS v0 w0)
+      _ -> Ast.AstI2S QuotOp u v
+    RemOp -> case (u, v) of
       (AstConcreteS n, AstConcreteS k) -> AstConcreteS (remH n k)
       _ | Just 0 <- unReplC u -> u
       (Ast.AstFromPlain z, _) | Just 0 <- unReplC z -> u
-      _ -> Ast.AstI2S Ast.RemOp u v
+      _ -> Ast.AstI2S RemOp u v
 
 astConcreteS :: GoodScalar r
              => Concrete (TKS sh r)
@@ -4256,7 +4256,7 @@ astSum0 t = case t of
   Ast.AstFromDual u -> fromDual $ astSum0 u
   Ast.AstFromPlain u -> fromPlain $ astSum0 u
   AstTimesS t1 t2 -> astDot0 t1 t2
-  Ast.AstN1S NegateOp u -> astN1K Ast.NegateOp $ astSum0 u
+  Ast.AstN1S NegateOp u -> astN1K NegateOp $ astSum0 u
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
     astConcreteK $ tssum0 (Concrete v)
@@ -4394,12 +4394,12 @@ astBoolAndK = \cases
   _b (AstConcreteK False) -> AstConcreteK False
   (Ast.AstBoolAndK b c) d -> b `astBoolAndK` (c `astBoolAndK` d)
   b@(Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) c -> Ast.AstBoolAndK b c
-  b@(Ast.AstLeqK AstConcreteK{} (Ast.AstN1K Ast.NegateOp
+  b@(Ast.AstLeqK AstConcreteK{} (Ast.AstN1K NegateOp
                                     Ast.AstVar{})) c -> Ast.AstBoolAndK b c
   b@(Ast.AstBoolNotK
        (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) c -> Ast.AstBoolAndK b c
   b@(Ast.AstBoolNotK
-       (Ast.AstLeqK AstConcreteK{} (Ast.AstN1K Ast.NegateOp
+       (Ast.AstLeqK AstConcreteK{} (Ast.AstN1K NegateOp
                                        Ast.AstVar{}))) c -> Ast.AstBoolAndK b c
   b@(Ast.AstBoolNotK
        (Ast.AstBoolAndK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) _)) c ->
@@ -4407,7 +4407,7 @@ astBoolAndK = \cases
   b@(Ast.AstBoolNotK
        (Ast.AstBoolAndK
           (Ast.AstLeqK AstConcreteK{}
-                   (Ast.AstN1K Ast.NegateOp Ast.AstVar{})) _)) c ->
+                   (Ast.AstN1K NegateOp Ast.AstVar{})) _)) c ->
     Ast.AstBoolAndK b c
   b@(Ast.AstBoolNotK
        (Ast.AstBoolAndK (Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{}
@@ -4417,15 +4417,15 @@ astBoolAndK = \cases
        (Ast.AstBoolAndK
           (Ast.AstBoolNotK
              (Ast.AstLeqK AstConcreteK{}
-                      (Ast.AstN1K Ast.NegateOp Ast.AstVar{}))) _)) c ->
+                      (Ast.AstN1K NegateOp Ast.AstVar{}))) _)) c ->
     Ast.AstBoolAndK b c
   b c@(Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) -> Ast.AstBoolAndK c b
-  b c@(Ast.AstLeqK AstConcreteK{} (Ast.AstN1K Ast.NegateOp
+  b c@(Ast.AstLeqK AstConcreteK{} (Ast.AstN1K NegateOp
                                       Ast.AstVar{})) -> Ast.AstBoolAndK c b
   b c@(Ast.AstBoolNotK
          (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) -> Ast.AstBoolAndK c b
   b c@(Ast.AstBoolNotK
-         (Ast.AstLeqK AstConcreteK{} (Ast.AstN1K Ast.NegateOp
+         (Ast.AstLeqK AstConcreteK{} (Ast.AstN1K NegateOp
                                          Ast.AstVar{}))) -> Ast.AstBoolAndK c b
   b c@(Ast.AstBoolNotK
          (Ast.AstBoolAndK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) _)) ->
@@ -4433,7 +4433,7 @@ astBoolAndK = \cases
   b c@(Ast.AstBoolNotK
          (Ast.AstBoolAndK
             (Ast.AstLeqK AstConcreteK{}
-                     (Ast.AstN1K Ast.NegateOp Ast.AstVar{})) _)) ->
+                     (Ast.AstN1K NegateOp Ast.AstVar{})) _)) ->
     Ast.AstBoolAndK c b
   b c@(Ast.AstBoolNotK
          (Ast.AstBoolAndK (Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{}
@@ -4443,14 +4443,14 @@ astBoolAndK = \cases
          (Ast.AstBoolAndK
             (Ast.AstBoolNotK
                (Ast.AstLeqK AstConcreteK{}
-                        (Ast.AstN1K Ast.NegateOp Ast.AstVar{}))) _)) ->
+                        (Ast.AstN1K NegateOp Ast.AstVar{}))) _)) ->
     Ast.AstBoolAndK c b
   b (Ast.AstBoolAndK
       c@(Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) d) ->
     Ast.AstBoolAndK c (b `astBoolAndK` d)
   b (Ast.AstBoolAndK
       c@(Ast.AstLeqK AstConcreteK{}
-                 (Ast.AstN1K Ast.NegateOp Ast.AstVar{})) d) ->
+                 (Ast.AstN1K NegateOp Ast.AstVar{})) d) ->
     Ast.AstBoolAndK c (b `astBoolAndK` d)
   b (Ast.AstBoolAndK
       c@(Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{}
@@ -4459,7 +4459,7 @@ astBoolAndK = \cases
   b (Ast.AstBoolAndK
       c@(Ast.AstBoolNotK
            (Ast.AstLeqK AstConcreteK{}
-                    (Ast.AstN1K Ast.NegateOp Ast.AstVar{}))) d) ->
+                    (Ast.AstN1K NegateOp Ast.AstVar{}))) d) ->
     Ast.AstBoolAndK c (b `astBoolAndK` d)
   b (Ast.AstBoolAndK
       c@(Ast.AstBoolNotK
@@ -4470,7 +4470,7 @@ astBoolAndK = \cases
       c@(Ast.AstBoolNotK
            (Ast.AstBoolAndK
               (Ast.AstLeqK AstConcreteK{}
-                       (Ast.AstN1K Ast.NegateOp
+                       (Ast.AstN1K NegateOp
                                Ast.AstVar{})) _)) d) ->
     Ast.AstBoolAndK c (b `astBoolAndK` d)
   b (Ast.AstBoolAndK
@@ -4486,7 +4486,7 @@ astBoolAndK = \cases
               (Ast.AstBoolNotK
                  (Ast.AstLeqK AstConcreteK{}
                           (Ast.AstN1K
-                             Ast.NegateOp
+                             NegateOp
                              Ast.AstVar{}))) _)) d) ->
     Ast.AstBoolAndK c (b `astBoolAndK` d)
   b c -> Ast.AstBoolAndK b c
@@ -4515,11 +4515,11 @@ astLeqK = \cases
   Ast.AstFromDual{}  Ast.AstFromDual{} -> true
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> astLeqK u v
   u (AstPlusK (AstConcreteK v) w) ->
-    astLeqK (astPlusK u (astN1K Ast.NegateOp (AstConcreteK v))) w
+    astLeqK (astPlusK u (astN1K NegateOp (AstConcreteK v))) w
   (AstPlusK (AstConcreteK u) w) v ->
-    astLeqK (AstConcreteK u) (astPlusK v (astN1K Ast.NegateOp w))
+    astLeqK (AstConcreteK u) (astPlusK v (astN1K NegateOp w))
   u (AstConcreteK v) ->
-    astLeqK (AstConcreteK (negate v)) (astN1K Ast.NegateOp u)
+    astLeqK (AstConcreteK (negate v)) (astN1K NegateOp u)
   (AstConcreteK u) (AstTimesK (AstConcreteK v) w)
     | v > 0 && u >= 0
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
@@ -4534,17 +4534,17 @@ astLeqK = \cases
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
       astLeqK (AstConcreteK u)
               (AstTimesK (AstConcreteK $ negate v)
-                             (Ast.AstN1K Ast.NegateOp w))
+                             (Ast.AstN1K NegateOp w))
   v@AstConcreteK{} u -> Ast.AstLeqK v u
   u (AstPlusK (Ast.AstFromPlain (AstConcreteK v)) w) ->
-    astLeqK (astPlusK u (astN1K Ast.NegateOp
+    astLeqK (astPlusK u (astN1K NegateOp
                                 (Ast.AstFromPlain (AstConcreteK v)))) w
   (AstPlusK (Ast.AstFromPlain (AstConcreteK u)) w) v ->
     astLeqK (Ast.AstFromPlain (AstConcreteK u))
-            (astPlusK v (astN1K Ast.NegateOp w))
+            (astPlusK v (astN1K NegateOp w))
   u (Ast.AstFromPlain (AstConcreteK v)) ->
     astLeqK (Ast.AstFromPlain (AstConcreteK (negate v)))
-            (astN1K Ast.NegateOp u)
+            (astN1K NegateOp u)
   (Ast.AstFromPlain (AstConcreteK u))
     (AstTimesK (Ast.AstFromPlain (AstConcreteK v)) w)
       | v > 0 && u >= 0
@@ -4563,9 +4563,9 @@ astLeqK = \cases
       , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
         astLeqK (Ast.AstFromPlain (AstConcreteK u))
                 (AstTimesK (Ast.AstFromPlain (AstConcreteK $ negate v))
-                           (Ast.AstN1K Ast.NegateOp w))
+                           (Ast.AstN1K NegateOp w))
   u v -> astLeqK (AstConcreteK 0)
-                 (plainPart (astPlusK v (astN1K Ast.NegateOp u)))
+                 (plainPart (astPlusK v (astN1K NegateOp u)))
 
 astLeq :: forall sh r s. (NumScalar r, KnownSpan s)
        => AstTensor AstMethodLet s (TKS sh r)
@@ -4582,19 +4582,19 @@ astLeq = \cases
   (AstConcreteS u) (AstConcreteS v) ->
     AstConcreteK $ Shaped.stoPrimitive u <= Shaped.stoPrimitive v
   u (AstPlusS (AstConcreteS v) w) ->
-    astLeq (astPlusS u (astN1S Ast.NegateOp (AstConcreteS v))) w
+    astLeq (astPlusS u (astN1S NegateOp (AstConcreteS v))) w
   (AstPlusS (AstConcreteS u) w) v ->
-    astLeq (AstConcreteS u) (astPlusS v (astN1S Ast.NegateOp w))
+    astLeq (AstConcreteS u) (astPlusS v (astN1S NegateOp w))
   u (AstConcreteS v) ->
-    astLeq (AstConcreteS (negate v)) (astN1S Ast.NegateOp u)
+    astLeq (AstConcreteS (negate v)) (astN1S NegateOp u)
   u (AstPlusS (Ast.AstFromPlain (AstConcreteS v)) w) ->
-    astLeq (astPlusS u (astN1S Ast.NegateOp
+    astLeq (astPlusS u (astN1S NegateOp
                                (Ast.AstFromPlain (AstConcreteS v)))) w
   (AstPlusS (Ast.AstFromPlain (AstConcreteS u)) w) v ->
     astLeq (Ast.AstFromPlain (AstConcreteS u))
-           (astPlusS v (astN1S Ast.NegateOp w))
+           (astPlusS v (astN1S NegateOp w))
   u (Ast.AstFromPlain (AstConcreteS v)) ->
-    astLeq (Ast.AstFromPlain (AstConcreteS (negate v))) (astN1S Ast.NegateOp u)
+    astLeq (Ast.AstFromPlain (AstConcreteS (negate v))) (astN1S NegateOp u)
   (Ast.AstConvert _ (Ast.AstVar u)) (Ast.AstConvert _ (Ast.AstVar v))
     | varNameToAstVarId u == varNameToAstVarId v ->
       AstConcreteK True
