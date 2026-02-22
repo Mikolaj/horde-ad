@@ -4696,6 +4696,53 @@ instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   tunpairConv t = (astProject1 t, astProject2 t)
 
 
+-- TODO: refactor with something like liftRFromS2
+instance (KnownSpan s, NumScalar r)
+         => EqH (AstTensor AstMethodLet s) (TKR n r) where
+  v ==. u = case ftkAst v of
+    FTKR shv' x -> case ftkAst u of
+      FTKR shu' _ ->
+        withShsFromShR shv' $ \shv ->
+          withShsFromShR shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                cAstConvDownSFromR shu x v ==. cAstConvDownSFromR shv x u
+              _ -> error $ "(==.): shapes don't match: "
+                           ++ show (shu, shv)
+
+instance (KnownSpan s, NumScalar r)
+         => EqH (AstTensor AstMethodLet s) (TKX sh r) where
+  v ==. u = case ftkAst v of
+    FTKX shv' x -> case ftkAst u of
+      FTKX shu' _ ->
+        withShsFromShX shv' $ \shv ->
+          withShsFromShX shu' $ \shu ->
+            case testEquality shv shu of
+              Just Refl ->
+                cAstConvDownSFromX shu x v ==. cAstConvDownSFromX shv x u
+              _ -> error $ "(==.): shapes don't match: "
+                           ++ show (shu, shv)
+
+-- Since u and v are duplicated here, they need to be shared.
+-- We share their difference, which would most likely appear in the
+-- inequalities once they are rewritten, to ensure it's shared and whatever
+-- vectorization substitutes into it is shared as well.
+-- Otherwise, if u and v are variables, the sharing would vanish
+-- before vectoriation complicates the expression a bit, making it
+-- worth sharing.
+instance (KnownSpan s, NumScalar r)
+         => EqH (AstTensor AstMethodLet s) (TKScalar r) where
+  v ==. u | eqK v u = true
+  vUnshared ==. uUnshared = astLetFun (uUnshared - vUnshared) $ \uv ->
+    0 <=. uv &&* uv <=. 0
+
+instance (KnownSpan s, NumScalar r)
+         => EqH (AstTensor AstMethodLet s) (TKS sh r) where
+  vUnshared ==. uUnshared = astLetFun (uUnshared - vUnshared) $ \uv ->
+    let zero = fromPlain $ AstConcreteS $ defTargetRep $ ftkAst vUnshared
+    in zero <=. uv &&* uv <=. zero
+
+
 -- * Helper combinators
 
 -- All but the last case are shortcuts for common forms.

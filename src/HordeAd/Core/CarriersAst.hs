@@ -12,7 +12,7 @@
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
-  , eqK, astShareNoSimplify, astLetFunNoSimplify
+  , eqK, astShareNoSimplify
   , unRepl1, unRepl, unReplN
   ) where
 
@@ -1045,20 +1045,6 @@ instance Boolean (AstBool ms) where
   b &&* c = AstBoolAndK b c
   b ||* c = notB (notB b &&* notB c)
 
--- TODO: refactor with something like liftRFromS2
-instance (KnownSpan s, NumScalar r)
-         => EqH (AstTensor AstMethodLet s) (TKR n r) where
-  v ==. u = case ftkAst v of
-    FTKR shv' x -> case ftkAst u of
-      FTKR shu' _ ->
-        withShsFromShR shv' $ \shv ->
-          withShsFromShR shu' $ \shu ->
-            case testEquality shv shu of
-              Just Refl ->
-                cAstConvDownSFromR shu x v ==. cAstConvDownSFromR shv x u
-              _ -> error $ "(==.): shapes don't match: "
-                           ++ show (shu, shv)
-
 instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKR n r) where
   v ==. u = case ftkAst v of
@@ -1069,19 +1055,6 @@ instance (KnownSpan s, NumScalar r)
             case testEquality shv shu of
               Just Refl ->
                 cAstConvDownSFromR shu x v ==. cAstConvDownSFromR shv x u
-              _ -> error $ "(==.): shapes don't match: "
-                           ++ show (shu, shv)
-
-instance (KnownSpan s, NumScalar r)
-         => EqH (AstTensor AstMethodLet s) (TKX sh r) where
-  v ==. u = case ftkAst v of
-    FTKX shv' x -> case ftkAst u of
-      FTKX shu' _ ->
-        withShsFromShX shv' $ \shv ->
-          withShsFromShX shu' $ \shu ->
-            case testEquality shv shu of
-              Just Refl ->
-                cAstConvDownSFromX shu x v ==. cAstConvDownSFromX shv x u
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -1130,16 +1103,6 @@ instance (KnownSpan s, NumScalar r) => OrdH (AstTensor ms s) (TKX sh r) where
 -- before vectoriation complicates the expression a bit, making it
 -- worth sharing.
 instance (KnownSpan s, NumScalar r)
-         => EqH (AstTensor AstMethodLet s) (TKScalar r) where
-  v ==. u | eqK v u = true
-  vUnshared ==. uUnshared = astLetFunNoSimplify (uUnshared - vUnshared) $ \uv ->
-    0 <=. uv &&* uv <=. 0
-  {-# SPECIALIZE instance EqH (AstTensor AstMethodLet FullSpan) (TKScalar Int) #-}
-  {-# SPECIALIZE instance EqH (AstTensor AstMethodLet PrimalSpan) (TKScalar Int) #-}
-  {-# SPECIALIZE instance EqH (AstTensor AstMethodLet PlainSpan) (TKScalar Int) #-}
-  {-# SPECIALIZE instance KnownSpan s => EqH (AstTensor AstMethodLet s) (TKScalar Int) #-}
-
-instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKScalar r) where
   v ==. u | eqK v u = true
   vUnshared ==. uUnshared =
@@ -1149,12 +1112,6 @@ instance (KnownSpan s, NumScalar r)
   {-# SPECIALIZE instance EqH (AstTensor AstMethodShare PrimalSpan) (TKScalar Int) #-}
   {-# SPECIALIZE instance EqH (AstTensor AstMethodShare PlainSpan) (TKScalar Int) #-}
   {-# SPECIALIZE instance KnownSpan s => EqH (AstTensor AstMethodShare s) (TKScalar Int) #-}
-
-instance (KnownSpan s, NumScalar r)
-         => EqH (AstTensor AstMethodLet s) (TKS sh r) where
-  vUnshared ==. uUnshared = astLetFunNoSimplify (uUnshared - vUnshared) $ \uv ->
-    let zero = fromPlain $ AstConcreteS $ defTargetRep $ ftkAst vUnshared
-    in zero <=. uv &&* uv <=. zero
 
 instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodShare s) (TKS sh r) where
@@ -1422,44 +1379,6 @@ astShareNoSimplify a = case a of
     ftk -> do
         var <- funToAstNoBoundsIO ftk
         pure $! astShare var a
-
--- INLINE here would bloat the binary a lot, probably negating any
--- gains from directly calling the function. Also, this is not a bottleneck.
-astLetFunNoSimplify
-  :: forall y z s s2. KnownSpan s
-  => AstTensor AstMethodLet s y
-  -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
-  -> AstTensor AstMethodLet s2 z
-{-# NOINLINE astLetFunNoSimplify #-}
-astLetFunNoSimplify a f | astIsSmall True a = f a
-                            -- too important an optimization to skip
-astLetFunNoSimplify a f = case a of
-  AstFromPrimal v -> astLetFunNoSimplify v (f . fromPrimal)
-  AstFromDual v -> astLetFunNoSimplify v (f . fromDual)
-  AstFromPlain v -> astLetFunNoSimplify v (f . fromPlain)
-  _ -> unsafePerformIO $ case ftkAst a of
-    ftk@FTKScalar -> do
-        var <- funToAstAutoBoundsIO ftk a
-        pure $! AstLet var a (f $ astVar var)
-    FTKR sh' x ->
-      withShsFromShR sh' $ \(sh :: ShS sh) -> do
-        let v = cAstConvDownSFromR sh x a
-        var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! AstLet var v (f $ cAstConvUpRFromS sh x $ astVar var)
-          -- safe, because subsitution ruled out above
-    FTKX sh' x ->
-      withShsFromShX sh' $ \(sh :: ShS sh) -> do
-        let v = cAstConvDownSFromX sh x a
-        var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! AstLet var v (f $ cAstConvUpXFromS sh' x $ astVar var)
-    FTKS ZSS x@FTKScalar -> do
-        let v = cAstConvDownKFromS a
-        var <- funToAstAutoBoundsIO x v
-        pure $! AstLet var v (f $ cAstConvUpSFromK $ astVar var)
-    -- calling recursively for product may be not worth it
-    ftk -> do
-        var <- funToAstNoBoundsIO ftk
-        pure $! AstLet var a (f $ astVar var)
 
 cAstReplicateNS0 :: forall shn x s ms.
                     ShS shn -> AstTensor ms s (TKS2 '[] x)

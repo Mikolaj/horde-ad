@@ -1576,6 +1576,44 @@ instance KnownSpan s => LetTensor (AstNoSimplify s) where
                                          (unAstNoSimplify . f . AstNoSimplify)
   toShare t = AstRaw $ AstToShare $ unAstNoSimplify t
 
+-- INLINE here would bloat the binary a lot, probably negating any
+-- gains from directly calling the function. Also, this is not a bottleneck.
+astLetFunNoSimplify
+  :: forall y z s s2. KnownSpan s
+  => AstTensor AstMethodLet s y
+  -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
+  -> AstTensor AstMethodLet s2 z
+{-# NOINLINE astLetFunNoSimplify #-}
+astLetFunNoSimplify a f | astIsSmall True a = f a
+                            -- too important an optimization to skip
+astLetFunNoSimplify a f = case a of
+  AstFromPrimal v -> astLetFunNoSimplify v (f . fromPrimal)
+  AstFromDual v -> astLetFunNoSimplify v (f . fromDual)
+  AstFromPlain v -> astLetFunNoSimplify v (f . fromPlain)
+  _ -> unsafePerformIO $ case ftkAst a of
+    ftk@FTKScalar -> do
+        var <- funToAstAutoBoundsIO ftk a
+        pure $! AstLet var a (f $ astVar var)
+    FTKR sh' x ->
+      withShsFromShR sh' $ \(sh :: ShS sh) -> do
+        let v = cAstConvDownSFromR sh x a
+        var <- funToAstNoBoundsIO (FTKS sh x)
+        pure $! AstLet var v (f $ cAstConvUpRFromS sh x $ astVar var)
+          -- safe, because subsitution ruled out above
+    FTKX sh' x ->
+      withShsFromShX sh' $ \(sh :: ShS sh) -> do
+        let v = cAstConvDownSFromX sh x a
+        var <- funToAstNoBoundsIO (FTKS sh x)
+        pure $! AstLet var v (f $ cAstConvUpXFromS sh' x $ astVar var)
+    FTKS ZSS x@FTKScalar -> do
+        let v = cAstConvDownKFromS a
+        var <- funToAstAutoBoundsIO x v
+        pure $! AstLet var v (f $ cAstConvUpSFromK $ astVar var)
+    -- calling recursively for product may be not worth it
+    ftk -> do
+        var <- funToAstNoBoundsIO ftk
+        pure $! AstLet var a (f $ astVar var)
+
 wAstNoSimplify :: AstRaw s y -> AstNoSimplify s y
 wAstNoSimplify =
   AstNoSimplify
