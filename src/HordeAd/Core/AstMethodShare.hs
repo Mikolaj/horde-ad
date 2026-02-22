@@ -6,26 +6,72 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Arithmetic instances for AST with sharing method AstMethodShare.
 module HordeAd.Core.AstMethodShare
-  ( astShareNoSimplify
+  ( cAstConvDownKFromS, cAstConvDownSFromR, cAstConvDownSFromX
+  , cAstConvUpSFromK, cAstConvUpRFromS, cAstConvUpXFromS
+  , astShareNoSimplify
   ) where
 
 import Prelude
 
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import System.IO.Unsafe (unsafePerformIO)
 
+import Data.Array.Nested (MapJust)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
+import Data.Array.Nested.Lemmas
+import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersAst
 import HordeAd.Core.CarriersConcrete
+import HordeAd.Core.Conversion
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
+
+cAstConvDownKFromS :: forall r s. KnownSpan s
+                   => AstTensor AstMethodShare s (TKS '[] r)
+                   -> AstTensor AstMethodShare s (TKScalar r)
+cAstConvDownKFromS = cAstConvert (ConvCmp ConvX0 ConvSX)
+
+cAstConvDownSFromR :: forall sh x s. KnownSpan s
+                   => ShS sh -> FullShapeTK x
+                   -> AstTensor AstMethodShare s (TKR2 (Rank sh) x)
+                   -> AstTensor AstMethodShare s (TKS2 sh x)
+cAstConvDownSFromR sh x t | Refl <- lemRankReplicate (Proxy @(Rank sh)) =
+  cAstConvert (ConvCmp (ConvXS' (FTKS sh x)) ConvRX) t
+
+cAstConvDownSFromX :: forall sh sh' x s. (KnownSpan s, Rank sh ~ Rank sh')
+                   => ShS sh -> FullShapeTK x
+                   -> AstTensor AstMethodShare s (TKX2 sh' x)
+                   -> AstTensor AstMethodShare s (TKS2 sh x)
+cAstConvDownSFromX sh x t = cAstConvert (ConvXS' (FTKS sh x)) t
+
+cAstConvUpSFromK :: forall r s. (KnownSpan s, GoodScalar r)
+                 => AstTensor AstMethodShare s (TKScalar r)
+                 -> AstTensor AstMethodShare s (TKS '[] r)
+cAstConvUpSFromK = cAstConvert (ConvCmp ConvXS (Conv0X STKScalar))
+
+cAstConvUpRFromS :: forall sh x s. KnownSpan s
+                 => ShS sh -> FullShapeTK x
+                 -> AstTensor AstMethodShare s (TKS2 sh x)
+                 -> AstTensor AstMethodShare s (TKR2 (Rank sh) x)
+cAstConvUpRFromS sh x | Refl <- lemRankMapJust sh =
+  cAstConvert (ConvCmp (ConvXR (ftkToSTK x)) ConvSX)
+
+cAstConvUpXFromS :: forall sh sh' x s. (KnownSpan s, Rank sh ~ Rank sh')
+                 => IShX sh' -> FullShapeTK x
+                 -> AstTensor AstMethodShare s (TKS2 sh x)
+                 -> AstTensor AstMethodShare s (TKX2 sh' x)
+cAstConvUpXFromS sh' x =
+  gcastWith (unsafeCoerceRefl :: Rank (MapJust sh) :~: Rank sh) $
+  cAstConvert (ConvCmp (ConvXX' (FTKX sh' x)) ConvSX)
 
 liftRFromS1 :: forall n x s. KnownSpan s
             => (forall sh.

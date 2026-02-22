@@ -1734,9 +1734,9 @@ astPlusS = \cases
   (AstPlusS (Ast.AstFromPlain (AstConcreteS n)) u)
     (AstPlusS (Ast.AstFromPlain (AstConcreteS k)) v) ->
       AstPlusS (Ast.AstFromPlain (AstConcreteS (n + k))) (AstPlusS u v)
-  (AstConvUpSFromK u) (AstConvUpSFromK v) -> cAstConvUpSFromK $ astPlusK u v
-  u (AstConvUpSFromK v) -> cAstConvUpSFromK $ astPlusK (cAstConvDownKFromS u) v
-  (AstConvUpSFromK u) v -> cAstConvUpSFromK $ astPlusK u (cAstConvDownKFromS v)
+  (AstConvUpSFromK u) (AstConvUpSFromK v) -> sfromK $ astPlusK u v
+  u (AstConvUpSFromK v) -> sfromK $ astPlusK (kfromS u) v
+  (AstConvUpSFromK u) v -> sfromK $ astPlusK u (kfromS v)
 
 --  Ast.AstN1S NegateOp (Ast.AstVar var) + Ast.AstVar var'
 --    | var == var' -> 0
@@ -1849,9 +1849,9 @@ astTimesS = \cases
       astTimesS
         a (Ast.AstGatherS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
                                       (vars, ix))
-  (AstConvUpSFromK u) (AstConvUpSFromK v) -> cAstConvUpSFromK $ astTimesK u v
-  u (AstConvUpSFromK v) -> cAstConvUpSFromK $ astTimesK (cAstConvDownKFromS u) v
-  (AstConvUpSFromK u) v -> cAstConvUpSFromK $ astTimesK u (cAstConvDownKFromS v)
+  (AstConvUpSFromK u) (AstConvUpSFromK v) -> sfromK $ astTimesK u v
+  u (AstConvUpSFromK v) -> sfromK $ astTimesK (kfromS u) v
+  (AstConvUpSFromK u) v -> sfromK $ astTimesK u (kfromS v)
 
   -- This breaks sharing, because although u is concrete and so doesn't
   -- have to be shared, the multiplication is not shared --- we end up
@@ -1897,7 +1897,7 @@ astN1S opCode t = case t of
   Ast.AstFromPrimal n -> fromPrimal (astN1S opCode n)
   Ast.AstFromDual n -> fromDual (astN1S opCode n)
   Ast.AstFromPlain n -> fromPlain (astN1S opCode n)
-  AstConvUpSFromK n -> cAstConvUpSFromK $ astN1K opCode n
+  AstConvUpSFromK n -> sfromK $ astN1K opCode n
   _ -> case (opCode, t) of
     (NegateOp, AstConcreteS n) -> AstConcreteS (negate n)
     (NegateOp, AstPlusS u v) ->
@@ -1937,7 +1937,7 @@ astR1S opCode = \case
   Ast.AstPlainPart u -> plainPart $ astR1S opCode u
   Ast.AstFromPrimal u -> fromPrimal $ astR1S opCode u
   Ast.AstFromPlain u -> fromPlain $ astR1S opCode u
-  AstConvUpSFromK u -> cAstConvUpSFromK $ astR1K opCode u
+  AstConvUpSFromK u -> sfromK $ astR1K opCode u
   AstConcreteS u -> case opCode of
     RecipOp -> AstConcreteS $ recip u
     ExpOp -> AstConcreteS $ exp u
@@ -1974,11 +1974,11 @@ astR2S opCode = \cases
   (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astR2S opCode u v
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astR2S opCode u v
   (AstConvUpSFromK n) (AstConvUpSFromK k) ->
-    cAstConvUpSFromK $ astR2K opCode n k
+    sfromK $ astR2K opCode n k
   n (AstConvUpSFromK k) ->
-    cAstConvUpSFromK $ astR2K opCode (cAstConvDownKFromS n) k
+    sfromK $ astR2K opCode (kfromS n) k
   (AstConvUpSFromK n) k ->
-    cAstConvUpSFromK $ astR2K opCode n (cAstConvDownKFromS k)
+    sfromK $ astR2K opCode n (kfromS k)
   (AstConcreteS u) (AstConcreteS v) -> case opCode of
     DivideOp -> AstConcreteS $ u / v
     PowerOp -> AstConcreteS $ u ** v
@@ -2006,11 +2006,11 @@ astI2S opCode = \cases
   (Ast.AstFromPlain n) (Ast.AstFromPlain k) ->
     fromPlain (astI2S opCode n k)
   (AstConvUpSFromK n) (AstConvUpSFromK k) ->
-    cAstConvUpSFromK $ astI2K opCode n k
+    sfromK $ astI2K opCode n k
   n (AstConvUpSFromK k) ->
-    cAstConvUpSFromK $ astI2K opCode (cAstConvDownKFromS n) k
+    sfromK $ astI2K opCode (kfromS n) k
   (AstConvUpSFromK n) k ->
-    cAstConvUpSFromK $ astI2K opCode n (cAstConvDownKFromS k)
+    sfromK $ astI2K opCode n (kfromS k)
   u v -> case opCode of
     QuotOp -> case (u, v) of
       (AstConcreteS n, AstConcreteS k) -> AstConcreteS (quotH n k)
@@ -4599,8 +4599,8 @@ astLeq = \cases
     | varNameToAstVarId u == varNameToAstVarId v ->
       AstConcreteK True
   (AstConvUpSFromK w) (AstConvUpSFromK v) -> astLeqK w v
-  w (AstConvUpSFromK v) -> astLeqK (cAstConvDownKFromS w) v
-  (AstConvUpSFromK v) w -> astLeqK v (cAstConvDownKFromS w)
+  w (AstConvUpSFromK v) -> astLeqK (kfromS w) v
+  (AstConvUpSFromK v) w -> astLeqK v (kfromS w)
   (Ast.AstVar u) (Ast.AstVar v) | u == v ->
     AstConcreteK True
   u v -> Ast.AstLeq (plainPart u) (plainPart v)
@@ -4947,10 +4947,10 @@ astReplicateNS0 shn v | STKS _ x <- ftkToSTK (ftkAst v) =
 
 -- * Temporarily duplicated here
 
-unRepl1 :: forall n sh x s ms. KnownSpan s
-        => AstTensor ms s (TKS2 (n ': sh) x)
-        -> Maybe (AstTensor ms s (TKS2 sh x))
-unRepl1 (Ast.AstReplicate _ STKScalar u) = Just $ cAstConvUpSFromK u
+unRepl1 :: forall n sh x s. KnownSpan s
+        => AstTensor AstMethodLet s (TKS2 (n ': sh) x)
+        -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
+unRepl1 (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
 unRepl1 (Ast.AstReplicate _ STKS{} u) = Just u
 unRepl1 (AstConcreteS a) = AstConcreteS <$> sunReplicate1 a
 unRepl1 (Ast.AstLet var u t) = Ast.AstLet var u <$> unRepl1 t
@@ -4963,14 +4963,14 @@ unRepl1 (Ast.AstFromPlain t) = fromPlain <$> unRepl1 t
 unRepl1 _ = Nothing
 
 -- The result must not be equal to the argument.
-unRepl :: forall sh x s ms. KnownSpan s
-       => AstTensor ms s (TKS2 sh x)
-       -> Maybe (AstTensor ms s (TKS2 '[] x))
+unRepl :: forall sh x s. KnownSpan s
+       => AstTensor AstMethodLet s (TKS2 sh x)
+       -> Maybe (AstTensor AstMethodLet s (TKS2 '[] x))
 -- This is too costly and not needed in all the places where unRepl is used,
 -- hence the restriction to different result and argument:
 -- unRepl t | FTKS ZSS _ <- ftkAst t = Just t
 unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
-unRepl (Ast.AstReplicate _ STKScalar u) = Just $ cAstConvUpSFromK u
+unRepl (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
 unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
 unRepl (AstConcreteS a) | _ :$$ _ <- Nested.sshape a =
   AstConcreteS . Nested.sscalar <$> sunReplicatePrim a
@@ -4983,11 +4983,11 @@ unRepl (Ast.AstFromDual t) = fromDual <$> unRepl t
 unRepl (Ast.AstFromPlain t) = fromPlain <$> unRepl t
 unRepl _ = Nothing
 
-unReplN :: forall shm shn x s ms. KnownSpan s
-        => ShS shm -> AstTensor ms s (TKS2 (shm ++ shn) x)
-        -> Maybe (AstTensor ms s (TKS2 shn x))
+unReplN :: forall shm shn x s. KnownSpan s
+        => ShS shm -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
+        -> Maybe (AstTensor AstMethodLet s (TKS2 shn x))
 unReplN ZSS a = Just a
-unReplN (_ :$$ ZSS) (Ast.AstReplicate _ STKScalar u) = Just $ cAstConvUpSFromK u
+unReplN (_ :$$ ZSS) (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
 unReplN (_ :$$ sh) (Ast.AstReplicate _ STKS{} u) = unReplN sh u
 unReplN shm (AstConcreteS a) = AstConcreteS <$> sunReplicateN shm a
 unReplN shm (Ast.AstLet var u t) = Ast.AstLet var u <$> unReplN shm t

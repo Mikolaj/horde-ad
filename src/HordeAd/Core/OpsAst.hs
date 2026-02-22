@@ -1597,20 +1597,30 @@ astLetFunNoSimplify a f = case a of
         var <- funToAstAutoBoundsIO ftk a
         pure $! AstLet var a (f $ astVar var)
     FTKR sh' x ->
-      withShsFromShR sh' $ \(sh :: ShS sh) -> do
-        let v = cAstConvDownSFromR sh x a
-        var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! AstLet var v (f $ cAstConvUpRFromS sh x $ astVar var)
-          -- safe, because subsitution ruled out above
+      withShsFromShR sh' $ \(sh :: ShS sh) ->
+      case (lemRankReplicate (Proxy @(Rank sh)), lemRankMapJust sh) of
+        (Refl, Refl) -> do
+          let v = AstConvert (ConvCmp (ConvXS' (FTKS sh x)) ConvRX) a
+          var <- funToAstNoBoundsIO (FTKS sh x)
+          pure $! AstLet var v
+                         (f $ AstConvert (ConvCmp (ConvXR (ftkToSTK x)) ConvSX)
+                          $ astVar var)
+            -- safe, because subsitution ruled out above
     FTKX sh' x ->
-      withShsFromShX sh' $ \(sh :: ShS sh) -> do
-        let v = cAstConvDownSFromX sh x a
-        var <- funToAstNoBoundsIO (FTKS sh x)
-        pure $! AstLet var v (f $ cAstConvUpXFromS sh' x $ astVar var)
+      withShsFromShX sh' $ \(sh :: ShS sh) ->
+      case lemRankMapJust sh of
+        Refl -> do
+          let v = AstConvert (ConvXS' (FTKS sh x)) a
+          var <- funToAstNoBoundsIO (FTKS sh x)
+          pure $! AstLet var v
+                         (f $ AstConvert (ConvCmp (ConvXX' (FTKX sh' x)) ConvSX)
+                          $ astVar var)
     FTKS ZSS x@FTKScalar -> do
-        let v = cAstConvDownKFromS a
+        let v = AstConvert (ConvCmp ConvX0 ConvSX) a
         var <- funToAstAutoBoundsIO x v
-        pure $! AstLet var v (f $ cAstConvUpSFromK $ astVar var)
+        pure $! AstLet var v
+                       (f $ AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
+                        $ astVar var)
     -- calling recursively for product may be not worth it
     ftk -> do
         var <- funToAstNoBoundsIO ftk

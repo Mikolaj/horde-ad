@@ -142,7 +142,7 @@ instance (KnownSpan s, NumScalar r)
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                cAstConvDownSFromR shu x v ==. cAstConvDownSFromR shv x u
+                astConvDownSFromR shu x v ==. astConvDownSFromR shv x u
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -155,7 +155,7 @@ instance (KnownSpan s, NumScalar r)
           withShsFromShR shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                cAstConvDownSFromR shu x v <=. cAstConvDownSFromR shv x u
+                astConvDownSFromR shu x v <=. astConvDownSFromR shv x u
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -219,7 +219,7 @@ instance (KnownSpan s, NumScalar r)
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                cAstConvDownSFromX shu x v ==. cAstConvDownSFromX shv x u
+                astConvDownSFromX shu x v ==. astConvDownSFromX shv x u
               _ -> error $ "(==.): shapes don't match: "
                            ++ show (shu, shv)
 
@@ -232,7 +232,7 @@ instance (KnownSpan s, NumScalar r)
           withShsFromShX shu' $ \shu ->
             case testEquality shv shu of
               Just Refl ->
-                cAstConvDownSFromX shu x v <=. cAstConvDownSFromX shv x u
+                astConvDownSFromX shu x v <=. astConvDownSFromX shv x u
               _ -> error $ "(<=.): shapes don't match: "
                            ++ show (shu, shv)
 
