@@ -80,6 +80,8 @@ common options
                       FunctionalDependencies RecordWildCards MultiWayIf
                       DefaultSignatures PatternSynonyms NoStarIsType
                       TypeData TypeAbstractions
+                      -- to molify stylish-haskell, until it's fixed
+                      LambdaCase
   other-extensions:   UnboxedTuples CPP ViewPatterns OverloadedLists
                       DeriveAnyClass QuantifiedConstraints TemplateHaskell
                       DerivingVia ImpredicativeTypes
@@ -150,6 +152,8 @@ library
                       HordeAd.Core.AstFreshId
                       HordeAd.Core.AstInline
                       HordeAd.Core.AstInterpret
+                      HordeAd.Core.AstMethodLet
+                      HordeAd.Core.AstMethodShare
                       HordeAd.Core.AstSimplify
                       HordeAd.Core.AstTools
                       HordeAd.Core.AstTraverse

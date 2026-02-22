@@ -44,6 +44,8 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstInline
 import HordeAd.Core.AstInterpret
+import HordeAd.Core.AstMethodLet ()
+import HordeAd.Core.AstMethodShare
 import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstTools
 import HordeAd.Core.AstVectorize
@@ -200,7 +202,7 @@ fwdProduceArtifact f envInit xftk =
           (forwardPassByInterpretation f envInit) xftk
 
 
--- * AstTensor instances
+-- * Main AstTensor instances
 
 -- | This is a vectorizing combinator that also simplifies
 -- the terms touched during vectorization, but not any others.

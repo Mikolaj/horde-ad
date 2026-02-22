@@ -82,6 +82,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
   (shrFromShS, shxFromShS, withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
+import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, Perm (..), TakeLen, permInverse)
 import Data.Array.Nested.Permutation qualified as Permutation
@@ -90,7 +91,6 @@ import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types
   (Head, Init, Last, Tail, fromSNat', pattern SZ, snatPlus, unsafeCoerceRefl)
-import Data.Array.Nested.Mixed qualified as Mixed
 
 import HordeAd.Core.Ast
   ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
@@ -99,6 +99,7 @@ import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
+import HordeAd.Core.CarriersAst ()
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
@@ -106,8 +107,6 @@ import HordeAd.Core.Ops
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.Core.Unwind
-import HordeAd.Core.OpsConcrete ()
-import HordeAd.Core.CarriersAst ()
 
 data RewritePhase =
     PhaseUnspecified
@@ -1172,6 +1171,27 @@ astPlainPart t = case t of
   Ast.AstDot1InS{} -> Ast.AstPlainPart t
   Ast.AstMatmul2S{} -> Ast.AstPlainPart t
 
+-- TODO: perhaps aim for a polynomial normal form? but that requires global
+-- inspection of the whole expression
+-- TODO: let's aim at SOP (Sum-of-Products) form, just as
+-- ghc-typelits-natnormalise does. Also, let's associate to the right
+-- and let's push negation down.
+--
+-- Not considered are rules that would require comparing non-constant terms
+-- or that would duplicate a non-constant term, as well as most rules
+-- informed by inequalities, expressed via max or min, such as
+-- max n (signum (abs x)) | n <= 0 --> signum (abs x).
+-- We could use sharing via @tlet@ if terms are duplicated, but it's
+-- unclear if the term bloat is worth it.
+--
+-- | Integer terms need to be simplified, because large ones are sometimes
+-- created due to vectorization, e.g., via astTransposeAsGather
+-- or astReshapeAsGather and can be a deciding factor in whether
+-- the other tensor terms can be simplified in turn.
+--
+-- The normal form has AstConcreteK or AstFromPlain (AstConcreteK),
+-- if any, as the first argument of the constructor.
+-- No flattening is performed beyond that.
 astPlusK  :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
@@ -4589,8 +4609,9 @@ astLeqS :: forall shb sh r. NumScalar r
 astLeqS = Ast.AstLeqS
 
 
--- * ConvertTensor instances needed for unwinding in astConcrete
+-- * Scalar and shaped AstMethodLet AST instances
 
+-- This instance is needed for unwinding in astConcrete.
 instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   tconvert c _astk = astConvert c
 
@@ -4695,33 +4716,107 @@ instance KnownSpan s => ConvertTensor (AstTensor AstMethodLet s) where
   tpairConv = astPair
   tunpairConv t = (astProject1 t, astProject2 t)
 
+-- These instances improve readability of rules.
+instance (NumScalar r, KnownSpan s)
+         => Num (AstTensor AstMethodLet s (TKScalar r)) where
+  (+) = astPlusK
+  (*) = astTimesK
+  negate = astN1K NegateOp
+  abs = astN1K AbsOp
+  signum = astN1K SignumOp
+  {-# INLINE fromInteger #-}
+  fromInteger i = fromPlain $ AstConcreteK (fromInteger i)
 
--- TODO: refactor with something like liftRFromS2
-instance (KnownSpan s, NumScalar r)
-         => EqH (AstTensor AstMethodLet s) (TKR n r) where
-  v ==. u = case ftkAst v of
-    FTKR shv' x -> case ftkAst u of
-      FTKR shu' _ ->
-        withShsFromShR shv' $ \shv ->
-          withShsFromShR shu' $ \shu ->
-            case testEquality shv shu of
-              Just Refl ->
-                cAstConvDownSFromR shu x v ==. cAstConvDownSFromR shv x u
-              _ -> error $ "(==.): shapes don't match: "
-                           ++ show (shu, shv)
+instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
+         => IntegralH (AstTensor AstMethodLet s (TKScalar r)) where
+  quotH = astI2K QuotOp
+  remH = astI2K RemOp
 
-instance (KnownSpan s, NumScalar r)
-         => EqH (AstTensor AstMethodLet s) (TKX sh r) where
-  v ==. u = case ftkAst v of
-    FTKX shv' x -> case ftkAst u of
-      FTKX shu' _ ->
-        withShsFromShX shv' $ \shv ->
-          withShsFromShX shu' $ \shu ->
-            case testEquality shv shu of
-              Just Refl ->
-                cAstConvDownSFromX shu x v ==. cAstConvDownSFromX shv x u
-              _ -> error $ "(==.): shapes don't match: "
-                           ++ show (shu, shv)
+instance (NumScalar r, Differentiable r, KnownSpan s)
+         => Fractional (AstTensor AstMethodLet s (TKScalar r)) where
+  (/) = astR2K DivideOp
+  recip = astR1K RecipOp
+  {-# INLINE fromRational #-}
+  fromRational r = fromPlain $ AstConcreteK (fromRational r)
+
+instance (NumScalar r, Differentiable r, KnownSpan s)
+         => Floating (AstTensor AstMethodLet s (TKScalar r)) where
+  pi = error "pi is not defined for tensors"
+  exp = astR1K ExpOp
+  log = astR1K LogOp
+  sqrt = astR1K SqrtOp
+  (**) = astR2K PowerOp
+  logBase = astR2K LogBaseOp
+  sin = astR1K SinOp
+  cos = astR1K CosOp
+  tan = astR1K TanOp
+  asin = astR1K AsinOp
+  acos = astR1K AcosOp
+  atan = astR1K AtanOp
+  sinh = astR1K SinhOp
+  cosh = astR1K CoshOp
+  tanh = astR1K TanhOp
+  asinh = astR1K AsinhOp
+  acosh = astR1K AcoshOp
+  atanh = astR1K AtanhOp
+
+instance (NumScalar r, Differentiable r, KnownSpan s)
+         => RealFloatH (AstTensor AstMethodLet s (TKScalar r)) where
+  atan2H = astR2K Atan2Op
+
+instance (NumScalar r, KnownSpan s)
+         => Num (AstTensor AstMethodLet s (TKS sh r)) where
+  (+) = astPlusS
+  (*) = astTimesS
+  negate = astN1S NegateOp
+  abs = astN1S AbsOp
+  signum = astN1S SignumOp
+  fromInteger i = error $ "fromInteger is not defined for shaped tensors: "
+                          ++ show i
+
+instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
+         => IntegralH (AstTensor AstMethodLet s (TKS sh r)) where
+  quotH = astI2S QuotOp
+  remH = astI2S RemOp
+
+instance (NumScalar r, Differentiable r, KnownSpan s)
+         => Fractional (AstTensor AstMethodLet s (TKS sh r)) where
+  (/) = astR2S DivideOp
+  recip = astR1S RecipOp
+  fromRational r = error $ "fromRational is not defined for shaped tensors: "
+                           ++ show r
+
+instance (NumScalar r, Differentiable r, KnownSpan s)
+         => Floating (AstTensor AstMethodLet s (TKS sh r)) where
+  pi = error "pi is not defined for tensors"
+  exp = astR1S ExpOp
+  log = astR1S LogOp
+  sqrt = astR1S SqrtOp
+  (**) = astR2S PowerOp
+  logBase = astR2S LogBaseOp
+  sin = astR1S SinOp
+  cos = astR1S CosOp
+  tan = astR1S TanOp
+  asin = astR1S AsinOp
+  acos = astR1S AcosOp
+  atan = astR1S AtanOp
+  sinh = astR1S SinhOp
+  cosh = astR1S CoshOp
+  tanh = astR1S TanhOp
+  asinh = astR1S AsinhOp
+  acosh = astR1S AcoshOp
+  atanh = astR1S AtanhOp
+
+instance (NumScalar r, Differentiable r, KnownSpan s)
+         => RealFloatH (AstTensor AstMethodLet s (TKS sh r)) where
+  atan2H = astR2S Atan2Op
+
+instance Boolean (AstBool AstMethodLet) where
+  true = AstConcreteK True
+  false = AstConcreteK False
+  notB = astBoolNotK
+  (&&*) = astBoolAndK
+  b ||* c = notB (notB b &&* notB c)
 
 -- Since u and v are duplicated here, they need to be shared.
 -- We share their difference, which would most likely appear in the
@@ -4741,6 +4836,14 @@ instance (KnownSpan s, NumScalar r)
   vUnshared ==. uUnshared = astLetFun (uUnshared - vUnshared) $ \uv ->
     let zero = fromPlain $ AstConcreteS $ defTargetRep $ ftkAst vUnshared
     in zero <=. uv &&* uv <=. zero
+
+instance (KnownSpan s, NumScalar r)
+         => OrdH (AstTensor AstMethodLet s) (TKScalar r) where
+  (<=.) = astLeqK
+
+instance (KnownSpan s, NumScalar r)
+         => OrdH (AstTensor AstMethodLet s) (TKS sh r) where
+  (<=.) = astLeq
 
 
 -- * Helper combinators
