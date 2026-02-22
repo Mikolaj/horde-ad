@@ -1887,7 +1887,8 @@ astN1S opCode t = case t of
   _ | FTKS (snat :$$ sh) x <- ftkAst t
     , Just t0 <- unRepl1 t ->
       Ast.AstReplicate snat (STKS sh (ftkToSTK x)) (astN1S opCode t0)
-  Ast.AstCond b n k -> astCond b (astN1S opCode n) (astN1S opCode k)
+-- This increases work:
+-- Ast.AstCond b n k -> astCond b (astN1S opCode n) (astN1S opCode k)
   Ast.AstLet var n k -> astLet var n (astN1S opCode k)
   Ast.AstPrimalPart n -> primalPart (astN1S opCode n)
   Ast.AstDualPart n -> dualPart (astN1S opCode n)
@@ -1929,7 +1930,8 @@ astR1S opCode = \case
   t | FTKS (snat :$$ sh) x <- ftkAst t
     , Just t0 <- unRepl1 t ->
       Ast.AstReplicate snat (STKS sh (ftkToSTK x)) (astR1S opCode t0)
-  Ast.AstCond b n k -> astCond b (astR1S opCode n) (astR1S opCode k)
+-- This increases work:
+--  Ast.AstCond b n k -> astCond b (astR1S opCode n) (astR1S opCode k)
   Ast.AstLet var n k -> astLet var n (astR1S opCode k)
   Ast.AstPrimalPart u -> primalPart $ astR1S opCode u
   Ast.AstPlainPart u -> plainPart $ astR1S opCode u
