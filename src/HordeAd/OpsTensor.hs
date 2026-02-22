@@ -253,12 +253,12 @@ tletPlain = ttletPlain
 ifH :: (KnownSTK y, Boolean (BoolOf target), BaseTensor target)
     => BoolOf target -> target y -> target y -> target y
 ifH = tcond knownSTK
-minH :: (KnownSTK y, OrdH target y, BaseTensor target)
+minH :: (KnownSTK y, OrdH target y, BaseTensor target, LetTensor target)
      => target y -> target y -> target y
-minH u v = ifH (u <=. v) u v
-maxH :: (KnownSTK y, OrdH target y, BaseTensor target)
+minH u' v' = ttlet u' $ \u -> ttlet v' $ \v -> ifH (u <=. v) u v
+maxH :: (KnownSTK y, OrdH target y, BaseTensor target, LetTensor target)
      => target y -> target y -> target y
-maxH u v = ifH (u >=. v) u v
+maxH u' v' = ttlet u' $ \u -> ttlet v' $ \v -> ifH (u >=. v) u v
 
 rsum :: (KnownNat n, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKR2 (1 + n) x) -> target (TKR2 n x)

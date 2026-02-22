@@ -1400,13 +1400,13 @@ testReluMaxPP = do
       (var3, ast3) = funToAst (FTKR [3, 4] FTKScalar) reluT
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
-    @?= "\\m1 -> rfromS (sgather @[3,4] (ttranspose (makePerm @[1, 2, 0]) (tfromVector (SNat @2) (STKS [3,4] STKScalar) (fromList [tfromPlain (STKS [3,4] STKScalar) (sconcrete (sreplicate [3,4] 0.0)), sfromR m1]))) (\\[i5, i4] -> [i5, i4, ifH (0.0 <=. negate (tplainPart (sfromR m1) `sindex0` [i5, i4])) 0 1]))"
+    @?= "\\m1 -> rfromS (sgather @[3,4] (ttranspose (makePerm @[1, 2, 0]) (tfromVector (SNat @2) (STKS [3,4] STKScalar) (fromList [tfromPlain (STKS [3,4] STKScalar) (sconcrete (sreplicate [3,4] 0.0)), sfromR m1]))) (\\[i8, i6] -> [i8, i6, ifH (0.0 <=. negate ((tplainPart (sfromR m1) !$ [i8]) `sindex0` [i6])) 0 1]))"
   resetVarCounter
   let (artifactRev, deltas) = revArtifactDelta UseIncomingCotangent reluT (FTKR [3, 4] FTKScalar)
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret m1 -> rfromS (sscatter @[3, 4] (sfromR dret) (\\[i9, i10] -> [ifH (0.0 <=. negate (splainPart (sfromR m1) `sindex0` [i9, i10])) 0 1, i9, i10]) !$ [1])"
+    @?= "\\dret m1 -> rfromS (sscatter @[3, 4] (sfromR dret) (\\[i12, i13] -> [ifH (0.0 <=. negate (splainPart (sfromR m1) `sindex0` [i12, i13])) 0 1, i12, i13]) !$ [1])"
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\m1 -> rfromS (sgather @[3, 4] (sfromVector (fromList [sconcrete (sreplicate [3,4] 0.0), sfromR m1])) (\\[i6, i7] -> [ifH (0.0 <=. negate (splainPart (sfromR m1) `sindex0` [i6, i7])) 0 1, i6, i7]))"
+    @?= "\\m1 -> rfromS (sgather @[3, 4] (sfromVector (fromList [sconcrete (sreplicate [3,4] 0.0), sfromR m1])) (\\[i9, i10] -> [ifH (0.0 <=. negate (splainPart (sfromR m1) `sindex0` [i9, i10])) 0 1, i9, i10]))"
   show deltas
     @?= "DeltaConvert (ConvCmp (ConvXR STKScalar) ConvSX) (DeltaShare 100000003 (DeltaGatherS [3,4] [] [3,4,2] (DeltaShare 100000002 (DeltaTransposeS (PCons (SNat @1) (PCons (SNat @2) (PCons (SNat @0) PNil))) (DeltaShare 100000001 (DeltaFromVector (SNat @2) (STKS [3,4] STKScalar) [DeltaZero (FTKS [3,4] FTKScalar),DeltaConvert (ConvCmp (ConvXS' (FTKS [3,4] FTKScalar)) ConvRX) (DeltaInput (InputId 0))])))) <function>))"
 
@@ -1419,15 +1419,15 @@ testReluMaxPP2 = do
       (var3, ast3) = funToAst (FTKR [5] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
-    @?= "\\v1 -> rfromS (sgather1 @5 (str (tfromVector (SNat @2) (STKS [5] STKScalar) (fromList [tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 0.0)), tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * sfromR v1]))) (\\i3 -> [i3, ifH (0.0 <=. negate ((sconcrete (sreplicate [5] 7.0) * tplainPart (sfromR v1)) `sindex0` [i3])) 0 1]))"
+    @?= "\\v1 -> rfromS (tlet (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * sfromR v1) (\\v3 -> sgather1 @5 (str (tfromVector (SNat @2) (STKS [5] STKScalar) (fromList [tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 0.0)), v3]))) (\\i5 -> [i5, ifH (0.0 <=. negate (tplainPart v3 `sindex0` [i5])) 0 1])))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))) (STKProduct (STKS [5] STKScalar) STKScalar) (let v8 = sscatter1 @5 (sfromR dret) (\\i6 -> [ifH (0.0 <=. negate (splainPart (sfromR (tproject1 v1)) `sindex0` [i6]) * kplainPart (kfromR (tproject2 v1))) 0 1, i6]) !$ [1] in tpair (sreplicate @5 (kfromR (tproject2 v1)) * v8) (sdot0 (sfromR (tproject1 v1)) v8))"
+    @?= "\\dret v1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvCmp (ConvXR STKScalar) (Conv0X STKScalar))) (STKProduct (STKS [5] STKScalar) STKScalar) (let v6 = sfromR (tproject1 v1) * sreplicate @5 (kfromR (tproject2 v1)) ; v11 = sscatter1 @5 (sfromR dret) (\\i9 -> [ifH (0.0 <=. negate (splainPart v6 `sindex0` [i9])) 0 1, i9]) !$ [1] in tpair (sreplicate @5 (kfromR (tproject2 v1)) * v11) (sdot0 (sfromR (tproject1 v1)) v11))"
   printArtifactPretty artifactRev
-    @?= "\\dret v1 -> let m7 = str (sscatter1 @5 (sfromR dret) (\\i6 -> [i6, ifH (0.0 <=. negate (splainPart (sfromR (tproject1 v1) * sfromR (rreplicate 5 (tproject2 v1))) `sindex0` [i6])) 0 1])) ; v8 = m7 !$ [1] in tpair (rfromS (sfromR (rreplicate 5 (tproject2 v1)) * v8)) (rsum (rfromS (sfromR (tproject1 v1) * v8)))"
+    @?= "\\dret v1 -> let v6 = sfromR (tproject1 v1) * sreplicate @5 (sfromR (tproject2 v1)) ; m10 = str (sscatter1 @5 (sfromR dret) (\\i9 -> [i9, ifH (0.0 <=. negate (splainPart v6 `sindex0` [i9])) 0 1])) ; v11 = m10 !$ [1] in tpair (rfromS (sreplicate @5 (sfromR (tproject2 v1)) * v11)) (rfromS (ssum @5 (sfromR (tproject1 v1) * v11)))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\v1 -> rfromS (sgather1 @5 (str (sfromVector (fromList [sconcrete (sreplicate [5] 0.0), sfromR (tproject1 v1) * sfromR (rreplicate 5 (tproject2 v1))]))) (\\i4 -> [i4, ifH (0.0 <=. negate (splainPart (sfromR (tproject1 v1) * sfromR (rreplicate 5 (tproject2 v1))) `sindex0` [i4])) 0 1]))"
+    @?= "\\v1 -> rfromS (let v6 = sfromR (tproject1 v1) * sreplicate @5 (sfromR (tproject2 v1)) in sgather1 @5 (str (sfromVector (fromList [sconcrete (sreplicate [5] 0.0), v6]))) (\\i7 -> [i7, ifH (0.0 <=. negate (splainPart v6 `sindex0` [i7])) 0 1]))"
 
 testReluMax3 :: Assertion
 testReluMax3 = do
@@ -2563,7 +2563,7 @@ testConcatBuild3PP = do
       (var3, ast3) = funToAst (FTKR [3] FTKScalar) t
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
-    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (sgather @[5,2] (ttranspose (makePerm @[1, 2, 0]) (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @5 (siota (SNat @2)), quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sconcrete (sreplicate [2] 1) + siota (SNat @2)))])))) (\\[i5, i4] -> [i5, i4, ifH (0 <=. i4 + quotH (negate i5) (1 + i4)) 0 1])))"
+    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (tlet (quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sconcrete (sreplicate [2] 1) + siota (SNat @2)))) (\\m4 -> sgather @[5,2] (ttranspose (makePerm @[1, 2, 0]) (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @5 (siota (SNat @2)), m4])))) (\\[i8, i6] -> [i8, i6, ifH (0 <=. i6 + negate ((m4 !$ [i8]) `sindex0` [i6])) 0 1]))))"
 
 testConcatBuild3PP2 :: Assertion
 testConcatBuild3PP2 = do
@@ -2572,8 +2572,8 @@ testConcatBuild3PP2 = do
   let (artifactRev, _) =
         revArtifactDelta UseIncomingCotangent t (FTKR [3] FTKScalar)
   printArtifactPrimalSimple (simplifyArtifactRev artifactRev)
-    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (sgather @[5,2] (sconcrete (sfromListLinear [2,5,2] [0.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0,0.0,0.0,1.0,0.0,2.0,1.0,3.0,1.0,4.0,2.0])) (\\[i6, i7] -> [ifH (0 <=. i7 + quotH (negate i6) (1 + i7)) 0 1, i6, i7])))"
+    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (sgather @[5,2] (sfromIntegral (sconcrete (sfromListLinear [2,5,2] [0,1,0,1,0,1,0,1,0,1,0,0,1,0,2,1,3,1,4,2]))) (\\[i10, i11] -> [ifH (0 <=. i11 + negate (sconcrete (sfromListLinear [5,2] [0,0,1,0,2,1,3,1,4,2]) `sindex0` [i10, i11])) 0 1, i10, i11])))"
   printArtifactSimple artifactRev
     @?= "\\dret v1 -> tfromPlain (STKR (SNat @1) STKScalar) (rfromS (sconcrete (sreplicate [3] 0.0)))"
   printArtifactPrimalSimple artifactRev
-    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (sgather @[5,2] (ttranspose (makePerm @[1, 2, 0]) (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @5 (siota (SNat @2)), quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sconcrete (sreplicate [2] 1) + siota (SNat @2)))])))) (\\[i6, i7] -> [i6, i7, ifH (0 <=. i7 + quotH (negate i6) (1 + i7)) 0 1])))"
+    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (tlet (quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sconcrete (sreplicate [2] 1) + siota (SNat @2)))) (\\m9 -> sgather @[5,2] (ttranspose (makePerm @[1, 2, 0]) (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @5 (siota (SNat @2)), m9])))) (\\[i10, i11] -> [i10, i11, ifH (0 <=. i11 + negate ((m9 !$ [i10]) `sindex0` [i11])) 0 1]))))"
