@@ -12,12 +12,24 @@
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
+  , sunReplicatePrim, sunReplicate1, sunReplicateN, unReplC, eqK
   ) where
 
 import Prelude
 
+import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Type.Reflection (typeRep)
+
+import Data.Array.Nested (type (++))
+import Data.Array.Nested qualified as Nested
+import Data.Array.Nested.Mixed qualified as Mixed
+import Data.Array.Nested.Mixed.Shape
+import Data.Array.Nested.Shaped.Shape
+
 import HordeAd.Core.Ast
+import HordeAd.Core.Conversion
 import HordeAd.Core.OpsConcrete ()
+import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
 -- * Type family instances for AstTensor
@@ -94,3 +106,83 @@ type instance DualOf (AstNoSimplify s) = AstTensor AstMethodLet DualSpan
 type instance PlainOf (AstNoSimplify s) = AstNoSimplify PlainSpan
 type instance ShareOf (AstNoSimplify s) = AstRaw s
 type instance HFunOf (AstNoSimplify s) = AstHFun s
+
+
+-- * Helper functions
+
+sunReplicatePrim :: Nested.Elt a
+                 => Nested.Shaped sh a -> Maybe a
+{-# INLINE sunReplicatePrim #-}
+sunReplicatePrim (Nested.Shaped arr)
+  | all (all (== 0) . take (shxLength (Nested.mshape arr)))
+        (Mixed.marrayStrides arr)
+  , shxSize (Nested.mshape arr) /= 0 =
+    Just $ Nested.mindex arr $ ixxZero' $ Nested.mshape arr
+sunReplicatePrim arr | ZSS <- Nested.sshape arr = Just $ Nested.sunScalar arr
+sunReplicatePrim _ = Nothing
+
+sunReplicate1 :: Nested.Elt a
+              => Nested.Shaped (n ': sh) a -> Maybe (Nested.Shaped sh a)
+{-# INLINE sunReplicate1 #-}
+sunReplicate1 a | (snat :$$ _) <- Nested.sshape a =
+  sunReplicateN (snat :$$ ZSS) a
+
+sunReplicateN :: Nested.Elt a
+              => ShS shm -> Nested.Shaped (shm ++ shn) a
+              -> Maybe (Nested.Shaped shn a)
+{-# INLINE sunReplicateN #-}
+sunReplicateN shm a@(Nested.Shaped arr)
+  | all (all (== 0) . take (shsLength shm)) (Mixed.marrayStrides arr)
+  , shsSize shm /= 0 =
+    Just $ Nested.sindexPartial a $ ixsZero shm
+sunReplicateN _ _ = Nothing
+
+unReplC :: forall sh r s ms. KnownSpan s
+        => AstTensor ms s (TKS sh r) -> Maybe r
+unReplC (AstReplicate _ _ (AstConcreteK a)) = Just a
+unReplC (AstReplicate _ STKS{} u) = unReplC u
+unReplC (AstConcreteS a) = sunReplicatePrim a
+unReplC (AstLet _ _ t) = unReplC t
+unReplC (AstPrimalPart t) = unReplC t
+unReplC (AstDualPart t) = unReplC t
+unReplC (AstPlainPart t) = unReplC t
+unReplC (AstFromPrimal t) = unReplC t
+unReplC (AstFromDual t) = unReplC t
+unReplC (AstFromPlain t) = unReplC t
+unReplC (AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) (AstConcreteK a)) =
+  Just a
+unReplC _ = Nothing
+
+-- An approximation. False doesn't imply terms have different semantics,
+-- but True implies they have equal semantics.
+eqK :: AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r) -> Bool
+-- This is wrong for <=. but correct for this approximation:
+eqK (AstVar var1) (AstVar var2) = var1 == var2
+eqK (AstLet _ _  v1) (AstLet _ _ v2) = eqK v1 v2
+eqK (AstPrimalPart u1) (AstPrimalPart u2) = eqK u1 u2
+eqK (AstPlainPart @_ @s1 u1) (AstPlainPart @_ @s2 u2)
+  | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
+    eqK u1 u2
+eqK (AstFromPrimal u1) (AstFromPrimal u2) = eqK u1 u2
+eqK AstFromDual{} AstFromDual{} = True
+eqK (AstFromPlain u1) (AstFromPlain u2) = eqK u1 u2
+eqK (AstPlusK u1 v1) (AstPlusK u2 v2) =
+  eqK u1 u2 && eqK v1 v2 || eqK u1 v2 && eqK v1 u2
+eqK (AstTimesK u1 v1) (AstTimesK u2 v2) =
+  eqK u1 u2 && eqK v1 v2 || eqK u1 v2 && eqK v1 u2
+eqK (AstN1K opCode1 u1) (AstN1K opCode2 u2) = opCode1 == opCode2 && eqK u1 u2
+eqK (AstR1K opCode1 u1) (AstR1K opCode2 u2) = opCode1 == opCode2 && eqK u1 u2
+eqK (AstR2K opCode1 u1 v1) (AstR2K opCode2 u2 v2) =
+  opCode1 == opCode2 && eqK u1 u2 && eqK v1 v2
+eqK (AstI2K opCode1 u1 v1) (AstI2K opCode2 u2 v2) =
+  opCode1 == opCode2 && eqK u1 u2 && eqK v1 v2
+eqK (AstConcreteK u1) (AstConcreteK u2) = u1 == u2
+eqK (AstFloorK @r1 u1) (AstFloorK @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqK u1 u2
+eqK (AstFromIntegralK @r1 u1) (AstFromIntegralK @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqK u1 u2
+eqK (AstCastK @r1 u1) (AstCastK @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqK u1 u2
+eqK (AstConvert _ (AstVar u)) (AstConvert _ (AstVar v)) =
+  varNameToAstVarId u == varNameToAstVarId v
+eqK _ _ = False

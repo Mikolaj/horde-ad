@@ -82,7 +82,6 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
   (shrFromShS, shxFromShS, withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
-import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, Perm (..), TakeLen, permInverse)
 import Data.Array.Nested.Permutation qualified as Permutation
@@ -99,7 +98,8 @@ import HordeAd.Core.Ast hiding (AstTensor (..))
 import HordeAd.Core.Ast qualified as Ast
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
-import HordeAd.Core.CarriersAst ()
+import HordeAd.Core.CarriersAst
+  (eqK, sunReplicate1, sunReplicateN, sunReplicatePrim, unReplC)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
@@ -4942,85 +4942,6 @@ astReplicateNS0 shn v | STKS _ x <- ftkToSTK (ftkAst v) =
 
 
 -- * Temporarily duplicated here
-
--- An approximation. False doesn't imply terms have different semantics,
--- but True implies they have equal semantics.
-eqK :: AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r) -> Bool
--- This is wrong for <=. but correct for this approximation:
-eqK (Ast.AstVar var1) (Ast.AstVar var2) = var1 == var2
-eqK (Ast.AstLet _ _  v1) (Ast.AstLet _ _ v2) = eqK v1 v2
-eqK (Ast.AstPrimalPart u1) (Ast.AstPrimalPart u2) = eqK u1 u2
-eqK (Ast.AstPlainPart @_ @s1 u1) (Ast.AstPlainPart @_ @s2 u2)
-  | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
-    eqK u1 u2
-eqK (Ast.AstFromPrimal u1) (Ast.AstFromPrimal u2) = eqK u1 u2
-eqK Ast.AstFromDual{} Ast.AstFromDual{} = True
-eqK (Ast.AstFromPlain u1) (Ast.AstFromPlain u2) = eqK u1 u2
-eqK (AstPlusK u1 v1) (AstPlusK u2 v2) =
-  eqK u1 u2 && eqK v1 v2 || eqK u1 v2 && eqK v1 u2
-eqK (AstTimesK u1 v1) (AstTimesK u2 v2) =
-  eqK u1 u2 && eqK v1 v2 || eqK u1 v2 && eqK v1 u2
-eqK (Ast.AstN1K opCode1 u1) (Ast.AstN1K opCode2 u2) =
-  opCode1 == opCode2 && eqK u1 u2
-eqK (Ast.AstR1K opCode1 u1) (Ast.AstR1K opCode2 u2) =
-  opCode1 == opCode2 && eqK u1 u2
-eqK (Ast.AstR2K opCode1 u1 v1) (Ast.AstR2K opCode2 u2 v2) =
-  opCode1 == opCode2 && eqK u1 u2 && eqK v1 v2
-eqK (Ast.AstI2K opCode1 u1 v1) (Ast.AstI2K opCode2 u2 v2) =
-  opCode1 == opCode2 && eqK u1 u2 && eqK v1 v2
-eqK (AstConcreteK u1) (AstConcreteK u2) = u1 == u2
-eqK (Ast.AstFloorK @r1 u1) (Ast.AstFloorK @r2 u2)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqK u1 u2
-eqK (Ast.AstFromIntegralK @r1 u1) (Ast.AstFromIntegralK @r2 u2)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqK u1 u2
-eqK (Ast.AstCastK @r1 u1) (Ast.AstCastK @r2 u2)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqK u1 u2
-eqK (Ast.AstConvert _ (Ast.AstVar u)) (Ast.AstConvert _ (Ast.AstVar v)) =
-  varNameToAstVarId u == varNameToAstVarId v
-eqK _ _ = False
-
-sunReplicatePrim :: Nested.Elt a
-                 => Nested.Shaped sh a -> Maybe a
-{-# INLINE sunReplicatePrim #-}
-sunReplicatePrim (Nested.Shaped arr)
-  | all (all (== 0) . take (shxLength (Nested.mshape arr)))
-        (Mixed.marrayStrides arr)
-  , shxSize (Nested.mshape arr) /= 0 =
-    Just $ Nested.mindex arr $ ixxZero' $ Nested.mshape arr
-sunReplicatePrim arr | ZSS <- Nested.sshape arr = Just $ Nested.sunScalar arr
-sunReplicatePrim _ = Nothing
-
-sunReplicate1 :: Nested.Elt a
-              => Nested.Shaped (n ': sh) a -> Maybe (Nested.Shaped sh a)
-{-# INLINE sunReplicate1 #-}
-sunReplicate1 a | (snat :$$ _) <- Nested.sshape a =
-  sunReplicateN (snat :$$ ZSS) a
-
-sunReplicateN :: Nested.Elt a
-              => ShS shm -> Nested.Shaped (shm ++ shn) a
-              -> Maybe (Nested.Shaped shn a)
-{-# INLINE sunReplicateN #-}
-sunReplicateN shm a@(Nested.Shaped arr)
-  | all (all (== 0) . take (shsLength shm)) (Mixed.marrayStrides arr)
-  , shsSize shm /= 0 =
-    Just $ Nested.sindexPartial a $ ixsZero shm
-sunReplicateN _ _ = Nothing
-
-unReplC :: forall sh r s ms. KnownSpan s
-        => AstTensor ms s (TKS sh r) -> Maybe r
-unReplC (Ast.AstReplicate _ _ (AstConcreteK a)) = Just a
-unReplC (Ast.AstReplicate _ STKS{} u) = unReplC u
-unReplC (AstConcreteS a) = sunReplicatePrim a
-unReplC (Ast.AstLet _ _ t) = unReplC t
-unReplC (Ast.AstPrimalPart t) = unReplC t
-unReplC (Ast.AstDualPart t) = unReplC t
-unReplC (Ast.AstPlainPart t) = unReplC t
-unReplC (Ast.AstFromPrimal t) = unReplC t
-unReplC (Ast.AstFromDual t) = unReplC t
-unReplC (Ast.AstFromPlain t) = unReplC t
-unReplC (Ast.AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) (AstConcreteK a)) =
-  Just a
-unReplC _ = Nothing
 
 unRepl1 :: forall n sh x s ms. KnownSpan s
         => AstTensor ms s (TKS2 (n ': sh) x)
