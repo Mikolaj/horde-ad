@@ -11,7 +11,6 @@ module HordeAd.Core.AstTools
   , astIsSmall, ixIsSmall, astLetDown, astVar, astShare
     -- * Odds and ends
   , bounds, intBounds
-  , cAstConvert
   , pattern AstConvUpSFromK, pattern AstConvUp, AstConvUpMaybe(..)
   , convDown, convUp, convDownMaybe, convUpMaybe
   , setTotalSharing
@@ -512,17 +511,6 @@ intBounds (AstI2K RemOp u (AstConcreteK v)) | v > 0 = do
             | u2 <= 0 -> (max u1 (- v + 1), 0)
             | otherwise -> (- v + 1, v - 1)
 intBounds _ = Nothing
-
-cAstConvert :: KnownSpan s
-            => TKConversion x z -> AstTensor AstMethodShare s x
-            -> AstTensor AstMethodShare s z
-cAstConvert c t
-  | Just Refl <- matchingFTK (ftkAst t) (convertFTK c (ftkAst t)) = t
-cAstConvert c1 (AstFromPrimal v) = fromPrimal $ cAstConvert c1 v
-cAstConvert c1 (AstFromDual v) = fromDual $ cAstConvert c1 v
-cAstConvert c1 (AstFromPlain v) = fromPlain $ cAstConvert c1 v
-cAstConvert c1 (AstConvert c2 t2) = cAstConvert (c1 `convCmp` c2) t2
-cAstConvert c t = AstConvert c t
 
 pattern AstConvUpSFromK :: () => sh ~ '[]
                         => AstTensor ms s (TKScalar r)

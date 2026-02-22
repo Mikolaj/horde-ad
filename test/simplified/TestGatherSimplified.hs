@@ -1378,9 +1378,9 @@ testCNNOPP3b = do
   printArtifactPrimalPretty artifactRev
     @?= "\\u1 -> rfromS (stranspose @[1, 2, 0] (sreplicate @2 (sappend (sreplicate @1 (sappend (sreplicate @1 (sappend (sreplicate @1 (sfromK (sfromR u1 `sindex0` [0, 0, 0, 1] + sfromR u1 `sindex0` [0, 1, 1, 1]))) (sconcrete (sfromListLinear [1] [0.0])))) (sconcrete (sreplicate [1,2] 0.0)))) (sconcrete (sreplicate [1,2,2] 0.0)))))"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> rfromS (let t103 = ssum @2 (stranspose @[2, 0, 1] (sfromR dret)) in soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t103)))))) [0, 0, 0, 1] + soneHot (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t103)))))) [0, 1, 1, 1])"
+    @?= "\\dret u1 -> rfromS (let t103 = ssum @2 (stranspose @[2, 0, 1] (sfromR dret)) in sfromR (rfromS (soneHot (sfromK (kfromS (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t103)))))))) [0, 0, 0, 1])) + sfromR (rfromS (soneHot (sfromK (kfromS (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) (ssum @1 (sslice (SNat @0) (SNat @1) t103)))))))) [0, 1, 1, 1])))"
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret u1 -> rfromS (let t103 = ssum @2 (stranspose @[2, 0, 1] (sfromR dret)) in soneHot (t103 !$ [0, 0, 0]) [0, 0, 0, 1] + soneHot (t103 !$ [0, 0, 0]) [0, 1, 1, 1])"
+    @?= "\\dret u1 -> rfromS (let t103 = ssum @2 (stranspose @[2, 0, 1] (sfromR dret)) in soneHot (sfromK (t103 `sindex0` [0, 0, 0])) [0, 0, 0, 1] + soneHot (sfromK (t103 `sindex0` [0, 0, 0])) [0, 1, 1, 1])"
 
 maxPool2dUnpadded3
   :: (ADReady target, NumScalar r)

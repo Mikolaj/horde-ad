@@ -35,46 +35,46 @@ import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 
-cAstConvDownKFromS :: forall r s. KnownSpan s
-                   => AstTensor AstMethodShare s (TKS '[] r)
+cAstConvDownKFromS :: forall r s.
+                      AstTensor AstMethodShare s (TKS '[] r)
                    -> AstTensor AstMethodShare s (TKScalar r)
-cAstConvDownKFromS = cAstConvert (ConvCmp ConvX0 ConvSX)
+cAstConvDownKFromS = AstConvert (ConvCmp ConvX0 ConvSX)
 
-cAstConvDownSFromR :: forall sh x s. KnownSpan s
-                   => ShS sh -> FullShapeTK x
+cAstConvDownSFromR :: forall sh x s.
+                      ShS sh -> FullShapeTK x
                    -> AstTensor AstMethodShare s (TKR2 (Rank sh) x)
                    -> AstTensor AstMethodShare s (TKS2 sh x)
 cAstConvDownSFromR sh x t | Refl <- lemRankReplicate (Proxy @(Rank sh)) =
-  cAstConvert (ConvCmp (ConvXS' (FTKS sh x)) ConvRX) t
+  AstConvert (ConvCmp (ConvXS' (FTKS sh x)) ConvRX) t
 
-cAstConvDownSFromX :: forall sh sh' x s. (KnownSpan s, Rank sh ~ Rank sh')
+cAstConvDownSFromX :: forall sh sh' x s. Rank sh ~ Rank sh'
                    => ShS sh -> FullShapeTK x
                    -> AstTensor AstMethodShare s (TKX2 sh' x)
                    -> AstTensor AstMethodShare s (TKS2 sh x)
-cAstConvDownSFromX sh x t = cAstConvert (ConvXS' (FTKS sh x)) t
+cAstConvDownSFromX sh x t = AstConvert (ConvXS' (FTKS sh x)) t
 
-cAstConvUpSFromK :: forall r s. (KnownSpan s, GoodScalar r)
+cAstConvUpSFromK :: forall r s. GoodScalar r
                  => AstTensor AstMethodShare s (TKScalar r)
                  -> AstTensor AstMethodShare s (TKS '[] r)
-cAstConvUpSFromK = cAstConvert (ConvCmp ConvXS (Conv0X STKScalar))
+cAstConvUpSFromK = AstConvert (ConvCmp ConvXS (Conv0X STKScalar))
 
-cAstConvUpRFromS :: forall sh x s. KnownSpan s
-                 => ShS sh -> FullShapeTK x
+cAstConvUpRFromS :: forall sh x s.
+                    ShS sh -> FullShapeTK x
                  -> AstTensor AstMethodShare s (TKS2 sh x)
                  -> AstTensor AstMethodShare s (TKR2 (Rank sh) x)
 cAstConvUpRFromS sh x | Refl <- lemRankMapJust sh =
-  cAstConvert (ConvCmp (ConvXR (ftkToSTK x)) ConvSX)
+  AstConvert (ConvCmp (ConvXR (ftkToSTK x)) ConvSX)
 
-cAstConvUpXFromS :: forall sh sh' x s. (KnownSpan s, Rank sh ~ Rank sh')
+cAstConvUpXFromS :: forall sh sh' x s. Rank sh ~ Rank sh'
                  => IShX sh' -> FullShapeTK x
                  -> AstTensor AstMethodShare s (TKS2 sh x)
                  -> AstTensor AstMethodShare s (TKX2 sh' x)
 cAstConvUpXFromS sh' x =
   gcastWith (unsafeCoerceRefl :: Rank (MapJust sh) :~: Rank sh) $
-  cAstConvert (ConvCmp (ConvXX' (FTKX sh' x)) ConvSX)
+  AstConvert (ConvCmp (ConvXX' (FTKX sh' x)) ConvSX)
 
-liftRFromS1 :: forall n x s. KnownSpan s
-            => (forall sh.
+liftRFromS1 :: forall n x s.
+               (forall sh.
                    AstTensor AstMethodShare s (TKS2 sh x)
                 -> AstTensor AstMethodShare s (TKS2 sh x))
             -> AstTensor AstMethodShare s (TKR2 n x)
@@ -86,8 +86,8 @@ liftRFromS1 f a = case ftkAst a of
       cAstConvUpRFromS sh x
       $ f (cAstConvDownSFromR sh x a)
 
-liftRFromS2 :: forall n x s. KnownSpan s
-            => (forall sh.
+liftRFromS2 :: forall n x s.
+               (forall sh.
                    AstTensor AstMethodShare s (TKS2 sh x)
                 -> AstTensor AstMethodShare s (TKS2 sh x)
                 -> AstTensor AstMethodShare s (TKS2 sh x))
@@ -101,8 +101,8 @@ liftRFromS2 f a b  = case ftkAst a of
       cAstConvUpRFromS sh x
       $ f (cAstConvDownSFromR sh x a) (cAstConvDownSFromR sh x b)
 
-liftXFromS1 :: forall sh' x s. KnownSpan s
-            => (forall sh.
+liftXFromS1 :: forall sh' x s.
+               (forall sh.
                    AstTensor AstMethodShare s (TKS2 sh x)
                 -> AstTensor AstMethodShare s (TKS2 sh x))
             -> AstTensor AstMethodShare s (TKX2 sh' x)
@@ -114,8 +114,8 @@ liftXFromS1 f a = case ftkAst a of
       cAstConvUpXFromS sh' x
       $ f (cAstConvDownSFromX sh x a)
 
-liftXFromS2 :: forall sh' x s. KnownSpan s
-            => (forall sh.
+liftXFromS2 :: forall sh' x s.
+               (forall sh.
                    AstTensor AstMethodShare s (TKS2 sh x)
                 -> AstTensor AstMethodShare s (TKS2 sh x)
                 -> AstTensor AstMethodShare s (TKS2 sh x))
@@ -273,7 +273,7 @@ instance (KnownSpan s, NumScalar r)
 
 -- * Unlawful numeric instances for ranked AST; lawful modulo evaluation
 
-instance (NumScalar r, KnownSpan s)
+instance NumScalar r
          => Num (AstTensor AstMethodShare s (TKR n r)) where
   (+) = liftRFromS2 (+)
   (-) = liftRFromS2 (-)
@@ -284,19 +284,19 @@ instance (NumScalar r, KnownSpan s)
   fromInteger i = error $ "fromInteger is not defined for ranked tensors: "
                           ++ show i
 
-instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
+instance (NumScalar r, IntegralH r, Nested.IntElt r)
          => IntegralH (AstTensor AstMethodShare s (TKR n r)) where
   quotH = liftRFromS2 quotH
   remH = liftRFromS2 remH
 
-instance (NumScalar r, Differentiable r, KnownSpan s)
+instance (NumScalar r, Differentiable r)
          => Fractional (AstTensor AstMethodShare s (TKR n r)) where
   (/) = liftRFromS2 (/)
   recip = liftRFromS1 recip
   fromRational r = error $ "fromRational is not defined for ranked tensors: "
                            ++ show r
 
-instance (NumScalar r, Differentiable r, KnownSpan s)
+instance (NumScalar r, Differentiable r)
          => Floating (AstTensor AstMethodShare s (TKR n r)) where
   pi = error "pi is not defined for tensors"
   exp = liftRFromS1 exp
@@ -317,7 +317,7 @@ instance (NumScalar r, Differentiable r, KnownSpan s)
   acosh = liftRFromS1 acosh
   atanh = liftRFromS1 atanh
 
-instance (NumScalar r, Differentiable r, KnownSpan s)
+instance (NumScalar r, Differentiable r)
          => RealFloatH (AstTensor AstMethodShare s (TKR n r)) where
   atan2H = liftRFromS2 atan2H
 
@@ -350,7 +350,7 @@ instance (KnownSpan s, NumScalar r)
 
 -- * Unlawful numeric instances for mixed AST; lawful modulo evaluation
 
-instance (NumScalar r, KnownSpan s)
+instance NumScalar r
          => Num (AstTensor AstMethodShare s (TKX sh r)) where
   (+) = liftXFromS2 (+)
   (-) = liftXFromS2 (-)
@@ -361,19 +361,19 @@ instance (NumScalar r, KnownSpan s)
   fromInteger i = error $ "fromInteger is not defined for mixed tensors: "
                           ++ show i
 
-instance (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
+instance (NumScalar r, IntegralH r, Nested.IntElt r)
          => IntegralH (AstTensor AstMethodShare s (TKX sh r)) where
   quotH = liftXFromS2 quotH
   remH = liftXFromS2 remH
 
-instance (NumScalar r, Differentiable r, KnownSpan s)
+instance (NumScalar r, Differentiable r)
          => Fractional (AstTensor AstMethodShare s (TKX sh r)) where
   (/) = liftXFromS2 (/)
   recip = liftXFromS1 recip
   fromRational r = error $ "fromRational is not defined for mixed tensors: "
                            ++ show r
 
-instance (NumScalar r, Differentiable r, KnownSpan s)
+instance (NumScalar r, Differentiable r)
          => Floating (AstTensor AstMethodShare s (TKX sh r)) where
   pi = error "pi is not defined for tensors"
   exp = liftXFromS1 exp
@@ -394,7 +394,7 @@ instance (NumScalar r, Differentiable r, KnownSpan s)
   acosh = liftXFromS1 acosh
   atanh = liftXFromS1 atanh
 
-instance (NumScalar r, Differentiable r, KnownSpan s)
+instance (NumScalar r, Differentiable r)
          => RealFloatH (AstTensor AstMethodShare s (TKX sh r)) where
   atan2H = liftXFromS2 atan2H
 
