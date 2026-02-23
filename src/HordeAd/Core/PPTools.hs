@@ -569,6 +569,7 @@ printAst cfg d = \case
 showNumber :: Show a => a -> ShowS
 {-# INLINE showNumber #-}
 showNumber a = case show a of
+  "-0.0" -> showString "0.0"  -- conserve sanity
   s@('-' : _) -> showParen True (showString s)
   s -> showString s
 
