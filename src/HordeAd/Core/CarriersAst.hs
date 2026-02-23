@@ -12,12 +12,12 @@
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
-  , sunReplicate, sunReplicate1, sunReplicateN, unReplS, unReplK, eqK
+  , sunReplicate, sunReplicate1, sunReplicateN, unReplC, unAstK, eqK
   ) where
 
 import Prelude
 
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++))
@@ -25,8 +25,10 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Shaped.Shape
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.OpsConcrete ()
 import HordeAd.Core.TensorKind
@@ -137,35 +139,35 @@ sunReplicateN shm a@(Nested.Shaped arr)
     Just $ Nested.sindexPartial a $ ixsZero shm
 sunReplicateN _ _ = Nothing
 
-unReplS :: forall sh r s ms.
-           AstTensor ms s (TKS sh r) -> Maybe r
-unReplS (AstReplicate _ STKScalar a) = unReplK a
-unReplS (AstReplicate _ STKS{} u) = unReplS u
-unReplS (AstLet _ _ t) = unReplS t  -- we may be before inlining
-unReplS (AstPrimalPart t) = unReplS t
-unReplS (AstDualPart t) = unReplS t
-unReplS (AstPlainPart t) = unReplS t
-unReplS (AstFromPrimal t) = unReplS t
-unReplS (AstFromDual t) = unReplS t
-unReplS (AstFromPlain t) = unReplS t
-unReplS (AstConcreteS a) = sunReplicate a
-unReplS (AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) (AstConcreteK a)) =
+unReplC :: forall sh x s ms.
+           AstTensor ms s (TKS2 sh x) -> Maybe (RepConcrete x)
+unReplC (AstReplicate _ STKScalar a) = unAstK a
+unReplC (AstReplicate _ STKS{} u) = unReplC u
+unReplC (AstLet _ _ t) = unReplC t  -- we may be before inlining
+unReplC (AstPrimalPart t) = unReplC t
+unReplC (AstDualPart t) = unReplC t
+unReplC (AstPlainPart t) = unReplC t
+unReplC (AstFromPrimal t) = unReplC t
+unReplC (AstFromDual t) = unReplC t
+unReplC (AstFromPlain t) = unReplC t
+unReplC (AstConcreteS a) = sunReplicate a
+unReplC (AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) (AstConcreteK a)) =
   Just a
-unReplS _ = Nothing  -- e.g., a variable
+unReplC _ = Nothing  -- e.g., a variable
 
 -- No cases for, e.g., arithmetic, because it'd get simplified away beforehand.
-unReplK :: forall r s ms.
+unAstK :: forall r s ms.
            AstTensor ms s (TKScalar r) -> Maybe r
-unReplK (AstLet _ _ t) = unReplK t  -- we may be before inlining
-unReplK (AstPrimalPart t) = unReplK t
-unReplK (AstDualPart t) = unReplK t
-unReplK (AstPlainPart t) = unReplK t
-unReplK (AstFromPrimal t) = unReplK t
-unReplK (AstFromDual t) = unReplK t
-unReplK (AstFromPlain t) = unReplK t
-unReplK (AstConcreteK a) = Just a
-unReplK (AstConvert (ConvCmp ConvX0 ConvSX) a) = unReplS a
-unReplK _ = Nothing
+unAstK (AstLet _ _ t) = unAstK t  -- we may be before inlining
+unAstK (AstPrimalPart t) = unAstK t
+unAstK (AstDualPart t) = unAstK t
+unAstK (AstPlainPart t) = unAstK t
+unAstK (AstFromPrimal t) = unAstK t
+unAstK (AstFromDual t) = unAstK t
+unAstK (AstFromPlain t) = unAstK t
+unAstK (AstConcreteK a) = Just a
+unAstK (AstConvert (ConvCmp ConvX0 ConvSX) a) = unReplC a
+unAstK _ = Nothing
 
 -- An approximation. False doesn't imply terms have different semantics,
 -- but True implies they have equal semantics.
