@@ -2100,10 +2100,10 @@ astCastS t = case t of
     let !v2 = astCastK v
     in Ast.AstBuild1 snat STKScalar (var, v2)
   Ast.AstLet var u v -> astLet var u (astCastS v)
-  -- These (rarely) loop if ast* is used instead of Ast.Ast*.
-  Ast.AstPrimalPart a -> Ast.AstPrimalPart $ astCastS a
-  Ast.AstDualPart a -> Ast.AstDualPart $ astCastS a
-  Ast.AstPlainPart a -> Ast.AstPlainPart $ astCastS a
+  -- These (rarely) loop if ast*Part is used instead of these versions.
+  Ast.AstPrimalPart a -> primalPart $ astCastS a
+  Ast.AstDualPart a -> dualPart $ astCastS a
+  Ast.AstPlainPart a -> plainPart $ astCastS a
   Ast.AstFromPrimal v -> fromPrimal $ astCastS v
   Ast.AstFromDual v -> fromDual $ astCastS v
   Ast.AstFromPlain v -> fromPlain $ astCastS v
@@ -4018,14 +4018,10 @@ astConvertDownKFromR c a = case a of
   Ast.AstVar{} -> Ast.AstConvert c a
   Ast.AstCond b v1 v2 -> astCond b (astConvertDownKFromR c v1)
                                    (astConvertDownKFromR c v2)
-  Ast.AstLet var u v ->
-    astLet var u (astConvertDownKFromR c v)
-  Ast.AstPrimalPart v ->
-    astPrimalPart $ astConvertDownKFromR c v
-  Ast.AstDualPart v ->
-    astDualPart $ astConvertDownKFromR c v
-  Ast.AstPlainPart v ->
-    astPlainPart $ astConvertDownKFromR c v
+  Ast.AstLet var u v -> astLet var u (astConvertDownKFromR c v)
+  Ast.AstPrimalPart v -> astPrimalPart $ astConvertDownKFromR c v
+  Ast.AstDualPart v -> astDualPart $ astConvertDownKFromR c v
+  Ast.AstPlainPart v -> astPlainPart $ astConvertDownKFromR c v
   Ast.AstFromPrimal v -> fromPrimal $ astConvertDownKFromR c v
   Ast.AstFromDual v -> fromDual $ astConvertDownKFromR c v
   Ast.AstFromPlain v -> fromPlain $ astConvertDownKFromR c v
@@ -4045,14 +4041,10 @@ astConvertDownKFromX c a = case a of
   Ast.AstVar{} -> Ast.AstConvert c a
   Ast.AstCond b v1 v2 -> astCond b (astConvertDownKFromX c v1)
                                    (astConvertDownKFromX c v2)
-  Ast.AstLet var u v ->
-    astLet var u (astConvertDownKFromX c v)
-  Ast.AstPrimalPart v ->
-    astPrimalPart $ astConvertDownKFromX c v
-  Ast.AstDualPart v ->
-    astDualPart $ astConvertDownKFromX c v
-  Ast.AstPlainPart v ->
-    astPlainPart $ astConvertDownKFromX c v
+  Ast.AstLet var u v -> astLet var u (astConvertDownKFromX c v)
+  Ast.AstPrimalPart v -> astPrimalPart $ astConvertDownKFromX c v
+  Ast.AstDualPart v -> astDualPart $ astConvertDownKFromX c v
+  Ast.AstPlainPart v -> astPlainPart $ astConvertDownKFromX c v
   Ast.AstFromPrimal v -> fromPrimal $ astConvertDownKFromX c v
   Ast.AstFromDual v -> fromDual $ astConvertDownKFromX c v
   Ast.AstFromPlain v -> fromPlain $ astConvertDownKFromX c v
@@ -4490,9 +4482,9 @@ astBoolAndS :: AstTensor AstMethodLet PlainSpan (TKS sh Bool)
             -> AstTensor AstMethodLet PlainSpan (TKS sh Bool)
 astBoolAndS = Ast.AstBoolAndS
 
-astLeqK :: forall r s. (NumScalar r, KnownSpan s)
-        => AstTensor AstMethodLet s (TKScalar r)
-        -> AstTensor AstMethodLet s (TKScalar r)
+astLeqK :: forall r. NumScalar r
+        => AstTensor AstMethodLet PlainSpan (TKScalar r)
+        -> AstTensor AstMethodLet PlainSpan (TKScalar r)
         -> AstBool AstMethodLet
 astLeqK = \cases
   u v | eqK u v -> true
@@ -4501,13 +4493,6 @@ astLeqK = \cases
       , u2 <= v1 || u1 > v2 -> AstConcreteK (u2 <= v1)
   -- This is wrong, because LHS is a particular valuation and RHS is all.
   -- Ast.AstLet _ _ u <=. Ast.AstLet _ _ v -> u <=. v
-  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> astLeqK u v
-  (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
-    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
-      astLeqK u v
-  (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> astLeqK u v
-  Ast.AstFromDual{} Ast.AstFromDual{} -> true
-  (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> astLeqK u v
   u (AstPlusK (AstConcreteK v) w) ->
     astLeqK (astPlusK u (astN1K NegateOp (AstConcreteK v))) w
   (AstPlusK (AstConcreteK u) w) v ->
@@ -4530,49 +4515,13 @@ astLeqK = \cases
               (astTimesK (AstConcreteK $ negate v)
                          (astN1K NegateOp w))
   v@AstConcreteK{} u -> Ast.AstLeqK v u
-  u (AstPlusK (Ast.AstFromPlain (AstConcreteK v)) w) ->
-    astLeqK (astPlusK u (astN1K NegateOp
-                                (Ast.AstFromPlain (AstConcreteK v)))) w
-  (AstPlusK (Ast.AstFromPlain (AstConcreteK u)) w) v ->
-    astLeqK (Ast.AstFromPlain (AstConcreteK u))
-            (astPlusK v (astN1K NegateOp w))
-  u (Ast.AstFromPlain (AstConcreteK v)) ->
-    astLeqK (Ast.AstFromPlain (AstConcreteK (negate v)))
-            (astN1K NegateOp u)
-  (Ast.AstFromPlain (AstConcreteK u))
-    (AstTimesK (Ast.AstFromPlain (AstConcreteK v)) w)
-      | v > 0 && u >= 0
-      , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
-        astLeqK (Ast.AstFromPlain (AstConcreteK ((u + v - 1) `quotH` v))) w
-          -- 10 == 5 * 2, 11 > 5 * 2
-  (Ast.AstFromPlain (AstConcreteK u))
-    (AstTimesK (Ast.AstFromPlain (AstConcreteK v)) w)
-      | v > 0 && u < 0
-      , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
-        astLeqK (Ast.AstFromPlain (AstConcreteK (u `quotH` v))) w
-          -- -10 == 5 * -2, -9 > 5 * -2
-  (Ast.AstFromPlain (AstConcreteK u))
-    (AstTimesK (Ast.AstFromPlain (AstConcreteK v)) w)
-      | v < 0
-      , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
-        astLeqK (Ast.AstFromPlain (AstConcreteK u))
-                (astTimesK (Ast.AstFromPlain (AstConcreteK $ negate v))
-                           (astN1K NegateOp w))
-  u v -> astLeqK (AstConcreteK 0)
-                 (plainPart (astPlusK v (astN1K NegateOp u)))
+  u v -> astLeqK (AstConcreteK 0) (astPlusK v (astN1K NegateOp u))
 
-astLeq :: forall sh r s. (NumScalar r, KnownSpan s)
-       => AstTensor AstMethodLet s (TKS sh r)
-       -> AstTensor AstMethodLet s (TKS sh r)
+astLeq :: forall sh r. NumScalar r
+       => AstTensor AstMethodLet PlainSpan (TKS sh r)
+       -> AstTensor AstMethodLet PlainSpan (TKS sh r)
        -> AstBool AstMethodLet
 astLeq = \cases
-  (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> astLeq u v
-  (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
-    | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
-      astLeq u v
-  (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> astLeq u v
-  Ast.AstFromDual{} Ast.AstFromDual{} -> true
-  (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> astLeq u v
   (AstConcreteS u) (AstConcreteS v) ->
     AstConcreteK $ Shaped.stoPrimitive u <= Shaped.stoPrimitive v
   u (AstPlusS (AstConcreteS v) w) ->
@@ -4581,14 +4530,6 @@ astLeq = \cases
     astLeq (AstConcreteS u) (astPlusS v (astN1S NegateOp w))
   u (AstConcreteS v) ->
     astLeq (AstConcreteS (negate v)) (astN1S NegateOp u)
-  u (AstPlusS (Ast.AstFromPlain (AstConcreteS v)) w) ->
-    astLeq (astPlusS u (astN1S NegateOp
-                               (Ast.AstFromPlain (AstConcreteS v)))) w
-  (AstPlusS (Ast.AstFromPlain (AstConcreteS u)) w) v ->
-    astLeq (Ast.AstFromPlain (AstConcreteS u))
-           (astPlusS v (astN1S NegateOp w))
-  u (Ast.AstFromPlain (AstConcreteS v)) ->
-    astLeq (Ast.AstFromPlain (AstConcreteS (negate v))) (astN1S NegateOp u)
   (Ast.AstConvert _ (Ast.AstVar u)) (Ast.AstConvert _ (Ast.AstVar v))
     | varNameToAstVarId u == varNameToAstVarId v ->
       AstConcreteK True
@@ -4597,7 +4538,7 @@ astLeq = \cases
   (AstConvUpSFromK v) w -> astLeqK v (kfromS w)
   (Ast.AstVar u) (Ast.AstVar v) | u == v ->
     AstConcreteK True
-  u v -> Ast.AstLeq (plainPart u) (plainPart v)
+  u v -> Ast.AstLeq u v
 
 astLeqS :: forall shb sh r. NumScalar r
         => ShS shb -> ShS sh
@@ -4837,11 +4778,11 @@ instance (KnownSpan s, NumScalar r)
 
 instance (KnownSpan s, NumScalar r)
          => OrdH (AstTensor AstMethodLet s) (TKScalar r) where
-  (<=.) = astLeqK
+  u <=. v = fromPlain $ astLeqK (astPlainPart u) (astPlainPart v)
 
 instance (KnownSpan s, NumScalar r)
          => OrdH (AstTensor AstMethodLet s) (TKS sh r) where
-  (<=.) = astLeq
+  u <=. v = fromPlain $ astLeq (astPlainPart u) (astPlainPart v)
 
 
 -- * Helper combinators

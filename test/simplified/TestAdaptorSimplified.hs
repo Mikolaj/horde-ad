@@ -1217,7 +1217,7 @@ testReluPP2 = do
       (var3, ast3) = funToAst (FTKR [5] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
-    @?= "\\v1 -> rfromS (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * (tfromPlain (STKS [5] STKScalar) (sgather1 @5 (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\i2 -> [ifH (0.0 <=. tplainPart (negate ((tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * tprimalPart (sfromR v1)) `sindex0` [i2]))) 0 1])) * sfromR v1))"
+    @?= "\\v1 -> rfromS (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * (tfromPlain (STKS [5] STKScalar) (sgather1 @5 (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\i2 -> [ifH (0.0 <=. negate ((sconcrete (sreplicate [5] 7.0) * tplainPart (sfromR v1)) `sindex0` [i2])) 0 1])) * sfromR v1))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifactRev artifactRev)
@@ -1253,7 +1253,7 @@ testReluSimplerPP2 = do
       (var3, ast3) = funToAst (FTKR [5] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
-    @?= "\\v1 -> rfromS (tlet (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * sfromR v1) (\\v2 -> tfromPlain (STKS [5] STKScalar) (sgather1 @5 (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\i3 -> [ifH (0.0 <=. tplainPart (negate (v2 `sindex0` [i3]))) 0 1])) * v2))"
+    @?= "\\v1 -> rfromS (tlet (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * sfromR v1) (\\v2 -> tfromPlain (STKS [5] STKScalar) (sgather1 @5 (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\i3 -> [ifH (0.0 <=. negate (tplainPart v2 `sindex0` [i3])) 0 1])) * v2))"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifactRev artifactRev)
