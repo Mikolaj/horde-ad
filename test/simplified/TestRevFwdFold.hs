@@ -421,7 +421,7 @@ testSin0RfwdPP4Dual = do
   interpretAstDual @Concrete emptyEnv a1
     @?= DummyDualTarget (FTKR [] FTKScalar)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromK (kdualPart 0.0 * cos (kdualPart 0.0 * cos (kdualPart 0.0)))"
+    @?= "rdualPart (rfromK 0.0)"
 
 testSin0Rfwd5 :: Assertion
 testSin0Rfwd5 = do
