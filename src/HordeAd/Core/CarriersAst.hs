@@ -12,7 +12,7 @@
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
-  , sunReplicate, sunReplicate1, sunReplicateN, unReplC, unAstK, eqK
+  , sunReplicate, sunReplicate1, sunReplicateN, unReplC, unAstK, unAstS, eqK
   ) where
 
 import Prelude
@@ -168,6 +168,22 @@ unAstK (AstFromPlain t) = unAstK t
 unAstK (AstConcreteK a) = Just a
 unAstK (AstConvert (ConvCmp ConvX0 ConvSX) a) = unReplC a
 unAstK _ = Nothing
+
+unAstS :: forall sh x s ms.
+           AstTensor ms s (TKS2 sh x)
+        -> Maybe (Nested.Shaped sh (RepConcrete x))
+unAstS (AstLet _ _ t) = unAstS t
+unAstS (AstPrimalPart t) = unAstS t
+unAstS (AstDualPart t) = unAstS t
+unAstS (AstPlainPart t) = unAstS t
+unAstS (AstFromPrimal t) = unAstS t
+unAstS (AstFromDual t) = unAstS t
+unAstS (AstFromPlain t) = unAstS t
+unAstS (AstConcreteS a) = Just a
+unAstS (AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) (AstConcreteK r)) =
+  gcastWith (unsafeCoerceRefl :: sh :~: '[]) $
+  Just $ Nested.sscalar r
+unAstS _ = Nothing
 
 -- An approximation. False doesn't imply terms have different semantics,
 -- but True implies they have equal semantics.

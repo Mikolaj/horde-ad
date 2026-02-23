@@ -101,7 +101,7 @@ import HordeAd.Core.Ast qualified as Ast (AstTensor(..))
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersAst
-  (eqK, sunReplicate1, sunReplicateN, sunReplicate, unReplC, unAstK)
+  (eqK, sunReplicate1, sunReplicateN, sunReplicate, unReplC, unAstK, unAstS)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
@@ -1710,22 +1710,18 @@ astPlusS = \cases
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astPlusS u v
   u v | Just 0 <- unReplC u -> v
   u v | Just 0 <- unReplC v -> u
-  (AstConcreteS n) (AstConcreteS k) -> AstConcreteS (n + k)
-  (AstConcreteS n) (AstPlusS (AstConcreteS k) u) ->
-    AstPlusS (AstConcreteS (n + k)) u
-  (AstPlusS (AstConcreteS n) u) (AstConcreteS k) ->
-    AstPlusS (AstConcreteS (n + k)) u
-  (AstPlusS (AstConcreteS n) u) (AstPlusS (AstConcreteS k) v) ->
-    astPlusS (AstConcreteS (n + k)) (AstPlusS u v)
-  (Ast.AstFromPlain (AstConcreteS n))
-    (AstPlusS (Ast.AstFromPlain (AstConcreteS k)) u) ->
-      astPlusS (Ast.AstFromPlain (AstConcreteS (n + k))) u
-  (AstPlusS (Ast.AstFromPlain (AstConcreteS n)) u)
-    (Ast.AstFromPlain (AstConcreteS k)) ->
-      astPlusS (Ast.AstFromPlain (AstConcreteS (n + k))) u
-  (AstPlusS (Ast.AstFromPlain (AstConcreteS n)) u)
-    (AstPlusS (Ast.AstFromPlain (AstConcreteS k)) v) ->
-      astPlusS (Ast.AstFromPlain (AstConcreteS (n + k))) (astPlusS u v)
+  u v | Just u0 <- unAstS u
+      , Just v0 <- unAstS v -> fromPlain $ AstConcreteS (u0 + v0)
+  u (AstPlusS v w) | Just u0 <- unAstS u
+                   , Just v0 <- unAstS v ->
+    AstPlusS (fromPlain $ AstConcreteS (u0 + v0)) w
+  (AstPlusS u w) v | Just u0 <- unAstS u
+                   , Just v0 <- unAstS v ->
+    AstPlusS (fromPlain $ AstConcreteS (u0 + v0)) w
+  (AstPlusS u w) (AstPlusS v x) | Just u0 <- unAstS u
+                                , Just v0 <- unAstS v ->
+    astPlusS (fromPlain $ AstConcreteS (u0 + v0)) (astPlusS w x)
+
   (AstConvUpSFromK u) (AstConvUpSFromK v) -> sfromK $ astPlusK u v
   u (AstConvUpSFromK v) -> sfromK $ astPlusK (kfromS u) v
   (AstConvUpSFromK u) v -> sfromK $ astPlusK u (kfromS v)
@@ -1739,14 +1735,11 @@ astPlusS = \cases
   (Ast.AstVar var') (AstPlusS (Ast.AstN1S NegateOp (Ast.AstVar var)) u)
     | var == var' -> u
 
-  (AstPlusS u@AstConcreteS{} v)  w -> astPlusS u (astPlusS v w)
-  u v@AstConcreteS{} -> AstPlusS v u
-  u (AstPlusS v@AstConcreteS{} w) -> astPlusS v (astPlusS u w)
-  (AstPlusS u@(Ast.AstFromPlain AstConcreteS{}) v) w ->
-    astPlusS u (astPlusS v w)
-  u v@(Ast.AstFromPlain AstConcreteS{}) -> AstPlusS v u
-  u (AstPlusS v@(Ast.AstFromPlain AstConcreteS{}) w) ->
-    astPlusS v (astPlusS u w)
+  (AstPlusS u v) w | Just u0 <- unAstS u ->
+    astPlusS (fromPlain $ AstConcreteS u0) (astPlusS v w)
+  u v | Just v0 <- unAstS v -> AstPlusS (fromPlain $ AstConcreteS v0) u
+  u (AstPlusS v w) | Just v0 <- unAstS v ->
+    astPlusS (fromPlain $ AstConcreteS v0) (astPlusS u w)
   u v -> AstPlusS u v
 
 astTimesS :: (NumScalar r, KnownSpan s)
@@ -1769,22 +1762,18 @@ astTimesS = \cases
   _ v | Just 0 <- unReplC v -> v
   u v | Just 1 <- unReplC u -> v
   u v | Just 1 <- unReplC v -> u
-  (AstConcreteS n) (AstConcreteS k) -> AstConcreteS (n * k)
-  (AstConcreteS n) (AstTimesS (AstConcreteS k) u) ->
-    AstTimesS (AstConcreteS (n * k)) u
-  (AstTimesS (AstConcreteS n) u) (AstConcreteS k) ->
-    AstTimesS (AstConcreteS (n * k)) u
-  (AstTimesS (AstConcreteS n) u) (AstTimesS (AstConcreteS k) v) ->
-    astTimesS (AstConcreteS (n * k)) (astTimesS u v)
-  (Ast.AstFromPlain (AstConcreteS n))
-    (AstTimesS (Ast.AstFromPlain (AstConcreteS k)) u) ->
-      astTimesS (Ast.AstFromPlain (AstConcreteS (n * k))) u
-  (AstTimesS (Ast.AstFromPlain (AstConcreteS n)) u)
-    (Ast.AstFromPlain (AstConcreteS k)) ->
-      astTimesS (Ast.AstFromPlain (AstConcreteS (n * k))) u
-  (AstTimesS (Ast.AstFromPlain (AstConcreteS n)) u)
-    (AstTimesS (Ast.AstFromPlain (AstConcreteS k)) v) ->
-      astTimesS (Ast.AstFromPlain (AstConcreteS (n * k))) (astTimesS u v)
+  u v | Just u0 <- unAstS u
+      , Just v0 <- unAstS v -> fromPlain $ AstConcreteS (u0 * v0)
+  u (AstTimesS v w) | Just u0 <- unAstS u
+                    , Just v0 <- unAstS v ->
+    AstTimesS (fromPlain $ AstConcreteS (u0 * v0)) w
+  (AstTimesS u w) v | Just u0 <- unAstS u
+                    , Just v0 <- unAstS v ->
+    AstTimesS (fromPlain $ AstConcreteS (u0 * v0)) w
+  (AstTimesS u w) (AstTimesS v x) | Just u0 <- unAstS u
+                                  , Just v0 <- unAstS v ->
+    astTimesS (fromPlain $ AstConcreteS (u0 * v0)) (astTimesS w x)
+
   (Ast.AstScatterS shm shn shp v (vars, ix)) u
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
       Ast.AstScatterS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
@@ -1841,6 +1830,7 @@ astTimesS = \cases
       astTimesS
         a (Ast.AstGatherS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
                                       (vars, ix))
+
   (AstConvUpSFromK u) (AstConvUpSFromK v) -> sfromK $ astTimesK u v
   u (AstConvUpSFromK v) -> sfromK $ astTimesK (kfromS u) v
   (AstConvUpSFromK u) v -> sfromK $ astTimesK u (kfromS v)
@@ -1864,14 +1854,11 @@ astTimesS = \cases
 
   (Ast.AstN1S NegateOp u) (Ast.AstN1S NegateOp v) -> astTimesS u v
 
-  (AstTimesS u@AstConcreteS{} v) w -> astTimesS u (astTimesS v w)
-  u v@AstConcreteS{} -> AstTimesS v u
-  u (AstTimesS v@AstConcreteS{} w) -> astTimesS v (astTimesS u w)
-  (AstTimesS u@(Ast.AstFromPlain AstConcreteS{}) v) w ->
-    astTimesS u (astTimesS v w)
-  u v@(Ast.AstFromPlain AstConcreteS{}) -> AstTimesS v u
-  u (AstTimesS v@(Ast.AstFromPlain AstConcreteS{}) w) ->
-    astTimesS v (astTimesS u w)
+  (AstTimesS u v) w | Just u0 <- unAstS u ->
+    astTimesS (fromPlain $ AstConcreteS u0) (astTimesS v w)
+  u v | Just v0 <- unAstS v -> AstTimesS (fromPlain $ AstConcreteS v0) u
+  u (AstTimesS v w) | Just v0 <- unAstS v ->
+    astTimesS (fromPlain $ AstConcreteS v0) (astTimesS u w)
   u v -> AstTimesS u v
 
 astN1S :: (NumScalar r, KnownSpan s)
@@ -2007,14 +1994,16 @@ astI2S opCode = \cases
     sfromK $ astI2K opCode n (kfromS k)
   u v -> case opCode of
     QuotOp -> case (u, v) of
-      (AstConcreteS n, AstConcreteS k) -> AstConcreteS (quotH n k)
+      _ | Just u0 <- unAstS u
+        , Just v0 <- unAstS v -> fromPlain $ AstConcreteS (quotH u0 v0)
       _ | Just 0 <- unReplC u -> u
       _ | Just 1 <- unReplC v -> u
       (Ast.AstI2S QuotOp u0 v0, w0) ->
         astI2S QuotOp u0 (astTimesS v0 w0)
       _ -> Ast.AstI2S QuotOp u v
     RemOp -> case (u, v) of
-      (AstConcreteS n, AstConcreteS k) -> AstConcreteS (remH n k)
+      _ | Just u0 <- unAstS u
+        , Just v0 <- unAstS v -> fromPlain $ AstConcreteS (remH u0 v0)
       _ | Just 0 <- unReplC u -> u
       _ -> Ast.AstI2S RemOp u v
 
