@@ -1723,12 +1723,12 @@ astPlusS = \cases
   u (AstConvUpSFromK v) -> sfromK $ astPlusK (kfromS u) v
   (AstConvUpSFromK u) v -> sfromK $ astPlusK u (kfromS v)
 
---  Ast.AstN1S NegateOp (Ast.AstVar var) + Ast.AstVar var'
---    | var == var' -> 0
+  (Ast.AstN1S NegateOp (Ast.AstVar var)) (Ast.AstVar var')
+    | var == var' -> fromPlain $ AstConcreteS $ defTargetRep $ varNameToFTK var
   (Ast.AstN1S NegateOp (Ast.AstVar var)) (AstPlusS (Ast.AstVar var') u)
     | var == var' -> u
---  Ast.AstVar var' + Ast.AstN1S NegateOp (Ast.AstVar var)
---    | var == var' -> 0
+  (Ast.AstVar var') (Ast.AstN1S NegateOp (Ast.AstVar var))
+    | var == var' -> fromPlain $ AstConcreteS $ defTargetRep $ varNameToFTK var
   (Ast.AstVar var') (AstPlusS (Ast.AstN1S NegateOp (Ast.AstVar var)) u)
     | var == var' -> u
 
@@ -1753,7 +1753,8 @@ astTimesS = \cases
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
       plainPart $ astTimesS u v
   (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astTimesS u v
---  Ast.AstFromDual{} * Ast.AstFromDual{} -> 0
+  u@Ast.AstFromDual{} Ast.AstFromDual{} ->
+    fromPlain $ AstConcreteS $ defTargetRep $ ftkAst u
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astTimesS u v
   u _ | Just 0 <- unReplC u -> u
   _ v | Just 0 <- unReplC v -> v
@@ -2002,6 +2003,8 @@ astI2S opCode = \cases
       _ | Just u0 <- unAstS u
         , Just v0 <- unAstS v -> fromPlain $ AstConcreteS (remH u0 v0)
       _ | Just 0 <- unReplC u -> u
+      _ | Just 1 <- unReplC v ->
+          fromPlain $ AstConcreteS $ defTargetRep $ ftkAst u
       _ -> Ast.AstI2S RemOp u v
 
 astConcreteS :: GoodScalar r
