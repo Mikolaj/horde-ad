@@ -101,7 +101,7 @@ import HordeAd.Core.Ast qualified as Ast (AstTensor(..))
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersAst
-  (eqK, sunReplicate1, sunReplicateN, sunReplicatePrim, unReplC)
+  (eqK, sunReplicate1, sunReplicateN, sunReplicatePrim, unReplS, unReplK)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
@@ -1530,10 +1530,8 @@ astI2K opCode = \cases
   u v -> case opCode of
     QuotOp -> case (u, v) of
       (AstConcreteK n, AstConcreteK k) -> AstConcreteK (quotH n k)
-      (AstConcreteK 0, _) -> AstConcreteK 0
-      (Ast.AstFromPlain (AstConcreteK 0), _) -> fromPlain $ AstConcreteK 0
-      (t, AstConcreteK 1) -> t
-      (t, Ast.AstFromPlain (AstConcreteK 1)) -> t
+      _ | Just 0 <- unReplK u -> u
+      _ | Just 1 <- unReplK v -> u
       (Ast.AstI2K RemOp _ (AstConcreteK k), AstConcreteK k')
         | k' >= k && k >= 0 -> AstConcreteK 0
       (Ast.AstI2K QuotOp u0 v0, w0) ->
@@ -1543,10 +1541,8 @@ astI2K opCode = \cases
       _ -> Ast.AstI2K QuotOp u v
     RemOp -> case (u, v) of
       (AstConcreteK n, AstConcreteK k) -> AstConcreteK (remH n k)
-      (AstConcreteK 0, _) -> AstConcreteK 0
-      (Ast.AstFromPlain (AstConcreteK 0), _) -> fromPlain $ AstConcreteK 0
-      (_, AstConcreteK 1) -> AstConcreteK 0
-      (_, Ast.AstFromPlain (AstConcreteK 1)) -> fromPlain $ AstConcreteK 0
+      _ | Just 0 <- unReplK u -> u
+      _ | Just 1 <- unReplK v -> fromPlain $ AstConcreteK 0
       (Ast.AstI2K RemOp t (AstConcreteK k), AstConcreteK k')
         | k' >= k && k >= 0 -> astI2K RemOp t (AstConcreteK k)
       (Ast.AstI2K RemOp t (AstConcreteK k), AstConcreteK k')
@@ -1714,8 +1710,8 @@ astPlusS = \cases
   (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astPlusS u v
   (Ast.AstFromDual u) (Ast.AstFromDual v) -> fromDual $ astPlusS u v
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astPlusS u v
-  u v | Just 0 <- unReplC u -> v
-  u v | Just 0 <- unReplC v -> u
+  u v | Just 0 <- unReplS u -> v
+  u v | Just 0 <- unReplS v -> u
   (AstConcreteS n) (AstConcreteS k) -> AstConcreteS (n + k)
   (AstConcreteS n) (AstPlusS (AstConcreteS k) u) ->
     AstPlusS (AstConcreteS (n + k)) u
@@ -1771,10 +1767,10 @@ astTimesS = \cases
   (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) -> fromPrimal $ astTimesS u v
 --  Ast.AstFromDual{} * Ast.AstFromDual{} -> 0
   (Ast.AstFromPlain u) (Ast.AstFromPlain v) -> fromPlain $ astTimesS u v
-  u _ | Just 0 <- unReplC u -> u
-  _ v | Just 0 <- unReplC v -> v
-  u v | Just 1 <- unReplC u -> v
-  u v | Just 1 <- unReplC v -> u
+  u _ | Just 0 <- unReplS u -> u
+  _ v | Just 0 <- unReplS v -> v
+  u v | Just 1 <- unReplS u -> v
+  u v | Just 1 <- unReplS v -> u
   (AstConcreteS n) (AstConcreteS k) -> AstConcreteS (n * k)
   (AstConcreteS n) (AstTimesS (AstConcreteS k) u) ->
     AstTimesS (AstConcreteS (n * k)) u
@@ -2014,17 +2010,14 @@ astI2S opCode = \cases
   u v -> case opCode of
     QuotOp -> case (u, v) of
       (AstConcreteS n, AstConcreteS k) -> AstConcreteS (quotH n k)
-      _ | Just 0 <- unReplC u -> u
-      (Ast.AstFromPlain z, _) | Just 0 <- unReplC z -> u
-      _ | Just 1 <- unReplC v -> u
-      (_, Ast.AstFromPlain s) | Just 1 <- unReplC s -> u
+      _ | Just 0 <- unReplS u -> u
+      _ | Just 1 <- unReplS v -> u
       (Ast.AstI2S QuotOp u0 v0, w0) ->
         astI2S QuotOp u0 (astTimesS v0 w0)
       _ -> Ast.AstI2S QuotOp u v
     RemOp -> case (u, v) of
       (AstConcreteS n, AstConcreteS k) -> AstConcreteS (remH n k)
-      _ | Just 0 <- unReplC u -> u
-      (Ast.AstFromPlain z, _) | Just 0 <- unReplC z -> u
+      _ | Just 0 <- unReplS u -> u
       _ -> Ast.AstI2S RemOp u v
 
 astConcreteS :: GoodScalar r

@@ -12,7 +12,7 @@
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
-  , sunReplicatePrim, sunReplicate1, sunReplicateN, unReplC, eqK
+  , sunReplicatePrim, sunReplicate1, sunReplicateN, unReplS, unReplK, eqK
   ) where
 
 import Prelude
@@ -137,21 +137,35 @@ sunReplicateN shm a@(Nested.Shaped arr)
     Just $ Nested.sindexPartial a $ ixsZero shm
 sunReplicateN _ _ = Nothing
 
-unReplC :: forall sh r s ms. KnownSpan s
-        => AstTensor ms s (TKS sh r) -> Maybe r
-unReplC (AstReplicate _ _ (AstConcreteK a)) = Just a
-unReplC (AstReplicate _ STKS{} u) = unReplC u
-unReplC (AstConcreteS a) = sunReplicatePrim a
-unReplC (AstLet _ _ t) = unReplC t
-unReplC (AstPrimalPart t) = unReplC t
-unReplC (AstDualPart t) = unReplC t
-unReplC (AstPlainPart t) = unReplC t
-unReplC (AstFromPrimal t) = unReplC t
-unReplC (AstFromDual t) = unReplC t
-unReplC (AstFromPlain t) = unReplC t
-unReplC (AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) (AstConcreteK a)) =
+unReplS :: forall sh r s ms.
+           AstTensor ms s (TKS sh r) -> Maybe r
+unReplS (AstReplicate _ _ (AstConcreteK a)) = Just a
+unReplS (AstReplicate _ STKS{} u) = unReplS u
+unReplS (AstConcreteS a) = sunReplicatePrim a
+unReplS (AstLet _ _ t) = unReplS t
+unReplS (AstPrimalPart t) = unReplS t
+unReplS (AstDualPart t) = unReplS t
+unReplS (AstPlainPart t) = unReplS t
+unReplS (AstFromPrimal t) = unReplS t
+unReplS (AstFromDual t) = unReplS t
+unReplS (AstFromPlain t) = unReplS t
+unReplS (AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) (AstConcreteK a)) =
   Just a
-unReplC _ = Nothing
+unReplS _ = Nothing
+
+unReplK :: forall r s ms.
+           AstTensor ms s (TKScalar r) -> Maybe r
+unReplK (AstConcreteK a) = Just a
+unReplK (AstLet _ _ t) = unReplK t
+unReplK (AstPrimalPart t) = unReplK t
+unReplK (AstDualPart t) = unReplK t
+unReplK (AstPlainPart t) = unReplK t
+unReplK (AstFromPrimal t) = unReplK t
+unReplK (AstFromDual t) = unReplK t
+unReplK (AstFromPlain t) = unReplK t
+unReplK (AstConvert (ConvCmp ConvX0 ConvSX) (AstConcreteS a)) =
+  sunReplicatePrim a
+unReplK _ = Nothing
 
 -- An approximation. False doesn't imply terms have different semantics,
 -- but True implies they have equal semantics.
