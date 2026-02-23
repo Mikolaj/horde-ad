@@ -3518,9 +3518,21 @@ astAppendS u v | FTKS (SZ :$$ _) _ <- ftkAst v = u
 astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
            (Ast.AstFromVector (SNat @k2) STKS{} l2) =
   astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2
+astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKS{} a1)
+           (Ast.AstFromVector (SNat @k2) STKS{} l2) =
+  astFromVector (SNat @(1 + k2)) stk2 $ a1 `V.cons` l2
+astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
+           (Ast.AstReplicate (SNat' @1) STKS{} a2) =
+  astFromVector (SNat @(k1 + 1)) stk2 $ l1 `V.snoc` a2
 astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKScalar l1)
            (Ast.AstFromVector (SNat @k2) STKScalar l2) =
   astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2
+astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKScalar a1)
+           (Ast.AstFromVector (SNat @k2) STKScalar l2) =
+  astFromVector (SNat @(1 + k2)) stk2 $ a1 `V.cons` l2
+astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKScalar l1)
+           (Ast.AstReplicate (SNat' @1) STKScalar a2) =
+  astFromVector (SNat @(k1 + 1)) stk2 $ l1 `V.snoc` a2
 astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
   fromPrimal $ astAppendS u v
 astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
