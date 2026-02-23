@@ -12,7 +12,7 @@
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
-  , sunReplicatePrim, sunReplicate1, sunReplicateN, unReplS, unReplK, eqK
+  , sunReplicate, sunReplicate1, sunReplicateN, unReplS, unReplK, eqK
   ) where
 
 import Prelude
@@ -110,16 +110,16 @@ type instance HFunOf (AstNoSimplify s) = AstHFun s
 
 -- * Helper functions
 
-sunReplicatePrim :: Nested.Elt a
-                 => Nested.Shaped sh a -> Maybe a
-{-# INLINE sunReplicatePrim #-}
-sunReplicatePrim (Nested.Shaped arr)
+sunReplicate :: Nested.Elt a
+             => Nested.Shaped sh a -> Maybe a
+{-# INLINE sunReplicate #-}
+sunReplicate (Nested.Shaped arr)
   | all (all (== 0) . take (shxLength (Nested.mshape arr)))
         (Mixed.marrayStrides arr)
   , shxSize (Nested.mshape arr) /= 0 =
     Just $ Nested.mindex arr $ ixxZero' $ Nested.mshape arr
-sunReplicatePrim arr | ZSS <- Nested.sshape arr = Just $ Nested.sunScalar arr
-sunReplicatePrim _ = Nothing
+sunReplicate arr | ZSS <- Nested.sshape arr = Just $ Nested.sunScalar arr
+sunReplicate _ = Nothing
 
 sunReplicate1 :: Nested.Elt a
               => Nested.Shaped (n ': sh) a -> Maybe (Nested.Shaped sh a)
@@ -139,32 +139,32 @@ sunReplicateN _ _ = Nothing
 
 unReplS :: forall sh r s ms.
            AstTensor ms s (TKS sh r) -> Maybe r
-unReplS (AstReplicate _ _ (AstConcreteK a)) = Just a
+unReplS (AstReplicate _ STKScalar a) = unReplK a
 unReplS (AstReplicate _ STKS{} u) = unReplS u
-unReplS (AstConcreteS a) = sunReplicatePrim a
-unReplS (AstLet _ _ t) = unReplS t
+unReplS (AstLet _ _ t) = unReplS t  -- we may be before inlining
 unReplS (AstPrimalPart t) = unReplS t
 unReplS (AstDualPart t) = unReplS t
 unReplS (AstPlainPart t) = unReplS t
 unReplS (AstFromPrimal t) = unReplS t
 unReplS (AstFromDual t) = unReplS t
 unReplS (AstFromPlain t) = unReplS t
+unReplS (AstConcreteS a) = sunReplicate a
 unReplS (AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) (AstConcreteK a)) =
   Just a
-unReplS _ = Nothing
+unReplS _ = Nothing  -- e.g., a variable
 
+-- No cases for, e.g., arithmetic, because it'd get simplified away beforehand.
 unReplK :: forall r s ms.
            AstTensor ms s (TKScalar r) -> Maybe r
-unReplK (AstConcreteK a) = Just a
-unReplK (AstLet _ _ t) = unReplK t
+unReplK (AstLet _ _ t) = unReplK t  -- we may be before inlining
 unReplK (AstPrimalPart t) = unReplK t
 unReplK (AstDualPart t) = unReplK t
 unReplK (AstPlainPart t) = unReplK t
 unReplK (AstFromPrimal t) = unReplK t
 unReplK (AstFromDual t) = unReplK t
 unReplK (AstFromPlain t) = unReplK t
-unReplK (AstConvert (ConvCmp ConvX0 ConvSX) (AstConcreteS a)) =
-  sunReplicatePrim a
+unReplK (AstConcreteK a) = Just a
+unReplK (AstConvert (ConvCmp ConvX0 ConvSX) a) = unReplS a
 unReplK _ = Nothing
 
 -- An approximation. False doesn't imply terms have different semantics,
@@ -173,6 +173,8 @@ eqK :: AstTensor ms s (TKScalar r) -> AstTensor ms s (TKScalar r) -> Bool
 -- This is wrong for <=. but correct for this approximation:
 eqK (AstVar var1) (AstVar var2) = var1 == var2
 eqK (AstLet _ _  v1) (AstLet _ _ v2) = eqK v1 v2
+eqK v1 (AstLet _ _ v2) = eqK v1 v2
+eqK (AstLet _ _  v1) v2 = eqK v1 v2
 eqK (AstPrimalPart u1) (AstPrimalPart u2) = eqK u1 u2
 eqK (AstPlainPart @_ @s1 u1) (AstPlainPart @_ @s2 u2)
   | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
@@ -199,4 +201,7 @@ eqK (AstCastK @r1 u1) (AstCastK @r2 u2)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqK u1 u2
 eqK (AstConvert _ (AstVar u)) (AstConvert _ (AstVar v)) =
   varNameToAstVarId u == varNameToAstVarId v
+eqK (AstBoolNotK u1) (AstBoolNotK u2) = eqK u1 u2
+eqK (AstBoolAndK u1 v1) (AstBoolAndK u2 v2) =
+  eqK u1 u2 && eqK v1 v2 || eqK u1 v2 && eqK v1 u2
 eqK _ _ = False

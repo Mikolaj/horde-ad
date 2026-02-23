@@ -101,7 +101,7 @@ import HordeAd.Core.Ast qualified as Ast (AstTensor(..))
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersAst
-  (eqK, sunReplicate1, sunReplicateN, sunReplicatePrim, unReplS, unReplK)
+  (eqK, sunReplicate1, sunReplicateN, sunReplicate, unReplS, unReplK)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
@@ -4944,22 +4944,20 @@ astReplicateNS0 shn v | STKS _ x <- ftkToSTK (ftkAst v) =
       go (snat :$$ shn3) = astReplicate snat (STKS shn3 x) $ go shn3
   in go shn
 
-
--- * Temporarily duplicated here
-
 unRepl1 :: forall n sh x s. KnownSpan s
         => AstTensor AstMethodLet s (TKS2 (n ': sh) x)
         -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
 unRepl1 (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
 unRepl1 (Ast.AstReplicate _ STKS{} u) = Just u
-unRepl1 (AstConcreteS a) = AstConcreteS <$> sunReplicate1 a
-unRepl1 (Ast.AstLet var u t) = Ast.AstLet var u <$> unRepl1 t
-unRepl1 (Ast.AstPrimalPart t) = primalPart <$> unRepl1 t
-unRepl1 (Ast.AstDualPart t) = dualPart <$> unRepl1 t
-unRepl1 (Ast.AstPlainPart t) = plainPart <$> unRepl1 t
+unRepl1 (Ast.AstLet var u t) =
+  Ast.AstLet var u <$> unRepl1 t  -- we may be before inlining
+unRepl1 (Ast.AstPrimalPart t) = astPrimalPart <$> unRepl1 t
+unRepl1 (Ast.AstDualPart t) = astDualPart <$> unRepl1 t
+unRepl1 (Ast.AstPlainPart t) = astPlainPart <$> unRepl1 t
 unRepl1 (Ast.AstFromPrimal t) = fromPrimal <$> unRepl1 t
 unRepl1 (Ast.AstFromDual t) = fromDual <$> unRepl1 t
 unRepl1 (Ast.AstFromPlain t) = fromPlain <$> unRepl1 t
+unRepl1 (AstConcreteS a) = AstConcreteS <$> sunReplicate1 a
 unRepl1 _ = Nothing
 
 -- The result must not be equal to the argument.
@@ -4972,31 +4970,32 @@ unRepl :: forall sh x s. KnownSpan s
 unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
 unRepl (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
 unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
-unRepl (AstConcreteS a) | _ :$$ _ <- Nested.sshape a =
-  AstConcreteS . Nested.sscalar <$> sunReplicatePrim a
 unRepl (Ast.AstLet var u t) = Ast.AstLet var u <$> unRepl t
-unRepl (Ast.AstPrimalPart t) = primalPart <$> unRepl t
-unRepl (Ast.AstDualPart t) = dualPart <$> unRepl t
-unRepl (Ast.AstPlainPart t) = plainPart <$> unRepl t
+unRepl (Ast.AstPrimalPart t) = astPrimalPart <$> unRepl t
+unRepl (Ast.AstDualPart t) = astDualPart <$> unRepl t
+unRepl (Ast.AstPlainPart t) = astPlainPart <$> unRepl t
 unRepl (Ast.AstFromPrimal t) = fromPrimal <$> unRepl t
 unRepl (Ast.AstFromDual t) = fromDual <$> unRepl t
 unRepl (Ast.AstFromPlain t) = fromPlain <$> unRepl t
+unRepl (AstConcreteS a) | _ :$$ _ <- Nested.sshape a =
+  AstConcreteS . Nested.sscalar <$> sunReplicate a
 unRepl _ = Nothing
 
+-- The result must not be equal to the argument.
 unReplN :: forall shm shn x s. KnownSpan s
         => ShS shm -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
         -> Maybe (AstTensor AstMethodLet s (TKS2 shn x))
 unReplN ZSS a = Just a
 unReplN (_ :$$ ZSS) (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
 unReplN (_ :$$ sh) (Ast.AstReplicate _ STKS{} u) = unReplN sh u
-unReplN shm (AstConcreteS a) = AstConcreteS <$> sunReplicateN shm a
 unReplN shm (Ast.AstLet var u t) = Ast.AstLet var u <$> unReplN shm t
-unReplN shm (Ast.AstPrimalPart t) = primalPart <$> unReplN shm t
-unReplN shm (Ast.AstDualPart t) = dualPart <$> unReplN shm t
-unReplN shm (Ast.AstPlainPart t) = plainPart <$> unReplN shm t
+unReplN shm (Ast.AstPrimalPart t) = astPrimalPart <$> unReplN shm t
+unReplN shm (Ast.AstDualPart t) = astDualPart <$> unReplN shm t
+unReplN shm (Ast.AstPlainPart t) = astPlainPart <$> unReplN shm t
 unReplN shm (Ast.AstFromPrimal t) = fromPrimal <$> unReplN shm t
 unReplN shm (Ast.AstFromDual t) = fromDual <$> unReplN shm t
 unReplN shm (Ast.AstFromPlain t) = fromPlain <$> unReplN shm t
+unReplN shm (AstConcreteS a) = AstConcreteS <$> sunReplicateN shm a
 unReplN _ _ = Nothing
 
 
