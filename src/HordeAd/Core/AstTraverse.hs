@@ -120,7 +120,7 @@ expandAst t = case t of
   Ast.AstR1S opCode u -> astR1S opCode (expandAst u)
   Ast.AstR2S opCode u v -> astR2S opCode (expandAst u) (expandAst v)
   Ast.AstI2S opCode u v -> astI2S opCode (expandAst u) (expandAst v)
-  AstConcreteS a -> AstConcreteS a
+  AstConcreteS{} -> t
   Ast.AstFloorS a -> astFloorS (expandAst a)
   Ast.AstFromIntegralS v -> astFromIntegralS $ expandAst v
   Ast.AstCastS v -> astCastS $ expandAst v
@@ -277,7 +277,7 @@ simplifyAst t = case t of
   Ast.AstR1S opCode u -> astR1S opCode (simplifyAst u)
   Ast.AstR2S opCode u v -> astR2S opCode (simplifyAst u) (simplifyAst v)
   Ast.AstI2S opCode u v -> astI2S opCode (simplifyAst u) (simplifyAst v)
-  AstConcreteS a -> AstConcreteS a
+  AstConcreteS{} -> t
   Ast.AstFloorS a -> astFloorS (simplifyAst a)
   Ast.AstFromIntegralS v -> astFromIntegralS $ simplifyAst v
   Ast.AstCastS v -> astCastS $ simplifyAst v

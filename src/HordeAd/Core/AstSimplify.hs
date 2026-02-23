@@ -374,27 +374,25 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   -- of concrete arrays, but allocating an extra array of the same size
   -- as the fromVector is not a big deal and early rules are better
   -- then the same rules in contraction phase.
-  (case (knownSpan @s, stk) of
-     (SPlainSpan, STKScalar) ->
-       let unConc :: AstTensor AstMethodLet PlainSpan y
-                  -> Maybe (Concrete y)
-           unConc (AstConcreteK a) = Just $ Concrete a
-           unConc _ = Nothing
+  (case stk of
+     STKScalar @r2 ->
+       let unConc :: AstTensor AstMethodLet s (TKScalar r2)
+                  -> Maybe (Concrete (TKScalar r2))
+           unConc t = Concrete <$> unAstK t
        in case V.mapM unConc l of
          Just l4 | V.null l4 -> error "astFromVector: empty vector"
-         Just l4 -> Just $ astConcreteS (tfromVector snat stk l4)
+         Just l4 -> Just $ fromPlain $ astConcreteS (tfromVector snat stk l4)
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
-  (case (knownSpan @s, stk) of
-     (SPlainSpan, STKS _ STKScalar) ->
-       let unConc :: AstTensor AstMethodLet PlainSpan y
-                  -> Maybe (Concrete y)
-           unConc (AstConcreteS a) = Just $ Concrete a
-           unConc _ = Nothing
+  (case stk of
+     STKS _ STKScalar ->
+       let unConc :: AstTensor AstMethodLet s (TKS sh r2)
+                  -> Maybe (Concrete (TKS sh r2))
+           unConc t = Concrete <$> unAstS t
        in case V.mapM unConc l of
          Just l4 | V.null l4 -> error "astFromVector: empty vector"
-         Just l4 -> Just $ astConcreteS (tfromVector snat stk l4)
+         Just l4 -> Just $ fromPlain $ astConcreteS (tfromVector snat stk l4)
          Nothing -> Nothing
      _ -> Nothing)
   `mplus`
@@ -725,7 +723,12 @@ astCond :: KnownSpan s
         => AstBool AstMethodLet
         -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s y
-astCond (AstConcreteK b) v w = if b then v else w
+astCond b v w | Just b0 <- unAstK b = if b0 then v else w
+astCond _b u v | FTKScalar <- ftkAst u, eqK u v = u
+astCond b v w | FTKS (snat :$$ sh) x <- ftkAst v
+              , Just v1 <- unRepl1 v
+              , Just w1 <- unRepl1 w =
+  astReplicate snat (STKS sh (ftkToSTK x)) (astCond b v1 w1)
 astCond (Ast.AstBoolNotK b) v w = astCond b w v
 astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
   fromPrimal $ astCond b v w
@@ -733,7 +736,6 @@ astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
   fromDual $ astCond b v w
 astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
   fromPlain $ astCond b v w
-astCond _b u v | FTKScalar <- ftkAst u, eqK u v = u
 astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqK u1 v1 =
   astPlusK u1 (astCond b u2 v2)
 astCond b (AstPlusK u1 u2) v1 | eqK u1 v1 =
@@ -758,10 +760,6 @@ astCond b u2 (AstTimesK v1 v2) | eqK u2 v2 =
   astTimesK (astCond b 0 v1) u2
 astCond b (AstTimesK u1 u2) v2 | eqK u2 v2 =
   astTimesK (astCond b u1 0) u2
-astCond b v w | FTKS (snat :$$ sh) x <- ftkAst v
-              , Just v1 <- unRepl1 v
-              , Just w1 <- unRepl1 w =
-  astReplicate snat (STKS sh (ftkToSTK x)) (astCond b v1 w1)
 astCond _b (Ast.AstIotaS n) Ast.AstIotaS{} = Ast.AstIotaS n
 -- We rely here on c and the other conversion being semantically equal.
 astCond b (AstConvUp c zftk v) (AstConvUp _ _ w)
@@ -1570,7 +1568,6 @@ astFloorK t = case t of
 
 -- Beware that increasing the number of calls to this constructor
 -- sometimes increases runtime, because not enough copies cancel out.
--- Hence the commented out rules below.
 astFromIntegralK :: forall r1 r2. (NumScalar r1, Integral r1, NumScalar r2)
                  => AstTensor AstMethodLet PlainSpan (TKScalar r1)
                  -> AstTensor AstMethodLet PlainSpan (TKScalar r2)
@@ -2012,6 +2009,8 @@ astConcreteS :: GoodScalar r
              -> AstTensor AstMethodLet PlainSpan (TKS sh r)
 astConcreteS = AstConcreteS . unConcrete
 
+-- We don't floor concrete tensors ASAP but wait until AstTraverse,
+-- because the flooring may fuse or simplify away yet.
 astFloorS :: forall r1 r2 sh.
              (NumScalar r1, Differentiable r1, NumScalar r2, Integral r2)
           => AstTensor AstMethodLet PlainSpan (TKS sh r1)
@@ -3508,9 +3507,9 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
 
 -- Normal form of chains of appends has the append constructor on the right.
 astAppendS :: KnownSpan s
-           => AstTensor AstMethodLet s (TKS2 (m ': sh) r)
-           -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
-           -> AstTensor AstMethodLet s (TKS2 ((m + n) ': sh) r)
+           => AstTensor AstMethodLet s (TKS2 (m ': sh) x)
+           -> AstTensor AstMethodLet s (TKS2 (n ': sh) x)
+           -> AstTensor AstMethodLet s (TKS2 ((m + n) ': sh) x)
 astAppendS u v | FTKS (SZ :$$ _) _ <- ftkAst u = v
 astAppendS u v | FTKS (SZ :$$ _) _ <- ftkAst v = u
 astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
@@ -3525,10 +3524,14 @@ astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
   fromDual $ astAppendS u v
 astAppendS (Ast.AstFromPlain u) (Ast.AstFromPlain v) =
   fromPlain $ astAppendS u v
-astAppendS (AstConcreteS u) (AstConcreteS v) =
-  astConcreteS (tsappend (Concrete u) (Concrete v))
-astAppendS (AstConcreteS u) (Ast.AstAppendS (AstConcreteS v) w) =
-  astAppendS (astConcreteS (tsappend (Concrete u) (Concrete v))) w
+astAppendS u v | Just u0 <- unAstS u
+               , Just v0 <- unAstS v
+               , FTKS _ FTKScalar <- ftkAst u =
+  fromPlain $ astConcreteS (tsappend (Concrete u0) (Concrete v0))
+astAppendS u (Ast.AstAppendS v w) | Just u0 <- unAstS u
+                                  , Just v0 <- unAstS v
+                                  , FTKS _ FTKScalar <- ftkAst u =
+  astAppendS (fromPlain $ astConcreteS (tsappend (Concrete u0) (Concrete v0))) w
 astAppendS (Ast.AstAppendS v u) w = astAppendS v (astAppendS u w)
 astAppendS u v = Ast.AstAppendS u v
 
@@ -4293,9 +4296,10 @@ astDot0 t1 t2 = case (t1, t2) of
   (Ast.AstFromPlain u1, Ast.AstFromPlain u2) ->
     fromPlain $ astDot0 u1 u2
   (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot0 u1 u2
-  (AstConcreteS v1, AstConcreteS v2) ->
-    withKnownShS (Nested.sshape v1) $
-    astConcreteK $ tsdot0 (Concrete v1) (Concrete v2)
+  (u, v) | Just u0 <- unAstS u
+         , Just v0 <- unAstS v ->
+    withKnownShS (Nested.sshape u0) $
+    fromPlain $ astConcreteK $ tsdot0 (Concrete u0) (Concrete v0)
   {- KnownNat would be needed (or SNat):
   (Ast.AstAppendS @m1 u1 v1, Ast.AstAppendS @m2 u2 v2)
     | Just Refl <- sameNat (SNat @m1) (SNat @m2) ->
@@ -4327,9 +4331,11 @@ astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
   (Ast.AstFromPlain u1, Ast.AstFromPlain u2) ->
     fromPlain $ astDot1InS sh n u1 u2
   (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot1InS sh n u1 u2
-  (AstConcreteS v1, AstConcreteS v2) ->
+  (u, v) | Just u0 <- unAstS u
+         , Just v0 <- unAstS v ->
     withKnownShS sh $
-    astConcreteS $ tsdot1In @_ @sh (SNat @n) (Concrete v1) (Concrete v2)
+    fromPlain
+    $ astConcreteS $ tsdot1In @_ @sh (SNat @n) (Concrete u0) (Concrete v0)
   _ -> case sh of
     ZSS -> sfromK $ astDot0 t1 t2
     snat :$$ shRest -> case (t1, t2) of
@@ -4358,8 +4364,9 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
     fromDual $ astMatmul2S m n p u1 u2
   (Ast.AstFromPlain u1, Ast.AstFromPlain u2) ->
     fromPlain $ astMatmul2S m n p u1 u2
-  (AstConcreteS v1, AstConcreteS v2) ->
-    astConcreteS $ tsmatmul2 (Concrete v1) (Concrete v2)
+  (u, v) | Just u0 <- unAstS u
+         , Just v0 <- unAstS v ->
+    fromPlain $ astConcreteS $ tsmatmul2 (Concrete u0) (Concrete v0)
   _ -> Ast.AstMatmul2S m n p t1 t2
 
 astBoolNotK :: AstBool AstMethodLet -> AstBool AstMethodLet
