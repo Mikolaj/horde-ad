@@ -38,12 +38,16 @@ import HordeAd.Core.Types
 cAstConvDownKFromS :: forall r s.
                       AstTensor AstMethodShare s (TKS '[] r)
                    -> AstTensor AstMethodShare s (TKScalar r)
-cAstConvDownKFromS = AstConvert (ConvCmp ConvX0 ConvSX)
+cAstConvDownKFromS (AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) a) = a
+cAstConvDownKFromS a = AstConvert (ConvCmp ConvX0 ConvSX) a
 
 cAstConvDownSFromR :: forall sh x s.
                       ShS sh -> FullShapeTK x
                    -> AstTensor AstMethodShare s (TKR2 (Rank sh) x)
                    -> AstTensor AstMethodShare s (TKS2 sh x)
+cAstConvDownSFromR sh _ (AstConvert (ConvCmp (ConvXR _x) ConvSX) a)
+  | let FTKS sh2 _ = ftkAst a
+  , Just Refl <- testEquality sh sh2 = a
 cAstConvDownSFromR sh x t | Refl <- lemRankReplicate (Proxy @(Rank sh)) =
   AstConvert (ConvCmp (ConvXS' (FTKS sh x)) ConvRX) t
 
@@ -51,6 +55,9 @@ cAstConvDownSFromX :: forall sh sh' x s. Rank sh ~ Rank sh'
                    => ShS sh -> FullShapeTK x
                    -> AstTensor AstMethodShare s (TKX2 sh' x)
                    -> AstTensor AstMethodShare s (TKS2 sh x)
+cAstConvDownSFromX sh _ (AstConvert (ConvCmp (ConvXX' (FTKX _sh' _x)) ConvSX) a)
+  | let FTKS sh2 _ = ftkAst a
+  , Just Refl <- testEquality sh sh2 = a
 cAstConvDownSFromX sh x t = AstConvert (ConvXS' (FTKS sh x)) t
 
 cAstConvUpSFromK :: forall r s. GoodScalar r
