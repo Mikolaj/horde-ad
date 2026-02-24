@@ -288,16 +288,11 @@ astIsSmallN n t0 = case t0 of
   AstPair t1 t2 -> astIsSmallN (astIsSmallN (n - 1) t1) t2
   AstProject1 t -> astIsSmallN (n - 1) t
   AstProject2 t -> astIsSmallN (n - 1) t
-  AstFromVector (SNat' @1) _ v -> astIsSmallN (n - 1) $ v V.! 0
-  AstSum (SNat' @1) _ v -> astIsSmallN (n - 1) v
-  AstReplicate _ _ v ->
-    astIsSmallN (n - 1) v  -- a really good redex and often in series
-      -- executed as a metadata change, which is however not free
+  -- This is a really good redex, often nested, executed as a metadata change,
+  -- but not completely free, hence non-zero cost.
+  AstReplicate _ _ v -> astIsSmallN (n - 1) v
   AstVar{} -> n
   AstCond b u v -> astIsSmallN (astIsSmallN (astIsSmallN (n - 1) b) u) v
-  AstConcreteK _ -> n
-  AstConcreteS _ -> n  -- small term with zero interpretation cost;
-                       -- the physical arrays is shared on GHC heap
   AstShare{} -> n
   AstPrimalPart v -> astIsSmallN (n - 1) v
   AstDualPart v -> astIsSmallN (n - 1) v
@@ -305,12 +300,14 @@ astIsSmallN n t0 = case t0 of
   AstFromPrimal v -> astIsSmallN (n - 1) v
   AstFromDual v -> astIsSmallN (n - 1) v
   AstFromPlain v -> astIsSmallN (n - 1) v
-
+  AstPlusK AstConcreteK{} AstVar{} -> n - 1  -- likely index offset
+  AstTimesK AstConcreteK{} AstVar{} -> n - 1  -- likely index manipulation
+  AstConcreteK{} -> n  -- small terms with zero interpretation cost;
+  AstConcreteS{} -> n  -- the physical arrays is shared on GHC heap
   -- This often appears from user writing (-1), often reduces away
   -- and it has only one argument.
   AstN1K NegateOp v -> astIsSmallN (n - 1) v
   AstN1S NegateOp v -> astIsSmallN (n - 1) v
-
   AstIotaS{} -> n
   AstSliceS _ _ _ v ->
     if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change
@@ -318,14 +315,11 @@ astIsSmallN n t0 = case t0 of
     astIsSmallN (n - 1) v  -- executed as a cheap metadata change
   AstTransposeS _perm v ->
     if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change
-
   AstConvert _ v -> astIsSmallN (n - 1) v
-
   AstBoolNotK v -> astIsSmallN (n - 1) v
   AstBoolAndK u v -> astIsSmallN (astIsSmallN (n - 1) u) v
   AstLeqK u v -> astIsSmallN (astIsSmallN (n - 1) u) v
   AstLeq u v -> astIsSmallN (astIsSmallN (n - 1) u) v
-
   _ -> 0
 
 ixIsSmall :: AstIxS ms sh -> Bool
