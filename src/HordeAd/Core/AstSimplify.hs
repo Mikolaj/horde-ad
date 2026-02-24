@@ -3533,6 +3533,9 @@ astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKScalar a1)
 astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKScalar l1)
            (Ast.AstReplicate (SNat' @1) STKScalar a2) =
   astFromVector (SNat @(k1 + 1)) stk2 $ l1 `V.snoc` a2
+astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKS{} a1)
+           (Ast.AstReplicate (SNat' @1) STKS{} a2) =
+  astFromVector (SNat @2) stk2 $ V.fromList [a1, a2]
 astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
   fromPrimal $ astAppendS u v
 astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
