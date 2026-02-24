@@ -2473,6 +2473,11 @@ astScatterS _ shn shp@(k :$$ _) v0 (_,  i1 :.$ _)
   , ub < 0 || lb >= fromSNat' k =
     let ftk = FTKS (shp `shsAppend` shn) x
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
+astScatterS ZSS _shn shp
+            (Ast.AstScatterS @_ @shn2 @shp2 shm2 shn2 shp2 v (vars, ix2))
+            (ZS, ix) =  -- oneHot (scatter)
+  gcastWith (unsafeCoerceRefl :: shp ++ shn :~: shp ++ shp2 ++ shn2) $
+  astScatterS shm2 shn2 (shp `shsAppend` shp2) v (vars, ix `ixsAppend` ix2)
 astScatterS shm shn shp@(SNat' @1 :$$ _) v (vars, AstConcreteK _ :.$ rest) =
     astReplicate (SNat @1) (STKS (shsTail shp
                                   `shsAppend` shn) (stkAstX v))
