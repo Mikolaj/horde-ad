@@ -131,7 +131,8 @@ expandAst t = case t of
                    shn (expandAst v) (expandAstIxS ix)
 
   Ast.AstScatterS shm shn shp v (vars, ix) ->
-    astScatterS shm shn shp (expandAst v) (vars, expandAstIxS ix)
+    astScatterKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
+                     shm shn shp (expandAst v) (vars, expandAstIxS ix)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
                     shm shn shp (expandAst v) (vars, expandAstIxS ix)
@@ -288,7 +289,8 @@ simplifyAst t = case t of
                    shn (simplifyAst v) (simplifyAstIxS ix)
 
   Ast.AstScatterS shm shn shp v (vars, ix) ->
-    astScatterS shm shn shp (simplifyAst v) (vars, simplifyAstIxS ix)
+    astScatterKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
+                     shm shn shp (simplifyAst v) (vars, simplifyAstIxS ix)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
                     shm shn shp (simplifyAst v) (vars, simplifyAstIxS ix)
@@ -684,7 +686,8 @@ contractAst t0 = case t0 of
                    shn (contractAst v) (contractAstIxS ix)
 
   Ast.AstScatterS shm shn shp v (vars, ix) ->
-    astScatterS shm shn shp (contractAst v) (vars, contractAstIxS ix)
+    astScatterKnobsS (defaultKnobs {knobPhase = PhaseContraction})
+                     shm shn shp (contractAst v) (vars, contractAstIxS ix)
   -- This rule is reverted in vectorization, so contraction phase may be fine.
   Ast.AstGatherS shm shn shp v (vars, Ast.AstCond b i1 i2 :.$ prest)
     | not $ Foldable.any ((`varInAst` b) . varNameToAstVarId) vars ->

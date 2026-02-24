@@ -34,7 +34,7 @@ module HordeAd.Core.AstSimplify
   , astPlusS, astTimesS, astN1S, astR1S, astR2S, astI2S, astConcreteS
   , astFloorS, astFromIntegralS, astCastS, astIndexS, astIndexKnobsS
 
-  , astScatterS, astGatherS, astGatherKnobsS
+  , astScatterS, astScatterKnobsS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
 
   , astConvert
@@ -2168,15 +2168,21 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
          -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r')
          -> AstIxS AstMethodLet shm'
          -> AstTensor AstMethodLet s' (TKS2 shn' r')
-       astIndex shn' v2 ix2 = astIndexKnobsS (deVect knobs) shn' v2 ix2
+       astIndex = astIndexKnobsS (deVect knobs)
        astGather
          :: forall shm' shn' shp'.
             ShS shm' -> ShS shn' -> ShS shp'
          -> AstTensor AstMethodLet s (TKS2 (shp' ++ shn') r)
          -> (AstVarListS shm', AstIxS AstMethodLet shp')
          -> AstTensor AstMethodLet s (TKS2 (shm' ++ shn') r)
-       astGather shm' shn' shp' v2 (vars2, ix2) =
-         astGatherKnobsS (deVect knobs) shm' shn' shp' v2 (vars2, ix2)
+       astGather = astGatherKnobsS (deVect knobs)
+       astScatter
+         :: forall shm' shn' shp' r'. TKAllNum r'
+         => ShS shm' -> ShS shn' -> ShS shp'
+         -> AstTensor AstMethodLet s (TKS2 (shm' ++ shn') r')
+         -> (AstVarListS shm', AstIxS AstMethodLet shp')
+         -> AstTensor AstMethodLet s (TKS2 (shp' ++ shn') r')
+       astScatter = astScatterKnobsS (deVect knobs)
    in case v0 of
    Ast.AstProject1{} -> Ast.AstIndexS shn v0 ix
    Ast.AstProject2{} -> Ast.AstIndexS shn v0 ix
@@ -2326,14 +2332,14 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
 
    Ast.AstScatterS shm7 shn7 shp7 v (vars, AstIntVar var5 :.$ ix2)
      | AstIntVar var6 <- i1, var6 == var5 ->
-         astIndex shn (astScatterS shm7 shn7 (shsTail shp7)
-                                   v (vars, ix2)) rest1
+         astIndex shn (astScatter shm7 shn7 (shsTail shp7)
+                                  v (vars, ix2)) rest1
    Ast.AstScatterS shm7 shn7 shp7
                    v (vars, AstConcreteK i5 :.$ ix2)
      | AstConcreteK i6 <- i1 ->
          if i6 == i5
-         then astIndex shn (astScatterS shm7 shn7 (shsTail shp7)
-                                        v (vars, ix2)) rest1
+         then astIndex shn (astScatter shm7 shn7 (shsTail shp7)
+                                       v (vars, ix2)) rest1
          else let ftk = FTKS shn x
               in fromPlain $ astConcrete ftk (tdefTarget ftk)
    -- AstScatter sh v (vars2, ZIR) ->
@@ -2466,37 +2472,68 @@ astScatterS :: forall shm shn shp r s. (KnownSpan s, TKAllNum r)
             -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
             -> (AstVarListS shm, AstIxS AstMethodLet shp)
             -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
-astScatterS _ _ _ v (ZS, ZIS) = v
-astScatterS _ shn shp@(k :$$ _) v0 (_,  i1 :.$ _)
+astScatterS = astScatterKnobsS defaultKnobs
+
+astScatterKnobsS :: forall shm shn shp r s. (KnownSpan s, TKAllNum r)
+                 => SimplifyKnobs
+                 -> ShS shm -> ShS shn -> ShS shp
+                 -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
+                 -> (AstVarListS shm, AstIxS AstMethodLet shp)
+                 -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
+astScatterKnobsS _ _ _ _ v (ZS, ZIS) = v
+astScatterKnobsS _ _ shn shp@(k :$$ _) v0 (_,  i1 :.$ _)
   | Just (lb, ub) <- intBounds i1
   , let FTKS _ x = ftkAst v0
   , ub < 0 || lb >= fromSNat' k =
     let ftk = FTKS (shp `shsAppend` shn) x
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
-astScatterS ZSS _shn shp
-            (Ast.AstScatterS @_ @shn2 @shp2 shm2 shn2 shp2 v (vars, ix2))
-            (ZS, ix) =  -- oneHot (scatter)
+astScatterKnobsS knobs ZSS _shn shp
+                 (Ast.AstScatterS @_ @shn2 @shp2 shm2 shn2 shp2 v (vars, ix2))
+                 (ZS, ix) =  -- oneHot (scatter) fusion
   gcastWith (unsafeCoerceRefl :: shp ++ shn :~: shp ++ shp2 ++ shn2) $
-  astScatterS shm2 shn2 (shp `shsAppend` shp2) v (vars, ix `ixsAppend` ix2)
-astScatterS shm shn shp@(SNat' @1 :$$ _) v (vars, AstConcreteK _ :.$ rest) =
-    astReplicate (SNat @1) (STKS (shsTail shp
-                                  `shsAppend` shn) (stkAstX v))
-    $ astScatterS shm shn (shsTail shp) v (vars, rest)
-astScatterS (SNat :$$ shm2) shn shp v (var ::$ vars, ix)
+  astScatterKnobsS knobs shm2 shn2 (shp `shsAppend` shp2)
+                   v (vars, ix `ixsAppend` ix2)
+astScatterKnobsS knobs (snat@(SNat' @1) :$$ ZSS) _shn shp
+                 (Ast.AstReplicate _ (STKS _ x)
+                 (Ast.AstScatterS @_ @shn2 @shp2 shm2 shn2 shp2 v (vars, ix2)))
+                 (var ::$ ZS, ix) =  -- oneHot1 (scatter) fusion
+  gcastWith (unsafeCoerceRefl :: shp ++ shn :~: shp ++ shp2 ++ shn2) $
+  astScatterKnobsS knobs (snat :$$ shm2) shn2 (shp `shsAppend` shp2)
+                   (Ast.AstReplicate snat (STKS (shm2 `shsAppend` shn2) x) v)
+                   (var ::$ vars, ix `ixsAppend` ix2)
+astScatterKnobsS knobs shm shn shp@(SNat' @1 :$$ _)
+                 v (vars, AstConcreteK _ :.$ rest) =
+    astReplicate (SNat @1) (STKS (shsTail shp `shsAppend` shn) (stkAstX v))
+    $ astScatterKnobsS knobs shm shn (shsTail shp) v (vars, rest)
+astScatterKnobsS knobs shm shn shp (Ast.AstLet var u v) (vars, ix) =
+  astLet var u (astScatterKnobsS knobs shm shn shp v (vars, ix))
+astScatterKnobsS knobs shm shn shp (Ast.AstFromPrimal v) (vars, ix) =
+  fromPrimal $ astScatterKnobsS knobs shm shn shp v (vars, ix)
+astScatterKnobsS knobs shm shn shp (Ast.AstFromDual v) (vars, ix) =
+  fromDual $ astScatterKnobsS knobs shm shn shp v (vars, ix)
+astScatterKnobsS knobs shm shn shp (Ast.AstFromPlain v) (vars, ix) =
+  fromPlain $ astScatterKnobsS knobs shm shn shp v (vars, ix)
+astScatterKnobsS knobs shm@(SNat' @1 :$$ ZSS) shn shp
+                 v@Ast.AstReplicate{} (vars, ix)
+  | knobPhase knobs /= PhaseContraction =
+    Ast.AstScatterS shm shn shp v (vars, ix)  -- oneHot1 NF
+-- The above normal form that prevents the use of the rule below
+-- the subsequent rule is to keep one-hots and similar in forms
+-- easier for fusion of addition of scatters to operate on.
+astScatterKnobsS knobs (snat :$$ shm2) shn shp v (var ::$ vars, ix)
   | not $ var `varNameInIxS` ix =
-      astScatterS shm2 shn shp
-        (astSum SNat (STKS (shm2 `shsAppend` shn) (stkAstX v)) v)
-        (vars, ix)
--- TODO? astScatterS v (ZR, ix) = update (rzero sh 0) ix v
-astScatterS shm shn shp (Ast.AstLet var u v) (vars, ix) =
-  astLet var u (astScatterS shm shn shp v (vars, ix))
-astScatterS shm shn shp (Ast.AstFromPrimal v) (vars, ix) =
-  fromPrimal $ astScatterS shm shn shp v (vars, ix)
-astScatterS shm shn shp (Ast.AstFromDual v) (vars, ix) =
-  fromDual $ astScatterS shm shn shp v (vars, ix)
-astScatterS shm shn shp (Ast.AstFromPlain v) (vars, ix) =
-  fromPlain $ astScatterS shm shn shp v (vars, ix)
-astScatterS shm shn shp v (vars, ix) = Ast.AstScatterS shm shn shp v (vars, ix)
+    astScatterKnobsS knobs shm2 shn shp
+      (astSum snat (STKS (shm2 `shsAppend` shn) (stkAstX v)) v)
+      (vars, ix)
+astScatterKnobsS knobs ZSS shn shp u (ZS, ix)  -- oneHot1 intro
+  | knobPhase knobs /= PhaseContraction =
+    let shm = SNat @1 :$$ ZSS
+        a = Ast.AstReplicate (SNat @1) (ftkToSTK $ ftkAst u) u
+    in funToVarsIxS shm $ \(var ::$ ZS) _ ->
+         Ast.AstScatterS shm shn shp a (var ::$ ZS, ix)
+-- TODO? astScatterKnobsS v (ZR, ix) = update (rzero sh 0) ix v
+astScatterKnobsS _ shm shn shp v (vars, ix) =
+  Ast.AstScatterS shm shn shp v (vars, ix)
 
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT
             => Proxy a -> Proxy b -> Compare b a :~: LT
@@ -3336,7 +3373,7 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
     Ast.AstScatterS shm7 shn7 shp7 v (vars, AstIntVar var5 :.$ ix2)
       | AstIntVar var6 <- i4, var6 == var5 ->
         astGather shm shn (shsTail shp)
-                  (astScatterS shm7 shn7 (shsTail shp7) v (vars, ix2))
+                  (astScatter shm7 shn7 (shsTail shp7) v (vars, ix2))
                   (vars4, rest4)
     Ast.AstScatterS{} ->  -- normal form
       Ast.AstGatherS shm shn shp v4 (vars4, ix4)
@@ -3510,8 +3547,14 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
     -> AstTensor AstMethodLet s' (TKS2 (shp' ++ shn') r')
     -> (AstVarListS shm', AstIxS AstMethodLet shp')
     -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r')
-  astGather shm' shn' shp' v2 (vars2, ix2) =
-    astGatherKnobsS knobs shm' shn' shp' v2 (vars2, ix2)
+  astGather = astGatherKnobsS knobs
+  astScatter
+    :: forall shm' shn' shp' s' r'. (KnownSpan s', TKAllNum r')
+    => ShS shm' -> ShS shn' -> ShS shp'
+    -> AstTensor AstMethodLet s' (TKS2 (shm' ++ shn') r')
+    -> (AstVarListS shm', AstIxS AstMethodLet shp')
+    -> AstTensor AstMethodLet s' (TKS2 (shp' ++ shn') r')
+  astScatter = astScatterKnobsS knobs
 
 -- Normal form of chains of appends has the append constructor on the right.
 astAppendS :: KnownSpan s
