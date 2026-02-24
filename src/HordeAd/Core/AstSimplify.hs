@@ -2513,6 +2513,11 @@ astScatterKnobsS knobs shm shn shp (Ast.AstFromDual v) (vars, ix) =
   fromDual $ astScatterKnobsS knobs shm shn shp v (vars, ix)
 astScatterKnobsS knobs shm shn shp (Ast.AstFromPlain v) (vars, ix) =
   fromPlain $ astScatterKnobsS knobs shm shn shp v (vars, ix)
+astScatterKnobsS knobs shm@(SNat' @1 :$$ _) shn shp
+                 v@Ast.AstReplicate{} (var ::$ vars, ix)
+  | var `varNameInIxS` ix =  -- simplify oneHot1, among others
+    let ix2 = astLet var (AstConcreteK 0) <$> ix
+    in astScatterKnobsS knobs shm shn shp v (var ::$ vars, ix2)
 astScatterKnobsS knobs shm@(SNat' @1 :$$ ZSS) shn shp
                  v@Ast.AstReplicate{} (vars, ix)
   | knobPhase knobs /= PhaseContraction =
