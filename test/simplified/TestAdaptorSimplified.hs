@@ -62,6 +62,7 @@ testTrees =
   , testCase "2piecewiseLinear2" testPiecewiseLinear2
   , testCase "2piecewiseLinear2PP" testPiecewiseLinear2PP
   , testCase "2overleaf" testOverleaf
+  , testCase "2overleafGrad1" testOverleafGrad1
   , testCase "2overleafInt64n" testOverleafInt64n
   , testCase "2overleafCIntn" testOverleafCIntn
   , testCase "2overleafCIntToFloatn" testOverleafCIntToFloatn
@@ -214,8 +215,6 @@ testTrees =
   , testCase "2blowupPP" fblowupPP
   , testCase "2blowup2LetPP" fblowupLetPP
   , testCase "2blowup2LetPP23" fblowupLetPP23
-  , testCase "2blowup2LetPP06" fblowupLetPP06
-  , testCase "2blowup2LetPP16" fblowupLetPP16
   , blowupTests
   , testCase "22concatBuild3PP" testConcatBuild3PP
   , testCase "22concatBuild3PP2" testConcatBuild3PP2
@@ -496,6 +495,12 @@ testOverleaf =
   assertEqualUpToEpsilon' 1e-10
     (ringestData @_ @Double [28] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @Double @0 overleaf (ringestData [28] [0 .. 27]))
+
+testOverleafGrad1 :: Assertion
+testOverleafGrad1 =
+  assertEqualUpToEpsilon 1e-10
+    (ringestData @_ @Double [1] [50])
+    (grad (kfromR @_ @Double . overleaf) (ringestData [1] [27]))
 
 testOverleafInt64n :: Assertion
 testOverleafInt64n =
@@ -2448,34 +2453,14 @@ fblowupLetPP = do
 fblowupLetPP23 :: Assertion
 fblowupLetPP23 = do
   resetVarCounter
-  let fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 2 3
+  let fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 4 6
   let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fblowupLetT (FTKR [4] FTKScalar)
-  printArtifactSimple (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x6 -> tlet (tfromPlain (STKScalar) 0.9999999100000025 * kfromR dret) (\\x11 -> soneHot (sfromK (recip x6 * x11)) [0] + soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x6 * x6)) * x11)) [1])))"
-  printArtifactSimple artifactRev
-    @?= "\\dret v1 -> rfromS (tlet (kfromS (sfromR v1 !$ [0])) (\\x5 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x6 -> tlet (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * kfromR dret))) (\\x11 -> soneHot (recip (sfromK x6) * sfromK x11) [0] + soneHot ((negate (sfromK x5) / (sfromK x6 * sfromK x6)) * sfromK x11) [1]))))"
-  printArtifactPrimalSimple (simplifyArtifactRev artifactRev)
-    @?= "\\v1 -> rfromK (tfromPlain (STKScalar) (-4.999999820000004) + tfromPlain (STKScalar) 0.9999999100000025 * (sfromR v1 `sindex0` [0] / sfromR v1 `sindex0` [1]))"
-
-fblowupLetPP06 :: Assertion
-fblowupLetPP06 = do
-  resetVarCounter
-  let fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 0 6
-  let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fblowupLetT (FTKR [2] FTKScalar)
   printArtifactSimple (simplifyArtifactRev artifactRev)
     @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x9 -> tlet (tfromPlain (STKScalar) 0.9999998200000132 * kfromR dret) (\\x17 -> soneHot (sfromK (recip x9 * x17)) [0] + soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x9 * x9)) * x17)) [1])))"
   printArtifactSimple artifactRev
     @?= "\\dret v1 -> rfromS (tlet (kfromS (sfromR v1 !$ [0])) (\\x8 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x9 -> tlet (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * kfromR dret)))))) (\\x17 -> soneHot (recip (sfromK x9) * sfromK x17) [0] + soneHot ((negate (sfromK x8) / (sfromK x9 * sfromK x9)) * sfromK x17) [1]))))"
-
-fblowupLetPP16 :: Assertion
-fblowupLetPP16 = do
-  resetVarCounter
-  let fblowupLetT = fblowupLet @(AstTensor AstMethodLet FullSpan) @Double 1 6
-  let (artifactRev, _) = revArtifactDelta UseIncomingCotangent fblowupLetT (FTKR [2] FTKScalar)
   printArtifactPrimalSimple (simplifyArtifactRev artifactRev)
-    @?= "\\v1 -> rfromK (tfromPlain (STKScalar) (-3.9999996850000157) + tfromPlain (STKScalar) 0.9999998200000132 * (sfromR v1 `sindex0` [0] / sfromR v1 `sindex0` [1]))"
-  printArtifactSimple (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x9 -> tlet (tfromPlain (STKScalar) 0.9999998200000132 * kfromR dret) (\\x17 -> soneHot (sfromK (recip x9 * x17)) [0] + soneHot (sfromK ((negate (sfromR v1 `sindex0` [0]) / (x9 * x9)) * x17)) [1])))"
+    @?= "\\v1 -> rfromK (tfromPlain (STKScalar) (-15.999998740000063) + tfromPlain (STKScalar) 0.9999998200000132 * (sfromR v1 `sindex0` [0] / sfromR v1 `sindex0` [1]))"
 
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
