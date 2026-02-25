@@ -303,11 +303,10 @@ astIsSmallN n t0 = case t0 of
   AstPlusK AstConcreteK{} AstVar{} -> n - 1  -- likely index offset
   AstTimesK AstConcreteK{} AstVar{} -> n - 1  -- likely index manipulation
   AstConcreteK{} -> n  -- small terms with zero interpretation cost;
-  AstConcreteS{} -> n  -- the physical arrays is shared on GHC heap
+  AstConcreteS{} -> n  -- the physical arrays are shared on GHC heap
   -- This often appears from user writing (-1), often reduces away
   -- and it has only one argument.
   AstN1K NegateOp v -> astIsSmallN (n - 1) v
-  AstN1S NegateOp v -> astIsSmallN (n - 1) v
   AstIotaS{} -> n
   AstSliceS _ _ _ v ->
     if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change
