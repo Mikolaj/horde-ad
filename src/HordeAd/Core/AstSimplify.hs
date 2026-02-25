@@ -2605,10 +2605,10 @@ astScatterKnobsS knobs shm@(SNat' @1 :$$ ZSS) shn shp
   | knobPhase knobs /= PhaseContraction =
     Ast.AstScatterS shm shn shp v (vars, ix)  -- oneHot1 NF
 -- The above normal form that prevents the use of the rule below
--- the subsequent rule is to keep one-hots and similar in forms
+-- and the subsequent rule is to keep one-hots and similar in forms
 -- easier for fusion of addition of scatters to operate on.
 astScatterKnobsS knobs (snat :$$ shm2) shn shp v (var ::$ vars, ix)
-  | not $ var `varNameInIxS` ix =
+  | not $ var `varNameInIxS` ix =  -- eliminates oneHot1
     astScatterKnobsS knobs shm2 shn shp
       (astSum snat (STKS (shm2 `shsAppend` shn) (stkAstX v)) v)
       (vars, ix)
@@ -4532,101 +4532,97 @@ astBoolAndK = \cases
   b (AstConcreteK True) -> b
   _b (AstConcreteK False) -> AstConcreteK False
   (Ast.AstBoolAndK b c) d -> b `astBoolAndK` (c `astBoolAndK` d)
+  -- Normal forms:
   b@(Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) c -> Ast.AstBoolAndK b c
   b@(Ast.AstLeqK AstConcreteK{} (Ast.AstN1K NegateOp
-                                    Ast.AstVar{})) c -> Ast.AstBoolAndK b c
+                                   Ast.AstVar{})) c -> Ast.AstBoolAndK b c
   b@(Ast.AstBoolNotK
        (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) c -> Ast.AstBoolAndK b c
   b@(Ast.AstBoolNotK
-       (Ast.AstLeqK AstConcreteK{} (Ast.AstN1K NegateOp
-                                       Ast.AstVar{}))) c -> Ast.AstBoolAndK b c
+       (Ast.AstLeqK AstConcreteK{}
+                   (Ast.AstN1K NegateOp Ast.AstVar{}))) c -> Ast.AstBoolAndK b c
   b@(Ast.AstBoolNotK
        (Ast.AstBoolAndK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) _)) c ->
     Ast.AstBoolAndK b c
   b@(Ast.AstBoolNotK
        (Ast.AstBoolAndK
           (Ast.AstLeqK AstConcreteK{}
-                   (Ast.AstN1K NegateOp Ast.AstVar{})) _)) c ->
+             (Ast.AstN1K NegateOp Ast.AstVar{})) _)) c ->
     Ast.AstBoolAndK b c
   b@(Ast.AstBoolNotK
-       (Ast.AstBoolAndK (Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{}
-                                          Ast.AstVar{})) _)) c ->
+       (Ast.AstBoolAndK
+          (Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) _)) c ->
     Ast.AstBoolAndK b c
   b@(Ast.AstBoolNotK
        (Ast.AstBoolAndK
           (Ast.AstBoolNotK
              (Ast.AstLeqK AstConcreteK{}
-                      (Ast.AstN1K NegateOp Ast.AstVar{}))) _)) c ->
+                          (Ast.AstN1K NegateOp Ast.AstVar{}))) _)) c ->
     Ast.AstBoolAndK b c
+  -- Rewriting to the normal forms:
   b c@(Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) -> astBoolAndK c b
-  b c@(Ast.AstLeqK AstConcreteK{} (Ast.AstN1K NegateOp
-                                      Ast.AstVar{})) -> astBoolAndK c b
+  b c@(Ast.AstLeqK AstConcreteK{}
+                   (Ast.AstN1K NegateOp Ast.AstVar{})) -> astBoolAndK c b
   b c@(Ast.AstBoolNotK
          (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) -> astBoolAndK c b
   b c@(Ast.AstBoolNotK
-         (Ast.AstLeqK AstConcreteK{} (Ast.AstN1K NegateOp
-                                         Ast.AstVar{}))) -> astBoolAndK c b
+         (Ast.AstLeqK AstConcreteK{}
+                      (Ast.AstN1K NegateOp Ast.AstVar{}))) -> astBoolAndK c b
   b c@(Ast.AstBoolNotK
          (Ast.AstBoolAndK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) _)) ->
     astBoolAndK c b
   b c@(Ast.AstBoolNotK
          (Ast.AstBoolAndK
             (Ast.AstLeqK AstConcreteK{}
-                     (Ast.AstN1K NegateOp Ast.AstVar{})) _)) ->
+                         (Ast.AstN1K NegateOp Ast.AstVar{})) _)) ->
     astBoolAndK c b
   b c@(Ast.AstBoolNotK
-         (Ast.AstBoolAndK (Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{}
-                                            Ast.AstVar{})) _)) ->
-    astBoolAndK c b
+         (Ast.AstBoolAndK
+            (Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{}
+                                          Ast.AstVar{})) _)) -> astBoolAndK c b
   b c@(Ast.AstBoolNotK
          (Ast.AstBoolAndK
             (Ast.AstBoolNotK
                (Ast.AstLeqK AstConcreteK{}
-                        (Ast.AstN1K NegateOp Ast.AstVar{}))) _)) ->
+                            (Ast.AstN1K NegateOp Ast.AstVar{}))) _)) ->
     astBoolAndK c b
   b (Ast.AstBoolAndK
-      c@(Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) d) ->
+       c@(Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) d) ->
     astBoolAndK c (b `astBoolAndK` d)
   b (Ast.AstBoolAndK
-      c@(Ast.AstLeqK AstConcreteK{}
-                 (Ast.AstN1K NegateOp Ast.AstVar{})) d) ->
+       c@(Ast.AstLeqK AstConcreteK{}
+                      (Ast.AstN1K NegateOp Ast.AstVar{})) d) ->
     astBoolAndK c (b `astBoolAndK` d)
   b (Ast.AstBoolAndK
-      c@(Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{}
-                                  Ast.AstVar{})) d) ->
+       c@(Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) d) ->
     astBoolAndK c (b `astBoolAndK` d)
   b (Ast.AstBoolAndK
-      c@(Ast.AstBoolNotK
-           (Ast.AstLeqK AstConcreteK{}
-                    (Ast.AstN1K NegateOp Ast.AstVar{}))) d) ->
+       c@(Ast.AstBoolNotK
+            (Ast.AstLeqK AstConcreteK{}
+                         (Ast.AstN1K NegateOp Ast.AstVar{}))) d) ->
     astBoolAndK c (b `astBoolAndK` d)
   b (Ast.AstBoolAndK
-      c@(Ast.AstBoolNotK
-           (Ast.AstBoolAndK (Ast.AstLeqK AstConcreteK{}
-                                 Ast.AstVar{}) _)) d) ->
+       c@(Ast.AstBoolNotK
+            (Ast.AstBoolAndK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) _)) d) ->
     astBoolAndK c (b `astBoolAndK` d)
   b (Ast.AstBoolAndK
-      c@(Ast.AstBoolNotK
-           (Ast.AstBoolAndK
-              (Ast.AstLeqK AstConcreteK{}
-                       (Ast.AstN1K NegateOp
-                               Ast.AstVar{})) _)) d) ->
+       c@(Ast.AstBoolNotK
+            (Ast.AstBoolAndK
+               (Ast.AstLeqK AstConcreteK{}
+                            (Ast.AstN1K NegateOp Ast.AstVar{})) _)) d) ->
     astBoolAndK c (b `astBoolAndK` d)
   b (Ast.AstBoolAndK
-      c@(Ast.AstBoolNotK
-           (Ast.AstBoolAndK
-              (Ast.AstBoolNotK
-                 (Ast.AstLeqK AstConcreteK{}
-                          Ast.AstVar{})) _)) d) ->
+       c@(Ast.AstBoolNotK
+            (Ast.AstBoolAndK
+               (Ast.AstBoolNotK
+                  (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) _)) d) ->
     astBoolAndK c (b `astBoolAndK` d)
   b (Ast.AstBoolAndK
-      c@(Ast.AstBoolNotK
-           (Ast.AstBoolAndK
-              (Ast.AstBoolNotK
-                 (Ast.AstLeqK AstConcreteK{}
-                          (Ast.AstN1K
-                             NegateOp
-                             Ast.AstVar{}))) _)) d) ->
+       c@(Ast.AstBoolNotK
+            (Ast.AstBoolAndK
+               (Ast.AstBoolNotK
+                  (Ast.AstLeqK AstConcreteK{}
+                               (Ast.AstN1K NegateOp Ast.AstVar{}))) _)) d) ->
     astBoolAndK c (b `astBoolAndK` d)
   b c -> Ast.AstBoolAndK b c
 
@@ -4684,13 +4680,11 @@ astLeq = \cases
   u (AstConcreteS v) ->
     astLeq (AstConcreteS (negate v)) (astN1S NegateOp u)
   (Ast.AstConvert _ (Ast.AstVar u)) (Ast.AstConvert _ (Ast.AstVar v))
-    | varNameToAstVarId u == varNameToAstVarId v ->
-      AstConcreteK True
+    | varNameToAstVarId u == varNameToAstVarId v -> true
   (AstConvUpSFromK w) (AstConvUpSFromK v) -> astLeqK w v
   w (AstConvUpSFromK v) -> astLeqK (kfromS w) v
   (AstConvUpSFromK v) w -> astLeqK v (kfromS w)
-  (Ast.AstVar u) (Ast.AstVar v) | u == v ->
-    AstConcreteK True
+  (Ast.AstVar u) (Ast.AstVar v) | u == v -> true
   u v -> Ast.AstLeq u v
 
 astLeqS :: forall shb sh r. NumScalar r
