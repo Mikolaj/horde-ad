@@ -771,9 +771,10 @@ astCond b (AstConvUp c zftk v) w
   | Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
     astConvertUp c zftk (astCond b v (astConvDown (ftkAst v) w))
 -- These two normal forms prevent simple cases of an exponential blow-up
--- for nested conditionals in the rule that follows them.
-astCond b v@Ast.AstCond{} w = Ast.AstCond b v w
-astCond b v w@Ast.AstCond{} = Ast.AstCond b v w
+-- when substituting into nested conditionals in the rule that follows them.
+-- For now they don't seem to be needed, though.
+-- astCond b v@Ast.AstCond{} w = Ast.AstCond b v w
+-- astCond b v w@Ast.AstCond{} = Ast.AstCond b v w
 astCond (AstLeqInt (AstConcreteK k) (AstIntVar var)) v w
   | FTKScalar @r <- ftkAst v
   , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
