@@ -1392,28 +1392,28 @@ astTimesK = \cases
   (AstConcreteK n) (Ast.AstI2K QuotOp (Ast.AstVar var) (AstConcreteK n'))
     | n == n' ->
       AstPlusK
-        (Ast.AstVar var)
-        (negate (Ast.AstI2K RemOp (Ast.AstVar var) (AstConcreteK n)))
+        (astVar var)
+        (negate (Ast.AstI2K RemOp (astVar var) (AstConcreteK n)))
   (AstTimesK (AstConcreteK n) x) (Ast.AstI2K QuotOp (Ast.AstVar var)
                                                 (AstConcreteK n'))
     | n == n' ->
       AstTimesK
         x
         (AstPlusK
-           (Ast.AstVar var)
-           (negate (Ast.AstI2K RemOp (Ast.AstVar var) (AstConcreteK n))))
+           (astVar var)
+           (negate (Ast.AstI2K RemOp (astVar var) (AstConcreteK n))))
   (Ast.AstI2K QuotOp (Ast.AstVar var) (AstConcreteK n')) (AstConcreteK n)
     | n == n' ->
       AstPlusK
-        (Ast.AstVar var)
-        (negate (Ast.AstI2K RemOp (Ast.AstVar var) (AstConcreteK n)))
+        (astVar var)
+        (negate (Ast.AstI2K RemOp (astVar var) (AstConcreteK n)))
   (Ast.AstI2K QuotOp (Ast.AstVar var)
                  (AstConcreteK n')) (AstTimesK (AstConcreteK n) x)
     | n == n' ->
       AstTimesK
         (AstPlusK
-           (Ast.AstVar var)
-           (negate (Ast.AstI2K RemOp (Ast.AstVar var) (AstConcreteK n))))
+           (astVar var)
+           (negate (Ast.AstI2K RemOp (astVar var) (AstConcreteK n))))
         x
   -}
 
@@ -1751,7 +1751,74 @@ astPlusS = \cases
   u v | Just v0 <- unAstS v -> AstPlusS (fromPlain $ AstConcreteS v0) u
   u (AstPlusS v w) | Just v0 <- unAstS v ->
     astPlusS (fromPlain $ AstConcreteS v0) (astPlusS u w)
-  u v -> AstPlusS u v
+
+  u0 v0 -> fromMaybe (AstPlusS u0 v0) $ case (u0, v0) of
+    ( Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+     ,Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 _shp2
+                                  u2 (var2 ::$ vars2, ix2) )
+      | Just Refl <- testEquality shmRest shmRest2
+      , Just Refl <- testEquality shn shn2 ->
+        gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
+        let var' = reboundsVarName (0, fromSNat' m + fromSNat' m2 - 1) var
+            f i2 = astLet var2 (astVar var' - AstConcreteK (fromSNat' m))
+                   $ foldr (\(v, v2) -> astLet v2 (astVar v)) i2
+                           (listsZip vars vars2)
+            ix2Substituted = f <$> ix2
+            g i i2 = astCond (AstConcreteK (fromSNat' m) <=. astVar var')
+                             i2 i
+            ix3 = ixsZipWith g ix ix2Substituted
+        in if any isCond ix3
+           then Nothing  -- a risk of nested conditional build-up
+           else Just $ astScatterS (snatPlus m m2 :$$ shmRest) shn shp
+                                   (astAppendS u u2) (var' ::$ vars, ix3)
+    ( Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+     ,AstPlusS (Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 _shp2
+                                            u2 (var2 ::$ vars2, ix2)) w )
+      | Just Refl <- testEquality shmRest shmRest2
+      , Just Refl <- testEquality shn shn2 ->
+        gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
+        let var' = reboundsVarName (0, fromSNat' m + fromSNat' m2 - 1) var
+            f i2 = astLet var2 (astVar var' - AstConcreteK (fromSNat' m))
+                   $ foldr (\(v, v2) -> astLet v2 (astVar v)) i2
+                           (listsZip vars vars2)
+            ix2Substituted = f <$> ix2
+            g i i2 = astCond (AstConcreteK (fromSNat' m) <=. astVar var')
+                             i2 i
+            ix3 = ixsZipWith g ix ix2Substituted
+        in if any isCond ix3
+           then Nothing
+           else Just $ astScatterS (snatPlus m m2 :$$ shmRest) shn shp
+                                   (astAppendS u u2) (var' ::$ vars, ix3) + w
+    ( AstPlusS w (Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
+                                             u (var ::$ vars, ix))
+     ,Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 _shp2
+                                  u2 (var2 ::$ vars2, ix2) )
+      | Just Refl <- testEquality shmRest shmRest2
+      , Just Refl <- testEquality shn shn2 ->
+        gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
+        let var' = reboundsVarName (0, fromSNat' m + fromSNat' m2 - 1) var
+            f i2 = astLet var2 (astVar var' - AstConcreteK (fromSNat' m))
+                   $ foldr (\(v, v2) -> astLet v2 (astVar v)) i2
+                           (listsZip vars vars2)
+            ix2Substituted = f <$> ix2
+            g i i2 = astCond (AstConcreteK (fromSNat' m) <=. astVar var')
+                             i2 i
+            ix3 = ixsZipWith g ix ix2Substituted
+        in if any isCond ix3
+           then Nothing
+           else Just $ w + astScatterS (snatPlus m m2 :$$ shmRest) shn shp
+                                       (astAppendS u u2) (var' ::$ vars, ix3)
+    _ -> Nothing
+
+-- Checks whether it's a conditional or something easily obtained
+-- from conditionals via rewrite rules.
+isCond :: AstInt AstMethodLet -> Bool
+isCond Ast.AstCond{} = True
+isCond (AstPlusK _ Ast.AstCond{}) = True
+isCond (AstPlusK Ast.AstCond{} _) = True
+isCond (AstTimesK _ Ast.AstCond{}) = True
+isCond (AstTimesK Ast.AstCond{} _) = True
+isCond _ = False
 
 astTimesS :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKS sh r)
