@@ -775,16 +775,31 @@ astCond b (AstConvUp c zftk v) w
 -- For now they don't seem to be needed, though.
 -- astCond b v@Ast.AstCond{} w = Ast.AstCond b v w
 -- astCond b v w@Ast.AstCond{} = Ast.AstCond b v w
-astCond (AstLeqInt (AstConcreteK k) (AstIntVar var)) v w
+astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
   | FTKScalar @r <- ftkAst v
   , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
   , Just (lb, ub) <- varNameToBounds var
   , let varTrue = reboundsVarName (max lb k, ub) var
         varFalse = reboundsVarName (lb, min ub (k - 1)) var
-  , let d = substituteAst (astVar varTrue) var v - fromPlain (astVar varTrue)
-  , eqK (fromPlain (astVar varFalse) + d)
+  , AstConcreteK dv <- substituteAst (astVar varTrue) var v
+                       - fromPlain (astVar varTrue)
+  , AstConcreteK dw <- substituteAst (astVar varFalse) var w
+                       - fromPlain (astVar varFalse)
+  , dv == dw =
+    fromPlain $ var0 + AstConcreteK dv
+{- TODO: Investigate how much stronger this rule is than the above (it's slower)
+astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
+  | FTKScalar @r <- ftkAst v
+  , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
+  , Just (lb, ub) <- varNameToBounds var
+  , let varTrue = reboundsVarName (max lb k, ub) var
+        varFalse = reboundsVarName (lb, min ub (k - 1)) var
+        d = substituteAst (astVar varTrue) var v
+            - fromPlain (astVar varTrue)
+  , eqK (fromPlain (astVar varFalse)
+         + substituteAst (astVar varFalse) varTrue d)
         (substituteAst (astVar varFalse) var w) =
-    fromPlain (astVar var) + d
+    fromPlain var0 + substituteAst var0 varTrue d -}
 astCond b v w = Ast.AstCond b v w
 
 -- Invariant: if the variable has bounds, the expression can only have
