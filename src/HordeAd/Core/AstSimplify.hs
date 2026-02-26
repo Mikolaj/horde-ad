@@ -2584,9 +2584,24 @@ astScatterKnobsS knobs (snat@(SNat' @1) :$$ ZSS) _shn shp
                    (Ast.AstReplicate snat (STKS (shm2 `shsAppend` shn2) x) v)
                    (var ::$ vars, ix `ixsAppend` ix2)
 astScatterKnobsS knobs shm shn shp@(SNat' @1 :$$ _)
-                 v (vars, AstConcreteK _ :.$ rest) =
+                 v (vars, AstConcreteK _ :.$ rest) =  -- if OOB, covered above
     astReplicate (SNat @1) (STKS (shsTail shp `shsAppend` shn) (stkAstX v))
     $ astScatterKnobsS knobs shm shn (shsTail shp) v (vars, rest)
+astScatterKnobsS knobs shm shn shp v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))
+  | let ixInit = ixsInit ix0
+        varInit = listsInit vars0
+        varLast = listsLast vars0
+  , AstIntVar ixvarLast <- ixsLast ix0
+  , ixvarLast == varLast
+  , not (varLast `varNameInIxS` ixInit)
+  , kLast@SNat <- shsLast shm
+  , Just Refl <- testEquality kLast (shsLast shp) =
+    gcastWith (unsafeCoerceRefl
+               :: Init shp ++ (Last shm ': shn) :~: shp ++ shn) $
+    gcastWith (unsafeCoerceRefl
+               :: Init shm ++ (Last shm ': shn) :~: shm ++ shn) $
+    astScatterKnobsS knobs (shsInit shm) (kLast :$$ shn) (shsInit shp)
+                    v0 (varInit, ixInit)
 astScatterKnobsS knobs shm shn shp (Ast.AstLet var u v) (vars, ix) =
   astLet var u (astScatterKnobsS knobs shm shn shp v (vars, ix))
 astScatterKnobsS knobs shm shn shp (Ast.AstFromPrimal v) (vars, ix) =

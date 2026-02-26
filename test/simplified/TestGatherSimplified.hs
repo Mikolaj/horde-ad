@@ -997,11 +997,11 @@ testScatterSimpPP1 :: Assertion
 testScatterSimpPP1 = do
   resetVarCounter
   let !t1 = scatterNested1 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t1) @?= 391
+  length (show t1) @?= 312
   resetVarCounter
   let !t2 = scatter1 $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000)
   length (show t2) @?= 473
-  length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t1)) @?= 391
+  length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t1)) @?= 312
   length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t2)) @?= 473
 
 testScatterSimp1 :: Assertion

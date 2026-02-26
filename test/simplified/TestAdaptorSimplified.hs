@@ -2324,7 +2324,7 @@ testFilterPositiveFail0PP = do
   printArtifactPretty artifactRev
     @?= "\\dret v1 -> rfromS (soneHot (sfromK (sfromR dret `sindex0` [0])) [0] + soneHot (sfromK (sfromR dret `sindex0` [1])) [1])"
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> rfromS (sscatter1 @2 (sfromVector (fromList [sfromR dret `sindex0` [0], sfromR dret `sindex0` [1]])) (\\i5 -> [i5]))"
+    @?= "\\dret v1 -> rfromS (sfromVector (fromList [sfromR dret `sindex0` [0], sfromR dret `sindex0` [1]]))"
 
 testFilterPositiveFail1 :: Assertion
 testFilterPositiveFail1 =
@@ -2347,7 +2347,7 @@ testFilterPositiveFail1PP = do
   printArtifactPretty artifactRev
     @?= "\\dret v1 -> rfromS (soneHot (sfromK (sfromR dret `sindex0` [0])) [0] + (soneHot (sfromK (sfromR dret `sindex0` [1])) [1] + soneHot (sfromK (sfromR dret `sindex0` [2])) [2]))"
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret v1 -> rfromS (sscatter1 @3 (sfromVector (fromList [sfromR dret `sindex0` [0], sfromR dret `sindex0` [1], sfromR dret `sindex0` [2]])) (\\i6 -> [i6]))"
+    @?= "\\dret v1 -> rfromS (sfromVector (fromList [sfromR dret `sindex0` [0], sfromR dret `sindex0` [1], sfromR dret `sindex0` [2]]))"
 
 testFilterPositiveFail :: Assertion
 testFilterPositiveFail =
