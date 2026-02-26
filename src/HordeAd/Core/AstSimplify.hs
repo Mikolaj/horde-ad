@@ -1754,62 +1754,71 @@ astPlusS = \cases
     astPlusS (fromPlain $ AstConcreteS v0) (astPlusS u w)
 
   u0 v0 -> fromMaybe (AstPlusS u0 v0) $ case (u0, v0) of
-    ( Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp u (var ::$ vars, ix)
-     ,Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 _shp2
+    ( Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
+                                 u (var ::$ vars, ix)
+     ,Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 shp2
                                   u2 (var2 ::$ vars2, ix2) )
       | Just Refl <- testEquality shmRest shmRest2
       , Just Refl <- testEquality shn shn2 ->
         gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
-        let var' = reboundsVarName (0, fromSNat' m + fromSNat' m2 - 1) var
-            f i2 = astLet var2 (astVar var' - AstConcreteK (fromSNat' m))
-                   $ foldr (\(v, v2) -> astLet v2 (astVar v)) i2
-                           (listsZip vars vars2)
-            ix2Substituted = f <$> ix2
-            g i i2 = astCond (AstConcreteK (fromSNat' m) <=. astVar var')
-                             i2 i
-            ix3 = ixsZipWith g ix ix2Substituted
-        in if any isCond ix3
-           then Nothing  -- a risk of nested conditional build-up
-           else Just $ astScatterS (snatPlus m m2 :$$ shmRest) shn shp
-                                   (astAppendS u u2) (var' ::$ vars, ix3)
-    ( Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp u (var ::$ vars, ix)
-     ,AstPlusS (Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 _shp2
+        fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+                     (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
+        -- Same as above, but with arguments reversed, in case it works better:
+        `mplus`
+        fuseScatters (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
+                     (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+    ( Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
+                                 u (var ::$ vars, ix)
+     ,AstPlusS (Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 shp2
                                             u2 (var2 ::$ vars2, ix2)) w )
       | Just Refl <- testEquality shmRest shmRest2
       , Just Refl <- testEquality shn shn2 ->
         gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
-        let var' = reboundsVarName (0, fromSNat' m + fromSNat' m2 - 1) var
-            f i2 = astLet var2 (astVar var' - AstConcreteK (fromSNat' m))
-                   $ foldr (\(v, v2) -> astLet v2 (astVar v)) i2
-                           (listsZip vars vars2)
-            ix2Substituted = f <$> ix2
-            g i i2 = astCond (AstConcreteK (fromSNat' m) <=. astVar var')
-                             i2 i
-            ix3 = ixsZipWith g ix ix2Substituted
-        in if any isCond ix3
-           then Nothing
-           else Just $ astScatterS (snatPlus m m2 :$$ shmRest) shn shp
-                                   (astAppendS u u2) (var' ::$ vars, ix3) + w
+        (+ w) <$>
+        (fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+                      (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
+         -- Same as above, but with arguments reversed, in case it works better:
+         `mplus`
+         fuseScatters (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
+                      (m :$$ shmRest) shn shp u (var ::$ vars, ix))
     ( AstPlusS w (Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
                                              u (var ::$ vars, ix))
-     ,Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 _shp2
+     ,Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 shp2
                                   u2 (var2 ::$ vars2, ix2) )
       | Just Refl <- testEquality shmRest shmRest2
       , Just Refl <- testEquality shn shn2 ->
         gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
-        let var' = reboundsVarName (0, fromSNat' m + fromSNat' m2 - 1) var
-            f i2 = astLet var2 (astVar var' - AstConcreteK (fromSNat' m))
-                   $ foldr (\(v, v2) -> astLet v2 (astVar v)) i2
-                           (listsZip vars vars2)
-            ix2Substituted = f <$> ix2
-            g i i2 = astCond (AstConcreteK (fromSNat' m) <=. astVar var')
-                             i2 i
-            ix3 = ixsZipWith g ix ix2Substituted
-        in if any isCond ix3
-           then Nothing
-           else Just $ w + astScatterS (snatPlus m m2 :$$ shmRest) shn shp
-                                       (astAppendS u u2) (var' ::$ vars, ix3)
+        (w +) <$>
+        (fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+                      (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
+         -- Same as above, but with arguments reversed, in case it works better:
+         `mplus`
+         fuseScatters (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
+                      (m :$$ shmRest) shn shp u (var ::$ vars, ix))
     _ -> Nothing
+
+fuseScatters :: forall m m2 shm shn shp x s. (TKAllNum x, KnownSpan s)
+             => ShS (m : shm) -> ShS shn -> ShS shp
+             -> AstTensor AstMethodLet s (TKS2 ((m : shm) ++ shn) x)
+             -> (AstVarListS (m : shm), AstIxS AstMethodLet shp)
+             -> ShS (m2 : shm) -> ShS shn -> ShS shp
+             -> AstTensor AstMethodLet s (TKS2 ((m2 : shm) ++ shn) x)
+             -> (AstVarListS (m2 : shm), AstIxS AstMethodLet shp)
+             -> Maybe (AstTensor AstMethodLet s (TKS2 (shp ++ shn) x))
+fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+             (m2 :$$ _shmRest2) _shn2 _shp2 u2 (var2 ::$ vars2, ix2) =
+  let var' = reboundsVarName (0, fromSNat' m + fromSNat' m2 - 1) var
+      f i2 = astLet var2 (astVar var' - AstConcreteK (fromSNat' m))
+             $ foldr (\(v, v2) -> astLet v2 (astVar v)) i2
+                     (listsZip vars vars2)
+      ix2Substituted = f <$> ix2
+      g i i2 = astCond (AstConcreteK (fromSNat' m) <=. astVar var')
+                       i2 i
+      ix3 = ixsZipWith g ix ix2Substituted
+  in if any isCond ix3
+     then Nothing  -- a risk of nested conditional build-up
+     else Just $ astScatterS (snatPlus m m2 :$$ shmRest) shn shp
+                             (astAppendS u u2) (var' ::$ vars, ix3)
 
 -- Checks whether it's a conditional or something easily obtained
 -- from conditionals via rewrite rules.
