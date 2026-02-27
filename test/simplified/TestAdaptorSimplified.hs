@@ -203,6 +203,9 @@ testTrees =
   , testCase "2concatBuild10" testConcatBuild10
   , testCase "2concatBuild11" testConcatBuild11
   , testCase "2concatBuild12" testConcatBuild12
+  , testCase "2concatBuild13" testConcatBuild13
+  , testCase "2concatBuild14" testConcatBuild14
+  , testCase "2concatBuild15" testConcatBuild15
   , testCase "2emptyArgs0" testEmptyArgs0
   , testCase "2emptyArgs1" testEmptyArgs1
   , testCase "2emptyArgs4" testEmptyArgs4
@@ -2167,6 +2170,36 @@ testConcatBuild12 =
   assertEqualUpToEpsilon' 1e-10
     (rscalar 0)
     (rev' @Double @0 concatBuild12 (rscalar 3.4))
+
+concatBuild13 :: (ADReady target, NumScalar r)
+              => target (TKR 0 r) -> target (TKR 1 r)
+concatBuild13 r =
+  tlet (rfromList [r, rscalar 1, rscalar 2, rscalar 3, rscalar 4]) $ \a ->
+    rbuild1 10 (\i -> ifH (notB $ 5 <=. i) (rindex a [i]) (rindex a [i - 5]))
+
+testConcatBuild13 :: Assertion
+testConcatBuild13 =
+  assertEqualUpToEpsilon' 1e-10
+    (rscalar 2.0)
+    (rev' @Double @1 concatBuild13 (rscalar 100))
+
+concatBuild14 :: (ADReady target, NumScalar r)
+              => target (TKR 0 r) -> target (TKR 1 r)
+concatBuild14 r =
+  tlet (rfromList [r, rscalar 1, rscalar 2, rscalar 3, rscalar 4]) $ \a ->
+    rbuild1 10 (\i -> ifH (i <. 5) (rindex a [i - 5]) (rindex a [i]))
+
+testConcatBuild14 :: Assertion
+testConcatBuild14 =
+  assertEqualUpToEpsilon' 1e-10
+    (rscalar 0)
+    (rev' @Int @1 concatBuild14 (rscalar 100))
+
+testConcatBuild15 :: Assertion
+testConcatBuild15 =
+  assertEqualUpToEpsilon' 1e-10
+    (rscalar 0)
+    (rev' @Double @1 concatBuild14 (rscalar 100))
 
 -- TODO: copy-paste a variant of emptyArgs with r not NumScalar
 -- or maybe generalize emptyArgs and then in half of the tests do TKScalar

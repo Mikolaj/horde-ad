@@ -70,6 +70,7 @@ import GHC.TypeLits
   , OrderingI (..)
   , cmpNat
   , sameNat
+  , type (*)
   , type (+)
   , type (-)
   , type (<=)
@@ -91,7 +92,7 @@ import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types
-  (Head, Init, Last, Tail, fromSNat', pattern SZ, snatPlus, unsafeCoerceRefl)
+  (Head, Init, Last, Tail, fromSNat', pattern SZ, snatMul, snatPlus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
   ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
@@ -2967,6 +2968,29 @@ astGatherKnobsS knobs shm shn shp v0
                  v0
         in astGatherKnobsS knobs shm shn (SNat @(p + i) :$$ shsTail shp)
                            v2 (vars, Ast.AstLet varN uN i1 :.$ prest)
+             -- this gather may still index out of bounds, which is fine
+astGatherKnobsS knobs (m@(SNat @m) :$$ (shmRest :: ShS shmRest)) shn shp v0
+  ( varm ::$ mrest
+  , Ast.AstI2K QuotOp (AstIntVar varm') (AstConcreteK i0) :.$ prest )
+  | varm == varm'
+  , not (varm `varNameInIxS` prest)
+  , i0 > 0  -- ensured by other rules; makes this easier to reason about
+  , FTKS _ x <- ftkAst v0
+  , let k0 = (fromSNat' m + i0 - 1) `quot` i0 =
+    withSNat i0 $ \i@(SNat @i) ->
+    withSNat k0 $ \k@(SNat @k) ->
+    withSNat (k0 * i0 - fromSNat' m) $ \z@(SNat @z) ->
+      let perm = Permutation.makePerm @'[1, 0]
+          varm2 = reboundsVarName (0, k0 - 1) varm
+      in gcastWith (unsafeCoerceRefl :: m + z :~: k * i) $
+         gcastWith (unsafeCoerceRefl
+                    :: (2 <=? Rank ([i, k] ++ shmRest ++ shn)) :~: True) $
+         astSliceS SZ m z
+         $ astReshapeS (snatMul k i :$$ shmRest `shsAppend` shn)
+         $ astTransposeS perm
+         $ astReplicate i (STKS (k :$$ shmRest `shsAppend` shn) (ftkToSTK x))
+         $ astGatherKnobsS knobs (k :$$ shmRest) shn shp
+                           v0 (varm2 ::$ mrest, astVar varm2 :.$ prest)
              -- this gather may still index out of bounds, which is fine
 astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   ( vars@(varm ::$ mrest)
