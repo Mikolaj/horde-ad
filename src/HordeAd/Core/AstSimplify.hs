@@ -1463,10 +1463,9 @@ astN1K opCode t = case t of
       astN1K SignumOp (astN1K NegateOp u)
     (NegateOp, Ast.AstI2K QuotOp u v) ->
       astI2K QuotOp (astN1K NegateOp u) v
-        -- v is likely positive and let's keep it so
+        -- v is positive and let's keep it so
     (NegateOp, Ast.AstI2K RemOp u v) ->
        astI2K RemOp (astN1K NegateOp u) v
-         -- v is likely positive and let's keep it so
     (AbsOp, AstConcreteK n) -> AstConcreteK (abs n)
     (AbsOp, Ast.AstN1K AbsOp u) -> astN1K AbsOp u
     (AbsOp, Ast.AstN1K NegateOp u) -> astN1K AbsOp u
@@ -1547,6 +1546,8 @@ astI2K opCode = \cases
         , Just v0 <- unAstK v -> fromPlain $ AstConcreteK (quotH u0 v0)
       _ | Just 0 <- unAstK u -> u
       _ | Just 1 <- unAstK v -> u
+      _ | Just w <- unAstK v, w < 0 ->
+          astI2K QuotOp (negate u) (fromPlain $ AstConcreteK $ negate w)
       (Ast.AstI2K RemOp _ k, _)
         | Just k0 <- unAstK k
         , Just v0 <- unAstK v
@@ -1563,6 +1564,8 @@ astI2K opCode = \cases
         , Just v0 <- unAstK v -> fromPlain $ AstConcreteK (remH u0 v0)
       _ | Just 0 <- unAstK u -> u
       _ | Just 1 <- unAstK v -> fromPlain $ AstConcreteK 0
+      _ | Just w <- unAstK v, w < 0 ->
+          astI2K RemOp u (fromPlain $ AstConcreteK $ negate w)
       (Ast.AstI2K RemOp t k, _)
         | Just k0 <- unAstK k
         , Just v0 <- unAstK v
@@ -1996,7 +1999,6 @@ astN1S opCode t = case t of
         -- v is likely positive and let's keep it so
     (NegateOp, Ast.AstI2S RemOp u v) ->
       astI2S RemOp (astN1S NegateOp u) v
-        -- v is likely positive and let's keep it so
     (NegateOp, Ast.AstScatterS shm shn shp v (vars, ix)) ->
       astScatterS shm shn shp (astN1S NegateOp v) (vars, ix)
     (NegateOp, Ast.AstGatherS shm shn shp v (vars, ix)) ->
