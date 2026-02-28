@@ -1669,10 +1669,14 @@ astIndexK
 astIndexK v0 ZIS = Ast.AstConvert (ConvCmp ConvX0 ConvSX) v0
 -- These rules shrink the term or are structural, so copied from astIndexKnobsS:
 astIndexK v0 ix@(AstConcreteK i :.$ rest1) = case v0 of
-   Ast.AstFromVector _ STKS{} l ->
-     astIndexK (l V.! i) rest1
-   Ast.AstFromVector _ STKScalar l | ZIS <- rest1 ->
-     l V.! i
+   Ast.AstFromVector snat STKS{} l ->
+     if 0 <= i && i <= fromSNat' snat - 1
+     then astIndexK (l V.! i) rest1
+     else fromPlain $ AstConcreteK def
+   Ast.AstFromVector snat STKScalar l | ZIS <- rest1 ->
+     if 0 <= i && i <= fromSNat' snat - 1
+     then l V.! i
+     else fromPlain $ AstConcreteK def
    Ast.AstReplicate snat STKS{} v ->
      if 0 <= i && i <= fromSNat' snat - 1
      then astIndexK v rest1
@@ -2296,9 +2300,17 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
    Ast.AstProject1{} -> Ast.AstIndexS shn v0 ix
    Ast.AstProject2{} -> Ast.AstIndexS shn v0 ix
    Ast.AstFromVector _ STKS{} l | AstConcreteK i <- i1 ->
-     astIndex shn (l V.! i) rest1
+     let ftk = FTKS shn x
+         defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
+     in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
+       AstConcreteK b -> if b then astIndex shn (l V.! i) rest1 else defArr
+       _ -> Ast.AstIndexS shn v0 ix
    Ast.AstFromVector _ STKScalar l | AstConcreteK i <- i1, ZIS <- rest1 ->
-     sfromK (l V.! i)
+     let ftk = FTKS shn x
+         defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
+     in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
+       AstConcreteK b -> if b then sfromK (l V.! i) else defArr
+       _ -> Ast.AstIndexS shn v0 ix
    Ast.AstFromVector{} | ZIS <- rest1 ->  -- normal form
      Ast.AstIndexS shn v0 ix
    Ast.AstFromVector snat STKS{} l ->
