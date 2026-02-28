@@ -1547,6 +1547,7 @@ astI2K opCode = \cases
         , Just v0 <- unAstK v -> fromPlain $ AstConcreteK (quotH u0 v0)
       _ | Just 0 <- unAstK u -> u
       _ | Just 1 <- unAstK v -> u
+      _ | Just 0 <- unAstK v -> u  -- the partiality-removal hack
       _ | Just w <- unAstK v, w < 0 ->
           astI2K QuotOp (negate u) (fromPlain $ AstConcreteK $ negate w)
       (Ast.AstI2K RemOp _ k, _)
@@ -1565,6 +1566,7 @@ astI2K opCode = \cases
         , Just v0 <- unAstK v -> fromPlain $ AstConcreteK (remH u0 v0)
       _ | Just 0 <- unAstK u -> u
       _ | Just 1 <- unAstK v -> fromPlain $ AstConcreteK 0
+      _ | Just 0 <- unAstK v -> fromPlain $ AstConcreteK 0  -- the hack
       _ | Just w <- unAstK v, w < 0 ->
           astI2K RemOp u (fromPlain $ AstConcreteK $ negate w)
       (Ast.AstI2K RemOp t k, _)
@@ -2109,6 +2111,7 @@ astI2S opCode = \cases
         , Just v0 <- unAstS v -> fromPlain $ AstConcreteS (quotH u0 v0)
       _ | Just 0 <- unReplC u -> u
       _ | Just 1 <- unReplC v -> u
+      _ | Just 0 <- unReplC v -> u  -- the partiality-removal hack
       (Ast.AstI2S QuotOp u0 v0, w0) ->
         astI2S QuotOp u0 (astTimesS v0 w0)
       _ -> Ast.AstI2S QuotOp u v
@@ -2117,6 +2120,8 @@ astI2S opCode = \cases
         , Just v0 <- unAstS v -> fromPlain $ AstConcreteS (remH u0 v0)
       _ | Just 0 <- unReplC u -> u
       _ | Just 1 <- unReplC v ->
+          fromPlain $ AstConcreteS $ defTargetRep $ ftkAst u
+      _ | Just 0 <- unReplC v ->  -- the partiality-removal hack
           fromPlain $ AstConcreteS $ defTargetRep $ ftkAst u
       _ -> Ast.AstI2S RemOp u v
 
