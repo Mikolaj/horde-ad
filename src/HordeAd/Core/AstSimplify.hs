@@ -2697,24 +2697,6 @@ astScatterKnobsS _ _ shn shp@(k :$$ _) v0 (_,  i1 :.$ _)
   , ub < 0 || lb >= fromSNat' k =
     let ftk = FTKS (shp `shsAppend` shn) x
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
-astScatterKnobsS knobs ZSS _shn shp
-                 (Ast.AstScatterS @_ @shn2 @shp2 shm2 shn2 shp2 v (vars, ix2))
-                 (ZS, ix) =  -- oneHot (scatter) fusion
-  gcastWith (unsafeCoerceRefl :: shp ++ shn :~: shp ++ shp2 ++ shn2) $
-  astScatterKnobsS knobs shm2 shn2 (shp `shsAppend` shp2)
-                   v (vars, ix `ixsAppend` ix2)
-astScatterKnobsS knobs (snat@(SNat' @1) :$$ ZSS) _shn shp
-                 (Ast.AstReplicate _ (STKS _ x)
-                 (Ast.AstScatterS @_ @shn2 @shp2 shm2 shn2 shp2 v (vars, ix2)))
-                 (var ::$ ZS, ix) =  -- oneHot1 (scatter) fusion
-  gcastWith (unsafeCoerceRefl :: shp ++ shn :~: shp ++ shp2 ++ shn2) $
-  astScatterKnobsS knobs (snat :$$ shm2) shn2 (shp `shsAppend` shp2)
-                   (Ast.AstReplicate snat (STKS (shm2 `shsAppend` shn2) x) v)
-                   (var ::$ vars, ix `ixsAppend` ix2)
-astScatterKnobsS knobs shm shn shp@(SNat' @1 :$$ _)
-                 v (vars, AstConcreteK _ :.$ rest) =  -- if OOB, covered above
-    astReplicate (SNat @1) (STKS (shsTail shp `shsAppend` shn) (stkAstX v))
-    $ astScatterKnobsS knobs shm shn (shsTail shp) v (vars, rest)
 astScatterKnobsS knobs shm shn shp v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))
   | let ixInit = ixsInit ix0
         varInit = listsInit vars0
@@ -2755,6 +2737,10 @@ astScatterKnobsS knobs shm@(m :$$ _) shn (p@(SNat @p) :$$ ZSS) v0
              -- this gather may still index out of bounds, which is fine
 -- TODO: this breaks typing and GHCs > 9.10 misreport it, too:
 --         $ astScatterKnobsS knobs shm shn (snatMul k i :$$ ZSS)
+astScatterKnobsS knobs shm shn shp@(SNat' @1 :$$ _)
+                 v (vars, AstConcreteK _ :.$ rest) =  -- if OOB, covered above
+    astReplicate (SNat @1) (STKS (shsTail shp `shsAppend` shn) (stkAstX v))
+    $ astScatterKnobsS knobs shm shn (shsTail shp) v (vars, rest)
 astScatterKnobsS knobs shm shn shp (Ast.AstLet var u v) (vars, ix) =
   astLet var u (astScatterKnobsS knobs shm shn shp v (vars, ix))
 astScatterKnobsS knobs shm shn shp (Ast.AstFromPrimal v) (vars, ix) =
@@ -2763,6 +2749,20 @@ astScatterKnobsS knobs shm shn shp (Ast.AstFromDual v) (vars, ix) =
   fromDual $ astScatterKnobsS knobs shm shn shp v (vars, ix)
 astScatterKnobsS knobs shm shn shp (Ast.AstFromPlain v) (vars, ix) =
   fromPlain $ astScatterKnobsS knobs shm shn shp v (vars, ix)
+astScatterKnobsS knobs ZSS _shn shp
+                 (Ast.AstScatterS @_ @shn2 @shp2 shm2 shn2 shp2 v (vars, ix2))
+                 (ZS, ix) =  -- oneHot (scatter) fusion
+  gcastWith (unsafeCoerceRefl :: shp ++ shn :~: shp ++ shp2 ++ shn2) $
+  astScatterKnobsS knobs shm2 shn2 (shp `shsAppend` shp2)
+                   v (vars, ix `ixsAppend` ix2)
+astScatterKnobsS knobs (snat@(SNat' @1) :$$ ZSS) _shn shp
+                 (Ast.AstReplicate _ (STKS _ x)
+                 (Ast.AstScatterS @_ @shn2 @shp2 shm2 shn2 shp2 v (vars, ix2)))
+                 (var ::$ ZS, ix) =  -- oneHot1 (scatter) fusion
+  gcastWith (unsafeCoerceRefl :: shp ++ shn :~: shp ++ shp2 ++ shn2) $
+  astScatterKnobsS knobs (snat :$$ shm2) shn2 (shp `shsAppend` shp2)
+                   (Ast.AstReplicate snat (STKS (shm2 `shsAppend` shn2) x) v)
+                   (var ::$ vars, ix `ixsAppend` ix2)
 astScatterKnobsS knobs
                  shm@(SNat @m :$$ (_ :: ShS shmTail))
                  shn
