@@ -525,10 +525,12 @@ astIndexBuild snat@SNat ftk u i = case ftk of
         astConvUpRFromS (shsTail sh) x
         $ astIndexS (shsTail sh) (astConvDownSFromR sh x u) (i :.$ ZIS)
   FTKS sh _ -> astIndexS sh u (i :.$ ZIS)
-  FTKX sh' _ -> case ftkAst u of
+  FTKX @sh' sh' _ -> case ftkAst u of
    FTKX shBuild' x ->
     withShsFromShX shBuild' $ \shBuild -> case shBuild of
-      _ :$$ rest ->
+      _ :$$ (rest :: ShS rest) ->
+        -- Needed for GHC 9.10 only:
+        gcastWith (unsafeCoerceRefl :: Rank sh' :~: Rank rest) $
         astConvUpXFromS sh' x
         $ astIndexS rest (astConvDownSFromX shBuild x u) (i :.$ ZIS)
   FTKProduct ftk1 ftk2 ->

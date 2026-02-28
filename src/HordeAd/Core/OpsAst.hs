@@ -277,7 +277,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKR shm x ->
       withShsFromShR shm $ \(sh :: ShS sh) ->
         astIndexK (astConvDownSFromR sh x a) (ixsFromIxR ix)
-  trscatter @m shp0 t f = case ftkAst t of
+  trscatter @m @n shp0 t f = case ftkAst t of
     FTKR shmshn0 x ->
       withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
       withShsFromShR shp0 $ \(shp :: ShS shp) ->
@@ -296,7 +296,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
                            shp
                            (astConvDownSFromR shmshn x t) (vars, ix2)
             -- this introduces new variable names
-  trgather @_ @_ @p shm0 t f = case ftkAst t of
+  trgather @_ @n @p shm0 t f = case ftkAst t of
     FTKR shpshn0 x ->
       withShsFromShR shm0 $ \(shm :: ShS shm) ->
       withShsFromShR shpshn0 $ \(shpshn :: ShS shpshn) ->
@@ -564,12 +564,12 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   txslice i' n' k' a = case ftkAst a of
     FTKX sh'@(_ :$% sh2') x ->
       withSNat (fromSMayNat' i') $ \i ->
-      withSNat (fromSMayNat' n') $ \n ->
+      withSNat (fromSMayNat' n') $ \n@(SNat @n) ->
       withSNat (fromSMayNat' k') $ \k ->
-      withShsFromShX sh' $ \sh@(msnat :$$ _) ->
+      withShsFromShX sh' $ \sh@(msnat :$$ (_ :: ShS sh2)) ->
         case testEquality (snatPlus (snatPlus i n) k) msnat of
           Just Refl ->
-            astConvUpXFromS (n' :$% sh2') x
+            astConvUpXFromS @(n ': sh2) (n' :$% sh2') x
             . astSliceS i n k . astConvDownSFromX sh x $ a
           _ -> error $ "xslice: argument tensor has a wrong width: "
                        ++ show ( fromSNat' i, fromSNat' n, fromSNat' k
@@ -577,7 +577,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   txreverse a = case ftkAst a of
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
-        astConvUpXFromS sh' x
+        astConvUpXFromS @sh sh' x
         . astReverseS . astConvDownSFromX sh x $ a
   txtranspose @perm perm a = case ftkAst a of
     FTKX @sh' sh' x ->
@@ -1122,12 +1122,12 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   txslice i' n' k' (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh'@(_ :$% sh2') x ->
       withSNat (fromSMayNat' i') $ \i ->
-      withSNat (fromSMayNat' n') $ \n ->
+      withSNat (fromSMayNat' n') $ \n@(SNat @n) ->
       withSNat (fromSMayNat' k') $ \k ->
-      withShsFromShX sh' $ \sh@(msnat :$$ _) ->
+      withShsFromShX sh' $ \sh@(msnat :$$ (_ :: ShS sh2)) ->
         case testEquality (snatPlus (snatPlus i n) k) msnat of
           Just Refl ->
-            cAstConvUpXFromS (n' :$% sh2') x
+            cAstConvUpXFromS @(n ': sh2) (n' :$% sh2') x
             . AstSliceS i n k . cAstConvDownSFromX sh x $ a
           _ -> error $ "xslice: argument tensor has a wrong width: "
                        ++ show ( fromSNat' i, fromSNat' n, fromSNat' k
@@ -1135,7 +1135,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   txreverse (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' x ->
       withShsFromShX sh' $ \(sh@(_ :$$ _) :: ShS sh) ->
-        cAstConvUpXFromS sh' x
+        cAstConvUpXFromS @sh sh' x  -- the @sh needed for GHC 9.10 only
         . AstReverseS . cAstConvDownSFromX sh x $ a
   txtranspose @perm perm (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX @sh' sh' x ->

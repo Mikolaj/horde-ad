@@ -564,11 +564,11 @@ evalRev !s !c d0 = case d0 of
       evalRev s (txscatter @_ @shm @shn (shxTakeSSX @_ @shn Proxy shp sh) c f) d
   DeltaAppendX @m @n d e -> case (ftkDelta d, ftkDelta e) of
     (FTKX (m :$% _) x, FTKX (n :$% _) _) ->
+      gcastWith (unsafeCoerceRefl
+                 :: AddMaybe (AddMaybe (Just 0) m) n :~: AddMaybe m n) $
       withKnownSTK (adSTK $ ftkToSTK x) $
       let cShared = tshare c
-          s2 = gcastWith (unsafeCoerceRefl
-                          :: AddMaybe (AddMaybe (Just 0) m) n
-                             :~: AddMaybe m n) $
+          s2 =
                evalRev s (txslice (SKnown (SNat @0)) m n cShared) d
       in gcastWith (unsafeCoerceRefl
                     :: AddMaybe (AddMaybe m n) (Just 0) :~: AddMaybe m n) $
