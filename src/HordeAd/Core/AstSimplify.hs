@@ -3008,7 +3008,7 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   ( vars@(varm ::$ mrest)
   , Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2
     :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp
+  | varm == varp
   , j <= 0 || j >= valueOf @m || ixIsSmall prest =
     if | j <= 0 ->
          astGatherKnobsS knobs shm shn shp
@@ -3036,7 +3036,7 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   , Ast.AstCond (AstLeqInt (AstConcreteK j)
                            (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2
     :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp
+  | varm == varp
   , - j + 1 <= 0 || - j + 1 >= valueOf @m || ixIsSmall prest =
     if | - j + 1 <= 0 ->
          astGatherKnobsS knobs shm shn shp
@@ -3066,7 +3066,7 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   , Ast.AstLet varN uN
       (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2)
       :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp
+  | varm == varp
   , j <= 0 || j >= valueOf @m || ixIsSmall prest && astIsSmall True uN =
     if | j <= 0 ->
          astGatherKnobsS knobs shm shn shp
@@ -3095,7 +3095,7 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
       (Ast.AstCond (AstLeqInt (AstConcreteK j)
                               (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2)
     :.$ prest )
-  | varNameToAstVarId varm == varNameToAstVarId varp
+  | varm == varp
   , - j + 1 <= 0 || - j + 1 >= valueOf @m
     || ixIsSmall prest && astIsSmall True uN =
     if | - j + 1 <= 0 ->
@@ -3211,47 +3211,40 @@ astGatherKnobsS knobs shm@(m :$$ _) shn shp v0
             , lb >= 0 -> True
           Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _
             | j <= 0 || j >= fromSNat' m || ixIsSmall prest
-            , Foldable.any ((== varNameToAstVarId var)
-                            . varNameToAstVarId) vars -> True
+            , Foldable.any (== var) vars -> True
           Ast.AstCond (AstLeqInt (AstConcreteK j)
                                  (Ast.AstN1K NegateOp (AstIntVar var))) _ _
             | - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest
-            , Foldable.any ((== varNameToAstVarId var)
-                            . varNameToAstVarId) vars -> True
+            , Foldable.any (== var) vars -> True
           Ast.AstLet _ uN
             (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _)
             | j <= 0 || j >= fromSNat' m
               || ixIsSmall prest && astIsSmall True uN
-            , Foldable.any ((== varNameToAstVarId var)
-                            . varNameToAstVarId) vars -> True
+            , Foldable.any (== var) vars -> True
           Ast.AstLet _ uN
             (Ast.AstCond (AstLeqInt (AstConcreteK j)
                                     (Ast.AstN1K NegateOp (AstIntVar var))) _ _)
             | - j + 1 <= 0 || - j + 1 >= fromSNat' m
               || ixIsSmall prest && astIsSmall True uN
-            , Foldable.any ((== varNameToAstVarId var)
-                            . varNameToAstVarId) vars -> True
+            , Foldable.any (== var) vars -> True
           Ast.AstCond
             (Ast.AstBoolAndK
                (AstLeqInt (AstConcreteK j) (AstIntVar var)) _) _ _
             | j <= 0 || j >= fromSNat' m || ixIsSmall prest
-            , Foldable.any ((== varNameToAstVarId var)
-                            . varNameToAstVarId) vars -> True
+            , Foldable.any (== var) vars -> True
           Ast.AstCond
             (Ast.AstBoolAndK
                (AstLeqInt (AstConcreteK j)
                           (Ast.AstN1K NegateOp (AstIntVar var))) _) _ _
             | - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest
-            , Foldable.any ((== varNameToAstVarId var)
-                            . varNameToAstVarId) vars -> True
+            , Foldable.any (== var) vars -> True
           Ast.AstLet _ uN
             (Ast.AstCond
                (Ast.AstBoolAndK
                   (AstLeqInt (AstConcreteK j) (AstIntVar var)) _) _ _)
             | j <= 0 || j >= fromSNat' m
               || ixIsSmall prest && astIsSmall True uN
-            , Foldable.any ((== varNameToAstVarId var)
-                            . varNameToAstVarId) vars -> True
+            , Foldable.any (== var) vars -> True
           Ast.AstLet _ uN
             (Ast.AstCond
                (Ast.AstBoolAndK
@@ -3259,13 +3252,11 @@ astGatherKnobsS knobs shm@(m :$$ _) shn shp v0
                              (Ast.AstN1K NegateOp (AstIntVar var))) _) _ _)
             | - j + 1 <= 0 || - j + 1 >= fromSNat' m
               || ixIsSmall prest && astIsSmall True uN
-            , Foldable.any ((== varNameToAstVarId var)
-                            . varNameToAstVarId) vars -> True
+            , Foldable.any (== var) vars -> True
           AstIntVar var
             | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
             , null $ drop 1 $ filter (var `varNameInAst`) (Foldable.toList ix)
-            , Foldable.any ((== varNameToAstVarId var)
-                            . varNameToAstVarId) vars -> True
+            , Foldable.any (== var) vars -> True
           ik | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
              , not (Foldable.any (`varNameInAst` ik) vars) -> True
           -- We can't reorder ix for the gather(fromVector) rule above,
@@ -3349,8 +3340,7 @@ astGatherKnobsS knobs shm@(m :$$ _) shn shp v0
             , Just{} <- mvar -> mvar
           _ -> Nothing
   , Just varp <- varInteresting i1
-  , Just i <- findIndex ((== varNameToAstVarId varp) . varNameToAstVarId)
-                        (listsToList vars) = assert (i > 0) $
+  , Just i <- findIndex (== varp) (listsToList vars) = assert (i > 0) $
     Permutation.permFromListCont (backpermCycle $ i + 1)
     $ \(permWhole :: Permutation.Perm permWhole) ->
     permInverse permWhole $ \(invperm :: Nested.Perm invperm) _ ->
