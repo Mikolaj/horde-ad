@@ -801,6 +801,35 @@ astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
          + substituteAst (astVar varFalse) varTrue d)
         (substituteAst (astVar varFalse) var w) =
     substituteAst var0 varTrue d + fromPlain var0 -}
+{- Disabled, because scatters and gathers simplify better with conditionals
+   than with quotH, so the rules need to be restricted at least.
+-- TODO: prove nothing wrong comes out of dividing by zero here:
+astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
+  | FTKScalar @r <- ftkAst v
+  , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
+  , Just (lb, ub) <- varNameToBounds var
+  , let varTrue = reboundsVarName (max lb k, ub) var
+        varFalse = reboundsVarName (lb, min ub (k - 1)) var
+        d = fromPlain (AstConcreteK k)  -- a simplified guess
+            `quotH` substituteAst (AstConcreteK k) var v
+  , eqK (fromPlain (astVar varTrue) `quotH` d)
+        (substituteAst (astVar varTrue) var v)
+  , eqK (fromPlain (astVar varFalse) `quotH` d)
+        (substituteAst (astVar varFalse) var w) =
+    fromPlain var0 `quotH` d
+astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
+  | FTKScalar @r <- ftkAst v
+  , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
+  , Just (lb, ub) <- varNameToBounds var
+  , let varTrue = reboundsVarName (max lb k, ub) var
+        varFalse = reboundsVarName (lb, min ub (k - 1)) var
+        d = fromPlain (AstConcreteK (k - 1))  -- the only change vs above
+            `quotH` substituteAst (AstConcreteK (k - 1)) var w
+  , eqK (fromPlain (astVar varTrue) `quotH` d)
+        (substituteAst (astVar varTrue) var v)
+  , eqK (fromPlain (astVar varFalse) `quotH` d)
+        (substituteAst (astVar varFalse) var w) =
+    fromPlain var0 `quotH` d -}
 astCond b v w = Ast.AstCond b v w
 
 -- Invariant: if the variable has bounds, the expression can only have
@@ -2701,6 +2730,31 @@ astScatterKnobsS knobs shm shn shp v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))
                :: Init shm ++ (Last shm ': shn) :~: shm ++ shn) $
     astScatterKnobsS knobs (shsInit shm) (kLast :$$ shn) (shsInit shp)
                      v0 (varInit, ixInit)
+astScatterKnobsS knobs shm@(m :$$ _) shn (p@(SNat @p) :$$ ZSS) v0
+  ( varm ::$ mrest
+  , Ast.AstI2K QuotOp (AstIntVar varm') (AstConcreteK i0) :.$ ZIS )
+  | varm == varm'
+  , i0 > 0  -- ensured by other rules; makes this easier to reason about
+  , FTKS _ x <- ftkAst v0
+  , let k0 = (fromSNat' m + i0 - 1) `quot` i0
+  , fromSNat' p >= k0 =  -- most likely, because not OOB
+    withSNat i0 $ \i@(SNat @i) ->
+    withSNat k0 $ \k@(SNat @k) ->
+    withSNat (fromSNat' p - k0) $ \z2@(SNat @z2) ->
+      let ftk = FTKS (z2 :$$ shn) x
+      in gcastWith (unsafeCoerceRefl :: k + z2 :~: p) $
+         (`astAppendS` fromPlain (astConcrete ftk (tdefTarget ftk)))
+         $ astSum i (STKS (k :$$ shn) (ftkToSTK x))
+         $ astReshapeS (i :$$ k :$$ shn)
+         -- This looks like we are creating a larger outcome tensor than before,
+         -- but the following reduces to a nested sum of v0 with some transposes
+         -- and appends, so we likely create something much smaller than v0
+         -- despite the outermost dimension not shrinking as it did before.
+         $ astScatterKnobsS knobs shm shn (SNat @(k * i) :$$ ZSS)
+                            v0 (varm ::$ mrest, astVar varm :.$ ZIS)
+             -- this gather may still index out of bounds, which is fine
+-- TODO: this breaks typing and GHCs > 9.10 misreport it, too:
+--         $ astScatterKnobsS knobs shm shn (snatMul k i :$$ ZSS)
 astScatterKnobsS knobs shm shn shp (Ast.AstLet var u v) (vars, ix) =
   astLet var u (astScatterKnobsS knobs shm shn shp v (vars, ix))
 astScatterKnobsS knobs shm shn shp (Ast.AstFromPrimal v) (vars, ix) =
