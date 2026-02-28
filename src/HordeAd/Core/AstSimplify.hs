@@ -787,7 +787,7 @@ astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
   , AstConcreteK dw <- substituteAst (astVar varFalse) var w
                        - fromPlain (astVar varFalse)
   , dv == dw =
-    fromPlain $ var0 + AstConcreteK dv
+    fromPlain $ AstConcreteK dv + var0
 {- TODO: Investigate how much stronger this rule is than the above (it's slower)
 astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
   | FTKScalar @r <- ftkAst v
@@ -800,7 +800,7 @@ astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
   , eqK (fromPlain (astVar varFalse)
          + substituteAst (astVar varFalse) varTrue d)
         (substituteAst (astVar varFalse) var w) =
-    fromPlain var0 + substituteAst var0 varTrue d -}
+    substituteAst var0 varTrue d + fromPlain var0 -}
 astCond b v w = Ast.AstCond b v w
 
 -- Invariant: if the variable has bounds, the expression can only have
@@ -2606,6 +2606,9 @@ astScatterKnobsS :: forall shm shn shp r s. (KnownSpan s, TKAllNum r)
                  -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
                  -> (AstVarListS shm, AstIxS AstMethodLet shp)
                  -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
+astScatterKnobsS _ _ _ _ v0 (!vars0, !_ix0)
+  | Foldable.any (`varNameInAst` v0) vars0 =
+    error $ "astScatterKnobsS: scatter vars in v0: " ++ show (vars0, v0)
 astScatterKnobsS _ _ _ _ v (ZS, ZIS) = v
 astScatterKnobsS _ _ shn shp@(k :$$ _) v0 (_,  i1 :.$ _)
   | Just (lb, ub) <- intBounds i1
@@ -2645,7 +2648,7 @@ astScatterKnobsS knobs shm shn shp v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))
     gcastWith (unsafeCoerceRefl
                :: Init shm ++ (Last shm ': shn) :~: shm ++ shn) $
     astScatterKnobsS knobs (shsInit shm) (kLast :$$ shn) (shsInit shp)
-                    v0 (varInit, ixInit)
+                     v0 (varInit, ixInit)
 astScatterKnobsS knobs shm shn shp (Ast.AstLet var u v) (vars, ix) =
   astLet var u (astScatterKnobsS knobs shm shn shp v (vars, ix))
 astScatterKnobsS knobs shm shn shp (Ast.AstFromPrimal v) (vars, ix) =
@@ -2654,6 +2657,53 @@ astScatterKnobsS knobs shm shn shp (Ast.AstFromDual v) (vars, ix) =
   fromDual $ astScatterKnobsS knobs shm shn shp v (vars, ix)
 astScatterKnobsS knobs shm shn shp (Ast.AstFromPlain v) (vars, ix) =
   fromPlain $ astScatterKnobsS knobs shm shn shp v (vars, ix)
+astScatterKnobsS knobs
+                 shm@(SNat @m :$$ (_ :: ShS shmTail))
+                 shn
+                 shp@(SNat @p :$$ (_ :: ShS shpTail))
+                 v0
+  ( varm ::$ mrest
+  , AstIntVar varp :.$ prest )
+  | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
+      -- prevent a loop
+  , varm == varp
+  , not (varm `varNameInIxS` prest)
+  , FTKS _ x <- ftkAst v0 =
+    withSNat (min (valueOf @p) (valueOf @m)) $ \(SNat @m2) ->
+    gcastWith (unsafeCoerceRefl :: (m2 <=? p) :~: True) $
+    gcastWith (unsafeCoerceRefl :: (m2 <=? m) :~: True) $
+    Permutation.permFromListCont (permCycle
+                                  $ shsLength (shsTail shp) + 1)
+    $ \(permVars :: Permutation.Perm permVars) ->
+    Permutation.permFromListCont (backpermCycle
+                                  $ shsLength (shsTail shm) + 1)
+    $ \(permIx :: Permutation.Perm permIx) ->
+       gcastWith (unsafeCoerceRefl
+                  :: m2 ': shpTail ++ shn
+                     :~: Permutation.PermutePrefix
+                           permVars (shpTail ++ (m2 ': shn))) $
+       gcastWith (unsafeCoerceRefl
+                  :: shmTail ++ (m2 ': shn)
+                     :~: Permutation.PermutePrefix
+                           permIx (m2 ': shmTail ++ shn)) $
+       gcastWith (unsafeCoerceRefl
+                  :: (Rank permVars <=? Rank (shpTail ++ (m2 ': shn)))
+                     :~: True) $
+       gcastWith (unsafeCoerceRefl
+                  :: (Rank permIx <=? Rank (m2 ': shmTail ++ shn)) :~: True) $
+       fromMaybe (error "astScatterKnobsS: impossible non-permutation")
+       $ Permutation.permCheckPermutation permVars
+       $ fromMaybe (error "astScatterKnobsS: impossible non-permutation")
+       $ Permutation.permCheckPermutation permIx
+       $ let v2 = astTransposeS permIx
+                  $ astSliceS (SNat @0) (SNat @m2) (SNat @(m - m2)) v0
+             u = astScatterKnobsS
+                   knobs (shsTail shm) (SNat @m2 :$$ shn) (shsTail shp)
+                   v2 (mrest, prest)
+             ftk = FTKS (SNat @(p - m2) :$$ shsTail shp `shsAppend` shn) x
+         in astTransposeS permVars u
+            `astAppendS`
+            fromPlain (astConcrete ftk (tdefTarget ftk))
 astScatterKnobsS knobs shm@(SNat' @1 :$$ _) shn shp
                  v@Ast.AstReplicate{} (var ::$ vars, ix)
   | var `varNameInIxS` ix =  -- simplify oneHot1, among others
@@ -2708,8 +2758,7 @@ astGatherKnobsS _ _ _ _ v0 (!vars0, !_ix0)
   | Foldable.any (`varNameInAst` v0) vars0 =
     error $ "astGatherKnobsS: gather vars in v0: " ++ show (vars0, v0)
 astGatherKnobsS knobs _ shn _ v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
-astGatherKnobsS _ shm _ _ v0 (_, ZIS) =
-  astReplicateNS @shm @shn shm v0
+astGatherKnobsS _ shm _ _ v0 (_, ZIS) = astReplicateNS @shm @shn shm v0
 astGatherKnobsS _ shm shn _shp v0 (_, i1 :.$ _)
   | Just (lb, ub) <- intBounds i1
 -- this doesn't work in GHC 9.10:
@@ -3743,6 +3792,27 @@ astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKScalar l1)
 astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKS{} a1)
            (Ast.AstReplicate (SNat' @1) STKS{} a2) =
   astFromVector (SNat @2) stk2 $ V.fromList [a1, a2]
+astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
+           (Ast.AstAppendS (Ast.AstFromVector (SNat @k2) STKS{} l2) w) =
+  astAppendS (astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2) w
+astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKS{} a1)
+           (Ast.AstAppendS (Ast.AstFromVector (SNat @k2) STKS{} l2) w) =
+  astAppendS (astFromVector (SNat @(1 + k2)) stk2 $ a1 `V.cons` l2) w
+astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
+           (Ast.AstAppendS (Ast.AstReplicate (SNat' @1) STKS{} a2) w) =
+  astAppendS (astFromVector (SNat @(k1 + 1)) stk2 $ l1 `V.snoc` a2) w
+astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKScalar l1)
+           (Ast.AstAppendS (Ast.AstFromVector (SNat @k2) STKScalar l2) w) =
+  astAppendS (astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2) w
+astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKScalar a1)
+           (Ast.AstAppendS (Ast.AstFromVector (SNat @k2) STKScalar l2) w) =
+  astAppendS (astFromVector (SNat @(1 + k2)) stk2 $ a1 `V.cons` l2) w
+astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKScalar l1)
+           (Ast.AstAppendS (Ast.AstReplicate (SNat' @1) STKScalar a2) w) =
+  astAppendS (astFromVector (SNat @(k1 + 1)) stk2 $ l1 `V.snoc` a2) w
+astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKS{} a1)
+           (Ast.AstAppendS (Ast.AstReplicate (SNat' @1) STKS{} a2) w) =
+  astAppendS (astFromVector (SNat @2) stk2 $ V.fromList [a1, a2]) w
 astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
   fromPrimal $ astAppendS u v
 astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
