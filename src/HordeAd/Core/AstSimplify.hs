@@ -3134,6 +3134,7 @@ astGatherKnobsS knobs shm shn shp v0
   (vars, AstPlusK (AstConcreteK i) i1 :.$ prest)
   | Just (lb, ub) <- intBounds i1
   , lb >= 0  -- if not, we may need to apply astReverse first
+    || i <= 0
   , FTKS (SNat @p :$$ _) x <- ftkAst v0 =
     if i >= 0 then
       withSNat i $ \(SNat @i) ->
@@ -3156,6 +3157,7 @@ astGatherKnobsS knobs shm shn shp v0
   (vars, Ast.AstLet varN uN (AstPlusK (AstConcreteK i) i1) :.$ prest)
   | Just (lb, ub) <- intBounds i1
   , lb >= 0  -- if not, we may need to apply astReverse first
+    || i <= 0
   , FTKS (SNat @p :$$ _) x <- ftkAst v0 =
     if i >= 0 then
       withSNat i $ \(SNat @i) ->
@@ -3396,12 +3398,12 @@ astGatherKnobsS knobs shm@(m :$$ _) shn shp v0
   | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
       -- prevent a loop
   , let intInteresting = \case
-          AstPlusK (AstConcreteK _) i2
+          AstPlusK (AstConcreteK i) i2
             | Just (lb, _) <- intBounds i2
-            , lb >= 0 -> True
-          Ast.AstLet _ _ (AstPlusK (AstConcreteK _) i2)
+            , lb >= 0 || i <= 0-> True
+          Ast.AstLet _ _ (AstPlusK (AstConcreteK i) i2)
             | Just (lb, _) <- intBounds i2
-            , lb >= 0 -> True
+            , lb >= 0 || i <= 0-> True
           Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _
             | j <= 0 || j >= fromSNat' m || ixIsSmall prest
             , Foldable.any (== var) vars -> True
