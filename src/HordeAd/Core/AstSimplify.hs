@@ -2673,19 +2673,19 @@ shareIx ix f = unsafePerformIO $ do
                    (catMaybes bindings)
 
 -- TODO: fuse scatters, scatter and sum, and perhaps more (fromList?)
-astScatterS :: forall shm shn shp r s. (KnownSpan s, TKAllNum r)
+astScatterS :: forall shm shn shp x s. (KnownSpan s, TKAllNum x)
             => ShS shm -> ShS shn -> ShS shp
-            -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
+            -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
             -> (AstVarListS shm, AstIxS AstMethodLet shp)
-            -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
+            -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) x)
 astScatterS = astScatterKnobsS defaultKnobs
 
-astScatterKnobsS :: forall shm shn shp r s. (KnownSpan s, TKAllNum r)
+astScatterKnobsS :: forall shm shn shp x s. (KnownSpan s, TKAllNum x)
                  => SimplifyKnobs
                  -> ShS shm -> ShS shn -> ShS shp
-                 -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) r)
+                 -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
                  -> (AstVarListS shm, AstIxS AstMethodLet shp)
-                 -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) r)
+                 -> AstTensor AstMethodLet s (TKS2 (shp ++ shn) x)
 astScatterKnobsS _ _ _ _ v0 (!vars0, !_ix0)
   | Foldable.any (`varNameInAst` v0) vars0 =
     error $ "astScatterKnobsS: scatter vars in v0: " ++ show (vars0, v0)
@@ -2871,6 +2871,7 @@ astScatterKnobsS knobs shm shn shp@(p@(SNat @p) :$$ _) v0
   (vars, AstPlusK (AstConcreteK i0) i1 :.$ prest)
   | knobPhase knobs `elem` [PhaseExpansion, PhaseContraction]
       -- give time for additions of scatters to fuse; TODO: harden fusion
+      -- or keep as normal forms more terms than one-hots, until contraction
   , Just (lb, _) <- intBounds i1
   , lb >= 0  -- ensured by the OOB rule above: fromSNat' p >= i0
     || i0 <= 0
@@ -2894,7 +2895,7 @@ astScatterKnobsS knobs shm shn shp@(p@(SNat @p) :$$ _) v0
 astScatterKnobsS knobs shm shn shp@(p@(SNat @p) :$$ _) v0
   (vars, Ast.AstLet varN uN (AstPlusK (AstConcreteK i0) i1) :.$ prest)
   | knobPhase knobs `elem` [PhaseExpansion, PhaseContraction]
-      -- give time for additions of scatters to fuse; TODO: harden fusion
+      -- give time for additions of scatters to fuse; TODO
   , Just (lb, _) <- intBounds i1
   , lb >= 0  -- ensured by the OOB rule above: fromSNat' p >= i0
     || i0 <= 0
@@ -2915,6 +2916,142 @@ astScatterKnobsS knobs shm shn shp@(p@(SNat @p) :$$ _) v0
         $ astScatterKnobsS knobs shm shn (snatPlus p i :$$ shsTail shp)
                            v0 (vars, Ast.AstLet varN uN i1 :.$ prest)
              -- this gather may still index out of bounds, which is fine
+-- These rules are questionable, because at worst, we allocate twice.
+-- However, often the scatters or one of them would simplify away.
+-- Note these don't revert the scatter addtion fusion in rules for astPlusS,
+-- because the latter don't fire if the conditional can't be simplified away.
+astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
+  ( vars@(varm ::$ mrest)
+  , Ast.AstCond (AstLeqInt (AstConcreteK j0) (AstIntVar varp)) i1 i2
+    :.$ prest )
+  | varm == varp
+  , j0 <= 0 || j0 >= valueOf @m || ixIsSmall prest
+  , FTKS _ (FTKScalar @r) <- ftkAst v0
+  , Dict0 <- numFromTKAllNum (Proxy @r) =
+    if | j0 <= 0 ->
+         astScatterKnobsS knobs shm shn shp
+                          v0 (vars, i1 :.$ prest)
+       | j0 >= valueOf @m ->
+         astScatterKnobsS knobs shm shn shp
+                          v0 (vars, i2 :.$ prest)
+       | otherwise ->
+         withSNat j0 $ \j@(SNat @j) ->
+         withSNat (valueOf @m - j0) $ \msj@(SNat @msj) ->
+         gcastWith (unsafeCoerceRefl :: msj + j :~: m) $
+         astLetFun v0 $ \v ->
+         let v2 = astSliceS SZ j msj v
+             v3 = astSliceS j msj SZ v
+             varm2 = reboundsVarName (0, j0 - 1) varm
+             varm3 = reboundsVarName (0, valueOf @msj - 1) varm
+         in astScatterKnobsS knobs (j :$$ shsTail shm) shn shp v2
+              ( varm2 ::$ mrest
+              , substituteAstIxS (astVar varm2)
+                                 varm (i2 :.$ prest) )
+            `astPlusS`
+            astScatterKnobsS knobs (msj :$$ shsTail shm) shn shp v3
+              ( varm3 ::$ mrest
+              , substituteAstIxS (AstConcreteK j0 + astVar varm3)
+                                 varm (i1 :.$ prest) )
+astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
+  ( vars@(varm ::$ mrest)
+  , Ast.AstCond (AstLeqInt (AstConcreteK j0)
+                           (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2
+    :.$ prest )
+  | varm == varp
+  , - j0 + 1 <= 0 || - j0 + 1 >= valueOf @m || ixIsSmall prest
+  , FTKS _ (FTKScalar @r) <- ftkAst v0
+  , Dict0 <- numFromTKAllNum (Proxy @r) =
+    if | - j0 + 1 <= 0 ->
+         astScatterKnobsS knobs shm shn shp
+                          v0 (vars, i2 :.$ prest)
+       | - j0 + 1 >= valueOf @m ->
+         astScatterKnobsS knobs shm shn shp
+                          v0 (vars, i1 :.$ prest)
+       | otherwise ->
+         withSNat (- j0 + 1) $ \mj@(SNat @mj) ->
+         withSNat (valueOf @m - (- j0 + 1)) $ \msj@(SNat @msj) ->
+         gcastWith (unsafeCoerceRefl :: msj + mj :~: m) $
+         astLetFun v0 $ \v ->
+         let v2 = astSliceS SZ mj msj v
+             v3 = astSliceS mj msj SZ v
+             varm2 = reboundsVarName (0, valueOf @mj - 1) varm
+             varm3 = reboundsVarName (0, valueOf @m - valueOf @mj - 1) varm
+         in astScatterKnobsS knobs (mj :$$ shsTail shm) shn shp v2
+              ( varm2 ::$ mrest
+              , substituteAstIxS (astVar varm2)
+                                 varm (i1 :.$ prest) )
+            `astPlusS`
+            astScatterKnobsS knobs (msj :$$ shsTail shm) shn shp v3
+              ( varm3 ::$ mrest
+              , substituteAstIxS (AstConcreteK (- j0 + 1) + astVar varm3)
+                                 varm (i2 :.$ prest))
+astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
+  ( vars@(varm ::$ mrest)
+  , Ast.AstLet varN uN
+      (Ast.AstCond (AstLeqInt (AstConcreteK j0) (AstIntVar varp)) i1 i2)
+    :.$ prest )
+  | varm == varp
+  , j0 <= 0 || j0 >= valueOf @m || ixIsSmall prest
+  , FTKS _ (FTKScalar @r) <- ftkAst v0
+  , Dict0 <- numFromTKAllNum (Proxy @r) =
+    if | j0 <= 0 ->
+         astScatterKnobsS knobs shm shn shp
+                          v0 (vars, i1 :.$ prest)
+       | j0 >= valueOf @m ->
+         astScatterKnobsS knobs shm shn shp
+                          v0 (vars, i2 :.$ prest)
+       | otherwise ->
+         withSNat j0 $ \j@(SNat @j) ->
+         withSNat (valueOf @m - j0) $ \msj@(SNat @msj) ->
+         gcastWith (unsafeCoerceRefl :: msj + j :~: m) $
+         astLetFun v0 $ \v ->
+         let v2 = astSliceS SZ j msj v
+             v3 = astSliceS j msj SZ v
+             varm2 = reboundsVarName (0, j0 - 1) varm
+             varm3 = reboundsVarName (0, valueOf @msj - 1) varm
+         in astScatterKnobsS knobs (j :$$ shsTail shm) shn shp v2
+              ( varm2 ::$ mrest
+              , substituteAstIxS (astVar varm2)
+                                 varm (Ast.AstLet varN uN i2 :.$ prest) )
+            `astPlusS`
+            astScatterKnobsS knobs (msj :$$ shsTail shm) shn shp v3
+              ( varm3 ::$ mrest
+              , substituteAstIxS (AstConcreteK j0 + astVar varm3)
+                                 varm (Ast.AstLet varN uN i1 :.$ prest) )
+astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
+  ( vars@(varm ::$ mrest)
+  , Ast.AstLet varN uN
+      (Ast.AstCond (AstLeqInt (AstConcreteK j0)
+                              (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2)
+    :.$ prest )
+  | varm == varp
+  , - j0 + 1 <= 0 || - j0 + 1 >= valueOf @m || ixIsSmall prest
+  , FTKS _ (FTKScalar @r) <- ftkAst v0
+  , Dict0 <- numFromTKAllNum (Proxy @r) =
+    if | - j0 + 1 <= 0 ->
+         astScatterKnobsS knobs shm shn shp
+                          v0 (vars, i2 :.$ prest)
+       | - j0 + 1 >= valueOf @m ->
+         astScatterKnobsS knobs shm shn shp
+                          v0 (vars, i1 :.$ prest)
+       | otherwise ->
+         withSNat (- j0 + 1) $ \mj@(SNat @mj) ->
+         withSNat (valueOf @m - (- j0 + 1)) $ \msj@(SNat @msj) ->
+         gcastWith (unsafeCoerceRefl :: msj + mj :~: m) $
+         astLetFun v0 $ \v ->
+         let v2 = astSliceS SZ mj msj v
+             v3 = astSliceS mj msj SZ v
+             varm2 = reboundsVarName (0, valueOf @mj - 1) varm
+             varm3 = reboundsVarName (0, valueOf @m - valueOf @mj - 1) varm
+         in astScatterKnobsS knobs (mj :$$ shsTail shm) shn shp v2
+              ( varm2 ::$ mrest
+              , substituteAstIxS (astVar varm2)
+                                 varm (Ast.AstLet varN uN i1 :.$ prest) )
+            `astPlusS`
+            astScatterKnobsS knobs (msj :$$ shsTail shm) shn shp v3
+              ( varm3 ::$ mrest
+              , substituteAstIxS (AstConcreteK (- j0 + 1) + astVar varm3)
+                                 varm (Ast.AstLet varN uN i2 :.$ prest))
 astScatterKnobsS _ shm shn shp v (vars, ix) =
   Ast.AstScatterS shm shn shp v (vars, ix)
 
@@ -3266,12 +3403,12 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
          let varm2 = reboundsVarName (0, j - 1) varm
              varm3 = reboundsVarName (0, valueOf @m - j - 1) varm
          in astGatherKnobsS knobs (SNat @j :$$ shsTail shm) shn shp v
-              ( (::$) @j (varm2) mrest
+              ( varm2 ::$ mrest
               , substituteAstIxS (astVar varm2)
                                  varm (i2 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs (SNat @(m - j) :$$ shsTail shm) shn shp v
-              ( (::$) @(m - j) (varm3) mrest
+              ( varm3 ::$ mrest
               , substituteAstIxS (AstConcreteK j + astVar varm3)
                                  varm (i1 :.$ prest) )
 astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
@@ -3294,21 +3431,21 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
          let varm2 = reboundsVarName (0, valueOf @mj - 1) varm
              varm3 = reboundsVarName (0, valueOf @m - valueOf @mj - 1) varm
          in astGatherKnobsS knobs (SNat @mj :$$ shsTail shm) shn shp v
-              ( (::$) @mj varm2 mrest
+              ( varm2 ::$ mrest
               , substituteAstIxS (astVar varm2)
 -- TODO: when I use AstIntVar here, which is wrong, I get phantom errors;
 -- make sure this vanished after the fixes in HEAD
                                  varm (i1 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs (SNat @(m - mj) :$$ shsTail shm) shn shp v
-              ( (::$) @(m - mj) varm3 mrest
+              ( varm3 ::$ mrest
               , substituteAstIxS (AstConcreteK (- j + 1) + astVar varm3)
                                  varm (i2 :.$ prest))
 astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   ( vars@(varm ::$ mrest)
   , Ast.AstLet varN uN
       (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2)
-      :.$ prest )
+    :.$ prest )
   | varm == varp
   , j <= 0 || j >= valueOf @m || ixIsSmall prest && astIsSmall True uN =
     if | j <= 0 ->
@@ -3324,12 +3461,12 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
          let varm2 = reboundsVarName (0, j - 1) varm
              varm3 = reboundsVarName (0, valueOf @m - j - 1) varm
          in astGatherKnobsS knobs (SNat @j :$$ shsTail shm) shn shp v
-              ( (::$) @j varm2 mrest
+              ( varm2 ::$ mrest
               , substituteAstIxS (astVar varm2) varm
                                  (Ast.AstLet varN uN i2 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs (SNat @(m - j) :$$ shsTail shm) shn shp v
-              ( (::$) @(m - j) varm3 mrest
+              ( varm3 ::$ mrest
               , substituteAstIxS (AstConcreteK j + astVar varm3)
                                  varm (Ast.AstLet varN uN i1 :.$ prest) )
 astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
@@ -3354,12 +3491,12 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
          let varm2 = reboundsVarName (0, valueOf @mj - 1) varm
              varm3 = reboundsVarName (0, valueOf @m - valueOf @mj - 1) varm
          in astGatherKnobsS knobs (SNat @mj :$$ shsTail shm) shn shp v
-              ( (::$) @mj varm2 mrest
+              ( varm2 ::$ mrest
               , substituteAstIxS (astVar varm2)
                                  varm (Ast.AstLet varN uN i1 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs (SNat @(m - mj) :$$ shsTail shm) shn shp v
-              ( (::$) @(m - mj) varm3 mrest
+              ( varm3 ::$ mrest
               , substituteAstIxS (AstConcreteK (- j + 1) + astVar varm3)
                                  varm (Ast.AstLet varN uN i2 :.$ prest))
 astGatherKnobsS knobs
