@@ -2867,6 +2867,54 @@ astScatterKnobsS knobs ZSS shn shp u (ZS, ix)  -- oneHot1 intro
     in funToVarsIxS shm $ \(var ::$ ZS) _ ->
          Ast.AstScatterS shm shn shp a (var ::$ ZS, ix)
 -- TODO? astScatterKnobsS v (ZR, ix) = update (rzero sh 0) ix v
+astScatterKnobsS knobs shm shn shp@(p@(SNat @p) :$$ _) v0
+  (vars, AstPlusK (AstConcreteK i0) i1 :.$ prest)
+  | knobPhase knobs `elem` [PhaseExpansion, PhaseContraction]
+      -- give time for additions of scatters to fuse; TODO: harden fusion
+  , Just (lb, _) <- intBounds i1
+  , lb >= 0  -- ensured by the OOB rule above: fromSNat' p >= i0
+    || i0 <= 0
+  , FTKS _ x <- ftkAst v0 =
+    if i0 >= 0 then
+      withSNat i0 $ \i@(SNat @i) ->
+      withSNat (fromSNat' p - i0) $ \k@(SNat @k) ->
+        gcastWith (unsafeCoerceRefl :: i + k :~: p) $
+        let ftk = FTKS (i :$$ shsTail shp `shsAppend` shn) x
+        in astAppendS
+             (fromPlain (astConcrete ftk (tdefTarget ftk)))
+             (astScatterKnobsS knobs shm shn (k :$$ shsTail shp)
+                               v0 (vars, i1 :.$ prest))
+                -- this gather may still index out of bounds, which is fine
+    else
+      withSNat (- i0) $ \i ->
+        astSliceS i p SZ
+        $ astScatterKnobsS knobs shm shn (snatPlus p i :$$ shsTail shp)
+                           v0 (vars, i1 :.$ prest)
+             -- this gather may still index out of bounds, which is fine
+astScatterKnobsS knobs shm shn shp@(p@(SNat @p) :$$ _) v0
+  (vars, Ast.AstLet varN uN (AstPlusK (AstConcreteK i0) i1) :.$ prest)
+  | knobPhase knobs `elem` [PhaseExpansion, PhaseContraction]
+      -- give time for additions of scatters to fuse; TODO: harden fusion
+  , Just (lb, _) <- intBounds i1
+  , lb >= 0  -- ensured by the OOB rule above: fromSNat' p >= i0
+    || i0 <= 0
+  , FTKS _ x <- ftkAst v0 =
+    if i0 >= 0 then
+      withSNat i0 $ \i@(SNat @i) ->
+      withSNat (fromSNat' p - i0) $ \k@(SNat @k) ->
+        gcastWith (unsafeCoerceRefl :: i + k :~: p) $
+        let ftk = FTKS (i :$$ shsTail shp `shsAppend` shn) x
+        in astAppendS
+             (fromPlain (astConcrete ftk (tdefTarget ftk)))
+             (astScatterKnobsS knobs shm shn (k :$$ shsTail shp)
+                               v0 (vars, Ast.AstLet varN uN i1 :.$ prest))
+                -- this gather may still index out of bounds, which is fine
+    else
+      withSNat (- i0) $ \i ->
+        astSliceS i p SZ
+        $ astScatterKnobsS knobs shm shn (snatPlus p i :$$ shsTail shp)
+                           v0 (vars, Ast.AstLet varN uN i1 :.$ prest)
+             -- this gather may still index out of bounds, which is fine
 astScatterKnobsS _ shm shn shp v (vars, ix) =
   Ast.AstScatterS shm shn shp v (vars, ix)
 
