@@ -1083,7 +1083,7 @@ astDualPart t = case t of
   AstPlusK u v -> astDualPart u `astPlusK` astDualPart v
   -- This one is mathematically wrong, dual numbers don't mult like that:
   -- AstTimesK u v -> astDualPart u * astDualPart v
-  Ast.AstN1K NegateOp u -> astN1K NegateOp (astDualPart u)
+  Ast.AstN1K NegateOp u -> negate (astDualPart u)
   {- Some of these are wrong, so let's be conservative:
   Ast.AstN1K AbsOp u -> abs (astDualPart u)
   Ast.AstN1K SignumOp u -> signum (astDualPart u)
@@ -1098,7 +1098,7 @@ astDualPart t = case t of
   AstPlusS u v -> astDualPart u `astPlusS` astDualPart v
   -- This one is mathematically wrong, dual numbers don't mult like that:
   -- AstTimesS u v -> astDualPart u * astDualPart v
-  Ast.AstN1S NegateOp u -> astN1S NegateOp (astDualPart u)
+  Ast.AstN1S NegateOp u -> negate (astDualPart u)
   {- Some of these are wrong, so let's be conservative:
   Ast.AstN1S AbsOp u -> abs (astDualPart u)
   Ast.AstN1S SignumOp u -> signum (astDualPart u)
@@ -1485,18 +1485,13 @@ astN1K opCode t = case t of
   Ast.AstFromPlain n -> fromPlain (astN1K opCode n)
   _ -> case (opCode, t) of
     (NegateOp, AstConcreteK n) -> AstConcreteK (negate n)
-    (NegateOp, AstPlusK u v) ->
-      astPlusK (astN1K NegateOp u) (astN1K NegateOp v)
-    (NegateOp, AstTimesK u v) ->
-      astTimesK (astN1K NegateOp u) v
+    (NegateOp, AstPlusK u v) -> astPlusK (negate u) (negate v)
+    (NegateOp, AstTimesK u v) -> astTimesK (negate u) v
     (NegateOp, Ast.AstN1K NegateOp u) -> u
-    (NegateOp, Ast.AstN1K SignumOp u) ->
-      astN1K SignumOp (astN1K NegateOp u)
-    (NegateOp, Ast.AstI2K QuotOp u v) ->
-      astI2K QuotOp (astN1K NegateOp u) v
-        -- v is positive and let's keep it so
-    (NegateOp, Ast.AstI2K RemOp u v) ->
-       astI2K RemOp (astN1K NegateOp u) v
+    (NegateOp, Ast.AstN1K SignumOp u) -> astN1K SignumOp (negate u)
+    (NegateOp, Ast.AstI2K QuotOp u v) -> astI2K QuotOp (negate u) v
+      -- v is positive and let's keep it so
+    (NegateOp, Ast.AstI2K RemOp u v) -> astI2K RemOp (negate u) v
     (AbsOp, AstConcreteK n) -> AstConcreteK (abs n)
     (AbsOp, Ast.AstN1K AbsOp u) -> astN1K AbsOp u
     (AbsOp, Ast.AstN1K NegateOp u) -> astN1K AbsOp u
@@ -2078,22 +2073,17 @@ astN1S opCode t = case t of
   AstConvUpSFromK n -> sfromK $ astN1K opCode n
   _ -> case (opCode, t) of
     (NegateOp, AstConcreteS n) -> AstConcreteS (negate n)
-    (NegateOp, AstPlusS u v) ->
-      astPlusS (astN1S NegateOp u) (astN1S NegateOp v)
-    (NegateOp, AstTimesS u v) ->
-      astTimesS (astN1S NegateOp u) v
+    (NegateOp, AstPlusS u v) -> astPlusS (negate u) (negate v)
+    (NegateOp, AstTimesS u v) -> astTimesS (negate u) v
     (NegateOp, Ast.AstN1S NegateOp u) -> u
-    (NegateOp, Ast.AstN1S SignumOp u) ->
-      astN1S SignumOp (astN1S NegateOp u)
-    (NegateOp, Ast.AstI2S QuotOp u v) ->
-      astI2S QuotOp (astN1S NegateOp u) v
+    (NegateOp, Ast.AstN1S SignumOp u) -> astN1S SignumOp (negate u)
+    (NegateOp, Ast.AstI2S QuotOp u v) -> astI2S QuotOp (negate u) v
         -- v is likely positive and let's keep it so
-    (NegateOp, Ast.AstI2S RemOp u v) ->
-      astI2S RemOp (astN1S NegateOp u) v
+    (NegateOp, Ast.AstI2S RemOp u v) -> astI2S RemOp (negate u) v
     (NegateOp, Ast.AstScatterS shm shn shp v (vars, ix)) ->
-      astScatterS shm shn shp (astN1S NegateOp v) (vars, ix)
+      astScatterS shm shn shp (negate v) (vars, ix)
     (NegateOp, Ast.AstGatherS shm shn shp v (vars, ix)) ->
-      astGatherS shm shn shp (astN1S NegateOp v) (vars, ix)
+      astGatherS shm shn shp (negate v) (vars, ix)
     (AbsOp, AstConcreteS n) -> AstConcreteS (abs n)
     (AbsOp, Ast.AstN1S AbsOp u) -> astN1S AbsOp u
     (AbsOp, Ast.AstN1S NegateOp u) -> astN1S AbsOp u
@@ -4863,7 +4853,7 @@ astSum0 t = case t of
   Ast.AstFromDual u -> fromDual $ astSum0 u
   Ast.AstFromPlain u -> fromPlain $ astSum0 u
   AstTimesS t1 t2 -> astDot0 t1 t2
-  Ast.AstN1S NegateOp u -> astN1K NegateOp $ astSum0 u
+  Ast.AstN1S NegateOp u -> negate $ astSum0 u
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
     astConcreteK $ tssum0 (Concrete v)
@@ -5115,11 +5105,11 @@ astLeqK = \cases
   -- This is wrong, because LHS is a particular valuation and RHS is all.
   -- Ast.AstLet _ _ u <=. Ast.AstLet _ _ v -> u <=. v
   u (AstPlusK (AstConcreteK v) w) ->
-    astLeqK (astPlusK u (astN1K NegateOp (AstConcreteK v))) w
+    astLeqK (astPlusK u (AstConcreteK $ negate v)) w
   (AstPlusK (AstConcreteK u) w) v ->
-    astLeqK (AstConcreteK u) (astPlusK v (astN1K NegateOp w))
+    astLeqK (AstConcreteK u) (astPlusK v (negate w))
   u (AstConcreteK v) ->
-    astLeqK (AstConcreteK (negate v)) (astN1K NegateOp u)
+    astLeqK (AstConcreteK (negate v)) (negate u)
   (AstConcreteK u) (AstTimesK (AstConcreteK v) w)
     | v > 0 && u >= 0
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
@@ -5134,9 +5124,9 @@ astLeqK = \cases
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
       astLeqK (AstConcreteK u)
               (astTimesK (AstConcreteK $ negate v)
-                         (astN1K NegateOp w))
+                         (negate w))
   v@AstConcreteK{} u -> Ast.AstLeqK v u
-  u v -> astLeqK (AstConcreteK 0) (astPlusK v (astN1K NegateOp u))
+  u v -> astLeqK (AstConcreteK 0) (astPlusK v (negate u))
 
 astLeq :: forall sh r. NumScalar r
        => AstTensor AstMethodLet PlainSpan (TKS sh r)
@@ -5146,11 +5136,11 @@ astLeq = \cases
   (AstConcreteS u) (AstConcreteS v) ->
     AstConcreteK $ Shaped.stoPrimitive u <= Shaped.stoPrimitive v
   u (AstPlusS (AstConcreteS v) w) ->
-    astLeq (astPlusS u (astN1S NegateOp (AstConcreteS v))) w
+    astLeq (astPlusS u (AstConcreteS $ negate v)) w
   (AstPlusS (AstConcreteS u) w) v ->
-    astLeq (AstConcreteS u) (astPlusS v (astN1S NegateOp w))
+    astLeq (AstConcreteS u) (astPlusS v (negate w))
   u (AstConcreteS v) ->
-    astLeq (AstConcreteS (negate v)) (astN1S NegateOp u)
+    astLeq (AstConcreteS (negate v)) (negate u)
   (Ast.AstConvert _ (Ast.AstVar u)) (Ast.AstConvert _ (Ast.AstVar v))
     | varNameToAstVarId u == varNameToAstVarId v -> true
   (AstConvUpSFromK w) (AstConvUpSFromK v) -> astLeqK w v
