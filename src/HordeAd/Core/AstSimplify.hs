@@ -1398,6 +1398,8 @@ astTimesK = \cases
   (AstTimesK u w) (AstTimesK v x) | Just u0 <- unAstK u
                                   , Just v0 <- unAstK v ->
     astTimesK (fromPlain $ AstConcreteK (u0 * v0)) (astTimesK w x)
+  (Ast.AstR2K DivideOp u1 u2) v -> astR2K DivideOp (u1 * v) u2
+  u (Ast.AstR2K DivideOp v1 v2) -> astR2K DivideOp (u * v1) v2
 
   -- This breaks sharing, because although u is concrete and so doesn't
   -- have to be shared, the multiplication is not shared --- we end up
@@ -1967,6 +1969,8 @@ astTimesS = \cases
                                   , Just v0 <- unAstS v ->
     astTimesS (fromPlain $ AstConcreteS (u0 * v0)) (astTimesS w x)
 
+  (Ast.AstR2S DivideOp u1 u2) v -> astR2S DivideOp (u1 * v) u2
+  u (Ast.AstR2S DivideOp v1 v2) -> astR2S DivideOp (u * v1) v2
   (Ast.AstScatterS shm shn shp v (vars, ix)) u
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
       Ast.AstScatterS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
