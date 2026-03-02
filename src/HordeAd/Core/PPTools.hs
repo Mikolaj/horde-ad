@@ -62,6 +62,7 @@ printAstVarId prefix cfg var =
   let n = fromEnum var - 100000000
   in showString $ case IM.lookup n (varRenames cfg) of
     Just name | name /= "" -> name
+    _ | n < 0 -> prefix ++ "m" ++ show (- n)
     _ -> prefix ++ show n
 
 printAstVar :: PrintConfig -> AstVarName '(s, y) -> ShowS
