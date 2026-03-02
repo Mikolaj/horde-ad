@@ -1356,16 +1356,28 @@ astPlusK = \cases
   u (AstPlusK v w) | Just v0 <- unAstK v ->
     astPlusK (fromPlain $ AstConcreteK v0) (astPlusK u w)
   t1 t2 | eqK t1 t2 -> fromPlain (AstConcreteK 2) `astTimesK` t1
+  t1 (AstPlusK t2 w) | eqK t1 t2 ->
+    fromPlain (AstConcreteK 2) `astTimesK` t1 + w
   t1 (AstTimesK n t2) | Just n0 <- unAstK n
                       , eqK t1 t2 ->
     fromPlain (AstConcreteK (n0 + 1)) `astTimesK` t1
+  t1 (AstPlusK (AstTimesK n t2) w) | Just n0 <- unAstK n
+                                   , eqK t1 t2 ->
+    fromPlain (AstConcreteK (n0 + 1)) `astTimesK` t1 + w
   (AstTimesK n t2) t1 | Just n0 <- unAstK n
                       , eqK t1 t2 ->
     fromPlain (AstConcreteK (n0 + 1)) `astTimesK` t1
+  (AstTimesK n t2) (AstPlusK t1 w) | Just n0 <- unAstK n
+                                   , eqK t1 t2 ->
+    fromPlain (AstConcreteK (n0 + 1)) `astTimesK` t1 + w
   (AstTimesK n1 t1) (AstTimesK n2 t2)
     | Just n10 <- unAstK n1
     , Just n20 <- unAstK n2
     , eqK t1 t2 -> fromPlain (AstConcreteK (n10 + n20)) `astTimesK` t1
+  (AstTimesK n1 t1) (AstPlusK (AstTimesK n2 t2) w)
+    | Just n10 <- unAstK n1
+    , Just n20 <- unAstK n2
+    , eqK t1 t2 -> fromPlain (AstConcreteK (n10 + n20)) `astTimesK` t1 + w
   u v -> AstPlusK u v
 
 astTimesK :: (NumScalar r, KnownSpan s)
