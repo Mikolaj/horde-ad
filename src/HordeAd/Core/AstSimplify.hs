@@ -1385,6 +1385,8 @@ astTimesK = \cases
   _ v | Just 0 <- unAstK v -> v
   u v | Just 1 <- unAstK u -> v
   u v | Just 1 <- unAstK v -> u
+  u v | Just (-1) <- unAstK u -> negate v
+  u v | Just (-1) <- unAstK v -> negate u
   u v | Just u0 <- unAstK u
       , Just v0 <- unAstK v -> fromPlain $ AstConcreteK (u0 * v0)
   u (AstTimesK v w) | Just u0 <- unAstK u
@@ -1956,6 +1958,8 @@ astTimesS = \cases
   _ v | Just 0 <- unReplC v -> v
   u v | Just 1 <- unReplC u -> v
   u v | Just 1 <- unReplC v -> u
+  u v | Just (-1) <- unReplC u -> negate v
+  u v | Just (-1) <- unReplC v -> negate u
   u v | Just u0 <- unAstS u
       , Just v0 <- unAstS v -> fromPlain $ AstConcreteS (u0 * v0)
   u (AstTimesS v w) | Just u0 <- unAstS u
