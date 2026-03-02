@@ -4249,7 +4249,7 @@ astReverseS (Ast.AstFromPrimal v) = fromPrimal $ astReverseS v
 astReverseS (Ast.AstFromDual v) = fromDual $ astReverseS v
 astReverseS (Ast.AstFromPlain v) = fromPlain $ astReverseS v
 astReverseS (Ast.AstGatherS shm@(SNat @k :$$ _) shn shp v (var ::$ vars, ix)) =
-  let ivar = valueOf @k - astVar var
+  let ivar = valueOf @k - 1 - astVar var
       ix2 = substituteAstIxS ivar var ix  -- cheap subst, because ivar is tiny
   in astGatherS shm shn shp v (var ::$ vars, ix2)
 astReverseS (Ast.AstReverseS v) = v
