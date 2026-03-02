@@ -471,7 +471,7 @@ instance ( ADReadyNoLet target, ShareTensor target
            => f x
            -> f (ADTensorKind x)
         -- This computes the derivative of g again for each new a.
-        rf !a = ttlet a $ \ !aShared ->
+        rf !a = ttlet a $ \ !aShared ->  -- sharing just in case
           tunshare $ snd $ crevOnParams
                              Nothing
                              (unHFun h @(ADVal (ShareOf f)))

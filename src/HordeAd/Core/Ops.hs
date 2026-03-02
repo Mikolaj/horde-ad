@@ -222,7 +222,7 @@ class LetTensor (target :: Target) where
     -> target (BuildTensorKind k ym)  -- ^ the inputs
     -> target (BuildTensorKind (1 + k) yn)
   {-# INLINE tscan #-}  -- this doesn't want to specialize
-  tscan k nstk mstk f acc0 es =
+  tscan k nstk mstk f acc0' es = ttlet acc0' $ \acc0 ->  -- sharing just in case
     let bs :: target (BuildTensorKind k yn)
         bs = tproject2
              $ tmapAccumL (Proxy @target)
@@ -1011,7 +1011,7 @@ class ( Num (IntOf target)
         fl :: forall f. ADReady f
            => f (TKProduct accy ey)
            -> f (TKProduct accy by)
-        fl !args = ttlet args $ \ !args1 ->
+        fl !args = ttlet args $ \ !args1 ->  -- sharing just in case
                      f (tproject1 args1) (tproject2 args1)
     in tmapAccumLDer proxy k accftk bftk eftk
                      (tlambda @target xftk (HFun fl))
