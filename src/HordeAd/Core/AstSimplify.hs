@@ -1400,6 +1400,8 @@ astTimesK = \cases
     astTimesK (fromPlain $ AstConcreteK (u0 * v0)) (astTimesK w x)
   (Ast.AstR2K DivideOp u1 u2) v -> astR2K DivideOp (u1 * v) u2
   u (Ast.AstR2K DivideOp v1 v2) -> astR2K DivideOp (u * v1) v2
+  (Ast.AstR1K RecipOp u) v -> astR2K DivideOp v u
+  u (Ast.AstR1K RecipOp v) -> astR2K DivideOp u v
 
   -- This breaks sharing, because although u is concrete and so doesn't
   -- have to be shared, the multiplication is not shared --- we end up
@@ -1547,7 +1549,19 @@ astR2K opCode = \cases
     PowerOp -> AstConcreteK $ u ** v
     LogBaseOp -> AstConcreteK $ logBase u v
     Atan2Op -> AstConcreteK $ atan2H u v
-  u v -> Ast.AstR2K opCode u v
+  u v -> case opCode of
+    DivideOp -> case u of
+      _ | Just 0 <- unAstK u -> u
+      _ | Just 1 <- unAstK u -> recip v
+      _ | Just 1 <- unAstK v -> u
+      _ | Just 0 <- unAstK v -> u  -- the partiality-removal hack
+      AstTimesK n t
+        | Just n0 <- unAstK n
+        , Just v0 <- unAstK v
+        , n0 == v0 -> t
+      _ -> Ast.AstR2K DivideOp u v
+             -- TODO: add other rules that are relatively numerically stable
+    _ -> Ast.AstR2K opCode u v
 
 astI2K :: (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
        => OpCodeIntegral2
@@ -1581,8 +1595,8 @@ astI2K opCode = \cases
         | Just k0 <- unAstK k
         , Just v0 <- unAstK v
         , v0 >= k0 && k0 >= 0 -> fromPlain $ AstConcreteK 0
-      (Ast.AstI2K QuotOp u0 v0, w0) ->
-        astI2K QuotOp u0 (astTimesK v0 w0)
+      (Ast.AstI2K QuotOp u0 v0, _) ->
+        astI2K QuotOp u0 (astTimesK v0 v)
       (AstTimesK n t, _)
         | Just n0 <- unAstK n
         , Just v0 <- unAstK v
@@ -1968,9 +1982,11 @@ astTimesS = \cases
   (AstTimesS u w) (AstTimesS v x) | Just u0 <- unAstS u
                                   , Just v0 <- unAstS v ->
     astTimesS (fromPlain $ AstConcreteS (u0 * v0)) (astTimesS w x)
-
   (Ast.AstR2S DivideOp u1 u2) v -> astR2S DivideOp (u1 * v) u2
   u (Ast.AstR2S DivideOp v1 v2) -> astR2S DivideOp (u * v1) v2
+  (Ast.AstR1S RecipOp u) v -> astR2S DivideOp v u
+  u (Ast.AstR1S RecipOp v) -> astR2S DivideOp u v
+
   (Ast.AstScatterS shm shn shp v (vars, ix)) u
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
       Ast.AstScatterS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
@@ -2156,7 +2172,15 @@ astR2S opCode = \cases
     PowerOp -> AstConcreteS $ u ** v
     LogBaseOp -> AstConcreteS $ logBase u v
     Atan2Op -> AstConcreteS $ atan2H u v
-  u v -> Ast.AstR2S opCode u v
+  u v -> case opCode of
+    DivideOp -> case u of
+      _ | Just 0 <- unReplC u -> u
+      _ | Just 1 <- unReplC u -> recip v
+      _ | Just 1 <- unReplC v -> u
+      _ | Just 0 <- unReplC v -> u  -- the partiality-removal hack
+      _ -> Ast.AstR2S DivideOp u v
+             -- TODO: add other rules that are relatively numerically stable
+    _ -> Ast.AstR2S opCode u v
 
 astI2S :: (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
        => OpCodeIntegral2
@@ -2190,8 +2214,8 @@ astI2S opCode = \cases
       _ | Just 0 <- unReplC u -> u
       _ | Just 1 <- unReplC v -> u
       _ | Just 0 <- unReplC v -> u  -- the partiality-removal hack
-      (Ast.AstI2S QuotOp u0 v0, w0) ->
-        astI2S QuotOp u0 (astTimesS v0 w0)
+      (Ast.AstI2S QuotOp u0 v0, _) ->
+        astI2S QuotOp u0 (astTimesS v0 v)
       _ -> Ast.AstI2S QuotOp u v
     RemOp -> case (u, v) of
       _ | Just u0 <- unAstS u
