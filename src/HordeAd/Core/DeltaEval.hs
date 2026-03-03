@@ -424,6 +424,9 @@ evalRev !s !c d0 = case d0 of
               , Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       evalRev s (troneHot (shrTake sh) c ix) d
+        -- note that this is the correct derivative also in OOB base,
+        -- because then indexing ignores the argument array
+        -- and so the array is zeroed in the derivative
   DeltaScatterR SNat SNat SNat _sh d f -> case ftkDelta d of
     FTKR sh x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
