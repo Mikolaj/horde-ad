@@ -101,7 +101,7 @@ import HordeAd.Core.Ast qualified as Ast (AstTensor(..))
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersAst
-  (eqY, sunReplicate1, sunReplicateN, sunReplicate, unReplC, unAstK, unAstS)
+  (eqY, eqUnknownShapes, sunReplicate1, sunReplicateN, sunReplicate, unReplC, unAstK, unAstS)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
@@ -250,31 +250,8 @@ fromLinearIdxS = \sh lin -> case go sh lin of (# _, ix #) -> ix
 astPair :: KnownSpan s
         => AstTensor AstMethodLet s x -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s (TKProduct x y)
-astPair (Ast.AstProject1 (Ast.AstVar var))
-        (Ast.AstProject2 (Ast.AstVar var'))
-  | Just Refl <- testEquality var var', var == var' =
-    Ast.AstVar var
-astPair (Ast.AstPrimalPart (Ast.AstProject1 (Ast.AstVar var)))
-        (Ast.AstPrimalPart (Ast.AstProject2 (Ast.AstVar var')))
-  | Just Refl <- testEquality var var', var == var' =
-    Ast.AstPrimalPart (Ast.AstVar var)
-astPair (Ast.AstDualPart (Ast.AstProject1 (Ast.AstVar var)))
-        (Ast.AstDualPart (Ast.AstProject2 (Ast.AstVar var')))
-  | Just Refl <- testEquality var var', var == var' =
-    Ast.AstDualPart (Ast.AstVar var)
-astPair (Ast.AstPlainPart (Ast.AstProject1 (Ast.AstVar @s1 var)))
-        (Ast.AstPlainPart (Ast.AstProject2 (Ast.AstVar @s2 var')))
-  | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2)
-  , Just Refl <- testEquality var var', var == var' =
-    Ast.AstPlainPart (Ast.AstVar var)
-astPair (Ast.AstProject1 (Ast.AstProject1 (Ast.AstVar var)))
-        (Ast.AstProject2 (Ast.AstProject1 (Ast.AstVar var')))
-  | Just Refl <- testEquality var var', var == var' =
-    Ast.AstProject1 (Ast.AstVar var)
-astPair (Ast.AstProject1 (Ast.AstProject2 (Ast.AstVar var)))
-        (Ast.AstProject2 (Ast.AstProject2 (Ast.AstVar var')))
-  | Just Refl <- testEquality var var', var == var' =
-    Ast.AstProject2 (Ast.AstVar var)
+astPair (Ast.AstProject1 t1) (Ast.AstProject2 t2)
+  | Just Refl <- eqUnknownShapes t1 t2 = t1
 astPair (Ast.AstFromPrimal v1) (Ast.AstFromPrimal v2) =
   fromPrimal $ astPair v1 v2
 astPair (Ast.AstFromDual v1) (Ast.AstFromDual v2) =
@@ -1282,73 +1259,23 @@ astPlusK = \cases
   -- Unfortunately, these only fire if the required subterms are at the top
   -- of the reduced term, which happens rarely except in small terms.
   -- We could keep variables at the top, but they'd compete with AstConcreteK.
-  (Ast.AstN1K NegateOp (Ast.AstVar var)) (Ast.AstVar var')
-    | var == var' -> fromPlain $ AstConcreteK 0
-  (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var)))
-    (Ast.AstConvert _ (Ast.AstVar var'))
-      | varNameToAstVarId var == varNameToAstVarId var' ->
-        fromPlain $ AstConcreteK 0
-  (Ast.AstN1K NegateOp (Ast.AstVar var)) (AstPlusK (Ast.AstVar var') u)
-    | var == var' -> u
-  (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var)))
-    (AstPlusK (Ast.AstConvert _ (Ast.AstVar var')) u)
-      | varNameToAstVarId var == varNameToAstVarId var' -> u
-  (Ast.AstVar var') (Ast.AstN1K NegateOp (Ast.AstVar var))
-    | var == var' -> fromPlain $ AstConcreteK 0
-  (Ast.AstConvert _ (Ast.AstVar var'))
-    (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var)))
-      | varNameToAstVarId var == varNameToAstVarId var' ->
-        fromPlain $ AstConcreteK 0
-  (Ast.AstVar var') (AstPlusK (Ast.AstN1K NegateOp (Ast.AstVar var)) u)
-    | var == var' -> u
-  (Ast.AstConvert _ (Ast.AstVar var'))
-    (AstPlusK (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var))) u)
-      | varNameToAstVarId var == varNameToAstVarId var' -> u
+  (Ast.AstN1K NegateOp t1) t2 | eqY t1 t2 -> fromPlain $ AstConcreteK 0
+  (Ast.AstN1K NegateOp t1) (AstPlusK t2 u) | eqY t1 t2 -> u
+  t2 (Ast.AstN1K NegateOp t1) | eqY t1 t2 -> fromPlain $ AstConcreteK 0
+  t2 (AstPlusK (Ast.AstN1K NegateOp t1) u) | eqY t1 t2 -> u
 
-  (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstVar var)) n)
-    (Ast.AstI2K RemOp (Ast.AstVar var') n')
-      | Just n0 <- unAstK n
-      , Just n'0 <- unAstK n'
-      , var == var' && n0 == n'0 -> fromPlain $ AstConcreteK 0
-  (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var))) n)
-    (Ast.AstI2K RemOp (Ast.AstConvert _ (Ast.AstVar var')) n')
-      | Just n0 <- unAstK n
-      , Just n'0 <- unAstK n'
-      , varNameToAstVarId var == varNameToAstVarId var' && n0 == n'0 ->
-        fromPlain $ AstConcreteK 0
-  (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstVar var)) n)
-    (AstPlusK (Ast.AstI2K RemOp (Ast.AstVar var') n') u)
-      | Just n0 <- unAstK n
-      , Just n'0 <- unAstK n'
-      , var == var' && n0 == n'0 -> u
-  (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var))) n)
-    (AstPlusK (Ast.AstI2K RemOp (Ast.AstConvert _ (Ast.AstVar var')) n') u)
-      | Just n0 <- unAstK n
-      , Just n'0 <- unAstK n'
-      , varNameToAstVarId var == varNameToAstVarId var' && n0 == n'0 -> u
-  (Ast.AstI2K RemOp (Ast.AstVar var') n')
-    (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstVar var)) n)
-      | Just n0 <- unAstK n
-      , Just n'0 <- unAstK n'
-      , var == var' && n0 == n'0 -> fromPlain $ AstConcreteK 0
-  (Ast.AstI2K RemOp (Ast.AstConvert _ (Ast.AstVar var')) n')
-    (Ast.AstI2K RemOp (Ast.AstN1K NegateOp
-                                  (Ast.AstConvert _ (Ast.AstVar var))) n)
-      | Just n0 <- unAstK n
-      , Just n'0 <- unAstK n'
-      , varNameToAstVarId var == varNameToAstVarId var' && n0 == n'0 ->
-        fromPlain $ AstConcreteK 0
-  (Ast.AstI2K RemOp (Ast.AstVar var') n')
-    (AstPlusK (Ast.AstI2K RemOp (Ast.AstN1K NegateOp (Ast.AstVar var)) n) u)
-      | Just n0 <- unAstK n
-      , Just n'0 <- unAstK n'
-      , var == var' && n0 == n'0 -> u
-  (Ast.AstI2K RemOp (Ast.AstConvert _ (Ast.AstVar var')) n')
-    (AstPlusK (Ast.AstI2K RemOp
-              (Ast.AstN1K NegateOp (Ast.AstConvert _ (Ast.AstVar var))) n) u)
-      | Just n0 <- unAstK n
-      , Just n'0 <- unAstK n'
-      , varNameToAstVarId var == varNameToAstVarId var' && n0 == n'0 -> u
+  (Ast.AstI2K RemOp (Ast.AstN1K NegateOp t1) n)
+    (Ast.AstI2K RemOp t2 n')
+      | eqY t1 t2 && eqY n n' -> fromPlain $ AstConcreteK 0
+  (Ast.AstI2K RemOp (Ast.AstN1K NegateOp t1) n)
+    (AstPlusK (Ast.AstI2K RemOp t2 n') u)
+      | eqY t1 t2 && eqY n n' -> u
+  (Ast.AstI2K RemOp t1 n')
+    (Ast.AstI2K RemOp (Ast.AstN1K NegateOp t2) n)
+      | eqY t1 t2 && eqY n n' -> fromPlain $ AstConcreteK 0
+  (Ast.AstI2K RemOp t1 n')
+    (AstPlusK (Ast.AstI2K RemOp (Ast.AstN1K NegateOp t2) n) u)
+      | eqY t1 t2 && eqY n n' -> u
 
   (AstPlusK u v) w | Just u0 <- unAstK u ->
     astPlusK (fromPlain $ AstConcreteK u0) (astPlusK v w)
@@ -1445,7 +1372,7 @@ astTimesK = \cases
 
   (Ast.AstN1K NegateOp u) (Ast.AstN1K NegateOp v) -> astTimesK u v
 
-  {- TODO: these rules increase the number of occurrences of a variable
+  {- TODO: such rules increase the number of occurrences of a variable
      and trade multiplication and quotient for an equally problematic remnant,
      so they are disabled until we find a way to profit from them.
   -- With static shapes, the second argument to QuotOp and RemOp
@@ -1456,29 +1383,7 @@ astTimesK = \cases
     | n == n' ->
       AstPlusK
         (astVar var)
-        (negate (Ast.AstI2K RemOp (astVar var) (AstConcreteK n)))
-  (AstTimesK (AstConcreteK n) x) (Ast.AstI2K QuotOp (Ast.AstVar var)
-                                                (AstConcreteK n'))
-    | n == n' ->
-      AstTimesK
-        x
-        (AstPlusK
-           (astVar var)
-           (negate (Ast.AstI2K RemOp (astVar var) (AstConcreteK n))))
-  (Ast.AstI2K QuotOp (Ast.AstVar var) (AstConcreteK n')) (AstConcreteK n)
-    | n == n' ->
-      AstPlusK
-        (astVar var)
-        (negate (Ast.AstI2K RemOp (astVar var) (AstConcreteK n)))
-  (Ast.AstI2K QuotOp (Ast.AstVar var)
-                 (AstConcreteK n')) (AstTimesK (AstConcreteK n) x)
-    | n == n' ->
-      AstTimesK
-        (AstPlusK
-           (astVar var)
-           (negate (Ast.AstI2K RemOp (astVar var) (AstConcreteK n))))
-        x
-  -}
+        (negate (Ast.AstI2K RemOp (astVar var) (AstConcreteK n))) -}
 
   (AstTimesK u v) w | Just u0 <- unAstK u ->
     astTimesK (fromPlain $ AstConcreteK u0) (astTimesK v w)
@@ -1568,9 +1473,7 @@ astR2K opCode = \cases
       _ | Just 1 <- unAstK v -> u
       _ | Just 0 <- unAstK v -> u  -- the partiality-removal hack
       AstTimesK n t
-        | Just n0 <- unAstK n
-        , Just v0 <- unAstK v
-        , n0 == v0 -> t
+        | eqY n v -> t
       _ -> Ast.AstR2K DivideOp u v
              -- TODO: add other rules that are relatively numerically stable
     _ -> Ast.AstR2K opCode u v
@@ -1610,9 +1513,7 @@ astI2K opCode = \cases
       (Ast.AstI2K QuotOp u0 v0, _) ->
         astI2K QuotOp u0 (astTimesK v0 v)
       (AstTimesK n t, _)
-        | Just n0 <- unAstK n
-        , Just v0 <- unAstK v
-        , n0 == v0 -> t
+        | eqY n v -> t
       _ -> Ast.AstI2K QuotOp u v
     RemOp -> case (u, v) of
       _ | Just u0 <- unAstK u
@@ -1816,14 +1717,12 @@ astPlusS = \cases
   u (AstConvUpSFromK v) -> sfromK $ astPlusK (kfromS u) v
   (AstConvUpSFromK u) v -> sfromK $ astPlusK u (kfromS v)
 
-  (Ast.AstN1S NegateOp (Ast.AstVar var)) (Ast.AstVar var')
-    | var == var' -> fromPlain $ AstConcreteS $ defTargetRep $ varNameToFTK var
-  (Ast.AstN1S NegateOp (Ast.AstVar var)) (AstPlusS (Ast.AstVar var') u)
-    | var == var' -> u
-  (Ast.AstVar var') (Ast.AstN1S NegateOp (Ast.AstVar var))
-    | var == var' -> fromPlain $ AstConcreteS $ defTargetRep $ varNameToFTK var
-  (Ast.AstVar var') (AstPlusS (Ast.AstN1S NegateOp (Ast.AstVar var)) u)
-    | var == var' -> u
+  (Ast.AstN1S NegateOp t1) t2 | eqY t1 t2 ->
+    fromPlain $ AstConcreteS $ defTargetRep $ ftkAst t1
+  (Ast.AstN1S NegateOp t1) (AstPlusS t2 u) | eqY t1 t2 -> u
+  t2 (Ast.AstN1S NegateOp t1) | eqY t1 t2 ->
+    fromPlain $ AstConcreteS $ defTargetRep $ ftkAst t1
+  t2 (AstPlusS (Ast.AstN1S NegateOp t1) u) | eqY t1 t2 -> u
 
   (AstPlusS u v) w | Just u0 <- unAstS u ->
     astPlusS (fromPlain $ AstConcreteS u0) (astPlusS v w)
@@ -5173,6 +5072,7 @@ astLeq :: forall sh r. NumScalar r
        -> AstTensor AstMethodLet PlainSpan (TKS sh r)
        -> AstBool AstMethodLet
 astLeq = \cases
+  u v | eqY u v -> true
   (AstConcreteS u) (AstConcreteS v) ->
     AstConcreteK $ Shaped.stoPrimitive u <= Shaped.stoPrimitive v
   u (AstPlusS (AstConcreteS v) w) ->
@@ -5181,12 +5081,9 @@ astLeq = \cases
     astLeq (AstConcreteS u) (astPlusS v (negate w))
   u (AstConcreteS v) ->
     astLeq (AstConcreteS (negate v)) (negate u)
-  (Ast.AstConvert _ (Ast.AstVar u)) (Ast.AstConvert _ (Ast.AstVar v))
-    | varNameToAstVarId u == varNameToAstVarId v -> true
   (AstConvUpSFromK w) (AstConvUpSFromK v) -> astLeqK w v
   w (AstConvUpSFromK v) -> astLeqK (kfromS w) v
   (AstConvUpSFromK v) w -> astLeqK v (kfromS w)
-  (Ast.AstVar u) (Ast.AstVar v) | u == v -> true
   u v -> Ast.AstLeq u v
 
 astLeqS :: forall shb sh r. NumScalar r

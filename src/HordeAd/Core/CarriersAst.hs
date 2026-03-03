@@ -12,7 +12,8 @@
 -- to be expressed as AST terms.
 module HordeAd.Core.CarriersAst
   ( AstRaw(..), AstNoVectorize(..), AstNoSimplify(..)
-  , sunReplicate, sunReplicate1, sunReplicateN, unReplC, unAstK, unAstS, eqY
+  , sunReplicate, sunReplicate1, sunReplicateN, unReplC, unAstK, unAstS
+  , eqY, eqUnknownShapes
   ) where
 
 import Prelude
@@ -191,6 +192,11 @@ eqY :: AstTensor ms s y -> AstTensor ms s y -> Bool
 eqY t1 t2 = case eqZ t1 t2 of
   Just Refl -> True
   Nothing -> False
+
+-- | An approximation of equality, where `Just Refl` means that
+-- the shapes of the terms are equal and the values denoted by them are equal.
+eqUnknownShapes :: AstTensor ms s y -> AstTensor ms s z -> Maybe (y :~: z)
+eqUnknownShapes = eqZ
 
 -- | An approximation of equality, where `Just Refl` means that
 -- the shapes of the terms are equal and if their spans are equal
