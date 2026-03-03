@@ -701,7 +701,7 @@ astCond :: KnownSpan s
         -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s y
 astCond b v w | Just b0 <- unAstK b = if b0 then v else w
-astCond _b u v | FTKScalar <- ftkAst u, eqY u v = u
+astCond _b u v | eqY u v = u
 astCond b v w | FTKS (snat :$$ sh) x <- ftkAst v
               , Just v1 <- unRepl1 v
               , Just w1 <- unRepl1 w =
@@ -1282,6 +1282,7 @@ astPlusK = \cases
   u v | Just v0 <- unAstK v -> AstPlusK (fromPlain $ AstConcreteK v0) u
   u (AstPlusK v w) | Just v0 <- unAstK v ->
     astPlusK (fromPlain $ AstConcreteK v0) (astPlusK u w)
+
   t1 t2 | eqY t1 t2 -> fromPlain (AstConcreteK 2) `astTimesK` t1
   t1 (AstPlusK t2 w) | eqY t1 t2 ->
     fromPlain (AstConcreteK 2) `astTimesK` t1 + w
@@ -1297,6 +1298,7 @@ astPlusK = \cases
   (AstTimesK n t2) (AstPlusK t1 w) | Just n0 <- unAstK n
                                    , eqY t1 t2 ->
     fromPlain (AstConcreteK (n0 + 1)) `astTimesK` t1 + w
+
   (AstTimesK n1 t1) (AstTimesK n2 t2)
     | Just n10 <- unAstK n1
     , Just n20 <- unAstK n2
@@ -1730,6 +1732,15 @@ astPlusS = \cases
   u (AstPlusS v w) | Just v0 <- unAstS v ->
     astPlusS (fromPlain $ AstConcreteS v0) (astPlusS u w)
 
+  (AstTimesS n1 t1) (AstTimesS n2 t2)
+    | Just n10 <- unAstS n1
+    , Just n20 <- unAstS n2
+    , eqY t1 t2 -> fromPlain (AstConcreteS (n10 + n20)) `astTimesS` t1
+  (AstTimesS n1 t1) (AstPlusS (AstTimesS n2 t2) w)
+    | Just n10 <- unAstS n1
+    , Just n20 <- unAstS n2
+    , eqY t1 t2 -> fromPlain (AstConcreteS (n10 + n20)) `astTimesS` t1 + w
+
   u0 v0 -> fromMaybe (AstPlusS u0 v0) $ case (u0, v0) of
     ( Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
                                  u (var ::$ vars, ix)
@@ -1961,7 +1972,7 @@ astTimesS = \cases
 
   -- This breaks sharing, because although u is concrete and so doesn't
   -- have to be shared, the multiplication is not shared --- we end up
-  -- with one addition and two multiplications, not one. Similarly below.
+  -- with one addition and two multiplications, not one.
   -- u@AstConcreteS{} * AstPlusS v w -> AstPlusS (astTimesS u v) (u * w)
   -- AstTimesS u@AstConcreteS{} x * AstPlusS v w =
   --   AstTimesS x (AstPlusS (astTimesS u v) (u * w))
@@ -2089,6 +2100,8 @@ astR2S opCode = \cases
       _ | Just 1 <- unReplC u -> recip v
       _ | Just 1 <- unReplC v -> u
       _ | Just 0 <- unReplC v -> u  -- the partiality-removal hack
+      AstTimesS n t
+        | eqY n v -> t
       _ -> Ast.AstR2S DivideOp u v
              -- TODO: add other rules that are relatively numerically stable
     _ -> Ast.AstR2S opCode u v
@@ -2127,6 +2140,8 @@ astI2S opCode = \cases
       _ | Just 0 <- unReplC v -> u  -- the partiality-removal hack
       (Ast.AstI2S QuotOp u0 v0, _) ->
         astI2S QuotOp u0 (astTimesS v0 v)
+      (AstTimesS n t, _)
+        | eqY n v -> t
       _ -> Ast.AstI2S QuotOp u v
     RemOp -> case (u, v) of
       _ | Just u0 <- unAstS u
@@ -2503,15 +2518,15 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
      in case 0 <=. i1 &&* i1 <=. valueOf @m71 - 1 of
        AstConcreteK b -> if b then u else defArr
        _ -> Ast.AstIndexS shn v0 ix
-   Ast.AstIotaS (SNat @k) -> case testEquality shn ZSS of
-     Just Refl ->
+   Ast.AstIotaS (SNat @k) -> case shn of
+     ZSS ->
        let ftk = FTKS ZSS x
            defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
        in astLetFun i1 $ \i ->
          astCond (0 <=. i &&* i <=. valueOf @k - 1)
                  (astFromIntegralS $ sfromK i)
                  defArr
-     _ -> error "astIndexKnobsS: shape not []"
+     _ -> error "astIndexKnobsS: shn not []"
    Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
      if knobPhase knobs == PhaseExpansion then
        astLetFun i1 $ \i ->
@@ -3837,8 +3852,8 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
     Ast.AstIndexS @shm2 _shn2 v2 (i2 :.$ ZIS) ->
         astGather @shm @shn @(shm2 ++ shp) shn v2 (vars4, i2 :.$ ix4) -}
     Ast.AstIndexS{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
-    Ast.AstScatterS shm7 shn7 shp7 v (vars, AstIntVar var5 :.$ ix2)
-      | AstIntVar var6 <- i4, var6 == var5 ->
+    Ast.AstScatterS shm7 shn7 shp7 v (vars, i5 :.$ ix2)
+      | eqY i4 i5 ->
         astGather shm shn (shsTail shp)
                   (astScatter shm7 shn7 (shsTail shp7) v (vars, ix2))
                   (vars4, rest4)
@@ -4928,6 +4943,7 @@ astBoolNotS = Ast.AstBoolNotS
 astBoolAndK :: AstBool AstMethodLet -> AstBool AstMethodLet
             -> AstBool AstMethodLet
 astBoolAndK = \cases
+  u v | eqY u v -> u
   (AstConcreteK True) b -> b
   (AstConcreteK False) _b -> AstConcreteK False
   b (AstConcreteK True) -> b
@@ -5312,14 +5328,15 @@ instance Boolean (AstBool AstMethodLet) where
 -- worth sharing.
 instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKScalar r) where
-  v ==. u | eqY v u = true
-  vUnshared ==. uUnshared = astLetFun (uUnshared - vUnshared) $ \uv ->
+  u ==. v | eqY u v = true
+  uUnshared ==. vUnshared = astLetFun (uUnshared - vUnshared) $ \uv ->
     0 <=. uv &&* uv <=. 0
 
 instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKS sh r) where
-  vUnshared ==. uUnshared = astLetFun (uUnshared - vUnshared) $ \uv ->
-    let zero = fromPlain $ AstConcreteS $ defTargetRep $ ftkAst vUnshared
+  u ==. v | eqY u v = true
+  uUnshared ==. vUnshared = astLetFun (uUnshared - vUnshared) $ \uv ->
+    let zero = fromPlain $ AstConcreteS $ defTargetRep $ ftkAst uUnshared
     in zero <=. uv &&* uv <=. zero
 
 instance (KnownSpan s, NumScalar r)
