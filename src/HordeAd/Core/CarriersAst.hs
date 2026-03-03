@@ -194,11 +194,12 @@ eqK (AstLet _ _  v1) (AstLet _ _ v2) = eqK v1 v2
 eqK v1 (AstLet _ _ v2) = eqK v1 v2
 eqK (AstLet _ _  v1) v2 = eqK v1 v2
 eqK (AstPrimalPart u1) (AstPrimalPart u2) = eqK u1 u2
+eqK (AstDualPart u1) (AstDualPart u2) = eqK u1 u2
 eqK (AstPlainPart @_ @s1 u1) (AstPlainPart @_ @s2 u2)
   | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
     eqK u1 u2
 eqK (AstFromPrimal u1) (AstFromPrimal u2) = eqK u1 u2
-eqK AstFromDual{} AstFromDual{} = True
+eqK (AstFromDual u1) (AstFromDual u2) = eqK u1 u2
 eqK (AstFromPlain u1) (AstFromPlain u2) = eqK u1 u2
 eqK (AstPlusK u1 v1) (AstPlusK u2 v2) =
   eqK u1 u2 && eqK v1 v2 || eqK u1 v2 && eqK v1 u2
