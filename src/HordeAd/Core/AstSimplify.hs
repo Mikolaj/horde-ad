@@ -101,7 +101,7 @@ import HordeAd.Core.Ast qualified as Ast (AstTensor(..))
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersAst
-  (eqK, sunReplicate1, sunReplicateN, sunReplicate, unReplC, unAstK, unAstS)
+  (eqY, sunReplicate1, sunReplicateN, sunReplicate, unReplC, unAstK, unAstS)
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor
@@ -724,7 +724,7 @@ astCond :: KnownSpan s
         -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
         -> AstTensor AstMethodLet s y
 astCond b v w | Just b0 <- unAstK b = if b0 then v else w
-astCond _b u v | FTKScalar <- ftkAst u, eqK u v = u
+astCond _b u v | FTKScalar <- ftkAst u, eqY u v = u
 astCond b v w | FTKS (snat :$$ sh) x <- ftkAst v
               , Just v1 <- unRepl1 v
               , Just w1 <- unRepl1 w =
@@ -736,29 +736,29 @@ astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
   fromDual $ astCond b v w
 astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
   fromPlain $ astCond b v w
-astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqK u1 v1 =
+astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqY u1 v1 =
   astPlusK u1 (astCond b u2 v2)
-astCond b (AstPlusK u1 u2) v1 | eqK u1 v1 =
+astCond b (AstPlusK u1 u2) v1 | eqY u1 v1 =
   astPlusK u1 (astCond b u2 0)
-astCond b u1 (AstPlusK v1 v2) | eqK u1 v1 =
+astCond b u1 (AstPlusK v1 v2) | eqY u1 v1 =
   astPlusK u1 (astCond b 0 v2)
-astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqK u2 v2 =
+astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqY u2 v2 =
   astPlusK (astCond b u1 v1) u2
-astCond b (AstPlusK u1 u2) v2 | eqK u2 v2 =
+astCond b (AstPlusK u1 u2) v2 | eqY u2 v2 =
   astPlusK (astCond b u1 0) u2
-astCond b u2 (AstPlusK v1 v2) | eqK u2 v2 =
+astCond b u2 (AstPlusK v1 v2) | eqY u2 v2 =
   astPlusK (astCond b 0 v1) u2
-astCond b (AstTimesK u1 u2) (AstTimesK v1 v2) | eqK u1 v1 =
+astCond b (AstTimesK u1 u2) (AstTimesK v1 v2) | eqY u1 v1 =
   astTimesK u1 (astCond b u2 v2)
-astCond b (AstTimesK u1 u2) v1 | eqK u1 v1 =
+astCond b (AstTimesK u1 u2) v1 | eqY u1 v1 =
   astTimesK u1 (astCond b u2 0)
-astCond b u1 (AstTimesK v1 v2) | eqK u1 v1 =
+astCond b u1 (AstTimesK v1 v2) | eqY u1 v1 =
   astTimesK u1 (astCond b 0 v2)
-astCond b (AstTimesK u1 u2) (AstTimesK v1 v2) | eqK u2 v2 =
+astCond b (AstTimesK u1 u2) (AstTimesK v1 v2) | eqY u2 v2 =
   astTimesK (astCond b u1 v1) u2
-astCond b u2 (AstTimesK v1 v2) | eqK u2 v2 =
+astCond b u2 (AstTimesK v1 v2) | eqY u2 v2 =
   astTimesK (astCond b 0 v1) u2
-astCond b (AstTimesK u1 u2) v2 | eqK u2 v2 =
+astCond b (AstTimesK u1 u2) v2 | eqY u2 v2 =
   astTimesK (astCond b u1 0) u2
 astCond _b (Ast.AstIotaS n) Ast.AstIotaS{} = Ast.AstIotaS n
 -- We rely here on c and the other conversion being semantically equal.
@@ -796,7 +796,7 @@ astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
         varFalse = reboundsVarName (lb, min ub (k - 1)) var
         d = substituteAst (astVar varTrue) var v
             - fromPlain (astVar varTrue)
-  , eqK (fromPlain (astVar varFalse)
+  , eqY (fromPlain (astVar varFalse)
          + substituteAst (astVar varFalse) varTrue d)
         (substituteAst (astVar varFalse) var w) =
     substituteAst var0 varTrue d + fromPlain var0 -}
@@ -811,9 +811,9 @@ astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
         varFalse = reboundsVarName (lb, min ub (k - 1)) var
         d = fromPlain (AstConcreteK k)  -- a simplified guess
             `quotH` substituteAst (AstConcreteK k) var v
-  , eqK (fromPlain (astVar varTrue) `quotH` d)
+  , eqY (fromPlain (astVar varTrue) `quotH` d)
         (substituteAst (astVar varTrue) var v)
-  , eqK (fromPlain (astVar varFalse) `quotH` d)
+  , eqY (fromPlain (astVar varFalse) `quotH` d)
         (substituteAst (astVar varFalse) var w) =
     fromPlain var0 `quotH` d
 astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
@@ -824,9 +824,9 @@ astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
         varFalse = reboundsVarName (lb, min ub (k - 1)) var
         d = fromPlain (AstConcreteK (k - 1))  -- the only change vs above
             `quotH` substituteAst (AstConcreteK (k - 1)) var w
-  , eqK (fromPlain (astVar varTrue) `quotH` d)
+  , eqY (fromPlain (astVar varTrue) `quotH` d)
         (substituteAst (astVar varTrue) var v)
-  , eqK (fromPlain (astVar varFalse) `quotH` d)
+  , eqY (fromPlain (astVar varFalse) `quotH` d)
         (substituteAst (astVar varFalse) var w) =
     fromPlain var0 `quotH` d -}
 astCond b v w = Ast.AstCond b v w
@@ -1355,29 +1355,29 @@ astPlusK = \cases
   u v | Just v0 <- unAstK v -> AstPlusK (fromPlain $ AstConcreteK v0) u
   u (AstPlusK v w) | Just v0 <- unAstK v ->
     astPlusK (fromPlain $ AstConcreteK v0) (astPlusK u w)
-  t1 t2 | eqK t1 t2 -> fromPlain (AstConcreteK 2) `astTimesK` t1
-  t1 (AstPlusK t2 w) | eqK t1 t2 ->
+  t1 t2 | eqY t1 t2 -> fromPlain (AstConcreteK 2) `astTimesK` t1
+  t1 (AstPlusK t2 w) | eqY t1 t2 ->
     fromPlain (AstConcreteK 2) `astTimesK` t1 + w
   t1 (AstTimesK n t2) | Just n0 <- unAstK n
-                      , eqK t1 t2 ->
+                      , eqY t1 t2 ->
     fromPlain (AstConcreteK (n0 + 1)) `astTimesK` t1
   t1 (AstPlusK (AstTimesK n t2) w) | Just n0 <- unAstK n
-                                   , eqK t1 t2 ->
+                                   , eqY t1 t2 ->
     fromPlain (AstConcreteK (n0 + 1)) `astTimesK` t1 + w
   (AstTimesK n t2) t1 | Just n0 <- unAstK n
-                      , eqK t1 t2 ->
+                      , eqY t1 t2 ->
     fromPlain (AstConcreteK (n0 + 1)) `astTimesK` t1
   (AstTimesK n t2) (AstPlusK t1 w) | Just n0 <- unAstK n
-                                   , eqK t1 t2 ->
+                                   , eqY t1 t2 ->
     fromPlain (AstConcreteK (n0 + 1)) `astTimesK` t1 + w
   (AstTimesK n1 t1) (AstTimesK n2 t2)
     | Just n10 <- unAstK n1
     , Just n20 <- unAstK n2
-    , eqK t1 t2 -> fromPlain (AstConcreteK (n10 + n20)) `astTimesK` t1
+    , eqY t1 t2 -> fromPlain (AstConcreteK (n10 + n20)) `astTimesK` t1
   (AstTimesK n1 t1) (AstPlusK (AstTimesK n2 t2) w)
     | Just n10 <- unAstK n1
     , Just n20 <- unAstK n2
-    , eqK t1 t2 -> fromPlain (AstConcreteK (n10 + n20)) `astTimesK` t1 + w
+    , eqY t1 t2 -> fromPlain (AstConcreteK (n10 + n20)) `astTimesK` t1 + w
   u v -> AstPlusK u v
 
 astTimesK :: (NumScalar r, KnownSpan s)
@@ -5138,7 +5138,7 @@ astLeqK :: forall r. NumScalar r
         -> AstTensor AstMethodLet PlainSpan (TKScalar r)
         -> AstBool AstMethodLet
 astLeqK = \cases
-  u v | eqK u v -> true
+  u v | eqY u v -> true
   u v | Just (u1, u2) <- bounds u
       , Just (v1, v2) <- bounds v
       , u2 <= v1 || u1 > v2 -> AstConcreteK (u2 <= v1)
@@ -5415,7 +5415,7 @@ instance Boolean (AstBool AstMethodLet) where
 -- worth sharing.
 instance (KnownSpan s, NumScalar r)
          => EqH (AstTensor AstMethodLet s) (TKScalar r) where
-  v ==. u | eqK v u = true
+  v ==. u | eqY v u = true
   vUnshared ==. uUnshared = astLetFun (uUnshared - vUnshared) $ \uv ->
     0 <=. uv &&* uv <=. 0
 
