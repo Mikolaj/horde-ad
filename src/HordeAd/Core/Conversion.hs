@@ -10,7 +10,7 @@ import Prelude hiding ((.))
 
 import Control.Category
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Equality (TestEquality (..), gcastWith, (:~:) (Refl))
 import GHC.TypeLits (type (+))
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
@@ -77,6 +77,46 @@ deriving instance Show (TKConversion a b)
 instance Category TKConversion where
   id = ConvId
   (.) = convCmp
+
+instance TestEquality (TKConversion a) where
+  testEquality = \cases
+    ConvId ConvId -> Just Refl
+    (ConvCmp c1 d1) (ConvCmp c2 d2)
+      | Just Refl <- testEquality d1 d2
+      , Just Refl <- testEquality c1 c2 -> Just Refl
+    ConvRX ConvRX -> Just Refl
+    ConvSX ConvSX -> Just Refl
+    (ConvXR stk1) (ConvXR stk2)
+      | Just Refl <- sameSTK stk1 stk2 -> Just Refl
+    ConvXS ConvXS -> Just unsafeCoerceRefl
+                       -- equality with MapJust implies equality without
+    (ConvXS' ftk1) (ConvXS' ftk2)
+      | Just Refl <- matchingFTK ftk1 ftk2 -> Just Refl
+    (ConvXX' ftk1) (ConvXX' ftk2)
+      | Just Refl <- matchingFTK ftk1 ftk2 -> Just Refl
+    (ConvRR c1) (ConvRR c2)
+      | Just Refl <- testEquality c1 c2 -> Just Refl
+    (ConvSS c1) (ConvSS c2)
+      | Just Refl <- testEquality c1 c2 -> Just Refl
+    (ConvXX c1) (ConvXX c2)
+      | Just Refl <- testEquality c1 c2 -> Just Refl
+    (ConvT2 c1 d1) (ConvT2 c2 d2)
+      | Just Refl <- testEquality c1 c2
+      , Just Refl <- testEquality d1 d2 -> Just Refl
+    (Conv0X stk1) (Conv0X stk2)
+      | Just Refl <- sameSTK stk1 stk2 -> Just Refl
+    ConvX0 ConvX0 -> Just Refl
+    (ConvNest stk1) (ConvNest stk2)
+      | Just Refl <- sameSTK stk1 stk2 -> Just unsafeCoerceRefl
+                                            -- (sh ++) is morally injective
+    ConvUnnest ConvUnnest -> Just Refl
+    (ConvZip stk1 stk'1) (ConvZip stk2 stk'2)
+      | Just Refl <- sameSTK stk1 stk2
+      , Just Refl <- sameSTK stk'1 stk'2 -> Just Refl
+    (ConvUnzip stk1 stk'1) (ConvUnzip stk2 stk'2)
+      | Just Refl <- sameSTK stk1 stk2
+      , Just Refl <- sameSTK stk'1 stk'2 -> Just Refl
+    _ _ -> Nothing
 
 -- TODO: expand
 convCmp :: TKConversion b c -> TKConversion a b -> TKConversion a c

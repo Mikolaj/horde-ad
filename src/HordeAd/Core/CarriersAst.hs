@@ -185,69 +185,145 @@ unAstS (AstConvert (ConvCmp ConvXS (Conv0X STKScalar)) (AstConcreteK r)) =
   Just $ Nested.sscalar r
 unAstS _ = Nothing
 
--- | An approximation. False doesn't imply terms have different semantics,
--- but True implies they have equal semantics.
+-- | An approximation of equality. `False` doesn't imply terms
+-- have different semantics, but `True` implies they have equal semantics.
 eqY :: AstTensor ms s y -> AstTensor ms s y -> Bool
-eqY (AstPair u1 v1) (AstPair u2 v2) = eqY u1 u2 && eqY v1 v2
-eqY (AstSum k1 stk1 u1) (AstSum k2 stk2 u2)
+eqY t1 t2 = case eqZ t1 t2 of
+  Just Refl -> True
+  Nothing -> False
+
+-- | An approximation of equality, where `Just Refl` means that
+-- the shapes of the terms are equal and if their spans are equal
+-- then the values denoted by them are equal.
+eqZ :: AstTensor ms s1 y -> AstTensor ms s2 z -> Maybe (y :~: z)
+eqZ (AstPair u1 v1) (AstPair u2 v2)
+  | Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstProject1 u1) (AstProject1 u2) | Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstProject2 u1) (AstProject2 u2) | Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstSum _ stk1 u1) (AstSum _ stk2 u2)
+  | Just Refl <- sameSTK stk1 stk2
+  , Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstReplicate k1 _ u1) (AstReplicate k2 _ u2)
   | Just Refl <- testEquality k1 k2
-  , Just Refl <- sameSTK stk1 stk2 = eqY u1 u2
-eqY (AstReplicate _ stk1 u1) (AstReplicate _ stk2 u2)
-  | Just Refl <- sameSTK stk1 stk2 = eqY u1 u2
--- This is wrong for ==. but correct for this approximation:
-eqY (AstVar var1) (AstVar var2) = var1 == var2
-eqY (AstLet _ _  v1) (AstLet _ _ v2) = eqY v1 v2
-eqY v1 (AstLet _ _ v2) = eqY v1 v2
-eqY (AstLet _ _  v1) v2 = eqY v1 v2
-eqY (AstPrimalPart u1) (AstPrimalPart u2) = eqY u1 u2
-eqY (AstDualPart u1) (AstDualPart u2) = eqY u1 u2
-eqY (AstPlainPart @_ @s1 u1) (AstPlainPart @_ @s2 u2)
-  | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) =
-    eqY u1 u2
-eqY (AstFromPrimal u1) (AstFromPrimal u2) = eqY u1 u2
-eqY (AstFromDual u1) (AstFromDual u2) = eqY u1 u2
-eqY (AstFromPlain u1) (AstFromPlain u2) = eqY u1 u2
-eqY (AstPlusK u1 v1) (AstPlusK u2 v2) =
-  eqY u1 u2 && eqY v1 v2 || eqY u1 v2 && eqY v1 u2
-eqY (AstTimesK u1 v1) (AstTimesK u2 v2) =
-  eqY u1 u2 && eqY v1 v2 || eqY u1 v2 && eqY v1 u2
-eqY (AstN1K opCode1 u1) (AstN1K opCode2 u2) = opCode1 == opCode2 && eqY u1 u2
-eqY (AstR1K opCode1 u1) (AstR1K opCode2 u2) = opCode1 == opCode2 && eqY u1 u2
-eqY (AstR2K opCode1 u1 v1) (AstR2K opCode2 u2 v2) =
-  opCode1 == opCode2 && eqY u1 u2 && eqY v1 v2
-eqY (AstI2K opCode1 u1 v1) (AstI2K opCode2 u2 v2) =
-  opCode1 == opCode2 && eqY u1 u2 && eqY v1 v2
-eqY (AstConcreteK u1) (AstConcreteK u2) = u1 == u2
-eqY (AstFloorK @r1 u1) (AstFloorK @r2 u2)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqY u1 u2
-eqY (AstFromIntegralK @r1 u1) (AstFromIntegralK @r2 u2)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqY u1 u2
-eqY (AstCastK @r1 u1) (AstCastK @r2 u2)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqY u1 u2
-eqY (AstPlusS u1 v1) (AstPlusS u2 v2) =
-  eqY u1 u2 && eqY v1 v2 || eqY u1 v2 && eqY v1 u2
-eqY (AstTimesS u1 v1) (AstTimesS u2 v2) =
-  eqY u1 u2 && eqY v1 v2 || eqY u1 v2 && eqY v1 u2
-eqY (AstN1S opCode1 u1) (AstN1S opCode2 u2) = opCode1 == opCode2 && eqY u1 u2
-eqY (AstR1S opCode1 u1) (AstR1S opCode2 u2) = opCode1 == opCode2 && eqY u1 u2
-eqY (AstR2S opCode1 u1 v1) (AstR2S opCode2 u2 v2) =
-  opCode1 == opCode2 && eqY u1 u2 && eqY v1 v2
-eqY (AstI2S opCode1 u1 v1) (AstI2S opCode2 u2 v2) =
-  opCode1 == opCode2 && eqY u1 u2 && eqY v1 v2
-eqY (AstFloorS @r1 u1) (AstFloorS @r2 u2)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqY u1 u2
-eqY (AstFromIntegralS @r1 u1) (AstFromIntegralS @r2 u2)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqY u1 u2
-eqY (AstCastS @r1 u1) (AstCastS @r2 u2)
-  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) = eqY u1 u2
-eqY (AstIotaS k1) (AstIotaS k2) = k1 == k2
-eqY (AstReverseS u1) (AstReverseS u2) = eqY u1 u2
-eqY (AstConvert _ (AstVar u)) (AstConvert _ (AstVar v)) =
-  varNameToAstVarId u == varNameToAstVarId v
-eqY (AstBoolNotK u1) (AstBoolNotK u2) = eqY u1 u2
-eqY (AstBoolNotS u1) (AstBoolNotS u2) = eqY u1 u2
-eqY (AstBoolAndK u1 v1) (AstBoolAndK u2 v2) =
-  eqY u1 u2 && eqY v1 v2 || eqY u1 v2 && eqY v1 u2
-eqY (AstBoolAndS u1 v1) (AstBoolAndS u2 v2) =
-  eqY u1 u2 && eqY v1 v2 || eqY u1 v2 && eqY v1 u2
-eqY _ _ = False
+  , Just Refl <- eqZ u1 u2 = Just Refl
+-- Here we depend on the property that varId determines the rest.
+eqZ (AstVar u1) (AstVar u2)
+  | Just Refl <- testEquality u1 u2
+  , u1 == u2 = Just Refl
+eqZ v1 (AstLet _ _ v2) = eqZ v1 v2
+eqZ (AstLet _ _  v1) v2 = eqZ v1 v2
+-- We can remove these wrappers from only one side, because if the spans
+-- are equal, the values will be, thanks to the careful processing below.
+eqZ u1 (AstPrimalPart u2) = eqZ u1 u2
+eqZ (AstPrimalPart u1) u2 = eqZ u1 u2
+eqZ u1 (AstDualPart u2) = eqZ u1 u2
+eqZ (AstDualPart u1) u2 = eqZ u1 u2
+eqZ u1 (AstPlainPart u2) = eqZ u1 u2
+eqZ (AstPlainPart u1) u2 = eqZ u1 u2
+-- We can't remove the following wrappers from only one side,
+-- because taking a primal part above may result in a dual-number with zero
+-- dual part and if AstFromPrimal would also be applied to only one side,
+-- the empty dual part would no longer be reflected in the type (the span).
+eqZ (AstFromPrimal u1) (AstFromPrimal u2) = eqZ u1 u2
+eqZ (AstFromDual u1) (AstFromDual u2) = eqZ u1 u2
+eqZ (AstFromPlain u1) (AstFromPlain u2) = eqZ u1 u2
+eqZ (AstPlusK u1 v1) (AstPlusK u2 v2)
+  | Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstPlusK u1 v1) (AstPlusK u2 v2)
+  | Just Refl <- eqZ u1 v2
+  , Just Refl <- eqZ v1 u2 = Just Refl
+eqZ (AstTimesK u1 v1) (AstTimesK u2 v2)
+  | Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstTimesK u1 v1) (AstTimesK u2 v2)
+  | Just Refl <- eqZ u1 v2
+  , Just Refl <- eqZ v1 u2 = Just Refl
+eqZ (AstN1K opCode1 u1) (AstN1K opCode2 u2) | opCode1 == opCode2 = eqZ u1 u2
+eqZ (AstR1K opCode1 u1) (AstR1K opCode2 u2) | opCode1 == opCode2 = eqZ u1 u2
+eqZ (AstR2K opCode1 u1 v1) (AstR2K opCode2 u2 v2)
+  | opCode1 == opCode2
+  , Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstI2K opCode1 u1 v1) (AstI2K opCode2 u2 v2)
+  | opCode1 == opCode2
+  , Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstConcreteK @r1 u1) (AstConcreteK @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , u1 == u2 = Just Refl
+eqZ (AstFloorK @_ @r1 u1) (AstFloorK @_ @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstFromIntegralK @_ @r1 u1) (AstFromIntegralK @_ @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstCastK @_ @r1 u1) (AstCastK @_ @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstPlusS u1 v1) (AstPlusS u2 v2)
+  | Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstPlusS u1 v1) (AstPlusS u2 v2)
+  | Just Refl <- eqZ u1 v2
+  , Just Refl <- eqZ v1 u2 = Just Refl
+eqZ (AstTimesS u1 v1) (AstTimesS u2 v2)
+  | Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstTimesS u1 v1) (AstTimesS u2 v2)
+  | Just Refl <- eqZ u1 v2
+  , Just Refl <- eqZ v1 u2 = Just Refl
+eqZ (AstN1S opCode1 u1) (AstN1S opCode2 u2) | opCode1 == opCode2 = eqZ u1 u2
+eqZ (AstR1S opCode1 u1) (AstR1S opCode2 u2) | opCode1 == opCode2 = eqZ u1 u2
+eqZ (AstR2S opCode1 u1 v1) (AstR2S opCode2 u2 v2)
+  | opCode1 == opCode2
+  , Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstI2S opCode1 u1 v1) (AstI2S opCode2 u2 v2)
+  | opCode1 == opCode2
+  , Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstFloorS @_ @r1 u1) (AstFloorS @_ @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstFromIntegralS @_ @r1 u1) (AstFromIntegralS @_ @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstCastS @_ @r1 u1) (AstCastS @_ @r2 u2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstIotaS @_ @r1 k1) (AstIotaS @_ @r2 k2)
+  | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- testEquality k1 k2 = Just Refl
+eqZ (AstReverseS u1) (AstReverseS u2) = eqZ u1 u2
+eqZ (AstTransposeS perm1 u1) (AstTransposeS perm2 u2)
+  | Just Refl <- testEquality perm1 perm2
+  , Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstReshapeS sh1 u1) (AstReshapeS sh2 u2)
+  | Just Refl <- testEquality sh1 sh2
+  , Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstConvert c1 u1) (AstConvert c2 u2)
+  | Just Refl <- eqZ u1 u2
+  , Just Refl <- testEquality c1 c2 = Just Refl
+eqZ (AstBoolNotK u1) (AstBoolNotK u2) = eqZ u1 u2
+eqZ (AstBoolNotS u1) (AstBoolNotS u2) = eqZ u1 u2
+eqZ (AstBoolAndK u1 v1) (AstBoolAndK u2 v2)
+  | Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstBoolAndK u1 v1) (AstBoolAndK u2 v2)
+  | Just Refl <- eqZ u1 v2
+  , Just Refl <- eqZ v1 u2 = Just Refl
+eqZ (AstBoolAndS u1 v1) (AstBoolAndS u2 v2)
+  | Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstBoolAndS u1 v1) (AstBoolAndS u2 v2)
+  | Just Refl <- eqZ u1 v2
+  , Just Refl <- eqZ v1 u2 = Just Refl
+eqZ (AstLeqK u1 v1) (AstLeqK u2 v2)
+  | Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstLeq u1 v1) (AstLeq u2 v2)
+  | Just Refl <- eqZ u1 u2
+  , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ _ _ = Nothing
