@@ -1215,17 +1215,15 @@ astPlainPart t = case t of
 -- or that would duplicate a non-constant term, as well as most rules
 -- informed by inequalities, expressed via max or min, such as
 -- max n (signum (abs x)) | n <= 0 --> signum (abs x).
--- We could use sharing via @tlet@ if terms are duplicated, but it's
--- unclear if the term bloat is worth it.
 --
--- | Integer terms need to be simplified, because large ones are sometimes
--- created due to vectorization, e.g., via astTransposeAsGather
+-- | Integer terms need to be simplified, because large ones are often created
+-- due to vectorization and simplification, e.g., via astTransposeAsGather
 -- or astReshapeAsGather and can be a deciding factor in whether
 -- the other tensor terms can be simplified in turn.
 --
--- The normal form has AstConcreteK or AstFromPlain (AstConcreteK),
--- if any, as the first argument of the constructor.
--- No flattening is performed beyond that.
+-- Additions are flattened into a list-like form.
+-- AstConcreteK or AstFromPlain (AstConcreteK), if any, is always the first
+-- element of the list of summands.
 astPlusK  :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
@@ -1249,12 +1247,7 @@ astPlusK = \cases
   u (AstPlusK v w) | Just u0 <- unAstK u
                    , Just v0 <- unAstK v ->
     AstPlusK (fromPlain $ AstConcreteK (u0 + v0)) w
-  (AstPlusK u w) v | Just u0 <- unAstK u
-                   , Just v0 <- unAstK v ->
-    AstPlusK (fromPlain $ AstConcreteK (u0 + v0)) w
-  (AstPlusK u w) (AstPlusK v x) | Just u0 <- unAstK u
-                                , Just v0 <- unAstK v ->
-    astPlusK (fromPlain $ AstConcreteK (u0 + v0)) (astPlusK w x)
+  (AstPlusK u w) v -> astPlusK u (astPlusK w v)  -- flattening
 
   -- Unfortunately, these only fire if the required subterms are at the top
   -- of the reduced term, which happens rarely except in small terms.
@@ -1277,8 +1270,6 @@ astPlusK = \cases
     (AstPlusK (Ast.AstI2K RemOp (Ast.AstN1K NegateOp t2) n) u)
       | eqY t1 t2 && eqY n n' -> u
 
-  (AstPlusK u v) w | Just u0 <- unAstK u ->
-    astPlusK (fromPlain $ AstConcreteK u0) (astPlusK v w)
   u v | Just v0 <- unAstK v -> AstPlusK (fromPlain $ AstConcreteK v0) u
   u (AstPlusK v w) | Just v0 <- unAstK v ->
     astPlusK (fromPlain $ AstConcreteK v0) (astPlusK u w)
@@ -1309,6 +1300,7 @@ astPlusK = \cases
     , eqY t1 t2 -> fromPlain (AstConcreteK (n10 + n20)) `astTimesK` t1 + w
   u v -> AstPlusK u v
 
+-- Just as with AstPlusK, factors are flattened and a constant comes first.
 astTimesK :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
@@ -1333,12 +1325,8 @@ astTimesK = \cases
   u (AstTimesK v w) | Just u0 <- unAstK u
                     , Just v0 <- unAstK v ->
     AstTimesK (fromPlain $ AstConcreteK (u0 * v0)) w
-  (AstTimesK u w) v | Just u0 <- unAstK u
-                    , Just v0 <- unAstK v ->
-    AstTimesK (fromPlain $ AstConcreteK (u0 * v0)) w
-  (AstTimesK u w) (AstTimesK v x) | Just u0 <- unAstK u
-                                  , Just v0 <- unAstK v ->
-    astTimesK (fromPlain $ AstConcreteK (u0 * v0)) (astTimesK w x)
+  (AstTimesK u w) v -> astTimesK u (astTimesK w v)  -- flattening
+
   (Ast.AstR2K DivideOp u1 u2) v -> astR2K DivideOp (u1 * v) u2
   u (Ast.AstR2K DivideOp v1 v2) -> astR2K DivideOp (u * v1) v2
   (Ast.AstR1K RecipOp u) v -> astR2K DivideOp v u
@@ -1357,16 +1345,12 @@ astTimesK = \cases
   -- we get different terms depending on the form of conversions
   -- and rank 0 arrays.
   u@AstConcreteK{} (AstPlusK v w) -> astPlusK (astTimesK u v) (u `astTimesK` w)
-  (AstTimesK u@AstConcreteK{} x) (AstPlusK v w) ->
-    astTimesK x (astPlusK (astTimesK u v) (u `astTimesK` w))
   (AstPlusK v w) u@AstConcreteK{} ->
     astPlusK (v `astTimesK` u) (w `astTimesK` u)
   (AstPlusK v w) (AstTimesK u@AstConcreteK{} x) ->
     astTimesK (astPlusK (v `astTimesK` u) (w `astTimesK` u)) x
   u@(Ast.AstFromPlain AstConcreteK{}) (AstPlusK v w) ->
     astPlusK (astTimesK u v) (u `astTimesK` w)
-  (AstTimesK u@(Ast.AstFromPlain AstConcreteK{}) x) (AstPlusK v w) ->
-    astTimesK x (astPlusK (astTimesK u v) (u `astTimesK` w))
   (AstPlusK v w) u@(Ast.AstFromPlain AstConcreteK{}) ->
     astPlusK (v `astTimesK` u) (w `astTimesK` u)
   (AstPlusK v w) (AstTimesK u@(Ast.AstFromPlain AstConcreteK{}) x) ->
@@ -1387,8 +1371,6 @@ astTimesK = \cases
         (astVar var)
         (negate (Ast.AstI2K RemOp (astVar var) (AstConcreteK n))) -}
 
-  (AstTimesK u v) w | Just u0 <- unAstK u ->
-    astTimesK (fromPlain $ AstConcreteK u0) (astTimesK v w)
   u v | Just v0 <- unAstK v -> AstTimesK (fromPlain $ AstConcreteK v0) u
   u (AstTimesK v w) | Just v0 <- unAstK v ->
     astTimesK (fromPlain $ AstConcreteK v0) (astTimesK u w)
@@ -1684,6 +1666,7 @@ astIndexK v0 ix@(AstConcreteK i :.$ rest1) = case v0 of
    _ -> Ast.AstIndexK v0 ix
 astIndexK v0 ix = Ast.AstIndexK v0 ix
 
+-- Just as with AstPlusK, summands are flattened and a constant comes first.
 astPlusS :: (NumScalar r, KnownSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS sh r)
@@ -1708,12 +1691,7 @@ astPlusS = \cases
   u (AstPlusS v w) | Just u0 <- unAstS u
                    , Just v0 <- unAstS v ->
     AstPlusS (fromPlain $ AstConcreteS (u0 + v0)) w
-  (AstPlusS u w) v | Just u0 <- unAstS u
-                   , Just v0 <- unAstS v ->
-    AstPlusS (fromPlain $ AstConcreteS (u0 + v0)) w
-  (AstPlusS u w) (AstPlusS v x) | Just u0 <- unAstS u
-                                , Just v0 <- unAstS v ->
-    astPlusS (fromPlain $ AstConcreteS (u0 + v0)) (astPlusS w x)
+  (AstPlusS u w) v -> astPlusS u (astPlusS w v)  -- flattening
 
   (AstConvUpSFromK u) (AstConvUpSFromK v) -> sfromK $ astPlusK u v
   u (AstConvUpSFromK v) -> sfromK $ astPlusK (kfromS u) v
@@ -1726,8 +1704,6 @@ astPlusS = \cases
     fromPlain $ AstConcreteS $ defTargetRep $ ftkAst t1
   t2 (AstPlusS (Ast.AstN1S NegateOp t1) u) | eqY t1 t2 -> u
 
-  (AstPlusS u v) w | Just u0 <- unAstS u ->
-    astPlusS (fromPlain $ AstConcreteS u0) (astPlusS v w)
   u v | Just v0 <- unAstS v -> AstPlusS (fromPlain $ AstConcreteS v0) u
   u (AstPlusS v w) | Just v0 <- unAstS v ->
     astPlusS (fromPlain $ AstConcreteS v0) (astPlusS u w)
@@ -1769,20 +1745,6 @@ astPlusS = \cases
          `mplus`
          fuseScatters (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
                       (m :$$ shmRest) shn shp u (var ::$ vars, ix))
-    ( AstPlusS w (Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
-                                             u (var ::$ vars, ix))
-     ,Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 shp2
-                                  u2 (var2 ::$ vars2, ix2) )
-      | Just Refl <- testEquality shmRest shmRest2
-      , Just Refl <- testEquality shn shn2 ->
-        gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
-        (w +) <$>
-        (fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
-                      (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
-         -- Same as above, but with arguments reversed, in case it works better:
-         `mplus`
-         fuseScatters (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
-                      (m :$$ shmRest) shn shp u (var ::$ vars, ix))
 
     ( Ast.AstTransposeS perm1
         (Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
@@ -1812,23 +1774,6 @@ astPlusS = \cases
       , Just Refl <- testEquality shn shn2 ->
         gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
         (\res -> astTransposeS perm1 res + w) <$>
-          (fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
-                        (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
-           -- Same as above, but arguments reversed, in case it works better:
-           `mplus`
-           fuseScatters (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
-                        (m :$$ shmRest) shn shp u (var ::$ vars, ix))
-    ( AstPlusS w (Ast.AstTransposeS perm1
-                    (Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
-                                                u (var ::$ vars, ix)))
-     ,Ast.AstTransposeS perm2
-        (Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 shp2
-                                     u2 (var2 ::$ vars2, ix2)) )
-      | Just Refl <- testEquality perm1 perm2
-      , Just Refl <- testEquality shmRest shmRest2
-      , Just Refl <- testEquality shn shn2 ->
-        gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
-        (\res -> w + astTransposeS perm1 res) <$>
           (fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
                         (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
            -- Same as above, but arguments reversed, in case it works better:
@@ -1870,6 +1815,7 @@ isCond (AstTimesK _ Ast.AstCond{}) = True
 isCond (AstTimesK Ast.AstCond{} _) = True
 isCond _ = False
 
+-- Just as with astTimesK, factors are flattened and a constant comes first.
 astTimesS :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKS sh r)
           -> AstTensor AstMethodLet s (TKS sh r)
@@ -1898,12 +1844,8 @@ astTimesS = \cases
   u (AstTimesS v w) | Just u0 <- unAstS u
                     , Just v0 <- unAstS v ->
     AstTimesS (fromPlain $ AstConcreteS (u0 * v0)) w
-  (AstTimesS u w) v | Just u0 <- unAstS u
-                    , Just v0 <- unAstS v ->
-    AstTimesS (fromPlain $ AstConcreteS (u0 * v0)) w
-  (AstTimesS u w) (AstTimesS v x) | Just u0 <- unAstS u
-                                  , Just v0 <- unAstS v ->
-    astTimesS (fromPlain $ AstConcreteS (u0 * v0)) (astTimesS w x)
+  (AstTimesS u w) v -> astTimesS u (astTimesS w v)  -- flattening
+
   (Ast.AstR2S DivideOp u1 u2) v -> astR2S DivideOp (u1 * v) u2
   u (Ast.AstR2S DivideOp v1 v2) -> astR2S DivideOp (u * v1) v2
   (Ast.AstR1S RecipOp u) v -> astR2S DivideOp v u
@@ -1918,11 +1860,6 @@ astTimesS = \cases
       astTimesS
         (Ast.AstScatterS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
                                      (vars, ix)) a
-  (AstTimesS a (Ast.AstScatterS shm shn shp v (vars, ix))) u
-    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
-      astTimesS
-      a (Ast.AstScatterS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
-                                     (vars, ix))
   u (Ast.AstScatterS shm shn shp v (vars, ix))
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
       Ast.AstScatterS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
@@ -1932,11 +1869,6 @@ astTimesS = \cases
       astTimesS
         (Ast.AstScatterS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
                                      (vars, ix)) a
-  (AstTimesS a u) (Ast.AstScatterS shm shn shp v (vars, ix))
-    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
-      astTimesS
-        a (Ast.AstScatterS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
-                                       (vars, ix))
   (Ast.AstGatherS shm shn shp v (vars, ix)) u
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
       Ast.AstGatherS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
@@ -1946,11 +1878,6 @@ astTimesS = \cases
       astTimesS
         (Ast.AstGatherS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
                                     (vars, ix)) a
-  (AstTimesS a (Ast.AstGatherS shm shn shp v (vars, ix))) u
-    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
-      astTimesS
-        a (Ast.AstGatherS shm shn shp (v `astTimesS` astReplicateNS0 shv w)
-                                      (vars, ix))
   u (Ast.AstGatherS shm shn shp v (vars, ix))
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
       Ast.AstGatherS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
@@ -1960,11 +1887,6 @@ astTimesS = \cases
       astTimesS
         (Ast.AstGatherS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
                                     (vars, ix)) a
-  (AstTimesS a u) (Ast.AstGatherS shm shn shp v (vars, ix))
-    | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
-      astTimesS
-        a (Ast.AstGatherS shm shn shp (astReplicateNS0 shv w `astTimesS` v)
-                                      (vars, ix))
 
   (AstConvUpSFromK u) (AstConvUpSFromK v) -> sfromK $ astTimesK u v
   u (AstConvUpSFromK v) -> sfromK $ astTimesK (kfromS u) v
@@ -1989,8 +1911,6 @@ astTimesS = \cases
 
   (Ast.AstN1S NegateOp u) (Ast.AstN1S NegateOp v) -> astTimesS u v
 
-  (AstTimesS u v) w | Just u0 <- unAstS u ->
-    astTimesS (fromPlain $ AstConcreteS u0) (astTimesS v w)
   u v | Just v0 <- unAstS v -> AstTimesS (fromPlain $ AstConcreteS v0) u
   u (AstTimesS v w) | Just v0 <- unAstS v ->
     astTimesS (fromPlain $ AstConcreteS v0) (astTimesS u w)

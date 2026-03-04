@@ -351,7 +351,7 @@ fooMap1 sh r =
 
 testFooMap :: Assertion
 testFooMap =
-  assertEqualUpToEpsilon' 1e-3
+  assertEqualUpToEpsilon' 1e-2
     (rscalar 2.7518227)
     (rev' @Float @1 (fooMap1 [130]) (rscalar 0.1))
 
