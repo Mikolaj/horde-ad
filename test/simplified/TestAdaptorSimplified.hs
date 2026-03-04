@@ -1224,7 +1224,7 @@ testReluPP2 = do
       (var3, ast3) = funToAst (FTKR [5] FTKScalar) (\t -> reluT2 (t, rscalar 7))
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
-    @?= "\\v1 -> rfromS (tfromPlain (STKS [5] STKScalar) (sconcrete (sreplicate [5] 7.0)) * (tfromPlain (STKS [5] STKScalar) (sgather1 @5 (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\i2 -> [ifH (0.0 <=. negate ((sconcrete (sreplicate [5] 7.0) * tplainPart (sfromR v1)) `sindex0` [i2])) 0 1])) * sfromR v1))"
+    @?= "\\v1 -> rfromS (tfromPlain (STKS [5] STKScalar) (sgather1 @5 (sconcrete (sfromListLinear [2] [0.0,7.0])) (\\i2 -> [ifH (0.0 <=. negate ((sconcrete (sreplicate [5] 7.0) * tplainPart (sfromR v1)) `sindex0` [i2])) 0 1])) * sfromR v1)"
   resetVarCounter
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent reluT2 (FTKProduct (FTKR [5] FTKScalar) (FTKR ZSR FTKScalar))
   printArtifactPretty (simplifyArtifactRev artifactRev)
@@ -2491,7 +2491,7 @@ fblowupLetPP23 = do
   printArtifactSimple (simplifyArtifactRev artifactRev)
     @?= "\\dret v1 -> rfromS (tlet (sfromR v1 `sindex0` [1]) (\\x9 -> tlet (tfromPlain (STKScalar) 0.9999998200000132 * kfromR dret) (\\x17 -> sappend (tfromVector (SNat @2) (STKScalar) (fromList [x17 / x9, (negate (sfromR v1 `sindex0` [0]) * x17) / (x9 * x9)])) (tfromPlain (STKS [2] STKScalar) (sconcrete (sreplicate [2] 0.0))))))"
   printArtifactSimple artifactRev
-    @?= "\\dret v1 -> rfromS (tlet (kfromS (sfromR v1 !$ [0])) (\\x8 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x9 -> tlet (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * kfromR dret)))))) (\\x17 -> soneHot (recip (sfromK x9) * sfromK x17) [0] + soneHot ((negate (sfromK x8) / (sfromK x9 * sfromK x9)) * sfromK x17) [1]))))"
+    @?= "\\dret v1 -> rfromS (tlet (kfromS (sfromR v1 !$ [0])) (\\x8 -> tlet (kfromS (sfromR v1 !$ [1])) (\\x9 -> tlet (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * (tfromPlain (STKScalar) 0.99999997 * kfromS (sfromK (kfromR dret)))))))) (\\x17 -> soneHot (recip (sfromK x9) * sfromK x17) [0] + soneHot ((negate (sfromK x8) / (sfromK x9 * sfromK x9)) * sfromK x17) [1]))))"
   printArtifactPrimalSimple (simplifyArtifactRev artifactRev)
     @?= "\\v1 -> rfromK (tfromPlain (STKScalar) (-15.999998740000063) + (tfromPlain (STKScalar) 0.9999998200000132 * sfromR v1 `sindex0` [0]) / sfromR v1 `sindex0` [1])"
 
