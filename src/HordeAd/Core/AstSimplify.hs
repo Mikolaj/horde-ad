@@ -1249,9 +1249,6 @@ astPlusK = \cases
   u (AstPlusK v w) | Just v0 <- unAstK v ->
     astPlusK (fromPlain $ AstConcreteK v0) u + w
 
-  -- Unfortunately, these only fire if the required subterms are at the top
-  -- of the reduced term, which happens rarely except in small terms.
-  -- We could keep variables at the top, but they'd compete with AstConcreteK.
   (Ast.AstN1K NegateOp t1) t2 | eqY t1 t2 -> fromPlain $ AstConcreteK 0
   (Ast.AstN1K NegateOp t1) (AstPlusK t2 u) | eqY t1 t2 -> u
   t2 (Ast.AstN1K NegateOp t1) | eqY t1 t2 -> fromPlain $ AstConcreteK 0
@@ -1297,6 +1294,7 @@ astPlusK = \cases
   u v -> AstPlusK u v
 
 -- Just as with AstPlusK, factors are flattened and a constant comes first.
+-- Also, negation comes first.
 astTimesK :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKScalar r)
           -> AstTensor AstMethodLet s (TKScalar r)
@@ -1324,6 +1322,10 @@ astTimesK = \cases
     astTimesK (fromPlain $ AstConcreteK v0) u * w
 
   (Ast.AstN1K NegateOp u) (Ast.AstN1K NegateOp v) -> astTimesK u v
+  (Ast.AstN1K NegateOp u) (AstTimesK (Ast.AstN1K NegateOp v) w) ->
+    astTimesK u v * w
+  u (Ast.AstN1K NegateOp v) -> astTimesK (negate u) v
+  u (AstTimesK (Ast.AstN1K NegateOp v) w) -> astTimesK (negate u) v * w
 
   (Ast.AstR2K DivideOp u1 u2) v -> astR2K DivideOp (u1 * v) u2
   u (Ast.AstR2K DivideOp v1 v2) -> astR2K DivideOp (u * v1) v2
@@ -1342,17 +1344,12 @@ astTimesK = \cases
   -- Note that due to non-scalar versions of these rules being banned,
   -- we get different terms depending on the form of conversions
   -- and rank 0 arrays.
-  u@AstConcreteK{} (AstPlusK v w) -> astPlusK (astTimesK u v) (u `astTimesK` w)
-  (AstPlusK v w) u@AstConcreteK{} ->
-    astPlusK (v `astTimesK` u) (w `astTimesK` u)
-  (AstPlusK v w) (AstTimesK u@AstConcreteK{} x) ->
-    astTimesK (astPlusK (v `astTimesK` u) (w `astTimesK` u)) x
-  u@(Ast.AstFromPlain AstConcreteK{}) (AstPlusK v w) ->
-    astPlusK (astTimesK u v) (u `astTimesK` w)
-  (AstPlusK v w) u@(Ast.AstFromPlain AstConcreteK{}) ->
-    astPlusK (v `astTimesK` u) (w `astTimesK` u)
-  (AstPlusK v w) (AstTimesK u@(Ast.AstFromPlain AstConcreteK{}) x) ->
-    astTimesK (astPlusK (v `astTimesK` u) (w `astTimesK` u)) x
+  u (AstPlusK v w) | Just u0 <- unAstK u ->
+    astPlusK (astTimesK (fromPlain $ AstConcreteK u0) v)
+             (astTimesK (fromPlain $ AstConcreteK u0) w)
+  u (AstTimesK (AstPlusK v w) x) | Just u0 <- unAstK u ->
+    astPlusK (astTimesK (fromPlain $ AstConcreteK u0) v)
+             (astTimesK (fromPlain $ AstConcreteK u0) w) * x
 
   {- TODO: such rules increase the number of occurrences of a variable
      and trade multiplication and quotient for an equally problematic remnant,
@@ -1383,7 +1380,7 @@ astN1K opCode t = case t of
   Ast.AstFromPlain n -> fromPlain (astN1K opCode n)
   _ -> case (opCode, t) of
     (NegateOp, AstConcreteK n) -> AstConcreteK (negate n)
-    (NegateOp, AstPlusK u v) -> astPlusK (negate u) (negate v)
+    (NegateOp, AstPlusK u v) -> AstPlusK (negate u) (negate v)
     (NegateOp, AstTimesK u v) -> astTimesK (negate u) v
     (NegateOp, Ast.AstN1K NegateOp u) -> u
     (NegateOp, Ast.AstN1K SignumOp u) -> astN1K SignumOp (negate u)
@@ -1481,8 +1478,8 @@ astI2K opCode = \cases
       _ | Just 0 <- unAstK u -> u
       _ | Just 1 <- unAstK v -> u
       _ | Just 0 <- unAstK v -> u  -- the partiality-removal hack
-      _ | Just w <- unAstK v, w < 0 ->
-          astI2K QuotOp (negate u) (fromPlain $ AstConcreteK $ negate w)
+      _ | Just v0 <- unAstK v, v0 < 0 ->
+          astI2K QuotOp (negate u) (fromPlain $ AstConcreteK $ negate v0)
       (Ast.AstI2K RemOp _ k, _)
         | Just k0 <- unAstK k
         , Just v0 <- unAstK v
@@ -1805,6 +1802,7 @@ isCond (AstTimesK Ast.AstCond{} _) = True
 isCond _ = False
 
 -- Just as with astTimesK, factors are flattened and a constant comes first.
+-- Also, negation comes first.
 astTimesS :: (NumScalar r, KnownSpan s)
           => AstTensor AstMethodLet s (TKS sh r)
           -> AstTensor AstMethodLet s (TKS sh r)
@@ -1836,6 +1834,10 @@ astTimesS = \cases
     astTimesS (fromPlain $ AstConcreteS v0) u * w
 
   (Ast.AstN1S NegateOp u) (Ast.AstN1S NegateOp v) -> astTimesS u v
+  (Ast.AstN1S NegateOp u) (AstTimesS (Ast.AstN1S NegateOp v) w) ->
+    astTimesS u v * w
+  u (Ast.AstN1S NegateOp v) -> astTimesS (negate u) v
+  u (AstTimesS (Ast.AstN1S NegateOp v) w) -> astTimesS (negate u) v * w
 
   (Ast.AstR2S DivideOp u1 u2) v -> astR2S DivideOp (u1 * v) u2
   u (Ast.AstR2S DivideOp v1 v2) -> astR2S DivideOp (u * v1) v2
@@ -1887,18 +1889,6 @@ astTimesS = \cases
   -- have to be shared, the multiplication is not shared --- we end up
   -- with one addition and two multiplications, not one.
   -- u@AstConcreteS{} * AstPlusS v w -> AstPlusS (astTimesS u v) (u * w)
-  -- AstTimesS u@AstConcreteS{} x * AstPlusS v w =
-  --   AstTimesS x (AstPlusS (astTimesS u v) (u * w))
-  -- AstPlusS v w * u@AstConcreteS{} -> AstPlusS (v * u) (w * u)
-  -- AstPlusS v w * AstTimesS u@AstConcreteS{} x =
-  --   AstTimesS (AstPlusS (v * u) (w * u)) x
-  -- u@(AstFromPlain AstConcreteS{}) * AstPlusS v w ->
-  --   AstPlusS (astTimesS u v) (u * w)
-  -- AstTimesS u@(AstFromPlain AstConcreteS{}) x * AstPlusS v w =
-  --   AstTimesS x (AstPlusS (astTimesS u v) (u * w))
-  -- AstPlusS v w * u@(AstFromPlain AstConcreteS{}) -> AstPlusS (v * u) (w * u)
-  -- AstPlusS v w * AstTimesS u@(AstFromPlain AstConcreteS{}) x =
-  --   AstTimesS (AstPlusS (v * u) (w * u)) x
 
   u v -> AstTimesS u v
 
@@ -1921,7 +1911,7 @@ astN1S opCode t = case t of
   AstConvUpSFromK n -> sfromK $ astN1K opCode n
   _ -> case (opCode, t) of
     (NegateOp, AstConcreteS n) -> AstConcreteS (negate n)
-    (NegateOp, AstPlusS u v) -> astPlusS (negate u) (negate v)
+    (NegateOp, AstPlusS u v) -> AstPlusS (negate u) (negate v)
     (NegateOp, AstTimesS u v) -> astTimesS (negate u) v
     (NegateOp, Ast.AstN1S NegateOp u) -> u
     (NegateOp, Ast.AstN1S SignumOp u) -> astN1S SignumOp (negate u)
@@ -4968,23 +4958,22 @@ astLeqK = \cases
   u (AstPlusK (AstConcreteK v) w) ->
     astLeqK (astPlusK u (AstConcreteK $ negate v)) w
   (AstPlusK (AstConcreteK u) w) v ->
-    astLeqK (AstConcreteK u) (astPlusK v (negate w))
+    astLeqK (AstConcreteK u) (astPlusK (negate w) v)
   u (AstConcreteK v) ->
     astLeqK (AstConcreteK (negate v)) (negate u)
   (AstConcreteK u) (AstTimesK (AstConcreteK v) w)
     | v > 0 && u >= 0
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
       astLeqK (AstConcreteK ((u + v - 1) `quotH` v)) w
-        -- 10 == 5 * 2, 11 > 5 * 2
   (AstConcreteK u) (AstTimesK (AstConcreteK v) w)
     | v > 0 && u < 0
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
-      astLeqK (AstConcreteK (u `quotH` v)) w  -- -10 == 5 * -2, -9 > 5 * -2
+      astLeqK (AstConcreteK (u `quotH` v)) w
   (AstConcreteK u) (AstTimesK (AstConcreteK v) w)
     | v < 0
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int) ->
       astLeqK (AstConcreteK u)
-              (astTimesK (AstConcreteK $ negate v)
+              (AstTimesK (AstConcreteK $ negate v)  -- not astTimesK!
                          (negate w))
   v@AstConcreteK{} u -> Ast.AstLeqK v u
   u v -> astLeqK (AstConcreteK 0) (astPlusK v (negate u))
@@ -5000,7 +4989,7 @@ astLeq = \cases
   u (AstPlusS (AstConcreteS v) w) ->
     astLeq (astPlusS u (AstConcreteS $ negate v)) w
   (AstPlusS (AstConcreteS u) w) v ->
-    astLeq (AstConcreteS u) (astPlusS v (negate w))
+    astLeq (AstConcreteS u) (astPlusS (negate w) v)
   u (AstConcreteS v) ->
     astLeq (AstConcreteS (negate v)) (negate u)
   (AstConvUpSFromK w) (AstConvUpSFromK v) -> astLeqK w v
