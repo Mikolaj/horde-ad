@@ -2579,7 +2579,7 @@ testConcatBuild3PP = do
       (var3, ast3) = funToAst (FTKR [3] FTKScalar) t
   "\\" ++ printAstVarName var3
        ++ " -> " ++ printAstSimple ast3
-    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (tlet (quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sconcrete (sreplicate [2] 1) + siota (SNat @2)))) (\\m4 -> sgather @[5,2] (ttranspose (makePerm @[1, 2, 0]) (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @5 (siota (SNat @2)), m4])))) (\\[i8, i6] -> [i8, i6, ifH (0 <=. i6 + negate ((m4 !$ [i8]) `sindex0` [i6])) 0 1]))))"
+    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (tlet (quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sconcrete (sreplicate [2] 1) + siota (SNat @2)))) (\\m4 -> sgather @[5,2] (ttranspose (makePerm @[1, 2, 0]) (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @5 (siota (SNat @2)), m4])))) (\\[i8, i6] -> [i8, i6, ifH ((m4 !$ [i8]) `sindex0` [i6] <=. i6) 0 1]))))"
 
 testConcatBuild3PP2 :: Assertion
 testConcatBuild3PP2 = do
@@ -2588,8 +2588,8 @@ testConcatBuild3PP2 = do
   let (artifactRev, _) =
         revArtifactDelta UseIncomingCotangent t (FTKR [3] FTKScalar)
   printArtifactPrimalSimple (simplifyArtifactRev artifactRev)
-    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (sgather @[5,2] (sfromIntegral (sconcrete (sfromListLinear [2,5,2] [0,1,0,1,0,1,0,1,0,1,0,0,1,0,2,1,3,1,4,2]))) (\\[i10, i11] -> [ifH (0 <=. i11 + negate (sconcrete (sfromListLinear [5,2] [0,0,1,0,2,1,3,1,4,2]) `sindex0` [i10, i11])) 0 1, i10, i11])))"
+    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (sgather @[5,2] (sfromIntegral (sconcrete (sfromListLinear [2,5,2] [0,1,0,1,0,1,0,1,0,1,0,0,1,0,2,1,3,1,4,2]))) (\\[i10, i11] -> [ifH (sconcrete (sfromListLinear [5,2] [0,0,1,0,2,1,3,1,4,2]) `sindex0` [i10, i11] <=. i11) 0 1, i10, i11])))"
   printArtifactSimple artifactRev
     @?= "\\dret v1 -> tfromPlain (STKR (SNat @1) STKScalar) (rfromS (sconcrete (sreplicate [3] 0.0)))"
   printArtifactPrimalSimple artifactRev
-    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (tlet (quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sconcrete (sreplicate [2] 1) + siota (SNat @2)))) (\\m9 -> sgather @[5,2] (ttranspose (makePerm @[1, 2, 0]) (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @5 (siota (SNat @2)), m9])))) (\\[i10, i11] -> [i10, i11, ifH (0 <=. i11 + negate ((m9 !$ [i10]) `sindex0` [i11])) 0 1]))))"
+    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (tlet (quotH (str (sreplicate @2 (siota (SNat @5)))) (sreplicate @5 (sconcrete (sreplicate [2] 1) + siota (SNat @2)))) (\\m9 -> sgather @[5,2] (ttranspose (makePerm @[1, 2, 0]) (sfromIntegral (tfromVector (SNat @2) (STKS [5,2] STKScalar) (fromList [sreplicate @5 (siota (SNat @2)), m9])))) (\\[i10, i11] -> [i10, i11, ifH ((m9 !$ [i10]) `sindex0` [i11] <=. i11) 0 1]))))"

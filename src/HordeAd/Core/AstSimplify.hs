@@ -4975,8 +4975,7 @@ astLeqK = \cases
       astLeqK (AstConcreteK u)
               (AstTimesK (AstConcreteK $ negate v)  -- not astTimesK!
                          (negate w))
-  v@AstConcreteK{} u -> Ast.AstLeqK v u
-  u v -> astLeqK (AstConcreteK 0) (astPlusK v (negate u))
+  u v -> Ast.AstLeqK u v
 
 astLeq :: forall sh r. NumScalar r
        => AstTensor AstMethodLet PlainSpan (TKS sh r)

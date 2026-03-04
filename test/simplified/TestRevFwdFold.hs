@@ -1222,7 +1222,7 @@ testUnitriangular0PP = do
            $ \i -> rbuild1 k
            $ \j -> ifH (i <=. j) (rscalar 0) (rscalar 1)
   printAstPretty (simplifyInlineContract a1)
-    @?= "rfromPlain (rfromS (sgather @[1000000, 1000000] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3, i2] -> [ifH (0 <=. i2 + negate i3) 0 1])))"
+    @?= "rfromPlain (rfromS (sgather @[1000000, 1000000] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3, i2] -> [ifH (i3 <=. i2) 0 1])))"
 
 unitriangular1 :: (KnownNat k, NumScalar rk, ADReady target)
                => Int -> IShR k -> target (TKR (2 + k) rk)
@@ -1238,7 +1238,7 @@ testUnitriangular1PP = do
       k = 10
       a1 = unitriangular1 @3 @Double @(AstTensor AstMethodLet PlainSpan) k sh
   printAstPretty (simplifyUserCode a1)
-    @?= "rfromS (stranspose @[1, 2, 0] (sreplicate @2 (stranspose @[1, 2, 0] (sreplicate @3 (stranspose @[1, 2, 0] (sreplicate @6 (sgather @[10, 10] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3, i2] -> [ifH (0 <=. i2 + negate i3) 0 1]))))))))"
+    @?= "rfromS (stranspose @[1, 2, 0] (sreplicate @2 (stranspose @[1, 2, 0] (sreplicate @3 (stranspose @[1, 2, 0] (sreplicate @6 (sgather @[10, 10] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i3, i2] -> [ifH (i3 <=. i2) 0 1]))))))))"
 
 unitriangular2 :: (KnownNat k, NumScalar rk, ADReady target)
                => Int -> IShR k -> target (TKR (2 + k) rk)
@@ -1255,7 +1255,7 @@ testUnitriangular2PP = do
       k = 10
       a1 = unitriangular2 @3 @Double @(AstTensor AstMethodLet PlainSpan) k sh
   printAstPretty (simplifyUserCode a1)
-    @?= "rfromS (sgather @[10, 10] (sconcrete (sfromListLinear [2,2,3,6] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])) (\\[i1, i2] -> [ifH (0 <=. i1 + negate i2) 1 0]))"
+    @?= "rfromS (sgather @[10, 10] (sconcrete (sfromListLinear [2,2,3,6] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])) (\\[i1, i2] -> [ifH (i2 <=. i1) 1 0]))"
 
 testSin0rmapAccumRD0S :: Assertion
 testSin0rmapAccumRD0S = do
