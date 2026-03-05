@@ -213,10 +213,9 @@ eqZ (AstSum _ stk1 u1) (AstSum _ stk2 u2)
 eqZ (AstReplicate k1 _ u1) (AstReplicate k2 _ u2)
   | Just Refl <- testEquality k1 k2
   , Just Refl <- eqZ u1 u2 = Just Refl
--- Here we depend on the property that varId determines the rest.
 eqZ (AstVar u1) (AstVar u2)
-  | Just Refl <- testEquality u1 u2
-  , u1 == u2 = Just Refl
+  | varNameToAstVarId u1 == varNameToAstVarId u2
+  , Just Refl <- matchingFTK (varNameToFTK u1) (varNameToFTK u2) = Just Refl
 eqZ v1 (AstLet _ _ v2) = eqZ v1 v2
 eqZ (AstLet _ _  v1) v2 = eqZ v1 v2
 -- We can remove these wrappers from only one side, because if the spans
