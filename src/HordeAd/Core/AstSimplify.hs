@@ -1617,11 +1617,11 @@ astIndexK v0 ix@(AstConcreteK i :.$ rest1) = case v0 of
      else fromPlain $ AstConcreteK def
    Ast.AstBuild1 snat STKS{} (var2, v) ->
      if 0 <= i && i <= fromSNat' snat - 1
-     then astIndexK (astLet var2 (AstConcreteK i) v) rest1
+     then astIndexK (substituteAst (AstConcreteK i) var2 v) rest1
      else fromPlain $ AstConcreteK def
    Ast.AstBuild1 snat STKScalar (var2, v) | ZIS <- rest1 ->
      if 0 <= i && i <= fromSNat' snat - 1
-     then astLet var2 (AstConcreteK i) v
+     then substituteAst (AstConcreteK i) var2 v
      else fromPlain $ AstConcreteK def
    Ast.AstLet var u v -> astLet var u (astIndexK v ix)
    Ast.AstFromPrimal v -> fromPrimal $ astIndexK v ix
@@ -1634,7 +1634,7 @@ astIndexK v0 ix@(AstConcreteK i :.$ rest1) = case v0 of
    Ast.AstGatherS (m71 :$$ shm71) shn' shp' v (var2 ::$ vars, ix2) ->
      let w = astGatherS shm71 shn' shp' v (vars, ix2)
      in if 0 <= i && i <= fromSNat' m71 - 1
-        then astLet var2 (AstConcreteK i) $ astIndexK w rest1
+        then substituteAst (AstConcreteK i) var2 $ astIndexK w rest1
         else fromPlain $ AstConcreteK def
    Ast.AstIotaS snat ->
      if 0 <= i && i <= fromSNat' snat - 1
@@ -1779,8 +1779,8 @@ fuseScatters :: forall m m2 shm shn shp x s. (TKAllNum x, KnownSpan s)
 fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
              (m2 :$$ _shmRest2) _shn2 _shp2 u2 (var2 ::$ vars2, ix2) =
   let var' = reboundsVarName (0, fromSNat' m + fromSNat' m2 - 1) var
-      f i2 = astLet var2 (astVar var' - AstConcreteK (fromSNat' m))
-             $ foldr (\(v, v2) -> astLet v2 (astVar v)) i2
+      f i2 = substituteAst (astVar var' - AstConcreteK (fromSNat' m)) var2
+             $ foldr (\(v, v2) -> substituteAst (astVar v) v2) i2
                      (listsZip vars vars2)
       ix2Substituted = f <$> ix2
       g i i2 = astCond (AstConcreteK (fromSNat' m) <=. astVar var')
@@ -2690,7 +2690,7 @@ astScatterKnobsS knobs
 astScatterKnobsS knobs shm@(SNat' @1 :$$ _) shn shp
                  v@Ast.AstReplicate{} (var ::$ vars, ix)
   | var `varNameInIxS` ix =  -- simplify oneHot1, among others
-    let ix2 = astLet var (AstConcreteK 0) <$> ix
+    let ix2 = substituteAst (AstConcreteK 0) var <$> ix
     in astScatterKnobsS knobs shm shn shp v (var ::$ vars, ix2)
 astScatterKnobsS knobs shm@(SNat' @1 :$$ ZSS) shn shp
                  v@Ast.AstReplicate{} (vars, ix)
