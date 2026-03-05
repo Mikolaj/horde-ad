@@ -2752,13 +2752,13 @@ astScatterKnobsS knobs shm shn shp@(p@(SNat @p) :$$ _) v0
         in astAppendS
              (fromPlain (astConcrete ftk (tdefTarget ftk)))
              (astScatterKnobsS knobs shm shn (k :$$ shsTail shp)
-                               v0 (vars, Ast.AstLet varN uN i1 :.$ prest))
+                               v0 (vars, astLet varN uN i1 :.$ prest))
                 -- this gather may still index out of bounds, which is fine
     else
       withSNat (- i0) $ \i ->
         astSliceS i p SZ
         $ astScatterKnobsS knobs shm shn (snatPlus p i :$$ shsTail shp)
-                           v0 (vars, Ast.AstLet varN uN i1 :.$ prest)
+                           v0 (vars, astLet varN uN i1 :.$ prest)
              -- this gather may still index out of bounds, which is fine
 -- These rules are questionable, because at worst, we allocate twice.
 -- However, often the scatters or one of them would simplify away.
@@ -2840,10 +2840,10 @@ astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   , Dict0 <- numFromTKAllNum (Proxy @r) =
     if | j0 <= 0 ->
          astScatterKnobsS knobs shm shn shp
-                          v0 (vars, i1 :.$ prest)
+                          v0 (vars, astLet varN uN i1 :.$ prest)
        | j0 >= valueOf @m ->
          astScatterKnobsS knobs shm shn shp
-                          v0 (vars, i2 :.$ prest)
+                          v0 (vars, astLet varN uN i2 :.$ prest)
        | otherwise ->
          withSNat j0 $ \j@(SNat @j) ->
          withSNat (valueOf @m - j0) $ \msj@(SNat @msj) ->
@@ -2856,12 +2856,12 @@ astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
          in astScatterKnobsS knobs (j :$$ shsTail shm) shn shp v2
               ( varm2 ::$ mrest
               , substituteAstIxS (astVar varm2)
-                                 varm (Ast.AstLet varN uN i2 :.$ prest) )
+                                 varm (astLet varN uN i2 :.$ prest) )
             `astPlusS`
             astScatterKnobsS knobs (msj :$$ shsTail shm) shn shp v3
               ( varm3 ::$ mrest
               , substituteAstIxS (AstConcreteK j0 + astVar varm3)
-                                 varm (Ast.AstLet varN uN i1 :.$ prest) )
+                                 varm (astLet varN uN i1 :.$ prest) )
 astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   ( vars@(varm ::$ mrest)
   , Ast.AstLet varN uN
@@ -2874,10 +2874,10 @@ astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   , Dict0 <- numFromTKAllNum (Proxy @r) =
     if | - j0 + 1 <= 0 ->
          astScatterKnobsS knobs shm shn shp
-                          v0 (vars, i2 :.$ prest)
+                          v0 (vars, astLet varN uN i2 :.$ prest)
        | - j0 + 1 >= valueOf @m ->
          astScatterKnobsS knobs shm shn shp
-                          v0 (vars, i1 :.$ prest)
+                          v0 (vars, astLet varN uN i1 :.$ prest)
        | otherwise ->
          withSNat (- j0 + 1) $ \mj@(SNat @mj) ->
          withSNat (valueOf @m - (- j0 + 1)) $ \msj@(SNat @msj) ->
@@ -2890,12 +2890,12 @@ astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
          in astScatterKnobsS knobs (mj :$$ shsTail shm) shn shp v2
               ( varm2 ::$ mrest
               , substituteAstIxS (astVar varm2)
-                                 varm (Ast.AstLet varN uN i1 :.$ prest) )
+                                 varm (astLet varN uN i1 :.$ prest) )
             `astPlusS`
             astScatterKnobsS knobs (msj :$$ shsTail shm) shn shp v3
               ( varm3 ::$ mrest
               , substituteAstIxS (AstConcreteK (- j0 + 1) + astVar varm3)
-                                 varm (Ast.AstLet varN uN i2 :.$ prest))
+                                 varm (astLet varN uN i2 :.$ prest))
 astScatterKnobsS _ shm shn shp v (vars, ix) =
   Ast.AstScatterS shm shn shp v (vars, ix)
 
@@ -2972,7 +2972,7 @@ astGatherKnobsS
          v w) :.$ prest )
     | j <= 0 || j >= fromSNat' m || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, Ast.AstLet varN uN i :.$ prest)
+  in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
   ( vars
@@ -2994,7 +2994,7 @@ astGatherKnobsS
     | - j + 1 <= 0 || - j + 1 >= fromSNat' m
       || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, Ast.AstLet varN uN i :.$ prest)
+  in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
@@ -3016,7 +3016,7 @@ astGatherKnobsS
       v w) :.$ prest )
     | j <= 0 || j >= fromSNat' m || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, Ast.AstLet varN uN i :.$ prest)
+  in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
   ( vars
@@ -3041,7 +3041,7 @@ astGatherKnobsS
     | - j + 1 <= 0 || - j + 1 >= fromSNat' m
       || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, Ast.AstLet varN uN i :.$ prest)
+  in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
@@ -3066,7 +3066,7 @@ astGatherKnobsS
          v w) :.$ prest )
     | j <= 0 || j >= fromSNat' m || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, Ast.AstLet varN uN i :.$ prest)
+  in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
   ( vars
@@ -3094,7 +3094,7 @@ astGatherKnobsS
     | - j + 1 <= 0 || - j + 1 >= fromSNat' m
       || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, Ast.AstLet varN uN i :.$ prest)
+  in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
@@ -3122,7 +3122,7 @@ astGatherKnobsS
          v w) :.$ prest )
     | j <= 0 || j >= fromSNat' m || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, Ast.AstLet varN uN i :.$ prest)
+  in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
   ( vars
@@ -3152,7 +3152,7 @@ astGatherKnobsS
     | - j + 1 <= 0 || - j + 1 >= fromSNat' m
       || ixIsSmall prest && astIsSmall True uN =
   let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, Ast.AstLet varN uN i :.$ prest)
+  in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 -- Rules with AstConcreteK on the right hand side of AstPlusK are
 -- not needed, thanks to the normal form of AstPlusK rewriting.
 astGatherKnobsS knobs shm shn shp v0
@@ -3190,7 +3190,7 @@ astGatherKnobsS knobs shm shn shp v0
         gcastWith (unsafeCoerceRefl :: (i + k <=? p) :~: True) $
         let v2 = astSliceS (SNat @i) (SNat @k) (SNat @(p - (i + k))) v0
         in astGatherKnobsS knobs shm shn (SNat @k :$$ shsTail shp)
-                           v2 (vars, Ast.AstLet varN uN i1 :.$ prest)
+                           v2 (vars, astLet varN uN i1 :.$ prest)
              -- this gather may still index out of bounds, which is fine
     else
       withSNat (- i) $ \(SNat @i) ->
@@ -3199,7 +3199,7 @@ astGatherKnobsS knobs shm shn shp v0
                  `astAppendS`
                  v0
         in astGatherKnobsS knobs shm shn (SNat @(p + i) :$$ shsTail shp)
-                           v2 (vars, Ast.AstLet varN uN i1 :.$ prest)
+                           v2 (vars, astLet varN uN i1 :.$ prest)
              -- this gather may still index out of bounds, which is fine
 astGatherKnobsS knobs (m@(SNat @m) :$$ (shmRest :: ShS shmRest)) shn shp v0
   ( varm ::$ mrest
@@ -3290,10 +3290,10 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   , j <= 0 || j >= valueOf @m || ixIsSmall prest && astIsSmall True uN =
     if | j <= 0 ->
          astGatherKnobsS knobs shm shn shp
-                         v0 (vars, Ast.AstLet varN uN i1 :.$ prest)
+                         v0 (vars, astLet varN uN i1 :.$ prest)
        | j >= valueOf @m ->
          astGatherKnobsS knobs shm shn shp
-                         v0 (vars, Ast.AstLet varN uN i2 :.$ prest)
+                         v0 (vars, astLet varN uN i2 :.$ prest)
        | otherwise ->
          withSNat j $ \(SNat @j) ->
          gcastWith (unsafeCoerceRefl :: (j <=? m) :~: True) $
@@ -3303,12 +3303,12 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
          in astGatherKnobsS knobs (SNat @j :$$ shsTail shm) shn shp v
               ( varm2 ::$ mrest
               , substituteAstIxS (astVar varm2) varm
-                                 (Ast.AstLet varN uN i2 :.$ prest) )
+                                 (astLet varN uN i2 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs (SNat @(m - j) :$$ shsTail shm) shn shp v
               ( varm3 ::$ mrest
               , substituteAstIxS (AstConcreteK j + astVar varm3)
-                                 varm (Ast.AstLet varN uN i1 :.$ prest) )
+                                 varm (astLet varN uN i1 :.$ prest) )
 astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   ( vars@(varm ::$ mrest)
   , Ast.AstLet varN uN
@@ -3320,10 +3320,10 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
     || ixIsSmall prest && astIsSmall True uN =
     if | - j + 1 <= 0 ->
          astGatherKnobsS knobs shm shn shp
-                         v0 (vars, Ast.AstLet varN uN i2 :.$ prest)
+                         v0 (vars, astLet varN uN i2 :.$ prest)
        | - j + 1 >= valueOf @m ->
          astGatherKnobsS knobs shm shn shp
-                         v0 (vars, Ast.AstLet varN uN i1 :.$ prest)
+                         v0 (vars, astLet varN uN i1 :.$ prest)
        | otherwise ->
          withSNat (- j + 1) $ \(SNat @mj) ->
          gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
@@ -3333,12 +3333,12 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
          in astGatherKnobsS knobs (SNat @mj :$$ shsTail shm) shn shp v
               ( varm2 ::$ mrest
               , substituteAstIxS (astVar varm2)
-                                 varm (Ast.AstLet varN uN i1 :.$ prest) )
+                                 varm (astLet varN uN i1 :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs (SNat @(m - mj) :$$ shsTail shm) shn shp v
               ( varm3 ::$ mrest
               , substituteAstIxS (AstConcreteK (- j + 1) + astVar varm3)
-                                 varm (Ast.AstLet varN uN i2 :.$ prest))
+                                 varm (astLet varN uN i2 :.$ prest))
 astGatherKnobsS knobs
                 shm@(SNat @m :$$ (_ :: ShS shmTail))
                 shn
@@ -5495,6 +5495,7 @@ substitute1Ast i var = subst where
       Nothing -> Nothing
 
   Ast.AstLet var2 u v ->
+    assert (varNameToAstVarId var2 /= varNameToAstVarId var) $
     case (withKnownSpan (varNameToSpan var2) $ subst u, subst v) of
       (Nothing, Nothing) -> Nothing
       (mu, mv) -> Just $ astLet var2 (fromMaybe u mu) (fromMaybe v mv)
@@ -5587,22 +5588,24 @@ substitute1Ast i var = subst where
   Ast.AstCastS v -> astCastS <$> subst v
   Ast.AstArgMinS a -> Ast.AstArgMinS <$> subst a
   Ast.AstArgMaxS a -> Ast.AstArgMaxS <$> subst a
-  Ast.AstIndexS shn v ix ->
-    case (subst v, substIxS ix) of
+  Ast.AstIndexS shn t ix ->
+    case (subst t, substIxS ix) of
       (Nothing, Nothing) -> Nothing
-      (mv, mix) -> Just $ astIndexS shn (fromMaybe v mv) (fromMaybe ix mix)
+      (mt, mix) -> Just $ astIndexS shn (fromMaybe t mt) (fromMaybe ix mix)
 
-  Ast.AstScatterS shm shn shp v (vars, ix) ->
-    case (subst v, substIxS ix) of
+  Ast.AstScatterS shm shn shp t (vars, ix) ->
+    assert (all (\v -> varNameToAstVarId var /= varNameToAstVarId v) vars) $
+    case (subst t, substIxS ix) of
       (Nothing, Nothing) -> Nothing
-      (mv, mix) -> Just $ astScatterS shm shn shp
-                                      (fromMaybe v mv)
+      (mt, mix) -> Just $ astScatterS shm shn shp
+                                      (fromMaybe t mt)
                                       (vars, fromMaybe ix mix)
-  Ast.AstGatherS shm shn shp v (vars, ix) ->
-    case (subst v, substIxS ix) of
+  Ast.AstGatherS shm shn shp t (vars, ix) ->
+    assert (all (\v -> varNameToAstVarId var /= varNameToAstVarId v) vars) $
+    case (subst t, substIxS ix) of
       (Nothing, Nothing) -> Nothing
-      (mv, mix) -> Just $ astGatherS shm shn shp
-                                     (fromMaybe v mv)
+      (mt, mix) -> Just $ astGatherS shm shn shp
+                                     (fromMaybe t mt)
                                      (vars, fromMaybe ix mix)
   Ast.AstIotaS{} -> Nothing
   Ast.AstAppendS x y ->
@@ -5682,5 +5685,6 @@ substitute1AstHFun
   :: forall s s3 x y z.
      AstTensor AstMethodLet s3 z -> AstVarName '(s3, z) -> AstHFun s x y
   -> Maybe (AstHFun s x y)
-substitute1AstHFun _i _var AstLambda{} =
+substitute1AstHFun _i var (AstLambda var2 _) =
+  assert (varNameToAstVarId var2 /= varNameToAstVarId var) $
   Nothing  -- no outside free variables
