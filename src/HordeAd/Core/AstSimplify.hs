@@ -2835,7 +2835,10 @@ astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
       (Ast.AstCond (AstLeqInt (AstConcreteK j0) (AstIntVar varp)) i1 i2)
     :.$ prest )
   | varm == varp
-  , j0 <= 0 || j0 >= valueOf @m || ixIsSmall prest
+  , let varIn1 = varN `varNameInAst` i1
+        varIn2 = varN `varNameInAst` i2
+  , j0 <= 0 || j0 >= valueOf @m
+    || ixIsSmall prest && not (varIn1 && varIn2)
   , FTKS _ (FTKScalar @r) <- ftkAst v0
   , Dict0 <- numFromTKAllNum (Proxy @r) =
     if | j0 <= 0 ->
@@ -2856,12 +2859,16 @@ astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
          in astScatterKnobsS knobs (j :$$ shsTail shm) shn shp v2
               ( varm2 ::$ mrest
               , substituteAstIxS (astVar varm2)
-                                 varm (astLet varN uN i2 :.$ prest) )
+                                 varm ((if varIn2
+                                        then astLet varN uN i2
+                                        else i2) :.$ prest) )
             `astPlusS`
             astScatterKnobsS knobs (msj :$$ shsTail shm) shn shp v3
               ( varm3 ::$ mrest
               , substituteAstIxS (AstConcreteK j0 + astVar varm3)
-                                 varm (astLet varN uN i1 :.$ prest) )
+                                 varm ((if varIn1
+                                        then astLet varN uN i1
+                                        else i1) :.$ prest) )
 astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   ( vars@(varm ::$ mrest)
   , Ast.AstLet varN uN
@@ -2869,7 +2876,10 @@ astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
                               (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2)
     :.$ prest )
   | varm == varp
-  , - j0 + 1 <= 0 || - j0 + 1 >= valueOf @m || ixIsSmall prest
+  , let varIn1 = varN `varNameInAst` i1
+        varIn2 = varN `varNameInAst` i2
+  , - j0 + 1 <= 0 || - j0 + 1 >= valueOf @m
+    || ixIsSmall prest && not (varIn1 && varIn2)
   , FTKS _ (FTKScalar @r) <- ftkAst v0
   , Dict0 <- numFromTKAllNum (Proxy @r) =
     if | - j0 + 1 <= 0 ->
@@ -2890,12 +2900,16 @@ astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
          in astScatterKnobsS knobs (mj :$$ shsTail shm) shn shp v2
               ( varm2 ::$ mrest
               , substituteAstIxS (astVar varm2)
-                                 varm (astLet varN uN i1 :.$ prest) )
+                                 varm ((if varIn1
+                                        then astLet varN uN i1
+                                        else i1) :.$ prest) )
             `astPlusS`
             astScatterKnobsS knobs (msj :$$ shsTail shm) shn shp v3
               ( varm3 ::$ mrest
               , substituteAstIxS (AstConcreteK (- j0 + 1) + astVar varm3)
-                                 varm (astLet varN uN i2 :.$ prest))
+                                 varm ((if varIn2
+                                        then astLet varN uN i2
+                                        else i2) :.$ prest))
 astScatterKnobsS _ shm shn shp v (vars, ix) =
   Ast.AstScatterS shm shn shp v (vars, ix)
 
@@ -3287,7 +3301,10 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
       (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2)
     :.$ prest )
   | varm == varp
-  , j <= 0 || j >= valueOf @m || ixIsSmall prest && astIsSmall True uN =
+  , let varIn1 = varN `varNameInAst` i1
+        varIn2 = varN `varNameInAst` i2
+  , j <= 0 || j >= valueOf @m
+    || ixIsSmall prest && not (varIn1 && varIn2) =
     if | j <= 0 ->
          astGatherKnobsS knobs shm shn shp
                          v0 (vars, astLet varN uN i1 :.$ prest)
@@ -3302,13 +3319,17 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
              varm3 = reboundsVarName (0, valueOf @m - j - 1) varm
          in astGatherKnobsS knobs (SNat @j :$$ shsTail shm) shn shp v
               ( varm2 ::$ mrest
-              , substituteAstIxS (astVar varm2) varm
-                                 (astLet varN uN i2 :.$ prest) )
+              , substituteAstIxS (astVar varm2)
+                                 varm ((if varIn2
+                                        then astLet varN uN i2
+                                        else i2) :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs (SNat @(m - j) :$$ shsTail shm) shn shp v
               ( varm3 ::$ mrest
               , substituteAstIxS (AstConcreteK j + astVar varm3)
-                                 varm (astLet varN uN i1 :.$ prest) )
+                                 varm ((if varIn1
+                                        then astLet varN uN i1
+                                        else i1) :.$ prest) )
 astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   ( vars@(varm ::$ mrest)
   , Ast.AstLet varN uN
@@ -3316,8 +3337,10 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
                               (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2)
     :.$ prest )
   | varm == varp
+  , let varIn1 = varN `varNameInAst` i1
+        varIn2 = varN `varNameInAst` i2
   , - j + 1 <= 0 || - j + 1 >= valueOf @m
-    || ixIsSmall prest && astIsSmall True uN =
+    || ixIsSmall prest && not (varIn1 && varIn2) =
     if | - j + 1 <= 0 ->
          astGatherKnobsS knobs shm shn shp
                          v0 (vars, astLet varN uN i2 :.$ prest)
@@ -3333,12 +3356,16 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
          in astGatherKnobsS knobs (SNat @mj :$$ shsTail shm) shn shp v
               ( varm2 ::$ mrest
               , substituteAstIxS (astVar varm2)
-                                 varm (astLet varN uN i1 :.$ prest) )
+                                 varm ((if varIn1
+                                        then astLet varN uN i1
+                                        else i1) :.$ prest) )
             `astAppendS`
             astGatherKnobsS knobs (SNat @(m - mj) :$$ shsTail shm) shn shp v
               ( varm3 ::$ mrest
               , substituteAstIxS (AstConcreteK (- j + 1) + astVar varm3)
-                                 varm (astLet varN uN i2 :.$ prest))
+                                 varm ((if varIn2
+                                        then astLet varN uN i2
+                                        else i2) :.$ prest))
 astGatherKnobsS knobs
                 shm@(SNat @m :$$ (_ :: ShS shmTail))
                 shn
