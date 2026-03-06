@@ -707,6 +707,9 @@ astCond b v w | FTKS (snat :$$ sh) x <- ftkAst v
               , Just w1 <- unRepl1 w =
   astReplicate snat (STKS sh (ftkToSTK x)) (astCond b v1 w1)
 astCond (Ast.AstBoolNotK b) v w = astCond b w v
+astCond (Ast.AstLet var n b) u v = astLetRefresh var n b $ \b' -> astCond b' u v
+astCond b (Ast.AstLet var n u) v = astLetRefresh var n u $ \u' -> astCond b u' v
+astCond b u (Ast.AstLet var n v) = astLetRefresh var n v $ \v' -> astCond b u v'
 astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
   fromPrimal $ astCond b v w
 astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
@@ -1234,6 +1237,8 @@ astPlusK  :: (NumScalar r, KnownSpan s)
           -> AstTensor AstMethodLet s (TKScalar r)
 {-# INLINEABLE astPlusK #-}
 astPlusK = \cases
+  (Ast.AstLet var n u) v -> astLetRefresh var n u $ \u' -> astPlusK u' v
+  u (Ast.AstLet var n v) -> astLetRefresh var n v $ \v' -> astPlusK u v'
   (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astPlusK u v
   (Ast.AstDualPart u) (Ast.AstDualPart v) -> dualPart $ astPlusK u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
@@ -1305,6 +1310,8 @@ astTimesK :: (NumScalar r, KnownSpan s)
           -> AstTensor AstMethodLet s (TKScalar r)
 {-# INLINEABLE astTimesK #-}
 astTimesK = \cases
+  (Ast.AstLet var n u) v -> astLetRefresh var n u $ \u' -> astTimesK u' v
+  u (Ast.AstLet var n v) -> astLetRefresh var n v $ \v' -> astTimesK u v'
   (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astTimesK u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
@@ -1433,6 +1440,8 @@ astR2K :: (NumScalar r, Differentiable r, KnownSpan s)
        -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
 astR2K opCode = \cases
+  (Ast.AstLet var n u) v -> astLetRefresh var n u $ \u' -> astR2K opCode u' v
+  u (Ast.AstLet var n v) -> astLetRefresh var n v $ \v' -> astR2K opCode u v'
   (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astR2K opCode u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
@@ -1462,6 +1471,8 @@ astI2K :: (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
        -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
 astI2K opCode = \cases
+  (Ast.AstLet var n u) v -> astLetRefresh var n u $ \u' -> astI2K opCode u' v
+  u (Ast.AstLet var n v) -> astLetRefresh var n v $ \v' -> astI2K opCode u v'
   (Ast.AstPrimalPart n) (Ast.AstPrimalPart k) ->
     primalPart (astI2K opCode n k)
   (Ast.AstPlainPart @_ @s1 n) (Ast.AstPlainPart @_ @s2 k)
@@ -4858,6 +4869,7 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
 
 astBoolNotK :: AstBool AstMethodLet -> AstBool AstMethodLet
 astBoolNotK = \case
+  Ast.AstLet var n b -> astLet var n (astBoolNotK b)
   AstConcreteK b -> AstConcreteK $ not b
   Ast.AstBoolNotK b -> b
   b -> Ast.AstBoolNotK b
@@ -4870,6 +4882,8 @@ astBoolAndK :: AstBool AstMethodLet -> AstBool AstMethodLet
             -> AstBool AstMethodLet
 astBoolAndK = \cases
   u v | eqY u v -> u
+  (Ast.AstLet var n b) c -> astLetRefresh var n b $ \b' -> astBoolAndK b' c
+  b (Ast.AstLet var n c) -> astLetRefresh var n c $ \c' -> astBoolAndK b c'
   (AstConcreteK True) b -> b
   (AstConcreteK False) _b -> AstConcreteK False
   b (AstConcreteK True) -> b
@@ -4990,6 +5004,8 @@ astLeqK = \cases
       , u2 <= v1 || u1 > v2 -> AstConcreteK (u2 <= v1)
   -- This is wrong, because LHS is a particular valuation and RHS is all.
   -- Ast.AstLet _ _ u <=. Ast.AstLet _ _ v -> u <=. v
+  (Ast.AstLet var n u) v -> astLetRefresh var n u $ \u' -> astLeqK u' v
+  u (Ast.AstLet var n v) -> astLetRefresh var n v $ \v' -> astLeqK u v'
   u (AstPlusK (AstConcreteK v) w) ->
     astLeqK (astPlusK u (AstConcreteK $ negate v)) w
   (AstPlusK (AstConcreteK u) w) v ->
