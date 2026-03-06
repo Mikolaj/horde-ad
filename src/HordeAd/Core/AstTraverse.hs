@@ -560,20 +560,28 @@ contractAst t0 = case t0 of
         -- with the same variable, we could create such nested lets
         -- if we omitted this check.
     -}
-    astLet vart
-           (withKnownSpan (varNameToSpan vart) $ contractAst vt)
-           (contractAst $ Ast.AstSum snat stk  -- the crucial exposed redex
-                                     (AstTimesS t2 u))
+    astLetRefresh
+      vart
+      (withKnownSpan (varNameToSpan vart) $ contractAst vt)
+      t2
+      $ \t2' ->
+        contractAst $ Ast.AstSum snat stk  -- the crucial exposed redex
+                                 (AstTimesS t2' u)
   Ast.AstSum snat stk (AstTimesS t2 (Ast.AstLet varu vu u)) ->
-    astLet varu
-           (withKnownSpan (varNameToSpan varu) $ contractAst vu)
-           (contractAst $ Ast.AstSum snat stk (AstTimesS t2 u))
+    astLetRefresh
+      varu
+      (withKnownSpan (varNameToSpan varu) $ contractAst vu)
+      u
+      $ \u' -> contractAst $ Ast.AstSum snat stk (AstTimesS t2 u')
   Ast.AstSum snat stk (Ast.AstLet var v t2) ->
     astLet var (withKnownSpan (varNameToSpan var) $ contractAst v)
                (contractAst (Ast.AstSum snat stk t2))
   Ast.AstSum snat stk (Ast.AstSum snat2 stk2 (Ast.AstLet var v t2)) ->
-    astLet var (withKnownSpan (varNameToSpan var) $ contractAst v)
-               (contractAst (Ast.AstSum snat stk (Ast.AstSum snat2 stk2 t2)))
+    astLetRefresh
+      var
+      (withKnownSpan (varNameToSpan var) $ contractAst v)
+      t2
+      $ \t2' -> contractAst (Ast.AstSum snat stk (Ast.AstSum snat2 stk2 t2'))
   Ast.AstSum snat stk v -> astSum snat stk (contractAst v)
   Ast.AstReplicate snat stk v -> astReplicate snat stk (contractAst v)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->

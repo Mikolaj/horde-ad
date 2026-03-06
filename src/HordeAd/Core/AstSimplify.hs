@@ -45,7 +45,7 @@ module HordeAd.Core.AstSimplify
   , astBoolNotK, astBoolNotS, astBoolAndK, astBoolAndS, astLeqK, astLeq, astLeqS
 
     -- * Helper combinators
-  , astConcrete, astLetFun
+  , astConcrete, astLetFun, astLetRefresh
 
     -- * Substitution operations
   , substituteAst, substituteAstIxS
@@ -855,27 +855,31 @@ astLet var (Ast.AstFromPlain u) v =
   withKnownSpan (varNameToSpan var)
   $ astLetFun u $ \ !ast1 -> substituteAst (fromPlain ast1) var v
 astLet var (Ast.AstPair u1 u2) v =
-  withKnownSpan (varNameToSpan var)
-  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (Ast.AstPair ast1 ast2) var v
-astLet var (Ast.AstLet varN uN (Ast.AstPair u1 u2)) v =
-  astLet varN uN
-  $ withKnownSpan (varNameToSpan var)
-  $ astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
-      substituteAst (Ast.AstPair ast1 ast2) var v
+  withKnownSpan (varNameToSpan var) $
+  astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
+    substituteAst (Ast.AstPair ast1 ast2) var v
+astLet var (Ast.AstLet varN uN (u12@Ast.AstPair{})) v =
+  withKnownSpan (varNameToSpan var) $
+  astLetRefresh varN uN u12 $ \u3 -> case u3 of
+    Ast.AstPair u1' u2' ->
+      astLetFun u1' $ \ !ast1 -> astLetFun u2' $ \ !ast2 ->
+        substituteAst (Ast.AstPair ast1 ast2) var v
+    _ -> astLet var (astLet varN uN u3) v
 -- This is a common case, e.g., from representing conditionals.
 astLet var (Ast.AstFromVector snat stk u) v | V.length u == 2 =
-  withKnownSpan (varNameToSpan var)
-  $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-      substituteAst (Ast.AstFromVector snat stk
-                     $ V.fromListN 2 [ast1, ast2]) var v
+  withKnownSpan (varNameToSpan var) $
+  astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
+    substituteAst (Ast.AstFromVector snat stk
+                   $ V.fromListN 2 [ast1, ast2]) var v
 astLet var (Ast.AstLet varN uN
-              (Ast.AstFromVector snat stk u)) v | V.length u == 2 =
-  astLet varN uN
-  $ withKnownSpan (varNameToSpan var)
-  $ astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
-      substituteAst (Ast.AstFromVector snat stk
-                     $ V.fromListN 2 [ast1, ast2]) var v
+              (u12@(Ast.AstFromVector _ _ u))) v | V.length u == 2 =
+  withKnownSpan (varNameToSpan var) $
+  astLetRefresh varN uN u12 $ \u3 -> case u3 of
+    Ast.AstFromVector snat stk u' ->
+      astLetFun (u' V.! 0) $ \ !ast1 -> astLetFun (u' V.! 1) $ \ !ast2 ->
+        substituteAst (Ast.AstFromVector snat stk
+                       $ V.fromListN 2 [ast1, ast2]) var v
+    _ -> astLet var (astLet varN uN u3) v
 astLet var (Ast.AstReplicate snat stk a) v =
   let var2 = reshapeVarName (ftkAst a) var
       ast = Ast.AstReplicate snat stk $ astVar var2
@@ -1623,7 +1627,7 @@ astIndexK v0 ix@(AstConcreteK i :.$ rest1) = case v0 of
      if 0 <= i && i <= fromSNat' snat - 1
      then substituteAst (AstConcreteK i) var2 v
      else fromPlain $ AstConcreteK def
-   Ast.AstLet var u v -> astLet var u (astIndexK v ix)
+   Ast.AstLet var u v -> astLetRefresh var u v $ \v' -> astIndexK v' ix
    Ast.AstFromPrimal v -> fromPrimal $ astIndexK v ix
    Ast.AstFromDual v -> fromDual $ astIndexK v ix
    Ast.AstFromPlain v -> fromPlain $ astIndexK v ix
@@ -2306,7 +2310,8 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
          if b then sfromK $ astLet var2 i1 v else defArr
        _ -> Ast.AstIndexS shn v0 ix
 
-   Ast.AstLet var u v -> astLet var u (astIndexKnobsS knobs shn v ix)
+   Ast.AstLet var u v ->
+     astLetRefresh var u v $ \v' -> astIndexKnobsS knobs shn v' ix
 
    Ast.AstPrimalPart{} -> Ast.AstIndexS shn v0 ix  -- must be a NF
    Ast.AstDualPart{} -> Ast.AstIndexS shn v0 ix
@@ -2410,7 +2415,9 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
          w :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) r)
          w = astGather shm71 shn' shp' v (vars, ix2)
          u = astLet var2 i1 $ astIndex @shm1 @shn shn w rest1
-           -- this let makes it impossible to use astCond when i1 is OOB
+           -- This let makes it impossible to use astCond when i1 is OOB.
+           -- No astLetRefresh is needed, because the smart constructor
+           -- for AstGatherS ensures var2 doesn't occur in v, even bound.
      in case 0 <=. i1 &&* i1 <=. valueOf @m71 - 1 of
        AstConcreteK b -> if b then u else defArr
        _ -> Ast.AstIndexS shn v0 ix
@@ -2585,7 +2592,8 @@ astScatterKnobsS knobs shm shn shp@(SNat' @1 :$$ _)
     astReplicate (SNat @1) (STKS (shsTail shp `shsAppend` shn) (stkAstX v))
     $ astScatterKnobsS knobs shm shn (shsTail shp) v (vars, rest)
 astScatterKnobsS knobs shm shn shp (Ast.AstLet var u v) (vars, ix) =
-  astLet var u (astScatterKnobsS knobs shm shn shp v (vars, ix))
+  astLetRefresh var u v
+  $ \v' -> astScatterKnobsS knobs shm shn shp v' (vars, ix)
 astScatterKnobsS knobs shm shn shp (Ast.AstFromPrimal v) (vars, ix) =
   fromPrimal $ astScatterKnobsS knobs shm shn shp v (vars, ix)
 astScatterKnobsS knobs shm shn shp (Ast.AstFromDual v) (vars, ix) =
@@ -3709,7 +3717,7 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
              -- free variables possible in the index, so can't compute the array
 
     Ast.AstLet var u v ->
-      astLet var u (astGather shm shn shp v (vars4, ix4))
+      astLetRefresh var u v $ \v' -> astGather shm shn shp v' (vars4, ix4)
 
     Ast.AstPrimalPart{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     Ast.AstDualPart{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
@@ -5343,6 +5351,15 @@ astLetFun a f = case a of
     ftk -> do
         var <- funToAstNoBoundsIO ftk
         pure $! astLet var a (f $ astVar var)
+
+astLetRefresh :: forall y x z s s2 s3. (KnownSpan s2, KnownSpan s3)
+              => AstVarName '(s, y) -> AstTensor AstMethodLet s y
+              -> AstTensor AstMethodLet s3 x
+              -> (AstTensor AstMethodLet s3 x -> AstTensor AstMethodLet s2 z)
+              -> AstTensor AstMethodLet s2 z
+astLetRefresh var u v f =
+  withKnownSpan (varNameToSpan var) $
+  astLetFun u $ \ !ast1 -> f (substituteAst ast1 var v)
 
 astReplicateNS :: forall shn shp x s. KnownSpan s
                => ShS shn -> AstTensor AstMethodLet s (TKS2 shp x)
