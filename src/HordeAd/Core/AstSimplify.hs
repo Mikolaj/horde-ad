@@ -1611,7 +1611,7 @@ astIndexK
   :: forall shm s r. (GoodScalar r, KnownSpan s)
   => AstTensor AstMethodLet s (TKS shm r) -> AstIxS AstMethodLet shm
   -> AstTensor AstMethodLet s (TKScalar r)
-astIndexK v0 ZIS = Ast.AstConvert (ConvCmp ConvX0 ConvSX) v0
+astIndexK v0 ZIS = kfromS v0
 -- These rules shrink the term or are structural, so copied from astIndexKnobsS:
 astIndexK v0 ix@(AstConcreteK i :.$ rest1) = case v0 of
    Ast.AstFromVector snat STKS{} l ->
