@@ -2037,7 +2037,7 @@ testCNNOPP4bW = do
   interpretAstFull @Concrete env (artDerivativeRev artifactRev)
     @?= interpretAstFull @Concrete env (artDerivativeRev artSimp)
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\u1 -> rfromS (let w47 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i139, i140] -> [2 * i139 + i140]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sgather @[7, 7, 3, 3] w47 (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kargMax (splainPart w47 !$ [i48, i49, i50, i51])]))"
+    @?= "\\u1 -> rfromS (let w47 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i135, i136] -> [2 * i135 + i136]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sgather @[7, 7, 3, 3] w47 (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kargMax (splainPart w47 !$ [i48, i49, i50, i51])]))"
   printArtifactPrimalPretty artifactRev
     @?= "\\u1 -> rfromS (let w47 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i43, i44] -> [2 * i43 + i44]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sgather @[7, 7, 3, 3] w47 (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kargMax (splainPart w47 !$ [i48, i49, i50, i51])]))"
   printArtifactPretty artifactRev
@@ -2046,7 +2046,7 @@ testCNNOPP4bW = do
   -- but w42 looks even worse, depending on available primitives,
   -- so the rule is probably fine.
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret u1 -> rfromS (stranspose @[1, 2, 0] (sscatter @[3, 4] (stranspose @[3, 4, 1, 2, 0] (sscatter @[3, 4] (stranspose @[3, 5, 0, 1, 2, 4] (sreshape @[7, 7, 3, 3, 4, 4] (let w163 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i160, i161] -> [2 * i160 + i161]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sscatter @[7, 7, 3, 3] (sfromR dret) (\\[i53, i54, i55, i56] -> [i53, i54, i55, i56, kargMax (splainPart w163 !$ [i53, i54, i55, i56])])))) (\\[i57, i58] -> [2 * i57 + i58]))) (\\[i59, i60] -> [2 * i59 + i60])))"
+    @?= "\\dret u1 -> rfromS (stranspose @[1, 2, 0] (sscatter @[3, 4] (stranspose @[3, 4, 1, 2, 0] (sscatter @[3, 4] (stranspose @[3, 5, 0, 1, 2, 4] (sreshape @[7, 7, 3, 3, 4, 4] (let w148 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i156, i157] -> [2 * i156 + i157]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sscatter @[7, 7, 3, 3] (sfromR dret) (\\[i53, i54, i55, i56] -> [i53, i54, i55, i56, kargMax (splainPart w148 !$ [i53, i54, i55, i56])])))) (\\[i57, i58] -> [2 * i57 + i58]))) (\\[i59, i60] -> [2 * i59 + i60])))"
 
 testCNNOPP4bD :: Assertion
 testCNNOPP4bD = do
@@ -2066,13 +2066,13 @@ testCNNOPP4bD = do
   interpretAstFull @Concrete env (artDerivativeRev artifactRev)
     @?= interpretAstFull @Concrete env (artDerivativeRev artSimp)
   printArtifactPrimalPretty artSimp
-    @?= "\\u1 -> rfromS (let w47 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i99, i100] -> [2 * i99 + i100]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sgather @[7, 7, 3, 3] w47 (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kargMax (splainPart w47 !$ [i48, i49, i50, i51])]))"
+    @?= "\\u1 -> rfromS (let w47 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i97, i98] -> [2 * i97 + i98]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sgather @[7, 7, 3, 3] w47 (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kargMax (splainPart w47 !$ [i48, i49, i50, i51])]))"
   printArtifactPrimalPretty artifactRev
     @?= "\\u1 -> rfromS (let w47 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i43, i44] -> [2 * i43 + i44]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sgather @[7, 7, 3, 3] w47 (\\[i48, i49, i50, i51] -> [i48, i49, i50, i51, kargMax (splainPart w47 !$ [i48, i49, i50, i51])]))"
   printArtifactPretty artifactRev
     @?= "\\dret u1 -> rfromS (stranspose @[1, 2, 0] (sscatter @[3, 4] (stranspose @[3, 4, 1, 2, 0] (sscatter @[3, 4] (stranspose @[3, 5, 0, 1, 2, 4] (sreshape @[7, 7, 3, 3, 4, 4] (let w47 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i43, i44] -> [2 * i43 + i44]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sscatter @[7, 7, 3, 3] (sfromR dret) (\\[i53, i54, i55, i56] -> [i53, i54, i55, i56, kargMax (splainPart w47 !$ [i53, i54, i55, i56])])))) (\\[i57, i58] -> [2 * i57 + i58]))) (\\[i59, i60] -> [2 * i59 + i60])))"
   printArtifactPretty artSimp
-    @?= "\\dret u1 -> rfromS (stranspose @[1, 2, 0] (sscatter @[3, 4] (stranspose @[3, 4, 1, 2, 0] (sscatter @[3, 4] (stranspose @[3, 5, 0, 1, 2, 4] (sreshape @[7, 7, 3, 3, 4, 4] (let w83 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i80, i81] -> [2 * i80 + i81]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sscatter @[7, 7, 3, 3] (sfromR dret) (\\[i53, i54, i55, i56] -> [i53, i54, i55, i56, kargMax (splainPart w83 !$ [i53, i54, i55, i56])])))) (\\[i57, i58] -> [2 * i57 + i58]))) (\\[i59, i60] -> [2 * i59 + i60])))"
+    @?= "\\dret u1 -> rfromS (stranspose @[1, 2, 0] (sscatter @[3, 4] (stranspose @[3, 4, 1, 2, 0] (sscatter @[3, 4] (stranspose @[3, 5, 0, 1, 2, 4] (sreshape @[7, 7, 3, 3, 4, 4] (let w72 = sreshape @[7, 7, 3, 3, 16] (stranspose @[2, 3, 4, 0, 5, 1] (sgather @[3, 4] (stranspose @[4, 2, 3, 0, 1] (sgather @[3, 4] (stranspose @[2, 0, 1] (sfromR u1)) (\\[i80, i81] -> [2 * i80 + i81]))) (\\[i45, i46] -> [2 * i45 + i46]))) in sscatter @[7, 7, 3, 3] (sfromR dret) (\\[i53, i54, i55, i56] -> [i53, i54, i55, i56, kargMax (splainPart w72 !$ [i53, i54, i55, i56])])))) (\\[i57, i58] -> [2 * i57 + i58]))) (\\[i59, i60] -> [2 * i59 + i60])))"
 
 testCNNOPP5aW :: Assertion
 testCNNOPP5aW = do

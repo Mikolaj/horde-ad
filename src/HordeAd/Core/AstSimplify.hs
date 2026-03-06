@@ -2603,9 +2603,10 @@ astScatterKnobsS knobs shm shn shp@(SNat' @1 :$$ _)
                  v (vars, AstConcreteK _ :.$ rest) =  -- if OOB, covered above
     astReplicate (SNat @1) (STKS (shsTail shp `shsAppend` shn) (stkAstX v))
     $ astScatterKnobsS knobs shm shn (shsTail shp) v (vars, rest)
-astScatterKnobsS knobs shm shn shp (Ast.AstLet var u v) (vars, ix) =
-  astLetRefresh var u v
-  $ \v' -> astScatterKnobsS knobs shm shn shp v' (vars, ix)
+astScatterKnobsS knobs shm shn shp (Ast.AstLet var u v) (vars, ix)
+  | knobPhase knobs /= PhaseContraction =
+    astLetRefresh var u v
+    $ \v' -> astScatterKnobsS knobs shm shn shp v' (vars, ix)
 astScatterKnobsS knobs shm shn shp (Ast.AstFromPrimal v) (vars, ix) =
   fromPrimal $ astScatterKnobsS knobs shm shn shp v (vars, ix)
 astScatterKnobsS knobs shm shn shp (Ast.AstFromDual v) (vars, ix) =

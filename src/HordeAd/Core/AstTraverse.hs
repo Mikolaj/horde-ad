@@ -864,7 +864,9 @@ letDownAst t = case t of
 
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     let !ix2 = letDownAstIxS ix
-    in Ast.AstScatterS shm shn shp (letDownAst v) (vars, ix2)
+    in astScatterKnobsS (defaultKnobs {knobPhase = PhaseContraction})
+                        shm shn shp (letDownAst v) (vars, ix2)
+         -- an extra chance to get rid of oneHot1 NF
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     let !ix2 = letDownAstIxS ix
     in Ast.AstGatherS shm shn shp (letDownAst v) (vars, ix2)
