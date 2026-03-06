@@ -1809,6 +1809,7 @@ fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
 -- Checks whether it's a conditional or something easily obtained
 -- from conditionals via rewrite rules.
 isCond :: AstInt AstMethodLet -> Bool
+isCond (Ast.AstLet _var _u v) = isCond v
 isCond Ast.AstCond{} = True
 isCond (AstPlusK _ Ast.AstCond{}) = True
 isCond (AstPlusK Ast.AstCond{} _) = True
