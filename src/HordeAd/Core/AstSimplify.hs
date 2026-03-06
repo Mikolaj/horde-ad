@@ -1613,63 +1613,69 @@ astIndexK
   -> AstTensor AstMethodLet s (TKScalar r)
 astIndexK v0 ZIS = kfromS v0
 -- These rules shrink the term or are structural, so copied from astIndexKnobsS:
-astIndexK v0 ix@(AstConcreteK i :.$ rest1) = case v0 of
-   Ast.AstFromVector snat STKS{} l ->
-     if 0 <= i && i <= fromSNat' snat - 1
-     then astIndexK (l V.! i) rest1
-     else fromPlain $ AstConcreteK def
-   Ast.AstFromVector snat STKScalar l | ZIS <- rest1 ->
-     if 0 <= i && i <= fromSNat' snat - 1
-     then l V.! i
-     else fromPlain $ AstConcreteK def
-   Ast.AstReplicate snat STKS{} v ->
-     if 0 <= i && i <= fromSNat' snat - 1
-     then astIndexK v rest1
-     else fromPlain $ AstConcreteK def
-   Ast.AstReplicate snat STKScalar v | ZIS <- rest1 ->
-     if 0 <= i && i <= fromSNat' snat - 1
-     then v
-     else fromPlain $ AstConcreteK def
-   Ast.AstBuild1 snat STKS{} (var2, v) ->
-     if 0 <= i && i <= fromSNat' snat - 1
-     then astIndexK (substituteAst (AstConcreteK i) var2 v) rest1
-     else fromPlain $ AstConcreteK def
-   Ast.AstBuild1 snat STKScalar (var2, v) | ZIS <- rest1 ->
-     if 0 <= i && i <= fromSNat' snat - 1
-     then substituteAst (AstConcreteK i) var2 v
-     else fromPlain $ AstConcreteK def
-   Ast.AstLet var u v -> astLetRefresh var u v $ \v' -> astIndexK v' ix
-   Ast.AstFromPrimal v -> fromPrimal $ astIndexK v ix
-   Ast.AstFromDual v -> fromDual $ astIndexK v ix
-   Ast.AstFromPlain v -> fromPlain $ astIndexK v ix
-   AstConcreteS a | _ :$$ shmTail <- Nested.sshape a ->
-     let u = withKnownShS shmTail $
-             tsindex (Concrete a) (Concrete i :.$ ZIS)
-     in astIndexK (astConcreteS u) rest1
-   Ast.AstGatherS (m71 :$$ shm71) shn' shp' v (var2 ::$ vars, ix2) ->
-     let w = astGatherS shm71 shn' shp' v (vars, ix2)
-     in if 0 <= i && i <= fromSNat' m71 - 1
-        then substituteAst (AstConcreteK i) var2 $ astIndexK w rest1
+astIndexK v0 ix@(i1 :.$ rest1) = case v0 of
+  Ast.AstScatterS shm7 shn7 shp7 v (vars, i5 :.$ ix2) | eqY i5 i1 ->
+    astIndexK (astScatterS shm7 shn7 (shsTail shp7) v (vars, ix2)) rest1
+  _ -> case i1 of
+    AstConcreteK i -> case v0 of
+      Ast.AstFromVector snat STKS{} l ->
+        if 0 <= i && i <= fromSNat' snat - 1
+        then astIndexK (l V.! i) rest1
         else fromPlain $ AstConcreteK def
-   Ast.AstIotaS snat ->
-     if 0 <= i && i <= fromSNat' snat - 1
-     then AstConcreteK $ fromIntegral i
-     else fromPlain $ AstConcreteK def
-   Ast.AstAppendS u v | FTKS (snat :$$ _) _ <- ftkAst u ->
-       let ulen = fromSNat' snat
-           ix1 = AstConcreteK i :.$ rest1
-           ix2 = AstConcreteK (i - ulen) :.$ rest1
-       in if ulen <= i then astIndexK v ix2 else astIndexK u ix1
-   Ast.AstSliceS i0 n k v ->
-     if (fromSNat' i0 == 0 || 0 <= i)
-        && (fromSNat' k == 0 || i <= fromSNat' n - 1)
-     then astIndexK v (AstConcreteK (fromSNat' i0 + i) :.$ rest1)
-     else fromPlain $ AstConcreteK def
-   Ast.AstReverseS v | FTKS (snat :$$ _) _ <- ftkAst v ->
-     let iRev = fromSNat' snat - 1 - i
-     in astIndexK v (AstConcreteK iRev :.$ rest1)
-   _ -> Ast.AstIndexK v0 ix
-astIndexK v0 ix = Ast.AstIndexK v0 ix
+      Ast.AstFromVector snat STKScalar l | ZIS <- rest1 ->
+        if 0 <= i && i <= fromSNat' snat - 1
+        then l V.! i
+        else fromPlain $ AstConcreteK def
+      Ast.AstReplicate snat STKS{} v ->
+        if 0 <= i && i <= fromSNat' snat - 1
+        then astIndexK v rest1
+        else fromPlain $ AstConcreteK def
+      Ast.AstReplicate snat STKScalar v | ZIS <- rest1 ->
+        if 0 <= i && i <= fromSNat' snat - 1
+        then v
+        else fromPlain $ AstConcreteK def
+      Ast.AstBuild1 snat STKS{} (var2, v) ->
+        if 0 <= i && i <= fromSNat' snat - 1
+        then astIndexK (substituteAst (AstConcreteK i) var2 v) rest1
+        else fromPlain $ AstConcreteK def
+      Ast.AstBuild1 snat STKScalar (var2, v) | ZIS <- rest1 ->
+        if 0 <= i && i <= fromSNat' snat - 1
+        then substituteAst (AstConcreteK i) var2 v
+        else fromPlain $ AstConcreteK def
+      Ast.AstLet var u v -> astLetRefresh var u v $ \v' -> astIndexK v' ix
+      Ast.AstFromPrimal v -> fromPrimal $ astIndexK v ix
+      Ast.AstFromDual v -> fromDual $ astIndexK v ix
+      Ast.AstFromPlain v -> fromPlain $ astIndexK v ix
+      AstConcreteS a | _ :$$ shmTail <- Nested.sshape a ->
+        let u = withKnownShS shmTail $
+                tsindex (Concrete a) (Concrete i :.$ ZIS)
+        in astIndexK (astConcreteS u) rest1
+      Ast.AstScatterS _ _ _ _ (_, AstConcreteK{} :.$ _) ->
+        fromPlain $ AstConcreteK def  -- from above indexes differ
+      Ast.AstGatherS (m71 :$$ shm71) shn' shp' v (var2 ::$ vars, ix2) ->
+        let w = astGatherS shm71 shn' shp' v (vars, ix2)
+        in if 0 <= i && i <= fromSNat' m71 - 1
+           then substituteAst (AstConcreteK i) var2 $ astIndexK w rest1
+           else fromPlain $ AstConcreteK def
+      Ast.AstIotaS snat ->
+        if 0 <= i && i <= fromSNat' snat - 1
+        then AstConcreteK $ fromIntegral i
+        else fromPlain $ AstConcreteK def
+      Ast.AstAppendS u v | FTKS (snat :$$ _) _ <- ftkAst u ->
+          let ulen = fromSNat' snat
+              ix1 = AstConcreteK i :.$ rest1
+              ix2 = AstConcreteK (i - ulen) :.$ rest1
+          in if ulen <= i then astIndexK v ix2 else astIndexK u ix1
+      Ast.AstSliceS i0 n k v ->
+        if (fromSNat' i0 == 0 || 0 <= i)
+           && (fromSNat' k == 0 || i <= fromSNat' n - 1)
+        then astIndexK v (AstConcreteK (fromSNat' i0 + i) :.$ rest1)
+        else fromPlain $ AstConcreteK def
+      Ast.AstReverseS v | FTKS (snat :$$ _) _ <- ftkAst v ->
+        let iRev = fromSNat' snat - 1 - i
+        in astIndexK v (AstConcreteK iRev :.$ rest1)
+      _ -> Ast.AstIndexK v0 ix
+    _ -> Ast.AstIndexK v0 ix
 
 -- Just as with AstPlusK, summands are flattened and a constant comes first.
 astPlusS :: (NumScalar r, KnownSpan s)
@@ -2397,18 +2403,12 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
      | Refl <- lemAppAssoc (Proxy @sh4) (Proxy @shm) (Proxy @shn) ->
        astIndexKnobsS knobs shn v (ix2 `ixsAppend` ix)
 
-   Ast.AstScatterS shm7 shn7 shp7 v (vars, AstIntVar var5 :.$ ix2)
-     | AstIntVar var6 <- i1, var6 == var5 ->
-         astIndex shn (astScatter shm7 shn7 (shsTail shp7)
-                                  v (vars, ix2)) rest1
-   Ast.AstScatterS shm7 shn7 shp7
-                   v (vars, AstConcreteK i5 :.$ ix2)
-     | AstConcreteK i6 <- i1 ->
-         if i6 == i5
-         then astIndex shn (astScatter shm7 shn7 (shsTail shp7)
-                                       v (vars, ix2)) rest1
-         else let ftk = FTKS shn x
-              in fromPlain $ astConcrete ftk (tdefTarget ftk)
+   Ast.AstScatterS shm7 shn7 shp7 v (vars, i5 :.$ ix2) | eqY i5 i1 ->
+     astIndex shn (astScatter shm7 shn7 (shsTail shp7) v (vars, ix2)) rest1
+   Ast.AstScatterS _ _ _ _ (_, AstConcreteK{} :.$ _)
+     | AstConcreteK{} <- i1 ->  -- from above we know i5 /= i6
+       let ftk = FTKS shn x
+       in fromPlain $ astConcrete ftk (tdefTarget ftk)
    -- AstScatter sh v (vars2, ZIR) ->
    --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZIR)
    Ast.AstScatterS{} ->  -- normal form
@@ -3791,11 +3791,10 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
     Ast.AstIndexS @shm2 _shn2 v2 (i2 :.$ ZIS) ->
         astGather @shm @shn @(shm2 ++ shp) shn v2 (vars4, i2 :.$ ix4) -}
     Ast.AstIndexS{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
-    Ast.AstScatterS shm7 shn7 shp7 v (vars, i5 :.$ ix2)
-      | eqY i4 i5 ->
-        astGather shm shn (shsTail shp)
-                  (astScatter shm7 shn7 (shsTail shp7) v (vars, ix2))
-                  (vars4, rest4)
+    Ast.AstScatterS shm7 shn7 shp7 v (vars, i5 :.$ ix2) | eqY i4 i5 ->
+      astGather shm shn (shsTail shp)
+                (astScatter shm7 shn7 (shsTail shp7) v (vars, ix2))
+                (vars4, rest4)
     Ast.AstScatterS{} ->  -- normal form
       Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     Ast.AstGatherS @shm2 @shn2 @shp2 shm2 shn2 shp2 v2 (vars2, ix2)
