@@ -170,7 +170,9 @@ varInAst var = \case
     assert (varNameToAstVarId var2 /= var) $
     varInAst var v
 
-  AstLet _ u v -> varInAst var u || varInAst var v
+  AstLet var2 u v ->
+    assert (varNameToAstVarId var2 /= var) $
+    varInAst var u || varInAst var v
   AstShare _ v -> varInAst var v
   AstToShare v -> varInAst var v
 
@@ -209,8 +211,12 @@ varInAst var = \case
   AstArgMaxS a -> varInAst var a
   AstIndexS _ v ix -> varInAst var v || varInIxS var ix
 
-  AstScatterS _ _ _ v (_vars, ix) -> varInIxS var ix || varInAst var v
-  AstGatherS _ _ _ v (_vars, ix) -> varInIxS var ix || varInAst var v
+  AstScatterS _ _ _ t (vars, ix) ->
+    assert (all (\v -> var /= varNameToAstVarId v) vars) $
+    varInIxS var ix || varInAst var t
+  AstGatherS _ _ _ t (vars, ix) ->
+    assert (all (\v -> var /= varNameToAstVarId v) vars) $
+    varInIxS var ix || varInAst var t
   AstIotaS{} -> False
   AstAppendS v u -> varInAst var v || varInAst var u
   AstSliceS _ _ _ v -> varInAst var v
@@ -237,7 +243,8 @@ varInIxS :: AstVarId -> AstIxS ms sh -> Bool
 varInIxS var = any (varInAst var)
 
 varInAstHFun :: AstVarId -> AstHFun s x y -> Bool
-varInAstHFun _var AstLambda{} =
+varInAstHFun var (AstLambda var2 _) =
+  assert (varNameToAstVarId var2 /= var) $
   False  -- we take advantage of the term being closed
 
 varNameInAst :: AstVarName '(s, y) -> AstTensor ms s2 y2 -> Bool
