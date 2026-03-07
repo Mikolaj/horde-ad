@@ -479,7 +479,7 @@ astTrS :: forall n m sh s r. KnownSpan s
        => AstTensor AstMethodLet s (TKS2 (n ': m ': sh) r)
        -> AstTensor AstMethodLet s (TKS2 (m ': n ': sh) r)
 astTrS a | FTKS (_ :$$ _ :$$ sh) _ <- ftkAst a
-         , SNat <- shsRank sh =  -- needed to use auto-instaces to infer 2 <= 2
+         , SNat <- shsRank sh =  -- needed to use auto-instances to infer 2 <= 2
   astTransposeS (Permutation.makePerm @'[1, 0]) a
 
 astTrX :: forall n m shx s r. KnownSpan s
