@@ -2422,7 +2422,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
    Ast.AstScatterS shm7 shn7 shp7 v (vars, i5 :.$ ix2) | eqY i5 i1 ->
      astIndex shn (astScatter shm7 shn7 (shsTail shp7) v (vars, ix2)) rest1
    Ast.AstScatterS _ _ _ _ (_, AstConcreteK{} :.$ _)
-     | AstConcreteK{} <- i1 ->  -- from above we know i5 /= i6
+     | AstConcreteK{} <- i1 ->  -- from above we know i5 /= i1
        let ftk = FTKS shn x
        in fromPlain $ astConcrete ftk (tdefTarget ftk)
    -- AstScatter sh v (vars2, ZIR) ->
@@ -3587,6 +3587,10 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
       astGather shm shn (shsTail shp)
                 (astScatter shm7 shn7 (shsTail shp7) v (vars, ix2))
                 (vars4, rest4)
+    Ast.AstScatterS _ _ _ _ (_, AstConcreteK{} :.$ _)
+      | AstConcreteK{} <- i4 ->  -- from above we know i5 /= i4
+        let ftk = FTKS (shm `shsAppend` shn) x
+        in fromPlain $ astConcrete ftk (tdefTarget ftk)
     Ast.AstScatterS{} ->  -- normal form
       Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     Ast.AstGatherS @shm2 @shn2 @shp2 shm2 shn2 shp2 v2 (vars2, ix2)
