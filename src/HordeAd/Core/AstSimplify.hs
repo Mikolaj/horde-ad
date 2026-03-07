@@ -24,7 +24,7 @@ module HordeAd.Core.AstSimplify
   ( RewritePhase(..), SimplifyKnobs (..), defaultKnobs
   , -- * The simplifying combinators, one for almost each AST constructor
     astPair, astProject1, astProject2, astFromVector, astSum, astReplicate
-  , astMapAccumLDer, astApply, astCond, astLet
+  , astMapAccumLDer, astApply, astCond, astCondInitial, astLet
 
   , astPrimalPart, astDualPart, astPlainPart
 
@@ -696,6 +696,21 @@ astApply :: forall x z s. KnownSpan s
          -> AstTensor AstMethodLet s z
 astApply (AstLambda !var !v) u = astLet var u v
 
+astCondInitial :: KnownSpan s
+               => AstBool AstMethodLet
+               -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
+               -> AstTensor AstMethodLet s y
+astCondInitial b v w = case b of
+  AstLeqInt (AstConcreteK k) (AstIntVar var)
+    | FTKScalar @r <- ftkAst v
+    , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
+    , Just (lb, ub) <- varNameToBounds var ->
+      let varTrue = reboundsVarName (max lb k, ub) var
+          varFalse = reboundsVarName (lb, min ub (k - 1)) var
+      in astCond b (substituteAst (astVar varTrue) var v)
+                   (substituteAst (astVar varFalse) var w)
+  _ -> astCond b v w
+
 astCond :: KnownSpan s
         => AstBool AstMethodLet
         -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
@@ -761,10 +776,8 @@ astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
   , Just (lb, ub) <- varNameToBounds var
   , let varTrue = reboundsVarName (max lb k, ub) var
         varFalse = reboundsVarName (lb, min ub (k - 1)) var
-  , AstConcreteK dv <- substituteAst (astVar varTrue) var v
-                       - fromPlain (astVar varTrue)
-  , AstConcreteK dw <- substituteAst (astVar varFalse) var w
-                       - fromPlain (astVar varFalse)
+  , AstConcreteK dv <- v - fromPlain (astVar varTrue)
+  , AstConcreteK dw <- w - fromPlain (astVar varFalse)
   , dv == dw =
     fromPlain $ AstConcreteK dv + var0
 {- TODO: Investigate how much stronger this rule is than the above (it's slower)
@@ -774,11 +787,9 @@ astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
   , Just (lb, ub) <- varNameToBounds var
   , let varTrue = reboundsVarName (max lb k, ub) var
         varFalse = reboundsVarName (lb, min ub (k - 1)) var
-        d = substituteAst (astVar varTrue) var v
-            - fromPlain (astVar varTrue)
-  , eqY (fromPlain (astVar varFalse)
-         + substituteAst (astVar varFalse) varTrue d)
-        (substituteAst (astVar varFalse) var w) =
+        d = v - fromPlain (astVar varTrue)
+  , eqY w (substituteAst (astVar varFalse) varTrue d
+           + fromPlain (astVar varFalse)) =
     substituteAst var0 varTrue d + fromPlain var0 -}
 {- Disabled, because scatters and gathers simplify better with conditionals
    than with quotH, so the rules need to be restricted at least.
@@ -1799,14 +1810,15 @@ fuseScatters :: forall m m2 shm shn shp x s. (TKAllNum x, KnownSpan s)
              -> Maybe (AstTensor AstMethodLet s (TKS2 (shp ++ shn) x))
 fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
              (m2 :$$ _shmRest2) _shn2 _shp2 u2 (var2 ::$ vars2, ix2) =
-  let var' = reboundsVarName (0, fromSNat' m + fromSNat' m2 - 1) var
-      f i2 = substituteAst (astVar var' - AstConcreteK (fromSNat' m)) var2
+  let ub = fromSNat' m + fromSNat' m2 - 1
+      var' = reboundsVarName (0, ub) var
+      astVarTrue = astVar $ reboundsVarName (fromSNat' m, ub) var
+      f i2 = substituteAst (astVarTrue - AstConcreteK (fromSNat' m)) var2
              $ foldr (\(v, v2) -> substituteAst (astVar v) v2) i2
                      (listsZip vars vars2)
-      ix2Substituted = f <$> ix2
       g i i2 = astCond (AstConcreteK (fromSNat' m) <=. astVar var')
-                       i2 i
-      ix3 = ixsZipWith g ix ix2Substituted
+                       (f i2) i  -- i has, effectively, varFalse in it
+      ix3 = ixsZipWith g ix ix2
   in if any isCond ix3
      then Nothing  -- a risk of nested conditional build-up
      else Just $ astScatterS (snatPlus m m2 :$$ shmRest) shn shp
@@ -5548,7 +5560,7 @@ substitute1Ast i var = subst where
     case (subst b, subst v, subst w) of
       (Nothing, Nothing, Nothing) -> Nothing
       (mb, mv, mw) ->
-        Just $ astCond (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
+        Just $ astCondInitial (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
   Ast.AstBuild1 k stk (var2, v) ->
     assert (varNameToAstVarId var2 /= varNameToAstVarId var) $
     case subst v of
