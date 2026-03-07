@@ -781,6 +781,9 @@ astCond (AstLeqInt (AstConcreteK j) var0@(AstIntVar var)) v w
   , AstConcreteK dw <- w - fromPlain (astVar varFalse)
   , dv == dw =
     fromPlain $ AstConcreteK dv + var0
+astCond b@(AstLeqInt AstConcreteK{}
+                     (Ast.AstN1K NegateOp AstIntVar{})) v w =
+  astCondInitial (astBoolNotK b) w v  -- eliminate the NegateOp
 {- TODO: Investigate how much stronger this rule is than the above (it's slower)
 astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
   | FTKScalar @r <- ftkAst v
@@ -2832,39 +2835,6 @@ astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
                                  varm (i1 :.$ prest) )
 astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   ( vars@(varm ::$ mrest)
-  , Ast.AstCond (AstLeqInt (AstConcreteK j0)
-                           (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2
-    :.$ prest )
-  | varm == varp
-  , - j0 + 1 <= 0 || - j0 + 1 >= valueOf @m || ixIsSmall prest
-  , FTKS _ (FTKScalar @r) <- ftkAst v0
-  , Dict0 <- numFromTKAllNum (Proxy @r) =
-    if | - j0 + 1 <= 0 ->
-         astScatterKnobsS knobs shm shn shp
-                          v0 (vars, i2 :.$ prest)
-       | - j0 + 1 >= valueOf @m ->
-         astScatterKnobsS knobs shm shn shp
-                          v0 (vars, i1 :.$ prest)
-       | otherwise ->
-         withSNat (- j0 + 1) $ \mj@(SNat @mj) ->
-         withSNat (valueOf @m - (- j0 + 1)) $ \msj@(SNat @msj) ->
-         gcastWith (unsafeCoerceRefl :: msj + mj :~: m) $
-         astLetFun v0 $ \v ->
-         let v2 = astSliceS SZ mj msj v
-             v3 = astSliceS mj msj SZ v
-             varm2 = reboundsVarName (0, valueOf @mj - 1) varm
-             varm3 = reboundsVarName (0, valueOf @m - valueOf @mj - 1) varm
-         in astScatterKnobsS knobs (mj :$$ shsTail shm) shn shp v2
-              ( varm2 ::$ mrest
-              , substituteAstIxS (astVar varm2)
-                                 varm (i1 :.$ prest) )
-            `astPlusS`
-            astScatterKnobsS knobs (msj :$$ shsTail shm) shn shp v3
-              ( varm3 ::$ mrest
-              , substituteAstIxS (AstConcreteK (- j0 + 1) + astVar varm3)
-                                 varm (i2 :.$ prest))
-astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
-  ( vars@(varm ::$ mrest)
   , Ast.AstLet varN uN
       (Ast.AstCond (AstLeqInt (AstConcreteK j0) (AstIntVar varp)) i1 i2)
     :.$ prest )
@@ -2903,47 +2873,6 @@ astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
                                  varm ((if varIn1
                                         then astLet varN uN i1
                                         else i1) :.$ prest) )
-astScatterKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
-  ( vars@(varm ::$ mrest)
-  , Ast.AstLet varN uN
-      (Ast.AstCond (AstLeqInt (AstConcreteK j0)
-                              (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2)
-    :.$ prest )
-  | varm == varp
-  , let varIn1 = varN `varNameInAst` i1
-        varIn2 = varN `varNameInAst` i2
-  , - j0 + 1 <= 0 || - j0 + 1 >= valueOf @m
-    || ixIsSmall prest && not (varIn1 && varIn2)
-  , FTKS _ (FTKScalar @r) <- ftkAst v0
-  , Dict0 <- numFromTKAllNum (Proxy @r) =
-    if | - j0 + 1 <= 0 ->
-         astScatterKnobsS knobs shm shn shp
-                          v0 (vars, astLet varN uN i2 :.$ prest)
-       | - j0 + 1 >= valueOf @m ->
-         astScatterKnobsS knobs shm shn shp
-                          v0 (vars, astLet varN uN i1 :.$ prest)
-       | otherwise ->
-         withSNat (- j0 + 1) $ \mj@(SNat @mj) ->
-         withSNat (valueOf @m - (- j0 + 1)) $ \msj@(SNat @msj) ->
-         gcastWith (unsafeCoerceRefl :: msj + mj :~: m) $
-         astLetFun v0 $ \v ->
-         let v2 = astSliceS SZ mj msj v
-             v3 = astSliceS mj msj SZ v
-             varm2 = reboundsVarName (0, valueOf @mj - 1) varm
-             varm3 = reboundsVarName (0, valueOf @m - valueOf @mj - 1) varm
-         in astScatterKnobsS knobs (mj :$$ shsTail shm) shn shp v2
-              ( varm2 ::$ mrest
-              , substituteAstIxS (astVar varm2)
-                                 varm ((if varIn1
-                                        then astLet varN uN i1
-                                        else i1) :.$ prest) )
-            `astPlusS`
-            astScatterKnobsS knobs (msj :$$ shsTail shm) shn shp v3
-              ( varm3 ::$ mrest
-              , substituteAstIxS (AstConcreteK (- j0 + 1) + astVar varm3)
-                                 varm ((if varIn2
-                                        then astLet varN uN i2
-                                        else i2) :.$ prest))
 astScatterKnobsS _ shm shn shp v (vars, ix) =
   Ast.AstScatterS shm shn shp v (vars, ix)
 
@@ -3205,36 +3134,6 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
                                  varm (i1 :.$ prest) )
 astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
   ( vars@(varm ::$ mrest)
-  , Ast.AstCond (AstLeqInt (AstConcreteK j)
-                           (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2
-    :.$ prest )
-  | varm == varp
-  , - j + 1 <= 0 || - j + 1 >= valueOf @m || ixIsSmall prest =
-    if | - j + 1 <= 0 ->
-         astGatherKnobsS knobs shm shn shp
-                         v0 (vars, i2 :.$ prest)
-       | - j + 1 >= valueOf @m ->
-         astGatherKnobsS knobs shm shn shp
-                         v0 (vars, i1 :.$ prest)
-       | otherwise ->
-         withSNat (- j + 1) $ \(SNat @mj) ->
-         gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
-         astLetFun v0 $ \v ->
-         let varm2 = reboundsVarName (0, valueOf @mj - 1) varm
-             varm3 = reboundsVarName (0, valueOf @m - valueOf @mj - 1) varm
-         in astGatherKnobsS knobs (SNat @mj :$$ shsTail shm) shn shp v
-              ( varm2 ::$ mrest
-              , substituteAstIxS (astVar varm2)
--- TODO: when I use AstIntVar here, which is wrong, I get phantom errors;
--- make sure this vanished after the fixes in HEAD
-                                 varm (i1 :.$ prest) )
-            `astAppendS`
-            astGatherKnobsS knobs (SNat @(m - mj) :$$ shsTail shm) shn shp v
-              ( varm3 ::$ mrest
-              , substituteAstIxS (AstConcreteK (- j + 1) + astVar varm3)
-                                 varm (i2 :.$ prest))
-astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
-  ( vars@(varm ::$ mrest)
   , Ast.AstLet varN uN
       (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar varp)) i1 i2)
     :.$ prest )
@@ -3268,42 +3167,6 @@ astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
                                  varm ((if varIn1
                                         then astLet varN uN i1
                                         else i1) :.$ prest) )
-astGatherKnobsS knobs shm@(SNat @m :$$ _) shn shp v0
-  ( vars@(varm ::$ mrest)
-  , Ast.AstLet varN uN
-      (Ast.AstCond (AstLeqInt (AstConcreteK j)
-                              (Ast.AstN1K NegateOp (AstIntVar varp))) i1 i2)
-    :.$ prest )
-  | varm == varp
-  , let varIn1 = varN `varNameInAst` i1
-        varIn2 = varN `varNameInAst` i2
-  , - j + 1 <= 0 || - j + 1 >= valueOf @m
-    || ixIsSmall prest && not (varIn1 && varIn2) =
-    if | - j + 1 <= 0 ->
-         astGatherKnobsS knobs shm shn shp
-                         v0 (vars, astLet varN uN i2 :.$ prest)
-       | - j + 1 >= valueOf @m ->
-         astGatherKnobsS knobs shm shn shp
-                         v0 (vars, astLet varN uN i1 :.$ prest)
-       | otherwise ->
-         withSNat (- j + 1) $ \(SNat @mj) ->
-         gcastWith (unsafeCoerceRefl :: (mj <=? m) :~: True) $
-         astLetFun v0 $ \v ->
-         let varm2 = reboundsVarName (0, valueOf @mj - 1) varm
-             varm3 = reboundsVarName (0, valueOf @m - valueOf @mj - 1) varm
-         in astGatherKnobsS knobs (SNat @mj :$$ shsTail shm) shn shp v
-              ( varm2 ::$ mrest
-              , substituteAstIxS (astVar varm2)
-                                 varm ((if varIn1
-                                        then astLet varN uN i1
-                                        else i1) :.$ prest) )
-            `astAppendS`
-            astGatherKnobsS knobs (SNat @(m - mj) :$$ shsTail shm) shn shp v
-              ( varm3 ::$ mrest
-              , substituteAstIxS (AstConcreteK (- j + 1) + astVar varm3)
-                                 varm ((if varIn2
-                                        then astLet varN uN i2
-                                        else i2) :.$ prest))
 astGatherKnobsS knobs
                 shm@(SNat @m :$$ (_ :: ShS shmTail))
                 shn
@@ -3397,19 +3260,9 @@ astGatherKnobsS knobs shm@(m :$$ _) shn shp v0
           Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _
             | j <= 0 || j >= fromSNat' m || ixIsSmall prest
             , Foldable.any (== var) vars -> True
-          Ast.AstCond (AstLeqInt (AstConcreteK j)
-                                 (Ast.AstN1K NegateOp (AstIntVar var))) _ _
-            | - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest
-            , Foldable.any (== var) vars -> True
           Ast.AstLet _ uN
             (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _)
             | j <= 0 || j >= fromSNat' m
-              || ixIsSmall prest && astIsSmall True uN
-            , Foldable.any (== var) vars -> True
-          Ast.AstLet _ uN
-            (Ast.AstCond (AstLeqInt (AstConcreteK j)
-                                    (Ast.AstN1K NegateOp (AstIntVar var))) _ _)
-            | - j + 1 <= 0 || - j + 1 >= fromSNat' m
               || ixIsSmall prest && astIsSmall True uN
             , Foldable.any (== var) vars -> True
           Ast.AstCond
@@ -3469,19 +3322,9 @@ astGatherKnobsS knobs shm@(m :$$ _) shn shp v0
           Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _
             | j <= 0 || j >= fromSNat' m || ixIsSmall prest ->
               Just var
-          Ast.AstCond (AstLeqInt (AstConcreteK j)
-                                 (Ast.AstN1K NegateOp (AstIntVar var))) _ _
-            | - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest ->
-              Just var
           Ast.AstLet _ uN
             (Ast.AstCond (AstLeqInt (AstConcreteK j) (AstIntVar var)) _ _)
             | j <= 0 || j >= fromSNat' m
-              || ixIsSmall prest && astIsSmall True uN ->
-              Just var
-          Ast.AstLet _ uN
-            (Ast.AstCond (AstLeqInt (AstConcreteK j)
-                                    (Ast.AstN1K NegateOp (AstIntVar var))) _ _)
-            | - j + 1 <= 0 || - j + 1 >= fromSNat' m
               || ixIsSmall prest && astIsSmall True uN ->
               Just var
           Ast.AstCond
