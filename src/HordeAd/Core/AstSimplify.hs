@@ -701,12 +701,12 @@ astCondInitial :: KnownSpan s
                -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
                -> AstTensor AstMethodLet s y
 astCondInitial b v w = case b of
-  AstLeqInt (AstConcreteK k) (AstIntVar var)
+  AstLeqInt (AstConcreteK j) (AstIntVar var)
     | FTKScalar @r <- ftkAst v
     , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
     , Just (lb, ub) <- varNameToBounds var ->
-      let varTrue = reboundsVarName (max lb k, ub) var
-          varFalse = reboundsVarName (lb, min ub (k - 1)) var
+      let varTrue = reboundsVarName (max lb j, ub) var
+          varFalse = reboundsVarName (lb, min ub (j - 1)) var
       in astCond b (substituteAst (astVar varTrue) var v)
                    (substituteAst (astVar varFalse) var w)
   _ -> astCond b v w
@@ -722,7 +722,8 @@ astCond b v w | FTKS (snat :$$ sh) x <- ftkAst v
               , Just w1 <- unRepl1 w =
   astReplicate snat (STKS sh (ftkToSTK x)) (astCond b v1 w1)
 astCond (Ast.AstBoolNotK b) v w = astCond b w v
-astCond (Ast.AstLet var n b) u v = astLetRefresh var n b $ \b' -> astCond b' u v
+astCond (Ast.AstLet var n b) u v =
+  astLetRefresh var n b $ \b' -> astCondInitial b' u v
 astCond b (Ast.AstLet var n u) v = astLetRefresh var n u $ \u' -> astCond b u' v
 astCond b u (Ast.AstLet var n v) = astLetRefresh var n v $ \v' -> astCond b u v'
 astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
@@ -770,12 +771,12 @@ astCond b (AstConvUp c zftk v) w
 -- For now they don't seem to be needed, though.
 -- astCond b v@Ast.AstCond{} w = Ast.AstCond b v w
 -- astCond b v w@Ast.AstCond{} = Ast.AstCond b v w
-astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
+astCond (AstLeqInt (AstConcreteK j) var0@(AstIntVar var)) v w
   | FTKScalar @r <- ftkAst v
   , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
   , Just (lb, ub) <- varNameToBounds var
-  , let varTrue = reboundsVarName (max lb k, ub) var
-        varFalse = reboundsVarName (lb, min ub (k - 1)) var
+  , let varTrue = reboundsVarName (max lb j, ub) var
+        varFalse = reboundsVarName (lb, min ub (j - 1)) var
   , AstConcreteK dv <- v - fromPlain (astVar varTrue)
   , AstConcreteK dw <- w - fromPlain (astVar varFalse)
   , dv == dw =
@@ -2322,7 +2323,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
      let ftk = FTKS shn x
          defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
      in astLetFun i1 $ \i ->
-     astCond (0 <=. i &&* i <=. valueOf @k - 1)
+     astCondInitial (0 <=. i &&* i <=. valueOf @k - 1)
              (astIndex shn (astLet var2 i v) rest1)
              defArr -}
    Ast.AstBuild1 (SNat @k) STKS{} (var2, v) ->
@@ -2450,9 +2451,9 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
        let ftk = FTKS ZSS x
            defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
        in astLetFun i1 $ \i ->
-         astCond (0 <=. i &&* i <=. valueOf @k - 1)
-                 (astFromIntegralS $ sfromK i)
-                 defArr
+         astCondInitial (0 <=. i &&* i <=. valueOf @k - 1)
+                        (astFromIntegralS $ sfromK i)
+                        defArr
      _ -> error "astIndexKnobsS: shn not []"
    Ast.AstAppendS u v | FTKS (SNat @m :$$ _) _ <- ftkAst u ->
      if knobPhase knobs == PhaseExpansion then
@@ -2465,7 +2466,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
          AstConcreteK b -> if b then astIndex shn v ix2 else astIndex shn u ix1
          bExpr ->
            -- This results in a larger term, so we consider this late.
-           astCond bExpr (astIndex shn v ix2) (astIndex shn u ix1)
+           astCondInitial bExpr (astIndex shn v ix2) (astIndex shn u ix1)
      else
        -- We don't need to share i1 and rest1 here and, in fact, we can't
        -- because we'd loop via building AstLet around the resulting AstIndexS.
@@ -2482,7 +2483,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
          b = (if fromSNat' i == 0 then true else 0 <=. iShared)
              &&* (if fromSNat' k == 0 then true else iShared <=. valueOf @n - 1)
          ii = valueOf @i + iShared
-     in astCond b (astIndex shn v (ii :.$ rest1)) defArr
+     in astCondInitial b (astIndex shn v (ii :.$ rest1)) defArr
    Ast.AstReverseS v ->
      let iRev = valueOf @in1 - 1 - i1
      in astIndex shn v (iRev :.$ rest1)
@@ -3008,7 +3009,8 @@ astGatherKnobsS
       (Ast.AstBoolAndK a@(AstLeqInt (AstConcreteK j) AstIntVar{}) b)
       v w :.$ prest )
     | j <= 0 || j >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared ->
+            astCondInitial a (astCondInitial b v wShared) wShared
   in astGatherKnobsS knobs shm shn shp v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
@@ -3018,7 +3020,8 @@ astGatherKnobsS
          (Ast.AstBoolAndK a@(AstLeqInt (AstConcreteK j) AstIntVar{}) b)
          v w) :.$ prest )
     | j <= 0 || j >= fromSNat' m || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared ->
+            astCondInitial a (astCondInitial b v wShared) wShared
   in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
@@ -3028,7 +3031,8 @@ astGatherKnobsS
                                     (Ast.AstN1K NegateOp AstIntVar{})) b)
       v w :.$ prest )
     | - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared ->
+            astCondInitial a (astCondInitial b v wShared) wShared
   in astGatherKnobsS knobs shm shn shp v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
@@ -3040,54 +3044,8 @@ astGatherKnobsS
       v w) :.$ prest )
     | - j + 1 <= 0 || - j + 1 >= fromSNat' m
       || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
-
-astGatherKnobsS
-  knobs shm@(m :$$ _) shn shp v0
-  ( vars
-  , Ast.AstCond
-      (Ast.AstBoolAndK
-         a@(Ast.AstBoolNotK (AstLeqInt (AstConcreteK j) AstIntVar{})) b)
-      v w :.$ prest )
-    | j <= 0 || j >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, i :.$ prest)
-astGatherKnobsS
-  knobs shm@(m :$$ _) shn shp v0
-  ( vars
-  , Ast.AstLet varN uN
-      (Ast.AstCond
-         (Ast.AstBoolAndK
-            a@(Ast.AstBoolNotK (AstLeqInt (AstConcreteK j) AstIntVar{})) b)
-      v w) :.$ prest )
-    | j <= 0 || j >= fromSNat' m || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
-astGatherKnobsS
-  knobs shm@(m :$$ _) shn shp v0
-  ( vars
-  , Ast.AstCond
-      (Ast.AstBoolAndK
-         a@(Ast.AstBoolNotK (AstLeqInt (AstConcreteK j)
-                                       (Ast.AstN1K NegateOp AstIntVar{}))) b)
-      v w :.$ prest )
-    | - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, i :.$ prest)
-astGatherKnobsS
-  knobs shm@(m :$$ _) shn shp v0
-  ( vars
-  , Ast.AstLet varN uN
-      (Ast.AstCond
-         (Ast.AstBoolAndK
-            a@(Ast.AstBoolNotK
-                 (AstLeqInt (AstConcreteK j)
-                            (Ast.AstN1K NegateOp AstIntVar{}))) b)
-         v w) :.$ prest )
-    | - j + 1 <= 0 || - j + 1 >= fromSNat' m
-      || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared ->
+            astCondInitial a (astCondInitial b v wShared) wShared
   in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 
 astGatherKnobsS
@@ -3099,7 +3057,8 @@ astGatherKnobsS
               (Ast.AstBoolAndK (AstLeqInt (AstConcreteK j) AstIntVar{}) _)) b)
       v w :.$ prest )
     | j <= 0 || j >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared ->
+            astCondInitial a (astCondInitial b v wShared) wShared
   in astGatherKnobsS knobs shm shn shp v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
@@ -3112,7 +3071,8 @@ astGatherKnobsS
                                              AstIntVar{}) _)) b)
          v w) :.$ prest )
     | j <= 0 || j >= fromSNat' m || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared ->
+            astCondInitial a (astCondInitial b v wShared) wShared
   in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
@@ -3125,7 +3085,8 @@ astGatherKnobsS
                             (Ast.AstN1K NegateOp AstIntVar{})) _)) b)
       v w :.$ prest )
     | - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared ->
+            astCondInitial a (astCondInitial b v wShared) wShared
   in astGatherKnobsS knobs shm shn shp v0 (vars, i :.$ prest)
 astGatherKnobsS
   knobs shm@(m :$$ _) shn shp v0
@@ -3140,66 +3101,10 @@ astGatherKnobsS
          v w) :.$ prest )
     | - j + 1 <= 0 || - j + 1 >= fromSNat' m
       || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
+  let i = astLetFun w $ \wShared ->
+            astCondInitial a (astCondInitial b v wShared) wShared
   in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 
-astGatherKnobsS
-  knobs shm@(m :$$ _) shn shp v0
-  ( vars
-  , Ast.AstCond
-      (Ast.AstBoolAndK
-         a@(Ast.AstBoolNotK
-              (Ast.AstBoolAndK
-                 (Ast.AstBoolNotK
-                    (AstLeqInt (AstConcreteK j) AstIntVar{})) _)) b)
-      v w :.$ prest )
-    | j <= 0 || j >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, i :.$ prest)
-astGatherKnobsS
-  knobs shm@(m :$$ _) shn shp v0
-  ( vars
-  , Ast.AstLet varN uN
-      (Ast.AstCond
-         (Ast.AstBoolAndK
-            a@(Ast.AstBoolNotK
-                 (Ast.AstBoolAndK
-                    (Ast.AstBoolNotK
-                       (AstLeqInt (AstConcreteK j) AstIntVar{})) _)) b)
-         v w) :.$ prest )
-    | j <= 0 || j >= fromSNat' m || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
-astGatherKnobsS
-  knobs shm@(m :$$ _) shn shp v0
-  ( vars
-  , Ast.AstCond
-      (Ast.AstBoolAndK
-         a@(Ast.AstBoolNotK
-              (Ast.AstBoolAndK
-                 (Ast.AstBoolNotK
-                    (AstLeqInt (AstConcreteK j)
-                               (Ast.AstN1K NegateOp AstIntVar{}))) _)) b)
-      v w :.$ prest )
-    | - j + 1 <= 0 || - j + 1 >= fromSNat' m || ixIsSmall prest =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, i :.$ prest)
-astGatherKnobsS
-  knobs shm@(m :$$ _) shn shp v0
-  ( vars
-  , Ast.AstLet varN uN
-      (Ast.AstCond
-         (Ast.AstBoolAndK
-            a@(Ast.AstBoolNotK
-                 (Ast.AstBoolAndK
-                    (Ast.AstBoolNotK
-                       (AstLeqInt (AstConcreteK j)
-                                  (Ast.AstN1K NegateOp AstIntVar{}))) _)) b)
-         v w) :.$ prest )
-    | - j + 1 <= 0 || - j + 1 >= fromSNat' m
-      || ixIsSmall prest && astIsSmall True uN =
-  let i = astLetFun w $ \wShared -> astCond a (astCond b v wShared) wShared
-  in astGatherKnobsS knobs shm shn shp v0 (vars, astLet varN uN i :.$ prest)
 -- Rules with AstConcreteK on the right hand side of AstPlusK are
 -- not needed, thanks to the normal form of AstPlusK rewriting.
 astGatherKnobsS knobs shm shn shp v0
@@ -4517,10 +4422,10 @@ astConvertDownKFromS c a = case a of
   Ast.AstTransposeS{} -> Ast.AstConvert c a  -- not a NF
   Ast.AstReshapeS{} -> Ast.AstConvert c a  -- not a NF
   Ast.AstDot1InS{} -> Ast.AstConvert c a  -- not a NF
-  Ast.AstBoolNotS b -> Ast.AstBoolNotK $ astConvertDownKFromS c b
+  Ast.AstBoolNotS b -> astBoolNotK $ astConvertDownKFromS c b
   Ast.AstBoolAndS b1 b2 ->
-    Ast.AstBoolAndK (astConvertDownKFromS c b1) (astConvertDownKFromS c b2)
-  Ast.AstLeqS _shb _sh arg1 arg2 -> Ast.AstLeq arg1 arg2
+    astBoolAndK (astConvertDownKFromS c b1) (astConvertDownKFromS c b2)
+  Ast.AstLeqS _shb _sh arg1 arg2 -> astLeq arg1 arg2
   Ast.AstConvert c2 a2 -> astConvert (c `convCmp` c2) a2
 
 astConvertDownKFromR
@@ -4882,8 +4787,10 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
 
 astBoolNotK :: AstBool AstMethodLet -> AstBool AstMethodLet
 astBoolNotK = \case
+  Ast.AstCond b v w -> astCond b (astBoolNotK v) (astBoolNotK w)
   Ast.AstLet var n b -> astLet var n (astBoolNotK b)
   AstConcreteK b -> AstConcreteK $ not b
+  AstLeqInt n k -> astLeqK (1 + k) n
   Ast.AstBoolNotK b -> b
   b -> Ast.AstBoolNotK b
 
@@ -4907,12 +4814,6 @@ astBoolAndK = \cases
     Ast.AstBoolAndK b c
   b@(Ast.AstLeqK AstConcreteK{} (Ast.AstN1K NegateOp Ast.AstVar{})) c ->
     Ast.AstBoolAndK b c
-  b@(Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) c ->
-    Ast.AstBoolAndK b c
-  b@(Ast.AstBoolNotK
-       (Ast.AstLeqK AstConcreteK{}
-                    (Ast.AstN1K NegateOp Ast.AstVar{}))) c ->
-    Ast.AstBoolAndK b c
   b@(Ast.AstBoolNotK
        (Ast.AstBoolAndK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) _)) c ->
     Ast.AstBoolAndK b c
@@ -4921,27 +4822,11 @@ astBoolAndK = \cases
           (Ast.AstLeqK AstConcreteK{}
                        (Ast.AstN1K NegateOp Ast.AstVar{})) _)) c ->
     Ast.AstBoolAndK b c
-  b@(Ast.AstBoolNotK
-       (Ast.AstBoolAndK
-          (Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) _)) c ->
-    Ast.AstBoolAndK b c
-  b@(Ast.AstBoolNotK
-       (Ast.AstBoolAndK
-          (Ast.AstBoolNotK
-             (Ast.AstLeqK AstConcreteK{}
-                          (Ast.AstN1K NegateOp Ast.AstVar{}))) _)) c ->
-    Ast.AstBoolAndK b c
   -- Rewriting to the normal forms by commutativity:
   b c@(Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) ->
      Ast.AstBoolAndK c b
   b c@(Ast.AstLeqK AstConcreteK{} (Ast.AstN1K NegateOp Ast.AstVar{})) ->
      Ast.AstBoolAndK c b
-  b c@(Ast.AstBoolNotK
-         (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) ->
-     Ast.AstBoolAndK c b
-  b c@(Ast.AstBoolNotK
-         (Ast.AstLeqK AstConcreteK{} (Ast.AstN1K NegateOp Ast.AstVar{}))) ->
-    Ast.AstBoolAndK c b
   b c@(Ast.AstBoolNotK
          (Ast.AstBoolAndK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) _)) ->
     Ast.AstBoolAndK c b
@@ -4949,16 +4834,6 @@ astBoolAndK = \cases
          (Ast.AstBoolAndK
             (Ast.AstLeqK AstConcreteK{}
                          (Ast.AstN1K NegateOp Ast.AstVar{})) _)) ->
-    Ast.AstBoolAndK c b
-  b c@(Ast.AstBoolNotK
-         (Ast.AstBoolAndK
-            (Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) _)) ->
-    Ast.AstBoolAndK c b
-  b c@(Ast.AstBoolNotK
-         (Ast.AstBoolAndK
-            (Ast.AstBoolNotK
-               (Ast.AstLeqK AstConcreteK{}
-                            (Ast.AstN1K NegateOp Ast.AstVar{}))) _)) ->
     Ast.AstBoolAndK c b
   -- Rewriting to the normal forms by commutativity and associativity:
   b (Ast.AstBoolAndK
@@ -4969,14 +4844,6 @@ astBoolAndK = \cases
                       (Ast.AstN1K NegateOp Ast.AstVar{})) d) ->
     astBoolAndK c (b `astBoolAndK` d)
   b (Ast.AstBoolAndK
-       c@(Ast.AstBoolNotK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) d) ->
-    astBoolAndK c (b `astBoolAndK` d)
-  b (Ast.AstBoolAndK
-       c@(Ast.AstBoolNotK
-            (Ast.AstLeqK AstConcreteK{}
-                         (Ast.AstN1K NegateOp Ast.AstVar{}))) d) ->
-    astBoolAndK c (b `astBoolAndK` d)
-  b (Ast.AstBoolAndK
        c@(Ast.AstBoolNotK
             (Ast.AstBoolAndK (Ast.AstLeqK AstConcreteK{} Ast.AstVar{}) _)) d) ->
     astBoolAndK c (b `astBoolAndK` d)
@@ -4985,19 +4852,6 @@ astBoolAndK = \cases
             (Ast.AstBoolAndK
                (Ast.AstLeqK AstConcreteK{}
                             (Ast.AstN1K NegateOp Ast.AstVar{})) _)) d) ->
-    astBoolAndK c (b `astBoolAndK` d)
-  b (Ast.AstBoolAndK
-       c@(Ast.AstBoolNotK
-            (Ast.AstBoolAndK
-               (Ast.AstBoolNotK
-                  (Ast.AstLeqK AstConcreteK{} Ast.AstVar{})) _)) d) ->
-    astBoolAndK c (b `astBoolAndK` d)
-  b (Ast.AstBoolAndK
-       c@(Ast.AstBoolNotK
-            (Ast.AstBoolAndK
-               (Ast.AstBoolNotK
-                  (Ast.AstLeqK AstConcreteK{}
-                               (Ast.AstN1K NegateOp Ast.AstVar{}))) _)) d) ->
     astBoolAndK c (b `astBoolAndK` d)
   b c -> Ast.AstBoolAndK b c
 
