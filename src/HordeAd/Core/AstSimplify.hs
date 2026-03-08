@@ -1739,11 +1739,33 @@ astPlusS = \cases
   u (AstConvUpSFromK v) -> sfromK $ astPlusK (kfromS u) v
   (AstConvUpSFromK u) v -> sfromK $ astPlusK u (kfromS v)
 
-  u0 v0 -> fromMaybe (AstPlusS u0 v0) $ case (u0, v0) of
-    ( Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
-                                 u (var ::$ vars, ix)
-     ,Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 shp2
-                                  u2 (var2 ::$ vars2, ix2) )
+  u@Ast.AstScatterS{} v@Ast.AstScatterS{} ->
+    fromMaybe (AstPlusS u v) $ astPlusSMaybe u v
+  u@Ast.AstScatterS{} v@(AstPlusS u2@Ast.AstScatterS{} w) ->
+    maybe (AstPlusS u v) (+ w) $ astPlusSMaybe u u2
+  u@(Ast.AstTransposeS perm1 a1@(Ast.AstScatterS @_ @shn1 @shp1 _ _ _ _ _))
+    v@(Ast.AstTransposeS perm2 a2@(Ast.AstScatterS @_ @shn2 @shp2 _ _ _ _ _))
+      | Just Refl <- testEquality perm1 perm2 ->
+        gcastWith (unsafeCoerceRefl :: shp1 ++ shn1 :~: shp2 ++ shn2) $
+        maybe (AstPlusS u v) (astTransposeS perm1) $ astPlusSMaybe a1 a2
+  u@(Ast.AstTransposeS perm1 a1@(Ast.AstScatterS @_ @shn1 @shp1 _ _ _ _ _))
+    v@(AstPlusS (Ast.AstTransposeS perm2 a2@(Ast.AstScatterS
+                                               @_ @shn2 @shp2 _ _ _ _ _)) w)
+      | Just Refl <- testEquality perm1 perm2 ->
+        gcastWith (unsafeCoerceRefl :: shp1 ++ shn1 :~: shp2 ++ shn2) $
+        maybe (AstPlusS u v) (\res -> astTransposeS perm1 res + w)
+        $ astPlusSMaybe a1 a2
+  u v -> AstPlusS u v
+
+astPlusSMaybe :: (NumScalar r, KnownSpan s)
+              => AstTensor AstMethodLet s (TKS sh r)
+              -> AstTensor AstMethodLet s (TKS sh r)
+              -> Maybe (AstTensor AstMethodLet s (TKS sh r))
+astPlusSMaybe = \cases
+  (Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
+                              u (var ::$ vars, ix))
+    (Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 shp2
+                                 u2 (var2 ::$ vars2, ix2))
       | Just Refl <- testEquality shmRest shmRest2
       , Just Refl <- testEquality shn shn2 ->
         gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
@@ -1753,56 +1775,7 @@ astPlusS = \cases
         `mplus`
         fuseScatters (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
                      (m :$$ shmRest) shn shp u (var ::$ vars, ix)
-    ( Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
-                                 u (var ::$ vars, ix)
-     ,AstPlusS (Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 shp2
-                                            u2 (var2 ::$ vars2, ix2)) w )
-      | Just Refl <- testEquality shmRest shmRest2
-      , Just Refl <- testEquality shn shn2 ->
-        gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
-        (+ w) <$>
-        (fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
-                      (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
-         -- Same as above, but with arguments reversed, in case it works better:
-         `mplus`
-         fuseScatters (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
-                      (m :$$ shmRest) shn shp u (var ::$ vars, ix))
-
-    ( Ast.AstTransposeS perm1
-        (Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
-                                    u (var ::$ vars, ix))
-     ,Ast.AstTransposeS perm2
-        (Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 shp2
-                                     u2 (var2 ::$ vars2, ix2)) )
-      | Just Refl <- testEquality perm1 perm2
-      , Just Refl <- testEquality shmRest shmRest2
-      , Just Refl <- testEquality shn shn2 ->
-        gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
-        astTransposeS perm1 <$>
-          (fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
-                        (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
-           -- Same as above, but arguments reversed, in case it works better:
-           `mplus`
-           fuseScatters (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
-                        (m :$$ shmRest) shn shp u (var ::$ vars, ix))
-    ( Ast.AstTransposeS perm1
-        (Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
-                                    u (var ::$ vars, ix))
-     ,AstPlusS (Ast.AstTransposeS perm2
-                  (Ast.AstScatterS @_ @_ @shp2 (m2 :$$ shmRest2) shn2 shp2
-                                               u2 (var2 ::$ vars2, ix2))) w )
-      | Just Refl <- testEquality perm1 perm2
-      , Just Refl <- testEquality shmRest shmRest2
-      , Just Refl <- testEquality shn shn2 ->
-        gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
-        (\res -> astTransposeS perm1 res + w) <$>
-          (fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
-                        (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
-           -- Same as above, but arguments reversed, in case it works better:
-           `mplus`
-           fuseScatters (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
-                        (m :$$ shmRest) shn shp u (var ::$ vars, ix))
-    _ -> Nothing
+  _ _ -> Nothing
 
 fuseScatters :: forall m m2 shm shn shp x s. (TKAllNum x, KnownSpan s)
              => ShS (m : shm) -> ShS shn -> ShS shp
