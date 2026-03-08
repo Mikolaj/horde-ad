@@ -1769,24 +1769,96 @@ astPlusSMaybe = \cases
       | Just Refl <- testEquality shmRest shmRest2
       , Just Refl <- testEquality shn shn2 ->
         gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
-        fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
-                     (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
+        fuseScatters2 (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+                      (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
         -- Same as above, but with arguments reversed, in case it works better:
         `mplus`
-        fuseScatters (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
-                     (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+        fuseScatters2 (m2 :$$ shmRest2) shn2 shp2 u2 (var2 ::$ vars2, ix2)
+                      (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+{- TODO: not needed ATM, though this could simplify astScatterS
+  (Ast.AstScatterS @_ @_ @shp ZSS shn shp
+                              u (_, ix))
+    (Ast.AstScatterS @_ @_ @shp2 ZSS shn2 shp2
+                                 u2 (_, ix2))
+      | Just Refl <- testEquality shn shn2 ->
+        gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
+        fuseScatters0 shn shp u ix
+                      shn2 shp2 u2 ix2
+  (Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
+                              u (var ::$ vars, ix))
+    (Ast.AstScatterS @_ @_ @shp2 shm2 shn2 shp2
+                                 u2 (vars2, ix2))
+      | Just Refl <- testEquality shmRest shm2
+      , Just Refl <- testEquality shn shn2 ->
+        gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
+        fuseScatters1 (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+                      shm2 shn2 shp2 u2 (vars2, ix2)
+  (Ast.AstScatterS @_ @_ @shp2 shm2 shn2 shp2
+                               u2 (vars2, ix2))
+    (Ast.AstScatterS @_ @_ @shp (m :$$ shmRest) shn shp
+                                u (var ::$ vars, ix))
+      | Just Refl <- testEquality shmRest shm2
+      , Just Refl <- testEquality shn shn2 ->
+        gcastWith (unsafeCoerceRefl :: shp :~: shp2) $
+        fuseScatters1 (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+                      shm2 shn2 shp2 u2 (vars2, ix2) -}
   _ _ -> Nothing
 
-fuseScatters :: forall m m2 shm shn shp x s. (TKAllNum x, KnownSpan s)
-             => ShS (m : shm) -> ShS shn -> ShS shp
-             -> AstTensor AstMethodLet s (TKS2 ((m : shm) ++ shn) x)
-             -> (AstVarListS (m : shm), AstIxS AstMethodLet shp)
-             -> ShS (m2 : shm) -> ShS shn -> ShS shp
-             -> AstTensor AstMethodLet s (TKS2 ((m2 : shm) ++ shn) x)
-             -> (AstVarListS (m2 : shm), AstIxS AstMethodLet shp)
-             -> Maybe (AstTensor AstMethodLet s (TKS2 (shp ++ shn) x))
-fuseScatters (m :$$ shmRest) shn shp u (var ::$ vars, ix)
-             (m2 :$$ _shmRest2) _shn2 _shp2 u2 (var2 ::$ vars2, ix2) =
+{- TODO: not needed ATM
+fuseScatters0 :: forall shn shp x s. (TKAllNum x, KnownSpan s)
+              => ShS shn -> ShS shp
+              -> AstTensor AstMethodLet s (TKS2 shn x)
+              -> AstIxS AstMethodLet shp
+              -> ShS shn -> ShS shp
+              -> AstTensor AstMethodLet s (TKS2 shn x)
+              -> AstIxS AstMethodLet shp
+              -> Maybe (AstTensor AstMethodLet s (TKS2 (shp ++ shn) x))
+fuseScatters0 shn shp u ix
+              _shn2 _shp2 u2 ix2 =
+  funToAstIntMaybe (Just (0, 1)) $ \(var', ast') ->
+    let g i i2 = astCond (AstConcreteK 1 <=. ast')
+                         i2 i
+        ix3 = ixsZipWith g ix ix2
+        a = astFromVector (SNat @2) (STKS shn (stkAstX u)) (V.fromList [u, u2])
+    in if any isCond ix3
+       then Nothing  -- a risk of nested conditional build-up
+       else Just $ astScatterS (SNat @2 :$$ ZSS) shn shp
+                               a (var' ::$ ZS, ix3)
+
+fuseScatters1 :: forall m shm shn shp x s. (TKAllNum x, KnownSpan s)
+              => ShS (m : shm) -> ShS shn -> ShS shp
+              -> AstTensor AstMethodLet s (TKS2 ((m : shm) ++ shn) x)
+              -> (AstVarListS (m : shm), AstIxS AstMethodLet shp)
+              -> ShS shm -> ShS shn -> ShS shp
+              -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
+              -> (AstVarListS shm, AstIxS AstMethodLet shp)
+              -> Maybe (AstTensor AstMethodLet s (TKS2 (shp ++ shn) x))
+fuseScatters1 (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+              _shm2 _shn2 _shp2 u2 (vars2, ix2) =
+  let ub = fromSNat' m
+      var' = reboundsVarName (0, ub) var
+      f i2 = foldr (\(v, v2) -> substituteAst (astVar v) v2) i2
+                   (listsZip vars vars2)
+      g i i2 = astCond (AstConcreteK (fromSNat' m) <=. astVar var')
+                       (f i2) i  -- i has, effectively, varFalse in it
+      ix3 = ixsZipWith g ix ix2
+      a = astReplicate (SNat @1)
+                       (STKS (shmRest `shsAppend` shn) (stkAstX u2)) u2
+  in if any isCond ix3
+     then Nothing  -- a risk of nested conditional build-up
+     else Just $ astScatterS (SS m :$$ shmRest) shn shp
+                             (astAppendS u a) (var' ::$ vars, ix3) -}
+
+fuseScatters2 :: forall m m2 shm shn shp x s. (TKAllNum x, KnownSpan s)
+              => ShS (m : shm) -> ShS shn -> ShS shp
+              -> AstTensor AstMethodLet s (TKS2 ((m : shm) ++ shn) x)
+              -> (AstVarListS (m : shm), AstIxS AstMethodLet shp)
+              -> ShS (m2 : shm) -> ShS shn -> ShS shp
+              -> AstTensor AstMethodLet s (TKS2 ((m2 : shm) ++ shn) x)
+              -> (AstVarListS (m2 : shm), AstIxS AstMethodLet shp)
+              -> Maybe (AstTensor AstMethodLet s (TKS2 (shp ++ shn) x))
+fuseScatters2 (m :$$ shmRest) shn shp u (var ::$ vars, ix)
+              (m2 :$$ _shmRest2) _shn2 _shp2 u2 (var2 ::$ vars2, ix2) =
   let ub = fromSNat' m + fromSNat' m2 - 1
       var' = reboundsVarName (0, ub) var
       astVarTrue = astVar $ reboundsVarName (fromSNat' m, ub) var
@@ -2697,9 +2769,12 @@ astScatterKnobsS knobs
          in astTransposeS permVars u
             `astAppendS`
             fromPlain (astConcrete ftk (tdefTarget ftk))
+-- Simplify oneHot1, among others. This only works for @1, because
+-- ix2 can compare the value of var, not the tensors at index
+-- var, which are all equal due to AstReplicate.
 astScatterKnobsS knobs shm@(SNat' @1 :$$ _) shn shp
                  v@Ast.AstReplicate{} (var ::$ vars, ix)
-  | var `varNameInIxS` ix =  -- simplify oneHot1, among others
+  | var `varNameInIxS` ix =
     let ix2 = substituteAst (AstConcreteK 0) var <$> ix
     in astScatterKnobsS knobs shm shn shp v (var ::$ vars, ix2)
 astScatterKnobsS knobs shm@(SNat' @1 :$$ ZSS) shn shp
@@ -2720,7 +2795,6 @@ astScatterKnobsS knobs ZSS shn shp u (ZS, ix)  -- oneHot1 intro
         a = Ast.AstReplicate (SNat @1) (ftkToSTK $ ftkAst u) u
     in funToVarsIxS shm $ \(var ::$ ZS) _ ->
          Ast.AstScatterS shm shn shp a (var ::$ ZS, ix)
--- TODO? astScatterKnobsS v (ZR, ix) = update (rzero sh 0) ix v
 astScatterKnobsS knobs shm shn shp@(p@(SNat @p) :$$ _) v0
   (vars, AstPlusK (AstConcreteK i0) i1 :.$ prest)
   | knobPhase knobs `elem` [PhaseExpansion, PhaseContraction]
