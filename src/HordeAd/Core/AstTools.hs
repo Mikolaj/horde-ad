@@ -23,17 +23,18 @@ import Data.Bifunctor (second)
 import Data.IORef
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (testEquality, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (Typeable, typeRep)
 
+import Data.Array.Nested (type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (fromSNat', snatPlus)
+import Data.Array.Nested.Types (fromSNat', snatPlus, unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.Conversion
@@ -111,6 +112,11 @@ ftkAst t = case t of
   AstIndexS shn v _ix -> case ftkAst v of
     FTKS _ x -> FTKS shn x
 
+  AstSumK{} -> FTKScalar
+  AstSumS @shm @shn shm v -> case ftkAst v of
+    FTKS shmshn x | SNat <- shsRank shm ->
+      gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
+      FTKS (shsDrop @(Rank shm) shmshn) x
   AstScatterS _ shn shp v _ -> case ftkAst v of
     FTKS _ x -> FTKS (shp `shsAppend` shn) x
   AstGatherS shm shn _shp v _ -> case ftkAst v of
@@ -128,7 +134,6 @@ ftkAst t = case t of
 
   AstConvert c u -> convertFTK c $ ftkAst u
 
-  AstSum0{} -> FTKScalar
   AstDot0{} -> FTKScalar
   AstDot1InS sh _ _u _v -> FTKS sh FTKScalar
   AstMatmul2S m@SNat _ p@SNat _u _v -> FTKS (m :$$ p :$$ ZSS) FTKScalar
@@ -211,6 +216,8 @@ varInAst var = \case
   AstArgMaxS a -> varInAst var a
   AstIndexS _ v ix -> varInAst var v || varInIxS var ix
 
+  AstSumK v -> varInAst var v
+  AstSumS _ v -> varInAst var v
   AstScatterS _ _ _ t (vars, ix) ->
     assert (all (\v -> var /= varNameToAstVarId v) vars) $
     varInIxS var ix || varInAst var t
@@ -226,7 +233,6 @@ varInAst var = \case
 
   AstConvert _ v -> varInAst var v
 
-  AstSum0 v -> varInAst var v
   AstDot0 u v -> varInAst var u || varInAst var v
   AstDot1InS _ _ u v -> varInAst var u || varInAst var v
   AstMatmul2S _ _ _ u v -> varInAst var u || varInAst var v
@@ -420,6 +426,8 @@ astLetDown var u v = case v of
     then AstLet var u v
     else AstIndexS shn (astLetDown var u v2) ix
 
+  AstSumK v2 -> AstSumK (astLetDown var u v2)
+  AstSumS shm v2 -> AstSumS shm (astLetDown var u v2)
   AstScatterS shm shn shp v2 (vars, ix) ->
     if varNameInIxS var ix
     then AstLet var u v
@@ -437,7 +445,6 @@ astLetDown var u v = case v of
 
   AstConvert c v2 -> AstConvert c (astLetDown var u v2)
 
-  AstSum0 v2 -> AstSum0 (astLetDown var u v2)
   AstDot0{} -> AstLet var u v
   AstDot1InS{} -> AstLet var u v
   AstMatmul2S{} -> AstLet var u v

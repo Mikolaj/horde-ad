@@ -289,6 +289,11 @@ eqZ (AstI2S opCode1 u1 v1) (AstI2S opCode2 u2 v2)
   | opCode1 == opCode2
   , Just Refl <- eqZ u1 u2
   , Just Refl <- eqZ v1 v2 = Just Refl
+eqZ (AstSumK u1) (AstSumK u2)
+  | Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstSumS shm1 u1) (AstSumS shm2 u2)
+  | Just Refl <- testEquality shm1 shm2
+  , Just Refl <- eqZ u1 u2 = Just unsafeCoerceRefl
 eqZ (AstFloorS @_ @r1 u1) (AstFloorS @_ @r2 u2)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- eqZ u1 u2 = Just Refl

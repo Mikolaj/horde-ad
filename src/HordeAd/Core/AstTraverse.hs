@@ -130,6 +130,8 @@ expandAst t = case t of
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
                    shn (expandAst v) (expandAstIxS ix)
 
+  Ast.AstSumK a -> astSumK (expandAst a)
+  Ast.AstSumS shm a -> astSumS shm (expandAst a)
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
                      shm shn shp (expandAst v) (vars, expandAstIxS ix)
@@ -191,7 +193,6 @@ expandAst t = case t of
   Ast.AstConvert c v -> astConvert c $ expandAst v
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstSum0{} -> t
   Ast.AstDot0{} -> t
   Ast.AstDot1InS{} -> t
   Ast.AstMatmul2S{} -> t
@@ -288,6 +289,8 @@ simplifyAst t = case t of
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
                    shn (simplifyAst v) (simplifyAstIxS ix)
 
+  Ast.AstSumK a -> astSumK (simplifyAst a)
+  Ast.AstSumS shm a -> astSumS shm (simplifyAst a)
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
                      shm shn shp (simplifyAst v) (vars, simplifyAstIxS ix)
@@ -304,7 +307,6 @@ simplifyAst t = case t of
   Ast.AstConvert c v -> astConvert c $ simplifyAst v
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstSum0{} -> t
   Ast.AstDot0{} -> t
   Ast.AstDot1InS{} -> t
   Ast.AstMatmul2S{} -> t
@@ -346,7 +348,7 @@ contractAst t0 = case t0 of
   Ast.AstProject2 v -> astProject2 (contractAst v)
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map contractAst l)
   Ast.AstSum _ (STKScalar @r) t2 | Dict0 <- numFromTKAllNum (Proxy @r) ->
-    astSum0 (contractAst t2)
+    astSumK (contractAst t2)
   Ast.AstSum
     snat@(SNat @m2)
     stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar)
@@ -693,6 +695,8 @@ contractAst t0 = case t0 of
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                    shn (contractAst v) (contractAstIxS ix)
 
+  Ast.AstSumK v -> astSumK $ contractAst v
+  Ast.AstSumS shm v -> astSumS shm $ contractAst v
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                      shm shn shp (contractAst v) (vars, contractAstIxS ix)
@@ -727,7 +731,6 @@ contractAst t0 = case t0 of
   Ast.AstConvert c v -> astConvertConcrete c $ contractAst v
 
   -- These should not appear in this context unless via wacky tests.
-  Ast.AstSum0{} -> t0
   Ast.AstDot0{} -> t0
   Ast.AstDot1InS{} -> t0
   Ast.AstMatmul2S{} -> t0
@@ -862,6 +865,8 @@ letDownAst t = case t of
   Ast.AstArgMaxS a -> Ast.AstArgMaxS (letDownAst a)
   Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (letDownAst v) (letDownAstIxS ix)
 
+  Ast.AstSumK v -> Ast.AstSumK (letDownAst v)
+  Ast.AstSumS shm v -> Ast.AstSumS shm (letDownAst v)
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     let !ix2 = letDownAstIxS ix
     in astScatterKnobsS (defaultKnobs {knobPhase = PhaseContraction})
@@ -879,7 +884,6 @@ letDownAst t = case t of
 
   Ast.AstConvert c v -> Ast.AstConvert c (letDownAst v)
 
-  Ast.AstSum0 v -> Ast.AstSum0 (letDownAst v)
   Ast.AstDot0 u v -> Ast.AstDot0 (letDownAst u) (letDownAst v)
   Ast.AstDot1InS sh n u v -> Ast.AstDot1InS sh n (letDownAst u) (letDownAst v)
   Ast.AstMatmul2S m n p u v ->

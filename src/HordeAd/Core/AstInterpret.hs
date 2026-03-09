@@ -215,9 +215,15 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
         ix3 = interpretAst env <$> ix
     in tsindex @_ @shm v2 ix3
 
-  -- TODO: once specialization inspect-testing is back online,
-  -- recover and also handle similarly tsupdate, both implemented
-  -- as a gather and as a scatter
+  AstSumK v -> case ftkAst v of
+    FTKS sh _ ->
+      withKnownShS sh $
+      tssum0 (interpretAst env v)
+  t@(AstSumS shm v) -> case ftkAst t of
+    FTKS shn x ->
+      withKnownShS shn $
+      withKnownSTK (ftkToSTK x) $
+      tssumN shm (interpretAst env v)
   -- TODO: this breaks specialization:
   AstScatterS _ shn shp v (ZS, ix) ->
     withKnownShS shn $
@@ -294,10 +300,6 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
   AstConvert c a ->
     tconvert c (ftkToSTK (ftkAst a)) (interpretAst env a)
 
-  AstSum0 v -> case ftkAst v of
-    FTKS sh _ ->
-      withKnownShS sh $
-      tssum0 (interpretAst env v)
   AstDot0 u v -> case ftkAst u of
     FTKS sh _ ->
       withKnownShS sh $

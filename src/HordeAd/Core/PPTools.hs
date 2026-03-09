@@ -392,6 +392,11 @@ printAst cfg d = \case
       . showString " !$ "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
 
+  AstSumK v ->
+    printPrefixOp printAst cfg d "ssum0" [v]
+  AstSumS shm v ->
+    let s = "ssumN @" ++ showListWith shows (shsToList shm) ""
+    in printPrefixOp printAst cfg d s [v]
   AstScatterS _ _ _ v (ZS, ix) ->
     showParen (d > 9)
     $ showString "soneHot "
@@ -546,8 +551,6 @@ printAst cfg d = \case
     (ystk, _) -> let s = "tconvert (" ++ show c ++ ") (" ++ show ystk ++ ")"
                  in printPrefixOp printAst cfg d s [t]
 
-  AstSum0 v ->
-    printPrefixOp printAst cfg d "ssum0" [v]
   AstDot0 u v ->
     printPrefixOp printAst cfg d "sdot0" [u, v]
   AstDot1InS _ _ u v ->

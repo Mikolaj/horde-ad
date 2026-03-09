@@ -491,6 +491,14 @@ class ( Num (IntOf target)
 
   tssum :: (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x)
         => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
+  tssumN :: forall shm shn x. (KnownShS shn, TKAllNum x, KnownSTK x)
+         => ShS shm -> target (TKS2 (shm ++ shn) x) -> target (TKS2 shn x)
+  tssumN =
+    let go :: ShS shm2 -> target (TKS2 (shm2 ++ shn) x) -> target (TKS2 shn x)
+        go ZSS v = v
+        go (SNat :$$ rest) v =
+          go rest (withKnownShS (rest `shsAppend` knownShS @shn) $ tssum v)
+    in go
   tssum0 :: (KnownShS sh, NumScalar r, ConvertTensor target)
          => target (TKS sh r) -> target (TKScalar r)
   tssum0 @sh | SNat <- shsProduct (knownShS @sh) =

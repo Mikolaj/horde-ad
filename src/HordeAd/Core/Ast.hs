@@ -554,6 +554,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
             -> AstTensor ms s (TKS2 (shm ++ shn) x) -> AstIxS ms shm
             -> AstTensor ms s (TKS2 shn x)
 
+  AstSumK :: forall shm r s ms. NumScalar r
+          => AstTensor ms s (TKS shm r)
+          -> AstTensor ms s (TKScalar r)
+  AstSumS :: forall shm shn x s ms. TKAllNum x
+          => ShS shm -> AstTensor ms s (TKS2 (shm ++ shn) x)
+          -> AstTensor ms s (TKS2 shn x)
   -- Shaped tensor operations
   AstScatterS :: forall shm shn shp x s ms. TKAllNum x
               => ShS shm -> ShS shn -> ShS shp
@@ -590,9 +596,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
   AstConvert :: TKConversion a b -> AstTensor ms s a -> AstTensor ms s b
 
   -- Backend-specific primitives
-  AstSum0 :: NumScalar r
-          => AstTensor ms s (TKS sh r)
-          -> AstTensor ms s (TKScalar r)
   AstDot0 :: NumScalar r
           => AstTensor ms s (TKS sh r) -> AstTensor ms s (TKS sh r)
           -> AstTensor ms s (TKScalar r)

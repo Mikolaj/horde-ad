@@ -286,6 +286,31 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
     Ast.AstIndexS shn v ix -> traceRule $
       build1VIndexS snat shn (var, v, ix)  -- @var@ is in @v@ or @ix@
 
+    Ast.AstSumK @shm v -> traceRule $ case ftkAst v of
+     FTKS shm _ ->
+      let perm1 = backpermCycle $ shsLength shm + 1
+      in Permutation.permFromListCont perm1 $ \(perm
+                                                :: Permutation.Perm perm) ->
+           gcastWith (unsafeCoerceRefl
+                      :: Rank perm :~: Rank (k : shm)) $
+           gcastWith (unsafeCoerceRefl
+                      :: Permutation.PermutePrefix perm (k : shm)
+                         :~: shm ++ '[k]) $
+           fromMaybe (error "build1V: impossible non-permutation")
+           $ Permutation.permCheckPermutation perm
+           $ astSumS shm $ astTransposeS perm $ build1V snat (var, v)
+    Ast.AstSumS @shm @shn shm v -> traceRule $
+      let perm1 = backpermCycle $ shsLength shm + 1
+      in Permutation.permFromListCont perm1 $ \(perm
+                                                :: Permutation.Perm perm) ->
+           gcastWith (unsafeCoerceRefl
+                      :: (Rank perm <=? Rank (k : shm ++ shn)) :~: True) $
+           gcastWith (unsafeCoerceRefl
+                      :: Permutation.PermutePrefix perm (k : shm ++ shn)
+                         :~: shm ++ (k : shn)) $
+           fromMaybe (error "build1V: impossible non-permutation")
+           $ Permutation.permCheckPermutation perm
+           $ astSumS shm $ astTransposeS perm $ build1V snat (var, v)
     Ast.AstScatterS shm shn shp v (vars, ix) -> traceRule $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix)
       in astScatterS (SNat @k :$$ shm) shn (SNat @k :$$ shp)
@@ -326,7 +351,6 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       astConvert (buildTKConversion snat (ftkAst v) c)
       $ build1V snat (var, v)
 
-    Ast.AstSum0{} -> error "build1V: term not accessible from user API"
     Ast.AstDot0{} -> error "build1V: term not accessible from user API"
     Ast.AstDot1InS{} -> error "build1V: term not accessible from user API"
     Ast.AstMatmul2S{} -> error "build1V: term not accessible from user API"
