@@ -135,6 +135,8 @@ expandAst t = case t of
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
                      shm shn shp (expandAst v) (vars, expandAstIxS ix)
+  Ast.AstReplicateK shm v -> astReplicateK shm (expandAst v)
+  Ast.AstReplicateS shm v -> astReplicateS shm (expandAst v)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
                     shm shn shp (expandAst v) (vars, expandAstIxS ix)
@@ -294,6 +296,8 @@ simplifyAst t = case t of
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
                      shm shn shp (simplifyAst v) (vars, simplifyAstIxS ix)
+  Ast.AstReplicateK shm v -> astReplicateK shm (simplifyAst v)
+  Ast.AstReplicateS shm v -> astReplicateS shm (simplifyAst v)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
                     shm shn shp (simplifyAst v) (vars, simplifyAstIxS ix)
@@ -700,6 +704,8 @@ contractAst t0 = case t0 of
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                      shm shn shp (contractAst v) (vars, contractAstIxS ix)
+  Ast.AstReplicateK shm v -> astReplicateK shm (contractAst v)
+  Ast.AstReplicateS shm v -> astReplicateS shm (contractAst v)
   -- This rule is reverted in vectorization, so contraction phase may be fine.
   Ast.AstGatherS shm shn shp v (vars, Ast.AstCond b i1 i2 :.$ prest)
     | not $ Foldable.any ((`varInAst` b) . varNameToAstVarId) vars ->
@@ -872,6 +878,8 @@ letDownAst t = case t of
     in astScatterKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                         shm shn shp (letDownAst v) (vars, ix2)
          -- an extra chance to get rid of oneHot1 NF
+  Ast.AstReplicateK shm v -> Ast.AstReplicateK shm (letDownAst v)
+  Ast.AstReplicateS shm v -> Ast.AstReplicateS shm (letDownAst v)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     let !ix2 = letDownAstIxS ix
     in Ast.AstGatherS shm shn shp (letDownAst v) (vars, ix2)

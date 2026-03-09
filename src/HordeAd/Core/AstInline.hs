@@ -201,6 +201,8 @@ inlineAst !memo v0 = case v0 of
         memo2 = EM.unionWith (+) memo1 memoI2
         !ix3 = ixsFromIxS ix ix2
     in (memo2, Ast.AstScatterS shm shn shp v2 (vars, ix3))
+  Ast.AstReplicateK shm v -> second (Ast.AstReplicateK shm) (inlineAst memo v)
+  Ast.AstReplicateS shm v -> second (Ast.AstReplicateS shm) (inlineAst memo v)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     let (memo1, v2) = inlineAst memo v
         (memoI0, ix2) = mapAccumL' inlineAst EM.empty (Foldable.toList ix)
@@ -458,6 +460,8 @@ unshareAst !memo = \case
         (memo2, v2) = unshareAst memo1 v
         !ix3 = ixsFromIxS ix ix2
     in (memo2, Ast.AstScatterS shm shn shp v2 (vars, ix3))
+  Ast.AstReplicateK shm v -> second (Ast.AstReplicateK shm) (unshareAst memo v)
+  Ast.AstReplicateS shm v -> second (Ast.AstReplicateS shm) (unshareAst memo v)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     let (memo1, ix2) = mapAccumL' (unshareAstScoped $ listsToList vars)
                                   memo (Foldable.toList ix)

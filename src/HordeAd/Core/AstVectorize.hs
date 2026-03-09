@@ -316,6 +316,32 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       in astScatterS (SNat @k :$$ shm) shn (SNat @k :$$ shp)
                      (build1VOccurrenceUnknown snat (var, v))
                      (varFresh ::$ vars, astVarFresh :.$ ix2)
+    Ast.AstReplicateK @shm shm v -> traceRule $
+      let perm1 = permCycle $ shsLength shm + 1
+      in Permutation.permFromListCont perm1 $ \(perm
+                                                :: Permutation.Perm perm) ->
+           gcastWith (unsafeCoerceRefl
+                      :: (Rank perm <=? Rank (shm ++ '[k])) :~: True) $
+           gcastWith (unsafeCoerceRefl
+                      :: Permutation.PermutePrefix perm (shm ++ '[k])
+                         :~: k : shm) $
+           fromMaybe (error "build1V: impossible non-permutation")
+           $ Permutation.permCheckPermutation perm
+           $ astTransposeS perm
+           $ astReplicateS shm $ build1V snat (var, v)
+    Ast.AstReplicateS @shm @shn shm v -> traceRule $
+      let perm1 = permCycle $ shsLength shm + 1
+      in Permutation.permFromListCont perm1 $ \(perm
+                                                :: Permutation.Perm perm) ->
+           gcastWith (unsafeCoerceRefl
+                      :: (Rank perm <=? Rank (shm ++ (k : shn))) :~: True) $
+           gcastWith (unsafeCoerceRefl
+                      :: Permutation.PermutePrefix perm (shm ++ (k : shn))
+                         :~: k : shm ++ shn) $
+           fromMaybe (error "build1V: impossible non-permutation")
+           $ Permutation.permCheckPermutation perm
+           $ astTransposeS perm
+           $ astReplicateS shm $ build1V snat (var, v)
     Ast.AstGatherS shm shn shp v (vars, ix) -> traceRule $
       let (varFresh, astVarFresh, ix2) = intBindingRefreshS (var, ix)
       in astGatherS (SNat @k :$$ shm) shn (SNat @k :$$ shp)
@@ -448,6 +474,8 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                Ast.AstMapAccumLDer{} -> True
                -- These can only be simplified to the AstFromVector NF above.
                Ast.AstReplicate{} -> True
+               Ast.AstReplicateK{} -> True
+               Ast.AstReplicateS{} -> True
                Ast.AstAppendS{} -> True
                -- These, in general, simplify to gathers, so as bad as ruleD.
                Ast.AstTransposeS{} -> True

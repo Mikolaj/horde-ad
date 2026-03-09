@@ -394,6 +394,9 @@ printAst cfg d = \case
 
   AstSumK v ->
     printPrefixOp printAst cfg d "ssum0" [v]
+  AstSumS (snat :$$ ZSS) v ->
+    let s = "ssum @" ++ show (fromSNat' snat)
+    in printPrefixOp printAst cfg d s [v]
   AstSumS shm v ->
     let s = "ssumN @" ++ showListWith shows (shsToList shm) ""
     in printPrefixOp printAst cfg d s [v]
@@ -449,6 +452,16 @@ printAst cfg d = \case
            . showListWith (printAstIntVar cfg) (listsToList vars)
            . showString " -> "
            . showListWith (printAst cfg 0) (Foldable.toList ix))
+  -- This is too common to be verbose even in no loseRoudtrip mode.
+  AstReplicateK shm v ->
+    let s = "sreplicate0N @" ++ showListWith shows (shsToList shm) ""
+    in printPrefixOp printAst cfg d s [v]
+  AstReplicateS (snat :$$ ZSS) v ->
+    let s = "sreplicate @" ++ show (fromSNat' snat)
+    in printPrefixOp printAst cfg d s [v]
+  AstReplicateS shm v ->
+    let s = "sreplicateN @" ++ showListWith shows (shsToList shm) ""
+    in printPrefixOp printAst cfg d s [v]
   {- Let's re-enable this when/if we remove AstIndexS altogether
      or at least stop rewriting this to AstIndexS but instead optimize
      the instances for this case:

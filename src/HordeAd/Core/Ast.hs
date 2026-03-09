@@ -567,6 +567,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
               -> (AstVarListS shm, AstIxS ms shp)
               -> AstTensor ms s (TKS2 (shp ++ shn) x)
     -- out of bounds indexing is permitted and the results is def (==0)
+  AstReplicateK :: forall shm r s ms. GoodScalar r
+                => ShS shm -> AstTensor ms s (TKScalar r)
+                -> AstTensor ms s (TKS shm r)
+  AstReplicateS :: forall shm shn x s ms.
+                   ShS shm -> AstTensor ms s (TKS2 shn x)
+                -> AstTensor ms s (TKS2 (shm ++ shn) x)
   AstGatherS :: forall shm shn shp x s ms.
                 ShS shm -> ShS shn -> ShS shp
              -> AstTensor ms s (TKS2 (shp ++ shn) x)

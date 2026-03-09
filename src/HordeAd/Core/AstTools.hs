@@ -119,6 +119,9 @@ ftkAst t = case t of
       FTKS (shsDrop @(Rank shm) shmshn) x
   AstScatterS _ shn shp v _ -> case ftkAst v of
     FTKS _ x -> FTKS (shp `shsAppend` shn) x
+  AstReplicateK shm _v -> FTKS shm FTKScalar
+  AstReplicateS shm v -> case ftkAst v of
+    FTKS shn x -> FTKS (shm `shsAppend` shn) x
   AstGatherS shm shn _shp v _ -> case ftkAst v of
     FTKS _ x -> FTKS (shm `shsAppend` shn) x
   AstIotaS n@SNat -> FTKS (n :$$ ZSS) FTKScalar
@@ -221,6 +224,8 @@ varInAst var = \case
   AstScatterS _ _ _ t (vars, ix) ->
     assert (all (\v -> var /= varNameToAstVarId v) vars) $
     varInIxS var ix || varInAst var t
+  AstReplicateK _ v -> varInAst var v
+  AstReplicateS _ v -> varInAst var v
   AstGatherS _ _ _ t (vars, ix) ->
     assert (all (\v -> var /= varNameToAstVarId v) vars) $
     varInIxS var ix || varInAst var t
@@ -320,6 +325,8 @@ astIsSmallN n t0 = case t0 of
   -- This often appears from user writing (-1), often reduces away
   -- and it has only one argument.
   AstN1K NegateOp v -> astIsSmallN (n - 1) v
+  AstReplicateK _ v -> astIsSmallN (n - 1) v
+  AstReplicateS _ v -> astIsSmallN (n - 1) v
   AstIotaS{} -> n
   AstSliceS _ _ _ v ->
     if n <= 20 then 0 else astIsSmallN (n - 1) v  -- executed as metadata change
@@ -432,6 +439,8 @@ astLetDown var u v = case v of
     if varNameInIxS var ix
     then AstLet var u v
     else AstScatterS shm shn shp (astLetDown var u v2) (vars, ix)
+  AstReplicateK shm v2 -> AstReplicateK shm (astLetDown var u v2)
+  AstReplicateS shm v2 -> AstReplicateS shm (astLetDown var u v2)
   AstGatherS shm shn shp v2 (vars, ix) ->
     if varNameInIxS var ix
     then AstLet var u v

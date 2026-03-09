@@ -216,8 +216,8 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
     in tsindex @_ @shm v2 ix3
 
   AstSumK v -> case ftkAst v of
-    FTKS sh _ ->
-      withKnownShS sh $
+    FTKS shm _ ->
+      withKnownShS shm $
       tssum0 (interpretAst env v)
   t@(AstSumS shm v) -> case ftkAst t of
     FTKS shn x ->
@@ -247,6 +247,13 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
         f2 :: IxSOf target shm -> IxSOf target shp
         f2 !ix2 = interpretAst (extendEnvVarsS vars ix2 env) <$> ix
     in tsscatter @_ @_ @shn t1 f2
+  AstReplicateK shm v ->
+    tsreplicate0N shm (interpretAst env v)
+  AstReplicateS shm v -> case ftkAst v of
+    FTKS shn x ->
+      withKnownShS shn $
+      withKnownSTK (ftkToSTK x) $
+      tsreplicateN shm (interpretAst env v)
   AstGatherS _ shn _ v (ZS, ix) -> interpretAst env (AstIndexS shn v ix)
   AstGatherS @_ @_ @shp (SNat :$$ _) shn shp v (var ::$ ZS, ix) ->
     withKnownShS shn $

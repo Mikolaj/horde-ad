@@ -43,7 +43,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Strict qualified as Data.Vector
-import GHC.TypeLits (KnownNat, type (+), type (<=), type (<=?))
+import GHC.TypeLits (KnownNat, type (*), type (+), type (<=), type (<=?))
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++))
@@ -536,9 +536,16 @@ class ( Num (IntOf target)
   tsreplicate :: forall sh k x. KnownSTK x
               => SNat k -> ShS sh -> target (TKS2 sh x)
               -> target (TKS2 (k ': sh) x)
-  tsreplicate0N :: forall sh r. (GoodScalar r, ConvertTensor target)
-                => ShS sh -> target (TKScalar r) -> target (TKS sh r)
-  tsreplicate0N sh = tsreshape sh . tsreplicate (shsProduct sh) ZSS . sfromK
+  tsreplicate0N :: forall shm r. (GoodScalar r, ConvertTensor target)
+                => ShS shm -> target (TKScalar r) -> target (TKS shm r)
+  tsreplicate0N shm = tsreshape shm . tsreplicate (shsProduct shm) ZSS . sfromK
+  tsreplicateN :: forall shm shn x. (KnownShS shn, KnownSTK x)
+               => ShS shm -> target (TKS2 shn x) -> target (TKS2 (shm ++ shn) x)
+  tsreplicateN shm =
+    gcastWith (unsafeCoerceRefl
+               :: Product (shm ++ shn) :~: Product shm * Product shn) $
+    tsreshape (shm `shsAppend` knownShS @shn)
+    . tsreplicate (shsProduct shm) (knownShS @shn)
 
   -- The choice in BuildTensorKind makes it hard to support this one,
   -- due to DeltaSum and AstSum being typed with BuildTensorKind:

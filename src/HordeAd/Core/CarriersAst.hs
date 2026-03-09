@@ -29,6 +29,7 @@ import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.OpsConcrete ()
@@ -144,6 +145,8 @@ unReplC :: forall sh x s ms.
            AstTensor ms s (TKS2 sh x) -> Maybe (RepConcrete x)
 unReplC (AstReplicate _ STKScalar a) = unAstK a
 unReplC (AstReplicate _ STKS{} u) = unReplC u
+unReplC (AstReplicateK _ a) = unAstK a
+unReplC (AstReplicateS _ u) = unReplC u
 unReplC (AstLet _ _ t) = unReplC t  -- we may be before inlining
 unReplC (AstPrimalPart t) = unReplC t
 unReplC (AstDualPart t) = unReplC t
@@ -158,7 +161,7 @@ unReplC _ = Nothing  -- e.g., a variable
 
 -- No cases for, e.g., arithmetic, because it'd get simplified away beforehand.
 unAstK :: forall r s ms.
-           AstTensor ms s (TKScalar r) -> Maybe r
+          AstTensor ms s (TKScalar r) -> Maybe r
 unAstK (AstLet _ _ t) = unAstK t  -- we may be before inlining
 unAstK (AstPrimalPart t) = unAstK t
 unAstK (AstDualPart t) = unAstK t
@@ -171,8 +174,12 @@ unAstK (AstConvert (ConvCmp ConvX0 ConvSX) a) = unReplC a
 unAstK _ = Nothing
 
 unAstS :: forall sh x s ms.
-           AstTensor ms s (TKS2 sh x)
-        -> Maybe (Nested.Shaped sh (RepConcrete x))
+          AstTensor ms s (TKS2 sh x)
+       -> Maybe (Nested.Shaped sh (RepConcrete x))
+unAstS (AstReplicate snat (STKS _ x) u) | Dict <- eltDictRep x =
+  Nested.sreplicate (snat :$$ ZSS) <$> unAstS u
+unAstS (AstReplicateS shm u) | Dict <- eltDictRep (stkAstX u) =
+  Nested.sreplicate shm <$> unAstS u
 unAstS (AstLet _ _ t) = unAstS t
 unAstS (AstPrimalPart t) = unAstS t
 unAstS (AstDualPart t) = unAstS t
@@ -289,11 +296,6 @@ eqZ (AstI2S opCode1 u1 v1) (AstI2S opCode2 u2 v2)
   | opCode1 == opCode2
   , Just Refl <- eqZ u1 u2
   , Just Refl <- eqZ v1 v2 = Just Refl
-eqZ (AstSumK u1) (AstSumK u2)
-  | Just Refl <- eqZ u1 u2 = Just Refl
-eqZ (AstSumS shm1 u1) (AstSumS shm2 u2)
-  | Just Refl <- testEquality shm1 shm2
-  , Just Refl <- eqZ u1 u2 = Just unsafeCoerceRefl
 eqZ (AstFloorS @_ @r1 u1) (AstFloorS @_ @r2 u2)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
   , Just Refl <- eqZ u1 u2 = Just Refl
@@ -302,6 +304,17 @@ eqZ (AstFromIntegralS @_ @r1 u1) (AstFromIntegralS @_ @r2 u2)
   , Just Refl <- eqZ u1 u2 = Just Refl
 eqZ (AstCastS @_ @r1 u1) (AstCastS @_ @r2 u2)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
+  , Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstSumK u1) (AstSumK u2)
+  | Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstSumS shm1 u1) (AstSumS shm2 u2)
+  | Just Refl <- testEquality shm1 shm2
+  , Just Refl <- eqZ u1 u2 = Just unsafeCoerceRefl
+eqZ (AstReplicateK shm1 u1) (AstReplicateK shm2 u2)
+  | Just Refl <- testEquality shm1 shm2
+  , Just Refl <- eqZ u1 u2 = Just Refl
+eqZ (AstReplicateS shm1 u1) (AstReplicateS shm2 u2)
+  | Just Refl <- testEquality shm1 shm2
   , Just Refl <- eqZ u1 u2 = Just Refl
 eqZ (AstIotaS @_ @r1 k1) (AstIotaS @_ @r2 k2)
   | Just Refl <- testEquality (typeRep @r1) (typeRep @r2)
