@@ -247,11 +247,10 @@ instance ( ADReadyNoLet target, ShareTensor target
     withSNat (fromSMayNat' mn) $ \(SNat @n) ->
       xmcast (ssxFromShX (mm :$% ZSX))
       $ txsum (xtr (txreplicate (SNat @m) knownShX
-                      (xmcast (ssxFromShX (Nested.SKnown (SNat @n)
-                                             :$% ZSX)) v)
-                    * xmcast (ssxFromShX (Nested.SKnown (SNat @m)
-                                            :$% Nested.SKnown (SNat @n)
-                                            :$% ZSX)) m))
+                      (xmcast (ssxFromShX (SKnown (SNat @n) :$% ZSX)) v)
+                    * xmcast (ssxFromShX (SKnown (SNat @m)
+                                          :$% SKnown (SNat @n)
+                                          :$% ZSX)) m))
   txmatmul2 m1 m2 =
     txsum (txtranspose (Permutation.makePerm @'[2, 1, 0])
                        (txreplicate SNat knownShX m1)
@@ -361,7 +360,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   txargMax (D u _) =
     let v = txargMax u
     in fromPrimalFTK (FTKX (xshape v) FTKScalar) v
-  txiota = fromPrimalFTK (FTKX (Nested.SKnown SNat :$% ZSX) FTKScalar) txiota
+  txiota = fromPrimalFTK (FTKX (SKnown SNat :$% ZSX) FTKScalar) txiota
   trappend (D u u') (D v v') = dD (trappend u v) (DeltaAppendR u' v')
   trslice i n (D u u') = dD (trslice i n u) (DeltaSliceR i n u')
   trreverse (D u u') = dD (trreverse u) (DeltaReverseR u')

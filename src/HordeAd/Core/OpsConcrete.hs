@@ -246,11 +246,10 @@ instance BaseTensor Concrete where
     withSNat (fromSMayNat' mn) $ \(SNat @n) ->
       xmcast (ssxFromShX (mm :$% ZSX))
       $ txsum (xtr (txreplicate (SNat @m) knownShX
-                      (xmcast (ssxFromShX (Nested.SKnown (SNat @n)
-                                             :$% ZSX)) v)
-                    * xmcast (ssxFromShX (Nested.SKnown (SNat @m)
-                                            :$% Nested.SKnown (SNat @n)
-                                            :$% ZSX)) m))
+                      (xmcast (ssxFromShX (SKnown (SNat @n) :$% ZSX)) v)
+                    * xmcast (ssxFromShX (SKnown (SNat @m)
+                                          :$% SKnown (SNat @n)
+                                          :$% ZSX)) m))
   txmatmul2 m1 m2 =
     txdot1In SNat
              (txtranspose (Permutation.makePerm @'[1, 0])
@@ -259,7 +258,7 @@ instance BaseTensor Concrete where
                           (txreplicate SNat knownShX m2))
   {-# INLINE txreplicate #-}
   txreplicate @_ @_ @x snat _sh | Dict <- eltDictRep (knownSTK @x) =
-    Concrete . Nested.mreplicate (Nested.SKnown snat :$% ZSX) . unConcrete
+    Concrete . Nested.mreplicate (SKnown snat :$% ZSX) . unConcrete
   {-# INLINE txreplicate0N #-}
   txreplicate0N sh = Concrete . Nested.mreplicatePrim sh . unConcrete
   {-# INLINE trindex #-}
@@ -684,7 +683,7 @@ instance BaseTensor Concrete where
         g i = unConcrete $ f (Concrete i)
     in case knownSTK @x of
       STKScalar | ZKX <- knownShX @sh ->
-        Concrete $ Nested.mfromVector (Nested.SKnown SNat :$% ZSX)
+        Concrete $ Nested.mfromVector (SKnown SNat :$% ZSX)
         $ VS.generate (valueOf @k) (Nested.munScalar . g)
           -- this is somewhat faster and not much more complex than if
           -- done with mgeneratePrim

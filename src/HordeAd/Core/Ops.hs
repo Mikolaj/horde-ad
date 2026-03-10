@@ -91,7 +91,7 @@ xtr = gcastWith (unsafeCoerceRefl
 xflatten :: forall sh x target. (KnownSTK x, BaseTensor target)
          => target (TKX2 sh x) -> target (TKX2 '[Nothing] x)
 {-# INLINE xflatten #-}
-xflatten u = txreshape (Nested.SUnknown (xsize u) :$% ZSX) u
+xflatten u = txreshape (SUnknown (xsize u) :$% ZSX) u
 
 rrepl :: forall n r target. (GoodScalar r, BaseTensor target)
       => IShR n -> r -> target (TKR n r)
@@ -457,6 +457,13 @@ class ( Num (IntOf target)
   -- by 1 dimension.
   trsum :: (KnownNat n, TKAllNum x, KnownSTK x)
         => target (TKR2 (1 + n) x) -> target (TKR2 n x)
+  trsumN :: forall m n x. (KnownNat n, TKAllNum x, KnownSTK x)
+         => IShR m -> target (TKR2 (m + n) x) -> target (TKR2 n x)
+  trsumN =
+    let go :: IShR m2 -> target (TKR2 (m2 + n) x) -> target (TKR2 n x)
+        go ZSR v = v
+        go (_ :$: rest) v | SNat <- shrRank rest = go rest (trsum v)
+    in go
   -- This op (and it's Delta constructor) is worthwhile, because flattening
   -- is O(n) sometimes, unlike transpose, etc.
   trsum0 :: (KnownNat n, NumScalar r, ConvertTensor target)
@@ -485,6 +492,11 @@ class ( Num (IntOf target)
     trbuild1 (rwidth m1) (\i -> trmatvecmul (rtr m2) (m1 `trindex` [i]))
   trreplicate :: (KnownNat n, KnownSTK x)
               => Int -> target (TKR2 n x) -> target (TKR2 (1 + n) x)
+  trreplicateN :: forall m n x. (KnownNat n, KnownSTK x)
+               => IShR m -> target (TKR2 n x) -> target (TKR2 (m + n) x)
+  trreplicateN shm t =
+    trreshape (shm `shrAppend` rshape t)
+    $ trreplicate (shrSize shm) t
   trreplicate0N :: (KnownNat n, GoodScalar r, ConvertTensor target)
                 => IShR n -> target (TKScalar r) -> target (TKR n r)
   trreplicate0N sh = trreshape sh . trreplicate (shrSize sh) . rfromK
@@ -536,16 +548,16 @@ class ( Num (IntOf target)
   tsreplicate :: forall sh k x. KnownSTK x
               => SNat k -> ShS sh -> target (TKS2 sh x)
               -> target (TKS2 (k ': sh) x)
+  tsreplicateN :: forall shm shn x. KnownSTK x
+               => ShS shm -> target (TKS2 shn x) -> target (TKS2 (shm ++ shn) x)
+  tsreplicateN shm t =
+    gcastWith (unsafeCoerceRefl
+               :: Product (shm ++ shn) :~: Product shm * Product shn) $
+    tsreshape (shm `shsAppend` sshape t)
+    $ tsreplicate (shsProduct shm) (sshape t) t
   tsreplicate0N :: forall shm r. (GoodScalar r, ConvertTensor target)
                 => ShS shm -> target (TKScalar r) -> target (TKS shm r)
   tsreplicate0N shm = tsreshape shm . tsreplicate (shsProduct shm) ZSS . sfromK
-  tsreplicateN :: forall shm shn x. (KnownShS shn, KnownSTK x)
-               => ShS shm -> target (TKS2 shn x) -> target (TKS2 (shm ++ shn) x)
-  tsreplicateN shm =
-    gcastWith (unsafeCoerceRefl
-               :: Product (shm ++ shn) :~: Product shm * Product shn) $
-    tsreshape (shm `shsAppend` knownShS @shn)
-    . tsreplicate (shsProduct shm) (knownShS @shn)
 
   -- The choice in BuildTensorKind makes it hard to support this one,
   -- due to DeltaSum and AstSum being typed with BuildTensorKind:
@@ -553,10 +565,25 @@ class ( Num (IntOf target)
   --     => target (TKX2 (mn ': sh) x) -> target (TKX2 sh x)
   txsum :: (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x)
         => target (TKX2 (Just n ': sh) x) -> target (TKX2 sh x)
+  txsumN :: forall shm shn x.
+            (KnownShX shn, TKAllNum x, KnownSTK x, ConvertTensor target)
+         => IShX shm -> target (TKX2 (shm ++ shn) x) -> target (TKX2 shn x)
+  txsumN =
+    let go :: IShX shm2 -> target (TKX2 (shm2 ++ shn) x) -> target (TKX2 shn x)
+        go ZSX v = v
+        go (SKnown SNat :$% rest) v =
+          go rest (withKnownShX (ssxFromShX rest `ssxAppend` knownShX @shn)
+                   $ txsum v)
+        go (SUnknown i :$% rest) v =
+          withSNat i $ \snat ->
+            go rest (withKnownShX (ssxFromShX rest `ssxAppend` knownShX @shn)
+                     $ txsum $ xmcast (SKnown snat :!% ssxFromShX rest
+                                       `ssxAppend` knownShX @shn) v)
+    in go
   txsum0 :: (KnownShX sh, NumScalar r, ConvertTensor target)
          => target (TKX sh r) -> target (TKScalar r)
   txsum0 t = withSNat (shxSize $ xshape t) $ \snat ->
-    kfromX $ txsum (xmcast (Nested.SKnown snat :!% ZKX) $ xflatten t)
+    kfromX $ txsum (xmcast (SKnown snat :!% ZKX) $ xflatten t)
   txdot0 :: (KnownShX sh, NumScalar r, ConvertTensor target)
          => target (TKX sh r) -> target (TKX sh r) -> target (TKScalar r)
   txdot0 t u = txsum0 (t * u)
@@ -593,12 +620,19 @@ class ( Num (IntOf target)
             -> target (TKX '[Just m, Just p] r)
   txmatmul2 @m @n @p m1 m2 =
     txbuild1 @_ @m (\i ->
-      txmatvecmul (Nested.SKnown (SNat @p)) (Nested.SKnown (SNat @n))
+      txmatvecmul (SKnown (SNat @p)) (SKnown (SNat @n))
                   (xtr m2) (m1 `txindex` (i :.% ZIX)))
   txreplicate :: forall sh k x. KnownSTK x
               => SNat k -> StaticShX sh -> target (TKX2 sh x)
               -> target (TKX2 (Just k ': sh) x)
-  txreplicate0N :: (KnownShX sh, GoodScalar r, ConvertTensor target)
+  txreplicateN :: forall shm shn x. KnownSTK x
+               => IShX shm -> target (TKX2 shn x)
+               -> target (TKX2 (shm ++ shn) x)
+  txreplicateN shm t =
+    withSNat (shxSize shm) $ \snat ->
+      txreshape (shm `shxAppend` xshape t)
+      $ txreplicate snat (ssxFromShX $ xshape t) t
+  txreplicate0N :: (GoodScalar r, ConvertTensor target)
                 => IShX sh -> target (TKScalar r) -> target (TKX sh r)
   txreplicate0N sh = withSNat (shxSize sh) $ \snat ->
     txreshape sh . txreplicate snat knownShX . xfromK
@@ -747,8 +781,7 @@ class ( Num (IntOf target)
             -> target (TKX2 (Just n2 ': shn) x)
   {-# INLINE txgather1 #-}
   txgather1 @n2 k v f =
-    txgather @target @'[Just n2]
-             (Nested.SKnown k :$% ZSX) v (\(i :.% ZIX) -> f i)
+    txgather @target @'[Just n2] (SKnown k :$% ZSX) v (\(i :.% ZIX) -> f i)
 
   tkfloor :: (NumScalar r, Differentiable r, NumScalar r2, Integral r2)
           => target (TKScalar r) -> target (TKScalar r2)

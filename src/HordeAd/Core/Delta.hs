@@ -211,8 +211,6 @@ data Delta :: Target -> Target where
   DeltaCastR :: ( NumScalar r1, Differentiable r1
                 , NumScalar r2, Differentiable r2 )
              => Delta target (TKR n r1) -> Delta target (TKR n r2)
-  DeltaSum0R :: NumScalar r
-             => Delta target (TKR n r) -> Delta target (TKScalar r)
   DeltaDot0R :: (NumScalar r, Show (target (TKR n r)))
              => target (TKR n r) -> Delta target (TKR n r)
              -> Delta target (TKScalar r)
@@ -220,11 +218,23 @@ data Delta :: Target -> Target where
                  SNat n
               -> Delta target (TKR2 (m + n) r) -> IxROf target m
               -> Delta target (TKR2 n r)
+  DeltaSum0R :: forall m r target. NumScalar r
+             => Delta target (TKR m r)
+             -> Delta target (TKScalar r)
+  DeltaSumR :: forall m n x target.
+               IShR m -> Delta target (TKR2 (m + n) x)
+            -> Delta target (TKR2 n x)
   DeltaScatterR :: forall m n p r target.
                    SNat m -> SNat n -> SNat p
                 -> IShR p -> Delta target (TKR2 (m + n) r)
                 -> (IxROf target m -> IxROf target p)
                 -> Delta target (TKR2 (p + n) r)
+  DeltaReplicate0NR :: forall m r target. GoodScalar r
+                    => IShR m -> Delta target (TKScalar r)
+                    -> Delta target (TKR m r)
+  DeltaReplicateR :: forall m n x target.
+                     IShR m -> Delta target (TKR2 n x)
+                  -> Delta target (TKR2 (m + n) x)
   DeltaGatherR :: forall m n p r target.
                   SNat m -> SNat n -> SNat p
                -> IShR m -> Delta target (TKR2 (p + n) r)
@@ -246,8 +256,6 @@ data Delta :: Target -> Target where
   DeltaCastS :: ( NumScalar r1, Differentiable r1
                 , NumScalar r2, Differentiable r2 )
              => Delta target (TKS sh r1) -> Delta target (TKS sh r2)
-  DeltaSum0S :: NumScalar r
-             => Delta target (TKS sh r) -> Delta target (TKScalar r)
   DeltaDot0S :: (NumScalar r, Show (target (TKS sh r)))
              => target (TKS sh r) -> Delta target (TKS sh r)
              -> Delta target (TKScalar r)
@@ -255,11 +263,23 @@ data Delta :: Target -> Target where
                  ShS shn
               -> Delta target (TKS2 (shm ++ shn) r) -> IxSOf target shm
               -> Delta target (TKS2 shn r)
+  DeltaSum0S :: forall shm r target. NumScalar r
+             => Delta target (TKS shm r)
+             -> Delta target (TKScalar r)
+  DeltaSumS :: forall shm shn x target.
+               ShS shm -> Delta target (TKS2 (shm ++ shn) x)
+            -> Delta target (TKS2 shn x)
   DeltaScatterS :: forall shm shn shp r target.
                    ShS shm -> ShS shn -> ShS shp
                 -> Delta target (TKS2 (shm ++ shn) r)
                 -> (IxSOf target shm -> IxSOf target shp)
                 -> Delta target (TKS2 (shp ++ shn) r)
+  DeltaReplicate0NS :: forall shm r target. GoodScalar r
+                    => ShS shm -> Delta target (TKScalar r)
+                    -> Delta target (TKS shm r)
+  DeltaReplicateS :: forall shm shn x target.
+                     ShS shm -> Delta target (TKS2 shn x)
+                  -> Delta target (TKS2 (shm ++ shn) x)
   DeltaGatherS :: forall shm shn shp r target.
                   ShS shm -> ShS shn -> ShS shp
                -> Delta target (TKS2 (shp ++ shn) r)
@@ -288,8 +308,6 @@ data Delta :: Target -> Target where
   DeltaCastX :: ( NumScalar r1, Differentiable r1
                 , NumScalar r2, Differentiable r2 )
              => Delta target (TKX sh r1) -> Delta target (TKX sh r2)
-  DeltaSum0X :: NumScalar r
-             => Delta target (TKX sh r) -> Delta target (TKScalar r)
   DeltaDot0X :: (NumScalar r, Show (target (TKX sh r)))
              => target (TKX sh r) -> Delta target (TKX sh r)
              -> Delta target (TKScalar r)
@@ -297,10 +315,22 @@ data Delta :: Target -> Target where
                  StaticShX shn
               -> Delta target (TKX2 (shm ++ shn) r) -> IxXOf target shm
               -> Delta target (TKX2 shn r)
+  DeltaSum0X :: forall shm r target. NumScalar r
+             => Delta target (TKX shm r)
+             -> Delta target (TKScalar r)
+  DeltaSumX :: forall shm shn x target.
+               IShX shm -> Delta target (TKX2 (shm ++ shn) x)
+            -> Delta target (TKX2 shn x)
   DeltaScatterX :: StaticShX shm -> StaticShX shn -> StaticShX shp
                 -> IShX shp -> Delta target (TKX2 (shm ++ shn) r)
                 -> (IxXOf target shm -> IxXOf target shp)
                 -> Delta target (TKX2 (shp ++ shn) r)
+  DeltaReplicate0NX :: forall shm r target. GoodScalar r
+                    => IShX shm -> Delta target (TKScalar r)
+                    -> Delta target (TKX shm r)
+  DeltaReplicateX :: forall shm shn x target.
+                     IShX shm -> Delta target (TKX2 shn x)
+                  -> Delta target (TKX2 (shm ++ shn) x)
   DeltaGatherX :: StaticShX shm -> StaticShX shn -> StaticShX shp
                -> IShX shm -> Delta target (TKX2 (shp ++ shn) r)
                -> (IxXOf target shm -> IxXOf target shp)
@@ -374,12 +404,17 @@ ftkDelta = \case
 
   DeltaCastR d -> case ftkDelta d of
     FTKR sh _ -> FTKR sh FTKScalar
-  DeltaSum0R{} -> FTKScalar
   DeltaDot0R{} -> FTKScalar
   DeltaIndexR _ d ix | SNat <- ixrRank ix -> case ftkDelta d of
     FTKR sh x -> FTKR (shrDrop sh) x
+  DeltaSum0R{} -> FTKScalar
+  DeltaSumR @m shm d | SNat <- shrRank shm -> case ftkDelta d of
+    FTKR shmshn x -> FTKR (shrDrop @m shmshn) x
   DeltaScatterR (SNat @m) _ _ shp d _ -> case ftkDelta d of
     FTKR sh x -> FTKR (shp `shrAppend` shrDrop @m sh) x
+  DeltaReplicate0NR shm _ -> FTKR shm FTKScalar
+  DeltaReplicateR shm d -> case ftkDelta d of
+    FTKR shn x -> FTKR (shm `shrAppend` shn) x
   DeltaGatherR _ _ (SNat @p) shm d _ -> case ftkDelta d of
     FTKR sh x -> FTKR (shm `shrAppend` shrDrop @p sh) x
   -- Depite the warning, the pattern match is exhaustive and if a dummy
@@ -397,12 +432,19 @@ ftkDelta = \case
 
   DeltaCastS d -> case ftkDelta d of
     FTKS sh FTKScalar -> FTKS sh FTKScalar
-  DeltaSum0S{} -> FTKScalar
   DeltaDot0S{} -> FTKScalar
   DeltaIndexS shn d _ix -> case ftkDelta d of
     FTKS _ x -> FTKS shn x
+  DeltaSum0S{} -> FTKScalar
+  DeltaSumS @shm @shn shm d | SNat <- shsRank shm -> case ftkDelta d of
+    FTKS shmshn x ->
+      gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
+      FTKS (shsDrop @(Rank shm) shmshn) x
   DeltaScatterS _shm shn shp d _ -> case ftkDelta d of
     FTKS _ x -> FTKS (shp `shsAppend` shn) x
+  DeltaReplicate0NS shm _ -> FTKS shm FTKScalar
+  DeltaReplicateS shm d -> case ftkDelta d of
+    FTKS shn x -> FTKS (shm `shsAppend` shn) x
   DeltaGatherS shm shn _shp d _ -> case ftkDelta d of
     FTKS _ x -> FTKS (shm `shsAppend` shn) x
   DeltaAppendS a b -> case (ftkDelta a, ftkDelta b) of
@@ -417,14 +459,21 @@ ftkDelta = \case
 
   DeltaCastX d -> case ftkDelta d of
     FTKX sh FTKScalar -> FTKX sh FTKScalar
-  DeltaSum0X{} -> FTKScalar
   DeltaDot0X{} -> FTKScalar
   DeltaIndexX @shm @shn _shn d ix -> case ftkDelta d of
     FTKX sh x | SNat @len <- ixxRank ix ->
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
       FTKX (shxDrop @len sh) x
+  DeltaSum0X{} -> FTKScalar
+  DeltaSumX @shm @shn shm d | SNat <- shxRank shm -> case ftkDelta d of
+    FTKX shmshn x ->
+      gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
+      FTKX (shxDrop @(Rank shm) shmshn) x
   DeltaScatterX @_ @shn ssm _ _ shp d _ -> case ftkDelta d of
     FTKX sh x -> FTKX (shp `shxAppend` shxDropSSX @_ @shn ssm sh) x
+  DeltaReplicate0NX shm _ -> FTKX shm FTKScalar
+  DeltaReplicateX shm d -> case ftkDelta d of
+    FTKX shn x -> FTKX (shm `shxAppend` shn) x
   DeltaGatherX @_ @shn _ _ ssp shm d _ -> case ftkDelta d of
     FTKX sh x -> FTKX (shm `shxAppend` shxDropSSX @_ @shn ssp sh) x
   DeltaAppendX a b -> case (ftkDelta a, ftkDelta b) of
