@@ -376,11 +376,11 @@ ftkDelta = \case
     FTKR sh _ -> FTKR sh FTKScalar
   DeltaSum0R{} -> FTKScalar
   DeltaDot0R{} -> FTKScalar
-  DeltaIndexR SNat d ix | SNat <- ixrRank ix -> case ftkDelta d of
+  DeltaIndexR _ d ix | SNat <- ixrRank ix -> case ftkDelta d of
     FTKR sh x -> FTKR (shrDrop sh) x
-  DeltaScatterR (SNat @m) SNat _ shp d _ -> case ftkDelta d of
+  DeltaScatterR (SNat @m) _ _ shp d _ -> case ftkDelta d of
     FTKR sh x -> FTKR (shp `shrAppend` shrDrop @m sh) x
-  DeltaGatherR _ SNat (SNat @p) shm d _ -> case ftkDelta d of
+  DeltaGatherR _ _ (SNat @p) shm d _ -> case ftkDelta d of
     FTKR sh x -> FTKR (shm `shrAppend` shrDrop @p sh) x
   -- Depite the warning, the pattern match is exhaustive and if a dummy
   -- pattern is added, GHC 9.14.1 complains about that, in turn.
@@ -419,11 +419,10 @@ ftkDelta = \case
     FTKX sh FTKScalar -> FTKX sh FTKScalar
   DeltaSum0X{} -> FTKScalar
   DeltaDot0X{} -> FTKScalar
-  DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
+  DeltaIndexX @shm @shn _shn d ix -> case ftkDelta d of
     FTKX sh x | SNat @len <- ixxRank ix ->
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
-      withKnownShX shn $
-      FTKX (shxDrop @len sh) x  -- TODO: (shxDropSSX sh (ssxFromIxX ix)) x
+      FTKX (shxDrop @len sh) x
   DeltaScatterX @_ @shn ssm _ _ shp d _ -> case ftkDelta d of
     FTKX sh x -> FTKX (shp `shxAppend` shxDropSSX @_ @shn ssm sh) x
   DeltaGatherX @_ @shn _ _ ssp shm d _ -> case ftkDelta d of

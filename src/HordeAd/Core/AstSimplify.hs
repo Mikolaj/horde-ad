@@ -3961,8 +3961,6 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
             gcastWith (unsafeCoerceRefl
                        :: (shm ++ Drop (Rank shp) shm2) ++ shn2
                           :~: shm ++ shn) $
-            withKnownShS (shsDrop @(Rank shp) shm2) $
-            withKnownShS shp $
             let vars2p = listsTake @(Rank shp) vars2
                 vars22 = listsDrop @(Rank shp) vars2
                 ix22 = fmap (subst ix4 vars2p) ix2
@@ -3986,8 +3984,6 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
             gcastWith (unsafeCoerceRefl
                        :: (shp2 ++ Drop (Rank shm2) shp) ++ shn
                           :~: shp2 ++ shn2) $
-            withKnownShS (shsDrop @(Rank shm2) shp) $
-            withKnownShS shm2 $
             let ix42 = ixsTake @(Rank shm2) ix4
                 ix44 = ixsDrop @(Rank shm2) ix4
                 ix22 = fmap (subst ix42 vars2) ix2

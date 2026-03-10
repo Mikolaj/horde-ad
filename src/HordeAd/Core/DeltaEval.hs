@@ -549,8 +549,6 @@ evalRev !s !c d0 = case d0 of
       withKnownShX (ssxTakeIx @shm @shn Proxy ix (ssxFromShX sh)) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
       evalRev s (txoneHot (shxTake @len sh) c ix) d
---TODO      evalRev s (xoneHot (shxTakeSSX (Proxy @shn) sh
---                                         (ssxFromIxX ix)) c ix) d
   DeltaScatterX @shm @shn shm shn shp _sh d f -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (adSTK $ ftkToSTK x) $

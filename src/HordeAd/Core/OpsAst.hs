@@ -477,7 +477,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
         gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) sh1sh2 :~: sh2) $
-        astConvUpXFromS (shxDrop @(Rank sh1) sh1sh2) x
+        astConvUpXFromS (shxDropSSX (knownShX @sh1) sh1sh2) x
         $ astIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (shsDrop @(Rank sh1) sh)
                     (astConvDownSFromX sh x a)
@@ -1035,7 +1035,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
         gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) sh1sh2 :~: sh2) $
-        cAstConvUpXFromS (shxDrop @(Rank sh1) sh1sh2) x
+        cAstConvUpXFromS (shxDropSSX (knownShX @sh1) sh1sh2) x
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (shsDrop @(Rank sh1) sh)
                     (cAstConvDownSFromX sh x a)

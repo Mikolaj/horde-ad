@@ -26,10 +26,11 @@ module HordeAd.Core.Types
   , backpermutePrefixList
     -- * Feature requests for ox-arrays
   , Take, Drop, UnMapSucc
-  , listsTake, listsDrop, listsSplitAt, ixrTake, ixrDrop, ixrSplitAt
-  , shrTake, shrDrop, ixsTake, ixsDrop, shsTake, shsDrop
-  , shxTake, shxDrop, ixxTake, ixxDrop'
-  , listsTakeLen, listsDropLen
+  -- TODO: listrTake, listrDrop, ixrTake, ixrDrop, ixrSplitAt
+  , shrTake, shrDrop
+  , listsTake, listsDrop, listsSplitAt, ixsTake, ixsDrop, shsTake, shsDrop
+  -- TODO: listxTake, listxDrop, ixxTake, ixxDrop'
+  , shxTake, shxDrop
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
   , shCastSX, lemRankMapJust'
   , normalizePermutationHack, backpermCycle, permCycle
@@ -41,7 +42,6 @@ import Prelude
 import Control.DeepSeq (NFData (..))
 import Data.Boolean (Boolean (..))
 import Data.Default
-import Data.Foldable qualified as Foldable
 import Data.Int (Int16, Int32, Int64, Int8)
 import Data.Kind (Constraint, Type)
 import Data.List (dropWhileEnd, sort)
@@ -50,7 +50,7 @@ import Data.Type.Equality (gcastWith, type (~~), (:~:) (Refl), (:~~:) (HRefl))
 import Data.Vector.Storable qualified as V
 import Foreign.C (CInt)
 import Foreign.Storable (Storable (..))
-import GHC.Exts (IsList (..), oneShot)
+import GHC.Exts (oneShot)
 import GHC.Generics (Generic)
 import GHC.TypeLits
   ( ErrorMessage (..)
@@ -68,17 +68,17 @@ import System.Random
 import Type.Reflection (TypeRep, Typeable, eqTypeRep, pattern TypeRep, typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Data.Array.Nested (MapJust)
+import Data.Array.Nested (MapJust, Replicate)
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (shxFromShS)
-import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
-import Data.Array.Nested.Permutation (DropLen, PermR, TakeLen)
+import Data.Array.Nested.Permutation (PermR)
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (Dict (..), Tail, fromSNat', unsafeCoerceRefl)
+import Data.Array.Nested.Types
+  (Dict (..), Tail, fromSNat', pattern SS, pattern SZ, unsafeCoerceRefl)
 import Data.Array.Strided.Arith (NumElt (..))
 import Data.Array.Strided.Array as SA
 
@@ -552,127 +552,132 @@ type family Drop (n :: Nat) (xs :: [k]) :: [k] where
   Drop 0 xs = xs
   Drop n (x ': xs) = Drop (n - 1) xs
 
--- TODO: shed the constraints by using listsFromListSPartial Proxy Proxy
-listsTake :: forall len sh i. (KnownNat len, KnownShS (Take len sh))
-          => ListS sh i -> ListS (Take len sh) i
-listsTake l = fromList $ take (valueOf @len) $ listsToList l
+{- TODO:
+listrTake :: forall len n i. KnownNat len
+          => ListR (len + n) i -> ListR len i
+listrTake
 
-listsDrop :: forall len sh i. (KnownNat len, KnownShS (Drop len sh))
-          => ListS sh i -> ListS (Drop len sh) i
-listsDrop l = fromList $ drop (valueOf @len) $ listsToList l
-
-listsSplitAt
-  :: forall sh len i.
-     (KnownNat len, KnownShS (Drop len sh), KnownShS (Take len sh))
-  => ListS sh i
-  -> (ListS (Take len sh) i, ListS (Drop len sh) i)
-listsSplitAt ix = (listsTake @len ix, listsDrop @len ix)
+listrDrop :: forall len n i. KnownNat len
+          => ListR (len + n) i -> ListR n i
+listrDrop
 
 ixrTake :: forall m n i. KnownNat m
         => IxR (m + n) i -> IxR m i
 ixrTake (IxR ix) = IxR $ listrTake ix
 
-ixrDrop :: forall m n i. (KnownNat m, KnownNat n)
+ixrDrop :: forall m n i. KnownNat m
         => IxR (m + n) i -> IxR n i
 ixrDrop (IxR ix) = IxR $ listrDrop ix
 
-ixrSplitAt :: (KnownNat m, KnownNat n)
+ixrSplitAt :: KnownNat m
            => IxR (m + n) i -> (IxR m i, IxR n i)
 ixrSplitAt ix = (ixrTake ix, ixrDrop ix)
+-}
 
 shrTake :: forall m n. KnownNat m
         => IShR (m + n) -> IShR m
-shrTake (ShR ix) =
+shrTake (ShR shx) =
   gcastWith (unsafeCoerceRefl
-             :: Take m (Nested.Replicate (m + n) (Nothing @Nat))
-                :~: Nested.Replicate m Nothing) $
-  case lemKnownReplicate (SNat @m) of
-    Dict -> ShR $ shxTake @m ix
+             :: Take m (Replicate (m + n) (Nothing @Nat))
+                :~: Replicate m Nothing) $
+  ShR $ shxTake @m shx
 
-shrDrop :: forall m n. (KnownNat m, KnownNat n)
+shrDrop :: forall m n. KnownNat m
         => IShR (m + n) -> IShR n
-shrDrop (ShR ix) =
+shrDrop (ShR shx) =
   gcastWith (unsafeCoerceRefl
-             :: Drop m (Nested.Replicate (m + n) (Nothing @Nat))
-                :~: Nested.Replicate n Nothing) $
-  case lemKnownReplicate (SNat @n) of
-    Dict -> ShR $ shxDrop @m ix
+             :: Drop m (Replicate (m + n) (Nothing @Nat))
+                :~: Replicate n Nothing) $
+  ShR $ shxDrop @m shx
 
-listrTake :: forall len n i. KnownNat len
-          => ListR (len + n) i -> ListR len i
-listrTake ix = fromList $ take (valueOf @len) $ Foldable.toList ix
+listsTake :: forall len sh i. KnownNat len
+          => ListS sh i -> ListS (Take len sh) i
+listsTake sh = go (SNat @len) sh
+  where
+    go :: SNat n -> ListS shn i -> ListS (Take n shn) i
+    go SZ _ = ZS
+    go (SS (k :: SNat k)) ((::$) @m @rest m rest) =
+      gcastWith (unsafeCoerceRefl
+                 :: Take (k + 1) (m : rest) :~: m : Take k rest) $
+      m ::$ go k rest
+    go (SS k) ZS = error $ "listsTake: list too short, missing "
+                            ++ show (fromSNat' k + 1)
 
-listrDrop :: forall len n i. (KnownNat len, KnownNat n)
-          => ListR (len + n) i -> ListR n i
-listrDrop ix = fromList $ drop (valueOf @len) $ Foldable.toList ix
+listsDrop :: forall len sh i. KnownNat len
+          => ListS sh i -> ListS (Drop len sh) i
+listsDrop sh = go (SNat @len) sh
+  where
+    go :: SNat n -> ListS shn i -> ListS (Drop n shn) i
+    go SZ shn = shn
+    go (SS (k :: SNat k)) ((::$) @m @rest _ rest) =
+      gcastWith (unsafeCoerceRefl
+                 :: Drop (k + 1) (m : rest) :~: Drop k rest) $
+      go k rest
+    go (SS k) ZS = error $ "listsDrop: list too short, missing "
+                            ++ show (fromSNat' k + 1)
 
-ixsTake :: forall len sh i. (KnownNat len, KnownShS (Take len sh))
+listsSplitAt :: forall sh len i. KnownNat len
+             => ListS sh i -> (ListS (Take len sh) i, ListS (Drop len sh) i)
+listsSplitAt ix = (listsTake @len ix, listsDrop @len ix)
+
+ixsTake :: forall len sh i. KnownNat len
         => IxS sh i -> IxS (Take len sh) i
 ixsTake (IxS ix) = IxS $ listsTake @len ix
 
-ixsDrop :: forall len sh i. (KnownNat len, KnownShS (Drop len sh))
+ixsDrop :: forall len sh i. KnownNat len
         => IxS sh i -> IxS (Drop len sh) i
 ixsDrop (IxS ix) = IxS $ listsDrop @len ix
 
--- TODO
 shsTake :: forall len sh. KnownNat len
         => ShS sh -> ShS (Take len sh)
-shsTake sh0 = fromList2 $ take (valueOf @len) $ shsToList sh0
- where
-  fromList2 topl = ShS (ShX (go sh0 topl))
-    where  -- TODO: induction over (unary) SNat?
-      go :: forall sh'. ShS sh' -> [Int] -> ListH (MapJust (Take len sh')) Int
-      go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZH
-      go (sn :$$ sh) (i : is)
-        | i == fromSNat' sn = unsafeCoerce $ sn `ConsKnown` go sh is
-        | otherwise = error $ "shsTake: Value does not match typing (type says "
-                                ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
-      go _ _ = error $ "shsTake: Mismatched list length (type says "
-                         ++ show (shsLength sh0) ++ ", list has length "
-                         ++ show (length topl) ++ ")"
+shsTake (ShS shx) =
+  gcastWith (unsafeCoerceRefl
+             :: Take len (MapJust sh) :~: MapJust (Take len sh)) $
+  ShS $ shxTake @len shx
 
--- TODO
 shsDrop :: forall len sh. KnownNat len
         => ShS sh -> ShS (Drop len sh)
-shsDrop sh0 = fromList2 $ drop (valueOf @len) $ shsToList sh0
- where
-  fromList2 topl = ShS (ShX (go sh0 $ replicate (valueOf @len) (-1) ++ topl))
-    where  -- TODO: induction over (unary) SNat?
-      go :: forall sh'. ShS sh' -> [Int] -> ListH (MapJust (Drop len sh')) Int
-      go _ [] = gcastWith (unsafeCoerceRefl :: len :~: 0) $ gcastWith (unsafeCoerceRefl :: sh' :~: '[]) ZH
-      go (sn :$$ sh) (i : is)
-        | i == -1 = unsafeCoerce $ go sh is
-        | i == fromSNat' sn = unsafeCoerce $ sn `ConsKnown` go sh is
-        | otherwise = error $ "shsDrop: Value does not match typing (type says "
-                                ++ show (fromSNat' sn) ++ ", list contains " ++ show i ++ ")"
-      go _ _ = error $ "shsDrop: Mismatched list length (type says "
-                         ++ show (shsLength sh0) ++ ", list has length "
-                         ++ show (length topl) ++ ")"
+shsDrop (ShS shx) =
+  gcastWith (unsafeCoerceRefl
+             :: Drop len (MapJust sh) :~: MapJust (Drop len sh)) $
+  ShS $ shxDrop @len shx
 
-shxTake :: forall len sh. (KnownNat len, KnownShX (Take len sh))
-        => IShX sh -> IShX (Take len sh)
-shxTake sh0 = fromList $ take (valueOf @len) $ shxToList sh0
-
-shxDrop :: forall len sh. (KnownNat len, KnownShX (Drop len sh))
-        => IShX sh -> IShX (Drop len sh)
-shxDrop sh0 = fromList $ drop (valueOf @len) $ shxToList sh0
-
+{- TODO:
 ixxTake :: forall len sh i. (KnownNat len, KnownShX (Take len sh))
         => IxX sh i -> IxX (Take len sh) i
-ixxTake sh0 = fromList $ take (valueOf @len) $ Foldable.toList sh0
+ixxTake sh =
 
 ixxDrop' :: forall len sh i. (KnownNat len, KnownShX (Drop len sh))
          => IxX sh i -> IxX (Drop len sh) i
-ixxDrop' sh0 = fromList $ drop (valueOf @len) $ Foldable.toList sh0
+ixxDrop' sh =
+-}
 
-listsTakeLen :: forall f g sh1 sh2.
-                ListS sh1 f -> ListS sh2 g -> ListS (TakeLen sh1 sh2) g
-listsTakeLen ZS _ = ZS
-listsTakeLen (_ ::$ sh1) (n ::$ sh2) = n ::$ listsTakeLen sh1 sh2
-listsTakeLen (_ ::$ _) ZS = error "listsTakeLen: list too short"
+shxTake :: forall len sh. KnownNat len
+        => IShX sh -> IShX (Take len sh)
+shxTake sh = go (SNat @len) sh
+  where
+    go :: SNat n -> IShX shn -> IShX (Take n shn)
+    go SZ _ = ZSX
+    go (SS k@(SNat @k)) ((:$%) @mn @rest mn rest) =
+      -- This is needed probably because the type family can't decide
+      -- which of the equations to use:
+      gcastWith (unsafeCoerceRefl
+                 :: Take (k + 1) (mn : rest) :~: mn : Take k rest) $
+      mn :$% go k rest
+    -- We error out where normal list take operation would complete fine
+    -- in order to keep the type family simple:
+    go (SS k) ZSX = error $ "shxTake: list too short, missing "
+                            ++ show (fromSNat' k + 1)
 
-listsDropLen :: forall f g sh1 sh2.
-                ListS sh1 f -> ListS sh2 g -> ListS (DropLen sh1 sh2) g
-listsDropLen ZS sh = sh
-listsDropLen (_ ::$ sh1) (_ ::$ sh2) = listsDropLen sh1 sh2
-listsDropLen (_ ::$ _) ZS = error "listsDropLen: list too short"
+shxDrop :: forall len sh. KnownNat len
+        => IShX sh -> IShX (Drop len sh)
+shxDrop sh = go (SNat @len) sh
+  where
+    go :: SNat n -> IShX shn -> IShX (Drop n shn)
+    go SZ shn = shn
+    go (SS k@(SNat @k)) ((:$%) @mn @rest _ rest) =
+      gcastWith (unsafeCoerceRefl
+                 :: Drop (k + 1) (mn : rest) :~: Drop k rest) $
+      go k rest
+    go (SS k) ZSX = error $ "shxDrop: list too short, missing "
+                            ++ show (fromSNat' k + 1)
