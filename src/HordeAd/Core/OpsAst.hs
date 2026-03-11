@@ -244,7 +244,30 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
   trsum v = withSNat (rwidth v) $ \snat -> astSum snat knownSTK v
+  trsumN @m @n shm0 t | SNat <- shrRank shm0 = case ftkAst t of
+    FTKR shmshn0 x ->
+      withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
+      withShsFromShR shm0 $ \(shm :: ShS shm) ->
+        gcastWith (unsafeCoerceRefl :: Rank (Drop m shmshn) :~: n) $
+        gcastWith (unsafeCoerceRefl :: shm ++ Drop m shmshn :~: shmshn) $
+        astConvUpRFromS (shsDrop @m shmshn) x . astSumS shm
+        . astConvDownSFromR shmshn x $ t
+  trsum0 t = case ftkAst t of
+    FTKR shm x ->
+      withShsFromShR shm $ \(sh :: ShS sh) ->
+        astSumK (astConvDownSFromR sh x t)
   trreplicate k = withSNat k $ \snat -> astReplicate snat knownSTK
+  trreplicateN shm0 t = case ftkAst t of
+    FTKR shn0 x ->
+      withShsFromShR shn0 $ \(shn :: ShS shn) ->
+      withShsFromShR shm0 $ \(shm :: ShS shm) ->
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (shm ++ shn) :~: Rank shm + Rank shn) $
+        astConvUpRFromS (shm `shsAppend` shn) x . astReplicateS shm
+        . astConvDownSFromR shn x $ t
+  trreplicate0N shm0 t =
+    withShsFromShR shm0 $ \(shm :: ShS shm) ->
+      astConvUpRFromS shm FTKScalar . astReplicateK shm $ t
   trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (Concrete a)
   trfloor a = case ftkAst a of
     FTKR sh' FTKScalar ->
@@ -417,7 +440,11 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sshape t = case ftkAst t of
     FTKS sh _ -> sh
   tssum = astSum SNat knownSTK
+  tssumN = astSumS
+  tssum0 = astSumK
   tsreplicate snat sh = astReplicate snat (STKS sh knownSTK)
+  tsreplicateN = astReplicateS
+  tsreplicate0N = astReplicateK
   tsconcrete = fromPlain . AstConcreteS
   tsfloor = fromPlain . astFloorS . astPlainPart
   tsfromIntegral = fromPlain . astFromIntegralS . astPlainPart
@@ -451,7 +478,34 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   xshape t = case ftkAst t of
     FTKX sh _ -> sh
   txsum = astSum SNat knownSTK
+  txsumN @_ @shn0 shm0 t | SNat <- shxRank shm0 = case ftkAst t of
+    FTKX shmshn0 x ->
+      withShsFromShX shmshn0 $ \(shmshn :: ShS shmshn) ->
+      withShsFromShX shm0 $ \(shm :: ShS shm) ->
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (Drop (Rank shm) shmshn) :~: Rank shn0) $
+        gcastWith (unsafeCoerceRefl
+                   :: shm ++ Drop (Rank shm) shmshn :~: shmshn) $
+        astConvUpXFromS @(Drop (Rank shm) shmshn) (shxDropSh shm0 shmshn0) x
+        $ astSumS shm $ astConvDownSFromX shmshn x t
+  txsum0 t = case ftkAst t of
+    FTKX shm x ->
+      withShsFromShX shm $ \(sh :: ShS sh) ->
+        astSumK (astConvDownSFromX sh x t)
   txreplicate snat sh = astReplicate snat (STKX sh knownSTK)
+  txreplicateN @shm0 @shn0 shm0 t = case ftkAst t of
+    FTKX shn0 x ->
+      withShsFromShX shn0 $ \(shn :: ShS shn) ->
+      withShsFromShX shm0 $ \(shm :: ShS shm) ->
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (shm0 ++ shn0) :~: Rank shm0 + Rank shn0) $
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (shm ++ shn) :~: Rank shm + Rank shn) $
+        astConvUpXFromS @(shm ++ shn) (shm0 `shxAppend` shn0) x
+        . astReplicateS shm . astConvDownSFromX shn x $ t
+  txreplicate0N shm0 t =
+    withShsFromShX shm0 $ \(shm :: ShS shm) ->
+      astConvUpXFromS shm0 FTKScalar . astReplicateK shm $ t
   txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (Concrete a)
   txfloor a = case ftkAst a of
     FTKX sh' FTKScalar ->
@@ -795,8 +849,32 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
     FTKR sh _ -> sh
   trsum v = withSNat (rwidth v) $ \snat ->
               AstRaw . AstSum snat knownSTK . unAstRaw $ v
+  trsumN @m @n shm0  (AstRaw t) | SNat <- shrRank shm0 = AstRaw
+                                                         $ case ftkAst t of
+    FTKR shmshn0 x ->
+      withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
+      withShsFromShR shm0 $ \(shm :: ShS shm) ->
+        gcastWith (unsafeCoerceRefl :: Rank (Drop m shmshn) :~: n) $
+        gcastWith (unsafeCoerceRefl :: shm ++ Drop m shmshn :~: shmshn) $
+        cAstConvUpRFromS (shsDrop @m shmshn) x . AstSumS shm
+        . cAstConvDownSFromR shmshn x $ t
+  trsum0  (AstRaw t) = AstRaw $ case ftkAst t of
+    FTKR shm x ->
+      withShsFromShR shm $ \(sh :: ShS sh) ->
+        AstSumK (cAstConvDownSFromR sh x t)
   trreplicate k = withSNat k $ \snat ->
     AstRaw . AstReplicate snat knownSTK . unAstRaw
+  trreplicateN shm0 (AstRaw t) = AstRaw $ case ftkAst t of
+    FTKR shn0 x ->
+      withShsFromShR shn0 $ \(shn :: ShS shn) ->
+      withShsFromShR shm0 $ \(shm :: ShS shm) ->
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (shm ++ shn) :~: Rank shm + Rank shn) $
+        cAstConvUpRFromS (shm `shsAppend` shn) x . AstReplicateS shm
+        . cAstConvDownSFromR shn x $ t
+  trreplicate0N shm0  (AstRaw t) = AstRaw $
+    withShsFromShR shm0 $ \(shm :: ShS shm) ->
+      cAstConvUpRFromS shm FTKScalar . AstReplicateK shm $ t
   trconcrete a = tconcrete (FTKR (Nested.rshape a) FTKScalar) (Concrete a)
   trfloor (AstRaw a) = AstRaw $ case ftkAst a of
     FTKR sh' FTKScalar ->
@@ -973,7 +1051,11 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   sshape t = case ftkAst $ unAstRaw t of
     FTKS sh _ -> sh
   tssum = AstRaw . AstSum SNat knownSTK . unAstRaw
+  tssumN shm = AstRaw . AstSumS shm . unAstRaw
+  tssum0 = AstRaw . AstSumK . unAstRaw
   tsreplicate snat sh = AstRaw . AstReplicate snat (STKS sh knownSTK) . unAstRaw
+  tsreplicateN shm = AstRaw . AstReplicateS shm . unAstRaw
+  tsreplicate0N shm = AstRaw . AstReplicateK shm . unAstRaw
   tsconcrete = AstRaw . fromPlain . AstConcreteS
   tsfloor = AstRaw . fromPlain . AstFloorS . plainPart . unAstRaw
   tsfromIntegral =
@@ -1009,7 +1091,35 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   xshape t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sh
   txsum = AstRaw . AstSum SNat knownSTK . unAstRaw
+  txsumN @_ @shn0 shm0 (AstRaw t) | SNat <- shxRank shm0 = AstRaw
+                                                           $ case ftkAst t of
+    FTKX shmshn0 x ->
+      withShsFromShX shmshn0 $ \(shmshn :: ShS shmshn) ->
+      withShsFromShX shm0 $ \(shm :: ShS shm) ->
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (Drop (Rank shm) shmshn) :~: Rank shn0) $
+        gcastWith (unsafeCoerceRefl
+                   :: shm ++ Drop (Rank shm) shmshn :~: shmshn) $
+        cAstConvUpXFromS @(Drop (Rank shm) shmshn) (shxDropSh shm0 shmshn0) x
+        $ AstSumS shm $ cAstConvDownSFromX shmshn x t
+  txsum0 (AstRaw t) = AstRaw $ case ftkAst t of
+    FTKX shm x ->
+      withShsFromShX shm $ \(sh :: ShS sh) ->
+        AstSumK (cAstConvDownSFromX sh x t)
   txreplicate snat sh = AstRaw . AstReplicate snat (STKX sh knownSTK) . unAstRaw
+  txreplicateN @shm0 @shn0 shm0 (AstRaw t) = AstRaw $ case ftkAst t of
+    FTKX shn0 x ->
+      withShsFromShX shn0 $ \(shn :: ShS shn) ->
+      withShsFromShX shm0 $ \(shm :: ShS shm) ->
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (shm0 ++ shn0) :~: Rank shm0 + Rank shn0) $
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (shm ++ shn) :~: Rank shm + Rank shn) $
+        cAstConvUpXFromS @(shm ++ shn) (shm0 `shxAppend` shn0) x
+        . AstReplicateS shm . cAstConvDownSFromX shn x $ t
+  txreplicate0N shm0 (AstRaw t) = AstRaw $
+    withShsFromShX shm0 $ \(shm :: ShS shm) ->
+      cAstConvUpXFromS shm0 FTKScalar . AstReplicateK shm $ t
   txconcrete a = tconcrete (FTKX (Nested.mshape a) FTKScalar) (Concrete a)
   txfloor (AstRaw a) = AstRaw $ case ftkAst a of
     FTKX sh' FTKScalar ->
@@ -1377,7 +1487,11 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   -- Ranked ops
   rshape = rshape . unAstNoVectorize
   trsum = AstNoVectorize . trsum . unAstNoVectorize
+  trsumN shm = AstNoVectorize . trsumN shm . unAstNoVectorize
+  trsum0 = AstNoVectorize . trsum0 . unAstNoVectorize
   trreplicate k = AstNoVectorize . trreplicate k . unAstNoVectorize
+  trreplicateN shm = AstNoVectorize . trreplicateN shm . unAstNoVectorize
+  trreplicate0N shm = AstNoVectorize . trreplicate0N shm . unAstNoVectorize
   trconcrete = AstNoVectorize . trconcrete
   trfloor = AstNoVectorize . trfloor . unAstNoVectorize
   trfromIntegral = AstNoVectorize . trfromIntegral . unAstNoVectorize
@@ -1410,7 +1524,11 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   -- Shaped ops
   sshape = sshape . unAstNoVectorize
   tssum = AstNoVectorize . tssum . unAstNoVectorize
-  tsreplicate snat sh = AstNoVectorize . tsreplicate snat sh. unAstNoVectorize
+  tssumN shm = AstNoVectorize . tssumN shm . unAstNoVectorize
+  tssum0 = AstNoVectorize . tssum0 . unAstNoVectorize
+  tsreplicate snat sh = AstNoVectorize . tsreplicate snat sh . unAstNoVectorize
+  tsreplicateN shm = AstNoVectorize . tsreplicateN shm . unAstNoVectorize
+  tsreplicate0N shm = AstNoVectorize . tsreplicate0N shm . unAstNoVectorize
   tsconcrete = AstNoVectorize . tsconcrete
   tsfloor = AstNoVectorize . tsfloor . unAstNoVectorize
   tsfromIntegral = AstNoVectorize . tsfromIntegral . unAstNoVectorize
@@ -1443,7 +1561,11 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   -- Mixed ops
   xshape = xshape . unAstNoVectorize
   txsum = AstNoVectorize . txsum . unAstNoVectorize
+  txsumN shm = AstNoVectorize . txsumN shm . unAstNoVectorize
+  txsum0 = AstNoVectorize . txsum0 . unAstNoVectorize
   txreplicate snat sh = AstNoVectorize . txreplicate snat sh . unAstNoVectorize
+  txreplicateN shm = AstNoVectorize . txreplicateN shm . unAstNoVectorize
+  txreplicate0N shm = AstNoVectorize . txreplicate0N shm . unAstNoVectorize
   txconcrete = AstNoVectorize . txconcrete
   txfloor = AstNoVectorize . txfloor . unAstNoVectorize
   txfromIntegral = AstNoVectorize . txfromIntegral . unAstNoVectorize
@@ -1684,7 +1806,11 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   -- Ranked ops
   rshape = rshape . wunAstNoSimplify
   trsum = wAstNoSimplify . trsum . wunAstNoSimplify
+  trsumN shm = wAstNoSimplify . trsumN shm . wunAstNoSimplify
+  trsum0 = wAstNoSimplify . trsum0 . wunAstNoSimplify
   trreplicate k = wAstNoSimplify . trreplicate k . wunAstNoSimplify
+  trreplicateN shm = wAstNoSimplify . trreplicateN shm . wunAstNoSimplify
+  trreplicate0N shm = wAstNoSimplify . trreplicate0N shm . wunAstNoSimplify
   trconcrete = wAstNoSimplify . trconcrete
   trfloor = wAstNoSimplify . trfloor . wunAstNoSimplify
   trfromIntegral = wAstNoSimplify . trfromIntegral . wunAstNoSimplify
@@ -1712,7 +1838,11 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   -- Shaped ops
   sshape = sshape . wunAstNoSimplify
   tssum = wAstNoSimplify . tssum . wunAstNoSimplify
+  tssumN shm = wAstNoSimplify . tssumN shm . wunAstNoSimplify
+  tssum0 = wAstNoSimplify . tssum0 . wunAstNoSimplify
   tsreplicate snat sh = wAstNoSimplify . tsreplicate snat sh . wunAstNoSimplify
+  tsreplicateN shm = wAstNoSimplify . tsreplicateN shm . wunAstNoSimplify
+  tsreplicate0N shm = wAstNoSimplify . tsreplicate0N shm . wunAstNoSimplify
   tsconcrete = wAstNoSimplify . tsconcrete
   tsfloor = wAstNoSimplify . tsfloor . wunAstNoSimplify
   tsfromIntegral = wAstNoSimplify . tsfromIntegral . wunAstNoSimplify
@@ -1741,7 +1871,11 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   -- Mixed ops
   xshape = xshape . wunAstNoSimplify
   txsum = wAstNoSimplify . txsum . wunAstNoSimplify
+  txsumN shm = wAstNoSimplify . txsumN shm . wunAstNoSimplify
+  txsum0 = wAstNoSimplify . txsum0 . wunAstNoSimplify
   txreplicate snat sh = wAstNoSimplify . txreplicate snat sh . wunAstNoSimplify
+  txreplicateN shm = wAstNoSimplify . txreplicateN shm . wunAstNoSimplify
+  txreplicate0N shm = wAstNoSimplify . txreplicate0N shm . wunAstNoSimplify
   txconcrete = wAstNoSimplify . txconcrete
   txfloor = wAstNoSimplify . txfloor . wunAstNoSimplify
   txfromIntegral = wAstNoSimplify . txfromIntegral . wunAstNoSimplify

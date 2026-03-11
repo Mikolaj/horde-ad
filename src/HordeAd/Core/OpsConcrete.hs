@@ -183,6 +183,11 @@ instance BaseTensor Concrete where
         in foldl' (taddTarget knownSTK) (tdefTarget (FTKR (shrTail sh) x)) l
           -- Concrete has a ShareTensor instance, so taddTarget arguments
           -- don't need to be duplicable
+  trsumN @_ @n @x =
+    let go :: IShR m2 -> Concrete (TKR2 (m2 + n) x) -> Concrete (TKR2 n x)
+        go ZSR v = v
+        go (_ :$: rest) v | SNat <- shrRank rest = go rest (trsum v)
+    in go
   {-# INLINE trsum0 #-}
   trsum0 = Concrete . Nested.rsumAllPrim . unConcrete
   {-# INLINE trdot0 #-}
@@ -197,6 +202,9 @@ instance BaseTensor Concrete where
   {-# INLINE trreplicate #-}
   trreplicate @_ @x k | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.rreplicate (k :$: ZSR) . unConcrete
+  {-# INLINE trreplicateN #-}
+  trreplicateN @_ @_ @x shm | Dict <- eltDictRep (knownSTK @x) =
+    Concrete . Nested.rreplicate shm . unConcrete
   {-# INLINE trreplicate0N #-}
   trreplicate0N sh = Concrete . Nested.rreplicatePrim sh . unConcrete
   tssum @_ @_ @x t = case knownSTK @x of
@@ -206,6 +214,13 @@ instance BaseTensor Concrete where
       FTKS (_ :$$ rest) x ->
         let l = tsunravelToList t
         in foldl' (taddTarget knownSTK) (tdefTarget (FTKS rest x)) l
+  tssumN @_ @shn @x =
+    let go :: ShS shm2 -> Concrete (TKS2 (shm2 ++ shn) x)
+           -> Concrete (TKS2 shn x)
+        go ZSS v = v
+        go (SNat :$$ rest) v =
+          go rest (withKnownShS (rest `shsAppend` knownShS @shn) $ tssum v)
+    in go
   {-# INLINE tssum0 #-}
   tssum0 = Concrete . Nested.ssumAllPrim . unConcrete
   {-# INLINE tsdot0 #-}
@@ -223,6 +238,8 @@ instance BaseTensor Concrete where
   {-# INLINE tsreplicate #-}
   tsreplicate @_ @_ @x snat@SNat _sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.sreplicate (snat :$$ ZSS) . unConcrete
+  tsreplicateN @_ @_ @x shm | Dict <- eltDictRep (knownSTK @x) =
+    Concrete . Nested.sreplicate shm . unConcrete
   {-# INLINE tsreplicate0N #-}
   tsreplicate0N sh = Concrete . Nested.sreplicatePrim sh . unConcrete
   txsum @_ @_ @x t = case knownSTK @x of
@@ -234,6 +251,19 @@ instance BaseTensor Concrete where
         in foldl' (taddTarget knownSTK) (tdefTarget (FTKX rest x)) l
   {-# INLINE txsum0 #-}
   txsum0 = Concrete . Nested.msumAllPrim . unConcrete
+  txsumN @_ @shn @x =
+    let go :: IShX shm2 -> Concrete (TKX2 (shm2 ++ shn) x)
+           -> Concrete (TKX2 shn x)
+        go ZSX v = v
+        go (SKnown SNat :$% rest) v =
+          go rest (withKnownShX (ssxFromShX rest `ssxAppend` knownShX @shn)
+                   $ txsum v)
+        go (SUnknown i :$% rest) v =
+          withSNat i $ \snat ->
+            go rest (withKnownShX (ssxFromShX rest `ssxAppend` knownShX @shn)
+                     $ txsum $ xmcast (SKnown snat :!% ssxFromShX rest
+                                       `ssxAppend` knownShX @shn) v)
+    in go
   {-# INLINE txdot0 #-}
   txdot0 u v = Concrete $ Nested.mdot (unConcrete u) (unConcrete v)
   {-# INLINE txdot1In #-}
@@ -259,6 +289,9 @@ instance BaseTensor Concrete where
   {-# INLINE txreplicate #-}
   txreplicate @_ @_ @x snat _sh | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.mreplicate (SKnown snat :$% ZSX) . unConcrete
+  {-# INLINE txreplicateN #-}
+  txreplicateN @_ @_ @x shm | Dict <- eltDictRep (knownSTK @x) =
+    Concrete . Nested.mreplicate shm . unConcrete
   {-# INLINE txreplicate0N #-}
   txreplicate0N sh = Concrete . Nested.mreplicatePrim sh . unConcrete
   {-# INLINE trindex #-}

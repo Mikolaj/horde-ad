@@ -4467,7 +4467,8 @@ astTransposeS perm t =
                       (Permutation.PermId (Rank shm2)
                        ++ Permutation.MapPlusN (Rank shm2) perm) (shm2 ++ sh)
                     :~: shm2 ++ Permutation.PermutePrefix perm sh) $
-      fromMaybe (error "astTransposeS: impossible non-permutation")
+      fromMaybe (error $ "astTransposeS: impossible non-permutation: "
+                         ++ show (Permutation.permToList' zsuccP))
       $ Permutation.permCheckPermutation zsuccP
       $ astSumS shm2 $ astTransposeS zsuccP v
   Ast.AstScatterS @_ @shn @shp shm shn shp v (vars, ix)
