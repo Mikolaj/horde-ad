@@ -2739,9 +2739,10 @@ astSumS shm@(snat :$$ _) t0 | FTKS shmshn x <- ftkAst t0
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
       astTimesS u (astSumS shm t2)
   AstConcreteS t ->
+    withKnownShS shm $
     withKnownShS shn $
     gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
-    astConcreteS $ tssumN shm $ Concrete t
+    astConcreteS $ tssumN @_ @shm $ Concrete t
   Ast.AstSumS @shm2 shm2 u
     | Refl <- lemAppAssoc (Proxy @shm2) (Proxy @shm) (Proxy @shn)  ->
       astSumS (shm2 `shsAppend` shm) u

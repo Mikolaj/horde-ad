@@ -2293,7 +2293,7 @@ emptyArgs t =
        + xbuild @'[Just 0] (SKnown (SNat @0) :$% ZSX)
                 (const $ xscalar 73)
        - xsum @0 (xbuild @'[] ZSX
-                         (const (xreplicate (xfromR emptyTensor)))))
+                         (const (xreplicate (SNat @0) (xfromR emptyTensor)))))
 --  - rgather1 0 emptyTensor (:.: ZIR)
 --  - rsum (rgather1 0 emptyTensor (const ZIR))
 --  - rsum (rgather @target @(TKScalar r) @2 (0 :$: 0 :$: ZSR) emptyTensor (const (0 :.: ZIR)))

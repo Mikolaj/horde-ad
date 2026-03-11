@@ -39,7 +39,8 @@ import Data.Array.Nested.Ranked qualified as Ranked
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (Init, fromSNat', pattern SZ, unsafeCoerceRefl)
+import Data.Array.Nested.Types
+  (Init, fromSNat', pattern SS, pattern SZ, unsafeCoerceRefl)
 import Data.Array.Strided.Orthotope (liftVEltwise1)
 
 import HordeAd.Core.CarriersConcrete
@@ -184,10 +185,10 @@ instance BaseTensor Concrete where
           -- Concrete has a ShareTensor instance, so taddTarget arguments
           -- don't need to be duplicable
   trsumN @_ @n @x =
-    let go :: IShR m2 -> Concrete (TKR2 (m2 + n) x) -> Concrete (TKR2 n x)
-        go ZSR v = v
-        go (_ :$: rest) v | SNat <- shrRank rest = go rest (trsum v)
-    in go
+    let go :: SNat m2 -> Concrete (TKR2 (m2 + n) x) -> Concrete (TKR2 n x)
+        go SZ v = v
+        go (SS k@SNat) v = go k (trsum v)
+    in go SNat
   {-# INLINE trsum0 #-}
   trsum0 = Concrete . Nested.rsumAllPrim . unConcrete
   {-# INLINE trdot0 #-}
@@ -211,13 +212,13 @@ instance BaseTensor Concrete where
       FTKS (_ :$$ rest) x ->
         let l = tsunravelToList t
         in foldl' (taddTarget knownSTK) (tdefTarget (FTKS rest x)) l
-  tssumN @_ @shn @x =
+  tssumN @shm @shn @x =
     let go :: ShS shm2 -> Concrete (TKS2 (shm2 ++ shn) x)
            -> Concrete (TKS2 shn x)
         go ZSS v = v
         go (SNat :$$ rest) v =
           go rest (withKnownShS (rest `shsAppend` knownShS @shn) $ tssum v)
-    in go
+    in go (knownShS @shm)
   {-# INLINE tssum0 #-}
   tssum0 = Concrete . Nested.ssumAllPrim . unConcrete
   {-# INLINE tsdot0 #-}
@@ -225,13 +226,13 @@ instance BaseTensor Concrete where
   {-# INLINE tsdot1In #-}
   tsdot1In @_ (SNat @n) u v =
     Concrete $ Nested.sdot1Inner (Proxy @n) (unConcrete u) (unConcrete v)
-  tsmatvecmul m v = tsdot1In SNat m (tsreplicate SNat knownShS v)
+  tsmatvecmul m v = tsdot1In SNat m (tsreplicate SNat v)
   tsmatmul2 m1 m2 =
     tsdot1In SNat
              (tstranspose (Permutation.makePerm @'[1, 0])
-                          (tsreplicate SNat knownShS m1))
+                          (tsreplicate SNat m1))
              (tstranspose (Permutation.makePerm @'[0, 2, 1])
-                          (tsreplicate SNat knownShS m2))
+                          (tsreplicate SNat m2))
   tsreplicateN @_ @_ @x shm | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.sreplicate shm . unConcrete
   {-# INLINE tsreplicate0N #-}
@@ -245,8 +246,9 @@ instance BaseTensor Concrete where
         in foldl' (taddTarget knownSTK) (tdefTarget (FTKX rest x)) l
   {-# INLINE txsum0 #-}
   txsum0 = Concrete . Nested.msumAllPrim . unConcrete
-  txsumN @_ @shn @x =
-    let go :: IShX shm2 -> Concrete (TKX2 (shm2 ++ shn) x)
+  txsumN @shm @shn @x t | SNat <- ssxRank (knownShX @shm) =
+    let shmshn = xshape t
+        go :: IShX shm2 -> Concrete (TKX2 (shm2 ++ shn) x)
            -> Concrete (TKX2 shn x)
         go ZSX v = v
         go (SKnown SNat :$% rest) v =
@@ -257,7 +259,9 @@ instance BaseTensor Concrete where
             go rest (withKnownShX (ssxFromShX rest `ssxAppend` knownShX @shn)
                      $ txsum $ xmcast (SKnown snat :!% ssxFromShX rest
                                        `ssxAppend` knownShX @shn) v)
-    in go
+    in gcastWith (unsafeCoerceRefl
+                  :: Take (Rank shm) (shm ++ shn) :~: shm) $
+       go (shxTake @(Rank shm) shmshn) t
   {-# INLINE txdot0 #-}
   txdot0 u v = Concrete $ Nested.mdot (unConcrete u) (unConcrete v)
   {-# INLINE txdot1In #-}
@@ -269,7 +273,7 @@ instance BaseTensor Concrete where
     withSNat (fromSMayNat' mm) $ \(SNat @m) ->
     withSNat (fromSMayNat' mn) $ \(SNat @n) ->
       xmcast (ssxFromShX (mm :$% ZSX))
-      $ txsum (xtr (txreplicate (SNat @m) knownShX
+      $ txsum (xtr (txreplicate (SNat @m)
                       (xmcast (ssxFromShX (SKnown (SNat @n) :$% ZSX)) v)
                     * xmcast (ssxFromShX (SKnown (SNat @m)
                                           :$% SKnown (SNat @n)
@@ -277,9 +281,9 @@ instance BaseTensor Concrete where
   txmatmul2 m1 m2 =
     txdot1In SNat
              (txtranspose (Permutation.makePerm @'[1, 0])
-                          (txreplicate SNat knownShX m1))
+                          (txreplicate SNat m1))
              (txtranspose (Permutation.makePerm @'[0, 2, 1])
-                          (txreplicate SNat knownShX m2))
+                          (txreplicate SNat m2))
   {-# INLINE txreplicateN #-}
   txreplicateN @_ @_ @x shm | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.mreplicate shm . unConcrete

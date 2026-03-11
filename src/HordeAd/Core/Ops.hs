@@ -455,23 +455,23 @@ class ( Num (IntOf target)
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain
   -- by 1 dimension.
-  trsum :: (KnownNat n, TKAllNum x, KnownSTK x)
+  trsum :: forall n x. (KnownNat n, TKAllNum x, KnownSTK x)
         => target (TKR2 (1 + n) x) -> target (TKR2 n x)
-  trsum t = case rshape t of
-    (k :$: _) -> trsumN (k :$: ZSR) t
-  trsumN :: forall m n x. (KnownNat n, TKAllNum x, KnownSTK x)
-         => IShR m -> target (TKR2 (m + n) x) -> target (TKR2 n x)
+  trsum t = trsumN t
+  trsumN :: forall m n x. (KnownNat m, KnownNat n, TKAllNum x, KnownSTK x)
+         => target (TKR2 (m + n) x) -> target (TKR2 n x)
   -- This op (and it's Delta constructor) is worthwhile, because flattening
   -- is O(n) sometimes, unlike transpose, etc.
-  trsum0 :: (KnownNat n, NumScalar r)
-         => target (TKR n r) -> target (TKScalar r)
-  trdot0 :: (KnownNat n, NumScalar r)
+  trsum0 :: forall m r. NumScalar r
+         => target (TKR m r) -> target (TKScalar r)
+  trdot0 :: forall n r. (KnownNat n, NumScalar r)
          => target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
   trdot0 t u = trsum0 (t * u)
-  trdot1In :: (KnownNat n, NumScalar r)
-           => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
+  trdot1In :: forall n r. (KnownNat n, NumScalar r)
+           => target (TKR (1 + n) r)
+           -> target (TKR (1 + n) r)
            -> target (TKR n r)
-  trdot1In @n t u = trsum $ trtranspose (permCycle $ 1 + valueOf @n) (t * u)
+  trdot1In t u = trsum $ trtranspose (permCycle $ 1 + valueOf @n) (t * u)
   trmatvecmul :: (NumScalar r, ConvertTensor target)
               => target (TKR 2 r) -> target (TKR 1 r) -> target (TKR 1 r)
 -- How to generalize (#69)? The few straightforward generalizations
@@ -486,30 +486,31 @@ class ( Num (IntOf target)
 -- rmatmul2 m1 m2 = rmap1 (rmatvecmul (rtr m2)) m1
   trmatmul2 m1 m2 =
     trbuild1 (rwidth m1) (\i -> trmatvecmul (rtr m2) (m1 `trindex` [i]))
-  trreplicate :: (KnownNat n, KnownSTK x)
+  trreplicate :: forall n x. KnownSTK x
               => Int -> target (TKR2 n x) -> target (TKR2 (1 + n) x)
   trreplicate k = trreplicateN (k :$: ZSR)
-  trreplicateN :: forall m n x. (KnownNat n, KnownSTK x)
+  trreplicateN :: forall m n x. KnownSTK x
                => IShR m -> target (TKR2 n x) -> target (TKR2 (m + n) x)
-  trreplicate0N :: (KnownNat n, GoodScalar r)
-                => IShR n -> target (TKScalar r) -> target (TKR n r)
+  trreplicate0N :: forall m r. GoodScalar r
+                => IShR m -> target (TKScalar r) -> target (TKR m r)
 
   tssum :: forall n sh x. (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x)
         => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
-  tssum = tssumN (SNat @n :$$ ZSS)
-  tssumN :: forall shm shn x. (KnownShS shn, TKAllNum x, KnownSTK x)
-         => ShS shm -> target (TKS2 (shm ++ shn) x) -> target (TKS2 shn x)
-  tssum0 :: (KnownShS sh, NumScalar r)
-         => target (TKS sh r) -> target (TKScalar r)
-  tsdot0 :: (KnownShS sh, NumScalar r)
+  tssum = tssumN @_ @(n : '[])
+  tssumN :: forall shm shn x.
+            (KnownShS shm, KnownShS shn, TKAllNum x, KnownSTK x)
+         => target (TKS2 (shm ++ shn) x) -> target (TKS2 shn x)
+  tssum0 :: forall shm r. NumScalar r
+         => target (TKS shm r) -> target (TKScalar r)
+  tsdot0 :: forall sh r. (KnownShS sh, NumScalar r)
          => target (TKS sh r) -> target (TKS sh r) -> target (TKScalar r)
-  tsdot0 @sh t u | SNat <- shsProduct (knownShS @sh) =
-    tssum0 (t * u)
-  tsdot1In :: (KnownShS sh, NumScalar r)
-           => SNat n -> target (TKS (sh ++ '[n]) r)
+  tsdot0 t u = tssum0 (t * u)
+  tsdot1In :: forall sh n r. (KnownShS sh, NumScalar r)
+           => SNat n
+           -> target (TKS (sh ++ '[n]) r)
            -> target (TKS (sh ++ '[n]) r)
            -> target (TKS sh r)
-  tsdot1In @sh (SNat @n) t u =
+  tsdot1In SNat t u =
     let cpermR = permCycle $ 1 + shsLength (knownShS @sh)
     in Permutation.permFromListCont cpermR
        $ \(cperm :: Permutation.Perm cperm) ->
@@ -530,10 +531,10 @@ class ( Num (IntOf target)
             -> target (TKS '[m, p] r)
   tsmatmul2 @m m1 m2 =
     tsbuild1 @_ @m (\i -> tsmatvecmul (str m2) (m1 `tsindex` (i :.$ ZIS)))
-  tsreplicate :: forall sh k x. KnownSTK x
-              => SNat k -> ShS sh -> target (TKS2 sh x)
+  tsreplicate :: forall k sh x. KnownSTK x
+              => SNat k -> target (TKS2 sh x)
               -> target (TKS2 (k ': sh) x)
-  tsreplicate snat _ = tsreplicateN (snat :$$ ZSS)
+  tsreplicate snat = tsreplicateN (snat :$$ ZSS)
   tsreplicateN :: forall shm shn x. KnownSTK x
                => ShS shm -> target (TKS2 shn x) -> target (TKS2 (shm ++ shn) x)
   tsreplicate0N :: forall shm r. GoodScalar r
@@ -543,22 +544,23 @@ class ( Num (IntOf target)
   -- due to DeltaSum and AstSum being typed with BuildTensorKind:
   -- xsum :: (KnownShX sh, KnownShX (mn ': sh), KnownSTK x)
   --     => target (TKX2 (mn ': sh) x) -> target (TKX2 sh x)
-  txsum :: (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x)
+  txsum :: forall n sh x. (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x)
         => target (TKX2 (Just n ': sh) x) -> target (TKX2 sh x)
-  txsum t = case xshape t of
-    (k :$% _) -> txsumN (k :$% ZSX) t
-  txsumN :: forall shm shn x. (KnownShX shn, TKAllNum x, KnownSTK x)
-         => IShX shm -> target (TKX2 (shm ++ shn) x) -> target (TKX2 shn x)
-  txsum0 :: (KnownShX sh, NumScalar r)
-         => target (TKX sh r) -> target (TKScalar r)
-  txdot0 :: (KnownShX sh, NumScalar r)
+  txsum t = txsumN @_ @(Just n : '[]) t
+  txsumN :: forall shm shn x.
+            (KnownShX shm, KnownShX shn, TKAllNum x, KnownSTK x)
+         => target (TKX2 (shm ++ shn) x) -> target (TKX2 shn x)
+  txsum0 :: forall shm r. NumScalar r
+         => target (TKX shm r) -> target (TKScalar r)
+  txdot0 :: forall sh r. (KnownShX sh, NumScalar r)
          => target (TKX sh r) -> target (TKX sh r) -> target (TKScalar r)
   txdot0 t u = txsum0 (t * u)
-  txdot1In :: (KnownShX sh, NumScalar r)
-           => SNat n -> target (TKX (sh ++ '[Just n]) r)
+  txdot1In :: forall sh n r. (KnownShX sh, NumScalar r)
+           => SNat n
+           -> target (TKX (sh ++ '[Just n]) r)
            -> target (TKX (sh ++ '[Just n]) r)
            -> target (TKX sh r)
-  txdot1In @sh (SNat @n) t u =
+  txdot1In SNat t u =
     let cpermR = permCycle $ 1 + fromSNat' (ssxRank (knownShX @sh))
     in Permutation.permFromListCont cpermR
        $ \(cperm :: Permutation.Perm cperm) ->
@@ -588,15 +590,15 @@ class ( Num (IntOf target)
     txbuild1 @_ @m (\i ->
       txmatvecmul (SKnown (SNat @p)) (SKnown (SNat @n))
                   (xtr m2) (m1 `txindex` (i :.% ZIX)))
-  txreplicate :: forall sh k x. KnownSTK x
-              => SNat k -> StaticShX sh -> target (TKX2 sh x)
+  txreplicate :: forall k sh x. KnownSTK x
+              => SNat k -> target (TKX2 sh x)
               -> target (TKX2 (Just k ': sh) x)
-  txreplicate snat _ = txreplicateN (SKnown snat :$% ZSX)
+  txreplicate snat = txreplicateN (SKnown snat :$% ZSX)
   txreplicateN :: forall shm shn x. KnownSTK x
                => IShX shm -> target (TKX2 shn x)
                -> target (TKX2 (shm ++ shn) x)
-  txreplicate0N :: GoodScalar r
-                => IShX sh -> target (TKScalar r) -> target (TKX sh r)
+  txreplicate0N :: forall shm r. GoodScalar r
+                => IShX shm -> target (TKScalar r) -> target (TKX shm r)
 
   trindex :: (KnownNat m, KnownNat n, KnownSTK x)
           => target (TKR2 (m + n) x) -> IxROf target m -> target (TKR2 n x)
@@ -1171,10 +1173,10 @@ class ( Num (IntOf target)
     -> target (BuildTensorKind k z)
   {-# INLINE treplicate #-}
   treplicate snat@SNat stk u = case stk of
-    STKScalar -> tsreplicate snat ZSS $ sfromK u
+    STKScalar -> tsreplicate snat $ sfromK u
     STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (fromSNat' snat) u
-    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate snat sh u
-    STKX sh x | Dict <- lemKnownSTK x -> txreplicate snat sh u
+    STKS _ x | Dict <- lemKnownSTK x -> tsreplicate snat u
+    STKX _ x | Dict <- lemKnownSTK x -> txreplicate snat u
     STKProduct stk1 stk2 ->
       let (u1, u2) = tunpair u
       in tpair (treplicate snat stk1 u1)

@@ -222,7 +222,7 @@ data Delta :: Target -> Target where
              => Delta target (TKR m r)
              -> Delta target (TKScalar r)
   DeltaSumR :: forall m n x target.
-               IShR m -> Delta target (TKR2 (m + n) x)
+               SNat m -> Delta target (TKR2 (m + n) x)
             -> Delta target (TKR2 n x)
   DeltaScatterR :: forall m n p r target.
                    SNat m -> SNat n -> SNat p
@@ -319,7 +319,7 @@ data Delta :: Target -> Target where
              => Delta target (TKX shm r)
              -> Delta target (TKScalar r)
   DeltaSumX :: forall shm shn x target.
-               IShX shm -> Delta target (TKX2 (shm ++ shn) x)
+               StaticShX shm -> Delta target (TKX2 (shm ++ shn) x)
             -> Delta target (TKX2 shn x)
   DeltaScatterX :: StaticShX shm -> StaticShX shn -> StaticShX shp
                 -> IShX shp -> Delta target (TKX2 (shm ++ shn) r)
@@ -408,7 +408,7 @@ ftkDelta = \case
   DeltaIndexR _ d ix | SNat <- ixrRank ix -> case ftkDelta d of
     FTKR sh x -> FTKR (shrDrop sh) x
   DeltaSum0R{} -> FTKScalar
-  DeltaSumR @m shm d | SNat <- shrRank shm -> case ftkDelta d of
+  DeltaSumR @m SNat d -> case ftkDelta d of
     FTKR shmshn x -> FTKR (shrDrop @m shmshn) x
   DeltaScatterR (SNat @m) _ _ shp d _ -> case ftkDelta d of
     FTKR sh x -> FTKR (shp `shrAppend` shrDrop @m sh) x
@@ -465,7 +465,7 @@ ftkDelta = \case
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
       FTKX (shxDrop @len sh) x
   DeltaSum0X{} -> FTKScalar
-  DeltaSumX @shm @shn shm d | SNat <- shxRank shm -> case ftkDelta d of
+  DeltaSumX @shm @shn shm d | SNat <- ssxRank shm -> case ftkDelta d of
     FTKX shmshn x ->
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
       FTKX (shxDrop @(Rank shm) shmshn) x

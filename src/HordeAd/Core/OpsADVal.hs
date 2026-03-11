@@ -197,7 +197,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tfromVector snat stk lu =
     dD (tfromVector snat stk $ V.map (\(D u _) -> u) lu)
        (DeltaFromVector snat stk $ V.map (\(D _ u') -> u') lu)
-  trsumN shm (D u u') = dD (trsumN shm u) (DeltaSumR shm u')
+  trsumN (D u u') = dD (trsumN u) (DeltaSumR SNat u')
   trsum0 (D u u') = dD (trsum0 u) (DeltaSum0R u')
   trdot0 (D ue u') (D ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
@@ -215,7 +215,7 @@ instance ( ADReadyNoLet target, ShareTensor target
     dD (trreplicateN shm u) (DeltaReplicateR shm u')
   trreplicate0N shm (D u u') =
     dD (trreplicate0N shm u) (DeltaReplicate0NR shm u')
-  tssumN shm (D u u') = dD (tssumN shm u) (DeltaSumS shm u')
+  tssumN @shm (D u u') = dD (tssumN @_ @shm u) (DeltaSumS (knownShS @shm) u')
   tssum0 (D u u') = dD (tssum0 u) (DeltaSum0S u')
   tsdot0 (D ue u') (D ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
@@ -224,17 +224,17 @@ instance ( ADReadyNoLet target, ShareTensor target
     in dD (tsdot0 u v) (dAdd (DeltaDot0S v u') (DeltaDot0S u v'))
   -- These two are manually vectorized to avoid delta blowup when run
   -- via primitive pipelines.
-  tsmatvecmul m v = tssum (str (tsreplicate SNat knownShS v * m))
+  tsmatvecmul m v = tssum (str (tsreplicate SNat v * m))
   tsmatmul2 m1 m2 =
     tssum (tstranspose (Permutation.makePerm @'[2, 1, 0])
-                       (tsreplicate SNat knownShS m1)
+                       (tsreplicate SNat m1)
            * tstranspose (Permutation.makePerm @'[1, 0])
-                         (tsreplicate SNat knownShS m2))
+                         (tsreplicate SNat m2))
   tsreplicateN shm (D u u') =
     dD (tsreplicateN shm u) (DeltaReplicateS shm u')
   tsreplicate0N shm (D u u') =
     dD (tsreplicate0N shm u) (DeltaReplicate0NS shm u')
-  txsumN shm (D u u') = dD (txsumN shm u) (DeltaSumX shm u')
+  txsumN @shm (D u u') = dD (txsumN @_ @shm u) (DeltaSumX (knownShX @shm) u')
   txsum0 (D u u') = dD (txsum0 u) (DeltaSum0X u')
   txdot0 (D ue u') (D ve v') =
     -- The bangs below are neccessary for GHC 9.2.7 test results to match 9.4.
@@ -249,16 +249,16 @@ instance ( ADReadyNoLet target, ShareTensor target
     withSNat (fromSMayNat' mm) $ \(SNat @m) ->
     withSNat (fromSMayNat' mn) $ \(SNat @n) ->
       xmcast (ssxFromShX (mm :$% ZSX))
-      $ txsum (xtr (txreplicate (SNat @m) knownShX
+      $ txsum (xtr (txreplicate (SNat @m)
                       (xmcast (ssxFromShX (SKnown (SNat @n) :$% ZSX)) v)
                     * xmcast (ssxFromShX (SKnown (SNat @m)
                                           :$% SKnown (SNat @n)
                                           :$% ZSX)) m))
   txmatmul2 m1 m2 =
     txsum (txtranspose (Permutation.makePerm @'[2, 1, 0])
-                       (txreplicate SNat knownShX m1)
+                       (txreplicate SNat m1)
            * txtranspose (Permutation.makePerm @'[1, 0])
-                         (txreplicate SNat knownShX m2))
+                         (txreplicate SNat m2))
   txreplicateN shm (D u u') =
     dD (txreplicateN shm u) (DeltaReplicateX shm u')
   txreplicate0N shm (D u u') =

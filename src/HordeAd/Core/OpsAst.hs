@@ -243,13 +243,13 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Ranked ops
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
-  trsumN @m @n shm0 t | SNat <- shrRank shm0 = case ftkAst t of
+  trsumN @m @n t = case ftkAst t of
     FTKR shmshn0 x ->
       withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
-      withShsFromShR shm0 $ \(shm :: ShS shm) ->
         gcastWith (unsafeCoerceRefl :: Rank (Drop m shmshn) :~: n) $
-        gcastWith (unsafeCoerceRefl :: shm ++ Drop m shmshn :~: shmshn) $
-        astConvUpRFromS (shsDrop @m shmshn) x . astSumS shm
+        gcastWith (unsafeCoerceRefl
+                   :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
+        astConvUpRFromS (shsDrop @m shmshn) x . astSumS (shsTake @m shmshn)
         . astConvDownSFromR shmshn x $ t
   trsum0 t = case ftkAst t of
     FTKR shm x ->
@@ -437,7 +437,9 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Shaped ops
   sshape t = case ftkAst t of
     FTKS sh _ -> sh
-  tssumN = astSumS
+  tssumN @shm @shn t | SNat <- shsRank (knownShS @shm) =
+    gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
+    astSumS (shsTake @(Rank shm) (sshape t)) $ t
   tssum0 = astSumK
   tsreplicateN = astReplicateS
   tsreplicate0N = astReplicateK
@@ -473,16 +475,19 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Mixed ops
   xshape t = case ftkAst t of
     FTKX sh _ -> sh
-  txsumN @_ @shn0 shm0 t | SNat <- shxRank shm0 = case ftkAst t of
-    FTKX shmshn0 x ->
-      withShsFromShX shmshn0 $ \(shmshn :: ShS shmshn) ->
-      withShsFromShX shm0 $ \(shm :: ShS shm) ->
-        gcastWith (unsafeCoerceRefl
-                   :: Rank (Drop (Rank shm) shmshn) :~: Rank shn0) $
-        gcastWith (unsafeCoerceRefl
-                   :: shm ++ Drop (Rank shm) shmshn :~: shmshn) $
-        astConvUpXFromS @(Drop (Rank shm) shmshn) (shxDropSh shm0 shmshn0) x
-        $ astSumS shm $ astConvDownSFromX shmshn x t
+  txsumN @shm0 @shn0 t
+    | SNat <- ssxRank (knownShX @shm0) = case ftkAst t of
+      FTKX shmshn0 x ->
+        withShsFromShX shmshn0 $ \(shmshn :: ShS shmshn) ->
+          gcastWith (unsafeCoerceRefl
+                     :: Rank (Drop (Rank shm0) shmshn) :~: Rank shn0) $
+          gcastWith (unsafeCoerceRefl
+                     :: Take (Rank shm0) shmshn ++ Drop (Rank shm0) shmshn
+                        :~: shmshn) $
+          astConvUpXFromS @(Drop (Rank shm0) shmshn)
+                           (shxDropSSX (knownShX @shm0) shmshn0) x
+          $ astSumS (shsTake @(Rank shm0) shmshn)
+          $ astConvDownSFromX shmshn x t
   txsum0 t = case ftkAst t of
     FTKX shm x ->
       withShsFromShX shm $ \(sh :: ShS sh) ->
@@ -765,10 +770,10 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
               (tsum snat stk2 (tproject2 u3))
   {-# INLINE treplicate #-}
   treplicate snat@SNat stk u = case stk of
-    STKScalar -> tsreplicate snat ZSS $ sfromK u
+    STKScalar -> tsreplicate snat $ sfromK u
     STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (fromSNat' snat) u
-    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate snat sh u
-    STKX sh x | Dict <- lemKnownSTK x -> txreplicate snat sh u
+    STKS _ x | Dict <- lemKnownSTK x -> tsreplicate snat u
+    STKX _ x | Dict <- lemKnownSTK x -> txreplicate snat u
     STKProduct stk1 stk2 ->
       ttlet u $ \ !u3 ->
         tpair (treplicate snat stk1 (tproject1 u3))
@@ -841,14 +846,13 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   -- Ranked ops
   rshape t = case ftkAst $ unAstRaw t of
     FTKR sh _ -> sh
-  trsumN @m @n shm0  (AstRaw t) | SNat <- shrRank shm0 = AstRaw
-                                                         $ case ftkAst t of
+  trsumN @m @n (AstRaw t) = AstRaw $ case ftkAst t of
     FTKR shmshn0 x ->
       withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
-      withShsFromShR shm0 $ \(shm :: ShS shm) ->
         gcastWith (unsafeCoerceRefl :: Rank (Drop m shmshn) :~: n) $
-        gcastWith (unsafeCoerceRefl :: shm ++ Drop m shmshn :~: shmshn) $
-        cAstConvUpRFromS (shsDrop @m shmshn) x . AstSumS shm
+        gcastWith (unsafeCoerceRefl
+                   :: Take m shmshn ++ Drop m shmshn :~: shmshn) $
+        cAstConvUpRFromS (shsDrop @m shmshn) x . AstSumS (shsTake @m shmshn)
         . cAstConvDownSFromR shmshn x $ t
   trsum0  (AstRaw t) = AstRaw $ case ftkAst t of
     FTKR shm x ->
@@ -1040,7 +1044,9 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   -- Shaped ops
   sshape t = case ftkAst $ unAstRaw t of
     FTKS sh _ -> sh
-  tssumN shm = AstRaw . AstSumS shm . unAstRaw
+  tssumN @shm @shn t | SNat <- shsRank (knownShS @shm) =
+    gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
+    AstRaw . AstSumS (shsTake @(Rank shm) (sshape t)) . unAstRaw $ t
   tssum0 = AstRaw . AstSumK . unAstRaw
   tsreplicateN shm = AstRaw . AstReplicateS shm . unAstRaw
   tsreplicate0N shm = AstRaw . AstReplicateK shm . unAstRaw
@@ -1078,17 +1084,19 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   -- Mixed ops
   xshape t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sh
-  txsumN @_ @shn0 shm0 (AstRaw t) | SNat <- shxRank shm0 = AstRaw
-                                                           $ case ftkAst t of
-    FTKX shmshn0 x ->
-      withShsFromShX shmshn0 $ \(shmshn :: ShS shmshn) ->
-      withShsFromShX shm0 $ \(shm :: ShS shm) ->
-        gcastWith (unsafeCoerceRefl
-                   :: Rank (Drop (Rank shm) shmshn) :~: Rank shn0) $
-        gcastWith (unsafeCoerceRefl
-                   :: shm ++ Drop (Rank shm) shmshn :~: shmshn) $
-        cAstConvUpXFromS @(Drop (Rank shm) shmshn) (shxDropSh shm0 shmshn0) x
-        $ AstSumS shm $ cAstConvDownSFromX shmshn x t
+  txsumN @shm0 @shn0 (AstRaw t)
+    | SNat <- ssxRank (knownShX @shm0) = AstRaw $ case ftkAst t of
+      FTKX shmshn0 x ->
+        withShsFromShX shmshn0 $ \(shmshn :: ShS shmshn) ->
+          gcastWith (unsafeCoerceRefl
+                     :: Rank (Drop (Rank shm0) shmshn) :~: Rank shn0) $
+          gcastWith (unsafeCoerceRefl
+                     :: Take (Rank shm0) shmshn ++ Drop (Rank shm0) shmshn
+                        :~: shmshn) $
+          cAstConvUpXFromS @(Drop (Rank shm0) shmshn)
+                           (shxDropSSX (knownShX @shm0) shmshn0) x
+          $ AstSumS (shsTake @(Rank shm0) shmshn)
+          $ cAstConvDownSFromX shmshn x t
   txsum0 (AstRaw t) = AstRaw $ case ftkAst t of
     FTKX shm x ->
       withShsFromShX shm $ \(sh :: ShS sh) ->
@@ -1472,7 +1480,7 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   isConcreteInstance = False
   -- Ranked ops
   rshape = rshape . unAstNoVectorize
-  trsumN shm = AstNoVectorize . trsumN shm . unAstNoVectorize
+  trsumN = AstNoVectorize . trsumN . unAstNoVectorize
   trsum0 = AstNoVectorize . trsum0 . unAstNoVectorize
   trreplicateN shm = AstNoVectorize . trreplicateN shm . unAstNoVectorize
   trreplicate0N shm = AstNoVectorize . trreplicate0N shm . unAstNoVectorize
@@ -1507,7 +1515,7 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Shaped ops
   sshape = sshape . unAstNoVectorize
-  tssumN shm = AstNoVectorize . tssumN shm . unAstNoVectorize
+  tssumN @shm = AstNoVectorize . tssumN @_ @shm . unAstNoVectorize
   tssum0 = AstNoVectorize . tssum0 . unAstNoVectorize
   tsreplicateN shm = AstNoVectorize . tsreplicateN shm . unAstNoVectorize
   tsreplicate0N shm = AstNoVectorize . tsreplicate0N shm . unAstNoVectorize
@@ -1542,7 +1550,7 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Mixed ops
   xshape = xshape . unAstNoVectorize
-  txsumN shm = AstNoVectorize . txsumN shm . unAstNoVectorize
+  txsumN @shm = AstNoVectorize . txsumN @_ @shm . unAstNoVectorize
   txsum0 = AstNoVectorize . txsum0 . unAstNoVectorize
   txreplicateN shm = AstNoVectorize . txreplicateN shm . unAstNoVectorize
   txreplicate0N shm = AstNoVectorize . txreplicate0N shm . unAstNoVectorize
@@ -1785,7 +1793,7 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   -- All the following implementations piggy-back on AstRaw implementations.
   -- Ranked ops
   rshape = rshape . wunAstNoSimplify
-  trsumN shm = wAstNoSimplify . trsumN shm . wunAstNoSimplify
+  trsumN = wAstNoSimplify . trsumN . wunAstNoSimplify
   trsum0 = wAstNoSimplify . trsum0 . wunAstNoSimplify
   trreplicateN shm = wAstNoSimplify . trreplicateN shm . wunAstNoSimplify
   trreplicate0N shm = wAstNoSimplify . trreplicate0N shm . wunAstNoSimplify
@@ -1815,7 +1823,7 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Shaped ops
   sshape = sshape . wunAstNoSimplify
-  tssumN shm = wAstNoSimplify . tssumN shm . wunAstNoSimplify
+  tssumN @shm = wAstNoSimplify . tssumN @_ @shm . wunAstNoSimplify
   tssum0 = wAstNoSimplify . tssum0 . wunAstNoSimplify
   tsreplicateN shm = wAstNoSimplify . tsreplicateN shm . wunAstNoSimplify
   tsreplicate0N shm = wAstNoSimplify . tsreplicate0N shm . wunAstNoSimplify
@@ -1846,7 +1854,7 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Mixed ops
   xshape = xshape . wunAstNoSimplify
-  txsumN shm = wAstNoSimplify . txsumN shm . wunAstNoSimplify
+  txsumN @shm = wAstNoSimplify . txsumN @_ @shm . wunAstNoSimplify
   txsum0 = wAstNoSimplify . txsum0 . wunAstNoSimplify
   txreplicateN shm = wAstNoSimplify . txreplicateN shm . wunAstNoSimplify
   txreplicate0N shm = wAstNoSimplify . txreplicate0N shm . wunAstNoSimplify
@@ -1910,10 +1918,10 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
         tpair (tsum snat stk1 (tproject1 u3))
               (tsum snat stk2 (tproject2 u3))
   treplicate snat@SNat stk u = case stk of
-    STKScalar -> tsreplicate snat ZSS $ sfromK u
+    STKScalar -> tsreplicate snat $ sfromK u
     STKR SNat x | Dict <- lemKnownSTK x -> trreplicate (fromSNat' snat) u
-    STKS sh x | Dict <- lemKnownSTK x -> tsreplicate snat sh u
-    STKX sh x | Dict <- lemKnownSTK x -> txreplicate snat sh u
+    STKS _ x | Dict <- lemKnownSTK x -> tsreplicate snat u
+    STKX _ x | Dict <- lemKnownSTK x -> txreplicate snat u
     STKProduct stk1 stk2 ->
       ttlet u $ \ !u3 ->
         tpair (treplicate snat stk1 (tproject1 u3))

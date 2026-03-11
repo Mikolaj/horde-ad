@@ -29,9 +29,12 @@ module HordeAd.OpsTensor
     -- * Main array operations
   , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
   , tpair, tproject1, tproject2
-  , rsum, rsum0, rdot0, rdot1In, rmatvecmul, rmatmul2, rreplicate, rreplicate0N
-  , ssum, ssum0, sdot0, sdot1In, smatvecmul, smatmul2, sreplicate, sreplicate0N
-  , xsum, xsum0, xdot0, xdot1In, xmatvecmul, xmatmul2, xreplicate, xreplicate0N
+  , rsum, rsumN, rsum0, rdot0, rdot1In, rmatvecmul, rmatmul2
+  , rreplicate, rreplicate0N, rreplicateN
+  , ssum, ssumN, ssum0, sdot0, sdot1In, smatvecmul, smatmul2
+  , sreplicate, sreplicate0N, sreplicateN
+  , xsum, xsumN, xsum0, xdot0, xdot1In, xmatvecmul, xmatmul2
+  , xreplicate, xreplicate0N, xreplicateN
   , rindex, (!), rindex0, roneHot, rscatter, rscatter1, rgather, rgather1
   , sindex, (!$), sindex0, soneHot, sscatter, sscatter1, sgather, sgather1
   , xindex, xindex0, xoneHot, xscatter, xscatter1, xgather, xgather1
@@ -260,16 +263,21 @@ maxH :: (KnownSTK y, OrdH target y, BaseTensor target, LetTensor target)
      => target y -> target y -> target y
 maxH u' v' = ttlet u' $ \u -> ttlet v' $ \v -> ifH (u >=. v) u v
 
-rsum :: (KnownNat n, TKAllNum x, KnownSTK x, BaseTensor target)
+rsum :: forall n x target.
+        (KnownNat n, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKR2 (1 + n) x) -> target (TKR2 n x)
 rsum = trsum
-rsum0 :: (KnownNat n, NumScalar r, BaseTensor target)
-      => target (TKR n r) -> target (TKScalar r)
+rsumN :: forall m n x target.
+         (KnownNat m, KnownNat n, TKAllNum x, KnownSTK x, BaseTensor target)
+      => target (TKR2 (m + n) x) -> target (TKR2 n x)
+rsumN = trsumN
+rsum0 :: forall m r target. (NumScalar r, BaseTensor target)
+      => target (TKR m r) -> target (TKScalar r)
 rsum0 = trsum0
-rdot0 :: (KnownNat n, NumScalar r, BaseTensor target)
+rdot0 :: forall n r target. (KnownNat n, NumScalar r, BaseTensor target)
       => target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
 rdot0 = trdot0
-rdot1In :: (KnownNat n, NumScalar r, BaseTensor target)
+rdot1In :: forall n r target. (KnownNat n, NumScalar r, BaseTensor target)
         => target (TKR (1 + n) r) -> target (TKR (1 + n) r)
         -> target (TKR n r)
 rdot1In = trdot1In
@@ -280,26 +288,35 @@ rmatmul2 :: (NumScalar r, BaseTensor target, ConvertTensor target)
          => target (TKR 2 r) -> target (TKR 2 r) -> target (TKR 2 r)
 rmatmul2 = trmatmul2
 -- | Copy the given tensor along the new, outermost dimension.
-rreplicate :: (KnownNat n, KnownSTK x, BaseTensor target)
+rreplicate :: forall n x target. (KnownSTK x, BaseTensor target)
            => Int -> target (TKR2 n x) -> target (TKR2 (1 + n) x)
 rreplicate = trreplicate
-rreplicate0N :: (KnownNat n, GoodScalar r, BaseTensor target)
-             => IShR n -> target (TKScalar r) -> target (TKR n r)
+rreplicateN :: forall m n x target. (KnownSTK x, BaseTensor target)
+            => IShR m -> target (TKR2 n x) -> target (TKR2 (m + n) x)
+rreplicateN = trreplicateN
+rreplicate0N :: forall m r target. (GoodScalar r, BaseTensor target)
+             => IShR m -> target (TKScalar r) -> target (TKR m r)
 rreplicate0N = trreplicate0N
 
-ssum :: (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x, BaseTensor target)
+ssum :: forall n sh x target.
+        (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
 ssum = tssum
-ssum0 :: (KnownShS sh, NumScalar r, BaseTensor target)
-      => target (TKS sh r) -> target (TKScalar r)
+ssumN :: forall shm shn x target.
+         (KnownShS shm, KnownShS shn, TKAllNum x, KnownSTK x, BaseTensor target)
+      => target (TKS2 (shm ++ shn) x) -> target (TKS2 shn x)
+ssumN = tssumN @_ @shm
+ssum0 :: forall shm r target. (NumScalar r, BaseTensor target)
+      => target (TKS shm r) -> target (TKScalar r)
 ssum0 = tssum0
-sdot0 :: (KnownShS sh, NumScalar r, BaseTensor target)
+sdot0 :: forall sh r target. (KnownShS sh, NumScalar r, BaseTensor target)
       => target (TKS sh r) -> target (TKS sh r) -> target (TKScalar r)
 sdot0 = tsdot0
-sdot1In :: (KnownShS sh, KnownNat n, NumScalar r, BaseTensor target)
+sdot1In :: forall sh n r target.
+           (KnownShS sh, KnownNat n, NumScalar r, BaseTensor target)
         => target (TKS (sh ++ '[n]) r) -> target (TKS (sh ++ '[n]) r)
         -> target (TKS sh r)
-sdot1In @sh @n = tsdot1In @_ @sh (SNat @n)
+sdot1In = tsdot1In @_ @sh (SNat @n)
 smatvecmul :: (KnownNat m, KnownNat n, NumScalar r, BaseTensor target)
            => target (TKS '[m, n] r) -> target (TKS '[n] r)
            -> target (TKS '[m] r)
@@ -308,27 +325,37 @@ smatmul2 :: (KnownNat m, KnownNat n, KnownNat p, NumScalar r, BaseTensor target)
          => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
          -> target (TKS '[m, p] r)
 smatmul2 = tsmatmul2
-sreplicate :: (KnownNat k, KnownShS sh, KnownSTK x, BaseTensor target)
+sreplicate :: forall k sh x target. (KnownNat k, KnownSTK x, BaseTensor target)
            => target (TKS2 sh x) -> target (TKS2 (k ': sh) x)
-sreplicate = tsreplicate SNat knownShS
-sreplicate0N :: (KnownShS sh, GoodScalar r, BaseTensor target)
-             => target (TKScalar r) -> target (TKS sh r)
+sreplicate = tsreplicate SNat
+sreplicateN :: forall shm shn x target.
+               (KnownShS shm, KnownSTK x, BaseTensor target)
+             => target (TKS2 shn x) -> target (TKS2 (shm ++ shn) x)
+sreplicateN = tsreplicateN (knownShS @shm)
+sreplicate0N :: (KnownShS shm, GoodScalar r, BaseTensor target)
+             => target (TKScalar r) -> target (TKS shm r)
 sreplicate0N = tsreplicate0N knownShS
 
-xsum :: (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x, BaseTensor target)
+xsum :: forall n sh x target.
+        (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKX2 (Just n ': sh) x) -> target (TKX2 sh x)
 xsum = txsum
-xsum0 :: (KnownShX sh, NumScalar r, BaseTensor target)
-      => target (TKX sh r) -> target (TKScalar r)
+xsumN :: forall shm shn x target.
+         (KnownShX shm, KnownShX shn, TKAllNum x, KnownSTK x, BaseTensor target)
+      => target (TKX2 (shm ++ shn) x) -> target (TKX2 shn x)
+xsumN = txsumN @_ @shm
+xsum0 :: forall shm r target. (NumScalar r, BaseTensor target)
+      => target (TKX shm r) -> target (TKScalar r)
 xsum0 = txsum0
-xdot0 :: (KnownShX sh, NumScalar r, BaseTensor target)
+xdot0 :: forall sh r target. (KnownShX sh, NumScalar r, BaseTensor target)
       => target (TKX sh r) -> target (TKX sh r) -> target (TKScalar r)
 xdot0 = txdot0
-xdot1In :: (KnownShX sh, KnownNat n, NumScalar r, BaseTensor target)
+xdot1In :: forall sh n r target.
+           (KnownShX sh, KnownNat n, NumScalar r, BaseTensor target)
         => target (TKX (sh ++ '[Just n]) r)
         -> target (TKX (sh ++ '[Just n]) r)
         -> target (TKX sh r)
-xdot1In @sh @n = txdot1In @_ @sh (SNat @n)
+xdot1In = txdot1In @_ @sh (SNat @n)
 xmatvecmul :: forall mm mn r target.
               (NumScalar r, BaseTensor target, ConvertTensor target)
            => Nested.SMayNat Int mm -> Nested.SMayNat Int mn
@@ -341,11 +368,15 @@ xmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p
          -> target (TKX '[Just n, Just p] r)
          -> target (TKX '[Just m, Just p] r)
 xmatmul2 = txmatmul2
-xreplicate :: (KnownNat k, KnownShX sh, KnownSTK x, BaseTensor target)
-           => target (TKX2 sh x) -> target (TKX2 (Just k ': sh) x)
-xreplicate = txreplicate SNat knownShX
-xreplicate0N :: (KnownShX sh, GoodScalar r, BaseTensor target)
-             => IShX sh -> target (TKScalar r) -> target (TKX sh r)
+xreplicate :: forall k sh x target. (KnownSTK x, BaseTensor target)
+           => SNat k -> target (TKX2 sh x) -> target (TKX2 (Just k ': sh) x)
+xreplicate = txreplicate
+xreplicateN :: forall shm shn x target.
+               (KnownSTK x, BaseTensor target)
+            => IShX shm -> target (TKX2 shn x) -> target (TKX2 (shm ++ shn) x)
+xreplicateN = txreplicateN
+xreplicate0N :: forall shm r target. (GoodScalar r, BaseTensor target)
+             => IShX shm -> target (TKScalar r) -> target (TKX shm r)
 xreplicate0N = txreplicate0N
 
 -- | First index is for outermost dimension; empty index means identity,

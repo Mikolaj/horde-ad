@@ -23,7 +23,8 @@ module HordeAd.OpsTensorShaped
     -- * Main array operations
   , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
   , tpair, tproject1, tproject2
-  , ssum, ssum0, sdot0, sdot1In, smatvecmul, smatmul2, sreplicate, sreplicate0N
+  , ssum, ssumN, ssum0, sdot0, sdot1In, smatvecmul, smatmul2
+  , sreplicate, sreplicate0N, sreplicateN
   , sindex, (!$), sindex0, soneHot, sscatter, sscatter1, sgather, sgather1
   , str, stranspose, sflatten, sreshape
    -- * Auxiliary array operations

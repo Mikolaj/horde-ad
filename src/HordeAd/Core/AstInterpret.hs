@@ -219,11 +219,12 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
     FTKS shm _ ->
       withKnownShS shm $
       tssum0 (interpretAst env v)
-  t@(AstSumS shm v) -> case ftkAst t of
+  t@(AstSumS @shm shm v) -> case ftkAst t of
     FTKS shn x ->
+      withKnownShS shm $
       withKnownShS shn $
       withKnownSTK (ftkToSTK x) $
-      tssumN shm (interpretAst env v)
+      tssumN @_ @shm (interpretAst env v)
   -- TODO: this breaks specialization:
   AstScatterS _ shn shp v (ZS, ix) ->
     withKnownShS shn $

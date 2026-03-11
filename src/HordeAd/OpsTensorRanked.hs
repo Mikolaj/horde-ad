@@ -23,7 +23,8 @@ module HordeAd.OpsTensorRanked
     -- * Main array operations
   , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
   , tpair, tproject1, tproject2
-  , rsum, rsum0, rdot0, rdot1In, rmatvecmul, rmatmul2, rreplicate, rreplicate0N
+  , rsum, rsumN, rsum0, rdot0, rdot1In, rmatvecmul, rmatmul2
+  , rreplicate, rreplicate0N, rreplicateN
   , rindex, (!), rindex0, roneHot, rscatter, rscatter1, rgather, rgather1
   , rtr, rtranspose, rflatten, rreshape
    -- * Auxiliary array operations

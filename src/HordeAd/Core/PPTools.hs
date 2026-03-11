@@ -392,8 +392,9 @@ printAst cfg d = \case
       . showString " !$ "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
 
-  AstSumK v ->
-    printPrefixOp printAst cfg d "ssum0" [v]
+  AstSumK v | FTKS shm _ <- ftkAst v ->
+    let s = "ssum0 @" ++ showListWith shows (shsToList shm) ""
+    in printPrefixOp printAst cfg d s [v]
   AstSumS (snat :$$ ZSS) v ->
     let s = "ssum @" ++ show (fromSNat' snat)
     in printPrefixOp printAst cfg d s [v]

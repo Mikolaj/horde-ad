@@ -427,10 +427,10 @@ evalRev !s !c d0 = case d0 of
   DeltaSum0R d -> case adFTK $ ftkDelta d of
     FTKR shm FTKScalar | SNat <- shrRank shm ->
       evalRev s (trreplicate0N shm c) d
-  DeltaSumR shm d | SNat <- shrRank shm -> case ftkDelta d of
+  DeltaSumR @m SNat d -> case ftkDelta d of
     FTKR shmshn x | SNat <- shrRank shmshn ->
       withKnownSTK (adSTK $ ftkToSTK x) $
-      evalRev s (trreplicateN shm c) d
+      evalRev s (trreplicateN (shrTake @m shmshn) c) d
   DeltaScatterR SNat SNat SNat _sh d f -> case ftkDelta d of
     FTKR sh x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -440,10 +440,11 @@ evalRev !s !c d0 = case d0 of
       (evalRev s (trsum0 c) d)
       s
   DeltaReplicateR shm d -> case ftkDelta d of
-    ftk@(FTKR shn x) | SNat <- shrRank shn
+    ftk@(FTKR shn x) | SNat <- shrRank shm
+                     , SNat <- shrRank shn
                      , Dict0 <- lemTKAllNumAD (ftkToSTK ftk) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
-      evalRev s (trsumN shm c) d
+      evalRev s (trsumN c) d
   DeltaGatherR SNat SNat SNat _sh d f -> case ftkDelta d of
     FTKR sh x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -510,11 +511,12 @@ evalRev !s !c d0 = case d0 of
       (withKnownShS shm $
        evalRev s (tssum0 c) d)
       s
-  DeltaReplicateS shm d -> case ftkDelta d of
+  DeltaReplicateS @shm shm d -> case ftkDelta d of
     ftk@(FTKS shn x) | Dict0 <- lemTKAllNumAD (ftkToSTK ftk) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
+      withKnownShS shm $
       withKnownShS shn $
-      evalRev s (tssumN shm c) d
+      evalRev s (tssumN @_ @shm c) d
   DeltaGatherS @shm @shn shm shn shp d f -> case ftkDelta d of
     FTKS _ x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -574,10 +576,10 @@ evalRev !s !c d0 = case d0 of
   DeltaSum0X d -> case adFTK $ ftkDelta d of
     FTKX shm FTKScalar ->
       evalRev s (txreplicate0N shm c) d
-  DeltaSumX shm d -> case ftkDelta d of
-    FTKX _ x ->
+  DeltaSumX @_ @shn shm d -> case ftkDelta d of
+    FTKX shmshn x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
-      evalRev s (txreplicateN shm c) d
+      evalRev s (txreplicateN (shxTakeSSX (Proxy @shn) shm shmshn) c) d
   DeltaScatterX @shm @shn shm shn shp _sh d f -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -590,11 +592,12 @@ evalRev !s !c d0 = case d0 of
       (withKnownShX (ssxFromShX shm) $
        evalRev s (txsum0 c) d)
       s
-  DeltaReplicateX shm d -> case ftkDelta d of
+  DeltaReplicateX @shm shm d -> case ftkDelta d of
     ftk@(FTKX shn x) | Dict0 <- lemTKAllNumAD (ftkToSTK ftk) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
+      withKnownShX (ssxFromShX shm) $
       withKnownShX (ssxFromShX shn) $
-      evalRev s (txsumN shm c) d
+      evalRev s (txsumN @_ @shm c) d
   DeltaGatherX @shm @shn shm shn shp _sh d f -> case ftkDelta d of
     FTKX sh x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -812,11 +815,11 @@ evalFwd params !s d0 = case d0 of
          FTKR shm FTKScalar | SNat <- shrRank shm ->
            second trsum0 $ evalFwd params s d)
       (s, toADTensorKindShared (FTKScalar @r) 0)
-  DeltaSumR shm d | SNat <- shrRank shm -> case ftkDelta d of
+  DeltaSumR SNat d -> case ftkDelta d of
     ftk@(FTKR shmshn x) | SNat <- shrRank shmshn
                         , Dict0 <- lemTKAllNumAD (ftkToSTK ftk) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
-      second (trsumN shm) $ evalFwd params s d
+      second trsumN $ evalFwd params s d
   DeltaScatterR SNat SNat SNat sh d f -> case ftkDelta d of
     FTKR _ x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -881,10 +884,12 @@ evalFwd params !s d0 = case d0 of
       (s, toADTensorKindShared (FTKScalar @r) 0)
   DeltaSumS @shm @shn shm d | SNat <- shsRank shm -> case ftkDelta d of
     ftk@(FTKS shmshn x) | Dict0 <- lemTKAllNumAD (ftkToSTK ftk) ->
+      gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
       withKnownSTK (adSTK $ ftkToSTK x) $
+      withKnownShS (shsTake @(Rank shm) shmshn) $
       withKnownShS (shsDrop @(Rank shm) shmshn) $
-      second (tssumN shm) $ evalFwd params s d
+      second (tssumN @_ @shm) $ evalFwd params s d
   DeltaScatterS @shm @shn shm shn shp d f -> case ftkDelta d of
     FTKS _ x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -953,12 +958,14 @@ evalFwd params !s d0 = case d0 of
            withKnownShX (ssxFromShX shm) $
            second txsum0 $ evalFwd params s d)
       (s, toADTensorKindShared (FTKScalar @r) 0)
-  DeltaSumX @shm @shn shm d | SNat <- shxRank shm -> case ftkDelta d of
+  DeltaSumX @shm @shn shm d | SNat <- ssxRank shm -> case ftkDelta d of
     ftk@(FTKX shmshn x) | Dict0 <- lemTKAllNumAD (ftkToSTK ftk) ->
+      gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
       withKnownSTK (adSTK $ ftkToSTK x) $
+      withKnownShX (ssxFromShX $ shxTake @(Rank shm) shmshn) $
       withKnownShX (ssxFromShX $ shxDrop @(Rank shm) shmshn) $
-      second (txsumN shm) $ evalFwd params s d
+      second (txsumN @_ @shm) $ evalFwd params s d
   DeltaScatterX @shm @shn shm shn shp sh d f -> case ftkDelta d of
     FTKX _ x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
