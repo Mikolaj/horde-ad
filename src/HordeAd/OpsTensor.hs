@@ -263,10 +263,10 @@ maxH u' v' = ttlet u' $ \u -> ttlet v' $ \v -> ifH (u >=. v) u v
 rsum :: (KnownNat n, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKR2 (1 + n) x) -> target (TKR2 n x)
 rsum = trsum
-rsum0 :: (KnownNat n, NumScalar r, BaseTensor target, ConvertTensor target)
+rsum0 :: (KnownNat n, NumScalar r, BaseTensor target)
       => target (TKR n r) -> target (TKScalar r)
 rsum0 = trsum0
-rdot0 :: (KnownNat n, NumScalar r, BaseTensor target, ConvertTensor target)
+rdot0 :: (KnownNat n, NumScalar r, BaseTensor target)
       => target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
 rdot0 = trdot0
 rdot1In :: (KnownNat n, NumScalar r, BaseTensor target)
@@ -283,49 +283,45 @@ rmatmul2 = trmatmul2
 rreplicate :: (KnownNat n, KnownSTK x, BaseTensor target)
            => Int -> target (TKR2 n x) -> target (TKR2 (1 + n) x)
 rreplicate = trreplicate
-rreplicate0N :: ( KnownNat n, GoodScalar r
-                , BaseTensor target, ConvertTensor target )
+rreplicate0N :: (KnownNat n, GoodScalar r, BaseTensor target)
              => IShR n -> target (TKScalar r) -> target (TKR n r)
 rreplicate0N = trreplicate0N
 
 ssum :: (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
 ssum = tssum
-ssum0 :: (KnownShS sh, NumScalar r, BaseTensor target, ConvertTensor target)
+ssum0 :: (KnownShS sh, NumScalar r, BaseTensor target)
       => target (TKS sh r) -> target (TKScalar r)
 ssum0 = tssum0
-sdot0 :: (KnownShS sh, NumScalar r, BaseTensor target, ConvertTensor target)
+sdot0 :: (KnownShS sh, NumScalar r, BaseTensor target)
       => target (TKS sh r) -> target (TKS sh r) -> target (TKScalar r)
 sdot0 = tsdot0
 sdot1In :: (KnownShS sh, KnownNat n, NumScalar r, BaseTensor target)
         => target (TKS (sh ++ '[n]) r) -> target (TKS (sh ++ '[n]) r)
         -> target (TKS sh r)
 sdot1In @sh @n = tsdot1In @_ @sh (SNat @n)
-smatvecmul :: ( KnownNat m, KnownNat n, NumScalar r
-              , BaseTensor target, ConvertTensor target )
+smatvecmul :: (KnownNat m, KnownNat n, NumScalar r, BaseTensor target)
            => target (TKS '[m, n] r) -> target (TKS '[n] r)
            -> target (TKS '[m] r)
 smatvecmul = tsmatvecmul
-smatmul2 :: ( KnownNat m, KnownNat n, KnownNat p
-            , NumScalar r, BaseTensor target, ConvertTensor target )
+smatmul2 :: (KnownNat m, KnownNat n, KnownNat p, NumScalar r, BaseTensor target)
          => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
          -> target (TKS '[m, p] r)
 smatmul2 = tsmatmul2
 sreplicate :: (KnownNat k, KnownShS sh, KnownSTK x, BaseTensor target)
            => target (TKS2 sh x) -> target (TKS2 (k ': sh) x)
 sreplicate = tsreplicate SNat knownShS
-sreplicate0N :: ( KnownShS sh, GoodScalar r
-                , BaseTensor target, ConvertTensor target )
+sreplicate0N :: (KnownShS sh, GoodScalar r, BaseTensor target)
              => target (TKScalar r) -> target (TKS sh r)
 sreplicate0N = tsreplicate0N knownShS
 
 xsum :: (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x, BaseTensor target)
      => target (TKX2 (Just n ': sh) x) -> target (TKX2 sh x)
 xsum = txsum
-xsum0 :: ( KnownShX sh, NumScalar r, BaseTensor target, ConvertTensor target)
+xsum0 :: (KnownShX sh, NumScalar r, BaseTensor target)
       => target (TKX sh r) -> target (TKScalar r)
 xsum0 = txsum0
-xdot0 :: (KnownShX sh, NumScalar r, BaseTensor target, ConvertTensor target)
+xdot0 :: (KnownShX sh, NumScalar r, BaseTensor target)
       => target (TKX sh r) -> target (TKX sh r) -> target (TKScalar r)
 xdot0 = txdot0
 xdot1In :: (KnownShX sh, KnownNat n, NumScalar r, BaseTensor target)
@@ -348,8 +344,7 @@ xmatmul2 = txmatmul2
 xreplicate :: (KnownNat k, KnownShX sh, KnownSTK x, BaseTensor target)
            => target (TKX2 sh x) -> target (TKX2 (Just k ': sh) x)
 xreplicate = txreplicate SNat knownShX
-xreplicate0N :: ( KnownShX sh, GoodScalar r
-                , BaseTensor target, ConvertTensor target )
+xreplicate0N :: (KnownShX sh, GoodScalar r, BaseTensor target)
              => IShX sh -> target (TKScalar r) -> target (TKX sh r)
 xreplicate0N = txreplicate0N
 
@@ -462,8 +457,7 @@ xindex0 :: forall sh1 r target. (GoodScalar r, BaseTensor target)
 xindex0 = txindex0
 xoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
            , PlainOf (PlainOf target) ~ PlainOf target
-           , EqH (PlainOf target) (TKScalar Int)
-           , BaseTensor target, ConvertTensor target )
+           , EqH (PlainOf target) (TKScalar Int), BaseTensor target )
         => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
         -> target (TKX2 (sh1 ++ sh2) x)
 xoneHot = txoneHot

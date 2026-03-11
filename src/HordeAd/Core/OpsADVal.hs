@@ -197,8 +197,6 @@ instance ( ADReadyNoLet target, ShareTensor target
   tfromVector snat stk lu =
     dD (tfromVector snat stk $ V.map (\(D u _) -> u) lu)
        (DeltaFromVector snat stk $ V.map (\(D _ u') -> u') lu)
-  trsum (D u u') = withSNat (rwidth u) $ \snat ->
-    dD (trsum u) (DeltaSum snat knownSTK u')
   trsumN shm (D u u') = dD (trsumN shm u) (DeltaSumR shm u')
   trsum0 (D u u') = dD (trsum0 u) (DeltaSum0R u')
   trdot0 (D ue u') (D ve v') =
@@ -213,13 +211,10 @@ instance ( ADReadyNoLet target, ShareTensor target
     _ :$: width2 :$: ZSR ->
       trsum (trtranspose [2,1,0] (trreplicate width2 m1)
              * trtranspose [1,0] (trreplicate (rwidth m1) m2))
-  trreplicate k (D u u') = withSNat k $ \snat ->
-    dD (trreplicate k u) (DeltaReplicate snat knownSTK u')
   trreplicateN shm (D u u') =
     dD (trreplicateN shm u) (DeltaReplicateR shm u')
   trreplicate0N shm (D u u') =
     dD (trreplicate0N shm u) (DeltaReplicate0NR shm u')
-  tssum (D u u') = dD (tssum u) (DeltaSum SNat knownSTK u')
   tssumN shm (D u u') = dD (tssumN shm u) (DeltaSumS shm u')
   tssum0 (D u u') = dD (tssum0 u) (DeltaSum0S u')
   tsdot0 (D ue u') (D ve v') =
@@ -235,13 +230,10 @@ instance ( ADReadyNoLet target, ShareTensor target
                        (tsreplicate SNat knownShS m1)
            * tstranspose (Permutation.makePerm @'[1, 0])
                          (tsreplicate SNat knownShS m2))
-  tsreplicate snat sh (D u u') =
-    dD (tsreplicate snat sh u) (DeltaReplicate snat (STKS sh knownSTK) u')
   tsreplicateN shm (D u u') =
     dD (tsreplicateN shm u) (DeltaReplicateS shm u')
   tsreplicate0N shm (D u u') =
     dD (tsreplicate0N shm u) (DeltaReplicate0NS shm u')
-  txsum (D u u') = dD (txsum u) (DeltaSum SNat knownSTK u')
   txsumN shm (D u u') = dD (txsumN shm u) (DeltaSumX shm u')
   txsum0 (D u u') = dD (txsum0 u) (DeltaSum0X u')
   txdot0 (D ue u') (D ve v') =
@@ -267,8 +259,6 @@ instance ( ADReadyNoLet target, ShareTensor target
                        (txreplicate SNat knownShX m1)
            * txtranspose (Permutation.makePerm @'[1, 0])
                          (txreplicate SNat knownShX m2))
-  txreplicate snat sh (D u u') =
-    dD (txreplicate snat sh u) (DeltaReplicate snat (STKX sh knownSTK) u')
   txreplicateN shm (D u u') =
     dD (txreplicateN shm u) (DeltaReplicateX shm u')
   txreplicate0N shm (D u u') =

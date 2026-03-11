@@ -243,7 +243,6 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Ranked ops
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
-  trsum v = withSNat (rwidth v) $ \snat -> astSum snat knownSTK v
   trsumN @m @n shm0 t | SNat <- shrRank shm0 = case ftkAst t of
     FTKR shmshn0 x ->
       withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -256,7 +255,6 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKR shm x ->
       withShsFromShR shm $ \(sh :: ShS sh) ->
         astSumK (astConvDownSFromR sh x t)
-  trreplicate k = withSNat k $ \snat -> astReplicate snat knownSTK
   trreplicateN shm0 t = case ftkAst t of
     FTKR shn0 x ->
       withShsFromShR shn0 $ \(shn :: ShS shn) ->
@@ -439,10 +437,8 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Shaped ops
   sshape t = case ftkAst t of
     FTKS sh _ -> sh
-  tssum = astSum SNat knownSTK
   tssumN = astSumS
   tssum0 = astSumK
-  tsreplicate snat sh = astReplicate snat (STKS sh knownSTK)
   tsreplicateN = astReplicateS
   tsreplicate0N = astReplicateK
   tsconcrete = fromPlain . AstConcreteS
@@ -477,7 +473,6 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Mixed ops
   xshape t = case ftkAst t of
     FTKX sh _ -> sh
-  txsum = astSum SNat knownSTK
   txsumN @_ @shn0 shm0 t | SNat <- shxRank shm0 = case ftkAst t of
     FTKX shmshn0 x ->
       withShsFromShX shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -492,7 +487,6 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
     FTKX shm x ->
       withShsFromShX shm $ \(sh :: ShS sh) ->
         astSumK (astConvDownSFromX sh x t)
-  txreplicate snat sh = astReplicate snat (STKX sh knownSTK)
   txreplicateN @shm0 @shn0 shm0 t = case ftkAst t of
     FTKX shn0 x ->
       withShsFromShX shn0 $ \(shn :: ShS shn) ->
@@ -847,8 +841,6 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   -- Ranked ops
   rshape t = case ftkAst $ unAstRaw t of
     FTKR sh _ -> sh
-  trsum v = withSNat (rwidth v) $ \snat ->
-              AstRaw . AstSum snat knownSTK . unAstRaw $ v
   trsumN @m @n shm0  (AstRaw t) | SNat <- shrRank shm0 = AstRaw
                                                          $ case ftkAst t of
     FTKR shmshn0 x ->
@@ -862,8 +854,6 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
     FTKR shm x ->
       withShsFromShR shm $ \(sh :: ShS sh) ->
         AstSumK (cAstConvDownSFromR sh x t)
-  trreplicate k = withSNat k $ \snat ->
-    AstRaw . AstReplicate snat knownSTK . unAstRaw
   trreplicateN shm0 (AstRaw t) = AstRaw $ case ftkAst t of
     FTKR shn0 x ->
       withShsFromShR shn0 $ \(shn :: ShS shn) ->
@@ -1050,10 +1040,8 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   -- Shaped ops
   sshape t = case ftkAst $ unAstRaw t of
     FTKS sh _ -> sh
-  tssum = AstRaw . AstSum SNat knownSTK . unAstRaw
   tssumN shm = AstRaw . AstSumS shm . unAstRaw
   tssum0 = AstRaw . AstSumK . unAstRaw
-  tsreplicate snat sh = AstRaw . AstReplicate snat (STKS sh knownSTK) . unAstRaw
   tsreplicateN shm = AstRaw . AstReplicateS shm . unAstRaw
   tsreplicate0N shm = AstRaw . AstReplicateK shm . unAstRaw
   tsconcrete = AstRaw . fromPlain . AstConcreteS
@@ -1090,7 +1078,6 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   -- Mixed ops
   xshape t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sh
-  txsum = AstRaw . AstSum SNat knownSTK . unAstRaw
   txsumN @_ @shn0 shm0 (AstRaw t) | SNat <- shxRank shm0 = AstRaw
                                                            $ case ftkAst t of
     FTKX shmshn0 x ->
@@ -1106,7 +1093,6 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
     FTKX shm x ->
       withShsFromShX shm $ \(sh :: ShS sh) ->
         AstSumK (cAstConvDownSFromX sh x t)
-  txreplicate snat sh = AstRaw . AstReplicate snat (STKX sh knownSTK) . unAstRaw
   txreplicateN @shm0 @shn0 shm0 (AstRaw t) = AstRaw $ case ftkAst t of
     FTKX shn0 x ->
       withShsFromShX shn0 $ \(shn :: ShS shn) ->
@@ -1486,10 +1472,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   isConcreteInstance = False
   -- Ranked ops
   rshape = rshape . unAstNoVectorize
-  trsum = AstNoVectorize . trsum . unAstNoVectorize
   trsumN shm = AstNoVectorize . trsumN shm . unAstNoVectorize
   trsum0 = AstNoVectorize . trsum0 . unAstNoVectorize
-  trreplicate k = AstNoVectorize . trreplicate k . unAstNoVectorize
   trreplicateN shm = AstNoVectorize . trreplicateN shm . unAstNoVectorize
   trreplicate0N shm = AstNoVectorize . trreplicate0N shm . unAstNoVectorize
   trconcrete = AstNoVectorize . trconcrete
@@ -1523,10 +1507,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Shaped ops
   sshape = sshape . unAstNoVectorize
-  tssum = AstNoVectorize . tssum . unAstNoVectorize
   tssumN shm = AstNoVectorize . tssumN shm . unAstNoVectorize
   tssum0 = AstNoVectorize . tssum0 . unAstNoVectorize
-  tsreplicate snat sh = AstNoVectorize . tsreplicate snat sh . unAstNoVectorize
   tsreplicateN shm = AstNoVectorize . tsreplicateN shm . unAstNoVectorize
   tsreplicate0N shm = AstNoVectorize . tsreplicate0N shm . unAstNoVectorize
   tsconcrete = AstNoVectorize . tsconcrete
@@ -1560,10 +1542,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Mixed ops
   xshape = xshape . unAstNoVectorize
-  txsum = AstNoVectorize . txsum . unAstNoVectorize
   txsumN shm = AstNoVectorize . txsumN shm . unAstNoVectorize
   txsum0 = AstNoVectorize . txsum0 . unAstNoVectorize
-  txreplicate snat sh = AstNoVectorize . txreplicate snat sh . unAstNoVectorize
   txreplicateN shm = AstNoVectorize . txreplicateN shm . unAstNoVectorize
   txreplicate0N shm = AstNoVectorize . txreplicate0N shm . unAstNoVectorize
   txconcrete = AstNoVectorize . txconcrete
@@ -1805,10 +1785,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   -- All the following implementations piggy-back on AstRaw implementations.
   -- Ranked ops
   rshape = rshape . wunAstNoSimplify
-  trsum = wAstNoSimplify . trsum . wunAstNoSimplify
   trsumN shm = wAstNoSimplify . trsumN shm . wunAstNoSimplify
   trsum0 = wAstNoSimplify . trsum0 . wunAstNoSimplify
-  trreplicate k = wAstNoSimplify . trreplicate k . wunAstNoSimplify
   trreplicateN shm = wAstNoSimplify . trreplicateN shm . wunAstNoSimplify
   trreplicate0N shm = wAstNoSimplify . trreplicate0N shm . wunAstNoSimplify
   trconcrete = wAstNoSimplify . trconcrete
@@ -1837,10 +1815,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Shaped ops
   sshape = sshape . wunAstNoSimplify
-  tssum = wAstNoSimplify . tssum . wunAstNoSimplify
   tssumN shm = wAstNoSimplify . tssumN shm . wunAstNoSimplify
   tssum0 = wAstNoSimplify . tssum0 . wunAstNoSimplify
-  tsreplicate snat sh = wAstNoSimplify . tsreplicate snat sh . wunAstNoSimplify
   tsreplicateN shm = wAstNoSimplify . tsreplicateN shm . wunAstNoSimplify
   tsreplicate0N shm = wAstNoSimplify . tsreplicate0N shm . wunAstNoSimplify
   tsconcrete = wAstNoSimplify . tsconcrete
@@ -1870,10 +1846,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Mixed ops
   xshape = xshape . wunAstNoSimplify
-  txsum = wAstNoSimplify . txsum . wunAstNoSimplify
   txsumN shm = wAstNoSimplify . txsumN shm . wunAstNoSimplify
   txsum0 = wAstNoSimplify . txsum0 . wunAstNoSimplify
-  txreplicate snat sh = wAstNoSimplify . txreplicate snat sh . wunAstNoSimplify
   txreplicateN shm = wAstNoSimplify . txreplicateN shm . wunAstNoSimplify
   txreplicate0N shm = wAstNoSimplify . txreplicate0N shm . wunAstNoSimplify
   txconcrete = wAstNoSimplify . txconcrete

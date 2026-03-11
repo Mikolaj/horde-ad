@@ -244,7 +244,7 @@ class ShareTensor (target :: Target) where
   tunpair :: target (TKProduct x z) -> (target x, target z)
   -- This would suffer from lack of sharing if in LetTensor, because
   -- ttlet doesn't work over a list. With sharing it's fine.
-  tunravelToListShare :: forall y k. (BaseTensor target, ConvertTensor target)
+  tunravelToListShare :: forall y k. BaseTensor target
                       => SNat k -> SingletonTK y
                       -> target (BuildTensorKind k y)
                       -> [target y]
@@ -457,13 +457,15 @@ class ( Num (IntOf target)
   -- by 1 dimension.
   trsum :: (KnownNat n, TKAllNum x, KnownSTK x)
         => target (TKR2 (1 + n) x) -> target (TKR2 n x)
+  trsum t = case rshape t of
+    (k :$: _) -> trsumN (k :$: ZSR) t
   trsumN :: forall m n x. (KnownNat n, TKAllNum x, KnownSTK x)
          => IShR m -> target (TKR2 (m + n) x) -> target (TKR2 n x)
   -- This op (and it's Delta constructor) is worthwhile, because flattening
   -- is O(n) sometimes, unlike transpose, etc.
-  trsum0 :: (KnownNat n, NumScalar r, ConvertTensor target)
+  trsum0 :: (KnownNat n, NumScalar r)
          => target (TKR n r) -> target (TKScalar r)
-  trdot0 :: (KnownNat n, NumScalar r, ConvertTensor target)
+  trdot0 :: (KnownNat n, NumScalar r)
          => target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
   trdot0 t u = trsum0 (t * u)
   trdot1In :: (KnownNat n, NumScalar r)
@@ -486,18 +488,20 @@ class ( Num (IntOf target)
     trbuild1 (rwidth m1) (\i -> trmatvecmul (rtr m2) (m1 `trindex` [i]))
   trreplicate :: (KnownNat n, KnownSTK x)
               => Int -> target (TKR2 n x) -> target (TKR2 (1 + n) x)
+  trreplicate k = trreplicateN (k :$: ZSR)
   trreplicateN :: forall m n x. (KnownNat n, KnownSTK x)
                => IShR m -> target (TKR2 n x) -> target (TKR2 (m + n) x)
-  trreplicate0N :: (KnownNat n, GoodScalar r, ConvertTensor target)
+  trreplicate0N :: (KnownNat n, GoodScalar r)
                 => IShR n -> target (TKScalar r) -> target (TKR n r)
 
-  tssum :: (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x)
+  tssum :: forall n sh x. (KnownNat n, KnownShS sh, TKAllNum x, KnownSTK x)
         => target (TKS2 (n ': sh) x) -> target (TKS2 sh x)
+  tssum = tssumN (SNat @n :$$ ZSS)
   tssumN :: forall shm shn x. (KnownShS shn, TKAllNum x, KnownSTK x)
          => ShS shm -> target (TKS2 (shm ++ shn) x) -> target (TKS2 shn x)
-  tssum0 :: (KnownShS sh, NumScalar r, ConvertTensor target)
+  tssum0 :: (KnownShS sh, NumScalar r)
          => target (TKS sh r) -> target (TKScalar r)
-  tsdot0 :: (KnownShS sh, NumScalar r, ConvertTensor target)
+  tsdot0 :: (KnownShS sh, NumScalar r)
          => target (TKS sh r) -> target (TKS sh r) -> target (TKScalar r)
   tsdot0 @sh t u | SNat <- shsProduct (knownShS @sh) =
     tssum0 (t * u)
@@ -516,13 +520,12 @@ class ( Num (IntOf target)
          fromMaybe (error "tsdot1In: impossible non-permutation")
          $ Permutation.permCheckPermutation cperm
          $ tssum $ tstranspose cperm (t * u)
-  tsmatvecmul :: (KnownNat m, KnownNat n, NumScalar r, ConvertTensor target)
+  tsmatvecmul :: (KnownNat m, KnownNat n, NumScalar r)
               => target (TKS '[m, n] r) -> target (TKS '[n] r)
               -> target (TKS '[m] r)
   tsmatvecmul @m m v =
     tkbuild1 @_ @m (\i -> tsdot0 v (m `tsindex` (i :.$ ZIS)))
-  tsmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p, NumScalar r
-               , ConvertTensor target )
+  tsmatmul2 :: (KnownNat m, KnownNat n, KnownNat p, NumScalar r)
             => target (TKS '[m, n] r) -> target (TKS '[n, p] r)
             -> target (TKS '[m, p] r)
   tsmatmul2 @m m1 m2 =
@@ -530,9 +533,10 @@ class ( Num (IntOf target)
   tsreplicate :: forall sh k x. KnownSTK x
               => SNat k -> ShS sh -> target (TKS2 sh x)
               -> target (TKS2 (k ': sh) x)
+  tsreplicate snat _ = tsreplicateN (snat :$$ ZSS)
   tsreplicateN :: forall shm shn x. KnownSTK x
                => ShS shm -> target (TKS2 shn x) -> target (TKS2 (shm ++ shn) x)
-  tsreplicate0N :: forall shm r. (GoodScalar r, ConvertTensor target)
+  tsreplicate0N :: forall shm r. GoodScalar r
                 => ShS shm -> target (TKScalar r) -> target (TKS shm r)
 
   -- The choice in BuildTensorKind makes it hard to support this one,
@@ -541,12 +545,13 @@ class ( Num (IntOf target)
   --     => target (TKX2 (mn ': sh) x) -> target (TKX2 sh x)
   txsum :: (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x)
         => target (TKX2 (Just n ': sh) x) -> target (TKX2 sh x)
-  txsumN :: forall shm shn x.
-            (KnownShX shn, TKAllNum x, KnownSTK x, ConvertTensor target)
+  txsum t = case xshape t of
+    (k :$% _) -> txsumN (k :$% ZSX) t
+  txsumN :: forall shm shn x. (KnownShX shn, TKAllNum x, KnownSTK x)
          => IShX shm -> target (TKX2 (shm ++ shn) x) -> target (TKX2 shn x)
-  txsum0 :: (KnownShX sh, NumScalar r, ConvertTensor target)
+  txsum0 :: (KnownShX sh, NumScalar r)
          => target (TKX sh r) -> target (TKScalar r)
-  txdot0 :: (KnownShX sh, NumScalar r, ConvertTensor target)
+  txdot0 :: (KnownShX sh, NumScalar r)
          => target (TKX sh r) -> target (TKX sh r) -> target (TKScalar r)
   txdot0 t u = txsum0 (t * u)
   txdot1In :: (KnownShX sh, NumScalar r)
@@ -564,8 +569,7 @@ class ( Num (IntOf target)
          fromMaybe (error "txdot1In: impossible non-permutation")
          $ Permutation.permCheckPermutation cperm
          $ txsum $ txtranspose cperm (t * u)
-  txmatvecmul :: forall mm mn r.
-                 (NumScalar r, ConvertTensor target)
+  txmatvecmul :: forall mm mn r. (NumScalar r, ConvertTensor target)
               => Nested.SMayNat Int mm -> Nested.SMayNat Int mn
               -> target (TKX '[mm, mn] r) -> target (TKX '[mn] r)
               -> target (TKX '[mm] r)
@@ -575,8 +579,8 @@ class ( Num (IntOf target)
     withSNat (fromSMayNat' mm) $ \(SNat @k) ->
       xmcast (ssxFromShX $ mm :$% ZSX)
       $ txbuild1 @_ @k (\i -> xfromK $ txdot0 v (m `txindex` (i :.% ZIX)))
-  txmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p
-               , NumScalar r, ConvertTensor target )
+  txmatmul2 :: ( KnownNat m, KnownNat n, KnownNat p, NumScalar r
+               , ConvertTensor target )
             => target (TKX '[Just m, Just n] r)
             -> target (TKX '[Just n, Just p] r)
             -> target (TKX '[Just m, Just p] r)
@@ -587,10 +591,11 @@ class ( Num (IntOf target)
   txreplicate :: forall sh k x. KnownSTK x
               => SNat k -> StaticShX sh -> target (TKX2 sh x)
               -> target (TKX2 (Just k ': sh) x)
+  txreplicate snat _ = txreplicateN (SKnown snat :$% ZSX)
   txreplicateN :: forall shm shn x. KnownSTK x
                => IShX shm -> target (TKX2 shn x)
                -> target (TKX2 (shm ++ shn) x)
-  txreplicate0N :: (GoodScalar r, ConvertTensor target)
+  txreplicate0N :: GoodScalar r
                 => IShX sh -> target (TKScalar r) -> target (TKX sh r)
 
   trindex :: (KnownNat m, KnownNat n, KnownSTK x)
@@ -697,7 +702,7 @@ class ( Num (IntOf target)
            => target (TKX sh1 r) -> IxXOf target sh1 -> target (TKScalar r)
   txoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
               , PlainOf (PlainOf target) ~ PlainOf target
-              , EqH (PlainOf target) (TKScalar Int), ConvertTensor target )
+              , EqH (PlainOf target) (TKScalar Int) )
            => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
            -> target (TKX2 (sh1 ++ sh2) x)
   {-# INLINE txoneHot #-}
@@ -1139,7 +1144,7 @@ class ( Num (IntOf target)
 
   -- General operations that use ShareTensor if available, LetTensor otherwise
   tsum
-    :: forall z k. (ConvertTensor target, TKAllNum z)
+    :: forall z k. TKAllNum z
     => SNat k -> SingletonTK z -> target (BuildTensorKind k z)
     -> target z
   default tsum

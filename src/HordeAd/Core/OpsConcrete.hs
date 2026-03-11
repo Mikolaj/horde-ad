@@ -199,9 +199,6 @@ instance BaseTensor Concrete where
     _ :$: width2 :$: ZSR ->
       trdot1In (trtranspose [1, 0] (trreplicate width2 m1))
                (trtranspose [0, 2, 1] (trreplicate (rwidth m1) m2))
-  {-# INLINE trreplicate #-}
-  trreplicate @_ @x k | Dict <- eltDictRep (knownSTK @x) =
-    Concrete . Nested.rreplicate (k :$: ZSR) . unConcrete
   {-# INLINE trreplicateN #-}
   trreplicateN @_ @_ @x shm | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.rreplicate shm . unConcrete
@@ -235,9 +232,6 @@ instance BaseTensor Concrete where
                           (tsreplicate SNat knownShS m1))
              (tstranspose (Permutation.makePerm @'[0, 2, 1])
                           (tsreplicate SNat knownShS m2))
-  {-# INLINE tsreplicate #-}
-  tsreplicate @_ @_ @x snat@SNat _sh | Dict <- eltDictRep (knownSTK @x) =
-    Concrete . Nested.sreplicate (snat :$$ ZSS) . unConcrete
   tsreplicateN @_ @_ @x shm | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.sreplicate shm . unConcrete
   {-# INLINE tsreplicate0N #-}
@@ -286,9 +280,6 @@ instance BaseTensor Concrete where
                           (txreplicate SNat knownShX m1))
              (txtranspose (Permutation.makePerm @'[0, 2, 1])
                           (txreplicate SNat knownShX m2))
-  {-# INLINE txreplicate #-}
-  txreplicate @_ @_ @x snat _sh | Dict <- eltDictRep (knownSTK @x) =
-    Concrete . Nested.mreplicate (SKnown snat :$% ZSX) . unConcrete
   {-# INLINE txreplicateN #-}
   txreplicateN @_ @_ @x shm | Dict <- eltDictRep (knownSTK @x) =
     Concrete . Nested.mreplicate shm . unConcrete
