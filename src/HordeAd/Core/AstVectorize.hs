@@ -144,13 +144,6 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       astTrBuild snat1 snat stk
       $ astFromVector snat1 (buildSTK snat stk) (V.map (\v ->
           build1VOccurrenceUnknown snat (var, v)) l)
-    Ast.AstSum k1 stk v
-      | Dict0 <- lemTKAllNumBuild snat stk -> traceRule $
-        astSum k1 (buildSTK snat stk)
-        $ astTrBuild snat k1 stk $ build1V snat (var, v)
-    Ast.AstReplicate snat2 stk v -> traceRule $
-      astTrBuild snat2 snat stk
-      $ astReplicate snat2 (buildSTK snat stk) $ build1V snat (var, v)
     Ast.AstMapAccumLDer k5@(SNat @k5) bftk eftk f df rf acc0 es
      | Refl <- lemBuildOfAD snat (ftkToSTK (ftkAst acc0))
      , Refl <- lemBuildOfAD snat (ftkToSTK bftk)
@@ -473,7 +466,6 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                Ast.AstGatherS{} -> True
                Ast.AstMapAccumLDer{} -> True
                -- These can only be simplified to the AstFromVector NF above.
-               Ast.AstReplicate{} -> True
                Ast.AstReplicateK{} -> True
                Ast.AstReplicateS{} -> True
                Ast.AstAppendS{} -> True
@@ -513,6 +505,29 @@ build1VHFun snat@SNat (var, v0) = case v0 of
 
 
 -- * Auxiliary operations
+
+astReplicate
+  :: forall k s y. KnownSpan s
+  => SNat k -> SingletonTK y
+  -> AstTensor AstMethodLet s y
+  -> AstTensor AstMethodLet s (BuildTensorKind k y)
+astReplicate k stk t = case stk of
+  STKScalar -> astReplicateK (k :$$ ZSS) t
+  STKR{} -> case ftkAst t of
+    FTKR shn0 x ->
+      withShsFromShR shn0 $ \(shn :: ShS shn) ->
+        astConvUpRFromS (k :$$ shn) x . astReplicateS (k :$$ ZSS)
+        . astConvDownSFromR shn x $ t
+  STKS{} -> astReplicateS (k :$$ ZSS) t
+  STKX{} -> case ftkAst t of
+    FTKX shn0 x ->
+      withShsFromShX shn0 $ \(shn :: ShS shn) ->
+        astConvUpXFromS @(k : shn) (SKnown k :$% shn0) x
+        . astReplicateS (k :$$ ZSS) . astConvDownSFromX shn x $ t
+  STKProduct stk1 stk2 ->
+    astLetFun t $ \ !tShared ->
+      let (u1, u2) = (astProject1 tShared, astProject2 tShared)
+      in astPair (astReplicate k stk1 u1) (astReplicate k stk2 u2)
 
 astTr :: forall n s r. KnownSpan s
       => AstTensor AstMethodLet s (TKR2 (2 + n) r)

@@ -168,14 +168,6 @@ data Delta :: Target -> Target where
                      SNat k -> SingletonTK y
                   -> Data.Vector.Vector (Delta target y)
                   -> Delta target (BuildTensorKind k y)
-  DeltaSum :: forall y k target.
-              SNat k -> SingletonTK y
-           -> Delta target (BuildTensorKind k y)
-           -> Delta target y
-  DeltaReplicate :: forall y k target.
-                    SNat k -> SingletonTK y
-                 -> Delta target y
-                 -> Delta target (BuildTensorKind k y)
   DeltaMapAccumL
     :: forall target k accy by ey.
        ( Show (target (BuildTensorKind k accy))
@@ -390,8 +382,6 @@ ftkDelta = \case
   DeltaFromVector snat _ l -> case V.uncons l of
     Nothing -> error "ftkDelta: empty vector"
     Just (d, _) -> buildFTK snat (ftkDelta d)
-  DeltaSum snat stk d -> razeFTK snat stk (ftkDelta d)
-  DeltaReplicate snat _ d -> buildFTK snat (ftkDelta d)
   DeltaMapAccumL k bftk _eftk _q _es _df _rf acc0' _es' ->
     FTKProduct (ftkDelta acc0') (buildFTK k bftk)
 

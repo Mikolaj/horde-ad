@@ -58,8 +58,6 @@ ftkAst t = case t of
   AstFromVector snat _ l -> case V.uncons l of
     Nothing -> error "ftkAst: empty vector"
     Just (v, _) -> buildFTK snat (ftkAst v)
-  AstSum snat stk v -> razeFTK snat stk (ftkAst v)
-  AstReplicate snat _ v -> buildFTK snat (ftkAst v)
   AstMapAccumLDer k bftk _eftk _f _df _rf acc0 _es ->
     FTKProduct (ftkAst acc0) (buildFTK k bftk)
   AstApply (AstLambda !_ !u) _ -> ftkAst u
@@ -167,8 +165,6 @@ varInAst var = \case
   AstProject1 t -> varInAst var t
   AstProject2 t -> varInAst var t
   AstFromVector _ _ vl -> any (varInAst var) vl
-  AstSum _ _ v -> varInAst var v
-  AstReplicate _ _ v -> varInAst var v
   AstMapAccumLDer _k _bftk _eftk _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
   AstApply t ll -> varInAstHFun var t || varInAst var ll
@@ -306,9 +302,6 @@ astIsSmallN n t0 = case t0 of
   AstPair t1 t2 -> astIsSmallN (astIsSmallN (n - 1) t1) t2
   AstProject1 t -> astIsSmallN (n - 1) t
   AstProject2 t -> astIsSmallN (n - 1) t
-  -- This is a really good redex, often nested, executed as a metadata change,
-  -- but not completely free, hence non-zero cost.
-  AstReplicate _ _ v -> astIsSmallN (n - 1) v
   AstVar{} -> n
   AstCond b u v -> astIsSmallN (astIsSmallN (astIsSmallN (n - 1) b) u) v
   AstShare{} -> n
@@ -325,6 +318,8 @@ astIsSmallN n t0 = case t0 of
   -- This often appears from user writing (-1), often reduces away
   -- and it has only one argument.
   AstN1K NegateOp v -> astIsSmallN (n - 1) v
+  -- This is a really good redex, often nested, executed as a metadata change,
+  -- but not completely free, hence non-zero cost.
   AstReplicateK _ v -> astIsSmallN (n - 1) v
   AstReplicateS _ v -> astIsSmallN (n - 1) v
   AstIotaS{} -> n
@@ -369,8 +364,6 @@ astLetDown var u v = case v of
   AstProject1 v2 -> AstProject1 (astLetDown var u v2)
   AstProject2 v2 -> AstProject2 (astLetDown var u v2)
   AstFromVector{} -> AstLet var u v
-  AstSum snat stk v2 -> AstSum snat stk (astLetDown var u v2)
-  AstReplicate snat stk v2 -> AstReplicate snat stk (astLetDown var u v2)
   -- Plausibly, accumulators are small and mapAccums are rare,
   -- so the check is cheap.
   AstMapAccumLDer k bftk eftk f df rf acc0 es ->

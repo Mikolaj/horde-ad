@@ -136,32 +136,6 @@ printAst cfg d = \case
           . (showParen True
              $ showString "fromList "
                . showListWith (printAst cfg 0) (V.toList l))
-  -- This is too common to be verbose even in no loseRoudtrip mode.
-  AstSum snat stk v -> case stk of
-    STKR{} -> printPrefixOp printAst cfg d "rsum" [v]
-    STKS{} -> printPrefixOp printAst cfg d
-                            ("ssum @" ++ show (fromSNat' snat)) [v]
-    STKX{} -> printPrefixOp printAst cfg d
-                            ("xsum @" ++ show (fromSNat' snat)) [v]
-    STKScalar -> printPrefixOp printAst cfg d
-                               ("ssum @" ++ show (fromSNat' snat)) [v]
-    _ ->  -- scalar and product
-      printPrefixOp printAst cfg d
-                    ("tsum (" ++ show snat ++ ") (" ++ show stk ++ ")") [v]
-  -- This is too common to be verbose even in no loseRoudtrip mode.
-  AstReplicate snat stk v -> case stk of
-    STKR{} -> printPrefixOp printAst cfg d
-                            ("rreplicate " ++ show (fromSNat' snat)) [v]
-    STKS{} -> printPrefixOp printAst cfg d
-                            ("sreplicate @" ++ show (fromSNat' snat)) [v]
-    STKX{} -> printPrefixOp printAst cfg d
-                            ("xreplicate @" ++ show (fromSNat' snat)) [v]
-    STKScalar -> printPrefixOp printAst cfg d
-                               ("sreplicate @" ++ show (fromSNat' snat)) [v]
-    _ ->  -- product
-      printPrefixOp
-        printAst cfg d
-        ("treplicate (" ++ show snat ++ ") (" ++ show stk ++ ")") [v]
   AstMapAccumLDer k bftk eftk f df rf acc0 es ->
    if loseRoudtrip cfg
    then

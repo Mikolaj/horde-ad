@@ -402,9 +402,7 @@ testRNNOPP = do
   let batch_size = 1
       sizeMnistHeightI = 1
       blackGlyph :: AstTensor AstMethodLet PrimalSpan (TKR 3 Double)
-      blackGlyph = AstReplicate (SNat @1) knownSTK
-                   $ AstReplicate (SNat @1) knownSTK
-                   $ AstReplicate (SNat @1) knownSTK
+      blackGlyph = rreplicateN (1 :$: 1 :$: 1 :$: ZSR)
                        (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)
@@ -461,9 +459,7 @@ testRNNOPP2 = do
   let batch_size = 2
       sizeMnistHeightI = 2
       blackGlyph :: AstTensor AstMethodLet PrimalSpan (TKR 3 Double)
-      blackGlyph = AstReplicate (SNat @2) knownSTK
-                   $ AstReplicate (SNat @2) knownSTK
-                   $ AstReplicate (SNat @2) knownSTK
+      blackGlyph = rreplicateN (2 :$: 2 :$: 2 :$: ZSR)
                        (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: ADRnnMnistParameters (AstTensor AstMethodLet FullSpan)

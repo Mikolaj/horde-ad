@@ -352,11 +352,6 @@ evalRev !s !c d0 = case d0 of
     let cxs = tunravelToListShare snat (adSTK stk) c
     in foldl' (\ !s2 (cx, d2) -> evalRev s2 cx d2) s
        $ zip cxs (V.toList ld)
-  DeltaSum snat stk d | Refl <- lemBuildOfAD snat stk ->
-    evalRev s (treplicate snat (adSTK stk) c) d
-  DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk
-                            , Dict0 <- lemTKAllNumAD stk ->
-    evalRev s (tsum snat (adSTK stk) c) d
   DeltaMapAccumL k (FTKScalar @z1) eftk
                  as es _df rf acc0' es' -- special case to speed up folds
    | Just Refl <- testEquality (typeRep @z1) (typeRep @Z1)
@@ -751,13 +746,6 @@ evalFwd params !s d0 = case d0 of
   DeltaFromVector snat stk lsd | Refl <- lemBuildOfAD snat stk ->
     let (s2, l) = mapAccumL' (evalFwd params) s $ V.toList lsd
     in (s2, tfromVector snat (adSTK stk) $ V.fromListN (V.length lsd) l)
-  DeltaSum snat stk d | Refl <- lemBuildOfAD snat stk
-                      , Dict0 <- lemTKAllNumAD stk ->
-    let (s2, t) = evalFwd params s d
-    in (s2, tsum snat (adSTK stk) t)
-  DeltaReplicate snat stk d | Refl <- lemBuildOfAD snat stk ->
-    let (s2, t) = evalFwd params s d
-    in (s2, treplicate snat (adSTK stk) t)
   -- No special case to speed up folds, because the concrete tmapAccumLDer
   -- does the very Z1 optimization that could be performed here.
   DeltaMapAccumL k bftk eftk as es df _rf acc0' es'

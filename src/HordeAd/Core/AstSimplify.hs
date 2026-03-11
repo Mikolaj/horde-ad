@@ -6,7 +6,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
--- {-# OPTIONS_GHC -fmax-pmcheck-models=10000 #-}
+{-# OPTIONS_GHC -fmax-pmcheck-models=50 #-}
 -- {-# OPTIONS_GHC -freduction-depth=10000 #-}
 -- {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
 -- | This module holds smart constructors for AST, that is,
@@ -23,7 +23,7 @@
 module HordeAd.Core.AstSimplify
   ( RewritePhase(..), SimplifyKnobs (..), defaultKnobs
   , -- * The simplifying combinators, one for almost each AST constructor
-    astPair, astProject1, astProject2, astFromVector, astSum, astReplicate
+    astPair, astProject1, astProject2, astFromVector
   , astMapAccumLDer, astApply, astCond, astCondInitial, astLet
 
   , astPrimalPart, astDualPart, astPlainPart
@@ -274,10 +274,6 @@ astProject1 u = case u of
   Ast.AstPair x _z -> x
   Ast.AstFromVector snat (STKProduct stk1 _) v ->
     astFromVector snat stk1 (V.map astProject1 v)
-  Ast.AstSum snat (STKProduct stk1 _) x ->
-    astSum snat stk1 (astProject1 x)
-  Ast.AstReplicate snat (STKProduct stk1 _) x ->
-    astReplicate snat stk1 (astProject1 x)
   Ast.AstMapAccumLDer k bftk eftk
                       (AstLambda varf vf)
                       (AstLambda vard vd)
@@ -327,10 +323,6 @@ astProject2 u = case u of
   Ast.AstPair _x z -> z
   Ast.AstFromVector snat (STKProduct _ stk2) v ->
     astFromVector snat stk2 (V.map astProject2 v)
-  Ast.AstSum snat (STKProduct _ stk2) x ->
-    astSum snat stk2 (astProject2 x)
-  Ast.AstReplicate snat (STKProduct _ stk2) x ->
-    astReplicate snat stk2 (astProject2 x)
   Ast.AstCond b v1 v2 -> astCond b (astProject2 v1) (astProject2 v2)
   Ast.AstLet var t v -> astLet var t (astProject2 v)
   Ast.AstPrimalPart v -> astPrimalPart $ astProject2 v
@@ -346,7 +338,8 @@ astFromVector :: forall y k s. KnownSpan s
               => SNat k -> SingletonTK y
               -> Data.Vector.Vector (AstTensor AstMethodLet s y)
               -> AstTensor AstMethodLet s (BuildTensorKind k y)
-astFromVector (SNat' @1) stk v = astReplicate (SNat @1) stk (v V.! 0)
+astFromVector (SNat' @1) STKScalar v = astReplicateK (SNat @1 :$$ ZSS) (v V.! 0)
+astFromVector (SNat' @1) STKS{} v = astReplicateS (SNat @1 :$$ ZSS) (v V.! 0)
 astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   -- This disables some rules, e.g., indexing or summing of fromVector
   -- of concrete arrays, but allocating an extra array of the same size
@@ -416,141 +409,6 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
                               (buildFTK snat zftk)
                               (astFromVector snat (ftkToSTK yftk) l2)
      _ -> Nothing)
-
-astSum :: forall y k s. (KnownSpan s, TKAllNum y)
-       => SNat k -> SingletonTK y
-       -> AstTensor AstMethodLet s (BuildTensorKind k y)
-       -> AstTensor AstMethodLet s y
-astSum snat@SNat stk t0 = case t0 of
-  _ | Just Refl <- testEquality snat (SNat @0) ->
-      let ftk = razeFTK snat stk (ftkAst t0)
-      in fromPlain $ astConcrete ftk (tdefTarget ftk)
-  _ | Just Refl <- testEquality snat (SNat @1)
-    , STKScalar <- stk ->
-      astIndexK t0 (0 :.$ ZIS)
-  _ | Just Refl <- testEquality snat (SNat @1)
-    , STKS sh _  <- stk ->  -- other cases too rare
-      astIndexS sh t0 (0 :.$ ZIS)  -- astReshape slows down the CNNO test
-  _ | STKS ZSS STKScalar <- stk ->
-      sfromK $ astSum snat STKScalar t0
-  -- This exchanges a multiplication at rank n+1 for one
-  -- at rank n, which should be faster. We choose t1, since it's likely to be
-  -- concrete and so it's easier to see if it's replicated and also t2 is
-  -- likely to be AstTimes, to be processed recusively. This rule may distrupt
-  -- recognizing matmul, sdot1In, etc., but it sometimes leads to a smaller
-  -- and better sdot1In.
-  AstTimesS t1 t2
-    | STKS _sh (STKScalar @r) <- stk
-    , Just u <- unRepl1 t1
-    , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      astTimesS u (astSum snat stk t2)
-  AstConcreteS @_ @sh2 t -> case stk of
-    STKS @sh _ STKScalar ->
-      gcastWith (unsafeCoerceRefl :: k ': sh :~: sh2) $
-      astConcreteS $ tsum snat stk $ Concrete t
-    STKScalar ->
-      gcastWith (unsafeCoerceRefl :: '[k] :~: sh2) $
-      astConcreteK $ tsum snat stk $ Concrete t
-  Ast.AstIotaS n | STKScalar <- stk ->
-    AstConcreteK $ fromIntegral $ fromSNat' n * (fromSNat' n - 1) `div` 2
-  Ast.AstReverseS v -> astSum snat stk v
-  Ast.AstFromVector _ STKScalar l
-    | STKScalar @r <- stk
-    , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      foldr1 astPlusK l
-  Ast.AstFromVector _ (STKS ZSS STKScalar) l
-    | STKScalar @r <- stk
-    , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      kfromS $ foldr1 astPlusS l
-  Ast.AstFromVector _ STKS{} l
-    | STKS _ (STKScalar @r) <- stk
-    , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      foldr1 astPlusS l
-  -- See the analogous astSliceS rule.
-  Ast.AstTransposeS (SNat' @1 `PCons` SNat' @0 `PCons` PNil) t
-    | FTKS (_ :$$ _ :$$ _) _ <- ftkAst t
-    , STKS (snat1 :$$ sh3) x <- stk
-    , Just u <- unRepl1 t ->
-      astReplicate snat1 (STKS sh3 x)
-      $ astSum snat (STKS sh3 x) u
-  -- TODO: if ever needed, we may also add case
-  -- Ast.AstCond AstReplicate AstReplicate
-  -- or use unRepl and unRepl1 to handle it.
-  Ast.AstReplicate _ STKScalar v | STKScalar @r <- stk
-                                 , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    astTimesK v (fromPlain (AstConcreteK $ fromIntegral $ fromSNat' snat))
-  Ast.AstReplicate _ STKS{} v | STKScalar @r <- stk
-                              , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    astTimesK (kfromS v)
-              (fromPlain (AstConcreteK $ fromIntegral $ fromSNat' snat))
-  Ast.AstReplicate _ STKS{} v | STKS sh (STKScalar @r) <- stk
-                              , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    astTimesS v (fromPlain $ AstConcreteS
-                 $ Nested.sreplicatePrim sh $ fromIntegral $ fromSNat' snat)
-  -- This keeps tensors alive for longer, but it enables new simplifications,
-  -- while hiding a sum inside let not often prevents other simplifications,
-  -- because there are few redexes with sum but not at the top.
-  Ast.AstLet var u v -> astLet var u (astSum snat stk v)
-  Ast.AstFromPrimal v -> fromPrimal $ astSum snat stk v
-  Ast.AstFromDual v -> fromDual $ astSum snat stk v
-  Ast.AstFromPlain v -> fromPlain $ astSum snat stk v
-  Ast.AstScatterS shm shn _shp v (vars, (:.$) @k2 i1 ZIS)
-    | STKScalar <- stk
-      -- This boolean term may have free variables that act as universally
-      -- quantified.
-    , AstConcreteK True <- 0 <=. i1 &&* i1 <=. valueOf @k2 - 1 ->
-        kfromS $ astScatterS shm shn ZSS v (vars, ZIS)
-  Ast.AstScatterS shm@(k2 :$$ _) shn shp v (vars, i1 :.$ rest)
-    | STKS{} <- stk
-      -- This boolean term may have free variables that act as universally
-      -- quantified.
-    , AstConcreteK True <- 0 <=. i1
-                           &&* i1 <=. AstConcreteK (fromSNat' k2 - 1) ->
-        astScatterS shm shn (shsTail shp) v (vars, rest)
-  AstConvUp @xs c zftk t ->
-    let xftk = ftkAst t
-        zftkRazed = razeFTK snat stk zftk
-    in case razeSTK (ftkToSTK xftk) of
-      (xstkRazed :: SingletonTK x) ->
-        gcastWith (unsafeCoerceRefl :: BuildTensorKind k x :~: xs) $
-        case lemTKAllNumBuild snat stk of
-          Dict0 -> case lemTKAllNumBackConvert c of
-            Dict0 -> case lemTKAllNumRaze snat xstkRazed of
-              Dict0 -> astConvUp zftkRazed (astSum snat xstkRazed t)
-                -- this uses razed c, not c
-  _ -> Ast.AstSum snat stk t0
-
-astReplicate :: forall y k s. KnownSpan s
-             => SNat k -> SingletonTK y
-             -> AstTensor AstMethodLet s y
-             -> AstTensor AstMethodLet s (BuildTensorKind k y)
-astReplicate snat@SNat stk t0 = case t0 of
-  Ast.AstPair t1 t2 | STKProduct stk1 stk2 <- stk ->
-    astPair (astReplicate snat stk1 t1) (astReplicate snat stk2 t2)
-  -- TODO: This rules is, in principle, very good, because it permits many other
-  -- rules to fire. However, one of these other rules is indexing of transpose
-  -- that in some cases complicates terms and causes OOM in CNNI tests.
-  -- We need to restrict the indexing rule more effectively first.
-  -- Ast.AstLet var t v -> astLet var t (astReplicate snat stk v)
-  Ast.AstFromPrimal v -> fromPrimal $ astReplicate snat stk v
-  Ast.AstFromDual v -> fromDual $ astReplicate snat stk v
-  Ast.AstFromPlain v -> fromPlain $ astReplicate snat stk v
-  AstConcreteK t | fromSNat' snat < 100 ->  -- likely not to be O(data size)
-    astConcreteS $ treplicate snat stk $ Concrete t
-  AstConcreteS t | fromSNat' snat < 100 ->  -- tough trade-offs here
-    astConcreteS $ treplicate snat stk $ Concrete t
-      -- revisit the trade-offs once we compile instead of interpreting
-      -- and so building big blobby concrete arrays is cheap
-  AstConvUp c zftk t ->
-    let xftk = ftkAst t
-    in astConvertUp (buildTKConversion snat xftk c)
-                    (buildFTK snat zftk)
-                    (astReplicate snat (ftkToSTK xftk) t)
-  _ -> Ast.AstReplicate snat stk t0
-  -- TODO: maybe add a rule and then generalize:
-  -- replicate n1 (str (replicate n2 u))
-  -- ~> transpose [0, 2, 1] (replicate n1 (replicate n2 u))
-  -- but the reverse rule is already in astTransposeS
 
 astMapAccumLDer
   :: forall accy by ey k s. KnownSpan s
@@ -719,10 +577,10 @@ astCond :: KnownSpan s
         -> AstTensor AstMethodLet s y
 astCond b v w | Just b0 <- unAstK b = if b0 then v else w
 astCond _b u v | eqY u v = u
-astCond b v w | FTKS (snat :$$ sh) x <- ftkAst v
+astCond b v w | FTKS (snat :$$ _) _ <- ftkAst v
               , Just v1 <- unRepl1 v
               , Just w1 <- unRepl1 w =
-  astReplicate snat (STKS sh (ftkToSTK x)) (astCond b v1 w1)
+  astReplicateS (snat :$$ ZSS) (astCond b v1 w1)
 astCond (Ast.AstBoolNotK b) v w = astCond b w v
 astCond (Ast.AstLet var n b) u v =
   astLetRefresh var n b $ \b' -> astCondInitial b' u v
@@ -900,10 +758,6 @@ astLet var (Ast.AstLet varN uN
         substituteAst (Ast.AstFromVector snat stk
                        $ V.fromListN 2 [ast1, ast2]) var v
     _ -> astLet var (astLet varN uN u3) v
-astLet var (Ast.AstReplicate snat stk a) v =
-  let var2 = reshapeVarName (ftkAst a) var
-      ast = Ast.AstReplicate snat stk $ astVar var2
-  in astLet var2 a (substituteAst ast var v)
 astLet var (Ast.AstReplicateK shm a) v =
   let var2 = reshapeVarName (ftkAst a) var
       ast = Ast.AstReplicateK shm $ astVar var2
@@ -944,8 +798,6 @@ astPrimalPart t = case t of
   Ast.AstProject1{} -> Ast.AstPrimalPart t
   Ast.AstProject2{} -> Ast.AstPrimalPart t
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map astPrimalPart l)
-  Ast.AstSum snat stk v -> astSum snat stk (astPrimalPart v)
-  Ast.AstReplicate snat stk v -> astReplicate snat stk (astPrimalPart v)
   Ast.AstMapAccumLDer k bftk eftk (AstLambda varf vf)
                                   (AstLambda vard vd)
                                   (AstLambda varr vr) acc0 es ->
@@ -1049,8 +901,6 @@ astDualPart t = case t of
   Ast.AstProject1{} -> Ast.AstDualPart t
   Ast.AstProject2{} -> Ast.AstDualPart t
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map astDualPart l)
-  Ast.AstSum snat stk v -> astSum snat stk (astDualPart v)
-  Ast.AstReplicate snat stk v -> astReplicate snat stk (astDualPart v)
   Ast.AstMapAccumLDer k bftk eftk (AstLambda varf vf)
                                   (AstLambda vard vd)
                                   (AstLambda varr vr) acc0 es ->
@@ -1164,8 +1014,6 @@ astPlainPart t = case t of
   Ast.AstProject1{} -> Ast.AstPlainPart t
   Ast.AstProject2{} -> Ast.AstPlainPart t
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map astPlainPart l)
-  Ast.AstSum snat stk v -> astSum snat stk (astPlainPart v)
-  Ast.AstReplicate snat stk v -> astReplicate snat stk (astPlainPart v)
   Ast.AstMapAccumLDer k bftk eftk (AstLambda varf vf)
                                   (AstLambda vard vd)
                                   (AstLambda varr vr) acc0 es ->
@@ -1612,7 +1460,6 @@ astArgMinK :: NumScalar r
            => AstTensor AstMethodLet PlainSpan (TKS '[n] r)
            -> AstTensor AstMethodLet PlainSpan (TKScalar Int)
 astArgMinK t = case t of
-  Ast.AstReplicate{} -> 0  -- we mask undefined if n is zero; tough luck
   Ast.AstLet var u v -> astLet var u (astArgMinK v)
   AstConcreteS v -> astConcreteK (tkargMin $ Concrete v)
   Ast.AstN1S NegateOp u -> astArgMaxK u
@@ -1627,7 +1474,6 @@ astArgMaxK :: NumScalar r
            => AstTensor AstMethodLet PlainSpan (TKS '[n] r)
            -> AstTensor AstMethodLet PlainSpan (TKScalar Int)
 astArgMaxK t = case t of
-  Ast.AstReplicate{} -> 0
   Ast.AstLet var u v -> astLet var u (astArgMaxK v)
   AstConcreteS v -> astConcreteK (tkargMax $ Concrete v)
   Ast.AstN1S NegateOp u -> astArgMinK u
@@ -1657,14 +1503,6 @@ astIndexK v0 ix@(i1 :.$ rest1) = case v0 of
       Ast.AstFromVector snat STKScalar l | ZIS <- rest1 ->
         if 0 <= i && i <= fromSNat' snat - 1
         then l V.! i
-        else fromPlain $ AstConcreteK def
-      Ast.AstReplicate snat STKS{} v ->
-        if 0 <= i && i <= fromSNat' snat - 1
-        then astIndexK v rest1
-        else fromPlain $ AstConcreteK def
-      Ast.AstReplicate snat STKScalar v | ZIS <- rest1 ->
-        if 0 <= i && i <= fromSNat' snat - 1
-        then v
         else fromPlain $ AstConcreteK def
       Ast.AstBuild1 snat STKS{} (var2, v) ->
         if 0 <= i && i <= fromSNat' snat - 1
@@ -1723,10 +1561,10 @@ astPlusS :: (NumScalar r, KnownSpan s)
          -> AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS sh r)
 astPlusS = \cases
-  u v | FTKS (snat :$$ sh) x <- ftkAst u
+  u v | FTKS (snat :$$ _) _ <- ftkAst u
       , Just u0 <- unRepl1 u
       , Just v0 <- unRepl1 v ->
-        astReplicate snat (STKS sh (ftkToSTK x)) $ astPlusS u0 v0
+        astReplicateS (snat :$$ ZSS) $ astPlusS u0 v0
   (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astPlusS u v
   (Ast.AstDualPart u) (Ast.AstDualPart v) -> dualPart $ astPlusS u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
@@ -1867,8 +1705,7 @@ fuseScatters1 (m :$$ shmRest) shn shp u (var ::$ vars, ix)
       g i i2 = astCond (AstConcreteK (fromSNat' m) <=. astVar var')
                        (f i2) i  -- i has, effectively, varFalse in it
       ix3 = ixsZipWith g ix ix2
-      a = astReplicate (SNat @1)
-                       (STKS (shmRest `shsAppend` shn) (stkAstX u2)) u2
+      a = astReplicateS (SNat @1 :$$ ZSS) u2
   in if any isCond ix3
      then Nothing  -- a risk of nested conditional build-up
      else Just $ astScatterS (SS m :$$ shmRest) shn shp
@@ -1916,10 +1753,10 @@ astTimesS :: (NumScalar r, KnownSpan s)
           -> AstTensor AstMethodLet s (TKS sh r)
           -> AstTensor AstMethodLet s (TKS sh r)
 astTimesS = \cases
-  u v | FTKS (snat :$$ sh) x <- ftkAst u
+  u v | FTKS (snat :$$ _) _ <- ftkAst u
       , Just u0 <- unRepl1 u
       , Just v0 <- unRepl1 v ->
-        astReplicate snat (STKS sh (ftkToSTK x)) $ astTimesS u0 v0
+        astReplicateS (snat :$$ ZSS) $ astTimesS u0 v0
   (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astTimesS u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
@@ -1954,39 +1791,41 @@ astTimesS = \cases
 
   (Ast.AstScatterS shm shn shp v (vars, ix)) u
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
-      Ast.AstScatterS shm shn shp (v `astTimesS` astReplicate0NS shv w)
+      Ast.AstScatterS shm shn shp (v `astTimesS` astReplicateK shv (kfromS w))
                                   (vars, ix)
   (Ast.AstScatterS shm shn shp v (vars, ix)) (AstTimesS u a)
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
       astTimesS
-        (Ast.AstScatterS shm shn shp (v `astTimesS` astReplicate0NS shv w)
+        (Ast.AstScatterS shm shn shp (v `astTimesS` astReplicateK
+                                                      shv (kfromS w))
                                      (vars, ix)) a
   u (Ast.AstScatterS shm shn shp v (vars, ix))
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
-      Ast.AstScatterS shm shn shp (astReplicate0NS shv w `astTimesS` v)
+      Ast.AstScatterS shm shn shp (astReplicateK shv (kfromS w) `astTimesS` v)
                                   (vars, ix)
   u  (AstTimesS (Ast.AstScatterS shm shn shp v (vars, ix)) a)
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
       astTimesS
-        (Ast.AstScatterS shm shn shp (astReplicate0NS shv w `astTimesS` v)
+        (Ast.AstScatterS shm shn shp (astReplicateK shv (kfromS w)
+                                      `astTimesS` v)
                                      (vars, ix)) a
   (Ast.AstGatherS shm shn shp v (vars, ix)) u
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
-      Ast.AstGatherS shm shn shp (v `astTimesS` astReplicate0NS shv w)
+      Ast.AstGatherS shm shn shp (v `astTimesS` astReplicateK shv (kfromS w))
                                  (vars, ix)
   (Ast.AstGatherS shm shn shp v (vars, ix)) (AstTimesS u a)
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
       astTimesS
-        (Ast.AstGatherS shm shn shp (v `astTimesS` astReplicate0NS shv w)
+        (Ast.AstGatherS shm shn shp (v `astTimesS` astReplicateK shv (kfromS w))
                                     (vars, ix)) a
   u (Ast.AstGatherS shm shn shp v (vars, ix))
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
-      Ast.AstGatherS shm shn shp (astReplicate0NS shv w `astTimesS` v)
+      Ast.AstGatherS shm shn shp (astReplicateK shv (kfromS w) `astTimesS` v)
                                  (vars, ix)
   u (AstTimesS (Ast.AstGatherS shm shn shp v (vars, ix)) a)
     | Just w <- unRepl u, FTKS shv _ <- ftkAst v ->
       astTimesS
-        (Ast.AstGatherS shm shn shp (astReplicate0NS shv w `astTimesS` v)
+        (Ast.AstGatherS shm shn shp (astReplicateK shv (kfromS w) `astTimesS` v)
                                     (vars, ix)) a
 
   (AstConvUpSFromK u) (AstConvUpSFromK v) -> sfromK $ astTimesK u v
@@ -2004,9 +1843,9 @@ astN1S :: (NumScalar r, KnownSpan s)
        => OpCodeNum1 -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
 astN1S opCode t = case t of
-  _ | FTKS (snat :$$ sh) x <- ftkAst t
+  _ | FTKS (snat :$$ _) _ <- ftkAst t
     , Just t0 <- unRepl1 t ->
-      astReplicate snat (STKS sh (ftkToSTK x)) (astN1S opCode t0)
+      astReplicateS (snat :$$ ZSS) (astN1S opCode t0)
 -- This increases work:
 -- Ast.AstCond b n k -> astCond b (astN1S opCode n) (astN1S opCode k)
   Ast.AstLet var n k -> astLet var n (astN1S opCode k)
@@ -2041,9 +1880,9 @@ astR1S :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode1 -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
 astR1S opCode = \case
-  t | FTKS (snat :$$ sh) x <- ftkAst t
+  t | FTKS (snat :$$ _) _ <- ftkAst t
     , Just t0 <- unRepl1 t ->
-      astReplicate snat (STKS sh (ftkToSTK x)) (astR1S opCode t0)
+      astReplicateS (snat :$$ ZSS) (astR1S opCode t0)
 -- This increases work:
 --  Ast.AstCond b n k -> astCond b (astR1S opCode n) (astR1S opCode k)
   Ast.AstLet var n k -> astLet var n (astR1S opCode k)
@@ -2077,10 +1916,10 @@ astR2S :: (NumScalar r, Differentiable r, KnownSpan s)
        -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
 astR2S opCode = \cases
-  u v | FTKS (snat :$$ sh) x <- ftkAst u
+  u v | FTKS (snat :$$ _) _ <- ftkAst u
       , Just u0 <- unRepl1 u
       , Just v0 <- unRepl1 v ->
-        astReplicate snat (STKS sh (ftkToSTK x)) (astR2S opCode u0 v0)
+        astReplicateS (snat :$$ ZSS) (astR2S opCode u0 v0)
   (Ast.AstPrimalPart u) (Ast.AstPrimalPart v) -> primalPart $ astR2S opCode u v
   (Ast.AstPlainPart @_ @s1 u) (Ast.AstPlainPart @_ @s2 v)
     | Just Refl <- testEquality (knownSpan @s1) (knownSpan @s2) ->
@@ -2116,10 +1955,10 @@ astI2S :: (NumScalar r, IntegralH r, Nested.IntElt r, KnownSpan s)
        -> AstTensor AstMethodLet s (TKS sh r)
        -> AstTensor AstMethodLet s (TKS sh r)
 astI2S opCode = \cases
-  u v | FTKS (snat :$$ sh) x <- ftkAst u
+  u v | FTKS (snat :$$ _) _ <- ftkAst u
       , Just u0 <- unRepl1 u
       , Just v0 <- unRepl1 v ->
-        astReplicate snat (STKS sh (ftkToSTK x)) (astI2S opCode u0 v0)
+        astReplicateS (snat :$$ ZSS) (astI2S opCode u0 v0)
   (Ast.AstPrimalPart n) (Ast.AstPrimalPart k) ->
     primalPart (astI2S opCode n k)
   (Ast.AstPlainPart @_ @s1 n) (Ast.AstPlainPart @_ @s2 k)
@@ -2169,9 +2008,9 @@ astFloorS :: forall r1 r2 sh.
           => AstTensor AstMethodLet PlainSpan (TKS sh r1)
           -> AstTensor AstMethodLet PlainSpan (TKS sh r2)
 astFloorS t = case t of
-  _ | FTKS (snat :$$ sh2) _ <- ftkAst t
+  _ | FTKS (snat :$$ _) _ <- ftkAst t
     , Just u <- unRepl1 t ->
-      astReplicate snat (STKS sh2 STKScalar) (astFloorS u)
+      astReplicateS (snat :$$ ZSS) (astFloorS u)
   Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v) ->
     let !v2 = astFloorS v
     in Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v2)
@@ -2198,9 +2037,9 @@ astFromIntegralS :: forall r1 r2 sh. (NumScalar r1, NumScalar r2, Integral r1)
                  -> AstTensor AstMethodLet PlainSpan (TKS sh r2)
 astFromIntegralS t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
-  _ | FTKS (snat :$$ sh2) _ <- ftkAst t
+  _ | FTKS (snat :$$ _) _ <- ftkAst t
     , Just u <- unRepl1 t ->
-      astReplicate snat (STKS sh2 STKScalar) (astFromIntegralS u)
+      astReplicateS (snat :$$ ZSS) (astFromIntegralS u)
 --  Ast.AstFromVector snat (STKS sh STKScalar) l ->
 --   astFromVector snat (STKS sh STKScalar) (V.map astFromIntegralS l)
 --  Ast.AstFromVector snat STKScalar l ->
@@ -2235,17 +2074,16 @@ astCastS :: forall r1 r2 s sh.
          -> AstTensor AstMethodLet s (TKS sh r2)
 astCastS t = case t of
   _ | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) -> t
-  _ | FTKS (snat :$$ sh2) _ <- ftkAst t
+  _ | FTKS (snat :$$ _) _ <- ftkAst t
     , Just u <- unRepl1 t ->
-      astReplicate snat (STKS sh2 STKScalar) (astCastS u)
+      astReplicateS (snat :$$ ZSS) (astCastS u)
 --  Ast.AstFromVector snat (STKS sh STKScalar) l ->
 --   astFromVector snat (STKS sh STKScalar) (V.map astCastS l)
 --  Ast.AstFromVector snat STKScalar l ->
 --   astFromVector snat STKScalar (V.map astCastK l)
   {- This (and other similar rules) is bad, because it changes semantics
      and also impacts performance negatively (a is larger than sum a):
-  Ast.AstSum snat (STKS sh STKScalar) a ->
-    astSum snat (STKS sh STKScalar) (astCastS a) -}
+  Ast.AstSumS shm a -> astSumS shm (astCastS a) -}
   Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v) ->
     let !v2 = astCastS v
     in Ast.AstBuild1 snat (STKS sh2 STKScalar) (var, v2)
@@ -2356,33 +2194,6 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
                      (astFromVector snat (STKS shn (ftkToSTK x))
                       $ V.map (\a -> astIndex shn a rest2) l)
                      (i1 :.$ ZIS)
-   Ast.AstSum snat@(SNat @k1) STKS{} v ->
-     let perm3 = backpermCycle $ ixsLength ix + 1
-     in Permutation.permFromListCont perm3 $ \(perm
-                                               :: Permutation.Perm perm3P) ->
-          gcastWith (unsafeCoerceRefl
-                     :: Compare (Rank perm3P) (Rank (k1 : shm ++ shn)) :~: LT) $
-          gcastWith (unsafeCoerceRefl
-                     :: Permutation.PermutePrefix perm3P (k1 : shm ++ shn)
-                        :~: shm ++ (k1 : shn)) $
-          fromMaybe (error "astIndexKnobsS: impossible non-permutation")
-          $ Permutation.permCheckPermutation perm
-          $ astSum snat (STKS shn (ftkToSTK x))
-          $ astIndex @shm @(k1 : shn) (snat :$$ shn)
-                     (astTransposeS @perm3P @(k1 : shm ++ shn) perm v)
-                     ix
-   Ast.AstReplicate _ STKS{} v ->
-     let ftk = FTKS shn x
-         defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-     in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
-       AstConcreteK b -> if b then astIndex shn v rest1 else defArr
-       _ -> Ast.AstIndexS shn v0 ix
-   Ast.AstReplicate _ STKScalar v | ZIS <- rest1 ->
-     let ftk = FTKS shn x
-         defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-     in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
-       AstConcreteK b -> if b then sfromK v else defArr
-       _ -> Ast.AstIndexS shn v0 ix
    Ast.AstApply{} -> Ast.AstIndexS shn v0 ix
    Ast.AstVar{} -> Ast.AstIndexS shn v0 ix
    Ast.AstCond b v w ->
@@ -2658,12 +2469,6 @@ astSumK t0 | FTKS shm FTKScalar <- ftkAst t0 = case t0 of
       foldr1 astPlusK l
   Ast.AstFromVector _ STKS{} l ->
       astSumK $ foldr1 astPlusS l
-  Ast.AstSum SNat _ u -> astSumK u
-  Ast.AstReplicate snat (STKS _ STKScalar) u ->
-    astTimesK (astSumK u)
-              (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
-  Ast.AstReplicate snat STKScalar u ->
-    astTimesK u (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat)
   Ast.AstLet var u v -> astLet var u (astSumK v)
   Ast.AstFromPrimal u -> fromPrimal $ astSumK u
   Ast.AstFromDual u -> fromDual $ astSumK u
@@ -2707,15 +2512,21 @@ astSumS :: forall shm shn x s. (KnownSpan s, TKAllNum x)
 astSumS ZSS t0 = t0
 astSumS shm@(snat :$$ _) t0 | FTKS shmshn x <- ftkAst t0
                             , SNat <- shsRank shm
-                            , let shn = shsDrop @(Rank shm) shmshn = case t0 of
+                            , let shn = shsDrop @(Rank shm) shmshn =
+                                gcastWith (unsafeCoerceRefl
+                                           :: Drop (Rank shm) (shm ++ shn)
+                                              :~: shn) $
+                                case t0 of
   _ | SZ <- shsProduct shmshn ->
-      gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
       let ftk = FTKS shn x
       in fromPlain $ astConcrete ftk (tdefTarget ftk)
   _ | SNat' @1 <- shsProduct shm ->
-      gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
       astIndexS shn t0 (AstConcreteK <$> ixsZero shm)
         -- astReshape slows down the CNNO test
+  _ | ZSS <- shn
+    , FTKScalar @r <- x
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
+      sfromK $ astSumK t0
   Ast.AstFromVector _ STKS{} l
     | FTKScalar @r <- x
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
@@ -2741,7 +2552,6 @@ astSumS shm@(snat :$$ _) t0 | FTKS shmshn x <- ftkAst t0
   AstConcreteS t ->
     withKnownShS shm $
     withKnownShS shn $
-    gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
     astConcreteS $ tssumN @_ @shm $ Concrete t
   Ast.AstSumS @shm2 shm2 u
     | Refl <- lemAppAssoc (Proxy @shm2) (Proxy @shm) (Proxy @shn)  ->
@@ -2755,19 +2565,14 @@ astSumS shm@(snat :$$ _) t0 | FTKS shmshn x <- ftkAst t0
       $ astScatterS shm1 shn1 (shsTail shp1) v (vars, rest)
   Ast.AstReplicateK _ u | FTKScalar @r <- x
                         , Dict0 <- numFromTKAllNum (Proxy @r) ->
-    gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
     astReplicateK shn
     $ astTimesK u (fromPlain $ AstConcreteK $ fromIntegral $ shsSize shm)
   _ | Just u <- unRepl1 t0
     , FTKScalar @r <- x
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
-      gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
       astTimesS (astSumS (shsTail shm) u)
                 (astReplicateK shn $ fromPlain $ AstConcreteK $ fromIntegral
                  $ fromSNat' snat)
-  Ast.AstIotaS n | _ :$$ ZSS <- shm ->
-    AstConcreteS $ Nested.sscalar $ fromIntegral
-    $ fromSNat' n * (fromSNat' n - 1) `div` 2
   Ast.AstAppendS u v
     | FTKScalar @r <- x
     , Dict0 <- numFromTKAllNum (Proxy @r)
@@ -2847,7 +2652,7 @@ astScatterKnobsS knobs shm@(m :$$ _) shn (p@(SNat @p) :$$ ZSS) v0
       let ftk = FTKS (z2 :$$ shn) x
       in gcastWith (unsafeCoerceRefl :: k + z2 :~: p) $
          (`astAppendS` fromPlain (astConcrete ftk (tdefTarget ftk)))
-         $ astSum i (STKS (k :$$ shn) (ftkToSTK x))
+         $ astSumS (i :$$ ZSS)
          $ astReshapeS (i :$$ k :$$ shn)
          -- This looks like we are creating a larger outcome tensor than before,
          -- but the following reduces to a nested sum of v0 with some transposes
@@ -2860,7 +2665,7 @@ astScatterKnobsS knobs shm@(m :$$ _) shn (p@(SNat @p) :$$ ZSS) v0
 --         $ astScatterKnobsS knobs shm shn (snatMul k i :$$ ZSS)
 astScatterKnobsS knobs shm shn shp@(SNat' @1 :$$ _)
                  v (vars, AstConcreteK _ :.$ rest) =  -- if OOB, covered above
-    astReplicate (SNat @1) (STKS (shsTail shp `shsAppend` shn) (stkAstX v))
+    astReplicateS (SNat @1 :$$ ZSS)
     $ astScatterKnobsS knobs shm shn (shsTail shp) v (vars, rest)
 astScatterKnobsS knobs shm shn shp (Ast.AstLet var u v) (vars, ix)
   | knobPhase knobs /= PhaseContraction =
@@ -2879,13 +2684,13 @@ astScatterKnobsS knobs ZSS _shn shp
   astScatterKnobsS knobs shm2 shn2 (shp `shsAppend` shp2)
                    v (vars, ix `ixsAppend` ix2)
 astScatterKnobsS knobs (snat@(SNat' @1) :$$ ZSS) _shn shp
-                 (Ast.AstReplicate _ (STKS _ x)
+                 (Ast.AstReplicateS (_ :$$ ZSS)
                    (Ast.AstScatterS @_ @shn2 @shp2 shm2 shn2 shp2
                                     v (vars, ix2)))
                  (var ::$ ZS, ix) =  -- oneHot1 (scatter) fusion
   gcastWith (unsafeCoerceRefl :: shp ++ shn :~: shp ++ shp2 ++ shn2) $
   astScatterKnobsS knobs (snat :$$ shm2) shn2 (shp `shsAppend` shp2)
-                   (Ast.AstReplicate snat (STKS (shm2 `shsAppend` shn2) x) v)
+                   (Ast.AstReplicateS (snat :$$ ZSS) v)
                    (var ::$ vars, ix `ixsAppend` ix2)
 astScatterKnobsS knobs (snat@(SNat' @1) :$$ ZSS) _shn shp
                  (Ast.AstReplicateS (_ :$$ ZSS)  -- TODO: generalize
@@ -2981,7 +2786,7 @@ astScatterKnobsS knobs
 -- ix2 can compare the value of var, not the tensors at index
 -- var, which are all equal due to AstReplicate.
 astScatterKnobsS knobs shm@(SNat' @1 :$$ _) shn shp
-                 v@Ast.AstReplicate{} (var ::$ vars, ix)
+                 v@Ast.AstReplicateS{} (var ::$ vars, ix)
   | var `varNameInIxS` ix =
     let ix2 = substituteAst (AstConcreteK 0) var <$> ix
     in astScatterKnobsS knobs shm shn shp v (var ::$ vars, ix2)
@@ -2992,7 +2797,7 @@ astScatterKnobsS knobs shm@(SNat' @1 :$$ _) shn shp
     let ix2 = substituteAst (AstConcreteK 0) var <$> ix
     in astScatterKnobsS knobs shm shn shp v (var ::$ vars, ix2)
 astScatterKnobsS knobs shm@(SNat' @1 :$$ ZSS) shn shp
-                 v@Ast.AstReplicate{} (vars, ix)
+                 v@Ast.AstReplicateS{} (vars, ix)
   | knobPhase knobs /= PhaseContraction =
     Ast.AstScatterS shm shn shp v (vars, ix)  -- oneHot1 NF
 astScatterKnobsS knobs shm@(SNat' @1 :$$ ZSS) shn shp
@@ -3005,12 +2810,11 @@ astScatterKnobsS knobs shm@(SNat' @1 :$$ ZSS) shn shp
 astScatterKnobsS knobs (snat :$$ shm2) shn shp v (var ::$ vars, ix)
   | not $ var `varNameInIxS` ix =  -- eliminates oneHot1
     astScatterKnobsS knobs shm2 shn shp
-      (astSum snat (STKS (shm2 `shsAppend` shn) (stkAstX v)) v)
-      (vars, ix)
+                     (astSumS (snat :$$ ZSS) v) (vars, ix)
 astScatterKnobsS knobs ZSS shn shp u (ZS, ix)  -- oneHot1 intro
   | knobPhase knobs /= PhaseContraction =
     let shm = SNat @1 :$$ ZSS
-        a = Ast.AstReplicate (SNat @1) (ftkToSTK $ ftkAst u) u
+        a = Ast.AstReplicateS (SNat @1 :$$ ZSS) u
     in funToVarsIxS shm $ \(var ::$ ZS) _ ->
          Ast.AstScatterS shm shn shp a (var ::$ ZS, ix)
 astScatterKnobsS knobs shm shn shp@(p@(SNat @p) :$$ _) v0
@@ -3212,7 +3016,7 @@ astGatherKnobsS _ _ _ _ v0 (!vars0, !_ix0)
   | Foldable.any (`varNameInAst` v0) vars0 =
     error $ "astGatherKnobsS: gather vars in v0: " ++ show (vars0, v0)
 astGatherKnobsS knobs _ shn _ v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
-astGatherKnobsS _ shm _ _ v0 (_, ZIS) = astReplicateN @shm @shn shm v0
+astGatherKnobsS _ shm _ _ v0 (_, ZIS) = astReplicateS @shm @shn shm v0
 astGatherKnobsS _ shm shn _shp v0 (_, i1 :.$ _)
   | Just (lb, ub) <- intBounds i1
 -- this doesn't work in GHC 9.10:
@@ -3223,8 +3027,8 @@ astGatherKnobsS _ shm shn _shp v0 (_, i1 :.$ _)
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astGatherKnobsS knobs shm@(k :$$ _) shn shp v0 (var1 ::$ vars1, ix0)
   | not (var1 `varNameInIxS` ix0) =
-    astReplicate k (STKS (shsTail shm `shsAppend` shn) (stkAstX v0))
-                 (astGatherKnobsS knobs (shsTail shm) shn shp v0 (vars1, ix0))
+    astReplicateS (k :$$ ZSS)
+                  (astGatherKnobsS knobs (shsTail shm) shn shp v0 (vars1, ix0))
 astGatherKnobsS knobs shm shn shp v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))
   | let ixInit = ixsInit ix0
         varInit = listsInit vars0
@@ -3417,7 +3221,6 @@ astGatherKnobsS knobs (m@(SNat @m) :$$ (shmRest :: ShS shmRest)) shn shp v0
   | varm == varm'
   , not (varm `varNameInIxS` prest)
   , i0 > 0  -- ensured by other rules; makes this easier to reason about
-  , FTKS _ x <- ftkAst v0
   , let k0 = (fromSNat' m + i0 - 1) `quot` i0 =
     withSNat i0 $ \i@(SNat @i) ->
     withSNat k0 $ \k@(SNat @k) ->
@@ -3430,7 +3233,7 @@ astGatherKnobsS knobs (m@(SNat @m) :$$ (shmRest :: ShS shmRest)) shn shp v0
          astSliceS SZ m z
          $ astReshapeS (snatMul k i :$$ shmRest `shsAppend` shn)
          $ astTransposeS perm
-         $ astReplicate i (STKS (k :$$ shmRest `shsAppend` shn) (ftkToSTK x))
+         $ astReplicateS (i :$$ ZSS)
          $ astGatherKnobsS knobs (k :$$ shmRest) shn shp
                            v0 (varm2 ::$ mrest, astVar varm2 :.$ prest)
              -- this gather may still index out of bounds, which is fine
@@ -3755,42 +3558,6 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
                           $ V.map f l)
                     (varsFresh, i5 :.$ IxS ixFresh) -}
     Ast.AstFromVector{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
-    -- This accomplishes fusion if v is a gather or anything
-    -- that gather can fuse with, but at the cost of an extra transpose
-    -- that doesn't fuse here unless astTransposeAsGatherS is used.
-    -- Since the transpose is O(1), let's leave this as is.
-    Ast.AstSum snat@(SNat @n1) STKS{} v ->
-      let perm3 = backpermCycle $ shsLength shp + 1
-          perm4 = permCycle $ shsLength shm + 1
-      in Permutation.permFromListCont perm3
-         $ \(perm3S :: Permutation.Perm perm3P) ->
-         gcastWith (unsafeCoerceRefl
-                    :: Compare (Rank perm3P) (Rank (n1 : shp ++ shn))
-                       :~: LT) $
-         gcastWith (unsafeCoerceRefl
-                    :: Permutation.PermutePrefix perm3P (n1 : (shp ++ shn))
-                       :~: shp ++ (n1 : shn)) $
-         fromMaybe (error "astGatherKnobsS: impossible non-permutation")
-         $ Permutation.permCheckPermutation perm3S
-         $ Permutation.permFromListCont perm4
-         $ \(perm4S :: Permutation.Perm perm4P) ->
-         gcastWith (unsafeCoerceRefl
-                    :: Compare (Rank perm4P) (Rank (shm ++ (n1 : shn)))
-                       :~: LT) $
-         gcastWith (unsafeCoerceRefl
-                    :: Permutation.PermutePrefix perm4P (shm ++ (n1 : shn))
-                       :~: n1 : (shm ++ shn)) $
-         fromMaybe (error "astGatherKnobsS: impossible non-permutation")
-         $ Permutation.permCheckPermutation perm4S
-         $ let innerGather =
-                 astGather shm (snat :$$ shn) shp
-                           (astTransposeS perm3S v) (vars4, ix4)
-           in astSum snat (STKS (shm `shsAppend` shn) (ftkToSTK x))
-              $ astTransposeS perm4S innerGather
-                {- TODO: disabled until we can reliably fuse back to transpose
-                if not (knobExpand knobs)
-                then astTransposeS perm4S innerGather
-                else astTransposeAsGatherS knobs perm4S innerGather -}
     Ast.AstApply{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     Ast.AstVar{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     Ast.AstCond b v w | ixIsSmall ix4 ->
@@ -3926,6 +3693,8 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
         AstConcreteK b ->
           if b then astGather shm shn shp1' v (vars4, rest4) else defArr
         _ -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
+    Ast.AstReplicateK{} -> error "astGatherKnobsS: pattern handled just above"
+    Ast.AstReplicateS{} -> error "astGatherKnobsS: pattern handled just above"
     Ast.AstGatherS @shm2 @shn2 @shp2 shm2 shn2 shp2 v2 (vars2, ix2)
                    | SNat @rank4 <- ixsRank ix4
                    , SNat @rank2 <- listsRank vars2 ->
@@ -4182,39 +3951,6 @@ astAppendS (Ast.AstReplicateK (SNat' @1 :$$ shmRest1) a1)
   astAppendS
     (astFromVector (SNat @2) (STKS shmRest1 STKScalar)
      $ V.fromList [astReplicateK shmRest1 a1, astReplicateK shmRest2 a2]) w
-
--- TODO: remove
-astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKS{} a1)
-           (Ast.AstFromVector (SNat @k2) STKS{} l2) =
-  astFromVector (SNat @(1 + k2)) stk2 $ a1 `V.cons` l2
-astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
-           (Ast.AstReplicate (SNat' @1) STKS{} a2) =
-  astFromVector (SNat @(k1 + 1)) stk2 $ l1 `V.snoc` a2
-astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKScalar a1)
-           (Ast.AstFromVector (SNat @k2) STKScalar l2) =
-  astFromVector (SNat @(1 + k2)) stk2 $ a1 `V.cons` l2
-astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKScalar l1)
-           (Ast.AstReplicate (SNat' @1) STKScalar a2) =
-  astFromVector (SNat @(k1 + 1)) stk2 $ l1 `V.snoc` a2
-astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKS{} a1)
-           (Ast.AstReplicate (SNat' @1) STKS{} a2) =
-  astFromVector (SNat @2) stk2 $ V.fromList [a1, a2]
-astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKS{} a1)
-           (Ast.AstAppendS (Ast.AstFromVector (SNat @k2) STKS{} l2) w) =
-  astAppendS (astFromVector (SNat @(1 + k2)) stk2 $ a1 `V.cons` l2) w
-astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
-           (Ast.AstAppendS (Ast.AstReplicate (SNat' @1) STKS{} a2) w) =
-  astAppendS (astFromVector (SNat @(k1 + 1)) stk2 $ l1 `V.snoc` a2) w
-astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKScalar a1)
-           (Ast.AstAppendS (Ast.AstFromVector (SNat @k2) STKScalar l2) w) =
-  astAppendS (astFromVector (SNat @(1 + k2)) stk2 $ a1 `V.cons` l2) w
-astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKScalar l1)
-           (Ast.AstAppendS (Ast.AstReplicate (SNat' @1) STKScalar a2) w) =
-  astAppendS (astFromVector (SNat @(k1 + 1)) stk2 $ l1 `V.snoc` a2) w
-astAppendS (Ast.AstReplicate (SNat' @1) stk2@STKS{} a1)
-           (Ast.AstAppendS (Ast.AstReplicate (SNat' @1) STKS{} a2) w) =
-  astAppendS (astFromVector (SNat @2) stk2 $ V.fromList [a1, a2]) w
-
 astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
   fromPrimal $ astAppendS u v
 astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
@@ -4240,14 +3976,9 @@ astSliceS SNat SNat SNat (Ast.AstFromVector _ stk@STKS{} l) =
   astFromVector (SNat @n) stk $ V.take (valueOf @n) $ V.drop (valueOf @i) l
 astSliceS SNat SNat SNat (Ast.AstFromVector _ stk@STKScalar l) =
   astFromVector (SNat @n) stk $ V.take (valueOf @n) $ V.drop (valueOf @i) l
-astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKS{} v) =
-  astReplicate (SNat @n) stk v
-astSliceS SNat SNat SNat (Ast.AstReplicate _ stk@STKScalar v) =
-  astReplicate (SNat @n) stk v
 astSliceS SZ SNat SZ v = v
-astSliceS SNat (SNat' @1) SNat v | FTKS (_ :$$ sh) x <- ftkAst v =
-  astReplicate (SNat @1) (STKS sh (ftkToSTK x))
-               (astIndexS sh v (valueOf @i :.$ ZIS))
+astSliceS SNat (SNat' @1) SNat v | FTKS (_ :$$ sh) _ <- ftkAst v =
+  astReplicateS (SNat @1 :$$ ZSS) (astIndexS sh v (valueOf @i :.$ ZIS))
 astSliceS SNat SNat SNat (Ast.AstReplicateK (_ :$$ shmRest) v) =
   astReplicateK (SNat @n :$$ shmRest) v
 astSliceS SNat SNat SNat (Ast.AstReplicateS (_ :$$ shmRest) v) =
@@ -4292,11 +4023,9 @@ astSliceS i n@SNat k (Ast.AstTransposeS
 -- TODO: does it really work only for replicate-like things in-between?
 astSliceS i n@SNat k
           (Ast.AstTransposeS perm@(SNat' @1 `PCons` SNat' @0 `PCons` PNil) t)
-  | STKS (snat :$$ _ :$$ sh3) x <- ftkToSTK $ ftkAst t
+  | STKS (snat :$$ _ :$$ _) _ <- ftkToSTK $ ftkAst t
   , Just u <- unRepl1 t =
-    astTransposeS perm
-    $ astReplicate snat (STKS (n :$$ sh3) x)
-    $ astSliceS i n k u
+    astTransposeS perm $ astReplicateS (snat :$$ ZSS) $ astSliceS i n k u
 astSliceS i n k v1 = case v1 of
   Ast.AstCond b a2 a3 -> astCond b (astSliceS i n k a2) (astSliceS i n k a3)
   Ast.AstLet var u v -> astLet var u (astSliceS i n k v)
@@ -4322,7 +4051,6 @@ astReverseS :: forall n sh s r. KnownSpan s
             -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astReverseS (Ast.AstFromVector snat stk l) =
   astFromVector snat stk $ V.reverse l
-astReverseS (Ast.AstReplicate snat stk v) = astReplicate snat stk v
 astReverseS (Ast.AstCond b a2 a3) = astCond b (astReverseS a2) (astReverseS a3)
 astReverseS (Ast.AstLet var u v) = astLet var u (astReverseS v)
 astReverseS (Ast.AstFromPrimal v) = fromPrimal $ astReverseS v
@@ -4336,11 +4064,9 @@ astReverseS (Ast.AstGatherS shm@(SNat @k :$$ _) shn shp v (var ::$ vars, ix)) =
   in astGatherS shm shn shp v (var ::$ vars, ix2)
 astReverseS (Ast.AstReverseS v) = v
 astReverseS (Ast.AstTransposeS perm@(SNat' @1 `PCons` SNat' @0 `PCons` PNil) t)
-  | STKS (snat :$$ sh2@(_ :$$ _)) x <- ftkToSTK $ ftkAst t
+  | STKS (snat :$$ (_ :$$ _)) _ <- ftkToSTK $ ftkAst t
   , Just u <- unRepl1 t =
-    astTransposeS perm
-    $ astReplicate snat (STKS sh2 x)
-    $ astReverseS u
+    astTransposeS perm $ astReplicateS (snat :$$ ZSS) $ astReverseS u
 astReverseS (AstConcreteS v) = astConcreteS (tsreverse $ Concrete v)
 astReverseS v = Ast.AstReverseS v
 
@@ -4363,7 +4089,7 @@ astTransposeS perm t =
    t
  _ | FTKS sh _ <- ftkAst t
    , Just u2 <- unReplN @_ @(DropLen perm sh) (shsTakeLen perm sh) t ->
-   astReplicateN (shsPermute perm (shsTakeLen perm sh)) u2
+   astReplicateS (shsPermute perm (shsTakeLen perm sh)) u2
  _ -> case t of
   Ast.AstFromVector snat@(SNat @n) (STKS @sh2 sh2 x) l
     | SNat' @0 `PCons` _ <- perm -> case permUnShift1 perm of
@@ -4378,21 +4104,8 @@ astTransposeS perm t =
                         :~: n : Permutation.PermutePrefix perm2 sh2)
         $ astFromVector snat (STKS (shsPermutePrefix perm2 sh2) x)
                         (V.map (astTransposeS perm2) l)
-  Ast.AstSum snat@(SNat @n) (STKS sh x) v ->
-    let zsuccP :: Permutation.Perm (0 : Permutation.MapSucc perm)
-        zsuccP = Permutation.permShift1 perm
-    in
-      gcastWith (unsafeCoerceRefl :: Rank (0 : Permutation.MapSucc perm)
-                                     :~: 1 + Rank perm) $
-      gcastWith (unsafeCoerceRefl
-                 :: Permutation.PermutePrefix
-                      (0 : Permutation.MapSucc perm) (n : sh)
-                    :~: n : Permutation.PermutePrefix perm sh) $
-      fromMaybe (error "astTransposeS: impossible non-permutation")
-      $ Permutation.permCheckPermutation zsuccP
-      $ astSum snat (STKS (shsPermutePrefix perm sh) x) $ astTransposeS zsuccP v
   _ | SNat' @0 `PCons` _ <- perm
-    , STKS ((:$$) @n @sh2 snat sh2) x <- ftkToSTK $ ftkAst t
+    , STKS ((:$$) @n @sh2 snat _) _ <- ftkToSTK $ ftkAst t
     , Just u <- unRepl1 t -> case permUnShift1 perm of
       (perm2 :: Permutation.Perm perm2) ->
         fromMaybe (error "astTransposeS: impossible non-permutation")
@@ -4403,20 +4116,7 @@ astTransposeS perm t =
         $ gcastWith (unsafeCoerceRefl
                      :: Permutation.PermutePrefix perm (n : sh2)
                         :~: n : Permutation.PermutePrefix perm2 sh2)
-        $ astReplicate snat (STKS (shsPermutePrefix perm2 sh2) x)
-                       (astTransposeS perm2 u)
-  -- This increases term size and work, so limited to size 2.
-  Ast.AstReplicate snat1@SNat _
-                   (Ast.AstFromVector snat2@(SNat' @2) stk2@STKScalar l)
-    | SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
-      astFromVector snat2 (STKS (snat1 :$$ ZSS) stk2)
-                    (V.map (astReplicate snat1 stk2) l)
-  -- TODO: generalize
-  Ast.AstReplicate snat1@SNat _
-                   (Ast.AstFromVector snat2@(SNat' @2) stk2@(STKS sh x) l)
-    | SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
-      astFromVector snat2 (STKS (snat1 :$$ sh) x)
-                    (V.map (astReplicate snat1 stk2) l)
+        $ astReplicateS (snat :$$ ZSS) (astTransposeS perm2 u)
   Ast.AstCond b u v -> astCond b (astTransposeS perm u) (astTransposeS perm v)
 
   Ast.AstLet var u v -> astLet var u (astTransposeS perm v)
@@ -4554,17 +4254,14 @@ astReshapeS :: forall sh sh2 x s. (Product sh ~ Product sh2, KnownSpan s)
             => ShS sh2 -> AstTensor AstMethodLet s (TKS2 sh x)
             -> AstTensor AstMethodLet s (TKS2 sh2 x)
 astReshapeS sh2 t = case t of
-  Ast.AstReplicate (SNat' @1) STKS{} x -> astReshapeS sh2 x
-  Ast.AstReplicateS (SNat' @1 :$$ shmRest) x ->
-    astReshapeS sh2 (astReplicateS shmRest x)
   _ | Just u <- unRepl t
-    , Refl <- lemAppNil @sh2 -> astReplicateN sh2 u
-  _ | STKS ((:$$) @_ @sh1 k _) x <- ftkToSTK $ ftkAst t
+    , Refl <- lemAppNil @sh2 -> astReplicateS sh2 u
+  _ | STKS ((:$$) @_ @sh1 k _) _ <- ftkToSTK $ ftkAst t
     , Just u <- unRepl1 t
     , (:$$) @_ @rest2 k2 rest2 <- sh2
     , Just Refl <- testEquality k k2 ->
       gcastWith (unsafeCoerceRefl :: Product rest2 :~: Product sh1) $
-      astReplicate k (STKS rest2 x) $ astReshapeS rest2 u
+      astReplicateS (k :$$ ZSS) $ astReshapeS rest2 u
   Ast.AstLet var u v -> astLet var u (astReshapeS @_ @sh2 sh2 v)
   Ast.AstFromPrimal v -> fromPrimal $ astReshapeS sh2 v
   Ast.AstFromDual v -> fromDual $ astReshapeS sh2 v
@@ -4692,7 +4389,6 @@ astConvertDownKFromS
 astConvertDownKFromS c a = case a of
   Ast.AstProject1{} -> Ast.AstConvert c a
   Ast.AstProject2{} -> Ast.AstConvert c a
-  Ast.AstSum snat (STKS ZSS STKScalar) v -> astSum snat STKScalar v
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astConvertDownKFromS c v)) ll
   Ast.AstVar{} -> Ast.AstConvert c a
@@ -4744,7 +4440,6 @@ astConvertDownKFromR
 astConvertDownKFromR c a = case a of
   Ast.AstProject1{} -> Ast.AstConvert c a
   Ast.AstProject2{} -> Ast.AstConvert c a
-  Ast.AstSum{} -> Ast.AstConvert c a  -- too complex and surely already done
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astConvertDownKFromR c v)) ll
   Ast.AstVar{} -> Ast.AstConvert c a
@@ -4767,7 +4462,6 @@ astConvertDownKFromX
 astConvertDownKFromX c a = case a of
   Ast.AstProject1{} -> Ast.AstConvert c a
   Ast.AstProject2{} -> Ast.AstConvert c a
-  Ast.AstSum{} -> Ast.AstConvert c a  -- too complex and surely already done
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astConvertDownKFromX c v)) ll
   Ast.AstVar{} -> Ast.AstConvert c a
@@ -4800,18 +4494,6 @@ astConvertDownSFromR c sh x a0 = case a0 of
       let c2 = convCmp (ConvXS' (FTKS rest x)) ConvRX
       in astFromVector snat (STKS rest xstk)
                        (V.map (astConvert c2) l)
-    _ -> error "astConvertDownSFromR: impossible shape"
-  Ast.AstSum snat@SNat (STKR @n _ xstk) a
-    | Refl <- lemRankReplicate (Proxy @(1 + n)) ->
-      let c2 = convCmp (ConvXS' (FTKS (snat :$$ sh) x)) ConvRX
-          !a2 = astConvert c2 a
-      in astSum snat (STKS sh xstk) a2
-  Ast.AstReplicate snat@SNat (STKR @n _ xstk) a -> case sh of
-    snat2@SNat :$$ rest | Just Refl <- sameNat snat snat2
-                        , Refl <- lemRankReplicate (Proxy @n) ->
-      let c2 = convCmp (ConvXS' (FTKS rest x)) ConvRX
-          !a2 = astConvert c2 a
-      in astReplicate snat (STKS rest xstk) a2
     _ -> error "astConvertDownSFromR: impossible shape"
   Ast.AstApply{} -> Ast.AstConvert c a0
   Ast.AstVar{} -> Ast.AstConvert c a0
@@ -4848,18 +4530,6 @@ astConvertDownSFromX c sh x a0 = case a0 of
       let c2 = ConvXS' (FTKS rest x)
       in astFromVector snat (STKS rest xstk)
                        (V.map (astConvert c2) l)
-    _ -> error "astConvertDownSFromX: impossible shape"
-  Ast.AstSum snat@SNat (STKX _ xstk) a ->
-      let c2 = ConvXS' (FTKS (snat :$$ sh) x)
-          !a2 = astConvert c2 a
-      in astSum snat (STKS sh xstk) a2
-  Ast.AstReplicate snat@SNat (STKX @shx2 _ xstk) a -> case sh of
-    (:$$) @_ @rest snat2@SNat rest | Just Refl <- sameNat snat snat2 ->
-      -- This is needed only for GHC 9.10.
-      gcastWith (unsafeCoerceRefl :: Rank rest :~: Rank shx2) $
-      let c2 = ConvXS' (FTKS rest x)
-          !a2 = astConvert c2 a
-      in astReplicate snat (STKS rest xstk) a2
     _ -> error "astConvertDownSFromX: impossible shape"
   Ast.AstApply{} -> Ast.AstConvert c a0
   Ast.AstVar{} -> Ast.AstConvert c a0
@@ -4959,9 +4629,9 @@ astSumKContract t0 = case t0 of
   Ast.AstDot1InS _ _ t1 t2 -> astDot0 t1 t2
   Ast.AstMatmul2S m@SNat SNat p@SNat m1 m2 ->
     astDot0 (astTransposeS (Permutation.makePerm @'[1, 0])
-                           (astReplicate p knownSTK m1))
+                           (astReplicateS (p :$$ ZSS) m1))
             (astTransposeS (Permutation.makePerm @'[0, 2, 1])
-                           (astReplicate m knownSTK m2))
+                           (astReplicateS (m :$$ ZSS) m2))
   _ -> astSumK t0
 
 astDot0 :: (NumScalar r, KnownSpan s)
@@ -4969,23 +4639,10 @@ astDot0 :: (NumScalar r, KnownSpan s)
          -> AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKScalar r)
 astDot0 t1 t2 = case (t1, t2) of
-  (Ast.AstSum snat1 _ u1, Ast.AstSum snat2 _ u2)
-    | Just Refl <- testEquality snat1 snat2 ->
-      astDot0 u1 u2
   _ | Just u1 <- unRepl t1 ->
       kfromS u1 `astTimesK` astSumKContract t2
   _ | Just u2 <- unRepl t2 ->
       kfromS u2 `astTimesK` astSumKContract t1
-  ( Ast.AstReplicate snat1 (STKS _ STKScalar) u1
-   ,Ast.AstReplicate snat2 (STKS _ STKScalar) u2 )
-    | Just Refl <- testEquality snat1 snat2 ->
-      astTimesK (astDot0 u1 u2)
-                (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat1)
-  ( Ast.AstReplicate snat1 STKScalar u1
-   , Ast.AstReplicate snat2 STKScalar u2 )
-    | Just Refl <- testEquality snat1 snat2 ->
-      u1 `astTimesK` u2
-      `astTimesK` (fromPlain $ AstConcreteK $ fromIntegral $ fromSNat' snat1)
   _ | FTKS (snat :$$ _) _ <- ftkAst t1
     , Just u1 <- unRepl1 t1
     , Just u2 <- unRepl1 t2 ->
@@ -5002,6 +4659,7 @@ astDot0 t1 t2 = case (t1, t2) of
          , Just v0 <- unAstS v ->
     withKnownShS (Nested.sshape u0) $
     fromPlain $ astConcreteK $ tsdot0 (Concrete u0) (Concrete v0)
+  -- TODO: instead take the longest common prefix (sufix?) of shm1 and shm2:
   (Ast.AstSumS shm1 u1, Ast.AstSumS shm2 u2)
     | Just Refl <- testEquality shm1 shm2 ->
       astDot0 u1 u2
@@ -5026,9 +4684,6 @@ astDot1InS :: forall sh n r s. (NumScalar r, KnownSpan s)
            -> AstTensor AstMethodLet s (TKS (sh ++ '[n]) r)
            -> AstTensor AstMethodLet s (TKS sh r)
 astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
-  (Ast.AstSum snat1 _ u1, Ast.AstSum snat2 _ u2)
-    | Just Refl <- testEquality snat1 snat2 ->
-      astSum snat1 (STKS sh STKScalar) $ astDot1InS (snat1 :$$ sh) n u1 u2
   (Ast.AstFromPrimal u1, Ast.AstFromPrimal u2) ->
     fromPrimal $ astDot1InS sh n u1 u2
   (Ast.AstFromDual u1, Ast.AstFromDual u2) ->
@@ -5036,6 +4691,7 @@ astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
   (Ast.AstFromPlain u1, Ast.AstFromPlain u2) ->
     fromPlain $ astDot1InS sh n u1 u2
   (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot1InS sh n u1 u2
+  -- TODO: instead take the longest common prefix (sufix?) of shm1 and shm2:
   (Ast.AstSumS @shm1 @shn1 shm1 u1, Ast.AstSumS shm2 u2)
     | Just Refl <- testEquality shm1 shm2 ->
       gcastWith (unsafeCoerceRefl :: shm1 ++ sh ++ '[n] :~: shm1 ++ shn1) $
@@ -5048,15 +4704,9 @@ astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
   _ -> case sh of
     ZSS -> sfromK $ astDot0 t1 t2
     snat :$$ shRest -> case (t1, t2) of
-      ( Ast.AstReplicate _ (STKS _ x) u1
-       ,Ast.AstReplicate _ (STKS _ _) u2 ) ->
-        Ast.AstReplicate snat (STKS shRest x)
-        $ astDot1InS shRest n u1 u2
-      _ | FTKS _ x <- ftkAst t1
-        , Just u1 <- unRepl1 t1
+      _ | Just u1 <- unRepl1 t1
         , Just u2 <- unRepl1 t2 ->
-          Ast.AstReplicate snat (STKS shRest (ftkToSTK x))
-          $ astDot1InS shRest n u1 u2
+          astReplicateS (snat :$$ ZSS) $ astDot1InS shRest n u1 u2
       (Ast.AstReverseS u1, Ast.AstReverseS u2) ->
         astReverseS $ astDot1InS sh n u1 u2
       _ -> Ast.AstDot1InS sh n t1 t2
@@ -5537,30 +5187,9 @@ astLetRefresh var u v f =
   withKnownSpan (varNameToSpan var) $
   astLetFun u $ \ !ast1 -> f (substituteAst ast1 var v)
 
-astReplicateN :: forall shn shp x s. KnownSpan s
-              => ShS shn -> AstTensor AstMethodLet s (TKS2 shp x)
-              -> AstTensor AstMethodLet s (TKS2 (shn ++ shp) x)
-astReplicateN shn v | STKS shp x <- ftkToSTK (ftkAst v) =
-  let go :: ShS shn2 -> AstTensor AstMethodLet s (TKS2 (shn2 ++ shp) x)
-      go ZSS = v
-      go (snat :$$ shn3) =
-        astReplicate snat (STKS (shn3 `shsAppend` shp) x) $ go shn3
-  in go shn
-
-astReplicate0NS :: forall shn x s. KnownSpan s
-                => ShS shn -> AstTensor AstMethodLet s (TKS2 '[] x)
-                -> AstTensor AstMethodLet s (TKS2 shn x)
-astReplicate0NS shn v | STKS _ x <- ftkToSTK (ftkAst v) =
-  let go :: ShS shn2 -> AstTensor AstMethodLet s (TKS2 shn2 x)
-      go ZSS = v
-      go (snat :$$ shn3) = astReplicate snat (STKS shn3 x) $ go shn3
-  in go shn
-
 unRepl1 :: forall n sh x s. KnownSpan s
         => AstTensor AstMethodLet s (TKS2 (n ': sh) x)
         -> Maybe (AstTensor AstMethodLet s (TKS2 sh x))
-unRepl1 (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
-unRepl1 (Ast.AstReplicate _ STKS{} u) = Just u
 unRepl1 (Ast.AstLet var u t) =
   Ast.AstLet var u <$> unRepl1 t  -- we may be before inlining
 unRepl1 (Ast.AstPrimalPart t) = astPrimalPart <$> unRepl1 t
@@ -5581,9 +5210,6 @@ unRepl :: forall sh x s. KnownSpan s
 -- This is too costly and not needed in all the places where unRepl is used,
 -- hence the restriction to different result and argument:
 -- unRepl t | FTKS ZSS _ <- ftkAst t = Just t
-unRepl (Ast.AstReplicate _ (STKS ZSS _) u) = Just u
-unRepl (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
-unRepl (Ast.AstReplicate _ STKS{} u) = unRepl u
 unRepl (Ast.AstLet var u t) = Ast.AstLet var u <$> unRepl t
 unRepl (Ast.AstPrimalPart t) = astPrimalPart <$> unRepl t
 unRepl (Ast.AstDualPart t) = astDualPart <$> unRepl t
@@ -5602,8 +5228,6 @@ unReplN :: forall shm shn x s. KnownSpan s
         => ShS shm -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
         -> Maybe (AstTensor AstMethodLet s (TKS2 shn x))
 unReplN ZSS a = Just a
-unReplN (_ :$$ ZSS) (Ast.AstReplicate _ STKScalar u) = Just $ sfromK u
-unReplN (_ :$$ sh) (Ast.AstReplicate _ STKS{} u) = unReplN sh u
 unReplN (_ :$$ sh) (Ast.AstReplicateK (_ :$$ shmRest) u) =
   unReplN sh (astReplicateK shmRest u)
 unReplN (_ :$$ sh) (Ast.AstReplicateS (_ :$$ shmRest) u) =
@@ -5668,8 +5292,6 @@ substitute1Ast i var = subst where
     in if V.any isJust margs
        then Just $ astFromVector snat stk $ V.zipWith fromMaybe args margs
        else Nothing
-  Ast.AstSum snat stk v -> astSum snat stk <$> subst v
-  Ast.AstReplicate snat stk v -> astReplicate snat stk <$> subst v
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
       case ( substitute1AstHFun i var f, substitute1AstHFun i var df
            , substitute1AstHFun i var rf, subst acc0

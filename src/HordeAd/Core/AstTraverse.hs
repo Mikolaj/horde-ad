@@ -70,8 +70,6 @@ expandAst t = case t of
   Ast.AstProject1 v -> astProject1 (expandAst v)
   Ast.AstProject2 v -> astProject2 (expandAst v)
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map expandAst l)
-  Ast.AstSum snat stk v -> astSum snat stk (expandAst v)
-  Ast.AstReplicate snat stk v -> astReplicate snat stk (expandAst v)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     astMapAccumLDer k bftk eftk
                     (expandAstHFun f)
@@ -230,8 +228,6 @@ simplifyAst t = case t of
   Ast.AstProject1 v -> astProject1 (simplifyAst v)
   Ast.AstProject2 v -> astProject2 (simplifyAst v)
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map simplifyAst l)
-  Ast.AstSum snat stk v -> astSum snat stk (simplifyAst v)
-  Ast.AstReplicate snat stk v -> astReplicate snat stk (simplifyAst v)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     astMapAccumLDer k bftk eftk
                     (simplifyAstHFun f)
@@ -351,238 +347,6 @@ contractAst t0 = case t0 of
   Ast.AstProject1 v -> astProject1 (contractAst v)
   Ast.AstProject2 v -> astProject2 (contractAst v)
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map contractAst l)
-  Ast.AstSum _ (STKScalar @r) t2 | Dict0 <- numFromTKAllNum (Proxy @r) ->
-    astSumKContract (contractAst t2)
-  Ast.AstSum
-    snat@(SNat @m2)
-    stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar)
-    v@(AstTimesS (Ast.AstTransposeS @permt permt
-                    (Ast.AstReplicate (SNat @kt) (STKS @sht _ _) t2))
-                 (Ast.AstTransposeS @permu permu
-                    (Ast.AstReplicate (SNat @ku) (STKS @shu _ _) u2))) ->
-    let perm10 = Permutation.makePerm @'[1, 0]
-    in fromMaybe (astSum snat stk (contractAst v))
-       $ case (permt, permu) of
-      ( SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permt (kt ': sht)
-                      :~: [m2, n2, p2]) $
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permu (ku ': shu)
-                      :~: [m2, n2, p2]) $
-        -- Sadly, the casts below, though implied by the permutations
-        -- (as redundantly spelled out by the casts above) are required
-        -- to make it type-check and they easily mask bugs, too.
-        -- In the result, this is as type-unsafe as ranked code would be.
-        gcastWith (unsafeCoerceRefl :: sht :~: [n2, m2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [m2, p2]) $
-        attemptMatmul2 t2 u2
-      ( SNat' @1 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [m2, p2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [n2, m2]) $
-        attemptMatmul2 u2 t2
-      ( SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @2 `PCons` SNat' @0 `PCons` SNat' @1 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [n2, m2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [p2, m2]) $
-        attemptMatmul2 t2 (astTransposeS perm10 u2)
-      ( SNat' @2 `PCons` SNat' @0 `PCons` SNat' @1 `PCons` PNil
-       ,SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [p2, m2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [n2, m2]) $
-        attemptMatmul2 u2 (astTransposeS perm10 t2)
-      ( SNat' @1 `PCons` SNat' @2 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [m2, n2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [m2, p2]) $
-        attemptMatmul2 (astTransposeS perm10 t2) u2
-      ( SNat' @1 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @1 `PCons` SNat' @2 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [m2, p2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [m2, n2]) $
-        attemptMatmul2 (astTransposeS perm10 u2) t2
-      ( SNat' @1 `PCons` SNat' @2 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @2 `PCons` SNat' @0 `PCons` SNat' @1 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [m2, n2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [p2, m2]) $
-        attemptMatmul2 (astTransposeS perm10 t2)
-                       (astTransposeS perm10 u2)
-      ( SNat' @2 `PCons` SNat' @0 `PCons` SNat' @1 `PCons` PNil
-       ,SNat' @1 `PCons` SNat' @2 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [p2, m2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [m2, n2]) $
-        attemptMatmul2 (astTransposeS perm10 u2)
-                       (astTransposeS perm10 t2)
-      _ -> Nothing
-  Ast.AstSum
-    snat@(SNat @m2)
-    stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar)
-    v@(AstTimesS (Ast.AstFromPlain
-                    (Ast.AstTransposeS @permt permt
-                      (Ast.AstReplicate (SNat @kt) (STKS @sht _ _) t2')))
-                 (Ast.AstTransposeS @permu permu
-                    (Ast.AstReplicate (SNat @ku) (STKS @shu _ _) u2))) ->
-    let perm10 = Permutation.makePerm @'[1, 0]
-        t2 = fromPlain @s t2'
-    in fromMaybe (astSum snat stk (contractAst v))
-       $ case (permt, permu) of
-      ( SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permt (kt ': sht)
-                      :~: [m2, n2, p2]) $
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permu (ku ': shu)
-                      :~: [m2, n2, p2]) $
-        -- Sadly, the casts below, though implied by the permutations
-        -- (as redundantly spelled out by the casts above) are required
-        -- to make it type-check and they easily mask bugs, too.
-        -- In the result, this is as type-unsafe as ranked code would be.
-        gcastWith (unsafeCoerceRefl :: sht :~: [n2, m2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [m2, p2]) $
-        attemptMatmul2 t2 u2
-      ( SNat' @1 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [m2, p2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [n2, m2]) $
-        attemptMatmul2 u2 t2
-      ( SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @2 `PCons` SNat' @0 `PCons` SNat' @1 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [n2, m2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [p2, m2]) $
-        attemptMatmul2 t2 (astTransposeS perm10 u2)
-      ( SNat' @2 `PCons` SNat' @0 `PCons` SNat' @1 `PCons` PNil
-       ,SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [p2, m2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [n2, m2]) $
-        attemptMatmul2 u2 (astTransposeS perm10 t2)
-      ( SNat' @1 `PCons` SNat' @2 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [m2, n2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [m2, p2]) $
-        attemptMatmul2 (astTransposeS perm10 t2) u2
-      ( SNat' @1 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @1 `PCons` SNat' @2 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [m2, p2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [m2, n2]) $
-        attemptMatmul2 (astTransposeS perm10 u2) t2
-      ( SNat' @1 `PCons` SNat' @2 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @2 `PCons` SNat' @0 `PCons` SNat' @1 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [m2, n2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [p2, m2]) $
-        attemptMatmul2 (astTransposeS perm10 t2)
-                       (astTransposeS perm10 u2)
-      ( SNat' @2 `PCons` SNat' @0 `PCons` SNat' @1 `PCons` PNil
-       ,SNat' @1 `PCons` SNat' @2 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [p2, m2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [m2, n2]) $
-        attemptMatmul2 (astTransposeS perm10 u2)
-                       (astTransposeS perm10 t2)
-      _ -> Nothing
-  Ast.AstSum
-    snat@(SNat @m2)
-    stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar)
-    v@(AstTimesS (Ast.AstTransposeS @permt permt
-                    (Ast.AstReplicate (SNat @kt) (STKS @sht _ _) t2))
-                 (Ast.AstFromPlain
-                    (Ast.AstTransposeS @permu permu
-                      (Ast.AstReplicate (SNat @ku) (STKS @shu _ _) u2')))) ->
-    let perm10 = Permutation.makePerm @'[1, 0]
-        u2 = fromPlain @s u2'
-    in fromMaybe (astSum snat stk (contractAst v))
-       $ case (permt, permu) of
-      ( SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permt (kt ': sht)
-                      :~: [m2, n2, p2]) $
-        gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permu (ku ': shu)
-                      :~: [m2, n2, p2]) $
-        -- Sadly, the casts below, though implied by the permutations
-        -- (as redundantly spelled out by the casts above) are required
-        -- to make it type-check and they easily mask bugs, too.
-        -- In the result, this is as type-unsafe as ranked code would be.
-        gcastWith (unsafeCoerceRefl :: sht :~: [n2, m2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [m2, p2]) $
-        attemptMatmul2 t2 u2
-      ( SNat' @1 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [m2, p2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [n2, m2]) $
-        attemptMatmul2 u2 t2
-      ( SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @2 `PCons` SNat' @0 `PCons` SNat' @1 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [n2, m2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [p2, m2]) $
-        attemptMatmul2 t2 (astTransposeS perm10 u2)
-      ( SNat' @2 `PCons` SNat' @0 `PCons` SNat' @1 `PCons` PNil
-       ,SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [p2, m2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [n2, m2]) $
-        attemptMatmul2 u2 (astTransposeS perm10 t2)
-      ( SNat' @1 `PCons` SNat' @2 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [m2, n2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [m2, p2]) $
-        attemptMatmul2 (astTransposeS perm10 t2) u2
-      ( SNat' @1 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @1 `PCons` SNat' @2 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [m2, p2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [m2, n2]) $
-        attemptMatmul2 (astTransposeS perm10 u2) t2
-      ( SNat' @1 `PCons` SNat' @2 `PCons` SNat' @0 `PCons` PNil
-       ,SNat' @2 `PCons` SNat' @0 `PCons` SNat' @1 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [m2, n2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [p2, m2]) $
-        attemptMatmul2 (astTransposeS perm10 t2)
-                       (astTransposeS perm10 u2)
-      ( SNat' @2 `PCons` SNat' @0 `PCons` SNat' @1 `PCons` PNil
-       ,SNat' @1 `PCons` SNat' @2 `PCons` SNat' @0 `PCons` PNil ) ->
-        gcastWith (unsafeCoerceRefl :: sht :~: [p2, m2]) $
-        gcastWith (unsafeCoerceRefl :: shu :~: [m2, n2]) $
-        attemptMatmul2 (astTransposeS perm10 u2)
-                       (astTransposeS perm10 t2)
-      _ -> Nothing
-  Ast.AstSum n@(SNat @n) (STKS @sh sh _) (AstTimesS t2 u) ->
-    let cpermR = backpermCycle $ 1 + shsLength sh
-    in Permutation.permFromListCont cpermR $ \(cperm
-                                               :: Permutation.Perm cperm) ->
-         gcastWith (unsafeCoerceRefl :: Rank cperm :~: Rank (n : sh)) $
-         gcastWith (unsafeCoerceRefl
-                    :: Permutation.PermutePrefix cperm (n : sh)
-                       :~: sh ++ '[n]) $
-         fromMaybe (error "contractAst: impossible non-permutation")
-         $ Permutation.permCheckPermutation cperm
-         $ astDot1InS sh n (contractAst $ Ast.AstTransposeS cperm t2)
-                           (contractAst $ Ast.AstTransposeS cperm u)
-  Ast.AstSum snat stk (AstTimesS (Ast.AstLet vart vt t2) u) ->
-    astLetRefresh
-      vart
-      (withKnownSpan (varNameToSpan vart) $ contractAst vt)
-      t2
-      $ \t2' ->
-        contractAst $ Ast.AstSum snat stk  -- the crucial exposed redex
-                                 (AstTimesS t2' u)
-  Ast.AstSum snat stk (AstTimesS t2 (Ast.AstLet varu vu u)) ->
-    astLetRefresh
-      varu
-      (withKnownSpan (varNameToSpan varu) $ contractAst vu)
-      u
-      $ \u' -> contractAst $ Ast.AstSum snat stk (AstTimesS t2 u')
-  Ast.AstSum snat stk (Ast.AstLet var v t2) ->
-    astLet var (withKnownSpan (varNameToSpan var) $ contractAst v)
-               (contractAst (Ast.AstSum snat stk t2))
-  Ast.AstSum snat stk (Ast.AstSum snat2 stk2 (Ast.AstLet var v t2)) ->
-    astLetRefresh
-      var
-      (withKnownSpan (varNameToSpan var) $ contractAst v)
-      t2
-      $ \t2' -> contractAst (Ast.AstSum snat stk (Ast.AstSum snat2 stk2 t2'))
-  Ast.AstSum snat stk v -> astSum snat stk (contractAst v)
-  Ast.AstReplicate snat stk v -> astReplicate snat stk (contractAst v)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     astMapAccumLDer k bftk eftk
                     (contractAstHFun f)
@@ -596,7 +360,7 @@ contractAst t0 = case t0 of
     astCond (contractAst b) (contractAst a2) (contractAst a3)
   -- These are only needed for tests that don't vectorize Ast.
   Ast.AstBuild1 snat stk@(STKS ZSS _)  -- generalize
-                (var, v@(Ast.AstSum n _
+                (var, v@(Ast.AstSumS (n :$$ ZSS)
                            (AstTimesS
                               t2
                               (Ast.AstIndexS @shm @shn _shn
@@ -609,18 +373,18 @@ contractAst t0 = case t0 of
         snat2 :$$ _ | Just Refl <- testEquality snat snat2 ->
           astDot1InS (snat :$$ ZSS) n
                      (contractAst u)
-                     (contractAst $ Ast.AstReplicate snat (ftkToSTK (ftkAst t2)) t2)
+                     (contractAst $ Ast.AstReplicateS (snat :$$ ZSS) t2)
         _ ->
           let !v2 = contractAst v
           in Ast.AstBuild1 snat stk (var, v2)
   Ast.AstBuild1 snat stk@(STKS ZSS _)
-                (var, v@(Ast.AstSum _ _
+                (var, v@(Ast.AstSumS (n :$$ ZSS)
                            (Ast.AstReshapeS
                               _sh (AstTimesS
                                       t2
                                      (Ast.AstIndexS @shm @shn _shn
                                         u (ix@(AstIntVar var2 :.$ ZIS)))))))
-    | ftk2@(FTKS (n :$$ ZSS) _) <- ftkAst t2
+    | (FTKS (_ :$$ ZSS) _) <- ftkAst t2
     , var == var2
     , not (varNameInAst var t2), not (varNameInAst var u)
     , FTKS shmshn _ <- ftkAst u ->
@@ -629,7 +393,7 @@ contractAst t0 = case t0 of
         snat2 :$$ _ | Just Refl <- testEquality snat snat2 ->
           astDot1InS (snat :$$ ZSS) n
                      (contractAst u)
-                     (contractAst $ Ast.AstReplicate snat (ftkToSTK ftk2) t2)
+                     (contractAst $ Ast.AstReplicateS (snat :$$ ZSS) t2)
         _ ->
           let !v2 = contractAst v
           in Ast.AstBuild1 snat stk (var, v2)
@@ -696,9 +460,9 @@ contractAst t0 = case t0 of
   Ast.AstSumS
     (snat@(SNat @m2) :$$ ZSS)
     v@(AstTimesS (Ast.AstTransposeS @permt permt
-                    (Ast.AstReplicate (SNat @kt) (STKS @sht _ _) t2))
+                    (Ast.AstReplicateS @_ @sht (SNat @kt :$$ ZSS) t2))
                  (Ast.AstTransposeS @permu permu
-                    (Ast.AstReplicate (SNat @ku) (STKS @shu _ _) u2)))
+                    (Ast.AstReplicateS @_ @shu (SNat @ku :$$ ZSS) u2)))
     | STKS (_ :$$ SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar
         <- ftkToSTK (ftkAst v) ->
     let perm10 = Permutation.makePerm @'[1, 0]
@@ -761,9 +525,9 @@ contractAst t0 = case t0 of
     (snat@(SNat @m2) :$$ ZSS)
     v@(AstTimesS (Ast.AstFromPlain
                     (Ast.AstTransposeS @permt permt
-                      (Ast.AstReplicate (SNat @kt) (STKS @sht _ _) t2')))
+                      (Ast.AstReplicateS @_ @sht (SNat @kt :$$ ZSS) t2')))
                  (Ast.AstTransposeS @permu permu
-                    (Ast.AstReplicate (SNat @ku) (STKS @shu _ _) u2)))
+                    (Ast.AstReplicateS @_ @shu (SNat @ku :$$ ZSS) u2)))
     | STKS (_ :$$ SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar
       <- ftkToSTK (ftkAst v) ->
     let perm10 = Permutation.makePerm @'[1, 0]
@@ -826,10 +590,10 @@ contractAst t0 = case t0 of
   Ast.AstSumS
     (snat@(SNat @m2) :$$ ZSS)
     v@(AstTimesS (Ast.AstTransposeS @permt permt
-                    (Ast.AstReplicate (SNat @kt) (STKS @sht _ _) t2))
+                    (Ast.AstReplicateS @_ @sht (SNat @kt :$$ ZSS) t2))
                  (Ast.AstFromPlain
                     (Ast.AstTransposeS @permu permu
-                      (Ast.AstReplicate (SNat @ku) (STKS @shu _ _) u2'))))
+                      (Ast.AstReplicateS @_ @shu (SNat @ku :$$ ZSS) u2'))))
     | STKS (_ :$$ SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar
       <- ftkToSTK (ftkAst v) ->
     let perm10 = Permutation.makePerm @'[1, 0]
@@ -1040,8 +804,6 @@ letDownAst t = case t of
   Ast.AstProject2 v -> Ast.AstProject2 (letDownAst v)
   Ast.AstFromVector snat stk l ->
     Ast.AstFromVector snat stk (V.map letDownAst l)
-  Ast.AstSum snat stk v -> Ast.AstSum snat stk (letDownAst v)
-  Ast.AstReplicate snat stk v -> Ast.AstReplicate snat stk (letDownAst v)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     Ast.AstMapAccumLDer k bftk eftk
                         (letDownAstHFun f)

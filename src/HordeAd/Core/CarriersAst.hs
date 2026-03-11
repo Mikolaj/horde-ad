@@ -143,8 +143,6 @@ sunReplicateN _ _ = Nothing
 
 unReplC :: forall sh x s ms.
            AstTensor ms s (TKS2 sh x) -> Maybe (RepConcrete x)
-unReplC (AstReplicate _ STKScalar a) = unAstK a
-unReplC (AstReplicate _ STKS{} u) = unReplC u
 unReplC (AstReplicateK _ a) = unAstK a
 unReplC (AstReplicateS _ u) = unReplC u
 unReplC (AstLet _ _ t) = unReplC t  -- we may be before inlining
@@ -176,8 +174,6 @@ unAstK _ = Nothing
 unAstS :: forall sh x s ms.
           AstTensor ms s (TKS2 sh x)
        -> Maybe (Nested.Shaped sh (RepConcrete x))
-unAstS (AstReplicate snat (STKS _ x) u) | Dict <- eltDictRep x =
-  Nested.sreplicate (snat :$$ ZSS) <$> unAstS u
 unAstS (AstReplicateS shm u) | Dict <- eltDictRep (stkAstX u) =
   Nested.sreplicate shm <$> unAstS u
 unAstS (AstLet _ _ t) = unAstS t
@@ -214,12 +210,6 @@ eqZ (AstPair u1 v1) (AstPair u2 v2)
   , Just Refl <- eqZ v1 v2 = Just Refl
 eqZ (AstProject1 u1) (AstProject1 u2) | Just Refl <- eqZ u1 u2 = Just Refl
 eqZ (AstProject2 u1) (AstProject2 u2) | Just Refl <- eqZ u1 u2 = Just Refl
-eqZ (AstSum _ stk1 u1) (AstSum _ stk2 u2)
-  | Just Refl <- sameSTK stk1 stk2
-  , Just Refl <- eqZ u1 u2 = Just Refl
-eqZ (AstReplicate k1 _ u1) (AstReplicate k2 _ u2)
-  | Just Refl <- testEquality k1 k2
-  , Just Refl <- eqZ u1 u2 = Just Refl
 eqZ (AstVar u1) (AstVar u2)
   | varNameToAstVarId u1 == varNameToAstVarId u2
   , Just Refl <- matchingFTK (varNameToFTK u1) (varNameToFTK u2) = Just Refl

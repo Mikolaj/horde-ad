@@ -79,9 +79,6 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
   AstFromVector snat stk l ->
     let l2 = V.map (interpretAst env) l
     in tfromVector snat stk l2
-  AstSum snat stk v -> tsum snat stk $ interpretAst env v
-  AstReplicate snat stk v ->
-    treplicate snat stk (interpretAst env v)
   AstMapAccumLDer k bftk eftk f0 df0 rf0 acc0 es ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0

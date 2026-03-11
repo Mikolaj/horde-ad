@@ -405,14 +405,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
                    SNat k -> SingletonTK y
                 -> Data.Vector.Vector (AstTensor ms s y)
                 -> AstTensor ms s (BuildTensorKind k y)
-  AstSum :: forall y k ms s. TKAllNum y
-         => SNat k -> SingletonTK y
-         -> AstTensor ms s (BuildTensorKind k y)
-         -> AstTensor ms s y
-  AstReplicate :: forall y k ms s.
-                  SNat k -> SingletonTK y
-               -> AstTensor ms s y
-               -> AstTensor ms s (BuildTensorKind k y)
   AstMapAccumLDer
     :: forall accy by ey k ms s.
        SNat k

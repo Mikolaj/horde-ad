@@ -1359,10 +1359,7 @@ testCNNOPP3 :: Assertion
 testCNNOPP3 = do
   resetVarCounter
   let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
-      blackGlyph = AstFromPrimal $ AstReplicate (SNat @3) knownSTK
-                   $ AstReplicate (SNat @3) knownSTK
-                   $ AstReplicate (SNat @3) knownSTK
-                   $ AstReplicate (SNat @3) knownSTK
+      blackGlyph = AstFromPrimal $ rreplicateN (3 :$: 3 :$: 3 :$: 3 :$: ZSR)
                        (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
@@ -1435,10 +1432,7 @@ testCNNOPP4 :: Assertion
 testCNNOPP4 = do
   resetVarCounter
   let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
-      blackGlyph = AstFromPrimal $ AstReplicate (SNat @3) knownSTK
-                   $ AstReplicate (SNat @3) knownSTK
-                   $ AstReplicate (SNat @3) knownSTK
-                   $ AstReplicate (SNat @3) knownSTK
+      blackGlyph = AstFromPrimal $ rreplicateN (3 :$: 3 :$: 3 :$: 3 :$: ZSR)
                        (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
@@ -1472,10 +1466,7 @@ testCNNOPP5 :: Assertion
 testCNNOPP5 = do
   resetVarCounter
   let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
-      blackGlyph = AstFromPrimal $ AstReplicate (SNat @6) knownSTK
-                   $ AstReplicate (SNat @6) knownSTK
-                   $ AstReplicate (SNat @6) knownSTK
-                   $ AstReplicate (SNat @6) knownSTK
+      blackGlyph = AstFromPrimal $ rreplicateN (6 :$: 6 :$: 6 :$: 6 :$: ZSR)
                        (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
@@ -1534,10 +1525,7 @@ testCNNOPP6 :: Assertion
 testCNNOPP6 = do
   resetVarCounter
   let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
-      blackGlyph = AstFromPrimal $ AstReplicate (SNat @2) knownSTK
-                   $ AstReplicate (SNat @2) knownSTK
-                   $ AstReplicate (SNat @2) knownSTK
-                   $ AstReplicate (SNat @2) knownSTK
+      blackGlyph = AstFromPrimal $ rreplicateN (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
                        (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
@@ -1575,10 +1563,7 @@ testCNNOPP7 :: Assertion
 testCNNOPP7 = do
   resetVarCounter
   let blackGlyph :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
-      blackGlyph = AstFromPrimal $ AstReplicate (SNat @2) knownSTK
-                   $ AstReplicate (SNat @2) knownSTK
-                   $ AstReplicate (SNat @2) knownSTK
-                   $ AstReplicate (SNat @2) knownSTK
+      blackGlyph = AstFromPrimal $ rreplicateN (2 :$: 2 :$: 2 :$: 2 :$: ZSR)
                        (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
