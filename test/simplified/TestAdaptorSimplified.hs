@@ -1470,7 +1470,8 @@ testDot2PP = do
   printArtifactPretty (simplifyArtifactRev artifactRev)
     @?= "\\dret m1 -> tconvert (ConvT2 (ConvCmp (ConvXR STKScalar) ConvSX) (ConvCmp (ConvXR STKScalar) ConvSX)) (STKProduct (STKS [2,3] STKScalar) (STKS [2,3] STKScalar)) (tpair (sfromR (tproject2 m1) * sreplicate @2 (sreplicate @3 dret)) (sfromR (tproject1 m1) * sreplicate @2 (sreplicate @3 dret)))"
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\m1 -> sdot0 (sfromR (tproject1 m1)) (sfromR (tproject2 m1))"
+    @?= "\\m1 -> ssum0 (sfromR (tproject1 m1) * sfromR (tproject2 m1))"
+      -- TODO: was once "\\m1 -> sdot0 (sfromR (tproject1 m1)) (sfromR (tproject2 m1))"
 
 testMatvecmulPP :: Assertion
 testMatvecmulPP = do

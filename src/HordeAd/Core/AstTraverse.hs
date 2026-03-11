@@ -352,7 +352,7 @@ contractAst t0 = case t0 of
   Ast.AstProject2 v -> astProject2 (contractAst v)
   Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map contractAst l)
   Ast.AstSum _ (STKScalar @r) t2 | Dict0 <- numFromTKAllNum (Proxy @r) ->
-    astSumK (contractAst t2)
+    astSumKContract (contractAst t2)
   Ast.AstSum
     snat@(SNat @m2)
     stk@(STKS (SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar)
@@ -699,7 +699,7 @@ contractAst t0 = case t0 of
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                    shn (contractAst v) (contractAstIxS ix)
 
-  Ast.AstSumK v -> astSumK $ contractAst v
+  Ast.AstSumK v -> astSumKContract $ contractAst v
   Ast.AstSumS shm v -> astSumS shm $ contractAst v
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterKnobsS (defaultKnobs {knobPhase = PhaseContraction})

@@ -41,7 +41,7 @@ module HordeAd.Core.AstSimplify
   , astConvert
   , astConvDownSFromR, astConvDownSFromX, astConvUpRFromS, astConvUpXFromS
 
-  , astDot0, astDot1InS, astMatmul2S
+  , astSumKContract, astDot0, astDot1InS, astMatmul2S
 
   , astBoolNotK, astBoolNotS, astBoolAndK, astBoolAndS, astLeqK, astLeq, astLeqS
 
@@ -2668,7 +2668,6 @@ astSumK t0 | FTKS shm FTKScalar <- ftkAst t0 = case t0 of
   Ast.AstFromPrimal u -> fromPrimal $ astSumK u
   Ast.AstFromDual u -> fromDual $ astSumK u
   Ast.AstFromPlain u -> fromPlain $ astSumK u
-  AstTimesS t1 t2 -> astDot0 t1 t2
   Ast.AstN1S NegateOp u -> negate $ astSumK u
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
@@ -2700,12 +2699,6 @@ astSumK t0 | FTKS shm FTKScalar <- ftkAst t0 = case t0 of
   Ast.AstReverseS u -> astSumK u
   Ast.AstTransposeS _ u -> astSumK u
   Ast.AstReshapeS _ u -> astSumK u
-  Ast.AstDot1InS _ _ t1 t2 -> astDot0 t1 t2
-  Ast.AstMatmul2S m@SNat SNat p@SNat m1 m2 ->
-    astDot0 (astTransposeS (Permutation.makePerm @'[1, 0])
-                           (astReplicate p knownSTK m1))
-            (astTransposeS (Permutation.makePerm @'[0, 2, 1])
-                           (astReplicate m knownSTK m2))
   _ -> Ast.AstSumK t0
 
 astSumS :: forall shm shn x s. (KnownSpan s, TKAllNum x)
@@ -4955,6 +4948,20 @@ astConvUpXFromS sh' x =
   gcastWith (unsafeCoerceRefl :: Rank (MapJust sh) :~: Rank sh) $
   astConvertUp (ConvCmp (ConvXX' (FTKX sh' x)) ConvSX) (FTKX sh' x)
 
+astSumKContract :: forall shm r s. (NumScalar r, KnownSpan s)
+                => AstTensor AstMethodLet s (TKS shm r)
+                -> AstTensor AstMethodLet s (TKScalar r)
+astSumKContract t0 = case t0 of
+  Ast.AstLet var u v -> astLet var u (astSumKContract v)
+  AstTimesS t1 t2 -> astDot0 t1 t2
+  Ast.AstDot1InS _ _ t1 t2 -> astDot0 t1 t2
+  Ast.AstMatmul2S m@SNat SNat p@SNat m1 m2 ->
+    astDot0 (astTransposeS (Permutation.makePerm @'[1, 0])
+                           (astReplicate p knownSTK m1))
+            (astTransposeS (Permutation.makePerm @'[0, 2, 1])
+                           (astReplicate m knownSTK m2))
+  _ -> astSumK t0
+
 astDot0 :: (NumScalar r, KnownSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS sh r)
@@ -4964,9 +4971,9 @@ astDot0 t1 t2 = case (t1, t2) of
     | Just Refl <- testEquality snat1 snat2 ->
       astDot0 u1 u2
   _ | Just u1 <- unRepl t1 ->
-      kfromS u1 `astTimesK` astSumK t2
+      kfromS u1 `astTimesK` astSumKContract t2
   _ | Just u2 <- unRepl t2 ->
-      kfromS u2 `astTimesK` astSumK t1
+      kfromS u2 `astTimesK` astSumKContract t1
   ( Ast.AstReplicate snat1 (STKS _ STKScalar) u1
    ,Ast.AstReplicate snat2 (STKS _ STKScalar) u2 )
     | Just Refl <- testEquality snat1 snat2 ->
