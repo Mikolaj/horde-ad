@@ -725,10 +725,10 @@ contractAst t0 = case t0 of
 
   Ast.AstConvert c v -> astConvertConcrete c $ contractAst v
 
-  -- These should not appear in this context unless via wacky tests.
-  Ast.AstDot0{} -> t0
-  Ast.AstDot1InS{} -> t0
-  Ast.AstMatmul2S{} -> t0
+  -- These can appear in this context, e.g., if contractAst is run twice.
+  Ast.AstDot0 u v -> astDot0 u v
+  Ast.AstDot1InS sh n u v -> astDot1InS sh n u v
+  Ast.AstMatmul2S m n p u v -> astMatmul2S m n p u v
 
   Ast.AstBoolNotK arg -> notB $ contractAst arg
   Ast.AstBoolNotS arg -> astBoolNotS $ contractAst arg
@@ -862,9 +862,7 @@ letDownAst t = case t of
   Ast.AstSumS shm v -> Ast.AstSumS shm (letDownAst v)
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     let !ix2 = letDownAstIxS ix
-    in astScatterKnobsS (defaultKnobs {knobPhase = PhaseContraction})
-                        shm shn shp (letDownAst v) (vars, ix2)
-         -- an extra chance to get rid of oneHot1 NF
+    in Ast.AstScatterS shm shn shp (letDownAst v) (vars, ix2)
   Ast.AstReplicateK shm v -> Ast.AstReplicateK shm (letDownAst v)
   Ast.AstReplicateS shm v -> Ast.AstReplicateS shm (letDownAst v)
   Ast.AstGatherS shm shn shp v (vars, ix) ->

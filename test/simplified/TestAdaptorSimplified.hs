@@ -2588,7 +2588,7 @@ testConcatBuild3PP2 = do
   let (artifactRev, _) =
         revArtifactDelta UseIncomingCotangent t (FTKR [3] FTKScalar)
   printArtifactPrimalSimple (simplifyArtifactRev artifactRev)
-    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (sgather @[5,2] (sfromIntegral (sconcrete (sfromListLinear [2,5,2] [0,1,0,1,0,1,0,1,0,1,0,0,1,0,2,1,3,1,4,2]))) (\\[i10, i11] -> [ifH (sconcrete (sfromListLinear [5,2] [0,0,1,0,2,1,3,1,4,2]) `sindex0` [i10, i11] <=. i11) 0 1, i10, i11])))"
+    @?= "\\v1 -> tfromPlain (STKR (SNat @2) STKScalar) (rfromS (sgather @[5,2] (sconcrete (sfromListLinear [2,5,2] [0.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0,0.0,0.0,1.0,0.0,2.0,1.0,3.0,1.0,4.0,2.0])) (\\[i10, i11] -> [ifH (sconcrete (sfromListLinear [5,2] [0,0,1,0,2,1,3,1,4,2]) `sindex0` [i10, i11] <=. i11) 0 1, i10, i11])))"
   printArtifactSimple artifactRev
     @?= "\\dret v1 -> tfromPlain (STKR (SNat @1) STKScalar) (rfromS (sconcrete (sreplicate [3] 0.0)))"
   printArtifactPrimalSimple artifactRev

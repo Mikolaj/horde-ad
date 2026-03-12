@@ -1381,7 +1381,7 @@ testCNNOPP3b = do
   printAstPretty (simplifyUserCode $ artDerivativeRev artifactRev)
     @?= "rfromS (let m253 = sconcrete (sreplicate [2,2] 1) + (str (sreplicate @2 (negate (siota (SNat @2)))) + sreplicate @2 (negate (siota (SNat @2)))) ; i254 = ifH (0 <=. m253 `sindex0` [0, 1] &&* 0 <=. negate (m253 `sindex0` [0, 1])) 0 1 ; x255 = ssum0 @[2] (stranspose @[0, 1, 3, 2] (sfromR u206) !$ [0, 0, 0]) in sscatter1 @2 (sfromVector (fromList [x255, sscatter1 @1 (sreplicate @1 (sfromK x255)) (\\i256 -> [i254]) `sindex0` [0]])) (\\i234 -> [0, i234, i234, 1]))"
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret u1 -> rfromS (sscatter1 @2 (let x265 = ssum0 @[2] (stranspose @[0, 1, 3, 2] (sfromR dret) !$ [0, 0, 0]) in sfromVector (fromList [x265, kfromS (sfromK x265)])) (\\i212 -> [0, i212, i212, 1]))"
+    @?= "\\dret u1 -> rfromS (sscatter1 @2 (let x265 = ssum0 @[2] (stranspose @[0, 1, 3, 2] (sfromR dret) !$ [0, 0, 0]) in sfromVector (fromList [x265, x265])) (\\i212 -> [0, i212, i212, 1]))"
 
 maxPool2dUnpadded3
   :: (ADReady target, NumScalar r)

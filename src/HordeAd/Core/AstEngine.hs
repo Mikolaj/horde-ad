@@ -38,7 +38,8 @@ simplifyUserCode
   :: forall z s. KnownSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyUserCode =
-  simplifyAst . expandAst . inlineAstTensor
+  simplifyAst
+  . expandAst . inlineAstTensor
   . simplifyAst . expandAst . inlineAstTensor
   . simplifyAst
     -- no need to start with letDown, because either the user writes
@@ -52,7 +53,8 @@ simplifyInlineContract
   :: forall z s. KnownSpan s
   => AstTensor AstMethodLet s z -> AstTensor AstMethodLet s z
 simplifyInlineContract =
-  letDownAst . contractAst . expandAst . inlineAstTensor
+  letDownAst . contractAst . contractAst
+  . expandAst . inlineAstTensor
   . simplifyAst . expandAst . inlineAstTensor
   . simplifyAst
     -- this usually starts with letDown from unsharing
