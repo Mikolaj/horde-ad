@@ -1375,13 +1375,13 @@ testCNNOPP3b = do
   let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded3 . conv2dSame3) (FTKR [3, 3, 3, 3] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
     @?= "\\u1 -> rfromS (stranspose @[1, 2, 0] (sreplicate @2 (sfromVector (fromList [sfromVector (fromList [sfromVector (fromList [sfromR u1 `sindex0` [0, 0, 0, 1] + sfromR u1 `sindex0` [0, 1, 1, 1], 0.0]), sconcrete (sreplicate [2] 0.0)]), sconcrete (sreplicate [2,2] 0.0)]))))"
-  printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> rfromS (stranspose @[1, 2, 0] (sreplicate @2 (let m204 = sconcrete (sreplicate [2,2] 1) + (str (sreplicate @2 (negate (siota (SNat @2)))) + sreplicate @2 (negate (siota (SNat @2)))) ; i205 = ifH (0 <=. m204 `sindex0` [0, 1] &&* 0 <=. negate (m204 `sindex0` [0, 1])) 0 1 in sfromVector (fromList [sfromVector (fromList [sfromVector (fromList [sfromR u1 `sindex0` [0, 0, 0, 1] + kfromS (sfromVector (fromList [sfromR u1 `sindex0` [0, 1, 1, 1], 0.0]) !$ [i205]), 0.0]), sconcrete (sreplicate [2] 0.0)]), sconcrete (sreplicate [2,2] 0.0)]))))"
   printArtifactPretty artifactRev
     @?= "\\dret u1 -> rfromS (let m204 = sconcrete (sreplicate [2,2] 1) + (str (sreplicate @2 (negate (siota (SNat @2)))) + sreplicate @2 (negate (siota (SNat @2)))) ; i205 = ifH (0 <=. m204 `sindex0` [0, 1] &&* 0 <=. negate (m204 `sindex0` [0, 1])) 0 1 ; t207 = ssum @2 (stranspose @[2, 0, 1] (sfromR dret)) ; m208 = t207 !$ [0] ; v209 = m208 !$ [0] ; x210 = v209 `sindex0` [0] ; v211 = soneHot (sfromK x210) [i205] in soneHot (sfromK x210) [0, 0, 0, 1] + soneHot (sfromK (v211 `sindex0` [0])) [0, 1, 1, 1])"
     -- TODO: was once "\\dret u1 -> rfromS (let t88 = ssum @2 (stranspose @[2, 0, 1] (sfromR dret)) ; m89 = t88 !$ [0] ; v90 = m89 !$ [0] ; x91 = v90 `sindex0` [0] in soneHot (sfromK x91) [0, 0, 0, 1] + soneHot (sfromK x91) [0, 1, 1, 1])"
+  printAstPretty (simplifyUserCode $ artDerivativeRev artifactRev)
+    @?= "rfromS (let m253 = sconcrete (sreplicate [2,2] 1) + (str (sreplicate @2 (negate (siota (SNat @2)))) + sreplicate @2 (negate (siota (SNat @2)))) ; i254 = ifH (0 <=. m253 `sindex0` [0, 1] &&* 0 <=. negate (m253 `sindex0` [0, 1])) 0 1 ; x255 = ssum0 @[2] (stranspose @[0, 1, 3, 2] (sfromR u206) !$ [0, 0, 0]) in sscatter1 @2 (sfromVector (fromList [x255, sscatter1 @1 (sreplicate @1 (sfromK x255)) (\\i256 -> [i254]) `sindex0` [0]])) (\\i234 -> [0, i234, i234, 1]))"
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret u1 -> rfromS (sscatter1 @2 (let x242 = ssum0 @[2] (stranspose @[0, 1, 3, 2] (sfromR dret) !$ [0, 0, 0]) in sfromVector (fromList [x242, kfromS (sfromK x242)])) (\\i212 -> [0, i212, i212, 1]))"
+    @?= "\\dret u1 -> rfromS (sscatter1 @2 (let x265 = ssum0 @[2] (stranspose @[0, 1, 3, 2] (sfromR dret) !$ [0, 0, 0]) in sfromVector (fromList [x265, kfromS (sfromK x265)])) (\\i212 -> [0, i212, i212, 1]))"
 
 maxPool2dUnpadded3
   :: (ADReady target, NumScalar r)

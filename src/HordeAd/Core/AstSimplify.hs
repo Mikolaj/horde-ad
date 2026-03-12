@@ -2800,10 +2800,6 @@ astScatterKnobsS knobs shm@(SNat' @1 :$$ ZSS) shn shp
                  v@Ast.AstReplicateS{} (vars, ix)
   | knobPhase knobs /= PhaseContraction =
     Ast.AstScatterS shm shn shp v (vars, ix)  -- oneHot1 NF
-astScatterKnobsS knobs shm@(SNat' @1 :$$ ZSS) shn shp
-                 v@(Ast.AstReplicateS (_ :$$ ZSS) _) (vars, ix)
-  | knobPhase knobs /= PhaseContraction =
-    Ast.AstScatterS shm shn shp v (vars, ix)  -- oneHot1 NF
 -- The above normal form that prevents the use of the rule below
 -- and the subsequent rule is to keep one-hots and similar in forms
 -- easier for fusion of addition of scatters to operate on.
