@@ -219,7 +219,7 @@ testFooBuild25 =
 
 fooBuild2S
   :: forall k sh target r.
-     (ADReady target, NumScalar r, KnownNat k, Floating (target (TKS sh r)), Differentiable r, KnownShS sh)
+     (ADReady target, NumScalar r, Floating (target (TKS sh r)), Differentiable r, KnownShS sh)
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuild2S v = rfromS $
   sbuild1 @2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int)
@@ -250,7 +250,7 @@ testFooBuild25S =
 
 fooBuildNest2S
   :: forall k sh target r.
-     (ADReady target, NumScalar r, KnownNat k, Floating (target (TKS sh r)), Differentiable r, KnownShS sh)
+     (ADReady target, NumScalar r, Floating (target (TKS sh r)), Differentiable r, KnownShS sh)
   => target (TKS (k : sh) r) -> target (TKR (1 + Rank sh) r)
 fooBuildNest2S v = rfromS $
   sbuild1 @2 $ \ix' -> let ix :: PlainOf target (TKS '[] Int)
@@ -549,7 +549,7 @@ testBarReluADVal3 =
     (rev' @Double @7 barRelu
          (rmap0N (* 0.001) t48))
 
-braidedBuilds :: forall target n r. (ADReady target, NumScalar r, KnownNat n, Differentiable r)
+braidedBuilds :: forall target n r. (ADReady target, NumScalar r, Differentiable r)
               => target (TKR (1 + n) r) -> target (TKR 2 r)
 braidedBuilds r =
   rbuild [3, 4] (\ [ix1, ix2] -> rindex (rfromList

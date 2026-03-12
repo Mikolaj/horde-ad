@@ -61,7 +61,7 @@ crevMaybeBoth f vals | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
   in crevOnParams Nothing g (tftk knownSTK valsH) valsH
 
 rev' :: forall r m n v a w.
-        ( KnownNat m, KnownNat n, NumScalar r, NumScalar (ADTensorScalar r)
+        ( KnownNat n, NumScalar r, NumScalar (ADTensorScalar r)
         , v ~ Concrete (TKR m r)
         , w ~ Concrete (ADTensorKind (TKR m r))
         , a ~ Concrete (ADTensorKind (TKR n r)) )
@@ -90,7 +90,7 @@ rev' f vals = unsafePerformIO $ do
   return (resNormalSharing, resTotalSharing)
 
 rev1 :: forall r m n v a w.
-        ( KnownNat m, KnownNat n, NumScalar r, NumScalar (ADTensorScalar r)
+        ( KnownNat n, NumScalar r, NumScalar (ADTensorScalar r)
         , v ~ Concrete (TKR m r)
         , w ~ Concrete (ADTensorKind (TKR m r))
         , a ~ Concrete (ADTensorKind (TKR n r)) )
@@ -473,7 +473,7 @@ t128c :: (GoodScalar r, Fractional r) => Concrete (TKR 4 r)
 t128c = rreshape (2 :$: 2 :$: 8 :$: 4 :$: ZSR) t128
 
 rrev1 :: forall g r n m r3.
-         (ADReady g, GoodScalar r, KnownNat n, NumScalar r3, KnownNat m)
+         (ADReady g, GoodScalar r, KnownNat n, NumScalar r3)
       => (forall f. ADReady f => f (TKR n r) -> f (TKR m r3)) -> g (TKR n r)
       -> g (ADTensorKind (TKR n r))
 {-# INLINE rrev1 #-}
@@ -501,7 +501,7 @@ rfwd1 :: forall g r n m r3.
 rfwd1 f u = rfwd1ds f u (rrepl (rshape u) 1)
 
 srev1 :: forall g r sh sh2 r3.
-         (ADReady g, GoodScalar r, KnownShS sh, NumScalar r3, KnownShS sh2)
+         (ADReady g, GoodScalar r, KnownShS sh, NumScalar r3)
       => (forall f. ADReady f => f (TKS sh r) -> f (TKS sh2 r3)) -> g (TKS sh r)
       -> g (ADTensorKind (TKS sh r))
 {-# INLINE srev1 #-}

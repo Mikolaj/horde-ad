@@ -128,8 +128,7 @@ squaredDifference
 squaredDifference targ res = squareR @target $ res - rfromPrimal @target targ
 
 lossCrossEntropyV
-  :: ( BaseTensor target, ConvertTensor target
-     , KnownNat n, NumScalar r, Differentiable r )
+  :: (BaseTensor target, KnownNat n, NumScalar r, Differentiable r)
   => target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
 lossCrossEntropyV targ res = negate $ log res `rdot0` targ
 
@@ -138,10 +137,9 @@ lossCrossEntropyV targ res = negate $ log res `rdot0` targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyR
   :: forall target n r.
-     ( BaseTensor target, ConvertTensor target, LetTensor target
+     ( BaseTensor target, LetTensor target
      , BaseTensor (PrimalOf target), ConvertTensor (PrimalOf target)
-     , LetTensor (PrimalOf target)
-     , KnownNat n, NumScalar r, Differentiable r )
+     , LetTensor (PrimalOf target), KnownNat n, NumScalar r, Differentiable r )
   => PrimalOf target (TKR n r) -> target (TKR n r) -> target (TKScalar r)
 lossSoftMaxCrossEntropyR expected d' = tlet d' $ \d ->
   -- The following protects from underflows, overflows and exploding gradients
@@ -163,7 +161,7 @@ lossSoftMaxCrossEntropyR expected d' = tlet d' $ \d ->
          (kdualPart $ rfromPrimal (softMaxU - expected) `rdot0` d)
 
 -- Fails for empty x'.
-rlogsumexp :: (KnownNat n, NumScalar r, Differentiable r, ADReady target)
+rlogsumexp :: (NumScalar r, Differentiable r, ADReady target)
            => target (TKR n r) -> target (TKScalar r)
 rlogsumexp x' = tlet x' $ \x -> tlet (rmaximum x) $ \maxx ->
   let shiftedx = x - rreplicate0N (rshape x) maxx
@@ -179,8 +177,8 @@ maxPool1 ksize stride v =
   in withSNat ((rwidth v - ksize) `div` stride) $ \k ->
        rfromS $ tfromList k STKScalar $ NonEmpty.fromList $ map rmaximum slices
 
-softMax1 :: ( BaseTensor target, LetTensor target, ConvertTensor target
-            , KnownNat n, NumScalar r, Differentiable r )
+softMax1 :: ( BaseTensor target, LetTensor target
+            , NumScalar r, Differentiable r )
          => target (TKR n r) -> target (TKR n r)
 softMax1 d =
   let expU0 = exp d

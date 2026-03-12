@@ -103,7 +103,7 @@ squaredDifferenceS
 squaredDifferenceS targ res = squareS $ res - sfromPrimal targ
 
 lossCrossEntropyVS :: ( KnownShS sh, NumScalar r, Differentiable r
-                      , BaseTensor target, ConvertTensor target )
+                      , BaseTensor target )
                    => target (TKS sh r)
                    -> target (TKS sh r)
                    -> target (TKScalar r)
@@ -151,7 +151,7 @@ maxPool1S SNat SNat v =
 
 softMax1S :: forall target sh r.
              ( KnownShS sh, NumScalar r, Differentiable r
-             , BaseTensor target, LetTensor target, ConvertTensor target )
+             , BaseTensor target, LetTensor target )
           => target (TKS sh r) -> target (TKS sh r)
 softMax1S d =
   let expU0 = exp d
