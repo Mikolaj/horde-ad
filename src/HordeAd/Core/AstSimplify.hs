@@ -2782,20 +2782,6 @@ astScatterKnobsS knobs
          in astTransposeS permVars u
             `astAppendS`
             fromPlain (astConcrete ftk (tdefTarget ftk))
--- Simplify oneHot1, among others. This only works for @1, because
--- ix2 can compare the value of var, not the tensors at index
--- var, which are all equal due to AstReplicate.
-astScatterKnobsS knobs shm@(SNat' @1 :$$ _) shn shp
-                 v@Ast.AstReplicateS{} (var ::$ vars, ix)
-  | var `varNameInIxS` ix =
-    let ix2 = substituteAst (AstConcreteK 0) var <$> ix
-    in astScatterKnobsS knobs shm shn shp v (var ::$ vars, ix2)
-astScatterKnobsS knobs shm@(SNat' @1 :$$ _) shn shp
-                 v@(Ast.AstReplicateS (_ :$$ ZSS) _)  -- TODO: generalize
-                 (var ::$ vars, ix)
-  | var `varNameInIxS` ix =
-    let ix2 = substituteAst (AstConcreteK 0) var <$> ix
-    in astScatterKnobsS knobs shm shn shp v (var ::$ vars, ix2)
 astScatterKnobsS knobs shm@(SNat' @1 :$$ ZSS) shn shp
                  v@Ast.AstReplicateS{} (vars, ix)
   | knobPhase knobs /= PhaseContraction =
