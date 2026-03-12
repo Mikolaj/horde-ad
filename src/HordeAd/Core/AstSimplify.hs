@@ -2616,7 +2616,7 @@ astScatterKnobsS :: forall shm shn shp x s. (KnownSpan s, TKAllNum x)
 astScatterKnobsS _ _ _ _ v0 (!vars0, !_ix0)
   | Foldable.any (`varNameInAst` v0) vars0 =
     error $ "astScatterKnobsS: scatter vars in v0: " ++ show (vars0, v0)
-astScatterKnobsS _ _ _ _ v (ZS, ZIS) = v
+astScatterKnobsS _ shm _ _ v0 (_, ZIS) = astSumS shm v0
 astScatterKnobsS _ _ shn shp@(k :$$ _) v0 (_,  i1 :.$ _)
   | Just (lb, ub) <- intBounds i1
   , let FTKS _ x = ftkAst v0
@@ -2998,7 +2998,7 @@ astGatherKnobsS _ _ _ _ v0 (!vars0, !_ix0)
   | Foldable.any (`varNameInAst` v0) vars0 =
     error $ "astGatherKnobsS: gather vars in v0: " ++ show (vars0, v0)
 astGatherKnobsS knobs _ shn _ v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
-astGatherKnobsS _ shm _ _ v0 (_, ZIS) = astReplicateS @shm @shn shm v0
+astGatherKnobsS _ shm _ _ v0 (_, ZIS) = astReplicateS shm v0
 astGatherKnobsS _ shm shn _shp v0 (_, i1 :.$ _)
   | Just (lb, ub) <- intBounds i1
 -- this doesn't work in GHC 9.10:
