@@ -457,24 +457,23 @@ contractAst t0 = case t0 of
 
   Ast.AstSumK v -> astSumKContract $ contractAst v
   Ast.AstSumS
-    (snat@(SNat @m2) :$$ ZSS)
-    v@(AstTimesS (Ast.AstTransposeS @permt permt
-                    (Ast.AstReplicateS @_ @sht (SNat @kt :$$ ZSS) t2))
-                 (Ast.AstTransposeS @permu permu
-                    (Ast.AstReplicateS @_ @shu (SNat @ku :$$ ZSS) u2)))
-    | STKS (_ :$$ SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar
-        <- ftkToSTK (ftkAst v) ->
+    (_ :$$ ZSS)
+    v@(AstTimesS (Ast.AstTransposeS @permt @nsht permt t1)
+                 (Ast.AstTransposeS @permu @nshu permu u1))
+    | FTKS (SNat @m2 :$$ SNat @n2 :$$ SNat @p2 :$$ ZSS) FTKScalar <- ftkAst v
+    , FTKS ((:$$) @_ @sht _ _) FTKScalar <- ftkAst t1
+    , Just t2 <- unRepl1 t1
+    , FTKS ((:$$) @_ @shu _ _) FTKScalar <- ftkAst u1
+    , Just u2 <- unRepl1 u1 ->
     let perm10 = Permutation.makePerm @'[1, 0]
-    in fromMaybe (astSumS (snat :$$ ZSS) (contractAst v))
+    in fromMaybe (astSumS (SNat @m2 :$$ ZSS) (contractAst v))
        $ case (permt, permu) of
       ( SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil
        ,SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
         gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permt (kt ': sht)
-                      :~: [m2, n2, p2]) $
+                   :: Permutation.PermutePrefix permt nsht :~: [m2, n2, p2]) $
         gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permu (ku ': shu)
-                      :~: [m2, n2, p2]) $
+                   :: Permutation.PermutePrefix permu nshu :~: [m2, n2, p2]) $
         -- Sadly, the casts below, though implied by the permutations
         -- (as redundantly spelled out by the casts above) are required
         -- to make it type-check and they easily mask bugs, too.
@@ -521,26 +520,25 @@ contractAst t0 = case t0 of
                        (astTransposeS perm10 t2)
       _ -> Nothing
   Ast.AstSumS
-    (snat@(SNat @m2) :$$ ZSS)
+    (_ :$$ ZSS)
     v@(AstTimesS (Ast.AstFromPlain
-                    (Ast.AstTransposeS @permt permt
-                      (Ast.AstReplicateS @_ @sht (SNat @kt :$$ ZSS) t2')))
-                 (Ast.AstTransposeS @permu permu
-                    (Ast.AstReplicateS @_ @shu (SNat @ku :$$ ZSS) u2)))
-    | STKS (_ :$$ SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar
-      <- ftkToSTK (ftkAst v) ->
+                    (Ast.AstTransposeS @permt @nsht permt t1'))
+                 (Ast.AstTransposeS @permu @nshu permu u1))
+    | FTKS (SNat @m2 :$$ SNat @n2 :$$ SNat @p2 :$$ ZSS) FTKScalar <- ftkAst v
+    , FTKS ((:$$) @_ @sht _ _) FTKScalar <- ftkAst t1'
+    , Just t2' <- unRepl1 t1'
+    , FTKS ((:$$) @_ @shu _ _) FTKScalar <- ftkAst u1
+    , Just u2 <- unRepl1 u1 ->
     let perm10 = Permutation.makePerm @'[1, 0]
         t2 = fromPlain @s t2'
-    in fromMaybe (astSumS (snat :$$ ZSS) (contractAst v))
+    in fromMaybe (astSumS (SNat @m2 :$$ ZSS) (contractAst v))
        $ case (permt, permu) of
       ( SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil
        ,SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
         gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permt (kt ': sht)
-                      :~: [m2, n2, p2]) $
+                   :: Permutation.PermutePrefix permt nsht :~: [m2, n2, p2]) $
         gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permu (ku ': shu)
-                      :~: [m2, n2, p2]) $
+                   :: Permutation.PermutePrefix permu nshu :~: [m2, n2, p2]) $
         -- Sadly, the casts below, though implied by the permutations
         -- (as redundantly spelled out by the casts above) are required
         -- to make it type-check and they easily mask bugs, too.
@@ -587,26 +585,25 @@ contractAst t0 = case t0 of
                        (astTransposeS perm10 t2)
       _ -> Nothing
   Ast.AstSumS
-    (snat@(SNat @m2) :$$ ZSS)
-    v@(AstTimesS (Ast.AstTransposeS @permt permt
-                    (Ast.AstReplicateS @_ @sht (SNat @kt :$$ ZSS) t2))
+    (_ :$$ ZSS)
+    v@(AstTimesS (Ast.AstTransposeS @permt @nsht permt t1)
                  (Ast.AstFromPlain
-                    (Ast.AstTransposeS @permu permu
-                      (Ast.AstReplicateS @_ @shu (SNat @ku :$$ ZSS) u2'))))
-    | STKS (_ :$$ SNat @n2 :$$ SNat @p2 :$$ ZSS) STKScalar
-      <- ftkToSTK (ftkAst v) ->
+                    (Ast.AstTransposeS @permu @nshu permu u1')))
+    | FTKS (SNat @m2 :$$ SNat @n2 :$$ SNat @p2 :$$ ZSS) FTKScalar <- ftkAst v
+    , FTKS ((:$$) @_ @sht _ _) FTKScalar <- ftkAst t1
+    , Just t2 <- unRepl1 t1
+    , FTKS ((:$$) @_ @shu _ _) FTKScalar <- ftkAst u1'
+    , Just u2' <- unRepl1 u1' ->
     let perm10 = Permutation.makePerm @'[1, 0]
         u2 = fromPlain @s u2'
-    in fromMaybe (astSumS (snat :$$ ZSS) (contractAst v))
+    in fromMaybe (astSumS (SNat @m2 :$$ ZSS) (contractAst v))
        $ case (permt, permu) of
       ( SNat' @2 `PCons` SNat' @1 `PCons` SNat' @0 `PCons` PNil
        ,SNat' @1 `PCons` SNat' @0 `PCons` PNil ) ->
         gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permt (kt ': sht)
-                      :~: [m2, n2, p2]) $
+                   :: Permutation.PermutePrefix permt nsht :~: [m2, n2, p2]) $
         gcastWith (unsafeCoerceRefl
-                   :: Permutation.PermutePrefix permu (ku ': shu)
-                      :~: [m2, n2, p2]) $
+                   :: Permutation.PermutePrefix permu nshu :~: [m2, n2, p2]) $
         -- Sadly, the casts below, though implied by the permutations
         -- (as redundantly spelled out by the casts above) are required
         -- to make it type-check and they easily mask bugs, too.
@@ -653,7 +650,7 @@ contractAst t0 = case t0 of
                        (astTransposeS perm10 t2)
       _ -> Nothing
   Ast.AstSumS (n@(SNat @n) :$$ ZSS) (AstTimesS t2 u)
-    | STKS @sh1 (_ :$$ sh) _ <- ftkToSTK (ftkAst t2) ->
+    | FTKS @sh1 (_ :$$ sh) _ <- ftkAst t2 ->
     let cpermR = backpermCycle $ 1 + shsLength sh
     in Permutation.permFromListCont cpermR $ \(cperm
                                                :: Permutation.Perm cperm) ->

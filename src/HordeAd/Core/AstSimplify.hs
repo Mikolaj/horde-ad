@@ -46,7 +46,7 @@ module HordeAd.Core.AstSimplify
   , astBoolNotK, astBoolNotS, astBoolAndK, astBoolAndS, astLeqK, astLeq, astLeqS
 
     -- * Helper combinators
-  , astConcrete, astLetFun, astLetRefresh
+  , astConcrete, astLetFun, astLetRefresh, unRepl1
 
     -- * Substitution operations
   , substituteAst, substituteAstIxS
