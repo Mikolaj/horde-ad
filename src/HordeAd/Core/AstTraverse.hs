@@ -456,6 +456,8 @@ contractAst t0 = case t0 of
                    shn (contractAst v) (contractAstIxS ix)
 
   Ast.AstSumK v -> astSumKContract $ contractAst v
+  Ast.AstSumS (n :$$ shmRest@(_ :$$ _)) v@AstTimesS{} ->
+    contractAst (Ast.AstSumS shmRest (Ast.AstSumS (n :$$ ZSS) v))
   Ast.AstSumS
     (_ :$$ ZSS)
     v@(AstTimesS (Ast.AstTransposeS @permt @nsht permt t1)

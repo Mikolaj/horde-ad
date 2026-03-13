@@ -4677,11 +4677,13 @@ astDot1InS sh n@SNat t1 t2 = case (t1, t2) of
   (Ast.AstFromPlain u1, Ast.AstFromPlain u2) ->
     fromPlain $ astDot1InS sh n u1 u2
   (Ast.AstN1S NegateOp u1, Ast.AstN1S NegateOp u2) -> astDot1InS sh n u1 u2
-  -- TODO: instead take the longest common prefix (sufix?) of shm1 and shm2:
+  {- TODO: instead take the longest common prefix (sufix?) of shm1 and shm2.
+  -- TODO: possibly this increases work, so wait until we have a generalization
+  -- of tsdot1In.
   (Ast.AstSumS @shm1 @shn1 shm1 u1, Ast.AstSumS shm2 u2)
     | Just Refl <- testEquality shm1 shm2 ->
       gcastWith (unsafeCoerceRefl :: shm1 ++ sh ++ '[n] :~: shm1 ++ shn1) $
-      astSumS shm1 $ astDot1InS (shm1 `shsAppend` sh) n u1 u2
+      astSumS shm1 $ astDot1InS (shm1 `shsAppend` sh) n u1 u2 -}
   (u, v) | Just u0 <- unAstS u
          , Just v0 <- unAstS v ->
     withKnownShS sh $
