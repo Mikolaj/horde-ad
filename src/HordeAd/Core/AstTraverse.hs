@@ -679,15 +679,6 @@ contractAst t0 = case t0 of
       (withKnownSpan (varNameToSpan varu) $ contractAst vu)
       u
       $ \u' -> contractAst $ Ast.AstSumS shm (AstTimesS t2 u')
-  Ast.AstSumS shm (Ast.AstLet var v t2) ->
-    astLet var (withKnownSpan (varNameToSpan var) $ contractAst v)
-               (contractAst (Ast.AstSumS shm t2))
-  Ast.AstSumS shm (Ast.AstSumS shm2 (Ast.AstLet var v t2)) ->
-    astLetRefresh
-      var
-      (withKnownSpan (varNameToSpan var) $ contractAst v)
-      t2
-      $ \t2' -> contractAst (Ast.AstSumS shm (Ast.AstSumS shm2 t2'))
   Ast.AstSumS shm v -> astSumS shm $ contractAst v
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterKnobsS (defaultKnobs {knobPhase = PhaseContraction})
@@ -780,12 +771,12 @@ attemptMatmul2 t3 u3 = Just $
     Is @Int -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
     Is @Double -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
     Is @Float -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-    Is @Z1 -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-    Is @Int64 -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-    Is @Int32-> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
-    Is @Int16 -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
     Is @Int8 -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    Is @Int16 -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    Is @Int32-> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    Is @Int64 -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
     Is @CInt -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
+    Is @Z1 -> astMatmul2S (SNat @m) (SNat @n) (SNat @p) t4 u4
     _ -> error "attemptMatmul2: unexpected scalar"
 
 
