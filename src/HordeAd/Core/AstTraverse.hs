@@ -358,13 +358,14 @@ contractAst t0 = case t0 of
   Ast.AstVar{} -> t0
   Ast.AstCond b a2 a3 ->
     astCond (contractAst b) (contractAst a2) (contractAst a3)
-  -- These are only needed for tests that don't vectorize Ast.
-  Ast.AstBuild1 snat stk@(STKS ZSS _)  -- generalize
-                (var, v@(Ast.AstSumS (n :$$ ZSS)
+  -- These are only needed for tests that don't vectorize Ast. In fact,
+  -- they seem totally unused ATM.
+  Ast.AstBuild1 snat stk@(STKS ZSS STKScalar)  -- generalize
+                (var, v@(AstConvUpSFromK (Ast.AstSumK
                            (AstTimesS
                               t2
-                              (Ast.AstIndexS @shm @shn _shn
-                                 u (ix@(AstIntVar var2 :.$ ZIS))))))
+                              (Ast.AstIndexS @shm @shn (n :$$ ZSS)
+                                 u (ix@(AstIntVar var2 :.$ ZIS)))))))
     | var == var2
     , not (varNameInAst var t2), not (varNameInAst var u)
     , FTKS shmshn _ <- ftkAst u ->
@@ -377,15 +378,13 @@ contractAst t0 = case t0 of
         _ ->
           let !v2 = contractAst v
           in Ast.AstBuild1 snat stk (var, v2)
-  Ast.AstBuild1 snat stk@(STKS ZSS _)
-                (var, v@(Ast.AstSumS (n :$$ ZSS)
-                           (Ast.AstReshapeS
-                              _sh (AstTimesS
-                                      t2
-                                     (Ast.AstIndexS @shm @shn _shn
-                                        u (ix@(AstIntVar var2 :.$ ZIS)))))))
-    | (FTKS (_ :$$ ZSS) _) <- ftkAst t2
-    , var == var2
+  Ast.AstBuild1 snat stk@STKScalar
+                (var, v@(Ast.AstSumK
+                           (AstTimesS
+                              t2
+                              (Ast.AstIndexS @shm @shn (n :$$ ZSS)
+                                 u (ix@(AstIntVar var2 :.$ ZIS))))))
+    | var == var2
     , not (varNameInAst var t2), not (varNameInAst var u)
     , FTKS shmshn _ <- ftkAst u ->
       withKnownShS (Shaped.shsTakeIx @shn @shm Proxy shmshn ix) $
