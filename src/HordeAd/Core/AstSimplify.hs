@@ -2474,6 +2474,9 @@ astSumK t0 | FTKS shm FTKScalar <- ftkAst t0 = case t0 of
   Ast.AstFromDual u -> fromDual $ astSumK u
   Ast.AstFromPlain u -> fromPlain $ astSumK u
   Ast.AstN1S NegateOp u -> negate $ astSumK u
+  AstTimesS t1 t2
+    | Just u <- unRepl t1 ->
+      astTimesK (kfromS u) (astSumK t2)
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
     astConcreteK $ tssum0 (Concrete v)
@@ -2538,6 +2541,7 @@ astSumS shm@(snat :$$ _) t0 | FTKS shmshn x <- ftkAst t0
   Ast.AstFromPrimal v -> fromPrimal $ astSumS shm v
   Ast.AstFromDual v -> fromDual $ astSumS shm v
   Ast.AstFromPlain v -> fromPlain $ astSumS shm v
+  Ast.AstN1S NegateOp u -> negate $ astSumS shm u
   -- This exchanges a multiplication at rank n+m for one
   -- at rank n, which should be faster. We choose t1, since it's likely to be
   -- concrete and so it's easier to see if it's replicated and also t2 is
