@@ -52,7 +52,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import           Data.Proxy (Proxy)
-import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, natVal, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)

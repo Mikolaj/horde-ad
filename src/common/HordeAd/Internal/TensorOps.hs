@@ -24,8 +24,8 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl')
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Map as M
-import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Map as M
+import qualified Data.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           Foreign.C (CInt)

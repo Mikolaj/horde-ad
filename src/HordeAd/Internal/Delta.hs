@@ -64,8 +64,8 @@ import           Data.Primitive (Prim)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
 import           Data.STRef.Unboxed (STRefU, newSTRefU, readSTRefU, writeSTRefU)
-import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
+import qualified Data.Vector as Data.Vector
+import qualified Data.Vector.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable

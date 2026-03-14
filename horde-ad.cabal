@@ -83,7 +83,7 @@ flag use_typelits_plugins
 
 common options
   default-language:   GHC2021
-  default-extensions: StrictData, GADTs, TypeFamilies,
+  default-extensions: TypeAbstractions, StrictData, GADTs, TypeFamilies,
                       TypeFamilyDependencies, FunctionalDependencies,
                       RecordWildCards, MultiWayIf, LambdaCase,
                       DefaultSignatures, PatternSynonyms, NoStarIsType,
@@ -167,7 +167,7 @@ library
       , pretty-show
       , primitive
       , random
-      , strict-containers
+      , containers
       , unboxed-ref
       , vector
 
@@ -207,7 +207,7 @@ library exampleLibrary
       , mnist-idx
       , orthotope
       , random
-      , strict-containers
+      , containers
       , vector
       , zlib
 
@@ -257,7 +257,7 @@ library testCommonLibrary
       , orthotope
       , random
       , storable-tuple
-      , strict-containers
+      , containers
       , tasty >= 1.0
       , tasty-hunit
       , tasty-quickcheck
@@ -534,7 +534,7 @@ library horde-ad-simplified
       , orthotope
       , pretty-show
       , random
-      , strict-containers
+      , containers
       , unboxed-ref
       , vector
 
@@ -563,7 +563,7 @@ library exampleLibrarySimplified
       , mnist-idx
       , orthotope
       , random
-      , strict-containers
+      , containers
       , vector
       , zlib
 
@@ -596,7 +596,7 @@ library testCommonLibrarySimplified
       , orthotope
       , random
       , storable-tuple
-      , strict-containers
+      , containers
       , tasty >= 1.0
       , tasty-hunit
       , tasty-quickcheck
@@ -684,7 +684,7 @@ test-suite simplifiedOnlyTest
       , ilist
       , orthotope
       , random
-      , strict-containers
+      , containers
       , tasty >= 1.0
       , tasty-hunit
       , vector

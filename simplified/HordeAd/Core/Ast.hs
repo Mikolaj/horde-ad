@@ -26,7 +26,7 @@ import           Data.Boolean
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element)
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
