@@ -72,4 +72,4 @@ testFooMap :: Assertion
 testFooMap =
   assertEqualUpToEpsilon' 1e-4
     2.7516298
-    (rev' @(OR.Array 1 Float) (fooMap1 [130]) 0.1)
+    (rev' @(OR.Array 1 Float) @_ @0 (fooMap1 [130]) 0.1)

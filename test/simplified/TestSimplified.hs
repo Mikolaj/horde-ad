@@ -528,18 +528,18 @@ testF3 = do
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =
-  testPolyn braidedBuilds [3, 4]
+  testPolyn @2 braidedBuilds [3, 4]
   3.4
   4.0
 
 testRecycled :: Assertion
 testRecycled =
-  testPolyn recycled [2, 4, 2, 3, 13]
+  testPolyn @5 recycled [2, 4, 2, 3, 13]
   1.0001
   3.983629038066359e7
 
 testConcatBuild :: Assertion
 testConcatBuild =
-  testPolyn concatBuild [7, 19]
+  testPolyn @2 concatBuild [7, 19]
   3.4
   126.0

@@ -65,9 +65,9 @@ import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
 import           Data.STRef.Unboxed (STRefU, newSTRefU, readSTRefU, writeSTRefU)
 import qualified Data.Vector as Data.Vector
-import qualified Data.Vector.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
+import qualified Data.Vector.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Storable.Mutable
 import           GHC.Generics (Generic)
 import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
@@ -969,7 +969,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 d
         IndexS (d :: DeltaS (ix_plus_1_plus_k ': rest) c) (_ :: Proxy ix) ->
           evalS (OS.constant @(ix ': rest) 0
-                 `OS.append` OS.reshape c
+                 `OS.append` OS.reshape @(1 ': rest) c
                  `OS.append` OS.constant 0)
                 d  -- TODO: optimize for input case
         RavelFromListS ld -> do

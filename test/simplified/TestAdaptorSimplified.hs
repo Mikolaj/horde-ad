@@ -93,7 +93,8 @@ rev' f vals =
       g inputs = f $ parseADInputs vals inputs
       (advalGrad, value1) = revOnDomains dt g (toDomains vals)
       gradient1 = parseDomains vals advalGrad
-      g9 inputs = f $ parseADInputs vals inputs
+      g9 :: ADInputs (Ast0 r) -> ADVal (Ast m r)
+      g9 inputs = f @(ADVal (Ast0 r)) $ parseADInputs vals inputs
       (advalGrad9, value9) = revAstOnDomains g9 (toDomains vals) dt
       gradient9 = parseDomains vals advalGrad9
       h :: ADReady x
@@ -104,46 +105,46 @@ rev' f vals =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseADInputs vals inputs) EM.empty
         in interpretAst env (gx ast)
-      (astGrad, value2) = revOnDomains dt (h id id id) (toDomains vals)
+      (astGrad, value2) = revOnDomains dt (h @(Ast0 r) id id id) (toDomains vals)
       gradient2 = parseDomains vals astGrad
       (astSimple, value3) =
-        revOnDomains dt (h id id simplifyAst) (toDomains vals)
+        revOnDomains dt (h @(Ast0 r) id id simplifyAst) (toDomains vals)
       gradient3 = parseDomains vals astSimple
       (astPrimal, value4) =
-        revOnDomains dt (h unAstNoVectorize AstNoVectorize id)
+        revOnDomains dt (h @(AstNoVectorize 0 r) unAstNoVectorize AstNoVectorize id)
                         (toDomains vals)
           -- use the AstNoVectorize instance that does no vectorization
           -- and then interpret the results as the Ast instance
       gradient4 = parseDomains vals astPrimal
       (astPSimple, value5) =
-        revOnDomains dt (h unAstNoVectorize AstNoVectorize simplifyAst)
+        revOnDomains dt (h @(AstNoVectorize 0 r) unAstNoVectorize AstNoVectorize simplifyAst)
                         (toDomains vals)
       gradient5 = parseDomains vals astPSimple
-      astVectSimp = simplifyAst $ snd $ funToAstR (tshape vals) f
+      astVectSimp = simplifyAst $ snd $ funToAstR (tshape vals) (f @(Ast0 r))
       astSimp =
         simplifyAst $ snd
-        $ funToAstR (tshape vals) (unAstNoVectorize . f . AstNoVectorize)
+        $ funToAstR (tshape vals) (unAstNoVectorize . f @(AstNoVectorize 0 r) . AstNoVectorize)
       -- Here comes the part with Ast gradients.
-      hAst :: ADReady x
+      hAst :: forall x. ADReady x
            => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
            -> (Ast m r -> Ast m r) -> ADInputs (Ast0 r)
            -> ADVal (Ast m r)
       hAst fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
-            env = extendEnvR var (parseADInputs vals inputs) EM.empty
+            env = extendEnvR @_ @(ADVal (Ast0 r)) var (parseADInputs vals inputs) EM.empty
         in interpretAst env (gx ast)
       (astGradAst, value2Ast) =
-        revAstOnDomains (hAst id id id) (toDomains vals) dt
+        revAstOnDomains (hAst @(Ast0 r) id id id) (toDomains vals) dt
       gradient2Ast = parseDomains vals astGradAst
       (astSimpleAst, value3Ast) =
-        revAstOnDomains (hAst id id simplifyAst) (toDomains vals) dt
+        revAstOnDomains (hAst @(Ast0 r) id id simplifyAst) (toDomains vals) dt
       gradient3Ast = parseDomains vals astSimpleAst
       (astPrimalAst, value4Ast) =
-        revAstOnDomains (hAst unAstNoVectorize AstNoVectorize id)
+        revAstOnDomains (hAst @(AstNoVectorize 0 r) unAstNoVectorize AstNoVectorize id)
                         (toDomains vals) dt
       gradient4Ast = parseDomains vals astPrimalAst
       (astPSimpleAst, value5Ast) =
-        revAstOnDomains (hAst unAstNoVectorize AstNoVectorize simplifyAst)
+        revAstOnDomains (hAst @(AstNoVectorize 0 r) unAstNoVectorize AstNoVectorize simplifyAst)
                         (toDomains vals) dt
       gradient5Ast = parseDomains vals astPSimpleAst
   in ( value0, value1, value2, value3, value4, value5
@@ -413,7 +414,7 @@ testFooBuild :: Assertion
 testFooBuild =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [4] [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
-    (rev' @(OR.Array 1 Double) fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]))
+    (rev' @(OR.Array 1 Double) @_ @1 fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]))
 
 fooMap1 :: ADReady r => TensorOf 0 r -> TensorOf 1 r
 fooMap1 r =
@@ -424,7 +425,7 @@ testFooMap1 :: Assertion
 testFooMap1 =
   assertEqualUpToEpsilon' 1e-6
     4.438131773948916e7
-    (rev' @(OR.Array 1 Double) fooMap1 1.1)
+    (rev' @(OR.Array 1 Double) @_ @0 fooMap1 1.1)
 
 barAst :: (Numeric r, RealFloat r, RealFloat (Vector r))
        => (Ast 0 r, Ast 0 r) -> Ast 0 r
@@ -477,7 +478,7 @@ testFooNoGo :: Assertion
 testFooNoGo =
   assertEqualUpToEpsilon' 1e-6
    (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
-   (rev' @(OR.Array 1 Double) fooNoGo
+   (rev' @(OR.Array 1 Double) @_ @1 fooNoGo
          (OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
 nestedBuildMap :: forall r. ADReady r => TensorOf 0 r -> TensorOf 1 r
@@ -497,7 +498,7 @@ testNestedBuildMap1 :: Assertion
 testNestedBuildMap1 =
   assertEqualUpToEpsilonShort 1e-10
     107.25984443006627
-    (rev' @(OR.Array 1 Double) nestedBuildMap 1.1)
+    (rev' @(OR.Array 1 Double) @_ @0 nestedBuildMap 1.1)
 
 nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedSumBuild v =
@@ -520,7 +521,7 @@ testNestedSumBuild :: Assertion
 testNestedSumBuild =
   assertEqualUpToEpsilonShort 1e-8
     (OR.fromList [5] [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612])
-    (rev' @(OR.Array 1 Double) nestedSumBuild (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
+    (rev' @(OR.Array 1 Double) @_ @1 nestedSumBuild (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 nestedBuildIndex :: forall r. ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedBuildIndex v =
@@ -530,7 +531,7 @@ testNestedBuildIndex :: Assertion
 testNestedBuildIndex =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [5]  [1,1,0,0,0])
-    (rev' @(OR.Array 1 Double) nestedBuildIndex (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
+    (rev' @(OR.Array 1 Double) @_ @1 nestedBuildIndex (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 barRelu
   :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
@@ -547,13 +548,13 @@ testBarReluADVal :: Assertion
 testBarReluADVal =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [] [4.5309153191767395])
-    (rev' @(OR.Array 0 Double) barRelu (OR.fromList [] [1.1]))
+    (rev' @(OR.Array 0 Double) @_ @0 barRelu (OR.fromList [] [1.1]))
 
 testBarReluADVal3 :: Assertion
 testBarReluADVal3 =
   assertEqualUpToEpsilonShort 1e-10
     (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
-    (rev' @(OR.Array 3 Double) barRelu (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
+    (rev' @(OR.Array 3 Double) @_ @3 barRelu (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 barReluAst
   :: forall n r.
@@ -624,7 +625,7 @@ testF11 :: Assertion
 testF11 =
   assertEqualUpToEpsilon' 1e-10
     45.0
-    (rev' @(OR.Array 0 Double) (tscalar . f1 . tunScalar) 1.1)
+    (rev' @(OR.Array 0 Double) @_ @0 (tscalar . f1 . tunScalar) 1.1)
 
 f2 :: ADReady a => a -> a
 f2 = \arg ->
@@ -646,7 +647,7 @@ testF21 :: Assertion
 testF21 =
   assertEqualUpToEpsilon' 1e-10
     470
-    (rev' @(OR.Array 0 Double) (tscalar . f2 . tunScalar) 1.1)
+    (rev' @(OR.Array 0 Double) @_ @0 (tscalar . f2 . tunScalar) 1.1)
 
 {- TODO: disabled, because the a -> r instances are disabled
 f3 :: (ADReady r, Tensor (r -> r), Tensor ((r -> r) -> (r -> r)))
@@ -686,7 +687,7 @@ testBraidedBuilds1 :: Assertion
 testBraidedBuilds1 =
   assertEqualUpToEpsilon' 1e-10
     4.0
-    (rev' @(OR.Array 2 Double) (braidedBuilds . tunScalar) 3.4)
+    (rev' @(OR.Array 2 Double) @_ @0 (braidedBuilds . tunScalar) 3.4)
 
 recycled :: ADReady r
          => r -> TensorOf 5 r
@@ -704,7 +705,7 @@ testRecycled1 :: Assertion
 testRecycled1 =
   assertEqualUpToEpsilonShort 1e-6
     348356.9278600814
-    (rev' @(OR.Array 5 Double) (recycled . tunScalar) 0.0000001)
+    (rev' @(OR.Array 5 Double) @_ @0 (recycled . tunScalar) 0.0000001)
 
 concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =
@@ -723,7 +724,7 @@ testConcatBuild1 :: Assertion
 testConcatBuild1 =
   assertEqualUpToEpsilon' 1e-10
     126.0
-    (rev' @(OR.Array 2 Double) (concatBuild . tunScalar) 3.4)
+    (rev' @(OR.Array 2 Double) @_ @0 (concatBuild . tunScalar) 3.4)
 
 emptyArgs :: forall r. ADReady r => TensorOf 1 r -> TensorOf 1 r
 emptyArgs t =
@@ -750,19 +751,19 @@ testEmptyArgs0 :: Assertion
 testEmptyArgs0 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [0] [])
-    (rev' @(OR.Array 1 Double) emptyArgs (OR.fromList [0] []))
+    (rev' @(OR.Array 1 Double) @_ @1 emptyArgs (OR.fromList [0] []))
 
 testEmptyArgs1 :: Assertion
 testEmptyArgs1 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1] [0])
-    (rev' @(OR.Array 1 Double) emptyArgs (OR.fromList [1] [0.24]))
+    (rev' @(OR.Array 1 Double) @_ @1 emptyArgs (OR.fromList [1] [0.24]))
 
 testEmptyArgs4 :: Assertion
 testEmptyArgs4 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1] [0])
-    (rev' @(OR.Array 1 Double)
+    (rev' @(OR.Array 1 Double) @_ @1
           (\t -> tbuild [2, 5, 11, 0] (const $ emptyArgs t))
           (OR.fromList [1] [0.24]))
 
@@ -798,9 +799,9 @@ blowupTests = testGroup "Catastrophic blowup avoidance tests"
   [ testCase "blowup 15" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [0.3333331833333646,-0.22222212222224305])
-        (rev' @(OR.Array 0 Double) (fblowup 15) (OR.fromList [2] [2, 3]))
+        (rev' @(OR.Array 0 Double) @_ @1 (fblowup 15) (OR.fromList [2] [2, 3]))
   , testCase "blowupMult 3" $ do
       assertEqualUpToEpsilon' 1e-10
         (OR.fromList [2] [2.999999730000007,1.9999998200000046])
-        (rev' @(OR.Array 0 Double) (fblowupMult 3) (OR.fromList [2] [2, 3]))
+        (rev' @(OR.Array 0 Double) @_ @1 (fblowupMult 3) (OR.fromList [2] [2, 3]))
   ]
