@@ -14,9 +14,12 @@ import Prelude
 import qualified Data.Array.DynamicS as OD
 import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
+import           Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (type (*), type (+), type (<=), type Div)
+import           GHC.TypeLits
+  (type (*), type (+), type (-), type (<=), type Div)
 import qualified Numeric.LinearAlgebra as LA
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -54,7 +57,9 @@ convMnistLayerS MkSNat MkSNat MkSNat MkSNat MkSNat MkSNat batch_size@MkSNat
         -- TODO: this is weakly typed; add and use replicateS instead
         -- or broadcastS or stretchS, possibly with transposeS?
       yRelu = relu $ yConv + biasStretched
-  in maxPool24 @1 @2 yRelu
+  in gcastWith ((unsafeCoerce Refl) :: Div ((((h + kh) - 1) + 2)- 1) 2 :~: Div (h + kh) 2) $
+     gcastWith ((unsafeCoerce Refl) :: Div ((((w + kw) - 1) + 2) - 1) 2 :~: Div (w + kw) 2) $
+     maxPool24 @1 @2 yRelu
 
 convMnistTwoS
   :: forall kh kw h w c_in c_out n_hidden batch_size d r.

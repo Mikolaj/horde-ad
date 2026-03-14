@@ -184,7 +184,7 @@ testFooBuild93 =
 testFooBuild21 :: Assertion
 testFooBuild21 =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [2] [0.2886751345948129,0.35355339059327373])
+    (OR.fromList @1 [2] [0.2886751345948129,0.35355339059327373])
     (rev' @(OR.Array 1 Double) fooBuild2 (OR.fromList [2] [3.0,2.0]))
 
 testFooBuild25 :: Assertion
@@ -268,7 +268,7 @@ testFooMap1 :: Assertion
 testFooMap1 =
   assertEqualUpToEpsilonShort 1e-6
     3901.312463734578
-    (rev' @(OR.Array 7 Double) (fooMap1 [4, 3, 2, 3, 4, 5, 3]) 0.1)
+    (rev' @(OR.Array 7 Double) @_ @0 (fooMap1 [4, 3, 2, 3, 4, 5, 3]) 0.1)
 
 fooNoGo :: forall r n.
            ( ADReady r, KnownNat n, RealFloat (TensorOf n r)
@@ -292,7 +292,7 @@ fooNoGo v =
 testFooNoGo :: Assertion
 testFooNoGo =
   assertEqualUpToEpsilon' 1e-6
-   (OR.fromList [5] [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])
+   (OR.fromList @1 [5] [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])
    (rev' @(OR.Array 1 Double) fooNoGo
          (OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
@@ -325,7 +325,7 @@ testNestedBuildMap1 :: Assertion
 testNestedBuildMap1 =
   assertEqualUpToEpsilonShort 1e-8
     22.673212907588812
-    (rev' @(OR.Array 1 Double) nestedBuildMap 0.6)
+    (rev' @(OR.Array 1 Double) @_ @0 nestedBuildMap 0.6)
 
 testNestedBuildMap10 :: Assertion
 testNestedBuildMap10 =
@@ -352,7 +352,7 @@ testNestedBuildMap7 :: Assertion
 testNestedBuildMap7 =
   assertEqualUpToEpsilonShort 1e-8
     2176.628439128524
-    (rev' @(OR.Array 7 Double) nestedBuildMap 0.6)
+    (rev' @(OR.Array 7 Double) @_ @0 nestedBuildMap 0.6)
 
 -- The n <= 4 is necessary despite what GHC claims. Applying @(2 + n)
 -- to nestedBuildMap doesn't help.
@@ -522,7 +522,7 @@ concatBuild r =
 testConcatBuild0 :: Assertion
 testConcatBuild0 =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [7] [17070.0,16433.0,16433.0,16433.0,16433.0,16433.0,16433.0])
+    (OR.fromList @1 [7] [17070.0,16433.0,16433.0,16433.0,16433.0,16433.0,16433.0])
     (rev' @(OR.Array 3 Double) concatBuild
        (OR.fromList [7] [0.651,0.14,0.3414,-0.14,0.0014,0.0020014,0.9999]))
 
