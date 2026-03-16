@@ -416,8 +416,15 @@ class ( Num (IntOf target)
     let f :: Int -> target (TKR2 n x)
         f i = trindex t (fromIntegral i :.: ZIR)
     in map f [0 .. rwidth t - 1]
-  trtoListLinear :: forall n r. GoodScalar r
-                 => target (TKR n r) -> [target (TKScalar r)]
+  trunravelToListN :: forall m n x. (KnownNat n, KnownSTK x)
+                   => IShR m -> target (TKR2 (m + n) x)
+                   -> [target (TKR2 n x)]
+  trunravelToListN shm t =
+    let f :: IxROf target m -> target (TKR2 n x)
+        f ix = trindex t ix
+    in map f (shrEnum' shm)
+  trtoListLinear :: forall m r. GoodScalar r
+                 => target (TKR m r) -> [target (TKScalar r)]
   trtoListLinear t = map (trindex0 t) (shrEnum' (rshape t))
 
   tsfromVector :: (KnownNat n, KnownShS sh, KnownSTK x)
@@ -444,8 +451,15 @@ class ( Num (IntOf target)
     let f :: Int -> target (TKS2 sh x)
         f i = tsindex t (fromIntegral i :.$ ZIS)
     in map f [0 .. swidth t - 1]
-  tstoListLinear :: forall sh r. GoodScalar r
-                 => target (TKS sh r) -> [target (TKScalar r)]
+  tsunravelToListN :: forall shm shn x. (KnownShS shn, KnownSTK x)
+                   => ShS shm -> target (TKS2 (shm ++ shn) x)
+                   -> [target (TKS2 shn x)]
+  tsunravelToListN shm t =
+    let f :: IxSOf target shm -> target (TKS2 shn x)
+        f ix = tsindex t ix
+    in map f (shsEnum' shm)
+  tstoListLinear :: forall shm r. GoodScalar r
+                 => target (TKS shm r) -> [target (TKScalar r)]
   tstoListLinear t = map (tsindex0 t) (shsEnum' (sshape t))
 
   txfromVector :: (KnownNat n, KnownShX sh, KnownSTK x)
@@ -472,8 +486,15 @@ class ( Num (IntOf target)
     let f :: Int -> target (TKX2 sh x)
         f i = txindex t (fromIntegral i :.% ZIX)
     in map f [0 .. xwidth t - 1]
-  txtoListLinear :: forall sh r. GoodScalar r
-                 => target (TKX sh r) -> [target (TKScalar r)]
+  txunravelToListN :: forall shm shn x. (KnownShX shn, KnownSTK x)
+                   => IShX shm -> target (TKX2 (shm ++ shn) x)
+                   -> [target (TKX2 shn x)]
+  txunravelToListN shm t =
+    let f :: IxXOf target shm -> target (TKX2 shn x)
+        f ix = txindex t ix
+    in map f (shxEnum' shm)
+  txtoListLinear :: forall shm r. GoodScalar r
+                 => target (TKX shm r) -> [target (TKScalar r)]
   txtoListLinear t = map (txindex0 t) (shxEnum' (xshape t))
 
   tfromVector :: forall y k.
