@@ -284,7 +284,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
       withShsFromShR sh' $ \(sh :: ShS sh) ->
         astConvUpRFromS sh FTKScalar
         . astCastS . astConvDownSFromR sh FTKScalar $ a
-  trindex @m @n a ix = case ftkAst a of
+  trindex @m @n a ix | SNat <- ixrRank ix = case ftkAst a of
     FTKR shmshn x ->
       withShsFromShR shmshn $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $
@@ -887,7 +887,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
       withShsFromShR sh' $ \(sh :: ShS sh) ->
         cAstConvUpRFromS sh FTKScalar
         . AstCastS . cAstConvDownSFromR sh FTKScalar $ a
-  trindex @m @n (AstRaw a) ix = AstRaw $ case ftkAst a of
+  trindex @m @n (AstRaw a) ix | SNat <- ixrRank ix = AstRaw $ case ftkAst a of
     FTKR shmshn x ->
       withShsFromShR shmshn $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: Rank (Take m sh) :~: m) $

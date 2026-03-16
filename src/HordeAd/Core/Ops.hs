@@ -639,7 +639,7 @@ class ( Num (IntOf target)
   txreplicate0N :: forall shm r. GoodScalar r
                 => IShX shm -> target (TKScalar r) -> target (TKX shm r)
 
-  trindex :: (KnownNat m, KnownNat n, KnownSTK x)
+  trindex :: forall m n x. (KnownNat n, KnownSTK x)
           => target (TKR2 (m + n) x) -> IxROf target m -> target (TKR2 n x)
   trindex0 :: forall m r. GoodScalar r
            => target (TKR m r) -> IxROf target m -> target (TKScalar r)
