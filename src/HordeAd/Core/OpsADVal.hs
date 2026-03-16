@@ -194,6 +194,24 @@ instance ( ADReadyNoLet target, ShareTensor target
     in fromPrimalFTK (FTKX (Nested.mshape a) FTKScalar) v
   tconcrete ftk t | Dict <- lemKnownSTK (ftkToSTK ftk) =
     fromPrimalFTK ftk $ tconcrete ftk t
+  trfromVectorN shm lu =
+    dD (trfromVectorN shm $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVectorR shm $ V.map (\(D _ u') -> u') lu)
+  trfromVector0N shm lu =
+    dD (trfromVector0N shm $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVector0NR shm $ V.map (\(D _ u') -> u') lu)
+  tsfromVectorN shm lu =
+    dD (tsfromVectorN shm $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVectorS shm $ V.map (\(D _ u') -> u') lu)
+  tsfromVector0N shm lu =
+    dD (tsfromVector0N shm $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVector0NS shm $ V.map (\(D _ u') -> u') lu)
+  txfromVectorN shm lu =
+    dD (txfromVectorN shm $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVectorX shm $ V.map (\(D _ u') -> u') lu)
+  txfromVector0N shm lu =
+    dD (txfromVector0N shm $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVector0NX shm $ V.map (\(D _ u') -> u') lu)
   tfromVector snat stk lu =
     dD (tfromVector snat stk $ V.map (\(D u _) -> u) lu)
        (DeltaFromVector snat stk $ V.map (\(D _ u') -> u') lu)
