@@ -399,14 +399,14 @@ class ( Num (IntOf target)
                -> target (TKR2 (1 + n) x)
   trfromVector v = withSNat (V.length v) $ \k ->
     tfromVector k (STKR SNat knownSTK) v
-  trfromVectorN :: (KnownNat n, KnownSTK x)
+  trfromVectorN :: forall m n x. (KnownNat n, KnownSTK x)
                 => IShR m -> Data.Vector.Vector (target (TKR2 n x))
                 -> target (TKR2 (m + n) x)
   trfromVectorN shm t = case V.uncons t of
     Just (v, _) -> trreshape (shm `shrAppend` rshape v)
                    $ trfromVector t
     Nothing -> error "trfromVectorN: empty vector"
-  trfromVector0N :: (GoodScalar r, ConvertTensor target)
+  trfromVector0N :: forall m r. (GoodScalar r, ConvertTensor target)
                  => IShR m -> Data.Vector.Vector (target (TKScalar r))
                  -> target (TKR m r)
   trfromVector0N shm = trreshape shm . trfromVector . V.map rfromK

@@ -25,7 +25,7 @@ import Data.Vector.Generic qualified as V
 import Data.Vector.Storable qualified as VS
 import Data.Vector.Storable.Mutable qualified as VSM
 import Foreign.C (CInt)
-import GHC.TypeLits (KnownNat, Nat, type (+))
+import GHC.TypeLits (KnownNat, Nat, type (*), type (+))
 import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
@@ -121,6 +121,15 @@ instance BaseTensor Concrete where
     case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
       Just l -> Concrete $ Nested.rfromListOuterN (V.length v) l
       Nothing -> error "rfromVector: empty vector"
+  {-# INLINE trfromVectorN #-}
+  trfromVectorN shm t = case V.uncons t of
+    Just (v, _) -> trreshape (shm `shrAppend` rshape v)
+                   $ trfromVector t
+    Nothing -> error "trfromVectorN: empty vector"
+  {-# INLINE trfromVector0N #-}
+  trfromVector0N shm v =
+    let l = V.toList $ fmapUnConcrete v
+    in Concrete $ Nested.rfromListPrimLinear shm l
   {-# INLINE trunravelToList #-}
   trunravelToList @_ @x | Dict <- eltDictRep (knownSTK @x) =
     fmapConcrete . Nested.rtoListOuter . unConcrete
@@ -131,6 +140,17 @@ instance BaseTensor Concrete where
     case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
       Just l -> Concrete $ Nested.sfromListOuter SNat l
       Nothing -> error "sfromVector: empty vector"
+  {-# INLINE tsfromVectorN #-}
+  tsfromVectorN @shm @shn shm t | SNat <- shsProduct shm = case V.uncons t of
+    Just (v, _) ->
+      gcastWith (unsafeCoerceRefl
+                 :: Product (shm ++ shn) :~: Product shm * Product shn) $
+      tsreshape (shm `shsAppend` sshape v) $ tsfromVector t
+    Nothing -> error "tsfromVectorN: empty vector"
+  {-# INLINE tsfromVector0N #-}
+  tsfromVector0N shm v =
+    let l = V.toList $ fmapUnConcrete v
+    in Concrete $ Nested.sfromListPrimLinear shm l
   {-# INLINE tsunravelToList #-}
   tsunravelToList @_ @_ @x | Dict <- eltDictRep (knownSTK @x) =
     fmapConcrete . Nested.stoListOuter . unConcrete
@@ -141,6 +161,16 @@ instance BaseTensor Concrete where
     case NonEmpty.nonEmpty $ V.toList $ fmapUnConcrete v of
       Just l -> Concrete $ Nested.mfromListOuterSN (SNat @n) l
       Nothing -> error "xfromVector: empty vector"
+  {-# INLINE txfromVectorN #-}
+  txfromVectorN shm t = case V.uncons t of
+    Just (v, _) ->
+      withSNat (shxSize shm) $ \(SNat @n) ->
+      txreshape (shm `shxAppend` xshape v) $ txfromVector @_ @n t
+    Nothing -> error "trfromVectorN: empty vector"
+  {-# INLINE txfromVector0N #-}
+  txfromVector0N shm v =
+    let l = V.toList $ fmapUnConcrete v
+    in Concrete $ Nested.mfromListPrimLinear shm l
   {-# INLINE txunravelToList #-}
   txunravelToList @_ @_ @x | Dict <- eltDictRep (knownSTK @x) =
     fmapConcrete . Nested.mtoListOuter . unConcrete
