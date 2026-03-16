@@ -210,6 +210,14 @@ data Delta :: Target -> Target where
                  SNat n
               -> Delta target (TKR2 (m + n) r) -> IxROf target m
               -> Delta target (TKR2 n r)
+  DeltaFromVector0NR :: forall m r target. GoodScalar r
+                     => IShR m
+                     -> Data.Vector.Vector (Delta target (TKScalar r))
+                     -> Delta target (TKR m r)
+  DeltaFromVectorR :: forall m n x target.
+                      IShR m
+                   -> Data.Vector.Vector (Delta target (TKR2 n x))
+                   -> Delta target (TKR2 (m + n) x)
   DeltaSum0R :: forall m r target. NumScalar r
              => Delta target (TKR m r)
              -> Delta target (TKScalar r)
@@ -255,6 +263,14 @@ data Delta :: Target -> Target where
                  ShS shn
               -> Delta target (TKS2 (shm ++ shn) r) -> IxSOf target shm
               -> Delta target (TKS2 shn r)
+  DeltaFromVector0NS :: forall shm r target. GoodScalar r
+                     => ShS shm
+                     -> Data.Vector.Vector (Delta target (TKScalar r))
+                     -> Delta target (TKS shm r)
+  DeltaFromVectorS :: forall shm shn x target.
+                      ShS shm
+                   -> Data.Vector.Vector (Delta target (TKS2 shn x))
+                   -> Delta target (TKS2 (shm ++ shn) x)
   DeltaSum0S :: forall shm r target. NumScalar r
              => Delta target (TKS shm r)
              -> Delta target (TKScalar r)
@@ -307,6 +323,14 @@ data Delta :: Target -> Target where
                  StaticShX shn
               -> Delta target (TKX2 (shm ++ shn) r) -> IxXOf target shm
               -> Delta target (TKX2 shn r)
+  DeltaFromVector0NX :: forall shm r target. GoodScalar r
+                     => IShX shm
+                     -> Data.Vector.Vector (Delta target (TKScalar r))
+                     -> Delta target (TKX shm r)
+  DeltaFromVectorX :: forall shm shn x target.
+                      IShX shm
+                   -> Data.Vector.Vector (Delta target (TKX2 shn x))
+                   -> Delta target (TKX2 (shm ++ shn) x)
   DeltaSum0X :: forall shm r target. NumScalar r
              => Delta target (TKX shm r)
              -> Delta target (TKScalar r)
@@ -397,6 +421,10 @@ ftkDelta = \case
   DeltaDot0R{} -> FTKScalar
   DeltaIndexR _ d ix | SNat <- ixrRank ix -> case ftkDelta d of
     FTKR sh x -> FTKR (shrDrop sh) x
+  DeltaFromVector0NR shm _ -> FTKR shm FTKScalar
+  DeltaFromVectorR shm l -> case V.uncons l of
+    Nothing -> error "ftkDelta: empty vector"
+    Just (d, _) | FTKR shn x <- ftkDelta d -> FTKR (shm `shrAppend` shn) x
   DeltaSum0R{} -> FTKScalar
   DeltaSumR @m SNat d -> case ftkDelta d of
     FTKR shmshn x -> FTKR (shrDrop @m shmshn) x
@@ -425,6 +453,10 @@ ftkDelta = \case
   DeltaDot0S{} -> FTKScalar
   DeltaIndexS shn d _ix -> case ftkDelta d of
     FTKS _ x -> FTKS shn x
+  DeltaFromVector0NS shm _ -> FTKS shm FTKScalar
+  DeltaFromVectorS shm l -> case V.uncons l of
+    Nothing -> error "ftkDelta: empty vector"
+    Just (d, _) | FTKS shn x <- ftkDelta d -> FTKS (shm `shsAppend` shn) x
   DeltaSum0S{} -> FTKScalar
   DeltaSumS @shm @shn shm d | SNat <- shsRank shm -> case ftkDelta d of
     FTKS shmshn x ->
@@ -454,6 +486,10 @@ ftkDelta = \case
     FTKX sh x | SNat @len <- ixxRank ix ->
       gcastWith (unsafeCoerceRefl :: Drop (Rank shm) (shm ++ shn) :~: shn) $
       FTKX (shxDrop @len sh) x
+  DeltaFromVector0NX shm _ -> FTKX shm FTKScalar
+  DeltaFromVectorX shm l -> case V.uncons l of
+    Nothing -> error "ftkDelta: empty vector"
+    Just (d, _) | FTKX shn x <- ftkDelta d -> FTKX (shm `shxAppend` shn) x
   DeltaSum0X{} -> FTKScalar
   DeltaSumX @shm @shn shm d | SNat <- ssxRank shm -> case ftkDelta d of
     FTKX shmshn x ->

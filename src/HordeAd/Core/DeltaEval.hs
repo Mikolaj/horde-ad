@@ -418,6 +418,22 @@ evalRev !s !c d0 = case d0 of
         -- note that this is the correct derivative also in OOB base,
         -- because then indexing ignores the argument array
         -- and so the array is zeroed in the derivative
+  DeltaFromVector0NR @_ @r _shm ld ->
+    ifDifferentiable @r
+      (let cShared = tshare c
+           cxs = trtoListLinear cShared
+       in foldl' (\ !s2 (cx, d2) -> evalRev s2 cx d2) s
+          $ zip cxs (V.toList ld))
+      s
+  DeltaFromVectorR shm ld -> case V.uncons ld of
+    Nothing -> error "evalRev: empty vector"
+    Just (d, _) | FTKR shn x <- ftkDelta d
+                , SNat <- shrRank shn ->
+      withKnownSTK (adSTK $ ftkToSTK x) $
+      let cShared = tshare c
+          cxs = trunravelToListN shm cShared
+      in foldl' (\ !s2 (cx, d2) -> evalRev s2 cx d2) s
+         $ zip cxs (V.toList ld)
   DeltaSum0R d -> case adFTK $ ftkDelta d of
     FTKR shm FTKScalar | SNat <- shrRank shm ->
       evalRev s (trreplicate0N shm c) d
@@ -486,6 +502,22 @@ evalRev !s !c d0 = case d0 of
       withKnownShS shn $
       withKnownShS (shsTakeIx @shm @shn Proxy ix sh) $
       evalRev s (tsoneHot c ix) d
+  DeltaFromVector0NS @_ @r _shm ld ->
+    ifDifferentiable @r
+      (let cShared = tshare c
+           cxs = tstoListLinear cShared
+       in foldl' (\ !s2 (cx, d2) -> evalRev s2 cx d2) s
+          $ zip cxs (V.toList ld))
+      s
+  DeltaFromVectorS shm ld -> case V.uncons ld of
+    Nothing -> error "evalRev: empty vector"
+    Just (d, _) | FTKS shn x <- ftkDelta d ->
+      withKnownSTK (adSTK $ ftkToSTK x) $
+      withKnownShS shn $
+      let cShared = tshare c
+          cxs = tsunravelToListN shm cShared
+      in foldl' (\ !s2 (cx, d2) -> evalRev s2 cx d2) s
+         $ zip cxs (V.toList ld)
   DeltaSum0S d -> case adFTK $ ftkDelta d of
     FTKS shm FTKScalar ->
       evalRev s (tsreplicate0N shm c) d
@@ -567,6 +599,22 @@ evalRev !s !c d0 = case d0 of
       withKnownShX (ssxTakeIx @shm @shn Proxy ix (ssxFromShX sh)) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
       evalRev s (txoneHot (shxTake @len sh) c ix) d
+  DeltaFromVector0NX @_ @r _shm ld ->
+    ifDifferentiable @r
+      (let cShared = tshare c
+           cxs = txtoListLinear cShared
+       in foldl' (\ !s2 (cx, d2) -> evalRev s2 cx d2) s
+          $ zip cxs (V.toList ld))
+      s
+  DeltaFromVectorX shm ld -> case V.uncons ld of
+    Nothing -> error "evalRev: empty vector"
+    Just (d, _) | FTKX shn x <- ftkDelta d ->
+      withKnownSTK (adSTK $ ftkToSTK x) $
+      withKnownShX (ssxFromShX shn) $
+      let cShared = tshare c
+          cxs = txunravelToListN shm cShared
+      in foldl' (\ !s2 (cx, d2) -> evalRev s2 cx d2) s
+         $ zip cxs (V.toList ld)
   DeltaSum0X d -> case adFTK $ ftkDelta d of
     FTKX shm FTKScalar ->
       evalRev s (txreplicate0N shm c) d
@@ -795,6 +843,18 @@ evalFwd params !s d0 = case d0 of
     FTKR _ x | SNat <- ixrRank ix ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       second (`trindex` ix) $ evalFwd params s d
+  DeltaFromVector0NR shm ld -> case V.uncons ld of
+    Nothing -> error "evalFwd: empty vector"
+    Just (d, _) | FTKScalar <- adFTK $ ftkDelta d ->
+      let (s2, l) = mapAccumL' (evalFwd params) s $ V.toList ld
+      in (s2, trfromVector0N shm $ V.fromListN (V.length ld) l)
+  DeltaFromVectorR shm ld -> case V.uncons ld of
+    Nothing -> error "evalFwd: empty vector"
+    Just (d, _) | FTKR shn x <- ftkDelta d
+                , SNat <- shrRank shn ->
+      withKnownSTK (adSTK $ ftkToSTK x) $
+      let (s2, l) = mapAccumL' (evalFwd params) s $ V.toList ld
+      in (s2, trfromVectorN shm $ V.fromListN (V.length ld) l)
   DeltaSum0R @_ @r DeltaZero{} -> (s, toADTensorKindShared (FTKScalar @r) 0)
   DeltaSum0R @_ @r d ->
     ifDifferentiable @r
@@ -861,6 +921,18 @@ evalFwd params !s d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       withKnownShS shn $
       second (`tsindex` ix) $ evalFwd params s d
+  DeltaFromVector0NS shm ld -> case V.uncons ld of
+    Nothing -> error "evalFwd: empty vector"
+    Just (d, _) | FTKScalar <- adFTK $ ftkDelta d ->
+      let (s2, l) = mapAccumL' (evalFwd params) s $ V.toList ld
+      in (s2, tsfromVector0N shm $ V.fromListN (V.length ld) l)
+  DeltaFromVectorS shm ld -> case V.uncons ld of
+    Nothing -> error "evalFwd: empty vector"
+    Just (d, _) | FTKS shn x <- ftkDelta d ->
+      withKnownSTK (adSTK $ ftkToSTK x) $
+      withKnownShS shn $
+      let (s2, l) = mapAccumL' (evalFwd params) s $ V.toList ld
+      in (s2, tsfromVectorN shm $ V.fromListN (V.length ld) l)
   DeltaSum0S @_ @r DeltaZero{} -> (s, toADTensorKindShared (FTKScalar @r) 0)
   DeltaSum0S @_ @r d ->
     ifDifferentiable @r
@@ -937,6 +1009,18 @@ evalFwd params !s d0 = case d0 of
       withKnownShX shn $
       withKnownShX (ssxTakeIx @shm @shn Proxy ix (ssxFromShX sh)) $
       second (`txindex` ix) $ evalFwd params s d
+  DeltaFromVector0NX shm ld -> case V.uncons ld of
+    Nothing -> error "evalFwd: empty vector"
+    Just (d, _) | FTKScalar <- adFTK $ ftkDelta d ->
+      let (s2, l) = mapAccumL' (evalFwd params) s $ V.toList ld
+      in (s2, txfromVector0N shm $ V.fromListN (V.length ld) l)
+  DeltaFromVectorX shm ld -> case V.uncons ld of
+    Nothing -> error "evalFwd: empty vector"
+    Just (d, _) | FTKX shn x <- ftkDelta d ->
+      withKnownSTK (adSTK $ ftkToSTK x) $
+      withKnownShX (ssxFromShX shn) $
+      let (s2, l) = mapAccumL' (evalFwd params) s $ V.toList ld
+      in (s2, txfromVectorN shm $ V.fromListN (V.length ld) l)
   DeltaSum0X @_ @r DeltaZero{} -> (s, toADTensorKindShared (FTKScalar @r) 0)
   DeltaSum0X @_ @r d ->
     ifDifferentiable @r
