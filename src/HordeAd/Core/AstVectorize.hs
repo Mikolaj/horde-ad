@@ -31,7 +31,6 @@ import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
-import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (Tail, unsafeCoerceRefl)
 
@@ -455,7 +454,7 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                astGatherS
                  (SNat @k :$$ ZSS)
                  shn1
-                 (SNat @k :$$ Shaped.shsTakeIx @shn1 @shm1 Proxy shmshn1 ix2)
+                 (SNat @k :$$ shsTakeIx @shm1 @shn1 Proxy ix2 shmshn1)
                  (build1VOccurrenceUnknown k (var, v1))
                  (varFresh ::$ ZS, astVarFresh :.$ ix2)
              len = ixsLength ix1
@@ -486,7 +485,7 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
      else traceRule $
             astGatherS (SNat @k :$$ ZSS)
                        shn
-                       (Shaped.shsTakeIx @shn @shm Proxy shmshn ix)
+                       (shsTakeIx @shm @shn Proxy ix shmshn)
                        v0 (var ::$ ZS, ix)
 
 build1VHFun

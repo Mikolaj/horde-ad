@@ -2148,7 +2148,7 @@ astIndexKnobsS knobs shn u0 (Ast.AstCond b v w :.$ rest0)
               (astIndexKnobsS knobs shn u (w :.$ rest))
 astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
  | FTKS shmshn x <- ftkAst v0 =
- case Shaped.shsTakeIx @shn @shm Proxy shmshn ix of
+ case shsTakeIx @shm @shn Proxy ix shmshn of
   SNat @in1 :$$ (_ :: ShS shm1) ->
    let astIndex
          :: forall shm' shn' s' r'. KnownSpan s'

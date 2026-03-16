@@ -27,7 +27,6 @@ import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (permInverse)
 import Data.Array.Nested.Permutation qualified as Permutation
 import Data.Array.Nested.Ranked.Shape
-import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
 
@@ -485,7 +484,7 @@ evalRev !s !c d0 = case d0 of
     FTKS sh x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       withKnownShS shn $
-      withKnownShS (Shaped.shsTakeIx @shn @shm Proxy sh ix) $
+      withKnownShS (shsTakeIx @shm @shn Proxy ix sh) $
       evalRev s (tsoneHot c ix) d
   DeltaSum0S d -> case adFTK $ ftkDelta d of
     FTKS shm FTKScalar ->

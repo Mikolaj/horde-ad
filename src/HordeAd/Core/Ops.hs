@@ -692,8 +692,8 @@ class ( Num (IntOf target)
   tsindex :: forall shm shn x. (KnownShS shn, KnownSTK x)
           => target (TKS2 (shm ++ shn) x) -> IxSOf target shm
           -> target (TKS2 shn x)
-  tsindex0 :: forall sh1 r. GoodScalar r
-           => target (TKS sh1 r) -> IxSOf target sh1 -> target (TKScalar r)
+  tsindex0 :: forall shm r. GoodScalar r
+           => target (TKS shm r) -> IxSOf target shm -> target (TKScalar r)
   tsoneHot :: ( KnownShS sh1, KnownShS sh2, TKAllNum x, KnownSTK x
               , PlainOf (PlainOf target) ~ PlainOf target
               , EqH (PlainOf target) (TKScalar Int) )
@@ -736,11 +736,11 @@ class ( Num (IntOf target)
   {-# INLINE tsgather1 #-}
   tsgather1 @n2 v f = tsgather @target @'[n2] v (\(i :.$ _) -> f i)
 
-  txindex :: (KnownShX sh1, KnownShX sh2, KnownSTK x)
-          => target (TKX2 (sh1 ++ sh2) x) -> IxXOf target sh1
-          -> target (TKX2 sh2 x)
-  txindex0 :: forall sh1 r. GoodScalar r
-           => target (TKX sh1 r) -> IxXOf target sh1 -> target (TKScalar r)
+  txindex :: forall shm shn x. (KnownShX shn, KnownSTK x)
+          => target (TKX2 (shm ++ shn) x) -> IxXOf target shm
+          -> target (TKX2 shn x)
+  txindex0 :: forall shm r. GoodScalar r
+           => target (TKX shm r) -> IxXOf target shm -> target (TKScalar r)
   txoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
               , PlainOf (PlainOf target) ~ PlainOf target
               , EqH (PlainOf target) (TKScalar Int) )

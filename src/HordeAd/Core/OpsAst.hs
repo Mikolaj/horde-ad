@@ -524,13 +524,13 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
         astConvUpXFromS sh' FTKScalar
         . astCastS . astConvDownSFromX sh FTKScalar $ a
   txindex @sh1 @sh2 a ix = case ftkAst a of
-    FTKX @sh1sh2 sh1sh2 x | SNat <- ssxRank (knownShX @sh1) ->
+    FTKX @sh1sh2 sh1sh2 x | SNat <- ixxRank ix ->
       withShsFromShX sh1sh2 $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1) sh) :~: Rank sh2) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
         gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) sh1sh2 :~: sh2) $
-        astConvUpXFromS (shxDropSSX (knownShX @sh1) sh1sh2) x
+        astConvUpXFromS (shxDropIx ix sh1sh2) x
         $ astIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (shsDrop @(Rank sh1) sh)
                     (astConvDownSFromX sh x a)
@@ -1133,13 +1133,13 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         cAstConvUpXFromS sh' FTKScalar
         . AstCastS . cAstConvDownSFromX sh FTKScalar $ a
   txindex @sh1 @sh2 (AstRaw a) ix = AstRaw $ case ftkAst a of
-    FTKX @sh1sh2 sh1sh2 x | SNat <- ssxRank (knownShX @sh1) ->
+    FTKX @sh1sh2 sh1sh2 x | SNat <- ixxRank ix ->
       withShsFromShX sh1sh2 $ \(sh :: ShS sh) ->
         gcastWith (unsafeCoerceRefl :: Rank (Drop (Rank sh1) sh) :~: Rank sh2) $
         gcastWith (unsafeCoerceRefl
                    :: Take (Rank sh1) sh ++ Drop (Rank sh1) sh :~: sh) $
         gcastWith (unsafeCoerceRefl :: Drop (Rank sh1) sh1sh2 :~: sh2) $
-        cAstConvUpXFromS (shxDropSSX (knownShX @sh1) sh1sh2) x
+        cAstConvUpXFromS (shxDropIx ix sh1sh2) x
         $ AstIndexS @(Take (Rank sh1) sh) @(Drop (Rank sh1) sh)
                     (shsDrop @(Rank sh1) sh)
                     (cAstConvDownSFromX sh x a)

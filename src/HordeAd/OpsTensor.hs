@@ -439,8 +439,8 @@ sindex, (!$) :: forall shm shn x target.
 sindex = tsindex
 infixl 9 !$
 (!$) = sindex  -- prefix form better when type applications are necessary
-sindex0 :: forall sh1 r target. (GoodScalar r, BaseTensor target)
-        => target (TKS sh1 r) -> IxSOf target sh1 -> target (TKScalar r)
+sindex0 :: forall shm r target. (GoodScalar r, BaseTensor target)
+        => target (TKS shm r) -> IxSOf target shm -> target (TKScalar r)
 sindex0 = tsindex0
 soneHot :: ( KnownShS sh1, KnownShS sh2, TKAllNum x, KnownSTK x
            , PlainOf (PlainOf target) ~ PlainOf target
@@ -479,12 +479,12 @@ sgather1
 {-# INLINE sgather1 #-}
 sgather1 = tsgather1
 
-xindex :: (KnownShX sh1, KnownShX sh2, KnownSTK x, BaseTensor target)
-       => target (TKX2 (sh1 ++ sh2) x) -> IxXOf target sh1
-       -> target (TKX2 sh2 x)
+xindex :: forall shm shn x target. (KnownShX shn, KnownSTK x, BaseTensor target)
+       => target (TKX2 (shm ++ shn) x) -> IxXOf target shm
+       -> target (TKX2 shn x)
 xindex = txindex
-xindex0 :: forall sh1 r target. (GoodScalar r, BaseTensor target)
-        => target (TKX sh1 r) -> IxXOf target sh1 -> target (TKScalar r)
+xindex0 :: forall shm r target. (GoodScalar r, BaseTensor target)
+        => target (TKX shm r) -> IxXOf target shm -> target (TKScalar r)
 xindex0 = txindex0
 xoneHot :: ( KnownShX sh1, KnownShX sh2, TKAllNum x, KnownSTK x
            , PlainOf (PlainOf target) ~ PlainOf target
