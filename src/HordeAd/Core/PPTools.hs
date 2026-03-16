@@ -366,6 +366,20 @@ printAst cfg d = \case
       . showString " !$ "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
 
+  AstFromVectorK shm l ->
+    let s = "sfromVector0N @" ++ showListWith shows (shsToList shm) " "
+    in showParen (d > 10)
+       $ showString s
+         . (showParen True
+            $ showString "fromList "
+              . showListWith (printAst cfg 0) (V.toList l))
+  AstFromVectorS shm l ->
+    let s = "sfromVectorN @" ++ showListWith shows (shsToList shm) " "
+    in showParen (d > 10)
+       $ showString s
+         . (showParen True
+            $ showString "fromList "
+              . showListWith (printAst cfg 0) (V.toList l))
   AstSumK v | FTKS shm _ <- ftkAst v ->
     let s = "ssum0 @" ++ showListWith shows (shsToList shm) ""
     in printPrefixOp printAst cfg d s [v]

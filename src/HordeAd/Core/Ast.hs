@@ -546,6 +546,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
             -> AstTensor ms s (TKS2 (shm ++ shn) x) -> AstIxS ms shm
             -> AstTensor ms s (TKS2 shn x)
 
+  AstFromVectorK :: forall shm r s ms. GoodScalar r
+                 => ShS shm -> Data.Vector.Vector (AstTensor ms s (TKScalar r))
+                 -> AstTensor ms s (TKS shm r)
+  AstFromVectorS :: forall shm shn x s ms.
+                    ShS shm -> Data.Vector.Vector (AstTensor ms s (TKS2 shn x))
+                 -> AstTensor ms s (TKS2 (shm ++ shn) x)
   AstSumK :: forall shm r s ms. NumScalar r
           => AstTensor ms s (TKS shm r)
           -> AstTensor ms s (TKScalar r)

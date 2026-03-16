@@ -22,6 +22,7 @@ import Data.Coerce (Coercible, coerce)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
 import GHC.TypeLits (OrderingI (..), cmpNat, type (+), type (-), type (<=?))
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
@@ -243,6 +244,18 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Ranked ops
   rshape t = case ftkAst t of
     FTKR sh _ -> sh
+  trfromVectorN shm0 l = case V.uncons l of
+    Just (v, _) | FTKR shn0 x <- ftkAst v ->
+      withShsFromShR shn0 $ \(shn :: ShS shn) ->
+      withShsFromShR shm0 $ \(shm :: ShS shm) ->
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (shm ++ shn) :~: Rank shm + Rank shn) $
+        astConvUpRFromS (shm `shsAppend` shn) x
+        . astFromVectorS shm . V.map (astConvDownSFromR shn x) $ l
+    Nothing -> error "trfromVectorN: empty vector"
+  trfromVector0N shm0 l =
+    withShsFromShR shm0 $ \(shm :: ShS shm) ->
+      astConvUpRFromS shm FTKScalar . astFromVectorK shm $ l
   trsumN @m @n t = case ftkAst t of
     FTKR shmshn0 x ->
       withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -475,6 +488,20 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   -- Mixed ops
   xshape t = case ftkAst t of
     FTKX sh _ -> sh
+  txfromVectorN @shm0 @shn0 shm0 l = case V.uncons l of
+    Just (v, _) | FTKX shn0 x <- ftkAst v ->
+      withShsFromShX shn0 $ \(shn :: ShS shn) ->
+      withShsFromShX shm0 $ \(shm :: ShS shm) ->
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (shm0 ++ shn0) :~: Rank shm0 + Rank shn0) $
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (shm ++ shn) :~: Rank shm + Rank shn) $
+        astConvUpXFromS (shm0 `shxAppend` shn0) x
+        . astFromVectorS shm . V.map (astConvDownSFromX shn x) $ l
+    Nothing -> error "trfromVectorN: empty vector"
+  txfromVector0N shm0 l =
+    withShsFromShX shm0 $ \(shm :: ShS shm) ->
+      astConvUpXFromS shm0 FTKScalar . astFromVectorK shm $ l
   txsumN @shm0 @shn0 t
     | SNat <- ssxRank (knownShX @shm0) = case ftkAst t of
       FTKX shmshn0 x ->
@@ -846,6 +873,18 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   -- Ranked ops
   rshape t = case ftkAst $ unAstRaw t of
     FTKR sh _ -> sh
+  trfromVectorN shm0 l = AstRaw $ case V.uncons l of
+    Just (AstRaw v, _) | FTKR shn0 x <- ftkAst v ->
+      withShsFromShR shn0 $ \(shn :: ShS shn) ->
+      withShsFromShR shm0 $ \(shm :: ShS shm) ->
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (shm ++ shn) :~: Rank shm + Rank shn) $
+        cAstConvUpRFromS (shm `shsAppend` shn) x
+        . AstFromVectorS shm . V.map (cAstConvDownSFromR shn x) $ fmapUnAstRaw l
+    Nothing -> error "trfromVectorN: empty vector"
+  trfromVector0N shm0 l = AstRaw $
+    withShsFromShR shm0 $ \(shm :: ShS shm) ->
+      cAstConvUpRFromS shm FTKScalar . AstFromVectorK shm $ fmapUnAstRaw l
   trsumN @m @n (AstRaw t) = AstRaw $ case ftkAst t of
     FTKR shmshn0 x ->
       withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -1084,6 +1123,20 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   -- Mixed ops
   xshape t = case ftkAst $ unAstRaw t of
     FTKX sh _ -> sh
+  txfromVectorN @shm0 @shn0 shm0 l = AstRaw $ case V.uncons l of
+    Just (AstRaw v, _) | FTKX shn0 x <- ftkAst v ->
+      withShsFromShX shn0 $ \(shn :: ShS shn) ->
+      withShsFromShX shm0 $ \(shm :: ShS shm) ->
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (shm0 ++ shn0) :~: Rank shm0 + Rank shn0) $
+        gcastWith (unsafeCoerceRefl
+                   :: Rank (shm ++ shn) :~: Rank shm + Rank shn) $
+        cAstConvUpXFromS (shm0 `shxAppend` shn0) x
+        . AstFromVectorS shm . V.map (cAstConvDownSFromX shn x) $ fmapUnAstRaw l
+    Nothing -> error "trfromVectorN: empty vector"
+  txfromVector0N shm0 l = AstRaw $
+    withShsFromShX shm0 $ \(shm :: ShS shm) ->
+      cAstConvUpXFromS shm0 FTKScalar . AstFromVectorK shm $ fmapUnAstRaw l
   txsumN @shm0 @shn0 (AstRaw t)
     | SNat <- ssxRank (knownShX @shm0) = AstRaw $ case ftkAst t of
       FTKX shmshn0 x ->
@@ -1480,6 +1533,10 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   isConcreteInstance = False
   -- Ranked ops
   rshape = rshape . unAstNoVectorize
+  trfromVectorN shm =
+    AstNoVectorize . trfromVectorN shm . V.map unAstNoVectorize
+  trfromVector0N shm =
+    AstNoVectorize . trfromVector0N shm . V.map unAstNoVectorize
   trsumN = AstNoVectorize . trsumN . unAstNoVectorize
   trsum0 = AstNoVectorize . trsum0 . unAstNoVectorize
   trreplicateN shm = AstNoVectorize . trreplicateN shm . unAstNoVectorize
@@ -1550,6 +1607,10 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
 
   -- Mixed ops
   xshape = xshape . unAstNoVectorize
+  txfromVectorN shm =
+    AstNoVectorize . txfromVectorN shm . V.map unAstNoVectorize
+  txfromVector0N shm =
+    AstNoVectorize . txfromVector0N shm . V.map unAstNoVectorize
   txsumN @shm = AstNoVectorize . txsumN @_ @shm . unAstNoVectorize
   txsum0 = AstNoVectorize . txsum0 . unAstNoVectorize
   txreplicateN shm = AstNoVectorize . txreplicateN shm . unAstNoVectorize
@@ -1793,6 +1854,10 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   -- All the following implementations piggy-back on AstRaw implementations.
   -- Ranked ops
   rshape = rshape . wunAstNoSimplify
+  trfromVectorN shm =
+    wAstNoSimplify . trfromVectorN shm . V.map wunAstNoSimplify
+  trfromVector0N shm =
+    wAstNoSimplify . trfromVector0N shm . V.map wunAstNoSimplify
   trsumN = wAstNoSimplify . trsumN . wunAstNoSimplify
   trsum0 = wAstNoSimplify . trsum0 . wunAstNoSimplify
   trreplicateN shm = wAstNoSimplify . trreplicateN shm . wunAstNoSimplify
@@ -1854,6 +1919,10 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
 
   -- Mixed ops
   xshape = xshape . wunAstNoSimplify
+  txfromVectorN shm =
+    wAstNoSimplify . txfromVectorN shm . V.map wunAstNoSimplify
+  txfromVector0N shm =
+    wAstNoSimplify . txfromVector0N shm . V.map wunAstNoSimplify
   txsumN @shm = wAstNoSimplify . txsumN @_ @shm . wunAstNoSimplify
   txsum0 = wAstNoSimplify . txsum0 . wunAstNoSimplify
   txreplicateN shm = wAstNoSimplify . txreplicateN shm . wunAstNoSimplify

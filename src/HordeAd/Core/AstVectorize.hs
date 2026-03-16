@@ -277,7 +277,34 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       Ast.AstArgMaxS $ build1V snat (var, v)
     Ast.AstIndexS shn v ix -> traceRule $
       build1VIndexS snat shn (var, v, ix)  -- @var@ is in @v@ or @ix@
-
+    Ast.AstFromVectorK @shm shm l -> traceRule $
+      let perm1 = permCycle $ shsLength shm + 1
+      in Permutation.permFromListCont perm1 $ \(perm
+                                                :: Permutation.Perm perm) ->
+           gcastWith (unsafeCoerceRefl
+                      :: (Rank perm <=? Rank (shm ++ '[k])) :~: True) $
+           gcastWith (unsafeCoerceRefl
+                      :: Permutation.PermutePrefix perm (shm ++ '[k])
+                         :~: k : shm) $
+           fromMaybe (error "build1V: impossible non-permutation")
+           $ Permutation.permCheckPermutation perm
+           $ astTransposeS perm
+           $ astFromVectorS shm (V.map (\v ->
+               build1VOccurrenceUnknown snat (var, v)) l)
+    Ast.AstFromVectorS @shm @shn shm l -> traceRule $
+      let perm1 = permCycle $ shsLength shm + 1
+      in Permutation.permFromListCont perm1 $ \(perm
+                                                :: Permutation.Perm perm) ->
+           gcastWith (unsafeCoerceRefl
+                      :: (Rank perm <=? Rank (shm ++ (k : shn))) :~: True) $
+           gcastWith (unsafeCoerceRefl
+                      :: Permutation.PermutePrefix perm (shm ++ (k : shn))
+                         :~: k : shm ++ shn) $
+           fromMaybe (error "build1V: impossible non-permutation")
+           $ Permutation.permCheckPermutation perm
+           $ astTransposeS perm
+           $ astFromVectorS shm (V.map (\v ->
+               build1VOccurrenceUnknown snat (var, v)) l)
     Ast.AstSumK @shm v -> traceRule $ case ftkAst v of
      FTKS shm _ ->
       let perm1 = backpermCycle $ shsLength shm + 1
@@ -464,7 +491,8 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                Ast.AstScatterS{} -> True
                Ast.AstGatherS{} -> True
                Ast.AstMapAccumLDer{} -> True
-               -- These can only be simplified to the AstFromVector NF above.
+               Ast.AstFromVectorS{} -> len == 1
+               -- These can only be simplified to the AstFromVectorS NF above.
                Ast.AstReplicateK{} -> True
                Ast.AstReplicateS{} -> True
                Ast.AstAppendS{} -> True

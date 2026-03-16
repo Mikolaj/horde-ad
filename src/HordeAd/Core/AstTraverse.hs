@@ -126,7 +126,8 @@ expandAst t = case t of
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
                    shn (expandAst v) (expandAstIxS ix)
-
+  Ast.AstFromVectorK shm l -> astFromVectorK shm (V.map expandAst l)
+  Ast.AstFromVectorS shm l -> astFromVectorS shm (V.map expandAst l)
   Ast.AstSumK a -> astSumK (expandAst a)
   Ast.AstSumS shm a -> astSumS shm (expandAst a)
   Ast.AstScatterS shm shn shp v (vars, ix) ->
@@ -286,6 +287,8 @@ simplifyAst t = case t of
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
                    shn (simplifyAst v) (simplifyAstIxS ix)
 
+  Ast.AstFromVectorK shm l -> astFromVectorK shm (V.map simplifyAst l)
+  Ast.AstFromVectorS shm l -> astFromVectorS shm (V.map simplifyAst l)
   Ast.AstSumK a -> astSumK (simplifyAst a)
   Ast.AstSumS shm a -> astSumS shm (simplifyAst a)
   Ast.AstScatterS shm shn shp v (vars, ix) ->
@@ -454,6 +457,8 @@ contractAst t0 = case t0 of
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                    shn (contractAst v) (contractAstIxS ix)
 
+  Ast.AstFromVectorK shm l -> astFromVectorK shm (V.map contractAst l)
+  Ast.AstFromVectorS shm l -> astFromVectorS shm (V.map contractAst l)
   Ast.AstSumK v -> astSumKContract $ contractAst v
   Ast.AstSumS (n :$$ shmRest@(_ :$$ _)) v@AstTimesS{} ->
     contractAst (Ast.AstSumS shmRest (Ast.AstSumS (n :$$ ZSS) v))
@@ -846,6 +851,8 @@ letDownAst t = case t of
   Ast.AstArgMaxS a -> Ast.AstArgMaxS (letDownAst a)
   Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (letDownAst v) (letDownAstIxS ix)
 
+  Ast.AstFromVectorK shm l -> Ast.AstFromVectorK shm (V.map letDownAst l)
+  Ast.AstFromVectorS shm l -> Ast.AstFromVectorS shm (V.map letDownAst l)
   Ast.AstSumK v -> Ast.AstSumK (letDownAst v)
   Ast.AstSumS shm v -> Ast.AstSumS shm (letDownAst v)
   Ast.AstScatterS shm shn shp v (vars, ix) ->

@@ -189,6 +189,12 @@ inlineAst !memo v0 = case v0 of
         (memo2, ix2) = mapAccumL' inlineAst memo1 (Foldable.toList ix)
     in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
 
+  Ast.AstFromVectorK shm l ->
+    let (memo2, l2) = mapAccumL' inlineAst memo $ V.toList l
+    in (memo2, Ast.AstFromVectorK shm $ V.fromListN (V.length l) l2)
+  Ast.AstFromVectorS shm l ->
+    let (memo2, l2) = mapAccumL' inlineAst memo $ V.toList l
+    in (memo2, Ast.AstFromVectorS shm $ V.fromListN (V.length l) l2)
   Ast.AstSumK v -> second Ast.AstSumK (inlineAst memo v)
   Ast.AstSumS shm v -> second (Ast.AstSumS shm) (inlineAst memo v)
   Ast.AstScatterS shm shn shp v (vars, ix) ->
@@ -446,6 +452,12 @@ unshareAst !memo = \case
         (memo2, ix2) = mapAccumL' unshareAst memo1 (Foldable.toList ix)
     in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
 
+  Ast.AstFromVectorK shm l ->
+    let (memo2, l2) = mapAccumL' unshareAst memo $ V.toList l
+    in (memo2, Ast.AstFromVectorK shm $ V.fromListN (V.length l) l2)
+  Ast.AstFromVectorS shm l ->
+    let (memo2, l2) = mapAccumL' unshareAst memo $ V.toList l
+    in (memo2, Ast.AstFromVectorS shm $ V.fromListN (V.length l) l2)
   Ast.AstSumK v -> second Ast.AstSumK (unshareAst memo v)
   Ast.AstSumS shm v -> second (Ast.AstSumS shm) (unshareAst memo v)
   Ast.AstScatterS shm shn shp v (vars, ix) ->

@@ -34,6 +34,7 @@ module HordeAd.Core.AstSimplify
   , astPlusS, astTimesS, astN1S, astR1S, astR2S, astI2S, astConcreteS
   , astFloorS, astFromIntegralS, astCastS, astIndexS, astIndexKnobsS
 
+  , astFromVectorK, astFromVectorS
   , astSumK, astSumS, astScatterS, astScatterKnobsS
   , astReplicateK, astReplicateS, astGatherS, astGatherKnobsS
   , astAppendS, astSliceS, astReverseS, astTransposeS, astReshapeS
@@ -2457,6 +2458,18 @@ shareIx ix f = unsafePerformIO $ do
   return $! foldl' (\v (var, u) -> astLet var u v)
                    (f $ ixsFromIxS ix ix2)
                    (catMaybes bindings)
+
+astFromVectorK :: forall shm r s. GoodScalar r
+               => ShS shm
+               -> Data.Vector.Vector (AstTensor AstMethodLet s (TKScalar r))
+               -> AstTensor AstMethodLet s (TKS shm r)
+astFromVectorK = Ast.AstFromVectorK
+
+astFromVectorS :: forall shm shn x s.
+                  ShS shm
+               -> Data.Vector.Vector (AstTensor AstMethodLet s (TKS2 shn x))
+               -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
+astFromVectorS = Ast.AstFromVectorS
 
 astSumK :: forall shm r s. (NumScalar r, KnownSpan s)
         => AstTensor AstMethodLet s (TKS shm r)

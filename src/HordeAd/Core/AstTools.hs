@@ -110,6 +110,10 @@ ftkAst t = case t of
   AstIndexS shn v _ix -> case ftkAst v of
     FTKS _ x -> FTKS shn x
 
+  AstFromVectorK shm _ -> FTKS shm FTKScalar
+  AstFromVectorS shm l -> case V.uncons l of
+    Just (v, _) | FTKS shn x <- ftkAst v -> FTKS (shm `shsAppend` shn) x
+    Nothing -> error "ftkAst: empty vector in AstFromVectorS"
   AstSumK{} -> FTKScalar
   AstSumS @shm @shn shm v -> case ftkAst v of
     FTKS shmshn x | SNat <- shsRank shm ->
@@ -215,6 +219,8 @@ varInAst var = \case
   AstArgMaxS a -> varInAst var a
   AstIndexS _ v ix -> varInAst var v || varInIxS var ix
 
+  AstFromVectorK _ l -> any (varInAst var) l
+  AstFromVectorS _ l -> any (varInAst var) l
   AstSumK v -> varInAst var v
   AstSumS _ v -> varInAst var v
   AstScatterS _ _ _ t (vars, ix) ->
@@ -426,6 +432,8 @@ astLetDown var u v = case v of
     then AstLet var u v
     else AstIndexS shn (astLetDown var u v2) ix
 
+  AstFromVectorK{} -> AstLet var u v
+  AstFromVectorS{} -> AstLet var u v
   AstSumK v2 -> AstSumK (astLetDown var u v2)
   AstSumS shm v2 -> AstSumS shm (astLetDown var u v2)
   AstScatterS shm shn shp v2 (vars, ix) ->

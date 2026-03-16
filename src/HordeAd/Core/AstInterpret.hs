@@ -212,6 +212,16 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
         ix3 = interpretAst env <$> ix
     in tsindex @_ @shm v2 ix3
 
+  AstFromVectorK shm l ->
+    let l2 = V.map (interpretAst env) l
+    in tsfromVector0N shm l2
+  AstFromVectorS shm l -> case V.uncons l of
+    Just (v, _) | FTKS shn x <- ftkAst v ->
+      withKnownShS shn $
+      withKnownSTK (ftkToSTK x) $
+      let l2 = V.map (interpretAst env) l
+      in tsfromVectorN shm l2
+    Nothing -> error "interpretAst: empty vector in AstFromVectorS"
   AstSumK v -> case ftkAst v of
     FTKS shm _ ->
       withKnownShS shm $
