@@ -1037,7 +1037,7 @@ rfold f acc0 es =
   withSNat (rwidth es) $ \k -> tfold k knownSTK knownSTK f acc0 es
 rscan
   :: ( KnownNat n, KnownNat m, KnownSTK xn, KnownSTK xm
-     , BaseTensor target, LetTensor target )
+     , BaseTensor target, LetTensor target, ConvertTensor target )
   => (forall f. ADReady f => f (TKR2 n xn) -> f (TKR2 m xm) -> f (TKR2 n xn))
        -- ^ the function to fold with
   -> target (TKR2 n xn)  -- ^ the initial accumulator
@@ -1059,7 +1059,7 @@ sfold
 sfold @k = tfold (SNat @k) knownSTK knownSTK
 sscan
   :: ( KnownNat k, KnownShS sh, KnownShS shm, KnownSTK xn, KnownSTK xm
-     , BaseTensor target, LetTensor target )
+     , BaseTensor target, LetTensor target, ConvertTensor target )
   => (forall f. ADReady f
       => f (TKS2 sh xn) -> f (TKS2 shm xm) -> f (TKS2 sh xn))
        -- ^ the function to scan with
@@ -1081,7 +1081,7 @@ xfold
 xfold @k = tfold (SNat @k) knownSTK knownSTK
 xscan
   :: ( KnownNat k, KnownShX sh, KnownShX shm, KnownSTK xn, KnownSTK xm
-     , BaseTensor target, LetTensor target )
+     , BaseTensor target, LetTensor target, ConvertTensor target )
   => (forall f. ADReady f
       => f (TKX2 sh xn) -> f (TKX2 shm xm) -> f (TKX2 sh xn))
        -- ^ the function to scan with

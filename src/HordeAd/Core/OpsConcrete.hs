@@ -205,11 +205,11 @@ instance BaseTensor Concrete where
       let (l1, l2) = NonEmpty.unzip $ coerce l  -- NonEmpty.map tunpair l
           a1 = tfromList snat stk1 l1
           a2 = tfromList snat stk2 l2
-          -- This processes a list of trivial primitive elements first,
-          -- which does not force the list, which prevents forcing
-          -- the other (tuple of) list prematurely, which makes streaming
-          -- possible (sometimes).
-      in case stk2 of
+      in -- This processes a list of trivial primitive elements first,
+         -- which does not force the list, which prevents forcing
+         -- the other (tuple of) list prematurely, which makes streaming
+         -- possible (sometimes).
+         case stk2 of
            STKScalar @r2 | Just Refl <- testEquality (typeRep @r2)
                                                      (typeRep @Z1) ->
              a2 `seq` tpair a1 a2

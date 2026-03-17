@@ -1415,7 +1415,7 @@ testReluMaxPP = do
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
     @?= "\\m1 -> rfromS (sgather @[3, 4] (sfromVector @2 (fromList [sconcrete (sreplicate [3,4] 0.0), sfromR m1])) (\\[i9, i10] -> [ifH (0.0 <=. negate (splainPart (sfromR m1) `sindex0` [i9, i10])) 0 1, i9, i10]))"
   show deltas
-    @?= "DeltaConvert (ConvCmp (ConvXR STKScalar) ConvSX) (DeltaShare 100000003 (DeltaGatherS [3,4] [] [3,4,2] (DeltaShare 100000002 (DeltaTransposeS (PCons (SNat @1) (PCons (SNat @2) (PCons (SNat @0) PNil))) (DeltaShare 100000001 (DeltaFromVector (SNat @2) (STKS [3,4] STKScalar) [DeltaZero (FTKS [3,4] FTKScalar),DeltaConvert (ConvCmp (ConvXS' (FTKS [3,4] FTKScalar)) ConvRX) (DeltaInput (InputId 0))])))) <function>))"
+    @?= "DeltaConvert (ConvCmp (ConvXR STKScalar) ConvSX) (DeltaShare 100000003 (DeltaGatherS [3,4] [] [3,4,2] (DeltaShare 100000002 (DeltaTransposeS (PCons (SNat @1) (PCons (SNat @2) (PCons (SNat @0) PNil))) (DeltaShare 100000001 (DeltaFromVectorS [2] [DeltaZero (FTKS [3,4] FTKScalar),DeltaConvert (ConvCmp (ConvXS' (FTKS [3,4] FTKScalar)) ConvRX) (DeltaInput (InputId 0))])))) <function>))"
 
 testReluMaxPP2 :: Assertion
 testReluMaxPP2 = do

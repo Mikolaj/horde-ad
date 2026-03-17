@@ -212,9 +212,6 @@ instance ( ADReadyNoLet target, ShareTensor target
   txfromVector0N shm lu =
     dD (txfromVector0N shm $ V.map (\(D u _) -> u) lu)
        (DeltaFromVector0NX shm $ V.map (\(D _ u') -> u') lu)
-  tfromVector snat stk lu =
-    dD (tfromVector snat stk $ V.map (\(D u _) -> u) lu)
-       (DeltaFromVector snat stk $ V.map (\(D _ u') -> u') lu)
   trsumN (D u u') = dD (trsumN u) (DeltaSumR SNat u')
   trsum0 (D u u') = dD (trsum0 u) (DeltaSum0R u')
   trdot0 (D ue u') (D ve v') =

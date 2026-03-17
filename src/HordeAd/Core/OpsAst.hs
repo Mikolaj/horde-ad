@@ -704,7 +704,6 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tproject2 = astProject2
   tcond _ !b !u !v = astCondInitial b u v
   tconcrete ftk a = fromPlain $ astConcrete ftk a
-  tfromVector = astFromVector
   tmapAccumR proxy !k !accftk !bftk !eftk f acc0 es =
     ttlet (tmapAccumL proxy k accftk bftk eftk f acc0
                       (treverse k (ftkToSTK eftk) es)) $ \ !res ->
@@ -1347,8 +1346,6 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
   tcond _ !b !u !v = AstRaw $ AstCond (unAstRaw b) (unAstRaw u) (unAstRaw v)
   tconcrete ftk a = AstRaw $ fromPlain $ unAstRaw $ astConcreteRaw ftk a
-  tfromVector k stk =
-    AstRaw . AstFromVector k stk . fmapUnAstRaw
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
     AstRaw $ AstMapAccumLDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
   tapply f t = AstRaw $ AstApply f (unAstRaw t)
@@ -1673,8 +1670,6 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ tcond stk (unAstNoVectorize b)
                                (unAstNoVectorize u) (unAstNoVectorize v)
   tconcrete ftk a = AstNoVectorize $ tconcrete ftk a
-  tfromVector k stk =
-    AstNoVectorize . tfromVector k stk . fmapUnAstNoVectorize
   tmapAccumR _ !k !accftk !bftk !eftk f acc0 es =
     AstNoVectorize $ tmapAccumR Proxy k accftk bftk eftk f
                        (unAstNoVectorize acc0) (unAstNoVectorize es)
@@ -1978,8 +1973,6 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   tproject1 t = wAstNoSimplify $ tproject1 $ wunAstNoSimplify t
   tproject2 t = wAstNoSimplify $ tproject2 $ wunAstNoSimplify t
   tconcrete ftk a = wAstNoSimplify $ tconcrete ftk a
-  tfromVector k stk =
-    wAstNoSimplify . tfromVector k stk . fmapwUnAstNoSimplify
   tmapAccumLDer _ !k !accftk !bftk !eftk f df rf acc0 es =
     wAstNoSimplify $ tmapAccumLDer Proxy k accftk bftk eftk f df rf
                        (wunAstNoSimplify acc0) (wunAstNoSimplify es)

@@ -212,7 +212,7 @@ class LetTensor (target :: Target) where
        es
   -- | A strict left scan.
   tscan
-    :: forall yn ym k. BaseTensor target
+    :: forall yn ym k. (BaseTensor target, ConvertTensor target)
     => SNat k  -- ^ length of the input
     -> SingletonTK yn  -- ^ partial shape of the accumulator
     -> SingletonTK ym  -- ^ partial shape of an individual input
@@ -474,15 +474,37 @@ class ( Num (IntOf target)
                  => target (TKX shm r) -> [target (TKScalar r)]
   txtoListLinear t = map (txindex0 t) (shxEnum' (xshape t))
 
-  tfromVector :: forall y k.
-                 SNat k -> SingletonTK y -> Data.Vector.Vector (target y)
+  -- These three operations break sharing, but only for product kinds.
+  -- TODO: define their default implementations only for ShareTensor targets
+  -- and define tfromListR only for ranked and shaped.
+  tfromVector :: forall y k. ConvertTensor target
+              => SNat k -> SingletonTK y -> Data.Vector.Vector (target y)
               -> target (BuildTensorKind k y)
-  tfromList :: forall y k.
-               SNat k -> SingletonTK y -> NonEmpty (target y)
+  tfromVector snat@SNat stk l = case stk of
+    STKScalar -> tsfromVector0N (snat :$$ ZSS) l
+    STKR SNat x -> withKnownSTK x $ trfromVector l
+    STKS sh x -> withKnownSTK x $ withKnownShS sh $ tsfromVector l
+    STKX sh x -> withKnownSTK x $ withKnownShX sh $ txfromVector l
+    STKProduct stk1 stk2 ->
+      let -- Warning: sharing broken here:
+          (l1, l2) = V.unzip $ V.map (\a -> (tproject1 a, tproject2 a)) l
+          a1 = tfromVector snat stk1 l1
+          a2 = tfromVector snat stk2 l2
+      in -- This processes a list of trivial primitive elements first,
+         -- which does not force the list, which prevents forcing
+         -- the other (tuple of) list prematurely, which makes streaming
+         -- possible (sometimes).
+         case stk2 of
+           STKScalar @r2 | Just Refl <- testEquality (typeRep @r2)
+                                                     (typeRep @Z1) ->
+             a2 `seq` tpair a1 a2
+           _ -> tpair a1 a2
+  tfromList :: forall y k. ConvertTensor target
+            => SNat k -> SingletonTK y -> NonEmpty (target y)
             -> target (BuildTensorKind k y)
   tfromList k stk l =
     tfromVector k stk $ V.fromListN (fromSNat' k) $ NonEmpty.toList l
-  tfromListR :: forall y k. 1 <= k
+  tfromListR :: forall y k. (1 <= k, ConvertTensor target)
              => SingletonTK y -> ListR k (target y)
              -> target (BuildTensorKind k y)
   tfromListR stk l = case NonEmpty.nonEmpty $ Foldable.toList l of
