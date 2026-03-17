@@ -164,10 +164,6 @@ data Delta :: Target -> Target where
                    Delta target (TKProduct y z) -> Delta target y
   DeltaProject2 :: forall y z target.
                    Delta target (TKProduct y z) -> Delta target z
-  DeltaFromVector :: forall y k target.
-                     SNat k -> SingletonTK y
-                  -> Data.Vector.Vector (Delta target y)
-                  -> Delta target (BuildTensorKind k y)
   DeltaMapAccumL
     :: forall target k accy by ey.
        ( Show (target (BuildTensorKind k accy))
@@ -403,9 +399,6 @@ ftkDelta = \case
     FTKProduct ftk1 _ -> ftk1
   DeltaProject2 v -> case ftkDelta v of
     FTKProduct _ ftk2 -> ftk2
-  DeltaFromVector snat _ l -> case V.uncons l of
-    Nothing -> error "ftkDelta: empty vector"
-    Just (d, _) -> buildFTK snat (ftkDelta d)
   DeltaMapAccumL k bftk _eftk _q _es _df _rf acc0' _es' ->
     FTKProduct (ftkDelta acc0') (buildFTK k bftk)
 

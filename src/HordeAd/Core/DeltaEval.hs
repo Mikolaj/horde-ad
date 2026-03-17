@@ -347,10 +347,6 @@ evalRev !s !c d0 = case d0 of
     FTKProduct ftk1 _ ->
       let zero = tdefTarget $ adFTK ftk1
       in evalRev s (tpair zero c) d
-  DeltaFromVector snat stk ld | Refl <- lemBuildOfAD snat stk ->
-    let cxs = tunravelToListShare snat (adSTK stk) c
-    in foldl' (\ !s2 (cx, d2) -> evalRev s2 cx d2) s
-       $ zip cxs (V.toList ld)
   DeltaMapAccumL k (FTKScalar @z1) eftk
                  as es _df rf acc0' es' -- special case to speed up folds
    | Just Refl <- testEquality (typeRep @z1) (typeRep @Z1)
@@ -790,9 +786,6 @@ evalFwd params !s d0 = case d0 of
   DeltaProject2 d ->
     let (s2, v) = evalFwd params s d
     in (s2, tproject2 v)
-  DeltaFromVector snat stk lsd | Refl <- lemBuildOfAD snat stk ->
-    let (s2, l) = mapAccumL' (evalFwd params) s $ V.toList lsd
-    in (s2, tfromVector snat (adSTK stk) $ V.fromListN (V.length lsd) l)
   -- No special case to speed up folds, because the concrete tmapAccumLDer
   -- does the very Z1 optimization that could be performed here.
   DeltaMapAccumL k bftk eftk as es df _rf acc0' es'
