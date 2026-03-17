@@ -491,7 +491,8 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                Ast.AstScatterS{} -> True
                Ast.AstGatherS{} -> True
                Ast.AstMapAccumLDer{} -> True
-               Ast.AstFromVectorS{} -> len == 1
+               Ast.AstFromVectorK{} -> True  -- TODO: len == 1
+               Ast.AstFromVectorS{} -> True  -- TODO: len == 1
                -- These can only be simplified to the AstFromVectorS NF above.
                Ast.AstReplicateK{} -> True
                Ast.AstReplicateS{} -> True
