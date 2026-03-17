@@ -43,7 +43,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import Data.Vector.Strict qualified as Data.Vector
-import GHC.TypeLits (KnownNat, type (*), type (+), type (<=), type (<=?))
+import GHC.TypeLits (KnownNat, type (+), type (<=), type (<=?))
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested (type (++))
@@ -402,14 +402,9 @@ class ( Num (IntOf target)
   trfromVectorN :: forall m n x. (KnownNat n, KnownSTK x)
                 => IShR m -> Data.Vector.Vector (target (TKR2 n x))
                 -> target (TKR2 (m + n) x)
-  trfromVectorN shm t = case V.uncons t of
-    Just (v, _) -> trreshape (shm `shrAppend` rshape v)
-                   $ trfromVector t
-    Nothing -> error "trfromVectorN: empty vector"
   trfromVector0N :: forall m r. (GoodScalar r, ConvertTensor target)
                  => IShR m -> Data.Vector.Vector (target (TKScalar r))
                  -> target (TKR m r)
-  trfromVector0N shm = trreshape shm . trfromVector . V.map rfromK
   trunravelToList :: (KnownNat n, KnownSTK x)
                   => target (TKR2 (1 + n) x) -> [target (TKR2 n x)]
   trunravelToList @n @x t =
@@ -434,17 +429,9 @@ class ( Num (IntOf target)
   tsfromVectorN :: forall shm shn x. (KnownShS shn, KnownSTK x)
                 => ShS shm -> Data.Vector.Vector (target (TKS2 shn x))
                 -> target (TKS2 (shm ++ shn) x)
-  tsfromVectorN shm t | SNat <- shsProduct shm = case V.uncons t of
-    Just (v, _) ->
-      gcastWith (unsafeCoerceRefl
-                 :: Product (shm ++ shn) :~: Product shm * Product shn) $
-      tsreshape (shm `shsAppend` sshape v) $ tsfromVector t
-    Nothing -> error "trfromVectorN: empty vector"
   tsfromVector0N :: forall shm r. (GoodScalar r, ConvertTensor target)
                  => ShS shm -> Data.Vector.Vector (target (TKScalar r))
                  -> target (TKS shm r)
-  tsfromVector0N shm | SNat <- shsProduct shm =
-    tsreshape shm . tsfromVector . V.map sfromK
   tsunravelToList :: (KnownNat n, KnownShS sh, KnownSTK x)
                   => target (TKS2 (n ': sh) x) -> [target (TKS2 sh x)]
   tsunravelToList @_ @sh @x t =
@@ -469,17 +456,9 @@ class ( Num (IntOf target)
   txfromVectorN :: forall shm shn x. (KnownShX shn, KnownSTK x)
                 => IShX shm -> Data.Vector.Vector (target (TKX2 shn x))
                 -> target (TKX2 (shm ++ shn) x)
-  txfromVectorN shm t = case V.uncons t of
-    Just (v, _) ->
-      withSNat (shxSize shm) $ \(SNat @n) ->
-      txreshape (shm `shxAppend` xshape v) $ txfromVector @_ @n t
-    Nothing -> error "trfromVectorN: empty vector"
   txfromVector0N :: forall shm r. (GoodScalar r, ConvertTensor target)
                  => IShX shm -> Data.Vector.Vector (target (TKScalar r))
                  -> target (TKX shm r)
-  txfromVector0N shm =
-    withSNat (shxSize shm) $ \(SNat @n) ->
-    txreshape shm . txfromVector @_ @n . V.map xfromK
   txunravelToList :: (KnownNat n, KnownShX sh, KnownSTK x)
                   => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
   txunravelToList @_ @sh @x t =
