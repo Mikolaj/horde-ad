@@ -236,8 +236,7 @@ class LetTensor (target :: Target) where
                in g)
               acc0
               es
-    in tappend (SNat @1) k nstk (tfromList (SNat @1) nstk
-                                           (NonEmpty.singleton acc0)) bs
+    in tappend (SNat @1) k nstk (treplicate (SNat @1) nstk acc0) bs
 
 class ShareTensor (target :: Target) where
   tshare :: target y -> target y
@@ -1202,8 +1201,8 @@ class ( Num (IntOf target)
       in tpair (tsum snat stk1 u1)
                (tsum snat stk2 u2)
   treplicate
-    :: forall z k. ConvertTensor target
-    => SNat k -> SingletonTK z -> target z
+    :: forall z k.
+       SNat k -> SingletonTK z -> target z
     -> target (BuildTensorKind k z)
   default treplicate
     :: forall z k. (ShareTensor target, ConvertTensor target)
@@ -1238,8 +1237,8 @@ class ( Num (IntOf target)
       in tpair (treverse snat stk1 u1)
                (treverse snat stk2 u2)
   tindexBuild
-    :: forall z k. ConvertTensor target
-    => SNat k -> SingletonTK z -> target (BuildTensorKind k z) -> IntOf target
+    :: forall z k.
+       SNat k -> SingletonTK z -> target (BuildTensorKind k z) -> IntOf target
     -> target z
   default tindexBuild
     :: forall z k. (ShareTensor target, ConvertTensor target)
