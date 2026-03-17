@@ -347,9 +347,9 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   -- as the fromVector is not a big deal and early rules are better
   -- then the same rules in contraction phase.
   (case stk of
-     STKScalar @r2 ->
-       let unConc :: AstTensor AstMethodLet s (TKScalar r2)
-                  -> Maybe (Concrete (TKScalar r2))
+     STKScalar @r ->
+       let unConc :: AstTensor AstMethodLet s (TKScalar r)
+                  -> Maybe (Concrete (TKScalar r))
            unConc t = Concrete <$> unAstK t
        in case V.mapM unConc l of
          Just l4 | V.null l4 -> error "astFromVector: empty vector"
@@ -359,8 +359,8 @@ astFromVector snat@SNat stk l = fromMaybe (Ast.AstFromVector snat stk l) $
   `mplus`
   (case stk of
      STKS _ STKScalar ->
-       let unConc :: AstTensor AstMethodLet s (TKS sh r2)
-                  -> Maybe (Concrete (TKS sh r2))
+       let unConc :: AstTensor AstMethodLet s (TKS sh r)
+                  -> Maybe (Concrete (TKS sh r))
            unConc t = Concrete <$> unAstS t
        in case V.mapM unConc l of
          Just l4 | V.null l4 -> error "astFromVector: empty vector"
@@ -759,6 +759,34 @@ astLet var (Ast.AstLet varN uN
         substituteAst (Ast.AstFromVector snat stk
                        $ V.fromListN 2 [ast1, ast2]) var v
     _ -> astLet var (astLet varN uN u3) v
+astLet var (Ast.AstFromVectorK shm u) v | V.length u == 2 =
+  withKnownSpan (varNameToSpan var) $
+  astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
+    substituteAst (Ast.AstFromVectorK shm
+                   $ V.fromListN 2 [ast1, ast2]) var v
+astLet var (Ast.AstLet varN uN
+              (u12@(Ast.AstFromVectorK _ u))) v | V.length u == 2 =
+  withKnownSpan (varNameToSpan var) $
+  astLetRefresh varN uN u12 $ \u3 -> case u3 of
+    Ast.AstFromVectorK shm u' ->
+      astLetFun (u' V.! 0) $ \ !ast1 -> astLetFun (u' V.! 1) $ \ !ast2 ->
+        substituteAst (Ast.AstFromVectorK shm
+                       $ V.fromListN 2 [ast1, ast2]) var v
+    _ -> astLet var (astLet varN uN u3) v
+astLet var (Ast.AstFromVectorS shm u) v | V.length u == 2 =
+  withKnownSpan (varNameToSpan var) $
+  astLetFun (u V.! 0) $ \ !ast1 -> astLetFun (u V.! 1) $ \ !ast2 ->
+    substituteAst (Ast.AstFromVectorS shm
+                   $ V.fromListN 2 [ast1, ast2]) var v
+astLet var (Ast.AstLet varN uN
+              (u12@(Ast.AstFromVectorS _ u))) v | V.length u == 2 =
+  withKnownSpan (varNameToSpan var) $
+  astLetRefresh varN uN u12 $ \u3 -> case u3 of
+    Ast.AstFromVectorS shm u' ->
+      astLetFun (u' V.! 0) $ \ !ast1 -> astLetFun (u' V.! 1) $ \ !ast2 ->
+        substituteAst (Ast.AstFromVectorS shm
+                       $ V.fromListN 2 [ast1, ast2]) var v
+    _ -> astLet var (astLet varN uN u3) v
 astLet var (Ast.AstReplicateK shm a) v =
   let var2 = reshapeVarName (ftkAst a) var
       ast = Ast.AstReplicateK shm $ astVar var2
@@ -861,6 +889,8 @@ astPrimalPart t = case t of
   Ast.AstArgMaxS{} -> Ast.AstPrimalPart t
   Ast.AstIndexS shn v ix -> astIndexS shn (astPrimalPart v) ix
 
+  Ast.AstFromVectorK shm l -> astFromVectorK shm (V.map astPrimalPart l)
+  Ast.AstFromVectorS shm l -> astFromVectorS shm (V.map astPrimalPart l)
   Ast.AstSumK v -> astSumK $ astPrimalPart v
   Ast.AstSumS shm v -> astSumS shm $ astPrimalPart v
   Ast.AstScatterS shm shn shp v (vars, ix) ->
@@ -970,6 +1000,8 @@ astDualPart t = case t of
   Ast.AstCastS v -> astCastS $ astDualPart v
   Ast.AstIndexS shn v ix -> astIndexS shn (astDualPart v) ix
 
+  Ast.AstFromVectorK shm l -> astFromVectorK shm (V.map astDualPart l)
+  Ast.AstFromVectorS shm l -> astFromVectorS shm (V.map astDualPart l)
   Ast.AstSumK v -> astSumK $ astDualPart v
   Ast.AstSumS shm v -> astSumS shm $ astDualPart v
   Ast.AstScatterS shm shn shp v (vars, ix) ->
@@ -1066,6 +1098,8 @@ astPlainPart t = case t of
   Ast.AstCastS v -> astCastS $ astPlainPart v
   Ast.AstIndexS shn v ix -> astIndexS shn (astPlainPart v) ix
 
+  Ast.AstFromVectorK shm l -> astFromVectorK shm (V.map astPlainPart l)
+  Ast.AstFromVectorS shm l -> astFromVectorS shm (V.map astPlainPart l)
   Ast.AstSumK v -> astSumK $ astPlainPart v
   Ast.AstSumS shm v -> astSumS shm $ astPlainPart v
   Ast.AstScatterS shm shn shp v (vars, ix) ->
@@ -1521,6 +1555,14 @@ astIndexK v0 ix@(i1 :.$ rest1) = case v0 of
         let u = withKnownShS shmTail $
                 tsindex (Concrete a) (Concrete i :.$ ZIS)
         in astIndexK (astConcreteS u) rest1
+      Ast.AstFromVectorK (snat :$$ ZSS) l | ZIS <- rest1 ->
+        if 0 <= i && i <= fromSNat' snat - 1
+        then l V.! i
+        else fromPlain $ AstConcreteK def
+      Ast.AstFromVectorS (snat :$$ ZSS) l ->
+        if 0 <= i && i <= fromSNat' snat - 1
+        then astIndexK (l V.! i) rest1
+        else fromPlain $ AstConcreteK def
       Ast.AstScatterS _ _ _ _ (_, AstConcreteK{} :.$ _) ->
         fromPlain $ AstConcreteK def  -- from above indexes differ
       Ast.AstReplicateK (snat :$$ shmRest) v ->
@@ -2300,6 +2342,28 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
      | Refl <- lemAppAssoc (Proxy @sh4) (Proxy @shm) (Proxy @shn) ->
        astIndexKnobsS knobs shn v (ix2 `ixsAppend` ix)
 
+   Ast.AstFromVectorK (_ :$$ ZSS) l | AstConcreteK i <- i1, ZIS <- rest1 ->
+     let ftk = FTKS shn x
+         defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
+     in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
+       AstConcreteK b -> if b then sfromK (l V.! i) else defArr
+       _ -> Ast.AstIndexS shn v0 ix
+   Ast.AstFromVectorK{} ->  -- normal form
+     Ast.AstIndexS shn v0 ix
+   Ast.AstFromVectorS (_ :$$ ZSS) l | AstConcreteK i <- i1 ->
+     let ftk = FTKS shn x
+         defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
+     in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
+       AstConcreteK b -> if b then astIndex shn (l V.! i) rest1 else defArr
+       _ -> Ast.AstIndexS shn v0 ix
+   Ast.AstFromVectorS (snat :$$ ZSS) l ->
+     shareIx rest1 $ \ !rest2 ->
+       Ast.AstIndexS @'[in1] @shn shn
+                     (astFromVector snat (STKS shn (ftkToSTK x))
+                      $ V.map (\a -> astIndex shn a rest2) l)
+                     (i1 :.$ ZIS)
+   Ast.AstFromVectorS{} ->  -- normal form
+     Ast.AstIndexS shn v0 ix
    Ast.AstSumS @shm2 shm2 v ->
      let perm1 = backpermCycle $ shsLength shm2 + ixsLength ix
      in Permutation.permFromListCont perm1 $ \(perm
@@ -2459,17 +2523,114 @@ shareIx ix f = unsafePerformIO $ do
                    (f $ ixsFromIxS ix ix2)
                    (catMaybes bindings)
 
-astFromVectorK :: forall shm r s. GoodScalar r
+astFromVectorK :: forall shm r s. (GoodScalar r, KnownSpan s)
                => ShS shm
                -> Data.Vector.Vector (AstTensor AstMethodLet s (TKScalar r))
                -> AstTensor AstMethodLet s (TKS shm r)
-astFromVectorK = Ast.AstFromVectorK
+astFromVectorK ZSS l = assert (V.length l == 1) $ sfromK $ l V.! 0
+astFromVectorK shm l | SNat' @1 <- shsProduct shm =
+  astReplicateK shm (l V.! 0)
+astFromVectorK shm l = fromMaybe (Ast.AstFromVectorK shm l) $
+  -- This disables some rules, e.g., indexing or summing of fromVector
+  -- of concrete arrays, but allocating an extra array of the same size
+  -- as the fromVector is not a big deal and early rules are better
+  -- then the same rules in contraction phase.
+  (let unConc :: AstTensor AstMethodLet s (TKScalar r)
+              -> Maybe (Concrete (TKScalar r))
+       unConc t = Concrete <$> unAstK t
+    in case V.mapM unConc l of
+         Just l4 | V.null l4 -> error "astFromVectorK: empty vector"
+         Just l4 -> Just $ fromPlain $ astConcreteS (tsfromVector0N shm l4)
+         Nothing -> Nothing)
+  `mplus`
+  (let unFromPrimal :: AstTensor AstMethodLet s2 y
+                    -> Maybe (AstTensor AstMethodLet (PrimalStepSpan s2) y)
+       unFromPrimal (Ast.AstFromPrimal t) = Just t
+       unFromPrimal _ = Nothing
+   in case V.mapM unFromPrimal l of
+     Just l2 | V.null l2 -> error "astFromVectorK: empty vector"
+     Just l2 -> Just $ fromPrimal $ astFromVectorK shm l2
+     Nothing -> Nothing)
+  `mplus`
+  (case knownSpan @s of
+     SFullSpan ->
+       let unFromDual :: AstTensor AstMethodLet FullSpan y
+                      -> Maybe (AstTensor AstMethodLet DualSpan y)
+           unFromDual (Ast.AstFromDual t) = Just t
+           unFromDual _ = Nothing
+       in case V.mapM unFromDual l of
+         Just l2 | V.null l2 -> error "astFromVectorK: empty vector"
+         Just l2 -> Just $ fromDual $ astFromVectorK shm l2
+         Nothing -> Nothing
+     _ -> Nothing)
+  `mplus`
+  (let unFromPlain :: AstTensor AstMethodLet s2 y
+                   -> Maybe (AstTensor AstMethodLet PlainSpan y)
+       unFromPlain (Ast.AstFromPlain t) = Just t
+       unFromPlain _ = Nothing
+   in case V.mapM unFromPlain l of
+     Just l2 | V.null l2 -> error "astFromVectorK: empty vector"
+     Just l2 -> Just $ fromPlain $ astFromVectorK shm l2
+     Nothing -> Nothing)
 
-astFromVectorS :: forall shm shn x s.
-                  ShS shm
+astFromVectorS :: forall shm shn x s. KnownSpan s
+               => ShS shm
                -> Data.Vector.Vector (AstTensor AstMethodLet s (TKS2 shn x))
                -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
-astFromVectorS = Ast.AstFromVectorS
+astFromVectorS ZSS l = assert (V.length l == 1) $ l V.! 0
+astFromVectorS shm l | SNat' @1 <- shsProduct shm =
+  astReplicateS shm (l V.! 0)
+astFromVectorS shm l = fromMaybe (Ast.AstFromVectorS shm l) $
+  (let unFromPrimal :: AstTensor AstMethodLet s2 y
+                    -> Maybe (AstTensor AstMethodLet (PrimalStepSpan s2) y)
+       unFromPrimal (Ast.AstFromPrimal t) = Just t
+       unFromPrimal _ = Nothing
+   in case V.mapM unFromPrimal l of
+     Just l2 | V.null l2 -> error "astFromVectorS: empty vector"
+     Just l2 -> Just $ fromPrimal $ astFromVectorS shm l2
+     Nothing -> Nothing)
+  `mplus`
+  (case knownSpan @s of
+     SFullSpan ->
+       let unFromDual :: AstTensor AstMethodLet FullSpan y
+                      -> Maybe (AstTensor AstMethodLet DualSpan y)
+           unFromDual (Ast.AstFromDual t) = Just t
+           unFromDual _ = Nothing
+       in case V.mapM unFromDual l of
+         Just l2 | V.null l2 -> error "astFromVectorS: empty vector"
+         Just l2 -> Just $ fromDual $ astFromVectorS shm l2
+         Nothing -> Nothing
+     _ -> Nothing)
+  `mplus`
+  (let unFromPlain :: AstTensor AstMethodLet s2 y
+                   -> Maybe (AstTensor AstMethodLet PlainSpan y)
+       unFromPlain (Ast.AstFromPlain t) = Just t
+       unFromPlain _ = Nothing
+   in case V.mapM unFromPlain l of
+     Just l2 | V.null l2 -> error "astFromVectorS: empty vector"
+     Just l2 -> Just $ fromPlain $ astFromVectorS shm l2
+     Nothing -> Nothing)
+  `mplus`
+  (case V.uncons l of
+     Just (v, _) -> case ftkAst v of
+       FTKS ZSS FTKScalar | Refl <- lemAppNil @shm ->
+         Just $ astFromVectorK shm $ V.map kfromS l
+       FTKS shn FTKScalar ->
+         -- This disables some rules, e.g., indexing or summing of fromVector
+         -- of concrete arrays, but allocating an extra array of the same size
+         -- as the fromVector is not a big deal and early rules are better
+         -- then the same rules in contraction phase.
+         let unConc :: AstTensor AstMethodLet s (TKS shn r)
+                    -> Maybe (Concrete (TKS shn r))
+             unConc t = Concrete <$> unAstS t
+         in case V.mapM unConc l of
+           Just l4 | V.null l4 -> error "astFromVectorS: empty vector"
+           Just l4 ->
+             withKnownShS shn $
+             Just $ fromPlain $ astConcreteS (tsfromVectorN shm l4)
+           Nothing -> Nothing
+       FTKS{} -> Nothing
+     Nothing -> error "astFromVectorS: empty vector")
 
 astSumK :: forall shm r s. (NumScalar r, KnownSpan s)
         => AstTensor AstMethodLet s (TKS shm r)
@@ -2479,9 +2640,9 @@ astSumK t0 | FTKS shm FTKScalar <- ftkAst t0 = case t0 of
   _ | SNat' @1 <- shsProduct shm ->
       astIndexK t0 (AstConcreteK <$> ixsZero shm)
   Ast.AstFromVector _ STKScalar l ->
-      foldr1 astPlusK l
+    foldr1 astPlusK l
   Ast.AstFromVector _ STKS{} l ->
-      astSumK $ foldr1 astPlusS l
+    astSumK $ foldr1 astPlusS l
   Ast.AstLet var u v -> astLet var u (astSumK v)
   Ast.AstFromPrimal u -> fromPrimal $ astSumK u
   Ast.AstFromDual u -> fromDual $ astSumK u
@@ -2493,6 +2654,10 @@ astSumK t0 | FTKS shm FTKScalar <- ftkAst t0 = case t0 of
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
     astConcreteK $ tssum0 (Concrete v)
+  Ast.AstFromVectorK _ l ->
+    foldr1 astPlusK l
+  Ast.AstFromVectorS _ l ->
+    astSumK $ foldr1 astPlusS l
   Ast.AstSumS _ u -> astSumK u
   Ast.AstScatterS shm1@(k2 :$$ _) shn1 shp1 v (vars, i1 :.$ rest)
     | -- This boolean term may have free variables that act as universally
@@ -2570,6 +2735,10 @@ astSumS shm@(snat :$$ _) t0 | FTKS shmshn x <- ftkAst t0
     withKnownShS shm $
     withKnownShS shn $
     astConcreteS $ tssumN @_ @shm $ Concrete t
+  Ast.AstFromVectorS (_ :$$ ZSS) l
+    | FTKScalar @r <- x
+    , Dict0 <- numFromTKAllNum (Proxy @r) ->
+      astSumS (shsTail shm) $ foldr1 astPlusS l
   Ast.AstSumS @shm2 shm2 u
     | Refl <- lemAppAssoc (Proxy @shm2) (Proxy @shm) (Proxy @shn)  ->
       astSumS (shm2 `shsAppend` shm) u
@@ -3369,6 +3538,30 @@ astGatherKnobsS knobs shm@(m1' :$$ (shm4 :: ShS shm4)) shn shp
                                   (l V.! j) (vrest4, subRest4)
     in astFromVector m1' (STKS (shsTail shm `shsAppend` shn) x2)
        $ V.fromListN (fromSNat' m1') $ map f [0 .. fromSNat' m1' - 1]
+astGatherKnobsS knobs shm@(m1' :$$ (shm4 :: ShS shm4)) shn shp
+                v7@(Ast.AstFromVectorS (_ :$$ ZSS) l)
+                ( var4 ::$ vrest4
+                , i4 :.$ rest4 )
+  | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
+  , let g = case i4 of
+          AstIntVar var | var == var4 -> Just id
+          AstTimesK (AstConcreteK n) (AstIntVar var)
+            | var == var4 -> Just (n *)
+          -- TODO: add more or define evaluation
+          _ -> Nothing
+  , Just h <- g
+  , ixIsSmall rest4 =
+    let f i =
+          let subRest4 = substituteAstIxS (AstConcreteK i) var4 rest4
+              j = h i
+          in if j >= V.length l
+             then let FTKS _ x = ftkAst v7
+                      ftk = FTKS (shsTail shm `shsAppend` shn) x
+                  in fromPlain $ astConcrete ftk (tdefTarget ftk)
+             else astGatherKnobsS knobs shm4 shn (shsTail shp)
+                                  (l V.! j) (vrest4, subRest4)
+    in astFromVectorS (m1' :$$ ZSS)
+       $ V.fromListN (fromSNat' m1') $ map f [0 .. fromSNat' m1' - 1]
 astGatherKnobsS knobs shm shn shp v0 (vars0, i1 :.$ rest1)
   | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
       -- prevent a loop
@@ -3508,6 +3701,14 @@ astGatherKnobsS knobs shm@(m :$$ _) shn shp v0
                 AstTimesK AstConcreteK{} (AstIntVar var) -> Just var
                 _ -> Nothing
             , Just{} <- mvar -> mvar
+            | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
+            , Ast.AstFromVectorS (_ :$$ _) _ <- v0
+            , ixIsSmall prest
+            , mvar <- case i4 of
+                AstIntVar var -> Just var
+                AstTimesK AstConcreteK{} (AstIntVar var) -> Just var
+                _ -> Nothing
+            , Just{} <- mvar -> mvar
           _ -> Nothing
   , Just varp <- varInteresting i1
   , Just i <- findIndex (== varp) (listsToList vars) = assert (i > 0) $
@@ -3639,6 +3840,8 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
     Ast.AstIndexS @shm2 _shn2 v2 (i2 :.$ ZIS) ->
         astGather @shm @shn @(shm2 ++ shp) shn v2 (vars4, i2 :.$ ix4) -}
     Ast.AstIndexS{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
+    Ast.AstFromVectorK{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
+    Ast.AstFromVectorS{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     -- This accomplishes fusion if v is a gather or anything
     -- that gather can fuse with, but at the cost of an extra transpose
     -- that doesn't fuse here unless astTransposeAsGatherS is used.
@@ -3876,6 +4079,96 @@ astAppendS :: KnownSpan s
            -> AstTensor AstMethodLet s (TKS2 ((m + n) ': sh) x)
 astAppendS u v | FTKS (SZ :$$ _) _ <- ftkAst u = v
 astAppendS u v | FTKS (SZ :$$ _) _ <- ftkAst v = u
+astAppendS (Ast.AstFromVectorS (SNat @k1 :$$ ZSS) l1)
+           (Ast.AstFromVectorS (SNat @k2 :$$ ZSS) l2) =
+  astFromVectorS (SNat @(k1 + k2) :$$ ZSS) $ l1 V.++ l2
+astAppendS (Ast.AstReplicateS (SNat' @1 :$$ shmRest) a1)
+           (Ast.AstFromVectorS (SNat @k2 :$$ ZSS) l2) =
+  astFromVectorS (SNat @(1 + k2) :$$ ZSS) $ astReplicateS shmRest a1 `V.cons` l2
+astAppendS (Ast.AstReplicateK (SNat' @1 :$$ shmRest) a1)
+           (Ast.AstFromVectorS (SNat @k2 :$$ ZSS) l2) =
+  astFromVectorS (SNat @(1 + k2) :$$ ZSS) $ astReplicateK shmRest a1 `V.cons` l2
+astAppendS (Ast.AstFromVectorS (SNat @k1 :$$ ZSS) l1)
+           (Ast.AstReplicateS (SNat' @1 :$$ shmRest) a2) =
+  astFromVectorS (SNat @(k1 + 1) :$$ ZSS) $ l1 `V.snoc` astReplicateS shmRest a2
+astAppendS (Ast.AstFromVectorS (SNat @k1 :$$ ZSS) l1)
+           (Ast.AstReplicateK (SNat' @1 :$$ shmRest) a2) =
+  astFromVectorS (SNat @(k1 + 1) :$$ ZSS) $ l1 `V.snoc` astReplicateK shmRest a2
+astAppendS (Ast.AstFromVectorK (SNat @k1 :$$ ZSS) l1)
+           (Ast.AstFromVectorK (SNat @k2 :$$ ZSS) l2) =
+  astFromVectorK (SNat @(k1 + k2) :$$ ZSS) $ l1 V.++ l2
+astAppendS (Ast.AstReplicateK (SNat' @1 :$$ ZSS) a1)
+           (Ast.AstFromVectorK (SNat @k2 :$$ ZSS) l2) =
+  astFromVectorK (SNat @(1 + k2) :$$ ZSS) $ a1 `V.cons` l2
+astAppendS (Ast.AstFromVectorK (SNat @k1 :$$ ZSS) l1)
+           (Ast.AstReplicateK (SNat' @1 :$$ ZSS) a2) =
+  astFromVectorK (SNat @(k1 + 1) :$$ ZSS) $ l1 `V.snoc` a2
+astAppendS (Ast.AstReplicateS (SNat' @1 :$$ shmRest1) a1)
+           (Ast.AstReplicateS (SNat' @1 :$$ shmRest2) a2) =
+    astFromVectorS (SNat @2 :$$ ZSS)
+    $ V.fromList [astReplicateS shmRest1 a1, astReplicateS shmRest2 a2]
+astAppendS (Ast.AstReplicateK (SNat' @1 :$$ shmRest1) a1)
+           (Ast.AstReplicateK (SNat' @1 :$$ shmRest2) a2) =
+  astFromVectorS (SNat @2 :$$ ZSS)
+  $ V.fromList [astReplicateK shmRest1 a1, astReplicateK shmRest2 a2]
+astAppendS (Ast.AstFromVectorS (SNat @k1 :$$ ZSS) l1)
+           (Ast.AstAppendS (Ast.AstFromVector (SNat @k2) STKS{} l2) w) =
+  astAppendS (astFromVectorS (SNat @(k1 + k2) :$$ ZSS) $ l1 V.++ l2) w
+astAppendS (Ast.AstReplicateS (SNat' @1 :$$ shmRest) a1)
+           (Ast.AstAppendS (Ast.AstFromVectorS (SNat @k2 :$$ ZSS) l2) w) =
+  astAppendS (astFromVectorS (SNat @(1 + k2) :$$ ZSS)
+              $ astReplicateS shmRest a1 `V.cons` l2) w
+astAppendS (Ast.AstReplicateK (SNat' @1 :$$ shmRest) a1)
+           (Ast.AstAppendS (Ast.AstFromVectorS (SNat @k2 :$$ ZSS) l2) w) =
+  astAppendS (astFromVectorS (SNat @(1 + k2) :$$ ZSS)
+              $ astReplicateK shmRest a1 `V.cons` l2) w
+astAppendS (Ast.AstFromVectorS (SNat @k1 :$$ ZSS) l1)
+           (Ast.AstAppendS
+              (Ast.AstReplicateS (SNat' @1 :$$ shmRest) a2) w) =
+  astAppendS (astFromVectorS (SNat @(k1 + 1) :$$ ZSS)
+              $ l1 `V.snoc` astReplicateS shmRest a2) w
+astAppendS (Ast.AstFromVectorS (SNat @k1 :$$ ZSS) l1)
+           (Ast.AstAppendS
+              (Ast.AstReplicateK (SNat' @1 :$$ shmRest) a2) w) =
+  astAppendS (astFromVectorS (SNat @(k1 + 1) :$$ ZSS)
+              $ l1 `V.snoc` astReplicateK shmRest a2) w
+astAppendS (Ast.AstFromVectorK (SNat @k1 :$$ ZSS) l1)
+           (Ast.AstAppendS (Ast.AstFromVectorK (SNat @k2 :$$ ZSS) l2) w) =
+  astAppendS (astFromVectorK (SNat @(k1 + k2) :$$ ZSS) $ l1 V.++ l2) w
+astAppendS (Ast.AstReplicateK (SNat' @1 :$$ ZSS) a1)
+           (Ast.AstAppendS (Ast.AstFromVectorK (SNat @k2 :$$ ZSS) l2) w) =
+  astAppendS (astFromVectorK (SNat @(1 + k2) :$$ ZSS) $ a1 `V.cons` l2) w
+astAppendS (Ast.AstFromVectorK (SNat @k1 :$$ ZSS) l1)
+           (Ast.AstAppendS (Ast.AstReplicateK (SNat' @1 :$$ ZSS) a2) w) =
+  astAppendS (astFromVectorK (SNat @(k1 + 1) :$$ ZSS) $ l1 `V.snoc` a2) w
+astAppendS (Ast.AstReplicateS (SNat' @1 :$$ shmRest1) a1)
+           (Ast.AstAppendS (Ast.AstReplicateS (SNat' @1 :$$ shmRest2) a2) w) =
+    astAppendS
+      (astFromVectorS (SNat @2 :$$ ZSS)
+       $ V.fromList [astReplicateS shmRest1 a1, astReplicateS shmRest2 a2]) w
+astAppendS (Ast.AstReplicateK (SNat' @1 :$$ shmRest1) a1)
+           (Ast.AstAppendS (Ast.AstReplicateK (SNat' @1 :$$ shmRest2) a2) w) =
+  astAppendS
+    (astFromVectorS (SNat @2 :$$ ZSS)
+     $ V.fromList [astReplicateK shmRest1 a1, astReplicateK shmRest2 a2]) w
+astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
+  fromPrimal $ astAppendS u v
+astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
+  fromDual $ astAppendS u v
+astAppendS (Ast.AstFromPlain u) (Ast.AstFromPlain v) =
+  fromPlain $ astAppendS u v
+astAppendS u v | Just u0 <- unAstS u
+               , Just v0 <- unAstS v
+               , FTKS _ FTKScalar <- ftkAst u =
+  fromPlain $ astConcreteS (tsappend (Concrete u0) (Concrete v0))
+astAppendS u (Ast.AstAppendS v w) | Just u0 <- unAstS u
+                                  , Just v0 <- unAstS v
+                                  , FTKS _ FTKScalar <- ftkAst u =
+  astAppendS (fromPlain $ astConcreteS (tsappend (Concrete u0) (Concrete v0))) w
+astAppendS (Ast.AstAppendS v u) w = astAppendS v (astAppendS u w)
+
+
+-- TODO: remove me
 astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
            (Ast.AstFromVector (SNat @k2) STKS{} l2) =
   astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2
@@ -3900,15 +4193,6 @@ astAppendS (Ast.AstReplicateK (SNat' @1 :$$ ZSS) a1)
 astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKScalar l1)
            (Ast.AstReplicateK (SNat' @1 :$$ ZSS) a2) =
   astFromVector (SNat @(k1 + 1)) stk2 $ l1 `V.snoc` a2
-astAppendS (Ast.AstReplicateS (SNat' @1 :$$ shmRest1) a1)
-           (Ast.AstReplicateS (SNat' @1 :$$ shmRest2) a2)
-  | FTKS sh x <- ftkAst a1 =
-    astFromVector (SNat @2) (STKS (shmRest1 `shsAppend` sh) (ftkToSTK x))
-    $ V.fromList [astReplicateS shmRest1 a1, astReplicateS shmRest2 a2]
-astAppendS (Ast.AstReplicateK (SNat' @1 :$$ shmRest1) a1)
-           (Ast.AstReplicateK (SNat' @1 :$$ shmRest2) a2) =
-  astFromVector (SNat @2) (STKS shmRest1 STKScalar)
-  $ V.fromList [astReplicateK shmRest1 a1, astReplicateK shmRest2 a2]
 astAppendS (Ast.AstFromVector (SNat @k1) stk2@STKS{} l1)
            (Ast.AstAppendS (Ast.AstFromVector (SNat @k2) STKS{} l2) w) =
   astAppendS (astFromVector (SNat @(k1 + k2)) stk2 $ l1 V.++ l2) w
@@ -3945,26 +4229,8 @@ astAppendS (Ast.AstReplicateS (SNat' @1 :$$ shmRest1) a1)
     astAppendS
       (astFromVector (SNat @2) (STKS (shmRest1 `shsAppend` sh) (ftkToSTK x))
        $ V.fromList [astReplicateS shmRest1 a1, astReplicateS shmRest2 a2]) w
-astAppendS (Ast.AstReplicateK (SNat' @1 :$$ shmRest1) a1)
-           (Ast.AstAppendS (Ast.AstReplicateK (SNat' @1 :$$ shmRest2) a2) w) =
-  astAppendS
-    (astFromVector (SNat @2) (STKS shmRest1 STKScalar)
-     $ V.fromList [astReplicateK shmRest1 a1, astReplicateK shmRest2 a2]) w
-astAppendS (Ast.AstFromPrimal u) (Ast.AstFromPrimal v) =
-  fromPrimal $ astAppendS u v
-astAppendS (Ast.AstFromDual u) (Ast.AstFromDual v) =
-  fromDual $ astAppendS u v
-astAppendS (Ast.AstFromPlain u) (Ast.AstFromPlain v) =
-  fromPlain $ astAppendS u v
-astAppendS u v | Just u0 <- unAstS u
-               , Just v0 <- unAstS v
-               , FTKS _ FTKScalar <- ftkAst u =
-  fromPlain $ astConcreteS (tsappend (Concrete u0) (Concrete v0))
-astAppendS u (Ast.AstAppendS v w) | Just u0 <- unAstS u
-                                  , Just v0 <- unAstS v
-                                  , FTKS _ FTKScalar <- ftkAst u =
-  astAppendS (fromPlain $ astConcreteS (tsappend (Concrete u0) (Concrete v0))) w
-astAppendS (Ast.AstAppendS v u) w = astAppendS v (astAppendS u w)
+
+
 astAppendS u v = Ast.AstAppendS u v
 
 astSliceS :: forall i n k sh s r. KnownSpan s
@@ -3976,6 +4242,10 @@ astSliceS SNat SNat SNat (Ast.AstFromVector _ stk@STKS{} l) =
 astSliceS SNat SNat SNat (Ast.AstFromVector _ stk@STKScalar l) =
   astFromVector (SNat @n) stk $ V.take (valueOf @n) $ V.drop (valueOf @i) l
 astSliceS SZ SNat SZ v = v
+astSliceS SNat SNat SNat (Ast.AstFromVectorS (_ :$$ ZSS) l) =
+  astFromVectorS (SNat @n :$$ ZSS) $ V.take (valueOf @n) $ V.drop (valueOf @i) l
+astSliceS SNat SNat SNat (Ast.AstFromVectorK (_ :$$ ZSS) l) =
+  astFromVectorK (SNat @n :$$ ZSS) $ V.take (valueOf @n) $ V.drop (valueOf @i) l
 astSliceS SNat (SNat' @1) SNat v | FTKS (_ :$$ sh) _ <- ftkAst v =
   astReplicateS (SNat @1 :$$ ZSS) (astIndexS sh v (valueOf @i :.$ ZIS))
 astSliceS SNat SNat SNat (Ast.AstReplicateK (_ :$$ shmRest) v) =
@@ -4018,6 +4288,15 @@ astSliceS i n@SNat k (Ast.AstTransposeS
                         (Ast.AstFromVector (SNat' @2) (STKS (_ :$$ sh) x) l)) =
     Ast.AstTransposeS perm
     $ astFromVector (SNat @2) (STKS (n :$$ sh) x) (V.map (astSliceS i n k) l)
+-- This enlarges the term and increases computation, but sometimes
+-- it permits eliminating the AstFromVector node altogether, so we risk it
+-- for cases that commonly emerge from conditionals.
+astSliceS i n@SNat k (Ast.AstTransposeS
+                        perm@(SNat' @1 `PCons` SNat' @0 `PCons` PNil)
+                        t@(Ast.AstFromVectorS (_ :$$ ZSS) l))
+  | FTKS (SNat' @2 :$$ _ :$$ (_ :: ShS sh2)) _ <- ftkAst t =
+    Ast.AstTransposeS perm
+    $ astFromVectorS @_ @(n : sh2) (SNat @2 :$$ ZSS) (V.map (astSliceS i n k) l)
 -- TODO: generalize (maybe the above, too) using unReplN, but it's hard.
 -- TODO: does it really work only for replicate-like things in-between?
 astSliceS i n@SNat k
@@ -4055,6 +4334,10 @@ astReverseS (Ast.AstLet var u v) = astLet var u (astReverseS v)
 astReverseS (Ast.AstFromPrimal v) = fromPrimal $ astReverseS v
 astReverseS (Ast.AstFromDual v) = fromDual $ astReverseS v
 astReverseS (Ast.AstFromPlain v) = fromPlain $ astReverseS v
+astReverseS (Ast.AstFromVectorK shm@(_ :$$ ZSS) l) =
+  astFromVectorK shm $ V.reverse l
+astReverseS (Ast.AstFromVectorS shm@(_ :$$ ZSS) l) =
+  astFromVectorS shm $ V.reverse l
 astReverseS (Ast.AstReplicateK shm v) = astReplicateK shm v
 astReverseS (Ast.AstReplicateS shm v) = astReplicateS shm v
 astReverseS (Ast.AstGatherS shm@(SNat @k :$$ _) shn shp v (var ::$ vars, ix)) =
@@ -4153,6 +4436,18 @@ astTransposeS perm t =
         $ gcastWith (unsafeCoerceRefl
                      :: (Rank permn <=? Rank (shm ++ sh)) :~: True)
         $ astIndexS (shsPermutePrefix perm shn) (astTransposeS permn v) ix
+  Ast.AstFromVectorS @_ @sh2 shm@(SNat @n :$$ ZSS) l
+    | SNat' @0 `PCons` _ <- perm -> case permUnShift1 perm of
+      (perm2 :: Permutation.Perm perm2) ->
+        fromMaybe (error "astTransposeS: impossible non-permutation")
+        $ Permutation.permCheckPermutation perm2
+        $ gcastWith (unsafeCoerceRefl :: Rank perm2 + 1 :~: Rank perm)
+        -- for GHC 9.10 only:
+        $ gcastWith (unsafeCoerceRefl :: (Rank perm2 <=? Rank sh2) :~: True)
+        $ gcastWith (unsafeCoerceRefl
+                     :: Permutation.PermutePrefix perm (n : sh2)
+                        :~: n : Permutation.PermutePrefix perm2 sh2)
+        $ astFromVectorS shm (V.map (astTransposeS perm2) l)
   Ast.AstSumS @shm2 shm2 v ->
     let zsuccP :: Permutation.Perm (Permutation.PermId (Rank shm2)
                                     ++ Permutation.MapPlusN (Rank shm2) perm)
@@ -4188,6 +4483,10 @@ astTransposeS perm t =
     | SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
       astFromVector snat2 (STKS (snat1 :$$ sh) x)
                     (V.map (astReplicateS shm) l)
+  Ast.AstReplicateS shm@(_ :$$ ZSS)
+                    (Ast.AstFromVectorS shm2@(SNat' @2 :$$ ZSS) l)
+    | SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
+      astFromVectorS shm2 (V.map (astReplicateS shm) l)
   Ast.AstGatherS @shm @shn shm shn shp v (vars, ix)
     -- TODO: should the below be backpermute or permute?
     | fromSNat' (Permutation.permRank perm) <= listsLength vars ->
@@ -4417,6 +4716,8 @@ astConvertDownKFromS c a = case a of
   Ast.AstArgMinS v | FTKS (_ :$$ ZSS) FTKScalar <- ftkAst v -> astArgMinK v
   Ast.AstArgMaxS v | FTKS (_ :$$ ZSS) FTKScalar <- ftkAst v -> astArgMaxK v
   Ast.AstIndexS @shm ZSS v ix | Refl <- lemAppNil @shm -> astIndexK v ix
+  Ast.AstFromVectorK ZSS l -> l V.! 0
+  Ast.AstFromVectorS ZSS l -> astConvertDownKFromS c $ l V.! 0
   Ast.AstSumS _ v | Dict0 <- numFromTKAllNum (Proxy @r) -> astSumK v
   Ast.AstScatterS{} -> Ast.AstConvert c a  -- not a NF
   Ast.AstReplicateK ZSS v -> v
@@ -5443,6 +5744,16 @@ substitute1Ast i var = subst where
       (Nothing, Nothing) -> Nothing
       (mt, mix) -> Just $ astIndexS shn (fromMaybe t mt) (fromMaybe ix mix)
 
+  Ast.AstFromVectorK shm args ->
+    let margs = V.map subst args
+    in if V.any isJust margs
+       then Just $ astFromVectorK shm $ V.zipWith fromMaybe args margs
+       else Nothing
+  Ast.AstFromVectorS shm args ->
+    let margs = V.map subst args
+    in if V.any isJust margs
+       then Just $ astFromVectorS shm $ V.zipWith fromMaybe args margs
+       else Nothing
   Ast.AstSumK v -> astSumK <$> subst v
   Ast.AstSumS shm v -> astSumS shm <$> subst v
   Ast.AstScatterS shm shn shp t (vars, ix) ->
