@@ -62,7 +62,6 @@ ftkAst t = case t of
     FTKProduct (ftkAst acc0) (buildFTK k bftk)
   AstApply (AstLambda !_ !u) _ -> ftkAst u
   AstVar var -> varNameToFTK var
-  AstCond _b v _w -> ftkAst v
   AstBuild1 snat _ (_var, v) -> buildFTK snat (ftkAst v)
 
   AstLet _ _ v -> ftkAst v
@@ -175,7 +174,6 @@ varInAst var = \case
     varInAst var acc0 || varInAst var es
   AstApply t ll -> varInAstHFun var t || varInAst var ll
   AstVar var2 -> var == varNameToAstVarId var2
-  AstCond b v w -> varInAst var b || varInAst var v || varInAst var w
   AstBuild1 _ _ (var2, v) ->
     assert (varNameToAstVarId var2 /= var) $
     varInAst var v
@@ -313,7 +311,6 @@ astIsSmallN n t0 = case t0 of
   AstProject1 t -> astIsSmallN (n - 1) t
   AstProject2 t -> astIsSmallN (n - 1) t
   AstVar{} -> n
-  AstCond b u v -> astIsSmallN (astIsSmallN (astIsSmallN (n - 1) b) u) v
   AstShare{} -> n
   AstPrimalPart v -> astIsSmallN (n - 1) v
   AstDualPart v -> astIsSmallN (n - 1) v
@@ -384,7 +381,6 @@ astLetDown var u v = case v of
     else AstMapAccumLDer k bftk eftk f df rf acc0 (astLetDown var u es)
   AstApply f t -> AstApply f (astLetDown var u t)
   -- handled above: AstVar
-  AstCond{} -> AstLet var u v
   AstBuild1 k stk (var2, v2) ->
     let !v3 = astLetDown var u v2
     in AstBuild1 k stk (var2, v3)
@@ -501,10 +497,6 @@ intBounds :: AstTensor ms PlainSpan (TKScalar Int) -> Maybe (Int, Int)
 intBounds (AstConcreteK u) = Just (u, u)
 intBounds (AstApply (AstLambda _ u) _) = intBounds u
 intBounds (AstVar var) = varNameToBounds var
-intBounds (AstCond _b u v) = do
-  (u1, u2) <- intBounds u
-  (v1, v2) <- intBounds v
-  pure (min u1 v1, max u2 v2)
 intBounds (AstLet _ _ u) = intBounds u  -- TODO: substitute?
 intBounds (AstShare var _) = varNameToBounds var
 intBounds (AstToShare u) = intBounds u

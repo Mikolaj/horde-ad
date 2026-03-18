@@ -78,7 +78,6 @@ expandAst t = case t of
                     (expandAst es)
   Ast.AstApply v ll -> astApply (expandAstHFun v) (expandAst ll)
   Ast.AstVar{} -> t
-  Ast.AstCond b a2 a3 -> astCond (expandAst b) (expandAst a2) (expandAst a3)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = expandAst v
     in Ast.AstBuild1 k stk (var, v2)
@@ -240,8 +239,6 @@ simplifyAst t = case t of
                     (simplifyAst es)
   Ast.AstApply f a -> astApply (simplifyAstHFun f) (simplifyAst a)
   Ast.AstVar{} -> t
-  Ast.AstCond b a2 a3 ->
-    astCond (simplifyAst b) (simplifyAst a2) (simplifyAst a3)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = simplifyAst v
     in Ast.AstBuild1 k stk (var, v2)
@@ -365,8 +362,6 @@ contractAst t0 = case t0 of
                     (contractAst es)
   Ast.AstApply v ll -> astApply (contractAstHFun v) (contractAst ll)
   Ast.AstVar{} -> t0
-  Ast.AstCond b a2 a3 ->
-    astCond (contractAst b) (contractAst a2) (contractAst a3)
   -- These are only needed for tests that don't vectorize Ast. In fact,
   -- they seem totally unused ATM.
   Ast.AstBuild1 snat stk@(STKS ZSS STKScalar)  -- generalize
@@ -817,8 +812,6 @@ letDownAst t = case t of
                         (letDownAst es)
   Ast.AstApply v ll -> Ast.AstApply (letDownAstHFun v) (letDownAst ll)
   Ast.AstVar{} -> t
-  Ast.AstCond b a2 a3 ->
-    Ast.AstCond (letDownAst b) (letDownAst a2) (letDownAst a3)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = letDownAst v
     in Ast.AstBuild1 k stk (var, v2)

@@ -425,9 +425,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
     -> AstTensor ms s (TKProduct accy (BuildTensorKind k by))
   AstApply :: AstHFun s x z -> AstTensor ms s x -> AstTensor ms s z
   AstVar :: AstVarName '(s, y) -> AstTensor ms s y
-  AstCond :: forall y ms s.
-             AstBool ms -> AstTensor ms s y -> AstTensor ms s y
-          -> AstTensor ms s y
   AstBuild1 :: forall y k ms s.
                SNat k -> SingletonTK y
             -> (IntVarName, AstTensor ms s y)

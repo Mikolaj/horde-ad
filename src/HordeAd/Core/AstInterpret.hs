@@ -105,10 +105,6 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
         t
       _ -> error $ "interpretAst: unknown AstVar " ++ show var
                    -- ++ " in environment " ++ showsPrecAstEnv 0 env ""
-  AstCond b a1 a2 ->
-    let c = interpretAst env b
-    in tcond (ftkToSTK (ftkAst a1)) c
-             (interpretAst env a1) (interpretAst env a2)
   -- TODO: recognize nested builds and, for Concrete, call tbuild instead;
   -- also recognize map and zipWith in nested builds and call these
   AstBuild1 snat stk (var, v) ->

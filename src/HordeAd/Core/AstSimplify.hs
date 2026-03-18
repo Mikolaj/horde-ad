@@ -24,7 +24,7 @@ module HordeAd.Core.AstSimplify
   ( RewritePhase(..), SimplifyKnobs (..), defaultKnobs
   , -- * The simplifying combinators, one for almost each AST constructor
     astPair, astProject1, astProject2, astFromVector
-  , astMapAccumLDer, astApply, astCond, astCondInitial, astLet
+  , astMapAccumLDer, astApply, astLet
 
   , astPrimalPart, astDualPart, astPlainPart
 
@@ -301,7 +301,6 @@ astProject1 u = case u of
        $ astMapAccumLDer k ftkUnit eftk (AstLambda varf2 vf2)
                                         (AstLambda vard2 vd2)
                                         (AstLambda varr2 vr2) acc0 es
-  Ast.AstCond b v1 v2 -> astCond b (astProject1 v1) (astProject1 v2)
   Ast.AstLet var t v -> astLet var t (astProject1 v)
   Ast.AstPrimalPart v -> astPrimalPart $ astProject1 v
   Ast.AstDualPart v -> astDualPart $ astProject1 v
@@ -325,7 +324,6 @@ astProject2 u = case u of
   Ast.AstPair _x z -> z
   Ast.AstFromVector snat (STKProduct _ stk2) v ->
     astFromVector snat stk2 (V.map astProject2 v)
-  Ast.AstCond b v1 v2 -> astCond b (astProject2 v1) (astProject2 v2)
   Ast.AstLet var t v -> astLet var t (astProject2 v)
   Ast.AstPrimalPart v -> astPrimalPart $ astProject2 v
   Ast.AstDualPart v -> astDualPart $ astProject2 v
@@ -558,134 +556,6 @@ astApply :: forall x z s. KnownSpan s
          -> AstTensor AstMethodLet s z
 astApply (AstLambda !var !v) u = astLet var u v
 
-astCondInitial :: KnownSpan s
-               => AstBool AstMethodLet
-               -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
-               -> AstTensor AstMethodLet s y
-astCondInitial b v w = case b of
-  AstLeqInt (AstConcreteK j) (AstIntVar var)
-    | Just (lb, ub) <- varNameToBounds var ->
-      let varTrue = reboundsVarName (max lb j, ub) var
-          varFalse = reboundsVarName (lb, min ub (j - 1)) var
-      in astCond b (substituteAst (astVar varTrue) var v)
-                   (substituteAst (astVar varFalse) var w)
-  _ -> astCond b v w
-
-astCond :: KnownSpan s
-        => AstBool AstMethodLet
-        -> AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
-        -> AstTensor AstMethodLet s y
-astCond b v w | Just b0 <- unAstK b = if b0 then v else w
-astCond _b u v | eqY u v = u
-astCond b v w | FTKS (snat :$$ _) _ <- ftkAst v
-              , Just v1 <- unRepl1 v
-              , Just w1 <- unRepl1 w =
-  astReplicateS (snat :$$ ZSS) (astCond b v1 w1)
-astCond (Ast.AstBoolNotK b) v w = astCond b w v
-astCond (Ast.AstLet var n b) u v =
-  astLetRefresh var n b $ \b' -> astCondInitial b' u v
-astCond b (Ast.AstLet var n u) v = astLetRefresh var n u $ \u' -> astCond b u' v
-astCond b u (Ast.AstLet var n v) = astLetRefresh var n v $ \v' -> astCond b u v'
-astCond b (Ast.AstFromPrimal v) (Ast.AstFromPrimal w) =
-  fromPrimal $ astCond b v w
-astCond b (Ast.AstFromDual v) (Ast.AstFromDual w) =
-  fromDual $ astCond b v w
-astCond b (Ast.AstFromPlain v) (Ast.AstFromPlain w) =
-  fromPlain $ astCond b v w
-astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqY u1 v1 =
-  astPlusK u1 (astCond b u2 v2)
-astCond b (AstPlusK u1 u2) v1 | eqY u1 v1 =
-  astPlusK u1 (astCond b u2 0)
-astCond b u1 (AstPlusK v1 v2) | eqY u1 v1 =
-  astPlusK u1 (astCond b 0 v2)
-astCond b (AstPlusK u1 u2) (AstPlusK v1 v2) | eqY u2 v2 =
-  astPlusK (astCond b u1 v1) u2
-astCond b (AstPlusK u1 u2) v2 | eqY u2 v2 =
-  astPlusK (astCond b u1 0) u2
-astCond b u2 (AstPlusK v1 v2) | eqY u2 v2 =
-  astPlusK (astCond b 0 v1) u2
-astCond b (AstTimesK u1 u2) (AstTimesK v1 v2) | eqY u1 v1 =
-  astTimesK u1 (astCond b u2 v2)
-astCond b (AstTimesK u1 u2) v1 | eqY u1 v1 =
-  astTimesK u1 (astCond b u2 0)
-astCond b u1 (AstTimesK v1 v2) | eqY u1 v1 =
-  astTimesK u1 (astCond b 0 v2)
-astCond b (AstTimesK u1 u2) (AstTimesK v1 v2) | eqY u2 v2 =
-  astTimesK (astCond b u1 v1) u2
-astCond b u2 (AstTimesK v1 v2) | eqY u2 v2 =
-  astTimesK (astCond b 0 v1) u2
-astCond b (AstTimesK u1 u2) v2 | eqY u2 v2 =
-  astTimesK (astCond b u1 0) u2
-astCond _b (Ast.AstIotaS n) Ast.AstIotaS{} = Ast.AstIotaS n
--- We rely here on c and the other conversion being semantically equal.
-astCond b (AstConvUp c zftk v) (AstConvUp _ _ w)
-  | Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
-    astConvertUp c zftk (astCond b v w)
-astCond b v (AstConvUp c zftk w) =
-    astConvertUp c zftk (astCond b (astConvDown (ftkAst w) v) w)
-astCond b (AstConvUp c zftk v) w
-  | Just Refl <- matchingFTK (ftkAst v) (ftkAst w) =
-    astConvertUp c zftk (astCond b v (astConvDown (ftkAst v) w))
--- These two normal forms prevent simple cases of an exponential blow-up
--- when substituting into nested conditionals in the rule that follows them.
--- For now they don't seem to be needed, though.
--- astCond b v@Ast.AstCond{} w = Ast.AstCond b v w
--- astCond b v w@Ast.AstCond{} = Ast.AstCond b v w
-astCond (AstLeqInt (AstConcreteK j) var0@(AstIntVar var)) v w
-  | FTKScalar @r <- ftkAst v
-  , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
-  , Just (lb, ub) <- varNameToBounds var
-  , let varTrue = reboundsVarName (max lb j, ub) var
-        varFalse = reboundsVarName (lb, min ub (j - 1)) var
-  , AstConcreteK dv <- v - fromPlain (astVar varTrue)
-  , AstConcreteK dw <- w - fromPlain (astVar varFalse)
-  , dv == dw =
-    fromPlain $ AstConcreteK dv + var0
-astCond b@(AstLeqInt AstConcreteK{}
-                     (Ast.AstN1K NegateOp AstIntVar{})) v w =
-  astCondInitial (astBoolNotK b) w v  -- eliminate the NegateOp
-{- TODO: Investigate how much stronger this rule is than the above (it's slower)
-astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
-  | FTKScalar @r <- ftkAst v
-  , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
-  , Just (lb, ub) <- varNameToBounds var
-  , let varTrue = reboundsVarName (max lb k, ub) var
-        varFalse = reboundsVarName (lb, min ub (k - 1)) var
-        d = v - fromPlain (astVar varTrue)
-  , eqY w (substituteAst (astVar varFalse) varTrue d
-           + fromPlain (astVar varFalse)) =
-    substituteAst var0 varTrue d + fromPlain var0 -}
-{- Disabled, because scatters and gathers simplify better with conditionals
-   than with quotH, so the rules need to be restricted at least.
--- TODO: prove nothing wrong comes out of dividing by zero here:
-astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
-  | FTKScalar @r <- ftkAst v
-  , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
-  , Just (lb, ub) <- varNameToBounds var
-  , let varTrue = reboundsVarName (max lb k, ub) var
-        varFalse = reboundsVarName (lb, min ub (k - 1)) var
-        d = fromPlain (AstConcreteK k)  -- a simplified guess
-            `quotH` substituteAst (AstConcreteK k) var v
-  , eqY (fromPlain (astVar varTrue) `quotH` d)
-        (substituteAst (astVar varTrue) var v)
-  , eqY (fromPlain (astVar varFalse) `quotH` d)
-        (substituteAst (astVar varFalse) var w) =
-    fromPlain var0 `quotH` d
-astCond (AstLeqInt (AstConcreteK k) var0@(AstIntVar var)) v w
-  | FTKScalar @r <- ftkAst v
-  , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
-  , Just (lb, ub) <- varNameToBounds var
-  , let varTrue = reboundsVarName (max lb k, ub) var
-        varFalse = reboundsVarName (lb, min ub (k - 1)) var
-        d = fromPlain (AstConcreteK (k - 1))  -- the only change vs above
-            `quotH` substituteAst (AstConcreteK (k - 1)) var w
-  , eqY (fromPlain (astVar varTrue) `quotH` d)
-        (substituteAst (astVar varTrue) var v)
-  , eqY (fromPlain (astVar varFalse) `quotH` d)
-        (substituteAst (astVar varFalse) var w) =
-    fromPlain var0 `quotH` d -}
-astCond b v w = Ast.AstCond b v w
-
 -- Invariant: if the variable has bounds, the expression can only have
 -- values within the bounds (regardless of what the `bounds` call would say).
 astLet :: forall y z s s2. KnownSpan s2
@@ -844,7 +714,6 @@ astPrimalPart t = case t of
                        (astPrimalPart acc0) (astPrimalPart es)
   Ast.AstApply{} -> Ast.AstPrimalPart t
   Ast.AstVar{} -> Ast.AstPrimalPart t  -- the only normal form
-  Ast.AstCond b a2 a3 -> astCond b (astPrimalPart a2) (astPrimalPart a3)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = astPrimalPart v
     in Ast.AstBuild1 k stk (var, v2)
@@ -951,7 +820,6 @@ astDualPart t = case t of
                        (astDualPart acc0) (astDualPart es)
   Ast.AstApply{} -> Ast.AstDualPart t
   Ast.AstVar{} -> Ast.AstDualPart t
-  Ast.AstCond b a2 a3 -> astCond b (astDualPart a2) (astDualPart a3)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = astDualPart v
     in Ast.AstBuild1 k stk (var, v2)
@@ -1068,7 +936,6 @@ astPlainPart t = case t of
                        (astPlainPart acc0) (astPlainPart es)
   Ast.AstApply{} -> Ast.AstPlainPart t
   Ast.AstVar{} -> Ast.AstPlainPart t  -- the only normal form
-  Ast.AstCond b a2 a3 -> astCond b (astPlainPart a2) (astPlainPart a3)
   Ast.AstBuild1 k stk (var, v) ->
     let !v2 = astPlainPart v
     in Ast.AstBuild1 k stk (var, v2)
@@ -1297,7 +1164,6 @@ astN1K :: (NumScalar r, KnownSpan s)
        => OpCodeNum1 -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
 astN1K opCode t = case t of
-  Ast.AstCond b n k -> astCond b (astN1K opCode n) (astN1K opCode k)
   Ast.AstLet var n k -> astLet var n (astN1K opCode k)
   Ast.AstPrimalPart n -> primalPart (astN1K opCode n)
   Ast.AstDualPart n -> dualPart (astN1K opCode n)
@@ -1326,7 +1192,6 @@ astR1K :: (NumScalar r, Differentiable r, KnownSpan s)
        => OpCode1 -> AstTensor AstMethodLet s (TKScalar r)
        -> AstTensor AstMethodLet s (TKScalar r)
 astR1K opCode = \case
-  Ast.AstCond b n k -> astCond b (astR1K opCode n) (astR1K opCode k)
   Ast.AstLet var n k -> astLet var n (astR1K opCode k)
   Ast.AstPrimalPart u -> primalPart $ astR1K opCode u
   Ast.AstPlainPart u -> plainPart $ astR1K opCode u
@@ -1789,11 +1654,6 @@ fuseScatters2 (m :$$ shmRest) shn shp u (var ::$ vars, ix)
 -- from conditionals via rewrite rules.
 isCond :: AstInt AstMethodLet -> Bool
 isCond (Ast.AstLet _var _u v) = isCond v
-isCond Ast.AstCond{} = True
-isCond (AstPlusK _ Ast.AstCond{}) = True
-isCond (AstPlusK Ast.AstCond{} _) = True
-isCond (AstTimesK _ Ast.AstCond{}) = True
-isCond (AstTimesK Ast.AstCond{} _) = True
 isCond Ast.AstCondK{} = True
 isCond (AstPlusK _ Ast.AstCondK{}) = True
 isCond (AstPlusK Ast.AstCondK{} _) = True
@@ -2194,13 +2054,6 @@ astIndexKnobsS _ shn v0 (i1 :.$ _)
   , ub < 0 || lb >= fromSNat' snat =
     let ftk = FTKS shn x
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
-astIndexKnobsS knobs shn u0 (Ast.AstCond b v w :.$ rest0)
-  | knobPhase knobs `notElem` [PhaseUnspecified, PhaseVectorization] =
-      -- don't undo vectorization tweaks
-    astLetFun u0 $ \u ->
-    shareIx rest0 $ \rest ->
-    astCond b (astIndexKnobsS knobs shn u (v :.$ rest))
-              (astIndexKnobsS knobs shn u (w :.$ rest))
 astIndexKnobsS knobs shn u0 (Ast.AstCondK b v w :.$ rest0)
   | knobPhase knobs `notElem` [PhaseUnspecified, PhaseVectorization] =
       -- don't undo vectorization tweaks
@@ -2258,10 +2111,6 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
                      (i1 :.$ ZIS)
    Ast.AstApply{} -> Ast.AstIndexS shn v0 ix
    Ast.AstVar{} -> Ast.AstIndexS shn v0 ix
-   Ast.AstCond b v w ->
-     shareIx ix $ \ !ix2 ->
-       astCond b (astIndexKnobsS knobs shn v ix2)
-                 (astIndexKnobsS knobs shn w ix2)
    {- This is wrong: in a counterfactual case, astLet assigns OOB i to var2,
       violating the invariant about variables bounds:
    Ast.AstBuild1 (SNat @k) STKS{} (var2, v) ->
@@ -3943,10 +3792,6 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
     Ast.AstFromVector{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     Ast.AstApply{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     Ast.AstVar{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
-    Ast.AstCond b v w | ixIsSmall ix4 ->
-      astCond b (astGather shm shn shp v (vars4, ix4))
-                (astGather shm shn shp w (vars4, ix4))
-    Ast.AstCond{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     Ast.AstBuild1{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     AstConcreteS{} -> case unRepl1 v4 of
       Just u ->
@@ -4492,7 +4337,6 @@ astSliceS i n@SNat k
   , Just u <- unRepl1 t =
     astTransposeS perm $ astReplicateS (snat :$$ ZSS) $ astSliceS i n k u
 astSliceS i n k v1 = case v1 of
-  Ast.AstCond b a2 a3 -> astCond b (astSliceS i n k a2) (astSliceS i n k a3)
   Ast.AstLet var u v -> astLet var u (astSliceS i n k v)
   Ast.AstFromPrimal v -> fromPrimal $ astSliceS i n k v
   Ast.AstFromDual v -> fromDual $ astSliceS i n k v
@@ -4517,7 +4361,6 @@ astReverseS :: forall n sh s r. KnownSpan s
             -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astReverseS (Ast.AstFromVector snat stk l) =
   astFromVector snat stk $ V.reverse l
-astReverseS (Ast.AstCond b a2 a3) = astCond b (astReverseS a2) (astReverseS a3)
 astReverseS (Ast.AstLet var u v) = astLet var u (astReverseS v)
 astReverseS (Ast.AstFromPrimal v) = fromPrimal $ astReverseS v
 astReverseS (Ast.AstFromDual v) = fromDual $ astReverseS v
@@ -4589,7 +4432,6 @@ astTransposeS perm t =
                      :: Permutation.PermutePrefix perm (n : sh2)
                         :~: n : Permutation.PermutePrefix perm2 sh2)
         $ astReplicateS (snat :$$ ZSS) (astTransposeS perm2 u)
-  Ast.AstCond b u v -> astCond b (astTransposeS perm u) (astTransposeS perm v)
 
   Ast.AstLet var u v -> astLet var u (astTransposeS perm v)
 
@@ -4856,8 +4698,6 @@ astConvertDown c zftk t = case (ftkAst t, zftk) of
       -- Here we can't always use the c the user presumably wrote,
       -- so we always create a canonical one.
       astPair (astConvDown zftk1 a1) (astConvDown zftk2 a2)
-    Ast.AstCond b v1 v2 -> astCond b (astConvertDown c zftk v1)
-                                     (astConvertDown c zftk v2)
     Ast.AstLet var u v -> astLet var u (astConvertDown c zftk v)
     Ast.AstPrimalPart v -> astPrimalPart $ astConvertDown c zftk v
     Ast.AstDualPart v -> astDualPart $ astConvertDown c zftk v
@@ -4881,8 +4721,6 @@ astConvertDownKFromS c a = case a of
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astConvertDownKFromS c v)) ll
   Ast.AstVar{} -> Ast.AstConvert c a
-  Ast.AstCond b v1 v2 -> astCond b (astConvertDownKFromS c v1)
-                                   (astConvertDownKFromS c v2)
   Ast.AstLet var u v -> astLet var u (astConvertDownKFromS c v)
   Ast.AstPrimalPart v -> astPrimalPart $ astConvertDownKFromS c v
   Ast.AstDualPart v -> astDualPart $ astConvertDownKFromS c v
@@ -4936,8 +4774,6 @@ astConvertDownKFromR c a = case a of
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astConvertDownKFromR c v)) ll
   Ast.AstVar{} -> Ast.AstConvert c a
-  Ast.AstCond b v1 v2 -> astCond b (astConvertDownKFromR c v1)
-                                   (astConvertDownKFromR c v2)
   Ast.AstLet var u v -> astLet var u (astConvertDownKFromR c v)
   Ast.AstPrimalPart v -> astPrimalPart $ astConvertDownKFromR c v
   Ast.AstDualPart v -> astDualPart $ astConvertDownKFromR c v
@@ -4958,8 +4794,6 @@ astConvertDownKFromX c a = case a of
   Ast.AstApply (AstLambda !var !v) ll ->
     astApply (AstLambda var (astConvertDownKFromX c v)) ll
   Ast.AstVar{} -> Ast.AstConvert c a
-  Ast.AstCond b v1 v2 -> astCond b (astConvertDownKFromX c v1)
-                                   (astConvertDownKFromX c v2)
   Ast.AstLet var u v -> astLet var u (astConvertDownKFromX c v)
   Ast.AstPrimalPart v -> astPrimalPart $ astConvertDownKFromX c v
   Ast.AstDualPart v -> astDualPart $ astConvertDownKFromX c v
@@ -4990,8 +4824,6 @@ astConvertDownSFromR c sh x a0 = case a0 of
     _ -> error "astConvertDownSFromR: impossible shape"
   Ast.AstApply{} -> Ast.AstConvert c a0
   Ast.AstVar{} -> Ast.AstConvert c a0
-  Ast.AstCond b v w -> astCond b (astConvertDownSFromR c sh x v)
-                                 (astConvertDownSFromR c sh x w)
   Ast.AstBuild1 snat@SNat (STKR @n _ xstk) (var, a) -> case sh of
     snat2@SNat :$$ rest | Just Refl <- sameNat snat snat2
                         , Refl <- lemRankReplicate (Proxy @n) ->
@@ -5026,8 +4858,6 @@ astConvertDownSFromX c sh x a0 = case a0 of
     _ -> error "astConvertDownSFromX: impossible shape"
   Ast.AstApply{} -> Ast.AstConvert c a0
   Ast.AstVar{} -> Ast.AstConvert c a0
-  Ast.AstCond b v w -> astCond b (astConvertDownSFromX c sh x v)
-                                 (astConvertDownSFromX c sh x w)
   Ast.AstBuild1 snat@SNat (STKX @shx2 _ xstk) (var, a) -> case sh of
     (:$$) @_ @rest snat2@SNat rest | Just Refl <- sameNat snat snat2 ->
       -- This is needed only for GHC 9.10.
@@ -5225,7 +5055,6 @@ astMatmul2S m@SNat n@SNat p@SNat t1 t2 = case (t1, t2) of
 
 astBoolNotK :: AstBool AstMethodLet -> AstBool AstMethodLet
 astBoolNotK = \case
-  Ast.AstCond b v w -> astCond b (astBoolNotK v) (astBoolNotK w)
   Ast.AstLet var n b -> astLet var n (astBoolNotK b)
   AstConcreteK b -> AstConcreteK $ not b
   Ast.AstCondK b v w -> astCondK b (astBoolNotK v) (astBoolNotK w)
@@ -5828,11 +5657,6 @@ substitute1Ast i var = subst where
                    ++ ", payload kind: " ++ show (varNameToFTK var2)
                    ++ ", payload: " ++ show i
     else Nothing
-  Ast.AstCond b v w ->
-    case (subst b, subst v, subst w) of
-      (Nothing, Nothing, Nothing) -> Nothing
-      (mb, mv, mw) ->
-        Just $ astCondInitial (fromMaybe b mb) (fromMaybe v mv) (fromMaybe w mw)
   Ast.AstBuild1 k stk (var2, v) ->
     assert (varNameToAstVarId var2 /= varNameToAstVarId var) $
     case subst v of

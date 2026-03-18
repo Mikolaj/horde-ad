@@ -174,14 +174,6 @@ printAst cfg d = \case
                      . showString " "
                      . printAst cfg 11 ll
   AstVar var -> printAstVar cfg var
-  AstCond b a1 a2 ->
-    showParen (d > 10)
-    $ showString "ifH "
-      . printAst cfg 11 b
-      . showString " "
-      . printAst cfg 11 a1
-      . showString " "
-      . printAst cfg 11 a2
   AstBuild1 k stk (var, v) ->
    if loseRoudtrip cfg
    then

@@ -75,19 +75,6 @@ inlineAst !memo v0 = case v0 of
     let f Nothing = Just 1
         f (Just count) = Just $ count + 1
     in (EM.alter f (varNameToAstVarId var) memo, v0)
-  Ast.AstCond b a2 a3 ->
-    -- This is a place where our inlining may increase code size
-    -- by enlarging both branches due to not considering number of syntactic
-    -- occurrences, but only dynamic occurrences. Tensor expressions
-    -- in conditionals are problematic and special enough
-    -- that we can let it be until problems are encountered in the wild.
-    -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
-    let (memo1, b1) = inlineAst memo b
-        (memoA2, t2) = inlineAst EM.empty a2
-        (memoA3, t3) = inlineAst EM.empty a3
-        memo4 = EM.unionWith max memoA2 memoA3
-        memo5 = EM.unionWith (+) memo1 memo4
-    in (memo5, Ast.AstCond b1 t2 t3)
   Ast.AstBuild1 k stk (var, v) ->
     let (memoV0, !v2) = inlineAst EM.empty v
         memoV2 = EM.map (fromSNat' k *) memoV0
@@ -381,11 +368,6 @@ unshareAst !memo = \case
         (memo2, ll2) = unshareAst memo1 ll
     in (memo2, Ast.AstApply t2 ll2)
   Ast.AstVar v -> (memo, Ast.AstVar v)
-  Ast.AstCond b a2 a3 ->
-    let (memo1, b1) = unshareAst memo b
-        (memo2, t2) = unshareAst memo1 a2
-        (memo3, t3) = unshareAst memo2 a3
-    in (memo3, Ast.AstCond b1 t2 t3)
   Ast.AstBuild1 snat stk (var, v) ->
     let (memo1, !v2) = unshareAstScoped [var] memo v
     in (memo1, Ast.AstBuild1 snat stk (var, v2))

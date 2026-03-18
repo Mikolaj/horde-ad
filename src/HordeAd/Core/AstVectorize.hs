@@ -170,20 +170,6 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
         AstVarName _ FtkAndBoundsBounds{} -> fromPlain @s $ Ast.AstIotaS snat
         _ -> error "build1V: build variable is not an index variable"
       else error "build1V: AstVar can't contain other free variables"
-    Ast.AstCond b u v -> traceRule $
-      let stk0 = ftkToSTK ftk0
-          uv = astFromVector (SNat @2) stk0 (V.fromListN 2 [u, v])
-          -- We handle products specially to avoid duplicating a variable,
-          -- for which we can then substitute indexing, no big deal,
-          -- but each of the indexing can subsequently get turned
-          -- into a gather, which then makes a performance difference.
-          t = case ftk0 of
-            FTKProduct{} ->
-              let uvN = nestTargetK (SNat @2) ftk0 uv
-              in unNestTarget stk0 $ astIndexS ZSS uvN (astCond b 0 1 :.$ ZIS)
-            _ ->
-              astIndexBuild (SNat @2) ftk0 uv (astCond b 0 1)
-      in build1VOccurrenceUnknown snat (var, t)
     Ast.AstBuild1 snat2 _ (var2, v2) -> traceRule $
       assert (var2 /= var) $
       build1VOccurrenceUnknown
