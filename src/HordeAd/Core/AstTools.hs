@@ -110,6 +110,8 @@ ftkAst t = case t of
   AstIndexS shn v _ix -> case ftkAst v of
     FTKS _ x -> FTKS shn x
 
+  AstCondK _b v _w -> ftkAst v
+  AstCondS _b v _w -> ftkAst v
   AstFromVectorK shm _ -> FTKS shm FTKScalar
   AstFromVectorS shm l -> case V.uncons l of
     Just (v, _) | FTKS shn x <- ftkAst v -> FTKS (shm `shsAppend` shn) x
@@ -219,6 +221,8 @@ varInAst var = \case
   AstArgMaxS a -> varInAst var a
   AstIndexS _ v ix -> varInAst var v || varInIxS var ix
 
+  AstCondK b v w -> varInAst var b || varInAst var v || varInAst var w
+  AstCondS b v w -> varInAst var b || varInAst var v || varInAst var w
   AstFromVectorK _ l -> any (varInAst var) l
   AstFromVectorS _ l -> any (varInAst var) l
   AstSumK v -> varInAst var v
@@ -324,6 +328,8 @@ astIsSmallN n t0 = case t0 of
   -- This often appears from user writing (-1), often reduces away
   -- and it has only one argument.
   AstN1K NegateOp v -> astIsSmallN (n - 1) v
+  AstCondK b u v -> astIsSmallN (astIsSmallN (astIsSmallN (n - 1) b) u) v
+  AstCondS b u v -> astIsSmallN (astIsSmallN (astIsSmallN (n - 1) b) u) v
   -- This is a really good redex, often nested, executed as a metadata change,
   -- but not completely free, hence non-zero cost.
   AstReplicateK _ v -> astIsSmallN (n - 1) v
@@ -432,6 +438,8 @@ astLetDown var u v = case v of
     then AstLet var u v
     else AstIndexS shn (astLetDown var u v2) ix
 
+  AstCondK{} -> AstLet var u v
+  AstCondS{} -> AstLet var u v
   AstFromVectorK{} -> AstLet var u v
   AstFromVectorS{} -> AstLet var u v
   AstSumK v2 -> AstSumK (astLetDown var u v2)
@@ -527,9 +535,13 @@ intBounds (AstI2K RemOp u (AstConcreteK v)) | v > 0 = do
   pure $ if | u1 >= 0 -> (0, min u2 (v - 1))  -- very crude
             | u2 <= 0 -> (max u1 (- v + 1), 0)
             | otherwise -> (- v + 1, v - 1)
+intBounds (AstCondK _b u v) = do
+  (u1, u2) <- intBounds u
+  (v1, v2) <- intBounds v
+  pure (min u1 v1, max u2 v2)
 intBounds _ = Nothing
 
-pattern AstConvUpSFromK :: () => sh ~ '[]
+pattern AstConvUpSFromK :: forall r sh s ms. () => sh ~ '[]
                         => AstTensor ms s (TKScalar r)
                         -> AstTensor ms s (TKS sh r)
 pattern AstConvUpSFromK t <- (matchAstConvUpSFromK -> Just (Refl, t))

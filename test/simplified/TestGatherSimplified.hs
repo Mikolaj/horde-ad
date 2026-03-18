@@ -1000,9 +1000,9 @@ testScatterSimpPP1 = do
   length (show t1) @?= 312
   resetVarCounter
   let !t2 = scatter1 $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t2) @?= 452
+  length (show t2) @?= 453
   length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t1)) @?= 312
-  length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t2)) @?= 452
+  length (show (simplifyInlineContract @(TKR 1 Float) @PrimalSpan t2)) @?= 453
 
 testScatterSimp1 :: Assertion
 testScatterSimp1 = do
@@ -1091,12 +1091,12 @@ testScatterSimpPP2 :: Assertion
 testScatterSimpPP2 = do
   resetVarCounter
   let !t1 = scatterNested2 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t1) @?= 1088
+  length (show t1) @?= 1090
   resetVarCounter
   let !t2 = scatter2 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t2) @?= 619
-  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 1088
-  length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 619
+  length (show t2) @?= 621
+  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 1090
+  length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 621
 
 testScatterSimp2 :: Assertion
 testScatterSimp2 = do
@@ -1215,12 +1215,12 @@ testScatterSimpPP12 :: Assertion
 testScatterSimpPP12 = do
   resetVarCounter
   let !t1 = scatterNested12 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t1) @?= 684
+  length (show t1) @?= 685
   resetVarCounter
   let !t2 = scatter12 @(AstTensor AstMethodLet PrimalSpan) $ AstVar (mkAstVarName (FTKR [7, 2] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t2) @?= 566
-  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 684
-  length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 566
+  length (show t2) @?= 568
+  length (show (simplifyInlineContract @(TKR 2 Float) t1)) @?= 685
+  length (show (simplifyInlineContract @(TKR 2 Float) t2)) @?= 568
 
 testScatterSimp12 :: Assertion
 testScatterSimp12 = do
@@ -1285,13 +1285,13 @@ testReluSimpPP = do
   resetVarCounter
   let !t1 = barRelu10xSlower @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t1) @?= 21924
-  length (show (simplifyInlineContract @(TKR 10 Float) t1)) @?= 19802
+  length (show t1) @?= 21932
+  length (show (simplifyInlineContract @(TKR 10 Float) t1)) @?= 19810
   resetVarCounter
   let !t2 = barRelu @(AstTensor AstMethodLet PrimalSpan)
             $ AstVar (mkAstVarName (FTKR [1,2,2,1,2,2,2,2,2,1] FTKScalar) . intToAstVarId $ 100000000)
-  length (show t2) @?= 11472
-  length (show (simplifyInlineContract @(TKR 10 Float) t2)) @?= 11472
+  length (show t2) @?= 11480
+  length (show (simplifyInlineContract @(TKR 10 Float) t2)) @?= 11480
 
 testCNNOPP2 :: Assertion
 testCNNOPP2 = do
@@ -1299,10 +1299,10 @@ testCNNOPP2 = do
   let t = maxPool2dUnpadded2
             (rconcrete $ Nested.rreplicatePrim (1 :$: 1 :$: 2 :$: 2 :$: ZSR) 1)
   printAstPretty (simplifyInlineContract t)
-    @?= "rfromPlain (rfromS (sreplicateN @[2, 2] (str (sgather1 @2 (stranspose @[1, 3, 0, 2] (sfromVector @2 (fromList [sconcrete (sreplicate [2,2,2,2] 0.0), sgather @[2, 2, 2, 2] (sgather1 @2 (stranspose @[2, 0, 3, 1] (sreplicate @1 (sgather1 @3 (str (sfromVector @2 (fromList [stranspose @[1, 2, 4, 0, 3] (sgather @[2, 2] (stranspose @[3, 2, 0, 1] (sgather @[2, 2] (sconcrete (sfromListLinear [2,3,2] [1.0,1.0,0.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,0.0])) (\\[i89, i90] -> [i89 + i90]))) (\\[i28, i20] -> [i28 + i20])), sconcrete (sreplicate [2,3,2,2,2] 0.0)])) !$ [0]) (\\i103 -> [ifH (0 <=. sconcrete (sfromListLinear [3] [1,0,-1]) `sindex0` [i103] &&* 0 <=. negate (sconcrete (sfromListLinear [3] [1,0,-1]) `sindex0` [i103])) 0 1, i103])))) (\\i25 -> [i25, i25, i25])) (\\[i40, i50, i44, i54] -> [2 * i50 + i40, i50, 2 * i54 + i44])])) !$ [0, 0]) (\\i86 -> [ifH (1 <=. sconcrete (sfromListLinear [2] [1,0]) `sindex0` [i86]) 0 1, i86])))))"
+    @?= "rfromPlain (rfromS (sreplicateN @[2, 2] (str (sgather1 @2 (stranspose @[1, 3, 0, 2] (sfromVector @2 (fromList [sconcrete (sreplicate [2,2,2,2] 0.0), sgather @[2, 2, 2, 2] (sgather1 @2 (stranspose @[2, 0, 3, 1] (sreplicate @1 (sgather1 @3 (str (sfromVector @2 (fromList [stranspose @[1, 2, 4, 0, 3] (sgather @[2, 2] (stranspose @[3, 2, 0, 1] (sgather @[2, 2] (sconcrete (sfromListLinear [2,3,2] [1.0,1.0,0.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,0.0])) (\\[i89, i90] -> [i89 + i90]))) (\\[i27, i19] -> [i27 + i19])), sconcrete (sreplicate [2,3,2,2,2] 0.0)])) !$ [0]) (\\i103 -> [ifH (0 <=. sconcrete (sfromListLinear [3] [1,0,-1]) `sindex0` [i103] &&* 0 <=. negate (sconcrete (sfromListLinear [3] [1,0,-1]) `sindex0` [i103])) 0 1, i103])))) (\\i24 -> [i24, i24, i24])) (\\[i40, i50, i44, i54] -> [2 * i50 + i40, i50, 2 * i54 + i44])])) !$ [0, 0]) (\\i86 -> [ifH (1 <=. sconcrete (sfromListLinear [2] [1,0]) `sindex0` [i86]) 0 1, i86])))))"
     -- TODO: was once "rfromS (sconcrete (sfromListLinear [2,2,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printAstPretty t
-    @?= "rfromPlain (rfromS (sreplicateN @[2, 2] (let u46 = let v39 = sconcrete (sreplicate [2] 1) + negate (siota (SNat @2)) in stranspose @[3, 0, 1, 2] (sgather @[2, 2, 2] (stranspose @[2, 3, 4, 0, 1] (sfromVector @2 (fromList [sconcrete (sreplicate [2,2,2,2] 0.0), sgather @[2, 2, 2, 2] (sgather1 @2 (stranspose @[3, 0, 4, 5, 1, 2] (sreplicate @1 (let v19 = sconcrete (sreplicate [3] 1) + negate (siota (SNat @3)) in sgather @[3, 2, 2, 2, 2] (stranspose @[1, 2, 3, 4, 5, 0] (sfromVector @2 (fromList [stranspose @[2, 3, 0, 4, 1] (sgather @[2, 2] (stranspose @[3, 2, 0, 1] (sgather @[2, 2] (sconcrete (sfromListLinear [2,3,2] [1.0,1.0,0.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,0.0])) (\\[i33, i22] -> [i33 + i22]))) (\\[i28, i20] -> [i28 + i20])), sconcrete (sreplicate [3,2,2,2,2] 0.0)]))) (\\[i36, i31, i27, i23, i21] -> [i36, i31, i27, i23, i21, ifH (0 <=. sreplicate0N @[2] (sreplicate0N @[2] (sreplicate0N @[2] (sreplicate0N @[2] (v19 `sindex0` [i36]) `sindex0` [i31]) `sindex0` [i27]) `sindex0` [i23]) `sindex0` [i21] &&* 0 <=. negate (sreplicate0N @[2] (sreplicate0N @[2] (sreplicate0N @[2] (sreplicate0N @[2] (v19 `sindex0` [i36]) `sindex0` [i31]) `sindex0` [i27]) `sindex0` [i23]) `sindex0` [i21])) 0 1])))) (\\i25 -> [i25, i25, i25, 0])) (\\[i54, i50, i44, i40] -> [2 * i50 + i40, i50, 2 * i54 + i44])]))) (\\[i49, i43, i41] -> [i49, i43, i41, ifH (1 <=. sreplicate0N @[2] (sreplicate0N @[2] (v39 `sindex0` [i49]) `sindex0` [i43]) `sindex0` [i41]) 0 1])) in stranspose @[2, 3, 0, 1] u46 !$ [0, 0])))"
+    @?= "rfromPlain (rfromS (sreplicateN @[2, 2] (let u46 = let v39 = sconcrete (sreplicate [2] 1) + negate (siota (SNat @2)) in stranspose @[3, 0, 1, 2] (sgather @[2, 2, 2] (stranspose @[2, 3, 4, 0, 1] (sfromVector @2 (fromList [sconcrete (sreplicate [2,2,2,2] 0.0), sgather @[2, 2, 2, 2] (sgather1 @2 (stranspose @[3, 0, 4, 5, 1, 2] (sreplicate @1 (let v18 = sconcrete (sreplicate [3] 1) + negate (siota (SNat @3)) in sgather @[3, 2, 2, 2, 2] (stranspose @[1, 2, 3, 4, 5, 0] (sfromVector @2 (fromList [stranspose @[2, 3, 0, 4, 1] (sgather @[2, 2] (stranspose @[3, 2, 0, 1] (sgather @[2, 2] (sconcrete (sfromListLinear [2,3,2] [1.0,1.0,0.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,0.0])) (\\[i32, i21] -> [i32 + i21]))) (\\[i27, i19] -> [i27 + i19])), sconcrete (sreplicate [3,2,2,2,2] 0.0)]))) (\\[i35, i30, i26, i22, i20] -> [i35, i30, i26, i22, i20, ifH (0 <=. sreplicate0N @[2] (sreplicate0N @[2] (sreplicate0N @[2] (sreplicate0N @[2] (v18 `sindex0` [i35]) `sindex0` [i30]) `sindex0` [i26]) `sindex0` [i22]) `sindex0` [i20] &&* 0 <=. negate (sreplicate0N @[2] (sreplicate0N @[2] (sreplicate0N @[2] (sreplicate0N @[2] (v18 `sindex0` [i35]) `sindex0` [i30]) `sindex0` [i26]) `sindex0` [i22]) `sindex0` [i20])) 0 1])))) (\\i24 -> [i24, i24, i24, 0])) (\\[i54, i50, i44, i40] -> [2 * i50 + i40, i50, 2 * i54 + i44])]))) (\\[i49, i43, i41] -> [i49, i43, i41, ifH (1 <=. sreplicate0N @[2] (sreplicate0N @[2] (v39 `sindex0` [i49]) `sindex0` [i43]) `sindex0` [i41]) 0 1])) in stranspose @[2, 3, 0, 1] u46 !$ [0, 0])))"
 
 testCNNOPP2b :: Assertion
 testCNNOPP2b = do

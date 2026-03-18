@@ -189,6 +189,26 @@ inlineAst !memo v0 = case v0 of
         (memo2, ix2) = mapAccumL' inlineAst memo1 (Foldable.toList ix)
     in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
 
+  -- This is a place where our inlining may increase code size
+  -- by enlarging both branches due to not considering number of syntactic
+  -- occurrences, but only dynamic occurrences. Tensor expressions
+  -- in conditionals are problematic and special enough
+  -- that we can let it be until problems are encountered in the wild.
+  -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
+  Ast.AstCondK b a2 a3 ->
+    let (memo1, b1) = inlineAst memo b
+        (memoA2, t2) = inlineAst EM.empty a2
+        (memoA3, t3) = inlineAst EM.empty a3
+        memo4 = EM.unionWith max memoA2 memoA3
+        memo5 = EM.unionWith (+) memo1 memo4
+    in (memo5, Ast.AstCondK b1 t2 t3)
+  Ast.AstCondS b a2 a3 ->
+    let (memo1, b1) = inlineAst memo b
+        (memoA2, t2) = inlineAst EM.empty a2
+        (memoA3, t3) = inlineAst EM.empty a3
+        memo4 = EM.unionWith max memoA2 memoA3
+        memo5 = EM.unionWith (+) memo1 memo4
+    in (memo5, Ast.AstCondS b1 t2 t3)
   Ast.AstFromVectorK shm l ->
     let (memo2, l2) = mapAccumL' inlineAst memo $ V.toList l
     in (memo2, Ast.AstFromVectorK shm $ V.fromListN (V.length l) l2)
@@ -452,6 +472,16 @@ unshareAst !memo = \case
         (memo2, ix2) = mapAccumL' unshareAst memo1 (Foldable.toList ix)
     in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
 
+  Ast.AstCondK b a2 a3 ->
+    let (memo1, b1) = unshareAst memo b
+        (memo2, t2) = unshareAst memo1 a2
+        (memo3, t3) = unshareAst memo2 a3
+    in (memo3, Ast.AstCondK b1 t2 t3)
+  Ast.AstCondS b a2 a3 ->
+    let (memo1, b1) = unshareAst memo b
+        (memo2, t2) = unshareAst memo1 a2
+        (memo3, t3) = unshareAst memo2 a3
+    in (memo3, Ast.AstCondS b1 t2 t3)
   Ast.AstFromVectorK shm l ->
     let (memo2, l2) = mapAccumL' unshareAst memo $ V.toList l
     in (memo2, Ast.AstFromVectorK shm $ V.fromListN (V.length l) l2)

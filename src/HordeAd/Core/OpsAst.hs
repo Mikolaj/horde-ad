@@ -702,7 +702,22 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tpair = astPair
   tproject1 = astProject1
   tproject2 = astProject2
-  tcond _ !b !u !v = astCondInitial b u v
+  tcond stk !b !u !v = case stk of
+    STKScalar -> astCondKInitial b u v
+    STKR{} | FTKR sh0 x <- ftkAst u ->
+      withShsFromShR sh0 $ \(sh :: ShS sh) ->
+        astConvUpRFromS sh x
+        $ astCondSInitial b (astConvDownSFromR sh x u)
+                            (astConvDownSFromR sh x v)
+    STKS{} -> astCondSInitial b u v
+    STKX{} | FTKX sh0 x <- ftkAst u ->
+      withShsFromShX sh0 $ \(sh :: ShS sh) ->
+        astConvUpXFromS sh0 x
+        $ astCondSInitial b (astConvDownSFromX sh x u)
+                            (astConvDownSFromX sh x v)
+    STKProduct stk1 stk2 -> ttlet u $ \uShared -> ttlet v $ \vShared ->
+      tpair (tcond stk1 b (tproject1 uShared) (tproject1 vShared))
+            (tcond stk2 b (tproject2 uShared) (tproject2 vShared))
   tconcrete ftk a = fromPlain $ astConcrete ftk a
   tmapAccumR proxy !k !accftk !bftk !eftk f acc0 es =
     ttlet (tmapAccumL proxy k accftk bftk eftk f acc0
@@ -1344,7 +1359,23 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
-  tcond _ !b !u !v = AstRaw $ AstCond (unAstRaw b) (unAstRaw u) (unAstRaw v)
+  tcond stk !b0@(AstRaw b) !u0@(AstRaw u) !v0@(AstRaw v) = case stk of
+    STKScalar -> AstRaw $ AstCondK b u v
+    STKR{} | FTKR sh0 x <- ftkAst u -> AstRaw $
+      withShsFromShR sh0 $ \(sh :: ShS sh) ->
+        cAstConvUpRFromS sh x
+        $ AstCondS b (cAstConvDownSFromR sh x u)
+                     (cAstConvDownSFromR sh x v)
+    STKS{} -> AstRaw $ AstCondS b u v
+    STKX{} | FTKX sh0 x <- ftkAst u -> AstRaw $
+      withShsFromShX sh0 $ \(sh :: ShS sh) ->
+        cAstConvUpXFromS sh0 x
+        $ AstCondS b (cAstConvDownSFromX sh x u)
+                     (cAstConvDownSFromX sh x v)
+    STKProduct stk1 stk2 ->
+      let (u1, u2) = tunpair u0
+          (v1, v2) = tunpair v0
+      in tpair (tcond stk1 b0 u1 v1) (tcond stk2 b0 u2 v2)
   tconcrete ftk a = AstRaw $ fromPlain $ unAstRaw $ astConcreteRaw ftk a
   tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
     AstRaw $ AstMapAccumLDer k bftk eftk f df rf (unAstRaw acc0) (unAstRaw es)
@@ -1847,10 +1878,7 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   tmapAccumRDer _ !k !accftk !bftk !eftk f df rf acc0 es =
     AstNoSimplify $ tmapAccumRDer Proxy k accftk bftk eftk f df rf
                       (unAstNoSimplify acc0) (unAstNoSimplify es)
-  -- These three have tricky types, so we repaat the AstRaw definitions:
-  tcond _ !b !u !v =
-    AstNoSimplify $ AstCond (unAstNoSimplify b)
-                            (unAstNoSimplify u) (unAstNoSimplify v)
+  -- These two have tricky types, so we repaat the AstRaw definitions:
   tdualPart _ t = dualPart $ unAstNoSimplify t
   tfromDual t = AstNoSimplify $ fromDual t
 
@@ -1972,6 +2000,9 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ tpair (wunAstNoSimplify t1) (wunAstNoSimplify t2)
   tproject1 t = wAstNoSimplify $ tproject1 $ wunAstNoSimplify t
   tproject2 t = wAstNoSimplify $ tproject2 $ wunAstNoSimplify t
+  tcond stk b u v =
+    wAstNoSimplify $ tcond stk (wunAstNoSimplify b)
+                           (wunAstNoSimplify u) (wunAstNoSimplify v)
   tconcrete ftk a = wAstNoSimplify $ tconcrete ftk a
   tmapAccumLDer _ !k !accftk !bftk !eftk f df rf acc0 es =
     wAstNoSimplify $ tmapAccumLDer Proxy k accftk bftk eftk f df rf

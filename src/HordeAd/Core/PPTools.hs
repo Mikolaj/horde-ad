@@ -361,6 +361,22 @@ printAst cfg d = \case
       . showString " !$ "
       . showListWith (printAst cfg 0) (Foldable.toList ix)
 
+  AstCondK b a1 a2 ->
+    showParen (d > 10)
+    $ showString "ifH "
+      . printAst cfg 11 b
+      . showString " "
+      . printAst cfg 11 a1
+      . showString " "
+      . printAst cfg 11 a2
+  AstCondS b a1 a2 ->
+    showParen (d > 10)
+    $ showString "ifH "
+      . printAst cfg 11 b
+      . showString " "
+      . printAst cfg 11 a1
+      . showString " "
+      . printAst cfg 11 a2
   AstFromVectorK shm l ->
     let s = "sfromVector0N @" ++ showListWith shows (shsToList shm) " "
     in showParen (d > 10)

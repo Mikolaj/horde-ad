@@ -126,6 +126,9 @@ expandAst t = case t of
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
                    shn (expandAst v) (expandAstIxS ix)
+
+  Ast.AstCondK b a2 a3 -> astCondK (expandAst b) (expandAst a2) (expandAst a3)
+  Ast.AstCondS b a2 a3 -> astCondS (expandAst b) (expandAst a2) (expandAst a3)
   Ast.AstFromVectorK shm l -> astFromVectorK shm (V.map expandAst l)
   Ast.AstFromVectorS shm l -> astFromVectorS shm (V.map expandAst l)
   Ast.AstSumK a -> astSumK (expandAst a)
@@ -287,6 +290,10 @@ simplifyAst t = case t of
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
                    shn (simplifyAst v) (simplifyAstIxS ix)
 
+  Ast.AstCondK b a2 a3 ->
+    astCondK (simplifyAst b) (simplifyAst a2) (simplifyAst a3)
+  Ast.AstCondS b a2 a3 ->
+    astCondS (simplifyAst b) (simplifyAst a2) (simplifyAst a3)
   Ast.AstFromVectorK shm l -> astFromVectorK shm (V.map simplifyAst l)
   Ast.AstFromVectorS shm l -> astFromVectorS shm (V.map simplifyAst l)
   Ast.AstSumK a -> astSumK (simplifyAst a)
@@ -457,6 +464,10 @@ contractAst t0 = case t0 of
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                    shn (contractAst v) (contractAstIxS ix)
 
+  Ast.AstCondK b a2 a3 ->
+    astCondK (contractAst b) (contractAst a2) (contractAst a3)
+  Ast.AstCondS b a2 a3 ->
+    astCondS (contractAst b) (contractAst a2) (contractAst a3)
   Ast.AstFromVectorK shm l -> astFromVectorK shm (V.map contractAst l)
   Ast.AstFromVectorS shm l -> astFromVectorS shm (V.map contractAst l)
   Ast.AstSumK v -> astSumKContract $ contractAst v
@@ -689,11 +700,11 @@ contractAst t0 = case t0 of
   Ast.AstReplicateK shm v -> astReplicateK shm (contractAst v)
   Ast.AstReplicateS shm v -> astReplicateS shm (contractAst v)
   -- This rule is reverted in vectorization, so contraction phase may be fine.
-  Ast.AstGatherS shm shn shp v (vars, Ast.AstCond b i1 i2 :.$ prest)
+  Ast.AstGatherS shm shn shp v (vars, Ast.AstCondK b i1 i2 :.$ prest)
     | not $ Foldable.any ((`varInAst` b) . varNameToAstVarId) vars ->
       contractAst
-      $ Ast.AstCond b (Ast.AstGatherS shm shn shp v (vars, i1 :.$ prest))
-                      (Ast.AstGatherS shm shn shp v (vars, i2 :.$ prest))
+      $ Ast.AstCondS b (Ast.AstGatherS shm shn shp v (vars, i1 :.$ prest))
+                       (Ast.AstGatherS shm shn shp v (vars, i2 :.$ prest))
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                     shm shn shp (contractAst v) (vars, contractAstIxS ix)
@@ -851,6 +862,10 @@ letDownAst t = case t of
   Ast.AstArgMaxS a -> Ast.AstArgMaxS (letDownAst a)
   Ast.AstIndexS shn v ix -> Ast.AstIndexS shn (letDownAst v) (letDownAstIxS ix)
 
+  Ast.AstCondK b a2 a3 ->
+    Ast.AstCondK (letDownAst b) (letDownAst a2) (letDownAst a3)
+  Ast.AstCondS b a2 a3 ->
+    Ast.AstCondS (letDownAst b) (letDownAst a2) (letDownAst a3)
   Ast.AstFromVectorK shm l -> Ast.AstFromVectorK shm (V.map letDownAst l)
   Ast.AstFromVectorS shm l -> Ast.AstFromVectorS shm (V.map letDownAst l)
   Ast.AstSumK v -> Ast.AstSumK (letDownAst v)

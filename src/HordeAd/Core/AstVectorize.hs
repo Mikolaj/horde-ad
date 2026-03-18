@@ -277,6 +277,15 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       Ast.AstArgMaxS $ build1V snat (var, v)
     Ast.AstIndexS shn v ix -> traceRule $
       build1VIndexS snat shn (var, v, ix)  -- @var@ is in @v@ or @ix@
+
+    Ast.AstCondK b u v -> traceRule $
+      let uv = astFromVectorK (SNat @2 :$$ ZSS) (V.fromListN 2 [u, v])
+          t = astIndexK uv (astCondK b 0 1 :.$ ZIS)
+      in build1VOccurrenceUnknown snat (var, t)
+    Ast.AstCondS b u v | FTKS sh _ <- ftk0 -> traceRule $
+      let uv = astFromVectorS (SNat @2 :$$ ZSS) (V.fromListN 2 [u, v])
+          t = astIndexS sh uv (astCondK b 0 1 :.$ ZIS)
+      in build1VOccurrenceUnknown snat (var, t)
     Ast.AstFromVectorK @shm shm l -> traceRule $
       let perm1 = permCycle $ shsLength shm + 1
       in Permutation.permFromListCont perm1 $ \(perm
