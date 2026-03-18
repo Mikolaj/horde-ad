@@ -452,6 +452,11 @@ class ( Num (IntOf target)
   tstoListLinear :: forall shm r. GoodScalar r
                  => target (TKS shm r) -> [target (TKScalar r)]
   tstoListLinear t = map (tsindex0 t) (shsEnum' (sshape t))
+  tsfromListR :: forall k sh x. (1 <= k, KnownShS sh, KnownSTK x)
+              => ListR k (target (TKS2 sh x))
+              -> target (TKS2 (k ': sh) x)
+  tsfromListR l | SNat <- listrRank l =
+    tsfromVector $ V.fromList $ Foldable.toList l
 
   txfromVector :: (KnownNat n, KnownShX sh, KnownSTK x)
                => Data.Vector.Vector (target (TKX2 sh x))
@@ -510,12 +515,6 @@ class ( Num (IntOf target)
             -> target (BuildTensorKind k y)
   tfromList k stk l =
     tfromVector k stk $ V.fromListN (fromSNat' k) $ NonEmpty.toList l
-  tfromListR :: forall y k. (1 <= k, ConvertTensor target)
-             => SingletonTK y -> ListR k (target y)
-             -> target (BuildTensorKind k y)
-  tfromListR stk l = case NonEmpty.nonEmpty $ Foldable.toList l of
-    Just nl -> tfromList (listrRank l) stk nl
-    Nothing -> error "tfromListR: empty list"
 
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain

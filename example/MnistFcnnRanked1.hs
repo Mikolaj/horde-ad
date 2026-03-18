@@ -15,7 +15,7 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Ranked.Shape
 
 import HordeAd
-import HordeAd.Core.Ops (tfromListR)
+import HordeAd.Core.Ops (tsfromListR)
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
@@ -39,7 +39,7 @@ listMatmul1
 listMatmul1 x0 weights = tlet x0 $ \x ->
   let f :: target (TKS '[w1] r) -> target (TKS '[] r)
       f v = sfromK $ v `sdot0` x
-  in tfromListR knownSTK $ f <$> weights
+  in tsfromListR $ f <$> weights
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.
