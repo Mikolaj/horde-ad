@@ -98,39 +98,6 @@ printAst cfg d = \case
       . printAst cfg 11 t2
   AstProject1 t -> printPrefixOp printAst cfg d "tproject1" [t]
   AstProject2 t -> printPrefixOp printAst cfg d "tproject2" [t]
-  AstFromVector snat stk l -> case stk of
-    STKR{} ->
-      showParen (d > 10)
-      $ showString "rfromVector "
-        . (showParen True
-           $ showString "fromList "
-             . showListWith (printAst cfg 0) (V.toList l))
-    STKS{} ->
-      let s = "sfromVector @" ++ show (fromSNat' snat) ++ " "
-      in showParen (d > 10)
-         $ showString s
-           . (showParen True
-              $ showString "fromList "
-                . showListWith (printAst cfg 0) (V.toList l))
-    STKX{} ->
-      showParen (d > 10)
-      $ showString "xfromVector "
-        . (showParen True
-           $ showString "fromList "
-             . showListWith (printAst cfg 0) (V.toList l))
-    STKScalar ->
-      let s = "sfromVector0N @[" ++ show (fromSNat' snat) ++ "] "
-      in showParen (d > 10)
-         $ showString s
-           . (showParen True
-              $ showString "fromList "
-                . showListWith (printAst cfg 0) (V.toList l))
-    _ ->  -- product
-      showParen (d > 10)
-      $ showString "tfromVector "
-        . (showParen True
-           $ showString "fromList "
-             . showListWith (printAst cfg 0) (V.toList l))
   AstMapAccumLDer k bftk eftk f df rf acc0 es ->
    if loseRoudtrip cfg
    then

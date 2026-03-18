@@ -68,7 +68,6 @@ expandAst t = case t of
   Ast.AstPair t1 t2 -> astPair (expandAst t1) (expandAst t2)
   Ast.AstProject1 v -> astProject1 (expandAst v)
   Ast.AstProject2 v -> astProject2 (expandAst v)
-  Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map expandAst l)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     astMapAccumLDer k bftk eftk
                     (expandAstHFun f)
@@ -229,7 +228,6 @@ simplifyAst t = case t of
   Ast.AstPair t1 t2 -> astPair (simplifyAst t1) (simplifyAst t2)
   Ast.AstProject1 v -> astProject1 (simplifyAst v)
   Ast.AstProject2 v -> astProject2 (simplifyAst v)
-  Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map simplifyAst l)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     astMapAccumLDer k bftk eftk
                     (simplifyAstHFun f)
@@ -352,7 +350,6 @@ contractAst t0 = case t0 of
   Ast.AstPair t1 t2 -> astPair (contractAst t1) (contractAst t2)
   Ast.AstProject1 v -> astProject1 (contractAst v)
   Ast.AstProject2 v -> astProject2 (contractAst v)
-  Ast.AstFromVector snat stk l -> astFromVector snat stk (V.map contractAst l)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     astMapAccumLDer k bftk eftk
                     (contractAstHFun f)
@@ -801,8 +798,6 @@ letDownAst t = case t of
   Ast.AstPair t1 t2 -> Ast.AstPair (letDownAst t1) (letDownAst t2)
   Ast.AstProject1 v -> Ast.AstProject1 (letDownAst v)
   Ast.AstProject2 v -> Ast.AstProject2 (letDownAst v)
-  Ast.AstFromVector snat stk l ->
-    Ast.AstFromVector snat stk (V.map letDownAst l)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     Ast.AstMapAccumLDer k bftk eftk
                         (letDownAstHFun f)

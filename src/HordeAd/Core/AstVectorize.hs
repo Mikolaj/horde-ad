@@ -139,10 +139,6 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
       astProject1 (build1V snat (var, t))
     Ast.AstProject2 t -> traceRule $
       astProject2 (build1V snat (var, t))
-    Ast.AstFromVector snat1 stk l -> traceRule $
-      astTrBuild snat1 snat stk
-      $ astFromVector snat1 (buildSTK snat stk) (V.map (\v ->
-          build1VOccurrenceUnknown snat (var, v)) l)
     Ast.AstMapAccumLDer k5@(SNat @k5) bftk eftk f df rf acc0 es
      | Refl <- lemBuildOfAD snat (ftkToSTK (ftkAst acc0))
      , Refl <- lemBuildOfAD snat (ftkToSTK bftk)
@@ -482,7 +478,6 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
              len = ixsLength ix1
              pickRuleD :: AstTensor AstMethodLet s2 y2 -> Bool
              pickRuleD = \case  -- try to avoid ruleD if not a normal form
-               Ast.AstFromVector{} -> len == 1
                Ast.AstScatterS{} -> True
                Ast.AstGatherS{} -> True
                Ast.AstMapAccumLDer{} -> True

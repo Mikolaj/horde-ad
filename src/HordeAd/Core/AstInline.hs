@@ -57,9 +57,6 @@ inlineAst !memo v0 = case v0 of
     in (memo3, Ast.AstPair v1 v2)
   Ast.AstProject1 t -> second Ast.AstProject1 (inlineAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (inlineAst memo t)
-  Ast.AstFromVector snat stk l ->
-    let (memo2, l2) = mapAccumL' inlineAst memo $ V.toList l
-    in (memo2, Ast.AstFromVector snat stk $ V.fromListN (V.length l) l2)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     let (memo1, f2) = inlineAstHFun memo f
         (memo2, df2) = inlineAstHFun memo1 df
@@ -356,9 +353,6 @@ unshareAst !memo = \case
     in (memo2, Ast.AstPair v1 v2)
   Ast.AstProject1 t -> second Ast.AstProject1 (unshareAst memo t)
   Ast.AstProject2 t -> second Ast.AstProject2 (unshareAst memo t)
-  Ast.AstFromVector snat stk l ->
-    let (memo2, l2) = mapAccumL' unshareAst memo $ V.toList l
-    in (memo2, Ast.AstFromVector snat stk $ V.fromListN (V.length l) l2)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
     let (memo1, acc02) = unshareAst memo acc0
         (memo2, es2) = unshareAst memo1 es

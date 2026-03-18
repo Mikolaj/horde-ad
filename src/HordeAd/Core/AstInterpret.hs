@@ -76,9 +76,6 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
   AstPair t1 t2 -> tpair (interpretAst env t1) (interpretAst env t2)
   AstProject1 t -> tproject1 (interpretAst env t)
   AstProject2 t -> tproject2 (interpretAst env t)
-  AstFromVector snat stk l ->
-    let l2 = V.map (interpretAst env) l
-    in tfromVector snat stk l2
   AstMapAccumLDer k bftk eftk f0 df0 rf0 acc0 es ->
     let f = interpretAstHFun env f0
         df = interpretAstHFun env df0

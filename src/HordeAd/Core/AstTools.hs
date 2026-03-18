@@ -55,9 +55,6 @@ ftkAst t = case t of
     FTKProduct ftk1 _ -> ftk1
   AstProject2 v -> case ftkAst v of
     FTKProduct _ ftk2 -> ftk2
-  AstFromVector snat _ l -> case V.uncons l of
-    Nothing -> error "ftkAst: empty vector"
-    Just (v, _) -> buildFTK snat (ftkAst v)
   AstMapAccumLDer k bftk _eftk _f _df _rf acc0 _es ->
     FTKProduct (ftkAst acc0) (buildFTK k bftk)
   AstApply (AstLambda !_ !u) _ -> ftkAst u
@@ -169,7 +166,6 @@ varInAst var = \case
   AstPair t1 t2 -> varInAst var t1 || varInAst var t2
   AstProject1 t -> varInAst var t
   AstProject2 t -> varInAst var t
-  AstFromVector _ _ vl -> any (varInAst var) vl
   AstMapAccumLDer _k _bftk _eftk _f _df _rf acc0 es ->
     varInAst var acc0 || varInAst var es
   AstApply t ll -> varInAstHFun var t || varInAst var ll
@@ -372,7 +368,6 @@ astLetDown var u v = case v of
        | otherwise -> AstLet var u v
   AstProject1 v2 -> AstProject1 (astLetDown var u v2)
   AstProject2 v2 -> AstProject2 (astLetDown var u v2)
-  AstFromVector{} -> AstLet var u v
   -- Plausibly, accumulators are small and mapAccums are rare,
   -- so the check is cheap.
   AstMapAccumLDer k bftk eftk f df rf acc0 es ->

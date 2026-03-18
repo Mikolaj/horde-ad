@@ -401,10 +401,6 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
                  AstTensor ms s (TKProduct y z) -> AstTensor ms s y
   AstProject2 :: forall y z ms s.
                  AstTensor ms s (TKProduct y z) -> AstTensor ms s z
-  AstFromVector :: forall y k ms s.
-                   SNat k -> SingletonTK y
-                -> Data.Vector.Vector (AstTensor ms s y)
-                -> AstTensor ms s (BuildTensorKind k y)
   AstMapAccumLDer
     :: forall accy by ey k ms s.
        SNat k
