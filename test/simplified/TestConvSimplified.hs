@@ -1278,22 +1278,22 @@ testCNNOPP2 = do
   let t = maxPool2dUnpadded2
             (rconcrete $ Nested.rreplicatePrim (1 :$: 1 :$: 2 :$: 2 :$: ZSR) 1)
   printAstPretty (simplifyInlineContract t)
-    @?= "rfromPlain (rfromS (sreplicateN @[2, 2] (stranspose @[2, 3, 1, 0] (sfromVector @2 (fromList [sgather @[2, 2, 2] (stranspose @[2, 0, 1] (sreplicate @1 (stranspose @[1, 2, 0] (sgather @[2, 2] (stranspose @[2, 0, 1] (sgather @[2, 2] (sconcrete (sfromListLinear [2,2] [1.0,1.0,1.0,1.0])) (\\[i75, i76] -> [i76 + i75]))) (\\[i58, i60] -> [i58 + i60])) !$ [0]))) (\\[i51, i35, i8] -> [i8, i8, i8, 2 * i51 + i35]), sconcrete (sreplicate [2,2,2] 0.0)])) !$ [0, 0])))"
+    @?= "rfromPlain (rfromS (sreplicateN @[2, 2] (stranspose @[2, 3, 1, 0] (sfromVector @2 (fromList [sgather @[2, 2, 2] (sreplicate @1 (stranspose @[0, 2, 1] (sgather @[2, 2] (sconcrete (sreplicate [2,2] 1.0)) (\\[i62, i64] -> [i64 + i62])))) (\\[i44, i32, i8] -> [i8, i8, i8, 2 * i44 + i32]), sconcrete (sreplicate [2,2,2] 0.0)])) !$ [0, 0])))"
   printAstPretty t
-    @?= "rfromPlain (rfromS (sreplicateN @[2, 2] (let u43 = sgather @[2, 2, 2, 2] (sgather1 @2 (stranspose @[3, 0, 4, 5, 1, 2] (sreplicate @1 (let w32 = sgather @[2, 2] (stranspose @[3, 2, 0, 1] (sgather @[2, 2] (sconcrete (sfromListLinear [2,3,2] [1.0,1.0,0.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,0.0])) (\\[i26, i15] -> [i26 + i15]))) (\\[i22, i16] -> [i22 + i16]) in sappend (sreplicate @1 (stranspose @[2, 3, 0, 4, 1] w32 !$ [0])) (sconcrete (sreplicate [2,2,2,2,2] 0.0))))) (\\i20 -> [i20, i20, i20, 0])) (\\[i51, i40, i35, i8] -> [2 * i40 + i8, i40, 2 * i51 + i35]) ; t44 = str u43 !$ [0] in stranspose @[2, 3, 1, 0] (sfromVector @2 (fromList [t44, sconcrete (sreplicate [2,2,2] 0.0)])) !$ [0, 0])))"
+    @?= "rfromPlain (rfromS (sreplicateN @[2, 2] (let t38 = sgather @[2, 2, 2] (sreplicate @1 (let u29 = sgather @[2, 2] (stranspose @[2, 0, 1] (sgather @[2, 2] (sconcrete (sreplicate [2,2] 1.0)) (\\[i26, i15] -> [i26 + i15]))) (\\[i22, i16] -> [i22 + i16]) in sappend (sreplicate @1 (stranspose @[2, 0, 3, 1] u29)) (sconcrete (sreplicate [2,2,2,2,2] 0.0)))) (\\[i44, i32, i8] -> [i8, 0, 2 * i44 + i32, i8, i8, 0]) in stranspose @[2, 3, 1, 0] (sfromVector @2 (fromList [t38, sconcrete (sreplicate [2,2,2] 0.0)])) !$ [0, 0])))"
 
 testCNNOPP2b :: Assertion
 testCNNOPP2b = do
   resetVarCounter
   let artifactRev = revArtifactAdapt UseIncomingCotangent maxPool2dUnpadded2 (FTKR [1, 1, 2, 2] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
-    @?= "\\u1 -> rfromS (sreplicateN @[2, 2] (stranspose @[2, 3, 1, 0] (sfromVector @2 (fromList [sgather @[2, 2, 2] (sreplicate @1 (stranspose @[0, 2, 1] (sgather @[2, 2] (sfromR u1 !$ [0, 0]) (\\[i126, i124] -> [i124 + i126])))) (\\[i100, i101, i102] -> [i102, i102, i102, 2 * i100 + i101]), sconcrete (sreplicate [2,2,2] 0.0)])) !$ [0, 0]))"
+    @?= "\\u1 -> rfromS (sreplicateN @[2, 2] (stranspose @[2, 3, 1, 0] (sfromVector @2 (fromList [sgather @[2, 2, 2] (sreplicate @1 (stranspose @[0, 2, 1] (sgather @[2, 2] (sfromR u1 !$ [0, 0]) (\\[i69, i70] -> [i70 + i69])))) (\\[i71, i72, i73] -> [i73, i73, i73, 2 * i71 + i72]), sconcrete (sreplicate [2,2,2] 0.0)])) !$ [0, 0]))"
   printArtifactPrimalPretty artifactRev
-    @?= "\\u1 -> rfromS (sreplicateN @[2, 2] (stranspose @[2, 3, 1, 0] (sfromVector @2 (fromList [sgather @[2, 2, 2] (stranspose @[2, 0, 1] (sreplicate @1 (stranspose @[1, 2, 0] (sgather @[2, 2] (stranspose @[2, 0, 1] (sgather @[2, 2] (sfromR u1 !$ [0, 0]) (\\[i96, i97] -> [i97 + i96]))) (\\[i98, i99] -> [i98 + i99])) !$ [0]))) (\\[i100, i101, i102] -> [i102, i102, i102, 2 * i100 + i101]), sconcrete (sreplicate [2,2,2] 0.0)])) !$ [0, 0]))"
+    @?= "\\u1 -> rfromS (sreplicateN @[2, 2] (stranspose @[2, 3, 1, 0] (sfromVector @2 (fromList [sgather @[2, 2, 2] (sreplicate @1 (stranspose @[0, 2, 1] (sgather @[2, 2] (sfromR u1 !$ [0, 0]) (\\[i69, i70] -> [i70 + i69])))) (\\[i71, i72, i73] -> [i73, i73, i73, 2 * i71 + i72]), sconcrete (sreplicate [2,2,2] 0.0)])) !$ [0, 0]))"
   printArtifactPretty artifactRev
-    @?= "\\dret u1 -> rfromS (soneHot (sscatter @[2, 2] (stranspose @[1, 2, 0] (sscatter @[2, 2] (stranspose @[2, 0, 1] (soneHot (ssum @1 (stranspose @[1, 2, 0] (sscatter @[2, 2, 2] (stranspose @[3, 2, 0, 1] (soneHot (ssumN @[2, 2] (sfromR dret)) [0, 0]) !$ [0]) (\\[i105, i106, i107] -> [i107, i107, i107, 2 * i105 + i106])))) [0])) (\\[i108, i109] -> [i108 + i109]))) (\\[i110, i111] -> [i111 + i110])) [0, 0])"
+    @?= "\\dret u1 -> rfromS (soneHot (sscatter @[2, 2] (stranspose @[0, 2, 1] (ssum @1 (sscatter @[2, 2, 2] (stranspose @[3, 2, 0, 1] (soneHot (ssumN @[2, 2] (sfromR dret)) [0, 0]) !$ [0]) (\\[i76, i77, i78] -> [i78, i78, i78, 2 * i76 + i77])))) (\\[i79, i80] -> [i80 + i79])) [0, 0])"
   printArtifactPretty (simplifyArtifactRev artifactRev)
-    @?= "\\dret u1 -> rfromS (sreplicateN @[1, 1] (sscatter @[2, 2] (stranspose @[1, 2, 0] (sscatter @[2, 2] (stranspose @[2, 0, 1] (soneHot (sscatter @[2, 2, 2] (stranspose @[3, 2, 0, 1] (soneHot (ssumN @[2, 2] (sfromR dret)) [0, 0]) !$ [0]) (\\[i105, i106, i107] -> [i107, i107, i107, 2 * i105 + i106]) !$ [0]) [0])) (\\[i108, i109] -> [i108 + i109]))) (\\[i110, i111] -> [i111 + i110])))"
+    @?= "\\dret u1 -> rfromS (sreplicateN @[1, 1] (sscatter @[2, 2] (sscatter @[2, 2, 2] (stranspose @[3, 2, 0, 1] (soneHot (ssumN @[2, 2] (sfromR dret)) [0, 0]) !$ [0]) (\\[i76, i77, i78] -> [i78, i78, 2 * i76 + i77, i78]) !$ [0]) (\\[i79, i80] -> [i80 + i79])))"
 
 maxPool2dUnpadded2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)

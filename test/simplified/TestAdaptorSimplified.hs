@@ -929,7 +929,7 @@ testVstackBuildAstPP2 = do
   (printAstPretty
      (vstackBuild @(AstTensor AstMethodLet PlainSpan) @Double
                   (replIota2 10)))
-    @?= "rfromS (let v13 = let v11 = siota (SNat @10) + (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,0.0]) * (let v6 = sfromIntegral (sconcrete (sreplicate [10] 1) + siota (SNat @10)) in sappend (sslice (SNat @0) (SNat @9) v6) (sconcrete (sfromListLinear [1] [0.0]))) + sconcrete (sfromListLinear [10] [0.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]) * (let v9 = sfromIntegral (sconcrete (sreplicate [10] (-1)) + siota (SNat @10)) in sappend (sconcrete (sfromListLinear [1] [0.0])) (sslice (SNat @1) (SNat @9) v9))) in sappend (sslice (SNat @0) (SNat @9) v11) (sconcrete (sfromListLinear [1] [33.0])) in sappend (sconcrete (sfromListLinear [1] [2.0])) (sslice (SNat @1) (SNat @9) v13))"
+    @?= "rfromS (let v7 = let v5 = siota (SNat @10) + (sconcrete (sfromListLinear [10] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,0.0]) * sfromIntegral (sconcrete (sreplicate [10] 1) + siota (SNat @10)) + sconcrete (sfromListLinear [10] [0.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]) * sfromIntegral (sconcrete (sreplicate [10] (-1)) + siota (SNat @10))) in sappend (sslice (SNat @0) (SNat @9) v5) (sconcrete (sfromListLinear [1] [33.0])) in sappend (sconcrete (sfromListLinear [1] [2.0])) (sslice (SNat @1) (SNat @9) v7))"
   (printAstPretty
      (simplifyInlineContract
         (vstackBuild @(AstTensor AstMethodLet PlainSpan) @Double

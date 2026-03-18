@@ -563,9 +563,7 @@ astCondInitial :: KnownSpan s
                -> AstTensor AstMethodLet s y
 astCondInitial b v w = case b of
   AstLeqInt (AstConcreteK j) (AstIntVar var)
-    | FTKScalar @r <- ftkAst v
-    , Just Refl <- testEquality (typeRep @r) (typeRep @Int)
-    , Just (lb, ub) <- varNameToBounds var ->
+    | Just (lb, ub) <- varNameToBounds var ->
       let varTrue = reboundsVarName (max lb j, ub) var
           varFalse = reboundsVarName (lb, min ub (j - 1)) var
       in astCond b (substituteAst (astVar varTrue) var v)
