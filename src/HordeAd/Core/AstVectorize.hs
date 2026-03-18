@@ -475,14 +475,13 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                  (SNat @k :$$ shsTakeIx @shm1 @shn1 Proxy ix2 shmshn1)
                  (build1VOccurrenceUnknown k (var, v1))
                  (varFresh ::$ ZS, astVarFresh :.$ ix2)
-             _len = ixsLength ix1
              pickRuleD :: AstTensor AstMethodLet s2 y2 -> Bool
              pickRuleD = \case  -- try to avoid ruleD if not a normal form
                Ast.AstScatterS{} -> True
                Ast.AstGatherS{} -> True
                Ast.AstMapAccumLDer{} -> True
-               Ast.AstFromVectorK{} -> True  -- TODO: len == 1
-               Ast.AstFromVectorS{} -> True  -- TODO: len == 1
+               Ast.AstFromVectorK{} -> True
+               Ast.AstFromVectorS{} -> True
                -- These can only be simplified to the AstFromVectorS NF above.
                Ast.AstReplicateK{} -> True
                Ast.AstReplicateS{} -> True

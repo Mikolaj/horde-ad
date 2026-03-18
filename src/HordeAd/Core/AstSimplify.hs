@@ -1320,7 +1320,7 @@ astIndexK v0 ix@(i1 :.$ rest1) = case v0 of
         let u = withKnownShS shmTail $
                 tsindex (Concrete a) (Concrete i :.$ ZIS)
         in astIndexK (astConcreteS u) rest1
-      Ast.AstFromVectorK (snat :$$ ZSS) l | ZIS <- rest1 ->
+      Ast.AstFromVectorK (snat :$$ ZSS) l ->
         if 0 <= i && i <= fromSNat' snat - 1
         then l V.! i
         else fromPlain $ AstConcreteK def
@@ -2101,13 +2101,17 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
      in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
        AstConcreteK b -> if b then astIndex shn (l V.! i) rest1 else defArr
        _ -> Ast.AstIndexS shn v0 ix
-   Ast.AstFromVectorS (snat :$$ ZSS) l ->
-     shareIx rest1 $ \ !rest2 ->
-       Ast.AstIndexS @'[in1] @shn shn
-                     (astFromVectorS (snat :$$ ZSS)
-                      $ V.map (\a -> astIndex shn a rest2) l)
-                     (i1 :.$ ZIS)
-   Ast.AstFromVectorS{} ->  -- normal form
+   Ast.AstFromVectorS @shm2 @shn2 shm2 l | shsLength shm2 < ixsLength ix
+                                         , SNat <- shsRank shm2 ->
+     gcastWith (unsafeCoerceRefl :: shn2 :~: Drop (Rank shm2) shm ++ shn) $
+     gcastWith (unsafeCoerceRefl :: Take (Rank shm2) shm :~: shm2) $
+     shareIx ix $ \ !ix2 ->
+       let ixRest2 = ixsDrop @(Rank shm2) ix2
+       in Ast.AstIndexS shn
+                        (astFromVectorS @shm2 @shn shm2
+                         $ V.map (\a -> astIndex shn a ixRest2) l)
+                        (ixsTake @(Rank shm2) ix2)
+   Ast.AstFromVectorS{} ->  -- normal form (shsLength shm2 >= ixsLength ix)
      Ast.AstIndexS shn v0 ix
    Ast.AstSumS @shm2 shm2 v ->
      let perm1 = backpermCycle $ shsLength shm2 + ixsLength ix
