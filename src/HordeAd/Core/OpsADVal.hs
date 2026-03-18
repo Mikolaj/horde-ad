@@ -425,7 +425,7 @@ instance ( ADReadyNoLet target, ShareTensor target
         in tconcrete (FTKS (SNat @0 :$$ ZSS) FTKScalar) (Concrete arr)
       _ ->
         let l = [0 .. valueOf @k - 1 :: Int]
-        in tfromVector SNat STKScalar
+        in tsfromVectorLinear (SNat :$$ ZSS)
            $ V.fromListN (valueOf @k) $ map (f . fromIntegral) l
              -- hope this fuses
   trbuild1 @n @x k f =

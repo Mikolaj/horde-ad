@@ -11,6 +11,7 @@ import Data.Foldable qualified as Foldable
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Vector.Generic qualified as V
 import GHC.TypeLits (KnownNat, sameNat)
 
 import Data.Array.Nested qualified as Nested
@@ -174,8 +175,8 @@ maxPool1 :: ( BaseTensor target, ConvertTensor target, LetTensor target
          => Int -> Int -> target (TKR 1 r) -> target (TKR 1 r)
 maxPool1 ksize stride v =
   let slices = [rslice i ksize v | i <- [0, stride .. rwidth v - ksize]]
-  in withSNat ((rwidth v - ksize) `div` stride) $ \k ->
-       rfromS $ tfromList k STKScalar $ NonEmpty.fromList $ map rmaximum slices
+      k = (rwidth v - ksize) `div` stride
+  in trfromVectorLinear (k :$: ZSR) $ V.fromList $ map rmaximum slices
 
 softMax1 :: ( BaseTensor target, LetTensor target
             , NumScalar r, Differentiable r )

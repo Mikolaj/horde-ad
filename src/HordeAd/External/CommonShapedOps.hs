@@ -12,6 +12,7 @@ import Data.Foldable qualified as Foldable
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
+import Data.Vector.Generic qualified as V
 import GHC.TypeLits (Div, KnownNat, type (+), type (-), type (<=))
 
 import Data.Array.Nested qualified as Nested
@@ -147,7 +148,7 @@ maxPool1S SNat SNat v =
         gcastWith (unsafeCoerceRefl :: Compare i m :~: LT) $
         gcastWith (unsafeCoerceRefl :: Compare ksize (m - i) :~: LT) $
         smaximum $ sslice @i @(m - i - ksize) @ksize SNat SNat SNat v
-  in tfromList (SNat @m) STKScalar $ NonEmpty.fromList $ map maxOfSlice l
+  in tsfromVectorLinear (SNat @m :$$ ZSS) $ V.fromList $ map maxOfSlice l
 
 softMax1S :: forall target sh r.
              ( KnownShS sh, NumScalar r, Differentiable r
