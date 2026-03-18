@@ -18,6 +18,7 @@ import Data.Function ((&))
 import Data.Int (Int16, Int32, Int64, Int8)
 import Data.IntMap.Strict qualified as IM
 import Data.List (scanl')
+import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -192,35 +193,6 @@ instance BaseTensor Concrete where
     in map f (shxEnum' shm)
   {-# INLINE txtoListLinear #-}
   txtoListLinear = fmapConcrete . Nested.mtoListPrimLinear . unConcrete
-  tfromVector snat stk v = case NonEmpty.nonEmpty $ V.toList v of
-    Just nl -> tfromList snat stk nl
-    Nothing -> error "tfromVector: empty vector"
-  {-# INLINE tfromList #-}
-  tfromList snat@SNat stk l = case stk of
-    STKScalar ->
-      Concrete $ Nested.sfromList1Prim snat $ fmapUnConcrete $ NonEmpty.toList l
-    STKR SNat x | Dict <- eltDictRep x ->
-      Concrete $ Nested.rfromListOuterN (fromSNat' snat) $ fmapUnConcrete l
-    STKS _sh x | Dict <- eltDictRep x ->
-      Concrete $ Nested.sfromListOuter snat $ fmapUnConcrete l
-    STKX _sh x | Dict <- eltDictRep x ->
-      Concrete $ Nested.mfromListOuterSN snat $ fmapUnConcrete l
-    STKProduct stk1 stk2 ->
-      let (l1, l2) = NonEmpty.unzip $ coerce l  -- NonEmpty.map tunpair l
-          a1 = tfromList snat stk1 l1
-          a2 = tfromList snat stk2 l2
-      in -- This processes a list of trivial primitive elements first,
-         -- which does not force the list, which prevents forcing
-         -- the other (tuple of) list prematurely, which makes streaming
-         -- possible (sometimes).
-         case stk2 of
-           STKScalar @r2 | Just Refl <- testEquality (typeRep @r2)
-                                                     (typeRep @Z1) ->
-             a2 `seq` tpair a1 a2
-           _ -> tpair a1 a2
-             -- TODO: instead construct both (tuples of) tensors at once,
-             -- element by element to stream even when more than one
-             -- list of nontrivial elements is present; use mvecsWrite?
   trsum @_ @x t = case knownSTK @x of
     STKScalar @r | Dict0 <- numFromTKAllNum (Proxy @r) ->
       Concrete . Nested.rsumOuter1Prim . unConcrete $ t  -- optimized
@@ -994,6 +966,36 @@ ixxToLinearMaybe = \sh ix -> goX sh ix 0
     goX ZSX ZIX !a = Just a
     goX ((fromSMayNat' -> n) :$% sh) (Concrete i :.% ix) a =
       if 0 <= i && i < n then goX sh ix (n * a + i) else Nothing
+
+tfromList :: forall y k.
+             SNat k -> SingletonTK y -> NonEmpty (Concrete y)
+          -> Concrete (BuildTensorKind k y)
+{-# INLINE tfromList #-}
+tfromList snat@SNat stk l = case stk of
+  STKScalar ->
+    Concrete $ Nested.sfromList1Prim snat $ fmapUnConcrete $ NonEmpty.toList l
+  STKR SNat x | Dict <- eltDictRep x ->
+    Concrete $ Nested.rfromListOuterN (fromSNat' snat) $ fmapUnConcrete l
+  STKS _sh x | Dict <- eltDictRep x ->
+    Concrete $ Nested.sfromListOuter snat $ fmapUnConcrete l
+  STKX _sh x | Dict <- eltDictRep x ->
+    Concrete $ Nested.mfromListOuterSN snat $ fmapUnConcrete l
+  STKProduct stk1 stk2 ->
+    let (l1, l2) = NonEmpty.unzip $ coerce l  -- NonEmpty.map tunpair l
+        a1 = tfromList snat stk1 l1
+        a2 = tfromList snat stk2 l2
+    in -- This processes a list of trivial primitive elements first,
+       -- which does not force the list, which prevents forcing
+       -- the other (tuple of) list prematurely, which makes streaming
+       -- possible (sometimes).
+       case stk2 of
+         STKScalar @r2 | Just Refl <- testEquality (typeRep @r2)
+                                                   (typeRep @Z1) ->
+           a2 `seq` tpair a1 a2
+         _ -> tpair a1 a2
+           -- TODO: instead construct both (tuples of) tensors at once,
+           -- element by element to stream even when more than one
+           -- list of nontrivial elements is present; use mvecsWrite?
 
 tmapAccumLC
   :: forall k accy by ey.

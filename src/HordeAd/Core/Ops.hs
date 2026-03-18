@@ -485,37 +485,6 @@ class ( Num (IntOf target)
                  => target (TKX shm r) -> [target (TKScalar r)]
   txtoListLinear t = map (txindex0 t) (shxEnum' (xshape t))
 
-  -- These three operations break sharing, but only for product kinds.
-  -- TODO: define their default implementations only for ShareTensor targets
-  -- and define tfromListR only for ranked and shaped.
-  tfromVector :: forall y k. ConvertTensor target
-              => SNat k -> SingletonTK y -> Data.Vector.Vector (target y)
-              -> target (BuildTensorKind k y)
-  tfromVector snat@SNat stk l = case stk of
-    STKScalar -> tsfromVectorLinear (snat :$$ ZSS) l
-    STKR SNat x -> withKnownSTK x $ trfromVector l
-    STKS sh x -> withKnownSTK x $ withKnownShS sh $ tsfromVector l
-    STKX sh x -> withKnownSTK x $ withKnownShX sh $ txfromVector l
-    STKProduct stk1 stk2 ->
-      let -- Warning: sharing broken here:
-          (l1, l2) = V.unzip $ V.map (\a -> (tproject1 a, tproject2 a)) l
-          a1 = tfromVector snat stk1 l1
-          a2 = tfromVector snat stk2 l2
-      in -- This processes a list of trivial primitive elements first,
-         -- which does not force the list, which prevents forcing
-         -- the other (tuple of) list prematurely, which makes streaming
-         -- possible (sometimes).
-         case stk2 of
-           STKScalar @r2 | Just Refl <- testEquality (typeRep @r2)
-                                                     (typeRep @Z1) ->
-             a2 `seq` tpair a1 a2
-           _ -> tpair a1 a2
-  tfromList :: forall y k. ConvertTensor target
-            => SNat k -> SingletonTK y -> NonEmpty (target y)
-            -> target (BuildTensorKind k y)
-  tfromList k stk l =
-    tfromVector k stk $ V.fromListN (fromSNat' k) $ NonEmpty.toList l
-
   -- A number suffix in the name may indicate the rank of the codomain,
   -- if bounded. Suffix 1 may also mean the operations builds up codomain
   -- by 1 dimension.
