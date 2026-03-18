@@ -406,9 +406,9 @@ class ( Num (IntOf target)
   trfromVectorN :: forall m n x. (KnownNat n, KnownSTK x)
                 => IShR m -> Data.Vector.Vector (target (TKR2 n x))
                 -> target (TKR2 (m + n) x)
-  trfromVector0N :: forall m r. (GoodScalar r, ConvertTensor target)
-                 => IShR m -> Data.Vector.Vector (target (TKScalar r))
-                 -> target (TKR m r)
+  trfromVectorLinear :: forall m r. (GoodScalar r, ConvertTensor target)
+                     => IShR m -> Data.Vector.Vector (target (TKScalar r))
+                     -> target (TKR m r)
   trunravelToList :: (KnownNat n, KnownSTK x)
                   => target (TKR2 (1 + n) x) -> [target (TKR2 n x)]
   trunravelToList @n @x t =
@@ -433,9 +433,9 @@ class ( Num (IntOf target)
   tsfromVectorN :: forall shm shn x. (KnownShS shn, KnownSTK x)
                 => ShS shm -> Data.Vector.Vector (target (TKS2 shn x))
                 -> target (TKS2 (shm ++ shn) x)
-  tsfromVector0N :: forall shm r. (GoodScalar r, ConvertTensor target)
-                 => ShS shm -> Data.Vector.Vector (target (TKScalar r))
-                 -> target (TKS shm r)
+  tsfromVectorLinear :: forall shm r. (GoodScalar r, ConvertTensor target)
+                     => ShS shm -> Data.Vector.Vector (target (TKScalar r))
+                     -> target (TKS shm r)
   tsunravelToList :: (KnownNat n, KnownShS sh, KnownSTK x)
                   => target (TKS2 (n ': sh) x) -> [target (TKS2 sh x)]
   tsunravelToList @_ @sh @x t =
@@ -460,9 +460,9 @@ class ( Num (IntOf target)
   txfromVectorN :: forall shm shn x. (KnownShX shn, KnownSTK x)
                 => IShX shm -> Data.Vector.Vector (target (TKX2 shn x))
                 -> target (TKX2 (shm ++ shn) x)
-  txfromVector0N :: forall shm r. (GoodScalar r, ConvertTensor target)
-                 => IShX shm -> Data.Vector.Vector (target (TKScalar r))
-                 -> target (TKX shm r)
+  txfromVectorLinear :: forall shm r. (GoodScalar r, ConvertTensor target)
+                     => IShX shm -> Data.Vector.Vector (target (TKScalar r))
+                     -> target (TKX shm r)
   txunravelToList :: (KnownNat n, KnownShX sh, KnownSTK x)
                   => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
   txunravelToList @_ @sh @x t =
@@ -487,7 +487,7 @@ class ( Num (IntOf target)
               => SNat k -> SingletonTK y -> Data.Vector.Vector (target y)
               -> target (BuildTensorKind k y)
   tfromVector snat@SNat stk l = case stk of
-    STKScalar -> tsfromVector0N (snat :$$ ZSS) l
+    STKScalar -> tsfromVectorLinear (snat :$$ ZSS) l
     STKR SNat x -> withKnownSTK x $ trfromVector l
     STKS sh x -> withKnownSTK x $ withKnownShS sh $ tsfromVector l
     STKX sh x -> withKnownSTK x $ withKnownShX sh $ txfromVector l

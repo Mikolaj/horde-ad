@@ -414,7 +414,7 @@ evalRev !s !c d0 = case d0 of
         -- note that this is the correct derivative also in OOB base,
         -- because then indexing ignores the argument array
         -- and so the array is zeroed in the derivative
-  DeltaFromVector0NR @_ @r _shm ld ->
+  DeltaFromVectorLinearR @_ @r _shm ld ->
     ifDifferentiable @r
       (let cShared = tshare c
            cxs = trtoListLinear cShared
@@ -498,7 +498,7 @@ evalRev !s !c d0 = case d0 of
       withKnownShS shn $
       withKnownShS (shsTakeIx @shm @shn Proxy ix sh) $
       evalRev s (tsoneHot c ix) d
-  DeltaFromVector0NS @_ @r _shm ld ->
+  DeltaFromVectorLinearS @_ @r _shm ld ->
     ifDifferentiable @r
       (let cShared = tshare c
            cxs = tstoListLinear cShared
@@ -595,7 +595,7 @@ evalRev !s !c d0 = case d0 of
       withKnownShX (ssxTakeIx @shm @shn Proxy ix (ssxFromShX sh)) $
       gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
       evalRev s (txoneHot (shxTake @len sh) c ix) d
-  DeltaFromVector0NX @_ @r _shm ld ->
+  DeltaFromVectorLinearX @_ @r _shm ld ->
     ifDifferentiable @r
       (let cShared = tshare c
            cxs = txtoListLinear cShared
@@ -836,11 +836,11 @@ evalFwd params !s d0 = case d0 of
     FTKR _ x | SNat <- ixrRank ix ->
       withKnownSTK (adSTK $ ftkToSTK x) $
       second (`trindex` ix) $ evalFwd params s d
-  DeltaFromVector0NR shm ld -> case V.uncons ld of
+  DeltaFromVectorLinearR shm ld -> case V.uncons ld of
     Nothing -> error "evalFwd: empty vector"
     Just (d, _) | FTKScalar <- adFTK $ ftkDelta d ->
       let (s2, l) = mapAccumL' (evalFwd params) s $ V.toList ld
-      in (s2, trfromVector0N shm $ V.fromListN (V.length ld) l)
+      in (s2, trfromVectorLinear shm $ V.fromListN (V.length ld) l)
   DeltaFromVectorR shm ld -> case V.uncons ld of
     Nothing -> error "evalFwd: empty vector"
     Just (d, _) | FTKR shn x <- ftkDelta d
@@ -914,11 +914,11 @@ evalFwd params !s d0 = case d0 of
       withKnownSTK (adSTK $ ftkToSTK x) $
       withKnownShS shn $
       second (`tsindex` ix) $ evalFwd params s d
-  DeltaFromVector0NS shm ld -> case V.uncons ld of
+  DeltaFromVectorLinearS shm ld -> case V.uncons ld of
     Nothing -> error "evalFwd: empty vector"
     Just (d, _) | FTKScalar <- adFTK $ ftkDelta d ->
       let (s2, l) = mapAccumL' (evalFwd params) s $ V.toList ld
-      in (s2, tsfromVector0N shm $ V.fromListN (V.length ld) l)
+      in (s2, tsfromVectorLinear shm $ V.fromListN (V.length ld) l)
   DeltaFromVectorS shm ld -> case V.uncons ld of
     Nothing -> error "evalFwd: empty vector"
     Just (d, _) | FTKS shn x <- ftkDelta d ->
@@ -1002,11 +1002,11 @@ evalFwd params !s d0 = case d0 of
       withKnownShX shn $
       withKnownShX (ssxTakeIx @shm @shn Proxy ix (ssxFromShX sh)) $
       second (`txindex` ix) $ evalFwd params s d
-  DeltaFromVector0NX shm ld -> case V.uncons ld of
+  DeltaFromVectorLinearX shm ld -> case V.uncons ld of
     Nothing -> error "evalFwd: empty vector"
     Just (d, _) | FTKScalar <- adFTK $ ftkDelta d ->
       let (s2, l) = mapAccumL' (evalFwd params) s $ V.toList ld
-      in (s2, txfromVector0N shm $ V.fromListN (V.length ld) l)
+      in (s2, txfromVectorLinear shm $ V.fromListN (V.length ld) l)
   DeltaFromVectorX shm ld -> case V.uncons ld of
     Nothing -> error "evalFwd: empty vector"
     Just (d, _) | FTKX shn x <- ftkDelta d ->

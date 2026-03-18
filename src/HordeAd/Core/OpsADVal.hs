@@ -177,7 +177,7 @@ instance ( ADReadyNoLet target, ShareTensor target
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
   -- Bangs are for the proper order of sharing stamps.
   kcond !b !u !v =
-    let uv = tsfromVector0N (SNat @2 :$$ ZSS) (V.fromList [u, v])
+    let uv = tsfromVectorLinear (SNat @2 :$$ ZSS) (V.fromList [u, v])
     in tsindex0 uv (kcond b 0 1 :.$ ZIS)
   scond !b !u !v =
     let uv = tsfromVector @_ @2 (V.fromList [u, v])
@@ -217,21 +217,21 @@ instance ( ADReadyNoLet target, ShareTensor target
   trfromVectorN shm lu =
     dD (trfromVectorN shm $ V.map (\(D u _) -> u) lu)
        (DeltaFromVectorR shm $ V.map (\(D _ u') -> u') lu)
-  trfromVector0N shm lu =
-    dD (trfromVector0N shm $ V.map (\(D u _) -> u) lu)
-       (DeltaFromVector0NR shm $ V.map (\(D _ u') -> u') lu)
+  trfromVectorLinear shm lu =
+    dD (trfromVectorLinear shm $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVectorLinearR shm $ V.map (\(D _ u') -> u') lu)
   tsfromVectorN shm lu =
     dD (tsfromVectorN shm $ V.map (\(D u _) -> u) lu)
        (DeltaFromVectorS shm $ V.map (\(D _ u') -> u') lu)
-  tsfromVector0N shm lu =
-    dD (tsfromVector0N shm $ V.map (\(D u _) -> u) lu)
-       (DeltaFromVector0NS shm $ V.map (\(D _ u') -> u') lu)
+  tsfromVectorLinear shm lu =
+    dD (tsfromVectorLinear shm $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVectorLinearS shm $ V.map (\(D _ u') -> u') lu)
   txfromVectorN shm lu =
     dD (txfromVectorN shm $ V.map (\(D u _) -> u) lu)
        (DeltaFromVectorX shm $ V.map (\(D _ u') -> u') lu)
-  txfromVector0N shm lu =
-    dD (txfromVector0N shm $ V.map (\(D u _) -> u) lu)
-       (DeltaFromVector0NX shm $ V.map (\(D _ u') -> u') lu)
+  txfromVectorLinear shm lu =
+    dD (txfromVectorLinear shm $ V.map (\(D u _) -> u) lu)
+       (DeltaFromVectorLinearX shm $ V.map (\(D _ u') -> u') lu)
   trsumN (D u u') = dD (trsumN u) (DeltaSumR SNat u')
   trsum0 (D u u') = dD (trsum0 u) (DeltaSum0R u')
   trdot0 (D ue u') (D ve v') =

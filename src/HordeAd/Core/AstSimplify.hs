@@ -2445,7 +2445,7 @@ astFromVectorK shm l = fromMaybe (Ast.AstFromVectorK shm l) $
        unConc t = Concrete <$> unAstK t
     in case V.mapM unConc l of
          Just l4 | V.null l4 -> error "astFromVectorK: empty vector"
-         Just l4 -> Just $ fromPlain $ astConcreteS (tsfromVector0N shm l4)
+         Just l4 -> Just $ fromPlain $ astConcreteS (tsfromVectorLinear shm l4)
          Nothing -> Nothing)
   `mplus`
   (let unFromPrimal :: AstTensor AstMethodLet s2 y

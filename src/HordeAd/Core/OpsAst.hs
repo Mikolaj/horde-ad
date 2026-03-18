@@ -253,7 +253,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
         astConvUpRFromS (shm `shsAppend` shn) x
         . astFromVectorS shm . V.map (astConvDownSFromR shn x) $ l
     Nothing -> error "trfromVectorN: empty vector"
-  trfromVector0N shm0 l =
+  trfromVectorLinear shm0 l =
     withShsFromShR shm0 $ \(shm :: ShS shm) ->
       astConvUpRFromS shm FTKScalar . astFromVectorK shm $ l
   trsumN @m @n t = case ftkAst t of
@@ -451,7 +451,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   sshape t = case ftkAst t of
     FTKS sh _ -> sh
   tsfromVectorN = astFromVectorS
-  tsfromVector0N = astFromVectorK
+  tsfromVectorLinear = astFromVectorK
   tssumN @shm @shn t | SNat <- shsRank (knownShS @shm) =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     astSumS (shsTake @(Rank shm) (sshape t)) $ t
@@ -501,7 +501,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
         astConvUpXFromS (shm0 `shxAppend` shn0) x
         . astFromVectorS shm . V.map (astConvDownSFromX shn x) $ l
     Nothing -> error "trfromVectorN: empty vector"
-  txfromVector0N shm0 l =
+  txfromVectorLinear shm0 l =
     withShsFromShX shm0 $ \(shm :: ShS shm) ->
       astConvUpXFromS shm0 FTKScalar . astFromVectorK shm $ l
   txsumN @shm0 @shn0 t
@@ -890,7 +890,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         cAstConvUpRFromS (shm `shsAppend` shn) x
         . AstFromVectorS shm . V.map (cAstConvDownSFromR shn x) $ fmapUnAstRaw l
     Nothing -> error "trfromVectorN: empty vector"
-  trfromVector0N shm0 l = AstRaw $
+  trfromVectorLinear shm0 l = AstRaw $
     withShsFromShR shm0 $ \(shm :: ShS shm) ->
       cAstConvUpRFromS shm FTKScalar . AstFromVectorK shm $ fmapUnAstRaw l
   trsumN @m @n (AstRaw t) = AstRaw $ case ftkAst t of
@@ -1092,7 +1092,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   sshape t = case ftkAst $ unAstRaw t of
     FTKS sh _ -> sh
   tsfromVectorN shm = AstRaw . AstFromVectorS shm . fmapUnAstRaw
-  tsfromVector0N shm = AstRaw . AstFromVectorK shm . fmapUnAstRaw
+  tsfromVectorLinear shm = AstRaw . AstFromVectorK shm . fmapUnAstRaw
   tssumN @shm @shn t | SNat <- shsRank (knownShS @shm) =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
     AstRaw . AstSumS (shsTake @(Rank shm) (sshape t)) . unAstRaw $ t
@@ -1144,7 +1144,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         cAstConvUpXFromS (shm0 `shxAppend` shn0) x
         . AstFromVectorS shm . V.map (cAstConvDownSFromX shn x) $ fmapUnAstRaw l
     Nothing -> error "trfromVectorN: empty vector"
-  txfromVector0N shm0 l = AstRaw $
+  txfromVectorLinear shm0 l = AstRaw $
     withShsFromShX shm0 $ \(shm :: ShS shm) ->
       cAstConvUpXFromS shm0 FTKScalar . AstFromVectorK shm $ fmapUnAstRaw l
   txsumN @shm0 @shn0 (AstRaw t)
@@ -1561,8 +1561,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   rshape = rshape . unAstNoVectorize
   trfromVectorN shm =
     AstNoVectorize . trfromVectorN shm . fmapUnAstNoVectorize
-  trfromVector0N shm =
-    AstNoVectorize . trfromVector0N shm . fmapUnAstNoVectorize
+  trfromVectorLinear shm =
+    AstNoVectorize . trfromVectorLinear shm . fmapUnAstNoVectorize
   trsumN = AstNoVectorize . trsumN . unAstNoVectorize
   trsum0 = AstNoVectorize . trsum0 . unAstNoVectorize
   trreplicateN shm = AstNoVectorize . trreplicateN shm . unAstNoVectorize
@@ -1600,8 +1600,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   sshape = sshape . unAstNoVectorize
   tsfromVectorN shm =
     AstNoVectorize . tsfromVectorN shm . fmapUnAstNoVectorize
-  tsfromVector0N shm =
-    AstNoVectorize . tsfromVector0N shm . fmapUnAstNoVectorize
+  tsfromVectorLinear shm =
+    AstNoVectorize . tsfromVectorLinear shm . fmapUnAstNoVectorize
   tssumN @shm = AstNoVectorize . tssumN @_ @shm . unAstNoVectorize
   tssum0 = AstNoVectorize . tssum0 . unAstNoVectorize
   tsreplicateN shm = AstNoVectorize . tsreplicateN shm . unAstNoVectorize
@@ -1639,8 +1639,8 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
   xshape = xshape . unAstNoVectorize
   txfromVectorN shm =
     AstNoVectorize . txfromVectorN shm . fmapUnAstNoVectorize
-  txfromVector0N shm =
-    AstNoVectorize . txfromVector0N shm . fmapUnAstNoVectorize
+  txfromVectorLinear shm =
+    AstNoVectorize . txfromVectorLinear shm . fmapUnAstNoVectorize
   txsumN @shm = AstNoVectorize . txsumN @_ @shm . unAstNoVectorize
   txsum0 = AstNoVectorize . txsum0 . unAstNoVectorize
   txreplicateN shm = AstNoVectorize . txreplicateN shm . unAstNoVectorize
@@ -1885,8 +1885,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   rshape = rshape . wunAstNoSimplify
   trfromVectorN shm =
     wAstNoSimplify . trfromVectorN shm . fmapwUnAstNoSimplify
-  trfromVector0N shm =
-    wAstNoSimplify . trfromVector0N shm . fmapwUnAstNoSimplify
+  trfromVectorLinear shm =
+    wAstNoSimplify . trfromVectorLinear shm . fmapwUnAstNoSimplify
   trsumN = wAstNoSimplify . trsumN . wunAstNoSimplify
   trsum0 = wAstNoSimplify . trsum0 . wunAstNoSimplify
   trreplicateN shm = wAstNoSimplify . trreplicateN shm . wunAstNoSimplify
@@ -1919,8 +1919,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   sshape = sshape . wunAstNoSimplify
   tsfromVectorN shm =
     wAstNoSimplify . tsfromVectorN shm . fmapwUnAstNoSimplify
-  tsfromVector0N shm =
-    wAstNoSimplify . tsfromVector0N shm . fmapwUnAstNoSimplify
+  tsfromVectorLinear shm =
+    wAstNoSimplify . tsfromVectorLinear shm . fmapwUnAstNoSimplify
   tssumN @shm = wAstNoSimplify . tssumN @_ @shm . wunAstNoSimplify
   tssum0 = wAstNoSimplify . tssum0 . wunAstNoSimplify
   tsreplicateN shm = wAstNoSimplify . tsreplicateN shm . wunAstNoSimplify
@@ -1954,8 +1954,8 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
   xshape = xshape . wunAstNoSimplify
   txfromVectorN shm =
     wAstNoSimplify . txfromVectorN shm . fmapwUnAstNoSimplify
-  txfromVector0N shm =
-    wAstNoSimplify . txfromVector0N shm . fmapwUnAstNoSimplify
+  txfromVectorLinear shm =
+    wAstNoSimplify . txfromVectorLinear shm . fmapwUnAstNoSimplify
   txsumN @shm = wAstNoSimplify . txsumN @_ @shm . wunAstNoSimplify
   txsum0 = wAstNoSimplify . txsum0 . wunAstNoSimplify
   txreplicateN shm = wAstNoSimplify . txreplicateN shm . wunAstNoSimplify

@@ -215,7 +215,7 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
     in scond c (interpretAst env a1) (interpretAst env a2)
   AstFromVectorK shm l ->
     let l2 = V.map (interpretAst env) l
-    in tsfromVector0N shm l2
+    in tsfromVectorLinear shm l2
   AstFromVectorS shm l -> case V.uncons l of
     Just (v, _) | FTKS shn x <- ftkAst v ->
       withKnownShS shn $

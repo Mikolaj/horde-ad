@@ -130,8 +130,8 @@ instance BaseTensor Concrete where
     Just (v, _) -> trreshape (shm `shrAppend` rshape v)
                    $ trfromVector t
     Nothing -> error "trfromVectorN: empty vector"
-  {-# INLINE trfromVector0N #-}
-  trfromVector0N shm v =
+  {-# INLINE trfromVectorLinear #-}
+  trfromVectorLinear shm v =
     let l = V.toList $ fmapUnConcrete v
     in Concrete $ Nested.rfromListPrimLinear shm l
   {-# INLINE trunravelToList #-}
@@ -155,8 +155,8 @@ instance BaseTensor Concrete where
                  :: Product (shm ++ shn) :~: Product shm * Product shn) $
       tsreshape (shm `shsAppend` sshape v) $ tsfromVector t
     Nothing -> error "tsfromVectorN: empty vector"
-  {-# INLINE tsfromVector0N #-}
-  tsfromVector0N shm v =
+  {-# INLINE tsfromVectorLinear #-}
+  tsfromVectorLinear shm v =
     let l = V.toList $ fmapUnConcrete v
     in Concrete $ Nested.sfromListPrimLinear shm l
   {-# INLINE tsunravelToList #-}
@@ -179,8 +179,8 @@ instance BaseTensor Concrete where
       withSNat (shxSize shm) $ \(SNat @n) ->
       txreshape (shm `shxAppend` xshape v) $ txfromVector @_ @n t
     Nothing -> error "trfromVectorN: empty vector"
-  {-# INLINE txfromVector0N #-}
-  txfromVector0N shm v =
+  {-# INLINE txfromVectorLinear #-}
+  txfromVectorLinear shm v =
     let l = V.toList $ fmapUnConcrete v
     in Concrete $ Nested.mfromListPrimLinear shm l
   {-# INLINE txunravelToList #-}
