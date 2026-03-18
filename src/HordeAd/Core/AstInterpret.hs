@@ -207,12 +207,12 @@ interpretAst !env | Refl <- lemPlainOfSpan (Proxy @target) (knownSpan @s)
 
   AstCondK b a1 a2 ->
     let c = interpretAst env b
-    in tcond STKScalar c
-             (interpretAst env a1) (interpretAst env a2)
-  AstCondS b a1 a2 ->
+    in kcond c (interpretAst env a1) (interpretAst env a2)
+  AstCondS b a1 a2 | FTKS sh x <- ftkAst a1 ->
+    withKnownShS sh $
+    withKnownSTK (ftkToSTK x) $
     let c = interpretAst env b
-    in tcond (ftkToSTK (ftkAst a1)) c
-             (interpretAst env a1) (interpretAst env a2)
+    in scond c (interpretAst env a1) (interpretAst env a2)
   AstFromVectorK shm l ->
     let l2 = V.map (interpretAst env) l
     in tsfromVector0N shm l2

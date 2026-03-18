@@ -55,7 +55,7 @@ import HordeAd.Core.UnwindNum
 -- * Tensor classes instance
 
 instance LetTensor Concrete where
-  ttlet = (&)  -- doesn't have to be strict, just as tcond
+  ttlet = (&)  -- doesn't have to be strict, just as kcond and scond
   ttletPrimal = (&)
   ttletPlain = (&)
   toShare = id
@@ -108,9 +108,13 @@ instance BaseTensor Concrete where
   tproject1 = Concrete . fst . unConcrete
   {-# INLINE tproject2 #-}
   tproject2 = Concrete . snd . unConcrete
+  {-# INLINE kcond #-}
+  kcond b u v = if unConcrete b then u else v
+    -- doesn't have to be strict, just as tlet
+  {-# INLINE scond #-}
+  scond b u v = if unConcrete b then u else v
   {-# INLINE tcond #-}
   tcond _ b u v = if unConcrete b then u else v
-    -- doesn't have to be strict, just as tlet
   tkconcrete = Concrete
   trconcrete = Concrete
   tsconcrete = Concrete

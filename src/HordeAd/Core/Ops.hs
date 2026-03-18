@@ -373,7 +373,13 @@ class ( Num (IntOf target)
   -- in other modules.
   -----------------
 
-  -- | The operation is potentially strict in all arguments.
+  -- | These operations are potentially strict in all arguments.
+  kcond :: (Boolean (BoolOf target), GoodScalar r)
+        => BoolOf target -> target (TKScalar r) -> target (TKScalar r)
+        -> target (TKScalar r)
+  scond :: (Boolean (BoolOf target), KnownShS sh, KnownSTK x)
+        => BoolOf target -> target (TKS2 sh x) -> target (TKS2 sh x)
+        -> target (TKS2 sh x)
   tcond :: Boolean (BoolOf target)
         => SingletonTK y
         -> BoolOf target -> target y -> target y -> target y
@@ -1258,24 +1264,6 @@ class ( Num (IntOf target)
       let (u1, u2) = tunpair u
       in tpair (treverse snat stk1 u1)
                (treverse snat stk2 u2)
-  tindexBuild
-    :: forall z k.
-       SNat k -> SingletonTK z -> target (BuildTensorKind k z) -> IntOf target
-    -> target z
-  default tindexBuild
-    :: forall z k. (ShareTensor target, ConvertTensor target)
-    => SNat k -> SingletonTK z -> target (BuildTensorKind k z) -> IntOf target
-    -> target z
-  {-# INLINE tindexBuild #-}
-  tindexBuild snat@SNat stk u i = case stk of
-    STKScalar -> kfromS $ tsindex u (i :.$ ZIS)
-    STKR SNat x | Dict <- lemKnownSTK x -> trindex u (i :.: ZIR)
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tsindex u (i :.$ ZIS)
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txindex u (i :.% ZIX)
-    STKProduct stk1 stk2 ->
-      let (u1, u2) = tunpair u
-      in tpair (tindexBuild snat stk1 u1 i)
-               (tindexBuild snat stk2 u2 i)
 
   -- Unwinding methods, needed mostly to split off the Unwind module.
   -- | Add pointwise all corresponding tensors within nested product, if any.

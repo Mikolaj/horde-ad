@@ -702,6 +702,8 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tpair = astPair
   tproject1 = astProject1
   tproject2 = astProject2
+  kcond !b !u !v = astCondKInitial b u v
+  scond !b !u !v = astCondSInitial b u v
   tcond stk !b !u !v = case stk of
     STKScalar -> astCondKInitial b u v
     STKR{} | FTKR sh0 x <- ftkAst u ->
@@ -831,16 +833,6 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
       ttlet u $ \ !u3 ->
         tpair (treverse snat stk1 (tproject1 u3))
               (treverse snat stk2 (tproject2 u3))
-  {-# INLINE tindexBuild #-}
-  tindexBuild snat@SNat stk u i = case stk of
-    STKScalar -> kfromS $ tsindex u (i :.$ ZIS)
-    STKR SNat x | Dict <- lemKnownSTK x -> trindex u (i :.: ZIR)
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tsindex u (i :.$ ZIS)
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txindex u (i :.% ZIX)
-    STKProduct stk1 stk2 ->
-      ttlet u $ \ !u3 ->
-        tpair (tindexBuild snat stk1 (tproject1 u3) i)
-              (tindexBuild snat stk2 (tproject2 u3) i)
 
   tprimalPart = astPrimalPart
   tdualPart _ = dualPart
@@ -1359,6 +1351,8 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
+  kcond !(AstRaw b) !(AstRaw u) !(AstRaw v) = AstRaw $ AstCondK b u v
+  scond !(AstRaw b) !(AstRaw u) !(AstRaw v) = AstRaw $ AstCondS b u v
   tcond stk !b0@(AstRaw b) !u0@(AstRaw u) !v0@(AstRaw v) = case stk of
     STKScalar -> AstRaw $ AstCondK b u v
     STKR{} | FTKR sh0 x <- ftkAst u -> AstRaw $
@@ -1697,6 +1691,12 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize $ tpair (unAstNoVectorize t1) (unAstNoVectorize t2)
   tproject1 t = AstNoVectorize $ tproject1 $ unAstNoVectorize t
   tproject2 t = AstNoVectorize $ tproject2 $ unAstNoVectorize t
+  kcond !b !u !v =
+    AstNoVectorize $ kcond (unAstNoVectorize b)
+                           (unAstNoVectorize u) (unAstNoVectorize v)
+  scond !b !u !v =
+    AstNoVectorize $ scond (unAstNoVectorize b)
+                           (unAstNoVectorize u) (unAstNoVectorize v)
   tcond !stk !b !u !v =
     AstNoVectorize $ tcond stk (unAstNoVectorize b)
                                (unAstNoVectorize u) (unAstNoVectorize v)
@@ -1722,8 +1722,6 @@ instance KnownSpan s => BaseTensor (AstNoVectorize s) where
     AstNoVectorize . treplicate k stk . unAstNoVectorize
   treverse k stk =
     AstNoVectorize . treverse k stk . unAstNoVectorize
-  tindexBuild k stk u i =
-    AstNoVectorize $ tindexBuild k stk (unAstNoVectorize u) (unAstNoVectorize i)
 
   tprimalPart t = AstNoVectorize $ tprimalPart $ unAstNoVectorize t
   tdualPart stk t = tdualPart stk $ unAstNoVectorize t
@@ -2000,7 +1998,13 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
     wAstNoSimplify $ tpair (wunAstNoSimplify t1) (wunAstNoSimplify t2)
   tproject1 t = wAstNoSimplify $ tproject1 $ wunAstNoSimplify t
   tproject2 t = wAstNoSimplify $ tproject2 $ wunAstNoSimplify t
-  tcond stk b u v =
+  kcond !b !u !v =
+    wAstNoSimplify $ kcond (wunAstNoSimplify b)
+                           (wunAstNoSimplify u) (wunAstNoSimplify v)
+  scond !b !u !v =
+    wAstNoSimplify $ scond (wunAstNoSimplify b)
+                           (wunAstNoSimplify u) (wunAstNoSimplify v)
+  tcond stk !b !u !v =
     wAstNoSimplify $ tcond stk (wunAstNoSimplify b)
                            (wunAstNoSimplify u) (wunAstNoSimplify v)
   tconcrete ftk a = wAstNoSimplify $ tconcrete ftk a
@@ -2040,15 +2044,6 @@ instance KnownSpan s => BaseTensor (AstNoSimplify s) where
       ttlet u $ \ !u3 ->
         tpair (treverse snat stk1 (tproject1 u3))
               (treverse snat stk2 (tproject2 u3))
-  tindexBuild snat@SNat stk u i = case stk of
-    STKScalar -> kfromS $ tsindex u (i :.$ ZIS)
-    STKR SNat x | Dict <- lemKnownSTK x -> trindex u (i :.: ZIR)
-    STKS sh x | Dict <- lemKnownSTK x -> withKnownShS sh $ tsindex u (i :.$ ZIS)
-    STKX sh x | Dict <- lemKnownSTK x -> withKnownShX sh $ txindex u (i :.% ZIX)
-    STKProduct stk1 stk2 ->
-      ttlet u $ \ !u3 ->
-        tpair (tindexBuild snat stk1 (tproject1 u3) i)
-              (tindexBuild snat stk2 (tproject2 u3) i)
 
   tprimalPart t = wAstNoSimplify $ tprimalPart $ wunAstNoSimplify t
   tplainPart t = wAstNoSimplify $ tplainPart $ wunAstNoSimplify t

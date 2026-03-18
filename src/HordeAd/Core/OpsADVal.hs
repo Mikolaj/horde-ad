@@ -9,7 +9,6 @@ module HordeAd.Core.OpsADVal
 
 import Prelude
 
-import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (testEquality, (:~:) (Refl))
@@ -177,9 +176,30 @@ instance ( ADReadyNoLet target, ShareTensor target
   tproject1 (D u u') = dDnotShared (tproject1 u) (fst $ unDeltaPairUnshared u')
   tproject2 (D u u') = dDnotShared (tproject2 u) (snd $ unDeltaPairUnshared u')
   -- Bangs are for the proper order of sharing stamps.
-  tcond !stk !b !u !v =
-    let uv = tfromList (SNat @2) stk (u :| [v])
-    in tindexBuild (SNat @2) stk uv (tcond knownSTK b 0 1)
+  kcond !b !u !v =
+    let uv = tsfromVector0N (SNat @2 :$$ ZSS) (V.fromList [u, v])
+    in tsindex0 uv (kcond b 0 1 :.$ ZIS)
+  scond !b !u !v =
+    let uv = tsfromVector @_ @2 (V.fromList [u, v])
+    in tsindex uv (kcond b 0 1 :.$ ZIS)
+  tcond stk !b !u !v = case stk of
+    STKScalar -> kcond b u v
+    STKR _ x | FTKR sh0 _ <- tftk stk u ->
+      withShsFromShR sh0 $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        withKnownSTK x $
+        rfromS $ scond b (sfromR @_ @sh u) (sfromR v)
+    STKS sh x -> withKnownShS sh $ withKnownSTK x $ scond b u v
+    STKX ssx0 x | FTKX sh0 _ <- tftk stk u ->
+      withShsFromShX sh0 $ \(sh :: ShS sh) ->
+        withKnownShS sh $
+        withKnownShX ssx0 $
+        withKnownSTK x $
+        xfromS $ scond b (sfromX @_ @sh u) (sfromX v)
+    STKProduct stk1 stk2 ->
+      let (u1, u2) = tunpair u
+          (v1, v2) = tunpair v
+      in tpair (tcond stk1 b u1 v1) (tcond stk2 b u2 v2)
   tkconcrete a =
     let v = tkconcrete a
     in fromPrimalFTK FTKScalar v
