@@ -1364,6 +1364,11 @@ astIndexK v0 ix@(i1 :.$ rest1) = case v0 of
     _ -> Ast.AstIndexK v0 ix
 
 -- Just as with AstPlusK, summands are flattened and a constant comes first.
+-- We don't sum fromVectors, because it's costly and even if everything
+-- nicely simplifies, we end up with an equaly big vector of the results.
+-- OTOH, AstSum* and AstDot* eliminate at least one dimension, so they
+-- are worth it, at least for small enough arguments and if the result
+-- simplifies decently.
 astPlusS :: (NumScalar r, KnownSpan s)
          => AstTensor AstMethodLet s (TKS sh r)
          -> AstTensor AstMethodLet s (TKS sh r)
@@ -2559,9 +2564,9 @@ astSumK t0 | FTKS shm FTKScalar <- ftkAst t0 = case t0 of
   AstConcreteS v ->
     withKnownShS (Nested.sshape v) $
     astConcreteK $ tssum0 (Concrete v)
-  Ast.AstFromVectorK _ l ->
+  Ast.AstFromVectorK _ l | V.length l < 100 ->
     foldr1 astPlusK l
-  Ast.AstFromVectorS _ l ->
+  Ast.AstFromVectorS _ l | V.length l < 100 ->
     astSumK $ foldr1 astPlusS l
   Ast.AstSumS _ u -> astSumK u
   Ast.AstScatterS shm1@(k2 :$$ _) shn1 shp1 v (vars, i1 :.$ rest)
@@ -2637,7 +2642,8 @@ astSumS shm@(snat :$$ _) t0 | FTKS shmshn x <- ftkAst t0
     withKnownShS shn $
     astConcreteS $ tssumN @_ @shm $ Concrete t
   Ast.AstFromVectorS (_ :$$ ZSS) l
-    | FTKScalar @r <- x
+    | V.length l < 100
+    , FTKScalar @r <- x
     , Dict0 <- numFromTKAllNum (Proxy @r) ->
       astSumS (shsTail shm) $ foldr1 astPlusS l
   Ast.AstSumS @shm2 shm2 u
@@ -4372,6 +4378,8 @@ astReshapeS sh2 t = case t of
   -- Reshaping can be costly, so we don't touch AstTimesS, etc.
   Ast.AstN1S opCode u -> astN1S opCode (astReshapeS @_ @sh2 sh2 u)
   Ast.AstR1S opCode u -> astR1S opCode (astReshapeS @_ @sh2 sh2 u)
+  -- TODO: enable once we rewrite fromVectors with non-singleton shm:
+  -- Ast.AstFromVectorK _shm l -> astFromVectorK sh2 l
   Ast.AstReshapeS _ v -> astReshapeS @_ @sh2 sh2 v
   _ | FTKS sh _ <- ftkAst t -> case testEquality sh sh2 of
     Just Refl -> t
@@ -4738,6 +4746,8 @@ astDot0 t1 t2 = case (t1, t2) of
          , Just v0 <- unAstS v ->
     withKnownShS (Nested.sshape u0) $
     fromPlain $ astConcreteK $ tsdot0 (Concrete u0) (Concrete v0)
+  (Ast.AstFromVectorK _ l1, Ast.AstFromVectorK _ l2) | V.length l1 < 100 ->
+    V.foldr (\(a1, a2) acc -> acc + a1 `astTimesK` a2) 0 $ V.zip l1 l2
   -- TODO: instead take the longest common prefix (sufix?) of shm1 and shm2:
   (Ast.AstSumS shm1 u1, Ast.AstSumS shm2 u2)
     | Just Refl <- testEquality shm1 shm2 ->
