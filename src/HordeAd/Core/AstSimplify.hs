@@ -4070,10 +4070,10 @@ astSliceS :: forall i n k sh s r. KnownSpan s
           -> AstTensor AstMethodLet s (TKS2 (i + n + k ': sh) r)
           -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
 astSliceS SZ SNat SZ v = v
-astSliceS SNat SNat SNat (Ast.AstFromVectorS (_ :$$ ZSS) l) =
-  astFromVectorS (SNat @n :$$ ZSS) $ V.take (valueOf @n) $ V.drop (valueOf @i) l
 astSliceS SNat SNat SNat (Ast.AstFromVectorK (_ :$$ ZSS) l) =
   astFromVectorK (SNat @n :$$ ZSS) $ V.take (valueOf @n) $ V.drop (valueOf @i) l
+astSliceS SNat SNat SNat (Ast.AstFromVectorS (_ :$$ ZSS) l) =
+  astFromVectorS (SNat @n :$$ ZSS) $ V.take (valueOf @n) $ V.drop (valueOf @i) l
 astSliceS SNat (SNat' @1) SNat v | FTKS (_ :$$ sh) _ <- ftkAst v =
   astReplicateS (SNat @1 :$$ ZSS) (astIndexS sh v (valueOf @i :.$ ZIS))
 astSliceS SNat SNat SNat (Ast.AstReplicateK (_ :$$ shmRest) v) =
@@ -4284,6 +4284,10 @@ astTransposeS perm t =
                        v (vars, ix2)
   -- This increases term size and work, so limited to size 2.
   -- TODO: generalize
+  Ast.AstReplicateS shm@(_ :$$ ZSS)
+                    (Ast.AstFromVectorK shm2@(SNat' @2 :$$ ZSS) l)
+    | SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
+      astFromVectorS shm2 (V.map (astReplicateK shm) l)
   Ast.AstReplicateS shm@(_ :$$ ZSS)
                     (Ast.AstFromVectorS shm2@(SNat' @2 :$$ ZSS) l)
     | SNat' @1 `PCons` SNat' @0 `PCons` PNil <- perm ->
