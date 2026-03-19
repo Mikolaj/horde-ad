@@ -406,81 +406,63 @@ class ( Num (IntOf target)
   trfromVectorN :: forall m n x. (KnownNat n, KnownSTK x)
                 => IShR m -> Data.Vector.Vector (target (TKR2 n x))
                 -> target (TKR2 (m + n) x)
-  trfromVectorLinear :: forall m r. (GoodScalar r, ConvertTensor target)
+  trfromVectorLinear :: forall m r. GoodScalar r
                      => IShR m -> Data.Vector.Vector (target (TKScalar r))
                      -> target (TKR m r)
   trunravelToList :: (KnownNat n, KnownSTK x)
                   => target (TKR2 (1 + n) x) -> [target (TKR2 n x)]
-  trunravelToList @n @x t =
-    let f :: Int -> target (TKR2 n x)
-        f i = trindex t (fromIntegral i :.: ZIR)
-    in map f [0 .. rwidth t - 1]
+  trunravelToList t = trunravelToListN (rwidth t :$: ZSR) t
   trunravelToListN :: forall m n x. (KnownNat n, KnownSTK x)
                    => IShR m -> target (TKR2 (m + n) x)
                    -> [target (TKR2 n x)]
-  trunravelToListN shm t =
-    let f :: IxROf target m -> target (TKR2 n x)
-        f ix = trindex t ix
-    in map f (shrEnum' shm)
+  trunravelToListN shm t = map (trindex t) (shrEnum' shm)
   trtoListLinear :: forall m r. GoodScalar r
                  => target (TKR m r) -> [target (TKScalar r)]
   trtoListLinear t = map (trindex0 t) (shrEnum' (rshape t))
 
-  tsfromVector :: (KnownNat n, KnownShS sh, KnownSTK x)
-               => Data.Vector.Vector (target (TKS2 sh x))
-               -> target (TKS2 (n ': sh) x)
+  tsfromVector :: (KnownNat k, KnownShS shn, KnownSTK x)
+               => Data.Vector.Vector (target (TKS2 shn x))
+               -> target (TKS2 (k ': shn) x)
   tsfromVector = tsfromVectorN (SNat :$$ ZSS)
   tsfromVectorN :: forall shm shn x. (KnownShS shn, KnownSTK x)
                 => ShS shm -> Data.Vector.Vector (target (TKS2 shn x))
                 -> target (TKS2 (shm ++ shn) x)
-  tsfromVectorLinear :: forall shm r. (GoodScalar r, ConvertTensor target)
+  tsfromVectorLinear :: forall shm r. GoodScalar r
                      => ShS shm -> Data.Vector.Vector (target (TKScalar r))
                      -> target (TKS shm r)
-  tsunravelToList :: (KnownNat n, KnownShS sh, KnownSTK x)
-                  => target (TKS2 (n ': sh) x) -> [target (TKS2 sh x)]
-  tsunravelToList @_ @sh @x t =
-    let f :: Int -> target (TKS2 sh x)
-        f i = tsindex t (fromIntegral i :.$ ZIS)
-    in map f [0 .. swidth t - 1]
+  tsunravelToList :: (KnownNat k, KnownShS shn, KnownSTK x)
+                  => target (TKS2 (k ': shn) x) -> [target (TKS2 shn x)]
+  tsunravelToList = tsunravelToListN (SNat :$$ ZSS)
   tsunravelToListN :: forall shm shn x. (KnownShS shn, KnownSTK x)
                    => ShS shm -> target (TKS2 (shm ++ shn) x)
                    -> [target (TKS2 shn x)]
-  tsunravelToListN shm t =
-    let f :: IxSOf target shm -> target (TKS2 shn x)
-        f ix = tsindex t ix
-    in map f (shsEnum' shm)
+  tsunravelToListN shm t = map (tsindex t) (shsEnum' shm)
   tstoListLinear :: forall shm r. GoodScalar r
                  => target (TKS shm r) -> [target (TKScalar r)]
   tstoListLinear t = map (tsindex0 t) (shsEnum' (sshape t))
-  tsfromListR :: forall k sh x. (1 <= k, KnownShS sh, KnownSTK x)
-              => ListR k (target (TKS2 sh x))
-              -> target (TKS2 (k ': sh) x)
+  tsfromListR :: forall k shn x. (1 <= k, KnownShS shn, KnownSTK x)
+              => ListR k (target (TKS2 shn x))
+              -> target (TKS2 (k ': shn) x)
   tsfromListR l | SNat <- listrRank l =
     tsfromVector $ V.fromList $ Foldable.toList l
 
-  txfromVector :: (KnownNat n, KnownShX sh, KnownSTK x)
-               => Data.Vector.Vector (target (TKX2 sh x))
-               -> target (TKX2 (Just n ': sh) x)
+  txfromVector :: (KnownNat k, KnownShX shn, KnownSTK x)
+               => Data.Vector.Vector (target (TKX2 shn x))
+               -> target (TKX2 (Just k ': shn) x)
   txfromVector = txfromVectorN (SKnown SNat :$% ZSX)
   txfromVectorN :: forall shm shn x. (KnownShX shn, KnownSTK x)
                 => IShX shm -> Data.Vector.Vector (target (TKX2 shn x))
                 -> target (TKX2 (shm ++ shn) x)
-  txfromVectorLinear :: forall shm r. (GoodScalar r, ConvertTensor target)
+  txfromVectorLinear :: forall shm r. GoodScalar r
                      => IShX shm -> Data.Vector.Vector (target (TKScalar r))
                      -> target (TKX shm r)
-  txunravelToList :: (KnownNat n, KnownShX sh, KnownSTK x)
-                  => target (TKX2 (Just n ': sh) x) -> [target (TKX2 sh x)]
-  txunravelToList @_ @sh @x t =
-    let f :: Int -> target (TKX2 sh x)
-        f i = txindex t (fromIntegral i :.% ZIX)
-    in map f [0 .. xwidth t - 1]
+  txunravelToList :: (KnownNat k, KnownShX shn, KnownSTK x)
+                  => target (TKX2 (Just k ': shn) x) -> [target (TKX2 shn x)]
+  txunravelToList t = txunravelToListN (SKnown SNat :$% ZSX) t
   txunravelToListN :: forall shm shn x. (KnownShX shn, KnownSTK x)
                    => IShX shm -> target (TKX2 (shm ++ shn) x)
                    -> [target (TKX2 shn x)]
-  txunravelToListN shm t =
-    let f :: IxXOf target shm -> target (TKX2 shn x)
-        f ix = txindex t ix
-    in map f (shxEnum' shm)
+  txunravelToListN shm t = map (txindex t) (shxEnum' shm)
   txtoListLinear :: forall shm r. GoodScalar r
                  => target (TKX shm r) -> [target (TKScalar r)]
   txtoListLinear t = map (txindex0 t) (shxEnum' (xshape t))
@@ -579,7 +561,7 @@ class ( Num (IntOf target)
   --     => target (TKX2 (mn ': sh) x) -> target (TKX2 sh x)
   txsum :: forall n sh x. (KnownNat n, KnownShX sh, TKAllNum x, KnownSTK x)
         => target (TKX2 (Just n ': sh) x) -> target (TKX2 sh x)
-  txsum t = txsumN @_ @(Just n : '[]) t
+  txsum = txsumN @_ @(Just n : '[])
   txsumN :: forall shm shn x.
             (KnownShX shm, KnownShX shn, TKAllNum x, KnownSTK x)
          => target (TKX2 (shm ++ shn) x) -> target (TKX2 shn x)

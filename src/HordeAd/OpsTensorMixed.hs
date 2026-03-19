@@ -19,7 +19,8 @@ module HordeAd.OpsTensorMixed
   , tsize, tftk
     -- * Constructing arrays from concrete values, lists and vectors
   , kconcrete, xconcrete, xscalar, xrepl, xingestData, xfromListLinear
-  , xfromList, xfromVector, xunravelToList, xtoListLinear
+  , xfromList, xfromVector, xfromVectorN, xfromVectorLinear
+  , xunravelToList, xunravelToListN, xtoListLinear
     -- * Main array operations
   , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
   , tpair, tproject1, tproject2

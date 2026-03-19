@@ -138,10 +138,6 @@ instance BaseTensor Concrete where
   {-# INLINE trunravelToList #-}
   trunravelToList @_ @x | Dict <- eltDictRep (knownSTK @x) =
     fmapConcrete . Nested.rtoListOuter . unConcrete
-  trunravelToListN @m @n @x shm t =
-    let f :: IxROf Concrete m -> Concrete (TKR2 n x)
-        f ix = trindex t ix
-    in map f (shrEnum' shm)
   {-# INLINE trtoListLinear #-}
   trtoListLinear = fmapConcrete . Nested.rtoListPrimLinear . unConcrete
   {-# INLINE tsfromVector #-}
@@ -163,10 +159,6 @@ instance BaseTensor Concrete where
   {-# INLINE tsunravelToList #-}
   tsunravelToList @_ @_ @x | Dict <- eltDictRep (knownSTK @x) =
     fmapConcrete . Nested.stoListOuter . unConcrete
-  tsunravelToListN @shm @shn @x shm t =
-    let f :: IxSOf Concrete shm -> Concrete (TKS2 shn x)
-        f ix = tsindex t ix
-    in map f (shsEnum' shm)
   {-# INLINE tstoListLinear #-}
   tstoListLinear = fmapConcrete . Nested.stoListPrimLinear . unConcrete
   {-# INLINE txfromVector #-}
@@ -187,10 +179,6 @@ instance BaseTensor Concrete where
   {-# INLINE txunravelToList #-}
   txunravelToList @_ @_ @x | Dict <- eltDictRep (knownSTK @x) =
     fmapConcrete . Nested.mtoListOuter . unConcrete
-  txunravelToListN @shm @shn @x shm t =
-    let f :: IxXOf Concrete shm -> Concrete (TKX2 shn x)
-        f ix = txindex t ix
-    in map f (shxEnum' shm)
   {-# INLINE txtoListLinear #-}
   txtoListLinear = fmapConcrete . Nested.mtoListPrimLinear . unConcrete
   trsum @_ @x t = case knownSTK @x of

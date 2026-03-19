@@ -210,7 +210,7 @@ instance TermValue (Concrete (TKScalar Float)) where
 
 -- * Compound instances
 
-instance (BaseTensor target, ConvertTensor target, GoodScalar r)
+instance (BaseTensor target, GoodScalar r)
          => AdaptableTarget target [target (TKScalar r)] where
   type X [target (TKScalar r)] = TKR 1 r
   toTarget l = if null l
@@ -219,7 +219,7 @@ instance (BaseTensor target, ConvertTensor target, GoodScalar r)
                     in trfromVectorLinear (V.length v :$: ZSR) v
   fromTarget = trtoListLinear  -- inefficient, but we probably can't do better
 
-instance (BaseTensor target, ConvertTensor target, GoodScalar r)
+instance (BaseTensor target, GoodScalar r)
          => AdaptableTarget target
                             (Data.Vector.Vector (target (TKScalar r))) where
   type X (Data.Vector.Vector (target (TKScalar r))) = TKR 1 r

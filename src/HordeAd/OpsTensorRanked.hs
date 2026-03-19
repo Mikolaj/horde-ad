@@ -19,7 +19,8 @@ module HordeAd.OpsTensorRanked
   , tsize, tftk
     -- * Constructing arrays from concrete values, lists and vectors
   , kconcrete, rconcrete, rscalar, rrepl, ringestData, rfromListLinear
-  , rfromList, rfromVector, runravelToList, rtoListLinear
+  , rfromList, rfromVector, rfromVectorN, rfromVectorLinear
+  , runravelToList, runravelToListN, rtoListLinear
     -- * Main array operations
   , tunit, tlet, tletPrimal, tletPlain, ifH, minH, maxH
   , tpair, tproject1, tproject2

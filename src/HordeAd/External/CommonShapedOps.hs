@@ -24,7 +24,7 @@ import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (pattern SZ, unsafeCoerceRefl)
 
 import HordeAd.Core.ConvertTensor
-import HordeAd.Core.Ops
+import HordeAd.Core.Ops (tD)
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.OpsTensor
@@ -148,7 +148,7 @@ maxPool1S SNat SNat v =
         gcastWith (unsafeCoerceRefl :: Compare i m :~: LT) $
         gcastWith (unsafeCoerceRefl :: Compare ksize (m - i) :~: LT) $
         smaximum $ sslice @i @(m - i - ksize) @ksize SNat SNat SNat v
-  in tsfromVectorLinear (SNat @m :$$ ZSS) $ V.fromList $ map maxOfSlice l
+  in sfromVectorLinear (SNat @m :$$ ZSS) $ V.fromList $ map maxOfSlice l
 
 softMax1S :: forall target sh r.
              ( KnownShS sh, NumScalar r, Differentiable r

@@ -21,7 +21,7 @@ import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types (unsafeCoerceRefl)
 
 import HordeAd.Core.ConvertTensor
-import HordeAd.Core.Ops
+import HordeAd.Core.Ops (tD)
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
 import HordeAd.OpsTensor
@@ -176,7 +176,7 @@ maxPool1 :: ( BaseTensor target, ConvertTensor target, LetTensor target
 maxPool1 ksize stride v =
   let slices = [rslice i ksize v | i <- [0, stride .. rwidth v - ksize]]
       k = (rwidth v - ksize) `div` stride
-  in trfromVectorLinear (k :$: ZSR) $ V.fromList $ map rmaximum slices
+  in rfromVectorLinear (k :$: ZSR) $ V.fromList $ map rmaximum slices
 
 softMax1 :: ( BaseTensor target, LetTensor target
             , NumScalar r, Differentiable r )
