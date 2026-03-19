@@ -3296,7 +3296,9 @@ astGatherKnobsS knobs (m@(SNat @m) :$$ (shmRest :: ShS shmRest)) shn shp v0
   | varm == varm'
   , not (varm `varNameInIxS` prest)
   , i0 > 0  -- ensured by other rules; makes this easier to reason about
-  , let k0 = (fromSNat' m + i0 - 1) `quot` i0 =
+  , let k0 = (fromSNat' m + i0 - 1) `quot` i0
+  , SNat <- shsRank shmRest
+  , SNat <- shsRank shn =
     withSNat i0 $ \i@(SNat @i) ->
     withSNat k0 $ \k@(SNat @k) ->
     withSNat (k0 * i0 - fromSNat' m) $ \z@(SNat @z) ->
@@ -3304,7 +3306,8 @@ astGatherKnobsS knobs (m@(SNat @m) :$$ (shmRest :: ShS shmRest)) shn shp v0
           varm2 = reboundsVarName (0, k0 - 1) varm
       in gcastWith (unsafeCoerceRefl :: m + z :~: k * i) $
          gcastWith (unsafeCoerceRefl
-                    :: (2 <=? Rank ([i, k] ++ shmRest ++ shn)) :~: True) $
+                    :: Rank ([i, k] ++ shmRest ++ shn)
+                       :~: 2 + Rank shmRest + Rank shn) $
          astSliceS SZ m z
          $ astReshapeS (snatMul k i :$$ shmRest `shsAppend` shn)
          $ astTransposeS perm
