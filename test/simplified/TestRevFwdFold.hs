@@ -228,6 +228,10 @@ testTrees =
   , testCase "4S0revhV7" testSin0revhV7
   ]
 
+sfromIndex0 :: forall r target. (ADReady target, NumScalar r)
+            => IntOf target -> target (TKS '[] r)
+sfromIndex0 = sfromR . rfromIntegral . tfromPlain knownSTK . rfromK
+
 foo :: RealFloatH a => (a, a, a) -> a
 foo (x, y, z) =
   let w = x * sin y
@@ -1875,7 +1879,7 @@ testSin0rmapAccumRD01SN531bRPPj = do
                                  -> g (TKProduct (TKR 0 Double) TKUnit)
                                h xh _a = tpair xh tunit
                            in h)
-                          (rfromIndex0 (i + j) + x0)
+                          (tfromPlain knownSTK (rfromIntegral (rfromK (i + j))) + x0)
                           (rconcrete $ Nested.rfromListPrimLinear [0] [])))))
                         $ \ !d -> tproject1 d
   printAstPretty

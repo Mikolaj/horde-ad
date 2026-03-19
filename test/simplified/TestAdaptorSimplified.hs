@@ -223,6 +223,11 @@ testTrees =
   , testCase "22concatBuild3PP2" testConcatBuild3PP2
   ]
 
+rfromIndex0 :: forall r target.
+               (BaseTensor target, ConvertTensor target, NumScalar r)
+            => IntOf target -> target (TKR 0 r)
+rfromIndex0 = rfromIntegral . rfromK . tfromPlain STKScalar
+
 testZeroZ :: Assertion
 testZeroZ =
   assertEqualUpToEpsilon' 1e-10
@@ -2248,7 +2253,7 @@ emptyArgs t =
        * sbuild1 @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t) !$ (i :.$ ZIS))
        + sbuild1 @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t)
                               !$ (fromIntegral (rlength t) `quotH` i :.$ ZIS)
-                              / sfromIndex0 i)
+                              / tfromPlain knownSTK (sfromIntegral (sfromK i)))
        + sbuild @'[0] (const $ sscalar 73)
        - ssum (sbuild @'[] (const (sreplicate @1 (sfromR emptyTensor)))))
   + rfromX

@@ -84,6 +84,11 @@ testTrees =
   , testCase "3logisticC0" testLogisticC0
   ]
 
+rfromIndex0 :: forall r target.
+               (BaseTensor target, ConvertTensor target, NumScalar r)
+            => IntOf target -> target (TKR 0 r)
+rfromIndex0 = rfromIntegral . rfromK . tfromPlain STKScalar
+
 foo :: RealFloatH a => (a,a,a) -> a
 foo (x,y,z) =
   let w = x * sin y

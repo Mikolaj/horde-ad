@@ -8,22 +8,18 @@ module HordeAd.External.CommonShapedOps
 
 import Prelude
 
-import Data.Foldable qualified as Foldable
-import Data.List.NonEmpty qualified as NonEmpty
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Type.Ord (Compare)
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (Div, KnownNat, type (+), type (-), type (<=))
 
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (ixrFromIxS, ixsFromIxR)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
-import Data.Array.Nested.Types (pattern SZ, unsafeCoerceRefl)
+import Data.Array.Nested.Types (unsafeCoerceRefl)
 
-import HordeAd.Core.ConvertTensor
 import HordeAd.Core.Ops (tD)
 import HordeAd.Core.TensorKind
 import HordeAd.Core.Types
@@ -38,29 +34,6 @@ smaximum :: forall r sh target. (ADReady target, NumScalar r, KnownShS sh)
          => target (TKS sh r) -> target (TKScalar r)
 smaximum t = tlet (sflatten t) $ \tf ->
                sindex0 tf (tplainPart (kargMax tf) :.$ ZIS)
-
-sfromIndex0 :: forall r target. (ADReady target, NumScalar r)
-            => IntOf target -> target (TKS '[] r)
-sfromIndex0 = sfromR . rfromIntegral . tfromPlain knownSTK . rfromK
-
-sfromIndex1 :: forall r sh target.
-               (ADReady target, NumScalar r, KnownShS sh)
-            => IxSOf target sh -> target (TKS '[Rank sh] r)
-sfromIndex1 =
-  case shsRank (knownShS @sh) of
-    SZ -> const $ sconcrete $ Nested.semptyArray knownShS
-    SNat -> sfromR . rfromIntegral . tfromPlain knownSTK . rfromList
-            . NonEmpty.fromList . map rfromK . Foldable.toList
-
-{-
-sletIx :: forall r sh n target.
-          (ADReady target, NumScalar r, KnownShS sh, KnownNat n)
-       => IxROf target n -> (IxROf target n -> target (TKS sh r))
-       -> target (TKS sh r)
-sletIx ix0 f = tlet (sfromR @target @Int @'[n]
-                     $ rint64FromIndex1 ix0) $ \ixT ->
-                 f $ rint64ToIndex1 $ rfromS @target ixT
--}
 
 reluS, reluLeakyS
   :: forall target sh r.

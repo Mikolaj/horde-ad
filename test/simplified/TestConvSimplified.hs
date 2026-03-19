@@ -1190,7 +1190,7 @@ codeTomsSlice a =
       a1 = rbuild @2 @0 [n,m-1] (\[i',j'] -> rindex a [i',j'])
       a2 = rbuild [n,m-1] (\[i',j'] -> rindex @_ @0 a [i',j' + 1])
   in rfromK $ rsum0 @2 $ rbuild [n,m] $ \[i, _j] ->
-       rfromIndex0 i * rfromK (rsum0 (a1 * a2))
+       tfromPlain knownSTK (rfromIntegral (rfromK i)) * rfromK (rsum0 (a1 * a2))
 
 testTomsSliceRev :: Assertion
 testTomsSliceRev = do

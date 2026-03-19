@@ -132,6 +132,11 @@ testTrees =
   , testCase "detSquare9" testDetSquare9
   ]
 
+rfromIndex0 :: forall r target.
+               (BaseTensor target, ConvertTensor target, NumScalar r)
+            => IntOf target -> target (TKR 0 r)
+rfromIndex0 = rfromIntegral . rfromK . tfromPlain STKScalar
+
 -- * Gathers
 
 gatherNested1 :: forall target r. (ADReady target, GoodScalar r)

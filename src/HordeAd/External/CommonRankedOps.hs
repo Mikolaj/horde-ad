@@ -7,14 +7,10 @@ module HordeAd.External.CommonRankedOps
 import Prelude
 
 import Control.Exception.Assert.Sugar
-import Data.Foldable qualified as Foldable
-import Data.List.NonEmpty qualified as NonEmpty
-import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality (gcastWith, (:~:) (Refl))
+import Data.Type.Equality (gcastWith, (:~:))
 import Data.Vector.Generic qualified as V
-import GHC.TypeLits (KnownNat, sameNat)
+import GHC.TypeLits (KnownNat)
 
-import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert (withShsFromShR)
 import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped.Shape
@@ -43,44 +39,6 @@ rmaximum :: forall target n r.
          => target (TKR n r) -> target (TKScalar r)
 rmaximum t = tlet (rflatten t) $ \tf ->
                rindex0 tf (tplainPart (kfromR (rargMax tf)) :.: ZIR)
-
-rfromIndex0 :: forall r target.
-               (BaseTensor target, ConvertTensor target, NumScalar r)
-            => IntOf target -> target (TKR 0 r)
-rfromIndex0 = rfromIntegral . rfromK . tfromPlain STKScalar
-
-rfromIndex1 :: forall n r target.
-               ( KnownNat n , BaseTensor target
-               , BaseTensor (PlainOf target), ConvertTensor (PlainOf target)
-               , NumScalar r )
-            => IxROf target n -> target (TKR 1 r)
-rfromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
-  Just Refl -> const $ rconcrete $ Nested.remptyArray
-  _ -> rfromIntegral . tfromPlain knownSTK . rfromList . NonEmpty.fromList
-       . map rfromK . Foldable.toList
-
-{-
-rint64FromIndex1 :: forall n target.
-                    ( KnownNat n
-                    , BaseTensor target, BaseTensor (PrimalOf target) )
-                 => IxROf target n -> target (TKR Int 1)
-rint64FromIndex1 = case sameNat (Proxy @n) (Proxy @0) of
-  Just Refl -> const $ rconcrete $ Nested.rfromListPrimLinear (0 :$: ZSR) []
-  _ -> rfromPrimal . rfromList . NonEmpty.fromList . indexToList
-
-rint64ToIndex1 :: forall n target.
-                  ( KnownNat n
-                  , BaseTensor target, BaseTensor (PrimalOf target) )
-               => target (TKR Int 1) -> IxROf target n
-rint64ToIndex1 v = listToIndex $ runravelToList $ rprimalPart v
-
-tletIx :: ( KnownNat n, KnownNat m, NumScalar r
-          , BaseTensor target, BaseTensor (PrimalOf target)
-          , LetTensor target )
-       => IxROf target n -> (IxROf target n -> target (TKR m r))
-       -> target (TKR m r)
-tletIx ix0 f = tlet (rint64FromIndex1 ix0) $ \ixT -> f $ rint64ToIndex1 ixT
--}
 
 relu, reluLeaky
   :: forall target n r.
