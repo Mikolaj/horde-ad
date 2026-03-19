@@ -215,7 +215,8 @@ instance (BaseTensor target, ConvertTensor target, GoodScalar r)
   type X [target (TKScalar r)] = TKR 1 r
   toTarget l = if null l
                then trconcrete Nested.remptyArray
-               else trfromVector $ V.fromList $ map rfromK l
+               else let v = V.fromList l
+                    in trfromVectorLinear (V.length v :$: ZSR) v
   fromTarget = trtoListLinear  -- inefficient, but we probably can't do better
 
 instance (BaseTensor target, ConvertTensor target, GoodScalar r)
@@ -224,7 +225,7 @@ instance (BaseTensor target, ConvertTensor target, GoodScalar r)
   type X (Data.Vector.Vector (target (TKScalar r))) = TKR 1 r
   toTarget v = if V.null v
                then trconcrete Nested.remptyArray
-               else trfromVector $ V.map rfromK v
+               else trfromVectorLinear (V.length v :$: ZSR) v
   fromTarget t = V.fromListN (rwidth t) . trtoListLinear $ t
     -- inefficient, but we probably can't do better
 
