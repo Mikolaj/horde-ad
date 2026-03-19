@@ -3415,6 +3415,28 @@ astGatherKnobsS knobs
          in astTransposeS permVars u
             `astAppendS`
             fromPlain (astConcrete ftk (tdefTarget ftk))
+astGatherKnobsS knobs (m1' :$$ shm4) ZSS _shp
+                v7@(Ast.AstFromVectorK (_ :$$ ZSS) l)
+                ( var4 ::$ _vrest4
+                , i4 :.$ rest4 )
+  | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
+  , let g = case i4 of
+          AstIntVar var | var == var4 -> Just id
+          AstTimesK (AstConcreteK n) (AstIntVar var)
+            | var == var4 -> Just (n *)
+          -- TODO: add more or define evaluation
+          _ -> Nothing
+  , Just h <- g
+  , Refl <- lemAppNil @shm = assert (ixsLength rest4 == 0) $
+    let f i =
+          let j = h i
+          in if j >= V.length l
+             then let FTKS _ x = ftkAst v7
+                      ftk = FTKS shm4 x
+                  in fromPlain $ astConcrete ftk (tdefTarget ftk)
+             else astReplicateK shm4 (l V.! j)
+    in astFromVectorS (m1' :$$ ZSS)
+       $ V.fromListN (fromSNat' m1') $ map f [0 .. fromSNat' m1' - 1]
 astGatherKnobsS knobs shm@(m1' :$$ (shm4 :: ShS shm4)) shn shp
                 v7@(Ast.AstFromVectorS (_ :$$ ZSS) l)
                 ( var4 ::$ vrest4
@@ -3571,7 +3593,14 @@ astGatherKnobsS knobs shm@(m :$$ _) shn shp v0
             , not (var `varNameInIxS` prest) -> Just var
           i4  -- has to be last, because ix can't be reordered
             | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
-            , Ast.AstFromVectorS (_ :$$ _) _ <- v0
+            , Ast.AstFromVectorK (_ :$$ ZSS) _ <- v0
+            , mvar <- case i4 of
+                AstIntVar var -> Just var
+                AstTimesK AstConcreteK{} (AstIntVar var) -> Just var
+                _ -> Nothing
+            , Just{} <- mvar -> mvar
+            | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
+            , Ast.AstFromVectorS (_ :$$ ZSS) _ <- v0
             , ixIsSmall prest
             , mvar <- case i4 of
                 AstIntVar var -> Just var
