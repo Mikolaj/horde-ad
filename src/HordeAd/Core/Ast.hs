@@ -528,12 +528,12 @@ data AstTensor :: AstMethodOfSharing -> AstSpan -> Target where
   AstCastS :: (NumScalar r1, Differentiable r1, NumScalar r2, Differentiable r2)
            => AstTensor ms s (TKS sh r1)
            -> AstTensor ms s (TKS sh r2)
-  AstArgMinS :: forall n sh r ms. NumScalar r
-             => AstTensor ms PlainSpan (TKS (n ': sh) r)
-             -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) Int)
-  AstArgMaxS :: forall n sh r ms. NumScalar r
-             => AstTensor ms PlainSpan (TKS (n ': sh) r)
-             -> AstTensor ms PlainSpan (TKS (Init (n ': sh)) Int)
+  AstArgMinS :: forall k sh r ms. NumScalar r
+             => AstTensor ms PlainSpan (TKS (k ': sh) r)
+             -> AstTensor ms PlainSpan (TKS (Init (k ': sh)) Int)
+  AstArgMaxS :: forall k sh r ms. NumScalar r
+             => AstTensor ms PlainSpan (TKS (k ': sh) r)
+             -> AstTensor ms PlainSpan (TKS (Init (k ': sh)) Int)
   AstIndexS :: forall shm shn x s ms.
                ShS shn
             -> AstTensor ms s (TKS2 (shm ++ shn) x) -> AstIxS ms shm

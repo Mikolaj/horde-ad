@@ -104,10 +104,9 @@ expandAst t = case t of
   Ast.AstCastK v -> astCastK $ expandAst v
   Ast.AstArgMinK v -> astArgMinK $ expandAst v
   Ast.AstArgMaxK v -> astArgMaxK $ expandAst v
-  Ast.AstIndexK @shm v ix | Refl <- lemAppNil @shm ->
-    kfromS
-    $ astIndexKnobsS (defaultKnobs {knobPhase = PhaseExpansion})
-                     ZSS (expandAst v) (expandAstIxS ix)
+  Ast.AstIndexK v ix ->
+    astIndexKnobsK (defaultKnobs {knobPhase = PhaseExpansion})
+                   (expandAst v) (expandAstIxS ix)
 
   AstPlusS u v -> expandAst u + expandAst v
   AstTimesS u v -> expandAst u * expandAst v
@@ -264,10 +263,9 @@ simplifyAst t = case t of
   Ast.AstCastK v -> astCastK $ simplifyAst v
   Ast.AstArgMinK v -> astArgMinK $ simplifyAst v
   Ast.AstArgMaxK v -> astArgMaxK $ simplifyAst v
-  Ast.AstIndexK @shm v ix | Refl <- lemAppNil @shm ->
-    kfromS
-    $ astIndexKnobsS (defaultKnobs {knobPhase = PhaseSimplification})
-                     ZSS (simplifyAst v) (simplifyAstIxS ix)
+  Ast.AstIndexK v ix ->
+    astIndexKnobsK (defaultKnobs {knobPhase = PhaseSimplification})
+                   (simplifyAst v) (simplifyAstIxS ix)
 
   AstPlusS u v -> simplifyAst u + simplifyAst v
   AstTimesS u v -> simplifyAst u * simplifyAst v
@@ -424,7 +422,9 @@ contractAst t0 = case t0 of
   Ast.AstCastK v -> astCastK $ contractAst v
   Ast.AstArgMinK v -> astArgMinK $ contractAst v
   Ast.AstArgMaxK v -> astArgMaxK $ contractAst v
-  Ast.AstIndexK v ix -> astIndexK (contractAst v) (contractAstIxS ix)
+  Ast.AstIndexK v ix ->
+    astIndexKnobsK (defaultKnobs {knobPhase = PhaseContraction})
+                   (contractAst v) (contractAstIxS ix)
 
   AstPlusS u v -> contractAst u + contractAst v
   AstTimesS u v -> contractAst u * contractAst v
@@ -447,11 +447,6 @@ contractAst t0 = case t0 of
     t2 -> astCastS t2
   Ast.AstArgMinS a -> Ast.AstArgMinS (contractAst a)
   Ast.AstArgMaxS a -> Ast.AstArgMaxS (contractAst a)
-  Ast.AstConvert c (Ast.AstIndexS @sh1 ZSS v ix)
-    | FTKS _ ftk2@FTKScalar <- ftkAst v
-    , Just Refl <- matchingFTK (convertFTK c (FTKS ZSS ftk2)) ftk2
-    , Refl <- lemAppNil @sh1 ->
-      astIndexK (contractAst v) (contractAstIxS ix)
   Ast.AstIndexS shn v ix ->
     astIndexKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                    shn (contractAst v) (contractAstIxS ix)

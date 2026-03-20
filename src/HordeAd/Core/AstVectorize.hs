@@ -262,7 +262,8 @@ build1V snat@SNat (!var, !v0) | ftk0 <- ftkAst v0 =
 
     Ast.AstCondK b u v -> traceRule $
       let uv = astFromVectorK (SNat @2 :$$ ZSS) (V.fromListN 2 [u, v])
-          t = astIndexK uv (astCondK b 0 1 :.$ ZIS)
+          t = astIndexKnobsK (defaultKnobs {knobPhase = PhaseVectorization})
+                             uv (astCondK b 0 1 :.$ ZIS)
       in build1VOccurrenceUnknown snat (var, t)
     Ast.AstCondS b u v | FTKS sh _ <- ftk0 -> traceRule $
       let uv = astFromVectorS (SNat @2 :$$ ZSS) (V.fromListN 2 [u, v])
