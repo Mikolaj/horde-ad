@@ -1959,8 +1959,15 @@ astIndexKnobsS knobs shn u0 (Ast.AstCondK b v w :.$ rest0)
                (astIndexKnobsS knobs shn u (w :.$ rest))
 astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
   | FTKS shmshn x <- ftkAst v0
-  , (:$$) @in1 @shm1 SNat _
-    <- shsTakeIx @shm @shn Proxy ix shmshn = case v0 of
+  , (:$$) @in1 @shm1 SNat _ <- shsTakeIx @shm @shn Proxy ix shmshn
+  , let tryRecursing :: AstTensor AstMethodLet s (TKS2 (shm1 ++ shn) x)
+                     -> AstTensor AstMethodLet s (TKS2 shn x)
+        tryRecursing u =
+          let ftk = FTKS shn x
+              defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
+          in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
+            AstConcreteK b -> if b then astIndex shn u rest1 else defArr
+            _ -> Ast.AstIndexS shn v0 ix = case v0 of
   Ast.AstProject1{} -> Ast.AstIndexS shn v0 ix
   Ast.AstProject2{} -> Ast.AstIndexS shn v0 ix
   Ast.AstApply{} -> Ast.AstIndexS shn v0 ix
@@ -1974,20 +1981,10 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
     astCondInitial (0 <=. i &&* i <=. valueOf @k - 1)
             (astIndex shn (astLet var2 i v) rest1)
             defArr -}
-  Ast.AstBuild1 (SNat @k) STKScalar (var2, v) | ZIS <- rest1 ->
-    let ftk = FTKS shn x
-        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-    in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
-      AstConcreteK b ->
-        if b then sfromK $ astLet var2 i1 v else defArr
-      _ -> Ast.AstIndexS shn v0 ix
-  Ast.AstBuild1 (SNat @k) STKS{} (var2, v) ->
-    let ftk = FTKS shn x
-        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-    in case 0 <=. i1 &&* i1 <=. valueOf @k - 1 of
-      AstConcreteK b ->
-        if b then astIndex shn (astLet var2 i1 v) rest1 else defArr
-      _ -> Ast.AstIndexS shn v0 ix
+  Ast.AstBuild1 _ STKScalar (var2, v) | ZIS <- rest1 ->
+    tryRecursing $ sfromK $ astLet var2 i1 v
+  Ast.AstBuild1 _ STKS{} (var2, v) ->
+    tryRecursing $ astLet var2 i1 v
 
   Ast.AstLet var u v -> astLetRefresh var u v $ \v' -> astIndex shn v' ix
 
@@ -2017,12 +2014,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
             tsindex (Concrete a) (Concrete i :.$ ZIS)
     in astIndex shn (astConcreteS u) rest1
   AstConcreteS{} -> case unRepl1 v0 of
-    Just u ->
-      let ftk = FTKS shn x
-          defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-      in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
-        AstConcreteK b -> if b then astIndex shn u rest1 else defArr
-        _ -> Ast.AstIndexS shn v0 ix
+    Just u -> tryRecursing u
     _ -> Ast.AstIndexS shn v0 ix
   Ast.AstFloorS v -> astFloorS $ astIndex shn v ix
   Ast.AstFromIntegralS v -> astFromIntegralS $ astIndex shn v ix
@@ -2055,19 +2047,11 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
     shareIx ix $ \ !ix2 -> astCondS b (astIndex shn v ix2)
                                       (astIndex shn w ix2)
   Ast.AstFromVectorK (_ :$$ ZSS) l | AstConcreteK i <- i1, ZIS <- rest1 ->
-    let ftk = FTKS shn x
-        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-    in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
-      AstConcreteK b -> if b then sfromK (l V.! i) else defArr
-      _ -> Ast.AstIndexS shn v0 ix
+    tryRecursing $ sfromK (l V.! i)
   Ast.AstFromVectorK{} ->  -- normal form
     Ast.AstIndexS shn v0 ix
   Ast.AstFromVectorS (_ :$$ ZSS) l | AstConcreteK i <- i1 ->
-    let ftk = FTKS shn x
-        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-    in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
-      AstConcreteK b -> if b then astIndex shn (l V.! i) rest1 else defArr
-      _ -> Ast.AstIndexS shn v0 ix
+    tryRecursing (l V.! i)
   Ast.AstFromVectorS @shm2 @shn2 shm2 l | shsLength shm2 < ixsLength ix
                                         , SNat <- shsRank shm2 ->
     gcastWith (unsafeCoerceRefl :: shn2 :~: Drop (Rank shm2) shm ++ shn) $
@@ -2101,27 +2085,17 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
   Ast.AstScatterS{} ->  -- normal form
     Ast.AstIndexS shn v0 ix
   Ast.AstReplicateK (_ :$$ shmRest) v ->
-    let ftk = FTKS shn x
-        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-    in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
-      AstConcreteK b ->
-        if b then astIndex shn (astReplicateK shmRest v) rest1 else defArr
-      _ -> Ast.AstIndexS shn v0 ix
+    tryRecursing $ astReplicateK shmRest v
   Ast.AstReplicateS ZSS v -> astIndex shn v ix
   Ast.AstReplicateS (_ :$$ shmRest) v ->
-    let ftk = FTKS shn x
-        defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
-    in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
-      AstConcreteK b ->
-        if b then astIndex shn (astReplicateS shmRest v) rest1 else defArr
-      _ -> Ast.AstIndexS shn v0 ix
+    tryRecursing $ astReplicateS shmRest v
   -- This is not a possible normal form, but pattern needs to be exhaustive.
   Ast.AstGatherS @_ @_ @shp' _ _ _ v (ZS, ix2) ->
     gcastWith (unsafeCoerceRefl
               :: shp' ++ (in1 ': shm1) ++ shn
                  :~: shp' ++ (in1 ': shm1 ++ shn)) $
     astIndex @(shp' ++ shm) @shn shn v (ix2 `ixsAppend` ix)
-  Ast.AstGatherS @_ @shn' (SNat @m71 :$$ (shm71 :: ShS shm71)) shn' shp'
+  Ast.AstGatherS @_ @shn' (_ :$$ (shm71 :: ShS shm71)) shn' shp'
                  v (var2 ::$ vars, ix2) ->
     gcastWith (unsafeCoerceRefl :: shm71 ++ shn' :~: shm1 ++ shn) $
     let ftk = FTKS shn x
@@ -2132,15 +2106,15 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
           -- This let makes it impossible to use astCond when i1 is OOB.
           -- No astLetRefresh is needed, because the smart constructor
           -- for AstGatherS ensures var2 doesn't occur in v, even bound.
-    in case 0 <=. i1 &&* i1 <=. valueOf @m71 - 1 of
+    in case 0 <=. i1 &&* i1 <=. valueOf @in1 - 1 of
       AstConcreteK b -> if b then u else defArr
       _ -> Ast.AstIndexS shn v0 ix
-  Ast.AstIotaS (SNat @k) -> case shn of
+  Ast.AstIotaS _ -> case shn of
     ZSS ->
       let ftk = FTKS ZSS x
           defArr = fromPlain $ astConcrete ftk (tdefTarget ftk)
       in astLetFun i1 $ \i ->
-           astCondSInitial (0 <=. i &&* i <=. valueOf @k - 1)
+           astCondSInitial (0 <=. i &&* i <=. valueOf @in1 - 1)
                            (astFromIntegralS $ sfromK i)
                            defArr
     _ -> error "astIndexKnobsS: shn not []"
@@ -2191,7 +2165,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
   Ast.AstTransposeS{} -> Ast.AstIndexS shn v0 ix
   -- This results in a larger term, so we consider this late.
   Ast.AstReshapeS sh v | knobPhase knobs == PhaseExpansion
-                         || shsLength sh <= 1 ->
+                         || shsLength sh <= 1 ->  -- this is flatten
     astIndex shn (astReshapeAsGatherS (deVect knobs) sh v) ix
   Ast.AstReshapeS{} -> Ast.AstIndexS shn v0 ix
 
