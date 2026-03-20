@@ -683,10 +683,10 @@ astPrimalPart t = case t of
   AstConvUp c zftk a -> astConvertUp c zftk $ astPrimalPart a
   Ast.AstConvert{} -> Ast.AstPrimalPart t
 
-  -- These should not appear in this context unless via wacky tests.
-  Ast.AstDot0{} -> Ast.AstPrimalPart t
-  Ast.AstDot1InS{} -> Ast.AstPrimalPart t
-  Ast.AstMatmul2S{} -> Ast.AstPrimalPart t
+  Ast.AstDot0 u v -> astDot0 (astPrimalPart u) (astPrimalPart v)
+  Ast.AstDot1InS sh n u v -> astDot1InS sh n (astPrimalPart u) (astPrimalPart v)
+  Ast.AstMatmul2S m n p u v ->
+    astMatmul2S m n p (astPrimalPart u) (astPrimalPart v)
 
   Ast.AstBoolNotK{} -> Ast.AstPrimalPart t
   Ast.AstBoolNotS{} -> Ast.AstPrimalPart t
@@ -793,10 +793,10 @@ astDualPart t = case t of
   AstConvUp c zftk a -> astConvertUp c zftk $ astDualPart a
   Ast.AstConvert{} -> Ast.AstDualPart t
 
-  -- These should not appear in this context unless via wacky tests.
-  Ast.AstDot0{} -> Ast.AstDualPart t
-  Ast.AstDot1InS{} -> Ast.AstDualPart t
-  Ast.AstMatmul2S{} -> Ast.AstDualPart t
+  Ast.AstDot0 u v -> astDot0 (astDualPart u) (astDualPart v)
+  Ast.AstDot1InS sh n u v -> astDot1InS sh n (astDualPart u) (astDualPart v)
+  Ast.AstMatmul2S m n p u v ->
+    astMatmul2S m n p (astDualPart u) (astDualPart v)
 
   _ -> Ast.AstDualPart t
 
@@ -891,10 +891,10 @@ astPlainPart t = case t of
   AstConvUp c zftk a -> astConvertUp c zftk $ astPlainPart a
   Ast.AstConvert{} -> Ast.AstPlainPart t
 
-  -- These should not appear in this context unless via wacky tests.
-  Ast.AstDot0{} -> Ast.AstPlainPart t
-  Ast.AstDot1InS{} -> Ast.AstPlainPart t
-  Ast.AstMatmul2S{} -> Ast.AstPlainPart t
+  Ast.AstDot0 u v -> astDot0 (astPlainPart u) (astPlainPart v)
+  Ast.AstDot1InS sh n u v -> astDot1InS sh n (astPlainPart u) (astPlainPart v)
+  Ast.AstMatmul2S m n p u v ->
+    astMatmul2S m n p (astPlainPart u) (astPlainPart v)
 
 -- TODO: perhaps aim for a polynomial normal form? but that requires global
 -- inspection of the whole expression
@@ -2169,13 +2169,14 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
     astIndex shn (astReshapeAsGatherS (deVect knobs) sh v) ix
   Ast.AstReshapeS{} -> Ast.AstIndexS shn v0 ix
 
-  -- These conversions usually need to stay down, so this is NF,
-  -- see AstVectorize.build1VIndexS.
+  -- Conversions to shaped need to stay down, so this is NF.
   Ast.AstConvert{} -> Ast.AstIndexS shn v0 ix
 
-  -- These should not appear here unless via wacky tests.
-  Ast.AstDot1InS{} -> Ast.AstIndexS shn v0 ix
-  Ast.AstMatmul2S{} -> Ast.AstIndexS shn v0 ix
+  Ast.AstDot1InS @_ @n _ n u v
+    | Refl <- lemAppAssoc (Proxy @shm) (Proxy @shn) (Proxy @'[n]) ->
+      astDot1InS shn n (astIndex (shn `shsAppend` (n :$$ ZSS)) u ix)
+                       (astIndex (shn `shsAppend` (n :$$ ZSS)) v ix)
+  Ast.AstMatmul2S{} -> Ast.AstIndexS shn v0 ix  -- TODO
 
   Ast.AstBoolNotS a -> Ast.AstBoolNotS $ astIndex shn a ix
   Ast.AstBoolAndS b1 b2 -> Ast.AstBoolAndS (astIndex shn b1 ix)
@@ -2193,11 +2194,11 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
     -> AstTensor AstMethodLet s' (TKS2 shn' x')
   astIndex = astIndexKnobsS (deVect knobs)
   astGather
-    :: forall shm' shn' shp'.
+    :: forall shm' shn' shp' x'.
        ShS shm' -> ShS shn' -> ShS shp'
-    -> AstTensor AstMethodLet s (TKS2 (shp' ++ shn') x)
+    -> AstTensor AstMethodLet s (TKS2 (shp' ++ shn') x')
     -> (AstVarListS shm', AstIxS AstMethodLet shp')
-    -> AstTensor AstMethodLet s (TKS2 (shm' ++ shn') x)
+    -> AstTensor AstMethodLet s (TKS2 (shm' ++ shn') x')
   astGather = astGatherKnobsS (deVect knobs)
   astScatter
     :: forall shm' shn' shp' x'. TKAllNum x'
@@ -3910,9 +3911,8 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1' :: ShS shp1'))
     -- see AstVectorize.build1VIndexS.
     Ast.AstConvert{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
 
-    -- These should not appear here unless via wacky tests.
-    Ast.AstDot1InS{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
-    Ast.AstMatmul2S{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
+    Ast.AstDot1InS{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)  -- TODO
+    Ast.AstMatmul2S{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)  -- TODO
 
     Ast.AstBoolNotS{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     Ast.AstBoolAndS {} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
