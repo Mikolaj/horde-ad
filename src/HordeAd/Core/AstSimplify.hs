@@ -4168,11 +4168,14 @@ astAppendS u (Ast.AstAppendS v w) | Just u0 <- unAstS u
 astAppendS (Ast.AstAppendS v u) w = astAppendS v (astAppendS u w)
 astAppendS u v = Ast.AstAppendS u v
 
-astSliceS :: forall i n k sh s r. KnownSpan s
+astSliceS :: forall i n k sh s x. KnownSpan s
           => SNat i -> SNat n -> SNat k
-          -> AstTensor AstMethodLet s (TKS2 (i + n + k ': sh) r)
-          -> AstTensor AstMethodLet s (TKS2 (n ': sh) r)
+          -> AstTensor AstMethodLet s (TKS2 (i + n + k ': sh) x)
+          -> AstTensor AstMethodLet s (TKS2 (n ': sh) x)
 astSliceS SZ SNat SZ v = v
+astSliceS _ SZ _ v | FTKS (_ :$$ sh) x <- ftkAst v =
+  let ftk = FTKS (SZ :$$ sh) x
+  in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astSliceS SNat SNat SNat (Ast.AstFromVectorK (_ :$$ ZSS) l) =
   astFromVectorK (SNat @n :$$ ZSS) $ V.take (valueOf @n) $ V.drop (valueOf @i) l
 astSliceS SNat SNat SNat (Ast.AstFromVectorS (_ :$$ ZSS) l) =

@@ -10,6 +10,7 @@ import Prelude
 import Data.Int (Int16, Int64, Int8)
 import Data.Kind (Type)
 import Data.List.NonEmpty qualified as NonEmpty
+import Data.Vector.Generic qualified as V
 import Foreign.C (CInt)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat)
@@ -206,9 +207,15 @@ testTrees =
   , testCase "2concatBuild13" testConcatBuild13
   , testCase "2concatBuild14" testConcatBuild14
   , testCase "2concatBuild15" testConcatBuild15
+  , testCase "2concatBuild16" testConcatBuild16
+  , testCase "2concatBuild17" testConcatBuild17
   , testCase "2emptyArgs0" testEmptyArgs0
   , testCase "2emptyArgs1" testEmptyArgs1
+  , testCase "2emptyArgs2" testEmptyArgs2
+  , testCase "2emptyArgs3" testEmptyArgs3
   , testCase "2emptyArgs4" testEmptyArgs4
+  , testCase "2emptyArgs5" testEmptyArgs5
+  , testCase "2emptyArgs6" testEmptyArgs6
   , testCase "2filterPositiveFail0" testFilterPositiveFail0
   , testCase "2filterPositiveFail0PP" testFilterPositiveFail0PP
   , testCase "2filterPositiveFail1" testFilterPositiveFail1
@@ -2206,6 +2213,18 @@ testConcatBuild15 =
     (rscalar 0)
     (rev' @Double @1 concatBuild14 (rscalar 100))
 
+testConcatBuild16 :: Assertion
+testConcatBuild16 =
+  assertEqualUpToEpsilon' 1e-10
+    (rscalar 0)
+    (rev' @Double @1 (\r -> rslice 0 0 (rfromVector (V.fromList [r, r]))) (rscalar 100))
+
+testConcatBuild17 :: Assertion
+testConcatBuild17 =
+  assertEqualUpToEpsilon' 1e-10
+    (rscalar 0)
+    (rev' @Double @1 (\r -> ifH (rslice 0 0 (rfromVector (V.fromList [r, r])) ==. rslice 0 0 (rfromVector (V.fromList [r, rscalar 0]))) (rslice 0 0 (rfromVector (V.fromList [r]))) (rslice 0 0 (rfromVector (V.fromList [rscalar 0])))) (rscalar 100))
+
 -- TODO: copy-paste a variant of emptyArgs with r not NumScalar
 -- or maybe generalize emptyArgs and then in half of the tests do TKScalar
 emptyArgs :: forall target r. (ADReady target, NumScalar r, Differentiable r)
@@ -2230,6 +2249,8 @@ emptyArgs t =
                                      emptyTensor) []) (42 :.: ZIR)
   - rreshape @1 [0] emptyTensor
   - rsum (rreshape @1 [0, 0] emptyTensor)
+  * rslice 0 0 t
+  * rslice 0 0 (rfromVector (V.fromList [rscalar 1, t ! (0 :.: ZIR)]))
   + rbuild1 0 (\i -> t ! (i :.: ZIR))
   + rbuild1 0 (\i -> t ! [fromIntegral (rlength t) `quotH` i] / rfromIndex0 i)
   + rbuild @1 (0 :$: ZSR) (const $ rscalar 73)
@@ -2250,6 +2271,10 @@ emptyArgs t =
        - sindex @'[0] (srepl @'[0, 0] 0) (42 :.$ ZIS)
        - sreshape @_ @'[0] (sfromR @_ @'[0] emptyTensor)
        - ssum (sreshape @_ @'[0, 0] (sfromR @_ @'[0] emptyTensor))
+       * sslice (SNat @0) (SNat @0) (SNat @1) (sfromR $ rslice 0 1 (rappend t (rreplicate 1 (rscalar 1))))
+       * sslice (SNat @1) (SNat @0) (SNat @1)
+                (sfromVectorLinear
+                   [2] (V.fromList [1, t `rindex0` (0 :.: ZIR)]))
        * sbuild1 @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t) !$ (i :.$ ZIS))
        + sbuild1 @0 (\i -> sfromR @_ @'[0] (rslice 0 0 t)
                               !$ (fromIntegral (rlength t) `quotH` i :.$ ZIS)
@@ -2288,9 +2313,16 @@ emptyArgs t =
                                                 emptyTensor)) []) (42 :.% ZIX)
        - xreshape (SKnown (SNat @0) :$% ZSX) (xfromR @_ @'[Just 0] emptyTensor)
        - xsum (xreshape (SKnown (SNat @0) :$% SKnown (SNat @0) :$% ZSX) (xfromR @_ @'[Just 0] emptyTensor))
+       * xslice (SKnown $ SNat @0)
+                (SKnown $ SNat @0)
+                (SKnown $ SNat @1)
+                (xfromR @_ @'[Just 1] $ rslice 0 1 (rappend t (rreplicate 1 (rscalar 1))))
        * xbuild1 @0 (\i -> xfromR @_ @'[Nothing] (rslice 0 0 t)
                             `xindex` (i :.% ZIX))
-       + xbuild1 @0 (\i -> xfromR @_ @'[Nothing] (rslice 0 0 t)
+       + xbuild1 @0 (\i -> xslice (SKnown $ SNat @0)
+                                  (SKnown $ SNat @0)
+                                  (SUnknown 1)
+                                  (xfromR @_ @'[Nothing] $ rslice 0 1 (rappend t (rreplicate 1 (rscalar 1))))
                               `xindex`
                               (fromIntegral (rlength t) `quotH` i :.% ZIX)
                               / xfromIndex0 i)
@@ -2322,8 +2354,46 @@ testEmptyArgs1 =
     (ringestData [1] [0])
     (rev' @Float @1 emptyArgs (ringestData [1] [0.24]))
 
+testEmptyArgs2 :: Assertion
+testEmptyArgs2 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [1] [0])
+    (rev' @Double @1
+          (\t -> emptyArgs $ rfromVector (V.fromList [ t ! (0 :.: ZIR)
+                                                     , rscalar 0 ]))
+          (ringestData [1] [0.24]))
+
+testEmptyArgs3 :: Assertion
+testEmptyArgs3 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [1] [0])
+    (rev' @Double @1
+          (\t -> emptyArgs $ rfromVectorLinear
+                               [2] (V.fromList [0, t `rindex0` (0 :.: ZIR)]))
+          (ringestData [1] [0.24]))
+
 testEmptyArgs4 :: Assertion
 testEmptyArgs4 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [1] [0])
+    (rev' @Double @1
+          (\t -> rbuild [] (const $ emptyArgs
+                            $ rfromVector (V.fromList [ rscalar 7
+                                                      , t ! (0 :.: ZIR) ])))
+          (ringestData [1] [0.24]))
+
+testEmptyArgs5 :: Assertion
+testEmptyArgs5 =
+  assertEqualUpToEpsilon' 1e-10
+    (ringestData [1] [0])
+    (rev' @Double @1
+          (\t -> rbuild [] (const $ emptyArgs
+                            $ rfromVectorLinear
+                                [2] (V.fromList [t `rindex0` (0 :.: ZIR), 1])))
+          (ringestData [1] [0.24]))
+
+testEmptyArgs6 :: Assertion
+testEmptyArgs6 =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1] [0])
     (rev' @Double @1
