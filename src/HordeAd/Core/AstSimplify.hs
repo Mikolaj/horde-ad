@@ -2560,6 +2560,7 @@ astFromVectorK :: forall shm r s. (GoodScalar r, KnownSpan s)
                -> Data.Vector.Vector (AstTensor AstMethodLet s (TKScalar r))
                -> AstTensor AstMethodLet s (TKS shm r)
 astFromVectorK ZSS l = assert (V.length l == 1) $ sfromK $ l V.! 0
+astFromVectorK _ l | V.null l = error "astFromVectorK: empty vector"
 astFromVectorK shm l | SNat' @1 <- shsProduct shm =
   astReplicateK shm (l V.! 0)
 astFromVectorK shm l = fromMaybe (Ast.AstFromVectorK shm l) $
@@ -2571,7 +2572,6 @@ astFromVectorK shm l = fromMaybe (Ast.AstFromVectorK shm l) $
               -> Maybe (Concrete (TKScalar r))
        unConc t = Concrete <$> unAstK t
     in case V.mapM unConc l of
-         Just l4 | V.null l4 -> error "astFromVectorK: empty vector"
          Just l4 -> Just $ fromPlain $ astConcreteS (tsfromVectorLinear shm l4)
          Nothing -> Nothing)
   `mplus`
@@ -2580,7 +2580,6 @@ astFromVectorK shm l = fromMaybe (Ast.AstFromVectorK shm l) $
        unFromPrimal (Ast.AstFromPrimal t) = Just t
        unFromPrimal _ = Nothing
    in case V.mapM unFromPrimal l of
-     Just l2 | V.null l2 -> error "astFromVectorK: empty vector"
      Just l2 -> Just $ fromPrimal $ astFromVectorK shm l2
      Nothing -> Nothing)
   `mplus`
@@ -2591,7 +2590,6 @@ astFromVectorK shm l = fromMaybe (Ast.AstFromVectorK shm l) $
            unFromDual (Ast.AstFromDual t) = Just t
            unFromDual _ = Nothing
        in case V.mapM unFromDual l of
-         Just l2 | V.null l2 -> error "astFromVectorK: empty vector"
          Just l2 -> Just $ fromDual $ astFromVectorK shm l2
          Nothing -> Nothing
      _ -> Nothing)
@@ -2601,7 +2599,6 @@ astFromVectorK shm l = fromMaybe (Ast.AstFromVectorK shm l) $
        unFromPlain (Ast.AstFromPlain t) = Just t
        unFromPlain _ = Nothing
    in case V.mapM unFromPlain l of
-     Just l2 | V.null l2 -> error "astFromVectorK: empty vector"
      Just l2 -> Just $ fromPlain $ astFromVectorK shm l2
      Nothing -> Nothing)
 
@@ -2610,6 +2607,7 @@ astFromVectorS :: forall shm shn x s. KnownSpan s
                -> Data.Vector.Vector (AstTensor AstMethodLet s (TKS2 shn x))
                -> AstTensor AstMethodLet s (TKS2 (shm ++ shn) x)
 astFromVectorS ZSS l = assert (V.length l == 1) $ l V.! 0
+astFromVectorS _ l | V.null l = error "astFromVectorS: empty vector"
 astFromVectorS shm l | SNat' @1 <- shsProduct shm =
   astReplicateS shm (l V.! 0)
 astFromVectorS shm l = fromMaybe (Ast.AstFromVectorS shm l) $
@@ -2618,7 +2616,6 @@ astFromVectorS shm l = fromMaybe (Ast.AstFromVectorS shm l) $
        unFromPrimal (Ast.AstFromPrimal t) = Just t
        unFromPrimal _ = Nothing
    in case V.mapM unFromPrimal l of
-     Just l2 | V.null l2 -> error "astFromVectorS: empty vector"
      Just l2 -> Just $ fromPrimal $ astFromVectorS shm l2
      Nothing -> Nothing)
   `mplus`
@@ -2629,7 +2626,6 @@ astFromVectorS shm l = fromMaybe (Ast.AstFromVectorS shm l) $
            unFromDual (Ast.AstFromDual t) = Just t
            unFromDual _ = Nothing
        in case V.mapM unFromDual l of
-         Just l2 | V.null l2 -> error "astFromVectorS: empty vector"
          Just l2 -> Just $ fromDual $ astFromVectorS shm l2
          Nothing -> Nothing
      _ -> Nothing)
@@ -2639,30 +2635,26 @@ astFromVectorS shm l = fromMaybe (Ast.AstFromVectorS shm l) $
        unFromPlain (Ast.AstFromPlain t) = Just t
        unFromPlain _ = Nothing
    in case V.mapM unFromPlain l of
-     Just l2 | V.null l2 -> error "astFromVectorS: empty vector"
      Just l2 -> Just $ fromPlain $ astFromVectorS shm l2
      Nothing -> Nothing)
   `mplus`
-  (case V.uncons l of
-     Just (v, _) -> case ftkAst v of
-       FTKS ZSS FTKScalar | Refl <- lemAppNil @shm ->
-         Just $ astFromVectorK shm $ V.map kfromS l
-       FTKS shn FTKScalar ->
-         -- This disables some rules, e.g., indexing or summing of fromVector
-         -- of concrete arrays, but allocating an extra array of the same size
-         -- as the fromVector is not a big deal and early rules are better
-         -- then the same rules in contraction phase.
-         let unConc :: AstTensor AstMethodLet s (TKS shn r)
-                    -> Maybe (Concrete (TKS shn r))
-             unConc t = Concrete <$> unAstS t
-         in case V.mapM unConc l of
-           Just l4 | V.null l4 -> error "astFromVectorS: empty vector"
-           Just l4 ->
-             withKnownShS shn $
-             Just $ fromPlain $ astConcreteS (tsfromVectorN shm l4)
-           Nothing -> Nothing
-       FTKS{} -> Nothing
-     Nothing -> error "astFromVectorS: empty vector")
+  (case ftkAst (l V.! 0) of
+     FTKS ZSS FTKScalar | Refl <- lemAppNil @shm ->
+       Just $ astFromVectorK shm $ V.map kfromS l
+     FTKS shn FTKScalar ->
+       -- This disables some rules, e.g., indexing or summing of fromVector
+       -- of concrete arrays, but allocating an extra array of the same size
+       -- as the fromVector is not a big deal and early rules are better
+       -- then the same rules in contraction phase.
+       let unConc :: AstTensor AstMethodLet s (TKS shn r)
+                  -> Maybe (Concrete (TKS shn r))
+           unConc t = Concrete <$> unAstS t
+       in case V.mapM unConc l of
+         Just l4 ->
+           withKnownShS shn $
+           Just $ fromPlain $ astConcreteS (tsfromVectorN shm l4)
+         Nothing -> Nothing
+     FTKS{} -> Nothing)
 
 astSumK :: forall shm r s. (NumScalar r, KnownSpan s)
         => AstTensor AstMethodLet s (TKS shm r)
