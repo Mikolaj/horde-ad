@@ -2820,6 +2820,10 @@ astScatterKnobsS _ _ _ _ v0 (!vars0, !_ix0)
   | Foldable.any (`varNameInAst` v0) vars0 =
     error $ "astScatterKnobsS: scatter vars in v0: " ++ show (vars0, v0)
 astScatterKnobsS _ shm _ _ v0 (_, ZIS) = astSumS shm v0
+astScatterKnobsS _ _ shn shp@(SZ :$$ _) v0 _
+  | FTKS _ x <- ftkAst v0 =
+    let ftk = FTKS (shp `shsAppend` shn) x
+    in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astScatterKnobsS _ _ shn shp@(k :$$ _) v0 (_,  i1 :.$ _)
   | Just (lb, ub) <- intBounds i1
   , let FTKS _ x = ftkAst v0
