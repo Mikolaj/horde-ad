@@ -3793,7 +3793,10 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1 :: ShS shp1))
                     (varsFresh, i5 :.$ IxS ixFresh) -}
     Ast.AstApply{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
     Ast.AstVar{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
-    Ast.AstBuild1{} -> Ast.AstGatherS shm shn shp v4 (vars4, ix4)
+    Ast.AstBuild1 _ STKScalar (var2, v) | ZIS <- rest4 ->
+      tryRecursing $ sfromK $ astLet var2 i4 v
+    Ast.AstBuild1 _ STKS{} (var2, v) ->
+      tryRecursing $ astLet var2 i4 v
 
     Ast.AstLet var u v ->
       astLetRefresh var u v $ \v' -> astGather shm shn shp v' (vars4, ix4)
