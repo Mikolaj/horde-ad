@@ -42,41 +42,40 @@ type AstMemo = EM.EnumMap AstVarId Int
 inlineAstTensor
   :: forall s y. KnownSpan s
   => AstTensor AstMethodLet s y -> AstTensor AstMethodLet s y
-inlineAstTensor = snd . inlineAst EM.empty
+inlineAstTensor = snd . inlineAst 1 EM.empty
 
 -- | This inlines occurences of 'HordeAd.Core.Ast.AstLet', traversing
 -- the term bottom-up.
 inlineAst
   :: forall s y. KnownSpan s
-  => AstMemo -> AstTensor AstMethodLet s y
+  => Int -> AstMemo -> AstTensor AstMethodLet s y
   -> (AstMemo, AstTensor AstMethodLet s y)
-inlineAst !memo v0 = case v0 of
+inlineAst c !memo v0 = case v0 of
   Ast.AstPair t1 t2 ->
-    let (memo2, v1) = inlineAst memo t1
-        (memo3, v2) = inlineAst memo2 t2
+    let (memo2, v1) = inlineAst c memo t1
+        (memo3, v2) = inlineAst c memo2 t2
     in (memo3, Ast.AstPair v1 v2)
-  Ast.AstProject1 t -> second Ast.AstProject1 (inlineAst memo t)
-  Ast.AstProject2 t -> second Ast.AstProject2 (inlineAst memo t)
+  Ast.AstProject1 t -> second Ast.AstProject1 (inlineAst c memo t)
+  Ast.AstProject2 t -> second Ast.AstProject2 (inlineAst c memo t)
   Ast.AstMapAccumLDer k bftk eftk f df rf acc0 es ->
-    let (memo1, f2) = inlineAstHFun memo f
-        (memo2, df2) = inlineAstHFun memo1 df
-        (memo3, rf2) = inlineAstHFun memo2 rf
-        (memo4, acc02) = inlineAst memo3 acc0
-        (memo5, es2) = inlineAst memo4 es
+    let (memo1, f2) = inlineAstHFun c memo f
+        (memo2, df2) = inlineAstHFun c memo1 df
+        (memo3, rf2) = inlineAstHFun c memo2 rf
+        (memo4, acc02) = inlineAst c memo3 acc0
+        (memo5, es2) = inlineAst c memo4 es
     in (memo5, Ast.AstMapAccumLDer k bftk eftk f2 df2 rf2 acc02 es2)
   Ast.AstApply t ll ->
-    let (memo1, t2) = inlineAstHFun memo t
-        (memo2, ll2) = inlineAst memo1 ll
+    let (memo1, t2) = inlineAstHFun c memo t
+        (memo2, ll2) = inlineAst c memo1 ll
     in (memo2, Ast.AstApply t2 ll2)
   Ast.AstVar var ->
-    let f Nothing = Just 1
-        f (Just count) = Just $ count + 1
+    let f Nothing = Just c
+        f (Just count) = Just $ count + c
     in (EM.alter f (varNameToAstVarId var) memo, v0)
   Ast.AstBuild1 k stk (var, v) ->
-    let (memoV0, !v2) = inlineAst EM.empty v
-        memoV2 = EM.map (fromSNat' k *) memoV0
-        memo1 = EM.unionWith (+) memo memoV2
-    in (memo1, Ast.AstBuild1 k stk (var, v2))
+    let (memo1, !v2) = inlineAst (fromSNat' k * c) memo v
+        memo1NoVar = EM.delete (varNameToAstVarId var) memo1
+    in (memo1NoVar, Ast.AstBuild1 k stk (var, v2))
 
   Ast.AstLet var u v ->
     -- We assume there are no nested lets with the same variable, hence
@@ -84,93 +83,89 @@ inlineAst !memo v0 = case v0 of
     -- the recursive call for v with memo intact, to record extra occurrences
     -- of other variables without the costly summing of maps.
     withKnownSpan (varNameToSpan var) $
-    let vv = varNameToAstVarId var
-        (memo1, v2) = inlineAst memo v
-        memo1NoVar = EM.delete vv memo1
-        (memo2, u2) = inlineAst memo1NoVar u
-    in case EM.findWithDefault 0 vv memo1 of
+    let (memo1, v2) = inlineAst c memo v
+        memo1NoVar = EM.delete (varNameToAstVarId var) memo1
+    in case EM.findWithDefault 0 (varNameToAstVarId var) memo1 of
       0 -> (memo1, v2)
-      1 -> (memo2, substituteAst u2 var v2)
-      count | astIsSmall (count < 10) u ->
-        let (memoU0, u0) = inlineAst EM.empty u
-            memoU2 = EM.map (count *) memoU0
-              -- TODO: instead pass count as arg to inlineAst
-            memo3 = EM.unionWith (+) memo1NoVar memoU2
-                      -- u is small, so the union is fast
+      count | count <= c  -- occurs once and in the same nesting situation
+              || astIsSmall (count < 100) u ->
+        let (memo3, u0) = inlineAst count memo1NoVar u
         in (memo3, substituteAst u0 var v2)
-      _ -> (memo2, Ast.AstLet var u2 v2)
+      _ ->
+        let (memo2, u2) = inlineAst c memo1NoVar u
+        in (memo2, Ast.AstLet var u2 v2)
 
-  Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst memo a
-  Ast.AstDualPart a -> second Ast.AstDualPart $ inlineAst memo a
-  Ast.AstPlainPart a -> second Ast.AstPlainPart $ inlineAst memo a
-  Ast.AstFromPrimal a -> second Ast.AstFromPrimal $ inlineAst memo a
-  Ast.AstFromDual a -> second Ast.AstFromDual $ inlineAst memo a
-  Ast.AstFromPlain a -> second Ast.AstFromPlain $ inlineAst memo a
+  Ast.AstPrimalPart a -> second Ast.AstPrimalPart $ inlineAst c memo a
+  Ast.AstDualPart a -> second Ast.AstDualPart $ inlineAst c memo a
+  Ast.AstPlainPart a -> second Ast.AstPlainPart $ inlineAst c memo a
+  Ast.AstFromPrimal a -> second Ast.AstFromPrimal $ inlineAst c memo a
+  Ast.AstFromDual a -> second Ast.AstFromDual $ inlineAst c memo a
+  Ast.AstFromPlain a -> second Ast.AstFromPlain $ inlineAst c memo a
 
   Ast.AstPlusK u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
+    let (memo2, u2) = inlineAst c memo u
+        (memo3, v3) = inlineAst c memo2 v
     in (memo3, Ast.AstPlusK u2 v3)
   Ast.AstTimesK u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
+    let (memo2, u2) = inlineAst c memo u
+        (memo3, v3) = inlineAst c memo2 v
     in (memo3, Ast.AstTimesK u2 v3)
   Ast.AstN1K opCode u ->
-    let (memo2, u2) = inlineAst memo u
+    let (memo2, u2) = inlineAst c memo u
     in (memo2, Ast.AstN1K opCode u2)
   Ast.AstR1K opCode u ->
-    let (memo2, u2) = inlineAst memo u
+    let (memo2, u2) = inlineAst c memo u
     in (memo2, Ast.AstR1K opCode u2)
   Ast.AstR2K opCode u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
+    let (memo2, u2) = inlineAst c memo u
+        (memo3, v3) = inlineAst c memo2 v
     in (memo3, Ast.AstR2K opCode u2 v3)
   Ast.AstI2K opCode u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
+    let (memo2, u2) = inlineAst c memo u
+        (memo3, v3) = inlineAst c memo2 v
     in (memo3, Ast.AstI2K opCode u2 v3)
   Ast.AstConcreteK{} -> (memo, v0)
-  Ast.AstFloorK a -> second Ast.AstFloorK $ inlineAst memo a
-  Ast.AstFromIntegralK a -> second Ast.AstFromIntegralK $ inlineAst memo a
-  Ast.AstCastK a -> second Ast.AstCastK $ inlineAst memo a
-  Ast.AstArgMinK a -> second Ast.AstArgMinK $ inlineAst memo a
-  Ast.AstArgMaxK a -> second Ast.AstArgMaxK $ inlineAst memo a
+  Ast.AstFloorK a -> second Ast.AstFloorK $ inlineAst c memo a
+  Ast.AstFromIntegralK a -> second Ast.AstFromIntegralK $ inlineAst c memo a
+  Ast.AstCastK a -> second Ast.AstCastK $ inlineAst c memo a
+  Ast.AstArgMinK a -> second Ast.AstArgMinK $ inlineAst c memo a
+  Ast.AstArgMaxK a -> second Ast.AstArgMaxK $ inlineAst c memo a
   Ast.AstIndexK v ix ->
-    let (memo1, v2) = inlineAst memo v
-        (memo2, ix2) = mapAccumL' inlineAst memo1 (Foldable.toList ix)
+    let (memo1, v2) = inlineAst c memo v
+        (memo2, ix2) = mapAccumL' (inlineAst c) memo1 (Foldable.toList ix)
     in (memo2, Ast.AstIndexK v2 (ixsFromIxS ix ix2))
 
   Ast.AstPlusS u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
+    let (memo2, u2) = inlineAst c memo u
+        (memo3, v3) = inlineAst c memo2 v
     in (memo3, Ast.AstPlusS u2 v3)
   Ast.AstTimesS u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
+    let (memo2, u2) = inlineAst c memo u
+        (memo3, v3) = inlineAst c memo2 v
     in (memo3, Ast.AstTimesS u2 v3)
   Ast.AstN1S opCode u ->
-    let (memo2, u2) = inlineAst memo u
+    let (memo2, u2) = inlineAst c memo u
     in (memo2, Ast.AstN1S opCode u2)
   Ast.AstR1S opCode u ->
-    let (memo2, u2) = inlineAst memo u
+    let (memo2, u2) = inlineAst c memo u
     in (memo2, Ast.AstR1S opCode u2)
   Ast.AstR2S opCode u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
+    let (memo2, u2) = inlineAst c memo u
+        (memo3, v3) = inlineAst c memo2 v
     in (memo3, Ast.AstR2S opCode u2 v3)
   Ast.AstI2S opCode u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
+    let (memo2, u2) = inlineAst c memo u
+        (memo3, v3) = inlineAst c memo2 v
     in (memo3, Ast.AstI2S opCode u2 v3)
   Ast.AstConcreteS{} -> (memo, v0)
-  Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAst memo a
-  Ast.AstFromIntegralS v -> second Ast.AstFromIntegralS $ inlineAst memo v
-  Ast.AstCastS v -> second Ast.AstCastS $ inlineAst memo v
-  Ast.AstArgMinS a -> second Ast.AstArgMinS $ inlineAst memo a
-  Ast.AstArgMaxS a -> second Ast.AstArgMaxS $ inlineAst memo a
+  Ast.AstFloorS a -> second Ast.AstFloorS $ inlineAst c memo a
+  Ast.AstFromIntegralS v -> second Ast.AstFromIntegralS $ inlineAst c memo v
+  Ast.AstCastS v -> second Ast.AstCastS $ inlineAst c memo v
+  Ast.AstArgMinS a -> second Ast.AstArgMinS $ inlineAst c memo a
+  Ast.AstArgMaxS a -> second Ast.AstArgMaxS $ inlineAst c memo a
   Ast.AstIndexS @shm shn v ix ->
-    let (memo1, v2) = inlineAst memo v
-        (memo2, ix2) = mapAccumL' inlineAst memo1 (Foldable.toList ix)
+    let (memo1, v2) = inlineAst c memo v
+        (memo2, ix2) = mapAccumL' (inlineAst c) memo1 (Foldable.toList ix)
     in (memo2, Ast.AstIndexS @shm shn v2 (ixsFromIxS ix ix2))
 
   -- This is a place where our inlining may increase code size
@@ -180,103 +175,106 @@ inlineAst !memo v0 = case v0 of
   -- that we can let it be until problems are encountered in the wild.
   -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
   Ast.AstCondK b a2 a3 ->
-    let (memo1, b1) = inlineAst memo b
-        (memoA2, t2) = inlineAst EM.empty a2
-        (memoA3, t3) = inlineAst EM.empty a3
+    let (memoA2, t2) = inlineAst c memo a2
+        (memoA3, t3) = inlineAst c memo a3
         memo4 = EM.unionWith max memoA2 memoA3
-        memo5 = EM.unionWith (+) memo1 memo4
+        (memo5, b1) = inlineAst c memo4 b
     in (memo5, Ast.AstCondK b1 t2 t3)
   Ast.AstCondS b a2 a3 ->
-    let (memo1, b1) = inlineAst memo b
-        (memoA2, t2) = inlineAst EM.empty a2
-        (memoA3, t3) = inlineAst EM.empty a3
+    let (memoA2, t2) = inlineAst c memo a2
+        (memoA3, t3) = inlineAst c memo a3
         memo4 = EM.unionWith max memoA2 memoA3
-        memo5 = EM.unionWith (+) memo1 memo4
+        (memo5, b1) = inlineAst c memo4 b
     in (memo5, Ast.AstCondS b1 t2 t3)
   Ast.AstFromVectorK shm l ->
-    let (memo2, l2) = mapAccumL' inlineAst memo $ V.toList l
+    let (memo2, l2) = mapAccumL' (inlineAst c) memo $ V.toList l
     in (memo2, Ast.AstFromVectorK shm $ V.fromListN (V.length l) l2)
   Ast.AstFromVectorS shm l ->
-    let (memo2, l2) = mapAccumL' inlineAst memo $ V.toList l
+    let (memo2, l2) = mapAccumL' (inlineAst c) memo $ V.toList l
     in (memo2, Ast.AstFromVectorS shm $ V.fromListN (V.length l) l2)
-  Ast.AstSumK v -> second Ast.AstSumK (inlineAst memo v)
-  Ast.AstSumS shm v -> second (Ast.AstSumS shm) (inlineAst memo v)
+  Ast.AstSumK v -> second Ast.AstSumK (inlineAst c memo v)
+  Ast.AstSumS shm v -> second (Ast.AstSumS shm) (inlineAst c memo v)
   Ast.AstScatterS shm shn shp v (vars, ix) ->
-    let (memo1, v2) = inlineAst memo v
-        (memoI0, ix2) = mapAccumL' inlineAst EM.empty (Foldable.toList ix)
-        memoI2 = EM.map (shsSize shp *) memoI0
-        memo2 = EM.unionWith (+) memo1 memoI2
+    let (memo1, v2) = inlineAst c memo v
+        (memo2, ix2) = mapAccumL' (inlineAst (shsSize shp * c)) memo1
+                                  (Foldable.toList ix)
+        memo2NoVar = foldr (\var -> EM.delete (varNameToAstVarId var))
+                           memo2 vars
         !ix3 = ixsFromIxS ix ix2
-    in (memo2, Ast.AstScatterS shm shn shp v2 (vars, ix3))
-  Ast.AstReplicateK shm v -> second (Ast.AstReplicateK shm) (inlineAst memo v)
-  Ast.AstReplicateS shm v -> second (Ast.AstReplicateS shm) (inlineAst memo v)
+    in (memo2NoVar, Ast.AstScatterS shm shn shp v2 (vars, ix3))
+  Ast.AstReplicateK shm v -> second (Ast.AstReplicateK shm) (inlineAst c memo v)
+  Ast.AstReplicateS shm v -> second (Ast.AstReplicateS shm) (inlineAst c memo v)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
-    let (memo1, v2) = inlineAst memo v
-        (memoI0, ix2) = mapAccumL' inlineAst EM.empty (Foldable.toList ix)
-        memoI2 = EM.map (shsSize shm *) memoI0
-        memo2 = EM.unionWith (+) memo1 memoI2
+    let (memo1, v2) = inlineAst c memo v
+        (memo2, ix2) = mapAccumL' (inlineAst (shsSize shp * c)) memo1
+                                  (Foldable.toList ix)
+        memo2NoVar = foldr (\var -> EM.delete (varNameToAstVarId var))
+                           memo2 vars
         !ix3 = ixsFromIxS ix ix2
-    in (memo2, Ast.AstGatherS shm shn shp v2 (vars, ix3))
+    in (memo2NoVar, Ast.AstGatherS shm shn shp v2 (vars, ix3))
   Ast.AstIotaS{} -> (memo, v0)
   Ast.AstAppendS x y ->
-    let (memo1, t1) = inlineAst memo x
-        (memo2, t2) = inlineAst memo1 y
+    let (memo1, t1) = inlineAst c memo x
+        (memo2, t2) = inlineAst c memo1 y
     in (memo2, Ast.AstAppendS t1 t2)
-  Ast.AstSliceS i n k v -> second (Ast.AstSliceS i n k) (inlineAst memo v)
-  Ast.AstReverseS v -> second Ast.AstReverseS (inlineAst memo v)
-  Ast.AstTransposeS perm v -> second (Ast.AstTransposeS perm) $ inlineAst memo v
-  Ast.AstReshapeS sh v -> second (Ast.AstReshapeS sh) (inlineAst memo v)
+  Ast.AstSliceS i n k v -> second (Ast.AstSliceS i n k) (inlineAst c memo v)
+  Ast.AstReverseS v -> second Ast.AstReverseS (inlineAst c memo v)
+  Ast.AstTransposeS perm v ->
+    second (Ast.AstTransposeS perm) $ inlineAst c memo v
+  Ast.AstReshapeS sh v -> second (Ast.AstReshapeS sh) (inlineAst c memo v)
 
-  Ast.AstConvert c v -> second (Ast.AstConvert c) $ inlineAst memo v
+  Ast.AstConvert c1 v -> second (Ast.AstConvert c1) $ inlineAst c memo v
 
   Ast.AstDot0 u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
+    let (memo2, u2) = inlineAst c memo u
+        (memo3, v3) = inlineAst c memo2 v
     in (memo3, Ast.AstDot0 u2 v3)
   Ast.AstDot1InS m n u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
+    let (memo2, u2) = inlineAst c memo u
+        (memo3, v3) = inlineAst c memo2 v
     in (memo3, Ast.AstDot1InS m n u2 v3)
   Ast.AstMatmul2S m n p u v ->
-    let (memo2, u2) = inlineAst memo u
-        (memo3, v3) = inlineAst memo2 v
+    let (memo2, u2) = inlineAst c memo u
+        (memo3, v3) = inlineAst c memo2 v
     in (memo3, Ast.AstMatmul2S m n p u2 v3)
 
   Ast.AstBoolNotK arg ->
-    let (memo2, arg2) = inlineAst memo arg
+    let (memo2, arg2) = inlineAst c memo arg
     in (memo2, Ast.AstBoolNotK arg2)
   Ast.AstBoolNotS arg ->
-    let (memo2, arg2) = inlineAst memo arg
+    let (memo2, arg2) = inlineAst c memo arg
     in (memo2, Ast.AstBoolNotS arg2)
   Ast.AstBoolAndK arg1 arg2 ->
-    let (memo1, b1) = inlineAst memo arg1
-        (memo2, b2) = inlineAst memo1 arg2
+    let (memo1, b1) = inlineAst c memo arg1
+        (memo2, b2) = inlineAst c memo1 arg2
     in (memo2, Ast.AstBoolAndK b1 b2)
   Ast.AstBoolAndS arg1 arg2 ->
-    let (memo1, b1) = inlineAst memo arg1
-        (memo2, b2) = inlineAst memo1 arg2
+    let (memo1, b1) = inlineAst c memo arg1
+        (memo2, b2) = inlineAst c memo1 arg2
     in (memo2, Ast.AstBoolAndS b1 b2)
   Ast.AstLeqK arg1 arg2 ->
-    let (memo1, r1) = inlineAst memo arg1
-        (memo2, r2) = inlineAst memo1 arg2
+    let (memo1, r1) = inlineAst c memo arg1
+        (memo2, r2) = inlineAst c memo1 arg2
     in (memo2, Ast.AstLeqK r1 r2)
   Ast.AstLeq arg1 arg2 ->
-    let (memo1, r1) = inlineAst memo arg1
-        (memo2, r2) = inlineAst memo1 arg2
+    let (memo1, r1) = inlineAst c memo arg1
+        (memo2, r2) = inlineAst c memo1 arg2
     in (memo2, Ast.AstLeq r1 r2)
   Ast.AstLeqS shb sh arg1 arg2 ->
-    let (memo1, r1) = inlineAst memo arg1
-        (memo2, r2) = inlineAst memo1 arg2
+    let (memo1, r1) = inlineAst c memo arg1
+        (memo2, r2) = inlineAst c memo1 arg2
     in (memo2, Ast.AstLeqS shb sh r1 r2)
 
 inlineAstHFun
   :: KnownSpan s
-  => AstMemo -> AstHFun s x y -> (AstMemo, AstHFun s x y)
-inlineAstHFun !memo v0 = case v0 of
+  => Int -> AstMemo -> AstHFun s x y -> (AstMemo, AstHFun s x y)
+inlineAstHFun c !memo v0 = case v0 of
   Ast.AstLambda var l ->
     -- No other free variables in l, so no outside lets can reach there,
     -- so we don't need to pass the information from v upwards.
-    (memo, Ast.AstLambda var (snd $ inlineAst EM.empty l))
+    -- However, how many times this code is copied by the context matters
+    -- so @c@ is taken into account instead of setting 1.
+    (memo, Ast.AstLambda var (snd $ inlineAst c EM.empty l))
 
 
 -- * Translation of global sharing to normal lets
