@@ -2327,8 +2327,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
       astIndex shn (astTransposeAsGatherS @perm (deVect knobs) perm v) ix
   Ast.AstTransposeS{} -> Ast.AstIndexS shn v0 ix
   -- This results in a larger term, so we consider this late.
-  Ast.AstReshapeS sh v | knobPhase knobs == PhaseExpansion
-                         || shsLength sh <= 1 ->  -- this is flatten
+  Ast.AstReshapeS sh v | shsLength sh <= 1 ->  -- this is flatten
     astIndex shn (astReshapeAsGatherS (deVect knobs) sh v) ix
   Ast.AstReshapeS{} -> Ast.AstIndexS shn v0 ix
 
