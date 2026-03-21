@@ -3202,6 +3202,10 @@ astGatherKnobsS _ _ _ _ v0 (!vars0, !_ix0)
     error $ "astGatherKnobsS: gather vars in v0: " ++ show (vars0, v0)
 astGatherKnobsS knobs _ shn _ v0 (ZS, ix0) = astIndexKnobsS knobs shn v0 ix0
 astGatherKnobsS _ shm _ _ v0 (_, ZIS) = astReplicateS shm v0
+astGatherKnobsS _ shm@(SZ :$$ _) shn _ v0 _
+  | FTKS _ x <- ftkAst v0 =
+    let ftk = FTKS (shm `shsAppend` shn) x
+    in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astGatherKnobsS _ shm shn _shp v0 (_, i1 :.$ _)
   | Just (lb, ub) <- intBounds i1
   , FTKS (snat :$$ _) x <- ftkAst v0
@@ -3538,48 +3542,42 @@ astGatherKnobsS knobs (m :$$ shm4) ZSS _shp
                 , i4 :.$ rest4 )
   | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
   , V.length l < 100
-  , let g = case i4 of
-          AstIntVar var | var == var4 -> Just id
-          AstTimesK (AstConcreteK n) (AstIntVar var)
-            | var == var4 -> Just (n *)
-          -- TODO: add more or define evaluation
+  , let g i = case substituteAst (AstConcreteK i) var4 i4 of
+          AstConcreteK j -> Just j
           _ -> Nothing
-  , Just h <- g
+  , Just lj <- mapM g [0 .. fromSNat' m - 1]
   , Refl <- lemAppNil @shm = assert (ixsLength rest4 == 0) $
-    let f i =
-          let j = h i
-          in if j >= V.length l
-             then let FTKS _ x = ftkAst v4
-                      ftk = FTKS shm4 x
-                  in fromPlain $ astConcrete ftk (tdefTarget ftk)
-             else astReplicateK shm4 (l V.! j)
+    let FTKS _ x = ftkAst v4
+        ftk = FTKS shm4 x
+        zero = fromPlain $ astConcrete ftk (tdefTarget ftk)
+        f j =
+          if j >= V.length l
+          then zero
+          else astReplicateK shm4 (l V.! j)
     in astFromVectorS (m :$$ ZSS)
-       $ V.fromListN (fromSNat' m) $ map f [0 .. fromSNat' m - 1]
+       $ V.fromListN (fromSNat' m) $ map f lj
 astGatherKnobsS knobs shm@(m :$$ (shm4 :: ShS shm4)) shn shp
                 v4@(Ast.AstFromVectorS (_ :$$ ZSS) l)
                 ( var4 ::$ vrest4
                 , i4 :.$ rest4 )
   | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
   , V.length l < 100
-  , let g = case i4 of
-          AstIntVar var | var == var4 -> Just id
-          AstTimesK (AstConcreteK n) (AstIntVar var)
-            | var == var4 -> Just (n *)
-          -- TODO: add more or define evaluation
+  , let g i = case substituteAst (AstConcreteK i) var4 i4 of
+          AstConcreteK j -> Just j
           _ -> Nothing
-  , Just h <- g
+  , Just lj <- mapM g [0 .. fromSNat' m - 1]
   , ixIsSmall rest4 =
-    let f i =
+    let FTKS _ x = ftkAst v4
+        ftk = FTKS (shsTail shm `shsAppend` shn) x
+        zero = fromPlain $ astConcrete ftk (tdefTarget ftk)
+        f (i, j) =
           let subRest4 = substituteAstIxS (AstConcreteK i) var4 rest4
-              j = h i
           in if j >= V.length l
-             then let FTKS _ x = ftkAst v4
-                      ftk = FTKS (shsTail shm `shsAppend` shn) x
-                  in fromPlain $ astConcrete ftk (tdefTarget ftk)
+             then zero
              else astGatherKnobsS knobs shm4 shn (shsTail shp)
                                   (l V.! j) (vrest4, subRest4)
     in astFromVectorS (m :$$ ZSS)
-       $ V.fromListN (fromSNat' m) $ map f [0 .. fromSNat' m - 1]
+       $ V.fromListN (fromSNat' m) $ map f (zip [0 .. fromSNat' m - 1] lj)
 astGatherKnobsS knobs shm shn shp v0 (vars0, i1 :.$ rest1)
   | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
       -- prevent a loop
@@ -3714,19 +3712,21 @@ astGatherKnobsS knobs shm@(m :$$ _) shn shp v0
             | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
             , Ast.AstFromVectorK (_ :$$ ZSS) l <- v0
             , V.length l < 100
-            , mvar <- case i4 of
-                AstIntVar var -> Just var
-                AstTimesK AstConcreteK{} (AstIntVar var) -> Just var
-                _ -> Nothing
+            , let g var4 i = case substituteAst (AstConcreteK i) var4 i4 of
+                    AstConcreteK{} -> True
+                    _ -> False
+                  mvar = Foldable.find (\var ->
+                           all (g var) [0 .. fromSNat' m - 1]) vars
             , Just{} <- mvar -> mvar
             | knobPhase knobs `elem` [PhaseSimplification, PhaseContraction]
             , Ast.AstFromVectorS (_ :$$ ZSS) l <- v0
             , V.length l < 100
             , ixIsSmall prest
-            , mvar <- case i4 of
-                AstIntVar var -> Just var
-                AstTimesK AstConcreteK{} (AstIntVar var) -> Just var
-                _ -> Nothing
+            , let g var4 i = case substituteAst (AstConcreteK i) var4 i4 of
+                    AstConcreteK{} -> True
+                    _ -> False
+                  mvar = Foldable.find (\var ->
+                           all (g var) [0 .. fromSNat' m - 1]) vars
             , Just{} <- mvar -> mvar
           _ -> Nothing
   , Just varp <- varInteresting i1
