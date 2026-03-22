@@ -68,14 +68,10 @@ inlineAst c !memo v0 = case v0 of
     let (memo1, t2) = inlineAstHFun c memo t
         (memo2, ll2) = inlineAst c memo1 ll
     in (memo2, Ast.AstApply t2 ll2)
-  Ast.AstVar var ->
-    let f Nothing = Just c
-        f (Just count) = Just $ count + c
-    in (EM.alter f (varNameToAstVarId var) memo, v0)
+  Ast.AstVar var -> (EM.adjust (+ c) (varNameToAstVarId var) memo, v0)
   Ast.AstBuild1 k stk (var, v) ->
     let (memo1, !v2) = inlineAst (fromSNat' k * c) memo v
-        memo1NoVar = EM.delete (varNameToAstVarId var) memo1
-    in (memo1NoVar, Ast.AstBuild1 k stk (var, v2))
+    in (memo1, Ast.AstBuild1 k stk (var, v2))
 
   Ast.AstLet var u v ->
     -- We assume there are no nested lets with the same variable, hence
@@ -83,10 +79,10 @@ inlineAst c !memo v0 = case v0 of
     -- the recursive call for v with memo intact, to record extra occurrences
     -- of other variables without the costly summing of maps.
     withKnownSpan (varNameToSpan var) $
-    let (memo1, v2) = inlineAst c memo v
+    let (memo1, v2) = inlineAst c (EM.insert (varNameToAstVarId var) 0 memo) v
         memo1NoVar = EM.delete (varNameToAstVarId var) memo1
-    in case EM.findWithDefault 0 (varNameToAstVarId var) memo1 of
-      0 -> (memo1, v2)
+    in case memo1 EM.! varNameToAstVarId var of
+      0 -> (memo1NoVar, v2)
       count | count <= c  -- occurs once and in the same nesting situation
               || astIsSmall (count < 100) u ->
         let (memo3, u0) = inlineAst count memo1NoVar u
@@ -198,20 +194,16 @@ inlineAst c !memo v0 = case v0 of
     let (memo1, v2) = inlineAst c memo v
         (memo2, ix2) = mapAccumL' (inlineAst (shsSize shp * c)) memo1
                                   (Foldable.toList ix)
-        memo2NoVar = foldr (\var -> EM.delete (varNameToAstVarId var))
-                           memo2 vars
         !ix3 = ixsFromIxS ix ix2
-    in (memo2NoVar, Ast.AstScatterS shm shn shp v2 (vars, ix3))
+    in (memo2, Ast.AstScatterS shm shn shp v2 (vars, ix3))
   Ast.AstReplicateK shm v -> second (Ast.AstReplicateK shm) (inlineAst c memo v)
   Ast.AstReplicateS shm v -> second (Ast.AstReplicateS shm) (inlineAst c memo v)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     let (memo1, v2) = inlineAst c memo v
         (memo2, ix2) = mapAccumL' (inlineAst (shsSize shp * c)) memo1
                                   (Foldable.toList ix)
-        memo2NoVar = foldr (\var -> EM.delete (varNameToAstVarId var))
-                           memo2 vars
         !ix3 = ixsFromIxS ix ix2
-    in (memo2NoVar, Ast.AstGatherS shm shn shp v2 (vars, ix3))
+    in (memo2, Ast.AstGatherS shm shn shp v2 (vars, ix3))
   Ast.AstIotaS{} -> (memo, v0)
   Ast.AstAppendS x y ->
     let (memo1, t1) = inlineAst c memo x
