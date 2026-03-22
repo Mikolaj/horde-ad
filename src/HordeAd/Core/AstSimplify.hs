@@ -1482,13 +1482,10 @@ astIndexKnobsK knobs v0 ix@(i1 :.$ rest1)
       in gcastWith (unsafeCoerceRefl
                     :: sh2 :~: Permutation.PermutePrefix permR shm) $
          astIndex @(Permutation.PermutePrefix permR shm) v ix2
-  Ast.AstTransposeS @perm perm v
-    | knobPhase knobs `elem` [PhaseVectorization, PhaseExpansion] ->
-      astIndex (astTransposeAsGatherS @perm (deVect knobs) perm v) ix
+  Ast.AstTransposeS @perm perm v ->
+    astIndex (astTransposeAsGatherS @perm (deVect knobs) perm v) ix
   Ast.AstTransposeS{} -> Ast.AstIndexK v0 ix
-  -- This results in a larger term, so we consider this late.
-  Ast.AstReshapeS sh v | knobPhase knobs == PhaseExpansion
-                         || shsLength sh <= 1 ->  -- this is flatten
+  Ast.AstReshapeS sh v ->
     astIndex (astReshapeAsGatherS (deVect knobs) sh v) ix
   Ast.AstReshapeS{} -> Ast.AstIndexK v0 ix
 
@@ -2322,11 +2319,12 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
       in gcastWith (unsafeCoerceRefl
                     :: sh2 :~: Permutation.PermutePrefix invperm shm ++ shn) $
          astIndex shn v ix2
+  -- This results in a larger term, so we consider this late.
   Ast.AstTransposeS @perm perm v
     | knobPhase knobs `elem` [PhaseVectorization, PhaseExpansion] ->
       astIndex shn (astTransposeAsGatherS @perm (deVect knobs) perm v) ix
   Ast.AstTransposeS{} -> Ast.AstIndexS shn v0 ix
-  -- This results in a larger term, so we consider this late.
+  -- This results in a larger term, so we only permit it for the flat case.
   Ast.AstReshapeS sh v | shsLength sh <= 1 ->  -- this is flatten
     astIndex shn (astReshapeAsGatherS (deVect knobs) sh v) ix
   Ast.AstReshapeS{} -> Ast.AstIndexS shn v0 ix
