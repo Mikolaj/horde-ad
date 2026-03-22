@@ -1781,7 +1781,9 @@ tbuildS shm shn f = case knownSTK @x of
             , Refl <- lemAppNil @shm ->
     tbuildK shm (Concrete . Nested.sunScalar . unConcrete . f)
   _ | Dict <- eltDictRep (knownSTK @x) ->
-    withKnownShS shn $  -- TODO: why exactly is this needed?
+    withKnownShS shn $
+      -- this is needed due to
+      -- instance (KnownShS sh, KnownElt a) => KnownElt (Shaped sh a) where
     let h ix = unConcrete $ f (fmapConcrete ix)
     in Concrete $ Nested.sunNest $ Nested.sgenerate shm h
 

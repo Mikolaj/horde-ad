@@ -542,12 +542,12 @@ printAst cfg d = \case
       . printAst cfg 11 v
 
   AstBoolNotK u -> printPrefixOp printAst cfg d "notB" [u]
-  AstBoolNotS u -> printPrefixOp printAst cfg d "notA" [u]  -- TODO
+  AstBoolNotS u -> printPrefixOp printAst cfg d "notS" [u]  -- TODO
   AstBoolAndK u v -> printBinaryOp printAst cfg d u (3, "&&*") v
-  AstBoolAndS u v -> printBinaryOp printAst cfg d u (3, "`andA`") v  -- TODO
+  AstBoolAndS u v -> printBinaryOp printAst cfg d u (3, "`andS`") v  -- TODO
   AstLeqK u v -> printBinaryOp printAst cfg d u (4, "<=.") v
   AstLeq u v -> printBinaryOp printAst cfg d u (4, "<=.") v
-  AstLeqS _ _ u v -> printBinaryOp printAst cfg d u (4, "`leqA`") v  -- TODO
+  AstLeqS _ _ u v -> printBinaryOp printAst cfg d u (4, "`leqS`") v  -- TODO
 
 showNumber :: Show a => a -> ShowS
 {-# INLINE showNumber #-}
