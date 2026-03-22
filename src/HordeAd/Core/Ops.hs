@@ -945,12 +945,12 @@ class ( Num (IntOf target)
            => (IntOf target -> target (TKX2 sh x))
            -> target (TKX2 (Just k ': sh) x)
 
-  txbuild :: (KnownShX shm, KnownShX shn, KnownSTK x, ConvertTensor target)
+  txbuild :: forall shm shn x. (KnownShX shn, KnownSTK x)
           => IShX shm
           -> (IxXOf target shm -> target (TKX2 shn x))
           -> target (TKX2 (shm ++ shn) x)
   {-# INLINE txbuild #-}
-  txbuild @_ @shn @x shm f0 =
+  txbuild shm f0 =
     let buildSh :: IShX shm1
                 -> (IxXOf target shm1 -> target (TKX2 shn x))
                 -> target (TKX2 (shm1 ++ shn) x)
@@ -1242,9 +1242,12 @@ class ( Num (IntOf target)
               => FullShapeTK y -> target y -> target y
               -> target (TKScalar Double)
 
-  -- TODO: express without ConvertTensor or move there
-  xmcast :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)
-         => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
+  xmcast
+    :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2)
+    => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
+  default xmcast
+    :: (KnownSTK x, KnownShX sh, Rank sh ~ Rank sh2, ConvertTensor target)
+    => StaticShX sh2 -> target (TKX2 sh x) -> target (TKX2 sh2 x)
   xmcast sh2 a = case tftk knownSTK a of
     FTKX sh' _ ->
       withShsFromShX sh' $ \(sh :: ShS sh) ->

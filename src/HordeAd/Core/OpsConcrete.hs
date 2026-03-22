@@ -31,7 +31,7 @@ import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Nested (MapJust, Replicate, type (++))
 import Data.Array.Nested qualified as Nested
-import Data.Array.Nested.Convert (shxFromShR, shxFromShS)
+import Data.Array.Nested.Convert (mcast, shxFromShR, shxFromShS)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed qualified as Mixed
 import Data.Array.Nested.Mixed.Shape
@@ -770,7 +770,8 @@ instance BaseTensor Concrete where
   tmultTarget = multTarget
   tsum0Target = sum0Target
   tdot0Target = dot0Target
-
+  xmcast @x sh2 | Dict <- eltDictRep (knownSTK @x) =
+    Concrete . mcast sh2 . unConcrete
 
 instance ConvertTensor Concrete where
   {-# INLINE tconvert #-}

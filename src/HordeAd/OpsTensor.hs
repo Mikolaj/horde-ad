@@ -1079,8 +1079,7 @@ xbuild1 :: (KnownNat k, KnownShX sh, KnownSTK x, BaseTensor target)
         -> target (TKX2 (Just k ': sh) x)
 {-# INLINE xbuild1 #-}
 xbuild1 = txbuild1
-xbuild :: ( KnownShX shm, KnownShX shn, KnownSTK x
-          , BaseTensor target, ConvertTensor target )
+xbuild :: forall shm shn x target. (KnownShX shn, KnownSTK x, BaseTensor target)
        => IShX shm
        -> (IxXOf target shm -> target (TKX2 shn x))
             -- ^ the function to build with
