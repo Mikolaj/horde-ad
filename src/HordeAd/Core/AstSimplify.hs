@@ -3139,6 +3139,7 @@ astReplicateK :: forall shm r s. (GoodScalar r, KnownSpan s)
               -> AstTensor AstMethodLet s (TKS shm r)
 astReplicateK ZSS t0 = sfromK t0
 astReplicateK shm t0 = case t0 of
+  Ast.AstLet var t v -> astLet var t (astReplicateK shm v)
   Ast.AstFromPrimal v -> fromPrimal $ astReplicateK shm v
   Ast.AstFromDual v -> fromDual $ astReplicateK shm v
   Ast.AstFromPlain v -> fromPlain $ astReplicateK shm v
@@ -3153,9 +3154,8 @@ astReplicateS ZSS t0 = t0
 astReplicateS shm t0 = case t0 of
   -- TODO: This rules is, in principle, very good, because it permits many other
   -- rules to fire. However, one of these other rules is indexing of transpose
-  -- that in some cases complicates terms and causes OOM in CNNI tests.
-  -- We need to restrict the indexing rule more effectively first.
-  -- Ast.AstLet var t v -> astLet var t (astReplicate snat stk v)
+  -- that in some cases complicates terms and degrades performance considerably.
+  -- Ast.AstLet var t v -> astLet var t (astReplicateS shm v)
   Ast.AstFromPrimal v -> fromPrimal $ astReplicateS shm v
   Ast.AstFromDual v -> fromDual $ astReplicateS shm v
   Ast.AstFromPlain v -> fromPlain $ astReplicateS shm v
