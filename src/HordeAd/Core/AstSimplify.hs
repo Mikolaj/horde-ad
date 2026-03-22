@@ -1484,10 +1484,8 @@ astIndexKnobsK knobs v0 ix@(i1 :.$ rest1)
          astIndex @(Permutation.PermutePrefix permR shm) v ix2
   Ast.AstTransposeS @perm perm v ->
     astIndex (astTransposeAsGatherS @perm (deVect knobs) perm v) ix
-  Ast.AstTransposeS{} -> Ast.AstIndexK v0 ix
   Ast.AstReshapeS sh v ->
     astIndex (astReshapeAsGatherS (deVect knobs) sh v) ix
-  Ast.AstReshapeS{} -> Ast.AstIndexK v0 ix
 
   -- Conversions to shaped need to stay down, so this is NF.
   Ast.AstConvert{} -> Ast.AstIndexK v0 ix
@@ -2870,12 +2868,11 @@ astScatterKnobsS knobs shm@(m :$$ _) shn (p@(SNat @p) :$$ ZSS) v0
 --         $ astScatterKnobsS knobs shm shn (snatMul k i :$$ ZSS)
 astScatterKnobsS knobs shm shn shp@(SNat' @1 :$$ _)
                  v (vars, AstConcreteK _ :.$ rest) =  -- if OOB, covered above
-    astReplicateS (SNat @1 :$$ ZSS)
-    $ astScatterKnobsS knobs shm shn (shsTail shp) v (vars, rest)
-astScatterKnobsS knobs shm shn shp (Ast.AstLet var u v) (vars, ix)
-  | knobPhase knobs /= PhaseContraction =
-    astLetRefresh var u v
-    $ \v' -> astScatterKnobsS knobs shm shn shp v' (vars, ix)
+  astReplicateS (SNat @1 :$$ ZSS)
+  $ astScatterKnobsS knobs shm shn (shsTail shp) v (vars, rest)
+astScatterKnobsS knobs shm shn shp (Ast.AstLet var u v) (vars, ix) =
+  astLetRefresh var u v
+  $ \v' -> astScatterKnobsS knobs shm shn shp v' (vars, ix)
 astScatterKnobsS knobs shm shn shp (Ast.AstFromPrimal v) (vars, ix) =
   fromPrimal $ astScatterKnobsS knobs shm shn shp v (vars, ix)
 astScatterKnobsS knobs shm shn shp (Ast.AstFromDual v) (vars, ix) =
