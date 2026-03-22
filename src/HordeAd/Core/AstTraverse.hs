@@ -141,53 +141,8 @@ expandAst t = case t of
   Ast.AstAppendS x y -> astAppendS (expandAst x) (expandAst y)
   Ast.AstSliceS i n k v -> astSliceS i n k (expandAst v)
   Ast.AstReverseS v -> astReverseS (expandAst v)
-  Ast.AstTransposeS perm v -> {-
-   -- disabled until we can reliably fuse back to transpose
-   case expandAst v of
-    Ast.AstVar{} -> t  -- normal form
-    Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
-    Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
-    Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
-    Ast.AstFromDual Ast.AstVar{} -> t  -- normal form
-    Ast.AstProject1{} -> t  -- normal form
-    Ast.AstProject2{} -> t  -- normal form
-    Ast.AstFromIntegralS{} -> t  -- normal form
-    Ast.AstCastS{} -> t  -- normal form
-    Ast.AstReplicate{} -> t  -- normal form
-      -- TODO: this nf is silly, but right now transposes of replicates
-      -- are small arrays and equivalent gathers are large terms and arrays,
-      -- so this has to stay. Maybe we should contract gathers back
-      -- to transposes of replicates (not only to replicates). Or maybe
-      -- we should extend orthotope to any gather schemes, not only
-      -- the simple ones.
-      -- TODO: review also other nfs here and for AstReshapeS below
-    Ast.AstScatterS _ _ (_, ix)
-     | gcompare (Permutation.permRank perm) (ixsRank ix) == GGT -> t  -- nf
-    v2 ->  -- not nf, let's express all as a gather
-      astTransposeAsGatherS (defaultKnobs {knobExpand = True})
-                            perm v2  -- TODO: (normalizePermutation perm)
-        -- this is expensive but the only way to guarantee full simplification
-    -} astTransposeS perm (expandAst v)
-  Ast.AstReshapeS sh v -> {-  -- too hard to fuse back to reshape
-   case expandAst v of
-    Ast.AstVar{} -> t  -- normal form
-    Ast.AstPrimalPart Ast.AstVar{} -> t  -- normal form
-    Ast.AstDualPart Ast.AstVar{} -> t  -- normal form
-    Ast.AstFromPrimal Ast.AstVar{} -> t  -- normal form
-    Ast.AstFromDual Ast.AstVar{} -> t  -- normal form
-    Ast.AstProject1{} -> t  -- normal form
-    Ast.AstProject2{} -> t  -- normal form
-    Ast.AstFromIntegralS{} -> t  -- normal form
-    Ast.AstCastS{} -> t  -- normal form
-    AstPlusS{} -> t  -- normal form
-    AstTimesS{} -> t  -- normal form
-    Ast.AstR2S{} -> t  -- normal form
-    Ast.AstScatterS{} -> t  -- normal form
-    v2 ->  -- not nf, let's express all as a gather
-      astReshapeAsGatherS (defaultKnobs {knobExpand = True})
-                          sh v2
-        -- this is expensive but the only way to guarantee full simplification
-    -} astReshapeS sh (expandAst v)
+  Ast.AstTransposeS perm v -> astTransposeS perm (expandAst v)
+  Ast.AstReshapeS sh v -> astReshapeS sh (expandAst v)
 
   Ast.AstConvert c v -> astConvert c $ expandAst v
 
