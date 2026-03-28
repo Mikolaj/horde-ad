@@ -2849,7 +2849,7 @@ astScatterKnobsS knobs shm@(m :$$ _) shn (p@(SNat @p) :$$ ZSS) v0
   , FTKS _ x <- ftkAst v0
   , let k0 = (fromSNat' m + i0 - 1) `quot` i0
   , fromSNat' p >= k0 =  -- most likely, because not OOB
-    withSNat i0 $ \i@(SNat @i) ->
+    withSNat i0 $ \i ->
     withSNat k0 $ \k@(SNat @k) ->
     withSNat (fromSNat' p - k0) $ \z2@(SNat @z2) ->
       let ftk = FTKS (z2 :$$ shn) x
@@ -2861,11 +2861,9 @@ astScatterKnobsS knobs shm@(m :$$ _) shn (p@(SNat @p) :$$ ZSS) v0
          -- but the following reduces to a nested sum of v0 with some transposes
          -- and appends, so we likely create something much smaller than v0
          -- despite the outermost dimension not shrinking as it did before.
-         $ astScatterKnobsS knobs shm shn (SNat @(k * i) :$$ ZSS)
+         $ astScatterKnobsS knobs shm shn (snatMul k i :$$ ZSS)
                             v0 (varm ::$ mrest, astVar varm :.$ ZIS)
              -- this gather may still index out of bounds, which is fine
--- TODO: this breaks typing and GHCs > 9.10 misreport it, too:
---         $ astScatterKnobsS knobs shm shn (snatMul k i :$$ ZSS)
 astScatterKnobsS knobs shm shn shp@(SNat' @1 :$$ _)
                  v (vars, AstConcreteK _ :.$ rest) =  -- if OOB, covered above
   astReplicateS (SNat @1 :$$ ZSS)
