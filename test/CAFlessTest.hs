@@ -29,8 +29,8 @@ main = do
 
 tests :: TestTree
 tests =
-  testGroup "Tests for simplified horde-ad that don't create big CAFs"
-    [ testGroup "Short_tests"
+  inOrderTestGroup "Tests for simplified horde-ad that don't create big CAFs"
+    [ inOrderTestGroup "Short_tests"
         (TestAdaptorSimplified.testTrees
          ++ TestConvSimplified.testTrees
          ++ TestGatherSimplified.testTrees

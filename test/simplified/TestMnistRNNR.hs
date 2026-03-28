@@ -152,7 +152,7 @@ mnistTestCaseRNNRA prefix epochs maxBatches width miniBatchSize totalBatchSize
   -> TestTree #-}
 
 tensorADValMnistTestsRNNRA :: TestTree
-tensorADValMnistTestsRNNRA = testGroup "RNNR ADVal MNIST tests"
+tensorADValMnistTestsRNNRA = inOrderTestGroup "RNNR ADVal MNIST tests"
   [ mnistTestCaseRNNRA "RNNRA 1 epoch, 1 batch" 1 1 128 150 5000
                        (0.6026 :: Double)
   , mnistTestCaseRNNRA "RNNRA artificial 1 2 3 4 5" 2 3 4 5 50
@@ -283,7 +283,7 @@ mnistTestCaseRNNRI prefix epochs maxBatches width miniBatchSize totalBatchSize
   -> TestTree #-}
 
 tensorADValMnistTestsRNNRI :: TestTree
-tensorADValMnistTestsRNNRI = testGroup "RNNR Intermediate MNIST tests"
+tensorADValMnistTestsRNNRI = inOrderTestGroup "RNNR Intermediate MNIST tests"
   [ mnistTestCaseRNNRI "RNNRI 1 epoch, 1 batch" 1 1 128 150 5000
                        (0.6026 :: Double)
   , mnistTestCaseRNNRI "RNNRI artificial 1 2 3 4 5" 2 3 4 5 50
@@ -417,7 +417,7 @@ mnistTestCaseRNNRO prefix epochs maxBatches width miniBatchSize totalBatchSize
   -> TestTree #-}
 
 tensorADValMnistTestsRNNRO :: TestTree
-tensorADValMnistTestsRNNRO = testGroup "RNNR Once MNIST tests"
+tensorADValMnistTestsRNNRO = inOrderTestGroup "RNNR Once MNIST tests"
   [ mnistTestCaseRNNRO "RNNRO 1 epoch, 1 batch" 1 1 128 150 5000
                        (0.6026 :: Double)
   , mnistTestCaseRNNRO "RNNRO artificial 1 2 3 4 5" 2 3 4 5 50

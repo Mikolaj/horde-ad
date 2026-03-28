@@ -28,8 +28,8 @@ main = do
 
 tests :: TestTree
 tests =
-  testGroup "The set of tests for simplified horde-ad that can run in parallel"
-    [ testGroup "Long_tests"
+  inOrderTestGroup "The set of MNIST tests for horde-ad that can serve as a benchmark when run sequentially"
+    [ inOrderTestGroup "Long_tests"
         (TestMnistCNNR.testTrees
          ++ TestMnistCNNS.testTrees
          ++ TestMnistFCNNR.testTrees

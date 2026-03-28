@@ -24,5 +24,5 @@ main = do
 
 tests :: TestTree
 tests =
-  testGroup "Minimal test that doesn't require any dataset"
+  inOrderTestGroup "Minimal test that doesn't require any dataset"
     TestGatherSimplified.testTrees

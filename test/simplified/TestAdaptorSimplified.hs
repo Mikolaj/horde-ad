@@ -2572,7 +2572,7 @@ fblowupLetPP23 = do
 
 -- TODO: should do 1000000 in a few seconds
 blowupTests :: TestTree
-blowupTests = testGroup "Catastrophic blowup avoidance tests"
+blowupTests = inOrderTestGroup "Catastrophic blowup avoidance tests"
   [ testCase "blowup prim 7" $ do
       assertEqualUpToEpsilon' 1e-5
         (ringestData [2] [0.3333332333333467,-0.22222215555556446])

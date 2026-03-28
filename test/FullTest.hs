@@ -36,7 +36,7 @@ main = do
 tests :: TestTree
 tests =
   testGroup "Full set of tests for simplified horde-ad"
-    [ testGroup "Short_tests"
+    [ testGroup "Short_tests"  -- TODO: inOrderTestGroup needed here?
         (TestAdaptorSimplified.testTrees
          ++ TestConvSimplified.testTrees
          ++ TestGatherSimplified.testTrees

@@ -144,7 +144,7 @@ mnistTestCaseCNNSA prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
        testErrorFinal @?~ expected
 
 tensorADValMnistTestsCNNSA :: TestTree
-tensorADValMnistTestsCNNSA = testGroup "CNNS ADVal MNIST tests"
+tensorADValMnistTestsCNNSA = inOrderTestGroup "CNNS ADVal MNIST tests"
   [ mnistTestCaseCNNSA "CNNSA 1 epoch, 1 batch"
                        1 1 (SNat @4) (SNat @4) 8 16 1 1
                        (1 :: Double)
@@ -271,7 +271,7 @@ mnistTestCaseCNNSI prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
        testErrorFinal @?~ expected
 
 tensorADValMnistTestsCNNSI :: TestTree
-tensorADValMnistTestsCNNSI = testGroup "CNNS Intermediate MNIST tests"
+tensorADValMnistTestsCNNSI = inOrderTestGroup "CNNS Intermediate MNIST tests"
   [ mnistTestCaseCNNSI "CNNSI 1 epoch, 1 batch"
                        1 1 (SNat @4) (SNat @4) 8 16 1 1
                        (1 :: Double)
@@ -409,7 +409,7 @@ mnistTestCaseCNNSO prefix epochs maxBatches kh@SNat kw@SNat c_outInt n_hiddenInt
        assertEqualUpToEpsilon 1e-1 expected testErrorFinal
 
 tensorADValMnistTestsCNNSO :: TestTree
-tensorADValMnistTestsCNNSO = testGroup "CNNS Once MNIST tests"
+tensorADValMnistTestsCNNSO = inOrderTestGroup "CNNS Once MNIST tests"
   [ mnistTestCaseCNNSO "CNNSO 1 epoch, 1 batch"
                        1 1 (SNat @4) (SNat @4) 8 16 1 1
                        (1 :: Double)

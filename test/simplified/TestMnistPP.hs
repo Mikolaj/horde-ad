@@ -46,7 +46,7 @@ type XParams widthHidden widthHidden2 r =
        Concrete widthHidden widthHidden2 r)
 
 tensorMnistPPFCNNR :: TestTree
-tensorMnistPPFCNNR = testGroup "PP and Ast tests for Short Ranked MNIST"
+tensorMnistPPFCNNR = inOrderTestGroup "PP and Ast tests for Short Ranked MNIST"
   [ testCase "VTO1 PP Lin" testVTOPP
   , testCase "VTO1 Ast Lin" testVTOAst
   , testCase "VTO1 PP NonLin" testVTOPPNonLin
@@ -363,7 +363,7 @@ testVT2OAstNonLin3 = do
 -- * RNNR tests
 
 tensorMnistPPRNNR :: TestTree
-tensorMnistPPRNNR = testGroup "PP and Ast tests for RNNR MNIST"
+tensorMnistPPRNNR = inOrderTestGroup "PP and Ast tests for RNNR MNIST"
   [ testCase "RNNO PP" testRNNOPP
   , testCase "RNNO Ast" testRNNOAst
   , testCase "RNNO PP 2" testRNNOPP2
@@ -516,7 +516,7 @@ testRNNOAst2 = do
 -- * CNNR tests
 
 tensorMnistCNNRPP :: TestTree
-tensorMnistCNNRPP = testGroup "Ast tests for CNNR MNIST"
+tensorMnistCNNRPP = inOrderTestGroup "Ast tests for CNNR MNIST"
   [ testCase "CNNO PP 1" testCNNOPP1
   , testCase "CNNO Ast 1" testCNNOAst1
   , testCase "CNNO PP 2" testCNNOPP2

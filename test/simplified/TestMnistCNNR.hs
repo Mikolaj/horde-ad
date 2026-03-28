@@ -141,7 +141,7 @@ mnistTestCaseCNNRA prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
   -> TestTree #-}
 
 tensorADValMnistTestsCNNRA :: TestTree
-tensorADValMnistTestsCNNRA = testGroup "CNNR ADVal MNIST tests"
+tensorADValMnistTestsCNNRA = inOrderTestGroup "CNNR ADVal MNIST tests"
   [ mnistTestCaseCNNRA "CNNRA 1 epoch, 1 batch" 1 1 4 4 8 16 1 1
                        (1 :: Double)
   , mnistTestCaseCNNRA "CNNRA artificial 1 2 3 4 5" 1 1 2 3 4 5 1 10
@@ -266,7 +266,7 @@ mnistTestCaseCNNRI prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
   -> TestTree #-}
 
 tensorADValMnistTestsCNNRI :: TestTree
-tensorADValMnistTestsCNNRI = testGroup "CNNR Intermediate MNIST tests"
+tensorADValMnistTestsCNNRI = inOrderTestGroup "CNNR Intermediate MNIST tests"
   [ mnistTestCaseCNNRI "CNNRI 1 epoch, 1 batch" 1 1 4 4 8 16 1 1
                        (1 :: Double)
   , mnistTestCaseCNNRI "CNNRI artificial 1 2 3 4 5" 1 1 2 3 4 5 1 10
@@ -396,7 +396,7 @@ mnistTestCaseCNNRO prefix epochs maxBatches khInt kwInt c_outInt n_hiddenInt
   -> TestTree #-}
 
 tensorADValMnistTestsCNNRO :: TestTree
-tensorADValMnistTestsCNNRO = testGroup "CNNR Once MNIST tests"
+tensorADValMnistTestsCNNRO = inOrderTestGroup "CNNR Once MNIST tests"
   [ mnistTestCaseCNNRO "CNNRO 1 epoch, 1 batch" 1 1 4 4 8 16 1 1
                        (1 :: Double)
   , mnistTestCaseCNNRO "CNNRO artificial 1 2 3 4 5" 1 1 2 3 4 5 1 10

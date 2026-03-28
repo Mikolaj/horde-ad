@@ -80,7 +80,7 @@ ws = let w = [0.37, 0.28, 0.19] in V.fromList $ w ++ w ++ w
 ws2 = let w = [-1.37, 2.28, -0.19] in V.fromList $ w ++ w ++ w
 
 xorTests :: TestTree
-xorTests = testGroup "XOR neural net tests"
+xorTests = inOrderTestGroup "XOR neural net tests"
   [ testCase "0.1 tanh ws 500" $ do
       let res = gdSimpleShow 0.1 (nnXorLossTotal tanh) ws 500
       res @?~ ([2.256964,2.255974,-0.6184606,0.943269,0.9431414,-1.2784432,1.805072,-1.9925138,-0.704399],1.20509565e-2)
