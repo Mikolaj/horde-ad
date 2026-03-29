@@ -111,12 +111,10 @@ instance DualNumberValue (Concrete y) where
   type DValue (Concrete y) = Concrete y
   fromDValue = id
 
-instance ( ADReadyNoLet target, ShareTensor target
-         , ShareTensor (PrimalOf target), ShareTensor (PlainOf target)
-         , KnownSTK y )
+instance (BaseTensor target, KnownSTK y)
          => DualNumberValue (ADVal target y) where
   type DValue (ADVal target y) = target y
-  fromDValue t = tfromPrimal (knownSTK @y) t
+  fromDValue t = fromPrimalFTK (tftk (knownSTK @y) t) t
 
 instance ForgetShape (target (TKScalar r)) where
   type NoShape (target (TKScalar r)) = target (TKScalar r)
