@@ -131,9 +131,6 @@ cfwdOnParams xftk parameters f ds =
 
 -- * Instances
 
-fromPrimalFTK :: FullShapeTK z -> f z -> ADVal f z
-fromPrimalFTK ftk a = dDnotShared a (DeltaZero ftk)
-
 -- TODO: inline all ops that take functions here, in OpsAst and OpsConcrete
 -- and benchmark to see if that's a good idea
 instance (ADReadyNoLet target, ShareTensor target, ShareTensor (PlainOf target))

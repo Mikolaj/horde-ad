@@ -9,7 +9,7 @@
 -- in case of reverse derivatives).
 module HordeAd.Core.CarriersADVal
   ( -- * The dual number type
-    ADVal, pattern D, dD, dDnotShared
+    ADVal, pattern D, dD, dDnotShared, fromPrimalFTK
     -- * Auxiliary definitions
   , unDeltaPair, unDeltaPairUnshared, dScale, dAdd
   , dSFromR, dSFromX, dXFromS
@@ -70,6 +70,9 @@ dD !a !dual = dDnotShared a (shareDelta dual)
 -- in the per-node data stored while evaluating).
 dDnotShared :: f z -> Delta f z -> ADVal f z
 dDnotShared = ADVal
+
+fromPrimalFTK :: FullShapeTK z -> f z -> ADVal f z
+fromPrimalFTK ftk a = dDnotShared a (DeltaZero ftk)
 
 
 -- * Auxiliary definitions
@@ -264,8 +267,8 @@ instance (NumScalar r, ShareTensor f, ADReadyNoLet f)
   negate (D v v') = dD (negate v) (dScale (intOfShape v' (-1)) v')
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
-  signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
-  fromInteger i = dDnotShared (fromInteger i) (DeltaZero FTKScalar)
+  signum (D v v') = fromPrimalFTK (ftkDelta v') (signum v)
+  fromInteger i = fromPrimalFTK FTKScalar (fromInteger i)
   -- The constraints in the pragmas below are needed only to avoid
   -- module import cycles. But the pragmas probably don't work due to
   -- the constraints.
@@ -287,7 +290,7 @@ instance (TKAllNum (TKR n x), Num (f (TKR n x)), ShareTensor f, ADReadyNoLet f)
   negate (D v v') = dD (negate v) (dScale (intOfShape v' (-1)) v')
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
-  signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
+  signum (D v v') = fromPrimalFTK (ftkDelta v') (signum v)
   fromInteger = error "fromInteger is not defined for tensors in general"
 
 instance ( TKAllNum (TKS sh x), Num (f (TKS sh x)), ShareTensor f
@@ -303,7 +306,7 @@ instance ( TKAllNum (TKS sh x), Num (f (TKS sh x)), ShareTensor f
   negate (D v v') = dD (negate v) (dScale (intOfShape v' (-1)) v')
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
-  signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
+  signum (D v v') = fromPrimalFTK (ftkDelta v') (signum v)
   fromInteger = error "fromInteger is not defined for tensors in general"
 
 instance ( TKAllNum (TKX sh x), Num (f (TKX sh x)), ShareTensor f
@@ -319,7 +322,7 @@ instance ( TKAllNum (TKX sh x), Num (f (TKX sh x)), ShareTensor f
   negate (D v v') = dD (negate v) (dScale (intOfShape v' (-1)) v')
   abs (D ve v') = let !v = tshare ve
                   in dD (abs v) (dScale (signum v) v')
-  signum (D v v') = dDnotShared (signum v) (DeltaZero $ ftkDelta v')
+  signum (D v v') = fromPrimalFTK (ftkDelta v') (signum v)
   fromInteger = error "fromInteger is not defined for tensors in general"
 
   -- The constraints in the pragmas below are needed only to avoid
@@ -343,8 +346,8 @@ instance (TKAllNum z, Num (ADVal f z), Real (f z), ADReadyNoLet f)
 
 instance (TKAllNum z, Num (ADVal f z), IntegralH (f z), ADReadyNoLet f)
          => IntegralH (ADVal f z) where
-  quotH (D u _) (D v v') = dDnotShared (quotH u v) (DeltaZero $ ftkDelta v')
-  remH (D u _) (D v v') = dDnotShared (remH u v) (DeltaZero $ ftkDelta v')
+  quotH (D u _) (D v v') = fromPrimalFTK (ftkDelta v') (quotH u v)
+  remH (D u _) (D v v') = fromPrimalFTK (ftkDelta v') (remH u v)
   -- The constraints in the pragmas below are needed only to avoid
   -- module import cycles.
   {-
@@ -364,7 +367,7 @@ instance ( TKAllNum (TKScalar r), NumScalar r, Fractional (f (TKScalar r))
     let !v = tshare ve
         minusRecipSq = - recip (v * v)
     in dD (recip v) (dScale minusRecipSq v')
-  fromRational r = dDnotShared (fromRational r) (DeltaZero FTKScalar)
+  fromRational r = fromPrimalFTK FTKScalar (fromRational r)
 
 -- This is copied three times, because OVERLAPPABLE either doesn't work
 -- across packages or is unreliable.
