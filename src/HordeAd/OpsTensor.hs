@@ -70,7 +70,7 @@ module HordeAd.OpsTensor
   , rprimalPart, rdualPart, rfromPrimal, rfromDual, rScale
   , sprimalPart, sdualPart, sfromPrimal, sfromDual, sScale
   , xprimalPart, xdualPart, xfromPrimal, xfromDual, xScale
-  , tplainPart, tfromPlain
+  , tplainPart, tfromPlain, tprimalPart, tfromPrimal
     -- * Array operations that utilize unwinding of nested arrays
   , treplTarget, tdefTarget, taddTarget, tmultTarget, tsum0Target, tdot0Target
     -- * Minimal re-exports to make this module a higher level replacement for "HordeAd.Core.Ops"
