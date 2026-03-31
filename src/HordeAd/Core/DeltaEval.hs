@@ -12,6 +12,7 @@ import Prelude
 
 import Control.Arrow (second)
 import Control.Exception.Assert.Sugar
+import Data.Array.Nested.Lemmas
 import Data.Dependent.EnumMap.Strict (DEnumMap)
 import Data.Dependent.EnumMap.Strict qualified as DMap
 import Data.Dependent.Sum (DSum (..))
@@ -406,6 +407,12 @@ evalRev !s !c d0 = case d0 of
          FTKR sh FTKScalar | SNat <- shrRank sh ->
            evalRev s (v * trreplicate0N sh c) d)
       s
+  DeltaIndex0R @_ @r d ix ->
+    ifDifferentiable @r
+      (case ftkDelta d of
+         FTKR shm FTKScalar | SNat <- shrRank shm ->
+           evalRev s (troneHot shm (rfromK c) ix) d)
+      s
   DeltaIndexR SNat d ix -> case ftkDelta d of
     FTKR sh x | SNat <- ixrRank ix
               , Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
@@ -491,6 +498,13 @@ evalRev !s !c d0 = case d0 of
       (case ftkDelta d of
          FTKS sh FTKScalar->
            evalRev s (v * tsreplicate0N sh c) d)
+      s
+  DeltaIndex0S @shm @r d ix | Refl <- lemAppNil @shm ->
+    ifDifferentiable @r
+      (case ftkDelta d of
+         FTKS shm FTKScalar ->
+           withKnownShS shm $
+           evalRev s (tsoneHot (sfromK c) ix) d)
       s
   DeltaIndexS @shm @shn shn d ix -> case ftkDelta d of
     FTKS sh x | Dict0 <- lemTKAllNumAD (ftkToSTK x) ->
@@ -586,6 +600,13 @@ evalRev !s !c d0 = case d0 of
       (case ftkDelta d of
          FTKX sh FTKScalar ->
            evalRev s (v * txreplicate0N sh c) d)
+      s
+  DeltaIndex0X @shm @r d ix | Refl <- lemAppNil @shm ->
+    ifDifferentiable @r
+      (case ftkDelta d of
+         FTKX shm FTKScalar ->
+           withKnownShX (ssxFromShX shm) $
+           evalRev s (txoneHot shm (xfromK c) ix) d)
       s
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x | SNat @len <- ixxRank ix
@@ -831,7 +852,11 @@ evalFwd params !s d0 = case d0 of
       (case ftkDelta d of
          FTKR sh FTKScalar | SNat <- shrRank sh ->
            second (trdot0 v) $ evalFwd params s d)
-      (s, toADTensorKindShared (FTKScalar @r) 0)
+      (s, tkconcrete Z1)
+  DeltaIndex0R @_ @r d ix ->
+    ifDifferentiable @r
+      (second (`trindex0` ix) $ evalFwd params s d)
+      (s, tkconcrete Z1)
   DeltaIndexR SNat d ix -> case ftkDelta d of
     FTKR _ x | SNat <- ixrRank ix ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -854,7 +879,7 @@ evalFwd params !s d0 = case d0 of
       (case ftkDelta d of
          FTKR shm FTKScalar | SNat <- shrRank shm ->
            second trsum0 $ evalFwd params s d)
-      (s, toADTensorKindShared (FTKScalar @r) 0)
+      (s, tkconcrete Z1)
   DeltaSumR SNat d -> case ftkDelta d of
     ftk@(FTKR shmshn x) | SNat <- shrRank shmshn
                         , Dict0 <- lemTKAllNumAD (ftkToSTK ftk) ->
@@ -908,7 +933,11 @@ evalFwd params !s d0 = case d0 of
          FTKS sh FTKScalar ->
            withKnownShS sh $
            second (tsdot0 v) $ evalFwd params s d)
-      (s, toADTensorKindShared (FTKScalar @r) 0)
+      (s, tkconcrete Z1)
+  DeltaIndex0S @_ @r d ix ->
+    ifDifferentiable @r
+      (second (`tsindex0` ix) $ evalFwd params s d)
+      (s, tkconcrete Z1)
   DeltaIndexS shn d ix -> case ftkDelta d of
     FTKS _ x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -933,7 +962,7 @@ evalFwd params !s d0 = case d0 of
          FTKS shm FTKScalar ->
            withKnownShS shm $
            second tssum0 $ evalFwd params s d)
-      (s, toADTensorKindShared (FTKScalar @r) 0)
+      (s, tkconcrete Z1)
   DeltaSumS @shm @shn shm d | SNat <- shsRank shm -> case ftkDelta d of
     ftk@(FTKS shmshn x) | Dict0 <- lemTKAllNumAD (ftkToSTK ftk) ->
       gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
@@ -995,7 +1024,11 @@ evalFwd params !s d0 = case d0 of
          FTKX sh FTKScalar ->
            withKnownShX (ssxFromShX sh) $
            second (txdot0 v) $ evalFwd params s d)
-      (s, toADTensorKindShared (FTKScalar @r) 0)
+      (s, tkconcrete Z1)
+  DeltaIndex0X @_ @r d ix ->
+    ifDifferentiable @r
+      (second (`txindex0` ix) $ evalFwd params s d)
+      (s, tkconcrete Z1)
   DeltaIndexX @shm @shn shn d ix -> case ftkDelta d of
     FTKX sh x ->
       withKnownSTK (adSTK $ ftkToSTK x) $
@@ -1021,7 +1054,7 @@ evalFwd params !s d0 = case d0 of
          FTKX shm FTKScalar ->
            withKnownShX (ssxFromShX shm) $
            second txsum0 $ evalFwd params s d)
-      (s, toADTensorKindShared (FTKScalar @r) 0)
+      (s, tkconcrete Z1)
   DeltaSumX @shm @shn shm d | SNat <- ssxRank shm -> case ftkDelta d of
     ftk@(FTKX shmshn x) | Dict0 <- lemTKAllNumAD (ftkToSTK ftk) ->
       gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
