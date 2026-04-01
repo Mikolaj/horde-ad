@@ -120,7 +120,7 @@ lossSoftMaxCrossEntropyR expected d' = tlet d' $ \d ->
          (kdualPart $ rfromPrimal (softMaxU - expected) `rdot0` d)
 
 -- Fails for empty x'.
-rlogsumexp :: (NumScalar r, Differentiable r, ADReady target)
+rlogsumexp :: forall n r target. (NumScalar r, Differentiable r, ADReady target)
            => target (TKR n r) -> target (TKScalar r)
 rlogsumexp x' = tlet x' $ \x -> tlet (rmaximum x) $ \maxx ->
   let shiftedx = x - rreplicate0N (rshape x) maxx
