@@ -148,8 +148,8 @@ astTransposeAsGatherS
 {-# NOINLINE astTransposeAsGatherS #-}
 astTransposeAsGatherS knobs perm v =
   let FTKS sh _ = ftkAst v
-      shn = shsDropLen perm sh
-      shp = shsTakeLen perm sh
+      shn = shsDropLenPerm perm sh
+      shp = shsTakeLenPerm perm sh
       shpPermuted = shsPermute perm shp
   in funToVarsIxS @_ @AstMethodLet shpPermuted $ \vars ix ->
     -- See astGatherCase.AstTransposeS for similar code with more comments.
@@ -2907,11 +2907,11 @@ astScatterKnobsS knobs shm shn shp (Ast.AstTransposeS @perm @sh perm v)
   , knobPhase knobs `elem` [PhaseVectorization, PhaseExpansion]
   , let rankPerm = Permutation.permRank perm
   , fromSNat' rankPerm <= listsLength vars =
-          gcastWith (lemRankMapJust $ shsTakeLen perm sh) $
+          gcastWith (lemRankMapJust $ shsTakeLenPerm perm sh) $
           gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
           permInverse perm
           $ \(invperm :: Nested.Perm invperm) proof ->
-            case proof (ssxFromShX $ shxFromShS $ shsTakeLen perm sh) of
+            case proof (ssxFromShX $ shxFromShS $ shsTakeLenPerm perm sh) of
               Refl ->
                 gcastWith
                   (unsafeCoerceRefl
@@ -3986,11 +3986,11 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1 :: ShS shp1))
       | knobPhase knobs `elem` [PhaseVectorization, PhaseExpansion]
       , fromSNat' (Permutation.permRank perm) <= ixsLength ix4
       , FTKS sh _ <- ftkAst v
-      , Refl <- lemRankMapJust $ shsTakeLen perm sh ->
+      , Refl <- lemRankMapJust $ shsTakeLenPerm perm sh ->
           gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
           permInverse perm
           $ \(invperm :: Nested.Perm invperm) proof ->
-            case proof (ssxFromShX $ shxFromShS $ shsTakeLen perm sh) of
+            case proof (ssxFromShX $ shxFromShS $ shsTakeLenPerm perm sh) of
               Refl ->
                 -- from PermutePrefix and ranks:
                 gcastWith
@@ -4292,8 +4292,8 @@ astTransposeS perm t =
    gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix '[0] sh :~: sh) $
    t
  _ | FTKS sh _ <- ftkAst t
-   , Just u2 <- unReplN @_ @(DropLen perm sh) (shsTakeLen perm sh) t ->
-   astReplicateS (shsPermute perm (shsTakeLen perm sh)) u2
+   , Just u2 <- unReplN @_ @(DropLen perm sh) (shsTakeLenPerm perm sh) t ->
+   astReplicateS (shsPermute perm (shsTakeLenPerm perm sh)) u2
  _ -> case t of
   _ | SNat' @0 `PCons` _ <- perm
     , STKS ((:$$) @n @sh2 snat _) _ <- ftkToSTK $ ftkAst t
