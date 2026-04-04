@@ -28,7 +28,6 @@ import HordeAd.Core.AstEnv
 import HordeAd.Core.AstFreshId (resetVarCounter)
 import HordeAd.Core.AstInterpret
 import HordeAd.Core.CarriersAst
-import HordeAd.Core.Ops
 
 import CrossTesting
 import EqEpsilon

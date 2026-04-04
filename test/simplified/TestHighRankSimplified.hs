@@ -18,7 +18,7 @@ import Data.Array.Nested.Shaped.Shape
 
 import HordeAd
 import HordeAd.Core.AstFreshId (resetVarCounter)
-import HordeAd.Core.Ops (tD, tfromPrimal)
+import HordeAd.Core.Ops (tD)
 
 import CrossTesting
 import EqEpsilon
