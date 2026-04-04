@@ -1388,7 +1388,7 @@ astIndexKnobsK knobs v0 ix@(i1 :.$ rest1)
     Ast.AstIndexK v0 ix
   Ast.AstFromVectorS (_ :$$ ZSS) l | AstConcreteK i <- i1 ->
     tryRecursing (l V.! i)
-  Ast.AstFromVectorS @shm2 @shn2 shm2 l | shsLength shm2 < ixsLength ix
+  Ast.AstFromVectorS @shm2 @shn2 shm2 l | shsLength shm2 < length ix
                                         , SNat <- shsRank shm2 ->
     gcastWith (unsafeCoerceRefl :: shn2 :~: Drop (Rank shm2) shm) $
     gcastWith (unsafeCoerceRefl :: Take (Rank shm2) shm :~: shm2) $
@@ -1397,10 +1397,10 @@ astIndexKnobsK knobs v0 ix@(i1 :.$ rest1)
       in Ast.AstIndexK (astFromVectorK @shm2 shm2
                         $ V.map (\a -> astIndex a ixRest2) l)
                        (ixsTake @(Rank shm2) ix2)
-  Ast.AstFromVectorS{} ->  -- normal form (shsLength shm2 >= ixsLength ix)
+  Ast.AstFromVectorS{} ->  -- normal form (shsLength shm2 >= length ix)
     Ast.AstIndexK v0 ix
   Ast.AstSumS @shm2 shm2 v | Dict0 <- numFromTKAllNum (Proxy @r) ->
-    let perm1 = backpermCycle $ shsLength shm2 + ixsLength ix
+    let perm1 = backpermCycle $ shsLength shm2 + length ix
     in Permutation.permFromListCont perm1 $ \(perm :: Permutation.Perm perm) ->
          gcastWith (unsafeCoerceRefl
                     :: (Rank perm <=? Rank (shm2 ++ shm)) :~: True) $
@@ -1474,7 +1474,7 @@ astIndexKnobsK knobs v0 ix@(i1 :.$ rest1)
     let iRev = valueOf @in1 - 1 - i1
     in astIndex v (iRev :.$ rest1)
   Ast.AstTransposeS @_ @sh2 perm v
-    | fromSNat' (Permutation.permRank perm) <= ixsLength ix ->
+    | fromSNat' (Permutation.permRank perm) <= length ix ->
       -- TODO: remake once there's an S version of permInverse:
       permInverse perm $ \(permR :: Permutation.Perm permR) _ ->
       let ix2 :: AstIxS AstMethodLet (Permutation.PermutePrefix permR shm)
@@ -2212,7 +2212,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
     Ast.AstIndexS shn v0 ix
   Ast.AstFromVectorS (_ :$$ ZSS) l | AstConcreteK i <- i1 ->
     tryRecursing (l V.! i)
-  Ast.AstFromVectorS @shm2 @shn2 shm2 l | shsLength shm2 < ixsLength ix
+  Ast.AstFromVectorS @shm2 @shn2 shm2 l | shsLength shm2 < length ix
                                         , SNat <- shsRank shm2 ->
     gcastWith (unsafeCoerceRefl :: shn2 :~: Drop (Rank shm2) shm ++ shn) $
     gcastWith (unsafeCoerceRefl :: Take (Rank shm2) shm :~: shm2) $
@@ -2222,10 +2222,10 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
                        (astFromVectorS @shm2 @shn shm2
                         $ V.map (\a -> astIndex shn a ixRest2) l)
                        (ixsTake @(Rank shm2) ix2)
-  Ast.AstFromVectorS{} ->  -- normal form (shsLength shm2 >= ixsLength ix)
+  Ast.AstFromVectorS{} ->  -- normal form (shsLength shm2 >= length ix)
     Ast.AstIndexS shn v0 ix
   Ast.AstSumS @shm2 shm2 v ->
-    let perm1 = backpermCycle $ shsLength shm2 + ixsLength ix
+    let perm1 = backpermCycle $ shsLength shm2 + length ix
     in Permutation.permFromListCont perm1 $ \(perm :: Permutation.Perm perm) ->
          gcastWith (unsafeCoerceRefl
                     :: (Rank perm <=? Rank (shm2 ++ (shm ++ shn))) :~: True) $
@@ -2309,7 +2309,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
     let iRev = valueOf @in1 - 1 - i1
     in astIndex shn v (iRev :.$ rest1)
   Ast.AstTransposeS @_ @sh2 perm v
-    | fromSNat' (Permutation.permRank perm) <= ixsLength ix ->
+    | fromSNat' (Permutation.permRank perm) <= length ix ->
       -- TODO: remake once there's an S version of permInverse:
       permInverse perm $ \(invperm :: Permutation.Perm invperm) _ ->
       let ix2 :: AstIxS AstMethodLet (Permutation.PermutePrefix invperm shm)
@@ -2906,7 +2906,7 @@ astScatterKnobsS knobs shm shn shp (Ast.AstTransposeS @perm @sh perm v)
   | FTKS sh _ <- ftkAst v
   , knobPhase knobs `elem` [PhaseVectorization, PhaseExpansion]
   , let rankPerm = Permutation.permRank perm
-  , fromSNat' rankPerm <= listsLength vars =
+  , fromSNat' rankPerm <= length vars =
           gcastWith (lemRankMapJust $ shsTakeLenPerm perm sh) $
           gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
           permInverse perm
@@ -3543,7 +3543,7 @@ astGatherKnobsS knobs (m :$$ shm4) ZSS _shp
           AstConcreteK j -> Just j
           _ -> Nothing
   , Just lj <- mapM g [0 .. fromSNat' m - 1]
-  , Refl <- lemAppNil @shm = assert (ixsLength rest4 == 0) $
+  , Refl <- lemAppNil @shm = assert (length rest4 == 0) $
     let FTKS _ x = ftkAst v4
         ftk = FTKS shm4 x
         zero = fromPlain $ astConcrete ftk (tdefTarget ftk)
@@ -3727,7 +3727,7 @@ astGatherKnobsS knobs shm@(m :$$ _) shn shp v0
             , Just{} <- mvar -> mvar
           _ -> Nothing
   , Just varp <- varInteresting i1
-  , Just i <- findIndex (== varp) (listsToList vars) = assert (i > 0) $
+  , Just i <- findIndex (== varp) (Foldable.toList vars) = assert (i > 0) $
     Permutation.permFromListCont (backpermCycle $ i + 1)
     $ \(permWhole :: Permutation.Perm permWhole) ->
     permInverse permWhole $ \(invperm :: Nested.Perm invperm) _ ->
@@ -3984,7 +3984,7 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1 :: ShS shp1))
       -- reversing is O(1)
     Ast.AstTransposeS @perm @sh perm v
       | knobPhase knobs `elem` [PhaseVectorization, PhaseExpansion]
-      , fromSNat' (Permutation.permRank perm) <= ixsLength ix4
+      , fromSNat' (Permutation.permRank perm) <= length ix4
       , FTKS sh _ <- ftkAst v
       , Refl <- lemRankMapJust $ shsTakeLenPerm perm sh ->
           gcastWith (unsafeCoerceRefl :: Rank (TakeLen perm sh) :~: Rank perm) $
@@ -4377,7 +4377,7 @@ astTransposeS perm t =
       $ astSumS shm2 $ astTransposeS zsuccP v
   Ast.AstScatterS @_ @shn @shp shm shn shp v (vars, ix)
     -- TODO: should the below be backpermute or permute?
-    | fromSNat' (Permutation.permRank perm) <= ixsLength ix ->
+    | fromSNat' (Permutation.permRank perm) <= length ix ->
         let ix2 :: AstIxS AstMethodLet (Permutation.PermutePrefix perm shp)
             ix2 = ixsPermutePrefix perm ix
         in gcastWith (unsafeCoerceRefl
@@ -4397,7 +4397,7 @@ astTransposeS perm t =
       astFromVectorS shm2 (V.map (astReplicateS shm) l)
   Ast.AstGatherS @shm @shn shm shn shp v (vars, ix)
     -- TODO: should the below be backpermute or permute?
-    | fromSNat' (Permutation.permRank perm) <= listsLength vars ->
+    | fromSNat' (Permutation.permRank perm) <= length vars ->
         let vars2 :: AstVarListS (Permutation.PermutePrefix perm shm)
             vars2 = listsPermutePrefix perm vars
         in gcastWith (unsafeCoerceRefl

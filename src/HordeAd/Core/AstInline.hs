@@ -457,7 +457,7 @@ unshareAst !memo = \case
   Ast.AstSumK v -> second Ast.AstSumK (unshareAst memo v)
   Ast.AstSumS shm v -> second (Ast.AstSumS shm) (unshareAst memo v)
   Ast.AstScatterS shm shn shp v (vars, ix) ->
-    let (memo1, ix2) = mapAccumL' (unshareAstScoped $ listsToList vars)
+    let (memo1, ix2) = mapAccumL' (unshareAstScoped $ Foldable.toList vars)
                                   memo (Foldable.toList ix)
         (memo2, v2) = unshareAst memo1 v
         !ix3 = ixsFromIxS ix ix2
@@ -465,7 +465,7 @@ unshareAst !memo = \case
   Ast.AstReplicateK shm v -> second (Ast.AstReplicateK shm) (unshareAst memo v)
   Ast.AstReplicateS shm v -> second (Ast.AstReplicateS shm) (unshareAst memo v)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
-    let (memo1, ix2) = mapAccumL' (unshareAstScoped $ listsToList vars)
+    let (memo1, ix2) = mapAccumL' (unshareAstScoped $ Foldable.toList vars)
                                   memo (Foldable.toList ix)
         (memo2, v2) = unshareAst memo1 v
         !ix3 = ixsFromIxS ix ix2

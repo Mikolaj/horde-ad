@@ -405,7 +405,7 @@ printAst cfg d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith (printAstIntVar cfg) (listsToList vars)
+           . showListWith (printAstIntVar cfg) (Foldable.toList vars)
            . showString " -> "
            . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
@@ -415,7 +415,7 @@ printAst cfg d = \case
       . showString " "
       . (showParen True
          $ showString "\\"
-           . showListWith (printAstIntVar cfg) (listsToList vars)
+           . showListWith (printAstIntVar cfg) (Foldable.toList vars)
            . showString " -> "
            . showListWith (printAst cfg 0) (Foldable.toList ix))
   -- This is too common to be verbose even in no loseRoudtrip mode.
@@ -470,7 +470,7 @@ printAst cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (printAstIntVar cfg)
-                          (listsToList vars)
+                          (Foldable.toList vars)
            . showString " -> "
            . showListWith (printAst cfg 0) (Foldable.toList ix))
    else
@@ -481,7 +481,7 @@ printAst cfg d = \case
       . (showParen True
          $ showString "\\"
            . showListWith (printAstIntVar cfg)
-                          (listsToList vars)
+                          (Foldable.toList vars)
            . showString " -> "
            . showListWith (printAst cfg 0) (Foldable.toList ix))
   AstIotaS snat ->
