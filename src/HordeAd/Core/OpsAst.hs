@@ -30,7 +30,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.Array.Nested (Replicate, type (++))
 import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Convert
-  (ixrFromIxS, ixsFromIxR, ixsFromIxX', withShsFromShR, withShsFromShX)
+  (ixrFromIxS, ixsFromIxR', ixsFromIxX', withShsFromShR, withShsFromShX)
 import Data.Array.Nested.Lemmas
 import Data.Array.Nested.Mixed.Shape
 import Data.Array.Nested.Permutation (DropLen, TakeLen)
@@ -306,11 +306,11 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
         astConvUpRFromS (shsDrop @m sh) x
         $ astIndexS @(Take m sh) @(Drop m sh)
                     (shsDrop @m sh) (astConvDownSFromR sh x a)
-                    (ixsFromIxR ix)
+                    (ixsFromIxR' (shsTake @m sh) ix)
   trindex0 a ix = case ftkAst a of
     FTKR shm x ->
       withShsFromShR shm $ \(sh :: ShS sh) ->
-        astIndexK (astConvDownSFromR sh x a) (ixsFromIxR ix)
+        astIndexK (astConvDownSFromR sh x a) (ixsFromIxR' sh ix)
   trscatter @m @n shp0 t f = case ftkAst t of
     FTKR shmshn0 x ->
       withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -324,7 +324,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
                       :~: Rank shp + Rank (Drop m shmshn)) $
         astConvUpRFromS (shp `shsAppend` shsDrop @m shmshn) x
         $ funToVarsIxS (shsTake @m shmshn) $ \vars ix ->
-            let !ix2 = ixsFromIxR . f . ixrFromIxS $ ix
+            let !ix2 = ixsFromIxR' shp . f . ixrFromIxS $ ix
             in astScatterS (shsTake @m shmshn)
                            (shsDrop @m shmshn)
                            shp
@@ -343,7 +343,8 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
                       :~: Rank shm + Rank (Drop p shpshn)) $
         astConvUpRFromS (shm `shsAppend` shsDrop @p shpshn) x
         $ funToVarsIxS shm $ \vars ix ->
-            let !ix2 = ixsFromIxR . f . ixrFromIxS $ ix
+            let !ix2 = ixsFromIxR' (shsTake @p shpshn)
+                       . f . ixrFromIxS $ ix
             in astGatherS shm
                           (shsDrop @p shpshn)
                           (shsTake @p shpshn)
@@ -943,11 +944,11 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
         cAstConvUpRFromS (shsDrop @m sh) x
         $ AstIndexS @(Take m sh) @(Drop m sh)
                     (shsDrop @m sh) (cAstConvDownSFromR sh x a)
-                    (ixsFromIxR (fmapUnAstRaw ix))
+                    (ixsFromIxR' (shsTake @m sh) (fmapUnAstRaw ix))
   trindex0 (AstRaw a) ix = AstRaw $ case ftkAst a of
     FTKR shm x ->
       withShsFromShR shm $ \(sh :: ShS sh) ->
-        AstIndexK (cAstConvDownSFromR sh x a) (ixsFromIxR (fmapUnAstRaw ix))
+        AstIndexK (cAstConvDownSFromR sh x a) (ixsFromIxR' sh (fmapUnAstRaw ix))
   trscatter @m @n shp0 (AstRaw t) f = AstRaw $ case ftkAst t of
     FTKR shmshn0 x ->
       withShsFromShR shmshn0 $ \(shmshn :: ShS shmshn) ->
@@ -961,7 +962,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                       :~: Rank shp + Rank (Drop m shmshn)) $
         cAstConvUpRFromS (shp `shsAppend` shsDrop @m shmshn) x
         $ funToVarsIxS (shsTake @m shmshn) $ \vars ix ->
-            let !ix2 = fmapUnAstRaw . ixsFromIxR
+            let !ix2 = fmapUnAstRaw . ixsFromIxR' shp
                        . f . ixrFromIxS . fmapAstRaw $ ix
             in AstScatterS (shsTake @m shmshn)
                            (shsDrop @m shmshn)
@@ -981,7 +982,7 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
                       :~: Rank shm + Rank (Drop p shpshn)) $
         cAstConvUpRFromS (shm `shsAppend` shsDrop @p shpshn) x
         $ funToVarsIxS shm $ \vars ix ->
-            let !ix2 = fmapUnAstRaw . ixsFromIxR
+            let !ix2 = fmapUnAstRaw . ixsFromIxR' (shsTake @p shpshn)
                        . f . ixrFromIxS . fmapAstRaw $ ix
             in AstGatherS shm
                           (shsDrop @p shpshn)
