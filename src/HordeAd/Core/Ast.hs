@@ -31,7 +31,10 @@ module HordeAd.Core.Ast
   , reshapeVarName, respanVarName, reboundsVarName
   , varNameToAstVarId, varNameToSpan, varNameToFTK, varNameToBounds
   , AstArtifactRev(..), AstArtifactFwd(..)
-  , AstIxS, AstVarListS, pattern AstLeqInt
+  , AstIxS, AstVarListS
+  , ListS(..)  -- TODO: ListS should be hidden and its constructor
+               -- exposed as AstVarListS constructor
+  , pattern ZS, pattern (::$), pattern AstLeqInt
     -- * AST
   , AstMethodOfSharing(..), AstTensor(..), AstHFun(..)
   , OpCodeNum1(..), OpCode1(..), OpCode2(..), OpCodeIntegral2(..)
@@ -40,10 +43,13 @@ module HordeAd.Core.Ast
 import Prelude
 
 import Data.Dependent.EnumMap.Strict qualified as DMap
+import Data.Foldable qualified as Foldable
 import Data.Kind (Type)
 import Data.Type.Equality (TestEquality (..), (:~:) (Refl))
 import Data.Vector.Strict qualified as Data.Vector
 import GHC.Exts (withDict)
+import GHC.IsList (IsList)
+import GHC.IsList qualified as IsList
 import GHC.TypeLits (type (+), type (<=))
 import Type.Reflection (typeRep)
 
@@ -361,6 +367,33 @@ type IntVarName = AstVarName '(PlainSpan, TKScalar Int)
 
 pattern AstIntVar :: IntVarName -> AstInt ms
 pattern AstIntVar var <- AstVar var
+
+-- This is needed only for AstVarListS. Parameter i is needed only
+-- to derive Foldable.
+type role ListS nominal representational
+newtype ListS sh i = AstVarListS {unAstVarListS :: IxS sh i}
+  deriving (Eq, Foldable)
+
+instance Show (AstVarListS sh) where
+  showsPrec d (AstVarListS ix) = showsPrec d ix
+
+instance KnownShS sh => IsList (ListS sh i) where
+  type Item (ListS sh i) = i
+  fromList = AstVarListS . IsList.fromList
+  toList = Foldable.toList
+
+pattern ZS :: forall sh i. () => sh ~ '[] => ListS sh i
+pattern ZS = AstVarListS ZIS
+
+pattern (::$)
+  :: forall {sh1} {i}.
+     forall n sh. (n : sh ~ sh1)
+  => i -> ListS sh i -> ListS sh1 i
+pattern i ::$ l <- AstVarListS (i :.$ (AstVarListS -> l))
+  where i ::$ AstVarListS l = AstVarListS (i :.$ l)
+infixr 3 ::$
+
+{-# COMPLETE ZS, (::$) #-}
 
 -- Data invariant: the var names have bounds of the form (0, k - 1),
 -- where the corresponding dimension in sh is k. This is never checked.

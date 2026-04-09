@@ -440,10 +440,10 @@ class ( Num (IntOf target)
   tstoListLinear :: forall shm r. GoodScalar r
                  => target (TKS shm r) -> [target (TKScalar r)]
   tstoListLinear t = map (tsindex0 t) (shsEnum' (sshape t))
-  tsfromListR :: forall k shn x. (1 <= k, KnownShS shn, KnownSTK x)
-              => ListR k (target (TKS2 shn x))
-              -> target (TKS2 (k ': shn) x)
-  tsfromListR l | SNat <- listrRank l =
+  tsfromIxR :: forall k shn x. (1 <= k, KnownShS shn, KnownSTK x)
+            => IxR k (target (TKS2 shn x))
+            -> target (TKS2 (k ': shn) x)
+  tsfromIxR l | SNat <- ixrRank l =
     tsfromVector $ V.fromList $ Foldable.toList l
 
   txfromVector :: (KnownNat k, KnownShX shn, KnownSTK x)

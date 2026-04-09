@@ -26,10 +26,10 @@ module HordeAd.Core.Types
   , backpermutePrefixList
     -- * Feature requests for ox-arrays
   , Take, Drop, UnMapSucc
-  -- TODO: listrTake, listrDrop, ixrTake, ixrDrop, ixrSplitAt
+  -- TODO: ixrTake, ixrDrop, ixrSplitAt
   , shrTake, shrDrop
-  , listsTake, listsDrop, listsSplitAt, ixsTake, ixsDrop, shsTake, shsDrop
-  -- TODO: listxTake, listxDrop, ixxTake, ixxDrop'
+  , ixsTake, ixsDrop, ixsSplitAt, shsTake, shsDrop
+  -- TODO: ixxTake, ixxDrop'
   , shxTake, shxDrop
   , permRInverse, ssxPermutePrefix, shxPermutePrefix
   , shCastSX, lemRankMapJust'
@@ -590,43 +590,35 @@ shrDrop (ShR shx) =
                 :~: Replicate n Nothing) $
   ShR $ shxDrop @m shx
 
-listsTake :: forall len sh i. KnownNat len
-          => ListS sh i -> ListS (Take len sh) i
-listsTake sh = go (SNat @len) sh
-  where
-    go :: SNat n -> ListS shn i -> ListS (Take n shn) i
-    go SZ _ = ZS
-    go (SS (k :: SNat k)) ((::$) @m @rest m rest) =
-      gcastWith (unsafeCoerceRefl
-                 :: Take (k + 1) (m : rest) :~: m : Take k rest) $
-      m ::$ go k rest
-    go (SS k) ZS = error $ "listsTake: list too short, missing "
-                            ++ show (fromSNat' k + 1)
-
-listsDrop :: forall len sh i. KnownNat len
-          => ListS sh i -> ListS (Drop len sh) i
-listsDrop sh = go (SNat @len) sh
-  where
-    go :: SNat n -> ListS shn i -> ListS (Drop n shn) i
-    go SZ shn = shn
-    go (SS (k :: SNat k)) ((::$) @m @rest _ rest) =
-      gcastWith (unsafeCoerceRefl
-                 :: Drop (k + 1) (m : rest) :~: Drop k rest) $
-      go k rest
-    go (SS k) ZS = error $ "listsDrop: list too short, missing "
-                            ++ show (fromSNat' k + 1)
-
-listsSplitAt :: forall sh len i. KnownNat len
-             => ListS sh i -> (ListS (Take len sh) i, ListS (Drop len sh) i)
-listsSplitAt ix = (listsTake @len ix, listsDrop @len ix)
-
 ixsTake :: forall len sh i. KnownNat len
         => IxS sh i -> IxS (Take len sh) i
-ixsTake (IxS ix) = IxS $ listsTake @len ix
+ixsTake sh = go (SNat @len) sh
+  where
+    go :: SNat n -> IxS shn i -> IxS (Take n shn) i
+    go SZ _ = ZIS
+    go (SS (k :: SNat k)) ((:.$) @m @rest m rest) =
+      gcastWith (unsafeCoerceRefl
+                 :: Take (k + 1) (m : rest) :~: m : Take k rest) $
+      m :.$ go k rest
+    go (SS k) ZIS = error $ "ixsTake: list too short, missing "
+                            ++ show (fromSNat' k + 1)
 
 ixsDrop :: forall len sh i. KnownNat len
         => IxS sh i -> IxS (Drop len sh) i
-ixsDrop (IxS ix) = IxS $ listsDrop @len ix
+ixsDrop sh = go (SNat @len) sh
+  where
+    go :: SNat n -> IxS shn i -> IxS (Drop n shn) i
+    go SZ shn = shn
+    go (SS (k :: SNat k)) ((:.$) @m @rest _ rest) =
+      gcastWith (unsafeCoerceRefl
+                 :: Drop (k + 1) (m : rest) :~: Drop k rest) $
+      go k rest
+    go (SS k) ZIS = error $ "ixsDrop: list too short, missing "
+                            ++ show (fromSNat' k + 1)
+
+ixsSplitAt :: forall sh len i. KnownNat len
+           => IxS sh i -> (IxS (Take len sh) i, IxS (Drop len sh) i)
+ixsSplitAt ix = (ixsTake @len ix, ixsDrop @len ix)
 
 shsTake :: forall len sh. KnownNat len
         => ShS sh -> ShS (Take len sh)

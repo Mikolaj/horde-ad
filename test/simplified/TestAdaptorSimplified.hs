@@ -995,13 +995,13 @@ testFooLetPP = do
     @?= "\\x1 -> rfromK (let x4 = kfromR (tproject1 (tproject1 x1)) * sin (kfromR (tproject2 (tproject1 x1))) in atan2H (kfromR (tproject2 x1)) x4 + kfromR (tproject2 x1) * x4)"
 
 shapedListProd :: forall k target r. (BaseTensor target, NumScalar r)
-               => ListR k (target (TKS '[] r)) -> target (TKS '[] r)
+               => IxR k (target (TKS '[] r)) -> target (TKS '[] r)
 shapedListProd = foldr1 (*)
 
 testListProdPP :: Assertion
 testListProdPP = do
   resetVarCounter
-  let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKS '[] Double)) -> AstTensor AstMethodLet FullSpan (TKS '[] Double)
+  let fT :: IxR 4 (AstTensor AstMethodLet FullSpan (TKS '[] Double)) -> AstTensor AstMethodLet FullSpan (TKS '[] Double)
       fT = shapedListProd
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKS ZSS FTKScalar) (FTKProduct (FTKS ZSS FTKScalar) (FTKProduct (FTKS ZSS FTKScalar) (FTKProduct (FTKS ZSS FTKScalar) ftkUnit))))
   printArtifactSimple artifactRev
@@ -1014,13 +1014,13 @@ testListProdPP = do
     @?= "\\x1 -> sfromK (kfromS (tproject1 x1) * (kfromS (tproject1 (tproject2 x1)) * (kfromS (tproject1 (tproject2 (tproject2 x1))) * kfromS (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
 rankedListProdr :: forall k target r. (BaseTensor target, NumScalar r)
-                => ListR k (target (TKR 0 r)) -> target (TKR 0 r)
+                => IxR k (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListProdr = foldr1 (*)
 
 testListProdrPP :: Assertion
 testListProdrPP = do
   resetVarCounter
-  let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+  let fT :: IxR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListProdr
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifactRev artifactRev)
@@ -1031,7 +1031,7 @@ testListProdrPP = do
 testListProdrLongPP :: Assertion
 testListProdrLongPP = do
   resetVarCounter
-  let fT :: ListR 13 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+  let fT :: IxR 13 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListProdr
   let (artifactRev, _) =
         revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit)))))))))))))
@@ -1053,13 +1053,13 @@ testListProdr = do
     (grad (kfromR @_ @Double . rankedListProdr @4) [rscalar 1, rscalar 2, rscalar 3, rscalar 4])
 
 rankedListSumr :: (BaseTensor target, NumScalar r)
-               => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
+               => IxR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSumr = foldr1 (+)
 
 testListSumrPP :: Assertion
 testListSumrPP = do
   resetVarCounter >> resetIdCounter
-  let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+  let fT :: IxR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSumr
   let (artifactRev, deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifactRev artifactRev)
@@ -1071,13 +1071,13 @@ testListSumrPP = do
 
 -- Note that the function is not associative, so foldr vs foldl matters.
 rankedListSum2r :: (BaseTensor target, NumScalar r)
-                => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
+                => IxR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum2r = foldr1 (\x y -> x + rscalar 2 * y)
 
 testListSum2rPP :: Assertion
 testListSum2rPP = do
   resetVarCounter
-  let fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+  let fT ::  IxR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum2r
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifactRev artifactRev)
@@ -1086,13 +1086,13 @@ testListSum2rPP = do
     @?= "\\x1 -> rfromK (kfromR (tproject1 x1) + (2.0 * kfromR (tproject1 (tproject2 x1)) + (4.0 * kfromR (tproject1 (tproject2 (tproject2 x1))) + 8.0 * kfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
 rankedListSum22r :: (BaseTensor target, NumScalar r)
-                 => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
+                 => IxR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum22r = foldr1 (\x y -> rscalar 2 * x + rscalar 2 * y)
 
 testListSum22rPP :: Assertion
 testListSum22rPP = do
   resetVarCounter
-  let fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+  let fT ::  IxR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum22r
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifactRev artifactRev)
@@ -1103,13 +1103,13 @@ testListSum22rPP = do
 -- Note how this tlet did not change anything, in particular the sharing.
 rankedListSumk22r :: ( BaseTensor target, LetTensor target
                      , NumScalar r )
-                 =>  ListR k (target (TKR 0 r)) -> target (TKR 0 r)
+                 =>  IxR k (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSumk22r = foldr1 (\x y -> tlet (rscalar 2) (\k -> k * x + k * y))
 
 testListSumk22rPP :: Assertion
 testListSumk22rPP = do
   resetVarCounter
-  let fT ::  ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+  let fT ::  IxR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSumk22r
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifactRev artifactRev)
@@ -1118,13 +1118,13 @@ testListSumk22rPP = do
     @?= "\\x1 -> rfromK (2.0 * kfromR (tproject1 x1) + (4.0 * kfromR (tproject1 (tproject2 x1)) + (8.0 * kfromR (tproject1 (tproject2 (tproject2 x1))) + 8.0 * kfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
 rankedListSum2xpyr :: (BaseTensor target, NumScalar r)
-                   =>  ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
+                   =>  IxR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum2xpyr = foldr1 (\x y -> rscalar 2 * (x + y))
 
 testListSum2xpyrPP :: Assertion
 testListSum2xpyrPP = do
   resetVarCounter
-  let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+  let fT :: IxR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum2xpyr
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifactRev artifactRev)
@@ -1133,13 +1133,13 @@ testListSum2xpyrPP = do
     @?= "\\x1 -> rfromK (2.0 * kfromR (tproject1 x1) + (4.0 * kfromR (tproject1 (tproject2 x1)) + (8.0 * kfromR (tproject1 (tproject2 (tproject2 x1))) + 8.0 * kfromR (tproject1 (tproject2 (tproject2 (tproject2 x1)))))))"
 
 rankedListSum2xyr :: (BaseTensor target, NumScalar r)
-                  => ListR 4 (target (TKR 0 r)) -> target (TKR 0 r)
+                  => IxR 4 (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum2xyr = foldr1 (\x y -> rscalar 2 * (x * y))
 
 testListSum2xyrPP :: Assertion
 testListSum2xyrPP = do
   resetVarCounter
-  let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+  let fT :: IxR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum2xyr
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifactRev artifactRev)
@@ -1165,13 +1165,13 @@ test2xyPP = do
 
 -- Note that the function is not associative, so foldr vs foldl matters.
 rankedListSum23r :: forall k target r. (BaseTensor target, NumScalar r)
-                 => ListR k (target (TKR 0 r)) -> target (TKR 0 r)
+                 => IxR k (target (TKR 0 r)) -> target (TKR 0 r)
 rankedListSum23r = foldr1 (\x y -> rscalar 2 * x + rscalar 3 * y)
 
 testListSum23rPP :: Assertion
 testListSum23rPP = do
   resetVarCounter
-  let fT :: ListR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
+  let fT :: IxR 4 (AstTensor AstMethodLet FullSpan (TKR 0 Double)) -> AstTensor AstMethodLet FullSpan (TKR 0 Double)
       fT = rankedListSum23r
   let (artifactRev, _deltas) = revArtifactDelta UseIncomingCotangent fT (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) (FTKProduct (FTKR ZSR FTKScalar) ftkUnit))))
   printArtifactPretty (simplifyArtifactRev artifactRev)
@@ -1677,8 +1677,8 @@ testBazRenumbered =
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
 fooD :: forall r. r ~ Double
-     => ListR 3 (ADVal Concrete (TKR 0 r)) -> ADVal Concrete (TKR 0 r)
-fooD (x ::: y ::: z ::: ZR) =
+     => IxR 3 (ADVal Concrete (TKR 0 r)) -> ADVal Concrete (TKR 0 r)
+fooD (x :.: y :.: z :.: ZIR) =
   let w = x * sin y
   in atan2H z w + z * w
 
@@ -1913,7 +1913,7 @@ barReluMaxS
   => target (TKS sh r) -> target (TKS sh r)
 barReluMaxS x = reluMaxS $ barF (x, reluMaxS x)
 
--- Previously the shape of FromListR[DeltaZero] couldn't be determined
+-- Previously the shape of FromIxR[DeltaZero] couldn't be determined
 -- in buildDerivative, so this was needed. See below that it now works fine.
 testBarReluMax3FwdS :: Assertion
 testBarReluMax3FwdS =

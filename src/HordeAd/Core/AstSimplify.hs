@@ -1674,7 +1674,7 @@ fuseScatters1 (m :$$ shmRest) shn shp u (var ::$ vars, ix)
   let ub = fromSNat' m
       var' = reboundsVarName (0, ub) var
       f i2 = foldr (\(v, v2) -> substituteAst (astVar v) v2) i2
-                   (listsZip vars vars2)
+                   (ixsZip vars vars2)
       g i i2 = astCond (AstConcreteK (fromSNat' m) <=. astVar var')
                        (f i2) i  -- i has, effectively, varFalse in it
       ix3 = ixsZipWith g ix ix2
@@ -1698,8 +1698,9 @@ fuseScatters2 (m :$$ shmRest) shn shp u (var ::$ vars, ix)
       var' = reboundsVarName (0, ub) var
       astVarTrue = astVar $ reboundsVarName (fromSNat' m, ub) var
       f i2 = substituteAst (astVarTrue - AstConcreteK (fromSNat' m)) var2
-             $ foldr (\(v, v2) -> substituteAst (astVar v) v2) i2
-                     (listsZip vars vars2)
+             $ foldr (\(v, v2) -> substituteAst (astVar v) v2)
+                     i2
+                     (ixsZip (unAstVarListS vars) (unAstVarListS vars2))
       g i i2 = astCondK (AstConcreteK (fromSNat' m) <=. astVar var')
                         (f i2) i  -- i has, effectively, varFalse in it
       ix3 = ixsZipWith g ix ix2
@@ -2828,8 +2829,8 @@ astScatterKnobsS _ _ shn shp@(k :$$ _) v0 (_,  i1 :.$ _)
     in fromPlain $ astConcrete ftk (tdefTarget ftk)
 astScatterKnobsS knobs shm shn shp v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))
   | let ixInit = ixsInit ix0
-        varInit = listsInit vars0
-        varLast = listsLast vars0
+        varInit = AstVarListS $ ixsInit $ unAstVarListS vars0
+        varLast = ixsLast $ unAstVarListS vars0
   , AstIntVar ixvarLast <- ixsLast ix0
   , ixvarLast == varLast
   , not (varLast `varNameInIxS` ixInit)
@@ -2932,7 +2933,8 @@ astScatterKnobsS knobs shm shn shp (Ast.AstTransposeS @perm @sh perm v)
                 gcastWith
                   (unsafeCoerceRefl
                    :: TakeLen perm sh ++ DropLen perm sh :~: sh) $
-                let invvars = listsPermutePrefix invperm vars
+                let invvars = AstVarListS
+                              $ ixsPermutePrefix invperm $ unAstVarListS vars
                 in astScatterKnobsS knobs (shsPermutePrefix invperm shm) shn shp
                                     v (invvars, ix)
 astScatterKnobsS knobs
@@ -3215,8 +3217,8 @@ astGatherKnobsS knobs shm@(k :$$ _) shn shp v0 (var1 ::$ vars1, ix0)
                   (astGatherKnobsS knobs (shsTail shm) shn shp v0 (vars1, ix0))
 astGatherKnobsS knobs shm shn shp v0 (vars0@(_ ::$ _), ix0@(_ :.$ _))
   | let ixInit = ixsInit ix0
-        varInit = listsInit vars0
-        varLast = listsLast vars0
+        varInit = AstVarListS $ ixsInit $ unAstVarListS vars0
+        varLast = ixsLast $ unAstVarListS vars0
   , AstIntVar ixvarLast <- ixsLast ix0
   , ixvarLast == varLast
   , not (varLast `varNameInIxS` ixInit)
@@ -3743,7 +3745,8 @@ astGatherKnobsS knobs shm@(m :$$ _) shn shp v0
     $ Permutation.permCheckPermutation permWhole
     $ astTransposeS permWhole
     $ astGatherKnobsS knobs (shsPermutePrefix invperm shm) shn shp
-                      v0 (listsPermutePrefix invperm vars, ix)
+                      v0 (AstVarListS
+                          $ ixsPermutePrefix invperm (unAstVarListS vars), ix)
         -- this call is guaranteed to simplify as above, so the transpose
         -- won't reduce it back to the original and cause a loop
 astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1 :: ShS shp1))
@@ -3907,20 +3910,20 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1 :: ShS shp1))
       tryRecursing $ astReplicateS shmRest v
     Ast.AstGatherS @shm2 @shn2 @shp2 shm2 shn2 shp2 v2 (vars2, ix2)
                    | SNat @rank4 <- ixsRank ix4
-                   , SNat @rank2 <- listsRank vars2 ->
+                   , SNat @rank2 <- ixsRank (unAstVarListS vars2) ->
       let subst :: AstIxS AstMethodLet shm7 -> AstVarListS shm7
                 -> AstInt AstMethodLet
                 -> AstInt AstMethodLet
-          subst (IxS ix) vars t0 =
+          subst ix vars t0 =
             foldr (\ (v, i) -> substituteAst i v)
-                  t0 (listsZip vars ix)
+                  t0 (ixsZip (unAstVarListS vars) ix)
           inBounds :: AstIxS AstMethodLet shm7 -> AstVarListS shm7 -> Bool
-          inBounds (IxS ix) vars =
+          inBounds ix vars =
             let inb (v, i) | Just (lbv, ubv) <- varNameToBounds v
                            , Just (lbi, ubi) <- intBounds i =
                   lbv <= lbi && ubi <= ubv
                 inb _ = True
-            in all inb (listsZip vars ix)
+            in all inb (ixsZip (unAstVarListS vars) ix)
           composedGather ::  -- rank4 <= rank2
             Maybe (AstTensor AstMethodLet s (TKS2 (shm ++ shn) x))
           composedGather | SNat <- shsRank shm =
@@ -3934,10 +3937,11 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1 :: ShS shp1))
             gcastWith (unsafeCoerceRefl
                        :: (shm ++ Drop (Rank shp) shm2) ++ shn2
                           :~: shm ++ shn) $
-            let vars2p = listsTake @(Rank shp) vars2
-                vars22 = listsDrop @(Rank shp) vars2
+            let vars2p = AstVarListS $ ixsTake @(Rank shp) $ unAstVarListS vars2
+                vars22 = AstVarListS $ ixsDrop @(Rank shp) $ unAstVarListS vars2
                 ix22 = fmap (subst ix4 vars2p) ix2
-                list422 = vars4 `listsAppend` vars22
+                list422 = AstVarListS
+                          $ unAstVarListS vars4 `ixsAppend` unAstVarListS vars22
             in if ixIsSmall ix4 && inBounds ix4 vars2p
                then Just $ astGather (shm `shsAppend` shsDrop @(Rank shp) shm2)
                                      shn2
@@ -4399,7 +4403,7 @@ astTransposeS perm t =
     -- TODO: should the below be backpermute or permute?
     | fromSNat' (Permutation.permRank perm) <= length vars ->
         let vars2 :: AstVarListS (Permutation.PermutePrefix perm shm)
-            vars2 = listsPermutePrefix perm vars
+            vars2 = AstVarListS $ ixsPermutePrefix perm $ unAstVarListS vars
         in gcastWith (unsafeCoerceRefl
                       :: Permutation.PermutePrefix perm shm ++ shn
                          :~: Permutation.PermutePrefix perm (shm ++ shn)) $

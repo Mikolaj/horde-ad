@@ -11,7 +11,7 @@
 module HordeAd.Core.Adaptor
   ( AdaptableTarget(..), TermValue(..), DualNumberValue(..)
   , ForgetShape(..), RandomValue(..)
-  , stkOfListR
+  , stkOfIxR
     -- * Helper classes and types
   , Tups, NoShapeTensorKind
   ) where
@@ -231,36 +231,36 @@ type family Tups n t where
   Tups 0 t = TKUnit
   Tups n t = TKProduct t (Tups (n - 1) t)
 
-stkOfListR :: forall t n.
-              SingletonTK t -> SNat n -> SingletonTK (Tups n t)
-stkOfListR _ SZ = stkUnit
-stkOfListR stk SNat =
+stkOfIxR :: forall t n.
+            SingletonTK t -> SNat n -> SingletonTK (Tups n t)
+stkOfIxR _ SZ = stkUnit
+stkOfIxR stk SNat =
   gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
   gcastWith (unsafeCoerceRefl :: Tups n t :~: TKProduct t (Tups (n - 1) t)) $
-  STKProduct stk (stkOfListR stk (SNat @(n - 1)))
+  STKProduct stk (stkOfIxR stk (SNat @(n - 1)))
 
 instance (BaseTensor target, KnownNat n, AdaptableTarget target a)
-         => AdaptableTarget target (ListR n a) where
-  type X (ListR n a) = Tups n (X a)
-  toTarget ZR = tkconcrete Z1
-  toTarget ((:::) @n1 a rest) =
+         => AdaptableTarget target (IxR n a) where
+  type X (IxR n a) = Tups n (X a)
+  toTarget ZIR = tkconcrete Z1
+  toTarget ((:.:) @n1 a rest) =
     gcastWith (unsafeCoerceRefl
-               :: X (ListR n a) :~: TKProduct (X a) (X (ListR n1 a))) $
+               :: X (IxR n a) :~: TKProduct (X a) (X (IxR n1 a))) $
     let a1 = toTarget a
         rest1 = toTarget rest
     in tpair a1 rest1
   fromTarget tups = case SNat @n of
-    SZ -> ZR
+    SZ -> ZIR
     _ ->
       gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
       gcastWith (unsafeCoerceRefl
-                 :: X (ListR n a) :~: TKProduct (X a) (X (ListR (n - 1) a))) $
+                 :: X (IxR n a) :~: TKProduct (X a) (X (IxR (n - 1) a))) $
       let (a1, rest1) = (tproject1 tups, tproject2 tups)
           a = fromTarget a1
-          rest = fromTarget @_ @(ListR (n - 1) a) rest1
-      in (a ::: rest)
-  {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (AstTensor AstMethodLet FullSpan) a) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (ListR n a) #-}
-  {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (ADVal Concrete) a) => AdaptableTarget (ADVal Concrete) (ListR n a) #-}
+          rest = fromTarget @_ @(IxR (n - 1) a) rest1
+      in (a :.: rest)
+  {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (AstTensor AstMethodLet FullSpan) a) => AdaptableTarget (AstTensor AstMethodLet FullSpan) (IxR n a) #-}
+  {-# SPECIALIZE instance (KnownNat n, AdaptableTarget (ADVal Concrete) a) => AdaptableTarget (ADVal Concrete) (IxR n a) #-}
 
 instance TermValue a => TermValue [a] where
   type Value [a] = [Value a]
@@ -270,10 +270,10 @@ instance TermValue a => TermValue (Data.Vector.Vector a) where
   type Value (Data.Vector.Vector a) = Data.Vector.Vector (Value a)
   fromValue = V.map fromValue
 
-instance TermValue a => TermValue (ListR n a) where
-  type Value (ListR n a) = ListR n (Value a)
-  fromValue ZR = ZR
-  fromValue (a ::: rest) = fromValue a ::: fromValue rest
+instance TermValue a => TermValue (IxR n a) where
+  type Value (IxR n a) = IxR n (Value a)
+  fromValue ZIR = ZIR
+  fromValue (a :.: rest) = fromValue a :.: fromValue rest
 
 instance DualNumberValue a => DualNumberValue [a] where
   type DValue [a] = [DValue a]
@@ -283,10 +283,10 @@ instance DualNumberValue a => DualNumberValue (Data.Vector.Vector a) where
   type DValue (Data.Vector.Vector a) = Data.Vector.Vector (DValue a)
   fromDValue = V.map fromDValue
 
-instance DualNumberValue a => DualNumberValue (ListR n a) where
-  type DValue (ListR n a) = ListR n (DValue a)
-  fromDValue ZR = ZR
-  fromDValue (a ::: rest) = fromDValue a ::: fromDValue rest
+instance DualNumberValue a => DualNumberValue (IxR n a) where
+  type DValue (IxR n a) = IxR n (DValue a)
+  fromDValue ZIR = ZIR
+  fromDValue (a :.: rest) = fromDValue a :.: fromDValue rest
 
 instance ForgetShape [a] where
   type NoShape [a] = [a]
@@ -296,19 +296,19 @@ instance ForgetShape (Data.Vector.Vector a) where
   type NoShape (Data.Vector.Vector a) = Data.Vector.Vector a
   forgetShape = id
 
-instance ForgetShape a => ForgetShape (ListR n a) where
-  type NoShape (ListR n a) = ListR n (NoShape a)
-  forgetShape ZR = ZR
-  forgetShape (a ::: rest) = forgetShape a ::: forgetShape rest
+instance ForgetShape a => ForgetShape (IxR n a) where
+  type NoShape (IxR n a) = IxR n (NoShape a)
+  forgetShape ZIR = ZIR
+  forgetShape (a :.: rest) = forgetShape a :.: forgetShape rest
 
-instance (RandomValue a, KnownNat n) => RandomValue (ListR n a) where
+instance (RandomValue a, KnownNat n) => RandomValue (IxR n a) where
   randomValue range g = case cmpNat (Proxy @n) (Proxy @0)  of
     LTI -> error "randomValue: impossible"
-    EQI -> (ZR, g)
+    EQI -> (ZIR, g)
     GTI -> gcastWith (unsafeCoerceRefl :: (1 <=? n) :~: True) $
            let (v, g1) = randomValue range g
-               (rest, g2) = randomValue @(ListR (n - 1) a) range g1
-           in (v ::: rest, g2)
+               (rest, g2) = randomValue @(IxR (n - 1) a) range g1
+           in (v :.: rest, g2)
 
 
 -- * Tuple instances

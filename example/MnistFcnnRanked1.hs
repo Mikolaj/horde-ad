@@ -15,17 +15,17 @@ import Data.Array.Nested qualified as Nested
 import Data.Array.Nested.Ranked.Shape
 
 import HordeAd
-import HordeAd.Core.Ops (tsfromListR)
+import HordeAd.Core.Ops (tsfromIxR)
 import MnistData
 
 -- | The differentiable type of all trainable parameters of this nn.
 type ADFcnnMnist1Parameters
        (target :: Target) (widthHidden :: Nat) (widthHidden2 :: Nat) r =
-  ( ( ListR widthHidden (target (TKS '[SizeMnistGlyph] r))
+  ( ( IxR widthHidden (target (TKS '[SizeMnistGlyph] r))
     , target (TKS '[widthHidden] r) )
-  , ( ListR widthHidden2 (target (TKS '[widthHidden] Float))
+  , ( IxR widthHidden2 (target (TKS '[widthHidden] Float))
     , target (TKS '[widthHidden2] r) )
-  , ( ListR SizeMnistLabel (target (TKS '[widthHidden2] r))
+  , ( IxR SizeMnistLabel (target (TKS '[widthHidden2] r))
     , target (TKS '[SizeMnistLabel] r) )
   )
 
@@ -33,13 +33,13 @@ type ADFcnnMnist1Parameters
 -- as lists of vectors.
 listMatmul1
   :: forall target r w1 w2. (ADReady target, NumScalar r, KnownNat w1, 1 <= w2)
-  => target (TKS '[w1] r) -> ListR w2 (target (TKS '[w1] r))
+  => target (TKS '[w1] r) -> IxR w2 (target (TKS '[w1] r))
   -> target (TKS '[w2] r)
 {-# INLINE listMatmul1 #-}  -- this doesn't want to specialize
 listMatmul1 x0 weights = tlet x0 $ \x ->
   let f :: target (TKS '[w1] r) -> target (TKS '[] r)
       f v = sfromK $ v `sdot0` x
-  in tsfromListR $ f <$> weights
+  in tsfromIxR $ f <$> weights
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.

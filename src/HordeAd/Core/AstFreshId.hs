@@ -160,9 +160,10 @@ funToVarsIxIOS sh f = withKnownShS sh $ do
         freshId <- unsafeGetFreshAstVarId
         return $! mkAstVarNameBounds (0, n - 1) freshId
   varList <- mapM unsafeGetFreshIntVarName $ shsToList sh
-  let !vars = fromList varList
-      ix = fmap astVar $ IxS vars
-  return $! f vars ix
+  let !ix = fromList varList
+      vars = AstVarListS ix
+      asts = fmap astVar ix
+  return $! f vars asts
 
 funToVarsIxS
   :: ShS sh -> (AstVarListS sh -> AstIxS ms sh -> AstTensor ms s2 z)

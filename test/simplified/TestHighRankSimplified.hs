@@ -130,8 +130,8 @@ testBarS =
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
 fooD :: forall r n. (RealFloatH (ADVal Concrete (TKR n r)))
-     => ListR 3 (ADVal Concrete (TKR n r)) -> ADVal Concrete (TKR n r)
-fooD (x ::: y ::: z ::: ZR) =
+     => IxR 3 (ADVal Concrete (TKR n r)) -> ADVal Concrete (TKR n r)
+fooD (x :.: y :.: z :.: ZIR) =
   let w = x * sin y
   in atan2H z w + z * w
 
@@ -192,7 +192,7 @@ fooBuild2 v =
 fooBuild2L
   :: forall k target r n.
      (ADReady target, NumScalar r, KnownNat n, Floating (target (TKR n r)), Differentiable r)
-  => ListR k (target (TKR (1 + n) r)) -> target (TKR (1 + n) r)
+  => IxR k (target (TKR (1 + n) r)) -> target (TKR (1 + n) r)
 fooBuild2L = foldr1 (+) . fmap fooBuild2
 
 testFooBuild91 :: Assertion
