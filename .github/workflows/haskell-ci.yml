@@ -191,7 +191,10 @@ jobs:
           $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH all --write-ghc-environment-files=always
       - name: tests
         run: |
-          $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH minimalTest --test-show-details=direct
+          $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH minimalTest --test-show-details=direct --test-options='-p "detSquare"'
+      - name: benchmarks
+        run: |
+          $CABAL v2-bench $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortProdForCI
       - name: cabal check
         run: |
           cd ${PKGDIR_horde_ad} || false
