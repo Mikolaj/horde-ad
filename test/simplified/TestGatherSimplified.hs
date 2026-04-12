@@ -1674,7 +1674,7 @@ detSquare :: forall target. ADReady target
           => target (TKR 2 Double) -> target (TKScalar Double)
 detSquare =
   let fact :: Int -> Int
-      fact n = factAcc 1 n
+      fact = factAcc 1
         where factAcc acc i | i <= 1 = acc
               factAcc acc i = factAcc (i * acc) (i - 1)
 

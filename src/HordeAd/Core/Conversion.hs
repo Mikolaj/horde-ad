@@ -132,10 +132,10 @@ convCmp a b = case (a, b) of
   (ConvXR stk, ConvXX'{}) -> ConvXR stk
   (ConvXR stk, ConvCmp ConvXX'{} c) -> convCmp (ConvXR stk) c
   (ConvXS @sh, ConvSX @sh') ->
-    gcastWith (unsafeCoerceRefl :: sh :~: sh') $
+    gcastWith (unsafeCoerceRefl :: sh :~: sh')
     ConvId
   (ConvXS @sh, ConvCmp (ConvSX @sh') c) ->
-    gcastWith (unsafeCoerceRefl :: sh :~: sh') $
+    gcastWith (unsafeCoerceRefl :: sh :~: sh')
     c
   (ConvXS, ConvXX' (FTKX sh x)) | Refl <- lemRankMapJust (shsFromShX sh) ->
     ConvXS' (FTKS (shsFromShX sh) x)
@@ -143,10 +143,10 @@ convCmp a b = case (a, b) of
     | Refl <- lemRankMapJust (shsFromShX sh) ->
       convCmp (ConvXS' (FTKS (shsFromShX sh) x)) c
   (ConvXS' @_ @sh' _, ConvSX @sh) ->
-    gcastWith (unsafeCoerceRefl :: sh :~: sh') $
+    gcastWith (unsafeCoerceRefl :: sh :~: sh')
     ConvId
   (ConvXS' @_ @sh' _, ConvCmp (ConvSX @sh) c) ->
-    gcastWith (unsafeCoerceRefl :: sh :~: sh') $
+    gcastWith (unsafeCoerceRefl :: sh :~: sh')
     c
   (ConvXS' ftk, ConvXX'{}) -> ConvXS' ftk
   (ConvXS' ftk, ConvCmp ConvXX'{} c) -> convCmp (ConvXS' ftk) c
@@ -166,7 +166,7 @@ convCmp a b = case (a, b) of
   (Conv0X{}, ConvX0) -> ConvId
   (Conv0X{}, ConvCmp ConvX0 c) -> c
   (ConvX0, ConvXX' @sh (FTKX ZSX _)) ->
-    gcastWith (unsafeCoerceRefl :: sh :~: '[]) $
+    gcastWith (unsafeCoerceRefl :: sh :~: '[])
     ConvX0
   (ConvX0, ConvCmp (ConvXX' @sh (FTKX ZSX _)) c) ->
     gcastWith (unsafeCoerceRefl :: sh :~: '[]) $

@@ -779,7 +779,7 @@ kbuild1 = tkbuild1
 kbuild :: (KnownShS sh, GoodScalar r, BaseTensor target, ConvertTensor target)
        => (IxSOf target sh -> target (TKScalar r))
        -> target (TKS sh r)
-{-# INLINE  kbuild#-}
+{-# INLINE kbuild #-}
 kbuild = tkbuild
 
 rbuild1 :: (KnownNat n, KnownSTK x, BaseTensor target)

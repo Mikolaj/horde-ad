@@ -461,7 +461,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
   tsfromVectorLinear = astFromVectorK
   tssumN @shm @shn t | SNat <- shsRank (knownShS @shm) =
     gcastWith (unsafeCoerceRefl :: Take (Rank shm) (shm ++ shn) :~: shm) $
-    astSumS (shsTake @(Rank shm) (sshape t)) $ t
+    astSumS (shsTake @(Rank shm) (sshape t)) t
   tssum0 = astSumK
   tsreplicateN = astReplicateS
   tsreplicate0N = astReplicateK
@@ -1357,9 +1357,9 @@ instance KnownSpan s => BaseTensor (AstRaw s) where
   tpair t1 t2 = AstRaw $ AstPair (unAstRaw t1) (unAstRaw t2)
   tproject1 t = AstRaw $ AstProject1 $ unAstRaw t
   tproject2 t = AstRaw $ AstProject2 $ unAstRaw t
-  kcond !(AstRaw b) !(AstRaw u) !(AstRaw v) = AstRaw $ AstCondK b u v
-  scond !(AstRaw b) !(AstRaw u) !(AstRaw v) = AstRaw $ AstCondS b u v
-  tcond stk !b0@(AstRaw b) !u0@(AstRaw u) !v0@(AstRaw v) = case stk of
+  kcond (AstRaw b) (AstRaw u) (AstRaw v) = AstRaw $ AstCondK b u v
+  scond (AstRaw b) (AstRaw u) (AstRaw v) = AstRaw $ AstCondS b u v
+  tcond stk b0@(AstRaw b) u0@(AstRaw u) v0@(AstRaw v) = case stk of
     STKScalar -> AstRaw $ AstCondK b u v
     STKR{} | FTKR sh0 x <- ftkAst u -> AstRaw $
       withShsFromShR sh0 $ \(sh :: ShS sh) ->

@@ -59,7 +59,7 @@ import Control.Exception.Assert.Sugar
 import Control.Monad (mapAndUnzipM, mplus)
 import Data.Default
 import Data.Foldable qualified as Foldable
-import Data.List (findIndex)
+import Data.List (elemIndex, findIndex)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -120,7 +120,7 @@ data RewritePhase =
   | PhaseContraction
  deriving Eq
 
-data SimplifyKnobs = SimplifyKnobs
+newtype SimplifyKnobs = SimplifyKnobs
   { knobPhase :: RewritePhase
   }
 
@@ -524,7 +524,7 @@ astLet var (Ast.AstPair u1 u2) v =
   withKnownSpan (varNameToSpan var) $
   astLetFun u1 $ \ !ast1 -> astLetFun u2 $ \ !ast2 ->
     substituteAst (Ast.AstPair ast1 ast2) var v
-astLet var (Ast.AstLet varN uN (u12@Ast.AstPair{})) v =
+astLet var (Ast.AstLet varN uN u12@Ast.AstPair{}) v =
   withKnownSpan (varNameToSpan var) $
   astLetRefresh varN uN u12 $ \u3 -> case u3 of
     Ast.AstPair u1' u2' ->
@@ -538,7 +538,7 @@ astLet var (Ast.AstFromVectorK shm u) v | V.length u == 2 =
     substituteAst (Ast.AstFromVectorK shm
                    $ V.fromListN 2 [ast1, ast2]) var v
 astLet var (Ast.AstLet varN uN
-              (u12@(Ast.AstFromVectorK _ u))) v | V.length u == 2 =
+              u12@(Ast.AstFromVectorK _ u)) v | V.length u == 2 =
   withKnownSpan (varNameToSpan var) $
   astLetRefresh varN uN u12 $ \u3 -> case u3 of
     Ast.AstFromVectorK shm u' ->
@@ -552,7 +552,7 @@ astLet var (Ast.AstFromVectorS shm u) v | V.length u == 2 =
     substituteAst (Ast.AstFromVectorS shm
                    $ V.fromListN 2 [ast1, ast2]) var v
 astLet var (Ast.AstLet varN uN
-              (u12@(Ast.AstFromVectorS _ u))) v | V.length u == 2 =
+              u12@(Ast.AstFromVectorS _ u)) v | V.length u == 2 =
   withKnownSpan (varNameToSpan var) $
   astLetRefresh varN uN u12 $ \u3 -> case u3 of
     Ast.AstFromVectorS shm u' ->
@@ -3544,7 +3544,7 @@ astGatherKnobsS knobs (m :$$ shm4) ZSS _shp
           AstConcreteK j -> Just j
           _ -> Nothing
   , Just lj <- mapM g [0 .. fromSNat' m - 1]
-  , Refl <- lemAppNil @shm = assert (length rest4 == 0) $
+  , Refl <- lemAppNil @shm = assert (null rest4) $
     let FTKS _ x = ftkAst v4
         ftk = FTKS shm4 x
         zero = fromPlain $ astConcrete ftk (tdefTarget ftk)
@@ -3568,14 +3568,14 @@ astGatherKnobsS knobs shm@(m :$$ (shm4 :: ShS shm4)) shn shp
     let FTKS _ x = ftkAst v4
         ftk = FTKS (shsTail shm `shsAppend` shn) x
         zero = fromPlain $ astConcrete ftk (tdefTarget ftk)
-        f (i, j) =
+        f i j =
           let subRest4 = substituteAstIxS (AstConcreteK i) var4 rest4
           in if j >= V.length l
              then zero
              else astGatherKnobsS knobs shm4 shn (shsTail shp)
                                   (l V.! j) (vrest4, subRest4)
     in astFromVectorS (m :$$ ZSS)
-       $ V.fromListN (fromSNat' m) $ map f (zip [0 .. fromSNat' m - 1] lj)
+       $ V.fromListN (fromSNat' m) $ zipWith f [0 .. fromSNat' m - 1] lj
 astGatherKnobsS knobs shm shn shp v0 (vars0, i1 :.$ rest1)
   | knobPhase knobs `notElem` [PhaseVectorization, PhaseExpansion]
       -- prevent a loop
@@ -3728,7 +3728,7 @@ astGatherKnobsS knobs shm@(m :$$ _) shn shp v0
             , Just{} <- mvar -> mvar
           _ -> Nothing
   , Just varp <- varInteresting i1
-  , Just i <- findIndex (== varp) (Foldable.toList vars) = assert (i > 0) $
+  , Just i <- elemIndex varp (Foldable.toList vars) = assert (i > 0) $
     Permutation.permFromListCont (backpermCycle $ i + 1)
     $ \(permWhole :: Permutation.Perm permWhole) ->
     permInverse permWhole $ \(invperm :: Nested.Perm invperm) _ ->
@@ -4292,7 +4292,7 @@ astTransposeS perm t =
              :: TakeLen perm sh ++ DropLen perm sh :~: sh) $ case perm of
  PNil -> t
  PCons (SNat' @0) PNil ->
-   gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix '[0] sh :~: sh) $
+   gcastWith (unsafeCoerceRefl :: Permutation.PermutePrefix '[0] sh :~: sh)
    t
  _ | FTKS sh _ <- ftkAst t
    , Just u2 <- unReplN @_ @(DropLen perm sh) (shsTakeLenPerm perm sh) t ->
@@ -4335,7 +4335,7 @@ astTransposeS perm t =
     Permutation.permFromListCont
       (Permutation.permToList'
        $ iterate (unsafeCoerce Permutation.permShift1) perm
-         !! (fromSNat' n))  -- this has a fake type, but that's fine
+         !! fromSNat' n)  -- this has a fake type, but that's fine
       $ \ (permn :: Perm permn) ->
         fromMaybe (error "astTransposeS: impossible non-permutation")
         $ Permutation.permCheckPermutation permn
@@ -4773,14 +4773,14 @@ astConvDownSFromR :: forall sh s x. KnownSpan s
                   => ShS sh -> FullShapeTK x
                   -> AstTensor AstMethodLet s (TKR2 (Rank sh) x)
                   -> AstTensor AstMethodLet s (TKS2 sh x)
-astConvDownSFromR sh x t | Refl <- lemRankReplicate (Proxy @(Rank sh)) =
-  astConvertDownSFromR (ConvCmp (ConvXS' (FTKS sh x)) ConvRX) sh x t
+astConvDownSFromR sh x | Refl <- lemRankReplicate (Proxy @(Rank sh)) =
+  astConvertDownSFromR (ConvCmp (ConvXS' (FTKS sh x)) ConvRX) sh x
 
 astConvDownSFromX :: forall sh sh' s x. (KnownSpan s, Rank sh ~ Rank sh')
                   => ShS sh -> FullShapeTK x
                   -> AstTensor AstMethodLet s (TKX2 sh' x)
                   -> AstTensor AstMethodLet s (TKS2 sh x)
-astConvDownSFromX sh x t = astConvertDownSFromX (ConvXS' (FTKS sh x)) sh x t
+astConvDownSFromX sh x = astConvertDownSFromX (ConvXS' (FTKS sh x)) sh x
 
 astConvUp :: forall y z s. KnownSpan s
           => FullShapeTK z -> AstTensor AstMethodLet s y
@@ -5741,5 +5741,5 @@ substitute1AstHFun
      AstTensor AstMethodLet s3 z -> AstVarName '(s3, z) -> AstHFun s x y
   -> Maybe (AstHFun s x y)
 substitute1AstHFun _i var (AstLambda var2 _) =
-  assert (varNameToAstVarId var2 /= varNameToAstVarId var) $
+  assert (varNameToAstVarId var2 /= varNameToAstVarId var)
   Nothing  -- no outside free variables

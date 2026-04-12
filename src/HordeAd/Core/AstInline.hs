@@ -20,6 +20,7 @@ import Data.EnumMap.Strict qualified as EM
 import Data.Foldable qualified as Foldable
 import Data.Kind (Type)
 import Data.List (sortOn)
+import Data.Ord qualified
 import Data.Some
 import Data.Vector.Generic qualified as V
 
@@ -285,7 +286,7 @@ bindsToLet u0 !memo = foldl' bindToLet u0 l
   varFromDSum :: DSum AstVarName SpanTarget -> AstVarId
   varFromDSum (var :=> _) = varNameToAstVarId var
   l :: [DSum AstVarName SpanTarget]
-  l = reverse $ sortOn varFromDSum $ DMap.toList memo
+  l = sortOn (Data.Ord.Down . varFromDSum) (DMap.toList memo)
   -- Lets are immediately pushed down before other rewrites block
   -- some opportunities.
   bindToLet :: AstTensor AstMethodLet s y

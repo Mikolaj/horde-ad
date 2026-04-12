@@ -318,7 +318,7 @@ contractAst t0 = case t0 of
                            (AstTimesS
                               t2
                               (Ast.AstIndexS @shm @shn (n :$$ ZSS)
-                                 u (ix@(AstIntVar var2 :.$ ZIS)))))))
+                                 u ix@(AstIntVar var2 :.$ ZIS))))))
     | var == var2
     , not (varNameInAst var t2), not (varNameInAst var u)
     , FTKS shmshn _ <- ftkAst u ->
@@ -336,7 +336,7 @@ contractAst t0 = case t0 of
                            (AstTimesS
                               t2
                               (Ast.AstIndexS @shm @shn (n :$$ ZSS)
-                                 u (ix@(AstIntVar var2 :.$ ZIS))))))
+                                 u ix@(AstIntVar var2 :.$ ZIS)))))
     | var == var2
     , not (varNameInAst var t2), not (varNameInAst var u)
     , FTKS shmshn _ <- ftkAst u ->
@@ -633,7 +633,7 @@ contractAst t0 = case t0 of
       varu
       (withKnownSpan (varNameToSpan varu) $ contractAst vu)
       u
-      $ \u' -> contractAst $ Ast.AstSumS shm (AstTimesS t2 u')
+      $ contractAst . Ast.AstSumS shm . AstTimesS t2
   Ast.AstSumS shm v -> astSumS shm $ contractAst v
   Ast.AstScatterS shm shn shp v (vars, ix) ->
     astScatterKnobsS (defaultKnobs {knobPhase = PhaseContraction})

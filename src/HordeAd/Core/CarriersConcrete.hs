@@ -141,7 +141,7 @@ mmakeNonZero :: (Nested.PrimElt r, Eq r, Num r)
              => Nested.Mixed sh r -> Nested.Mixed sh r
 mmakeNonZero =
   Mixed.mliftNumElt1
-    (`liftVEltwise1` (VS.map (\x -> if x == 0 then 1 else x)))
+    (`liftVEltwise1` VS.map (\x -> if x == 0 then 1 else x))
 
 
 -- * RepConcrete and its operations

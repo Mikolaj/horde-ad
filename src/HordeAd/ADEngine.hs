@@ -372,11 +372,10 @@ revProduceArtifactWithoutInterpretation
   -> (AstArtifactRev x z, Delta (AstRaw FullSpan) z)
        -- ^ the artifact containing the symbolic code of the derivative
 {-# INLINE revProduceArtifactWithoutInterpretation #-}
-revProduceArtifactWithoutInterpretation cotangentHandling f xftk =
+revProduceArtifactWithoutInterpretation cotangentHandling f =
   -- No simplification performed to let individual tests decide.
   revArtifactFromForwardPass cotangentHandling
                              (forwardPassByApplication f)
-                             xftk
 
 forwardPassByApplication
   :: forall x z.

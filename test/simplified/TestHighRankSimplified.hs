@@ -410,7 +410,7 @@ nestedBuildMap r =
                              $ 2 :$: 4 :$: 2 :$: 1 :$: 3 :$: 2 :$: ZSR)
                    . rminimum . variableLengthBuild)
   in rmap0N (\x -> x * (rsum0
-                         (rbuild1 3 (\ix -> bar ((rfromK x), rindex v' [ix]))
+                         (rbuild1 3 (\ix -> bar (rfromK x, rindex v' [ix]))
                           + fooBuild1 (nestedMap (rfromK x))
                           / fooMap1 [3] (rfromK x)))
             ) doublyBuild

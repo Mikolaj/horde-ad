@@ -239,7 +239,7 @@ instance TestEquality AstVarName where
 instance DMap.Enum1 AstVarName where
   type Enum1Info AstVarName = FtkAndBounds
   fromEnum1 (AstVarName varId ftkBounds) = (fromEnum varId, ftkBounds)
-  toEnum1 varIdInt ftkBounds = AstVarName (toEnum varIdInt) ftkBounds
+  toEnum1 varIdInt = AstVarName (toEnum varIdInt)
 
 type role FtkAndBounds nominal
 data FtkAndBounds :: (AstSpan, TK) -> Type where

@@ -691,7 +691,7 @@ mkTraceRule :: forall y z s. KnownSpan s
             -> AstTensor AstMethodLet s y
             -> AstTensor AstMethodLet s y
 {-# NOINLINE mkTraceRule #-}
-mkTraceRule prefix from !fromFTK caseAnalysed nwords ~to = unsafePerformIO $ do
+mkTraceRule prefix from !fromFTK caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = traceWidth
       constructorName =

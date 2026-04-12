@@ -183,8 +183,7 @@ class LetTensor (target :: Target) where
   tD stk p d =
     -- Lets needed, because taddTarget requires duplicable arguments.
     ttletPrimal p $ \pShared ->
-    ttlet (tfromDual d) $ \dShared ->
-      taddTarget stk (tfromPrimal stk pShared) dShared
+    ttlet (tfromDual d) $ taddTarget stk (tfromPrimal stk pShared)
   -- | A strict left fold.
   tfold
     :: forall yn ym k. BaseTensor target
@@ -458,7 +457,7 @@ class ( Num (IntOf target)
                      -> target (TKX shm r)
   txunravelToList :: (KnownNat k, KnownShX shn, KnownSTK x)
                   => target (TKX2 (Just k ': shn) x) -> [target (TKX2 shn x)]
-  txunravelToList t = txunravelToListN (SKnown SNat :$% ZSX) t
+  txunravelToList = txunravelToListN (SKnown SNat :$% ZSX)
   txunravelToListN :: forall shm shn x. (KnownShX shn, KnownSTK x)
                    => IShX shm -> target (TKX2 (shm ++ shn) x)
                    -> [target (TKX2 shn x)]
@@ -472,7 +471,7 @@ class ( Num (IntOf target)
   -- by 1 dimension.
   trsum :: forall n x. (KnownNat n, TKAllNum x, KnownSTK x)
         => target (TKR2 (1 + n) x) -> target (TKR2 n x)
-  trsum t = trsumN t
+  trsum = trsumN
   trsumN :: forall m n x. (KnownNat m, KnownNat n, TKAllNum x, KnownSTK x)
          => target (TKR2 (m + n) x) -> target (TKR2 n x)
   -- This op (and it's Delta constructor) is worthwhile, because flattening

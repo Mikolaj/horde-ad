@@ -1696,7 +1696,7 @@ fooBuild1 v =
   in rbuild1 3 $ \ix ->
        r * foo2 ( rscalar 3
                , rscalar 5 * r
-               , r * (rfromK (rminimum v)) * v')
+               , r * rfromK (rminimum v) * v')
        + bar (r, rindex v [ix + 1])
 
 testFooBuildDt :: Assertion
@@ -1735,7 +1735,7 @@ fooNoGo v =
        bar (rscalar 3.14, bar (rscalar 3.14, rindex v [kfromS $ (ix + (tplainPart . sfloor . sfromK) r) `minH` sscalar 2 `maxH` sscalar 0]))
        + ifH ((&&*) (rindex @1 v [ix' * 2] <=. rscalar 0)
                     (sscalar 6 >. abs ix))
-               (rfromK r) (rscalar 5 * (rfromK r)))
+               (rfromK r) (rscalar 5 * rfromK r))
      / rslice 1 3 (rmap0N (\x -> ifH (x >. r) r x) v)
      * rbuild1 3 (const (rscalar 1))
 
@@ -1783,7 +1783,7 @@ testNestedSumBuildm1 :: Assertion
 testNestedSumBuildm1 =
   assertEqualUpToEpsilon' 1e-8
     (rscalar 0)
-    (rev' (rfromK . nestedSumBuildm1) ((rscalar 1)))
+    (rev' (rfromK . nestedSumBuildm1) (rscalar 1))
 
 nestedSumBuild0 :: ADReady target
                 => target (TKR 0 CInt) -> target (TKScalar CInt)
@@ -1797,7 +1797,7 @@ testNestedSumBuild0 :: Assertion
 testNestedSumBuild0 =
   assertEqualUpToEpsilon' 1e-8
     (rscalar 0)
-    (rev' (rfromK . nestedSumBuild0) ((rscalar 1)))
+    (rev' (rfromK . nestedSumBuild0) (rscalar 1))
 
 nestedSumBuild :: (ADReady target, NumScalar r, Differentiable r)
                => target (TKR 1 r) -> target (TKR 1 r)

@@ -25,19 +25,19 @@ import HordeAd.Core.Adaptor
 import HordeAd.Core.Ops
 
 bgroup100, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
-bgroup100 = envProd 100 $ \args -> bgroup "100" $ benchProd args
+bgroup100 = envProd 100 $ bgroup "100" . benchProd
 
-bgroup1000 = envProd 1000 $ \args -> bgroup "1000" $ benchProdShort args
+bgroup1000 = envProd 1000 $ bgroup "1000" . benchProdShort
 
-bgroup1e4 = envProd 1e4 $ \args -> bgroup "1e4" $ benchProdShort args
+bgroup1e4 = envProd 1e4 $ bgroup "1e4" . benchProdShort
 
-bgroup1e5 = envProd 1e5 $ \args -> bgroup "1e5" $ benchProdShortest args
+bgroup1e5 = envProd 1e5 $ bgroup "1e5" . benchProdShortest
 
-bgroup1e6 = envProd 1e6 $ \args -> bgroup "1e6" $ benchProdShortest args
+bgroup1e6 = envProd 1e6 $ bgroup "1e6" . benchProdShortest
 
-bgroup1e7 = envProd 1e7 $ \args -> bgroup "1e7" $ benchProdShortest args
+bgroup1e7 = envProd 1e7 $ bgroup "1e7" . benchProdShortest
 
-bgroup5e7 = envProd 5e7 $ \args -> bgroup "5e7" $ benchProdShortest args
+bgroup5e7 = envProd 5e7 $ bgroup "5e7" . benchProdShortest
   -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
 
 envProd :: r ~ Double

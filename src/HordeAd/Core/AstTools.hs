@@ -255,7 +255,7 @@ varInIxS var = any (varInAst var)
 
 varInAstHFun :: AstVarId -> AstHFun s x y -> Bool
 varInAstHFun var (AstLambda var2 _) =
-  assert (varNameToAstVarId var2 /= var) $
+  assert (varNameToAstVarId var2 /= var)
   False  -- we take advantage of the term being closed
 
 varNameInAst :: AstVarName '(s, y) -> AstTensor ms s2 y2 -> Bool
@@ -275,7 +275,7 @@ unsafeTotalSharingRef :: IORef Bool
 unsafeTotalSharingRef = unsafePerformIO $ newIORef False
 
 setTotalSharing :: Bool -> IO ()
-setTotalSharing b = atomicWriteIORef unsafeTotalSharingRef b
+setTotalSharing = atomicWriteIORef unsafeTotalSharingRef
 
 -- | A term requires sharing if it's too large as a term and so duplicating
 -- it could affect the performance of simplification
