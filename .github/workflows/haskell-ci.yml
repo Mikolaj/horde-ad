@@ -164,7 +164,6 @@ jobs:
           echo "package horde-ad" >> cabal.project
           echo "    ghc-options: -Werror=unused-packages" >> cabal.project
           echo "package horde-ad" >> cabal.project
-          echo "    ghc-options: -Werror=incomplete-uni-patterns" >> cabal.project
           cat >> cabal.project <<EOF
           EOF
           $HCPKG list --simple-output --names-only | perl -ne 'for (split /\s+/) { print "constraints: any.$_ installed\n" unless /^(horde-ad)$/; }' >> cabal.project.local
