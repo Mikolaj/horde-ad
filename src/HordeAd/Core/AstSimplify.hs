@@ -118,12 +118,11 @@ data RewritePhase =
   | PhaseSimplification
   | PhaseExpansion
   | PhaseContraction
- deriving (Show, Eq)
+ deriving Eq
 
 data SimplifyKnobs = SimplifyKnobs
   { knobPhase :: RewritePhase
   }
- deriving Show
 
 defaultKnobs :: SimplifyKnobs
 defaultKnobs = SimplifyKnobs PhaseUnspecified

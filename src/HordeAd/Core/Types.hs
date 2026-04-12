@@ -7,7 +7,7 @@
 module HordeAd.Core.Types
   ( -- * Re-exports and definitions to help express and manipulate type-level natural numbers
     SNat, pattern SNat, pattern SNat'
-  , withSNat, proxyFromSNat, valueOf, snatSucc
+  , withSNat, valueOf, snatSucc
     -- * Kinds of the parameterized types that determine the structure of a tensor
   , Target, TK (..), TKR, TKS, TKX, TKUnit, TKAllNum
     -- * Some fundamental constraints and types related to tensors
@@ -31,8 +31,7 @@ module HordeAd.Core.Types
   , ixsTake, ixsDrop, ixsSplitAt, shsTake, shsDrop
   -- TODO: ixxTake, ixxDrop'
   , shxTake, shxDrop
-  , permRInverse, ssxPermutePrefix, shxPermutePrefix
-  , shCastSX, lemRankMapJust'
+  , permRInverse, ssxPermutePrefix, shxPermutePrefix, shCastSX
   , normalizePermutationHack, backpermCycle, permCycle
   , permUnShift1
   ) where
@@ -91,9 +90,6 @@ withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
 {-# INLINE withSNat #-}
 withSNat i f = TN.withSomeSNat (toEnum i) $ \case
   snat@SNat -> f snat
-
-proxyFromSNat :: SNat n -> Proxy n
-proxyFromSNat SNat = Proxy
 
 {-# INLINE valueOf #-}
 valueOf :: forall n r. (KnownNat n, Num r) => r
@@ -469,10 +465,6 @@ backpermutePrefixList p l = map (l !!) p ++ drop (length p) l
 -- The constraint is erroneously reported as redundant.
 shCastSX :: Rank sh ~ Rank sh' => StaticShX sh' -> ShS sh -> IShX sh'
 shCastSX ssx sh = shxCast' ssx (shxFromShS sh)
-
--- Sometimes ShS is not available.
-lemRankMapJust' :: proxy sh -> Rank (MapJust sh) :~: Rank sh
-lemRankMapJust' _ = unsafeCoerceRefl
 
 
 -- ** Permutation-related operations

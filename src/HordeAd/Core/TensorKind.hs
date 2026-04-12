@@ -6,11 +6,10 @@
 module HordeAd.Core.TensorKind
   ( -- * Tensor kind singletons
     SingletonTK(..), KnownSTK(..)
-  , withKnownSTK, lemKnownSTK, sameKnownSTK, sameSTK
-  , lemTKAllNumAD, lemTKScalarAllNumAD
-  , lemTKAllNumBuild, lemTKAllNumRaze, numFromTKAllNum
+  , withKnownSTK, lemKnownSTK, sameSTK
+  , lemTKAllNumAD, lemTKScalarAllNumAD, numFromTKAllNum
   , stkUnit, buildSTK, razeSTK, adSTK
-  , lemKnownSTKOfBuild, lemKnownSTKOfAD, lemBuildOfAD, lengthSTK, widthSTK
+  , lemKnownSTKOfBuild, lemBuildOfAD, lengthSTK, widthSTK
     -- * Full shape tensor kind quasi-singletons
   , FullShapeTK(..)
   , matchingFTK, ftkToSTK, ftkUnit, buildFTK, razeFTK, adFTK, differentiableFTK
@@ -88,10 +87,6 @@ lemKnownSTK = \case
   STKProduct stk1 stk2 | Dict <- lemKnownSTK stk1
                        , Dict <- lemKnownSTK stk2 -> Dict
 
-sameKnownSTK :: forall y1 y2. (KnownSTK y1, KnownSTK y2)
-             => Maybe (y1 :~: y2)
-sameKnownSTK = sameSTK (knownSTK @y1) (knownSTK @y2)
-
 -- | A plausible implementation of `testEquality` on `SingletonTK`.
 sameSTK :: SingletonTK y1 -> SingletonTK y2 -> Maybe (y1 :~: y2)
 {-# INLINE sameSTK #-}
@@ -131,28 +126,6 @@ lemTKScalarAllNumAD :: forall r. Typeable r
                     => Proxy r
                     -> Dict0 (TKAllNum (TKScalar (ADTensorScalar r)))
 lemTKScalarAllNumAD _ = ifDifferentiable @r Dict0 Dict0
-
-lemTKAllNumBuild :: TKAllNum y
-                 => SNat k -> SingletonTK y
-                 -> Dict0 (TKAllNum (BuildTensorKind k y))
-lemTKAllNumBuild k = \case
-  STKScalar -> Dict0
-  STKR{} -> Dict0
-  STKS{} -> Dict0
-  STKX{} -> Dict0
-  STKProduct stk1 stk2 | Dict0 <- lemTKAllNumBuild k stk1
-                       , Dict0 <- lemTKAllNumBuild k stk2 -> Dict0
-
-lemTKAllNumRaze :: TKAllNum (BuildTensorKind k y)
-                => SNat k -> SingletonTK y
-                -> Dict0 (TKAllNum y)
-lemTKAllNumRaze k = \case
-  STKScalar -> Dict0
-  STKR{} -> Dict0
-  STKS{} -> Dict0
-  STKX{} -> Dict0
-  STKProduct stk1 stk2 | Dict0 <- lemTKAllNumRaze k stk1
-                       , Dict0 <- lemTKAllNumRaze k stk2 -> Dict0
 
 -- Despite what GHC says, TKAllNum (TKScalar r) is not redundant,
 -- because it ensures the error case can't appear.
@@ -210,10 +183,6 @@ adSTK = \case
 lemKnownSTKOfBuild :: SNat k -> SingletonTK y
                    -> Dict KnownSTK (BuildTensorKind k y)
 lemKnownSTKOfBuild snat = lemKnownSTK . buildSTK snat
-
-lemKnownSTKOfAD :: SingletonTK y
-                -> Dict KnownSTK (ADTensorKind y)
-lemKnownSTKOfAD = lemKnownSTK . adSTK
 
 lemBuildOfAD :: SNat k -> SingletonTK y
              -> BuildTensorKind k (ADTensorKind y)

@@ -372,7 +372,7 @@ pattern AstIntVar var <- AstVar var
 -- to derive Foldable.
 type role ListS nominal representational
 newtype ListS sh i = AstVarListS {unAstVarListS :: IxS sh i}
-  deriving (Eq, Foldable)
+  deriving (Foldable)
 
 instance Show (AstVarListS sh) where
   showsPrec d (AstVarListS ix) = showsPrec d ix
