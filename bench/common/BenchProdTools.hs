@@ -45,8 +45,8 @@ envProd :: r ~ Double
         -> (forall n.
             ( SNat n
             , [Concrete (TKScalar r)]
-            , ListR n (Concrete (TKScalar r))
-            , ListR n (Concrete (TKS '[] r))
+            , IxR n (Concrete (TKScalar r))
+            , IxR n (Concrete (TKS '[] r))
             , Concrete (TKS '[n] r) )
             -> Benchmark)
         -> [r]
@@ -68,8 +68,8 @@ benchProd
   :: r ~ Double
   => ( SNat n
      , [Concrete (TKScalar r)]
-     , ListR n (Concrete (TKScalar r))
-     , ListR n (Concrete (TKS '[] r))
+     , IxR n (Concrete (TKScalar r))
+     , IxR n (Concrete (TKS '[] r))
      , Concrete (TKS '[n] r) )
   -> [Benchmark]
 benchProd ~(snat, list, l, lt, t) = case snat of
@@ -96,8 +96,8 @@ benchProdShort
   :: r ~ Double
   => ( SNat n
      , [Concrete (TKScalar r)]
-     , ListR n (Concrete (TKScalar r))
-     , ListR n (Concrete (TKS '[] r))
+     , IxR n (Concrete (TKScalar r))
+     , IxR n (Concrete (TKS '[] r))
      , Concrete (TKS '[n] r) )
   -> [Benchmark]
 benchProdShort ~(snat, list, l, lt, t) = case snat of
@@ -124,8 +124,8 @@ benchProdShortest
   :: r ~ Double
   => ( SNat n
      , [Concrete (TKScalar r)]
-     , ListR n (Concrete (TKScalar r))
-     , ListR n (Concrete (TKS '[] r))
+     , IxR n (Concrete (TKScalar r))
+     , IxR n (Concrete (TKS '[] r))
      , Concrete (TKS '[n] r) )
   -> [Benchmark]
 benchProdShortest ~(snat, list, l, lt, t) = case snat of
@@ -197,99 +197,99 @@ revScalarList =
   grad multScalarList
 
 multScalarL :: (BaseTensor target, NumScalar r)
-            => ListR n (target (TKScalar r)) -> target (TKScalar r)
+            => IxR n (target (TKScalar r)) -> target (TKScalar r)
 multScalarL = foldl1' (*) . Foldable.toList
 
 crevScalarL
-  :: SNat n -> ListR n (Concrete (TKScalar Double))
-  -> ListR n (Concrete (TKScalar Double))
+  :: SNat n -> IxR n (Concrete (TKScalar Double))
+  -> IxR n (Concrete (TKScalar Double))
 crevScalarL snat@SNat =
-  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
+  withKnownSTK (stkOfIxR (knownSTK @(TKScalar Double)) snat) $
   cgrad @_ @_ @_ @Concrete multScalarL
 
 revScalarL
-  :: SNat n -> ListR n (Concrete (TKScalar Double))
-  -> ListR n (Concrete (TKScalar Double))
+  :: SNat n -> IxR n (Concrete (TKScalar Double))
+  -> IxR n (Concrete (TKScalar Double))
 revScalarL snat@SNat =
-  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
+  withKnownSTK (stkOfIxR (knownSTK @(TKScalar Double)) snat) $
   grad multScalarL
 
 multScalarR :: (BaseTensor target, NumScalar r)
-            => ListR n (target (TKScalar r)) -> target (TKScalar r)
+            => IxR n (target (TKScalar r)) -> target (TKScalar r)
 multScalarR = foldr1 (*)
 
 crevScalarR
-  :: SNat n -> ListR n (Concrete (TKScalar Double))
-  -> ListR n (Concrete (TKScalar Double))
+  :: SNat n -> IxR n (Concrete (TKScalar Double))
+  -> IxR n (Concrete (TKScalar Double))
 crevScalarR snat@SNat =
-  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
+  withKnownSTK (stkOfIxR (knownSTK @(TKScalar Double)) snat) $
   cgrad @_ @_ @_ @Concrete multScalarR
 
 revScalarR
-  :: SNat n -> ListR n (Concrete (TKScalar Double))
-  -> ListR n (Concrete (TKScalar Double))
+  :: SNat n -> IxR n (Concrete (TKScalar Double))
+  -> IxR n (Concrete (TKScalar Double))
 revScalarR snat@SNat =
-  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
+  withKnownSTK (stkOfIxR (knownSTK @(TKScalar Double)) snat) $
   grad multScalarR
 
 multScalarNotShared :: (BaseTensor target, NumScalar r)
-                    => ListR n (ADVal target (TKScalar r))
+                    => IxR n (ADVal target (TKScalar r))
                     -> ADVal target (TKScalar r)
 multScalarNotShared = foldr1 multNotShared
 
 crevScalarNotShared
-  :: SNat n -> ListR n (Concrete (TKScalar Double))
-  -> ListR n (Concrete (TKScalar Double))
+  :: SNat n -> IxR n (Concrete (TKScalar Double))
+  -> IxR n (Concrete (TKScalar Double))
 crevScalarNotShared snat@SNat =
-  withKnownSTK (stkOfListR (knownSTK @(TKScalar Double)) snat) $
+  withKnownSTK (stkOfIxR (knownSTK @(TKScalar Double)) snat) $
   cgrad @_ @_ @_ @Concrete multScalarNotShared
 
 multSL :: (BaseTensor target, NumScalar r)
-       => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
+       => IxR n (target (TKS '[] r)) -> target (TKS '[] r)
 multSL = foldl1' (*) . Foldable.toList
 
 crevSL
-  :: SNat n -> ListR n (Concrete (TKS '[] Double))
-  -> ListR n (Concrete (TKS '[] Double))
+  :: SNat n -> IxR n (Concrete (TKS '[] Double))
+  -> IxR n (Concrete (TKS '[] Double))
 crevSL snat@SNat =
-  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
+  withKnownSTK (stkOfIxR (knownSTK @(TKS '[] Double)) snat) $
   cgrad @_ @_ @_ @Concrete (kfromS . multSL)
 
 revSL
-  :: SNat n -> ListR n (Concrete (TKS '[] Double))
-  -> ListR n (Concrete (TKS '[] Double))
+  :: SNat n -> IxR n (Concrete (TKS '[] Double))
+  -> IxR n (Concrete (TKS '[] Double))
 revSL snat@SNat =
-  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
+  withKnownSTK (stkOfIxR (knownSTK @(TKS '[] Double)) snat) $
   grad (kfromS . multSL)
 
 multSR :: (BaseTensor target, NumScalar r)
-       => ListR n (target (TKS '[] r)) -> target (TKS '[] r)
+       => IxR n (target (TKS '[] r)) -> target (TKS '[] r)
 multSR = foldr1 (*)
 
 crevSR
-  :: SNat n -> ListR n (Concrete (TKS '[] Double))
-  -> ListR n (Concrete (TKS '[] Double))
+  :: SNat n -> IxR n (Concrete (TKS '[] Double))
+  -> IxR n (Concrete (TKS '[] Double))
 crevSR snat@SNat =
-  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
+  withKnownSTK (stkOfIxR (knownSTK @(TKS '[] Double)) snat) $
   cgrad @_ @_ @_ @Concrete (kfromS . multSR)
 
 revSR
-  :: SNat n -> ListR n (Concrete (TKS '[] Double))
-  -> ListR n (Concrete (TKS '[] Double))
+  :: SNat n -> IxR n (Concrete (TKS '[] Double))
+  -> IxR n (Concrete (TKS '[] Double))
 revSR snat@SNat =
-  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
+  withKnownSTK (stkOfIxR (knownSTK @(TKS '[] Double)) snat) $
   grad (kfromS . multSR)
 
 multSNotShared :: (BaseTensor target, NumScalar r)
-               => ListR n (ADVal target (TKS '[] r))
+               => IxR n (ADVal target (TKS '[] r))
                -> ADVal target (TKS '[] r)
 multSNotShared = foldr1 multNotShared
 
 crevSNotShared
-  :: SNat n -> ListR n (Concrete (TKS '[] Double))
-  -> ListR n (Concrete (TKS '[] Double))
+  :: SNat n -> IxR n (Concrete (TKS '[] Double))
+  -> IxR n (Concrete (TKS '[] Double))
 crevSNotShared snat@SNat =
-  withKnownSTK (stkOfListR (knownSTK @(TKS '[] Double)) snat) $
+  withKnownSTK (stkOfIxR (knownSTK @(TKS '[] Double)) snat) $
   cgrad @_ @_ @_ @Concrete (kfromS . multSNotShared)
 
 {- TODO: re-enable once -fpolymorphic-specialisation works

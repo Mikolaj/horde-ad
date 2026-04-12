@@ -49,9 +49,9 @@ mnistTrainBench1VTA prefix widthHiddenInt widthHidden2Int
   withSNat widthHiddenInt $ \(widthHiddenSNat :: SNat widthHidden) ->
   withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
   withKnownSTK
-    (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
+    (stkOfIxR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
-    (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
+    (stkOfIxR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden) :~: True) $
   gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden2) :~: True) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
@@ -87,9 +87,9 @@ mnistTestBench1VTA prefix widthHiddenInt widthHidden2Int
   withSNat widthHiddenInt $ \(widthHiddenSNat :: SNat widthHidden) ->
   withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
   withKnownSTK
-    (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
+    (stkOfIxR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
-    (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
+    (stkOfIxR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden) :~: True) $
   gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden2) :~: True) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
@@ -147,9 +147,9 @@ mnistTrainBench1VTO prefix widthHiddenInt widthHidden2Int
   withSNat widthHiddenInt $ \(widthHiddenSNat :: SNat widthHidden) ->
   withSNat widthHidden2Int $ \(widthHidden2SNat :: SNat widthHidden2) ->
   withKnownSTK
-    (stkOfListR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
+    (stkOfIxR (knownSTK @(TKS '[SizeMnistGlyph] r)) (SNat @widthHidden)) $
   withKnownSTK
-    (stkOfListR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
+    (stkOfIxR (knownSTK @(TKS '[widthHidden] Float)) (SNat @widthHidden2)) $
   gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden) :~: True) $
   gcastWith (unsafeCoerceRefl :: (1 <=? widthHidden2) :~: True) $
   let valsInit :: MnistFcnnRanked1.ADFcnnMnist1Parameters
