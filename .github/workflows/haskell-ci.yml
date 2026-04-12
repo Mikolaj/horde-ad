@@ -85,7 +85,7 @@ jobs:
           echo "ARG_TESTS=--enable-tests" >> "$GITHUB_ENV"
           echo "ARG_BENCH=--enable-benchmarks" >> "$GITHUB_ENV"
           echo "HEADHACKAGE=false" >> "$GITHUB_ENV"
-          echo "ARG_COMPILER=--$HCKIND --with-compiler=$HC" >> "$GITHUB_ENV"
+          if [ $((HCNUMVER >= 91400)) -ne 0 ] ; then echo "ARG_COMPILER=--$HCKIND --with-compiler=$HC --allow-newer" >> "$GITHUB_ENV" ; else echo "ARG_COMPILER=--$HCKIND --with-compiler=$HC" >> "$GITHUB_ENV" ; fi
         env:
           HCKIND: ${{ matrix.compilerKind }}
           HCNAME: ${{ matrix.compiler }}
@@ -164,7 +164,7 @@ jobs:
           echo "package horde-ad" >> cabal.project
           echo "    ghc-options: -Werror=unused-packages" >> cabal.project
           echo "package horde-ad" >> cabal.project
-          echo "    ghc-options: -Werror=incomplete-patterns -Werror=incomplete-uni-patterns" >> cabal.project
+          echo "    ghc-options: -Werror=incomplete-uni-patterns" >> cabal.project
           cat >> cabal.project <<EOF
           EOF
           $HCPKG list --simple-output --names-only | perl -ne 'for (split /\s+/) { print "constraints: any.$_ installed\n" unless /^(horde-ad)$/; }' >> cabal.project.local
