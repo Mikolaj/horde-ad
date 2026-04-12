@@ -244,8 +244,8 @@ library benchCommonLibrary
 
       , base
       , criterion < 1.7
-      , deepseq
-      , data-default
+      , deepseq < 1.7
+      , data-default < 0.9
       , inspection-testing < 0.7
       , ox-arrays
       , random
@@ -366,7 +366,7 @@ library testToolLibrary
       , horde-ad:horde-ad
 
       , base
-      , orthotope
+      , orthotope >= 0.1.8 && < 0.1.9
       , ox-arrays
       , tasty >= 1.5.4 && < 1.6
       , tasty-hunit < 0.11
@@ -403,8 +403,8 @@ library testCommonLibrary
       , ghc-typelits-natnormalise
       , ox-arrays
       , random
-      , tasty
-      , tasty-hunit
+      , tasty >= 1.5.4 && < 1.6
+      , tasty-hunit < 0.11
       , tasty-quickcheck < 0.12
       , vector
 
