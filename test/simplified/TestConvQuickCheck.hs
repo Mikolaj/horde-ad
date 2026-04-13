@@ -729,10 +729,10 @@ static_conv2dSameJvp SNat SNat SNat SNat SNat SNat SNat
       cjvpKrn = cjvp @_ @_ @_ @Concrete
                      (`conv2dSameS` sconcrete arrA)
                      (sconcrete arrK) (sconcrete arrK2)
-  in allClose jvpInp dInp 1e-7
-     && allClose cjvpInp dInp 1e-7
-     && allClose jvpKrn dKrn 1e-7
-     && allClose cjvpKrn dKrn 1e-7
+  in allClose jvpInp dInp 1e-5  -- 1e-7 is too much for Float
+     && allClose cjvpInp dInp 1e-5
+     && allClose jvpKrn dKrn 1e-5
+     && allClose cjvpKrn dKrn 1e-5
 
 quickcheck_conv2dSameJvp
   :: forall r. (NumScalar r, Differentiable r)
@@ -794,10 +794,10 @@ static_conv2dShrinkingJvp SNat SNat SNat SNat SNat SNat SNat
       cjvpKrn = cjvp @_ @_ @_ @Concrete
                      (`conv2dShrinkingS` sconcrete arrA)
                      (sconcrete arrK) (sconcrete arrK2)
-  in allClose jvpInp dInp 1e-7
-     && allClose cjvpInp dInp 1e-7
-     && allClose jvpKrn dKrn 1e-7
-     && allClose cjvpKrn dKrn 1e-7
+  in allClose jvpInp dInp 1e-5  -- 1e-7 is too much for Float
+     && allClose cjvpInp dInp 1e-5
+     && allClose jvpKrn dKrn 1e-5
+     && allClose cjvpKrn dKrn 1e-5
 
 quickcheck_conv2dShrinkingJvp
   :: forall r. (NumScalar r, Differentiable r)
@@ -861,10 +861,10 @@ static_conv2dPaddedJvp SNat SNat SNat SNat SNat SNat SNat
       cjvpKrn = cjvp @_ @_ @_ @Concrete
                      (`conv2dPaddedS` sconcrete arrA)
                      (sconcrete arrK) (sconcrete arrK2)
-  in allClose jvpInp dInp 1e-7
-     && allClose cjvpInp dInp 1e-7
-     && allClose jvpKrn dKrn 1e-7
-     && allClose cjvpKrn dKrn 1e-7
+  in allClose jvpInp dInp 1e-5  -- 1e-7 is too much for Float
+     && allClose cjvpInp dInp 1e-5
+     && allClose jvpKrn dKrn 1e-5
+     && allClose cjvpKrn dKrn 1e-5
 
 quickcheck_conv2dPaddedJvp
   :: forall r. (NumScalar r, Differentiable r)
