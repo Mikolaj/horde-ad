@@ -1399,7 +1399,7 @@ astIndexKnobsK knobs v0 ix@(i1 :.$ rest1)
   Ast.AstFromVectorS{} ->  -- normal form (shsLength shm2 >= length ix)
     Ast.AstIndexK v0 ix
   Ast.AstSumS @shm2 shm2 v | Dict0 <- numFromTKAllNum (Proxy @r) ->
-    let perm1 = backpermCycle $ shsLength shm2 + length ix
+    let perm1 = backpermCycleN (shsLength shm2) (shsLength shm2 + length ix)
     in Permutation.permFromListCont perm1 $ \(perm :: Permutation.Perm perm) ->
          gcastWith (unsafeCoerceRefl
                     :: (Rank perm <=? Rank (shm2 ++ shm)) :~: True) $
@@ -2225,7 +2225,7 @@ astIndexKnobsS knobs shn v0 ix@(i1 :.$ rest1)
   Ast.AstFromVectorS{} ->  -- normal form (shsLength shm2 >= length ix)
     Ast.AstIndexS shn v0 ix
   Ast.AstSumS @shm2 shm2 v ->
-    let perm1 = backpermCycle $ shsLength shm2 + length ix
+    let perm1 = backpermCycleN (shsLength shm2) (shsLength shm2 + length ix)
     in Permutation.permFromListCont perm1 $ \(perm :: Permutation.Perm perm) ->
          gcastWith (unsafeCoerceRefl
                     :: (Rank perm <=? Rank (shm2 ++ (shm ++ shn))) :~: True) $
@@ -3863,8 +3863,9 @@ astGatherKnobsS knobs shm shn shp@(SNat @in1 :$$ (shp1 :: ShS shp1))
     -- that doesn't fuse here unless astTransposeAsGatherS is used.
     -- Since the transpose is O(1), let's leave this as is.
     Ast.AstSumS @shm2 shm2 v ->
-      let perm3 = backpermCycle $ shsLength shm2 + shsLength shp
-          perm4 = permCycle $ shsLength shm2 + shsLength shm
+      let perm3 = backpermCycleN (shsLength shm2)
+                                 (shsLength shm2 + shsLength shp)
+          perm4 = permCycleN (shsLength shm2) (shsLength shm2 + shsLength shm)
       in Permutation.permFromListCont perm3
          $ \(perm3S :: Permutation.Perm perm3P) ->
          gcastWith (unsafeCoerceRefl

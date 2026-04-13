@@ -32,7 +32,8 @@ module HordeAd.Core.Types
   -- TODO: ixxTake, ixxDrop'
   , shxTake, shxDrop
   , permRInverse, ssxPermutePrefix, shxPermutePrefix, shCastSX
-  , normalizePermutationHack, backpermCycle, permCycle
+  , normalizePermutationHack
+  , backpermCycle, permCycle, backpermCycleN, permCycleN
   , permUnShift1
   ) where
 
@@ -488,18 +489,27 @@ normalizePermutationHack perm =
 
 -- TODO: can this be defined for Permutation.Perm using @Mod@?
 -- A representation of a cycle backpermutation that moves elements
--- to indexes one less (the the left, to the back).
-backpermCycle :: Int -> Permutation.PermR
-backpermCycle 0 = []
-backpermCycle 1 = []
-backpermCycle n = [k `mod` n | k <- [1 .. n]]
+-- to indexes @n@ less (to the left, to the back), wrapping.
+backpermCycleN :: Int -> Int -> Permutation.PermR
+backpermCycleN _ 0 = []
+backpermCycleN _ 1 = []
+backpermCycleN n k = [(m + n) `mod` k | m <- [0 .. k - 1]]
 
 -- TODO: can this be defined for Permutation.Perm using @Mod@?
+-- A representation of a cycle permutation that is reverse to @backpermCycleN@.
+permCycleN :: Int -> Int -> Permutation.PermR
+permCycleN _ 0 = []
+permCycleN _ 1 = []
+permCycleN n k = [(m - n) `mod` k | m <- [0 .. k - 1]]
+
+-- A representation of a cycle backpermutation that moves elements
+-- to indexes one less (to the left, to the back).
+backpermCycle :: Int -> Permutation.PermR
+backpermCycle = backpermCycleN 1
+
 -- A representation of a cycle permutation that is reverse to @backpermCycle@.
 permCycle :: Int -> Permutation.PermR
-permCycle 0 = []
-permCycle 1 = []
-permCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
+permCycle = permCycleN 1
 
 type family UnMapSucc is where
   UnMapSucc '[] = '[]
