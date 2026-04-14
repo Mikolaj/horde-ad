@@ -15,7 +15,7 @@
 --
 -- The \'sparsity\' is less obvious when a delta expression
 -- contains big concrete tensors, e.g., via the `DeltaScale` constructor.
--- However, via 'DeltaReplicate' and other constructors, the tensors
+-- However, via 'DeltaReplicateR' and other constructors, the tensors
 -- can be enlarged much beyond what's embedded in the delta term.
 -- Also, if the expression refers to unknown inputs ('DeltaInput')
 -- it may denote, after evaluation, a still larger tensor.

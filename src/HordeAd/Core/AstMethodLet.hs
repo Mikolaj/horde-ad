@@ -5,7 +5,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Arithmetic instances for AST with sharing method AstMethodLet.
--- The bulk of the instances is defined in 'AstSimplify`, the remaining
+-- The bulk of the instances is defined in "AstSimplify", the remaining
 -- instances are here.
 module HordeAd.Core.AstMethodLet
   (
