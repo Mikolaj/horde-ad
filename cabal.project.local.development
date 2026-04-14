@@ -3,16 +3,19 @@ semaphore: True
 
 optimization: False
 
-package dependent-enummap
-  ghc-options: -fno-ignore-asserts
-
 package horde-ad
   tests: True
   benchmarks: True
 
+-- to turn on assertions in dependent-enummap and ox-arrays
+-- package dependent-enummap
+--  ghc-options: -fno-ignore-asserts
+-- package ox-arrays
+--   ghc-options: -fno-ignore-asserts
+
 -- for weeder
 -- package *
---  ghc-options: -fwrite-ide-info
+--   ghc-options: -fwrite-ide-info
 
 -- for GHC testing
 -- package *

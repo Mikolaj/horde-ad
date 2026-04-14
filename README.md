@@ -247,7 +247,7 @@ depending on execution order
 The tests in this suite also don't contribute big Haskell CAFs,
 which makes them more reliable micro-benchmarks. Ordinary
 benchmarks that use package criterion are even more trustworthy,
-but they don't have a comparable coverage at this time.
+but the included set doesn't have a comparable coverage at this time.
 
 
 Coding style
@@ -273,6 +273,6 @@ of comments, unless too verbose.
 Copyright
 ---------
 
-Copyright 2023--2025 Mikolaj Konarski, Well-Typed LLP and others (see git history)
+Copyright 2023--2026 Mikolaj Konarski, Well-Typed LLP and others (see git history)
 
 License: BSD-3-Clause (see file LICENSE)
