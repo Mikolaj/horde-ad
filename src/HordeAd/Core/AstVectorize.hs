@@ -476,29 +476,9 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                  (SNat @k :$$ shsTakeIx @shm1 @shn1 Proxy ix2 shmshn1)
                  (build1VOccurrenceUnknown k (var, v1))
                  (varFresh ::$ ZS, astVarFresh :.$ ix2)
-             pickRuleD :: AstTensor AstMethodLet s2 y2 -> Bool
-             pickRuleD = \case  -- try to avoid ruleD if not a normal form
-               Ast.AstScatterS{} -> True
-               Ast.AstGatherS{} -> True
-               Ast.AstMapAccumLDer{} -> True
-               Ast.AstFromVectorK{} -> True
-               Ast.AstFromVectorS{} -> True
-               Ast.AstDualPart{} -> True
-               -- These can only be simplified to the AstFromVectorS NF above.
-               Ast.AstReplicateK{} -> True
-               Ast.AstReplicateS{} -> True
-               Ast.AstAppendS{} -> True
-               -- These, in general, simplify to gathers, so as bad as ruleD.
-               Ast.AstTransposeS{} -> True
-               Ast.AstReshapeS{} -> True
-               Ast.AstConvert{} -> True
-               -- Hard to tell just from the prefix:
-               Ast.AstProject1 v2 -> pickRuleD v2
-               Ast.AstProject2 v2 -> pickRuleD v2
-               _ -> False  -- not a normal form, try simplifying some more
-         in if varNameInAst var v1 && pickRuleD v1
+         in if varNameInAst var v1
             then ruleD
-            else build1VOccurrenceUnknown k (var, v)  -- shortcut
+            else build1VOccurrenceUnknown k (var, v)  -- var may be in ix1
        v -> traceRule $
          build1VOccurrenceUnknown k (var, v)
            -- peel off yet another constructor
