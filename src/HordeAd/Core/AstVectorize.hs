@@ -483,6 +483,7 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                Ast.AstMapAccumLDer{} -> True
                Ast.AstFromVectorK{} -> True
                Ast.AstFromVectorS{} -> True
+               Ast.AstDualPart{} -> True
                -- These can only be simplified to the AstFromVectorS NF above.
                Ast.AstReplicateK{} -> True
                Ast.AstReplicateS{} -> True
@@ -494,7 +495,7 @@ build1VIndexS k@SNat shn (var, v0, ix) | FTKS shmshn x' <- ftkAst v0 =
                -- Hard to tell just from the prefix:
                Ast.AstProject1 v2 -> pickRuleD v2
                Ast.AstProject2 v2 -> pickRuleD v2
-               _ -> False  -- not a normal form
+               _ -> False  -- not a normal form, try simplifying some more
          in if varNameInAst var v1 && pickRuleD v1
             then ruleD
             else build1VOccurrenceUnknown k (var, v)  -- shortcut

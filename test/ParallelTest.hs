@@ -31,10 +31,13 @@ tests :: TestTree
 tests =
   testGroup "The set of tests for horde-ad that can be run in parallel"
     [ testGroup "Long_tests"
-        (TestMnistCNNR.testTrees
+        (TestConvQuickCheck.testTrees
+         ++ TestMnistCNNR.testTrees
          ++ TestMnistCNNS.testTrees
+         ++ TestConvQuickCheck.testTrees  -- saturates cores to prevent OOM
          ++ TestMnistFCNNR.testTrees
+         ++ TestConvQuickCheck.testTrees
          ++ TestMnistRNNR.testTrees
-         ++ TestMnistRNNS.testTrees
-         ++ TestConvQuickCheck.testTrees)
+         ++ TestConvQuickCheck.testTrees
+         ++ TestMnistRNNS.testTrees)
     ]
