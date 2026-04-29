@@ -126,15 +126,15 @@ common options
 common exe-options
   ghc-options:        -rtsopts -threaded
   -- Make GC more predictable in benchmarks.
-  ghc-options:        "-with-rtsopts=-H1.5g -A0.75g -I0"
+  ghc-options:        "-with-rtsopts=-A1G -I0"
 
 common exe-options-for-parallel-tests
   ghc-options:        -rtsopts -threaded
   if flag(test_seq)
-    ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0"
+    ghc-options:      "-with-rtsopts=-A1G -I0"
   else
     -- Beware, -with-rtsopts is not cumulative!
-    ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0 -N8"
+    ghc-options:      "-with-rtsopts=-A1G -I0 -N8"
 
 library
     import:           options
