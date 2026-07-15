@@ -86,7 +86,7 @@ testTrees =
 
 -- This one is not convolution-related, but it's also QuickCheck.
 tensorADOnceMnistTests2 :: TestTree
-tensorADOnceMnistTests2 = inOrderTestGroup "Ranked2 Once MNIST tests"
+tensorADOnceMnistTests2 = inOrderTestGroup "conv2d Ranked2 Once MNIST tests"
   [ testProperty "VTO2 grad vs fwd" $
     \seed0 ->
     forAllShrink (chooseInt (0, 600)) shrinkIntegral $ \width1Hidden ->
