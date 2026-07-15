@@ -1,8 +1,19 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | QuickCheck tests of convolution AD derivatives vs handwritten derivatives.
-module TestConvQuickCheck (testTrees, conv2dSame_dKrn) where
+-- | QuickCheck tests and poor man's benchmarks of convolution AD derivatives
+-- vs handwritten derivatives. The matching deterministic (non-QuickCheck)
+-- gradient-correctness checks live in "TestConvCorrect"; the shared
+-- random-data helpers and handwritten gradients exported below are what that
+-- module reuses.
+module TestConvQuickCheck
+  ( testTrees
+    -- * Shared with "TestConvCorrect"
+  , benchData, benchDataShrinking, benchDataPadded
+  , conv2dSame_dKrn, conv2dSame_dInp
+  , conv2dShrinking_dKrn, conv2dShrinking_dInp
+  , conv2dPadded_dKrn, conv2dPadded_dInp
+  ) where
 
 import Prelude
 
@@ -82,6 +93,86 @@ testTrees =
                  (quickcheck_conv2dSameVjpInpSymbolic @Double)
   , testProperty "conv2dSameVjp Bench dInp Concrete"
                  (quickcheck_conv2dSameVjpInpConcrete @Double)
+  -- Size-scaled poor man's benchmarks (see the definitions below), for the
+  -- same, shrinking and padded convolutions, and for both the kernel and the
+  -- input gradient. The matching gradient-correctness checks live in
+  -- "TestConvCorrect", kept separate so the testsuite's non-QuickCheck, more
+  -- deterministically timed tests can be compared as a group.
+  -- Same convolution: input and output the same size.
+  , testProperty "conv2dSameVjp Bench dKrn 6 SymbolicPerCall"
+                 (sizedSymbolicPerCall @6)
+  , testProperty "conv2dSameVjp Bench dKrn 6 SymbolicAmortized"
+                 (sizedSymbolicAmortized @6)
+  , testProperty "conv2dSameVjp Bench dKrn 6 HandwrittenVec"
+                 (sizedHandwrittenVectorized @6)
+  , testProperty "conv2dSameVjp Bench dKrn 24 SymbolicPerCall"
+                 (sizedSymbolicPerCall @24)
+  , testProperty "conv2dSameVjp Bench dKrn 24 SymbolicAmortized"
+                 (sizedSymbolicAmortized @24)
+  , testProperty "conv2dSameVjp Bench dKrn 24 HandwrittenVec"
+                 (sizedHandwrittenVectorized @24)
+  , testProperty "conv2dSameVjp Bench dInp 6 SymbolicPerCall"
+                 (sizedSymbolicPerCallInp @6)
+  , testProperty "conv2dSameVjp Bench dInp 6 SymbolicAmortized"
+                 (sizedSymbolicAmortizedInp @6)
+  , testProperty "conv2dSameVjp Bench dInp 6 HandwrittenVec"
+                 (sizedHandwrittenVectorizedInp @6)
+  , testProperty "conv2dSameVjp Bench dInp 24 SymbolicPerCall"
+                 (sizedSymbolicPerCallInp @24)
+  , testProperty "conv2dSameVjp Bench dInp 24 SymbolicAmortized"
+                 (sizedSymbolicAmortizedInp @24)
+  , testProperty "conv2dSameVjp Bench dInp 24 HandwrittenVec"
+                 (sizedHandwrittenVectorizedInp @24)
+  -- Shrinking convolution: input larger than output.
+  , testProperty "conv2dShrinkingVjp Bench dKrn 6 SymbolicPerCall"
+                 (shrinkingSymbolicPerCall @6)
+  , testProperty "conv2dShrinkingVjp Bench dKrn 6 SymbolicAmortized"
+                 (shrinkingSymbolicAmortized @6)
+  , testProperty "conv2dShrinkingVjp Bench dKrn 6 HandwrittenVec"
+                 (shrinkingHandwrittenVec @6)
+  , testProperty "conv2dShrinkingVjp Bench dKrn 24 SymbolicPerCall"
+                 (shrinkingSymbolicPerCall @24)
+  , testProperty "conv2dShrinkingVjp Bench dKrn 24 SymbolicAmortized"
+                 (shrinkingSymbolicAmortized @24)
+  , testProperty "conv2dShrinkingVjp Bench dKrn 24 HandwrittenVec"
+                 (shrinkingHandwrittenVec @24)
+  , testProperty "conv2dShrinkingVjp Bench dInp 6 SymbolicPerCall"
+                 (shrinkingSymbolicPerCallInp @6)
+  , testProperty "conv2dShrinkingVjp Bench dInp 6 SymbolicAmortized"
+                 (shrinkingSymbolicAmortizedInp @6)
+  , testProperty "conv2dShrinkingVjp Bench dInp 6 HandwrittenVec"
+                 (shrinkingHandwrittenVecInp @6)
+  , testProperty "conv2dShrinkingVjp Bench dInp 24 SymbolicPerCall"
+                 (shrinkingSymbolicPerCallInp @24)
+  , testProperty "conv2dShrinkingVjp Bench dInp 24 SymbolicAmortized"
+                 (shrinkingSymbolicAmortizedInp @24)
+  , testProperty "conv2dShrinkingVjp Bench dInp 24 HandwrittenVec"
+                 (shrinkingHandwrittenVecInp @24)
+  -- Padded convolution: output larger than input.
+  , testProperty "conv2dPaddedVjp Bench dKrn 6 SymbolicPerCall"
+                 (paddedSymbolicPerCall @6)
+  , testProperty "conv2dPaddedVjp Bench dKrn 6 SymbolicAmortized"
+                 (paddedSymbolicAmortized @6)
+  , testProperty "conv2dPaddedVjp Bench dKrn 6 HandwrittenVec"
+                 (paddedHandwrittenVec @6)
+  , testProperty "conv2dPaddedVjp Bench dKrn 24 SymbolicPerCall"
+                 (paddedSymbolicPerCall @24)
+  , testProperty "conv2dPaddedVjp Bench dKrn 24 SymbolicAmortized"
+                 (paddedSymbolicAmortized @24)
+  , testProperty "conv2dPaddedVjp Bench dKrn 24 HandwrittenVec"
+                 (paddedHandwrittenVec @24)
+  , testProperty "conv2dPaddedVjp Bench dInp 6 SymbolicPerCall"
+                 (paddedSymbolicPerCallInp @6)
+  , testProperty "conv2dPaddedVjp Bench dInp 6 SymbolicAmortized"
+                 (paddedSymbolicAmortizedInp @6)
+  , testProperty "conv2dPaddedVjp Bench dInp 6 HandwrittenVec"
+                 (paddedHandwrittenVecInp @6)
+  , testProperty "conv2dPaddedVjp Bench dInp 24 SymbolicPerCall"
+                 (paddedSymbolicPerCallInp @24)
+  , testProperty "conv2dPaddedVjp Bench dInp 24 SymbolicAmortized"
+                 (paddedSymbolicAmortizedInp @24)
+  , testProperty "conv2dPaddedVjp Bench dInp 24 HandwrittenVec"
+                 (paddedHandwrittenVecInp @24)
   ]
 
 -- This one is not convolution-related, but it's also QuickCheck.
@@ -1284,3 +1375,287 @@ quickcheck_conv2dSameVjpInpConcrete =
         in static_conv2dSameVjpInpConcrete
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
+
+
+-- * Honest, size-scaled poor man's benchmarks
+--
+-- The @Bench dKrn Symbolic@ property above calls full @vjp@ on every run
+-- with the (per-run random) input baked into the objective, so it rebuilds
+-- and re-simplifies the derivative artifact each run. That build cost is a
+-- roughly size-independent tax that symbolic AD is meant to pay once and
+-- amortize over many interpretations, so a per-call poor man's benchmark
+-- overstates the cost of symbolic AD relative to its intended use. These
+-- variants make the distinction explicit and scale @nAh = nAw@, keeping
+-- @nImgs = nCinp = nCout = 3@ and @nKh = nKw = 3@:
+--
+-- * @SymbolicPerCall@ rebuilds the artifact every run (the honest cost of
+--   the misleading poor man's benchmark above);
+-- * @SymbolicAmortized@ builds the artifact once (shared across all runs)
+--   and only interprets it per run — the intended usage;
+-- * @HandwrittenVec@ is the handwritten gradient vectorized and interpreted
+--   per run, for comparison.
+--
+-- At small sizes the build tax roughly doubles the per-call symbolic time
+-- while the amortized cost is competitive with the handwritten one; as the
+-- size grows the fixed tax shrinks relative to interpretation.
+
+-- | Kernel, input and output-gradient of the poor man's benchmark shapes
+-- (@nImgs = nCinp = nCout = 3@, @nKh = nKw = 3@, @nAh = nAw@), from one seed.
+benchData
+  :: forall nAw r. (KnownNat nAw, NumScalar r)
+  => Int
+  -> ( Concrete (TKS '[3, 3, 3, 3] r)
+     , Concrete (TKS '[3, 3, nAw, nAw] r)
+     , Concrete (TKS '[3, 3, nAw, nAw] r) )
+benchData seed =
+  let (arrK, seed2) = randomValue 0.5 (mkStdGen seed)
+      (arrA, seed3) = randomValue 0.5 seed2
+      (arrB, _) = randomValue 0.5 seed3
+  in (arrK, arrA, arrB)
+
+sizedSymbolicPerCall :: forall nAw. KnownNat nAw => Property
+sizedSymbolicPerCall =
+  property $ \seed0 ->
+    let (arrK, arrA, arrB) = benchData @nAw @Double seed0
+        v :: Concrete (TKS '[3, 3, 3, 3] Double)
+        v = vjp (`conv2dSameS` sconcrete (unConcrete arrA))
+                (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
+    in allClose v v 1e-5
+
+sizedSymbolicAmortized :: forall nAw. KnownNat nAw => Property
+sizedSymbolicAmortized =
+  let (arrK0, arrA0, _) = benchData @nAw @Double 1
+      -- Built once and shared as a thunk across every property run.
+      art = simplifyArtifactRev
+            $ vjpArtifact (`conv2dSameS` sconcrete (unConcrete arrA0))
+                          (sconcrete (unConcrete arrK0)
+                           :: Concrete (TKS '[3, 3, 3, 3] Double))
+  in property $ \seed0 ->
+       let (_, _, arrB) = benchData @nAw @Double seed0
+           v :: Concrete (TKS '[3, 3, 3, 3] Double)
+           v = vjpInterpretArtifact art (sconcrete (unConcrete arrK0))
+                                        (sconcrete (unConcrete arrB))
+       in allClose v v 1e-5
+
+sizedHandwrittenVectorized :: forall nAw. KnownNat nAw => Property
+sizedHandwrittenVectorized =
+  property $ \seed0 ->
+    let (_, arrA, arrB) = benchData @nAw @Double seed0
+        v :: Concrete (TKS '[3, 3, 3, 3] Double)
+        v = interpretAstFull emptyEnv
+            $ conv2dSame_dKrn @3 @3 @3 @nAw @nAw @3 @3
+                              (sconcrete (unConcrete arrA))
+                              (sconcrete (unConcrete arrB))
+    in allClose v v 1e-5
+
+-- The same trio, for the input gradient (the @sscatter@ path).
+
+sizedSymbolicPerCallInp :: forall nAw. KnownNat nAw => Property
+sizedSymbolicPerCallInp =
+  property $ \seed0 ->
+    let (arrK, arrA, arrB) = benchData @nAw @Double seed0
+        v :: Concrete (TKS '[3, 3, nAw, nAw] Double)
+        v = vjp (conv2dSameS (sconcrete (unConcrete arrK)))
+                (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
+    in allClose v v 1e-5
+
+sizedSymbolicAmortizedInp :: forall nAw. KnownNat nAw => Property
+sizedSymbolicAmortizedInp =
+  let (arrK0, arrA0, _) = benchData @nAw @Double 1
+      art = simplifyArtifactRev
+            $ vjpArtifact (conv2dSameS (sconcrete (unConcrete arrK0)))
+                          (sconcrete (unConcrete arrA0)
+                           :: Concrete (TKS '[3, 3, nAw, nAw] Double))
+  in property $ \seed0 ->
+       let (_, _, arrB) = benchData @nAw @Double seed0
+           v :: Concrete (TKS '[3, 3, nAw, nAw] Double)
+           v = vjpInterpretArtifact art (sconcrete (unConcrete arrA0))
+                                        (sconcrete (unConcrete arrB))
+       in allClose v v 1e-5
+
+sizedHandwrittenVectorizedInp :: forall nAw. KnownNat nAw => Property
+sizedHandwrittenVectorizedInp =
+  property $ \seed0 ->
+    let (arrK, _, arrB) = benchData @nAw @Double seed0
+        v :: Concrete (TKS '[3, 3, nAw, nAw] Double)
+        v = interpretAstFull emptyEnv
+            $ conv2dSame_dInp @3 @3 @3 @nAw @nAw @3 @3
+                              (sconcrete (unConcrete arrK))
+                              (sconcrete (unConcrete arrB))
+    in allClose v v 1e-5
+
+
+-- * The shrinking convolution variant
+--
+-- Kernel is 3x3, so with output size @nAw@ the input is @(nAw+2)^2@ (the
+-- output shrinks by the kernel size minus one). The poor man's benchmarks
+-- mirror the @Same@ ones above.
+
+benchDataShrinking
+  :: forall nAw r. (KnownNat nAw, NumScalar r)
+  => Int
+  -> ( Concrete (TKS '[3, 3, 3, 3] r)
+     , Concrete (TKS '[3, 3, nAw + 2, nAw + 2] r)
+     , Concrete (TKS '[3, 3, nAw, nAw] r) )
+benchDataShrinking seed =
+  let (arrK, seed2) = randomValue 0.5 (mkStdGen seed)
+      (arrA, seed3) = randomValue 0.5 seed2
+      (arrB, _) = randomValue 0.5 seed3
+  in (arrK, arrA, arrB)
+
+shrinkingSymbolicPerCall :: forall nAw. (KnownNat nAw, 1 <= nAw) => Property
+shrinkingSymbolicPerCall =
+  property $ \seed0 ->
+    let (arrK, arrA, arrB) = benchDataShrinking @nAw @Double seed0
+        v :: Concrete (TKS '[3, 3, 3, 3] Double)
+        v = vjp (`conv2dShrinkingS` sconcrete (unConcrete arrA))
+                (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
+    in allClose v v 1e-5
+
+shrinkingSymbolicAmortized :: forall nAw. (KnownNat nAw, 1 <= nAw) => Property
+shrinkingSymbolicAmortized =
+  let (arrK0, arrA0, _) = benchDataShrinking @nAw @Double 1
+      art = simplifyArtifactRev
+            $ vjpArtifact (`conv2dShrinkingS` sconcrete (unConcrete arrA0))
+                          (sconcrete (unConcrete arrK0)
+                           :: Concrete (TKS '[3, 3, 3, 3] Double))
+  in property $ \seed0 ->
+       let (_, _, arrB) = benchDataShrinking @nAw @Double seed0
+           v :: Concrete (TKS '[3, 3, 3, 3] Double)
+           v = vjpInterpretArtifact art (sconcrete (unConcrete arrK0))
+                                        (sconcrete (unConcrete arrB))
+       in allClose v v 1e-5
+
+shrinkingHandwrittenVec :: forall nAw. (KnownNat nAw, 1 <= nAw) => Property
+shrinkingHandwrittenVec =
+  property $ \seed0 ->
+    let (_, arrA, arrB) = benchDataShrinking @nAw @Double seed0
+        v :: Concrete (TKS '[3, 3, 3, 3] Double)
+        v = interpretAstFull emptyEnv
+            $ conv2dShrinking_dKrn @3 @3 @3 @nAw @nAw @2 @2
+                                   (sconcrete (unConcrete arrA))
+                                   (sconcrete (unConcrete arrB))
+    in allClose v v 1e-5
+
+-- The same trio, for the input gradient (the @sscatter@ path).
+
+shrinkingSymbolicPerCallInp :: forall nAw. KnownNat nAw => Property
+shrinkingSymbolicPerCallInp =
+  property $ \seed0 ->
+    let (arrK, arrA, arrB) = benchDataShrinking @nAw @Double seed0
+        v :: Concrete (TKS '[3, 3, nAw + 2, nAw + 2] Double)
+        v = vjp (conv2dShrinkingS (sconcrete (unConcrete arrK)))
+                (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
+    in allClose v v 1e-5
+
+shrinkingSymbolicAmortizedInp :: forall nAw. KnownNat nAw => Property
+shrinkingSymbolicAmortizedInp =
+  let (arrK0, arrA0, _) = benchDataShrinking @nAw @Double 1
+      art = simplifyArtifactRev
+            $ vjpArtifact (conv2dShrinkingS (sconcrete (unConcrete arrK0)))
+                          (sconcrete (unConcrete arrA0)
+                           :: Concrete (TKS '[3, 3, nAw + 2, nAw + 2] Double))
+  in property $ \seed0 ->
+       let (_, _, arrB) = benchDataShrinking @nAw @Double seed0
+           v :: Concrete (TKS '[3, 3, nAw + 2, nAw + 2] Double)
+           v = vjpInterpretArtifact art (sconcrete (unConcrete arrA0))
+                                        (sconcrete (unConcrete arrB))
+       in allClose v v 1e-5
+
+shrinkingHandwrittenVecInp :: forall nAw. KnownNat nAw => Property
+shrinkingHandwrittenVecInp =
+  property $ \seed0 ->
+    let (arrK, _, arrB) = benchDataShrinking @nAw @Double seed0
+        v :: Concrete (TKS '[3, 3, nAw + 2, nAw + 2] Double)
+        v = interpretAstFull emptyEnv
+            $ conv2dShrinking_dInp @3 @3 @3 @nAw @nAw @2 @2
+                                   (sconcrete (unConcrete arrK))
+                                   (sconcrete (unConcrete arrB))
+    in allClose v v 1e-5
+
+-- * The padded convolution variant
+--
+-- Kernel is 3x3, so with input size @nAw@ the output is @(nAw+2)^2@ (the
+-- output grows). The poor man's benchmarks mirror the @Same@ ones above.
+
+benchDataPadded
+  :: forall nAw r. (KnownNat nAw, NumScalar r)
+  => Int
+  -> ( Concrete (TKS '[3, 3, 3, 3] r)
+     , Concrete (TKS '[3, 3, nAw, nAw] r)
+     , Concrete (TKS '[3, 3, nAw + 2, nAw + 2] r) )
+benchDataPadded seed =
+  let (arrK, seed2) = randomValue 0.5 (mkStdGen seed)
+      (arrA, seed3) = randomValue 0.5 seed2
+      (arrB, _) = randomValue 0.5 seed3
+  in (arrK, arrA, arrB)
+
+paddedSymbolicPerCall :: forall nAw. (KnownNat nAw, 1 <= nAw) => Property
+paddedSymbolicPerCall =
+  property $ \seed0 ->
+    let (arrK, arrA, arrB) = benchDataPadded @nAw @Double seed0
+        v :: Concrete (TKS '[3, 3, 3, 3] Double)
+        v = vjp (`conv2dPaddedS` sconcrete (unConcrete arrA))
+                (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
+    in allClose v v 1e-5
+
+paddedSymbolicAmortized :: forall nAw. (KnownNat nAw, 1 <= nAw) => Property
+paddedSymbolicAmortized =
+  let (arrK0, arrA0, _) = benchDataPadded @nAw @Double 1
+      art = simplifyArtifactRev
+            $ vjpArtifact (`conv2dPaddedS` sconcrete (unConcrete arrA0))
+                          (sconcrete (unConcrete arrK0)
+                           :: Concrete (TKS '[3, 3, 3, 3] Double))
+  in property $ \seed0 ->
+       let (_, _, arrB) = benchDataPadded @nAw @Double seed0
+           v :: Concrete (TKS '[3, 3, 3, 3] Double)
+           v = vjpInterpretArtifact art (sconcrete (unConcrete arrK0))
+                                        (sconcrete (unConcrete arrB))
+       in allClose v v 1e-5
+
+paddedHandwrittenVec :: forall nAw. (KnownNat nAw, 1 <= nAw) => Property
+paddedHandwrittenVec =
+  property $ \seed0 ->
+    let (_, arrA, arrB) = benchDataPadded @nAw @Double seed0
+        v :: Concrete (TKS '[3, 3, 3, 3] Double)
+        v = interpretAstFull emptyEnv
+            $ conv2dPadded_dKrn @3 @3 @3 @nAw @nAw @2 @2
+                                (sconcrete (unConcrete arrA))
+                                (sconcrete (unConcrete arrB))
+    in allClose v v 1e-5
+
+-- The same trio, for the input gradient (the @sscatter@ path).
+
+paddedSymbolicPerCallInp :: forall nAw. KnownNat nAw => Property
+paddedSymbolicPerCallInp =
+  property $ \seed0 ->
+    let (arrK, arrA, arrB) = benchDataPadded @nAw @Double seed0
+        v :: Concrete (TKS '[3, 3, nAw, nAw] Double)
+        v = vjp (conv2dPaddedS (sconcrete (unConcrete arrK)))
+                (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
+    in allClose v v 1e-5
+
+paddedSymbolicAmortizedInp :: forall nAw. KnownNat nAw => Property
+paddedSymbolicAmortizedInp =
+  let (arrK0, arrA0, _) = benchDataPadded @nAw @Double 1
+      art = simplifyArtifactRev
+            $ vjpArtifact (conv2dPaddedS (sconcrete (unConcrete arrK0)))
+                          (sconcrete (unConcrete arrA0)
+                           :: Concrete (TKS '[3, 3, nAw, nAw] Double))
+  in property $ \seed0 ->
+       let (_, _, arrB) = benchDataPadded @nAw @Double seed0
+           v :: Concrete (TKS '[3, 3, nAw, nAw] Double)
+           v = vjpInterpretArtifact art (sconcrete (unConcrete arrA0))
+                                        (sconcrete (unConcrete arrB))
+       in allClose v v 1e-5
+
+paddedHandwrittenVecInp :: forall nAw. KnownNat nAw => Property
+paddedHandwrittenVecInp =
+  property $ \seed0 ->
+    let (arrK, _, arrB) = benchDataPadded @nAw @Double seed0
+        v :: Concrete (TKS '[3, 3, nAw, nAw] Double)
+        v = interpretAstFull emptyEnv
+            $ conv2dPadded_dInp @3 @3 @3 @nAw @nAw @2 @2
+                                (sconcrete (unConcrete arrK))
+                                (sconcrete (unConcrete arrB))
+    in allClose v v 1e-5
