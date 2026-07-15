@@ -10,6 +10,7 @@ import Test.Tasty.Runners
 
 import EqEpsilon
 import TestAdaptorSimplified qualified
+import TestConvCorrect qualified
 import TestConvSimplified qualified
 import TestGatherSimplified qualified
 import TestHighRankSimplified qualified
@@ -32,6 +33,7 @@ tests =
   inOrderTestGroup "Tests for simplified horde-ad that don't create big CAFs"
     [ inOrderTestGroup "Short_tests"
         (TestAdaptorSimplified.testTrees
+         ++ TestConvCorrect.testTrees
          ++ TestConvSimplified.testTrees
          ++ TestGatherSimplified.testTrees
          ++ TestHighRankSimplified.testTrees

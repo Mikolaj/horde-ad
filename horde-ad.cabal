@@ -328,6 +328,31 @@ benchmark shortMnistForCI
       , base
       , criterion
 
+-- Diagnostic benchmark for issue #123 (symbolic vs handwritten
+-- convolution gradients); not intended for the released package.
+benchmark convVjpBench
+    import:           options, exe-options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    type:             exitcode-stdio-1.0
+
+    hs-source-dirs:   bench
+
+    main-is:          ConvVjpBench.hs
+
+    build-depends:
+      , horde-ad:horde-ad
+      , horde-ad:testCommonLibrary
+
+      , base
+      , criterion
+      , ox-arrays
+      , random
+
 -- takes forever, so mostly to invoke with --benchmark-options='-n 1 +RTS -s'
 benchmark realisticMnistBench
     import:           options, exe-options
@@ -377,6 +402,7 @@ library testCommonLibrary
     visibility:       public
 
     exposed-modules:  TestAdaptorSimplified
+                      TestConvCorrect
                       TestConvQuickCheck
                       TestConvSimplified
                       TestGatherSimplified
