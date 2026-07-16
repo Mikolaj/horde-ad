@@ -347,6 +347,7 @@ benchmark convVjpBench
     build-depends:
       , horde-ad:horde-ad
       , horde-ad:testCommonLibrary
+      , horde-ad:exampleLibrary
 
       , base
       , criterion

@@ -29,32 +29,45 @@
 -- The @inp-*@ groups run the same variants for the gradient with respect
 -- to the input image (the @sscatter@ path) instead of the kernels, and the
 -- size sweep goes up to 192x192 images.
+--
+-- The @cnn-*@ groups run the @S-*@ variants for a real (shaped) two-layer
+-- convolutional net (@MnistCnnShaped2.convMnistTwoS@, each layer with
+-- maxpool), differentiated with respect to its full parameter tuple, at
+-- image sizes 6x6, 12x12 and 24x24. Unlike the synthetic conv2dSame
+-- benchmarks they also exercise the maxpool and reshape gathers of a full
+-- net; they have no @H-*@ variants, as there is no handwritten CNN gradient
+-- to compare against.
 module Main (main) where
 
 import Prelude
 
 import Control.Exception (evaluate)
 import Criterion.Main
-import GHC.TypeLits (KnownNat)
+import GHC.TypeLits (Div, KnownNat, type (*))
 import System.Environment (lookupEnv)
 import System.Random (mkStdGen)
 
 import Data.Array.Nested.Shaped.Shape (KnownShS, knownShS)
 
 import HordeAd
-import HordeAd.Core.Adaptor (randomValue)
+import HordeAd.Core.Adaptor (randomValue, toTarget)
 import HordeAd.Core.AstEnv (emptyEnv, extendEnv)
 import HordeAd.Core.AstInterpret (interpretAstFull)
 
+import MnistCnnShaped2 qualified
+import MnistData (SizeMnistLabel)
 import TestConvQuickCheck (conv2dSame_dInp, conv2dSame_dKrn)
+import TestMnistPP (cnnObjective)
 
 forceGrad :: Concrete (TKS sh Double) -> Double
 forceGrad = unConcrete . ssum0
 
 -- | Verify that a hand-built scatter chain is the adjoint (transpose) of the
--- corresponding gather chain, via the identity @<gather(x), y> = <x,
--- scatter(y)>@ that holds iff scatter is gather's transpose. Errors loudly
--- if the scatter chain was built with wrong shapes or index directions.
+-- corresponding gather chain, via the adjoint law that holds iff scatter is
+-- gather's transpose: for all index functions @f@, sources @x@ and
+-- cotangents @y@, @sdot0 (sgather x f) y == sdot0 x (sscatter y f)@. Errors
+-- loudly if the scatter chain was built with wrong shapes or index
+-- directions.
 checkAdjoint
   :: (KnownShS shSrc, KnownShS shOut)
   => String
@@ -71,7 +84,8 @@ checkAdjoint name gatherChain src scatterChain y =
   in if abs (lhs - rhs) <= 1e-6 * (1 + abs lhs)
      then pure ()
      else error $ name ++ ": scatter is not the adjoint of gather: "
-                  ++ "<gather(x),y>=" ++ show lhs ++ " <x,scatter(y)>=" ++ show rhs
+                  ++ "sdot0 (sgather x f) y=" ++ show lhs
+                  ++ " sdot0 x (sscatter y f)=" ++ show rhs
 
 benchesAt
   :: forall nImgs nCinp nCout nAh nAw nKh nKw.
@@ -498,6 +512,57 @@ printTerms = do
   putStrLn "=== H-var: contracted handwritten term, symbolic dret ==="
   putStrLn $ printAstPretty (simplifyInlineContract hTermVar)
 
+-- | The @S-*@ variants of 'benchesAt', but for a real (shaped) two-layer
+-- convolutional net (@convMnistTwoS@, each layer with maxpool), differentiated
+-- with respect to its full parameter tuple. The input image is embedded as a
+-- constant — a *random* one, since a constant broadcast folds the convolution
+-- gathers away — exactly as 'benchesAt' embeds the input in the conv2dSame
+-- objective. The objective is shared with @testCNNOPP2S@ via 'cnnObjective'.
+-- There are no @H-*@ variants, as there is no handwritten CNN gradient to
+-- compare against.
+benchesCnnAt
+  :: forall h w. (KnownNat h, KnownNat w, KnownNat (4 * Div h 4 * Div w 4))
+  => IO [Benchmark]
+benchesCnnAt = do
+  let (valsInit, seed2) =
+        randomValue @(MnistCnnShaped2.ADCnnMnistParametersShaped
+                        Concrete h w 2 3 4 5 Double)
+                    0.4 (mkStdGen 44)
+      (arrGlyph, seed3) =
+        randomValue @(Concrete (TKS '[7, 1, h, w] Double)) 0.5 seed2
+      (arrDt, _) =
+        randomValue @(Concrete (TKS '[SizeMnistLabel, 7] Double)) 0.5 seed3
+      valsInitT = toTarget @Concrete valsInit
+      f = cnnObjective arrGlyph
+      artifactRaw = vjpArtifact f valsInit
+      artifact = simplifyArtifactRev artifactRaw
+      -- Force the full parameter gradient (a tuple) by summing all leaves,
+      -- reusing forceGrad (unConcrete . ssum0) on each.
+      forceCnnGrad ((k1, b1), (k2, b2), (wd, bd), (wr, br)) =
+        forceGrad k1 + forceGrad b1 + forceGrad k2 + forceGrad b2
+        + forceGrad wd + forceGrad bd + forceGrad wr + forceGrad br
+  _ <- evaluate artifact
+  _ <- evaluate artifactRaw
+  return
+    [ bench "S-fullpipe-hoisted" $ whnf
+        (\dt -> forceCnnGrad $ vjp f valsInit dt) arrDt
+    , bench "S-fullpipe-honest" $ whnf
+        (\glyph -> forceCnnGrad $ vjp (cnnObjective glyph) valsInit arrDt)
+        arrGlyph
+    , bench "S-artifact" $ whnf
+        (\v -> simplifyArtifactRev (vjpArtifact f v)) valsInit
+    , bench "S-exec" $ whnf
+        (\dt -> forceCnnGrad
+                  (vjpInterpretArtifact artifact valsInitT dt
+                   :: MnistCnnShaped2.ADCnnMnistParametersShaped
+                        Concrete h w 2 3 4 5 Double)) arrDt
+    , bench "S-exec-raw" $ whnf
+        (\dt -> forceCnnGrad
+                  (vjpInterpretArtifact artifactRaw valsInitT dt
+                   :: MnistCnnShaped2.ADCnnMnistParametersShaped
+                        Concrete h w 2 3 4 5 Double)) arrDt
+    ]
+
 main :: IO ()
 main = do
   printMode <- lookupEnv "PRINT_TERMS"
@@ -516,8 +581,14 @@ main = do
       i192 <- benchesInpAt @3 @3 @3 @192 @192 @3 @3
       bg <- gatherBenches
       bs <- scatterBenches
+      cnn6 <- benchesCnnAt @6 @6
+      cnn12 <- benchesCnnAt @12 @12
+      cnn24 <- benchesCnnAt @24 @24
       defaultMain
-        [ bgroup "6x6" b6
+        [ bgroup "cnn-6x6" cnn6
+        , bgroup "cnn-12x12" cnn12
+        , bgroup "cnn-24x24" cnn24
+        , bgroup "6x6" b6
         , bgroup "24x24" b24
         , bgroup "48x48" b48
         , bgroup "96x96" b96

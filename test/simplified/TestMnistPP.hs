@@ -3,11 +3,13 @@
 -- | Tests of MNIST nns that pretty-print resulting gradient and primal terms.
 module TestMnistPP
   ( testTrees
+  , cnnObjective
   ) where
 
 import Prelude
 
 import GHC.Exts (IsList (..))
+import GHC.TypeLits (KnownNat)
 import System.Random
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
@@ -681,6 +683,21 @@ testCNNOAst2 = do
                       (simplifyInlineContract @(TKR 2 Double) afcnn1))
     (afcnn2 valsInit)
 
+-- | The shaped two-layer CNN forward pass (@convMnistTwoS@, each layer with
+-- maxpool) with the input image embedded as a constant, as a function of the
+-- parameters. Shared by 'testCNNOPP2S' and the @cnn-*@ benchmarks in
+-- @bench/ConvVjpBench.hs@ (which pass a random glyph, since a constant
+-- broadcast folds the convolution gathers away).
+cnnObjective
+  :: forall target h w. (ADReady target, KnownNat h, KnownNat w)
+  => Concrete (TKS '[7, 1, h, w] Double)
+  -> MnistCnnShaped2.ADCnnMnistParametersShaped target h w 2 3 4 5 Double
+  -> target (TKS '[SizeMnistLabel, 7] Double)
+cnnObjective glyph =
+  MnistCnnShaped2.convMnistTwoS
+    (SNat @2) (SNat @3) (SNat @h) (SNat @w) (SNat @4) (SNat @5) (SNat @7)
+    (sconcrete $ unConcrete glyph)
+
 testCNNOPP2S :: Assertion
 testCNNOPP2S = do
   resetVarCounter
@@ -706,10 +723,7 @@ testCNNOPP2S = do
       afcnn2 :: ADReady f
              => MnistCnnShaped2.ADCnnMnistParametersShaped f 14 23 2 3 4 5 Double
              -> f (TKS '[SizeMnistLabel, 7] Double)
-      afcnn2 = MnistCnnShaped2.convMnistTwoS
-                 (SNat @2) (SNat @3) sizeMnistWidthI sizeMnistHeightI
-                 (SNat @4) (SNat @5) batch_size
-                 (sconcrete $ unConcrete blackGlyph)
+      afcnn2 = cnnObjective blackGlyph
       artifactRev = revArtifactAdapt UseIncomingCotangent afcnn2 ftk
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
     @?= "\\u1 -> let t236 = ssum @4 (sdot1In (sfromPlain (stranspose @[2, 0, 3, 4, 1] (sreplicate @4 (stranspose @[2, 1, 3, 0] (sgather @[23, 4] (stranspose @[2, 1, 0] (sgather @[14, 3] (sreplicate0N @[14, 23] 7.0) (\\[i434, i435] -> [i434 + i435]))) (\\[i230, i231] -> [i230 + i231])))))) (stranspose @[3, 1, 0, 4, 2] (sreplicate @14 (stranspose @[1, 2, 3, 0] (sreplicate @23 (str (tproject1 (tproject1 (tproject1 u1))) !$ [0])))))) + stranspose @[2, 0, 1] (sreplicateN @[14, 23] (tproject2 (tproject1 (tproject1 u1)))) ; u250 = sreshape @[4, 7, 11, 4] (stranspose @[2, 3, 4, 0, 1] (sreplicateN @[1, 1] (sfromPlain (sgather @[4, 7, 11, 2, 2] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i239, i240, i241, i242, i243] -> [ifH (0.0 <=. negate (splainPart t236 `sindex0` [i239, sconcrete (sfromListLinear [7,2] [0,1,2,3,4,5,6,7,8,9,10,11,12,13]) `sindex0` [i240, i242], sconcrete (sfromListLinear [11,2] [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21]) `sindex0` [i241, i243]])) 0 1])) * stranspose @[4, 0, 1, 2, 3] (sgather @[7, 11, 2, 2] (stranspose @[1, 2, 0] t236) (\\[i244, i245, i246, i247] -> [sconcrete (sfromListLinear [7,2] [0,1,2,3,4,5,6,7,8,9,10,11,12,13]) `sindex0` [i244, i246], sconcrete (sfromListLinear [11,2] [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21]) `sindex0` [i245, i247]]))))) ; t259 = ssumN @[3, 4] (sdot1In (stranspose @[2, 3, 0, 4, 5, 1] (sreplicate @4 (stranspose @[4, 2, 3, 0, 1] (sgather @[7, 11, 3, 4] (stranspose @[3, 4, 5, 6, 0, 1, 2] (sgather @[7, 11, 4] (stranspose @[4, 3, 2, 1, 7, 6, 5, 0] (sreplicate @4 (stranspose @[3, 4, 5, 6, 0, 1, 2] (sreplicateN @[3, 11, 7] (stranspose @[3, 2, 1, 0] u250))))) (\\[i427, i428, i429] -> [i429, i427, i428, kargMax (splainPart u250 !$ [i429, i427, i428])]))) (\\[i254, i255, i256, i257] -> [i254, i255, i256, i257, i254 + i256, i255 + i257]))))) (stranspose @[3, 4, 1, 0, 5, 2] (sreplicate @7 (stranspose @[1, 2, 3, 4, 0] (sreplicate @11 (tproject1 (tproject2 (tproject1 u1)))))))) + stranspose @[2, 0, 1] (sreplicateN @[7, 11] (tproject2 (tproject2 (tproject1 u1)))) ; u273 = sreshape @[4, 3, 5, 4] (stranspose @[2, 3, 4, 0, 1] (sreplicateN @[1, 1] (sfromPlain (sgather @[4, 3, 5, 2, 2] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i262, i263, i264, i265, i266] -> [ifH (0.0 <=. negate (splainPart t259 `sindex0` [i262, sconcrete (sfromListLinear [3,2] [0,1,2,3,4,5]) `sindex0` [i263, i265], sconcrete (sfromListLinear [5,2] [0,1,2,3,4,5,6,7,8,9]) `sindex0` [i264, i266]])) 0 1])) * stranspose @[4, 0, 1, 2, 3] (sgather @[3, 5, 2, 2] (stranspose @[1, 2, 0] t259) (\\[i267, i268, i269, i270] -> [sconcrete (sfromListLinear [3,2] [0,1,2,3,4,5]) `sindex0` [i267, i269], sconcrete (sfromListLinear [5,2] [0,1,2,3,4,5,6,7,8,9]) `sindex0` [i268, i270]]))))) ; m278 = str (sreplicate @7 (sdot1In (tproject1 (tproject1 (tproject2 u1))) (sreplicate @5 (sreshape @[60] (sgather @[4, 3, 5] u273 (\\[i274, i275, i276] -> [i274, i275, i276, kargMax (splainPart u273 !$ [i274, i275, i276])])))))) + str (sreplicate @7 (tproject2 (tproject1 (tproject2 u1)))) in smatmul2 (tproject1 (tproject2 (tproject2 u1))) (sfromPlain (sgather @[5, 7] (sconcrete (sfromListLinear [2] [0.0,1.0])) (\\[i279, i280] -> [ifH (0.0 <=. negate (splainPart m278 `sindex0` [i279, i280])) 0 1])) * m278) + str (sreplicate @7 (tproject2 (tproject2 (tproject2 u1))))"
