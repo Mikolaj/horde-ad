@@ -9,14 +9,22 @@
 -- in TestConvQuickCheck:
 --
 -- * @S-fullpipe@: @vjp@ per call, i.e., tracing + AD + simplification
---   + interpretation every time (this is what the issue calls Symbolic).
--- * @S-artifact@: producing and simplifying the gradient artifact only.
+--   + interpretation every time (this is what the issue calls Symbolic),
+--   in a @-hoisted@ variant (artifact floated out of the timed loop) and a
+--   @-honest@ variant (artifact rebuilt every call).
+-- * @S-artifact@: building + simplifying the gradient artifact only (the
+--   compilation cost), forced to WHNF (StrictData suffices), as in
+--   mnistTrainBench2VTC in BenchMnistTools.
 -- * @S-exec@: interpreting a pre-computed simplified artifact only.
 -- * @S-exec-raw@: interpreting a pre-computed unsimplified artifact,
 --   to see what simplifyArtifactRev buys at runtime.
 -- * @H-fullpipe@: building + vectorizing + interpreting the handwritten
 --   gradient term per call (what the issue calls HandwrittenVectorized).
 -- * @H-exec@: interpreting the pre-built handwritten gradient term only.
+-- * @H-exec-contracted@: as @H-exec@, but after @simplifyInlineContract@.
+-- * @H-exec-var@: as @H-exec-contracted@, but with the cotangent kept as a
+--   variable (like in the artifact); the apples-to-apples comparison
+--   against @S-exec@.
 --
 -- The @inp-*@ groups run the same variants for the gradient with respect
 -- to the input image (the @sscatter@ path) instead of the kernels, and the
@@ -103,12 +111,14 @@ benchesAt = do
       hTermVarSimplified = simplifyInlineContract hTermVar
       artifactRaw = vjpArtifact f arrK
       artifact = simplifyArtifactRev artifactRaw
-  -- Force the shared terms before benchmarking the exec-only variants.
-  _ <- evaluate (length (printAstSimple hTerm))
-  _ <- evaluate (length (printAstSimple hTermSimplified))
-  _ <- evaluate (length (printAstSimple hTermVarSimplified))
-  _ <- evaluate (length (printArtifactSimple artifact))
-  _ <- evaluate (length (printArtifactSimple artifactRaw))
+  -- Force the shared terms to WHNF (StrictData makes that a full build)
+  -- before benchmarking the exec-only variants. WHNF suffices and avoids the
+  -- string-formatting work of forcing via printArtifactSimple.
+  _ <- evaluate hTerm
+  _ <- evaluate hTermSimplified
+  _ <- evaluate hTermVarSimplified
+  _ <- evaluate artifact
+  _ <- evaluate artifactRaw
   return
     [ -- vjp per call, but with f and arrK fixed and only dt varying.
       -- The artifact does not depend on dt, so full-laziness floats its
@@ -123,9 +133,14 @@ benchesAt = do
         (\a -> forceGrad
                $ vjp (\k -> conv2dSameS k (sconcrete (unConcrete a))) arrK arrB)
         arrA
+      -- Building + simplifying the artifact only (the "compilation" cost),
+      -- forced to WHNF as in mnistTrainBench2VTC (BenchMnistTools): with
+      -- StrictData that suffices to force the build, and unlike forcing via
+      -- printArtifactSimple it does not time string formatting (which grows
+      -- with AST size and dwarfs the actual build). The input is the whnf
+      -- argument so the body depends on it and criterion re-runs it per call.
     , bench "S-artifact" $ whnf
-        (\k -> length $ printArtifactSimple
-             $ simplifyArtifactRev $ vjpArtifact f k) arrK
+        (\k -> simplifyArtifactRev (vjpArtifact f k)) arrK
     , bench "S-exec" $ whnf
         (\dt -> forceGrad
                   (vjpInterpretArtifact artifact arrK dt
@@ -185,11 +200,12 @@ benchesInpAt = do
       hTermVarSimplified = simplifyInlineContract hTermVar
       artifactRaw = vjpArtifact g arrA
       artifact = simplifyArtifactRev artifactRaw
-  _ <- evaluate (length (printAstSimple hTerm))
-  _ <- evaluate (length (printAstSimple hTermSimplified))
-  _ <- evaluate (length (printAstSimple hTermVarSimplified))
-  _ <- evaluate (length (printArtifactSimple artifact))
-  _ <- evaluate (length (printArtifactSimple artifactRaw))
+  -- Force to WHNF (a full build under StrictData) before benchmarking.
+  _ <- evaluate hTerm
+  _ <- evaluate hTermSimplified
+  _ <- evaluate hTermVarSimplified
+  _ <- evaluate artifact
+  _ <- evaluate artifactRaw
   return
     [ bench "S-fullpipe-hoisted" $ whnf
         (\dt -> forceGrad $ vjp g arrA dt) arrB
@@ -197,9 +213,9 @@ benchesInpAt = do
         (\k -> forceGrad
                $ vjp (\a -> conv2dSameS (sconcrete (unConcrete k)) a) arrA arrB)
         arrK
+      -- Artifact build+simplify only, WHNF-forced; see 'benchesAt'.
     , bench "S-artifact" $ whnf
-        (\a -> length $ printArtifactSimple
-             $ simplifyArtifactRev $ vjpArtifact g a) arrA
+        (\a -> simplifyArtifactRev (vjpArtifact g a)) arrA
     , bench "S-exec" $ whnf
         (\dt -> forceGrad
                   (vjpInterpretArtifact artifact arrA dt
@@ -309,12 +325,13 @@ gatherBenches = do
                                          _ -> error "canonS2"))))
                    (\case [c, d] -> [c + d]
                           _ -> error "canonS2"))
-  _ <- evaluate (length (printAstSimple twoS))
-  _ <- evaluate (length (printAstSimple twoH))
-  _ <- evaluate (length (printAstSimple fusedS))
-  _ <- evaluate (length (printAstSimple fusedH))
-  _ <- evaluate (length (printAstSimple canonS))
-  _ <- evaluate (length (printAstSimple canonS2))
+  -- Force to WHNF (a full build under StrictData) before benchmarking.
+  _ <- evaluate twoS
+  _ <- evaluate twoH
+  _ <- evaluate fusedS
+  _ <- evaluate fusedH
+  _ <- evaluate canonS
+  _ <- evaluate canonS2
   return
     [ bench "two-gathers-S-orient" $ whnf
         (\t -> forceGrad $ interpretAstFull emptyEnv t) twoS
@@ -425,10 +442,11 @@ scatterBenches = do
   checkAdjoint "two-scatters-H-orient" gTwoH arrX1 twoScatterH arrY2
   checkAdjoint "fused-scatter-S-orient" gFusedS arrX2 fusedScatterS arrY3
   checkAdjoint "fused-scatter-H-orient" gFusedH arrX2 fusedScatterH arrY4
-  _ <- evaluate (length (printAstSimple twoScatterS))
-  _ <- evaluate (length (printAstSimple twoScatterH))
-  _ <- evaluate (length (printAstSimple fusedScatterS))
-  _ <- evaluate (length (printAstSimple fusedScatterH))
+  -- Force to WHNF (a full build under StrictData) before benchmarking.
+  _ <- evaluate twoScatterS
+  _ <- evaluate twoScatterH
+  _ <- evaluate fusedScatterS
+  _ <- evaluate fusedScatterH
   return
     [ bench "two-scatters-S-orient" $ whnf
         (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterS
