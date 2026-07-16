@@ -189,12 +189,20 @@ jobs:
       - name: build
         run: |
           $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH all --write-ghc-environment-files=always
+      # NB: the `tests` and `benchmarks` steps below are project-specific
+      # additions maintained by hand in this generated file; re-apply them
+      # after `haskell-ci regenerate`.
       - name: tests
         run: |
           $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH minimalTest --test-show-details=direct --test-options='-p "detSquare"'
       - name: benchmarks
         run: |
           $CABAL v2-bench $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortProdForCI
+          # convVjpBench (issue #123 conv/CNN diagnostic) as a fast smoke run:
+          # -n 1 runs every group once, without statistics, catching build and
+          # runtime breakage across the conv2dSame, gather/scatter and cnn-*
+          # paths (not a perf tripwire: CI criterion numbers are too noisy).
+          $CABAL v2-bench $ARG_COMPILER $ARG_TESTS $ARG_BENCH convVjpBench --benchmark-options='-n 1'
       - name: cabal check
         run: |
           cd ${PKGDIR_horde_ad} || false
