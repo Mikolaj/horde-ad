@@ -3,10 +3,11 @@
 -- symbolic AD pipeline (tracing, differentiation, simplification)
 -- from the cost of executing the resulting gradient program,
 -- for the gradient of conv2dSameS with respect to the kernels,
--- at several array sizes.
+-- at image sizes from 6x6 to 192x192.
 --
--- Variants, mirroring the QuickCheck poor man's benchmarks
--- in TestConvQuickCheck:
+-- Variants, decomposing the costs that the QuickCheck poor man's
+-- benchmarks in TestConvQuickCheck conflate (@S-fullpipe-honest@ and
+-- @H-fullpipe@ time the same full pipelines those do):
 --
 -- * @S-fullpipe@: @vjp@ per call, i.e., tracing + AD + simplification
 --   + interpretation every time (this is what the issue calls Symbolic),
@@ -26,9 +27,9 @@
 --   variable (like in the artifact); the apples-to-apples comparison
 --   against @S-exec@.
 --
--- The @inp-*@ groups run the same variants for the gradient with respect
--- to the input image (the @sscatter@ path) instead of the kernels, and the
--- size sweep goes up to 192x192 images.
+-- The @inp-*@ groups run the same variants and sizes for the gradient
+-- with respect to the input image (the @sscatter@ path) instead of
+-- the kernels.
 --
 -- The @cnn-*@ groups run the @S-*@ variants for a real (shaped) two-layer
 -- convolutional net (@MnistCnnShaped2.convMnistTwoS@, each layer with
@@ -271,8 +272,11 @@ benchesInpAt = do
 -- interpreted im2col gather chains. Compares the AD-produced orientation
 -- (large dim first in the gather output, small dims innermost in the
 -- copied slices) against the vectorization-produced orientation
--- (small dim first, large dim innermost in slices), and both against
--- a single fused gather that avoids the intermediate array entirely.
+-- (small dim first, large dim innermost in slices), both against
+-- a single fused gather that avoids the intermediate array entirely,
+-- and the AD orientation against its two candidate canonicalizations
+-- (shm dims sorted vs shn dims sorted). interpretAstFull does not run
+-- contractAst, so each variant times exactly the orientation written.
 gatherBenches :: IO [Benchmark]
 gatherBenches = do
   let (arr1, seed2) =
@@ -326,9 +330,11 @@ gatherBenches = do
                 s2
                 (\case [kh, h, kw, w] -> [h + kh, w + kw]
                        _ -> error "fusedH")
-      -- The S chain as the contemplated canonicalization rule would
-      -- rewrite it: each gather's shm dims sorted ascending, with a
-      -- compensating transpose above that restores the original dim order.
+      -- The S chain with each gather's shm dims sorted ascending and a
+      -- compensating transpose above that restores the original dim order —
+      -- a canonicalization considered for contractAst and refuted by this
+      -- measurement: the concrete gather's cost is per output position,
+      -- so reordering the shm dims changes nothing.
       canonS :: AstTensor AstMethodLet FullSpan
                           (TKS '[48, 3, 3, 48, 3, 3] Double)
       canonS =
@@ -345,7 +351,9 @@ gatherBenches = do
       -- The S chain with the second gather's shn dims sorted ascending
       -- instead (large dims innermost in the copied slices), by a
       -- transpose below the gather (merges into the existing view)
-      -- and a compensating transpose above.
+      -- and a compensating transpose above — the rewrite the shn-sort
+      -- rule in contractAst now performs on such chains (the first
+      -- gather's shn is already sorted, so it is left alone).
       canonS2 :: AstTensor AstMethodLet FullSpan
                            (TKS '[48, 3, 3, 48, 3, 3] Double)
       canonS2 =

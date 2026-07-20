@@ -42,9 +42,10 @@ The symbolic kernel gradient is now at least on par with the
 handwritten-vectorized one at every size measured: the pre-fix gap that
 grew to ~1.37–1.39× (finding 3 of the measurements comment) is closed to
 ~1.0× across the whole range, including 96×96 and 192×192, so this is not
-a small-size-only win (~18% faster at 6×6, a few percent faster from
-24×24 up). The input gradient (`dInp`, the `sscatter` path) is untouched
-by the rule — confirmed neutral in an A/B run; it was already 2–4× ahead.
+a small-size-only win (vs the handwritten gradient: ~18% faster at 6×6, a
+few percent faster from 24×24 up). The input gradient (`dInp`, the
+`sscatter` path) is unaffected — confirmed neutral in an A/B run; it was
+already 2–4× ahead.
 
 ## Scope: conv-only, no non-conv impact
 

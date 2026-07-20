@@ -89,8 +89,8 @@ already 2–4× ahead. No new AST constructor or backend primitive is needed.
   then `minimalTest`, `CAFlessTest`, `parallelTest`.
 - Performance: before/after criterion runs of `ConvVjpBench` at all sizes
   and of the MNIST benchmarks (`shortMnistForCI`), since `contractAst`
-  affects every program. Success criterion: S-exec on par with H-exec-var
-  at every size, no MNIST regression.
+  runs on every symbolic program. Success criterion: S-exec on par with
+  H-exec-var at every size, no MNIST regression.
 - Expected churn: printed-AST regression tests will re-shuffle transpose
   permutations around gathers — mechanical.
 
