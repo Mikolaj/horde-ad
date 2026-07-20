@@ -269,14 +269,14 @@ benchesInpAt = do
     ]
 
 -- | Micro-benchmarks for the dominant cost found by profiling: the
--- interpreted im2col gather chains. Compares the AD-produced orientation
--- (large dim first in the gather output, small dims innermost in the
--- copied slices) against the vectorization-produced orientation
--- (small dim first, large dim innermost in slices), both against
--- a single fused gather that avoids the intermediate array entirely,
--- and the AD orientation against its two candidate canonicalizations
--- (shm dims sorted vs shn dims sorted). interpretAstFull does not run
--- contractAst, so each variant times exactly the orientation written.
+-- interpreted im2col gather chains. Three comparisons: the AD-produced
+-- orientation (large dim first in the gather output, small dims
+-- innermost in the copied slices) vs the vectorization-produced one
+-- (small dim first, large dim innermost in slices); both vs a single
+-- fused gather that avoids the intermediate array entirely; and the AD
+-- orientation vs its two candidate canonicalizations (shm dims sorted
+-- vs shn dims sorted). interpretAstFull does not run contractAst, so
+-- each variant times exactly the orientation written.
 gatherBenches :: IO [Benchmark]
 gatherBenches = do
   let (arr1, seed2) =

@@ -655,7 +655,7 @@ contractAst t0 = case t0 of
   -- over longer inner loops; see the gather48 group of convVjpBench.
   -- The transpose below usually merges with existing transposes
   -- of the source and the transpose above with consumer transposes.
-  -- This is a stable normal form: the compensating transposes permute the
+  -- This is a stable normal form. The compensating transposes permute the
   -- shn (slice) dims, which the leading-dims-only guards in astTransposeS
   -- and astGatherCase cannot fold back into the gather, and the guard below
   -- makes the rule idempotent (sortOn is stable, so a sorted shn — ties

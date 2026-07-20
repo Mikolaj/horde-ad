@@ -5,7 +5,9 @@
 -- vs handwritten derivatives. The matching deterministic (non-QuickCheck)
 -- gradient-correctness checks live in "TestConvCorrect"; the shared
 -- random-data helpers and handwritten gradients exported below are what that
--- module reuses.
+-- module reuses. The criterion counterpart of the poor man's benchmarks is
+-- bench/ConvVjpBench.hs; its per-call numbers are the citable ones, the
+-- tasty totals here being wall-clock over 100 runs on a coarse timer.
 module TestConvQuickCheck
   ( testTrees
     -- * Shared with "TestConvCorrect"

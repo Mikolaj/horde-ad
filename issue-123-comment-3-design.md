@@ -51,11 +51,12 @@ On a real convolutional net this is borne out: the `cnn-*` groups of
 its full parameters) show the exec-only gradient speeding up ~2% at 6×6 and
 **~18% at 24×24**, the win growing with image size as the gathers come to
 dominate.
+
 The rule is shape-generic, not convolution-specific, but it rewrites only
 gathers whose slice dims are not already sorted, so it is inert on programs
 that produce no such gathers — among the nets here only convolution does,
 leaving fully-connected and recurrent paths unaffected (neither sped up nor
-slowed down). `dInp` (the `sscatter` path) is untouched by design — it is
+slowed down). `dInp` (the `sscatter` path) needs no fix — it is
 already 2–4× ahead. No new AST constructor or backend primitive is needed.
 
 ## Alternatives considered and rejected

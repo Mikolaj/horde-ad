@@ -52,12 +52,12 @@ already 2–4× ahead.
 The effect is confined to programs with multi-dimensional-slice gathers —
 among the MNIST nets, convolution only — and the printed-AST regression
 tests pin this down: the churn falls in the synthetic conv/gather tests and
-the CNN artifacts, while the FCNN and RNN artifacts are byte-identical with
-and without the rule. Non-conv programs are
-therefore neither sped up nor slowed down — the FC-MNIST `shortMnistForCI`
-deltas sit within cross-binary noise (the concrete `VTA` control, which
-`contractAst` cannot touch, drifts as much) — and gather-free programs are
-untouched (the new case matches only `AstGatherS`). In the CNN artifacts it
+the CNN artifacts, while the FCNN and RNN artifacts are byte-identical
+with and without the rule. Non-conv programs are therefore neither sped
+up nor slowed down — the FC-MNIST `shortMnistForCI` deltas sit within
+cross-binary noise (the concrete `VTA` control, which `contractAst`
+cannot touch, drifts as much) — and gather-free programs are untouched
+(the new case matches only `AstGatherS`). In the CNN artifacts it
 does touch, `sgather` count is unchanged (no fusion) and the compensating
 transposes either merge away (4 of 6 artifacts) or leave a single
 metadata-only transpose (2 of 6), negligible beside the gather it reorients.
