@@ -25,10 +25,16 @@ import HordeAd
 import EqEpsilon
 
 import TestConvQuickCheck
-  ( benchData, benchDataShrinking, benchDataPadded
-  , conv2dSame_dKrn, conv2dSame_dInp
-  , conv2dShrinking_dKrn, conv2dShrinking_dInp
-  , conv2dPadded_dKrn, conv2dPadded_dInp )
+  ( benchData
+  , benchDataPadded
+  , benchDataShrinking
+  , conv2dPadded_dInp
+  , conv2dPadded_dKrn
+  , conv2dSame_dInp
+  , conv2dSame_dKrn
+  , conv2dShrinking_dInp
+  , conv2dShrinking_dKrn
+  )
 
 testTrees :: [TestTree]
 testTrees =
