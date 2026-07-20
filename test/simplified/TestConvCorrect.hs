@@ -5,13 +5,12 @@
 -- AD derivatives, at the poor man's benchmark data and sizes.
 --
 -- These are the deterministic counterpart of the convolution poor man's
--- benchmarks in "TestConvQuickCheck": they check, on data of the same shapes
--- and sizes, that the symbolic gradient those poor man's benchmarks time is
--- also correct. They live in a separate module so that the whole testsuite's
--- non-QuickCheck tests, whose timing is much more deterministic, can be
--- compared in isolation. The poor man's benchmarks these mirror, the shared
--- random-data helpers (@benchData@ etc.) and the handwritten gradients
--- they check against all live in "TestConvQuickCheck".
+-- benchmarks in "TestConvQuickCheck": on data of the same shapes and sizes
+-- (the shared @benchData@ etc. helpers), they check that the symbolic
+-- gradient those benchmarks time agrees with the handwritten gradients,
+-- both imported from that module. They live in a separate module so that
+-- the whole testsuite's non-QuickCheck tests, whose timing is much more
+-- deterministic, can be compared in isolation.
 module TestConvCorrect (testTrees) where
 
 import Prelude

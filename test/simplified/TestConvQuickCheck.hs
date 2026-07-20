@@ -310,9 +310,12 @@ conv2dSame_dInp arrK arrB =
                           [iCinp, 0 , 0, 0]
       in sfromK $ sdot0 arrBt arrKt
     _ -> error "conv2dSame_dInp: impossible pattern needlessly required"
--- Note that
--- > ... in conv2dSameS (stranspose @'[1, 0] arrKFlipped) arrB
--- type-checks above, but test fails due to the lack of @- nKh + 1@.
+-- Note that writing the body as
+-- > conv2dSameS (stranspose @'[1, 0] arrKFlipped) arrB
+-- type-checks (the same-size convolution keeps the shapes equal), but the
+-- test catches it: conv2dSameS's window extends forward from each position,
+-- while the adjoint's must extend backward — the @- nKh + 1@/@- nKw + 1@
+-- offsets in the slice above.
 
 -- | Hand-written reverse derivative of full convolution with respect
 -- to the kernels.
@@ -397,9 +400,11 @@ static_conv2dSameVjp
   -> Bool
 static_conv2dSameVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
-      -- Note that manual versions don't take one of the arguments (the point
-      -- at which the gradient is taken), because maths (something about
-      -- convolution being linear and so gradient the same everywhere).
+      -- Note that the manual versions don't take one of the arguments (the
+      -- point at which the gradient is taken): convolution is linear in each
+      -- argument separately, so the gradient with respect to one argument
+      -- does not depend on that argument's value — only on the other
+      -- argument and the incoming cotangent, which they do take.
       -- First, the gradient wrt the input image taken at point @arrA@.
       dInp :: Concrete (TKS shA r)
       dInp = conv2dSame_dInp
@@ -560,9 +565,7 @@ static_conv2dShrinkingVjp
   -> Bool
 static_conv2dShrinkingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
-      -- Note that manual versions don't take one of the arguments (the point
-      -- at which the gradient is taken), because maths (something about
-      -- convolution being linear and so gradient the same everywhere).
+      -- See the note on the manual versions in static_conv2dSameVjp.
       -- First, the gradient wrt the input image taken at point @arrA@.
       dInp :: Concrete (TKS shA r)
       dInp = conv2dShrinking_dInp
@@ -730,9 +733,7 @@ static_conv2dPaddedVjp
   -> Bool
 static_conv2dPaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
-      -- Note that manual versions don't take one of the arguments (the point
-      -- at which the gradient is taken), because maths (something about
-      -- convolution being linear and so gradient the same everywhere).
+      -- See the note on the manual versions in static_conv2dSameVjp.
       -- First, the gradient wrt the input image taken at point @arrA@.
       dInp :: Concrete (TKS shA r)
       dInp = conv2dPadded_dInp
