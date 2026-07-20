@@ -44,7 +44,7 @@ An ox-arrays source checkout lives at `../ox-arrays` — read it there when digg
 
 Cabal flags: `with_expensive_assertions` (extra checks), `release` (set for Hackage releases; disables test suites that need unpackaged data), `test_seq` (force parallelTest to run sequentially).
 
-Lint/format: `.hlint.yaml` (hlint with `--cpp-simple -XNoStarIsType`) and `.stylish-haskell.yaml` (stylish-haskell). CI (haskell-ci generated) builds and tests with GHC 9.10.3, 9.12.4 and 9.14.1.
+Lint/format: `.hlint.yaml` (hlint with `--cpp-simple -XNoStarIsType`) and `.stylish-haskell.yaml` (stylish-haskell). Known and accepted hlint blind spot: its parser fails on `import GHC.TypeLits (…, type (*))`, silently skipping every file with such an import (`OpsConcrete.hs`, `ConvVjpBench.hs`, three example modules) — don't report "hlint-clean" for those files. CI (haskell-ci generated) builds and tests with GHC 9.10.3, 9.12.4 and 9.14.1.
 
 ## Architecture
 
