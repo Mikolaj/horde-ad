@@ -9,10 +9,9 @@
 -- and sizes, that the symbolic gradient those poor man's benchmarks time is
 -- also correct. They live in a separate module so that the whole testsuite's
 -- non-QuickCheck tests, whose timing is much more deterministic, can be
--- compared in isolation from the randomized QuickCheck tests and poor man's
--- benchmarks. The poor man's benchmarks these mirror, the shared random-data
--- helpers (@benchData@ etc.) and the handwritten gradients they check against
--- all live in "TestConvQuickCheck".
+-- compared in isolation. The poor man's benchmarks these mirror, the shared
+-- random-data helpers (@benchData@ etc.) and the handwritten gradients
+-- they check against all live in "TestConvQuickCheck".
 module TestConvCorrect (testTrees) where
 
 import Prelude
@@ -47,13 +46,20 @@ testTrees =
   , testCase "conv2dSameVjp dInp correct 96" (conv2dSameVjpInpCorrect @96)
   , testCase "conv2dSameVjp correct vs concrete 6" conv2dSameVjpConcrete6
   -- Shrinking convolution: input larger than output.
-  , testCase "conv2dShrinkingVjp dKrn correct 6" (conv2dShrinkingVjpKrnCorrect @6)
-  , testCase "conv2dShrinkingVjp dKrn correct 24" (conv2dShrinkingVjpKrnCorrect @24)
-  , testCase "conv2dShrinkingVjp dKrn correct 96" (conv2dShrinkingVjpKrnCorrect @96)
-  , testCase "conv2dShrinkingVjp dInp correct 6" (conv2dShrinkingVjpInpCorrect @6)
-  , testCase "conv2dShrinkingVjp dInp correct 24" (conv2dShrinkingVjpInpCorrect @24)
-  , testCase "conv2dShrinkingVjp dInp correct 96" (conv2dShrinkingVjpInpCorrect @96)
-  , testCase "conv2dShrinkingVjp correct vs concrete 6" conv2dShrinkingVjpConcrete6
+  , testCase "conv2dShrinkingVjp dKrn correct 6"
+             (conv2dShrinkingVjpKrnCorrect @6)
+  , testCase "conv2dShrinkingVjp dKrn correct 24"
+             (conv2dShrinkingVjpKrnCorrect @24)
+  , testCase "conv2dShrinkingVjp dKrn correct 96"
+             (conv2dShrinkingVjpKrnCorrect @96)
+  , testCase "conv2dShrinkingVjp dInp correct 6"
+             (conv2dShrinkingVjpInpCorrect @6)
+  , testCase "conv2dShrinkingVjp dInp correct 24"
+             (conv2dShrinkingVjpInpCorrect @24)
+  , testCase "conv2dShrinkingVjp dInp correct 96"
+             (conv2dShrinkingVjpInpCorrect @96)
+  , testCase "conv2dShrinkingVjp correct vs concrete 6"
+             conv2dShrinkingVjpConcrete6
   -- Padded convolution: output larger than input.
   , testCase "conv2dPaddedVjp dKrn correct 6" (conv2dPaddedVjpKrnCorrect @6)
   , testCase "conv2dPaddedVjp dKrn correct 24" (conv2dPaddedVjpKrnCorrect @24)
@@ -96,13 +102,17 @@ conv2dSameVjpConcrete6 =
   let (arrK, arrA, arrB) = benchData @6 @Double 42
       hKrn, cKrn :: Concrete (TKS '[3, 3, 3, 3] Double)
       hKrn = conv2dSame_dKrn @3 @3 @3 @6 @6 @3 @3
-                             (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
-      cKrn = cvjp @_ @_ @_ @Concrete (`conv2dSameS` sconcrete (unConcrete arrA))
+                             (sconcrete (unConcrete arrA))
+                             (sconcrete (unConcrete arrB))
+      cKrn = cvjp @_ @_ @_ @Concrete
+                  (`conv2dSameS` sconcrete (unConcrete arrA))
                   (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
       hInp, cInp :: Concrete (TKS '[3, 3, 6, 6] Double)
       hInp = conv2dSame_dInp @3 @3 @3 @6 @6 @3 @3
-                             (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
-      cInp = cvjp @_ @_ @_ @Concrete (conv2dSameS (sconcrete (unConcrete arrK)))
+                             (sconcrete (unConcrete arrK))
+                             (sconcrete (unConcrete arrB))
+      cInp = cvjp @_ @_ @_ @Concrete
+                  (conv2dSameS (sconcrete (unConcrete arrK)))
                   (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
   in do assertEqualUpToEpsilon 1e-5 hKrn cKrn
         assertEqualUpToEpsilon 1e-5 hInp cInp
@@ -110,7 +120,8 @@ conv2dSameVjpConcrete6 =
 
 -- * The shrinking convolution variant
 
-conv2dShrinkingVjpKrnCorrect :: forall nAw. (KnownNat nAw, 1 <= nAw) => Assertion
+conv2dShrinkingVjpKrnCorrect
+  :: forall nAw. (KnownNat nAw, 1 <= nAw) => Assertion
 conv2dShrinkingVjpKrnCorrect =
   let (arrK, arrA, arrB) = benchDataShrinking @nAw @Double 42
       handwritten, symbolic :: Concrete (TKS '[3, 3, 3, 3] Double)
@@ -137,13 +148,17 @@ conv2dShrinkingVjpConcrete6 =
   let (arrK, arrA, arrB) = benchDataShrinking @6 @Double 42
       hKrn, cKrn :: Concrete (TKS '[3, 3, 3, 3] Double)
       hKrn = conv2dShrinking_dKrn @3 @3 @3 @6 @6 @2 @2
-                                  (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
-      cKrn = cvjp @_ @_ @_ @Concrete (`conv2dShrinkingS` sconcrete (unConcrete arrA))
+                                  (sconcrete (unConcrete arrA))
+                                  (sconcrete (unConcrete arrB))
+      cKrn = cvjp @_ @_ @_ @Concrete
+                  (`conv2dShrinkingS` sconcrete (unConcrete arrA))
                   (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
       hInp, cInp :: Concrete (TKS '[3, 3, 8, 8] Double)
       hInp = conv2dShrinking_dInp @3 @3 @3 @6 @6 @2 @2
-                                  (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
-      cInp = cvjp @_ @_ @_ @Concrete (conv2dShrinkingS (sconcrete (unConcrete arrK)))
+                                  (sconcrete (unConcrete arrK))
+                                  (sconcrete (unConcrete arrB))
+      cInp = cvjp @_ @_ @_ @Concrete
+                  (conv2dShrinkingS (sconcrete (unConcrete arrK)))
                   (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
   in do assertEqualUpToEpsilon 1e-5 hKrn cKrn
         assertEqualUpToEpsilon 1e-5 hInp cInp
@@ -178,13 +193,17 @@ conv2dPaddedVjpConcrete6 =
   let (arrK, arrA, arrB) = benchDataPadded @6 @Double 42
       hKrn, cKrn :: Concrete (TKS '[3, 3, 3, 3] Double)
       hKrn = conv2dPadded_dKrn @3 @3 @3 @6 @6 @2 @2
-                               (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
-      cKrn = cvjp @_ @_ @_ @Concrete (`conv2dPaddedS` sconcrete (unConcrete arrA))
+                               (sconcrete (unConcrete arrA))
+                               (sconcrete (unConcrete arrB))
+      cKrn = cvjp @_ @_ @_ @Concrete
+                  (`conv2dPaddedS` sconcrete (unConcrete arrA))
                   (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
       hInp, cInp :: Concrete (TKS '[3, 3, 6, 6] Double)
       hInp = conv2dPadded_dInp @3 @3 @3 @6 @6 @2 @2
-                               (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
-      cInp = cvjp @_ @_ @_ @Concrete (conv2dPaddedS (sconcrete (unConcrete arrK)))
+                               (sconcrete (unConcrete arrK))
+                               (sconcrete (unConcrete arrB))
+      cInp = cvjp @_ @_ @_ @Concrete
+                  (conv2dPaddedS (sconcrete (unConcrete arrK)))
                   (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
   in do assertEqualUpToEpsilon 1e-5 hKrn cKrn
         assertEqualUpToEpsilon 1e-5 hInp cInp

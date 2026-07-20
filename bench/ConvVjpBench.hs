@@ -71,10 +71,14 @@ forceGrad = unConcrete . ssum0
 checkAdjoint
   :: (KnownShS shSrc, KnownShS shOut)
   => String
-  -> AstTensor AstMethodLet FullSpan (TKS shOut Double)  -- ^ gather chain, over @src@
-  -> Concrete (TKS shSrc Double)                         -- ^ the source @x@
-  -> AstTensor AstMethodLet FullSpan (TKS shSrc Double)  -- ^ scatter chain, over @y@
-  -> Concrete (TKS shOut Double)                         -- ^ the cotangent @y@
+  -> AstTensor AstMethodLet FullSpan (TKS shOut Double)
+       -- ^ gather chain, over @src@
+  -> Concrete (TKS shSrc Double)
+       -- ^ the source @x@
+  -> AstTensor AstMethodLet FullSpan (TKS shSrc Double)
+       -- ^ scatter chain, over @y@
+  -> Concrete (TKS shOut Double)
+       -- ^ the cotangent @y@
   -> IO ()
 checkAdjoint name gatherChain src scatterChain y =
   let gOut = interpretAstFull emptyEnv gatherChain
@@ -87,6 +91,8 @@ checkAdjoint name gatherChain src scatterChain y =
                   ++ "sdot0 (sgather x f) y=" ++ show lhs
                   ++ " sdot0 x (sscatter y f)=" ++ show rhs
 
+-- | The full set of timing variants for the gradient with respect to the
+-- kernels, as described in the module haddock.
 benchesAt
   :: forall nImgs nCinp nCout nAh nAw nKh nKw.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
@@ -102,12 +108,15 @@ benchesAt = do
       (arrB, _) =
         randomValue @(Concrete (TKS '[nImgs, nCout, nAh, nAw] Double))
                     0.5 seed3
-      f :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
-        -> AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCout, nAh, nAw] Double)
+      f :: AstTensor AstMethodLet FullSpan
+                     (TKS '[nCout, nCinp, nKh, nKw] Double)
+        -> AstTensor AstMethodLet FullSpan
+                     (TKS '[nImgs, nCout, nAh, nAw] Double)
       f k = conv2dSameS k (sconcrete (unConcrete arrA))
       -- The handwritten gradient built as an AST term; constructing it
       -- runs vectorization (sbuild at the AST target).
-      hTerm :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
+      hTerm :: AstTensor AstMethodLet FullSpan
+                         (TKS '[nCout, nCinp, nKh, nKw] Double)
       hTerm = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                               (sconcrete (unConcrete arrA))
                               (sconcrete (unConcrete arrB))
@@ -118,7 +127,8 @@ benchesAt = do
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
-      hTermVar :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
+      hTermVar :: AstTensor AstMethodLet FullSpan
+                            (TKS '[nCout, nCinp, nKh, nKw] Double)
       hTermVar = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                                  (sconcrete (unConcrete arrA))
                                  (AstVar varNameB)
@@ -196,10 +206,13 @@ benchesInpAt = do
         randomValue @(Concrete (TKS '[nImgs, nCout, nAh, nAw] Double))
                     0.5 seed3
       -- Differentiate with respect to the input, with the kernel baked in.
-      g :: AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCinp, nAh, nAw] Double)
-        -> AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCout, nAh, nAw] Double)
+      g :: AstTensor AstMethodLet FullSpan
+                     (TKS '[nImgs, nCinp, nAh, nAw] Double)
+        -> AstTensor AstMethodLet FullSpan
+                     (TKS '[nImgs, nCout, nAh, nAw] Double)
       g a = conv2dSameS (sconcrete (unConcrete arrK)) a
-      hTerm :: AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCinp, nAh, nAw] Double)
+      hTerm :: AstTensor AstMethodLet FullSpan
+                         (TKS '[nImgs, nCinp, nAh, nAw] Double)
       hTerm = conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                               (sconcrete (unConcrete arrK))
                               (sconcrete (unConcrete arrB))
@@ -207,7 +220,8 @@ benchesInpAt = do
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
-      hTermVar :: AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCinp, nAh, nAw] Double)
+      hTermVar :: AstTensor AstMethodLet FullSpan
+                            (TKS '[nImgs, nCinp, nAh, nAw] Double)
       hTermVar = conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                                  (sconcrete (unConcrete arrK))
                                  (AstVar varNameB)
@@ -273,7 +287,8 @@ gatherBenches = do
       s2 :: AstTensor AstMethodLet FullSpan (TKS '[50, 50, 3, 3] Double)
       s2 = sconcrete (unConcrete arr2)
       -- S orientation: sgather @[48,3], big dim first.
-      twoS :: AstTensor AstMethodLet FullSpan (TKS '[48, 3, 3, 48, 3, 3] Double)
+      twoS :: AstTensor AstMethodLet FullSpan
+                        (TKS '[48, 3, 3, 48, 3, 3] Double)
       twoS =
         sgather @'[48, 3] @'[3, 48, 3, 3] @'[50]
                 (stranspose @'[4, 2, 0, 3, 1]
@@ -284,7 +299,8 @@ gatherBenches = do
                 (\case [c, d] -> [c + d]
                        _ -> error "twoS")
       -- H orientation: sgather @[3,48], small dim first.
-      twoH :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 3, 3, 48] Double)
+      twoH :: AstTensor AstMethodLet FullSpan
+                        (TKS '[3, 48, 3, 3, 3, 48] Double)
       twoH =
         sgather @'[3, 48] @'[3, 3, 3, 48] @'[50]
                 (stranspose @'[4, 2, 0, 3, 1]
@@ -295,14 +311,16 @@ gatherBenches = do
                 (\case [d, c] -> [c + d]
                        _ -> error "twoH")
       -- One fused gather, S orientation of the output dims.
-      fusedS :: AstTensor AstMethodLet FullSpan (TKS '[48, 3, 48, 3, 3, 3] Double)
+      fusedS :: AstTensor AstMethodLet FullSpan
+                          (TKS '[48, 3, 48, 3, 3, 3] Double)
       fusedS =
         sgather @'[48, 3, 48, 3] @'[3, 3] @'[50, 50]
                 s2
                 (\case [h, kh, w, kw] -> [h + kh, w + kw]
                        _ -> error "fusedS")
       -- One fused gather, H orientation of the output dims.
-      fusedH :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 48, 3, 3] Double)
+      fusedH :: AstTensor AstMethodLet FullSpan
+                          (TKS '[3, 48, 3, 48, 3, 3] Double)
       fusedH =
         sgather @'[3, 48, 3, 48] @'[3, 3] @'[50, 50]
                 s2
@@ -311,7 +329,8 @@ gatherBenches = do
       -- The S chain as the contemplated canonicalization rule would
       -- rewrite it: each gather's shm dims sorted ascending, with a
       -- compensating transpose above that restores the original dim order.
-      canonS :: AstTensor AstMethodLet FullSpan (TKS '[48, 3, 3, 48, 3, 3] Double)
+      canonS :: AstTensor AstMethodLet FullSpan
+                          (TKS '[48, 3, 3, 48, 3, 3] Double)
       canonS =
         stranspose @'[1, 0]
           (sgather @'[3, 48] @'[3, 48, 3, 3] @'[50]
@@ -327,7 +346,8 @@ gatherBenches = do
       -- instead (large dims innermost in the copied slices), by a
       -- transpose below the gather (merges into the existing view)
       -- and a compensating transpose above.
-      canonS2 :: AstTensor AstMethodLet FullSpan (TKS '[48, 3, 3, 48, 3, 3] Double)
+      canonS2 :: AstTensor AstMethodLet FullSpan
+                           (TKS '[48, 3, 3, 48, 3, 3] Double)
       canonS2 =
         stranspose @'[0, 1, 2, 5, 3, 4]
           (sgather @'[48, 3] @'[3, 3, 3, 48] @'[50]
@@ -393,7 +413,8 @@ scatterBenches = do
       y4 :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 48, 3, 3] Double)
       y4 = sconcrete (unConcrete arrY4)
       -- The gather chains from 'gatherBenches' (over x1/x2), for verification.
-      gTwoS :: AstTensor AstMethodLet FullSpan (TKS '[48, 3, 3, 48, 3, 3] Double)
+      gTwoS :: AstTensor AstMethodLet FullSpan
+                         (TKS '[48, 3, 3, 48, 3, 3] Double)
       gTwoS =
         sgather @'[48, 3] @'[3, 48, 3, 3] @'[50]
                 (stranspose @'[4, 2, 0, 3, 1]
@@ -402,7 +423,8 @@ scatterBenches = do
                                    _ -> error "gTwoS")))
                 (\case [c, d] -> [c + d]
                        _ -> error "gTwoS")
-      gTwoH :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 3, 3, 48] Double)
+      gTwoH :: AstTensor AstMethodLet FullSpan
+                         (TKS '[3, 48, 3, 3, 3, 48] Double)
       gTwoH =
         sgather @'[3, 48] @'[3, 3, 3, 48] @'[50]
                 (stranspose @'[4, 2, 0, 3, 1]
@@ -411,12 +433,14 @@ scatterBenches = do
                                    _ -> error "gTwoH")))
                 (\case [d, c] -> [c + d]
                        _ -> error "gTwoH")
-      gFusedS :: AstTensor AstMethodLet FullSpan (TKS '[48, 3, 48, 3, 3, 3] Double)
+      gFusedS :: AstTensor AstMethodLet FullSpan
+                           (TKS '[48, 3, 48, 3, 3, 3] Double)
       gFusedS =
         sgather @'[48, 3, 48, 3] @'[3, 3] @'[50, 50] x2
                 (\case [h, kh, w, kw] -> [h + kh, w + kw]
                        _ -> error "gFusedS")
-      gFusedH :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 48, 3, 3] Double)
+      gFusedH :: AstTensor AstMethodLet FullSpan
+                           (TKS '[3, 48, 3, 48, 3, 3] Double)
       gFusedH =
         sgather @'[3, 48, 3, 48] @'[3, 3] @'[50, 50] x2
                 (\case [kh, h, kw, w] -> [h + kh, w + kw]
@@ -424,7 +448,8 @@ scatterBenches = do
       -- The scatter chains: exact adjoints of the gather chains above.
       -- The two-op chains reverse the composition order and invert the
       -- connecting transpose (@[4,2,0,3,1]@ becomes @[2,4,1,3,0]@).
-      twoScatterS :: AstTensor AstMethodLet FullSpan (TKS '[50, 3, 3, 50] Double)
+      twoScatterS :: AstTensor AstMethodLet FullSpan
+                               (TKS '[50, 3, 3, 50] Double)
       twoScatterS =
         sscatter @'[48, 3] @'[3, 3, 50] @'[50]
                  (stranspose @'[2, 4, 1, 3, 0]
@@ -433,7 +458,8 @@ scatterBenches = do
                                      _ -> error "twoScatterS")))
                  (\case [a, b] -> [a + b]
                         _ -> error "twoScatterS")
-      twoScatterH :: AstTensor AstMethodLet FullSpan (TKS '[50, 3, 3, 50] Double)
+      twoScatterH :: AstTensor AstMethodLet FullSpan
+                               (TKS '[50, 3, 3, 50] Double)
       twoScatterH =
         sscatter @'[3, 48] @'[3, 3, 50] @'[50]
                  (stranspose @'[2, 4, 1, 3, 0]
@@ -442,12 +468,14 @@ scatterBenches = do
                                      _ -> error "twoScatterH")))
                  (\case [b, a] -> [a + b]
                         _ -> error "twoScatterH")
-      fusedScatterS :: AstTensor AstMethodLet FullSpan (TKS '[50, 50, 3, 3] Double)
+      fusedScatterS :: AstTensor AstMethodLet FullSpan
+                                 (TKS '[50, 50, 3, 3] Double)
       fusedScatterS =
         sscatter @'[48, 3, 48, 3] @'[3, 3] @'[50, 50] y3
                  (\case [h, kh, w, kw] -> [h + kh, w + kw]
                         _ -> error "fusedScatterS")
-      fusedScatterH :: AstTensor AstMethodLet FullSpan (TKS '[50, 50, 3, 3] Double)
+      fusedScatterH :: AstTensor AstMethodLet FullSpan
+                                 (TKS '[50, 50, 3, 3] Double)
       fusedScatterH =
         sscatter @'[3, 48, 3, 48] @'[3, 3] @'[50, 50] y4
                  (\case [kh, h, kw, w] -> [h + kh, w + kw]
@@ -489,10 +517,13 @@ printTerms = do
       (arrB, _) =
         randomValue @(Concrete (TKS '[nImgs, nCout, nAh, nAw] Double))
                     0.5 seed3
-      f :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
-        -> AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCout, nAh, nAw] Double)
+      f :: AstTensor AstMethodLet FullSpan
+                     (TKS '[nCout, nCinp, nKh, nKw] Double)
+        -> AstTensor AstMethodLet FullSpan
+                     (TKS '[nImgs, nCout, nAh, nAw] Double)
       f k = conv2dSameS k (sconcrete (unConcrete arrA))
-      hTerm :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
+      hTerm :: AstTensor AstMethodLet FullSpan
+                         (TKS '[nCout, nCinp, nKh, nKw] Double)
       hTerm = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                               (sconcrete (unConcrete arrA))
                               (sconcrete (unConcrete arrB))
@@ -500,7 +531,8 @@ printTerms = do
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
-      hTermVar :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
+      hTermVar :: AstTensor AstMethodLet FullSpan
+                            (TKS '[nCout, nCinp, nKh, nKw] Double)
       hTermVar = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                                  (sconcrete (unConcrete arrA))
                                  (AstVar varNameB)
