@@ -1,48 +1,38 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
--- | Diagnostic benchmarks for issue #123: separate the cost of the
--- symbolic AD pipeline (tracing, differentiation, simplification)
--- from the cost of executing the resulting gradient program,
--- for the gradient of conv2dSameS with respect to the kernels,
--- at image sizes from 6x6 to 192x192.
+-- | Diagnostic benchmarks for issue #123: separate the cost of producing
+-- a gradient program (tracing, differentiation, simplification) from the
+-- cost of executing it, for the two pipelines that produce one — symbolic
+-- AD and the vectorized handwritten gradient.
 --
--- Variants, decomposing the costs that the QuickCheck poor man's
--- benchmarks in TestConvQuickCheck conflate (@S-fullpipe-honest@ and
--- @H-fullpipe@ time the same full pipelines those do). The variants come
--- in @S-@/@H-@ pairs — @S@ for Symbolic and @H@ for Handwritten, the
--- issue's names for the two pipelines — adjacent in each group: each
--- @H-@ variant measures for the handwritten pipeline the same stage its
--- @S-@ partner measures for the symbolic one, with the incoming cotangent
--- kept as a variable on both sides (only @H-fullpipe@ embeds it as a
--- constant, because the tasty benchmark it mirrors does).
+-- The groups @6x6@ to @192x192@ sweep the gradient of conv2dSameS with
+-- respect to the kernels across those image sizes; the @inp-*@ groups run
+-- the same variants and sizes for the gradient with respect to the input
+-- image (the @sscatter@ path). Each group holds the variants below in
+-- @S-@/@H-@ pairs — @S@ for Symbolic and @H@ for Handwritten, the issue's
+-- names for the two pipelines — each @H-@ variant measuring the same
+-- stage as its adjacent @S-@ partner, with the incoming cotangent kept as
+-- a variable on both sides (only @H-fullpipe@ embeds it as a constant,
+-- because the tasty benchmark it mirrors does). The pairs decompose the
+-- costs that the QuickCheck poor man's benchmarks in TestConvQuickCheck
+-- conflate:
 --
--- * @S-fullpipe-honest@: @vjp@ per call, i.e., tracing + AD +
---   simplification + interpretation every time (what the issue calls
---   Symbolic), with the per-call-varying input baked into the objective
---   so the artifact is genuinely rebuilt every call.
--- * @H-fullpipe@: building + vectorizing + interpreting the handwritten
---   gradient term per call (what the issue calls HandwrittenVectorized);
---   like the tasty benchmark, it embeds the cotangent as a constant and
---   never contracts the term.
--- * @S-artifact@: building + simplifying the gradient artifact only (the
---   compilation cost), forced to WHNF (StrictData suffices), as in
---   mnistTrainBench2VTC in BenchMnistTools.
--- * @H-term@: building + contracting the handwritten term only — the
---   handwritten pipeline's compilation cost.
--- * @S-exec@: interpreting a pre-computed simplified artifact only.
--- * @H-exec@: interpreting the pre-built contracted handwritten term
---   only, the cotangent bound in the environment.
--- * @S-exec-raw@: interpreting a pre-computed unsimplified artifact,
---   to see what simplifyArtifactRev buys at runtime.
--- * @H-exec-raw@: interpreting the pre-built uncontracted handwritten
---   term, to see what simplifyInlineContract buys at runtime.
---
--- The @pitfalls@ group holds the suite's single recorder of each known
--- measurement trap (see 'pitfallBenches'), so the sweep groups contain
--- only honest, pairwise-comparable variants.
---
--- The @inp-*@ groups run the same variants and sizes for the gradient
--- with respect to the input image (the @sscatter@ path) instead of
--- the kernels.
+-- * @S-fullpipe-honest@ and @H-fullpipe@: the full per-call pipelines
+--   those tasty benchmarks time (the issue's Symbolic and
+--   HandwrittenVectorized) — @vjp@, i.e., tracing + AD + simplification +
+--   interpretation, with the per-call-varying input baked into the
+--   objective so the artifact is genuinely rebuilt every call, vs
+--   building + vectorizing + interpreting the handwritten term, never
+--   contracted.
+-- * @S-artifact@ and @H-term@: the compilation cost only — building and
+--   simplifying the gradient artifact vs building and contracting the
+--   handwritten term, forced to WHNF (StrictData makes that a full
+--   build), as in mnistTrainBench2VTC in BenchMnistTools.
+-- * @S-exec@ and @H-exec@: execution only — interpreting the pre-built
+--   simplified artifact vs the pre-built contracted term (the cotangent
+--   bound in the environment).
+-- * @S-exec-raw@ and @H-exec-raw@: execution of the unsimplified
+--   artifact vs the uncontracted term, to see what simplifyArtifactRev
+--   and simplifyInlineContract buy at runtime.
 --
 -- The @cnn-*@ groups run the @S-*@ variants for a real (shaped) two-layer
 -- convolutional net (@MnistCnnShaped2.convMnistTwoS@, each layer with
@@ -51,6 +41,16 @@
 -- benchmarks they also exercise the maxpool and reshape gathers of a full
 -- net; they have no @H-*@ variants, as there is no handwritten CNN gradient
 -- to compare against.
+--
+-- The @gather48@ and @scatter48@ groups isolate the dominant cost: the
+-- interpreted im2col gather chains of the 48x48 gradients and their
+-- scatter adjoints (see 'gatherBenches' and 'scatterBenches'). The
+-- @pitfalls@ group holds the suite's single recorder of each known
+-- measurement trap (see 'pitfallBenches'), so the sweep groups contain
+-- only honest, pairwise-comparable variants.
+--
+-- Setting @PRINT_TERMS=1@ prints the compared gradient programs instead
+-- of benchmarking (see 'printTerms').
 module Main (main) where
 
 import Prelude
