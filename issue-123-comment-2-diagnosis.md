@@ -1,6 +1,6 @@
 # Comment 2 for #123 (draft): root cause — gather chains and slice loop order
 
-*(Second of three consecutive comments planned for issue #123. Benchmark
+*(Second of three consecutive comments planned for #123. Benchmark
 numbers and source references to be refreshed just before posting.)*
 
 ## Where the time goes

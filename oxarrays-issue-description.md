@@ -148,10 +148,10 @@ adjoint check in [`checkAdjoint`].
 
 horde-ad now sorts each gather's slice dimensions ascending at the term
 level (compensated by metadata-only transposes; the contraction-pass fix
-from horde-ad#123), which buys the ~1.36× loop-order factor of point 2 and
-brings its AD-generated gradients on par with hand-vectorized ones — worth
-~18% on a real shaped CNN gradient at 24×24 image size, growing with size
-as the gathers dominate. Past that, term rewriting is exhausted: the
+from horde-ad's [#123]), which buys the ~1.36× loop-order factor of point 2
+and brings its AD-generated gradients on par with hand-vectorized ones —
+worth ~18% on a real shaped CNN gradient at 24×24 image size, growing with
+size as the gathers dominate. Past that, term rewriting is exhausted: the
 per-call ratios of all program variants converge and everything scales
 ~linearly in data size, so the residual is a linear `mgenerate` term that
 only a cheaper kernel can remove.
@@ -167,6 +167,7 @@ normalize. The missing piece is a fast strided copy, upstream either way.
 
 A concrete two-stage fix is designed in the comment below.
 
+[#123]: https://github.com/Mikolaj/horde-ad/issues/123
 [tgatherZSScalar]: https://github.com/Mikolaj/horde-ad/blob/bc0f1e9d4a55d7caf46b47d3869b07304933e4ed/src/HordeAd/Core/OpsConcrete.hs#L1654-L1665
 [tbuildS]: https://github.com/Mikolaj/horde-ad/blob/bc0f1e9d4a55d7caf46b47d3869b07304933e4ed/src/HordeAd/Core/OpsConcrete.hs#L1776-L1789
 [tscatterZSScalar]: https://github.com/Mikolaj/horde-ad/blob/bc0f1e9d4a55d7caf46b47d3869b07304933e4ed/src/HordeAd/Core/OpsConcrete.hs#L1581-L1619

@@ -3,11 +3,11 @@
 *(Analysis of chat notes from 2026-07-21, about
 the planned ox-arrays feature request; the background section makes it
 self-contained for a reader who knows horde-ad, ox-arrays and orthotope
-but not the horde-ad #123 branch. Code claims were verified against
+but not the horde-ad [#123] branch. Code claims were verified against
 ox-arrays-0.2.0.1 as unpacked from the cabal store; horde-ad links are
 pinned to master `bc0f1e9d4`.)*
 
-## Background: what the #123 branch established
+## Background: what the [#123] branch established
 
 horde-ad executes its concrete `sgather` through `mgenerate`
 ([`tgatherZSScalar` → `tbuildS`][tgatherZSScalar], which is
@@ -178,6 +178,7 @@ bound for a fast gather path.
   gather exactly as for the current one — the drafts' argument that one
   code path degrades gracefully carries over unchanged.
 
+[#123]: https://github.com/Mikolaj/horde-ad/issues/123
 [tgatherZSScalar]: https://github.com/Mikolaj/horde-ad/blob/bc0f1e9d4a55d7caf46b47d3869b07304933e4ed/src/HordeAd/Core/OpsConcrete.hs#L1654-L1665
 [tbuildS]: https://github.com/Mikolaj/horde-ad/blob/bc0f1e9d4a55d7caf46b47d3869b07304933e4ed/src/HordeAd/Core/OpsConcrete.hs#L1776-L1789
 [tscatterZSScalar]: https://github.com/Mikolaj/horde-ad/blob/bc0f1e9d4a55d7caf46b47d3869b07304933e4ed/src/HordeAd/Core/OpsConcrete.hs#L1581-L1619

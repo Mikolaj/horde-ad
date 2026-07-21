@@ -1,6 +1,6 @@
 # Comment 3 for #123 (draft): the fix — sort gather slice dims in contraction
 
-*(Third of three consecutive comments planned for issue #123. This is the
+*(Third of three consecutive comments planned for #123. This is the
 general design, in principle ignorant of its implementation; the PR carries
 a terse version of it plus implementation-level details and findings.
 Benchmark numbers and source references to be refreshed just before
