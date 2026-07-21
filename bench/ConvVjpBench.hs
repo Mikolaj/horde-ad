@@ -488,7 +488,14 @@ checkAdjoint name gatherChain src scatterChain y =
 -- that appear in the input-image gradient (the @sscatter@ path). Each chain
 -- is the exact adjoint (transpose) of the corresponding gather chain above —
 -- verified at startup by 'checkAdjoint' — so this isolates the scatter cost
--- the way 'gatherBenches' isolates the gather cost.
+-- the way 'gatherBenches' isolates the gather cost. The correspondence is
+-- deliberately partial: the shn-sorted chain's adjoint is included — it
+-- measures the ruling that the shn-sort must not be extended to scatter
+-- (a ~4x pessimization: scatter adds each slice as one flat vector, so a
+-- sorted shn has no per-shn-dim loop to amortize, while the compensating
+-- transposes leave the slice views strided) — but there are no shm-sorted
+-- or fused-sorted adjoints, which would only re-measure knobs
+-- 'gatherBenches' already shows dead.
 scatterBenches :: IO [Benchmark]
 scatterBenches = do
   let (arrX1, seedb) =
@@ -536,6 +543,19 @@ scatterBenches = do
                                    _ -> error "gTwoVec")))
                 (\case [d, c] -> [c + d]
                        _ -> error "gTwoVec")
+      gCanonShn :: AstTensor AstMethodLet FullSpan
+                            (TKS '[48, 3, 3, 48, 3, 3] Double)
+      gCanonShn =
+        stranspose @'[0, 1, 2, 5, 3, 4]
+          (sgather @'[48, 3] @'[3, 3, 3, 48] @'[50]
+                   (stranspose @'[0, 1, 3, 4, 2]
+                      (stranspose @'[4, 2, 0, 3, 1]
+                         (sgather @'[48, 3] @'[3, 3, 50] @'[50]
+                                  x1
+                                  (\case [a, b] -> [a + b]
+                                         _ -> error "gCanonShn"))))
+                   (\case [c, d] -> [c + d]
+                          _ -> error "gCanonShn"))
       gFusedAd :: AstTensor AstMethodLet FullSpan
                            (TKS '[48, 3, 48, 3, 3, 3] Double)
       gFusedAd =
@@ -571,6 +591,25 @@ scatterBenches = do
                                      _ -> error "twoScatterVec")))
                  (\case [b, a] -> [a + b]
                         _ -> error "twoScatterVec")
+      -- The adjoint of the shn-sorted chain ('canonShn' in 'gatherBenches'),
+      -- on the same cotangent as twoScatterAd: measures the ruling that the
+      -- shn-sort must not be extended to scatter — and strengthens it from
+      -- "cannot pay" to a measured ~4x pessimization: scatter adds each
+      -- slice as one flat vector, so a sorted shn has no per-shn-dim loop
+      -- to amortize, while the compensating transposes leave the slice
+      -- views strided.
+      twoScatterShnSorted :: AstTensor AstMethodLet FullSpan
+                                       (TKS '[50, 3, 3, 50] Double)
+      twoScatterShnSorted =
+        sscatter @'[48, 3] @'[3, 3, 50] @'[50]
+                 (stranspose @'[2, 4, 1, 3, 0]
+                    (stranspose @'[0, 1, 4, 2, 3]
+                       (sscatter @'[48, 3] @'[3, 3, 3, 48] @'[50]
+                                 (stranspose @'[0, 1, 2, 4, 5, 3] y1)
+                                 (\case [c, d] -> [c + d]
+                                        _ -> error "twoScatterShnSorted"))))
+                 (\case [a, b] -> [a + b]
+                        _ -> error "twoScatterShnSorted")
       fusedScatterAd :: AstTensor AstMethodLet FullSpan
                                  (TKS '[50, 50, 3, 3] Double)
       fusedScatterAd =
@@ -585,11 +624,14 @@ scatterBenches = do
                         _ -> error "fusedScatterVec")
   checkAdjoint "two-scatters-ad-orient" gTwoAd arrX1 twoScatterAd arrY1
   checkAdjoint "two-scatters-vec-orient" gTwoVec arrX1 twoScatterVec arrY2
+  checkAdjoint "two-scatters-ad-shn-sorted"
+               gCanonShn arrX1 twoScatterShnSorted arrY1
   checkAdjoint "fused-scatter-ad-orient" gFusedAd arrX2 fusedScatterAd arrY3
   checkAdjoint "fused-scatter-vec-orient" gFusedVec arrX2 fusedScatterVec arrY4
   -- Force to WHNF (a full build under StrictData) before benchmarking.
   _ <- evaluate twoScatterAd
   _ <- evaluate twoScatterVec
+  _ <- evaluate twoScatterShnSorted
   _ <- evaluate fusedScatterAd
   _ <- evaluate fusedScatterVec
   return
@@ -597,6 +639,8 @@ scatterBenches = do
         (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterAd
     , bench "two-scatters-vec-orient" $ whnf
         (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterVec
+    , bench "two-scatters-ad-shn-sorted" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterShnSorted
     , bench "fused-scatter-ad-orient" $ whnf
         (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedScatterAd
     , bench "fused-scatter-vec-orient" $ whnf
