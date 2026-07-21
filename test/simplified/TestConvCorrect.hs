@@ -158,7 +158,7 @@ conv2dSameVjpVarCotangent6 =
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
       env = extendEnv varNameB arrB emptyEnv
-      hKrn, vKrn, cKrn :: Concrete (TKS '[3, 3, 3, 3] Double)
+      hKrn, rawKrn, contractedKrn :: Concrete (TKS '[3, 3, 3, 3] Double)
       hKrn = conv2dSame_dKrn @3 @3 @3 @6 @6 @3 @3
                              (sconcrete (unConcrete arrA))
                              (sconcrete (unConcrete arrB))
@@ -166,9 +166,9 @@ conv2dSameVjpVarCotangent6 =
       krnTermVar = conv2dSame_dKrn @3 @3 @3 @6 @6 @3 @3
                                    (sconcrete (unConcrete arrA))
                                    (AstVar varNameB)
-      vKrn = interpretAstFull env krnTermVar
-      cKrn = interpretAstFull env (simplifyInlineContract krnTermVar)
-      hInp, vInp, cInp :: Concrete (TKS '[3, 3, 6, 6] Double)
+      rawKrn = interpretAstFull env krnTermVar
+      contractedKrn = interpretAstFull env (simplifyInlineContract krnTermVar)
+      hInp, rawInp, contractedInp :: Concrete (TKS '[3, 3, 6, 6] Double)
       hInp = conv2dSame_dInp @3 @3 @3 @6 @6 @3 @3
                              (sconcrete (unConcrete arrK))
                              (sconcrete (unConcrete arrB))
@@ -176,12 +176,12 @@ conv2dSameVjpVarCotangent6 =
       inpTermVar = conv2dSame_dInp @3 @3 @3 @6 @6 @3 @3
                                    (sconcrete (unConcrete arrK))
                                    (AstVar varNameB)
-      vInp = interpretAstFull env inpTermVar
-      cInp = interpretAstFull env (simplifyInlineContract inpTermVar)
-  in do assertEqualUpToEpsilon 1e-5 hKrn vKrn
-        assertEqualUpToEpsilon 1e-5 hKrn cKrn
-        assertEqualUpToEpsilon 1e-5 hInp vInp
-        assertEqualUpToEpsilon 1e-5 hInp cInp
+      rawInp = interpretAstFull env inpTermVar
+      contractedInp = interpretAstFull env (simplifyInlineContract inpTermVar)
+  in do assertEqualUpToEpsilon 1e-5 hKrn rawKrn
+        assertEqualUpToEpsilon 1e-5 hKrn contractedKrn
+        assertEqualUpToEpsilon 1e-5 hInp rawInp
+        assertEqualUpToEpsilon 1e-5 hInp contractedInp
 
 
 -- * The shrinking convolution variant

@@ -61,8 +61,8 @@ copied slice*.
 
 **Why flipping `shm` (with compensating transposes) cannot help.**
 `@[48,3]` and `@[3,48]` both mean 144 copies of the same slices, so the
-gather's own work is unchanged; the `fused-gather-S-orient` vs
-`fused-gather-H-orient` benchmarks confirm this independently — they
+gather's own work is unchanged; the `fused-gather-ad-orient` vs
+`fused-gather-vec-orient` benchmarks confirm this independently — they
 differ only in `shm` order and time identically. The layout argument
 ("the flip changes the physical layout of the materialized output,
 which the next gather then reads more coherently") defeats itself: the
@@ -71,7 +71,7 @@ very view through which the next gather reads, re-scrambling the
 strides by exactly the amount the flip fixed. A metadata-only rewrite
 wrapped *around* an unchanged gather permutes strides but cannot change
 what is copied. This was the first hypothesis tested; the refutation is
-kept in the benchmark as `two-gathers-S-canonicalized` (5.59ms vs the
+kept in the benchmark as `two-gathers-ad-shm-sorted` (5.59ms vs the
 original 5.69ms).
 
 **Why sorting `shn` does help.** `shn` is the tail of the *source*
@@ -86,8 +86,8 @@ amortized over 48-iteration inner runs, while with a 3-sized dimension
 innermost the per-level setup is paid 16× more often. Note the mechanism
 is loop-overhead amortization, not cache locality — a cache story
 predicts the same symptom but a different fix, and only the
-discriminating pair (`two-gathers-S-canonicalized` vs
-`two-gathers-S-shn-sorted`) separates the two.
+discriminating pair (`two-gathers-ad-shm-sorted` vs
+`two-gathers-ad-shn-sorted`) separates the two.
 
 The follow-up micro-benchmarks that pin this down (isolated chains at
 48×48):
@@ -148,6 +148,6 @@ A methodology note: most of the mechanisms suspected above are real
 effects — source reading settles which effects exist, not their
 coefficients — so each hypothesis got its own discriminating measurement
 rather than another end-to-end timing: the cost-centre profile splits the
-gathers from the dot and sums, and the `two-gathers-S-canonicalized` /
-`two-gathers-S-shn-sorted` pair splits intermediate layout from slice loop
+gathers from the dot and sums, and the `two-gathers-ad-shm-sorted` /
+`two-gathers-ad-shn-sorted` pair splits intermediate layout from slice loop
 shape (and with it the cache-locality story from the loop-overhead one).

@@ -8,11 +8,12 @@
 -- Variants, decomposing the costs that the QuickCheck poor man's
 -- benchmarks in TestConvQuickCheck conflate (@S-fullpipe-honest@ and
 -- @H-fullpipe@ time the same full pipelines those do). The variants come
--- in @S-@/@H-@ pairs, adjacent in each group: each @H-@ variant measures
--- for the handwritten pipeline the same stage its @S-@ partner measures
--- for the symbolic one, with the incoming cotangent kept as a variable on
--- both sides (only @H-fullpipe@ embeds it as a constant, because the
--- tasty benchmark it mirrors does).
+-- in @S-@/@H-@ pairs — @S@ for Symbolic and @H@ for Handwritten, the
+-- issue's names for the two pipelines — adjacent in each group: each
+-- @H-@ variant measures for the handwritten pipeline the same stage its
+-- @S-@ partner measures for the symbolic one, with the incoming cotangent
+-- kept as a variable on both sides (only @H-fullpipe@ embeds it as a
+-- constant, because the tasty benchmark it mirrors does).
 --
 -- * @S-fullpipe-honest@: @vjp@ per call, i.e., tracing + AD +
 --   simplification + interpretation every time (what the issue calls
@@ -343,108 +344,109 @@ gatherBenches = do
       (arr2, _) =
         randomValue @(Concrete (TKS '[50, 50, 3, 3] Double))
                     0.5 seed2
-      s1, s1' :: AstTensor AstMethodLet FullSpan (TKS '[50, 3, 3, 50] Double)
-      s1 = sconcrete (unConcrete arr1)
-      s1' = sconcrete (unConcrete arr1)
-      s2 :: AstTensor AstMethodLet FullSpan (TKS '[50, 50, 3, 3] Double)
-      s2 = sconcrete (unConcrete arr2)
-      -- S orientation: sgather @[48,3], big dim first.
-      twoS :: AstTensor AstMethodLet FullSpan
+      src1, src1'
+        :: AstTensor AstMethodLet FullSpan (TKS '[50, 3, 3, 50] Double)
+      src1 = sconcrete (unConcrete arr1)
+      src1' = sconcrete (unConcrete arr1)
+      src2 :: AstTensor AstMethodLet FullSpan (TKS '[50, 50, 3, 3] Double)
+      src2 = sconcrete (unConcrete arr2)
+      -- The AD orientation: sgather @[48,3], big dim first.
+      twoAd :: AstTensor AstMethodLet FullSpan
                         (TKS '[48, 3, 3, 48, 3, 3] Double)
-      twoS =
+      twoAd =
         sgather @'[48, 3] @'[3, 48, 3, 3] @'[50]
                 (stranspose @'[4, 2, 0, 3, 1]
                    (sgather @'[48, 3] @'[3, 3, 50] @'[50]
-                            s1
+                            src1
                             (\case [a, b] -> [a + b]
-                                   _ -> error "twoS")))
+                                   _ -> error "twoAd")))
                 (\case [c, d] -> [c + d]
-                       _ -> error "twoS")
-      -- H orientation: sgather @[3,48], small dim first.
-      twoH :: AstTensor AstMethodLet FullSpan
+                       _ -> error "twoAd")
+      -- The vectorization orientation: sgather @[3,48], small dim first.
+      twoVec :: AstTensor AstMethodLet FullSpan
                         (TKS '[3, 48, 3, 3, 3, 48] Double)
-      twoH =
+      twoVec =
         sgather @'[3, 48] @'[3, 3, 3, 48] @'[50]
                 (stranspose @'[4, 2, 0, 3, 1]
                    (sgather @'[3, 48] @'[3, 3, 50] @'[50]
-                            s1'
+                            src1'
                             (\case [b, a] -> [a + b]
-                                   _ -> error "twoH")))
+                                   _ -> error "twoVec")))
                 (\case [d, c] -> [c + d]
-                       _ -> error "twoH")
-      -- One fused gather, S orientation of the output dims.
-      fusedS :: AstTensor AstMethodLet FullSpan
+                       _ -> error "twoVec")
+      -- One fused gather, AD orientation of the output dims.
+      fusedAd :: AstTensor AstMethodLet FullSpan
                           (TKS '[48, 3, 48, 3, 3, 3] Double)
-      fusedS =
+      fusedAd =
         sgather @'[48, 3, 48, 3] @'[3, 3] @'[50, 50]
-                s2
+                src2
                 (\case [h, kh, w, kw] -> [h + kh, w + kw]
-                       _ -> error "fusedS")
-      -- One fused gather, H orientation of the output dims.
-      fusedH :: AstTensor AstMethodLet FullSpan
+                       _ -> error "fusedAd")
+      -- One fused gather, vectorization orientation of the output dims.
+      fusedVec :: AstTensor AstMethodLet FullSpan
                           (TKS '[3, 48, 3, 48, 3, 3] Double)
-      fusedH =
+      fusedVec =
         sgather @'[3, 48, 3, 48] @'[3, 3] @'[50, 50]
-                s2
+                src2
                 (\case [kh, h, kw, w] -> [h + kh, w + kw]
-                       _ -> error "fusedH")
-      -- The S chain with each gather's shm dims sorted ascending and a
+                       _ -> error "fusedVec")
+      -- The AD chain with each gather's shm dims sorted ascending and a
       -- compensating transpose above that restores the original dim order —
       -- a canonicalization considered for contractAst and refuted by this
       -- measurement: the concrete gather's cost is per output position,
       -- so reordering the shm dims changes nothing.
-      canonS :: AstTensor AstMethodLet FullSpan
+      canonShm :: AstTensor AstMethodLet FullSpan
                           (TKS '[48, 3, 3, 48, 3, 3] Double)
-      canonS =
+      canonShm =
         stranspose @'[1, 0]
           (sgather @'[3, 48] @'[3, 48, 3, 3] @'[50]
                    (stranspose @'[4, 2, 0, 3, 1]
                       (stranspose @'[1, 0]
                          (sgather @'[3, 48] @'[3, 3, 50] @'[50]
-                                  s1
+                                  src1
                                   (\case [b, a] -> [a + b]
-                                         _ -> error "canonS"))))
+                                         _ -> error "canonShm"))))
                    (\case [d, c] -> [c + d]
-                          _ -> error "canonS"))
-      -- The S chain with the second gather's shn dims sorted ascending
+                          _ -> error "canonShm"))
+      -- The AD chain with the second gather's shn dims sorted ascending
       -- instead (large dims innermost in the copied slices), by a
       -- transpose below the gather (merges into the existing view)
       -- and a compensating transpose above — the rewrite the shn-sort
       -- rule in contractAst now performs on such chains (the first
       -- gather's shn is already sorted, so it is left alone).
-      canonS2 :: AstTensor AstMethodLet FullSpan
+      canonShn :: AstTensor AstMethodLet FullSpan
                            (TKS '[48, 3, 3, 48, 3, 3] Double)
-      canonS2 =
+      canonShn =
         stranspose @'[0, 1, 2, 5, 3, 4]
           (sgather @'[48, 3] @'[3, 3, 3, 48] @'[50]
                    (stranspose @'[0, 1, 3, 4, 2]
                       (stranspose @'[4, 2, 0, 3, 1]
                          (sgather @'[48, 3] @'[3, 3, 50] @'[50]
-                                  s1
+                                  src1
                                   (\case [a, b] -> [a + b]
-                                         _ -> error "canonS2"))))
+                                         _ -> error "canonShn"))))
                    (\case [c, d] -> [c + d]
-                          _ -> error "canonS2"))
+                          _ -> error "canonShn"))
   -- Force to WHNF (a full build under StrictData) before benchmarking.
-  _ <- evaluate twoS
-  _ <- evaluate twoH
-  _ <- evaluate fusedS
-  _ <- evaluate fusedH
-  _ <- evaluate canonS
-  _ <- evaluate canonS2
+  _ <- evaluate twoAd
+  _ <- evaluate twoVec
+  _ <- evaluate fusedAd
+  _ <- evaluate fusedVec
+  _ <- evaluate canonShm
+  _ <- evaluate canonShn
   return
-    [ bench "two-gathers-S-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoS
-    , bench "two-gathers-H-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoH
-    , bench "two-gathers-S-canonicalized" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) canonS
-    , bench "two-gathers-S-shn-sorted" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) canonS2
-    , bench "fused-gather-S-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedS
-    , bench "fused-gather-H-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedH
+    [ bench "two-gathers-ad-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoAd
+    , bench "two-gathers-vec-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoVec
+    , bench "two-gathers-ad-shm-sorted" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) canonShm
+    , bench "two-gathers-ad-shn-sorted" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) canonShn
+    , bench "fused-gather-ad-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedAd
+    , bench "fused-gather-vec-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedVec
     ]
 
 -- | The scatter analogue of 'gatherBenches': the interpreted scatter chains
@@ -479,91 +481,91 @@ scatterBenches = do
       y4 :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 48, 3, 3] Double)
       y4 = sconcrete (unConcrete arrY4)
       -- The gather chains from 'gatherBenches' (over x1/x2), for verification.
-      gTwoS :: AstTensor AstMethodLet FullSpan
+      gTwoAd :: AstTensor AstMethodLet FullSpan
                          (TKS '[48, 3, 3, 48, 3, 3] Double)
-      gTwoS =
+      gTwoAd =
         sgather @'[48, 3] @'[3, 48, 3, 3] @'[50]
                 (stranspose @'[4, 2, 0, 3, 1]
                    (sgather @'[48, 3] @'[3, 3, 50] @'[50] x1
                             (\case [a, b] -> [a + b]
-                                   _ -> error "gTwoS")))
+                                   _ -> error "gTwoAd")))
                 (\case [c, d] -> [c + d]
-                       _ -> error "gTwoS")
-      gTwoH :: AstTensor AstMethodLet FullSpan
+                       _ -> error "gTwoAd")
+      gTwoVec :: AstTensor AstMethodLet FullSpan
                          (TKS '[3, 48, 3, 3, 3, 48] Double)
-      gTwoH =
+      gTwoVec =
         sgather @'[3, 48] @'[3, 3, 3, 48] @'[50]
                 (stranspose @'[4, 2, 0, 3, 1]
                    (sgather @'[3, 48] @'[3, 3, 50] @'[50] x1
                             (\case [b, a] -> [a + b]
-                                   _ -> error "gTwoH")))
+                                   _ -> error "gTwoVec")))
                 (\case [d, c] -> [c + d]
-                       _ -> error "gTwoH")
-      gFusedS :: AstTensor AstMethodLet FullSpan
+                       _ -> error "gTwoVec")
+      gFusedAd :: AstTensor AstMethodLet FullSpan
                            (TKS '[48, 3, 48, 3, 3, 3] Double)
-      gFusedS =
+      gFusedAd =
         sgather @'[48, 3, 48, 3] @'[3, 3] @'[50, 50] x2
                 (\case [h, kh, w, kw] -> [h + kh, w + kw]
-                       _ -> error "gFusedS")
-      gFusedH :: AstTensor AstMethodLet FullSpan
+                       _ -> error "gFusedAd")
+      gFusedVec :: AstTensor AstMethodLet FullSpan
                            (TKS '[3, 48, 3, 48, 3, 3] Double)
-      gFusedH =
+      gFusedVec =
         sgather @'[3, 48, 3, 48] @'[3, 3] @'[50, 50] x2
                 (\case [kh, h, kw, w] -> [h + kh, w + kw]
-                       _ -> error "gFusedH")
+                       _ -> error "gFusedVec")
       -- The scatter chains: exact adjoints of the gather chains above.
       -- The two-op chains reverse the composition order and invert the
       -- connecting transpose (@[4,2,0,3,1]@ becomes @[2,4,1,3,0]@).
-      twoScatterS :: AstTensor AstMethodLet FullSpan
+      twoScatterAd :: AstTensor AstMethodLet FullSpan
                                (TKS '[50, 3, 3, 50] Double)
-      twoScatterS =
+      twoScatterAd =
         sscatter @'[48, 3] @'[3, 3, 50] @'[50]
                  (stranspose @'[2, 4, 1, 3, 0]
                     (sscatter @'[48, 3] @'[3, 48, 3, 3] @'[50] y1
                               (\case [c, d] -> [c + d]
-                                     _ -> error "twoScatterS")))
+                                     _ -> error "twoScatterAd")))
                  (\case [a, b] -> [a + b]
-                        _ -> error "twoScatterS")
-      twoScatterH :: AstTensor AstMethodLet FullSpan
+                        _ -> error "twoScatterAd")
+      twoScatterVec :: AstTensor AstMethodLet FullSpan
                                (TKS '[50, 3, 3, 50] Double)
-      twoScatterH =
+      twoScatterVec =
         sscatter @'[3, 48] @'[3, 3, 50] @'[50]
                  (stranspose @'[2, 4, 1, 3, 0]
                     (sscatter @'[3, 48] @'[3, 3, 3, 48] @'[50] y2
                               (\case [d, c] -> [c + d]
-                                     _ -> error "twoScatterH")))
+                                     _ -> error "twoScatterVec")))
                  (\case [b, a] -> [a + b]
-                        _ -> error "twoScatterH")
-      fusedScatterS :: AstTensor AstMethodLet FullSpan
+                        _ -> error "twoScatterVec")
+      fusedScatterAd :: AstTensor AstMethodLet FullSpan
                                  (TKS '[50, 50, 3, 3] Double)
-      fusedScatterS =
+      fusedScatterAd =
         sscatter @'[48, 3, 48, 3] @'[3, 3] @'[50, 50] y3
                  (\case [h, kh, w, kw] -> [h + kh, w + kw]
-                        _ -> error "fusedScatterS")
-      fusedScatterH :: AstTensor AstMethodLet FullSpan
+                        _ -> error "fusedScatterAd")
+      fusedScatterVec :: AstTensor AstMethodLet FullSpan
                                  (TKS '[50, 50, 3, 3] Double)
-      fusedScatterH =
+      fusedScatterVec =
         sscatter @'[3, 48, 3, 48] @'[3, 3] @'[50, 50] y4
                  (\case [kh, h, kw, w] -> [h + kh, w + kw]
-                        _ -> error "fusedScatterH")
-  checkAdjoint "two-scatters-S-orient" gTwoS arrX1 twoScatterS arrY1
-  checkAdjoint "two-scatters-H-orient" gTwoH arrX1 twoScatterH arrY2
-  checkAdjoint "fused-scatter-S-orient" gFusedS arrX2 fusedScatterS arrY3
-  checkAdjoint "fused-scatter-H-orient" gFusedH arrX2 fusedScatterH arrY4
+                        _ -> error "fusedScatterVec")
+  checkAdjoint "two-scatters-ad-orient" gTwoAd arrX1 twoScatterAd arrY1
+  checkAdjoint "two-scatters-vec-orient" gTwoVec arrX1 twoScatterVec arrY2
+  checkAdjoint "fused-scatter-ad-orient" gFusedAd arrX2 fusedScatterAd arrY3
+  checkAdjoint "fused-scatter-vec-orient" gFusedVec arrX2 fusedScatterVec arrY4
   -- Force to WHNF (a full build under StrictData) before benchmarking.
-  _ <- evaluate twoScatterS
-  _ <- evaluate twoScatterH
-  _ <- evaluate fusedScatterS
-  _ <- evaluate fusedScatterH
+  _ <- evaluate twoScatterAd
+  _ <- evaluate twoScatterVec
+  _ <- evaluate fusedScatterAd
+  _ <- evaluate fusedScatterVec
   return
-    [ bench "two-scatters-S-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterS
-    , bench "two-scatters-H-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterH
-    , bench "fused-scatter-S-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedScatterS
-    , bench "fused-scatter-H-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedScatterH
+    [ bench "two-scatters-ad-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterAd
+    , bench "two-scatters-vec-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterVec
+    , bench "fused-scatter-ad-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedScatterAd
+    , bench "fused-scatter-vec-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedScatterVec
     ]
 
 -- | Print the two gradient programs being compared instead of benchmarking,
