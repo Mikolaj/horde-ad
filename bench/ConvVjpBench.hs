@@ -76,35 +76,6 @@ import TestMnistPP (cnnObjective)
 forceGrad :: Concrete (TKS sh Double) -> Double
 forceGrad = unConcrete . ssum0
 
--- | Verify that a hand-built scatter chain is the adjoint (transpose) of the
--- corresponding gather chain, via the adjoint law that holds iff scatter is
--- gather's transpose: for all index functions @f@, sources @x@ and
--- cotangents @y@, @sdot0 (sgather x f) y == sdot0 x (sscatter y f)@. Errors
--- loudly if the scatter chain was built with wrong shapes or index
--- directions.
-checkAdjoint
-  :: (KnownShS shSrc, KnownShS shOut)
-  => String
-  -> AstTensor AstMethodLet FullSpan (TKS shOut Double)
-       -- ^ gather chain, over @src@
-  -> Concrete (TKS shSrc Double)
-       -- ^ the source @x@
-  -> AstTensor AstMethodLet FullSpan (TKS shSrc Double)
-       -- ^ scatter chain, over @y@
-  -> Concrete (TKS shOut Double)
-       -- ^ the cotangent @y@
-  -> IO ()
-checkAdjoint name gatherChain src scatterChain y =
-  let gOut = interpretAstFull emptyEnv gatherChain
-      sOut = interpretAstFull emptyEnv scatterChain
-      lhs = unConcrete (sdot0 gOut y)
-      rhs = unConcrete (sdot0 src sOut)
-  in if abs (lhs - rhs) <= 1e-6 * (1 + abs lhs)
-     then pure ()
-     else error $ name ++ ": scatter is not the adjoint of gather: "
-                  ++ "sdot0 (sgather x f) y=" ++ show lhs
-                  ++ " sdot0 x (sscatter y f)=" ++ show rhs
-
 -- | The full set of timing variants for the gradient with respect to the
 -- kernels, as described in the module haddock.
 benchesAt
@@ -278,54 +249,53 @@ benchesInpAt = do
                                   hTermVar) arrB
     ]
 
--- | The suite's single recorder of each known benchmarking pitfall, one
--- variant at one size apiece, kept out of the sweep groups so those
--- contain only honest, pairwise-comparable variants. The data matches
--- the corresponding 'benchesAt' group (same seed chain), so each bench
--- is directly comparable against its honest counterparts there.
-pitfallBenches :: IO [Benchmark]
-pitfallBenches = do
-  let -- The dKrn data of 'benchesAt'; the kernel shape is size-independent,
-      -- so seed2 continues both the 6x6 and the 48x48 chain.
-      (arrK, seed2) =
-        randomValue @(Concrete (TKS '[3, 3, 3, 3] Double)) 0.5 (mkStdGen 42)
-      (arrA6, seed3) =
-        randomValue @(Concrete (TKS '[3, 3, 6, 6] Double)) 0.5 seed2
-      (arrB6, _) =
-        randomValue @(Concrete (TKS '[3, 3, 6, 6] Double)) 0.5 seed3
-      (arrA48, seed3') =
-        randomValue @(Concrete (TKS '[3, 3, 48, 48] Double)) 0.5 seed2
-      (arrB48, _) =
-        randomValue @(Concrete (TKS '[3, 3, 48, 48] Double)) 0.5 seed3'
-      f6 :: AstTensor AstMethodLet FullSpan (TKS '[3, 3, 3, 3] Double)
-         -> AstTensor AstMethodLet FullSpan (TKS '[3, 3, 6, 6] Double)
-      f6 k = conv2dSameS k (sconcrete (unConcrete arrA6))
-      -- The handwritten term with the cotangent embedded as a constant,
-      -- as in the term the tasty poor man's benchmark interprets.
-      hTermConst :: AstTensor AstMethodLet FullSpan (TKS '[3, 3, 3, 3] Double)
-      hTermConst = conv2dSame_dKrn @3 @3 @3 @48 @48 @3 @3
-                                   (sconcrete (unConcrete arrA48))
-                                   (sconcrete (unConcrete arrB48))
-      hTermConstSimplified = simplifyInlineContract hTermConst
-  -- Force to WHNF (a full build under StrictData) before benchmarking.
-  _ <- evaluate hTermConstSimplified
+-- | The @S-*@ variants of 'benchesAt', but for a real (shaped) two-layer
+-- convolutional net (@convMnistTwoS@, each layer with maxpool), differentiated
+-- with respect to its full parameter tuple. The input image is embedded as a
+-- constant — a *random* one, since a constant broadcast folds the convolution
+-- gathers away — exactly as 'benchesAt' embeds the input in the conv2dSame
+-- objective. The objective is shared with @testCNNOPP2S@ via 'cnnObjective'.
+-- There are no @H-*@ variants, as there is no handwritten CNN gradient to
+-- compare against.
+benchesCnnAt
+  :: forall h w. (KnownNat h, KnownNat w, KnownNat (4 * Div h 4 * Div w 4))
+  => IO [Benchmark]
+benchesCnnAt = do
+  let (valsInit, seed2) =
+        randomValue @(MnistCnnShaped2.ADCnnMnistParametersShaped
+                        Concrete h w 2 3 4 5 Double)
+                    0.4 (mkStdGen 44)
+      (arrGlyph, seed3) =
+        randomValue @(Concrete (TKS '[7, 1, h, w] Double)) 0.5 seed2
+      (arrDt, _) =
+        randomValue @(Concrete (TKS '[SizeMnistLabel, 7] Double)) 0.5 seed3
+      valsInitT = toTarget @Concrete valsInit
+      -- Force the full parameter gradient (a tuple) by summing all leaves,
+      -- reusing forceGrad (unConcrete . ssum0) on each.
+      forceCnnGrad ((k1, b1), (k2, b2), (wd, bd), (wr, br)) =
+        forceGrad k1 + forceGrad b1 + forceGrad k2 + forceGrad b2
+        + forceGrad wd + forceGrad bd + forceGrad wr + forceGrad br
+      f = cnnObjective arrGlyph
+      artifactRaw = vjpArtifact f valsInit
+      artifact = simplifyArtifactRev artifactRaw
+  _ <- evaluate artifactRaw
+  _ <- evaluate artifact
   return
-    [ -- vjp per call, but with the objective and its input fixed and only
-      -- the cotangent varying. The artifact does not depend on the
-      -- cotangent, so full laziness floats its construction out of the
-      -- timed loop and the artifact tax — the bulk of an honest 6x6 call —
-      -- goes unmeasured. Compare against S-fullpipe-honest (the tax
-      -- included) and S-exec in the 6x6 group.
-      bench "S-fullpipe-hoisted-6x6" $ whnf
-        (\dt -> forceGrad $ vjp f6 arrK dt) arrB6
-      -- As H-exec in the 48x48 group, but with the cotangent embedded as
-      -- a random concrete constant. Records that the embedding is
-      -- harmless: this measures the same as H-exec, i.e., simplification
-      -- does not constant-fold a random embedded constant through the
-      -- gathers — a broadcast constant it would fold, which is why
-      -- benchmark inputs are random.
-    , bench "H-exec-const-48x48" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTermConstSimplified
+    [ bench "S-fullpipe-honest" $ whnf
+        (\glyph -> forceCnnGrad $ vjp (cnnObjective glyph) valsInit arrDt)
+        arrGlyph
+    , bench "S-artifact" $ whnf
+        (\v -> simplifyArtifactRev (vjpArtifact f v)) valsInit
+    , bench "S-exec" $ whnf
+        (\dt -> forceCnnGrad
+                  (vjpInterpretArtifact artifact valsInitT dt
+                   :: MnistCnnShaped2.ADCnnMnistParametersShaped
+                        Concrete h w 2 3 4 5 Double)) arrDt
+    , bench "S-exec-raw" $ whnf
+        (\dt -> forceCnnGrad
+                  (vjpInterpretArtifact artifactRaw valsInitT dt
+                   :: MnistCnnShaped2.ADCnnMnistParametersShaped
+                        Concrete h w 2 3 4 5 Double)) arrDt
     ]
 
 -- | Micro-benchmarks for the dominant cost found by profiling: the
@@ -485,6 +455,35 @@ gatherBenches = do
         (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedShmDesc
     ]
 
+-- | Verify that a hand-built scatter chain is the adjoint (transpose) of the
+-- corresponding gather chain, via the adjoint law that holds iff scatter is
+-- gather's transpose: for all index functions @f@, sources @x@ and
+-- cotangents @y@, @sdot0 (sgather x f) y == sdot0 x (sscatter y f)@. Errors
+-- loudly if the scatter chain was built with wrong shapes or index
+-- directions.
+checkAdjoint
+  :: (KnownShS shSrc, KnownShS shOut)
+  => String
+  -> AstTensor AstMethodLet FullSpan (TKS shOut Double)
+       -- ^ gather chain, over @src@
+  -> Concrete (TKS shSrc Double)
+       -- ^ the source @x@
+  -> AstTensor AstMethodLet FullSpan (TKS shSrc Double)
+       -- ^ scatter chain, over @y@
+  -> Concrete (TKS shOut Double)
+       -- ^ the cotangent @y@
+  -> IO ()
+checkAdjoint name gatherChain src scatterChain y =
+  let gOut = interpretAstFull emptyEnv gatherChain
+      sOut = interpretAstFull emptyEnv scatterChain
+      lhs = unConcrete (sdot0 gOut y)
+      rhs = unConcrete (sdot0 src sOut)
+  in if abs (lhs - rhs) <= 1e-6 * (1 + abs lhs)
+     then pure ()
+     else error $ name ++ ": scatter is not the adjoint of gather: "
+                  ++ "sdot0 (sgather x f) y=" ++ show lhs
+                  ++ " sdot0 x (sscatter y f)=" ++ show rhs
+
 -- | The scatter analogue of 'gatherBenches': the interpreted scatter chains
 -- that appear in the input-image gradient (the @sscatter@ path). Each chain
 -- is the exact adjoint (transpose) of the corresponding gather chain above —
@@ -604,6 +603,56 @@ scatterBenches = do
         (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedScatterVec
     ]
 
+-- | The suite's single recorder of each known benchmarking pitfall, one
+-- variant at one size apiece, kept out of the sweep groups so those
+-- contain only honest, pairwise-comparable variants. The data matches
+-- the corresponding 'benchesAt' group (same seed chain), so each bench
+-- is directly comparable against its honest counterparts there.
+pitfallBenches :: IO [Benchmark]
+pitfallBenches = do
+  let -- The dKrn data of 'benchesAt'; the kernel shape is size-independent,
+      -- so seed2 continues both the 6x6 and the 48x48 chain.
+      (arrK, seed2) =
+        randomValue @(Concrete (TKS '[3, 3, 3, 3] Double)) 0.5 (mkStdGen 42)
+      (arrA6, seed3) =
+        randomValue @(Concrete (TKS '[3, 3, 6, 6] Double)) 0.5 seed2
+      (arrB6, _) =
+        randomValue @(Concrete (TKS '[3, 3, 6, 6] Double)) 0.5 seed3
+      (arrA48, seed3') =
+        randomValue @(Concrete (TKS '[3, 3, 48, 48] Double)) 0.5 seed2
+      (arrB48, _) =
+        randomValue @(Concrete (TKS '[3, 3, 48, 48] Double)) 0.5 seed3'
+      f6 :: AstTensor AstMethodLet FullSpan (TKS '[3, 3, 3, 3] Double)
+         -> AstTensor AstMethodLet FullSpan (TKS '[3, 3, 6, 6] Double)
+      f6 k = conv2dSameS k (sconcrete (unConcrete arrA6))
+      -- The handwritten term with the cotangent embedded as a constant,
+      -- as in the term the tasty poor man's benchmark interprets.
+      hTermConst :: AstTensor AstMethodLet FullSpan (TKS '[3, 3, 3, 3] Double)
+      hTermConst = conv2dSame_dKrn @3 @3 @3 @48 @48 @3 @3
+                                   (sconcrete (unConcrete arrA48))
+                                   (sconcrete (unConcrete arrB48))
+      hTermConstSimplified = simplifyInlineContract hTermConst
+  -- Force to WHNF (a full build under StrictData) before benchmarking.
+  _ <- evaluate hTermConstSimplified
+  return
+    [ -- vjp per call, but with the objective and its input fixed and only
+      -- the cotangent varying. The artifact does not depend on the
+      -- cotangent, so full laziness floats its construction out of the
+      -- timed loop and the artifact tax — the bulk of an honest 6x6 call —
+      -- goes unmeasured. Compare against S-fullpipe-honest (the tax
+      -- included) and S-exec in the 6x6 group.
+      bench "S-fullpipe-hoisted-6x6" $ whnf
+        (\dt -> forceGrad $ vjp f6 arrK dt) arrB6
+      -- As H-exec in the 48x48 group, but with the cotangent embedded as
+      -- a random concrete constant. Records that the embedding is
+      -- harmless: this measures the same as H-exec, i.e., simplification
+      -- does not constant-fold a random embedded constant through the
+      -- gathers — a broadcast constant it would fold, which is why
+      -- benchmark inputs are random.
+    , bench "H-exec-const-48x48" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTermConstSimplified
+    ]
+
 -- | Print the two gradient programs being compared instead of benchmarking,
 -- for structural comparison.
 printTerms
@@ -648,64 +697,12 @@ printTerms = do
   putStrLn "=== H-var: contracted handwritten term, symbolic dret ==="
   putStrLn $ printAstPretty (simplifyInlineContract hTermVar)
 
--- | The @S-*@ variants of 'benchesAt', but for a real (shaped) two-layer
--- convolutional net (@convMnistTwoS@, each layer with maxpool), differentiated
--- with respect to its full parameter tuple. The input image is embedded as a
--- constant — a *random* one, since a constant broadcast folds the convolution
--- gathers away — exactly as 'benchesAt' embeds the input in the conv2dSame
--- objective. The objective is shared with @testCNNOPP2S@ via 'cnnObjective'.
--- There are no @H-*@ variants, as there is no handwritten CNN gradient to
--- compare against.
-benchesCnnAt
-  :: forall h w. (KnownNat h, KnownNat w, KnownNat (4 * Div h 4 * Div w 4))
-  => IO [Benchmark]
-benchesCnnAt = do
-  let (valsInit, seed2) =
-        randomValue @(MnistCnnShaped2.ADCnnMnistParametersShaped
-                        Concrete h w 2 3 4 5 Double)
-                    0.4 (mkStdGen 44)
-      (arrGlyph, seed3) =
-        randomValue @(Concrete (TKS '[7, 1, h, w] Double)) 0.5 seed2
-      (arrDt, _) =
-        randomValue @(Concrete (TKS '[SizeMnistLabel, 7] Double)) 0.5 seed3
-      valsInitT = toTarget @Concrete valsInit
-      -- Force the full parameter gradient (a tuple) by summing all leaves,
-      -- reusing forceGrad (unConcrete . ssum0) on each.
-      forceCnnGrad ((k1, b1), (k2, b2), (wd, bd), (wr, br)) =
-        forceGrad k1 + forceGrad b1 + forceGrad k2 + forceGrad b2
-        + forceGrad wd + forceGrad bd + forceGrad wr + forceGrad br
-      f = cnnObjective arrGlyph
-      artifactRaw = vjpArtifact f valsInit
-      artifact = simplifyArtifactRev artifactRaw
-  _ <- evaluate artifactRaw
-  _ <- evaluate artifact
-  return
-    [ bench "S-fullpipe-honest" $ whnf
-        (\glyph -> forceCnnGrad $ vjp (cnnObjective glyph) valsInit arrDt)
-        arrGlyph
-    , bench "S-artifact" $ whnf
-        (\v -> simplifyArtifactRev (vjpArtifact f v)) valsInit
-    , bench "S-exec" $ whnf
-        (\dt -> forceCnnGrad
-                  (vjpInterpretArtifact artifact valsInitT dt
-                   :: MnistCnnShaped2.ADCnnMnistParametersShaped
-                        Concrete h w 2 3 4 5 Double)) arrDt
-    , bench "S-exec-raw" $ whnf
-        (\dt -> forceCnnGrad
-                  (vjpInterpretArtifact artifactRaw valsInitT dt
-                   :: MnistCnnShaped2.ADCnnMnistParametersShaped
-                        Concrete h w 2 3 4 5 Double)) arrDt
-    ]
-
 main :: IO ()
 main = do
   printMode <- lookupEnv "PRINT_TERMS"
   case printMode of
     Just _ -> printTerms @3 @3 @3 @6 @6 @3 @3
     Nothing -> do
-      cnn6 <- benchesCnnAt @6 @6
-      cnn12 <- benchesCnnAt @12 @12
-      cnn24 <- benchesCnnAt @24 @24
       b6 <- benchesAt @3 @3 @3 @6 @6 @3 @3
       b24 <- benchesAt @3 @3 @3 @24 @24 @3 @3
       b48 <- benchesAt @3 @3 @3 @48 @48 @3 @3
@@ -716,14 +713,14 @@ main = do
       i48 <- benchesInpAt @3 @3 @3 @48 @48 @3 @3
       i96 <- benchesInpAt @3 @3 @3 @96 @96 @3 @3
       i192 <- benchesInpAt @3 @3 @3 @192 @192 @3 @3
+      cnn6 <- benchesCnnAt @6 @6
+      cnn12 <- benchesCnnAt @12 @12
+      cnn24 <- benchesCnnAt @24 @24
       bg <- gatherBenches
       bs <- scatterBenches
       pf <- pitfallBenches
       defaultMain
-        [ bgroup "cnn-6x6" cnn6
-        , bgroup "cnn-12x12" cnn12
-        , bgroup "cnn-24x24" cnn24
-        , bgroup "6x6" b6
+        [ bgroup "6x6" b6
         , bgroup "24x24" b24
         , bgroup "48x48" b48
         , bgroup "96x96" b96
@@ -733,6 +730,9 @@ main = do
         , bgroup "inp-48x48" i48
         , bgroup "inp-96x96" i96
         , bgroup "inp-192x192" i192
+        , bgroup "cnn-6x6" cnn6
+        , bgroup "cnn-12x12" cnn12
+        , bgroup "cnn-24x24" cnn24
         , bgroup "gather48" bg
         , bgroup "scatter48" bs
         , bgroup "pitfalls" pf
