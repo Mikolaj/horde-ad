@@ -703,6 +703,9 @@ main = do
   case printMode of
     Just _ -> printTerms @3 @3 @3 @6 @6 @3 @3
     Nothing -> do
+      cnn6 <- benchesCnnAt @6 @6
+      cnn12 <- benchesCnnAt @12 @12
+      cnn24 <- benchesCnnAt @24 @24
       b6 <- benchesAt @3 @3 @3 @6 @6 @3 @3
       b24 <- benchesAt @3 @3 @3 @24 @24 @3 @3
       b48 <- benchesAt @3 @3 @3 @48 @48 @3 @3
@@ -716,9 +719,6 @@ main = do
       bg <- gatherBenches
       bs <- scatterBenches
       pf <- pitfallBenches
-      cnn6 <- benchesCnnAt @6 @6
-      cnn12 <- benchesCnnAt @12 @12
-      cnn24 <- benchesCnnAt @24 @24
       defaultMain
         [ bgroup "cnn-6x6" cnn6
         , bgroup "cnn-12x12" cnn12
