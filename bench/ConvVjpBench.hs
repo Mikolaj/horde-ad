@@ -522,7 +522,10 @@ scatterBenches = do
       y3 = sconcrete (unConcrete arrY3)
       y4 :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 48, 3, 3] Double)
       y4 = sconcrete (unConcrete arrY4)
-      -- The gather chains from 'gatherBenches' (over x1/x2), for verification.
+      -- The gather chains from 'gatherBenches', rebuilt over x1/x2 as
+      -- checkAdjoint fixtures only — benchmarked there, not here (gather
+      -- cost is structural, so timing these copies would just duplicate
+      -- those benches).
       gTwoAd :: AstTensor AstMethodLet FullSpan
                          (TKS '[48, 3, 3, 48, 3, 3] Double)
       gTwoAd =
