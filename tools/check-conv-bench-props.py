@@ -21,7 +21,15 @@ are engine invariants, so a failure is an engine regression; properties
 7-15 record the cost model of the current interpreted gather/scatter
 kernels and are the ones to re-measure when those kernels change.
 
-Exit status is nonzero if any check fails.
+The CSV must come from a full run (no benchmark filter): a benchmark
+missing from the CSV aborts with its name, and a benchmark in the CSV
+that no property touches is reported as a failure — so a newly added
+benchmark forces the property list to be re-normalized.
+
+Exit status is nonzero if any check fails. Non-vacuity was demonstrated
+on 2026-07-21: inflating 48x48/S-exec by 30% in a CSV copy failed
+exactly properties 1 and 6, and an extra CSV row failed the coverage
+guard, each with exit status 1.
 """
 import csv
 import sys
@@ -29,7 +37,23 @@ import sys
 if len(sys.argv) != 2:
     sys.exit(__doc__.split("\n\n")[1])
 
-t = {}
+
+class TrackedTimes(dict):
+    """Records which benchmarks the properties touch, for the coverage
+    guard, and turns a missing benchmark into a readable abort."""
+
+    def __init__(self):
+        super().__init__()
+        self.used = set()
+
+    def __getitem__(self, k):
+        if k not in self:
+            sys.exit(f"benchmark missing from the CSV (not a full run?): {k}")
+        self.used.add(k)
+        return super().__getitem__(k)
+
+
+t = TrackedTimes()
 with open(sys.argv[1]) as f:
     for row in csv.DictReader(f):
         t[row["Name"]] = float(row["Mean"])
@@ -142,6 +166,14 @@ le(14, "two-scatters-vec", "fused-scatter-vec",
 print("15. two-scatters-ad-orient <= two-gathers-ad-orient")
 le(15, "two-scatters-ad", "two-gathers-ad",
    t[S + "two-scatters-ad-orient"], t[G + "two-gathers-ad-orient"])
+
+untouched = sorted(set(t) - t.used)
+if untouched:
+    print("\ncoverage: benchmarks untouched by any property — extend the")
+    print("numbered list in bench/ConvVjpBench.hs's module haddock:")
+    for n in untouched:
+        print(f"  {n}")
+    fails += len(untouched)
 
 print(f"\n{fails} check(s) FAILED" if fails else "\nall checks PASS")
 sys.exit(1 if fails else 0)

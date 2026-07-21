@@ -55,9 +55,11 @@
 -- order, each up to 10% tolerance: @a == b@ stands for
 -- @abs (a - b) <= max a b / 10@, and @a <= b@ for @a <= 1.1 * b@.
 -- tools/check-conv-bench-props.py, fed criterion's @--csv@ output, is
--- this list in executable form; keep the two in sync. The list is
--- minimal — anything derivable from it and the nonnegativity of times,
--- e.g. @time(S-exec) <= time(S-fullpipe-honest)@ from property 1, is
+-- this list in executable form; keep the two in sync — the script
+-- fails on a benchmark that no property touches, so adding a benchmark
+-- forces this list to be re-normalized. The list is minimal — anything
+-- derivable from it and the nonnegativity of times, e.g.
+-- @time(S-exec) <= time(S-fullpipe-honest)@ from property 1, is
 -- deliberately not listed.
 --
 -- The properties fall into two groups. Properties 1-3 hold by
