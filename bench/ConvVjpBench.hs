@@ -328,14 +328,18 @@ pitfallBenches = do
     ]
 
 -- | Micro-benchmarks for the dominant cost found by profiling: the
--- interpreted im2col gather chains. Three comparisons: the AD-produced
+-- interpreted im2col gather chains. Four comparisons: the AD-produced
 -- orientation (large dim first in the gather output, small dims
 -- innermost in the copied slices) vs the vectorization-produced one
 -- (small dim first, large dim innermost in slices); both vs a single
--- fused gather that avoids the intermediate array entirely; and the AD
+-- fused gather that avoids the intermediate array entirely; the AD
 -- orientation vs its two candidate canonicalizations (shm dims sorted
--- vs shn dims sorted). interpretAstFull does not run contractAst, so
--- each variant times exactly the orientation written.
+-- vs shn dims sorted); and the fused gather vs itself with its shm dims
+-- sorted, ascending and descending — its shn, @[3, 3]@, is already
+-- sorted, fusion having consumed the large dims into the index function,
+-- so shm is the fused form's only sortable knob. interpretAstFull does
+-- not run contractAst, so each variant times exactly the orientation
+-- written.
 gatherBenches :: IO [Benchmark]
 gatherBenches = do
   let (arr1, seed2) =
@@ -390,6 +394,31 @@ gatherBenches = do
                 src2
                 (\case [kh, h, kw, w] -> [h + kh, w + kw]
                        _ -> error "fusedVec")
+      -- The fused gather with its shm dims sorted ascending and a
+      -- compensating transpose above restoring the AD output order.
+      -- Its shn is [3, 3] — already sorted, fusion having consumed the
+      -- large dims into the index function — so shm order is the only
+      -- sortable knob of the fused form; it is benchmarked in both
+      -- directions to record that sorting cannot rescue fusion: the
+      -- cost is per output position, and the position count is exactly
+      -- what fusion inflates.
+      fusedShmAsc :: AstTensor AstMethodLet FullSpan
+                              (TKS '[48, 3, 48, 3, 3, 3] Double)
+      fusedShmAsc =
+        stranspose @'[2, 0, 3, 1, 4, 5]
+          (sgather @'[3, 3, 48, 48] @'[3, 3] @'[50, 50]
+                   src2
+                   (\case [kh, kw, h, w] -> [h + kh, w + kw]
+                          _ -> error "fusedShmAsc"))
+      -- The same with the shm dims sorted descending.
+      fusedShmDesc :: AstTensor AstMethodLet FullSpan
+                               (TKS '[48, 3, 48, 3, 3, 3] Double)
+      fusedShmDesc =
+        stranspose @'[0, 2, 1, 3, 4, 5]
+          (sgather @'[48, 48, 3, 3] @'[3, 3] @'[50, 50]
+                   src2
+                   (\case [h, w, kh, kw] -> [h + kh, w + kw]
+                          _ -> error "fusedShmDesc"))
       -- The AD chain with each gather's shm dims sorted ascending and a
       -- compensating transpose above that restores the original dim order —
       -- a canonicalization considered for contractAst and refuted by this
@@ -432,6 +461,8 @@ gatherBenches = do
   _ <- evaluate twoVec
   _ <- evaluate fusedAd
   _ <- evaluate fusedVec
+  _ <- evaluate fusedShmAsc
+  _ <- evaluate fusedShmDesc
   _ <- evaluate canonShm
   _ <- evaluate canonShn
   return
@@ -447,6 +478,10 @@ gatherBenches = do
         (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedAd
     , bench "fused-gather-vec-orient" $ whnf
         (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedVec
+    , bench "fused-gather-shm-sorted-asc" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedShmAsc
+    , bench "fused-gather-shm-sorted-desc" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedShmDesc
     ]
 
 -- | The scatter analogue of 'gatherBenches': the interpreted scatter chains
