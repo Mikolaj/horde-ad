@@ -3,7 +3,8 @@
 
 Usage: python3 tools/check-conv-bench-props.py CSV
 
-CSV is criterion's --csv output from a full run of the suite:
+CSV is criterion's --csv output from a full run of the suite (no
+benchmark filter):
 
     cabal bench convVjpBench --enable-optimization \\
       --benchmark-options='--csv FILE'
@@ -21,8 +22,7 @@ are engine invariants, so a failure is an engine regression; properties
 7-15 record the cost model of the current interpreted gather/scatter
 kernels and are the ones to re-measure when those kernels change.
 
-The CSV must come from a full run (no benchmark filter): a benchmark
-missing from the CSV aborts with its name, and a benchmark in the CSV
+A benchmark missing from the CSV aborts with its name, and a benchmark
 that no property touches is reported as a failure — so a newly added
 benchmark forces the property list to be re-normalized.
 

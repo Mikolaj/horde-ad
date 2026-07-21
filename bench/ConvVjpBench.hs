@@ -62,10 +62,10 @@
 -- @time(S-exec) <= time(S-fullpipe-honest)@ from property 1, is
 -- deliberately not listed.
 --
--- The properties fall into two groups. Properties 1-3 hold by
--- accounting alone — a whole equals the sum of its parts and a part
--- does not exceed its whole — for any engine whatsoever, so a violation
--- there means the measurement itself broke: work hoisted out of a timed
+-- The properties fall into two groups. Properties 1-3 hold for any
+-- engine whatsoever, by accounting alone: a whole equals the sum of
+-- its parts, and a part does not exceed its whole. A violation there
+-- means the measurement itself broke — work hoisted out of a timed
 -- call, double-counted, or drowned in noise. Properties 4-15 describe
 -- the current engine and may legitimately change when engine code
 -- changes — e.g. once the faster gather kernels designed for issue #123
@@ -390,18 +390,18 @@ benchesCnnAt = do
     ]
 
 -- | Micro-benchmarks for the dominant cost found by profiling: the
--- interpreted im2col gather chains. Four comparisons: the AD-produced
--- orientation (large dim first in the gather output, small dims
--- innermost in the copied slices) vs the vectorization-produced one
--- (small dim first, large dim innermost in slices); the AD orientation
--- vs its two candidate canonicalizations (shm dims sorted vs shn dims
--- sorted); both orientations vs a single fused gather that avoids the
--- intermediate array entirely; and the fused gather vs itself with its
--- shm dims sorted, ascending and descending — its shn, @[3, 3]@, is
--- already sorted, fusion having consumed the large dims into the index
--- function, so shm is the fused form's only sortable knob.
--- interpretAstFull does not run contractAst, so each variant times
--- exactly the orientation written.
+-- interpreted im2col gather chains. Four comparisons: (1) the
+-- AD-produced orientation (large dim first in the gather output, small
+-- dims innermost in the copied slices) vs the vectorization-produced
+-- one (small dim first, large dim innermost in slices); (2) the AD
+-- orientation vs its two candidate canonicalizations, shm dims sorted
+-- vs shn dims sorted; (3) both orientations vs a single fused gather
+-- that avoids the intermediate array entirely; (4) the fused gather vs
+-- itself with its shm dims sorted, ascending and descending — its shn,
+-- @[3, 3]@, is already sorted, fusion having consumed the large dims
+-- into the index function, so shm is the fused form's only sortable
+-- knob. interpretAstFull does not run contractAst, so each variant
+-- times exactly the orientation written.
 gatherBenches :: IO [Benchmark]
 gatherBenches = do
   let (arr1, seed2) =
@@ -580,13 +580,13 @@ checkAdjoint name gatherChain src scatterChain y =
 -- is the exact adjoint (transpose) of the corresponding gather chain above —
 -- verified at startup by 'checkAdjoint' — so this isolates the scatter cost
 -- the way 'gatherBenches' isolates the gather cost. The correspondence is
--- deliberately partial: the shn-sorted chain's adjoint is included — it
--- measures the ruling that the shn-sort must not be extended to scatter
--- (a ~4x pessimization: scatter adds each slice as one flat vector, so a
+-- deliberately partial. The shn-sorted chain's adjoint is included: it
+-- measures the ruling that the shn-sort must not be extended to scatter,
+-- a ~4x pessimization — scatter adds each slice as one flat vector, so a
 -- sorted shn has no per-shn-dim loop to amortize, while the compensating
--- transposes leave the slice views strided) — but there are no shm-sorted
--- or fused-sorted adjoints, which would only re-measure knobs
--- 'gatherBenches' already shows dead.
+-- transposes leave the slice views strided. There are no shm-sorted or
+-- fused-sorted adjoints; they would only re-measure knobs 'gatherBenches'
+-- already shows dead.
 scatterBenches :: IO [Benchmark]
 scatterBenches = do
   let (arrX1, seedb) =
@@ -686,12 +686,10 @@ scatterBenches = do
                  (\case [b, a] -> [a + b]
                         _ -> error "twoScatterVec")
       -- The adjoint of the shn-sorted chain ('canonShn' in 'gatherBenches'),
-      -- on the same cotangent as twoScatterAd: measures the ruling that the
-      -- shn-sort must not be extended to scatter — and strengthens it from
-      -- "cannot pay" to a measured ~4x pessimization: scatter adds each
-      -- slice as one flat vector, so a sorted shn has no per-shn-dim loop
-      -- to amortize, while the compensating transposes leave the slice
-      -- views strided.
+      -- on the same cotangent as twoScatterAd: the measured ~4x
+      -- pessimization that rules out extending the shn-sort to scatter,
+      -- strengthening the ruling from "cannot pay" to "loses outright" —
+      -- mechanism in the 'scatterBenches' haddock above.
       twoScatterShnSorted :: AstTensor AstMethodLet FullSpan
                                        (TKS '[50, 3, 3, 50] Double)
       twoScatterShnSorted =

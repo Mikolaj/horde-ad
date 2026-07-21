@@ -11,43 +11,44 @@ pinned to master `bc0f1e9d4`.)*
 
 horde-ad executes its concrete `sgather` through `mgenerate`
 ([`tgatherZSScalar` → `tbuildS`][tgatherZSScalar], which is
-[`Nested.sgenerate` over the outer positions][tbuildS]): the output shape
-splits as `shm ++ shn`; every position of the outer part `shm` is
-enumerated, and for each one the index function computes a source
-position and an `shn`-shaped slice — in general a strided view, the
-source's transposes having merged into it — is written into the
-contiguous output. Convolution gradients build their im2col patch arrays
+[`Nested.sgenerate` over the outer positions][tbuildS]). The output
+shape splits as `shm ++ shn`: every position of the outer part `shm` is
+enumerated; for each one the index function computes a source position,
+and an `shn`-shaped slice — in general a strided view, the source's
+transposes having merged into it — is written into the contiguous
+output. Convolution gradients build their im2col patch arrays
 this way, and interpreted `sgather` is ~65% of their runtime. The slice
 write decomposes the strided view into contiguous runs via orthotope's
 `toVectorListT` and copies each run; the boxed Haskell per-run machinery,
 with a fully per-element fallback when the innermost dimension is
 strided, is the hot loop.
 
-Scatter is the exact adjoint of gather — for all index functions `f`,
+Scatter is the exact adjoint of gather: for all index functions `f`,
 sources `x` and cotangents `y`,
-`sdot0 (sgather x f) y == sdot0 x (sscatter y f)` — yet on the same index
-map and the same strided-read workload the concrete scatter is ~8–10×
-faster (the `gather48`/`scatter48` isolating benchmark groups in
-`bench/ConvVjpBench.hs`: ~0.52–0.55ms vs ~3.7–5.6ms, criterion, GHC
-9.12.4, `-O1`, single-threaded; the scatter chains are the gather chains'
-adjoints, checked at startup via the law above). The gap is code path,
-not data volume: [`tscatterZSScalar`][tscatterZSScalar] does, per outer
-position, only an index evaluation and an `IntMap.insertWith (+)` whose
-`(+)` consumes the strided slice views directly through the stride-aware
-C kernels of `Data.Array.Strided.Arith`, accumulating dense buffers that
-a handful of `VS.copy` calls write out — the interpreted Haskell is per
-*position*, all element traffic runs in C.
+`sdot0 (sgather x f) y == sdot0 x (sscatter y f)`. Yet on the same
+index map and the same strided-read workload the concrete scatter is
+~8–10× faster: ~0.52–0.55ms vs ~3.7–5.6ms in the `gather48`/`scatter48`
+isolating benchmark groups of `bench/ConvVjpBench.hs` (criterion, GHC
+9.12.4, `-O1`, single-threaded; the scatter chains are the gather
+chains' adjoints, checked at startup via the law above). The gap is
+code path, not data volume: [`tscatterZSScalar`][tscatterZSScalar]
+does, per outer position, only an index evaluation and an
+`IntMap.insertWith (+)` whose `(+)` consumes the strided slice views
+directly through the stride-aware C kernels of
+`Data.Array.Strided.Arith`, accumulating dense buffers that a handful
+of `VS.copy` calls write out. The interpreted Haskell is per
+*position*; all element traffic runs in C.
 
 The branch's own fix (`contractAst` sorts each gather's `shn` slice
 dimensions ascending, compensated by metadata-only transposes) buys the
 ~1.36× loop-order factor of the Haskell copy path and ~18% on a real
 shaped CNN gradient at 24×24; past that, term rewriting is exhausted and
-the residual is the kernel itself. Two staged upstream drafts therefore
-propose: an ox-arrays issue naming `toVectorListT`'s strided fallbacks as
-the cost, with a two-stage design — stage 1 a pure orthotope fix
+the residual is the kernel itself. The staged upstream drafts therefore
+propose an ox-arrays issue naming `toVectorListT`'s strided fallbacks
+as the cost, with a two-stage design: stage 1, a pure orthotope fix
 (replace the per-element fallback with `vGenerate` over a
-linear-index-to-offset computation), stage 2 a C strided-copy kernel in
-ox-arrays' cbits only if a measured gap remains.
+linear-index-to-offset computation); stage 2, a C strided-copy kernel
+in ox-arrays' cbits, only if a measured gap remains.
 
 Crucially for what follows, the drafted issue *rejects* a client-side
 implementation fix, on two grounds: reimplementing `mgenerate`'s slice
@@ -58,7 +59,7 @@ strided copy, upstream either way".
 
 ## The notes, reconstructed
 
-The notes comprise of two chat fragments.
+The notes consist of two chat fragments.
 
 **Fragment 1 — the asymmetry, compressed, and what the feature request
 really asks for.** Scatter never needed a fast strided copy because
