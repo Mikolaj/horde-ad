@@ -5,7 +5,8 @@
 -- vs handwritten derivatives. The matching deterministic (non-QuickCheck)
 -- gradient-correctness checks live in "TestConvCorrect"; the shared
 -- random-data helpers and handwritten gradients exported below are what that
--- module reuses. The criterion counterpart of the poor man's benchmarks is
+-- module reuses. The criterion counterpart of the same-convolution poor
+-- man's benchmarks (the shrinking and padded ones have none) is
 -- bench/ConvVjpBench.hs; its per-call numbers are the citable ones, the
 -- tasty totals here being wall-clock over 100 runs on a coarse timer.
 module TestConvQuickCheck
@@ -1398,9 +1399,13 @@ quickcheck_conv2dSameVjpInpConcrete =
 -- * @HandwrittenVectorized@ is the handwritten gradient vectorized and
 --   interpreted per run, for comparison.
 --
--- At small sizes the build tax roughly doubles the per-call symbolic time
--- while the amortized cost is competitive with the handwritten one; as the
--- size grows the fixed tax shrinks relative to interpretation.
+-- At small sizes the build tax roughly doubles the per-call symbolic time;
+-- as the size grows the fixed tax shrinks relative to interpretation.
+-- @HandwrittenVectorized@ has no amortized variant to pair with
+-- @SymbolicAmortized@ — with the cotangent embedded as a constant the term
+-- must be rebuilt for every new cotangent — so comparing those two mixes
+-- pipeline stages; the stage-for-stage S/H comparison, with the cotangent
+-- kept as a variable on both sides, lives in bench/ConvVjpBench.hs.
 
 -- | Kernel, input and output-gradient of the poor man's benchmark shapes
 -- (@nImgs = nCinp = nCout = 3@, @nKh = nKw = 3@, @nAh = nAw@), from one seed.
