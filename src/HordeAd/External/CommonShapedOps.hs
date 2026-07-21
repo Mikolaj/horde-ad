@@ -133,7 +133,7 @@ softMax1S d =
 
 -- | Full convolution, where the output image size is the same
 -- as the input size.
-conv2dSameS
+conv2dPreservingS
   :: forall nImgs nCinp nCinpA nCout nAh nAw nKh nKw shK shA shB shK1
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
@@ -146,7 +146,7 @@ conv2dSameS
      , shK1 ~ '[1, nCinpA, nKh, nKw]
      )
   => target (TKS shK r) -> target (TKS shA r) -> target (TKS shB r)
-conv2dSameS arrK arrA =
+conv2dPreservingS arrK arrA =
   kbuild $ \case
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicezS @shK1 arrA
@@ -154,7 +154,7 @@ conv2dSameS arrK arrA =
           arrKt = slicezS arrK
                           [iCout, 0, 0, 0]
       in sdot0 arrAt arrKt
-    _ -> error "conv2dSameS: impossible pattern needlessly required"
+    _ -> error "conv2dPreservingS: impossible pattern needlessly required"
 
 -- | Full convolution with only enough padding to ensure all output points
 -- are affected by the same number of input points,

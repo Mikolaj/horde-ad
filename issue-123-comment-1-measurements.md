@@ -13,7 +13,7 @@ That is a different quantity from a per-call time, and it is not portable
 across machines, GHC versions or commits, so it is treated as anecdotal
 below. Every figure in these comments comes from criterion (the diagnostic
 benchmark `bench/ConvVjpBench.hs`, added in #128 and fixed up in #129):
-per call, GHC 9.12.4, `-O1`, single-threaded. (Besides the `conv2dSameS`
+per call, GHC 9.12.4, `-O1`, single-threaded. (Besides the `conv2dPreservingS`
 variants analysed here, the same benchmark carries `cnn-*` groups timing a
 real shaped two-layer CNN gradient — see the design comment for the fix's
 effect there.)
@@ -44,7 +44,7 @@ Variant key:
 - **S-exec** — artifact produced and simplified once, only
   `vjpInterpretArtifact` per call (the intended usage pattern of symbolic AD).
 - **S-exec-raw** — same, but the artifact is not simplified.
-- **H-fullpipe** — `interpretAstFull emptyEnv (conv2dSame_dKrn …)` per call,
+- **H-fullpipe** — `interpretAstFull emptyEnv (conv2dPreserving_dKrn …)` per call,
   i.e., what the `HandwrittenVectorized` QuickCheck test measures. Here the
   varying input feeds term construction, so nothing floats out and this is
   an honest per-call measurement (which is why H-fullpipe and S-fullpipe are
@@ -110,7 +110,7 @@ Variant key:
    criterion ~1.6× here. It is not a machine, GHC, or ranked-vs-shaped
    difference — the ticket's `Bench dKrn Symbolic` property at the
    referenced commit (a21d3abf, 2025-08-05) is byte-for-byte the same shaped
-   `vjp (\`conv2dSameS\` sconcrete arrA) …` measured here. The residual gap
+   `vjp (\`conv2dPreservingS\` sconcrete arrA) …` measured here. The residual gap
    between the two figures is attributable to the intervening engine work:
    the artifact/simplify pipeline was substantially reworked (the v0.3.0.0
    "extensive performance rework" and everything since), which is exactly

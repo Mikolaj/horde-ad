@@ -98,7 +98,7 @@ already 2–4× ahead. No new AST constructor or backend primitive is needed.
 ## Risks and fallbacks
 
 - **Rule fragility**: the gather/transpose chains differ across
-  `Same`/`Shrinking`/`Padded` × `dInp`/`dKrn` — hence one small,
+  `Preserving`/`Shrinking`/`Padded` × `dInp`/`dKrn` — hence one small,
   shape-generic, compositional rule rather than a mega-pattern that matches
   only the benchmark.
 - **A benchmark-coupled pass**: tuning contraction for conv can pessimize
@@ -107,7 +107,7 @@ already 2–4× ahead. No new AST constructor or backend primitive is needed.
   other two avenues remain open: emitting fused contractions directly from
   delta evaluation (avenue 2), or convolution primitives with post-AD
   recovery (avenue 3, a separate ticket — the handwritten
-  `conv2dSame_dInp`/`_dKrn` and the `flip42` identities in
+  `conv2dPreserving_dInp`/`_dKrn` and the `flip42` identities in
   `TestConvQuickCheck` already spell out the conv-algebra such a
   primitive's VJP rules would encode). Neither is needed for the gap
   measured here.

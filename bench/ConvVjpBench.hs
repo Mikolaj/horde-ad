@@ -4,7 +4,7 @@
 -- cost of executing it, for the two pipelines that produce one — symbolic
 -- AD and the vectorized handwritten gradient.
 --
--- The groups @6x6@ to @192x192@ sweep the gradient of conv2dSameS with
+-- The groups @6x6@ to @192x192@ sweep the gradient of conv2dPreservingS with
 -- respect to the kernels across those image sizes; the @inp-*@ groups run
 -- the same variants and sizes for the gradient with respect to the input
 -- image (the @sscatter@ path). Each group holds the variants below in
@@ -37,7 +37,7 @@
 -- The @cnn-*@ groups run the @S-*@ variants for a real (shaped) two-layer
 -- convolutional net (@MnistCnnShaped2.convMnistTwoS@, each layer with
 -- maxpool), differentiated with respect to its full parameter tuple, at
--- image sizes 6x6, 12x12 and 24x24. Unlike the synthetic conv2dSame
+-- image sizes 6x6, 12x12 and 24x24. Unlike the synthetic conv2dPreserving
 -- benchmarks they also exercise the maxpool and reshape gathers of a full
 -- net; they have no @H-*@ variants, as there is no handwritten CNN gradient
 -- to compare against.
@@ -70,7 +70,7 @@ import HordeAd.Core.AstInterpret (interpretAstFull)
 
 import MnistCnnShaped2 qualified
 import MnistData (SizeMnistLabel)
-import TestConvQuickCheck (conv2dSame_dInp, conv2dSame_dKrn)
+import TestConvQuickCheck (conv2dPreserving_dInp, conv2dPreserving_dKrn)
 import TestMnistPP (cnnObjective)
 
 forceGrad :: Concrete (TKS sh Double) -> Double
@@ -97,7 +97,7 @@ benchesAt = do
                      (TKS '[nCout, nCinp, nKh, nKw] Double)
         -> AstTensor AstMethodLet FullSpan
                      (TKS '[nImgs, nCout, nAh, nAw] Double)
-      f k = conv2dSameS k (sconcrete (unConcrete arrA))
+      f k = conv2dPreservingS k (sconcrete (unConcrete arrA))
       -- The cotangent variable shared by the handwritten-term variants.
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
@@ -109,9 +109,9 @@ benchesAt = do
       -- cotangent kept as a variable, like in the artifact.
       hTermVar :: AstTensor AstMethodLet FullSpan
                             (TKS '[nCout, nCinp, nKh, nKw] Double)
-      hTermVar = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                 (sconcrete (unConcrete arrA))
-                                 (AstVar varNameB)
+      hTermVar = conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete arrA))
+                                       (AstVar varNameB)
       hTermVarSimplified = simplifyInlineContract hTermVar
   -- Force the shared terms to WHNF (StrictData makes that a full build)
   -- before benchmarking the exec-only variants. WHNF suffices and avoids the
@@ -128,16 +128,17 @@ benchesAt = do
       -- (see 'pitfallBenches' for the hoisted variant that secretly isn't).
       bench "S-fullpipe-honest" $ whnf
         (\a -> forceGrad
-               $ vjp (\k -> conv2dSameS k (sconcrete (unConcrete a))) arrK arrB)
+               $ vjp (\k -> conv2dPreservingS k (sconcrete (unConcrete a)))
+                     arrK arrB)
         arrA
       -- The handwritten counterpart: build + vectorize + interpret per
       -- call; like the tasty benchmark it mirrors, the cotangent is an
       -- embedded constant and the term is never contracted.
     , bench "H-fullpipe" $ whnf
         (\b -> forceGrad $ interpretAstFull emptyEnv
-                 $ conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                   (sconcrete (unConcrete arrA))
-                                   (sconcrete (unConcrete b))) arrB
+               $ conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete arrA))
+                                       (sconcrete (unConcrete b))) arrB
       -- Building + simplifying the artifact only (the "compilation" cost),
       -- forced to WHNF as in mnistTrainBench2VTC (BenchMnistTools): with
       -- StrictData that suffices to force the build, and unlike forcing via
@@ -149,9 +150,9 @@ benchesAt = do
       -- The handwritten counterpart: building + contracting the term only.
     , bench "H-term" $ whnf
         (\a -> simplifyInlineContract
-               $ conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                 (sconcrete (unConcrete a))
-                                 (AstVar varNameB)) arrA
+               $ conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete a))
+                                       (AstVar varNameB)) arrA
     , bench "S-exec" $ whnf
         (\dt -> forceGrad
                   (vjpInterpretArtifact artifact arrK dt
@@ -195,7 +196,7 @@ benchesInpAt = do
                      (TKS '[nImgs, nCinp, nAh, nAw] Double)
         -> AstTensor AstMethodLet FullSpan
                      (TKS '[nImgs, nCout, nAh, nAw] Double)
-      g a = conv2dSameS (sconcrete (unConcrete arrK)) a
+      g a = conv2dPreservingS (sconcrete (unConcrete arrK)) a
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
@@ -203,9 +204,9 @@ benchesInpAt = do
       artifact = simplifyArtifactRev artifactRaw
       hTermVar :: AstTensor AstMethodLet FullSpan
                             (TKS '[nImgs, nCinp, nAh, nAw] Double)
-      hTermVar = conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                 (sconcrete (unConcrete arrK))
-                                 (AstVar varNameB)
+      hTermVar = conv2dPreserving_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete arrK))
+                                       (AstVar varNameB)
       hTermVarSimplified = simplifyInlineContract hTermVar
   -- Force to WHNF (a full build under StrictData) before benchmarking.
   _ <- evaluate artifactRaw
@@ -217,20 +218,21 @@ benchesInpAt = do
   return
     [ bench "S-fullpipe-honest" $ whnf
         (\k -> forceGrad
-               $ vjp (\a -> conv2dSameS (sconcrete (unConcrete k)) a) arrA arrB)
+               $ vjp (\a -> conv2dPreservingS (sconcrete (unConcrete k)) a)
+                     arrA arrB)
         arrK
     , bench "H-fullpipe" $ whnf
         (\b -> forceGrad $ interpretAstFull emptyEnv
-                 $ conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                   (sconcrete (unConcrete arrK))
-                                   (sconcrete (unConcrete b))) arrB
+               $ conv2dPreserving_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete arrK))
+                                       (sconcrete (unConcrete b))) arrB
     , bench "S-artifact" $ whnf
         (\a -> simplifyArtifactRev (vjpArtifact g a)) arrA
     , bench "H-term" $ whnf
         (\k -> simplifyInlineContract
-               $ conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                 (sconcrete (unConcrete k))
-                                 (AstVar varNameB)) arrK
+               $ conv2dPreserving_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete k))
+                                       (AstVar varNameB)) arrK
     , bench "S-exec" $ whnf
         (\dt -> forceGrad
                   (vjpInterpretArtifact artifact arrA dt
@@ -253,8 +255,8 @@ benchesInpAt = do
 -- convolutional net (@convMnistTwoS@, each layer with maxpool), differentiated
 -- with respect to its full parameter tuple. The input image is embedded as a
 -- constant — a *random* one, since a constant broadcast folds the convolution
--- gathers away — exactly as 'benchesAt' embeds the input in the conv2dSame
--- objective. The objective is shared with @testCNNOPP2S@ via 'cnnObjective'.
+-- gathers away — exactly as 'benchesAt' embeds the input in the
+-- conv2dPreserving objective. The objective is shared with @testCNNOPP2S@ via 'cnnObjective'.
 -- There are no @H-*@ variants, as there is no handwritten CNN gradient to
 -- compare against.
 benchesCnnAt
@@ -671,13 +673,13 @@ pitfallBenches = do
         randomValue @(Concrete (TKS '[3, 3, 48, 48] Double)) 0.5 seed3'
       f6 :: AstTensor AstMethodLet FullSpan (TKS '[3, 3, 3, 3] Double)
          -> AstTensor AstMethodLet FullSpan (TKS '[3, 3, 6, 6] Double)
-      f6 k = conv2dSameS k (sconcrete (unConcrete arrA6))
+      f6 k = conv2dPreservingS k (sconcrete (unConcrete arrA6))
       -- The handwritten term with the cotangent embedded as a constant,
       -- as in the term the tasty poor man's benchmark interprets.
       hTermConst :: AstTensor AstMethodLet FullSpan (TKS '[3, 3, 3, 3] Double)
-      hTermConst = conv2dSame_dKrn @3 @3 @3 @48 @48 @3 @3
-                                   (sconcrete (unConcrete arrA48))
-                                   (sconcrete (unConcrete arrB48))
+      hTermConst = conv2dPreserving_dKrn @3 @3 @3 @48 @48 @3 @3
+                                         (sconcrete (unConcrete arrA48))
+                                         (sconcrete (unConcrete arrB48))
       hTermConstSimplified = simplifyInlineContract hTermConst
   -- Force to WHNF (a full build under StrictData) before benchmarking.
   _ <- evaluate hTermConstSimplified
@@ -721,22 +723,22 @@ printTerms = do
                      (TKS '[nCout, nCinp, nKh, nKw] Double)
         -> AstTensor AstMethodLet FullSpan
                      (TKS '[nImgs, nCout, nAh, nAw] Double)
-      f k = conv2dSameS k (sconcrete (unConcrete arrA))
+      f k = conv2dPreservingS k (sconcrete (unConcrete arrA))
       artifact = simplifyArtifactRev (vjpArtifact f arrK)
       hTerm :: AstTensor AstMethodLet FullSpan
                          (TKS '[nCout, nCinp, nKh, nKw] Double)
-      hTerm = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                              (sconcrete (unConcrete arrA))
-                              (sconcrete (unConcrete arrB))
+      hTerm = conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                    (sconcrete (unConcrete arrA))
+                                    (sconcrete (unConcrete arrB))
       hTermSimplified = simplifyInlineContract hTerm
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
       hTermVar :: AstTensor AstMethodLet FullSpan
                             (TKS '[nCout, nCinp, nKh, nKw] Double)
-      hTermVar = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                 (sconcrete (unConcrete arrA))
-                                 (AstVar varNameB)
+      hTermVar = conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete arrA))
+                                       (AstVar varNameB)
   putStrLn "=== S: simplified artifact (derivative) ==="
   putStrLn $ printArtifactPretty artifact
   putStrLn "=== H: contracted handwritten-vectorized term ==="

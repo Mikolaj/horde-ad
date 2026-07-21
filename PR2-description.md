@@ -85,7 +85,7 @@ clear win at realistic sizes, not merely neutral — approaching the synthetic
   none or one extra transpose, one maxpool artifact gains two), and only in
   the conv, gather and CNN tests.
 - A real shaped CNN gradient is now benchmarked (the `cnn-*` groups of
-  `convVjpBench`), not only the synthetic conv2dSame chains; an A/B confirms
+  `convVjpBench`), not only the synthetic conv2dPreserving chains; an A/B confirms
   the exec win grows to ~18% at 24×24.
 - Re-validated with GHC 9.14.1 (fresh dependency store, same protocol):
   parity reproduces (S-exec 5.45ms vs H-exec 5.37ms at 48×48 with the
