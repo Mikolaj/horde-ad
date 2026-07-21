@@ -127,27 +127,28 @@ benchesAt = do
         -> AstTensor AstMethodLet FullSpan
                      (TKS '[nImgs, nCout, nAh, nAw] Double)
       f k = conv2dSameS k (sconcrete (unConcrete arrA))
-      -- The handwritten gradient built as an AST term — constructing it
-      -- runs vectorization (sbuild at the AST target) — with the incoming
-      -- cotangent kept as a variable, like in the artifact.
+      -- The cotangent variable shared by the handwritten-term variants.
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
+      artifactRaw = vjpArtifact f arrK
+      artifact = simplifyArtifactRev artifactRaw
+      -- The handwritten gradient built as an AST term — constructing it
+      -- runs vectorization (sbuild at the AST target) — with the incoming
+      -- cotangent kept as a variable, like in the artifact.
       hTermVar :: AstTensor AstMethodLet FullSpan
                             (TKS '[nCout, nCinp, nKh, nKw] Double)
       hTermVar = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                                  (sconcrete (unConcrete arrA))
                                  (AstVar varNameB)
       hTermVarSimplified = simplifyInlineContract hTermVar
-      artifactRaw = vjpArtifact f arrK
-      artifact = simplifyArtifactRev artifactRaw
   -- Force the shared terms to WHNF (StrictData makes that a full build)
   -- before benchmarking the exec-only variants. WHNF suffices and avoids the
   -- string-formatting work of forcing via printArtifactSimple.
+  _ <- evaluate artifactRaw
+  _ <- evaluate artifact
   _ <- evaluate hTermVar
   _ <- evaluate hTermVarSimplified
-  _ <- evaluate artifact
-  _ <- evaluate artifactRaw
   return
     [ -- vjp per call with the (per-call-varying) input baked into the
       -- objective function, exactly as the tasty poor man's benchmark does:
@@ -227,19 +228,19 @@ benchesInpAt = do
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
+      artifactRaw = vjpArtifact g arrA
+      artifact = simplifyArtifactRev artifactRaw
       hTermVar :: AstTensor AstMethodLet FullSpan
                             (TKS '[nImgs, nCinp, nAh, nAw] Double)
       hTermVar = conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                                  (sconcrete (unConcrete arrK))
                                  (AstVar varNameB)
       hTermVarSimplified = simplifyInlineContract hTermVar
-      artifactRaw = vjpArtifact g arrA
-      artifact = simplifyArtifactRev artifactRaw
   -- Force to WHNF (a full build under StrictData) before benchmarking.
+  _ <- evaluate artifactRaw
+  _ <- evaluate artifact
   _ <- evaluate hTermVar
   _ <- evaluate hTermVarSimplified
-  _ <- evaluate artifact
-  _ <- evaluate artifactRaw
   -- The same variant pairs as in 'benchesAt', for dInp; see the comments
   -- there.
   return
@@ -331,15 +332,15 @@ pitfallBenches = do
 -- interpreted im2col gather chains. Four comparisons: the AD-produced
 -- orientation (large dim first in the gather output, small dims
 -- innermost in the copied slices) vs the vectorization-produced one
--- (small dim first, large dim innermost in slices); both vs a single
--- fused gather that avoids the intermediate array entirely; the AD
--- orientation vs its two candidate canonicalizations (shm dims sorted
--- vs shn dims sorted); and the fused gather vs itself with its shm dims
--- sorted, ascending and descending — its shn, @[3, 3]@, is already
--- sorted, fusion having consumed the large dims into the index function,
--- so shm is the fused form's only sortable knob. interpretAstFull does
--- not run contractAst, so each variant times exactly the orientation
--- written.
+-- (small dim first, large dim innermost in slices); the AD orientation
+-- vs its two candidate canonicalizations (shm dims sorted vs shn dims
+-- sorted); both orientations vs a single fused gather that avoids the
+-- intermediate array entirely; and the fused gather vs itself with its
+-- shm dims sorted, ascending and descending — its shn, @[3, 3]@, is
+-- already sorted, fusion having consumed the large dims into the index
+-- function, so shm is the fused form's only sortable knob.
+-- interpretAstFull does not run contractAst, so each variant times
+-- exactly the orientation written.
 gatherBenches :: IO [Benchmark]
 gatherBenches = do
   let (arr1, seed2) =
@@ -378,6 +379,43 @@ gatherBenches = do
                                    _ -> error "twoVec")))
                 (\case [d, c] -> [c + d]
                        _ -> error "twoVec")
+      -- The AD chain with each gather's shm dims sorted ascending and a
+      -- compensating transpose above that restores the original dim order —
+      -- a canonicalization considered for contractAst and refuted by this
+      -- measurement: the concrete gather's cost is per output position,
+      -- so reordering the shm dims changes nothing.
+      canonShm :: AstTensor AstMethodLet FullSpan
+                          (TKS '[48, 3, 3, 48, 3, 3] Double)
+      canonShm =
+        stranspose @'[1, 0]
+          (sgather @'[3, 48] @'[3, 48, 3, 3] @'[50]
+                   (stranspose @'[4, 2, 0, 3, 1]
+                      (stranspose @'[1, 0]
+                         (sgather @'[3, 48] @'[3, 3, 50] @'[50]
+                                  src1
+                                  (\case [b, a] -> [a + b]
+                                         _ -> error "canonShm"))))
+                   (\case [d, c] -> [c + d]
+                          _ -> error "canonShm"))
+      -- The AD chain with the second gather's shn dims sorted ascending
+      -- instead (large dims innermost in the copied slices), by a
+      -- transpose below the gather (merges into the existing view)
+      -- and a compensating transpose above — the rewrite the shn-sort
+      -- rule in contractAst now performs on such chains (the first
+      -- gather's shn is already sorted, so it is left alone).
+      canonShn :: AstTensor AstMethodLet FullSpan
+                           (TKS '[48, 3, 3, 48, 3, 3] Double)
+      canonShn =
+        stranspose @'[0, 1, 2, 5, 3, 4]
+          (sgather @'[48, 3] @'[3, 3, 3, 48] @'[50]
+                   (stranspose @'[0, 1, 3, 4, 2]
+                      (stranspose @'[4, 2, 0, 3, 1]
+                         (sgather @'[48, 3] @'[3, 3, 50] @'[50]
+                                  src1
+                                  (\case [a, b] -> [a + b]
+                                         _ -> error "canonShn"))))
+                   (\case [c, d] -> [c + d]
+                          _ -> error "canonShn"))
       -- One fused gather, AD orientation of the output dims.
       fusedAd :: AstTensor AstMethodLet FullSpan
                           (TKS '[48, 3, 48, 3, 3, 3] Double)
@@ -419,52 +457,15 @@ gatherBenches = do
                    src2
                    (\case [h, w, kh, kw] -> [h + kh, w + kw]
                           _ -> error "fusedShmDesc"))
-      -- The AD chain with each gather's shm dims sorted ascending and a
-      -- compensating transpose above that restores the original dim order —
-      -- a canonicalization considered for contractAst and refuted by this
-      -- measurement: the concrete gather's cost is per output position,
-      -- so reordering the shm dims changes nothing.
-      canonShm :: AstTensor AstMethodLet FullSpan
-                          (TKS '[48, 3, 3, 48, 3, 3] Double)
-      canonShm =
-        stranspose @'[1, 0]
-          (sgather @'[3, 48] @'[3, 48, 3, 3] @'[50]
-                   (stranspose @'[4, 2, 0, 3, 1]
-                      (stranspose @'[1, 0]
-                         (sgather @'[3, 48] @'[3, 3, 50] @'[50]
-                                  src1
-                                  (\case [b, a] -> [a + b]
-                                         _ -> error "canonShm"))))
-                   (\case [d, c] -> [c + d]
-                          _ -> error "canonShm"))
-      -- The AD chain with the second gather's shn dims sorted ascending
-      -- instead (large dims innermost in the copied slices), by a
-      -- transpose below the gather (merges into the existing view)
-      -- and a compensating transpose above — the rewrite the shn-sort
-      -- rule in contractAst now performs on such chains (the first
-      -- gather's shn is already sorted, so it is left alone).
-      canonShn :: AstTensor AstMethodLet FullSpan
-                           (TKS '[48, 3, 3, 48, 3, 3] Double)
-      canonShn =
-        stranspose @'[0, 1, 2, 5, 3, 4]
-          (sgather @'[48, 3] @'[3, 3, 3, 48] @'[50]
-                   (stranspose @'[0, 1, 3, 4, 2]
-                      (stranspose @'[4, 2, 0, 3, 1]
-                         (sgather @'[48, 3] @'[3, 3, 50] @'[50]
-                                  src1
-                                  (\case [a, b] -> [a + b]
-                                         _ -> error "canonShn"))))
-                   (\case [c, d] -> [c + d]
-                          _ -> error "canonShn"))
   -- Force to WHNF (a full build under StrictData) before benchmarking.
   _ <- evaluate twoAd
   _ <- evaluate twoVec
+  _ <- evaluate canonShm
+  _ <- evaluate canonShn
   _ <- evaluate fusedAd
   _ <- evaluate fusedVec
   _ <- evaluate fusedShmAsc
   _ <- evaluate fusedShmDesc
-  _ <- evaluate canonShm
-  _ <- evaluate canonShn
   return
     [ bench "two-gathers-ad-orient" $ whnf
         (\t -> forceGrad $ interpretAstFull emptyEnv t) twoAd
@@ -625,6 +626,7 @@ printTerms = do
         -> AstTensor AstMethodLet FullSpan
                      (TKS '[nImgs, nCout, nAh, nAw] Double)
       f k = conv2dSameS k (sconcrete (unConcrete arrA))
+      artifact = simplifyArtifactRev (vjpArtifact f arrK)
       hTerm :: AstTensor AstMethodLet FullSpan
                          (TKS '[nCout, nCinp, nKh, nKw] Double)
       hTerm = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
@@ -639,7 +641,6 @@ printTerms = do
       hTermVar = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                                  (sconcrete (unConcrete arrA))
                                  (AstVar varNameB)
-      artifact = simplifyArtifactRev (vjpArtifact f arrK)
   putStrLn "=== S: simplified artifact (derivative) ==="
   putStrLn $ printArtifactPretty artifact
   putStrLn "=== H: contracted handwritten-vectorized term ==="
@@ -668,16 +669,16 @@ benchesCnnAt = do
       (arrDt, _) =
         randomValue @(Concrete (TKS '[SizeMnistLabel, 7] Double)) 0.5 seed3
       valsInitT = toTarget @Concrete valsInit
-      f = cnnObjective arrGlyph
-      artifactRaw = vjpArtifact f valsInit
-      artifact = simplifyArtifactRev artifactRaw
       -- Force the full parameter gradient (a tuple) by summing all leaves,
       -- reusing forceGrad (unConcrete . ssum0) on each.
       forceCnnGrad ((k1, b1), (k2, b2), (wd, bd), (wr, br)) =
         forceGrad k1 + forceGrad b1 + forceGrad k2 + forceGrad b2
         + forceGrad wd + forceGrad bd + forceGrad wr + forceGrad br
-  _ <- evaluate artifact
+      f = cnnObjective arrGlyph
+      artifactRaw = vjpArtifact f valsInit
+      artifact = simplifyArtifactRev artifactRaw
   _ <- evaluate artifactRaw
+  _ <- evaluate artifact
   return
     [ bench "S-fullpipe-honest" $ whnf
         (\glyph -> forceCnnGrad $ vjp (cnnObjective glyph) valsInit arrDt)
