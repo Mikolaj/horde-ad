@@ -28,15 +28,19 @@ existing phase-gating also keeps the sorted gathers from being re-fused.
 ## Measured effect
 
 Per call, exec-only, criterion (`bench/ConvVjpBench.hs`), GHC 9.12.4,
-`-O1`, single-threaded:
+`-O1`, single-threaded. `H-exec` interprets the contracted handwritten
+term with the cotangent kept as a variable — the variant the baseline
+table in the measurements comment calls `H-exec-var`; the benchmark's
+handwritten variants have since been renamed to pair one-to-one with
+the `S-*` ones.
 
-| nAh=nAw | S-exec before | S-exec after | H-exec-var after |
-|---------|--------------|--------------|------------------|
-| 6       | 192µs        | 180µs        | 220µs            |
-| 24      | 1.84ms       | 1.50ms       | 1.57ms           |
-| 48      | 7.30ms       | 5.62ms       | 5.75ms           |
-| 96      | 32.1ms       | 22.3ms       | 22.8ms           |
-| 192     | 133ms        | 95.7ms       | 97.5ms           |
+| nAh=nAw | S-exec before | S-exec after | H-exec after |
+|---------|--------------|--------------|--------------|
+| 6       | 192µs        | 180µs        | 220µs        |
+| 24      | 1.84ms       | 1.50ms       | 1.57ms       |
+| 48      | 7.30ms       | 5.62ms       | 5.75ms       |
+| 96      | 32.1ms       | 22.3ms       | 22.8ms       |
+| 192     | 133ms        | 95.7ms       | 97.5ms       |
 
 The symbolic kernel gradient is now at least on par with the
 handwritten-vectorized one at every size measured: the pre-fix gap that
@@ -84,7 +88,7 @@ clear win at realistic sizes, not merely neutral — approaching the synthetic
   `convVjpBench`), not only the synthetic conv2dSame chains; an A/B confirms
   the exec win grows to ~18% at 24×24.
 - Re-validated with GHC 9.14.1 (fresh dependency store, same protocol):
-  parity reproduces (S-exec 5.45ms vs H-exec-var 5.37ms at 48×48 with the
+  parity reproduces (S-exec 5.45ms vs H-exec 5.37ms at 48×48 with the
   rule); the mechanism-level revalidation is in the diagnosis comment.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

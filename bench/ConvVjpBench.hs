@@ -7,25 +7,37 @@
 --
 -- Variants, decomposing the costs that the QuickCheck poor man's
 -- benchmarks in TestConvQuickCheck conflate (@S-fullpipe-honest@ and
--- @H-fullpipe@ time the same full pipelines those do):
+-- @H-fullpipe@ time the same full pipelines those do). The variants come
+-- in @S-@/@H-@ pairs, adjacent in each group: each @H-@ variant measures
+-- for the handwritten pipeline the same stage its @S-@ partner measures
+-- for the symbolic one, with the incoming cotangent kept as a variable on
+-- both sides (only @H-fullpipe@ embeds it as a constant, because the
+-- tasty benchmark it mirrors does).
 --
--- * @S-fullpipe@: @vjp@ per call, i.e., tracing + AD + simplification
---   + interpretation every time (this is what the issue calls Symbolic),
---   in a @-hoisted@ variant (artifact floated out of the timed loop) and a
---   @-honest@ variant (artifact rebuilt every call).
+-- * @S-fullpipe-honest@: @vjp@ per call, i.e., tracing + AD +
+--   simplification + interpretation every time (what the issue calls
+--   Symbolic), with the per-call-varying input baked into the objective
+--   so the artifact is genuinely rebuilt every call.
+-- * @H-fullpipe@: building + vectorizing + interpreting the handwritten
+--   gradient term per call (what the issue calls HandwrittenVectorized);
+--   like the tasty benchmark, it embeds the cotangent as a constant and
+--   never contracts the term.
 -- * @S-artifact@: building + simplifying the gradient artifact only (the
 --   compilation cost), forced to WHNF (StrictData suffices), as in
 --   mnistTrainBench2VTC in BenchMnistTools.
+-- * @H-term@: building + contracting the handwritten term only — the
+--   handwritten pipeline's compilation cost.
 -- * @S-exec@: interpreting a pre-computed simplified artifact only.
+-- * @H-exec@: interpreting the pre-built contracted handwritten term
+--   only, the cotangent bound in the environment.
 -- * @S-exec-raw@: interpreting a pre-computed unsimplified artifact,
 --   to see what simplifyArtifactRev buys at runtime.
--- * @H-fullpipe@: building + vectorizing + interpreting the handwritten
---   gradient term per call (what the issue calls HandwrittenVectorized).
--- * @H-exec@: interpreting the pre-built handwritten gradient term only.
--- * @H-exec-contracted@: as @H-exec@, but after @simplifyInlineContract@.
--- * @H-exec-var@: as @H-exec-contracted@, but with the cotangent kept as a
---   variable (like in the artifact); the apples-to-apples comparison
---   against @S-exec@.
+-- * @H-exec-raw@: interpreting the pre-built uncontracted handwritten
+--   term, to see what simplifyInlineContract buys at runtime.
+--
+-- The @pitfalls@ group holds the suite's single recorder of each known
+-- measurement trap (see 'pitfallBenches'), so the sweep groups contain
+-- only honest, pairwise-comparable variants.
 --
 -- The @inp-*@ groups run the same variants and sizes for the gradient
 -- with respect to the input image (the @sscatter@ path) instead of
@@ -114,17 +126,9 @@ benchesAt = do
         -> AstTensor AstMethodLet FullSpan
                      (TKS '[nImgs, nCout, nAh, nAw] Double)
       f k = conv2dSameS k (sconcrete (unConcrete arrA))
-      -- The handwritten gradient built as an AST term; constructing it
-      -- runs vectorization (sbuild at the AST target).
-      hTerm :: AstTensor AstMethodLet FullSpan
-                         (TKS '[nCout, nCinp, nKh, nKw] Double)
-      hTerm = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                              (sconcrete (unConcrete arrA))
-                              (sconcrete (unConcrete arrB))
-      hTermSimplified = simplifyInlineContract hTerm
-      -- The handwritten gradient with the incoming cotangent kept
-      -- as a variable, like in the artifact, so that simplification
-      -- can't constant-fold the cotangent side of the term.
+      -- The handwritten gradient built as an AST term — constructing it
+      -- runs vectorization (sbuild at the AST target) — with the incoming
+      -- cotangent kept as a variable, like in the artifact.
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
@@ -139,25 +143,28 @@ benchesAt = do
   -- Force the shared terms to WHNF (StrictData makes that a full build)
   -- before benchmarking the exec-only variants. WHNF suffices and avoids the
   -- string-formatting work of forcing via printArtifactSimple.
-  _ <- evaluate hTerm
-  _ <- evaluate hTermSimplified
+  _ <- evaluate hTermVar
   _ <- evaluate hTermVarSimplified
   _ <- evaluate artifact
   _ <- evaluate artifactRaw
   return
-    [ -- vjp per call, but with f and arrK fixed and only dt varying.
-      -- The artifact does not depend on dt, so full-laziness floats its
-      -- construction out of the timed loop: this secretly measures ~exec.
-      bench "S-fullpipe-hoisted" $ whnf
-        (\dt -> forceGrad $ vjp f arrK dt) arrB
-      -- vjp per call with the (per-call-varying) input baked into the
-      -- objective function, exactly as the tasty poor man's benchmark does.
-      -- Now the artifact genuinely depends on the varying input, so it is
-      -- rebuilt every iteration: this honestly measures the full pipeline.
-    , bench "S-fullpipe-honest" $ whnf
+    [ -- vjp per call with the (per-call-varying) input baked into the
+      -- objective function, exactly as the tasty poor man's benchmark does:
+      -- the artifact genuinely depends on the varying input, so it is
+      -- rebuilt every iteration and the full pipeline is honestly measured
+      -- (see 'pitfallBenches' for the hoisted variant that secretly isn't).
+      bench "S-fullpipe-honest" $ whnf
         (\a -> forceGrad
                $ vjp (\k -> conv2dSameS k (sconcrete (unConcrete a))) arrK arrB)
         arrA
+      -- The handwritten counterpart: build + vectorize + interpret per
+      -- call; like the tasty benchmark it mirrors, the cotangent is an
+      -- embedded constant and the term is never contracted.
+    , bench "H-fullpipe" $ whnf
+        (\b -> forceGrad $ interpretAstFull emptyEnv
+                 $ conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                   (sconcrete (unConcrete arrA))
+                                   (sconcrete (unConcrete b))) arrB
       -- Building + simplifying the artifact only (the "compilation" cost),
       -- forced to WHNF as in mnistTrainBench2VTC (BenchMnistTools): with
       -- StrictData that suffices to force the build, and unlike forcing via
@@ -166,27 +173,31 @@ benchesAt = do
       -- argument so the body depends on it and criterion re-runs it per call.
     , bench "S-artifact" $ whnf
         (\k -> simplifyArtifactRev (vjpArtifact f k)) arrK
+      -- The handwritten counterpart: building + contracting the term only.
+    , bench "H-term" $ whnf
+        (\a -> simplifyInlineContract
+               $ conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                 (sconcrete (unConcrete a))
+                                 (AstVar varNameB)) arrA
     , bench "S-exec" $ whnf
         (\dt -> forceGrad
                   (vjpInterpretArtifact artifact arrK dt
                    :: Concrete (TKS '[nCout, nCinp, nKh, nKw] Double))) arrB
+      -- The handwritten counterpart: interpret the pre-built contracted
+      -- term, the cotangent bound in the environment like in the artifact.
+    , bench "H-exec" $ whnf
+        (\b -> forceGrad
+               $ interpretAstFull (extendEnv varNameB b emptyEnv)
+                                  hTermVarSimplified) arrB
     , bench "S-exec-raw" $ whnf
         (\dt -> forceGrad
                   (vjpInterpretArtifact artifactRaw arrK dt
                    :: Concrete (TKS '[nCout, nCinp, nKh, nKw] Double))) arrB
-    , bench "H-fullpipe" $ whnf
-        (\b -> forceGrad $ interpretAstFull emptyEnv
-                 $ conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                   (sconcrete (unConcrete arrA))
-                                   (sconcrete (unConcrete b))) arrB
-    , bench "H-exec" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTerm
-    , bench "H-exec-contracted" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTermSimplified
-    , bench "H-exec-var" $ whnf
+      -- The handwritten counterpart: interpret the uncontracted term.
+    , bench "H-exec-raw" $ whnf
         (\b -> forceGrad
                $ interpretAstFull (extendEnv varNameB b emptyEnv)
-                                  hTermVarSimplified) arrB
+                                  hTermVar) arrB
     ]
 
 -- | The full set of timing variants for the gradient with respect to the
@@ -212,12 +223,6 @@ benchesInpAt = do
         -> AstTensor AstMethodLet FullSpan
                      (TKS '[nImgs, nCout, nAh, nAw] Double)
       g a = conv2dSameS (sconcrete (unConcrete arrK)) a
-      hTerm :: AstTensor AstMethodLet FullSpan
-                         (TKS '[nImgs, nCinp, nAh, nAw] Double)
-      hTerm = conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                              (sconcrete (unConcrete arrK))
-                              (sconcrete (unConcrete arrB))
-      hTermSimplified = simplifyInlineContract hTerm
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
@@ -230,42 +235,95 @@ benchesInpAt = do
       artifactRaw = vjpArtifact g arrA
       artifact = simplifyArtifactRev artifactRaw
   -- Force to WHNF (a full build under StrictData) before benchmarking.
-  _ <- evaluate hTerm
-  _ <- evaluate hTermSimplified
+  _ <- evaluate hTermVar
   _ <- evaluate hTermVarSimplified
   _ <- evaluate artifact
   _ <- evaluate artifactRaw
+  -- The same variant pairs as in 'benchesAt', for dInp; see the comments
+  -- there.
   return
-    [ bench "S-fullpipe-hoisted" $ whnf
-        (\dt -> forceGrad $ vjp g arrA dt) arrB
-    , bench "S-fullpipe-honest" $ whnf
+    [ bench "S-fullpipe-honest" $ whnf
         (\k -> forceGrad
                $ vjp (\a -> conv2dSameS (sconcrete (unConcrete k)) a) arrA arrB)
         arrK
-      -- Artifact build+simplify only, WHNF-forced; see 'benchesAt'.
-    , bench "S-artifact" $ whnf
-        (\a -> simplifyArtifactRev (vjpArtifact g a)) arrA
-    , bench "S-exec" $ whnf
-        (\dt -> forceGrad
-                  (vjpInterpretArtifact artifact arrA dt
-                   :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] Double))) arrB
-    , bench "S-exec-raw" $ whnf
-        (\dt -> forceGrad
-                  (vjpInterpretArtifact artifactRaw arrA dt
-                   :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] Double))) arrB
     , bench "H-fullpipe" $ whnf
         (\b -> forceGrad $ interpretAstFull emptyEnv
                  $ conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                                    (sconcrete (unConcrete arrK))
                                    (sconcrete (unConcrete b))) arrB
+    , bench "S-artifact" $ whnf
+        (\a -> simplifyArtifactRev (vjpArtifact g a)) arrA
+    , bench "H-term" $ whnf
+        (\k -> simplifyInlineContract
+               $ conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                 (sconcrete (unConcrete k))
+                                 (AstVar varNameB)) arrK
+    , bench "S-exec" $ whnf
+        (\dt -> forceGrad
+                  (vjpInterpretArtifact artifact arrA dt
+                   :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] Double))) arrB
     , bench "H-exec" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTerm
-    , bench "H-exec-contracted" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTermSimplified
-    , bench "H-exec-var" $ whnf
         (\b -> forceGrad
                $ interpretAstFull (extendEnv varNameB b emptyEnv)
                                   hTermVarSimplified) arrB
+    , bench "S-exec-raw" $ whnf
+        (\dt -> forceGrad
+                  (vjpInterpretArtifact artifactRaw arrA dt
+                   :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] Double))) arrB
+    , bench "H-exec-raw" $ whnf
+        (\b -> forceGrad
+               $ interpretAstFull (extendEnv varNameB b emptyEnv)
+                                  hTermVar) arrB
+    ]
+
+-- | The suite's single recorder of each known benchmarking pitfall, one
+-- variant at one size apiece, kept out of the sweep groups so those
+-- contain only honest, pairwise-comparable variants. The data matches
+-- the corresponding 'benchesAt' group (same seed chain), so each bench
+-- is directly comparable against its honest counterparts there.
+pitfallBenches :: IO [Benchmark]
+pitfallBenches = do
+  let -- The dKrn data of 'benchesAt'; the kernel shape is size-independent,
+      -- so seed2 continues both the 6x6 and the 48x48 chain.
+      (arrK, seed2) =
+        randomValue @(Concrete (TKS '[3, 3, 3, 3] Double)) 0.5 (mkStdGen 42)
+      (arrA6, seed3) =
+        randomValue @(Concrete (TKS '[3, 3, 6, 6] Double)) 0.5 seed2
+      (arrB6, _) =
+        randomValue @(Concrete (TKS '[3, 3, 6, 6] Double)) 0.5 seed3
+      (arrA48, seed3') =
+        randomValue @(Concrete (TKS '[3, 3, 48, 48] Double)) 0.5 seed2
+      (arrB48, _) =
+        randomValue @(Concrete (TKS '[3, 3, 48, 48] Double)) 0.5 seed3'
+      f6 :: AstTensor AstMethodLet FullSpan (TKS '[3, 3, 3, 3] Double)
+         -> AstTensor AstMethodLet FullSpan (TKS '[3, 3, 6, 6] Double)
+      f6 k = conv2dSameS k (sconcrete (unConcrete arrA6))
+      -- The handwritten term with the cotangent embedded as a constant,
+      -- as in the term the tasty poor man's benchmark interprets.
+      hTermConst :: AstTensor AstMethodLet FullSpan (TKS '[3, 3, 3, 3] Double)
+      hTermConst = conv2dSame_dKrn @3 @3 @3 @48 @48 @3 @3
+                                   (sconcrete (unConcrete arrA48))
+                                   (sconcrete (unConcrete arrB48))
+      hTermConstSimplified = simplifyInlineContract hTermConst
+  -- Force to WHNF (a full build under StrictData) before benchmarking.
+  _ <- evaluate hTermConstSimplified
+  return
+    [ -- vjp per call, but with the objective and its input fixed and only
+      -- the cotangent varying. The artifact does not depend on the
+      -- cotangent, so full laziness floats its construction out of the
+      -- timed loop and the artifact tax — the bulk of an honest 6x6 call —
+      -- goes unmeasured. Compare against S-fullpipe-honest (the tax
+      -- included) and S-exec in the 6x6 group.
+      bench "S-fullpipe-hoisted-6x6" $ whnf
+        (\dt -> forceGrad $ vjp f6 arrK dt) arrB6
+      -- As H-exec in the 48x48 group, but with the cotangent embedded as
+      -- a random concrete constant. Records that the embedding is
+      -- harmless: this measures the same as H-exec, i.e., simplification
+      -- does not constant-fold a random embedded constant through the
+      -- gathers — a broadcast constant it would fold, which is why
+      -- benchmark inputs are random.
+    , bench "H-exec-const-48x48" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTermConstSimplified
     ]
 
 -- | Micro-benchmarks for the dominant cost found by profiling: the
@@ -584,9 +642,7 @@ benchesCnnAt = do
   _ <- evaluate artifact
   _ <- evaluate artifactRaw
   return
-    [ bench "S-fullpipe-hoisted" $ whnf
-        (\dt -> forceCnnGrad $ vjp f valsInit dt) arrDt
-    , bench "S-fullpipe-honest" $ whnf
+    [ bench "S-fullpipe-honest" $ whnf
         (\glyph -> forceCnnGrad $ vjp (cnnObjective glyph) valsInit arrDt)
         arrGlyph
     , bench "S-artifact" $ whnf
@@ -621,6 +677,7 @@ main = do
       i192 <- benchesInpAt @3 @3 @3 @192 @192 @3 @3
       bg <- gatherBenches
       bs <- scatterBenches
+      pf <- pitfallBenches
       cnn6 <- benchesCnnAt @6 @6
       cnn12 <- benchesCnnAt @12 @12
       cnn24 <- benchesCnnAt @24 @24
@@ -640,4 +697,5 @@ main = do
         , bgroup "inp-192x192" i192
         , bgroup "gather48" bg
         , bgroup "scatter48" bs
+        , bgroup "pitfalls" pf
         ]
