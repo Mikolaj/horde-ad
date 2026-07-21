@@ -49,6 +49,93 @@
 -- measurement trap (see 'pitfallBenches'), so the sweep groups contain
 -- only honest, pairwise-comparable variants.
 --
+-- The numbered time properties below relate the criterion means of a
+-- full run (the CI smoke run's single iterations cannot support the
+-- tolerance). When analyzing a run, verify them explicitly, in this
+-- order, each up to 10% tolerance: @a == b@ stands for
+-- @abs (a - b) <= max a b / 10@, and @a <= b@ for @a <= 1.1 * b@.
+-- tools/check-conv-bench-props.py, fed criterion's @--csv@ output, is
+-- this list in executable form; keep the two in sync. The list is
+-- minimal — anything derivable from it and the nonnegativity of times,
+-- e.g. @time(S-exec) <= time(S-fullpipe-honest)@ from property 1, is
+-- deliberately not listed.
+--
+-- The properties fall into two groups. Properties 1-3 hold by
+-- accounting alone — a whole equals the sum of its parts and a part
+-- does not exceed its whole — for any engine whatsoever, so a violation
+-- there means the measurement itself broke: work hoisted out of a timed
+-- call, double-counted, or drowned in noise. Properties 4-15 describe
+-- the current engine and may legitimately change when engine code
+-- changes — e.g. once the faster gather kernels designed for issue #123
+-- (the add-zero gather of notes-add-zero-gather.md or the upstream
+-- normalize-in-C) are implemented. They subdivide further:
+--
+-- * property 4 records what the simplifier does /not/ do to embedded
+--   constants — the random-data methodology leans on it, and so does
+--   the left edge of property 2;
+--
+-- * properties 5-6 are invariants any acceptable engine must keep, so
+--   a violation is an engine regression to fix, never a property to
+--   update;
+--
+-- * properties 7-15 record the cost model of the current interpreted
+--   gather and scatter kernels — the rulings behind contractAst's
+--   gather rewrites — and are exactly the ones to re-measure, and
+--   update together with those rewrites, when the kernels change.
+--
+-- 1. @time(S-fullpipe-honest) == time(S-artifact) + time(S-exec)@, in
+--    every group with all three variants (both sweeps at every size and
+--    the @cnn-*@ groups): @vjp@ is artifact construction plus
+--    interpretation, so a violation means work got hoisted out of, or
+--    double-counted in, the timed call.
+-- 2. @time(H-exec-raw) <= time(H-fullpipe)@ and
+--    @time(H-fullpipe) <= time(H-term) + time(H-exec-raw)@, in every
+--    sweep group at every size — only a sandwich, because @H-fullpipe@
+--    interprets the never-contracted term: its build portion is bounded
+--    above by @H-term@, which additionally contracts. The left edge
+--    also leans on property 4, since @H-fullpipe@'s cotangent is an
+--    embedded constant where @H-exec-raw@'s is a variable.
+-- 3. @time(6x6/S-exec) <= time(pitfalls/S-fullpipe-hoisted-6x6)@ and
+--    @time(pitfalls/S-fullpipe-hoisted-6x6) <= time(6x6/S-fullpipe-honest)@
+--    — the hoisted variant does everything exec-only does plus the
+--    adaptor glue, and the honest variant additionally rebuilds the
+--    artifact; that gap is exactly its trap.
+-- 4. @time(pitfalls/H-exec-const-48x48) == time(48x48/H-exec)@:
+--    embedding a random constant cotangent is harmless — simplification
+--    does not fold a random constant through the gathers (a broadcast
+--    constant it would fold).
+-- 5. @time(S-exec) <= time(S-exec-raw)@, in every sweep and @cnn-*@
+--    group, and @time(H-exec) <= time(H-exec-raw)@, in every sweep
+--    group: simplification and contraction must not lose at runtime.
+-- 6. @time(S-exec) <= time(H-exec)@, at every size of both sweeps: since
+--    the gather shn-sort in contractAst, symbolic execution is on par
+--    with the handwritten gradient for dKrn and ahead for dInp.
+-- 7. @time(two-gathers-ad-shm-sorted) == time(two-gathers-ad-orient)@:
+--    gather cost is per output position, so reordering the shm dims
+--    changes nothing.
+-- 8. @time(two-gathers-ad-shn-sorted) <= time(two-gathers-ad-orient)@:
+--    the shn-sort win that the contraction pass banks on.
+-- 9. @time(two-gathers-vec-orient) <= time(two-gathers-ad-orient)@: the
+--    vectorization orientation already has the large dim innermost in
+--    the copied slices.
+-- 10. The four @fused-gather-*@ means are pairwise equal: the fused
+--     form's cost is fixed by its inflated position count, and no
+--     dim-order knob moves it.
+-- 11. @time(two-gathers-ad-orient) <= time(fused-gather-ad-orient)@:
+--     fusing the two gathers is the pessimization.
+-- 12. @time(two-scatters-ad-orient) == time(two-scatters-vec-orient)@:
+--     scatter adds each slice as one flat vector, so the orientation
+--     asymmetry of property 9 cannot appear.
+-- 13. @time(two-scatters-ad-orient) <= time(two-scatters-ad-shn-sorted)@:
+--     the shn-sort must not be extended to scatter.
+-- 14. @time(two-scatters-ad-orient) <= time(fused-scatter-ad-orient)@
+--     and @time(two-scatters-vec-orient) <= time(fused-scatter-vec-orient)@
+--     — both stated, because no equality between the two fused scatters
+--     is pinned: their orientations differ by about the tolerance.
+-- 15. @time(two-scatters-ad-orient) <= time(two-gathers-ad-orient)@:
+--     scatter in its natural orientation is the empirical bound for a
+--     fast gather path.
+--
 -- Setting @PRINT_TERMS=1@ prints the compared gradient programs instead
 -- of benchmarking (see 'printTerms').
 module Main (main) where
