@@ -38,7 +38,7 @@ Benchmarks: `cabal bench shortProdForCI`, `longProdBench`, `shortMnistForCI`, `l
 
 CI protects `convVjpBench` twice: the build step compiles *all* benchmarks (`--enable-benchmarks all`) and the benchmarks step smoke-runs the whole suite with `--benchmark-options='-n 1'` — every benchmark once, no statistics, seconds total. That is build-and-runtime smoke protection, not a perf tripwire: CI criterion numbers are too noisy to gate on.
 
-Source checkouts of ox-arrays and orthotope may be present as siblings (`../ox-arrays`, `../orthotope`) — whether a session sees them depends on the wrapper (sandboxing notes below); when hidden they report "No such file", and the released sources can always be unpacked from the cabal store instead (recipe in the Git-and-tooling notes). The kernels of interest are `mgenerate`, `Data.Array.Strided.Arith` and the `X.replicate` stride tricks. The `packages: ../ox-arrays` line in `cabal.project.local` is often commented out, in which case builds use the released ox-arrays from the cabal store, not the checkout — check before assuming local edits take effect.
+Source checkouts of ox-arrays and orthotope may be present as siblings (`../ox-arrays`, `../orthotope`) — whether a session sees them depends on the wrapper (sandboxing notes below); when hidden they report "No such file", and the released sources can always be unpacked from the cabal store instead (recipe in the build-and-shell-tooling notes). The kernels of interest are `mgenerate`, `Data.Array.Strided.Arith` and the `X.replicate` stride tricks. The `packages: ../ox-arrays` line in `cabal.project.local` is often commented out, in which case builds use the released ox-arrays from the cabal store, not the checkout — check before assuming local edits take effect.
 
 Cabal flags: `with_expensive_assertions` (extra checks), `release` (set for Hackage releases; disables test suites that need unpackaged data), `test_seq` (force parallelTest to run sequentially).
 
@@ -179,13 +179,16 @@ Claude Code sessions on Mikolaj's machine run inside an outer bwrap sandbox wrap
 - System state under wrapper-hidden paths (e.g. `/etc/apparmor.d`) cannot be inspected from inside a session; such diagnosis must be done by Mikolaj in a plain terminal.
 - The nested inner sandbox works only because three things hold: the Ubuntu AppArmor userns restriction is off (`kernel.apparmor_restrict_unprivileged_userns=0`, no `bwrap-userns-restrict` profile), the wrapper mounts the repo read-write, and `enableWeakerNestedSandbox: true` is in effect — inherited from the `sandbox` block of the user-level `~/.claude/settings.json` (a project `sandbox` block wholesale replaces the user-level one — settings objects don't deep-merge — so a project that defines one must repeat the flag). If sandboxed commands start failing at startup, check these three first.
 
-### Git and tooling in sessions
+### Git and GitHub in sessions
 
 - Interactive git is unavailable (tool commands run without a TTY, so editor and prompt loops hang): no `rebase -i`, no `add -i`. Rewrite history with `git reset --mixed <base>` + re-`add`/`commit` per file group, reusing messages via `git commit -C <hash>` / `-F <file>`.
 - Amending a non-HEAD commit (no `rebase -i`): save working-tree edits as a patch, `git reset --hard <target>` (spares untracked files), apply, `--amend`, then `git cherry-pick` the successors (conflict-free when they don't touch the amended files); update recorded hashes.
 - The repo root accumulates many untracked scratch files (`log*`, `*.prof`, `cabal.project.local.bkp*`, `.emacs.desktop*`, etc.); leave them alone and never `git add` them wholesale.
-- `awk` is not on PATH — use `python3` or `grep`.
 - `gh` is not authenticated; for GitHub reads use `curl` against `api.github.com` (on the sandbox network whitelist).
+
+### Build and shell tooling in sessions
+
+- `awk` works through `~/.local/bin/awk → mawk` (added 2026-07-21): `/usr/bin/awk` is an alternatives symlink that dangles in sessions, `/etc/alternatives` being wrapper-hidden.
 - To combine several tasty `-p` patterns, tasty wants awk-style syntax: `-p "/foo/ || /bar/"`.
 - GHC emits warnings only on *recompilation*: a cached, up-to-date build can hide warnings (e.g. `-Wredundant-constraints`) that a full rebuild would surface — don't infer "no warnings" from a clean second build.
 - Keep one set of cabal flags across a session — changing flags (e.g. toggling `--enable-optimization` or `--enable-profiling`) forces a full rebuild of the local packages, though each flag set's dependency builds stay cached in the store. Pass such flags on the command line rather than editing `cabal.project.local`.
