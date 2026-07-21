@@ -181,7 +181,7 @@ Claude Code sessions on Mikolaj's machine run inside an outer bwrap sandbox wrap
 
 ### Git and tooling in sessions
 
-- Interactive git is unavailable (`rebase -i`, `add -i`). Rewrite history with `git reset --mixed <base>` + re-`add`/`commit` per file group, reusing messages via `git commit -C <hash>` / `-F <file>`.
+- Interactive git is unavailable (tool commands run without a TTY, so editor and prompt loops hang): no `rebase -i`, no `add -i`. Rewrite history with `git reset --mixed <base>` + re-`add`/`commit` per file group, reusing messages via `git commit -C <hash>` / `-F <file>`.
 - Amending a non-HEAD commit (no `rebase -i`): save working-tree edits as a patch, `git reset --hard <target>` (spares untracked files), apply, `--amend`, then `git cherry-pick` the successors (conflict-free when they don't touch the amended files); update recorded hashes.
 - The repo root accumulates many untracked scratch files (`log*`, `*.prof`, `cabal.project.local.bkp*`, `.emacs.desktop*`, etc.); leave them alone and never `git add` them wholesale.
 - `awk` is not on PATH — use `python3` or `grep`.
