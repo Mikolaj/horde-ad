@@ -5,7 +5,10 @@
 -- vs handwritten derivatives. The matching deterministic (non-QuickCheck)
 -- gradient-correctness checks live in "TestConvCorrect"; the shared
 -- random-data helpers and handwritten gradients exported below are what that
--- module reuses.
+-- module reuses. The criterion counterpart of the preserving-convolution poor
+-- man's benchmarks (the shrinking and padded ones have none) is
+-- bench/ConvVjpBench.hs; its per-call numbers are the citable ones, the
+-- tasty totals here being wall-clock over 100 runs on a coarse timer.
 module TestConvQuickCheck
   ( testTrees
     -- * Shared with "TestConvCorrect"
@@ -80,7 +83,7 @@ testTrees =
   , testProperty "conv2dPreservingVjp Bench dKrn Handwritten"
                  (quickcheck_conv2dPreservingVjpKrnHandwritten @Double)
   , testProperty "conv2dPreservingVjp Bench dKrn HandwrittenVectorized"
-                 (quickcheck_conv2dPreservingVjpKrnHandwrittenVectorized @Double)
+      (quickcheck_conv2dPreservingVjpKrnHandwrittenVectorized @Double)
   , testProperty "conv2dPreservingVjp Bench dKrn Symbolic"
                  (quickcheck_conv2dPreservingVjpKrnSymbolic @Double)
   , testProperty "conv2dPreservingVjp Bench dKrn Concrete"
@@ -88,7 +91,7 @@ testTrees =
   , testProperty "conv2dPreservingVjp Bench dInp Handwritten"
                  (quickcheck_conv2dPreservingVjpInpHandwritten @Double)
   , testProperty "conv2dPreservingVjp Bench dInp HandwrittenVectorized"
-                 (quickcheck_conv2dPreservingVjpInpHandwrittenVectorized @Double)
+      (quickcheck_conv2dPreservingVjpInpHandwrittenVectorized @Double)
   , testProperty "conv2dPreservingVjp Bench dInp Symbolic"
                  (quickcheck_conv2dPreservingVjpInpSymbolic @Double)
   , testProperty "conv2dPreservingVjp Bench dInp Concrete"
@@ -282,7 +285,8 @@ flip42 arr =
 
 -- | Hand-written reverse derivative of full convolution with respect
 -- to the input image.
--- Example code that horde-ad generates for the same is in testPreservingCNNOPP0bW.
+-- Example code that horde-ad generates for the same is in
+-- testPreservingCNNOPP0bW.
 conv2dPreserving_dInp
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB shB1
             target r.
@@ -308,14 +312,19 @@ conv2dPreserving_dInp arrK arrB =
                           [iCinp, 0 , 0, 0]
       in sfromK $ sdot0 arrBt arrKt
     _ -> error "conv2dPreserving_dInp: impossible pattern needlessly required"
--- Note that
--- > ... in conv2dPreservingS (stranspose @'[1, 0] arrKFlipped) arrB
--- type-checks above, but test fails due to the lack of @- nKh + 1@.
+-- Note that writing the body as
+-- > conv2dPreservingS (stranspose @'[1, 0] arrKFlipped) arrB
+-- type-checks (the same-size convolution keeps the shapes equal), but the
+-- test catches it: conv2dPreservingS's window extends forward from each
+-- position, while the adjoint's must extend backward — the
+-- @- nKh + 1@/@- nKw + 1@ offsets in the slice above.
 
 -- | Hand-written reverse derivative of full convolution with respect
 -- to the kernels.
--- This code vectorized is pretty-printed in test testPreservingCNNOPPKrnHandwritten.
--- Example code that horde-ad generates for the same is in testPreservingCNNOPP0cW.
+-- This code vectorized is pretty-printed in test
+-- testPreservingCNNOPPKrnHandwritten.
+-- Example code that horde-ad generates for the same is in
+-- testPreservingCNNOPP0cW.
 conv2dPreserving_dKrn
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB shB1
             target r.
@@ -395,9 +404,11 @@ static_conv2dPreservingVjp
   -> Bool
 static_conv2dPreservingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
-      -- Note that manual versions don't take one of the arguments (the point
-      -- at which the gradient is taken), because maths (something about
-      -- convolution being linear and so gradient the same everywhere).
+      -- Note that the manual versions don't take one of the arguments (the
+      -- point at which the gradient is taken): convolution is linear in each
+      -- argument separately, so the gradient with respect to one argument
+      -- does not depend on that argument's value — only on the other
+      -- argument and the incoming cotangent, which they do take.
       -- First, the gradient wrt the input image taken at point @arrA@.
       dInp :: Concrete (TKS shA r)
       dInp = conv2dPreserving_dInp
@@ -558,9 +569,7 @@ static_conv2dShrinkingVjp
   -> Bool
 static_conv2dShrinkingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
-      -- Note that manual versions don't take one of the arguments (the point
-      -- at which the gradient is taken), because maths (something about
-      -- convolution being linear and so gradient the same everywhere).
+      -- See the note on the manual versions in static_conv2dPreservingVjp.
       -- First, the gradient wrt the input image taken at point @arrA@.
       dInp :: Concrete (TKS shA r)
       dInp = conv2dShrinking_dInp
@@ -728,9 +737,7 @@ static_conv2dPaddedVjp
   -> Bool
 static_conv2dPaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
-      -- Note that manual versions don't take one of the arguments (the point
-      -- at which the gradient is taken), because maths (something about
-      -- convolution being linear and so gradient the same everywhere).
+      -- See the note on the manual versions in static_conv2dPreservingVjp.
       -- First, the gradient wrt the input image taken at point @arrA@.
       dInp :: Concrete (TKS shA r)
       dInp = conv2dPadded_dInp
@@ -805,7 +812,7 @@ static_conv2dPreservingJvp
   -> Nested.Shaped shA r -> Nested.Shaped shA r
   -> Bool
 static_conv2dPreservingJvp SNat SNat SNat SNat SNat SNat SNat
-                     arrK arrK2 arrA arrA2 =
+                           arrK arrK2 arrA arrA2 =
   let dInp :: Concrete (TKS shB r)
       dInp = conv2dPreservingS (sconcrete arrK) (sconcrete arrA2)
       jvpInp = jvp (conv2dPreservingS (sconcrete arrK))
@@ -1005,7 +1012,7 @@ static_conv2dPreservingVjpKrnHandwritten
   -> Nested.Shaped shB r
   -> Bool
 static_conv2dPreservingVjpKrnHandwritten SNat SNat SNat SNat SNat SNat SNat
-                                   !_arrK arrA arrB =
+                                         !_arrK arrA arrB =
   let dKrn :: Concrete (TKS shK r)
       dKrn = conv2dPreserving_dKrn (sconcrete arrA) (sconcrete arrB)
   in allClose dKrn dKrn 1e-5
@@ -1051,8 +1058,8 @@ static_conv2dPreservingVjpKrnHandwrittenVectorized
   -> Nested.Shaped shA r
   -> Nested.Shaped shB r
   -> Bool
-static_conv2dPreservingVjpKrnHandwrittenVectorized SNat SNat SNat SNat SNat SNat SNat
-                                             !_arrK arrA arrB =
+static_conv2dPreservingVjpKrnHandwrittenVectorized
+  SNat SNat SNat SNat SNat SNat SNat !_arrK arrA arrB =
   let dKrn :: Concrete (TKS shK r)
       dKrn = interpretAstFull emptyEnv
              $ conv2dPreserving_dKrn (sconcrete arrA) (sconcrete arrB)
@@ -1100,7 +1107,7 @@ static_conv2dPreservingVjpKrnSymbolic
   -> Nested.Shaped shB r
   -> Bool
 static_conv2dPreservingVjpKrnSymbolic SNat SNat SNat SNat SNat SNat SNat
-                                arrK arrA arrB =
+                                      arrK arrA arrB =
   let vjpKrn :: Concrete (TKS shK r)
       vjpKrn = vjp (`conv2dPreservingS` sconcrete arrA)
                    (sconcrete arrK) (sconcrete arrB)
@@ -1148,7 +1155,7 @@ static_conv2dPreservingVjpKrnConcrete
   -> Nested.Shaped shB r
   -> Bool
 static_conv2dPreservingVjpKrnConcrete SNat SNat SNat SNat SNat SNat SNat
-                                arrK arrA arrB =
+                                      arrK arrA arrB =
   let cvjpKrn :: Concrete (TKS shK r)
       cvjpKrn = cvjp @_ @_ @_ @Concrete
                      (`conv2dPreservingS` sconcrete arrA)
@@ -1197,7 +1204,7 @@ static_conv2dPreservingVjpInpHandwritten
   -> Nested.Shaped shB r
   -> Bool
 static_conv2dPreservingVjpInpHandwritten SNat SNat SNat SNat SNat SNat SNat
-                                   arrK !_arrA arrB =
+                                         arrK !_arrA arrB =
   let dInp :: Concrete (TKS shA r)
       dInp = conv2dPreserving_dInp (sconcrete arrK) (sconcrete arrB)
   in allClose dInp dInp 1e-5
@@ -1243,8 +1250,8 @@ static_conv2dPreservingVjpInpHandwrittenVectorized
   -> Nested.Shaped shA r
   -> Nested.Shaped shB r
   -> Bool
-static_conv2dPreservingVjpInpHandwrittenVectorized SNat SNat SNat SNat SNat SNat SNat
-                                             arrK !_arrA arrB =
+static_conv2dPreservingVjpInpHandwrittenVectorized
+  SNat SNat SNat SNat SNat SNat SNat arrK !_arrA arrB =
   let dInp :: Concrete (TKS shA r)
       dInp = interpretAstFull emptyEnv
              $ conv2dPreserving_dInp (sconcrete arrK) (sconcrete arrB)
@@ -1292,7 +1299,7 @@ static_conv2dPreservingVjpInpSymbolic
   -> Nested.Shaped shB r
   -> Bool
 static_conv2dPreservingVjpInpSymbolic SNat SNat SNat SNat SNat SNat SNat
-                                arrK arrA arrB =
+                                      arrK arrA arrB =
   let vjpInp :: Concrete (TKS shA r)
       vjpInp = vjp (conv2dPreservingS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrB)
@@ -1340,7 +1347,7 @@ static_conv2dPreservingVjpInpConcrete
   -> Nested.Shaped shB r
   -> Bool
 static_conv2dPreservingVjpInpConcrete SNat SNat SNat SNat SNat SNat SNat
-                                arrK arrA arrB =
+                                      arrK arrA arrB =
   let cvjpInp :: Concrete (TKS shA r)
       cvjpInp = cvjp @_ @_ @_ @Concrete
                      (conv2dPreservingS (sconcrete arrK))
@@ -1395,9 +1402,13 @@ quickcheck_conv2dPreservingVjpInpConcrete =
 -- * @HandwrittenVectorized@ is the handwritten gradient vectorized and
 --   interpreted per run, for comparison.
 --
--- At small sizes the build tax roughly doubles the per-call symbolic time
--- while the amortized cost is competitive with the handwritten one; as the
--- size grows the fixed tax shrinks relative to interpretation.
+-- At small sizes the build tax roughly doubles the per-call symbolic time;
+-- as the size grows the fixed tax shrinks relative to interpretation.
+-- @HandwrittenVectorized@ has no amortized variant to pair with
+-- @SymbolicAmortized@ — with the cotangent embedded as a constant the term
+-- must be rebuilt for every new cotangent — so comparing those two mixes
+-- pipeline stages; the stage-for-stage S/H comparison, with the cotangent
+-- kept as a variable on both sides, lives in bench/ConvVjpBench.hs.
 
 -- | Kernel, input and output-gradient of the poor man's benchmark shapes
 -- (@nImgs = nCinp = nCout = 3@, @nKh = nKw = 3@, @nAh = nAw@), from one seed.
@@ -1444,8 +1455,8 @@ sizedHandwrittenVectorized =
         v :: Concrete (TKS '[3, 3, 3, 3] Double)
         v = interpretAstFull emptyEnv
             $ conv2dPreserving_dKrn @3 @3 @3 @nAw @nAw @3 @3
-                              (sconcrete (unConcrete arrA))
-                              (sconcrete (unConcrete arrB))
+                                    (sconcrete (unConcrete arrA))
+                                    (sconcrete (unConcrete arrB))
     in allClose v v 1e-5
 
 -- The same trio, for the input gradient (the @sscatter@ path).
@@ -1480,8 +1491,8 @@ sizedHandwrittenVectorizedInp =
         v :: Concrete (TKS '[3, 3, nAw, nAw] Double)
         v = interpretAstFull emptyEnv
             $ conv2dPreserving_dInp @3 @3 @3 @nAw @nAw @3 @3
-                              (sconcrete (unConcrete arrK))
-                              (sconcrete (unConcrete arrB))
+                                    (sconcrete (unConcrete arrK))
+                                    (sconcrete (unConcrete arrB))
     in allClose v v 1e-5
 
 
@@ -1489,7 +1500,7 @@ sizedHandwrittenVectorizedInp =
 --
 -- Kernel is 3x3, so with output size @nAw@ the input is @(nAw+2)^2@ (the
 -- output shrinks by the kernel size minus one). The poor man's benchmarks
--- mirror the @Same@ ones above.
+-- mirror the @Preserving@ ones above.
 
 benchDataShrinking
   :: forall nAw r. (KnownNat nAw, NumScalar r)
@@ -1533,7 +1544,7 @@ shrinkingHandwrittenVectorized =
     let (_, arrA, arrB) = benchDataShrinking @nAw @Double seed0
         v :: Concrete (TKS '[3, 3, 3, 3] Double)
         v = interpretAstFull emptyEnv
-            -- @2 @2 here, not @3 @3 as for Same: the shrinking and padded
+            -- @2 @2 here, not @3 @3 as for Preserving: the shrinking and padded
             -- handwritten gradients take nKh1 = nKh - 1, so 2 is a 3x3 kernel.
             $ conv2dShrinking_dKrn @3 @3 @3 @nAw @nAw @2 @2
                                    (sconcrete (unConcrete arrA))
@@ -1579,7 +1590,7 @@ shrinkingHandwrittenVectorizedInp =
 -- * The padded convolution variant
 --
 -- Kernel is 3x3, so with input size @nAw@ the output is @(nAw+2)^2@ (the
--- output grows). The poor man's benchmarks mirror the @Same@ ones above.
+-- output grows). The poor man's benchmarks mirror the @Preserving@ ones above.
 
 benchDataPadded
   :: forall nAw r. (KnownNat nAw, NumScalar r)
