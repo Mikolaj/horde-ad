@@ -2,7 +2,7 @@
 -- | Diagnostic benchmarks for issue #123: separate the cost of the
 -- symbolic AD pipeline (tracing, differentiation, simplification)
 -- from the cost of executing the resulting gradient program,
--- for the gradient of conv2dSameS with respect to the kernels,
+-- for the gradient of conv2dPreservingS with respect to the kernels,
 -- at several array sizes.
 --
 -- Variants, mirroring the QuickCheck poor man's benchmarks
@@ -46,7 +46,7 @@ import HordeAd.Core.Adaptor (randomValue)
 import HordeAd.Core.AstEnv (emptyEnv, extendEnv)
 import HordeAd.Core.AstInterpret (interpretAstFull)
 
-import TestConvQuickCheck (conv2dSame_dInp, conv2dSame_dKrn)
+import TestConvQuickCheck (conv2dPreserving_dInp, conv2dPreserving_dKrn)
 
 forceGrad :: Concrete (TKS sh Double) -> Double
 forceGrad = unConcrete . ssum0
@@ -90,11 +90,11 @@ benchesAt = do
                     0.5 seed3
       f :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
         -> AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCout, nAh, nAw] Double)
-      f k = conv2dSameS k (sconcrete (unConcrete arrA))
+      f k = conv2dPreservingS k (sconcrete (unConcrete arrA))
       -- The handwritten gradient built as an AST term; constructing it
       -- runs vectorization (sbuild at the AST target).
       hTerm :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
-      hTerm = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+      hTerm = conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                               (sconcrete (unConcrete arrA))
                               (sconcrete (unConcrete arrB))
       hTermSimplified = simplifyInlineContract hTerm
@@ -105,7 +105,7 @@ benchesAt = do
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
       hTermVar :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
-      hTermVar = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+      hTermVar = conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                                  (sconcrete (unConcrete arrA))
                                  (AstVar varNameB)
       hTermVarSimplified = simplifyInlineContract hTermVar
@@ -131,7 +131,7 @@ benchesAt = do
       -- rebuilt every iteration: this honestly measures the full pipeline.
     , bench "S-fullpipe-honest" $ whnf
         (\a -> forceGrad
-               $ vjp (\k -> conv2dSameS k (sconcrete (unConcrete a))) arrK arrB)
+               $ vjp (\k -> conv2dPreservingS k (sconcrete (unConcrete a))) arrK arrB)
         arrA
       -- Building + simplifying the artifact only (the "compilation" cost),
       -- forced to WHNF as in mnistTrainBench2VTC (BenchMnistTools): with
@@ -151,7 +151,7 @@ benchesAt = do
                    :: Concrete (TKS '[nCout, nCinp, nKh, nKw] Double))) arrB
     , bench "H-fullpipe" $ whnf
         (\b -> forceGrad $ interpretAstFull emptyEnv
-                 $ conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                 $ conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                                    (sconcrete (unConcrete arrA))
                                    (sconcrete (unConcrete b))) arrB
     , bench "H-exec" $ whnf
@@ -184,9 +184,9 @@ benchesInpAt = do
       -- Differentiate with respect to the input, with the kernel baked in.
       g :: AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCinp, nAh, nAw] Double)
         -> AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCout, nAh, nAw] Double)
-      g a = conv2dSameS (sconcrete (unConcrete arrK)) a
+      g a = conv2dPreservingS (sconcrete (unConcrete arrK)) a
       hTerm :: AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCinp, nAh, nAw] Double)
-      hTerm = conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+      hTerm = conv2dPreserving_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                               (sconcrete (unConcrete arrK))
                               (sconcrete (unConcrete arrB))
       hTermSimplified = simplifyInlineContract hTerm
@@ -194,7 +194,7 @@ benchesInpAt = do
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
       hTermVar :: AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCinp, nAh, nAw] Double)
-      hTermVar = conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+      hTermVar = conv2dPreserving_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                                  (sconcrete (unConcrete arrK))
                                  (AstVar varNameB)
       hTermVarSimplified = simplifyInlineContract hTermVar
@@ -211,7 +211,7 @@ benchesInpAt = do
         (\dt -> forceGrad $ vjp g arrA dt) arrB
     , bench "S-fullpipe-honest" $ whnf
         (\k -> forceGrad
-               $ vjp (\a -> conv2dSameS (sconcrete (unConcrete k)) a) arrA arrB)
+               $ vjp (\a -> conv2dPreservingS (sconcrete (unConcrete k)) a) arrA arrB)
         arrK
       -- Artifact build+simplify only, WHNF-forced; see 'benchesAt'.
     , bench "S-artifact" $ whnf
@@ -226,7 +226,7 @@ benchesInpAt = do
                    :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] Double))) arrB
     , bench "H-fullpipe" $ whnf
         (\b -> forceGrad $ interpretAstFull emptyEnv
-                 $ conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                 $ conv2dPreserving_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                                    (sconcrete (unConcrete arrK))
                                    (sconcrete (unConcrete b))) arrB
     , bench "H-exec" $ whnf
@@ -477,9 +477,9 @@ printTerms = do
                     0.5 seed3
       f :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
         -> AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCout, nAh, nAw] Double)
-      f k = conv2dSameS k (sconcrete (unConcrete arrA))
+      f k = conv2dPreservingS k (sconcrete (unConcrete arrA))
       hTerm :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
-      hTerm = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+      hTerm = conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                               (sconcrete (unConcrete arrA))
                               (sconcrete (unConcrete arrB))
       hTermSimplified = simplifyInlineContract hTerm
@@ -487,7 +487,7 @@ printTerms = do
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
       hTermVar :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
-      hTermVar = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+      hTermVar = conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
                                  (sconcrete (unConcrete arrA))
                                  (AstVar varNameB)
       artifact = simplifyArtifactRev (vjpArtifact f arrK)

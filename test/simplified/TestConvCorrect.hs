@@ -27,7 +27,7 @@ import EqEpsilon
 
 import TestConvQuickCheck
   ( benchData, benchDataShrinking, benchDataPadded
-  , conv2dSame_dKrn, conv2dSame_dInp
+  , conv2dPreserving_dKrn, conv2dPreserving_dInp
   , conv2dShrinking_dKrn, conv2dShrinking_dInp
   , conv2dPadded_dKrn, conv2dPadded_dInp )
 
@@ -38,14 +38,14 @@ testTrees =
   -- gradient must agree with the handwritten one — and, at the small size,
   -- with the concrete non-symbolic AD too — so the path those poor man's
   -- benchmarks time is verified correct at scale, not only timed.
-  -- Same convolution: input and output the same size.
-  [ testCase "conv2dSameVjp dKrn correct 6" (conv2dSameVjpKrnCorrect @6)
-  , testCase "conv2dSameVjp dKrn correct 24" (conv2dSameVjpKrnCorrect @24)
-  , testCase "conv2dSameVjp dKrn correct 96" (conv2dSameVjpKrnCorrect @96)
-  , testCase "conv2dSameVjp dInp correct 6" (conv2dSameVjpInpCorrect @6)
-  , testCase "conv2dSameVjp dInp correct 24" (conv2dSameVjpInpCorrect @24)
-  , testCase "conv2dSameVjp dInp correct 96" (conv2dSameVjpInpCorrect @96)
-  , testCase "conv2dSameVjp correct vs concrete 6" conv2dSameVjpConcrete6
+  -- Preserving convolution: input and output the same size.
+  [ testCase "conv2dPreservingVjp dKrn correct 6" (conv2dPreservingVjpKrnCorrect @6)
+  , testCase "conv2dPreservingVjp dKrn correct 24" (conv2dPreservingVjpKrnCorrect @24)
+  , testCase "conv2dPreservingVjp dKrn correct 96" (conv2dPreservingVjpKrnCorrect @96)
+  , testCase "conv2dPreservingVjp dInp correct 6" (conv2dPreservingVjpInpCorrect @6)
+  , testCase "conv2dPreservingVjp dInp correct 24" (conv2dPreservingVjpInpCorrect @24)
+  , testCase "conv2dPreservingVjp dInp correct 96" (conv2dPreservingVjpInpCorrect @96)
+  , testCase "conv2dPreservingVjp correct vs concrete 6" conv2dPreservingVjpConcrete6
   -- Shrinking convolution: input larger than output.
   , testCase "conv2dShrinkingVjp dKrn correct 6" (conv2dShrinkingVjpKrnCorrect @6)
   , testCase "conv2dShrinkingVjp dKrn correct 24" (conv2dShrinkingVjpKrnCorrect @24)
@@ -65,44 +65,44 @@ testTrees =
   ]
 
 
--- * The same convolution variant
+-- * The preserving convolution variant
 
-conv2dSameVjpKrnCorrect :: forall nAw. KnownNat nAw => Assertion
-conv2dSameVjpKrnCorrect =
+conv2dPreservingVjpKrnCorrect :: forall nAw. KnownNat nAw => Assertion
+conv2dPreservingVjpKrnCorrect =
   let (arrK, arrA, arrB) = benchData @nAw @Double 42
       handwritten, symbolic :: Concrete (TKS '[3, 3, 3, 3] Double)
-      handwritten = conv2dSame_dKrn @3 @3 @3 @nAw @nAw @3 @3
+      handwritten = conv2dPreserving_dKrn @3 @3 @3 @nAw @nAw @3 @3
                                     (sconcrete (unConcrete arrA))
                                     (sconcrete (unConcrete arrB))
-      symbolic = vjp (`conv2dSameS` sconcrete (unConcrete arrA))
+      symbolic = vjp (`conv2dPreservingS` sconcrete (unConcrete arrA))
                      (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
   in assertEqualUpToEpsilon 1e-5 handwritten symbolic
 
-conv2dSameVjpInpCorrect :: forall nAw. KnownNat nAw => Assertion
-conv2dSameVjpInpCorrect =
+conv2dPreservingVjpInpCorrect :: forall nAw. KnownNat nAw => Assertion
+conv2dPreservingVjpInpCorrect =
   let (arrK, arrA, arrB) = benchData @nAw @Double 42
       handwritten, symbolic :: Concrete (TKS '[3, 3, nAw, nAw] Double)
-      handwritten = conv2dSame_dInp @3 @3 @3 @nAw @nAw @3 @3
+      handwritten = conv2dPreserving_dInp @3 @3 @3 @nAw @nAw @3 @3
                                     (sconcrete (unConcrete arrK))
                                     (sconcrete (unConcrete arrB))
-      symbolic = vjp (conv2dSameS (sconcrete (unConcrete arrK)))
+      symbolic = vjp (conv2dPreservingS (sconcrete (unConcrete arrK)))
                      (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
   in assertEqualUpToEpsilon 1e-5 handwritten symbolic
 
 -- At the small size, also check the symbolic gradient against the concrete
 -- (non-symbolic) AD, which is too slow to run at the larger sizes.
-conv2dSameVjpConcrete6 :: Assertion
-conv2dSameVjpConcrete6 =
+conv2dPreservingVjpConcrete6 :: Assertion
+conv2dPreservingVjpConcrete6 =
   let (arrK, arrA, arrB) = benchData @6 @Double 42
       hKrn, cKrn :: Concrete (TKS '[3, 3, 3, 3] Double)
-      hKrn = conv2dSame_dKrn @3 @3 @3 @6 @6 @3 @3
+      hKrn = conv2dPreserving_dKrn @3 @3 @3 @6 @6 @3 @3
                              (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
-      cKrn = cvjp @_ @_ @_ @Concrete (`conv2dSameS` sconcrete (unConcrete arrA))
+      cKrn = cvjp @_ @_ @_ @Concrete (`conv2dPreservingS` sconcrete (unConcrete arrA))
                   (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
       hInp, cInp :: Concrete (TKS '[3, 3, 6, 6] Double)
-      hInp = conv2dSame_dInp @3 @3 @3 @6 @6 @3 @3
+      hInp = conv2dPreserving_dInp @3 @3 @3 @6 @6 @3 @3
                              (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
-      cInp = cvjp @_ @_ @_ @Concrete (conv2dSameS (sconcrete (unConcrete arrK)))
+      cInp = cvjp @_ @_ @_ @Concrete (conv2dPreservingS (sconcrete (unConcrete arrK)))
                   (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
   in do assertEqualUpToEpsilon 1e-5 hKrn cKrn
         assertEqualUpToEpsilon 1e-5 hInp cInp
