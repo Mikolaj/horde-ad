@@ -36,8 +36,8 @@ main = do
 
 tests :: TestTree
 tests =
-  testGroup "Full set of tests for simplified horde-ad"
-    [ testGroup "Short_tests"  -- TODO: inOrderTestGroup needed here?
+  inOrderTestGroup "Full set of tests for simplified horde-ad"
+    [ inOrderTestGroup "Short_tests"
         (TestAdaptorSimplified.testTrees
          ++ TestConvCorrect.testTrees
          ++ TestConvSimplified.testTrees
@@ -45,7 +45,7 @@ tests =
          ++ TestHighRankSimplified.testTrees
          ++ TestRevFwdFold.testTrees
          ++ TestMnistPP.testTrees)
-    , testGroup "Long_tests"
+    , inOrderTestGroup "Long_tests"
         (TestMnistCNNR.testTrees
          ++ TestMnistCNNS.testTrees
          ++ TestMnistFCNNR.testTrees
