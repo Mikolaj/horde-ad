@@ -149,10 +149,10 @@ softMax1 d =
 --
 -- BTW, the indexing lower bounds in the code are spurious,
 -- so they get simplified away in the resulting AST program.
-conv2dSame
+conv2dPreserving
   :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
-conv2dSame arrK arrA =
+conv2dPreserving arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
       [nCout, nCinpK, nKh, nKw] = rshape arrK
       nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
@@ -163,7 +163,7 @@ conv2dSame arrK arrA =
       let arrAt = slicez shK1 arrA [iImg, 0, iBh, iBw]
           arrKt = slicez shK1 arrK [iCout, 0, 0, 0]
       in rfromK $ rdot0 arrAt arrKt
-    _ -> error "conv2dSame: impossible pattern needlessly required"
+    _ -> error "conv2dPreserving: impossible pattern needlessly required"
 
 -- | Full convolution with only enough padding to ensure all output points
 -- are affected by the same number of input points,

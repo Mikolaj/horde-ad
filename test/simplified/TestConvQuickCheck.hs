@@ -5,12 +5,15 @@
 -- vs handwritten derivatives. The matching deterministic (non-QuickCheck)
 -- gradient-correctness checks live in "TestConvCorrect"; the shared
 -- random-data helpers and handwritten gradients exported below are what that
--- module reuses.
+-- module reuses. The criterion counterpart of the preserving-convolution poor
+-- man's benchmarks (the shrinking and padded ones have none) is
+-- bench/ConvVjpBench.hs; its per-call numbers are the citable ones, the
+-- tasty totals here being wall-clock over 100 runs on a coarse timer.
 module TestConvQuickCheck
   ( testTrees
     -- * Shared with "TestConvCorrect"
   , benchData, benchDataShrinking, benchDataPadded
-  , conv2dSame_dKrn, conv2dSame_dInp
+  , conv2dPreserving_dKrn, conv2dPreserving_dInp
   , conv2dShrinking_dKrn, conv2dShrinking_dInp
   , conv2dPadded_dKrn, conv2dPadded_dInp
   ) where
@@ -45,12 +48,12 @@ import MnistFcnnRanked2 qualified
 testTrees :: [TestTree]
 testTrees =
   [ tensorADOnceMnistTests2
-  , testCase "conv2dSameVjp dInp" test_conv2dSameVjp_dInp
-  , testCase "conv2dSameVjp dKrn" test_conv2dSameVjp_dKrn
-  , testProperty "conv2dSameVjp Quickcheck Double"
-                 (quickcheck_conv2dSameVjp @Double)
-  , testProperty "conv2dSameVjp Quickcheck Float"
-                 (quickcheck_conv2dSameVjp @Float)
+  , testCase "conv2dPreservingVjp dInp" test_conv2dPreservingVjp_dInp
+  , testCase "conv2dPreservingVjp dKrn" test_conv2dPreservingVjp_dKrn
+  , testProperty "conv2dPreservingVjp Quickcheck Double"
+                 (quickcheck_conv2dPreservingVjp @Double)
+  , testProperty "conv2dPreservingVjp Quickcheck Float"
+                 (quickcheck_conv2dPreservingVjp @Float)
   , testCase "conv2dShrinkingVjp dInp" test_conv2dShrinkingVjp_dInp
   , testCase "conv2dShrinkingVjp dKrn" test_conv2dShrinkingVjp_dKrn
   , testProperty "conv2dShrinkingVjp Quickcheck Double"
@@ -63,10 +66,10 @@ testTrees =
                  (quickcheck_conv2dPaddedVjp @Double)
   , testProperty "conv2dPaddedVjp Quickcheck Float"
                  (quickcheck_conv2dPaddedVjp @Float)
-  , testProperty "conv2dSameJvp Quickcheck Double"
-                 (quickcheck_conv2dSameJvp @Double)
-  , testProperty "conv2dSameJvp Quickcheck Float"
-                 (quickcheck_conv2dSameJvp @Float)
+  , testProperty "conv2dPreservingJvp Quickcheck Double"
+                 (quickcheck_conv2dPreservingJvp @Double)
+  , testProperty "conv2dPreservingJvp Quickcheck Float"
+                 (quickcheck_conv2dPreservingJvp @Float)
   , testProperty "conv2dShrinkingJvp Quickcheck Double"
                  (quickcheck_conv2dShrinkingJvp @Double)
   , testProperty "conv2dShrinkingJvp Quickcheck Float"
@@ -75,53 +78,53 @@ testTrees =
                  (quickcheck_conv2dPaddedJvp @Double)
   , testProperty "conv2dPaddedJvp Quickcheck Float"
                  (quickcheck_conv2dPaddedJvp @Float)
-  , testProperty "conv2dSameVjp Bench dKrn Handwritten warmup"
-                 (quickcheck_conv2dSameVjpKrnHandwritten @Double)
-  , testProperty "conv2dSameVjp Bench dKrn Handwritten"
-                 (quickcheck_conv2dSameVjpKrnHandwritten @Double)
-  , testProperty "conv2dSameVjp Bench dKrn HandwrittenVectorized"
-                 (quickcheck_conv2dSameVjpKrnHandwrittenVectorized @Double)
-  , testProperty "conv2dSameVjp Bench dKrn Symbolic"
-                 (quickcheck_conv2dSameVjpKrnSymbolic @Double)
-  , testProperty "conv2dSameVjp Bench dKrn Concrete"
-                 (quickcheck_conv2dSameVjpKrnConcrete @Double)
-  , testProperty "conv2dSameVjp Bench dInp Handwritten"
-                 (quickcheck_conv2dSameVjpInpHandwritten @Double)
-  , testProperty "conv2dSameVjp Bench dInp HandwrittenVectorized"
-                 (quickcheck_conv2dSameVjpInpHandwrittenVectorized @Double)
-  , testProperty "conv2dSameVjp Bench dInp Symbolic"
-                 (quickcheck_conv2dSameVjpInpSymbolic @Double)
-  , testProperty "conv2dSameVjp Bench dInp Concrete"
-                 (quickcheck_conv2dSameVjpInpConcrete @Double)
+  , testProperty "conv2dPreservingVjp Bench dKrn Handwritten warmup"
+                 (quickcheck_conv2dPreservingVjpKrnHandwritten @Double)
+  , testProperty "conv2dPreservingVjp Bench dKrn Handwritten"
+                 (quickcheck_conv2dPreservingVjpKrnHandwritten @Double)
+  , testProperty "conv2dPreservingVjp Bench dKrn HandwrittenVectorized"
+      (quickcheck_conv2dPreservingVjpKrnHandwrittenVectorized @Double)
+  , testProperty "conv2dPreservingVjp Bench dKrn Symbolic"
+                 (quickcheck_conv2dPreservingVjpKrnSymbolic @Double)
+  , testProperty "conv2dPreservingVjp Bench dKrn Concrete"
+                 (quickcheck_conv2dPreservingVjpKrnConcrete @Double)
+  , testProperty "conv2dPreservingVjp Bench dInp Handwritten"
+                 (quickcheck_conv2dPreservingVjpInpHandwritten @Double)
+  , testProperty "conv2dPreservingVjp Bench dInp HandwrittenVectorized"
+      (quickcheck_conv2dPreservingVjpInpHandwrittenVectorized @Double)
+  , testProperty "conv2dPreservingVjp Bench dInp Symbolic"
+                 (quickcheck_conv2dPreservingVjpInpSymbolic @Double)
+  , testProperty "conv2dPreservingVjp Bench dInp Concrete"
+                 (quickcheck_conv2dPreservingVjpInpConcrete @Double)
   -- Size-scaled poor man's benchmarks (see the definitions below), for the
   -- same, shrinking and padded convolutions, and for both the kernel and the
   -- input gradient. The matching gradient-correctness checks live in
   -- "TestConvCorrect", kept separate so the testsuite's non-QuickCheck, more
   -- deterministically timed tests can be compared as a group.
-  -- Same convolution: input and output the same size.
-  , testProperty "conv2dSameVjp Bench dKrn 6 SymbolicPerCall"
+  -- Preserving convolution: input and output the same size.
+  , testProperty "conv2dPreservingVjp Bench dKrn 6 SymbolicPerCall"
                  (sizedSymbolicPerCall @6)
-  , testProperty "conv2dSameVjp Bench dKrn 6 SymbolicAmortized"
+  , testProperty "conv2dPreservingVjp Bench dKrn 6 SymbolicAmortized"
                  (sizedSymbolicAmortized @6)
-  , testProperty "conv2dSameVjp Bench dKrn 6 HandwrittenVectorized"
+  , testProperty "conv2dPreservingVjp Bench dKrn 6 HandwrittenVectorized"
                  (sizedHandwrittenVectorized @6)
-  , testProperty "conv2dSameVjp Bench dKrn 24 SymbolicPerCall"
+  , testProperty "conv2dPreservingVjp Bench dKrn 24 SymbolicPerCall"
                  (sizedSymbolicPerCall @24)
-  , testProperty "conv2dSameVjp Bench dKrn 24 SymbolicAmortized"
+  , testProperty "conv2dPreservingVjp Bench dKrn 24 SymbolicAmortized"
                  (sizedSymbolicAmortized @24)
-  , testProperty "conv2dSameVjp Bench dKrn 24 HandwrittenVectorized"
+  , testProperty "conv2dPreservingVjp Bench dKrn 24 HandwrittenVectorized"
                  (sizedHandwrittenVectorized @24)
-  , testProperty "conv2dSameVjp Bench dInp 6 SymbolicPerCall"
+  , testProperty "conv2dPreservingVjp Bench dInp 6 SymbolicPerCall"
                  (sizedSymbolicPerCallInp @6)
-  , testProperty "conv2dSameVjp Bench dInp 6 SymbolicAmortized"
+  , testProperty "conv2dPreservingVjp Bench dInp 6 SymbolicAmortized"
                  (sizedSymbolicAmortizedInp @6)
-  , testProperty "conv2dSameVjp Bench dInp 6 HandwrittenVectorized"
+  , testProperty "conv2dPreservingVjp Bench dInp 6 HandwrittenVectorized"
                  (sizedHandwrittenVectorizedInp @6)
-  , testProperty "conv2dSameVjp Bench dInp 24 SymbolicPerCall"
+  , testProperty "conv2dPreservingVjp Bench dInp 24 SymbolicPerCall"
                  (sizedSymbolicPerCallInp @24)
-  , testProperty "conv2dSameVjp Bench dInp 24 SymbolicAmortized"
+  , testProperty "conv2dPreservingVjp Bench dInp 24 SymbolicAmortized"
                  (sizedSymbolicAmortizedInp @24)
-  , testProperty "conv2dSameVjp Bench dInp 24 HandwrittenVectorized"
+  , testProperty "conv2dPreservingVjp Bench dInp 24 HandwrittenVectorized"
                  (sizedHandwrittenVectorizedInp @24)
   -- Shrinking convolution: input larger than output.
   , testProperty "conv2dShrinkingVjp Bench dKrn 6 SymbolicPerCall"
@@ -282,8 +285,9 @@ flip42 arr =
 
 -- | Hand-written reverse derivative of full convolution with respect
 -- to the input image.
--- Example code that horde-ad generates for the same is in testSameCNNOPP0bW.
-conv2dSame_dInp
+-- Example code that horde-ad generates for the same is in
+-- testPreservingCNNOPP0bW.
+conv2dPreserving_dInp
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB shB1
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
@@ -296,7 +300,7 @@ conv2dSame_dInp
   => target (TKS shK r)
   -> target (TKS shB r)
   -> target (TKS shA r)
-conv2dSame_dInp arrK arrB =
+conv2dPreserving_dInp arrK arrB =
   let arrKFlipped = flip42 arrK
       nKh = valueOf @nKh
       nKw = valueOf @nKw
@@ -307,16 +311,21 @@ conv2dSame_dInp arrK arrB =
           arrKt = slicezS (stranspose @'[1, 0] arrKFlipped)
                           [iCinp, 0 , 0, 0]
       in sfromK $ sdot0 arrBt arrKt
-    _ -> error "conv2dSame_dInp: impossible pattern needlessly required"
--- Note that
--- > ... in conv2dSameS (stranspose @'[1, 0] arrKFlipped) arrB
--- type-checks above, but test fails due to the lack of @- nKh + 1@.
+    _ -> error "conv2dPreserving_dInp: impossible pattern needlessly required"
+-- Note that writing the body as
+-- > conv2dPreservingS (stranspose @'[1, 0] arrKFlipped) arrB
+-- type-checks (the same-size convolution keeps the shapes equal), but the
+-- test catches it: conv2dPreservingS's window extends forward from each
+-- position, while the adjoint's must extend backward — the
+-- @- nKh + 1@/@- nKw + 1@ offsets in the slice above.
 
 -- | Hand-written reverse derivative of full convolution with respect
 -- to the kernels.
--- This code vectorized is pretty-printed in test testSameCNNOPPKrnHandwritten.
--- Example code that horde-ad generates for the same is in testSameCNNOPP0cW.
-conv2dSame_dKrn
+-- This code vectorized is pretty-printed in test
+-- testPreservingCNNOPPKrnHandwritten.
+-- Example code that horde-ad generates for the same is in
+-- testPreservingCNNOPP0cW.
+conv2dPreserving_dKrn
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB shB1
             target r.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
@@ -329,7 +338,7 @@ conv2dSame_dKrn
   => target (TKS shA r)
   -> target (TKS shB r)
   -> target (TKS shK r)
-conv2dSame_dKrn arrA arrB =
+conv2dPreserving_dKrn arrA arrB =
   sbuild @shK $ \case
     [iCout, iCinp, iKh, iKw] ->
       let arrBt = slicezS @shB1 arrB
@@ -337,10 +346,10 @@ conv2dSame_dKrn arrA arrB =
           arrAt = slicezS arrA
                           [0, iCinp, iKh, iKw]
       in sfromK $ sdot0 arrBt arrAt
-    _ -> error "conv2dSame_dKrn: impossible pattern needlessly required"
+    _ -> error "conv2dPreserving_dKrn: impossible pattern needlessly required"
 
-test_conv2dSameVjp_dInp :: Assertion
-test_conv2dSameVjp_dInp =
+test_conv2dPreservingVjp_dInp :: Assertion
+test_conv2dPreservingVjp_dInp =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
       arrA = Nested.sreplicatePrim knownShS 1.1
@@ -352,14 +361,14 @@ test_conv2dSameVjp_dInp =
       arrB = Nested.sreplicatePrim knownShS (-3.3)
       -- Compare the AD version against the manual derivative.
       dInp :: Concrete (TKS '[5, 2, 4, 8] Double)
-      dInp = conv2dSame_dInp (sconcrete arrK) (sconcrete arrB)
+      dInp = conv2dPreserving_dInp (sconcrete arrK) (sconcrete arrB)
       vjpInp = cvjp @_ @_ @_ @Concrete
-                    (conv2dSameS (sconcrete arrK))
+                    (conv2dPreservingS (sconcrete arrK))
                     (sconcrete arrA) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dInp vjpInp
 
-test_conv2dSameVjp_dKrn :: Assertion
-test_conv2dSameVjp_dKrn =
+test_conv2dPreservingVjp_dKrn :: Assertion
+test_conv2dPreservingVjp_dKrn =
   let -- Input of shape: batch x chas x height x width
       arrA :: Nested.Shaped '[5, 2, 4, 8] Double
       arrA = Nested.sreplicatePrim knownShS 1.1
@@ -371,13 +380,13 @@ test_conv2dSameVjp_dKrn =
       arrB = Nested.sreplicatePrim knownShS (-3.3)
       -- Compare the AD version against the manual derivative.
       dKrn :: Concrete (TKS '[7, 2, 1, 3] Double)
-      dKrn = conv2dSame_dKrn (sconcrete arrA) (sconcrete arrB)
+      dKrn = conv2dPreserving_dKrn (sconcrete arrA) (sconcrete arrB)
       vjpKrn = cvjp @_ @_ @_ @Concrete
-                    (`conv2dSameS` sconcrete arrA)
+                    (`conv2dPreservingS` sconcrete arrA)
                     (sconcrete arrK) (sconcrete arrB)
   in assertEqualUpToEpsilon 1e-7 dKrn vjpKrn
 
-static_conv2dSameVjp
+static_conv2dPreservingVjp
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
      ( NumScalar r, Differentiable r
      , shK ~ '[nCout, nCinp, nKh, nKw]
@@ -393,38 +402,40 @@ static_conv2dSameVjp
        -- ^ Output gradient of shape:
        --     batch x chas x output_height x output_width
   -> Bool
-static_conv2dSameVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
+static_conv2dPreservingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
-      -- Note that manual versions don't take one of the arguments (the point
-      -- at which the gradient is taken), because maths (something about
-      -- convolution being linear and so gradient the same everywhere).
+      -- Note that the manual versions don't take one of the arguments (the
+      -- point at which the gradient is taken): convolution is linear in each
+      -- argument separately, so the gradient with respect to one argument
+      -- does not depend on that argument's value — only on the other
+      -- argument and the incoming cotangent, which they do take.
       -- First, the gradient wrt the input image taken at point @arrA@.
       dInp :: Concrete (TKS shA r)
-      dInp = conv2dSame_dInp
+      dInp = conv2dPreserving_dInp
                (sconcrete arrK) (sconcrete arrB)  -- handwritten
-      vjpInp = vjp (conv2dSameS (sconcrete arrK))
+      vjpInp = vjp (conv2dPreservingS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrB)  -- symbolic
       cvjpInp = cvjp @_ @_ @_ @Concrete
-                     (conv2dSameS (sconcrete arrK))
+                     (conv2dPreservingS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrB)  -- concrete
       -- Second, the gradient wrt the kernels taken at point @arrK@.
       dKrn :: Concrete (TKS shK r)
-      dKrn = conv2dSame_dKrn
+      dKrn = conv2dPreserving_dKrn
                (sconcrete arrA) (sconcrete arrB)  -- handwritten
-      vjpKrn = vjp (`conv2dSameS` sconcrete arrA)
+      vjpKrn = vjp (`conv2dPreservingS` sconcrete arrA)
                    (sconcrete arrK) (sconcrete arrB)  -- symbolic
       cvjpKrn = cvjp @_ @_ @_ @Concrete
-                     (`conv2dSameS` sconcrete arrA)
+                     (`conv2dPreservingS` sconcrete arrA)
                      (sconcrete arrK) (sconcrete arrB)  -- concrete
   in allClose vjpInp dInp 1e-5  -- 1e-7 is too much for Float
      && allClose cvjpInp dInp 1e-5
      && allClose vjpKrn dKrn 1e-5
      && allClose cvjpKrn dKrn 1e-5
 
-quickcheck_conv2dSameVjp
+quickcheck_conv2dPreservingVjp
   :: forall r. (NumScalar r, Differentiable r)
   => Property
-quickcheck_conv2dSameVjp =
+quickcheck_conv2dPreservingVjp =
   forAll (choose (0, 5)) $ \nImgs' ->
   forAll (choose (0, 5)) $ \nCinp' ->
   forAll (choose (0, 5)) $ \nCout' ->
@@ -448,7 +459,7 @@ quickcheck_conv2dSameVjp =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dSameVjp
+        in static_conv2dPreservingVjp
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
 
@@ -558,9 +569,7 @@ static_conv2dShrinkingVjp
   -> Bool
 static_conv2dShrinkingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
-      -- Note that manual versions don't take one of the arguments (the point
-      -- at which the gradient is taken), because maths (something about
-      -- convolution being linear and so gradient the same everywhere).
+      -- See the note on the manual versions in static_conv2dPreservingVjp.
       -- First, the gradient wrt the input image taken at point @arrA@.
       dInp :: Concrete (TKS shA r)
       dInp = conv2dShrinking_dInp
@@ -728,9 +737,7 @@ static_conv2dPaddedVjp
   -> Bool
 static_conv2dPaddedVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
   let -- Compare the AD version against the manual derivative.
-      -- Note that manual versions don't take one of the arguments (the point
-      -- at which the gradient is taken), because maths (something about
-      -- convolution being linear and so gradient the same everywhere).
+      -- See the note on the manual versions in static_conv2dPreservingVjp.
       -- First, the gradient wrt the input image taken at point @arrA@.
       dInp :: Concrete (TKS shA r)
       dInp = conv2dPadded_dInp
@@ -793,7 +800,7 @@ quickcheck_conv2dPaddedVjp =
     in b
 
 -- Forward derivative.
-static_conv2dSameJvp
+static_conv2dPreservingJvp
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
      ( NumScalar r, Differentiable r
      , shK ~ '[nCout, nCinp, nKh, nKw]
@@ -804,31 +811,31 @@ static_conv2dSameJvp
   -> Nested.Shaped shK r -> Nested.Shaped shK r
   -> Nested.Shaped shA r -> Nested.Shaped shA r
   -> Bool
-static_conv2dSameJvp SNat SNat SNat SNat SNat SNat SNat
-                     arrK arrK2 arrA arrA2 =
+static_conv2dPreservingJvp SNat SNat SNat SNat SNat SNat SNat
+                           arrK arrK2 arrA arrA2 =
   let dInp :: Concrete (TKS shB r)
-      dInp = conv2dSameS (sconcrete arrK) (sconcrete arrA2)
-      jvpInp = jvp (conv2dSameS (sconcrete arrK))
+      dInp = conv2dPreservingS (sconcrete arrK) (sconcrete arrA2)
+      jvpInp = jvp (conv2dPreservingS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrA2)
       cjvpInp = cjvp @_ @_ @_ @Concrete
-                     (conv2dSameS (sconcrete arrK))
+                     (conv2dPreservingS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrA2)
       dKrn :: Concrete (TKS shB r)
-      dKrn = conv2dSameS (sconcrete arrK2) (sconcrete arrA)
-      jvpKrn = jvp (`conv2dSameS` sconcrete arrA)
+      dKrn = conv2dPreservingS (sconcrete arrK2) (sconcrete arrA)
+      jvpKrn = jvp (`conv2dPreservingS` sconcrete arrA)
                    (sconcrete arrK) (sconcrete arrK2)
       cjvpKrn = cjvp @_ @_ @_ @Concrete
-                     (`conv2dSameS` sconcrete arrA)
+                     (`conv2dPreservingS` sconcrete arrA)
                      (sconcrete arrK) (sconcrete arrK2)
   in allClose jvpInp dInp 1e-5  -- 1e-7 is too much for Float
      && allClose cjvpInp dInp 1e-5
      && allClose jvpKrn dKrn 1e-5
      && allClose cjvpKrn dKrn 1e-5
 
-quickcheck_conv2dSameJvp
+quickcheck_conv2dPreservingJvp
   :: forall r. (NumScalar r, Differentiable r)
   => Property
-quickcheck_conv2dSameJvp =
+quickcheck_conv2dPreservingJvp =
   forAll (choose (0, 5)) $ \nImgs' ->
   forAll (choose (0, 5)) $ \nCinp' ->
   forAll (choose (0, 5)) $ \nCout' ->
@@ -852,7 +859,7 @@ quickcheck_conv2dSameJvp =
             arrA, arrA2 :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] r)
             (arrA, seed4) = randomValue 0.5 seed3
             (arrA2, _) = randomValue 0.5 seed4
-        in static_conv2dSameJvp
+        in static_conv2dPreservingJvp
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrK2)
              (unConcrete arrA) (unConcrete arrA2)
@@ -992,7 +999,7 @@ quickcheck_conv2dPaddedJvp =
 
 -- * Tests as poor man's benchmarks of handwritten vs generated gradients
 
-static_conv2dSameVjpKrnHandwritten
+static_conv2dPreservingVjpKrnHandwritten
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
      ( NumScalar r, Differentiable r
      , shK ~ '[nCout, nCinp, nKh, nKw]
@@ -1004,16 +1011,16 @@ static_conv2dSameVjpKrnHandwritten
   -> Nested.Shaped shA r
   -> Nested.Shaped shB r
   -> Bool
-static_conv2dSameVjpKrnHandwritten SNat SNat SNat SNat SNat SNat SNat
-                                   !_arrK arrA arrB =
+static_conv2dPreservingVjpKrnHandwritten SNat SNat SNat SNat SNat SNat SNat
+                                         !_arrK arrA arrB =
   let dKrn :: Concrete (TKS shK r)
-      dKrn = conv2dSame_dKrn (sconcrete arrA) (sconcrete arrB)
+      dKrn = conv2dPreserving_dKrn (sconcrete arrA) (sconcrete arrB)
   in allClose dKrn dKrn 1e-5
 
-quickcheck_conv2dSameVjpKrnHandwritten
+quickcheck_conv2dPreservingVjpKrnHandwritten
   :: forall r. (NumScalar r, Differentiable r)
   => Property
-quickcheck_conv2dSameVjpKrnHandwritten =
+quickcheck_conv2dPreservingVjpKrnHandwritten =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
@@ -1035,11 +1042,11 @@ quickcheck_conv2dSameVjpKrnHandwritten =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dSameVjpKrnHandwritten
+        in static_conv2dPreservingVjpKrnHandwritten
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
 
-static_conv2dSameVjpKrnHandwrittenVectorized
+static_conv2dPreservingVjpKrnHandwrittenVectorized
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
      ( NumScalar r, Differentiable r
      , shK ~ '[nCout, nCinp, nKh, nKw]
@@ -1051,17 +1058,17 @@ static_conv2dSameVjpKrnHandwrittenVectorized
   -> Nested.Shaped shA r
   -> Nested.Shaped shB r
   -> Bool
-static_conv2dSameVjpKrnHandwrittenVectorized SNat SNat SNat SNat SNat SNat SNat
-                                             !_arrK arrA arrB =
+static_conv2dPreservingVjpKrnHandwrittenVectorized
+  SNat SNat SNat SNat SNat SNat SNat !_arrK arrA arrB =
   let dKrn :: Concrete (TKS shK r)
       dKrn = interpretAstFull emptyEnv
-             $ conv2dSame_dKrn (sconcrete arrA) (sconcrete arrB)
+             $ conv2dPreserving_dKrn (sconcrete arrA) (sconcrete arrB)
   in allClose dKrn dKrn 1e-5
 
-quickcheck_conv2dSameVjpKrnHandwrittenVectorized
+quickcheck_conv2dPreservingVjpKrnHandwrittenVectorized
   :: forall r. (NumScalar r, Differentiable r)
   => Property
-quickcheck_conv2dSameVjpKrnHandwrittenVectorized =
+quickcheck_conv2dPreservingVjpKrnHandwrittenVectorized =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
@@ -1083,11 +1090,11 @@ quickcheck_conv2dSameVjpKrnHandwrittenVectorized =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dSameVjpKrnHandwrittenVectorized
+        in static_conv2dPreservingVjpKrnHandwrittenVectorized
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
 
-static_conv2dSameVjpKrnSymbolic
+static_conv2dPreservingVjpKrnSymbolic
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
      ( NumScalar r, Differentiable r
      , shK ~ '[nCout, nCinp, nKh, nKw]
@@ -1099,17 +1106,17 @@ static_conv2dSameVjpKrnSymbolic
   -> Nested.Shaped shA r
   -> Nested.Shaped shB r
   -> Bool
-static_conv2dSameVjpKrnSymbolic SNat SNat SNat SNat SNat SNat SNat
-                                arrK arrA arrB =
+static_conv2dPreservingVjpKrnSymbolic SNat SNat SNat SNat SNat SNat SNat
+                                      arrK arrA arrB =
   let vjpKrn :: Concrete (TKS shK r)
-      vjpKrn = vjp (`conv2dSameS` sconcrete arrA)
+      vjpKrn = vjp (`conv2dPreservingS` sconcrete arrA)
                    (sconcrete arrK) (sconcrete arrB)
   in allClose vjpKrn vjpKrn 1e-5
 
-quickcheck_conv2dSameVjpKrnSymbolic
+quickcheck_conv2dPreservingVjpKrnSymbolic
   :: forall r. (NumScalar r, Differentiable r)
   => Property
-quickcheck_conv2dSameVjpKrnSymbolic =
+quickcheck_conv2dPreservingVjpKrnSymbolic =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
@@ -1131,11 +1138,11 @@ quickcheck_conv2dSameVjpKrnSymbolic =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dSameVjpKrnSymbolic
+        in static_conv2dPreservingVjpKrnSymbolic
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
 
-static_conv2dSameVjpKrnConcrete
+static_conv2dPreservingVjpKrnConcrete
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
      ( NumScalar r, Differentiable r
      , shK ~ '[nCout, nCinp, nKh, nKw]
@@ -1147,18 +1154,18 @@ static_conv2dSameVjpKrnConcrete
   -> Nested.Shaped shA r
   -> Nested.Shaped shB r
   -> Bool
-static_conv2dSameVjpKrnConcrete SNat SNat SNat SNat SNat SNat SNat
-                                arrK arrA arrB =
+static_conv2dPreservingVjpKrnConcrete SNat SNat SNat SNat SNat SNat SNat
+                                      arrK arrA arrB =
   let cvjpKrn :: Concrete (TKS shK r)
       cvjpKrn = cvjp @_ @_ @_ @Concrete
-                     (`conv2dSameS` sconcrete arrA)
+                     (`conv2dPreservingS` sconcrete arrA)
                      (sconcrete arrK) (sconcrete arrB)
   in allClose cvjpKrn cvjpKrn 1e-5
 
-quickcheck_conv2dSameVjpKrnConcrete
+quickcheck_conv2dPreservingVjpKrnConcrete
   :: forall r. (NumScalar r, Differentiable r)
   => Property
-quickcheck_conv2dSameVjpKrnConcrete =
+quickcheck_conv2dPreservingVjpKrnConcrete =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
@@ -1180,11 +1187,11 @@ quickcheck_conv2dSameVjpKrnConcrete =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dSameVjpKrnConcrete
+        in static_conv2dPreservingVjpKrnConcrete
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
 
-static_conv2dSameVjpInpHandwritten
+static_conv2dPreservingVjpInpHandwritten
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
      ( NumScalar r, Differentiable r
      , shK ~ '[nCout, nCinp, nKh, nKw]
@@ -1196,16 +1203,16 @@ static_conv2dSameVjpInpHandwritten
   -> Nested.Shaped shA r
   -> Nested.Shaped shB r
   -> Bool
-static_conv2dSameVjpInpHandwritten SNat SNat SNat SNat SNat SNat SNat
-                                   arrK !_arrA arrB =
+static_conv2dPreservingVjpInpHandwritten SNat SNat SNat SNat SNat SNat SNat
+                                         arrK !_arrA arrB =
   let dInp :: Concrete (TKS shA r)
-      dInp = conv2dSame_dInp (sconcrete arrK) (sconcrete arrB)
+      dInp = conv2dPreserving_dInp (sconcrete arrK) (sconcrete arrB)
   in allClose dInp dInp 1e-5
 
-quickcheck_conv2dSameVjpInpHandwritten
+quickcheck_conv2dPreservingVjpInpHandwritten
   :: forall r. (NumScalar r, Differentiable r)
   => Property
-quickcheck_conv2dSameVjpInpHandwritten =
+quickcheck_conv2dPreservingVjpInpHandwritten =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
@@ -1227,11 +1234,11 @@ quickcheck_conv2dSameVjpInpHandwritten =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dSameVjpInpHandwritten
+        in static_conv2dPreservingVjpInpHandwritten
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
 
-static_conv2dSameVjpInpHandwrittenVectorized
+static_conv2dPreservingVjpInpHandwrittenVectorized
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
      ( NumScalar r, Differentiable r
      , shK ~ '[nCout, nCinp, nKh, nKw]
@@ -1243,17 +1250,17 @@ static_conv2dSameVjpInpHandwrittenVectorized
   -> Nested.Shaped shA r
   -> Nested.Shaped shB r
   -> Bool
-static_conv2dSameVjpInpHandwrittenVectorized SNat SNat SNat SNat SNat SNat SNat
-                                             arrK !_arrA arrB =
+static_conv2dPreservingVjpInpHandwrittenVectorized
+  SNat SNat SNat SNat SNat SNat SNat arrK !_arrA arrB =
   let dInp :: Concrete (TKS shA r)
       dInp = interpretAstFull emptyEnv
-             $ conv2dSame_dInp (sconcrete arrK) (sconcrete arrB)
+             $ conv2dPreserving_dInp (sconcrete arrK) (sconcrete arrB)
   in allClose dInp dInp 1e-5
 
-quickcheck_conv2dSameVjpInpHandwrittenVectorized
+quickcheck_conv2dPreservingVjpInpHandwrittenVectorized
   :: forall r. (NumScalar r, Differentiable r)
   => Property
-quickcheck_conv2dSameVjpInpHandwrittenVectorized =
+quickcheck_conv2dPreservingVjpInpHandwrittenVectorized =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
@@ -1275,11 +1282,11 @@ quickcheck_conv2dSameVjpInpHandwrittenVectorized =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dSameVjpInpHandwrittenVectorized
+        in static_conv2dPreservingVjpInpHandwrittenVectorized
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
 
-static_conv2dSameVjpInpSymbolic
+static_conv2dPreservingVjpInpSymbolic
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
      ( NumScalar r, Differentiable r
      , shK ~ '[nCout, nCinp, nKh, nKw]
@@ -1291,17 +1298,17 @@ static_conv2dSameVjpInpSymbolic
   -> Nested.Shaped shA r
   -> Nested.Shaped shB r
   -> Bool
-static_conv2dSameVjpInpSymbolic SNat SNat SNat SNat SNat SNat SNat
-                                arrK arrA arrB =
+static_conv2dPreservingVjpInpSymbolic SNat SNat SNat SNat SNat SNat SNat
+                                      arrK arrA arrB =
   let vjpInp :: Concrete (TKS shA r)
-      vjpInp = vjp (conv2dSameS (sconcrete arrK))
+      vjpInp = vjp (conv2dPreservingS (sconcrete arrK))
                    (sconcrete arrA) (sconcrete arrB)
   in allClose vjpInp vjpInp 1e-5
 
-quickcheck_conv2dSameVjpInpSymbolic
+quickcheck_conv2dPreservingVjpInpSymbolic
   :: forall r. (NumScalar r, Differentiable r)
   => Property
-quickcheck_conv2dSameVjpInpSymbolic =
+quickcheck_conv2dPreservingVjpInpSymbolic =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
@@ -1323,11 +1330,11 @@ quickcheck_conv2dSameVjpInpSymbolic =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dSameVjpInpSymbolic
+        in static_conv2dPreservingVjpInpSymbolic
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
 
-static_conv2dSameVjpInpConcrete
+static_conv2dPreservingVjpInpConcrete
   :: forall nImgs nCinp nCout nAh nAw nKh nKw shK shA shB r.
      ( NumScalar r, Differentiable r
      , shK ~ '[nCout, nCinp, nKh, nKw]
@@ -1339,18 +1346,18 @@ static_conv2dSameVjpInpConcrete
   -> Nested.Shaped shA r
   -> Nested.Shaped shB r
   -> Bool
-static_conv2dSameVjpInpConcrete SNat SNat SNat SNat SNat SNat SNat
-                                arrK arrA arrB =
+static_conv2dPreservingVjpInpConcrete SNat SNat SNat SNat SNat SNat SNat
+                                      arrK arrA arrB =
   let cvjpInp :: Concrete (TKS shA r)
       cvjpInp = cvjp @_ @_ @_ @Concrete
-                     (conv2dSameS (sconcrete arrK))
+                     (conv2dPreservingS (sconcrete arrK))
                      (sconcrete arrA) (sconcrete arrB)
   in allClose cvjpInp cvjpInp 1e-5
 
-quickcheck_conv2dSameVjpInpConcrete
+quickcheck_conv2dPreservingVjpInpConcrete
   :: forall r. (NumScalar r, Differentiable r)
   => Property
-quickcheck_conv2dSameVjpInpConcrete =
+quickcheck_conv2dPreservingVjpInpConcrete =
   forAll (choose (3, 3)) $ \nImgs' ->
   forAll (choose (3, 3)) $ \nCinp' ->
   forAll (choose (3, 3)) $ \nCout' ->
@@ -1372,7 +1379,7 @@ quickcheck_conv2dSameVjpInpConcrete =
             (arrA, seed3) = randomValue 0.5 seed2
             arrB :: Concrete (TKS '[nImgs, nCout, nAh, nAw] r)
             (arrB, _) = randomValue 0.5 seed3
-        in static_conv2dSameVjpInpConcrete
+        in static_conv2dPreservingVjpInpConcrete
              nImgs nCinp nCout nAh nAw nKh nKw
              (unConcrete arrK) (unConcrete arrA) (unConcrete arrB)
 
@@ -1395,9 +1402,13 @@ quickcheck_conv2dSameVjpInpConcrete =
 -- * @HandwrittenVectorized@ is the handwritten gradient vectorized and
 --   interpreted per run, for comparison.
 --
--- At small sizes the build tax roughly doubles the per-call symbolic time
--- while the amortized cost is competitive with the handwritten one; as the
--- size grows the fixed tax shrinks relative to interpretation.
+-- At small sizes the build tax roughly doubles the per-call symbolic time;
+-- as the size grows the fixed tax shrinks relative to interpretation.
+-- @HandwrittenVectorized@ has no amortized variant to pair with
+-- @SymbolicAmortized@ — with the cotangent embedded as a constant the term
+-- must be rebuilt for every new cotangent — so comparing those two mixes
+-- pipeline stages; the stage-for-stage S/H comparison, with the cotangent
+-- kept as a variable on both sides, lives in bench/ConvVjpBench.hs.
 
 -- | Kernel, input and output-gradient of the poor man's benchmark shapes
 -- (@nImgs = nCinp = nCout = 3@, @nKh = nKw = 3@, @nAh = nAw@), from one seed.
@@ -1418,7 +1429,7 @@ sizedSymbolicPerCall =
   property $ \seed0 ->
     let (arrK, arrA, arrB) = benchData @nAw @Double seed0
         v :: Concrete (TKS '[3, 3, 3, 3] Double)
-        v = vjp (`conv2dSameS` sconcrete (unConcrete arrA))
+        v = vjp (`conv2dPreservingS` sconcrete (unConcrete arrA))
                 (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
     in allClose v v 1e-5
 
@@ -1427,7 +1438,7 @@ sizedSymbolicAmortized =
   let (arrK0, arrA0, _) = benchData @nAw @Double 1
       -- Built once and shared as a thunk across every property run.
       art = simplifyArtifactRev
-            $ vjpArtifact (`conv2dSameS` sconcrete (unConcrete arrA0))
+            $ vjpArtifact (`conv2dPreservingS` sconcrete (unConcrete arrA0))
                           (sconcrete (unConcrete arrK0)
                            :: Concrete (TKS '[3, 3, 3, 3] Double))
   in property $ \seed0 ->
@@ -1443,9 +1454,9 @@ sizedHandwrittenVectorized =
     let (_, arrA, arrB) = benchData @nAw @Double seed0
         v :: Concrete (TKS '[3, 3, 3, 3] Double)
         v = interpretAstFull emptyEnv
-            $ conv2dSame_dKrn @3 @3 @3 @nAw @nAw @3 @3
-                              (sconcrete (unConcrete arrA))
-                              (sconcrete (unConcrete arrB))
+            $ conv2dPreserving_dKrn @3 @3 @3 @nAw @nAw @3 @3
+                                    (sconcrete (unConcrete arrA))
+                                    (sconcrete (unConcrete arrB))
     in allClose v v 1e-5
 
 -- The same trio, for the input gradient (the @sscatter@ path).
@@ -1455,7 +1466,7 @@ sizedSymbolicPerCallInp =
   property $ \seed0 ->
     let (arrK, arrA, arrB) = benchData @nAw @Double seed0
         v :: Concrete (TKS '[3, 3, nAw, nAw] Double)
-        v = vjp (conv2dSameS (sconcrete (unConcrete arrK)))
+        v = vjp (conv2dPreservingS (sconcrete (unConcrete arrK)))
                 (sconcrete (unConcrete arrA)) (sconcrete (unConcrete arrB))
     in allClose v v 1e-5
 
@@ -1463,7 +1474,7 @@ sizedSymbolicAmortizedInp :: forall nAw. KnownNat nAw => Property
 sizedSymbolicAmortizedInp =
   let (arrK0, arrA0, _) = benchData @nAw @Double 1
       art = simplifyArtifactRev
-            $ vjpArtifact (conv2dSameS (sconcrete (unConcrete arrK0)))
+            $ vjpArtifact (conv2dPreservingS (sconcrete (unConcrete arrK0)))
                           (sconcrete (unConcrete arrA0)
                            :: Concrete (TKS '[3, 3, nAw, nAw] Double))
   in property $ \seed0 ->
@@ -1479,9 +1490,9 @@ sizedHandwrittenVectorizedInp =
     let (arrK, _, arrB) = benchData @nAw @Double seed0
         v :: Concrete (TKS '[3, 3, nAw, nAw] Double)
         v = interpretAstFull emptyEnv
-            $ conv2dSame_dInp @3 @3 @3 @nAw @nAw @3 @3
-                              (sconcrete (unConcrete arrK))
-                              (sconcrete (unConcrete arrB))
+            $ conv2dPreserving_dInp @3 @3 @3 @nAw @nAw @3 @3
+                                    (sconcrete (unConcrete arrK))
+                                    (sconcrete (unConcrete arrB))
     in allClose v v 1e-5
 
 
@@ -1489,7 +1500,7 @@ sizedHandwrittenVectorizedInp =
 --
 -- Kernel is 3x3, so with output size @nAw@ the input is @(nAw+2)^2@ (the
 -- output shrinks by the kernel size minus one). The poor man's benchmarks
--- mirror the @Same@ ones above.
+-- mirror the @Preserving@ ones above.
 
 benchDataShrinking
   :: forall nAw r. (KnownNat nAw, NumScalar r)
@@ -1533,7 +1544,7 @@ shrinkingHandwrittenVectorized =
     let (_, arrA, arrB) = benchDataShrinking @nAw @Double seed0
         v :: Concrete (TKS '[3, 3, 3, 3] Double)
         v = interpretAstFull emptyEnv
-            -- @2 @2 here, not @3 @3 as for Same: the shrinking and padded
+            -- @2 @2 here, not @3 @3 as for Preserving: the shrinking and padded
             -- handwritten gradients take nKh1 = nKh - 1, so 2 is a 3x3 kernel.
             $ conv2dShrinking_dKrn @3 @3 @3 @nAw @nAw @2 @2
                                    (sconcrete (unConcrete arrA))
@@ -1579,7 +1590,7 @@ shrinkingHandwrittenVectorizedInp =
 -- * The padded convolution variant
 --
 -- Kernel is 3x3, so with input size @nAw@ the output is @(nAw+2)^2@ (the
--- output grows). The poor man's benchmarks mirror the @Same@ ones above.
+-- output grows). The poor man's benchmarks mirror the @Preserving@ ones above.
 
 benchDataPadded
   :: forall nAw r. (KnownNat nAw, NumScalar r)

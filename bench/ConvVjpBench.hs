@@ -1,78 +1,172 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
--- | Diagnostic benchmarks for issue #123: separate the cost of the
--- symbolic AD pipeline (tracing, differentiation, simplification)
--- from the cost of executing the resulting gradient program,
--- for the gradient of conv2dSameS with respect to the kernels,
--- at several array sizes.
+-- | Diagnostic benchmarks for issue #123: separate the cost of producing
+-- a gradient program (tracing, differentiation, simplification) from the
+-- cost of executing it, for the two pipelines that produce one — symbolic
+-- AD and the vectorized handwritten gradient.
 --
--- Variants, mirroring the QuickCheck poor man's benchmarks
--- in TestConvQuickCheck:
+-- The groups @6x6@ to @192x192@ sweep the gradient of conv2dPreservingS with
+-- respect to the kernels across those image sizes; the @inp-*@ groups run
+-- the same variants and sizes for the gradient with respect to the input
+-- image (the @sscatter@ path). Each group holds the variants below in
+-- @S-@/@H-@ pairs — @S@ for Symbolic and @H@ for Handwritten, the issue's
+-- names for the two pipelines — each @H-@ variant measuring the same
+-- stage as its adjacent @S-@ partner, with the incoming cotangent kept as
+-- a variable on both sides (only @H-fullpipe@ embeds it as a constant,
+-- because the tasty benchmark it mirrors does). The pairs decompose the
+-- costs that the QuickCheck poor man's benchmarks in TestConvQuickCheck
+-- conflate:
 --
--- * @S-fullpipe@: @vjp@ per call, i.e., tracing + AD + simplification
---   + interpretation every time (this is what the issue calls Symbolic),
---   in a @-hoisted@ variant (artifact floated out of the timed loop) and a
---   @-honest@ variant (artifact rebuilt every call).
--- * @S-artifact@: building + simplifying the gradient artifact only (the
---   compilation cost), forced to WHNF (StrictData suffices), as in
---   mnistTrainBench2VTC in BenchMnistTools.
--- * @S-exec@: interpreting a pre-computed simplified artifact only.
--- * @S-exec-raw@: interpreting a pre-computed unsimplified artifact,
---   to see what simplifyArtifactRev buys at runtime.
--- * @H-fullpipe@: building + vectorizing + interpreting the handwritten
---   gradient term per call (what the issue calls HandwrittenVectorized).
--- * @H-exec@: interpreting the pre-built handwritten gradient term only.
--- * @H-exec-contracted@: as @H-exec@, but after @simplifyInlineContract@.
--- * @H-exec-var@: as @H-exec-contracted@, but with the cotangent kept as a
---   variable (like in the artifact); the apples-to-apples comparison
---   against @S-exec@.
+-- * @S-fullpipe-honest@ and @H-fullpipe@: the full per-call pipelines
+--   those tasty benchmarks time (the issue's Symbolic and
+--   HandwrittenVectorized) — @vjp@, i.e., tracing + AD + simplification +
+--   interpretation, with the per-call-varying input baked into the
+--   objective so the artifact is genuinely rebuilt every call, vs
+--   building + vectorizing + interpreting the handwritten term, never
+--   contracted.
+-- * @S-artifact@ and @H-term@: the compilation cost only — building and
+--   simplifying the gradient artifact vs building and contracting the
+--   handwritten term, forced to WHNF (StrictData makes that a full
+--   build), as in mnistTrainBench2VTC in BenchMnistTools.
+-- * @S-exec@ and @H-exec@: execution only — interpreting the pre-built
+--   simplified artifact vs the pre-built contracted term (the cotangent
+--   bound in the environment).
+-- * @S-exec-raw@ and @H-exec-raw@: execution of the unsimplified
+--   artifact vs the uncontracted term, to see what simplifyArtifactRev
+--   and simplifyInlineContract buy at runtime.
 --
--- The @inp-*@ groups run the same variants for the gradient with respect
--- to the input image (the @sscatter@ path) instead of the kernels, and the
--- size sweep goes up to 192x192 images.
+-- The @cnn-*@ groups run the @S-*@ variants for a real (shaped) two-layer
+-- convolutional net (@MnistCnnShaped2.convMnistTwoS@, each layer with
+-- maxpool), differentiated with respect to its full parameter tuple, at
+-- image sizes 6x6, 12x12 and 24x24. Unlike the synthetic conv2dPreserving
+-- benchmarks they also exercise the maxpool and reshape gathers of a full
+-- net; they have no @H-*@ variants, as there is no handwritten CNN gradient
+-- to compare against.
+--
+-- The @gather48@ and @scatter48@ groups isolate the dominant cost: the
+-- interpreted im2col gather chains of the 48x48 gradients and their
+-- scatter adjoints (see 'gatherBenches' and 'scatterBenches'). The
+-- @pitfalls@ group holds the suite's single recorder of each known
+-- measurement trap (see 'pitfallBenches'), so the sweep groups contain
+-- only honest, pairwise-comparable variants.
+--
+-- The numbered time properties below relate the criterion means of a
+-- full run (the CI smoke run's single iterations cannot support the
+-- tolerance). When analyzing a run, verify them explicitly, in this
+-- order, each up to 10% tolerance: @a == b@ stands for
+-- @abs (a - b) <= max a b / 10@, and @a <= b@ for @a <= 1.1 * b@.
+-- tools/check-conv-bench-props.py, fed criterion's @--csv@ output, is
+-- this list in executable form; keep the two in sync — the script
+-- fails on a benchmark that no property touches, so adding a benchmark
+-- forces this list to be re-normalized. The list is minimal — anything
+-- derivable from it and the nonnegativity of times, e.g.
+-- @time(S-exec) <= time(S-fullpipe-honest)@ from property 1, is
+-- deliberately not listed.
+--
+-- The properties fall into two groups. Properties 1-3 hold for any
+-- engine whatsoever, by accounting alone: a whole equals the sum of
+-- its parts, and a part does not exceed its whole. A violation there
+-- means the measurement itself broke — work hoisted out of a timed
+-- call, double-counted, or drowned in noise. Properties 4-15 describe
+-- the current engine and may legitimately change when engine code
+-- changes — e.g. once the faster gather kernels designed for issue #123
+-- (the add-zero gather of notes-add-zero-gather.md or the upstream
+-- normalize-in-C) are implemented. They subdivide further:
+--
+-- * property 4 records what the simplifier does /not/ do to embedded
+--   constants — the random-data methodology leans on it, and so does
+--   the left edge of property 2;
+--
+-- * properties 5-6 are invariants any acceptable engine must keep, so
+--   a violation is an engine regression to fix, never a property to
+--   update;
+--
+-- * properties 7-15 record the cost model of the current interpreted
+--   gather and scatter kernels — the rulings behind contractAst's
+--   gather rewrites — and are exactly the ones to re-measure, and
+--   update together with those rewrites, when the kernels change.
+--
+-- 1. @time(S-fullpipe-honest) == time(S-artifact) + time(S-exec)@, in
+--    every group with all three variants (both sweeps at every size and
+--    the @cnn-*@ groups): @vjp@ is artifact construction plus
+--    interpretation, so a violation means work got hoisted out of, or
+--    double-counted in, the timed call.
+-- 2. @time(H-exec-raw) <= time(H-fullpipe)@ and
+--    @time(H-fullpipe) <= time(H-term) + time(H-exec-raw)@, in every
+--    sweep group at every size — only a sandwich, because @H-fullpipe@
+--    interprets the never-contracted term: its build portion is bounded
+--    above by @H-term@, which additionally contracts. The left edge
+--    also leans on property 4, since @H-fullpipe@'s cotangent is an
+--    embedded constant where @H-exec-raw@'s is a variable.
+-- 3. @time(6x6/S-exec) <= time(pitfalls/S-fullpipe-hoisted-6x6)@ and
+--    @time(pitfalls/S-fullpipe-hoisted-6x6) <= time(6x6/S-fullpipe-honest)@
+--    — the hoisted variant does everything exec-only does plus the
+--    adaptor glue, and the honest variant additionally rebuilds the
+--    artifact; that gap is exactly its trap.
+-- 4. @time(pitfalls/H-exec-const-48x48) == time(48x48/H-exec)@:
+--    embedding a random constant cotangent is harmless — simplification
+--    does not fold a random constant through the gathers (a broadcast
+--    constant it would fold).
+-- 5. @time(S-exec) <= time(S-exec-raw)@, in every sweep and @cnn-*@
+--    group, and @time(H-exec) <= time(H-exec-raw)@, in every sweep
+--    group: simplification and contraction must not lose at runtime.
+-- 6. @time(S-exec) <= time(H-exec)@, at every size of both sweeps: since
+--    the gather shn-sort in contractAst, symbolic execution is on par
+--    with the handwritten gradient for dKrn and ahead for dInp.
+-- 7. @time(two-gathers-ad-shm-sorted) == time(two-gathers-ad-orient)@:
+--    gather cost is per output position, so reordering the shm dims
+--    changes nothing.
+-- 8. @time(two-gathers-ad-shn-sorted) <= time(two-gathers-ad-orient)@:
+--    the shn-sort win that the contraction pass banks on.
+-- 9. @time(two-gathers-vec-orient) <= time(two-gathers-ad-orient)@: the
+--    vectorization orientation already has the large dim innermost in
+--    the copied slices.
+-- 10. The four @fused-gather-*@ means are pairwise equal: the fused
+--     form's cost is fixed by its inflated position count, and no
+--     dim-order knob moves it.
+-- 11. @time(two-gathers-ad-orient) <= time(fused-gather-ad-orient)@:
+--     fusing the two gathers is the pessimization.
+-- 12. @time(two-scatters-ad-orient) == time(two-scatters-vec-orient)@:
+--     scatter adds each slice as one flat vector, so the orientation
+--     asymmetry of property 9 cannot appear.
+-- 13. @time(two-scatters-ad-orient) <= time(two-scatters-ad-shn-sorted)@:
+--     the shn-sort must not be extended to scatter.
+-- 14. @time(two-scatters-ad-orient) <= time(fused-scatter-ad-orient)@
+--     and @time(two-scatters-vec-orient) <= time(fused-scatter-vec-orient)@
+--     — both stated, because no equality between the two fused scatters
+--     is pinned: their orientations differ by about the tolerance.
+-- 15. @time(two-scatters-ad-orient) <= time(two-gathers-ad-orient)@:
+--     scatter in its natural orientation is the empirical bound for a
+--     fast gather path.
+--
+-- Setting @PRINT_TERMS=1@ prints the compared gradient programs instead
+-- of benchmarking (see 'printTerms').
 module Main (main) where
 
 import Prelude
 
 import Control.Exception (evaluate)
 import Criterion.Main
-import GHC.TypeLits (KnownNat)
+import GHC.TypeLits (Div, KnownNat, type (*))
 import System.Environment (lookupEnv)
 import System.Random (mkStdGen)
 
 import Data.Array.Nested.Shaped.Shape (KnownShS, knownShS)
 
 import HordeAd
-import HordeAd.Core.Adaptor (randomValue)
+import HordeAd.Core.Adaptor (randomValue, toTarget)
 import HordeAd.Core.AstEnv (emptyEnv, extendEnv)
 import HordeAd.Core.AstInterpret (interpretAstFull)
 
-import TestConvQuickCheck (conv2dSame_dInp, conv2dSame_dKrn)
+import MnistCnnShaped2 qualified
+import MnistData (SizeMnistLabel)
+import TestConvQuickCheck (conv2dPreserving_dInp, conv2dPreserving_dKrn)
+import TestMnistPP (cnnObjective)
 
 forceGrad :: Concrete (TKS sh Double) -> Double
 forceGrad = unConcrete . ssum0
 
--- | Verify that a hand-built scatter chain is the adjoint (transpose) of the
--- corresponding gather chain, via the identity @<gather(x), y> = <x,
--- scatter(y)>@ that holds iff scatter is gather's transpose. Errors loudly
--- if the scatter chain was built with wrong shapes or index directions.
-checkAdjoint
-  :: (KnownShS shSrc, KnownShS shOut)
-  => String
-  -> AstTensor AstMethodLet FullSpan (TKS shOut Double)  -- ^ gather chain, over @src@
-  -> Concrete (TKS shSrc Double)                         -- ^ the source @x@
-  -> AstTensor AstMethodLet FullSpan (TKS shSrc Double)  -- ^ scatter chain, over @y@
-  -> Concrete (TKS shOut Double)                         -- ^ the cotangent @y@
-  -> IO ()
-checkAdjoint name gatherChain src scatterChain y =
-  let gOut = interpretAstFull emptyEnv gatherChain
-      sOut = interpretAstFull emptyEnv scatterChain
-      lhs = unConcrete (sdot0 gOut y)
-      rhs = unConcrete (sdot0 src sOut)
-  in if abs (lhs - rhs) <= 1e-6 * (1 + abs lhs)
-     then pure ()
-     else error $ name ++ ": scatter is not the adjoint of gather: "
-                  ++ "<gather(x),y>=" ++ show lhs ++ " <x,scatter(y)>=" ++ show rhs
-
+-- | The full set of timing variants for the gradient with respect to the
+-- kernels, as described in the module haddock.
 benchesAt
   :: forall nImgs nCinp nCout nAh nAw nKh nKw.
      ( KnownNat nImgs, KnownNat nCinp, KnownNat nCout
@@ -88,51 +182,52 @@ benchesAt = do
       (arrB, _) =
         randomValue @(Concrete (TKS '[nImgs, nCout, nAh, nAw] Double))
                     0.5 seed3
-      f :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
-        -> AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCout, nAh, nAw] Double)
-      f k = conv2dSameS k (sconcrete (unConcrete arrA))
-      -- The handwritten gradient built as an AST term; constructing it
-      -- runs vectorization (sbuild at the AST target).
-      hTerm :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
-      hTerm = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                              (sconcrete (unConcrete arrA))
-                              (sconcrete (unConcrete arrB))
-      hTermSimplified = simplifyInlineContract hTerm
-      -- The handwritten gradient with the incoming cotangent kept
-      -- as a variable, like in the artifact, so that simplification
-      -- can't constant-fold the cotangent side of the term.
+      f :: AstTensor AstMethodLet FullSpan
+                     (TKS '[nCout, nCinp, nKh, nKw] Double)
+        -> AstTensor AstMethodLet FullSpan
+                     (TKS '[nImgs, nCout, nAh, nAw] Double)
+      f k = conv2dPreservingS k (sconcrete (unConcrete arrA))
+      -- The cotangent variable shared by the handwritten-term variants.
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
-      hTermVar :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
-      hTermVar = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                 (sconcrete (unConcrete arrA))
-                                 (AstVar varNameB)
-      hTermVarSimplified = simplifyInlineContract hTermVar
       artifactRaw = vjpArtifact f arrK
       artifact = simplifyArtifactRev artifactRaw
+      -- The handwritten gradient built as an AST term — constructing it
+      -- runs vectorization (sbuild at the AST target) — with the incoming
+      -- cotangent kept as a variable, like in the artifact.
+      hTermVar :: AstTensor AstMethodLet FullSpan
+                            (TKS '[nCout, nCinp, nKh, nKw] Double)
+      hTermVar = conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete arrA))
+                                       (AstVar varNameB)
+      hTermVarSimplified = simplifyInlineContract hTermVar
   -- Force the shared terms to WHNF (StrictData makes that a full build)
   -- before benchmarking the exec-only variants. WHNF suffices and avoids the
   -- string-formatting work of forcing via printArtifactSimple.
-  _ <- evaluate hTerm
-  _ <- evaluate hTermSimplified
-  _ <- evaluate hTermVarSimplified
-  _ <- evaluate artifact
   _ <- evaluate artifactRaw
+  _ <- evaluate artifact
+  _ <- evaluate hTermVar
+  _ <- evaluate hTermVarSimplified
   return
-    [ -- vjp per call, but with f and arrK fixed and only dt varying.
-      -- The artifact does not depend on dt, so full-laziness floats its
-      -- construction out of the timed loop: this secretly measures ~exec.
-      bench "S-fullpipe-hoisted" $ whnf
-        (\dt -> forceGrad $ vjp f arrK dt) arrB
-      -- vjp per call with the (per-call-varying) input baked into the
-      -- objective function, exactly as the tasty poor man's benchmark does.
-      -- Now the artifact genuinely depends on the varying input, so it is
-      -- rebuilt every iteration: this honestly measures the full pipeline.
-    , bench "S-fullpipe-honest" $ whnf
+    [ -- vjp per call with the (per-call-varying) input baked into the
+      -- objective function, exactly as the tasty poor man's benchmark does:
+      -- the artifact genuinely depends on the varying input, so it is
+      -- rebuilt every iteration and the full pipeline is honestly measured
+      -- (see 'pitfallBenches' for the hoisted variant that secretly isn't).
+      bench "S-fullpipe-honest" $ whnf
         (\a -> forceGrad
-               $ vjp (\k -> conv2dSameS k (sconcrete (unConcrete a))) arrK arrB)
+               $ vjp (\k -> conv2dPreservingS k (sconcrete (unConcrete a)))
+                     arrK arrB)
         arrA
+      -- The handwritten counterpart: build + vectorize + interpret per
+      -- call; like the tasty benchmark it mirrors, the cotangent is an
+      -- embedded constant and the term is never contracted.
+    , bench "H-fullpipe" $ whnf
+        (\b -> forceGrad $ interpretAstFull emptyEnv
+               $ conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete arrA))
+                                       (sconcrete (unConcrete b))) arrB
       -- Building + simplifying the artifact only (the "compilation" cost),
       -- forced to WHNF as in mnistTrainBench2VTC (BenchMnistTools): with
       -- StrictData that suffices to force the build, and unlike forcing via
@@ -141,27 +236,31 @@ benchesAt = do
       -- argument so the body depends on it and criterion re-runs it per call.
     , bench "S-artifact" $ whnf
         (\k -> simplifyArtifactRev (vjpArtifact f k)) arrK
+      -- The handwritten counterpart: building + contracting the term only.
+    , bench "H-term" $ whnf
+        (\a -> simplifyInlineContract
+               $ conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete a))
+                                       (AstVar varNameB)) arrA
     , bench "S-exec" $ whnf
         (\dt -> forceGrad
                   (vjpInterpretArtifact artifact arrK dt
                    :: Concrete (TKS '[nCout, nCinp, nKh, nKw] Double))) arrB
+      -- The handwritten counterpart: interpret the pre-built contracted
+      -- term, the cotangent bound in the environment like in the artifact.
+    , bench "H-exec" $ whnf
+        (\b -> forceGrad
+               $ interpretAstFull (extendEnv varNameB b emptyEnv)
+                                  hTermVarSimplified) arrB
     , bench "S-exec-raw" $ whnf
         (\dt -> forceGrad
                   (vjpInterpretArtifact artifactRaw arrK dt
                    :: Concrete (TKS '[nCout, nCinp, nKh, nKw] Double))) arrB
-    , bench "H-fullpipe" $ whnf
-        (\b -> forceGrad $ interpretAstFull emptyEnv
-                 $ conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                   (sconcrete (unConcrete arrA))
-                                   (sconcrete (unConcrete b))) arrB
-    , bench "H-exec" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTerm
-    , bench "H-exec-contracted" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTermSimplified
-    , bench "H-exec-var" $ whnf
+      -- The handwritten counterpart: interpret the uncontracted term.
+    , bench "H-exec-raw" $ whnf
         (\b -> forceGrad
                $ interpretAstFull (extendEnv varNameB b emptyEnv)
-                                  hTermVarSimplified) arrB
+                                  hTermVar) arrB
     ]
 
 -- | The full set of timing variants for the gradient with respect to the
@@ -182,69 +281,127 @@ benchesInpAt = do
         randomValue @(Concrete (TKS '[nImgs, nCout, nAh, nAw] Double))
                     0.5 seed3
       -- Differentiate with respect to the input, with the kernel baked in.
-      g :: AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCinp, nAh, nAw] Double)
-        -> AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCout, nAh, nAw] Double)
-      g a = conv2dSameS (sconcrete (unConcrete arrK)) a
-      hTerm :: AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCinp, nAh, nAw] Double)
-      hTerm = conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                              (sconcrete (unConcrete arrK))
-                              (sconcrete (unConcrete arrB))
-      hTermSimplified = simplifyInlineContract hTerm
+      g :: AstTensor AstMethodLet FullSpan
+                     (TKS '[nImgs, nCinp, nAh, nAw] Double)
+        -> AstTensor AstMethodLet FullSpan
+                     (TKS '[nImgs, nCout, nAh, nAw] Double)
+      g a = conv2dPreservingS (sconcrete (unConcrete arrK)) a
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
-      hTermVar :: AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCinp, nAh, nAw] Double)
-      hTermVar = conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                 (sconcrete (unConcrete arrK))
-                                 (AstVar varNameB)
-      hTermVarSimplified = simplifyInlineContract hTermVar
       artifactRaw = vjpArtifact g arrA
       artifact = simplifyArtifactRev artifactRaw
+      hTermVar :: AstTensor AstMethodLet FullSpan
+                            (TKS '[nImgs, nCinp, nAh, nAw] Double)
+      hTermVar = conv2dPreserving_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete arrK))
+                                       (AstVar varNameB)
+      hTermVarSimplified = simplifyInlineContract hTermVar
   -- Force to WHNF (a full build under StrictData) before benchmarking.
-  _ <- evaluate hTerm
-  _ <- evaluate hTermSimplified
-  _ <- evaluate hTermVarSimplified
-  _ <- evaluate artifact
   _ <- evaluate artifactRaw
+  _ <- evaluate artifact
+  _ <- evaluate hTermVar
+  _ <- evaluate hTermVarSimplified
+  -- The same variant pairs as in 'benchesAt', for dInp; see the comments
+  -- there.
   return
-    [ bench "S-fullpipe-hoisted" $ whnf
-        (\dt -> forceGrad $ vjp g arrA dt) arrB
-    , bench "S-fullpipe-honest" $ whnf
+    [ bench "S-fullpipe-honest" $ whnf
         (\k -> forceGrad
-               $ vjp (\a -> conv2dSameS (sconcrete (unConcrete k)) a) arrA arrB)
+               $ vjp (\a -> conv2dPreservingS (sconcrete (unConcrete k)) a)
+                     arrA arrB)
         arrK
-      -- Artifact build+simplify only, WHNF-forced; see 'benchesAt'.
+    , bench "H-fullpipe" $ whnf
+        (\b -> forceGrad $ interpretAstFull emptyEnv
+               $ conv2dPreserving_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete arrK))
+                                       (sconcrete (unConcrete b))) arrB
     , bench "S-artifact" $ whnf
         (\a -> simplifyArtifactRev (vjpArtifact g a)) arrA
+    , bench "H-term" $ whnf
+        (\k -> simplifyInlineContract
+               $ conv2dPreserving_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete k))
+                                       (AstVar varNameB)) arrK
     , bench "S-exec" $ whnf
         (\dt -> forceGrad
                   (vjpInterpretArtifact artifact arrA dt
                    :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] Double))) arrB
+    , bench "H-exec" $ whnf
+        (\b -> forceGrad
+               $ interpretAstFull (extendEnv varNameB b emptyEnv)
+                                  hTermVarSimplified) arrB
     , bench "S-exec-raw" $ whnf
         (\dt -> forceGrad
                   (vjpInterpretArtifact artifactRaw arrA dt
                    :: Concrete (TKS '[nImgs, nCinp, nAh, nAw] Double))) arrB
-    , bench "H-fullpipe" $ whnf
-        (\b -> forceGrad $ interpretAstFull emptyEnv
-                 $ conv2dSame_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                   (sconcrete (unConcrete arrK))
-                                   (sconcrete (unConcrete b))) arrB
-    , bench "H-exec" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTerm
-    , bench "H-exec-contracted" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTermSimplified
-    , bench "H-exec-var" $ whnf
+    , bench "H-exec-raw" $ whnf
         (\b -> forceGrad
                $ interpretAstFull (extendEnv varNameB b emptyEnv)
-                                  hTermVarSimplified) arrB
+                                  hTermVar) arrB
+    ]
+
+-- | The @S-*@ variants of 'benchesAt', but for a real (shaped) two-layer
+-- convolutional net (@convMnistTwoS@, each layer with maxpool), differentiated
+-- with respect to its full parameter tuple. The input image is embedded as a
+-- constant — a *random* one, since a constant broadcast folds the convolution
+-- gathers away — exactly as 'benchesAt' embeds the input in the
+-- conv2dPreserving objective. The objective is shared with @testCNNOPP2S@ via 'cnnObjective'.
+-- There are no @H-*@ variants, as there is no handwritten CNN gradient to
+-- compare against.
+benchesCnnAt
+  :: forall h w. (KnownNat h, KnownNat w, KnownNat (4 * Div h 4 * Div w 4))
+  => IO [Benchmark]
+benchesCnnAt = do
+  let (valsInit, seed2) =
+        randomValue @(MnistCnnShaped2.ADCnnMnistParametersShaped
+                        Concrete h w 2 3 4 5 Double)
+                    0.4 (mkStdGen 44)
+      (arrGlyph, seed3) =
+        randomValue @(Concrete (TKS '[7, 1, h, w] Double)) 0.5 seed2
+      (arrDt, _) =
+        randomValue @(Concrete (TKS '[SizeMnistLabel, 7] Double)) 0.5 seed3
+      valsInitT = toTarget @Concrete valsInit
+      -- Force the full parameter gradient (a tuple) by summing all leaves,
+      -- reusing forceGrad (unConcrete . ssum0) on each.
+      forceCnnGrad ((k1, b1), (k2, b2), (wd, bd), (wr, br)) =
+        forceGrad k1 + forceGrad b1 + forceGrad k2 + forceGrad b2
+        + forceGrad wd + forceGrad bd + forceGrad wr + forceGrad br
+      f = cnnObjective arrGlyph
+      artifactRaw = vjpArtifact f valsInit
+      artifact = simplifyArtifactRev artifactRaw
+  _ <- evaluate artifactRaw
+  _ <- evaluate artifact
+  return
+    [ bench "S-fullpipe-honest" $ whnf
+        (\glyph -> forceCnnGrad $ vjp (cnnObjective glyph) valsInit arrDt)
+        arrGlyph
+    , bench "S-artifact" $ whnf
+        (\v -> simplifyArtifactRev (vjpArtifact f v)) valsInit
+    , bench "S-exec" $ whnf
+        (\dt -> forceCnnGrad
+                  (vjpInterpretArtifact artifact valsInitT dt
+                   :: MnistCnnShaped2.ADCnnMnistParametersShaped
+                        Concrete h w 2 3 4 5 Double)) arrDt
+    , bench "S-exec-raw" $ whnf
+        (\dt -> forceCnnGrad
+                  (vjpInterpretArtifact artifactRaw valsInitT dt
+                   :: MnistCnnShaped2.ADCnnMnistParametersShaped
+                        Concrete h w 2 3 4 5 Double)) arrDt
     ]
 
 -- | Micro-benchmarks for the dominant cost found by profiling: the
--- interpreted im2col gather chains. Compares the AD-produced orientation
--- (large dim first in the gather output, small dims innermost in the
--- copied slices) against the vectorization-produced orientation
--- (small dim first, large dim innermost in slices), and both against
--- a single fused gather that avoids the intermediate array entirely.
+-- interpreted im2col gather chains. Four comparisons: (1) the
+-- AD-produced orientation (large dim first in the gather output, small
+-- dims innermost in the copied slices) vs the vectorization-produced
+-- one (small dim first, large dim innermost in slices); (2) the AD
+-- orientation vs its two candidate canonicalizations, shm dims sorted
+-- vs shn dims sorted; (3) both orientations vs a single fused gather
+-- that avoids the intermediate array entirely; (4) the fused gather vs
+-- itself with its shm dims sorted, ascending and descending — its shn,
+-- @[3, 3]@, is already sorted, fusion having consumed the large dims
+-- into the index function, so shm is the fused form's only sortable
+-- knob. interpretAstFull does not run contractAst, so each variant
+-- times exactly the orientation written.
 gatherBenches :: IO [Benchmark]
 gatherBenches = do
   let (arr1, seed2) =
@@ -253,105 +410,183 @@ gatherBenches = do
       (arr2, _) =
         randomValue @(Concrete (TKS '[50, 50, 3, 3] Double))
                     0.5 seed2
-      s1, s1' :: AstTensor AstMethodLet FullSpan (TKS '[50, 3, 3, 50] Double)
-      s1 = sconcrete (unConcrete arr1)
-      s1' = sconcrete (unConcrete arr1)
-      s2 :: AstTensor AstMethodLet FullSpan (TKS '[50, 50, 3, 3] Double)
-      s2 = sconcrete (unConcrete arr2)
-      -- S orientation: sgather @[48,3], big dim first.
-      twoS :: AstTensor AstMethodLet FullSpan (TKS '[48, 3, 3, 48, 3, 3] Double)
-      twoS =
+      src1, src1'
+        :: AstTensor AstMethodLet FullSpan (TKS '[50, 3, 3, 50] Double)
+      src1 = sconcrete (unConcrete arr1)
+      src1' = sconcrete (unConcrete arr1)
+      src2 :: AstTensor AstMethodLet FullSpan (TKS '[50, 50, 3, 3] Double)
+      src2 = sconcrete (unConcrete arr2)
+      -- The AD orientation: sgather @[48,3], big dim first.
+      twoAd :: AstTensor AstMethodLet FullSpan
+                        (TKS '[48, 3, 3, 48, 3, 3] Double)
+      twoAd =
         sgather @'[48, 3] @'[3, 48, 3, 3] @'[50]
                 (stranspose @'[4, 2, 0, 3, 1]
                    (sgather @'[48, 3] @'[3, 3, 50] @'[50]
-                            s1
+                            src1
                             (\case [a, b] -> [a + b]
-                                   _ -> error "twoS")))
+                                   _ -> error "twoAd")))
                 (\case [c, d] -> [c + d]
-                       _ -> error "twoS")
-      -- H orientation: sgather @[3,48], small dim first.
-      twoH :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 3, 3, 48] Double)
-      twoH =
+                       _ -> error "twoAd")
+      -- The vectorization orientation: sgather @[3,48], small dim first.
+      twoVec :: AstTensor AstMethodLet FullSpan
+                        (TKS '[3, 48, 3, 3, 3, 48] Double)
+      twoVec =
         sgather @'[3, 48] @'[3, 3, 3, 48] @'[50]
                 (stranspose @'[4, 2, 0, 3, 1]
                    (sgather @'[3, 48] @'[3, 3, 50] @'[50]
-                            s1'
+                            src1'
                             (\case [b, a] -> [a + b]
-                                   _ -> error "twoH")))
+                                   _ -> error "twoVec")))
                 (\case [d, c] -> [c + d]
-                       _ -> error "twoH")
-      -- One fused gather, S orientation of the output dims.
-      fusedS :: AstTensor AstMethodLet FullSpan (TKS '[48, 3, 48, 3, 3, 3] Double)
-      fusedS =
-        sgather @'[48, 3, 48, 3] @'[3, 3] @'[50, 50]
-                s2
-                (\case [h, kh, w, kw] -> [h + kh, w + kw]
-                       _ -> error "fusedS")
-      -- One fused gather, H orientation of the output dims.
-      fusedH :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 48, 3, 3] Double)
-      fusedH =
-        sgather @'[3, 48, 3, 48] @'[3, 3] @'[50, 50]
-                s2
-                (\case [kh, h, kw, w] -> [h + kh, w + kw]
-                       _ -> error "fusedH")
-      -- The S chain as the contemplated canonicalization rule would
-      -- rewrite it: each gather's shm dims sorted ascending, with a
-      -- compensating transpose above that restores the original dim order.
-      canonS :: AstTensor AstMethodLet FullSpan (TKS '[48, 3, 3, 48, 3, 3] Double)
-      canonS =
+                       _ -> error "twoVec")
+      -- The AD chain with each gather's shm dims sorted ascending and a
+      -- compensating transpose above that restores the original dim order —
+      -- a canonicalization considered for contractAst and refuted by this
+      -- measurement: the concrete gather's cost is per output position,
+      -- so reordering the shm dims changes nothing.
+      canonShm :: AstTensor AstMethodLet FullSpan
+                          (TKS '[48, 3, 3, 48, 3, 3] Double)
+      canonShm =
         stranspose @'[1, 0]
           (sgather @'[3, 48] @'[3, 48, 3, 3] @'[50]
                    (stranspose @'[4, 2, 0, 3, 1]
                       (stranspose @'[1, 0]
                          (sgather @'[3, 48] @'[3, 3, 50] @'[50]
-                                  s1
+                                  src1
                                   (\case [b, a] -> [a + b]
-                                         _ -> error "canonS"))))
+                                         _ -> error "canonShm"))))
                    (\case [d, c] -> [c + d]
-                          _ -> error "canonS"))
-      -- The S chain with the second gather's shn dims sorted ascending
+                          _ -> error "canonShm"))
+      -- The AD chain with the second gather's shn dims sorted ascending
       -- instead (large dims innermost in the copied slices), by a
       -- transpose below the gather (merges into the existing view)
-      -- and a compensating transpose above.
-      canonS2 :: AstTensor AstMethodLet FullSpan (TKS '[48, 3, 3, 48, 3, 3] Double)
-      canonS2 =
+      -- and a compensating transpose above — the rewrite the shn-sort
+      -- rule in contractAst now performs on such chains (the first
+      -- gather's shn is already sorted, so it is left alone).
+      canonShn :: AstTensor AstMethodLet FullSpan
+                           (TKS '[48, 3, 3, 48, 3, 3] Double)
+      canonShn =
         stranspose @'[0, 1, 2, 5, 3, 4]
           (sgather @'[48, 3] @'[3, 3, 3, 48] @'[50]
                    (stranspose @'[0, 1, 3, 4, 2]
                       (stranspose @'[4, 2, 0, 3, 1]
                          (sgather @'[48, 3] @'[3, 3, 50] @'[50]
-                                  s1
+                                  src1
                                   (\case [a, b] -> [a + b]
-                                         _ -> error "canonS2"))))
+                                         _ -> error "canonShn"))))
                    (\case [c, d] -> [c + d]
-                          _ -> error "canonS2"))
+                          _ -> error "canonShn"))
+      -- One fused gather, AD orientation of the output dims.
+      fusedAd :: AstTensor AstMethodLet FullSpan
+                          (TKS '[48, 3, 48, 3, 3, 3] Double)
+      fusedAd =
+        sgather @'[48, 3, 48, 3] @'[3, 3] @'[50, 50]
+                src2
+                (\case [h, kh, w, kw] -> [h + kh, w + kw]
+                       _ -> error "fusedAd")
+      -- One fused gather, vectorization orientation of the output dims.
+      fusedVec :: AstTensor AstMethodLet FullSpan
+                          (TKS '[3, 48, 3, 48, 3, 3] Double)
+      fusedVec =
+        sgather @'[3, 48, 3, 48] @'[3, 3] @'[50, 50]
+                src2
+                (\case [kh, h, kw, w] -> [h + kh, w + kw]
+                       _ -> error "fusedVec")
+      -- The fused gather with its shm dims sorted ascending and a
+      -- compensating transpose above restoring the AD output order.
+      -- Its shn is [3, 3] — already sorted, fusion having consumed the
+      -- large dims into the index function — so shm order is the only
+      -- sortable knob of the fused form; it is benchmarked in both
+      -- directions to record that sorting cannot rescue fusion: the
+      -- cost is per output position, and the position count is exactly
+      -- what fusion inflates.
+      fusedShmAsc :: AstTensor AstMethodLet FullSpan
+                              (TKS '[48, 3, 48, 3, 3, 3] Double)
+      fusedShmAsc =
+        stranspose @'[2, 0, 3, 1, 4, 5]
+          (sgather @'[3, 3, 48, 48] @'[3, 3] @'[50, 50]
+                   src2
+                   (\case [kh, kw, h, w] -> [h + kh, w + kw]
+                          _ -> error "fusedShmAsc"))
+      -- The same with the shm dims sorted descending.
+      fusedShmDesc :: AstTensor AstMethodLet FullSpan
+                               (TKS '[48, 3, 48, 3, 3, 3] Double)
+      fusedShmDesc =
+        stranspose @'[0, 2, 1, 3, 4, 5]
+          (sgather @'[48, 48, 3, 3] @'[3, 3] @'[50, 50]
+                   src2
+                   (\case [h, w, kh, kw] -> [h + kh, w + kw]
+                          _ -> error "fusedShmDesc"))
   -- Force to WHNF (a full build under StrictData) before benchmarking.
-  _ <- evaluate twoS
-  _ <- evaluate twoH
-  _ <- evaluate fusedS
-  _ <- evaluate fusedH
-  _ <- evaluate canonS
-  _ <- evaluate canonS2
+  _ <- evaluate twoAd
+  _ <- evaluate twoVec
+  _ <- evaluate canonShm
+  _ <- evaluate canonShn
+  _ <- evaluate fusedAd
+  _ <- evaluate fusedVec
+  _ <- evaluate fusedShmAsc
+  _ <- evaluate fusedShmDesc
   return
-    [ bench "two-gathers-S-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoS
-    , bench "two-gathers-H-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoH
-    , bench "two-gathers-S-canonicalized" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) canonS
-    , bench "two-gathers-S-shn-sorted" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) canonS2
-    , bench "fused-gather-S-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedS
-    , bench "fused-gather-H-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedH
+    [ bench "two-gathers-ad-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoAd
+    , bench "two-gathers-vec-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoVec
+    , bench "two-gathers-ad-shm-sorted" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) canonShm
+    , bench "two-gathers-ad-shn-sorted" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) canonShn
+    , bench "fused-gather-ad-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedAd
+    , bench "fused-gather-vec-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedVec
+    , bench "fused-gather-shm-sorted-asc" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedShmAsc
+    , bench "fused-gather-shm-sorted-desc" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedShmDesc
     ]
+
+-- | Verify that a hand-built scatter chain is the adjoint (transpose) of the
+-- corresponding gather chain, via the adjoint law that holds iff scatter is
+-- gather's transpose: for all index functions @f@, sources @x@ and
+-- cotangents @y@, @sdot0 (sgather x f) y == sdot0 x (sscatter y f)@. Errors
+-- loudly if the scatter chain was built with wrong shapes or index
+-- directions.
+checkAdjoint
+  :: (KnownShS shSrc, KnownShS shOut)
+  => String
+  -> AstTensor AstMethodLet FullSpan (TKS shOut Double)
+       -- ^ gather chain, over @src@
+  -> Concrete (TKS shSrc Double)
+       -- ^ the source @x@
+  -> AstTensor AstMethodLet FullSpan (TKS shSrc Double)
+       -- ^ scatter chain, over @y@
+  -> Concrete (TKS shOut Double)
+       -- ^ the cotangent @y@
+  -> IO ()
+checkAdjoint name gatherChain src scatterChain y =
+  let gOut = interpretAstFull emptyEnv gatherChain
+      sOut = interpretAstFull emptyEnv scatterChain
+      lhs = unConcrete (sdot0 gOut y)
+      rhs = unConcrete (sdot0 src sOut)
+  in if abs (lhs - rhs) <= 1e-6 * (1 + abs lhs)
+     then pure ()
+     else error $ name ++ ": scatter is not the adjoint of gather: "
+                  ++ "sdot0 (sgather x f) y=" ++ show lhs
+                  ++ " sdot0 x (sscatter y f)=" ++ show rhs
 
 -- | The scatter analogue of 'gatherBenches': the interpreted scatter chains
 -- that appear in the input-image gradient (the @sscatter@ path). Each chain
 -- is the exact adjoint (transpose) of the corresponding gather chain above —
 -- verified at startup by 'checkAdjoint' — so this isolates the scatter cost
--- the way 'gatherBenches' isolates the gather cost.
+-- the way 'gatherBenches' isolates the gather cost. The correspondence is
+-- deliberately partial. The shn-sorted chain's adjoint is included: it
+-- measures the ruling that the shn-sort must not be extended to scatter,
+-- a ~4x pessimization — scatter adds each slice as one flat vector, so a
+-- sorted shn has no per-shn-dim loop to amortize, while the compensating
+-- transposes leave the slice views strided. There are no shm-sorted or
+-- fused-sorted adjoints; they would only re-measure knobs 'gatherBenches'
+-- already shows dead.
 scatterBenches :: IO [Benchmark]
 scatterBenches = do
   let (arrX1, seedb) =
@@ -378,84 +613,180 @@ scatterBenches = do
       y3 = sconcrete (unConcrete arrY3)
       y4 :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 48, 3, 3] Double)
       y4 = sconcrete (unConcrete arrY4)
-      -- The gather chains from 'gatherBenches' (over x1/x2), for verification.
-      gTwoS :: AstTensor AstMethodLet FullSpan (TKS '[48, 3, 3, 48, 3, 3] Double)
-      gTwoS =
+      -- The gather chains from 'gatherBenches', rebuilt over x1/x2 as
+      -- checkAdjoint fixtures only — benchmarked there, not here (gather
+      -- cost is structural, so timing these copies would just duplicate
+      -- those benches).
+      gTwoAd :: AstTensor AstMethodLet FullSpan
+                         (TKS '[48, 3, 3, 48, 3, 3] Double)
+      gTwoAd =
         sgather @'[48, 3] @'[3, 48, 3, 3] @'[50]
                 (stranspose @'[4, 2, 0, 3, 1]
                    (sgather @'[48, 3] @'[3, 3, 50] @'[50] x1
                             (\case [a, b] -> [a + b]
-                                   _ -> error "gTwoS")))
+                                   _ -> error "gTwoAd")))
                 (\case [c, d] -> [c + d]
-                       _ -> error "gTwoS")
-      gTwoH :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 3, 3, 48] Double)
-      gTwoH =
+                       _ -> error "gTwoAd")
+      gTwoVec :: AstTensor AstMethodLet FullSpan
+                         (TKS '[3, 48, 3, 3, 3, 48] Double)
+      gTwoVec =
         sgather @'[3, 48] @'[3, 3, 3, 48] @'[50]
                 (stranspose @'[4, 2, 0, 3, 1]
                    (sgather @'[3, 48] @'[3, 3, 50] @'[50] x1
                             (\case [b, a] -> [a + b]
-                                   _ -> error "gTwoH")))
+                                   _ -> error "gTwoVec")))
                 (\case [d, c] -> [c + d]
-                       _ -> error "gTwoH")
-      gFusedS :: AstTensor AstMethodLet FullSpan (TKS '[48, 3, 48, 3, 3, 3] Double)
-      gFusedS =
+                       _ -> error "gTwoVec")
+      gCanonShn :: AstTensor AstMethodLet FullSpan
+                            (TKS '[48, 3, 3, 48, 3, 3] Double)
+      gCanonShn =
+        stranspose @'[0, 1, 2, 5, 3, 4]
+          (sgather @'[48, 3] @'[3, 3, 3, 48] @'[50]
+                   (stranspose @'[0, 1, 3, 4, 2]
+                      (stranspose @'[4, 2, 0, 3, 1]
+                         (sgather @'[48, 3] @'[3, 3, 50] @'[50]
+                                  x1
+                                  (\case [a, b] -> [a + b]
+                                         _ -> error "gCanonShn"))))
+                   (\case [c, d] -> [c + d]
+                          _ -> error "gCanonShn"))
+      gFusedAd :: AstTensor AstMethodLet FullSpan
+                           (TKS '[48, 3, 48, 3, 3, 3] Double)
+      gFusedAd =
         sgather @'[48, 3, 48, 3] @'[3, 3] @'[50, 50] x2
                 (\case [h, kh, w, kw] -> [h + kh, w + kw]
-                       _ -> error "gFusedS")
-      gFusedH :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 48, 3, 3] Double)
-      gFusedH =
+                       _ -> error "gFusedAd")
+      gFusedVec :: AstTensor AstMethodLet FullSpan
+                           (TKS '[3, 48, 3, 48, 3, 3] Double)
+      gFusedVec =
         sgather @'[3, 48, 3, 48] @'[3, 3] @'[50, 50] x2
                 (\case [kh, h, kw, w] -> [h + kh, w + kw]
-                       _ -> error "gFusedH")
+                       _ -> error "gFusedVec")
       -- The scatter chains: exact adjoints of the gather chains above.
       -- The two-op chains reverse the composition order and invert the
       -- connecting transpose (@[4,2,0,3,1]@ becomes @[2,4,1,3,0]@).
-      twoScatterS :: AstTensor AstMethodLet FullSpan (TKS '[50, 3, 3, 50] Double)
-      twoScatterS =
+      twoScatterAd :: AstTensor AstMethodLet FullSpan
+                               (TKS '[50, 3, 3, 50] Double)
+      twoScatterAd =
         sscatter @'[48, 3] @'[3, 3, 50] @'[50]
                  (stranspose @'[2, 4, 1, 3, 0]
                     (sscatter @'[48, 3] @'[3, 48, 3, 3] @'[50] y1
                               (\case [c, d] -> [c + d]
-                                     _ -> error "twoScatterS")))
+                                     _ -> error "twoScatterAd")))
                  (\case [a, b] -> [a + b]
-                        _ -> error "twoScatterS")
-      twoScatterH :: AstTensor AstMethodLet FullSpan (TKS '[50, 3, 3, 50] Double)
-      twoScatterH =
+                        _ -> error "twoScatterAd")
+      twoScatterVec :: AstTensor AstMethodLet FullSpan
+                               (TKS '[50, 3, 3, 50] Double)
+      twoScatterVec =
         sscatter @'[3, 48] @'[3, 3, 50] @'[50]
                  (stranspose @'[2, 4, 1, 3, 0]
                     (sscatter @'[3, 48] @'[3, 3, 3, 48] @'[50] y2
                               (\case [d, c] -> [c + d]
-                                     _ -> error "twoScatterH")))
+                                     _ -> error "twoScatterVec")))
                  (\case [b, a] -> [a + b]
-                        _ -> error "twoScatterH")
-      fusedScatterS :: AstTensor AstMethodLet FullSpan (TKS '[50, 50, 3, 3] Double)
-      fusedScatterS =
+                        _ -> error "twoScatterVec")
+      -- The adjoint of the shn-sorted chain ('canonShn' in 'gatherBenches'),
+      -- on the same cotangent as twoScatterAd: the measured ~4x
+      -- pessimization that rules out extending the shn-sort to scatter,
+      -- strengthening the ruling from "cannot pay" to "loses outright" —
+      -- mechanism in the 'scatterBenches' haddock above.
+      twoScatterShnSorted :: AstTensor AstMethodLet FullSpan
+                                       (TKS '[50, 3, 3, 50] Double)
+      twoScatterShnSorted =
+        sscatter @'[48, 3] @'[3, 3, 50] @'[50]
+                 (stranspose @'[2, 4, 1, 3, 0]
+                    (stranspose @'[0, 1, 4, 2, 3]
+                       (sscatter @'[48, 3] @'[3, 3, 3, 48] @'[50]
+                                 (stranspose @'[0, 1, 2, 4, 5, 3] y1)
+                                 (\case [c, d] -> [c + d]
+                                        _ -> error "twoScatterShnSorted"))))
+                 (\case [a, b] -> [a + b]
+                        _ -> error "twoScatterShnSorted")
+      fusedScatterAd :: AstTensor AstMethodLet FullSpan
+                                 (TKS '[50, 50, 3, 3] Double)
+      fusedScatterAd =
         sscatter @'[48, 3, 48, 3] @'[3, 3] @'[50, 50] y3
                  (\case [h, kh, w, kw] -> [h + kh, w + kw]
-                        _ -> error "fusedScatterS")
-      fusedScatterH :: AstTensor AstMethodLet FullSpan (TKS '[50, 50, 3, 3] Double)
-      fusedScatterH =
+                        _ -> error "fusedScatterAd")
+      fusedScatterVec :: AstTensor AstMethodLet FullSpan
+                                 (TKS '[50, 50, 3, 3] Double)
+      fusedScatterVec =
         sscatter @'[3, 48, 3, 48] @'[3, 3] @'[50, 50] y4
                  (\case [kh, h, kw, w] -> [h + kh, w + kw]
-                        _ -> error "fusedScatterH")
-  checkAdjoint "two-scatters-S-orient" gTwoS arrX1 twoScatterS arrY1
-  checkAdjoint "two-scatters-H-orient" gTwoH arrX1 twoScatterH arrY2
-  checkAdjoint "fused-scatter-S-orient" gFusedS arrX2 fusedScatterS arrY3
-  checkAdjoint "fused-scatter-H-orient" gFusedH arrX2 fusedScatterH arrY4
+                        _ -> error "fusedScatterVec")
+  checkAdjoint "two-scatters-ad-orient" gTwoAd arrX1 twoScatterAd arrY1
+  checkAdjoint "two-scatters-vec-orient" gTwoVec arrX1 twoScatterVec arrY2
+  checkAdjoint "two-scatters-ad-shn-sorted"
+               gCanonShn arrX1 twoScatterShnSorted arrY1
+  checkAdjoint "fused-scatter-ad-orient" gFusedAd arrX2 fusedScatterAd arrY3
+  checkAdjoint "fused-scatter-vec-orient" gFusedVec arrX2 fusedScatterVec arrY4
   -- Force to WHNF (a full build under StrictData) before benchmarking.
-  _ <- evaluate twoScatterS
-  _ <- evaluate twoScatterH
-  _ <- evaluate fusedScatterS
-  _ <- evaluate fusedScatterH
+  _ <- evaluate twoScatterAd
+  _ <- evaluate twoScatterVec
+  _ <- evaluate twoScatterShnSorted
+  _ <- evaluate fusedScatterAd
+  _ <- evaluate fusedScatterVec
   return
-    [ bench "two-scatters-S-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterS
-    , bench "two-scatters-H-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterH
-    , bench "fused-scatter-S-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedScatterS
-    , bench "fused-scatter-H-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedScatterH
+    [ bench "two-scatters-ad-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterAd
+    , bench "two-scatters-vec-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterVec
+    , bench "two-scatters-ad-shn-sorted" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterShnSorted
+    , bench "fused-scatter-ad-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedScatterAd
+    , bench "fused-scatter-vec-orient" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedScatterVec
+    ]
+
+-- | The suite's single recorder of each known benchmarking pitfall, one
+-- variant at one size apiece, kept out of the sweep groups so those
+-- contain only honest, pairwise-comparable variants. The data matches
+-- the corresponding 'benchesAt' group (same seed chain), so each bench
+-- is directly comparable against its honest counterparts there.
+pitfallBenches :: IO [Benchmark]
+pitfallBenches = do
+  let -- The dKrn data of 'benchesAt'; the kernel shape is size-independent,
+      -- so seed2 continues both the 6x6 and the 48x48 chain.
+      (arrK, seed2) =
+        randomValue @(Concrete (TKS '[3, 3, 3, 3] Double)) 0.5 (mkStdGen 42)
+      (arrA6, seed3) =
+        randomValue @(Concrete (TKS '[3, 3, 6, 6] Double)) 0.5 seed2
+      (arrB6, _) =
+        randomValue @(Concrete (TKS '[3, 3, 6, 6] Double)) 0.5 seed3
+      (arrA48, seed3') =
+        randomValue @(Concrete (TKS '[3, 3, 48, 48] Double)) 0.5 seed2
+      (arrB48, _) =
+        randomValue @(Concrete (TKS '[3, 3, 48, 48] Double)) 0.5 seed3'
+      f6 :: AstTensor AstMethodLet FullSpan (TKS '[3, 3, 3, 3] Double)
+         -> AstTensor AstMethodLet FullSpan (TKS '[3, 3, 6, 6] Double)
+      f6 k = conv2dPreservingS k (sconcrete (unConcrete arrA6))
+      -- The handwritten term with the cotangent embedded as a constant,
+      -- as in the term the tasty poor man's benchmark interprets.
+      hTermConst :: AstTensor AstMethodLet FullSpan (TKS '[3, 3, 3, 3] Double)
+      hTermConst = conv2dPreserving_dKrn @3 @3 @3 @48 @48 @3 @3
+                                         (sconcrete (unConcrete arrA48))
+                                         (sconcrete (unConcrete arrB48))
+      hTermConstSimplified = simplifyInlineContract hTermConst
+  -- Force to WHNF (a full build under StrictData) before benchmarking.
+  _ <- evaluate hTermConstSimplified
+  return
+    [ -- vjp per call, but with the objective and its input fixed and only
+      -- the cotangent varying. The artifact does not depend on the
+      -- cotangent, so full laziness floats its construction out of the
+      -- timed loop and the artifact tax — the bulk of an honest 6x6 call —
+      -- goes unmeasured. Compare against S-fullpipe-honest (the tax
+      -- included) and S-exec in the 6x6 group.
+      bench "S-fullpipe-hoisted-6x6" $ whnf
+        (\dt -> forceGrad $ vjp f6 arrK dt) arrB6
+      -- As H-exec in the 48x48 group, but with the cotangent embedded as
+      -- a random concrete constant. Records that the embedding is
+      -- harmless: this measures the same as H-exec, i.e., simplification
+      -- does not constant-fold a random embedded constant through the
+      -- gathers — a broadcast constant it would fold, which is why
+      -- benchmark inputs are random.
+    , bench "H-exec-const-48x48" $ whnf
+        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTermConstSimplified
     ]
 
 -- | Print the two gradient programs being compared instead of benchmarking,
@@ -475,22 +806,26 @@ printTerms = do
       (arrB, _) =
         randomValue @(Concrete (TKS '[nImgs, nCout, nAh, nAw] Double))
                     0.5 seed3
-      f :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
-        -> AstTensor AstMethodLet FullSpan (TKS '[nImgs, nCout, nAh, nAw] Double)
-      f k = conv2dSameS k (sconcrete (unConcrete arrA))
-      hTerm :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
-      hTerm = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                              (sconcrete (unConcrete arrA))
-                              (sconcrete (unConcrete arrB))
+      f :: AstTensor AstMethodLet FullSpan
+                     (TKS '[nCout, nCinp, nKh, nKw] Double)
+        -> AstTensor AstMethodLet FullSpan
+                     (TKS '[nImgs, nCout, nAh, nAw] Double)
+      f k = conv2dPreservingS k (sconcrete (unConcrete arrA))
+      artifact = simplifyArtifactRev (vjpArtifact f arrK)
+      hTerm :: AstTensor AstMethodLet FullSpan
+                         (TKS '[nCout, nCinp, nKh, nKw] Double)
+      hTerm = conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                    (sconcrete (unConcrete arrA))
+                                    (sconcrete (unConcrete arrB))
       hTermSimplified = simplifyInlineContract hTerm
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
-      hTermVar :: AstTensor AstMethodLet FullSpan (TKS '[nCout, nCinp, nKh, nKw] Double)
-      hTermVar = conv2dSame_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
-                                 (sconcrete (unConcrete arrA))
-                                 (AstVar varNameB)
-      artifact = simplifyArtifactRev (vjpArtifact f arrK)
+      hTermVar :: AstTensor AstMethodLet FullSpan
+                            (TKS '[nCout, nCinp, nKh, nKw] Double)
+      hTermVar = conv2dPreserving_dKrn @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
+                                       (sconcrete (unConcrete arrA))
+                                       (AstVar varNameB)
   putStrLn "=== S: simplified artifact (derivative) ==="
   putStrLn $ printArtifactPretty artifact
   putStrLn "=== H: contracted handwritten-vectorized term ==="
@@ -514,8 +849,12 @@ main = do
       i48 <- benchesInpAt @3 @3 @3 @48 @48 @3 @3
       i96 <- benchesInpAt @3 @3 @3 @96 @96 @3 @3
       i192 <- benchesInpAt @3 @3 @3 @192 @192 @3 @3
+      cnn6 <- benchesCnnAt @6 @6
+      cnn12 <- benchesCnnAt @12 @12
+      cnn24 <- benchesCnnAt @24 @24
       bg <- gatherBenches
       bs <- scatterBenches
+      pf <- pitfallBenches
       defaultMain
         [ bgroup "6x6" b6
         , bgroup "24x24" b24
@@ -527,6 +866,10 @@ main = do
         , bgroup "inp-48x48" i48
         , bgroup "inp-96x96" i96
         , bgroup "inp-192x192" i192
+        , bgroup "cnn-6x6" cnn6
+        , bgroup "cnn-12x12" cnn12
+        , bgroup "cnn-24x24" cnn24
         , bgroup "gather48" bg
         , bgroup "scatter48" bs
+        , bgroup "pitfalls" pf
         ]

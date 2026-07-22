@@ -27,7 +27,7 @@ import HordeAd.Core.Delta
 import HordeAd.Core.Ops
 import HordeAd.Core.OpsAst
 
-import TestConvQuickCheck (conv2dSame_dKrn)
+import TestConvQuickCheck (conv2dPreserving_dKrn)
 
 import CrossTesting
 import EqEpsilon
@@ -154,10 +154,11 @@ testTrees =
   , testCase "minimizedPaddedCNNOPPLet" testPaddedCNNOPPLet
   , testCase "minimizedPaddedCNNOPPLet2" testPaddedCNNOPPLet2
   , testCase "minimizedPaddedCNNOPP2" testPaddedCNNOPP2
-  , testCase "minimizedSameCNNOPPKrnHandwritten" testSameCNNOPPKrnHandwritten
-  , testCase "minimizedSameCNNOPP0cW" testSameCNNOPP0cW
-  , testCase "minimizedSameCNNOPP0bW" testSameCNNOPP0bW
-  , testCase "minimizedSameCNNOPP1bW" testSameCNNOPP1bW
+  , testCase "minimizedPreservingCNNOPPKrnHandwritten"
+             testPreservingCNNOPPKrnHandwritten
+  , testCase "minimizedPreservingCNNOPP0cW" testPreservingCNNOPP0cW
+  , testCase "minimizedPreservingCNNOPP0bW" testPreservingCNNOPP0bW
+  , testCase "minimizedPreservingCNNOPP1bW" testPreservingCNNOPP1bW
   , testCase "minimizedShrinkingCNNOPP0cW" testShrinkingCNNOPP0cW
   , testCase "minimizedShrinkingCNNOPP0bW" testShrinkingCNNOPP0bW
   , testCase "minimizedShrinkingCNNOPP1bW" testShrinkingCNNOPP1bW
@@ -181,17 +182,17 @@ testTrees =
 conv2d1
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2d1 = conv2dSame $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
+conv2d1 = conv2dPreserving $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dA
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dA = conv2dSame $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
+conv2dA = conv2dPreserving $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dB
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dB = conv2dSame (rconcrete $ unConcrete t16b)
+conv2dB = conv2dPreserving (rconcrete $ unConcrete t16b)
 
 testKonstG0Rev :: Assertion
 testKonstG0Rev =
@@ -210,7 +211,7 @@ testKonstG0TinyS =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2dSame $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unConcrete t16b)))
+          (conv2dPreserving $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unConcrete t16b)))
           (ringestData [1, 1, 1, 1] [0]))
 
 testKonstG0TinyA :: Assertion
@@ -228,27 +229,27 @@ testKonstG0LittleA =
 conv2dC
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dC = flip conv2dSame (rconcrete $ unConcrete t16b)
+conv2dC = flip conv2dPreserving (rconcrete $ unConcrete t16b)
 
 conv2dB128b
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dB128b = conv2dSame (rconcrete $ unConcrete t128b)
+conv2dB128b = conv2dPreserving (rconcrete $ unConcrete t128b)
 
 conv2dC128b
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dC128b = flip conv2dSame (rconcrete $ unConcrete t128b)
+conv2dC128b = flip conv2dPreserving (rconcrete $ unConcrete t128b)
 
 conv2dB128c
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dB128c = conv2dSame (rconcrete $ unConcrete t128c)
+conv2dB128c = conv2dPreserving (rconcrete $ unConcrete t128c)
 
 conv2dC128c
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dC128c = flip conv2dSame (rconcrete $ unConcrete t128c)
+conv2dC128c = flip conv2dPreserving (rconcrete $ unConcrete t128c)
 
 testReplicate0Rev :: Assertion
 testReplicate0Rev =
@@ -267,7 +268,7 @@ testReplicate0TinyS =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2dSame $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unConcrete t16b)))
+          (conv2dPreserving $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unConcrete t16b)))
           (ringestData [1, 1, 1, 1] [0]))
 
 testReplicate0TinyA :: Assertion
@@ -469,10 +470,10 @@ testKonstNotBigC128cb =
 --
 -- BTW, the indexing lower bounds in the code are spurious,
 -- so they get simplified away in the resulting AST program.
-conv2dSameL
+conv2dPreservingL
   :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r) -> target (TKR 4 r)
-conv2dSameL arrK arrA =
+conv2dPreservingL arrK arrA =
   let [nImgs, nCinpA, nAh, nAw] = rshape arrA
       [nCoutK, nCinpK, nKh, nKw] = rshape arrK
       nCinp = assert (nCinpA == nCinpK `blame` (nCinpA, nCinpK)) nCinpA
@@ -483,7 +484,7 @@ conv2dSameL arrK arrA =
       let arrAt = slicezL shK1 arrA [iImg, 0, iBh, iBw]
           arrKt = slicezL shK1 arrK [iCout, 0, 0, 0]
       in rfromK $ rdot0 arrAt arrKt
-    _ -> error "conv2dSameL: impossible pattern needlessly required"
+    _ -> error "conv2dPreservingL: impossible pattern needlessly required"
 
 -- | Slice a section out of a tensor,
 --   given a base offset and shape of the section.
@@ -524,43 +525,43 @@ within0 sh ix =
 conv2d1Laborious
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2d1Laborious = conv2dSameL $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
+conv2d1Laborious = conv2dPreservingL $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 1, 1, 1]) [-0.2]
 
 conv2dALaborious
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
 conv2dALaborious =
-  conv2dSameL $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
+  conv2dPreservingL $ rconcrete $ Nested.rfromListPrimLinear (fromList [1, 2, 1, 1]) [-0.2, 25.0003]
 
 conv2dBLaborious
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dBLaborious = conv2dSameL (rconcrete $ unConcrete t16b)
+conv2dBLaborious = conv2dPreservingL (rconcrete $ unConcrete t16b)
 
 conv2dCLaborious
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dCLaborious = flip conv2dSameL (rconcrete $ unConcrete t16b)
+conv2dCLaborious = flip conv2dPreservingL (rconcrete $ unConcrete t16b)
 
 conv2dBLaborious128b
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dBLaborious128b = conv2dSameL (rconcrete $ unConcrete t128b)
+conv2dBLaborious128b = conv2dPreservingL (rconcrete $ unConcrete t128b)
 
 conv2dCLaborious128b
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dCLaborious128b = flip conv2dSameL (rconcrete $ unConcrete t128b)
+conv2dCLaborious128b = flip conv2dPreservingL (rconcrete $ unConcrete t128b)
 
 conv2dBLaborious128c
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dBLaborious128c = conv2dSameL (rconcrete $ unConcrete t128c)
+conv2dBLaborious128c = conv2dPreservingL (rconcrete $ unConcrete t128c)
 
 conv2dCLaborious128c
   :: (ADReady target, NumScalar r, Differentiable r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dCLaborious128c = flip conv2dSameL (rconcrete $ unConcrete t128c)
+conv2dCLaborious128c = flip conv2dPreservingL (rconcrete $ unConcrete t128c)
 
 testReplicate0RevLaborious :: Assertion
 testReplicate0RevLaborious =
@@ -579,7 +580,7 @@ testReplicate0TinySLaborious =
   assertEqualUpToEpsilon' 1e-10
     (ringestData [1, 1, 1, 1] [582665.99432])
     (rev' @Double @4
-          (conv2dSameL $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unConcrete t16b)))
+          (conv2dPreservingL $ rreplicate0N [1, 1, 1, 1] (rsum0 (rconcrete $ unConcrete t16b)))
           (ringestData [1, 1, 1, 1] [0]))
 
 testReplicate0TinyALaborious :: Assertion
@@ -781,7 +782,7 @@ testKonstNotBigCLaborious128cb =
 --   and all input points are read the same number of times.
 --
 --   The same result could be accomplished by tweaking indexes slightly
---   in conv2dSame, but here additionally all bounds checks in the code
+--   in conv2dPreserving, but here additionally all bounds checks in the code
 --   are spurious and will be simplified away in the resulting AST program.
 conv2dPaddedB
   :: forall target r. (ADReady target, NumScalar r)
@@ -1259,7 +1260,7 @@ testCNNOPP1e = do
                      (TKProduct (TKR 4 Double) (TKR 4 Double))
         -> AstTensor AstMethodLet FullSpan
                      (TKR 4 Double)
-      f v = conv2dSameL (tproject1 v) (tproject2 v)
+      f v = conv2dPreservingL (tproject1 v) (tproject2 v)
       ftk = FTKProduct (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
                        (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
       (artifactRev, _) =
@@ -1301,19 +1302,19 @@ maxPool2dUnpadded2
 maxPool2dUnpadded2 a =
   rbuild [2, 2, 2, 2] $ \case
     [_, _, iBh, iBw] ->
-      let arrt = slicez2 (conv2dSame2 a) [iBw, 1, 2 * iBh, 2 * iBw]
+      let arrt = slicez2 (conv2dPreserving2 a) [iBw, 1, 2 * iBh, 2 * iBw]
       in rmaximum2 arrt
     _ -> error "maxPool2dUnpadded2: impossible pattern needlessly required"
 
-conv2dSame2
+conv2dPreserving2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dSame2 a =
+conv2dPreserving2 a =
   rbuild [3, 3, 2, 2] $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez2 a [iImg, 0, iBh, iBw]
       in rindex @_ @0 arrAt [0, iBw, iBw, 0]
-    _ -> error "conv2dSame2: impossible pattern needlessly required"
+    _ -> error "conv2dPreserving2: impossible pattern needlessly required"
 
 slicez2
   :: (target ~ AstTensor AstMethodLet FullSpan, r ~ Double, n ~ 4)
@@ -1339,7 +1340,7 @@ testCNNOPP3 = do
                        (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
-      afcnn2T = maxPool2dUnpadded33 $ conv2dSame3 blackGlyph
+      afcnn2T = maxPool2dUnpadded33 $ conv2dPreserving3 blackGlyph
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromPlain (rfromS (sfromVector @2 (fromList [str (sgather1 @2 (sgather @[2, 2, 2] (sfromVector @2 (fromList [sgather @[2, 2] (sappend (sreplicate @1 (stranspose @[0, 2, 1] (sgather @[2, 2] (stranspose @[3, 0, 2, 1] (sgather @[2, 2] (stranspose @[3, 0, 1, 2] (sgather @[2, 2] (sconcrete (sreplicate [2,2,2] 7.0)) (\\[i97, i99] -> [remH i97 4 + i99]))) (\\[i101, i103] -> [i101 + i103, i101]))) (\\[i33, i15] -> [i33 + i15, i33])))) (sconcrete (sreplicate [1,2,2,2,2] 0.0))) (\\[i32, i27] -> [i27, i32, i27, i32]), sconcrete (sreplicate [2,2,2] 0.0)])) (\\[i31, i28, i26] -> [sconcrete (sfromListLinear [2,2,2] [0,0,1,1,1,1,1,1]) `sindex0` [i31, i28, i26], i31, i28, i26])) (\\i123 -> [remH i123 4])), str (sgather1 @2 (sgather @[2, 2, 2] (sfromVector @2 (fromList [sgather @[2, 2] (sappend (sreplicate @1 (stranspose @[0, 2, 1] (sgather @[2, 2] (stranspose @[3, 0, 2, 1] (sgather @[2, 2] (stranspose @[3, 0, 1, 2] (sgather @[2, 2] (sconcrete (sreplicate [2,2,2] 7.0)) (\\[i127, i129] -> [remH i127 4 + i129]))) (\\[i131, i133] -> [i131 + i133, i131]))) (\\[i33, i15] -> [i33 + i15, i33])))) (sconcrete (sreplicate [1,2,2,2,2] 0.0))) (\\[i32, i27] -> [i27, i32, i27, i32]), sconcrete (sreplicate [2,2,2] 0.0)])) (\\[i31, i28, i26] -> [sconcrete (sfromListLinear [2,2,2] [0,0,1,1,1,1,1,1]) `sindex0` [i31, i28, i26], i31, i28, i26])) (\\i153 -> [remH i153 4]))])))"
   printAstPretty afcnn2T
@@ -1348,7 +1349,7 @@ testCNNOPP3 = do
 testCNNOPP3b :: Assertion
 testCNNOPP3b = do
   resetVarCounter
-  let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded33 . conv2dSame3) (FTKR [2, 2, 2, 2] (FTKScalar @Double))
+  let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded33 . conv2dPreserving3) (FTKR [2, 2, 2, 2] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
     @?= "\\u1 -> rfromS (sfromVector @2 (fromList [str (sgather1 @2 (sgather @[2, 2, 2] (sfromVector @2 (fromList [sgather @[2, 2] (sappend (sreplicate @1 (stranspose @[0, 2, 1] (sgather @[2, 2] (stranspose @[3, 0, 2, 1] (sgather @[2, 2] (stranspose @[3, 0, 1, 2] (sgather @[2, 2] (stranspose @[3, 0, 2, 1] (sfromR u1) !$ [1]) (\\[i255, i257] -> [remH i255 4 + i257]))) (\\[i259, i261] -> [i259 + i261, i259]))) (\\[i159, i160] -> [i159 + i160, i159])))) (sconcrete (sreplicate [1,2,2,2,2] 0.0))) (\\[i161, i162] -> [i162, i161, i162, i161]), sconcrete (sreplicate [2,2,2] 0.0)])) (\\[i163, i164, i165] -> [sconcrete (sfromListLinear [2,2,2] [0,0,1,1,1,1,1,1]) `sindex0` [i163, i164, i165], i163, i164, i165])) (\\i166 -> [remH i166 4])), str (sgather1 @2 (sgather @[2, 2, 2] (sfromVector @2 (fromList [sgather @[2, 2] (sappend (sreplicate @1 (stranspose @[0, 2, 1] (sgather @[2, 2] (stranspose @[3, 0, 2, 1] (sgather @[2, 2] (stranspose @[3, 0, 1, 2] (sgather @[2, 2] (stranspose @[3, 0, 2, 1] (sfromR u1) !$ [1]) (\\[i267, i269] -> [remH i267 4 + i269]))) (\\[i271, i273] -> [i271 + i273, i271]))) (\\[i171, i172] -> [i171 + i172, i171])))) (sconcrete (sreplicate [1,2,2,2,2] 0.0))) (\\[i173, i174] -> [i174, i173, i174, i173]), sconcrete (sreplicate [2,2,2] 0.0)])) (\\[i175, i176, i177] -> [sconcrete (sfromListLinear [2,2,2] [0,0,1,1,1,1,1,1]) `sindex0` [i175, i176, i177], i175, i176, i177])) (\\i178 -> [remH i178 4]))]))"
   printArtifactPrimalPretty artifactRev
@@ -1378,16 +1379,16 @@ maxPool2dUnpadded33 arr =
       in rmaximum3 arrt
     _ -> error "maxPool2dUnpadded33: impossible pattern needlessly required"
 
-conv2dSame3
+conv2dPreserving3
   :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dSame3 arrA =
+conv2dPreserving3 arrA =
   let shB = [2, 2, 2, 2]
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez33 shB arrA [iImg `remH` 4, iImg, iImg, 1]
       in rindex @_ @0 arrAt [iBh, iBw, iImg, iBh]
-    _ -> error "conv2dSame3: impossible pattern needlessly required"
+    _ -> error "conv2dPreserving3: impossible pattern needlessly required"
 
 slicez3
   :: (ADReady target, NumScalar r, KnownNat n)
@@ -1448,7 +1449,7 @@ testCNNOPP5 = do
                        (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet PrimalSpan (TKR 4 Double)
-      afcnn2T = conv2dSame4 blackGlyph
+      afcnn2T = conv2dPreserving4 blackGlyph
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (sconcrete (sreplicate [1,1,2,2] 7.0))"
   printAstPretty afcnn2T
@@ -1457,7 +1458,7 @@ testCNNOPP5 = do
 testCNNOPP5b :: Assertion
 testCNNOPP5b = do
   resetVarCounter
-  let artifactRev = revArtifactAdapt UseIncomingCotangent conv2dSame4 (FTKR [5, 5, 5, 5] (FTKScalar @Double))
+  let artifactRev = revArtifactAdapt UseIncomingCotangent conv2dPreserving4 (FTKR [5, 5, 5, 5] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
     @?= "\\u1 -> rfromS (sreplicateN @[1, 1] (str (sslice (SNat @0) (SNat @2) (str (sslice (SNat @0) (SNat @2) (sfromR u1 !$ [0, 0]))))))"
   printArtifactPrimalPretty artifactRev
@@ -1477,16 +1478,16 @@ maxPool2dUnpadded4 arr =
       in rmaximum3 arrt
     _ -> error "maxPool2dUnpadded4: impossible pattern needlessly required"
 
-conv2dSame4
+conv2dPreserving4
   :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dSame4 arrA =
+conv2dPreserving4 arrA =
   let shB = [1, 1, 2, 2]
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez4 shB arrA [iImg, 0, iBh, iBw]
       in rindex @_ @0 arrAt [0, 0, 0, 0]
-    _ -> error "conv2dSame4: impossible pattern needlessly required"
+    _ -> error "conv2dPreserving4: impossible pattern needlessly required"
 
 slicez4
   :: (ADReady target, NumScalar r, KnownNat n)
@@ -1502,7 +1503,7 @@ testCNNOPP6 = do
                        (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PlainSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
-      afcnn2T = maxPool2dUnpadded3 $ conv2dSame3z blackGlyph
+      afcnn2T = maxPool2dUnpadded3 $ conv2dPreserving3z blackGlyph
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (sconcrete (sfromListLinear [2,2,2,2] [7.0,0.0,7.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printAstPretty afcnn2T
@@ -1512,7 +1513,7 @@ testCNNOPP6 = do
 testCNNOPP6b :: Assertion
 testCNNOPP6b = do
   resetVarCounter
-  let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded3 . conv2dSame3z) (FTKR [2, 2, 2, 2] (FTKScalar @Double))
+  let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded3 . conv2dPreserving3z) (FTKR [2, 2, 2, 2] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
     @?= "\\u1 -> rfromS (stranspose @[1, 2, 0] (sreplicate @2 (sfromVector @2 (fromList [sfromVector @2 (fromList [sfromVector0N @[2] (fromList [sfromR u1 `sindex0` [0, 0, 0, 0], 0.0]), sconcrete (sreplicate [2] 0.0)]), sconcrete (sreplicate [2,2] 0.0)]))))"
   printArtifactPrimalPretty artifactRev
@@ -1522,16 +1523,16 @@ testCNNOPP6b = do
   printArtifactPretty (simplifyArtifactRev artifactRev)
     @?= "\\dret u1 -> rfromS (soneHot (sfromK (ssum0 @[2] (stranspose @[0, 1, 3, 2] (sfromR dret) !$ [0, 0, 0]))) [0, 0, 0, 0])"
 
-conv2dSame3z
+conv2dPreserving3z
   :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dSame3z arrA =
+conv2dPreserving3z arrA =
   let shB = [2, 2, 2, 2]
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez3 shB arrA [iImg, iImg, iImg, iBw]
       in rindex @_ @0 arrAt [iBh, iBw, iImg, iBh]
-    _ -> error "conv2dSame3z: impossible pattern needlessly required"
+    _ -> error "conv2dPreserving3z: impossible pattern needlessly required"
 
 testCNNOPP7 :: Assertion
 testCNNOPP7 = do
@@ -1541,7 +1542,7 @@ testCNNOPP7 = do
                        (rconcrete $ Nested.rscalar 7
                         :: AstTensor AstMethodLet PrimalSpan (TKR 0 Double))
       afcnn2T :: AstTensor AstMethodLet FullSpan (TKR 4 Double)
-      afcnn2T = maxPool2dUnpadded3y $ conv2dSame3y blackGlyph
+      afcnn2T = maxPool2dUnpadded3y $ conv2dPreserving3y blackGlyph
   printAstPretty (simplifyInlineContract afcnn2T)
     @?= "rfromS (sconcrete (sfromListLinear [2,2,2,2] [7.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]))"
   printAstPretty afcnn2T
@@ -1550,7 +1551,7 @@ testCNNOPP7 = do
 testCNNOPP7b :: Assertion
 testCNNOPP7b = do
   resetVarCounter
-  let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded3y . conv2dSame3y) (FTKR [2, 2, 2, 2] (FTKScalar @Double))
+  let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded3y . conv2dPreserving3y) (FTKR [2, 2, 2, 2] (FTKScalar @Double))
   printArtifactPrimalPretty (simplifyArtifactRev artifactRev)
     @?= "\\u1 -> rfromS (stranspose @[1, 2, 0] (sfromVector @2 (fromList [sfromVector @2 (fromList [sfromVector @2 (fromList [sfromVector0N @[2] (fromList [sfromR u1 `sindex0` [0, 0, 0, 0], 0.0]), sconcrete (sreplicate [2] 0.0)]), sconcrete (sreplicate [2,2] 0.0)]), sconcrete (sreplicate [2,2,2] 0.0)])))"
   printArtifactPrimalPretty artifactRev
@@ -1570,16 +1571,16 @@ maxPool2dUnpadded3y arr =
       in rmaximum3 arrt
     _ -> error "maxPool2dUnpadded3y: impossible pattern needlessly required"
 
-conv2dSame3y
+conv2dPreserving3y
   :: (ADReady target, NumScalar r)
   => target (TKR 4 r) -> target (TKR 4 r)
-conv2dSame3y arrA =
+conv2dPreserving3y arrA =
   let shB = [2, 2, 2, 2]
   in rbuild shB $ \case
     [iImg, _, iBh, iBw] ->
       let arrAt = slicez3 shB arrA [iImg, iImg, iImg, iBh]
       in rindex @_ @0 arrAt [iBh, iBw, iImg, iBh]
-    _ -> error "conv2dSame3y: impossible pattern needlessly required"
+    _ -> error "conv2dPreserving3y: impossible pattern needlessly required"
 
 testPaddedCNNOPP0c :: Assertion
 testPaddedCNNOPP0c = do
@@ -1772,8 +1773,8 @@ conv2dPadded2 arrK arrA =
 
 -- Hand-written reverse derivative of full convolution with respect
 -- to the kernels.
-testSameCNNOPPKrnHandwritten :: Assertion
-testSameCNNOPPKrnHandwritten = do
+testPreservingCNNOPPKrnHandwritten :: Assertion
+testPreservingCNNOPPKrnHandwritten = do
   resetVarCounter
   let ftk = FTKS (knownShS @'[3, 3, 6, 6]) (FTKScalar @Double)
       varNameA = mkAstVarName ftk . intToAstVarId $ 100000000
@@ -1781,21 +1782,21 @@ testSameCNNOPPKrnHandwritten = do
       varNameB = mkAstVarName ftk . intToAstVarId $ 100000099
       varB = AstVar varNameB
       t :: AstTensor AstMethodLet FullSpan (TKS [3, 3, 3, 3] Double)
-      t = conv2dSame_dKrn varA varB
+      t = conv2dPreserving_dKrn varA varB
   "\\u0 -> \\u99 -> " ++ printAstPretty t
     @?= "\\u0 -> \\u99 -> ssumN @[3, 1, 6, 6] (stranspose @[2, 3, 4, 5, 1, 0] (sreplicate @3 (stranspose @[1, 2, 3, 4, 5, 0] (sreplicate @3 (stranspose @[1, 2, 3, 4, 5, 0] (sreplicate @3 (stranspose @[1, 2, 0] (sreplicate @1 (str u99)))))))) * stranspose @[1, 2, 3, 4, 0] (sreplicate @3 (stranspose @[4, 0, 5, 6, 1, 2, 3] (sreplicate @1 (stranspose @[2, 3, 0, 4, 5, 1] (sgather @[3, 6] (stranspose @[4, 2, 0, 3, 1] (sgather @[3, 6] (stranspose @[2, 1, 0] u0) (\\[i18, i11] -> [i18 + i11]))) (\\[i16, i12] -> [i16 + i12])))))))"
   "\\u0 -> \\u99 -> " ++ printAstPretty (simplifyUserCode t)
     @?= "\\u0 -> \\u99 -> ssumN @[3, 1, 6, 6] (stranspose @[2, 3, 4, 5, 1, 0] (sreplicate @3 (stranspose @[1, 2, 3, 4, 5, 0] (sreplicate @3 (stranspose @[1, 2, 3, 4, 5, 0] (sreplicate @3 (stranspose @[1, 2, 0] (sreplicate @1 (str u99)))))))) * stranspose @[1, 2, 3, 4, 0] (sreplicate @3 (stranspose @[4, 0, 5, 6, 1, 2, 3] (sreplicate @1 (stranspose @[2, 3, 0, 4, 5, 1] (sgather @[3, 6] (stranspose @[4, 2, 0, 3, 1] (sgather @[3, 6] (stranspose @[2, 1, 0] u0) (\\[i35, i37] -> [i35 + i37]))) (\\[i16, i12] -> [i16 + i12])))))))"
 
 -- Convolution differentiated wrt the kernel.
-testSameCNNOPP0cW :: Assertion
-testSameCNNOPP0cW = do
+testPreservingCNNOPP0cW :: Assertion
+testPreservingCNNOPP0cW = do
   resetVarCounter
   let ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
       varName = mkAstVarName ftkD . intToAstVarId $ 100000000
       var = AstVar varName
       ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
-      f = flip conv2dSame var
+      f = flip conv2dPreserving var
       varName2 = mkAstVarName ftkD . intToAstVarId $ 100000000
       var2 = AstVar varName2
       env =
@@ -1813,14 +1814,14 @@ testSameCNNOPP0cW = do
     @?= "\\u0 -> \\dret u1 -> rfromS (ssumN @[6, 6] (sdot1In (stranspose @[5, 6, 0, 2, 3, 4, 1] (sreplicate @2 (stranspose @[2, 4, 5, 1, 3, 0] (sgather @[6, 2] (stranspose @[4, 2, 0, 3, 1] (sgather @[6, 2] (stranspose @[2, 0, 1] (sfromR u0)) (\\[i80, i82] -> [i80 + i82]))) (\\[i24, i25] -> [i24 + i25]))))) (stranspose @[5, 6, 4, 0, 1, 2, 3] (sreplicateN @[2, 2, 2] (sfromR dret)))))"
 
 -- Convolution differentiated wrt the data.
-testSameCNNOPP0bW :: Assertion
-testSameCNNOPP0bW = do
+testPreservingCNNOPP0bW :: Assertion
+testPreservingCNNOPP0bW = do
   resetVarCounter
   let ftkK = FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) (FTKScalar @Double)
       varName = mkAstVarName ftkK . intToAstVarId $ 100000000
       var = AstVar varName
       ftkD = FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) (FTKScalar @Double)
-      f = conv2dSame var
+      f = conv2dPreserving var
       varName2 = mkAstVarName ftkK . intToAstVarId $ 100000000
       var2 = AstVar varName2
       env =
@@ -1838,14 +1839,14 @@ testSameCNNOPP0bW = do
     @?= "\\u0 -> \\dret u1 -> rfromS (stranspose @[1, 2, 0] (sscatter @[6, 2] (stranspose @[2, 4, 1, 3, 0] (sscatter @[6, 2] (sdot1In (stranspose @[6, 3, 0, 5, 1, 2, 4] (sreplicate @6 (stranspose @[2, 3, 4, 1, 0] (sreplicate @6 (stranspose @[1, 2, 3, 4, 0] (sreplicate @6 (sfromR u0))))))) (stranspose @[6, 2, 3, 5, 0, 1, 4] (sreplicateN @[2, 2, 2] (sfromR dret)))) (\\[i28, i29] -> [i28 + i29]))) (\\[i30, i31] -> [i30 + i31])))"
 
 -- Convolution differentiated wrt both arguments.
-testSameCNNOPP1bW :: Assertion
-testSameCNNOPP1bW = do
+testPreservingCNNOPP1bW :: Assertion
+testPreservingCNNOPP1bW = do
   resetVarCounter
   let f :: AstTensor AstMethodLet FullSpan
                      (TKProduct (TKR 4 Double) (TKR 4 Double))
         -> AstTensor AstMethodLet FullSpan
                      (TKR 4 Double)
-      f v = conv2dSame (tproject1 v) (tproject2 v)
+      f v = conv2dPreserving (tproject1 v) (tproject2 v)
       ftk = FTKProduct (FTKR (2 :$: 2 :$: 2 :$: 2 :$: ZSR) FTKScalar)
                        (FTKR (6 :$: 2 :$: 6 :$: 6 :$: ZSR) FTKScalar)
       (artifactRev, _) =
