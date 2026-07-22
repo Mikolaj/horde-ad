@@ -170,7 +170,7 @@ inlineAst c !memo v0 = case v0 of
   -- occurrences, but only dynamic occurrences. Tensor expressions
   -- in conditionals are problematic and special enough
   -- that we can let it be until problems are encountered in the wild.
-  -- See https://github.com/VMatthijs/CHAD/blob/main/src/Count.hs#L88-L152.
+  -- See https://github.com/VMatthijs/CHAD/blob/755fc47e1f8d1c3d91455f123338f44a353fc265/src/Count.hs#L88-L152.
   Ast.AstCondK b a2 a3 ->
     let (memoA2, t2) = inlineAst c memo a2
         (memoA3, t3) = inlineAst c memo a3
