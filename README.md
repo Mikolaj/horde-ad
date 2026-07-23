@@ -2,18 +2,56 @@
 
 [![Hackage](https://img.shields.io/hackage/v/horde-ad.svg)](https://hackage.haskell.org/package/horde-ad)
 
-Welcome to the Automatic Differentiation library originally inspired by the paper [_"Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation"_](https://dl.acm.org/doi/10.1145/3498710). Compared to the paper and to classic taping AD Haskell packages, the library additionally efficiently supports array operations and generation of symbolic derivative programs, though the efficiency is confined to a narrowly typed class of source programs with limited higher-orderness. A detailed account of the extension is in the paper [_"Dual-Numbers Reverse AD for Functional Array Languages"_](http://arxiv.org/abs/2507.12640) by Tom Smeding, Mikolaj Konarski, Simon Peyton Jones and Andrew Fitzgibbon.
+Welcome to the Automatic Differentiation library originally inspired by the
+paper [_"Provably correct, asymptotically efficient, higher-order reverse-mode
+automatic differentiation"_](https://dl.acm.org/doi/10.1145/3498710). Compared
+to the paper and to classic taping AD Haskell packages, the library
+additionally efficiently supports array operations and generation of symbolic
+derivative programs, though the efficiency is confined to a narrowly typed
+class of source programs with limited higher-orderness. A detailed account of
+the extension is in the paper [_"Dual-Numbers Reverse AD for Functional Array
+Languages"_](http://arxiv.org/abs/2507.12640) by Tom Smeding, Mikolaj Konarski,
+Simon Peyton Jones and Andrew Fitzgibbon.
 <!--
-More specifically, in primitive pipelines (that match the Provable paper) the objective functions have types with ADVal in them which, e.g., permit dynamic control flow via inspecting the primal components of ADVal and permit higher order functions by just applying them (they are not symbolic for ADVal), but prevent vectorization, simplification and computing a derivative only once and evaluating on many inputs.
+More specifically, in primitive pipelines (that match the Provable paper) the
+objective functions have types with ADVal in them which, e.g., permit dynamic
+control flow via inspecting the primal components of ADVal and permit higher
+order functions by just applying them (they are not symbolic for ADVal), but
+prevent vectorization, simplification and computing a derivative only once and
+evaluating on many inputs.
 -->
 
-This is an early prototype, both in terms of the engine performance, the API and the preliminary tools and examples built with it. At this development stage, it's not coded defensively but exactly the opposite: it will fail on cases not found in current tests so that new code and tests have to be added and old code optimized for the new specimens reported in the wild. The user should also be ready to add missing primitives and any obvious tools that should be predefined but aren't, such as weight normalization (https://github.com/Mikolaj/horde-ad/issues/42). It's already possible to differentiate basic neural network architectures, such as fully connected, recurrent, convolutional and residual. The library should also be suitable for defining exotic machine learning architectures and non-machine learning systems, given that no notion of a neural network nor of a computation graph are hardwired into the formalism, but instead they are compositionally and type-safely built up from general automatic differentiation building blocks.
+This is an early prototype, both in terms of the engine performance, the API
+and the preliminary tools and examples built with it. At this development
+stage, it's not coded defensively but exactly the opposite: it will fail on
+cases not found in current tests so that new code and tests have to be added
+and old code optimized for the new specimens reported in the wild. The user
+should also be ready to add missing primitives and any obvious tools that
+should be predefined but aren't, such as weight normalization
+(https://github.com/Mikolaj/horde-ad/issues/42). It's already possible to
+differentiate basic neural network architectures, such as fully connected,
+recurrent, convolutional and residual. The library should also be suitable for
+defining exotic machine learning architectures and non-machine learning
+systems, given that no notion of a neural network nor of a computation graph
+are hardwired into the formalism, but instead they are compositionally and
+type-safely built up from general automatic differentiation building blocks.
 
-Mature Haskell libraries with similar capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. See also https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md. Benchmarks suggest that horde-ad has competitive performance on CPU.
+Mature Haskell libraries with similar capabilities, but varying efficiency, are
+https://hackage.haskell.org/package/ad and
+https://hackage.haskell.org/package/backprop. See also
+https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md. Benchmarks suggest
+that horde-ad has competitive performance on CPU.
 <!--
-The benchmarks at _ (TBD after GHC 9.14 is out) show that this library has performance highly competitive with (i.e. faster than) those and PyTorch on CPU.
+The benchmarks at _ (TBD after GHC 9.14 is out) show that this library has
+performance highly competitive with (i.e. faster than) those and PyTorch on
+CPU.
 -->
-It is hoped that the (well-typed) separation of AD logic and tensor manipulation backend will enable similar speedups on numerical accelerators, when their support is implemented. Contributions to this and other tasks are very welcome. The newcomer-friendly tickets are listed at https://github.com/Mikolaj/horde-ad/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22. Please don't hesitate to ask questions on github, on Matrix, via email.
+It is hoped that the (well-typed) separation of AD logic and tensor
+manipulation backend will enable similar speedups on numerical accelerators,
+when their support is implemented. Contributions to this and other tasks are
+very welcome. The newcomer-friendly tickets are listed at
+https://github.com/Mikolaj/horde-ad/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22.
+Please don't hesitate to ask questions on github, on Matrix, via email.
 
 
 ## Computing the derivative of a simple function
@@ -27,7 +65,8 @@ foo (x, y, z) =
   in atan2 z w + z * w  -- note that w appears twice
 ```
 
-The gradient of `foo` instantiated to `Double` can be expressed in Haskell with horde-ad as:
+The gradient of `foo` instantiated to `Double` can be expressed in Haskell with
+horde-ad as:
 ```hs
 gradFooDouble :: (Double, Double, Double) -> (Double, Double, Double)
 gradFooDouble = fromDValue . cgrad foo . fromValue
@@ -39,7 +78,9 @@ which can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
 (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 ```
 
-We can instantiate `foo` to matrices (represented in the `Concrete` datatype of unboxed multi-dimensional arrays); the operations within (`sin`, `+`, `*`, etc.) applying elementwise:
+We can instantiate `foo` to matrices (represented in the `Concrete` datatype of
+unboxed multi-dimensional arrays); the operations within (`sin`, `+`, `*`,
+etc.) applying elementwise:
 ```hs
 type Matrix2x2 r = Concrete (TKS '[2, 2] r)  -- TKS means shapely-typed tensor kind
 type ThreeMatrices r = (Matrix2x2 r, Matrix2x2 r, Matrix2x2 r)
@@ -51,8 +92,10 @@ fooMatrixValue = foo threeSimpleMatrices
 sfromListLinear [2,2] [4.242393641025528,4.242393641025528,4.242393641025528,4.242393641025528])
 ```
 
-Instantiated to matrices, `foo` now returns a matrix, not a scalar &mdash; but a gradient can only be computed of a function that returns a scalar.
-To remediate this, let's sum the whole output of `foo` and only then compute its gradient:
+Instantiated to matrices, `foo` now returns a matrix, not a scalar &mdash; but
+a gradient can only be computed of a function that returns a scalar. To
+remediate this, let's sum the whole output of `foo` and only then compute its
+gradient:
 ```hs
 gradSumFooMatrix :: ThreeMatrices Double -> ThreeMatrices Double
 gradSumFooMatrix = cgrad (ssum0 . foo)
@@ -66,11 +109,19 @@ This works as well as before:
 
 ### Efficiency: preserving sharing
 
-We noted above that `w` appears twice in `foo`.  A property of tracing-based AD systems is that such re-use may not be captured, with explosive results.
-In `cgrad`, such sharing is preserved, so `w` is processed only once during gradient computation and this property is guaranteed for the `cgrad` tool universally, without any action required from the user.
-`horde-ad` also allows computing _symbolic_ derivative programs: with this API, a program is differentiated only once, after which it can be run on many different input values.
-In this case, however, sharing is _not_ automatically preserved, so shared variables have to be explicitly marked using `tlet`, as shown below in `fooLet`.
-This also makes the type of the function more specific: it now does not work on an arbitrary `Num` any more, but instead on an arbitrary `horde-ad` tensor that implements the standard arithmetic operations, some of which (e.g., `atan2H`) are implemented in custom numeric classes.
+We noted above that `w` appears twice in `foo`.  A property of tracing-based AD
+systems is that such re-use may not be captured, with explosive results. In
+`cgrad`, such sharing is preserved, so `w` is processed only once during
+gradient computation and this property is guaranteed for the `cgrad` tool
+universally, without any action required from the user. `horde-ad` also allows
+computing _symbolic_ derivative programs: with this API, a program is
+differentiated only once, after which it can be run on many different input
+values. In this case, however, sharing is _not_ automatically preserved, so
+shared variables have to be explicitly marked using `tlet`, as shown below in
+`fooLet`. This also makes the type of the function more specific: it now does
+not work on an arbitrary `Num` any more, but instead on an arbitrary `horde-ad`
+tensor that implements the standard arithmetic operations, some of which (e.g.,
+`atan2H`) are implemented in custom numeric classes.
 ```hs
 fooLet :: (RealFloatH (f r), ADReady f)  -- ADReady means the container type f supports AD
        => (f r, f r, f r) -> f r
@@ -81,13 +132,20 @@ fooLet (x, y, z) =
 
 ### Vector-Jacobian product (VJP) and symbolic derivatives
 
-The most general symbolic reverse derivative program for this function can be obtained using the `vjpArtifact` tool. Because the `vjp` family of tools permits non-scalar codomains (but expects an incoming cotangent argument to compensate, visible in the code below as `dret`), we illustrate it using the original `fooLet` from the previous section, without the need to add `ssum0`.
+The most general symbolic reverse derivative program for this function can be
+obtained using the `vjpArtifact` tool. Because the `vjp` family of tools
+permits non-scalar codomains (but expects an incoming cotangent argument to
+compensate, visible in the code below as `dret`), we illustrate it using the
+original `fooLet` from the previous section, without the need to add `ssum0`.
 ```hs
 artifact :: AstArtifactRev (X (ThreeConcreteMatrices Double)) (TKS '[2, 2] Double)
 artifact = vjpArtifact fooLet threeSimpleMatrices
 ```
 
-The vector-Jacobian product program (presented below with additional formatting) looks like ordinary functional code with nested pairs and projections representing tuples. A quick inspection of the code reveals that computations are not repeated, which is thanks to the `tlet` used above.
+The vector-Jacobian product program (presented below with additional
+formatting) looks like ordinary functional code with nested pairs and
+projections representing tuples. A quick inspection of the code reveals that
+computations are not repeated, which is thanks to the `tlet` used above.
 
 ```hs
 >>> printArtifactPretty artifact
@@ -102,15 +160,33 @@ The vector-Jacobian product program (presented below with additional formatting)
        ((m4 * m5) * dret + m4 * dret)
 ```
 
-A concrete value of this symbolic reverse derivative at the same input as before can be obtained by interpreting its program in the context of the operations supplied by the horde-ad library. (Note that the output happens to be the same as `gradSumFooMatrix threeSimpleMatrices` above, which used `cgrad` on `ssum0 . foo`; the reason is that `srepl 1.0` happens to be the reverse derivative of `ssum0`.)
+A concrete value of this symbolic reverse derivative at the same input as
+before can be obtained by interpreting its program in the context of the
+operations supplied by the horde-ad library. (Note that the output happens to
+be the same as `gradSumFooMatrix threeSimpleMatrices` above, which used `cgrad`
+on `ssum0 . foo`; the reason is that `srepl 1.0` happens to be the reverse
+derivative of `ssum0`.)
 ```hs
 >>> vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1.0)
 ((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeConcreteMatrices Double)
 ```
 
-Note that, as evidenced by the `printArtifactPretty` call above, `artifact` contains the complete and simplified code of the VJP of `fooLet`, so repeated calls of `vjpInterpretArtifact artifact` won't ever repeat differentiation nor simplification and will only incur the cost of straightforward interpretation. The repeated call would fail with an error if the provided argument had a different shape than `threeSimpleMatrices`. However, for the examples we show here, such a scenario is ruled out by the types, because all tensors we present are shaped, meaning their full shape is stated in their type and so can't differ for two (tuples of) tensors of the same type. More loosely-typed variants of all the tensor operations, where runtime checks can really fail, are available in the horde-ad API and can be mixed and matched freely.
+Note that, as evidenced by the `printArtifactPretty` call above, `artifact`
+contains the complete and simplified code of the VJP of `fooLet`, so repeated
+calls of `vjpInterpretArtifact artifact` won't ever repeat differentiation nor
+simplification and will only incur the cost of straightforward interpretation.
+The repeated call would fail with an error if the provided argument had a
+different shape than `threeSimpleMatrices`. However, for the examples we show
+here, such a scenario is ruled out by the types, because all tensors we present
+are shaped, meaning their full shape is stated in their type and so can't
+differ for two (tuples of) tensors of the same type. More loosely-typed
+variants of all the tensor operations, where runtime checks can really fail,
+are available in the horde-ad API and can be mixed and matched freely.
 
-A shorthand that creates a symbolic gradient program, simplifies it and interprets it with a given input on the default CPU backend is called `grad` and is used exactly the same as (but with often much better performance on the same program than) `cgrad`:
+A shorthand that creates a symbolic gradient program, simplifies it and
+interprets it with a given input on the default CPU backend is called `grad`
+and is used exactly the same as (but with often much better performance on the
+same program than) `cgrad`:
 ```hs
 >>> grad (ssum0 . fooLet) threeSimpleMatrices
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
@@ -127,7 +203,9 @@ The Haskell compiler is able to infer many tensor shapes, deriving them both
 from dynamic dimension arguments (the first two lines of parameters
 to the function below) and from static type-level hints.
 
-Let's look at the body of the `convMnistTwoS` function before we look at its signature. It is common to see neural network code like that, with shape annotations in comments, hidden from the compiler:
+Let's look at the body of the `convMnistTwoS` function before we look at its
+signature. It is common to see neural network code like that, with shape
+annotations in comments, hidden from the compiler:
 ```hs
 convMnistTwoS
   kh@SNat kw@SNat h@SNat w@SNat
@@ -155,7 +233,9 @@ convMnistTwoS
   in weightsReadout `smatmul2` reluS denseLayer
      + str (sreplicate biasesReadout)
 ```
-But we don't just want the shapes in comments and in runtime expressions; we want them as a compiler-verified documentation in the form of the type signature of the function:
+But we don't just want the shapes in comments and in runtime expressions; we
+want them as a compiler-verified documentation in the form of the type
+signature of the function:
 ```hs
 convMnistTwoS
   :: forall kh kw h w c_out n_hidden batch_size target r.
@@ -192,27 +272,36 @@ convMnistTwoS
 ...
 ```
 
-This style gets verbose and the Haskell compiler needs some convincing to accept such programs, but type-safety is the reward. In practice, at least the parameters of the objective function are best expressed with shaped tensors, while the implementation can (zero-cost) convert the tensors to loosely typed variants as needed.
+This style gets verbose and the Haskell compiler needs some convincing to
+accept such programs, but type-safety is the reward. In practice, at least the
+parameters of the objective function are best expressed with shaped tensors,
+while the implementation can (zero-cost) convert the tensors to loosely typed
+variants as needed.
 
-The full neural network definition from which this function is taken can be found at
+The full neural network definition from which this function is taken can be
+found at
 
 https://github.com/Mikolaj/horde-ad/tree/master/example
 
-in file `MnistCnnShaped2.hs` and the directory contains several other sample neural networks for MNIST digit classification. Among them are recurrent, convolutional and fully connected networks based on fully typed tensors (sizes of all dimensions are tracked in the types, as above) as well as on the weakly typed ranked tensors, where only tensor ranks are tracked. It's possible to mix the two typing styles within one function signature and even within one shape description.
+in file `MnistCnnShaped2.hs` and the directory contains several other sample
+neural networks for MNIST digit classification. Among them are recurrent,
+convolutional and fully connected networks based on fully typed tensors (sizes
+of all dimensions are tracked in the types, as above) as well as on the weakly
+typed ranked tensors, where only tensor ranks are tracked. It's possible to mix
+the two typing styles within one function signature and even within one shape
+description.
 
 
-Compilation from source
------------------------
+## Compilation from source
 
-Horde-ad uses [ox-arrays](https://hackage.haskell.org/package/ox-arrays)
-as its CPU backend library, which in turn is inspired by and depends
-on [orthotope](https://hackage.haskell.org/package/orthotope).
-Neither of these packages require any special installation.
-Some of the other
-[Haskell packages we depend on](https://github.com/Mikolaj/horde-ad/blob/master/horde-ad.cabal)
-need their usual C library dependencies to be installed manually,
-e.g., package zlib needs the C library zlib1g-dev or an equivalent.
-At this time, we don't depend on any GPU hardware nor bindings.
+Horde-ad uses [ox-arrays](https://hackage.haskell.org/package/ox-arrays) as its
+CPU backend library, which in turn is inspired by and depends on
+[orthotope](https://hackage.haskell.org/package/orthotope). Neither of these
+packages require any special installation. Some of the other [Haskell packages
+we depend on](https://github.com/Mikolaj/horde-ad/blob/master/horde-ad.cabal)
+need their usual C library dependencies to be installed manually, e.g., package
+zlib needs the C library zlib1g-dev or an equivalent. At this time, we don't
+depend on any GPU hardware nor bindings.
 
 For development, copying the included `cabal.project.local.development`
 to `cabal.project.local` provides a sensible default to run `cabal build` with
@@ -225,8 +314,7 @@ ensures that the code is compiled with optimization and consequently
 executes the rather computation-intensive testsuites in reasonable time.
 
 
-Running tests
--------------
+## Running tests
 
 The `parallelTest` test suite consists of large tests and runs in parallel
 
@@ -250,20 +338,19 @@ benchmarks that use package criterion are even more trustworthy,
 but the included set doesn't have a comparable coverage at this time.
 
 
-Coding style
-------------
+## Coding style
 
 Stylish Haskell is used for slight auto-formatting at buffer save; see
 [.stylish-haskell.yaml](https://github.com/Mikolaj/horde-ad/blob/master/.stylish-haskell.yaml).
-As defined in the file, indentation is 2 spaces wide and screen is
-80-columns wide. Spaces are used, not tabs. Spurious whitespace avoided.
-Spaces around arithmetic operators encouraged. Inline comments (`--`)
-should be prefixed with exactly two spaces, unless indented to match
-other comments. Operators such as `(` and `,`, `<$>` and `<*>`, comment
-starts, etc. on consecutive lines should either align or, if that would
-make lines too long, should be indented by 2 spaces from the previous
-indentation level. Generally, relax and try to stick to the style apparent
-in a file you are editing. Put big formatting changes in separate commits.
+As defined in the file, indentation is 2 spaces wide and screen is 80-columns
+wide. Spaces are used, not tabs. Spurious whitespace avoided. Spaces around
+arithmetic operators encouraged. Inline comments (`--`) should be prefixed with
+exactly two spaces, unless indented to match other comments. Operators such as
+`(` and `,`, `<$>` and `<*>`, comment starts, etc. on consecutive lines should
+either align or, if that would make lines too long, should be indented by 2
+spaces from the previous indentation level. Generally, relax and try to stick
+to the style apparent in a file you are editing. Put big formatting changes in
+separate commits.
 
 Haddocks should be provided for all module headers and for the main
 functions and types from the most important modules.
@@ -274,9 +361,9 @@ implementation details and be out of date. Prefer assertions in place
 of comments, unless too verbose.
 
 
-Copyright
----------
+## Copyright
 
-Copyright 2023--2026 Mikolaj Konarski, Well-Typed LLP and others (see git history)
+Copyright 2023--2026 Mikolaj Konarski, Well-Typed LLP and others (see git
+history)
 
 License: BSD-3-Clause (see file LICENSE)
