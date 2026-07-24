@@ -19,6 +19,7 @@ import Prelude
 
 import Data.Foldable qualified as Foldable
 import Data.Int (Int16, Int32, Int64, Int8)
+import Data.List (sortOn)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
@@ -646,6 +647,58 @@ contractAst t0 = case t0 of
       contractAst
       $ Ast.AstCondS b (Ast.AstGatherS shm shn shp v (vars, i1 :.$ prest))
                        (Ast.AstGatherS shm shn shp v (vars, i2 :.$ prest))
+  -- Sort the shn dimensions of a gather ascending (with metadata-only
+  -- transposes below and above that keep the semantics intact),
+  -- so that the innermost dimensions of the slices copied per output
+  -- position, and of the materialized result, are the largest.
+  -- This amortizes the per-dimension overheads of the concrete gather
+  -- over longer inner loops; see the gather48 group of convVjpBench.
+  -- The transpose below usually merges with existing transposes
+  -- of the source and the transpose above with consumer transposes.
+  -- This is a stable normal form. The compensating transposes permute the
+  -- shn (slice) dims, which the leading-dims-only guards in astTransposeS
+  -- and astGatherCase cannot fold back into the gather, and the guard below
+  -- makes the rule idempotent (sortOn is stable, so a sorted shn — ties
+  -- included — gives sigma = identity).
+  Ast.AstGatherS @shm @shn @shp shm shn shp v (vars, ix)
+    | let shnL = shsToList shn
+    , sigmaL <- map fst $ sortOn snd $ zip [0 ..] shnL
+    , sigmaL /= [0 .. length shnL - 1] ->
+      let sigmaInvL = map fst $ sortOn snd $ zip [0 ..] sigmaL
+          permSrcL = [0 .. shsLength shp - 1]
+                     ++ map (+ shsLength shp) sigmaL
+          permOutL = [0 .. shsLength shm - 1]
+                     ++ map (+ shsLength shm) sigmaInvL
+      in Permutation.permFromListCont sigmaL
+         $ \(sigma :: Permutation.Perm sigma) ->
+         Permutation.permFromListCont permSrcL
+         $ \(permSrc :: Permutation.Perm permSrc) ->
+         Permutation.permFromListCont permOutL
+         $ \(permOut :: Permutation.Perm permOut) ->
+         fromMaybe (error "contractAst: impossible non-permutation")
+         $ Permutation.permCheckPermutation sigma
+         $ fromMaybe (error "contractAst: impossible non-permutation")
+         $ Permutation.permCheckPermutation permSrc
+         $ fromMaybe (error "contractAst: impossible non-permutation")
+         $ Permutation.permCheckPermutation permOut
+         $ gcastWith (unsafeCoerceRefl
+                      :: Rank permSrc :~: Rank (shp ++ shn)) $
+           gcastWith (unsafeCoerceRefl
+                      :: Permutation.PermutePrefix permSrc (shp ++ shn)
+                         :~: shp ++ Permutation.PermutePrefix sigma shn) $
+           gcastWith (unsafeCoerceRefl
+                      :: Rank permOut
+                         :~: Rank
+                               (shm ++ Permutation.PermutePrefix sigma shn)) $
+           gcastWith (unsafeCoerceRefl
+                      :: Permutation.PermutePrefix
+                           permOut (shm ++ Permutation.PermutePrefix sigma shn)
+                         :~: shm ++ shn) $
+           astTransposeS permOut
+           $ astGatherKnobsS (defaultKnobs {knobPhase = PhaseContraction})
+                             shm (shsPermutePrefix sigma shn) shp
+                             (astTransposeS permSrc (contractAst v))
+                             (vars, contractAstIxS ix)
   Ast.AstGatherS shm shn shp v (vars, ix) ->
     astGatherKnobsS (defaultKnobs {knobPhase = PhaseContraction})
                     shm shn shp (contractAst v) (vars, contractAstIxS ix)
