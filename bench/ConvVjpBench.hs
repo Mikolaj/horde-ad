@@ -145,6 +145,7 @@ module Main (main) where
 import Prelude
 
 import Control.Exception (evaluate)
+import Control.Monad (unless)
 import Criterion.Main
 import GHC.TypeLits (Div, KnownNat, type (*))
 import System.Environment (lookupEnv)
@@ -235,7 +236,7 @@ benchesAt = do
       -- with AST size and dwarfs the actual build). The input is the whnf
       -- argument so the body depends on it and criterion re-runs it per call.
     , bench "S-artifact" $ whnf
-        (\k -> simplifyArtifactRev (vjpArtifact f k)) arrK
+        (simplifyArtifactRev . vjpArtifact f) arrK
       -- The handwritten counterpart: building + contracting the term only.
     , bench "H-term" $ whnf
         (\a -> simplifyInlineContract
@@ -285,7 +286,7 @@ benchesInpAt = do
                      (TKS '[nImgs, nCinp, nAh, nAw] Double)
         -> AstTensor AstMethodLet FullSpan
                      (TKS '[nImgs, nCout, nAh, nAw] Double)
-      g a = conv2dPreservingS (sconcrete (unConcrete arrK)) a
+      g = conv2dPreservingS (sconcrete (unConcrete arrK))
       varNameB = mkAstVarName (FTKS (knownShS @'[nImgs, nCout, nAh, nAw])
                                     (FTKScalar @Double))
                               (intToAstVarId 100000099)
@@ -307,7 +308,7 @@ benchesInpAt = do
   return
     [ bench "S-fullpipe-honest" $ whnf
         (\k -> forceGrad
-               $ vjp (\a -> conv2dPreservingS (sconcrete (unConcrete k)) a)
+               $ vjp (conv2dPreservingS (sconcrete (unConcrete k)))
                      arrA arrB)
         arrK
     , bench "H-fullpipe" $ whnf
@@ -316,7 +317,7 @@ benchesInpAt = do
                                        (sconcrete (unConcrete arrK))
                                        (sconcrete (unConcrete b))) arrB
     , bench "S-artifact" $ whnf
-        (\a -> simplifyArtifactRev (vjpArtifact g a)) arrA
+        (simplifyArtifactRev . vjpArtifact g) arrA
     , bench "H-term" $ whnf
         (\k -> simplifyInlineContract
                $ conv2dPreserving_dInp @nImgs @nCinp @nCout @nAh @nAw @nKh @nKw
@@ -376,7 +377,7 @@ benchesCnnAt = do
         (\glyph -> forceCnnGrad $ vjp (cnnObjective glyph) valsInit arrDt)
         arrGlyph
     , bench "S-artifact" $ whnf
-        (\v -> simplifyArtifactRev (vjpArtifact f v)) valsInit
+        (simplifyArtifactRev . vjpArtifact f) valsInit
     , bench "S-exec" $ whnf
         (\dt -> forceCnnGrad
                   (vjpInterpretArtifact artifact valsInitT dt
@@ -529,21 +530,21 @@ gatherBenches = do
   _ <- evaluate fusedShmDesc
   return
     [ bench "two-gathers-ad-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoAd
+        (forceGrad . interpretAstFull emptyEnv) twoAd
     , bench "two-gathers-vec-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoVec
+        (forceGrad . interpretAstFull emptyEnv) twoVec
     , bench "two-gathers-ad-shm-sorted" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) canonShm
+        (forceGrad . interpretAstFull emptyEnv) canonShm
     , bench "two-gathers-ad-shn-sorted" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) canonShn
+        (forceGrad . interpretAstFull emptyEnv) canonShn
     , bench "fused-gather-ad-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedAd
+        (forceGrad . interpretAstFull emptyEnv) fusedAd
     , bench "fused-gather-vec-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedVec
+        (forceGrad . interpretAstFull emptyEnv) fusedVec
     , bench "fused-gather-shm-sorted-asc" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedShmAsc
+        (forceGrad . interpretAstFull emptyEnv) fusedShmAsc
     , bench "fused-gather-shm-sorted-desc" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedShmDesc
+        (forceGrad . interpretAstFull emptyEnv) fusedShmDesc
     ]
 
 -- | Verify that a hand-built scatter chain is the adjoint (transpose) of the
@@ -569,11 +570,10 @@ checkAdjoint name gatherChain src scatterChain y =
       sOut = interpretAstFull emptyEnv scatterChain
       lhs = unConcrete (sdot0 gOut y)
       rhs = unConcrete (sdot0 src sOut)
-  in if abs (lhs - rhs) <= 1e-6 * (1 + abs lhs)
-     then pure ()
-     else error $ name ++ ": scatter is not the adjoint of gather: "
-                  ++ "sdot0 (sgather x f) y=" ++ show lhs
-                  ++ " sdot0 x (sscatter y f)=" ++ show rhs
+  in unless (abs (lhs - rhs) <= 1e-6 * (1 + abs lhs)) $
+       error $ name ++ ": scatter is not the adjoint of gather: "
+               ++ "sdot0 (sgather x f) y=" ++ show lhs
+               ++ " sdot0 x (sscatter y f)=" ++ show rhs
 
 -- | The scatter analogue of 'gatherBenches': the interpreted scatter chains
 -- that appear in the input-image gradient (the @sscatter@ path). Each chain
@@ -728,15 +728,15 @@ scatterBenches = do
   _ <- evaluate fusedScatterVec
   return
     [ bench "two-scatters-ad-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterAd
+        (forceGrad . interpretAstFull emptyEnv) twoScatterAd
     , bench "two-scatters-vec-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterVec
+        (forceGrad . interpretAstFull emptyEnv) twoScatterVec
     , bench "two-scatters-ad-shn-sorted" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) twoScatterShnSorted
+        (forceGrad . interpretAstFull emptyEnv) twoScatterShnSorted
     , bench "fused-scatter-ad-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedScatterAd
+        (forceGrad . interpretAstFull emptyEnv) fusedScatterAd
     , bench "fused-scatter-vec-orient" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) fusedScatterVec
+        (forceGrad . interpretAstFull emptyEnv) fusedScatterVec
     ]
 
 -- | The suite's single recorder of each known benchmarking pitfall, one
@@ -778,7 +778,7 @@ pitfallBenches = do
       -- goes unmeasured. Compare against S-fullpipe-honest (the tax
       -- included) and S-exec in the 6x6 group.
       bench "S-fullpipe-hoisted-6x6" $ whnf
-        (\dt -> forceGrad $ vjp f6 arrK dt) arrB6
+        (forceGrad . vjp f6 arrK) arrB6
       -- As H-exec in the 48x48 group, but with the cotangent embedded as
       -- a random concrete constant. Records that the embedding is
       -- harmless: this measures the same as H-exec, i.e., simplification
@@ -786,7 +786,7 @@ pitfallBenches = do
       -- gathers — a broadcast constant it would fold, which is why
       -- benchmark inputs are random.
     , bench "H-exec-const-48x48" $ whnf
-        (\t -> forceGrad $ interpretAstFull emptyEnv t) hTermConstSimplified
+        (forceGrad . interpretAstFull emptyEnv) hTermConstSimplified
     ]
 
 -- | Print the two gradient programs being compared instead of benchmarking,

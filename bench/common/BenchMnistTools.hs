@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | A set of benchmarks using fully connected MNIST neural networks.
 module BenchMnistTools where

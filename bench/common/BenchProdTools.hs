@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- {-# OPTIONS_GHC -ddump-stranal #-}
 -- | A contrived benchmark: a product of a list of scalars.

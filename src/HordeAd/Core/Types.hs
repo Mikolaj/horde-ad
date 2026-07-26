@@ -594,7 +594,7 @@ shrDrop (ShR shx) =
 
 ixsTake :: forall len sh i. KnownNat len
         => IxS sh i -> IxS (Take len sh) i
-ixsTake sh = go (SNat @len) sh
+ixsTake = go (SNat @len)
   where
     go :: SNat n -> IxS shn i -> IxS (Take n shn) i
     go SZ _ = ZIS
@@ -607,7 +607,7 @@ ixsTake sh = go (SNat @len) sh
 
 ixsDrop :: forall len sh i. KnownNat len
         => IxS sh i -> IxS (Drop len sh) i
-ixsDrop sh = go (SNat @len) sh
+ixsDrop = go (SNat @len)
   where
     go :: SNat n -> IxS shn i -> IxS (Drop n shn) i
     go SZ shn = shn
@@ -648,7 +648,7 @@ ixxDrop' sh =
 
 shxTake :: forall len sh. KnownNat len
         => IShX sh -> IShX (Take len sh)
-shxTake sh = go (SNat @len) sh
+shxTake = go (SNat @len)
   where
     go :: SNat n -> IShX shn -> IShX (Take n shn)
     go SZ _ = ZSX
@@ -665,7 +665,7 @@ shxTake sh = go (SNat @len) sh
 
 shxDrop :: forall len sh. KnownNat len
         => IShX sh -> IShX (Drop len sh)
-shxDrop sh = go (SNat @len) sh
+shxDrop = go (SNat @len)
   where
     go :: SNat n -> IShX shn -> IShX (Drop n shn)
     go SZ shn = shn

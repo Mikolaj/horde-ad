@@ -938,14 +938,14 @@ testVstackBuildAstSimp2 = do
 testVstackBuildAstPP2 :: Assertion
 testVstackBuildAstPP2 = do
   resetVarCounter
-  (printAstPretty
+  printAstPretty
      (vstackBuild @(AstTensor AstMethodLet PlainSpan) @Double
-                  (replIota2 10)))
+                  (replIota2 10))
     @?= "rfromS (let v7 = let v5 = siota (SNat @10) + (sconcrete (sreplicate [10] 2.0) * sfromIntegral (sconcrete (sreplicate [10] 1) + siota (SNat @10)) + sconcrete (sreplicate [10] 3.0) * sfromIntegral (sconcrete (sreplicate [10] (-1)) + siota (SNat @10))) in sappend (sslice (SNat @0) (SNat @9) v5) (sconcrete (sfromListLinear [1] [33.0])) in sappend (sconcrete (sfromListLinear [1] [2.0])) (sslice (SNat @1) (SNat @9) v7))"
-  (printAstPretty
+  printAstPretty
      (simplifyInlineContract
         (vstackBuild @(AstTensor AstMethodLet PlainSpan) @Double
-                     (replIota2 10))))
+                     (replIota2 10)))
     @?= "rfromS (sconcrete (sfromListLinear [10] [2.0,5.0,11.0,17.0,23.0,29.0,35.0,41.0,47.0,33.0]))"
 
 testFooPP :: Assertion
@@ -1760,10 +1760,10 @@ nestedBuildMap r =
         fooMap1 r2 =
           let v = fooBuild1 $ rreplicate0N [130] (kfromR r2)
           in rmap0N (\x -> x * kfromR r2 + 5) v
-    in rmap0N (\x0 -> tlet x0 $ \x -> x * (rsum0
+    in rmap0N (\x0 -> tlet x0 $ \x -> x * rsum0
                            (rbuild1 3 (\ix -> bar (rfromK x, rindex v' [ix]))
-                            + (tlet (nestedMap $ rfromK x) $ \x3 -> fooBuild1 x3)
-                            / (tlet (rfromK x) $ \x4 -> fooMap1 x4)))
+                            + tlet (nestedMap $ rfromK x) fooBuild1
+                              / tlet (rfromK x) fooMap1)
               ) doublyBuild
 
 testNestedBuildMap1 :: Assertion
@@ -1803,7 +1803,7 @@ nestedSumBuild :: (ADReady target, NumScalar r, Differentiable r)
                => target (TKR 1 r) -> target (TKR 1 r)
 nestedSumBuild v0 = tlet v0 $ \v ->
  tlet (rsum (rbuild1 9 rfromIndex0)) (\tbtf ->
-  (rbuild1 13 (\ix ->
+  rbuild1 13 (\ix ->
     rsum (rbuild1 4 (\ix2 ->
       flip rindex [ix2]
         (tlet (rsum v) $ \tsumv -> rbuild1 5 (const tsumv)
@@ -1814,9 +1814,9 @@ nestedSumBuild v0 = tlet v0 $ \v ->
              , rindex v [ix2]
              , rsum (rbuild1 3 (\ix7 ->
                  rsum (rreplicate 5 (rfromIndex0 ix7))))
-             ]))))))
- + tlet (nestedBuildMap (rfromK $ rsum0 v)) (\nbmt -> (rbuild1 13 (\ix ->
-     nbmt `rindex` [minH ix 4])))
+             ])))))
+ + tlet (nestedBuildMap (rfromK $ rsum0 v)) (\nbmt -> rbuild1 13 (\ix ->
+     nbmt `rindex` [minH ix 4]))
 
 testNestedSumBuild :: Assertion
 testNestedSumBuild =
@@ -2071,8 +2071,8 @@ concatBuild5 :: (ADReady target, GoodScalar r) => target (TKR 0 r) -> target (TK
 concatBuild5 r =
   tlet (rgather1 5 (rreplicate 1 r)
                    (\i -> (1 `quotH` (5 + i)) :.: ZIR)) $ \a ->
-    (rappend a (rgather1 5 (rreplicate 1 r)
-                           (\i -> (1 `quotH` (5 + i)) :.: ZIR)))
+    rappend a (rgather1 5 (rreplicate 1 r)
+                           (\i -> (1 `quotH` (5 + i)) :.: ZIR))
 
 testConcatBuild5 :: Assertion
 testConcatBuild5 =
