@@ -1,0 +1,27 @@
+# Paths and build targets a document may name although they are not in
+# the repo, read by tools/check-doc-refs.py. One glob per line; a line
+# starting with "make " or "cabal " allows a target instead of a path.
+# Text after "#" is the reason, and the reason is the point of the entry:
+# an unexplained line here silently hides real drift, which is exactly
+# what the checker exists to catch. When a named artifact lands, delete
+# its entry rather than leaving it.
+#
+# Adding an entry is also the easy way to silently defang the checker, so
+# re-run its docstring's non-vacuity test after touching this file.
+#
+# The file is deliberately empty of paths. Two groups have been removed
+# rather than lost:
+#
+# * Seven prose fragments — `.md`, `.cabal`, `blob/master`, `group/bench`,
+#   `head_sha`, `Run`, `sv_strided` — were needed only by the draft
+#   checker this replaced, which read bare snake_case as cabal flags and
+#   any slash as a path. All seven now fall to "unclassified" on their
+#   own, and an entry that suppresses nothing is a line nobody can audit.
+#
+# * Four upstream paths — ox-arrays' `Arith.hs`, `Arith/Internal.hs` and
+#   `cbits/arith.c`, and orthotope's `Data/Array/Internal/FastReshape.hs`
+#   — are now resolved against the `../ox-arrays` and `../orthotope`
+#   checkouts instead. That is strictly stronger: an allowlist entry only
+#   ever confirmed that a name was spelled the way the allowlist spelled
+#   it, so an upstream rename passed unnoticed. If a checkout is missing,
+#   the checker stops and says so rather than falling back to this file.

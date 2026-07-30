@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Print the heading outline of Markdown files, for the heading-scope check
-in CLAUDE.md (see "Document verification").
+in the `doc-verification` skill, which CLAUDE.md's standing checks name.
 
 Handles both ATX headings (`## Foo`) and Setext headings (a text line
 underlined with `===` for level 1 or `---` for level 2), and ignores
@@ -12,13 +12,43 @@ heading and confirm it is actually about that heading, at that level.
 
 Usage: python3 tools/heading-outline.py FILE [FILE ...]
 
-Non-vacuity (per CLAUDE.md's "prove a checker non-vacuous"): run it on this
-repo's docs and confirm it lists both CLAUDE.md's ATX headings and
-README.md's Setext (`---`-underlined) section headings -- if the Setext
-ones are missing, the Setext branch is broken. No current doc fences a `#`,
-`---` or `===` line, so to exercise the code-fence skip, drop such a line
-into a ``` block and confirm it stays out of the outline.
+Scope limits, deliberate: this shows where a block sits, never whether a
+heading's words describe what sits under it. A section passes while its
+title fits only its first paragraph. No outline can catch that; it
+belongs to the reading step above, which is a human's.
+
+Non-vacuity (per CLAUDE.md's "prove a checker non-vacuous"): the ATX
+branch and the level indentation have live controls -- run it on
+CLAUDE.md and confirm all three levels appear, `###` nested under its
+`##`. The other two branches have nothing in this repo to exercise them:
+no document here uses Setext headings (README.md was restyled to ATX in
+9ac80ee8a), and no document fences a `#`, `===` or `---` line. So use a
+scratch file holding an ATX heading, a `===`-underlined line, a
+`---`-underlined line, a fenced block containing a `#` line and a `===`
+line, and one more ATX heading after it; confirm four headings, the
+Setext pair among them at levels 1 and 2, and nothing from inside the
+fence. Reproduced 2026-07-28.
+
+Indented code blocks need no such guard: the ATX pattern is anchored at
+column 0, so a `#` comment inside one cannot be read as a heading. That
+matters here, where CLAUDE.md indents its blocks rather than fencing them.
+
+The frontmatter skip has a live control even here, where no tracked
+document has frontmatter: run it on any `SKILL.md` under
+`~/.claude/skills/` and confirm the only heading reported is the `#`
+title, not a `## description: …` section. Before the skip, every skill
+file reported one -- including the `doc-verification` skill that
+prescribes this very pass, since a closing `---` under a `description:`
+line is indistinguishable from a Setext heading except by knowing it
+closes a block.
+
+Until 2026-07-28 this recipe named README.md's Setext headings as its
+control. It was true when written in a775875e0 and false two commits
+later, 9ac80ee8a restyling that file the same day -- a checker's own
+proof drifting exactly as the documents it checks do, and going five
+days unnoticed because a recipe nobody runs reports nothing.
 """
+import os
 import re
 import sys
 
@@ -28,12 +58,33 @@ RULE_DASH = re.compile(r'^-+\s*$')
 FENCE = re.compile(r'^\s*(```|~~~)')
 
 
+def frontmatter_end(lines):
+    """Index just past a YAML frontmatter block, or 0 if there is none.
+
+    A skill file opens with `---`, a few `key: value` lines and a closing
+    `---`. That closing delimiter is preceded by a non-blank line, which
+    is exactly the shape of a Setext level-2 heading, so without this the
+    outline reports the `description:` line as a section. Nothing in the
+    line itself distinguishes the two -- both are `---` under text -- so
+    the block has to be recognised and skipped.
+    """
+    if not lines or lines[0].strip() != '---':
+        return 0
+    for i in range(1, len(lines)):
+        if lines[i].strip() == '---':
+            return i + 1
+    return 0
+
+
 def outline(path):
     lines = open(path, encoding='utf-8').read().splitlines()
     headings = []
     in_fence = False
     prev = ''
+    body = frontmatter_end(lines)
     for i, line in enumerate(lines):
+        if i < body:
+            continue
         if FENCE.match(line):
             in_fence = not in_fence
             prev = line
@@ -53,10 +104,23 @@ def outline(path):
     return headings
 
 
+def require_readable(paths):
+    """Exit cleanly on a mistyped name rather than with a traceback.
+
+    Exit 2 means the run did not happen, as distinct from 1, which means
+    it ran and found something.
+    """
+    for p in paths:
+        if not os.path.isfile(p):
+            print(f'no such document: {p}', file=sys.stderr)
+            sys.exit(2)
+
+
 def main(argv):
     if not argv:
         print('usage: heading-outline.py FILE [FILE ...]', file=sys.stderr)
         return 2
+    require_readable(argv)
     for path in argv:
         print(f'=== {path} ===')
         headings = outline(path)
