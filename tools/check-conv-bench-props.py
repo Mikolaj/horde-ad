@@ -38,7 +38,7 @@ Both halves carry `--regress allocated:iters` and `+RTS -T`, exactly as
 the single-file recipe does: `-L 30` is the only thing the split trades
 away. Omit them and collection still succeeds, but the check aborts on
 its first report, the allocation pass having no slope to read. These two
-commands lacked both flags from 2dc4f8783, which added the split and the
+commands lacked both flags from 8c6367789, which added the split and the
 allocation pass in one go, until 2026-07-30 -- found by reading the
 requirement below against the recipe, then demonstrated by deleting the
 37 allocated regressions from a real slow.json: exit 1 on

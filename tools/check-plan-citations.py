@@ -32,11 +32,66 @@ wrong ranges and links whose commit or path is not in this repository
 (foreign-repo links cannot be verified locally and are reported as
 failures).
 
+`git show` proves only that the commit is in *this* clone's object
+database, which an unpushed or squashed-away commit is too — such a link
+resolves for one person on one machine and 404s everywhere else. So a
+resolved permalink is then required to be an ancestor of PUBLISHED_REF,
+and one that is not fails as UNPUBLISHED; if that ref is absent the run
+stops (exit 2) rather than degrading to the weaker check, as
+check-doc-refs.py does for an unmounted sibling.
+
+The document's own stamp gets the same treatment, split by severity,
+because the two states differ in whether they can heal. A stamp naming a
+commit that is not an ancestor of HEAD is ORPHANED and fails: a squash or
+amend dropped it and nothing but re-verification brings it back. A stamp
+naming a commit that is in HEAD but not yet on PUBLISHED_REF only earns a
+note: pushing the branch unrewritten makes it true. Both stamps that this
+check was written for were orphaned, in documents whose every other pass
+was green.
+
+Stamp failures are counted apart from citation failures, and deliberately:
+--restamp refuses on a failed citation pass, so folding the stamp verdict
+into that count would let an orphaned stamp block the one command that
+repairs it. They still both set the exit status. For the same reason
+--restamp *writes* an unpublished anchor rather than refusing -- an
+orphaned stamp left in place is strictly worse than an unpushed one -- and
+prints an advisory naming the push it depends on.
+
+Non-vacuity for these four branches, reproduced 2026-07-31 in this repo:
+a scratch document pinning a permalink at `2dc4f8783` (squashed away, so
+`git show` still resolves it) reported UNPUBLISHED, exit 1; one stamped
+`179de634e` reported ORPHANED, exit 1; one stamped `d282ed596` (in HEAD,
+not yet pushed) printed the note and exited 0; and a copy of this script
+with PUBLISHED_REF set to `origin/no-such-ref` stopped with exit 2 on a
+document that otherwise passes. The restamp interaction was proved by
+repairing a scratch document stamped `0000000aa`: the plain pass fails it,
+--restamp rewrites it anyway and prints the advisory, exit 0. Controls:
+`notes-add-zero-gather.md`, whose three permalinks pin the published
+`e1bd5f5e2`, passes throughout; the exit status was read without a pipe,
+`tail` swallowing it being the trap the recipe above records.
+
 Scope limits, deliberate: prose-style citations ("config.ui.default line
 67") are not extracted, nor is a range left dangling from its filename
 ("`Core/OpsConcrete.hs:222` and `1581`") — a bare `1581` in backticks is
 indistinguishable from any other number, so a document that wants the
 second line checked must repeat the filename.
+
+Refuted, and not to be reopened without new evidence: extending that to
+the *colon-led* continuation the documents also write ("…hs:182 '…',
+:4310, :4487"), which unlike a bare number looks unambiguous. Measured
+2026-07-31 over every `.md` here, attaching each `, :NNNN` to the nearest
+preceding citation: 33 matches, all in one untracked scratch document and
+**none in any tracked one**, so the coverage gain today is zero. Against
+that, three of the 33 attach to the wrong file — `Convert.hs:254` where
+the sentence says check-doc-refs.py, `horde-ad.cabal:49-51` and
+`BenchProdTools.hs:49-51` where it says this checker's docstring — and
+those files are long enough that all three *resolve*, so the rule would
+print `ok` against the wrong file. That is the "a citation that resolves
+can still lie" class, manufactured by the checker meant to catch it. No
+gap threshold separates the cases either: correct attachments measured
+55, 90, 146 and 179 characters, wrong ones 1538, 1633 and 2111, but
+`TestConvSimplified.hs:1185-1186` sits at 184 and the ordering gives no
+clean cut. Repeat the filename.
 And the *claims* around citations are not checked
 — in particular, universally-quantified claims ("only X does Y", "exactly
 two", "never") must be re-verified by repo-wide grep, not by re-reading
@@ -52,6 +107,16 @@ all six are reported and the exit status is 1 —
     NON-SOURCE       `CLAUDE.md:999999`   (documents and tools cite each other)
     PERMALINK range  .../blob/5f0647baa/CLAUDE.md#L99999
     PERMALINK repo   https://github.com/ghc/ghc/blob/0123456789abcdef/x.hs#L1
+    UNPUBLISHED      .../blob/<a commit not on PUBLISHED_REF>/CLAUDE.md#L1-L3
+    ORPHANED stamp   a stamp naming a commit not an ancestor of HEAD
+
+A document carrying more than one stamp is quoting other documents'
+stamps rather than making a claim about its own tree -- a findings or
+handover document does -- so none of them is checked and a note says so.
+That is the precondition --restamp already enforces ("no stamp, or two
+stamps -> refuses"), so the two halves of the script agree on what counts
+as this document's stamp. Until 2026-07-31 the plain pass failed such a
+document three times over, on hashes it was merely reporting as dead.
 
 plus a control that must still pass (`Core/Ast.hs:1`). The two
 out-of-range rows name different files deliberately — extracted
@@ -85,7 +150,11 @@ documents naming `179de634e`, a commit of four days earlier:
 `2dc4f8783`; `CLAUDE.md`'s six cited files were last touched three days
 *before* its stamp, by `fa508caa4`, so it named a tree its citations do
 not come from either; and `bench/CLAUDE.md` cites no line at all, which
-the flag refuses rather than guesses at (last row below).
+the flag refuses rather than guesses at (last row below). `179de634e`
+and `2dc4f8783` are pre-squash hashes, unresolvable in this history --
+kept because the measurement happened at them, and because what they now
+demonstrate is the very defect the publication test above was added for.
+`2dc4f8783`'s content survives as `8c6367789`.
 
 The commit it writes is not HEAD but the newest commit touching anything
 the document cites. That referent is the one that survives editing the
@@ -154,6 +223,11 @@ import subprocess
 import sys
 
 SEARCH_ROOTS = ["src", "test", "bench", "example", "tools", ".github", "."]
+# The ref a pinned commit has to be reachable from to count as published.
+# `git show` is an object-database lookup with no reachability requirement,
+# so without this a link or stamp naming an unpushed or squashed-away
+# commit resolves here and nowhere else.
+PUBLISHED_REF = "origin/master"
 CITE_RE = re.compile(
     r"`?([A-Za-z][A-Za-z0-9_./-]*"
     r"\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml)|Makefile)"
@@ -182,6 +256,20 @@ def spans(spec):
         lo, _, hi = part.partition("-")
         out.append((int(lo), int(hi or lo)))
     return out
+
+
+def reachable_from(sha, ref):
+    """Is sha an ancestor of ref? None if ref does not exist here."""
+    if subprocess.run(["git", "rev-parse", "--verify", "--quiet",
+                       f"{ref}^{{commit}}"], capture_output=True).returncode:
+        return None
+    return subprocess.run(["git", "merge-base", "--is-ancestor", sha, ref],
+                          capture_output=True).returncode == 0
+
+
+def published(sha):
+    """Is sha reachable from PUBLISHED_REF? None if that ref is absent."""
+    return reachable_from(sha, PUBLISHED_REF)
 
 
 def all_files_named(basename):
@@ -280,6 +368,14 @@ def restamp(doc, text, cited_paths, failures):
         + m.group(5) + text[m.end():])
     print(f"\n{doc}: stamp {m.group(2)} ({m.group(4)})"
           f" -> {anchor} ({today})")
+    # Written, not refused: leaving an orphaned stamp in place would be
+    # strictly worse than naming a commit that is merely unpushed. But the
+    # unpushed state is exactly what a later squash turns into an orphan,
+    # so it is said every time rather than left to be remembered.
+    if published(anchor) is False:
+        print(f"  advisory: {anchor} is not on {PUBLISHED_REF}. Push this"
+              f" branch without rewriting that commit, or re-run --restamp"
+              f" after the push; a squash before it orphans the stamp.")
     return 0
 
 
@@ -330,16 +426,54 @@ def main():
                   f"(file has {len(lines)} lines at that commit)")
             failures += 1
             continue
+        pub = published(sha)
+        if pub is None:
+            print(f"stopping: {PUBLISHED_REF} does not exist here, so"
+                  f" whether {sha[:9]} is published cannot be told."
+                  f" Fetch it, or set PUBLISHED_REF to the ref this"
+                  f" repository publishes from.", file=sys.stderr)
+            sys.exit(2)
+        if not pub:
+            print(f"FAIL {path}#L{lo}-L{hi} @ {sha[:9]} — UNPUBLISHED"
+                  f" (resolves here but is not an ancestor of"
+                  f" {PUBLISHED_REF}, so the link 404s for everyone else)")
+            failures += 1
+            continue
         span = f"L{lo}" if lo == hi else f"L{lo}-L{hi}"
         print(f"ok   {path}#{span} @ {sha[:9]}"
               f" | {lines[lo - 1].strip()[:70]}")
+    # Counted apart from citation failures: --restamp is gated on those,
+    # and an orphaned stamp is the very thing it repairs, so folding it in
+    # would make a bad stamp block its own fix.
+    stamp_failures = 0
+    found = list(STAMP_RE.finditer(text))
+    # Only a document's *own* stamp is checked, and a document has one.
+    # Several means it is quoting other documents' stamps -- which a
+    # findings or handover document does -- and a quotation is not a claim
+    # about this file's tree. This is the same precondition --restamp
+    # enforces, so the two agree on what counts as a stamp.
+    if len(found) > 1:
+        print(f"note {len(found)} stamps found — quotations, not this"
+              f" document's own; none checked")
+        found = []
+    for m in found:
+        sha = m.group(2)
+        if reachable_from(sha, "HEAD") is False:
+            print(f"FAIL stamp @ {sha[:9]} — ORPHANED (not an ancestor of"
+                  f" HEAD; a squash or amend dropped it, so no clone can"
+                  f" resolve the tree this document claims to name)")
+            stamp_failures += 1
+        elif published(sha) is False:
+            print(f"note stamp @ {sha[:9]} — not on {PUBLISHED_REF} yet;"
+                  f" sound only if this branch is pushed without"
+                  f" rewriting that commit")
     print(f"\n{len(cites) + len(urlcites)} citations checked,"
           f" {failures} failed"
           f" — now eyeball the snippets against the document's claims.")
     if "--restamp" in flags:
         resolved = [resolve(name)[0] for name, _lo, _hi in cites]
         return restamp(doc, text, [p for p in resolved if p], failures)
-    return 1 if failures else 0
+    return 1 if failures or stamp_failures else 0
 
 
 if __name__ == "__main__":

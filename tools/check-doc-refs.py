@@ -210,9 +210,15 @@ CABAL_FLAG_RE = re.compile(r"^flag\s+([A-Za-z][A-Za-z0-9_-]*)", re.M)
 CABAL_STANZA_RE = re.compile(
     r"^(?:test-suite|benchmark|library|executable)\s+(\S+)", re.M)
 CABAL_NAME_RE = re.compile(r"^name:\s*(\S+)", re.M)
-# A repo path cannot hold these; they mark URLs, templates and the
-# brace shorthand the documents use (`HordeAd.OpsTensor{,Ranked}`).
+# A repo path cannot hold these; they mark templates and the brace
+# shorthand the documents use (`HordeAd.OpsTensor{,Ranked}`), and URLs
+# carrying a query or a fragment. A plain URL has none of them -- only
+# `:` and `/` -- so it needs its own test, below; until 2026-07-31 this
+# set was described as marking URLs and a backticked
+# `https://example.com/a/b.md` was reported as a path that does not
+# resolve.
 NOT_IN_PATH = set("<>#?&=…{}")
+URL_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 
 
 def cabal_text():
@@ -277,7 +283,7 @@ def path_shaped(token, top_level):
     prose. It must carry a known extension, end in a slash, or start at a
     directory that exists here.
     """
-    if NOT_IN_PATH & set(token):
+    if NOT_IN_PATH & set(token) or URL_SCHEME_RE.match(token):
         return False
     ext = token.rsplit(".", 1)[-1] if "." in token[1:] else None
     # A lone trailing slash is not enough. Demand an inner slash or a

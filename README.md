@@ -89,7 +89,7 @@ threeSimpleMatrices = (srepl 1.1, srepl 2.2, srepl 3.3)  -- srepl replicates its
 fooMatrixValue :: Matrix2x2 Double
 fooMatrixValue = foo threeSimpleMatrices
 >>> fooMatrixValue
-sfromListLinear [2,2] [4.242393641025528,4.242393641025528,4.242393641025528,4.242393641025528])
+sfromListLinear [2,2] [4.242393641025528,4.242393641025528,4.242393641025528,4.242393641025528]
 ```
 
 Instantiated to matrices, `foo` now returns a matrix, not a scalar &mdash; but
@@ -138,7 +138,7 @@ permits non-scalar codomains (but expects an incoming cotangent argument to
 compensate, visible in the code below as `dret`), we illustrate it using the
 original `fooLet` from the previous section, without the need to add `ssum0`.
 ```hs
-artifact :: AstArtifactRev (X (ThreeConcreteMatrices Double)) (TKS '[2, 2] Double)
+artifact :: AstArtifactRev (X (ThreeMatrices Double)) (TKS '[2, 2] Double)
 artifact = vjpArtifact fooLet threeSimpleMatrices
 ```
 
@@ -153,10 +153,11 @@ computations are not repeated, which is thanks to the `tlet` used above.
   let m3 = sin (tproject2 (tproject1 m1))
       m4 = tproject1 (tproject1 m1) * m3
       m5 = recip (tproject2 m1 * tproject2 m1 + m4 * m4)
-      m7 = (negate (tproject2 m1) * m5) * dret + tproject2 m1 * dret
   in tpair
-       (tpair (m3 * m7)
-              (cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7)))
+       (let m7 = (negate (tproject2 m1) * m5) * dret + tproject2 m1 * dret
+        in tpair
+             (m3 * m7)
+             (cos (tproject2 (tproject1 m1)) * (tproject1 (tproject1 m1) * m7)))
        ((m4 * m5) * dret + m4 * dret)
 ```
 
@@ -168,7 +169,7 @@ on `ssum0 . foo`; the reason is that `srepl 1.0` happens to be the reverse
 derivative of `ssum0`.)
 ```hs
 >>> vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1.0)
-((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeConcreteMatrices Double)
+((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeMatrices Double)
 ```
 
 Note that, as evidenced by the `printArtifactPretty` call above, `artifact`
@@ -241,15 +242,16 @@ convMnistTwoS
   :: forall kh kw h w c_out n_hidden batch_size target r.
      ( 1 <= kh  -- kernel height is large enough
      , 1 <= kw  -- kernel width is large enough
-     , ADReady target, GoodScalar r, Differentiable r )
-         -- GoodScalar means r is supported as array elements by horde-ad
+     , ADReady target, NumScalar r, Differentiable r )
+         -- NumScalar means r is a numeric scalar supported as array
+         -- elements by horde-ad
   => SNat kh -> SNat kw -> SNat h -> SNat w
   -> SNat c_out -> SNat n_hidden -> SNat batch_size
        -- ^ these boilerplate lines tie type parameters to the corresponding
        -- SNat value parameters denoting basic dimensions
   -> PrimalOf target (TKS '[batch_size, 1, h, w] r)  -- `input` shape [batch_size, 1, h, w]
   -> ( ( target (TKS '[c_out, 1, kh + 1, kw + 1] r)  -- `ker1` shape [c_out, 1, kh+1, kw+1]
-       , target (TKS '[c_out] r) )                   -- `bias2` shape [c_out]
+       , target (TKS '[c_out] r) )                   -- `bias1` shape [c_out]
      , ( target (TKS '[c_out, c_out, kh + 1, kw + 1] r)  -- `ker2` shape [c_out, c_out, kh+1, kw+1]
        , target (TKS '[c_out] r) )                       -- `bias2` shape [c_out]
      , ( target (TKS '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ] r)
@@ -290,6 +292,28 @@ of all dimensions are tracked in the types, as above) as well as on the weakly
 typed ranked tensors, where only tensor ranks are tracked. It's possible to mix
 the two typing styles within one function signature and even within one shape
 description.
+
+
+## A path into the code
+
+`HordeAd.Core.Ops` holds `BaseTensor`, the chief tensor-operation class that
+objective functions are written against; `example/` has objectives written that
+way, the MNIST nets; and `HordeAd.ADEngine` is where `grad`, `cgrad` and the
+rest instantiate such an objective at one of the three carriers &mdash;
+`AstTensor` for symbolic terms, `ADVal Concrete` for dual numbers, `Concrete`
+for plain evaluation on CPU arrays.
+
+Following a single call is the quickest way in. Take `grad` from `ADEngine`
+into `Core/Delta.hs`, which builds the delta expression, a sparse form of the
+derivative's linear map, and then into `Core/DeltaEval.hs`, which transposes
+and evaluates it. In between, a symbolic artifact passes through the AST
+pipeline: `Core/AstVectorize.hs` eliminates indexing under `build1`,
+`Core/AstSimplify.hs` and `Core/AstTraverse.hs` simplify, `Core/AstInline.hs`
+handles sharing, and `Core/AstInterpret.hs` interprets the result in whichever
+carrier you chose.
+
+The top-level `HordeAd` module re-exports the user-facing surface, so it
+doubles as a table of contents.
 
 
 ## Compilation from source
@@ -340,25 +364,35 @@ but the included set doesn't have a comparable coverage at this time.
 
 ## Coding style
 
-Stylish Haskell is used for slight auto-formatting at buffer save; see
+Stylish Haskell is used for slight auto-formatting at buffer save, and CI
+re-runs it over every tracked Haskell file, pinned to the same release, since
+a formatter that disagrees with the editor is worse than none; see
 [.stylish-haskell.yaml](https://github.com/Mikolaj/horde-ad/blob/master/.stylish-haskell.yaml).
-As defined in the file, indentation is 2 spaces wide and screen is 80-columns
-wide. Spaces are used, not tabs. Spurious whitespace avoided. Spaces around
-arithmetic operators encouraged. Inline comments (`--`) should be prefixed with
-exactly two spaces, unless indented to match other comments. Operators such as
-`(` and `,`, `<$>` and `<*>`, comment starts, etc. on consecutive lines should
-either align or, if that would make lines too long, should be indented by 2
-spaces from the previous indentation level. Generally, relax and try to stick
-to the style apparent in a file you are editing. Put big formatting changes in
-separate commits.
+That file is the authority on what is applied automatically; which of the
+rules below it enforces is deliberately not restated here, so that the two
+cannot drift apart. Screen is 80-columns wide. Indentation is 2 spaces wide.
+Spaces are used, not tabs. Spurious whitespace avoided. Spaces around
+arithmetic operators encouraged. Inline comments (`--`) should be
+prefixed with exactly two spaces, unless indented to match other comments.
+Operators such as `(` and `,`, `<$>` and `<*>`, comment starts, etc. on
+consecutive lines should either align or, if that would make lines too long,
+should be indented by 2 spaces from the previous indentation level. Generally,
+relax and try to stick to the style apparent in a file you are editing. Put big
+formatting changes in separate commits.
 
-Haddocks should be provided for all module headers and for the main
-functions and types from the most important modules.
-Apart of that, only particularly significant functions and types
-are distinguished by having a haddock. If minor ones have comments,
-they should not be haddocks and they are permitted to describe
-implementation details and be out of date. Prefer assertions in place
-of comments, unless too verbose.
+Hlint is run by hand rather than in CI, using the very liberal configuration
+file at [.hlint.yaml](https://github.com/Mikolaj/horde-ad/blob/master/.hlint.yaml).
+It has to be, for now: the configuration passes `-XNoStarIsType`, which no
+released hlint handles, so the newest release fails to parse the files that
+import `type (*)` and only an hlint built from master reports on this code.
+If hlint is still too naggy, feel free to add more exceptions.
+
+Haddocks are expected on all module headers and on the functions and types of
+major modules. Apart from that, only particularly significant functions and
+types are distinguished by having a haddock. If minor ones have comments, they
+should not be haddocks and they are permitted to describe implementation
+details and be out of date. Prefer assertions over comments to document
+invariants, unless that would be too verbose.
 
 
 ## Copyright
