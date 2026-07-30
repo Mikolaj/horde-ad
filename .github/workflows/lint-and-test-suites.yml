@@ -1,0 +1,82 @@
+# Hand-written workflow complementing the auto-generated haskell-ci.yml,
+# which builds, tests, haddocks and cabal-checks the package across GHC
+# versions with optimization off, its test step narrowed to the one suite an
+# unpacked sdist can run. This one carries what haskell-ci cannot: the
+# formatting check, an optimized build, and the runs that are meaningful
+# only optimized -- that same sanity test and the two criterion smoke runs.
+# Two jobs, since the tests and the benchmarks share one expensive build;
+# the step names still say which of them failed.
+#
+# No hlint job, unlike LambdaHack's counterpart. Every released hlint
+# mishandles the `-XNoStarIsType` that .hlint.yaml passes, so v3.10 -- the
+# latest, and what haskell-actions/hlint-setup@v2 supplies -- reports 7
+# parse errors here, one per file importing `type (*)` from GHC.TypeLits,
+# whether the flag comes from the config or from the command line. The
+# hlint that reports `No hints` is built from hlint master, and building
+# that in CI costs a ghc-lib-parser build. So `hlint .` stays a local
+# standing check; add the job when a release handles the flag.
+name: Lint-and-Test-Suites
+on:
+  - push
+  - pull_request
+  - workflow_dispatch
+jobs:
+  stylish:
+    name: stylish-haskell
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      # Pinned: a different stylish-haskell formats differently, and a CI
+      # check that disagrees with the editor's on-save pass is worse than
+      # no check. Bump this in step with the version installed locally.
+      # Checked before wiring up: this release's binary and the local one
+      # both leave all 79 tracked .hs files unchanged, so the two agree.
+      - name: Install stylish-haskell
+        run: |
+          mkdir -p "$HOME/bin"
+          curl -sL https://github.com/haskell/stylish-haskell/releases/download/v0.15.1.0/stylish-haskell-v0.15.1.0-linux-x86_64.tar.gz \
+            | tar xz -C "$HOME/bin" --strip-components=1 --wildcards '*/stylish-haskell'
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+      # 0.15.1.0 has no check mode, so reformat in place and let git
+      # report; the diff it prints is already the list of files to fix.
+      - name: stylish-haskell
+        run: |
+          stylish-haskell --version
+          stylish-haskell -i $(git ls-files '*.hs')
+          git diff --exit-code
+  test-and-bench:
+    name: tests and benchmarks, optimized
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: haskell-actions/setup@v2
+        id: setup
+        with:
+          ghc-version: '9.12.4'
+          cabal-version: 'latest'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ steps.setup.outputs.cabal-store }}
+            dist-newstyle
+          key: test-and-bench-${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ hashFiles('horde-ad.cabal') }}
+          restore-keys: test-and-bench-${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-
+      # --enable-optimization is stated rather than inherited from cabal's
+      # default, which a checkout without cabal.project.local would supply
+      # anyway: unoptimized runs are ~8x slower here and criterion numbers
+      # taken that way are meaningless, so the flag belongs where a reader
+      # of this file sees it.
+      - name: Build
+        run: cabal build minimalTest shortProdForCI convVjpBench --enable-optimization
+      - name: Tests
+        run: cabal test minimalTest --enable-optimization --test-show-details=direct
+      # convVjpBench (issue #123 conv/CNN diagnostic) as a fast smoke run:
+      # -n 1 runs every group once, without statistics, catching build and
+      # runtime breakage across the conv2dPreserving, gather/scatter and cnn-*
+      # paths (not a perf tripwire: CI criterion numbers are too noisy).
+      - name: Benchmarks
+        run: |
+          cabal bench shortProdForCI --enable-optimization
+          cabal bench convVjpBench --enable-optimization --benchmark-options='-n 1'
