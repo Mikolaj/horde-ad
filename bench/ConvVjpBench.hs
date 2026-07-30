@@ -49,15 +49,22 @@
 -- measurement trap (see 'pitfallBenches'), so the sweep groups contain
 -- only honest, pairwise-comparable variants.
 --
--- The numbered time properties below relate the criterion means of a
--- full run (the CI smoke run's single iterations cannot support the
--- tolerance). When analyzing a run, verify them explicitly, in this
--- order, each up to 10% tolerance: @a == b@ stands for
--- @abs (a - b) <= max a b / 10@, and @a <= b@ for @a <= 1.1 * b@.
--- tools/check-conv-bench-props.py, fed criterion's @--csv@ output, is
--- this list in executable form; keep the two in sync — the script
--- fails on a benchmark that no property touches, so adding a benchmark
--- forces this list to be re-normalized. The list is minimal — anything
+-- The numbered properties below relate the per-iteration slopes criterion
+-- fits against iteration count in a full run, not its means, which each
+-- benchmark's warm-up ramp inflates by its own amount (the CI smoke run's
+-- single iterations cannot support the tolerance either way). They are
+-- stated for time, and every one of them also holds for bytes allocated
+-- per iteration, which the script checks as a second pass — measured over
+-- a full run before being relied on, the tightest equality coming out at
+-- 1.7%. When analyzing a run, verify them explicitly, in this order, to
+-- 10% for time and 5% for allocation: @a == b@ stands for
+-- @abs (a - b) <= max a b * tol@, and @a <= b@ for @a <= (1 + tol) * b@.
+-- tools/check-conv-bench-props.py, fed criterion's @--json@ output as one
+-- or more files, is this list in executable form; keep the two in sync —
+-- the script fails on a benchmark that no property touches, so adding a
+-- benchmark forces this list to be re-normalized, and it fails ahead of
+-- the properties on a slope fitted over too few samples, which is what
+-- too short a collection looks like. The list is minimal — anything
 -- derivable from it and the nonnegativity of times, e.g.
 -- @time(S-exec) <= time(S-fullpipe-honest)@ from property 1, is
 -- deliberately not listed.
