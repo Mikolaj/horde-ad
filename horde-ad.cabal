@@ -125,12 +125,20 @@ common options
 
 common exe-options
   ghc-options:        -rtsopts -threaded
-  -- Make GC more predictable in benchmarks.
+  -- Make GC more predictable in poor man's benchmarks.
   ghc-options:        "-with-rtsopts=-A1G -I0"
 
 common exe-options-for-parallel-tests
   ghc-options:        -rtsopts -threaded
   if flag(test_seq)
+    -- The RTS half of the flag cannot serialize anything by itself: tasty
+    -- decides concurrency by its own NumThreads option, which defaults to
+    -- getNumProcessors, and it raises capabilities to match (only ever
+    -- raising, so even a command-line +RTS -N2 is overridden). Dropping -N
+    -- here is worth doing only alongside the -DTEST_SEQ half, which sets
+    -- NumThreads to 1 in ParallelTest.hs; with that in place this branch
+    -- leaves the suite on one capability instead of getNumProcessors.
+    cpp-options:      -DTEST_SEQ
     ghc-options:      "-with-rtsopts=-A1G -I0"
   else
     -- Beware, -with-rtsopts is not cumulative!
