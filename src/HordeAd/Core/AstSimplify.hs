@@ -1,11 +1,22 @@
 {-# LANGUAGE CPP #-}
+-- Above the #if, or stylish-haskell never sees it: it honours no LANGUAGE
+-- pragma below a CPP conditional, and without UnboxedTuples it fails to
+-- parse this module, silently leaving it unformatted.
+{-# LANGUAGE UnboxedTuples #-}
 #if MIN_VERSION_GLASGOW_HASKELL(9,12,1,0)
 {-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
 #endif
-{-# LANGUAGE UnboxedTuples #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+-- The pattern-match checker exhausts this budget anyway, at astGatherKnobsS's
+-- main case (GHC-61505 on a from-scratch build), and then says so: redundant
+-- clauses may go unreported, and unmatched ones may be matched after all. So
+-- this file's -Wincomplete-patterns output is unreliable in both directions,
+-- which is one reason cabal.haskell-ci switches -Werror=incomplete-patterns
+-- off. Raising the number is not a fix and not worth trying: no practicable
+-- budget finishes this case, which would take years and terabytes. The 50 is
+-- a deliberate cut-off that keeps compilation finite, not a tuning knob.
 {-# OPTIONS_GHC -fmax-pmcheck-models=50 #-}
 -- {-# OPTIONS_GHC -freduction-depth=10000 #-}
 -- {-# OPTIONS_GHC -fconstraint-solver-iterations=10000 #-}
@@ -93,17 +104,34 @@ import Data.Array.Nested.Ranked.Shape
 import Data.Array.Nested.Shaped qualified as Shaped
 import Data.Array.Nested.Shaped.Shape
 import Data.Array.Nested.Types
-  (Head, Init, Last, Tail, fromSNat', pattern SZ, snatMul, snatPlus, unsafeCoerceRefl)
+  ( Head
+  , Init
+  , Last
+  , Tail
+  , fromSNat'
+  , pattern SZ
+  , snatMul
+  , snatPlus
+  , unsafeCoerceRefl
+  )
 
 import HordeAd.Core.Ast
   ( AstTensor (AstConcreteK, AstConcreteS, AstPlusK, AstPlusS, AstTimesK, AstTimesS)
   )
 import HordeAd.Core.Ast hiding (AstTensor (..))
-import HordeAd.Core.Ast qualified as Ast (AstTensor(..))
+import HordeAd.Core.Ast qualified as Ast (AstTensor (..))
 import HordeAd.Core.AstFreshId
 import HordeAd.Core.AstTools
 import HordeAd.Core.CarriersAst
-  (eqY, eqUnknownShapes, sunReplicate1, sunReplicateN, sunReplicate, unReplC, unAstK, unAstS)
+  ( eqUnknownShapes
+  , eqY
+  , sunReplicate
+  , sunReplicate1
+  , sunReplicateN
+  , unAstK
+  , unAstS
+  , unReplC
+  )
 import HordeAd.Core.CarriersConcrete
 import HordeAd.Core.Conversion
 import HordeAd.Core.ConvertTensor

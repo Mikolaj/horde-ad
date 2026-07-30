@@ -9,7 +9,12 @@
 # Specify additional command line arguments
 #
 # - arguments: [--color, --cpp-simple, -XQuasiQuotes]
-- arguments: [-XNoStarIsType]
+#
+# --cpp-define, not --cpp-simple: the latter cannot parse Core/Types.hs, while
+# the default CPP pass parses everything and defines nothing, so it drops each
+# #ifdef-guarded branch rather than linting it. The define puts the two
+# expensive-assertion blocks of Core/AstInterpret.hs back in front of hlint.
+- arguments: [-XNoStarIsType, --cpp-define=WITH_EXPENSIVE_ASSERTIONS]
 
 
 # Control which extensions/flags/modules/functions can be used
@@ -57,8 +62,65 @@
 # Ignore some builtin hints
 # - ignore: {name: Use let}
 # - ignore: {name: Use const, within: SpecialModule} # Only within certain modules
+#
+# Every name below is one observed to fire: an unknown name is accepted in
+# silence, making a guessed one a no-op that reads like a rule. A hint nothing
+# has tripped is left enabled rather than pre-emptively silenced. To re-check,
+# lint against a copy of this file with the ignores stripped and confirm every
+# entry here shows up among the families reported. The copy must be complete,
+# `-h` replacing this file rather than adding to it, and must end in `.yaml`,
+# hlint picking its parser by extension:
+#   grep -v '^- ignore' .hlint.yaml > SCRATCH.yaml && hlint . -h SCRATCH.yaml
+# Reproduced 2026-07-30: 15 families reported, covering all 16 entries below,
+# `Move brackets to avoid $` being entered once per scope.
 - ignore: {name: Use camelCase}
+
+# Explicit lambdas are kept throughout. The arguments of the AST smart
+# constructors are named after what they stand for, which a section or a
+# point-free chain drops. The rewrite rules in AstSimplify also come in
+# symmetric pairs -- \u' -> f u' v beside \v' -> f u v' -- of which only one
+# member can become a section, so following these hints would break the
+# uniformity that makes such a pair reviewable by diffing its two halves.
 - ignore: {name: Redundant lambda}
+- ignore: {name: Avoid lambda}
+- ignore: {name: "Avoid lambda using `infix`"}
+
+# A constructor pattern spelled out in wildcards is usually binding type
+# variables by type application -- AstScatterS @_ @shn1 @shp1 _ _ _ _ _ hands
+# shn1 and shp1 to a gcastWith two lines below -- which Con{} cannot do. Con{}
+# is already used wherever nothing needs binding, so this hint reaches only the
+# sites that cannot adopt it.
+- ignore: {name: Use record patterns}
+
+# A hand-written fold in an objective function or a benchmark is the thing
+# being differentiated or measured rather than an accident of style:
+# BenchProdTools times foldl1' against foldr1 over the same product, and
+# rewriting the right fold to `product` would delete half of that comparison.
+- ignore: {name: Use product}
+- ignore: {name: Use sum}
+
+# Two lenient scopes, both named by module, hlint's `within` matching module
+# names and not paths. Each is a list of hints rather than a blanket, so a kind
+# of complaint not seen here yet still gets reported. Checked by putting a
+# redundant bracket, a redundant if and a concat . map in one module of each
+# scope: either way, two of the three are still reported.
+#
+# All of test/simplified/, whose modules are named Test* -- the glob also
+# reaching example/XorNN.hs, which declares `module TestDescentSimple`. The
+# tests hold hand-written objectives, printed-AST expectations and formulations
+# left unidiomatic so that what they exercise stays legible.
+- ignore: {name: Redundant bracket, within: ["Test*"]}
+- ignore: {name: Move brackets to avoid $, within: ["Test*"]}
+- ignore: {name: Use const, within: ["Test*"]}
+- ignore: {name: Use id, within: ["Test*"]}
+- ignore: {name: Use head, within: ["Test*"]}
+- ignore: {name: Use map once, within: ["Test*"]}
+- ignore: {name: Redundant flip, within: ["Test*"]}
+
+# And the pretty-printer, whose bracketing and if-then-else shapes follow the
+# layout it emits rather than the shortest way to write them.
+- ignore: {name: Move brackets to avoid $, within: [HordeAd.Core.PPTools]}
+- ignore: {name: Redundant if, within: [HordeAd.Core.PPTools]}
 
 
 # Define some custom infix operators

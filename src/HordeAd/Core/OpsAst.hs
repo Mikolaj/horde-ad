@@ -735,8 +735,7 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
     ttlet (tmapAccumLDer proxy k accftk bftk eftk f df rf acc0
                          (treverse k (ftkToSTK eftk) es)) $ \ !res ->
       tpair (tproject1 res) (treverse k (ftkToSTK bftk) $ tproject2 res)
-  tmapAccumLDer _ !k _ !bftk !eftk f df rf acc0 es =
-    astMapAccumLDer k bftk eftk f df rf acc0 es
+  tmapAccumLDer _ !k _ !bftk !eftk = astMapAccumLDer k bftk eftk
   tapply = astApply
   tlambda ftk f =
     let (var, ast) = funToAst ftk $ unHFun f
