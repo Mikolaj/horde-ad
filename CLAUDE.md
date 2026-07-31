@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. Humans read it too, arriving from the file listing rather than from `README.md`, which doesn't link here by design — so don't "fix" that by adding a link. Read README first: this file assumes it, and what a newcomer needs to find their way into the code lives there, in its path-into-the-code section, not here. The two overlap deliberately wherever a session needs resident what a human reads in `README.md`: the coding-style rules are restated in the portable notes below, while `README.md`'s Coding style section is where a human should read them; the development setup and test invocations below repeat, in command form, what README's Compilation from source and Running tests sections tell a human; and What this is condenses README's early-prototype, not-coded-defensively framing. The architecture map overlaps too: README's path-into-the-code section names the same modules in the same roles, at a newcomer's altitude where the Architecture section below is a reference map, so a module rename falsifies both files. The performance model and the session facts have no README counterpart, so they are not repetitions to keep in sync.
 
-File:line references were verified against the tree at commit `fa508caa4` (2026-07-31); the citation pass proves a cited line exists — this stamp, that it still says what the claim around it needs.
+File:line citations were verified against the tree at commit `fa508caa4` (2026-07-31); the citation pass proves a cited line exists — this stamp, that it still says what the claim around it needs.
 
 ## What this is
 

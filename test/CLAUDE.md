@@ -2,7 +2,7 @@
 
 How to *invoke* the suites, and the `--enable-optimization` requirement that makes their timings comparable, are in the root `CLAUDE.md` — running `cabal test` from the repo root does not load this file, which arrives only when a session opens something under `test/`. What follows is for writing and reading the tests themselves.
 
-File:line references were verified against the tree at commit `d282ed596` (2026-07-31); the citation pass proves a cited line exists — this stamp, that it still says what the claim around it needs.
+File:line citations were verified against the tree at commit `d282ed596` (2026-07-31); the citation pass proves a cited line exists — this stamp, that it still says what the claim around it needs.
 
 ## Layout
 
