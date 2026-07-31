@@ -10,11 +10,17 @@
 #
 # - arguments: [--color, --cpp-simple, -XQuasiQuotes]
 #
+# -XNoStarIsType mirrors NoStarIsType in the cabal's default-extensions, which
+# hlint does not read; the two can drift apart.
+#
 # --cpp-define, not --cpp-simple: the latter cannot parse Core/Types.hs, while
 # the default CPP pass parses everything and defines nothing, so it drops each
-# #ifdef-guarded branch rather than linting it. The define puts the two
-# expensive-assertion blocks of Core/AstInterpret.hs back in front of hlint.
-- arguments: [-XNoStarIsType, --cpp-define=WITH_EXPENSIVE_ASSERTIONS]
+# #ifdef-guarded branch rather than linting it. The defines put the tree's only
+# guarded code back in front of hlint -- the two expensive-assertion blocks of
+# Core/AstInterpret.hs and the NumThreads line of test/ParallelTest.hs -- and
+# both cabal flags can be set at once, so the two together are a build.
+- arguments: [-XNoStarIsType, --cpp-define=WITH_EXPENSIVE_ASSERTIONS,
+              --cpp-define=TEST_SEQ]
 
 
 # Control which extensions/flags/modules/functions can be used
