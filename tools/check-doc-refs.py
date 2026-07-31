@@ -110,6 +110,13 @@ scratch document holding
     `Data.Array.Strided.Arith`             ok, same file as a module name
     `Core/Ast.hs`, `bench/ConvVjpBench.hs` path controls
     `cabal test minimalTest`               cabal-target control
+    `Core/Ops.hs:297,1581`                 citation, skipped for the
+                                           sibling to check; so are
+                                           `:297` and `:297-320`, while a
+                                           malformed `Core/Ops.hs:297,`
+                                           stays unclassified, which is
+                                           what keeps the comma form from
+                                           being a blanket accept
     `HordeAd.Core.Ops`, `HordeAd.ADEngine` module controls
     `+with_expensive_assertions`           cabal-flag control
     `GHC.TypeLits`, `X.replicate`          upgrade-only, unclassified
@@ -210,7 +217,12 @@ PATH_EXT = ("hs", "ts", "mjs", "py", "cabal", "html", "md", "yaml", "yml",
 
 TICK_RE = re.compile(r"`([^`\n]+)`")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
-CITE_RE = re.compile(r":\d+(-\d+)?$")
+CITE_RE = re.compile(r":\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*$")
+# The comma form is `check-plan-citations.py`'s: its `spans` expands
+# "222,1581" and "353,362,771-781" and checks every member. Recognising
+# only ":222" and ":222-230" here left the comma form in the unclassified
+# tail -- not a failure, which is worse: the tail is what a reader
+# eyeballs, and it carried items the sibling had already checked.
 # Leading flags are skipped, so `make -n foo` and `make --dry-run foo` name
 # the target `foo` rather than a target called `-n`. A document that shows
 # how to gate a target it cannot run writes the flag somewhere, and the
