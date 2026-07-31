@@ -160,6 +160,17 @@ stamps -> refuses"), so the two halves of the script agree on what counts
 as this document's stamp. Until 2026-07-31 the plain pass failed such a
 document three times over, on hashes it was merely reporting as dead.
 
+A leading dot needs its own pair, since there the *extraction* failed and
+not the check: `.hlint.yaml:22` must resolve and print `- arguments:
+[-XNoStarIsType, --cpp-define=WITH_EXPENSIVE_ASSERTIONS,`, and
+`.hlint.yaml:999999` must report OUT-OF-RANGE. Until the dot was allowed
+into CITE_RE both were extracted as `hlint.yaml` and reported UNRESOLVED,
+which is how the bug read from the outside -- a document could not cite a
+dotfile at all, and saying so looked like a missing file. That the
+widening regresses nothing is checked by running every `.md` here through
+the old pattern and the new and diffing the output: identical, 123
+citations either way. Reproduced 2026-07-31.
+
 plus a control that must still pass (`Core/Ast.hs:1`). The two
 out-of-range rows name different files deliberately — extracted
 citations are deduplicated, so on one file they collapse and the run
@@ -277,7 +288,7 @@ SEARCH_ROOTS = ["src", "test", "bench", "example", "tools", ".github", "."]
 # commit resolves here and nowhere else.
 PUBLISHED_REF = "origin/master"
 CITE_RE = re.compile(
-    r"`?([A-Za-z][A-Za-z0-9_./-]*"
+    r"`?(\.?[A-Za-z][A-Za-z0-9_./-]*"
     r"\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml)|Makefile)"
     r":(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)")
 URL_RE = re.compile(
