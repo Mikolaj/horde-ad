@@ -25,3 +25,4 @@ cabal.project.local~
 *.swo
 *~
 .claude/
+tools/__pycache__/
