@@ -114,15 +114,28 @@ scratch document holding
     `+with_expensive_assertions`           cabal-flag control
     `GHC.TypeLits`, `X.replicate`          upgrade-only, unclassified
     `blob/master`, `group/bench`, `tests`  must stay unclassified
+    `.../ghc-9.12/...`                     an elision, not a sibling path
+    `https://example.com/a/b.md`           a URL, not a path
+    `https://hackage.haskell.org/`         the trailing-slash shape
 
 and confirm exactly four failures and exit status 1. The controls matter
 as much as the failures: without them an extractor that silently matches
 nothing would look like a clean document. The two upstream rows prove the
 sibling policy resolves a real file by both its spellings, path and
-module. The last row guards the other direction: `tests` is prose, and it
+module. The last rows guard the other direction: `tests` is prose, and it
 did briefly "resolve" — to ../orthotope/tests — until sibling matching
 was gated on path shape, which is how easily a big foreign tree turns a
 checker into a rubber stamp.
+
+Three of those are recorded false positives rather than decoration.
+`.../ghc-9.12/...` was read as a sibling path until the `../` test was
+made to require the slash. And NOT_IN_PATH was taken to mark URLs, which
+it does not — a plain URL carries no query and no fragment, hence none of
+its characters — so a backticked `https://example.com/a/b.md` was
+reported as a path that does not resolve, while a URL ending in a slash
+failed through `dir_shaped` instead, a separate arm needing its own row.
+No document here backticks a bare URL, so these two rows are that
+branch's only control.
 
 Then three runs for the ways a run can fail to happen. Pass a document
 name that does not exist and confirm one line on stderr and exit 2, not
@@ -140,7 +153,9 @@ the local path check as well. Reason enough to mount the siblings instead
 of reaching for the flag.
 
 Reproduced 2026-07-29: four failures and exit 1, then exit 2, then the
-degraded run. The first version of this recipe was not the first attempt:
+degraded run. Re-run with the elision and two URL rows added: still four
+failures and exit 1, all three staying unclassified. The first version of
+this recipe was not the first attempt:
 reading fenced code blocks only, the cabal-target check had been
 examining one of six `cabal test` lines in CLAUDE.md, since that document
 indents its blocks instead of fencing them. A check can be live on its
@@ -151,8 +166,13 @@ Two of this repo's shapes cannot be exercised here, and say so rather
 than being quietly untested: there is no makefile, so the `make <target>`
 branch is off (MAKEFILE is ""), and no command-line parser, so every
 `--flag` falls through to the external and unknown buckets. Both are
-exercised by the LambdaHack copy of this script, which differs from it
-only in the configuration block and in this recipe.
+exercised by the LambdaHack copy of this script, which below the
+configuration block is now identical to this one: `MAKE_RE` had lagged
+here and has been taken from there, so the block's claim that porting this
+script means editing it and nothing else holds again. What still differs
+is prose — this recipe, and the examples each `paths` and `modules`
+bullet draws from its own tree — so a reader syncing one file to the
+other should sync neither.
 """
 
 import fnmatch
@@ -191,7 +211,13 @@ PATH_EXT = ("hs", "ts", "mjs", "py", "cabal", "html", "md", "yaml", "yml",
 TICK_RE = re.compile(r"`([^`\n]+)`")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
 CITE_RE = re.compile(r":\d+(-\d+)?$")
-MAKE_RE = re.compile(r"\bmake ([A-Za-z0-9_*.-]+)")
+# Leading flags are skipped, so `make -n foo` and `make --dry-run foo` name
+# the target `foo` rather than a target called `-n`. A document that shows
+# how to gate a target it cannot run writes the flag somewhere, and the
+# obvious placement was reported as a missing target. Inert here, MAKE_RE
+# being read only under `if MAKEFILE:`; kept identical to the LambdaHack
+# copy so that the config block above stays the only thing to edit.
+MAKE_RE = re.compile(r"\bmake +(?:-[A-Za-z0-9-]+ +)*([A-Za-z0-9_*.][A-Za-z0-9_*.-]*)")
 # A cabal invocation, possibly through a toolchain wrapper
 # (`wasm32-wasi-cabal`), naming a stanza directly or through a component
 # prefix (`exe:LambdaHack`). Without the wrapper and prefix cases, the
@@ -216,7 +242,8 @@ CABAL_NAME_RE = re.compile(r"^name:\s*(\S+)", re.M)
 # `:` and `/` -- so it needs its own test, below; until 2026-07-31 this
 # set was described as marking URLs and a backticked
 # `https://example.com/a/b.md` was reported as a path that does not
-# resolve.
+# resolve, as was any URL ending in a slash, which failed through
+# `dir_shaped` rather than here.
 NOT_IN_PATH = set("<>#?&=…{}")
 URL_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 

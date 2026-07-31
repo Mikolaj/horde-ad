@@ -53,10 +53,22 @@ Both branches also have live documents here. The LambdaHack copy has
 fenced Haskell but no `>>>` block in any document, so there the outputs
 branch rests on the self-test alone.
 
+Live is not the same as checked, though, so the controls carry numbers.
+README.md is the one document holding either shape, and it holds both:
+thirteen Haskell fences yielding thirteen capitalised names, and six
+`>>>` lines, measured 2026-07-31. The count is the thing to check
+rather than the verdict, since
+"0 unresolved" reads the same whether the extractor works or finds
+nothing to work on. The counts are not printed -- load the module and
+call `strip_comments`/`NAME_RE` over `FENCE_RE` yourself -- and they move
+whenever a document gains or loses a fence, so re-take them with the edit
+rather than reading a stale one as a pass.
+
 Widening this is the standing temptation, and the measured reason not to:
 before comments were stripped and doc-local constructors recognised, the
-two repos yielded twelve findings that were all noise. Any widening
-should be measured the same way before it is kept.
+two repos yielded twelve findings that were noise, against one that was
+real and survived the fix. Any widening should be measured the same way
+before it is kept.
 """
 
 import contextlib

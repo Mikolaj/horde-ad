@@ -58,17 +58,46 @@ orphaned stamp left in place is strictly worse than an unpushed one -- and
 prints an advisory naming the push it depends on.
 
 Non-vacuity for these four branches, reproduced 2026-07-31 in this repo:
-a scratch document pinning a permalink at `2dc4f8783` (squashed away, so
-`git show` still resolves it) reported UNPUBLISHED, exit 1; one stamped
-`179de634e` reported ORPHANED, exit 1; one stamped `d282ed596` (in HEAD,
-not yet pushed) printed the note and exited 0; and a copy of this script
-with PUBLISHED_REF set to `origin/no-such-ref` stopped with exit 2 on a
-document that otherwise passes. The restamp interaction was proved by
-repairing a scratch document stamped `0000000aa`: the plain pass fails it,
---restamp rewrites it anyway and prints the advisory, exit 0. Controls:
-`notes-add-zero-gather.md`, whose three permalinks pin the published
-`e1bd5f5e2`, passes throughout; the exit status was read without a pipe,
-`tail` swallowing it being the trap the recipe above records.
+a scratch document pinning a permalink at `2dc4f8783` (squashed off
+master, still held by `backup-pre-squash`, so `git show` resolves it)
+reported UNPUBLISHED, exit 1; one stamped `0000000aa` reported ORPHANED,
+exit 1. The restamp interaction was proved by repairing a scratch
+document stamped the same way: the plain pass fails it, --restamp
+rewrites it anyway and prints the advisory, exit 0.
+
+The two rows want different hashes, and deliberately. UNPUBLISHED needs a
+commit that resolves, since it is reached only after `git show` succeeds,
+so it takes a real one. ORPHANED does not: it asks
+`git merge-base --is-ancestor`, which fails for an object that is not in
+the database at all, so `0000000aa` -- well-formed and nameless -- drives
+it just as well as a real dropped commit and cannot stop driving it.
+That row used to name `179de634e`, held by `origin/perf-gather-drafts`
+alone; a hash whose resolvability rests on a branch, or on the reflog,
+proves the same thing today and becomes unresolvable when the branch goes
+or at the next gc, which is how a live row turns vacuous without anyone
+touching it.
+
+Only the note branch has a live control: `bench/CLAUDE.md` and
+`test/CLAUDE.md` are both stamped `d282ed596`, which is in HEAD but not
+an ancestor of origin/master, so every run over either prints the note
+and exits 0. It goes away when that commit reaches origin/master, and a
+squash before that orphans both stamps instead -- either way this
+paragraph then needs a fresh control. ORPHANED needs its scratch
+document meanwhile, all three stamps here being reachable from HEAD.
+
+Neither permalink branch has a live control, and neither has the exit-2
+stop: no tracked `.md` here carries a pinned `blob/<sha>/` link at all,
+the pattern `blob/[0-9a-f]{7,40}/` matching this file and four `.hs`
+sources but no document, the README's whole-file pointers being
+deliberately `blob/master`. The stop sits inside the permalink loop, so
+a bogus PUBLISHED_REF is silent without one: this script copied with
+PUBLISHED_REF set to `origin/no-such-ref` exits 0 on CLAUDE.md and 2 on
+a scratch document holding one link pinned at the published `e1bd5f5e2`.
+That scratch document is the passing control too; the file that played
+the part until 2026-07-31, `notes-add-zero-gather.md`, is not in this
+tree but on an unmerged branch, so write a fresh one rather than hunt
+for it. The exit status was read without a pipe, `tail` swallowing it
+being the trap the recipe above records.
 
 Scope limits, deliberate: prose-style citations ("config.ui.default line
 67") are not extracted, nor is a range left dangling from its filename
@@ -91,7 +120,12 @@ can still lie" class, manufactured by the checker meant to catch it. No
 gap threshold separates the cases either: correct attachments measured
 55, 90, 146 and 179 characters, wrong ones 1538, 1633 and 2111, but
 `TestConvSimplified.hs:1185-1186` sits at 184 and the ordering gives no
-clean cut. Repeat the filename.
+clean cut. Nor is a cut derivable from a bigger corpus: the LambdaHack
+copy measured its own correct attachments to 660 characters and its wrong
+ones from 2339, where the cut here would fall between 184 and 1538. Two
+corpora, two cuts, neither implying the other — the separation is an
+artifact of each document's prose, not a rule to calibrate against.
+Repeat the filename.
 And the *claims* around citations are not checked
 — in particular, universally-quantified claims ("only X does Y", "exactly
 two", "never") must be re-verified by repo-wide grep, not by re-reading
@@ -109,6 +143,14 @@ all six are reported and the exit status is 1 —
     PERMALINK repo   https://github.com/ghc/ghc/blob/0123456789abcdef/x.hs#L1
     UNPUBLISHED      .../blob/<a commit not on PUBLISHED_REF>/CLAUDE.md#L1-L3
     ORPHANED stamp   a stamp naming a commit not an ancestor of HEAD
+
+The permalink rows depend on the order the checks run in, which is worth
+knowing before either is edited: OUT-OF-RANGE is tested before
+publication, so a range row fails as a range even when its commit is also
+unpublished. Give the range row a commit that happens to be unpublished
+and the two rows still report distinctly; swap the two checks and the
+range row silently starts proving the publication branch instead, with
+nothing in the output to say so.
 
 A document carrying more than one stamp is quoting other documents'
 stamps rather than making a claim about its own tree -- a findings or
@@ -180,6 +222,12 @@ It refuses to write when anything is off, and the refusals are the point:
     a cited file modified against HEAD     -> refuses, file untouched, 1
     no stamp, or two stamps                -> refuses, file untouched, 1
     a stamp but no file:line citation      -> refuses, file untouched, 1
+    the anchor it would write is unpushed  -> writes, plus an advisory, 0
+
+The last row is not a refusal and belongs in the table anyway: an
+orphaned stamp left in place is strictly worse than an unpushed one, so
+the flag writes and says what the result depends on. Leaving it out
+described the script as refusing in a case where it does not.
 
 The dirty-cited-file refusal is the subtle one: with a cited file
 modified, the pass verified the working tree, and no commit hash names
