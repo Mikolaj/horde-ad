@@ -9,8 +9,8 @@
 # Adding an entry is also the easy way to silently defang the checker, so
 # re-run its docstring's non-vacuity test after touching this file.
 #
-# The file is deliberately empty of paths. Two groups have been removed
-# rather than lost:
+# The file holds one path and no more. Two groups that could have been
+# here were removed rather than lost:
 #
 # * Seven prose fragments — `.md`, `.cabal`, `blob/master`, `group/bench`,
 #   `head_sha`, `Run`, `sv_strided` — were needed only by the draft
@@ -25,3 +25,15 @@
 #   ever confirmed that a name was spelled the way the allowlist spelled
 #   it, so an upstream rename passed unnoticed. If a checkout is missing,
 #   the checker stops and says so rather than falling back to this file.
+#
+# The entry that does remain is neither kind. It is not a name the checker
+# should stop reading, but a name whose existence depends on who is
+# looking: the inner sandbox bind-mounts /dev/null over eleven dotfile
+# names in the session's own working directory (CLAUDE.md's sandboxing
+# notes), so `os.path.exists` answers yes from a session rooted in this
+# repo and no from one where this repo is a sibling, or from an
+# unsandboxed run. Pinning it is not a weakening: it makes the verdict the
+# same everywhere instead of following the vantage point. Of the eleven
+# only this one needs it -- the rest carry no extension this checker reads
+# as a path, so they stay unclassified.
+.mcp.json
