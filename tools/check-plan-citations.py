@@ -88,19 +88,26 @@ on origin/master yet` and exits 0, and stamped at `fa508caa4` it prints
 nothing -- so the branch is live code, just not one this repo's own
 documents reach any more.
 
-Neither permalink branch has a live control, and neither has the exit-2
-stop: no tracked `.md` here carries a pinned `blob/<sha>/` link at all,
-the pattern `blob/[0-9a-f]{7,40}/` matching this file and four `.hs`
-sources but no document, the README's whole-file pointers being
-deliberately `blob/master`. The stop sits inside the permalink loop, so
+Neither *failing* permalink branch has a live control, nor has the
+exit-2 stop. The passing branch does, on the `perf-gather-drafts` branch
+only: two of the staged drafts there — `notes-add-zero-gather.md` and
+`oxarrays-issue-description.md`, three and six links — carry pinned
+`blob/<sha>/…#L` links to `e1bd5f5e2`, which is on master, so a run over
+either exercises the resolve-and-publish path and reports ok. The other
+two staged drafts carry only whole-file links, which this does not
+match. They go away when posted, and on master the pattern
+`blob/[0-9a-f]{7,40}/` again matches only this file and four `.hs`
+sources, the README's whole-file pointers being deliberately
+`blob/master`. The stop sits inside the permalink loop, so
 a bogus PUBLISHED_REF is silent without one: this script copied with
 PUBLISHED_REF set to `origin/no-such-ref` exits 0 on CLAUDE.md and 2 on
 a scratch document holding one link pinned at the published `e1bd5f5e2`.
 That scratch document is the passing control too; the file that played
-the part until 2026-07-31, `notes-add-zero-gather.md`, is not in this
-tree but on an unmerged branch, so write a fresh one rather than hunt
-for it. The exit status was read without a pipe, `tail` swallowing it
-being the trap the recipe above records.
+the part until 2026-07-31, `notes-add-zero-gather.md`, is staged only on
+the unmerged `perf-gather-drafts` branch and goes away once posted, so
+write a fresh one rather than hunt for it. The exit status was read
+without a pipe, `tail` swallowing it being the trap the recipe above
+records.
 
 Scope limits, deliberate: prose-style citations ("config.ui.default line
 67") are not extracted, nor is a range left dangling from its filename
