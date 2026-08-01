@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedLists #-}
-{-# OPTIONS_GHC -fno-cse #-}
 -- | Assorted rather low rank tensor tests.
 module TestAdaptorSimplified
   ( testTrees
