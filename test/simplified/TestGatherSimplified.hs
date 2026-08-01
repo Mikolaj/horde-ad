@@ -8,7 +8,9 @@ module TestGatherSimplified (testTrees) where
 import Prelude
 
 import Control.Monad.ST.Strict (ST, runST)
+import Data.Char (isAlpha, isDigit)
 import Data.Int (Int64, Int8)
+import Data.List (isPrefixOf, stripPrefix, tails)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Vector.Storable qualified as VS
 import Data.Vector.Storable.Mutable qualified as VSM
@@ -117,6 +119,7 @@ testTrees =
   , testCase "sminimizedCNNOPP2b" testCNNOPP2b
   , testCase "sminimizedCNNOPP3" testCNNOPP3
   , testCase "sminimizedCNNOPP3b" testCNNOPP3b
+  , testCase "letChainAscends" testLetChainAscends
   , testCase "sminimizedCNNOPP4" testCNNOPP4
   , testCase "sminimizedCNNOPP4b" testCNNOPP4b
   , testCase "sminimizedCNNOPP5" testCNNOPP5
@@ -1431,6 +1434,55 @@ within3 sh ix =
 rmaximum3 :: (BaseTensor target, LetTensor target, KnownNat n, GoodScalar r)
          => target (TKR n r) -> target (TKR 0 r)
 rmaximum3 t0 = tlet t0 $ \t -> rindex t [0, 0, 0, 0]
+
+-- | A tripwire, not a printed-AST expectation: it pins a structural property
+-- of the printer's output rather than the output itself, so ordinary term
+-- churn leaves it alone.
+--
+-- The one place an AST variable id's *order* becomes term structure is
+-- @bindsToLet@ (Core/AstInline.hs), which emits its collected bindings
+-- @sortOn (Down . varId)@ and folds them outermost-first; the visible
+-- signature is that a printed @let@ chain has ascending binder numbers. If
+-- that ever stops holding, a binding can land outside the scope that needs
+-- it. Prove this test non-vacuous by flipping the @Data.Ord.Down@ in
+-- @bindsToLet@: it then fails.
+--
+-- It must read names that carry the counter's own order. Should the printer
+-- ever renumber variables by order of first appearance, a chain's binders
+-- would ascend by construction and this assertion would become vacuous --
+-- point it at the raw printer then.
+testLetChainAscends :: Assertion
+testLetChainAscends = do
+  resetVarCounter
+  let artifactRev = revArtifactAdapt UseIncomingCotangent (maxPool2dUnpadded3 . conv2dPreserving3) (FTKR [3, 3, 3, 3] (FTKScalar @Double))
+      printed = printArtifactPretty artifactRev
+      binders = letBinders printed
+  assertBool "no let chain to check; pick another term"
+             (length binders >= 2)
+  assertBool "the term grew a nested let, so letBinders mixes two chains"
+             (countSub "let " printed == 1)
+  assertBool ("let-chain binders not ascending: " ++ show binders)
+             (and (zipWith (<) binders (drop 1 binders)))
+
+-- | Numbers of the variables bound by @let@ and @;@ in a printed term, in
+-- printing order. Sound only for a term with a single, unnested chain, which
+-- is what testLetChainAscends asserts before using it.
+letBinders :: String -> [Int]
+letBinders [] = []
+letBinders s
+  | Just r <- stripPrefix "let " s = binderOf r ++ letBinders r
+  | Just r <- stripPrefix " ; " s = binderOf r ++ letBinders r
+  | otherwise = letBinders (drop 1 s)
+ where
+  binderOf r =
+    let (name, rest) = span (\c -> isAlpha c || isDigit c) r
+        digits = dropWhile isAlpha name
+    in [read digits | not (null digits)
+                    , all isDigit digits
+                    , "=" `isPrefixOf` dropWhile (== ' ') rest ]
+
+countSub :: String -> String -> Int
+countSub sub = length . filter (sub `isPrefixOf`) . tails
 
 testCNNOPP4 :: Assertion
 testCNNOPP4 = do
