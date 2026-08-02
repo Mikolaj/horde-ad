@@ -27,7 +27,7 @@ stage, it's not coded defensively but exactly the opposite: it will fail on
 cases not found in current tests so that new code and tests have to be added
 and old code optimized for the new specimens reported in the wild. The user
 should also be ready to add missing primitives and any obvious tools that
-should be predefined but aren't, such as weight normalization
+should be predefined but aren't, such as batch normalization
 (https://github.com/Mikolaj/horde-ad/issues/42). It's already possible to
 differentiate basic neural network architectures, such as fully connected,
 recurrent, convolutional and residual. The library should also be suitable for
@@ -75,7 +75,7 @@ gradFooDouble = fromDValue . cgrad foo . fromValue
 which can be verified by computing the gradient at `(1.1, 2.2, 3.3)`:
 ```hs
 >>> gradFooDouble (1.1, 2.2, 3.3)
-(2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+(2.4396285219055063,-1.953374825727421,0.9654825811012627)
 ```
 
 We can instantiate `foo` to matrices (represented in the `Concrete` datatype of
@@ -119,9 +119,9 @@ differentiated only once, after which it can be run on many different input
 values. In this case, however, sharing is _not_ automatically preserved, so
 shared variables have to be explicitly marked using `tlet`, as shown below in
 `fooLet`. This also makes the type of the function more specific: it now does
-not work on an arbitrary `Num` any more, but instead on an arbitrary `horde-ad`
-tensor that implements the standard arithmetic operations, some of which (e.g.,
-`atan2H`) are implemented in custom numeric classes.
+not work on an arbitrary `RealFloat` any more, but instead on an arbitrary
+`horde-ad` tensor that implements the standard arithmetic operations, some of
+which (e.g., `atan2H`) are implemented in custom numeric classes.
 ```hs
 fooLet :: (RealFloatH (f r), ADReady f)  -- ADReady means the container type f supports AD
        => (f r, f r, f r) -> f r
@@ -168,14 +168,14 @@ be the same as `gradSumFooMatrix threeSimpleMatrices` above, which used `cgrad`
 on `ssum0 . foo`; the reason is that `srepl 1.0` happens to be the reverse
 derivative of `ssum0`.)
 ```hs
->>> vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1.0)
-((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeMatrices Double)
+>>> vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1.0) :: ThreeMatrices Double
+(sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
 ```
 
 Note that, as evidenced by the `printArtifactPretty` call above, `artifact`
-contains the complete and simplified code of the VJP of `fooLet`, so repeated
-calls of `vjpInterpretArtifact artifact` won't ever repeat differentiation nor
-simplification and will only incur the cost of straightforward interpretation.
+contains the complete code of the VJP of `fooLet`, so repeated calls of
+`vjpInterpretArtifact artifact` won't ever repeat differentiation and will only
+incur the cost of straightforward interpretation.
 The repeated call would fail with an error if the provided argument had a
 different shape than `threeSimpleMatrices`. However, for the examples we show
 here, such a scenario is ruled out by the types, because all tensors we present
@@ -184,6 +184,8 @@ differ for two (tuples of) tensors of the same type. More loosely-typed
 variants of all the tensor operations, where runtime checks can really fail,
 are available in the horde-ad API and can be mixed and matched freely.
 
+The artifact is not simplified, however. `vjpArtifact` hands back the raw one,
+as printed above; simplifying it is the job of `simplifyArtifactRev`.
 A shorthand that creates a symbolic gradient program, simplifies it and
 interprets it with a given input on the default CPU backend is called `grad`
 and is used exactly the same as (but with often much better performance on the
@@ -250,27 +252,28 @@ convMnistTwoS
        -- ^ these boilerplate lines tie type parameters to the corresponding
        -- SNat value parameters denoting basic dimensions
   -> PrimalOf target (TKS '[batch_size, 1, h, w] r)  -- `input` shape [batch_size, 1, h, w]
-  -> ( ( target (TKS '[c_out, 1, kh + 1, kw + 1] r)  -- `ker1` shape [c_out, 1, kh+1, kw+1]
-       , target (TKS '[c_out] r) )                   -- `bias1` shape [c_out]
-     , ( target (TKS '[c_out, c_out, kh + 1, kw + 1] r)  -- `ker2` shape [c_out, c_out, kh+1, kw+1]
-       , target (TKS '[c_out] r) )                       -- `bias2` shape [c_out]
-     , ( target (TKS '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ] r)
-           -- `weightsDense` shape [n_hidden, c_out * (h/4) * (w/4)]
-       , target (TKS '[n_hidden] r) )    -- `biasesDense` shape [n_hidden]
-     , ( target (TKS '[10, n_hidden] r)  -- `weightsReadout` shape [10, n_hidden]
-       , target (TKS '[10] r) ) )        -- `biasesReadout` shape [10]
+  -> ( target (TKS '[c_out, 1, kh + 1, kw + 1] r)  -- `ker1` shape [c_out, 1, kh+1, kw+1]
+     , target (TKS '[c_out] r) )                   -- `bias1` shape [c_out]
+  -> ( target (TKS '[c_out, c_out, kh + 1, kw + 1] r)  -- `ker2` shape [c_out, c_out, kh+1, kw+1]
+     , target (TKS '[c_out] r) )                       -- `bias2` shape [c_out]
+  -> ( target (TKS '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ] r)
+         -- `weightsDense` shape [n_hidden, c_out * (h/4) * (w/4)]
+     , target (TKS '[n_hidden] r) )    -- `biasesDense` shape [n_hidden]
+  -> ( target (TKS '[SizeMnistLabel, n_hidden] r)
+         -- `weightsReadout` shape [10, n_hidden]
+     , target (TKS '[SizeMnistLabel] r) )  -- `biasesReadout` shape [10]
   -> target (TKS '[SizeMnistLabel, batch_size] r)  -- -> `output` shape [10, batch_size]
 convMnistTwoS
   kh@SNat kw@SNat h@SNat w@SNat
   c_out@SNat _n_hidden@SNat batch_size@SNat
   input  -- input images
-  (ker1, bias1)  -- layer1 kernel
-  (ker2, bias2)  -- layer2 kernel
-  ( weightsDense  -- dense layer weights
-  , biasesDense )  -- dense layer biases
-  ( weightsReadout  -- readout layer weights
-  , biasesReadout )  -- readout layer biases
-  =
+  ( (ker1, bias1)  -- layer1 kernel
+  , (ker2, bias2)  -- layer2 kernel
+  , ( weightsDense  -- dense layer weights
+    , biasesDense )  -- dense layer biases
+  , ( weightsReadout  -- readout layer weights
+    , biasesReadout )  -- readout layer biases
+  ) =
 ...
 ```
 
@@ -304,16 +307,19 @@ rest instantiate such an objective at one of the three carriers &mdash;
 for plain evaluation on CPU arrays.
 
 Following a single call is the quickest way in. Take `grad` from `ADEngine`
-into `Core/Delta.hs`, which builds the delta expression, a sparse form of the
-derivative's linear map, and then into `Core/DeltaEval.hs`, which transposes
-and evaluates it. In between, a symbolic artifact passes through the AST
-pipeline: `Core/AstVectorize.hs` eliminates indexing under `build1`,
+into `Core/OpsADVal.hs`, whose `ADVal` instances build the delta expression —
+a sparse form of the derivative's linear map, whose grammar is `Core/Delta.hs`
+— and then into `Core/DeltaEval.hs`, which transposes and evaluates it. In
+between, a symbolic artifact passes through the AST pipeline:
+`Core/AstVectorize.hs` eliminates indexing under `build1`,
 `Core/AstSimplify.hs` and `Core/AstTraverse.hs` simplify, `Core/AstInline.hs`
 handles sharing, and `Core/AstInterpret.hs` interprets the result in whichever
 carrier you chose.
 
 The top-level `HordeAd` module re-exports the user-facing surface, so it
-doubles as a table of contents.
+doubles as a table of contents. It leaves out `Core/Adaptor.hs`, though, which
+is where `toTarget`, `fromValue` and `fromDValue` live, so the examples above
+need it imported as well.
 
 
 ## Compilation from source
@@ -329,13 +335,13 @@ depend on any GPU hardware nor bindings.
 
 For development, copying the included `cabal.project.local.development`
 to `cabal.project.local` provides a sensible default to run `cabal build` with
-and get compilation results relatively fast. For extensive testing,
-on the other hand, a command like
+and get compilation results relatively fast. For testing, on the other hand,
+a command like
 
     cabal test minimalTest --enable-optimization
 
 ensures that the code is compiled with optimization and consequently
-executes the rather computation-intensive testsuites in reasonable time.
+executes the potentially computation-intensive tests in reasonable time.
 
 
 ## Running tests

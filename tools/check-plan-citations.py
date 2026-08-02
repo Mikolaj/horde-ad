@@ -77,13 +77,16 @@ proves the same thing today and becomes unresolvable when the branch goes
 or at the next gc, which is how a live row turns vacuous without anyone
 touching it.
 
-Only the note branch has a live control: `bench/CLAUDE.md` and
-`test/CLAUDE.md` are both stamped `d282ed596`, which is in HEAD but not
-an ancestor of origin/master, so every run over either prints the note
-and exits 0. It goes away when that commit reaches origin/master, and a
-squash before that orphans both stamps instead -- either way this
-paragraph then needs a fresh control. ORPHANED needs its scratch
-document meanwhile, all three stamps here being reachable from HEAD.
+The note branch has no live control either, and this is what its expiry
+looks like: `bench/CLAUDE.md` and `test/CLAUDE.md` were both stamped
+`d282ed596` and printed the note on every run, until that commit reached
+origin/master on 2026-07-31 and they fell silent. All three stamps here
+are published now, so no tracked document exercises it. Reproduced
+2026-07-31 with a scratch document, which is what the other branches
+need too: stamped at an unpushed commit it prints `note stamp @ ... not
+on origin/master yet` and exits 0, and stamped at `fa508caa4` it prints
+nothing -- so the branch is live code, just not one this repo's own
+documents reach any more.
 
 Neither permalink branch has a live control, and neither has the exit-2
 stop: no tracked `.md` here carries a pinned `blob/<sha>/` link at all,

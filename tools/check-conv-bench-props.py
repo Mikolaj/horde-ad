@@ -85,8 +85,10 @@ from cabal.project alone so that orthotope resolved from Hackage as it
 does there rather than from the sibling checkout, reported every
 allocation fit usable and every property instance passing, the widest
 equality gap 0.5% against the 5% tolerance and no inequality above ratio
-1.00. The tradeoff is what allocation cannot see — the ~9-12x
-gather-against-scatter time gap being the standing example.
+1.00. The tradeoff is what allocation cannot see — the
+gather-against-scatter time gap being the standing example, ~9-12x against
+released orthotope 0.1.8.0 and 2.55x once its strided-fallback fix is
+linked (bench/CLAUDE.md).
 
 Ahead of the properties, each fitted slope is gated on the regression it
 came from: too few samples, too poor a time fit, or an allocation fit
