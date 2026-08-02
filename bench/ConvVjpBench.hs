@@ -51,14 +51,15 @@
 --
 -- The numbered properties below relate the per-iteration slopes criterion
 -- fits against iteration count in a full run, not its means, which each
--- benchmark's warm-up ramp inflates by its own amount (the CI smoke run's
--- single iterations cannot support the tolerance either way). They are
--- stated for time, and every one of them also holds for bytes allocated
--- per iteration, which the script checks as a second pass — measured over
--- a full run before being relied on, the tightest equality coming out at
--- 1.7%. When analyzing a run, verify them explicitly, in this order, to
--- 10% for time and 5% for allocation: @a == b@ stands for
--- @abs (a - b) <= max a b * tol@, and @a <= b@ for @a <= (1 + tol) * b@.
+-- benchmark's warm-up ramp inflates by its own amount (CI's default-limit
+-- run supports the allocation half of them only, hence the script's
+-- @--allocation-only@). They are stated for time, and every one of them
+-- also holds for bytes allocated per iteration, which the script checks as
+-- a second pass — measured over a full run before being relied on, the
+-- tightest equality coming out at 1.7%. When analyzing a run, verify them
+-- explicitly, in this order, to 10% for time and 5% for allocation:
+-- @a == b@ stands for @abs (a - b) <= max a b * tol@, and @a <= b@ for
+-- @a <= (1 + tol) * b@.
 -- tools/check-conv-bench-props.py, fed criterion's @--json@ output as one
 -- or more files, is this list in executable form; keep the two in sync —
 -- the script fails on a benchmark that no property touches, so adding a

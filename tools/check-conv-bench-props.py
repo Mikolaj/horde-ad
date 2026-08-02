@@ -74,13 +74,19 @@ are engine invariants, so a failure is an engine regression; properties
 kernels and are the ones to re-measure when those kernels change.
 
 --allocation-only checks just the allocation pass, and gates only on the
-allocation fit. That is what makes the set cheap enough to gate CI on: a
-default-limit collection is too short for the time slopes, but allocation
-is so nearly exact in the iteration count that even the four-sample
-cnn-24x24 benchmarks fit it at R2 1.000000, so the allocation verdict on a
-ten-minute run is as good as on an hour-long one. The tradeoff is what
-allocation cannot see — the ~9-12x gather-against-scatter time gap being
-the standing example.
+allocation fit. That is what .github/workflows/lint-and-test-suites.yml
+runs on every push, over a default-limit collection of the whole suite:
+too short for the time slopes, but allocation is so nearly exact in the
+iteration count that even the four-sample cnn-24x24 benchmarks fit it at
+R2 1.000000, so the allocation verdict on such a run is as good as on an
+hour-long one. Before the workflow was wired to it, the mode was checked
+in CI's own configuration: a default-limit full run on 2026-08-02, built
+from cabal.project alone so that orthotope resolved from Hackage as it
+does there rather than from the sibling checkout, reported every
+allocation fit usable and every property instance passing, the widest
+equality gap 0.5% against the 5% tolerance and no inequality above ratio
+1.00. The tradeoff is what allocation cannot see — the ~9-12x
+gather-against-scatter time gap being the standing example.
 
 Ahead of the properties, each fitted slope is gated on the regression it
 came from: too few samples, too poor a time fit, or an allocation fit
