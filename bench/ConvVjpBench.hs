@@ -77,8 +77,8 @@
 -- call, double-counted, or drowned in noise. Properties 4-15 describe
 -- the current engine and may legitimately change when engine code
 -- changes — e.g. once the faster gather kernels designed for issue #123
--- (the add-zero gather of notes-add-zero-gather.md or the upstream
--- normalize-in-C) are implemented. They subdivide further:
+-- (the client-side add-zero gather or the upstream normalize-in-C) are
+-- implemented. They subdivide further:
 --
 -- * property 4 records what the simplifier does /not/ do to embedded
 --   constants — the random-data methodology leans on it, and so does

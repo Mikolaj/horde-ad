@@ -692,10 +692,11 @@ cnnObjective
   => Concrete (TKS '[7, 1, h, w] Double)
   -> MnistCnnShaped2.ADCnnMnistParametersShaped target h w 2 3 4 5 Double
   -> target (TKS '[SizeMnistLabel, 7] Double)
-cnnObjective glyph =
+cnnObjective glyph (params1, params2, paramsDense, paramsReadout) =
   MnistCnnShaped2.convMnistTwoS
     (SNat @2) (SNat @3) (SNat @h) (SNat @w) (SNat @4) (SNat @5) (SNat @7)
     (sconcrete $ unConcrete glyph)
+    params1 params2 paramsDense paramsReadout
 
 testCNNOPP2S :: Assertion
 testCNNOPP2S = do

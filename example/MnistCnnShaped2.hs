@@ -75,14 +75,22 @@ convMnistTwoS
        -- ^ these boilerplate lines tie type parameters to the corresponding
        -- SNat value parameters denoting basic dimensions
   -> PrimalOf target (TKS '[batch_size, 1, h, w] r)  -- ^ input images
-  -> ADCnnMnistParametersShaped target h w kh kw c_out n_hidden r
-       -- ^ parameters
+  -> ( target (TKS '[c_out, 1, kh + 1, kw + 1] r)
+     , target (TKS '[c_out] r) )  -- ^ layer1 kernel and bias
+  -> ( target (TKS '[c_out, c_out, kh + 1, kw + 1] r)
+     , target (TKS '[c_out] r) )  -- ^ layer2 kernel and bias
+  -> ( target (TKS '[n_hidden, c_out * (h `Div` 4) * (w `Div` 4) ] r)
+     , target (TKS '[n_hidden] r) )  -- ^ dense layer weights and biases
+  -> ( target (TKS '[SizeMnistLabel, n_hidden] r)
+     , target (TKS '[SizeMnistLabel] r) )  -- ^ readout layer weights and biases
   -> target (TKS '[SizeMnistLabel, batch_size] r)  -- ^ output classification
 convMnistTwoS kh@SNat kw@SNat h@SNat w@SNat
               c_out@SNat _n_hidden@SNat batch_size@SNat
               input
-              ( (ker1, bias1), (ker2, bias2)
-              , (weightsDense, biasesDense), (weightsReadout, biasesReadout) ) =
+              (ker1, bias1)
+              (ker2, bias2)
+              (weightsDense, biasesDense)
+              (weightsReadout, biasesReadout) =
   assumeEquality @(Div (Div w 2) 2) @(Div w 4) $
   assumeEquality @(Div (Div h 2) 2) @(Div h 4) $
   let t1 = convMnistLayerS kh kw h w
@@ -116,12 +124,13 @@ convMnistLossFusedS
   -> target (TKScalar r)
 convMnistLossFusedS kh@SNat kw@SNat
                     c_out@SNat n_hidden@SNat batch_size@SNat
-                    (glyphS, labelS) adparameters =
+                    (glyphS, labelS)
+                    (params1, params2, paramsDense, paramsReadout) =
   let input :: PrimalOf target (TKS '[batch_size, 1, h, w] r)
       input = sreshape glyphS
       result = convMnistTwoS kh kw (SNat @h) (SNat @w)
                              c_out n_hidden batch_size
-                             input adparameters
+                             input params1 params2 paramsDense paramsReadout
       targets = str labelS
       loss = lossSoftMaxCrossEntropyS targets result
   in kfromPrimal (recip $ kconcrete $ fromIntegral $ fromSNat' batch_size) * loss
@@ -152,9 +161,10 @@ convMnistTestS kh@SNat kw@SNat
       outputS =
         let nn :: ADCnnMnistParametersShaped target h w kh kw c_out n_hidden r
                -> target (TKS '[SizeMnistLabel, batch_size] r)
-            nn = convMnistTwoS kh kw (SNat @h) (SNat @w)
-                               c_out n_hidden batch_size
-                               input
+            nn (params1, params2, paramsDense, paramsReadout) =
+              convMnistTwoS kh kw (SNat @h) (SNat @w)
+                            c_out n_hidden batch_size
+                            input params1 params2 paramsDense paramsReadout
         in nn testParams
       outputs = map stoVector $ sunravelToList
                 $ stranspose @'[1, 0] outputS

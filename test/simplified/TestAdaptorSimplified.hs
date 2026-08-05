@@ -663,8 +663,9 @@ testGradFooLetMatrixPP = do
 testGradFooMatrixVjp :: Assertion
 testGradFooMatrixVjp =
   assertEqualUpToEpsilon 1e-10
-    ((sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627]) :: ThreeMatrices Double)
-    (vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1))
+    (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
+    (vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1)
+     :: ThreeMatrices Double)
 
 testGradFooMatrixRev :: Assertion
 testGradFooMatrixRev =
