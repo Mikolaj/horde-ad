@@ -9,7 +9,7 @@
 # Adding an entry is also the easy way to silently defang the checker, so
 # re-run its docstring's non-vacuity test after touching this file.
 #
-# The file holds one path and no more. Two groups that could have been
+# The file holds two paths and no more. Two groups that could have been
 # here were removed rather than lost:
 #
 # * Seven prose fragments — `.md`, `.cabal`, `blob/master`, `group/bench`,
@@ -26,7 +26,8 @@
 #   it, so an upstream rename passed unnoticed. If a checkout is missing,
 #   the checker stops and says so rather than falling back to this file.
 #
-# The entry that does remain is neither kind. It is not a name the checker
+# Of the two entries, `Repro.hs` is the plain kind, its reason beside it.
+# `.mcp.json` is neither kind. It is not a name the checker
 # should stop reading, but a name whose existence depends on who is
 # looking: the inner sandbox bind-mounts /dev/null over eleven dotfile
 # names in the session's own working directory (CLAUDE.md's sandboxing
@@ -37,3 +38,7 @@
 # only this one needs it -- the rest carry no extension this checker reads
 # as a path, so they stay unclassified.
 .mcp.json
+# The filed GHC issue (docs/ghc-issue-block-pool-fragmentation.md) tells
+# its reader to save the reproducer program under this name, so it never
+# lands in this repo.
+Repro.hs
