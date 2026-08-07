@@ -177,7 +177,7 @@ How to keep that separation in practice — which module holds the QuickCheck pr
 
 ## Portable notes: same author, same machine
 
-Nothing in this section is horde-ad-specific: it should hold for other projects by the same author, in the same coding style, developed on the same machine behind the same outer sandbox. Examples are from horde-ad unless attributed.
+Nothing in this section is horde-ad-specific: it should hold for other projects by the same author, in the same coding style, developed on the same machine behind the same outer sandbox. A sibling checkout worked on from a session rooted here is inside that scope even when the sibling is another maintainer's repo — the machine did not change, and the patch is still authored here; only the coding-style specifics yield, to the style apparent in the file being edited, as those rules themselves prescribe. Examples are from horde-ad unless attributed.
 
 ### Coding style
 
