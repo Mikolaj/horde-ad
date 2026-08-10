@@ -80,7 +80,7 @@ mnistTestCase2T reallyWriteFile
        let runEpoch :: Int
                     -> (HVector Double, [(POSIXTime, Double)])
                     -> IO (HVector Double, [(POSIXTime, Double)])
-           runEpoch n params2times | n > epochs = return params2times
+           runEpoch n !params2times | n > epochs = return params2times
            runEpoch n (!params2, !times2) = do
              hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let !trainDataShuffled =
@@ -154,7 +154,7 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
        let runEpoch :: Int
                     -> (HVector Double, [(POSIXTime, Double)])
                     -> IO (HVector Double, [(POSIXTime, Double)])
-           runEpoch n params2times | n > epochs = return params2times
+           runEpoch n !params2times | n > epochs = return params2times
            runEpoch n (!params2, !times2) = do
              hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let !trainDataShuffled =

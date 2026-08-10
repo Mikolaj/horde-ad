@@ -1693,7 +1693,7 @@ fromLinearIdxS = \sh lin -> case go sh lin of (_, ix) -> ix
   where
     go :: ShS sh1 -> j -> (j, IxS sh1 j)
     go ZSS !n = (n, ZIS)
-    go ((:$$) n sh) lin =
+    go ((:$$) n sh) !lin =
       let (tensLin, idxInTens) = go sh lin
           tensLin' = tensLin `quotH` fromIntegral (fromSNat' n)
           i = tensLin `remH` fromIntegral (fromSNat' n)
@@ -1741,7 +1741,7 @@ detSquare =
               then return el
               else nthFreeSpot (pos - fromEnum free) (el + 1)
             loop :: Int -> Int -> Int -> ST s ()
-            loop _ _ 0 = return ()
+            loop !_ !_ 0 = return ()
             loop !idx !fi i2 = do
               let fi2 = fi `quot` i2
                   (idxDigit, idxRest) = idx `quotRem` fi2

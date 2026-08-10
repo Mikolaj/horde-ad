@@ -152,7 +152,7 @@ mnistTestCase1VTA prefix epochs maxBatches widthHiddenInt widthHidden2Int
     let runEpoch :: Int
                  -> Concrete (XParams widthHidden widthHidden2 r)
                  -> IO (Concrete (XParams widthHidden widthHidden2 r))
-        runEpoch n params | n > epochs = return params
+        runEpoch n !params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHiddenInt < 10) $
             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -267,7 +267,7 @@ mnistTestCase1VTI prefix epochs maxBatches widthHiddenInt widthHidden2Int
     let runEpoch :: Int
                  -> Concrete (XParams widthHidden widthHidden2 r)
                  -> IO (Concrete (XParams widthHidden widthHidden2 r))
-        runEpoch n params | n > epochs = return params
+        runEpoch n !params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHiddenInt < 10) $
             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -386,7 +386,7 @@ mnistTestCase1VTO prefix epochs maxBatches widthHiddenInt widthHidden2Int
     let runEpoch :: Int
                  -> Concrete (XParams widthHidden widthHidden2 r)
                  -> IO (Concrete (XParams widthHidden widthHidden2 r))
-        runEpoch n params | n > epochs = return params
+        runEpoch n !params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHiddenInt < 10) $
             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -478,7 +478,7 @@ mnistTestCase2VTA prefix epochs maxBatches widthHidden widthHidden2
           return res
     let runEpoch :: Int -> Concrete (XParams2 r Float)
                  -> IO (Concrete (XParams2 r Float))
-        runEpoch n params | n > epochs = return params
+        runEpoch n !params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHidden < 10) $
             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -583,7 +583,7 @@ mnistTestCase2VTI prefix epochs maxBatches widthHidden widthHidden2
           return res
     let runEpoch :: Int -> Concrete (XParams2 r Float)
                  -> IO (Concrete (XParams2 r Float))
-        runEpoch n params | n > epochs = return params
+        runEpoch n !params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHidden < 10) $
             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -675,7 +675,7 @@ mnistTestCase2VTO prefix epochs maxBatches widthHidden widthHidden2
           return res
     let runEpoch :: Int -> Concrete (XParams2 r Float)
                  -> IO (Concrete (XParams2 r Float))
-        runEpoch n params | n > epochs = return params
+        runEpoch n !params | n > epochs = return params
         runEpoch n !params = do
           unless (widthHidden < 10) $
             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n

@@ -362,7 +362,7 @@ pattern Is <- (eqTypeRep (TypeRep @a) -> Just (HRefl :: a :~~: b))
 -- All below is copied from Data.OldList but made strict in state.
 mapAccumL' :: (acc -> x -> (acc, y)) -> acc -> [x] -> (acc, [y])
 {-# INLINE [1] mapAccumL' #-}
-mapAccumL' _ s [] = (s, [])
+mapAccumL' _ !s [] = (s, [])
 mapAccumL' f !s (x : xs) = (s'', y : ys)
  where (s', y) = f s x
        (s'', ys) = mapAccumL' f s' xs

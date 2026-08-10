@@ -936,7 +936,7 @@ ixrToLinearMaybe = \sh ix -> goR sh ix 0
   where
     goR :: IShR n -> IxROf Concrete n -> Int -> Maybe Int
     goR ZSR ZIR !a = Just a
-    goR (n :$: sh) (Concrete i :.: ix) a =
+    goR (n :$: sh) (Concrete i :.: ix) !a =
       if 0 <= i && i < n then goR sh ix (n * a + i) else Nothing
 
 -- This would be shorter, but a bit more expensive:
@@ -946,7 +946,7 @@ ixsToLinearMaybe = \sh ix -> goS sh ix 0
   where
     goS :: ShS sh -> IxSOf Concrete sh -> Int -> Maybe Int
     goS ZSS ZIS !a = Just a
-    goS ((fromSNat' -> n) :$$ sh) (Concrete i :.$ ix) a =
+    goS ((fromSNat' -> n) :$$ sh) (Concrete i :.$ ix) !a =
       if 0 <= i && i < n then goS sh ix (n * a + i) else Nothing
 
 ixxToLinearMaybe :: IShX sh -> IxXOf Concrete sh -> Maybe Int
@@ -954,7 +954,7 @@ ixxToLinearMaybe = \sh ix -> goX sh ix 0
   where
     goX :: IShX sh -> IxXOf Concrete sh -> Int -> Maybe Int
     goX ZSX ZIX !a = Just a
-    goX ((fromSMayNat' -> n) :$% sh) (Concrete i :.% ix) a =
+    goX ((fromSMayNat' -> n) :$% sh) (Concrete i :.% ix) !a =
       if 0 <= i && i < n then goX sh ix (n * a + i) else Nothing
 
 tfromList :: forall y k.
@@ -997,7 +997,7 @@ tmapAccumLC
   -> Concrete (BuildTensorKind k ey)
   -> Concrete (TKProduct accy (BuildTensorKind k by))
 {-# INLINE tmapAccumLC #-}
-tmapAccumLC k (FTKScalar @z1) eftk f acc0 es
+tmapAccumLC k (FTKScalar @z1) eftk f !acc0 !es
   | Just Refl <- testEquality (typeRep @z1) (typeRep @Z1) =
     let h :: Concrete accy -> Concrete ey -> Concrete accy
         h !acc !e = Concrete $ fst $ f (unConcrete acc, unConcrete e)

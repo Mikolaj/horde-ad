@@ -29,7 +29,7 @@ sgdSTK stk gamma f trainingData parameters0 = go trainingData parameters0 where
   deltaInputs :: Delta Concrete x
   deltaInputs = generateDeltaInputs zftk
   go :: [a] -> Concrete x -> (Concrete x, Concrete z)
-  go [] parameters = (parameters, undefined)
+  go [] !parameters = (parameters, undefined)
   go (a : rest) !parameters =
     let inputs :: ADVal Concrete x
         inputs = dDnotShared parameters deltaInputs
@@ -77,7 +77,7 @@ sgdAdamArgs argsAdam f trainingData !parameters0 !stateAdam0 =
   deltaInputs :: Delta Concrete x
   deltaInputs = generateDeltaInputs zftk
   go :: [a] -> Concrete x -> StateAdam x -> (Concrete x, StateAdam x)
-  go [] parameters stateAdam = (parameters, stateAdam)
+  go [] !parameters !stateAdam = (parameters, stateAdam)
   go (a : rest) !parameters !stateAdam =
     let inputs :: ADVal Concrete x
         inputs = dDnotShared parameters deltaInputs
