@@ -38,7 +38,9 @@
 # only this one needs it -- the rest carry no extension this checker reads
 # as a path, so they stay unclassified.
 .mcp.json
-# The filed GHC issue (docs/ghc-issue-block-pool-fragmentation.md) tells
-# its reader to save the reproducer program under this name, so it never
-# lands in this repo.
+# Every GHC issue document under docs/ -- the filed block-pool one and the
+# unfiled recompilation and loop-alignment ones -- tells its reader to save
+# the reproducer program under this name, so it never lands in this repo.
+# They share the name deliberately: one entry, and a reader who meets
+# `Repro.hs` in any of them knows what it is.
 Repro.hs
