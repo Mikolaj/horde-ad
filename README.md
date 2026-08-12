@@ -47,8 +47,7 @@ performance highly competitive with (i.e. faster than) those and PyTorch on CPU.
 --> It is hoped that the (well-typed) separation of AD logic and tensor
 manipulation backend will enable similar speedups on numerical accelerators,
 when their support is implemented. Contributions to this and other tasks
-are very welcome. The newcomer-friendly tickets are listed
-at
+are very welcome. The newcomer-friendly tickets are listed at
 https://github.com/Mikolaj/horde-ad/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22.
 Please don't hesitate to ask questions on github, on Matrix, via email.
 
@@ -164,9 +163,9 @@ are not repeated, which is thanks to the `tlet` used above.
 A concrete value of this symbolic reverse derivative at the same input as before
 can be obtained by interpreting its program in the context of the operations
 supplied by the horde-ad library. (Note that the output happens to be the same
-as `gradSumFooMatrix threeSimpleMatrices` above, which used `cgrad` on `ssum0 .
-foo`; the reason is that `srepl 1.0` happens to be the reverse derivative
-of `ssum0`.)
+as `gradSumFooMatrix threeSimpleMatrices` above, which used `cgrad`
+on `ssum0 . foo`; the reason is that `srepl 1.0` happens to be the reverse
+derivative of `ssum0`.)
 ```hs
 >>> vjpInterpretArtifact artifact (toTarget threeSimpleMatrices) (srepl 1.0) :: ThreeMatrices Double
 (sfromListLinear [2,2] [2.4396285219055063,2.4396285219055063,2.4396285219055063,2.4396285219055063],sfromListLinear [2,2] [-1.953374825727421,-1.953374825727421,-1.953374825727421,-1.953374825727421],sfromListLinear [2,2] [0.9654825811012627,0.9654825811012627,0.9654825811012627,0.9654825811012627])
