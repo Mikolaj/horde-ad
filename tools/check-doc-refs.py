@@ -217,6 +217,24 @@ PATH_EXT = ("hs", "ts", "mjs", "py", "cabal", "html", "md", "yaml", "yml",
 
 TICK_RE = re.compile(r"`([^`\n]+)`")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
+
+
+def unwrapped(text):
+    """The document with each paragraph on one line, via `wrap80 --unwrap`.
+
+    Shelled out to rather than reimplemented, so that what counts as a
+    paragraph here is what counts as one everywhere else: the formatter that
+    writes these documents is the only definition worth having. Without
+    wrap80 the text is returned as it came, which loses nothing that a
+    line-based read did not already lose -- so this degrades to the previous
+    behaviour rather than failing, unlike the wrapping check, which reports
+    nothing at all when it cannot run.
+    """
+    try:
+        return subprocess.run(["wrap80", "--unwrap"], input=text, text=True,
+                              capture_output=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return text
 CITE_RE = re.compile(r":\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*$")
 # The comma form is `check-plan-citations.py`'s: its `spans` expands
 # "222,1581" and "353,362,771-781" and checks every member. Recognising
@@ -347,8 +365,17 @@ def command_text(text):
     deeply nested list item is read as a command too, and since only
     `make`/`cabal`/`--flag` shapes are extracted from it, that is a
     missing check at worst, never a false failure.
+
+    Backticked spans are read off the document unwrapped, one line per
+    paragraph, because TICK_RE cannot span a newline and a wrapped document
+    puts newlines wherever the width falls. Reflowing README.md moved a
+    break inside `ssum0 . foo`, and that reference plus `srepl 1.0` after it
+    left this check's sight while a third, `; the reason is that `, the text
+    between their halves, entered it -- no line of output changed, since the
+    count is not printed and both were resolving anyway. What a checker can
+    see must not depend on where the prose happens to break.
     """
-    parts = TICK_RE.findall(text)
+    parts = TICK_RE.findall(unwrapped(text))
     in_fence = False
     for line in text.splitlines():
         if FENCE_RE.match(line):
