@@ -28,7 +28,8 @@ break moved so a line ends on "the" -- while the document as committed
 passes. The other branches fire too: an unlisted document is refused
 rather than guessed at, and the one-line-per-paragraph half caught a
 paragraph in CREDITS.md broken across two lines, which nothing had ever
-looked at. Confirmed 2026-08-12.
+looked at. The fake-enumerator branch fires on a planted "2b." and on
+nothing in any document of these repos. Confirmed 2026-08-13.
 """
 
 import difflib
@@ -60,6 +61,30 @@ UNWRAPPED = (
 )
 
 
+# A line that looks like an enumerated item to a writer and is not one to
+# Markdown, which wants a bullet or plain digits: "2b.", "iv.", "A.", "a)".
+# It renders as a paragraph, so it loses the numbering it was written for and
+# the indentation under it stops being a list's, which is a shape this tool
+# then declines to touch -- a defect that hid a broken code span in the
+# doc-verification skill until it was looked for. Ordinary prose does not
+# trip it: over every document in these repos it matched nothing, while a
+# plain "1990. The year" is a real list item and is left alone.
+FAKE_MARKER = re.compile(r"^\s*(\d+[a-z]|[a-z]|[A-Z]|[ivxlcIVXLC]+)[.)]\s")
+REAL_MARKER = re.compile(r"^\s*([-*+]\s|\d{1,9}[.)]\s)")
+FENCE = re.compile(r"^\s*(```|~~~)")
+
+
+def fake_markers(text):
+    """[(line number, line)] for enumerators Markdown will not read as such."""
+    out, fenced = [], False
+    for i, l in enumerate(text.split("\n"), 1):
+        if FENCE.match(l):
+            fenced = not fenced
+        elif not fenced and FAKE_MARKER.match(l) and not REAL_MARKER.match(l):
+            out.append((i, l.strip()))
+    return out
+
+
 def check(doc):
     """0 if as wrap80 leaves it or not wrapped, 1 if it needs re-wrapping,
     2 if nothing could be checked -- which `wrap80 -i` would not fix, so the
@@ -83,6 +108,13 @@ def check(doc):
         print(f"BLOCKED {rel}: wrap80 failed ({e.returncode}), nothing checked")
         return 2
     have = open(rel, encoding="utf-8").read()
+    fake = fake_markers(have)
+    if fake:
+        i, l = fake[0]
+        print(f"FAIL {rel}: line {i} opens with an enumerator Markdown does not"
+              f" read as one — {l[:40]!r}; use a bullet or plain digits"
+              + (f" ({len(fake)} such lines)" if len(fake) > 1 else ""))
+        return 1
     if want == have:
         print(f"ok   {rel}: as wrap80 leaves it, {form}")
         return 0
