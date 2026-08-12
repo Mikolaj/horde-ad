@@ -2,10 +2,10 @@
 
 ## [v0.4.0.0](https://github.com/Mikolaj/horde-ad/compare/v0.3.0.0...v0.4.0.0)
 
-- Sort a gather's slice dimensions in the contraction pass, cutting time and
-  allocation on gather-heavy programs (issue #123)
-- Add convVjpBench, a criterion suite for convolution gradients, with
-  deterministic correctness tests and poor man's benchmarks beside it
+- Sort a gather's slice dimensions in the contraction pass, cutting time
+  and allocation on gather-heavy programs (issue #123)
+- Add convVjpBench, a criterion suite for convolution gradients,
+  with deterministic correctness tests and poor man's benchmarks beside it
 - Export more of Core.AstSimplify and Core.AstTraverse
 - Split CI in two, so that formatting and the optimized suites are checked
   as well, and make the test_seq flag actually sequence the suite
