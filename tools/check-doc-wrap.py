@@ -34,16 +34,22 @@ branch fires on a planted "2b." and on nothing in any document of these
 repos. Confirmed 2026-08-13.
 
 The paragraph rule and the derived form were proven the same day, and its
-three branches again on 2026-08-14, when these verdicts were re-worded to
-name hand-wrapping rather than the formatter. The middle case is the one
-they exist for. Untouched, position-effect.md is
-`ok`. With one paragraph unwrapped -- what one edit leaves -- it is `ok`,
-mid-edit, exit 0, where the whole-file test this replaces called that same
-file 11 lines wrong and exited 1. With one paragraph rewritten a word per
-line it is named, given its line, exit 1. An untracked document is
-refused. And the derivation reproduced the two hand-maintained lists it
-replaced exactly: the same ten documents, the same three wrapped and seven
-one-line-per-paragraph, which is what let the lists go.
+branches again on 2026-08-14, when these verdicts were re-worded to name
+hand-wrapping rather than the formatter and the unit became the line inside
+a block rather than the block. The middle case is the one they exist for,
+and the list case is the one the block unit got wrong: no wrapped document
+here has a bulleted block whose first item spans more than a line, so
+that control is crafted rather than live -- a two-item list inserted into
+README.md, wrapped, then its first item joined, which the block rule flags
+and the line rule reports as mid-edit. The other two were re-run that day
+as they stand. Untouched, position-effect.md is `ok`. With one paragraph
+unwrapped -- what one edit leaves -- it is `ok`, mid-edit, exit 0, where
+the whole-file test this replaces called that same file 11 lines wrong and
+exited 1. With one paragraph rewritten a word per line it is named, given
+its line, exit 1. An untracked document is refused. And the derivation
+reproduced the two hand-maintained lists it replaced exactly: the same ten
+documents, the same three wrapped and seven one-line-per-paragraph, which is
+what let the lists go.
 """
 
 import difflib
@@ -182,16 +188,33 @@ def check(doc):
                               text=True, check=True).stdout
     except (OSError, subprocess.CalledProcessError):
         flat = None
+    # Judged LINE by line inside a block, because a block is not a paragraph:
+    # a bulleted run is one block holding several, and an edit to one item
+    # leaves that block matching neither form -- the formatter would re-wrap
+    # the item, the unwrapped form would put every sibling on its own line --
+    # so a whole-block comparison called a list mid-edit hand-wrapped and
+    # failed it. A line an edit left long is one the unwrapped form has, a
+    # line the formatter would produce is in its own output, and hand-wrapping
+    # is what is in neither.
     hp, wp, fp = (t.split("\n\n") for t in (have, want, flat or ""))
     if flat is not None and len(hp) == len(wp) == len(fp):
-        hand = [i for i, (h, w, f) in enumerate(zip(hp, wp, fp))
-                if h != w and h != f]
-        loose = sum(1 for h, w, f in zip(hp, wp, fp) if h != w and h == f)
+        hand, loose = [], 0
+        for i, (h, w, f) in enumerate(zip(hp, wp, fp)):
+            if h == w:
+                continue
+            ok = set(w.split("\n")) | set(f.split("\n"))
+            if all(l in ok for l in h.split("\n")):
+                loose += 1
+            else:
+                hand.append(i)
         if not hand:
             print(f"ok   {rel}: no paragraph wrapped by hand, {form};"
                   f" {loose} still on one line, so it is mid-edit")
             return 0
-        at = have[:have.index(hp[hand[0]])].count("\n") + 1
+        # Summed rather than searched for: a short block can occur as a
+        # substring of an earlier one, and `index` would then send the reader
+        # to a paragraph that is fine.
+        at = have.count("\n", 0, sum(len(b) + 2 for b in hp[:hand[0]])) + 1
         fix = " ".join(["wrap80"] + flag + ["-i", rel])
         print(f"FAIL {rel}: {len(hand)} paragraph(s) wrapped by hand, {form}"
               f" — first at line {at}; run `{fix}`, never re-wrap a line"
