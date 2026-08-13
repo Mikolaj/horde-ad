@@ -19,7 +19,9 @@ the match.
 
 Exit status is nonzero if any citation is UNRESOLVED (no such file),
 AMBIGUOUS (a bare basename matching several files — qualify it in the
-document), or OUT-OF-RANGE (the file is shorter than the cited line).
+document), OUT-OF-RANGE (the file is shorter than the cited line), or
+PROSE-LINE (the target is a `.md`, whose line numbers move under the
+formatter and so cannot be cited at all — name a phrase or a heading).
 
 Line numbers drift as commits land: after changing a cited file, re-run
 this and eyeball the printed snippets; the document header records the
@@ -136,12 +138,13 @@ the cited file; that asymmetry is how a real error slipped in once.
 
 Non-vacuity (per CLAUDE.md's "prove a checker non-vacuous"): feed it a
 scratch document holding one citation of each failing kind and confirm
-all six are reported and the exit status is 1 —
+all seven are reported and the exit status is 1 —
 
     UNRESOLVED       `NoSuchFile.hs:12`
     OUT-OF-RANGE     `Core/Ast.hs:999999`
     CONTINUATION     `Core/Ops.hs:1,999999` (the tail member must be checked)
-    NON-SOURCE       `CLAUDE.md:999999`   (documents and tools cite each other)
+    NON-SOURCE       `tools/heading-outline.py:999999`  (tools are cited too)
+    PROSE-LINE       `CLAUDE.md:1`        (a valid line fails too)
     PERMALINK range  .../blob/5f0647baa/CLAUDE.md#L99999
     PERMALINK repo   https://github.com/ghc/ghc/blob/0123456789abcdef/x.hs#L1
     UNPUBLISHED      .../blob/<a commit not on PUBLISHED_REF>/CLAUDE.md#L1-L3
@@ -177,13 +180,26 @@ citations either way. Reproduced 2026-07-31.
 plus a control that must still pass (`Core/Ast.hs:1`). The two
 out-of-range rows name different files deliberately — extracted
 citations are deduplicated, so on one file they collapse and the run
-reports five. A run reporting fewer than six failures means extraction,
+reports five. A run reporting fewer than seven failures means extraction,
 resolution or the `git show` branch has silently stopped covering that
 kind. Two rows are there because their
 kind was silently uncovered for a while. NON-SOURCE: only Haskell and
-web sources were extracted, so a citation into a `.md`, `.py` or `.yml`
-file was skipped rather than checked, and a document citing nothing but
-those reported a clean zero. CONTINUATION: extraction took only the
+web sources were extracted, so a citation into a `.py` or `.yml` file was
+skipped rather than checked, and a document citing nothing but those
+reported a clean zero. A `.md` target is now refused before it is
+resolved, so PROSE-LINE fires on a valid line number as readily as on
+`999999` -- which is the point of it, the number being unstable rather
+than wrong.
+
+PROSE-LINE proved 2026-08-13, and the row that matters is the valid one:
+a scratch document citing `CLAUDE.md:1` (a line that exists),
+`CLAUDE.md:999999` (one that does not) and `bench/CLAUDE.md:3` reported
+all three and exited 1, while `Core/Ast.hs:11-19` and
+`tools/heading-outline.py:1` in the same document still printed ok --
+the second being the NON-SOURCE coverage this must not have taken with
+it. Firing on a line that resolves is the whole of the check: the number
+is unstable, not incorrect, so there is nothing for a passing resolution
+to mean. CONTINUATION: extraction took only the
 first number of a comma-continued citation, which left seven
 sub-references unchecked in a LambdaHack planning document while the run
 reported a clean count over the rest — a silent search of exactly the
@@ -457,6 +473,23 @@ def main():
                     for span in spans(m.group(2))})
     failures = 0
     for name, lo, hi in cites:
+        # A line number into PROSE is not a citation, it is a guess with a
+        # colon in it. The formatter rewraps a document whenever it is
+        # edited -- and, where a hook restores its committed form, between
+        # one session turn and the next -- so every line below the change
+        # moves while the cited file's own history records nothing: the
+        # stamp cannot go stale, because the cited file was not touched.
+        # Cite prose by a phrase or a heading, which survives the reflow;
+        # `--para` and every exact-match edit already work that way. This
+        # was an unenforced observation in CLAUDE.md until it was found
+        # leaning on two separate arguments, one of them added the day the
+        # rewrapping hook was.
+        if name.endswith(".md"):
+            print(f"FAIL {name}:{lo}-{hi} — PROSE-LINE (a line number into"
+                  f" a document does not survive a reflow; cite a phrase or"
+                  f" a heading)")
+            failures += 1
+            continue
         path, err = resolve(name)
         if err:
             print(f"FAIL {name}:{lo}-{hi} — {err}")

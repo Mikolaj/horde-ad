@@ -2,7 +2,7 @@
 """Check that a document is as `wrap80` leaves it, in whichever form it keeps.
 
 Usage: python3 tools/check-doc-wrap.py [DOC ...]
-DOC defaults to every document listed below. Run from the repo root.
+DOC defaults to every Markdown file git tracks. Run from the repo root.
 
 A document here keeps one of two forms, and both are the formatter's: prose
 wrapped to a column limit, or one line per paragraph, which is how a text
@@ -25,11 +25,22 @@ Non-vacuous: over `docs/position-effect.md`, each of the three defects
 this exists to catch fails it and names a line to look at -- a line
 lengthened by hand past the width, the file re-wrapped narrower, and a
 break moved so a line ends on "the" -- while the document as committed
-passes. The other branches fire too: an unlisted document is refused
-rather than guessed at, and the one-line-per-paragraph half caught a
-paragraph in CREDITS.md broken across two lines, which nothing had ever
-looked at. The fake-enumerator branch fires on a planted "2b." and on
-nothing in any document of these repos. Confirmed 2026-08-13.
+passes. The other branches fire too: a document whose committed version
+sits at neither fixed point is refused rather than guessed at, and the
+one-line-per-paragraph half caught a paragraph in CREDITS.md broken
+across two lines, which nothing had ever looked at. The fake-enumerator
+branch fires on a planted "2b." and on nothing in any document of these
+repos. Confirmed 2026-08-13.
+
+The paragraph rule and the derived form were proven the same day, and the
+middle case is the one they exist for. Untouched, position-effect.md is
+`ok`. With one paragraph unwrapped -- what one edit leaves -- it is `ok`,
+mid-edit, exit 0, where the whole-file test this replaces called that same
+file 11 lines wrong and exited 1. With one paragraph rewritten a word per
+line it is named, given its line, exit 1. An untracked document is
+refused. And the derivation reproduced the two hand-maintained lists it
+replaced exactly: the same ten documents, the same three wrapped and seven
+one-line-per-paragraph, which is what let the lists go.
 """
 
 import difflib
@@ -38,27 +49,51 @@ import re
 import subprocess
 import sys
 
-# Which list a document belongs to cannot be read off its bytes: long lines
-# mean badly wrapped or deliberately unwrapped, and nothing says which. So a
-# document in neither is refused rather than guessed at, and a new one is
-# classified here by hand, once.
-WRAPPED = (   # prose reflowed to wrap80's fixed point
-    "README.md",
-    "CHANGELOG.md",
-    "docs/position-effect.md",
-)
-# One line per paragraph, deliberately: GitHub renders a single newline as
-# a hard <br> in an issue or PR body, and a CLAUDE.md is edited the same way
-# so that a paragraph is one unit to a reader and to a diff.
-UNWRAPPED = (
-    "CLAUDE.md",
-    "CREDITS.md",
-    "bench/CLAUDE.md",
-    "test/CLAUDE.md",
-    "docs/ghc-issue-block-pool-fragmentation.md",
-    "docs/ghc-issue-no-loop-alignment.md",
-    "docs/ghc-issue-recompilation-ignores-codegen-flags.md",
-)
+# Which form a document keeps cannot be read off its bytes -- long lines mean
+# badly wrapped or deliberately unwrapped, and nothing in the file says which
+# -- but it CAN be read off its history. The committed version is at whichever
+# fixed point the document is kept in, so `git show HEAD:DOC` answers what two
+# hand-maintained lists used to, and answers it for a document mid-edit too,
+# HEAD being unaffected by the working copy. A document whose committed
+# version is at neither fixed point, and one git does not have, are refused
+# rather than guessed at, exactly as an unlisted one was.
+#
+# The lists this replaces named ten documents and had to be added to by hand
+# once per new document, in a repo whose CLAUDE.md is itself one of the ten.
+# Deriving them reproduced all ten, which is the check that let them go.
+
+
+def committed_form(rel):
+    """("--unwrap" flag, name) for the form DOC's last commit is in, or None.
+
+    None where git has no such file, and where the committed version sits at
+    neither fixed point -- someone else's hand-wrapping, or a document nobody
+    has run the formatter over yet. Both are refusals rather than guesses.
+    """
+    p = subprocess.run(["git", "show", "HEAD:" + rel],
+                       capture_output=True, text=True)
+    if p.returncode != 0:
+        return None
+    base = p.stdout
+    try:
+        w = subprocess.run(["wrap80"], input=base, capture_output=True,
+                           text=True, check=True).stdout
+        u = subprocess.run(["wrap80", "--unwrap"], input=base,
+                           capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    if base == w:                      # a short document is at both, and the
+        return ([], "wrapped")         # wrapped pass is then a no-op anyway
+    if base == u:
+        return (["--unwrap"], "one line per paragraph")
+    return None
+
+
+def tracked_markdown():
+    """Every Markdown file git has, which is what the lists used to spell."""
+    p = subprocess.run(["git", "ls-files", "*.md"],
+                       capture_output=True, text=True)
+    return p.stdout.split() if p.returncode == 0 else []
 
 
 # A line that looks like an enumerated item to a writer and is not one to
@@ -90,14 +125,13 @@ def check(doc):
     2 if nothing could be checked -- which `wrap80 -i` would not fix, so the
     summary has to count it apart rather than call it a wrapping failure."""
     rel = os.path.normpath(doc)
-    if rel in UNWRAPPED:
-        flag, form = ["--unwrap"], "one line per paragraph"
-    elif rel in WRAPPED:
-        flag, form = [], "wrapped"
-    else:
-        print(f"FAIL {rel}: not listed as wrapped or as unwrapped —"
-              f" classify it in {os.path.basename(__file__)} first")
+    got = committed_form(rel)
+    if got is None:
+        print(f"FAIL {rel}: its committed version is at neither of wrap80's"
+              f" fixed points, or git has no such file, so the form it keeps"
+              f" cannot be told — run the formatter over it and commit that")
         return 1
+    flag, form = got
     try:
         want = subprocess.run(["wrap80"] + flag + [rel], capture_output=True,
                               text=True, check=True).stdout
@@ -118,6 +152,47 @@ def check(doc):
     if want == have:
         print(f"ok   {rel}: as wrap80 leaves it, {form}")
         return 0
+    # WHAT IS FORBIDDEN IS HAND-WRAPPING, and that is a property of a
+    # PARAGRAPH. Asking the whole file to be exactly as wrap80 leaves it fails
+    # a document with one paragraph edited and left long -- which is the state
+    # the standing rule asks for, an edit being made at whatever length falls
+    # out of it. So this went red on an ordinary edit and the way to green was
+    # to wrap; wrapping between edits moves the breaks the next exact-match
+    # edit has to quote, so the way on was to unwrap, and the cycle repeated
+    # per edit. The pressure was this check, so this is where it is removed.
+    #
+    # A paragraph mid-edit is one of two innocent things: as wrap80 leaves it,
+    # or entirely on one line. Hand-wrapping is neither. Blocks align by index
+    # because wrapping never adds or removes a blank line; where they do not,
+    # something outside this check's subject moved one and the whole-file
+    # comparison below is the honest thing left to report.
+    #
+    # NO LIVE CONTROL, and named rather than left to look exercised: over
+    # the eleven documents of these two repos the counts never differ, and
+    # by construction cannot. The branch earns its place because `zip`
+    # truncates to the shortest, so without it a mismatch would under-check
+    # in silence rather than fall back loudly.
+    try:
+        flat = subprocess.run(["wrap80", "--unwrap", rel], capture_output=True,
+                              text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        flat = None
+    hp, wp, fp = (t.split("\n\n") for t in (have, want, flat or ""))
+    if flat is not None and len(hp) == len(wp) == len(fp):
+        hand = [i for i, (h, w, f) in enumerate(zip(hp, wp, fp))
+                if h != w and h != f]
+        loose = sum(1 for h, w, f in zip(hp, wp, fp) if h != w and h == f)
+        if not hand:
+            print(f"ok   {rel}: no paragraph is hand-wrapped, {form};"
+                  f" {loose} still on one line, so it is mid-edit —"
+                  f" `wrap80 {' '.join(flag + ['-i', rel])}` before committing")
+            return 0
+        at = have[:have.index(hp[hand[0]])].count("\n") + 1
+        fix = " ".join(["wrap80"] + flag + ["-i", rel])
+        print(f"FAIL {rel}: {len(hand)} paragraph(s) are neither as wrap80"
+              f" leaves them nor on one line, so they were wrapped by hand,"
+              f" {form} — first at line {at}; run `{fix}`")
+        return 1
     # Diffed rather than compared by position: one inserted line shifts every
     # line under it, so a position count reports the whole file as changed and
     # hides the one line worth looking at.
@@ -133,7 +208,7 @@ def check(doc):
 
 
 def main():
-    docs = sys.argv[1:] or list(WRAPPED) + list(UNWRAPPED)
+    docs = sys.argv[1:] or tracked_markdown()
     missing = [d for d in docs if not os.path.isfile(d)]
     if missing:
         print(f"no such file: {', '.join(missing)} (run from the repo root)")
