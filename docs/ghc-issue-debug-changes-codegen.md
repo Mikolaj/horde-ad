@@ -1,18 +1,18 @@
-# GHC issue: a debug level changes the code that GHC emits
+# GHC issue: a DWARF debug option changes the code that GHC emits
 
-Not filed. When it is filed, the work item link goes here and this file stays as the filed record, as its three neighbours do. The text from "## Summary" down is the body to post. Title: **A debug level changes the generated code: `-g1` gives different instructions and a different register assignment at `-O1`**. The prose is ASD-STE100 Simplified Technical English. The case that found the defect is a loop placement measurement in the orthotope micro-benchmark, on the unmerged `speedup-strided-tovector` branch, which is not public: a debug build was made to find which function each hot loop belongs to, and that build was not the same program as the build that was measured. The filed body is self-contained.
+Filed as [GHC work item 27687](https://gitlab.haskell.org/ghc/ghc/-/work_items/27687); this file stays as the filed record, the text from "## Summary" down being the filed body. Title: **A DWARF debug option changes the generated code: `-g1` gives different instructions and a different register assignment**. The prose is ASD-STE100 Simplified Technical English. The case that found the defect is a loop placement measurement in the orthotope micro-benchmark, on the unmerged `speedup-strided-tovector` branch, which is not public: a debug build was made to find which function each hot loop belongs to, and that build was not the same program as the build that was measured. The filed body is self-contained.
 
 ## Summary
 
-GHC emits different machine code for one module when you give a debug level. The debug information is not the difference. Remove each `.loc` directive, each label that the debug level adds, and each `.debug_*` section from the two assembly files. The instructions that remain are still not equal.
+GHC emits different machine code for one module when you give a DWARF debug option. The debug information is not the difference. Remove each `.loc` directive, each label that the option adds, and each `.debug_*` section from the two assembly files. The instructions that remain are still not equal.
 
-The module in "Steps to reproduce" gives this result at `-O1` on each of the four compilers in the Environment section. Without a debug level, GHC emits 96 instructions. With `-g1`, it emits 95. The difference is one `movq`. The register assignment is different also, and one basic block of two instructions is in a different position.
+The module in "Steps to reproduce" gives this result at `-O1` on each of the four compilers in the Environment section. Without the option, GHC emits 96 instructions. With `-g1`, it emits 95. The difference is one `movq`. The register assignment is different also, and one basic block of two instructions is in a different position.
 
-`-g1` is sufficient, and it is the level that promises the least. The users guide says that `-g1` "produces stack unwinding records for top-level functions". A record is data about a program. It is not a part of the program. `-g2` and `-g3` give the same result as `-g1` for this module.
+`-g1` is sufficient, and it is the level of the option that promises the least. The users guide says that `-g1` "produces stack unwinding records for top-level functions". A record is data about a program. It is not a part of the program. `-g2` and `-g3` give the same result as `-g1` for this module, thus the level is not what changes the code. The option is.
 
-The optimisation level has an effect on the result, and the debug level does not. At `-O0`, the code is equal on all four compilers. At `-O1`, it is different on all four. At `-O2`, it is equal on 9.12.4 and on HEAD, and it is different on 9.10.3 and on 9.14.1.
+The optimisation level has an effect on the result. At `-O0`, the code is equal on all four compilers. At `-O1`, it is different on all four. At `-O2`, it is equal on 9.12.4 and on HEAD, and it is different on 9.10.3 and on 9.14.1.
 
-The defect is that debug information must describe a program and must not change it. A user gives a debug level to examine a program, and receives a different program to examine. Two consequences follow, and they are general. Different code can have a different speed, thus a measurement that uses a debug build does not measure the build that a user releases. Also, different code has a different position in memory, thus the difference in speed is not limited by the quantity of code that is different.
+The defect is that debug information must describe a program and must not change it. A user gives the option to examine a program, and receives a different program to examine. Two consequences follow, and they are general. Different code can have a different speed, thus a measurement that uses a debug build does not measure the build that a user releases. Also, different code has a different position in memory, thus the difference in speed is not limited by the quantity of code that is different.
 
 ## Steps to reproduce
 
@@ -51,7 +51,7 @@ diff plain.txt debug.txt
 ```
 
 ```haskell
--- Reproducer: a debug level changes the generated code.  Base only.
+-- Reproducer: a DWARF debug option changes the generated code.  Base only.
 --
 -- Build:  ghc -O1 -S Repro.hs -o plain.s
 --         ghc -O1 -g1 -S Repro.hs -o debug.s
@@ -73,7 +73,7 @@ go [] !off = off
 
 ## Expected behavior
 
-The expected behavior is that a debug level adds debug information and changes no instruction. If some debug level must change the code, the expected behavior is that its documentation says so. A level that produces records for backtraces must not change the code at all.
+The expected behavior is that a DWARF debug option adds debug information and changes no instruction. If the option must change the code, the expected behavior is that its documentation says so. A level of it that produces records for backtraces must not change the code at all.
 
 ## Environment
 
