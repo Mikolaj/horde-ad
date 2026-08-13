@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Check that a document is as `wrap80` leaves it, in whichever form it keeps.
+"""Check that no paragraph of a document is wrapped by hand, in whichever
+form it keeps.
 
 Usage: python3 tools/check-doc-wrap.py [DOC ...]
 DOC defaults to every Markdown file git tracks. Run from the repo root.
@@ -32,8 +33,10 @@ across two lines, which nothing had ever looked at. The fake-enumerator
 branch fires on a planted "2b." and on nothing in any document of these
 repos. Confirmed 2026-08-13.
 
-The paragraph rule and the derived form were proven the same day, and the
-middle case is the one they exist for. Untouched, position-effect.md is
+The paragraph rule and the derived form were proven the same day, and its
+three branches again on 2026-08-14, when these verdicts were re-worded to
+name hand-wrapping rather than the formatter. The middle case is the one
+they exist for. Untouched, position-effect.md is
 `ok`. With one paragraph unwrapped -- what one edit leaves -- it is `ok`,
 mid-edit, exit 0, where the whole-file test this replaces called that same
 file 11 lines wrong and exited 1. With one paragraph rewritten a word per
@@ -121,9 +124,9 @@ def fake_markers(text):
 
 
 def check(doc):
-    """0 if as wrap80 leaves it or not wrapped, 1 if it needs re-wrapping,
-    2 if nothing could be checked -- which `wrap80 -i` would not fix, so the
-    summary has to count it apart rather than call it a wrapping failure."""
+    """0 if no paragraph is wrapped by hand, 1 if one is or the document
+    needs the formatter, 2 if nothing could be checked -- which `wrap80 -i`
+    would not fix, so the summary counts it apart rather than as a failure."""
     rel = os.path.normpath(doc)
     got = committed_form(rel)
     if got is None:
@@ -150,7 +153,7 @@ def check(doc):
               + (f" ({len(fake)} such lines)" if len(fake) > 1 else ""))
         return 1
     if want == have:
-        print(f"ok   {rel}: as wrap80 leaves it, {form}")
+        print(f"ok   {rel}: no paragraph wrapped by hand, {form}")
         return 0
     # WHAT IS FORBIDDEN IS HAND-WRAPPING, and that is a property of a
     # PARAGRAPH. Asking the whole file to be exactly as wrap80 leaves it fails
@@ -159,7 +162,9 @@ def check(doc):
     # out of it. So this went red on an ordinary edit and the way to green was
     # to wrap; wrapping between edits moves the breaks the next exact-match
     # edit has to quote, so the way on was to unwrap, and the cycle repeated
-    # per edit. The pressure was this check, so this is where it is removed.
+    # per edit. The pressure was this check, so this is where it is removed,
+    # in what it asks and in what it says when it passes: a verdict phrased
+    # as a state of the file names the command that makes it true.
     #
     # A paragraph mid-edit is one of two innocent things: as wrap80 leaves it,
     # or entirely on one line. Hand-wrapping is neither. Blocks align by index
@@ -183,15 +188,14 @@ def check(doc):
                 if h != w and h != f]
         loose = sum(1 for h, w, f in zip(hp, wp, fp) if h != w and h == f)
         if not hand:
-            print(f"ok   {rel}: no paragraph is hand-wrapped, {form};"
-                  f" {loose} still on one line, so it is mid-edit —"
-                  f" `wrap80 {' '.join(flag + ['-i', rel])}` before committing")
+            print(f"ok   {rel}: no paragraph wrapped by hand, {form};"
+                  f" {loose} still on one line, so it is mid-edit")
             return 0
         at = have[:have.index(hp[hand[0]])].count("\n") + 1
         fix = " ".join(["wrap80"] + flag + ["-i", rel])
-        print(f"FAIL {rel}: {len(hand)} paragraph(s) are neither as wrap80"
-              f" leaves them nor on one line, so they were wrapped by hand,"
-              f" {form} — first at line {at}; run `{fix}`")
+        print(f"FAIL {rel}: {len(hand)} paragraph(s) wrapped by hand, {form}"
+              f" — first at line {at}; run `{fix}`, never re-wrap a line"
+              f" by hand")
         return 1
     # Diffed rather than compared by position: one inserted line shifts every
     # line under it, so a position count reports the whole file as changed and
@@ -215,9 +219,9 @@ def main():
         return 2
     results = [check(d) for d in docs]
     bad, blocked = results.count(1), results.count(2)
-    print(f"\n{bad} of {len(docs)} document(s) are not as wrap80 leaves them"
-          f" — `wrap80 -i DOC` fixes every one of them."
-          + (f" {blocked} could not be checked at all." if blocked else ""))
+    print(f"\n{bad} of {len(docs)} document(s) failed"
+          + (f", {blocked} could not be checked at all" if blocked else "")
+          + ".")
     return 1 if bad or blocked else 0
 
 
