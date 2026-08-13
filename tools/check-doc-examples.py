@@ -26,7 +26,12 @@ A fenced block that declares `module Main` is skipped by the types
 branch: it is a self-contained program (an issue reproducer, say) whose
 names resolve against its own imports rather than this repo's sources.
 The self-test carries a control for the skip, proved non-vacuous the
-same way as the others: removing the skip in a copy turned it red.
+same way as the others: removing the skip in a copy turned it red. A
+reproducer that needs no `main` names some other module instead, and that
+name is a declaration rather than a reference, so `local_names` takes it:
+its own control is a block declaring a module and using nothing, and
+removing that line from a copy reported the module's name and turned the
+self-test red.
 
 Both are deliberately narrow. What they cannot see is the more common
 defect: an example naming a real thing that is nonetheless the *wrong*
@@ -111,8 +116,16 @@ def strip_comments(code):
 
 
 def local_names(code):
-    """Names the document defines itself, so cannot be drift."""
+    """Names the document defines itself, so cannot be drift.
+
+    A block's own `module` header is one of them: the name there is a
+    declaration and not a reference, so a self-contained block that is not
+    `module Main` -- an issue reproducer that needs no `main` -- must not be
+    failed for naming itself. The self-test's control is such a block.
+    """
     out = set(DECL_RE.findall(code))
+    for m in re.finditer(r"^module\s+([\w.]+)", code, re.M):
+        out |= set(m.group(1).split("."))
     for m in CTOR_RE.finditer(code):
         out |= set(re.findall(r"\b([A-Z][A-Za-z0-9_]*)\b", m.group(1)))
     return out
@@ -168,6 +181,7 @@ def check_outputs(doc, text, src):
 
 SELF_TEST_TYPE = "ControlTypeThatCannotExistAnywhere"
 SELF_TEST_SKIP = "ControlTypeInsideStandaloneProgram"
+SELF_TEST_MOD = "ControlModuleNamingItself"
 SELF_TEST_OUT = "control output present in no tracked source of this repository"
 
 
@@ -209,6 +223,10 @@ def self_test():
         f"standalone :: {SELF_TEST_SKIP}\n"
         "```\n\n"
         "```hs\n"
+        f"module {SELF_TEST_MOD} (only) where\n"
+        "only :: Int\n"
+        "```\n\n"
+        "```hs\n"
         ">>> controlExpr\n"
         f"{SELF_TEST_OUT}\n"
         "```\n\n"
@@ -224,7 +242,8 @@ def self_test():
     ok = (types == 1 and outs == 1
           and any(SELF_TEST_TYPE in ln for ln in lines)
           and not any("Local" in ln or "NOTE" in ln
-                      or SELF_TEST_SKIP in ln for ln in lines))
+                      or SELF_TEST_SKIP in ln or SELF_TEST_MOD in ln
+                      for ln in lines))
     for ln in lines:
         print("  " + ln)
     print(f"\nself-test: {types} type finding(s), {outs} output finding(s),"
