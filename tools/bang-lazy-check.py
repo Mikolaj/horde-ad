@@ -86,8 +86,10 @@ disabling the bottom-head rule failed it with loopE and the flatten
 locals reappearing as unexpected candidates, and disabling the
 monadic-return upgrade demoted the mret probe to WEAK; after the markers
 were added, disabling gvar misread gv's path list as var,bang and
-disabling rec misread loopW2's and loopT's as ending in var. Exit codes: 0 clean, 1 selftest failure, 2
-blocked (no ghc on PATH). A quiet run over a tree proves nothing until
+disabling rec misread loopW2's and loopT's as ending in var.
+
+Exit codes: 0 clean, 1 selftest failure, 2 blocked (no ghc on PATH).
+A quiet run over a tree proves nothing until
 --selftest has passed on the same machine, so run that first; and
 candidates a run does print are untriaged input for the reader's rules
 above, not confirmed defects.
@@ -576,6 +578,9 @@ def main():
     dump_pats = []
     while '--dumps' in args:
         i = args.index('--dumps')
+        if i + 1 >= len(args):
+            print('--dumps needs a glob argument', file=sys.stderr)
+            sys.exit(2)
         dump_pats.append(args[i + 1])
         del args[i:i + 2]
     if not args:

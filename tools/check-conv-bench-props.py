@@ -90,6 +90,11 @@ gather-against-scatter time gap being the standing example, ~9-12x against
 released orthotope 0.1.8.0 and 2.55x once its strided-fallback fix is
 linked (bench/CLAUDE.md).
 
+Dash-arguments other than --allocation-only are refused (exit 2, nothing
+checked) rather than read as JSON paths — a mistyped mode flag would
+otherwise select the full time+allocation run silently. Confirmed
+2026-08-14: --allocation-onIy exits 2 naming itself.
+
 Ahead of the properties, each fitted slope is gated on the regression it
 came from: too few samples, too poor a time fit, or an allocation fit
 below 0.999, and that benchmark is reported as a failure of its own. Such
@@ -146,6 +151,12 @@ import json
 import sys
 
 ALLOC_ONLY = "--allocation-only" in sys.argv[1:]
+unknown = [a for a in sys.argv[1:]
+           if a.startswith("-") and a != "--allocation-only"]
+if unknown:
+    print("unknown flag(s): %s; only --allocation-only is understood"
+          % " ".join(unknown), file=sys.stderr)
+    sys.exit(2)
 paths = [a for a in sys.argv[1:] if not a.startswith("-")]
 if not paths:
     sys.exit(__doc__.split("\n\n")[1])

@@ -20,7 +20,10 @@ Two shapes of that claim are mechanical:
            the test is updated, the document is what silently stops
            matching. Whitespace and `;` are normalised away, because a
            document pretty-prints across lines what a test holds as one
-           string with explicit separators.
+           string with explicit separators. A result of 40 normalised
+           characters or fewer is not checked at all -- too short to be
+           distinctive in this much source, it would match by coincidence
+           -- so a short output rests on the reading alone.
 
 A fenced block that declares `module Main` is skipped by the types
 branch: it is a self-contained program (an issue reproducer, say) whose

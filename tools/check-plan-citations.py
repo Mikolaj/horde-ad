@@ -59,50 +59,40 @@ repairs it. They still both set the exit status. For the same reason
 orphaned stamp left in place is strictly worse than an unpushed one -- and
 prints an advisory naming the push it depends on.
 
-Non-vacuity for these four branches, reproduced 2026-07-31 in this repo:
-a scratch document pinning a permalink at `2dc4f8783` (squashed off
-master, still held by `backup-pre-squash`, so `git show` resolves it)
-reported UNPUBLISHED, exit 1; one stamped `0000000aa` reported ORPHANED,
-exit 1. The restamp interaction was proved by repairing a scratch
-document stamped the same way: the plain pass fails it, --restamp
-rewrites it anyway and prints the advisory, exit 0.
+Non-vacuity: run `python3 tools/check-plan-citations.py --self-test`.
+It builds a scratch git repository -- files, commits, an origin/master
+ref, an unpublished commit -- and a control document holding every
+failing kind beside its passing controls, asserts each verdict and the
+exact failure count, and then walks --restamp through its refusal table:
+the rewrite, the already-current no-op, the unresolved-citation,
+dirty-cited-file, no-stamp, two-stamp and no-citation refusals, and the
+unpublished-anchor advisory. The AMBIGUOUS kind gets its first live
+control there too: two files of one basename under different search
+roots, with no copy at the repo root to shadow them. The self-test was
+itself proved non-vacuous by breaking the checker in a copy
+(2026-08-14): disabling the PROSE-LINE refusal, short-circuiting the
+publication test, and disabling the dirty-cited-file refusal each
+turned it red, naming exactly the branches broken.
 
-The two rows want different hashes, and deliberately. UNPUBLISHED needs a
-commit that resolves, since it is reached only after `git show` succeeds,
-so it takes a real one. ORPHANED does not: it asks
-`git merge-base --is-ancestor`, which fails for an object that is not in
-the database at all, so `0000000aa` -- well-formed and nameless -- drives
-it just as well as a real dropped commit and cannot stop driving it.
-That row used to name `179de634e`, held by `origin/perf-gather-drafts`
-alone; a hash whose resolvability rests on a branch, or on the reflog,
-proves the same thing today and becomes unresolvable when the branch goes
-or at the next gc, which is how a live row turns vacuous without anyone
-touching it.
+Two design points the self-test encodes. Its ORPHANED stamp is
+`0000000aa`, deliberately: `git merge-base --is-ancestor` fails for an
+object not in the database at all, so a well-formed nameless hash drives
+the branch and cannot stop driving it, where a real hash's resolvability
+rests on a branch or the reflog and expires with them -- the hand-run
+controls this replaces died exactly that way, twice: an UNPUBLISHED row
+pinned at a commit that a backup branch alone kept resolvable, and the
+note branch's live pair (`bench/CLAUDE.md` and `test/CLAUDE.md`, both
+stamped `d282ed596`) falling silent the day that commit reached
+origin/master. And UNPUBLISHED takes a commit the scratch repository
+mints fresh, since the branch is reached only after `git show` succeeds.
 
-The note branch has no live control either, and this is what its expiry
-looks like: `bench/CLAUDE.md` and `test/CLAUDE.md` were both stamped
-`d282ed596` and printed the note on every run, until that commit reached
-origin/master on 2026-07-31 and they fell silent. All three stamps here
-are published now, so no tracked document exercises it. Reproduced
-2026-07-31 with a scratch document, which is what the other branches
-need too: stamped at an unpushed commit it prints `note stamp @ ... not
-on origin/master yet` and exits 0, and stamped at `fa508caa4` it prints
-nothing -- so the branch is live code, just not one this repo's own
-documents reach any more.
-
-Neither permalink branch has a live control, and neither has the exit-2
-stop: no tracked `.md` here carries a pinned `blob/<sha>/` link at all,
-the pattern `blob/[0-9a-f]{7,40}/` matching this file and four `.hs`
-sources but no document, the README's whole-file pointers being
-deliberately `blob/master`. The stop sits inside the permalink loop, so
-a bogus PUBLISHED_REF is silent without one: this script copied with
-PUBLISHED_REF set to `origin/no-such-ref` exits 0 on CLAUDE.md and 2 on
-a scratch document holding one link pinned at the published `e1bd5f5e2`.
-That scratch document is the passing control too; the file that played
-the part until 2026-07-31, `notes-add-zero-gather.md`, is not in this
-tree but on an unmerged branch, so write a fresh one rather than hunt
-for it. The exit status was read without a pipe, `tail` swallowing it
-being the trap the recipe above records.
+The PUBLISHED_REF-absent stop is exercised before the ref is created:
+the same permalink document must exit 2 there, and pass once the ref
+exists. The stop sits inside the permalink loop, so in a repo whose
+documents pin no permalink a bogus PUBLISHED_REF stays silent -- true of
+this repo's tracked documents, the pattern `blob/[0-9a-f]{7,40}/`
+matching this file and four `.hs` sources but no document, the README's
+whole-file pointers being deliberately `blob/master`.
 
 Scope limits, deliberate: prose-style citations ("config.ui.default line
 67") are not extracted, nor is a range left dangling from its filename
@@ -136,19 +126,24 @@ And the *claims* around citations are not checked
 two", "never") must be re-verified by repo-wide grep, not by re-reading
 the cited file; that asymmetry is how a real error slipped in once.
 
-Non-vacuity (per CLAUDE.md's "prove a checker non-vacuous"): feed it a
-scratch document holding one citation of each failing kind and confirm
-all seven are reported and the exit status is 1 —
-
-    UNRESOLVED       `NoSuchFile.hs:12`
-    OUT-OF-RANGE     `Core/Ast.hs:999999`
-    CONTINUATION     `Core/Ops.hs:1,999999` (the tail member must be checked)
-    NON-SOURCE       `tools/heading-outline.py:999999`  (tools are cited too)
-    PROSE-LINE       `CLAUDE.md:1`        (a valid line fails too)
-    PERMALINK range  .../blob/5f0647baa/CLAUDE.md#L99999
-    PERMALINK repo   https://github.com/ghc/ghc/blob/0123456789abcdef/x.hs#L1
-    UNPUBLISHED      .../blob/<a commit not on PUBLISHED_REF>/CLAUDE.md#L1-L3
-    ORPHANED stamp   a stamp naming a commit not an ancestor of HEAD
+The failing kinds each carry a history of having been silently
+uncovered, which is why the self-test pins them one by one. NON-SOURCE:
+only Haskell and web sources were extracted once, so a citation into a
+`.py` or `.yml` file was skipped rather than checked, and a document
+citing nothing but those reported a clean zero. CONTINUATION: extraction
+took only the first number of a comma-continued citation, which left
+seven sub-references unchecked in a LambdaHack planning document while
+the run reported a clean count over the rest -- a silent search of
+exactly the kind CLAUDE.md's portable notes warn about, invisible in the
+exit status by construction. The leading dot: until it was allowed into
+CITE_RE, `.hlint.yaml:22` was extracted as `hlint.yaml` and reported
+UNRESOLVED, which from the outside read as a document being unable to
+cite a dotfile at all. PROSE-LINE fires on a line that resolves as
+readily as on one that does not -- the number is unstable rather than
+wrong, so there is nothing for a passing resolution to mean. And
+extracted citations are deduplicated, so the self-test's plain
+out-of-range row and its continuation tail collapse into one report --
+asserted there, so the collapse cannot silently widen.
 
 The permalink rows depend on the order the checks run in, which is worth
 knowing before either is edited: OUT-OF-RANGE is tested before
@@ -166,51 +161,6 @@ stamps -> refuses"), so the two halves of the script agree on what counts
 as this document's stamp. Until 2026-07-31 the plain pass failed such a
 document three times over, on hashes it was merely reporting as dead.
 
-A leading dot needs its own pair, since there the *extraction* failed and
-not the check: `.hlint.yaml:22` must resolve and print `- arguments:
-[-XNoStarIsType, --cpp-define=WITH_EXPENSIVE_ASSERTIONS,`, and
-`.hlint.yaml:999999` must report OUT-OF-RANGE. Until the dot was allowed
-into CITE_RE both were extracted as `hlint.yaml` and reported UNRESOLVED,
-which is how the bug read from the outside -- a document could not cite a
-dotfile at all, and saying so looked like a missing file. That the
-widening regresses nothing is checked by running every `.md` here through
-the old pattern and the new and diffing the output: identical, 123
-citations either way. Reproduced 2026-07-31.
-
-plus a control that must still pass (`Core/Ast.hs:1`). The two
-out-of-range rows name different files deliberately — extracted
-citations are deduplicated, so on one file they collapse and the run
-reports five. A run reporting fewer than seven failures means extraction,
-resolution or the `git show` branch has silently stopped covering that
-kind. Two rows are there because their
-kind was silently uncovered for a while. NON-SOURCE: only Haskell and
-web sources were extracted, so a citation into a `.py` or `.yml` file was
-skipped rather than checked, and a document citing nothing but those
-reported a clean zero. A `.md` target is now refused before it is
-resolved, so PROSE-LINE fires on a valid line number as readily as on
-`999999` -- which is the point of it, the number being unstable rather
-than wrong.
-
-PROSE-LINE proved 2026-08-13, and the row that matters is the valid one:
-a scratch document citing `CLAUDE.md:1` (a line that exists),
-`CLAUDE.md:999999` (one that does not) and `bench/CLAUDE.md:3` reported
-all three and exited 1, while `Core/Ast.hs:11-19` and
-`tools/heading-outline.py:1` in the same document still printed ok --
-the second being the NON-SOURCE coverage this must not have taken with
-it. Firing on a line that resolves is the whole of the check: the number
-is unstable, not incorrect, so there is nothing for a passing resolution
-to mean. CONTINUATION: extraction took only the
-first number of a comma-continued citation, which left seven
-sub-references unchecked in a LambdaHack planning document while the run
-reported a clean count over the rest — a silent search of exactly the
-kind CLAUDE.md's portable notes warn about, and invisible in the exit
-status by construction. No document here writes such a citation today,
-so the scratch recipe is that branch's only control.
-
-Reproduced 2026-07-30: six failures and exit 1, the control resolving to
-`Core/Ast.hs`'s first line. A recipe with no date behind it is a claim
-like any other.
-
 Passing --restamp rewrites the document's own stamp, so the ritual the
 documents ask for -- re-run the pass and restamp once the cited code has
 moved -- stops depending on memory. The date a stamp carries is the day
@@ -226,7 +176,9 @@ the flag refuses rather than guesses at (last row below). `179de634e`
 and `2dc4f8783` are pre-squash hashes, unresolvable in this history --
 kept because the measurement happened at them, and because what they now
 demonstrate is the very defect the publication test above was added for.
-`2dc4f8783`'s content survives as `8c6367789`.
+`2dc4f8783`'s content survives as `8c6367789`. (`bench/CLAUDE.md` has
+since been given one line citation exactly so that this flag can
+maintain its stamp, which a hand-written one twice failed to survive.)
 
 The commit it writes is not HEAD but the newest commit touching anything
 the document cites. That referent is the one that survives editing the
@@ -235,7 +187,12 @@ or replaying it cannot move the answer, whereas a HEAD-based stamp is
 falsified by the very commit that records it. It also means the stamp can
 name a commit well behind HEAD -- correctly, because the cited lines come
 from there, and re-verification is owed when *they* move, not when
-anything moves.
+anything moves. A restamp belongs in a commit touching only `.md` files:
+such a commit can touch no citable file -- a `.md` target is refused as
+PROSE-LINE -- so it cannot itself become the newest commit touching
+anything cited and stale the stamp it writes, where a commit editing
+both the document and a cited file is the one whose amending or
+squashing orphans its own stamp.
 
 What the flag cannot do is know that you *read* the document. The stamp
 asserts two things -- that the citations resolve in some named tree, and
@@ -264,41 +221,35 @@ modified, the pass verified the working tree, and no commit hash names
 what was checked, so a stamp would be a false statement rather than a
 stale one.
 
-Non-vacuity (per CLAUDE.md's "prove a checker non-vacuous", applied to a
-writer rather than a reader): reproduce the six rows above with scratch
-documents -- one citing `tools/heading-outline.py:1` with a stamp reading
-`0000000aa` (2020-01-01) for the first two rows, one citing
-`NoSuchFile.hs:12` for the third, one citing a file you have just touched
-for the fourth, two more with zero and two stamps, and one with a stamp
-and no citation at all. Check the exit status without a pipe: `tail`
-swallows it, which is how a first run of this recipe in the LambdaHack
-copy read five successes that were four refusals. Reproduced 2026-07-30:
-rows in order 0, 0, 1, 1, 1, 1, with the file rewritten in the first row
-only -- and the hash it wrote was the last commit touching
-`tools/heading-outline.py`, not HEAD, which is the row that would have
-passed vacuously under a HEAD-based rule.
+The --restamp rows are the self-test's too, one scratch document per
+refusal; its anchor assertion -- the written hash must be the newest
+commit touching the cited file, not HEAD -- is the row that would pass
+vacuously under a HEAD-based rule, and its unpublished-anchor row is the
+one that writes plus advises. When running any of this by hand instead,
+check the exit status without a pipe: `tail` swallows it, which is how a
+first run of the hand recipe in the LambdaHack copy read five successes
+that were four refusals.
 
-Six failing kinds in the first recipe, seven in the LambdaHack copy,
-where the AMBIGUOUS kind (a bare basename matching several files) has a
-live row: `LoopM.hs` sits in both `Client/` and `Server/`. Here it has
-none -- but not for want of a duplicate basename, as this docstring used
-to say. `test/CLAUDE.md` and `bench/CLAUDE.md` are one, and the only one
-under the search roots; the reason is that `resolve` returns at its
-`os.path.exists` check before reaching the ambiguity branch, so the root
-`CLAUDE.md` shadows the pair and `CLAUDE.md:1` resolves ok. A live row
-therefore needs a basename duplicated under the search roots with *no*
-copy at the repo root; add the row when one appears rather than leaving
-the kind untested. The branch itself is reachable, exercised on
-2026-07-30 with two scratch files of a novel basename: AMBIGUOUS naming
-both paths, exit 1. The two copies otherwise differ only in
-SEARCH_ROOTS.
+AMBIGUOUS (a bare basename matching several files) needs the scratch
+repository, and deliberately: in this tree `test/CLAUDE.md` and
+`bench/CLAUDE.md` share the only duplicated basename under the search
+roots, and `resolve` returns at its `os.path.exists` check before
+reaching the ambiguity branch, so the root `CLAUDE.md` shadows the pair
+and `CLAUDE.md:1` resolves ok -- a live row needs a basename duplicated
+under the search roots with no copy at the repo root, which the
+self-test builds. The two copies of this script differ only in
+SEARCH_ROOTS -- and, until a LambdaHack session syncs it, in the
+--self-test added 2026-08-14; `tools/check-twin-sync.py` compares them
+whenever both checkouts are mounted.
 """
 
 import datetime
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 SEARCH_ROOTS = ["src", "test", "bench", "example", "tools", ".github", "."]
 # The ref a pinned commit has to be reachable from to count as published.
@@ -457,14 +408,171 @@ def restamp(doc, text, cited_paths, failures):
     return 0
 
 
+def self_test():
+    """Scratch-repository controls for every failing kind and the restamp
+    table. Subprocess-driven: each case runs this script itself from the
+    scratch repo, so extraction, resolution, git and the exit status are
+    all the real thing. The module docstring records what each case
+    proves."""
+    if not shutil.which("git"):
+        print("BLOCKED: git not on PATH, self-test did not run")
+        return 2
+    script = os.path.abspath(__file__)
+    prev = os.getcwd()
+    bad = []
+
+    def expect(case, got, want):
+        if got != want:
+            bad.append(f"{case}: got {got!r}, expected {want!r}")
+
+    def contains(case, out, *needles):
+        for n in needles:
+            if n not in out:
+                bad.append(f"{case}: output lacks {n!r}")
+
+    def run(*argv):
+        return subprocess.run([sys.executable, script] + list(argv),
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as td:
+        os.chdir(td)
+        try:
+            def git(*a):
+                subprocess.run(["git"] + list(a), check=True,
+                               capture_output=True)
+            git("init", "-q")
+            git("config", "user.email", "t@t")
+            git("config", "user.name", "t")
+            git("config", "commit.gpgsign", "false")
+            open("a.hs", "w").write("line one\nline two\nline three\n")
+            os.makedirs("sub")
+            open("sub/b.py", "w").write("print(1)\n")
+            open("note.md", "w").write("prose\n")
+            open(".dot.yaml", "w").write("key: value\n")
+            os.makedirs("test")
+            os.makedirs("tools")
+            open("test/Dup.hs", "w").write("dup\n")
+            open("tools/Dup.hs", "w").write("dup\n")
+            git("add", "-A")
+            git("commit", "-qm", "c1")
+            c1 = subprocess.run(["git", "rev-parse", "HEAD"],
+                                capture_output=True, text=True,
+                                check=True).stdout.strip()
+            url = "https://github.com/x/y/blob/%s/a.hs"
+
+            open("stop.md", "w").write("Link %s#L1 pinned.\n" % (url % c1))
+            p = run("stop.md")
+            expect("PUBLISHED_REF absent stops", p.returncode, 2)
+
+            git("update-ref", "refs/remotes/origin/master", c1)
+            open("a.hs", "a").write("line four\n")
+            git("commit", "-aqm", "c2")
+            c2 = subprocess.run(["git", "rev-parse", "HEAD"],
+                                capture_output=True, text=True,
+                                check=True).stdout.strip()
+            p = run("stop.md")
+            expect("same link passes once the ref exists", p.returncode, 0)
+
+            open("doc.md", "w").write(
+                "# control\n\n"
+                "`a.hs:1` control. `NoSuchFile.hs:12` unresolved.\n"
+                "`a.hs:999999` out of range. `sub/b.py:999999` extracted\n"
+                "too. `a.hs:1,999999` continuation tail.\n"
+                "`note.md:1` prose line. `Dup.hs:1` ambiguous.\n"
+                "`.dot.yaml:1` dotfile control, `.dot.yaml:999999` its"
+                " pair.\n"
+                "%s#L1 pinned ok. %s#L99999 pinned range.\n"
+                "https://github.com/ghc/ghc/blob/0123456789abcdef01234567"
+                "89abcdef01234567/x.hs#L1 foreign.\n"
+                "%s#L1-L3 unpublished.\n\n"
+                "Citations were verified against the tree at commit"
+                " `0000000aa` (2020-01-01).\n"
+                % (url % c1, url % c1, url % c2))
+            p = run("doc.md")
+            expect("kitchen-sink document fails", p.returncode, 1)
+            contains("kitchen-sink document", p.stdout,
+                     "UNRESOLVED", "OUT-OF-RANGE", "PROSE-LINE",
+                     "AMBIGUOUS", "ORPHANED", "UNPUBLISHED",
+                     "not in this repository",
+                     "ok   a.hs:1 |", "ok   .dot.yaml:1 |",
+                     "a.hs#L1 @", "9 failed")
+            expect("continuation collapses with the plain row",
+                   p.stdout.count("a.hs:999999"), 1)
+
+            open("two.md", "w").write(
+                "`a.hs:1` cited.\n\n"
+                "One: citations were verified against the tree at commit"
+                " `%s` (2020-01-01).\n"
+                "Two: citations were verified against the tree at commit"
+                " `%s` (2020-01-02).\n" % (c1, c1))
+            p = run("two.md")
+            contains("two stamps are quotations", p.stdout, "note 2 stamps")
+            expect("two stamps still pass the citations", p.returncode, 0)
+
+            stamped = ("`a.hs:1` cited.\n\nCitations were verified against"
+                       " the tree at commit `0000000aa` (2020-01-01).\n")
+            open("r.md", "w").write(stamped)
+            p = run("r.md", "--restamp")
+            expect("restamp rewrites", p.returncode, 0)
+            contains("restamp rewrites", p.stdout, "->", "advisory")
+            expect("restamp wrote the newest cited-file commit",
+                   c2[:9] in open("r.md").read(), True)
+            p = run("r.md", "--restamp")
+            expect("already current", p.returncode, 0)
+            contains("already current", p.stdout, "already names")
+
+            open("r2.md", "w").write(
+                "`NoSuchFile.hs:12` cited.\n\nCitations were verified"
+                " against the tree at commit `0000000aa` (2020-01-01).\n")
+            p = run("r2.md", "--restamp")
+            expect("failed pass refuses", p.returncode, 1)
+            contains("failed pass refuses", p.stdout, "not restamping")
+
+            open("a.hs", "a").write("dirty\n")
+            open("r3.md", "w").write(stamped)
+            p = run("r3.md", "--restamp")
+            expect("dirty cited file refuses", p.returncode, 1)
+            contains("dirty cited file refuses", p.stdout,
+                     "differ from HEAD")
+            git("checkout", "--", "a.hs")
+
+            open("r4.md", "w").write("`a.hs:1` cited, no stamp.\n")
+            p = run("r4.md", "--restamp")
+            expect("no stamp refuses", p.returncode, 1)
+            contains("no stamp refuses", p.stdout, "no stamp")
+
+            open("r5.md", "w").write(open("two.md").read())
+            p = run("r5.md", "--restamp")
+            expect("two stamps refuse", p.returncode, 1)
+            contains("two stamps refuse", p.stdout, "2 stamps")
+
+            open("r6.md", "w").write(
+                "A stamp but no citation.\n\nCitations were verified"
+                " against the tree at commit `0000000aa` (2020-01-01).\n")
+            p = run("r6.md", "--restamp")
+            expect("no citation refuses", p.returncode, 1)
+            contains("no citation refuses", p.stdout,
+                     "no file:line citations")
+        finally:
+            os.chdir(prev)
+    for b in bad:
+        print(f"FAIL: {b}")
+    if not bad:
+        print("ok:   every self-test case behaved as expected")
+    return 1 if bad else 0
+
+
 def main():
     flags = {a for a in sys.argv[1:] if a.startswith("--")}
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    unknown = flags - {"--restamp"}
+    unknown = flags - {"--restamp", "--self-test"}
     if unknown:
         print(f"unknown flag(s): {' '.join(sorted(unknown))};"
-              f" only --restamp is understood", file=sys.stderr)
+              f" only --restamp and --self-test are understood",
+              file=sys.stderr)
         sys.exit(2)
+    if "--self-test" in flags:
+        return self_test()
     doc = args[0] if args else "CLAUDE.md"
     require_readable([doc])
     text = open(doc, encoding="utf-8").read()

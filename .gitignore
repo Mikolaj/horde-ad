@@ -24,5 +24,12 @@ cabal.project.local~
 *.swp
 *.swo
 *~
-.claude/
+# .claude/ holds untracked session state (settings.local.json), except
+# the path-keyed rules documents, which are repo documents like the
+# nested CLAUDE.md files; a directory ignore is impenetrable to a bare
+# negation, hence the unignored-parent ladder.
+.claude/*
+!.claude/rules/
+.claude/rules/*
+!.claude/rules/performance-model.md
 tools/__pycache__/

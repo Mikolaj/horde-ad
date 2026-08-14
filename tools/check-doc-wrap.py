@@ -22,41 +22,51 @@ converge, since shortening one line pushes its last words onto the next.
 No width appears here. The number lives in `wrap80` alone, as its name
 and its default, so there is nowhere for a second copy to drift from.
 
-Non-vacuous: over `docs/position-effect.md`, each of the three defects
-this exists to catch fails it and names a line to look at -- a line
-lengthened by hand past the width, the file re-wrapped narrower, and a
-break moved so a line ends on "the" -- while the document as committed
-passes. The other branches fire too: a document whose committed version
-sits at neither fixed point is refused rather than guessed at, and the
-one-line-per-paragraph half caught a paragraph in CREDITS.md broken
-across two lines, which nothing had ever looked at. The fake-enumerator
-branch fires on a planted "2b." and on nothing in any document of these
-repos. Confirmed 2026-08-13.
+Exit 1 when a document fails -- hand-wrapping found, or a refusal: an
+untracked document, a committed version at neither fixed point, both
+having a fix to name. Exit 2 when nothing could be checked at all
+(wrap80 missing), which `wrap80 -i` would not fix and which used to be
+misreported: committed_form met the missing tool first and called the
+document "at neither fixed point", so on a wrap80-less machine every
+document failed with a wrong diagnosis while the BLOCKED branch sat
+unreachable below it.
 
-The paragraph rule and the derived form were proven the same day, and its
-branches again on 2026-08-14, when these verdicts were re-worded to name
-hand-wrapping rather than the formatter and the unit became the line inside
-a block rather than the block. The middle case is the one they exist for,
-and the list case is the one the block unit got wrong: no wrapped document
-here has a bulleted block whose first item spans more than a line, so
-that control is crafted rather than live -- a two-item list inserted into
-README.md, wrapped, then its first item joined, which the block rule flags
-and the line rule reports as mid-edit. The other two were re-run that day
-as they stand. Untouched, position-effect.md is `ok`. With one paragraph
-unwrapped -- what one edit leaves -- it is `ok`, mid-edit, exit 0, where
-the whole-file test this replaces called that same file 11 lines wrong and
-exited 1. With one paragraph rewritten a word per line it is named, given
-its line, exit 1. An untracked document is refused. And the derivation
-reproduced the two hand-maintained lists it replaced exactly: the same ten
-documents, the same three wrapped and seven one-line-per-paragraph, which is
-what let the lists go.
+Non-vacuity: run `python3 tools/check-doc-wrap.py --self-test`. It
+builds a scratch git repository holding a wrapped document, a
+one-line-per-paragraph one and a wrapped bulleted list, and asserts
+every branch: both untouched forms pass; a hand-lengthened line and a
+re-wrap to a narrower width fail as hand-wrapping; one paragraph left on
+one line, and one list item joined back to one line, pass as mid-edit; a
+planted "2b." enumerator fails; a hand-wrapped committed document and an
+untracked one are refused; and a PATH carrying git but no wrap80 reports BLOCKED,
+exit 2. The self-test was itself proved non-vacuous by breaking the
+checker in a copy (2026-08-14): disabling the fake-enumerator branch,
+counting every differing paragraph as mid-edit, and folding BLOCKED
+back into exit 1 each turned it red, naming exactly the cases those
+branches carry.
+
+What the hand-run history of this check still testifies to, kept because
+each was a real catch or a real ruling: the one-line-per-paragraph half
+caught a paragraph in CREDITS.md broken across two lines, which nothing
+had ever looked at; the unit of judgment is the line inside a block, not
+the block, because a bulleted run is one block holding several
+paragraphs, and an edit to one item left a whole-block comparison
+calling the list hand-wrapped (re-worded and proven 2026-08-14); the
+mid-edit tolerance exists because the whole-file test this replaces
+called a file with one unwrapped paragraph 11 lines wrong; and deriving
+the form from `git show HEAD:DOC` reproduced the two hand-maintained
+lists it replaced exactly, which is what let the lists go.
 """
 
+import contextlib
 import difflib
+import io
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 # Which form a document keeps cannot be read off its bytes -- long lines mean
 # badly wrapped or deliberately unwrapped, and nothing in the file says which
@@ -78,19 +88,20 @@ def committed_form(rel):
     None where git has no such file, and where the committed version sits at
     neither fixed point -- someone else's hand-wrapping, or a document nobody
     has run the formatter over yet. Both are refusals rather than guesses.
+    A missing or failing wrap80 raises instead (OSError or
+    CalledProcessError) and check() reports it as BLOCKED: swallowing it
+    here read as "neither fixed point", which diagnoses the document for a
+    fault of the tooling.
     """
     p = subprocess.run(["git", "show", "HEAD:" + rel],
                        capture_output=True, text=True)
     if p.returncode != 0:
         return None
     base = p.stdout
-    try:
-        w = subprocess.run(["wrap80"], input=base, capture_output=True,
-                           text=True, check=True).stdout
-        u = subprocess.run(["wrap80", "--unwrap"], input=base,
-                           capture_output=True, text=True, check=True).stdout
-    except (OSError, subprocess.CalledProcessError):
-        return None
+    w = subprocess.run(["wrap80"], input=base, capture_output=True,
+                       text=True, check=True).stdout
+    u = subprocess.run(["wrap80", "--unwrap"], input=base,
+                       capture_output=True, text=True, check=True).stdout
     if base == w:                      # a short document is at both, and the
         return ([], "wrapped")         # wrapped pass is then a no-op anyway
     if base == u:
@@ -134,7 +145,14 @@ def check(doc):
     needs the formatter, 2 if nothing could be checked -- which `wrap80 -i`
     would not fix, so the summary counts it apart rather than as a failure."""
     rel = os.path.normpath(doc)
-    got = committed_form(rel)
+    try:
+        got = committed_form(rel)
+    except OSError:
+        print(f"BLOCKED {rel}: wrap80 is not on PATH, so nothing was checked")
+        return 2
+    except subprocess.CalledProcessError as e:
+        print(f"BLOCKED {rel}: wrap80 failed ({e.returncode}), nothing checked")
+        return 2
     if got is None:
         print(f"FAIL {rel}: its committed version is at neither of wrap80's"
               f" fixed points, or git has no such file, so the form it keeps"
@@ -234,7 +252,129 @@ def check(doc):
     return 1
 
 
+def self_test():
+    """Build a scratch repository and confirm every branch fires.
+
+    A hand recipe gets skipped, or assembled a little differently each
+    time; building the controls here keeps them from expiring silently.
+    The module docstring holds what each case proves.
+    """
+    if not shutil.which("wrap80") or not shutil.which("git"):
+        print("BLOCKED: wrap80 or git not on PATH, self-test did not run")
+        return 2
+    script = os.path.abspath(__file__)
+    prev = os.getcwd()
+    bad = []
+
+    def expect(case, code, want_code, out, *needles):
+        if code != want_code:
+            bad.append(f"{case}: exit {code}, expected {want_code}")
+        for n in needles:
+            if n not in out:
+                bad.append(f"{case}: output lacks {n!r}")
+
+    def run_check(doc):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = check(doc)
+        return code, buf.getvalue()
+
+    with tempfile.TemporaryDirectory() as td:
+        os.chdir(td)
+        try:
+            for args in (["init", "-q"], ["config", "user.email", "t@t"],
+                         ["config", "user.name", "t"],
+                         ["config", "commit.gpgsign", "false"]):
+                subprocess.run(["git"] + args, check=True, capture_output=True)
+            para1 = " ".join(["alpha beta gamma delta epsilon"] * 8)
+            para2 = " ".join(["zeta eta theta iota kappa lambda"] * 8)
+            raw = "# Control\n\n" + para1 + "\n\n" + para2 + "\n"
+            open("w.md", "w").write(raw)
+            open("u.md", "w").write(raw)
+            lst = ("# L\n\n- " + " ".join(["one two three four five"] * 6)
+                   + "\n- " + " ".join(["six seven eight nine ten"] * 6)
+                   + "\n")
+            open("l.md", "w").write(lst)
+            subprocess.run(["wrap80", "-i", "w.md"], check=True)
+            subprocess.run(["wrap80", "--unwrap", "-i", "u.md"], check=True)
+            subprocess.run(["wrap80", "-i", "l.md"], check=True)
+            open("n.md", "w").write("# T\n\nalpha\nbeta gamma\ndelta\n")
+            subprocess.run(["git", "add", "-A"], check=True,
+                           capture_output=True)
+            subprocess.run(["git", "commit", "-qm", "c"], check=True,
+                           capture_output=True)
+            wrapped = open("w.md").read()
+            blocks = wrapped.split("\n\n")
+
+            code, out = run_check("w.md")
+            expect("wrapped untouched", code, 0, out, "ok")
+            code, out = run_check("u.md")
+            expect("unwrapped untouched", code, 0, out,
+                   "one line per paragraph")
+            code, out = run_check("n.md")
+            expect("committed hand-wrapping", code, 1, out, "neither")
+            open("t.md", "w").write(raw)
+            code, out = run_check("t.md")
+            expect("untracked", code, 1, out, "neither")
+
+            lines = wrapped.split("\n")
+            k = next(i for i, l in enumerate(lines)
+                     if l and not l.startswith("#"))
+            open("w.md", "w").write("\n".join(
+                lines[:k] + [lines[k] + " stray tail"] + lines[k + 1:]))
+            code, out = run_check("w.md")
+            expect("hand-lengthened line", code, 1, out, "wrapped by hand")
+
+            p = subprocess.run(["wrap80", "-w", "60"], input=wrapped,
+                               capture_output=True, text=True, check=True)
+            open("w.md", "w").write(p.stdout)
+            code, out = run_check("w.md")
+            expect("rewrapped narrower", code, 1, out, "wrapped by hand")
+
+            open("w.md", "w").write(
+                "# Control\n\n" + para1 + "\n\n" + blocks[2])
+            code, out = run_check("w.md")
+            expect("paragraph mid-edit", code, 0, out, "mid-edit")
+
+            open("w.md", "w").write(wrapped + "\n2b. not a list item\n")
+            code, out = run_check("w.md")
+            expect("fake enumerator", code, 1, out, "enumerator")
+            open("w.md", "w").write(wrapped)
+
+            wl = open("l.md").read()
+            flat_l = subprocess.run(["wrap80", "--unwrap", "l.md"],
+                                    capture_output=True, text=True,
+                                    check=True).stdout
+            wblock = wl.split("\n\n")[1].rstrip("\n")
+            fblock = flat_l.split("\n\n")[1].rstrip("\n")
+            item1_flat = fblock.split("\n")[0]
+            wlines = wblock.split("\n")
+            k2 = next(i for i, l in enumerate(wlines)
+                      if i > 0 and l.startswith("- "))
+            open("l.md", "w").write(
+                "# L\n\n" + "\n".join([item1_flat] + wlines[k2:]) + "\n")
+            code, out = run_check("l.md")
+            expect("list item joined", code, 0, out, "mid-edit")
+
+            bindir = os.path.join(td, "bin")
+            os.makedirs(bindir)
+            os.symlink(shutil.which("git"), os.path.join(bindir, "git"))
+            p = subprocess.run([sys.executable, script, "w.md"],
+                               capture_output=True, text=True, cwd=td,
+                               env=dict(os.environ, PATH=bindir))
+            expect("no wrap80 on PATH", p.returncode, 2, p.stdout, "BLOCKED")
+        finally:
+            os.chdir(prev)
+    for b in bad:
+        print(f"FAIL: {b}")
+    if not bad:
+        print("ok:   every self-test case behaved as expected")
+    return 1 if bad else 0
+
+
 def main():
+    if sys.argv[1:] == ["--self-test"]:
+        return self_test()
     docs = sys.argv[1:] or tracked_markdown()
     missing = [d for d in docs if not os.path.isfile(d)]
     if missing:
@@ -245,7 +385,7 @@ def main():
     print(f"\n{bad} of {len(docs)} document(s) failed"
           + (f", {blocked} could not be checked at all" if blocked else "")
           + ".")
-    return 1 if bad or blocked else 0
+    return 1 if bad else (2 if blocked else 0)
 
 
 if __name__ == "__main__":

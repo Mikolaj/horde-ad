@@ -97,42 +97,25 @@ lists globs to report as "allow" instead of failing. Every entry there
 carries its reason; an unexplained one hides the drift this checker
 exists to find. Pass -v to also list the unclassified backticks.
 
-Non-vacuity (per CLAUDE.md's "prove a checker non-vacuous"): feed it a
-scratch document holding
-
-    `src/HordeAd/Core/NoSuchModule.hs`     FAIL, unresolved path
-    `cabal test noSuchSuite`               FAIL, unknown cabal target
-    `HordeAd.Core.NoSuch`                  FAIL, unknown module
-    `../ox-arrays/no/such/file.hs`         FAIL, missing in a live sibling
-    `--noSuchFlag`                         listed, never failed
-    `+noSuchFlag`                          upgrade-only, unclassified
-    `Arith/Internal.hs`                    ok, resolved in ../ox-arrays
-    `Data.Array.Strided.Arith`             ok, same file as a module name
-    `Core/Ast.hs`, `bench/ConvVjpBench.hs` path controls
-    `cabal test minimalTest`               cabal-target control
-    `Core/Ops.hs:297,1581`                 citation, skipped for the
-                                           sibling to check; so are
-                                           `:297` and `:297-320`, while a
-                                           malformed `Core/Ops.hs:297,`
-                                           stays unclassified, which is
-                                           what keeps the comma form from
-                                           being a blanket accept
-    `HordeAd.Core.Ops`, `HordeAd.ADEngine` module controls
-    `+with_expensive_assertions`           cabal-flag control
-    `GHC.TypeLits`, `X.replicate`          upgrade-only, unclassified
-    `blob/master`, `group/bench`, `tests`  must stay unclassified
-    `.../ghc-9.12/...`                     an elision, not a sibling path
-    `https://example.com/a/b.md`           a URL, not a path
-    `https://hackage.haskell.org/`         the trailing-slash shape
-
-and confirm exactly four failures and exit status 1. The controls matter
-as much as the failures: without them an extractor that silently matches
-nothing would look like a clean document. The two upstream rows prove the
-sibling policy resolves a real file by both its spellings, path and
-module. The last rows guard the other direction: `tests` is prose, and it
-did briefly "resolve" — to ../orthotope/tests — until sibling matching
-was gated on path shape, which is how easily a big foreign tree turns a
-checker into a rubber stamp.
+Non-vacuity: run `python3 tools/check-doc-refs.py --self-test`. The
+scratch document and its expected verdicts live in the configuration
+block (the SELF_TEST_* settings), repo-specific like the rest of it;
+the engine below asserts the failure count, every FAIL and ok row, the
+unclassified tail, the missing-document exit, the --without-siblings
+degradation and the liveness of the absent-sibling stop. The controls
+matter as much as the failures: without them an extractor that silently
+matches nothing would look like a clean document. The two upstream rows
+prove the sibling policy resolves a real file by both its spellings,
+path and module. And the must-stay-unclassified rows guard the other
+direction: `tests` is prose, and it did briefly "resolve" — to
+../orthotope/tests — until sibling matching was gated on path shape,
+which is how easily a big foreign tree turns a checker into a rubber
+stamp. The self-test was itself proved non-vacuous by breaking the
+checker in a copy (2026-08-14): a dead cabal-target loop, a dead
+sibling resolution, dropping the path-shape gate off the sibling arm,
+and a CITE_RE blind to the range citation each turned it red — the
+path-shape break on exactly the `tests` rubber-stamp row, the CITE_RE
+one on exactly the skipped-citation guard.
 
 Three of those are recorded false positives rather than decoration.
 `.../ghc-9.12/...` was read as a sibling path until the `../` test was
@@ -144,50 +127,46 @@ failed through `dir_shaped` instead, a separate arm needing its own row.
 No document here backticks a bare URL, so these two rows are that
 branch's only control.
 
-Then three runs for the ways a run can fail to happen. Pass a document
-name that does not exist and confirm one line on stderr and exit 2, not
-a traceback. Point SIBLING_ROOTS at a name that does not exist and
-confirm BLOCKED with exit 2 and no checking at all; re-run that with
---without-siblings and confirm it proceeds, the upstream rows
-downgrading to SKIP/UNVERIFIED rather than failing.
+The ways a run can fail to happen are asserted too: a document name
+that does not exist must give one line on stderr and exit 2, not a
+traceback, and an absent sibling must BLOCK rather than degrade. What
+--without-siblings costs is asserted rather than described:
+`src/HordeAd/Core/NoSuchModule.hs` is real local drift, and without the
+checkouts nothing distinguishes a missing local file from an upstream
+one, so it degrades to SKIP alongside the upstream rows — the flag does
+not merely leave upstream unchecked, it blunts the local path check as
+well. Reason enough to mount the siblings instead of reaching for the
+flag.
 
-That second run also shows what the downgrade costs, and the recipe keeps
-it visible on purpose: `src/HordeAd/Core/NoSuchModule.hs` is real local
-drift, and it downgrades to SKIP too, because without the checkouts
-nothing distinguishes a missing local file from an upstream one. So
---without-siblings does not merely leave upstream unchecked — it blunts
-the local path check as well. Reason enough to mount the siblings instead
-of reaching for the flag.
-
-Reproduced 2026-07-29: four failures and exit 1, then exit 2, then the
-degraded run. Re-run with the elision and two URL rows added: still four
-failures and exit 1, all three staying unclassified. The first version of
-this recipe was not the first attempt:
+A check can be live on its scratch document and vacuous on the corpus:
 reading fenced code blocks only, the cabal-target check had been
-examining one of six `cabal test` lines in CLAUDE.md, since that document
-indents its blocks instead of fencing them. A check can be live on its
-scratch document and vacuous on the corpus, so the corpus is worth a look
-too.
+examining one of six `cabal test` lines in CLAUDE.md, since that
+document indents its blocks instead of fencing them. So the corpus is
+worth a look too, whatever the self-test says.
 
 Two of this repo's shapes cannot be exercised here, and say so rather
 than being quietly untested: there is no makefile, so the `make <target>`
 branch is off (MAKEFILE is ""), and no command-line parser, so every
 `--flag` falls through to the external and unknown buckets. Both are
 exercised by the LambdaHack copy of this script, which below the
-configuration block is now identical to this one: `MAKE_RE` had lagged
-here and has been taken from there, so the block's claim that porting this
-script means editing it and nothing else holds again. What still differs
-is prose — this recipe, and the examples each `paths` and `modules`
-bullet draws from its own tree — so a reader syncing one file to the
-other should sync neither.
+configuration block is meant to stay identical to this one
+(`tools/check-twin-sync.py` compares them whenever both checkouts are
+mounted; this copy is ahead since gaining --self-test, 2026-08-14, so
+sync it there in a LambdaHack session). What differs by design is the
+docstring and the configuration block, the self-test rows among them —
+each repo's own — so a reader syncing one file to the other syncs the
+code below the block and nothing else.
 """
 
+import contextlib
 import fnmatch
 import glob
+import io
 import os
 import re
 import subprocess
 import sys
+import tempfile
 
 # --- per-repo configuration -----------------------------------------
 # Porting this script to another repository should mean editing this
@@ -210,6 +189,49 @@ MAKEFILE = ""
 # their absence stops the run rather than degrading it. [] to disable.
 SIBLING_ROOTS = ["../ox-arrays", "../orthotope"]
 ALLOW_FILE = "tools/doc-refs-allow.txt"
+# --self-test rows: one scratch document exercising every branch against
+# this repo's real tree and siblings, with the expected verdicts beside
+# it. Repo-specific like the rest of this block; the engine below is not.
+SELF_TEST_DOC = """\
+`src/HordeAd/Core/NoSuchModule.hs` is unresolved local drift, and
+`cabal test noSuchSuite` an unknown target; `HordeAd.Core.NoSuch` is a
+missing module of our namespace and `../ox-arrays/no/such/file.hs` is
+missing in a live sibling: all four must fail.
+`--noSuchFlag` is listed, never failed; `+noSuchFlag` stays
+unclassified.
+`Arith/Internal.hs` and `Data.Array.Strided.Arith` resolve in a
+sibling, by path and by module name.
+`Core/Ast.hs` and `bench/ConvVjpBench.hs` and `cabal test minimalTest`
+and `HordeAd.Core.Ops` and `HordeAd.ADEngine` and
+`+with_expensive_assertions` are passing controls.
+`Core/Ops.hs:297,1581` and `Core/Ops.hs:297` and `Core/Ops.hs:297-320`
+are pass 1's to check, while the malformed `Core/Ops.hs:297,` stays
+unclassified, which keeps the comma form from being a blanket accept.
+`GHC.TypeLits` and `X.replicate` are upgrade-only, unclassified.
+`blob/master` and `group/bench` and `tests` are prose;
+`.../ghc-9.12/...` is an elision, not a sibling path;
+`https://example.com/a/b.md` and `https://hackage.haskell.org/` are
+URLs. None of these may be read as a path.
+"""
+SELF_TEST_FAILURES = 4
+SELF_TEST_FAIL = ["NoSuchModule.hs", "noSuchSuite", "HordeAd.Core.NoSuch",
+                  "../ox-arrays/no/such/file.hs"]
+SELF_TEST_OK = ["Core/Ast.hs", "bench/ConvVjpBench.hs", "minimalTest",
+                "Arith/Internal.hs", "Data.Array.Strided.Arith",
+                "HordeAd.Core.Ops", "HordeAd.ADEngine",
+                "with_expensive_assertions"]
+# Citation shapes pass 1 owns: skipped here, in no bucket and no row.
+SELF_TEST_SKIPPED = ["Core/Ops.hs:297,1581", "Core/Ops.hs:297",
+                     "Core/Ops.hs:297-320"]
+SELF_TEST_UNCLASSIFIED = ["+noSuchFlag", "Core/Ops.hs:297,", "GHC.TypeLits",
+                          "X.replicate", "blob/master", "group/bench",
+                          "tests", ".../ghc-9.12/...",
+                          "https://example.com/a/b.md",
+                          "https://hackage.haskell.org/"]
+# The one local-drift row that must degrade to SKIP with the siblings
+# off, and the failure count that survives the degradation.
+SELF_TEST_DEGRADED_FAILURES = 2
+SELF_TEST_DEGRADED_SKIP = "src/HordeAd/Core/NoSuchModule.hs"
 # --- end per-repo configuration --------------------------------------
 
 PATH_EXT = ("hs", "ts", "mjs", "py", "cabal", "html", "md", "yaml", "yml",
@@ -594,11 +616,103 @@ def require_readable(paths):
             sys.exit(2)
 
 
+def self_test():
+    """Run the configuration block's SELF_TEST_DOC through the real
+    machinery and hold it to the verdicts recorded beside it. In-process,
+    so the --without-siblings degradation and the absent-sibling stop can
+    be exercised by flipping the same switches main() flips."""
+    global SIBLING_ROOTS
+    missing = missing_siblings()
+    if missing:
+        print("BLOCKED — sibling checkout(s) not available ("
+              + ", ".join(missing) + "), and the self-test's sibling rows"
+              " need them; mount and re-run")
+        return 2
+    bad = []
+    fd, doc = tempfile.mkstemp(suffix=".md")
+    os.write(fd, SELF_TEST_DOC.encode("utf-8"))
+    os.close(fd)
+
+    def run_doc(no_siblings):
+        top_level = {d for d in os.listdir(".") if os.path.isdir(d)}
+        known = repo_paths()
+        siblings = [] if no_siblings else sibling_paths()
+        allow_paths, allow_make, allow_cabal = allowed()
+        text = cabal_text()
+        out = {"external": [], "unclassified": [], "unknown_flags": [],
+               "unverified": []}
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            n = check_doc(doc, known, top_level, allow_paths,
+                          cabal_flags(text), siblings,
+                          bool(SIBLING_ROOTS) and not no_siblings, out)
+            n += check_commands(doc, make_targets(), cabal_stanzas(text),
+                                our_flags(), allow_make, allow_cabal, out)
+        return n, buf.getvalue(), out
+
+    try:
+        failures, output, out = run_doc(no_siblings=False)
+        if failures != SELF_TEST_FAILURES:
+            bad.append("expected %d failures, got %d"
+                       % (SELF_TEST_FAILURES, failures))
+        fails = [l for l in output.splitlines() if l.startswith("FAIL")]
+        oks = [l for l in output.splitlines()
+               if l.startswith(("ok", "allow"))]
+        for t in SELF_TEST_FAIL:
+            if not any(t in l for l in fails):
+                bad.append("no FAIL line names %r" % t)
+        for t in SELF_TEST_OK:
+            if not any(t in l for l in oks):
+                bad.append("no ok line names %r" % t)
+        for t in SELF_TEST_UNCLASSIFIED:
+            if t not in out["unclassified"]:
+                bad.append("%r not among the unclassified" % t)
+        for t in SELF_TEST_SKIPPED:
+            if t in out["unclassified"] or any(t in l for l in fails + oks):
+                bad.append("%r was not skipped as a citation" % t)
+        if "noSuchFlag" not in out["unknown_flags"]:
+            bad.append("'--noSuchFlag' not among the unknown flags")
+
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                require_readable(["no-such-document.md"])
+            bad.append("a missing document did not stop the run")
+        except SystemExit as e:
+            if e.code != 2:
+                bad.append("a missing document exited %r, not 2" % e.code)
+
+        failures, output, out = run_doc(no_siblings=True)
+        if failures != SELF_TEST_DEGRADED_FAILURES:
+            bad.append("degraded run: expected %d failures, got %d"
+                       % (SELF_TEST_DEGRADED_FAILURES, failures))
+        if SELF_TEST_DEGRADED_SKIP not in out["unverified"]:
+            bad.append("local drift did not degrade to SKIP alongside"
+                       " the upstream rows")
+
+        saved = SIBLING_ROOTS
+        SIBLING_ROOTS = ["../no-such-checkout-for-self-test"]
+        try:
+            if not missing_siblings():
+                bad.append("missing_siblings is blind to an absent"
+                           " checkout")
+        finally:
+            SIBLING_ROOTS = saved
+    finally:
+        os.unlink(doc)
+    for b in bad:
+        print("FAIL: %s" % b)
+    if not bad:
+        print("ok:   every self-test case behaved as expected")
+    return 1 if bad else 0
+
+
 def main():
-    flags = {"-v", "--without-siblings"}
+    flags = {"-v", "--without-siblings", "--self-test"}
     args = [a for a in sys.argv[1:] if a not in flags]
     verbose = "-v" in sys.argv[1:]
     no_siblings = "--without-siblings" in sys.argv[1:]
+    if "--self-test" in sys.argv[1:]:
+        return self_test()
     docs = args or ["CLAUDE.md"]
     require_readable(docs)
 
