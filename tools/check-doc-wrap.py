@@ -234,9 +234,17 @@ def check(doc):
         # to a paragraph that is fine.
         at = have.count("\n", 0, sum(len(b) + 2 for b in hp[:hand[0]])) + 1
         fix = " ".join(["wrap80"] + flag + ["-i", rel])
+        # Two causes, one artifact: canonical lines with a long one among them
+        # is what an Edit mid-stretch leaves AND what hand-lengthening leaves,
+        # so this cannot tell them apart and must name both remedies. Naming
+        # the formatter alone sent a session round wrap-then-edit-then-red five
+        # times in one write-up (2026-08-16): wrapping is the fix when the
+        # document is done, unwrapping when it is not.
+        undo = " ".join(["wrap80", "--unwrap", "-i", rel])
         print(f"FAIL {rel}: {len(hand)} paragraph(s) wrapped by hand, {form}"
-              f" — first at line {at}; run `{fix}`, never re-wrap a line"
-              f" by hand")
+              f" — first at line {at}; if the document is done, run `{fix}`;"
+              f" if you are still editing, `{undo}` and work there."
+              f" Never re-wrap a line by hand")
         return 1
     # Diffed rather than compared by position: one inserted line shifts every
     # line under it, so a position count reports the whole file as changed and
