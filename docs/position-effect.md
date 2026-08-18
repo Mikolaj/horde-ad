@@ -76,10 +76,16 @@ and stay L3-resident, so writes hit warm lines.  Fragmentation shatters
 that reuse chain — freed fragments coalesce into other size buckets, the next
 allocation splits some other group — and the recycled working set cycles through
 hundreds of MB before reuse: ~14 MB/iteration (223k lines × 64 B) that L3 used
-to retain round-trips to DRAM.  The nursery itself is carved contiguously
-at startup and reused in place, so ordinary heap allocation is unaffected
-(this one link is from RTS-source reading, not measured here; everything
-it explains is).
+to retain round-trips to DRAM.  The nursery, by contrast, is no stable
+contiguous region and confers no such protection: at `-A` ≥ 16m it is silently
+chunked into 4 MB chunks (overriding even an explicit `-n`), every out-of-line
+allocation permutes its block chain and nothing re-sorts it, and post-GC trim
+and grow refill it with singleton blocks drawn from the scattered free lists
+(RTS-source reading; GHC's own Note [Sources of Block Level Fragmentation]
+documents the decay and names, without implementing, periodic nursery
+reallocation) — and the small-pinned churn condition in the [micro-regime3
+section](#micro-regime3) below is the measured case of ordinary-allocation-heavy
+code paying for degraded block-level layout.
 
 **Structure, not size.**  Pool size and residency are ruled out as the lever:
 `-H2G` grows a fused-alone process to a comparable 2135 MiB contiguously,
@@ -185,9 +191,26 @@ processes wanders over a 2% range — two arms sharing a process ride the same
 lottery draw and their ratio cancels it.  The suite's one-process,
 ratio-to-`list` design was the right call in both eras.
 
-`micro-regime3` never sees the 22% because nothing in it poisons:
-its allocations are coarse-grained (whole result vectors and table scratch),
-so the pool stays compact and the free lists short.
+That `micro-regime3` sees none of this because its allocations
+are coarse-grained — this document's reading until 2026-08-18 — is falsified
+twice over: two of its shapes' per-iteration results are sub-3276-byte pinned
+vectors (2304 and 2592 B), and its corrected order-asserted scans put every one
+of the 23 candidate shapes on one log-dose poisoning curve against a `list`
+victim at `-A32m`, from under +1% at a hundred-odd sprays to +12% at nearly
+a million.  The strong form is a *second, distinct* pool condition, small-pinned
+churn: the sub-threshold results churn the RTS's shared per-capability pinned
+accumulator blocks, and that class permanently taxes every later `list`-like
+(ordinary-allocation-heavy) phase of the process +12–17% at `-A32m` and +29–44%
+of true steady state at `-A64m`–`-A1G` — larger than this document's 22% — where
+a matched-count spray of own-group objects taxes a few percent at most,
+and this document's own 3600 B class taxes that reproducer's ordinary-churn
+victim zero.  Distinct, because the discriminators split: mem-in-use barely
+moves where the pool here doubles, and `-H2G` does not cure it where here
+it does — though the counter signature is the same shape, mutator LLC misses
+at flat instructions and dTLB.  The measurements, dose curve, instrument
+corrections and base-only reproducer are orthotope's `micro-regime3/README.md`
+position-term entry and its `micro-regime3/small-pinned-churn-investigation/`;
+the staged GHC issue is [the small-pinned churn draft][ghc-issue-small].
 
 ## Standalone reproducer
 
@@ -221,4 +244,5 @@ Criterion's GC placement (major per benchmark, minor per sample) was read
 from the criterion-measurement 0.2.5.0 source.
 
 [ghc-issue]: ghc-issue-block-pool-fragmentation.md
+[ghc-issue-small]: ghc-issue-small-pinned-churn.md
 [123]: https://github.com/Mikolaj/horde-ad/issues/123
