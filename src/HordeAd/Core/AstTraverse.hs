@@ -658,8 +658,8 @@ contractAst t0 = case t0 of
   -- This is a stable normal form. The compensating transposes permute the
   -- shn (slice) dims, which the leading-dims-only guards in astTransposeS
   -- and astGatherCase cannot fold back into the gather, and the guard below
-  -- makes the rule idempotent (sortOn is stable, so a sorted shn — ties
-  -- included — gives sigma = identity).
+  -- makes the rule idempotent (sortOn is stable, so a sorted shn --- ties
+  -- included --- gives sigma = identity).
   Ast.AstGatherS @shm @shn @shp shm shn shp v (vars, ix)
     | let shnL = shsToList shn
     , sigmaL <- map fst $ sortOn snd $ zip [0 ..] shnL

@@ -316,7 +316,7 @@ conv2dPreserving_dInp arrK arrB =
 -- > conv2dPreservingS (stranspose @'[1, 0] arrKFlipped) arrB
 -- type-checks (the same-size convolution keeps the shapes equal), but the
 -- test catches it: conv2dPreservingS's window extends forward from each
--- position, while the adjoint's must extend backward — the
+-- position, while the adjoint's must extend backward --- the
 -- @- nKh + 1@/@- nKw + 1@ offsets in the slice above.
 
 -- | Hand-written reverse derivative of full convolution with respect
@@ -407,7 +407,7 @@ static_conv2dPreservingVjp SNat SNat SNat SNat SNat SNat SNat arrK arrA arrB =
       -- Note that the manual versions don't take one of the arguments (the
       -- point at which the gradient is taken): convolution is linear in each
       -- argument separately, so the gradient with respect to one argument
-      -- does not depend on that argument's value — only on the other
+      -- does not depend on that argument's value --- only on the other
       -- argument and the incoming cotangent, which they do take.
       -- First, the gradient wrt the input image taken at point @arrA@.
       dInp :: Concrete (TKS shA r)
@@ -1398,15 +1398,15 @@ quickcheck_conv2dPreservingVjpInpConcrete =
 -- * @SymbolicPerCall@ rebuilds the artifact every run (the honest cost of
 --   the misleading poor man's benchmark above);
 -- * @SymbolicAmortized@ builds the artifact once (shared across all runs)
---   and only interprets it per run — the intended usage;
+--   and only interprets it per run --- the intended usage;
 -- * @HandwrittenVectorized@ is the handwritten gradient vectorized and
 --   interpreted per run, for comparison.
 --
 -- At small sizes the build tax roughly doubles the per-call symbolic time;
 -- as the size grows the fixed tax shrinks relative to interpretation.
 -- @HandwrittenVectorized@ has no amortized variant to pair with
--- @SymbolicAmortized@ — with the cotangent embedded as a constant the term
--- must be rebuilt for every new cotangent — so comparing those two mixes
+-- @SymbolicAmortized@ --- with the cotangent embedded as a constant the term
+-- must be rebuilt for every new cotangent --- so comparing those two mixes
 -- pipeline stages; the stage-for-stage S/H comparison, with the cotangent
 -- kept as a variable on both sides, lives in bench/ConvVjpBench.hs.
 

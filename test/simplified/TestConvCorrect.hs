@@ -7,8 +7,8 @@
 -- These are the deterministic counterpart of the convolution poor man's
 -- benchmarks in "TestConvQuickCheck": on data of the same shapes and sizes
 -- (the shared @benchData@ etc. helpers), they check that the gradient
--- programs those benchmarks and bench/ConvVjpBench.hs time — the symbolic
--- gradient and the handwritten term vectorized and interpreted — agree
+-- programs those benchmarks and bench/ConvVjpBench.hs time --- the symbolic
+-- gradient and the handwritten term vectorized and interpreted --- agree
 -- with the handwritten gradients evaluated at the Concrete target, all
 -- imported from that module. They live in a separate module so that
 -- the whole testsuite's non-QuickCheck tests, whose timing is much more
@@ -46,8 +46,8 @@ testTrees =
   -- Gradient-correctness checks at the convolution poor man's benchmark data
   -- and sizes from "TestConvQuickCheck": on data of those shapes, the
   -- symbolic gradient and the vectorized-and-interpreted handwritten term
-  -- must agree with the handwritten gradient — and, at the small size, the
-  -- concrete non-symbolic AD and the variable-cotangent term must too — so
+  -- must agree with the handwritten gradient --- and, at the small size, the
+  -- concrete non-symbolic AD and the variable-cotangent term must too --- so
   -- every path those poor man's benchmarks and bench/ConvVjpBench.hs time
   -- is verified correct at scale, not only timed.
   -- Preserving convolution: input and output the same size.
@@ -105,7 +105,7 @@ conv2dPreservingVjpKrnCorrect =
       symbolic = vjp (`conv2dPreservingS` sconcrete (unConcrete arrA))
                      (sconcrete (unConcrete arrK)) (sconcrete (unConcrete arrB))
       -- The same handwritten gradient built at the AST target, vectorized
-      -- and interpreted — the computation the HandwrittenVectorized poor
+      -- and interpreted --- the computation the HandwrittenVectorized poor
       -- man's benchmarks and the H- variants of bench/ConvVjpBench.hs
       -- time; here its value is pinned to the Concrete-target one.
       vectorized = interpretAstFull emptyEnv
@@ -156,7 +156,7 @@ conv2dPreservingVjpConcrete6 =
 
 -- At the small size, also check the handwritten terms with the incoming
 -- cotangent kept as a variable and bound in the environment, both raw and
--- contracted — the exact terms the H-exec-raw and H-exec variants of
+-- contracted --- the exact terms the H-exec-raw and H-exec variants of
 -- bench/ConvVjpBench.hs interpret (the constant-cotangent form is covered
 -- by the vectorized legs above).
 conv2dPreservingVjpVarCotangent6 :: Assertion

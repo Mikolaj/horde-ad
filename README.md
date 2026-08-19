@@ -306,8 +306,8 @@ and the rest instantiate such an objective at one of the three carriers &mdash;
 for plain evaluation on CPU arrays.
 
 Following a single call is the quickest way in. Take `grad` from `ADEngine`
-into `Core/OpsADVal.hs`, whose `ADVal` instances build the delta expression —
-a sparse form of the derivative's linear map, whose grammar is `Core/Delta.hs` —
+into `Core/OpsADVal.hs`, whose `ADVal` instances build the delta expression ---
+a sparse form of the derivative's linear map, whose grammar is `Core/Delta.hs` ---
 and then into `Core/DeltaEval.hs`, which transposes and evaluates it.
 In between, a symbolic artifact passes through the AST pipeline:
 `Core/AstVectorize.hs` eliminates indexing under `build1`, `Core/AstSimplify.hs`

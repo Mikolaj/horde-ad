@@ -1,15 +1,15 @@
 {-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 -- | Diagnostic benchmarks for issue #123: separate the cost of producing
 -- a gradient program (tracing, differentiation, simplification) from the
--- cost of executing it, for the two pipelines that produce one — symbolic
+-- cost of executing it, for the two pipelines that produce one --- symbolic
 -- AD and the vectorized handwritten gradient.
 --
 -- The groups @6x6@ to @192x192@ sweep the gradient of conv2dPreservingS with
 -- respect to the kernels across those image sizes; the @inp-*@ groups run
 -- the same variants and sizes for the gradient with respect to the input
 -- image (the @sscatter@ path). Each group holds the variants below in
--- @S-@/@H-@ pairs — @S@ for Symbolic and @H@ for Handwritten, the issue's
--- names for the two pipelines — each @H-@ variant measuring the same
+-- @S-@/@H-@ pairs --- @S@ for Symbolic and @H@ for Handwritten, the issue's
+-- names for the two pipelines --- each @H-@ variant measuring the same
 -- stage as its adjacent @S-@ partner, with the incoming cotangent kept as
 -- a variable on both sides (only @H-fullpipe@ embeds it as a constant,
 -- because the tasty benchmark it mirrors does). The pairs decompose the
@@ -18,16 +18,16 @@
 --
 -- * @S-fullpipe-honest@ and @H-fullpipe@: the full per-call pipelines
 --   those tasty benchmarks time (the issue's Symbolic and
---   HandwrittenVectorized) — @vjp@, i.e., tracing + AD + simplification +
+--   HandwrittenVectorized) --- @vjp@, i.e., tracing + AD + simplification +
 --   interpretation, with the per-call-varying input baked into the
 --   objective so the artifact is genuinely rebuilt every call, vs
 --   building + vectorizing + interpreting the handwritten term, never
 --   contracted.
--- * @S-artifact@ and @H-term@: the compilation cost only — building and
+-- * @S-artifact@ and @H-term@: the compilation cost only --- building and
 --   simplifying the gradient artifact vs building and contracting the
 --   handwritten term, forced to WHNF (StrictData makes that a full
 --   build), as in mnistTrainBench2VTC in BenchMnistTools.
--- * @S-exec@ and @H-exec@: execution only — interpreting the pre-built
+-- * @S-exec@ and @H-exec@: execution only --- interpreting the pre-built
 --   simplified artifact vs the pre-built contracted term (the cotangent
 --   bound in the environment).
 -- * @S-exec-raw@ and @H-exec-raw@: execution of the unsimplified
@@ -55,17 +55,17 @@
 -- run supports the allocation half of them only, hence the script's
 -- @--allocation-only@). They are stated for time, and every one of them
 -- also holds for bytes allocated per iteration, which the script checks as
--- a second pass — measured over a full run before being relied on, the
+-- a second pass --- measured over a full run before being relied on, the
 -- tightest equality coming out at 1.7%. When analyzing a run, verify them
 -- explicitly, in this order, to 10% for time and 5% for allocation:
 -- @a == b@ stands for @abs (a - b) <= max a b * tol@, and @a <= b@ for
 -- @a <= (1 + tol) * b@.
 -- tools/check-conv-bench-props.py, fed criterion's @--json@ output as one
--- or more files, is this list in executable form; keep the two in sync —
+-- or more files, is this list in executable form; keep the two in sync ---
 -- the script fails on a benchmark that no property touches, so adding a
 -- benchmark forces this list to be re-normalized, and it fails ahead of
 -- the properties on a slope fitted over too few samples, which is what
--- too short a collection looks like. The list is minimal — anything
+-- too short a collection looks like. The list is minimal --- anything
 -- derivable from it and the nonnegativity of times, e.g.
 -- @time(S-exec) <= time(S-fullpipe-honest)@ from property 1, is
 -- deliberately not listed.
@@ -73,15 +73,15 @@
 -- The properties fall into two groups. Properties 1-3 hold for any
 -- engine whatsoever, by accounting alone: a whole equals the sum of
 -- its parts, and a part does not exceed its whole. A violation there
--- means the measurement itself broke — work hoisted out of a timed
+-- means the measurement itself broke --- work hoisted out of a timed
 -- call, double-counted, or drowned in noise. Properties 4-15 describe
 -- the current engine and may legitimately change when engine code
--- changes — e.g. once the faster gather kernels designed for issue #123
+-- changes --- e.g. once the faster gather kernels designed for issue #123
 -- (the client-side add-zero gather or the upstream normalize-in-C) are
 -- implemented. They subdivide further:
 --
 -- * property 4 records what the simplifier does /not/ do to embedded
---   constants — the random-data methodology leans on it, and so does
+--   constants --- the random-data methodology leans on it, and so does
 --   the left edge of property 2;
 --
 -- * properties 5-6 are invariants any acceptable engine must keep, so
@@ -89,8 +89,8 @@
 --   update;
 --
 -- * properties 7-15 record the cost model of the current interpreted
---   gather and scatter kernels — the rulings behind contractAst's
---   gather rewrites — and are exactly the ones to re-measure, and
+--   gather and scatter kernels --- the rulings behind contractAst's
+--   gather rewrites --- and are exactly the ones to re-measure, and
 --   update together with those rewrites, when the kernels change.
 --
 -- 1. @time(S-fullpipe-honest) == time(S-artifact) + time(S-exec)@, in
@@ -100,18 +100,18 @@
 --    double-counted in, the timed call.
 -- 2. @time(H-exec-raw) <= time(H-fullpipe)@ and
 --    @time(H-fullpipe) <= time(H-term) + time(H-exec-raw)@, in every
---    sweep group at every size — only a sandwich, because @H-fullpipe@
+--    sweep group at every size --- only a sandwich, because @H-fullpipe@
 --    interprets the never-contracted term: its build portion is bounded
 --    above by @H-term@, which additionally contracts. The left edge
 --    also leans on property 4, since @H-fullpipe@'s cotangent is an
 --    embedded constant where @H-exec-raw@'s is a variable.
 -- 3. @time(6x6/S-exec) <= time(pitfalls/S-fullpipe-hoisted-6x6)@ and
 --    @time(pitfalls/S-fullpipe-hoisted-6x6) <= time(6x6/S-fullpipe-honest)@
---    — the hoisted variant does everything exec-only does plus the
+--    --- the hoisted variant does everything exec-only does plus the
 --    adaptor glue, and the honest variant additionally rebuilds the
 --    artifact; that gap is exactly its trap.
 -- 4. @time(pitfalls/H-exec-const-48x48) == time(48x48/H-exec)@:
---    embedding a random constant cotangent is harmless — simplification
+--    embedding a random constant cotangent is harmless --- simplification
 --    does not fold a random constant through the gathers (a broadcast
 --    constant it would fold).
 -- 5. @time(S-exec) <= time(S-exec-raw)@, in every sweep and @cnn-*@
@@ -140,7 +140,7 @@
 --     the shn-sort must not be extended to scatter.
 -- 14. @time(two-scatters-ad-orient) <= time(fused-scatter-ad-orient)@
 --     and @time(two-scatters-vec-orient) <= time(fused-scatter-vec-orient)@
---     — both stated, because no equality between the two fused scatters
+--     --- both stated, because no equality between the two fused scatters
 --     is pinned: their orientations differ by about the tolerance.
 -- 15. @time(two-scatters-ad-orient) <= time(two-gathers-ad-orient)@:
 --     scatter in its natural orientation is the empirical bound for a
@@ -202,8 +202,8 @@ benchesAt = do
                               (intToAstVarId 100000099)
       artifactRaw = vjpArtifact f arrK
       artifact = simplifyArtifactRev artifactRaw
-      -- The handwritten gradient built as an AST term — constructing it
-      -- runs vectorization (sbuild at the AST target) — with the incoming
+      -- The handwritten gradient built as an AST term --- constructing it
+      -- runs vectorization (sbuild at the AST target) --- with the incoming
       -- cotangent kept as a variable, like in the artifact.
       hTermVar :: AstTensor AstMethodLet FullSpan
                             (TKS '[nCout, nCinp, nKh, nKw] Double)
@@ -352,8 +352,8 @@ benchesInpAt = do
 -- | The @S-*@ variants of 'benchesAt', but for a real (shaped) two-layer
 -- convolutional net (@convMnistTwoS@, each layer with maxpool), differentiated
 -- with respect to its full parameter tuple. The input image is embedded as a
--- constant — a *random* one, since a constant broadcast folds the convolution
--- gathers away — exactly as 'benchesAt' embeds the input in the
+-- constant --- a *random* one, since a constant broadcast folds the convolution
+-- gathers away --- exactly as 'benchesAt' embeds the input in the
 -- conv2dPreserving objective. The objective is shared with @testCNNOPP2S@ via 'cnnObjective'.
 -- There are no @H-*@ variants, as there is no handwritten CNN gradient to
 -- compare against.
@@ -406,7 +406,7 @@ benchesCnnAt = do
 -- orientation vs its two candidate canonicalizations, shm dims sorted
 -- vs shn dims sorted; (3) both orientations vs a single fused gather
 -- that avoids the intermediate array entirely; (4) the fused gather vs
--- itself with its shm dims sorted, ascending and descending — its shn,
+-- itself with its shm dims sorted, ascending and descending --- its shn,
 -- @[3, 3]@, is already sorted, fusion having consumed the large dims
 -- into the index function, so shm is the fused form's only sortable
 -- knob. interpretAstFull does not run contractAst, so each variant
@@ -450,7 +450,7 @@ gatherBenches = do
                 (\case [d, c] -> [c + d]
                        _ -> error "twoVec")
       -- The AD chain with each gather's shm dims sorted ascending and a
-      -- compensating transpose above that restores the original dim order —
+      -- compensating transpose above that restores the original dim order ---
       -- a canonicalization considered for contractAst and refuted by this
       -- measurement: the concrete gather's cost is per output position,
       -- so reordering the shm dims changes nothing.
@@ -470,7 +470,7 @@ gatherBenches = do
       -- The AD chain with the second gather's shn dims sorted ascending
       -- instead (large dims innermost in the copied slices), by a
       -- transpose below the gather (merges into the existing view)
-      -- and a compensating transpose above — the rewrite the shn-sort
+      -- and a compensating transpose above --- the rewrite the shn-sort
       -- rule in contractAst now performs on such chains (the first
       -- gather's shn is already sorted, so it is left alone).
       canonShn :: AstTensor AstMethodLet FullSpan
@@ -504,8 +504,8 @@ gatherBenches = do
                        _ -> error "fusedVec")
       -- The fused gather with its shm dims sorted ascending and a
       -- compensating transpose above restoring the AD output order.
-      -- Its shn is [3, 3] — already sorted, fusion having consumed the
-      -- large dims into the index function — so shm order is the only
+      -- Its shn is [3, 3] --- already sorted, fusion having consumed the
+      -- large dims into the index function --- so shm order is the only
       -- sortable knob of the fused form; it is benchmarked in both
       -- directions to record that sorting cannot rescue fusion: the
       -- cost is per output position, and the position count is exactly
@@ -585,12 +585,12 @@ checkAdjoint name gatherChain src scatterChain y =
 
 -- | The scatter analogue of 'gatherBenches': the interpreted scatter chains
 -- that appear in the input-image gradient (the @sscatter@ path). Each chain
--- is the exact adjoint (transpose) of the corresponding gather chain above —
--- verified at startup by 'checkAdjoint' — so this isolates the scatter cost
+-- is the exact adjoint (transpose) of the corresponding gather chain above ---
+-- verified at startup by 'checkAdjoint' --- so this isolates the scatter cost
 -- the way 'gatherBenches' isolates the gather cost. The correspondence is
 -- deliberately partial. The shn-sorted chain's adjoint is included: it
 -- measures the ruling that the shn-sort must not be extended to scatter,
--- a ~4x pessimization — scatter adds each slice as one flat vector, so a
+-- a ~4x pessimization --- scatter adds each slice as one flat vector, so a
 -- sorted shn has no per-shn-dim loop to amortize, while the compensating
 -- transposes leave the slice views strided. There are no shm-sorted or
 -- fused-sorted adjoints; they would only re-measure knobs 'gatherBenches'
@@ -622,7 +622,7 @@ scatterBenches = do
       y4 :: AstTensor AstMethodLet FullSpan (TKS '[3, 48, 3, 48, 3, 3] Double)
       y4 = sconcrete (unConcrete arrY4)
       -- The gather chains from 'gatherBenches', rebuilt over x1/x2 as
-      -- checkAdjoint fixtures only — benchmarked there, not here (gather
+      -- checkAdjoint fixtures only --- benchmarked there, not here (gather
       -- cost is structural, so timing these copies would just duplicate
       -- those benches).
       gTwoAd :: AstTensor AstMethodLet FullSpan
@@ -696,7 +696,7 @@ scatterBenches = do
       -- The adjoint of the shn-sorted chain ('canonShn' in 'gatherBenches'),
       -- on the same cotangent as twoScatterAd: the measured ~4x
       -- pessimization that rules out extending the shn-sort to scatter,
-      -- strengthening the ruling from "cannot pay" to "loses outright" —
+      -- strengthening the ruling from "cannot pay" to "loses outright" ---
       -- mechanism in the 'scatterBenches' haddock above.
       twoScatterShnSorted :: AstTensor AstMethodLet FullSpan
                                        (TKS '[50, 3, 3, 50] Double)
@@ -782,7 +782,7 @@ pitfallBenches = do
     [ -- vjp per call, but with the objective and its input fixed and only
       -- the cotangent varying. The artifact does not depend on the
       -- cotangent, so full laziness floats its construction out of the
-      -- timed loop and the artifact tax — the bulk of an honest 6x6 call —
+      -- timed loop and the artifact tax --- the bulk of an honest 6x6 call ---
       -- goes unmeasured. Compare against S-fullpipe-honest (the tax
       -- included) and S-exec in the 6x6 group.
       bench "S-fullpipe-hoisted-6x6" $ whnf
@@ -791,7 +791,7 @@ pitfallBenches = do
       -- a random concrete constant. Records that the embedding is
       -- harmless: this measures the same as H-exec, i.e., simplification
       -- does not constant-fold a random embedded constant through the
-      -- gathers — a broadcast constant it would fold, which is why
+      -- gathers --- a broadcast constant it would fold, which is why
       -- benchmark inputs are random.
     , bench "H-exec-const-48x48" $ whnf
         (forceGrad . interpretAstFull emptyEnv) hTermConstSimplified
