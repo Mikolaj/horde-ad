@@ -23,9 +23,9 @@ The budget is cnn-24x24's, the only group that needs it, and one run at
 it costs 107 benchmarks x 90s, near three hours. Several files are
 accepted and merged, which buys almost all of that back: give the long
 budget to the groups that need it and let the rest run at the default,
-about 30 minutes. Criterion's bare arguments are prefix patterns on the group/bench
-path, and these three sets are disjoint (`6x6` does not match `inp-6x6`,
-`24x24` does not match `cnn-24x24`):
+about 30 minutes. Criterion's bare arguments are prefix patterns on the
+group/bench path, and these three sets are disjoint (`6x6` does not
+match `inp-6x6`, `24x24` does not match `cnn-24x24`):
 
     cabal bench convVjpBench --enable-optimization --benchmark-options=\\
       '-L 30 --regress allocated:iters --json slow.json 192x192 \\
@@ -126,6 +126,11 @@ run was collected at the default time limit rather than the -L 30 above,
 so it also failed property 5 on cnn-24x24 on its own, before any
 perturbation: at 300ms per iteration criterion fits the slope over four
 ramp samples (R2 0.92), which is the very thing a raised limit buys off.
+That 300ms was itself such a slope rather than the benchmark's cost: it
+runs ~700ms, and CI's own series for it -- allocation flat at 3.628e9
+bytes per iteration from 2026-08-03 on, time never near 300ms -- shows
+nothing regressed in between, so the figure dated the instrument
+(checked 2026-08-22).
 
 The allocation pass and its gate were shown non-vacuous on 2026-07-30:
 inflating 48x48/S-exec's allocated-vs-iters slope by 30% failed exactly
