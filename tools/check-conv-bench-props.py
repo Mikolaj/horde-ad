@@ -16,32 +16,36 @@ benchmark filter) does, collected with a raised time limit and with the
 allocation regression asked for:
 
     cabal bench convVjpBench --enable-optimization \\
-      --benchmark-options='-L 30 --regress allocated:iters --json FILE \\
+      --benchmark-options='-L 90 --regress allocated:iters --json FILE \\
         +RTS -T'
 
-Several files are accepted and merged, which buys back most of that
-limit's cost: only the slow groups need the long budget, so give it to
-them alone and let the rest run at the default, about 26 minutes against
-54. Criterion's bare arguments are prefix patterns on the group/bench
-path, and these two sets are disjoint (`6x6` does not match `inp-6x6`,
+The budget is cnn-24x24's, the only group that needs it, and one run at
+it costs 107 benchmarks x 90s, near three hours. Several files are
+accepted and merged, which buys almost all of that back: give the long
+budget to the groups that need it and let the rest run at the default,
+about 30 minutes. Criterion's bare arguments are prefix patterns on the group/bench
+path, and these three sets are disjoint (`6x6` does not match `inp-6x6`,
 `24x24` does not match `cnn-24x24`):
 
     cabal bench convVjpBench --enable-optimization --benchmark-options=\\
       '-L 30 --regress allocated:iters --json slow.json 192x192 \\
-       inp-192x192 cnn-12x12 cnn-24x24 gather48 scatter48 +RTS -T'
+       inp-192x192 cnn-12x12 gather48 scatter48 +RTS -T'
+    cabal bench convVjpBench --enable-optimization --benchmark-options=\\
+      '-L 90 --regress allocated:iters --json cnn24.json cnn-24x24 \\
+       +RTS -T'
     cabal bench convVjpBench --enable-optimization --benchmark-options=\\
       '--regress allocated:iters --json fast.json 6x6 24x24 48x48 96x96 \\
        inp-6x6 inp-24x24 inp-48x48 inp-96x96 cnn-6x6 pitfalls +RTS -T'
-    python3 tools/check-conv-bench-props.py slow.json fast.json
+    python3 tools/check-conv-bench-props.py slow.json cnn24.json fast.json
 
-Both halves carry `--regress allocated:iters` and `+RTS -T`, exactly as
-the single-file recipe does: `-L 30` is the only thing the split trades
-away. Omit them and collection still succeeds, but the check aborts on
-its first report, the allocation pass having no slope to read. These two
-commands lacked both flags from 8c6367789, which added the split and the
-allocation pass in one go, until 2026-07-30 -- found by reading the
-requirement below against the recipe, then demonstrated by deleting the
-37 allocated regressions from a real slow.json: exit 1 on
+All three carry `--regress allocated:iters` and `+RTS -T`, exactly as
+the single-file recipe does: the time limit is the only thing the split
+trades away. Omit them and collection still succeeds, but the check
+aborts on its first report, the allocation pass having no slope to read.
+These commands lacked both flags from 8c6367789, which added the split
+and the allocation pass in one go, until 2026-07-30 -- found by reading
+the requirement below against the recipe, then demonstrated by deleting
+the 37 allocated regressions from a real slow.json: exit 1 on
 192x192/S-fullpipe-honest, quoting the hint that names the two flags.
 
 Together the files must partition the suite: a benchmark collected twice
@@ -50,7 +54,10 @@ also not cut across a property. gather48 and scatter48 take the long
 budget together only because property 15 compares them, and splitting
 them would weigh a converged slope against a ramp-biased one; the slow
 set is otherwise just the groups that come up short of samples at the
-default limit, cnn-24x24 worst at four.
+default limit. cnn-24x24 takes a file of its own because -L 30 leaves it
+at eight samples, under the gate below, where -L 90 gives fifteen
+(measured 2026-08-22); separating it cuts across nothing, every property
+naming it staying inside its own group.
 
 The times compared are the per-iteration OLS slopes criterion fits over
 time against iteration count — the estimate it prints on its "time"
@@ -87,7 +94,7 @@ allocation fit usable and every property instance passing, the widest
 equality gap 0.5% against the 5% tolerance and no inequality above ratio
 1.00. The tradeoff is what allocation cannot see — the
 gather-against-scatter time gap being the standing example, ~9-12x against
-released orthotope 0.1.8.0 and 2.55x once its strided-fallback fix is
+released orthotope 0.1.8.0 and 2.52x once its strided-fallback fix is
 linked (bench/CLAUDE.md).
 
 Dash-arguments other than --allocation-only are refused (exit 2, nothing
@@ -118,7 +125,7 @@ responder aborted naming the benchmark, each with exit status 1. That
 run was collected at the default time limit rather than the -L 30 above,
 so it also failed property 5 on cnn-24x24 on its own, before any
 perturbation: at 300ms per iteration criterion fits the slope over four
-ramp samples (R2 0.92), which is the very thing -L 30 buys off.
+ramp samples (R2 0.92), which is the very thing a raised limit buys off.
 
 The allocation pass and its gate were shown non-vacuous on 2026-07-30:
 inflating 48x48/S-exec's allocated-vs-iters slope by 30% failed exactly
@@ -229,12 +236,16 @@ def fmt_bytes(b):
 # A slope is only as good as the regression it came from, and a
 # benchmark whose single iteration outruns criterion's 30ms sample filter
 # can spend the whole budget still inside its warm-up ramp. Both
-# thresholds fall in empty gaps of a measured full run at the default
-# time limit: of its 107 benchmarks none fit between R2 0.927 and 0.978,
-# and none collect between 6 and 10 samples, the three ~300ms-per-
-# iteration cnn-24x24 ones sitting alone below at 4-5 samples and R2
-# 0.918-0.989. Both checks earn their place — that group's S-exec-raw
-# fits at R2 0.989, so only its sample count gives it away.
+# thresholds were sited in empty gaps of a measured full run at the
+# default time limit, when the suite ran at -A1G: of its 107 benchmarks
+# none fit between R2 0.927 and 0.978, and none collected between 6 and
+# 10 samples. At -A32m (2026-08-22) both gaps are occupied --
+# inp-192x192's H-exec-raw and H-fullpipe collect 8 samples, its
+# S-exec-raw fits at R2 0.946 -- so the thresholds now cut through the
+# distribution rather than through a hole in it, and each still names
+# only benchmarks a longer budget fixes. Both checks earn their place:
+# at -L 30 cnn-24x24 collects 8 samples at R2 0.999, caught by the count
+# alone.
 MIN_R2 = 0.95
 MIN_SAMPLES = 10
 # Allocation is all but exactly linear in the iteration count, so its fit

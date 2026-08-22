@@ -3,13 +3,16 @@
 A benchmark's measured time can depend on which benchmarks ran earlier
 in the same criterion process — by 22% on this repo's `convVjpBench` gather
 benchmarks — through state the predecessor leaves in GHC's block-level memory
-pool and nothing ever resets.  This document is the full account: the mechanism
-and the evidence for each link, what was ruled out, the relation to the warm-up
-ramp, the consequences for measurement practice here and in orthotope's
-`micro-regime3`, and the standalone reproducer behind the [GHC issue
-draft][ghc-issue].  The files that used to carry pieces
-of this (`bench/CLAUDE.md`, the root `CLAUDE.md`, the staged drafts,
-`micro-regime3/README.md`) now hold one-line rules and link here.
+pool and nothing ever resets.  Everything here is measured at `-A1G`;
+at the `-A32m` the suite was fixed to on 2026-08-21 the same pair reads 6.9%
+(three interleaved pairs, 2026-08-22, allocation byte-identical).  This document
+is the full account: the mechanism and the evidence for each link, what
+was ruled out, the relation to the warm-up ramp, the consequences
+for measurement practice here and in orthotope's `micro-regime3`,
+and the standalone reproducer behind the [GHC issue draft][ghc-issue].
+The files that used to carry pieces of this (`bench/CLAUDE.md`, the root
+`CLAUDE.md`, the staged drafts, `micro-regime3/README.md`) now hold one-line
+rules and link here.
 
 Vocabulary: "position effect" here means dependence on *which benchmarks share
 the process* (the roster).  It is not the slot a benchmark occupies within
