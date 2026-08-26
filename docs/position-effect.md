@@ -5,9 +5,13 @@ in the same criterion process — by 22% on this repo's `convVjpBench` gather
 benchmarks — through state the predecessor leaves in GHC's block-level memory
 pool and nothing ever resets.  Everything here is measured at `-A1G`;
 at the `-A32m` the suite was fixed to on 2026-08-21 the same pair reads 6.9%
-(three interleaved pairs, 2026-08-22, allocation byte-identical).  This document
-is the full account: the mechanism and the evidence for each link, what
-was ruled out, the relation to the warm-up ramp, the consequences
+(three interleaved pairs, 2026-08-22, allocation byte-identical), and 7.7% once
+orthotope's `mut-odo-vecdims` fill halved the poisoning predecessor's own
+allocation (three more pairs, 2026-08-27, victim allocation identical to 31
+bytes in 83.2MB) --- so the effect survives a fallback change that the *Why
+it moved a cross-build A/B* section below would have one expect to move it.
+This document is the full account: the mechanism and the evidence for each link,
+what was ruled out, the relation to the warm-up ramp, the consequences
 for measurement practice here and in orthotope's `micro-regime3`,
 and the standalone reproducer behind the [GHC issue draft][ghc-issue].
 The files that used to carry pieces of this (`bench/CLAUDE.md`, the root
@@ -238,11 +242,14 @@ Everything above was measured 2026-08-03 on the development machine (Ryzen 7
 additionally on GHC 9.14.1 and on HEAD 10.1.20260803, perf-flavour build —
 criterion 1.6.5.0 / criterion-measurement 0.2.5.0, `convVjpBench` built `-O1`
 with `-A1G -I0`; the fixed build links the `speedup-strided-tovector` orthotope
-checkout, the released build Hackage orthotope 0.1.8.0.  Instruments: criterion
-per-iteration OLS slopes (all fits R² ≥ 0.99), `+RTS -s`, `/usr/bin/time -v`,
-`/proc/<pid>` RSS/AnonHugePages timelines (transparent huge pages were 0
-throughout — eliminated as a factor), and root `perf stat` (hardware counters
-are blocked for unprivileged sessions on this machine by `perf_event_paranoid`).
+checkout at its `bq-expand` fallback, `5e4ece1` (that branch has since moved on,
+and no library commit falls between `5e4ece1` and 2026-08-25, so every
+measurement here and in the files citing it was against that code), the released
+build Hackage orthotope 0.1.8.0.  Instruments: criterion per-iteration OLS
+slopes (all fits R² ≥ 0.99), `+RTS -s`, `/usr/bin/time -v`, `/proc/<pid>`
+RSS/AnonHugePages timelines (transparent huge pages were 0 throughout —
+eliminated as a factor), and root `perf stat` (hardware counters are blocked
+for unprivileged sessions on this machine by `perf_event_paranoid`).
 Criterion's GC placement (major per benchmark, minor per sample) was read
 from the criterion-measurement 0.2.5.0 source.
 

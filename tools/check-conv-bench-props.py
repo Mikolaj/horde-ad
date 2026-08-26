@@ -54,10 +54,16 @@ also not cut across a property. gather48 and scatter48 take the long
 budget together only because property 15 compares them, and splitting
 them would weigh a converged slope against a ramp-biased one; the slow
 set is otherwise just the groups that come up short of samples at the
-default limit. cnn-24x24 takes a file of its own because -L 30 leaves it
-at eight samples, under the gate below, where -L 90 gives fifteen
-(measured 2026-08-22); separating it cuts across nothing, every property
-naming it staying inside its own group.
+default limit. cnn-24x24 took a file of its own because -L 30 left it at
+eight samples, under the gate below, where -L 90 gave fifteen (measured
+2026-08-22); separating it cuts across nothing, every property naming it
+staying inside its own group. Since orthotope's mut-odo-vecdims fill that
+group runs ~240ms rather than ~700ms and clears the gate at -L 30 too, at
+fifteen (measured 2026-08-27), so its own file is now headroom. Keep it:
+the partition fixes each file's roster, and a roster change moves the
+numbers through the position effect, so collapsing the split would cost a
+re-collection of every figure recorded against this recipe to save about
+four minutes.
 
 The times compared are the per-iteration OLS slopes criterion fits over
 time against iteration count — the estimate it prints on its "time"
@@ -84,9 +90,9 @@ kernels and are the ones to re-measure when those kernels change.
 allocation fit. That is what .github/workflows/lint-and-test-suites.yml
 runs on every push, over a default-limit collection of the whole suite:
 too short for the time slopes, but allocation is so nearly exact in the
-iteration count that even the four-sample cnn-24x24 benchmarks fit it at
-R2 1.000000, so the allocation verdict on such a run is as good as on an
-hour-long one. Before the workflow was wired to it, the mode was checked
+iteration count that even the sparsest-sampled cnn-24x24 benchmarks fit
+it at R2 1.000000, so the allocation verdict on such a run is as good as
+on an hour-long one. Before the workflow was wired to it, the mode was checked
 in CI's own configuration: a default-limit full run on 2026-08-02, built
 from cabal.project alone so that orthotope resolved from Hackage as it
 does there rather than from the sibling checkout, reported every
@@ -94,8 +100,9 @@ allocation fit usable and every property instance passing, the widest
 equality gap 0.5% against the 5% tolerance and no inequality above ratio
 1.00. The tradeoff is what allocation cannot see — the
 gather-against-scatter time gap being the standing example, ~9-12x against
-released orthotope 0.1.8.0 and 2.52x once its strided-fallback fix is
-linked (bench/CLAUDE.md).
+released orthotope 0.1.8.0, 2.52x once its bq-expand strided-fallback fix
+was linked and 1.18x under the mut-odo-vecdims fill that replaced it
+(bench/CLAUDE.md).
 
 Dash-arguments other than --allocation-only are refused (exit 2, nothing
 checked) rather than read as JSON paths — a mistyped mode flag would
@@ -158,6 +165,15 @@ and R2 past both thresholds in a copy silenced it ("all 107 slopes
 usable"), and lowering a 115-sample benchmark's R2 to 0.80 named that
 one as well — so each arm is known to fire alone, cnn-24x24/S-exec-raw
 tripping only the sample count and 6x6/S-exec only the R2.
+
+The fill that retired that live control cost the gate its cheapest
+proof, so it was re-shown by perturbation on 2026-08-27, against a real
+collection on the current build: truncating gather48/two-gathers-ad-orient
+to 8 measurements, and separately setting its time R2 to 0.80 and its
+allocated R2 to 0.99, each named that one benchmark and no other and each
+exited 1, so all three arms still fire alone. Re-run that whenever the
+suite outgrows the gate again -- a gate nothing trips is indistinguishable
+from a gate that cannot.
 """
 import json
 import sys
@@ -244,13 +260,15 @@ def fmt_bytes(b):
 # thresholds were sited in empty gaps of a measured full run at the
 # default time limit, when the suite ran at -A1G: of its 107 benchmarks
 # none fit between R2 0.927 and 0.978, and none collected between 6 and
-# 10 samples. At -A32m (2026-08-22) both gaps are occupied --
-# inp-192x192's H-exec-raw and H-fullpipe collect 8 samples, its
-# S-exec-raw fits at R2 0.946 -- so the thresholds now cut through the
-# distribution rather than through a hole in it, and each still names
-# only benchmarks a longer budget fixes. Both checks earn their place:
-# at -L 30 cnn-24x24 collects 8 samples at R2 0.999, caught by the count
-# alone.
+# 10 samples. At -A32m (2026-08-22) both gaps filled up --
+# inp-192x192's H-exec-raw and H-fullpipe collected 8 samples, its
+# S-exec-raw fit at R2 0.946 -- so the thresholds cut through the
+# distribution rather than through a hole in it, each still naming only
+# benchmarks a longer budget fixes. Since orthotope's mut-odo-vecdims
+# fill (2026-08-27) both gaps are clear again and by a wide margin: the
+# worst of the 107 collects 22 samples and the worst fits at R2 0.994.
+# That leaves the gate with no live control -- the arm-by-arm proof
+# below is what stands in for one.
 MIN_R2 = 0.95
 MIN_SAMPLES = 10
 # Allocation is all but exactly linear in the iteration count, so its fit
