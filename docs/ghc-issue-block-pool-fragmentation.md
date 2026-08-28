@@ -8,7 +8,7 @@ A program phase that makes many short-lived pinned allocations can cause the blo
 
 Code that allocates in this pool after this phase is slower. The effect has two strengths. Code that writes and reads each new buffer only one time becomes slower by a small quantity. In the reproducer below, the slowdown is 1% to 4%. Code that recycles a large working set through the divided free lists at a high rate becomes much slower. In the application that this program models (an array-interpretation workload), such code becomes 22% slower for the remainder of the process, after the same pool change (1117 MiB to 2180 MiB). The difference between the two strengths comes from the access pattern, and it is the reason a small program does not easily show the large effect. A simple loop has one of two protections. When its working set is small, the cache holds the set, scattered or not. When its accesses are sequential, the hardware prefetcher hides the DRAM latency. The interpreter of the application has no such protection: in each iteration, it reads and writes many arrays of different sizes through pointers, and each such access to the scattered region can miss.
 
-In that application, the effect did more than make the code slower. It made benchmark results invalid. The change is a bias, not noise. In one process, the regression fits stay tight (R² ≥ 0.999) around a value that is wrong by up to 22% for the pool state of that process. More samples in the same process make the confidence interval smaller around the wrong value. They do not find or decrease the bias. Comparisons between processes with different initial workloads thus show differences that are not real. One such false 18–20% regression showed the same tight fits across twelve measurements and survived an interleaved and controlled A/B procedure. Also, while the pool grows, the early samples of a benchmark are slow. This transient makes the fitted time-per-iteration slope too low at usual time budgets. Only runs several times longer give a slope that is free of it.
+In that application, the effect did more than make the code slower. It made benchmark results invalid. The change is a bias, not noise. In one process, the regression fits stay tight (R2 >= 0.999) around a value that is wrong by up to 22% for the pool state of that process. More samples in the same process make the confidence interval smaller around the wrong value. They do not find or decrease the bias. Comparisons between processes with different initial workloads thus show differences that are not real. One such false 18--20% regression showed the same tight fits across twelve measurements and survived an interleaved and controlled A/B procedure. Also, while the pool grows, the early samples of a benchmark are slow. This transient makes the fitted time-per-iteration slope too low at usual time budgets. Only runs several times longer give a slope that is free of it.
 
 For the 22% case, hardware counters show the cause. Data from `perf stat` over runs with a fixed iteration count, per iteration:
 
@@ -18,7 +18,7 @@ For the 22% case, hardware counters show the cause. Data from `perf stat` over r
 | instructions | 133.55M | 133.48M | 0.9994 |
 | dTLB-load-misses | 22.1k | 22.9k | 1.04 |
 | cache-misses | 120.0k | 343.5k | 2.86 |
-| page faults (full phase) | 90k | 98 | — |
+| page faults (full phase) | 90k | 98 | --- |
 | clock | 4.954 GHz | 4.953 GHz | 1.00 |
 
 The instruction counts are equal. The dTLB misses are almost equal. The clock speeds are equal. The garbage-collection counts, the copied bytes and the allocated bytes are equal. There are no page faults in the slow phase. Thus all the memory is resident. Only the last-level-cache misses increase, 2.86 times. Each added cache miss costs approximately 53 cycles, which is DRAM latency with overlap. This is sufficient to cause the full time increase. Two controls show that the cause is the structure of the pool, not its size. A pool of the same size that the RTS gets in one continuous piece (`+RTS -H2G`) has no cost. A different first phase, which makes a larger pool with larger parts, has a smaller cost.
@@ -35,9 +35,9 @@ This path is important for array programs: `Data.Vector.Storable` makes pinned a
 
    | | victim alone | victim poisoned | slowdown | pool alone | pool poisoned |
    |---|---:|---:|---:|---:|---:|
-   | 9.12.4 | 2.63–2.70 ms/iter | 2.71–2.81 ms/iter | +4% | 1.018 GiB | 2.166 GiB |
-   | 9.14.1 | 2.57–2.60 ms/iter | 2.61–2.68 ms/iter | +2% | 1.018 GiB | 2.166 GiB |
-   | HEAD 10.1.20260803 | 2.44–2.45 ms/iter | 2.47–2.49 ms/iter | +1% | 1.018 GiB | 2.166 GiB |
+   | 9.12.4 | 2.63--2.70 ms/iter | 2.71--2.81 ms/iter | +4% | 1.018 GiB | 2.166 GiB |
+   | 9.14.1 | 2.57--2.60 ms/iter | 2.61--2.68 ms/iter | +2% | 1.018 GiB | 2.166 GiB |
+   | HEAD 10.1.20260803 | 2.44--2.45 ms/iter | 2.47--2.49 ms/iter | +1% | 1.018 GiB | 2.166 GiB |
 
    The `poison` phase completes in approximately 3 seconds. Thus a short phase of allocation, of a type that array programs do frequently, is sufficient to cause the permanent change.
 

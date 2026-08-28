@@ -2405,9 +2405,9 @@ filterPositiveFail :: ADReady target
 filterPositiveFail v =
   let l = runravelToList v
       -- l2 = filter (\x -> x >= 0) l
-      -- Could not deduce ‘Ord (target Double 0)’
+      -- Could not deduce 'Ord (target Double 0)'
       -- l2 = filter (\x -> x >=. 0) l
-      -- Could not deduce ‘BoolOf target ~ Bool’
+      -- Could not deduce 'BoolOf target ~ Bool'
       l2 = take 12 l  -- the most I can do
   in rfromList $ NonEmpty.fromList l2
 

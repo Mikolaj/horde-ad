@@ -59,10 +59,10 @@ Three corrections are possible. (1) Align the head of each inner loop in the nat
 
    | | loop in one line | loop across two lines | slowdown |
    |---|---:|---:|---:|
-   | 9.10.3 | 0.255–0.270 ns/iter | 0.406–0.420 ns/iter | 1.59 |
-   | 9.12.4 | 0.260–0.270 ns/iter | 0.408–0.421 ns/iter | 1.57 |
-   | 9.14.1 | 0.256–0.262 ns/iter | 0.407–0.424 ns/iter | 1.59 |
-   | HEAD 10.1.20260803 | 0.262–0.275 ns/iter | 0.407–0.423 ns/iter | 1.55 |
+   | 9.10.3 | 0.255--0.270 ns/iter | 0.406--0.420 ns/iter | 1.59 |
+   | 9.12.4 | 0.260--0.270 ns/iter | 0.408--0.421 ns/iter | 1.57 |
+   | 9.14.1 | 0.256--0.262 ns/iter | 0.407--0.424 ns/iter | 1.59 |
+   | HEAD 10.1.20260803 | 0.262--0.275 ns/iter | 0.407--0.423 ns/iter | 1.55 |
 
 6. See that an ordinary build gives a divided loop by itself, with no position given and no stand-in assembler. Put this same program in a package, build it with `cabal build`, and disassemble the result: the loop starts at byte 50 of a line, thus it crosses a boundary, and the program takes 0.405 ns for each iteration. Build the same package with the stand-in assembler, `cabal build --ghc-options="-fforce-recomp -pgma /full/path/to/align-as.py"`, and the loop starts at byte 0 and the program takes 0.253 ns. Nobody selected byte 50. It is the quantity of code before the loop, and it changes when that code changes.
 

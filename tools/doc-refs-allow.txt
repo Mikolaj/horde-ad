@@ -12,15 +12,15 @@
 # The file holds two paths and no more. Two groups that could have been
 # here were removed rather than lost:
 #
-# * Seven prose fragments — `.md`, `.cabal`, `blob/master`, `group/bench`,
-#   `head_sha`, `Run`, `sv_strided` — were needed only by the draft
+# * Seven prose fragments --- `.md`, `.cabal`, `blob/master`, `group/bench`,
+#   `head_sha`, `Run`, `sv_strided` --- were needed only by the draft
 #   checker this replaced, which read bare snake_case as cabal flags and
 #   any slash as a path. All seven now fall to "unclassified" on their
 #   own, and an entry that suppresses nothing is a line nobody can audit.
 #
-# * Four upstream paths — ox-arrays' `Arith.hs`, `Arith/Internal.hs` and
+# * Four upstream paths --- ox-arrays' `Arith.hs`, `Arith/Internal.hs` and
 #   `cbits/arith.c`, and orthotope's `Data/Array/Internal/FastReshape.hs`
-#   — are now resolved against the `../ox-arrays` and `../orthotope`
+#   --- are now resolved against the `../ox-arrays` and `../orthotope`
 #   checkouts instead. That is strictly stronger: an allowlist entry only
 #   ever confirmed that a name was spelled the way the allowlist spelled
 #   it, so an upstream rename passed unnoticed. If a checkout is missing,
