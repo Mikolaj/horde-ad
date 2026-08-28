@@ -2,7 +2,7 @@
 """Check that the twin tools here and in the sibling repo have not drifted.
 
 Usage: python3 tools/check-twin-sync.py [--self-test]
-Run from the repo root.
+Runs from anywhere in the repository.
 
 The document checkers are kept as twin copies in the repos that adopted
 them, identical apart from a per-repo configuration and their docstrings
@@ -12,7 +12,10 @@ session happened to mount both repos and think of diffing them. This is
 that diff, mechanized: for every tools/*.py present in both checkouts,
 compare everything below the module docstring, with the marked per-repo
 configuration block stripped from both sides and, for scripts that
-predate the marker, the assignments to the names in CONFIG_NAMES.
+predate the marker, the assignments to the names in CONFIG_NAMES. Any
+other file under tools/ is compared whole, except the per-repo ones
+named in TWIN_SKIP (the allowlist); until 2026-08-28 only `*.py` was
+looked at, so a shared shell script could drift unseen.
 
 TWIN_ROOT names the sibling's tools directory. Absent -- unmounted, or
 hidden by the outer wrapper -- the run is BLOCKED with exit 2, the same
@@ -30,20 +33,26 @@ copies and port, which no summary replaces.
 Non-vacuity: run --self-test. It copies this repo's tools into a scratch
 "twin", confirms the identical copies pass, then confirms that a
 docstring-only change and a configuration-only change both still pass
-while a mutated code line fails. The self-test was itself proved
+while a mutated code line fails, and that a shared shell script is
+compared whole while a TWIN_SKIP file is not. The self-test was itself proved
 non-vacuous by breaking the checker in a copy (2026-08-14): a
 comparable() that returns the empty string for every script turns the
-mutated-code case green and the self-test red.
+mutated-code case green and the self-test red. Each mutation now asserts
+that its target text exists, the configuration case having replaced a
+literal TWIN_ROOT that only this repo's copy carries.
 """
 import ast
 import glob
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 
 # --- per-repo configuration -----------------------------------------
 TWIN_ROOT = "../LambdaHack/tools"
+# Files under tools/ that are each repo's own, compared with nothing.
+TWIN_SKIP = ("doc-refs-allow.txt",)
 # --- end per-repo configuration --------------------------------------
 
 MARKER_BEGIN = "# --- per-repo configuration"
@@ -52,8 +61,18 @@ MARKER_END = "# --- end per-repo configuration"
 CONFIG_NAMES = ("SEARCH_ROOTS", "PUBLISHED_REF", "TWIN_ROOT")
 
 
+def chdir_root():
+    """Run from the repository root whatever the cwd, TWIN_ROOT being
+    root-relative. Outside a repository nothing moves."""
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                         capture_output=True, text=True).stdout.strip()
+    if top:
+        os.chdir(top)
+
+
 def comparable(text):
-    """The part of a script the twins must agree on."""
+    """The part of a script the twins must agree on; a file that is not
+    Python is compared whole."""
     lines = text.split("\n")
     try:
         tree = ast.parse(text)
@@ -85,8 +104,10 @@ def comparable(text):
 
 def compare(root_a, root_b):
     """(drifted, only_a, only_b, same) basename lists for the two roots."""
-    a = {os.path.basename(p) for p in glob.glob(os.path.join(root_a, "*.py"))}
-    b = {os.path.basename(p) for p in glob.glob(os.path.join(root_b, "*.py"))}
+    def files(root):
+        return {os.path.basename(p) for p in glob.glob(os.path.join(root, "*"))
+                if os.path.isfile(p) and os.path.basename(p) not in TWIN_SKIP}
+    a, b = files(root_a), files(root_b)
     drifted, same = [], []
     for name in sorted(a & b):
         ta = open(os.path.join(root_a, name), encoding="utf-8").read()
@@ -110,24 +131,43 @@ def self_test():
             bad.append("identical twin read as drifted: %r" % drifted)
         victim = os.path.join(twin, myself)
         text = open(victim, encoding="utf-8").read()
-        open(victim, "w").write(text.replace(
-            "Check that the twin tools", "CHANGED docstring words", 1))
-        drifted = compare(here, twin)[0]
-        if drifted:
+
+        def mutate(case, old, new):
+            # A replacement that matches nothing leaves the twin identical
+            # and the case passing for nothing, which is how the
+            # configuration case read in the other repo, whose TWIN_ROOT
+            # this file's literal did not name (2026-08-28).
+            if old not in text:
+                bad.append(f"{case}: nothing to mutate, {old!r} absent")
+            open(victim, "w").write(text.replace(old, new, 1))
+            return compare(here, twin)[0]
+
+        if mutate("docstring", "Check that the twin tools",
+                  "CHANGED docstring words"):
             bad.append("docstring-only change read as drift")
-        open(victim, "w").write(text.replace(
-            'TWIN_ROOT = "../LambdaHack/tools"',
-            'TWIN_ROOT = "../horde-ad/tools"', 1))
-        drifted = compare(here, twin)[0]
-        if drifted:
+        if mutate("configuration", 'TWIN_ROOT = "%s"' % TWIN_ROOT,
+                  'TWIN_ROOT = "../no-such-twin/tools"'):
             bad.append("configuration-only change read as drift")
-        open(victim, "w").write(text.replace(
-            '"""The part of a script the twins must agree on."""',
-            '"""The part of a script the twins must agree on."""'
-            '  # mutated', 1))
-        drifted = compare(here, twin)[0]
-        if myself not in drifted:
+        if myself not in mutate(
+                "code", '"""The part of a script the twins must agree on."""',
+                '"""The part of a script the twins must agree on."""'
+                '  # mutated'):
             bad.append("a mutated code line was not read as drift")
+        # Shared files that are not Python are compared whole, and the
+        # per-repo ones in TWIN_SKIP not at all: two scratch copies, so
+        # that nothing is written into the real tools/.
+        mine = os.path.join(td, "mine")
+        shutil.copytree(twin, mine)
+        for root in (mine, twin):
+            open(os.path.join(root, "probe.sh"), "w").write("echo a\n")
+            open(os.path.join(root, TWIN_SKIP[0]), "w").write(root + "\n")
+        drifted, _, _, same = compare(mine, twin)
+        if "probe.sh" not in same or TWIN_SKIP[0] in drifted + same:
+            bad.append("a shared shell script was not compared, or a"
+                       " per-repo file was: %r %r" % (drifted, same))
+        open(os.path.join(twin, "probe.sh"), "w").write("echo b\n")
+        if "probe.sh" not in compare(mine, twin)[0]:
+            bad.append("a mutated shell script was not read as drift")
     for b in bad:
         print("FAIL: %s" % b)
     if not bad:
@@ -141,6 +181,7 @@ def main():
     if sys.argv[1:]:
         print("usage: check-twin-sync.py [--self-test]", file=sys.stderr)
         return 2
+    chdir_root()
     here = os.path.dirname(os.path.abspath(__file__))
     if not os.path.isdir(TWIN_ROOT):
         print(f"BLOCKED --- twin checkout not available: {TWIN_ROOT}")

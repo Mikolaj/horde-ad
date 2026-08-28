@@ -2,7 +2,7 @@
 """Check that paths, build targets and flags named in a document exist.
 
 Usage: python3 tools/check-doc-refs.py [DOC ...]
-DOC defaults to CLAUDE.md. Run from the repo root.
+DOC defaults to CLAUDE.md. Runs from anywhere in the repository.
 
 This is pass 2 of the document-verification discipline (the
 `doc-verification` skill), mechanized. Pass 1
@@ -58,10 +58,12 @@ unclassified rather than guessed at:
            flag in a workflow) is reported as external; one found nowhere
            is listed for eyeballing, never failed, because third-party
            tools own flags this repo never mentions. That corroborating
-           grep skips tools/ as well as the documents: the non-vacuity
-           recipe below names a bogus flag, and a checker that reads its
-           own documentation as evidence would call it real --- as this one
-           did until the recipe was first run.
+           grep skips this script as well as the documents: the
+           non-vacuity rows below name a bogus flag, and a checker that
+           reads its own documentation as evidence would call it real ---
+           as this one did until the recipe was first run. It skipped all
+           of tools/ until 2026-08-28, which left every flag of the
+           tools scripts in the eyeball list for good.
   cabal    `+name` against the flags declared in the repo's cabal
   flags    file(s). Upgrade-only like modules, because prose reaches for a
            leading plus too --- a size column reading "small (+spike)" must
@@ -110,7 +112,12 @@ path and module. And the must-stay-unclassified rows guard the other
 direction: `tests` is prose, and it did briefly "resolve" --- to
 ../orthotope/tests --- until sibling matching was gated on path shape,
 which is how easily a big foreign tree turns a checker into a rubber
-stamp. The self-test was itself proved non-vacuous by breaking the
+stamp. Two rows of 2026-08-28: the same document through main() from a
+subdirectory, every checker having said "run from the repo root" and none
+having enforced it, and a PATH without wrap80, where the run must say that
+spans were read wrapped and the wrapped-span row must then not fire.
+Each went red with its fix reverted in a copy. The self-test was itself
+proved non-vacuous by breaking the
 checker in a copy (2026-08-14): a dead cabal-target loop, a dead
 sibling resolution, dropping the path-shape gate off the sibling arm,
 and a CITE_RE blind to the range citation each turned it red --- the
@@ -164,6 +171,7 @@ import glob
 import io
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -196,9 +204,13 @@ SELF_TEST_DOC = """\
 `src/HordeAd/Core/NoSuchModule.hs` is unresolved local drift, and
 `cabal test noSuchSuite` an unknown target; `HordeAd.Core.NoSuch` is a
 missing module of our namespace and `../ox-arrays/no/such/file.hs` is
-missing in a live sibling: all four must fail.
-`--noSuchFlag` is listed, never failed; `+noSuchFlag` stays
-unclassified.
+missing in a live sibling: all four must fail, as must the
+wrapped-span row below.
+`--noSuchFlag` is listed, never failed, while `--restamp` is external,
+another tool's; `+noSuchFlag` stays unclassified.
+A span the formatter wrapped, `two words
+across a break`, must not hide `src/HordeAd/Core/NoSuchTwin.hs`, which
+fails like the first path.
 `Arith/Internal.hs` and `Data.Array.Strided.Arith` resolve in a
 sibling, by path and by module name.
 `Core/Ast.hs` and `bench/ConvVjpBench.hs` and `cabal test minimalTest`
@@ -213,13 +225,13 @@ unclassified, which keeps the comma form from being a blanket accept.
 `https://example.com/a/b.md` and `https://hackage.haskell.org/` are
 URLs. None of these may be read as a path.
 """
-SELF_TEST_FAILURES = 4
-SELF_TEST_FAIL = ["NoSuchModule.hs", "noSuchSuite", "HordeAd.Core.NoSuch",
-                  "../ox-arrays/no/such/file.hs"]
+SELF_TEST_FAILURES = 5
+SELF_TEST_FAIL = ["NoSuchModule.hs", "NoSuchTwin.hs", "noSuchSuite",
+                  "HordeAd.Core.NoSuch", "../ox-arrays/no/such/file.hs"]
 SELF_TEST_OK = ["Core/Ast.hs", "bench/ConvVjpBench.hs", "minimalTest",
                 "Arith/Internal.hs", "Data.Array.Strided.Arith",
                 "HordeAd.Core.Ops", "HordeAd.ADEngine",
-                "with_expensive_assertions"]
+                "with_expensive_assertions", "--restamp"]
 # Citation shapes pass 1 owns: skipped here, in no bucket and no row.
 SELF_TEST_SKIPPED = ["Core/Ops.hs:297,1581", "Core/Ops.hs:297",
                      "Core/Ops.hs:297-320"]
@@ -252,11 +264,29 @@ def unwrapped(text):
     behaviour rather than failing, unlike the wrapping check, which reports
     nothing at all when it cannot run.
     """
+    global WRAP80_MISSING
     try:
         return subprocess.run(["wrap80", "--unwrap"], input=text, text=True,
                               capture_output=True, check=True).stdout
     except (OSError, subprocess.CalledProcessError):
+        WRAP80_MISSING = True
         return text
+
+
+WRAP80_MISSING = False
+
+
+def chdir_root(paths):
+    """Run from the repository root whatever the cwd -- the configuration's
+    paths are root-relative -- and return PATHS rebased to it. Outside a
+    repository nothing moves."""
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                         capture_output=True, text=True).stdout.strip()
+    if not top:
+        return paths
+    paths = [os.path.relpath(os.path.abspath(p), top) for p in paths]
+    os.chdir(top)
+    return paths
 CITE_RE = re.compile(r":\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*$")
 # The comma form is `check-plan-citations.py`'s: its `spans` expands
 # "222,1581" and "353,362,771-781" and checks every member. Recognising
@@ -494,7 +524,11 @@ def check_doc(doc, known, top_level, allow_paths, cabalflags, siblings,
     """Resolve every backticked token of one document. Returns failures."""
     text = open(doc, encoding="utf-8").read()
     failures = 0
-    for token in sorted({t for t in TICK_RE.findall(text) if " " not in t}):
+    # Read unwrapped, as check_commands reads its spans: on the wrapped text
+    # a multi-word span broken by the formatter flips the backtick phase,
+    # and the path token after it is read as prose and never checked.
+    for token in sorted({t for t in TICK_RE.findall(unwrapped(text))
+                         if " " not in t}):
         if CITE_RE.search(token) or token.startswith("-"):
             continue                      # pass 1 and the flag pass own these
         if not any(c.isalnum() for c in token):
@@ -592,11 +626,15 @@ def check_commands(doc, targets, stanzas, ours, allow_make, allow_cabal, out):
             print(f"FAIL target cabal {name} --- no such cabal stanza")
             failures += 1
 
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                         capture_output=True, text=True).stdout.strip()
+    self_path = os.path.relpath(os.path.abspath(__file__), top or ".")
     for flag in sorted(set(FLAG_RE.findall(commands))):
         if flag in ours:
             print(f"ok   flag   --{flag}")
         elif subprocess.run(["git", "grep", "-qF", "--", "--" + flag,
-                             "--", ":!*.md", ":!tools/"]).returncode == 0:
+                             "--", ":!*.md", ":(top,exclude)" + self_path]
+                            ).returncode == 0:
             print(f"ok   flag   --{flag} (external tool, used in the repo)")
         else:
             out["unknown_flags"].append(flag)
@@ -689,6 +727,28 @@ def self_test():
             bad.append("local drift did not degrade to SKIP alongside"
                        " the upstream rows")
 
+        # The same document through main(), from a subdirectory: the
+        # configuration's paths are root-relative, so a run from elsewhere
+        # used to report every sibling unmounted.
+        script = os.path.abspath(__file__)
+        p = subprocess.run([sys.executable, script, doc],
+                           capture_output=True, text=True,
+                           cwd=os.path.dirname(script))
+        if p.returncode != 1 or f"{SELF_TEST_FAILURES} failed" not in p.stdout:
+            bad.append("run from a subdirectory: exit %d, %r" % (
+                p.returncode, p.stdout.strip().splitlines()[-1:]))
+        with tempfile.TemporaryDirectory() as bindir:
+            for tool in ("git", "bash", "find"):
+                os.symlink(shutil.which(tool), os.path.join(bindir, tool))
+            p = subprocess.run([sys.executable, script, doc],
+                               capture_output=True, text=True,
+                               env=dict(os.environ, PATH=bindir))
+        if "NOTE: wrap80" not in p.stdout:
+            bad.append("no note about spans read wrapped without wrap80")
+        if "NoSuchTwin.hs" in p.stdout:
+            bad.append("the wrapped-span row fired without wrap80, so"
+                       " the note's claim is false")
+
         saved = SIBLING_ROOTS
         SIBLING_ROOTS = ["../no-such-checkout-for-self-test"]
         try:
@@ -713,7 +773,7 @@ def main():
     no_siblings = "--without-siblings" in sys.argv[1:]
     if "--self-test" in sys.argv[1:]:
         return self_test()
-    docs = args or ["CLAUDE.md"]
+    docs = chdir_root(args) or ["CLAUDE.md"]
     require_readable(docs)
 
     missing = [] if no_siblings else missing_siblings()
@@ -767,6 +827,10 @@ def main():
               + (":" if always or verbose else " (-v to list)"))
         if always or verbose:
             print("  " + ", ".join(items))
+    if WRAP80_MISSING:
+        print("\nNOTE: wrap80 is not on PATH, so spans were read off the"
+              " wrapped text; a\nspan the formatter broke across lines hides"
+              " every token after it on that line.")
     print(f"\n{failures} failed")
     return 1 if failures else 0
 

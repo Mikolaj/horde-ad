@@ -88,14 +88,21 @@ monadic-return upgrade demoted the mret probe to WEAK; after the markers
 were added, disabling gvar misread gv's path list as var,bang and
 disabling rec misread loopW2's and loopT's as ending in var.
 
-Exit codes: 0 clean, 1 selftest failure, 2 blocked (no ghc on PATH).
+Exit codes: 0 for a run over a tree, whatever it printed --- the
+candidates are input for the reader, not findings --- and for a passing
+selftest, 1 selftest failure, 2 blocked: no ghc on PATH, or a
+--dumps glob matching no file, which until 2026-08-28 was accepted in
+silence and reported every candidate UNVERIFIED blaming the build; the
+selftest asserts the stop, and went red with it reverted in a copy.
 A quiet run over a tree proves nothing until
 --selftest has passed on the same machine, so run that first; and
 candidates a run does print are untriaged input for the reader's rules
 above, not confirmed defects.
 """
 
+import contextlib
 import glob
+import io
 import os
 import re
 import shutil
@@ -386,6 +393,10 @@ def collect_files(roots):
 
 def run(roots, dump_pats):
     sigs, stems = load_dumps(dump_pats) if dump_pats else ({}, set())
+    if dump_pats and not stems:
+        print('BLOCKED: no file matches --dumps %s; every verdict would'
+              ' read UNVERIFIED' % ' '.join(dump_pats))
+        return 2
     total = unparsed_total = 0
     for path in collect_files(roots):
         cands, unparsed = find_candidates(path)
@@ -561,6 +572,10 @@ def selftest():
             bad.append('missing local candidate %s arg %d' % key)
         for key in lgot - EXPECT_LOCAL:
             bad.append('unexpected local candidate %s arg %d' % key)
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            code = run([top], [os.path.join(td, 'no-such-*.dump')])
+        if code != 2 or 'BLOCKED' not in buf.getvalue():
+            bad.append('a --dumps glob matching nothing did not block')
     if bad:
         for b in bad:
             print('FAIL: %s' % b)

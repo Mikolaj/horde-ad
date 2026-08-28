@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Check that file:line citations in a planning document still resolve.
 
-Usage: python3 tools/check-plan-citations.py [DOC]
-DOC defaults to CLAUDE.md. Run from the repo root.
+Usage: python3 tools/check-plan-citations.py [DOC ...]
+DOC defaults to CLAUDE.md. Runs from anywhere in the repository. --restamp takes one
+DOC, since the stamp it writes is that document's own.
 
 For every citation of the form `path/to/File.hs:12` or `File.hs:12-34`
 (also .ts, .py, .c, .h, .cabal, .mjs, .html, .md, .txt, .yaml/.yml and
@@ -19,7 +20,8 @@ the match.
 
 Exit status is nonzero if any citation is UNRESOLVED (no such file),
 AMBIGUOUS (a bare basename matching several files --- qualify it in the
-document), OUT-OF-RANGE (the file is shorter than the cited line), or
+document), OUT-OF-RANGE (the file is shorter than the cited line, the
+line is 0, or a range runs backwards), or
 PROSE-LINE (the target is a `.md`, whose line numbers move under the
 formatter and so cannot be cited at all --- name a phrase or a heading).
 
@@ -72,7 +74,11 @@ roots, with no copy at the repo root to shadow them. The self-test was
 itself proved non-vacuous by breaking the checker in a copy
 (2026-08-14): disabling the PROSE-LINE refusal, short-circuiting the
 publication test, and disabling the dirty-cited-file refusal each
-turned it red, naming exactly the branches broken.
+turned it red, naming exactly the branches broken. Its line-zero,
+backwards-range and second-document rows were added 2026-08-28 for
+three defects found by review, and reverting each fix in a copy turned
+it red on that row alone; the subdirectory row likewise, the search
+roots being root-relative and the script now moving there itself.
 
 Two design points the self-test encodes. Its ORPHANED stamp is
 `0000000aa`, deliberately: `git merge-base --is-ancestor` fails for an
@@ -257,6 +263,20 @@ SEARCH_ROOTS = ["src", "test", "bench", "example", "tools", ".github", "."]
 # so without this a link or stamp naming an unpushed or squashed-away
 # commit resolves here and nowhere else.
 PUBLISHED_REF = "origin/master"
+
+
+def chdir_root(paths):
+    """Run from the repository root whatever the cwd -- the configuration's
+    paths are root-relative -- and return PATHS rebased to it. Outside a
+    repository nothing moves."""
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                         capture_output=True, text=True).stdout.strip()
+    if not top:
+        return paths
+    paths = [os.path.relpath(os.path.abspath(p), top) for p in paths]
+    os.chdir(top)
+    return paths
+
 CITE_RE = re.compile(
     r"`?(\.?[A-Za-z][A-Za-z0-9_./-]*"
     r"\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml)|Makefile)"
@@ -430,9 +450,9 @@ def self_test():
             if n not in out:
                 bad.append(f"{case}: output lacks {n!r}")
 
-    def run(*argv):
+    def run(*argv, cwd=None):
         return subprocess.run([sys.executable, script] + list(argv),
-                              capture_output=True, text=True)
+                              capture_output=True, text=True, cwd=cwd)
 
     with tempfile.TemporaryDirectory() as td:
         os.chdir(td)
@@ -472,22 +492,32 @@ def self_test():
                                 check=True).stdout.strip()
             p = run("stop.md")
             expect("same link passes once the ref exists", p.returncode, 0)
+            open("ok.md", "w").write("`a.hs:1` fine.\n")
+            open("bad.md", "w").write("`a.hs:999999` not.\n")
+            p = run("ok.md", "bad.md")
+            expect("every named document is checked", p.returncode, 1)
+            contains("every named document", p.stdout, "=== bad.md ===",
+                     "OUT-OF-RANGE")
+            p = run("ok.md", "bad.md", "--restamp")
+            expect("restamp takes one document", p.returncode, 2)
 
             open("doc.md", "w").write(
                 "# control\n\n"
                 "`a.hs:1` control. `NoSuchFile.hs:12` unresolved.\n"
                 "`a.hs:999999` out of range. `sub/b.py:999999` extracted\n"
+                "too. `a.hs:0` line zero, `a.hs:3-2` backwards.\n"
                 "too. `a.hs:1,999999` continuation tail.\n"
                 "`note.md:1` prose line. `Dup.hs:1` ambiguous.\n"
                 "`.dot.yaml:1` dotfile control, `.dot.yaml:999999` its"
                 " pair.\n"
                 "%s#L1 pinned ok. %s#L99999 pinned range.\n"
+                "%s#L0 pinned zero. %s#L3-L1 pinned backwards.\n"
                 "https://github.com/ghc/ghc/blob/0123456789abcdef01234567"
                 "89abcdef01234567/x.hs#L1 foreign.\n"
                 "%s#L1-L3 unpublished.\n\n"
                 "Citations were verified against the tree at commit"
                 " `0000000aa` (2020-01-01).\n"
-                % (url % c1, url % c1, url % c2))
+                % (url % c1, url % c1, url % c1, url % c1, url % c2))
             p = run("doc.md")
             expect("kitchen-sink document fails", p.returncode, 1)
             contains("kitchen-sink document", p.stdout,
@@ -495,9 +525,14 @@ def self_test():
                      "AMBIGUOUS", "ORPHANED", "UNPUBLISHED",
                      "not in this repository",
                      "ok   a.hs:1 |", "ok   .dot.yaml:1 |",
-                     "a.hs#L1 @", "9 failed")
+                     "a.hs#L1 @", "13 failed", "a.hs:0-0 --- OUT",
+                     "a.hs:3-2 --- OUT", "#L0-L0 @", "#L3-L1 @")
             expect("continuation collapses with the plain row",
                    p.stdout.count("a.hs:999999"), 1)
+            p = run("../doc.md", cwd="sub")
+            expect("same verdict from a subdirectory", p.returncode, 1)
+            contains("same verdict from a subdirectory", p.stdout,
+                     "13 failed")
 
             open("two.md", "w").write(
                 "`a.hs:1` cited.\n\n"
@@ -573,8 +608,24 @@ def main():
         sys.exit(2)
     if "--self-test" in flags:
         return self_test()
-    doc = args[0] if args else "CLAUDE.md"
-    require_readable([doc])
+    docs = chdir_root(args) or ["CLAUDE.md"]
+    require_readable(docs)
+    if "--restamp" in flags and len(docs) > 1:
+        print("--restamp takes one document: the stamp it writes is that"
+              " document's own", file=sys.stderr)
+        sys.exit(2)
+    # Every document named is checked. Until 2026-08-28 only the first was,
+    # and the rest reported nothing while the run exited 0.
+    worst = 0
+    for doc in docs:
+        if len(docs) > 1:
+            print(f"=== {doc} ===")
+        worst = max(worst, check(doc, "--restamp" in flags))
+    return worst
+
+
+def check(doc, do_restamp):
+    """Check one document; its exit status."""
     text = open(doc, encoding="utf-8").read()
     cites = sorted({(m.group(1),) + span
                     for m in CITE_RE.finditer(text)
@@ -605,7 +656,9 @@ def main():
             continue
         lines = open(path, encoding="utf-8",
                      errors="replace").read().splitlines()
-        if hi > len(lines):
+        # Every bound, not only the upper: `:0` indexed the file's last
+        # line and a backwards range printed its first as ok.
+        if lo < 1 or lo > hi or hi > len(lines):
             print(f"FAIL {name}:{lo}-{hi} --- OUT-OF-RANGE "
                   f"(file has {len(lines)} lines)")
             failures += 1
@@ -624,7 +677,7 @@ def main():
             failures += 1
             continue
         lines = proc.stdout.splitlines()
-        if hi > len(lines):
+        if lo < 1 or lo > hi or hi > len(lines):
             print(f"FAIL {path}#L{lo}-L{hi} @ {sha[:9]} --- OUT-OF-RANGE "
                   f"(file has {len(lines)} lines at that commit)")
             failures += 1
@@ -673,7 +726,7 @@ def main():
     print(f"\n{len(cites) + len(urlcites)} citations checked,"
           f" {failures} failed"
           f" --- now eyeball the snippets against the document's claims.")
-    if "--restamp" in flags:
+    if do_restamp:
         resolved = [resolve(name)[0] for name, _lo, _hi in cites]
         return restamp(doc, text, [p for p in resolved if p], failures)
     return 1 if failures or stamp_failures else 0

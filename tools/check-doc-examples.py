@@ -2,7 +2,7 @@
 """Check that a document's example code still matches the library.
 
 Usage: python3 tools/check-doc-examples.py [DOC ...]
-DOC defaults to README.md. Run from the repo root.
+DOC defaults to README.md. Runs from anywhere in the repository.
 
 This covers what the other two checkers structurally cannot. They read
 *backticked* tokens and resolve paths, modules, targets and flags; a
@@ -53,8 +53,12 @@ Non-vacuity (per CLAUDE.md's "prove a checker non-vacuous"): run
 
 It builds the control document itself, against this repo's real source
 list, and confirms both branches fire -- one type finding, one output
-finding -- while none of the passing controls is reported. Exit 0 on
-PASS, 1 on FAIL. Building it beats writing one out by hand, which gets
+finding -- while none of the passing controls is reported, and that a
+source list naming nothing reads as none rather than as an empty corpus
+(added 2026-08-28, when a run from `docs/` was found to hang on the old
+`cat $(...)` and, with stdin closed, to fail every name; reverting the
+fix in a copy turned the self-test red), and that a run from a
+subdirectory reports what one from the root does. Exit 0 on PASS, 1 on FAIL. Building it beats writing one out by hand, which gets
 skipped, or assembled a little differently each time and then proves
 whatever that day's document happened to hold.
 
@@ -108,9 +112,39 @@ CTOR_RE = re.compile(r"^(?:data|newtype)\s+[A-Z].*?=(.*?)(?=^\S|\Z)", re.S | re.
 NAME_RE = re.compile(r"\b([A-Z][A-Za-z0-9_]{3,})\b")
 
 
+def chdir_root(paths):
+    """Run from the repository root whatever the cwd -- the configuration's
+    paths are root-relative -- and return PATHS rebased to it. Outside a
+    repository nothing moves."""
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                         capture_output=True, text=True).stdout.strip()
+    if not top:
+        return paths
+    paths = [os.path.relpath(os.path.abspath(p), top) for p in paths]
+    os.chdir(top)
+    return paths
+
+
 def sources():
-    return subprocess.run(["bash", "-c", "cat $(" + SOURCE_LIST + ")"],
-                          capture_output=True, text=True).stdout
+    """The concatenated sources, or None where there are none to read.
+
+    Listed from the repository root, so the cwd does not decide what the
+    check sees, and read here rather than by `cat $(...)`: with nothing
+    listed that cat read stdin, hanging on a terminal, and an empty corpus
+    failed every name. None switches the check off (an empty SOURCE_LIST)
+    or blocks the run (a list naming nothing); main tells them apart.
+    """
+    if not SOURCE_LIST:
+        return None
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                         capture_output=True, text=True).stdout.strip()
+    p = subprocess.run(["bash", "-c", SOURCE_LIST], capture_output=True,
+                       text=True, cwd=top or None)
+    paths = p.stdout.split()
+    if p.returncode != 0 or not paths:
+        return None
+    return "".join(open(os.path.join(top or ".", f), encoding="utf-8",
+                        errors="replace").read() for f in paths)
 
 
 def strip_comments(code):
@@ -140,7 +174,7 @@ def norm(s):
 
 
 def check_types(doc, text, src):
-    if not FENCE_LANGS:
+    if not FENCE_LANGS or src is None:
         return 0
     # A fence that declares `module Main` is a self-contained program (an
     # issue reproducer, say), not an excerpt of this repo's API: its names
@@ -162,6 +196,8 @@ def check_types(doc, text, src):
 
 
 def check_outputs(doc, text, src):
+    if src is None:
+        return 0
     lines = text.splitlines()
     normsrc = norm(src)
     failures = i = 0
@@ -207,6 +243,10 @@ def self_test():
     anything at all.
     """
     src = sources()
+    if src is None:
+        print("self-test: BLOCKED, SOURCE_LIST names no file",
+              file=sys.stderr)
+        return 2
     real = next((ln.strip() for ln in src.splitlines()
                  if len(ln.strip()) > 45 and "`" not in ln), "")
     if not real:
@@ -249,6 +289,26 @@ def self_test():
                       for ln in lines))
     for ln in lines:
         print("  " + ln)
+    global SOURCE_LIST
+    saved, SOURCE_LIST = SOURCE_LIST, "true"
+    try:
+        empty = sources()
+    finally:
+        SOURCE_LIST = saved
+    if empty is not None:
+        ok = False
+        print("  a source list naming nothing did not come back as None")
+    script = os.path.abspath(__file__)
+    here = subprocess.run([sys.executable, script, "README.md"],
+                          capture_output=True, text=True)
+    there = subprocess.run([sys.executable, script,
+                            os.path.join("..", "README.md")],
+                           capture_output=True, text=True,
+                           cwd=os.path.dirname(script))
+    if (here.returncode, here.stdout.strip().splitlines()[-1:]) != \
+            (there.returncode, there.stdout.strip().splitlines()[-1:]):
+        ok = False
+        print("  a run from a subdirectory disagrees with one from the root")
     print(f"\nself-test: {types} type finding(s), {outs} output finding(s),"
           f" expected 1 and 1")
     print("self-test: PASS --- both branches fire and no control was reported"
@@ -273,9 +333,12 @@ def require_readable(paths):
 def main():
     if "--self-test" in sys.argv[1:]:
         return self_test()
-    docs = sys.argv[1:] or ["README.md"]
+    docs = chdir_root(sys.argv[1:]) or ["README.md"]
     require_readable(docs)
     src = sources()
+    if src is None and SOURCE_LIST:
+        print(f"BLOCKED: {SOURCE_LIST!r} listed no file, nothing checked")
+        return 2
     failures = 0
     for doc in docs:
         text = open(doc, encoding="utf-8").read()

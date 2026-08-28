@@ -3,6 +3,7 @@
 
 Usage: python3 tools/check-conv-bench-props.py [--allocation-only]
                                               JSON [JSON ...]
+       python3 tools/check-conv-bench-props.py --self-test
 
 Every property is checked twice, against two quantities: seconds per
 iteration, and bytes allocated per iteration. The same fifteen relations
@@ -105,7 +106,7 @@ rewrites that replaced it, by which point gather's fastest orientation is
 ahead of scatter (bench/CLAUDE.md).
 
 Dash-arguments other than --allocation-only are refused (exit 2, nothing
-checked) rather than read as JSON paths --- a mistyped mode flag would
+checked, as is no argument at all) rather than read as JSON paths --- a mistyped mode flag would
 otherwise select the full time+allocation run silently. Confirmed
 2026-08-14: --allocation-onIy exits 2 naming itself.
 
@@ -175,20 +176,40 @@ allocated R2 to 0.99, each named that one benchmark and no other and each
 exited 1, so all three arms still fire alone. Re-run that whenever the
 suite outgrows the gate again -- a gate nothing trips is indistinguishable
 from a gate that cannot.
-"""
-import json
-import sys
 
-ALLOC_ONLY = "--allocation-only" in sys.argv[1:]
-unknown = [a for a in sys.argv[1:]
-           if a.startswith("-") and a != "--allocation-only"]
-if unknown:
-    print("unknown flag(s): %s; only --allocation-only is understood"
-          % " ".join(unknown), file=sys.stderr)
+Since 2026-08-28 the same proofs run on demand: --self-test builds a
+collection from the property list itself -- the names the fifteen
+relations read, probed rather than typed, so a benchmark added to the
+list is in the collection at once -- at slopes satisfying every relation,
+and asserts the hand recipe above (48x48/S-exec up 30% fails exactly
+properties 1 and 6, in both quantities), the three arms of the gate each
+naming its own benchmark, the missing, extra and twice-collected guards,
+the absent allocation regression, the usage errors, and that a zero
+slope is reported rather than divided by, which it was until then. The
+perturbations of real collections above stay as the record that the
+relations hold on measurements; the self-test says the checker still
+reads them. Reverting the zero guard and disarming the gate in a copy
+each turned it red.
+"""
+import contextlib
+import io
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+MIN_R2 = 0.95
+MIN_SAMPLES = 10
+MIN_ALLOC_R2 = 0.999
+TIME_TOL = 0.10
+ALLOC_TOL = 0.05
+
+
+def usage_error(msg):
+    """Exit 2: the run did not happen, as distinct from 1, a finding."""
+    print(msg, file=sys.stderr)
     sys.exit(2)
-paths = [a for a in sys.argv[1:] if not a.startswith("-")]
-if not paths:
-    sys.exit(__doc__.split("\n\n")[1])
 
 
 class Tracked(dict):
@@ -216,27 +237,31 @@ def regression(report, responder, hint):
              f" {report['reportName']} --- {hint}")
 
 
-t = Tracked()      # seconds per iteration
-alloc = Tracked()  # bytes allocated per iteration
-fit = {}
-for path in paths:
-    with open(path) as f:
-        # criterion writes ["criterion", version, [report, ...]]
-        for report in json.load(f)[2]:
-            name = report["reportName"]
-            if name in t:
-                sys.exit(f"benchmark collected twice, the second time in"
-                         f" {path} (the files must partition the suite):"
-                         f" {name}")
-            treg = regression(report, "time", "criterion fits this one always,"
-                              " so the file is not criterion --json output")
-            areg = regression(report, "allocated", "collect with"
-                              " --regress allocated:iters and +RTS -T")
-            t[name] = treg["regCoeffs"]["iters"]["estPoint"]
-            alloc[name] = areg["regCoeffs"]["iters"]["estPoint"]
-            fit[name] = (len(report["reportMeasured"]),
-                         treg["regRSquare"]["estPoint"],
-                         areg["regRSquare"]["estPoint"])
+def load(paths):
+    """(time slopes, allocation slopes, fit quality) merged over PATHS,
+    which must partition the suite."""
+    t = Tracked()      # seconds per iteration
+    alloc = Tracked()  # bytes allocated per iteration
+    fit = {}
+    for path in paths:
+        with open(path) as f:
+            for report in json.load(f)[2]:
+                name = report["reportName"]
+                if name in t:
+                    sys.exit(f"benchmark collected twice, the second time"
+                             f" in {path} (the files must partition the"
+                             f" suite): {name}")
+                treg = regression(report, "time", "criterion fits this one"
+                                  " always, so the file is not criterion"
+                                  " --json output")
+                areg = regression(report, "allocated", "collect with"
+                                  " --regress allocated:iters and +RTS -T")
+                t[name] = treg["regCoeffs"]["iters"]["estPoint"]
+                alloc[name] = areg["regCoeffs"]["iters"]["estPoint"]
+                fit[name] = (len(report["reportMeasured"]),
+                             treg["regRSquare"]["estPoint"],
+                             areg["regRSquare"]["estPoint"])
+    return t, alloc, fit
 
 
 def fmt_time(s):
@@ -270,32 +295,31 @@ def fmt_bytes(b):
 # the worst of the 107 collects 21 samples and the worst fits at R2 0.994.
 # That leaves the gate with no live control -- the arm-by-arm proof
 # below is what stands in for one.
-MIN_R2 = 0.95
-MIN_SAMPLES = 10
-# Allocation is all but exactly linear in the iteration count, so its fit
-# is held to a far tighter standard than time's: over a measured full run
-# the worst of the 107 was 0.999997.
-MIN_ALLOC_R2 = 0.999
 
-fails = 0
-print("-- slope quality (violation = re-collect, not a regression) --")
-if ALLOC_ONLY:
-    unusable = sorted(k for k, (_, _, ar2) in fit.items()
-                      if ar2 < MIN_ALLOC_R2)
-else:
-    unusable = sorted(k for k, (n, r2, ar2) in fit.items()
-                      if n < MIN_SAMPLES or r2 < MIN_R2 or ar2 < MIN_ALLOC_R2)
-for k in unusable:
-    n, r2, ar2 = fit[k]
-    print(f"  [Q] {k} {n} samples, R2 {r2:.3f}, allocated R2 {ar2:.6f}"
-          f"  (need >= {MIN_SAMPLES}, >= {MIN_R2}, >= {MIN_ALLOC_R2})  FAIL")
-if unusable:
-    print(f"  {len(unusable)} slope(s) unusable --- re-collect with a longer")
-    print("  time limit; every property below that names one is unreliable")
-    fails += len(unusable)
-else:
-    what = "allocation fits" if ALLOC_ONLY else "slopes"
-    print(f"  all {len(fit)} {what} usable  PASS")
+def gate(fit, alloc_only):
+    """Slope quality; the number of unusable slopes."""
+    print("-- slope quality (violation = re-collect, not a regression) --")
+    if alloc_only:
+        unusable = sorted(k for k, (_, _, ar2) in fit.items()
+                          if ar2 < MIN_ALLOC_R2)
+    else:
+        unusable = sorted(k for k, (n, r2, ar2) in fit.items()
+                          if n < MIN_SAMPLES or r2 < MIN_R2
+                          or ar2 < MIN_ALLOC_R2)
+    for k in unusable:
+        n, r2, ar2 = fit[k]
+        print(f"  [Q] {k} {n} samples, R2 {r2:.3f}, allocated R2 {ar2:.6f}"
+              f"  (need >= {MIN_SAMPLES}, >= {MIN_R2}, >= {MIN_ALLOC_R2})"
+              f"  FAIL")
+    if unusable:
+        print(f"  {len(unusable)} slope(s) unusable --- re-collect with a"
+              f" longer")
+        print("  time limit; every property below that names one is"
+              " unreliable")
+    else:
+        what = "allocation fits" if alloc_only else "slopes"
+        print(f"  all {len(fit)} {what} usable  PASS")
+    return len(unusable)
 
 
 SIZES = ["6x6", "24x24", "48x48", "96x96", "192x192"]
@@ -314,7 +338,7 @@ def properties(q, fmt, tol, label):
     def eq(prop, an, bn, a, b):
         nonlocal fails
         ok = abs(a - b) <= max(a, b) * tol
-        d = abs(a - b) / max(a, b) * 100
+        d = abs(a - b) / max(a, b) * 100 if max(a, b) else 0.0
         print(f"  [{prop}] {an} {fmt(a)} == {bn} {fmt(b)}  (diff {d:.1f}%)"
               f"  {'PASS' if ok else 'FAIL'}")
         if not ok:
@@ -323,7 +347,8 @@ def properties(q, fmt, tol, label):
     def le(prop, an, bn, a, b):
         nonlocal fails
         ok = a <= (1 + tol) * b
-        print(f"  [{prop}] {an} {fmt(a)} <= {bn} {fmt(b)}  (ratio {a/b:.2f})"
+        ratio = f"{a / b:.2f}" if b else "n/a, zero"
+        print(f"  [{prop}] {an} {fmt(a)} <= {bn} {fmt(b)}  (ratio {ratio})"
               f"  {'PASS' if ok else 'FAIL'}")
         if not ok:
             fails += 1
@@ -407,27 +432,143 @@ def properties(q, fmt, tol, label):
 
     return fails
 
-TIME_TOL = 0.10
-# Allocation carries no measurement noise, so it is held twice as tightly
-# as time. 5% is three times the largest legitimate gap a measured full
-# run shows --- property 4's 1.7%, an embedded constant cotangent against a
-# variable one --- and every inequality in that run came out at ratio 1.00
-# or below.
-ALLOC_TOL = 0.05
 
-if not ALLOC_ONLY:
-    fails += properties(t, fmt_time, TIME_TOL, "time")
-fails += properties(alloc, fmt_bytes, ALLOC_TOL, "allocated bytes")
+def main(argv):
+    alloc_only = "--allocation-only" in argv
+    unknown = [a for a in argv if a.startswith("-") and a != "--allocation-only"]
+    if unknown:
+        usage_error("unknown flag(s): %s; only --allocation-only is understood"
+                    % " ".join(unknown))
+    paths = [a for a in argv if not a.startswith("-")]
+    if not paths:
+        usage_error(__doc__.split("\n\n")[1])
+    t, alloc, fit = load(paths)
+    fails = gate(fit, alloc_only)
+    if not alloc_only:
+        fails += properties(t, fmt_time, TIME_TOL, "time")
+    fails += properties(alloc, fmt_bytes, ALLOC_TOL, "allocated bytes")
+    untouched = sorted(set(alloc) - alloc.used)
+    if untouched:
+        print("\ncoverage: benchmarks untouched by any property --- extend"
+              " the")
+        print("numbered list in bench/ConvVjpBench.hs's module haddock:")
+        for n in untouched:
+            print(f"  {n}")
+        fails += len(untouched)
+    print(f"\n{fails} check(s) FAILED" if fails else "\nall checks PASS")
+    return 1 if fails else 0
 
-# Keyed on the allocation pass, the one that runs in both modes; the two
-# quantities carry the same benchmark names.
-untouched = sorted(set(alloc) - alloc.used)
-if untouched:
-    print("\ncoverage: benchmarks untouched by any property --- extend the")
-    print("numbered list in bench/ConvVjpBench.hs's module haddock:")
-    for n in untouched:
-        print(f"  {n}")
-    fails += len(untouched)
 
-print(f"\n{fails} check(s) FAILED" if fails else "\nall checks PASS")
-sys.exit(1 if fails else 0)
+def property_names():
+    """Every benchmark the properties read, taken from the properties
+    themselves so a synthetic collection cannot drift from them."""
+    class Probe(dict):
+        def __getitem__(self, k):
+            self[k] = 1.0
+            return 1.0
+    q = Probe()
+    with contextlib.redirect_stdout(io.StringIO()):
+        properties(q, fmt_time, TIME_TOL, "probe")
+    return sorted(q)
+
+
+def self_test():
+    """Synthetic collections built from the property list; every guard
+    and both perturbations of the docstring's hand recipe, asserted."""
+    script = os.path.abspath(__file__)
+    bad = []
+
+    def expect(case, p, code, *needles):
+        if p.returncode != code:
+            bad.append(f"{case}: exit {p.returncode}, expected {code}")
+        for n in needles:
+            if n not in p.stdout + p.stderr:
+                bad.append(f"{case}: output lacks {n!r}")
+
+    def run(*argv):
+        return subprocess.run([sys.executable, script] + list(argv),
+                              capture_output=True, text=True)
+
+    # A slope per benchmark that satisfies every relation: property 1 is
+    # a sum, so the honest full pipeline costs two units, and the raw
+    # execution 1.5 so that inflating S-exec by 30% fails 1 and 6 alone,
+    # as it did on real data.
+    def base(name):
+        if name.endswith("/S-fullpipe-honest"):
+            return 2.0
+        if name.endswith("/S-exec-raw"):
+            return 1.5
+        return 1.0
+
+    def report(name, t=None, a=None, n=20, r2=1.0, ar2=1.0):
+        t = base(name) if t is None else t
+        a = base(name) if a is None else a
+        return {"reportName": name, "reportMeasured": [0] * n,
+                "reportAnalysis": {"anRegress": [
+                    {"regResponder": "time",
+                     "regCoeffs": {"iters": {"estPoint": t}},
+                     "regRSquare": {"estPoint": r2}},
+                    {"regResponder": "allocated",
+                     "regCoeffs": {"iters": {"estPoint": a}},
+                     "regRSquare": {"estPoint": ar2}}]}}
+
+    def write(path, reports):
+        with open(path, "w") as fh:
+            json.dump([None, None, reports], fh)
+
+    names = property_names()
+    with tempfile.TemporaryDirectory() as td:
+        full = os.path.join(td, "full.json")
+        other = os.path.join(td, "other.json")
+        write(full, [report(n) for n in names])
+        expect("no argument", run(), 2, "Usage")
+        expect("unknown flag", run("--allocation-onIy", full), 2, "unknown")
+        expect("all relations at equal slopes", run(full), 0,
+               f"all {len(names)} slopes usable", "all checks PASS")
+        expect("allocation only", run("--allocation-only", full), 0,
+               "allocation fits usable", "all checks PASS")
+        # The docstring's own perturbation: 48x48/S-exec up 30% fails
+        # exactly properties 1 and 6, in both quantities.
+        write(other, [report(n, t=1.3, a=1.3) if n == "48x48/S-exec"
+                      else report(n) for n in names])
+        p = run(other)
+        expect("inflated slope", p, 1, "4 check(s) FAILED")
+        failed = [ln for ln in p.stdout.splitlines() if ln.endswith("FAIL")]
+        if sorted(ln.split("]")[0].strip(" [") for ln in failed) != \
+                ["1", "1", "6", "6"]:
+            bad.append("inflated slope failed other than 1 and 6 twice: %r"
+                       % failed)
+        write(other, [report(n) for n in names] + [report("extra/one")])
+        expect("extra benchmark", run(other), 1, "untouched", "extra/one")
+        write(other, [report(n) for n in names if n != "6x6/S-exec"])
+        expect("missing benchmark", run(other), 1, "missing from the JSON",
+               "6x6/S-exec")
+        write(other, [report(n, n=8 if n == "6x6/S-exec" else 20,
+                             r2=0.8 if n == "6x6/H-exec" else 1.0,
+                             ar2=0.99 if n == "6x6/S-exec-raw" else 1.0)
+                      for n in names])
+        p = run(other)
+        expect("slope gate", p, 1, "3 slope(s) unusable", "6x6/S-exec 8",
+               "6x6/H-exec 20", "6x6/S-exec-raw 20")
+        p = run("--allocation-only", other)
+        expect("slope gate, allocation only", p, 1, "1 slope(s) unusable",
+               "6x6/S-exec-raw")
+        expect("collected twice", run(full, full), 1, "collected twice")
+        write(other, [dict(report(n), reportAnalysis={"anRegress": [
+            report(n)["reportAnalysis"]["anRegress"][0]]}) for n in names])
+        expect("no allocation regression", run(other), 1,
+               "no allocated-vs-iters regression")
+        write(other, [report(n, t=0.0, a=0.0) for n in names])
+        expect("zero slopes", run(other), 0, "all checks PASS")
+    for b in bad:
+        print(f"FAIL: {b}")
+    if not bad:
+        print(f"ok:   every self-test case behaved as expected, over the"
+              f" {len(names)} benchmarks the properties name")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    if sys.argv[1:] == ["--self-test"]:
+        sys.exit(self_test())
+    sys.exit(main(sys.argv[1:]))

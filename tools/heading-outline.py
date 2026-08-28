@@ -11,6 +11,7 @@ orphaned section shows up at a glance. Then read the body under each
 heading and confirm it is actually about that heading, at that level.
 
 Usage: python3 tools/heading-outline.py FILE [FILE ...]
+       python3 tools/heading-outline.py --self-test
 
 Scope limits, deliberate: this shows where a block sits, never whether a
 heading's words describe what sits under it. A section passes while its
@@ -25,9 +26,15 @@ no document here uses Setext headings (README.md was restyled to ATX in
 9ac80ee8a), and no document fences a `#`, `===` or `---` line. So use a
 scratch file holding an ATX heading, a `===`-underlined line, a
 `---`-underlined line, a fenced block containing a `#` line and a `===`
-line, and one more ATX heading after it; confirm four headings, the
-Setext pair among them at levels 1 and 2, and nothing from inside the
-fence. Reproduced 2026-07-28.
+line, a `---` rule right after the closing fence, a list item with a
+`---` rule under it, and one more ATX heading after it; confirm four
+headings, the Setext pair among them at levels 1 and 2, and nothing
+from inside or right after the fence or under the item.
+Reproduced 2026-07-28 by hand; since 2026-08-28 `--self-test` builds
+that file and asserts it, the rule after the fence being the row added
+then: a closing fence is not a heading's text, and the outline reported
+"## ```" for it, and the list item the same day, reported as "## - item".
+Reverting either fix in a copy turned the self-test red.
 
 Indented code blocks need no such guard: the ATX pattern is anchored at
 column 0, so a `#` comment inside one cannot be read as a heading. That
@@ -56,6 +63,8 @@ ATX = re.compile(r'^(#{1,6}) +(.*?)\s*#*\s*$')
 RULE_EQ = re.compile(r'^=+\s*$')
 RULE_DASH = re.compile(r'^-+\s*$')
 FENCE = re.compile(r'^\s*(```|~~~)')
+# A `---` under a list item closes the list; it underlines nothing.
+LIST_ITEM = re.compile(r'^\s*([-*+]|\d+[.)])\s')
 
 
 def frontmatter_end(lines):
@@ -85,15 +94,14 @@ def outline(path):
     for i, line in enumerate(lines):
         if i < body:
             continue
-        if FENCE.match(line):
-            in_fence = not in_fence
-            prev = line
-            continue
-        if in_fence:
-            prev = line
+        if FENCE.match(line) or in_fence:
+            if FENCE.match(line):
+                in_fence = not in_fence
+            prev = ''      # neither a fence nor its contents underlines
             continue
         atx = ATX.match(line)
-        setext_ok = prev.strip() and not prev.lstrip().startswith('#')
+        setext_ok = (prev.strip() and not prev.lstrip().startswith('#')
+                     and not LIST_ITEM.match(prev))
         if atx:
             headings.append((i + 1, len(atx.group(1)), atx.group(2)))
         elif setext_ok and RULE_EQ.match(line):
@@ -116,7 +124,29 @@ def require_readable(paths):
             sys.exit(2)
 
 
+def self_test():
+    """Build the docstring's scratch file and assert its outline."""
+    import tempfile
+    doc = ("# Top\n\nSetext one\n===\n\nSetext two\n---\n\n```\n"
+           "# not a heading\nfenced\n===\n```\n---\n\n- item\n---\n\n"
+           "## Last\n")
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
+        fh.write(doc)
+    try:
+        got = [(lv, tx) for _, lv, tx in outline(fh.name)]
+    finally:
+        os.unlink(fh.name)
+    want = [(1, 'Top'), (1, 'Setext one'), (2, 'Setext two'), (2, 'Last')]
+    if got == want:
+        print('ok:   the scratch outline is as expected')
+        return 0
+    print(f'FAIL: outline {got}, expected {want}')
+    return 1
+
+
 def main(argv):
+    if argv == ['--self-test']:
+        return self_test()
     if not argv:
         print('usage: heading-outline.py FILE [FILE ...]', file=sys.stderr)
         return 2

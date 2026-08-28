@@ -3,7 +3,8 @@
 form it keeps.
 
 Usage: python3 tools/check-doc-wrap.py [DOC ...]
-DOC defaults to every Markdown file git tracks. Run from the repo root.
+DOC defaults to every Markdown file git tracks. Runs from anywhere in the
+repository.
 
 A document here keeps one of two forms, and both are the formatter's: prose
 wrapped to a column limit, or one line per paragraph, which is how a text
@@ -38,12 +39,15 @@ every branch: both untouched forms pass; a hand-lengthened line and a
 re-wrap to a narrower width fail as hand-wrapping; one paragraph left on
 one line, and one list item joined back to one line, pass as mid-edit; a
 planted "2b." enumerator fails; a hand-wrapped committed document and an
-untracked one are refused; and a PATH carrying git but no wrap80 reports BLOCKED,
-exit 2. The self-test was itself proved non-vacuous by breaking the
-checker in a copy (2026-08-14): disabling the fake-enumerator branch,
-counting every differing paragraph as mid-edit, and folding BLOCKED
-back into exit 1 each turned it red, naming exactly the cases those
-branches carry.
+untracked one are refused; a committed document checked from its own
+subdirectory passes; a repository tracking no Markdown reports BLOCKED
+rather than "0 of 0 failed"; and a PATH carrying git but no wrap80
+reports BLOCKED, exit 2. The self-test was itself proved non-vacuous by
+breaking the checker in a copy (2026-08-14): disabling the
+fake-enumerator branch, counting every differing paragraph as mid-edit,
+and folding BLOCKED back into exit 1 each turned it red, naming exactly
+the cases those branches carry; the subdirectory and no-document rows
+(2026-08-28) each went red with its fix reverted.
 
 What the hand-run history of this check still testifies to, kept because
 each was a real catch or a real ruling: the one-line-per-paragraph half
@@ -93,7 +97,13 @@ def committed_form(rel):
     here read as "neither fixed point", which diagnoses the document for a
     fault of the tooling.
     """
-    p = subprocess.run(["git", "show", "HEAD:" + rel],
+    # `HEAD:path` is read from the repository root whatever the cwd, so a
+    # run from a subdirectory needs the prefix, or it reports a committed
+    # document as "neither fixed point".
+    prefix = subprocess.run(["git", "rev-parse", "--show-prefix"],
+                            capture_output=True, text=True).stdout.strip()
+    p = subprocess.run(["git", "show", "HEAD:" + os.path.normpath(
+                            os.path.join(prefix, rel))],
                        capture_output=True, text=True)
     if p.returncode != 0:
         return None
@@ -107,6 +117,19 @@ def committed_form(rel):
     if base == u:
         return (["--unwrap"], "one line per paragraph")
     return None
+
+
+def chdir_root(paths):
+    """Run from the repository root whatever the cwd -- the configuration's
+    paths are root-relative -- and return PATHS rebased to it. Outside a
+    repository nothing moves."""
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                         capture_output=True, text=True).stdout.strip()
+    if not top:
+        return paths
+    paths = [os.path.relpath(os.path.abspath(p), top) for p in paths]
+    os.chdir(top)
+    return paths
 
 
 def tracked_markdown():
@@ -364,6 +387,30 @@ def self_test():
             code, out = run_check("l.md")
             expect("list item joined", code, 0, out, "mid-edit")
 
+            os.makedirs("sub")
+            open("sub/s.md", "w").write(wrapped)
+            subprocess.run(["git", "add", "sub/s.md"], check=True,
+                           capture_output=True)
+            subprocess.run(["git", "commit", "-qm", "sub"], check=True,
+                           capture_output=True)
+            os.chdir("sub")
+            code, out = run_check("s.md")
+            os.chdir(td)
+            expect("run from a subdirectory", code, 0, out, "ok")
+            p = subprocess.run([sys.executable, script, "s.md"],
+                               capture_output=True, text=True,
+                               cwd=os.path.join(td, "sub"))
+            expect("main from a subdirectory", p.returncode, 0, p.stdout,
+                   "ok")
+
+            empty = os.path.join(td, "empty")
+            os.makedirs(empty)
+            subprocess.run(["git", "init", "-q"], cwd=empty, check=True)
+            p = subprocess.run([sys.executable, script],
+                               capture_output=True, text=True, cwd=empty)
+            expect("no tracked document", p.returncode, 2, p.stdout,
+                   "BLOCKED")
+
             bindir = os.path.join(td, "bin")
             os.makedirs(bindir)
             os.symlink(shutil.which("git"), os.path.join(bindir, "git"))
@@ -383,7 +430,10 @@ def self_test():
 def main():
     if sys.argv[1:] == ["--self-test"]:
         return self_test()
-    docs = sys.argv[1:] or tracked_markdown()
+    docs = chdir_root(sys.argv[1:]) or tracked_markdown()
+    if not docs:
+        print("BLOCKED: git tracks no Markdown file here, nothing checked")
+        return 2
     missing = [d for d in docs if not os.path.isfile(d)]
     if missing:
         print(f"no such file: {', '.join(missing)} (run from the repo root)")
