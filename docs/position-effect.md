@@ -4,19 +4,20 @@ A benchmark's measured time can depend on which benchmarks ran earlier
 in the same criterion process — by 22% on this repo's `convVjpBench` gather
 benchmarks — through state the predecessor leaves in GHC's block-level memory
 pool and nothing ever resets.  Everything here is measured at `-A1G`;
-at the `-A32m` the suite was fixed to on 2026-08-21 the same pair reads 6.9%
-(three interleaved pairs, 2026-08-22, allocation byte-identical), and 7.7% once
-orthotope's `mut-odo-vecdims` fill halved the poisoning predecessor's own
-allocation (three more pairs, 2026-08-27, victim allocation identical to 31
-bytes in 83.2MB) --- so the effect survives a fallback change that the *Why
-it moved a cross-build A/B* section below would have one expect to move it.
-This document is the full account: the mechanism and the evidence for each link,
-what was ruled out, the relation to the warm-up ramp, the consequences
-for measurement practice here and in orthotope's `micro-regime3`,
-and the standalone reproducer behind the [GHC issue draft][ghc-issue].
-The files that used to carry pieces of this (`bench/CLAUDE.md`, the root
-`CLAUDE.md`, the staged drafts, `micro-regime3/README.md`) now hold one-line
-rules and link here.
+at the `-A32m` the suite was fixed to on 2026-08-21 the same pair read 6.9%
+and has drifted to 10.0% as orthotope's successive fallback rewrites cut
+the per-iteration allocation of first the poisoning predecessor and
+then the victim itself (three interleaved pairs at each generation, the last
+2026-08-28, the victim's allocation constant within each run to a few hundred
+bytes in its ~70MB) --- so the effect tracks the allocation profile
+that the *Why it moved a cross-build A/B* section below predicts it from,
+and never goes away.  This document is the full account: the mechanism
+and the evidence for each link, what was ruled out, the relation to the warm-up
+ramp, the consequences for measurement practice here and in orthotope's
+`micro-regime3`, and the standalone reproducer behind the [GHC issue
+draft][ghc-issue].  The files that used to carry pieces
+of this (`bench/CLAUDE.md`, the root `CLAUDE.md`, the staged drafts,
+`micro-regime3/README.md`) now hold one-line rules and link here.
 
 Vocabulary: "position effect" here means dependence on *which benchmarks share
 the process* (the roster).  It is not the slot a benchmark occupies within

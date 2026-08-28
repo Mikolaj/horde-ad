@@ -1,0 +1,37 @@
+# shortProdForCI per-iteration figures against the orthotope checkout.
+#
+# Taken 2026-08-28 on GHC 9.12.4 at -A32m -I0, ox-arrays 0.2.0.1, and the
+# orthotope SIBLING CHECKOUT on pr-mikolaj-toVectorListT at 3f8bd02 (verified
+# in the build plan as style=local, src=local).  Its released counterpart is
+# the *-released.tsv beside it; do not diff a collection against the wrong
+# one, the benchmark names being identical across the two.
+#
+# bytes_per_iter is the allocated-vs-iters OLS slope and is exact (every fit
+# here R2 1.000000); it is the instrument.  seconds_per_iter carries the
+# machine and the roster, which the position effect moves up to 10%
+# (docs/position-effect.md), so a time difference under that is not evidence.
+#
+# benchmark\tseconds_per_iter\tbytes_per_iter
+100/cgrad k L	5.68170519e-05	326820
+100/cgrad k MapAccum	0.000221680516	1861901
+100/cgrad k NotShared	6.93565222e-05	297019
+100/cgrad k R	5.68248053e-05	333139
+100/cgrad k list	0.000201456038	1111169
+100/cgrad s L	9.60060121e-05	700954
+100/cgrad s MapAccum	0.000305062605	2296695
+100/cgrad s NotShared	0.000106219951	667173
+100/cgrad s R	9.65205185e-05	707293
+100/grad k L	0.00200088013	10784989
+100/grad k MapAccum	0.000112294049	627249
+100/grad k R	0.00191731365	10479113
+100/grad k list	0.00137440482	6542751
+100/grad s L	0.00777452636	26282373
+100/grad s MapAccum	0.000242826598	1382687
+100/grad s R	0.00645365785	25938542
+1000/cgrad k L	0.00061753077	3587098
+1000/cgrad k MapAccum	0.00222156256	18529798
+1000/cgrad k NotShared	0.00261331795	3252099
+1000/cgrad s MapAccum	0.00299969766	22858780
+1000/grad k L	0.328513469	796503385
+1000/grad k MapAccum	0.000869536519	5424567
+1000/grad s MapAccum	0.00190777731	12684060

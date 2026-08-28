@@ -57,9 +57,9 @@ set is otherwise just the groups that come up short of samples at the
 default limit. cnn-24x24 took a file of its own because -L 30 left it at
 eight samples, under the gate below, where -L 90 gave fifteen (measured
 2026-08-22); separating it cuts across nothing, every property naming it
-staying inside its own group. Since orthotope's mut-odo-vecdims fill that
-group runs ~240ms rather than ~700ms and clears the gate at -L 30 too, at
-fifteen (measured 2026-08-27), so its own file is now headroom. Keep it:
+staying inside its own group. Since orthotope's toVectorListT rewrites that
+group runs ~225ms rather than ~700ms and clears the gate at -L 30 too, at
+fifteen (measured 2026-08-28), so its own file is now headroom. Keep it:
 the partition fixes each file's roster, and a roster change moves the
 numbers through the position effect, so collapsing the split would cost a
 re-collection of every figure recorded against this recipe to save about
@@ -92,17 +92,17 @@ runs on every push, over a default-limit collection of the whole suite:
 too short for the time slopes, but allocation is so nearly exact in the
 iteration count that even the sparsest-sampled cnn-24x24 benchmarks fit
 it at R2 1.000000, so the allocation verdict on such a run is as good as
-on an hour-long one. Before the workflow was wired to it, the mode was checked
-in CI's own configuration: a default-limit full run on 2026-08-02, built
-from cabal.project alone so that orthotope resolved from Hackage as it
-does there rather than from the sibling checkout, reported every
+on an hour-long one. Before the workflow was wired to it, the mode was
+checked in CI's own configuration: a default-limit full run on 2026-08-02,
+built from cabal.project alone so that orthotope resolved from Hackage as
+it does there rather than from the sibling checkout, reported every
 allocation fit usable and every property instance passing, the widest
 equality gap 0.5% against the 5% tolerance and no inequality above ratio
 1.00. The tradeoff is what allocation cannot see — the
 gather-against-scatter time gap being the standing example, ~9-12x against
-released orthotope 0.1.8.0, 2.52x once its bq-expand strided-fallback fix
-was linked and 1.18x under the mut-odo-vecdims fill that replaced it
-(bench/CLAUDE.md).
+released orthotope 0.1.8.0, and 1.12x under the checkout's strided-fallback
+rewrites that replaced it, by which point gather's fastest orientation is
+ahead of scatter (bench/CLAUDE.md).
 
 Dash-arguments other than --allocation-only are refused (exit 2, nothing
 checked) rather than read as JSON paths — a mistyped mode flag would
@@ -167,7 +167,8 @@ one as well — so each arm is known to fire alone, cnn-24x24/S-exec-raw
 tripping only the sample count and 6x6/S-exec only the R2.
 
 The fill that retired that live control cost the gate its cheapest
-proof, so it was re-shown by perturbation on 2026-08-27, against a real
+proof, so it was re-shown by perturbation on 2026-08-27 and again
+on 2026-08-28, each time against a real
 collection on the current build: truncating gather48/two-gathers-ad-orient
 to 8 measurements, and separately setting its time R2 to 0.80 and its
 allocated R2 to 0.99, each named that one benchmark and no other and each
@@ -264,9 +265,9 @@ def fmt_bytes(b):
 # inp-192x192's H-exec-raw and H-fullpipe collected 8 samples, its
 # S-exec-raw fit at R2 0.946 -- so the thresholds cut through the
 # distribution rather than through a hole in it, each still naming only
-# benchmarks a longer budget fixes. Since orthotope's mut-odo-vecdims
-# fill (2026-08-27) both gaps are clear again and by a wide margin: the
-# worst of the 107 collects 22 samples and the worst fits at R2 0.994.
+# benchmarks a longer budget fixes. Since orthotope's toVectorListT
+# rewrites (2026-08-28) both gaps are clear again and by a wide margin:
+# the worst of the 107 collects 21 samples and the worst fits at R2 0.994.
 # That leaves the gate with no live control -- the arm-by-arm proof
 # below is what stands in for one.
 MIN_R2 = 0.95

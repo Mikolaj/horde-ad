@@ -1,0 +1,41 @@
+# shortProdForCI per-iteration figures against released orthotope.
+#
+# Taken 2026-08-28 on GHC 9.12.4 at -A32m -I0, ox-arrays 0.2.0.1, and RELEASED
+# orthotope 0.1.8.0 from Hackage (cabal.project.local's packages: ../orthotope
+# commented out; verified in the build plan as style=global, src=repo-tar), so
+# this is the anchor that does not move while the orthotope PR branch churns,
+# and the one comparable with CI, which resolves orthotope from Hackage too.
+#
+# Do not diff a sibling-checkout collection against this file: the benchmark
+# names match, so the tool would report the difference as movement rather than
+# as a mismatched reference. bench/baseline-convvjp.tsv is the checkout one.
+#
+# bytes_per_iter is the allocated-vs-iters OLS slope and is exact (every fit
+# here R2 1.000000); it is the instrument. seconds_per_iter carries the machine
+# and the roster, which the position effect moves up to 10%
+# (docs/position-effect.md), so a time difference under that is not evidence.
+#
+# benchmark\tseconds_per_iter\tbytes_per_iter
+100/cgrad k L	5.61780538e-05	326820
+100/cgrad k MapAccum	0.000226138009	1861901
+100/cgrad k NotShared	7.11663597e-05	297019
+100/cgrad k R	5.72818015e-05	333139
+100/cgrad k list	0.000200252866	1108838
+100/cgrad s L	9.7470113e-05	700961
+100/cgrad s MapAccum	0.000307576736	2296695
+100/cgrad s NotShared	0.000109628266	667168
+100/cgrad s R	9.92934314e-05	707279
+100/grad k L	0.0020699578	10784992
+100/grad k MapAccum	0.000111294386	627254
+100/grad k R	0.0019456682	10479110
+100/grad k list	0.00137181847	6542765
+100/grad s L	0.00766406312	26282284
+100/grad s MapAccum	0.000238364401	1382667
+100/grad s R	0.00678192382	25938423
+1000/cgrad k L	0.000624466531	3587044
+1000/cgrad k MapAccum	0.00224171371	18529791
+1000/cgrad k NotShared	0.00253589003	3252113
+1000/cgrad s MapAccum	0.0030306285	22858777
+1000/grad k L	0.32771185	796630247
+1000/grad k MapAccum	0.000853697639	5424571
+1000/grad s MapAccum	0.00186913201	12684071
