@@ -23,7 +23,7 @@ check off rather than breaking the run.
 Only six unambiguous shapes are checked, and anything else is counted as
 unclassified rather than guessed at:
 
-  paths    a backticked, space-free token that resolves — directly, as a
+  paths    a backticked, space-free token that resolves --- directly, as a
            glob, or as a unique-enough path suffix (`Core/Ast.hs` for
            `src/HordeAd/Core/Ast.hs`, which is how the documents
            abbreviate). A token that resolves is reported ok whatever its
@@ -32,7 +32,7 @@ unclassified rather than guessed at:
            ends in a known source/config extension) and does *not* resolve
            is a failure. Tokens starting with `~` or `/` name things
            outside any checkout and are reported, not checked; `../` ones
-           and bare upstream names go to the sibling checkouts — see the
+           and bare upstream names go to the sibling checkouts --- see the
            sibling policy below.
   modules  a dotted name whose every component is capitalised, resolved
            as the path it spells (`Definition.*` as a directory). This
@@ -40,7 +40,7 @@ unclassified rather than guessed at:
            ox-arrays and `GHC.TypeLits` in base, so an unresolved one
            merely stays unclassified. The single exception is our own
            `HordeAd.*` namespace, where nothing else has that shape, so
-           an unresolved name there is a failure — that is the only place
+           an unresolved name there is a failure --- that is the only place
            a renamed or misspelt module gets caught mechanically.
   targets  `make <target>` anywhere in the document, resolved against the
            makefile's target list; a `*` in the name is a glob, so
@@ -60,28 +60,28 @@ unclassified rather than guessed at:
            tools own flags this repo never mentions. That corroborating
            grep skips tools/ as well as the documents: the non-vacuity
            recipe below names a bogus flag, and a checker that reads its
-           own documentation as evidence would call it real — as this one
+           own documentation as evidence would call it real --- as this one
            did until the recipe was first run.
   cabal    `+name` against the flags declared in the repo's cabal
   flags    file(s). Upgrade-only like modules, because prose reaches for a
-           leading plus too — a size column reading "small (+spike)" must
+           leading plus too --- a size column reading "small (+spike)" must
            not be read as a flag that has gone missing.
 
 Exit 1 for an unresolved path, an unknown `make` target or an unknown
-cabal target — the kinds that are unambiguously this repo's own drift.
+cabal target --- the kinds that are unambiguously this repo's own drift.
 Exit 2 means the run did not happen at all: a document that cannot be
 read, or an absent sibling checkout. Nothing else fails the run.
 
 Sibling policy (Mikolaj's ruling, 2026-07-29): **use `../foo` whenever it
 is available; if it is not, flag it and stop.** So SIBLING_ROOTS are
-resolved for real — a bare `Arith/Internal.hs` resolves to the file in
+resolved for real --- a bare `Arith/Internal.hs` resolves to the file in
 `../ox-arrays` and is reported with its full path, and a name that is no
 longer there fails like any other drift. When a configured sibling is
 absent the run exits 2 without checking anything, rather than quietly
 downgrading to a weaker check.
 
 That last part is the point. The earlier design allowlisted upstream
-names, which — as its own docstring admitted — "checks only that it is
+names, which --- as its own docstring admitted --- "checks only that it is
 spelled as the allowlist records it": an upstream rename sailed straight
 through. A stop is louder than a shrug, and a green run now means the
 same thing in every session.
@@ -107,21 +107,21 @@ matter as much as the failures: without them an extractor that silently
 matches nothing would look like a clean document. The two upstream rows
 prove the sibling policy resolves a real file by both its spellings,
 path and module. And the must-stay-unclassified rows guard the other
-direction: `tests` is prose, and it did briefly "resolve" — to
-../orthotope/tests — until sibling matching was gated on path shape,
+direction: `tests` is prose, and it did briefly "resolve" --- to
+../orthotope/tests --- until sibling matching was gated on path shape,
 which is how easily a big foreign tree turns a checker into a rubber
 stamp. The self-test was itself proved non-vacuous by breaking the
 checker in a copy (2026-08-14): a dead cabal-target loop, a dead
 sibling resolution, dropping the path-shape gate off the sibling arm,
-and a CITE_RE blind to the range citation each turned it red — the
+and a CITE_RE blind to the range citation each turned it red --- the
 path-shape break on exactly the `tests` rubber-stamp row, the CITE_RE
 one on exactly the skipped-citation guard.
 
 Three of those are recorded false positives rather than decoration.
 `.../ghc-9.12/...` was read as a sibling path until the `../` test was
 made to require the slash. And NOT_IN_PATH was taken to mark URLs, which
-it does not — a plain URL carries no query and no fragment, hence none of
-its characters — so a backticked `https://example.com/a/b.md` was
+it does not --- a plain URL carries no query and no fragment, hence none of
+its characters --- so a backticked `https://example.com/a/b.md` was
 reported as a path that does not resolve, while a URL ending in a slash
 failed through `dir_shaped` instead, a separate arm needing its own row.
 No document here backticks a bare URL, so these two rows are that
@@ -133,7 +133,7 @@ traceback, and an absent sibling must BLOCK rather than degrade. What
 --without-siblings costs is asserted rather than described:
 `src/HordeAd/Core/NoSuchModule.hs` is real local drift, and without the
 checkouts nothing distinguishes a missing local file from an upstream
-one, so it degrades to SKIP alongside the upstream rows — the flag does
+one, so it degrades to SKIP alongside the upstream rows --- the flag does
 not merely leave upstream unchecked, it blunts the local path check as
 well. Reason enough to mount the siblings instead of reaching for the
 flag.
@@ -153,8 +153,8 @@ configuration block is meant to stay identical to this one
 (`tools/check-twin-sync.py` compares them whenever both checkouts are
 mounted; this copy is ahead since gaining --self-test, 2026-08-14, so
 sync it there in a LambdaHack session). What differs by design is the
-docstring and the configuration block, the self-test rows among them —
-each repo's own — so a reader syncing one file to the other syncs the
+docstring and the configuration block, the self-test rows among them ---
+each repo's own --- so a reader syncing one file to the other syncs the
 code below the block and nothing else.
 """
 
@@ -174,7 +174,7 @@ import tempfile
 # setting may be left empty, which switches its check off rather than
 # breaking the run.
 SEARCH_ROOTS = ["src", "test", "bench", "example", "tools", ".github"]
-# Where the executable's `long "…"` options are declared; "" if the repo
+# Where the executable's `long "..."` options are declared; "" if the repo
 # ships no command-line parser, in which case every `--flag` falls
 # through to the external/unknown buckets.
 OPTIONS_FILE = ""
@@ -185,7 +185,7 @@ OUR_NAMESPACE = "HordeAd."
 # repo has no makefile, which switches that check off.
 MAKEFILE = ""
 # Sibling checkouts whose files this repo's documents cite. They are
-# resolved for real whenever present — see the sibling policy above — and
+# resolved for real whenever present --- see the sibling policy above --- and
 # their absence stops the run rather than degrading it. [] to disable.
 SIBLING_ROOTS = ["../ox-arrays", "../orthotope"]
 ALLOW_FILE = "tools/doc-refs-allow.txt"
@@ -296,7 +296,7 @@ CABAL_NAME_RE = re.compile(r"^name:\s*(\S+)", re.M)
 # `https://example.com/a/b.md` was reported as a path that does not
 # resolve, as was any URL ending in a slash, which failed through
 # `dir_shaped` rather than here.
-NOT_IN_PATH = set("<>#?&=…{}")
+NOT_IN_PATH = set("<>#?&={}\u2026")  # U+2026, an ellipsis
 URL_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 
 
@@ -425,7 +425,7 @@ def is_allowed(token, globs):
 
     An entry is written as a path, but the documents name the same thing
     as `HordeAd.Core.AstTraverse` too, so each glob is also tried against
-    the module's path and as a path suffix — one entry covers both,
+    the module's path and as a path suffix --- one entry covers both,
     instead of drifting apart in two spellings.
     """
     candidates = [token]
@@ -519,7 +519,7 @@ def check_doc(doc, known, top_level, allow_paths, cabalflags, siblings,
             elif os.path.exists(token):
                 print(f"ok   sibling {token}")
             else:
-                print(f"FAIL sibling {token} — no such path in the checkout")
+                print(f"FAIL sibling {token} --- no such path in the checkout")
                 failures += 1
         elif token[0] in "~/":
             out["external"].append(token)
@@ -529,9 +529,9 @@ def check_doc(doc, known, top_level, allow_paths, cabalflags, siblings,
             # Gated on path_shaped, or a bare prose word resolves against
             # the sheer size of a sibling tree: `tests` "found"
             # ../orthotope/tests and reported ok.
-            print(f"ok   sibling {token} — {sibling_hit(token, siblings)}")
+            print(f"ok   sibling {token} --- {sibling_hit(token, siblings)}")
         elif is_allowed(token, allow_paths):
-            print(f"allow path   {token} — absent on purpose, see"
+            print(f"allow path   {token} --- absent on purpose, see"
                   f" {ALLOW_FILE}")
         elif module_path(token):
             if resolves(module_path(token), known):
@@ -540,24 +540,24 @@ def check_doc(doc, known, top_level, allow_paths, cabalflags, siblings,
                 # An upstream module named in our vocabulary, e.g.
                 # `Data.Array.Strided.Arith`. Resolving it here is what
                 # turns an upstream rename from invisible into a failure.
-                print(f"ok   module {token} —"
+                print(f"ok   module {token} ---"
                       f" {sibling_hit(module_path(token), siblings)}")
             elif OUR_NAMESPACE and token.startswith(OUR_NAMESPACE):
-                print(f"FAIL module {token} — no such module in"
+                print(f"FAIL module {token} --- no such module in"
                       f" {OUR_NAMESPACE}*")
                 failures += 1
             else:
                 out["unclassified"].append(token)
         elif path_shaped(token, top_level):
             if sib_active:
-                print(f"FAIL path   {token} — does not resolve")
+                print(f"FAIL path   {token} --- does not resolve")
                 failures += 1
             else:
                 # --without-siblings: this may be an upstream name that
                 # would have resolved, so calling it drift would be a
-                # guess. Flagged, not failed — the mode is the human
+                # guess. Flagged, not failed --- the mode is the human
                 # having said to carry on without the checkouts.
-                print(f"SKIP path   {token} — unresolved locally, and"
+                print(f"SKIP path   {token} --- unresolved locally, and"
                       f" siblings not consulted")
                 out["unverified"].append(token)
         else:
@@ -576,20 +576,20 @@ def check_commands(doc, targets, stanzas, ours, allow_make, allow_cabal, out):
                                    fnmatch.filter(targets, name)):
                 print(f"ok   target make {name}")
             elif name in allow_make:
-                print(f"allow target make {name} — absent on purpose, see"
+                print(f"allow target make {name} --- absent on purpose, see"
                       f" {ALLOW_FILE}")
             else:
-                print(f"FAIL target make {name} — no such makefile target")
+                print(f"FAIL target make {name} --- no such makefile target")
                 failures += 1
 
     for name in sorted(set(CABAL_RE.findall(commands))):
         if name in stanzas:
             print(f"ok   target cabal {name}")
         elif name in allow_cabal:
-            print(f"allow target cabal {name} — absent on purpose, see"
+            print(f"allow target cabal {name} --- absent on purpose, see"
                   f" {ALLOW_FILE}")
         else:
-            print(f"FAIL target cabal {name} — no such cabal stanza")
+            print(f"FAIL target cabal {name} --- no such cabal stanza")
             failures += 1
 
     for flag in sorted(set(FLAG_RE.findall(commands))):
@@ -624,7 +624,7 @@ def self_test():
     global SIBLING_ROOTS
     missing = missing_siblings()
     if missing:
-        print("BLOCKED — sibling checkout(s) not available ("
+        print("BLOCKED --- sibling checkout(s) not available ("
               + ", ".join(missing) + "), and the self-test's sibling rows"
               " need them; mount and re-run")
         return 2
@@ -718,14 +718,14 @@ def main():
 
     missing = [] if no_siblings else missing_siblings()
     if missing:
-        print("BLOCKED — sibling checkout(s) not available: "
+        print("BLOCKED --- sibling checkout(s) not available: "
               + ", ".join(missing))
         print("\nThe documents cite files in these, and the policy is to"
               " resolve them for real\nrather than take their spelling on"
               " trust. Mount them and re-run.")
-        print("\nTo proceed without them anyway — which downgrades every"
+        print("\nTo proceed without them anyway --- which downgrades every"
               " upstream reference to\nan unchecked one, verifiable only"
-              " by hand against the cabal store — re-run\nwith"
+              " by hand against the cabal store --- re-run\nwith"
               " --without-siblings.")
         return 2
 
@@ -753,10 +753,10 @@ def main():
                                    allow_make, allow_cabal, out)
 
     for label, items, always in (
-            ("UNVERIFIED — would have been resolved against the sibling"
+            ("UNVERIFIED --- would have been resolved against the sibling"
              " checkouts", out["unverified"], True),
             ("outside the repo, not checked", out["external"], True),
-            ("flags not found in the repo — eyeball these",
+            ("flags not found in the repo --- eyeball these",
              out["unknown_flags"], True),
             ("unclassified backticks, not checked",
              out["unclassified"], False)):

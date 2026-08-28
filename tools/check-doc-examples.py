@@ -156,7 +156,7 @@ def check_types(doc, text, src):
     for n in sorted(set(NAME_RE.findall(code))):
         if n in loc or re.search(r"\b" + n + r"\b", src):
             continue
-        print(f"FAIL {doc}: type {n} — defined neither here nor in the sources")
+        print(f"FAIL {doc}: type {n} --- defined neither here nor in the sources")
         failures += 1
     return failures
 
@@ -251,9 +251,9 @@ def self_test():
         print("  " + ln)
     print(f"\nself-test: {types} type finding(s), {outs} output finding(s),"
           f" expected 1 and 1")
-    print("self-test: PASS — both branches fire and no control was reported"
+    print("self-test: PASS --- both branches fire and no control was reported"
           if ok else
-          "self-test: FAIL — a branch has stopped firing, or a control"
+          "self-test: FAIL --- a branch has stopped firing, or a control"
           " was reported")
     return 0 if ok else 1
 
@@ -282,7 +282,7 @@ def main():
         failures += check_types(doc, text, src)
         failures += check_outputs(doc, text, src)
     print(f"\n{failures} unresolved in {len(docs)} document(s)"
-          f" — a clean run here still does not read the document for you.")
+          f" --- a clean run here still does not read the document for you.")
     return 1 if failures else 0
 
 

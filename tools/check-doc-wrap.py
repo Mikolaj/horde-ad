@@ -156,7 +156,7 @@ def check(doc):
     if got is None:
         print(f"FAIL {rel}: its committed version is at neither of wrap80's"
               f" fixed points, or git has no such file, so the form it keeps"
-              f" cannot be told — run the formatter over it and commit that")
+              f" cannot be told --- run the formatter over it and commit that")
         return 1
     flag, form = got
     try:
@@ -173,7 +173,7 @@ def check(doc):
     if fake:
         i, l = fake[0]
         print(f"FAIL {rel}: line {i} opens with an enumerator Markdown does not"
-              f" read as one — {l[:40]!r}; use a bullet or plain digits"
+              f" read as one --- {l[:40]!r}; use a bullet or plain digits"
               + (f" ({len(fake)} such lines)" if len(fake) > 1 else ""))
         return 1
     if want == have:
@@ -242,7 +242,7 @@ def check(doc):
         # document is done, unwrapping when it is not.
         undo = " ".join(["wrap80", "--unwrap", "-i", rel])
         print(f"FAIL {rel}: {len(hand)} paragraph(s) wrapped by hand, {form}"
-              f" — first at line {at}; if the document is done, run `{fix}`;"
+              f" --- first at line {at}; if the document is done, run `{fix}`;"
               f" if you are still editing, `{undo}` and work there."
               f" Never re-wrap a line by hand")
         return 1
@@ -256,7 +256,7 @@ def check(doc):
                for m in [re.match(r"@@ -(\d+)", l)] if m), "?")
     fix = " ".join(["wrap80"] + flag + ["-i", rel])
     print(f"FAIL {rel}: not as wrap80 leaves it, {form} ({n} line(s), from"
-          f" line {at}) — run `{fix}`, never re-wrap a line by hand")
+          f" line {at}) --- run `{fix}`, never re-wrap a line by hand")
     return 1
 
 

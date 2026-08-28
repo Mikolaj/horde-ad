@@ -6,7 +6,7 @@ Usage: python3 tools/check-conv-bench-props.py [--allocation-only]
 
 Every property is checked twice, against two quantities: seconds per
 iteration, and bytes allocated per iteration. The same fifteen relations
-bound both — what a rewrite costs in time and what it costs in allocation
+bound both --- what a rewrite costs in time and what it costs in allocation
 are different questions whose answers happen to be bounded alike, so a
 divergence between the two passes is itself a finding. Time is checked to
 10%, allocation to 5%, allocation carrying no measurement noise.
@@ -66,7 +66,7 @@ re-collection of every figure recorded against this recipe to save about
 four minutes.
 
 The times compared are the per-iteration OLS slopes criterion fits over
-time against iteration count — the estimate it prints on its "time"
+time against iteration count --- the estimate it prints on its "time"
 line. Criterion's --csv output cannot serve here: it carries only the
 mean, which every benchmark's warm-up ramp inflates by a per-benchmark
 amount that does not cancel between two benchmarks. The raised time
@@ -75,7 +75,7 @@ a millisecond-scale benchmark too few samples for the ramp to regress
 out cleanly.
 
 The properties are stated and explained in the module haddock of
-bench/ConvVjpBench.hs — that list is canonical and this script is its
+bench/ConvVjpBench.hs --- that list is canonical and this script is its
 executable form; keep the two in sync. At tolerance tol, `a == b` stands
 for `abs (a - b) <= max a b * tol`, and `a <= b` for `a <= (1 + tol) * b`.
 
@@ -98,14 +98,14 @@ built from cabal.project alone so that orthotope resolved from Hackage as
 it does there rather than from the sibling checkout, reported every
 allocation fit usable and every property instance passing, the widest
 equality gap 0.5% against the 5% tolerance and no inequality above ratio
-1.00. The tradeoff is what allocation cannot see — the
+1.00. The tradeoff is what allocation cannot see --- the
 gather-against-scatter time gap being the standing example, ~9-12x against
 released orthotope 0.1.8.0, and 1.12x under the checkout's strided-fallback
 rewrites that replaced it, by which point gather's fastest orientation is
 ahead of scatter (bench/CLAUDE.md).
 
 Dash-arguments other than --allocation-only are refused (exit 2, nothing
-checked) rather than read as JSON paths — a mistyped mode flag would
+checked) rather than read as JSON paths --- a mistyped mode flag would
 otherwise select the full time+allocation run silently. Confirmed
 2026-08-14: --allocation-onIy exits 2 naming itself.
 
@@ -117,7 +117,7 @@ regressed, and every property naming that benchmark is unreliable in the
 same run.
 
 A benchmark missing from the JSON aborts with its name, and a benchmark
-that no property touches is reported as a failure — so a newly added
+that no property touches is reported as a failure --- so a newly added
 benchmark forces the property list to be re-normalized.
 
 Exit status is nonzero if any check fails. Non-vacuity was demonstrated
@@ -141,8 +141,8 @@ nothing regressed in between, so the figure dated the instrument
 
 The allocation pass and its gate were shown non-vacuous on 2026-07-30:
 inflating 48x48/S-exec's allocated-vs-iters slope by 30% failed exactly
-allocation properties 1 and 6 — the same pair the time pass fails when its
-own slope is inflated — and dropping one allocation R2 to 0.99 failed the
+allocation properties 1 and 6 --- the same pair the time pass fails when its
+own slope is inflated --- and dropping one allocation R2 to 0.99 failed the
 gate naming that benchmark, each with exit status 1. That all fifteen
 relations hold for allocation at all was established by measuring every
 one of them over a full run before any was encoded: the tightest equality
@@ -163,7 +163,7 @@ perturbation to fire: on that run it names exactly the three cnn-24x24
 benchmarks and no others, a live control. Padding their sample counts
 and R2 past both thresholds in a copy silenced it ("all 107 slopes
 usable"), and lowering a 115-sample benchmark's R2 to 0.80 named that
-one as well — so each arm is known to fire alone, cnn-24x24/S-exec-raw
+one as well --- so each arm is known to fire alone, cnn-24x24/S-exec-raw
 tripping only the sample count and 6x6/S-exec only the R2.
 
 The fill that retired that live control cost the gate its cheapest
@@ -213,7 +213,7 @@ def regression(report, responder, hint):
         if reg["regResponder"] == responder:
             return reg
     sys.exit(f"no {responder}-vs-iters regression for"
-             f" {report['reportName']} — {hint}")
+             f" {report['reportName']} --- {hint}")
 
 
 t = Tracked()      # seconds per iteration
@@ -290,7 +290,7 @@ for k in unusable:
     print(f"  [Q] {k} {n} samples, R2 {r2:.3f}, allocated R2 {ar2:.6f}"
           f"  (need >= {MIN_SAMPLES}, >= {MIN_R2}, >= {MIN_ALLOC_R2})  FAIL")
 if unusable:
-    print(f"  {len(unusable)} slope(s) unusable — re-collect with a longer")
+    print(f"  {len(unusable)} slope(s) unusable --- re-collect with a longer")
     print("  time limit; every property below that names one is unreliable")
     fails += len(unusable)
 else:
@@ -410,8 +410,8 @@ def properties(q, fmt, tol, label):
 TIME_TOL = 0.10
 # Allocation carries no measurement noise, so it is held twice as tightly
 # as time. 5% is three times the largest legitimate gap a measured full
-# run shows — property 4's 1.7%, an embedded constant cotangent against a
-# variable one — and every inequality in that run came out at ratio 1.00
+# run shows --- property 4's 1.7%, an embedded constant cotangent against a
+# variable one --- and every inequality in that run came out at ratio 1.00
 # or below.
 ALLOC_TOL = 0.05
 
@@ -423,7 +423,7 @@ fails += properties(alloc, fmt_bytes, ALLOC_TOL, "allocated bytes")
 # quantities carry the same benchmark names.
 untouched = sorted(set(alloc) - alloc.used)
 if untouched:
-    print("\ncoverage: benchmarks untouched by any property — extend the")
+    print("\ncoverage: benchmarks untouched by any property --- extend the")
     print("numbered list in bench/ConvVjpBench.hs's module haddock:")
     for n in untouched:
         print(f"  {n}")

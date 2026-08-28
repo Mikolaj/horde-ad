@@ -36,7 +36,7 @@ matters here, where CLAUDE.md indents its blocks rather than fencing them.
 The frontmatter skip has a live control even here, where no tracked
 document has frontmatter: run it on any `SKILL.md` under
 `~/.claude/skills/` and confirm the only heading reported is the `#`
-title, not a `## description: …` section. Before the skip, every skill
+title, not a `## description: ...` section. Before the skip, every skill
 file reported one -- including the `doc-verification` skill that
 prescribes this very pass, since a closing `---` under a `description:`
 line is indistinguishable from a Setext heading except by knowing it

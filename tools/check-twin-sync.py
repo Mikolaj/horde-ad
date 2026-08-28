@@ -143,7 +143,7 @@ def main():
         return 2
     here = os.path.dirname(os.path.abspath(__file__))
     if not os.path.isdir(TWIN_ROOT):
-        print(f"BLOCKED — twin checkout not available: {TWIN_ROOT}")
+        print(f"BLOCKED --- twin checkout not available: {TWIN_ROOT}")
         print("An unverified sync is not a passing one; mount the checkout"
               " and re-run.")
         return 2
@@ -156,7 +156,7 @@ def main():
         print(f"note {name}: only in {TWIN_ROOT}")
     for name in drifted:
         print(f"FAIL {name}: the copies disagree below docstring and"
-              f" configuration — a fix landed in one repo only; diff the"
+              f" configuration --- a fix landed in one repo only; diff the"
               f" two and port it")
     print(f"\n{len(drifted)} drifted")
     return 1 if drifted else 0

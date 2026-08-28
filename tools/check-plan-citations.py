@@ -6,7 +6,7 @@ DOC defaults to CLAUDE.md. Run from the repo root.
 
 For every citation of the form `path/to/File.hs:12` or `File.hs:12-34`
 (also .ts, .py, .c, .h, .cabal, .mjs, .html, .md, .txt, .yaml/.yml and
-the Makefile — documents cite each other and the tools), the script
+the Makefile --- documents cite each other and the tools), the script
 resolves the file, checks the line range exists, and prints the first
 cited line so a human can compare it against what the surrounding
 sentence claims. A `/.../` component in a cited path is treated as a
@@ -18,10 +18,10 @@ prose ("`Core/OpsConcrete.hs:222`, and the scatter path below") out of
 the match.
 
 Exit status is nonzero if any citation is UNRESOLVED (no such file),
-AMBIGUOUS (a bare basename matching several files — qualify it in the
+AMBIGUOUS (a bare basename matching several files --- qualify it in the
 document), OUT-OF-RANGE (the file is shorter than the cited line), or
 PROSE-LINE (the target is a `.md`, whose line numbers move under the
-formatter and so cannot be cited at all — name a phrase or a heading).
+formatter and so cannot be cited at all --- name a phrase or a heading).
 
 Line numbers drift as commits land: after changing a cited file, re-run
 this and eyeball the printed snippets; the document header records the
@@ -29,13 +29,13 @@ commit its citations were last verified against.
 
 Pinned GitHub permalinks (`https://github.com/.../blob/<commit>/<path>#L12`
 or `#L12-L34`) are also checked, against the pinned commit via
-`git show <commit>:<path>` — they never drift, so this catches typos,
+`git show <commit>:<path>` --- they never drift, so this catches typos,
 wrong ranges and links whose commit or path is not in this repository
 (foreign-repo links cannot be verified locally and are reported as
 failures).
 
 `git show` proves only that the commit is in *this* clone's object
-database, which an unpushed or squashed-away commit is too — such a link
+database, which an unpushed or squashed-away commit is too --- such a link
 resolves for one person on one machine and 404s everywhere else. So a
 resolved permalink is then required to be an ancestor of PUBLISHED_REF,
 and one that is not fails as UNPUBLISHED; if that ref is absent the run
@@ -96,19 +96,19 @@ whole-file pointers being deliberately `blob/master`.
 
 Scope limits, deliberate: prose-style citations ("config.ui.default line
 67") are not extracted, nor is a range left dangling from its filename
-("`Core/OpsConcrete.hs:222` and `1581`") — a bare `1581` in backticks is
+("`Core/OpsConcrete.hs:222` and `1581`") --- a bare `1581` in backticks is
 indistinguishable from any other number, so a document that wants the
 second line checked must repeat the filename.
 
 Refuted, and not to be reopened without new evidence: extending that to
-the *colon-led* continuation the documents also write ("…hs:182 '…',
+the *colon-led* continuation the documents also write ("...hs:182 '...',
 :4310, :4487"), which unlike a bare number looks unambiguous. Measured
 2026-07-31 over every `.md` here, attaching each `, :NNNN` to the nearest
 preceding citation: 33 matches, all in one untracked scratch document and
 **none in any tracked one**, so the coverage gain today is zero. Against
-that, three of the 33 attach to the wrong file — `Convert.hs:254` where
+that, three of the 33 attach to the wrong file --- `Convert.hs:254` where
 the sentence says check-doc-refs.py, `horde-ad.cabal:49-51` and
-`BenchProdTools.hs:49-51` where it says this checker's docstring — and
+`BenchProdTools.hs:49-51` where it says this checker's docstring --- and
 those files are long enough that all three *resolve*, so the rule would
 print `ok` against the wrong file. That is the "a citation that resolves
 can still lie" class, manufactured by the checker meant to catch it. No
@@ -118,11 +118,11 @@ gap threshold separates the cases either: correct attachments measured
 clean cut. Nor is a cut derivable from a bigger corpus: the LambdaHack
 copy measured its own correct attachments to 660 characters and its wrong
 ones from 2339, where the cut here would fall between 184 and 1538. Two
-corpora, two cuts, neither implying the other — the separation is an
+corpora, two cuts, neither implying the other --- the separation is an
 artifact of each document's prose, not a rule to calibrate against.
 Repeat the filename.
 And the *claims* around citations are not checked
-— in particular, universally-quantified claims ("only X does Y", "exactly
+--- in particular, universally-quantified claims ("only X does Y", "exactly
 two", "never") must be re-verified by repo-wide grep, not by re-reading
 the cited file; that asymmetry is how a real error slipped in once.
 
@@ -311,7 +311,7 @@ def all_files_named(basename):
 
 
 def resolve(name):
-    """Return (path, error) — exactly one of the two is None."""
+    """Return (path, error) --- exactly one of the two is None."""
     if "/.../" in name:
         prefix, suffix = name.split("/.../", 1)
         hits = [h for h in all_files_named(os.path.basename(name))
@@ -327,7 +327,7 @@ def resolve(name):
         return hits[0], None
     if not hits:
         return None, "UNRESOLVED"
-    return None, f"AMBIGUOUS: {hits} — qualify the citation"
+    return None, f"AMBIGUOUS: {hits} --- qualify the citation"
 
 
 def require_readable(paths):
@@ -369,7 +369,7 @@ def restamp(doc, text, cited_paths, failures):
     stamps = list(STAMP_RE.finditer(text))
     if len(stamps) != 1:
         which = "no stamp" if not stamps else f"{len(stamps)} stamps"
-        print(f"\nnot restamping {doc}: {which} found — a stamp reads"
+        print(f"\nnot restamping {doc}: {which} found --- a stamp reads"
               f' "verified against ... commit `<hash>` (<date>)"')
         return 1
     if not others:
@@ -390,7 +390,7 @@ def restamp(doc, text, cited_paths, failures):
     today = datetime.date.today().isoformat()
     m = stamps[0]
     if (m.group(2), m.group(4)) == (anchor, today):
-        print(f"\n{doc}: stamp already names {anchor} ({today}) — unchanged")
+        print(f"\n{doc}: stamp already names {anchor} ({today}) --- unchanged")
         return 0
     open(doc, "w", encoding="utf-8").write(
         text[:m.start()] + m.group(1) + anchor + m.group(3) + today
@@ -593,20 +593,20 @@ def main():
         # leaning on two separate arguments, one of them added the day the
         # rewrapping hook was.
         if name.endswith(".md"):
-            print(f"FAIL {name}:{lo}-{hi} — PROSE-LINE (a line number into"
+            print(f"FAIL {name}:{lo}-{hi} --- PROSE-LINE (a line number into"
                   f" a document does not survive a reflow; cite a phrase or"
                   f" a heading)")
             failures += 1
             continue
         path, err = resolve(name)
         if err:
-            print(f"FAIL {name}:{lo}-{hi} — {err}")
+            print(f"FAIL {name}:{lo}-{hi} --- {err}")
             failures += 1
             continue
         lines = open(path, encoding="utf-8",
                      errors="replace").read().splitlines()
         if hi > len(lines):
-            print(f"FAIL {name}:{lo}-{hi} — OUT-OF-RANGE "
+            print(f"FAIL {name}:{lo}-{hi} --- OUT-OF-RANGE "
                   f"(file has {len(lines)} lines)")
             failures += 1
             continue
@@ -619,13 +619,13 @@ def main():
         proc = subprocess.run(["git", "show", f"{sha}:{path}"],
                               capture_output=True, text=True)
         if proc.returncode != 0:
-            print(f"FAIL {path}#L{lo}-L{hi} @ {sha[:9]} — commit or path"
+            print(f"FAIL {path}#L{lo}-L{hi} @ {sha[:9]} --- commit or path"
                   f" not in this repository")
             failures += 1
             continue
         lines = proc.stdout.splitlines()
         if hi > len(lines):
-            print(f"FAIL {path}#L{lo}-L{hi} @ {sha[:9]} — OUT-OF-RANGE "
+            print(f"FAIL {path}#L{lo}-L{hi} @ {sha[:9]} --- OUT-OF-RANGE "
                   f"(file has {len(lines)} lines at that commit)")
             failures += 1
             continue
@@ -637,7 +637,7 @@ def main():
                   f" repository publishes from.", file=sys.stderr)
             sys.exit(2)
         if not pub:
-            print(f"FAIL {path}#L{lo}-L{hi} @ {sha[:9]} — UNPUBLISHED"
+            print(f"FAIL {path}#L{lo}-L{hi} @ {sha[:9]} --- UNPUBLISHED"
                   f" (resolves here but is not an ancestor of"
                   f" {PUBLISHED_REF}, so the link 404s for everyone else)")
             failures += 1
@@ -656,23 +656,23 @@ def main():
     # about this file's tree. This is the same precondition --restamp
     # enforces, so the two agree on what counts as a stamp.
     if len(found) > 1:
-        print(f"note {len(found)} stamps found — quotations, not this"
+        print(f"note {len(found)} stamps found --- quotations, not this"
               f" document's own; none checked")
         found = []
     for m in found:
         sha = m.group(2)
         if reachable_from(sha, "HEAD") is False:
-            print(f"FAIL stamp @ {sha[:9]} — ORPHANED (not an ancestor of"
+            print(f"FAIL stamp @ {sha[:9]} --- ORPHANED (not an ancestor of"
                   f" HEAD; a squash or amend dropped it, so no clone can"
                   f" resolve the tree this document claims to name)")
             stamp_failures += 1
         elif published(sha) is False:
-            print(f"note stamp @ {sha[:9]} — not on {PUBLISHED_REF} yet;"
+            print(f"note stamp @ {sha[:9]} --- not on {PUBLISHED_REF} yet;"
                   f" sound only if this branch is pushed without"
                   f" rewriting that commit")
     print(f"\n{len(cites) + len(urlcites)} citations checked,"
           f" {failures} failed"
-          f" — now eyeball the snippets against the document's claims.")
+          f" --- now eyeball the snippets against the document's claims.")
     if "--restamp" in flags:
         resolved = [resolve(name)[0] for name, _lo, _hi in cites]
         return restamp(doc, text, [p for p in resolved if p], failures)
