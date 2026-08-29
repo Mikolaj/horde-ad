@@ -14,10 +14,10 @@ that the *Why it moved a cross-build A/B* section below predicts it from,
 and never goes away.  This document is the full account: the mechanism
 and the evidence for each link, what was ruled out, the relation to the warm-up
 ramp, the consequences for measurement practice here and in orthotope's
-`micro-regime3`, and the standalone reproducer behind the [GHC issue
-draft][ghc-issue].  The files that used to carry pieces
-of this (`bench/CLAUDE.md`, the root `CLAUDE.md`, the staged drafts,
-`micro-regime3/README.md`) now hold one-line rules and link here.
+`micro-regime3`, and the standalone reproducer behind GHC [#27601][ghc-issue].
+The files that used to carry pieces of this (`bench/CLAUDE.md`, the root
+`CLAUDE.md`, the staged drafts, `micro-regime3/README.md`) now hold one-line
+rules and link here.
 
 Vocabulary: "position effect" here means dependence on *which benchmarks share
 the process* (the roster).  It is not the slot a benchmark occupies within
@@ -219,8 +219,8 @@ and `-H2G` does not cure it where here it does --- though the counter signature
 is the same shape, mutator LLC misses at flat instructions and dTLB.
 The measurements, dose curve, instrument corrections and base-only reproducer
 are orthotope's `micro-regime3/README.md` position-term entry
-and its `micro-regime3/small-pinned-churn-investigation/`; the staged GHC issue
-is [the small-pinned churn draft][ghc-issue-small].
+and its `micro-regime3/small-pinned-churn-investigation/`; the GHC issue
+is [#27719][ghc-issue-small].
 
 ## Standalone reproducer
 
@@ -229,14 +229,14 @@ a fixed-dose poison phase spraying 3600-byte pinned buffers takes the pool
 from 1.02 to 2.17 GiB --- identically on GHC 9.12.4, 9.14.1 and HEAD
 (10.1.20260803, perf-flavour build) --- and an identical victim loop then runs
 a few percent slower, `-Fd1`-immune everywhere.  The program, its three-compiler
-numbers, and the RTS-side analysis are in the [GHC issue draft][ghc-issue].
-The repro's small effect size is expected: its victim only *places* fresh
-allocations into the fragmented region, where convVjpBench's fused victim
-*recycles* a hot ~14 MB/iteration working set through it --- the strong form
-of the penalty.  One trap the draft records: a quick-flavour GHC build
-(unoptimized boot libraries) fails to reproduce either symptom --- the inflated
-per-allocation overhead triggers collections that cap the spray accumulation ---
-so only optimized builds arbitrate.
+numbers, and the RTS-side analysis are in [#27601][ghc-issue].  The repro's
+small effect size is expected: its victim only *places* fresh allocations
+into the fragmented region, where convVjpBench's fused victim *recycles* a hot
+~14 MB/iteration working set through it --- the strong form of the penalty.  One
+trap the draft records: a quick-flavour GHC build (unoptimized boot libraries)
+fails to reproduce either symptom --- the inflated per-allocation overhead
+triggers collections that cap the spray accumulation --- so only optimized
+builds arbitrate.
 
 ## Provenance
 
@@ -257,6 +257,6 @@ on this machine by `perf_event_paranoid`).  Criterion's GC placement (major per
 benchmark, minor per sample) was read from the criterion-measurement 0.2.5.0
 source.
 
-[ghc-issue]: ghc-issue-block-pool-fragmentation.md
-[ghc-issue-small]: ghc-issue-small-pinned-churn.md
+[ghc-issue]: https://gitlab.haskell.org/ghc/ghc/-/work_items/27601
+[ghc-issue-small]: https://gitlab.haskell.org/ghc/ghc/-/work_items/27719
 [123]: https://github.com/Mikolaj/horde-ad/issues/123

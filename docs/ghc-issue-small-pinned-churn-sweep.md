@@ -1,6 +1,6 @@
 # The awareness-sweep record for the small-pinned-churn issue
 
-The evidence behind [the staged issue](ghc-issue-small-pinned-churn.md)'s claim that the mutator-TIME cost of small-pinned churn is unknown upstream --- its preamble's one-sentence summary and its "duplicate" and "conscious trade-off" bullets distill this file. Two sweeps, both 2026-08-18. Not for posting; a quote source if triage challenges the claim.
+The evidence behind GHC [#27719](https://gitlab.haskell.org/ghc/ghc/-/work_items/27719)'s claim that the mutator-TIME cost of small-pinned churn is unknown upstream --- its preamble's one-sentence summary and its "duplicate" and "conscious trade-off" bullets distill this file. Two sweeps, both 2026-08-18. Not for posting; a quote source if triage challenges the claim.
 
 ## Sweep 1: titles, descriptions, full threads, user-facing docs
 
@@ -22,7 +22,7 @@ Load-bearing quotes:
 
 Method: `GITLAB_HOST=gitlab.haskell.org glab api 'projects/1/search?scope=notes&search=TERM&per_page=100'`. The instance runs GitLab basic search, so a multi-word term is word-AND over the note body (substring, case-insensitive) --- quoted phrases are not exact, which widens recall and permits direct co-occurrence queries. Every term fit one page at `per_page=100`; page 2 verified empty for the two largest terms.
 
-41 terms over the mechanism vocabulary (allocatePinned, pinned_object_empty, PINNED_EMPTY_SIZE, pinned_object_block, mallocForeignPtrBytes, pinned/nursery/block-level fragmentation, free list fragmentation, empty pinned, 3256, ...) crossed with the symptom vocabulary (slow, slower, slowdown, performance, mutator, cache, LLC, TLB, locality, degrade): 256 unique notes (169 on issues, 87 on MRs), most of them `+RTS -s` dumps or compiler-perf threads, every candidate read in sentence context. Zero hits name a mutator-time cost of pinned or block-level churn; zero hits landed on work item 27601 (our own filing, excluded as evidence anyway).
+41 terms over the mechanism vocabulary (allocatePinned, pinned_object_empty, PINNED_EMPTY_SIZE, pinned_object_block, mallocForeignPtrBytes, pinned/nursery/block-level fragmentation, free list fragmentation, empty pinned, 3256, ...) crossed with the symptom vocabulary (slow, slower, slowdown, performance, mutator, cache, LLC, TLB, locality, degrade): 256 unique notes (169 on issues, 87 on MRs), most of them `+RTS -s` dumps or compiler-perf threads, every candidate read in sentence context. Zero hits name a mutator-time cost of pinned or block-level churn; zero hits landed on GHC #27601 (our own filing, excluded as evidence anyway).
 
 The nearest misses, each tying heap layout to mutator time through a different mechanism:
 
