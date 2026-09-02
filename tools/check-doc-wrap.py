@@ -267,10 +267,13 @@ def check(doc):
         # done-case fix taught the next to wrap for a check: the remedy is
         # the unwrap, and the commit hook wraps a tracked document back.
         undo = " ".join(["wrap80", "--unwrap", "-i", rel])
+        # For a document kept one line per paragraph the unwrap IS the
+        # fix, so the no-commit clause would name the same command twice.
+        spare = "" if flag else f"; `{fix}` is for a document with no commit"
         print(f"FAIL {rel}: {len(hand)} paragraph(s) wrapped by hand, {form}"
               f" --- first at line {at}; unwrap it (`{undo}`) and work there,"
-              f" the commit hook wrapping it back; `{fix}` is for a document"
-              f" with no commit. Never re-wrap a line by hand")
+              f" the commit hook restoring its committed form{spare}."
+              f" Never re-wrap a line by hand")
         return 1
     # Diffed rather than compared by position: one inserted line shifts every
     # line under it, so a position count reports the whole file as changed and
@@ -282,8 +285,8 @@ def check(doc):
                for m in [re.match(r"@@ -(\d+)", l)] if m), "?")
     undo = " ".join(["wrap80", "--unwrap", "-i", rel])
     print(f"FAIL {rel}: not as wrap80 leaves it, {form} ({n} line(s), from"
-          f" line {at}) --- unwrap it (`{undo}`) and the commit hook wraps it"
-          f" back; never re-wrap a line by hand")
+          f" line {at}) --- unwrap it (`{undo}`) and the commit hook restores"
+          f" its committed form; never re-wrap a line by hand")
     return 1
 
 
