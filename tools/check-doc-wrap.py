@@ -16,9 +16,11 @@ This asks for the formatter's output rather than for a width, which is
 stronger and cheaper at once. Stronger, because a width sees only the
 lines past it: a document left under-wrapped, and a line ending on a
 dangling "a" or "the", both pass an "under 80" test and both fail this
-one. Cheaper, because the fix is `wrap80 -i DOC` with nothing left to
-judge -- where a width invites fixing the offending line, which does not
-converge, since shortening one line pushes its last words onto the next.
+one. Cheaper, because the fix is an unwrap and the commit hook, with
+nothing left to judge (`wrap80 -i DOC` only where the document has no
+commit for the hook to read) -- where a width invites fixing the
+offending line, which does not converge, since shortening one line
+pushes its last words onto the next.
 
 No width appears here. The number lives in `wrap80` alone, as its name
 and its default, so there is nowhere for a second copy to drift from.
@@ -261,13 +263,14 @@ def check(doc):
         # is what an Edit mid-stretch leaves AND what hand-lengthening leaves,
         # so this cannot tell them apart and must name both remedies. Naming
         # the formatter alone sent a session round wrap-then-edit-then-red five
-        # times in one write-up (2026-08-16): wrapping is the fix when the
-        # document is done, unwrapping when it is not.
+        # times in one write-up (2026-08-16), and naming `wrap80 -i` as the
+        # done-case fix taught the next to wrap for a check: the remedy is
+        # the unwrap, and the commit hook wraps a tracked document back.
         undo = " ".join(["wrap80", "--unwrap", "-i", rel])
         print(f"FAIL {rel}: {len(hand)} paragraph(s) wrapped by hand, {form}"
-              f" --- first at line {at}; if the document is done, run `{fix}`;"
-              f" if you are still editing, `{undo}` and work there."
-              f" Never re-wrap a line by hand")
+              f" --- first at line {at}; unwrap it (`{undo}`) and work there,"
+              f" the commit hook wrapping it back; `{fix}` is for a document"
+              f" with no commit. Never re-wrap a line by hand")
         return 1
     # Diffed rather than compared by position: one inserted line shifts every
     # line under it, so a position count reports the whole file as changed and
@@ -277,9 +280,10 @@ def check(doc):
     n = sum(1 for l in d if l[:1] in "+-" and not l.startswith(("---", "+++")))
     at = next((m.group(1) for l in d
                for m in [re.match(r"@@ -(\d+)", l)] if m), "?")
-    fix = " ".join(["wrap80"] + flag + ["-i", rel])
+    undo = " ".join(["wrap80", "--unwrap", "-i", rel])
     print(f"FAIL {rel}: not as wrap80 leaves it, {form} ({n} line(s), from"
-          f" line {at}) --- run `{fix}`, never re-wrap a line by hand")
+          f" line {at}) --- unwrap it (`{undo}`) and the commit hook wraps it"
+          f" back; never re-wrap a line by hand")
     return 1
 
 
