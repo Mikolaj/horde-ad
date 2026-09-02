@@ -16,9 +16,14 @@ reports as a check that did not happen, never as one that passed.
 """
 
 SCAN = ['.']
+# The mutants step compiles bang-lazy-check's probes for every one of its mutants.
+TIMEOUT = 3600
 
-DOCS = ("cd \"{root}/..\" && for d in $(git ls-files '*.md' | grep -v '^CHANGELOG.md$'); "
-        "do python3 tools/%s \"$d\" || exit 1; done")
+# A checker's 2 is a document that could not be checked, not one that failed,
+# and the loop hands it on as 2; a 1 anywhere is 1.
+DOCS = ("cd \"{root}/..\" && worst=0; for d in $(git ls-files '*.md' | grep -v '^CHANGELOG.md$'); "
+        "do python3 tools/%s \"$d\"; rc=$?; [ $rc -eq 1 ] && worst=1; "
+        "[ $rc -eq 2 ] && [ $worst -ne 1 ] && worst=2; done; exit $worst")
 
 STEPS = [
     ('bang-lazy-check selftest', ['python3', '{root}/bang-lazy-check.py', '--selftest']),
