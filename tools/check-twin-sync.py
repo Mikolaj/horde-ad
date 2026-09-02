@@ -64,6 +64,7 @@ CONFIG_NAMES = ("SEARCH_ROOTS", "PUBLISHED_REF", "TWIN_ROOT")
 def chdir_root():
     """Run from the repository root whatever the cwd, TWIN_ROOT being
     root-relative. Outside a repository nothing moves."""
+    # answered dropped-status: an empty top is the failure, and the next line tests it
     top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                          capture_output=True, text=True).stdout.strip()
     if top:

@@ -130,6 +130,10 @@ MUTANTS = [
     # check-doc-wrap: "folding BLOCKED back into exit 1"
     ('check-doc-wrap BLOCKED folded back into exit 1', 'check-doc-wrap.py',
      "    return 1 if bad else (2 if blocked else 0)\n", "    return 1 if bad or blocked else 0\n", ST),
+    # check-doc-wrap: a fence closed by one of another kind (check-doc-wrap-06)
+    ('check-doc-wrap closes a block with a fence of any kind', 'check-doc-wrap.py',
+     "        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):\n",
+     "        elif m:\n", ST),
     # check-doc-wrap: "a repository tracking no Markdown reports BLOCKED rather than
     # 0 of 0 failed" (2026-08-28)
     ('check-doc-wrap repository tracking no Markdown reported as 0 of 0 failed', 'check-doc-wrap.py',
@@ -144,6 +148,10 @@ MUTANTS = [
     # check-plan-citations: "disabling the dirty-cited-file refusal"
     ('check-plan-citations dirty-cited-file refusal disabled', 'check-plan-citations.py',
      "        if dirty:\n", "        if False:\n", ST),
+    # check-plan-citations: a failed git status read as clean (check-plan-citations-05)
+    ('check-plan-citations reads a failed git status as clean', 'check-plan-citations.py',
+     "        if p.returncode != 0:\n            print(f\"\\nnot restamping {doc}: git status could not be read\"\n",
+     "        if False:\n            print(f\"\\nnot restamping {doc}: git status could not be read\"\n", ST),
     # check-plan-citations: "line-zero, backwards-range ... rows" (2026-08-28); the bare
     # condition occurs twice, so the anchor carries the print line
     ('check-plan-citations line zero and backwards range accepted', 'check-plan-citations.py',

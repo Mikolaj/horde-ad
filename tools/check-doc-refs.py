@@ -280,6 +280,7 @@ def chdir_root(paths):
     """Run from the repository root whatever the cwd -- the configuration's
     paths are root-relative -- and return PATHS rebased to it. Outside a
     repository nothing moves."""
+    # answered dropped-status: an empty top is the failure, and the next line tests it
     top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                          capture_output=True, text=True).stdout.strip()
     if not top:
@@ -349,6 +350,8 @@ def cabal_stanzas(text):
 def repo_paths():
     """Every tracked-or-present path under the search roots, plus the root."""
     roots = [r for r in SEARCH_ROOTS if os.path.isdir(r)] or ["."]
+    # answered dropped-status: the find's failure is an empty listing, and
+    # a path absent from it is reported as such
     out = subprocess.run(
         ["bash", "-c", "find " + " ".join(roots)
          + " -not -path '*/node_modules/*' 2>/dev/null; ls -1 2>/dev/null"],
@@ -366,6 +369,7 @@ def sibling_paths():
     roots = [r for r in SIBLING_ROOTS if os.path.isdir(r)]
     if not roots:
         return []
+    # answered dropped-status: as above, an empty listing
     out = subprocess.run(
         ["bash", "-c", "find " + " ".join(roots)
          + " -not -path '*/dist-newstyle/*' -not -path '*/.git/*'"

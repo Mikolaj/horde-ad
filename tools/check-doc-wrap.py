@@ -125,6 +125,7 @@ def chdir_root(paths):
     """Run from the repository root whatever the cwd -- the configuration's
     paths are root-relative -- and return PATHS rebased to it. Outside a
     repository nothing moves."""
+    # answered dropped-status: an empty top is the failure, and the next line tests it
     top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                          capture_output=True, text=True).stdout.strip()
     if not top:
@@ -151,16 +152,23 @@ def tracked_markdown():
 # plain "1990. The year" is a real list item and is left alone.
 FAKE_MARKER = re.compile(r"^\s*(\d+[a-z]|[a-z]|[A-Z]|[ivxlcIVXLC]+)[.)]\s")
 REAL_MARKER = re.compile(r"^\s*([-*+]\s|\d{1,9}[.)]\s)")
-FENCE = re.compile(r"^\s*(```|~~~)")
+FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 
 
 def fake_markers(text):
     """[(line number, line)] for enumerators Markdown will not read as such."""
-    out, fenced = [], False
+    # The open fence, kind and length: CommonMark closes a block only with
+    # a fence of the same character at least as long, so a backtick fence
+    # shown inside a tilde block is content. One boolean flipped by any
+    # fence line read it as the closer (check-doc-wrap-06).
+    out, fence = [], None
     for i, l in enumerate(text.split("\n"), 1):
-        if FENCE.match(l):
-            fenced = not fenced
-        elif not fenced and FAKE_MARKER.match(l) and not REAL_MARKER.match(l):
+        m = FENCE.match(l)
+        if m and fence is None:
+            fence = m.group(1)
+        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
+            fence = None
+        elif fence is None and FAKE_MARKER.match(l) and not REAL_MARKER.match(l):
             out.append((i, l.strip()))
     return out
 
@@ -378,6 +386,16 @@ def self_test():
             code, out = run_check("w.md")
             expect("fake enumerator", code, 1, out, "enumerator")
             open("w.md", "w").write(wrapped)
+            # A fence of the other kind inside a block is content, and so
+            # is a shorter one of the same kind; a closer of the same kind
+            # at least as long ends the block.
+            got = fake_markers("~~~\n" + "`" * 3 + "\n1a. shown\n~~~\n")
+            expect("fence of another kind inside a block", len(got), 0, "")
+            got = fake_markers("`" * 4 + "\n" + "`" * 3 + "\n1a. shown\n"
+                               + "`" * 4 + "\n")
+            expect("shorter fence inside a block", len(got), 0, "")
+            got = fake_markers("~~~\nx\n~~~\n1a. shown\n")
+            expect("closed block", len(got), 1, "")
 
             wl = open("l.md").read()
             flat_l = subprocess.run(["wrap80", "--unwrap", "l.md"],

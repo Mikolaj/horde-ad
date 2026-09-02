@@ -116,6 +116,7 @@ def chdir_root(paths):
     """Run from the repository root whatever the cwd -- the configuration's
     paths are root-relative -- and return PATHS rebased to it. Outside a
     repository nothing moves."""
+    # answered dropped-status: an empty top is the failure, and the next line tests it
     top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                          capture_output=True, text=True).stdout.strip()
     if not top:

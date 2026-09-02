@@ -341,6 +341,49 @@
    "harm_count": 1,
    "discovery": "in-use",
    "notes": "Seeded 2026-09-02 from the docstring, found the same day as heading-outline-01."
+  },
+  {
+   "id": "check-doc-wrap-06",
+   "program": "check-doc-wrap.py",
+   "name": "the fence tracker was one boolean flipped by any fence line, so a backtick fence shown inside a tilde block closed the block and an enumerator after it was reported as fake",
+   "family": "scan-for-parse",
+   "fix_rev": null,
+   "trigger": "~~~ then a ``` line then `1a. shown` then ~~~",
+   "ok": "the fence's kind and length are tracked, and only a closer of the same kind at least as long closes it; no finding",
+   "bug": "the ``` line flipped the state, and `1a. shown` was reported as a fake enumerator",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "lint",
+   "notes": "Raised by defect-lint.py's boolean-pair-state rule on 2026-09-02, over a repository whose documents carry three-backtick fences alone; the fix is CommonMark's rule for closers.",
+   "unit": "fake_markers('~~~\\n```\\n1a. shown\\n~~~\\n')",
+   "expect_text": "[]",
+   "bug_text": "(3, '1a. shown')"
+  },
+  {
+   "id": "check-plan-citations-05",
+   "program": "check-plan-citations.py",
+   "name": "a git status that failed read as no dirty file, so --restamp went ahead having verified nothing about the cited files",
+   "family": "error-as-value",
+   "fix_rev": null,
+   "trigger": "--restamp with a git whose status command fails",
+   "ok": "not restamping, git status could not be read, exit 2",
+   "bug": "the empty output of the failed status read as clean and the stamp was rewritten, exit 0",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "lint",
+   "notes": "Raised by defect-lint.py's dropped-status rule on 2026-09-02, the one of its twelve questions here that was a defect; the shim in the case fails git status alone and hands everything else to the real git.",
+   "plant_cmd": "git init -q . && printf 'line one\\nline two\\n' > a.hs && printf '%s\\n' '`a.hs:1` cited.' '' 'Citations were verified against the tree at commit `0000000aa` (2020-01-01).' > r.md && git add a.hs r.md && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm base && mkdir shim && printf '#!/bin/sh\\ncase \"$*\" in *status*) exit 128;; esac\\nexec /usr/bin/git \"$@\"\\n' > shim/git && chmod +x shim/git",
+   "env": {
+    "PATH": "{tmp}/shim:/usr/bin:/bin"
+   },
+   "invoke": [
+    "r.md",
+    "--restamp"
+   ],
+   "expect_exit": 2,
+   "expect_text": "could not be read",
+   "bug_exit": 0,
+   "bug_text": "->"
   }
  ]
 }

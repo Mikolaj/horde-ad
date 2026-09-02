@@ -269,6 +269,7 @@ def chdir_root(paths):
     """Run from the repository root whatever the cwd -- the configuration's
     paths are root-relative -- and return PATHS rebased to it. Outside a
     repository nothing moves."""
+    # answered dropped-status: an empty top is the failure, and the next line tests it
     top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                          capture_output=True, text=True).stdout.strip()
     if not top:
@@ -322,6 +323,8 @@ def published(sha):
 
 
 def all_files_named(basename):
+    # answered dropped-status: the find's failure is an empty listing, and
+    # an empty listing is what the caller reports
     out = subprocess.run(
         ["bash", "-c",
          "find " + " ".join(SEARCH_ROOTS[:-1])
@@ -376,10 +379,18 @@ def restamp(doc, text, cited_paths, failures):
     others = sorted({p for p in cited_paths if os.path.abspath(p)
                      != os.path.abspath(doc)})
     if others:
-        # --porcelain, never colourised, unlike --short
-        dirty = [ln for ln in subprocess.run(
-            ["git", "status", "--porcelain", "--"] + others,
-            capture_output=True, text=True).stdout.splitlines() if ln.strip()]
+        # --porcelain, never colourised, unlike --short. A status that
+        # could not be read is not a clean one: its empty output used to
+        # read as no dirty file and the stamp was rewritten over a tree
+        # nobody had compared to HEAD (check-plan-citations-05).
+        p = subprocess.run(["git", "status", "--porcelain", "--"] + others,
+                           capture_output=True, text=True)
+        if p.returncode != 0:
+            print(f"\nnot restamping {doc}: git status could not be read"
+                  f" ({p.stderr.strip()[:60] or 'exit ' + str(p.returncode)}),"
+                  f" so whether the cited files match HEAD is unknown")
+            return 2
+        dirty = [ln for ln in p.stdout.splitlines() if ln.strip()]
         if dirty:
             print(f"\nnot restamping {doc}: cited files differ from HEAD, so"
                   f" the pass verified the working tree rather than a commit:")
@@ -400,6 +411,7 @@ def restamp(doc, text, cited_paths, failures):
     # newest commit touching anything the document cites. That is what makes
     # it survive amending or replaying the commit that carries the document,
     # which touches no cited file and so cannot move the answer.
+    # answered dropped-status: an empty anchor is the failure, refused below
     anchor = subprocess.run(
         ["git", "log", "-1", "--format=%h", "--abbrev=9", "--"] + others,
         capture_output=True, text=True).stdout.strip()
@@ -450,9 +462,10 @@ def self_test():
             if n not in out:
                 bad.append(f"{case}: output lacks {n!r}")
 
-    def run(*argv, cwd=None):
+    def run(*argv, cwd=None, env=None):
         return subprocess.run([sys.executable, script] + list(argv),
-                              capture_output=True, text=True, cwd=cwd)
+                              capture_output=True, text=True, cwd=cwd,
+                              env=env)
 
     with tempfile.TemporaryDirectory() as td:
         os.chdir(td)
@@ -555,6 +568,19 @@ def self_test():
             p = run("r.md", "--restamp")
             expect("already current", p.returncode, 0)
             contains("already current", p.stdout, "already names")
+            # A git whose status fails, everything else handed to the real
+            # one: the restamp must refuse, not read the silence as clean.
+            os.makedirs("shim")
+            open("shim/git", "w").write(
+                '#!/bin/sh\ncase "$*" in *status*) exit 128;; esac\n'
+                'exec /usr/bin/git "$@"\n')
+            os.chmod("shim/git", 0o755)
+            p = run("r.md", "--restamp", env={
+                **os.environ, "PATH": os.path.abspath("shim") + os.pathsep
+                + os.environ.get("PATH", "")})
+            expect("git status failing refuses the restamp", p.returncode, 2)
+            contains("git status failing refuses the restamp", p.stdout,
+                     "could not be read")
 
             open("r2.md", "w").write(
                 "`NoSuchFile.hs:12` cited.\n\nCitations were verified"
