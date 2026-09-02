@@ -390,7 +390,7 @@
    "program": "checks.py",
    "name": "the document steps ran each checker with `|| exit 1`, so a checker BLOCKED at 2 read as a failed document rather than a check that did not happen",
    "family": "error-as-value",
-   "fix_rev": null,
+   "fix_rev": "c66a41ef6",
    "trigger": "check-doc-refs.py over a document with a sibling checkout unmounted",
    "ok": "the loop hands a 2 on where no document failed, and check-all reports the step as one that could not run",
    "bug": "FAIL doc refs, with nothing failed",
