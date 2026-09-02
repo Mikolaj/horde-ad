@@ -52,7 +52,7 @@ import tempfile
 # --- per-repo configuration -----------------------------------------
 TWIN_ROOT = "../LambdaHack/tools"
 # Files under tools/ that are each repo's own, compared with nothing.
-TWIN_SKIP = ("doc-refs-allow.txt",)
+TWIN_SKIP = ("doc-refs-allow.txt", "checks.py", "mutants.py", "defects.json")
 # --- end per-repo configuration --------------------------------------
 
 MARKER_BEGIN = "# --- per-repo configuration"

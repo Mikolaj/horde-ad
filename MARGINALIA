@@ -65,3 +65,20 @@ whoever works here next, and mostly it faces no one.
   The rule against grepping the wrapped form was resident throughout and was
   reached for anyway, four times. Whatever fixes this, it is not another
   sentence saying so.
+
+2026-09-02
+  Two defect-corpus systems were born on the same day, 2026-08-17: the
+  record form and its runners in ~/.claude, and check-scripts.py in
+  orthotope's micro-regime3, neither naming the other, and this repo had
+  neither -- only per-script self-tests whose non-vacuity was a dated
+  sentence in each docstring. Merged today: the mechanism is five shared
+  tools and a loader in ~/.claude/bin, on PATH, and each tree keeps its
+  own corpus as data. Orthotope's stays a Python module because 40% of
+  its case list is commentary, which JSON has no room for. Two of
+  orthotope's AST lint rules -- an unread argparse flag, a zip against a
+  filtered list -- did not ship in the merged lint: no recorded instance
+  fires on them, their proof having been a planted file. The new guard
+  that a fix commit must touch its program caught one orthotope
+  attribution that named a README-only commit; the audit had passed on
+  it for a week. The dated proofs in nine docstrings here became
+  tools/mutants.py.
