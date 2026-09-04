@@ -244,12 +244,12 @@ reaching the ambiguity branch, so the root `CLAUDE.md` shadows the pair
 and `CLAUDE.md:1` resolves ok -- a live row needs a basename duplicated
 under the search roots with no copy at the repo root, which the
 self-test builds. The two copies of this script differ only in
-SEARCH_ROOTS -- and, until a LambdaHack session syncs it, in the
---self-test added 2026-08-14; `tools/check-twin-sync.py` compares them
-whenever both checkouts are mounted.
+SEARCH_ROOTS; `tools/check-twin-sync.py` compares them whenever both
+checkouts are mounted.
 """
 
 import datetime
+import functools
 import os
 import re
 import shutil
@@ -278,9 +278,13 @@ def chdir_root(paths):
     os.chdir(top)
     return paths
 
+# The extensions are check-doc-refs.py's PATH_EXT: that pass skips every
+# backticked `path:NN` token as this one's, so an extension missing here is
+# cited by nobody (check-plan-citations-07). Two twin-synced files, so the
+# list is written twice and each names the other.
 CITE_RE = re.compile(
     r"`?(\.?[A-Za-z][A-Za-z0-9_./-]*"
-    r"\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml)|Makefile)"
+    r"\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml|json|sh)|Makefile)"
     r":(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)")
 URL_RE = re.compile(
     r"https://github\.com/[\w.-]+/[\w.-]+/blob/([0-9a-f]{7,40})/"
@@ -289,10 +293,16 @@ URL_RE = re.compile(
 # `hash` or a blockquoted **hash**, always followed by an ISO date in
 # parentheses. The date is what keeps this from matching the other commit
 # hashes documents mention (a bug's commit, a baseline's commit).
+# `[\s>]*` wherever the stamp allows a gap, because the formatter may put a
+# line break anywhere in it and a break inside a blockquote carries a `>`
+# onto the next line. A stamp the wrapper split between the hash and its
+# date read as no stamp at all, so --restamp refused a document that had
+# one -- and which break lands where moves whenever a paragraph above is
+# edited, so this is not a shape any document can be kept in.
 STAMP_RE = re.compile(
-    r"(verified against[^`*]{0,120}?commit\s*>?\s*(?:`|\*\*))"
+    r"(verified against[^`*]{0,120}?commit[\s>]*(?:`|\*\*))"
     r"([0-9a-f]{7,40})"
-    r"((?:`|\*\*)\s*\()(\d{4}-\d{2}-\d{2})(\))")
+    r"((?:`|\*\*)[\s>]*\()(\d{4}-\d{2}-\d{2})(\))")
 
 
 def spans(spec):
@@ -322,7 +332,10 @@ def published(sha):
     return reachable_from(sha, PUBLISHED_REF)
 
 
+@functools.lru_cache(maxsize=None)
 def all_files_named(basename):
+    # One find per basename: per citation it was one per `/.../` or bare
+    # name, most of a run's time on a long document (check-plan-citations-08).
     # answered dropped-status: the find's failure is an empty listing, and
     # an empty listing is what the caller reports
     out = subprocess.run(
@@ -486,6 +499,8 @@ def self_test():
             os.makedirs("tools")
             open("test/Dup.hs", "w").write("dup\n")
             open("tools/Dup.hs", "w").write("dup\n")
+            open("d.json", "w").write("{}\n")
+            open("s.sh", "w").write("true\n")
             git("add", "-A")
             git("commit", "-qm", "c1")
             c1 = subprocess.run(["git", "rev-parse", "HEAD"],
@@ -522,7 +537,8 @@ def self_test():
                 "too. `a.hs:1,999999` continuation tail.\n"
                 "`note.md:1` prose line. `Dup.hs:1` ambiguous.\n"
                 "`.dot.yaml:1` dotfile control, `.dot.yaml:999999` its"
-                " pair.\n"
+                " pair. `d.json:1` and `s.sh:1` are extensions once\n"
+                "cited by nobody.\n"
                 "%s#L1 pinned ok. %s#L99999 pinned range.\n"
                 "%s#L0 pinned zero. %s#L3-L1 pinned backwards.\n"
                 "https://github.com/ghc/ghc/blob/0123456789abcdef01234567"
@@ -538,6 +554,7 @@ def self_test():
                      "AMBIGUOUS", "ORPHANED", "UNPUBLISHED",
                      "not in this repository",
                      "ok   a.hs:1 |", "ok   .dot.yaml:1 |",
+                     "ok   d.json:1 |", "ok   s.sh:1 |",
                      "a.hs#L1 @", "13 failed", "a.hs:0-0 --- OUT",
                      "a.hs:3-2 --- OUT", "#L0-L0 @", "#L3-L1 @")
             expect("continuation collapses with the plain row",
@@ -614,6 +631,24 @@ def self_test():
             expect("no citation refuses", p.returncode, 1)
             contains("no citation refuses", p.stdout,
                      "no file:line citations")
+
+            # A stamp the formatter wrapped, inside a blockquote, so that the
+            # hash ends one line and the date opens the next behind a `>`.
+            # This read as no stamp at all: --restamp refused a document that
+            # had one, and the stamp's own orphan and publication checks
+            # passed over it in silence. Two of this repo's five stamped
+            # documents were in that shape when it was found.
+            open("r7.md", "w").write(
+                "`a.hs:1` cited.\n\n> Citations were verified against the"
+                " tree at commit **0000000aa**\n> (2020-01-01).\n")
+            p = run("r7.md", "--restamp")
+            expect("wrapped stamp is found", p.returncode, 0)
+            contains("wrapped stamp is found", p.stdout, "0000000aa (2020-01-01) ->")
+            contains("wrapped stamp is checked", p.stdout, "ORPHANED")
+            after = open("r7.md").read()
+            if "**\n> (" not in after:
+                bad.append("wrapped stamp rewritten without its line break:"
+                           f" {after!r}")
         finally:
             os.chdir(prev)
     for b in bad:
@@ -632,9 +667,13 @@ def main():
               f" only --restamp and --self-test are understood",
               file=sys.stderr)
         sys.exit(2)
+    # From the root before anything, the self-test included, as every
+    # checker here does: this one's self-test names no root-relative path,
+    # but two siblings' did and reported wrongly from a subdirectory.
+    docs = chdir_root(args)
     if "--self-test" in flags:
         return self_test()
-    docs = chdir_root(args) or ["CLAUDE.md"]
+    docs = docs or ["CLAUDE.md"]
     require_readable(docs)
     if "--restamp" in flags and len(docs) > 1:
         print("--restamp takes one document: the stamp it writes is that"

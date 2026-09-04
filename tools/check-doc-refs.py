@@ -158,8 +158,7 @@ branch is off (MAKEFILE is ""), and no command-line parser, so every
 exercised by the LambdaHack copy of this script, which below the
 configuration block is meant to stay identical to this one
 (`tools/check-twin-sync.py` compares them whenever both checkouts are
-mounted; this copy is ahead since gaining --self-test, 2026-08-14, so
-sync it there in a LambdaHack session). What differs by design is the
+mounted). What differs by design is the
 docstring and the configuration block, the self-test rows among them ---
 each repo's own --- so a reader syncing one file to the other syncs the
 code below the block and nothing else.
@@ -224,10 +223,23 @@ unclassified, which keeps the comma form from being a blanket accept.
 `.../ghc-9.12/...` is an elision, not a sibling path;
 `https://example.com/a/b.md` and `https://hackage.haskell.org/` are
 URLs. None of these may be read as a path.
+A tilde block showing a backtick fence must close only on a tilde fence:
+~~~
+```
+~~~
+so this prose line, cabal test noSuchProseSuite, is not a command, while
+a block after it still is:
+```
+cabal test noSuchFencedSuite
+```
 """
-SELF_TEST_FAILURES = 5
+SELF_TEST_FAILURES = 6
 SELF_TEST_FAIL = ["NoSuchModule.hs", "NoSuchTwin.hs", "noSuchSuite",
-                  "HordeAd.Core.NoSuch", "../ox-arrays/no/such/file.hs"]
+                  "HordeAd.Core.NoSuch", "../ox-arrays/no/such/file.hs",
+                  "noSuchFencedSuite"]
+# Prose that a fence of the wrong kind once turned into command text: in no
+# FAIL, ok or allow line.
+SELF_TEST_PROSE = ["noSuchProseSuite"]
 SELF_TEST_OK = ["Core/Ast.hs", "bench/ConvVjpBench.hs", "minimalTest",
                 "Arith/Internal.hs", "Data.Array.Strided.Arith",
                 "HordeAd.Core.Ops", "HordeAd.ADEngine",
@@ -242,7 +254,7 @@ SELF_TEST_UNCLASSIFIED = ["+noSuchFlag", "Core/Ops.hs:297,", "GHC.TypeLits",
                           "https://hackage.haskell.org/"]
 # The one local-drift row that must degrade to SKIP with the siblings
 # off, and the failure count that survives the degradation.
-SELF_TEST_DEGRADED_FAILURES = 2
+SELF_TEST_DEGRADED_FAILURES = 3
 SELF_TEST_DEGRADED_SKIP = "src/HordeAd/Core/NoSuchModule.hs"
 # --- end per-repo configuration --------------------------------------
 
@@ -250,7 +262,7 @@ PATH_EXT = ("hs", "ts", "mjs", "py", "cabal", "html", "md", "yaml", "yml",
             "json", "sh", "txt", "c", "h")
 
 TICK_RE = re.compile(r"`([^`\n]+)`")
-FENCE_RE = re.compile(r"^\s*(```|~~~)")
+FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 
 
 def unwrapped(text):
@@ -433,11 +445,19 @@ def command_text(text):
     see must not depend on where the prose happens to break.
     """
     parts = TICK_RE.findall(unwrapped(text))
-    in_fence = False
+    # The open fence, kind and length: CommonMark closes a block only with
+    # a fence of the same character at least as long, so a backtick fence
+    # shown inside a tilde block is content. One boolean flipped by any
+    # fence line read it as the closer, and the phase stayed inverted for
+    # the rest of the document (check-doc-refs-05).
+    fence = None
     for line in text.splitlines():
-        if FENCE_RE.match(line):
-            in_fence = not in_fence
-        elif in_fence or line.startswith("    ") or line.startswith("\t"):
+        m = FENCE_RE.match(line)
+        if m and fence is None:
+            fence = m.group(1)
+        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
+            fence = None
+        elif fence or line.startswith("    ") or line.startswith("\t"):
             parts.append(line)
     return "\n".join(parts)
 
@@ -588,7 +608,11 @@ def check_doc(doc, known, top_level, allow_paths, cabalflags, siblings,
             else:
                 out["unclassified"].append(token)
         elif path_shaped(token, top_level):
-            if sib_active:
+            # Degraded only by --without-siblings, never by having no
+            # sibling to consult: with SIBLING_ROOTS empty the same
+            # boolean read as the waiver and local drift became SKIP
+            # (check-doc-refs-06).
+            if sib_active or not SIBLING_ROOTS:
                 print(f"FAIL path   {token} --- does not resolve")
                 failures += 1
             else:
@@ -707,6 +731,9 @@ def self_test():
         for t in SELF_TEST_OK:
             if not any(t in l for l in oks):
                 bad.append("no ok line names %r" % t)
+        for t in SELF_TEST_PROSE:
+            if any(t in l for l in fails + oks):
+                bad.append("prose %r was read as command text" % t)
         for t in SELF_TEST_UNCLASSIFIED:
             if t not in out["unclassified"]:
                 bad.append("%r not among the unclassified" % t)
@@ -762,6 +789,19 @@ def self_test():
                            " checkout")
         finally:
             SIBLING_ROOTS = saved
+
+        # No sibling configured at all, the docstring's way to switch the
+        # sibling check off: local drift stays a failure.
+        SIBLING_ROOTS = []
+        try:
+            failures, output, out = run_doc(no_siblings=False)
+            fails = [l for l in output.splitlines() if l.startswith("FAIL")]
+            if not any(SELF_TEST_DEGRADED_SKIP in l for l in fails) \
+                    or SELF_TEST_DEGRADED_SKIP in out["unverified"]:
+                bad.append("with no sibling configured, local drift"
+                           " degraded to SKIP")
+        finally:
+            SIBLING_ROOTS = saved
     finally:
         os.unlink(doc)
     for b in bad:
@@ -776,9 +816,14 @@ def main():
     args = [a for a in sys.argv[1:] if a not in flags]
     verbose = "-v" in sys.argv[1:]
     no_siblings = "--without-siblings" in sys.argv[1:]
+    # From the root before anything, the self-test included: its sibling
+    # rows are root-relative like the rest of the configuration, and
+    # dispatched first it reported BLOCKED from any subdirectory
+    # (check-doc-refs-07).
+    docs = chdir_root(args)
     if "--self-test" in sys.argv[1:]:
         return self_test()
-    docs = chdir_root(args) or ["CLAUDE.md"]
+    docs = docs or ["CLAUDE.md"]
     require_readable(docs)
 
     missing = [] if no_siblings else missing_siblings()

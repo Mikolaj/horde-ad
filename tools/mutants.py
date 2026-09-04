@@ -145,6 +145,12 @@ MUTANTS = [
     # check-plan-citations: "short-circuiting the publication test"
     ('check-plan-citations publication test short-circuited', 'check-plan-citations.py',
      "    return reachable_from(sha, PUBLISHED_REF)\n", "    return True\n", ST),
+    # check-plan-citations: a stamp the formatter wrapped inside a blockquote
+    # read as no stamp at all -- --restamp refused it and its orphan and
+    # publication checks passed in silence (2026-09-04)
+    ('check-plan-citations stamp regex blind to a wrapped line', 'check-plan-citations.py',
+     '    r"((?:`|\\*\\*)[\\s>]*\\()(\\d{4}-\\d{2}-\\d{2})(\\))")\n',
+     '    r"((?:`|\\*\\*)\\s*\\()(\\d{4}-\\d{2}-\\d{2})(\\))")\n', ST),
     # check-plan-citations: "disabling the dirty-cited-file refusal"
     ('check-plan-citations dirty-cited-file refusal disabled', 'check-plan-citations.py',
      "        if dirty:\n", "        if False:\n", ST),
@@ -181,5 +187,36 @@ MUTANTS = [
      "                     and not LIST_ITEM.match(prev))\n", "                     and True)\n", ST),
     # heading-outline: the original fenced-`#`/`===` branch of the hand recipe
     ('heading-outline fenced lines read as headings', 'heading-outline.py',
-     "        if FENCE.match(line) or in_fence:\n", "        if False:\n", ST),
+     "        if m or fence:\n", "        if False:\n", ST),
+    # heading-outline: a fence closed by one of another kind (heading-outline-03)
+    ('heading-outline closes a block with a fence of any kind', 'heading-outline.py',
+     "        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):\n",
+     "        elif m:\n", ST),
+    # heading-outline: any leading rule taken for frontmatter (heading-outline-04)
+    ('heading-outline any leading rule read as frontmatter', 'heading-outline.py',
+     "        if lines[i].strip() and not YAML_LINE.match(lines[i]):\n            return 0\n",
+     "        if False:\n            return 0\n", ST),
+    # check-doc-refs: a fence closed by one of another kind (check-doc-refs-05)
+    ('check-doc-refs closes a block with a fence of any kind', 'check-doc-refs.py',
+     "        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):\n",
+     "        elif m:\n", ST),
+    # check-doc-refs: SIBLING_ROOTS = [] degrades local drift to SKIP (check-doc-refs-06)
+    ('check-doc-refs no sibling configured degrades local drift', 'check-doc-refs.py',
+     "            if sib_active or not SIBLING_ROOTS:\n", "            if sib_active:\n", ST),
+    # check-doc-refs: the self-test dispatched before the move to the root
+    # (check-doc-refs-07); judged from the tool's own directory, where the
+    # root's judge cannot tell
+    ('check-doc-refs self-test dispatched before chdir_root', 'check-doc-refs.py',
+     '    docs = chdir_root(args)\n    if "--self-test" in sys.argv[1:]:\n        return self_test()\n',
+     '    if "--self-test" in sys.argv[1:]:\n        return self_test()\n    docs = chdir_root(args)\n',
+     'cd {dir} && python3 {file} --self-test'),
+    # check-doc-examples: the same (check-doc-examples-04)
+    ('check-doc-examples self-test dispatched before chdir_root', 'check-doc-examples.py',
+     '    docs = chdir_root(args)\n    if "--self-test" in sys.argv[1:]:\n        return self_test()\n',
+     '    if "--self-test" in sys.argv[1:]:\n        return self_test()\n    docs = chdir_root(args)\n',
+     'cd {dir} && python3 {file} --self-test'),
+    # check-plan-citations: CITE_RE blind to json and sh (check-plan-citations-07)
+    ('check-plan-citations CITE_RE blind to json and sh', 'check-plan-citations.py',
+     '    r"\\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml|json|sh)|Makefile)"\n',
+     '    r"\\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml)|Makefile)"\n', ST),
 ]
