@@ -234,6 +234,10 @@ MUTANTS = [
     # check-doc-wrap: indented code no longer exempt (check-doc-wrap-07)
     ('check-doc-wrap indented code block read as prose', 'check-doc-wrap.py',
      "        elif fence is None and indented and (blank or code):\n", "        elif False:\n", ST),
+    # check-doc-wrap: a fence line at any indentation opens or closes a block again
+    # (check-doc-wrap-08)
+    ('check-doc-wrap indented fence line read as a fence', 'check-doc-wrap.py',
+     'FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")\n', 'FENCE = re.compile(r"^\\s*(`{3,}|~{3,})")\n', ST),
     # check-doc-examples: the from-the-root control may agree at exit 2 again
     # (check-doc-examples-05). Judged with README.md aside, where the self-test
     # must FAIL: the judge is that failure, so it passes on the guarded checker

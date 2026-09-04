@@ -40,7 +40,8 @@ one and a wrapped bulleted list, and asserts every branch: both untouched
 forms pass; a hand-lengthened line and a re-wrap to a narrower width fail as
 hand-wrapping; one paragraph left on one line, and one list item joined back to
 one line, pass as mid-edit; a planted "2b." enumerator fails, and one inside a
-fenced or an indented code block does not; a hand-wrapped committed document
+fenced or an indented code block does not, a fence line indented four spaces
+being code on either side of a block; a hand-wrapped committed document
 and an untracked one are refused; a committed document checked from its own
 subdirectory passes; a repository tracking no Markdown reports BLOCKED rather
 than "0 of 0 failed"; and a PATH carrying git but no wrap80 reports BLOCKED,
@@ -147,7 +148,9 @@ def tracked_markdown():
 # plain "1990. The year" is a real list item and is left alone.
 FAKE_MARKER = re.compile(r"^\s*(\d+[a-z]|[a-z]|[A-Z]|[ivxlcIVXLC]+)[.)]\s")
 REAL_MARKER = re.compile(r"^\s*([-*+]\s|\d{1,9}[.)]\s)")
-FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
+# Up to three spaces of indentation, as CommonMark has it: four make the line
+# indented code, on either side of a block (check-doc-wrap-08).
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 
 
 def fake_markers(text):
@@ -407,6 +410,12 @@ def self_test():
             expect("indented code block", len(got), 0, "")
             got = fake_markers("para\n    a) foo\n")
             expect("indented paragraph continuation", len(got), 1, "")
+            # A fence line indented four spaces is code, not a fence, on
+            # either side of a block.
+            got = fake_markers("para\n\n    ```\n1a. shown\n")
+            expect("indented fence line outside a block", len(got), 1, "")
+            got = fake_markers("```\n    ```\n1a. shown\n```\n")
+            expect("indented fence line inside a block", len(got), 0, "")
 
             wl = open("l.md").read()
             flat_l = subprocess.run(["wrap80", "--unwrap", "l.md"],
