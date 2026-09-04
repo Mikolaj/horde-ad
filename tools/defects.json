@@ -798,6 +798,23 @@
    "harm": "latent",
    "discovery": "review",
    "notes": "Found by a code review on 2026-09-04. Prose, so no case."
+  },
+  {
+   "id": "check-doc-wrap-08",
+   "program": "check-doc-wrap.py",
+   "name": "a fence line indented four or more spaces opened or closed a fenced block, where CommonMark reads it as indented code inside or outside one",
+   "family": "scan-for-parse",
+   "fix_rev": "673fee897",
+   "trigger": "a paragraph, a blank line, `    ```` and then `1a. shown`",
+   "ok": "the indented line is code and the enumerator after it is reported; inside an open block an indented fence line is content and does not close it",
+   "bug": "the indented line opened a fence and hid the enumerator; inside a block it closed the block and the enumerator after it was reported",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found on 2026-09-04 reviewing check-doc-wrap-07, whose indented-code rule sat below the fence test and so never saw an indented fence line. A fence takes up to three spaces of indentation, as CommonMark has it; no tracked document carries an indented fence line.",
+   "unit": "fake_markers('para\\n\\n    ```\\n1a. shown\\n')",
+   "expect_text": "(4, '1a. shown')",
+   "bug_text": "[]"
   }
  ]
 }
