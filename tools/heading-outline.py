@@ -34,7 +34,7 @@ Reproduced 2026-07-28 by hand; since 2026-08-28 `--self-test` builds
 that file and asserts it, the rule after the fence being the row added
 then: a closing fence is not a heading's text, and the outline reported
 "## ```" for it, and the list item the same day, reported as "## - item".
-Reverting either fix in a copy turned the self-test red.
+That the self-test bites is mutants.py's to show.
 
 Indented code blocks need no such guard: the ATX pattern is anchored at
 column 0, so a `#` comment inside one cannot be read as a heading. That

@@ -93,7 +93,7 @@ candidates are input for the reader, not findings --- and for a passing
 selftest, 1 selftest failure, 2 blocked: no ghc on PATH, or a
 --dumps glob matching no file, which until 2026-08-28 was accepted in
 silence and reported every candidate UNVERIFIED blaming the build; the
-selftest asserts the stop, and went red with it reverted in a copy.
+selftest asserts the stop.
 A quiet run over a tree proves nothing until
 --selftest has passed on the same machine, so run that first; and
 candidates a run does print are untriaged input for the reader's rules

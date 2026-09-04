@@ -129,7 +129,7 @@ and an extra CSV row failed the coverage guard, each with exit status
 48x48/S-exec's time-vs-iters slope by 30% added exactly the properties
 1 and 6 failures; an extra report failed the coverage guard; dropping a
 report aborted with its name; and blanking the "time" regression's
-responder aborted naming the benchmark, each with exit status 1. That
+responder aborted naming the benchmark, each nonzero. That
 run was collected at the default time limit rather than the -L 30 above,
 so it also failed property 5 on cnn-24x24 on its own, before any
 perturbation: at 300ms per iteration criterion fits the slope over four
@@ -156,8 +156,7 @@ feeding a real -L 30 collection of cnn-24x24 alongside a default-limit run
 of the other 103 benchmarks reported all 107 slopes usable and every
 property passing, where the default-limit run alone failed the gate three
 times and property 5 once. Passing the same file twice, and passing files
-that overlap in one benchmark, each aborted naming the benchmark, with
-exit status 1.
+that overlap in one benchmark, each aborted naming the benchmark.
 
 The slope gate was shown non-vacuous the same day, and needed no
 perturbation to fire: on that run it names exactly the three cnn-24x24
@@ -177,19 +176,18 @@ exited 1, so all three arms still fire alone. Re-run that whenever the
 suite outgrows the gate again -- a gate nothing trips is indistinguishable
 from a gate that cannot.
 
-Since 2026-08-28 the same proofs run on demand: --self-test builds a
-collection from the property list itself -- the names the fifteen
-relations read, probed rather than typed, so a benchmark added to the
-list is in the collection at once -- at slopes satisfying every relation,
-and asserts the hand recipe above (48x48/S-exec up 30% fails exactly
-properties 1 and 6, in both quantities), the three arms of the gate each
-naming its own benchmark, the missing, extra and twice-collected guards,
-the absent allocation regression, the usage errors, and that a zero
-slope is reported rather than divided by, which it was until then. The
-perturbations of real collections above stay as the record that the
-relations hold on measurements; the self-test says the checker still
-reads them. Reverting the zero guard and disarming the gate in a copy
-each turned it red.
+Since 2026-08-28 the same proofs run on demand: --self-test builds a collection
+from the property list itself -- the names the fifteen relations read, probed
+rather than typed, so a benchmark added to the list is in the collection at
+once -- at slopes satisfying every relation, and asserts the hand recipe above
+(48x48/S-exec up 30% fails exactly properties 1 and 6, in both quantities), the
+three arms of the gate each naming its own benchmark, the missing and extra
+guards, the usage errors -- a collection unreadable, not criterion's, read
+twice or lacking a regression is exit 2, a run that did not happen, and never a
+finding -- and that a zero slope is reported rather than divided by, which it
+was until then. The perturbations of real collections above stay as the record
+that the relations hold on measurements; the self-test says the checker still
+reads them, and that the self-test bites is mutants.py's to show.
 """
 import contextlib
 import io
@@ -233,8 +231,8 @@ def regression(report, responder, hint):
     for reg in report["reportAnalysis"]["anRegress"]:
         if reg["regResponder"] == responder:
             return reg
-    sys.exit(f"no {responder}-vs-iters regression for"
-             f" {report['reportName']} --- {hint}")
+    usage_error(f"no {responder}-vs-iters regression for"
+                f" {report['reportName']} --- {hint}")
 
 
 def load(paths):
@@ -244,23 +242,38 @@ def load(paths):
     alloc = Tracked()  # bytes allocated per iteration
     fit = {}
     for path in paths:
-        with open(path) as f:
-            for report in json.load(f)[2]:
+        # Not a collection is exit 2, nothing evaluated: the traceback's 1
+        # read as a property failure (check-conv-bench-props-02), and so
+        # does a collection that does not partition the suite.
+        try:
+            with open(path) as f:
+                reports = json.load(f)[2]
+            if not isinstance(reports, list):
+                raise TypeError("the third element is not a list of reports")
+        except (OSError, ValueError, LookupError, TypeError) as e:
+            usage_error(f"{path}: not a readable criterion --json collection"
+                        f" ({type(e).__name__}: {e})")
+        for report in reports:
+            try:
                 name = report["reportName"]
-                if name in t:
-                    sys.exit(f"benchmark collected twice, the second time"
-                             f" in {path} (the files must partition the"
-                             f" suite): {name}")
-                treg = regression(report, "time", "criterion fits this one"
-                                  " always, so the file is not criterion"
-                                  " --json output")
-                areg = regression(report, "allocated", "collect with"
-                                  " --regress allocated:iters and +RTS -T")
-                t[name] = treg["regCoeffs"]["iters"]["estPoint"]
-                alloc[name] = areg["regCoeffs"]["iters"]["estPoint"]
-                fit[name] = (len(report["reportMeasured"]),
-                             treg["regRSquare"]["estPoint"],
-                             areg["regRSquare"]["estPoint"])
+                report["reportAnalysis"]["anRegress"]
+                len(report["reportMeasured"])
+            except (KeyError, TypeError) as e:
+                usage_error(f"{path}: a report without {e} is not criterion's")
+            if name in t:
+                usage_error(f"benchmark collected twice, the second time"
+                            f" in {path} (the files must partition the"
+                            f" suite): {name}")
+            treg = regression(report, "time", "criterion fits this one"
+                              " always, so the file is not criterion"
+                              " --json output")
+            areg = regression(report, "allocated", "collect with"
+                              " --regress allocated:iters and +RTS -T")
+            t[name] = treg["regCoeffs"]["iters"]["estPoint"]
+            alloc[name] = areg["regCoeffs"]["iters"]["estPoint"]
+            fit[name] = (len(report["reportMeasured"]),
+                         treg["regRSquare"]["estPoint"],
+                         areg["regRSquare"]["estPoint"])
     return t, alloc, fit
 
 
@@ -553,10 +566,16 @@ def self_test():
         p = run("--allocation-only", other)
         expect("slope gate, allocation only", p, 1, "1 slope(s) unusable",
                "6x6/S-exec-raw")
-        expect("collected twice", run(full, full), 1, "collected twice")
+        expect("collected twice", run(full, full), 2, "collected twice")
+        expect("missing collection", run(os.path.join(td, "nope.json")), 2,
+               "not a readable criterion")
+        for shape in ("[]", "{}", "[null, null, 5]"):
+            open(other, "w").write(shape)
+            expect(f"not a collection: {shape}", run(other), 2,
+                   "not a readable criterion")
         write(other, [dict(report(n), reportAnalysis={"anRegress": [
             report(n)["reportAnalysis"]["anRegress"][0]]}) for n in names])
-        expect("no allocation regression", run(other), 1,
+        expect("no allocation regression", run(other), 2,
                "no allocated-vs-iters regression")
         write(other, [report(n, t=0.0, a=0.0) for n in names])
         expect("zero slopes", run(other), 0, "all checks PASS")

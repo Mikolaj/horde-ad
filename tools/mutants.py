@@ -4,11 +4,11 @@ Read by `selftest-mutants.py tools`, which makes a shared clone of this
 repository (and of the sibling checkouts beside it, where mounted), applies
 each mutant to the clone and requires the judge -- the tool's own self-test
 -- to FAIL on it; a mutant whose anchor has moved is LOST, not caught. These
-replace the proofs that were dated sentences in each tool's docstring,
-"proved non-vacuous by breaking the checker in a copy (2026-08-14)", which
-expire the moment the code under them moves, with nothing to say so. Each
-was watched failing on 2026-09-02 before it was written down here; the
-comment above each names the docstring proof it replays.
+replace the proofs that were dated sentences in each tool's docstring, "proved
+non-vacuous by breaking the checker in a copy (2026-08-14)", which expire the
+moment the code under them moves, with nothing to say so. Each was watched
+failing before it was written down here; the comment above each names the
+docstring proof or the defect record it replays.
 
 The clone is what lets the judges run: every tool finds the repository from
 its own path and asks git about it, and check-doc-refs' self-test wants the
@@ -174,6 +174,9 @@ MUTANTS = [
     # check-twin-sync: "a shared shell script is compared whole" (2026-08-28 row)
     ('check-twin-sync non-Python file no longer compared whole', 'check-twin-sync.py',
      "    except SyntaxError:\n        return text\n", "    except SyntaxError:\n        return \"\"\n", ST),
+    # check-twin-sync: the code case's mutation of comparable() writes nothing
+    ('check-twin-sync code case mutates nothing', 'check-twin-sync.py',
+     '            lines[at] += "  # mutated"\n', '            lines[at] += ""\n', ST),
     # check-twin-sync: "a TWIN_SKIP file is not" compared
     ('check-twin-sync TWIN_SKIP allowlist ignored', 'check-twin-sync.py',
      "                if os.path.isfile(p) and os.path.basename(p) not in TWIN_SKIP}\n",
@@ -219,4 +222,25 @@ MUTANTS = [
     ('check-plan-citations CITE_RE blind to json and sh', 'check-plan-citations.py',
      '    r"\\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml|json|sh)|Makefile)"\n',
      '    r"\\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml)|Makefile)"\n', ST),
+    # bench-baseline: an unreadable baseline tracebacks at exit 1 again (bench-baseline-03)
+    ('bench-baseline unreadable baseline tracebacks instead of exit 2', 'bench-baseline.py',
+     '    except OSError as e:\n        usage_error(f"{baseline_path}: cannot be read ({e.strerror})")\n',
+     '    except OSError as e:\n        raise\n', ST),
+    # check-conv-bench-props: an unreadable collection tracebacks at exit 1 again
+    # (check-conv-bench-props-02)
+    ('check-conv-bench-props unreadable collection tracebacks instead of exit 2', 'check-conv-bench-props.py',
+     '        except (OSError, ValueError, LookupError, TypeError) as e:\n            usage_error(f"{path}: not a readable criterion --json collection"\n                        f" ({type(e).__name__}: {e})")\n',
+     '        except (OSError, ValueError, LookupError, TypeError) as e:\n            raise\n', ST),
+    # check-doc-wrap: indented code no longer exempt (check-doc-wrap-07)
+    ('check-doc-wrap indented code block read as prose', 'check-doc-wrap.py',
+     "        elif fence is None and indented and (blank or code):\n", "        elif False:\n", ST),
+    # check-doc-examples: the from-the-root control may agree at exit 2 again
+    # (check-doc-examples-05). Judged with README.md aside, where the self-test
+    # must FAIL: the judge is that failure, so it passes on the guarded checker
+    # and fails on the mutant, which reports PASS over two runs that did not
+    # happen. A judge whose setup fails exits 0 and the mutant survives, loudly.
+    ('check-doc-examples control passes over two runs that did not happen', 'check-doc-examples.py',
+     "    if here.returncode == 2:\n        ok = False\n", "    if False:\n        ok = False\n",
+     'cd {dir} && mv ../README.md ../README.md.aside || exit 0; python3 {file} --self-test; rc=$?; '
+     'mv ../README.md.aside ../README.md; test $rc -ne 0'),
 ]

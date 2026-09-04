@@ -99,30 +99,23 @@ lists globs to report as "allow" instead of failing. Every entry there
 carries its reason; an unexplained one hides the drift this checker
 exists to find. Pass -v to also list the unclassified backticks.
 
-Non-vacuity: run `python3 tools/check-doc-refs.py --self-test`. The
-scratch document and its expected verdicts live in the configuration
-block (the SELF_TEST_* settings), repo-specific like the rest of it;
-the engine below asserts the failure count, every FAIL and ok row, the
-unclassified tail, the missing-document exit, the --without-siblings
-degradation and the liveness of the absent-sibling stop. The controls
-matter as much as the failures: without them an extractor that silently
-matches nothing would look like a clean document. The two upstream rows
-prove the sibling policy resolves a real file by both its spellings,
-path and module. And the must-stay-unclassified rows guard the other
-direction: `tests` is prose, and it did briefly "resolve" --- to
-../orthotope/tests --- until sibling matching was gated on path shape,
-which is how easily a big foreign tree turns a checker into a rubber
-stamp. Two rows of 2026-08-28: the same document through main() from a
-subdirectory, every checker having said "run from the repo root" and none
-having enforced it, and a PATH without wrap80, where the run must say that
-spans were read wrapped and the wrapped-span row must then not fire.
-Each went red with its fix reverted in a copy. The self-test was itself
-proved non-vacuous by breaking the
-checker in a copy (2026-08-14): a dead cabal-target loop, a dead
-sibling resolution, dropping the path-shape gate off the sibling arm,
-and a CITE_RE blind to the range citation each turned it red --- the
-path-shape break on exactly the `tests` rubber-stamp row, the CITE_RE
-one on exactly the skipped-citation guard.
+Non-vacuity: run `python3 tools/check-doc-refs.py --self-test`. The scratch
+document and its expected verdicts live in the configuration block (the
+SELF_TEST_* settings), repo-specific like the rest of it; the engine below
+asserts the failure count, every FAIL and ok row, the unclassified tail, the
+missing-document exit, the --without-siblings degradation and the liveness of
+the absent-sibling stop. The controls matter as much as the failures: without
+them an extractor that silently matches nothing would look like a clean
+document. The two upstream rows prove the sibling policy resolves a real file
+by both its spellings, path and module. And the must-stay-unclassified rows
+guard the other direction: `tests` is prose, and it did briefly "resolve" ---
+to ../orthotope/tests --- until sibling matching was gated on path shape, which
+is how easily a big foreign tree turns a checker into a rubber stamp. Two later
+rows: the same document through main() from a subdirectory, every checker
+having said "run from the repo root" and none having enforced it, and a PATH
+without wrap80, where the run must say that spans were read wrapped and the
+wrapped-span row must then not fire. That the self-test bites is mutants.py's
+to show.
 
 Three of those are recorded false positives rather than decoration.
 `.../ghc-9.12/...` was read as a sibling path until the `../` test was

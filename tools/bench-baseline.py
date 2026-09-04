@@ -56,9 +56,11 @@ time slope up to 10% without the program changing at all
 
 Exit 1 means figures moved, not that anything regressed -- an improvement
 trips it just as a regression does, and the direction is in the output. Exit
-2 is a usage or coverage error: a benchmark in one side and not the other,
-which is what a renamed or added benchmark looks like, and which must be
-settled by refreshing the baseline rather than by widening a tolerance.
+2 is a usage, input or coverage error: a flag or file that cannot be read, a
+collection that is not criterion's or does not partition the suite, or a
+benchmark in one side and not the other, which is what a renamed or added
+benchmark looks like, and which must be settled by refreshing the baseline
+rather than by widening a tolerance.
 
 Refresh a baseline only from a collection taken on a quiet machine,
 and in the commit that explains what moved, so the file and the reason for
@@ -81,10 +83,11 @@ collection to another's baseline exits 2 on the coverage guard, as does
 omitting --baseline or passing an unknown flag. --self-test (2026-08-28)
 covers the rest of the usage table on synthetic collections: no argument
 and a flag missing its value exit 2 rather than 1 or a traceback, --emit
-round-trips through --baseline at exit 0, and a baseline slope of 0
+round-trips through --baseline at exit 0, a baseline slope of 0
 reports movement instead of dividing by it -- --emit used to write
 allocation slopes as integers, so a slope under 0.5 became a 0 the next
-diff crashed on. Each row went red with its fix reverted in a copy.
+diff crashed on -- and an unreadable or malformed baseline or collection
+exits 2. That the self-test bites is mutants.py's to show.
 """
 import json
 import os
@@ -139,24 +142,37 @@ def parse_args(args):
 
 
 def read_collection(paths):
+    """Slopes by benchmark. Anything that is not a criterion --json
+    collection partitioning the suite is a usage error, exit 2: a
+    diff never ran, so 1 -- figures moved -- would be a false finding."""
     out = {}
     for p in paths:
-        with open(p) as f:
-            for r in json.load(f)[2]:
+        try:
+            with open(p) as f:
+                reports = json.load(f)[2]
+            if not isinstance(reports, list):
+                raise TypeError("the third element is not a list of reports")
+        except (OSError, ValueError, LookupError, TypeError) as e:
+            usage_error(f"{p}: not a readable criterion --json collection"
+                        f" ({type(e).__name__}: {e})")
+        for r in reports:
+            try:
                 name = r["reportName"]
-                if name in out:
-                    sys.exit(f"benchmark collected twice, the second time in"
-                             f" {p} (the files must partition the suite):"
-                             f" {name}")
                 regs = {g["regResponder"]: g
                         for g in r["reportAnalysis"]["anRegress"]}
-                for want in ("time", "allocated"):
-                    if want not in regs:
-                        sys.exit(f"no {want}-vs-iters regression for {name}"
-                                 f" -- collect with --regress allocated:iters"
-                                 f" and +RTS -T")
-                out[name] = (regs["time"]["regCoeffs"]["iters"]["estPoint"],
-                             regs["allocated"]["regCoeffs"]["iters"]["estPoint"])
+            except (KeyError, TypeError) as e:
+                usage_error(f"{p}: a report without {e} is not criterion's")
+            if name in out:
+                usage_error(f"benchmark collected twice, the second time in"
+                            f" {p} (the files must partition the suite):"
+                            f" {name}")
+            for want in ("time", "allocated"):
+                if want not in regs:
+                    usage_error(f"no {want}-vs-iters regression for {name}"
+                                f" -- collect with --regress allocated:iters"
+                                f" and +RTS -T")
+            out[name] = (regs["time"]["regCoeffs"]["iters"]["estPoint"],
+                         regs["allocated"]["regCoeffs"]["iters"]["estPoint"])
     return out
 
 
@@ -182,12 +198,20 @@ def main(argv):
         return 0
 
     base = {}
-    with open(baseline_path) as f:
-        for line in f:
-            if line.startswith("#") or not line.strip():
-                continue
-            name, t, a = line.rstrip("\n").split("\t")
-            base[name] = (float(t), float(a))
+    try:
+        with open(baseline_path) as f:
+            for n, line in enumerate(f, 1):
+                if line.startswith("#") or not line.strip():
+                    continue
+                try:
+                    name, t, a = line.rstrip("\n").split("\t")
+                    base[name] = (float(t), float(a))
+                except ValueError:
+                    usage_error(f"{baseline_path}:{n}: not a baseline row"
+                                f" (name, time, allocation, tab-separated):"
+                                f" {line.rstrip()!r}")
+    except OSError as e:
+        usage_error(f"{baseline_path}: cannot be read ({e.strerror})")
 
     missing = sorted(set(base) - set(now))
     added = sorted(set(now) - set(base))
@@ -273,6 +297,28 @@ def self_test():
         expect("small slope moved", run("--baseline", tsv, b), 1, "[alloc] g/x")
         open(tsv, "w").write("g/x\t0.001\t0\ng/y\t0.002\t4e6\n")
         expect("zero reference", run("--baseline", tsv, b), 1, "[alloc] g/x")
+        # Inputs that are not what they claim exit 2, not 1: a traceback's
+        # exit 1 read as figures moved (bench-baseline-03).
+        expect("missing baseline", run("--baseline", tsv + ".no", a), 2,
+               "cannot be read")
+        open(tsv, "w").write("g/x\t0.001\n")
+        expect("malformed baseline row", run("--baseline", tsv, a), 2,
+               "not a baseline row")
+        open(tsv, "w").write("# header\n" + p.stdout)
+        expect("missing collection", run("--baseline", tsv, a + ".no"), 2,
+               "not a readable criterion")
+        for shape in ("[]", "{}", "[null, null, 5]"):
+            open(b, "w").write(shape)
+            expect(f"not a collection: {shape}", run("--baseline", tsv, b),
+                   2, "not a readable criterion")
+        expect("collected twice", run("--baseline", tsv, a, a), 2,
+               "collected twice")
+        collection(b, {"g/x": (0.001, 0.2), "g/y": (0.002, 4e6)})
+        json.dump([None, None, [dict(r, reportAnalysis={"anRegress": [
+            r["reportAnalysis"]["anRegress"][0]]})
+            for r in json.load(open(b))[2]]], open(b, "w"))
+        expect("no allocation regression", run("--baseline", tsv, b), 2,
+               "no allocated-vs-iters regression")
     for x in bad:
         print(f"FAIL: {x}")
     if not bad:
