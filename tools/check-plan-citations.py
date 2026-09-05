@@ -90,10 +90,15 @@ mints fresh, since the branch is reached only after `git show` succeeds.
 The PUBLISHED_REF-absent stop is exercised before the ref is created:
 the same permalink document must exit 2 there, and pass once the ref
 exists. The stop sits inside the permalink loop, so in a repo whose
-documents pin no permalink a bogus PUBLISHED_REF stays silent -- true of
-this repo's tracked documents, the pattern `blob/[0-9a-f]{7,40}/`
-matching this file and four `.hs` sources but no document, the README's
-whole-file pointers being deliberately `blob/master`.
+documents pin no permalink a bogus PUBLISHED_REF stays silent -- true
+of this repo's tracked documents on master, the pattern
+`blob/[0-9a-f]{7,40}/` matching this file and four `.hs` sources
+but no document, the README's whole-file pointers being deliberately
+`blob/master`. Not on this branch, where two staged drafts pin per-line
+links into this repository -- `notes-add-zero-gather.md`
+and `oxarrays-issue-description.md`, three and six, all at `e1bd5f5e2`,
+which is on master -- so each reports ok and a bogus ref stops each
+at 2, measured. They go away when posted.
 
 Scope limits, deliberate: prose-style citations ("config.ui.default line
 67") are not extracted, nor is a range left dangling from its filename
