@@ -50,6 +50,11 @@ MUTANTS = [
     # bang-lazy-check: "--dumps glob matching no file ... went red with it reverted"
     ('bang-lazy-check --dumps glob matching nothing accepted silently', 'bang-lazy-check.py',
      "    if dump_pats and not stems:\n", "    if dump_pats and not stems and False:\n", SELFTEST),
+    # bang-lazy-check: --allow no longer fails on an unlisted or stale candidate,
+    # so the one-listed and stale verdicts of the selftest read 0 (2026-09-13)
+    ('bang-lazy-check --allow gate disarmed', 'bang-lazy-check.py',
+     "    if allow is not None and (unlisted or stale):\n        return 1\n",
+     "    if allow is not None and (unlisted or stale):\n        return 0\n", SELFTEST),
     # bench-baseline: "a baseline slope of 0 reports movement instead of dividing by it"
     ('bench-baseline zero baseline slope divided by', 'bench-baseline.py',
      "    if old == 0:\n", "    if old == 0 and False:\n", ST),

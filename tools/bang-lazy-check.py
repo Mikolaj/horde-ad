@@ -2,7 +2,7 @@
 """Flag arguments banged on some equations but not forced on every path.
 
 Usage:
-  python3 tools/bang-lazy-check.py ROOT... [--dumps GLOB]...
+  python3 tools/bang-lazy-check.py ROOT... [--dumps GLOB]... [--allow FILE]
   python3 tools/bang-lazy-check.py --selftest
 
 A bang on one equation of a multi-equation definition signals intent to be
@@ -98,6 +98,21 @@ A quiet run over a tree proves nothing until
 --selftest has passed on the same machine, so run that first; and
 candidates a run does print are untriaged input for the reader's rules
 above, not confirmed defects.
+
+--allow FILE turns a run into a gate over what has NOT been read. The file
+holds one read candidate a line, `FILE:NAME ARG  # reason`, FILE being the
+path as this tool prints it, which is the path it was given, and ARG the
+argument position as printed; blank lines and `#` comments are skipped,
+and a line of any other shape blocks the run at 2. A listed candidate
+prints `read` in place of its strength and does not count; with --allow
+given the run exits 1 when an unlisted candidate remains, or when an entry
+matches no candidate -- a stale entry, whose definition moved or changed
+shape, which the file is not to outlive -- and 0 otherwise. The reason is
+the point of an entry, as in tools/doc-refs-allow.txt: an entry with none
+hides the shape this tool exists to show. Added 2026-09-13, so that a
+check step can fail on a tree's new shapes while its read ones stay on
+record; the selftest holds the four verdicts, all listed, one listed, one
+stale and one malformed.
 """
 
 import contextlib
@@ -391,13 +406,36 @@ def collect_files(roots):
     return sorted(files)
 
 
-def run(roots, dump_pats):
+def load_allow(path):
+    """The --allow file: (file, name, arg) -> its line number."""
+    entries = {}
+    with open(path) as fh:
+        for ln, line in enumerate(fh, 1):
+            text = line.split('#', 1)[0].strip()
+            if not text:
+                continue
+            m = re.match(r'^(\S+):(\S+)\s+(\d+)$', text)
+            if not m:
+                raise ValueError('%s:%d is not `FILE:NAME ARG  # reason`: %s'
+                                 % (path, ln, line.rstrip()))
+            entries[(os.path.normpath(m.group(1)), m.group(2),
+                     int(m.group(3)))] = ln
+    return entries
+
+
+def run(roots, dump_pats, allow=None):
     sigs, stems = load_dumps(dump_pats) if dump_pats else ({}, set())
     if dump_pats and not stems:
         print('BLOCKED: no file matches --dumps %s; every verdict would'
               ' read UNVERIFIED' % ' '.join(dump_pats))
         return 2
-    total = unparsed_total = 0
+    try:
+        entries = load_allow(allow) if allow is not None else {}
+    except (OSError, ValueError) as e:
+        print('BLOCKED: --allow %s' % e)
+        return 2
+    total = unparsed_total = unlisted = 0
+    seen = set()
     for path in collect_files(roots):
         cands, unparsed = find_candidates(path)
         unparsed_total += unparsed
@@ -405,13 +443,31 @@ def run(roots, dump_pats):
             total += 1
             v = (verdict(c, sigs, stems) if dump_pats
                  else 'unchecked (no --dumps)')
+            key = (os.path.normpath(c['file']), c['name'], c['arg'])
+            if key in entries:
+                seen.add(key)
+                strength = 'read'
+            else:
+                unlisted += 1
+                strength = c['strength']
             print('%s:%d %s%s arg %d/%d [%s] %s\n    %s' % (
                 c['file'], c['line'], c['name'],
                 ' (local)' if c['local'] else '',
                 c['arg'], c['argc'], ','.join(c['classes']),
-                c['strength'], v))
+                strength, v))
+    stale = sorted((k for k in entries if k not in seen), key=entries.get)
+    for k in stale:
+        print('stale allow entry %s:%d, %s:%s arg %d matches no candidate;'
+              ' delete it or read the definition again'
+              % (allow, entries[k], k[0], k[1], k[2]))
     print('\n%d candidate(s); %d unparsed line(s) skipped (includes '
           'do-block call lines)' % (total, unparsed_total))
+    if allow is not None:
+        print('%d unlisted, %d read, %d stale allow entr%s'
+              % (unlisted, len(seen), len(stale),
+                 'y' if len(stale) == 1 else 'ies'))
+    if allow is not None and (unlisted or stale):
+        return 1
     return 0
 
 
@@ -576,12 +632,47 @@ def selftest():
             code = run([top], [os.path.join(td, 'no-such-*.dump')])
         if code != 2 or 'BLOCKED' not in buf.getvalue():
             bad.append('a --dumps glob matching nothing did not block')
+        # --allow, four verdicts over the local probe's candidates: all
+        # listed passes and prints each as read; one listed fails on the
+        # rest; a stale entry fails on its own; a malformed line blocks.
+        keys = sorted((c['file'], c['name'], c['arg']) for c in lcands)
+        def allow_run(lines, tag):
+            path = os.path.join(td, 'allow-%s.txt' % tag)
+            with open(path, 'w') as fh:
+                fh.write('# probe allow file\n' + ''.join(lines))
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                code = run([loc], [], path)
+            return code, out.getvalue()
+        entry = lambda k: '%s:%s %d  # read in the selftest\n' % k
+        code, out = allow_run([entry(k) for k in keys], 'all')
+        if code != 0 or out.count('] read\n') != len(keys):
+            bad.append('--allow listing every candidate: expected 0 and'
+                       ' %d read, got %d and %d'
+                       % (len(keys), code, out.count('] read\n')))
+        code, out = allow_run([entry(keys[0])], 'one')
+        if code != 1 or out.count('] read\n') != 1 or 'STRONG' not in out:
+            bad.append('--allow listing one candidate: expected 1 with the'
+                       ' rest still flagged, got %d' % code)
+        code, out = allow_run([entry(k) for k in keys]
+                              + ['%s:noSuchLoop 1  # stale\n' % keys[0][0]],
+                              'stale')
+        if code != 1 or 'stale allow entry' not in out:
+            bad.append('--allow with a stale entry: expected 1 naming it,'
+                       ' got %d' % code)
+        code, out = allow_run(['not an entry\n'], 'bad')
+        if code != 2 or 'BLOCKED' not in out:
+            bad.append('--allow with a malformed line did not block')
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            code = run([loc], [])
+        if code != 0:
+            bad.append('a run without --allow no longer exits 0 on'
+                       ' candidates')
     if bad:
         for b in bad:
             print('FAIL: %s' % b)
         return 1
-    print('ok:   all %d dump-checked verdicts, %d marker lines and %d local'
-          ' flags as expected'
+    print('ok:   all %d dump-checked verdicts, %d marker lines, %d local'
+          ' flags and the four --allow verdicts as expected'
           % (len(EXPECT_TOP), len(EXPECT_MARKERS), len(EXPECT_LOCAL)))
     return 0
 
@@ -598,12 +689,20 @@ def main():
             sys.exit(2)
         dump_pats.append(args[i + 1])
         del args[i:i + 2]
+    allow = None
+    if '--allow' in args:
+        i = args.index('--allow')
+        if i + 1 >= len(args) or args.count('--allow') > 1:
+            print('--allow takes one file argument', file=sys.stderr)
+            sys.exit(2)
+        allow = args[i + 1]
+        del args[i:i + 2]
     if not args:
         print(__doc__.split('\n\n')[0])
         print('\nUsage: bang-lazy-check.py ROOT... [--dumps GLOB]... '
-              '| --selftest')
+              '[--allow FILE] | --selftest')
         sys.exit(2)
-    sys.exit(run(args, dump_pats))
+    sys.exit(run(args, dump_pats, allow))
 
 
 if __name__ == '__main__':
