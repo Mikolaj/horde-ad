@@ -76,21 +76,13 @@ both directions -- lazy cases must come back CONFIRMED (the monadic-return
 probe as STRONG), strict-without-enough-bangs cases CLEARED, the
 pure-return and bottom-body probes absent entirely, and the FastReshape-
 shaped local loops flagged UNVERIFIED with their bottom-body catch-all
-dropped. The selftest was itself proven non-vacuous by deliberately
-breaking the checker (2026-08-09): inverting the strictness-letter test
-in verdict() failed it with five named mismatches (every CONFIRMED read
-CLEARED and vice versa); removing 'wild' from the flag condition failed
-it with all local flags missing and the wildcard-path top-level
-candidates demoted to WEAK; after the body-aware rules were added,
-disabling the bottom-head rule failed it with loopE and the flatten
-locals reappearing as unexpected candidates, and disabling the
-monadic-return upgrade demoted the mret probe to WEAK; after the markers
-were added, disabling gvar misread gv's path list as var,bang and
-disabling rec misread loopW2's and loopT's as ending in var.
+dropped. That the selftest bites is tools/mutants.py's to show, each
+break there watched failing it before it was written down.
 
 Exit codes: 0 for a run over a tree, whatever it printed --- the
 candidates are input for the reader, not findings --- and for a passing
-selftest, 1 selftest failure, 2 blocked: no ghc on PATH, or a
+selftest, 1 selftest failure, 2 blocked: no ghc on PATH, a ROOT that is
+not there, a flag it does not know, or a
 --dumps glob matching no file, which until 2026-08-28 was accepted in
 silence and reported every candidate UNVERIFIED blaming the build; the
 selftest asserts the stop.
@@ -373,14 +365,17 @@ def verdict(cand, sigs, dumped_stems):
     if cand['local']:
         return 'UNVERIFIED (local definition; not in dump)'
     stem = os.path.splitext(os.path.basename(cand['file']))[0]
-    entry = sigs.get(cand['name'])
-    if not entry:
+    # The candidate's own module only: a same-named binding in another
+    # module's dump used to stand in for it, and the two branches below
+    # were unreachable whenever one existed (bang-lazy-check-02).
+    entry = sigs.get(cand['name'], {})
+    quals = [q for q in entry if q.rsplit('.', 2)[-2:-1] == [stem]]
+    if not quals:
         if stem in dumped_stems:
             return ('UNVERIFIED (module dumped but name absent -- inlined '
                     'away? check for an INLINE pragma, or read call sites)')
         return ('UNVERIFIED (no dump for this module -- built without the '
                 'dump flags, or from the store)')
-    quals = [q for q in entry if q.rsplit('.', 2)[-2:-1] == [stem]] or list(entry)
     sig = entry[quals[0]]
     brackets = re.findall(r'<([^<>]*)>', sig)
     n = cand['argc']
@@ -424,6 +419,12 @@ def load_allow(path):
 
 
 def run(roots, dump_pats, allow=None):
+    missing = [r for r in roots if not os.path.exists(r)]
+    if missing:
+        # Opened as a file later, a traceback at 1, the code of a failed
+        # gate (bang-lazy-check-03).
+        print('BLOCKED: no such file or directory: %s' % ' '.join(missing))
+        return 2
     sigs, stems = load_dumps(dump_pats) if dump_pats else ({}, set())
     if dump_pats and not stems:
         print('BLOCKED: no file matches --dumps %s; every verdict would'
@@ -632,6 +633,20 @@ def selftest():
             code = run([top], [os.path.join(td, 'no-such-*.dump')])
         if code != 2 or 'BLOCKED' not in buf.getvalue():
             bad.append('a --dumps glob matching nothing did not block')
+        with contextlib.redirect_stdout(io.StringIO()) as buf:
+            code = run([os.path.join(td, 'no-such-dir')], [])
+        if code != 2 or 'BLOCKED' not in buf.getvalue():
+            bad.append('a ROOT that does not exist did not block')
+        p = subprocess.run([sys.executable, os.path.abspath(__file__),
+                            '--help'], capture_output=True, text=True)
+        if p.returncode != 2 or 'Usage' not in p.stdout:
+            bad.append('an unrecognised flag did not print the usage at 2')
+        foreign = verdict({'local': False, 'file': 'src/Mod/B.hs',
+                           'name': 'foo', 'argc': 2, 'arg': 1},
+                          {'foo': {'Mod.A.foo': '<L><L>'}}, {'A', 'B'})
+        if not foreign.startswith('UNVERIFIED (module dumped but name'):
+            bad.append("a same-named binding in another module's dump gave"
+                       ' a verdict: %s' % foreign)
         # --allow, four verdicts over the local probe's candidates: all
         # listed passes and prints each as read; one listed fails on the
         # rest; a stale entry fails on its own; a malformed line blocks.
@@ -672,7 +687,8 @@ def selftest():
             print('FAIL: %s' % b)
         return 1
     print('ok:   all %d dump-checked verdicts, %d marker lines, %d local'
-          ' flags and the four --allow verdicts as expected'
+          ' flags, the four --allow verdicts, the stops and the'
+          ' foreign-module verdict as expected'
           % (len(EXPECT_TOP), len(EXPECT_MARKERS), len(EXPECT_LOCAL)))
     return 0
 
@@ -697,7 +713,8 @@ def main():
             sys.exit(2)
         allow = args[i + 1]
         del args[i:i + 2]
-    if not args:
+    unknown = [a for a in args if a.startswith('-')]
+    if not args or unknown:
         print(__doc__.split('\n\n')[0])
         print('\nUsage: bang-lazy-check.py ROOT... [--dumps GLOB]... '
               '[--allow FILE] | --selftest')

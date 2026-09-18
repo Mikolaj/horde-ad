@@ -243,6 +243,48 @@ MUTANTS = [
     # (check-doc-wrap-08)
     ('check-doc-wrap indented fence line read as a fence', 'check-doc-wrap.py',
      'FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")\n', 'FENCE = re.compile(r"^\\s*(`{3,}|~{3,})")\n', ST),
+    # bang-lazy-check: a same-named binding in another module's dump stands in
+    # for the candidate's own (bang-lazy-check-02)
+    ('bang-lazy-check verdict from a foreign module of the same name', 'bang-lazy-check.py',
+     "    quals = [q for q in entry if q.rsplit('.', 2)[-2:-1] == [stem]]\n    if not quals:\n",
+     "    quals = [q for q in entry if q.rsplit('.', 2)[-2:-1] == [stem]] or list(entry)\n    if not entry:\n", SELFTEST),
+    # bang-lazy-check: a ROOT that is not there is opened as a file, a traceback
+    # at 1 (bang-lazy-check-03)
+    ('bang-lazy-check missing ROOT no longer blocks', 'bang-lazy-check.py',
+     "    if missing:\n        # Opened as a file later", "    if False:\n        # Opened as a file later", SELFTEST),
+    # bang-lazy-check: an unrecognised flag read as a ROOT (bang-lazy-check-03)
+    ('bang-lazy-check unrecognised flag read as a ROOT', 'bang-lazy-check.py',
+     "    if not args or unknown:\n", "    if not args:\n", SELFTEST),
+    # bench-baseline: a regression missing a field tracebacks at 1 again
+    # (bench-baseline-04)
+    ('bench-baseline malformed regression tracebacks instead of exit 2', 'bench-baseline.py',
+     '                usage_error(f"{p}: the regressions of {name} lack {e}")\n', "                raise\n", ST),
+    # check-conv-bench-props: a missing benchmark exits 1 again
+    # (check-conv-bench-props-03)
+    ('check-conv-bench-props missing benchmark exits 1', 'check-conv-bench-props.py',
+     '            usage_error(f"benchmark missing from the JSON (not a full run?): {k}")\n',
+     '            sys.exit(f"benchmark missing from the JSON (not a full run?): {k}")\n', ST),
+    # check-conv-bench-props: a regression missing a field tracebacks at 1 again
+    # (check-conv-bench-props-04)
+    ('check-conv-bench-props malformed regression tracebacks instead of exit 2', 'check-conv-bench-props.py',
+     '                usage_error(f"{path}: the regressions of {name} lack {e}")\n', "                raise\n", ST),
+    # check-doc-refs: a fence line at any indentation opens a block again
+    # (check-doc-refs-08)
+    ('check-doc-refs indented fence line read as a fence', 'check-doc-refs.py',
+     'FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")\n', 'FENCE_RE = re.compile(r"^\\s*(`{3,}|~{3,})")\n', ST),
+    # check-doc-refs: a ../ path into an unconfigured checkout resolved against
+    # the mount again (check-doc-refs-09)
+    ('check-doc-refs unconfigured checkout resolved against the mount', 'check-doc-refs.py',
+     '            if "/".join(token.split("/")[:2]) not in SIBLING_ROOTS:\n                out["external"].append(token)\n            elif not sib_active:\n',
+     '            if not sib_active:\n', ST),
+    # check-plan-citations: the PUBLISHED_REF stop exits from inside check()
+    # again (check-plan-citations-09)
+    ('check-plan-citations PUBLISHED_REF stop exits the whole run', 'check-plan-citations.py',
+     "            blocked = True\n            continue\n", "            sys.exit(2)\n", ST),
+    # heading-outline: a fence line at any indentation opens a block again
+    # (heading-outline-05)
+    ('heading-outline indented fence line read as a fence', 'heading-outline.py',
+     "FENCE = re.compile(r'^ {0,3}(`{3,}|~{3,})')\n", "FENCE = re.compile(r'^\\s*(`{3,}|~{3,})')\n", ST),
     # check-doc-examples: the from-the-root control may agree at exit 2 again
     # (check-doc-examples-05). Judged with README.md aside, where the self-test
     # must FAIL: the judge is that failure, so it passes on the guarded checker

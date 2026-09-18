@@ -117,9 +117,10 @@ a failure says re-collect with a longer time limit, not that anything
 regressed, and every property naming that benchmark is unreliable in the
 same run.
 
-A benchmark missing from the JSON aborts with its name, and a benchmark
-that no property touches is reported as a failure --- so a newly added
-benchmark forces the property list to be re-normalized.
+A benchmark missing from the JSON is exit 2 with its name, the collection
+not partitioning the suite, and a benchmark that no property touches is
+reported as a failure --- so a newly added benchmark forces the property
+list to be re-normalized.
 
 Exit status is nonzero if any check fails. Non-vacuity was demonstrated
 on 2026-07-21, against the --csv input this script then read: inflating
@@ -181,10 +182,11 @@ from the property list itself -- the names the fifteen relations read, probed
 rather than typed, so a benchmark added to the list is in the collection at
 once -- at slopes satisfying every relation, and asserts the hand recipe above
 (48x48/S-exec up 30% fails exactly properties 1 and 6, in both quantities), the
-three arms of the gate each naming its own benchmark, the missing and extra
-guards, the usage errors -- a collection unreadable, not criterion's, read
-twice or lacking a regression is exit 2, a run that did not happen, and never a
-finding -- and that a zero slope is reported rather than divided by, which it
+three arms of the gate each naming its own benchmark, the extra guard, the
+usage errors -- a collection unreadable, not criterion's, read twice, lacking a
+benchmark or a regression, or with a regression missing a field, is exit 2, a
+run that did not happen, and never a finding -- and that a zero slope is
+reported rather than divided by, which it
 was until then. The perturbations of real collections above stay as the record
 that the relations hold on measurements; the self-test says the checker still
 reads them, and that the self-test bites is mutants.py's to show.
@@ -220,7 +222,7 @@ class Tracked(dict):
 
     def __getitem__(self, k):
         if k not in self:
-            sys.exit(f"benchmark missing from the JSON (not a full run?): {k}")
+            usage_error(f"benchmark missing from the JSON (not a full run?): {k}")
         self.used.add(k)
         return super().__getitem__(k)
 
@@ -269,11 +271,16 @@ def load(paths):
                               " --json output")
             areg = regression(report, "allocated", "collect with"
                               " --regress allocated:iters and +RTS -T")
-            t[name] = treg["regCoeffs"]["iters"]["estPoint"]
-            alloc[name] = areg["regCoeffs"]["iters"]["estPoint"]
-            fit[name] = (len(report["reportMeasured"]),
-                         treg["regRSquare"]["estPoint"],
-                         areg["regRSquare"]["estPoint"])
+            try:
+                t[name] = treg["regCoeffs"]["iters"]["estPoint"]
+                alloc[name] = areg["regCoeffs"]["iters"]["estPoint"]
+                fit[name] = (len(report["reportMeasured"]),
+                             treg["regRSquare"]["estPoint"],
+                             areg["regRSquare"]["estPoint"])
+            except (KeyError, TypeError) as e:
+                # The regression's own fields, which the guard above did
+                # not reach (check-conv-bench-props-04).
+                usage_error(f"{path}: the regressions of {name} lack {e}")
     return t, alloc, fit
 
 
@@ -554,7 +561,9 @@ def self_test():
         write(other, [report(n) for n in names] + [report("extra/one")])
         expect("extra benchmark", run(other), 1, "untouched", "extra/one")
         write(other, [report(n) for n in names if n != "6x6/S-exec"])
-        expect("missing benchmark", run(other), 1, "missing from the JSON",
+        # Exit 2, not 1: a collection that does not partition the suite
+        # is not a finding (check-conv-bench-props-03).
+        expect("missing benchmark", run(other), 2, "missing from the JSON",
                "6x6/S-exec")
         write(other, [report(n, n=8 if n == "6x6/S-exec" else 20,
                              r2=0.8 if n == "6x6/H-exec" else 1.0,
@@ -577,6 +586,16 @@ def self_test():
             report(n)["reportAnalysis"]["anRegress"][0]]}) for n in names])
         expect("no allocation regression", run(other), 2,
                "no allocated-vs-iters regression")
+        write(other, [dict(report(n), reportAnalysis={"anRegress": [
+            dict(report(n)["reportAnalysis"]["anRegress"][0], regCoeffs={}),
+            report(n)["reportAnalysis"]["anRegress"][1]]}) for n in names])
+        expect("malformed regression", run(other), 2, "lack 'iters'")
+        write(other, [dict(report(n), reportAnalysis={"anRegress": [
+            {k: v for k, v in g.items() if k != "regRSquare"}
+            for g in report(n)["reportAnalysis"]["anRegress"]]})
+            for n in names])
+        expect("regression without regRSquare", run(other), 2,
+               "lack 'regRSquare'")
         write(other, [report(n, t=0.0, a=0.0) for n in names])
         expect("zero slopes", run(other), 0, "all checks PASS")
     for b in bad:

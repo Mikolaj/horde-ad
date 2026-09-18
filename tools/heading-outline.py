@@ -62,7 +62,9 @@ import sys
 ATX = re.compile(r'^(#{1,6}) +(.*?)\s*#*\s*$')
 RULE_EQ = re.compile(r'^=+\s*$')
 RULE_DASH = re.compile(r'^-+\s*$')
-FENCE = re.compile(r'^\s*(`{3,}|~{3,})')
+# Up to three spaces of indentation, as CommonMark has it: four make the
+# line indented code (heading-outline-05).
+FENCE = re.compile(r'^ {0,3}(`{3,}|~{3,})')
 # What may sit between frontmatter's delimiters: a key or a continuation.
 # Anything else says the opening `---` was a rule; a YAML comment would
 # too, since `#` is how a heading framed by two rules opens.
@@ -154,6 +156,10 @@ def self_test():
         ("---\ndescription: x\n---\n# Title\n", [(1, 'Title')]),
         ("---\n\nTitle\n---\n\n## Later\n", [(2, 'Title'), (2, 'Later')]),
         ("---\n# Title\n---\n", [(1, 'Title')]),
+        # An indented fence line is code and opens nothing
+        # (heading-outline-05).
+        ("# T\n\n    ```\n    code\n\n## After\n\n### Deeper\n",
+         [(1, 'T'), (2, 'After'), (3, 'Deeper')]),
     ]
     bad = []
     for doc, want in docs:

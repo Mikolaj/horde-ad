@@ -40,9 +40,10 @@ failures).
 database, which an unpushed or squashed-away commit is too --- such a link
 resolves for one person on one machine and 404s everywhere else. So a
 resolved permalink is then required to be an ancestor of PUBLISHED_REF,
-and one that is not fails as UNPUBLISHED; if that ref is absent the run
-stops (exit 2) rather than degrading to the weaker check, as
-check-doc-refs.py does for an unmounted sibling.
+and one that is not fails as UNPUBLISHED; if that ref is absent the
+document is BLOCKED (exit 2, unless another document of the run failed)
+rather than degraded to the weaker check, as check-doc-refs.py does for
+an unmounted sibling.
 
 The document's own stamp gets the same treatment, split by severity,
 because the two states differ in whether they can heal. A stamp naming a
@@ -88,8 +89,10 @@ origin/master. And UNPUBLISHED takes a commit the scratch repository
 mints fresh, since the branch is reached only after `git show` succeeds.
 
 The PUBLISHED_REF-absent stop is exercised before the ref is created:
-the same permalink document must exit 2 there, and pass once the ref
-exists. The stop sits inside the permalink loop, so in a repo whose
+the same permalink document must exit 2 there, a failing document named
+after it in the same run must still be checked with the run at 1, and
+the permalink must pass once the ref exists. The stop sits inside the
+permalink loop, so in a repo whose
 documents pin no permalink a bogus PUBLISHED_REF stays silent -- true of
 this repo's tracked documents, the pattern `blob/[0-9a-f]{7,40}/`
 matching this file and four `.hs` sources but no document, the README's
@@ -506,6 +509,11 @@ def self_test():
             open("stop.md", "w").write("Link %s#L1 pinned.\n" % (url % c1))
             p = run("stop.md")
             expect("PUBLISHED_REF absent stops", p.returncode, 2)
+            open("bad.md", "w").write("`a.hs:999999` not.\n")
+            p = run("stop.md", "bad.md")
+            expect("a failure outranks the stop", p.returncode, 1)
+            contains("a failure outranks the stop", p.stdout + p.stderr,
+                     "OUT-OF-RANGE", "does not exist here")
 
             git("update-ref", "refs/remotes/origin/master", c1)
             open("a.hs", "a").write("line four\n")
@@ -676,12 +684,14 @@ def main():
         sys.exit(2)
     # Every document named is checked. Until 2026-08-28 only the first was,
     # and the rest reported nothing while the run exited 0.
-    worst = 0
+    results = []
     for doc in docs:
         if len(docs) > 1:
             print(f"=== {doc} ===")
-        worst = max(worst, check(doc, "--restamp" in flags))
-    return worst
+        results.append(check(doc, "--restamp" in flags))
+    # A failure outranks a document that could not be checked, as
+    # check-all aggregates its steps.
+    return 1 if 1 in results else (2 if 2 in results else 0)
 
 
 def check(doc, do_restamp):
@@ -691,6 +701,7 @@ def check(doc, do_restamp):
                     for m in CITE_RE.finditer(text)
                     for span in spans(m.group(2))})
     failures = 0
+    blocked = False
     for name, lo, hi in cites:
         # A line number into PROSE is not a citation, it is a guess with a
         # colon in it. The formatter rewraps a document whenever it is
@@ -744,11 +755,16 @@ def check(doc, do_restamp):
             continue
         pub = published(sha)
         if pub is None:
-            print(f"stopping: {PUBLISHED_REF} does not exist here, so"
-                  f" whether {sha[:9]} is published cannot be told."
-                  f" Fetch it, or set PUBLISHED_REF to the ref this"
-                  f" repository publishes from.", file=sys.stderr)
-            sys.exit(2)
+            # The document's status, not the run's: an exit here folded
+            # earlier documents' FAIL verdicts into the stop and left the
+            # later ones unchecked (check-plan-citations-09).
+            if not blocked:
+                print(f"BLOCKED: {PUBLISHED_REF} does not exist here, so"
+                      f" whether {sha[:9]} is published cannot be told."
+                      f" Fetch it, or set PUBLISHED_REF to the ref this"
+                      f" repository publishes from.", file=sys.stderr)
+            blocked = True
+            continue
         if not pub:
             print(f"FAIL {path}#L{lo}-L{hi} @ {sha[:9]} --- UNPUBLISHED"
                   f" (resolves here but is not an ancestor of"
@@ -787,9 +803,13 @@ def check(doc, do_restamp):
           f" {failures} failed"
           f" --- now eyeball the snippets against the document's claims.")
     if do_restamp:
+        if blocked and not failures:
+            print(f"\nnot restamping {doc}: whether its permalinks are"
+                  f" published could not be told")
+            return 2
         resolved = [resolve(name)[0] for name, _lo, _hi in cites]
         return restamp(doc, text, [p for p in resolved if p], failures)
-    return 1 if failures or stamp_failures else 0
+    return 1 if failures or stamp_failures else (2 if blocked else 0)
 
 
 if __name__ == "__main__":

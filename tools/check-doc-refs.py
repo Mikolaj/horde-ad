@@ -31,9 +31,10 @@ unclassified rather than guessed at:
            pass too; only a token that looks like a path (contains `/`, or
            ends in a known source/config extension) and does *not* resolve
            is a failure. Tokens starting with `~` or `/` name things
-           outside any checkout and are reported, not checked; `../` ones
-           and bare upstream names go to the sibling checkouts --- see the
-           sibling policy below.
+           outside any checkout and are reported, not checked, as are
+           `../` ones into a checkout SIBLING_ROOTS does not name; `../`
+           ones into a configured checkout and bare upstream names go to
+           the sibling checkouts --- see the sibling policy below.
   modules  a dotted name whose every component is capitalised, resolved
            as the path it spells (`Definition.*` as a directory). This
            one is upgrade-only: `Data.Array.Strided.Arith` lives in
@@ -225,6 +226,13 @@ a block after it still is:
 ```
 cabal test noSuchFencedSuite
 ```
+`../no-such-checkout/tools/t.py` names a checkout nobody configured:
+outside the repo, not checked.
+An indented fence line is code, not a fence:
+
+    ```
+
+so this prose line, cabal test noSuchIndentedSuite, is not a command.
 """
 SELF_TEST_FAILURES = 6
 SELF_TEST_FAIL = ["NoSuchModule.hs", "NoSuchTwin.hs", "noSuchSuite",
@@ -232,7 +240,10 @@ SELF_TEST_FAIL = ["NoSuchModule.hs", "NoSuchTwin.hs", "noSuchSuite",
                   "noSuchFencedSuite"]
 # Prose that a fence of the wrong kind once turned into command text: in no
 # FAIL, ok or allow line.
-SELF_TEST_PROSE = ["noSuchProseSuite"]
+SELF_TEST_PROSE = ["noSuchProseSuite", "noSuchIndentedSuite"]
+# A ../ path into a checkout SIBLING_ROOTS does not name: reported with the
+# `~` and `/` ones, never resolved against what happens to be mounted.
+SELF_TEST_EXTERNAL = ["../no-such-checkout/tools/t.py"]
 SELF_TEST_OK = ["Core/Ast.hs", "bench/ConvVjpBench.hs", "minimalTest",
                 "Arith/Internal.hs", "Data.Array.Strided.Arith",
                 "HordeAd.Core.Ops", "HordeAd.ADEngine",
@@ -255,7 +266,9 @@ PATH_EXT = ("hs", "ts", "mjs", "py", "cabal", "html", "md", "yaml", "yml",
             "json", "sh", "txt", "c", "h")
 
 TICK_RE = re.compile(r"`([^`\n]+)`")
-FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
+# Up to three spaces of indentation, as CommonMark has it: four make the
+# line indented code (check-doc-refs-08).
+FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 
 
 def unwrapped(text):
@@ -412,7 +425,7 @@ def path_shaped(token, top_level):
     return ext in PATH_EXT or dir_shaped or token.split("/")[0] in top_level
 
 
-def command_text(text):
+def command_text(text, flat):
     """The parts of a document that quote commands, not prose.
 
     English says "make a rule unsatisfiable" and "make lines too long";
@@ -428,8 +441,8 @@ def command_text(text):
     `make`/`cabal`/`--flag` shapes are extracted from it, that is a
     missing check at worst, never a false failure.
 
-    Backticked spans are read off the document unwrapped, one line per
-    paragraph, because TICK_RE cannot span a newline and a wrapped document
+    Backticked spans are read off FLAT, the document unwrapped, one line
+    per paragraph, because TICK_RE cannot span a newline and a wrapped document
     puts newlines wherever the width falls. Reflowing README.md moved a
     break inside `ssum0 . foo`, and that reference plus `srepl 1.0` after it
     left this check's sight while a third, `; the reason is that `, the text
@@ -437,7 +450,7 @@ def command_text(text):
     count is not printed and both were resolving anyway. What a checker can
     see must not depend on where the prose happens to break.
     """
-    parts = TICK_RE.findall(unwrapped(text))
+    parts = TICK_RE.findall(flat)
     # The open fence, kind and length: CommonMark closes a block only with
     # a fence of the same character at least as long, so a backtick fence
     # shown inside a tilde block is content. One boolean flipped by any
@@ -537,15 +550,15 @@ def sibling_hit(token, siblings):
     return None
 
 
-def check_doc(doc, known, top_level, allow_paths, cabalflags, siblings,
+def check_doc(flat, known, top_level, allow_paths, cabalflags, siblings,
               sib_active, out):
-    """Resolve every backticked token of one document. Returns failures."""
-    text = open(doc, encoding="utf-8").read()
+    """Resolve every backticked token of one document, given unwrapped.
+    Returns failures."""
     failures = 0
-    # Read unwrapped, as check_commands reads its spans: on the wrapped text
-    # a multi-word span broken by the formatter flips the backtick phase,
+    # Unwrapped, as check_commands reads its spans: on the wrapped text a
+    # multi-word span broken by the formatter flips the backtick phase,
     # and the path token after it is read as prose and never checked.
-    for token in sorted({t for t in TICK_RE.findall(unwrapped(text))
+    for token in sorted({t for t in TICK_RE.findall(flat)
                          if " " not in t}):
         if CITE_RE.search(token) or token.startswith("-"):
             continue                      # pass 1 and the flag pass own these
@@ -563,13 +576,21 @@ def check_doc(doc, known, top_level, allow_paths, cabalflags, siblings,
         elif token.startswith("../"):
             # A sibling-relative path; the trailing slash is required, or
             # a document's `.../ghc-9.12/...` elision is read as one.
-            # The run has already stopped if the checkout it names is
-            # absent, so here it is resolved for real and a miss is this
-            # repo's drift, not a missing mount.
-            if not sib_active:
+            # Only a configured checkout is resolved: the run has already
+            # stopped if one it names is absent, so a miss there is this
+            # repo's drift, not a missing mount. Any other checkout is
+            # whatever happens to be mounted, so its paths go with the
+            # `~` and `/` ones, reported and not checked
+            # (check-doc-refs-09).
+            if "/".join(token.split("/")[:2]) not in SIBLING_ROOTS:
+                out["external"].append(token)
+            elif not sib_active:
                 out["external"].append(token)
             elif os.path.exists(token):
                 print(f"ok   sibling {token}")
+            elif is_allowed(token, allow_paths):
+                print(f"allow sibling {token} --- absent on purpose, see"
+                      f" {ALLOW_FILE}")
             else:
                 print(f"FAIL sibling {token} --- no such path in the checkout")
                 failures += 1
@@ -621,9 +642,11 @@ def check_doc(doc, known, top_level, allow_paths, cabalflags, siblings,
     return failures
 
 
-def check_commands(doc, targets, stanzas, ours, allow_make, allow_cabal, out):
-    """Resolve the `make`, `cabal` and `--flag` mentions of one document."""
-    commands = command_text(open(doc, encoding="utf-8").read())
+def check_commands(text, flat, targets, stanzas, ours, allow_make,
+                   allow_cabal, self_path, out):
+    """Resolve the `make`, `cabal` and `--flag` mentions of one document,
+    given as read and unwrapped."""
+    commands = command_text(text, flat)
     failures = 0
 
     if MAKEFILE:
@@ -648,9 +671,6 @@ def check_commands(doc, targets, stanzas, ours, allow_make, allow_cabal, out):
             print(f"FAIL target cabal {name} --- no such cabal stanza")
             failures += 1
 
-    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
-                         capture_output=True, text=True).stdout.strip()
-    self_path = os.path.relpath(os.path.abspath(__file__), top or ".")
     for flag in sorted(set(FLAG_RE.findall(commands))):
         if flag in ours:
             print(f"ok   flag   --{flag}")
@@ -661,6 +681,20 @@ def check_commands(doc, targets, stanzas, ours, allow_make, allow_cabal, out):
         else:
             out["unknown_flags"].append(flag)
     return failures
+
+
+def read_doc(doc):
+    """The document's text and its unwrapped form, read once for both
+    checkers: each used to read and unwrap it for itself, two wrap80 runs
+    per document."""
+    text = open(doc, encoding="utf-8").read()
+    return text, unwrapped(text)
+
+
+def self_path():
+    """This script relative to the root, which chdir_root made the cwd:
+    what the flag search excludes."""
+    return os.path.relpath(os.path.abspath(__file__))
 
 
 def require_readable(paths):
@@ -702,12 +736,14 @@ def self_test():
         out = {"external": [], "unclassified": [], "unknown_flags": [],
                "unverified": []}
         buf = io.StringIO()
+        body, flat = read_doc(doc)
         with contextlib.redirect_stdout(buf):
-            n = check_doc(doc, known, top_level, allow_paths,
+            n = check_doc(flat, known, top_level, allow_paths,
                           cabal_flags(text), siblings,
                           bool(SIBLING_ROOTS) and not no_siblings, out)
-            n += check_commands(doc, make_targets(), cabal_stanzas(text),
-                                our_flags(), allow_make, allow_cabal, out)
+            n += check_commands(body, flat, make_targets(),
+                                cabal_stanzas(text), our_flags(),
+                                allow_make, allow_cabal, self_path(), out)
         return n, buf.getvalue(), out
 
     try:
@@ -735,6 +771,9 @@ def self_test():
                 bad.append("%r was not skipped as a citation" % t)
         if "noSuchFlag" not in out["unknown_flags"]:
             bad.append("'--noSuchFlag' not among the unknown flags")
+        for t in SELF_TEST_EXTERNAL:
+            if t not in out["external"]:
+                bad.append("%r not among the external paths" % t)
 
         try:
             with contextlib.redirect_stderr(io.StringIO()):
@@ -846,14 +885,16 @@ def main():
         print("NOTE: --without-siblings, so upstream references are not"
               " resolved here.\n")
 
+    me = self_path()
     for doc in docs:
         if len(docs) > 1:
             print(f"\n=== {doc} ===")
-        failures += check_doc(doc, known, top_level, allow_paths,
+        text, flat = read_doc(doc)
+        failures += check_doc(flat, known, top_level, allow_paths,
                               cabalflags, siblings,
                               bool(SIBLING_ROOTS) and not no_siblings, out)
-        failures += check_commands(doc, targets, stanzas, ours,
-                                   allow_make, allow_cabal, out)
+        failures += check_commands(text, flat, targets, stanzas, ours,
+                                   allow_make, allow_cabal, me, out)
 
     for label, items, always in (
             ("UNVERIFIED --- would have been resolved against the sibling"

@@ -171,8 +171,13 @@ def read_collection(paths):
                     usage_error(f"no {want}-vs-iters regression for {name}"
                                 f" -- collect with --regress allocated:iters"
                                 f" and +RTS -T")
-            out[name] = (regs["time"]["regCoeffs"]["iters"]["estPoint"],
-                         regs["allocated"]["regCoeffs"]["iters"]["estPoint"])
+            try:
+                out[name] = tuple(regs[w]["regCoeffs"]["iters"]["estPoint"]
+                                  for w in ("time", "allocated"))
+            except (KeyError, TypeError) as e:
+                # The regression's own fields, which the guard above did
+                # not reach (bench-baseline-04).
+                usage_error(f"{p}: the regressions of {name} lack {e}")
     return out
 
 
@@ -319,6 +324,12 @@ def self_test():
             for r in json.load(open(b))[2]]], open(b, "w"))
         expect("no allocation regression", run("--baseline", tsv, b), 2,
                "no allocated-vs-iters regression")
+        collection(b, {"g/x": (0.001, 0.2), "g/y": (0.002, 4e6)})
+        json.dump([None, None, [dict(r, reportAnalysis={"anRegress": [
+            dict(r["reportAnalysis"]["anRegress"][0], regCoeffs={}),
+            r["reportAnalysis"]["anRegress"][1]]})
+            for r in json.load(open(b))[2]]], open(b, "w"))
+        expect("malformed regression", run("--emit", b), 2, "lack 'iters'")
     for x in bad:
         print(f"FAIL: {x}")
     if not bad:
