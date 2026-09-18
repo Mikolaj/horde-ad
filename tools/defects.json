@@ -815,6 +815,235 @@
    "unit": "fake_markers('para\\n\\n    ```\\n1a. shown\\n')",
    "expect_text": "(4, '1a. shown')",
    "bug_text": "[]"
+  },
+  {
+   "id": "check-plan-citations-09",
+   "program": "check-plan-citations.py",
+   "name": "an absent PUBLISHED_REF exited 2 from inside check(), so over several documents the run stopped at the first permalink: earlier documents' FAIL verdicts were folded into the stop and later documents were never checked",
+   "family": "other:finding-as-did-not-run",
+   "fix_rev": "7c6a58215",
+   "trigger": "two documents, one failing a file:line citation and one pinning a blob/<sha>/ permalink, in a checkout without origin/master",
+   "ok": "every document is checked; the permalink document reports the stop and the run exits 1, a failure outranking a blocked document as check-doc-wrap has it",
+   "bug": "exit 2 at the first permalink, the failing document either swallowed into 'could not run' or, listed after it, never checked",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by a code review on 2026-09-18. checks.py's doc citations step runs the checker over every tracked .md in one process, which is the shape that loses verdicts; this repo's documents pin no permalink and origin/master exists here, so it has not fired.",
+   "plant_cmd": "git init -q . && printf 'line one\\nline two\\n' > a.hs && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c && printf '%s\\n' '`a.hs:999999` is out of range.' > bad.md && printf 'Link https://github.com/x/y/blob/%s/a.hs#L1 pinned.\\n' \"$(git rev-parse HEAD)\" > stop.md",
+   "invoke": [
+    "stop.md",
+    "bad.md"
+   ],
+   "expect_exit": 1,
+   "expect_text": [
+    "OUT-OF-RANGE",
+    "does not exist here"
+   ],
+   "bug_exit": 2,
+   "bug_absent": "OUT-OF-RANGE"
+  },
+  {
+   "id": "check-conv-bench-props-03",
+   "program": "check-conv-bench-props.py",
+   "name": "a benchmark missing from the collection exited 1 through sys.exit of a string, the code reserved for a failed property, where a collection that does not partition the suite is exit 2 everywhere else in the program",
+   "family": "other:did-not-run-as-finding",
+   "fix_rev": "7c6a58215",
+   "trigger": "--allocation-only over a collection holding one benchmark the properties do not name",
+   "ok": "exit 2 naming the missing benchmark, as usage_error's docstring promises",
+   "bug": "exit 1 naming it, with no 'check(s) FAILED' summary; CI and check-all read a filtered or renamed collection as a failed allocation property",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by a code review on 2026-09-18, the same class as check-conv-bench-props-02; the self-test row for it moved from 1 to 2.",
+   "plant_cmd": "printf '%s' '[null,null,[{\"reportName\":\"extra/one\",\"reportMeasured\":[0,0,0,0,0,0,0,0,0,0,0,0],\"reportAnalysis\":{\"anRegress\":[{\"regResponder\":\"time\",\"regCoeffs\":{\"iters\":{\"estPoint\":1.0}},\"regRSquare\":{\"estPoint\":1.0}},{\"regResponder\":\"allocated\",\"regCoeffs\":{\"iters\":{\"estPoint\":1.0}},\"regRSquare\":{\"estPoint\":1.0}}]}}]]' > c.json",
+   "invoke": [
+    "--allocation-only",
+    "{tmp}/c.json"
+   ],
+   "expect_exit": 2,
+   "expect_text": "missing from the JSON",
+   "expect_absent": "Traceback",
+   "bug_exit": 1,
+   "bug_text": "missing from the JSON"
+  },
+  {
+   "id": "check-conv-bench-props-04",
+   "program": "check-conv-bench-props.py",
+   "name": "load() guarded reportName, anRegress and reportMeasured but read each regression's regCoeffs and regRSquare outside the guard, so a malformed regression tracebacked at exit 1 instead of the exit 2 its docstring promises for a collection that is not criterion's",
+   "family": "other:did-not-run-as-finding",
+   "fix_rev": "7c6a58215",
+   "trigger": "a report whose time regression carries regCoeffs: {}",
+   "ok": "exit 2 naming the benchmark and the missing key, no traceback",
+   "bug": "an uncaught KeyError: 'iters' traceback, exit 1; a report lacking regRSquare tracebacked the same way",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by a code review on 2026-09-18. The self-test carries both shapes.",
+   "plant_cmd": "printf '%s' '[null,null,[{\"reportName\":\"extra/one\",\"reportMeasured\":[0,0,0,0,0,0,0,0,0,0,0,0],\"reportAnalysis\":{\"anRegress\":[{\"regResponder\":\"time\",\"regCoeffs\":{},\"regRSquare\":{\"estPoint\":1.0}},{\"regResponder\":\"allocated\",\"regCoeffs\":{\"iters\":{\"estPoint\":1.0}},\"regRSquare\":{\"estPoint\":1.0}}]}}]]' > c.json",
+   "invoke": [
+    "--allocation-only",
+    "{tmp}/c.json"
+   ],
+   "expect_exit": 2,
+   "expect_text": "lack",
+   "expect_absent": "Traceback",
+   "bug_exit": 1,
+   "bug_text": "KeyError: 'iters'"
+  },
+  {
+   "id": "bench-baseline-04",
+   "program": "bench-baseline.py",
+   "name": "read_collection() guarded reportName and anRegress but read each regression's regCoeffs outside the guard, so a malformed regression tracebacked at exit 1, the code the docstring reserves for figures that moved",
+   "family": "other:did-not-run-as-finding",
+   "fix_rev": "7c6a58215",
+   "trigger": "--emit over a report whose time regression carries regCoeffs: {}",
+   "ok": "exit 2 naming the benchmark and the missing key, no traceback",
+   "bug": "an uncaught KeyError: 'iters' traceback, exit 1, from --emit and from --baseline alike",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by a code review on 2026-09-18: the gap bench-baseline-03 was opened for, its self-test covering a missing regression but not a present malformed one.",
+   "plant_cmd": "printf '%s' '[null,null,[{\"reportName\":\"g/x\",\"reportAnalysis\":{\"anRegress\":[{\"regResponder\":\"time\",\"regCoeffs\":{}},{\"regResponder\":\"allocated\",\"regCoeffs\":{\"iters\":{\"estPoint\":0.2}}}]}}]]' > c.json",
+   "invoke": [
+    "--emit",
+    "{tmp}/c.json"
+   ],
+   "expect_exit": 2,
+   "expect_text": "lack",
+   "expect_absent": "Traceback",
+   "bug_exit": 1,
+   "bug_text": "KeyError: 'iters'"
+  },
+  {
+   "id": "bang-lazy-check-02",
+   "program": "bang-lazy-check.py",
+   "name": "verdict() fell back to any other module's binding of the same bare name, so a candidate was CLEARED or CONFIRMED against a foreign module's demand signature and the two UNVERIFIED branches for an absent name were unreachable whenever another dumped module defined it",
+   "family": "vacuous-check",
+   "fix_rev": "7c6a58215",
+   "trigger": "a candidate foo in Mod/B.hs, a dump for B lacking foo and a dump for A carrying Mod.A.foo",
+   "ok": "UNVERIFIED (module dumped but name absent), and UNVERIFIED (no dump for this module) where B was not dumped",
+   "bug": "CONFIRMED or CLEARED from A's signature, the printed line never saying which module it read",
+   "proved": "ran",
+   "harm": "unknown",
+   "discovery": "review",
+   "notes": "Found by a code review on 2026-09-18. Same-named bindings across Core/Unwind.hs and Core/UnwindNum.hs and across the Ops* instances make the shape ordinary here; whether a recorded verdict was wrong is not known, no dump set being kept.",
+   "unit": "verdict({'local': False, 'file': 'src/Mod/B.hs', 'name': 'foo', 'argc': 2, 'arg': 1}, {'foo': {'Mod.A.foo': '<L><L>'}}, {'A', 'B'})",
+   "expect_text": "UNVERIFIED (module dumped but name absent",
+   "bug_text": "CONFIRMED: lazy per GHC"
+  },
+  {
+   "id": "bang-lazy-check-03",
+   "program": "bang-lazy-check.py",
+   "name": "a ROOT that does not exist, or an unrecognised flag such as --help, was appended to the file list unchecked and opened later, a traceback at exit 1 -- the selftest-failure and --allow-gate code, where a missing input is 2",
+   "family": "other:did-not-run-as-finding",
+   "fix_rev": "7c6a58215",
+   "trigger": "a ROOT naming no file or directory",
+   "ok": "BLOCKED naming it, exit 2; an unrecognised flag prints the usage and exits 2",
+   "bug": "an uncaught FileNotFoundError traceback, exit 1, read by a check step as unlisted or stale candidates",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by a code review on 2026-09-18.",
+   "invoke": [
+    "{tmp}/no-such-dir"
+   ],
+   "expect_exit": 2,
+   "expect_text": "BLOCKED",
+   "expect_absent": "Traceback",
+   "bug_exit": 1,
+   "bug_text": "FileNotFoundError"
+  },
+  {
+   "id": "bang-lazy-check-04",
+   "program": "bang-lazy-check.py",
+   "name": "the docstring's dated non-vacuity account named a break, removing 'wild' from the flag condition, of code that no longer exists, find_candidates carrying no such condition",
+   "family": "false-comment",
+   "fix_rev": "7c6a58215",
+   "trigger": "reading the docstring's account of the 2026-08-09 breaks",
+   "ok": "the docstring says the breaks are tools/mutants.py's to show and names none",
+   "bug": "an account of five breaks, one of them of a condition the code no longer has, expiring as the standing checks say a dated sentence does",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by a code review on 2026-09-18. The live mutant for the wildcard path already substitutes a different break and says so.",
+   "unit": "\"removing 'wild' from the flag condition\" in __doc__",
+   "expect_text": "False",
+   "bug_text": "True"
+  },
+  {
+   "id": "heading-outline-05",
+   "program": "heading-outline.py",
+   "name": "a fence line indented four or more spaces opened a fenced block, where CommonMark reads it as indented code, so every heading after it was swallowed",
+   "family": "scan-for-parse",
+   "fix_rev": "7c6a58215",
+   "trigger": "a heading, a blank line, `    ```` on its own, then `## After` and `### Deeper`",
+   "ok": "the outline holds all three headings",
+   "bug": "the outline held the first heading alone, exit 0",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by a code review on 2026-09-18: the fix check-doc-wrap-08 made did not reach the two sibling fence trackers (check-doc-refs-08 is the other). No tracked document carries an indented fence line.",
+   "plant_cmd": "printf '# T\\n\\n    ```\\n    code\\n\\n## After\\n\\n### Deeper\\n' > h.md",
+   "invoke": [
+    "h.md"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "## After",
+    "### Deeper"
+   ],
+   "bug_exit": 0,
+   "bug_absent": "After"
+  },
+  {
+   "id": "check-doc-refs-08",
+   "program": "check-doc-refs.py",
+   "name": "a fence line indented four or more spaces opened a fenced block, where CommonMark reads it as indented code, so the prose after it was read as command text",
+   "family": "scan-for-parse",
+   "fix_rev": "7c6a58215",
+   "trigger": "a paragraph, a blank line, `    ```` on its own, a blank line, then prose naming `cabal test X`",
+   "ok": "the indented line is a code line and X is prose, unchecked: 0 failed",
+   "bug": "FAIL target cabal X, exit 1",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by a code review on 2026-09-18, with heading-outline-05; check-doc-wrap-08 is the fix that did not reach either sibling.",
+   "plant_cmd": "git init -q . && printf 'name: x\\nversion: 0\\n\\ntest-suite ok\\n  type: exitcode-stdio-1.0\\n  main-is: T.hs\\n' > x.cabal && printf '%s\\n' 'An indented fence line is code, not a fence:' '' '    ```' '' 'so this prose line, cabal test noSuchProseSuite, is not a command.' > d.md && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c",
+   "invoke": [
+    "d.md",
+    "--without-siblings"
+   ],
+   "expect_exit": 0,
+   "expect_absent": "noSuchProseSuite",
+   "bug_exit": 1,
+   "bug_text": "FAIL target cabal noSuchProseSuite"
+  },
+  {
+   "id": "check-doc-refs-09",
+   "program": "check-doc-refs.py",
+   "name": "a backticked ../ path into a checkout outside SIBLING_ROOTS was tested against whatever happened to be mounted and FAILed at exit 1 when absent, where a configured sibling BLOCKs at 2, and the branch returned before is_allowed() so the allow file could not waive it",
+   "family": "environment-decides",
+   "fix_rev": "7c6a58215",
+   "trigger": "a document backticking `../no-such-checkout-x/tools/t.py` with the two configured siblings mounted",
+   "ok": "the token is listed as outside the repo, not checked, with the `~` and `/` paths: exit 0",
+   "bug": "FAIL sibling ../no-such-checkout-x/tools/t.py --- no such path in the checkout, exit 1, this repo's drift by the message; an allow entry changed nothing",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by a code review on 2026-09-18. Only a configured checkout is one the run has already stopped for when absent, so only there is a miss drift; a configured miss now consults the allow file before failing. The case runs the checker from the fixture's parent through GIT_DIR, so that the configured siblings resolve beside the fixture repository.",
+   "plant_cmd": "mkdir -p ox-arrays orthotope repo && cd repo && git init -q . && printf 'name: x\\nversion: 0\\n\\ntest-suite ok\\n  type: exitcode-stdio-1.0\\n  main-is: T.hs\\n' > x.cabal && printf '%s\\n' '`../no-such-checkout-x/tools/t.py` names a checkout nobody configured.' > d.md && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c",
+   "env": {
+    "GIT_DIR": "{tmp}/repo/.git",
+    "GIT_WORK_TREE": "{tmp}/repo"
+   },
+   "invoke": [
+    "{tmp}/repo/d.md"
+   ],
+   "expect_exit": 0,
+   "expect_text": "outside the repo, not checked",
+   "expect_absent": "FAIL sibling",
+   "bug_exit": 1,
+   "bug_text": "FAIL sibling ../no-such-checkout-x/tools/t.py"
   }
  ]
 }
