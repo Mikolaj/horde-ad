@@ -1,6 +1,6 @@
 # convVjpBench per-iteration figures for the PRECEDING build, kept as the
 # evidence for the dInp regression that bench/CLAUDE.md records.  This is not
-# the diff target; bench/baseline.tsv is.
+# the diff target; bench/baseline-convvjp.tsv is.
 #
 # Taken 2026-08-27 on GHC 9.12.4 at -A32m -I0, ox-arrays 0.2.0.1, and the
 # orthotope sibling checkout on speedup-strided-tovector at ec31c47, library
@@ -9,8 +9,10 @@
 # and a collection; it is kept because it is cited, not because it could not
 # be redone.
 #
-# Columns and their weight are bench/baseline.tsv's.  Diff against it with
-#   python3 tools/bench-baseline.py --baseline bench/baseline-2026-08-27.tsv \
+# Columns and their weight are bench/baseline-convvjp.tsv's.  Diff against it
+# with
+#   python3 tools/bench-baseline.py \
+#     --baseline bench/baseline-convvjp-2026-08-27.tsv \
 #     slow.json cnn24.json fast.json
 #
 # benchmark	seconds_per_iter	bytes_per_iter
