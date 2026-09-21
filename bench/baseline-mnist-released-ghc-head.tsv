@@ -1,0 +1,53 @@
+# shortMnistForCI per-iteration figures on GHC head, released orthotope.
+#
+# Taken 2026-09-21 on GHC 10.1.20260918 (ghc checkout 6913545 of 2026-09-18)
+# at -A32m -I0, ox-arrays 0.2.0.1, from the working tree at aaf556d4f with
+# contractAst's sort-gather rule commented out, ahead of its removal, and the
+# inspection-testing removal that docs/ghc-head-build.md describes, with the
+# rest of what building on that compiler took.
+#
+# Against RELEASED orthotope 0.1.8.0 from Hackage (verified in the build plan
+# as style=global, src=repo-tar), the anchor that does not move while the
+# orthotope PR branch churns.  Its checkout counterpart is the *-ghc-head.tsv
+# without "released" beside it; do not diff a collection against the wrong
+# one, the benchmark names being identical.
+#
+# A series of its own: the 9.12.4 files beside it are not its diff targets,
+# the change of compiler moving prod allocation 8.9% in the geomean and per
+# benchmark from 0.89x to 1.57x in both directions.  Diff a head collection
+# against it with --baseline, as the others.
+#
+# bytes_per_iter is the allocated-vs-iters OLS slope and is exact (every fit
+# here R2 0.999999 or above); it is the instrument.  seconds_per_iter carries
+# the machine and the roster, which the position effect moves up to 10%
+# (docs/position-effect.md), so a time difference under that is not evidence.
+#
+# benchmark	seconds_per_iter	bytes_per_iter
+2-hidden-layer rank 1 VTA MNIST nn with samples: 40/1500|500 v2013 m0 =1933010	0.95808355	4.98247524e+09
+2-hidden-layer rank 1 VTA MNIST nn with samples: 40/300|100 v413 m0 =266610	0.152406248	914344487
+2-hidden-layer rank 1 VTA MNIST nn with samples: 40/30|10 v53 m0 =23970	0.0210312381	108315980
+2-hidden-layer rank 1 VTA MNIST nn with samples: 40/500|150 v663 m0 =469160	0.257594057	1.50631587e+09
+2-hidden-layer rank 1 VTA MNIST nn with samples: 40/test 300|100 v413 m0 =266610	0.0278215243	132903483
+2-hidden-layer rank 1 VTA MNIST nn with samples: 40/test 30|10 v53 m0 =23970	0.00440467804	18817295.8
+2-hidden-layer rank 1 VTA MNIST nn with samples: 40/test 500|150 v663 m0 =469160	0.0452980839	211971436
+2-hidden-layer rank 1 VTO MNIST nn with samples: 40/1500|500 v2013 m0 =1933010	15.7504585	3.83376865e+10
+2-hidden-layer rank 1 VTO MNIST nn with samples: 40/300|100 v413 m0 =266610	0.854265858	2.4301791e+09
+2-hidden-layer rank 1 VTO MNIST nn with samples: 40/30|10 v53 m0 =23970	0.0339073375	148062615
+2-hidden-layer rank 1 VTO MNIST nn with samples: 40/500|150 v663 m0 =469160	1.94477384	5.26293223e+09
+2-hidden-layer rank 1 VTO MNIST nn with samples: 40/test 300|100 v413 m0 =266610	0.028013474	132904498
+2-hidden-layer rank 1 VTO MNIST nn with samples: 40/test 30|10 v53 m0 =23970	0.00437413842	18817335.4
+2-hidden-layer rank 1 VTO MNIST nn with samples: 40/test 500|150 v663 m0 =469160	0.0455005602	211968962
+2-hidden-layer rank 2 VTA MNIST nn with samples: 40/1500|500 v0 m6 =1933010	0.376624097	2.51321863e+09
+2-hidden-layer rank 2 VTA MNIST nn with samples: 40/300|100 v0 m6 =266610	0.0292481423	418370155
+2-hidden-layer rank 2 VTA MNIST nn with samples: 40/30|10 v0 m6 =23970	0.00741988063	52863330.8
+2-hidden-layer rank 2 VTA MNIST nn with samples: 40/500|150 v0 m6 =469160	0.0502672584	707170167
+2-hidden-layer rank 2 VTA MNIST nn with samples: 40/test 300|100 v0 m6 =266610	0.00223619583	4503329.35
+2-hidden-layer rank 2 VTA MNIST nn with samples: 40/test 30|10 v0 m6 =23970	0.00108501955	3639993.27
+2-hidden-layer rank 2 VTA MNIST nn with samples: 40/test 500|150 v0 m6 =469160	0.00305537556	5103799.79
+2-hidden-layer rank 2 VTC compilation MNIST nn with samples: 40/1500|500 	0.0265762989	177748298
+2-hidden-layer rank 2 VTC compilation MNIST nn with samples: 40/300|100 	0.00322242385	26516373
+2-hidden-layer rank 2 VTC compilation MNIST nn with samples: 40/30|10 	0.000823949892	3594279.93
+2-hidden-layer rank 2 VTC compilation MNIST nn with samples: 40/500|150 	0.00554834922	45408717.6
+2-hidden-layer rank 2 VTO runtime MNIST nn with samples: 40/1500|500 v0 m6 =1933010	0.171499605	1.51960667e+09
+2-hidden-layer rank 2 VTOX runtime MNIST nn with samples: 40/1500|500 v0 m6 =1933010	0.299318317	2.51941761e+09
+2-hidden-layer rank 2 VTOZ runtime MNIST nn with samples: 40/1500|500 v0 m6 =1933010	0.30906589	2.51941761e+09

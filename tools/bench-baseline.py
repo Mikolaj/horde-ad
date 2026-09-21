@@ -26,6 +26,12 @@ Naming it is the only guard there is:
   baseline-convvjp-2026-08-27.tsv  the preceding checkout build, kept as the
                                    evidence for the regression bench/CLAUDE.md
                                    records, not a diff target
+  baseline-convvjp-ghc-head.tsv    convVjpBench   GHC 10.1.20260918 and the
+  baseline-prod-ghc-head.tsv       shortProdForCI  checkout, a series of its
+  baseline-mnist-ghc-head.tsv      shortMnistForCI own (bench/CLAUDE.md)
+  baseline-convvjp-released-ghc-head.tsv  convVjpBench    GHC 10.1.20260918 and
+  baseline-prod-released-ghc-head.tsv     shortProdForCI  released orthotope
+  baseline-mnist-released-ghc-head.tsv    shortMnistForCI 0.1.8.0
 
 The released three are the anchors that do not move while the orthotope PR
 branch churns, and the only ones comparable with CI, which resolves orthotope

@@ -1,0 +1,139 @@
+# convVjpBench per-iteration figures on GHC head, released orthotope.
+#
+# Taken 2026-09-21 on GHC 10.1.20260918 (ghc checkout 6913545 of 2026-09-18)
+# at -A32m -I0, ox-arrays 0.2.0.1, from the working tree at aaf556d4f with
+# contractAst's sort-gather rule commented out, ahead of its removal, and the
+# inspection-testing removal that docs/ghc-head-build.md describes, with the
+# rest of what building on that compiler took.
+#
+# Against RELEASED orthotope 0.1.8.0 from Hackage (verified in the build plan
+# as style=global, src=repo-tar), the anchor that does not move while the
+# orthotope PR branch churns.  Its checkout counterpart is the *-ghc-head.tsv
+# without "released" beside it; do not diff a collection against the wrong
+# one, the benchmark names being identical.
+#
+# Collected with the three-file split recipe in tools/check-conv-bench-props.py.
+# Property 6, S-exec <= H-exec, FAILS here from 24x24 up in time and in
+# allocation, S-exec allocating 20 to 28% more than H-exec: the rule this tree
+# drops is what kept it on the released strided fallback (bench/CLAUDE.md), so
+# its removal waits for the canonical-dispatch checkout to be released as
+# orthotope, which CI then resolves.  Every other property passes.
+#
+# A series of its own: the 9.12.4 files beside it are not its diff targets,
+# the change of compiler moving prod allocation 8.9% in the geomean and per
+# benchmark from 0.89x to 1.57x in both directions.  Diff a head collection
+# against it with --baseline, as the others.
+#
+# bytes_per_iter is the allocated-vs-iters OLS slope and is exact (every fit
+# here R2 0.999999 or above); it is the instrument.  seconds_per_iter carries
+# the machine and the roster, which the position effect moves up to 10%
+# (docs/position-effect.md), so a time difference under that is not evidence.
+#
+# benchmark	seconds_per_iter	bytes_per_iter
+192x192/H-exec	0.0814012173	565538661
+192x192/H-exec-raw	0.106411288	637236531
+192x192/H-fullpipe	0.100669408	637902996
+192x192/H-term	0.000475513213	1600253.86
+192x192/S-artifact	0.00059366283	1785355.79
+192x192/S-exec	0.111783208	722097902
+192x192/S-exec-raw	0.143289122	793818443
+192x192/S-fullpipe-honest	0.103954242	723885773
+24x24/H-exec	0.00137207127	10055203.7
+24x24/H-exec-raw	0.00151522731	11205004.6
+24x24/H-fullpipe	0.00174030292	11937387.1
+24x24/H-term	0.000487054245	1600255.33
+24x24/S-artifact	0.000593627278	1785350.38
+24x24/S-exec	0.00156908816	12094330.4
+24x24/S-exec-raw	0.00173879627	13267141.6
+24x24/S-fullpipe-honest	0.00215859548	13887482.9
+48x48/H-exec	0.00482206743	37193603.4
+48x48/H-exec-raw	0.00535828822	41702661
+48x48/H-fullpipe	0.00546567043	42425815.8
+48x48/H-term	0.000483095898	1600258.19
+48x48/S-artifact	0.000589035206	1785347.53
+48x48/S-exec	0.00618000233	46380963.1
+48x48/S-exec-raw	0.00727006776	50921849.1
+48x48/S-fullpipe-honest	0.00685576987	48181714.4
+6x6/H-exec	0.000203504214	1123617.55
+6x6/H-exec-raw	0.000223658879	1222941.16
+6x6/H-fullpipe	0.00046843975	1962898.53
+6x6/H-term	0.000487093935	1600254
+6x6/S-artifact	0.000598260233	1785347.44
+6x6/S-exec	0.000179888019	1058328.17
+6x6/S-exec-raw	0.000198239635	1181081
+6x6/S-fullpipe-honest	0.000798011411	2851862.46
+96x96/H-exec	0.0200116841	143686764
+96x96/H-exec-raw	0.0227648799	161632958
+96x96/H-fullpipe	0.0227752989	162337752
+96x96/H-term	0.000476756282	1600253.89
+96x96/S-artifact	0.000593204984	1785347.54
+96x96/S-exec	0.02723217	182114531
+96x96/S-exec-raw	0.0300834232	200083490
+96x96/S-fullpipe-honest	0.0279304626	183904186
+cnn-12x12/S-artifact	0.00902053993	28279654.1
+cnn-12x12/S-exec	0.0410520734	275329895
+cnn-12x12/S-exec-raw	0.0419344228	282221942
+cnn-12x12/S-fullpipe-honest	0.0500948526	303628795
+cnn-24x24/S-artifact	0.00904225531	28283443.4
+cnn-24x24/S-exec	0.465891095	3.78969217e+09
+cnn-24x24/S-exec-raw	0.46119647	3.81720768e+09
+cnn-24x24/S-fullpipe-honest	0.480845024	3.81568594e+09
+cnn-6x6/S-artifact	0.00765551194	24648416.1
+cnn-6x6/S-exec	0.00501314353	26643897.3
+cnn-6x6/S-exec-raw	0.00534042887	28501121.4
+cnn-6x6/S-fullpipe-honest	0.0128334812	51218055.7
+gather48/fused-gather-ad-orient	0.012345087	64984960.1
+gather48/fused-gather-shm-sorted-asc	0.0124458354	64998099.4
+gather48/fused-gather-shm-sorted-desc	0.0124364054	64998035.4
+gather48/fused-gather-vec-orient	0.012455431	64984959.1
+gather48/two-gathers-ad-orient	0.00538297842	44211904.6
+gather48/two-gathers-ad-shm-sorted	0.00541414209	44211907.9
+gather48/two-gathers-ad-shn-sorted	0.00399553233	34906194.3
+gather48/two-gathers-vec-orient	0.00384379545	34888591
+inp-192x192/H-exec	0.0860778071	347238859
+inp-192x192/H-exec-raw	0.124772372	418928851
+inp-192x192/H-fullpipe	0.120137485	419674910
+inp-192x192/H-term	0.000388460095	1248039.9
+inp-192x192/S-artifact	0.000558968236	1765852.81
+inp-192x192/S-exec	0.0111809112	61597953.2
+inp-192x192/S-exec-raw	0.0237677311	134836084
+inp-192x192/S-fullpipe-honest	0.0117865253	63402659.3
+inp-24x24/H-exec	0.000937030071	6419528.42
+inp-24x24/H-exec-raw	0.00104837557	7567705.27
+inp-24x24/H-fullpipe	0.00132429486	8294616.06
+inp-24x24/H-term	0.000351021517	1035785.69
+inp-24x24/S-artifact	0.000464734597	1310535.94
+inp-24x24/S-exec	0.000322370007	1625502.98
+inp-24x24/S-exec-raw	0.000439262592	2991530.87
+inp-24x24/S-fullpipe-honest	0.00080317532	2941381.36
+inp-48x48/H-exec	0.00342511082	23267951.2
+inp-48x48/H-exec-raw	0.0038116471	27775412.1
+inp-48x48/H-fullpipe	0.00412261104	28494187.7
+inp-48x48/H-term	0.00035057462	1035783.22
+inp-48x48/S-artifact	0.000466353023	1310541.13
+inp-48x48/S-exec	0.000875133695	4960292.76
+inp-48x48/S-exec-raw	0.0013577753	9872335.35
+inp-48x48/S-fullpipe-honest	0.00140261915	6271483.37
+inp-6x6/H-exec	0.000140837692	746050.119
+inp-6x6/H-exec-raw	0.000152300393	844485.373
+inp-6x6/H-fullpipe	0.000426243713	1577400.98
+inp-6x6/H-term	0.000350398101	1035785.3
+inp-6x6/S-artifact	0.00046444349	1310524.2
+inp-6x6/S-exec	6.45372387e-05	269979.735
+inp-6x6/S-exec-raw	9.70674308e-05	446051.541
+inp-6x6/S-fullpipe-honest	0.000545331386	1585794.18
+inp-96x96/H-exec	0.0192063007	88795129.4
+inp-96x96/H-exec-raw	0.0268163636	106739911
+inp-96x96/H-fullpipe	0.0289317221	107442259
+inp-96x96/H-term	0.000344448515	1034506.61
+inp-96x96/S-artifact	0.000462646535	1310547.17
+inp-96x96/S-exec	0.00286246669	16859768.5
+inp-96x96/S-exec-raw	0.0052045575	35582835.1
+inp-96x96/S-fullpipe-honest	0.0033853707	18165168.6
+pitfalls/H-exec-const-48x48	0.00474540596	37076641.6
+pitfalls/S-fullpipe-hoisted-6x6	0.000403637628	1723801.94
+scatter48/fused-scatter-ad-orient	0.0209546729	113375812
+scatter48/fused-scatter-vec-orient	0.021809212	114858623
+scatter48/two-scatters-ad-orient	0.000465943729	3566134.36
+scatter48/two-scatters-ad-shn-sorted	0.00222871421	17318695.4
+scatter48/two-scatters-vec-orient	0.000495600079	3581482.76

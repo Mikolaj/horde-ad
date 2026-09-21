@@ -1,0 +1,48 @@
+# shortProdForCI per-iteration figures on GHC head, released orthotope.
+#
+# Taken 2026-09-21 on GHC 10.1.20260918 (ghc checkout 6913545 of 2026-09-18)
+# at -A32m -I0, ox-arrays 0.2.0.1, from the working tree at aaf556d4f with
+# contractAst's sort-gather rule commented out, ahead of its removal, and the
+# inspection-testing removal that docs/ghc-head-build.md describes, with the
+# rest of what building on that compiler took.
+#
+# Against RELEASED orthotope 0.1.8.0 from Hackage (verified in the build plan
+# as style=global, src=repo-tar), the anchor that does not move while the
+# orthotope PR branch churns.  Its checkout counterpart is the *-ghc-head.tsv
+# without "released" beside it; do not diff a collection against the wrong
+# one, the benchmark names being identical.
+#
+# A series of its own: the 9.12.4 files beside it are not its diff targets,
+# the change of compiler moving prod allocation 8.9% in the geomean and per
+# benchmark from 0.89x to 1.57x in both directions.  Diff a head collection
+# against it with --baseline, as the others.
+#
+# bytes_per_iter is the allocated-vs-iters OLS slope and is exact (every fit
+# here R2 0.999999 or above); it is the instrument.  seconds_per_iter carries
+# the machine and the roster, which the position effect moves up to 10%
+# (docs/position-effect.md), so a time difference under that is not evidence.
+#
+# benchmark	seconds_per_iter	bytes_per_iter
+100/cgrad k L	5.32080653e-05	298564.478
+100/cgrad k MapAccum	0.000229140453	1801882.8
+100/cgrad k NotShared	6.72013146e-05	264455.211
+100/cgrad k R	5.40301271e-05	300935.331
+100/cgrad k list	0.000188325143	1009773.75
+100/cgrad s L	9.37492563e-05	682930.535
+100/cgrad s MapAccum	0.000307707868	2236360.83
+100/cgrad s NotShared	0.000100890959	644886.703
+100/cgrad s R	9.23543413e-05	685326.89
+100/grad k L	0.00223203099	10019861
+100/grad k MapAccum	0.00012092393	406082.294
+100/grad k R	0.00195104683	9557684.89
+100/grad k list	0.00143441004	5892157.85
+100/grad s L	0.00732511648	29671010.5
+100/grad s MapAccum	0.00024119022	1140527.86
+100/grad s R	0.00639559313	29208282.9
+1000/cgrad k L	0.000589151656	3364530.18
+1000/cgrad k MapAccum	0.00225995618	17923931.7
+1000/cgrad k NotShared	0.00242612993	2999327.52
+1000/cgrad s MapAccum	0.003014538	22249695.9
+1000/grad k L	0.372531725	864688601
+1000/grad k MapAccum	0.000988785148	3465439.28
+1000/grad s MapAccum	0.00195548724	10538489.2
