@@ -213,11 +213,13 @@ MUTANTS = [
      "            if sib_active or not SIBLING_ROOTS:\n", "            if sib_active:\n", ST),
     # check-doc-refs: the self-test dispatched before the move to the root
     # (check-doc-refs-07); judged from the tool's own directory, where the
-    # root's judge cannot tell
+    # root's judge cannot tell. That defect's symptom IS exit 2, BLOCKED for
+    # want of the siblings, which the runner reads as a judge that did not
+    # run, so the judge says 2 is its catch
     ('check-doc-refs self-test dispatched before chdir_root', 'check-doc-refs.py',
      '    docs = chdir_root(args)\n    if "--self-test" in sys.argv[1:]:\n        return self_test()\n',
      '    if "--self-test" in sys.argv[1:]:\n        return self_test()\n    docs = chdir_root(args)\n',
-     'cd {dir} && python3 {file} --self-test'),
+     'cd {dir} && python3 {file} --self-test; rc=$?; [ $rc -eq 2 ] && exit 1; exit $rc'),
     # check-doc-examples: the same (check-doc-examples-04)
     ('check-doc-examples self-test dispatched before chdir_root', 'check-doc-examples.py',
      '    docs = chdir_root(args)\n    if "--self-test" in sys.argv[1:]:\n        return self_test()\n',
