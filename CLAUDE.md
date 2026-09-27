@@ -34,7 +34,7 @@ Development setup (fast builds, optimization off; guarded not to clobber an exis
 
 Run `cabal` (like all `git` writes and `gpg`) unsandboxed --- `~/.cabal` is read-only under the inner sandbox (sandboxing notes below). A full build takes long: run it in the harness's own background mode --- which wakes you when it exits, where a typed `&` does not --- rather than concluding it hung. Local `cabal haddock` costs ~10 minutes even for a sublibrary (haddock re-runs GHC's front end over the whole library dependency, with the typelits plugins dominating typechecking) --- prefer CI's `--haddock-all` step, which runs on every push.
 
-Cabal flags: `with_expensive_assertions` (extra checks), `release` (set for Hackage releases; disables `convVjpBench`, the two live MNIST benchmarks and every test suite but `minimalTest`), `test_seq` (force parallelTest to run sequentially).
+Cabal flags: `with_expensive_assertions` (extra checks), `release` (set for Hackage releases; disables `convVjpBench`, `inlineMicroBench`, the two live MNIST benchmarks and every test suite but `minimalTest`), `test_seq` (force parallelTest to run sequentially).
 
 Source checkouts of ox-arrays and orthotope may be present as siblings (`../ox-arrays`, `../orthotope`) --- whether a session sees them depends on the wrapper (sandboxing notes below); when hidden they report "No such file", and the released sources can always be unpacked from the cabal store instead (recipe in the build-and-shell-tooling notes). The kernels of interest are `mgenerate`, `Data.Array.Strided.Arith` and the `X.replicate` stride tricks.
 
@@ -66,7 +66,7 @@ The harness itself --- the `testCommonLibrary`/`test/tool/` layout, why CAFlessT
 
 ### Benchmarks
 
-The criterion suites are `cabal bench shortProdForCI`, `longProdBench`, `shortMnistForCI` and `longMnistBench`, plus the `convVjpBench` conv/CNN diagnostic ([#123](https://github.com/Mikolaj/horde-ad/issues/123)); a sixth target, `realisticMnistBench`, is deliberately `buildable: False` so that plain `cabal bench` terminates in finite time. Run `convVjpBench` with full criterion statistics whenever touching conv-relevant code (gather/scatter rewrites in `contractAst`, the interpreter, the ox-arrays gather path) --- CI's per-push run is default-limit and checks allocation only.
+The criterion suites are `cabal bench shortProdForCI`, `longProdBench`, `shortMnistForCI` and `longMnistBench`, plus the `convVjpBench` conv/CNN diagnostic ([#123](https://github.com/Mikolaj/horde-ad/issues/123)) and `inlineMicroBench`, micro-benchmarks of small recursive functions, most of them tensor-kind dispatchers, for judging how GHC compiles them; one more target, `realisticMnistBench`, is deliberately `buildable: False` so that plain `cabal bench` terminates in finite time. Run `convVjpBench` with full criterion statistics whenever touching conv-relevant code (gather/scatter rewrites in `contractAst`, the interpreter, the ox-arrays gather path) --- CI's per-push run is default-limit and checks allocation only.
 
 `bench/CLAUDE.md` holds what has been written up about the suites themselves, how to analyze a run against the numbered time properties, and the interleaving and random-input rules for writing one; a session loads it automatically when working under `bench/`, and a human must open it there. The rules for *reasoning about* the resulting numbers stay below, under Performance model, because they govern prose and source edits too, not just the benchmarks.
 

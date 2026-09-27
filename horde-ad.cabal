@@ -365,6 +365,30 @@ benchmark convVjpBench
       , ox-arrays
       , random
 
+-- Micro-benchmarks of small recursive functions, most of them tensor-kind
+-- dispatchers, for measuring how GHC compiles them; not intended
+-- for the released package.
+benchmark inlineMicroBench
+    import:           options, exe-options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    type:             exitcode-stdio-1.0
+
+    hs-source-dirs:   bench
+
+    main-is:          InlineMicroBench.hs
+
+    build-depends:
+      , horde-ad:horde-ad
+
+      , base
+      , criterion
+      , ox-arrays
+
 -- takes forever, so mostly to invoke with --benchmark-options='-n 1 +RTS -s'
 benchmark realisticMnistBench
     import:           options, exe-options
