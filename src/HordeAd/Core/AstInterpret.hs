@@ -369,6 +369,11 @@ interpretAstHFun
   :: forall target x y s. (KnownSpan s, BaseTensor (SpanTargetFam target s))
   => AstEnv target -> AstHFun s x y
   -> HFunOf (SpanTargetFam target s) x y
+-- INLINE is honoured here despite the recursive group with interpretAst,
+-- which is the loop breaker, and inlining into the specialised interpretAst
+-- is what gives the call to tlambda a known instance. Without it
+-- the grad MapAccum benchmarks of shortProdForCI allocated up to 43% more
+-- (GHC 10.1.20260918, 2026-09-27).
 {-# INLINE interpretAstHFun #-}
 interpretAstHFun _env (AstLambda var t) =
   tlambda @(SpanTargetFam target s) (varNameToFTK var)

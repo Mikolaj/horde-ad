@@ -4792,6 +4792,10 @@ astConvertUp c zftk t = case (ftkAst t, zftk, t) of
 astConvDown :: forall y z s. KnownSpan s
             => FullShapeTK z -> AstTensor AstMethodLet s y
             -> AstTensor AstMethodLet s z
+-- INLINE is honoured here despite the recursive group with astConvertDown,
+-- which is the loop breaker. Without it and the one on astConvUp
+-- the grad benchmarks of shortProdForCI allocated up to 0.8% more
+-- (GHC 10.1.20260918, 2026-09-27).
 {-# INLINE astConvDown #-}
 astConvDown zftk t = case convDownMaybe (ftkAst t) (ftkToSTK zftk) of
   Just c -> astConvertDown c zftk t
@@ -4814,6 +4818,8 @@ astConvDownSFromX sh x = astConvertDownSFromX (ConvXS' (FTKS sh x)) sh x
 astConvUp :: forall y z s. KnownSpan s
           => FullShapeTK z -> AstTensor AstMethodLet s y
           -> AstTensor AstMethodLet s z
+-- INLINE is honoured here too, and kept for the measurement noted at
+-- astConvDown, which covers both.
 {-# INLINE astConvUp #-}
 astConvUp zftk t = case convUpMaybe (ftkAst t) zftk of
   Just c -> astConvertUp c zftk t
@@ -5327,7 +5333,6 @@ instance (KnownSpan s, NumScalar r)
 
 -- All but the last case are shortcuts for common forms.
 astConcrete :: FullShapeTK y -> Concrete y -> AstTensor AstMethodLet PlainSpan y
-{-# INLINE astConcrete #-}
 astConcrete ftk v = case ftk of
   FTKScalar -> astConcreteK v
   FTKR ZSR FTKScalar ->

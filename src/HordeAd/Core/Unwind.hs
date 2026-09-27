@@ -77,7 +77,6 @@ concreteRepW
   -> (forall r sh sh'. (GoodScalar r, Rank sh ~ Rank sh')
       => IShX sh' -> target (TKS sh r) -> target (TKX sh' r))
   -> RepW Concrete y -> RepW target y
-{-# INLINE concreteRepW #-}
 concreteRepW concreteK concreteS toRfromS toXfromS w = case w of
   WTKScalar v -> WTKScalar $ concreteK v
   WTKR v -> WTKR $

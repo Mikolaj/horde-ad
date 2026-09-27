@@ -361,6 +361,12 @@ pattern Is <- (eqTypeRep (TypeRep @a) -> Just (HRefl :: a :~~: b))
 
 -- All below is copied from Data.OldList but made strict in state.
 mapAccumL' :: (acc -> x -> (acc, y)) -> acc -> [x] -> (acc, [y])
+-- Neutral for performance: every library caller fuses through the RULES
+-- below, and called out of line the function measures the same with
+-- and without this pragma (GHC 10.1.20260918, 2026-09-27). It stays because
+-- without it GHC warns that the RULES may never fire, mapAccumL' possibly
+-- inlining first, and because it may make them less fragile, though that
+-- could not be observed.
 {-# INLINE [1] mapAccumL' #-}
 mapAccumL' _ !s [] = (s, [])
 mapAccumL' f !s (x : xs) = (s'', y : ys)

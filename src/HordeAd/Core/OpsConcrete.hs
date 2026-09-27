@@ -960,7 +960,6 @@ ixxToLinearMaybe = \sh ix -> goX sh ix 0
 tfromList :: forall y k.
              SNat k -> SingletonTK y -> NonEmpty (Concrete y)
           -> Concrete (BuildTensorKind k y)
-{-# INLINE tfromList #-}
 tfromList snat@SNat stk l = case stk of
   STKScalar ->
     Concrete $ Nested.sfromList1Prim snat $ fmapUnConcrete $ NonEmpty.toList l

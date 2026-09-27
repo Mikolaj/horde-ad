@@ -89,7 +89,6 @@ lemKnownSTK = \case
 
 -- | A plausible implementation of `testEquality` on `SingletonTK`.
 sameSTK :: SingletonTK y1 -> SingletonTK y2 -> Maybe (y1 :~: y2)
-{-# INLINE sameSTK #-}
 sameSTK = \cases
   (STKScalar @r1) (STKScalar @r2)
     | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
@@ -233,7 +232,6 @@ deriving instance Eq (FullShapeTK y)
 -- take into account shape difference in ranked and mixed tensors
 -- that `FullShapeTK`, but not `SingletonTK`, captures.
 matchingFTK :: FullShapeTK y1 -> FullShapeTK y2 -> Maybe (y1 :~: y2)
-{-# INLINE matchingFTK #-}
 matchingFTK = \cases
   (FTKScalar @r1) (FTKScalar @r2)
     | Just Refl <- testEquality (typeRep @r1) (typeRep @r2) ->
