@@ -34,15 +34,19 @@ DOCS = ('cd "{root}/.." || { echo "cannot enter the repository root"; exit 2; };
         'python3 tools/%s "${docs[@]}"')
 
 STEPS = [
+    ('ab-time self-test', ['python3', '{root}/ab-time.py', '--self-test']),
     ('bang-lazy-check selftest', ['python3', '{root}/bang-lazy-check.py', '--selftest']),
     ('bench-baseline self-test', ['python3', '{root}/bench-baseline.py', '--self-test']),
+    ('cachegrind-per-call self-test', ['python3', '{root}/cachegrind-per-call.py', '--self-test']),
     ('check-conv-bench-props self-test', ['python3', '{root}/check-conv-bench-props.py', '--self-test']),
     ('check-doc-examples self-test', ['python3', '{root}/check-doc-examples.py', '--self-test']),
     ('check-doc-refs self-test', ['python3', '{root}/check-doc-refs.py', '--self-test']),
     ('check-doc-wrap self-test', ['python3', '{root}/check-doc-wrap.py', '--self-test']),
     ('check-plan-citations self-test', ['python3', '{root}/check-plan-citations.py', '--self-test']),
     ('check-twin-sync self-test', ['python3', '{root}/check-twin-sync.py', '--self-test']),
+    ('core-diff self-test', ['python3', '{root}/core-diff.py', '--self-test']),
     ('heading-outline self-test', ['python3', '{root}/heading-outline.py', '--self-test']),
+    ('ticky-diff self-test', ['python3', '{root}/ticky-diff.py', '--self-test']),
     ('pyflakes', ['bash', '-c',
                   'cd "{root}" && { python3 -m pyflakes --version >/dev/null 2>&1 || { echo "python3 -m pyflakes --version failed, so tools/*.py went unlinted"; exit 1; }; } && python3 -m pyflakes *.py']),
     ('shellcheck', ['bash', '-c',

@@ -296,4 +296,22 @@ MUTANTS = [
      "    if here.returncode == 2:\n        ok = False\n", "    if False:\n        ok = False\n",
      'cd {dir} && mv ../README.md ../README.md.aside || exit 0; python3 {file} --self-test; rc=$?; '
      'mv ../README.md.aside ../README.md; test $rc -ne 0'),
+    # ab-time, cachegrind-per-call, core-diff and ticky-diff (2026-09-29):
+    # each watched failing its self-test before it was written down here.
+    ('ticky-diff local closure unique no longer normalised', 'ticky-diff.py',
+     "    name = re.sub(r'_sat_s[0-9A-Za-z]+', '_sat', name)\n", '', ST),
+    ('ticky-diff file without the table read as an empty table', 'ticky-diff.py',
+     '    return out if seen else None\n', '    return out\n', ST),
+    ('core-diff numeric suffix of a binding kept', 'core-diff.py',
+     '                    names[re.sub(r"([A-Za-z_$\'])[0-9]+\\b", r\'\\1\', tok)] += 1\n', '                    names[tok] += 1\n', ST),
+    ('core-diff directory without dumps accepted', 'core-diff.py',
+     '        if not t:\n', '        if not t and False:\n', ST),
+    ('cachegrind-per-call last-level misses weighted as L1', 'cachegrind-per-call.py',
+     "           'ILmr': 100, 'DLmr': 100, 'DLmw': 100}\n", "           'ILmr': 10, 'DLmr': 100, 'DLmw': 100}\n", ST),
+    ('cachegrind-per-call summary shorter than its events accepted', 'cachegrind-per-call.py',
+     '    if events is None or summary is None or len(events) != len(summary):\n', '    if events is None or summary is None:\n', ST),
+    ('ab-time pair run B before A', 'ab-time.py',
+     '        ta, tb = slope(a, name), slope(b, name)\n', '        tb, ta = slope(b, name), slope(a, name)\n', ST),
+    ('ab-time mean in place of the median', 'ab-time.py',
+     '    return statistics.median(ratios), min(ratios), max(ratios)\n', '    return statistics.mean(ratios), min(ratios), max(ratios)\n', ST),
 ]

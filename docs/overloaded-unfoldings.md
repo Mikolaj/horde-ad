@@ -36,7 +36,9 @@ discarded and re-taken. Build times come from single builds in fresh build
 directories on an otherwise idle machine; two library builds of the same tree,
 in the discarded semaphore series, differed by 0.8%.
 
-Speed was measured with three instruments, in this order of trust:
+Speed was measured with three instruments, in this order of trust; the last
+two are `tools/cachegrind-per-call.py` and `tools/ab-time.py`, and the
+attribution below used `tools/ticky-diff.py` and `tools/core-diff.py`:
 
 1. Allocation per iteration, from criterion's `--regress allocated:iters` with
    `+RTS -T`, on all four suites: `shortProdForCI`, `convVjpBench`,
