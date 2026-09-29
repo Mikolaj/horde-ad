@@ -1,3 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if MIN_VERSION_GLASGOW_HASKELL(9,12,1,0)
+{-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
+#endif
 {-# LANGUAGE AllowAmbiguousTypes, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}

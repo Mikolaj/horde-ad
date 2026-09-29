@@ -1,3 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if MIN_VERSION_GLASGOW_HASKELL(9,12,1,0)
+{-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
+#endif
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Tensor operations implementation using the ox-arrays package.

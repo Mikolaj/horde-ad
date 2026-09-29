@@ -1,3 +1,7 @@
+{-# LANGUAGE CPP #-}
+#if MIN_VERSION_GLASGOW_HASKELL(9,12,1,0)
+{-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
+#endif
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | The implementation of reverse derivative and forward derivative
 -- calculation for an objective function on values of complicated types,
