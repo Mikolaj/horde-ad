@@ -151,6 +151,18 @@ The procedural rules these imply once you are actually writing a benchmark --- i
 
 Cost facts worth knowing before optimizing --- which operations dominate and why, what is metadata-only, the two pipelines' cost shapes, the gather/scatter cost model with its refuted redesigns, and how to add a `contractAst` rewrite rule --- are in `.claude/rules/performance-model.md`, which a session loads when it touches an AST-processing module, `Core/OpsConcrete.hs` or anything under `bench/` --- but the load is not dependable and a human gets no automatic load at all, so open it before optimizing anything or pricing a design against these kernels.
 
+### Pragmas and optimisation flags
+
+Rules for changing inlining and specialisation pragmas (`INLINE`, `INLINABLE`, `NOINLINE`, `SPECIALISE`, phase control) and the per-module or package-wide optimisation flags (`-fexpose-overloaded-unfoldings`, `-fkeep-auto-rules`, `-O2` and its constituents, ...), decided by Mikolaj in September 2026:
+
+- **What is traded.** Run-time speed against the compile time of horde-ad's own optimised build: every component of the package, with exactly the flags in the `.cabal` file. The dependencies' build time doesn't count. Any change that improves the trade-off without regressing speed is welcome, including one that only speeds up compilation, such as an added `-fno-expose-overloaded-unfoldings` or a removed pragma. A light compile-time cost is acceptable for a large speed gain, but a speed cost is never acceptable for faster compilation, except in simplification, below.
+- **Simplification versus interpretation.** The speed of simplification may be traded: the smart constructors, the traversals, vectorisation, inlining, and building and simplifying artifacts. The speed of interpretation may not: `interpretAst` and every primitive it calls, which means the `Concrete` instances, plus the `ADVal` instances for the non-symbolic `cgrad` pipeline. Interpretation must never get slower than the state the work started from.
+- **Noise margins.** For a "banned" decision (is interpretation slower?), a slowdown of up to 10% in wall time or estimated cycles counts as noise. In a trade-off, only changes above 2% count.
+- **Pragmas are a cost in themselves.** Every pragma is visual noise and counts against a change in any trade-off. Where one module-level flag does what a dozen pragmas do, the flag wins. When an existing pragma proves beneficial, add similar ones only where each pays for itself individually, never across the board.
+- **Don't remove a pragma that is dead only at today's thresholds.** An `INLINE` on a function that GHC inlines anyway, or a `NOINLINE` on one it wouldn't inline anyway, is dead only because of the current inliner thresholds, which can change. Remove a pragma only when removing it changes the optimised Core and the measurements show that what it did buys nothing.
+- **Take the constituents, not the bundle.** Don't adopt `-O2` wholesale. If it helps, bisect the flags it enables beyond `-O` and take only those that carry the effect.
+- **Measure without `jobs` and `semaphore`** in `cabal.project.local`: they skew build times. Time each build alone, in a fresh `--builddir`, on an otherwise idle machine.
+
 ## Coding style
 
 Author-generic style conventions are collected in the portable-notes section at the end of this file; what follows is horde-ad-specific.
