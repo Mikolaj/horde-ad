@@ -1,10 +1,10 @@
 # GHC issue: after `-flate-specialise`, nothing floats constants out of the specialised code, so a `TypeRep` is rebuilt on every loop iteration
 
-Draft, not filed; the text from "## Summary" down is the body to file, in the tracker's bug template. Title: **`-flate-specialise`: no float-out runs after the late specialiser, so a constant `TypeRep` from an inlined unfolding is rebuilt, MD5 fingerprint included, on every iteration of the specialised loop**. Verified on 2026-09-30 on HEAD 10.1.20260925 (nightly bindist of commit `9f48a5b908`), 9.14.1 and 9.12.2. Found while reducing GHC [#26895](https://gitlab.haskell.org/ghc/ghc/-/work_items/26895): with `-flate-specialise` on one test module, horde-ad's test ran 5x slower on HEAD instead of faster, because GHC [#27873](https://gitlab.haskell.org/ghc/ghc/-/work_items/27873) left the hot calls to the late specialiser. The tracker was searched on 2026-09-30 for `late-specialise`, `late specialisation`, `mkTrCon`, `TypeRep fingerprint` and float-out after specialisation, with no duplicate found; GHC [#21183](https://gitlab.haskell.org/ghc/ghc/-/work_items/21183) is the nearest.
+Filed as GHC [#27879](https://gitlab.haskell.org/ghc/ghc/-/work_items/27879) on 2026-09-30; the text from "## Summary" down is the filed body, in the tracker's bug template. Title: **`-flate-specialise`: no float-out runs after the late specialiser, so a constant `TypeRep` from an inlined unfolding is rebuilt, MD5 fingerprint included, on every iteration of the specialised loop**. Verified on 2026-09-30 on HEAD 10.1.20260925 (nightly bindist of commit `9f48a5b908`), 9.14.1 and 9.12.2. Found while reducing GHC [#26895](https://gitlab.haskell.org/ghc/ghc/-/work_items/26895): with `-flate-specialise` on one test module, horde-ad's test ran 5x slower on HEAD instead of faster, because GHC [#27873](https://gitlab.haskell.org/ghc/ghc/-/work_items/27873) left the hot calls to the late specialiser. The tracker was searched on 2026-09-30 for `late-specialise`, `late specialisation`, `mkTrCon`, `TypeRep fingerprint` and float-out after specialisation, with no duplicate found; GHC [#21183](https://gitlab.haskell.org/ghc/ghc/-/work_items/21183) is the nearest.
 
 ## Summary
 
-In the reproducer below, `-flate-specialise` makes the program 8x to 11x slower and makes it allocate 6x to 21x more. The late specialiser specialises the imported `f` at `Double` in `Main`. The specialised loop then evaluates `mkTrCon $tcFloat []` on every iteration, and `mkTrCon` computes an MD5 fingerprint each time:
+In the reproducer below, `-flate-specialise` makes the program 8x to 11x slower and makes it allocate 6x to 21x more. The late specialiser specialises the worker `$wf` of the imported `f` at `Double` in `Main`. The specialised loop then evaluates `mkTrCon $tcFloat []` on every iteration, and `mkTrCon` computes an MD5 fingerprint each time; under callgrind, a third of the instructions are in `MD5Transform` and `peekW64`:
 
 ```
 $s$wf
@@ -25,11 +25,11 @@ $s$wf
       }
 ```
 
-The expression `mkTrCon $tcFloat []` is the `Typeable Float` evidence in the stable unfolding of `isFloat`, which the post-late-spec simplifier inlines into the loop. It is a constant, and full laziness would float it to the top level. But in [the pipeline](https://gitlab.haskell.org/ghc/ghc/-/blob/9f48a5b908f572847bc8ba4657c9f5a5d4284556/compiler/GHC/Core/Opt/Pipeline.hs#L309-310) the late specialiser and its simplifier run after [the last float-out pass](https://gitlab.haskell.org/ghc/ghc/-/blob/9f48a5b908f572847bc8ba4657c9f5a5d4284556/compiler/GHC/Core/Opt/Pipeline.hs#L271-276), and the simplifier does not float an expression out of a lambda. Without `-flate-specialise`, `f` runs its dictionary-passing code from `Lib`, where full laziness floated the same `TypeRep` to the top level, so the program is faster without the specialisation than with it.
+The expression `mkTrCon $tcFloat []` is the `Typeable Float` evidence of `isFloat`, which is inlined into the stable unfolding of `$wf` that `Lib` exports, inside its loop. In `Lib`'s own code for `$wf`, full laziness floated the constant to the top level, but a stable unfolding keeps it where it was. The late specialiser specialises that unfolding, and in [the pipeline](https://gitlab.haskell.org/ghc/ghc/-/blob/9f48a5b908f572847bc8ba4657c9f5a5d4284556/compiler/GHC/Core/Opt/Pipeline.hs#L309-310) it and its simplifier run after [the last float-out pass](https://gitlab.haskell.org/ghc/ghc/-/blob/9f48a5b908f572847bc8ba4657c9f5a5d4284556/compiler/GHC/Core/Opt/Pipeline.hs#L271-276), and the simplifier does not float an expression out of a loop. Without `-flate-specialise`, `f` runs `Lib`'s dictionary-passing code, with the floated `TypeRep`, so the program is faster without the specialisation than with it.
 
-A `TypeRep` is the expensive case, but any constant that an inlining puts into late-specialised code stays where it is.
+A `TypeRep` is only the expensive case: any other constant inside a loop of an imported unfolding stays in the loop of its late specialisation in the same way.
 
-In horde-ad, the effect is the same: with `-flate-specialise` on one test module, the late specialisations of the interpreter rebuild `TypeRep`s for the `eqT` dispatch in an inlined class method, and the test runs in 280 s instead of 57 s, allocating 749 GB instead of 79 GB. Under callgrind, on a smaller input, a third of the instructions are in `MD5Transform`, `peekW64`, `pokeW64` and `mkTrCon`.
+In horde-ad, the effect is the same: with `-flate-specialise` on one test module, the late specialisations of the interpreter rebuild `TypeRep`s for the `eqT` dispatch in an inlined class method, and the test runs in 280 s instead of 57 s, allocating 749 GB instead of 79 GB. Under callgrind, on a smaller input, over a third of the instructions are in `MD5Transform`, `MD5Final`, `MD5Update`, `peekW64`, `pokeW64` and `mkTrCon`.
 
 A possible fix, not tested: a float-out pass after the post-late-spec simplifier, as the late specialiser adds code that the last float-out pass did not see.
 
@@ -76,9 +76,9 @@ ghc -O -fno-specialise -flate-specialise Repro.hs -o Repro && ./Repro +RTS -s
 | 9.14.1 | 0.030 s, 56 MB | 0.250 s, 512 MB |
 | 9.12.2 | 0.027 s, 88 MB | 0.240 s, 544 MB |
 
-The numbers are the same with `-O2`. On HEAD with `-O` alone, the regular specialiser specialises `f`, and the program runs in 0.012 s and allocates 100 KB.
+The numbers are the same with `-O2`. There, the CSE pass after the late specialiser would share the constant with an identical top-level binding if `Main` had one, so the reproducer compares with `Float`, whose `TypeRep` `Main` does not otherwise need; with `Double`, `-O2` hides the effect. On HEAD with `-O` alone, the regular specialiser specialises `f`, and the program runs in 0.012 s and allocates 100 KB.
 
-Both modules are needed: when `f` is defined in `Main`, the late specialiser starts from the optimised right-hand side of `f`, where the constant is already floated. The `INLINE` helper is needed too: with `typeOf (0 :: Float)` written directly in `f`, the constant is at the top of the unfolding of `f`, outside its lambdas, and the post-late-spec simplifier floats it.
+Both modules are needed: when `f` is defined in `Main`, the late specialiser starts from the optimised right-hand side of `f`, where the constant is already floated. The `INLINE` helper is needed too: with `typeOf (0 :: Float)` written directly in `f`, the evidence is a `let` at the top of the unfolding of `f`, outside its lambdas, and the specialisation gets it as a top-level binding.
 
 ## Expected behavior
 
