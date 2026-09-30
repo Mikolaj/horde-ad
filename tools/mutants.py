@@ -314,4 +314,10 @@ MUTANTS = [
      '        ta, tb = slope(a, name), slope(b, name)\n', '        tb, ta = slope(b, name), slope(a, name)\n', ST),
     ('ab-time mean in place of the median', 'ab-time.py',
      '    return statistics.median(ratios), min(ratios), max(ratios)\n', '    return statistics.mean(ratios), min(ratios), max(ratios)\n', ST),
+    # pragma-calls (2026-09-30): each watched failing its self-test before
+    # it was written down here.
+    ('pragma-calls specialisation prefix no longer normalised', 'pragma-calls.py',
+     "    return re.sub(r'^(?:\\$[a-z])+', '', tok)\n", '    return tok\n', ST),
+    ('pragma-calls tree without dumps accepted', 'pragma-calls.py',
+     '        if not t:\n', '        if not t and False:\n', ST),
 ]

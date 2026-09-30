@@ -46,6 +46,7 @@ STEPS = [
     ('check-twin-sync self-test', ['python3', '{root}/check-twin-sync.py', '--self-test']),
     ('core-diff self-test', ['python3', '{root}/core-diff.py', '--self-test']),
     ('heading-outline self-test', ['python3', '{root}/heading-outline.py', '--self-test']),
+    ('pragma-calls self-test', ['python3', '{root}/pragma-calls.py', '--self-test']),
     ('ticky-diff self-test', ['python3', '{root}/ticky-diff.py', '--self-test']),
     ('pyflakes', ['bash', '-c',
                   'cd "{root}" && { python3 -m pyflakes --version >/dev/null 2>&1 || { echo "python3 -m pyflakes --version failed, so tools/*.py went unlinted"; exit 1; }; } && python3 -m pyflakes *.py']),
