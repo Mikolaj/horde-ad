@@ -1096,7 +1096,6 @@ rfold
   -> target (TKR2 n xn)  -- ^ the initial accumulator
   -> target (TKR2 (1 + m) xm)  -- ^ the inputs
   -> target (TKR2 n xn)
-{-# INLINE rfold #-}
 rfold f acc0 es =
   withSNat (rwidth es) $ \k -> tfold k knownSTK knownSTK f acc0 es
 rscan
@@ -1107,7 +1106,6 @@ rscan
   -> target (TKR2 n xn)  -- ^ the initial accumulator
   -> target (TKR2 (1 + m) xm)  -- ^ the inputs
   -> target (TKR2 (1 + n) xn)
-{-# INLINE rscan #-}
 rscan f acc0 es =
   withSNat (rwidth es) $ \k -> tscan k knownSTK knownSTK f acc0 es
 sfold

@@ -106,8 +106,8 @@ common options
     ghc-options:      -fpolymorphic-specialisation
   -- This one improves both performance and compilation speed:
   ghc-options:        -fkeep-auto-rules
-  -- These improve performance to some extent:
-  ghc-options:        -fdicts-cheap -flate-dmd-anal
+  -- This one improves performance to some extent:
+  ghc-options:        -fdicts-cheap
   -- Twice the compilation time and no consistent performance boost:
   -- ghc-options      -flate-specialise
   -- 30% longer compilation for small and inconsistent performance benefits:

@@ -55,7 +55,6 @@ interpretAstDual
   :: forall target y. ADReady target
   => AstEnv target -> AstTensor AstMethodLet DualSpan y
   -> DualOf target y
-{-# INLINE interpretAstDual #-}
 interpretAstDual env a = tdualPart (ftkToSTK (ftkAst a)) $ interpretAst env a
 
 interpretAstPlain
@@ -407,7 +406,6 @@ interpretAstN1 SignumOp u = signum u
 
 interpretAstR1 :: Floating a
                => OpCode1 -> a -> a
-{-# INLINE interpretAstR1 #-}
 interpretAstR1 RecipOp u = recip u
 interpretAstR1 ExpOp u = exp u
 interpretAstR1 LogOp u = log u
@@ -427,7 +425,6 @@ interpretAstR1 AtanhOp u = atanh u
 
 interpretAstR2 :: RealFloatH a
                => OpCode2 -> a -> a -> a
-{-# INLINE interpretAstR2 #-}
 interpretAstR2 DivideOp u v = u / v
 interpretAstR2 PowerOp u v = u ** v
 interpretAstR2 LogBaseOp u v = logBase u v

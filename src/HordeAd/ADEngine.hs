@@ -149,7 +149,6 @@ gradArtifact
   -> Value src
   -> AstArtifactRev (X src) (TKScalar r)
        -- ^ the artifact containing the symbolic code of the derivative
-{-# INLINE gradArtifact #-}
 gradArtifact f vals0
   | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     let xftk = tftkG (knownSTK @(X src)) $ unConcrete $ toTarget vals0
@@ -184,7 +183,6 @@ gradInterpretArtifact
        -- ^ the artifact containing the symbolic code of the derivative
   -> Concrete x
   -> avals
-{-# INLINE gradInterpretArtifact #-}
 gradInterpretArtifact AstArtifactRev{..} parameters
   | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     let xftk = varNameToFTK artVarDomainRev
@@ -210,7 +208,6 @@ vjpInterpretArtifact
   -> Concrete x
   -> Concrete (ADTensorKind z)
   -> avals
-{-# INLINE vjpInterpretArtifact #-}
 vjpInterpretArtifact AstArtifactRev{..} parameters dt =
   let xftk = varNameToFTK artVarDomainRev
       azftk = varNameToFTK artVarDtRev
@@ -260,7 +257,6 @@ revArtifactAdapt
   -> FullShapeTK (X src)
   -> AstArtifactRev (X src) ztgt
        -- ^ the artifact containing the symbolic code of the derivative
-{-# INLINE revArtifactAdapt #-}
 revArtifactAdapt cotangentHandling f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
       g !arg = simplifyUserCode $ ttlet arg $ f . fromTarget
@@ -274,7 +270,6 @@ revInterpretArtifact
   -> Concrete x
   -> Maybe (Concrete (ADTensorKind z))
   -> (Concrete z, Concrete (ADTensorKind x))
-{-# INLINE revInterpretArtifact #-}
 revInterpretArtifact AstArtifactRev{..} parameters mdt =
   let azftk = varNameToFTK artVarDtRev
       env = extendEnv artVarDomainRev parameters emptyEnv
@@ -321,7 +316,6 @@ revArtifactAdaptDt
   -> FullShapeTK (X src)
   -> AstArtifactRev (X src) ztgt
        -- ^ the artifact containing the symbolic code of the derivative
-{-# INLINE revArtifactAdaptDt #-}
 revArtifactAdaptDt f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
       g !arg = simplifyUserCode $ ttlet arg $ f . fromTarget
@@ -335,7 +329,6 @@ revInterpretArtifactDt
   -> Concrete x
   -> Concrete (ADTensorKind z)
   -> (Concrete z, Concrete (ADTensorKind x))
-{-# INLINE revInterpretArtifactDt #-}
 revInterpretArtifactDt AstArtifactRev{..} parameters dt =
   let azftk = varNameToFTK artVarDtRev
       env = extendEnv artVarDomainRev parameters emptyEnv
@@ -361,7 +354,6 @@ revArtifactDelta
   -> FullShapeTK (X src)
   -> (AstArtifactRev (X src) ztgt, Delta (AstRaw FullSpan) ztgt)
        -- ^ the artifact containing the symbolic code of the derivative
-{-# INLINE revArtifactDelta #-}
 revArtifactDelta cotangentHandling f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
       g !arg = ttlet arg $ f . fromTarget
@@ -388,7 +380,6 @@ forwardPassByApplication
   -> AstVarName '(FullSpan, x)
   -> AstTensor AstMethodLet FullSpan x
   -> ADVal (AstRaw FullSpan) z
-{-# INLINE forwardPassByApplication #-}
 forwardPassByApplication g astVarPrimal var _astVar =
   let deltaInputs = generateDeltaInputs $ varNameToFTK var
       varInputs = dDnotShared (AstRaw astVarPrimal) deltaInputs
@@ -481,7 +472,6 @@ fwdArtifactAdapt
   -> FullShapeTK (X src)
   -> AstArtifactFwd (X src) ztgt
        -- ^ the artifact containing the symbolic code of the derivative
-{-# INLINE fwdArtifactAdapt #-}
 fwdArtifactAdapt f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
       g !arg = simplifyUserCode $ ttlet arg $ f . fromTarget
@@ -495,7 +485,6 @@ fwdInterpretArtifact
   -> Concrete x
   -> Concrete (ADTensorKind x)
   -> (Concrete z, Concrete (ADTensorKind z))
-{-# INLINE fwdInterpretArtifact #-}
 fwdInterpretArtifact AstArtifactFwd{..} parameters ds =
   let xftk = varNameToFTK artVarDomainFwd
       xstk = ftkToSTK xftk
@@ -522,7 +511,6 @@ fwdArtifactDelta
   -> FullShapeTK (X src)
   -> (AstArtifactFwd (X src) ztgt, Delta (AstRaw FullSpan) ztgt)
        -- ^ the artifact containing the symbolic code of the derivative
-{-# INLINE fwdArtifactDelta #-}
 fwdArtifactDelta f xftk =
   let g :: AstTensor AstMethodLet FullSpan (X src) -> tgt
       g !arg = ttlet arg $ f . fromTarget

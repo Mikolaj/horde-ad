@@ -79,7 +79,6 @@ str = gcastWith (unsafeCoerceRefl :: (2 <=? Rank (n ': m ': sh)) :~: True) $
       tstranspose (Permutation.makePerm @'[1, 0])
 sflatten :: (KnownShS sh, KnownSTK x, BaseTensor target )
          => target (TKS2 sh x) -> target (TKS2 '[Product sh] x)
-{-# INLINE sflatten #-}
 sflatten @sh | SNat <- shsProduct (knownShS @sh) = tsreshape knownShS
 xtr :: forall n m sh x target. (KnownSTK x, BaseTensor target)
     => target (TKX2 (Just n ': Just m ': sh) x)
@@ -201,7 +200,6 @@ class LetTensor (target :: Target) where
     -> target yn  -- ^ the initial accumulator
     -> target (BuildTensorKind k ym)  -- ^ the inputs
     -> target yn
-  {-# INLINE tfold #-}  -- this doesn't want to specialize
   tfold k nstk mstk f acc0 es =
     tproject1
     $ tmapAccumL (Proxy @target)
@@ -226,7 +224,6 @@ class LetTensor (target :: Target) where
     -> target yn  -- ^ the initial accumulator
     -> target (BuildTensorKind k ym)  -- ^ the inputs
     -> target (BuildTensorKind (1 + k) yn)
-  {-# INLINE tscan #-}  -- this doesn't want to specialize
   tscan k nstk mstk f acc0' es = ttlet acc0' $ \acc0 ->  -- sharing just in case
     let bs :: target (BuildTensorKind k yn)
         bs = tproject2
@@ -319,7 +316,6 @@ class ( Num (IntOf target)
   rsize = shrSize . rshape
   rwidth :: forall n x. KnownSTK x
          => target (TKR2 (1 + n) x) -> Int
-  {-# INLINE rwidth #-}
   rwidth a = case rshape a of
     k :$: _ -> k
 
@@ -335,7 +331,6 @@ class ( Num (IntOf target)
   ssize = shsSize . sshape
   swidth :: forall n sh x. KnownSTK x
          => target (TKS2 (n ': sh) x) -> Int
-  {-# INLINE swidth #-}
   swidth a = case sshape a of
     n :$$ _ -> fromSNat' n
 
@@ -351,7 +346,6 @@ class ( Num (IntOf target)
   xsize = shxSize . xshape
   xwidth :: forall mn sh x. KnownSTK x
          => target (TKX2 (mn ': sh) x) -> Int
-  {-# INLINE xwidth #-}
   xwidth a = case xshape a of
     mn :$% _ -> fromSMayNat' mn
 
@@ -629,7 +623,6 @@ class ( Num (IntOf target)
               , EqH (PlainOf target) (TKScalar Int))
            => IShR m -> target (TKR2 n x) -> IxROf target m
            -> target (TKR2 (m + n) x)
-  {-# INLINE troneHot #-}
   troneHot sh v ix = trscatter @_ @0 sh v (const ix)
       -- this code is often better for differentiable contexts, because
       -- a gather results, though this code is problematic if vectorization
@@ -657,7 +650,6 @@ class ( Num (IntOf target)
              => IShR p -> target (TKR2 (1 + n) x)
              -> (IntOf target -> IxROf target p)
              -> target (TKR2 (p + n) x)
-  {-# INLINE trscatter1 #-}
   trscatter1 sh v f = trscatter @target @1 sh v (\(i :.: ZIR) -> f i)
   trgather :: (KnownNat m, KnownNat n, KnownNat p, KnownSTK x)
            => IShR m -> target (TKR2 (p + n) x)
@@ -667,7 +659,6 @@ class ( Num (IntOf target)
             => Int -> target (TKR2 (p + n) x)
             -> (IntOf target -> IxROf target p)
             -> target (TKR2 (1 + n) x)
-  {-# INLINE trgather1 #-}
   trgather1 k v f = trgather @target @1 (k :$: ZSR) v (\(i :.: ZIR) -> f i)
 
   tsindex :: forall shm shn x. (KnownShS shn, KnownSTK x)
@@ -702,7 +693,6 @@ class ( Num (IntOf target)
      => target (TKS2 (n2 ': shn) x)
      -> (IntOf target -> IxSOf target shp)
      -> target (TKS2 (shp ++ shn) x)
-  {-# INLINE tsscatter1 #-}
   tsscatter1 @n2 v f = tsscatter @_ @'[n2] v (\(i :.$ _) -> f i)
   tsgather
      :: (KnownShS shm, KnownShS shn, KnownShS shp, KnownSTK x)
@@ -714,7 +704,6 @@ class ( Num (IntOf target)
      => target (TKS2 (shp ++ shn) x)
      -> (IntOf target -> IxSOf target shp)
      -> target (TKS2 (n2 ': shn) x)
-  {-# INLINE tsgather1 #-}
   tsgather1 @n2 v f = tsgather @target @'[n2] v (\(i :.$ _) -> f i)
 
   txindex :: forall shm shn x. (KnownShX shn, KnownSTK x)
@@ -727,7 +716,6 @@ class ( Num (IntOf target)
               , EqH (PlainOf target) (TKScalar Int) )
            => IShX sh1 -> target (TKX2 sh2 x) -> IxXOf target sh1
            -> target (TKX2 (sh1 ++ sh2) x)
-  {-# INLINE txoneHot #-}
   txoneHot sh1 v ix = txscatter @_ @'[] sh1 v (const ix)
     {- _ | SNat <- ssxRank (knownShX @sh1)
          , Refl <- lemAppNil @sh2 ->
@@ -750,7 +738,6 @@ class ( Num (IntOf target)
              => IShX shp -> target (TKX2 (Just n2 ': shn) x)
              -> (IntOf target -> IxXOf target shp)
              -> target (TKX2 (shp ++ shn) x)
-  {-# INLINE txscatter1 #-}
   txscatter1 @n2 @_ @shp @x sh v f = txscatter @_ @'[Just n2] @_ @shp @x sh v
                                                (\(i :.% _) -> f i)
   txgather :: (KnownShX shm, KnownShX shn, KnownShX shp, KnownSTK x)
@@ -762,7 +749,6 @@ class ( Num (IntOf target)
             => SNat n2 -> target (TKX2 (shp ++ shn) x)
             -> (IntOf target -> IxXOf target shp)
             -> target (TKX2 (Just n2 ': shn) x)
-  {-# INLINE txgather1 #-}
   txgather1 @n2 k v f =
     txgather @target @'[Just n2] (SKnown k :$% ZSX) v (\(i :.% ZIX) -> f i)
 
@@ -869,7 +855,6 @@ class ( Num (IntOf target)
   tkbuild :: (KnownShS sh, GoodScalar r, ConvertTensor target)
           => (IxSOf target sh -> target (TKScalar r))
           -> target (TKS sh r)
-  {-# INLINE tkbuild #-}
   tkbuild @sh @r =
     let buildSh
           :: forall sh1.
@@ -892,7 +877,6 @@ class ( Num (IntOf target)
           => IShR m
           -> (IxROf target m -> target (TKR2 n x))
           -> target (TKR2 (m + n) x)
-  {-# INLINE trbuild #-}
   trbuild @_ @n @x shm f0 =
     let buildSh :: IShR m1 -> (IxROf target m1 -> target (TKR2 n x))
                 -> target (TKR2 (m1 + n) x)
@@ -919,7 +903,6 @@ class ( Num (IntOf target)
   tsbuild :: (KnownShS shm, KnownShS shn, KnownSTK x)
           => (IxSOf target shm -> target (TKS2 shn x))
           -> target (TKS2 (shm ++ shn) x)
-  {-# INLINE tsbuild #-}
   tsbuild @shm @shn @x =
     let buildSh
           :: ShS shm1
@@ -954,7 +937,6 @@ class ( Num (IntOf target)
           => IShX shm
           -> (IxXOf target shm -> target (TKX2 shn x))
           -> target (TKX2 (shm ++ shn) x)
-  {-# INLINE txbuild #-}
   txbuild shm f0 =
     let buildSh :: IShX shm1
                 -> (IxXOf target shm1 -> target (TKX2 shn x))
@@ -972,7 +954,6 @@ class ( Num (IntOf target)
                -- y comes first, because k easy to set via SNat
           => SNat k -> SingletonTK y -> (IntOf target -> target y)
           -> target (BuildTensorKind k y)
-  {-# INLINE tbuild1 #-}
   tbuild1 snat@SNat stk0 f =
     let replSTK :: SingletonTK z -> (IntOf target -> target z)
                 -> target (BuildTensorKind k z)
@@ -1016,7 +997,6 @@ class ( Num (IntOf target)
     -> target accy  -- ^ the initial accumulator
     -> target (BuildTensorKind k ey)  -- ^ the inputs
     -> target (TKProduct accy (BuildTensorKind k by))
-  {-# INLINE tmapAccumR #-}  -- this doesn't want to specialize
   tmapAccumR proxy !k !accftk !bftk !eftk f acc0 es =
     let (acc, l) =
           tunpair $ tmapAccumL proxy k accftk bftk eftk f acc0
@@ -1036,7 +1016,6 @@ class ( Num (IntOf target)
     -> target accy  -- ^ the initial accumulator
     -> target (BuildTensorKind k ey)  -- ^ the inputs
     -> target (TKProduct accy (BuildTensorKind k by))
-  {-# INLINE tmapAccumL #-}  -- this doesn't want to specialize
   tmapAccumL proxy !k !accftk !bftk !eftk f acc0 es =
     let xftk = FTKProduct accftk eftk
         fl :: forall f. ADReady f

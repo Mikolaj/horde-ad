@@ -119,8 +119,6 @@ mkMnistDataS :: Nested.PrimElt r
              => MnistData r -> MnistDataS r
 mkMnistDataS (input, target) =
   (Nested.sfromVector knownShS input, Nested.sfromVector knownShS target)
-{-# SPECIALIZE mkMnistDataS :: MnistData Double -> MnistDataS Double #-}
-{-# SPECIALIZE mkMnistDataS :: MnistData Float -> MnistDataS Float #-}
 
 mkMnistDataBatchS :: forall batch_size r. (Nested.Elt r, KnownNat batch_size)
                   => [MnistDataS r] -> MnistDataBatchS batch_size r
@@ -128,8 +126,6 @@ mkMnistDataBatchS l =
   let (inputs, targets) = unzip l
   in ( Nested.sfromListOuter (SNat @batch_size) $ NonEmpty.fromList inputs
      , Nested.sfromListOuter (SNat @batch_size) $ NonEmpty.fromList targets )
-{-# SPECIALIZE mkMnistDataBatchS :: forall batch_size. KnownNat batch_size => [MnistDataS Double] -> MnistDataBatchS batch_size Double #-}
-{-# SPECIALIZE mkMnistDataBatchS :: forall batch_size. KnownNat batch_size => [MnistDataS Float] -> MnistDataBatchS batch_size Float #-}
 
 readMnistData :: forall r. (VS.Storable r, Fractional r)
               => LBS.ByteString -> LBS.ByteString -> [MnistData r]
@@ -149,8 +145,6 @@ readMnistData glyphsBS labelsBS =
                                  (\i -> if i == labN then 1 else 0)
         in (vGlyph, vLabel)
   in map f intData
-{-# SPECIALIZE readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Double] #-}
-{-# SPECIALIZE readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Float] #-}
 
 trainGlyphsPath, trainLabelsPath, testGlyphsPath, testLabelsPath :: FilePath
 trainGlyphsPath = "samplesData/train-images-idx3-ubyte.gz"
@@ -167,8 +161,6 @@ loadMnistData glyphsPath labelsPath =
       labelsContents <- LBS.hGetContents labelsHandle
       return $! readMnistData (decompress glyphsContents)
                               (decompress labelsContents)
-{-# SPECIALIZE loadMnistData :: FilePath -> FilePath -> IO [MnistData Double] #-}
-{-# SPECIALIZE loadMnistData :: FilePath -> FilePath -> IO [MnistData Float] #-}
 
 -- Good enough for QuickCheck, so good enough for me.
 shuffle :: StdGen -> [a] -> [a]
